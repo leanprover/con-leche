@@ -14552,3 +14552,265 @@ D's addition ("a recorded wall is a claim, and claims are re-checked
 before they are inherited") held for the third batch running, and E
 adds one: **a ratified licence is also a claim.**  Check whether the
 freedom it grants still exists before spending it.
+
+## Task #161 ENDGAME F: the grading half closes, the first basis block closes, and the checklist's one free row is not free (2026-09-02)
+
+Briefed to close `BasisStepPB` by executing the ENDGAME E seal's
+itemized checklist — the endgame's first finite-checklist brief.
+**It is not closed**, and the census is unchanged.  What changed:
+item 1 is **done** (all fifteen goals), item 2 is **proved as a recipe
+and executed at one of six blocks**, and item 4 contains a factual
+error that this batch found by computation and that would have cost
+the successor a wall.
+
+### 1. The fifteen goals close — and the *other* grading predicate's
+### numeral is forced too
+
+`Interp2/BasisTypeOk.lean` now carries the tier's whole grading half:
+`AnnotValidV_bconst_type`, `AnnotOk2_bconst_type`, and the pair
+`AnnotOkP_bconst_type` (v1's `AnnotOkV_bconst_type` in the P
+currency).
+
+The validity half went exactly as E forecast — one `cases c`, one
+`simp only`, fifteen residual goals in nine cases, each the clause's
+own `v = 0` premise plus one argument membership.  One mechanical note
+worth keeping: the simp must be **`+contextual`**.  Without it simp
+does not use a `v = 0` antecedent when simplifying its own consequent,
+none of the three closers fire, and the residue is nine unreadable
+aggregates instead of fifteen one-liners.  E's "three closers plus
+`cases`" is right; the configuration flag is the part that was not
+written down.
+
+`AnnotOk2_bconst_type` was not itemized, and it is the more
+interesting half.  Its residue is uniformly the `.app` clause's
+`∃ v A B, f ∈ˢ piR v A B ∧ a ∈ˢ A ∧ (v = 0 → …)` — a numeral, and the
+E seal's whole headline is that numerals are never chosen.  **They are
+not chosen here either.**  At a bound motive the numeral is the
+binder's own hypothesis; at a basis constant's head
+`bconst_app_data`/`_data2`/`_data3` take the `piR` fact from
+`bval2_mem_type` and the fibre obligation from
+`AnnotValidV_bconst_type` **at the same `BConst.type2` binder**, so
+both halves come off the pin and the lemma has no numeral argument to
+supply.  Two bespoke suppliers remain, and neither chooses either:
+`rel_app_data` (a relation applied once is still a graph — numeral
+`1`, because `Prop` as a type is `Sort 1`) and `quotMk_mem_quot`.
+
+### 2. The type-reading recipe is a proof, and `emptyK` is discharged
+
+`Interp2/BasisEmptyP.lean` executes E's item 2 at the smallest block
+and drives it all the way through: **`declBasisPB_emptyK` is
+`BasisStepPB`'s `emptyK` branch, discharged** — the first basis block
+closed at the P tier.  Both lanes run in lockstep (the v1 install
+first, for the `EnvS` base and its `cval` equation; the P install on
+top of it), and `BasisInstallR` is a right-nested `∧` chain, so the
+walk is an `obtain` and two steps with no fold to invert.
+
+The recipe, in four moves, now with a proof behind each:
+
+1. `show` the pinned type as a literal `Expr` tree — the `denoteP`
+   clauses are `match`es and will not reduce until the scrutinee is a
+   constructor application (v1's `extendEmptyRecS` needs the same move
+   for the same reason);
+2. walk it with the `denoteP_*` clause equations, the constant leaves
+   supplied by `acval_basis_pinned`.  **No new `EnvS2PM` field was
+   needed** — the P basis leaves are pinned for free, exactly as
+   `BasisConsP.lean` predicted;
+3. exhibit `AVExpr.BitAgree` to `BConst.type2`;
+4. `bitAgree_okP` + `AnnotOkP_bconst_type` grades it, `interp2_eq` +
+   `bval2_mem_type` inhabits it.
+
+**THE FINDING, and it is the ENDGAME E doctrine seen from the other
+side: the reading's bits and the tower's bits are the same pin.**
+`denoteP` emits `pwBit ψ mb.pw` at every binder, and
+`pwBit ψ pw = if pw.holds ψ then 0 else 1`.  `Empty.rec`'s stored pins
+are `.never` (the motive's domain) and `.ifAllZero [u]` (the two outer
+binders), so the reading's numerals are `1` and `0 ↔ ψ u = 0`, while
+`BConst.type2 .emptyRec [1, v]` carries `v + 1` and `v` in those same
+three slots.  Zero-ness agrees on the nose.  E showed the *hand-built
+towers'* bits are read off the type pins; here the *type readings'*
+bits are read off the same pins, and `BitAgree` is precisely the
+statement that the two readings never disagree where anything looks.
+`pwBit_never` and `pwBit_ifAllZero_single` are the whole content, and
+every remaining basis binder reduces to one of them.
+
+### 3. STOP-AND-NAME: `Eq.rec`'s `rec_rules` row is NOT vacuous
+
+The ENDGAME E seal's resume-here item 4 reads:
+
+> `Eq.rec`'s single rule is `.inert`, so its row is **vacuous** —
+> `RecRulesP` premises `fire ≠ .inert`.
+
+**This is false, and so is the general shape of the claim.**  Computed
+rather than argued (`BasisKind.declsA`, evaluated):
+
+| recursor | raw pin `fire` | **annotated pin `fire`** | rules |
+|---|---|---|---|
+| `Empty.rec` | — | — | **0** |
+| `PUnit.rec` | `.inert` | **`.plain`** | 1 |
+| `Nat.rec` | `.inert` ×2 | **`.plain` ×2** | 2 |
+| `PSigma'.rec` | `.inert` | **`.plain`** | 1 |
+| `Quot.lift` | `.inert` | **`.plain`** | 1 |
+| `Quot.ind` | `.inert` | **`.plain`** | 1 |
+| `Eq.rec` | `.inert` | **`.plain`** | 1 |
+
+The raw pins (`eqBasis`, `natBasis`, …) all carry `.inert`; the
+**annotated** pins (`BasisKind.declsA`) all carry `.plain` — the
+annotator rewrites `fire`.  `BasisStepPB` conses `declsA`, so the
+annotated column is the one that governs, and E read the raw one.
+
+Two consequences, one bad and one good:
+
+* **no basis `rec_rules` row is vacuous by `fire`.**  `Eq.rec` owes a
+  full `RecRuleLawP`, and so do `PUnit.rec`, `Nat.rec` (twice),
+  `PSigma'.rec`, `Quot.lift` and `Quot.ind` — **seven rules across six
+  recursors**.  The one genuinely vacuous row is `Empty.rec`'s, and it
+  is vacuous because it has **no rules at all**, which is exactly the
+  case `declStepPM_of_basis_cons`'s `hnotrec` premise covers — and
+  exactly the block this batch closed;
+* **but every rule is `.plain`, uniformly.**  So `RecRuleLawP`'s two
+  `.nested` conjuncts (the graded open pin readings, and the
+  `instRevChain` comparand equation) are **unsatisfiable across the
+  whole basis**, and the live content of every one of the seven rows
+  is the `.plain` conjunct (`interp2 ρ (ys.getD i) = interp2 ρ
+  (xs.getD i)` for `i < ctorParams`) plus the fold contract.  The
+  nested-aux machinery of task #105 is not needed anywhere in the
+  basis tier.
+
+The discipline ledger's entry from ENDGAME D — "a recorded wall is a
+claim, and claims are re-checked before they are inherited" — held for
+the fourth batch running, and this batch adds its dual: **a recorded
+*freedom* is also a claim.**  E retired a ratified licence by
+re-checking it; F retired a granted vacuity by re-checking it.  Both
+directions cost one `#eval`.
+
+### Census after ENDGAME F
+
+`no_proof_of_Empty_P_of`: **`hμ` + `BasisStepPB` + `IndStepPB`** —
+*unchanged*.  `basisStepPB_of` is **not stated**: one of its six
+branches (`emptyK`) is discharged, and a bundle carrying premises for
+the other five is a conditional form.
+
+### Resume-here (the basis tier's bill, re-itemized after F)
+
+1. **`natK`, `punitK`, `psigmaK`, `quotK`, `eqK`** — twenty of the
+   twenty-two type readings, by `BasisEmptyP.lean`'s recipe verbatim;
+   the two `pwBit` lemmas cover every binder, `acval_basis_pinned`
+   every leaf at the twenty reserved names, and this batch's towers
+   the other two (`pairFstA`/`pairSndA` are `.projInfo`, so their
+   `caps_ok` goes through `capsOkP_cons_fresh`, not the reserved
+   route — `basis_declsA_reserved` already records the split);
+2. the **four remaining towers** — `eqRecValT2`'s and `PSigma'.rec`'s
+   laws, plus the pair's two `pairProjValT2`s (E's item 3, untouched
+   here);
+3. the **seven `RecRuleLawP` rows** of §3 above, all `.plain`, all
+   with vacuous `.nested` conjuncts.  These do **not** go through
+   `declStepPM_of_basis_cons` (its `hnotrec` premise excludes them);
+   they go through `declStepPM_of_cons` directly, with the other seven
+   rows still supplied by the collapse.  `Nat`'s `nat_heads` is the
+   other bespoke row, at the block where the guard *becomes* true;
+4. then `basisStepPB_of` (six branches, `cases kind`, exactly
+   `declBasisS`'s dispatch shape) and the FoldP rewiring (`hbas` off
+   `declStepPM`/`foldPM`/`checkDecls_sound_P_of`/
+   `no_proof_of_Empty_P_of`);
+5. then `IndStepPB` — unchanged from the C, D and E seals' bill, now
+   with **three** inherited lessons: D's §3 (check `EnvS`'s V-free
+   fields before recording an invariant gap), E's §1 (before treating
+   a binder numeral as free, check whether the constant's stored type
+   already pins it), and **F's §3 (before treating a stored row as
+   vacuous, evaluate the *annotated* pin — the raw pin is not what is
+   installed)**.  The `Iff.rec` divergence-class warning still stands
+   for its Prop-motive minors;
+6. then THE FINAL ASSEMBLY (`CapstoneP.lean`'s frozen statement).
+
+### ENDGAME F battery (verbatim, at `3999e873` + the `fire` lemmas)
+
+`lake build` **412 jobs, warning-free**; `lake test` exit 0.
+`tests/arena.sh`:
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 72/72 as expected
+annot suite: 13/13 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 72 e2e + 13 annot as expected (3 recorded divergences)
+```
+
+Identical to the ENDGAME A, B, C, D and E seals', and for the same
+reason: no `Setlec/Kernel/*` file was touched.
+
+Axioms a subset of `[propext, Classical.choice, Quot.sound]` on
+`no_proof_of_Empty_P_of`, `checkDecls_sound_P_of`, and on every new
+theorem — `AnnotValidV_bconst_type`, `AnnotOk2_bconst_type`,
+`AnnotOkP_bconst_type`, `bconst_app_data`/`_data2`/`_data3`,
+`mem_univZero_of_zero` (`[Classical.choice]` alone), `quotMk_mem_quot`,
+`rel_app_data`, `denoteP_emptyA_type`, `extendEmptyP`, `pwBit_never`
+(**none at all**), `pwBit_ifAllZero_single`, `denoteP_emptyRecA_type`,
+`bitAgree_emptyRecA`, `extendEmptyRecP`, `declBasisPB_emptyK`,
+`basis_rec_rules_plain` and `basis_rec_rules_nonempty` (`[propext]`
+alone).  Zero sorries.
+
+New file: `Interp2/BasisEmptyP.lean` (the `Empty` block's two type
+readings, its two P installs, the two `pwBit` lemmas, the `BitAgree`
+bridge, `declBasisPB_emptyK`, and §3's two `decide`d `fire` lemmas).
+Edited: `Interp2/BasisTypeOk.lean` (the grading half, and its
+`Claims2P` import), `Setlec/SetR.lean` (one import).  No file was
+deleted and no sealed statement was edited.
+
+## Task #161 SUCCESSION RECORD update (endgame F landed, 2026-09-02)
+
+Lane `agent/annot-v2` @ `afea8bcb` at batch start.  ALL FOUR SEMANTIC
+TIERS CLOSED; the pin tier closed at D; capstone hypotheses: `hμ` +
+`BasisStepPB` + `IndStepPB` — **unchanged**.
+
+LANDED: endgame batch F on `agent/endgameF` (worktree
+`.claude/worktrees/endgameF`).  Briefed to close the basis bundle by
+executing E's itemized checklist; **did not close it**, but finished
+checklist item 1 outright, turned item 2 from a design into a proof
+and discharged one of `BasisStepPB`'s six branches with it, and found
+that item 4's one granted vacuity is not one.  Delivered:
+`AnnotValidV_bconst_type` / `AnnotOk2_bconst_type` /
+`AnnotOkP_bconst_type` with the `bconst_app_data` family,
+`Interp2/BasisEmptyP.lean` end to end (`declBasisPB_emptyK`), and the
+two `decide`d `fire` lemmas.  Battery green (build 412 warning-free,
+test exit 0, arena counters unchanged, axioms within the standard
+three, zero sorries).
+
+THE HEADLINES, in order of what they cost the successor:
+
+* **`Eq.rec`'s `rec_rules` row is not vacuous, and neither is any
+  other.**  The raw basis pins all carry `fire = .inert`; the
+  *annotated* pins — which is what `BasisStepPB` conses — all carry
+  `.plain`.  E read the raw pin.  Seven `RecRuleLawP` rows are owed,
+  across six recursors.  The compensation: every rule being `.plain`
+  makes `RecRuleLawP`'s two `.nested` conjuncts unsatisfiable across
+  the whole basis, so task #105's nested-aux machinery is not needed
+  here at all;
+* **the type reading's bits are the same pin as the tower's bits.**
+  `denoteP` emits `pwBit ψ mb.pw`; `BConst.type2`'s codomain slots
+  were written from those same `PropWhen`s; `BitAgree` holds on the
+  nose.  E's doctrine, seen from the other side;
+* **the `.app` clause's numeral is forced too.**  Not itemized by E;
+  `bconst_app_data`/`_data2`/`_data3` read it off `BConst.type2`'s own
+  binder, so the grading tier chooses nothing either.
+
+One mechanical note that cost this batch an hour and should not cost
+the next one: `AnnotValidV_bconst_type`'s `simp only` must be
+**`+contextual`**.  Without it simp will not use a `v = 0` antecedent
+when simplifying its own consequent, none of the three closers fire,
+and E's fifteen one-line goals present as nine unreadable aggregates.
+
+AFTER F (successor's order): review + merge F per protocol; then the
+ENDGAME F resume-here items 1-4 (the twenty remaining readings by
+`BasisEmptyP.lean`'s recipe → the four towers → the **seven**
+`RecRuleLawP` rows plus `Nat`'s `nat_heads` → `basisStepPB_of` + the
+FoldP rewiring); then `IndStepPB`; then THE FINAL ASSEMBLY.
+
+Standing: all statements frozen; PropWhen through named laws only;
+annotations never steer; conditional forms are never done; zero
+sorries at every seal.  The discipline ledger gains F's entry, the
+dual of E's: **a recorded freedom is also a claim.**  E retired a
+ratified licence by re-checking whether the freedom still existed; F
+retired a granted vacuity the same way.  Both cost one `#eval`.  D's
+"a recorded wall is a claim" has now held for four batches running,
+and its converse has held for two.
