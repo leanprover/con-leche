@@ -1,5 +1,5 @@
 name = "setlec"
-defaultTargets = ["Setlec", "SetlecTT", "SetlecSetR", "setlec"]
+defaultTargets = ["Setlec", "SetlecTT", "SetlecSetR", "SetlecCachedV", "setlec"]
 testDriver = "SetlecTests"
 
 # The pin-generator's certificate theorems (Setlec/PinGen/Certs.lean) are
@@ -33,6 +33,15 @@ roots = ["Setlec.TT"]
 [[lean_lib]]
 name = "SetlecSetR"
 roots = ["Setlec.SetR"]
+
+# The cached checker variant's verification tier (task #163): the
+# `ExprC` erasure/field-exactness seam, the `SimC` simulation of the
+# cached core against the pure fueled checker, and the consistency
+# corollaries for `--core=cached-parsed`.  Imports `Setlec` (and, at
+# the capstone, `SetlecSetR`); nothing imports it back.
+[[lean_lib]]
+name = "SetlecCachedV"
+roots = ["Setlec.Verify.Cached"]
 
 [[lean_lib]]
 name = "SetlecTests"
