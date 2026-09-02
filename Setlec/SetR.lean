@@ -187,6 +187,9 @@ import Setlec.SetR.Interp2.IotaRulePlainP
 import Setlec.SetR.Interp2.IotaRuleNestedP
 import Setlec.SetR.Interp2.SwapP
 import Setlec.SetR.Interp2.IndRecsP
+import Setlec.SetR.Interp2.ProjRenameP
+import Setlec.SetR.Interp2.ProjConsP
+import Setlec.SetR.Interp2.ProjInstallP
 import Setlec.SetR.Interp2.IndPinProbeP
 import Setlec.SetR.Interp2.AxiomPinP
 import Setlec.SetR.Interp2.HarvestP
