@@ -60,6 +60,7 @@ import Setlec.SetBase.Bridge.Iota
 import Setlec.SetBase.Bridge.Main
 import Setlec.SetBase.Bridge.Decl
 import Setlec.SetBase.Bridge.DeclInd
+import Setlec.SetBase.Bridge.DeclRun
 import Setlec.SetBase.Bridge.Sound
 
 /-!
@@ -156,6 +157,17 @@ checker-to-derivation bridge, twenty-two modules, from `Claims` to
   consumer-free after that re-proof and is deleted);
 * `Bridge/Sound` — `directParts?_none`, `checkDeclR_ofEnvR` and
   `checkDeclR_ofEnvRE`, the dispatch off an `EnvR`.
+
+S11a added `Bridge/DeclRun` — the **run-only** bridges for the five
+non-`ind` declaration kinds (`declDefnRunR_of`, `declThmRunR_of`,
+`declOpaqueRunR_of`, `declAxiomRunR_of`, `declBasisR` verbatim) and
+the dispatch `checkDeclRun_of`, whose only route into the derivation
+tier is `DeclRunR`'s `Ind` parameter.  `Bridge/Sound` assembles it as
+`checkDeclRun_ofEnvRE` (the `Ind` slot filled by `declIndRR` until
+S11b), and that — not `checkDeclR_ofEnvRE` — is what the graded fold
+now imports.  The measurement is `tests/proofdeps.sh`'s, not this
+file's: the criterion is the proof term, and an import listing cannot
+see it (S9's finding).
 
 `checkDeclR_ofEnvRE` is the theorem the graded fold imports, and its
 residence here rather than under `Setlec/SetR/` is what takes the
