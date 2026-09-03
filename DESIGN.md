@@ -22715,3 +22715,576 @@ induction, since the internal infers appear inside the whnf and defeq
 steps.  Whether that is one knot indexed by a mode (the #147 shape), a
 second family beside the first, or per-site simulation is deliverable
 (c), and deliverable (c) is not delivered.
+
+## Task #161 RESIDUAL ROUND 1: THE UNIT-LIKE OMISSION — NO DIVERGENCE,
+the pin kills it (2026-09-03; branch `agent/residual-hunts`, NOTHING
+LANDS)
+
+**THE VERDICT, first: the omission is DEAD ON THIS CHECKER, and the
+argument is the `PUnit` pin, not the annotation discipline.**  Official's
+`is_def_eq_unit_like` ends with `is_def_eq_core(t_type, infer_type(s))`;
+setlec's unit-like branch inside `proofIrrel` omits it.  But after item
+C1 the branch's *population* is a single family — `unitLikeTy_eq_punit_const`
+(mechanized below) shows `isUnitLikeTy` accepts nothing but a bare
+`PUnit` constant — so the omitted comparison can only ever decide a
+**level** question, `PUnit.{u}` versus `PUnit.{v}`.  No fixture makes
+those levels differ, three constructions are blocked for structural
+reasons recorded below, and a canary build that *aborts* on the first
+heterogeneous fire runs the whole battery plus `init-prelude` and
+`init-full` on both cores without firing once.  Verdict: **no
+divergence; unreachability ARGUED (not mechanized), with the residual
+obligation named.**  The restriction is nevertheless already built and
+should stay: the pending `agent/proofirrel-check` edit restores this
+comparison too, at no extra cost, and after the previous round nobody
+should be shipping an unreachability argument as a licence.
+
+### 1. Control flow, both sides
+
+**official** — the C++ kernel (`_tmp/lean4-master-kernel/
+type_checker.cpp:1158-1169`), a rule of its own, and the LAST one
+`is_def_eq_core` tries (`:1241-1242`, after congruence, both etas and
+string-literal expansion; a `false` there is simply the end of the
+function, so unlike proof irrelevance it commits to nothing):
+
+```cpp
+/* Return `true` if the types of the given expressions is an inductive datatype with an inductive datatype with a single constructor with no fields. */
+bool type_checker::is_def_eq_unit_like(expr const & t, expr const & s) {
+    expr t_type = whnf(infer_type(t));
+    expr I = get_app_fn(t_type);
+    if (!is_constant(I) || !is_non_rec_structure(env(), const_name(I)))
+        return false;
+    name ctor_name = head(env().get(const_name(I)).to_inductive_val().get_cnstrs());
+    constructor_val ctor_val = env().get(ctor_name).to_constructor_val();
+    if (ctor_val.get_nfields() != 0)
+        return false;
+    return is_def_eq_core(t_type, infer_type(s));      // :1168
+}
+```
+
+lean4lean spells the same predicate declaratively
+(`_tmp/lean4lean/Lean4Lean/TypeChecker.lean:831-838`; called at `:886`,
+also last):
+
+```lean
+def isDefEqUnitLike (t s : Expr) : RecM Bool := do
+  let tType ← whnf (← inferType t)
+  let .const I _ := tType.getAppFn | return false
+  let env ← getEnv
+  let .inductInfo { isRec := false, ctors := [c], numIndices := 0, .. } ← env.get I
+    | return false
+  let .ctorInfo { numFields := 0, .. } ← env.get c | return false
+  isDefEqCore tType (← inferType s)
+```
+
+**setlec splits official's one rule into two**, and the split is what
+the round turns on.
+
+*(i) The pinned family* — `isUnitLikeTy` (`Setlec/Kernel/Core.lean:171-181`,
+interned twin `CoreI.lean:150-163`, cached twin reuses it) inside
+`proofIrrel` (`Core.lean:819-840`, `CoreI.lean:987-1007`,
+`Setlec/Cached/CoreC.lean:213-240`):
+
+```
+def isUnitLikeTy (env : Env) : Expr → Bool
+  | .const c _ =>
+    c == punitName &&
+    (match env.find? punitName with
+      | some (.indInfo _ _) => true
+      | _ => false) &&
+    (match env.find? punitRecName with
+      | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
+      | _ => false)
+  | _ => false
+
+def proofIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) : m Bool := do
+  let ta ← r.infer depth a
+  if isUnitLikeTy env (← r.whnf depth ta) then
+    let tb ← r.infer depth b
+    if isUnitLikeTy env (← r.whnf depth tb) then
+      pure true                                  -- ← no type comparison
+    else
+      pure false
+  else …the Prop route…
+```
+
+*(ii) Everything the stream declares* — `structUnitCert`
+(`Core.lean:1005-1026`, `CoreI.lean:1179`, `CoreC.lean:405`), reached
+from `stuckIrrel` (`Core.lean:1058-1065`), which **does** run the
+comparison, before its telescope certificate:
+
+```
+  match wta.getAppFn with
+  | .const T us' =>
+    match env.find? T with
+    | some (.indInfo cvT caps) =>
+      if caps.unitlike = true ∧
+          reservedBasisNames.contains T = false ∧ …
+        let tb ← r.infer depth b
+        let wtb ← r.whnf depth tb
+        if ← r.defeq depth wta wtb then          -- ← official's comparison, present
+          iotaCerts r env depth … wta.getAppArgs
+        else pure false
+```
+
+**The two populations are disjoint, and between them they cover
+official's** (up to the capability gate — `structUnitCert` additionally
+demands `caps.unitlike`, i.e. an installed `_model.unitlike` theorem,
+so a stream structure that official would call unit-like but that
+carries no capability is simply *not* equated by setlec: a false
+reject, the standing capability-pipeline restriction, not this round's
+subject).  `structUnitCert` requires `reservedBasisNames.contains T =
+false`, so no pinned block can use it; `isUnitLikeTy` requires the head
+to *be* `punitName`, and `checkConstantValF`
+(`Kernel/CheckerS.lean:379-384`) rejects any stream declaration that
+reuses a reserved basis name, so `PUnit` can only come from the pinned
+installer.  Hence: the omission's whole population is `{PUnit}` — and
+the certified path for every stream-declared unit-like family already
+carries the comparison.
+
+**Callers** are the previous round's five sites (`defeqStep`'s hoist
+`Core.lean:1758` / `CoreI.lean:1942` / `CoreC.lean:1168` /
+`CoreNC.lean:646`; the `stuckIrrel` fallback `Core.lean:1065`; the two
+`majorToCtor` rescues `Core.lean:1140`/`:1200`, both of which run their
+own `r.defeq depth tmaj (← r.infer depth fab)` first).  Nothing among
+them compares the two sides' types before the unit branch runs — the
+subsumption question is answered exactly as it was for the Prop route:
+**no caller subsumes it.**  What kills the omission is the pin, not a
+caller.
+
+### 2. What the omission can still decide, mechanized
+
+```lean
+theorem unitLikeTy_eq_punit_const {env : Env} {t : Expr}
+    (h : isUnitLikeTy env t = true) :
+    ∃ us : List Level, t = .const punitName us
+
+theorem unitLike_pair_punit {env : Env} {ta tb : Expr}
+    (ha : isUnitLikeTy env ta = true) (hb : isUnitLikeTy env tb = true) :
+    ∃ us vs : List Level,
+      ta = .const punitName us ∧ tb = .const punitName vs
+```
+
+`_tmp/residual-hunts/UnitLikePin.lean`, checked against the branch's
+`.lake/build/lib/lean`; zero `sorry`, `#print axioms` on both reports
+`[propext]` — a subset of the three standard axioms.  (These are
+*syntactic* consequences of the C1 spelling and need no
+`BasisPinnedTT`: the pinned-name test decides the head by a `Name`
+comparison.  `unitLike_eq_punit` in `Verify/PinnedShapes.lean` is the
+semantic statement that licensed C1; this is the cheap corollary the
+round needs.)
+
+Consequence: at a firing unit branch the two whnf'd types are
+`.const PUnit us` and `.const PUnit vs`, and `r.defeq ta tb` on that
+pair is decided by `defeqStep`'s const/const case
+(`Core.lean:1879-1884`) — i.e. **the omitted check is exactly
+`Level.isEquivList us vs`**.  A divergence therefore requires the
+checker to compare two terms whose types are `PUnit` at *inequivalent
+levels*.
+
+### 3. The reachability question, and why three constructions fail
+
+`PUnit.{u} : Sort u`, so two `PUnit` types at inequivalent levels are
+types **at different sorts**; a fixture needs a `defeq` call whose two
+comparands sit at different sorts.  Levels in a checked declaration are
+built from that declaration's level parameters and **cannot depend on
+terms**, so the previous round's lever (algorithmic conversion is not
+congruent — a stuck `Acc.rec` type beside its iota reduct) does not by
+itself produce one: it varies the *type* in a slot, not the slot's
+*sort*.  Three ways to break that were tried and are blocked:
+
+1. **Congruence slots.**  `defeqStep`'s `.app/.app` case compares
+   argument lists pairwise, so both comparands sit in slot `i` of one
+   and the same telescope: their types are `Dᵢ[a⃗<ᵢ]` and `Dᵢ[b⃗<ᵢ]` for
+   a *single* expression `Dᵢ`, whose sort in the head's type is one
+   fixed level expression.  Both instantiations are separately
+   well-typed (both sides survived the front door), and the reduction
+   steps the checker takes (β, δ, ζ, ι, proj) preserve types on
+   well-typed terms — Lean's subject-reduction failure is a failure of
+   *conversion*, not of reduction.  So `PUnit.{u} : Sort s` and
+   `PUnit.{v} : Sort s` for the same `s`, i.e. `u ≡ v`.
+2. **A heterogeneous head.**  The escape would be a congruence whose
+   two heads are equated by a rule that does not relate their types —
+   then the slots' telescopes could differ.  It is self-blocking: a
+   head can only be equated heterogeneously by proof irrelevance (its
+   type must be a `Prop`, hence — impredicativity — its codomain is a
+   `Prop`, hence the *whole application* is a proof and the hoisted
+   `proofIrrel` decides the pair before congruence is ever reached), or
+   by the unit/`structUnitCert`/`structEta`/`pairEta` rules (whose
+   types are inductive applications, never `∀`, so `infer` would have
+   thrown at the application), or by `etaCert`, which compares the two
+   domains (`Core.lean:1045`).  Every remaining route — `defeqSpine`,
+   `iotaRec`, `pairEtaCert`, `structEtaCertWith` — runs an explicit
+   `Level.isEquivList` **before** its `defEqList`
+   (`Core.lean:1717` `defeqSpine`, `:1334` `iotaRec`, `:876` `pairEtaCert`, `:946` `structEtaCertWith`), so the compared spines
+   live at equal levels by construction.
+3. **Level arity.**  `isUnitLikeTy` does not check `us.length`, so a
+   dangling or over-long level list would make `Level.isEquivList`
+   fail where the branch fires.  Blocked upstream: `inferBody`'s
+   `.const` clause rejects a wrong level arity outright
+   (`Core.lean:1565`, "incorrect number of universe levels"), and every
+   type reaching `proofIrrel` is an `infer` output.
+
+**The residual obligation, named.**  What items 1–2 argue is a *global*
+invariant — "every reachable `defeq` call pairs terms whose types have
+definitionally equal sorts".  It is not mechanized here; it is
+`SortCoh`-shaped (the sort-coherence family the pilot measured against),
+and the previous round is the standing warning about how such arguments
+age.  This round therefore does **not** propose removing anything, and
+recommends the opposite (§5).
+
+### 4. Empirical: the canary
+
+Two probe binaries, built from the branch by patching the three cores
+and building only the executable (`lake build setlec`; the proof layer
+is untouched and the patches were reverted — the branch carries no
+kernel diff):
+
+* **probe A** throws `.internal "PROBE-A: unit-like branch fired"` the
+  first time both sides pass `isUnitLikeTy` — a liveness control;
+* **probe B** runs the omitted comparison and throws
+  `.internal "PROBE-B: heterogeneous unit-like fire"` iff it fails —
+  the divergence canary.  Any fire is exit 3 and is impossible to miss.
+
+| run | probe A | probe B |
+|---|---|---|
+| `init-prelude`, production | **exit 3 at `def PProd.rec._model`** | exit 0, accepted 3 653 |
+| `init-prelude`, cached-parsed | **exit 3** (same site) | exit 0, accepted 3 653 |
+| `init-full`, production | **exit 3 at `def Subtype.rec._model`** | exit 0, **accepted 61 048** |
+| `init-full`, cached-parsed | — | exit 0, **accepted 61 048** |
+| whole battery (`tests/arena.sh`) | — | arena 90/92, e2e 73/73, annot 14/14, split 11/11, mode 9/9, no-model 138+73+14 with the 3 recorded divergences — **identical to master** |
+
+Read together: the branch is **live** (probe A fires within seconds on
+both streams — this is not a dead branch) and **homogeneous** (probe B
+never fires, across a stream of 61 048 declarations on which P1 measured
+12 453 724 `isUnitLikeTy` calls — one per `proofIrrel` entry).
+
+Artifacts: `_tmp/residual-hunts/{setlec-probeA,setlec-probeB}`,
+`run-probeB.sh` (lock acquired with a pid+lane stamp, `setsid`-detached),
+`probeB-initfull.log`.
+
+### 5. Disposition
+
+* **No fixture, no restriction of its own.**  The unit-like omission is
+  not a second `proof_irrel_hetero`: the pin reduces it to a level
+  question and nothing reaches it.
+* **The restriction is already built and free.**  `agent/proofirrel-check`
+  @ `3a0be1cd` restores the comparison in *both* branches of
+  `proofIrrel` (`b12b1821`: `if isUnitLikeTy env (← r.whnf depth tb)
+  then r.defeq depth ta tb`), and this round's canary is exactly that
+  edit with a throw instead of a `false` — so its verdict-neutrality on
+  every real stream is now measured twice.  The unit half costs nothing
+  extra (it is inside the same edit, on the certifying route only), and
+  it removes a standing conformance gap on the *statement* level even
+  though no input reaches it.  **Recommendation: keep it; do not split
+  the unit half out on the grounds of this round's argument.**
+* **Record for the dispositions table**: unit-like omission →
+  ARGUED-UNREACHABLE (not mechanized), fix already carried by the
+  pending proofIrrel landing.
+
+## Task #161 RESIDUAL ROUND 2: BOOL FALL-THROUGH vs OFFICIAL'S COMMIT —
+divergence CONFIRMED, and it SURVIVES the pending proofIrrel
+restriction (2026-09-03; branch `agent/residual-hunts`, NOTHING LANDS)
+
+**THE VERDICT, first: setlec's fall-through is NOT verdict-equivalent
+to official's commit, and the gap is not closed by
+`agent/proofirrel-check`.**  On `tests/e2e/irrel_commit.ndjson` setlec
+exits **0 (accept)** on both cores, in both lanes, **with and without**
+the pending common-type restriction, while the official kernel
+(Lean v4.33.0) and lean4lean (v4.33.0-rc2) **reject**.  A
+discriminating control — the identical declaration with a `Type`-valued
+motive, so that no proof-irrelevance rule fires anywhere — is
+**accepted by every checker**, which isolates the divergence to the
+commit and to nothing else.  This is a second accept-superset over the
+reference kernel, of the same class the reduction-strategy ruling
+forbids; the previous round's residual §5 is hereby closed with a
+fixture instead of an argument.
+
+### 1. Control flow: what setlec runs after `proofIrrel` says `false`
+
+`defeqStep` (`Setlec/Kernel/Core.lean:1744-1954`; interned twin
+`CoreI.lean:1934-2085`, cached twin `Setlec/Cached/CoreC.lean:1160`,
+unverified lane `Kernel/CoreNC.lean:646`).  The hoist and the whole
+divergence surface below it:
+
+```
+    if a == b then pure true else
+    let a' ← r.whnfCore depth a
+    let b' ← r.whnfCore depth b
+    if a' == b' then pure true else
+    if ← proofIrrel r env depth a' b' then pure true else     -- :1758  ← Bool
+    match ← (… reduceNat r env depth a' …) with               -- :1775  literal acceleration
+    | some a₂ => k a₂ b'
+    | none =>
+    match ← (… reduceNat r env depth b' …) with               -- :1779
+    | some b₂ => k a' b₂
+    | none =>
+    match unfoldableHead env a', unfoldableHead env b' with   -- :1795  lazy delta
+    | true, false => … k a₂ b'                                --        one-sided unfold
+    | false, true => … k a' b₂
+    | true, true  => … hints; defeqSpine (`try_eq_const_app`) at :1828; else unfold both
+    | false, false =>                                         -- :1837  the structural cases
+    match a', b' with
+    | .sort u, .sort v => Level.isEquiv u v
+    | .lit …, …                                               --        literals, Nat/String
+    | .fvar i _ _, .fvar j _ _ => i == j else stuckIrrel …
+    | .const n us, .const n' us' => … Level.isEquivList … else stuckIrrel …
+    | .forallE …, .forallE … => domains, then bodies          -- :1885  binder congruence
+    | .lam …, .lam … => domains, then bodies                  -- :1898
+    | .app f₁ a₁, .app f₂ a₂ =>                               -- :1910  SPINE CONGRUENCE
+        if lengths agree then
+          if ← r.defeq depth (…).getAppFn (…).getAppFn then   -- :1930  heads
+            if ← defEqList r env depth (…).getAppArgs (…).getAppArgs
+            then pure true else stuckIrrel …                  --        args pairwise
+    | .proj _ i₁ e₁, .proj _ i₂ e₂ => i₁ == i₂ ∧ defeq e₁ e₂  -- :1937
+    | .lam …, b₂ / a₁, .lam … => etaCert, else stuckIrrel     -- :1943/:1948
+    | e₁, e₂ => stuckIrrel mode r env depth e₁ e₂             -- :1954  pairEta ×2,
+                                                             --        structEta ×2,
+                                                             --        structUnitCert,
+                                                             --        proofIrrel again
+```
+
+Every rule from `:1775` down is reachable **only because
+`proofIrrel` returned a `Bool`**.  The spine congruence at `:1910`
+(interned `CoreI.lean:2061`, cached `CoreC.lean:1287`, unverified
+`CoreNC.lean:757`) is the one this round's fixture uses.
+
+**official** commits instead (`_tmp/lean4-master-kernel/
+type_checker.cpp:1202-1203`, in `is_def_eq_core`):
+
+```cpp
+    r = is_def_eq_proof_irrel(t_n, s_n);
+    if (r != l_undef) return r == l_true;
+    /* NB: `lazy_delta_reduction` updates `t_n` and `s_n` even when returning `l_undef`. */
+    r = lazy_delta_reduction(t_n, s_n);
+    …
+    if (is_def_eq_app(t_n, s_n)) return true;
+```
+
+and lean4lean identically (`_tmp/lean4lean/Lean4Lean/TypeChecker.lean:855-856`):
+
+```lean
+  let r ← isDefEqProofIrrel tn sn
+  if r != .undef then return r == .true
+```
+
+with the three-valued producer (`:677-680`) distinguishing
+*inapplicable* from *refuted*:
+
+```lean
+def isDefEqProofIrrel (t s : Expr) : RecM LBool := do
+  let tType ← inferType t
+  if !(← isProp tType) then return .undef        -- inapplicable → fall through
+  toLBoolM <| isDefEq tType (← inferType s)      -- applicable → .true / .FALSE = COMMIT
+```
+
+So the divergence surface is precisely: **pairs where official answers
+`l_false`** (the left comparand is a proof, and the two propositions
+are not definitionally equal) **and some later setlec rule accepts.**
+
+**Is the fall-through verdict-equivalent?  No, and the reason is the
+previous round's reason.**  An equivalence argument would have to show
+that every rule below the hoist which can *accept* a Prop-typed pair
+implies the two propositions were definitionally equal.  Four rules can:
+lazy delta reaching syntactic equality (`:1795`), spine congruence
+(`:1910`), the two etas (`etaCert` at `:1943`/`:1948` and `structEta`
+inside `stuckIrrel`), and the stuck fallbacks' own certificates.  For
+the delta and eta routes the implication is plausible (they rewrite a
+side by a type-preserving reduction, or compare under a checked
+domain).  **For congruence it is false**, and falsely for the reason
+the design-review triage got wrong in 2026-08-20: a congruence gives
+`typeof(argᵢ) = Dᵢ[a⃗<ᵢ]` and `Dᵢ[b⃗<ᵢ]` with `a⃗<ᵢ ≡ b⃗<ᵢ`, and
+**algorithmic conversion is not congruent**, so the two residual types
+need not be convertible.  Slot 1 of the fixture is exactly such a pair:
+`a ≡ Acc.intro x g` holds by proof irrelevance, and `M a ≢ M (Acc.intro
+x g)`.  So the accepting rule certifies the *terms* while official had
+already refused their *types*.  Mechanizing the equivalence is
+therefore not merely expensive — it is **refuted**, and the fixture is
+the refutation; only the commit restores agreement.
+
+### 2. The fixture (`tests/e2e/irrel_commit.ndjson`, generator
+`scripts/mk_irrel_commit.py`, Lean source `tests/e2e/src/irrel_commit.lean`)
+
+Same lever as the previous round — `Acc`'s large elimination — but
+turned one level outward.  Write
+`M p := @Acc.rec α r (fun _ _ => Prop) (fun z _ _ => Ps z) x p`:
+
+```lean
+theorem irrelCommit {α : Type} {r : α → α → Prop} {x : α}
+    (Ps : α → Prop)
+    (g : ∀ y, r y x → Acc r y)
+    (F : (p : Acc r x) → M p)                    -- a proof-valued function
+    (G : (p : Acc r x) → M p → α)
+    (a : Acc r x) :
+    G a (F a) = G (Acc.intro x g) (F (Acc.intro x g)) := rfl
+```
+
+Both sides are well typed **syntactically** — `F a : M a` fills `G`'s
+second slot at `M a`, and `F (Acc.intro x g) : M (Acc.intro x g)` fills
+it at `M (Acc.intro x g)`; no conversion is needed at the front door on
+either side.  The final `defeq` descends through `Eq`-congruence to
+`G a (F a) ≡ G (Acc.intro x g) (F (Acc.intro x g))`, whose spine
+congruence compares
+
+* **slot 1**: `a ≡ Acc.intro x g` — two proofs of the *same*
+  proposition `Acc r x`.  Proof irrelevance accepts this in **every**
+  kernel (official: `l_true`); it is not the divergence.
+* **slot 2**: `F a ≡ F (Acc.intro x g)` — two proofs whose
+  propositions are `M a` (stuck: the major is a variable, `Acc` is not
+  K-flagged, its structure-η rescue is blocked because `Acc` is a
+  `Prop`) and `M (Acc.intro x g)` (ι-fires to `Ps x`).  **Not**
+  definitionally equal, so proof irrelevance FAILS in every kernel.
+
+There official stops: `is_def_eq_proof_irrel` returns `l_false`,
+`is_def_eq_core` returns `false`, and `is_def_eq_app` is never reached.
+setlec's `false` falls through to `:1910`, where the heads are the same
+free variable `F` and the single argument pair is slot 1 again — which
+proof irrelevance accepts.  **setlec accepts what official refused one
+rule earlier.**
+
+**Verdicts**
+
+| checker | invocation | verdict |
+|---|---|---|
+| setlec master `dfb88c97`, both cores × both lanes (4 runs) | `setlec tests/e2e/irrel_commit.ndjson` | **0 (accept)**, "accepted 45 declarations" |
+| setlec + the pending restriction (`b12b1821`'s three-core edit rebuilt on this branch), both cores × both lanes | same | **0 (accept)** — the gap survives |
+| official Lean kernel v4.33.0 | `lean tests/e2e/src/irrel_commit.lean` | **REJECT** — `error: (kernel) declaration type mismatch, 'irrelCommit'` |
+| lean4lean v4.33.0-rc2 | replay under `debug.skipKernelTC` (`Lean4Lean/Tests/IrrelCommit.lean`) | **REJECT** — `Lean4Lean.Replay.throwKernelException` |
+| **control** (`Type`-valued motive), official | `lean` | **accept** (exit 0) |
+| **control**, lean4lean (`Tests/IrrelCommitControl.lean`) | replay | **accept**, "checked 1 declarations" |
+| **control**, setlec master / restricted / committing | `--minimal --type-motive` stream | **accept** (0) everywhere |
+
+The control is the round's discriminator, not decoration: it is the
+*same* declaration with `Prop` replaced by `Type` in the motive (so
+`F a` and `F (Acc.intro x g)` are ordinary terms, not proofs).  Then no
+kernel's proof-irrelevance rule is applicable, nobody commits, and the
+**same** spine congruence — same head `F`, same argument pair
+`a` vs `Acc.intro x g`, still decided by proof irrelevance — accepts in
+official too.  Prop-vs-Type is the only difference between the two
+declarations, so the rejection of the first can be attributed to the
+commit and to nothing else.
+
+The positive control for the *pending* restriction is the previous
+round's fixture: the same probe binary rejects
+`proof_irrel_hetero.ndjson` (exit 1, "type mismatch in theorem
+propIrrelHetero") while accepting `irrel_commit.ndjson` — so the
+restriction really is active in the binary that still accepts this one.
+
+No custom axioms (the stream declares only the `Acc` and `Eq`
+inductive blocks; everything else is universally quantified).  `nanoda`
+was not consulted (standing directive).
+
+### 3. The restriction candidate: three-valued threading
+
+Built as a **probe** (three-core edit + the unverified lane; executable
+only, `lake build setlec`; reverted — the branch carries no kernel
+diff).  `proofIrrel` becomes `proofIrrel3 : … → m (Option Bool)` —
+`none` = the rule is inapplicable, `some b` = committed verdict — with
+the old `proofIrrel` kept as `(·.getD false)` so the four non-hoist
+call sites are untouched, and the hoist becomes
+
+```
+    let pi3 ← proofIrrel3 r env depth a' b'
+    if pi3.isSome then pure (pi3.getD false) else
+```
+
+**Runtime cost: none.**  The three-valued result is read off the same
+two `infer`s and two `whnf`s the branch already runs; nothing new is
+computed.  (The comparison `r.defeq ta tb` inside it is the pending
+restriction's, already priced at +0.04 %/+0.10 % on init-full.)
+
+**Verdict-neutrality on real streams — measured.**  The committing
+binary against the whole battery:
+
+| suite | committing probe | master |
+|---|---|---|
+| arena tutorial | 90/92 good accepted | 90/92 |
+| e2e | **72/73** — `irrel_commit` flips 0 → 1 | 73/73 |
+| annot / split / mode | 14/14, 11/11, 9/9 | same |
+| no-model sweep | 138 arena + 73 e2e + 14 annot, with `irrel_commit` as the only new divergence | same |
+| `init-prelude`, both cores | accepted 3 653, exit 0 | same |
+| `init-full`, both cores | accepted 61 048, exit 0 | same |
+
+i.e. **the commit changes exactly one verdict in the whole corpus: the
+divergent fixture's, and it changes it to official's.**
+
+**Blast radius on the proof side — the reason this is an estimate and
+not a landing.**  The previous round's edit cost five plumbing sites
+because it kept `proofIrrel`'s *shape*; the commit changes the shape of
+the cascade, and the cascade's shape is what the frozen rows
+destructure:
+
+* **statements that name the checker's result**: 6 occurrences of
+  `proofIrrelP … = .ok true` and 9 of `… = .ok false` across
+  `SetR/Interp2/Step2/{DefEqRun,DefEqP,StuckP,MajorP,TiersP,IrrelP}.lean`
+  and `SetR/Bridge/DefEq.lean`.  The `.ok true` rows survive verbatim
+  (a committed `some true` projects to them through the retained
+  wrapper); the nine `.ok false` rows are the fall-through premises and
+  each must become "*inapplicable*", i.e. gain the `none` hypothesis —
+  a frozen-statement edit in `DefEqRun`'s defeq-step family, the
+  largest single P-tier file.
+* **the walks**: `proofIrrel_{shift,disc,mono,inv}` and the two
+  simulation twins already touched by the previous round, plus their
+  `Disc{I,C}{3,5}`/`Fueled` neighbours — 14 files mention them.  Each
+  needs the new function threaded beside the old one (both exist after
+  the edit, so both need their walk rows).
+* The direction is still free: a commit only **shrinks** the accepted
+  language, so no soundness obligation grows and no model-side rule
+  needs a new premise (`Irrel.lean`'s docstring already records that
+  D8/D9 carry no common-type premise).
+
+Estimated shape: **3 new kernel definitions (`Core`/`CoreI`/`CoreC`;
+`CoreNC` reuses `CoreI`'s) + 4 hoist edits, ~15 frozen
+premise edits, ~14 walk files** — beyond a focused diff, which is why
+this round stops at the probe.  The cheap intermediate, if the
+coordinator wants the conformance gap closed sooner, is to land the
+pending common-type restriction first (it is orthogonal and already
+proved) and file the commit as its rider.
+
+### 4. Where this leaves the standing rules
+
+* **restrictions-are-findings**: reported.  Second instance, same
+  direction as the first — the reference kernel is *stricter*, and the
+  provability-driven deviation is setlec's `Bool`-valued
+  certificate discipline (every certificate returns a `Bool`, and the
+  cascade reads `false` as "try the next rule").
+* **no strategy supersets**: violated on a *verdict*, not merely on a
+  strategy; the fixture is the witness.
+* **The proofIrrel landing does not close it.**  Whatever grant that
+  branch gets should carry this rider: after it lands, setlec still
+  accepts `irrel_commit`, and the residual is no longer "unproven
+  equivalence" but a demonstrated divergence.
+* **The campaign narrative gains a second entry**: the model proved
+  consistency of a checker more permissive than the official kernel in
+  *two independent ways* — the missing comparison (round 1 of the
+  verdict-relevance work) and the missing commit (this one).  Both are
+  sound over `interp2` for the same reason (all proofs interp to `pt`),
+  and both are conformance failures.  Soundness and conformance come
+  apart exactly where the theory says they may.
+
+### Reproduction
+
+```
+git worktree add … agent/residual-hunts ; ln -s …/_tmp .
+lake build SetlecPinCerts && lake build setlec
+python3 scripts/mk_irrel_commit.py \
+    _tmp/arena-tests/good/undecidability/alg-conv-trans-acc-left.ndjson \
+    tests/e2e/irrel_commit.ndjson --minimal            # the fixture
+python3 scripts/mk_irrel_commit.py … /tmp/control.ndjson --minimal --type-motive
+.lake/build/bin/setlec tests/e2e/irrel_commit.ndjson   # 0 — the divergence
+lean tests/e2e/src/irrel_commit.lean                   # official's reject (+ the
+                                                       # control, which passes)
+bash tests/arena.sh                                    # 90/92, 73/73, 14/14, 11/11, 9/9
+```
+
+Probe binaries and logs under `_tmp/residual-hunts/` (gitignored):
+`setlec-master`, `setlec-restored` (the pending common-type check),
+`setlec-probeC` (the commit), `proofirrel-restore.patch`,
+`run-probeC.sh` + `probeC-initfull.log` (machine lock held with a
+pid+lane stamp, `setsid`-detached).  lean4lean probes stay in the
+reference checkout: `Lean4Lean/Tests/IrrelCommit.lean` and
+`…/IrrelCommitControl.lean`, run as
+`LEAN_PATH=.lake/build/lib/lean:.lake/packages/batteries/.lake/build/lib/lean
+./.lake/build/bin/lean4lean Lean4Lean.Tests.IrrelCommit` — the fixture
+reaches `Lean4Lean.Replay.throwKernelException` (and then panics in the
+standalone pretty-printer, the known lean4lean packaging artefact, not
+the verdict); the control prints "checked 1 declarations".
