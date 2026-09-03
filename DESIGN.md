@@ -28753,3 +28753,35 @@ Kit: `_tmp/sep-s9/` — `S9Deps.lean` (transitive closure),
 `S9Cut.lean` (cut points), `S9Cut2.lean` (record-level), `S9Val.lean`
 (TYPE-vs-VALUE split), `Audit.lean` (21 declarations); the S1–S8 audit
 files; `tests/layering.sh`.
+
+## Task #161 SEPARATION — S9 LANDED: the wall is one constant wide
+(2026-09-04; succession-current)
+
+Master @ the S9 merge; battery green; binary md5-identical (the
+dormant gated knot + instruments + guards).  THE USER'S ANSWER as
+of this seal: not yet — Red.beta enters the shipped P capstone's
+proof term through exactly ONE door (checkDeclR_ofEnvRE), no P
+consumer touches it, EnvS is absent from the closure.
+
+**LEDGER (the lead's correction, in the lead's words)**: *a
+tombstone written against the import criterion is a claim; the
+proof-term criterion is the one that counts.*  (The S7 DeclIndRunR
+tombstone reopened by its real consumer two batches later.)
+
+**RATIFIED INTO THE BATTERY**: the cut-point proof-term
+dependency walk (the _tmp/sep-s9 instruments) lands beside
+layering.sh in S10 — the campaign's criterion expressible by the
+campaign's own gate.  Seventh gate-blindness instance recorded
+(first reading zero).  The withheld flag surface = the revocation
+clause working (recorded).
+
+**S10–S12 RATIFIED within the campaign**: S10 = the ind-tier record
+split (MemberValRunR/IndMembersRunR/IndRecsRunR/ProjInstallRunR/
+DeclIndRunR + relation-free checkDeclRun_of — the S5 design, its
+consumer now real) + the proof-term gate into the battery; S11 =
+the P claims tower transposed to the gated subject; S12 = the flag
+surface (ruled text unchanged; S10+S11 supply the soundness
+theorem) + measurement.  **ESCALATION RULE RE-ARMED (new form)**:
+any residual surfacing in S10/S11 not already named in the S9 seal
+stops the cadence — back to the coordinator with the accumulated
+bills before proceeding.
