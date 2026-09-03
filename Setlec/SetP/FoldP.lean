@@ -116,7 +116,7 @@ def IndStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {F : Nat} {env : Env} (mp : EnvS2PM V μ env)
     {block : List ConstantInfo} {env₂ : Env},
     Setlec.EtaFamiliesClosed env →
-    DeclIndR μ F env mp.base.cval block env₂ →
+    DeclIndR μ F env mp.base2.cvalE block env₂ →
     Nonempty (EnvS2PM V μ env₂)
 
 /-- **`IndStepPB`, discharged — THE INDUCTIVE TIER IS CLOSED**
@@ -136,14 +136,14 @@ def EnvSPOk (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env) :
 /-- **The per-declaration P step, by dispatch.** -/
 theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvS2PM V μ env) (hE : EtaFamiliesClosed env)
-    (h : DeclR μ F mp.base.cval env d env₂) :
+    (h : DeclR μ F mp.base2.cvalE env d env₂) :
     EnvSPOk V μ env₂ := by
   -- the run/guard projection (task #161 S4, the census's C3): every P
   -- step below consumes THIS, not `DeclR`.  What still consumes the
   -- full record is the v1 install round trip — `declDefnS`/`declThmS`/
   -- `declOpaqueS` at the value kinds, `declIndS` at the block — and
   -- that is `EnvS2PM.base`'s residue, which S5 deletes.
-  have hrun : DeclRunR μ F (DeclIndR μ F env mp.base.cval) env d env₂ :=
+  have hrun : DeclRunR μ F (DeclIndR μ F env mp.base2.cvalE) env d env₂ :=
     DeclR.toRun h
   -- the η half: `declEtaStepRun` (task #161 S3, the census's C4), now
   -- MODEL-FREE at every kind.  S3's stop-and-name left `indDecl`'s
@@ -157,21 +157,17 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
     have hsh := h
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
-    obtain ⟨m', hag⟩ := declDefnS divModPinS mp.base h
-    exact harvestDefnP hμ mp m' hag hrun
+    exact harvestDefnP hμ mp hrun
   | thmDecl cv value =>
     have hsh := h
     obtain ⟨type', value', hcv, -, -, -, henv2⟩ := hsh
     subst henv2
-    obtain ⟨m', hag⟩ := declThmS mp.base h
-    exact harvestThmP hμ mp m' hag hrun
+    exact harvestThmP hμ mp hrun
   | opaqueDecl cv value =>
     have hsh := h
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
-    obtain ⟨m', hag, value'', hannv2, hleafEq⟩ :=
-      declOpaqueS reducePinS mp.base h
-    exact harvestOpaqueP hμ mp m' hag hannv2 hleafEq hrun
+    exact harvestOpaqueP hμ mp hrun
   | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
   | basisDecl kind => exact basisStepPB_of mp hrun
   | indDecl block => exact indStepPB_of hμ mp hE h
@@ -194,7 +190,11 @@ theorem foldPM (hμ : μ.verified = true) {F : Nat} :
       obtain ⟨⟨mp⟩, hE⟩ := hm
       exact foldPM hμ ds env1
         (declStepPM hμ mp hE
-          (checkDeclR_sound mp.base hE hd)) h
+          -- **the bridge, from the P carrier's own `EnvR`**
+          -- (task #161 S7, Wall C step (e)): `checkDeclR_ofEnvRE`
+          -- needs no model, so the fold's last v1 round trip is the
+          -- projection `EnvS2PM.toEnvR`.
+          (Setlec.SetR.checkDeclR_ofEnvRE mp.toEnvR hE hd)) h
 
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'

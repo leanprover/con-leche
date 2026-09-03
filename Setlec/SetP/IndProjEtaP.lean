@@ -146,7 +146,7 @@ def ProjEtaLawP (V : Type w) [SetTheory V] : Prop :=
     c₀.name = Setlec.projFnName T i →
     (∃ cv mI rP rules, c₀ = .recInfo cv mI rP rules) →
     env.find? c₀.name = none →
-    BlockInstalledTT blockNames env mp.base.cval →
+    BlockInstalledTT blockNames env mp.base2.cvalE →
     BlockAcvalInstalled blockNames env mp.base2.acval →
     ∀ (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
@@ -555,7 +555,7 @@ theorem capsOkP_cons_proj_of (mp : EnvS2PM V μ env)
     (hfresh : env.find? c₀.name = none)
     (hc₀name : c₀.name = Setlec.projFnName T₀ i)
     (hc₀rec : ∃ cv mI rP rules, c₀ = .recInfo cv mI rP rules)
-    (hIB : BlockInstalledTT blockNames env mp.base.cval)
+    (hIB : BlockInstalledTT blockNames env mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)

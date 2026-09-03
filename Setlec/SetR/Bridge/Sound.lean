@@ -83,13 +83,32 @@ theorem checkDeclR_ofEnvR
     -- modeled path only, and this is where that is discharged.
     (fun hh => hind (by simpa [checkDecl, directParts?_none] using hh)) h
 
+/-- **The bridge, whole, from an `EnvR`** (task #161 S7): the ind
+kind's premise of `checkDeclR_ofEnvR` is discharged by `declIndRR`,
+so `checkDecl` bridges against the V-free invariant alone and
+`Bridge/*` carries no model at all.
+
+This is what Walls A and B bought.  S5 could only drop the `m` from
+the five non-`ind` kinds because the ind bridge had to walk with its
+install (finding 8); S6 freed the member and provisioning walks, S7
+the recursor group's swap (`indRecsCoreR`) and the projection walk
+(`projFnRR`).  `checkDeclR_sound` below is this theorem's `EnvS`
+instance — statement byte-unchanged, one source of truth. -/
+theorem checkDeclR_ofEnvRE
+    {μ : CheckMode} {F : Nat}
+    {env env₂ : Env} (mR : EnvR env) (hE : EtaFamiliesClosed env)
+    {d : Declaration}
+    (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
+    DeclR μ F mR.cval env d env₂ :=
+  checkDeclR_ofEnvR mR (fun hh => declIndRR mR hE hh) h
+
 theorem checkDeclR_sound
     {μ : CheckMode} {F : Nat}
     {env env₂ : Env} (m : EnvS V env) (hE : EtaFamiliesClosed env)
     {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
     DeclR μ F m.cval env d env₂ :=
-  checkDeclR_ofEnvR m.toEnvR (fun hh => declIndRS memberKeyS m hE hh) h
+  checkDeclR_ofEnvRE m.toEnvR hE h
 
 /-- **The run half, from the checker** — the design census's **C3**
 (task #161 S4).

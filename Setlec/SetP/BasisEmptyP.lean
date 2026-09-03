@@ -1,5 +1,4 @@
 import Setlec.SetP.BasisStepP
-import Setlec.SetR.Install.BasisS
 
 /-!
 # The `Empty` block, P tier: the type-reading recipe, executed once
@@ -50,7 +49,7 @@ Nothing in this file chooses a numeral.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   emptyA emptyRecA emptyName uN)
 
@@ -75,9 +74,7 @@ theorem denoteP_emptyA_type
 /-- **`Empty`, installed at the P tier.** -/
 theorem extendEmptyP (mp : EnvS2PM V μ env)
     (hfresh : env.find? emptyName = none)
-    (hbase : EnvS V ⟨emptyA :: env.consts⟩)
-    (hag : ∀ n, n ≠ emptyA.name → mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval emptyA.name ψ = VExpr.const .empty [1]) :
+    (hwf : EnvWF ⟨emptyA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨emptyA :: env.consts⟩) := by
   refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := fun _ => AVExpr.const .empty [1]) hfresh
@@ -85,8 +82,13 @@ theorem extendEmptyP (mp : EnvS2PM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT emptyA.name ψ
+          = some (VExpr.const .empty [1]) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, denoteP_emptyA_type ψ⟩) ?_ ?_)
@@ -213,11 +215,7 @@ theorem bitAgree_emptyRecA (ψ : Name → Nat) :
 theorem extendEmptyRecP (mp : EnvS2PM V μ env)
     (hE : env.find? emptyName = some emptyA)
     (hfresh : env.find? emptyRecA.name = none)
-    (hbase : EnvS V ⟨emptyRecA :: env.consts⟩)
-    (hag : ∀ n, n ≠ emptyRecA.name →
-      mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval emptyRecA.name ψ
-      = VExpr.const .emptyRec [1, ψ uN]) :
+    (hwf : EnvWF ⟨emptyRecA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨emptyRecA :: env.consts⟩) := by
   have hty := fun ψ =>
     denoteP_emptyRecA_type (m := mp.base2)
@@ -228,8 +226,15 @@ theorem extendEmptyRecP (mp : EnvS2PM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => by injection h with _ _ _ h4; exact h4 ▸ rfl)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT emptyRecA.name ψ
+          = some (VExpr.const .emptyRec [1, ψ uN]) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h)
+      (fun _ _ _ _ h => by injection h with _ _ _ h4
+                           intro r hr; rw [← h4] at hr; exact nomatch hr))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
@@ -269,10 +274,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩
-  obtain ⟨m1, hm1⟩ := extendEmptyS mp.base hf1 hwf1
-  obtain ⟨mp1⟩ := extendEmptyP mp hf1 m1
-    (fun n hn => by rw [hm1, cvalWith_ne hn])
-    (fun ψ => by rw [hm1, cvalWith_self]; rfl)
+  obtain ⟨mp1⟩ := extendEmptyP mp hf1 hwf1
   have hE : (⟨emptyA :: env.consts⟩ : Env).find? emptyName
       = some emptyA := by
     rw [Setlec.Env.find?_cons]; exact if_pos rfl
@@ -302,10 +304,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
       exact hE
     rw [hf]
     simp
-  obtain ⟨m2, hm2⟩ := extendEmptyRecS mp1.base hE hf2 hwf2
-  exact extendEmptyRecP mp1 hE hf2 m2
-    (fun n hn => by rw [hm2, cvalWith_ne hn])
-    (fun ψ => by rw [hm2, cvalWith_self])
+  exact extendEmptyRecP mp1 hE hf2 hwf2
 
 /-! ## STOP-AND-NAME: no basis `rec_rules` row is vacuous by `fire`
 

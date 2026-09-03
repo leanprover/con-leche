@@ -156,8 +156,6 @@ theorem harvestDefnP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     {env₂ : Env}
-    (m' : EnvS V env₂)
-    (hag : ∀ n, n ≠ cv.name → mp.base.cval n = m'.cval n)
     (hR : DeclDefnRunR μ F env cv value hint env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
@@ -305,45 +303,22 @@ theorem harvestDefnP (hμ : μ.verified = true)
         (acval := mp.base2.acval)
         (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
         (A := A) hfresh ψ 0 e hcb h
-  -- the v1-side erasure link
-  have hAerase : ∀ ψ,
-      (A ψ).erase = m'.cval cv.name ψ := by
-    intro ψ
-    have hden : denote mp.base.cval env ψ 0 value'
-        = some (A ψ).erase :=
-      denoteP_erase mp.base_erase 0 value' (hA ψ)
-    have hden2 : denote m'.cval
-        ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
-          env.consts⟩ ψ 0 value' = some (A ψ).erase := by
-      refine denote_install hfresh hag
-        (LitAgree.of_fresh (c₀ := .defnInfo
-          ⟨cv.name, cv.levelParams, type'⟩ value' hint) hfresh hag)
-        (natLitSupported_cons hfresh) (strLitSupported_cons hfresh)
-        ?_ ?_ hden
-      · intro hg
-        refine levelParamsAt_cons_of_ne ?_
-        intro hh
-        have hh' : listNilName = cv.name := hh.symm
-        simp only [Setlec.strLitSupported, Bool.and_eq_true] at hg
-        obtain ⟨⟨⟨⟨-, h4⟩, -⟩, -⟩, -⟩ := hg
-        rw [hh', hfresh] at h4
-        simp [listNilTyOk] at h4
-      · intro hg
-        refine levelParamsAt_cons_of_ne ?_
-        intro hh
-        have hh' : listConsName = cv.name := hh.symm
-        simp only [Setlec.strLitSupported, Bool.and_eq_true] at hg
-        obtain ⟨⟨⟨-, h5⟩, -⟩, -⟩ := hg
-        rw [hh', hfresh] at h5
-        simp [listConsTyOk] at h5
-    have hde := m'.defn_eq ⟨cv.name, cv.levelParams, type'⟩ value' hint
-      (List.mem_cons_self ..) ψ
-    rw [denoteClosed, hden2] at hde
-    exact (Option.some.inj hde)
   -- assemble
   refine ⟨(declStepPM_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-    (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
+    (A := A) hfresh
+    (ConsHeadP.ofFresh
+      (EnvWF.cons mp.base2.wf ⟨htf', htp,
+        Expr.constsResolve_mono htr, hbt',
+        (fun _ _ _ heq => by
+          obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.defnInfo.inj heq
+          exact ⟨hvf', hvp, Expr.constsResolve_mono hvr, hbv'⟩),
+        (fun _ _ _ _ heq => nomatch heq),
+        (fun _ _ heq => nomatch heq)⟩)
+      (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
+        (denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)))
+      hnres (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+      (fun _ _ _ _ heq => nomatch heq)) hAclosed
     hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
   · -- `htyReads`
     intro ψ
@@ -550,8 +525,6 @@ are destructured away with `-`. -/
 theorem harvestThmP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
-    (m' : EnvS V env₂)
-    (hag : ∀ n, n ≠ cv.name → mp.base.cval n = m'.cval n)
     (hR : DeclThmRunR μ F env cv value env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨type', value', hcv, -, hvfr, rfl⟩ := hR
@@ -697,45 +670,22 @@ theorem harvestThmP (hμ : μ.verified = true)
         (acval := mp.base2.acval)
         (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
         (A := A) hfresh ψ 0 e hcb h
-  -- the v1-side erasure link, at `thm_ok`
-  have hAerase : ∀ ψ,
-      (A ψ).erase = m'.cval cv.name ψ := by
-    intro ψ
-    have hden : denote mp.base.cval env ψ 0 value'
-        = some (A ψ).erase :=
-      denoteP_erase mp.base_erase 0 value' (hA ψ)
-    have hden2 : denote m'.cval
-        ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
-          env.consts⟩ ψ 0 value' = some (A ψ).erase := by
-      refine denote_install hfresh hag
-        (LitAgree.of_fresh (c₀ := .thmInfo
-          ⟨cv.name, cv.levelParams, type'⟩ value') hfresh hag)
-        (natLitSupported_cons hfresh) (strLitSupported_cons hfresh)
-        ?_ ?_ hden
-      · intro hg
-        refine levelParamsAt_cons_of_ne ?_
-        intro hh
-        have hh' : listNilName = cv.name := hh.symm
-        simp only [Setlec.strLitSupported, Bool.and_eq_true] at hg
-        obtain ⟨⟨⟨⟨-, h4⟩, -⟩, -⟩, -⟩ := hg
-        rw [hh', hfresh] at h4
-        simp [listNilTyOk] at h4
-      · intro hg
-        refine levelParamsAt_cons_of_ne ?_
-        intro hh
-        have hh' : listConsName = cv.name := hh.symm
-        simp only [Setlec.strLitSupported, Bool.and_eq_true] at hg
-        obtain ⟨⟨⟨-, h5⟩, -⟩, -⟩ := hg
-        rw [hh', hfresh] at h5
-        simp [listConsTyOk] at h5
-    have hde := m'.thm_ok ⟨cv.name, cv.levelParams, type'⟩ value'
-      (List.mem_cons_self ..) ψ
-    rw [denoteClosed, hden2] at hde
-    exact (Option.some.inj hde)
   -- assemble
   refine ⟨(declStepPM_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
-    (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
+    (A := A) hfresh
+    (ConsHeadP.ofFresh
+      (EnvWF.cons mp.base2.wf ⟨htf', htp,
+        Expr.constsResolve_mono htr, hbt',
+        (fun _ _ _ heq => nomatch heq),
+        (fun _ _ _ _ heq => nomatch heq),
+        (fun _ _ heq => by
+          obtain ⟨rfl, rfl⟩ := ConstantInfo.thmInfo.inj heq
+          exact ⟨hvf', hvp, Expr.constsResolve_mono hvr, hbv'⟩)⟩)
+      (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
+        (denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)))
+      hnres (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+      (fun _ _ _ _ heq => nomatch heq)) hAclosed
     hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
   · -- `htyReads`
     intro ψ
@@ -898,10 +848,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → AVExpr}
     (hcv : ConstantValRunR μ F env cv type')
-    (hbase : EnvS V ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-      env.consts⟩)
-    (hag : ∀ n, n ≠ cv.name → mp.base.cval n = hbase.cval n)
-    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval cv.name ψ)
+    (hAvclosed : ∀ ψ : Name → Nat, VExpr.Closed ((A ψ).erase))
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂)
@@ -979,7 +926,16 @@ theorem harvestAxiomP (hμ : μ.verified = true)
   -- assemble
   refine ⟨(declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-    (A := A) hfresh hbase hag hAerase hAclosed
+    (A := A) hfresh
+    (ConsHeadP.ofFresh
+      (EnvWF.cons mp.base2.wf ⟨htf', htp,
+        Expr.constsResolve_mono htr, hbt',
+        (fun _ _ _ heq => nomatch heq),
+        (fun _ _ _ _ heq => nomatch heq),
+        (fun _ _ heq => nomatch heq)⟩)
+      hAvclosed hnres (fun _ heq => nomatch heq)
+      (fun _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq))
+    hAclosed
     hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
   · -- `htyReads`
     intro ψ
@@ -1063,12 +1019,6 @@ no `defn_eq`/`thm_ok` detour. -/
 theorem harvestOpaqueP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
-    (m' : EnvS V env₂)
-    (hag : ∀ n, n ≠ cv.name → mp.base.cval n = m'.cval n)
-    {value'' : Expr}
-    (hannv2 : Setlec.annotateCore μ env F 0 value = .ok value'')
-    (hleafEq : ∀ ψ : Name → Nat,
-      denoteClosed mp.base.cval env ψ value'' = some (m'.cval cv.name ψ))
     (hR : DeclOpaqueRunR μ F env cv value env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨type', value', hcv, hvfr, rfl, hred⟩ := hR
@@ -1214,23 +1164,21 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
         (acval := mp.base2.acval)
         (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
         (A := A) hfresh ψ 0 e hcb h
-  -- the v1-side erasure link: the exposed leaf equation, directly
-  have hvv : value'' = value' :=
-    Except.ok.inj (hannv2.symm.trans hannv)
-  rw [hvv] at hleafEq
-  have hAerase : ∀ ψ,
-      (A ψ).erase = m'.cval cv.name ψ := by
-    intro ψ
-    have hden : denote mp.base.cval env ψ 0 value'
-        = some (A ψ).erase :=
-      denoteP_erase mp.base_erase 0 value' (hA ψ)
-    have hle := hleafEq ψ
-    rw [denoteClosed, hden] at hle
-    exact Option.some.inj hle
   -- assemble
   refine ⟨(declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-    (A := A) hfresh m' (fun n hn => hag n hn) hAerase hAclosed
+    (A := A) hfresh
+    (ConsHeadP.ofFresh
+      (EnvWF.cons mp.base2.wf ⟨htf', htp,
+        Expr.constsResolve_mono htr, hbt',
+        (fun _ _ _ heq => nomatch heq),
+        (fun _ _ _ _ heq => nomatch heq),
+        (fun _ _ heq => nomatch heq)⟩)
+      (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
+        (denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)))
+      hnres (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+      (fun _ _ _ _ heq => nomatch heq))
+    hAclosed
     hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
   · -- `htyReads`
     intro ψ

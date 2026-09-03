@@ -41,7 +41,7 @@ and go through `declStepPM_of_cons` directly.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint)
 
@@ -90,11 +90,9 @@ theorem declStepPM_of_basis_cons (mp : EnvS2PM V μ env)
     -- `reduce_ops`: not an axiom, or not a trusted operation's name
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
       c₀.name ∉ Setlec.reduceOpNames)
-    -- the v1 base at the extension, and its leaf
-    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
-    -- the annotated tower
-    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
+    -- the head's own obligations (task #161 S7: what the v1 base at
+    -- the extension used to supply)
+    (hh : ConsHeadP env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -117,8 +115,7 @@ theorem declStepPM_of_basis_cons (mp : EnvS2PM V μ env)
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hbase hag
-    hAerase hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
+  refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hvalReads`: a basis cons is never a definition or a theorem
     intro _ψ cv2 value2 hmem
@@ -166,9 +163,7 @@ theorem declStepPM_of_basis_rec_cons (mp : EnvS2PM V μ env)
     (hres : Setlec.reservedBasisNames.contains c₀.name = true)
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
       c₀.name ∉ Setlec.reduceOpNames)
-    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
-    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
+    (hh : ConsHeadP env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -193,8 +188,7 @@ theorem declStepPM_of_basis_rec_cons (mp : EnvS2PM V μ env)
       ∀ φ : Name → Nat, RecRulesP m₂ φ) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hbase hag
-    hAerase hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
+  refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · intro _ψ cv2 value2 hmem
     rcases hmem with ⟨hint2, hdt⟩ | hdt
@@ -228,9 +222,7 @@ theorem declStepPM_of_basis_cons_eqrow (mp : EnvS2PM V μ env)
     (hres : Setlec.reservedBasisNames.contains c₀.name = true)
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
       c₀.name ∉ Setlec.reduceOpNames)
-    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
-    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
+    (hh : ConsHeadP env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -254,8 +246,7 @@ theorem declStepPM_of_basis_cons_eqrow (mp : EnvS2PM V μ env)
       m₂.acval = acvalWith mp.base2.acval c₀.name A → EqLawP m₂) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hbase hag
-    hAerase hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
+  refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · intro _ψ cv2 value2 hmem
     rcases hmem with ⟨hint2, hdt⟩ | hdt
@@ -285,9 +276,7 @@ theorem declStepPM_of_basis_cons_gen (mp : EnvS2PM V μ env)
     (hres : Setlec.reservedBasisNames.contains c₀.name = true)
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
       c₀.name ∉ Setlec.reduceOpNames)
-    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
-    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
+    (hh : ConsHeadP env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -315,8 +304,7 @@ theorem declStepPM_of_basis_cons_gen (mp : EnvS2PM V μ env)
       ∀ φ : Name → Nat, RecRulesP m₂ φ) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hbase hag
-    hAerase hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
+  refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · intro _ψ cv2 value2 hmem
     rcases hmem with ⟨hint2, hdt⟩ | hdt

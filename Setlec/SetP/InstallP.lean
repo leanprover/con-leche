@@ -1,6 +1,7 @@
 import Setlec.SetP.Step2.TiersP
 import Setlec.SetP.Annot.BitExtend
 import Setlec.SetBase.ConstsBound
+import Setlec.Verify.Extend.Sibs
 
 /-!
 # The P declaration step (task #161, P4 — the fold's species)
@@ -32,7 +33,7 @@ is not a literal pin; the pin installs supply it bespoke).
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint)
 
@@ -102,34 +103,145 @@ theorem denoteP_cons_fresh_mono {acval : Name → (Name → Nat) → AVExpr}
     (litGuardsMono_cons hfresh) d e hcb
     (by rw [denoteP_acvalWith_fresh hfresh]; exact h)
 
-/-- **The extended valuation's erasure, at a fresh cons** — the leaf
-is the new tower's, every other name is the prefix's.  Factored out
-because `declStepPM_of_cons` states it ten times (nine premises plus
-the carrier it builds). -/
-theorem consErase {mp : EnvS2PM V μ env} {c₀ : ConstantInfo}
-    {A : (Name → Nat) → AVExpr} (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
-    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ) :
-    ∀ (n : Name) (ψ : Name → Nat),
-      (acvalWith mp.base2.acval c₀.name A n ψ).erase = hbase.cval n ψ := by
-  intro n ψ
-  by_cases hn : n = c₀.name
-  · subst hn
-    rw [show acvalWith mp.base2.acval c₀.name A c₀.name = A from
-      acvalWith_self]
-    exact hAerase ψ
-  · rw [show acvalWith mp.base2.acval c₀.name A n
-          = mp.base2.acval n from acvalWith_ne hn,
-      mp.base_erase, hag n hn]
+/-! ## The core at a fresh cons, model-free (task #161 S7, Wall C)
+
+`coreOfBase` reads `EnvS2Core`'s five syntactic fields off a contained
+`EnvS`.  `coreCons` builds them from the *prefix core's own* fields
+plus the head's obligations — `BasisPinnedTT.cons`, `ProjOkT.cons`,
+`RecCtorsStored.cons` (`Verify/Denote/Install`, `Verify/Extend/Sibs`),
+all model-free — which is what lets `EnvS2PM.base` go.
+-/
+
+/-- The valuation moves only at the fresh name, at the erased
+spelling: the `Installs` context the three env-facts share. -/
+theorem installsE {acval : Name → (Name → Nat) → AVExpr}
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none) :
+    Installs env (fun n ψ => (acval n ψ).erase)
+      (fun n ψ => (acvalWith acval c₀.name A n ψ).erase) c₀ :=
+  Installs.of_fresh hfresh (fun n hn =>
+    funext fun ψ => by rw [acvalWith_ne hn])
+
+/-- **The head obligations of a fresh cons** (task #161 S7, Wall C
+step (b)): what `declStepPM_of_cons` used to read off the contained
+`EnvS`, stated at the new leaf.  Bundled because the wrapper stack
+between the step and its 40 call sites re-states it thirty-five
+times. -/
+structure ConsHeadP (env : Env) (c₀ : ConstantInfo)
+    (A : (Name → Nat) → AVExpr) : Prop where
+  /-- the extended store is syntactically well-formed -/
+  wf : EnvWF ⟨c₀ :: env.consts⟩
+  /-- the new leaf's erasure is closed (`EnvS.cval_closed` at the head) -/
+  vclosed : ∀ ψ : Name → Nat, VExpr.Closed ((A ψ).erase)
+  /-- if the head sits at a reserved basis name, it is the pinned
+  declaration and its leaf erases to the direct pin -/
+  pin : Setlec.reservedBasisNames.contains c₀.name = true →
+    (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
+    ∀ (ψ : Name → Nat) (t : VExpr),
+      pinnedDirectT c₀.name ψ = some t → (A ψ).erase = t
+  /-- a native head projection entry is a pinned pair entry with its
+  block stored (`ProjOkT`'s head) -/
+  projHead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
+    (entry = Setlec.pairFstEntry ∨ entry = Setlec.pairSndEntry) ∧
+    env.find? Setlec.psigmaName = some Setlec.psigmaA ∧
+    env.find? Setlec.psigmaMkName = some Setlec.psigmaMkA
+  /-- …and the pair block's own projection names carry native ones -/
+  projPair : ∀ (i : Nat) entry, c₀ = .projInfo entry →
+    c₀.name = Setlec.projFnName Setlec.psigmaName i →
+    entry.native = true
+  /-- a head recursor's rules' constructors are stored
+  (`RecCtorsStored`'s head) -/
+  ctorsHead : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
+    ∀ r ∈ rules, ∃ cvj cnP cnF,
+      env.find? (Setlec.RecRule.ctor r)
+        = some (.ctorInfo cvj cnP cnF)
+
+/-- **The head obligations of a basis cons**: the head is the pinned
+declaration, its leaf is the direct pin, it is not a projection-table
+entry, and (for a recursor) its rules' constructors are stored. -/
+theorem ConsHeadP.ofBasis {c₀ : ConstantInfo}
+    {A : (Name → Nat) → AVExpr}
+    (hwf : EnvWF ⟨c₀ :: env.consts⟩)
+    (hvclosed : ∀ ψ : Name → Nat, VExpr.Closed ((A ψ).erase))
+    (hpinned : ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name)
+    (hleaf : ∀ (ψ : Name → Nat) (t : VExpr),
+      pinnedDirectT c₀.name ψ = some t → (A ψ).erase = t)
+    (hnotproj : ∀ entry, c₀ ≠ .projInfo entry)
+    (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
+      ∀ r ∈ rules, ∃ cvj cnP cnF,
+        env.find? (Setlec.RecRule.ctor r)
+          = some (.ctorInfo cvj cnP cnF)) :
+    ConsHeadP env c₀ A :=
+  ⟨hwf, hvclosed, fun _ => ⟨hpinned, hleaf⟩,
+    fun entry heq => absurd heq (hnotproj entry),
+    fun _ entry heq => absurd heq (hnotproj entry), hctors⟩
+
+/-- **The head obligations of an ordinary (non-reserved) cons**: the
+pin clause is vacuous. -/
+theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
+    {A : (Name → Nat) → AVExpr}
+    (hwf : EnvWF ⟨c₀ :: env.consts⟩)
+    (hvclosed : ∀ ψ : Name → Nat, VExpr.Closed ((A ψ).erase))
+    (hnres : Setlec.reservedBasisNames.contains c₀.name = false)
+    (hprojHead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
+      (entry = Setlec.pairFstEntry ∨ entry = Setlec.pairSndEntry) ∧
+      env.find? Setlec.psigmaName = some Setlec.psigmaA ∧
+      env.find? Setlec.psigmaMkName = some Setlec.psigmaMkA)
+    (hprojPair : ∀ (i : Nat) entry, c₀ = .projInfo entry →
+      c₀.name = Setlec.projFnName Setlec.psigmaName i →
+      entry.native = true)
+    (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
+      ∀ r ∈ rules, ∃ cvj cnP cnF,
+        env.find? (Setlec.RecRule.ctor r)
+          = some (.ctorInfo cvj cnP cnF)) :
+    ConsHeadP env c₀ A :=
+  ⟨hwf, hvclosed,
+    fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),
+    hprojHead, hprojPair, hctors⟩
+
+/-- **The de-based core at a fresh cons** — `coreOfBase`'s successor
+(task #161 S7).  Every field is the prefix's own, stepped by the
+head's obligation; nothing of the collapsed model is consulted. -/
+def coreCons (m : EnvS2Core V env) {c₀ : ConstantInfo}
+    (A : (Name → Nat) → AVExpr)
+    (hfresh : env.find? c₀.name = none)
+    (hh : ConsHeadP env c₀ A)
+    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
+    (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
+      A ψ₁ = A ψ₂)
+    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ)) :
+    EnvS2Core V ⟨c₀ :: env.consts⟩ where
+  wf := hh.wf
+  acval := acvalWith m.acval c₀.name A
+  cval_closedL := by
+    intro n ψ
+    by_cases hn : n = c₀.name
+    · rw [show acvalWith m.acval c₀.name A n = A from by
+        rw [hn]; exact acvalWith_self]
+      exact hh.vclosed ψ
+    · rw [show acvalWith m.acval c₀.name A n = m.acval n from
+        acvalWith_ne hn]
+      exact m.cval_closedL n ψ
+  basis_pinnedL :=
+    BasisPinnedTT.cons m.basis_pinnedL (installsE hfresh)
+      (fun hres => ⟨(hh.pin hres).1, fun ψ t hp => by
+        show (acvalWith m.acval c₀.name A c₀.name ψ).erase = t
+        rw [show acvalWith m.acval c₀.name A c₀.name = A from
+          acvalWith_self]
+        exact (hh.pin hres).2 ψ t hp⟩)
+  proj_ok := ProjOkT.cons m.proj_ok hfresh hh.projHead hh.projPair
+  rec_ctors := Setlec.RecCtorsStored.cons m.rec_ctors hfresh hh.ctorsHead
+  acval_closed := acvalWith_closed m.acval_closed hAclosed
+  acval_params := acvalWith_params m.acval_params hAparams
+  acval_ok2 := acvalWith_ok2 m.acval_ok2 hAok
 
 /-- **The P declaration step, cons shape** (see the module
 docstring). -/
 theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
-    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
+    (hh : ConsHeadP env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -158,40 +270,19 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
           ⟨c₀ :: env.consts⟩ ψ 0 value = some (A ψ))
     (hnh : ∀ φ : Name → Nat,
       NatHeadsP (V := V)
-        (coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
-           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
-           (acvalWith_params mp.base2.acval_params hAparams)
-           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) φ)
+        (coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) φ)
     (hnat_ops : ∀ φ : Name → Nat,
       NatOpsP (V := V)
-        ((coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
-           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
-           (acvalWith_params mp.base2.acval_params hAparams)
-           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) : EnvS2Core V _) φ)
+        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ)
     (hdiv_mod : ∀ φ : Name → Nat,
-      DivModP (V := V) ((coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
-           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
-           (acvalWith_params mp.base2.acval_params hAparams)
-           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) : EnvS2Core V _) φ)
-    (heq_law : EqLawP (V := V) ((coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
-           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
-           (acvalWith_params mp.base2.acval_params hAparams)
-           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) : EnvS2Core V _))
+      DivModP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ)
+    (heq_law : EqLawP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _))
     (hcaps_ok : CapsOkP (V := V)
-        ((coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
-           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
-           (acvalWith_params mp.base2.acval_params hAparams)
-           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) : EnvS2Core V _))
+        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _))
     (hrec_rules : ∀ φ : Name → Nat,
-      RecRulesP (V := V) ((coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
-           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
-           (acvalWith_params mp.base2.acval_params hAparams)
-           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) : EnvS2Core V _) φ)
+      RecRulesP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ)
     (hreduce_ops : ReduceOpsP (V := V)
-        ((coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
-           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
-           (acvalWith_params mp.base2.acval_params hAparams)
-           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) : EnvS2Core V _)) :
+        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _)) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   have hbound := envWF_constsBound mp.base2.wf
@@ -282,13 +373,7 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
         exact hcompM ψ value ((hbound _ h).2.2 cv value rfl)
           (mp.defn_reads ψ cv value (.inr h))
   exact ⟨{
-    base2 := coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
-      (consErase hbase hag hAerase)
-      (acvalWith_closed mp.base2.acval_closed hAclosed)
-      (acvalWith_params mp.base2.acval_params hAparams)
-      (acvalWith_ok2 mp.base2.acval_ok2 hAok)
-    base := hbase
-    base_erase := consErase hbase hag hAerase
+    base2 := coreCons mp.base2 A hfresh hh hAclosed hAparams hAok
     acval_validV := acvalWith_validV (n := c₀.name)
       mp.acval_validV hAvalid
     type_reads := htr

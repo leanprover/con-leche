@@ -1,4 +1,5 @@
 import Setlec.SetP.IotaRuleNestedP
+import Setlec.Verify.Denote.EnvExt
 
 /-!
 # The group rule-list swap, P tier (task #161, IND TIER part 10)
@@ -26,7 +27,7 @@ taking them here keeps the transport free of the per-rule content.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps)
 
@@ -178,15 +179,18 @@ valuation. -/
 theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     (mp : EnvS2PM V μ env₀)
     (hsw : Setlec.SwapShList env₀.consts env₃.consts)
-    -- the v1 carrier at the swapped environment, install-supplied
-    -- (`EnvS.swap`'s output at the group install): taking it rather
-    -- than rebuilding it keeps `EnvWF`/`RecCtorsStored`/`RecRulesV`
-    -- out of this file entirely
-    (hbase₃ : EnvS V env₃) (hbcval : hbase₃.cval = mp.base.cval)
+    -- the four syntactic environment facts at the swapped
+    -- environment (`swapEnvFacts`, `SetBase/IndRecsCoreR.lean`;
+    -- task #161 S7, Wall C): taking them rather than rebuilding them
+    -- keeps this file free of the rule facts, exactly as taking the
+    -- v1 carrier used to
+    (hwf₃ : EnvWF env₃) (hctors₃ : Setlec.RecCtorsStored env₃)
+    (hbp₃ : BasisPinnedTT env₃ mp.base2.cvalE)
+    (hproj₃ : ProjOkT env₃)
     (hrecP : ∀ (m₃ : EnvS2Core V env₃), m₃.acval = mp.base2.acval →
       ∀ φ : Name → Nat, RecRulesP m₃ φ) :
     ∃ mp₃ : EnvS2PM V μ env₃, mp₃.base2.acval = mp.base2.acval ∧
-      mp₃.base.cval = hbase₃.cval := by
+      mp₃.base2.cvalE = mp.base2.cvalE := by
   have hcg : Setlec.SwapCongr env₀ env₃ := Setlec.SwapShList.congr hsw
   have hcorr := Setlec.swapSh_find?_corr hsw
   have hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
@@ -207,23 +211,13 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩
     · exact ⟨c₀, hc₀, rfl, rfl⟩
     · exact ⟨_, hc₀, rfl, rfl⟩
-  have herase₃ : ∀ (n : Name) (ψ : Name → Nat),
-      (mp.base2.acval n ψ).erase = hbase₃.cval n ψ := by
-    intro n ψ
-    rw [hbcval]
-    exact mp.base_erase n ψ
   refine ⟨{ base2 :=
-              { wf := hbase₃.wf
+              { wf := hwf₃
                 acval := mp.base2.acval
-                cval_closedL := fun n ψ => by
-                  rw [herase₃ n ψ]; exact hbase₃.cval_closed n ψ
-                basis_pinnedL := fun n ci hf hres =>
-                  ⟨(hbase₃.basis_pinned n ci hf hres).1, fun t ψ hd => by
-                    show (mp.base2.acval n ψ).erase = t
-                    rw [herase₃ n ψ]
-                    exact (hbase₃.basis_pinned n ci hf hres).2 t ψ hd⟩
-                proj_ok := hbase₃.proj_ok
-                rec_ctors := hbase₃.rec_ctors
+                cval_closedL := fun n ψ => mp.base2.cval_closedL n ψ
+                basis_pinnedL := hbp₃
+                proj_ok := hproj₃
+                rec_ctors := hctors₃
                 acval_closed := mp.base2.acval_closed
                 acval_params := by
                   intro n ci hf ψ₁ ψ₂ hp
@@ -235,8 +229,6 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
                     obtain rfl := Option.some.inj hf
                     exact mp.base2.acval_params n _ h₀ ψ₁ ψ₂ hp
                 acval_ok2 := mp.base2.acval_ok2 }
-            base := hbase₃
-            base_erase := herase₃
             acval_validV := mp.acval_validV
             type_reads := ?_
             type_okP := ?_
@@ -248,7 +240,8 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
             eq_lawP := ?_
             caps_ok := ?_
             rec_rules := hrecP _ rfl
-            reduce_ops := ?_ }, rfl, rfl⟩
+            reduce_ops := ?_ },
+          rfl, rfl⟩
   · -- `type_reads`
     intro c hc ψ
     obtain ⟨c₀, hc₀, hcv, -⟩ := hmemcorr c hc

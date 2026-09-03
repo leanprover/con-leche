@@ -1,5 +1,7 @@
 import Setlec.SetR.Install.DeclIndS
 import Setlec.SetBase.EqTower
+import Setlec.SetBase.BasisRules
+import Setlec.SetBase.PSigmaTower
 
 /-!
 # The pinned basis blocks, [set] lane (task #148, T5)
@@ -951,53 +953,6 @@ theorem denote_natRec_typeS {env : Env} (m : EnvS V env)
     denote_app, denote_fvar, hNc, hZc, hSc]
 
 
-/-- `Nat.rec`'s two stored rules. -/
-def natRecZeroRule : RecRule :=
-  { ctor := natZeroName, nfields := 0, ctorParams := 0, fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "motive")
-      (Expr.forallE (Name.anonymous.str "t") (.const natName [])
-        (.sort (.param uN)) { bi := .default, pw := .never })
-      (Expr.lam (Name.anonymous.str "zero")
-        (.app (.bvar 0) (.const natZeroName []))
-        (Expr.lam (Name.anonymous.str "succ")
-          (Expr.forallE (Name.anonymous.str "n") (.const natName [])
-            (Expr.forallE (Name.anonymous.str "n_ih") (.app (.bvar 2)
-              (.bvar 0))
-              (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
-              { bi := .default, pw := .ifAllZero [uN] })
-            { bi := .default, pw := .ifAllZero [uN] })
-          (.bvar 1) { bi := .default, pw := .ifAllZero [uN] })
-        { bi := .default, pw := .ifAllZero [uN] })
-      { bi := .default, pw := .ifAllZero [uN] } }
-
-def natRecSuccRule : RecRule :=
-  { ctor := natSuccName, nfields := 1, ctorParams := 0, fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "motive")
-      (Expr.forallE (Name.anonymous.str "t") (.const natName [])
-        (.sort (.param uN)) { bi := .default, pw := .never })
-      (Expr.lam (Name.anonymous.str "zero")
-        (.app (.bvar 0) (.const natZeroName []))
-        (Expr.lam (Name.anonymous.str "succ")
-          (Expr.forallE (Name.anonymous.str "n") (.const natName [])
-            (Expr.forallE (Name.anonymous.str "n_ih") (.app (.bvar 2)
-              (.bvar 0))
-              (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
-              { bi := .default, pw := .ifAllZero [uN] })
-            { bi := .default, pw := .ifAllZero [uN] })
-          (Expr.lam (Name.anonymous.str "n") (.const natName [])
-            (.app (.app (.bvar 1) (.bvar 0))
-              (.app (.app (.app (.app (.const (natName.str "rec")
-                [.param uN]) (.bvar 3)) (.bvar 2)) (.bvar 1)) (.bvar
-                  0)))
-            { bi := .default, pw := .ifAllZero [uN] })
-          { bi := .default, pw := .ifAllZero [uN] })
-        { bi := .default, pw := .ifAllZero [uN] })
-      { bi := .default, pw := .ifAllZero [uN] } }
-
-theorem natRecA_eq :
-    natRecA = .recInfo natRecA.toConstantVal 3 3
-      [natRecZeroRule, natRecSuccRule] := rfl
-
 /-- The `zero` rule's right-hand side, denoted. -/
 theorem denote_natRec_zeroRhsS {env : Env} (m : EnvS V env)
     {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w : Level)
@@ -1809,36 +1764,6 @@ theorem denote_quotInd_typeS {env : Env} (m : EnvS V env)
     denote_sort,
     denote_app, denote_fvar, hQc, hMc, VExpr.mkAppN, Level.eval]
 
-/-- `Quot.ind`'s single stored rule. -/
-def quotIndRule : RecRule :=
-  { ctor := quotMkName, nfields := 1, ctorParams := 2, fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uN))
-      (Expr.lam (Name.anonymous.str "r")
-        (Expr.forallE Name.anonymous (.bvar 0)
-          (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-            { bi := .default, pw := .never }) { bi := .default, pw := .never })
-        (Expr.lam (Name.anonymous.str "β")
-          (Expr.forallE (Name.anonymous.str "a")
-            (.app (.app (.const quotName [.param uN]) (.bvar 1)) (.bvar
-              0))
-            (.sort .zero) { bi := .default, pw := .never })
-          (Expr.lam (Name.anonymous.str "mk")
-            (Expr.forallE (Name.anonymous.str "a") (.bvar 2)
-              (.app (.bvar 1)
-                (.app (.app (.app (.const quotMkName [.param uN])
-                  (.bvar 3)) (.bvar 2)) (.bvar 0)))
-              { bi := .default, pw := .ifAllZero [] })
-            (Expr.lam (Name.anonymous.str "a") (.bvar 3)
-              (.app (.bvar 1) (.bvar 0)) { bi := .default, pw := .ifAllZero [] })
-            { bi := .default, pw := .ifAllZero [] })
-          { bi := .default, pw := .ifAllZero [] })
-        { bi := .default, pw := .ifAllZero [] })
-      { bi := .default, pw := .ifAllZero [] } }
-
-/-- The stored declaration, with its rule named. -/
-theorem quotIndA_eq :
-    quotIndA = .recInfo quotIndA.toConstantVal 4 4 [quotIndRule] := rfl
-
 /-- `Quot.ind`'s right-hand side, denoted. -/
 def quotIndRhsV (a : Nat) : VExpr :=
   .lam (.sort a)
@@ -2453,40 +2378,6 @@ theorem quotLiftTy_annotS {env : Env} (m : EnvS V env)
   · simpa [interp_bvar, cons, interp_pi] using h2
   · exact h5b x5 (by rwa [← quotInv_interpS m hE _ _ hb1 hb0])
 
-/-- `Quot.lift`'s single stored rule. -/
-def quotLiftRule : RecRule :=
-  { ctor := quotMkName, nfields := 1, ctorParams := 2, fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uN))
-      (Expr.lam (Name.anonymous.str "r")
-        (Expr.forallE Name.anonymous (.bvar 0)
-          (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-            { bi := .default, pw := .never }) { bi := .default, pw := .never })
-        (Expr.lam (Name.anonymous.str "β") (.sort (.param vN))
-          (Expr.lam (Name.anonymous.str "f")
-            (Expr.forallE (Name.anonymous.str "a") (.bvar 2) (.bvar 1)
-              { bi := .default, pw := .ifAllZero [vN] })
-            (Expr.lam (Name.anonymous.str "h")
-              (Expr.forallE (Name.anonymous.str "a") (.bvar 3)
-                (Expr.forallE (Name.anonymous.str "b") (.bvar 4)
-                  (Expr.forallE (Name.anonymous.str "a")
-                    (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0))
-                    (.app (.app (.app (.const eqName [.param vN])
-                      (.bvar 4)) (.app (.bvar 3) (.bvar 2)))
-                      (.app (.bvar 3) (.bvar 1)))
-                    { bi := .default, pw := .ifAllZero [] }) { bi := .default, pw := .ifAllZero [] })
-                { bi := .default, pw := .ifAllZero [] })
-              (Expr.lam (Name.anonymous.str "a") (.bvar 4)
-                (.app (.bvar 2) (.bvar 0)) { bi := .default, pw := .ifAllZero [vN] })
-              { bi := .default, pw := .ifAllZero [vN] })
-            { bi := .default, pw := .ifAllZero [vN] })
-          { bi := .default, pw := .ifAllZero [vN] })
-        { bi := .default, pw := .ifAllZero [vN] })
-      { bi := .default, pw := .ifAllZero [vN] } }
-
-theorem quotLiftA_eq :
-    quotLiftA = .recInfo quotLiftA.toConstantVal 5 5 [quotLiftRule] :=
-      rfl
-
 /-- **`Quot.lift`'s right-hand side, denoted.** -/
 theorem denote_quotLift_rhsS {env : Env} (m : EnvS V env)
     {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat) (w1 w2 :
@@ -3004,24 +2895,6 @@ is `hheadEq`: this install is where `EqLawV` enters the bundle.
 (The `Eq`-former helpers `denote_eq_typeS`/`eqV_memS` sit with the
 `Quot` block above, where the bridge that consumes them lives.) -/
 
-/-- The tower is closed. -/
-theorem eqValT_closed (ψ : Name → Nat) : VExpr.Closed (eqValT ψ) := by
-  simp only [eqValT, VExpr.Closed, VExpr.bvarsBelow]
-  exact ⟨trivial, by omega, by omega, by omega, by omega, by omega⟩
-
-/-- `Eq.refl`'s tower is closed. -/
-theorem eqReflValT_closed (ψ : Name → Nat) : VExpr.Closed (eqReflValT
-  ψ) := by
-  simp only [eqReflValT, VExpr.Closed, VExpr.bvarsBelow]
-  exact ⟨trivial, by omega, trivial⟩
-/-- `Eq.rec`'s tower is closed. -/
-theorem eqRecValT_closed (ψ : Name → Nat) : VExpr.Closed (eqRecValT
-  ψ) := by
-  simp only [eqRecValT, VExpr.Closed, VExpr.bvarsBelow, VExpr.mkAppN,
-    eqValT, eqReflValT]
-  repeat' apply And.intro
-  all_goals first | trivial | omega
-
 /-- **`Eq`'s tower, interpreted.**  A three-deep `lamC` over the
 layer's truth-set former. -/
 theorem eqValT_interp (ψ : Name → Nat) (ρ : Nat → V) :
@@ -3484,31 +3357,6 @@ theorem denote_eqRec_typeS {env : Env} (m : EnvS V env)
     denote_sort,
     denote_app, denote_fvar, hEc, hRc, VExpr.mkAppN]
 
-/-- `Eq.rec`'s single stored rule. -/
-def eqRecRule : RecRule :=
-  { ctor := eqReflName, nfields := 0, ctorParams := 2, fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uN))
-      (Expr.lam (Name.anonymous.str "a") (.bvar 0)
-        (Expr.lam (Name.anonymous.str "motive")
-          (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
-            (Expr.forallE (Name.anonymous.str "t")
-              (.app (.app (.app (.const eqName [.param uN]) (.bvar 2))
-                (.bvar 1)) (.bvar 0))
-              (.sort (.param u1N)) { bi := .default, pw := .never })
-            { bi := .default, pw := .never })
-          (Expr.lam (Name.anonymous.str "refl")
-            (.app (.app (.bvar 0) (.bvar 1))
-              (.app (.app (.const eqReflName [.param uN]) (.bvar 2))
-                (.bvar 1)))
-            (.bvar 0) { bi := .default, pw := .ifAllZero [u1N] })
-          { bi := .default, pw := .ifAllZero [u1N] })
-        { bi := .default, pw := .ifAllZero [u1N] })
-      { bi := .implicit, pw := .ifAllZero [u1N] } }
-
-/-- The stored declaration, with its rule named. -/
-theorem eqRecA_eq :
-    eqRecA = .recInfo eqRecA.toConstantVal 5 4 [eqRecRule] := rfl
-
 /-- **`Eq.rec`'s rule right-hand side, denoted** — the same four
 domains the type has, over the minor premise. -/
 theorem denote_eqRec_rhsS {env : Env} (m : EnvS V env)
@@ -3945,33 +3793,6 @@ Five constants: the type and its constructor (pinned), the recursor
 (the fourth of the layer's *derived* four), and two `projInfo`
 entries — the only block that installs any. -/
 
-/-- `PSigma'.rec`'s valuation: the minor premise at the subject's two
-projections — `psigmaRec_derivable` (`Setlec/TT/Examples.lean`).  The
-last of the layer's *derived* four, and the one that derives through
-**structure η** where `Eq.rec` derived through proof irrelevance. -/
-def psigmaRecValT (ψ : Name → Nat) : VExpr :=
-  .lam (.sort (ψ uN))
-    (.lam (.pi (.bvar 0) (.sort (ψ vN)))
-      (.lam (.pi (VExpr.mkAppN (VExpr.const .psigma [ψ uN, ψ vN])
-            [.bvar 1, .bvar 0]) (.sort 0))
-        (.lam (.pi (.bvar 2)
-            (.pi (.app (.bvar 2) (.bvar 0))
-              (.app (.bvar 2) (VExpr.mkAppN
-                (VExpr.const .psigmaMk [ψ uN, ψ vN])
-                [.bvar 4, .bvar 3, .bvar 1, .bvar 0]))))
-          (.lam (VExpr.mkAppN (VExpr.const .psigma [ψ uN, ψ vN])
-              [.bvar 3, .bvar 2])
-            (.app (.app (.bvar 1) (.proj 0 (.bvar 0)))
-              (.proj 1 (.bvar 0)))))))
-
-/-- The tower is closed. -/
-theorem psigmaRecValT_closed (ψ : Name → Nat) :
-    VExpr.Closed (psigmaRecValT ψ) := by
-  simp only [psigmaRecValT, VExpr.Closed, VExpr.bvarsBelow,
-    VExpr.mkAppN]
-  repeat' apply And.intro
-  all_goals first | trivial | omega
-
 /-- The tower reads the assignment only at its own level names. -/
 theorem psigmaRecValT_congr {ψ₁ ψ₂ : Name → Nat}
     (hu : ψ₁ uN = ψ₂ uN) (hv : ψ₁ vN = ψ₂ vN) :
@@ -4128,44 +3949,6 @@ theorem denote_psigmaMk_typeS {env : Env} (m : EnvS V env)
     denote_sort,
     denote_app, denote_fvar, hPc, VExpr.mkAppN]
 
-/-- `PSigma'.rec`'s single stored rule. -/
-def psigmaRecRule : RecRule :=
-  { ctor := psigmaMkName, nfields := 2, ctorParams := 2, fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uN))
-      (Expr.lam (Name.anonymous.str "β")
-        (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-          (.sort (.param vN)) { bi := .default, pw := .never })
-        (Expr.lam (Name.anonymous.str "motive")
-          (Expr.forallE (Name.anonymous.str "t")
-            (.app (.app (.const psigmaName [.param uN, .param vN])
-              (.bvar 1)) (.bvar 0))
-            (.sort .zero) { bi := .default, pw := .never })
-          (Expr.lam (Name.anonymous.str "mk")
-            (Expr.forallE (Name.anonymous.str "fst") (.bvar 2)
-              (Expr.forallE (Name.anonymous.str "snd")
-                (.app (.bvar 2) (.bvar 0))
-                (.app (.bvar 2)
-                  (.app (.app (.app (.app (.const psigmaMkName
-                    [.param uN, .param vN]) (.bvar 4)) (.bvar 3))
-                    (.bvar 1)) (.bvar 0)))
-                { bi := .default, pw := .ifAllZero [] })
-              { bi := .default, pw := .ifAllZero [] })
-            (Expr.lam (Name.anonymous.str "fst") (.bvar 3)
-              (Expr.lam (Name.anonymous.str "snd")
-                (.app (.bvar 3) (.bvar 0))
-                (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0))
-                { bi := .default, pw := .ifAllZero [] })
-              { bi := .default, pw := .ifAllZero [] })
-            { bi := .default, pw := .ifAllZero [] })
-          { bi := .default, pw := .ifAllZero [] })
-        { bi := .default, pw := .ifAllZero [] })
-      { bi := .implicit, pw := .ifAllZero [] } }
-
-/-- The stored declaration, with its rule named. -/
-theorem psigmaRecA_eq :
-    psigmaRecA = .recInfo psigmaRecA.toConstantVal 4 4 [psigmaRecRule]
-      := rfl
-
 /-- `PSigma'.rec`'s rule right-hand side, denoted — named, because the
 iota proof has to hand it to `BetaSpine` as an explicit head. -/
 def psigmaRecRhsV (a b : Nat) : VExpr :=
@@ -4212,21 +3995,6 @@ theorem denote_psigmaRec_rhsS {env : Env} (m : EnvS V env)
     denote_forallE,
     denote_sort, denote_app, denote_fvar, hPc, hMc, hsz, psigmaRecRhsV,
     VExpr.mkAppN, Level.eval]
-
-/-- The pinned pair's projection valuations: the layer's `proj` former
-under the parameter binders (`psigmaFst_derivable`). -/
-def pairProjValT (i : Nat) (ψ : Name → Nat) : VExpr :=
-  .lam (.sort (ψ uN))
-    (.lam (.pi (.bvar 0) (.sort (ψ vN)))
-      (.lam (VExpr.mkAppN (VExpr.const .psigma [ψ uN, ψ vN])
-          [.bvar 1, .bvar 0])
-        (.proj i (.bvar 0))))
-
-theorem pairProjValT_closed (i : Nat) (ψ : Name → Nat) :
-    VExpr.Closed (pairProjValT i ψ) := by
-  simp only [pairProjValT, VExpr.Closed, VExpr.bvarsBelow, VExpr.mkAppN]
-  repeat' apply And.intro
-  all_goals first | trivial | omega
 
 /-- `PSigma'`, installed. -/
 theorem extendPSigmaS {env : Env} (m : EnvS V env)

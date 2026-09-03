@@ -1,5 +1,6 @@
 import Setlec.SetP.ErasePwInv
 import Setlec.SetP.HarvestP
+import Setlec.Verify.BinderLoop
 
 /-!
 # The pin tier's bit lemmas (task #161, ENDGAME B, task 1a)
@@ -44,7 +45,7 @@ succeeds, by monotonicity.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta inferTypeCore whnf ensureSortCore)
 

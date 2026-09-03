@@ -45,7 +45,7 @@ suppliers (`natOpsP_install` bespoke at the operation's own install,
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint natOpGuard natLitSupported)
 
@@ -1159,9 +1159,9 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
     (fun hc => tr hnF (hbool₂ (by rcases hc with rfl | rfl <;> simp)).2)
     (e1, e2) hq
   have hden : ∀ ψ : Name → Nat,
-      ∃ V0, denote mp.base.cval env ψ 0 value' = some V0 :=
+      ∃ V0, denote mp.base2.cvalE env ψ 0 value' = some V0 :=
     fun ψ => ⟨(A ψ).erase,
-      denoteP_erase mp.base_erase 0 value' (hA ψ)⟩
+      denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)⟩
   obtain ⟨hw1, hb1, hL1, hleaf1⟩ :=
     Setlec.TTVerify.natFrag_subst_syntax hvf' hbv' hfr1
   obtain ⟨hw2, hb2, hL2, hleaf2⟩ :=

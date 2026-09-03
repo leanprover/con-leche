@@ -43,31 +43,6 @@ theorem natLitV_two (ρ : Nat → V) :
             (interp V ρ (cval natZeroName (Level.substFn φ [] [])))) :=
   rfl
 
-/-- For `c` one of `Nat.div`/`Nat.mod`, the clause dispatch collapses
-to the original three `ble`-guarded clauses. -/
-theorem divModClausesV_divmod {val : Name → V} {c : Name} {x y : V}
-    (hc : c = natDivName ∨ c = natModName)
-    (h : DivModClausesV V val c x y) :
-    (app (app (val natBleName) y) x = val boolTrueName →
-     app (app (val natBleName)
-       (app (val natSuccName) (val natZeroName))) y =
-       val boolTrueName →
-     app (app (val c) x) y =
-       (if c = natDivName then
-         app (val natSuccName)
-           (app (app (val c) (app (app (val natSubName) x) y)) y)
-        else app (app (val c) (app (app (val natSubName) x) y)) y)) ∧
-    (app (app (val natBleName) y) x = val boolFalseName →
-     app (app (val c) x) y =
-       (if c = natDivName then val natZeroName else x)) ∧
-    (app (app (val natBleName)
-       (app (val natSuccName) (val natZeroName))) y =
-       val boolFalseName →
-     app (app (val c) x) y =
-       (if c = natDivName then val natZeroName else x)) := by
-  rcases hc with rfl | rfl <;>
-    simpa +decide only [DivModClausesV, if_false, if_true,
-      reduceCtorEq, decide_true, decide_false] using h
 
 /-- The common induction: `natOpVal_div` and `natOpVal_mod` at once
 (the two operations share their guards and their step argument). -/

@@ -42,7 +42,7 @@ install runs anyway; the P phases carry the annotated invariants. -/
 theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} (mp : EnvS2PM V μ env)
     (hE : Setlec.EtaFamiliesClosed env)
-    (h : DeclIndR μ F env mp.base.cval block env₂) :
+    (h : DeclIndR μ F env mp.base2.cvalE block env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨hsplit, hmain⟩ := h
   -- list bookkeeping about the block's split (v1's, verbatim)
@@ -63,7 +63,7 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     fun T cvT caps hf hcape hres _ => hE T cvT caps hf hcape hres
   have hnostore : ∀ {caps : IndCaps} {envM envR : Env}
       {cvalM cvalR : TConstVal},
-      IndMembersR μ F (block.map (·.name)) caps env mp.base.cval
+      IndMembersR μ F (block.map (·.name)) caps env mp.base2.cvalE
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => false | _ => true)) envM cvalM →
       IndRecsR μ F (block.map (·.name)) envM cvalM
@@ -83,19 +83,19 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
       exact nomatch hup
   have hI0gen : ∀ {caps : IndCaps} {envM envR : Env}
       {cvalM cvalR : TConstVal},
-      IndMembersR μ F (block.map (·.name)) caps env mp.base.cval
+      IndMembersR μ F (block.map (·.name)) caps env mp.base2.cvalE
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => false | _ => true)) envM cvalM →
       IndRecsR μ F (block.map (·.name)) envM cvalM
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => true | _ => false)) envR cvalR →
-      BlockInstalledTT (block.map (·.name)) env mp.base.cval :=
+      BlockInstalledTT (block.map (·.name)) env mp.base2.cvalE :=
     fun hmem hrecs n hn ci hf =>
       absurd (hnostore hmem hrecs n hn ci hf) (fun h => h)
   -- the annotated half, vacuous at the base for the same reason
   have hIA0gen : ∀ {caps : IndCaps} {envM envR : Env}
       {cvalM cvalR : TConstVal},
-      IndMembersR μ F (block.map (·.name)) caps env mp.base.cval
+      IndMembersR μ F (block.map (·.name)) caps env mp.base2.cvalE
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => false | _ => true)) envM cvalM →
       IndRecsR μ F (block.map (·.name)) envM cvalM
@@ -105,7 +105,7 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     fun hmem hrecs n hn ci hf =>
       absurd (hnostore hmem hrecs n hn ci hf) (fun h => h)
   have hallGen : ∀ {caps : IndCaps} {envM : Env} {cvalM : TConstVal},
-      IndMembersR μ F (block.map (·.name)) caps env mp.base.cval
+      IndMembersR μ F (block.map (·.name)) caps env mp.base2.cvalE
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => false | _ => true)) envM cvalM →
       ∀ n, (block.map (·.name)).contains n = true →
@@ -182,7 +182,7 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
         absurd (hnostore hmem hrecs n hnb _ hf) (fun h => h)
     -- the member fold, both tiers
     obtain ⟨mp₁, hcval₁, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
-      indMembersPM memberKeyS memberEtaLawP memberUnitLawP _ mp hbnNon
+      indMembersPM memberEtaLawP memberUnitLawP _ mp hbnNon
         (fun cv caps₂ hmm => by
           obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj
             (hsingle hIfilt (List.mem_filter.mp hmm).1 rfl)
@@ -190,13 +190,15 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
             fun _ h0 => hpf0 h0⟩)
         hmem (hI0gen hmem hrecs) (hIA0gen hmem hrecs) hEC0 hBP0
     rw [← hcval₁] at hrecs hI₁
-    -- the recursor group, v1 first (for the carrier and the transports)
+    -- the recursor group's model-free core (task #161 S7, Wall A):
+    -- `indRecsCoreR` supplies the carrier's transports where
+    -- `indRecsS memberKeyS mp₁.base` used to
     obtain ⟨m₂, hm₂cval, hI₂, hnonrecUp, -, -⟩ :=
-      indRecsS memberKeyS mp₁.base hI₁ hbnRec (hallGen hmem)
-        hEC₁ hBP₁ hrecs
+      indRecsCoreR (m := mp₁.toEnvR) (by exact hI₁) hbnRec
+        hEC₁ hBP₁ (by exact hrecs)
     obtain ⟨mp₂, hcval₂, hIA₂⟩ :=
-      indRecsP hμ memberKeyS memberEtaLawP memberUnitLawP mp₁ hI₁ hIA₁
-        hbnRec (hallGen hmem) hEC₁ hBP₁ m₂ hm₂cval hrecs
+      indRecsP hμ memberEtaLawP memberUnitLawP mp₁ hI₁ hIA₁
+        hbnRec (hallGen hmem) hEC₁ hBP₁ hrecs
     rw [← hcval₂] at hproj hI₂
     -- the stored former, identified (v1's argument, verbatim)
     have hidR : ∀ (cvT' : ConstantVal) (capsT' : IndCaps),
@@ -221,7 +223,7 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
       exact hnonrecUp n ci (indMembersR_mono _ hmem n ci hf) hnr
     -- the projection phase's block-level premises, both tiers
     have hinvR : ProjPhaseInvS cvT.name cvC.name nF envR
-        mp₂.base.cval := by
+        mp₂.base2.cvalE := by
       refine ⟨?_, ?_, ?_⟩
       · intro ci hf
         obtain ⟨cvm, mval, hint, hfm, hlps, -, hv⟩ :=
@@ -285,17 +287,15 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
       fun n cvS capsS hnb hf _ =>
         absurd (hnostore hmem hrecs n hnb _ hf) (fun h => h)
     obtain ⟨mp₁, hcval₁, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
-      indMembersPM memberKeyS memberEtaLawP memberUnitLawP _ mp hbnNon
+      indMembersPM memberEtaLawP memberUnitLawP _ mp hbnNon
         (fun cv caps₂ _ => ⟨etaPins_empty,
           ⟨fun h => absurd h (by decide), fun h => absurd h (by decide)⟩⟩)
         hmem (hI0gen hmem hrecs) (hIA0gen hmem hrecs) hEC0 hBP0
     rw [← hcval₁] at hrecs hI₁
-    obtain ⟨m₂, hm₂cval, -, -, -, -⟩ :=
-      indRecsS memberKeyS mp₁.base hI₁ hbnRec (hallGen hmem)
-        hEC₁ hBP₁ hrecs
+
     obtain ⟨mp₂, -, -⟩ :=
-      indRecsP hμ memberKeyS memberEtaLawP memberUnitLawP mp₁ hI₁ hIA₁
-        hbnRec (hallGen hmem) hEC₁ hBP₁ m₂ hm₂cval hrecs
+      indRecsP hμ memberEtaLawP memberUnitLawP mp₁ hI₁ hIA₁
+        hbnRec (hallGen hmem) hEC₁ hBP₁ hrecs
     exact ⟨mp₂⟩
 
 end Setlec.SetR.Interp2

@@ -44,38 +44,16 @@ WHITELIST = """
 # P-quarter dependence on it was a crossing; S2 re-based what both
 # lanes actually shared (17 modules and 9 lemma families to
 # `Setlec/SetBase/*`) and the section is empty.
-# --- the de-basing proper: `EnvS2Core.base : EnvS` and the P carriers
-# that reach the collapsed carrier through it (spec point 2).  S3
-# de-based `EnvS2Core` itself and cut its edge; what is left is the
-# fold-layer residue `EnvS2PM.base`, which S4/S5 delete with the v1
-# install round trip.  The census's "ONE hard residue" (S7,
-# `EnvS.empty_pinned` at the capstone's Empty key) is no longer an edge:
-# `acval_empty_pinnedC` takes the pin as a premise in exactly the shape
-# §1.5's carrier field will project, and the fold supplies it from the
-# residue.
-Setlec.SetP.Annot.EnvS2P -> Setlec.SetR.Interp2.EnvS2U                  # S4-S5: the v1 residue `EnvS2PM.base`, all that is left of `base : EnvS` (S3 de-based the CORE; the residue dies with the install round trip)
-# --- the v1 install round trip (census §1.3's 47 sites): the P side
-# calls a v1 install lemma only to build the new `EnvS`.  The premises
-# vanish with the de-basing, and with them the imports.  S4 measured
-# the ordering the S3 seal §2 predicted: these CANNOT die before the
-# residue does, because the round trip is what consumes `EnvS2PM.base`.
-# The value-kind case (`HarvestP -> Install/ValueKinds`) died at S4d by
-# moving its three builder calls UP to `FoldP`, the one site that holds
-# the residue; the three below are inner-fold calls whose outputs feed
-# the *next* step's v1 premises, so they concentrate at S5 instead.
-Setlec.SetP.AxiomPinP -> Setlec.SetR.StdAxiomKey                # S5: propextKeyS_mem/choiceKeyS_mem at the axiom pin
-Setlec.SetP.BasisEmptyP -> Setlec.SetR.Install.BasisS           # S5: extendEmptyS
-Setlec.SetP.IndMemberP -> Setlec.SetR.Install.IndMembersS       # S5: MIS-ATTRIBUTED, re-worded at S5 (finding).  `IndMemberP` uses NO symbol declared in `Install/IndMembersS`; its import is a re-export artifact (it resolves `BlockInstalledTT`, declared in the BASE module `Verify/Extend/Block`).  The real symbol dependence is downstream and transitive: `IndMembersP`'s `memberInstallS mp.base`, `DeclIndP`'s `indRecsS memberKeyS mp1.base`, `IndRecsP`'s `indRecsFoldS mS.base`.  Rule (b) keeps the line: the DEPENDENCE is alive and dies with the residue, and re-pointing is not shrinking (S3's precedent).
+# --- THE DE-BASING IS COMPLETE (task #161 S7).  `EnvS2PM.base` and
+# `base_erase` are deleted, `coreOfBase` with them, and the four edges
+# they fed died together: `Annot/EnvS2P -> Interp2/EnvS2U` (the
+# residue itself), `AxiomPinP -> StdAxiomKey`, `BasisEmptyP ->
+# Install/BasisS` and `IndMemberP -> Install/IndMembersS`.  The
+# install round trip is gone at every kind — the P carrier's own
+# `EnvS2Core` fields (`coreCons`, `ConsHeadP`) supply the five
+# syntactic facts directly, and `EnvS2PM.toEnvR` supplies the bridge.
 # --- the bridge: the records are SHARED, the derivations are R's.
-# S4 landed the shared half — `SetBase/Decl.lean` (the whole record
-# family), `SetBase/DeclRun.lean` (`DeclRunR`, the run/guard
-# projection) and `SetBase/NatFrag.lean` — which killed the `NatEqsP`
-# edge outright.  What is left is the fold's own call, and it survives
-# for the residue's reason, not the records': `FoldP` still needs
-# `checkDeclR_sound m`, `declIndS memberKeyS`, `declDefnS`/`declThmS`/
-# `declOpaqueS`, `divModPinS` and `reducePinS` — every one of them an
-# `EnvS` consumer at `mp.base`.
-Setlec.SetP.FoldP -> Setlec.SetR.Bridge.Sound                   # S5: the v1 round trip's last site.  S5 removed TWO of the four reasons: the eta premise (declIndEtaClosed is model-free now) and the bridge's five non-ind kinds (checkDeclR_ofEnvR runs on an `EnvR`).  What is left is `checkDeclR_sound`'s IND-kind `m` (Bridge/DeclInd's finding 8) and the three value builders `declDefnS`/`declThmS`/`declOpaqueS mp.base`.
+Setlec.SetP.FoldP -> Setlec.SetR.Bridge.Sound                   # S8+: THE LAST EDGE, and it is no longer an install round trip.  S7 made the whole bridge model-free (`checkDeclR_ofEnvRE`, off an `EnvR`), so what `FoldP` imports is one theorem whose statement and proof mention no model at all; the edge survives because `Bridge/*` still SITS in `Setlec/SetR/`.  Killing it is a MOVE (the model-free bridge to the base), not a proof: the census's re-basing pattern, priced at the `Bridge/*` closure.
 """
 
 IMP = re.compile(r'^\s*(?:public\s+|private\s+|meta\s+)*import\s+([A-Za-z0-9_.]+)', re.M)

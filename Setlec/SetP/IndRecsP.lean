@@ -1,3 +1,4 @@
+import Setlec.SetBase.IndRecsCoreR
 import Setlec.SetP.SwapP
 import Setlec.SetP.IndMembersP
 import Setlec.SetP.CapstoneP
@@ -62,7 +63,7 @@ already covers it — or carries the rules `iotaRulesP` fired. -/
 theorem indRecsFoldP (hμ : μ.verified = true) {F : Nat}
     {blockNames : List Name} {envSelf envBase : Env}
     (mp : EnvS2PM V μ envSelf)
-    (hIS : BlockInstalledTT blockNames envSelf mp.base.cval)
+    (hIS : BlockInstalledTT blockNames envSelf mp.base2.cvalE)
     (hroT : RenameOkP mp.base2.acval envSelf (fun n =>
       if blockNames.contains n then n.str "_model" else n))
     (hupB : FoldUpS envBase envSelf)
@@ -77,9 +78,9 @@ theorem indRecsFoldP (hμ : μ.verified = true) {F : Nat}
         RecLawsAtP mp.base2 cv mI rP rules) →
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
       ProvisionRecsR μ F blockNames envP cvalF recs envSelf
-        mp.base.cval checked →
+        mp.base2.cvalE checked →
       IndRecsR.IndRecsFoldR μ F blockNames envBase envSelf
-        mp.base.cval envF cvalF checked env₃ cval₃ →
+        mp.base2.cvalE envF cvalF checked env₃ cval₃ →
       ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
         (rules : List RecRule),
         env₃.find? n = some (.recInfo cv mI rP rules) →
@@ -148,30 +149,29 @@ set_option maxHeartbeats 1600000 in
 The v1 carrier at the group's output is a premise — the install runs
 `indRecsS` for it anyway, and taking it here keeps `EnvWF`,
 `RecCtorsStored` and `RecRulesV` out of the P lane entirely. -/
-theorem indRecsP (hμ : μ.verified = true) (hkey : MemberKeyS V)
+theorem indRecsP (hμ : μ.verified = true)
     (hetaP : MemberEtaLawP V) (hunitP : MemberUnitLawP V) {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
     {recs : List ConstantInfo} {cval₃ : TConstVal}
     (mp : EnvS2PM V μ env₂)
-    (hI : BlockInstalledTT blockNames env₂ mp.base.cval)
+    (hI : BlockInstalledTT blockNames env₂ mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env₂ mp.base2.acval)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true)
     (hall : ∀ n, blockNames.contains n = true →
       (env₂.find? n).isSome = true ∨ ∃ ci ∈ recs, ci.name = n)
     (hEC : Setlec.EtaFamiliesClosedO blockNames env₂)
     (hBP : Setlec.BlockEtaPinned μ blockNames env₂)
-    (hbase₃ : EnvS V env₃) (hb₃cval : hbase₃.cval = cval₃)
-    (h : IndRecsR μ F blockNames env₂ mp.base.cval recs env₃
+    (h : IndRecsR μ F blockNames env₂ mp.base2.cvalE recs env₃
       cval₃) :
     ∃ mp₃ : EnvS2PM V μ env₃,
-      mp₃.base.cval = cval₃ ∧
+      mp₃.base2.cvalE = cval₃ ∧
       BlockAcvalInstalled blockNames env₃ mp₃.base2.acval := by
   rcases h with ⟨rfl, rfl, rfl⟩ | ⟨-, heqf, envSelf, cvalSelf, checked,
     hprov, hfold⟩
   · exact ⟨mp, rfl, hIA⟩
   -- the provisioning, at both tiers
   obtain ⟨mS, hmScval, hIS, hIAS, hECS, hBPS⟩ :=
-    provisionRecsPM hkey hetaP hunitP recs mp hbn hprov hI hIA hEC hBP
+    provisionRecsPM hetaP hunitP recs mp hbn hprov hI hIA hEC hBP
   rw [← hmScval] at hprov hfold hIS
   -- every block member is stored in the provisional environment
   have hnames : ∀ n, blockNames.contains n = true →
@@ -192,8 +192,8 @@ theorem indRecsP (hμ : μ.verified = true) (hkey : MemberKeyS V)
   -- parameter, and `iotaRulesFactsR` supplies the model-free one, so
   -- the P lane no longer round-trips through the collapsed install
   -- here at all.
-  obtain ⟨hswR, -, hcvEq, -, -⟩ :=
-    indRecsFoldFacts (RuleFactsR envSelf mS.base.cval)
+  obtain ⟨hswR, hnresR, hcvEq, hentR, hentFR⟩ :=
+    indRecsFoldFacts (RuleFactsR envSelf mS.base2.cvalE)
       (fun _cvA _mI _rP rules rules' _hbnA _hselfA hiot =>
         iotaRulesFactsR
           (fun n ci hf =>
@@ -226,9 +226,12 @@ theorem indRecsP (hμ : μ.verified = true) (hkey : MemberKeyS V)
     · rw [← Env.find?_name hf]
       exact RecRuleLawP.swapP hcg hac (hlaws rl hrl hfire φ)
   -- the swap
+  obtain ⟨hwf₃, hctors₃, hbp₃, hproj₃⟩ :=
+    swapEnvFacts mS.base2.wf mS.base2.rec_ctors mS.base2.basis_pinned
+      mS.base2.proj_ok hswR hnresR hentR hentFR
   obtain ⟨mp₃, hacc, hcval₃⟩ :=
-    EnvS2PM.swapP mS hswR hbase₃ (by rw [hb₃cval, hcvEq]) hrecP
-  exact ⟨mp₃, by rw [hcval₃, hb₃cval],
+    EnvS2PM.swapP mS hswR hwf₃ hctors₃ hbp₃ hproj₃ hrecP
+  exact ⟨mp₃, by rw [hcval₃, hcvEq],
     by rw [hacc]; exact blockAcvalInstalled_swap hcg hIAS⟩
 
 end Setlec.SetR.Interp2

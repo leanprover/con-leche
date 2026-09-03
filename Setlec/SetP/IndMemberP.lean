@@ -1,6 +1,6 @@
 import Setlec.SetP.IndConsP
 import Setlec.SetP.Annot.BitRename
-import Setlec.SetR.Install.IndMembersS
+import Setlec.Verify.Extend.Block
 
 /-!
 # The block member's key, P tier (task #161, IND TIER)
@@ -75,8 +75,8 @@ inhabits the checked member's type's reading, graded, at every
 assignment. -/
 theorem memberKeyP (mp : EnvS2PM V μ env) {blockNames : List Name}
     {cv cvA : ConstantVal}
-    (hmv : MemberValR μ F env mp.base.cval blockNames cv cvA)
-    (hIB : BlockInstalledTT blockNames env mp.base.cval)
+    (hmv : MemberValR μ F env mp.base2.cvalE blockNames cv cvA)
+    (hIB : BlockInstalledTT blockNames env mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
     (ψ : Name → Nat) :
     ∃ ta, denoteP mp.base2.acval env ψ 0 cvA.type = some ta ∧
@@ -152,9 +152,10 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
     (hmlps : cvm.levelParams = cvA.levelParams)
     -- the member's type resolves in the prefix (`ConstantValR`)
     (hres : cvA.type.constsResolve env = true)
-    -- the v1 install's output, constructively
-    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hbcval : hbase.cval = cvalModeled mp.base.cval cvA.name)
+    -- the extended store's well-formedness (`memberInstallInv`'s
+    -- first conclusion; task #161 S7 — this is all the v1 install
+    -- ever supplied here)
+    (hwf : EnvWF ⟨c₀ :: env.consts⟩)
     -- the member's key at the prefix (`memberKeyP`)
     (hkeyP : ∀ ψ : Name → Nat, ∃ ta,
       denoteP mp.base2.acval env ψ 0 cvA.type = some ta ∧
@@ -186,15 +187,6 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
     · exact nomatch heq
     · injection heq with _ _ _ h4
       exact h4.symm
-  have hleaf : hbase.cval c₀.name
-      = fun ψ => mp.base.cval (cvA.name.str "_model") ψ := by
-    rw [hbcval, hname]
-    exact cvalWith_self
-  have hag : ∀ n, n ≠ c₀.name →
-      mp.base.cval n = hbase.cval n := by
-    intro n hn
-    rw [hbcval]
-    exact (cvalWith_ne (by rw [← hname]; exact hn)).symm
   have hcb : ConstsBound env cvA.type :=
     constsBound_of_constsResolve _ hres
   -- the crossing, forward
@@ -215,9 +207,16 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
           intro _ _ h <;> exact nomatch h)
     (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
           intro _ h <;> exact nomatch h)
-    hbase hag
+    (ConsHeadP.ofFresh hwf
+      (fun ψ => mp.base2.cval_closedL _ ψ) hnres'
+      (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+            intro _ h <;> exact nomatch h)
+      (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+            intro _ _ h <;> exact nomatch h)
+      (fun cv2 mI2 rP2 rules2 heq r hr => by
+        rw [hnorules cv2 mI2 rP2 rules2 heq] at hr
+        exact nomatch hr))
     -- the tower: the invariant's own leaf laws, at the model's name
-    (fun ψ => by rw [mp.base_erase, hleaf])
     (fun ψ k => mp.base2.acval_closed _ ψ k)
     (fun ψ₁ ψ₂ hps =>
       mp.base2.acval_params _ _ hmE ψ₁ ψ₂ (by
