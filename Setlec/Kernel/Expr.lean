@@ -105,6 +105,27 @@ def hasParams : PropWhen → Bool
   | .never => false
   | .ifAllZero ps => !ps.isEmpty
 
+/-- Is the datum `never` — "the codomain sort is nonzero at *every*
+valuation", the graph regime everywhere?  This is the **only**
+kernel-decidable reading of the annotation that the verification tier
+licenses a check-skip on (task #161 bucket 2, stage 1): the P-tier
+claim `whnfCore_app_claimP` splits its β case on `pwBit φ m.pw = 0`,
+and `isNever` is exactly the ∀-`φ` uniform version of its positive
+branch — `pwBit φ .never = 1` at every `φ`, and no other datum has
+that property (`.ifAllZero ps` holds at the all-zero valuation).
+Sound *and* exact: `PropWhen.holds_eq_false_iff_isNever`
+(`Verify/PropWhen.lean`) and `pwBit_ne_zero_of_isNever`
+(`SetR/Annot/Bit.lean`).
+
+The datum is read **only** to skip a re-check; it never selects a
+reduct, a computed type, or a comparison result (law 1 as amended at
+task #161: "annotations never change a reduct or a computed type;
+gating a re-check on a validated annotation is permitted where the
+P tier licenses the skip"). -/
+def isNever : PropWhen → Bool
+  | .never => true
+  | .ifAllZero _ => false
+
 /-- Are all parameters of the datum among `params`?  Folded into
 `Expr.allLevelParamsDefined` (task #161): level instantiation's
 composition law (`Level.substPW_comp`) is *false* for data whose

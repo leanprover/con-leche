@@ -1483,9 +1483,15 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
   | v, [] => pure v
   | v, a :: rest => do
     match ← viewI v with
-    | some (.lam _ ty body _mb) => do
-        let ta ← r.infer depth a
-        if ← r.defeq depth ta ty then
+    | some (.lam _ ty body mb) => do
+        -- Task #161 bucket 2 stage 1: the β-cert gate (see
+        -- `whnfCoreBody`'s `.app` clause in `Core.lean` for the
+        -- licensing argument).  `IBinderMeta.pw` is the spec datum
+        -- unchanged (`EStore.internBM` is the identity on it), so the
+        -- gate reads exactly the datum the sealed claim splits on.
+        if ← (if mb.pw.isNever then pure true else do
+                let ta ← r.infer depth a
+                r.defeq depth ta ty) then
           betaPeelI r fe depth k body [a] rest
         else do
           let fa ← internI (.app v a)
@@ -1505,9 +1511,9 @@ decreasing_by
 
 /-- Peel loop of `whnfAppI`: `t` is the raw (unsubstituted) lambda body
 after the binders consumed so far, `acc` their arguments (innermost
-first).  Each binder's argument certificate (unconditional since the
-task-#100 de-gating) substitutes only the *domain*; the body is
-substituted once, when peeling stops. -/
+first).  Each binder's argument certificate (gated on the binder's
+validated `pw` since task #161 bucket 2 stage 1) substitutes only the
+*domain*; the body is substituted once, when peeling stops. -/
 def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : EIdx → CheckIM EIdx) :
     EIdx → List EIdx → List EIdx → CheckIM EIdx
@@ -1516,10 +1522,16 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     k e'
   | t, acc, a :: rest => do
     match ← viewI t with
-    | some (.lam _ ty body _mb) => do
-        let ty' ← instListM ty acc
-        let ta ← r.infer depth a
-        if ← r.defeq depth ta ty' then
+    | some (.lam _ ty body mb) => do
+        -- Task #161 bucket 2 stage 1: the β-cert gate.  The domain's
+        -- bulk substitution is the certificate's own comparand and
+        -- nothing else reads it, so it moves inside the gate with the
+        -- run it feeds; the peel's reduct (`body`, `a :: acc`) and
+        -- the stuck fallback are untouched.
+        if ← (if mb.pw.isNever then pure true else do
+                let ty' ← instListM ty acc
+                let ta ← r.infer depth a
+                r.defeq depth ta ty') then
           betaPeelI r fe depth k body (a :: acc) rest
         else do
           let f' ← instListM t acc

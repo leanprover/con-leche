@@ -709,9 +709,12 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
   | v, [] => pure v
   | v, a :: rest => do
     match ← viewI v with
-    | some (.lam _ ty body _mb) => do
-        let ta ← r.infer depth a
-        if ← r.defeq depth ta ty then
+    | some (.lam _ ty body mb) => do
+        -- Task #161 bucket 2 stage 1: the β-cert gate (see
+        -- `whnfCoreBody`'s `.app` clause in `Kernel/Core.lean`).
+        if ← (if mb.pw.isNever then pure true else do
+                let ta ← r.infer depth a
+                r.defeq depth ta ty) then
           betaPeelI r fe depth k body [a] rest
         else do
           let fa ← internI (.app v a)
@@ -731,9 +734,9 @@ decreasing_by
 
 /-- Peel loop of `whnfAppI`: `t` is the raw (unsubstituted) lambda body
 after the binders consumed so far, `acc` their arguments (innermost
-first).  Each binder's argument certificate (unconditional since the
-task-#100 de-gating) substitutes only the *domain*; the body is
-substituted once, when peeling stops. -/
+first).  Each binder's argument certificate (gated on the binder's
+validated `pw` since task #161 bucket 2 stage 1) substitutes only the
+*domain*; the body is substituted once, when peeling stops. -/
 def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : ExprC → CheckCM ExprC) :
     ExprC → List ExprC → List ExprC → CheckCM ExprC
@@ -742,10 +745,14 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     k e'
   | t, acc, a :: rest => do
     match ← viewI t with
-    | some (.lam _ ty body _mb) => do
-        let ty' ← instListM ty acc
-        let ta ← r.infer depth a
-        if ← r.defeq depth ta ty' then
+    | some (.lam _ ty body mb) => do
+        -- Task #161 bucket 2 stage 1: the β-cert gate (see
+        -- `Kernel/CoreI.lean`'s `betaPeelI` for the domain
+        -- substitution's placement).
+        if ← (if mb.pw.isNever then pure true else do
+                let ty' ← instListM ty acc
+                let ta ← r.infer depth a
+                r.defeq depth ta ty') then
           betaPeelI r fe depth k body (a :: acc) rest
         else do
           let f' ← instListM t acc

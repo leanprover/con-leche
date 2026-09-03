@@ -1408,7 +1408,8 @@ def projCert (r : CoreFns m) (_env : Env) (depth : Nat)
   pure true
 
 /-- The head-normalization body: beta (with the per-redex argument
-certificate, unconditional since the task-#100 de-gating), iota (with
+certificate, gated on the binder's validated `pw` since task #161
+bucket 2 stage 1 — see the clause), iota (with
 the stuck-major machinery) and the native basis pair projection — but
 **no delta**; unfolding happens in the `whnf` loop.  Values (sorts,
 binders, constants, literals) return themselves. -/
@@ -1427,13 +1428,31 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         -- Certify the argument against the domain before reducing
         -- (the soundness proof needs `⟦a⟧ ∈ ⟦ty⟧` at every level
         -- assignment).  An uncertified redex stays stuck — sound, and
-        -- unreachable for well-typed input.  Task #100 de-gating: the
-        -- former possibly-Prop annotation gate (skip the certificate
-        -- at a provably nonzero codomain sort) is unsound-to-model
-        -- under the domain-relative collapse (DESIGN.md), so the
-        -- certificate now runs unconditionally.
-        let ta ← r.infer depth a
-        if ← r.defeq depth ta ty then
+        -- unreachable for well-typed input.
+        --
+        -- Task #161 bucket 2 stage 1 — the β-cert gate.  At a binder
+        -- whose *validated* datum is `never` ("the codomain sort is
+        -- nonzero at every valuation") the certificate is dead
+        -- weight: the sealed claim's positive branch
+        -- (`AnnotOkP_beta_pos` + `annotOk2_beta_dom_pos`, side
+        -- condition free via `piR_dom_unique`) derives the domain
+        -- membership from the redex's own `AnnotOk2` slot and
+        -- consumes no certificate at all.  At a possibly-zero datum
+        -- the certificate runs unconditionally — the establishment /
+        -- consumption asymmetry (the squash regime's membership is
+        -- model-class-wide unrecoverable, `io_membership_fails_at_
+        -- squash`), and that fence is absolute.  Task #100's
+        -- de-gating ruling is untouched: *that* gate skipped the
+        -- certificate at a *computed* nonzero sort, which is
+        -- unsound-to-model under the domain-relative collapse; this
+        -- one reads a validated annotation and is licensed by a
+        -- P-tier theorem.
+        --
+        -- The gate wraps the *test* only: both arms below are
+        -- verbatim what the ungated checker runs (law 1 (iii)).
+        if ← (if mb.pw.isNever then pure true else do
+                let ta ← r.infer depth a
+                r.defeq depth ta ty) then
           r.whnfCore depth (body.instantiate1 a)
         else pure (.app (.lam n ty body mb) a)
       | f' => do
