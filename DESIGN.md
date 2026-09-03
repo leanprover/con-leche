@@ -23567,3 +23567,45 @@ Probes: `_tmp/inferonly-study/ProbeIO.lean` (4 theorems, zero
 sorries, axioms exactly `[propext, Classical.choice, Quot.sound]`,
 compiled against master's model via `lake env lean`).  Study branch:
 `agent/inferonly-study` (DESIGN-only).
+
+## Task #161 BUCKET 2 IS GO — the law amendment and the campaign
+(2026-09-03; coordinator-ruled from the goal's letter,
+user-overridable)
+
+**LAW 1 AMENDED (goal-derived)**: "annotations never steer reduction
+OR RESULTS; annotation-gated CHECK-SKIPPING is permitted where
+(i) the skip's soundness is a P-tier theorem, (ii) verdicts move
+accept-ward only, (iii) reducts and computed types remain
+annotation-blind."  The fence keeping front-door gating dead is the
+study's establishment/consumption asymmetry: a gate may skip a run
+only at kinds where the sealed claims CONSUME nothing — never at an
+establishment site.
+
+**THE CAMPAIGN** (run like the last one: statement-freeze/review
+cadence, serial Opus batches, seals + succession per batch, all
+savings quoted NET of the study's 2.2–3.1% memo split):
+
+* **STAGE 1 — the β-cert gate staging batch** (shape (b)'s sole
+  survivor): gate the β-cert at the whnfCore/betaPeel sites on the
+  stored validated pw; NO statement changes — the sealed
+  `whnfCore_app_claimP` positive branch already consumes nothing
+  (`AnnotOkP_beta_pos` + `annotOk2_beta_dom_pos`); the zero-kind
+  branch KEEPS its cert (the asymmetry fence).  Prize 4.6/8.2%
+  prelude prod/cached (gross; quote net).  Full battery +
+  verdict-neutrality + both-cores measurement; lands on coordinator
+  grant.  The amendment's first landing, smallest surface.
+* **STAGE 2 — the io-knot campaign** (shape (a), the full prize):
+  resurrect #134's two-knot pattern from 63f2af1a; the per-binder
+  pw-gate in inferSpineIO; `InferClaimsIO2P` in PREMISE FORM with
+  `io_domain_transfer`; five-way step assembly; consumers switch
+  ihi→ihio.  4–6 serial Opus batches.  BINDING RISKS (the study's):
+  mode-provenance discipline — io conclusions never feed
+  establishment sites; the io reads/totality walks; the capstone
+  extension.  NEVER-LIST (absolute): no front-door gating, no
+  squash skips, no supplier io-grading.  P2's variant B
+  ratification folds in where its bucket verdict lands.
+
+**Goal closure**: bucket 2's licensed fragment removed-and-measured
++ the last open removal rows landed.  The two conformance
+RESTRICTIONS stay with the user (outside the removal goal's
+letter).
