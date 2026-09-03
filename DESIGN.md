@@ -24046,3 +24046,26 @@ ioknot-b1 (merged).  Law 1's final text stands (mode-gate in (i),
 strict accept-ward (ii)); the never-list and the
 establishment/consumption asymmetry are permanent fences; the
 supplier class and the squash wall are never re-litigated.
+
+## Task #161 USER MEASUREMENT DIRECTIVE (2026-09-03): the canonical
+verification-tax table
+
+The 14–16× (#141 folklore) vs ~30% (harvest brackets) discrepancy
+gets ONE authoritative table.  Part 1 — AUDIT --no-model's shape:
+does it still pay full internal inference (the inventory: "setlec
+has no infer_only — CoreFnsI.infer is inferBodyI at every call";
+IState.inferFC a vestige of the retired coreKnotF)?  Quote current
+vs #134-era call graphs; if the official-shaped internal-inference
+mode is gone, estimate restoring it AS A MEASUREMENT INSTRUMENT
+(unverified mode, no proof bill, the #134 precedent — the b1 io
+lane on master is unwired seed material).  Part 2 — THE TABLE:
+official kernel (arena reference on the same raw streams, #88
+precedent; nanoda only via upstream arena) | --no-model prod |
+--no-model cached | --no-model + restored io internals | --set-model
+prod | --set-model cached; rows init-prelude/init-full/grind-ring-5/
+app-lam/beta-ladder/let-ladder (+ scale shapes if cheap); ratios vs
+official per row; instructions primary, wall secondary; machine solo
+heavy legs; every apples-to-oranges caveat honest (preprocessor
+floor, stream-format differences, export-vs-olean).  Replaces the
+folklore numbers as the canonical statement.  Audit answer reported
+FIRST (it may reframe the table).
