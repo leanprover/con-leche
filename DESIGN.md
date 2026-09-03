@@ -27472,3 +27472,27 @@ skeleton's five non-ind kinds (§2), the ReduceOpsP rider (§5.4).
 Kit: `tests/layering.sh` (and `--list`); `_tmp/sep-s5/Audit.lean`,
 `closure.py`, `basecount.py` (copied forward from S4); the S1–S4 audit
 files.
+
+## Task #161 SEPARATION — S5 LANDED (2026-09-03; succession-current)
+
+Master @ the S5 merge; battery green; binary md5-identical (five
+batches now); 12 capstones standard three; whitelist 5.
+
+**Campaign record — the reusable diagnostic** (three instances):
+*a lane parameter every proof immediately projects away is a
+layering artifact, not a dependence.*  Census correction ledger +2
+(the η-only sizing collapse; the D6 zero-edit skeleton).
+DeclIndRunR: designed-not-landed under the no-consumer house rule;
+its design note is its tombstone if S6 dissolves the consumer.
+
+**S6 (dispatching), RATIFIED re-plan**: opener = Bridge/DeclInd
+finding 8's EnvR-level cons (the denote transport across a fresh
+cons with changed valuation; denote_mono fixes cval); then THE
+RESIDUE IN ONE COMMIT per the six-step order — (a) currency
+migration (128 sites), (b) premise trade, (c) 24 basis + 7 axiom
+sites, (d) 7 ind-tier sites, (e) FoldP on checkDeclR_ofEnvR,
+(f) delete base — four edges die together.  WIP side-branch
+recovery allowed; the landing stays ONE commit.  CRITERION
+(verbatim transfer): after S6 the whitelist reads FoldP →
+Bridge/Sound alone, or nothing.  Then S7 SP_P, S8 THE PAYOFF
+CHECK, S9+ io-knot.
