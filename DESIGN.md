@@ -26539,3 +26539,31 @@ Dispositions (coordinator, 2026-09-03): E1/E2/E5/E6/E7 landing granted
 next scoped campaign (per-experiment A/B, SimC proof bill flagged each
 time, statement-freeze cadence when nonzero); E5's extension to decl
 records folds into R1; preprocessor floor out of kernel scope.
+
+## Task #161 SEPARATION — S2 LANDED (2026-09-03; succession-current)
+
+Master @ `1cc39c19` (fast-forward; the branch carried master's tip
+from the review merge).  Battery green: build 524 warning-free,
+test 0, arena at all pinned counts, layering INSIDE the battery:
+base 222 / R 131 / P 116 / neutral 3; **11 P→R edges, all
+batch-tagged; 0 R→P**.  Binary md5-identical to the pre-merge
+master binary (pure moves atop perf-eng's executables).
+
+S2's story: two workers, one seam (the first died on API weather at
+b5c79d44 with 4 clean commits; the fresh worker finished from the
+seam — commit-per-edge discipline now standing for API weather).
+The 15 S2-tagged edges dead (the two-edit sever cut 11,352 2U lines
+from the P closure); the SetP tree + SetlecP target landed; the
+Pass split REFUTED (census row corrected — a census row is a
+claim).  Consumer-visible: the P capstone imports via
+`Setlec.SetP`; no in-tree umbrella victim (verified).
+
+NEXT — S3 (dispatching): the P de-basing / `EnvS2Core.base`
+re-supply.  Work order: the 7 S3-tagged whitelist edges (5 install
+round-trip + 2 base-field) + the base-field family, opening with
+the census's three syntactic re-supplies (`EnvS.wf` → the shared
+`EnvWF`; `EnvS.cval` → `fun n ψ => (acval n ψ).erase` with
+`acval_erase` = `rfl`; the ~60-line `declEtaStep` deleting the P
+dependence on Install/*).  Then S4–S5 the remaining de-basing,
+S6 SP_P, S7 the self-standing fold (the whitelist's last edge,
+`empty_pinned`), S8 THE PAYOFF CHECK, S9+ io-knot.
