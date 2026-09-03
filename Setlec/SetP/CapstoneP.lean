@@ -1,6 +1,5 @@
 import Setlec.SetP.InstallP
 import Setlec.SetP.NatStepP
-import Setlec.SetR.Interp2.EmptyPin2
 import Setlec.SetP.Step2.AcceptedP
 
 /-!
