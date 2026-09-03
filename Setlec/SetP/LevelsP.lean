@@ -38,7 +38,7 @@ states them at the U carrier, which the P tier does not have).
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal)
 
 universe w

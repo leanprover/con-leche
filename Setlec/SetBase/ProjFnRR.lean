@@ -227,6 +227,65 @@ theorem EnvR.consProjFn {env' : Env} (m : EnvR env')
     · refine natOpGuard_cons hfresh0 (m.nat_op_guard c hmem ?_)
       simp [natOpStored, hf']
 
+/-- **The projection entry's own syntactic obligations**, off
+`ProjFnR` alone (task #161 S7): the extended store's `EnvWF` and the
+stored rule's constructor.  Both lanes' conses need them — the R lane
+inside `projConsS`, the P lane at `projConsP` — and neither is
+semantic. -/
+theorem projFnR_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
+    {cval : TConstVal} {T ctorName : Name} {lps : List Name}
+    {nP nF i : Nat}
+    (hwfE : EnvWF env')
+    (hR : ProjFnR μ F env' cval T ctorName lps nP nF i env₁) :
+    EnvWF env₁ ∧
+      ∀ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+        (env₁.consts.headD default) = .recInfo cvR mI rP rules →
+        ∀ r ∈ rules, ∃ cvj cnP cnF,
+          env'.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) := by
+  obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
+    hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
+    hilt, hstripP, hbig, henv⟩ := hR
+  obtain ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
+    hrhsb, hrlp, hrres, hrstrip, hrhsKey, -, -⟩ := hbig
+  subst henv
+  have hrulesWF : ∀ r ∈ [(⟨ctorName, nF, nP,
+        if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
+        else .inert, rhsA⟩ : RecRule)],
+      (RecRule.rhs r).hasFvar = false ∧
+      (RecRule.rhs r).allLevelParamsDefined lps = true ∧
+      (RecRule.rhs r).constsResolve env' = true ∧
+      (RecRule.rhs r).looseBVarsBounded 0 = true ∧
+      ∀ lvls pins, RecRule.fire r ≠ .nested lvls pins := by
+    intro r hr
+    rcases List.mem_cons.mp hr with rfl | h
+    · refine ⟨hrhsw, hrlp, hrres, hrhsb, ?_⟩
+      intro lvls pins
+      by_cases hc : Expr.recRulePlain pty nP nP nP = true
+      · simp only [hc, if_true]
+        exact fun hh => nomatch hh
+      · simp only [eq_false_of_ne_true hc]
+        exact fun hh => nomatch hh
+    · exact nomatch h
+  refine ⟨?_, ?_⟩
+  · refine EnvWF.cons hwfE ⟨hptyf, hptylp,
+      Expr.constsResolve_mono hptyres, hptyb,
+      (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq), ?_,
+      (fun cv2 v2 heq => ConstantInfo.noConfusion heq)⟩
+    intro cv2 mI2 rP2 rules2 heq r hr
+    injection heq with h1 _ _ h4
+    rw [← h4] at hr
+    obtain ⟨w1, w2, w3, w4, w5⟩ := hrulesWF r hr
+    refine ⟨w1, by rw [← h1]; exact w2,
+      Expr.constsResolve_mono w3, w4, ?_⟩
+    intro lvls pins hfr
+    exact absurd hfr (w5 lvls pins)
+  · intro cvR mI rP rules heq r hr
+    injection heq with _ _ _ h4
+    rw [← h4] at hr
+    rcases List.mem_cons.mp hr with rfl | h
+    · exact ⟨cvj, nP, nF, hctor⟩
+    · exact nomatch h
+
 /-- **One projection field installs, at the `EnvR` level** —
 `projFnS`'s model-free twin.  The carrier is `EnvR.consProjFn`; the
 two invariants are `projFnInv`'s, so there is one proof of each
@@ -287,5 +346,33 @@ theorem projFnRR {μ : CheckMode} {F : Nat} {env' env₁ : Env}
   obtain ⟨hinv₁, hIB₁⟩ := projFnInv hRid hinv hIB hbshape
   exact ⟨m₁, hm₁cval, by rw [hm₁cval]; exact hinv₁,
     by rw [hm₁cval]; exact hIB₁⟩
+
+
+/-! ## Two shared projection-phase constants (task #161 S7)
+
+Relocated verbatim from `SetR/Install/ProjInstallS.lean`: both lanes'
+projection conses read them and neither reading is semantic. -/
+
+/-- The model projection's own name is a `projFwd` fixed point: it is
+not the family, not the constructor (their stored *kinds* differ), and
+not shaped like a public projection. -/
+theorem projFwd_model_self {T ctorName : Name} {nF i : Nat}
+    (hC : projModelName T i ≠ ctorName) :
+    projFwd T ctorName nF (projModelName T i) = projModelName T i := by
+  unfold projFwd
+  rw [if_neg (show ¬projModelName T i = T from Name.str_str_ne T _ _),
+    if_neg hC]
+  rw [show (List.range nF).find?
+      (fun j => projModelName T i == projFnName T j) = none from by
+    rw [List.find?_eq_none]
+    intro j _
+    intro hh
+    exact Name.num_ne_str _ _ _ _ (eq_of_beq hh).symm]
+
+
+/-- The valuation an elimination-template entry takes. -/
+def templateVal : (Name → Nat) → VExpr :=
+  fun _ => .eqE (.sort 0) .prf .prf
+
 
 end Setlec.SetR

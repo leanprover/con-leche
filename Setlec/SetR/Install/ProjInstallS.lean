@@ -33,22 +33,6 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 
-/-- The model projection's own name is a `projFwd` fixed point: it is
-not the family, not the constructor (their stored *kinds* differ), and
-not shaped like a public projection. -/
-theorem projFwd_model_self {T ctorName : Name} {nF i : Nat}
-    (hC : projModelName T i ≠ ctorName) :
-    projFwd T ctorName nF (projModelName T i) = projModelName T i := by
-  unfold projFwd
-  rw [if_neg (show ¬projModelName T i = T from Name.str_str_ne T _ _),
-    if_neg hC]
-  rw [show (List.range nF).find?
-      (fun j => projModelName T i == projFnName T j) = none from by
-    rw [List.find?_eq_none]
-    intro j _
-    intro hh
-    exact Name.num_ne_str _ _ _ _ (eq_of_beq hh).symm]
-
 /-! ## One field: the cons, with the bottom fired below it
 
 P1 says a helper premised on a bundle cannot establish a field of that
@@ -716,10 +700,6 @@ freeze an install decision the relation has no business making).
 in `univ 0` — which is what `denote (.sort .zero)` interprets to, the
 entry's stored junk type — `AnnotOkV`'s `eqE` clause bottoms out at
 two `prf` leaves, and it is closed and level-independent. -/
-
-/-- The valuation an elimination-template entry takes. -/
-def templateVal : (Name → Nat) → VExpr :=
-  fun _ => .eqE (.sort 0) .prf .prf
 
 set_option maxHeartbeats 1600000 in
 /-- **One elimination-template entry installs.** -/

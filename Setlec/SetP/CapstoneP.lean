@@ -48,7 +48,7 @@ file's `no_constant_of_Empty_P` then closes the capstone.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo)
 
 universe w
@@ -106,10 +106,16 @@ theorem no_constant_of_Empty_P (mp : EnvS2PM V μ env)
         (Option.some.inj hta).symm
       have hmem := mp.mem_typeP c hc (fun _ => 0) _ hta0
         (fun _ => (SetTheory.empty : V))
-      rw [interp2_acval_emptyC mp.base2 (fun ψ => by
-        rw [show mp.base2.cvalE emptyName ψ = mp.base.cval emptyName ψ
-              from mp.base_erase emptyName ψ]
-        exact mp.base.empty_pinned ψ)] at hmem
+      -- **the pin, discharged by the carrier itself** (task #161 S7):
+      -- `Empty` is stored in this branch, so `basis_pinnedL` — the
+      -- core's own field since S3 — gives the leaf its direct pin.
+      -- This is the S3 seal's prediction cashed: the premise dies with
+      -- `EnvS2PM.base`, it is not replaced.
+      rw [interp2_acval_emptyC mp.base2 (fun ψ =>
+        ⟨1, EnvS2Core.cvalE_pinned mp.base2 (by decide)
+          (by rw [hf]; rfl) ψ
+          (by simp +decide [Setlec.TTVerify.pinnedDirectT,
+            Setlec.TT.emptyT])⟩)] at hmem
       exact not_mem_empty _ hmem
     · rw [denoteP, hf] at hta
       dsimp only at hta

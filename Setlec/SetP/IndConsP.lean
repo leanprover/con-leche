@@ -55,7 +55,7 @@ projection install in v1 too (`Install/EtaLawS.lean`, the
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint)
 
@@ -102,11 +102,9 @@ theorem declStepPM_of_ind_cons (mp : EnvS2PM V μ env)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     (hnotthm : ∀ cv v, c₀ ≠ .thmInfo cv v)
     (hnotax : ∀ cv, c₀ ≠ .axiomInfo cv)
-    -- the v1 base at the extension, and its leaf
-    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
+    -- the head's own obligations (task #161 S7)
+    (hh : ConsHeadP env c₀ A)
     -- the annotated tower
-    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -135,8 +133,8 @@ theorem declStepPM_of_ind_cons (mp : EnvS2PM V μ env)
       ∀ φ : Name → Nat, RecRulesP m₂ φ) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hbase hag
-    hAerase hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
+  refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh
+    hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hvalReads`: an inductive cons is never a definition or a theorem
     intro _ψ cv2 value2 hmem
@@ -172,9 +170,7 @@ theorem declStepPM_of_ind_member_cons (mp : EnvS2PM V μ env)
     (hnres : Setlec.reservedBasisNames.contains c₀.name = false)
     (hknd : (∃ cv caps, c₀ = .indInfo cv caps) ∨
       ∃ cv nP nF, c₀ = .ctorInfo cv nP nF)
-    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
-    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
+    (hh : ConsHeadP env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -198,8 +194,8 @@ theorem declStepPM_of_ind_member_cons (mp : EnvS2PM V μ env)
       m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOkP m₂) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStepPM_of_ind_cons mp hfresh hnres ?_ ?_ ?_ hbase hag
-    hAerase hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
+  refine declStepPM_of_ind_cons mp hfresh hnres ?_ ?_ ?_ hh
+    hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     hcaps ?_
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
       intro _ _ _ h <;> exact nomatch h
@@ -219,9 +215,7 @@ theorem declStepPM_of_ind_rec_cons (mp : EnvS2PM V μ env)
     (hfresh : env.find? c₀.name = none)
     (hnres : Setlec.reservedBasisNames.contains c₀.name = false)
     (hknd : ∃ cv mI rP rules, c₀ = .recInfo cv mI rP rules)
-    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
-    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
+    (hh : ConsHeadP env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -251,7 +245,7 @@ theorem declStepPM_of_ind_rec_cons (mp : EnvS2PM V μ env)
   obtain ⟨cv, mI, rP, rules, rfl⟩ := hknd
   exact declStepPM_of_ind_cons mp hfresh hnres
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
-    (fun _ h => nomatch h) hbase hag hAerase hAclosed hAparams hAok
+    (fun _ h => nomatch h) hh hAclosed hAparams hAok
     hAvalid htyReads htyOk hmemNew hcaps hrec
 
 /-- **The P step at an elimination-*template* cons** (`TemplatesR`'s
@@ -266,11 +260,7 @@ theorem declStepPM_of_projTemplate_cons (mp : EnvS2PM V μ env)
     (hfresh : env.find? (ConstantInfo.projInfo entry).name = none)
     (hnres : Setlec.reservedBasisNames.contains
       (ConstantInfo.projInfo entry).name = false)
-    (hbase : EnvS V ⟨.projInfo entry :: env.consts⟩)
-    (hag : ∀ n, n ≠ (ConstantInfo.projInfo entry).name →
-      mp.base.cval n = hbase.cval n)
-    (hAerase : ∀ ψ, (A ψ).erase
-      = hbase.cval (ConstantInfo.projInfo entry).name ψ)
+    (hh : ConsHeadP env (.projInfo entry) A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ (ConstantInfo.projInfo entry).toConstantVal.levelParams,
@@ -301,7 +291,7 @@ theorem declStepPM_of_projTemplate_cons (mp : EnvS2PM V μ env)
         (ConstantInfo.projInfo entry).name A := by
   refine declStepPM_of_ind_cons mp hfresh hnres
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
-    (fun _ h => nomatch h) hbase hag hAerase hAclosed hAparams hAok
+    (fun _ h => nomatch h) hh hAclosed hAparams hAok
     hAvalid htyReads htyOk hmemNew ?_ ?_
   · exact fun m₂ hac => capsOkP_cons_fresh mp mp.caps_ok hfresh
       (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h)

@@ -52,7 +52,7 @@ constant whose type is *not* stored would still have a genuine choice.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS eqValT eqReflValT eqRecValT)
+open Setlec.SetR (AVExpr eqValT eqReflValT eqRecValT)
 open Setlec (Name)
 
 universe w

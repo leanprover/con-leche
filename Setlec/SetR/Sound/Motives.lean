@@ -1,4 +1,5 @@
 import Setlec.SetBase.Rel
+import Setlec.SetBase.DivModEval
 import Setlec.SetR.AnnotOkV
 import Setlec.Verify.Denote.Pinned
 import Setlec.Verify.EnvGuards
@@ -227,70 +228,6 @@ def NatOpsV (env : Env) (cval : TConstVal) (φ : Name → Nat) : Prop :=
         y ∈ˢ interp V ρ (cval natName (Level.substFn φ [] [])) →
         interp V (cons V y (cons V x ρ)) L
           = interp V (cons V y (cons V x ρ)) R
-
-/-- The `ble`-guarded value-level clauses of a pin-certified
-WF-recursive operation, over a value valuation of the level-mono
-heads (`DivModClauses` transpose, verbatim — value-level). -/
-def DivModClausesV (val : Name → V) (c : Name) (x y : V) : Prop :=
-  let vT := val boolTrueName
-  let vF := val boolFalseName
-  let one : V := SetTheory.app (val natSuccName) (val natZeroName)
-  let two : V := SetTheory.app (val natSuccName) one
-  let ble2 : V → V → V :=
-    fun a b => SetTheory.app (SetTheory.app (val natBleName) a) b
-  let op2 : V → V → V :=
-    fun a b => SetTheory.app (SetTheory.app (val c) a) b
-  let sub2 : V → V → V :=
-    fun a b => SetTheory.app (SetTheory.app (val natSubName) a) b
-  let add2 : V → V → V :=
-    fun a b => SetTheory.app (SetTheory.app (val natAddName) a) b
-  let mul2 : V → V → V :=
-    fun a b => SetTheory.app (SetTheory.app (val natMulName) a) b
-  let div2 : V → V → V :=
-    fun a b => SetTheory.app (SetTheory.app (val natDivName) a) b
-  let mod2 : V → V → V :=
-    fun a b => SetTheory.app (SetTheory.app (val natModName) a) b
-  if c = natGcdName then
-    (ble2 one x = vT → op2 x y = op2 (mod2 y x) x) ∧
-    (ble2 one x = vF → op2 x y = y)
-  else if c = natShiftLeftName then
-    (ble2 one y = vT → op2 x y = op2 (mul2 two x) (sub2 y one)) ∧
-    (ble2 one y = vF → op2 x y = x)
-  else if c = natShiftRightName then
-    (ble2 one y = vT → op2 x y = div2 (op2 x (sub2 y one)) two) ∧
-    (ble2 one y = vF → op2 x y = x)
-  else if c = natLog2Name then
-    (ble2 two x = vT →
-      SetTheory.app (val c) x
-        = SetTheory.app (val natSuccName)
-            (SetTheory.app (val c) (div2 x two))) ∧
-    (ble2 two x = vF → SetTheory.app (val c) x = val natZeroName)
-  else if c = natLandName then
-    (ble2 one x = vT →
-      op2 x y = add2 (mul2 two (op2 (div2 x two) (div2 y two)))
-        (mul2 (mod2 x two) (mod2 y two))) ∧
-    (ble2 one x = vF → op2 x y = val natZeroName)
-  else if c = natLorName then
-    (ble2 one x = vT →
-      op2 x y = add2 (mul2 two (op2 (div2 x two) (div2 y two)))
-        (sub2 (add2 (mod2 x two) (mod2 y two))
-          (mul2 (mod2 x two) (mod2 y two)))) ∧
-    (ble2 one x = vF → op2 x y = y)
-  else if c = natXorName then
-    (ble2 one x = vT →
-      op2 x y = add2 (mul2 two (op2 (div2 x two) (div2 y two)))
-        (mod2 (add2 (mod2 x two) (mod2 y two)) two)) ∧
-    (ble2 one x = vF → op2 x y = y)
-  else
-    (ble2 y x = vT → ble2 one y = vT →
-     op2 x y =
-       (if c = natDivName then
-          SetTheory.app (val natSuccName) (op2 (sub2 x y) y)
-        else op2 (sub2 x y) y)) ∧
-    (ble2 y x = vF →
-     op2 x y = (if c = natDivName then val natZeroName else x)) ∧
-    (ble2 one y = vF →
-     op2 x y = (if c = natDivName then val natZeroName else x))
 
 /-- A stored pin-certified WF-recursive operation's guard and guarded
 recurrences at the value level (`DivModOk` transpose). -/

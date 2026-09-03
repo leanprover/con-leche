@@ -1,4 +1,5 @@
 import Setlec.SetP.BasisBlocksP
+import Setlec.SetBase.BasisRules
 
 /-!
 # The `Quot` block, P tier (task #161, ENDGAME H)
@@ -29,7 +30,7 @@ are the same point.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)
 
@@ -162,9 +163,7 @@ theorem bitAgree_quotMkA (ψ : Name → Nat) :
 /-- **`Quot`, installed at the P tier.** -/
 theorem extendQuotP (mp : EnvS2PM V μ env)
     (hfresh : env.find? quotName = none)
-    (hbase : EnvS V ⟨quotA :: env.consts⟩)
-    (hag : ∀ n, n ≠ quotA.name → mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval quotA.name ψ = VExpr.const .quot [ψ uN]) :
+    (hwf : EnvWF ⟨quotA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨quotA :: env.consts⟩) := by
   refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := fun ψ => AVExpr.const .quot [ψ uN]) hfresh
@@ -172,8 +171,13 @@ theorem extendQuotP (mp : EnvS2PM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT quotA.name ψ
+          = some (VExpr.const .quot [ψ uN]) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, denoteP_quotA_type ψ⟩) ?_ ?_)
@@ -194,10 +198,7 @@ theorem extendQuotP (mp : EnvS2PM V μ env)
 theorem extendQuotMkP (mp : EnvS2PM V μ env)
     (hQ : env.find? quotName = some quotA)
     (hfresh : env.find? quotMkName = none)
-    (hbase : EnvS V ⟨quotMkA :: env.consts⟩)
-    (hag : ∀ n, n ≠ quotMkA.name → mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval quotMkA.name ψ
-      = VExpr.const .quotMk [ψ uN]) :
+    (hwf : EnvWF ⟨quotMkA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨quotMkA :: env.consts⟩) := by
   have hty := fun ψ =>
     denoteP_quotMkA_type (m := mp.base2)
@@ -208,8 +209,13 @@ theorem extendQuotMkP (mp : EnvS2PM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT quotMkA.name ψ
+          = some (VExpr.const .quotMk [ψ uN]) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
@@ -746,11 +752,7 @@ theorem extendQuotIndP (mp : EnvS2PM V μ env)
     (hQ : env.find? quotName = some quotA)
     (hM : env.find? quotMkName = some quotMkA)
     (hfresh : env.find? quotIndA.name = none)
-    (hbase : EnvS V ⟨quotIndA :: env.consts⟩)
-    (hag : ∀ n, n ≠ quotIndA.name →
-      mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval quotIndA.name ψ
-      = VExpr.const .quotInd [ψ uN]) :
+    (hwf : EnvWF ⟨quotIndA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨quotIndA :: env.consts⟩) := by
   have hty := fun ψ =>
     denoteP_quotIndA_type (m := mp.base2)
@@ -760,8 +762,19 @@ theorem extendQuotIndP (mp : EnvS2PM V μ env)
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT quotIndA.name ψ
+          = some (VExpr.const .quotInd [ψ uN]) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h)
+      (fun _ _ _ _ heq r hr => by
+        injection heq with _ _ _ h4
+        rw [← h4] at hr
+        rcases List.mem_cons.mp hr with rfl | hr'
+        · exact ⟨_, _, _, hM⟩
+        · exact nomatch hr'))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_)
@@ -1108,11 +1121,7 @@ theorem extendQuotSoundP (mp : EnvS2PM V μ env)
     (hM : env.find? quotMkName = some quotMkA)
     (hE : env.find? eqName = some eqA)
     (hfresh : env.find? quotSoundA.name = none)
-    (hbase : EnvS V ⟨quotSoundA :: env.consts⟩)
-    (hag : ∀ n, n ≠ quotSoundA.name →
-      mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval quotSoundA.name ψ
-      = VExpr.const .quotSound [ψ uN]) :
+    (hwf : EnvWF ⟨quotSoundA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨quotSoundA :: env.consts⟩) := by
   have hty := fun ψ =>
     denoteP_quotSoundA_type (m := mp.base2)
@@ -1123,8 +1132,13 @@ theorem extendQuotSoundP (mp : EnvS2PM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inr (by decide))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT quotSoundA.name ψ
+          = some (VExpr.const .quotSound [ψ uN]) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
@@ -2196,11 +2210,7 @@ theorem extendQuotLiftP (mp : EnvS2PM V μ env)
     (hM : env.find? quotMkName = some quotMkA)
     (hE : env.find? eqName = some eqA)
     (hfresh : env.find? quotLiftA.name = none)
-    (hbase : EnvS V ⟨quotLiftA :: env.consts⟩)
-    (hag : ∀ n, n ≠ quotLiftA.name →
-      mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval quotLiftA.name ψ
-      = VExpr.const .quotLift [ψ uN, ψ vN]) :
+    (hwf : EnvWF ⟨quotLiftA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨quotLiftA :: env.consts⟩) := by
   have hty := fun ψ =>
     denoteP_quotLiftA_type (m := mp.base2)
@@ -2213,8 +2223,19 @@ theorem extendQuotLiftP (mp : EnvS2PM V μ env)
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT quotLiftA.name ψ
+          = some (VExpr.const .quotLift [ψ uN, ψ vN]) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h)
+      (fun _ _ _ _ heq r hr => by
+        injection heq with _ _ _ h4
+        rw [← h4] at hr
+        rcases List.mem_cons.mp hr with rfl | hr'
+        · exact ⟨_, _, _, hM⟩
+        · exact nomatch hr'))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_)
@@ -2262,10 +2283,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩
-  obtain ⟨m1, hm1⟩ := extendQuotS mp.base hf1 hwf1
-  obtain ⟨mp1⟩ := extendQuotP mp hf1 m1
-    (fun n hn => by rw [hm1, cvalWith_ne hn])
-    (fun ψ => by rw [hm1, cvalWith_self])
+  obtain ⟨mp1⟩ := extendQuotP mp hf1  hwf1
   have hQ1 : (⟨quotA :: env.consts⟩ : Env).find? quotName
       = some quotA := by
     rw [Setlec.Env.find?_cons]; exact if_pos rfl
@@ -2294,10 +2312,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
             { bi := .default, pw := .ifAllZero [uN] })
           { bi := .implicit, pw := .ifAllZero [uN] } from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨m2, hm2⟩ := extendQuotMkS mp1.base hQ1 hf2 hwf2
-  obtain ⟨mp2⟩ := extendQuotMkP mp1 hQ1 hf2 m2
-    (fun n hn => by rw [hm2, cvalWith_ne hn])
-    (fun ψ => by rw [hm2, cvalWith_self])
+  obtain ⟨mp2⟩ := extendQuotMkP mp1 hQ1 hf2  hwf2
   have hQ2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotName
       = some quotA := by
     rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hQ1
@@ -2366,10 +2381,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
           simp [Expr.constsResolve, quotLiftRule, hfE], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨m3, hm3⟩ := extendQuotLiftS mp2.base hQ2 hM2 hE2 hf3 hwf3
-  obtain ⟨mp3⟩ := extendQuotLiftP mp2 hQ2 hM2 hE2 hf3 m3
-    (fun n hn => by rw [hm3, cvalWith_ne hn])
-    (fun ψ => by rw [hm3, cvalWith_self])
+  obtain ⟨mp3⟩ := extendQuotLiftP mp2 hQ2 hM2 hE2 hf3  hwf3
   have hQ3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
       : Env).find? quotName = some quotA := by
     rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hQ2
@@ -2433,10 +2445,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
           simp [Expr.constsResolve, quotIndRule, hfQ, hfM], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨m4, hm4⟩ := extendQuotIndS mp3.base hQ3 hM3 hf4 hwf4
-  obtain ⟨mp4⟩ := extendQuotIndP mp3 hQ3 hM3 hf4 m4
-    (fun n hn => by rw [hm4, cvalWith_ne hn])
-    (fun ψ => by rw [hm4, cvalWith_self])
+  obtain ⟨mp4⟩ := extendQuotIndP mp3 hQ3 hM3 hf4  hwf4
   have hQ4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
       :: env.consts⟩ : Env).find? quotName = some quotA := by
     rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hQ3
@@ -2492,10 +2501,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
               { bi := .implicit, pw := .ifAllZero [] })
             { bi := .implicit, pw := .ifAllZero [] } from rfl]
     simp [Expr.constsResolve, hfQ, hfM, hfE]
-  obtain ⟨m5, hm5⟩ := extendQuotSoundS mp4.base hQ4 hM4 hE4 hf5 hwf5
-  exact extendQuotSoundP mp4 hQ4 hM4 hE4 hf5 m5
-    (fun n hn => by rw [hm5, cvalWith_ne hn])
-    (fun ψ => by rw [hm5, cvalWith_self])
+  exact extendQuotSoundP mp4 hQ4 hM4 hE4 hf5  hwf5
 
 end Quot
 

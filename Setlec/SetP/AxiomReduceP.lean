@@ -37,7 +37,7 @@ four branches, and `FoldP`'s `hax` premise is gone.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta inferTypeCore)
 
@@ -344,17 +344,8 @@ theorem axiomOfReduceP (hμ : μ.verified = true)
     · intro cv2 value2 hint2 heq; exact nomatch heq
     · intro cv2 mI rP rules heq; exact nomatch heq
     · intro cv2 value2 heq; exact nomatch heq
-  obtain ⟨m', hag, hself⟩ :=
-    extendAxiomS mp.base (cv := ⟨cv.name, cv.levelParams, type'⟩)
-      (Vf := fun _ => .prf)
-      hfresh hwfc (fun _ => trivial) (fun _ _ _ => rfl)
-      (fun _ _ => trivial)
-      (fun ψ => ofReduceKeyS_mem mp.base hok hor ψ) hnres
-      (by rcases hor with h | h <;>
-        rw [show (⟨cv.name, cv.levelParams, type'⟩ :
-          ConstantVal).name = cv.name from rfl, h] <;> decide)
-  refine harvestAxiomP (V := V) hμ mp hcv m' hag
-    (A := fun _ => AVExpr.prf) (fun ψ => by rw [hself ψ]; rfl)
+  refine harvestAxiomP (V := V) hμ mp hcv
+    (A := fun _ => AVExpr.prf) (fun _ => trivial)
     (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ => by simp)
     (fun _ _ => by simp) ?_
     (by rcases hor with h | h <;> rw [h] <;> decide)

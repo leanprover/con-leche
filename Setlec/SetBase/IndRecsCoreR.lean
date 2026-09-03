@@ -213,6 +213,128 @@ theorem EnvR.swap_cval {env₀ env₃ : Env} (m₀ : EnvR env₀)
             (r.rhs.instantiateLevelParams cv.levelParams us) = some R) :
     (m₀.swap hsw hwf hle hrhs).cval = m₀.cval := rfl
 
+/-! ## The swapped environment's four syntactic facts
+
+`EnvR.swap` takes `EnvWF env₃` as a hypothesis and needs no
+`RecCtorsStored`/`BasisPinnedTT`/`ProjOkT` of its own — but the *P*
+lane's carrier (`EnvS2Core`) carries all four, and the [set] install
+proves them inside `indRecsS`.  They are extracted here so that the
+ind tier's two swaps (`indRecsCoreR` below and `EnvS2PM.swapP`) share
+one proof, off `RuleFactsR` alone.
+-/
+
+set_option maxHeartbeats 1600000 in
+/-- **The four syntactic environment facts survive the group swap.** -/
+theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
+    (hwfS : EnvWF envSelf) (hctorsS : RecCtorsStored envSelf)
+    (hbpS : BasisPinnedTT envSelf cvalSelf) (hprojS : ProjOkT envSelf)
+    (hswR : SwapShList envSelf.consts env₃.consts)
+    (hnresR : SwapNResS envSelf env₃)
+    (hentR : ∀ c ∈ env₃.consts, c ∈ envSelf.consts ∨
+      ∃ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+        c = .recInfo cv mI rP rules ∧
+        ∀ rl ∈ rules, RuleFactsR envSelf cvalSelf cv mI rP rl)
+    (hentF : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
+      (rules : List RecRule),
+      env₃.find? n = some (.recInfo cv mI rP rules) →
+      envSelf.find? n = some (.recInfo cv mI rP rules) ∨
+      ∀ rl ∈ rules, RuleFactsR envSelf cvalSelf cv mI rP rl) :
+    EnvWF env₃ ∧ RecCtorsStored env₃ ∧
+      BasisPinnedTT env₃ cvalSelf ∧ ProjOkT env₃ := by
+  have hcg : SwapCongr envSelf env₃ := SwapShList.congr hswR
+  have hcorr : ∀ n : Name,
+      env₃.find? n = envSelf.find? n ∨
+      ∃ cv mI rP rules,
+        envSelf.find? n = some (.recInfo cv mI rP []) ∧
+        env₃.find? n = some (.recInfo cv mI rP rules) ∧
+        cv.name = n := swapSh_find?_corr hswR
+  have hsame : ∀ (n : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      (env₃.find? n = some ci ↔ envSelf.find? n = some ci) :=
+    fun n ci hnr =>
+      ⟨fun h => hcg.findDown n ci h hnr, fun h => hcg.findUp n ci h hnr⟩
+  have hres₃ : ∀ e : Expr, e.constsResolve envSelf = true →
+      e.constsResolve env₃ = true := by
+    intro e he
+    rw [← Expr.constsResolve_congr hcg.isSomeEq]
+    exact he
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · -- `EnvWF`
+    intro c hc
+    rcases hentR c hc with hcS | ⟨cv, mI, rP, rules, rfl, hfacts⟩
+    · obtain ⟨hSw, hSlp, hSres, hSb, hSdef, hSrec, hSthm⟩ := hwfS c hcS
+      refine ⟨hSw, hSlp, hres₃ _ hSres, hSb, ?_, ?_, ?_⟩
+      · intro cv v hint heq
+        obtain ⟨d1, d2, d3, d4⟩ := hSdef cv v hint heq
+        exact ⟨d1, d2, hres₃ _ d3, d4⟩
+      · intro cv mI rP rules heq r hr
+        obtain ⟨r1, r2, r3, r4, r5⟩ := hSrec cv mI rP rules heq r hr
+        refine ⟨r1, r2, hres₃ _ r3, r4, ?_⟩
+        intro lvls pins hfr
+        obtain ⟨n1, n2, n3, n4⟩ := r5 lvls pins hfr
+        refine ⟨n1, n2, ?_, n4⟩
+        intro pin hpin
+        obtain ⟨p1, p2, p3, p4⟩ := n3 pin hpin
+        exact ⟨p1, p2, hres₃ _ p3, p4⟩
+      · intro cv v heq
+        obtain ⟨t1, t2, t3, t4⟩ := hSthm cv v heq
+        exact ⟨t1, t2, hres₃ _ t3, t4⟩
+    · obtain ⟨c₀, hc₀, hpair⟩ := swapSh_mem_corr hswR _ hc
+      obtain ⟨hSw, hSlp, hSres, hSb, -, -, -⟩ := hwfS c₀ hc₀
+      have hcvt : c₀.toConstantVal = cv := by
+        rcases hpair with rfl | ⟨cv', mI', rP', rules', rfl, heq⟩
+        · rfl
+        · obtain ⟨rfl, -, -, -⟩ := ConstantInfo.recInfo.inj heq
+          rfl
+      rw [hcvt] at hSw hSlp hSres hSb
+      refine ⟨hSw, hSlp, hres₃ _ hSres, hSb,
+        fun _ _ _ hcon => ConstantInfo.noConfusion hcon, ?_,
+        fun _ _ hcon => ConstantInfo.noConfusion hcon⟩
+      intro cv' mI' rP' rules' heq r hr
+      obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj heq
+      obtain ⟨w1, w2, w3, w4, w5, -, -⟩ := hfacts r hr
+      refine ⟨w1, w2, hres₃ _ w3, w4, ?_⟩
+      intro lvls pins hfr
+      obtain ⟨n1, n2, n3, n4⟩ := w5 lvls pins hfr
+      refine ⟨n1, n2, ?_, n4⟩
+      intro pin hpin
+      obtain ⟨p1, p2, p3, p4⟩ := n3 pin hpin
+      exact ⟨p1, p2, hres₃ _ p3, p4⟩
+  · -- `RecCtorsStored`
+    intro n cv mI rP rules hf r hr
+    rcases hentF n cv mI rP rules hf with hfS | hfacts
+    · obtain ⟨cvj, cnP, cnF, hfc⟩ := hctorsS n cv mI rP rules hfS r hr
+      exact ⟨cvj, cnP, cnF, hcg.findUp _ _ hfc
+        (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon)⟩
+    · obtain ⟨-, -, -, -, -, ⟨cvj, cnP, cnF, hfc⟩, -⟩ := hfacts r hr
+      exact ⟨cvj, cnP, cnF, hcg.findUp _ _ hfc
+        (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon)⟩
+  · -- `BasisPinnedTT`: a genuinely swapped entry is never reserved
+    intro n ci hf hres
+    have hf₀ : envSelf.find? n = some ci := by
+      rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+      · rw [← heq]; exact hf
+      · rcases hnresR n cv mI rP rules h₀ h₃ with rfl | hnr
+        · rw [h₃] at hf
+          obtain rfl := Option.some.inj hf
+          exact h₀
+        · rw [hnr] at hres
+          exact nomatch hres
+    exact hbpS n ci hf₀ hres
+  · -- `ProjOkT`: projection entries are untouched
+    obtain ⟨hp1, hp2⟩ := hprojS
+    refine ⟨?_, ?_⟩
+    · intro n entry hf hnat
+      obtain ⟨he, hps, hpm⟩ :=
+        hp1 n entry ((hsame n _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hnat
+      exact ⟨he,
+        (hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hps,
+        (hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hpm⟩
+    · intro i entry hf
+      exact hp2 i entry ((hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+
 /-! ## The group phase, at the `EnvR` level -/
 
 set_option maxHeartbeats 3200000 in

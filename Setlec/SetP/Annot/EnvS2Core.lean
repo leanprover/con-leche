@@ -119,6 +119,19 @@ theorem EnvS2Core.basis_pinned {env : Env} (m : EnvS2Core V env) :
     BasisPinnedTT env m.cvalE :=
   m.basis_pinnedL
 
+/-- **A pinned constant's leaf is its direct pin** — `cvalS_pinned`'s
+model-free twin (task #161 S7, Wall C step (a)).  The fact is
+`basis_pinnedL`'s second component; the `EnvS` form existed only
+because the carrier used to borrow the field. -/
+theorem EnvS2Core.cvalE_pinned {env : Env} (m : EnvS2Core V env)
+    {n : Name} (hres : Setlec.reservedBasisNames.contains n = true)
+    (hst : (env.find? n).isSome = true) (ψ : Name → Nat) {t : VExpr}
+    (hpin : Setlec.TTVerify.pinnedDirectT n ψ = some t) :
+    m.cvalE n ψ = t := by
+  cases hf : env.find? n with
+  | none => rw [hf] at hst; exact nomatch hst
+  | some ci => exact (m.basis_pinned n ci hf hres).2 t ψ hpin
+
 /-- The empty environment's core: the leaf is the bare `.const .empty
 [0]` at every name (`EnvS2.empty`'s valuation, one currency over), and
 every syntactic field is vacuous over `env.consts = []`. -/

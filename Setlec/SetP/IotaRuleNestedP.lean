@@ -67,7 +67,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hf : f = fun n =>
       if blockNames.contains n then n.str "_model" else n)
     (hroT : RenameOkP mp.base2.acval envSelf f)
-    (hIS : BlockInstalledTT blockNames envSelf mp.base.cval)
+    (hIS : BlockInstalledTT blockNames envSelf mp.base2.cvalE)
     (hup : ∀ (n : Name) (ci : ConstantInfo), env₂.find? n = some ci →
       envSelf.find? n = some ci ∨
       ∃ cv mI' rP' rules rules',
@@ -77,7 +77,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
-    (hkit : IotaRuleR μ F env₂ envSelf mp.base.cval f cvA.name
+    (hkit : IotaRuleR μ F env₂ envSelf mp.base2.cvalE f cvA.name
       cvA.levelParams cvA.type mI rP j r r')
     {lvls : List Level} {pins : List Expr}
     (hfireN : RecRule.fire r' = .nested lvls pins) (φ : Name → Nat) :
@@ -422,7 +422,7 @@ theorem iotaRuleP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hf : f = fun n =>
       if blockNames.contains n then n.str "_model" else n)
     (hroT : RenameOkP mp.base2.acval envSelf f)
-    (hIS : BlockInstalledTT blockNames envSelf mp.base.cval)
+    (hIS : BlockInstalledTT blockNames envSelf mp.base2.cvalE)
     (hup : ∀ (n : Name) (ci : ConstantInfo), env₂.find? n = some ci →
       envSelf.find? n = some ci ∨
       ∃ cv mI' rP' rules rules',
@@ -432,7 +432,7 @@ theorem iotaRuleP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
-    (hkit : IotaRuleR μ F env₂ envSelf mp.base.cval f cvA.name
+    (hkit : IotaRuleR μ F env₂ envSelf mp.base2.cvalE f cvA.name
       cvA.levelParams cvA.type mI rP j r r')
     (hfire : RecRule.fire r' ≠ .inert) (φ : Name → Nat) :
     RecRuleLawP mp.base2 φ cvA.name cvA mI rP r' := by
@@ -459,14 +459,14 @@ theorem iotaRulesP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hf : f = fun n =>
       if blockNames.contains n then n.str "_model" else n)
     (hroT : RenameOkP mp.base2.acval envSelf f)
-    (hIS : BlockInstalledTT blockNames envSelf mp.base.cval)
+    (hIS : BlockInstalledTT blockNames envSelf mp.base2.cvalE)
     (hup : FoldUpS env₂ envSelf)
     {cvA : ConstantVal} {mI rP : Nat}
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA) :
     ∀ (j : Nat) (rules rules' : List RecRule),
-      IotaRulesR μ F env₂ envSelf mp.base.cval f cvA.name
+      IotaRulesR μ F env₂ envSelf mp.base2.cvalE f cvA.name
         cvA.levelParams cvA.type mI rP j rules rules' →
       ∀ rl ∈ rules', RecRule.fire rl ≠ .inert → ∀ φ : Name → Nat,
         RecRuleLawP mp.base2 φ cvA.name cvA mI rP rl := by

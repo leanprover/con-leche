@@ -1,4 +1,5 @@
 import Setlec.SetP.LevelsP
+import Setlec.SetBase.BasisRules
 
 /-!
 # The remaining basis blocks, P tier (task #161, ENDGAME G)
@@ -27,7 +28,7 @@ Three pieces of kit that `BasisEmptyP.lean` did not need, because
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)
 
@@ -448,10 +449,7 @@ theorem punitRecLawP {m : EnvS2Core V env}
 /-- **`PUnit`, installed at the P tier.** -/
 theorem extendPUnitP (mp : EnvS2PM V μ env)
     (hfresh : env.find? punitName = none)
-    (hbase : EnvS V ⟨punitA :: env.consts⟩)
-    (hag : ∀ n, n ≠ punitA.name → mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval punitA.name ψ
-      = VExpr.const .punit [ψ uN]) :
+    (hwf : EnvWF ⟨punitA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨punitA :: env.consts⟩) := by
   refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := fun ψ => AVExpr.const .punit [ψ uN]) hfresh
@@ -459,8 +457,13 @@ theorem extendPUnitP (mp : EnvS2PM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT punitA.name ψ
+          = some (VExpr.const .punit [ψ uN]) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, denoteP_punitA_type ψ⟩) ?_ ?_)
@@ -479,11 +482,7 @@ theorem extendPUnitP (mp : EnvS2PM V μ env)
 theorem extendPUnitUnitP (mp : EnvS2PM V μ env)
     (hP : env.find? punitName = some punitA)
     (hfresh : env.find? punitUnitName = none)
-    (hbase : EnvS V ⟨punitUnitA :: env.consts⟩)
-    (hag : ∀ n, n ≠ punitUnitA.name →
-      mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval punitUnitA.name ψ
-      = VExpr.const .punitUnit [ψ uN]) :
+    (hwf : EnvWF ⟨punitUnitA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨punitUnitA :: env.consts⟩) := by
   have hty := fun ψ =>
     denoteP_punitUnitA_type (m := mp.base2)
@@ -494,8 +493,13 @@ theorem extendPUnitUnitP (mp : EnvS2PM V μ env)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT punitUnitA.name ψ
+          = some (VExpr.const .punitUnit [ψ uN]) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
@@ -516,11 +520,7 @@ theorem extendPUnitRecP (mp : EnvS2PM V μ env)
     (hP : env.find? punitName = some punitA)
     (hU : env.find? punitUnitName = some punitUnitA)
     (hfresh : env.find? punitRecA.name = none)
-    (hbase : EnvS V ⟨punitRecA :: env.consts⟩)
-    (hag : ∀ n, n ≠ punitRecA.name →
-      mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval punitRecA.name ψ
-      = VExpr.const .punitRec [ψ uN, ψ u1N]) :
+    (hwf : EnvWF ⟨punitRecA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨punitRecA :: env.consts⟩) := by
   have hty := fun ψ =>
     denoteP_punitRecA_type (m := mp.base2)
@@ -530,8 +530,19 @@ theorem extendPUnitRecP (mp : EnvS2PM V μ env)
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT punitRecA.name ψ
+          = some (VExpr.const .punitRec [ψ uN, ψ u1N]) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h)
+      (fun _ _ _ _ heq r hr => by
+        injection heq with _ _ _ h4
+        rw [← h4] at hr
+        rcases List.mem_cons.mp hr with rfl | hr'
+        · exact ⟨_, _, _, hU⟩
+        · exact nomatch hr'))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_)
@@ -574,10 +585,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvS2PM V μ env)
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩
-  obtain ⟨m1, hm1⟩ := extendPUnitS mp.base hf1 hwf1
-  obtain ⟨mp1⟩ := extendPUnitP mp hf1 m1
-    (fun n hn => by rw [hm1, cvalWith_ne hn])
-    (fun ψ => by rw [hm1, cvalWith_self]; rfl)
+  obtain ⟨mp1⟩ := extendPUnitP mp hf1  hwf1
   have hP1 : (⟨punitA :: env.consts⟩ : Env).find? punitName
       = some punitA := by
     rw [Setlec.Env.find?_cons]; exact if_pos rfl
@@ -595,10 +603,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvS2PM V μ env)
         = Expr.const punitName [.param uN] from rfl,
       Expr.constsResolve, hf]
     rfl
-  obtain ⟨m2, hm2⟩ := extendPUnitUnitS mp1.base hP1 hf2 hwf2
-  obtain ⟨mp2⟩ := extendPUnitUnitP mp1 hP1 hf2 m2
-    (fun n hn => by rw [hm2, cvalWith_ne hn])
-    (fun ψ => by rw [hm2, cvalWith_self]; rfl)
+  obtain ⟨mp2⟩ := extendPUnitUnitP mp1 hP1 hf2  hwf2
   have hP2 : (⟨punitUnitA :: punitA :: env.consts⟩ : Env).find?
       punitName = some punitA := by
     rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hP1
@@ -654,10 +659,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvS2PM V μ env)
           simp only [Expr.constsResolve, hfP, hfU, Option.isSome_some,
             Bool.and_self]
       · exact nomatch hr'
-  obtain ⟨m3, hm3⟩ := extendPUnitRecS mp2.base hP2 hU2 hf3 hwf3
-  exact extendPUnitRecP mp2 hP2 hU2 hf3 m3
-    (fun n hn => by rw [hm3, cvalWith_ne hn])
-    (fun ψ => by rw [hm3, cvalWith_self])
+  exact extendPUnitRecP mp2 hP2 hU2 hf3  hwf3
 
 end PUnit
 
@@ -845,16 +847,19 @@ bespoke non-firing obligation, two memberships. -/
 theorem extendNatP (mp : EnvS2PM V μ env)
     (hfresh : env.find? natName = none)
     (hguard : Setlec.natLitSupported ⟨natA :: env.consts⟩ = false)
-    (hbase : EnvS V ⟨natA :: env.consts⟩)
-    (hag : ∀ n, n ≠ natA.name → mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval natA.name ψ = VExpr.const .nat []) :
+    (hwf : EnvWF ⟨natA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨natA :: env.consts⟩) := by
   refine nonempty_of_exists (declStepPM_of_basis_cons_gen mp
     (A := fun _ => AVExpr.const .nat []) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT natA.name ψ
+          = some (VExpr.const .nat []) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, denoteP_natA_type ψ⟩) ?_ ?_ ?_ ?_)
@@ -877,11 +882,7 @@ theorem extendNatZeroP (mp : EnvS2PM V μ env)
     (hN : env.find? natName = some natA)
     (hfresh : env.find? natZeroName = none)
     (hguard : Setlec.natLitSupported ⟨natZeroA :: env.consts⟩ = false)
-    (hbase : EnvS V ⟨natZeroA :: env.consts⟩)
-    (hag : ∀ n, n ≠ natZeroA.name →
-      mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval natZeroA.name ψ
-      = VExpr.const .natZero []) :
+    (hwf : EnvWF ⟨natZeroA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨natZeroA :: env.consts⟩) := by
   have hty := fun ψ =>
     denoteP_natZeroA_type (m := mp.base2)
@@ -890,8 +891,13 @@ theorem extendNatZeroP (mp : EnvS2PM V μ env)
     (A := fun _ => AVExpr.const .natZero []) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT natZeroA.name ψ
+          = some (VExpr.const .natZero []) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_ ?_)
@@ -916,11 +922,7 @@ theorem extendNatSuccP (mp : EnvS2PM V μ env)
     (hN : env.find? natName = some natA)
     (hZ : env.find? natZeroName = some natZeroA)
     (hfresh : env.find? natSuccName = none)
-    (hbase : EnvS V ⟨natSuccA :: env.consts⟩)
-    (hag : ∀ n, n ≠ natSuccA.name →
-      mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval natSuccA.name ψ
-      = VExpr.const .natSucc []) :
+    (hwf : EnvWF ⟨natSuccA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨natSuccA :: env.consts⟩) := by
   have hty := fun ψ =>
     denoteP_natSuccA_type (m := mp.base2)
@@ -929,8 +931,13 @@ theorem extendNatSuccP (mp : EnvS2PM V μ env)
     (A := fun _ => AVExpr.const .natSucc []) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT natSuccA.name ψ
+          = some (VExpr.const .natSucc []) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_ ?_)
@@ -1812,10 +1819,7 @@ theorem extendNatRecP (mp : EnvS2PM V μ env)
     (hZ : env.find? natZeroName = some natZeroA)
     (hS : env.find? natSuccName = some natSuccA)
     (hfresh : env.find? natRecA.name = none)
-    (hbase : EnvS V ⟨natRecA :: env.consts⟩)
-    (hag : ∀ n, n ≠ natRecA.name → mp.base.cval n = hbase.cval n)
-    (hcv : ∀ ψ, hbase.cval natRecA.name ψ
-      = VExpr.const .natRec [ψ uN]) :
+    (hwf : EnvWF ⟨natRecA :: env.consts⟩) :
     Nonempty (EnvS2PM V μ ⟨natRecA :: env.consts⟩) := by
   have hty := fun ψ =>
     denoteP_natRecA_type (m := mp.base2)
@@ -1825,8 +1829,21 @@ theorem extendNatRecP (mp : EnvS2PM V μ env)
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))
-    hbase hag
-    (fun ψ => by rw [hcv ψ]; rfl)
+    (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
+      (fun ψ t hp => by
+        rw [show Setlec.TTVerify.pinnedDirectT natRecA.name ψ
+          = some (VExpr.const .natRec [ψ uN]) from rfl] at hp
+        rw [← Option.some.inj hp]
+        rfl)
+      (fun _ h => nomatch h)
+      (fun _ _ _ _ heq r hr => by
+        injection heq with _ _ _ h4
+        rw [← h4] at hr
+        rcases List.mem_cons.mp hr with rfl | hr'
+        · exact ⟨_, _, _, hZ⟩
+        rcases List.mem_cons.mp hr' with rfl | hr''
+        · exact ⟨_, _, _, hS⟩
+        · exact nomatch hr''))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_)
@@ -1869,13 +1886,10 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
       (fun _ _ heq => nomatch heq)⟩
   have hf2 : (⟨natA :: env.consts⟩ : Env).find? natZeroA.name = none :=
     Option.isNone_iff_eq_none.mp h2
-  obtain ⟨m1, hm1⟩ := extendNatS mp.base hf1 hwf1
   obtain ⟨mp1⟩ := extendNatP mp hf1
     (by simp [Setlec.natLitSupported, Setlec.natZeroOk,
       show (⟨natA :: env.consts⟩ : Env).find? natZeroName = none
-        from hf2]) m1
-    (fun n hn => by rw [hm1, cvalWith_ne hn])
-    (fun ψ => by rw [hm1, cvalWith_self]; rfl)
+        from hf2]) hwf1
   have hN1 : (⟨natA :: env.consts⟩ : Env).find? natName
       = some natA := by
     rw [Setlec.Env.find?_cons]; exact if_pos rfl
@@ -1892,13 +1906,10 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
     simp [Expr.constsResolve, hf]
   have hf3 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find?
       natSuccA.name = none := Option.isNone_iff_eq_none.mp h3
-  obtain ⟨m2, hm2⟩ := extendNatZeroS mp1.base hN1 hf2 hwf2
   obtain ⟨mp2⟩ := extendNatZeroP mp1 hN1 hf2
     (by simp [Setlec.natLitSupported, Setlec.natSuccOk,
       show (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natSuccName
-        = none from hf3]) m2
-    (fun n hn => by rw [hm2, cvalWith_ne hn])
-    (fun ψ => by rw [hm2, cvalWith_self]; rfl)
+        = none from hf3]) hwf2
   have hN2 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natName
       = some natA := by
     rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hN1
@@ -1917,10 +1928,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
       = Expr.forallE (Name.anonymous.str "n") (.const natName [])
         (.const natName []) { bi := .default, pw := .never } from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨m3, hm3⟩ := extendNatSuccS mp2.base hN2 hf3 hwf3
-  obtain ⟨mp3⟩ := extendNatSuccP mp2 hN2 hZ2 hf3 m3
-    (fun n hn => by rw [hm3, cvalWith_ne hn])
-    (fun ψ => by rw [hm3, cvalWith_self])
+  obtain ⟨mp3⟩ := extendNatSuccP mp2 hN2 hZ2 hf3  hwf3
   have hN3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩
       : Env).find? natName = some natA := by
     rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hN2
@@ -1994,10 +2002,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
             simp only [natRecSuccRule, Expr.constsResolve, hfN, hfZ,
               hfS, hfR, Option.isSome_some, Bool.and_self]
         · exact nomatch hr''
-  obtain ⟨m4, hm4⟩ := extendNatRecS mp3.base hN3 hZ3 hS3 hf4 hwf4
-  exact extendNatRecP mp3 hN3 hZ3 hS3 hf4 m4
-    (fun n hn => by rw [hm4, cvalWith_ne hn])
-    (fun ψ => by rw [hm4, cvalWith_self])
+  exact extendNatRecP mp3 hN3 hZ3 hS3 hf4  hwf4
 
 end Nat
 

@@ -1,5 +1,6 @@
 import Setlec.SetP.ProjRenameP
 import Setlec.SetP.IndProjEtaP
+import Setlec.SetBase.ProjFnRR
 
 /-!
 # The projection-function cons, P tier (task #161, IND TIER part 10)
@@ -74,12 +75,12 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     (hround : (pty.renameConsts (projFwd T ctorName nF) == mcv.type)
       = true)
     (hptyres : pty.constsResolve env' = true)
-    (hinv : ProjPhaseInvS T ctorName nF env' mp.base.cval)
+    (hinv : ProjPhaseInvS T ctorName nF env' mp.base2.cvalE)
     (hinvA : ProjPhaseAcvalP T ctorName nF env' mp.base2.acval)
     (hilt : i < nF)
     (hTf : (env'.find? T).isSome = true)
     (hCf : (env'.find? ctorName).isSome = true)
-    (hIB : BlockInstalledTT blockNames env' mp.base.cval)
+    (hIB : BlockInstalledTT blockNames env' mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env' mp.base2.acval)
     (hTblock : blockNames.contains T = true)
     (hnotb : blockNames.contains (projFnName T i) = false)
@@ -89,10 +90,14 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
       capsT.eta = true → blockNames.contains capsT.etaCtor = true)
     (hFields : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → capsT.etaFields = nF)
-    -- the v1 carrier at the cons, install-supplied (`projConsS`)
-    (hbase : EnvS V ⟨c₀ :: env'.consts⟩)
-    (hbcval : hbase.cval = cvalWith mp.base.cval (projFnName T i)
-      (fun ψ => mp.base.cval (projModelName T i) ψ))
+    -- the head's own obligations (task #161 S7: `projFnR_head`
+    -- supplies both from `ProjFnR` alone)
+    (hwf : EnvWF ⟨c₀ :: env'.consts⟩)
+    (hctorsHead : ∀ (cvR : ConstantVal) (mI rP : Nat)
+      (rules₀ : List RecRule), c₀ = .recInfo cvR mI rP rules₀ →
+      ∀ r ∈ rules₀, ∃ cvj cnP cnF,
+        env'.find? (Setlec.RecRule.ctor r)
+          = some (.ctorInfo cvj cnP cnF))
     -- the fired rules: the bottom fires BELOW this cons
     (hnew : ∀ m₂ : EnvS2Core V ⟨c₀ :: env'.consts⟩,
       m₂.acval = acvalWith mp.base2.acval (projFnName T i)
@@ -157,16 +162,6 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     rw [hcvA]
     exact denoteP_cons_fresh_mono hfresh ψ 0 pty hcbPty hta
   -- the eight mechanical rows
-  have hagH : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n := by
-    intro n hn
-    rw [hbcval, cvalWith_ne
-      (show n ≠ projFnName T i by rw [← hname]; exact hn)]
-  have hAeraseH : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ := by
-    intro ψ
-    rw [hbcval, hname, hAdef]
-    show (mp.base2.acval (projModelName T i) ψ).erase = _
-    rw [mp.base_erase]
-    exact (congrFun cvalWith_self ψ).symm
   have hAclosedH : ∀ (ψ : Name → Nat) (k : Nat),
       (A ψ).liftN 1 k = A ψ := by
     intro ψ k
@@ -248,7 +243,12 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
   obtain ⟨mp', hmp'⟩ :=
     declStepPM_of_ind_rec_cons mp (c₀ := c₀) (A := A) hfresh hnres
       ⟨⟨projFnName T i, lps, pty⟩, nP, nP, rules, hc₀⟩
-      hbase hagH hAeraseH hAclosedH hAparamsH
+      (ConsHeadP.ofFresh hwf
+        (fun ψ => by rw [hAdef]; exact mp.base2.cval_closedL _ ψ)
+        hnres (fun _ heq => by rw [hc₀] at heq; exact nomatch heq)
+        (fun _ _ heq => by rw [hc₀] at heq; exact nomatch heq)
+        hctorsHead)
+      hAclosedH hAparamsH
       (fun ψ ρ => by rw [hAdef]; exact mp.base2.acval_ok2 _ _ _)
       (fun ψ ρ => by rw [hAdef]; exact mp.acval_validV _ _ _)
       (fun ψ => (htyExt ψ).imp (fun _ h => h.1))

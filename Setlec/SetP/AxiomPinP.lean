@@ -1,6 +1,5 @@
 import Setlec.SetBase.DeclRun
 import Setlec.SetP.AxiomMemP
-import Setlec.SetR.StdAxiomKey
 
 /-!
 # The pin tier, at the validated-annotation currency (task #161,
@@ -140,7 +139,7 @@ WALL above.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal)
 
 universe w
@@ -220,52 +219,13 @@ theorem axiomTrustCompilerP (hμ : μ.verified = true)
       decide_eq_true_eq, beq_iff_eq] at hA
     exact erasePw_const_invS (eraseNames_const_invS hA.2)
   have hnameTi : ciTi.name = Setlec.trueIntroName := Env.find?_name hfTi
-  -- the v1 extension, at the *named* valuation.  `trustCompilerKeyS`
-  -- would supply one, but only under an `∃` — and this branch needs to
-  -- know **which** leaf was installed (the annotated twin must erase to
-  -- it), so the witness is re-chosen here rather than unpacked.  It is
-  -- the key's own: the stored `True.intro`'s valuation.
-  have hkey : ∀ ψ : Name → Nat, ∃ t,
-      denoteClosed mp.base.cval env ψ type' = some t ∧
-      ∀ ρ : Nat → V,
-        interp V ρ (mp.base.cval Setlec.trueIntroName ψ)
-          ∈ˢ interp V ρ t ∧ AnnotOkV V ρ t := by
-    intro ψ
-    obtain ⟨t, ht, hlaw⟩ := mp.base.cval_memType hfTi ψ
-    rw [htyTi, show denoteClosed mp.base.cval env ψ
-        (Expr.const Setlec.trueName [])
-        = denote mp.base.cval env ψ 0 (.const Setlec.trueName [])
-        from rfl, denote_const_nolevelsS hfT hlpT ψ 0] at ht
-    obtain rfl := Option.some.inj ht
-    refine ⟨mp.base.cval Setlec.trueName ψ, ?_, hlaw⟩
-    rw [htyA]
-    show denote mp.base.cval env ψ 0 (.const Setlec.trueName []) = _
-    rw [denote_const_nolevelsS hfT hlpT ψ 0]
-  have hwfc : Setlec.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-      env.consts⟩ := by
-    refine Setlec.EnvWF.cons mp.base2.wf
-      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_⟩
-    · intro cv2 value2 hint2 heq; exact nomatch heq
-    · intro cv2 mI rP rules heq; exact nomatch heq
-    · intro cv2 value2 heq; exact nomatch heq
-  obtain ⟨m', hag, hself⟩ :=
-    extendAxiomS mp.base (cv := ⟨cv.name, cv.levelParams, type'⟩)
-      (Vf := fun ψ => mp.base.cval Setlec.trueIntroName ψ)
-      hfresh hwfc (fun ψ => mp.base.cval_closed _ ψ)
-      (fun φ₁ φ₂ _ => mp.base.val_params Setlec.trueIntroName ciTi
-        hfTi φ₁ φ₂ (by rw [hlpTi]; intro p hp; exact nomatch hp))
-      (fun ψ ρ => mp.base.annot_okV _ ψ ρ) hkey hnres
-      (by rw [hname]; decide)
   -- the leaf: the stored `True.intro`'s *annotated* valuation
-  refine harvestAxiomP (V := V) hμ mp hcv m' hag
-    (A := fun ψ => mp.base2.acval Setlec.trueIntroName ψ) ?_ ?_ ?_ ?_ ?_ ?_
+  refine harvestAxiomP (V := V) hμ mp hcv
+    (A := fun ψ => mp.base2.acval Setlec.trueIntroName ψ)
+    (fun ψ => mp.base2.cval_closedL _ ψ) ?_ ?_ ?_ ?_ ?_
     -- `trustCompiler` is not a compiler-trust *operation*: the pin
     -- fixes the name, and the two operations are installed as opaques
     (by rw [hname]; decide)
-  · -- `hAerase`: the leaf erases to the installed valuation, which is
-    -- `Vf` — the stored `True.intro`'s
-    intro ψ
-    rw [mp.base_erase, hself ψ]
   · -- `hAclosed`
     exact fun ψ k => mp.base2.acval_closed _ ψ k
   · -- `hAparams`: `True.intro` is level-monomorphic, so the premise is
@@ -321,16 +281,8 @@ theorem axiomStdP (hμ : μ.verified = true)
     · intro cv2 mI rP rules heq; exact nomatch heq
     · intro cv2 value2 heq; exact nomatch heq
   by_cases hn : cv.name = propextName
-  · obtain ⟨m', hag, hself⟩ :=
-      extendAxiomS mp.base (cv := ⟨cv.name, cv.levelParams, type'⟩)
-        (Vf := fun _ => .const .propext [])
-        hfresh hwfc (fun _ => trivial) (fun _ _ _ => rfl)
-        (fun _ _ => trivial)
-        (fun ψ => propextKeyS_mem mp.base hok hn ψ) hnres
-        (by rw [show (⟨cv.name, cv.levelParams, type'⟩ :
-          ConstantVal).name = cv.name from rfl, hn]; decide)
-    refine harvestAxiomP (V := V) hμ mp hcv m' hag
-      (A := fun _ => .const .propext []) (fun ψ => by rw [hself ψ]; rfl)
+  · refine harvestAxiomP (V := V) hμ mp hcv
+      (A := fun _ => .const .propext []) (fun _ => trivial)
       (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ => by simp)
       (fun _ _ => by simp) ?_ (by rw [hn]; decide)
     intro ψ ta hta ρ
@@ -347,21 +299,9 @@ theorem axiomStdP (hμ : μ.verified = true)
         refine hp uN ?_
         rw [hlpA, show choiceA.levelParams = [uN] from rfl]
         exact List.Mem.head _
-      obtain ⟨m', hag, hself⟩ :=
-        extendAxiomS mp.base
-          (cv := ⟨cv.name, cv.levelParams, type'⟩)
-          (Vf := fun ψ => .const .choice [ψ uN])
-          hfresh hwfc (fun _ => trivial)
-          (fun ψ₁ ψ₂ hp => by
-            show VExpr.const .choice [ψ₁ uN] = VExpr.const .choice [ψ₂ uN]
-            rw [huN ψ₁ ψ₂ hp])
-          (fun _ _ => trivial)
-          (fun ψ => choiceKeyS_mem mp.base hok hn2 ψ) hnres
-          (by rw [show (⟨cv.name, cv.levelParams, type'⟩ :
-            ConstantVal).name = cv.name from rfl, hn2]; decide)
-      refine harvestAxiomP (V := V) hμ mp hcv m' hag
+      refine harvestAxiomP (V := V) hμ mp hcv
         (A := fun ψ => .const .choice [ψ uN])
-        (fun ψ => by rw [hself ψ]; rfl)
+        (fun _ => trivial)
         (fun _ _ => rfl)
         (fun ψ₁ ψ₂ hp => by
           show AVExpr.const .choice [ψ₁ uN] = AVExpr.const .choice [ψ₂ uN]

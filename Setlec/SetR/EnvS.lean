@@ -1,6 +1,7 @@
 import Setlec.SetR.Sound.Motives
 import Setlec.Verify.Denote.Levels
 import Setlec.Verify.Denote.Install
+import Setlec.SetBase.EnvR
 
 /-!
 # `EnvS`: the [set] environment invariant (task #148, T5)
@@ -280,19 +281,6 @@ The T4 interface, by projection.  The only non-`exact` move is
 keyed at each assignment on the *stored* type, `EnvSHyp` at I3's side
 conditions on the *instantiated* one, and the two meet at the composed
 assignment `Level.substFn φ lps us`. -/
-
-/-- A `find?` hit names the stored constant. -/
-theorem Env.find?_name {env : Env} {n : Name} {ci : ConstantInfo}
-    (h : env.find? n = some ci) : ci.name = n := by
-  unfold Setlec.Env.find? at h
-  have := List.find?_some h
-  simpa using this
-
-/-- A `find?` hit is a stored constant. -/
-theorem Env.find?_mem {env : Env} {n : Name} {ci : ConstantInfo}
-    (h : env.find? n = some ci) : ci ∈ env.consts := by
-  unfold Setlec.Env.find? at h
-  exact List.mem_of_find?_eq_some h
 
 /-- `EnvS` discharges the soundness tier's hypothesis bundle at every
 assignment. -/
