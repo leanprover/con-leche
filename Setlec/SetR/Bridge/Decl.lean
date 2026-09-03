@@ -31,6 +31,18 @@ universe w
 
 /-! ## `EnvS` is an `EnvR`
 
+**Task #161 S5 — this file is model-free apart from the projection
+below.**  Ten of its signatures took `m : EnvS V env`; every one used
+it only through `EnvS.toEnvR`, so all ten were re-signed to
+`EnvR env` and **not one proof line changed**.  `declDefnR`,
+`declThmR`, `declOpaqueR`, `declAxiomR`, `natEqsBridge_of`,
+`natFrag_subst_denotes`, `natEqFrame_of_frag`, `natEqsR_of_certs`,
+`reducePinR_of` and `divModPinR_of` therefore carry no `V` at all, and
+`checkDeclR_ofEnvR` (`Bridge/Sound.lean`) assembles the five non-`ind`
+kinds without a model.  The `ind` kind is `Bridge/DeclInd.lean`'s, and
+its obstacle is finding 8 (the member fold's intermediate `EnvR`s),
+not the records.
+
 The bridge runs against `EnvR` — the weakest V-free invariant its
 steps need — and the install layer produces `EnvS`.  The assembly
 needs the projection, and building it is what exposed **finding 7**
@@ -246,8 +258,8 @@ depth `2` on each pair; `DefEqClaimsR` turns it into the relation
 family's `DefEq` once both sides have a frame package and a context.
 The context is `CtxOkR.constCtx` at the pinned `Nat` entries — which
 is exactly what the leaf-shape conjunct of `NatEqFrameR` is for. -/
-theorem natEqsBridge_of {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS V env) {μ : CheckMode}
+theorem natEqsBridge_of {env : Env}
+    (m : EnvR env) {μ : CheckMode}
     {F : Nat} {ciN : ConstantInfo}
     (hnatE : env.find? natName = some ciN)
     (hnatL : ciN.toConstantVal.levelParams = [])
@@ -289,7 +301,7 @@ theorem natEqsBridge_of {V : Type w} [SetTheory V] {env : Env}
       obtain ⟨L, hL⟩ := hd1 φ
       obtain ⟨R, hR⟩ := hd2 φ
       refine ⟨L, R, hL, hR, ?_⟩
-      obtain ⟨-, -, ihd, -⟩ := checkBridge m.toEnvR φ F
+      obtain ⟨-, -, ihd, -⟩ := checkBridge m φ F
       have hC1 : CtxOkR μ m.cval env φ 2
           (List.replicate 2 (natVR m.cval φ)) eq.1 :=
         CtxOkR.constCtx (m.cval_closed _ _) (hden φ 2) trivial hl1
@@ -313,8 +325,8 @@ one conjunct that names a valuation, in the same induction over
 The operation `c` is the one being defined, so it is *not* stored: its
 occurrences are the ones `substConst0` replaces, and the substituted
 value's own denotation (`hvd`) stands in for them. -/
-theorem natFrag_subst_denotes {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS V env) {c : Name}
+theorem natFrag_subst_denotes {env : Env}
+    (m : EnvR env) {c : Name}
     {v : Expr} (hvf : v.hasFvar = false)
     (hvd : ∀ φ : Name → Nat, ∃ V0, denote m.cval env φ 0 v = some V0) :
     ∀ {e : Expr}, natFragOk env c e = true →
@@ -338,7 +350,7 @@ theorem natFrag_subst_denotes {V : Type w} [SetTheory V] {env : Env}
         ⟨hn.1, List.isEmpty_iff.mp hn.2⟩)]
       intro φ
       obtain ⟨V0, hV0⟩ := hvd φ
-      exact opener_denotes_at m.toEnvR
+      exact opener_denotes_at m
         (Expr.WScoped.of_not_hasFvar hvf).fvarsBelow
         (Nat.zero_le 2) hV0
     · rw [if_neg (fun hh => hn ⟨hh.1, by rw [hh.2]; rfl⟩)]
@@ -376,8 +388,8 @@ theorem natFrag_subst_denotes {V : Type w} [SetTheory V] {env : Env}
 half (`natFrag_subst_syntax`) beside the denotation half above.  The
 statement, the name and the consumers are unchanged — only the proof
 is now split across the lane boundary (task #161 S4). -/
-theorem natEqFrame_of_frag {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS V env) {c : Name}
+theorem natEqFrame_of_frag {env : Env}
+    (m : EnvR env) {c : Name}
     {v : Expr} (hvf : v.hasFvar = false)
     (hvb : v.looseBVarsBounded 0 = true)
     (hvd : ∀ φ : Name → Nat, ∃ V0, denote m.cval env φ 0 v = some V0)
@@ -396,8 +408,8 @@ fragment gives each substituted side its frame package, and
 the post-insertion guard to the pre-insertion environment is
 `storedNoLevels_of_cons` at names `ne_of_mem_natOpNames` separates
 from the operation — the TT lane's `natOpPinTT` runs the same block. -/
-theorem natEqsR_of_certs {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+theorem natEqsR_of_certs {env : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     {value' : Expr} {hint : ReducibilityHint}
     (hmem : cv.name ∈ natOpNames)
     (hvf : value'.hasFvar = false)
@@ -449,8 +461,8 @@ used to carry.  The element type is a stored level-free constant, so
 it denotes to the pinned valuation and the certificate's context is
 `CtxOkR.constCtx` at one entry; `DefEqClaimsR` then transports the
 depth-`1` identity verdict. -/
-theorem reducePinR_of {V : Type w} [SetTheory V] {env env' : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {c : Name}
+theorem reducePinR_of {env env' : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {c : Name}
     {value : Expr}
     (hvfacts : ∀ a : Expr, annotateCore μ env F 0 value = .ok a →
       a.hasFvar = false ∧ a.looseBVarsBounded 0 = true ∧
@@ -478,7 +490,7 @@ theorem reducePinR_of {V : Type w} [SetTheory V] {env env' : Env}
   have hV0d : ∀ d, denote m.cval env φ d valA = some V0 :=
     (denote_closedExprR m.cval_closed hvAf hvAb hV0).2
   refine ⟨_, V0, hE 0, hV0, ?_⟩
-  obtain ⟨-, -, ihd, -⟩ := checkBridge m.toEnvR φ F
+  obtain ⟨-, -, ihd, -⟩ := checkBridge m φ F
   -- the certificate variable and the two compared sides
   have hcv : reduceCertVar c
       = Expr.fvar 0 (.str .anonymous "a") (.const (reduceElemName c) []) := by
@@ -548,8 +560,8 @@ entering as the checker's own verdict, the whole pack is
 annotate, and the certs run.  The stored value the pack is about is
 the one `env'` holds, which the inversion produces — that is the
 `v`-freeness repair's supplier. -/
-theorem divModPinR_of {V : Type w} [SetTheory V] {env env' : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {c : Name}
+theorem divModPinR_of {env env' : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {c : Name}
     {cv0 : ConstantVal} {v : Expr} {hint0 : ReducibilityHint}
     (hstore : env'.find? c = some (.defnInfo cv0 v hint0))
     (h : checkDivModPin (m := CheckM) (fueledOps μ F) env env' c
@@ -565,8 +577,8 @@ theorem divModPinR_of {V : Type w} [SetTheory V] {env env' : Env}
   exact ⟨henv, hpin, hcertsG, pinA, hpa, hcerts⟩
 
 /-- **`thmDecl`, bridged.** -/
-theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+theorem declThmR {env env₂ : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     {value : Expr}
     (h : checkDecl μ (fueledOps μ F) env (.thmDecl cv value)
       = .ok env₂) :
@@ -579,7 +591,7 @@ theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m.toEnvR hccv
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
   simp only [Pure.pure, Except.pure] at h
   cases hst2 : inferTypeCore μ env F 0 type with
   | error e => rw [hst2] at h; exact nomatch h
@@ -634,10 +646,10 @@ theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
   simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
   refine ⟨type, value', hcv, ⟨stype2, u2, hst2, hsort2, hpz⟩,
     fun φ => ?_,
-    valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt hde
+    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde
       hcv,
     h.symm⟩
-  obtain ⟨-, ihw, -, ihi⟩ := checkBridge m.toEnvR φ F
+  obtain ⟨-, ihw, -, ihi⟩ := checkBridge m φ F
   obtain ⟨hwt, hbt, hLt, hCt⟩ :=
     closed0_framesR (μ := μ) (cval := m.cval) (env := env) (φ := φ)
       htf hbt'
@@ -661,8 +673,8 @@ happens past `ConstantValR` — the axioms' *content* is the install
 layer's `StdAxiomKeyS`/`OfReduceKeyS`, not the bridge's. -/
 
 /-- **`axiomDecl`, bridged.** -/
-theorem declAxiomR {V : Type w} [SetTheory V] {env env₂ : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+theorem declAxiomR {env env₂ : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     (h : checkDecl μ (fueledOps μ F) env (.axiomDecl cv) = .ok env₂) :
     DeclAxiomR μ F env m.cval cv env₂ := by
   simp only [checkDecl, Bind.bind, Except.bind] at h
@@ -671,7 +683,7 @@ theorem declAxiomR {V : Type w} [SetTheory V] {env env₂ : Env}
   | ok cvA =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, -, -, hcv⟩ := constantValR_of m.toEnvR hccv
+  obtain ⟨type, rfl, -, -, hcv⟩ := constantValR_of m hccv
   refine ⟨type, hcv, ?_⟩
   by_cases hstd : stdAxiomOk env { cv with type := type } = true
   · rw [if_pos hstd] at h
@@ -725,8 +737,8 @@ subject. -/
 
 /-- **`opaqueDecl`, bridged**, parametric in the compiler-trust pin's
 own inversion. -/
-theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+theorem declOpaqueR {env env₂ : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     {value : Expr}
     (h : checkDecl μ (fueledOps μ F) env (.opaqueDecl cv value)
       = .ok env₂) :
@@ -738,7 +750,7 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m.toEnvR hccv
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
   simp only [Pure.pure, Except.pure] at h
   by_cases hlbv : value.looseBVarsBounded 0 = true
   case neg => simp [hlbv] at h
@@ -773,7 +785,7 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
   refine ⟨type, value', hcv,
-    valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt hde
+    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde
       hcv,
     ?_, ?_⟩
   · by_cases hro : reduceOpNames.contains cv.name = true
@@ -807,7 +819,7 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
       obtain rfl : a = value' := by
         rw [hannv] at hann; exact (Except.ok.inj hann).symm
       obtain ⟨-, -, -, -, -, -, hf⟩ :=
-        valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt
+        valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt
           hde hcv
       obtain ⟨-, Vv, -, -, hVv, -⟩ := hf φ
       exact ⟨Vv, hVv⟩
@@ -816,8 +828,8 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
 pin inversions.  Both packs are phrased over the **annotated** value
 the environment actually stores (`value'`), not over the stream's
 `value`. -/
-theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+theorem declDefnR {env env₂ : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     {value : Expr} {hint : ReducibilityHint}
     (h : checkDecl μ (fueledOps μ F) env (.defnDecl cv value hint)
       = .ok env₂) :
@@ -829,7 +841,7 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m.toEnvR hccv
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
   simp only [Pure.pure, Except.pure] at h
   by_cases hlbv : value.looseBVarsBounded 0 = true
   case neg => simp [hlbv] at h
@@ -946,7 +958,7 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
         exact ⟨rfl, fun hc => absurd hc hno, fun hc => absurd hc hdn⟩
   obtain ⟨rfl, hnatK, hdmK⟩ := key
   exact ⟨type, value', hcv,
-    valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt hde
+    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde
       hcv,
     rfl,
     fun hc => ⟨(hnatK hc).1, (hnatK hc).2.1,
@@ -959,7 +971,7 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
         (annotateCore_looseBVars F value hannv hlbv)
         (fun φ => by
           obtain ⟨-, -, -, -, -, -, hf⟩ :=
-            valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr
+            valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr
               hvt hde hcv
           obtain ⟨-, Vv, -, -, hVv, -⟩ := hf φ
           exact ⟨Vv, hVv⟩)
