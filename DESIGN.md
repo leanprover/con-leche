@@ -27473,6 +27473,325 @@ Kit: `tests/layering.sh` (and `--list`); `_tmp/sep-s5/Audit.lean`,
 `closure.py`, `basecount.py` (copied forward from S4); the S1–S4 audit
 files.
 
+## Task #161 THE SEPARATION — S6 SEALED (2026-09-03, `agent/sep-s6`,
+unpushed): FINDING 8 GOES FROM THREE WALKS TO ONE FRONT DOOR; THE
+RESIDUE DOES NOT LAND
+
+**THE SUCCESS-CRITERION VERDICT, FIRST.**  The criterion on record was
+"after S6 the whitelist reads `FoldP → Bridge/Sound` alone, or
+nothing".  **NEITHER.**  The whitelist is still **5**, unchanged, and
+the reason is a *sizing* the ratified re-plan did not have: the plan
+read the opener as "one missing lemma" and everything after it as
+"mechanical or already sized".  The lemma was indeed one lemma —
+`EnvR.consBlockMember`, and it went in at ~90 lines because the
+transport it needs already existed as a bundle (`Installs`).  But
+**cashing it does not free `declIndRS`**, because the bridge's third
+walk starts at the *recursor group's output* `env₃`, and there is no
+`EnvR` there either: `env₃` is a **swap** of the provisional
+environment, and the model-free `EnvR.swap` needs the fired rules'
+`rP ≤ mI` and right-hand-side denotations, which until S6 existed only
+inside `RecRuleLawV` — a model-carrying wrapper.
+
+So the residue's own bill was never the wall.  The wall is one level
+below it, and S6 is the batch that **measured it and paid two of its
+four instalments**.  Three commits, each landable on its own terms
+(every new statement has a consumer *in this batch* — D6's house rule
+held throughout):
+
+| | | |
+|---|---|---|
+| `84f6ca85` | **the opener** — `EnvR` to the base, `EnvR.consBlockMember`, `memberInstallInv`, `memberInstallR`; the bridge's member and provisioning walks de-modelled | 5 edges |
+| `448e0903` | `projFnInv` — the projection install's invariant half, model-free | 5 |
+| `0cb20602` | `RuleFactsR` / `iotaRulesFactsR` / `indRecsFoldFacts` — the rule facts and the group fold's bookkeeping, model-free; the P lane's `indRecsFoldS mS.base` site dies | 5 |
+
+### 1. THE OPENER, AS ORDERED — AND WHAT IT COST
+
+The S5 seal named the missing piece exactly: "a `denote` transport
+across a fresh cons with a **changed valuation** (`denote_mono` fixes
+`cval`)".  Measured, **the transport already existed**: `denote_mono`
+and `denote_cval_congr` are the two halves and
+`Verify/Denote/Install.lean` already bundles them as `Installs`, whose
+`denoteUp` is precisely "a denotation survives an ordinary install".
+What did not exist is the field-by-field `EnvR` cons that consumes it.
+`EnvR.consBlockMember` (`SetBase/EnvRCons.lean`) is that, and the S5
+seal's table survives its own check:
+
+* `cval := cvalModeled m.cval cvA.name` — and `cval_closed` is
+  **inherited unconditionally**, because `cvalModeled` re-points one
+  name at *another old leaf* (the model artifact's).  No new
+  denotation is created anywhere in the cons.
+* `ty_denotes` at the head is `ConstantValR`'s own last conjunct
+  (`∀ φ, ∃ Tv …, denoteClosed cval env φ type' = some Tv`), pushed up
+  by `Installs.denoteUp`; every old one is the same push.
+* `defn_eq`, `thm_ok`, `rec_rhs_denotes`, `rec_params_le` are vacuous
+  at the head — a member is `.indInfo`, `.ctorInfo` or a **rule-less**
+  `.recInfo` — and transport below.
+* `proj_ok` is `ProjOkT.cons` with both head obligations vacuous;
+  `nat_op_guard` is `natOpGuard_cons` (the head is not a `defnInfo`,
+  so `natOpStored` cannot name it).
+
+**`EnvR` moved to the base** (`SetBase/EnvR.lean`, whole-module move,
+statements byte-unchanged).  It never had a lane — its own docstring
+says every field is V-free and its four imports were base already —
+and the move is forced by the endgame: the P lane must build one
+(`EnvS2PM.toEnvR`, §3) and may not import `Setlec/SetR/*`.
+
+**What the opener bought.**  `memberInstallS`'s conclusion is four
+facts and **three never needed a model** (`EnvWF.cons`,
+`BlockInstalledTT.step`, `EtaFamiliesClosedO.cons`,
+`BlockEtaPinned.cons`); they are `memberInstallInv` now, at the base,
+and `memberInstallS` is re-proved through it.  `memberInstallR` =
+`memberInstallInv` + `EnvR.consBlockMember`.  With it,
+`Bridge/DeclInd.lean`'s `indMembersRS`, `provisionRecsRS` and
+`indRecsRS` are re-signed to `EnvR` and **`declIndRS` obtains the
+`EnvS` its projection phase still needs from the install layer's own
+folds, applied to the record the bridge just produced.**
+
+> **Finding 8 is refuted at two of its three walks.**  The recognition
+> rule it left behind ("a bridge must interleave with its install
+> exactly when the relation it produces quantifies over environments
+> the fold creates") is *right about the interleaving and wrong about
+> what it interleaves with*: the member and provisioning walks still
+> interleave — with an **`EnvR` cons**, not with a model.  The
+> `EnvS V` signatures in `Bridge/DeclInd.lean` went 4 → 1.
+
+`blockRenameOkT` came out with them, by S5's finding 2 (third instance
+in the ind tier): it used its `EnvS` for nothing but the valuation in
+its own statement, so it is re-signed over a bare `TConstVal` and
+moved to the base — **one of the seven ind-tier residue sites, dead**.
+
+### 2. STOP-AND-NAME: THE THIRD WALK STARTS AT A SWAP, AND THAT IS THE
+BATCH THE RE-PLAN DID NOT HAVE
+
+`projInstallRS` walks the projection fold from `env₃`, the recursor
+group's output.  To de-model it one needs an `EnvR env₃`, and `env₃`
+is not a cons of anything the bridge built: it is `envSelf` with the
+group's recursors' **rule lists swapped in** (`EnvS.swap`,
+`SwapShList`).  An `EnvR env₃` therefore needs, for every fired rule
+of every swapped recursor,
+
+* `rec_params_le` — `rP ≤ mI`, and
+* `rec_rhs_denotes` — the right-hand side's denotation,
+
+and **both lived only inside `RecRuleLawV`**, the model-carrying law
+`iotaRuleS` proves.  That is why the ratified order's step (d) ("the 7
+ind-tier sites — the hard ones") could not be executed as stated: its
+inputs did not exist model-free.
+
+S6 built them.  `RuleFactsR` (`SetBase/IndBlockR.lean`) is
+`RuleFactsS`'s six syntactic conjuncts **plus** those two, and
+`iotaRulesFactsR` produces it from `IotaRulesR` alone — because the
+record already carries what is needed:
+
+> `IotaRuleR` has `∀ φ, ∃ Rv t, denoteClosed cval envSelf φ rhsA =
+> some Rv ∧ Infer …` as its own conjunct (the H1 run exposure), and
+> `rP ≤ mI` is `Expr.recRulePlain`'s second `decide` on the plain
+> branch and `nestedRuleShape_inv`'s first component on the nested
+> one.  **Nothing semantic is involved; the law was simply where they
+> had been stored.**
+
+And `indRecsFoldS`'s induction turned out to be **pure bookkeeping
+about names and rule lists** — the only thing it does with a step's
+rules is hand them to the per-recursor fold's conclusion.  Making that
+conclusion a parameter gives `indRecsFoldFacts`, model-free, of which
+`indRecsFoldS` is the `RuleFactsS` instance and the ind tier's future
+`EnvR` core will be the `RuleFactsR` one.  The P lane cashes it
+immediately: `IndRecsP` used to call `indRecsFoldS mS.base` **for two
+of its five conclusions**, and now calls `indRecsFoldFacts` with
+`iotaRulesFactsR` — **a second ind-tier residue site, dead**.
+
+### 3. THE EXACT DISTANCE (the criterion's second half — S7's work
+order, itemised and measured)
+
+Three walls, in order.  Everything below is *named*, and every
+ingredient it needs is either landed or shown above to exist.
+
+**WALL A — the recursor group's model-free core.**  Two of four
+instalments landed at S6.
+
+| piece | status | size |
+|---|---|---|
+| `RuleFactsR`, `iotaRulesFactsR` | **landed** | 110 ln |
+| `indRecsFoldFacts` (the fold, generalised) | **landed** | 155 ln |
+| `provisionRecsRcore` — `provisionRecsS`'s `EnvR` twin off the *relation* (its step is `memberInstallR`, landed) | owed | ~50 ln |
+| `EnvR.swap` + `indRecsCoreR` — `EnvS.swap`'s `EnvR` shadow (the transport is `denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq`, which `EnvS.swap` already uses) plus `indRecsS`'s tail (`hwf₃`, the `BlockInstalledTT` survival), whose every ingredient is now `RuleFactsR` | owed | ~250 ln |
+
+**WALL B — the projection walk's front door.**  Its *bookkeeping* half
+landed (`projFnInv`: `ProjPhaseInvS` and `BlockInstalledTT` at the
+installed environment are `projPhaseInvS_cons` and
+`BlockInstalledTT.fresh_cons`, and every ingredient is a conjunct of
+`ProjFnR`).  What is owed:
+
+* `EnvR.consProjFn` — the `EnvR` at a projection-entry cons.  The one
+  hard field is `ty_denotes` **at the head**: the entry's stored type
+  is `pty = mcv.type.renameConsts (projBack T ctorName nF)`, so its
+  denotation must come from the *model projection's* through
+  `RenameOkT` (`projFwd_renameOkT hinv`, already in scope in
+  `projFnS`) — where the member cons read it straight off
+  `ConstantValR`.  `rec_rhs_denotes` at the head is `ProjFnR`'s own
+  `hkey`; `rec_params_le` is `nP ≤ nP`.  ~200 ln.
+* the template pass's `EnvR` cons (`.projInfo` head; `proj_ok`'s head
+  obligation is exactly `ProjOkT.cons`'s `hhead`, which
+  `templateConsS` already proves model-free) and `projInstallRR`.
+  ~150 ln.
+* then `declIndRR`, `checkDeclR_ofEnvRE` (the ind premise discharged),
+  and `Bridge/DeclInd.lean` + `Bridge/Sound.lean` go model-free.
+  ~50 ln.
+
+**WALL C — the residue proper, the ratified six steps.**  Unchanged in
+shape; its bill is **smaller by exactly what S6 killed**:
+
+| line item | S5 bill | after S6 |
+|---|---|---|
+| `mp.base.cval` currency sites | 128 | 129 (+1: `IndRecsP`'s new `RuleFactsR` argument) |
+| whole-`mp.base` passes | 42 | **40** |
+| — of which basis + axiom (mechanical) | 24 + 7 | 24 + 7 |
+| — of which **ind tier** | 7 | **5** (`memberInstallS`, `indRecsS` ×2, `projFnS`, `templateConsS`) |
+| — of which `FoldP` | 4 | 4 |
+| other `.base` field reads | 5 | 5 |
+
+and two of the five surviving ind-tier sites now have their
+model-free *invariant* halves in the base already (`memberInstallInv`
+for `IndMembersP`'s, `projFnInv` for `ProjInstallP`'s `projFnS`), so
+what those two sites still take from the collapsed install is the
+`EnvS` alone.
+
+**`DeclIndRunR`'s tombstone is not yet due** (work-order item 4).  S5
+designed-not-landed it under the no-consumer rule, on the diagnosis
+that "the P lane's dependence is on the PRODUCER, not the record", and
+left the design note to become its tombstone "if S6 dissolves the
+consumer".  S6 **confirms the diagnosis and does not yet dissolve the
+consumer**: `declIndRS` is still the only producer of a `DeclIndR` and
+it still takes an `EnvS`, because Wall B is open.  The note stays a
+design note until Wall B closes — at which point the bridge discharges
+its one row (`IotaNestedPinReadsR`) itself and the tombstone is due.
+
+**One thing S6 checked and can report as done-in-advance**: the `EnvR`
+step (e) needs, `EnvS2PM.toEnvR`, **is constructible today** — every
+`EnvR` field is available from the P carrier (`ty_denotes` from
+`type_reads` through `denoteP_erase`; `defn_eq`/`thm_ok` from
+`defn_reads`; `rec_rhs_denotes` and `rec_params_le` from
+`rec_rules`/`RecRuleLawP`, whose first two components are exactly
+those two facts; `nat_op_guard` from `nat_ops`/`div_mod` through
+`natOpStored_inv`; the rest from `base2`).  It is not landed because
+it has no consumer until Wall B closes.
+
+### 4. FINDINGS (restrictions-are-findings)
+
+1. **Finding 8 over-attributed the interleave.**  A bridge that
+   interleaves with its install does so because the *relation*
+   quantifies over environments the fold creates — true — but the
+   thing it must interleave with is a **carrier at those
+   environments**, and that carrier need not be the model's.  Two of
+   the three walks needed only an `EnvR` cons.  General shape:
+   *"interleaved with the install" and "needs the install's invariant"
+   are different claims, and only the first was measured.*
+2. **The campaign's reusable diagnostic fires a fourth time.**  A lane
+   parameter every proof immediately projects away is a layering
+   artifact: `blockRenameOkT` (`EnvS` used only for the valuation in
+   its own statement, zero proof edits) joins S2's `Infer`/`DefEq`,
+   S3's five borrowed fields and S5's ten `Bridge/Decl` signatures.
+3. **Two syntactic facts had been filed inside a semantic law.**
+   `rP ≤ mI` and the rule's right-hand-side denotation are `EnvR`
+   fields' worth of content that lived only inside `RecRuleLawV`,
+   which is `V`-valued.  Nothing about them is semantic; the law was
+   simply where the install happened to prove them.  **Fifth
+   correction to a *sizing*, and the first one that is a *storage*
+   problem rather than a proof one**: the fix is to state the fact
+   where its weakest consumer can use it, not to re-prove it.
+   (S5's finding 5, "prove a preservation fact at the relation", is
+   the same lesson one step earlier.)
+4. **A fold whose only use of its payload is to pass it on should be
+   parameterised, not duplicated.**  `indRecsFoldS`'s 155-line
+   induction is bookkeeping about names and rule lists; the rules only
+   enter through the per-recursor conclusion.  Abstracting that
+   conclusion cost one parameter and saved re-running the induction
+   model-free — and it immediately paid, because the P lane was
+   already calling the fold for two of its five conclusions.
+5. **The ratified re-plan's step (d) was unexecutable as written**
+   (§2).  "The 7 ind-tier sites (the hard ones — the opener is their
+   tool)" reads as if the opener suffices; it does not, because the
+   ind tier's outputs live at a *swap*, not at a cons, and the swap's
+   `EnvR` obligations had no model-free source until this batch built
+   one.  This is not a claim-level correction — the sites are what the
+   seal said they were — but it is the third time the campaign has
+   found the ordering to be forced one level deeper than the plan.
+
+### 5. BATTERY (verbatim)
+
+* `lake build` — clean, warning-free, **529** jobs (528 +
+  `SetBase/EnvRCons`; `SetR/Bridge/Env` → `SetBase/EnvR` is a move).
+* `lake test` — exit 0.
+* `tests/arena.sh` — exit 0:
+
+  ```
+  layering: base 231 / R 127 / P 116 / neutral 3 modules; 5 P->R edges, all whitelisted; 0 R->P
+  arena tutorial: 90/92 good tests accepted
+  e2e: 73/73 as expected
+  annot suite: 14/14 as expected
+  split driver: 11/11 as expected
+  mode flags: 9/9 as expected
+  no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+  ```
+* Axiom audit, 12 capstones (`_tmp/sep-s6/Audit.lean`): every one
+  `[propext, Classical.choice, Quot.sound]`, unchanged.
+* **md5 identity**: `git diff master -- Setlec/Kernel Main.lean
+  Setlec/Cached Setlec/Frontend AnnotateBasis.lean Setlec/PinGen` is
+  **empty**, and `.lake/build/bin/setlec` has md5 `6f152b0e…`, the
+  same as master's — **pure-moves standard, no verdict battery owed**;
+  the arena suite above was run anyway.
+* Zero `sorry`s; no new axioms; **no frozen statement edited**
+  (`DeclIndS`, `declEtaStep`, `declEtaStepRun`, `checkDeclR_sound`,
+  `checkDeclR_ofEnvR`, `checkDeclRun_sound`, `declIndRS`, `indRecsS`,
+  `projFnS`, `indRecsFoldS` and the 12 capstones are byte-identical in
+  statement, diffed against `master`).  The signature changes are all
+  *weakenings* or *namings*, and each is listed:
+  `blockRenameOkT` (`EnvS V envSelf` → a bare `TConstVal`); the three
+  `Bridge/DeclInd` folds `indMembersRS`/`provisionRecsRS`/`indRecsRS`
+  (`EnvS V` → `EnvR`, and `hkey : MemberKeyS V` dropped); and
+  `memberInstallS`'s `hkind`, whose three-way disjunction is now
+  spelled `BlockMemberKind c₀ cvA` — a `def` that unfolds to exactly
+  the old text, so every call site still passes `Or.inl ⟨caps, rfl⟩`
+  unchanged.  **None adds a hypothesis to any consumer.**
+  **The P capstone re-assembled byte-identically** and its axiom
+  audit is unchanged.
+
+| metric | S5 | S6 |
+|---|---|---|
+| gate: base / R / P / neutral | 229 / 128 / 116 / 3 | **231 / 127 / 116 / 3** |
+| P→R edges | 5 | **5** |
+| `closure(FoldP) ∩ SetR` | 94 mod / 64 928 ln | **93 / 64 485** |
+| `closure(HarvestP) ∩ SetR` | 48 / 34 796 | **47 / 34 659** |
+| P-lane `.base` reads | 175 (25 files) | **174** (25 files) |
+| — whole-`mp.base` passes | 42 | **40** |
+| — ind-tier whole passes | 7 | **5** |
+| `Bridge/*` modules with no `EnvS V` | 22 / 24 | **20 / 23** |
+| `EnvS V` signatures in `Bridge/DeclInd` | 4 | **1** |
+| build jobs | 528 | **529** |
+
+### 6. SUCCESSION — where S7 starts
+
+**S7 = WALL A's remaining half + WALL B**, in that order (§3), and
+only then the residue.  The batch that was called SP_P stays after it.
+Concretely:
+
+1. `provisionRecsRcore`, then `EnvR.swap` + `indRecsCoreR` (Wall A).
+2. `EnvR.consProjFn`, the template cons, `projInstallRR` (Wall B);
+   then `declIndRR` and `checkDeclR_ofEnvRE` — at which point
+   `Bridge/*` is model-free apart from `EnvS.toEnvR` itself.
+3. **Then** the residue, in ONE commit, at the ratified six-step
+   order, with `EnvS2PM.toEnvR` (already shown constructible, §3)
+   supplying step (e).
+
+The criterion transfers verbatim: **after the residue the whitelist
+reads `FoldP → Bridge/Sound` alone, or nothing.**  What S6 changed is
+that the path to it is now fully named and every wall on it has a
+measured size; nothing on the list is a "we will see".
+
+Kit: `tests/layering.sh` (and `--list`); `_tmp/sep-s6/Audit.lean`,
+`closure.py`, `basecount.py` (copied forward from S5); the S1–S5 audit
+files.
+
 ## Task #161 SEPARATION — S5 LANDED (2026-09-03; succession-current)
 
 Master @ the S5 merge; battery green; binary md5-identical (five
