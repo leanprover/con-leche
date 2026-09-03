@@ -22349,3 +22349,369 @@ avoid, on top of the two no-go theorems above.
   tier — its `ptFresh_piC_of` premise is the retired collapse lane's,
   and the real obstruction at 11/12 is that the check *is* the typing
   rule.
+
+## Task #161 ROUND D (verified infer_only) — RAW HANDOFF NOTES, NOT AN
+ASSESSMENT (2026-09-02; agent/degating-d2, stopped mid-flight by the
+lead's split directive)
+
+**Status, stated first so nothing here is mistaken for a verdict.**
+The verified-infer_only assessment was dispatched to this branch and
+then re-owned by a separate agent.  What follows is the material that
+existed at the stop: a completed site enumeration (deliverable (a)),
+two old-refutation *readings* (deliverable (d), partial), and pointers.
+**Nothing new was mechanized on this branch** — no Lean file was added
+or changed, so there are no new sorries and no new axiom audits to
+report; every mechanized artifact cited below is somebody else's, cited
+with the audit its own record carries.  Deliverables (b) and (c) are
+NOT delivered: (b) was pending a P-tier carrier survey that had not
+returned, and (c) (the re-proof-shape estimate) is deliberately absent
+rather than guessed.
+
+### (a) The internal full-infer call sites — ENUMERATION COMPLETE
+
+Every `r.infer` reachable inside the whnf/defeq/reduction cone, at
+`agent/degating-d2` = master `f1ac3162`.  **20 sites in
+`Setlec/Kernel/CoreI.lean`; 19 in the `Setlec/Kernel/Core.lean` spec
+twin** (the discrepancy is exactly the bulk-beta split: Core.lean's one
+chained beta certificate at `:1441` becomes CoreI's `whnfAppI:1526` +
+`betaPeelI:1560`).
+
+Use classes: (i) fed to a sort/level extraction; (ii) fed to a `defeq`
+against another type; (iii) shape-matched; (iv) `whnf`'d then
+shape-tested; (v) stored into a certificate value; (vi) fed only to a
+further infer.
+
+| # | CoreI.lean:line | enclosing fn | binds | use |
+|---|---|---|---|---|
+| 1 | 930 | `iotaCertsIAux` | `ta` | (ii) vs the telescope domain |
+| 2 | 982 | `proofIrrelI` | `ta` | (iv) unit-like shape test; re-inferred at #4 |
+| 3 | 985 | `proofIrrelI` | `tb` | (iv) unit-like shape test |
+| 4 | 992 | `proofIrrelI` | `tta` | (iv) must be `.sort`; level vs 0 |
+| 5 | 998 | `proofIrrelI` | `tb` | (vi) feeds #6 only |
+| 6 | 999 | `proofIrrelI` | `ttb` | (iv) must be `.sort`; level vs 0 |
+| 7 | 1038 | `pairEtaCertI` | `tb` | (iv)+(iii) 2-arg const-app destructure |
+| 8 | 1189 | `structEtaCertI` | `tb` | (iv)+(iii) → `wtb` into `structEtaCertWithI` |
+| 9 | 1196 | `structUnitCertI` | `ta` | (iv)+(iii) const head must be unit-like |
+| 10 | 1209 | `structUnitCertI` | `tb` | (ii) whnf'd, defeq vs `wta` |
+| 11 | 1224 | `etaCertI` | `tb` | (iv)+(iii) must be `.forallE`; domain → defeq |
+| 12 | 1264 | `majorToCtorI` (K) | `tmaj₀` | (iv)+(iii) const head `T`; args → fab params |
+| 13 | 1291 | `majorToCtorI` (K) | `tfab` | (ii) defeq vs `tmaj` |
+| 14 | 1304 | `majorToCtorI` (η) | `tmaj₀` | (iv)+(iii)+(v) `tmaj` → `structEtaCertWithI` |
+| 15 | 1480 | `projCertI` | `ta` | (vi) feeds #16 only |
+| 16 | 1481 | `projCertI` | `tta` | (i)/(iv) `.sort uT`; level vs `fieldLvl` |
+| 17 | 1486 | `projCertI` | `te` | (vi) feeds #18 only |
+| 18 | 1487 | `projCertI` | `tte` | (i)/(iv) `.sort wT`; level vs `structLvl` |
+| 19 | 1526 | `whnfAppI` | `ta` | (ii) vs the λ's declared domain `ty` (harvest site 9) |
+| 20 | 1560 | `betaPeelI` | `ta` | (ii) vs the instantiated domain `ty'` (harvest site 10) |
+
+Three structural observations the enumeration establishes, each a
+matter of reading the code:
+
+1. **No site in the cone is mode-gated.**  Zero of the 20 sit inside an
+   `if mode.ttChecks` block (those gates guard *certificate* calls, and
+   `iotaCertsI` — whose infer is site 1 — is reached ungated from
+   `iotaRecI:1436/1439`, `majorToCtorI:1286/1332`,
+   `structEtaProjCertsI:1122`, `structEtaCertWithI:1155`,
+   `structUnitCertI:1214`).  `CheckMode.ttChecks` is
+   `| _ => false` (`Setlec/Kernel/Env.lean:43-44`), so the tt-gated
+   certificate calls are statically dead, but the cone's infers are
+   live in every mode.  The `mode.verified` gates in the cone
+   (`etaCertI:1234`, `defeqStepI:2096/2106`) guard `pw.equiv` throws
+   only — no infer.
+2. **Four sites are pure double-inference chains** (#5→#6, #15→#16,
+   #17→#18, and #2 re-inferred at #4): a term's type is inferred only
+   to infer *that* type's sort.  The intermediate results (#5, #15,
+   #17) are consumed by nothing else.  Whatever an inferOnly discipline
+   licenses at the outer infer, the inner one is a sort derivation, a
+   different obligation — the feasibility owner should not treat the
+   chains as one site.
+3. **`annotate` is NOT reachable from the cone.**  No function in
+   whnf/defeq calls `r.annotate`; `whnfCoreStepI`'s non-native
+   projection path returns `internI (.proj sn i e')` (`:1638`) rather
+   than eliminating.  The two annotate-side infers (`isPropTypeI:2151`,
+   `annotateProjRecI:2199`) are reached only from `annotateBodyI`'s
+   `.proj` case and belong to bucket 3, not bucket 2.
+
+### (d) The old refutations — READINGS, not verdicts
+
+**#134/#124's metatheorem refutation** is `InferOnlyRefuted` on branch
+`spike/inferonly-metatheory` (`b28c929c`, sharpened at `12a40be8`;
+never merged, `Setlec/TTSpike/InferOnlyRefuted.lean`).  The refuted
+statement, verbatim:
+
+    theorem infer_only_target_refuted (V : Type w) [SetTheory V] :
+        ¬ ∀ (Γ : List VExpr) (e t : VExpr),
+            Typable Γ e → InferOnly Γ e t → HasType Γ e t
+
+The countermodel, verbatim from the file: `w := (fun (x : False) => x)
+Nat.zero`.  It is `Typable` at `0 = 0` because four applications of
+`propext` prove `(False → False) = (Nat → (0 = 0))` and `conv` retypes
+the identity-on-`False` there; `InferOnly` assigns it `False` because
+the argument is never examined; `HasType [] w False` would contradict
+`no_proof_of_empty`.
+
+**The reading this branch adds** (a matter of quoting the layer, not a
+proof): the refutation's premise `Typable Γ e := ∃ T, HasType Γ e T` is
+typability in a judgment whose conversion rule is **equality
+reflection**, not definitional conversion.  `Setlec/TT/Judgment.lean`
+says so in its own header, verbatim:
+
+    **One judgment, one induction.**  There is no separate definitional
+    equality: conversion is *equality reflection* over the object-level
+    `eqE`.
+
+and the rule (`Judgment.lean`, the `conv` clause):
+
+    /-- **Conversion = equality reflection.**  This is the only rule
+    that changes a type, and the only consumer of the equational
+    rules. -/
+    | conv {Γ t A B T p} : HasType Γ t A → HasType Γ p (.eqE T A B) →
+        HasType Γ t B
+
+`propext_P1_P2` is a *propositional* equation, and only equality
+reflection turns it into a type change.  So the witness is manufactured
+by a conversion the checker's `isDefEq` does not have.  **What follows
+and what does not**: it follows that the refutation's hypothesis is
+strictly weaker than "the front door accepted this term", and therefore
+that the refutation does not, on its face, refute a statement whose
+in-flight hypothesis is the P tier's `AnnotOkP`/`AnnotOk2` (a
+*membership*, not a derivation).  It does **not** follow that the
+P-tier statement is true — the semantic transfer is exactly the open
+question, and it is NOT settled here.  The half-worked transfer, left
+as the first probe the feasibility owner should run:
+
+* at **positive** kind the D1 mechanism kills empty-domain witnesses —
+  `lamR_pos_empty` (`Interp2/Ops.lean:343`) makes an empty-domain λ the
+  *empty graph*, `piR_dom_unique` (`:282`, unconditional) then forces
+  `A' = ∅`, and the app node has no `AnnotOk2` slot;
+* at **zero** (Prop) kind the witness's shapes are *live*: `lamR 0 A F
+  = pt` (`:68`), `piR 0 A B = truthVal (…)` (`:62`), and
+  `app_mem_piR` (`:172`) genuinely carries its `ha : a ∈ˢ A` premise —
+  with `A = ∅` and the fibre `∅` the conclusion is false.  The witness
+  is a Prop-kind phenomenon (propext), and the Prop kind is precisely
+  the branch where `whnfCore_app_claimP` still *consumes* the runtime
+  certificate (`AnnotOkP_beta_zero (hokapp …) (hcert hta hde …)`).
+  **This is a conjecture stated for probing, not a result.**
+
+**#124's refutation is of a different object and this branch reads it
+as orthogonal.**  The guard-capture census (`diag/124-guard-census`,
+`_tmp/census-124/`) refuted *route (iii)*: a **runtime static guard**
+whose free-guard capture was 7.4 %/1.9 %/3.7 % (prelude/Std.Time/full)
+against a measured 5–9 % guard overhead — "the guard captures ~0 % of
+the app-argument tax", net negative everywhere.  A P-tier *license* is
+a compile-time proof obligation: no runtime test, no overhead, and it
+applies at 100 % of the sites it covers rather than at the fraction a
+syntactic classifier clears.  The census's numbers stand; the reading
+is that its verdict does not transfer to a proof-carried skip.  **Not
+mechanized, and it is an argument about what was measured, not a new
+measurement.**
+
+**"#138's parked DeqC option" — RECORD NOT FOUND, with a probable
+identification.**  There is no `#138` and no `DeqC` anywhere in
+DESIGN.md, no branch, no commit message.  The nearest artifact that
+fits the description is the spike's **Q2 sharpening**, commit
+`12a40be8` "SPIKE: Q2 sharpening — io answer at Prop not Deq to actual
+type", which refutes the obvious rescue — *"the infer-only answer is at
+least `Deq` to the subject's actual type"* — verbatim:
+
+    theorem w_io_type_not_deq_actual (V : Type w) [SetTheory V] :
+        ¬ Deq [] trueP (emptyT 0) := fun hd =>
+      no_proof_of_empty V (hd.conv (.refl (T := natT) (a := natZeroT)))
+
+If that is the intended referent, note that it inherits the *same*
+premise weakness read above: `Deq` (`Setlec/TT/Deq.lean`) is the
+equality-reflection layer's derivable equation, so the sharpening
+refutes the rescue at that layer and says nothing directly about the P
+tier's membership currency.  The feasibility owner should confirm the
+identification with the coordinator before relying on it.
+
+### Inherited from D1 (relayed, not re-derived)
+
+The D1 seal (`agent/degating-d1` `ca479e13`) establishes, and this
+branch did not re-check: sites 19/20 (= harvest 9/10) are **not** the
+app typing rule but `whnfCore`'s per-redex re-certification, and
+`whnfCore_app_claimP` (`Step2/WhnfP.lean:565`) **already ignores their
+certificate at positive kind** — the `pwBit φ mm.pw ≠ 0` branch is
+`AnnotOkP_beta_pos hz (hokapp ρ hρ)`, taking no certificate, with the
+domain membership from `annotOk2_beta_dom_pos` (`:108`).  Measured
+share 4.61 % production / 8.16 % cached of init-prelude.  Harvest sites
+11/12 (`inferSpineI`) are bucket 1 and out of scope.
+
+### Where the material is
+
+Everything above is in this section; no other file on `agent/degating-d2`
+differs from `f1ac3162`.  Cited artifacts live elsewhere:
+`spike/inferonly-metatheory` (the metatheorem refutation),
+`agent/degating-d1` `_probe/TotalizeD1.lean` (the totalization no-gos),
+`_tmp/census-124/` (the guard census), `_tmp/degating-p1/sites.md` (the
+harvest site register the numbering above cross-references).
+
+### APPENDIX to the handoff notes: two surveys that landed at the stop
+
+Both arrived after the seal commit above and are recorded here as raw
+material.  **Quotes and locations only — no verdicts are drawn.**
+
+#### A. The official comparison — where the reference kernels set
+inferOnly on internal calls
+
+*C++, `_tmp/lean4-master-kernel/type_checker.cpp`.*  The flag is fixed
+by which public entry point is used (`:360-372`):
+
+    expr type_checker::infer_type(expr const & e) {
+        return infer_type_core(e, true);
+    }
+    expr type_checker::check(expr const & e, names const & lps) {
+        flet<names const *> updt(m_lparams, &lps);
+        return infer_type_core(e, false);
+    }
+
+**Every** internal caller uses the no-argument `infer_type`, i.e.
+`infer_only = true`; the only `false` sites in the file are `:366` and
+`:371` (the declaration-checking entry points).  The flag indexes the
+cache directly (`:333`: `m_st->m_infer_type[infer_only].find(e)`), so
+the modes never share results.  The internal callers, with lines:
+`is_prop` `:383-390`; `reduce_recursor`'s callbacks into
+`inductive_reduce_rec` (K-like and struct-η) `:392-405`;
+`try_eta_expansion_core` `:875-877`; `try_eta_struct_core` `:897`
+(`if (!is_def_eq(infer_type(t), infer_type(s))) return false;`);
+`is_def_eq_proof_irrel` `:931-938`; `is_def_eq_unit_like` `:1160`,
+`:1168`; `eta_expand` `:1265`.
+
+What `infer_only` **skips**: the application-argument
+`is_def_eq(a_type, d_type)` (`infer_app`, `:173-206` — the true branch
+is a *different algorithm*, spine-decomposing with `get_app_args` and
+calling `infer_type_core(f, true)` on the head only, `:191`); the
+lambda domain `ensure_sort_core` (`:125-141`); the `letE` value
+conformance and its type's sort check (`:208-228`); `infer_constant`'s
+unsafe/partial safety tests and `check_level` (`:101-122`); `.sort`'s
+`check_level` (`:344`).
+
+What `infer_only` does **not** skip: `infer_pi`'s domain *and* body
+`ensure_sort_core` — no guard anywhere in `:144-158`, because the
+result universe `imax` needs them; `infer_proj`'s `whnf` and all
+structural validity checks (`:247-248`); `check_nat_size` on literals
+(`:863-868`); the universe-parameter *arity* check on constants; the
+loose-bvar rejection and the recursion-depth guard.  **So lambda
+domains are unchecked at infer_only while pi domains always are** —
+the asymmetry is in the reference kernel itself.
+
+*lean4lean, `_tmp/lean4lean/Lean4Lean/TypeChecker.lean`.*  Same shape,
+with the default flipping the burden (`:136-141`):
+`def inferType (e : Expr) (inferOnly := true) : RecM Expr`, twin caches
+`inferTypeI`/`inferTypeC` (`:16-19`), cache selection at `:269`
+(`cond inferOnly state.inferTypeI state.inferTypeC`), the `.app` branch
+at `:290-305` guarding the `isDefEq dType aType`, and `inferApp`
+(`:187-202`) as the infer-only spine walker.  Its docstring at
+`:170-179` is the **informal invariant, written out by the reference
+implementation itself** — worth having verbatim because it is exactly
+the thing the P tier would be replacing with a proof:
+
+    NOTE: This function does not do any typechecking of its own on `t`
+    and `s`. So, when this is used as part of a typechecking routine,
+    it is expected that they are already well-typed (that is, that
+    `checkType t` and `checkType s` did not/would not throw an error).
+    This is what justifies the internal uses of `inferType` at its
+    default `inferOnly := true`: on a well-typed subterm the fast path
+    returns the same type the checking path would have.
+
+Its internal `inferOnly = true` sites: `getSortLevel`/`isProp`
+`:224-230`; `reduceRecursor` `:331`; `tryEtaExpansionCore` `:624`;
+`tryEtaStructCore` `:644`; `isDefEqProofIrrel` `:677-680`;
+`isDefEqUnitLike` `:832`, `:838`; `etaExpand` `:954`; `ensureType`
+`:944`.  `Lean4Lean/Inductive/Reduce.lean:29-41` (`toCtorWhenK`) and
+`:58-65` (`toCtorWhenStruct`) take `inferType` as an abstracted
+callback, supplied infer-only from `TypeChecker.lean:331`.
+
+*nanoda, `_tmp/nanoda_lib/src/tc.rs`.*  A two-valued enum `InferFlag`
+(`:46-56`) with the same guard structure (`infer_app` `:525-562` guards
+the `assert_def_eq` behind `if flag == Check`; `infer_pi` `:621-629`
+unguarded).  One difference worth flagging: the caches are asymmetric
+(`:479-517`) — the `Check` cache is consulted for *both* flags, the
+`InferOnly` cache only at `InferOnly`.
+
+*Correspondence readings, for the feasibility owner to confirm — these
+are pairings by role, not verified equivalences.*  setlec sites 2-6
+(`proofIrrelI`) pair with `is_def_eq_proof_irrel`/`is_prop`; sites
+9/10 (`structUnitCertI`) with `is_def_eq_unit_like`; site 11
+(`etaCertI`) with `try_eta_expansion_core`; site 8
+(`structEtaCertI`) with `try_eta_struct_core`; sites 12/13/14
+(`majorToCtorI`) with `toCtorWhenK`/`toCtorWhenStruct`; sites 15-18
+(`projCertI`) with `infer_proj` **only in part** — official's
+`infer_proj` is unguarded but does not perform setlec's two
+field-sort/struct-sort level comparisons, so this pairing needs a
+per-leg comparison and is NOT settled here.  Two sites appear to have
+**no official counterpart at all**: sites 19/20 (the β re-certification
+in `whnfAppI`/`betaPeelI` — official's `whnf_core` beta does not
+re-infer the argument) and site 1 (`iotaCertsIAux`'s per-argument
+telescope walk — `inductive_reduce_rec` infers the major's type for
+the K index match but does not walk the recursor/constructor telescope
+re-checking each argument).  Note that site 1 is nonetheless classified
+by the harvest as a **supplier** (`RecRuleLawP`'s `TeleFitPA`s via
+`certs_telePA`), so "no official counterpart" and "removable" are
+different questions there.
+
+#### B. The P-tier statements the feasibility owner will need
+
+Locations corrected against the tree: the four claim bundles are all in
+`Setlec/SetR/Interp2/Claims2P.lean`; `EnvS2P.lean` is at
+`Setlec/SetR/Annot/EnvS2P.lean` (not under `Interp2/`); `ConstTypeP`
+lives in `Step2/InferP.lean`, not in `EnvS2P.lean`.
+
+`InferClaims2P` (`Claims2P.lean:137-150`) concludes a **membership**,
+`interp2 V ρ ea ∈ˢ interp2 V ρ ta`, plus `AnnotOkP` of both the subject
+and the inferred type — all three are *conclusions*; both readings
+(`denoteP … = some ea`, `… = some ta`) are *premises* (dual success).
+`DefEqClaims2P` (`:117-133`) concludes `interp2 V ρ aa = interp2 V ρ ba`
+and takes `AnnotOkP` of both sides as *premises*.
+`WhnfCoreClaims2P`/`WhnfClaims2P` (`:85-114`) conclude the reduct's
+`AnnotOkP` **and** denotation equality — so whnf-preservation of the
+grading is inside the claim, not a side lemma.  `AnnotOkP` itself
+(`:64`) is `AnnotOk2 V ρ e ∧ AnnotValidV V ρ e`.
+
+The three internal-infer discharge sites, which are the concrete
+subjects any inferOnly swap would have to re-prove:
+
+* **β** — `BetaCertP` (`Step2/WhnfP.lean:402-417`), discharged by
+  `betaCertP_of_claims` (`:424-442`); consumed at the β arm of
+  `whnfCore_app_claimP` (`:664-669`) *only* to feed
+  `AnnotOkP_beta_zero`'s membership premise at `pwBit φ mm.pw = 0`.
+* **ι telescope** — `certs_telePA` (`IotaKitP.lean:241-257`), whose own
+  docstring names the pattern: "One step is `InferReadsP` (the
+  argument's type reads), `InferClaims2P` (it is graded and the
+  argument inhabits it) and `DefEqClaims2P` (it is the domain) — the
+  checker's own order."
+* **proof irrelevance** — `prop_side_pt` (`IrrelP.lean:64-94`) and
+  `unit_side_pt` (`:106-163`), closed by `proofIrrelPQ_of_claims`
+  (`:182`) / `unitIrrelPQ_of_claims` (`:168`).  Both consume `ihi`
+  (`InferClaims2P`) for the membership and `sortSemAtP_of_claims` for
+  the sort fact; the double-inference chain `a : ta : sta` (sites 2/4
+  and 5/6) is exactly `hta` + `hsta` in `prop_side_pt`'s signature.
+
+The generic bridge is `SortSemAtP` (`InferP.lean:64-75`), proved by
+`sortSemAtP_of_claims` (`:758`) — the archetype of "the certificate's
+infer returned `t`, so `InferClaims2P` gives `⟦e⟧ ∈ ⟦t⟧`".  The
+existence residue that dual success withholds is `InferExistsP`
+(`WhnfP.lean:388-397`) / `InferReadsP`.
+
+`AnnotOkP` transport (`Interp2/OkPTransport.lean`): `AnnotOkP_liftN`
+(`:52`), `AnnotOkP_inst0` (`:60`), `AnnotOkP.hoist_lift` (`:69`),
+`acval_inst_self` (`:82`).  Reduction-step forms
+(`Step2/WhnfP.lean`): `annotOk2_beta_dom_pos` (`:108`),
+`AnnotOkP.lam_dom` (`:131`), `AnnotOkP_zeta` (`:138`),
+`AnnotOkP_beta_pos` (`:149`), `AnnotOkP_beta_zero` (`:162`).
+`ConstTypeP` (`InferP.lean:97-110`) holds at **every** `ρ` with no
+`Sat2` guard, and is projected from `EnvS2PM.constTypeP`
+(`Annot/EnvS2P.lean:609`) out of `type_reads`/`type_okP`/`mem_typeP`.
+Assembly: `checkStep2P_of_quarters` (`Step2/AssemblyP.lean:52`),
+`checkSoundP_of_inputs` (`:65`), `checkSoundAtP`
+(`Step2/TiersP.lean:75`).
+
+**One structural observation, stated as an observation**: the step
+theorems take the four claims *at fuel* and produce one *at fuel+1*
+(`InferStepP` `InferP.lean:1074`, `DefEqStepP` `DefEqP.lean:1179`,
+`WhnfCoreStepP`/`WhnfStepP` `WhnfP.lean:816/823`).  Any second claims
+family for an infer-only inference would have to enter this mutual
+induction, since the internal infers appear inside the whnf and defeq
+steps.  Whether that is one knot indexed by a mode (the #147 shape), a
+second family beside the first, or per-site simulation is deliverable
+(c), and deliverable (c) is not delivered.
