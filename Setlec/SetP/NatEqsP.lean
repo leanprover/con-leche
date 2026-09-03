@@ -1,7 +1,7 @@
 import Setlec.SetP.InstallP
 import Setlec.SetP.Step2.NatP
-import Setlec.Verify.NatOpFrag
-import Setlec.SetR.Bridge.Decl
+import Setlec.SetBase.NatFrag
+import Setlec.SetBase.DeclRun
 
 /-!
 # The structural-`Nat` recurrences, established at `interp2` from run
@@ -1162,10 +1162,10 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       ∃ V0, denote mp.base.cval env ψ 0 value' = some V0 :=
     fun ψ => ⟨(A ψ).erase,
       denoteP_erase mp.base_erase 0 value' (hA ψ)⟩
-  obtain ⟨hw1, hb1, hL1, hleaf1, -⟩ :=
-    Setlec.SetR.natEqFrame_of_frag mp.base hvf' hbv' hden hfr1
-  obtain ⟨hw2, hb2, hL2, hleaf2, -⟩ :=
-    Setlec.SetR.natEqFrame_of_frag mp.base hvf' hbv' hden hfr2
+  obtain ⟨hw1, hb1, hL1, hleaf1⟩ :=
+    Setlec.TTVerify.natFrag_subst_syntax hvf' hbv' hfr1
+  obtain ⟨hw2, hb2, hL2, hleaf2⟩ :=
+    Setlec.TTVerify.natFrag_subst_syntax hvf' hbv' hfr2
   have hrun := hruns _ (List.mem_map.mpr ⟨(e1, e2), hq, rfl⟩)
   obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN0,
     hlpZ, hlpS, -⟩ := Setlec.natLitSupported_inv hs

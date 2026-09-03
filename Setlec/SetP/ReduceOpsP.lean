@@ -1,3 +1,4 @@
+import Setlec.Verify.OfReducePin
 import Setlec.SetBase.DeclRun
 import Setlec.SetP.NatEqsP
 import Setlec.SetP.CapstoneP

@@ -4,7 +4,7 @@ import Setlec.Verify.IotaWalkInv
 import Setlec.Verify.Extend.Iota
 import Setlec.Verify.Denote.IndFrame
 import Setlec.Verify.Extend.Proj
-import Setlec.Verify.NatOpFrag
+import Setlec.SetBase.NatFrag
 import Setlec.Verify.ReducePinInv
 import Setlec.Verify.DivModInv
 
@@ -303,69 +303,50 @@ theorem natEqsBridge_of {V : Type w} [SetTheory V] {env : Env}
       exact ih (fun q hq => hfr q (List.mem_cons_of_mem _ hq)) h eq
         heq' φ
 
-/-- **The fragment gives the frame package**, in one induction over
-`natFragOk`'s four constructors.  The operation `c` is the one being
-defined, so it is *not* stored: its occurrences are the ones
-`substConst0` replaces, and the substituted value's own facts stand in
-for them. -/
-theorem natEqFrame_of_frag {V : Type w} [SetTheory V] {env : Env}
+/-- **The fragment's denotation half.**  The four *syntactic*
+conjuncts of `NatEqFrameR` are `natFrag_subst_syntax`'s
+(`SetBase/NatFrag.lean`, model-free — task #161 S4 split them out for
+the graded lane, which consumes only those); what stays here is the
+one conjunct that names a valuation, in the same induction over
+`natFragOk`'s four constructors.
+
+The operation `c` is the one being defined, so it is *not* stored: its
+occurrences are the ones `substConst0` replaces, and the substituted
+value's own denotation (`hvd`) stands in for them. -/
+theorem natFrag_subst_denotes {V : Type w} [SetTheory V] {env : Env}
     (m : EnvS V env) {c : Name}
     {v : Expr} (hvf : v.hasFvar = false)
-    (hvb : v.looseBVarsBounded 0 = true)
     (hvd : ∀ φ : Name → Nat, ∃ V0, denote m.cval env φ 0 v = some V0) :
     ∀ {e : Expr}, natFragOk env c e = true →
-      NatEqFrameR m.cval env (Expr.substConst0 c v e)
+      ∀ φ : Name → Nat,
+        ∃ w, denote m.cval env φ 2 (Expr.substConst0 c v e) = some w
   | .sort u, _ => by
     rw [show Expr.substConst0 c v (Expr.sort u) = Expr.sort u from rfl]
-    refine ⟨by rw [Expr.WScoped]; trivial, rfl, ?_, ?_,
-      fun φ => ⟨_, by rw [denote_sort]⟩⟩
-    · intro l hl; simp [Expr.fvarLeaves] at hl
-    · intro l hl; simp [Expr.fvarLeaves] at hl
+    exact fun φ => ⟨_, by rw [denote_sort]⟩
   | .fvar i n ty, h => by
     simp only [natFragOk, Bool.and_eq_true, Bool.or_eq_true,
       decide_eq_true_eq, beq_iff_eq] at h
-    obtain ⟨hi, rfl⟩ := h
-    have hilt : i < 2 := by rcases hi with rfl | rfl <;> omega
+    obtain ⟨-, rfl⟩ := h
     rw [show Expr.substConst0 c v (Expr.fvar i n (.const natName []))
       = Expr.fvar i n (.const natName []) from rfl]
-    refine ⟨?_, rfl, ?_, ?_, fun φ => ⟨_, by rw [denote_fvar]⟩⟩
-    · rw [Expr.WScoped]
-      exact ⟨hilt, by rw [Expr.WScoped]; trivial⟩
-    · intro l hl
-      rw [Expr.fvarLeaves] at hl
-      rcases List.mem_cons.mp hl with rfl | hl'
-      · rfl
-      · simp [Expr.fvarLeaves] at hl'
-    · intro l hl
-      rw [Expr.fvarLeaves] at hl
-      rcases List.mem_cons.mp hl with rfl | hl'
-      · exact ⟨hilt, rfl⟩
-      · simp [Expr.fvarLeaves] at hl'
+    exact fun φ => ⟨_, by rw [denote_fvar]⟩
   | .const n us, h => by
     rw [show Expr.substConst0 c v (Expr.const n us)
       = (if n = c ∧ us = [] then v else Expr.const n us) from rfl]
     by_cases hn : n = c ∧ us.isEmpty = true
     · rw [if_pos (show n = c ∧ us = [] from
         ⟨hn.1, List.isEmpty_iff.mp hn.2⟩)]
-      refine ⟨Expr.WScoped.mono (Nat.zero_le 2)
-          (Expr.WScoped.of_not_hasFvar hvf), hvb,
-        Expr.LeavesBounded.of_not_hasFvar hvf, ?_, fun φ => ?_⟩
-      · intro l hl
-        rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hvf] at hl
-        exact nomatch hl
-      · obtain ⟨V0, hV0⟩ := hvd φ
-        exact opener_denotes_at m.toEnvR
-          (Expr.WScoped.of_not_hasFvar hvf).fvarsBelow
-          (Nat.zero_le 2) hV0
+      intro φ
+      obtain ⟨V0, hV0⟩ := hvd φ
+      exact opener_denotes_at m.toEnvR
+        (Expr.WScoped.of_not_hasFvar hvf).fvarsBelow
+        (Nat.zero_le 2) hV0
     · rw [if_neg (fun hh => hn ⟨hh.1, by rw [hh.2]; rfl⟩)]
       simp only [natFragOk, Bool.or_eq_true, Bool.and_eq_true,
         decide_eq_true_eq] at h
       rcases h with h' | h'
       · exact absurd h' hn
-      · refine ⟨by rw [Expr.WScoped]; trivial, rfl, ?_, ?_,
-          fun φ => ?_⟩
-        · intro l hl; simp [Expr.fvarLeaves] at hl
-        · intro l hl; simp [Expr.fvarLeaves] at hl
+      · intro φ
         revert h'
         cases hf : env.find? n with
         | none => intro hx; exact nomatch hx
@@ -378,33 +359,35 @@ theorem natEqFrame_of_frag {V : Type w} [SetTheory V] {env : Env}
           rw [if_pos (by simpa using hx)]
   | .app f a, h => by
     simp only [natFragOk, Bool.and_eq_true] at h
-    obtain ⟨hwf, hbf, hLf, hlf, hdf⟩ :=
-      natEqFrame_of_frag m hvf hvb hvd h.1
-    obtain ⟨hwa, hba, hLa, hla, hda⟩ :=
-      natEqFrame_of_frag m hvf hvb hvd h.2
+    have hdf := natFrag_subst_denotes m hvf hvd h.1
+    have hda := natFrag_subst_denotes m hvf hvd h.2
     rw [show Expr.substConst0 c v (Expr.app f a)
       = Expr.app (Expr.substConst0 c v f) (Expr.substConst0 c v a)
       from rfl]
-    refine ⟨by rw [Expr.WScoped]; exact ⟨hwf, hwa⟩, ?_, ?_, ?_,
-      fun φ => ?_⟩
-    · simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
-      exact ⟨hbf, hba⟩
-    · intro l hl
-      rw [Expr.fvarLeaves] at hl
-      rcases List.mem_append.mp hl with h' | h'
-      · exact hLf l h'
-      · exact hLa l h'
-    · intro l hl
-      rw [Expr.fvarLeaves] at hl
-      rcases List.mem_append.mp hl with h' | h'
-      · exact hlf l h'
-      · exact hla l h'
-    · obtain ⟨vf, hvf'⟩ := hdf φ
-      obtain ⟨va, hva'⟩ := hda φ
-      exact ⟨_, by rw [denote_app, hvf', hva']⟩
+    intro φ
+    obtain ⟨vf, hvf'⟩ := hdf φ
+    obtain ⟨va, hva'⟩ := hda φ
+    exact ⟨_, by rw [denote_app, hvf', hva']⟩
   | .bvar _, h | .lam _ _ _ _, h | .forallE _ _ _ _, h
   | .letE _ _ _ _, h | .proj _ _ _, h | .lit _, h => by
     simp [natFragOk] at h
+
+/-- **The fragment gives the frame package**: the model-free syntactic
+half (`natFrag_subst_syntax`) beside the denotation half above.  The
+statement, the name and the consumers are unchanged — only the proof
+is now split across the lane boundary (task #161 S4). -/
+theorem natEqFrame_of_frag {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS V env) {c : Name}
+    {v : Expr} (hvf : v.hasFvar = false)
+    (hvb : v.looseBVarsBounded 0 = true)
+    (hvd : ∀ φ : Name → Nat, ∃ V0, denote m.cval env φ 0 v = some V0)
+    {e : Expr} (h : natFragOk env c e = true) :
+    NatEqFrameR m.cval env (Expr.substConst0 c v e) :=
+  ⟨(natFrag_subst_syntax hvf hvb h).1,
+    (natFrag_subst_syntax hvf hvb h).2.1,
+    (natFrag_subst_syntax hvf hvb h).2.2.1,
+    (natFrag_subst_syntax hvf hvb h).2.2.2,
+    natFrag_subst_denotes m hvf hvd h⟩
 
 /-- **`certifyNatEqs`, discharged.**  The obligation `declDefnR` used
 to carry: the guard pins every constant the fragment admits, the
