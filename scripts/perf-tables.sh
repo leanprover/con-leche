@@ -85,10 +85,12 @@ median() { printf '%s\n' "$@" | sort -n | awk '{a[NR]=$0} END{print a[int((NR+1)
 # machine (a concurrent perf campaign may be running).
 wait_idle() {
   local waited=0
+  # NB `pgrep -x` matches /proc/PID/comm, which the kernel truncates to
+  # 15 characters — hence the truncated preprocessor name.
   while pgrep -x setlec >/dev/null 2>&1 \
      || pgrep -x kernel >/dev/null 2>&1 \
      || pgrep -x perf >/dev/null 2>&1 \
-     || pgrep -x lean-inductive-models >/dev/null 2>&1; do
+     || pgrep -x lean-inductive- >/dev/null 2>&1; do
     if [ "$waited" -eq 0 ]; then say "waiting for the machine to go idle"; fi
     sleep 10; waited=$((waited + 10))
     if [ "$waited" -ge 7200 ]; then
