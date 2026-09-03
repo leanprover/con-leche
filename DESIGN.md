@@ -28427,3 +28427,28 @@ scope.
 parked KERNEL-BEHAVIOR change (the β-cert gate in P mode) — it gets
 its own dispatch brief FROM THE COORDINATOR before any worker
 starts, with the lead's one-page brief owed first.
+
+## Task #161 SEPARATION — S8 LANDED: THE WHITELIST READS NOTHING
+(2026-09-03; succession-current)
+
+Master @ the S8 merge; battery green; binary md5-identical; the
+gate: 0 P→R (whitelist EMPTY), 0 R→P.  THE MODULE SEPARATION IS
+COMPLETE AS THE USER ORDERED IT.  SP_P landed (nine theorems, the
+shipped driver covered).  Ledger keeper: *a driver transpose costs
+the carrier's weakest environment fact, not the carrier* (the
+de-basing paid risk-rank 1 in advance).  Import-gate twin rule
+ratified; lakefile package split = named follow-up.
+
+**S9 DISPATCHED on the approved brief** (coordinator authorization
+on record): the β-cert gate lands ONLY in the new opt-in P-verified
+driver (--set-model=p, shape (ii)); the R driver and parity lane
+stay BYTE-IDENTICAL — **any deviation from that byte-identity
+during S9 revokes the authorization and returns to the coordinator
+immediately**.  The R4-wall closure is a PROOF obligation (failure
+= STOP, not patch).  Accept-supersets within the P mode are covered
+by the user's standing "soundness proof licenses the omission"
+ruling (cited per the coordinator).  Measurement: the mode delta
+(P vs R driver, same binary, gross AND net) + P driver vs parity on
+the winning engine per stream (engine-per-column pending the perf
+lead's confirmation); stage-1 gross figures re-verified on the
+rebased gate BEFORE any net number is quoted.
