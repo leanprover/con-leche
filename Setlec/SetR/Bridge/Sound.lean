@@ -57,6 +57,33 @@ theorem checkDeclR_sound
     (fun hh => declIndRS memberKeyS m hE (by
       simpa [checkDecl, directParts?_none] using hh)) h
 
+/-- **The run half, from the checker** — the design census's **C3**
+(task #161 S4).
+
+`DeclRunR` (`SetBase/DeclRun.lean`) is `DeclR` with every derivation
+conjunct deleted; this is `checkDeclR_sound` composed with the
+projection, so the records stay single-sourced — nothing in `Bridge/*`
+re-proves anything.
+
+**Why it still takes `m`, and what would drop it.**  The projection's
+*conclusion* names no valuation, but its route to the conclusion is the
+bridge, and the bridge's per-kind proofs (`declDefnR` &c.,
+`Bridge/Decl.lean`) build the guard and derivation conjuncts
+interleaved.  A model-free `checkDeclRun_sound` is therefore a
+re-factoring of `Bridge/Decl.lean`, not a re-statement — and it has, as
+of S4, **no consumer**: every P call site holds an `EnvS` at the same
+point anyway, for the v1 install round trip that `EnvS2PM.base`
+carries (the S3 seal §2).  D6's house rule (never freeze a statement no
+consumer has exercised) therefore puts the `m`-dropped skeleton in S5,
+beside the residue removal that creates its first consumer. -/
+theorem checkDeclRun_sound
+    {μ : CheckMode} {F : Nat}
+    {env env₂ : Env} (m : EnvS V env) (hE : EtaFamiliesClosed env)
+    {d : Declaration}
+    (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
+    DeclRunR μ F (DeclIndR μ F env m.cval) env d env₂ :=
+  DeclR.toRun (checkDeclR_sound m hE h)
+
 theorem foldlM_R
     {μ : CheckMode} {F : Nat}
      :

@@ -30,6 +30,7 @@ import Setlec.SetBase.Weaken
 import Setlec.SetBase.CtxOkR
 import Setlec.SetBase.Decl
 import Setlec.SetBase.DeclEta
+import Setlec.SetBase.DeclRun
 
 /-!
 # `Setlec.SetBase` — the lane-neutral semantic primitives (task #161, S1)
