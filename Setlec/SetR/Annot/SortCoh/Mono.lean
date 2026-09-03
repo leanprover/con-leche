@@ -436,7 +436,14 @@ theorem proofIrrel_mono (hs : CoreSub r₁ r₂) {d : Nat} {a b : Expr}
     | ok wb =>
     rw [h4] at h; rw [hs.2.1 h4]
     simp only [] at h ⊢
-    exact h
+    -- task #161: the restored common-type check is one more `defeq`
+    -- call, transported by `CoreSub`'s fourth clause
+    by_cases hub : Setlec.isUnitLikeTy env wb = true
+    · rw [if_pos hub] at h ⊢
+      cases h5 : r₁.defeq d ta tb with
+      | error err => rw [h5] at h; exact nomatch h
+      | ok v' => rw [h5] at h; rw [hs.2.2.2.1 h5]; exact h
+    · rw [if_neg hub] at h ⊢; exact h
   · rw [if_neg hu] at h ⊢
     cases h3 : r₁.infer d ta with
     | error err => rw [h3] at h; exact nomatch h
@@ -472,7 +479,32 @@ theorem proofIrrel_mono (hs : CoreSub r₁ r₂) {d : Nat} {a b : Expr}
       | ok w₂ =>
       rw [h8] at h; rw [hs.2.1 h8]
       simp only [] at h ⊢
-      exact h
+      -- task #161: the restored common-type check, as in the unit
+      -- branch above
+      cases w₂ with
+      | sort vT =>
+        simp only [] at h ⊢
+        cases h9 : Setlec.liftFueled "level comparison"
+            (Level.isEquiv vT Level.zero) (m := Setlec.CheckM) with
+        | error err => rw [h9] at h; exact nomatch h
+        | ok okB =>
+        rw [h9] at h
+        simp only [] at h ⊢
+        by_cases hab : (okA && okB) = true
+        · rw [if_pos hab] at h ⊢
+          cases h10 : r₁.defeq d ta tb with
+          | error err => rw [h10] at h; exact nomatch h
+          | ok v' => rw [h10] at h; rw [hs.2.2.2.1 h10]; exact h
+        · rw [if_neg hab] at h ⊢; exact h
+      | fvar i'' n' ty' => exact h
+      | app f' a'' => exact h
+      | lam n' ty' b'' m' => exact h
+      | letE n' ty' v'' b'' => exact h
+      | proj s' i'' e' => exact h
+      | lit l' => exact h
+      | const n' us' => exact h
+      | forallE n' ty' b'' bi' => exact h
+      | bvar i'' => exact h
     | fvar i' n ty => exact h
     | app f a' => exact h
     | lam n ty b' m => exact h

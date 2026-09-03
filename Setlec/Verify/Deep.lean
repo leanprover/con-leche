@@ -717,6 +717,9 @@ private theorem proofIrrel_shift (henv : EnvWF env)
     refine bind_congr _ (ih.whnf hpd hwtb) ?_
     intro wtb _
     rw [isUnitLikeTy_shiftFrom]
+    -- task #161: the restored common-type check is one more `defeq`
+    -- call, at the two inferred types (both scoped at `d`)
+    exact ite_congr' (fun _ => ih.defeq hpd hwta hwtb) (fun _ => rfl)
   · refine bind_congr _ (ih.infer hpd hwta) ?_
     intro tta htta
     have hwtta : WScoped d tta := inferTypeCore_WScoped henv fuel htta hwta
@@ -737,6 +740,10 @@ private theorem proofIrrel_shift (henv : EnvWF env)
     intro w' _
     cases w' <;> try rfl
     case fvar => rw [shiftFrom_fvar]
+    case sort v =>
+      refine bind_congr_eq rfl ?_
+      intro okB _
+      exact ite_congr' (fun _ => ih.defeq hpd hwta hwtb) (fun _ => rfl)
 
 private theorem pairEtaCert_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}

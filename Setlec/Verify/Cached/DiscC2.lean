@@ -51,7 +51,8 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
         (coreKnotI mode (mkFEnv env) f).whnf d tb >>= fun wtb =>
         Setlec.Cached.withStore (fun st => isUnitLikeTyI (mkFEnv env) st wtb) >>=
           fun c₂ =>
-        if c₂ then pure true else pure false
+        if c₂ then (coreKnotI mode (mkFEnv env) f).defeq d ta tb
+        else pure false
       else
         (coreKnotI mode (mkFEnv env) f).infer d ta >>= fun tta =>
         (coreKnotI mode (mkFEnv env) f).whnf d tta >>= fun wtta =>
@@ -70,7 +71,8 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
             internLM .zero >>= fun zB =>
             isEquivLM vT zB >>= fun oB =>
             liftFueled "level comparison" oB >>= fun okB =>
-            pure (okA && okB)
+            if okA && okB then (coreKnotI mode (mkFEnv env) f).defeq d ta tb
+            else pure false
           | _ => pure false
         | _ => pure false)
     (proofIrrel (fueledFns mode env) env d a b)
@@ -90,7 +92,8 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     rw [isUnitLikeTyI_spec hwtbd.2]
     by_cases hu₂ : isUnitLikeTy env wtbx
     · rw [if_pos hu₂, if_pos hu₂]
-      exact SimC.pure hs₄ rfl
+      -- task #161: the restored common-type check
+      exact ih.defeq hs₄ htad htbd hwta hwtb
     · rw [if_neg hu₂, if_neg hu₂]
       exact SimC.pure hs₄ rfl
   · rw [if_neg hu, if_neg hu]
@@ -131,7 +134,12 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
         refine SimC.bind (SimC.liftFueled _ _ hs₈o)
           (fun s₉ okB okB' hs₉ hPok' => ?_)
         obtain rfl : okB = okB' := hPok'
-        exact SimC.pure hs₉ rfl
+        -- task #161: the restored common-type check
+        by_cases hab : (okA && okB) = true
+        · rw [if_pos hab, if_pos hab]
+          exact ih.defeq hs₉ htad htbd hwta hwtb
+        · rw [if_neg hab, if_neg hab]
+          exact SimC.pure hs₉ rfl
       | bvar k h' bb' fb' lp' => exact SimC.pure hs₈ rfl
       | const nm us h' bb' fb' lp' => exact SimC.pure hs₈ rfl
       | lit l h' bb' fb' lp' => exact SimC.pure hs₈ rfl

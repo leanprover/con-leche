@@ -39,7 +39,8 @@ theorem proofIrrelI_sim (ih : SSimI mode env f) {d : Nat} {i j : EIdx}
         (coreKnotI mode (mkFEnv env) f).whnf d tb >>= fun wtb =>
         Setlec.withStore (fun st => isUnitLikeTyI (mkFEnv env) st wtb) >>=
           fun c₂ =>
-        if c₂ then pure true else pure false
+        if c₂ then (coreKnotI mode (mkFEnv env) f).defeq d ta tb
+        else pure false
       else
         (coreKnotI mode (mkFEnv env) f).infer d ta >>= fun tta =>
         (coreKnotI mode (mkFEnv env) f).whnf d tta >>= fun wtta =>
@@ -58,7 +59,8 @@ theorem proofIrrelI_sim (ih : SSimI mode env f) {d : Nat} {i j : EIdx}
             internLM .zero >>= fun zB =>
             isEquivLM vT zB >>= fun oB =>
             liftFueled "level comparison" oB >>= fun okB =>
-            pure (okA && okB)
+            if okA && okB then (coreKnotI mode (mkFEnv env) f).defeq d ta tb
+            else pure false
           | _ => pure false
         | _ => pure false)
     (proofIrrel (fueledFns mode env) env d a b)
@@ -83,7 +85,9 @@ theorem proofIrrelI_sim (ih : SSimI mode env f) {d : Nat} {i j : EIdx}
     rw [isUnitLikeTyI_spec hs₄.wf hwtbd]
     by_cases hu₂ : isUnitLikeTy env wtbx
     · rw [if_pos hu₂, if_pos hu₂]
-      exact SimAt.pure hs₄ rfl
+      -- task #161: the restored common-type check
+      exact ih.defeq hs₄ (denoteT_mono ((hext₂.trans hext₃).trans hext₄) htad)
+        (denoteT_mono hext₄ htbd) hwta hwtb
     · rw [if_neg hu₂, if_neg hu₂]
       exact SimAt.pure hs₄ rfl
   · rw [if_neg hu, if_neg hu]
@@ -137,7 +141,18 @@ theorem proofIrrelI_sim (ih : SSimI mode env f) {d : Nat} {i j : EIdx}
         refine SimAt.bind (SimAt.liftFueled _ _ hs₈o)
           (fun s₉ okB okB' hs₉ hext₉ hPok' => ?_)
         obtain rfl : okB = okB' := hPok'
-        exact SimAt.pure hs₉ rfl
+        -- task #161: the restored common-type check
+        by_cases hab : (okA && okB) = true
+        · rw [if_pos hab, if_pos hab]
+          exact ih.defeq hs₉
+            (denoteT_mono ((((((((((hext₂.trans hext₃).trans hext₄).trans
+              hext₄z).trans hext₄o).trans hext₅).trans hext₆).trans
+              hext₇).trans hext₈).trans hext₈z).trans
+              (hext₈o.trans hext₉)) htad)
+            (denoteT_mono ((((hext₇.trans hext₈).trans hext₈z).trans
+              hext₈o).trans hext₉) htbd) hwta hwtb
+        · rw [if_neg hab, if_neg hab]
+          exact SimAt.pure hs₉ rfl
       | bvar k => invert_node hd'; exact SimAt.pure hs₈ rfl
       | const nmᵢ us => invert_node hd'; exact SimAt.pure hs₈ rfl
 

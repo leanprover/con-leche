@@ -314,7 +314,9 @@ theorem proofIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   · refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
     refine DiscV.bind (ih.site_whnf henv htb) (fun w₂ _ => ?_)
     split
-    · exact DiscV.pure trivial
+    -- task #161: the restored common-type check is a `defeq` site on
+    -- the two inferred types, both well-scoped at `d`
+    · exact ih.site_defeq hta htb
     · exact DiscV.pure trivial
   · refine DiscV.bind (ih.site_infer henv hta) (fun tta htta => ?_)
     refine DiscV.bind (ih.site_whnf henv htta) (fun w _ => ?_)
@@ -327,7 +329,9 @@ theorem proofIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       cases w' <;> try exact DiscV.pure trivial
       case sort vT =>
         refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okB _ => ?_)
-        exact DiscV.pure trivial
+        split
+        · exact ih.site_defeq hta htb
+        · exact DiscV.pure trivial
 
 /-- Twin of `projTeleCert_disc` on the inference path (task #129); the
 entry's stored type is closed because the table entry is a stored
