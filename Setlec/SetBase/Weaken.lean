@@ -9,7 +9,7 @@ Derivations of the whole relation family lift along context insertion
 (`LiftCtx`, reused from `Setlec/Verify/Denote/HasTypeSubst.lean` — the
 transpose home of `HasType.weakenN`, whose `bvar`/`beta`/`eta` cases
 this file mirrors).  This is design §0 decision 1's cost, consumed by
-the `CtxOkR` plumbing (`Setlec/SetR/CtxOkR.lean`).
+the `CtxOkR` plumbing (`Setlec/SetBase/CtxOkR.lean`).
 
 **Why it goes through** (the `denoteClosed` side-condition discipline):
 every side condition of every rule is either `Δ`/depth-free data

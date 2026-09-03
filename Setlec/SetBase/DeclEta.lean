@@ -1,4 +1,4 @@
-import Setlec.SetR.Decl
+import Setlec.SetBase.Decl
 
 /-!
 # `declEtaStep` — the declaration fold's η-closure half, model-free

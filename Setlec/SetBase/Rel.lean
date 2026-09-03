@@ -41,7 +41,7 @@ Boolean guards and `denote` facts — all V-free, and all `Δ`/depth-free
 (closed denotations are spelled `denoteClosed`; the two depth-`rP`
 `denote` facts of the nested iota premise are depth-fixed by stored
 data, never by the ambient context).  That discipline is what makes the
-mutual weakening lemma (`Setlec/SetR/Weaken.lean`, M1) go through.
+mutual weakening lemma (`Setlec/SetBase/Weaken.lean`, M1) go through.
 
 Every rule cites its checker site (`Setlec/Kernel/Core.lean` unless
 noted); the checker is the source of truth, and a premise that reads

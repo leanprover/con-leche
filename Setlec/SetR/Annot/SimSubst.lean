@@ -1,7 +1,7 @@
 import Setlec.SetBase.Canon
 import Setlec.SetR.Annot.Kinding
 import Setlec.SetR.Annot.EnvS2
-import Setlec.SetR.CtxOkR
+import Setlec.SetBase.CtxOkR
 import Setlec.Verify.InferLeaves
 
 /-!

@@ -1,4 +1,4 @@
-import Setlec.SetR.CtxOkR
+import Setlec.SetBase.CtxOkR
 import Setlec.Verify.Denote.Install
 import Setlec.Verify.IotaWalkInv
 

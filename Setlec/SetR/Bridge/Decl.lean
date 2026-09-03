@@ -14,7 +14,7 @@ import Setlec.Verify.DivModInv
 `Setlec/SetR/Bridge/*` bridges the checker's *inference* steps into the
 `[set]` relation family; this file bridges its **declarations**.  Each
 of `checkDecl`'s six branches is inverted into the corresponding
-`Decl*R` clause of `Setlec/SetR/Decl.lean`, and `checkDeclR_of`
+`Decl*R` clause of `Setlec/SetBase/Decl.lean`, and `checkDeclR_of`
 assembles them.  Composed with `declStepS` (`Install/Step.lean`) that
 gives the `EnvS`-extension step the consistency fold runs.
 

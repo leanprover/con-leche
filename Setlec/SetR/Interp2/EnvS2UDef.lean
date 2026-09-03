@@ -1068,7 +1068,7 @@ its output) from `checkConstantVal_inv`.
 
 ### …and it is dropped at exactly one place
 
-`ValueFrontR` (`Setlec/SetR/Decl.lean:152`) records **five syntactic
+`ValueFrontR` (`Setlec/SetBase/Decl.lean:152`) records **five syntactic
 conjuncts and one relational front door**, and no run:
 `annotateCore μ env F 0 value = .ok value'` is the only checker call
 in it.  `ConstantValR` (`:132`) is the same shape.  `hvt`, `hst` and
@@ -1097,7 +1097,7 @@ a useless one.
 `checkConstantVal_inv`'s `hst`/`hsort` at `constantValR_of`.
 
 **Conjunct that would expose it**, added to `ValueFrontR`
-(`Setlec/SetR/Decl.lean:152`):
+(`Setlec/SetBase/Decl.lean:152`):
 
 ```
 (∃ vtype, inferTypeCore μ env F 0 value' = .ok vtype) ∧

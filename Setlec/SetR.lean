@@ -12,9 +12,9 @@ import Setlec.SetR.Sound.NatOps
 import Setlec.SetR.Sound.NatOpsWf
 import Setlec.SetR.Sound.Iota
 import Setlec.SetR.Sound.Main
-import Setlec.SetR.Weaken
-import Setlec.SetR.CtxOkR
-import Setlec.SetR.Decl
+import Setlec.SetBase.Weaken
+import Setlec.SetBase.CtxOkR
+import Setlec.SetBase.Decl
 import Setlec.SetR.EnvS
 import Setlec.SetR.Install.Cons
 import Setlec.SetR.Install.Value
