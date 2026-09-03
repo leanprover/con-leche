@@ -5,6 +5,7 @@ import Setlec.SetP.CtxOkPKit
 import Setlec.SetP.Step2.InferP
 import Setlec.SetP.Step2.InferIOP
 import Setlec.SetP.Step2.WhnfP
+import Setlec.SetP.Step2.GateP
 import Setlec.SetP.Step2.DefEqP
 import Setlec.SetP.Step2.AssemblyP
 import Setlec.SetP.Annot.EnvS2Core

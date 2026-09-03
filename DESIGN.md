@@ -29766,3 +29766,308 @@ capstone-at-the-P-driver becomes the proofdeps gate's FIFTH ROOT.
 Escalation re-arms on the S11b seal's naming with the mid-batch
 flag live.  S13 (flag surface + measurement, engines per the perf
 lead) follows on its seal.
+
+## Task #161 THE SEPARATION — S12 SEALED, **ESCALATED** (2026-09-03,
+`agent/sep-s12`, unpushed): **THE TOWER'S TRANSPOSITION HAS AN UNNAMED
+TIER UNDERNEATH IT, AND IT IS SIX TIMES THE NAMED ROW**
+
+### 0. THE FIFTH ROOT, ANSWERED FIRST — THERE IS NONE, AND WHY
+
+The coordinator's answer requirement was the fifth root's gate line.
+**It does not exist on this branch**, because the capstone it would
+measure does not exist, because the transposition it rests on cannot
+be *started* — let alone finished — inside one batch.  The gate line
+this branch prints is the S11b line, unchanged:
+
+```
+proofdeps: 120 rows as pinned; EnvS/checkDeclR_ofEnvRE/DeclR/DeclIndR/declIndRR absent 20/20 and the derivation tier (Red, Red.beta, Infer, Infer.app, DefEq, DefEq.trans) absent 24/24 across the 4 shipped P capstones (doors: 0)
+```
+
+No row was loosened, no root was added, no capstone letter moved.
+Per the ratchet's own rule a root may only be added *in the batch that
+earns it*; this batch did not earn it, and a root pinned against a
+theorem that does not exist would be the inert row S11a finding 1 calls
+rot.
+
+**The escalation rule fires** (S9's re-armed form, renewed on the S11b
+seal's naming): a residual surfaced that the seal did not name, and it
+is not a mis-sized row — it is a whole tier below the named one.  The
+mid-batch flag fired too, and is subsumed: the bill does not double, it
+multiplies by ~6 against the named row and by ~40 against the batch
+that named it.
+
+### 1. WHAT LANDED — THE ROUTE-INDEPENDENT HALF (2 files, 2 commits)
+
+Everything here is needed *in this shape* by every route to a gated
+soundness theorem, and none of it presumes which route the coordinator
+picks.
+
+**`Setlec/Verify/CoreP.lean`** (`ac459aaa`) — `Verify/Knot.lean`'s twin
+for the gated knot, in three kinds:
+
+* **the shared four.**  `whnf`, `infer`, `defeq`, `annotate` are the
+  *same bodies* on both knots, so `pureFnsP_whnf`/`_infer`/`_defeq`/
+  `_annotate` and the five `…P_succ` / five `…P_def` / five `…P_zero`
+  equations are all `rfl`.  This is the reuse lever, mechanized: any
+  inversion stated against a *body* with an abstract `CoreFns` record
+  transfers to the gated knot with no new proof;
+* **THE COLLAPSE** — `whnfCoreBodyP_eq`: at every non-`.app` subject
+  the gated body **is** the ungated body.  S9 asserted "both arms are
+  `whnfCoreBody`'s verbatim" in a docstring; this is the kernel
+  checking it, ten constructors, nine `rfl`.  The *ungated projection
+  clause* is one of the nine — the establishment/consumption asymmetry
+  fence, as a term rather than a comment;
+* **THE ONE CHANGED CLAUSE** — `whnfCoreP_app_inv`, `whnf_app_inv`'s
+  twin.  The β disjunct's certificate becomes a disjunction,
+  `(mode.verified && mb.pw.isNever) = true ∨ ∃ ta, infer a = .ok ta ∧
+  defeq ta ty = .ok true`.  The ι and stuck disjuncts are
+  character-for-character the ungated ones.
+
+**`Setlec/SetP/Step2/GateP.lean`** (`d7ef4c38`) — the β-gate's license
+as a theorem, which is the *only mathematically new content* in the
+whole transposition:
+
+* `gate_pwBit_ne_zero` — a fired gate's datum is positive at **every**
+  valuation (the sound half of `isNever_iff_forall_pwBit_ne_zero`, read
+  at the kernel's own gate expression);
+* **`AnnotOkP_beta_gate` — THE LICENSE.**  At a fired gate the β step's
+  interpretation equality and the reduct's truthfulness follow from the
+  redex's own `AnnotOkP` slot.  *No certificate appears in the
+  statement or in the proof*; the proof is `AnnotOkP_beta_pos ∘
+  gate_pwBit_ne_zero`, one composition.  S9's "the positive branch
+  already consumes nothing" is now a term;
+* **`gate_zero_kind_unreachable` — THE ASYMMETRY FENCE, discharged.**
+  A fired gate and a zero-kind datum are contradictory, so the
+  certificate-consuming arm (`AnnotOkP_beta_zero`, whose `hmem` premise
+  *is* the deleted run's product) is unreachable under the gate.  The
+  batch's LAW — "if any transposed obligation reaches for a cert the
+  gate skipped, STOP-AND-NAME" — is therefore not a review question but
+  a type: an obligation that reached for one would have to inhabit this
+  branch, and it cannot.  **The law was not violated; it was made
+  unviolatable.**
+
+### 2. THE REUSE-vs-RESTATE TABLE (the order's deliverable, per family)
+
+Measured against the landed collapse, not predicted.
+
+| family | verdict | why, and what it costs |
+|---|---|---|
+| `AnnotOkP`, `CtxOkP`, `Sat2`, `interp2` currency | **REUSE VERBATIM** | knot-free: no fueled entry in statement or body.  Zero cost, both knots |
+| `WhnfClaims2P`, `DefEqClaims2P`, `InferClaims2P` + all their clause lemmas | **REUSE by HOISTING** | the bodies (`whnfBody`/`defeqBody`/`inferBody`) are *shared*; the statements name the fueled entry only through `…_succ`.  Hoist each proof to the body level once, instantiate twice.  A re-signing, not a duplication — but it is a re-signing of **617 statements** (§3) |
+| `WhnfCoreClaims2P` + the whnfCore quarter's eleven clauses | **NINE REUSE, ONE TRANSPOSE** | the collapse (`whnfCoreBodyP_eq`) gives nine clauses for free; the `.app` clause is the transpose, and it is landed (`whnfCoreP_app_inv` + `AnnotOkP_beta_gate`) |
+| `BetaCertP` | **NOT CONSUMED at a fired gate** | the license's whole point; at a non-fired gate it is the ungated obligation, hoistable |
+| `CheckStep2P`, `checkSound2P`, `checkStep2P_of_quarters` | **REUSE, function-generic once the four families take the knot** | the induction and the assembly mention no entry point of their own |
+| `WhnfCoreExistsP`, `InferExistsP`, `IotaStepP`, `ProjStepP`, `DeltaP`, `ReduceNatStepP` | **RE-SIGN** | each names a fueled entry; none needs a new proof |
+| the `Verify` structural layer (`…_WScoped`, `…_looseBVars`, `…_fvarLeaves`, the inversions, `Extend/*`, `Mono`, `Leaves`, `IotaWalkInv`, `DivModInv`, `ReducePinInv`) | **RE-SIGN + 95 genuinely new proofs** | **the unnamed tier.**  §3 |
+| the `SetBase` run records + their bridges (`ConstantValRunR`…`DeclRunR`, `DeclIndRunR`, `checkDeclRun_of`, `declIndRunRR`, `checkDeclRun_ofEnvRE`) | **RE-SIGN over `CheckerOps`** | `checkDecl`/`checkDecls` are already written once against the record, so the *dispatch* is ops-generic by construction; the *records* bake the fueled entries in and must take the ops |
+
+### 3. THE MEASURED BILL — THE NINTH CORRECTION, AND ITS SHAPE IS NEW
+AGAIN
+
+Instrument: `_tmp/sep-s12/S12Bill2.lean` (the S9/S10 proof-term walk,
+re-pointed: for every declaration in a root's closure, does its **type**
+or its **value** mention a fueled knot entry — `whnfCore`, `whnf`,
+`inferTypeCore`, `isDefEqCore`, `annotateCore`, `ensureSortCore`,
+`pureFns`, `coreKnot`, `fueledOps`?  Bodies are deliberately *excluded*:
+they are shared, so a statement that names only a body is knot-generic
+already).  Note the instrument counts a `def`'s body as "value", which
+is why the four claim families appear in the *proof* column, not the
+statement column.
+
+**Root = `no_proof_of_Empty_P` (the batch's actual target, at the
+gated driver):**
+
+| | measured |
+|---|---|
+| proof-term closure | 13 884 constants, 7 992 setlec-owned |
+| **statements naming a fueled entry** | **712** |
+| proofs/bodies naming one | **148** |
+| **total declarations to re-sign or re-point** | **860** |
+| modules carrying them | **59** |
+| source lines in those modules | **47 087** |
+| …of the 712: name `whnfCore`/`pureFns`/`coreKnot` (the **differing** body — genuinely new proofs) | **95** |
+| …of the 712: name only shared-body entries (**hoistable**) | **617** |
+
+**Root = `checkSoundP_of_inputs` (the S9-NAMED row, the tower alone):**
+
+| module | statements | proofs |
+|---|---|---|
+| `Setlec.Verify.InferLemmas` | **91** | 1 |
+| `Setlec.Verify.InferLeaves` | **29** | 0 |
+| `Setlec.Verify.Knot` | **9** | 13 |
+| `Setlec.SetP.Step2.DefEqP` | 14 | 7 |
+| `Setlec.SetP.Step2.InferP` | 10 | 7 |
+| `Setlec.SetP.Step2.WhnfP` | 9 | 7 |
+| `Setlec.Kernel.TypeChecker` | 0 | 6 |
+| `Setlec.SetP.Claims2P` | 0 | 5 |
+| **total** | **162** | **46** |
+
+Read the two tables together and the correction is exact:
+
+* S9 named **"transposing `WhnfCoreClaims2P`/`WhnfClaims2P`/
+  `DefEqClaims2P`/`InferClaims2P` and their step assembly onto
+  `whnfCoreP`… everything else is re-typing."**  The named subject is
+  the 33 statements + 26 proofs in `SetP/Step2/*` and `Claims2P`;
+* the named row's own **prerequisite** is 129 statements in
+  `Setlec.Verify.*` that S9 never mentioned.  **The named work cannot
+  begin until the unnamed tier lands**: `whnfCore_packageP` calls
+  `whnfCore_WScoped`/`_looseBVars`/`_fvarLeaves`, `betaCertP_of_claims`
+  calls `inferTypeCore_WScoped`/`_looseBVars`/`_fvarLeaves`, and every
+  one of those is a theorem about the *ungated* knot;
+* and the batch's actual target — the capstone at `fueledOpsP` — is
+  **860 declarations in 59 modules**, four times the tower alone.
+
+**The ninth correction, and it is a third error class.**  The first
+seven were mis-sized rows; the eighth (S11b) was a *missing file* in
+the same tier; this one is a **missing tier**, below the named row and
+larger than it, such that the named row is not independently
+deliverable at all.  Reusable form, for the ledger:
+
+> *A transposition's bill is not the statements you transpose — it is
+> the statements they are proved from.  Before sizing "re-typing", ask
+> what the re-typed proofs CALL, and whether those are theorems about
+> the old subject.*
+
+### 4. THE ROUTE COMPARISON, PRICED FROM SOURCES
+
+| | route (a) — duplicate | route (b) — hoist to the body, instantiate twice |
+|---|---|---|
+| `Verify` layer | 565 twinned statements across ~11 500 ln | 470 hoists (~4 ln each ≈ 1 900 ln) + **95 new proofs** over the differing body |
+| the claims tower | ~4 500 ln duplicated | re-sign over a knot parameter `K`: ~60 signature edits, proofs unchanged |
+| `SetBase` records + bridges | ~1 850 ln duplicated | re-sign over `CheckerOps`: the dispatch is ops-generic by construction (`checkDecl` is written once against the record) |
+| P consumers (harvests, ind tier, installs) | ~90 statements + 80 proofs twinned | re-sign; no new mathematics |
+| **frozen-statement risk** | none (new names) | **`DeclRunR`, `ConstantValRunR`, `DeclIndRunR` change their letter** — a ratified-statement question for the coordinator, not an agent's call |
+| **estimate** | 18 000–20 000 new lines | **6 000–8 000 lines touched**, of which ~2 500 new |
+
+Route (b) is right on cost and on the campaign's own "reuse over
+restate" discipline, and it is **the reason this is an escalation and
+not a slow grind**: its cheap majority is bought by *editing statements
+the R lane also depends on*.  Whether the run records may take an
+`ops` parameter — i.e. whether `DeclRunR`'s letter may move — is
+exactly the kind of decision the escalation rule exists to route back.
+
+Either way the work is **3–5 batches**, not one.
+
+### 5. WHAT DID NOT LAND, AND WHY
+
+* **the gated capstone** (`no_proof_of_Empty_…P` at `fueledOpsP`) —
+  §3.  A conditional or partially-transposed form was not offered:
+  the standing ruling is that conditional forms are not solutions;
+* **the fifth root** — it measures the capstone; §0;
+* **the `--set-model=p` flag surface** — unchanged from S9: it lands
+  with the proof, never before.  `Main.lean` is byte-unchanged and the
+  binary is md5-identical;
+* **no frozen statement was edited**, and no new one was frozen that
+  the campaign has to live with: the five landed theorems are about
+  the *kernel's* gated knot and the *gate's* datum, both already
+  fixed on master.
+
+### 6. BATTERY (verbatim)
+
+* `lake build` — clean, warning-free, **544** jobs (542 +
+  `Verify/CoreP` + `SetP/Step2/GateP`).
+* `lake test` — exit 0 (the five S9 gate `#guard`s included).
+* `tests/arena.sh` — exit 0:
+
+  ```
+  layering: base 265 / R 106 / P 118 / neutral 3 modules; 0 P->R edges (whitelist EMPTY); 0 R->P
+  proofdeps: 120 rows as pinned; EnvS/checkDeclR_ofEnvRE/DeclR/DeclIndR/declIndRR absent 20/20 and the derivation tier (Red, Red.beta, Infer, Infer.app, DefEq, DefEq.trans) absent 24/24 across the 4 shipped P capstones (doors: 0)
+  arena tutorial: 90/92 good tests accepted
+  e2e: 73/73 as expected
+  annot suite: 14/14 as expected
+  split driver: 11/11 as expected
+  mode flags: 9/9 as expected
+  no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+  ```
+
+* Axiom audit (`_tmp/sep-s12/Audit.lean`), **75 declarations** (S11b's
+  49 + the 26 new): every one within `[propext, Classical.choice,
+  Quot.sound]`; `gate_pwBit_ne_zero` and `gate_zero_kind_unreachable`
+  use `[propext]` alone — strictly fewer, never more.  0 rows
+  deviating.
+* **md5 identity**: `.lake/build/bin/setlec` =
+  `29abe904703a3e634daeb3bfb5706262`, identical to master's; `git diff
+  master -- Setlec/Kernel Main.lean Setlec/Cached Setlec/Frontend
+  AnnotateBasis.lean Setlec/PinGen` is **empty**.
+* Zero `sorry`s; no new axioms; **capstone letters unchanged** (all
+  four P capstones byte-identical to master's).
+
+| metric | S11b | S12 |
+|---|---|---|
+| gate: base / R / P / neutral | 264 / 106 / 117 / 3 | **265** / 106 / **118** / 3 |
+| P→R edges | 0 | 0 |
+| proof-term gate rows pinned | 120 | 120 (unchanged — **no fifth root**) |
+| capstones in the P family | 4 | 4 |
+| build jobs | 542 | **544** |
+| binary md5 | `29abe904…` | `29abe904…` |
+
+### 7. SUCCESSION — WHERE THE COORDINATOR DECIDES
+
+S13 as ratified (**the flag surface + the measurement**) is
+**BLOCKED**, and by S9's own clause: the flag surface lands with the
+soundness theorem, never before, and the mode delta cannot be measured
+without the flag.  So the succession is a decision, not a batch:
+
+1. **Route (b), staged.**  S13a = the `Verify` hoisting (the 470
+   shared-body statements to body level, single-sourced, both knots as
+   corollaries — a pure refactor of the *existing* tree, provable
+   green against the existing capstones before any gated work starts).
+   S13b = the 95 differing-body proofs over `whnfCoreBodyP`, on the
+   collapse this batch landed.  S13c = the tower's `K` parameter.
+   S13d = the run records over `CheckerOps` — **requires a ruling on
+   `DeclRunR`'s letter**.  S13e = the capstone + the fifth root.
+   S13f = the flag surface + the measurement.
+2. **Or: re-scope the deliverable.**  If the campaign's question is
+   "is the β gate licensed?", it is answered — `AnnotOkP_beta_gate` is
+   the answer and it is landed.  If it is "does the shipped checker
+   run the gate soundly?", that is the 860-declaration programme, and
+   the honest thing is to schedule it as one.
+
+Kit: `Setlec/Verify/CoreP.lean` (the equations, the collapse, the
+gated inversion); `Setlec/SetP/Step2/GateP.lean` (the license and the
+fence); `_tmp/sep-s12/S12Bill.lean` + `S12Bill2.lean` (the bill
+instrument, re-pointable at any root), `bill.txt` / `bill2.txt` /
+`bill-tower.txt` (the measurements above), `Audit.lean` + `audit.txt`
+(75 rows).
+
+## Task #161 SEPARATION — S12 SEALED, ESCALATED (2026-09-03;
+succession-current)
+
+**The gated knot's soundness theorem was not reachable in one batch,
+and the reason is measured, not felt.**  S9 sized the transposition as
+"the four claim families + their step assembly onto `whnfCoreP`;
+everything else is re-typing".  The proof-term instrument
+(`_tmp/sep-s12/S12Bill2.lean`) says the named row is **162 statements
++ 46 proofs**, of which **129 statements are in `Setlec.Verify.*` that
+the seal never named** — and the batch's actual target, the capstone at
+`fueledOpsP`, is **860 declarations across 59 modules / 47 087 lines**
+(712 statements naming a fueled knot entry, 148 proofs; 617 of the 712
+hoistable at the shared bodies, 95 needing new proofs over the
+differing one).
+
+**NINTH CORRECTION, third error class**: seven mis-sized rows, then a
+missing file (S11b), now a **missing tier** — below the named row,
+larger than it, and such that the named row cannot even be *started*
+first.  Ledger form: *a transposition's bill is not the statements you
+transpose, it is the statements they are proved from.*
+
+**LANDED, route-independent** (2 files, 2 commits, battery green,
+binary md5-identical): `Verify/CoreP.lean` — the gated knot's
+equations, **the collapse** (`whnfCoreBodyP_eq`: at every non-`.app`
+subject the gated body IS the ungated body — S9's docstring claim,
+kernel-checked) and **the one changed clause** (`whnfCoreP_app_inv`,
+the β disjunct's cert replaced by "gate fired ∨ cert passed");
+`SetP/Step2/GateP.lean` — **`AnnotOkP_beta_gate`, the β-gate's license
+as a theorem** (no certificate in statement or proof) and
+**`gate_zero_kind_unreachable`, the asymmetry fence discharged**: the
+batch's LAW is now a type, not a review question.
+
+**NO FIFTH ROOT.**  The gate line is S11b's, unchanged; a root pinned
+against a theorem that does not exist is the inert row S11a finding 1
+calls rot.  **S13 (flag surface + measurement) is BLOCKED by S9's own
+clause** — the flag lands with the proof.  The coordinator's decision:
+route (b) staged over 3–5 batches (S13a Verify hoisting → S13b the 95
+differing-body proofs → S13c the tower's knot parameter → S13d the run
+records over `CheckerOps`, **which needs a ruling on `DeclRunR`'s
+letter** → S13e capstone + fifth root → S13f flag + measurement), or a
+re-scope.

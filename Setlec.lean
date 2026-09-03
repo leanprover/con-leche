@@ -13,6 +13,7 @@ import Setlec.Verify.InstLevels
 import Setlec.Verify.EnvWF
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InferIOLemmas
+import Setlec.Verify.CoreP
 import Setlec.Verify.AnnotDefense
 import Setlec.SetTheory.Basic
 import Setlec.SetTheory.Core
