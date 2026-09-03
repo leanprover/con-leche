@@ -24812,3 +24812,257 @@ builds (load average 5–58), which is why wall is secondary here.
    `--core=`/mode value) — sized in part 1(b) item 2, ≈630 mechanical
    lines, if the lead ever wants the middle point measured in-binary
    rather than reconstructed from #141's leave-one-out data.
+
+## Task #161 FOLLOW-UP 1 — THE MEMO SHARE RESTORED, AND THE CANONICAL
+TABLE'S MECHANISM CLAIM REFUTED (2026-09-03; branch `agent/memoshare`
+off master `fc171938`; NOTHING LANDED — the branch is the evidence)
+
+The canonical statement's follow-up list, item 1: restore #134's
+`memoEIO` one-directional memo share in `coreKnotNC.infer`, which
+#147's consolidation dropped.  Done, measured, verdict-neutral.  **The
+change is a real but small win — and it does NOT explain the table's
+three ≈0.99× rows, which was the reason it was queued first.  That
+mechanism claim is hereby retracted and replaced.**  Kit and raw data:
+`_tmp/memoshare-161/{run.sh,battery.sh,neutral.sh,report.py,table.tsv}`.
+
+### THE DIFF (34 insertions, 1 deletion; one file, `Setlec/Kernel/CoreNC.lean`)
+
+```lean
++def memoEIO (f : Nat → EIdx → CheckIM EIdx) : Nat → EIdx → CheckIM EIdx :=
++  fun d e => do
++    let st ← get
++    match st.inferFC[e]? with
++    | some r => pure r
++    | none =>
++      match st.inferC[e]? with
++      | some r => pure r
++      | none =>
++        let r ← f d e
++        modify fun st =>
++          let mp := st.inferC
++          let st := { st with inferC := ∅ }
++          { st with inferC := mp.insert e r }
++        pure r
+
+ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
+   | fuel + 1 =>
+-      infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
++      infer := memoEIO
+         (fun d e => inferBodyNC (coreKnotNC fe fuel) fe d e)
+```
+
+(the rest of the insertion is the doc-comment).  `coreKnotFNC.infer`
+is untouched: it stays `memoEI (·.inferFC)`.  The share is
+one-directional by construction — `memoEIO` **reads** `inferFC` and
+**writes** only `inferC`.
+
+**Why the direction is the sound one, argued not assumed.**
+`inferBodyNC` is `inferBodyI` with `inferSpineNC` in place of
+`inferSpineI`; the two spine walks build the returned type by the same
+`instListRevM ty acc` construction and differ only in that
+`inferSpineI` additionally runs the per-argument
+`r.infer`/`r.defeq` re-check (`CoreI.lean:1616-1640` vs
+`CoreNC.lean:134-147`).  So for a given node the checking-mode result
+*is* the infer-only result, computed with a **superset** of checks.
+Serving `inferFC[e]` to an internal query therefore loses no check
+that `inferBodyNC` would have performed.  The converse share would
+serve an unvalidated type to a checking-mode query and must never be
+added.
+
+**Why the lifetimes are safe.**  `checkDeclSPStepNM`
+(`CheckerNC.lean:495`) clears `inferC` (`flushS`) and `inferFC`
+(`flushInferFC`) back to back at every declaration boundary, and in
+each of the three value pipelines (`checkDefnValPNCB4`,
+`checkThmValPNCB4`, `checkOpaqueValPNCB4`) the `flushInferFC` call
+precedes the snapshot close / tier-two truncation, which is the only
+point that can invalidate an arena index.  `closeSnapshotM` runs no
+inference.  So no `inferFC` entry ever outlives the index space
+`inferC` is keyed in.  Both memos already key on `EIdx` alone
+(depth-independent, the shipped `memoEI` design), so the share adds no
+new key hazard.
+
+### THE CACHED LANE: NO ANALOGOUS SHARE POINT (prod-lane-only)
+
+Stated either way, as the charter asked.  `inferFC` exists **only** on
+`IState` (`CoreI.lean:327`); `CState` (`Setlec/Cached/StateC.lean:200`)
+has `inferC` and no front-door twin, and there are no NC bodies
+anywhere under `Setlec/Cached/`.  `coreKnotNC`/`coreKnotFNC` are
+reachable from exactly one place — `checkDeclsSPNM`, i.e.
+`--no-model --core=production` (`Main.lean:278`).  Confirming caveat 5
+of the canonical statement: the cached `--no-model` cell has no
+front-door/internal split to share between, so there is nothing to
+restore there.  Wiring one is the same session's work part 1(b) item 3
+already sized.
+
+### PROOF ADAPTATIONS: NONE — and why that is not a weakening
+
+`Setlec/Kernel/CoreNC.lean` is imported by exactly one module
+(`Setlec/Kernel/CheckerNC.lean`); `grep` over `Setlec/Verify/`,
+`Setlec/SetR/` and `Setlec/SetTheory/` finds **no** reference to
+`coreKnotNC`, `coreKnotFNC`, `inferBodyNC`, `memoEIO` or `CoreNC` in
+any `.lean` file.  The sim/walk batteries (`Verify/SimIKnot.lean:296`,
+`Verify/Cached/KnotC.lean:270`) are about `memoEI (·.inferC)` on
+`coreKnotI` and the cached knot, neither of which this touches.  So
+the itemized list of adaptations is empty *because the unverified lane
+is genuinely disjoint from the verified one*, not because anything was
+weakened — no proof was edited, no hypothesis added, no `sorry`,
+no axiom.
+
+### THE BATTERY
+
+* **Verdict-neutrality — 900 comparisons, 0 divergences.**  225
+  fixtures (138 arena + 73 e2e, `raw`/`pre` modes honored + 14 annot,
+  plus init-prelude) × four configurations (`--set-model`/`--no-model`
+  × `--core=production`/`--core=cached-parsed`), old binary vs new,
+  **byte-identical stdout, stderr and exit code in every cell**
+  (`_tmp/memoshare-161/neutral.sh`, `neutral.diffs` empty).  The
+  affected lane (`--no-model --core=production`) was run first and
+  alone: 225/225 identical.  The `--set-model` cells are identical for
+  the structural reason above (`CoreNC` is unreachable from that
+  mode); the run confirms it rather than assuming it.
+* **Suites, all at the pinned counts**: arena 90/92 good accepted,
+  e2e 73/73, annot 14/14, split 11/11, mode 9/9, no-model sweep
+  138 + 73 + 14 with the 3 recorded `annot_decline_*` divergences.
+  `lake test` exit 0.  `lake build` warning-free (checked on a forced
+  rebuild of the edited module and everything downstream).  Zero
+  `sorry` in the tree (the textual hits are DESIGN prose).
+
+### THE MEASUREMENT (instructions:u, median of 3, paired old/new
+interleaved per stream, `ulimit -v 40 GB` + `timeout 3600` +
+`nice -n 5`, `setsid`-detached, `_tmp/measure.lock.d` stamped with
+pid + lane `memoshare-161` for the whole battery, load average 4–8)
+
+**The kit reproduces.**  Every "before" cell re-measured here lands
+within **0.01 %** of the canonical table's recorded median (11 of 11
+cells) — master `fc171938` differs from the measurement SHA `8c881c57`
+in `DESIGN.md` only, so the taxtable binary *is* the master binary.
+That reproducibility is what makes the deltas below readable at the
+0.03 % level.
+
+| stream | `--no-model` prod before | after | Δ | `--set-model` prod before | after | Δ |
+|---|---|---|---|---|---|---|
+| init-prelude | 21.30 G | **20.92 G** | **−1.79 %** | 38.49 G | 38.49 G | −0.00 % |
+| init-full | 1865.55 G | **1847.88 G** | **−0.95 %** | (not re-run) | — | — |
+| grind-ring-5 | 80.72 G | **79.84 G** | **−1.09 %** | 126.94 G | 126.95 G | +0.01 % |
+| app-lam | 389.37 G | 389.49 G | **+0.03 %** | 383.07 G | 383.12 G | +0.01 % |
+| beta-ladder | 81.14 G | 81.18 G | **+0.04 %** | 80.48 G | 80.47 G | −0.01 % |
+| let-ladder | 23.60 G | 23.60 G | −0.02 % | 23.37 G | 23.37 G | −0.00 % |
+
+`--set-model` is the no-change control and behaves as one: ≤0.01 % on
+all five re-run rows, i.e. at the reproducibility floor.  init-full
+`--set-model` was not re-run (≈41 min of machine-solo time for a cell
+whose code path is provably untouched and whose binaries emit
+byte-identical output); the canonical median 3159.76 G is carried
+forward, and that reuse is flagged in the amended rows below.
+
+#### THE FINDING: the table's mechanism for the ≈0.99× rows is WRONG
+
+The canonical statement's second-order reading #1 says the three
+negative rows are caused by the dropped share — "on a term that is
+both checked front-to-back and reduced, every subterm's type is
+therefore computed twice" — and predicts that restoring it "would
+make the parity lane cheaper and every tax number in the table
+*larger*".  **Measured: on exactly those three rows the share buys
+nothing (−0.02 %, +0.03 %, +0.04 % — the last two are the *cost* of
+the extra probe, above the 0.01 % noise floor).  The win lands on the
+three rows the paragraph did not predict.**
+
+The mechanism the numbers actually support: the share pays only when
+an internal infer query lands on an arena node the **front door
+already inferred inside the same declaration**.  On the
+declaration-count-heavy streams that happens constantly — the type
+phase's `coreKnotFNC.infer 0 jty` and the value phase's
+`coreKnotFNC.infer 0 jv` populate `inferFC` over interned subterms
+that the reductions inside `defeq` then ask about again, and interning
+makes them the *same* `EIdx` (init-prelude 3653 decls: −1.79 %;
+grind-ring-5 3946: −1.09 %; init-full 61 048: −0.95 %).  On the
+ladders the work is concentrated in one huge declaration whose
+internal inference happens on nodes produced by β/ζ **substitution** —
+freshly interned indices the front door has never seen.  `inferFC`
+never hits, and the lane pays one extra failed hash probe per internal
+infer miss: +0.03/+0.04 %.
+
+So the ≈0.98–0.99× rows are still unexplained by anything measured.
+The double-memo hypothesis is dead; P1's independently-measured
+"2.5–3.1 % for the bare memo split" is not recovered on any row here
+and should be re-read as a different quantity (it priced *having two
+maps*, not the missing share).  A successor probe wanting the real
+cause should start from the fact that on those three streams
+`--set-model` is genuinely 1–2 % **cheaper** than `--no-model` on the
+same engine — a certificate that pays for itself, most plausibly by
+short-circuiting a reduction the parity lane then has to perform.
+
+### THE AMENDED CANONICAL-TABLE ROWS (ready to splice)
+
+Only the `--no-model prod` column moves.  Ratios in parentheses are
+against the official column, unchanged; wall for the amended cells is
+this session's and was taken at load 4–8 rather than the canonical
+battery's 15–51, so it is *not* comparable to the other columns' wall
+and is given for completeness only.
+
+| stream | `--no-model` prod = **the parity lane** |
+|---|---|
+| init-prelude | 20.92 G (9.5×) / 1.93 s |
+| init-full | 1847.88 G (4.6×) / 301.87 s |
+| grind-ring-5 | 79.84 G (5.9×) / 8.99 s |
+| app-lam | 389.49 G (13.2×) / 87.85 s |
+| beta-ladder | 81.18 G (8.0×) / 17.27 s |
+| let-ladder | 23.60 G (3.9×) / 5.01 s |
+
+**THE VERIFICATION TAX ITSELF, amended** (`--set-model` prod ÷
+`--no-model` prod):
+
+| stream | end-to-end (was) | **amended** | net of preprocessor (was) | **amended** |
+|---|---|---|---|---|
+| init-prelude | 1.81× | **1.84×** | 2.04× | **2.09×** |
+| init-full † | 1.69× | **1.71×** | 1.77× | **1.79×** |
+| grind-ring-5 | 1.57× | **1.59×** | 1.65× | **1.67×** |
+| app-lam | 0.98× | **0.98×** | 0.98× | **0.98×** |
+| beta-ladder | 0.99× | **0.99×** | 0.99× | **0.99×** |
+| let-ladder | 0.99× | **0.99×** | 0.99× | **0.99×** |
+
+† init-full's numerator is the canonical battery's `--set-model` prod
+median (3159.76 G) over this session's `--no-model` median; the two
+were taken on different days under different load, but instructions:u
+is contention-independent and the eleven cross-checked cells agree to
+0.01 %.
+
+**The amended canonical statement**: the verification tax on the six
+arena workloads is between 0 % and **109 %** — a factor of 0.98× to
+**2.09×**, never more.  On three of the six rows it is still not
+measurable at all.  The engineering-gap row becomes **3.9× / 4.6× /
+5.9× / 8.0× / 9.5× / 13.2×** (let-ladder / init-full / grind-ring-5 /
+beta-ladder / init-prelude / app-lam); only grind-ring-5 (6.0→5.9) and
+init-prelude (9.7→9.5) move.
+
+The follow-up list's item 1 is discharged.  Its second sentence — "the
+table understates the tax by roughly the 2.5–3.1 % P1 priced the split
+at" — was **half right for the wrong reason**: the table did understate
+the tax, by 1–3 % on the three positive rows, and by nothing at all on
+the three rows the sentence was written about.
+
+### RECOMMENDATION TO THE COORDINATOR
+
+Land it, on the strength of the three realistic streams (init-prelude,
+init-full, grind-ring-5 — −0.95 % to −1.79 %) and at the cost of
++0.03 % on the synthetic ladders; it restores a #134 design element
+that #147 dropped by accident, it is verdict-neutral on 900
+comparisons, and it costs the verification effort nothing.  The
+alternative reading — that a wash on three rows plus 1 % on three
+others is below the bar for touching the kernel at all — is legitimate
+and the numbers above are all the coordinator needs to take it.  What
+must NOT survive either way is the canonical table's mechanism
+paragraph for the ≈0.99× rows: it is refuted independently of whether
+this diff lands.
+
+#### Reproduce
+
+```bash
+_tmp/memoshare-161/neutral.sh            # 900-comparison neutrality battery
+_tmp/memoshare-161/battery.sh            # the paired before/after measurement
+python3 _tmp/memoshare-161/report.py
+```
+
+Binaries: before = `.claude/worktrees/taxtable/.lake/build/bin/setlec`
+(source-identical to master `fc171938`), after =
+`.claude/worktrees/memoshare/.lake/build/bin/setlec`.

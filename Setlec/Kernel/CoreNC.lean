@@ -790,6 +790,39 @@ def defeqLoopNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
 def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bool :=
   fun depth a b => defeqLoopNC r fe depth defeqLoopFuel a b
 
+/-- The infer-only inference memo with the **one-directional share**
+from the checking-mode front-door memo (task #134's `memoEIO`, dropped
+by #147's consolidation, restored at task #161 follow-up 1).
+
+Reads `inferFC` first, then `inferC`; writes **only** `inferC`.  The
+direction is the sound one: a checking-mode inference and an infer-only
+inference of the same node compute the same type, but the former also
+*validated* the arguments, so serving it to an infer-only query loses
+nothing.  The converse share would serve an unvalidated type to a
+checking-mode query and must never be added — the front door
+(`coreKnotFNC.infer`) stays a plain `memoEI (·.inferFC)`.
+
+Lifetimes coincide: `checkDeclSPStepNM` clears `inferC` (via `flushS`)
+and `inferFC` (via `flushInferFC`) back to back at every declaration
+boundary, and the value phase's `flushInferFC` precedes the snapshot
+close that may truncate the arena, so no `inferFC` entry outlives the
+index space `inferC` is keyed in. -/
+def memoEIO (f : Nat → EIdx → CheckIM EIdx) : Nat → EIdx → CheckIM EIdx :=
+  fun d e => do
+    let st ← get
+    match st.inferFC[e]? with
+    | some r => pure r
+    | none =>
+      match st.inferC[e]? with
+      | some r => pure r
+      | none =>
+        let r ← f d e
+        modify fun st =>
+          let mp := st.inferC
+          let st := { st with inferC := ∅ }
+          { st with inferC := mp.insert e r }
+        pure r
+
 /-- Tie the cert-skipping bodies at the memoizing state monad (the
 `whnf` and `annotate` bodies are the certified ones — their behavior
 differences come entirely through the record).  The consistency proofs
@@ -807,7 +840,7 @@ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
         (fun d e => whnfCoreBodyNC (coreKnotNC fe fuel) fe d e)
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI (coreKnotNC fe fuel) fe d e)
-      infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
+      infer := memoEIO
         (fun d e => inferBodyNC (coreKnotNC fe fuel) fe d e)
       defeq := memoBI
         (fun d a b => defeqBodyNC (coreKnotNC fe fuel) fe d a b)
