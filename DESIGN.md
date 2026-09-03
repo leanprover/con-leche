@@ -24119,3 +24119,48 @@ rows must discharge from the graded carrier (io_domain_transfer /
 AnnotOkP hereditary facts); the mode-provenance discipline and the
 never-list survive verbatim; the squash wall is permanent.  This
 campaign completes bucket 2 and with it the goal.
+
+## Task #161 THE SEPARATION — two user additions to the design doc
+(2026-09-03)
+
+### 1. The truth-propagation narrative (beside the squash
+countermodel; prose, as discussed)
+
+In the graded model a proposition's denotation is a degenerate set —
+`pt` when true, empty when false — and a proof's membership in it IS
+the proposition's truth.  The soundness invariant that threads
+memberships through every checker step is therefore semantic modus
+ponens run along the execution: each accepted inference carries
+truth from premises to conclusion, and the capstone —
+`no_proof_of_Empty_P` — is its terminal instance: `Empty` denotes
+the empty set, membership in it is falsity, and an accepted
+environment can never assert it.  Read this way, the squash-regime
+transfer failure (`io_membership_fails_at_squash`) is not a place
+where the model "cares less" about Prop: it is that degenerate sets
+DO NOT CARRY DOMAINS.  Proof erasure deletes exactly the datum the
+skipped check would need — two true propositions have identical
+denotations whatever their domains were, so nothing in the
+semantics can distinguish a well-applied proof from a mis-applied
+one.  The checks stay at the squash regime because there the model
+has nothing with which to say them for us; where sets are graded
+(the graph regime), the domain survives in the denotation and the
+model licenses the skip.  Truth propagates; domains only propagate
+where the sets are big enough to remember them.
+
+### 2. QUEUED FOLLOW-UP PHASE (user-directed): per-caller squash
+refinement — after the main io-knot lands
+
+"infer_only in isolation needs the check, but maybe not in all
+caller contexts."  For each io caller, classify what its soundness
+row CONSUMES from the inferred type:
+- MEMBERSHIP → the check stays at squash (the wall is real there);
+- SORT-ONLY (isProp-style consumers) → an io-sort claims variant
+  concluding only the sort;
+- SHAPE-ONLY (etaCert's domain comparand, majorToCtor's head+args)
+  → an io-shape variant concluding only the shape.
+For sort/shape consumers, design per-caller claims variants that
+skip the check EVEN AT POSSIBLY-PROP binders — shrinking the squash
+residue below the 4–8%.  Seed data: the inventory table's
+consumption column (column (c)).  Phase order (unchanged): design
+phase → freeze → batches → the β-gate payoff check → the io-knot →
+THEN this refinement.
