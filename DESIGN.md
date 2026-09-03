@@ -24069,3 +24069,578 @@ heavy legs; every apples-to-oranges caveat honest (preprocessor
 floor, stream-format differences, export-vs-olean).  Replaces the
 folklore numbers as the canonical statement.  Audit answer reported
 FIRST (it may reframe the table).
+
+## Task #161 THE CANONICAL VERIFICATION-TAX STATEMENT (2026-09-03;
+user measurement directive; audited and measured at master `8c881c57`,
+branch `agent/taxtable`, binary built from that tree)
+
+This section REPLACES the folklore numbers — "14–16×" (#141),
+"~39× over the official kernel" (#76), "~42× certified-mode tax" —
+wherever they are quoted as headline figures.  The older sections stay
+as historical record; where they conflict with this one, this one is
+the statement.  Kit and raw data: `_tmp/taxtable-161/`.
+
+### PART 1 — THE AUDIT: does `--no-model` still pay full internal inference?
+
+**ANSWER: NO — it has not paid it since task #147.  An
+official-shaped internal-inference mode EXISTS ON MASTER TODAY: it is
+`--no-model` on `--core=production`.**  The restoration the directive
+budgeted for is unnecessary; nothing was built.
+
+The P1 inventory's sentence — "Setlec has **no** `infer_only`:
+`CoreFnsI.infer` is `inferBodyI`, the full checker, at every call.
+(`IState.inferFC` … is the vestige of the retired `coreKnotF`, and is
+always empty on master.)" — is TRUE OF THE CERTIFIED LANE ONLY
+(`--set-model`, and the cached cores in every mode).  It is FALSE of
+`--no-model` on the production core, where `inferFC` is the live
+front-door memo and internal inference is infer-only.  **The inventory
+sentence is hereby scoped**: it was written about the lane the
+inventory was measuring and reads as a whole-checker statement.
+
+#### The `--no-model` call graph TODAY (master `8c881c57`)
+
+```
+Main.lean:271   let stepF := if mode == .noModel then checkDeclSPStepNM else checkDeclSPStep mode
+Main.lean:278   | .production => if mode == CheckMode.noModel then checkDeclsSPNM else checkDeclsSP mode
+CheckerNC.lean:505  checkDeclsSPNM  →  :495 checkDeclSPStepNM  →  :475 checkDeclSPNC
+   .defnDecl/.thmDecl/.opaqueDecl  →  checkConstantValPNC + check{Defn,Thm,Opaque}ValPNCB4
+       CheckerNC.lean:230/235   (coreKnotFNC fe checkFuel).annotate / .infer     ← FRONT DOOR
+       CheckerNC.lean:396/403/404  .annotate / .infer / .defeq,  :405 flushInferFC
+   _  (axioms, inductive blocks, quot, pins) →  checkDeclSPNCPlain, on
+       CheckerNC.lean:59 sharedOpsNC  →  :41/:50/:55  (coreKnotNC fe checkFuel)
+
+CoreNC.lean:829  coreKnotFNC   — the checking-mode front-door knot
+  :837-839   whnfCore, whnf, defeq  :=  (coreKnotNC fe (fuel+1)).…     ← INTERNALS
+  :840-841   infer := memoEI (·.inferFC) … (inferBodyI .noModel (coreKnotFNC fe fuel) fe)
+  :842-843   annotate := memoEI (·.annotC) … (annotateBodyI .noModel (coreKnotFNC fe fuel) fe)
+
+CoreNC.lean:797  coreKnotNC    — the internal knot every reduction/defeq call sees
+  :810-811   infer := memoEI (·.inferC) … (inferBodyNC (coreKnotNC fe fuel) fe)
+CoreNC.lean:547  inferBodyNC   — app clause :601-605  →  inferSpineNC
+CoreNC.lean:134  inferSpineNC  — telescope walk; NO `r.infer` on the argument and
+                 NO `r.defeq` against the domain  ← official's `infer_app`
+                 at `infer_only = true` (`type_checker.cpp:174-191`)
+```
+
+So **`CoreFnsI.infer` binds to `inferBodyNC` (infer-only grade) at
+every internal call site** — every `r.infer` reachable from
+`whnfCoreBodyNC`, `defeqStepNC`, `proofIrrelI` and the surviving
+certificates — and to `inferBodyI .noModel` (checking grade, arguments
+re-checked, checking mode propagating down the declaration's own term
+exactly as official's `infer_type_core(e, false)` threads `infer_only`
+through `infer_app`/`infer_lambda`/`infer_let`) at the front door only.
+Two memos, `inferC` and `inferFC`, so an infer-only result is never
+served to a checking-mode query.
+
+Empirical corroboration that the front door really is checking-mode:
+`tests/no-model-expected.txt` records that task #139's three class-B
+argument-position escapes (`yolo_arg_escape`, `yolo_arg_escape_univs`,
+`yolo_decline_vs_accept`) are **caught again** under `--no-model` with
+no accept-override — they escape only when the front door is
+infer-only too.
+
+#### The `--set-model` call graph TODAY (the lane P1 measured)
+
+```
+Main.lean:271/278 → CheckerS.lean:1777 checkDeclSPStep → :1789 checkDeclsSP → checkDeclSP
+CheckerS.lean:356 sharedOps  →  :330 opE / :338 opB / :344 opS
+      →  (coreKnotI mode fe checkFuel)          ← ONE knot; no front-door/internal split
+CoreI.lean:2461 coreKnotI
+  :2474-2475  infer := memoEI (·.inferC) … (inferBodyI mode (coreKnotI fe fuel) fe)
+CoreI.lean:1832 inferBodyI  — app clause :1890 → inferSpineI
+CoreI.lean:1616 inferSpineI — :1626-1629 and :1636-1638:
+      `let dom' ← instListRevM dom acc;  let ta ← r.infer depth a;
+       unless ← r.defeq depth ta dom' do throw (.invalid "application type mismatch")`
+```
+
+`inferFC` (`CoreI.lean:327`) is never written on this lane; that is
+what the P1 sentence observed.
+
+#### The #134-era call graph (`git show 63f2af1a:Setlec/Kernel/CoreIO.lean`)
+
+```
+def coreKnotIO (fe : FEnv) : Nat → CoreFnsI        -- the infer-only knot
+  | fuel + 1 =>
+    { whnfCore := memoEI … (whnfCoreBodyI (coreKnotIO fe fuel) fe)   -- CERTIFIED bodies
+      whnf     := memoEI … (whnfBodyI     (coreKnotIO fe fuel) fe)
+      infer    := memoEIO (fun d e => inferBodyIO (coreKnotIO fe fuel) fe d e)
+      defeq    := memoBI  (defeqBodyI     (coreKnotIO fe fuel) fe)
+      annotate := memoEI … (annotateBodyI (coreKnotIO fe fuel) fe) }
+
+def coreKnotF (fe : FEnv) : Nat → CoreFnsI         -- the checking-mode front door
+  | fuel + 1 =>
+    { whnfCore := (coreKnotIO fe (fuel + 1)).whnfCore
+      whnf     := (coreKnotIO fe (fuel + 1)).whnf
+      defeq    := (coreKnotIO fe (fuel + 1)).defeq
+      infer    := memoEI (·.inferFC) … (inferBodyI    (coreKnotF fe fuel) fe)
+      annotate := memoEI (·.annotC)  … (annotateBodyI (coreKnotF fe fuel) fe) }
+
+def memoEIO (f) := fun d e => do          -- ONE-DIRECTIONAL memo share
+  let st ← get
+  match st.inferFC[e]? with | some r => pure r | none =>
+  match st.inferC[e]?  with | some r => pure r | none => … insert into inferC
+```
+
+`coreKnotF` and today's `coreKnotFNC` are the **same pattern, clause
+for clause**.  The structural differences:
+
+| | #134 `coreKnotIO` | today `coreKnotNC` |
+|---|---|---|
+| reduction/defeq bodies | the **certified** ones — every certificate family still runs | the **cert-skipping** twins (`whnfCoreBodyNC`, `defeqStepNC`, `iotaRecNC`, `structEtaCertWithNC`, …) |
+| `infer` body | `inferBodyIO` = `inferBodyI` with `inferSpineIO` | `inferBodyNC` = `inferBodyI` with `inferSpineNC` (+ the `.noModel` gates) |
+| infer-only memo | `memoEIO`: reads `inferFC` first, then `inferC` (one-directional share) | plain `memoEI (·.inferC)` — the share was **dropped** at #147 |
+
+**What #147's consolidation (`8583eb4c`) did**: it deleted
+`Setlec/Kernel/CoreIO.lean` and `CheckerIO.lean` and folded the
+*discipline* into `--no-model` — the io internals survive, but only
+**bundled with cert-skipping**.  What was lost is the *separable*
+configuration "certificates ON + io internals" (the #134
+`--infer-only` operating mode), i.e. the middle point that would
+decompose the tax in one binary.  Nothing else was lost.
+
+#### (a) The precise answer
+
+* An official-shaped internal-inference mode **exists**: `--no-model
+  --core=production`.  Internal calls run cheap `inferOnly`-style
+  inference unconditionally; the front door runs full checking, as
+  official's `check` does.
+* Three residual deviations from official's exact `infer_only`
+  footprint, all in the **strict** direction (setlec checks *more*
+  than official would, so the parity lane is if anything over-priced):
+  1. **site 51** — `inferBodyNC`'s `.lam` clause still infers and
+     sort-checks the λ domain (`CoreNC.lean:589-592`); official gates
+     that at `infer_only` (`type_checker.cpp:132`).  P1 priced the
+     site at **−0.09 % / −0.41 %** (prod/cached, init-prelude).
+  2. **site 52** — `inferBodyNC`'s `.letE` clause runs both checks
+     (`CoreNC.lean:628-631`); official gates them
+     (`type_checker.cpp:216`).  P1 measured **0 fires** on every
+     stream: `letE` is zeta-reduced at annotate, so the `infer_let`
+     footprint is empty in setlec.
+  3. the `annotate` pass has **no official counterpart at all** —
+     every setlec column pays it; official pays none of it.
+* One deviation in the **weak** direction, reported as a finding:
+  `checkDeclSPNC` (`CheckerNC.lean:475`) routes only def/thm/opaque
+  through the checking-mode front door; **install-only kinds (axioms,
+  inductive blocks, quot, the pinned-cert branches) go through
+  `sharedOpsNC` → `coreKnotNC`, i.e. at io grade**
+  (`CheckerNC.lean:59` + `:41/:50/:55`), where official's
+  declaration-type check is `check` = `infer_only = false`.  The
+  certified lane has no such split (`sharedOps` → `coreKnotI`, full).
+  This makes `--no-model` *cheaper* than an exact official-parity lane
+  would be on inductive-heavy streams (init-full above all) — a caveat
+  on the parity column, and a restrictions-are-findings item.
+
+#### (b) The instrument: NOT BUILT, and why
+
+The directive's build clause is conditional on (a) failing; it did not
+fail.  For the record, the three things that would be built and what
+each costs:
+
+1. **The parity column's instrument — unnecessary.**  The table's
+   column "`--no-model` + restored infer_only internals" is
+   *definitionally* the "`--no-model` prod" column.  Closing residual
+   deviations 1–2 above is a ~5-line edit in `inferBodyNC`, worth
+   ≤0.5 % by P1's own site measurement, and it would make the lane
+   check *less* than it does now for no measurable gain.  Declined.
+2. **The decomposition instrument (#134's `--infer-only`: certificates
+   ON + io internals) — assessed, not built.**  Feasible and
+   contained: the certified pipeline instantiates its knot in exactly
+   three places (`CheckerS.lean:330/338/344`), so a
+   `coreKnotIOX`/`coreKnotFIOX` pair (≈120 lines: `inferBodyI` with
+   `inferSpineNC`, plus the two knots) and a driver twin (a mechanical
+   `sharedOpsNC → sharedOps`, `coreKnotFNC → coreKnotFIOX`,
+   `.noModel → .setModel` copy of `CheckerNC.lean`, ≈510 lines) behind
+   a fourth `--core=`/mode value would restore it.  **Not built**: the
+   decomposition it would produce is already on record twice —
+   #134's own diagnostic rows and #141's raw leave-one-out data
+   (`_tmp/certprof-141/loo-*.stat`), which part 1(c) reads out
+   directly and which settle the discrepancy without a new binary.
+3. **The cached column's instrument — NOT WIRED, and not cheap.**
+   `Setlec/Cached/CoreC.lean` is a **complete parallel core** over
+   `ExprC` (its own `whnfCoreBodyI`/`inferBodyI`/`defeqBodyI`/
+   `annotateBodyI`/`coreKnotI`, 1707 lines); there are no NC twins
+   anywhere under `Setlec/Cached/` (grep finds one comment, no code).
+   `--no-model --core=cached-parsed` therefore runs **the certified
+   cached driver with the mode-gated checks off** — `CheckMode.verified
+   = false` removes the λ-codomain sort validation and the annotation
+   validation, and nothing else.  It is NOT the cert-skipping,
+   infer-only lane.  Wiring one means twinning `CoreC.lean` +
+   `CheckerC.lean` the way `CoreNC.lean` (852 lines) + `CheckerNC.lean`
+   (510 lines) twin the interned core, plus a `CState.inferFC` field:
+   a session's mechanical work, not a cheap edit.  **The cached
+   `--no-model` cell is therefore marked "instrument not wired" and
+   its number reported for what it actually is.**
+
+#### (c) THE DISCREPANCY DIAGNOSED — what #141's 14–16× actually compared
+
+**Methodology, quoted from the kit** (`_tmp/certprof-141/sweep.sh`,
+the script that produced the number):
+
+```bash
+# Task #141 leave-one-out sweep: infer_only mode, Std.Time cone, fuel 200k.
+S=/home/joachim/setlec/_tmp/std-time-cone/pre2.ndjson
+export SETLEC_SUPERVISED=1 SETLEC_INFER_ONLY=1 SETLEC_FUEL=200000
+for m in "$@"; do
+  perf stat -e instructions:u … env CPMASK=$m "$B" --pre "$S" …
+```
+
+So: **one stream** (the `Std.Time` cone, 4 215 declarations, a
+Mathlib-grade reduction cone), at a **non-shipping fuel**
+(`SETLEC_FUEL=200000`, twice the compiled `checkFuel`, because the
+stream needs it), on the **`--infer-only` lane** (certificates ON, io
+internals), with `CPMASK` masking certificate families.  The headline
+is `CPMASK=0 ÷ CPMASK=4095` — baseline over *all twelve families
+masked*.
+
+**The raw numbers** (`_tmp/certprof-141/*.stat`, instructions:u):
+
+| run | mask | G instr | ÷ baseline |
+|---|---|---|---|
+| `verified` — default certified (full infer, all certs) | — | 1 646.24 | — |
+| `loo-0` = baseline, `--infer-only` | 0 | **807.98** | 1.00× |
+| `loo-4` — family 2 (per-redex β argument re-check) | 1<<2 | 607.03 | 1.33× |
+| `loo-2047` — families **0–10** (every certificate family) | 0x7FF | 238.54 | **3.39×** |
+| `loo-2048` — family **11 ALONE** | 1<<11 | **54.44** | **14.84×** |
+| `loo-4095` — all twelve | 0xFFF | 51.70 | **15.63×** ← the folklore |
+| `yolo` — `SETLEC_NO_PROOF_CERTS=1` | — | 51.13 | 15.80× |
+
+**Family 11 is the application typing rule.**  The instrumentation
+patch (`instrumentation.patch`, hunk at `inferSpineI`) wraps exactly
+the two per-argument arms:
+
+```lean
+      unless ← (if cpSkip 11 then pure true else do
+                cpTick 11 acc.size
+                let dom' ← instListRevM dom acc
+                let ta ← r.infer depth a
+                r.defeq depth ta dom') do
+        throw (.invalid "application type mismatch")
+```
+
+On the `--infer-only` lane those arms are reached **only from the
+checking-mode front door and the certified install path** — the
+internal lane already walks the telescope without them.  So:
+
+* **14.84 of the 15.63 is family 11 alone** — the front-door
+  application check and the checking-mode cascade beneath it.
+* The certificate families proper (0–10) account for **3.39×**
+  (a 70.5 % drop) — which is exactly the figure #141's own DESIGN
+  summary recorded ("the joint mask … drops 569.4 G (70.5 %)").  The
+  folklore took its headline from a table row whose narrative had
+  omitted family 11.
+* The **full → infer_only** delta, at certificates ON, on that same
+  stream: `verified ÷ loo-0` = **2.04×** — a factor of two, not of
+  fifteen.  (#134's independent wall-clock instrument agrees: 3 m 33 s
+  ÷ 1 m 51 s = 1.92×, and its "front door infer-only too" diagnostic
+  row gives 111 s ÷ 5.6 s ≈ 19.8× for family 11's share.)
+
+**Therefore the 14–16× is not the verification tax, and never was.**
+Its numerator is a checker doing the application typing rule that the
+official kernel also does — the user's binding scope ruling: *"a front
+door check where the official kernel also does a defeq, and rightly
+so"*.  Its denominator is a configuration that checks **less than the
+official kernel**; #134 said so when it invented that row ("It is
+*not* a mode — it checks less than the reference kernels do").  A
+ratio between "legitimate checking, slowly" and "not checking at all"
+measures the ENGINE, not the certificates.
+
+**Is the missing infer_only mode the core of the gap vs the harvest's
+~30 % brackets?  No — on two counts.**
+
+1. There is no missing infer_only mode (part 1(a)): `--no-model` has
+   had official-shaped internals since #147.
+2. The full→infer_only delta is a ~2× effect at its worst measured
+   point and is *already inside* both numbers.  The real distance
+   between "15.6×" and "~30 %" is (i) **the family-11 mis-attribution**
+   above (a 14.8× factor of pure front-door work in the numerator),
+   (ii) **workload** — a Mathlib-grade reduction cone at double fuel
+   versus init-prelude/init-full, which are front-door-dominated
+   (61 048 mostly small declarations), and (iii) **a campaign of
+   removals** between the two measurements.  Same-kind numbers on the
+   same stream agree: 70.5 % (#141, families 0–10) and the harvest's
+   brackets are both "share of the run spent in certificate
+   machinery", differing by workload and by what has since been
+   deleted.
+
+Corroboration on a second stream from the same kit (Mathlib-40 %
+prefix): `ml40-0` 1 302.59 G; families 0–10 → 307.49 G (4.24×);
+family 11 alone → 576.81 G (2.26×); all twelve → 178.02 G (7.32×).
+The mix shifts with the workload — which is precisely why a single
+headline ratio was the wrong thing to quote.
+
+### PART 2 — THE CANONICAL TABLE
+
+**Method.** `perf stat -e instructions:u`, **median of 3** per cell,
+every run under `ulimit -v 40 GB` + `timeout 3600` + `nice -n 5`;
+kit `_tmp/taxtable-161/{run.sh,battery.sh,stdtime.sh,report.py}`, raw
+`table.tsv`/`stdtime.tsv`.  **Instructions are the primary metric**
+(contention-independent); wall is quoted second and is INDICATIVE
+ONLY — the battery ran on a shared machine at load average 15–51 from
+concurrent agent builds.  Every cell accepted (exit 0); declaration
+counts are quoted with the verdicts below.
+
+**Columns.** `official v4.33.0` = the arena reference checker
+(`_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0`, Lean
+toolchain `leanprover/lean4:v4.33.0`, `lean4export` master +
+`Lean4Checker.Replay`), fed **the same raw ndjson file** as setlec.
+`prod` = `--core=production`, `cached` = `--core=cached-parsed`.
+The directive's fourth column — "`--no-model` + restored infer_only
+internals" — **IS** the `--no-model prod` column (part 1(a)); it is not
+repeated.  `(preprocessor alone)` is a floor row, not a checker.
+
+#### THE CAVEATS — read every ratio through these
+
+1. **THE BIG ONE: the two checkers do not check the same
+   declarations.**  setlec runs the `lean-inductive-models`
+   preprocessor, which replaces every inductive block by a *modeled*
+   encoding over the pinned basis; official checks the raw stream with
+   native inductive/recursor support.  On init-prelude official
+   reports "Accepted 2056 declarations" and setlec "accepted 3653
+   declarations".  **Every official ratio is a cross-pipeline ratio,
+   not a same-work speed ratio.**
+2. **The preprocessor floor.**  Every setlec column pays it; official
+   pays none of it.  The `(preprocessor alone)` row prices it: on
+   init-prelude it is **2.2× the entire official run by itself**.
+   Subtracting that row from a setlec cell is *approximate* — it omits
+   the `needsPreprocess` scan of the raw file and the cost of parsing
+   the (larger) preprocessed file rather than the raw one.
+3. **Stream format is NOT a caveat here.**  Both checkers are fed the
+   identical arena raw `.ndjson` (lean4export format 3.1.0); there is
+   no export-vs-olean gap in this table.  (Footnote: the arena's
+   *bundled* `checkers/official` build, pinned at nightly-2026-01-10,
+   cannot read these streams at all — its `lean4export` expects the
+   older `"i"` index key and dies with `Object is missing the index
+   key: [in, str]`.  That is a checkout-version artifact; the
+   v4.33.0 checker used here reads them natively.)
+4. **The `annotate` pass has no official counterpart** and runs in
+   every setlec column, `--no-model` included.
+5. **`--no-model cached` is NOT the parity lane** — there are no
+   cert-skipping/infer-only twins under `Setlec/Cached/`, so that cell
+   is the certified cached driver with `CheckMode.verified = false`
+   (λ-codomain sort validation and annotation validation off) and
+   nothing more.  **Instrument not wired** (part 1(b) item 3).  Its
+   ratio against official is meaningful; its difference from
+   `--set-model cached` is *not* the verification tax.
+6. **`--no-model prod` under-checks install-only kinds** relative to
+   official (part 1(a), the weak-direction deviation): axioms,
+   inductive blocks, quot and the pinned-cert branches run at io grade
+   there, where official's declaration-type check is `check`
+   (`infer_only = false`).  This flatters the parity column on
+   inductive-heavy streams — init-full most of all.
+7. **Fuel.**  setlec has a compiled `checkFuel = 100000` plus
+   `defeqLoopFuel`; official has no fuel.  No row in the main table
+   exhausts it.  The `Std.Time` cone (#141's own workload) needs twice
+   the shipped fuel and is reported separately, with that noted.
+8. **Supervision re-exec.**  Without `SETLEC_SUPERVISED=1` setlec
+   re-execs itself as a supervised child, so every setlec cell in the
+   main table carries two process startups (uniform across the setlec
+   columns; ≈0.05 G, visible only on the smallest rows).  The
+   `Std.Time` row sets `SETLEC_SUPERVISED=1`, as #141 did.
+
+#### Supersession list — the folklore this statement replaces
+
+| where | what it says | status |
+|---|---|---|
+| DESIGN `:2837` (#76) | "Engineering gap: ~39× over the official kernel (of the total ~53×)"; "Verification tax: 53.7 G ≈ 26 %" | superseded — measured on an old engine, and its "tax" masked the front-door app check (already amended at `:2846` by #134) |
+| DESIGN `:3079`, `:8295` | "~42× certified-mode tax" on `Std.Time` | superseded (already amended by #134 to ~1.9×; this statement gives the leave-one-out receipts) |
+| DESIGN `:12190`, `:21373`, `:23538` | "#141's … 14–16×" as a tax label | **superseded — part 1(c)**: 14.84 of the 15.63 is family 11, the application typing rule, which is out of scope forever by the user's ruling.  This CONFIRMS AND COMPLETES the P5 round's FINDING 2 (`:21028`), which had already found the label mis-transcribed and located the number "in the app family" |
+| DESIGN `:20992` | "certificate tax is 78.96 % — a 4.75× factor, against #141's 15.6×" | the 4.75× stands as a same-kind figure; the 15.6× it is compared against does not (different kind) |
+
+#### THE TABLE (instructions:u, median of 3; wall seconds after the slash)
+
+Ratios in parentheses are **against the official column** — read them
+through caveats 1 and 2: they are cross-pipeline, and the setlec cells
+include the preprocessor.
+
+| stream | official v4.33.0 | (preprocessor alone) | `--no-model` prod = **the parity lane** | `--no-model` cached ⚠ | `--set-model` prod | `--set-model` cached |
+|---|---|---|---|---|---|---|
+| init-prelude | 2.21 G / 0.19 s | 4.80 G / 0.47 s | 21.30 G (9.7×) / 1.96 s | 32.52 G (14.7×) / 2.84 s | **38.49 G (17.4×)** / 3.66 s | 32.94 G (14.9×) / 2.95 s |
+| init-full | 403.47 G / 47.73 s | 179.92 G / 16.0 s | 1865.56 G (4.6×) / 240.23 s | 3029.95 G (7.5×) / 317.52 s | **3159.76 G (7.8×)** / 408.09 s | 2998.75 G (7.4×) / 335.22 s |
+| grind-ring-5 | 13.42 G / 1.37 s | 9.60 G / 0.82 s | 80.72 G (6.0×) / 9.12 s | 107.03 G (8.0×) / 10.59 s | **126.93 G (9.5×)** / 13.90 s | 108.04 G (8.1×) / 10.93 s |
+| app-lam | 29.42 G / 3.57 s | 1.02 G / 0.12 s | 389.37 G (13.2×) / 89.32 s | 227.93 G (7.7×) / 25.64 s | **383.12 G (13.0×)** / 104.25 s | 303.66 G (10.3×) / 29.33 s |
+| beta-ladder | 10.12 G / 1.18 s | 0.59 G / 0.09 s | 81.14 G (8.0×) / 17.02 s | 45.25 G (4.5×) / 4.16 s | **80.48 G (7.9×)** / 15.54 s | 47.78 G (4.7×) / 4.20 s |
+| let-ladder | 6.13 G / 0.52 s | 0.61 G / 0.10 s | 23.60 G (3.9×) / 5.15 s | 11.65 G (1.9×) / 1.03 s | **23.37 G (3.8×)** / 4.97 s | 11.65 G (1.9×) / 1.02 s |
+
+⚠ `--no-model cached` is **not** the parity lane — caveat 5.  Its
+ratio against official is meaningful; its distance from `--set-model
+cached` is only the two mode-gated verified checks.
+
+**Every cell accepted (exit 0).**  Declaration counts, which differ by
+pipeline (caveat 1): official / setlec = 2056 / 3653 (init-prelude),
+54 472 / 61 048 (init-full), 2429 / 3946 (grind-ring-5), 34 / 97
+(app-lam), 20 / 56 (beta-ladder), 22 / 69 (let-ladder).
+
+#### THE VERIFICATION TAX ITSELF (the number this section exists for)
+
+`--set-model prod ÷ --no-model prod` on the production core — the
+certified checker over the official-shaped parity lane, same binary,
+same stream, same engine.  This is **certificates + the full→inferOnly
+delta together**; the parity lane is the closest thing setlec has to
+"official's checks, setlec's engine".
+
+| stream | end-to-end | net of the preprocessor (approximate) |
+|---|---|---|
+| init-prelude | **1.81×** | 2.04× |
+| init-full | **1.69×** | 1.77× |
+| grind-ring-5 | **1.57×** | 1.65× |
+| app-lam | **0.98×** | 0.98× |
+| beta-ladder | **0.99×** | 0.99× |
+| let-ladder | **0.99×** | 0.99× |
+
+**THE CANONICAL STATEMENT: the verification tax on the six arena
+workloads is between 0 % and 104 % — a factor of 0.98× to 2.04×, never
+more.  On three of the six rows it is not measurable at all (the
+certified checker is within 1–2 % of the parity lane, on the wrong side
+of zero).**  Nothing in this table resembles 14–16×, and nothing
+should: that number was the application typing rule (part 1(c)).
+
+Two second-order readings, both honest and both worth having:
+
+* **The negative rows are real, and their mechanism is named.**
+  `app-lam`, `beta-ladder` and `let-ladder` run 1–2 % *slower* at
+  `--no-model` than at `--set-model`.  These are
+  single-huge-declaration workloads; the parity lane must keep two
+  inference memos (`inferFC` for the checking-mode front door,
+  `inferC` for the io internals), and #147 dropped #134's
+  one-directional share (`memoEIO` read `inferFC` before `inferC`;
+  today's `coreKnotNC.infer` is a plain `memoEI (·.inferC)` —
+  `CoreNC.lean:810`).  On a term that is both checked front-to-back
+  and reduced, every subterm's type is therefore computed twice.  P1
+  independently priced the bare memo split at **2.5–3.1 %** of every
+  stream on both cores.  Restoring the `inferFC`-first read in
+  `coreKnotNC.infer` is a three-line change and is the obvious first
+  follow-up; it would make the parity lane cheaper and every tax
+  number in the table *larger* — i.e. the table currently
+  **understates** the tax by roughly that much.
+* **The tax is where the certificates fire, not where the terms are
+  big.**  It is largest on the declaration-count-heavy, iota-heavy
+  streams (init-prelude 1.81×, init-full 1.69×, grind-ring-5 1.57×)
+  and absent on the pure β/ζ ladders.  A single headline ratio would
+  be wrong for the same reason #141's was.
+
+#### THE ENGINEERING GAP (the other factor, kept separate)
+
+`--no-model prod ÷ official` — setlec doing *official's checks* on
+official's stream, through setlec's engine and pipeline: **3.9× / 4.6×
+/ 6.0× / 8.0× / 9.7× / 13.2×** (let-ladder / init-full / grind-ring-5 /
+beta-ladder / init-prelude / app-lam).  Read through caveats 1, 2, 4
+and 6: it includes the preprocessor (on init-prelude the preprocessor
+*alone* is **2.2× the entire official run**), the annotate pass, and a
+modeled-inductive encoding that official never sees.  The old "~39×"
+label is not this number and never was.
+
+#### The scale shapes — cited, not re-measured
+
+`tests/scale/compare.sh` already runs the identical three-checker
+comparison on the generated growth shapes, and its results are on
+record (DESIGN, the scale-harness section, tasks #95/#88): nine of
+thirteen shapes flat at exponent ≈1.01 for setlec, with the reference
+checkers' exponents alongside — `lparams` 1.49 setlec / **1.41
+official** / 1.31 upstream nanoda (a quadratic everyone has),
+`fields-raw` 2.31 setlec / **1.07 official** (setlec-specific),
+`ctors-mod`/`fields-mod` superlinear in both pipeline stages.  Those
+are **growth** statements and are orthogonal to this section's
+**constant-factor** statement; they were not re-run today because the
+machine was under concurrent load and because nothing in the audit
+bears on them.  Nanoda appears there only through the upstream arena
+build, per the standing rule.
+
+#### What this section does NOT say
+
+* It does **not** say the certificates are cheap in general.  It says
+  that on the six arena workloads measured, at master `8c881c57`,
+  after the P-tier campaign's removals, the whole certified-over-parity
+  factor is ≤2.04×.  #141's own stream (the `Std.Time` cone) is a
+  harder workload and is reported separately above/below.
+* It does **not** revise any harvest verdict.  The harvest's brackets
+  are shares-of-run for *individual* certificate families and are the
+  same kind of number as the 70.5 % figure in part 1(c); this section
+  supplies the total they sit inside.
+* It does **not** claim `--no-model` is official-equivalent.  It is
+  official-*shaped* on the internal-inference axis (part 1(a)), with
+  three strict-direction deviations and one weak-direction deviation,
+  all enumerated.
+
+#### The `Std.Time` cone — #141's own workload, re-run today (partial)
+
+`_tmp/std-time-cone/pre2.ndjson`, `--pre`, `SETLEC_SUPERVISED=1`,
+median of 3, exactly #141's invocation minus the one knob that no
+longer exists.
+
+**A finding in its own right: #141's headline is not reproducible on a
+shipped binary.**  `SETLEC_FUEL` was a throwaway instrumentation knob
+(`_tmp/certprof-141/instrumentation.patch` replaces
+`def checkFuel : Nat := 100000` with `diagEnvNat "SETLEC_FUEL" 100000`);
+master has no runtime fuel override, and this stream needs twice the
+shipped `checkFuel`.  **All four configurations therefore abort at the
+same declaration**, verified by capturing the full message on both
+lanes:
+
+```
+setlec: internal error: fuel exhausted: whnfCore
+  [at theorem _private.Std.Time.Date.Basic.0.Std.Time.Second.Offset.toDays._proof_1]
+```
+
+— the declaration `CoreI.lean:1547` names.  The four numbers are
+therefore over an **identical prefix plus an identical doomed
+recursion**, all exit 3:
+
+| configuration | G instr | wall |
+|---|---|---|
+| `--set-model` prod | 1 888.54 | 285.17 s |
+| `--no-model` prod (parity lane) | **357.77** | 72.84 s |
+| `--set-model` cached | 1 759.78 | 400.03 s |
+| `--no-model` cached ⚠ | 988.15 | 134.79 s |
+
+`--set-model ÷ --no-model` on the production core = **5.28×** — and on
+the cached core (where `--no-model` is only the two mode-gated checks)
+**1.78×**.
+
+**How to read the 5.28×.** It is the same *kind* of number as the
+table's 1.57–2.04×, on a Mathlib-grade reduction cone instead of arena
+fixtures, and it is the single strongest demonstration that a headline
+tax ratio is workload-bound.  It is **not** a clean full-stream figure:
+a large share of both runs is the terminal 100 000-deep `whnfCore`
+recursion, which is not verification work in either lane (though the
+certified lane certifies at every level of it, which is exactly why it
+costs 5× more).  Quoted as an indication, deliberately kept out of the
+main table.  A faithful re-run needs either a `checkFuel` override
+restored as instrumentation or the `pre-minus1` variant of the stream;
+neither was in this task's scope.
+
+#### Reproduce
+
+```bash
+_tmp/taxtable-161/battery.sh    # the six-row table  (~90 min, machine-solo)
+_tmp/taxtable-161/stdtime.sh    # the Std.Time row   (~45 min)
+python3 _tmp/taxtable-161/report.py _tmp/taxtable-161/table.tsv
+```
+
+Binaries: setlec built from `agent/taxtable` (= master `8c881c57`);
+official = `_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/
+.lake/build/bin/kernel` (toolchain `leanprover/lean4:v4.33.0`);
+preprocessor = `_tmp/lean-inductive-models/.lake/build/bin/
+lean-inductive-models`.  Raw data: `table.tsv`, `stdtime.tsv`.
+Measurement lock held (`_tmp/measure.lock.d`, lane `taxtable-161`) for
+the whole battery; the machine nevertheless carried concurrent agent
+builds (load average 5–58), which is why wall is secondary here.
+
+#### Follow-ups this measurement opened (none landed here)
+
+1. **Restore `memoEIO`'s one-directional memo share** in
+   `coreKnotNC.infer` (`CoreNC.lean:810`): read `inferFC` before
+   `inferC`, as #134 did.  Three lines; would remove the parity lane's
+   double inference on single-huge-declaration streams and make every
+   tax number in the table larger (the table understates the tax by
+   roughly the 2.5–3.1 % P1 priced the split at).
+2. **`--no-model`'s install-only kinds run at io grade** where
+   official's `check` does not (part 1(a)).  A parity fix routes
+   `checkDeclSPNCPlain`'s member-value checks through `coreKnotFNC`.
+3. **The `Std.Time` cone cannot be checked by the shipped binary** —
+   `checkFuel` is half what it needs and there is no override.  Either
+   the fuel constant or a documented instrumentation knob wants a
+   decision.
+4. **The decomposition instrument** (#134's `--infer-only` as a
+   `--core=`/mode value) — sized in part 1(b) item 2, ≈630 mechanical
+   lines, if the lead ever wants the middle point measured in-binary
+   rather than reconstructed from #141's leave-one-out data.
