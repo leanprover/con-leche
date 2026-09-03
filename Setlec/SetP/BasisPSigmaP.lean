@@ -311,7 +311,7 @@ theorem bitAgree_psigmaMkA (ψ : Name → Nat) :
 theorem extendPSigmaP (mp : EnvS2PM V μ env)
     (hfresh : env.find? psigmaName = none)
     (hbase : EnvS V ⟨psigmaA :: env.consts⟩)
-    (hag : ∀ n, n ≠ psigmaA.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ psigmaA.name → mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval psigmaA.name ψ
       = VExpr.const .psigma [ψ uN, ψ vN]) :
     Nonempty (EnvS2PM V μ ⟨psigmaA :: env.consts⟩) := by
@@ -347,7 +347,7 @@ theorem extendPSigmaMkP (mp : EnvS2PM V μ env)
     (hfresh : env.find? psigmaMkName = none)
     (hbase : EnvS V ⟨psigmaMkA :: env.consts⟩)
     (hag : ∀ n, n ≠ psigmaMkA.name →
-      mp.base2.base.cval n = hbase.cval n)
+      mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval psigmaMkA.name ψ
       = VExpr.const .psigmaMk [ψ uN, ψ vN]) :
     Nonempty (EnvS2PM V μ ⟨psigmaMkA :: env.consts⟩) := by
@@ -646,7 +646,7 @@ theorem extendPairFstP (mp : EnvS2PM V μ env)
     (hP : env.find? psigmaName = some psigmaA)
     (hfresh : env.find? pairFstA.name = none)
     (hbase : EnvS V ⟨pairFstA :: env.consts⟩)
-    (hag : ∀ n, n ≠ pairFstA.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ pairFstA.name → mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval pairFstA.name ψ = pairProjValT 0 ψ) :
     Nonempty (EnvS2PM V μ ⟨pairFstA :: env.consts⟩) := by
   have hty := fun ψ =>
@@ -689,7 +689,7 @@ theorem extendPairSndP (mp : EnvS2PM V μ env)
     (hP : env.find? psigmaName = some psigmaA)
     (hfresh : env.find? pairSndA.name = none)
     (hbase : EnvS V ⟨pairSndA :: env.consts⟩)
-    (hag : ∀ n, n ≠ pairSndA.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ pairSndA.name → mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval pairSndA.name ψ = pairProjValT 1 ψ) :
     Nonempty (EnvS2PM V μ ⟨pairSndA :: env.consts⟩) := by
   have hty := fun ψ =>
@@ -1528,7 +1528,7 @@ theorem extendPSigmaRecP (mp : EnvS2PM V μ env)
     (hfresh : env.find? psigmaRecA.name = none)
     (hbase : EnvS V ⟨psigmaRecA :: env.consts⟩)
     (hag : ∀ n, n ≠ psigmaRecA.name →
-      mp.base2.base.cval n = hbase.cval n)
+      mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval psigmaRecA.name ψ = psigmaRecValT ψ) :
     Nonempty (EnvS2PM V μ ⟨psigmaRecA :: env.consts⟩) := by
   have hty := fun ψ =>
@@ -1584,10 +1584,10 @@ theorem declBasisPB_psigmaK {env₁ : Env} (mp : EnvS2PM V μ env)
   have hf1 : env.find? psigmaA.name = none :=
     Option.isNone_iff_eq_none.mp h1
   have hwf1 : EnvWF ⟨psigmaA :: env.consts⟩ :=
-    EnvWF.cons mp.base2.base.wf ⟨rfl, rfl, rfl, rfl,
+    EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩
-  obtain ⟨m1, hm1⟩ := extendPSigmaS mp.base2.base hf1 hwf1
+  obtain ⟨m1, hm1⟩ := extendPSigmaS mp.base hf1 hwf1
   obtain ⟨mp1⟩ := extendPSigmaP mp hf1 m1
     (fun n hn => by rw [hm1, cvalWith_ne hn])
     (fun ψ => by rw [hm1, cvalWith_self])
@@ -1619,7 +1619,7 @@ theorem declBasisPB_psigmaK {env₁ : Env} (mp : EnvS2PM V μ env)
             { bi := .implicit, pw := .ifAllZero [uN, vN] })
           { bi := .implicit, pw := .ifAllZero [uN, vN] } from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨m2, hm2⟩ := extendPSigmaMkS mp1.base2.base hP1 hf2 hwf2
+  obtain ⟨m2, hm2⟩ := extendPSigmaMkS mp1.base hP1 hf2 hwf2
   obtain ⟨mp2⟩ := extendPSigmaMkP mp1 hP1 hf2 m2
     (fun n hn => by rw [hm2, cvalWith_ne hn])
     (fun ψ => by rw [hm2, cvalWith_self])
@@ -1630,14 +1630,14 @@ theorem declBasisPB_psigmaK {env₁ : Env} (mp : EnvS2PM V μ env)
       psigmaMkName = some psigmaMkA := by
     rw [Setlec.Env.find?_cons]; exact if_pos rfl
   have hPv2 : ∀ ψ : Name → Nat,
-      mp2.base2.base.cval psigmaName ψ
+      mp2.base.cval psigmaName ψ
         = VExpr.const .psigma [ψ uN, ψ vN] := fun ψ =>
-    cvalS_pinned mp2.base2.base (by decide) (by rw [hP2]; rfl) ψ
+    cvalS_pinned mp2.base (by decide) (by rw [hP2]; rfl) ψ
       (by simp +decide [Setlec.TTVerify.pinnedDirectT])
   have hMv2 : ∀ ψ : Name → Nat,
-      mp2.base2.base.cval psigmaMkName ψ
+      mp2.base.cval psigmaMkName ψ
         = VExpr.const .psigmaMk [ψ uN, ψ vN] := fun ψ =>
-    cvalS_pinned mp2.base2.base (by decide) (by rw [hM2]; rfl) ψ
+    cvalS_pinned mp2.base (by decide) (by rw [hM2]; rfl) ψ
       (by simp +decide [Setlec.TTVerify.pinnedDirectT])
   have hf3 : (⟨psigmaMkA :: psigmaA :: env.consts⟩ : Env).find?
       psigmaRecA.name = none := Option.isNone_iff_eq_none.mp h3
@@ -1694,7 +1694,7 @@ theorem declBasisPB_psigmaK {env₁ : Env} (mp : EnvS2PM V μ env)
           simp [Expr.constsResolve, psigmaRecRule, hfP, hfM], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨m3, hm3⟩ := extendPSigmaRecS mp2.base2.base hP2 hM2 hPv2
+  obtain ⟨m3, hm3⟩ := extendPSigmaRecS mp2.base hP2 hM2 hPv2
     hMv2 hf3 hwf3
   obtain ⟨mp3⟩ := extendPSigmaRecP mp2 hP2 hM2 hf3 m3
     (fun n hn => by rw [hm3, cvalWith_ne hn])
@@ -1729,7 +1729,7 @@ theorem declBasisPB_psigmaK {env₁ : Env} (mp : EnvS2PM V μ env)
               { bi := .implicit, pw := .never })
             { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hfP]
-  obtain ⟨m4, hm4⟩ := extendPairFstS mp3.base2.base hP3 hM3 hf4 hwf4
+  obtain ⟨m4, hm4⟩ := extendPairFstS mp3.base hP3 hM3 hf4 hwf4
   obtain ⟨mp4⟩ := extendPairFstP mp3 hP3 hf4 m4
     (fun n hn => by rw [hm4, cvalWith_ne hn])
     (fun ψ => by rw [hm4, cvalWith_self])
@@ -1765,7 +1765,7 @@ theorem declBasisPB_psigmaK {env₁ : Env} (mp : EnvS2PM V μ env)
               { bi := .implicit, pw := .never })
             { bi := .implicit, pw := .never } from rfl]
     simp [Expr.constsResolve, hfP]
-  obtain ⟨m5, hm5⟩ := extendPairSndS mp4.base2.base hP4 hM4 hf5 hwf5
+  obtain ⟨m5, hm5⟩ := extendPairSndS mp4.base hP4 hM4 hf5 hwf5
   exact extendPairSndP mp4 hP4 hf5 m5
     (fun n hn => by rw [hm5, cvalWith_ne hn])
     (fun ψ => by rw [hm5, cvalWith_self])

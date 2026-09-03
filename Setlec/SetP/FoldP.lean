@@ -13,11 +13,15 @@ closure — through an accepted stream, and
 milestone-shaped `no_proof_of_Empty_P_of` is kept beside it, now
 carrying no bundle at all — every tier step is discharged.
 
-The v1 half of the invariant rides the *discharged* v1 fold
-machinery verbatim (`declStepS` at the concrete instances
-`divModPinS`/`reducePinS`/`stdAxiomKeyS`/`declBasisS`/
-`declIndS memberKeyS` — the same instances `foldlM_R` consumes), so
-the η closure and the v1 base at every prefix cost nothing new.
+The η half of the fold invariant is `declEtaStep` (`SetR/DeclEta.lean`,
+task #161 S3): model-free at five of the six declaration kinds, and at
+`indDecl` premised on `declIndS memberKeyS` — the one kind whose
+η-closure is still proved interleaved with the `EnvS` member/recursor
+folds.  `declStepS` and its four other install obligations
+(`divModPinS`/`reducePinS`/`stdAxiomKeyS`/`declBasisS`) are no longer
+consulted for it; the harvests keep their own uses of `divModPinS` and
+`reducePinS`, which are value-kind obligations, not fold ones.  The v1
+base at every prefix is `EnvS2PM.base`, the S3 residue.
 
 The routed bundles, by tier:
 
@@ -50,7 +54,7 @@ read off these signatures. -/
 def AxiomStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {F : Nat} {env : Env} (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {env₂ : Env},
-    DeclAxiomR μ F env mp.base2.base.cval cv env₂ →
+    DeclAxiomR μ F env mp.base.cval cv env₂ →
     Nonempty (EnvS2PM V μ env₂)
 
 /-- **`AxiomStepPB`, discharged — THE PIN BUNDLE IS CLOSED.**  All four
@@ -106,7 +110,7 @@ def IndStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {F : Nat} {env : Env} (mp : EnvS2PM V μ env)
     {block : List ConstantInfo} {env₂ : Env},
     Setlec.EtaFamiliesClosed env →
-    DeclIndR μ F env mp.base2.base.cval block env₂ →
+    DeclIndR μ F env mp.base.cval block env₂ →
     Nonempty (EnvS2PM V μ env₂)
 
 /-- **`IndStepPB`, discharged — THE INDUCTIVE TIER IS CLOSED**
@@ -126,12 +130,16 @@ def EnvSPOk (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env) :
 /-- **The per-declaration P step, by dispatch.** -/
 theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvS2PM V μ env) (hE : EtaFamiliesClosed env)
-    (h : DeclR μ F mp.base2.base.cval env d env₂) :
+    (h : DeclR μ F mp.base.cval env d env₂) :
     EnvSPOk V μ env₂ := by
-  have hv1 : Nonempty (EnvS V env₂) ∧ EtaFamiliesClosed env₂ :=
-    declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
-      (declIndS memberKeyS) mp.base2.base hE h
-  refine ⟨?_, hv1.2⟩
+  -- the η half: `declEtaStep` (task #161 S3, the census's C4), which
+  -- reads `DeclR`'s freshness guards and needs the collapsed lane at
+  -- ONE kind only — `indDecl`, whose η-closure is still proved
+  -- interleaved with the `EnvS` member/recursor folds (the finding
+  -- recorded in `SetR/DeclEta.lean`).  `declStepS`'s four other
+  -- obligations are not consulted here any more.
+  refine ⟨?_, Setlec.SetR.declEtaStep
+    (fun h' => (declIndS memberKeyS mp.base hE h').2) hE h⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := h
@@ -170,7 +178,7 @@ theorem foldPM (hμ : μ.verified = true) {F : Nat} :
       obtain ⟨⟨mp⟩, hE⟩ := hm
       exact foldPM hμ ds env1
         (declStepPM hμ mp hE
-          (checkDeclR_sound mp.base2.base hE hd)) h
+          (checkDeclR_sound mp.base hE hd)) h
 
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'

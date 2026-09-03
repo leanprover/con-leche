@@ -157,9 +157,9 @@ theorem harvestDefnP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     {env₂ : Env}
-    (hR : DeclDefnR μ F env mp.base2.base.cval cv value hint env₂) :
+    (hR : DeclDefnR μ F env mp.base.cval cv value hint env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨m', hag⟩ := declDefnS hdm mp.base2.base hR
+  obtain ⟨m', hag⟩ := declDefnS hdm mp.base hR
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hfrontT⟩ := hcv
@@ -247,7 +247,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
   -- the leaf laws
   have hAclosed : ∀ (ψ : Name → Nat) (k : Nat),
       (A ψ).liftN 1 k = A ψ := fun ψ k =>
-    denoteP_closed mp.base2.acval_erase mp.base2.base.cval_closed
+    denoteP_closed mp.base2.acval_erase mp.base2.cval_closed
       hvf' hbv' (hA ψ) 1 k
   have hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂ := by
@@ -274,11 +274,11 @@ theorem harvestDefnP (hμ : μ.verified = true)
     obtain ⟨sta, hsta, htE, -, -⟩ := hrowsT ψ
     -- vtype's scoping package
     have hwvt : Expr.WScoped 0 vtype :=
-      inferTypeCore_WScoped mp.base2.base.wf F hvrun hwv
+      inferTypeCore_WScoped mp.base2.wf F hvrun hwv
     have hbvt : vtype.looseBVarsBounded 0 = true :=
-      inferTypeCore_looseBVars mp.base2.base.wf F hvrun hwv hbv' hLv
+      inferTypeCore_looseBVars mp.base2.wf F hvrun hwv hbv' hLv
     have hnlvt : vtype.fvarLeaves = [] := by
-      have hsub := inferTypeCore_fvarLeaves mp.base2.base.wf F hvrun hwv
+      have hsub := inferTypeCore_fvarLeaves mp.base2.wf F hvrun hwv
       cases hh : vtype.fvarLeaves with
       | nil => rfl
       | cons l ls =>
@@ -310,9 +310,9 @@ theorem harvestDefnP (hμ : μ.verified = true)
   have hAerase : ∀ ψ,
       (A ψ).erase = m'.cval cv.name ψ := by
     intro ψ
-    have hden : denote mp.base2.base.cval env ψ 0 value'
+    have hden : denote mp.base.cval env ψ 0 value'
         = some (A ψ).erase :=
-      denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)
+      denoteP_erase mp.base_erase 0 value' (hA ψ)
     have hden2 : denote m'.cval
         ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
           env.consts⟩ ψ 0 value' = some (A ψ).erase := by
@@ -551,9 +551,9 @@ are destructured away with `-`. -/
 theorem harvestThmP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
-    (hR : DeclThmR μ F env mp.base2.base.cval cv value env₂) :
+    (hR : DeclThmR μ F env mp.base.cval cv value env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨m', hag⟩ := declThmS mp.base2.base hR
+  obtain ⟨m', hag⟩ := declThmS mp.base hR
   obtain ⟨type', value', hcv, -, -, hvfr, rfl⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hfrontT⟩ := hcv
@@ -639,7 +639,7 @@ theorem harvestThmP (hμ : μ.verified = true)
   -- the leaf laws
   have hAclosed : ∀ (ψ : Name → Nat) (k : Nat),
       (A ψ).liftN 1 k = A ψ := fun ψ k =>
-    denoteP_closed mp.base2.acval_erase mp.base2.base.cval_closed
+    denoteP_closed mp.base2.acval_erase mp.base2.cval_closed
       hvf' hbv' (hA ψ) 1 k
   have hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂ := by
@@ -666,11 +666,11 @@ theorem harvestThmP (hμ : μ.verified = true)
     obtain ⟨sta, hsta, htE, -, -⟩ := hrowsT ψ
     -- vtype's scoping package
     have hwvt : Expr.WScoped 0 vtype :=
-      inferTypeCore_WScoped mp.base2.base.wf F hvrun hwv
+      inferTypeCore_WScoped mp.base2.wf F hvrun hwv
     have hbvt : vtype.looseBVarsBounded 0 = true :=
-      inferTypeCore_looseBVars mp.base2.base.wf F hvrun hwv hbv' hLv
+      inferTypeCore_looseBVars mp.base2.wf F hvrun hwv hbv' hLv
     have hnlvt : vtype.fvarLeaves = [] := by
-      have hsub := inferTypeCore_fvarLeaves mp.base2.base.wf F hvrun hwv
+      have hsub := inferTypeCore_fvarLeaves mp.base2.wf F hvrun hwv
       cases hh : vtype.fvarLeaves with
       | nil => rfl
       | cons l ls =>
@@ -702,9 +702,9 @@ theorem harvestThmP (hμ : μ.verified = true)
   have hAerase : ∀ ψ,
       (A ψ).erase = m'.cval cv.name ψ := by
     intro ψ
-    have hden : denote mp.base2.base.cval env ψ 0 value'
+    have hden : denote mp.base.cval env ψ 0 value'
         = some (A ψ).erase :=
-      denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)
+      denoteP_erase mp.base_erase 0 value' (hA ψ)
     have hden2 : denote m'.cval
         ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
           env.consts⟩ ψ 0 value' = some (A ψ).erase := by
@@ -898,10 +898,10 @@ itself. -/
 theorem harvestAxiomP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → AVExpr}
-    (hcv : ConstantValR μ F env mp.base2.base.cval cv type')
+    (hcv : ConstantValR μ F env mp.base.cval cv type')
     (hbase : EnvS V ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts⟩)
-    (hag : ∀ n, n ≠ cv.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ cv.name → mp.base.cval n = hbase.cval n)
     (hAerase : ∀ ψ, (A ψ).erase = hbase.cval cv.name ψ)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -1065,10 +1065,10 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
     (hrp : ReducePinS V)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
-    (hR : DeclOpaqueR μ F env mp.base2.base.cval cv value env₂) :
+    (hR : DeclOpaqueR μ F env mp.base.cval cv value env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨m', hag, value'', hannv2, hleafEq⟩ :=
-    declOpaqueS hrp mp.base2.base hR
+    declOpaqueS hrp mp.base hR
   obtain ⟨type', value', hcv, hvfr, rfl, hred⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hfrontT⟩ := hcv
@@ -1154,7 +1154,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   -- the leaf laws
   have hAclosed : ∀ (ψ : Name → Nat) (k : Nat),
       (A ψ).liftN 1 k = A ψ := fun ψ k =>
-    denoteP_closed mp.base2.acval_erase mp.base2.base.cval_closed
+    denoteP_closed mp.base2.acval_erase mp.base2.cval_closed
       hvf' hbv' (hA ψ) 1 k
   have hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂ := by
@@ -1181,11 +1181,11 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
     obtain ⟨sta, hsta, htE, -, -⟩ := hrowsT ψ
     -- vtype's scoping package
     have hwvt : Expr.WScoped 0 vtype :=
-      inferTypeCore_WScoped mp.base2.base.wf F hvrun hwv
+      inferTypeCore_WScoped mp.base2.wf F hvrun hwv
     have hbvt : vtype.looseBVarsBounded 0 = true :=
-      inferTypeCore_looseBVars mp.base2.base.wf F hvrun hwv hbv' hLv
+      inferTypeCore_looseBVars mp.base2.wf F hvrun hwv hbv' hLv
     have hnlvt : vtype.fvarLeaves = [] := by
-      have hsub := inferTypeCore_fvarLeaves mp.base2.base.wf F hvrun hwv
+      have hsub := inferTypeCore_fvarLeaves mp.base2.wf F hvrun hwv
       cases hh : vtype.fvarLeaves with
       | nil => rfl
       | cons l ls =>
@@ -1220,9 +1220,9 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   have hAerase : ∀ ψ,
       (A ψ).erase = m'.cval cv.name ψ := by
     intro ψ
-    have hden : denote mp.base2.base.cval env ψ 0 value'
+    have hden : denote mp.base.cval env ψ 0 value'
         = some (A ψ).erase :=
-      denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)
+      denoteP_erase mp.base_erase 0 value' (hA ψ)
     have hle := hleafEq ψ
     rw [denoteClosed, hden] at hle
     exact Option.some.inj hle

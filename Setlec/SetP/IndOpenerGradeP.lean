@@ -109,7 +109,7 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
     have hb := hlbFvs mIdx nm ty hmem
     have hden : denoteP m.acval env φ mIdx ty
         = some (Γs.getD (K - 1 - mIdx) default) := hdomsS0 mIdx _ hx
-    exact denote_bvarsBelow m.base.cval_closed mIdx ty hws hb
+    exact denote_bvarsBelow m.cval_closed mIdx ty hws hb
       (denoteP_erase m.acval_erase mIdx ty hden)
   obtain ⟨bvs, hbvslen, hbvsel⟩ : ∃ bvs : List AVExpr,
       bvs.length = K ∧
@@ -144,7 +144,7 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
       show K - 1 - (K - 1 - i) = i from by omega]
     rfl
   have hRacl : ∀ k : Nat, Ra.liftN 1 k = Ra := fun k =>
-    denoteP_closed m.acval_erase m.base.cval_closed
+    denoteP_closed m.acval_erase m.cval_closed
       hrhsw hrhsb hRa 1 k
   have hrhsRw : (rhsA.renameConsts f).hasFvar = false := by
     rw [hasFvar_renameConsts]; exact hrhsw

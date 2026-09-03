@@ -303,13 +303,13 @@ theorem certs_telePA {m : EnvS2Core V env}
       hreads hta haw hab haLb (LeafReadsP.of_ctxOkP haC) haa
     obtain ⟨hokA, hokTa, hmemA⟩ := ihi hta haw hab haLb haC haa htaa
     have hwta : Expr.WScoped d ta :=
-      Setlec.inferTypeCore_WScoped m.base.wf fuel hta haw
+      Setlec.inferTypeCore_WScoped m.wf fuel hta haw
     have hbta : ta.looseBVarsBounded 0 = true :=
-      Setlec.inferTypeCore_looseBVars m.base.wf fuel hta haw hab haLb
+      Setlec.inferTypeCore_looseBVars m.wf fuel hta haw hab haLb
     have hLta : Expr.LeavesBounded ta := fun l hl =>
-      haLb l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hta haw l hl)
+      haLb l (Setlec.inferTypeCore_fvarLeaves m.wf fuel hta haw l hl)
     have hCta : CtxOkP m φ d Δa ta :=
-      haC.of_subset (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hta haw)
+      haC.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel hta haw)
     have hdeq : ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ taa = interp2 V ρ doma :=
       ihd hde hwta hbta hLta hdomw hdomb hLbdom hCta hCdom htaa hdoma

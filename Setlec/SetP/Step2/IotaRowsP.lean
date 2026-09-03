@@ -205,7 +205,7 @@ theorem constTypeP_pkg {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       (ci.toConstantVal.type.instantiateLevelParams
         ci.toConstantVal.levelParams us).looseBVarsBounded 0 = true := by
   obtain ⟨ta, hta, hok, hmem⟩ := hct 0 n ci us hf hlen
-  have hwf := m.base.wf _ (Setlec.SetR.Env.find?_mem hf)
+  have hwf := m.wf _ (Setlec.SetR.Env.find?_mem hf)
   have hnf : (ci.toConstantVal.type.instantiateLevelParams
       ci.toConstantVal.levelParams us).hasFvar = false := by
     rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwf.1
@@ -214,7 +214,7 @@ theorem constTypeP_pkg {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
     exact hwf.2.2.2.1
   exact ⟨ta, denoteP_depth_of_closed m.acval_closed hnf
-      (fun k => denoteP_closed m.acval_erase m.base.cval_closed hnf hbd hta 1 k)
+      (fun k => denoteP_closed m.acval_erase m.cval_closed hnf hbd hta 1 k)
       hta,
     hok, hmem, hnf, hbd⟩
 
@@ -334,7 +334,7 @@ theorem recRhsP_depth {m : EnvS2Core V env}
       ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
         us).looseBVarsBounded 0 = true := by
   obtain ⟨-, -, -, -, -, hrec', -⟩ :=
-    m.base.wf _ (Setlec.SetR.Env.find?_mem hf)
+    m.wf _ (Setlec.SetR.Env.find?_mem hf)
   obtain ⟨hRnf, -, -, hRbd, -⟩ := hrec' cv mI rP rules rfl rl hmem
   have hnf : ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
       us).hasFvar = false := by
@@ -343,7 +343,7 @@ theorem recRhsP_depth {m : EnvS2Core V env}
       us).looseBVarsBounded 0 = true := by
     rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]; exact hRbd
   exact ⟨denoteP_depth_of_closed m.acval_closed hnf
-      (fun k => denoteP_closed m.acval_erase m.base.cval_closed hnf hbd hRa0 1 k)
+      (fun k => denoteP_closed m.acval_erase m.cval_closed hnf hbd hRa0 1 k)
       hRa0,
     hnf, hbd⟩
 
@@ -381,7 +381,7 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
   have hmIlt : mI < e.getAppArgs.length := by rw [hlenA]; omega
   obtain ⟨hwMa, hbMa, hLMa⟩ := hfrE _ (Setlec.getD_mem hmIlt)
   obtain ⟨hwm, hbm, hLm⟩ :=
-    frame_majorChainP hwmaj hlitmaj hmajc m.base.wf hwMa hbMa hLMa
+    frame_majorChainP hwmaj hlitmaj hmajc m.wf hwMa hbMa hLMa
   have hfrM : ∀ x ∈ major.getAppArgs, Expr.WScoped d x ∧
       x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x := fun x hx =>
     ⟨hwm.getAppArgs x hx, Setlec.looseBVarsBounded_getAppArgs hbm x hx,
@@ -508,10 +508,10 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   obtain ⟨hokMj0, heqMj0⟩ := ihw hwmaj hwM hbM hLM hCM hdMaj hmj0a hokMajArg
   obtain ⟨mj1a, hmj1a, hokMj1, heqMj1, hw1, hb1, hL1, hC1⟩ :=
     litMajorToCtorP_stepP ihw hwreads hlitmaj
-      (Setlec.whnf_WScoped m.base.wf fuel hwmaj hwM)
-      (Setlec.whnf_looseBVars m.base.wf fuel hwmaj hbM)
-      (fun l hl => hLM l (Setlec.whnf_fvarLeaves m.base.wf fuel hwmaj l hl))
-      (hCM.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hwmaj))
+      (Setlec.whnf_WScoped m.wf fuel hwmaj hwM)
+      (Setlec.whnf_looseBVars m.wf fuel hwmaj hbM)
+      (fun l hl => hLM l (Setlec.whnf_fvarLeaves m.wf fuel hwmaj l hl))
+      (hCM.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwmaj))
       hmj0a hokMj0
   obtain ⟨vmaj, hvmajSave, hokMj, heqMj, hwmj, hbmj, hLmj, hCmj⟩ :=
     majorToCtorP_stepP hcaps hct hav ihw ihd ihi hreads hwreads hmajc
@@ -662,7 +662,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
             = interp2 V ρ (AVExpr.instRevChain ((xs.take mI).take rP) vpa) := by
       intro lvls pins hn i hi vpa hvpa
       obtain ⟨-, -, -, -, -, hrec', -⟩ :=
-        m.base.wf _ (Setlec.SetR.Env.find?_mem hfrec)
+        m.wf _ (Setlec.SetR.Env.find?_mem hfrec)
       obtain ⟨-, -, -, -, hnest⟩ := hrec' cv mI rP rules rfl r hrmem
       obtain ⟨-, -, hpinsWf, -⟩ := hnest lvls pins hn
       have hcmp : (Setlec.recFireComparands r cv.levelParams us
@@ -698,7 +698,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
         hpinB' (hspx.take rP)
       rw [hprelen] at hcden
       have hbase := denoteP_openRev_base (env := env) (φ := φ)
-        m.acval_closed m.acval_erase m.base.cval_closed hpinF'
+        m.acval_closed m.acval_erase m.cval_closed hpinF'
         (by rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
             exact hpinB) d
       rw [hbase, hvpa] at hcden

@@ -53,8 +53,8 @@ variable {μ : CheckMode} {env : Env} {F : Nat}
 def MemberEtaLawP (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {F : Nat} {blockNames : List Name} {env : Env}
     (mp : EnvS2PM V μ env) {cv cvA : ConstantVal} {c₀ : ConstantInfo},
-    MemberValR μ F env mp.base2.base.cval blockNames cv cvA →
-    BlockInstalledTT blockNames env mp.base2.base.cval →
+    MemberValR μ F env mp.base.cval blockNames cv cvA →
+    BlockInstalledTT blockNames env mp.base.cval →
     BlockAcvalInstalled blockNames env mp.base2.acval →
     c₀.toConstantVal = cvA → c₀.name = cvA.name →
     ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
@@ -90,8 +90,8 @@ must prove. -/
 def MemberUnitLawP (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {F : Nat} {blockNames : List Name} {env : Env}
     (mp : EnvS2PM V μ env) {cv cvA : ConstantVal} {c₀ : ConstantInfo},
-    MemberValR μ F env mp.base2.base.cval blockNames cv cvA →
-    BlockInstalledTT blockNames env mp.base2.base.cval →
+    MemberValR μ F env mp.base.cval blockNames cv cvA →
+    BlockInstalledTT blockNames env mp.base.cval →
     BlockAcvalInstalled blockNames env mp.base2.acval →
     c₀.toConstantVal = cvA → c₀.name = cvA.name →
     ∀ (cvT : ConstantVal) (caps : IndCaps),
@@ -109,8 +109,8 @@ theorem memberInstallPM (hkey : MemberKeyS V) (hetaP : MemberEtaLawP V)
     (hunitP : MemberUnitLawP V)
     {blockNames : List Name} (mp : EnvS2PM V μ env)
     {cv cvA : ConstantVal} {c₀ : ConstantInfo}
-    (hmv : MemberValR μ F env mp.base2.base.cval blockNames cv cvA)
-    (hI : BlockInstalledTT blockNames env mp.base2.base.cval)
+    (hmv : MemberValR μ F env mp.base.cval blockNames cv cvA)
+    (hI : BlockInstalledTT blockNames env mp.base.cval)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
     (hbn : blockNames.contains cvA.name = true)
     (hpins : ∀ caps, c₀ = .indInfo cvA caps →
@@ -125,11 +125,11 @@ theorem memberInstallPM (hkey : MemberKeyS V) (hetaP : MemberEtaLawP V)
       (∃ nP nF, c₀ = .ctorInfo cvA nP nF) ∨
       (∃ mI rP, c₀ = .recInfo cvA mI rP [])) :
     ∃ mp₁ : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
-      mp₁.base2.base.cval = cvalModeled mp.base2.base.cval cvA.name ∧
+      mp₁.base.cval = cvalModeled mp.base.cval cvA.name ∧
       mp₁.base2.acval = acvalWith mp.base2.acval cvA.name
         (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) ∧
       BlockInstalledTT blockNames ⟨c₀ :: env.consts⟩
-        mp₁.base2.base.cval ∧
+        mp₁.base.cval ∧
       BlockAcvalInstalled blockNames ⟨c₀ :: env.consts⟩
         mp₁.base2.acval ∧
       Setlec.EtaFamiliesClosedO blockNames ⟨c₀ :: env.consts⟩ ∧
@@ -159,7 +159,7 @@ theorem memberInstallPM (hkey : MemberKeyS V) (hetaP : MemberEtaLawP V)
       by rw [hnameA]; exact (hpins caps2 hceq).2.2⟩
   -- the v1 install, and the three invariants it steps
   obtain ⟨m₁, hm₁cval, hI₁, hEC₁, hBP₁⟩ :=
-    memberInstallS hkey mp.base2.base hmv hI hbn hpins hEC hBP hc₀cv
+    memberInstallS hkey mp.base hmv hI hbn hpins hEC hBP hc₀cv
       hc₀name hkind
   have hfresh0 : env.find? c₀.name = none := by
     rw [hc₀name]; exact hfreshA
@@ -182,17 +182,17 @@ theorem memberInstallPM (hkey : MemberKeyS V) (hetaP : MemberEtaLawP V)
   -- the v1 valuation at the extension, read off the leaf equation
   -- through `acval_erase` (no install-API change: the *base* carrier
   -- stays hidden, and only its valuation is ever consumed)
-  have hcval₁ : mp₁.base2.base.cval
-      = cvalModeled mp.base2.base.cval cvA.name := by
+  have hcval₁ : mp₁.base.cval
+      = cvalModeled mp.base.cval cvA.name := by
     funext n ψ
-    rw [← mp₁.base2.acval_erase n ψ, hmp₁ac]
+    rw [← mp₁.base_erase n ψ, hmp₁ac]
     by_cases hn : n = cvA.name
     · subst hn
       rw [acvalWith_self]
       show (mp.base2.acval (cvA.name.str "_model") ψ).erase = _
-      rw [mp.base2.acval_erase]
+      rw [mp.base_erase]
       exact (congrFun cvalWith_self ψ).symm
-    · rw [acvalWith_ne hn, mp.base2.acval_erase]
+    · rw [acvalWith_ne hn, mp.base_erase]
       exact (congrFun (cvalWith_ne hn) ψ).symm
   refine ⟨mp₁, hcval₁, hmp₁ac, by rw [hcval₁]; exact hI₁, ?_, hEC₁,
     hBP₁⟩
@@ -229,14 +229,14 @@ theorem indMembersPM (hkey : MemberKeyS V) (hetaP : MemberEtaLawP V)
             blockNames.contains caps.etaCtor = true) ∧
           (caps.eta = true → 0 < caps.etaFields →
             env.find? (Setlec.projFnName cv.name 0) = none)) →
-      IndMembersR μ F blockNames caps env mp.base2.base.cval members
+      IndMembersR μ F blockNames caps env mp.base.cval members
         env₂ cval₂ →
-      BlockInstalledTT blockNames env mp.base2.base.cval →
+      BlockInstalledTT blockNames env mp.base.cval →
       BlockAcvalInstalled blockNames env mp.base2.acval →
       Setlec.EtaFamiliesClosedO blockNames env →
       Setlec.BlockEtaPinned μ blockNames env →
       ∃ mp₂ : EnvS2PM V μ env₂,
-        mp₂.base2.base.cval = cval₂ ∧
+        mp₂.base.cval = cval₂ ∧
         BlockInstalledTT blockNames env₂ cval₂ ∧
         BlockAcvalInstalled blockNames env₂ mp₂.base2.acval ∧
         Setlec.EtaFamiliesClosedO blockNames env₂ ∧
@@ -306,13 +306,13 @@ theorem provisionRecsPM (hkey : MemberKeyS V) (hetaP : MemberEtaLawP V)
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
       Setlec.SetR.ProvisionRecsR μ F blockNames envAcc
-        mp.base2.base.cval recs envSelf cvalSelf checked →
-      BlockInstalledTT blockNames envAcc mp.base2.base.cval →
+        mp.base.cval recs envSelf cvalSelf checked →
+      BlockInstalledTT blockNames envAcc mp.base.cval →
       BlockAcvalInstalled blockNames envAcc mp.base2.acval →
       Setlec.EtaFamiliesClosedO blockNames envAcc →
       Setlec.BlockEtaPinned μ blockNames envAcc →
       ∃ mS : EnvS2PM V μ envSelf,
-        mS.base2.base.cval = cvalSelf ∧
+        mS.base.cval = cvalSelf ∧
         BlockInstalledTT blockNames envSelf cvalSelf ∧
         BlockAcvalInstalled blockNames envSelf mS.base2.acval ∧
         Setlec.EtaFamiliesClosedO blockNames envSelf ∧

@@ -75,8 +75,8 @@ inhabits the checked member's type's reading, graded, at every
 assignment. -/
 theorem memberKeyP (mp : EnvS2PM V μ env) {blockNames : List Name}
     {cv cvA : ConstantVal}
-    (hmv : MemberValR μ F env mp.base2.base.cval blockNames cv cvA)
-    (hIB : BlockInstalledTT blockNames env mp.base2.base.cval)
+    (hmv : MemberValR μ F env mp.base.cval blockNames cv cvA)
+    (hIB : BlockInstalledTT blockNames env mp.base.cval)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
     (ψ : Name → Nat) :
     ∃ ta, denoteP mp.base2.acval env ψ 0 cvA.type = some ta ∧
@@ -154,7 +154,7 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
     (hres : cvA.type.constsResolve env = true)
     -- the v1 install's output, constructively
     (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hbcval : hbase.cval = cvalModeled mp.base2.base.cval cvA.name)
+    (hbcval : hbase.cval = cvalModeled mp.base.cval cvA.name)
     -- the member's key at the prefix (`memberKeyP`)
     (hkeyP : ∀ ψ : Name → Nat, ∃ ta,
       denoteP mp.base2.acval env ψ 0 cvA.type = some ta ∧
@@ -187,11 +187,11 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
     · injection heq with _ _ _ h4
       exact h4.symm
   have hleaf : hbase.cval c₀.name
-      = fun ψ => mp.base2.base.cval (cvA.name.str "_model") ψ := by
+      = fun ψ => mp.base.cval (cvA.name.str "_model") ψ := by
     rw [hbcval, hname]
     exact cvalWith_self
   have hag : ∀ n, n ≠ c₀.name →
-      mp.base2.base.cval n = hbase.cval n := by
+      mp.base.cval n = hbase.cval n := by
     intro n hn
     rw [hbcval]
     exact (cvalWith_ne (by rw [← hname]; exact hn)).symm
@@ -217,7 +217,7 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
           intro _ h <;> exact nomatch h)
     hbase hag
     -- the tower: the invariant's own leaf laws, at the model's name
-    (fun ψ => by rw [mp.base2.acval_erase, hleaf])
+    (fun ψ => by rw [mp.base_erase, hleaf])
     (fun ψ k => mp.base2.acval_closed _ ψ k)
     (fun ψ₁ ψ₂ hps =>
       mp.base2.acval_params _ _ hmE ψ₁ ψ₂ (by

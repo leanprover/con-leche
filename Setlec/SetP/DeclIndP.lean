@@ -42,7 +42,7 @@ install runs anyway; the P phases carry the annotated invariants. -/
 theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} (mp : EnvS2PM V μ env)
     (hE : Setlec.EtaFamiliesClosed env)
-    (h : DeclIndR μ F env mp.base2.base.cval block env₂) :
+    (h : DeclIndR μ F env mp.base.cval block env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨hsplit, hmain⟩ := h
   -- list bookkeeping about the block's split (v1's, verbatim)
@@ -63,7 +63,7 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     fun T cvT caps hf hcape hres _ => hE T cvT caps hf hcape hres
   have hnostore : ∀ {caps : IndCaps} {envM envR : Env}
       {cvalM cvalR : TConstVal},
-      IndMembersR μ F (block.map (·.name)) caps env mp.base2.base.cval
+      IndMembersR μ F (block.map (·.name)) caps env mp.base.cval
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => false | _ => true)) envM cvalM →
       IndRecsR μ F (block.map (·.name)) envM cvalM
@@ -83,19 +83,19 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
       exact nomatch hup
   have hI0gen : ∀ {caps : IndCaps} {envM envR : Env}
       {cvalM cvalR : TConstVal},
-      IndMembersR μ F (block.map (·.name)) caps env mp.base2.base.cval
+      IndMembersR μ F (block.map (·.name)) caps env mp.base.cval
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => false | _ => true)) envM cvalM →
       IndRecsR μ F (block.map (·.name)) envM cvalM
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => true | _ => false)) envR cvalR →
-      BlockInstalledTT (block.map (·.name)) env mp.base2.base.cval :=
+      BlockInstalledTT (block.map (·.name)) env mp.base.cval :=
     fun hmem hrecs n hn ci hf =>
       absurd (hnostore hmem hrecs n hn ci hf) (fun h => h)
   -- the annotated half, vacuous at the base for the same reason
   have hIA0gen : ∀ {caps : IndCaps} {envM envR : Env}
       {cvalM cvalR : TConstVal},
-      IndMembersR μ F (block.map (·.name)) caps env mp.base2.base.cval
+      IndMembersR μ F (block.map (·.name)) caps env mp.base.cval
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => false | _ => true)) envM cvalM →
       IndRecsR μ F (block.map (·.name)) envM cvalM
@@ -105,7 +105,7 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     fun hmem hrecs n hn ci hf =>
       absurd (hnostore hmem hrecs n hn ci hf) (fun h => h)
   have hallGen : ∀ {caps : IndCaps} {envM : Env} {cvalM : TConstVal},
-      IndMembersR μ F (block.map (·.name)) caps env mp.base2.base.cval
+      IndMembersR μ F (block.map (·.name)) caps env mp.base.cval
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => false | _ => true)) envM cvalM →
       ∀ n, (block.map (·.name)).contains n = true →
@@ -192,7 +192,7 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     rw [← hcval₁] at hrecs hI₁
     -- the recursor group, v1 first (for the carrier and the transports)
     obtain ⟨m₂, hm₂cval, hI₂, hnonrecUp, -, -⟩ :=
-      indRecsS memberKeyS mp₁.base2.base hI₁ hbnRec (hallGen hmem)
+      indRecsS memberKeyS mp₁.base hI₁ hbnRec (hallGen hmem)
         hEC₁ hBP₁ hrecs
     obtain ⟨mp₂, hcval₂, hIA₂⟩ :=
       indRecsP hμ memberKeyS memberEtaLawP memberUnitLawP mp₁ hI₁ hIA₁
@@ -221,7 +221,7 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
       exact hnonrecUp n ci (indMembersR_mono _ hmem n ci hf) hnr
     -- the projection phase's block-level premises, both tiers
     have hinvR : ProjPhaseInvS cvT.name cvC.name nF envR
-        mp₂.base2.base.cval := by
+        mp₂.base.cval := by
       refine ⟨?_, ?_, ?_⟩
       · intro ci hf
         obtain ⟨cvm, mval, hint, hfm, hlps, -, hv⟩ :=
@@ -291,7 +291,7 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
         hmem (hI0gen hmem hrecs) (hIA0gen hmem hrecs) hEC0 hBP0
     rw [← hcval₁] at hrecs hI₁
     obtain ⟨m₂, hm₂cval, -, -, -, -⟩ :=
-      indRecsS memberKeyS mp₁.base2.base hI₁ hbnRec (hallGen hmem)
+      indRecsS memberKeyS mp₁.base hI₁ hbnRec (hallGen hmem)
         hEC₁ hBP₁ hrecs
     obtain ⟨mp₂, -, -⟩ :=
       indRecsP hμ memberKeyS memberEtaLawP memberUnitLawP mp₁ hI₁ hIA₁

@@ -76,7 +76,7 @@ theorem denoteP_emptyA_type
 theorem extendEmptyP (mp : EnvS2PM V μ env)
     (hfresh : env.find? emptyName = none)
     (hbase : EnvS V ⟨emptyA :: env.consts⟩)
-    (hag : ∀ n, n ≠ emptyA.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ emptyA.name → mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval emptyA.name ψ = VExpr.const .empty [1]) :
     Nonempty (EnvS2PM V μ ⟨emptyA :: env.consts⟩) := by
   refine nonempty_of_exists (declStepPM_of_basis_cons mp
@@ -215,7 +215,7 @@ theorem extendEmptyRecP (mp : EnvS2PM V μ env)
     (hfresh : env.find? emptyRecA.name = none)
     (hbase : EnvS V ⟨emptyRecA :: env.consts⟩)
     (hag : ∀ n, n ≠ emptyRecA.name →
-      mp.base2.base.cval n = hbase.cval n)
+      mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval emptyRecA.name ψ
       = VExpr.const .emptyRec [1, ψ uN]) :
     Nonempty (EnvS2PM V μ ⟨emptyRecA :: env.consts⟩) := by
@@ -266,10 +266,10 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
   have hf1 : env.find? emptyA.name = none :=
     Option.isNone_iff_eq_none.mp h1
   have hwf1 : EnvWF ⟨emptyA :: env.consts⟩ :=
-    EnvWF.cons mp.base2.base.wf ⟨rfl, rfl, rfl, rfl,
+    EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩
-  obtain ⟨m1, hm1⟩ := extendEmptyS mp.base2.base hf1 hwf1
+  obtain ⟨m1, hm1⟩ := extendEmptyS mp.base hf1 hwf1
   obtain ⟨mp1⟩ := extendEmptyP mp hf1 m1
     (fun n hn => by rw [hm1, cvalWith_ne hn])
     (fun ψ => by rw [hm1, cvalWith_self]; rfl)
@@ -302,7 +302,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
       exact hE
     rw [hf]
     simp
-  obtain ⟨m2, hm2⟩ := extendEmptyRecS mp1.base2.base hE hf2 hwf2
+  obtain ⟨m2, hm2⟩ := extendEmptyRecS mp1.base hE hf2 hwf2
   exact extendEmptyRecP mp1 hE hf2 m2
     (fun n hn => by rw [hm2, cvalWith_ne hn])
     (fun ψ => by rw [hm2, cvalWith_self])

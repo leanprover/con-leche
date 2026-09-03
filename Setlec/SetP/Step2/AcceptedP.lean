@@ -196,7 +196,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
         Setlec.inferTypeCore_proj_inv h
       simp only [Expr.WScoped] at hws
       simp only [Expr.looseBVarsBounded] at hb
-      obtain ⟨-, -, hi2, -⟩ := projPinsP m.base.proj_ok hfe hnat
+      obtain ⟨-, -, hi2, -⟩ := projPinsP m.proj_ok hfe hnat
       obtain ⟨pa, hpa⟩ := ih htpe hws hb (fun l hl =>
         hL l (by simpa [Expr.fvarLeaves] using hl))
       exact ⟨_, by rw [denoteP_proj, hpa]; exact if_pos hi2⟩

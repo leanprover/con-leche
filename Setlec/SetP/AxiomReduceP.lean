@@ -323,7 +323,7 @@ or a `simp` on a leaf clause and the whole content is the
 membership. -/
 theorem axiomOfReduceP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
-    (hcv : ConstantValR μ F env mp.base2.base.cval cv type')
+    (hcv : ConstantValR μ F env mp.base.cval cv type')
     (hor : cv.name = Setlec.ofReduceNatName ∨
       cv.name = Setlec.ofReduceBoolName)
     (hok : Setlec.ofReduceAxOk env ⟨cv.name, cv.levelParams, type'⟩
@@ -339,17 +339,17 @@ theorem axiomOfReduceP (hμ : μ.verified = true)
   obtain ⟨stype, usort, hst, hens⟩ := hrunT
   have hwfc : Setlec.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts⟩ := by
-    refine Setlec.EnvWF.cons mp.base2.base.wf
+    refine Setlec.EnvWF.cons mp.base2.wf
       ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_⟩
     · intro cv2 value2 hint2 heq; exact nomatch heq
     · intro cv2 mI rP rules heq; exact nomatch heq
     · intro cv2 value2 heq; exact nomatch heq
   obtain ⟨m', hag, hself⟩ :=
-    extendAxiomS mp.base2.base (cv := ⟨cv.name, cv.levelParams, type'⟩)
+    extendAxiomS mp.base (cv := ⟨cv.name, cv.levelParams, type'⟩)
       (Vf := fun _ => .prf)
       hfresh hwfc (fun _ => trivial) (fun _ _ _ => rfl)
       (fun _ _ => trivial)
-      (fun ψ => ofReduceKeyS_mem mp.base2.base hok hor ψ) hnres
+      (fun ψ => ofReduceKeyS_mem mp.base hok hor ψ) hnres
       (by rcases hor with h | h <;>
         rw [show (⟨cv.name, cv.levelParams, type'⟩ :
           ConstantVal).name = cv.name from rfl, h] <;> decide)

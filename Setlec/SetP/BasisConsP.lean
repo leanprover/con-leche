@@ -50,7 +50,7 @@ rhs's `constsResolve`, its level parameters, its bound-variable bound
 and the nested pins' shape — never that `RecRule.ctor` resolves.  All
 of that is accurate.  What it missed is that the fact does not have to
 come from `EnvWF` at all: **`EnvS.rec_ctors`** (`RecCtorsStored`,
-`Verify/EnvPreds.lean:64`, reachable as `mp.base2.base.rec_ctors`)
+`Verify/EnvPreds.lean:64`, reachable as `mp.base2.rec_ctors`)
 already says every stored recursor rule's constructor is itself
 stored.  With the cons fresh, the disequality is immediate.
 
@@ -107,7 +107,7 @@ theorem acval_basis_pinned {m : EnvS2Core V env}
     (hd : Setlec.TTVerify.pinnedDirectT n ψ
       = some (VExpr.const c us)) :
     m.acval n ψ = .const c us := by
-  have h1 := (m.base.basis_pinned n ci hf hres).2 _ ψ hd
+  have h1 := (m.basis_pinned n ci hf hres).2 _ ψ hd
   have h2 := m.acval_erase n ψ
   rw [h1] at h2
   cases hh : m.acval n ψ with
@@ -237,7 +237,7 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
     refine ⟨TVa, ?_, hokTVa, ?_⟩
     · rw [hac]
       exact denoteP_cons_fresh_mono hfresh _ 0 _
-        (constsBound_instType mp.base2.base.wf
+        (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x hlents hfit hmem
       rw [hac, acvalWith_ne hnT] at hmem
@@ -268,7 +268,7 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
     refine ⟨TVa, ?_, hokTVa, ?_⟩
     · rw [hac]
       exact denoteP_cons_fresh_mono hfresh _ 0 _
-        (constsBound_instType mp.base2.base.wf
+        (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x y hlents hfit hx hy
       rw [hac, acvalWith_ne hnT] at hx hy

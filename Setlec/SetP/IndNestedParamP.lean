@@ -338,14 +338,14 @@ theorem nestedPinFireP {m : EnvS2Core V env} {F : Nat}
     (hctxPin q hq) hw hta
   -- the inferred type's syntactic frame (a run's tax, part 4's lesson)
   have hwsTy : Expr.WScoped K ty :=
-    inferTypeCore_WScoped m.base.wf F hInf (hpinWs _ (hpinMem q hq))
+    inferTypeCore_WScoped m.wf F hInf (hpinWs _ (hpinMem q hq))
   have hleafTy : ∀ l ∈ ty.fvarLeaves,
       Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP ∧ l.1 < rP := fun l hl =>
     hpinLeaf _ (hpinMem q hq) l
-      (inferTypeCore_fvarLeaves m.base.wf F hInf
+      (inferTypeCore_fvarLeaves m.wf F hInf
         (hpinWs _ (hpinMem q hq)) l hl)
   have hbTy : ty.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.base.wf F hInf (hpinWs _ (hpinMem q hq))
+    inferTypeCore_looseBVars m.wf F hInf (hpinWs _ (hpinMem q hq))
       (hpinB _ (hpinMem q hq))
       (fun l hl => hlbFvsP l.1 l.2.1 l.2.2
         (hpinLeaf _ (hpinMem q hq) l hl).1)

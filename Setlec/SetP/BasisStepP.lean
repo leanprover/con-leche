@@ -92,7 +92,7 @@ theorem declStepPM_of_basis_cons (mp : EnvS2PM V μ env)
       c₀.name ∉ Setlec.reduceOpNames)
     -- the v1 base at the extension, and its leaf
     (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
     -- the annotated tower
     (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
@@ -167,7 +167,7 @@ theorem declStepPM_of_basis_rec_cons (mp : EnvS2PM V μ env)
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
       c₀.name ∉ Setlec.reduceOpNames)
     (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
     (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -229,7 +229,7 @@ theorem declStepPM_of_basis_cons_eqrow (mp : EnvS2PM V μ env)
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
       c₀.name ∉ Setlec.reduceOpNames)
     (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
     (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -286,7 +286,7 @@ theorem declStepPM_of_basis_cons_gen (mp : EnvS2PM V μ env)
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
       c₀.name ∉ Setlec.reduceOpNames)
     (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
     (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,

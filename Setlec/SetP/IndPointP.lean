@@ -246,7 +246,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
   -- reduce to the mapped spine equality
   rw [hvLfEq, interp2_mkAppN_map, interp2_mkAppN_map,
     interp2_closed (V := V)
-      (by rw [m.acval_erase]; exact m.base.cval_closed Rn ψ')
+      (by rw [m.acval_erase]; exact m.cval_closed Rn ψ')
       (chainP V ρ zs) ρ]
   suffices hmap : vLargs.map (interp2 V (chainP V ρ zs))
       = (xs ++ [AVExpr.mkAppN
@@ -488,7 +488,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
         rw [hviEq, interp2_mkAppN_map, interp2_mkAppN_map, hvchEq,
           interp2_closed (V := V)
             (by rw [m.acval_erase]
-                exact m.base.cval_closed ctor
+                exact m.cval_closed ctor
                   (Level.substFn φ cvj.levelParams usj))
             (chainP V ρ zs) ρ]
         suffices hsp2 : vmargs.map (interp2 V (chainP V ρ zs))

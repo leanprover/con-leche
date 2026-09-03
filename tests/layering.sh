@@ -45,18 +45,22 @@ WHITELIST = """
 # lanes actually shared (17 modules and 9 lemma families to
 # `Setlec/SetBase/*`) and the section is empty.
 # --- the de-basing proper: `EnvS2Core.base : EnvS` and the P carriers
-# that reach the collapsed carrier through it (spec point 2).
-Setlec.SetP.Annot.EnvS2Core -> Setlec.SetR.Annot.EnvS2U                 # S3-S5: the `base : EnvS` field itself
-Setlec.SetP.Annot.EnvS2P -> Setlec.SetR.Interp2.EnvS2U                  # S3-S5: ditto, the P mirror's own base
-Setlec.SetP.CapstoneP -> Setlec.SetR.Interp2.EmptyPin2          # S7: EnvS.empty_pinned, the capstone's Empty key (census §1.5, the ONE hard residue)
+# that reach the collapsed carrier through it (spec point 2).  S3
+# de-based `EnvS2Core` itself and cut its edge; what is left is the
+# fold-layer residue `EnvS2PM.base`, which S4/S5 delete with the v1
+# install round trip.  The census's "ONE hard residue" (S7,
+# `EnvS.empty_pinned` at the capstone's Empty key) is no longer an edge:
+# `acval_empty_pinnedC` takes the pin as a premise in exactly the shape
+# §1.5's carrier field will project, and the fold supplies it from the
+# residue.
+Setlec.SetP.Annot.EnvS2P -> Setlec.SetR.Interp2.EnvS2U                  # S4-S5: the v1 residue `EnvS2PM.base`, all that is left of `base : EnvS` (S3 de-based the CORE; the residue dies with the install round trip)
 # --- the v1 install round trip (census §1.3's 47 sites): the P side
 # calls a v1 install lemma only to build the new `EnvS`.  The premises
 # vanish with the de-basing, and with them the imports.
 Setlec.SetP.AxiomPinP -> Setlec.SetR.StdAxiomKey                # S3: propextKeyS_mem/choiceKeyS_mem at the axiom pin
 Setlec.SetP.BasisEmptyP -> Setlec.SetR.Install.BasisS           # S3: extendEmptyS
 Setlec.SetP.IndMemberP -> Setlec.SetR.Install.IndMembersS       # S3: indMemberS/memberKeyS base builders
-Setlec.SetP.IotaRulePlainP -> Setlec.SetR.Install.IotaRuleS     # S3: iotaRuleS base builder (+ IotaRuleR/IotaThmR records to base)
-Setlec.SetP.ProjInstallP -> Setlec.SetR.Install.DeclIndS        # S3: projInstallS/templatesS base builders
+Setlec.SetP.ProjInstallP -> Setlec.SetR.Install.DeclIndS        # S4: SPURIOUS AS WRITTEN (S3 finding) — the symbols this file uses (projFnS/templateConsS/templatesS/projInstallS) are declared in Install/ProjInstallS, not DeclIndS, and are reached transitively; re-point the import before killing the edge
 Setlec.SetP.HarvestP -> Setlec.SetR.Install.ValueKinds          # S4: declDefnS/declThmS/declOpaqueS base builders (+ annotate_syntax to base)
 # --- the bridge: the records are SHARED, the derivations are R's.
 Setlec.SetP.FoldP -> Setlec.SetR.Bridge.Sound                   # S4: checkDeclRun_sound + declEtaStep (census C3/C4)

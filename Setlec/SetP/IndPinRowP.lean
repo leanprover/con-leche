@@ -149,18 +149,18 @@ theorem nestedPinRowP {m : EnvS2Core V env} {F : Nat}
   obtain ⟨hpw, hpb⟩ := hpwd q hq
   obtain ⟨w0, hw0⟩ := hpinRead q hq
   obtain ⟨vpa, hvpden⟩ := pinOpenRevReadsP (acval := m.acval)
-    (cval := m.base.cval) (env := env) (φ := φ) m.acval_closed
+    (cval := m.cvalE) (env := env) (φ := φ) m.acval_closed
     (fun n ψ y k =>
       AVExprSubst.inst_eq_self_of_closed (m.acval_closed n ψ) y k)
-    m.acval_erase m.base.cval_closed htkPlen hosShape hosWs hosB
+    m.acval_erase m.cval_closed htkPlen hosShape hosWs hosB
     hpw hpb hw0
   refine ⟨vpa, hvpden, ?_⟩
   intro ρ zs restR hzslen hzsOk hfit
-  refine nestedPinGradeP (acval := m.acval) (cval := m.base.cval)
+  refine nestedPinGradeP (acval := m.acval) (cval := m.cvalE)
     (env := env) (φ := φ) m.acval_closed
     (fun n ψ y k =>
       AVExprSubst.inst_eq_self_of_closed (m.acval_closed n ψ) y k)
-    m.acval_erase m.base.cval_closed htkPlen hosShape hosWs hosB
+    m.acval_erase m.cval_closed htkPlen hosShape hosWs hosB
     hpw hpb hvpden htowerP ?_ hzslen hzsOk hfit
   intro w1 hw1 σ hσ
   obtain ⟨w2, hw2, hokw2, -⟩ := hfire q hq σ hσ

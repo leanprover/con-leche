@@ -102,13 +102,33 @@ theorem denoteP_cons_fresh_mono {acval : Name → (Name → Nat) → AVExpr}
     (litGuardsMono_cons hfresh) d e hcb
     (by rw [denoteP_acvalWith_fresh hfresh]; exact h)
 
+/-- **The extended valuation's erasure, at a fresh cons** — the leaf
+is the new tower's, every other name is the prefix's.  Factored out
+because `declStepPM_of_cons` states it ten times (nine premises plus
+the carrier it builds). -/
+theorem consErase {mp : EnvS2PM V μ env} {c₀ : ConstantInfo}
+    {A : (Name → Nat) → AVExpr} (hbase : EnvS V ⟨c₀ :: env.consts⟩)
+    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
+    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ) :
+    ∀ (n : Name) (ψ : Name → Nat),
+      (acvalWith mp.base2.acval c₀.name A n ψ).erase = hbase.cval n ψ := by
+  intro n ψ
+  by_cases hn : n = c₀.name
+  · subst hn
+    rw [show acvalWith mp.base2.acval c₀.name A c₀.name = A from
+      acvalWith_self]
+    exact hAerase ψ
+  · rw [show acvalWith mp.base2.acval c₀.name A n
+          = mp.base2.acval n from acvalWith_ne hn,
+      mp.base_erase, hag n hn]
+
 /-- **The P declaration step, cons shape** (see the module
 docstring). -/
 theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
     (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
     (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -138,71 +158,43 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
           ⟨c₀ :: env.consts⟩ ψ 0 value = some (A ψ))
     (hnh : ∀ φ : Name → Nat,
       NatHeadsP (V := V)
-        ⟨hbase, acvalWith mp.base2.acval c₀.name A,
-         by intro n ψ
-            by_cases hn : n = c₀.name
-            · subst hn; rw [acvalWith_self]; exact hAerase ψ
-            · rw [acvalWith_ne hn, mp.base2.acval_erase, hag n hn],
-         acvalWith_closed mp.base2.acval_closed hAclosed,
-         acvalWith_params mp.base2.acval_params hAparams,
-         acvalWith_ok2 mp.base2.acval_ok2 hAok⟩ φ)
+        (coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
+           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
+           (acvalWith_params mp.base2.acval_params hAparams)
+           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) φ)
     (hnat_ops : ∀ φ : Name → Nat,
       NatOpsP (V := V)
-        (⟨hbase, acvalWith mp.base2.acval c₀.name A,
-         by intro n ψ
-            by_cases hn : n = c₀.name
-            · subst hn; rw [acvalWith_self]; exact hAerase ψ
-            · rw [acvalWith_ne hn, mp.base2.acval_erase, hag n hn],
-         acvalWith_closed mp.base2.acval_closed hAclosed,
-         acvalWith_params mp.base2.acval_params hAparams,
-         acvalWith_ok2 mp.base2.acval_ok2 hAok⟩ : EnvS2Core V _) φ)
+        ((coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
+           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
+           (acvalWith_params mp.base2.acval_params hAparams)
+           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) : EnvS2Core V _) φ)
     (hdiv_mod : ∀ φ : Name → Nat,
-      DivModP (V := V) (⟨hbase, acvalWith mp.base2.acval c₀.name A,
-         by intro n ψ
-            by_cases hn : n = c₀.name
-            · subst hn; rw [acvalWith_self]; exact hAerase ψ
-            · rw [acvalWith_ne hn, mp.base2.acval_erase, hag n hn],
-         acvalWith_closed mp.base2.acval_closed hAclosed,
-         acvalWith_params mp.base2.acval_params hAparams,
-         acvalWith_ok2 mp.base2.acval_ok2 hAok⟩ : EnvS2Core V _) φ)
-    (heq_law : EqLawP (V := V) (⟨hbase, acvalWith mp.base2.acval c₀.name A,
-         by intro n ψ
-            by_cases hn : n = c₀.name
-            · subst hn; rw [acvalWith_self]; exact hAerase ψ
-            · rw [acvalWith_ne hn, mp.base2.acval_erase, hag n hn],
-         acvalWith_closed mp.base2.acval_closed hAclosed,
-         acvalWith_params mp.base2.acval_params hAparams,
-         acvalWith_ok2 mp.base2.acval_ok2 hAok⟩ : EnvS2Core V _))
+      DivModP (V := V) ((coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
+           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
+           (acvalWith_params mp.base2.acval_params hAparams)
+           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) : EnvS2Core V _) φ)
+    (heq_law : EqLawP (V := V) ((coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
+           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
+           (acvalWith_params mp.base2.acval_params hAparams)
+           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) : EnvS2Core V _))
     (hcaps_ok : CapsOkP (V := V)
-        (⟨hbase, acvalWith mp.base2.acval c₀.name A,
-         by intro n ψ
-            by_cases hn : n = c₀.name
-            · subst hn; rw [acvalWith_self]; exact hAerase ψ
-            · rw [acvalWith_ne hn, mp.base2.acval_erase, hag n hn],
-         acvalWith_closed mp.base2.acval_closed hAclosed,
-         acvalWith_params mp.base2.acval_params hAparams,
-         acvalWith_ok2 mp.base2.acval_ok2 hAok⟩ : EnvS2Core V _))
+        ((coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
+           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
+           (acvalWith_params mp.base2.acval_params hAparams)
+           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) : EnvS2Core V _))
     (hrec_rules : ∀ φ : Name → Nat,
-      RecRulesP (V := V) (⟨hbase, acvalWith mp.base2.acval c₀.name A,
-         by intro n ψ
-            by_cases hn : n = c₀.name
-            · subst hn; rw [acvalWith_self]; exact hAerase ψ
-            · rw [acvalWith_ne hn, mp.base2.acval_erase, hag n hn],
-         acvalWith_closed mp.base2.acval_closed hAclosed,
-         acvalWith_params mp.base2.acval_params hAparams,
-         acvalWith_ok2 mp.base2.acval_ok2 hAok⟩ : EnvS2Core V _) φ)
+      RecRulesP (V := V) ((coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
+           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
+           (acvalWith_params mp.base2.acval_params hAparams)
+           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) : EnvS2Core V _) φ)
     (hreduce_ops : ReduceOpsP (V := V)
-        (⟨hbase, acvalWith mp.base2.acval c₀.name A,
-         by intro n ψ
-            by_cases hn : n = c₀.name
-            · subst hn; rw [acvalWith_self]; exact hAerase ψ
-            · rw [acvalWith_ne hn, mp.base2.acval_erase, hag n hn],
-         acvalWith_closed mp.base2.acval_closed hAclosed,
-         acvalWith_params mp.base2.acval_params hAparams,
-         acvalWith_ok2 mp.base2.acval_ok2 hAok⟩ : EnvS2Core V _)) :
+        ((coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
+           (consErase hbase hag hAerase) (acvalWith_closed mp.base2.acval_closed hAclosed)
+           (acvalWith_params mp.base2.acval_params hAparams)
+           (acvalWith_ok2 mp.base2.acval_ok2 hAok)) : EnvS2Core V _)) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  have hbound := envWF_constsBound mp.base2.base.wf
+  have hbound := envWF_constsBound mp.base2.wf
   have hne : ∀ c ∈ env.consts, c.name ≠ c₀.name := by
     have h0 := hfresh
     rw [Setlec.Env.find?, List.find?_eq_none] at h0
@@ -290,19 +282,13 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
         exact hcompM ψ value ((hbound _ h).2.2 cv value rfl)
           (mp.defn_reads ψ cv value (.inr h))
   exact ⟨{
-    base2 := ⟨hbase, acvalWith mp.base2.acval c₀.name A,
-      by intro n ψ
-         by_cases hn : n = c₀.name
-         · subst hn
-           rw [show acvalWith mp.base2.acval c₀.name A c₀.name = A from
-             acvalWith_self]
-           exact hAerase ψ
-         · rw [show acvalWith mp.base2.acval c₀.name A n
-                 = mp.base2.acval n from acvalWith_ne hn,
-             mp.base2.acval_erase, hag n hn],
-      acvalWith_closed mp.base2.acval_closed hAclosed,
-      acvalWith_params mp.base2.acval_params hAparams,
-      acvalWith_ok2 mp.base2.acval_ok2 hAok⟩
+    base2 := coreOfBase hbase (acvalWith mp.base2.acval c₀.name A)
+      (consErase hbase hag hAerase)
+      (acvalWith_closed mp.base2.acval_closed hAclosed)
+      (acvalWith_params mp.base2.acval_params hAparams)
+      (acvalWith_ok2 mp.base2.acval_ok2 hAok)
+    base := hbase
+    base_erase := consErase hbase hag hAerase
     acval_validV := acvalWith_validV (n := c₀.name)
       mp.acval_validV hAvalid
     type_reads := htr

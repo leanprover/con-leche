@@ -163,7 +163,7 @@ theorem bitAgree_quotMkA (ψ : Name → Nat) :
 theorem extendQuotP (mp : EnvS2PM V μ env)
     (hfresh : env.find? quotName = none)
     (hbase : EnvS V ⟨quotA :: env.consts⟩)
-    (hag : ∀ n, n ≠ quotA.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ quotA.name → mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval quotA.name ψ = VExpr.const .quot [ψ uN]) :
     Nonempty (EnvS2PM V μ ⟨quotA :: env.consts⟩) := by
   refine nonempty_of_exists (declStepPM_of_basis_cons mp
@@ -195,7 +195,7 @@ theorem extendQuotMkP (mp : EnvS2PM V μ env)
     (hQ : env.find? quotName = some quotA)
     (hfresh : env.find? quotMkName = none)
     (hbase : EnvS V ⟨quotMkA :: env.consts⟩)
-    (hag : ∀ n, n ≠ quotMkA.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ quotMkA.name → mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval quotMkA.name ψ
       = VExpr.const .quotMk [ψ uN]) :
     Nonempty (EnvS2PM V μ ⟨quotMkA :: env.consts⟩) := by
@@ -748,7 +748,7 @@ theorem extendQuotIndP (mp : EnvS2PM V μ env)
     (hfresh : env.find? quotIndA.name = none)
     (hbase : EnvS V ⟨quotIndA :: env.consts⟩)
     (hag : ∀ n, n ≠ quotIndA.name →
-      mp.base2.base.cval n = hbase.cval n)
+      mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval quotIndA.name ψ
       = VExpr.const .quotInd [ψ uN]) :
     Nonempty (EnvS2PM V μ ⟨quotIndA :: env.consts⟩) := by
@@ -1110,7 +1110,7 @@ theorem extendQuotSoundP (mp : EnvS2PM V μ env)
     (hfresh : env.find? quotSoundA.name = none)
     (hbase : EnvS V ⟨quotSoundA :: env.consts⟩)
     (hag : ∀ n, n ≠ quotSoundA.name →
-      mp.base2.base.cval n = hbase.cval n)
+      mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval quotSoundA.name ψ
       = VExpr.const .quotSound [ψ uN]) :
     Nonempty (EnvS2PM V μ ⟨quotSoundA :: env.consts⟩) := by
@@ -1565,7 +1565,7 @@ theorem acval_inst_eq_self (m : EnvS2Core V env) (n : Name)
     (m.acval n ψ).inst a k = m.acval n ψ :=
   AVExpr.inst_eq_self _
     (VExpr.bvarsBelow.mono (Nat.zero_le k)
-      (by rw [m.acval_erase]; exact m.base.cval_closed n ψ)) a
+      (by rw [m.acval_erase]; exact m.cval_closed n ψ)) a
 
 /-! ### `Quot.lift`'s type reading, and its rule -/
 
@@ -2198,7 +2198,7 @@ theorem extendQuotLiftP (mp : EnvS2PM V μ env)
     (hfresh : env.find? quotLiftA.name = none)
     (hbase : EnvS V ⟨quotLiftA :: env.consts⟩)
     (hag : ∀ n, n ≠ quotLiftA.name →
-      mp.base2.base.cval n = hbase.cval n)
+      mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval quotLiftA.name ψ
       = VExpr.const .quotLift [ψ uN, ψ vN]) :
     Nonempty (EnvS2PM V μ ⟨quotLiftA :: env.consts⟩) := by
@@ -2259,10 +2259,10 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
   have hf1 : env.find? quotA.name = none :=
     Option.isNone_iff_eq_none.mp h1
   have hwf1 : EnvWF ⟨quotA :: env.consts⟩ :=
-    EnvWF.cons mp.base2.base.wf ⟨rfl, rfl, rfl, rfl,
+    EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩
-  obtain ⟨m1, hm1⟩ := extendQuotS mp.base2.base hf1 hwf1
+  obtain ⟨m1, hm1⟩ := extendQuotS mp.base hf1 hwf1
   obtain ⟨mp1⟩ := extendQuotP mp hf1 m1
     (fun n hn => by rw [hm1, cvalWith_ne hn])
     (fun ψ => by rw [hm1, cvalWith_self])
@@ -2294,7 +2294,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
             { bi := .default, pw := .ifAllZero [uN] })
           { bi := .implicit, pw := .ifAllZero [uN] } from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨m2, hm2⟩ := extendQuotMkS mp1.base2.base hQ1 hf2 hwf2
+  obtain ⟨m2, hm2⟩ := extendQuotMkS mp1.base hQ1 hf2 hwf2
   obtain ⟨mp2⟩ := extendQuotMkP mp1 hQ1 hf2 m2
     (fun n hn => by rw [hm2, cvalWith_ne hn])
     (fun ψ => by rw [hm2, cvalWith_self])
@@ -2366,7 +2366,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
           simp [Expr.constsResolve, quotLiftRule, hfE], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨m3, hm3⟩ := extendQuotLiftS mp2.base2.base hQ2 hM2 hE2 hf3 hwf3
+  obtain ⟨m3, hm3⟩ := extendQuotLiftS mp2.base hQ2 hM2 hE2 hf3 hwf3
   obtain ⟨mp3⟩ := extendQuotLiftP mp2 hQ2 hM2 hE2 hf3 m3
     (fun n hn => by rw [hm3, cvalWith_ne hn])
     (fun ψ => by rw [hm3, cvalWith_self])
@@ -2433,7 +2433,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
           simp [Expr.constsResolve, quotIndRule, hfQ, hfM], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨m4, hm4⟩ := extendQuotIndS mp3.base2.base hQ3 hM3 hf4 hwf4
+  obtain ⟨m4, hm4⟩ := extendQuotIndS mp3.base hQ3 hM3 hf4 hwf4
   obtain ⟨mp4⟩ := extendQuotIndP mp3 hQ3 hM3 hf4 m4
     (fun n hn => by rw [hm4, cvalWith_ne hn])
     (fun ψ => by rw [hm4, cvalWith_self])
@@ -2492,7 +2492,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
               { bi := .implicit, pw := .ifAllZero [] })
             { bi := .implicit, pw := .ifAllZero [] } from rfl]
     simp [Expr.constsResolve, hfQ, hfM, hfE]
-  obtain ⟨m5, hm5⟩ := extendQuotSoundS mp4.base2.base hQ4 hM4 hE4 hf5 hwf5
+  obtain ⟨m5, hm5⟩ := extendQuotSoundS mp4.base hQ4 hM4 hE4 hf5 hwf5
   exact extendQuotSoundP mp4 hQ4 hM4 hE4 hf5 m5
     (fun n hn => by rw [hm5, cvalWith_ne hn])
     (fun ψ => by rw [hm5, cvalWith_self])

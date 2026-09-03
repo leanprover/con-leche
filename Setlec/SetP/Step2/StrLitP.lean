@@ -194,7 +194,7 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
   -- every leaf is closed, graded and bit-valid
   have hleafC : ∀ (n : Name) (ψ : Name → Nat) (σ : Nat → V),
       interp2 V σ (m.acval n ψ) = interp2 V ρ (m.acval n ψ) := fun n ψ σ =>
-    interp2_closed V (by rw [m.acval_erase]; exact m.base.cval_closed n ψ) σ ρ
+    interp2_closed V (by rw [m.acval_erase]; exact m.cval_closed n ψ) σ ρ
   have hleafOk : ∀ (n : Name) (ψ : Name → Nat) (σ : Nat → V),
       AnnotOkP V σ (m.acval n ψ) := fun n ψ σ =>
     ⟨m.acval_ok2 _ _ σ, hval _ _ σ⟩

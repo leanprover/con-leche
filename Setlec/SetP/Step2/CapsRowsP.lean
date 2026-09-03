@@ -251,13 +251,13 @@ theorem certs_teleP {m : EnvS2Core V env}
       hreads hta haw hab haLb (LeafReadsP.of_ctxOkP haC) haa
     obtain ⟨hokA, hokTa, hmemA⟩ := ihi hta haw hab haLb haC haa htaa
     have hwta : Expr.WScoped d ta :=
-      Setlec.inferTypeCore_WScoped m.base.wf fuel hta haw
+      Setlec.inferTypeCore_WScoped m.wf fuel hta haw
     have hbta : ta.looseBVarsBounded 0 = true :=
-      Setlec.inferTypeCore_looseBVars m.base.wf fuel hta haw hab haLb
+      Setlec.inferTypeCore_looseBVars m.wf fuel hta haw hab haLb
     have hLta : Expr.LeavesBounded ta := fun l hl =>
-      haLb l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hta haw l hl)
+      haLb l (Setlec.inferTypeCore_fvarLeaves m.wf fuel hta haw l hl)
     have hCta : CtxOkP m φ d Δa ta :=
-      haC.of_subset (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hta haw)
+      haC.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel hta haw)
     -- the certificate against the domain
     have hdeq : ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ taa = interp2 V ρ doma :=
@@ -540,7 +540,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
   -- the law, and its carried reading moved to the ambient depth
   obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
     hcaps.1 T cvT caps hfT heta hresT hfam φ us' hlenus
-  have hwfT := m.base.wf _ (Setlec.SetR.Env.find?_mem hfT)
+  have hwfT := m.wf _ (Setlec.SetR.Env.find?_mem hfT)
   have hnfT : (cvT.type.instantiateLevelParams cvT.levelParams us').hasFvar
       = false := by
     rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfT.1
@@ -551,7 +551,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
   have hTVd : denoteP m.acval env φ d
       (cvT.type.instantiateLevelParams cvT.levelParams us') = some TVa :=
     denoteP_depth_of_closed m.acval_closed hnfT
-      (fun k => denoteP_closed m.acval_erase m.base.cval_closed
+      (fun k => denoteP_closed m.acval_erase m.cval_closed
         hnfT hbdT hTVa 1 k) hTVa d
   -- the former type's frames (closed, so all four are free)
   have hTw : Expr.WScoped d
@@ -640,7 +640,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
     obtain ⟨tpa, htpa, hoktpa, hmemp⟩ :=
       hct d (projFnName T j) _ us' hfp hlenp
     -- the projection type's frames
-    have hwfp := m.base.wf _ (Setlec.SetR.Env.find?_mem hfp)
+    have hwfp := m.wf _ (Setlec.SetR.Env.find?_mem hfp)
     have hnfp : (cvp.type.instantiateLevelParams cvp.levelParams
         us').hasFvar = false := by
       rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfp.1
@@ -727,26 +727,26 @@ theorem structEtaIrrelP_of_claims {m : EnvS2Core V env}
   obtain ⟨tb, wtb, htb, hwtb, hcw⟩ := Setlec.structEtaCert_inv h
   -- the stuck side's inferred type: frames, reading, membership
   have hwt : Expr.WScoped d tb :=
-    Setlec.inferTypeCore_WScoped m.base.wf fuel htb hwb
+    Setlec.inferTypeCore_WScoped m.wf fuel htb hwb
   have hbt : tb.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars m.base.wf fuel htb hwb hbb hLb
+    Setlec.inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLb
   have hLt : Expr.LeavesBounded tb := fun l hl =>
-    hLb l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htb hwb l hl)
+    hLb l (Setlec.inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
   have hCt : CtxOkP m φ d Δa tb :=
-    hCb.of_subset (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htb hwb)
+    hCb.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel htb hwb)
   obtain ⟨tba, htba⟩ :=
     hreads htb hwb hbb hLb (LeafReadsP.of_ctxOkP hCb) hdb
   obtain ⟨-, hokTb, hmemB⟩ := ihi htb hwb hbb hLb hCb hdb htba
   obtain ⟨wtba, hwtba⟩ := hwreads hwtb hwt hbt hLt htba
   obtain ⟨hokW, heqW⟩ := ihw hwtb hwt hbt hLt hCt htba hwtba hokTb
   -- the reduct's frames
-  have hwr : Expr.WScoped d wtb := Setlec.whnf_WScoped m.base.wf fuel hwtb hwt
+  have hwr : Expr.WScoped d wtb := Setlec.whnf_WScoped m.wf fuel hwtb hwt
   have hbr : wtb.looseBVarsBounded 0 = true :=
-    Setlec.whnf_looseBVars m.base.wf fuel hwtb hbt
+    Setlec.whnf_looseBVars m.wf fuel hwtb hbt
   have hLr : Expr.LeavesBounded wtb := fun l hl =>
-    hLt l (Setlec.whnf_fvarLeaves m.base.wf fuel hwtb l hl)
+    hLt l (Setlec.whnf_fvarLeaves m.wf fuel hwtb l hl)
   have hCr : CtxOkP m φ d Δa wtb :=
-    hCt.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hwtb)
+    hCt.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwtb)
   exact structEtaCertWithP_step hcaps hct hav ihd ihi hreads hcw
     hwa hba hLa hCa hwb hbb hLb hCb hwr hbr hLr hCr hda hdb hwtba
     hokA hokB hokW (fun σ hσ => (heqW σ hσ) ▸ hmemB σ hσ) ρ hρ
@@ -804,12 +804,12 @@ theorem pairEtaIrrelP_of_claims {m : EnvS2Core V env}
     hres, hlev, hdα, hdβ, hd₁, hd₂⟩ := Setlec.pairEtaCert_inv h
   -- the pinned pair, identified
   obtain ⟨hcc, hctor⟩ :=
-    Setlec.TTVerify.pairLike_eq_psigma m.base.basis_pinned hfrec hrn hmIrP hres
+    Setlec.TTVerify.pairLike_eq_psigma m.basis_pinned hfrec hrn hmIrP hres
   subst hcc
   obtain rfl : c = Setlec.psigmaMkName := hrctor.symm.trans hctor
   -- the pinned declarations fix the level-parameter lists
   have hcvm : cvm.levelParams = [uN, vN] := by
-    have hp := (m.base.basis_pinned _ _ hfc (by decide)).1 rfl
+    have hp := (m.basis_pinned _ _ hfc (by decide)).1 rfl
     rw [show Setlec.pinnedInfo Setlec.psigmaMkName = Setlec.psigmaMkA
       from rfl] at hp
     unfold Setlec.psigmaMkA at hp
@@ -817,7 +817,7 @@ theorem pairEtaIrrelP_of_claims {m : EnvS2Core V env}
     rw [hp]
     rfl
   have hcvi : cvi.levelParams = [uN, vN] := by
-    have hp := (m.base.basis_pinned _ _ hfc' (by decide)).1 rfl
+    have hp := (m.basis_pinned _ _ hfc' (by decide)).1 rfl
     rw [show Setlec.pinnedInfo Setlec.psigmaName = Setlec.psigmaA
       from rfl] at hp
     unfold Setlec.psigmaA at hp
@@ -842,27 +842,27 @@ theorem pairEtaIrrelP_of_claims {m : EnvS2Core V env}
       (Level.substFn φ cvm.levelParams us) := (Option.some.inj hf4).symm
   -- the stuck side's type: frames, reading, reduction
   have hwt : Expr.WScoped d tb :=
-    Setlec.inferTypeCore_WScoped m.base.wf fuel htb hwb
+    Setlec.inferTypeCore_WScoped m.wf fuel htb hwb
   have hbt : tb.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars m.base.wf fuel htb hwb hbb hLb
+    Setlec.inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLb
   have hLt : Expr.LeavesBounded tb := fun l hl =>
-    hLb l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htb hwb l hl)
+    hLb l (Setlec.inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
   have hCt : CtxOkP m φ d Δa tb :=
-    hCb.of_subset (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htb hwb)
+    hCb.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel htb hwb)
   obtain ⟨tba, htba⟩ :=
     hreads htb hwb hbb hLb (LeafReadsP.of_ctxOkP hCb) hdb
   obtain ⟨-, hokTb, hmemB⟩ := ihi htb hwb hbb hLb hCb hdb htba
   obtain ⟨wtba, hwtba⟩ := hwreads hwtb hwt hbt hLt htba
   obtain ⟨hokW, heqW⟩ := ihw hwtb hwt hbt hLt hCt htba hwtba hokTb
   have hwr : Expr.WScoped d (.app (.app (.const Setlec.psigmaName us') A) B) :=
-    Setlec.whnf_WScoped m.base.wf fuel hwtb hwt
+    Setlec.whnf_WScoped m.wf fuel hwtb hwt
   have hbr : (Expr.app (.app (.const Setlec.psigmaName us') A) B).looseBVarsBounded 0
-      = true := Setlec.whnf_looseBVars m.base.wf fuel hwtb hbt
+      = true := Setlec.whnf_looseBVars m.wf fuel hwtb hbt
   have hLr : Expr.LeavesBounded
       (.app (.app (.const Setlec.psigmaName us') A) B) := fun l hl =>
-    hLt l (Setlec.whnf_fvarLeaves m.base.wf fuel hwtb l hl)
+    hLt l (Setlec.whnf_fvarLeaves m.wf fuel hwtb l hl)
   have hCr : CtxOkP m φ d Δa (.app (.app (.const Setlec.psigmaName us') A) B) :=
-    hCt.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hwtb)
+    hCt.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwtb)
   obtain ⟨g1, Ba, hg1, hBa, rfl⟩ := denoteP_app_inv hwtba
   obtain ⟨g2, Aa, hg2, hAa, rfl⟩ := denoteP_app_inv hg1
   rw [denoteP, hfc'] at hg2
@@ -878,14 +878,14 @@ theorem pairEtaIrrelP_of_claims {m : EnvS2Core V env}
         Level.substFn φ cvi.levelParams us' vN] :=
     erase_eq_const (by
       rw [m.acval_erase,
-        (m.base.basis_pinned _ _ hfc' (by decide)).2 _ _ rfl])
+        (m.basis_pinned _ _ hfc' (by decide)).2 _ _ rfl])
   have hleafM : m.acval Setlec.psigmaMkName
         (Level.substFn φ cvm.levelParams us)
       = .const .psigmaMk [Level.substFn φ cvm.levelParams us uN,
         Level.substFn φ cvm.levelParams us vN] :=
     erase_eq_const (by
       rw [m.acval_erase,
-        (m.base.basis_pinned _ _ hfc (by decide)).2 _ _ rfl])
+        (m.basis_pinned _ _ hfc (by decide)).2 _ _ rfl])
   -- the stuck side inhabits the pair space, at every satisfying valuation
   have hpack : ∀ σ : Nat → V, Sat2 V Δa σ →
       interp2 V σ Aa ∈ˢ
@@ -1011,13 +1011,13 @@ theorem structUnitIrrelP_of_claims {m : EnvS2Core V env}
         Expr.LeavesBounded wtx ∧ CtxOkP m φ d Δa wtx := by
     intro x tx wtx xa htx hwtx hwx hbx hLx hCx hdx hokX
     have hwt : Expr.WScoped d tx :=
-      Setlec.inferTypeCore_WScoped m.base.wf fuel htx hwx
+      Setlec.inferTypeCore_WScoped m.wf fuel htx hwx
     have hbt : tx.looseBVarsBounded 0 = true :=
-      Setlec.inferTypeCore_looseBVars m.base.wf fuel htx hwx hbx hLx
+      Setlec.inferTypeCore_looseBVars m.wf fuel htx hwx hbx hLx
     have hLt : Expr.LeavesBounded tx := fun l hl =>
-      hLx l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htx hwx l hl)
+      hLx l (Setlec.inferTypeCore_fvarLeaves m.wf fuel htx hwx l hl)
     have hCt : CtxOkP m φ d Δa tx :=
-      hCx.of_subset (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel
+      hCx.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel
         htx hwx)
     obtain ⟨txa, htxa⟩ :=
       hreads htx hwx hbx hLx (LeafReadsP.of_ctxOkP hCx) hdx
@@ -1025,10 +1025,10 @@ theorem structUnitIrrelP_of_claims {m : EnvS2Core V env}
     obtain ⟨wtxa, hwtxa⟩ := hwreads hwtx hwt hbt hLt htxa
     obtain ⟨hokW, heqW⟩ := ihw hwtx hwt hbt hLt hCt htxa hwtxa hokTx
     refine ⟨wtxa, hwtxa, hokW, ?_,
-      Setlec.whnf_WScoped m.base.wf fuel hwtx hwt,
-      Setlec.whnf_looseBVars m.base.wf fuel hwtx hbt,
-      fun l hl => hLt l (Setlec.whnf_fvarLeaves m.base.wf fuel hwtx l hl),
-      hCt.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hwtx)⟩
+      Setlec.whnf_WScoped m.wf fuel hwtx hwt,
+      Setlec.whnf_looseBVars m.wf fuel hwtx hbt,
+      fun l hl => hLt l (Setlec.whnf_fvarLeaves m.wf fuel hwtx l hl),
+      hCt.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwtx)⟩
     rw [← heqW ρ hρ]
     exact hmemX ρ hρ
   obtain ⟨wtaa, hwtaa, hokWA, hmemAW, hwrA, hbrA, hLrA, hCrA⟩ :=
@@ -1053,7 +1053,7 @@ theorem structUnitIrrelP_of_claims {m : EnvS2Core V env}
   -- the (repaired) unit law, and its carried reading at depth `d`
   obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
     hcaps.2 T cvT caps hfind hunit hres φ us' hlenUs
-  have hwfT := m.base.wf _ (Setlec.SetR.Env.find?_mem hfind)
+  have hwfT := m.wf _ (Setlec.SetR.Env.find?_mem hfind)
   have hnfT : (cvT.type.instantiateLevelParams cvT.levelParams
       us').hasFvar = false := by
     rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfT.1
@@ -1065,7 +1065,7 @@ theorem structUnitIrrelP_of_claims {m : EnvS2Core V env}
       (cvT.type.instantiateLevelParams cvT.levelParams us')
       = some TVa :=
     denoteP_depth_of_closed m.acval_closed hnfT
-      (fun k => denoteP_closed m.acval_erase m.base.cval_closed
+      (fun k => denoteP_closed m.acval_erase m.cval_closed
         hnfT hbdT hTVa 1 k) hTVa d
   have hTw : Expr.WScoped d
       (cvT.type.instantiateLevelParams cvT.levelParams us') :=

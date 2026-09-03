@@ -1,4 +1,6 @@
-import Setlec.SetR.Annot.EnvS2U
+import Setlec.SetBase.Ok2
+import Setlec.Verify.EnvWF
+import Setlec.Verify.Denote.Pinned
 
 /-!
 # `EnvS2Core` — the denote2-free carrier (task #161, P4 — a FINDING)
@@ -34,7 +36,7 @@ next to its consumer and leaving the canonical file untouched:
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo)
 
 universe w
@@ -42,15 +44,36 @@ universe w
 variable (V : Type w) [SetTheory V]
 
 /-- **The denote2-free environment carrier** (see the module
-docstring): exactly the fields the P surface reads. -/
+docstring): exactly the fields the P surface reads.
+
+**De-based at task #161 S3** (THE SEPARATION, spec point 2).  The
+carrier used to *contain* the collapsed-lane invariant (`base : EnvS`)
+and to borrow five syntactic facts from it.  It now carries them
+itself, from the shared model-free base — `EnvWF` (`Verify/EnvWF`),
+`BasisPinnedTT` (`Verify/Denote/Pinned`), `ProjOkT`/`RecCtorsStored`
+(`Verify/EnvPreds`) — and the collapsed valuation is *recovered*
+rather than stored: `cvalE = erase ∘ acval`, so `acval_erase` is
+`rfl`.  The census measured the whole borrowing at 458 sites and found
+every one of them syntactic; nothing of the collapsed model crosses. -/
 structure EnvS2Core (env : Env) where
-  /-- the collapse-lane invariant, contained -/
-  base : EnvS V env
+  /-- the shared, model-free environment well-formedness -/
+  wf : EnvWF env
   /-- the annotated valuation -/
   acval : Name → (Name → Nat) → AVExpr
-  /-- it erases to the collapse-lane valuation -/
-  acval_erase : ∀ (n : Name) (ψ : Name → Nat),
-    (acval n ψ).erase = base.cval n ψ
+  /-- every erased leaf is closed (`EnvS.cval_closed`, at `cvalE`);
+  consumers read the `cvalE`-spelled `cval_closed` below -/
+  cval_closedL : ∀ (n : Name) (ψ : Name → Nat),
+    VExpr.Closed ((acval n ψ).erase)
+  /-- the reserved basis constants are the pinned declarations, valued
+  by their direct pins (V-free, shared with the TT lane); consumers
+  read the `cvalE`-spelled `basis_pinned` below -/
+  basis_pinnedL : BasisPinnedTT env (fun n ψ => (acval n ψ).erase)
+  /-- every stored native projection-table entry is a pinned pair
+  entry with its block stored (V-free, shared) -/
+  proj_ok : ProjOkT env
+  /-- every stored recursor rule's constructor is stored (V-free,
+  shared) -/
+  rec_ctors : RecCtorsStored env
   /-- every leaf is closed, as a lifting equation -/
   acval_closed : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
     (acval n ψ).liftN 1 k = acval n ψ
@@ -66,24 +89,49 @@ structure EnvS2Core (env : Env) where
 
 variable {V}
 
-/-- Every mode-indexed invariant projects to the core. -/
-def EnvS2UM.toCore {μ : CheckMode} {env : Env}
-    (m : EnvS2UM V μ env) : EnvS2Core V env where
-  base := m.base
-  acval := m.acval
-  acval_erase := m.acval_erase
-  acval_closed := m.acval_closed
-  acval_params := m.acval_params
-  acval_ok2 := m.acval_ok2
+/-- **The collapsed valuation, recovered** — the re-supply the census
+measured at 135 sites (§1.2).  `AVExpr.erase` is a total syntactic
+function the carrier already owns, so no model content is
+transported. -/
+def EnvS2Core.cvalE {env : Env} (m : EnvS2Core V env) : TConstVal :=
+  fun n ψ => (m.acval n ψ).erase
 
-/-- The all-mode invariant projects to the core. -/
-def EnvS2U.toCore {env : Env} (m : EnvS2U V env) : EnvS2Core V env where
-  base := m.base
-  acval := m.acval
-  acval_erase := m.acval_erase
-  acval_closed := m.acval_closed
-  acval_params := m.acval_params
-  acval_ok2 := m.acval_ok2
+/-- **`acval_erase` is now `rfl`** — it used to be the field tying the
+annotated valuation to the contained `EnvS`'s; with `cvalE` derived it
+is a definitional identity.  Kept under its old name because 81 P-lane
+sites consume it as a rewriting equation. -/
+theorem EnvS2Core.acval_erase {env : Env} (m : EnvS2Core V env) :
+    ∀ (n : Name) (ψ : Name → Nat), (m.acval n ψ).erase = m.cvalE n ψ :=
+  fun _ _ => rfl
+
+/-- `cval_closedL` at the `cvalE` spelling — the form every consumer
+reads (`EnvS.cval_closed`'s successor).  The field is stated at the
+literal erasure so that the carrier can be built without naming
+`cvalE`; the two are definitionally the same fact, and only the
+*spelling* matters to `rw`. -/
+theorem EnvS2Core.cval_closed {env : Env} (m : EnvS2Core V env) :
+    ∀ (n : Name) (ψ : Name → Nat), VExpr.Closed (m.cvalE n ψ) :=
+  m.cval_closedL
+
+/-- `basis_pinnedL` at the `cvalE` spelling (`EnvS.basis_pinned`'s
+successor). -/
+theorem EnvS2Core.basis_pinned {env : Env} (m : EnvS2Core V env) :
+    BasisPinnedTT env m.cvalE :=
+  m.basis_pinnedL
+
+/-- The empty environment's core: the leaf is the bare `.const .empty
+[0]` at every name (`EnvS2.empty`'s valuation, one currency over), and
+every syntactic field is vacuous over `env.consts = []`. -/
+def EnvS2Core.empty : EnvS2Core V Env.empty where
+  wf := by intro c hc; cases hc
+  acval := fun _ _ => .const .empty [0]
+  cval_closedL := fun _ _ => trivial
+  basis_pinnedL := BasisPinnedTT.empty _
+  proj_ok := ProjOkT.empty
+  rec_ctors := RecCtorsStored.empty
+  acval_closed := fun _ _ _ => rfl
+  acval_params := fun _ _ _ _ _ _ => rfl
+  acval_ok2 := fun _ _ _ => by simp
 
 /-! ### `AcvalParams2`, transposed to the core (batch 8)
 

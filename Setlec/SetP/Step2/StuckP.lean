@@ -633,25 +633,25 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
   obtain ⟨tba, htba⟩ :=
     hir htb hwb hbb hLb (LeafReadsP.of_ctxOkP hCb) hdb
   have htbW : Expr.WScoped d tb :=
-    Setlec.inferTypeCore_WScoped m.base.wf fuel htb hwb
+    Setlec.inferTypeCore_WScoped m.wf fuel htb hwb
   have htbB : tb.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars m.base.wf fuel htb hwb hbb hLb
+    Setlec.inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLb
   have htbL : Expr.LeavesBounded tb := fun l hl =>
-    hLb l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htb hwb l hl)
+    hLb l (Setlec.inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
   have hCtb : CtxOkP m φ d Δa tb :=
-    hCb.of_subset (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htb hwb)
+    hCb.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel htb hwb)
   obtain ⟨-, hokTb, hmemB⟩ := ihi htb hwb hbb hLb hCb hdb htba
   obtain ⟨wtba, hwtba⟩ := hwr hwtb htbW htbB htbL htba
   obtain ⟨hokW, heqW⟩ :=
     ihw hwtb htbW htbB htbL hCtb htba hwtba hokTb
   have hwrW : Expr.WScoped d (Expr.forallE n₂ ty₂ fb m₂) :=
-    Setlec.whnf_WScoped m.base.wf fuel hwtb htbW
+    Setlec.whnf_WScoped m.wf fuel hwtb htbW
   have hwrB : (Expr.forallE n₂ ty₂ fb m₂).looseBVarsBounded 0 = true :=
-    Setlec.whnf_looseBVars m.base.wf fuel hwtb htbB
+    Setlec.whnf_looseBVars m.wf fuel hwtb htbB
   have hwrL : Expr.LeavesBounded (Expr.forallE n₂ ty₂ fb m₂) :=
-    fun l hl => htbL l (Setlec.whnf_fvarLeaves m.base.wf fuel hwtb l hl)
+    fun l hl => htbL l (Setlec.whnf_fvarLeaves m.wf fuel hwtb l hl)
   have hCwr : CtxOkP m φ d Δa (Expr.forallE n₂ ty₂ fb m₂) :=
-    hCtb.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hwtb)
+    hCtb.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwtb)
   obtain ⟨ta₂, ba₂, hta₂, -, rfl⟩ := denoteP_forallE_inv hwtba
   simp only [Expr.WScoped] at hwrW
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hwrB

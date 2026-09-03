@@ -131,10 +131,10 @@ theorem litMajorToCtorP_stepP {m : EnvS2Core V env}
     obtain ⟨ea₁, hea₁⟩ := hwreads hred hwc hbc hLc hSC
     obtain ⟨hok₁, heq₁⟩ := ihw hred hwc hbc hLc hCc hSC hea₁ hok
     exact ⟨ea₁, hea₁, hok₁, heq₁,
-      Setlec.whnf_WScoped m.base.wf fuel hred hwc,
-      Setlec.whnf_looseBVars m.base.wf fuel hred hbc,
-      fun l hl => hLc l (Setlec.whnf_fvarLeaves m.base.wf fuel hred l hl),
-      hCc.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hred)⟩
+      Setlec.whnf_WScoped m.wf fuel hred hwc,
+      Setlec.whnf_looseBVars m.wf fuel hred hbc,
+      fun l hl => hLc l (Setlec.whnf_fvarLeaves m.wf fuel hred l hl),
+      hCc.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hred)⟩
 
 /-! ## The stuck-major rescue -/
 
@@ -184,13 +184,13 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
         simpa using this)
     -- the major's type: inferred, read, graded, inhabited; then reduced
     have hwt0 : Expr.WScoped d tmaj₀ :=
-      Setlec.inferTypeCore_WScoped m.base.wf fuel hitm hws
+      Setlec.inferTypeCore_WScoped m.wf fuel hitm hws
     have hbt0 : tmaj₀.looseBVarsBounded 0 = true :=
-      Setlec.inferTypeCore_looseBVars m.base.wf fuel hitm hws hb hLb
+      Setlec.inferTypeCore_looseBVars m.wf fuel hitm hws hb hLb
     have hLt0 : Expr.LeavesBounded tmaj₀ := fun l hl =>
-      hLb l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hitm hws l hl)
+      hLb l (Setlec.inferTypeCore_fvarLeaves m.wf fuel hitm hws l hl)
     have hCt0 : CtxOkP m φ d Δa tmaj₀ :=
-      hC.of_subset (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hitm hws)
+      hC.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel hitm hws)
     obtain ⟨tmaj₀a, htmaj₀a⟩ :=
       hreads hitm hws hb hLb (LeafReadsP.of_ctxOkP hC) hvm
     obtain ⟨-, hokT0, hmemM⟩ := ihi hitm hws hb hLb hC hvm htmaj₀a
@@ -198,13 +198,13 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
     obtain ⟨hokTm, heqTm⟩ :=
       ihw hwtm hwt0 hbt0 hLt0 hCt0 htmaj₀a htmaja hokT0
     have hwr : Expr.WScoped d tmaj :=
-      Setlec.whnf_WScoped m.base.wf fuel hwtm hwt0
+      Setlec.whnf_WScoped m.wf fuel hwtm hwt0
     have hbr : tmaj.looseBVarsBounded 0 = true :=
-      Setlec.whnf_looseBVars m.base.wf fuel hwtm hbt0
+      Setlec.whnf_looseBVars m.wf fuel hwtm hbt0
     have hLr : Expr.LeavesBounded tmaj := fun l hl =>
-      hLt0 l (Setlec.whnf_fvarLeaves m.base.wf fuel hwtm l hl)
+      hLt0 l (Setlec.whnf_fvarLeaves m.wf fuel hwtm l hl)
     have hCr : CtxOkP m φ d Δa tmaj :=
-      hCt0.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hwtm)
+      hCt0.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwtm)
     have hmemMW : ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ vm ∈ˢ interp2 V ρ tmaja :=
       fun ρ hρ => (heqTm ρ hρ) ▸ hmemM ρ hρ
@@ -221,7 +221,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
     obtain ⟨TVja, hTVja, hokTVja, hmemCj⟩ :=
       hct d rl.ctor _ ust hfcj (by exact hlenCj)
     dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVja hmemCj
-    have hwfj := m.base.wf _ (Setlec.SetR.Env.find?_mem hfcj)
+    have hwfj := m.wf _ (Setlec.SetR.Env.find?_mem hfcj)
     have hnfj : (cvj.type.instantiateLevelParams cvj.levelParams
         ust).hasFvar = false := by
       rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfj.1
