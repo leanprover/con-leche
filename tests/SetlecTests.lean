@@ -515,4 +515,51 @@ private def tierT : EStore := tierE2.truncateTierTwo
          && b'.raw.tnodes.size == 0
          && b'.raw.denote 0 == b.raw.denote 0
 
+/-! ## The β-certificate gate (task #161 S9, `Setlec/Kernel/CoreP.lean`)
+
+The gated knot is only worth its duplication if the gate is (a) LIVE —
+it reduces a redex the ungated `whnfCore` leaves stuck — and (b)
+MODE-GATED, per law 1 clause (i): at `--no-model` the annotation is not
+validated, so the datum must mean nothing there.  Both are pinned
+here, in the vacuity-protection discipline of the config audit above.
+
+The subject is `(fun x : Prop => x) Prop`: the argument's type is
+`Type`, not `Prop`, so the per-redex certificate FAILS and the ungated
+reduction is stuck at the redex.  Only the binder's `pw` datum
+distinguishes the two knots. -/
+
+private def gateNever : BinderMeta := ⟨.default, .never⟩
+private def gateMaybe : BinderMeta := ⟨.default, .ifAllZero []⟩
+
+private def gateRedex (mb : BinderMeta) : Expr :=
+  .app (.lam (.str .anonymous "x") (.sort .zero) (.bvar 0) mb)
+    (.sort .zero)
+
+private def gateStuck (mb : BinderMeta) : Expr := gateRedex mb
+
+-- The ungated knot is stuck at BOTH data: the certificate is
+-- unconditional there (the task-#100 de-gating, untouched).
+#guard (whnfCore .setModel Env.empty 100 0 (gateRedex gateNever)).toOption
+  == some (gateStuck gateNever)
+#guard (whnfCore .setModel Env.empty 100 0 (gateRedex gateMaybe)).toOption
+  == some (gateStuck gateMaybe)
+
+-- (a) THE GATE IS LIVE: at a validated `.never` binder the gated knot
+-- skips the certificate and reduces.  If this guard ever reads
+-- `some (gateStuck …)` the duplicated knot has become a no-op.
+#guard (whnfCoreP .setModel Env.empty 100 0 (gateRedex gateNever)).toOption
+  == some (.sort .zero)
+
+-- (b) THE GATE IS DATUM-EXACT: at a possibly-zero datum the
+-- certificate runs unconditionally — the establishment/consumption
+-- asymmetry fence.
+#guard (whnfCoreP .setModel Env.empty 100 0 (gateRedex gateMaybe)).toOption
+  == some (gateStuck gateMaybe)
+
+-- (c) THE GATE IS MODE-GATED (law 1 (i)): at `--no-model` the
+-- annotation is not validated, so the gated knot is the ungated one.
+#guard (whnfCoreP .noModel Env.empty 100 0 (gateRedex gateNever)).toOption
+  == some (gateStuck gateNever)
+#guard CheckMode.verified .noModel == false
+
 end SetlecTests
