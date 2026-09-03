@@ -23325,3 +23325,245 @@ residual-hunts (merged), degating-p1/d1/d2/abc (merged).
 
 Standing by for the user's three rulings, routed by the
 coordinator.
+
+## Task #161 ROUND D ASSESSMENT: verified infer_only under the P tier
+(2026-09-02, agent/inferonly-study — STUDY ONLY, no kernel change;
+probes mechanized in `_tmp/inferonly-study/ProbeIO.lean`)
+
+**The question**: can the internal inferences (inside whnf / defeq /
+proofIrrel / iota / eta machinery) run at official inferOnly grade,
+licensed by the P tier's machine-checked validity preservation instead
+of official's informal "everything in flight is a reduct of a checked
+term"?
+
+**The answer, in one line**: YES at the graph regime, NO at the squash
+regime — the skip is licensed exactly at binders whose validated `pw`
+is `.never`, by `piR_dom_unique`, with **no nonemptiness or freshness
+side condition**; the `pw`-possibly-zero arg checks must stay, by a
+mechanized closed countermodel that is the semantic residue of #124's
+`InferOnlyRefuted` witness.  Both halves are proved, standard axioms,
+at statement level (`io_domain_transfer` / `io_app_mem` /
+`io_squash_no_transfer` / `io_membership_fails_at_squash`, compiled
+against master's model with zero sorries).
+
+### Ground truth: what official inferOnly actually skips (quoted)
+
+lean4lean (`_tmp/lean4lean-model/.lake/packages/lean4lean/Lean4Lean/
+TypeChecker.lean`): `inferType` **defaults** to infer-only —
+`def inferType (e : Expr) (inferOnly := true)` (`:124`); only the
+declaration front door flips it (`checkType`, `:738`,
+`inferOnly := false`).  Internal callers, all at the default:
+`isProp` (`:193`, `(← whnf (← inferType e)) == .prop`),
+`isDefEqProofIrrel` (`:548-550`, two infers + `isProp`),
+`tryEtaExpansionCore` (`:511`, `whnf (← inferType s)`),
+`tryEtaStructCore` (`:524`, `isDefEq (← inferType t) (← inferType s)`),
+`isDefEqUnitLike` (`:656-662`), and the iota rescues
+(`Inductive/Reduce.lean:25,33,49,51` — `toCtorWhenK`'s
+`whnf (← inferType e)` and `isDefEq appType (← inferType newCtorApp)`,
+`toCtorWhenStruct`'s type discovery and Prop test).  What
+`inferOnly = true` skips: **(app)** the whole per-argument discipline —
+`inferApp` (`:161-173`) walks the Π-telescope and never infers an
+argument or compares a domain, versus the checking branch's
+`aType ← inferType' a; isDefEq dType aType` (`:251-263`); **(λ)** the
+domain-sort check `ensureSortCore (← inferType d) d` (`:130-131`);
+**(let)** all three checks — domain sort, value inference, value/type
+`isDefEq` (`:180-187`); **(sort/const)** `checkLevel` and the
+safety/unsafe checks (`:113-121`, `:244-246`).  Everything else —
+∀ domain sorts (needed for the result, `:144`), proj, const lookup —
+is identical at both grades.
+
+### The internal-site table (setlec verified mode)
+
+Spec bodies `Setlec/Kernel/Core.lean` (interned twins per the P1
+register, `CoreI.lean`); fire counts are P1's (init-full, production).
+
+| site | result consumed for | classification |
+|---|---|---|
+| `proofIrrel` `Core.lean:776-793` — 4 infers + 2 whnfs, 12.45 M calls (79.6 % of defeq steps) | Prop-ness of both types; `⟦a⟧∈⟦ta⟧` feeds `prop_side_pt`/`unit_side_pt` (`Step2/IrrelP.lean:120-122`) | **CHEAP** — io-grade suffices; consumers already hold `AnnotOkP` of both sides (`ProofIrrelPQ`'s own premises, `IrrelP.lean:187-188`); official parity (`:548-550`) |
+| `etaCert` `:1030-1040` — infer b + whnf → ∀ | comparison-term domain; `v`-agreement | **CHEAP** (io); official `:511` |
+| `structEtaCert` `:991-1014`, `pairEtaCert` `:846-847` | head discovery + type agreement (the `defeq` stays) | **CHEAP** (io); official `:524`, `:656-662` |
+| `majorToCtor` K/η `:1096,1133,1148` — whnf(infer major), defeq tmaj (infer fab) | rescue type discovery + conformance | **CHEAP** (io); fab's own facts stay on the synthetic-spine `iotaCerts` (supplier, `MajorStepP`) ; official `Reduce.lean:25-51` |
+| `inferSpine` per-arg under *internal* infers (P1 site 11/12's internal share) | `ha2 : ⟦a⟧∈⟦Aa⟧` — consumed at ALL THREE conclusions of `infer_app_claimP` (`Step2/InferP.lean:1014-1022`) | **GATEABLE at `pw = .never`** (probe 1); **KEEP at possibly-zero `pw`** (probe 2); front-door share NOT gateable (below) |
+| whnfCore β certs `:1441-1442` + `betaPeel` (P1 sites 9/10, 56.5 M fires) | `⟦a⟧∈⟦A⟧` for the β interp-crossing | **GATEABLE at `pw = .never`** — and `WhnfCoreClaims2P` *already* carries `AnnotOkP ea` as a premise (`Claims2P.lean:95`), so NO new claims family is needed for this row |
+| λ/∀ domain-sort checks + `letE` checks in infer (`:1604-1618,1682-1685`) | the P2 `pw` validation SUPPLIERS (P1 FINDING 1, sites 2-5, 0.78-0.99 %) | **KEEP** — suppliers; #134 kept them too ("a deviation in the strict direction needs no argument") |
+| `iotaCerts` telescopes `:740-741` (sites 13/14) | `TeleFitPA` suppliers (`certs_telePA`) | **FULL-NEEDED** (supplier class, coordinator-ruled; bucket 3, Round E) |
+| `projCert` `:1385-1390` infer run | `projStepP_of_claims` walks four typings out of the run's own spine content (`psigmaMkSpineP`) | **FULL-NEEDED** (ratified squash countermodel + the proof consumes the full inversion) |
+
+FREE sub-cases inside proofIrrel (Round-F engineering, not licensing):
+a λ-headed side's type-sort is `imax u v` read off its meta; a
+per-constant is-Prop memo is an env-level datum.  No stored datum
+exists for general app/proj-headed sides — no FREE classification for
+the site as a whole.
+
+### The old refutations, re-probed against interp2 (probe-first)
+
+1. **`InferOnlyRefuted`** (spike/inferonly-metatheory, commit
+   `b28c929c`): `Typable e → InferOnly e t → HasType e t` is false on
+   `w := (fun (x : False) => x) 0` — propext retypes the identity at
+   `Nat → (0=0)`.  **Status: DISSOLVED AS STATED, residue localized.**
+   The P route never states syntactic `HasType`; the replacement is a
+   *premise-form* io claim (`AnnotOkP e` premise, membership in the
+   io-computed type as conclusion).  The witness's semantic residue
+   survives ONLY at the squash regime: `io_membership_fails_at_squash`
+   (mechanized) exhibits closed `V`-values satisfying every premise of
+   the premise-form io app claim with `app ⟦f⟧ ⟦a⟧ ∉ ⟦B'⟧⟦a⟧` — truth
+   values do not remember domains; proof erasure deletes exactly what
+   the skip would need.  At the graph regime the witness is dead:
+   `io_domain_transfer`/`io_app_mem` (mechanized) recover the skipped
+   fact from the hereditary app slot + `piR_dom_unique` —
+   *unconditionally* (`Ops.lean:282`: "with no `≠ pt` side condition
+   (`piC_dom_unique` needs one, and supplying it is what the collapse
+   made hard)").  Note the wall is model-class-wide, not a repair gap:
+   any proof-irrelevant set model erases Prop-side type identity, so
+   NO set-model route can license official's *full* inferOnly; the
+   licensed fragment is `pw = .never`, which is 92-96 % of fires
+   (P1 FINDING 7's capture table).
+2. **Unique-typing / Π-domain-injectivity refutations** (same spike):
+   irrelevant to the semantic route — the io claim asserts membership
+   in the io-computed type, not identity with "the" type; probe 1
+   needs neither.
+3. **#124 route (iii), the guard-capture census** ("counts and cost
+   decoupled; the guard captures ~0 %"): **a fact about the OLD
+   guard's clause list, not about gating.**  The census guard was the
+   #109 pt-freshness clause set, whose hard wall was "sorts ≥ 1 are
+   never fresh" (`pt ∈ univ (u+1)` is forced) — exactly the 21.4 %
+   Sort≥1 residual it reports at kept sites, and why the trunk
+   (`Nat.below`/`PProd` towers) never cleared.  The graded model
+   removes that wall by construction (`not_pt_mem_piR_pos` holds for
+   universe-valued fibres).  The measured new-model census already
+   exists: the P1 `CPGATE` row — 92-96 % of arg-check *fires* clear at
+   `pw = .never`, capturing 20.0/23.3 % (prod, prelude/full) and
+   24.8/35.6 % (cached) of the RUN, verdict-neutral on both streams.
+   The decoupling inverts because the annotation classifies by
+   *codomain regime*, not by domain freshness.
+4. **The #100 empty-domain countermodel**
+   (`(fun (x : ∀ p : Prop, p) => Prop) Prop`), which P1 FINDING 7
+   cites as the pw-gate's missing-datum objection: **DISSOLVED for the
+   internal lever.**  `piR_dom_unique` needs no nonemptiness — the
+   empty graph pins its domain to `∅`, and the countermodel term can
+   never carry the `AnnotOk2` app slot (its argument is not in the
+   empty domain), so the premise-form claim excludes it.  FINDING 7's
+   "missing domain-inhabitance datum" was an artifact of arguing
+   through `ptFresh_piC_of` (collapsed-model battery); no second
+   `BinderMeta` datum is needed.  The *front-door* half of Round D
+   stays retired on the user's ruling (legitimate checking) — and now
+   with a proof-theoretic receipt: at the front door
+   `InferClaims2P` must *establish* the app slot, and without the arg
+   defeq nothing connects `⟦tya⟧` to `⟦Aa⟧`; the premise-form trick is
+   internal-only by the establishment/consumption asymmetry.
+5. **#138's parked DeqC** (conversion middle layer,
+   `Setlec/TTVerify/DESIGN.md` "The `DeqC` middle layer: REJECTED"):
+   not needed and not helpful here — the P defeq claims already carry
+   semantic equality; a syntactic conversion fragment would
+   reintroduce rule restrictions against core-generic-over-env.
+   Stays parked; route (c) below is a no-go.
+
+**A law-1 amendment is required and needs a user ruling.**  "Annotations
+never steer reduction" was written against #100's *result-changing*
+gates.  A `pw`-gate on a certificate does not change any reduct; it
+skips a check, which can only move verdicts in the accept-more
+direction (a skipped check that would have *failed*).  The claims
+prove soundness of the enlarged language (the consistency capstone is
+unaffected); #134 and the CPGATE probe both measured zero flips.  The
+law should be restated as: annotations never change a *reduct* or a
+*computed type*; gating a re-check on a validated annotation is
+permitted where the P tier licenses the skip.
+
+### The re-proof shapes, honestly sized
+
+The sealed claims are about the full-inference checker; every route
+changes proof subjects.  Campaign rate baseline: the P quarters landed
+at ~900-1250 lines per serial Opus batch (`Step2/` totals 5 462 lines
+across InferP/DefEqP/WhnfP/IrrelP/StuckP/ReadsP/Assembly/Tiers).
+
+**(a) io-knot + second claims family — the real shape (recommended
+for the full prize).**  Kernel: resurrect #134's two-knot pattern
+(`coreKnotIO`/`coreKnotF`, deleted at #147, recoverable from
+`63f2af1a`) with the io knot's `inferSpineIO` running the per-binder
+`pw`-gate (skip arg infer+defeq iff the ∀'s stored `pw = .never`;
+`pwBit φ .never = 1` at every valuation, `Annot/Bit.lean:62`), plus
+the same gate at the whnfCore β certs; memo separation per #134's
+`inferFC` discipline.  Proofs: `InferClaimsIO2P` — premise form
+(`AnnotOkP ea` premise; `AnnotOkP ta` + membership conclusions); the
+io infer quarter (the app clause is the only new mathematics, on
+probe 1's two lemmas + the kept-check branch reusing today's
+`ihd`-route; leaves/binders are premise-form adaptations); the step
+assembly goes five-way; consumers switch `ihi → ihio` at the internal
+sites (IrrelP/StuckP/DefEqP composite rows — signature churn, the
+consumers *already hold* the premise, e.g. `IrrelP.lean:187-188`);
+io twins of the scoped/leaves/reads walks; the interned sim tower for
+the new bodies.  **Size: 4-6 batches, ≈4-6 k proof lines + ≈1-1.5 k
+kernel/sim lines.**  Concentrated risk: (i) mode-provenance — an io
+conclusion must never feed a site needing establishment form; the
+knot boundary is the enforcement, engineered once at #134; (ii) the
+io reads/totality walks (the `InferReadsP`-repair class of surprises);
+(iii) the fold/capstone re-assembly touching `checkSoundAtP`'s
+frozen statement (extension, not edit — the four families stay, one
+family is added).
+
+**(b) surgical per-site swaps with simulation lemmas — collapses into
+(a).**  A simulation "io run ⟹ full-run facts" is *false* (io
+succeeds where full fails); the usable direction is "io conclusions
+suffice for this consumer", which is precisely (a)'s claims family,
+re-derived once per site instead of once.  Only sensible as (a)'s
+STAGING: land the **whnfCore β-cert gate first** — `WhnfCoreClaims2P`
+already premises `AnnotOkP ea`, so no new family is needed; only the
+β rows of `WhnfP.lean` re-prove (premise app slot + probe 1 at
+`.never`; today's cert route at possibly-zero).  **Size: ~1 batch
+(≈0.5-1 k lines + the kernel gate).  Prize: the CPGATE β half —
+4.6/8.2 % (prod/cached, init-prelude).**  Risk: minimal; the claim
+statements do not move.
+
+**(c) the #138 DeqC computational-conversion fragment — NO-GO.**
+Rejected once for the TT bridge (syntactic rule restrictions against
+core-generic-over-env), and the P lane has no use for it: `interp2`
+equality via `DefEqClaims2P` is already the conversion currency, and
+a defined conversion fragment would add a third relation to keep in
+sync with both.  Stays parked; deliberate-entry marker unchanged.
+
+### Expected saving, against the record
+
+Bucket-2 per-site attribution is the P1 worker's re-dispatched
+deliverable (forthcoming; not duplicated here).  The bounding numbers
+already in the record: #134's internal-only masking (the io mode
+without any carve-out) = −30 % init-prelude instructions, −48 %
+`Std.Time` wall; the CPGATE probe (pw-never gate, front door
+included) = −20.0/−23.3 % prod and −24.8/−35.6 % cached
+(prelude/init-full), verdict-neutral, 92-96 % fire capture.  Verified
+io ≈ internal ∩ pw-never, PLUS the io-grading of `proofIrrel`'s
+12.45 M internal inference walks (79.6 % of defeq steps — un-costed,
+P1 FINDING 8) whose per-arg spine work the io grade deletes.  Honest
+bracket: **≈5 % (staging step (b) alone) up to ≈25-40 % of heavy-
+stream runs** — the residual certification tax after A+B+C, versus
+the #141-era 14-16× that is now known to be the app family.  The
+squash-regime keeps its checks forever (probe 2's wall is
+model-class-wide): official full-inferOnly parity is NOT reachable
+with a soundness proof, and the 4-8 % un-captured fires are its
+measured price.
+
+### RECOMMENDATION
+
+**PARTIAL-GO now, FULL-GO as the next campaign after a user ruling.**
+
+1. **Land (b) first** — the β-cert `pw`-gate under the existing claim
+   statements: one batch, no statement changes, ~5-8 % on cached
+   streams, and it forces the law-1 amendment ruling on the smallest
+   possible surface.
+2. **The full io campaign (a)** is real and worth it: the licensing
+   mathematics is done and mechanized (probe 1 = the whole graph-
+   regime soundness content; probe 2 = the forced carve-out), the
+   consumers already hold the premises, and the shape is the #147
+   pattern the codebase has executed twice.  4-6 batches at campaign
+   rates.  It should WAIT for (i) the P1 worker's bucket-2 attribution
+   (sizes the prize per site), (ii) the user's law-1 amendment ruling,
+   (iii) the A+B+C battery landing (shared verdict-neutrality
+   instruments).
+3. **Never**: front-door gating (establishment asymmetry — the
+   receipt is in refutation-probe item 4), squash-regime skips
+   (probe 2), `iotaCerts`/`projCert`-infer io-grading (suppliers; the
+   P proofs consume the full inversions).
+
+Probes: `_tmp/inferonly-study/ProbeIO.lean` (4 theorems, zero
+sorries, axioms exactly `[propext, Classical.choice, Quot.sound]`,
+compiled against master's model via `lake env lean`).  Study branch:
+`agent/inferonly-study` (DESIGN-only).
