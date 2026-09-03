@@ -370,7 +370,7 @@ theorem memberInstallS (hkey : MemberKeyS V)
   -- invariants never needed a model, and `memberInstallR` proves them
   -- from the same lemma.
   obtain ⟨hwf, hI₁, hEC₁, hBP₁⟩ :=
-    memberInstallInv m.wf hmv hI hbn hpins hEC hBP hc₀cv hc₀name hkind
+    memberInstallInv m.wf hmv.toRun hI hbn hpins hEC hBP hc₀cv hc₀name hkind
   obtain ⟨type', hcv, hcvA, hms, cvm, mval, hint, hmE, hmlps, hren⟩ :=
     id hmv
   obtain ⟨hfind, hnres, hpshape, -, -, -, -, -, -, -, -⟩ := hcv

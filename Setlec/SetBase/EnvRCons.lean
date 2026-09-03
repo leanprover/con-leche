@@ -1,4 +1,5 @@
 import Setlec.SetBase.EnvR
+import Setlec.SetBase.DeclIndRun
 import Setlec.SetBase.IndBlockR
 import Setlec.Verify.Extend.Block
 import Setlec.Verify.Extend.Ind
@@ -226,7 +227,7 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env : Env} {cval : TConstVal}
     (hwfE : EnvWF env)
     {cv cvA : ConstantVal} {c₀ : ConstantInfo}
-    (hmv : MemberValR μ F env cval blockNames cv cvA)
+    (hmv : MemberValRunR μ F env blockNames cv cvA)
     (hI : BlockInstalledTT blockNames env cval)
     (hbn : blockNames.contains cvA.name = true)
     (hpins : ∀ caps, c₀ = .indInfo cvA caps →
@@ -331,7 +332,7 @@ theorem memberInstallR {μ : CheckMode} {F : Nat}
       EtaFamiliesClosedO blockNames ⟨c₀ :: env.consts⟩ ∧
       BlockEtaPinned μ blockNames ⟨c₀ :: env.consts⟩ := by
   obtain ⟨hwf, hI₁, hEC₁, hBP₁⟩ :=
-    memberInstallInv m.wf hmv hI hbn hpins hEC hBP hc₀cv hc₀name hkind
+    memberInstallInv m.wf hmv.toRun hI hbn hpins hEC hBP hc₀cv hc₀name hkind
   obtain ⟨type', hcv, hcvA, hms, cvm, mval, hint, hmE, hmlps, hren⟩ :=
     id hmv
   obtain ⟨hfind, -, -, -, -, -, -, -, -, -, hden⟩ := hcv
@@ -459,7 +460,7 @@ install** — `projFnS`'s invariant half, off the record alone. -/
 theorem projFnInv {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     {cval : TConstVal} {T ctorName : Name} {lps : List Name}
     {nP nF i : Nat} {blockNames : List Name}
-    (hR : ProjFnR μ F env' cval T ctorName lps nP nF i env₁)
+    (hR : ProjFnRunR μ F env' T ctorName lps nP nF i env₁)
     (hinv : ProjPhaseInvS T ctorName nF env' cval)
     (hIB : BlockInstalledTT blockNames env' cval)
     (hbshape : ∀ n, blockNames.contains n = true →

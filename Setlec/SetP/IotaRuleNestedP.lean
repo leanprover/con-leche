@@ -1,3 +1,4 @@
+import Setlec.SetBase.IndBlockRun
 import Setlec.SetP.IotaRulePlainP
 import Setlec.SetP.IndPinRowP
 import Setlec.SetP.IndBottomNestedP
@@ -77,7 +78,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
-    (hkit : IotaRuleR μ F env₂ envSelf mp.base2.cvalE f cvA.name
+    (hkit : IotaRuleRunR μ F env₂ envSelf f cvA.name
       cvA.levelParams cvA.type mI rP j r r')
     {lvls : List Level} {pins : List Expr}
     (hfireN : RecRule.fire r' = .nested lvls pins) (φ : Name → Nat) :
@@ -85,7 +86,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   obtain ⟨cvjK, cnPK, cnFK, rhsA, hfcK, hnfK, hrb, hrf, hann, hrlp,
     -- `-` at position 13: `IotaRuleR`'s rule-rhs **derivation** row,
     -- no longer consumed (task #161 S10)
-    hrres, hstripRhs, -, hrun0, fire, hr'eq, hbranch⟩ := hkit
+    hrres, hstripRhs, hrun0, fire, hr'eq, hbranch⟩ := hkit
   -- the rule's stored shape
   have hr'rhs : RecRule.rhs r' = rhsA := by rw [hr'eq]
   have hr'ctor : RecRule.ctor r' = RecRule.ctor r := by rw [hr'eq]
@@ -212,7 +213,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     -- `IotaNestedPinReadsR` for.  It is no longer consumed either
     -- (task #161 S10): the readings come from `hTypedP`, the run
     -- recorded beside it, through `acceptedReadsP_of`.
-    ldomsL, lrest2, hinstLam, -, hTypedP, -, hruns⟩ := hthmN
+    ldomsL, lrest2, hinstLam, hTypedP, hruns⟩ := hthmN
   -- the statement's stored entry and front doors
   obtain ⟨ciT, hciTS, hciTcv⟩ : ∃ ciT, envSelf.find?
       ((cvA.name.str "_model").str s!"iota_{j}") = some ciT ∧
@@ -506,7 +507,7 @@ theorem iotaRuleP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
-    (hkit : IotaRuleR μ F env₂ envSelf mp.base2.cvalE f cvA.name
+    (hkit : IotaRuleRunR μ F env₂ envSelf f cvA.name
       cvA.levelParams cvA.type mI rP j r r')
     (hfire : RecRule.fire r' ≠ .inert) (φ : Name → Nat) :
     RecRuleLawP mp.base2 φ cvA.name cvA mI rP r' := by
@@ -540,7 +541,7 @@ theorem iotaRulesP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA) :
     ∀ (j : Nat) (rules rules' : List RecRule),
-      IotaRulesR μ F env₂ envSelf mp.base2.cvalE f cvA.name
+      IotaRulesRunR μ F env₂ envSelf f cvA.name
         cvA.levelParams cvA.type mI rP j rules rules' →
       ∀ rl ∈ rules', RecRule.fire rl ≠ .inert → ∀ φ : Name → Nat,
         RecRuleLawP mp.base2 φ cvA.name cvA mI rP rl := by

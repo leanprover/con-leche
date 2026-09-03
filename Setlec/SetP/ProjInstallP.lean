@@ -1,3 +1,4 @@
+import Setlec.SetBase.IndBlockRun
 import Setlec.SetP.ProjConsP
 
 /-!
@@ -50,8 +51,7 @@ leaf. -/
 theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
     {blockNames : List Name} (mp : EnvS2PM V μ env')
-    (hR : ProjFnR μ F env' mp.base2.cvalE T ctorName lps nP nF i
-      env₁)
+    (hR : ProjFnRunR μ F env' T ctorName lps nP nF i env₁)
     (hinv : ProjPhaseInvS T ctorName nF env' mp.base2.cvalE)
     (hinvA : ProjPhaseAcvalP T ctorName nF env' mp.base2.acval)
     (hIB : BlockInstalledTT blockNames env' mp.base2.cvalE)
@@ -83,10 +83,10 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     -- longer consumed (task #161 S10 — the reading comes from the run
     -- below).  The campaign's own diagnostic, applied to itself: a
     -- conjunct every proof projects away is a layering artifact.
-    hrhsb, hrlp, hrres, hrstrip, -, hrhsRun, hthmpack⟩ := hbig
+    hrhsb, hrlp, hrres, hrstrip, hrhsRun, hthmpack⟩ := hbig
   obtain ⟨rbinders, hrhsAstrip, hrdomsEq⟩ := hrstrip
   obtain ⟨tcv, tval, hthmE, htlps, hsbodyPin, fvsI, sbodyO, hopen,
-    hsidesTy, hsty1, hsty2⟩ := hthmpack
+    hsty1, hsty2⟩ := hthmpack
   obtain ⟨sbinders, ℓA, tySlot, hSstrip, hdomsSC⟩ := hsbodyPin
   subst henv
   have hfresh : env'.find? (projFnName T i) = none :=
@@ -251,7 +251,8 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
   -- phase and block invariants at the installed environment are
   -- `projFnInv`'s and the store's `EnvWF` and the head rule's
   -- constructor are `projFnR_head`'s — both off `ProjFnR` alone.
-  obtain ⟨hinv₁, hIB₁⟩ := projFnInv hRid hinv hIB hbshape
+  obtain ⟨hinv₁, hIB₁⟩ :=
+    projFnInv (cval := mp.base2.cvalE) hRid hinv hIB hbshape
   obtain ⟨hwf₁, hctors₁⟩ := projFnR_head mp.base2.wf hRid
   have hnotb : blockNames.contains (projFnName T i) = false := by
     cases hc : blockNames.contains (projFnName T i) with
@@ -404,9 +405,8 @@ theorem projInstallP (hμ : μ.verified = true) {F : Nat}
     (hbshape : ∀ n, blockNames.contains n = true →
       n.isProjFnShape = false) :
     ∀ (fields : List Nat) {env' : Env} (mp : EnvS2PM V μ env')
-      {env₄ : Env} {cval₄ : TConstVal},
-      ProjInstallR μ F T ctorName lps nP nF env' mp.base2.cvalE
-        fields env₄ cval₄ →
+      {env₄ : Env},
+      ProjInstallRunR μ F T ctorName lps nP nF env' fields env₄ →
       ProjPhaseInvS T ctorName nF env' mp.base2.cvalE →
       ProjPhaseAcvalP T ctorName nF env' mp.base2.acval →
       BlockInstalledTT blockNames env' mp.base2.cvalE →
@@ -417,25 +417,25 @@ theorem projInstallP (hμ : μ.verified = true) {F : Nat}
         capsT.eta = true → blockNames.contains capsT.etaCtor = true) →
       (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
         capsT.eta = true → capsT.etaFields = nF) →
-      ∃ mp₄ : EnvS2PM V μ env₄, mp₄.base2.cvalE = cval₄ ∧
-        ProjPhaseInvS T ctorName nF env₄ cval₄ ∧
+      ∃ mp₄ : EnvS2PM V μ env₄,
+        ProjPhaseInvS T ctorName nF env₄ mp₄.base2.cvalE ∧
         ProjPhaseAcvalP T ctorName nF env₄ mp₄.base2.acval ∧
-        BlockInstalledTT blockNames env₄ cval₄ ∧
+        BlockInstalledTT blockNames env₄ mp₄.base2.cvalE ∧
         BlockAcvalInstalled blockNames env₄ mp₄.base2.acval := by
   intro fields
   induction fields with
   | nil =>
-    intro env' mp env₄ cval₄ h hinv hinvA hIB hIA hpinsT hCblock hFields
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨mp, rfl, hinv, hinvA, hIB, hIA⟩
+    intro env' mp env₄ h hinv hinvA hIB hIA hpinsT hCblock hFields
+    subst h
+    exact ⟨mp, hinv, hinvA, hIB, hIA⟩
   | cons i rest ih =>
-    intro env' mp env₄ cval₄ h hinv hinvA hIB hIA hpinsT hCblock hFields
-    obtain ⟨env'', cval'', hstep, hrec⟩ := h
-    rcases hstep with ⟨hR, rfl⟩ | ⟨hskip, rfl, rfl⟩
+    intro env' mp env₄ h hinv hinvA hIB hIA hpinsT hCblock hFields
+    obtain ⟨env'', hstep, hrec⟩ := h
+    rcases hstep with hR | ⟨hskip, rfl⟩
     case inr =>
       exact ih mp hrec hinv hinvA hIB hIA hpinsT hCblock hFields
     -- the install branch
-    obtain ⟨mp₁, hcval₁, hinv₁, hinvA₁, hIB₁, hIA₁⟩ :=
+    obtain ⟨mp₁, -, hinv₁, hinvA₁, hIB₁, hIA₁⟩ :=
       projFnP hμ mp hR hinv hinvA hIB hIA hTblock hbshape hpinsT
         hCblock hFields
     -- the block-level premises, re-established (v1's argument)
@@ -454,7 +454,7 @@ theorem projInstallP (hμ : μ.verified = true) {F : Nat}
       rw [henv, Env.find?_cons,
         if_neg (fun hh => hTne hh.symm)] at hf
       exact hf
-    refine ih mp₁ (by rw [hcval₁]; exact hrec) hinv₁ hinvA₁ hIB₁ hIA₁
+    refine ih mp₁ hrec hinv₁ hinvA₁ hIB₁ hIA₁
       (fun cvT capsT hf => by
         rw [henv]
         exact Setlec.EtaPins.step (hpinsT cvT capsT (hdown cvT capsT hf))
