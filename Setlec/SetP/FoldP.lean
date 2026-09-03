@@ -145,17 +145,22 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
     have hsh := h
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
-    exact harvestDefnP hμ divModPinS mp h
+    obtain ⟨m', hag⟩ := declDefnS divModPinS mp.base h
+    exact harvestDefnP hμ mp m' hag (DeclDefnR.toRun h)
   | thmDecl cv value =>
     have hsh := h
     obtain ⟨type', value', hcv, -, -, -, henv2⟩ := hsh
     subst henv2
-    exact harvestThmP hμ mp h
+    obtain ⟨m', hag⟩ := declThmS mp.base h
+    exact harvestThmP hμ mp m' hag (DeclThmR.toRun h)
   | opaqueDecl cv value =>
     have hsh := h
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
-    exact harvestOpaqueP hμ reducePinS mp h
+    obtain ⟨m', hag, value'', hannv2, hleafEq⟩ :=
+      declOpaqueS reducePinS mp.base h
+    exact harvestOpaqueP hμ mp m' hag hannv2 hleafEq
+      (DeclOpaqueR.toRun h)
   | axiomDecl cv => exact axiomStepPB_of hμ mp h
   | basisDecl kind => exact basisStepPB_of mp h
   | indDecl block => exact indStepPB_of hμ mp hE h

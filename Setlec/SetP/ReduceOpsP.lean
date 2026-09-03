@@ -1,3 +1,4 @@
+import Setlec.SetBase.DeclRun
 import Setlec.SetP.NatEqsP
 import Setlec.SetP.CapstoneP
 import Setlec.SetP.ErasePwInv
@@ -186,9 +187,9 @@ theorem reduceOpsP_install (hμ : μ.verified = true)
     (hmemA : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp2 V ρ (A ψ) ∈ˢ interp2 V ρ (Ta ψ))
     (hred : Setlec.reduceOpNames.contains cv.name = true →
-      ReducePinR μ F env
+      ReducePinRunR μ F env
         ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩
-        mp.base.cval cv.name value)
+        cv.name value)
     (m₂ : EnvS2Core V
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval cv.name A) :
@@ -201,7 +202,7 @@ theorem reduceOpsP_install (hμ : μ.verified = true)
       hfresh m₂ hac hcN hne hf₂ hpin
   subst hne
   -- the recorded certificate, and its annotated subject
-  obtain ⟨-, helemOk, -, valA, pinA, hannA, -, hrun, -⟩ :=
+  obtain ⟨-, helemOk, -, valA, pinA, hannA, -, hrun⟩ :=
     hred (List.contains_iff_mem.mpr hcN)
   obtain rfl : valA = value' := Except.ok.inj (hannA.symm.trans hannv)
   -- the element inductive is stored, level-free, and is not the cons
