@@ -133,18 +133,22 @@ def EnvSPOk (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env) :
     Prop :=
   Nonempty (EnvS2PM V μ env) ∧ EtaFamiliesClosed env
 
-/-- **The per-declaration P step, by dispatch.** -/
+/-- **The per-declaration P step, by dispatch.**
+
+**Task #161 S11a — the premise is the RUN record, not `DeclR`.**  Since
+S4 this theorem took `DeclR` and projected (`DeclR.toRun`) on its first
+line, which made every P step's *statement* valuation-free while its
+*proof path* still ran through the derivation bridge: the S10 seal's
+residual B ("a projection composed with a bridge is not a projection").
+The projection is now done by the *producer* instead — the five
+non-`ind` kinds have run-only bridges (`checkDeclRun_of`,
+`SetBase/Bridge/DeclRun.lean`) and the `ind` kind arrives through
+`DeclRunR`'s `Ind` parameter — so this step consumes exactly what it
+reads, and no step below changed a line. -/
 theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvS2PM V μ env) (hE : EtaFamiliesClosed env)
-    (h : DeclR μ F mp.base2.cvalE env d env₂) :
+    (hrun : DeclRunR μ F (DeclIndR μ F env mp.base2.cvalE) env d env₂) :
     EnvSPOk V μ env₂ := by
-  -- the run/guard projection (task #161 S4, the census's C3): every P
-  -- step below consumes THIS, not `DeclR`.  What still consumes the
-  -- full record is the v1 install round trip — `declDefnS`/`declThmS`/
-  -- `declOpaqueS` at the value kinds, `declIndS` at the block — and
-  -- that is `EnvS2PM.base`'s residue, which S5 deletes.
-  have hrun : DeclRunR μ F (DeclIndR μ F env mp.base2.cvalE) env d env₂ :=
-    DeclR.toRun h
   -- the η half: `declEtaStepRun` (task #161 S3, the census's C4), now
   -- MODEL-FREE at every kind.  S3's stop-and-name left `indDecl`'s
   -- η-closure premised on `declIndS memberKeyS mp.base`; S5's ind unit
@@ -154,23 +158,25 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
     (fun h' => Setlec.SetR.declIndEtaClosed hE h') hE hrun⟩
   cases d with
   | defnDecl cv value hint =>
-    have hsh := h
+    have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
     exact harvestDefnP hμ mp hrun
   | thmDecl cv value =>
-    have hsh := h
-    obtain ⟨type', value', hcv, -, -, -, henv2⟩ := hsh
+    have hsh := hrun
+    -- one dash fewer than the `DeclR` pattern: the run record has no
+    -- is-a-proposition derivation row (task #161 S11a)
+    obtain ⟨type', value', hcv, -, -, henv2⟩ := hsh
     subst henv2
     exact harvestThmP hμ mp hrun
   | opaqueDecl cv value =>
-    have hsh := h
+    have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
     exact harvestOpaqueP hμ mp hrun
   | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
   | basisDecl kind => exact basisStepPB_of mp hrun
-  | indDecl block => exact indStepPB_of hμ mp hE h
+  | indDecl block => exact indStepPB_of hμ mp hE hrun
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verified = true) {F : Nat} :
@@ -190,11 +196,14 @@ theorem foldPM (hμ : μ.verified = true) {F : Nat} :
       obtain ⟨⟨mp⟩, hE⟩ := hm
       exact foldPM hμ ds env1
         (declStepPM hμ mp hE
-          -- **the bridge, from the P carrier's own `EnvR`**
-          -- (task #161 S7, Wall C step (e)): `checkDeclR_ofEnvRE`
-          -- needs no model, so the fold's last v1 round trip is the
-          -- projection `EnvS2PM.toEnvR`.
-          (Setlec.SetR.checkDeclR_ofEnvRE mp.toEnvR hE hd)) h
+          -- **the RUN bridge, from the P carrier's own `EnvR`**
+          -- (task #161 S11a).  S7 (Wall C step (e)) made the bridge
+          -- model-free, so the fold's last v1 round trip became the
+          -- projection `EnvS2PM.toEnvR`; S11a makes it
+          -- *derivation*-free at the five non-`ind` kinds, so the only
+          -- route from here into the relation tier is the `Ind`
+          -- premise `checkDeclRun_ofEnvRE` fills with `declIndRR`.
+          (Setlec.SetR.checkDeclRun_ofEnvRE mp.toEnvR hE hd)) h
 
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'

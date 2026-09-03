@@ -1,4 +1,5 @@
 import Setlec.SetBase.Bridge.DeclInd
+import Setlec.SetBase.Bridge.DeclRun
 
 /-!
 # The assembly (task #148, T6): the model-free half
@@ -104,5 +105,36 @@ theorem checkDeclR_ofEnvRE
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
     DeclR μ F mR.cval env d env₂ :=
   checkDeclR_ofEnvR mR (fun hh => declIndRR mR hE hh) h
+
+/-- **The RUN bridge, whole, from an `EnvR`** (task #161 S11a): the
+run/guard record, from the checker, with **no derivation on the path
+except through the `ind` kind's premise**.
+
+This is `checkDeclR_ofEnvRE`'s run twin and the theorem the graded
+lane's fold now imports.  The difference is not cosmetic and is the
+batch's whole point (the S10 seal's residual B): `checkDeclRun_sound`
+— `DeclR.toRun` composed *after* `checkDeclR_sound` — projects the
+derivation conjuncts away in its *statement* while keeping them in its
+*proof term*, so the P lane inherited `Red.beta` for a record it never
+reads.  Here the five non-`ind` kinds never build one
+(`checkDeclRun_of`, `SetBase/Bridge/DeclRun.lean`), and the sixth
+enters through `declIndRR` alone — one named door, in the parameter
+slot S4 built for it, which S11b replaces with the `ind` run bridge.
+
+`checkDeclRun_sound` (`SetR/Bridge/Sound.lean`) keeps its statement and
+its consumers; it is the collapsed lane's projection route and is not
+what the graded fold runs on any more. -/
+theorem checkDeclRun_ofEnvRE
+    {μ : CheckMode} {F : Nat}
+    {env env₂ : Env} (mR : EnvR env) (hE : EtaFamiliesClosed env)
+    {d : Declaration}
+    (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
+    DeclRunR μ F (DeclIndR μ F env mR.cval) env d env₂ :=
+  checkDeclRun_of
+    -- the direct-structure path is compile-time disabled
+    -- (`directStructsEnabled = false`), so `checkDecl`'s `indDecl`
+    -- clause *is* `checkIndDecl` — `directParts?_none` again.
+    (fun hh => declIndRR mR hE
+      (by simpa [checkDecl, directParts?_none] using hh)) h
 
 end Setlec.SetR

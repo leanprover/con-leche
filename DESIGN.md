@@ -29136,3 +29136,285 @@ SOURCES (the "re-signing, not re-proving" correction series — now
 seven — quoted in the batch brief).  Then S12 tower transposition,
 S13 flag + measurement.  ESCALATION RE-ARMS identically: any
 residual not named in the S10 seal stops the cadence.
+
+## Task #161 THE SEPARATION — S11a SEALED (2026-09-03, `agent/sep-s11a`,
+unpushed): **THE DOOR MOVED TO THE `ind` KIND — FIVE OF SIX KINDS ARE
+OFF THE RELATION TIER**
+
+### 0. THE CLOSURE DELTA, FIRST
+
+The batch's criterion, measured by `tests/proofdeps.sh` before and
+after (roots = the four shipped P capstones; `-cut-ind` = the same root
+with `declIndRR` as a cut point):
+
+| root | `Red.beta` | `Infer.app` | `DefEq.trans` | `checkDeclR_ofEnvRE` | `DeclR` | `EnvS` |
+|---|---|---|---|---|---|---|
+| `SP_P`/`C_P`/`S_P`/`P` **before** | P | P | P | **P** | **P** | absent |
+| `SP_P`/`C_P`/`S_P`/`P` **after** | P | P | P | **absent** | **absent** | absent |
+| `SP_P`-cut-`declIndRR` **before** | **P** | **P** | **P** | P | P | absent |
+| `SP_P`-cut-`declIndRR` **after** | **absent** | **absent** | **absent** | absent | absent | absent |
+| `checkDeclRun_of` (new root) | absent | absent | absent | absent | absent | absent |
+
+Read it in one line: **`Red.beta` is now reachable from the shipped
+driver's capstone only through the `ind` kind's premise slot.**  Before
+this batch, cutting `declIndRR` changed nothing (the four value/axiom
+kinds had their own routes through `checkDeclR_ofEnvRE`); after it,
+cutting that one constant empties the derivation tier out of all four
+capstones.  Two further targets left the closure **outright** — the
+whole declaration bridge (`checkDeclR_ofEnvRE`) and the `DeclR` record
+itself — which is the work order's "if any R relation leaves the
+closure entirely, pin that too", and both are pinned.
+
+The gate now reads
+
+```
+proofdeps: 90 rows as pinned; EnvS absent from 4/4 and DeclR from 4/4
+P capstones; Red.beta present in 4/4 (doors beyond declIndRR: 0)
+```
+
+### 1. WHAT LANDED (two commits, per logical unit)
+
+**Unit 1 — `Setlec/SetBase/Bridge/DeclRun.lean` (503 ln), the five
+non-`ind` run producers.**  The S10 seal's residual B named the shape:
+every per-kind bridge *welds* a relation-free checker inversion to a
+derivation construction (`checkBridge`), and projecting after the weld
+keeps the relation tier on the proof path.  This module cuts the weld
+at the five kinds whose inversions were already measured clean:
+
+| declaration | code | what it is |
+|---|---|---|
+| `constantValRunR_of` | 17 ln | `checkConstantVal_inv` + `annotate_syntax`; `constantValR_of` minus its `fun φ` block |
+| `valueFrontRunR_of` | 17 ln | the packing — `valueFrontR_of`'s premises *are* `ValueFrontRunR`'s conjuncts (H1 read the record off that destructuring) |
+| `reducePinRunR_of` | 12 ln | `checkReducePin_inv`, minus the drift verdict no record carries |
+| `divModPinRunR_of` | 17 ln | `checkDivModPin_inv`; **no `EnvR` at all** (`DivModPinR`'s `_cval` was always dead) |
+| `declThmRunR_of` | 71 ln | the branch inversion |
+| `declAxiomRunR_of` | 53 ln | the branch inversion |
+| `declOpaqueRunR_of` | 76 ln | the branch inversion + the reduce pin |
+| `declDefnRunR_of` | 150 ln | the branch inversion + the `key` pin dispatch + the two `Nat` pins |
+| `checkDeclRun_of` | 16 ln | the dispatch: five kinds **discharged here**, the sixth is `DeclRunR`'s `Ind` parameter |
+
+Re-used, not duplicated: `declBasisR` **verbatim** (that kind's record
+was always guards-only — the S4 table's own row) and
+`natEqsRunR_of_certs` (already run-only).  `checkDeclRun_ofEnvRE`
+(`SetBase/Bridge/Sound.lean`, 32 ln with its docstring) fills the `Ind`
+slot with `declIndRR` until S11b.
+
+**Unit 2 — the fold, and the gate.**  `declStepPM` took `DeclR` and
+projected on its first line (`DeclR.toRun`, S4); it now takes
+`DeclRunR` directly, and the four P fold sites (`FoldP.foldPM`,
+`MainP.foldPMC`/`foldPMS`/`foldSP_PM`) call `checkDeclRun_ofEnvRE`.
+**Not one step below changed**: the harvests, the axiom/basis/ind
+bundles and the η half already ran on `hrun`.  The only edit inside the
+dispatch is the `thmDecl` destructuring pattern, one dash shorter,
+because the run record has no is-a-proposition derivation row.
+
+### 2. THE PER-KIND RECEIPTS, AGAINST THE S10 BILL
+
+Ruling 1 (payload ZERO) needed **no new record at all**: S4 already
+landed the five non-`ind` run records valuation-free
+(`DeclDefnRunR`, `DeclThmRunR`, `DeclOpaqueRunR`, `DeclAxiomRunR`,
+`DeclBasisR` re-used).  So the record half of this batch is *empty by
+construction* — nothing was frozen, nothing was widened, and the
+"minimality justification" for the batch's new statements is that
+there are none: the only new signature is a producer.
+
+| kind | record owed | record status | producer owed | producer status |
+|---|---|---|---|---|
+| `defnDecl` | none (S4) | `DeclDefnRunR` reused | yes | `declDefnRunR_of` |
+| `thmDecl` | none (S4) | `DeclThmRunR` reused | yes | `declThmRunR_of` |
+| `opaqueDecl` | none (S4) | `DeclOpaqueRunR` reused | yes | `declOpaqueRunR_of` |
+| `axiomDecl` | none (S4) | `DeclAxiomRunR` reused | yes | `declAxiomRunR_of` |
+| `basisDecl` | none (S4) | `DeclBasisR` verbatim | **no** | `declBasisR` verbatim |
+| `indDecl` | S11b | `Ind` parameter | S11b | `declIndRR` (the door) |
+
+Against the S10 pricing table: the first row ("`constantValR_of`,
+`valueFrontR_of`, the four value kinds + 2 pins … the `refine` line
+before each `fun φ => ?_`; **cheap**") is **CONFIRMED — the first
+sizing this campaign got right**.  429 lines of code, no new
+mathematics, no carrier, no valuation; the four branch inversions are
+their `Bridge/Decl.lean` scripts stopped at the run record.  The
+remaining rows of that table (the 773-line walk packs, `iotaThmR_of`,
+the block folds) are untouched: they are S11b's, exactly as ruled.
+
+### 3. FINDINGS (restrictions-are-findings)
+
+1. **A cut point can go inert, and the ratchet reads that as rot.**
+   `checkDeclR_ofEnvRE` left the P capstones' closures, so the gate's
+   block (B) — "cut the door, watch the derivations vanish" — was
+   cutting a constant that is no longer *in* the closure, and its rows
+   flipped to PRESENT: the ratchet's "R content RE-ENTERED" failure,
+   fired by **progress**.  The row was re-pointed to `declIndRR`, not
+   deleted.  General form, and it belongs beside S9's: *a cut-point row
+   measures a route, not a set; when the route moves the row must move
+   with it, and only the batch that moved it can say so.*  A cut-point
+   pin should therefore always be read together with the uncut row for
+   the same target (which is why the two blocks stay adjacent).
+2. **Single-sourcing the branch inversions is blocked by an import
+   cycle, and this is S11b's pricing input.**  The obvious cleanup —
+   re-prove `declThmR`/`declOpaqueR`/`declDefnR`/`declAxiomR` on top of
+   their run twins, so each `checkDecl` clause is inverted once — is
+   *not available at this file layout*: `Bridge/DeclRun.lean` imports
+   `Bridge/Decl.lean` (for `declBasisR` and `natEqsRunR_of_certs`), so
+   the reverse dependency would close a cycle.  Doing it needs a
+   three-way split (`…/DeclRunKinds` below `Decl.lean`, the dispatch
+   above it) plus four "run → derivation" lemmas
+   (`constantValR_ofRun`, `reducePinR_ofRun`, `natEqsBridge_ofRuns`,
+   and `divModPinR_of := divModPinRunR_of` outright, the packs being
+   definitionally equal).  **Not attempted**: the criterion is already
+   met, and the duplication is compile-time coupled (both copies invert
+   the same `checkDecl` clause, so a checker change breaks both loudly
+   — it is not silent rot).  **S11b must price this before it starts**:
+   the ind kind's run bridge faces the same choice against
+   `Bridge/DeclInd.lean`, at 700–900 lines instead of 300.
+3. **`checkDeclRun_sound` is consumer-free — and was before this
+   batch.**  S4's C3 artifact (`SetR/Bridge/Sound.lean`, `DeclR.toRun`
+   after `checkDeclR_sound`) has had no consumer since the P fold began
+   calling `checkDeclR_ofEnvRE` directly; S11a supersedes it
+   functionally (`checkDeclRun_ofEnvRE` produces the same conclusion
+   without the weld).  Left in place: deleting a landed statement is the
+   lead's call, and the S10 precedent (`declIndRS`) is the shape.
+   `DeclR.toRun` itself stays live — `declEtaStep` (`SetBase/DeclEta.lean`)
+   is its consumer.
+4. **The record half of a split can be empty.**  Ruling 1 said "payload
+   zero"; measured, it was stronger than that — the records the ruling
+   describes *already existed*, because S4 built them for the five
+   kinds and only the `ind` kind was deferred.  The batch that was
+   scoped as "records + producers" turned out to be producers only.
+   Reusable form: *before pricing a record split, check whether the
+   earlier batch that deferred one kind already landed the other five.*
+
+### 4. WHAT DID NOT LAND, AND WHY
+
+* the `ind` kind, by the lead's ruling 2 (it is S11b);
+* the single-sourcing refactor (finding 2 — a scope increase with no
+  criterion payoff, and its own import-layout question);
+* the deletion of `checkDeclRun_sound` (finding 3 — the lead's call).
+
+**No escalation fired.**  Every piece of this batch was named in the
+S10 seal: the five kinds' inversions were measured relation-free there,
+the run records existed, and the `Ind` slot was S4's.  Nothing needed
+more than the runs — no consumer, at any of the five kinds, asked for a
+derivation conjunct (as ruling 1 predicted from `acceptedReadsP_of`).
+
+### 5. BATTERY (verbatim)
+
+* `lake build` — clean, warning-free, **539** jobs (538 + `SetBase/
+  Bridge/DeclRun`).
+* `lake test` — exit 0.
+* `tests/arena.sh` — exit 0:
+
+  ```
+  layering: base 261 / R 106 / P 117 / neutral 3 modules; 0 P->R edges (whitelist EMPTY); 0 R->P
+  proofdeps: 90 rows as pinned; EnvS absent from 4/4 and DeclR from 4/4 P capstones; Red.beta present in 4/4 (doors beyond declIndRR: 0)
+  arena tutorial: 90/92 good tests accepted
+  e2e: 73/73 as expected
+  annot suite: 14/14 as expected
+  split driver: 11/11 as expected
+  mode flags: 9/9 as expected
+  no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+  ```
+
+* Axiom audit (`_tmp/sep-s11a/Audit.lean`), **32 declarations** (S10's
+  21 + the 11 new: the run route's producers, `checkDeclRun_ofEnvRE`
+  and `declStepPM`): every one `[propext, Classical.choice,
+  Quot.sound]` — 0 rows deviating.
+* **md5 identity**: `.lake/build/bin/setlec` =
+  `29abe904703a3e634daeb3bfb5706262`, identical to master's; `git diff
+  master -- Setlec/Kernel Main.lean Setlec/Cached Setlec/Frontend
+  AnnotateBasis.lean Setlec/PinGen` is empty.
+* Zero `sorry`s; no new axioms; **no frozen statement edited** — and
+  none added: the batch's only new signatures are producers (finding 4).
+
+| metric | S10 | S11a |
+|---|---|---|
+| gate: base / R / P / neutral | 260 / 106 / 117 / 3 | **261** / 106 / 117 / 3 |
+| P→R edges | 0 | 0 |
+| proof-term gate rows pinned | 72 | **90** |
+| `Red.beta` in the four P capstones | PRESENT | PRESENT (through `Ind` only) |
+| `checkDeclR_ofEnvRE` in the four P capstones | PRESENT | **absent** |
+| `DeclR` in the four P capstones | (unmeasured) | **absent** |
+| doors to `Red.beta` | 1 (`checkDeclR_ofEnvRE`) | **1** (`declIndRR`) |
+| declaration kinds off the relation tier | 0 / 6 | **5 / 6** |
+| build jobs | 538 | 539 |
+| binary md5 | `29abe904…` | `29abe904…` |
+
+### 6. SUCCESSION — where S11b starts
+
+**S11b = the `ind` run bridge**, the last kind and the last door.  Its
+bill, priced FROM SOURCES (the S10 seal's table, re-checked against the
+files this batch read):
+
+| piece | today | the run twin owes |
+|---|---|---|
+| `Bridge/DeclInd.lean` — `declIndRR` and the five block folds | 679 ln | re-typed to the run records; the derivation halves dropped |
+| the ind tier's walk packs in `Bridge/Decl.lean` (`stmtType_denotes` … `spine_walk_pack`) | 773 ln (`:948-1721`) | **nothing — dropped entirely** |
+| `iotaThmR_of` / `iotaThmNR_of` | 252 / 426 ln | the shape pins and the recorded runs only |
+| `iotaRuleR_of` / `iotaRulesR_of` / `memberValR_of` / `projFnR_of` | 63 / 44 / 56 / 90 ln | ditto |
+| `templatesR_of` | 69 ln | re-used verbatim (no derivation) |
+| the record family (`MemberValRunR` … `DeclIndRunR`) | — | `DeclIndR` with every `∀ φ` conjunct struck; 28 P-side signature sites in 9 files re-pointed |
+
+**Estimate: 700–900 new lines.**  Quote the correction series when
+pricing it, because the campaign has now been wrong about this seven
+times and right once:
+
+1. S1's row 4 (census "transitive" wrong);
+2. S2's row 14 (same);
+3. S3's C4 refutation at `indDecl` (the block's facts are proved
+   interleaved with the model-carrying folds);
+4. S4's census row 12 ("transitive" needed the §3.3 *split* recipe);
+5. the import-vs-crossing gap ("an import-level gate cannot price a
+   de-basing");
+6. the sizing-correction rule ("count the signatures the premise
+   crosses, not the call sites it ends at");
+7. S10's residual B — **"the expected cost is re-signing, not
+   re-proving" refuted** (`checkDeclRun_sound` = `toRun` ∘ bridge
+   measures `Red.beta` PRESENT while `DeclR.toRun` alone measures
+   absent);
+8. **S11a: the first sizing that held.**  "The `refine` line before
+   each `fun φ => ?_`; cheap" was exactly right — 429 lines, no new
+   mathematics.  The difference between (7) and (8) is *which half of
+   the weld the batch was cutting*: a bridge's cost is its
+   **derivation** half, and the five non-`ind` kinds' derivation halves
+   are small.  The ind kind's are 1 700 lines.  **Price S11b from the
+   derivation halves it must not build, not from the inversions it
+   re-uses.**
+
+Two more inputs S11b must fold into its plan before starting:
+
+* **finding 2's import cycle.**  Decide up front whether the ind run
+  bridge single-sources its inversions (needs `Bridge/DeclInd`'s
+  inversion half to sit *below* the derivation half — a file split) or
+  copies them (compile-time coupled, as S11a's do).  At 700–900 lines
+  the copy is a much bigger object than S11a's 300, so this is a
+  ruling, not a preference;
+* **the gate's block (B) will need re-pointing again** — when
+  `declIndRR` leaves the closure there is no door left, and the honest
+  row is then the uncut `Red.beta` reading itself going `absent`.  That
+  is the campaign's close, and it is a *four-row flip in block (A)*,
+  not a cut.
+
+S12 (the tower transposition) and S13 (the flag surface + the
+measurement) are untouched.
+
+Kit: `Setlec/SetBase/Bridge/DeclRun.lean` (the run route);
+`_tmp/sep-s11a/S11aDeps.lean` + `before.txt`/`after.txt` (the closure
+delta as measured, with `declIndRR`/`checkBridge`/`DeclR`/`DeclIndR` as
+extra targets); `_tmp/sep-s11a/Audit.lean` (32 rows);
+`tests/proofdeps.sh --list` (the 90-row pin).
+
+## Task #161 SEPARATION — S11a SEALED (2026-09-03; succession-current)
+
+Five of the six declaration kinds are off the relation tier: their
+run-only producers (`checkDeclRun_of`, `SetBase/Bridge/DeclRun.lean`)
+feed `DeclRunR` from the checker inversions with no derivation on the
+path, and the P fold runs on them.  **The door moved**: `Red.beta`
+reaches the four shipped P capstones only through `declIndRR`, the
+`Ind` parameter slot S4 built — cutting that one constant now empties
+the derivation tier, which it did not do before.  `checkDeclR_ofEnvRE`
+and the `DeclR` record left the P closures outright.  Gate tightened to
+90 rows (new target `DeclR`, new block (D) = the run route measured at
+its own root, block (B)'s cut re-pointed).  Record half of the split
+was **empty by construction** (S4 had landed the five run records).  No
+escalation.  **S11b = the ind run bridge**, 700–900 ln, priced from the
+derivation halves it must not build; its first ruling is finding 2's
+import-layout question (single-source or copy).

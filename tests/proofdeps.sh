@@ -56,28 +56,41 @@ MEASURED = os.environ['SETLEC_PROOFDEPS_MEASURED']
 # ------------------------------------------------------------------ the
 # PIN.  One line per measured row: "<PRESENT|absent> <label> :: <name>".
 #
-# Read it in three blocks.
+# Read it in four blocks.
 #
 # (A) THE SHIPPED P CAPSTONE FAMILY — the user's question, mechanized.
 #     `EnvS` **absent** is what S1-S8 bought and is now enforced here
-#     rather than only at the import gate.  `Red`/`Infer`/`DefEq` and
-#     the β rule are PRESENT: the R relation tier is still on the P
-#     capstone's proof path (S9's finding).  Those six rows are the
-#     campaign's remaining bill, and S11's landing flips them.
+#     rather than only at the import gate.  `checkDeclR_ofEnvRE` and
+#     `DeclR` **absent** is what S11a bought: the graded fold no longer
+#     runs on the declaration bridge or on its record, but on the run
+#     dispatch `checkDeclRun_of` and `DeclRunR`.  `Red`/`Infer`/`DefEq`
+#     and the β rule are still PRESENT — they arrive through the `ind`
+#     kind alone now (block B), and S11b's ind run bridge flips them.
 #
-# (B) THE ONE DOOR.  Cutting the single constant `checkDeclR_ofEnvRE`
-#     removes `Red`, `Red.beta`, `Infer.app` and `DefEq.trans` outright:
-#     there is no second route into the *derivations*.  A new door shows
-#     up here as a PRESENT.  The type names `Infer`/`DefEq` stay PRESENT
-#     under the cut because the P lane's ind-tier SIGNATURES mention the
-#     R records (`DeclIndR` carries `∀ φ, … Infer … ∧ DefEq …`); that is
-#     the ind-tier record split's target, not the β gate's.
+# (B) THE ONE DOOR — S11a MOVED IT.  S9 found the door at
+#     `checkDeclR_ofEnvRE` (the whole declaration bridge); with the five
+#     non-`ind` kinds on run-only producers it is `declIndRR` (the
+#     `ind` kind's bridge alone), and the old cut point is not in the
+#     closure at all any more, so cutting it would measure nothing.
+#     Cutting `declIndRR` removes `Red`, `Red.beta`, `Infer.app` and
+#     `DefEq.trans` outright: there is no second route into the
+#     *derivations*.  A new door shows up here as a PRESENT.  The type
+#     names `Infer`/`DefEq` stay PRESENT under the cut because the P
+#     lane's ind-tier SIGNATURES mention the R records (`DeclIndR`
+#     carries `∀ φ, … Infer … ∧ DefEq …`); that is the ind-tier record
+#     split's target, not the β gate's.
 #
 # (C) THE P TIER'S OWN MATHEMATICS.  The claims tower and the value
-#     kinds' harvest reach NONE of the eight; the inductive tier's step
+#     kinds' harvest reach NONE of the nine; the inductive tier's step
 #     reaches only the two type names, through its `DeclIndR` premise —
 #     which is exactly the S10 measurement: no P proof derives anything
 #     in the R relation tier, the names arrive as statement furniture.
+#
+# (D) THE RUN ROUTE (S11a).  `checkDeclRun_of` — the five non-`ind`
+#     kinds' producer — reaches none of the nine.  This is the batch's
+#     deliverable stated positively rather than as an absence in someone
+#     else's closure: the route derives nothing, and everything the
+#     capstones still reach comes through the `Ind` parameter.
 PIN = """
 # (A) the shipped P capstone family
 PRESENT SP_P :: Setlec.Expr
@@ -88,7 +101,8 @@ PRESENT SP_P :: Setlec.SetR.Infer.app
 PRESENT SP_P :: Setlec.SetR.DefEq
 PRESENT SP_P :: Setlec.SetR.DefEq.trans
 absent  SP_P :: Setlec.SetR.EnvS
-PRESENT SP_P :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  SP_P :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  SP_P :: Setlec.SetR.DeclR
 PRESENT C_P :: Setlec.Expr
 PRESENT C_P :: Setlec.SetR.Red
 PRESENT C_P :: Setlec.SetR.Red.beta
@@ -97,7 +111,8 @@ PRESENT C_P :: Setlec.SetR.Infer.app
 PRESENT C_P :: Setlec.SetR.DefEq
 PRESENT C_P :: Setlec.SetR.DefEq.trans
 absent  C_P :: Setlec.SetR.EnvS
-PRESENT C_P :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  C_P :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  C_P :: Setlec.SetR.DeclR
 PRESENT S_P :: Setlec.Expr
 PRESENT S_P :: Setlec.SetR.Red
 PRESENT S_P :: Setlec.SetR.Red.beta
@@ -106,7 +121,8 @@ PRESENT S_P :: Setlec.SetR.Infer.app
 PRESENT S_P :: Setlec.SetR.DefEq
 PRESENT S_P :: Setlec.SetR.DefEq.trans
 absent  S_P :: Setlec.SetR.EnvS
-PRESENT S_P :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  S_P :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  S_P :: Setlec.SetR.DeclR
 PRESENT P :: Setlec.Expr
 PRESENT P :: Setlec.SetR.Red
 PRESENT P :: Setlec.SetR.Red.beta
@@ -115,18 +131,20 @@ PRESENT P :: Setlec.SetR.Infer.app
 PRESENT P :: Setlec.SetR.DefEq
 PRESENT P :: Setlec.SetR.DefEq.trans
 absent  P :: Setlec.SetR.EnvS
-PRESENT P :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  P :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  P :: Setlec.SetR.DeclR
 
-# (B) the one door
-PRESENT SP_P-cut-bridge :: Setlec.Expr
-absent  SP_P-cut-bridge :: Setlec.SetR.Red
-absent  SP_P-cut-bridge :: Setlec.SetR.Red.beta
-PRESENT SP_P-cut-bridge :: Setlec.SetR.Infer
-absent  SP_P-cut-bridge :: Setlec.SetR.Infer.app
-PRESENT SP_P-cut-bridge :: Setlec.SetR.DefEq
-absent  SP_P-cut-bridge :: Setlec.SetR.DefEq.trans
-absent  SP_P-cut-bridge :: Setlec.SetR.EnvS
-PRESENT SP_P-cut-bridge :: Setlec.SetR.checkDeclR_ofEnvRE
+# (B) the one door — S11a moved it from `checkDeclR_ofEnvRE` to `declIndRR`
+PRESENT SP_P-cut-ind :: Setlec.Expr
+absent  SP_P-cut-ind :: Setlec.SetR.Red
+absent  SP_P-cut-ind :: Setlec.SetR.Red.beta
+PRESENT SP_P-cut-ind :: Setlec.SetR.Infer
+absent  SP_P-cut-ind :: Setlec.SetR.Infer.app
+PRESENT SP_P-cut-ind :: Setlec.SetR.DefEq
+absent  SP_P-cut-ind :: Setlec.SetR.DefEq.trans
+absent  SP_P-cut-ind :: Setlec.SetR.EnvS
+absent  SP_P-cut-ind :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  SP_P-cut-ind :: Setlec.SetR.DeclR
 
 # (C) the P tier's own mathematics
 PRESENT claims :: Setlec.Expr
@@ -138,6 +156,7 @@ absent  claims :: Setlec.SetR.DefEq
 absent  claims :: Setlec.SetR.DefEq.trans
 absent  claims :: Setlec.SetR.EnvS
 absent  claims :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  claims :: Setlec.SetR.DeclR
 PRESENT declIndP :: Setlec.Expr
 absent  declIndP :: Setlec.SetR.Red
 absent  declIndP :: Setlec.SetR.Red.beta
@@ -147,6 +166,7 @@ PRESENT declIndP :: Setlec.SetR.DefEq
 absent  declIndP :: Setlec.SetR.DefEq.trans
 absent  declIndP :: Setlec.SetR.EnvS
 absent  declIndP :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  declIndP :: Setlec.SetR.DeclR
 PRESENT harvestDefnP :: Setlec.Expr
 absent  harvestDefnP :: Setlec.SetR.Red
 absent  harvestDefnP :: Setlec.SetR.Red.beta
@@ -156,6 +176,19 @@ absent  harvestDefnP :: Setlec.SetR.DefEq
 absent  harvestDefnP :: Setlec.SetR.DefEq.trans
 absent  harvestDefnP :: Setlec.SetR.EnvS
 absent  harvestDefnP :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  harvestDefnP :: Setlec.SetR.DeclR
+
+# (D) the run route itself (S11a)
+PRESENT runroute :: Setlec.Expr
+absent  runroute :: Setlec.SetR.Red
+absent  runroute :: Setlec.SetR.Red.beta
+absent  runroute :: Setlec.SetR.Infer
+absent  runroute :: Setlec.SetR.Infer.app
+absent  runroute :: Setlec.SetR.DefEq
+absent  runroute :: Setlec.SetR.DefEq.trans
+absent  runroute :: Setlec.SetR.EnvS
+absent  runroute :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  runroute :: Setlec.SetR.DeclR
 """
 
 def parse(text):
@@ -223,10 +256,13 @@ if stale:
 if not fail:
     caps = ['SP_P', 'C_P', 'S_P', 'P']
     envs = sum(1 for c in caps if got['%s :: Setlec.SetR.EnvS' % c] == 'absent')
+    recs = sum(1 for c in caps if got['%s :: Setlec.SetR.DeclR' % c] == 'absent')
     beta = sum(1 for c in caps if got['%s :: Setlec.SetR.Red.beta' % c] == 'PRESENT')
-    doors = 0 if got['SP_P-cut-bridge :: Setlec.SetR.Red.beta'] == 'absent' else 1
-    print('proofdeps: %d rows as pinned; EnvS absent from %d/%d P capstones; '
-          'Red.beta present in %d/%d (doors beyond checkDeclR_ofEnvRE: %d)'
-          % (len(gorder), envs, len(caps), beta, len(caps), doors))
+    doors = 0 if got['SP_P-cut-ind :: Setlec.SetR.Red.beta'] == 'absent' else 1
+    print('proofdeps: %d rows as pinned; EnvS absent from %d/%d and DeclR from '
+          '%d/%d P capstones; Red.beta present in %d/%d '
+          '(doors beyond declIndRR: %d)'
+          % (len(gorder), envs, len(caps), recs, len(caps), beta, len(caps),
+             doors))
 sys.exit(fail)
 PYEOF
