@@ -26176,3 +26176,120 @@ traffic (68–97%).  Useful for S-batches: the knot bucket is fixed
 via Thunk-caching with ZERO proof adaptation (the Thunk.get
 definitional trick); the frontend byte parser landed −5.2%
 proof-free.
+
+## Task #161 follow-up 2: THE ENGINEERING-OVERHEAD ATTRIBUTION (2026-09-03, agent/perf-eng)
+
+The canonical tax table separated the verification tax (0.98×–2.04×)
+from the engineering gap (`--no-model` vs official, 3.9×–13.2× on the
+raw pipeline).  This session attributed that gap, controlled it against
+a second Lean-language kernel, and measured seven candidate fixes.
+Method: `perf stat -e instructions:u` median-of-3, `ulimit -v 40G`,
+`nice 5`, `SETLEC_SUPERVISED=1`; profiles `perf record` instructions:u,
+symbol-bucketed; kit and raw TSVs in `_tmp/perf-eng/`.
+
+### P1 — the open-recursion hypothesis: real at the IR level, minor in cost
+
+The compiled C (`.lake/build/ir/Setlec/Kernel/CoreNC.c`) confirmed the
+suspicion literally: every cache-missing recursive call re-evaluated
+`coreKnot* fe fuel`, allocating 11 closures + 1 record = **12 heap
+allocations per call**, and every recursive call dispatches through
+generic `lean_apply_*`.  No `@[inline]`/`@[specialize]` existed on
+knots or bodies — and `@[specialize]` is *structurally inapplicable*: a
+record of runtime closures is not a higher-order argument, so the
+compiler can never turn the knot into direct calls.  But perf pinned
+the entire knot/dispatch bucket at **0.01 %–4.1 %** of the run
+(2.9/2.6/0.08/0.01 % np on init-prelude/grind/beta/app-lam; 3.8/4.1 %
+nc on decl-heavy).  The fix that captures most of it is E1/E6/E7 below;
+a hand-tied direct-mutual core's residual ceiling is ≲1 % and was
+declined on that arithmetic.
+
+### P2 — attribution (share of run, incl. preprocessor child)
+
+`--no-model` prod (np): arena/EStore + memo-HashMaps 26/36/57/62 %
+(init-prelude/grind/beta-ladder/app-lam), allocator 19–25 %, RC
+13–15 %, preprocessor child 23/12/1/0.3 %, `Lean.Json` frontend
+7.3/4.6/0.2/0.1 %, core bodies+levels 4.3/6.6/0.05/0.03 %,
+knot/dispatch as above, fuel arithmetic unmeasurable (< 0.05 %).
+
+`--no-model` cached (nc): ExprC walks + per-walk memo-HashMaps
+31/33/49/49 %, allocator 21–25 %, RC 16–22 %, preprocessor
+15/9/2/0.5 %, parser 4.7/3.0/0.3/0.2 %, knot 3.8/4.1/0.05/0.04 %.
+Top symbols: `ExprC.instantiateRevGo`/`instantiateListGo`, the
+`Std.DHashMap` insert/get/expand at the walk-memo spec sites,
+`ExprC.beqB` (5.3 % on prelude); interned side `EStore.internT/internP`
++ `ENode` hashing.  **Allocation/RC churn plus per-walk hash-map memo
+traffic is 68–97 % of every `--no-model` run.**
+
+### P3 — the language control: lean4lean ≈ official
+
+lean4lean (arena2 checkout @ ecb3b66, `--import`, same raw ndjson;
+numbers include its COUNT instrumentation, so upper bounds):
+beta-ladder 1.00×, app-lam 1.01×, let-ladder 1.01×, init-prelude
+1.42×, grind-ring-5 1.97× of official — a Lean kernel with direct
+recursion, pointer-equality `Expr`s and runtime-cached hashes MATCHES
+the C++ kernel.  "Written in Lean" is not the gap; the architecture is.
+(Caveats: it checks fewer decls — 1774 vs 2056 on init-prelude, Quot
+records erased — and still rejects preprocessed streams at
+`PSigma'.fst` "invalid projection", the known divergence, so the
+control stays raw-only.)
+
+### THE HONEST GAP — preprocessed both sides (user directive)
+
+Official v4.33.0 ingests the preprocessed streams (raw-vs-pre penalty:
++77 % init-prelude, +2.3 % init-full) and the decl counts nearly close
+(60060 vs 61048 on init-full).  Same stream, both kernels, no spawn:
+
+| stream | official | np `--pre` | nc `--pre` |
+|---|---|---|---|
+| init-prelude | 3.914 G | 15.967 (4.08×) | 27.572 (7.04×) |
+| grind-ring-5 | 15.733 | 70.097 (4.46×) | 97.273 (6.18×) |
+| app-lam | 29.451 | 388.404 (13.19×) | 226.906 (7.70×) |
+| beta-ladder | 10.149 | 80.742 (7.96×) | 44.508 (4.39×) |
+| let-ladder | 6.145 | 22.831 (3.72×) | 10.882 (1.77×) |
+| init-full | 412.918 | 1667.930 (4.04×) | 2849.035 (6.90×) |
+
+The cores SPLIT by stream shape: cached wins term-heavy (app-lam 7.7×
+vs 13.2×), interned wins decl-heavy (4.0–4.5× vs 6.2–7.0× — the walk
+memos are cheap indices there).  A per-stream core choice would take
+the min of both columns.
+
+### The seven experiments (all measured, all verdict-identical)
+
+| exp | what | where | measured (instructions) |
+|---|---|---|---|
+| E1 | Thunk-cache the previous fuel level in `coreKnotNC`/`coreKnotFNC` (record built once per level reached, not per call) | `Setlec/Kernel/CoreNC.lean` | np: −0.2/−2.2/−2.5 % (prelude/grind/beta) |
+| E2 | `@[inline]` memo twins (`memoEINC`/`memoBINC`) so the probe compiles into the field closure | `Setlec/Kernel/CoreNC.lean` | np: −1.5/−1.1/−0.0 % |
+| E4 | inferFC-first infer memo — **dropped**: master's `memoEIO` (agent/memoshare, task #161 follow-up 1) is the same restoration, ratified; this landing wires `memoEIO` over the thunked knot | superseded | (master measured −1.79/−1.09/−0.95 %) |
+| E5 | byte-level frontend fast path for `{"ie":…}` app/lam/forallE/const/bvar/sort/letE and `{"in":…,"str":…}` (97 % of preprocessed init-prelude lines), fallback to `Lean.Json` on any mismatch | `Setlec/Frontend/Export.lean` | np prelude −5.2 %; nc prelude −3.3 %; nc grind −2.2 % |
+| E6 | Thunk-cache the **cached certified** knot | `Setlec/Cached/CoreC.lean` | nc: −2.4/−2.5/−0.0 % |
+| E7 | Thunk-cache the **interned certified** knot | `Setlec/Kernel/CoreI.lean` | sp: −2.3/−2.4/−1.7 % |
+
+**THE THUNK.GET DEFINITIONAL FINDING (load-bearing for the R1 round):**
+`Thunk.get ⟨fun _ => x⟩` is definitionally `x`, so Thunk-caching the
+knots changed NO proof: the full build (511 jobs) — including all 207
+`Verify`/`SetR` references to `coreKnotI` and 194 in `Verify/Cached` —
+is green without touching a single proof line.  Both "proof-adaptation
+bills" measured ZERO.  Cumulative branch effect: np init-prelude
+−8.1 %, nc init-prelude −6.0 %, nc grind −4.7 %, sp init-prelude
+−5.4 %, sp grind −4.3 %.  Verdict identity: every A/B row same
+exit/accept counts; arena suite (incl. no-model sweep) green at every
+measured variant; `lake test` green.
+
+### THE ARCHITECTURAL FLOOR (recorded verbatim per coordinator disposition)
+
+Beyond the landed fixes, the only bucket that can move the remaining
+multiple is R1: allocation/RC churn + per-walk DHashMap memo traffic in
+the term walks — pack/flatten walk-memo keys (tuple keys alloc per
+probe), Array-backed per-walk memos, cut node-rebuild allocs.  Est.
+20–40 % on term-heavy rows; ExprC/CoreC shapes are SimC-constrained so
+structural changes carry a real (but, per the thunk precedent,
+sometimes zero) proof bill.  Beyond that, the architecture itself
+(hash-cons/memo-key every intermediate of every substitution — what
+official and lean4lean simply don't do) is the floor; the NbE-pilot
+successor note stands.
+
+Dispositions (coordinator, 2026-09-03): E1/E2/E5/E6/E7 landing granted
+(this merge); E4 dropped for master's memoshare; R1 approved as the
+next scoped campaign (per-experiment A/B, SimC proof bill flagged each
+time, statement-freeze cadence when nonzero); E5's extension to decl
+records folds into R1; preprocessor floor out of kernel scope.

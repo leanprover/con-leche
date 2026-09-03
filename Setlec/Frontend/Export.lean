@@ -706,6 +706,301 @@ private def processLine (st : State) (j : Json)
       pure (.inr "declaration's unshared tree size exceeds the frontend budget (heavily DAG-shared input; this record kind still materializes trees)")
     else throw e
 
+/-! ### perf-eng E5: byte-level fast path for hot table entries
+
+The stream is dominated by tiny table-entry records — on preprocessed
+init-prelude, 88 % of lines are `{"ie":…}` and 9 % are `{"in":…}` —
+and the generic `Lean.Json` DOM (Parsec + `DTreeMap` object per line)
+is pure overhead for them.  This fast path pattern-matches the exact
+emitter byte layouts of the hot shapes and interns directly; on ANY
+mismatch (unknown kind, `pw` field present, escaped/odd strings,
+taint-active const entries, trailing bytes) it returns `.fallback`
+with the state untouched and the generic path runs as before.  A
+handled line performs the byte-identical state update the generic
+path would (`parseNameEntry`/`parseExprEntry` semantics, including
+the taint/size bookkeeping); intern-time errors reuse the generic
+error strings.  No verified module imports the frontend. -/
+
+/-- A parsed hot expression-table node, still in stream indices. -/
+private inductive FastNode where
+  | app (f a : Nat)
+  | binder (isAll : Bool) (name ty body : Nat)
+  | letE (name ty vl body : Nat)
+  | const (name : Nat) (us : List Nat)
+  | bvar (k : Nat)
+  | sort (l : Nat)
+
+/-- A parsed hot line. -/
+private inductive FastLine where
+  | ie (i : Nat) (n : FastNode)
+  | inStr (i pre : Nat) (s : String)
+
+/-- Fast-path outcome: `.handled` carries the generic-path-identical
+result; `.fallback` returns the untouched state for the `Lean.Json`
+path (also on any semantic miss — the generic path then produces the
+canonical error). -/
+private inductive FastRes where
+  | handled (r : Except String State)
+  | fallback (st : State)
+
+private def bIE : ByteArray := "{\"ie\":".toUTF8
+private def bIN : ByteArray := "{\"in\":".toUTF8
+private def bAPP : ByteArray := ",\"app\":{\"arg\":".toUTF8
+private def bFN : ByteArray := ",\"fn\":".toUTF8
+private def bLAM : ByteArray := ",\"lam\":{\"binderInfo\":\"".toUTF8
+private def bFORALL : ByteArray := ",\"forallE\":{\"binderInfo\":\"".toUTF8
+private def bBODYQ : ByteArray := "\",\"body\":".toUTF8
+private def bNAME : ByteArray := ",\"name\":".toUTF8
+private def bTYPE : ByteArray := ",\"type\":".toUTF8
+private def bCONST : ByteArray := ",\"const\":{\"name\":".toUTF8
+private def bUS : ByteArray := ",\"us\":[".toUTF8
+private def bBVAR : ByteArray := ",\"bvar\":".toUTF8
+private def bSORT : ByteArray := ",\"sort\":".toUTF8
+private def bLETE : ByteArray := ",\"letE\":{\"body\":".toUTF8
+private def bVALUE : ByteArray := ",\"value\":".toUTF8
+private def bSTRPRE : ByteArray := ",\"str\":{\"pre\":".toUTF8
+private def bSTRK : ByteArray := ",\"str\":".toUTF8
+private def bCLOSE2 : ByteArray := "}}".toUTF8
+private def bCLOSE1 : ByteArray := "}".toUTF8
+private def bBIdefault : ByteArray := "default".toUTF8
+private def bBIimplicit : ByteArray := "implicit".toUTF8
+private def bBIstrict : ByteArray := "strictImplicit".toUTF8
+private def bBIinst : ByteArray := "instImplicit".toUTF8
+
+/-- Match a literal byte string at `i`; the position after it. -/
+private def fsLit (b : ByteArray) (i : Nat) (lit : ByteArray) :
+    Option Nat := Id.run do
+  let n := lit.size
+  if i + n > b.size then return none
+  for k in [0:n] do
+    if b[i + k]! != lit[k]! then return none
+  return some (i + n)
+
+/-- Parse a decimal `Nat` at `i` (≤ 20 digits; longer falls back). -/
+private def fsNat (b : ByteArray) (i0 : Nat) : Option (Nat × Nat) := Id.run do
+  let mut acc : Nat := 0
+  let mut i := i0
+  let mut seen := false
+  for _ in [0:20] do
+    if h : i < b.size then
+      let c := b[i]
+      if 48 ≤ c.toNat ∧ c.toNat ≤ 57 then
+        acc := acc * 10 + (c.toNat - 48)
+        i := i + 1
+        seen := true
+      else break
+    else break
+  if h : i < b.size then
+    if 48 ≤ b[i].toNat ∧ b[i].toNat ≤ 57 then return none
+  if seen then return some (acc, i) else return none
+
+/-- Parse a JSON string at `i` with no escapes (backslash falls back;
+multi-byte UTF-8 passes through `String.fromUTF8?` validation). -/
+private def fsStr (b : ByteArray) (i0 : Nat) : Option (String × Nat) := Id.run do
+  if h : i0 < b.size then
+    if b[i0] != 34 then return none
+  else return none
+  let mut close : Option Nat := none
+  for k in [i0 + 1 : b.size] do
+    let c := b[k]!
+    if c == 34 then
+      close := some k
+      break
+    else if c == 92 ∨ c < 32 then return none
+  match close with
+  | none => return none
+  | some k =>
+    match String.fromUTF8? (b.extract (i0 + 1) k) with
+    | some s => return some (s, k + 1)
+    | none => return none
+
+/-- The four `binderInfo` spellings (validated and discarded, as
+`parseBinderInfo`). -/
+private def fsBinderInfo (b : ByteArray) (i : Nat) : Option Nat :=
+  (fsLit b i bBIstrict) <|> (fsLit b i bBIinst) <|>
+  (fsLit b i bBIimplicit) <|> (fsLit b i bBIdefault)
+
+/-- `NAT ("," NAT)* "]"` or `"]"` — the `us` list tail. -/
+private def fsNatList (b : ByteArray) (i0 : Nat) :
+    Option (List Nat × Nat) := Id.run do
+  if h : i0 < b.size then
+    if b[i0] == 93 then return some ([], i0 + 1)  -- ']'
+  else return none
+  let mut i := i0
+  let mut acc : List Nat := []
+  for _ in [0 : b.size] do
+    match fsNat b i with
+    | none => return none
+    | some (v, j) =>
+      acc := v :: acc
+      if h : j < b.size then
+        if b[j] == 44 then i := j + 1  -- ','
+        else if b[j] == 93 then return some (acc.reverse, j + 1)
+        else return none
+      else return none
+  return none
+
+/-- Parse one hot line; `none` = not a handled shape. -/
+private def fastParse (b : ByteArray) : Option FastLine := do
+  let n := b.size
+  let ate (i : Nat) (lit : ByteArray) : Option Nat := fsLit b i lit
+  let atEnd2 (i : Nat) : Option Unit := do
+    let j ← ate i bCLOSE2
+    if j = n then pure () else none
+  let atEnd1 (i : Nat) : Option Unit := do
+    let j ← ate i bCLOSE1
+    if j = n then pure () else none
+  match fsLit b 0 bIE with
+  | some i =>
+    let (idx, i) ← fsNat b i
+    -- dispatch on the byte after `,"`
+    if i + 2 < b.size then
+      match b[i + 2]! with
+      | 97 => do  -- 'a' → app
+        let i ← ate i bAPP
+        let (a, i) ← fsNat b i
+        let i ← ate i bFN
+        let (f, i) ← fsNat b i
+        atEnd2 i
+        pure (.ie idx (.app f a))
+      | 108 => do  -- 'l' → lam / letE
+        match ate i bLAM with
+        | some i => do
+          let i ← fsBinderInfo b i
+          let i ← ate i bBODYQ
+          let (bd, i) ← fsNat b i
+          let i ← ate i bNAME
+          let (nm, i) ← fsNat b i
+          let i ← ate i bTYPE
+          let (ty, i) ← fsNat b i
+          atEnd2 i
+          pure (.ie idx (.binder false nm ty bd))
+        | none => do
+          let i ← ate i bLETE
+          let (bd, i) ← fsNat b i
+          let i ← ate i bNAME
+          let (nm, i) ← fsNat b i
+          let i ← ate i bTYPE
+          let (ty, i) ← fsNat b i
+          let i ← ate i bVALUE
+          let (vl, i) ← fsNat b i
+          atEnd2 i
+          pure (.ie idx (.letE nm ty vl bd))
+      | 102 => do  -- 'f' → forallE
+        let i ← ate i bFORALL
+        let i ← fsBinderInfo b i
+        let i ← ate i bBODYQ
+        let (bd, i) ← fsNat b i
+        let i ← ate i bNAME
+        let (nm, i) ← fsNat b i
+        let i ← ate i bTYPE
+        let (ty, i) ← fsNat b i
+        atEnd2 i
+        pure (.ie idx (.binder true nm ty bd))
+      | 99 => do  -- 'c' → const
+        let i ← ate i bCONST
+        let (nm, i) ← fsNat b i
+        let i ← ate i bUS
+        let (us, i) ← fsNatList b i
+        atEnd2 i
+        pure (.ie idx (.const nm us))
+      | 98 => do  -- 'b' → bvar
+        let i ← ate i bBVAR
+        let (k, i) ← fsNat b i
+        atEnd1 i
+        pure (.ie idx (.bvar k))
+      | 115 => do  -- 's' → sort
+        let i ← ate i bSORT
+        let (l, i) ← fsNat b i
+        atEnd1 i
+        pure (.ie idx (.sort l))
+      | _ => none
+    else none
+  | none => do
+    let i ← fsLit b 0 bIN
+    let (idx, i) ← fsNat b i
+    let i ← ate i bSTRPRE
+    let (pre, i) ← fsNat b i
+    let i ← ate i bSTRK
+    let (s, i) ← fsStr b i
+    atEnd2 i
+    pure (.inStr idx pre s)
+
+/-- Semantic phase for a hot `{"ie":…}` line: `parseExprEntry`'s exact
+state update (children/taint/size bookkeeping included); `.fallback`
+on any missing index or when const-taint is active. -/
+private def fastApplyIE (st : State) (i : Nat) (fn : FastNode) : FastRes :=
+  -- resolve everything read-only first (st stays untouched on fallback)
+  let mk : Option (ENode × List Nat) :=
+    match fn with
+    | .app f a => do
+      let fe ← st.exprs[f]?
+      let ae ← st.exprs[a]?
+      pure (.app fe ae, [f, a])
+    | .binder isAll nm ty bd => do
+      let nI ← st.names[nm]?
+      let tI ← st.exprs[ty]?
+      let bI ← st.exprs[bd]?
+      pure (if isAll then (.forallE nI tI bI ⟨.default, .never⟩, [ty, bd])
+            else (.lam nI tI bI ⟨.default, .never⟩, [ty, bd]))
+    | .letE nm ty vl bd => do
+      let nI ← st.names[nm]?
+      let tI ← st.exprs[ty]?
+      let vI ← st.exprs[vl]?
+      let bI ← st.exprs[bd]?
+      pure (.letE nI tI vI bI, [ty, vl, bd])
+    | .const nm us => do
+      let nI ← st.names[nm]?
+      let usI ← us.mapM (st.levels[·]?)
+      pure (.const nI usI, [])
+    | .bvar k => pure (.bvar k, [])
+    | .sort l => do
+      let lI ← st.levels[l]?
+      pure (.sort lI, [])
+  match mk with
+  | none => .fallback st
+  | some (node, cs) =>
+    -- const entries under an active taint map need the Name readback
+    -- (`taintedNames[name]?`): rare, and the generic path handles it
+    if (match fn with | .const .. => true | _ => false)
+        && !st.taintedNames.isEmpty then .fallback st
+    else
+      let taint : Option Name := cs.findSome? (fun c => st.tainted[c]?)
+      let size : Nat := min declTreeSizeBudget
+        (cs.foldl (fun acc c => acc + (st.sizes[c]?.getD 1)) 1)
+      match st.intern' node with
+      | .error e => .handled (.error e)
+      | .ok (e, st) =>
+        let st := { st with exprs := st.exprs.insert i e }
+        let st := if size > 1 then
+          let m := st.sizes
+          let st := { st with sizes := {} }
+          { st with sizes := m.insert i size }
+        else st
+        if let some root := taint then
+          let t := st.tainted
+          let st := { st with tainted := {} }
+          .handled (.ok { st with tainted := t.insert i root })
+        else
+          .handled (.ok st)
+
+/-- Semantic phase for a hot `{"in":…,"str":…}` line
+(`parseNameEntry`'s exact update). -/
+private def fastApplyIN (st : State) (i pre : Nat) (s : String) : FastRes :=
+  match st.names[pre]? with
+  | none => .fallback st
+  | some p =>
+    match st.internN' (.str p s) with
+    | .error e => .handled (.error e)
+    | .ok (ni, st) => .handled (.ok { st with names := st.names.insert i ni })
+
+/-- The fast path: parse phase (pure, state-free) then semantic phase. -/
+private def fastEntry (st : State) (line : String) : FastRes :=
+  match fastParse line.toUTF8 with
+  | some (.ie i n) => fastApplyIE st i n
+  | some (.inStr i pre s) => fastApplyIN st i pre s
+  | none => .fallback st
+
 /-- Initial parse state: the implicit level-table index 0 (`zero`)
 and name-table index 0 (`anonymous`) pre-interned. -/
 private def initState : State :=
@@ -724,10 +1019,17 @@ private def feedLine (st : State) (line : String) (lineNo : Nat)
     (modeled : Bool) : Except FrontendError State :=
   if line.trimAscii.isEmpty then .ok st
   else
-    match Json.parse line >>= (fun j => processLine st j modeled) with
-    | .error msg => .error (.parseError lineNo msg)
-    | .ok (.inr what) => .error (.unsupported what)
-    | .ok (.inl st) => .ok st
+    -- perf-eng E5: byte-level fast path for the hot table-entry
+    -- shapes; `.fallback` returns the state untouched (linearly) and
+    -- the generic `Lean.Json` path runs exactly as before.
+    match fastEntry st line with
+    | .handled (.ok st) => .ok st
+    | .handled (.error msg) => .error (.parseError lineNo msg)
+    | .fallback st =>
+      match Json.parse line >>= (fun j => processLine st j modeled) with
+      | .error msg => .error (.parseError lineNo msg)
+      | .ok (.inr what) => .error (.unsupported what)
+      | .ok (.inl st) => .ok st
 
 /-- A parsed export stream. -/
 structure ParseResult where
