@@ -27857,3 +27857,237 @@ records stay per restrictions-are-findings; the match-reference
 proper — proofIrrel-class accept-supersets are tolerated under the
 soundness proof.  REVISIT TRIGGER on record: an arena bad-test
 (official-reject ground truth) hitting the class.
+
+## Task #161 THE SEPARATION — S7 SEALED (2026-09-03, `agent/sep-s7`,
+unpushed): THE CRITERION IS MET — THE WHITELIST READS ONE LINE
+
+**THE SUCCESS-CRITERION VERDICT, FIRST.**  The criterion on record
+was "after S7 the whitelist reads `FoldP → Bridge/Sound` alone, or
+NOTHING".  **MET, in the first form.**
+
+```
+layering: base 235 / R 127 / P 116 / neutral 3 modules;
+          1 P->R edges, all whitelisted; 0 R->P
+```
+
+`EnvS2PM.base` is deleted, `base_erase` and `coreOfBase` with it, and
+the four edges they fed died together.  `MemberKeyS`, `EnvS`,
+`extend*S`, `memberInstallS`, `indRecsS`, `projFnS`, `templateConsS`,
+`declDefnS`/`declThmS`/`declOpaqueS`, `propextKeyS_mem`,
+`choiceKeyS_mem`, `ofReduceKeyS_mem` and `EnvS.cval_memType` are all
+out of the P lane.  **The P lane's `.base` reads are 0.**
+
+| commit | | edges |
+|---|---|---|
+| `d557033d` | **Walls A and B** — `SetBase/IndRecsCoreR.lean` (`provisionRecsRcore`, `EnvR.swap`, `indRecsCoreR`, later `swapEnvFacts`) and `SetBase/ProjFnRR.lean` (`EnvR.consProjFn`, `projFnRR`, later `projFnR_head`); `Bridge/*` drops its model (`declIndRR`, `checkDeclR_ofEnvRE`) | 5 |
+| `06ae3908` | **Wall C, the residue, ONE commit** — the ratified six steps | **1** |
+
+### 1. WALLS A AND B, AGAINST THE S6 ITEMISATION
+
+S6 sized Wall A at ~300 ln and Wall B at ~400 ln.  Measured:
+
+| owed at S6 | landed | note |
+|---|---|---|
+| `provisionRecsRcore` ~50 ln | **40 ln** | `provisionRecsS` with `hkey` and the model struck out; nothing else changed |
+| `EnvR.swap` + `indRecsCoreR` ~250 ln | **~300 ln** | see below — `EnvR.swap` came out *smaller* than `EnvS.swap` and `indRecsCoreR` *larger* than budgeted |
+| `EnvR.consProjFn` ~200 ln | **~180 ln** | the hard field went exactly as S6 read it |
+| the template pass's `EnvR` cons + `projInstallRR` ~150 ln | **`projInstallRS` re-signed, 0 new lines; the template cons NOT OWED** | finding 1 below |
+| `declIndRR` + `checkDeclR_ofEnvRE` ~50 ln | **35 ln** | |
+
+**`EnvR.swap` is strictly smaller than `EnvS.swap`,** and the reason is
+structural: an `EnvR` has no `rec_ctors`, no `basis_pinned`, no
+`eq_lawV`, no `caps_ok` and no `rec_rules`, so the swap needs neither
+`RecCtorsStored` nor `SwapNResS` nor a law — only `EnvWF` and the two
+rule facts, taken as hypotheses exactly as `EnvS.swap` takes its law.
+The transport is `denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq`,
+verbatim.
+
+**The one join that is not a copy** (both walls need it, and S6 did
+not name it): `RuleFactsR`'s fired-rule conjunct and `ProjFnR`'s rule
+front door denote the right-hand side **uninstantiated** — that is the
+shape the H1 run exposure stores — while `EnvR.rec_rhs_denotes` asks
+for the *level-instantiated* one.  `denote_instLevels`
+(`Verify/Denote/Levels.lean`) is the bridge, at the substituted
+assignment `Level.substFn ψ cv.levelParams us`, and its `ValParams`
+premise **is `EnvR.val_params` verbatim**.  Nothing semantic is
+involved; the fact was simply stored one instantiation away from its
+consumer.  (Fourth instance of S6's finding 3, and the first where the
+gap is an *instantiation*, not a wrapper.)
+
+`projInstallRS` came out **three premises lighter**: `hpinsT`,
+`hCblock` and `hFields` were `projFnS`'s, not the fold's, and
+`projFnRR` does not want them.  That deleted `hidR`, `hkeepR`,
+`hpinsR`, `hCblockR`, `hFieldsR` and `hnonrecUp` from `declIndRS`'s
+assembly — ~60 lines of bookkeeping that existed only to feed the
+install.
+
+### 2. FINDINGS (restrictions-are-findings)
+
+1. **The template `EnvR` cons was never owed.**  S6's Wall B
+   itemisation included it.  Measured, the bridge's template pass
+   (`templatesR_of`) consumes **no carrier at all** — `declIndRS`
+   returns a `Prop` and the templates are the last fold — and the P
+   lane's `templateConsS mp.base` site does not need a model-free twin
+   either: it **dies with the field**, because all it ever produced
+   was the next `base`.  General shape: *a site that only feeds a
+   field being deleted needs no replacement, only deletion* — and the
+   S5/S6 bills counted such sites as work.
+2. **THE SIZING ERROR THE PLAN CARRIED FROM S3 TO S6, NAMED.**  The
+   staged residue diff sized the trade by its **leaves** — "40
+   whole-`mp.base` passes, 128 currency sites" — and the leaves are
+   indeed what it says.  What it never counted is the **wrapper stack
+   between `declStepPM_of_cons` and those leaves**, which *re-states*
+   `hbase`/`hag`/`hAerase` **thirty-five times** (`BasisStepP` ×4, the
+   per-constant `extend*P` ×22, `IndConsP` ×4, `HarvestP` ×4,
+   `ProjConsP`, `InstallP` ×2 minus overlap; 37 `hag` binders).  That
+   is the whole reason the removal is atomic *and* large: the field's
+   deletion propagates through five layers, not one.  **Sixth
+   correction to a sizing**, and the campaign's reusable form of it is
+   now: *count the signatures the premise crosses, not the call sites
+   it ends at.*  The mitigation that made it tractable is worth
+   recording: **bundle the traded premises into one named structure**
+   (`ConsHeadP`), so each of the 35 signatures trades three binders
+   for one.
+3. **The gate saw imports, not crossings — for the fifth time, and
+   this time it cost sixteen symbols.**  Killing the four imports
+   exposed sixteen declarations the P lane had been resolving
+   *through* them: `Env.find?_name`/`find?_mem`, `DivModClausesV` and
+   `divModClausesV_divmod`, `eq{,Refl,Rec}ValT_closed`,
+   `psigmaRecValT`/`pairProjValT` and their closedness,
+   `natRec{Zero,Succ}Rule` + `natRecA_eq`, `quot{Ind,Lift}Rule`,
+   `{quotInd,quotLift,eqRec,psigmaRec}A_eq`, `projEntry`,
+   `templateVal`, `projFwd_model_self`.  **Every one is syntactic**
+   (pure `Expr`/`RecRule`/`VExpr`, or a `SetTheory`-generic clause
+   over an abstract `val : Name → V`), so every one re-based verbatim
+   — two new base modules (`SetBase/BasisRules.lean`,
+   `SetBase/PSigmaTower.lean`) and four relocations into existing
+   ones.  The finding is not that the symbols were R content; it is
+   that **an import-level gate cannot price a de-basing**, and the
+   census's edge count under-read this batch by sixteen declarations.
+4. **The Empty pin's premise dies rather than moves** — the S3 seal's
+   prediction, cashed.  `no_constant_of_Empty_P` reaches the pin in
+   the branch where `Empty` **is stored**, so `EnvS2Core`'s own
+   `basis_pinnedL` gives it (`EnvS2Core.cvalE_pinned`, the model-free
+   twin of `cvalS_pinned`).  The census's "ONE hard residue" needed no
+   carrier field at all.
+5. **`DeclIndRunR`'s tombstone is now due** (S5's design note).  Wall
+   B closed, `declIndRS` is no longer the only producer of a
+   `DeclIndR` — `declIndRR` is, off an `EnvR` — and `FoldP` obtains
+   the whole record from `checkDeclR_ofEnvRE` through
+   `EnvS2PM.toEnvR`.  The one row the design note was for
+   (`IotaNestedPinReadsR`) is discharged by the bridge itself, exactly
+   as predicted.  **The note is a tombstone; nothing is owed.**
+6. **`declIndRS` is now consumer-free.**  It is kept (frozen
+   statement, byte-unchanged, re-proved as `declIndRR m.toEnvR`), and
+   it is the *only* reason `Bridge/DeclInd.lean` still imports
+   `Install/DeclIndS` (for `MemberKeyS`) and still mentions `EnvS`.
+   Deleting it is the lead's call; it is not a proof obligation.
+
+### 3. THE LAST EDGE, AND WHAT IT NOW IS
+
+`FoldP → Bridge/Sound` survives, and its character has changed
+completely.  It is **not** an install round trip any more: what `FoldP`
+imports is `checkDeclR_ofEnvRE`, whose statement and whose whole proof
+tree mention no model — the ind kind's premise is discharged by
+`declIndRR`, which runs on an `EnvR`.  The edge survives because
+`Bridge/*` still **sits** under `Setlec/SetR/`.
+
+Killing it is therefore a **move**, not a proof: 20 of the 23
+`Bridge/*` modules already contain no `EnvS V`, and the three that do
+(`Decl` — one adapter `EnvS.toEnvR`; `DeclInd` — the consumer-free
+`declIndRS`; `Sound` — `checkDeclR_sound`/`checkDeclRun_sound`/
+`foldlM_R`, the R lane's own fold) are exactly the R-lane instances.
+The move is the census's re-basing pattern at `Bridge/*` scale, and it
+is what would take the whitelist to **zero**.  Priced for the lead,
+not attempted here — the criterion's first form is met and the batch's
+ratified scope ends at the residue.
+
+### 4. BATTERY (verbatim)
+
+* `lake build` — clean, warning-free, **533** jobs (529 + `SetBase/`
+  `IndRecsCoreR`, `ProjFnRR`, `BasisRules`, `PSigmaTower`).
+* `lake test` — exit 0.
+* `tests/arena.sh` — exit 0:
+
+  ```
+  layering: base 235 / R 127 / P 116 / neutral 3 modules; 1 P->R edges, all whitelisted; 0 R->P
+  arena tutorial: 90/92 good tests accepted
+  e2e: 73/73 as expected
+  annot suite: 14/14 as expected
+  split driver: 11/11 as expected
+  mode flags: 9/9 as expected
+  no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+  ```
+* Axiom audit, 12 capstones (`_tmp/sep-s7/Audit.lean`): every one
+  `[propext, Classical.choice, Quot.sound]`, unchanged.
+* **md5 identity**: master moved during the batch (`b7e2191f`, the
+  perf-eng trust-shrink round); merged.  `git diff master --
+  Setlec/Kernel Main.lean Setlec/Cached Setlec/Frontend
+  AnnotateBasis.lean Setlec/PinGen` is **empty**, and
+  `.lake/build/bin/setlec` has md5 `29abe904…` — **identical to
+  master's** (pure-moves standard, no verdict battery owed; the arena
+  suite above was run anyway, before and after the merge).
+* Zero `sorry`s; no new axioms; **no frozen statement edited.**
+  `DeclIndS`, `declEtaStep`, `declEtaStepRun`, `checkDeclR_sound`,
+  `checkDeclR_ofEnvR`, `checkDeclRun_sound`, `declIndRS`, `indRecsS`,
+  `projFnS`, `indRecsFoldS` and the 12 capstones are byte-identical in
+  statement, diffed against the branch point; only `declIndRS`'s and
+  `checkDeclR_sound`'s **proofs** changed (both are now one-liners
+  through their model-free skeletons) and `no_constant_of_Empty_P`'s.
+  The signature changes are all *weakenings*, *trades* or *namings*,
+  and each is listed:
+  * `projInstallRS`: `EnvS V` → `EnvR`, and three premises dropped;
+  * `EnvS2PM`: `base` and `base_erase` **deleted** (the ratified
+    edit), `coreOfBase` with them;
+  * `declStepPM_of_cons` and the 35 wrappers above it: `hbase`, `hag`,
+    `hAerase` → `hh : ConsHeadP env c₀ A`;
+  * `harvestDefnP`/`ThmP`/`OpaqueP`: `m'`, `hag` (and the opaque's
+    `hleafEq`/`hannv2`) dropped — they build their own `EnvWF` from
+    the run record; `harvestAxiomP`: `hbase`/`hag`/`hAerase` →
+    `hAvclosed`;
+  * `indMemberP`: `hbase`/`hbcval` → `hwf`; `projConsP`:
+    `hbase`/`hbcval` → `hwf` + `hctorsHead`; `templateConsP`: the
+    `EnvS` dropped outright;
+  * `EnvS2PM.swapP`: `hbase₃`/`hbcval` → `hwf₃`/`hctors₃`/`hbp₃`/
+    `hproj₃` (`swapEnvFacts`);
+  * `memberInstallPM`, `indMembersPM`, `provisionRecsPM`, `indRecsP`,
+    `extendPairFstP`/`extendPairSndP`: `hkey : MemberKeyS V` dropped
+    (`extendPair*P` gained `hM` in exchange, for `ProjOkT`'s head).
+  **None adds a hypothesis to any capstone**, and the 12 capstone
+  statements and their axiom audits are unchanged.
+
+| metric | S6 | S7 |
+|---|---|---|
+| gate: base / R / P / neutral | 231 / 127 / 116 / 3 | **235 / 127 / 116 / 3** |
+| **P→R edges** | 5 | **1** |
+| `closure(FoldP) ∩ SetR` | 93 mod / 64 485 ln | **61 / 35 233** |
+| `closure(HarvestP) ∩ SetR` | 47 / 34 659 | **0 / 0** |
+| `closure(CapstoneP) ∩ SetR` | — | **0 / 0** |
+| P-lane `.base` reads | 174 (25 files) | **0** |
+| — whole-`mp.base` passes | 40 | **0** |
+| `Bridge/*` modules with no `EnvS V` | 20 / 23 | 20 / 23 |
+| base modules | 37 | **41** |
+| build jobs | 529 | **533** |
+
+### 5. SUCCESSION — where S8 starts
+
+**S8 = SP_P**, as ratified, and it starts against a P lane that
+reaches **no `SetR` module except through the single `FoldP →
+Bridge/Sound` line**.  Two items are on the table beside it, both
+priced above and neither a proof:
+
+1. **The last edge is a MOVE** (§3): the model-free `Bridge/*` to the
+   base.  It takes the whitelist to zero; it is 20 of 23 modules
+   already `EnvS`-free, and the three that are not are the R lane's
+   own instances.  The lead's call whether S8 carries it.
+2. **`declIndRS` is consumer-free** (finding 6) and is the only thing
+   keeping `Bridge/DeclInd.lean`'s `EnvS`; deleting it is a
+   one-line removal under D6, and it would make 21 of 23 `Bridge/*`
+   modules `EnvS`-free.
+
+**`DeclIndRunR` is closed** (finding 5): its S5 design note is now its
+tombstone, nothing is owed.
+
+Kit: `tests/layering.sh` (and `--list`); `_tmp/sep-s7/Audit.lean`,
+`closure.py`, `basecount.py` (copied forward from S6); the S1–S6 audit
+files.
