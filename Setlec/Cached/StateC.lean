@@ -198,6 +198,13 @@ structure CState where
   whnfCoreC : Std.HashMap ExprC ExprC := {}
   whnfC : Std.HashMap ExprC ExprC := {}
   inferC : Std.HashMap ExprC ExprC := {}
+  /-- Memo of the *checking-mode* inference (`coreKnotFNC`, the
+  `--no-model` cached parity lane, `Setlec/Cached/CoreNC.lean`), kept
+  apart from `inferC` so a result derived in infer-only mode can never
+  be served to a checking-mode query.  Unused — and always empty — on
+  the certified path, which never builds `coreKnotFNC`; the
+  counterpart of `IState.inferFC` (task #134/#147). -/
+  inferFC : Std.HashMap ExprC ExprC := {}
   defeqC : Std.HashMap (ExprC × ExprC) Bool := {}
   annotC : Std.HashMap ExprC ExprC := {}
   lsimpC : Std.HashMap Level Level := {}
