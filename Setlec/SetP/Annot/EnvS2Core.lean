@@ -1,4 +1,6 @@
-import Setlec.SetR.Annot.EnvS2U
+import Setlec.SetBase.Ok2
+import Setlec.Verify.EnvWF
+import Setlec.Verify.Denote.Pinned
 
 /-!
 # `EnvS2Core` — the denote2-free carrier (task #161, P4 — a FINDING)

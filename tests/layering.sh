@@ -46,8 +46,7 @@ WHITELIST = """
 # `Setlec/SetBase/*`) and the section is empty.
 # --- the de-basing proper: `EnvS2Core.base : EnvS` and the P carriers
 # that reach the collapsed carrier through it (spec point 2).
-Setlec.SetP.Annot.EnvS2Core -> Setlec.SetR.Annot.EnvS2U                 # S3-S5: the `base : EnvS` field itself
-Setlec.SetP.Annot.EnvS2P -> Setlec.SetR.Interp2.EnvS2U                  # S3-S5: ditto, the P mirror's own base
+Setlec.SetP.Annot.EnvS2P -> Setlec.SetR.Interp2.EnvS2U                  # S4-S5: the v1 residue `EnvS2PM.base`, all that is left of `base : EnvS` (S3 de-based the CORE; the residue dies with the install round trip)
 Setlec.SetP.CapstoneP -> Setlec.SetR.Interp2.EmptyPin2          # S7: EnvS.empty_pinned, the capstone's Empty key (census §1.5, the ONE hard residue)
 # --- the v1 install round trip (census §1.3's 47 sites): the P side
 # calls a v1 install lemma only to build the new `EnvS`.  The premises
