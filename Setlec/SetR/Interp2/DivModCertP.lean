@@ -1,5 +1,5 @@
 import Setlec.SetR.Interp2.NatWfP
-import Setlec.SetR.DivModPin
+import Setlec.SetBase.DivModEval
 
 /-!
 # The WF-recursive operations' clauses, established at `interp2` from

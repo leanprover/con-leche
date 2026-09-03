@@ -1,4 +1,4 @@
-import Setlec.SetR.Annot.Ok2
+import Setlec.SetBase.Ok2
 import Setlec.SetR.Annot.EnvS2
 import Setlec.SetR.Interp2.Univ
 import Setlec.SetR.Interp2.BasisOk

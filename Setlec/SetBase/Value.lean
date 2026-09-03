@@ -1,4 +1,4 @@
-import Setlec.SetR.Interp2.Ops
+import Setlec.SetBase.Ops
 import Setlec.TT.Const
 
 /-!

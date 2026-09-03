@@ -1,5 +1,5 @@
 import Setlec.SetR.Interp2.BasisConsP
-import Setlec.SetR.Install.BasisS
+import Setlec.SetBase.EqTower
 
 /-!
 # The annotated hand-built basis towers, `Eq` family (task #161, ENDGAME E)

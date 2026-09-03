@@ -1,4 +1,4 @@
-import Setlec.SetR.Interp2.Interp
+import Setlec.SetBase.Interp
 import Setlec.Verify.Denote.VClosed
 
 /-!

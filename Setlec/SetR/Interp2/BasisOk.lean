@@ -1,5 +1,5 @@
 import Setlec.SetR.Interp2.BasisType
-import Setlec.SetR.Interp2.Interp
+import Setlec.SetBase.Interp
 
 /-!
 # `bval2_mem_type` — every built-in inhabits its annotated type

@@ -1,4 +1,4 @@
-import Setlec.SetR.Interp2.Ops
+import Setlec.SetBase.Ops
 
 /-!
 # The second soundness — feasibility pilots (task #151 tier C)
