@@ -21674,7 +21674,17 @@ the same comparison (and pays it eagerly, before the sort legs).
 | site | what changed |
 |---|---|
 | `Setlec/Verify/Deep.lean:700` `proofIrrel_shift` | 2 goals: one `ite_congr'` per branch, discharged by `ih.defeq hpd hwta hwtb` (`ShiftClaims.defeq`, already in the record) |
-| — | *(the remaining rows are filled in from the full-build run; see the branch's commit series)* |
+| `Setlec/Verify/Disc.lean:306` `proofIrrel_disc` | 2 goals: `ih.site_defeq hta htb` replaces `DiscV.pure trivial` at the two certifying branches (`ScopedSim.site_defeq`, already in the record) |
+| `Setlec/SetR/Annot/SortCoh/Mono.lean:412` `proofIrrel_mono` | 2 goals: a `by_cases` on the guard plus `hs.2.2.2.1` (`CoreSub`'s fourth clause), and the `Prop` branch's `cases w₂` now has to be spelled out (it used to be absorbed by a single `exact h`) |
+| `Setlec/Verify/DiscI2.lean:24` `proofIrrelI_sim` | the `show` body updated (it spells the checker's monadic shape out) + `ih.defeq` at both branches, with the `denoteT_mono` extension chains the interned walk carries |
+| `Setlec/Verify/Cached/DiscC2.lean:37` `proofIrrelC_sim` | same, without extension chains (`RelC` is state-independent) |
+
+Five sites, all mechanical, all in the *plumbing* tier (shift
+invariance, scoped-call discipline, `CoreSub` monotonicity, the two
+simulation walks); **no claim statement, no `DefEq` rule and no
+`P`-tier premise changed**, and there is no new proof obligation
+anywhere — a bigger `if` in the checker is a smaller accepted
+language, which every soundness direction consumes for free.
 
 `proofIrrel_inv` (`Setlec/Verify/InferLemmas.lean:1669`) keeps its
 **statement**: the added conjunct only strengthens the hypothesis, so
