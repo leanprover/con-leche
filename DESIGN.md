@@ -27815,3 +27815,45 @@ recovery allowed; the landing stays ONE commit.  CRITERION
 (verbatim transfer): after S6 the whitelist reads FoldP →
 Bridge/Sound alone, or nothing.  Then S7 SP_P, S8 THE PAYOFF
 CHECK, S9+ io-knot.
+
+## Task #161 SEPARATION — S6 LANDED (2026-09-03; succession-current)
+
+Master @ `faf0dbf7`; battery green; binary md5-identical (six
+batches); whitelist 5; correction ledger +1 (finding 8 refuted at
+two of three walks — env₃ is a swap).  D6 (every new statement with
+a same-batch consumer) held and earned its keep.
+
+**OPERATIONAL INCIDENT, recorded**: the first S6-landing attempt ran
+in the wrong working directory (this thread's cwd resets between
+bash calls; bare `git` commands landed the merge on the parked
+`agent/residual-hunts` branch).  REPAIRED: the branch reset to its
+sealed 2cf984e7; S6 re-merged onto master properly.  Standing rule
+tightened: all git operations in this thread use `git -C
+<absolute-path>`.
+
+**S7 (dispatching), RATIFIED**: Wall A (recursor-group EnvR core,
+~300 ln: provisionRecsRcore + EnvR.swap/indRecsCoreR), Wall B
+(projection front door, ~400 ln: EnvR.consProjFn with ty_denotes
+through RenameOkT + template cons + projInstallRR +
+declIndRR/checkDeclR_ofEnvRE), Wall C (the residue's six steps,
+bill shrunk: 40 whole-passes, 5 ind-tier of which 2 pre-halved),
+closing with base DELETED and the four edges dying.  SP_P → S8,
+THE PAYOFF CHECK → S9.  Criterion transfers verbatim.
+
+**ESCALATION RULE (ratified, binding)**: a THIRD criterion miss
+stops the batch cadence — back to the coordinator as a design-phase
+question with the accumulated bills on the table, BEFORE any S7
+rework.  DeclIndRunR tombstone not yet due.
+
+**USER RULING (2026-09-03), folded into the dispositions table:
+both proofIrrel conformance divergences STAY.**  Verbatim
+rationale: "we have a proof of soundness, so we can omit the check
+and still sleep well" — confirmed to cover the fall-through too
+(both accept-supersets, both licensed by the consistency proof).
+Consequences: `agent/proofirrel-check` parks UNMERGED (the fix
+stays ready); NO three-valued threading round; both fixtures +
+records stay per restrictions-are-findings; the match-reference
+"no strategy supersets" ruling is SCOPED to reduction strategy
+proper — proofIrrel-class accept-supersets are tolerated under the
+soundness proof.  REVISIT TRIGGER on record: an arena bad-test
+(official-reject ground truth) hitting the class.
