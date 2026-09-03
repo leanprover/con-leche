@@ -201,7 +201,7 @@ bespoke cons. -/
 theorem extendEqP (mp : EnvS2PM V μ env)
     (hfresh : env.find? eqName = none)
     (hbase : EnvS V ⟨eqA :: env.consts⟩)
-    (hag : ∀ n, n ≠ eqA.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ eqA.name → mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval eqA.name ψ = eqValT ψ) :
     ∃ mp' : EnvS2PM V μ ⟨eqA :: env.consts⟩,
       mp'.base2.acval
@@ -239,7 +239,7 @@ theorem extendEqReflP (mp : EnvS2PM V μ env)
     (hEv : ∀ ψ : Name → Nat, mp.base2.acval eqName ψ = eqValT2 ψ)
     (hfresh : env.find? eqReflA.name = none)
     (hbase : EnvS V ⟨eqReflA :: env.consts⟩)
-    (hag : ∀ n, n ≠ eqReflA.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ eqReflA.name → mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval eqReflA.name ψ = eqReflValT ψ) :
     ∃ mp' : EnvS2PM V μ ⟨eqReflA :: env.consts⟩,
       mp'.base2.acval
@@ -1152,7 +1152,7 @@ theorem extendEqRecP (mp : EnvS2PM V μ env)
       mp.base2.acval eqReflName ψ = eqReflValT2 ψ)
     (hfresh : env.find? eqRecA.name = none)
     (hbase : EnvS V ⟨eqRecA :: env.consts⟩)
-    (hag : ∀ n, n ≠ eqRecA.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ eqRecA.name → mp.base.cval n = hbase.cval n)
     (hcv : ∀ ψ, hbase.cval eqRecA.name ψ = eqRecValT ψ) :
     ∃ mp' : EnvS2PM V μ ⟨eqRecA :: env.consts⟩,
       mp'.base2.acval
@@ -1210,10 +1210,10 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
   subst hnil
   have hf1 : env.find? eqName = none := Option.isNone_iff_eq_none.mp h1
   have hwf1 : EnvWF ⟨eqA :: env.consts⟩ :=
-    EnvWF.cons mp.base2.base.wf ⟨rfl, rfl, rfl, rfl,
+    EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩
-  obtain ⟨m1, hm1⟩ := extendEqS mp.base2.base hf1 hwf1
+  obtain ⟨m1, hm1⟩ := extendEqS mp.base hf1 hwf1
   obtain ⟨mp1, hac1⟩ := extendEqP mp hf1 m1
     (fun n hn => by rw [hm1, cvalWith_ne hn])
     (fun ψ => by rw [hm1, cvalWith_self])
@@ -1241,9 +1241,9 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
               { bi := .default, pw := .ifAllZero [] })
             { bi := .implicit, pw := .ifAllZero [] } from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨m2, hm2⟩ := extendEqReflS mp1.base2.base hE1
+  obtain ⟨m2, hm2⟩ := extendEqReflS mp1.base hE1
     (fun ψ => by
-      rw [← mp1.base2.acval_erase eqName ψ, hEv1 ψ]
+      rw [← mp1.base_erase eqName ψ, hEv1 ψ]
       exact eqValT2_erase ψ)
     hf2 hwf2
   obtain ⟨mp2, hac2⟩ := extendEqReflP mp1 hE1 hEv1 hf2 m2
@@ -1314,12 +1314,12 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
           simp [Expr.constsResolve, eqRecRule, hfE, hfR], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨m3, hm3⟩ := extendEqRecS mp2.base2.base hE2 hR2
+  obtain ⟨m3, hm3⟩ := extendEqRecS mp2.base hE2 hR2
     (fun ψ => by
-      rw [← mp2.base2.acval_erase eqName ψ, hEv2 ψ]
+      rw [← mp2.base_erase eqName ψ, hEv2 ψ]
       exact eqValT2_erase ψ)
     (fun ψ => by
-      rw [← mp2.base2.acval_erase eqReflName ψ, hRv2 ψ]
+      rw [← mp2.base_erase eqReflName ψ, hRv2 ψ]
       exact eqReflValT2_erase ψ)
     hf3 hwf3
   obtain ⟨mp3, -⟩ := extendEqRecP mp2 hE2 hR2 hEv2 hRv2 hf3 m3

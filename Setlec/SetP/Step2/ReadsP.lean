@@ -263,11 +263,11 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
   obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv hea
   -- the reduced scrutinee
   obtain ⟨v₂, hv₂⟩ := ihw hwpe hws hb hLpe hvp
-  have hw₂ : Expr.WScoped d e₂ := Setlec.whnf_WScoped m.base.wf fuel hwpe hws
+  have hw₂ : Expr.WScoped d e₂ := Setlec.whnf_WScoped m.wf fuel hwpe hws
   have hb₂ : e₂.looseBVarsBounded 0 = true :=
-    Setlec.whnf_looseBVars m.base.wf fuel hwpe hb
+    Setlec.whnf_looseBVars m.wf fuel hwpe hb
   have hL₂ : Expr.LeavesBounded e₂ := fun l hl =>
-    hLpe l (Setlec.whnf_fvarLeaves m.base.wf fuel hwpe l hl)
+    hLpe l (Setlec.whnf_fvarLeaves m.wf fuel hwpe l hl)
   -- the string-literal expansion, if it fired
   obtain ⟨v₃, hv₃, hw₃, hb₃, hL₃⟩ :
       ∃ v₃, denoteP m.acval env φ d e₃ = some v₃ ∧
@@ -277,9 +277,9 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
     · exact ⟨v₂, hv₂, hw₂, hb₂, hL₂⟩
     · obtain ⟨hSC, hwc, hbc, hLc, -⟩ := denotePStrLit_of_guard d st hg hv₂
       obtain ⟨v₃, hv₃⟩ := ihw hred hwc hbc hLc hSC
-      exact ⟨v₃, hv₃, Setlec.whnf_WScoped m.base.wf fuel hred hwc,
-        Setlec.whnf_looseBVars m.base.wf fuel hred hbc,
-        fun l hl => hLc l (Setlec.whnf_fvarLeaves m.base.wf fuel hred l hl)⟩
+      exact ⟨v₃, hv₃, Setlec.whnf_WScoped m.wf fuel hred hwc,
+        Setlec.whnf_looseBVars m.wf fuel hred hbc,
+        fun l hl => hLc l (Setlec.whnf_fvarLeaves m.wf fuel hred l hl)⟩
   rcases hcase with rfl | ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU,
     hwcf, -⟩
   · exact ⟨.proj i v₃, by rw [denoteP_proj, hv₃]; exact if_pos hi2⟩
@@ -326,14 +326,14 @@ theorem inferProjReadsP_of {m : EnvS2Core V env}
   -- the subject's type, and its head normal form
   obtain ⟨tpea, htpea⟩ := ihi htpe hws hb hLpe hlrpe hvp
   have hwtpe : Expr.WScoped d tpe :=
-    inferTypeCore_WScoped m.base.wf fuel htpe hws
+    inferTypeCore_WScoped m.wf fuel htpe hws
   have hbtpe : tpe.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.base.wf fuel htpe hws hb hLpe
+    inferTypeCore_looseBVars m.wf fuel htpe hws hb hLpe
   have hLtpe : Expr.LeavesBounded tpe := fun l hl =>
-    hLpe l (inferTypeCore_fvarLeaves m.base.wf fuel htpe hws l hl)
+    hLpe l (inferTypeCore_fvarLeaves m.wf fuel htpe hws l hl)
   obtain ⟨tea, htea⟩ := ihw hwte hwtpe hbtpe hLtpe htpea
   have hbte : te.looseBVarsBounded 0 = true :=
-    Setlec.whnf_looseBVars m.base.wf fuel hwte hbtpe
+    Setlec.whnf_looseBVars m.wf fuel hwte hbtpe
   -- the reduced type's parameter spine reads
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
     (Setlec.Expr.mkAppN_getApp te).symm] at htea
@@ -434,11 +434,11 @@ private theorem whnfCoreReads_app {m : EnvS2Core V env}
   obtain ⟨f', hwf, hcase⟩ := Setlec.whnf_app_inv h
   obtain ⟨fa', hfa'⟩ := ihwc hwf hws.1 hb.1 hLf hfa
   have hwf' : Expr.WScoped d f' :=
-    Setlec.whnfCore_WScoped m.base.wf fuel hwf hws.1
+    Setlec.whnfCore_WScoped m.wf fuel hwf hws.1
   have hbf' : f'.looseBVarsBounded 0 = true :=
-    Setlec.whnfCore_looseBVars m.base.wf fuel hwf hb.1
+    Setlec.whnfCore_looseBVars m.wf fuel hwf hb.1
   have hLf' : Expr.LeavesBounded f' := fun l hl =>
-    hLf l (Setlec.whnfCore_fvarLeaves m.base.wf fuel hwf l hl)
+    hLf l (Setlec.whnfCore_fvarLeaves m.wf fuel hwf l hl)
   have hiapp : denoteP m.acval env φ d (.app f' a)
       = some (.app fa' aa) := by rw [denoteP, hfa', haa]; rfl
   have hwapp : Expr.WScoped d (.app f' a) := by
@@ -541,11 +541,11 @@ private theorem whnfLoopReads {m : EnvS2Core V env}
     dsimp only at h
     obtain ⟨ea₁, hea₁⟩ := ihwc hwc hws hb hLb hea
     have hws₁ : Expr.WScoped d e₁ :=
-      Setlec.whnfCore_WScoped m.base.wf fuel hwc hws
+      Setlec.whnfCore_WScoped m.wf fuel hwc hws
     have hb₁ : e₁.looseBVarsBounded 0 = true :=
-      Setlec.whnfCore_looseBVars m.base.wf fuel hwc hb
+      Setlec.whnfCore_looseBVars m.wf fuel hwc hb
     have hLb₁ : Expr.LeavesBounded e₁ := fun l hl =>
-      hLb l (Setlec.whnfCore_fvarLeaves m.base.wf fuel hwc l hl)
+      hLb l (Setlec.whnfCore_fvarLeaves m.wf fuel hwc l hl)
     cases hrn : Setlec.reduceNatP μ env fuel d e₁ with
     | error err =>
       rw [Setlec.reduceNat_fold] at h; rw [hrn] at h; exact nomatch h
@@ -568,10 +568,10 @@ private theorem whnfLoopReads {m : EnvS2Core V env}
       | some e₂ =>
         rw [hud] at h
         dsimp only at h
-        exact ih h (Setlec.unfoldDefinition_WScoped m.base.wf hud hws₁)
-          (Setlec.unfoldDefinition_looseBVars m.base.wf hud hb₁)
+        exact ih h (Setlec.unfoldDefinition_WScoped m.wf hud hws₁)
+          (Setlec.unfoldDefinition_looseBVars m.wf hud hb₁)
           (fun l hl => hLb₁ l
-            (Setlec.unfoldDefinition_fvarLeaves m.base.wf hud l hl))
+            (Setlec.unfoldDefinition_fvarLeaves m.wf hud l hl))
           (hdelta hud hea₁)
 
 /-- **`WhnfReadsP` at `fuel + 1`** — the residue's own statement, from
@@ -767,9 +767,9 @@ private theorem inferReads_lam {m : EnvS2Core V env}
           omega)
   have hcons : Expr.fvarConsistent d n ty bt :=
     Expr.fvarConsistent_of_leafCond bt (fun l hl =>
-      hleaf l (inferTypeCore_fvarLeaves m.base.wf fuel hbt hwopen l hl))
+      hleaf l (inferTypeCore_fvarLeaves m.wf fuel hbt hwopen l hl))
   have hbtb : bt.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.base.wf fuel hbt hwopen hbopen hLopen
+    inferTypeCore_looseBVars m.wf fuel hbt hwopen hbopen hLopen
   have hround : (bt.abstract1 d).instantiate1 (.fvar d n ty) = bt :=
     abstract1_instantiate1 bt 0 hcons hbtb
   obtain ⟨bta, hbta⟩ :=
@@ -809,16 +809,16 @@ private theorem inferReads_app {m : EnvS2Core V env}
     ihi hif hws.1 hb.1 hLf
       (hlr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl])) hfa
   have hwtf : Expr.WScoped d tf :=
-    inferTypeCore_WScoped m.base.wf fuel hif hws.1
+    inferTypeCore_WScoped m.wf fuel hif hws.1
   have hbtf : tf.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.base.wf fuel hif hws.1 hb.1 hLf
+    inferTypeCore_looseBVars m.wf fuel hif hws.1 hb.1 hLf
   have hLtf : Expr.LeavesBounded tf := fun l hl =>
-    hLf l (inferTypeCore_fvarLeaves m.base.wf fuel hif hws.1 l hl)
+    hLf l (inferTypeCore_fvarLeaves m.wf fuel hif hws.1 l hl)
   -- its head normal form, a ∀
   obtain ⟨wa, hwa⟩ := ihw hwf hwtf hbtf hLtf htfa
   obtain ⟨-, b'a, -, hb'a, -⟩ := denoteP_forallE_inv hwa
   have hwW : Expr.WScoped d (.forallE n' ty' body' mt') :=
-    Setlec.whnf_WScoped m.base.wf fuel hwf hwtf
+    Setlec.whnf_WScoped m.wf fuel hwf hwtf
   simp only [Expr.WScoped] at hwW
   refine ⟨b'a.inst aa, ?_⟩
   rw [denoteP_beta m.acval_closed (acval_inst_self m)

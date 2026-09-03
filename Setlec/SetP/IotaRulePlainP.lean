@@ -59,7 +59,7 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hf : f = fun n =>
       if blockNames.contains n then n.str "_model" else n)
     (hroT : RenameOkP mp.base2.acval envSelf f)
-    (hIS : BlockInstalledTT blockNames envSelf mp.base2.base.cval)
+    (hIS : BlockInstalledTT blockNames envSelf mp.base.cval)
     -- the rule kits are checked against the running accumulator (see
     -- `iotaRuleS`: a correspondence, not an inclusion)
     (hup : ∀ (n : Name) (ci : ConstantInfo), env₂.find? n = some ci →
@@ -71,7 +71,7 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
-    (hkit : IotaRuleR μ F env₂ envSelf mp.base2.base.cval f cvA.name
+    (hkit : IotaRuleR μ F env₂ envSelf mp.base.cval f cvA.name
       cvA.levelParams cvA.type mI rP j r r')
     (hfireP : RecRule.fire r' = .plain) (φ : Name → Nat) :
     RecRuleLawP mp.base2 φ cvA.name cvA mI rP r' := by
@@ -85,7 +85,7 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   have hr'fire : RecRule.fire r' = fire := by rw [hr'eq]
   -- the recursor's and the constructor's stored guards
   obtain ⟨htyw, -, -, htyb, -, -, -⟩ :=
-    mp.base2.base.wf _ (Env.find?_mem hself)
+    mp.base2.wf _ (Env.find?_mem hself)
   have hfcS : envSelf.find? (RecRule.ctor r)
       = some (.ctorInfo cvjK cnPK cnFK) := by
     rcases hup _ _ hfcK with h |
@@ -93,7 +93,7 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     · exact h
     · exact nomatch heq
   obtain ⟨hCw, hClp, -, hCb, -, -, -⟩ :=
-    mp.base2.base.wf _ (Env.find?_mem hfcS)
+    mp.base2.wf _ (Env.find?_mem hfcS)
   -- the recursor's model counterpart
   obtain ⟨cvm, mval, hm, hfm, hlpsm, -, -⟩ :=
     hIS cvA.name hbnA _ hself
@@ -170,7 +170,7 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   -- ===== the canonical branch =====
   obtain ⟨hpl, hfireP0, hthmR⟩ :
       Expr.recRulePlain cvA.type mI rP cnPK = true ∧ fire = .plain ∧
-        IotaThmR μ F env₂ envSelf mp.base2.base.cval f cvA.name
+        IotaThmR μ F env₂ envSelf mp.base.cval f cvA.name
           cvA.levelParams cvA.type mI rP j r cvjK cnPK cnFK rhsA := by
     rcases hbranch with h | ⟨hnpl, hrest⟩
     · exact h
@@ -202,7 +202,7 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       · exact ⟨.recInfo cv mI' rP' rules', h',
         by rw [← hcv₂, heq]; rfl⟩
   obtain ⟨hSw0, -, -, hSb0, -, -, -⟩ :=
-    mp.base2.base.wf _ (Env.find?_mem hciTS)
+    mp.base2.wf _ (Env.find?_mem hciTS)
   rw [hciTcv] at hSw0 hSb0
   have hSw : cvt.type.hasFvar = false := hSw0
   have hSb : cvt.type.looseBVarsBounded 0 = true := hSb0

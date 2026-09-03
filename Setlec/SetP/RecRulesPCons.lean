@@ -100,7 +100,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
   refine ⟨hrPle, fun us hlen => ?_⟩
   obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hlen
   obtain ⟨-, -, -, -, -, hrec', -⟩ :=
-    mp.base2.base.wf _ (Setlec.SetR.Env.find?_mem hfE)
+    mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfE)
   obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP rules rfl rl hmem
   refine ⟨Ra, ?_, hokRa, ?_, ?_⟩
   · rw [hac]
@@ -137,7 +137,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
         refine Option.some.inj (Eq.trans ?_ hTVa)
         rw [hac]
         exact (denoteP_cons_fresh_mono hfresh _ 0 _
-          (constsBound_instType mp.base2.base.wf
+          (constsBound_instType mp.base2.wf
             (Setlec.SetR.Env.find?_mem hfE) us) hTVa').symm
       exact hok ρ zs TVa' restR hzl hzok hTVa' hfit
   · intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl hujl
@@ -146,7 +146,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     -- constructor is stored, and the cons is fresh
     have hnC : RecRule.ctor rl ≠ c₀.name := by
       obtain ⟨cvj', cnP', cnF', hst⟩ :=
-        mp.base2.base.rec_ctors n cv mI rP rules hfE rl hmem
+        mp.base2.rec_ctors n cv mI rP rules hfE rl hmem
       intro hh
       rw [hh, hfresh] at hst
       exact nomatch hst
@@ -162,7 +162,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
       refine Option.some.inj (Eq.trans ?_ hTVa)
       rw [hac]
       exact (denoteP_cons_fresh_mono hfresh _ 0 _
-        (constsBound_instType mp.base2.base.wf
+        (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfE) us) hTVa').symm
     obtain ⟨TVja', hTVja', -, -⟩ :=
       mp.constTypeP 0 (RecRule.ctor rl) _ usj hfcjE (by exact hujl)
@@ -170,7 +170,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
       refine Option.some.inj (Eq.trans ?_ hTVja)
       rw [hac]
       exact (denoteP_cons_fresh_mono hfresh _ 0 _
-        (constsBound_instType mp.base2.base.wf
+        (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfcjE) usj) hTVja').symm
     -- the `.nested` premise, contravariantly: a prefix pin reading is
     -- moved FORWARD and fed to the hypothesis in hand

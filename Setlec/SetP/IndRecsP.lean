@@ -62,7 +62,7 @@ already covers it — or carries the rules `iotaRulesP` fired. -/
 theorem indRecsFoldP (hμ : μ.verified = true) {F : Nat}
     {blockNames : List Name} {envSelf envBase : Env}
     (mp : EnvS2PM V μ envSelf)
-    (hIS : BlockInstalledTT blockNames envSelf mp.base2.base.cval)
+    (hIS : BlockInstalledTT blockNames envSelf mp.base.cval)
     (hroT : RenameOkP mp.base2.acval envSelf (fun n =>
       if blockNames.contains n then n.str "_model" else n))
     (hupB : FoldUpS envBase envSelf)
@@ -77,9 +77,9 @@ theorem indRecsFoldP (hμ : μ.verified = true) {F : Nat}
         RecLawsAtP mp.base2 cv mI rP rules) →
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
       ProvisionRecsR μ F blockNames envP cvalF recs envSelf
-        mp.base2.base.cval checked →
+        mp.base.cval checked →
       IndRecsR.IndRecsFoldR μ F blockNames envBase envSelf
-        mp.base2.base.cval envF cvalF checked env₃ cval₃ →
+        mp.base.cval envF cvalF checked env₃ cval₃ →
       ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
         (rules : List RecRule),
         env₃.find? n = some (.recInfo cv mI rP rules) →
@@ -153,7 +153,7 @@ theorem indRecsP (hμ : μ.verified = true) (hkey : MemberKeyS V)
     {blockNames : List Name} {env₂ env₃ : Env}
     {recs : List ConstantInfo} {cval₃ : TConstVal}
     (mp : EnvS2PM V μ env₂)
-    (hI : BlockInstalledTT blockNames env₂ mp.base2.base.cval)
+    (hI : BlockInstalledTT blockNames env₂ mp.base.cval)
     (hIA : BlockAcvalInstalled blockNames env₂ mp.base2.acval)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true)
     (hall : ∀ n, blockNames.contains n = true →
@@ -161,10 +161,10 @@ theorem indRecsP (hμ : μ.verified = true) (hkey : MemberKeyS V)
     (hEC : Setlec.EtaFamiliesClosedO blockNames env₂)
     (hBP : Setlec.BlockEtaPinned μ blockNames env₂)
     (hbase₃ : EnvS V env₃) (hb₃cval : hbase₃.cval = cval₃)
-    (h : IndRecsR μ F blockNames env₂ mp.base2.base.cval recs env₃
+    (h : IndRecsR μ F blockNames env₂ mp.base.cval recs env₃
       cval₃) :
     ∃ mp₃ : EnvS2PM V μ env₃,
-      mp₃.base2.base.cval = cval₃ ∧
+      mp₃.base.cval = cval₃ ∧
       BlockAcvalInstalled blockNames env₃ mp₃.base2.acval := by
   rcases h with ⟨rfl, rfl, rfl⟩ | ⟨-, heqf, envSelf, cvalSelf, checked,
     hprov, hfold⟩
@@ -183,11 +183,11 @@ theorem indRecsP (hμ : μ.verified = true) (hkey : MemberKeyS V)
       · rw [provisionRecsS_mono recs hprov n ci hf]; rfl
     · exact provisionRecsS_stored recs hprov ci hci
   -- the block renaming, at both tiers
-  have hro := blockRenameOkT mS.base2.base hIS hnames
+  have hro := blockRenameOkT mS.base hIS hnames
   have hroP := blockRenameOkP hIS hIAS hnames
   -- the v1 fold, for the swap data alone
   obtain ⟨hswR, -, hcvEq, -, -⟩ :=
-    indRecsFoldS mS.base2.base hIS hro
+    indRecsFoldS mS.base hIS hro
       (fun n ci hf =>
         Or.inl (provisionRecsS_mono recs hprov n ci hf))
       heqf recs (SwapShList.of_eq env₂.consts)

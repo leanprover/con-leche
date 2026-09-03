@@ -51,11 +51,11 @@ leaf. -/
 theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
     {blockNames : List Name} (mp : EnvS2PM V μ env')
-    (hR : ProjFnR μ F env' mp.base2.base.cval T ctorName lps nP nF i
+    (hR : ProjFnR μ F env' mp.base.cval T ctorName lps nP nF i
       env₁)
-    (hinv : ProjPhaseInvS T ctorName nF env' mp.base2.base.cval)
+    (hinv : ProjPhaseInvS T ctorName nF env' mp.base.cval)
     (hinvA : ProjPhaseAcvalP T ctorName nF env' mp.base2.acval)
-    (hIB : BlockInstalledTT blockNames env' mp.base2.base.cval)
+    (hIB : BlockInstalledTT blockNames env' mp.base.cval)
     (hIA : BlockAcvalInstalled blockNames env' mp.base2.acval)
     (hTblock : blockNames.contains T = true)
     (hbshape : ∀ n, blockNames.contains n = true →
@@ -67,11 +67,11 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     (hFields : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → capsT.etaFields = nF) :
     ∃ mp₁ : EnvS2PM V μ env₁,
-      mp₁.base2.base.cval = cvalWith mp.base2.base.cval (projFnName T i)
-        (fun ψ => mp.base2.base.cval (projModelName T i) ψ) ∧
-      ProjPhaseInvS T ctorName nF env₁ mp₁.base2.base.cval ∧
+      mp₁.base.cval = cvalWith mp.base.cval (projFnName T i)
+        (fun ψ => mp.base.cval (projModelName T i) ψ) ∧
+      ProjPhaseInvS T ctorName nF env₁ mp₁.base.cval ∧
       ProjPhaseAcvalP T ctorName nF env₁ mp₁.base2.acval ∧
-      BlockInstalledTT blockNames env₁ mp₁.base2.base.cval ∧
+      BlockInstalledTT blockNames env₁ mp₁.base.cval ∧
       BlockAcvalInstalled blockNames env₁ mp₁.base2.acval := by
   -- the kit, unpacked exactly as `projFnS` unpacks it (the two H1
   -- widenings' rows named rather than dropped)
@@ -112,12 +112,12 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     · rw [if_neg hCT, if_pos rfl]
   -- the stored constants' syntactic facts
   obtain ⟨hCw, -, hCres, hCb, -, -, -⟩ :=
-    mp.base2.base.wf _ (find?_mem hctor)
+    mp.base2.wf _ (find?_mem hctor)
   obtain ⟨hSw, -, -, hSb, -, -, -⟩ :=
-    mp.base2.base.wf _ (find?_mem hthmE)
+    mp.base2.wf _ (find?_mem hthmE)
   have hClp :
       cvj.type.allLevelParamsDefined cvj.levelParams = true := by
-    obtain ⟨-, h2, -⟩ := mp.base2.base.wf _ (find?_mem hctor)
+    obtain ⟨-, h2, -⟩ := mp.base2.wf _ (find?_mem hctor)
     exact h2
   -- the model constructor, from the phase invariant
   obtain ⟨cvmC, mvalC, hmC, hfCm, hlpsC, -⟩ := hinv.2.1 _ hctor
@@ -238,7 +238,7 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     hsideL hsideR
   -- the v1 install
   obtain ⟨m₁, hm₁cval, hinv₁, hIB₁⟩ :=
-    projFnS mp.base2.base
+    projFnS mp.base
       ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
         hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp,
         hstrip1, hilt, hstripP,
@@ -354,7 +354,7 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
       refine Option.some.inj (Eq.trans ?_ hTVja)
       rw [hac]
       exact (denoteP_cons_fresh_mono hfreshC φ 0 _
-        (constsBound_instType mp.base2.base.wf
+        (constsBound_instType mp.base2.wf
           (Env.find?_mem hctor) usj) hTVja').symm
     -- the two leaves the conclusion mentions
     dsimp only at hfitR ⊢
@@ -371,18 +371,18 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
       hnew
   -- the v1 valuation at the extension, read off the leaf equation
   -- through `acval_erase` (`memberInstallPM`'s move)
-  have hcval₁ : mp₁.base2.base.cval
-      = cvalWith mp.base2.base.cval (projFnName T i)
-        (fun ψ => mp.base2.base.cval (projModelName T i) ψ) := by
+  have hcval₁ : mp₁.base.cval
+      = cvalWith mp.base.cval (projFnName T i)
+        (fun ψ => mp.base.cval (projModelName T i) ψ) := by
     funext n ψ
-    rw [← mp₁.base2.acval_erase n ψ, hacc]
+    rw [← mp₁.base_erase n ψ, hacc]
     by_cases hn : n = projFnName T i
     · subst hn
       rw [acvalWith_self]
       show (mp.base2.acval (projModelName T i) ψ).erase = _
-      rw [mp.base2.acval_erase]
+      rw [mp.base_erase]
       exact (congrFun cvalWith_self ψ).symm
-    · rw [acvalWith_ne hn, mp.base2.acval_erase]
+    · rw [acvalWith_ne hn, mp.base_erase]
       exact (congrFun (cvalWith_ne hn) ψ).symm
   exact ⟨mp₁, hcval₁, by rw [hcval₁, ← hm₁cval]; exact hinv₁,
     hinvA₁, by rw [hcval₁, ← hm₁cval]; exact hIB₁, hIA₁⟩
@@ -400,11 +400,11 @@ theorem projInstallP (hμ : μ.verified = true) {F : Nat}
       n.isProjFnShape = false) :
     ∀ (fields : List Nat) {env' : Env} (mp : EnvS2PM V μ env')
       {env₄ : Env} {cval₄ : TConstVal},
-      ProjInstallR μ F T ctorName lps nP nF env' mp.base2.base.cval
+      ProjInstallR μ F T ctorName lps nP nF env' mp.base.cval
         fields env₄ cval₄ →
-      ProjPhaseInvS T ctorName nF env' mp.base2.base.cval →
+      ProjPhaseInvS T ctorName nF env' mp.base.cval →
       ProjPhaseAcvalP T ctorName nF env' mp.base2.acval →
-      BlockInstalledTT blockNames env' mp.base2.base.cval →
+      BlockInstalledTT blockNames env' mp.base.cval →
       BlockAcvalInstalled blockNames env' mp.base2.acval →
       (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
         Setlec.EtaPins μ env' T cvT.levelParams capsT) →
@@ -412,7 +412,7 @@ theorem projInstallP (hμ : μ.verified = true) {F : Nat}
         capsT.eta = true → blockNames.contains capsT.etaCtor = true) →
       (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
         capsT.eta = true → capsT.etaFields = nF) →
-      ∃ mp₄ : EnvS2PM V μ env₄, mp₄.base2.base.cval = cval₄ ∧
+      ∃ mp₄ : EnvS2PM V μ env₄, mp₄.base.cval = cval₄ ∧
         ProjPhaseInvS T ctorName nF env₄ cval₄ ∧
         ProjPhaseAcvalP T ctorName nF env₄ mp₄.base2.acval ∧
         BlockInstalledTT blockNames env₄ cval₄ ∧
@@ -484,8 +484,8 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
     (hpnone : (env'.find? (projFnName T i)).isNone = true)
     (hTnres : Setlec.reservedBasisNames.contains T = false) :
     ∃ mp' : EnvS2PM V μ ⟨.projInfo entry :: env'.consts⟩,
-      mp'.base2.base.cval
-        = cvalWith mp.base2.base.cval (projFnName T i) templateVal := by
+      mp'.base.cval
+        = cvalWith mp.base.cval (projFnName T i) templateVal := by
   have hname : (ConstantInfo.projInfo entry).name = projFnName T i := by
     show projFnName entry.structName entry.idx = projFnName T i
     rw [hstruct, hidx]
@@ -497,7 +497,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
   have htyE : (ConstantInfo.projInfo entry).toConstantVal.type
       = Expr.sort .zero := hty
   obtain ⟨m₁, hm₁cval⟩ :=
-    templateConsS mp.base2.base hstruct hidx hnat hlps hty hpnone hTnres
+    templateConsS mp.base hstruct hidx hnat hlps hty hpnone hTnres
   -- the stored type reads to `univ 0`, at every assignment
   have htyRead : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval
@@ -509,7 +509,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
     rw [htyE, denoteP]
     rfl
   have hagH : ∀ n, n ≠ (ConstantInfo.projInfo entry).name →
-      mp.base2.base.cval n = m₁.cval n := by
+      mp.base.cval n = m₁.cval n := by
     intro n hn
     rw [hm₁cval, cvalWith_ne (show n ≠ projFnName T i by
       rw [← hname]; exact hn)]
@@ -556,12 +556,12 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
       (fun ψ => ⟨_, htyRead ψ⟩) htyOkH hmemH
   refine ⟨mp', ?_⟩
   funext n ψ
-  rw [← mp'.base2.acval_erase n ψ, hmp']
+  rw [← mp'.base_erase n ψ, hmp']
   by_cases hn : n = (ConstantInfo.projInfo entry).name
   · subst hn
     rw [acvalWith_self, hname, cvalWith_self]
     rfl
-  · rw [acvalWith_ne hn, mp.base2.acval_erase,
+  · rw [acvalWith_ne hn, mp.base_erase,
       cvalWith_ne (show n ≠ projFnName T i by
         rw [← hname]; exact hn)]
 

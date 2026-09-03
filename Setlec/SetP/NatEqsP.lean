@@ -81,7 +81,7 @@ theorem acval_interp2_closedC (m : EnvS2Core V env) (n : Name)
     (ψ : Name → Nat) (ρ ρ' : Nat → V) :
     interp2 V ρ (m.acval n ψ) = interp2 V ρ' (m.acval n ψ) :=
   interp2_closed V
-    (by rw [m.acval_erase]; exact m.base.cval_closed n ψ) ρ ρ'
+    (by rw [m.acval_erase]; exact m.cval_closed n ψ) ρ ρ'
 
 /-- The `Nat` leaf's interpretation does not read the environment. -/
 theorem natAP_interp2_closed (m : EnvS2Core V env) (ψ : Name → Nat)
@@ -1159,13 +1159,13 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
     (fun hc => tr hnF (hbool₂ (by rcases hc with rfl | rfl <;> simp)).2)
     (e1, e2) hq
   have hden : ∀ ψ : Name → Nat,
-      ∃ V0, denote mp.base2.base.cval env ψ 0 value' = some V0 :=
+      ∃ V0, denote mp.base.cval env ψ 0 value' = some V0 :=
     fun ψ => ⟨(A ψ).erase,
-      denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)⟩
+      denoteP_erase mp.base_erase 0 value' (hA ψ)⟩
   obtain ⟨hw1, hb1, hL1, hleaf1, -⟩ :=
-    Setlec.SetR.natEqFrame_of_frag mp.base2.base hvf' hbv' hden hfr1
+    Setlec.SetR.natEqFrame_of_frag mp.base hvf' hbv' hden hfr1
   obtain ⟨hw2, hb2, hL2, hleaf2, -⟩ :=
-    Setlec.SetR.natEqFrame_of_frag mp.base2.base hvf' hbv' hden hfr2
+    Setlec.SetR.natEqFrame_of_frag mp.base hvf' hbv' hden hfr2
   have hrun := hruns _ (List.mem_map.mpr ⟨(e1, e2), hq, rfl⟩)
   obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN0,
     hlpZ, hlpS, -⟩ := Setlec.natLitSupported_inv hs

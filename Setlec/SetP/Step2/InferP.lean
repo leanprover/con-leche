@@ -382,9 +382,9 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
           omega)
   have hcons : Expr.fvarConsistent d n ty bt :=
     Expr.fvarConsistent_of_leafCond bt (fun l hl =>
-      hleaf l (inferTypeCore_fvarLeaves m.base.wf fuel hbt hwopen l hl))
+      hleaf l (inferTypeCore_fvarLeaves m.wf fuel hbt hwopen l hl))
   have hbtb : bt.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.base.wf fuel hbt hwopen hbopen hLopen
+    inferTypeCore_looseBVars m.wf fuel hbt hwopen hbopen hLopen
   have hround : (bt.abstract1 d).instantiate1 (.fvar d n ty) = bt :=
     abstract1_instantiate1 bt 0 hcons hbtb
   rw [denoteP, htyA, hround] at hta
@@ -405,7 +405,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
   -- the fibre regime fact, one `have`, both uses (the meta copy)
   have hCbt : CtxOkP m φ (d + 1) (tyA :: Δa) bt :=
     hCop.of_subset
-      (inferTypeCore_fvarLeaves m.base.wf fuel hbt hwopen)
+      (inferTypeCore_fvarLeaves m.wf fuel hbt hwopen)
   have hzfib : pwBit φ mb.pw = 0 →
       ∀ (ρ' : Nat → V), Sat2 V (tyA :: Δa) ρ' →
         interp2 V ρ' btA ∈ˢ (univZero : V) := by
@@ -439,10 +439,10 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
       obtain ⟨btt, vb, hbtt, hwbtt, hzeq⟩ :=
         hleafC hμ (by simpa using hbl)
       exact pwBit_zero_mem_univZero hzeq hb0
-        (hss hCbt (inferTypeCore_WScoped m.base.wf fuel hbt hwopen)
+        (hss hCbt (inferTypeCore_WScoped m.wf fuel hbt hwopen)
           hbtb
           (fun l hl => hLopen l
-            (inferTypeCore_fvarLeaves m.base.wf fuel hbt hwopen l hl))
+            (inferTypeCore_fvarLeaves m.wf fuel hbt hwopen l hl))
           hbtt hwbtt hbtA ρ' hρ').2
   refine ⟨?_, ?_, ?_⟩
   · -- AnnotOkP of the λ
@@ -769,13 +769,13 @@ theorem sortSemAtP_of_claims {env : Env} {m : EnvS2Core V env}
     hreads hi hws hb hLb (LeafReadsP.of_ctxOkP hC) hea
   obtain ⟨hokE, hokT, hmem⟩ := ihi hi hws hb hLb hC hea hta
   have hwt : Expr.WScoped d t :=
-    inferTypeCore_WScoped m.base.wf fuel hi hws
+    inferTypeCore_WScoped m.wf fuel hi hws
   have hbt : t.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.base.wf fuel hi hws hb hLb
+    inferTypeCore_looseBVars m.wf fuel hi hws hb hLb
   have hLt : Expr.LeavesBounded t := fun l hl =>
-    hLb l (inferTypeCore_fvarLeaves m.base.wf fuel hi hws l hl)
+    hLb l (inferTypeCore_fvarLeaves m.wf fuel hi hws l hl)
   have hCt : CtxOkP m φ d Δa t :=
-    hC.of_subset (inferTypeCore_fvarLeaves m.base.wf fuel hi hws)
+    hC.of_subset (inferTypeCore_fvarLeaves m.wf fuel hi hws)
   obtain ⟨-, heq⟩ := ihw hw hwt hbt hLt hCt hta denoteP_sortQ hokT
   intro ρ hρ
   refine ⟨hokE ρ hρ, ?_⟩
@@ -932,11 +932,11 @@ theorem infer_app_claimP (m : EnvS2Core V env)
     hir htf hws.1 hb.1 hLf (LeafReadsP.of_ctxOkP hC.app_fn) hfa
   obtain ⟨hrowfE, hrowfT, hrowfM⟩ :=
     ihi htf hws.1 hb.1 hLf hC.app_fn hfa htfa
-  have htfsub := inferTypeCore_fvarLeaves m.base.wf fuel htf hws.1
+  have htfsub := inferTypeCore_fvarLeaves m.wf fuel htf hws.1
   have htfw : Expr.WScoped d tf :=
-    inferTypeCore_WScoped m.base.wf fuel htf hws.1
+    inferTypeCore_WScoped m.wf fuel htf hws.1
   have htfb : tf.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.base.wf fuel htf hws.1 hb.1 hLf
+    inferTypeCore_looseBVars m.wf fuel htf hws.1 hb.1 hLf
   have htfL : Expr.LeavesBounded tf := fun l hl => hLf l (htfsub l hl)
   have htfC : CtxOkP m φ d Δa tf := hC.app_fn.of_subset htfsub
   -- the ∀-type: read (routed) and graded by the reduction claim
@@ -944,18 +944,18 @@ theorem infer_app_claimP (m : EnvS2Core V env)
   obtain ⟨hokpa, hredf⟩ :=
     ihw hwf htfw htfb htfL htfC htfa hpa hrowfT
   have hwfe : Expr.WScoped d (Expr.forallE n' ty' body' mb') :=
-    whnf_WScoped m.base.wf fuel hwf htfw
+    whnf_WScoped m.wf fuel hwf htfw
   have hbfe : (Expr.forallE n' ty' body' mb').looseBVarsBounded 0
-      = true := whnf_looseBVars m.base.wf fuel hwf htfb
+      = true := whnf_looseBVars m.wf fuel hwf htfb
   have hLfe : Expr.LeavesBounded (.forallE n' ty' body' mb') :=
-    fun l hl => htfL l (whnf_fvarLeaves m.base.wf fuel hwf l hl)
+    fun l hl => htfL l (whnf_fvarLeaves m.wf fuel hwf l hl)
   simp only [Expr.WScoped] at hwfe
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbfe
   have hLty' : Expr.LeavesBounded ty' := fun l hl =>
     hLfe l (by simp [Expr.fvarLeaves, hl])
   have hCpi : CtxOkP m φ d Δa (.forallE n' ty' body' mb') :=
     (hC.app_fn.of_subset htfsub).of_subset
-      (whnf_fvarLeaves m.base.wf fuel hwf)
+      (whnf_fvarLeaves m.wf fuel hwf)
   obtain ⟨Aa, Ba, hAa, hBa, rfl⟩ := denoteP_forallE_inv hpa
   -- the ∀'s reading, split: domain, fibres, and the kind-`0` component
   have hokAa : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ Aa := by
@@ -983,11 +983,11 @@ theorem infer_app_claimP (m : EnvS2Core V env)
     hir hia hws.2 hb.2 hLa (LeafReadsP.of_ctxOkP hC.app_arg) haa
   obtain ⟨hrowaE, hrowaT, hrowaM⟩ :=
     ihi hia hws.2 hb.2 hLa hC.app_arg haa htyaA
-  have htasub := inferTypeCore_fvarLeaves m.base.wf fuel hia hws.2
+  have htasub := inferTypeCore_fvarLeaves m.wf fuel hia hws.2
   have htaw : Expr.WScoped d tya :=
-    inferTypeCore_WScoped m.base.wf fuel hia hws.2
+    inferTypeCore_WScoped m.wf fuel hia hws.2
   have htab : tya.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.base.wf fuel hia hws.2 hb.2 hLa
+    inferTypeCore_looseBVars m.wf fuel hia hws.2 hb.2 hLa
   have htaL : Expr.LeavesBounded tya := fun l hl => hLa l (htasub l hl)
   have htaC : CtxOkP m φ d Δa tya := hC.app_arg.of_subset htasub
   have hdom : ∀ ρ : Nat → V, Sat2 V Δa ρ →

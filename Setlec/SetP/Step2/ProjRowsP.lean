@@ -62,7 +62,7 @@ theorem acval_psigma_leaf {m : EnvS2Core V env}
     m.acval Setlec.psigmaName ψ = .const .psigma [ψ uN, ψ vN] :=
   erase_eq_const (by
     rw [m.acval_erase,
-      (m.base.basis_pinned _ _ hpsig (by decide)).2 _ _ rfl])
+      (m.basis_pinned _ _ hpsig (by decide)).2 _ _ rfl])
 
 /-! ## One certified argument, and the pinned constructor's shape -/
 
@@ -90,13 +90,13 @@ theorem spineStepP {m : EnvS2Core V env}
     hreads hta hwa hba hLa (LeafReadsP.of_ctxOkP hCa) hda
   obtain ⟨-, hokTa, hmemA⟩ := ihi hta hwa hba hLa hCa hda htaa
   have hwta : Expr.WScoped d ta :=
-    Setlec.inferTypeCore_WScoped m.base.wf fuel hta hwa
+    Setlec.inferTypeCore_WScoped m.wf fuel hta hwa
   have hbta : ta.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars m.base.wf fuel hta hwa hba hLa
+    Setlec.inferTypeCore_looseBVars m.wf fuel hta hwa hba hLa
   have hLta : Expr.LeavesBounded ta := fun l hl =>
-    hLa l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hta hwa l hl)
+    hLa l (Setlec.inferTypeCore_fvarLeaves m.wf fuel hta hwa l hl)
   have hCta : CtxOkP m φ d Δa ta :=
-    hCa.of_subset (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hta hwa)
+    hCa.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel hta hwa)
   have heq := ihd hde hwta hbta hLta hwty hbty hLty hCta hCty htaa hdty
     hokTa hokTY ρ hρ
   exact heq ▸ hmemA ρ hρ
@@ -365,23 +365,23 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     hreads htpe hws hb hLpe (LeafReadsP.of_ctxOkP hCpe) hvp
   obtain ⟨hokPe, hokTpe, hmemPe⟩ := ihi htpe hws hb hLpe hCpe hvp htpea
   have hwtpe : Expr.WScoped d tpe :=
-    Setlec.inferTypeCore_WScoped m.base.wf fuel htpe hws
+    Setlec.inferTypeCore_WScoped m.wf fuel htpe hws
   have hbtpe : tpe.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars m.base.wf fuel htpe hws hb hLpe
+    Setlec.inferTypeCore_looseBVars m.wf fuel htpe hws hb hLpe
   have hLtpe : Expr.LeavesBounded tpe := fun l hl =>
-    hLpe l (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htpe hws l hl)
+    hLpe l (Setlec.inferTypeCore_fvarLeaves m.wf fuel htpe hws l hl)
   have hCtpe : CtxOkP m φ d Δa tpe :=
     hCpe.of_subset
-      (Setlec.inferTypeCore_fvarLeaves m.base.wf fuel htpe hws)
+      (Setlec.inferTypeCore_fvarLeaves m.wf fuel htpe hws)
   -- reduced to the family instance
   obtain ⟨tea, htea⟩ := hwreads hwte hwtpe hbtpe hLtpe htpea
   obtain ⟨hokTe, heqTe⟩ :=
     ihw hwte hwtpe hbtpe hLtpe hCtpe htpea htea hokTpe
   have hbte : te.looseBVarsBounded 0 = true :=
-    Setlec.whnf_looseBVars m.base.wf fuel hwte hbtpe
+    Setlec.whnf_looseBVars m.wf fuel hwte hbtpe
   -- the entry's pins, and the returned type
   obtain ⟨rfl, -, -, -, -, -, hlU, -, hpsig, -⟩ :=
-    projPinsP m.base.proj_ok hfe hnat
+    projPinsP m.proj_ok hfe hnat
   -- the reduced type's spine
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
     (Setlec.Expr.mkAppN_getApp te).symm, hfn] at htea
@@ -470,7 +470,7 @@ theorem acval_psigmaMk_leaf {m : EnvS2Core V env}
     m.acval Setlec.psigmaMkName ψ = .const .psigmaMk [ψ uN, ψ vN] :=
   erase_eq_const (by
     rw [m.acval_erase,
-      (m.base.basis_pinned _ _ hfmk (by decide)).2 _ _ rfl])
+      (m.basis_pinned _ _ hfmk (by decide)).2 _ _ rfl])
 
 /-- **`ProjStepP`, discharged.**  The stuck branch is a congruence
 under `.proj`; the firing branch identifies the reduct's value with
@@ -499,13 +499,13 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
   -- the reduced scrutinee
   obtain ⟨v₂, hv₂⟩ := hwreads hwpe hws hb hLpe hvp
   obtain ⟨hok₂, heq₂⟩ := ihw hwpe hws hb hLpe hCpe hvp hv₂ hokVp
-  have hw₂ : Expr.WScoped d e₂ := Setlec.whnf_WScoped m.base.wf fuel hwpe hws
+  have hw₂ : Expr.WScoped d e₂ := Setlec.whnf_WScoped m.wf fuel hwpe hws
   have hb₂ : e₂.looseBVarsBounded 0 = true :=
-    Setlec.whnf_looseBVars m.base.wf fuel hwpe hb
+    Setlec.whnf_looseBVars m.wf fuel hwpe hb
   have hL₂ : Expr.LeavesBounded e₂ := fun l hl =>
-    hLpe l (Setlec.whnf_fvarLeaves m.base.wf fuel hwpe l hl)
+    hLpe l (Setlec.whnf_fvarLeaves m.wf fuel hwpe l hl)
   have hC₂ : CtxOkP m φ d Δa e₂ :=
-    hCpe.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hwpe)
+    hCpe.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwpe)
   -- the string-literal expansion, if it fired
   obtain ⟨v₃, hv₃, hok₃, heq₃, hw₃, hb₃, hL₃, hC₃⟩ :
       ∃ v₃, denoteP m.acval env φ d e₃ = some v₃ ∧
@@ -523,10 +523,10 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
       obtain ⟨hok₃, heq₃⟩ := ihw hred hwc hbc hLc hCc hSC hv₃ hok₂
       exact ⟨v₃, hv₃, hok₃,
         fun σ hσ => (heq₂ σ hσ).trans (heq₃ σ hσ),
-        Setlec.whnf_WScoped m.base.wf fuel hred hwc,
-        Setlec.whnf_looseBVars m.base.wf fuel hred hbc,
-        fun l hl => hLc l (Setlec.whnf_fvarLeaves m.base.wf fuel hred l hl),
-        hCc.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hred)⟩
+        Setlec.whnf_WScoped m.wf fuel hred hwc,
+        Setlec.whnf_looseBVars m.wf fuel hred hbc,
+        fun l hl => hLc l (Setlec.whnf_fvarLeaves m.wf fuel hred l hl),
+        hCc.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hred)⟩
   rcases hcase with rfl |
     ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert⟩
   · -- stuck: the projection of the reduced scrutinee
@@ -543,7 +543,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
     · rw [interp2_proj, interp2_proj, heq₃ σ hσ]
   · -- the table fires
     obtain ⟨-, hidx, -, hnP, hnF, hctor, hlU, hpin, -, hfmk⟩ :=
-      projPinsP m.base.proj_ok hfe hnat
+      projPinsP m.proj_ok hfe hnat
     obtain ⟨l0, l1, rfl⟩ := Setlec.List.length_two (by rw [hlenU, hlU])
     obtain ⟨a0, a1, a2, a3, hargs⟩ :=
       Setlec.List.length_four (by rw [hlenA, hnP, hnF])

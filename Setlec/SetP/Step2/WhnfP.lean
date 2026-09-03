@@ -343,7 +343,7 @@ theorem deltaP_of (m : EnvS2Core V env) (hdi : AcvalDefnInstP m) :
             e.getAppArgs := (Option.some.inj hud).symm
         exact deltaP_core m hfn hfind rfl hlen
           (by obtain ⟨-, -, -, -, hd, -⟩ :=
-                m.base.wf _ (find?_mem hfind)
+                m.wf _ (find?_mem hfind)
               exact (hd cv value hint rfl).1)
           (acvalDefnInstP_subst hdi φ
             (Or.inl ⟨hint, find?_mem hfind⟩)) hea
@@ -356,7 +356,7 @@ theorem deltaP_of (m : EnvS2Core V env) (hdi : AcvalDefnInstP m) :
             e.getAppArgs := (Option.some.inj hud).symm
         exact deltaP_core m hfn hfind rfl hlen
           (by obtain ⟨-, -, -, -, -, -, ht⟩ :=
-                m.base.wf _ (find?_mem hfind)
+                m.wf _ (find?_mem hfind)
               exact (ht cv value rfl).1)
           (acvalDefnInstP_subst hdi φ (Or.inr (find?_mem hfind))) hea
       · exact nomatch hud
@@ -430,10 +430,10 @@ theorem betaCertP_of_claims (m : EnvS2Core V env) {fuel : Nat}
   intro d Δa a ty ta aa tya hta hde hwa hba hLa hwty hbty hLty
     hCa hCty haa htya hoktya ρ hρ
   have hwta : Expr.WScoped d ta :=
-    Setlec.inferTypeCore_WScoped m.base.wf fuel hta hwa
+    Setlec.inferTypeCore_WScoped m.wf fuel hta hwa
   have hbta : ta.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars m.base.wf fuel hta hwa hba hLa
-  have hsub := Setlec.inferTypeCore_fvarLeaves m.base.wf fuel hta hwa
+    Setlec.inferTypeCore_looseBVars m.wf fuel hta hwa hba hLa
+  have hsub := Setlec.inferTypeCore_fvarLeaves m.wf fuel hta hwa
   have hLta : Expr.LeavesBounded ta := fun l hl => hLa l (hsub l hl)
   have hCta : CtxOkP m φ d Δa ta := hCa.of_subset hsub
   obtain ⟨ta', hta'⟩ := hexi hta hwa hba hLa hCa haa
@@ -462,10 +462,10 @@ theorem whnfCore_packageP (m : EnvS2Core V env) {fuel d : Nat}
       Expr.WScoped d a' ∧ a'.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded a' ∧ CtxOkP m φ d Δa a' := by
   obtain ⟨hok', heq⟩ := ihwc hw hws hb hLb hC haa haa' hok
-  exact ⟨hok', heq, whnfCore_WScoped m.base.wf fuel hw hws,
-    whnfCore_looseBVars m.base.wf fuel hw hb,
-    fun l hl => hLb l (whnfCore_fvarLeaves m.base.wf fuel hw l hl),
-    hC.of_subset (whnfCore_fvarLeaves m.base.wf fuel hw)⟩
+  exact ⟨hok', heq, whnfCore_WScoped m.wf fuel hw hws,
+    whnfCore_looseBVars m.wf fuel hw hb,
+    fun l hl => hLb l (whnfCore_fvarLeaves m.wf fuel hw l hl),
+    hC.of_subset (whnfCore_fvarLeaves m.wf fuel hw)⟩
 
 /-- **The `.bvar` clause.**  Vacuous on the annotation side. -/
 theorem whnfCore_bvar_claimP (m : EnvS2Core V env) {d i : Nat}
@@ -791,12 +791,12 @@ theorem whnfLoop_claimP (m : EnvS2Core V env) {fuel : Nat}
         rw [hud] at h
         dsimp only at h
         obtain ⟨hok', heq'⟩ :=
-          ih h (unfoldDefinition_WScoped m.base.wf hud hws₁)
-            (unfoldDefinition_looseBVars m.base.wf hud hb₁)
+          ih h (unfoldDefinition_WScoped m.wf hud hws₁)
+            (unfoldDefinition_looseBVars m.wf hud hb₁)
             (fun l hl => hLb₁ l
-              (unfoldDefinition_fvarLeaves m.base.wf hud l hl))
+              (unfoldDefinition_fvarLeaves m.wf hud l hl))
             (hC₁.of_subset
-              (unfoldDefinition_fvarLeaves m.base.wf hud))
+              (unfoldDefinition_fvarLeaves m.wf hud))
             (hdelta hud hea₁) hea' hok₁
         exact ⟨hok', interp2C_trans heq₁ heq'⟩
 

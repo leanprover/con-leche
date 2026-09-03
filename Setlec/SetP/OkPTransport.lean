@@ -86,6 +86,6 @@ theorem acval_inst_self {env : Setlec.Env}
   AVExpr.inst_eq_self _
     (by rw [m.acval_erase]
         exact VExpr.bvarsBelow.mono (Nat.zero_le k)
-          (m.base.cval_closed n ψ)) y
+          (m.cval_closed n ψ)) y
 
 end Setlec.SetR.Interp2

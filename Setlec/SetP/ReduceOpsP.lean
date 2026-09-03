@@ -188,7 +188,7 @@ theorem reduceOpsP_install (hμ : μ.verified = true)
     (hred : Setlec.reduceOpNames.contains cv.name = true →
       ReducePinR μ F env
         ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩
-        mp.base2.base.cval cv.name value)
+        mp.base.cval cv.name value)
     (m₂ : EnvS2Core V
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval cv.name A) :

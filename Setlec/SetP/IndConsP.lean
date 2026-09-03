@@ -104,7 +104,7 @@ theorem declStepPM_of_ind_cons (mp : EnvS2PM V μ env)
     (hnotax : ∀ cv, c₀ ≠ .axiomInfo cv)
     -- the v1 base at the extension, and its leaf
     (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
     -- the annotated tower
     (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
@@ -173,7 +173,7 @@ theorem declStepPM_of_ind_member_cons (mp : EnvS2PM V μ env)
     (hknd : (∃ cv caps, c₀ = .indInfo cv caps) ∨
       ∃ cv nP nF, c₀ = .ctorInfo cv nP nF)
     (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
     (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -220,7 +220,7 @@ theorem declStepPM_of_ind_rec_cons (mp : EnvS2PM V μ env)
     (hnres : Setlec.reservedBasisNames.contains c₀.name = false)
     (hknd : ∃ cv mI rP rules, c₀ = .recInfo cv mI rP rules)
     (hbase : EnvS V ⟨c₀ :: env.consts⟩)
-    (hag : ∀ n, n ≠ c₀.name → mp.base2.base.cval n = hbase.cval n)
+    (hag : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n)
     (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -268,7 +268,7 @@ theorem declStepPM_of_projTemplate_cons (mp : EnvS2PM V μ env)
       (ConstantInfo.projInfo entry).name = false)
     (hbase : EnvS V ⟨.projInfo entry :: env.consts⟩)
     (hag : ∀ n, n ≠ (ConstantInfo.projInfo entry).name →
-      mp.base2.base.cval n = hbase.cval n)
+      mp.base.cval n = hbase.cval n)
     (hAerase : ∀ ψ, (A ψ).erase
       = hbase.cval (ConstantInfo.projInfo entry).name ψ)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)

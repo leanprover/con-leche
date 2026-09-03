@@ -74,12 +74,12 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     (hround : (pty.renameConsts (projFwd T ctorName nF) == mcv.type)
       = true)
     (hptyres : pty.constsResolve env' = true)
-    (hinv : ProjPhaseInvS T ctorName nF env' mp.base2.base.cval)
+    (hinv : ProjPhaseInvS T ctorName nF env' mp.base.cval)
     (hinvA : ProjPhaseAcvalP T ctorName nF env' mp.base2.acval)
     (hilt : i < nF)
     (hTf : (env'.find? T).isSome = true)
     (hCf : (env'.find? ctorName).isSome = true)
-    (hIB : BlockInstalledTT blockNames env' mp.base2.base.cval)
+    (hIB : BlockInstalledTT blockNames env' mp.base.cval)
     (hIA : BlockAcvalInstalled blockNames env' mp.base2.acval)
     (hTblock : blockNames.contains T = true)
     (hnotb : blockNames.contains (projFnName T i) = false)
@@ -91,8 +91,8 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
       capsT.eta = true → capsT.etaFields = nF)
     -- the v1 carrier at the cons, install-supplied (`projConsS`)
     (hbase : EnvS V ⟨c₀ :: env'.consts⟩)
-    (hbcval : hbase.cval = cvalWith mp.base2.base.cval (projFnName T i)
-      (fun ψ => mp.base2.base.cval (projModelName T i) ψ))
+    (hbcval : hbase.cval = cvalWith mp.base.cval (projFnName T i)
+      (fun ψ => mp.base.cval (projModelName T i) ψ))
     -- the fired rules: the bottom fires BELOW this cons
     (hnew : ∀ m₂ : EnvS2Core V ⟨c₀ :: env'.consts⟩,
       m₂.acval = acvalWith mp.base2.acval (projFnName T i)
@@ -157,7 +157,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     rw [hcvA]
     exact denoteP_cons_fresh_mono hfresh ψ 0 pty hcbPty hta
   -- the eight mechanical rows
-  have hagH : ∀ n, n ≠ c₀.name → mp.base2.base.cval n = hbase.cval n := by
+  have hagH : ∀ n, n ≠ c₀.name → mp.base.cval n = hbase.cval n := by
     intro n hn
     rw [hbcval, cvalWith_ne
       (show n ≠ projFnName T i by rw [← hname]; exact hn)]
@@ -165,7 +165,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     intro ψ
     rw [hbcval, hname, hAdef]
     show (mp.base2.acval (projModelName T i) ψ).erase = _
-    rw [mp.base2.acval_erase]
+    rw [mp.base_erase]
     exact (congrFun cvalWith_self ψ).symm
   have hAclosedH : ∀ (ψ : Name → Nat) (k : Nat),
       (A ψ).liftN 1 k = A ψ := by

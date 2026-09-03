@@ -60,18 +60,28 @@ variable {μ : CheckMode} {env : Env}
 /-! ## The Empty pin, at the core carrier -/
 
 /-- The annotated `Empty` leaf is the pinned constant
-(`acval_empty_pinned` at the denote2-free carrier). -/
-theorem acval_empty_pinnedC (m : EnvS2Core V env) (ψ : Name → Nat) :
+(`acval_empty_pinned` at the denote2-free carrier).
+
+**The pin is now a PREMISE** (task #161 S3): the core no longer
+contains an `EnvS`, so `EnvS.empty_pinned` is not available from it.
+The premise is stated in exactly the shape the census's §1.5 P-native
+carrier field takes (`∀ ψ, ∃ u, cvalE emptyName ψ = emptyT u`), so S7
+discharges it by projection when the field lands; until then the fold
+layer supplies it from its v1 residue. -/
+theorem acval_empty_pinnedC (m : EnvS2Core V env)
+    (hpin : ∀ ψ : Name → Nat, ∃ u, m.cvalE emptyName ψ = emptyT u)
+    (ψ : Name → Nat) :
     ∃ u, m.acval emptyName ψ = .const .empty [u] := by
-  obtain ⟨u, hu⟩ := m.base.empty_pinned ψ
+  obtain ⟨u, hu⟩ := hpin ψ
   exact ⟨u, erase_eq_const (by rw [m.acval_erase, hu]; rfl)⟩
 
 /-- …so its `interp2` reading is the empty set, at every
 assignment. -/
 theorem interp2_acval_emptyC (m : EnvS2Core V env)
+    (hpin : ∀ ψ : Name → Nat, ∃ u, m.cvalE emptyName ψ = emptyT u)
     (ψ : Name → Nat) (ρ : Nat → V) :
     interp2 V ρ (m.acval emptyName ψ) = SetTheory.empty := by
-  obtain ⟨u, hu⟩ := acval_empty_pinnedC m ψ
+  obtain ⟨u, hu⟩ := acval_empty_pinnedC m hpin ψ
   rw [hu, interp2_const]
   rfl
 
@@ -97,7 +107,10 @@ theorem no_constant_of_Empty_P (mp : EnvS2PM V μ env)
         (Option.some.inj hta).symm
       have hmem := mp.mem_typeP c hc (fun _ => 0) _ hta0
         (fun _ => (SetTheory.empty : V))
-      rw [interp2_acval_emptyC mp.base2] at hmem
+      rw [interp2_acval_emptyC mp.base2 (fun ψ => by
+        rw [show mp.base2.cvalE emptyName ψ = mp.base.cval emptyName ψ
+              from mp.base_erase emptyName ψ]
+        exact mp.base.empty_pinned ψ)] at hmem
       exact not_mem_empty _ hmem
     · rw [denoteP, hf] at hta
       dsimp only at hta

@@ -445,10 +445,10 @@ theorem dq_whnfCore_packageP (m : EnvS2Core V env) {fuel d : Nat}
   obtain ⟨aa', haa'⟩ := hex hw hws hb hLb hC haa hok
   obtain ⟨hok', heq⟩ := ihwc hw hws hb hLb hC haa haa' hok
   exact ⟨aa', haa', hok', heq,
-    whnfCore_WScoped m.base.wf fuel hw hws,
-    whnfCore_looseBVars m.base.wf fuel hw hb,
-    fun l hl => hLb l (whnfCore_fvarLeaves m.base.wf fuel hw l hl),
-    hC.of_subset (whnfCore_fvarLeaves m.base.wf fuel hw)⟩
+    whnfCore_WScoped m.wf fuel hw hws,
+    whnfCore_looseBVars m.wf fuel hw hb,
+    fun l hl => hLb l (whnfCore_fvarLeaves m.wf fuel hw l hl),
+    hC.of_subset (whnfCore_fvarLeaves m.wf fuel hw)⟩
 
 /-- The δ package, P currency: neither the annotation nor the fuel
 moves, so only the frame conditions and one `of_subset` remain. -/
@@ -462,10 +462,10 @@ theorem dq_delta_packageP {m : EnvS2Core V env}
     denoteP m.acval env φ d y = some xa ∧
       Expr.WScoped d y ∧ y.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded y ∧ CtxOkP m φ d Δa y :=
-  ⟨hdel hu hx, unfoldDefinition_WScoped m.base.wf hu hws,
-    unfoldDefinition_looseBVars m.base.wf hu hb,
-    fun l hl => hLb l (unfoldDefinition_fvarLeaves m.base.wf hu l hl),
-    hC.of_subset (unfoldDefinition_fvarLeaves m.base.wf hu)⟩
+  ⟨hdel hu hx, unfoldDefinition_WScoped m.wf hu hws,
+    unfoldDefinition_looseBVars m.wf hu hb,
+    fun l hl => hLb l (unfoldDefinition_fvarLeaves m.wf hu l hl),
+    hC.of_subset (unfoldDefinition_fvarLeaves m.wf hu)⟩
 
 /-! ## T3 — the step dispatcher
 

@@ -80,13 +80,13 @@ private theorem prop_side_pt {m : EnvS2Core V env}
     hreads hta hwa hba hLa (LeafReadsP.of_ctxOkP hCa) hda
   obtain ⟨-, -, hmemA⟩ := ihi hta hwa hba hLa hCa hda htaa
   have hwta : Expr.WScoped d ta :=
-    inferTypeCore_WScoped m.base.wf fuel hta hwa
+    inferTypeCore_WScoped m.wf fuel hta hwa
   have hbta : ta.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.base.wf fuel hta hwa hba hLa
+    inferTypeCore_looseBVars m.wf fuel hta hwa hba hLa
   have hLta : Expr.LeavesBounded ta := fun l hl =>
-    hLa l (inferTypeCore_fvarLeaves m.base.wf fuel hta hwa l hl)
+    hLa l (inferTypeCore_fvarLeaves m.wf fuel hta hwa l hl)
   have hCta : CtxOkP m φ d Δa ta :=
-    hCa.of_subset (inferTypeCore_fvarLeaves m.base.wf fuel hta hwa)
+    hCa.of_subset (inferTypeCore_fvarLeaves m.wf fuel hta hwa)
   have hA := sortSemAtP_of_claims ihw ihi hreads hCta hwta hbta hLta
     hsta hwsta htaa ρ hρ
   have h0 : Level.eval φ uT = 0 := Setlec.Level.isEquiv_sound huT φ
@@ -122,19 +122,19 @@ private theorem unit_side_pt {m : EnvS2Core V env}
   obtain ⟨-, hokTa, hmemA⟩ := ihi hta hwa hba hLa hCa hda htaa
   -- the inferred type's frames
   have hwt : Expr.WScoped d ta :=
-    inferTypeCore_WScoped m.base.wf fuel hta hwa
+    inferTypeCore_WScoped m.wf fuel hta hwa
   have hbt : ta.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.base.wf fuel hta hwa hba hLa
+    inferTypeCore_looseBVars m.wf fuel hta hwa hba hLa
   have hLt : Expr.LeavesBounded ta := fun l hl =>
-    hLa l (inferTypeCore_fvarLeaves m.base.wf fuel hta hwa l hl)
+    hLa l (inferTypeCore_fvarLeaves m.wf fuel hta hwa l hl)
   have hCt : CtxOkP m φ d Δa ta :=
-    hCa.of_subset (inferTypeCore_fvarLeaves m.base.wf fuel hta hwa)
+    hCa.of_subset (inferTypeCore_fvarLeaves m.wf fuel hta hwa)
   -- the head normal form reads, and the reduction preserves interp2
   obtain ⟨wtaa, hwtaa⟩ := hwreads hwta hwt hbt hLt htaa
   obtain ⟨-, heqW⟩ := ihw hwta hwt hbt hLt hCt htaa hwtaa hokTa
   -- the unit-like type is the pinned `PUnit`
   obtain ⟨us, rfl, hfind⟩ :=
-    Setlec.TTVerify.unitLike_eq_punit m.base.basis_pinned hu
+    Setlec.TTVerify.unitLike_eq_punit m.basis_pinned hu
   -- its reading is the annotated `PUnit` leaf
   rw [denoteP, hfind] at hwtaa
   dsimp only at hwtaa
@@ -145,12 +145,12 @@ private theorem unit_side_pt {m : EnvS2Core V env}
       (Level.substFn φ Setlec.punitA.toConstantVal.levelParams us) :=
     (Option.some.inj hwtaa).symm
   -- the leaf is the pinned constant, and its `interp2` is `unitSet`
-  have hpin : m.base.cval Setlec.punitName
+  have hpin : m.cvalE Setlec.punitName
       (Level.substFn φ Setlec.punitA.toConstantVal.levelParams us)
       = Setlec.TT.punitT
         (Level.substFn φ Setlec.punitA.toConstantVal.levelParams us
           Setlec.uN) :=
-    (m.base.basis_pinned Setlec.punitName _ hfind (by decide)).2 _ _ rfl
+    (m.basis_pinned Setlec.punitName _ hfind (by decide)).2 _ _ rfl
   have hleaf : m.acval Setlec.punitName
       (Level.substFn φ Setlec.punitA.toConstantVal.levelParams us)
       = .const .punit

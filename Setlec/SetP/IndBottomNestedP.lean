@@ -362,7 +362,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
       denoteP_params_ext mp.base2 hagree 0 cvj.type hClp] at h
     exact h
   have hTVjcl : ∀ k : Nat, TVja.liftN 1 k = TVja := fun k =>
-    denoteP_closed mp.base2.acval_erase mp.base2.base.cval_closed
+    denoteP_closed mp.base2.acval_erase mp.base2.cval_closed
       hCw hCb hTVj0 1 k
   have hokTVj : ∀ σ : Nat → V, AnnotOkP V σ TVja :=
     mp.type_okP _ (Setlec.SetR.Env.find?_mem hctorE) _ TVja hTVj0
@@ -810,9 +810,9 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
       rw [openRev_instantiateLevelParams lps us 0 rP, denotePInstLevels,
         ← denoteP_renameConsts hroT, ← openRev_renameConsts,
         ← denoteP_openRev_base (acval := mp.base2.acval)
-          (cval := mp.base2.base.cval) (env := env)
+          (cval := mp.base2.cvalE) (env := env)
           (φ := Level.substFn φ lps us) mp.base2.acval_closed
-          mp.base2.acval_erase mp.base2.base.cval_closed
+          mp.base2.acval_erase mp.base2.cval_closed
           (hpwdR q hq).1 (hpwdR q hq).2 (rP + cnF)]
       exact hin
   have hpinCross : ∀ q, q < cnP → ∃ vpa w0,
@@ -834,10 +834,10 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
         ← denotePInstLevels, ← openRev_instantiateLevelParams lps us 0 rP]
       exact hvpa
     obtain ⟨w0, hw0, hcross⟩ := pinCrossP (acval := mp.base2.acval)
-      (cval := mp.base2.base.cval) (env := env)
+      (cval := mp.base2.cvalE) (env := env)
       (φ := Level.substFn φ lps us) (cnF := cnF)
       mp.base2.acval_closed hainst mp.base2.acval_erase
-      mp.base2.base.cval_closed (AVExpr.sort 0) htkSlen
+      mp.base2.cval_closed (AVExpr.sort 0) htkSlen
       (fun i x hx => by
         have hilt : i < rP := by
           have := (List.getElem?_eq_some_iff.mp hx).1
@@ -1008,23 +1008,23 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
   obtain ⟨tl, hInfL, hDeqL⟩ := hsideL
   obtain ⟨tr, hInfR, hDeqR⟩ := hsideR
   have hwsTl : Expr.WScoped (rP + cnF) tl :=
-    inferTypeCore_WScoped mp.base2.base.wf F hInfL hwsL
+    inferTypeCore_WScoped mp.base2.wf F hInfL hwsL
   have hwsTr : Expr.WScoped (rP + cnF) tr :=
-    inferTypeCore_WScoped mp.base2.base.wf F hInfR hwsR
+    inferTypeCore_WScoped mp.base2.wf F hInfR hwsR
   have hleafTl : ∀ l ∈ tl.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs :=
     fun l hl => hleafL l
-      (inferTypeCore_fvarLeaves mp.base2.base.wf F hInfL hwsL l hl)
+      (inferTypeCore_fvarLeaves mp.base2.wf F hInfL hwsL l hl)
   have hleafTr : ∀ l ∈ tr.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs :=
     fun l hl => hleafR l
-      (inferTypeCore_fvarLeaves mp.base2.base.wf F hInfR hwsR l hl)
+      (inferTypeCore_fvarLeaves mp.base2.wf F hInfR hwsR l hl)
   have hltTl : ∀ l ∈ tl.fvarLeaves, l.1 < rP + cnF :=
     fun l hl => hfvsLt l (hleafTl l hl)
   have hltTr : ∀ l ∈ tr.fvarLeaves, l.1 < rP + cnF :=
     fun l hl => hfvsLt l (hleafTr l hl)
   have hbTl : tl.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars mp.base2.base.wf F hInfL hwsL hbL hLL
+    inferTypeCore_looseBVars mp.base2.wf F hInfL hwsL hbL hLL
   have hbTr : tr.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars mp.base2.base.wf F hInfR hwsR hbR hLR
+    inferTypeCore_looseBVars mp.base2.wf F hInfR hwsR hbR hLR
   have hLTl : Expr.LeavesBounded tl := fun l hl =>
     hlbFvs l.1 l.2.1 l.2.2 (hleafTl l hl)
   have hLTr : Expr.LeavesBounded tr := fun l hl =>

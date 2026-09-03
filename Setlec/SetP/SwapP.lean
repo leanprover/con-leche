@@ -182,11 +182,11 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     -- (`EnvS.swap`'s output at the group install): taking it rather
     -- than rebuilding it keeps `EnvWF`/`RecCtorsStored`/`RecRulesV`
     -- out of this file entirely
-    (hbase₃ : EnvS V env₃) (hbcval : hbase₃.cval = mp.base2.base.cval)
+    (hbase₃ : EnvS V env₃) (hbcval : hbase₃.cval = mp.base.cval)
     (hrecP : ∀ (m₃ : EnvS2Core V env₃), m₃.acval = mp.base2.acval →
       ∀ φ : Name → Nat, RecRulesP m₃ φ) :
     ∃ mp₃ : EnvS2PM V μ env₃, mp₃.base2.acval = mp.base2.acval ∧
-      mp₃.base2.base.cval = hbase₃.cval := by
+      mp₃.base.cval = hbase₃.cval := by
   have hcg : Setlec.SwapCongr env₀ env₃ := Setlec.SwapShList.congr hsw
   have hcorr := Setlec.swapSh_find?_corr hsw
   have hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
@@ -207,13 +207,23 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩
     · exact ⟨c₀, hc₀, rfl, rfl⟩
     · exact ⟨_, hc₀, rfl, rfl⟩
+  have herase₃ : ∀ (n : Name) (ψ : Name → Nat),
+      (mp.base2.acval n ψ).erase = hbase₃.cval n ψ := by
+    intro n ψ
+    rw [hbcval]
+    exact mp.base_erase n ψ
   refine ⟨{ base2 :=
-              { base := hbase₃
+              { wf := hbase₃.wf
                 acval := mp.base2.acval
-                acval_erase := by
-                  intro n ψ
-                  rw [hbcval]
-                  exact mp.base2.acval_erase n ψ
+                cval_closedL := fun n ψ => by
+                  rw [herase₃ n ψ]; exact hbase₃.cval_closed n ψ
+                basis_pinnedL := fun n ci hf hres =>
+                  ⟨(hbase₃.basis_pinned n ci hf hres).1, fun t ψ hd => by
+                    show (mp.base2.acval n ψ).erase = t
+                    rw [herase₃ n ψ]
+                    exact (hbase₃.basis_pinned n ci hf hres).2 t ψ hd⟩
+                proj_ok := hbase₃.proj_ok
+                rec_ctors := hbase₃.rec_ctors
                 acval_closed := mp.base2.acval_closed
                 acval_params := by
                   intro n ci hf ψ₁ ψ₂ hp
@@ -225,6 +235,8 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
                     obtain rfl := Option.some.inj hf
                     exact mp.base2.acval_params n _ h₀ ψ₁ ψ₂ hp
                 acval_ok2 := mp.base2.acval_ok2 }
+            base := hbase₃
+            base_erase := herase₃
             acval_validV := mp.acval_validV
             type_reads := ?_
             type_okP := ?_

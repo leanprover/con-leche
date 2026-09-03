@@ -185,7 +185,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
       rfl
   -- the head runs back to the closed rule reading
   have hRVcl : ∀ k : Nat, RV.liftN 1 k = RV :=
-    fun k => denoteP_closed m.acval_erase m.base.cval_closed hrhsw hrhsb
+    fun k => denoteP_closed m.acval_erase m.cval_closed hrhsw hrhsb
       hRV 1 k
   have hheadK : denoteP m.acval env ψ' (rP + cnF)
       (rhsA.renameConsts f) = some RV := by
@@ -220,7 +220,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
   have hsplen : vsp.length = rP + cnF := by
     rw [← hspine.length, hfvslen]
   have hRVbb : Setlec.TT.VExpr.bvarsBelow 0 RV.erase :=
-    denote_closed m.base.cval_closed hrhsw hrhsb
+    denote_closed m.cval_closed hrhsw hrhsb
       (denoteP_erase m.acval_erase 0 rhsA hRV)
   rw [interp2_mkAppN_map, interp2_mkAppN_map,
     interp2_closed (V := V) hRVbb (chainP V ρ zs) ρ]

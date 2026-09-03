@@ -469,15 +469,15 @@ theorem certValueP {F : Nat} (mp : EnvS2PM V μ env) (ψ : Name → Nat)
   obtain ⟨-, hokT, hmem⟩ := hinfC hinf hWA hBA hLA hCA' hea hta
   -- the inferred type's frame
   have hWtp : Expr.WScoped 4 tp :=
-    Setlec.inferTypeCore_WScoped mp.base2.base.wf F hinf hWA
+    Setlec.inferTypeCore_WScoped mp.base2.wf F hinf hWA
   have hBtp : tp.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars mp.base2.base.wf F hinf hWA hBA hLA
+    Setlec.inferTypeCore_looseBVars mp.base2.wf F hinf hWA hBA hLA
   have hLtp : Expr.LeavesBounded tp := fun l hl =>
-    hLA l (Setlec.inferTypeCore_fvarLeaves mp.base2.base.wf F hinf hWA
+    hLA l (Setlec.inferTypeCore_fvarLeaves mp.base2.wf F hinf hWA
       l hl)
   have hCtp : CtxOkP mp.base2 ψ 4 Δa tp :=
     hCA'.of_subset
-      (Setlec.inferTypeCore_fvarLeaves mp.base2.base.wf F hinf hWA)
+      (Setlec.inferTypeCore_fvarLeaves mp.base2.wf F hinf hWA)
   -- the defeq run identifies the inferred type with the statement
   have heq := hdeC hde hWtp hBtp hLtp hWE hBE hLE hCtp hCE hta hvE
     hokT hokE ρ hsat
@@ -847,7 +847,7 @@ theorem dmCtxOkP_natLeaves {mp : EnvS2PM V μ env} {c : Name}
         = mp.base2.acval Setlec.natName ψ := fun k =>
     AVExpr.liftN_eq_self _
       (by rw [mp.base2.acval_erase]
-          exact mp.base2.base.cval_closed Setlec.natName ψ) k
+          exact mp.base2.cval_closed Setlec.natName ψ) k
   refine ctxOkP_pinnedLift hlen (fun l hl => ?_)
   rw [fvarLeaves_substConst0 (n := c) fr.valueNoFvar e] at hl
   rcases dmLeavesOk_mem he hl with rfl | rfl
@@ -1363,7 +1363,7 @@ theorem dmClause1P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
           = mp.base2.acval Setlec.natName ψ := fun k =>
       AVExpr.liftN_eq_self _
         (by rw [mp.base2.acval_erase]
-            exact mp.base2.base.cval_closed Setlec.natName ψ) k
+            exact mp.base2.cval_closed Setlec.natName ψ) k
     have hnatSlot : ∀ i k : Nat,
         [mp.base2.acval Setlec.natName ψ, H1a,
           mp.base2.acval Setlec.natName ψ,
@@ -1640,7 +1640,7 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
         = mp.base2.acval Setlec.natName ψ := fun k =>
     AVExpr.liftN_eq_self _
       (by rw [mp.base2.acval_erase]
-          exact mp.base2.base.cval_closed Setlec.natName ψ) k
+          exact mp.base2.cval_closed Setlec.natName ψ) k
   have hnatSlot : ∀ i k : Nat,
       [H2a, H1a, mp.base2.acval Setlec.natName ψ,
         mp.base2.acval Setlec.natName ψ].getD i default
@@ -1831,7 +1831,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
   -- the leaves' closedness and grading
   have hAerCl : ∀ ψ' : Name → Nat, VExpr.Closed (A ψ').erase :=
-    fun ψ' => denote_closed mp.base2.base.cval_closed hvf' hbv'
+    fun ψ' => denote_closed mp.base2.cval_closed hvf' hbv'
       (denoteP_erase mp.base2.acval_erase 0 value' (hA ψ'))
   have hleafOk : ∀ (n : Name) (ρ : Nat → V),
       AnnotOkP V ρ (dmLeaf mp.base2 c A ψ n) := by

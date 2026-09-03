@@ -277,7 +277,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       denoteP_params_ext mp.base2 hagree 0 cvj.type hClp] at h
     exact h
   have hTVjcl : ∀ k : Nat, TVja.liftN 1 k = TVja := fun k =>
-    denoteP_closed mp.base2.acval_erase mp.base2.base.cval_closed
+    denoteP_closed mp.base2.acval_erase mp.base2.cval_closed
       hCw hCb hTVj0 1 k
   have hCwR : (cvj.type.renameConsts f).hasFvar = false := by
     rw [hasFvar_renameConsts]
@@ -512,23 +512,23 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
   obtain ⟨tl, hInfL, hDeqL⟩ := hsideL
   obtain ⟨tr, hInfR, hDeqR⟩ := hsideR
   have hwsTl : Expr.WScoped (rP + cnF) tl :=
-    inferTypeCore_WScoped mp.base2.base.wf F hInfL hwsL
+    inferTypeCore_WScoped mp.base2.wf F hInfL hwsL
   have hwsTr : Expr.WScoped (rP + cnF) tr :=
-    inferTypeCore_WScoped mp.base2.base.wf F hInfR hwsR
+    inferTypeCore_WScoped mp.base2.wf F hInfR hwsR
   have hleafTl : ∀ l ∈ tl.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs :=
     fun l hl => hleafL l
-      (inferTypeCore_fvarLeaves mp.base2.base.wf F hInfL hwsL l hl)
+      (inferTypeCore_fvarLeaves mp.base2.wf F hInfL hwsL l hl)
   have hleafTr : ∀ l ∈ tr.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs :=
     fun l hl => hleafR l
-      (inferTypeCore_fvarLeaves mp.base2.base.wf F hInfR hwsR l hl)
+      (inferTypeCore_fvarLeaves mp.base2.wf F hInfR hwsR l hl)
   have hltTl : ∀ l ∈ tl.fvarLeaves, l.1 < rP + cnF :=
     fun l hl => hfvsLt l (hleafTl l hl)
   have hltTr : ∀ l ∈ tr.fvarLeaves, l.1 < rP + cnF :=
     fun l hl => hfvsLt l (hleafTr l hl)
   have hbTl : tl.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars mp.base2.base.wf F hInfL hwsL hbL hLL
+    inferTypeCore_looseBVars mp.base2.wf F hInfL hwsL hbL hLL
   have hbTr : tr.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars mp.base2.base.wf F hInfR hwsR hbR hLR
+    inferTypeCore_looseBVars mp.base2.wf F hInfR hwsR hbR hLR
   have hLTl : Expr.LeavesBounded tl := fun l hl =>
     hlbFvs l.1 l.2.1 l.2.2 (hleafTl l hl)
   have hLTr : Expr.LeavesBounded tr := fun l hl =>

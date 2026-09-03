@@ -169,7 +169,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
         have h := hTmE; rw [hfm] at h
         exact (Setlec.ConstantInfo.defnInfo.inj (Option.some.inj h)).1
       obtain ⟨-, -, hty, -⟩ :=
-        mp.base2.base.wf _ (Setlec.SetR.Env.find?_mem hfE)
+        mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfE)
       exact blockTypeReadEq mp hIB hIA hty hren ψ
   have hcbT : ConstsBound env cvT.type := by
     by_cases hT0 : T = c₀.name
@@ -182,7 +182,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
         rw [Setlec.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hfT
         exact hfT
       obtain ⟨-, -, hty, -⟩ :=
-        mp.base2.base.wf _ (Setlec.SetR.Env.find?_mem hfE)
+        mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfE)
       exact constsBound_of_constsResolve _ hty
   intro us hus
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,

@@ -38,7 +38,7 @@ makes the induction's hypotheses *facts*.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.SetR (AVExpr EnvS)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps projFnName RecRule)
 
@@ -537,6 +537,20 @@ structure EnvS2PM (μ : CheckMode) (env : Env) where
   denote2-currency fields `EnvS2UM` carries — and the P surface reads
   none of them) -/
   base2 : EnvS2Core V env
+  /-- **THE V1 RESIDUE** (task #161 S3): the collapsed-lane invariant,
+  contained *here* rather than in the core.  S3 de-based `EnvS2Core`
+  itself — the carrier the P quarters and rows are stated over is now
+  model-free — but the fold layer still round-trips through the v1
+  installs (`extend*S`, `declDefnS`, `checkDeclR_sound`,
+  `EnvS.empty_pinned`), and those are S4/S5/S7's bill.  When they are
+  gone this field and `base_erase` go with them and the P invariant is
+  self-standing. -/
+  base : EnvS V env
+  /-- the annotated valuation erases to the collapsed one (the field
+  that used to live in `EnvS2Core`; it is the *link* to the v1 lane,
+  not a fact about the core) -/
+  base_erase : ∀ (n : Name) (ψ : Name → Nat),
+    (base2.acval n ψ).erase = base.cval n ψ
   /-- every leaf is bit-valid (`acval_ok2`'s `AnnotValidV` half) -/
   acval_validV : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
     AnnotValidV V ρ (base2.acval n ψ)
@@ -612,10 +626,10 @@ theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
   have hname := Setlec.SetR.Env.find?_name hf
   obtain ⟨ta, hta⟩ :=
     m.type_reads ci hmem (Level.substFn φ ci.toConstantVal.levelParams us)
-  have hwf := m.base2.base.wf ci hmem
+  have hwf := m.base2.wf ci hmem
   -- the reading is closed, hence depth-free
   have hcl : ∀ k : Nat, ta.liftN 1 k = ta := fun k =>
-    denoteP_closed m.base2.acval_erase m.base2.base.cval_closed
+    denoteP_closed m.base2.acval_erase m.base2.cval_closed
       hwf.1 hwf.2.2.2.1 hta 1 k
   have hdepth :
       denoteP m.base2.acval env
@@ -639,6 +653,49 @@ theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
 
 end EnvS2PM
 
+/-- **The de-based core, built from the v1 base** (task #161 S3).
+
+`EnvS2Core` no longer contains an `EnvS`: it carries the five
+syntactic facts itself (`wf`, `cval_closedL`, `basis_pinnedL`,
+`proj_ok`, `rec_ctors`).  Every one of them is *available* from an
+`EnvS` at the same environment, and this is the shim that reads them
+off — so the install layer's v1 round trip (the census's 47 sites)
+keeps working unchanged while the carrier the P quarters are stated
+over is model-free.
+
+**This shim is S4/S5's target**: when the installs supply the five
+facts directly, `coreOfBase` and `EnvS2PM.base` go together and the P
+invariant is self-standing. -/
+def coreOfBase {V : Type w} [SetTheory V] {env₂ : Env}
+    (hbase : EnvS V env₂)
+    (acval : Name → (Name → Nat) → AVExpr)
+    (herase : ∀ (n : Name) (ψ : Name → Nat),
+      (acval n ψ).erase = hbase.cval n ψ)
+    (hclosed : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+      (acval n ψ).liftN 1 k = acval n ψ)
+    (hparams : ∀ (n : Name) (ci : ConstantInfo),
+      env₂.find? n = some ci →
+      ∀ ψ₁ ψ₂ : Name → Nat,
+        (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
+        acval n ψ₁ = acval n ψ₂)
+    (hok2 : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V),
+      AnnotOk2 V ρ (acval n ψ)) :
+    EnvS2Core V env₂ where
+  wf := hbase.wf
+  acval := acval
+  cval_closedL := fun n ψ => by
+    rw [herase n ψ]; exact hbase.cval_closed n ψ
+  basis_pinnedL := fun n ci hf hres =>
+    ⟨(hbase.basis_pinned n ci hf hres).1, fun t ψ hd => by
+      show (acval n ψ).erase = t
+      rw [herase n ψ]
+      exact (hbase.basis_pinned n ci hf hres).2 t ψ hd⟩
+  proj_ok := hbase.proj_ok
+  rec_ctors := hbase.rec_ctors
+  acval_closed := hclosed
+  acval_params := hparams
+  acval_ok2 := hok2
+
 /-- The empty environment carries the P invariant (the fold's base
 case): the core is the mode-indexed empty's projection, and every P
 field is vacuous — no constants, guards false, and the empty leaf
@@ -646,7 +703,9 @@ field is vacuous — no constants, guards false, and the empty leaf
 binder. -/
 noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
     (μ : CheckMode) : EnvS2PM V μ Env.empty where
-  base2 := (EnvS2UM.empty (V := V) μ).toCore
+  base2 := EnvS2Core.empty
+  base := EnvS.empty V
+  base_erase := fun _ _ => rfl
   acval_validV := fun _ _ _ => by
     show AnnotValidV V _ (.const .empty [0])
     simp
