@@ -1,5 +1,8 @@
 import Setlec.SetP.IndBottomProjP
 import Setlec.SetP.Annot.BitReads
+-- task #161 S10: `acceptedReadsP_of` — the rule rhs's reading comes
+-- from the recorded RUN, not from `IotaRuleR`'s derivation row.
+import Setlec.SetP.Step2.AcceptedP
 
 /-!
 # The per-rule bridge, canonical branch (task #161, IND TIER part 9)
@@ -75,7 +78,9 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hfireP : RecRule.fire r' = .plain) (φ : Name → Nat) :
     RecRuleLawP mp.base2 φ cvA.name cvA mI rP r' := by
   obtain ⟨cvjK, cnPK, cnFK, rhsA, hfcK, hnfK, hrb, hrf, hann, hrlp,
-    hrres, hstripRhs, hkey, hrun0, fire, hr'eq, hbranch⟩ := hkit
+    -- `-` at position 13: `IotaRuleR`'s rule-rhs **derivation** row,
+    -- no longer consumed (task #161 S10)
+    hrres, hstripRhs, -, hrun0, fire, hr'eq, hbranch⟩ := hkit
   -- the rule's stored shape
   have hr'rhs : RecRule.rhs r' = rhsA := by rw [hr'eq]
   have hr'ctor : RecRule.ctor r' = RecRule.ctor r := by rw [hr'eq]
@@ -145,9 +150,13 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       ∀ ρ : Nat → V, AnnotOkP V ρ Ra ∧
         interp2 V ρ Ra ∈ˢ interp2 V ρ ta := by
     intro ψ
-    obtain ⟨Rv, -, hRv, -⟩ := hkey ψ
-    obtain ⟨Ra, hRa⟩ := denotePClosed_isSome_of_denoteClosed
-      (acval := mp.base2.acval) hRv
+    -- **the reading, from the RUN** (task #161 S10): it used to come
+    -- from `IotaRuleR`'s derivation row (`hkey`) through
+    -- `denotePClosed_isSome_of_denoteClosed`; `acceptedReadsP_of`
+    -- ("whatever `inferTypeCore` accepts, `denoteP` reads") produces
+    -- it from `hrun`, the record's own recorded run.
+    obtain ⟨Ra, hRa⟩ :=
+      acceptedReadsP_of mp.base2 ψ hrun hrhsWs hrhsAb hrhsLb
     have hctx : CtxOkP mp.base2 ψ 0 [] rhsA :=
       ⟨rfl, fun l hl => absurd hl (fun h => hrhsLeafNil l h)⟩
     obtain ⟨ta, hta⟩ := hreadsP ψ hrun hrhsWs hrhsAb hrhsLb

@@ -83,7 +83,9 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hfireN : RecRule.fire r' = .nested lvls pins) (φ : Name → Nat) :
     RecRuleLawP mp.base2 φ cvA.name cvA mI rP r' := by
   obtain ⟨cvjK, cnPK, cnFK, rhsA, hfcK, hnfK, hrb, hrf, hann, hrlp,
-    hrres, hstripRhs, hkey, hrun0, fire, hr'eq, hbranch⟩ := hkit
+    -- `-` at position 13: `IotaRuleR`'s rule-rhs **derivation** row,
+    -- no longer consumed (task #161 S10)
+    hrres, hstripRhs, -, hrun0, fire, hr'eq, hbranch⟩ := hkit
   -- the rule's stored shape
   have hr'rhs : RecRule.rhs r' = rhsA := by rw [hr'eq]
   have hr'ctor : RecRule.ctor r' = RecRule.ctor r := by rw [hr'eq]
@@ -153,9 +155,9 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       ∀ ρ : Nat → V, AnnotOkP V ρ Ra ∧
         interp2 V ρ Ra ∈ˢ interp2 V ρ ta := by
     intro ψ
-    obtain ⟨Rv, -, hRv, -⟩ := hkey ψ
-    obtain ⟨Ra, hRa⟩ := denotePClosed_isSome_of_denoteClosed
-      (acval := mp.base2.acval) hRv
+    -- the reading, from the RUN (task #161 S10; see `iotaRulePlainP`)
+    obtain ⟨Ra, hRa⟩ :=
+      acceptedReadsP_of mp.base2 ψ hrun hrhsWs hrhsAb hrhsLb
     have hctx : CtxOkP mp.base2 ψ 0 [] rhsA :=
       ⟨rfl, fun l hl => absurd hl (fun h => hrhsLeafNil l h)⟩
     obtain ⟨ta, hta⟩ := hreadsP ψ hrun hrhsWs hrhsAb hrhsLb
@@ -205,7 +207,12 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     cdoms, cres, rdoms, lrest, fvsP, crest2, cdomsP, crestP, xFvsP,
     ldoms, hcinst, hclen, hrinst, hopenP,
     ⟨hpinAnn, hcinstP, hopenXP, hldomsAr⟩,
-    ldomsL, lrest2, hinstLam, hTypedW, hTypedP, -, hruns⟩ := hthmN
+    -- `-` at position 19: `IotaThmNR`'s `TypedListW` walk — the S4
+    -- census's ONE consumed derivation row, and the row S5 designed
+    -- `IotaNestedPinReadsR` for.  It is no longer consumed either
+    -- (task #161 S10): the readings come from `hTypedP`, the run
+    -- recorded beside it, through `acceptedReadsP_of`.
+    ldomsL, lrest2, hinstLam, -, hTypedP, -, hruns⟩ := hthmN
   -- the statement's stored entry and front doors
   obtain ⟨ciT, hciTS, hciTcv⟩ : ∃ ciT, envSelf.find?
       ((cvA.name.str "_model").str s!"iota_{j}") = some ciT ∧
@@ -350,26 +357,93 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       hTVjP0 (rP + cnFK)
   have hokTVjP : ∀ σ : Nat → V, AnnotOkP V σ TVjP :=
     mp.type_okP _ (Env.find?_mem hfcS) _ TVjP hTVjP0R
-  -- the pins' instantiated readings, from the typed walk
+  -- **the pins' instantiated readings, from the RUN** (task #161 S10).
+  --
+  -- They used to come from `IotaThmNR`'s `TypedListW` walk — the ONE
+  -- derivation conjunct S4 measured the P lane consuming, and the row
+  -- S5's design note froze `IotaNestedPinReadsR` for.  They do not
+  -- have to: `acceptedReadsP_of` ("whatever `inferTypeCore` accepts,
+  -- `denoteP` reads", ENDGAME A's totality walk) produces the same
+  -- readings from the **recorded run** `hTypedP`, whose per-index
+  -- inference verdict `typedListOk_getD` extracts.  The walk is a
+  -- fuel induction over the checker's own clauses: no derivation, no
+  -- relation, no carrier field.
+  --
+  -- The syntactic pack the totality walk asks for is
+  -- `nestedParamRowP`'s own (`IndNestedParamP.lean`), assembled here
+  -- from the openers' three syntactic laws.
+  have htkPlen : (fvsP.take rP).length = rP := by
+    rw [List.length_take, hfvsPlen]
+    omega
+  have hbFvsP : ∀ x ∈ fvsP, x.looseBVarsBounded 0 = true := by
+    intro x hx
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
+    obtain ⟨nm, ty, rfl⟩ := hshapeP q x hq
+    rfl
+  have hopenerLeafP : ∀ (q0 : Nat) (a : Expr),
+      (fvsP.take rP)[q0]? = some a → ∀ l ∈ a.fvarLeaves,
+        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP := by
+    intro q0 a ha l hl
+    have hq0lt : q0 < rP := by
+      have := (List.getElem?_eq_some_iff.mp ha).1
+      rw [htkPlen] at this
+      exact this
+    rw [List.getElem?_take_of_lt hq0lt] at ha
+    obtain ⟨nm, ty, rfl⟩ := hshapeP q0 a ha
+    rw [Expr.fvarLeaves] at hl
+    rcases List.mem_cons.mp hl with rfl | hl'
+    · exact List.mem_of_getElem? ha
+    · refine hleafClosedP l ⟨_, List.mem_of_getElem? ha, ?_⟩
+      rw [Expr.fvarLeaves]
+      exact List.mem_cons_of_mem _ hl'
+  have hpinSyn : ∀ x ∈ pins.map (Expr.instSpine (fvsP.take rP) (rP - 1)),
+      Expr.WScoped (rP + cnFK) x ∧ x.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded x := by
+    intro a ha
+    obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
+    refine ⟨(instSpine_WScoped (rP - 1)
+        (Expr.WScoped.of_not_hasFvar (hpinsWf p hp).1)
+        (fun x hx => hwsFvsP x (List.mem_of_mem_take hx))).mono
+      (by omega), ?_, ?_⟩
+    · have h := instSpine_closed (args := fvsP.take rP) (e := p)
+        (fun x hx => hbFvsP x (List.mem_of_mem_take hx))
+        (by rw [htkPlen]; exact (hpinsWf p hp).2)
+      rwa [htkPlen] at h
+    · intro l hl
+      rcases fvarLeaves_instSpine (rP - 1) hl with hl' | ⟨x, hx, hlx⟩
+      · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar (hpinsWf p hp).1] at hl'
+        exact nomatch hl'
+      · obtain ⟨q0, hq0⟩ := List.getElem?_of_mem hx
+        exact hlbFvsP _ _ _ (hopenerLeafP q0 x hq0 l hlx)
+  have hpinsGetD : ∀ q, q < cnPK →
+      (pins.map (Expr.instSpine (fvsP.take rP) (rP - 1))).getD q default
+        = Expr.instSpine (fvsP.take rP) (rP - 1) (pins.getD q default) := by
+    intro q hq
+    rw [List.getD, List.getElem?_map, List.getD]
+    rcases hp : pins[q]? with _ | p
+    · rw [List.getElem?_eq_none_iff, hpinsLen] at hp; omega
+    · rfl
+  have hpinMem : ∀ q, q < cnPK →
+      Expr.instSpine (fvsP.take rP) (rP - 1) (pins.getD q default)
+        ∈ pins.map (Expr.instSpine (fvsP.take rP) (rP - 1)) := by
+    intro q hq
+    have hp : pins[q]? = some (pins.getD q default) := by
+      rw [List.getD]
+      rcases hp : pins[q]? with _ | p
+      · rw [List.getElem?_eq_none_iff, hpinsLen] at hp; omega
+      · rfl
+    exact List.mem_map.mpr ⟨_, List.mem_of_getElem? hp, rfl⟩
   have hpinRead : ∀ q, q < cnPK →
       ∃ w, denoteP mp.base2.acval envSelf ψ (rP + cnFK)
         (Expr.instSpine (fvsP.take rP) (rP - 1) (pins.getD q default))
         = some w := by
     intro q hq
-    have hlen : (pins.map
-        (Expr.instSpine (fvsP.take rP) (rP - 1))).length = cnPK := by
-      rw [List.length_map, hpinsLen]
-    obtain ⟨Ev, hEv⟩ := typedListW_denote_getD (hTypedW ψ) q
+    obtain ⟨ty, hi, -⟩ := typedListOk_getD hTypedP q
       (by rw [List.length_map, hpinsLen]; exact hq)
-    rw [show (pins.map (Expr.instSpine (fvsP.take rP)
-          (rP - 1))).getD q default
-        = Expr.instSpine (fvsP.take rP) (rP - 1)
-            (pins.getD q default) from by
-      rw [List.getD, List.getElem?_map, List.getD]
-      rcases hp : pins[q]? with _ | p
-      · rw [List.getElem?_eq_none_iff, hpinsLen] at hp; omega
-      · rfl] at hEv
-    exact denoteP_isSome_of_denote (acval := mp.base2.acval) _ _ hEv
+    rw [hpinsGetD q hq] at hi
+    exact acceptedReadsP_of mp.base2 ψ hi
+      (hpinSyn _ (hpinMem q hq)).1 (hpinSyn _ (hpinMem q hq)).2.1
+      (hpinSyn _ (hpinMem q hq)).2.2
   -- ===== the pin conjunct's row =====
   have hrow := nestedPinRowP (m := mp.base2) (φ := ψ)
     (hdeq ψ) (hinf ψ) (hreadsP ψ) hfvsPlen hshapeP hwsFvsP
