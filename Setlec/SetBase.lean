@@ -16,6 +16,7 @@ import Setlec.SetBase.WhnfCoreLeaf
 import Setlec.SetBase.DefEqStep2
 import Setlec.SetBase.Canon
 import Setlec.SetBase.LitStep2
+import Setlec.SetBase.Denote2Closed
 
 /-!
 # `Setlec.SetBase` — the lane-neutral semantic primitives (task #161, S1)

@@ -206,7 +206,7 @@ import Setlec.SetR.Interp2.Keys2Probe
 import Setlec.SetR.Interp2.Keys2Cond
 import Setlec.SetR.Interp2.Keys2Bundle
 import Setlec.SetR.Interp2.EmptyPin2
-import Setlec.SetR.Interp2.Denote2Closed
+import Setlec.SetBase.Denote2Closed
 import Setlec.SetR.Interp2.Step2Cons
 import Setlec.SetR.Interp2.LevelLocal
 import Setlec.SetR.Interp2.IotaArity

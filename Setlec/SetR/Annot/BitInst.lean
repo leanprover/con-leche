@@ -1,5 +1,5 @@
 import Setlec.SetR.Annot.BitShift
-import Setlec.SetR.Interp2.Denote2Closed
+import Setlec.SetBase.Denote2Closed
 import Setlec.Verify.Denote.Inst
 
 /-!

@@ -4,6 +4,14 @@ import Setlec.Verify.Denote.Shift
 /-!
 # `denote_closed`'s `denote2` twin
 
+*(Re-based to `Setlec/SetBase/*` at THE SEPARATION's S2, task #161: the
+module already imported nothing but base — `SetBase/Canon` and
+`Verify/Denote/Shift` — and three of the graded lane's carriers
+(`Annot/{BitClosed,BitInst}`, `Interp2/OkPTransport`) crossed to it.
+Path and module name changed; namespaces, statements and proofs
+verbatim.)*
+
+
 Seal 52's actionable residue, half of it: `ValueResidues2.closed`
 (`Step2Cons.lean`) asks that the leaf a value install stores is
 lift-invariant, and names v1's `denote_closed`
