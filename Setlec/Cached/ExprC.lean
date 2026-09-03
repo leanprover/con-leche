@@ -390,62 +390,25 @@ def ofExprSpec : Expr → ExprC
   | .lit l => mkLit l
   | .proj s i e => mkProj s i (ofExprSpec e)
 
-/-- Core of the executed conversion: bottom-up under a pointer-address
-memo.  Sound because the root stays reachable for the whole traversal,
-so every subterm whose address is a key is alive (Lean's collector
-never moves objects). -/
-unsafe def ofExprGo (memo : Std.HashMap USize ExprC) (e : Expr) :
-    ExprC × Std.HashMap USize ExprC :=
-  let k := ptrAddrUnsafe e
-  match memo[k]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : ExprC × Std.HashMap USize ExprC :=
-      match e with
-      | .bvar i => (mkBVar i, memo)
-      | .fvar idx n ty =>
-        let (t, memo) := ofExprGo memo ty
-        (mkFVar idx n t, memo)
-      | .sort u => (mkSort u, memo)
-      | .const n us => (mkConst n us, memo)
-      | .app f a =>
-        let (f', memo) := ofExprGo memo f
-        let (a', memo) := ofExprGo memo a
-        (mkApp f' a', memo)
-      | .lam n ty b m =>
-        let (t, memo) := ofExprGo memo ty
-        let (b', memo) := ofExprGo memo b
-        (mkLam n t b' m, memo)
-      | .forallE n ty b m =>
-        let (t, memo) := ofExprGo memo ty
-        let (b', memo) := ofExprGo memo b
-        (mkForallE n t b' m, memo)
-      | .letE n ty v b =>
-        let (t, memo) := ofExprGo memo ty
-        let (v', memo) := ofExprGo memo v
-        let (b', memo) := ofExprGo memo b
-        (mkLetE n t v' b', memo)
-      | .lit l => (mkLit l, memo)
-      | .proj s i sub =>
-        let (s', memo) := ofExprGo memo sub
-        (mkProj s i s', memo)
-    (r, memo.insert k r)
-
-/-- The executed conversion (see `ofExprGo`).
-
-**TRUST POINT** (task #163; the second of the two `implemented_by`
-escapes).  The pure spec is `ofExprSpec`; the acceleration is faithful
-given the same two runtime facts as `beqFast`'s: the address-keyed
-memo maps each live `Expr` subobject to the conversion of that very
-object (immutability + a non-moving collector + the root keeping every
-keyed subterm alive), so a hit returns exactly what the spec would
-rebuild.  The verification consumes only `ofExpr`'s pure definition
-and never this function. -/
-unsafe def ofExprFast (e : Expr) : ExprC := (ofExprGo {} e).1
-
 /-- Convert an `Expr` into an `ExprC`, computing the derived fields
-bottom-up and preserving the input's structure sharing. -/
-@[implemented_by ofExprFast]
+bottom-up.
+
+**The former second trust point is DELETED** (user ruling, 2026-09-03):
+this used to carry `@[implemented_by ofExprFast]` — a pointer-address
+memo preserving the input's sharing — because the pilot converted
+materialized `Expr` trees at the `CheckerOps` seam on the hot path.
+The shipped cached pipeline no longer does: declaration terms enter as
+`ExprC` through the index-memoized `ofStore` conversion of the parse
+arena (`Setlec/Cached/ParsedC.lean`) and are served from the `ienv`
+record thereafter (`recordCConst`/`storedTyIdxM`/`storedValIdxM`), so
+the only remaining callers convert **frontend-budgeted** trees — axiom
+and inductive-block member types and rule right-hand sides at their
+first `(name, levels)` instantiation, fabricated terms, and the
+`--core=cached` Expr-boundary pilot driver (explicitly unverified and
+un-swept, whose per-entry conversion is now the pure tree walk: a
+sharing-heavy stress term such as `dag_tower` is out of that pilot's
+reach by design — use `cached-parsed`).  The pure walk is the
+definition; there is nothing left to trust. -/
 def ofExpr (e : Expr) : ExprC := ofExprSpec e
 
 /-- Core of `toExpr`: a memoized readback (shared subterms are rebuilt
