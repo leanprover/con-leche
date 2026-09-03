@@ -27124,3 +27124,21 @@ S5's work order, as S4 leaves it:
 Kit: `tests/layering.sh` (and `--list`); `_tmp/sep-s4/Audit.lean`;
 `_tmp/sep-s4/closure.py` and `basecount.py` (the closure and
 base-consumption meters used above); the S1/S2/S3 audit files.
+
+## Task #161 SEPARATION — S4 LANDED (2026-09-03; succession-current)
+
+Master @ the S4 merge.  Battery green; binary md5-identical; 12
+capstones standard three.  Whitelist at 5 (3 inner-fold → S5, the
+ReduceOpsP rider, FoldP → Bridge/Sound → residue).  Both S4 design
+calls RATIFIED (Prop-valued ind parameter; record family to base).
+
+**S5 (dispatching), precisely scoped**: the DeclIndS η-only unit
+(~two 800-line inductions); the three inner-fold edges; the
+EnvS2PM.base residue removal per the staged diff (shape verified
+unchanged through S4); `DeclIndRunR` carrying THE ONE derivation
+row the P lane consumes (IotaRuleNestedP's TypedListW denotation
+row — stated MINIMALLY, that row and nothing wider, per the
+coordinator's ruling); D6's m-dropped `checkDeclRun_sound` skeleton.
+**SUCCESS CRITERION (on record)**: after S5 the whitelist reads
+`FoldP → Bridge/Sound` alone, or nothing.  Then S6 SP_P, S8 THE
+PAYOFF CHECK, S9+ io-knot.
