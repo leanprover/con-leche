@@ -1,4 +1,5 @@
 import Setlec.Kernel.TypeChecker
+import Setlec.Kernel.CoreIO
 
 /-!
 # Knot equations
@@ -64,6 +65,48 @@ theorem isDefEqCore_succ (env : Env) (f d : Nat) (a b : Expr) :
 
 theorem annotateCore_succ (env : Env) (f d : Nat) (e : Expr) :
     annotateCore mode env (f + 1) d e = annotateBody mode (pureFns mode env f) env d e := rfl
+
+/-! ## The io lane (task #161 stage 2)
+
+The io knot is a *leaf* lane: its reduction and definitional-equality
+fields are the full knot's at the same fuel, so the equations below
+fold them straight back to the full spellings and the io claims family
+consumes the sealed four unchanged. -/
+
+@[simp] theorem pureFnsIO_whnfCore (env : Env) (f d : Nat) (e : Expr) :
+    (pureFnsIO mode env f).whnfCore d e = whnfCore mode env f d e := by
+  cases f <;> rfl
+
+@[simp] theorem pureFnsIO_whnf (env : Env) (f d : Nat) (e : Expr) :
+    (pureFnsIO mode env f).whnf d e = whnf mode env f d e := by
+  cases f <;> rfl
+
+@[simp] theorem pureFnsIO_defeq (env : Env) (f d : Nat) (a b : Expr) :
+    (pureFnsIO mode env f).defeq d a b = isDefEqCore mode env f d a b := by
+  cases f <;> rfl
+
+@[simp] theorem pureFnsIO_annotate (env : Env) (f d : Nat) (e : Expr) :
+    (pureFnsIO mode env f).annotate d e = annotateCore mode env f d e := by
+  cases f <;> rfl
+
+theorem ensureSortIO_def (env : Env) (f d : Nat) (e : Expr) :
+    ensureSort (pureFnsIO mode env f) env d e = ensureSortCore mode env f d e := by
+  cases f <;> rfl
+
+@[simp] theorem pureFnsIO_infer (env : Env) (f d : Nat) (e : Expr) :
+    (pureFnsIO mode env (f + 1)).infer d e =
+      inferBodyIO mode (pureFnsIO mode env f) env d e := rfl
+
+theorem inferTypeCoreIO_succ (env : Env) (f d : Nat) (e : Expr) :
+    inferTypeCoreIO mode env (f + 1) d e =
+      inferBodyIO mode (pureFnsIO mode env f) env d e := rfl
+
+theorem inferIO_def (env : Env) (f d : Nat) (e : Expr) :
+    (pureFnsIO mode env f).infer d e = inferTypeCoreIO mode env f d e := rfl
+
+theorem inferTypeCoreIO_zero (env : Env) (d : Nat) (e : Expr) :
+    inferTypeCoreIO mode env 0 d e =
+      throw (.internal "fuel exhausted: infer") := rfl
 
 theorem whnfCore_def (env : Env) (f d : Nat) (e : Expr) :
     (pureFns mode env f).whnfCore d e = whnfCore mode env f d e := rfl

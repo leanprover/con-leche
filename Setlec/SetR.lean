@@ -105,9 +105,11 @@ import Setlec.SetR.Interp2.Step2.SeamMono
 import Setlec.SetR.Interp2.Claims2D
 import Setlec.SetR.Interp2.Claims2E
 import Setlec.SetR.Interp2.Claims2P
+import Setlec.SetR.Interp2.Claims2PIO
 import Setlec.SetR.Interp2.OkPTransport
 import Setlec.SetR.Interp2.CtxOkPKit
 import Setlec.SetR.Interp2.Step2.InferP
+import Setlec.SetR.Interp2.Step2.InferIOP
 import Setlec.SetR.Interp2.Step2.WhnfP
 import Setlec.SetR.Interp2.Step2.DefEqP
 import Setlec.SetR.Interp2.Step2.AssemblyP

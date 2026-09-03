@@ -97,6 +97,30 @@ def holds (φ : Name → Nat) : PropWhen → Bool
   | .never => false
   | .ifAllZero ps => ps.all fun n => φ n == 0
 
+/-- Is the datum `never` — "the codomain sort is nonzero at *every*
+valuation", the graph regime everywhere?  This is the **only**
+kernel-decidable reading of the annotation that the verification tier
+licenses a check-skip on (task #161 bucket 2): the P-tier claims split
+their certificate cases on `pwBit φ m.pw = 0`, and `isNever` is
+exactly the ∀-`φ` uniform version of the positive branch —
+`pwBit φ .never = 1` at every `φ`, and no other datum has that
+property (`.ifAllZero ps` holds at the all-zero valuation).  Sound
+*and* exact: `PropWhen.holds_eq_false_iff_isNever`
+(`Verify/PropWhen.lean`) and `pwBit_ne_zero_of_isNever` /
+`isNever_iff_forall_pwBit_ne_zero` (`SetR/Annot/Bit.lean`).
+
+The datum may be read **only** to skip a re-check; it must never
+select a reduct, a computed type, or a comparison result (law 1 as
+amended at task #161: "annotations never change a reduct or a computed
+type; annotation-gated check-skipping is permitted where the skip's
+soundness is a P-tier theorem *and* the gate fires only where the
+licensing theorems' hypotheses hold — `μ.verified = true`").  Every
+executable call site therefore carries the `μ.verified` conjunct; see
+`inferBodyIO` (`Kernel/CoreIO.lean`). -/
+def isNever : PropWhen → Bool
+  | .never => true
+  | .ifAllZero _ => false
+
 /-- Does the datum mention any level parameter — is `Level.substPW`
 ever non-trivial on it?  Folded into `Expr.hasLevelParam` and the
 eager `eparamBs` recurrence (task #87), so the has-param shortcut of

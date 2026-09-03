@@ -3,12 +3,14 @@ import Setlec.Kernel.ExprOps
 import Setlec.Kernel.Level
 import Setlec.Kernel.Env
 import Setlec.Kernel.TypeChecker
+import Setlec.Kernel.CoreIO
 import Setlec.Kernel.Checker
 import Setlec.Verify.Level
 import Setlec.Verify.Shift
 import Setlec.Verify.InstLevels
 import Setlec.Verify.EnvWF
 import Setlec.Verify.InferLemmas
+import Setlec.Verify.InferIOLemmas
 import Setlec.Verify.AnnotDefense
 import Setlec.SetTheory.Basic
 import Setlec.SetTheory.Core
