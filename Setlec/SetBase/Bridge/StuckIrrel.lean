@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.Certs
+import Setlec.SetBase.Bridge.Certs
 
 /-!
 # `stuckIrrel`'s cascade (task #148, T3, batch d)

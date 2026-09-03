@@ -1,5 +1,5 @@
 import Setlec.SetR.Annot.SortCoh
-import Setlec.SetR.Bridge.Claims
+import Setlec.SetBase.Bridge.Claims
 
 /-!
 # The semantic trio's frame (`Q`-slot instantiation) — statements

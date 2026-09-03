@@ -4,6 +4,8 @@ import Setlec.Kernel.Level
 import Setlec.Kernel.Env
 import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.CoreIO
+import Setlec.Kernel.CoreP
+import Setlec.Kernel.CheckerP
 import Setlec.Kernel.Checker
 import Setlec.Verify.Level
 import Setlec.Verify.Shift

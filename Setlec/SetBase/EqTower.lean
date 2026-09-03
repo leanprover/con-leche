@@ -44,4 +44,30 @@ def eqRecValT (ψ : Name → Nat) : VExpr :=
               (.bvar 2))))))
 
 
+
+/-! ## The tower's closedness (task #161 S7, Wall C: relocated
+from `SetR/Install/BasisS.lean`, statements verbatim — both lanes
+read them and neither reading is semantic). -/
+
+/-- The tower is closed. -/
+theorem eqValT_closed (ψ : Name → Nat) : VExpr.Closed (eqValT ψ) := by
+  simp only [eqValT, VExpr.Closed, VExpr.bvarsBelow]
+  exact ⟨trivial, by omega, by omega, by omega, by omega, by omega⟩
+
+
+/-- `Eq.refl`'s tower is closed. -/
+theorem eqReflValT_closed (ψ : Name → Nat) : VExpr.Closed (eqReflValT
+  ψ) := by
+  simp only [eqReflValT, VExpr.Closed, VExpr.bvarsBelow]
+  exact ⟨trivial, by omega, trivial⟩
+
+/-- `Eq.rec`'s tower is closed. -/
+theorem eqRecValT_closed (ψ : Name → Nat) : VExpr.Closed (eqRecValT
+  ψ) := by
+  simp only [eqRecValT, VExpr.Closed, VExpr.bvarsBelow, VExpr.mkAppN,
+    eqValT, eqReflValT]
+  repeat' apply And.intro
+  all_goals first | trivial | omega
+
+
 end Setlec.SetR

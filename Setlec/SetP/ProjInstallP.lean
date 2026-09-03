@@ -50,11 +50,11 @@ leaf. -/
 theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
     {blockNames : List Name} (mp : EnvS2PM V μ env')
-    (hR : ProjFnR μ F env' mp.base.cval T ctorName lps nP nF i
+    (hR : ProjFnR μ F env' mp.base2.cvalE T ctorName lps nP nF i
       env₁)
-    (hinv : ProjPhaseInvS T ctorName nF env' mp.base.cval)
+    (hinv : ProjPhaseInvS T ctorName nF env' mp.base2.cvalE)
     (hinvA : ProjPhaseAcvalP T ctorName nF env' mp.base2.acval)
-    (hIB : BlockInstalledTT blockNames env' mp.base.cval)
+    (hIB : BlockInstalledTT blockNames env' mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env' mp.base2.acval)
     (hTblock : blockNames.contains T = true)
     (hbshape : ∀ n, blockNames.contains n = true →
@@ -66,19 +66,24 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     (hFields : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → capsT.etaFields = nF) :
     ∃ mp₁ : EnvS2PM V μ env₁,
-      mp₁.base.cval = cvalWith mp.base.cval (projFnName T i)
-        (fun ψ => mp.base.cval (projModelName T i) ψ) ∧
-      ProjPhaseInvS T ctorName nF env₁ mp₁.base.cval ∧
+      mp₁.base2.cvalE = cvalWith mp.base2.cvalE (projFnName T i)
+        (fun ψ => mp.base2.cvalE (projModelName T i) ψ) ∧
+      ProjPhaseInvS T ctorName nF env₁ mp₁.base2.cvalE ∧
       ProjPhaseAcvalP T ctorName nF env₁ mp₁.base2.acval ∧
-      BlockInstalledTT blockNames env₁ mp₁.base.cval ∧
+      BlockInstalledTT blockNames env₁ mp₁.base2.cvalE ∧
       BlockAcvalInstalled blockNames env₁ mp₁.base2.acval := by
   -- the kit, unpacked exactly as `projFnS` unpacks it (the two H1
   -- widenings' rows named rather than dropped)
+  have hRid := hR
   obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
     hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
     hilt, hstripP, hbig, henv⟩ := hR
   obtain ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
-    hrhsb, hrlp, hrres, hrstrip, hrhsKeyV, hrhsRun, hthmpack⟩ := hbig
+    -- `-` at position 11: `ProjFnR`'s rule-rhs **derivation** row, no
+    -- longer consumed (task #161 S10 — the reading comes from the run
+    -- below).  The campaign's own diagnostic, applied to itself: a
+    -- conjunct every proof projects away is a layering artifact.
+    hrhsb, hrlp, hrres, hrstrip, -, hrhsRun, hthmpack⟩ := hbig
   obtain ⟨rbinders, hrhsAstrip, hrdomsEq⟩ := hrstrip
   obtain ⟨tcv, tval, hthmE, htlps, hsbodyPin, fvsI, sbodyO, hopen,
     hsidesTy, hsty1, hsty2⟩ := hthmpack
@@ -200,9 +205,16 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
       ∀ ρ : Nat → V, AnnotOkP V ρ Ra ∧
         interp2 V ρ Ra ∈ˢ interp2 V ρ ta := by
     intro ψ
-    obtain ⟨Rv, -, hRv, -⟩ := hrhsKeyV ψ
-    obtain ⟨Ra, hRa⟩ := denotePClosed_isSome_of_denoteClosed
-      (acval := mp.base2.acval) hRv
+    -- **the reading, from the RUN** (task #161 S10).  It used to come
+    -- from `ProjFnR`'s derivation row (`hrhsKeyV`: `∀ φ, ∃ Rv t,
+    -- denoteClosed … ∧ Infer …`) through `denotePClosed_isSome_of_
+    -- denoteClosed`.  `acceptedReadsP_of` — "whatever `inferTypeCore`
+    -- accepts, `denoteP` reads", ENDGAME A's own walk — produces it
+    -- from `hrun`, the record's *recorded run*, with no derivation and
+    -- no relation.  That leaves the derivation row unconsumed here,
+    -- which is what makes the ind tier's record split a deletion.
+    obtain ⟨Ra, hRa⟩ :=
+      acceptedReadsP_of mp.base2 ψ hrun hrhsWs hrhsb hrhsLb
     have hctx : CtxOkP mp.base2 ψ 0 [] rhsA :=
       ⟨rfl, fun l hl => absurd hl (fun h => hrhsLeafNil l h)⟩
     obtain ⟨ta, hta⟩ := hreadsP ψ hrun hrhsWs hrhsb hrhsLb
@@ -235,19 +247,12 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     hrhsKey hSw hSb hthmP hopen hheadEqO hargs3 hlhead hlarity hlpre
     (by rw [hmaj, hctorSpine, hfCt]) rfl hSstrip hdomsSCp
     hsideL hsideR
-  -- the v1 install
-  obtain ⟨m₁, hm₁cval, hinv₁, hIB₁⟩ :=
-    projFnS mp.base
-      ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
-        hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp,
-        hstrip1, hilt, hstripP,
-        ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
-          hrhsb, hrlp, hrres, ⟨rbinders, hrhsAstrip, hrdomsEq⟩,
-          hrhsKeyV, ⟨t', hrun⟩,
-          ⟨tcv, tval, hthmE, htlps,
-            ⟨sbinders, ℓA, tySlot, hSstrip, hdomsSC⟩, fvsI, sbodyO,
-            hopen, hsidesTy, hsty1, hsty2⟩⟩, rfl⟩
-      hinv hIB hTblock hbshape hpinsT hCblock hFields
+  -- **the install's model-free half** (task #161 S7, Wall C): the
+  -- phase and block invariants at the installed environment are
+  -- `projFnInv`'s and the store's `EnvWF` and the head rule's
+  -- constructor are `projFnR_head`'s — both off `ProjFnR` alone.
+  obtain ⟨hinv₁, hIB₁⟩ := projFnInv hRid hinv hIB hbshape
+  obtain ⟨hwf₁, hctors₁⟩ := projFnR_head mp.base2.wf hRid
   have hnotb : blockNames.contains (projFnName T i) = false := by
     cases hc : blockNames.contains (projFnName T i) with
     | false => rfl
@@ -366,25 +371,26 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
   -- the P cons
   obtain ⟨mp₁, hacc, hinvA₁, hIA₁⟩ :=
     projConsP mp rfl hfm hmlps hpnone hround hptyres hinv hinvA hilt
-      hTf hCf hIB hIA hTblock hnotb hpinsT hCblock hFields m₁ hm₁cval
+      hTf hCf hIB hIA hTblock hnotb hpinsT hCblock hFields hwf₁
+      (fun cvR mI rP rules₀ heq => hctors₁ cvR mI rP rules₀ heq)
       hnew
   -- the v1 valuation at the extension, read off the leaf equation
   -- through `acval_erase` (`memberInstallPM`'s move)
-  have hcval₁ : mp₁.base.cval
-      = cvalWith mp.base.cval (projFnName T i)
-        (fun ψ => mp.base.cval (projModelName T i) ψ) := by
+  have hcval₁ : mp₁.base2.cvalE
+      = cvalWith mp.base2.cvalE (projFnName T i)
+        (fun ψ => mp.base2.cvalE (projModelName T i) ψ) := by
     funext n ψ
-    rw [← mp₁.base_erase n ψ, hacc]
+    rw [← mp₁.base2.acval_erase n ψ, hacc]
     by_cases hn : n = projFnName T i
     · subst hn
       rw [acvalWith_self]
       show (mp.base2.acval (projModelName T i) ψ).erase = _
-      rw [mp.base_erase]
+      rw [mp.base2.acval_erase]
       exact (congrFun cvalWith_self ψ).symm
-    · rw [acvalWith_ne hn, mp.base_erase]
+    · rw [acvalWith_ne hn, mp.base2.acval_erase]
       exact (congrFun (cvalWith_ne hn) ψ).symm
-  exact ⟨mp₁, hcval₁, by rw [hcval₁, ← hm₁cval]; exact hinv₁,
-    hinvA₁, by rw [hcval₁, ← hm₁cval]; exact hIB₁, hIA₁⟩
+  exact ⟨mp₁, hcval₁, by rw [hcval₁]; exact hinv₁,
+    hinvA₁, by rw [hcval₁]; exact hIB₁, hIA₁⟩
 
 set_option maxHeartbeats 1600000 in
 /-- **The projection-function fold, at both tiers** (`projInstallS`).
@@ -399,11 +405,11 @@ theorem projInstallP (hμ : μ.verified = true) {F : Nat}
       n.isProjFnShape = false) :
     ∀ (fields : List Nat) {env' : Env} (mp : EnvS2PM V μ env')
       {env₄ : Env} {cval₄ : TConstVal},
-      ProjInstallR μ F T ctorName lps nP nF env' mp.base.cval
+      ProjInstallR μ F T ctorName lps nP nF env' mp.base2.cvalE
         fields env₄ cval₄ →
-      ProjPhaseInvS T ctorName nF env' mp.base.cval →
+      ProjPhaseInvS T ctorName nF env' mp.base2.cvalE →
       ProjPhaseAcvalP T ctorName nF env' mp.base2.acval →
-      BlockInstalledTT blockNames env' mp.base.cval →
+      BlockInstalledTT blockNames env' mp.base2.cvalE →
       BlockAcvalInstalled blockNames env' mp.base2.acval →
       (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
         Setlec.EtaPins μ env' T cvT.levelParams capsT) →
@@ -411,7 +417,7 @@ theorem projInstallP (hμ : μ.verified = true) {F : Nat}
         capsT.eta = true → blockNames.contains capsT.etaCtor = true) →
       (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
         capsT.eta = true → capsT.etaFields = nF) →
-      ∃ mp₄ : EnvS2PM V μ env₄, mp₄.base.cval = cval₄ ∧
+      ∃ mp₄ : EnvS2PM V μ env₄, mp₄.base2.cvalE = cval₄ ∧
         ProjPhaseInvS T ctorName nF env₄ cval₄ ∧
         ProjPhaseAcvalP T ctorName nF env₄ mp₄.base2.acval ∧
         BlockInstalledTT blockNames env₄ cval₄ ∧
@@ -483,8 +489,8 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
     (hpnone : (env'.find? (projFnName T i)).isNone = true)
     (hTnres : Setlec.reservedBasisNames.contains T = false) :
     ∃ mp' : EnvS2PM V μ ⟨.projInfo entry :: env'.consts⟩,
-      mp'.base.cval
-        = cvalWith mp.base.cval (projFnName T i) templateVal := by
+      mp'.base2.cvalE
+        = cvalWith mp.base2.cvalE (projFnName T i) templateVal := by
   have hname : (ConstantInfo.projInfo entry).name = projFnName T i := by
     show projFnName entry.structName entry.idx = projFnName T i
     rw [hstruct, hidx]
@@ -495,8 +501,6 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
     rw [hname]; exact Setlec.reservedBasisNames_not_num _ _
   have htyE : (ConstantInfo.projInfo entry).toConstantVal.type
       = Expr.sort .zero := hty
-  obtain ⟨m₁, hm₁cval⟩ :=
-    templateConsS mp.base hstruct hidx hnat hlps hty hpnone hTnres
   -- the stored type reads to `univ 0`, at every assignment
   have htyRead : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval
@@ -507,16 +511,34 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
     intro ψ
     rw [htyE, denoteP]
     rfl
-  have hagH : ∀ n, n ≠ (ConstantInfo.projInfo entry).name →
-      mp.base.cval n = m₁.cval n := by
-    intro n hn
-    rw [hm₁cval, cvalWith_ne (show n ≠ projFnName T i by
-      rw [← hname]; exact hn)]
-  have hAeraseH : ∀ ψ, (templateValP ψ).erase
-      = m₁.cval (ConstantInfo.projInfo entry).name ψ := by
-    intro ψ
-    rw [hm₁cval, hname, cvalWith_self]
-    rfl
+  have hcvA : (ConstantInfo.projInfo entry).toConstantVal
+      = ⟨projFnName T i, lps, .sort .zero⟩ := by
+    show (⟨projFnName entry.structName entry.idx, entry.levelParams,
+      entry.ty⟩ : ConstantVal) = _
+    rw [hstruct, hidx, hlps, hty]
+  have hheadP : ConsHeadP env' (.projInfo entry) templateValP := by
+    refine ⟨?_, (fun _ => ⟨trivial, trivial, trivial⟩),
+      (fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h)),
+      (fun e2 heq hnat2 => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        rw [hnat] at hnat2
+        exact nomatch hnat2),
+      (fun i2 e2 heq hpair => by
+        exfalso
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        rw [hname] at hpair
+        have hTps : T = Setlec.psigmaName := by
+          have hh : Name.num (T.str "proj") i
+            = Name.num (Setlec.psigmaName.str "proj") i2 := hpair
+          exact (Name.str.inj (Name.num.inj hh).1).1
+        rw [hTps] at hTnres
+        exact absurd hTnres (by decide)),
+      (fun _ _ _ _ heq => nomatch heq)⟩
+    refine Setlec.EnvWF.cons mp.base2.wf ⟨?_, ?_, ?_, ?_,
+      (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq),
+      (fun cv2 mI2 rP2 rules2 heq => ConstantInfo.noConfusion heq),
+      (fun cv2 v2 heq => ConstantInfo.noConfusion heq)⟩ <;>
+      rw [hcvA] <;> rfl
   have htyOkH : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval
           (ConstantInfo.projInfo entry).name templateValP)
@@ -543,7 +565,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
     exact eqv_mem_univ _ _
   obtain ⟨mp', hmp'⟩ :=
     declStepPM_of_projTemplate_cons mp (A := templateValP) hfresh hnres
-      m₁ hagH hAeraseH (fun ψ k => rfl) (fun ψ₁ ψ₂ _ => rfl)
+      hheadP (fun ψ k => rfl) (fun ψ₁ ψ₂ _ => rfl)
       (fun ψ ρ => by
         show AnnotOk2 V ρ (AVExpr.eqE (.sort 0) .prf .prf)
         rw [AnnotOk2_eqE]
@@ -555,12 +577,12 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
       (fun ψ => ⟨_, htyRead ψ⟩) htyOkH hmemH
   refine ⟨mp', ?_⟩
   funext n ψ
-  rw [← mp'.base_erase n ψ, hmp']
+  rw [← mp'.base2.acval_erase n ψ, hmp']
   by_cases hn : n = (ConstantInfo.projInfo entry).name
   · subst hn
     rw [acvalWith_self, hname, cvalWith_self]
     rfl
-  · rw [acvalWith_ne hn, mp.base_erase,
+  · rw [acvalWith_ne hn, mp.base2.acval_erase,
       cvalWith_ne (show n ≠ projFnName T i by
         rw [← hname]; exact hn)]
 

@@ -70,7 +70,7 @@ to supply facts `EnvWF` does not.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps projFnName RecRule)
 

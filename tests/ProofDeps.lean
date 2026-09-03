@@ -1,0 +1,133 @@
+import Setlec.SetR
+import Setlec.SetP
+
+/-!
+# The proof-term dependency gate's instrument (task #161, S10)
+
+`tests/layering.sh` measures where code **sits**; this file measures
+what a theorem **uses**.  S9's payoff check found the difference the
+hard way: the layering gate read
+
+    base 260 / R 106 / P 117 / neutral 3 modules; 0 P->R edges
+
+— true, and simultaneously silent about `Red.beta` being live on the
+shipped P capstone's proof path, because S7/S8 moved the modules that
+*define* `Red`/`Infer`/`DefEq` into the shared base, where a
+directory-classifying gate counts them as `base`.  The campaign's rule,
+from that finding:
+
+> An import gate measures where code *sits*; only the proof term
+> measures what a theorem *uses*.  A separation criterion stated over
+> imports cannot certify a proof-path property.
+
+This instrument walks the transitive **constant** closure of a
+declaration's type and proof term, optionally with *cut points* whose
+own dependencies are not followed, and prints one `PRESENT`/`absent`
+row per (root, target) pair.  `tests/proofdeps.sh` holds the pinned
+expectations and fails on any divergence **in either direction** (a
+target that re-enters a closure is rot; a target that leaves is
+progress that must be recorded — the layering gate's shrink-only
+ratchet, at the proof-term criterion).
+
+TWO IMPLEMENTATION NOTES, both learned by getting them wrong (S9 §1):
+
+* a theorem's proof term must be reached by matching `.thmInfo`
+  **directly**.  `ConstantInfo.value?` returns `none` for theorems at
+  Lean 4.33, which silently makes the walk report *nothing* — a green
+  gate that measures the empty set;
+* every root and every target is checked to **exist** before it is
+  measured (`MISSING` rows, which the expectations never contain).
+  A misspelled or renamed name would otherwise read `absent` forever:
+  the config audit's vacuity-protection discipline, at this gate.
+
+Run through `tests/proofdeps.sh`; it runs inside `tests/arena.sh`
+beside the layering gate.
+-/
+
+open Lean
+
+/-- Transitive constant dependencies of the roots' types **and proof
+terms**, with a set of cut points whose own dependencies are not
+followed (they are still recorded as reached). -/
+partial def setlecDepsCut (env : Environment) (cut : NameSet)
+    (todo : List Name) (seen : NameSet) : NameSet :=
+  match todo with
+  | [] => seen
+  | n :: rest =>
+    if seen.contains n then setlecDepsCut env cut rest seen
+    else
+      let seen := seen.insert n
+      if cut.contains n then setlecDepsCut env cut rest seen
+      else match env.find? n with
+        | none => setlecDepsCut env cut rest seen
+        | some ci =>
+          -- `.thmInfo` matched directly: `value?` is `none` for
+          -- theorems, which would make this walk vacuous.
+          let vcs : Array Name := match ci with
+            | .thmInfo v => v.value.getUsedConstants
+            | .defnInfo v => v.value.getUsedConstants
+            | .opaqueInfo v => v.value.getUsedConstants
+            | _ => #[]
+          setlecDepsCut env cut
+            ((ci.type.getUsedConstants ++ vcs).toList ++ rest) seen
+
+private def mkNameSet (ns : List Name) : NameSet :=
+  ns.foldl (·.insert ·) {}
+
+/-- The four R relations the separation is measured against, each at
+**two** granularities, plus the one door S9 found.
+
+The two granularities are not redundant and S9's table conflated them:
+the *type* name (`Setlec.SetR.Infer`) enters a P theorem's closure as
+soon as the theorem's **statement** mentions an R record — `DeclIndR`
+carries `∀ φ, … Infer … ∧ DefEq …`, so every ind-tier P signature
+drags the names in without any P proof ever deriving anything — while
+a *constructor* (`Infer.app`, `Red.beta`) enters only when a proof
+term actually builds a derivation.  The record split targets the
+first; the β-certificate gate targets the second. -/
+private def targets : List Name :=
+  [`Setlec.SetR.Red, `Setlec.SetR.Red.beta,
+   `Setlec.SetR.Infer, `Setlec.SetR.Infer.app,
+   `Setlec.SetR.DefEq, `Setlec.SetR.DefEq.trans,
+   `Setlec.SetR.EnvS, `Setlec.SetR.checkDeclR_ofEnvRE]
+
+/-- The vacuity sentinel: a constant that MUST be in every closure
+measured here.  If a root is misspelled the walk collapses and every
+row reads `absent`; this row reads `absent` too, and the gate fails. -/
+private def sentinel : Name := `Setlec.Expr
+
+private def emit (env : Environment) (label : String) (root : Name)
+    (cut : List Name) : IO Unit := do
+  if (env.find? root).isNone then
+    IO.println s!"MISSING-ROOT {label} :: {root}"
+    return
+  let s := setlecDepsCut env (mkNameSet cut) [root] {}
+  for t in sentinel :: targets do
+    if (env.find? t).isNone then
+      IO.println s!"MISSING-TARGET {label} :: {t}"
+    else
+      let mark := if s.contains t then "PRESENT" else "absent "
+      IO.println s!"{mark} {label} :: {t}"
+
+/-- The measured rows, in a fixed order.  The pinned expectations are
+in `tests/proofdeps.sh`. -/
+def setlecProofDeps : CoreM Unit := do
+  let env ← getEnv
+  -- (A) the shipped P capstone family: what the user's question is about
+  emit env "SP_P" `Setlec.SetR.Interp2.no_proof_of_Empty_SP_P []
+  emit env "C_P" `Setlec.SetR.Interp2.no_proof_of_Empty_C_P []
+  emit env "S_P" `Setlec.SetR.Interp2.no_proof_of_Empty_S_P []
+  emit env "P" `Setlec.SetR.Interp2.no_proof_of_Empty_P []
+  -- (B) THE ONE DOOR (S9's measurement, pinned): cutting the single
+  -- constant `checkDeclR_ofEnvRE` removes the relation tier outright.
+  -- A second route would show up here as a `PRESENT`.
+  emit env "SP_P-cut-bridge" `Setlec.SetR.Interp2.no_proof_of_Empty_SP_P
+    [`Setlec.SetR.checkDeclR_ofEnvRE]
+  -- (C) the P tier's own mathematics: the claims tower, the inductive
+  -- tier's step, the value kinds' harvest.  All relation-free, and
+  -- that is the separation's real deliverable.
+  emit env "claims" `Setlec.SetR.Interp2.checkSound2P []
+  emit env "declIndP" `Setlec.SetR.Interp2.declIndP []
+  emit env "harvestDefnP" `Setlec.SetR.Interp2.harvestDefnP []
+
+#eval setlecProofDeps

@@ -1,4 +1,6 @@
 import Setlec.SetP.IndMemberP
+import Setlec.Verify.Extend.Iota
+import Setlec.Verify.Extend.Ind
 
 /-!
 # `caps_ok` at a member cons: the split, and the two live rows (task #161, IND TIER)

@@ -133,6 +133,26 @@ structure EnvR (env : Env) where
   nat_op_guard : ∀ c, (c ∈ natOpNames ∨ c ∈ natDivModNames) →
     natOpStored env c = true → natOpGuard env c = true
 
+/-! ## Two `find?` readings, at the base
+
+Both lanes use them everywhere (the P lane at twenty-one files), and
+they were declared in `SetR/EnvS.lean` only because that is where
+`EnvS` needed them first.  Relocated verbatim at task #161 S7, Wall C
+— names unchanged. -/
+
+/-- A `find?` hit names the stored constant. -/
+theorem Env.find?_name {env : Env} {n : Name} {ci : ConstantInfo}
+    (h : env.find? n = some ci) : ci.name = n := by
+  unfold Setlec.Env.find? at h
+  have := List.find?_some h
+  simpa using this
+
+/-- A `find?` hit is a stored constant. -/
+theorem Env.find?_mem {env : Env} {n : Name} {ci : ConstantInfo}
+    (h : env.find? n = some ci) : ci ∈ env.consts := by
+  unfold Setlec.Env.find? at h
+  exact List.mem_of_find?_eq_some h
+
 /-- `CtxOkR` only reads the leaf set, so it restricts along any subset
 of leaves.  (The `Δ.length` conjunct is carried, not re-derived.)
 Transpose of `CtxOk.of_subset`. -/

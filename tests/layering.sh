@@ -17,16 +17,17 @@
 # the FENCE.  It runs in the standard battery (`tests/arena.sh`), so the
 # battery fails if the boundary rots.
 #
-# THE RATCHET.  The separation lands over batches S1–S5, so a number of
-# P→R edges still exist.  They are listed below, each tagged with the
-# batch that removes it.  The gate fails on
-#   * any P→R edge that is NOT on the whitelist   (new rot), AND
+# THE RATCHET — AND, SINCE S8, THE FENCE ITSELF.  The separation landed
+# over batches S1–S8 and **the whitelist is now EMPTY**: there is no
+# P→R edge in the tree at all.  The gate fails on
+#   * any P→R edge that is NOT on the whitelist   (new rot — which,
+#     the whitelist being empty, means ANY P→R edge), AND
 #   * any whitelist entry whose edge is GONE      (stale ledger —
 #     delete the line in the batch that killed it), AND
 #   * any R→P edge at all                          (zero since S1), AND
 #   * any base→lane edge                           (base purity), AND
 #   * any implementation→theory edge               (the CLAUDE.md rule).
-# The whitelist may only ever shrink.
+# The whitelist may only ever shrink, and it has reached zero.
 #
 # Usage: tests/layering.sh [--list]   (--list prints the current edges
 # in whitelist syntax, for updating the table after a batch).
@@ -39,43 +40,34 @@ import os, re, sys
 # whitelist: P→R edges that still exist, each tagged with the batch that
 # removes it.  Format: "<importer> -> <imported>  # <batch>: <why>".
 WHITELIST = """
-# --- the 2U/denote2 lane: ALL FIFTEEN EDGES CLOSED BY S2.  The ruling
-# (design review pt 1) was that the 2U lane goes to R whole, so every
-# P-quarter dependence on it was a crossing; S2 re-based what both
-# lanes actually shared (17 modules and 9 lemma families to
-# `Setlec/SetBase/*`) and the section is empty.
-# --- the de-basing proper: `EnvS2Core.base : EnvS` and the P carriers
-# that reach the collapsed carrier through it (spec point 2).  S3
-# de-based `EnvS2Core` itself and cut its edge; what is left is the
-# fold-layer residue `EnvS2PM.base`, which S4/S5 delete with the v1
-# install round trip.  The census's "ONE hard residue" (S7,
-# `EnvS.empty_pinned` at the capstone's Empty key) is no longer an edge:
-# `acval_empty_pinnedC` takes the pin as a premise in exactly the shape
-# §1.5's carrier field will project, and the fold supplies it from the
-# residue.
-Setlec.SetP.Annot.EnvS2P -> Setlec.SetR.Interp2.EnvS2U                  # S4-S5: the v1 residue `EnvS2PM.base`, all that is left of `base : EnvS` (S3 de-based the CORE; the residue dies with the install round trip)
-# --- the v1 install round trip (census §1.3's 47 sites): the P side
-# calls a v1 install lemma only to build the new `EnvS`.  The premises
-# vanish with the de-basing, and with them the imports.  S4 measured
-# the ordering the S3 seal §2 predicted: these CANNOT die before the
-# residue does, because the round trip is what consumes `EnvS2PM.base`.
-# The value-kind case (`HarvestP -> Install/ValueKinds`) died at S4d by
-# moving its three builder calls UP to `FoldP`, the one site that holds
-# the residue; the three below are inner-fold calls whose outputs feed
-# the *next* step's v1 premises, so they concentrate at S5 instead.
-Setlec.SetP.AxiomPinP -> Setlec.SetR.StdAxiomKey                # S5: propextKeyS_mem/choiceKeyS_mem at the axiom pin
-Setlec.SetP.BasisEmptyP -> Setlec.SetR.Install.BasisS           # S5: extendEmptyS
-Setlec.SetP.IndMemberP -> Setlec.SetR.Install.IndMembersS       # S5: MIS-ATTRIBUTED, re-worded at S5 (finding).  `IndMemberP` uses NO symbol declared in `Install/IndMembersS`; its import is a re-export artifact (it resolves `BlockInstalledTT`, declared in the BASE module `Verify/Extend/Block`).  The real symbol dependence is downstream and transitive: `IndMembersP`'s `memberInstallS mp.base`, `DeclIndP`'s `indRecsS memberKeyS mp1.base`, `IndRecsP`'s `indRecsFoldS mS.base`.  Rule (b) keeps the line: the DEPENDENCE is alive and dies with the residue, and re-pointing is not shrinking (S3's precedent).
-# --- the bridge: the records are SHARED, the derivations are R's.
-# S4 landed the shared half — `SetBase/Decl.lean` (the whole record
-# family), `SetBase/DeclRun.lean` (`DeclRunR`, the run/guard
-# projection) and `SetBase/NatFrag.lean` — which killed the `NatEqsP`
-# edge outright.  What is left is the fold's own call, and it survives
-# for the residue's reason, not the records': `FoldP` still needs
-# `checkDeclR_sound m`, `declIndS memberKeyS`, `declDefnS`/`declThmS`/
-# `declOpaqueS`, `divModPinS` and `reducePinS` — every one of them an
-# `EnvS` consumer at `mp.base`.
-Setlec.SetP.FoldP -> Setlec.SetR.Bridge.Sound                   # S5: the v1 round trip's last site.  S5 removed TWO of the four reasons: the eta premise (declIndEtaClosed is model-free now) and the bridge's five non-ind kinds (checkDeclR_ofEnvR runs on an `EnvR`).  What is left is `checkDeclR_sound`'s IND-kind `m` (Bridge/DeclInd's finding 8) and the three value builders `declDefnS`/`declThmS`/`declOpaqueS mp.base`.
+# --- EMPTY.  THE SEPARATION IS COMPLETE (task #161, S8).
+#
+# The whitelist reads NOTHING.  There is no P->R edge left in the tree,
+# and the ratchet below now enforces that state absolutely: any new one
+# fails the gate, and there is no line to delete because there is no
+# line.
+#
+# The history it replaces, in one paragraph.  S1 opened with the graded
+# lane resolving through the collapsed one at fifteen 2U/`denote2`
+# edges; S2 closed all fifteen by re-basing what both lanes actually
+# shared (17 modules, 9 lemma families) to `Setlec/SetBase/*`.  S3-S7
+# ran the de-basing: `EnvS2PM.base` and `base_erase` were deleted with
+# `coreOfBase`, and the four install round trips they fed died together
+# (`Annot/EnvS2P -> Interp2/EnvS2U`, `AxiomPinP -> StdAxiomKey`,
+# `BasisEmptyP -> Install/BasisS`, `IndMemberP -> Install/IndMembersS`).
+# That left ONE edge, `FoldP -> Bridge/Sound`, and S7's finding was
+# that it had stopped being a proof obligation at all: what `FoldP`
+# imports is `checkDeclR_ofEnvRE`, whose statement and whose whole
+# proof tree mention no model, and the edge survived only because
+# `Bridge/*` still SAT under `Setlec/SetR/`.
+#
+# S8 made the move.  Twenty-two of the twenty-three `Bridge/*` modules
+# are now `Setlec/SetBase/Bridge/*` (statements byte-unchanged,
+# namespace `Setlec.SetR` unchanged); `declIndRS`, consumer-free after
+# its S7 re-proof, is deleted; and what stayed in `Setlec/SetR/Bridge/`
+# is exactly the collapsed lane's own two instances -- `EnvS.toEnvR`
+# (`Decl.lean`) and `checkDeclR_sound`/`checkDeclRun_sound`/`foldlM_R`
+# (`Sound.lean`), the fold that carries the `EnvS` invariant.
 """
 
 IMP = re.compile(r'^\s*(?:public\s+|private\s+|meta\s+)*import\s+([A-Za-z0-9_.]+)', re.M)
@@ -227,7 +219,8 @@ if stale:
 
 n = {l: sum(1 for m in LANE if LANE[m] == l) for l in ("base", "R", "P", "neutral", "caps")}
 if not fail:
+    wl = 'whitelist EMPTY' if not allowed else f'{len(allowed)} whitelisted'
     print(f'layering: base {n["base"]} / R {n["R"]} / P {n["P"]} / neutral {n["neutral"]} modules; '
-          f'{len(cross)} P->R edges, all whitelisted; 0 R->P')
+          f'{len(cross)} P->R edges ({wl}); 0 R->P')
 sys.exit(fail)
 PYEOF

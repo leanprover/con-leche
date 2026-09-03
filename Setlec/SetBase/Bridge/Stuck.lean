@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.StrLitR
+import Setlec.SetBase.Bridge.StrLitR
 
 /-!
 # `DefEqStuckStepR`, discharged (task #148, T3, batch d)

@@ -1,5 +1,5 @@
 import Setlec.SetBase.WhnfCoreLeaf
-import Setlec.SetR.Bridge.Claims
+import Setlec.SetBase.Bridge.Claims
 import Setlec.Verify.Denote.Inst
 import Setlec.Verify.Denote.InstSimp
 import Setlec.Verify.Denote.Tele

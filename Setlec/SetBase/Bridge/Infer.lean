@@ -1,5 +1,5 @@
 import Setlec.SetBase.LitParams
-import Setlec.SetR.Bridge.WhnfCore
+import Setlec.SetBase.Bridge.WhnfCore
 
 /-!
 # The inference quarter of `CheckStepR` (task #148, T3, batch a)

@@ -91,6 +91,7 @@ import Setlec.SetP.IndPinProbeP
 import Setlec.SetP.AxiomPinP
 import Setlec.SetP.HarvestP
 import Setlec.SetP.FoldP
+import Setlec.SetP.MainP
 import Setlec.SetP.Annot.Bit
 import Setlec.SetP.Annot.BitLemmas
 import Setlec.SetP.Annot.BitShift
@@ -124,8 +125,10 @@ model (`EnvS`, `Sound/*`, `Install/*`, the 2U/`denote2` tier, the
 `R`/`R2` capstones); **this** tree is the graded model — the `AnnotOk2`
 bit carriers (`Annot/Bit*`, `Annot/ValidV*`), `EnvS2Core`/`EnvS2P`, the
 per-rule `…P` quarters and rows, the basis/inductive/projection install
-`…P` families, the fold `FoldP` and the capstone `CapstoneP`.  Both
-stand on `Setlec.SetBase.*` and neither may import the other.
+`…P` families, the fold `FoldP`, the capstone `CapstoneP` and — since
+S8 — `MainP`, the shipped drivers' capstone family
+(`no_proof_of_Empty_SP_P` and its cached/shared siblings).  Both stand
+on `Setlec.SetBase.*` and neither may import the other.
 
 **Only the file paths and module names moved** (`Setlec.SetR.Interp2.X`
 → `Setlec.SetP.X`, `Setlec.SetR.Annot.X` → `Setlec.SetP.Annot.X`).  The
@@ -138,7 +141,7 @@ separate batch that is allowed to touch declaration names.
 The boundary is enforced by `tests/layering.sh` (inside `tests/arena.sh`):
 after this move the gate classifies **by path alone** — `Setlec/SetP/*`
 is P, `Setlec/SetBase/*` is base, `Setlec/SetR/*` is R — and the
-lane-closure computation S1 needed is gone.  Eleven P→R edges survive on
-the gate's whitelist, each tagged with the batch (S3/S4/S7) that removes
-it; they are the de-basing's work order.
+lane-closure computation S1 needed is gone.  Since **S8 the whitelist is
+EMPTY**: this tree reaches no `Setlec/SetR/*` module at all, and the
+gate reads `0 P->R edges (whitelist EMPTY); 0 R->P`.
 -/

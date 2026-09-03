@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.Eta
+import Setlec.SetBase.Bridge.Eta
 import Setlec.Verify.Denote.StrLit
 
 /-!

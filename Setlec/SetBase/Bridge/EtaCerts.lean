@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.Stuck
+import Setlec.SetBase.Bridge.Stuck
 
 /-!
 # The two eta certificates (task #148, T3, batch d)

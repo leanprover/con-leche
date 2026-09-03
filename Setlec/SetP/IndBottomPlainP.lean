@@ -25,7 +25,7 @@ zipper's `Sat2 V Γs (chainP V ρ zs)` output *is* the stages' input.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr EnvS)
+open Setlec.SetR (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta isDefEqCore inferTypeCore DefEqListOk)
 
