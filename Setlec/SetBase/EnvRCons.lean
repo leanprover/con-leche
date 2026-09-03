@@ -2,6 +2,7 @@ import Setlec.SetBase.EnvR
 import Setlec.SetBase.IndBlockR
 import Setlec.Verify.Extend.Block
 import Setlec.Verify.Extend.Ind
+import Setlec.SetBase.ProjPhase
 
 /-!
 # The `EnvR`-level cons for the block folds (task #161 S6, the opener)
@@ -345,5 +346,148 @@ theorem memberInstallR {μ : CheckMode} {F : Nat}
         obtain ⟨Tv, tT, u, hTv, -, -⟩ := hden ψ
         exact ⟨Tv, by rw [htypeA]; exact hTv⟩)
   exact ⟨m₁, hm₁, hI₁, hEC₁, hBP₁⟩
+
+
+/-! ## The projection install's invariant half, model-free
+
+The same extraction one fold over: of `projFnS`'s four conclusions,
+the `EnvS` needs `projConsS` (the front door is semantic — the field
+selector's value must inhabit its type), but the **phase invariant**
+and the **block invariant** at the installed environment are
+`projPhaseInvS_cons` and `BlockInstalledTT.fresh_cons`, and every
+ingredient they take is a conjunct of `ProjFnR` itself.
+
+So the projection walk's *bookkeeping* is model-free even though its
+front door is not — which is the honest statement of how much of
+finding 8's third walk is left (see the S6 seal). -/
+
+/-- **The phase invariant crosses a projection cons.**  Parameterised
+by the head entry, because both the provisioned (rule-less) and the
+ruled entry need it — they differ only in a rule list, which the
+invariant never reads.  (Moved to the base at task #161 S6, unchanged:
+`projFnInv` below is the second consumer and the P lane must reach
+it.) -/
+theorem projPhaseInvS_cons {T ctorName : Name} {nF : Nat} {env' : Env}
+    {cval cval₀ : TConstVal} {c₀ : ConstantInfo} {lps : List Name}
+    {pty : Expr} {i : Nat} {mcv : ConstantVal} {mval : Expr}
+    {mhint : ReducibilityHint}
+    (hcvA : c₀.toConstantVal = ⟨projFnName T i, lps, pty⟩)
+    (hinv : ProjPhaseInvS T ctorName nF env' cval)
+    (hfresh : env'.find? (projFnName T i) = none)
+    (hTf : (env'.find? T).isSome = true)
+    (hCf : (env'.find? ctorName).isSome = true)
+    (hfm : env'.find? (projModelName T i)
+      = some (.defnInfo mcv mval mhint))
+    (hmlps : mcv.levelParams = lps)
+    (hilt : i < nF)
+    (hself : ∀ ψ : Name → Nat,
+      cval₀ (projFnName T i) ψ = cval (projModelName T i) ψ)
+    (hag : ∀ n, n ≠ projFnName T i → cval n = cval₀ n) :
+    ProjPhaseInvS T ctorName nF ⟨c₀ :: env'.consts⟩ cval₀ := by
+  have hname : c₀.name = projFnName T i := by
+    rw [show c₀.name = c₀.toConstantVal.name from rfl, hcvA]
+  -- the head's name differs from every name the invariant reads
+  have hneP : ∀ n : Name, (env'.find? n).isSome = true →
+      n ≠ projFnName T i := by
+    intro n hn hh
+    rw [hh, hfresh] at hn
+    exact nomatch hn
+  have hne : ∀ n : Name, (env'.find? n).isSome = true →
+      ¬c₀.name = n :=
+    fun n hn hh => hneP n hn (by rw [← hh, hname])
+  have hmodelNeP : ∀ j : Nat, projModelName T j ≠ projFnName T i :=
+    fun j hh => Name.num_ne_str _ _ _ _ hh.symm
+  have hmodelNe : ∀ (j : Nat), ¬c₀.name = projModelName T j :=
+    fun j hh => hmodelNeP j (by rw [← hh, hname])
+  have hdown : ∀ (n : Name) (ci : ConstantInfo),
+      Env.find? ⟨c₀ :: env'.consts⟩ n = some ci → ¬c₀.name = n →
+      env'.find? n = some ci := by
+    intro n ci hf hn
+    rw [Env.find?_cons, if_neg hn] at hf
+    exact hf
+  have hup : ∀ (n : Name) (ci : ConstantInfo),
+      env'.find? n = some ci → ¬c₀.name = n →
+      Env.find? ⟨c₀ :: env'.consts⟩ n = some ci := by
+    intro n ci hf hn
+    rw [Env.find?_cons, if_neg hn]
+    exact hf
+  have hstrNeP : ∀ n : Name, n.str "_model" ≠ projFnName T i :=
+    fun n hh => Name.num_ne_str _ _ _ _ hh.symm
+  have hstrNe : ∀ n : Name, ¬c₀.name = n.str "_model" :=
+    fun n hh => hstrNeP n (by rw [← hh, hname])
+  refine ⟨?_, ?_, ?_⟩
+  · intro ci hf
+    obtain ⟨cvm, mv, hm, hfm', hlps', hv'⟩ :=
+      hinv.1 ci (hdown T ci hf (hne T hTf))
+    refine ⟨cvm, mv, hm, hup _ _ hfm' (hstrNe T), hlps', ?_⟩
+    intro ψ
+    rw [← hag T (hneP T hTf), ← hag _ (hstrNeP T)]
+    exact hv' ψ
+  · intro ci hf
+    obtain ⟨cvm, mv, hm, hfm', hlps', hv'⟩ :=
+      hinv.2.1 ci (hdown ctorName ci hf (hne ctorName hCf))
+    refine ⟨cvm, mv, hm, hup _ _ hfm' (hstrNe ctorName), hlps', ?_⟩
+    intro ψ
+    rw [← hag ctorName (hneP ctorName hCf), ← hag _ (hstrNeP ctorName)]
+    exact hv' ψ
+  · intro j hj ci hf
+    by_cases hji : j = i
+    · subst hji
+      rw [Env.find?_cons, if_pos hname] at hf
+      obtain rfl := Option.some.inj hf
+      refine ⟨mcv, mval, mhint, hup _ _ hfm (hmodelNe j), ?_, ?_⟩
+      · rw [hcvA, hmlps]
+      · intro ψ
+        rw [hself, ← hag _ (hmodelNeP j)]
+    · have hjneP : projFnName T j ≠ projFnName T i := by
+        intro hh
+        have hh2 : Name.num (T.str "proj") j
+          = Name.num (T.str "proj") i := hh
+        injection hh2 with _hp hij
+        exact hji hij
+      have hjne : ¬c₀.name = projFnName T j :=
+        fun hh => hjneP (by rw [← hh, hname])
+      obtain ⟨cvm, mv, hm, hfm', hlps', hv'⟩ :=
+        hinv.2.2 j hj ci (hdown _ ci hf hjne)
+      refine ⟨cvm, mv, hm, hup _ _ hfm' (hmodelNe j), hlps', ?_⟩
+      intro ψ
+      rw [← hag _ hjneP, ← hag _ (hmodelNeP j)]
+      exact hv' ψ
+
+/-- **The two model-free conclusions of a projection-function
+install** — `projFnS`'s invariant half, off the record alone. -/
+theorem projFnInv {μ : CheckMode} {F : Nat} {env' env₁ : Env}
+    {cval : TConstVal} {T ctorName : Name} {lps : List Name}
+    {nP nF i : Nat} {blockNames : List Name}
+    (hR : ProjFnR μ F env' cval T ctorName lps nP nF i env₁)
+    (hinv : ProjPhaseInvS T ctorName nF env' cval)
+    (hIB : BlockInstalledTT blockNames env' cval)
+    (hbshape : ∀ n, blockNames.contains n = true →
+      n.isProjFnShape = false) :
+    ProjPhaseInvS T ctorName nF env₁
+        (cvalWith cval (projFnName T i)
+          (fun ψ => cval (projModelName T i) ψ)) ∧
+      BlockInstalledTT blockNames env₁
+        (cvalWith cval (projFnName T i)
+          (fun ψ => cval (projModelName T i) ψ)) := by
+  obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
+    hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
+    hilt, hstripP, hbig, henv⟩ := hR
+  subst henv
+  have hfresh : env'.find? (projFnName T i) = none :=
+    Option.isNone_iff_eq_none.mp hpnone
+  have hCf : (env'.find? ctorName).isSome = true := by rw [hctor]; rfl
+  have hnotb : blockNames.contains (projFnName T i) = false := by
+    cases hc : blockNames.contains (projFnName T i) with
+    | false => rfl
+    | true =>
+      exact absurd (hbshape _ hc)
+        (by rw [show (projFnName T i).isProjFnShape = true from rfl]
+            exact fun hh => nomatch hh)
+  exact ⟨projPhaseInvS_cons rfl hinv hfresh hTf hCf hfm hmlps hilt
+      (fun ψ => congrFun cvalWith_self ψ)
+      (fun n hn => (cvalWith_ne hn).symm),
+    BlockInstalledTT.fresh_cons hIB hnotb hfresh
+      (fun n ψ hn => congrFun (cvalWith_ne hn) ψ)⟩
 
 end Setlec.SetR
