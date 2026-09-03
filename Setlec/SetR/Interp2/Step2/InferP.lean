@@ -3,7 +3,8 @@ import Setlec.SetR.Annot.BitLemmas
 import Setlec.SetR.Annot.BitInst
 import Setlec.SetR.Annot.ValidVSpine
 import Setlec.Verify.InferLemmas
-import Setlec.SetR.Interp2.Step2.InferQ
+import Setlec.SetBase.Frame
+import Setlec.SetBase.LitParams
 
 /-!
 # The infer quarter, P currency — the worked ∀ clause (task #161, P3.5)

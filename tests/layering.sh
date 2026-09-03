@@ -54,9 +54,7 @@ Setlec.SetR.Interp2.InstallP -> Setlec.SetR.Interp2.Keys2Cond           # S2: de
 Setlec.SetR.Interp2.BasisTypeOk -> Setlec.SetR.Interp2.BasisOk          # S2: the 2U basis-ok carrier
 Setlec.SetR.Interp2.Step2.BitLevels -> Setlec.SetR.Interp2.Step2.Levels # S2: the 2U levels walk
 Setlec.SetR.Interp2.Step2.DefEqP -> Setlec.SetR.Interp2.Step2.DefEqRun  # S2: census §2.4 — uses NOTHING from it
-Setlec.SetR.Interp2.Step2.InferP -> Setlec.SetR.Interp2.Step2.InferQ    # S2: frame_open2 (18 lines, pure Expr scoping)
 Setlec.SetR.Interp2.Step2.NatP -> Setlec.SetR.Interp2.Step2.Lit         # S2: natLit_facts2
-Setlec.SetR.Interp2.Step2.WhnfP -> Setlec.SetR.Interp2.Step2.Whnf       # S2: interp2C_trans (8 lines)
 Setlec.SetR.Interp2.Step2.IrrelP -> Setlec.SetR.Interp2.EmptyPin2       # S2: the 2U empty pin
 Setlec.SetR.Annot.Bit -> Setlec.SetR.Annot.Canon                        # S2: Canon needs natLitT+charListT out of Annot/Pass (census edge 14 split); Canon is base-destined, not R content
 # --- the de-basing proper: `EnvS2Core.base : EnvS` and the P carriers

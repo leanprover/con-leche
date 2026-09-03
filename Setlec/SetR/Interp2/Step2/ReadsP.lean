@@ -3,6 +3,7 @@ import Setlec.SetR.Interp2.Step2.WhnfP
 import Setlec.SetR.Interp2.Step2.DefEqP
 import Setlec.SetR.Interp2.Step2.ProjPinsP
 import Setlec.SetR.Annot.EnvS2P
+import Setlec.SetBase.LitParams
 
 /-!
 # The totality consolidation (task #161, P4 batch 6)

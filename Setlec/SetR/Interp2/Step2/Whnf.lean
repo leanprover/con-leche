@@ -2019,17 +2019,11 @@ does not: its `AnnotOk2 ρ tya` premise sits under the `∀ ρ` and
 premise hoisted, and the hoist **removes** a residue rather than
 adding one (`TypeOk2`; see there). -/
 
-/-- Equalities compose per valuation; the invariant does not travel
-with them, because in the hoisted currency it is carried separately
-and uniformly. -/
-theorem interp2C_trans {Δa : List AVExpr} {a b c : AVExpr}
-    (h1 : ∀ ρ : Nat → V, Sat2 V Δa ρ →
-      interp2 V ρ a = interp2 V ρ b)
-    (h2 : ∀ ρ : Nat → V, Sat2 V Δa ρ →
-      interp2 V ρ b = interp2 V ρ c) :
-    ∀ ρ : Nat → V, Sat2 V Δa ρ →
-      interp2 V ρ a = interp2 V ρ c :=
-  fun ρ hρ => (h1 ρ hρ).trans (h2 ρ hρ)
+/-! `interp2C_trans` used to stand here.  THE SEPARATION's S2 re-based it
+to `Setlec/SetBase/Sat2.lean` — it was the ONLY thing the graded lane's
+`Step2/WhnfP` borrowed from this 2U module, and it is model-free
+(`Eq.trans` under a valuation quantifier).  Name and statement
+unchanged; this module imports it back. -/
 
 /-- **A `…B`-shaped graded step is stronger than a `…C`-shaped one.**
 Given the subject's `AnnotOk2` ρ-uniformly, a per-valuation graded

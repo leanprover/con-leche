@@ -2,7 +2,8 @@ import Setlec.SetR.Interp2.CtxOkPKit
 import Setlec.SetR.Annot.BitInst
 import Setlec.SetR.Annot.BitInstall
 import Setlec.SetR.Interp2.Step2.BitLevels
-import Setlec.SetR.Interp2.Step2.Whnf
+import Setlec.SetBase.Sat2
+import Setlec.SetBase.WhnfCoreLeaf
 
 /-!
 # The two head-normalisation quarters, P currency (task #161, P3.4)

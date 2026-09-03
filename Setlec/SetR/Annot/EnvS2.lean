@@ -1,3 +1,4 @@
+import Setlec.SetBase.Sat2
 import Setlec.SetR.Annot.Spine2
 import Setlec.SetR.Annot.Pass
 import Setlec.SetR.Annot.Canon
@@ -93,27 +94,14 @@ inductive CtxAnn (μ : CheckMode) (env : Env) (cval : TConstVal)
       CtxAnn μ env cval φ Δ Δa →
       CtxAnn μ env cval φ (A :: Δ) (Aa :: Δa)
 
-/-- `ρ` satisfies an annotated context over `interp2` — the `Sat`
-transpose. -/
-def Sat2 (Δa : List AVExpr) (ρ : Nat → V) : Prop :=
-  ∀ i Aa, Δa[i]? = some Aa →
-    ρ i ∈ˢ interp2 V (fun j => ρ (j + i + 1)) Aa
-
-theorem Sat2_nil (ρ : Nat → V) : Sat2 V [] ρ := by
-  intro i Aa hi
-  cases hi
-
-theorem Sat2_cons {Δa : List AVExpr} {Aa : AVExpr} {ρ : Nat → V} {x : V}
-    (hρ : Sat2 V Δa ρ) (hx : x ∈ˢ interp2 V ρ Aa) :
-    Sat2 V (Aa :: Δa) (cons x ρ) := by
-  intro i Aa' hi
-  cases i with
-  | zero =>
-    obtain rfl : Aa = Aa' := by simpa using hi
-    exact hx
-  | succ i =>
-    have h := hρ i Aa' (by simpa using hi)
-    exact h
+/-! `Sat2` and its two introduction lemmas used to stand here.  THE
+SEPARATION's S2 re-based them to `Setlec/SetBase/Sat2.lean`: they are
+model-free (a `List AVExpr`, a valuation and `interp2` — no `EnvS`,
+no invariant), both lanes state their context currency with them, and
+`interp2C_trans`, which the graded lane borrowed from the 2U
+`Step2/Whnf`, names `Sat2` in its statement, so the base module that
+holds the lemma must hold the definition too.  Names and statements
+unchanged; this module imports them back. -/
 
 /-- The annotation of a `CtxAnn` entry, positionally. -/
 theorem CtxAnn.get {μ : CheckMode} {env : Env} {cval : TConstVal}

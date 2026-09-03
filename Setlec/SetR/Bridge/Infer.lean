@@ -1,3 +1,4 @@
+import Setlec.SetBase.LitParams
 import Setlec.SetR.Bridge.WhnfCore
 
 /-!
@@ -169,32 +170,12 @@ Both need one arity fact off the support guard — the stored family
 carries no level parameters — so that the type constant's denotation is
 `cval … (Level.substFn φ [] [])`, which is the rule's own spelling. -/
 
-/-- The `Nat` family's stored declaration carries no level parameters
-(read off `natLitSupported`'s `natIndOk` conjunct). -/
-theorem natName_levelParams_nil {env : Env}
-    (hg : natLitSupported env = true) {ci : ConstantInfo}
-    (hf : env.find? natName = some ci) :
-    ci.toConstantVal.levelParams = [] := by
-  simp only [natLitSupported, Bool.and_eq_true] at hg
-  obtain ⟨⟨h1, -⟩, -⟩ := hg
-  rw [hf] at h1
-  cases ci with
-  | indInfo cv caps =>
-    simp only [natIndOk, Bool.and_eq_true] at h1
-    simpa [ConstantInfo.toConstantVal, List.isEmpty_iff] using h1.1
-  | _ => simp [natIndOk] at h1
-
-/-- The `String` family's stored declaration carries no level parameters
-(read off `strLitSupported`'s `stringTyOk` conjunct). -/
-theorem stringName_levelParams_nil {env : Env}
-    (hg : strLitSupported env = true) {ci : ConstantInfo}
-    (hf : env.find? stringName = some ci) :
-    ci.toConstantVal.levelParams = [] := by
-  simp only [strLitSupported, Bool.and_eq_true] at hg
-  obtain ⟨⟨⟨⟨⟨⟨⟨-, h2⟩, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩ := hg
-  rw [hf] at h2
-  simp only [stringTyOk, Bool.and_eq_true] at h2
-  simpa [List.isEmpty_iff] using h2.1
+/-! `natName_levelParams_nil` and `stringName_levelParams_nil` used to
+stand here.  THE SEPARATION's S2 re-based them to
+`Setlec/SetBase/LitParams.lean`: both are model-free reads off the
+literal support guards, and the graded lane (`Step2/{InferP,ReadsP}`)
+reached them only through the 2U module the sever unhooks.  Names and
+statements unchanged; this module imports them back. -/
 
 /-- I4: a `Nat` literal infers `Nat`. -/
 theorem infer_natLit_claimR {cval : TConstVal} {φ : Name → Nat}
