@@ -790,6 +790,24 @@ def defeqLoopNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
 def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bool :=
   fun depth a b => defeqLoopNC r fe depth defeqLoopFuel a b
 
+/-- perf-eng E2: `@[inline]` twin of `memoEI`, scoped to the
+measurement-only NC knot — after inlining, the getter/setter lambdas
+beta-reduce away and the memo probe compiles into the record field's
+own closure (no generic `lean_apply` through a `memoEI` closure). -/
+@[inline] private def memoEINC (get' : IState → Std.HashMap EIdx EIdx)
+    (set' : IState → Std.HashMap EIdx EIdx → IState)
+    (f : Nat → EIdx → CheckIM EIdx) : Nat → EIdx → CheckIM EIdx :=
+  fun d e => do
+    match (get' (← get))[e]? with
+    | some r => pure r
+    | none =>
+      let r ← f d e
+      modify fun st =>
+          let mp := get' st
+        let st := set' st ∅
+        set' st (mp.insert e r)
+      pure r
+
 /-- The infer-only inference memo with the **one-directional share**
 from the checking-mode front-door memo (task #134's `memoEIO`, dropped
 by #147's consolidation, restored at task #161 follow-up 1).
@@ -823,6 +841,20 @@ def memoEIO (f : Nat → EIdx → CheckIM EIdx) : Nat → EIdx → CheckIM EIdx 
           { st with inferC := mp.insert e r }
         pure r
 
+/-- perf-eng E2: `@[inline]` twin of `memoBI` (see `memoEINC`). -/
+@[inline] private def memoBINC (f : Nat → EIdx → EIdx → CheckIM Bool) :
+    Nat → EIdx → EIdx → CheckIM Bool :=
+  fun d a b => do
+    match (← get).defeqC[(a, b)]? with
+    | some r => pure r
+    | none =>
+      let r ← f d a b
+      modify fun st =>
+        let mp := st.defeqC
+        let st := { st with defeqC := ∅ }
+        { st with defeqC := mp.insert (a, b) r }
+      pure r
+
 /-- Tie the cert-skipping bodies at the memoizing state monad (the
 `whnf` and `annotate` bodies are the certified ones — their behavior
 differences come entirely through the record).  The consistency proofs
@@ -835,17 +867,21 @@ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
       annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
   | fuel + 1 =>
-    { whnfCore := memoEI (·.whnfCoreC)
+    -- perf-eng E1: the previous fuel level is built at most once per
+    -- record (Thunk-cached) instead of once per cache-missing call
+    -- (the baseline re-evaluates `coreKnotNC fe fuel` inside every
+    -- body closure: 12 heap allocations per recursive call).
+    let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotNC fe fuel⟩
+    { whnfCore := memoEINC (·.whnfCoreC)
         (fun st mp => { st with whnfCoreC := mp })
-        (fun d e => whnfCoreBodyNC (coreKnotNC fe fuel) fe d e)
-      whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-        (fun d e => whnfBodyI (coreKnotNC fe fuel) fe d e)
-      infer := memoEIO
-        (fun d e => inferBodyNC (coreKnotNC fe fuel) fe d e)
-      defeq := memoBI
-        (fun d a b => defeqBodyNC (coreKnotNC fe fuel) fe d a b)
-      annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI .noModel (coreKnotNC fe fuel) fe d e) }
+        (fun d e => whnfCoreBodyNC prev.get fe d e)
+      whnf := memoEINC (·.whnfC) (fun st mp => { st with whnfC := mp })
+        (fun d e => whnfBodyI prev.get fe d e)
+      infer := memoEIO (fun d e => inferBodyNC prev.get fe d e)
+      defeq := memoBINC
+        (fun d a b => defeqBodyNC prev.get fe d a b)
+      annotate := memoEINC (·.annotC) (fun st mp => { st with annotC := mp })
+        (fun d e => annotateBodyI .noModel prev.get fe d e) }
 
 /-- The `--no-model` **checking-mode front-door knot** (task #147; the
 task-#134 `coreKnotF` pattern over the cert-skipping internals).
@@ -867,13 +903,17 @@ def coreKnotFNC (fe : FEnv) : Nat → CoreFnsI
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
       annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
   | fuel + 1 =>
-    { whnfCore := (coreKnotNC fe (fuel + 1)).whnfCore
-      whnf := (coreKnotNC fe (fuel + 1)).whnf
-      defeq := (coreKnotNC fe (fuel + 1)).defeq
-      infer := memoEI (·.inferFC) (fun st mp => { st with inferFC := mp })
-        (fun d e => inferBodyI .noModel (coreKnotFNC fe fuel) fe d e)
-      annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI .noModel (coreKnotFNC fe fuel) fe d e) }
+    -- perf-eng E1: share one `coreKnotNC` build across the three
+    -- reduction fields, and Thunk-cache the recursive front-door level.
+    let nc := coreKnotNC fe (fuel + 1)
+    let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotFNC fe fuel⟩
+    { whnfCore := nc.whnfCore
+      whnf := nc.whnf
+      defeq := nc.defeq
+      infer := memoEINC (·.inferFC) (fun st mp => { st with inferFC := mp })
+        (fun d e => inferBodyI .noModel prev.get fe d e)
+      annotate := memoEINC (·.annotC) (fun st mp => { st with annotC := mp })
+        (fun d e => annotateBodyI .noModel prev.get fe d e) }
 
 /-- Drop the checking-mode inference memo.  Its keys are arena
 indices, so it must go wherever the index-carrying memos go: at a

@@ -1692,16 +1692,21 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
       annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
   | fuel + 1 =>
+    -- perf-eng E6 (EXPERIMENT, exe-only pricing — reverted before
+    -- landing: 194 Verify/Cached references unfold this knot's
+    -- equations, a real proof-adaptation bill): Thunk-cache the
+    -- previous fuel level, as `coreKnotNC`'s E1.
+    let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotI fe fuel⟩
     { whnfCore := memoEI (·.whnfCoreC)
         (fun st mp => { st with whnfCoreC := mp })
-        (fun d e => whnfCoreBodyI mode (coreKnotI fe fuel) fe d e)
+        (fun d e => whnfCoreBodyI mode prev.get fe d e)
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-        (fun d e => whnfBodyI (coreKnotI fe fuel) fe d e)
+        (fun d e => whnfBodyI prev.get fe d e)
       infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-        (fun d e => inferBodyI mode (coreKnotI fe fuel) fe d e)
+        (fun d e => inferBodyI mode prev.get fe d e)
       defeq := memoBI
-        (fun d a b => defeqBodyI mode (coreKnotI fe fuel) fe d a b)
+        (fun d a b => defeqBodyI mode prev.get fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI mode (coreKnotI fe fuel) fe d e) }
+        (fun d e => annotateBodyI mode prev.get fe d e) }
 
 end Setlec.Cached

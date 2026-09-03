@@ -56,8 +56,21 @@ def checkDeclsSharedI (mode : CheckMode) (st : WFStore)
   let ds ← declsOfP st.raw pds
   Setlec.checkDeclsShared mode ds
 
-/-- Which core/driver pair the binary runs (`--core=…`; the default is
-the production one). -/
+/-- Which core/driver pair the binary runs (`--core=…`).
+
+The default for the certified mode (`--set-model`) is `cachedParsed`
+(task #163 flip, user-granted 2026-09-03): its acceptance is covered
+by the same consistency corollaries as production's
+(`Setlec/Verify/Cached/MainC.lean`: `checkDeclsSPCached_sound_R` and
+the `no_proof_of_Empty_SPC_*` family, all three carriers), and it is
+ahead of the interned core on every measured real workload in that
+mode (DESIGN.md, "DE-GATING BASELINE (post-capstone)").  The default
+is MODE-AWARE: `--no-model` keeps the production front door
+(`CheckerNC`) unless a core is requested explicitly — the
+cert-skipping lane's design (task #147) was never cloned, and the
+measured no-model split goes the other way on decl-heavy streams (the
+interned core wins init-prelude/init-full/grind there by 1.6-1.7x;
+cached wins term-heavy — see the DESIGN flip record). -/
 inductive CoreVariant where
   /-- `checkDeclsSP`: the production parsed-index driver (verified). -/
   | production
@@ -74,5 +87,9 @@ inductive CoreVariant where
   production's (`Setlec/Verify/Cached/MainC.lean`). -/
   | cachedParsed
   deriving DecidableEq, Repr, Inhabited
+
+/-- The certified mode's default core (see `CoreVariant`'s docstring;
+task #163 flip). -/
+def defaultCore : CoreVariant := .cachedParsed
 
 end Setlec.Cached

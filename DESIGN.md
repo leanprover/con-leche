@@ -25806,6 +25806,142 @@ coordinator, all four)
 S1 DISPATCHED on this ruling; the batch plan as written; campaign
 cadence in full; 13–18 batches the honest bill.
 
+## DE-GATING BASELINE (post-capstone) — task #163, 2026-09-03
+
+The reference matrix every de-gating removal is measured against.
+Code state: the #163 capstone as landed (master 14392d19's tree;
+both cores' code identical to the sealed campaign state).  Methods:
+the recorded ones (`perf stat -e instructions:u` median-of-3, wall
+median-of-3, process-tree peak RSS max-of-3; 32 GB address-space
+ulimit; every run under `timeout`).  Caveat recorded honestly: other
+lanes were measuring concurrently during parts of the run — the
+instruction and RSS columns are robust to that; treat the wall column
+as indicative.  Reproduce: `tests/pilot-measure.sh` with the workload
+list below, `VARIANTS=production,cached-parsed`;
+`tests/pilot-scale.sh --deep`.
+
+```
+workload               core               instructions    wall_s     rss_MB  exit
+init-prelude           production               38.58G     3.783      114.9     0
+init-prelude           cached-parsed            33.01G     2.984      113.0     0
+app-lam                production              383.03G    82.170     5409.8     0
+app-lam                cached-parsed           303.54G    29.241     5234.3     0
+beta-ladder            production               80.50G    15.659     1470.2     0
+beta-ladder            cached-parsed            47.79G     4.300     1266.7     0
+let-ladder             production               23.38G     4.942      823.1     0
+let-ladder             cached-parsed            11.66G     1.072      467.3     0
+grind-ring-5           production              126.83G    14.062      556.3     0
+grind-ring-5           cached-parsed           108.19G    10.947      513.4     0
+shared-subterm         production                5.43G     0.561       96.7     0
+shared-subterm         cached-parsed             4.75G     0.507       95.9     0
+repeated-subproblem    production                4.48G     0.525       97.3     0
+repeated-subproblem    cached-parsed             4.00G     0.404       97.4     0
+church-numerals        production                1.44G     0.191       87.1     0
+church-numerals        cached-parsed             1.41G     0.190       86.9     0
+shift-cascade          production                1.11G     0.162       90.5     0
+shift-cascade          cached-parsed             1.06G     0.163       90.6     0
+identical-nesting      production                0.82G     0.159       88.3     0
+identical-nesting      cached-parsed             0.80G     0.171       88.4     0
+unroll-versus-evaluate production                0.88G     0.173       89.2     0
+unroll-versus-evaluate cached-parsed             0.86G     0.166       87.6     0
+args-before-unfold     production                1.08G     0.164       88.3     0
+args-before-unfold     cached-parsed             1.01G     0.158       88.2     0
+discarded-argument     production                0.96G     0.177       88.3     0
+discarded-argument     cached-parsed             0.91G     0.154       88.1     0
+init-full              production             3164.24G   396.596     2116.3     0
+init-full              cached-parsed          3001.65G   334.718     2191.6     0
+```
+
+Doubling-shape growth (`pilot-scale.sh --deep`, adjusted instructions,
+exponent at the largest step):
+
+```
+shape        core             exp(last)   adjusted instr at 32x
+chain        production            1.06   831325762
+chain        cached-parsed         1.06   774556379
+spine        production            1.05   364772926
+spine        cached-parsed         1.50   774430744
+many         production            1.05   907577303
+many         cached-parsed         1.05   777246361
+telescope    production            1.06   363752269
+telescope    cached-parsed         1.42   629530188
+dag          production            1.06   716358252
+dag          cached-parsed         1.06   698697201
+delta        production            1.05   1152147043
+delta        cached-parsed         1.05   1046821170
+fanout       production            1.05   1391824099
+fanout       cached-parsed         1.45   2405235728
+lets         production            1.05   290968965
+lets         cached-parsed         1.05   281490266
+lparams      production            1.81   2067831190
+lparams      cached-parsed         1.82   2032885650
+thm          production            1.07   431798027
+thm          cached-parsed         1.05   378773161
+```
+
+The pilot's picture reproduces at the capstone state exactly:
+cached-parsed ahead on every real workload (init-prelude −14 %
+instr, init-full −5 %, app-lam −21 % instr/−64 % wall), behind only
+on the three spine-shaped growth exponents (+0.4).
+
+## THE DEFAULT FLIPS: --core defaults to cached-parsed (task #163, 2026-09-03)
+
+**User grant** (via the coordinator): "focus on the cached
+implementation for perf work, if that is already ahead. ok to make it
+the default."  Executed as a scoped round on `agent/core-flip`.
+
+The decision and its scope:
+
+* `--set-model` (the certified mode) now defaults to the
+  **cached-parsed** core.  Coverage: the acceptance of the new
+  default is verified by `Setlec/Verify/Cached/MainC.lean`'s
+  `checkDeclsSPCached_sound_R{,2,2M}` and the
+  `no_proof_of_Empty_SPC_*` family — the same consistency corollaries,
+  all three carriers, that cover production.  `--core=production`
+  remains selectable.
+* **The default is MODE-AWARE** (coordinator refinement of the grant,
+  same day, on a new perf-engineering measurement; an explicit
+  `--core=` always wins).  `--no-model` defaults to production, for
+  two reasons.  First, the cert-skipping lane was never cloned
+  (`CheckerNC` is its recorded front door).  Second, and decisively,
+  the measured no-model split goes BY STREAM SHAPE on identical
+  preprocessed input (perf-eng table, 2026-09-03; ratios vs the
+  official kernel):
+
+  | workload | interned | cached |
+  |---|---|---|
+  | app-lam (term-heavy) | 13.2× | **7.7×** |
+  | beta-ladder (term-heavy) | 8.0× | **4.4×** |
+  | init-prelude (decl-heavy) | **4.1×** | 7.0× |
+  | init-full (decl-heavy) | **4.0×** | 6.9× |
+  | grind (decl-heavy) | **4.5×** | 6.2× |
+
+  A global cached default would cost 1.6–1.7× on the parity lane's
+  init runs — the lane's main use.  (The certified mode's table is
+  different in kind: cert machinery dominates there and cached wins
+  everywhere, init-full included — the baseline table above.)  The
+  split driver (`--install-only`/`--check-range`) likewise runs its
+  production arena machinery, refusing only an *explicit*
+  non-production core.
+  Mechanism: `Args.core` became `Option CoreVariant` (explicitness
+  tracked); `Setlec.Cached.defaultCore` names the default.
+  Consequence: `SETLEC_PROGRESS` (production-only debug loop) now
+  requires an explicit `--core=production`.
+* Suite impact: **zero expectation changes** — arena.sh's set-model
+  rows now exercise the new default and pass at the recorded state;
+  the no-model sweep is unchanged by the carve-out; the parity
+  harness pins all four cores explicitly.
+* Engine identity was probed, not assumed: `app-lam` at the default
+  runs in 29 s where `--core=production` takes 85 s — the default is
+  demonstrably the cached core.
+
+**The honest trade-off, stated**: the spine/telescope/fanout +0.4
+growth exponent (table above) ships as the default's asymptotic
+profile, unmeasured-fixed.  The persistent-equality-memo candidate
+from the production-izing list is STILL OWED as a follow-up
+measurement; its trigger, if not run sooner: any real-stream
+regression report on spine-shaped declarations.  All real workloads
+measured to date favor the new default.
 ## Task #161 THE SEPARATION — S1 SEALED (2026-09-03, `agent/sep-s1`,
 unpushed): base extraction, the lib targets, and THE LAYERING GATE
 
@@ -26265,3 +26401,141 @@ eleven remaining lines, read as three jobs:
 
 Kit: `tests/layering.sh` (and `--list`); `_tmp/sep-s2/Audit.lean`; the
 S1 audit file `_tmp/sep-s1/Audit.lean`.
+
+## Task #161 SEPARATION — measurement-framing relay (2026-09-03;
+coordinator, from the engineering-overhead final report on
+agent/perf-eng, landing separately)
+
+For S8/S9's framing (binding): quote the P mode's savings against
+the AMENDED baselines — the perf landings will move them; coordinate
+SHAs with the perf agent's landing.  The R1 memo/alloc round runs in
+PARALLEL with this campaign: machine-solo coordination for heavy
+legs (stamped lock, liveness check) applies as usual.
+
+Context numbers (the honest preprocessed-both-sides gap): official
+1.8–7.7× (cached lane) / 3.7–13.2× (interned), cores SPLITTING by
+stream shape (cached wins term-heavy, interned wins decl-heavy);
+lean4lean ≈ C++ official at 1.0–2.0× on this machine — the gap is
+the hash-consing-everything architecture, not Lean; dominant bucket
+everywhere = term-walk allocation/RC + per-walk DHashMap memo
+traffic (68–97%).  Useful for S-batches: the knot bucket is fixed
+via Thunk-caching with ZERO proof adaptation (the Thunk.get
+definitional trick); the frontend byte parser landed −5.2%
+proof-free.
+
+## Task #161 follow-up 2: THE ENGINEERING-OVERHEAD ATTRIBUTION (2026-09-03, agent/perf-eng)
+
+The canonical tax table separated the verification tax (0.98×–2.04×)
+from the engineering gap (`--no-model` vs official, 3.9×–13.2× on the
+raw pipeline).  This session attributed that gap, controlled it against
+a second Lean-language kernel, and measured seven candidate fixes.
+Method: `perf stat -e instructions:u` median-of-3, `ulimit -v 40G`,
+`nice 5`, `SETLEC_SUPERVISED=1`; profiles `perf record` instructions:u,
+symbol-bucketed; kit and raw TSVs in `_tmp/perf-eng/`.
+
+### P1 — the open-recursion hypothesis: real at the IR level, minor in cost
+
+The compiled C (`.lake/build/ir/Setlec/Kernel/CoreNC.c`) confirmed the
+suspicion literally: every cache-missing recursive call re-evaluated
+`coreKnot* fe fuel`, allocating 11 closures + 1 record = **12 heap
+allocations per call**, and every recursive call dispatches through
+generic `lean_apply_*`.  No `@[inline]`/`@[specialize]` existed on
+knots or bodies — and `@[specialize]` is *structurally inapplicable*: a
+record of runtime closures is not a higher-order argument, so the
+compiler can never turn the knot into direct calls.  But perf pinned
+the entire knot/dispatch bucket at **0.01 %–4.1 %** of the run
+(2.9/2.6/0.08/0.01 % np on init-prelude/grind/beta/app-lam; 3.8/4.1 %
+nc on decl-heavy).  The fix that captures most of it is E1/E6/E7 below;
+a hand-tied direct-mutual core's residual ceiling is ≲1 % and was
+declined on that arithmetic.
+
+### P2 — attribution (share of run, incl. preprocessor child)
+
+`--no-model` prod (np): arena/EStore + memo-HashMaps 26/36/57/62 %
+(init-prelude/grind/beta-ladder/app-lam), allocator 19–25 %, RC
+13–15 %, preprocessor child 23/12/1/0.3 %, `Lean.Json` frontend
+7.3/4.6/0.2/0.1 %, core bodies+levels 4.3/6.6/0.05/0.03 %,
+knot/dispatch as above, fuel arithmetic unmeasurable (< 0.05 %).
+
+`--no-model` cached (nc): ExprC walks + per-walk memo-HashMaps
+31/33/49/49 %, allocator 21–25 %, RC 16–22 %, preprocessor
+15/9/2/0.5 %, parser 4.7/3.0/0.3/0.2 %, knot 3.8/4.1/0.05/0.04 %.
+Top symbols: `ExprC.instantiateRevGo`/`instantiateListGo`, the
+`Std.DHashMap` insert/get/expand at the walk-memo spec sites,
+`ExprC.beqB` (5.3 % on prelude); interned side `EStore.internT/internP`
++ `ENode` hashing.  **Allocation/RC churn plus per-walk hash-map memo
+traffic is 68–97 % of every `--no-model` run.**
+
+### P3 — the language control: lean4lean ≈ official
+
+lean4lean (arena2 checkout @ ecb3b66, `--import`, same raw ndjson;
+numbers include its COUNT instrumentation, so upper bounds):
+beta-ladder 1.00×, app-lam 1.01×, let-ladder 1.01×, init-prelude
+1.42×, grind-ring-5 1.97× of official — a Lean kernel with direct
+recursion, pointer-equality `Expr`s and runtime-cached hashes MATCHES
+the C++ kernel.  "Written in Lean" is not the gap; the architecture is.
+(Caveats: it checks fewer decls — 1774 vs 2056 on init-prelude, Quot
+records erased — and still rejects preprocessed streams at
+`PSigma'.fst` "invalid projection", the known divergence, so the
+control stays raw-only.)
+
+### THE HONEST GAP — preprocessed both sides (user directive)
+
+Official v4.33.0 ingests the preprocessed streams (raw-vs-pre penalty:
++77 % init-prelude, +2.3 % init-full) and the decl counts nearly close
+(60060 vs 61048 on init-full).  Same stream, both kernels, no spawn:
+
+| stream | official | np `--pre` | nc `--pre` |
+|---|---|---|---|
+| init-prelude | 3.914 G | 15.967 (4.08×) | 27.572 (7.04×) |
+| grind-ring-5 | 15.733 | 70.097 (4.46×) | 97.273 (6.18×) |
+| app-lam | 29.451 | 388.404 (13.19×) | 226.906 (7.70×) |
+| beta-ladder | 10.149 | 80.742 (7.96×) | 44.508 (4.39×) |
+| let-ladder | 6.145 | 22.831 (3.72×) | 10.882 (1.77×) |
+| init-full | 412.918 | 1667.930 (4.04×) | 2849.035 (6.90×) |
+
+The cores SPLIT by stream shape: cached wins term-heavy (app-lam 7.7×
+vs 13.2×), interned wins decl-heavy (4.0–4.5× vs 6.2–7.0× — the walk
+memos are cheap indices there).  A per-stream core choice would take
+the min of both columns.
+
+### The seven experiments (all measured, all verdict-identical)
+
+| exp | what | where | measured (instructions) |
+|---|---|---|---|
+| E1 | Thunk-cache the previous fuel level in `coreKnotNC`/`coreKnotFNC` (record built once per level reached, not per call) | `Setlec/Kernel/CoreNC.lean` | np: −0.2/−2.2/−2.5 % (prelude/grind/beta) |
+| E2 | `@[inline]` memo twins (`memoEINC`/`memoBINC`) so the probe compiles into the field closure | `Setlec/Kernel/CoreNC.lean` | np: −1.5/−1.1/−0.0 % |
+| E4 | inferFC-first infer memo — **dropped**: master's `memoEIO` (agent/memoshare, task #161 follow-up 1) is the same restoration, ratified; this landing wires `memoEIO` over the thunked knot | superseded | (master measured −1.79/−1.09/−0.95 %) |
+| E5 | byte-level frontend fast path for `{"ie":…}` app/lam/forallE/const/bvar/sort/letE and `{"in":…,"str":…}` (97 % of preprocessed init-prelude lines), fallback to `Lean.Json` on any mismatch | `Setlec/Frontend/Export.lean` | np prelude −5.2 %; nc prelude −3.3 %; nc grind −2.2 % |
+| E6 | Thunk-cache the **cached certified** knot | `Setlec/Cached/CoreC.lean` | nc: −2.4/−2.5/−0.0 % |
+| E7 | Thunk-cache the **interned certified** knot | `Setlec/Kernel/CoreI.lean` | sp: −2.3/−2.4/−1.7 % |
+
+**THE THUNK.GET DEFINITIONAL FINDING (load-bearing for the R1 round):**
+`Thunk.get ⟨fun _ => x⟩` is definitionally `x`, so Thunk-caching the
+knots changed NO proof: the full build (511 jobs) — including all 207
+`Verify`/`SetR` references to `coreKnotI` and 194 in `Verify/Cached` —
+is green without touching a single proof line.  Both "proof-adaptation
+bills" measured ZERO.  Cumulative branch effect: np init-prelude
+−8.1 %, nc init-prelude −6.0 %, nc grind −4.7 %, sp init-prelude
+−5.4 %, sp grind −4.3 %.  Verdict identity: every A/B row same
+exit/accept counts; arena suite (incl. no-model sweep) green at every
+measured variant; `lake test` green.
+
+### THE ARCHITECTURAL FLOOR (recorded verbatim per coordinator disposition)
+
+Beyond the landed fixes, the only bucket that can move the remaining
+multiple is R1: allocation/RC churn + per-walk DHashMap memo traffic in
+the term walks — pack/flatten walk-memo keys (tuple keys alloc per
+probe), Array-backed per-walk memos, cut node-rebuild allocs.  Est.
+20–40 % on term-heavy rows; ExprC/CoreC shapes are SimC-constrained so
+structural changes carry a real (but, per the thunk precedent,
+sometimes zero) proof bill.  Beyond that, the architecture itself
+(hash-cons/memo-key every intermediate of every substitution — what
+official and lean4lean simply don't do) is the floor; the NbE-pilot
+successor note stands.
+
+Dispositions (coordinator, 2026-09-03): E1/E2/E5/E6/E7 landing granted
+(this merge); E4 dropped for master's memoshare; R1 approved as the
+next scoped campaign (per-experiment A/B, SimC proof bill flagged each
+time, statement-freeze cadence when nonzero); E5's extension to decl
+records folds into R1; preprocessor floor out of kernel scope.
