@@ -21773,3 +21773,47 @@ Artifacts under `_tmp/degating-abc/` (gitignored):
    `infer`s, two `whnf`s, two `Level.isEquiv`, failing 99.99 % of the
    time (site 36).  The pre-filter FINDING 8 asks for is unchanged in
    shape and is now the single largest un-costed site in the checker.
+
+## Task #161 HARVEST: A+B+C LANDED + the proofIrrel finding framed
+(2026-09-03; coordinator dispositions executed)
+
+**A+B+C LANDED** at merge `17e4cdef` (grant: pure licensed removals,
+byte-identical, covered by the user's harvest directive).  Master
+battery green post-land: build 507 warning-free, test 0, arena
+90/92, e2e 72/72, annot 14/14, split 11/11, mode 9/9, no-model
+138+72+14 with the 3 recorded divergences.
+
+**HARVEST TABLE update**:
+- Sites 19/20/23, 18(P9), 21(P10), 37(P7), 35(P8), 6 →
+  REMOVED-AND-MEASURED (landed; 0.129%/0.107% init-full,
+  0.286%/0.263% prelude).
+- B4(P6) → MEASURED-WITH-VERDICT: the premise was false (no
+  per-literal scan; 25/1702 strVal records); the "downgrade" would
+  be a ~130×/~30× PESSIMIZATION.  The removal would cost more than
+  the check.
+- proofIrrel → REMOVED-TAX-PLUS-RESTORED-RESTRICTION (pending USER
+  grant; branch agent/proofirrel-check @ 3a0be1cd held ready; lands
+  second against this baseline).
+
+**THE PROOFIRREL FINDING — campaign-narrative entry** (coordinator:
+prominent, in both records): **the model proved consistency of a
+checker MORE PERMISSIVE than the official kernel.**  setlec accepted
+heterogeneous proof irrelevance (proofs of non-defeq Props) that
+official v4.33.0 and lean4lean both reject — sound over interp2 the
+whole time, because all proofs interp to pt.  Conformance and
+soundness came apart exactly where the theory predicts.  The fixture
+(tests/e2e/proof_irrel_hetero.ndjson on the branch; the Acc
+large-elimination lever) REFUTES the 2026-08-20 design-review
+triage's claim that no .ndjson reachability test is constructible —
+cited here per the ruling: the triage's argument assumed the
+annotation-first discipline relates compared terms' types, but
+algorithmic conversion is not congruent.  The restoration is a
+restriction TOWARD official (restrictions-are-findings, dual form).
+
+**QUEUED residual rounds** (after the landings, each its own scoped
+round): (i) the unit-like branch's same-shape omission — official's
+is_def_eq_unit_like ends with is_def_eq_core(t_type, infer_type(s)),
+which setlec omits; own fixture hunt; (ii) Bool fall-through vs
+official's COMMIT semantics — verdict-equivalence unproven; needs
+the three-valued threading question answered and its own fixture
+hunt.
