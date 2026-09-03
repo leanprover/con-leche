@@ -1,6 +1,7 @@
 import Setlec.SetP.AxiomReduceP
 import Setlec.SetP.BasisPSigmaP
 import Setlec.SetP.DeclIndP
+import Setlec.SetBase.IndBlockR
 import Setlec.SetR.Bridge.Sound
 
 /-!
@@ -13,15 +14,16 @@ closure — through an accepted stream, and
 milestone-shaped `no_proof_of_Empty_P_of` is kept beside it, now
 carrying no bundle at all — every tier step is discharged.
 
-The η half of the fold invariant is `declEtaStep` (`SetR/DeclEta.lean`,
-task #161 S3): model-free at five of the six declaration kinds, and at
-`indDecl` premised on `declIndS memberKeyS` — the one kind whose
-η-closure is still proved interleaved with the `EnvS` member/recursor
-folds.  `declStepS` and its four other install obligations
-(`divModPinS`/`reducePinS`/`stdAxiomKeyS`/`declBasisS`) are no longer
-consulted for it; the harvests keep their own uses of `divModPinS` and
-`reducePinS`, which are value-kind obligations, not fold ones.  The v1
-base at every prefix is `EnvS2PM.base`, the S3 residue.
+The η half of the fold invariant is `declEtaStepRun`
+(`SetBase/DeclEta.lean`, task #161 S3) and is now **model-free at every
+kind**: S3 left `indDecl` premised on `declIndS memberKeyS mp.base` —
+the one kind whose η-closure was proved interleaved with the `EnvS`
+member/recursor folds — and S5's ind unit (`declIndEtaClosed`,
+`SetBase/IndBlockR.lean`) proves it from `DeclIndR` alone.  No install
+obligation is consulted for the η half; the harvests keep their own
+uses of `divModPinS` and `reducePinS`, which are value-kind
+obligations, not fold ones.  The v1 base at every prefix is
+`EnvS2PM.base`, the S3 residue.
 
 The routed bundles, by tier:
 
@@ -143,14 +145,13 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
   -- that is `EnvS2PM.base`'s residue, which S5 deletes.
   have hrun : DeclRunR μ F (DeclIndR μ F env mp.base.cval) env d env₂ :=
     DeclR.toRun h
-  -- the η half: `declEtaStep` (task #161 S3, the census's C4), which
-  -- reads `DeclR`'s freshness guards and needs the collapsed lane at
-  -- ONE kind only — `indDecl`, whose η-closure is still proved
-  -- interleaved with the `EnvS` member/recursor folds (the finding
-  -- recorded in `SetR/DeclEta.lean`).  `declStepS`'s four other
-  -- obligations are not consulted here any more.
+  -- the η half: `declEtaStepRun` (task #161 S3, the census's C4), now
+  -- MODEL-FREE at every kind.  S3's stop-and-name left `indDecl`'s
+  -- η-closure premised on `declIndS memberKeyS mp.base`; S5's ind unit
+  -- (`SetBase/IndBlockR.lean`) proves it from `DeclIndR` alone, so the
+  -- fold consults no install obligation for its η half at all.
   refine ⟨?_, Setlec.SetR.declEtaStepRun
-    (fun h' => (declIndS memberKeyS mp.base hE h').2) hE hrun⟩
+    (fun h' => Setlec.SetR.declIndEtaClosed hE h') hE hrun⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := h

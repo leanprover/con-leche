@@ -65,7 +65,7 @@ Setlec.SetP.Annot.EnvS2P -> Setlec.SetR.Interp2.EnvS2U                  # S4-S5:
 # the *next* step's v1 premises, so they concentrate at S5 instead.
 Setlec.SetP.AxiomPinP -> Setlec.SetR.StdAxiomKey                # S5: propextKeyS_mem/choiceKeyS_mem at the axiom pin
 Setlec.SetP.BasisEmptyP -> Setlec.SetR.Install.BasisS           # S5: extendEmptyS
-Setlec.SetP.IndMemberP -> Setlec.SetR.Install.IndMembersS       # S5: indMemberS/memberKeyS base builders
+Setlec.SetP.IndMemberP -> Setlec.SetR.Install.IndMembersS       # S5: MIS-ATTRIBUTED, re-worded at S5 (finding).  `IndMemberP` uses NO symbol declared in `Install/IndMembersS`; its import is a re-export artifact (it resolves `BlockInstalledTT`, declared in the BASE module `Verify/Extend/Block`).  The real symbol dependence is downstream and transitive: `IndMembersP`'s `memberInstallS mp.base`, `DeclIndP`'s `indRecsS memberKeyS mp1.base`, `IndRecsP`'s `indRecsFoldS mS.base`.  Rule (b) keeps the line: the DEPENDENCE is alive and dies with the residue, and re-pointing is not shrinking (S3's precedent).
 # --- the bridge: the records are SHARED, the derivations are R's.
 # S4 landed the shared half — `SetBase/Decl.lean` (the whole record
 # family), `SetBase/DeclRun.lean` (`DeclRunR`, the run/guard
@@ -75,7 +75,7 @@ Setlec.SetP.IndMemberP -> Setlec.SetR.Install.IndMembersS       # S5: indMemberS
 # `checkDeclR_sound m`, `declIndS memberKeyS`, `declDefnS`/`declThmS`/
 # `declOpaqueS`, `divModPinS` and `reducePinS` — every one of them an
 # `EnvS` consumer at `mp.base`.
-Setlec.SetP.FoldP -> Setlec.SetR.Bridge.Sound                   # S5: the v1 round trip's last site (checkDeclRun_sound's m, declIndS's eta premise, the three value builders)
+Setlec.SetP.FoldP -> Setlec.SetR.Bridge.Sound                   # S5: the v1 round trip's last site.  S5 removed TWO of the four reasons: the eta premise (declIndEtaClosed is model-free now) and the bridge's five non-ind kinds (checkDeclR_ofEnvR runs on an `EnvR`).  What is left is `checkDeclR_sound`'s IND-kind `m` (Bridge/DeclInd's finding 8) and the three value builders `declDefnS`/`declThmS`/`declOpaqueS mp.base`.
 """
 
 IMP = re.compile(r'^\s*(?:public\s+|private\s+|meta\s+)*import\s+([A-Za-z0-9_.]+)', re.M)
