@@ -23686,3 +23686,276 @@ fold/capstone extension + full battery + the measured prize (gross
 AND net); B6 reserve.  Stop-and-name standing at every frozen
 shape; all savings net of the memo split; verdict discipline = the
 strict accept-ward law.
+
+## Task #161 STAGE 2 BATCH 1 — the kernel frame, the frozen statements,
+the first worked example, and a **STOP-AND-NAME at the knot boundary**
+(2026-09-03, `agent/ioknot-b1`, unpushed)
+
+**The one-line verdict**: the io lane's *proof architecture* is right
+and it is landed and green — one new claims family, five-way step,
+premise form, the leaf and binder clauses proved — but the freeze's
+kernel frame (shape 1) and its R-tier promise (shape 3) **cannot both
+hold**, so the wiring that turns the architecture into a prize is
+HELD.  Nothing in the executable moved: this branch is byte-identical
+to master by construction, not by measurement.
+
+### What is in the branch
+
+| commit | content |
+|---|---|
+| `d9eb728d` | `PropWhen.isNever` (`Kernel/Expr.lean`) + the io lane (`Kernel/CoreIO.lean`: `inferBodyIO`, `coreKnotIO`, `pureFnsIO`, `inferTypeCoreIO`) + its knot equations (`Verify/Knot.lean`) and ∀ inversion (`Verify/InferIOLemmas.lean`) |
+| `9c905cd3` | the frozen statements: `InferClaimsIO2P`, `CheckStep2P5`, `checkSound2P5` (`SetR/Interp2/Claims2PIO.lean`); the gate's exactness re-landed from stage 1 (`SetR/Annot/Bit.lean`) |
+| `4d1e9619` | the first worked example: the io infer quarter's four leaves and the ∀ binder (`SetR/Interp2/Step2/InferIOP.lean`) |
+
+`lake build`: green, warning-free, zero sorries.  `lake test`: exit 0.
+
+### 1. THE KERNEL FRAME — landed as far as the boundary allows
+
+`inferBodyIO` is `inferBody` clause for clause with **one** change,
+quoted:
+
+```
+      | .forallE _ ty body mt => do
+        unless mode.verified && mt.pw.isNever do
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta ty do
+            throw (.invalid "application type mismatch")
+        pure (body.instantiate1 a)
+```
+
+The mode conjunct is law text (clause (i)) and it is present; the gate
+wraps the *test* only — the computed type and the "function expected"
+rejection are `inferBody`'s verbatim (clause (iii)).  The λ/∀
+domain-sort checks, the λ codomain validation, the `letE` conformance
+and the projection typing are all **kept**: they are the P2 validation
+suppliers, and the never-list is untouched (no front-door gating, no
+squash skip, no `iotaCerts`/`projCert` io-grading).
+
+`coreKnotIO` is a **leaf** lane: `whnfCore`/`whnf`/`defeq`/`annotate`
+are the *full* knot's at the same fuel, only `infer` is the io body,
+and the full knot never mentions the io knot.  That is what keeps the
+new statement surface to exactly one family and makes mode provenance
+structural rather than reviewed.
+
+**It is not wired into any driver.**  `Setlec/Kernel/Checker*.lean`,
+`Setlec/Cached/*` and `Main.lean` are untouched; the interned and
+cached io twins, the memo split (`IState.inferFC` is still the #134
+field, still unused), the β-cert gate at `whnfCore` and the sim tower
+are all HELD.  Why is the rest of this section.
+
+### 2. STOP-AND-NAME: shapes 1 and 3 of the freeze are incompatible
+
+> **Shape 1**: "the io knot serves INTERNAL calls only"; "the same
+> mode-gated gate at the whnfCore β-cert sites".
+> **Shape 3**: "the R tier (`Red`/`VExpr`) is UNTOUCHED — the knot
+> boundary keeps R-tier claims fed by the full lane only."
+
+There is **no knot boundary with both properties**, and the reason is
+not a proof gap.  The io lane pays only where a body the R tier models
+calls `r.infer` at io grade — that is the definition of "serves
+internal calls".  Every one of those bodies is modelled by an R rule
+whose premises **are** the runs the io grade deletes:
+
+| kernel internal-infer site (the study's table) | study's class | R rule that consumes the run | under io |
+|---|---|---|---|
+| `whnfCore`'s β cert (`Core.lean:1441-1442`), `betaPeel` | GATEABLE at `pw=.never` | R4 `Red.beta` (`SetR/Rel.lean:148-152`): `Infer Δ a ta → DefEq Δ ta A →` | **BLOCKED** (stage 1's STOP) |
+| `proofIrrel`'s 4 infers (`Core.lean:776-793`, 12.45 M calls) | CHEAP — io suffices | D8 `DefEq.irrelProp` (`Rel.lean:667-675`): **four** `Infer` premises; D9 `irrelUnit`: two | **BLOCKED** |
+| `etaCert`, `structEtaCert`, `pairEtaCert` | CHEAP — io suffices | D10 `structEta` and the eta/unit rules, all `Infer`-premised | **BLOCKED** |
+| `majorToCtor` K/η rescues | CHEAP — io suffices | R12 `rescueK`, R13, `rescueUnit0` — the rescue types enter as `Infer`/`DefEq` | **BLOCKED** |
+| `inferSpine`'s per-arg checks under internal infers | GATEABLE at `pw=.never` | I8 `Infer.app` (`Rel.lean:570-575`): `Infer Δ a ta → DefEq Δ ta A →` — the skipped runs **are** the premises | **BLOCKED** |
+| `iotaCerts`, `projCert` | FULL-NEEDED (never-list) | — | untouched by design |
+
+The mechanism, in one sentence: `InferClaimsR`
+(`SetR/Bridge/Claims.lean:122-132`) is stated at
+`inferTypeCore mode env fuel d e = .ok t` and *concludes* a syntactic
+`Infer` derivation; `denote_beta_stepR`
+(`SetR/Bridge/WhnfCore.lean:139-165`) obtains R4's premises by
+`ihi hta` with `hta : inferTypeCore mode env fuel d a = .ok ta`; an io
+run is not that run, and no io run can produce an `Infer` derivation,
+because `Infer.app`'s premises are exactly the two runs the io grade
+skips.  `InferClaimsR` is named in **17** `SetR/Bridge/*` modules and
+its induction hypothesis is consumed on **120 lines across 16** of
+them.
+
+Three further facts close every escape:
+
+* **The R tier cannot be restricted to the licensed fragment.**
+  `VExpr` carries no binder annotation — `Annot/Pass.lean:455-470`
+  records it as a design fact ("Reduction is therefore
+  annotation-opaque at this tier") — so `pw = .never` is not
+  *expressible* in an R claim.  A hypothetical `InferR`-at-io claim
+  cannot be scoped to the graph regime.
+* **And it is false without that scoping.**  At the squash regime the
+  semantic content is refuted model-class-wide
+  (`io_membership_fails_at_squash`, the round-D study's probe 2): any
+  proof-irrelevant set model erases Prop-side type identity.
+* **The R tier is not retirable, and it is not "the other route".**
+  The P lane *contains* it: `EnvS2Core.base : EnvS V env`
+  (`Annot/EnvS2Core.lean:48`), and the P declaration fold discharges
+  each step with `checkDeclR_sound mp.base2.base hE hd`
+  (`Interp2/FoldP.lean:173`).  So `no_proof_of_Empty_P`
+  (`Interp2/FoldP.lean:215` — the capstone freeze item 7 says gets
+  *extended*) runs through `DeclR`, hence through `Red`/`Infer`/
+  `DefEq`, at every declaration.  Making the io lane executable
+  invalidates the P capstone too, not only the R one.
+
+**What this does NOT say.**  It does not say the io claims are wrong:
+the premise-form family below is stated, and five of its eleven
+clauses are proved, against a real function.  It says the *executable*
+io lane is on the other side of a tier decision, and that decision is
+strictly larger than stage 1's: stage 1's rulings (R1) amend R4,
+(R2) thread the datum into `VExpr`, (R3) restrict the gate to a mode
+the R bridge does not claim, (R4) drop the R β claim — and stage 2
+needs the same disposition for **six** rules (R4, D8, D9, D10, R12/R13,
+I8), plus a story for the P fold's use of `checkDeclR_sound`.
+
+**Recommendation to the lead** (the statement layer is the lead's;
+nothing was edited): re-scope the campaign around one of
+* **(A)** an `InferIO` R-family — a second syntactic inference relation
+  for the io lane, with `Red.beta`/D8/D9/D10/R12/R13 gaining io
+  variants.  This is a genuine R-tier statement change and its
+  soundness (`sndRedBeta` and friends, `SetR/Sound/Struct.lean:56-67`)
+  has to be re-derived where it is currently false — the ungraded
+  model has no `pw`;
+* **(B)** de-basing the P lane from `EnvS` (make `EnvS2Core` carry its
+  own content instead of containing the R invariant), then dropping
+  the R lane's claim on the io-served bodies.  This is the
+  both-routes-permanent user ruling's territory and needs a user
+  ruling;
+* **(C)** keep the io lane as it is landed here — a proof-architecture
+  asset with no executable prize — and re-open bucket 2 only if (A) or
+  (B) is ruled.
+
+### 3. THE FROZEN STATEMENTS, landed verbatim
+
+`InferClaimsIO2P` (`SetR/Interp2/Claims2PIO.lean`), premise form, at
+the io run:
+
+```
+def InferClaimsIO2P (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
+    inferTypeCoreIO μ env fuel d e = .ok t →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    ∀ {ea ta : AVExpr},
+      CtxOkP m φ d Δa e →
+      denoteP m.acval env φ d e = some ea →
+      denoteP m.acval env φ d t = some ta →
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) →
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+        ∀ ρ : Nat → V, Sat2 V Δa ρ →
+          interp2 V ρ ea ∈ˢ interp2 V ρ ta
+```
+
+`AnnotOkP ea` is the premise; `AnnotOkP ta` and membership in the
+**io-computed** type are the conclusions — never identity with "the"
+type, which is why the unique-typing and Π-domain-injectivity
+refutations do not bite.  The five-way step-assembly shape is declared
+(`CheckStep2P5`) and its generic induction proved (`checkSound2P5`,
+zero case from `inferTypeCoreIO_zero`); the step itself is B4's.
+
+**No frozen shape needed editing at the statement layer.**  Shape 2
+survived contact exactly as written, and shape 4's slot is where the
+freeze put it.  The mismatch is entirely in shapes 1/3, above.
+
+### 4. THE FIRST WORKED EXAMPLE
+
+`SetR/Interp2/Step2/InferIOP.lean` — five of the eleven dispatcher arms:
+
+| clause | theorem | note |
+|---|---|---|
+| `.sort` | `infer_sort_claimIOP` | premise unused: a leaf establishes |
+| `.bvar` | `infer_bvar_claimIOP` | outside the fragment, the io grade narrows no rejection |
+| `.fvar` | `infer_fvar_claimIOP` | `CtxOkP`'s leaf package, no residue |
+| `.const` | `infer_const_claimIOP` | **one residue fewer than the full clause** — `AcvalValidP` was there to establish the *subject's* bit validity, which premise form gives |
+| `.forallE` | `infer_forallE_claimIOP` | the binder species: move 1 at the io inversion, moves 2–4 unchanged, and the premise splits hereditarily (`AnnotOkP.hoist_pi`, made public here) instead of being established |
+
+Supporting: `Setlec.inferTypeCoreIO_forall_inv`
+(`Verify/InferIOLemmas.lean`) — `inferTypeCore_forall_inv`'s proof
+with the lane-folding rewrites (`inferIO_def`, `pureFnsIO_whnf`,
+`ensureSortIO_def`), compiled first try; and `SortSemAtIOP`, the io
+quarter's single routed residue at this batch (carried as a hypothesis
+exactly as `SortSemAtP` is by `infer_forallE_claimP`; its discharge
+needs the io reads walk, which is B3's named risk class).
+
+**The finding the example produces**: premise form is *cheaper* at
+every clause where it is not the whole content — the study called the
+leaves and binders "mechanical" and they are, but they also shed
+residues rather than gaining them.  The whole cost of the campaign is
+concentrated in the one clause this batch does not touch.
+
+**THE APPLICATION CLAUSE IS B2's.**  Its statement shape compiles as
+part of `InferClaimsIO2P`; nothing here constrains it.  What it will
+consume, and where those pieces live:
+* the gated branch: `io_domain_transfer` + `io_app_mem`
+  (`_tmp/inferonly-study/ProbeIO.lean`, to be re-landed beside
+  `Interp2/Ops.lean`'s `piR_dom_unique`, which is the side-condition-
+  free domain uniqueness they run on), plus this batch's
+  `pwBit_ne_zero_of_isNever` to move the kernel's `isNever` test into
+  the claim's `pwBit φ pw ≠ 0` branch — soundly *and* exactly
+  (`isNever_iff_forall_pwBit_ne_zero`; both re-landed in
+  `SetR/Annot/Bit.lean`, audits `[propext]` / the three standard);
+* the kept branch: `infer_app_claimP`'s `ihd` route
+  (`Step2/InferP.lean:893`) verbatim, since the runs are there;
+* nothing else: `io_membership_fails_at_squash` is a wall, not a gap.
+
+### 5. SIM TOWER — not started, sealed at position
+
+The interned-sim walk for the io bodies has no subject: there is no
+interned io lane, because the interned io lane is part of the wiring
+that is HELD.  `Verify/SimI*.lean` and `Verify/Cached/*` are
+untouched.  Succession position is item 1 of B2's bill *if and only
+if* the disposition above lands (A) or (B); under (C) it is dead.
+
+### BATTERY
+
+* `lake build`: green, warning-free, zero sorries (`grep -rn "sorry"`
+  over `Setlec/` finds only the documentary occurrences master
+  already had).
+* `lake test`: exit 0.
+* `bash tests/arena.sh`: arena 90/92, e2e 73/73, annot 14/14, split
+  11/11, mode 9/9, no-model 138 + 73 + 14 (3 recorded divergences) —
+  unchanged, and necessarily so: **no executable path was edited**.
+  `Main.lean`, `Kernel/Checker*.lean`, `Kernel/Core.lean`/`CoreI.lean`/
+  `CoreNC.lean` and `Cached/*` are **unmodified**.  The two additions
+  are `PropWhen.isNever` (stage 1's branch put it at five *executable*
+  call sites; here it has exactly one, inside `inferBodyIO`, which no
+  driver reaches) and the unreferenced `CoreIO` lane itself.  So
+  verdict-neutrality here is a theorem of the diff, not a measurement —
+  which is also why the diff proves nothing about the wired lane.
+* Axiom audits (harness `_tmp/ioknot-b1/audit.lean`, `lake env lean`):
+  `pwBit_ne_zero_of_isNever` `[propext]`;
+  `isNever_iff_forall_pwBit_ne_zero`, `inferTypeCoreIO_forall_inv`,
+  `checkSound2P5`, and all five worked clauses at exactly
+  `[propext, Classical.choice, Quot.sound]`; `no_proof_of_Empty_P` and
+  `no_proof_of_Empty_SP_R` re-audited, unchanged.
+
+### MEASUREMENT
+
+**None, and that is the honest state.**  The io lane is not reachable
+from any driver, so there is nothing to measure that is not master.
+The numbers that stand are stage 1's, for the *β-cert half only*
+(`agent/bucket2-s1`): −4.57 % / −8.21 % init-prelude, −8.09 % /
+−17.20 % init-full, −6.75 % / −12.96 % grind-ring-5 (production /
+cached-parsed, gross), against the campaign's 2.2–3.1 % memo-split
+convention — and stage 1's seal is right that the convention
+over-charges a stage that installs no second memo.  This batch
+installs no second memo either.  The io lane's own prize (the study's
+5–40 % bracket) remains **unmeasured and unearned** until the
+disposition lands.
+
+### SUCCESSION FOR B2
+
+1. Take the lead's ruling on (A)/(B)/(C) first — B2's app clause is
+   worth proving under all three (it is the campaign's only new
+   mathematics and it is a fact about the model, not about the
+   wiring), but B3's reads walk, B4's assembly and B5's fold/measure
+   are worth nothing under (C).
+2. If B2 proceeds: re-land `io_domain_transfer`/`io_app_mem` beside
+   `Interp2/Ops.lean`, then `infer_app_claimIOP` in
+   `Step2/InferIOP.lean` — the file is laid out for it, and the two
+   branches are named in its docstring.
+3. The remaining six arms (`.lam`, `.letE`, `.proj`, the two literal
+   arms, and the `.app` clause) complete the quarter;
+   `sortSemAtIOP_of_claims` needs the io reads walk (B3).
