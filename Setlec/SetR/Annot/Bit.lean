@@ -71,6 +71,47 @@ theorem pwBit_ne_zero_iff {φ : Name → Nat} {pw : PropWhen} :
   rw [Ne, pwBit_eq_zero_iff]
   simp
 
+/-! ### The io gate's exactness (task #161 bucket 2)
+
+The kernel's licensed check-skips test `PropWhen.isNever` — the one
+thing about a datum a kernel can decide without a valuation.  The
+sealed claims split on `pwBit φ pw = 0` at the *ambient* valuation.
+The two lemmas below are the receipt that the gate's condition is the
+**∀-`φ` uniform version of the claims' positive branch, exactly** —
+sound (a gated site is positive at every valuation, so the claim's
+cert-free arm applies) and complete (no other datum is positive at
+every valuation, so the gate cannot be widened without leaving the
+licensed branch).
+
+Landed at stage 1 on `agent/bucket2-s1` (commit `0c865695`) and
+re-landed here verbatim: the exactness is a fact about the datum, not
+about which site reads it, so it serves the io lane's application
+clause (`inferBodyIO`) and any future β-cert gate alike. -/
+
+/-- **Soundness of the gate's condition**: a `never` datum is positive
+at every valuation. -/
+theorem pwBit_ne_zero_of_isNever {pw : PropWhen}
+    (h : Setlec.PropWhen.isNever pw = true) (φ : Name → Nat) :
+    pwBit φ pw ≠ 0 := by
+  cases pw with
+  | never => rw [pwBit_ne_zero_iff]; rfl
+  | ifAllZero ps => exact nomatch h
+
+/-- **Exactness of the gate's condition**: `never` is *the* datum that
+is positive at every valuation — an `ifAllZero` datum lands in the
+squash regime at the all-zero valuation, where the certificate is
+consumed and the skip would be unlicensed. -/
+theorem isNever_iff_forall_pwBit_ne_zero {pw : PropWhen} :
+    Setlec.PropWhen.isNever pw = true ↔ ∀ φ : Name → Nat, pwBit φ pw ≠ 0 := by
+  constructor
+  · exact pwBit_ne_zero_of_isNever
+  · intro h
+    cases pw with
+    | never => rfl
+    | ifAllZero ps =>
+      exact absurd (pwBit_eq_zero_iff.mpr
+        (by simp [Setlec.PropWhen.holds])) (h (fun _ => 0))
+
 /-- Checker-compared data (`PropWhen.equiv`, the P2 validation and
 defeq sites) contribute **equal** numerals — not merely zero-agreeing
 ones. -/
