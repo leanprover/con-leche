@@ -79,7 +79,11 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
     hilt, hstripP, hbig, henv⟩ := hR
   obtain ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
-    hrhsb, hrlp, hrres, hrstrip, hrhsKeyV, hrhsRun, hthmpack⟩ := hbig
+    -- `-` at position 11: `ProjFnR`'s rule-rhs **derivation** row, no
+    -- longer consumed (task #161 S10 — the reading comes from the run
+    -- below).  The campaign's own diagnostic, applied to itself: a
+    -- conjunct every proof projects away is a layering artifact.
+    hrhsb, hrlp, hrres, hrstrip, -, hrhsRun, hthmpack⟩ := hbig
   obtain ⟨rbinders, hrhsAstrip, hrdomsEq⟩ := hrstrip
   obtain ⟨tcv, tval, hthmE, htlps, hsbodyPin, fvsI, sbodyO, hopen,
     hsidesTy, hsty1, hsty2⟩ := hthmpack
@@ -201,9 +205,16 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
       ∀ ρ : Nat → V, AnnotOkP V ρ Ra ∧
         interp2 V ρ Ra ∈ˢ interp2 V ρ ta := by
     intro ψ
-    obtain ⟨Rv, -, hRv, -⟩ := hrhsKeyV ψ
-    obtain ⟨Ra, hRa⟩ := denotePClosed_isSome_of_denoteClosed
-      (acval := mp.base2.acval) hRv
+    -- **the reading, from the RUN** (task #161 S10).  It used to come
+    -- from `ProjFnR`'s derivation row (`hrhsKeyV`: `∀ φ, ∃ Rv t,
+    -- denoteClosed … ∧ Infer …`) through `denotePClosed_isSome_of_
+    -- denoteClosed`.  `acceptedReadsP_of` — "whatever `inferTypeCore`
+    -- accepts, `denoteP` reads", ENDGAME A's own walk — produces it
+    -- from `hrun`, the record's *recorded run*, with no derivation and
+    -- no relation.  That leaves the derivation row unconsumed here,
+    -- which is what makes the ind tier's record split a deletion.
+    obtain ⟨Ra, hRa⟩ :=
+      acceptedReadsP_of mp.base2 ψ hrun hrhsWs hrhsb hrhsLb
     have hctx : CtxOkP mp.base2 ψ 0 [] rhsA :=
       ⟨rfl, fun l hl => absurd hl (fun h => hrhsLeafNil l h)⟩
     obtain ⟨ta, hta⟩ := hreadsP ψ hrun hrhsWs hrhsb hrhsLb

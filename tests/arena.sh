@@ -131,6 +131,14 @@ total_good=0
 # It runs here so the standard battery fails if the boundary rots.
 if tests/layering.sh; then :; else fail=1; fi
 
+# THE PROOF-TERM GATE (task #161 S10).  The layering gate above measures
+# where code SITS; this one measures what the capstones USE — the
+# transitive constant closure of their type and proof term, pinned row
+# by row.  S9's finding is why both are needed: the import gate read
+# "0 P->R edges" while `Red.beta` was live on the shipped P capstone's
+# proof path.  The pin only ever tightens.
+if tests/proofdeps.sh; then :; else fail=1; fi
+
 # --- the arena half ------------------------------------------------
 arena_half() {
   accepted=0
