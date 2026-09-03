@@ -16,9 +16,9 @@ they were generalized for — `HasType.weakenN`/`weakenHead` and
 `HasType.instN`/`instantiate`, one induction over the derivation each —
 were the declarative lane's substitution metatheory.  That lane was
 retired (task #148 T7b) and the set route weakens its own relation
-family instead (`Setlec/SetR/Weaken.lean`, which is why it imports this
+family instead (`Setlec/SetBase/Weaken.lean`, which is why it imports this
 file), so the four theorems had no consumer left and went with it.  The
-relations stayed: they are `HasType`-free, and `Setlec/SetR/Weaken.lean`
+relations stayed: they are `HasType`-free, and `Setlec/SetBase/Weaken.lean`
 is built on `LiftCtx` directly.
 
 *The cost accounting the deleted half carried is worth keeping in one

@@ -1,5 +1,4 @@
 import Setlec.SetP.ProjConsP
-import Setlec.SetR.Install.DeclIndS
 
 /-!
 # The projection-function phase, P tier (task #161, IND TIER part 10)

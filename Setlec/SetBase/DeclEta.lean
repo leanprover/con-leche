@@ -1,4 +1,4 @@
-import Setlec.SetR.Decl
+import Setlec.SetBase.DeclRun
 
 /-!
 # `declEtaStep` — the declaration fold's η-closure half, model-free
@@ -87,23 +87,30 @@ theorem basisIndOk_declsA (kind : BasisKind) :
     basisIndOk kind.declsA = true := by
   cases kind <;> decide
 
-/-- **The declaration fold's η-closure half** (see the module
-docstring): a checked declaration keeps the stored η-families closed.
-Five of the six kinds read `DeclR`'s freshness guard and nothing else;
-`indDecl` is the premise. -/
-theorem declEtaStep {μ : CheckMode} {F : Nat} {cval : TConstVal}
+/-- **The declaration fold's η-closure half, on the run projection**
+(task #161 S4).  The proof never looked at a derivation conjunct — it
+reads `ConstantValR`'s freshness guard and the kinds' cons shapes and
+nothing else — so it is stated over `DeclRunR` (`SetBase/DeclRun.lean`)
+and `declEtaStep` below is its `DeclR` instance.  This is what lets the
+P fold take its η half from a valuation-free record.
+
+The inductive kind is `DeclRunR`'s `Ind` parameter here, so the one
+premise is at whatever payload the caller instantiates — today
+`DeclIndR`, after S5's ind unit `DeclIndRunR`. -/
+theorem declEtaStepRun {μ : CheckMode} {F : Nat}
+    {Ind : List ConstantInfo → Env → Prop}
     {env : Env} {d : Declaration} {env₂ : Env}
     (hind : ∀ {block : List ConstantInfo} {envI : Env},
-      DeclIndR μ F env cval block envI → EtaFamiliesClosed envI)
+      Ind block envI → EtaFamiliesClosed envI)
     (hE : EtaFamiliesClosed env)
-    (h : DeclR μ F cval env d env₂) : EtaFamiliesClosed env₂ := by
+    (h : DeclRunR μ F Ind env d env₂) : EtaFamiliesClosed env₂ := by
   cases d with
   | defnDecl cv value hint =>
     obtain ⟨type', value', hcv, -, rfl, -, -⟩ := h
     exact EtaFamiliesClosed.cons_nonind hE
       (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
   | thmDecl cv value =>
-    obtain ⟨type', value', hcv, -, -, -, rfl⟩ := h
+    obtain ⟨type', value', hcv, -, -, rfl⟩ := h
     exact EtaFamiliesClosed.cons_nonind hE
       (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
   | opaqueDecl cv value =>
@@ -127,5 +134,20 @@ theorem declEtaStep {μ : CheckMode} {F : Nat} {cval : TConstVal}
     exact basisInstallR_etaClosed kind.declsA h.2
       (basisIndOk_declsA kind) hE
   | indDecl block => exact hind h
+
+/-- **The declaration fold's η-closure half** (see the module
+docstring): a checked declaration keeps the stored η-families closed.
+Five of the six kinds read `DeclR`'s freshness guard and nothing else;
+`indDecl` is the premise.
+
+Statement byte-unchanged since S3; S4 re-proved it as the `DeclR`
+instance of `declEtaStepRun` above, one source of truth. -/
+theorem declEtaStep {μ : CheckMode} {F : Nat} {cval : TConstVal}
+    {env : Env} {d : Declaration} {env₂ : Env}
+    (hind : ∀ {block : List ConstantInfo} {envI : Env},
+      DeclIndR μ F env cval block envI → EtaFamiliesClosed envI)
+    (hE : EtaFamiliesClosed env)
+    (h : DeclR μ F cval env d env₂) : EtaFamiliesClosed env₂ :=
+  declEtaStepRun hind hE (DeclR.toRun h)
 
 end Setlec.SetR

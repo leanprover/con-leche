@@ -26839,3 +26839,288 @@ the quarantined `EnvS2PM.base` residue removal (staged exactly as
 diffed in the S3 seal — flag immediately if S4 contact changes its
 shape).  S6 SP_P, S7 absorbed into S5 (the empty_pinned edge died
 early), S8 THE PAYOFF CHECK, S9+ io-knot.
+
+## Task #161 THE SEPARATION — S4 SEALED (2026-09-03, `agent/sep-s4`,
+unpushed): THE C3 ARTIFACT, AND THE SHARED RECORDS REACH THE BASE
+
+**THE HEADLINE.**  The layering diagram's own sentence about the base
+— *"bridge RECORDS (`Decl.lean`: run conjuncts → P, derivation
+conjuncts → R)"* — is now a **statement** and a **file fact**, not a
+docstring.  `SetR/Decl.lean` and its three companions moved to
+`Setlec/SetBase/*`, `DeclRunR` was built beside `DeclR` there, and the
+P fold dispatches on the projection.  Whitelist **8 → 5**; the P
+harvest's own closure lost **24 R modules / 9 942 lines**
+(`closure(HarvestP) ∩ SetR`: 72 / 44 738 → 48 / 34 796).  Executable
+byte-identical to master (md5 `6f152b0e…`).  No frozen statement was
+edited — `declEtaStep`'s text is byte-unchanged and was *re-proved*
+rather than re-stated.
+
+Six units, each its own commit:
+
+| | | edges |
+|---|---|---|
+| `9b0e8953` | **S4a** the rule-(a) vestigial import (`ProjInstallP → Install/DeclIndS`) | 8 → 7 |
+| `cd710c9d` | **S4b** the shared record family moves to the base (4 modules) | 7 |
+| `b0e8e5e9` | **S4c** **`DeclRunR`** — the census's C3 artifact | 7 |
+| `6c28ada7` | **S4d** `HarvestP` consumes it; the value-kind install edge dies | 7 → 6 |
+| `96aef381` | **S4e** `natEqFrame_of_frag` splits; the `NatEqsP` edge dies | 6 → 5 |
+| `5bfa06b4` | **S4f** the P fold dispatches on `DeclRunR` | 5 |
+
+### 1. STOP-AND-NAME, FIRST: THE FIVE INSTALL EDGES DO NOT DIE AT S4
+
+The work order's item 2 — *"the five install round-trip edges die
+together once the P lane consumes `DeclRunR` instead of reaching
+through the install tree"* — is **false as measured, and the S3 seal
+already said so** (§2's consumer table and §5's finding 5: "all eight
+remaining edges feed one field, so they die in one instant, after
+C3", where *after* means *with the residue*, not *with the artifact*).
+Two of the five died, for two different reasons, and three cannot:
+
+| edge | outcome | why |
+|---|---|---|
+| `ProjInstallP → Install/DeclIndS` | **DEAD (S4a)** | vestigial; gate-rule (a).  Re-verified symbol by symbol against `DeclIndS`'s five declarations: zero occurrences |
+| `HarvestP → Install/ValueKinds` | **DEAD (S4d)** | the only install edge whose builder calls could be **moved up**: `declDefnS`/`declThmS`/`declOpaqueS` are called once per declaration, at the fold's own step, so `FoldP` can make the call and hand the harvests `(m', hag)` as premises |
+| `AxiomPinP → StdAxiomKey` | **S5** | inner-fold call |
+| `BasisEmptyP → Install/BasisS` | **S5** | inner-fold call |
+| `IndMemberP → Install/IndMembersS` | **S5** | inner-fold call |
+
+**The distinction is structural, and it is the thing to carry
+forward.**  A *fold-step* v1 call has one output (the new `EnvS`) that
+only `declStepPM_of_cons` consumes, so it can be hoisted to whatever
+site holds the residue.  An *inner-fold* v1 call's output is the
+**next step's v1 premise** — `ProjInstallP`'s own docstring states
+this for the projection phase ("the P cons needs `EnvS V ⟨c₀ ::
+env'.consts⟩` constructively, and the *next* step's v1 premises
+(`ProjPhaseInvS`, `BlockInstalledTT`) are the previous step's v1
+outputs") and the member/basis folds have the same shape.  Hoisting
+those means re-deriving the whole v1 chain at every index; they die
+when the chain does, i.e. with `EnvS2PM.base`.
+
+Likewise `FoldP → Bridge/Sound` survives, and **not for the records'
+reason** (they are in the base now) but for the residue's: `FoldP`
+still calls `checkDeclR_sound mp.base`, `declIndS memberKeyS mp.base`,
+`declDefnS`/`declThmS`/`declOpaqueS mp.base`, `divModPinS` and
+`reducePinS`.  The whitelist's comments are re-tagged accordingly
+(S3 → S5 on three lines, S4 → S5 on the fold's).
+
+**THE RESIDUE'S SHAPE IS UNCHANGED** (the flag the work order asked
+for at once — it is *not* raised): `Interp2/InstallP.lean` was not
+edited in this batch.  `declStepPM_of_cons` keeps `hbase`, `hag` and
+`hAerase` verbatim; S4 only changed *who supplies them* at the three
+value kinds (`FoldP` instead of `HarvestP`).  The S3 seal's staged S5
+diff stands word for word.
+
+### 2. `DeclRunR` — the statement, and why each conjunct
+
+`Setlec/SetBase/DeclRun.lean`.  `DeclR` is one record family with two
+kinds of conjunct: **guards and runs** (Boolean side conditions on
+stored data, `annotateCore`/`inferTypeCore`/`isDefEqCore`/
+`ensureSortCore` verdicts, and the `env₂ = ⟨… :: env.consts⟩` shapes —
+these name no valuation) and **derivations** (the trailing `∀ φ, ∃ …,
+denote cval … ∧ Infer … ∧ DefEq …`).  `DeclRunR` is `DeclR` with the
+second kind deleted; `DeclR.toRun` projects.  The R lane keeps proving
+`DeclR` — **nothing in `Bridge/*` moved**.
+
+| record | dropped | kept, and the consumer that exercises it |
+|---|---|---|
+| `ConstantValRunR` | the `∀ φ, ∃ Tv tT u, denoteClosed … ∧ Infer … ∧ DefEq …` front door | six freshness/reservation/level/scoping guards (`hfresh` at every harvest and at `declEtaStepRun`), the annotate output (`annotate_syntax`), two resolution guards (`htr` is the ind tier's only read of the whole record), and H1's run chain `∃ stype u, inferTypeCore … ∧ ensureSortCore …` (the type's reading, via `acceptedReadsP_of`) |
+| `ValueFrontRunR` | the twin front door | the value's two syntactic guards, its annotate output, two resolution guards, and H1's run **pair** `∃ vtype, inferTypeCore … ∧ isDefEqCore …` (the leaf's reading and the membership crossing) |
+| `NatEqsR` | **the whole relation** | replaced by `NatEqsRunR`, which `DeclDefnR` already carries beside it (H1); `natOpsP_install` consumes the runs |
+| `DivModPinRunR` | nothing | `DivModPinR` was already valuation-free (its `_cval` is a dead parameter); re-stated without it, `toRun` is `h` |
+| `ReducePinRunR` | the identity's `∀ φ … DefEq` | three storage guards, both annotate outputs, the recorded identity-certificate run — exactly `reduceOpsP_install`'s destructuring |
+| `DeclThmRunR` | the is-a-proposition `∀ φ … DefEq … (.sort 0)` | H1's prop-check run triple (`inferTypeCore` + `ensureSortCore` + `Level.isEquiv`) |
+| `DeclAxiomRunR` | (via `ConstantValRunR`) | the four-way branch disjunction verbatim — pure stored-data guards |
+| `DeclBasisR` | nothing | **re-used verbatim**: that kind was already guards only |
+| `DeclIndR` | — | **a parameter, not a projection** — see below |
+
+**The inductive kind is `DeclRunR`'s `Ind : List ConstantInfo → Env →
+Prop` parameter.**  Precedents: `declStepS` takes its five per-kind
+install obligations as parameters, and S3's `declEtaStep` takes the
+ind kind's η-closure as its one premise.  Reason: S3's stop-and-name
+refuted the census's C4 at `indDecl` (the block's facts are proved
+interleaved with the model-carrying `indMembersS`/`indRecsS` folds),
+and the ind kind's *run* projection has to undo the same interleaving.
+Freezing a shape now and editing it at S5 is what the parameter
+avoids: callers instantiate `Ind := DeclIndR μ F env cval` today and
+`Ind := DeclIndRunR μ F env` after S5's unit, and **`DeclRunR`'s own
+text does not change**.
+
+`checkDeclRun_sound` (`Bridge/Sound.lean`) is `DeclR.toRun` after
+`checkDeclR_sound`, exactly as the work order directed (by projection,
+not by re-running the v1 proofs).  **Consequence, named**: it still
+takes `m : EnvS V env`, so it does *not* free `FoldP`.  The
+projection's conclusion is valuation-free but its *route* is the
+bridge, whose per-kind proofs (`declDefnR` &c.) build guard and
+derivation conjuncts interleaved; an `m`-dropped skeleton is a
+re-factoring of `Bridge/Decl.lean`, and as of S4 it has **no
+consumer** — every P call site holds an `EnvS` at the same point for
+the round trip.  D6's house rule therefore puts it in S5, beside the
+residue removal that creates its first consumer.
+
+### 3. THE CONSUMERS, RE-POINTED (counts)
+
+* `harvestDefnP`, `harvestThmP`, `harvestOpaqueP` — 3 signatures; the
+  v1 base becomes premises `(m' : EnvS V env₂)`, `hag` (and at
+  `opaque` the annotate output and leaf equation); 6 destructurings
+  re-indexed.  The freeze predicted "HarvestP's four unread derivation
+  binds → dashes"; measured, they are **gone**, not dashed, because
+  the conjunct is gone.
+* `harvestAxiomP` + the four pin branches (`axiomStdP`,
+  `axiomTrustCompilerP`, `axiomOfReduceP`, and `AxiomReduceP`'s twin)
+  — 4 signatures at `ConstantValRunR`, 4 destructurings.
+* `AxiomStepPB` at `DeclAxiomRunR` (its carrier binder becomes `_mp`:
+  the premise's *type* no longer names `mp.base.cval`).
+* `reduceOpsP_install` at `ReducePinRunR`.
+* `declStepPM` computes `hrun := DeclR.toRun h` once and dispatches
+  **every** P step on it (values, axiom, basis, and the η half).
+* `declEtaStepRun` (new, `SetBase/DeclEta.lean`) over `DeclRunR`;
+  S3's `declEtaStep` is re-proved as its `DeclR` instance,
+  **statement byte-unchanged**, and keeps its other consumer
+  (`declStepS`).
+* `NatEqsP` at `natFrag_subst_syntax` — 2 sites.
+
+P-lane `.base` reads: **182 → 176** across 26 → 25 files
+(`.base.cval` 132 → 128).  The count moves little **on purpose**: S4's
+job was the statement boundary; the remaining reads are the 47-site
+install round trip S5 deletes wholesale.
+
+### 4. THE FILE MOVES, and the closure delta
+
+To the base (pure path moves — paths, module names, `import` lines and
+stale docstring paths only; namespaces, statements and proofs
+verbatim):
+
+```
+SetR/Weaken   -> SetBase/Weaken     SetR/Decl     -> SetBase/Decl
+SetR/CtxOkR   -> SetBase/CtxOkR     SetR/DeclEta  -> SetBase/DeclEta
+```
+
+Verified model-free before moving: with comments stripped, none of the
+four mentions `EnvS`, `SetTheory`, `interp`, `EnvR` or `Sat`.  S2's
+finding 2 is what unblocked it (`Infer`/`DefEq` became base names when
+`SetR/Rel` moved), and `Weaken`/`CtxOkR` are its riders.
+
+New base modules: `SetBase/DeclRun.lean` (the artifact, plus
+`annotate_syntax` relocated out of `Install/ValueKinds` — the design
+census §3.3's last open split) and `SetBase/NatFrag.lean`.
+
+| metric | before | after |
+|---|---|---|
+| gate: base / R / P / neutral | 222 / 132 / 116 / 3 | **228 / 128 / 116 / 3** |
+| P→R edges | 8 | **5** |
+| `closure(FoldP) ∩ SetR` | 98 mod / 68 353 ln | 94 / 65 559 |
+| `closure(HarvestP) ∩ SetR` | 72 mod / 44 738 ln | **48 / 34 796** |
+| build jobs | 525 | 527 |
+
+(Line counts are this batch's `_tmp/sep-s4/closure.py`; the S3 seal's
+68 352 differs by one counting convention, not by content.)
+`closure(FoldP)` barely moves because the fold still imports
+`Bridge/Sound`, which reaches everything — that is S5's edge, and it
+is why the *harvest's* closure is the honest S4 number.
+
+### 5. FINDINGS (restrictions-are-findings)
+
+1. **Census row 12's "transitive" is wrong.**  The row reads
+   "`NatEqsP → Bridge/Decl`: `natEqFrame_of_frag` (transitive),
+   `NatEqsR`/`NatEqsRunR`/`DeclDefnR` records — (b) records→base".
+   Moving the records to the base was necessary and **not sufficient**:
+   `natEqFrame_of_frag` is called *directly* and fully qualified
+   (`Setlec.SetR.natEqFrame_of_frag mp.base …`, two sites).  It needed
+   the census's own §3.3 *split* recipe: `NatEqFrameR` has four
+   syntactic conjuncts and one denotation conjunct, the graded lane
+   destructures `⟨hw, hb, hL, hleaf, -⟩` at both sites, so the four
+   became `natFrag_subst_syntax` (`SetBase/NatFrag.lean`, model-free)
+   and `natEqFrame_of_frag` kept its name, statement and consumers with
+   its proof now split across the boundary.  **Census correction
+   ledger +1** (the fourth: after S1's row 4, S2's row 14, S3's C4).
+2. **The P lane DOES consume one derivation conjunct — at the ind
+   kind, and it is a `denote`, not an `Infer`/`DefEq`.**  The design
+   census §1.4 measured "zero" R-relation uses in the P quarters and
+   read the harvest layer as run-only; that holds.  But
+   `SetP/IotaRuleNestedP.lean:39` defines `typedListW_denote_getD` over
+   `IotaThmNR`'s `TypedListW` walk and uses it (`:362`) to get the
+   **instantiated pins' readings** — `∃ Ev, denote cval env φ d … =
+   some Ev`, converted by `denoteP_isSome_of_denote`.  Consequence for
+   S5: **`DeclIndRunR` cannot be "delete the `∀ φ` conjuncts"** at
+   `IotaThmNR`; it must keep a denotation-only row there, or that
+   consumer must be re-supplied from the runs.  This is the only such
+   site in the whole P lane (`IotaWalksR`, `DefEqAtW`, `DefEqListW`,
+   `TypedAtW`, `IotaSidesTyR` occur nowhere outside docstrings; every
+   `MemberValR`/`ConstantValR` destructuring in the ind tier binds
+   guards only).
+3. **An S5 blocker was found and removed early: `declEtaStep`'s
+   premise.**  S3 froze `declEtaStep` over `DeclR`.  After the residue
+   dies there is *no* `DeclR` at the fold — `checkDeclRun_sound`
+   yields the projection — so S5 would have had to edit a frozen
+   statement.  S4 instead added `declEtaStepRun` over `DeclRunR` and
+   re-proved `declEtaStep` as its `DeclR` instance: one source of
+   truth, S3's text byte-identical, and the fold already runs on the
+   run form.
+4. **Severing keeps exposing riders** (S1/S2/S3's standing finding,
+   again).  S4e's cut exposed one: `ReduceOpsP` was reaching
+   `Verify/OfReducePin`'s `reduceElem_sort` through `NatEqsP →
+   Bridge/Decl` and now imports it directly.  One import line.
+5. **The gate's ledger and the closure are independent, again.**  Two
+   of the three edges S4 killed left `closure(FoldP)` unchanged (S3e's
+   pattern).  The metric that moved is the *harvest's* closure, and it
+   moved by a quarter.  Worth stating because "edges killed" and
+   "lines removed from the P closure" are different accounts and the
+   campaign reports both.
+
+### 6. BATTERY (verbatim)
+
+* `lake build` — clean, warning-free, **527** jobs (525 + `SetBase/
+  DeclRun` + `SetBase/NatFrag`).
+* `lake test` — exit 0.
+* `tests/arena.sh` — exit 0, the gate as its first line:
+
+  ```
+  layering: base 228 / R 128 / P 116 / neutral 3 modules; 5 P->R edges, all whitelisted; 0 R->P
+  arena tutorial: 90/92 good tests accepted
+  e2e: 73/73 as expected
+  annot suite: 14/14 as expected
+  split driver: 11/11 as expected
+  mode flags: 9/9 as expected
+  no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+  ```
+* Axiom audit, 12 capstones (`_tmp/sep-s4/Audit.lean`): every one
+  `[propext, Classical.choice, Quot.sound]`, unchanged.
+* **md5 identity**: `git diff master -- Setlec/Kernel Main.lean
+  Setlec/Cached Setlec/Frontend AnnotateBasis.lean Setlec/PinGen` is
+  **empty**, and `.lake/build/bin/setlec` has md5 `6f152b0e…`, the same
+  as master's.  Proof terms only — **pure-moves standard, no verdict
+  battery owed**; the arena suite above was run anyway.
+* Zero `sorry`s; no new axioms; no frozen statement edited.
+
+### 7. SUCCESSION — where S5 starts
+
+Five edges, all one job:
+
+* **`FoldP → Bridge/Sound`** — the fold's own v1 round trip.
+* **`AxiomPinP → StdAxiomKey`, `BasisEmptyP → Install/BasisS`,
+  `IndMemberP → Install/IndMembersS`** — the three inner-fold calls.
+* **`Annot/EnvS2P → Interp2/EnvS2U`** — the residue `EnvS2PM.base`
+  itself.
+
+S5's work order, as S4 leaves it:
+
+1. **The `EnvS2PM.base` removal**, staged exactly as the S3 seal
+   diffed it (unchanged by this batch — `InstallP.lean` untouched):
+   `declStepPM_of_cons` trades `hbase`/`hag`/`hAerase` for `hwf' :
+   EnvWF ⟨c₀ :: env.consts⟩`, an `hAvclosed` and the three env-facts at
+   the extension; the 47 sites supply them.
+2. **The `DeclIndS` η-only unit** — S3's C4 refutation's bill, plus
+   S4's finding 2: `DeclIndRunR` must keep `IotaThmNR`'s pin-denotation
+   row (or re-supply `IotaRuleNestedP`'s `typedListW_denote_getD` from
+   the recorded `TypedListOk` run).  When it lands, the only change to
+   `DeclRunR` is which `Ind` its callers pass.
+3. **The model-free `checkDeclRun_sound`** — `Bridge/Decl.lean`'s
+   per-kind inversions re-factored so the guard half stands without
+   `m`.  Its first consumer appears exactly when (1) lands; until then
+   D6 forbids freezing it.
+4. `declEtaStepRun` is already in place for the fold's η half; nothing
+   is owed there.
+
+Kit: `tests/layering.sh` (and `--list`); `_tmp/sep-s4/Audit.lean`;
+`_tmp/sep-s4/closure.py` and `basecount.py` (the closure and
+base-consumption meters used above); the S1/S2/S3 audit files.

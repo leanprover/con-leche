@@ -4,7 +4,7 @@ import Setlec.SetP.DivModCertP
 import Setlec.SetP.CapsP
 import Setlec.SetP.RecRulesPCons
 import Setlec.SetP.ReduceOpsP
-import Setlec.SetR.Install.ValueKinds
+import Setlec.SetBase.DeclRun
 
 /-!
 # The harvest, value kinds (task #161, P4 — the fold's species)
@@ -153,18 +153,17 @@ theorem natHeadsP_cons_fresh (mp : EnvS2PM V μ env)
 
 /-- **The `defn` harvest** (see the module docstring). -/
 theorem harvestDefnP (hμ : μ.verified = true)
-    (hdm : DivModPinS V)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     {env₂ : Env}
-    (hR : DeclDefnR μ F env mp.base.cval cv value hint env₂) :
+    (m' : EnvS V env₂)
+    (hag : ∀ n, n ≠ cv.name → mp.base.cval n = m'.cval n)
+    (hR : DeclDefnRunR μ F env cv value hint env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨m', hag⟩ := declDefnS hdm mp.base hR
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT, hfrontT⟩ := hcv
-  obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩,
-    hfrontV⟩ := hvfr
+    hrunT⟩ := hcv
+  obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
   obtain ⟨hvf', hbv'⟩ := annotate_syntax hannv hvhf hvlb
   have hfresh : env.find? cv.name = none :=
@@ -435,7 +434,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
     intro φ
     by_cases hno : Setlec.natOpNames.contains cv.name = true
     · -- the install
-      obtain ⟨hg2, hdeps₂, -, hruns⟩ := hnatc hno
+      obtain ⟨hg2, hdeps₂, hruns⟩ := hnatc hno
       have hcmem : cv.name ∈ Setlec.natOpNames :=
         List.contains_iff_mem.mp hno
       -- the self entry of the dependency check: level-mono + pinned
@@ -551,14 +550,14 @@ are destructured away with `-`. -/
 theorem harvestThmP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
-    (hR : DeclThmR μ F env mp.base.cval cv value env₂) :
+    (m' : EnvS V env₂)
+    (hag : ∀ n, n ≠ cv.name → mp.base.cval n = m'.cval n)
+    (hR : DeclThmRunR μ F env cv value env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨m', hag⟩ := declThmS mp.base hR
-  obtain ⟨type', value', hcv, -, -, hvfr, rfl⟩ := hR
+  obtain ⟨type', value', hcv, -, hvfr, rfl⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT, hfrontT⟩ := hcv
-  obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩,
-    hfrontV⟩ := hvfr
+    hrunT⟩ := hcv
+  obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
   obtain ⟨hvf', hbv'⟩ := annotate_syntax hannv hvhf hvlb
   have hfresh : env.find? cv.name = none :=
@@ -898,7 +897,7 @@ itself. -/
 theorem harvestAxiomP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → AVExpr}
-    (hcv : ConstantValR μ F env mp.base.cval cv type')
+    (hcv : ConstantValRunR μ F env cv type')
     (hbase : EnvS V ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts⟩)
     (hag : ∀ n, n ≠ cv.name → mp.base.cval n = hbase.cval n)
@@ -921,7 +920,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
     Nonempty (EnvS2PM V μ
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT, hfrontT⟩ := hcv
+    hrunT⟩ := hcv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
     Option.isNone_iff_eq_none.mp hfind
@@ -1062,18 +1061,20 @@ link read **directly** off the exposed equation — no `denote_install`,
 no `defn_eq`/`thm_ok` detour. -/
 
 theorem harvestOpaqueP (hμ : μ.verified = true)
-    (hrp : ReducePinS V)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
-    (hR : DeclOpaqueR μ F env mp.base.cval cv value env₂) :
+    (m' : EnvS V env₂)
+    (hag : ∀ n, n ≠ cv.name → mp.base.cval n = m'.cval n)
+    {value'' : Expr}
+    (hannv2 : Setlec.annotateCore μ env F 0 value = .ok value'')
+    (hleafEq : ∀ ψ : Name → Nat,
+      denoteClosed mp.base.cval env ψ value'' = some (m'.cval cv.name ψ))
+    (hR : DeclOpaqueRunR μ F env cv value env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨m', hag, value'', hannv2, hleafEq⟩ :=
-    declOpaqueS hrp mp.base hR
   obtain ⟨type', value', hcv, hvfr, rfl, hred⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT, hfrontT⟩ := hcv
-  obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩,
-    hfrontV⟩ := hvfr
+    hrunT⟩ := hcv
+  obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
   obtain ⟨hvf', hbv'⟩ := annotate_syntax hannv hvhf hvlb
   have hfresh : env.find? cv.name = none :=

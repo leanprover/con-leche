@@ -1,3 +1,4 @@
+import Setlec.SetBase.DeclRun
 import Setlec.SetP.AxiomMemP
 import Setlec.SetR.StdAxiomKey
 
@@ -170,7 +171,7 @@ annotated valuation, and the membership is that constant's own
 axiom's does. -/
 theorem axiomTrustCompilerP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
-    (hcv : ConstantValR μ F env mp.base.cval cv type')
+    (hcv : ConstantValRunR μ F env cv type')
     (hname : cv.name = Setlec.trustCompilerName)
     (hok : Setlec.trustCompilerOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
@@ -178,7 +179,7 @@ theorem axiomTrustCompilerP (hμ : μ.verified = true)
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT, hfrontT⟩ := hcv'
+    hrunT⟩ := hcv'
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
     Option.isNone_iff_eq_none.mp hfind
@@ -300,14 +301,14 @@ own constant in both halves, so every syntactic obligation is `rfl` or
 a `const` clause, and the whole content is the membership. -/
 theorem axiomStdP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
-    (hcv : ConstantValR μ F env mp.base.cval cv type')
+    (hcv : ConstantValRunR μ F env cv type')
     (hok : Setlec.stdAxiomOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
     Nonempty (EnvS2PM V μ
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT, hfrontT⟩ := hcv'
+    hrunT⟩ := hcv'
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
     Option.isNone_iff_eq_none.mp hfind

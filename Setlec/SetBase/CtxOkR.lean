@@ -1,4 +1,4 @@
-import Setlec.SetR.Weaken
+import Setlec.SetBase.Weaken
 import Setlec.Verify.Leaves
 
 /-!
@@ -19,7 +19,7 @@ at each consumption site (the bridge's infer-claim is stated up to
 
 The plumbing is the transpose of `CtxOk.{nil, open, openWith,
 weakenTop, app}`; the leaf-shifting steps consume M1
-(`{Infer,DefEq}.weakenHead`, `Setlec/SetR/Weaken.lean`) where the
+(`{Infer,DefEq}.weakenHead`, `Setlec/SetBase/Weaken.lean`) where the
 typing-form `CtxOk` consumed `HasType.weakenHead` — this is the place
 the mutual weakening lemma was built for.
 -/

@@ -1,5 +1,5 @@
 import Setlec.SetR.Annot.Pass
-import Setlec.SetR.Weaken
+import Setlec.SetBase.Weaken
 
 /-!
 # Validity (regularity) for `Infer`: **refuted** (task #151, tier A — B5′'s check)

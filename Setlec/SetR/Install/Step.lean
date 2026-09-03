@@ -1,6 +1,6 @@
 import Setlec.SetR.Install.ValueKinds
 import Setlec.SetR.Install.Axiom
-import Setlec.SetR.DeclEta
+import Setlec.SetBase.DeclEta
 
 /-!
 # The per-declaration install (task #148, T5)
@@ -52,7 +52,7 @@ def DeclIndS (V : Type w) [SetTheory V] : Prop :=
 
 /-! The η-closure kit (`basisIndOk`, `basisIndOk_mem`,
 `basisInstallR_etaClosed`, `basisIndOk_declsA`) moved to
-`Setlec/SetR/DeclEta.lean` at task #161 S3, together with the new
+`Setlec/SetBase/DeclEta.lean` at task #161 S3, together with the new
 model-free `declEtaStep`: none of it mentions `V`, and the P lane
 consumes exactly that half of this file's dispatch. -/
 

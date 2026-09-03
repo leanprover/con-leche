@@ -39,7 +39,7 @@ by an on-the-nose inference claim.  What serves it is the pair form
 `∃ T', Infer … v T' ∧ DefEq … T' ⟦t⟧`: every checker certificate is an
 infer+defeq *pair*, every premise of the relation is such a pair, and
 the slack is absorbed by `DefEq.trans` at each consumption site.
-`CtxOkR`'s leaf package (`Setlec/SetR/CtxOkR.lean`) has exactly this
+`CtxOkR`'s leaf package (`Setlec/SetBase/CtxOkR.lean`) has exactly this
 shape, and `CtxOkR.openWith` takes the new head's package in it.
 
 **Definedness of the denotation replaces truthfulness** (the TT lane's

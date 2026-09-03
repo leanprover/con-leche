@@ -1,4 +1,5 @@
 import Setlec.SetR.Install.Value
+import Setlec.SetBase.DeclRun
 
 /-!
 # The three value kinds: `theorem`, `opaque`, `def` (task #148, T5)
@@ -28,18 +29,12 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-! ## Shared syntactic plumbing -/
+/-! ## Shared syntactic plumbing
 
-/-- The annotate outputs' syntactic facts, packaged: no fvars, bounded,
-from the annotate run and the input's own guards. -/
-theorem annotate_syntax {μ : CheckMode} {F : Nat} {env : Env} {e e' : Expr}
-    (hann : annotateCore μ env F 0 e = .ok e')
-    (hef : e.hasFvar = false) (heb : e.looseBVarsBounded 0 = true) :
-    e'.hasFvar = false ∧ e'.looseBVarsBounded 0 = true :=
-  ⟨Expr.not_hasFvar_of_fvarsBelow_zero
-      ((annotateCore_WScoped F e hann
-        (Expr.WScoped.of_not_hasFvar hef)).fvarsBelow),
-    annotateCore_looseBVars F e hann heb⟩
+`annotate_syntax` **moved to `Setlec/SetBase/DeclRun.lean`** at task
+#161 S4 (the design census §3.3's last open split): it is a pure
+`annotateCore` inversion that both lanes' record consumers call, so it
+belongs below both.  Nothing else in this file changed. -/
 
 /-- Both sides of every structural-`Nat` recurrence are in the shallow
 fragment (`substConst0` is faithful on them): the equations are

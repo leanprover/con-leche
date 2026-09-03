@@ -56,15 +56,26 @@ WHITELIST = """
 Setlec.SetP.Annot.EnvS2P -> Setlec.SetR.Interp2.EnvS2U                  # S4-S5: the v1 residue `EnvS2PM.base`, all that is left of `base : EnvS` (S3 de-based the CORE; the residue dies with the install round trip)
 # --- the v1 install round trip (census §1.3's 47 sites): the P side
 # calls a v1 install lemma only to build the new `EnvS`.  The premises
-# vanish with the de-basing, and with them the imports.
-Setlec.SetP.AxiomPinP -> Setlec.SetR.StdAxiomKey                # S3: propextKeyS_mem/choiceKeyS_mem at the axiom pin
-Setlec.SetP.BasisEmptyP -> Setlec.SetR.Install.BasisS           # S3: extendEmptyS
-Setlec.SetP.IndMemberP -> Setlec.SetR.Install.IndMembersS       # S3: indMemberS/memberKeyS base builders
-Setlec.SetP.ProjInstallP -> Setlec.SetR.Install.DeclIndS        # S4: SPURIOUS AS WRITTEN (S3 finding) — the symbols this file uses (projFnS/templateConsS/templatesS/projInstallS) are declared in Install/ProjInstallS, not DeclIndS, and are reached transitively; re-point the import before killing the edge
-Setlec.SetP.HarvestP -> Setlec.SetR.Install.ValueKinds          # S4: declDefnS/declThmS/declOpaqueS base builders (+ annotate_syntax to base)
+# vanish with the de-basing, and with them the imports.  S4 measured
+# the ordering the S3 seal §2 predicted: these CANNOT die before the
+# residue does, because the round trip is what consumes `EnvS2PM.base`.
+# The value-kind case (`HarvestP -> Install/ValueKinds`) died at S4d by
+# moving its three builder calls UP to `FoldP`, the one site that holds
+# the residue; the three below are inner-fold calls whose outputs feed
+# the *next* step's v1 premises, so they concentrate at S5 instead.
+Setlec.SetP.AxiomPinP -> Setlec.SetR.StdAxiomKey                # S5: propextKeyS_mem/choiceKeyS_mem at the axiom pin
+Setlec.SetP.BasisEmptyP -> Setlec.SetR.Install.BasisS           # S5: extendEmptyS
+Setlec.SetP.IndMemberP -> Setlec.SetR.Install.IndMembersS       # S5: indMemberS/memberKeyS base builders
 # --- the bridge: the records are SHARED, the derivations are R's.
-Setlec.SetP.FoldP -> Setlec.SetR.Bridge.Sound                   # S4: checkDeclRun_sound + declEtaStep (census C3/C4)
-Setlec.SetP.NatEqsP -> Setlec.SetR.Bridge.Decl                  # S4: natEqFrame_of_frag + the DeclR record family to the shared base
+# S4 landed the shared half — `SetBase/Decl.lean` (the whole record
+# family), `SetBase/DeclRun.lean` (`DeclRunR`, the run/guard
+# projection) and `SetBase/NatFrag.lean` — which killed the `NatEqsP`
+# edge outright.  What is left is the fold's own call, and it survives
+# for the residue's reason, not the records': `FoldP` still needs
+# `checkDeclR_sound m`, `declIndS memberKeyS`, `declDefnS`/`declThmS`/
+# `declOpaqueS`, `divModPinS` and `reducePinS` — every one of them an
+# `EnvS` consumer at `mp.base`.
+Setlec.SetP.FoldP -> Setlec.SetR.Bridge.Sound                   # S5: the v1 round trip's last site (checkDeclRun_sound's m, declIndS's eta premise, the three value builders)
 """
 
 IMP = re.compile(r'^\s*(?:public\s+|private\s+|meta\s+)*import\s+([A-Za-z0-9_.]+)', re.M)

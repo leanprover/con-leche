@@ -52,9 +52,13 @@ variable {μ : CheckMode}
 the pin tier's four branches are stated against it and the census is
 read off these signatures. -/
 def AxiomStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
-  ∀ {F : Nat} {env : Env} (mp : EnvS2PM V μ env)
+  -- task #161 S4: the relation premise is now the run projection
+  -- (`DeclAxiomRunR`), which names no valuation — so the carrier `_mp`
+  -- no longer appears in the premise's *type*.  It stays as the
+  -- invariant the four branches consume.
+  ∀ {F : Nat} {env : Env} (_mp : EnvS2PM V μ env)
     {cv : ConstantVal} {env₂ : Env},
-    DeclAxiomR μ F env mp.base.cval cv env₂ →
+    DeclAxiomRunR μ F env cv env₂ →
     Nonempty (EnvS2PM V μ env₂)
 
 /-- **`AxiomStepPB`, discharged — THE PIN BUNDLE IS CLOSED.**  All four
@@ -132,32 +136,43 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
     (mp : EnvS2PM V μ env) (hE : EtaFamiliesClosed env)
     (h : DeclR μ F mp.base.cval env d env₂) :
     EnvSPOk V μ env₂ := by
+  -- the run/guard projection (task #161 S4, the census's C3): every P
+  -- step below consumes THIS, not `DeclR`.  What still consumes the
+  -- full record is the v1 install round trip — `declDefnS`/`declThmS`/
+  -- `declOpaqueS` at the value kinds, `declIndS` at the block — and
+  -- that is `EnvS2PM.base`'s residue, which S5 deletes.
+  have hrun : DeclRunR μ F (DeclIndR μ F env mp.base.cval) env d env₂ :=
+    DeclR.toRun h
   -- the η half: `declEtaStep` (task #161 S3, the census's C4), which
   -- reads `DeclR`'s freshness guards and needs the collapsed lane at
   -- ONE kind only — `indDecl`, whose η-closure is still proved
   -- interleaved with the `EnvS` member/recursor folds (the finding
   -- recorded in `SetR/DeclEta.lean`).  `declStepS`'s four other
   -- obligations are not consulted here any more.
-  refine ⟨?_, Setlec.SetR.declEtaStep
-    (fun h' => (declIndS memberKeyS mp.base hE h').2) hE h⟩
+  refine ⟨?_, Setlec.SetR.declEtaStepRun
+    (fun h' => (declIndS memberKeyS mp.base hE h').2) hE hrun⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := h
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
-    exact harvestDefnP hμ divModPinS mp h
+    obtain ⟨m', hag⟩ := declDefnS divModPinS mp.base h
+    exact harvestDefnP hμ mp m' hag hrun
   | thmDecl cv value =>
     have hsh := h
     obtain ⟨type', value', hcv, -, -, -, henv2⟩ := hsh
     subst henv2
-    exact harvestThmP hμ mp h
+    obtain ⟨m', hag⟩ := declThmS mp.base h
+    exact harvestThmP hμ mp m' hag hrun
   | opaqueDecl cv value =>
     have hsh := h
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
-    exact harvestOpaqueP hμ reducePinS mp h
-  | axiomDecl cv => exact axiomStepPB_of hμ mp h
-  | basisDecl kind => exact basisStepPB_of mp h
+    obtain ⟨m', hag, value'', hannv2, hleafEq⟩ :=
+      declOpaqueS reducePinS mp.base h
+    exact harvestOpaqueP hμ mp m' hag hannv2 hleafEq hrun
+  | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
+  | basisDecl kind => exact basisStepPB_of mp hrun
   | indDecl block => exact indStepPB_of hμ mp hE h
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
