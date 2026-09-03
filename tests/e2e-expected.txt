@@ -373,3 +373,20 @@
 # deviation cannot exist downstream at all.
 0 basis_binderinfo.ndjson raw
 0 basis_binderinfo_rec.ndjson raw
+# irrel_commit (task #161 residual round 2, BOOL FALL-THROUGH vs
+# OFFICIAL'S COMMIT SEMANTICS): the fixture that separates setlec's
+# fall-through from the official kernel's commit.  At the argument pair
+# `F a` vs `F (Acc.intro x g)` proof irrelevance FAILS in every kernel
+# (the two propositions — a stuck `Acc.rec` application and its iota
+# reduct's spelling — are not defeq), and the NEXT rule, spine
+# congruence, succeeds (same fvar head `F`; the arguments `a` and
+# `Acc.intro x g` are proofs of the SAME proposition `Acc r x`).
+# Official COMMITS at the proof-irrelevance failure
+# (type_checker.cpp:1202-1203, lean4lean TypeChecker.lean:855-856) and
+# REJECTS (verified: Lean v4.33.0 "(kernel) declaration type mismatch";
+# lean4lean throws a kernel exception).  setlec's `proofIrrel` returns a
+# `Bool`, the `false` falls through, and the congruence accepts — with
+# AND without the pending proofIrrel common-type restriction.
+# Expectation 0 records the CURRENT (divergent) verdict; it flips to 1
+# if the three-valued commit is ever threaded through `defeqStep`.
+0 irrel_commit.ndjson
