@@ -29418,3 +29418,26 @@ was **empty by construction** (S4 had landed the five run records).  No
 escalation.  **S11b = the ind run bridge**, 700–900 ln, priced from the
 derivation halves it must not build; its first ruling is finding 2's
 import-layout question (single-source or copy).
+
+## Task #161 SEPARATION — S11a LANDED (2026-09-04;
+succession-current)
+
+Master @ the S11a merge; battery green with the tightened proofdeps
+line (doors beyond declIndRR: 0); binary md5-identical.
+
+**Ledger (per ruling): the sizing WIN recorded** — the S10 pricing
+confirmed exactly, with its explanation: *a bridge's cost is its
+derivation half* (the five non-ind halves are small; the ind half
+is 1,700 lines).  Confirmed predictions belong in the series as
+much as refuted ones, or it teaches only pessimism.
+
+**S11b (dispatching)**: opener deletes checkDeclRun_sound (S7
+precedent, consumer-free); then the DECISION-BY-MEASUREMENT on
+single-sourcing (both routes priced from sources, cheaper wins,
+BOTH prices recorded — the correction-ledger discipline turned
+prescriptive); then the ind run bridge bill.  Escalation re-arms
+on the S11a seal's naming.  **The campaign's answer requirement
+(coordinator)**: when Red.beta leaves the closure, the gate line
+(doors: none / derivation tier absent) is quoted VERBATIM in the
+seal — the line exists as battery output before anyone says "yes".
+Then S12 (tower transposition), S13 (flag + measurement).
