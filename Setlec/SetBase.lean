@@ -31,6 +31,7 @@ import Setlec.SetBase.CtxOkR
 import Setlec.SetBase.Decl
 import Setlec.SetBase.DeclEta
 import Setlec.SetBase.DeclRun
+import Setlec.SetBase.IndBlockR
 
 /-!
 # `Setlec.SetBase` — the lane-neutral semantic primitives (task #161, S1)
@@ -90,7 +91,13 @@ being a reason to keep the file in R):
   conjuncts;
 * `DeclEta` — `declEtaStep`, the fold's model-free η half (S3's C4;
   whole-module move of `SetR/DeclEta`, which sat in R only because
-  `Decl` did).
+  `Decl` did);
+* `IndBlockR` — the inductive block's relation-level residue and
+  `declIndEtaClosed` (S5's ind unit: the C4 refutation's bill, paid —
+  the `indMembersR_*`/`indRecsR_*`/`ExtEta` lemmas moved here verbatim
+  from `SetR/Install/{IndMembersS,IndRecsS,DeclIndS}`, plus
+  `indRecsR_keep`, which replaces `indRecsS`'s model-carrying
+  `hnonrecUp`).
 
 **Only the file paths and module names moved.**  The Lean namespaces
 (`Setlec.SetR.Interp2`, `Setlec.SetR`) are unchanged, so every frozen
