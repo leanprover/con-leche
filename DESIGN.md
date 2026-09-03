@@ -25805,3 +25805,140 @@ coordinator, all four)
 
 S1 DISPATCHED on this ruling; the batch plan as written; campaign
 cadence in full; 13–18 batches the honest bill.
+
+## DE-GATING BASELINE (post-capstone) — task #163, 2026-09-03
+
+The reference matrix every de-gating removal is measured against.
+Code state: the #163 capstone as landed (master 14392d19's tree;
+both cores' code identical to the sealed campaign state).  Methods:
+the recorded ones (`perf stat -e instructions:u` median-of-3, wall
+median-of-3, process-tree peak RSS max-of-3; 32 GB address-space
+ulimit; every run under `timeout`).  Caveat recorded honestly: other
+lanes were measuring concurrently during parts of the run — the
+instruction and RSS columns are robust to that; treat the wall column
+as indicative.  Reproduce: `tests/pilot-measure.sh` with the workload
+list below, `VARIANTS=production,cached-parsed`;
+`tests/pilot-scale.sh --deep`.
+
+```
+workload               core               instructions    wall_s     rss_MB  exit
+init-prelude           production               38.58G     3.783      114.9     0
+init-prelude           cached-parsed            33.01G     2.984      113.0     0
+app-lam                production              383.03G    82.170     5409.8     0
+app-lam                cached-parsed           303.54G    29.241     5234.3     0
+beta-ladder            production               80.50G    15.659     1470.2     0
+beta-ladder            cached-parsed            47.79G     4.300     1266.7     0
+let-ladder             production               23.38G     4.942      823.1     0
+let-ladder             cached-parsed            11.66G     1.072      467.3     0
+grind-ring-5           production              126.83G    14.062      556.3     0
+grind-ring-5           cached-parsed           108.19G    10.947      513.4     0
+shared-subterm         production                5.43G     0.561       96.7     0
+shared-subterm         cached-parsed             4.75G     0.507       95.9     0
+repeated-subproblem    production                4.48G     0.525       97.3     0
+repeated-subproblem    cached-parsed             4.00G     0.404       97.4     0
+church-numerals        production                1.44G     0.191       87.1     0
+church-numerals        cached-parsed             1.41G     0.190       86.9     0
+shift-cascade          production                1.11G     0.162       90.5     0
+shift-cascade          cached-parsed             1.06G     0.163       90.6     0
+identical-nesting      production                0.82G     0.159       88.3     0
+identical-nesting      cached-parsed             0.80G     0.171       88.4     0
+unroll-versus-evaluate production                0.88G     0.173       89.2     0
+unroll-versus-evaluate cached-parsed             0.86G     0.166       87.6     0
+args-before-unfold     production                1.08G     0.164       88.3     0
+args-before-unfold     cached-parsed             1.01G     0.158       88.2     0
+discarded-argument     production                0.96G     0.177       88.3     0
+discarded-argument     cached-parsed             0.91G     0.154       88.1     0
+init-full              production             3164.24G   396.596     2116.3     0
+init-full              cached-parsed          3001.65G   334.718     2191.6     0
+```
+
+Doubling-shape growth (`pilot-scale.sh --deep`, adjusted instructions,
+exponent at the largest step):
+
+```
+shape        core             exp(last)   adjusted instr at 32x
+chain        production            1.06   831325762
+chain        cached-parsed         1.06   774556379
+spine        production            1.05   364772926
+spine        cached-parsed         1.50   774430744
+many         production            1.05   907577303
+many         cached-parsed         1.05   777246361
+telescope    production            1.06   363752269
+telescope    cached-parsed         1.42   629530188
+dag          production            1.06   716358252
+dag          cached-parsed         1.06   698697201
+delta        production            1.05   1152147043
+delta        cached-parsed         1.05   1046821170
+fanout       production            1.05   1391824099
+fanout       cached-parsed         1.45   2405235728
+lets         production            1.05   290968965
+lets         cached-parsed         1.05   281490266
+lparams      production            1.81   2067831190
+lparams      cached-parsed         1.82   2032885650
+thm          production            1.07   431798027
+thm          cached-parsed         1.05   378773161
+```
+
+The pilot's picture reproduces at the capstone state exactly:
+cached-parsed ahead on every real workload (init-prelude −14 %
+instr, init-full −5 %, app-lam −21 % instr/−64 % wall), behind only
+on the three spine-shaped growth exponents (+0.4).
+
+## THE DEFAULT FLIPS: --core defaults to cached-parsed (task #163, 2026-09-03)
+
+**User grant** (via the coordinator): "focus on the cached
+implementation for perf work, if that is already ahead. ok to make it
+the default."  Executed as a scoped round on `agent/core-flip`.
+
+The decision and its scope:
+
+* `--set-model` (the certified mode) now defaults to the
+  **cached-parsed** core.  Coverage: the acceptance of the new
+  default is verified by `Setlec/Verify/Cached/MainC.lean`'s
+  `checkDeclsSPCached_sound_R{,2,2M}` and the
+  `no_proof_of_Empty_SPC_*` family — the same consistency corollaries,
+  all three carriers, that cover production.  `--core=production`
+  remains selectable.
+* **The default is MODE-AWARE** (coordinator refinement of the grant,
+  same day, on a new perf-engineering measurement; an explicit
+  `--core=` always wins).  `--no-model` defaults to production, for
+  two reasons.  First, the cert-skipping lane was never cloned
+  (`CheckerNC` is its recorded front door).  Second, and decisively,
+  the measured no-model split goes BY STREAM SHAPE on identical
+  preprocessed input (perf-eng table, 2026-09-03; ratios vs the
+  official kernel):
+
+  | workload | interned | cached |
+  |---|---|---|
+  | app-lam (term-heavy) | 13.2× | **7.7×** |
+  | beta-ladder (term-heavy) | 8.0× | **4.4×** |
+  | init-prelude (decl-heavy) | **4.1×** | 7.0× |
+  | init-full (decl-heavy) | **4.0×** | 6.9× |
+  | grind (decl-heavy) | **4.5×** | 6.2× |
+
+  A global cached default would cost 1.6–1.7× on the parity lane's
+  init runs — the lane's main use.  (The certified mode's table is
+  different in kind: cert machinery dominates there and cached wins
+  everywhere, init-full included — the baseline table above.)  The
+  split driver (`--install-only`/`--check-range`) likewise runs its
+  production arena machinery, refusing only an *explicit*
+  non-production core.
+  Mechanism: `Args.core` became `Option CoreVariant` (explicitness
+  tracked); `Setlec.Cached.defaultCore` names the default.
+  Consequence: `SETLEC_PROGRESS` (production-only debug loop) now
+  requires an explicit `--core=production`.
+* Suite impact: **zero expectation changes** — arena.sh's set-model
+  rows now exercise the new default and pass at the recorded state;
+  the no-model sweep is unchanged by the carve-out; the parity
+  harness pins all four cores explicitly.
+* Engine identity was probed, not assumed: `app-lam` at the default
+  runs in 29 s where `--core=production` takes 85 s — the default is
+  demonstrably the cached core.
+
+**The honest trade-off, stated**: the spine/telescope/fanout +0.4
+growth exponent (table above) ships as the default's asymptotic
+profile, unmeasured-fixed.  The persistent-equality-memo candidate
+from the production-izing list is STILL OWED as a follow-up
+measurement; its trigger, if not run sooner: any real-stream
+regression report on spine-shaped declarations.  All real workloads
+measured to date favor the new default.
