@@ -29738,3 +29738,31 @@ and re-signing taken at the residue wherever the conclusion allowed it.
 Eighth sizing correction: 700–900 predicted, 1 981 measured, the whole
 overrun in a residue file the bill never counted.  No escalation.
 **S12 = the P claims tower, transposed to the gated subject.**
+
+## Task #161 SEPARATION — S11b LANDED: THE SEPARATION'S ANSWER
+(2026-09-04; succession-current)
+
+Master @ the S11b merge; battery green; binary md5-identical.  THE
+GATE LINE, VERBATIM (the separation's answer, as battery output):
+
+```
+proofdeps: 120 rows as pinned; EnvS/checkDeclR_ofEnvRE/DeclR/DeclIndR/declIndRR absent 20/20 and the derivation tier (Red, Red.beta, Infer, Infer.app, DefEq, DefEq.trans) absent 24/24 across the 4 shipped P capstones (doors: 0)
+```
+
+**Ledger ratifications**: (i) the eighth correction's NEW ERROR
+CLASS — *priced the consumers, forgot the residue; the error was a
+missing file, not a mis-sized row*; (ii) the pricing principle —
+*a refuted metatheorem prices refactorings, not just theorems*.
+
+**ESCALATION RULE REFINEMENT (coordinator; not a criticism of
+S11b)**: a mid-batch discovery that MORE THAN DOUBLES the bill
+generates a MID-BATCH FLAG to the lead even when every row is named
+and no weld resists — the cadence decision is made consciously, not
+retroactively.
+
+**S12 (dispatching)**: the P claims tower transposed to the gated
+subject — the gated knot's soundness theorem; the new
+capstone-at-the-P-driver becomes the proofdeps gate's FIFTH ROOT.
+Escalation re-arms on the S11b seal's naming with the mid-batch
+flag live.  S13 (flag surface + measurement, engines per the perf
+lead) follows on its seal.
