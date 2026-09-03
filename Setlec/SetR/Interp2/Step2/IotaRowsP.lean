@@ -1,6 +1,6 @@
 import Setlec.SetR.Interp2.Step2.MajorP
 import Setlec.SetR.Interp2.Step2.ReadsP
-import Setlec.SetR.Bridge.Iota
+import Setlec.SetBase.DefEqList
 
 /-!
 # The two ι rows, discharged (task #161, iota tier)

@@ -124,6 +124,13 @@ fail=0
 accepted=0
 total_good=0
 
+# THE LAYERING GATE (task #161 S1).  The separation's boundary — the
+# collapsed-model tree and the graded-model tree import nothing of each
+# other over the shared base — is checked from the source tree, with a
+# whitelist of the cross edges the campaign's remaining batches remove.
+# It runs here so the standard battery fails if the boundary rots.
+if tests/layering.sh; then :; else fail=1; fi
+
 # --- the arena half ------------------------------------------------
 arena_half() {
   accepted=0

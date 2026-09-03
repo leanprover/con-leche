@@ -24648,15 +24648,20 @@ delta together**; the parity lane is the closest thing setlec has to
 
 | stream | end-to-end | net of the preprocessor (approximate) |
 |---|---|---|
-| init-prelude | **1.81×** | 2.04× |
-| init-full | **1.69×** | 1.77× |
-| grind-ring-5 | **1.57×** | 1.65× |
+| init-prelude | **1.84×** | 2.09× |
+| init-full | **1.71×** | 1.79× |
+| grind-ring-5 | **1.59×** | 1.67× |
 | app-lam | **0.98×** | 0.98× |
 | beta-ladder | **0.99×** | 0.99× |
 | let-ladder | **0.99×** | 0.99× |
 
+*(Rows amended in place at the memo-share landing, `0f5a5a5a` — the
+parity denominator sharpened by the restored `memoEIO`; the original
+0.98–2.04× medians are preserved in the memo-share round's record
+below.)*
+
 **THE CANONICAL STATEMENT: the verification tax on the six arena
-workloads is between 0 % and 104 % — a factor of 0.98× to 2.04×, never
+workloads is between 0 % and 109 % — a factor of 0.98× to 2.09×, never
 more.  On three of the six rows it is not measurable at all (the
 certified checker is within 1–2 % of the parity lane, on the wrong side
 of zero).**  Nothing in this table resembles 14–16×, and nothing
@@ -24664,22 +24669,19 @@ should: that number was the application typing rule (part 1(c)).
 
 Two second-order readings, both honest and both worth having:
 
-* **The negative rows are real, and their mechanism is named.**
-  `app-lam`, `beta-ladder` and `let-ladder` run 1–2 % *slower* at
-  `--no-model` than at `--set-model`.  These are
-  single-huge-declaration workloads; the parity lane must keep two
-  inference memos (`inferFC` for the checking-mode front door,
-  `inferC` for the io internals), and #147 dropped #134's
-  one-directional share (`memoEIO` read `inferFC` before `inferC`;
-  today's `coreKnotNC.infer` is a plain `memoEI (·.inferC)` —
-  `CoreNC.lean:810`).  On a term that is both checked front-to-back
-  and reduced, every subterm's type is therefore computed twice.  P1
-  independently priced the bare memo split at **2.5–3.1 %** of every
-  stream on both cores.  Restoring the `inferFC`-first read in
-  `coreKnotNC.infer` is a three-line change and is the obvious first
-  follow-up; it would make the parity lane cheaper and every tax
-  number in the table *larger* — i.e. the table currently
-  **understates** the tax by roughly that much.
+* **The negative rows are real; the mechanism claim originally
+  written here is RETRACTED** (the memo-share round, `0f5a5a5a`,
+  refuted it by measurement).  The predicted fix — restoring
+  `memoEIO`'s `inferFC`-first read — was landed and buys NOTHING on
+  `app-lam`/`beta-ladder`/`let-ladder` (+0.03/+0.04 % — the failed
+  hash probe); the win lands on the declaration-count-heavy rows
+  instead (−1.79/−1.09/−0.95 %).  The mechanism the data supports:
+  the share pays only when an internal query hits an arena node the
+  front door inferred IN THE SAME DECLARATION — constant on interned
+  real streams, never on the ladders' freshly-substituted nodes.
+  The ≈0.98–0.99× rows remain UNEXPLAINED, and P1's "2.5–3.1 % memo
+  split" priced a different quantity.  (An honest open row, not a
+  known cause.)
 * **The tax is where the certificates fire, not where the terms are
   big.**  It is largest on the declaration-count-heavy, iota-heavy
   streams (init-prelude 1.81×, init-full 1.69×, grind-ring-5 1.57×)
@@ -24795,12 +24797,11 @@ builds (load average 5–58), which is why wall is secondary here.
 
 #### Follow-ups this measurement opened (none landed here)
 
-1. **Restore `memoEIO`'s one-directional memo share** in
-   `coreKnotNC.infer` (`CoreNC.lean:810`): read `inferFC` before
-   `inferC`, as #134 did.  Three lines; would remove the parity lane's
-   double inference on single-huge-declaration streams and make every
-   tax number in the table larger (the table understates the tax by
-   roughly the 2.5–3.1 % P1 priced the split at).
+1. **Restore `memoEIO`'s one-directional memo share** — LANDED
+   (`0f5a5a5a`); the table rows above are amended in place.  The
+   prediction attached to this follow-up was refuted: the share pays
+   on same-declaration front-door hits (real streams), not on the
+   ladders; see the retracted mechanism note above.
 2. **`--no-model`'s install-only kinds run at io grade** where
    official's `check` does not (part 1(a)).  A parity fix routes
    `checkDeclSPNCPlain`'s member-value checks through `coreKnotFNC`.
@@ -24812,3 +24813,1347 @@ builds (load average 5–58), which is why wall is secondary here.
    `--core=`/mode value) — sized in part 1(b) item 2, ≈630 mechanical
    lines, if the lead ever wants the middle point measured in-binary
    rather than reconstructed from #141's leave-one-out data.
+
+## Task #161 FOLLOW-UP 1 — THE MEMO SHARE RESTORED, AND THE CANONICAL
+TABLE'S MECHANISM CLAIM REFUTED (2026-09-03; branch `agent/memoshare`
+off master `fc171938`; NOTHING LANDED — the branch is the evidence)
+
+The canonical statement's follow-up list, item 1: restore #134's
+`memoEIO` one-directional memo share in `coreKnotNC.infer`, which
+#147's consolidation dropped.  Done, measured, verdict-neutral.  **The
+change is a real but small win — and it does NOT explain the table's
+three ≈0.99× rows, which was the reason it was queued first.  That
+mechanism claim is hereby retracted and replaced.**  Kit and raw data:
+`_tmp/memoshare-161/{run.sh,battery.sh,neutral.sh,report.py,table.tsv}`.
+
+### THE DIFF (34 insertions, 1 deletion; one file, `Setlec/Kernel/CoreNC.lean`)
+
+```lean
++def memoEIO (f : Nat → EIdx → CheckIM EIdx) : Nat → EIdx → CheckIM EIdx :=
++  fun d e => do
++    let st ← get
++    match st.inferFC[e]? with
++    | some r => pure r
++    | none =>
++      match st.inferC[e]? with
++      | some r => pure r
++      | none =>
++        let r ← f d e
++        modify fun st =>
++          let mp := st.inferC
++          let st := { st with inferC := ∅ }
++          { st with inferC := mp.insert e r }
++        pure r
+
+ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
+   | fuel + 1 =>
+-      infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
++      infer := memoEIO
+         (fun d e => inferBodyNC (coreKnotNC fe fuel) fe d e)
+```
+
+(the rest of the insertion is the doc-comment).  `coreKnotFNC.infer`
+is untouched: it stays `memoEI (·.inferFC)`.  The share is
+one-directional by construction — `memoEIO` **reads** `inferFC` and
+**writes** only `inferC`.
+
+**Why the direction is the sound one, argued not assumed.**
+`inferBodyNC` is `inferBodyI` with `inferSpineNC` in place of
+`inferSpineI`; the two spine walks build the returned type by the same
+`instListRevM ty acc` construction and differ only in that
+`inferSpineI` additionally runs the per-argument
+`r.infer`/`r.defeq` re-check (`CoreI.lean:1616-1640` vs
+`CoreNC.lean:134-147`).  So for a given node the checking-mode result
+*is* the infer-only result, computed with a **superset** of checks.
+Serving `inferFC[e]` to an internal query therefore loses no check
+that `inferBodyNC` would have performed.  The converse share would
+serve an unvalidated type to a checking-mode query and must never be
+added.
+
+**Why the lifetimes are safe.**  `checkDeclSPStepNM`
+(`CheckerNC.lean:495`) clears `inferC` (`flushS`) and `inferFC`
+(`flushInferFC`) back to back at every declaration boundary, and in
+each of the three value pipelines (`checkDefnValPNCB4`,
+`checkThmValPNCB4`, `checkOpaqueValPNCB4`) the `flushInferFC` call
+precedes the snapshot close / tier-two truncation, which is the only
+point that can invalidate an arena index.  `closeSnapshotM` runs no
+inference.  So no `inferFC` entry ever outlives the index space
+`inferC` is keyed in.  Both memos already key on `EIdx` alone
+(depth-independent, the shipped `memoEI` design), so the share adds no
+new key hazard.
+
+### THE CACHED LANE: NO ANALOGOUS SHARE POINT (prod-lane-only)
+
+Stated either way, as the charter asked.  `inferFC` exists **only** on
+`IState` (`CoreI.lean:327`); `CState` (`Setlec/Cached/StateC.lean:200`)
+has `inferC` and no front-door twin, and there are no NC bodies
+anywhere under `Setlec/Cached/`.  `coreKnotNC`/`coreKnotFNC` are
+reachable from exactly one place — `checkDeclsSPNM`, i.e.
+`--no-model --core=production` (`Main.lean:278`).  Confirming caveat 5
+of the canonical statement: the cached `--no-model` cell has no
+front-door/internal split to share between, so there is nothing to
+restore there.  Wiring one is the same session's work part 1(b) item 3
+already sized.
+
+### PROOF ADAPTATIONS: NONE — and why that is not a weakening
+
+`Setlec/Kernel/CoreNC.lean` is imported by exactly one module
+(`Setlec/Kernel/CheckerNC.lean`); `grep` over `Setlec/Verify/`,
+`Setlec/SetR/` and `Setlec/SetTheory/` finds **no** reference to
+`coreKnotNC`, `coreKnotFNC`, `inferBodyNC`, `memoEIO` or `CoreNC` in
+any `.lean` file.  The sim/walk batteries (`Verify/SimIKnot.lean:296`,
+`Verify/Cached/KnotC.lean:270`) are about `memoEI (·.inferC)` on
+`coreKnotI` and the cached knot, neither of which this touches.  So
+the itemized list of adaptations is empty *because the unverified lane
+is genuinely disjoint from the verified one*, not because anything was
+weakened — no proof was edited, no hypothesis added, no `sorry`,
+no axiom.
+
+### THE BATTERY
+
+* **Verdict-neutrality — 900 comparisons, 0 divergences.**  225
+  fixtures (138 arena + 73 e2e, `raw`/`pre` modes honored + 14 annot,
+  plus init-prelude) × four configurations (`--set-model`/`--no-model`
+  × `--core=production`/`--core=cached-parsed`), old binary vs new,
+  **byte-identical stdout, stderr and exit code in every cell**
+  (`_tmp/memoshare-161/neutral.sh`, `neutral.diffs` empty).  The
+  affected lane (`--no-model --core=production`) was run first and
+  alone: 225/225 identical.  The `--set-model` cells are identical for
+  the structural reason above (`CoreNC` is unreachable from that
+  mode); the run confirms it rather than assuming it.
+* **Suites, all at the pinned counts**: arena 90/92 good accepted,
+  e2e 73/73, annot 14/14, split 11/11, mode 9/9, no-model sweep
+  138 + 73 + 14 with the 3 recorded `annot_decline_*` divergences.
+  `lake test` exit 0.  `lake build` warning-free (checked on a forced
+  rebuild of the edited module and everything downstream).  Zero
+  `sorry` in the tree (the textual hits are DESIGN prose).
+
+### THE MEASUREMENT (instructions:u, median of 3, paired old/new
+interleaved per stream, `ulimit -v 40 GB` + `timeout 3600` +
+`nice -n 5`, `setsid`-detached, `_tmp/measure.lock.d` stamped with
+pid + lane `memoshare-161` for the whole battery, load average 4–8)
+
+**The kit reproduces.**  Every "before" cell re-measured here lands
+within **0.01 %** of the canonical table's recorded median (11 of 11
+cells) — master `fc171938` differs from the measurement SHA `8c881c57`
+in `DESIGN.md` only, so the taxtable binary *is* the master binary.
+That reproducibility is what makes the deltas below readable at the
+0.03 % level.
+
+| stream | `--no-model` prod before | after | Δ | `--set-model` prod before | after | Δ |
+|---|---|---|---|---|---|---|
+| init-prelude | 21.30 G | **20.92 G** | **−1.79 %** | 38.49 G | 38.49 G | −0.00 % |
+| init-full | 1865.55 G | **1847.88 G** | **−0.95 %** | (not re-run) | — | — |
+| grind-ring-5 | 80.72 G | **79.84 G** | **−1.09 %** | 126.94 G | 126.95 G | +0.01 % |
+| app-lam | 389.37 G | 389.49 G | **+0.03 %** | 383.07 G | 383.12 G | +0.01 % |
+| beta-ladder | 81.14 G | 81.18 G | **+0.04 %** | 80.48 G | 80.47 G | −0.01 % |
+| let-ladder | 23.60 G | 23.60 G | −0.02 % | 23.37 G | 23.37 G | −0.00 % |
+
+`--set-model` is the no-change control and behaves as one: ≤0.01 % on
+all five re-run rows, i.e. at the reproducibility floor.  init-full
+`--set-model` was not re-run (≈41 min of machine-solo time for a cell
+whose code path is provably untouched and whose binaries emit
+byte-identical output); the canonical median 3159.76 G is carried
+forward, and that reuse is flagged in the amended rows below.
+
+#### THE FINDING: the table's mechanism for the ≈0.99× rows is WRONG
+
+The canonical statement's second-order reading #1 says the three
+negative rows are caused by the dropped share — "on a term that is
+both checked front-to-back and reduced, every subterm's type is
+therefore computed twice" — and predicts that restoring it "would
+make the parity lane cheaper and every tax number in the table
+*larger*".  **Measured: on exactly those three rows the share buys
+nothing (−0.02 %, +0.03 %, +0.04 % — the last two are the *cost* of
+the extra probe, above the 0.01 % noise floor).  The win lands on the
+three rows the paragraph did not predict.**
+
+The mechanism the numbers actually support: the share pays only when
+an internal infer query lands on an arena node the **front door
+already inferred inside the same declaration**.  On the
+declaration-count-heavy streams that happens constantly — the type
+phase's `coreKnotFNC.infer 0 jty` and the value phase's
+`coreKnotFNC.infer 0 jv` populate `inferFC` over interned subterms
+that the reductions inside `defeq` then ask about again, and interning
+makes them the *same* `EIdx` (init-prelude 3653 decls: −1.79 %;
+grind-ring-5 3946: −1.09 %; init-full 61 048: −0.95 %).  On the
+ladders the work is concentrated in one huge declaration whose
+internal inference happens on nodes produced by β/ζ **substitution** —
+freshly interned indices the front door has never seen.  `inferFC`
+never hits, and the lane pays one extra failed hash probe per internal
+infer miss: +0.03/+0.04 %.
+
+So the ≈0.98–0.99× rows are still unexplained by anything measured.
+The double-memo hypothesis is dead; P1's independently-measured
+"2.5–3.1 % for the bare memo split" is not recovered on any row here
+and should be re-read as a different quantity (it priced *having two
+maps*, not the missing share).  A successor probe wanting the real
+cause should start from the fact that on those three streams
+`--set-model` is genuinely 1–2 % **cheaper** than `--no-model` on the
+same engine — a certificate that pays for itself, most plausibly by
+short-circuiting a reduction the parity lane then has to perform.
+
+### THE AMENDED CANONICAL-TABLE ROWS (ready to splice)
+
+Only the `--no-model prod` column moves.  Ratios in parentheses are
+against the official column, unchanged; wall for the amended cells is
+this session's and was taken at load 4–8 rather than the canonical
+battery's 15–51, so it is *not* comparable to the other columns' wall
+and is given for completeness only.
+
+| stream | `--no-model` prod = **the parity lane** |
+|---|---|
+| init-prelude | 20.92 G (9.5×) / 1.93 s |
+| init-full | 1847.88 G (4.6×) / 301.87 s |
+| grind-ring-5 | 79.84 G (5.9×) / 8.99 s |
+| app-lam | 389.49 G (13.2×) / 87.85 s |
+| beta-ladder | 81.18 G (8.0×) / 17.27 s |
+| let-ladder | 23.60 G (3.9×) / 5.01 s |
+
+**THE VERIFICATION TAX ITSELF, amended** (`--set-model` prod ÷
+`--no-model` prod):
+
+| stream | end-to-end (was) | **amended** | net of preprocessor (was) | **amended** |
+|---|---|---|---|---|
+| init-prelude | 1.81× | **1.84×** | 2.04× | **2.09×** |
+| init-full † | 1.69× | **1.71×** | 1.77× | **1.79×** |
+| grind-ring-5 | 1.57× | **1.59×** | 1.65× | **1.67×** |
+| app-lam | 0.98× | **0.98×** | 0.98× | **0.98×** |
+| beta-ladder | 0.99× | **0.99×** | 0.99× | **0.99×** |
+| let-ladder | 0.99× | **0.99×** | 0.99× | **0.99×** |
+
+† init-full's numerator is the canonical battery's `--set-model` prod
+median (3159.76 G) over this session's `--no-model` median; the two
+were taken on different days under different load, but instructions:u
+is contention-independent and the eleven cross-checked cells agree to
+0.01 %.
+
+**The amended canonical statement**: the verification tax on the six
+arena workloads is between 0 % and **109 %** — a factor of 0.98× to
+**2.09×**, never more.  On three of the six rows it is still not
+measurable at all.  The engineering-gap row becomes **3.9× / 4.6× /
+5.9× / 8.0× / 9.5× / 13.2×** (let-ladder / init-full / grind-ring-5 /
+beta-ladder / init-prelude / app-lam); only grind-ring-5 (6.0→5.9) and
+init-prelude (9.7→9.5) move.
+
+The follow-up list's item 1 is discharged.  Its second sentence — "the
+table understates the tax by roughly the 2.5–3.1 % P1 priced the split
+at" — was **half right for the wrong reason**: the table did understate
+the tax, by 1–3 % on the three positive rows, and by nothing at all on
+the three rows the sentence was written about.
+
+### RECOMMENDATION TO THE COORDINATOR
+
+Land it, on the strength of the three realistic streams (init-prelude,
+init-full, grind-ring-5 — −0.95 % to −1.79 %) and at the cost of
++0.03 % on the synthetic ladders; it restores a #134 design element
+that #147 dropped by accident, it is verdict-neutral on 900
+comparisons, and it costs the verification effort nothing.  The
+alternative reading — that a wash on three rows plus 1 % on three
+others is below the bar for touching the kernel at all — is legitimate
+and the numbers above are all the coordinator needs to take it.  What
+must NOT survive either way is the canonical table's mechanism
+paragraph for the ≈0.99× rows: it is refuted independently of whether
+this diff lands.
+
+#### Reproduce
+
+```bash
+_tmp/memoshare-161/neutral.sh            # 900-comparison neutrality battery
+_tmp/memoshare-161/battery.sh            # the paired before/after measurement
+python3 _tmp/memoshare-161/report.py
+```
+
+Binaries: before = `.claude/worktrees/taxtable/.lake/build/bin/setlec`
+(source-identical to master `fc171938`), after =
+`.claude/worktrees/memoshare/.lake/build/bin/setlec`.
+
+## Task #161 THE SEPARATION — DESIGN PHASE SEAL (2026-09-03,
+`agent/sep-design`, unpushed; ENUMERATION + AUDIT ONLY, no file edited)
+
+**THE HEADLINE.** The separation is **feasible, and cheaper than the
+B1 sizing implied**.  No feasibility stop was found: **there is no
+fact the P lane consumes that is inherently collapsed-model
+content.**  Measured, grep- and structure-verified against the tree,
+not read off the docs:
+
+| number | value |
+|---|---|
+| base-consumption sites, P lane proper | **458** (411 field reads + 47 bare projections) across **56 files** |
+| base-consumption sites, 2U/`EnvS2U` lane | 415 (397 + 18) — **no re-supply owed** (that lane goes to R; see §2.4) |
+| direct P→R import edges (the whole boundary) | **21**, into **20** distinct R modules |
+| R modules dragged into the P closure by those 21 edges | **73** (43 213 lines) |
+| R→P import edges | **1** (`Install/Axiom.lean → Annot/Ok2.lean`) |
+| hard residue (class 1c) | **1** — `EnvS.empty_pinned` at the P capstone's Empty key |
+| files needing a SPLIT | **9** named in §3.3 |
+| batch estimate | **13–18** Opus batches at the campaign's 900–1250 lines/batch rate |
+
+**Two findings the lead must rule on before the freeze** (§2.4, §4.3),
+both statement-sensitive, neither a feasibility problem:
+1. the `EnvS2U`/`denote2` lane is a **third** tier that also contains
+   `base : EnvS` — the spec names two trees, so it must be assigned
+   (recommendation: it goes to R, whole);
+2. the shipped driver's P capstone **does not exist**
+   (`no_proof_of_Empty_SP_P` is absent; only the R and R2 families
+   cover `checkDeclsSP`) — spec point 3 ("`no_proof_of_Empty_P`
+   re-assembled on the self-standing fold, verifying ITS mode") needs
+   the four carrier transposes built, not just re-assembled.
+
+### 1. THE CONSUMPTION-SITE ENUMERATION (spec point 2)
+
+#### 1.1 The channels, exhaustively
+
+Every route by which the P tree touches the collapsed lane, found by
+grep over the whole tree:
+
+| # | channel | sites | where |
+|---|---|---|---|
+| C1 | `EnvS2Core.base` field reads (`m.base.X`, `mp.base2.base.X`) | 411 (P lane) | 56 files |
+| C2 | bare `base` projections handed to v1 install lemmas | 47 (P lane) | 20 files |
+| C3 | `checkDeclR_sound mp.base2.base hE hd` | **1** | `Interp2/FoldP.lean:173` |
+| C4 | `declStepS … mp.base2.base hE h` | **1** | `Interp2/FoldP.lean:132` |
+| C5 | `DeclR μ F mp.base2.base.cval env d env₂` keying | in C1's `cval` count | `FoldP`, `HarvestP`, `AxiomPinP`, `DeclIndP`, … |
+| C6 | direct R-module imports (the build-wall unit) | **21 edges** | §2.2 |
+| C7 | `Sound/*` imports into the P tree | **2** | `Annot/Kinding.lean:2`, `Step2/CtxOk2RRefute.lean:2` |
+| C8 | R relations (`Infer`/`DefEq`/`Red`/`Tele`/`CtxOkR`/`EnvR`) named in P-lane statements or proofs | **ZERO** | see §1.4 |
+
+C8 is the campaign's decisive measurement and it is reported below
+with its method, because it is the fact that makes the separation
+cheap.
+
+#### 1.2 The field census (C1), P lane proper
+
+Docstrings and `--` comments stripped before counting.
+
+| `EnvS` field | sites | what is consumed | re-supply class |
+|---|---|---|---|
+| `wf : EnvWF env` | **225** | a purely **syntactic** environment well-formedness (`Setlec/Verify/EnvWF.lean:81`); fed to `inferTypeCore_WScoped`, `inferTypeCore_looseBVars`, `whnf_fvarLeaves`, `denoteP_depth_of_closed` | **(b)** — new `EnvS2Core.wf : EnvWF env` field.  `EnvWF` is already in the shared model-free base; nothing about the model crosses.  225 sites become `m.wf`: a rename. |
+| `cval : TConstVal` | **135** | the collapsed valuation, as (i) the parameter of `denote`/`denoteClosed`/`BasisPinnedTT`/`ProjPhaseInvS`, (ii) the key of the `DeclR` record family, (iii) the right-hand side of `acval_erase` | **(b)** — the carrier already owns it: define `EnvS2Core.cvalE : TConstVal := fun n ψ => (m.acval n ψ).erase`.  Then `acval_erase` is `rfl`, and every `base.cval` becomes `m.cvalE`.  `AVExpr.erase` (`Annot/Syntax.lean:99`) is a total syntactic function — **no model content is transported**. |
+| `cval_closed` | **33** | `∀ n ψ, VExpr.Closed (cval n ψ)`, always composed with `acval_erase` inside `denoteP_closed` (`Annot/BitClosed.lean:34`) | **(b)** — new field `acval_vclosed : ∀ n ψ, VExpr.Closed ((acval n ψ).erase)`.  `denoteP_closed`'s own route through `denote_closed` (`Verify/Denote/Shift.lean:450`) **stays**: `Verify/Denote/*` is the model-free reading tier, shared base, not the R lane. |
+| `basis_pinned` | **10** | `BasisPinnedTT env cval` (`Verify/Denote/Pinned.lean:78`) — V-free, shared with the TT lane; consumed for level-parameter lists and `pairLike_eq_psigma` | **(b)** — new field at `cvalE`. |
+| `proj_ok` | **3** | `ProjOkT env` (`Verify/EnvPreds.lean:106`) — env-only, no `cval` | **(b)** — new env-only field. |
+| `rec_ctors` | **1** | `RecCtorsStored env` (`Verify/EnvPreds.lean:64`) — env-only | **(b)** — new env-only field. |
+| `cval_memType`, `val_params`, `annot_okV` | **3** (all in `Interp2/AxiomPinP.lean:232/253/255`) | inputs to `extendAxiomS` and to nothing else — they exist only to build the new `EnvS` | **(b)** — **DELETE with the field**; nothing downstream reads them. |
+| `empty_pinned` | **1** (`Interp2/CapstoneP.lean:66`) | `∃ u, cval emptyName ψ = emptyT u`, transported to the annotated leaf by `acval_erase` + `erase_eq_const` — **the capstone's Empty key** | **(c) — THE ONLY HARD RESIDUE.**  See §1.5. |
+
+Already-P-native (class **(a)**, needing no work): every *semantic*
+field of `EnvS` has a landed `EnvS2PM` mirror, and the P surface reads
+the mirror, never the base — `mem_type`→`mem_typeP`,
+`defn_eq`/`thm_ok`→`defn_reads`, `annot_okV`→`acval_ok2`,
+`val_params`→`acval_params`, `eq_lawV`→`eq_lawP`,
+`rec_rules`→`RecRulesP`, `caps_ok`→`CapsOkP`, `nat_ops`→`NatOpsP`,
+`div_mod`→`DivModP`, `reduce_ops`→`ReduceOpsP`.  This is the
+`EnvS2Core` docstring's own "carrier-slim" finding, one tier further:
+the P invariant **already** re-states the whole semantic content; only
+the *syntactic* fields (`wf`, closedness, the pins) were being borrowed.
+
+#### 1.3 The bare projections (C2): 47 sites, all one shape
+
+Every one is an argument to a **v1 install lemma** whose *only* output
+the P side keeps is the new `EnvS`:
+
+```
+  obtain ⟨m1, hm1⟩ := extendEqS mp.base2.base hf1 hwf1
+  obtain ⟨mp1, hac1⟩ := extendEqP mp hf1 m1
+    (fun n hn => by rw [hm1, cvalWith_ne hn])
+    (fun ψ => by rw [hm1, cvalWith_self])
+```
+(`Interp2/BasisEqP.lean:1216-1219`; the same four lines, 47 times,
+across `BasisBlocksP` 7, `BasisPSigmaP` 7, `AxiomPinP` 5,
+`BasisQuotP` 5, `BasisEqP` 3, `HarvestP` 3, `DeclIndP`/`IndRecsP`/
+`ProjInstallP`/`AxiomReduceP`/`BasisEmptyP`/`FoldP`/`NatEqsP` 2 each,
+`IndMembersP` 1.)
+
+The master premise is explicit: `declStepPM_of_cons`
+(`Interp2/InstallP.lean:110-115`) takes
+
+```
+    (hbase : EnvS V ⟨c₀ :: env.consts⟩)
+    (hag : ∀ n, n ≠ c₀.name → mp.base2.base.cval n = hbase.cval n)
+    (hAerase : ∀ ψ, (A ψ).erase = hbase.cval c₀.name ψ)
+```
+
+— three premises that **all three vanish** when `base` goes: `hbase`
+is replaced by the six new syntactic fields at the extended
+environment, `hag` becomes vacuous (the P carrier's `acvalWith` *is*
+the extension), `hAerase` becomes `rfl`.  So class **(b)**, and the
+diff is a *deletion*: the ≈20 `*_cons` lemmas lose a premise and the
+47 call sites lose a line each.
+
+Confirming evidence that the v1 output is not otherwise consumed:
+`Interp2/AxiomPinP.lean:242-248` already **constructs the new
+`EnvWF` itself** (`Setlec.EnvWF.cons mp.base2.base.wf ⟨…⟩`) and hands
+it *to* `extendAxiomS`.  The P side is already producing the syntactic
+facts; only the round-trip through `EnvS` is ceremonial.
+
+#### 1.4 THE C8 MEASUREMENT: the P lane names no R relation
+
+Method: strip block comments and `--` comments (replacing block
+comments by their newlines so line numbers survive), then match
+`Infer | DefEq | DefEqL | Red | Tele | CtxOkR | EnvR | EnvSHyp |
+InferClaimsR | WhnfClaimsR | WhnfCoreClaimsR | DefEqClaimsR |
+CheckStepR | checkSoundR` with identifier boundaries, over every
+module in `closure(Interp2.FoldP)` under `SetR/Annot` or
+`SetR/Interp2`.
+
+Result, for the P quarters and rows —
+`Step2/{InferP, WhnfP, DefEqP, IrrelP, StuckP, MajorP, IotaRowsP,
+CapsRowsP, ProjRowsP, ReadsP, AssemblyP, AcceptedP, TiersP, IotaKitP,
+ProjPinsP, StrLitP, NatP}`:
+
+> **zero hits outside docstrings.**  (The residual matches are all
+> backticked cross-references inside `/-- … -/`, e.g. ``` `EnvS` ```,
+> ``` `DefEqClaimsR` ```, and one `open Setlec.SetR (AVExpr EnvS)`.)
+
+And for the harvest layer: `Interp2/HarvestP.lean` destructures
+`DeclDefnR`/`DeclThmR`/`DeclOpaqueR` and binds the derivation
+conjuncts as `hfrontT`/`hfrontV` at four sites — **which appear
+nowhere else in the file.**  The P harvest consumes only the
+run/guard conjuncts (`hann`, `hvrun`, `hst`, `hens`, `hvde`,
+`hfind`, …).
+
+This is exactly the shape spec point 1 predicted for the bridge
+records, and `Setlec/SetR/Decl.lean` already says so in its own
+docstrings — `ValueFrontR` (`Decl.lean:172-186`) is literally
+
+```
+  value.looseBVarsBounded 0 = true ∧ value.hasFvar = false ∧
+  annotateCore μ env F 0 value = .ok value' ∧ … ∧
+  (∃ vtype, inferTypeCore μ env F 0 value' = .ok vtype ∧
+    isDefEqCore μ env F 0 vtype type' = .ok true) ∧          -- RUN half → P
+  ∀ φ : Name → Nat, ∃ Tv Vv tv, … ∧
+      Infer μ env cval φ [] Vv tv ∧ DefEq μ env cval φ [] tv Tv  -- DERIVATION half → R
+```
+
+with the run half's own docstring recording that task #161 P4 H1
+added it **for the P lane**.  `ConstantValR` (`:139-155`) has the same
+shape; so do `NatEqsRunR` vs `NatEqsR`, and `ReducePinR`'s
+`isDefEqCore … = .ok true` conjunct.
+
+#### 1.5 THE HARD RESIDUE (class 1c): one item
+
+`Interp2/CapstoneP.lean:64-67`:
+
+```
+theorem acval_empty_pinnedC (m : EnvS2Core V env) (ψ : Name → Nat) :
+    ∃ u, m.acval emptyName ψ = .const .empty [u] := by
+  obtain ⟨u, hu⟩ := m.base.empty_pinned ψ
+  exact ⟨u, erase_eq_const (by rw [m.acval_erase, hu]; rfl)⟩
+```
+
+**What a P-native replacement must say**: an `EnvS2Core` field
+
+```
+  acval_empty_pinned : ∀ ψ : Name → Nat,
+    ∃ u, acval emptyName ψ = .const .empty [u]
+```
+
+— *stronger and simpler* than the erase route (it states the pin at
+the annotated leaf directly, dropping `erase_eq_const`).  Its supplier
+is the basis install's `emptyK` branch, `Interp2/BasisEmptyP.lean`,
+which already computes that leaf; the empty-environment instance is
+`rfl` (`EnvS2PM.empty`'s leaf is `.const .empty [0]`, recorded at
+`Annot/EnvS2P.lean:652-654`).  It is "hard" only in the sense that it
+is **statement-touching**: it is the capstone's key, and adding a
+carrier field is the lead's call.  Estimated 60–90 lines (one field,
+one empty instance, one clause per install site that conses a fresh
+constant — all discharged by `acvalWith_ne`).
+
+Everything else that reads a *semantic* base field is either class (a)
+(the P mirror exists) or class (b) (a syntactic fact the shared base
+already owns).  **No site was found where the P lane's conclusion
+depends on the collapsed model.**
+
+#### 1.6 The two structural channels (C3, C4)
+
+**C4 — `declStepS` at `FoldP.lean:132`.** The P fold runs the *entire*
+v1 declaration fold and keeps **only the second component**:
+
+```
+  have hv1 : Nonempty (EnvS V env₂) ∧ EtaFamiliesClosed env₂ :=
+    declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
+      (declIndS memberKeyS) mp.base2.base hE h
+  refine ⟨?_, hv1.2⟩
+```
+
+`EtaFamiliesClosed` is `Verify/EnvGuards.lean:257` — **model-free**;
+and `declStepS`'s own proof of the `.2` (`Install/Step.lean:112-125`)
+is `EtaFamiliesClosed.cons_nonind hE (Option.isNone_iff_eq_none.mp
+hcv.1) (fun _ _ heq => nomatch heq)` per kind — it reads **only the
+`find?` guard conjunct of `DeclR`**.  Class **(b)**: extract a
+model-free `declEtaStep : DeclR-guards → EtaFamiliesClosed env →
+EtaFamiliesClosed env₂`, ≈60 lines, six branches, no `V`, no `EnvS`.
+This deletes the P lane's dependence on the whole `SetR/Install/*`
+tree (18 941 lines) in one move.
+
+**C3 — `checkDeclR_sound` at `FoldP.lean:173`.**  The signature
+(`Bridge/Sound.lean:41-46`):
+
+```
+theorem checkDeclR_sound {μ} {F} {env env₂} (m : EnvS V env)
+    (hE : EtaFamiliesClosed env) {d : Declaration}
+    (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
+    DeclR μ F m.cval env d env₂
+```
+
+`m` is needed **only** for the derivation conjuncts (`declDefnR`'s
+proof, `Bridge/Decl.lean:836-881`, is ~45 lines of pure
+`simp only [checkDecl, …]` inversion plus two `m.toEnvR` uses).
+Class **(b), but this is the campaign's one genuinely new artifact**:
+
+* define `DeclRunR μ F env d env₂` = `DeclR` with the
+  `∀ φ, ∃ … denote … ∧ Infer … ∧ DefEq …` conjuncts removed (12
+  `Infer/DefEq` conjunct lines and 19 `denote cval` lines in
+  `Decl.lean`'s 1021; the record family is otherwise all guards and
+  runs);
+* `checkDeclRun_sound : checkDecl … = .ok env₂ → DeclRunR …`
+  (model-free — the inversion skeleton, `m` dropped);
+* `DeclR.toRun : DeclR … → DeclRunR …` (a projection), so the R lane
+  keeps one source of truth and the records stay **shared**, per spec
+  point 1.
+
+Blast radius: `HarvestP` (1309 lines), `AxiomPinP`, `AxiomReduceP`,
+`BasisStepP`, `DeclIndP`, `IndMembersP`, `ProjInstallP`,
+`IotaRule{Plain,Nested}P`, `NatEqsP`, `DivModCertP` — all of which
+destructure positionally, so the edit is per-site mechanical.
+
+### 2. THE IMPORT GRAPH (spec point 1)
+
+Computed from every `^import` line in the 460 `.lean` files under
+`Setlec/`.
+
+#### 2.1 The closures
+
+| set | modules | lines |
+|---|---|---|
+| `closure(Interp2.FoldP)` — the P capstone | 369 | — |
+| `closure(SetR.Main)` — the R capstone | 222 | — |
+| P-only (`SetR`) | 166 | 97 223 |
+| **shared, `SetR` — the R tier dragged into P** | **73** | **43 213** |
+| shared, non-`SetR` (Kernel/Verify/SetTheory/TT/PinGen) | 129 | 87 911 |
+| R-only | 20 | 11 765 |
+
+The 73 break down as `Bridge/*` 24, `Install/*` 23, `Sound/*` 11, and
+the 9 root files (`Rel`, `EnvS`, `Decl`, `CtxOkR`, `Weaken`,
+`AnnotOkV`, `ProjPins`, `DivModPin`, `StdAxiomKey`) plus 6 that are
+**not R at all** — see §2.3.
+
+**They are reached through 21 import edges and nothing else.**  Sever
+the 21 and all 73 leave the P closure.
+
+#### 2.2 THE CROSSING-EDGE TABLE (21 edges, 20 R modules)
+
+Column "consumed" = symbols of that R subtree that occur in the
+importer's body (dotted-name match, comments stripped); "class" as in
+§1.
+
+| # | importer (P) | imported (R) | what crosses | class |
+|---|---|---|---|---|
+| 1 | `Interp2/FoldP` | `Bridge/Sound` | `checkDeclR_sound` (+ `declStepS`, `declBasisS`, `declIndS`, `memberKeyS`, `divModPinS`, `reducePinS`, `stdAxiomKeyS` — all only to build `base`) | **(b)** C3+C4 |
+| 2 | `Interp2/HarvestP` | `Install/ValueKinds` | `declDefnS`, `declThmS`, `declOpaqueS` (base builders); `annotate_syntax` | (b) — `annotate_syntax` is a model-free annotate-inversion lemma → **move to base** |
+| 3 | `Interp2/AxiomPinP`* | (via `Install/*`) | `extendAxiomS` and the three `cval_*` inputs | (b) delete |
+| 4 | `Interp2/AxiomBitsP` | `SetR/StdAxiomKey` | **nothing** — 0 symbols matched | (b) **dead import, delete** |
+| 5 | `Interp2/EqTowerP` | `Install/BasisS` | `eqValT`, `eqReflValT`, `eqRecValT` — `VExpr`-level canonical value towers, model-free data | (b) **SPLIT** `Install/BasisS.lean` |
+| 6 | `Interp2/ErasePwInv` | `Install/Axiom` | `erasePw_const_invS`, `eraseNames_const_invS` — syntactic erase-invariance | (b) **SPLIT** `Install/Axiom.lean` |
+| 7 | `Interp2/IndMemberP` | `Install/IndMembersS` | `indMemberS`, `memberKeyS`, `cvalModeled`, `EnvS.cval_memType` (transitively) | (b) delete + move `cvalModeled` (model-free, `Decl.lean:410`) |
+| 8 | `Interp2/IotaRulePlainP` | `Install/IotaRuleS` | `iotaRuleS` (base builder); `IotaRuleR`/`IotaThmR` (records) | (b) records→base, builder→delete |
+| 9 | `Interp2/ProjInstallP` | `Install/DeclIndS` | `projInstallS`, `templateConsS`, `projFnS`, `templatesS` (builders); `ProjFnR`/`ProjInstallR`/`projEntry`/`templateVal` (records/data) | (b) |
+| 10 | `Interp2/ProjRenameP` | `Install/ProjInstallS` | `ProjPhaseInvS` (a **valuation-equality** predicate — no `V`, no `interp`), `projFwd_renameOkT` | (b) **SPLIT**; instantiate `ProjPhaseInvS` at `cvalE` |
+| 11 | `Interp2/DivModCertP` | `SetR/DivModPin` | 18 symbols: `dmEvalV`(+3 `rfl` lemmas), `dmFrameS`, `dmLeavesOk`(+4), `dmApplied{1,2}_frame`, `divModCertApplied_mem{1,2}`, `natOpTyPinned_*`, `fvarLeaves_substConst0`, `looseBVarsBounded_substConst0`, `natOpCod_ble` | (b) **SPLIT** — `dmEvalV` is `V`-generic `SetTheory` evaluation, the rest are `Expr`-syntactic |
+| 12 | `Interp2/NatEqsP` | `Bridge/Decl` | `natEqFrame_of_frag` (transitive), `NatEqsR`/`NatEqsRunR`/`DeclDefnR` records | (b) records→base |
+| 13 | `Interp2/Step2/IotaRowsP` | `Bridge/Iota` | `defEqListP_get`, `defEqListP_length`, `recFireComparands_fst_nil` — **all three model-free** (`Bridge/Iota.lean:48-104`: pure `defEqList`/`recFireComparands` inversions) | (b) **SPLIT `Bridge/Iota.lean`; ~40 lines move** |
+| 14 | `Annot/Bit` → `Annot/Canon` → `Annot/Pass` → `SetR/Rel` | `SetR/Rel` | `Canon` needs `natLitT`, `charListT` from `Pass` (canonical `VExpr` literal towers, model-free); `Pass` also defines `HasSort`/`Annotates` over `Infer`/`DefEq` (24 uses) | (b) **SPLIT `Annot/Pass.lean` (617 lines)** — this is the deepest crossing: the P lane's own `denoteP` foundation currently pulls in the R relations for two data definitions |
+| 15 | `Annot/Kinding` | `Sound/Main` | `DefEq.sound`, `Infer.sound`, `EnvSHyp` | R-side: `Kinding` is R-facing; only `SimSubst` imports it, and `SimSubst`'s consumers need only `InferFuelDet`/`SortSubstStable` → **SPLIT/re-home** |
+| 16 | `Annot/SimSubst` | `SetR/CtxOkR` | `CtxOkR` (3 statement uses) | see 15 |
+| 17 | `Interp2/Claims2` | `Bridge/Claims` | `InferClaimsR`, `WhnfCoreClaimsR`, `CheckStepR`, `checkSoundR`, `CtxOkR` | **2U lane → goes to R** (§2.4) |
+| 18 | `Step2/Whnf` | `Bridge/WhnfCore` | `whnfCoreR_{sort,fvar,forallE,lam,lit,const}` (**all `rfl`**, `Bridge/WhnfCore.lean:50-60`), `denote_beta_stepR`, `whnf_claimsR`, … | 2U → R; the six `rfl` lemmas **belong in `Verify/*`** and should move regardless |
+| 19 | `Step2/InferQ` | `Bridge/InferStruct` | `frame_openR`, `inferSortR`, `infer_claimsR`, `InferPiStepR` | 2U → R |
+| 20 | `Step2/DefEqRun` | `Bridge/Decl` | `CtxOkR.*`, `DefEqClaimsR`, `delta_coreR`, `denote_delta_stepR`, `frame_*R`, `EnvS.toEnvR` | 2U → R |
+| 21 | `Annot/EnvS2` | `SetR/EnvS` | `EnvS`, `EnvS.empty` — `EnvS2.base : EnvS` | 2U → R |
+
+Rows 17–21 are the `EnvS2U`/`denote2` lane; rows 1–16 are the P lane
+proper.  **Rows 1–16 are all class (b)** — records to the shared base,
+model-free lemmas moved or split out, base builders deleted.
+
+#### 2.3 THE SHARED BASE, and the six mis-filed modules
+
+`R∩P` contains six modules that are neither lane — they are the
+**semantic and syntactic primitives both lanes stand on**:
+
+```
+Setlec.SetTheory.Basic → SetR/Interp2/Ops.lean   (piR, lamC, app, piR_dom_unique)
+                       → SetR/Interp2/Value.lean (+ TT.Const)
+   SetR/Annot/Syntax.lean (AVExpr, erase)  → SetR/Interp2/Interp.lean (interp, interp2)
+                       → SetR/Interp2/Kit.lean   → SetR/Annot/Ok2.lean (AnnotOk2)
+```
+
+They live under `Interp2`/`Annot` for historical reasons only.  In the
+separation they **move to a neutral namespace** (proposal: `Setlec/
+SetBase/*`) — this also removes the single R→P edge
+(`Install/Axiom.lean:2 → Annot.Ok2`, which exists because
+`Install/Axiom.lean:59/69/425/453` state `Interp2.AnnotOk2` conjuncts
+for the P consumer — a record that serves both lanes, exactly spec
+point 1's picture, so it splits into the shared record + the R proof).
+
+Genuinely shared, unambiguously: `Kernel/*` (44), `Verify/*` minus the
+lane-specific ones, `SetTheory/*` (16), `TT/*` (8), `PinGen/Certs`.
+**`Verify/Denote/*` (19 modules) is base, not R** — `denote`,
+`denote_closed`, `BasisPinnedTT` are the model-free `Expr → VExpr`
+reading tier and both lanes read it; the P lane's `denoteP_closed`
+factors through it and may keep doing so.
+
+`Verify/Cached/MainC.lean` imports **both** `SetR.Main` and
+`SetR.Main2` — it is the top-level capstone assembly and belongs
+**above** both lanes, in an `exe`/`capstones` target.
+
+#### 2.4 THE `EnvS2U` LANE — RULING NEEDED (finding 1)
+
+41 modules / 23 717 lines inside the P-only set are the `denote2`/
+`EnvS2U` tier: `Step2/{Whnf 3211, DefEqRun 4726, InferQ 3415,
+Dispatch 1762, Levels 916, Infer, Lit, Loop, DefEq, WhnfCore, Fuel,
+Routed}`, `Claims2{,A,B,C,D,E,P,U}`, `EnvS2U{,Def,Ne,Pi}`, `Keys2*`,
+`Denote2*`, `Install2`, `EmptyPin2`, `Dual2E`, `BitAgree`,
+`Annot/{EnvS2,EnvS2U,Pass,Kinding,Canon,SimSubst}`.
+
+* `EnvS2U`/`EnvS2` **contain `base : EnvS`** (`Annot/EnvS2U.lean:38`,
+  `:104`; `Annot/EnvS2.lean:144`) and account for **415 of the 873**
+  base-consumption sites.
+* Their capstones are the **`R2` and `R2M` families** —
+  `no_proof_of_Empty_R2` and 15 siblings in `SetR/Main2.lean`, plus
+  `no_proof_of_Empty_SPC_R2` in `Verify/Cached/MainC.lean`.
+  `Main2.lean` imports `SetR/Main.lean` directly.
+
+**Recommendation: the 2U lane goes to R, whole.**  It is a
+collapsed-model tier by its own carrier, its capstones are named `R2`,
+and it is what `--core=cached-parsed`'s verification runs on.  Under
+that ruling its 415 sites need **no re-supply at all** and the
+campaign's re-supply bill is the 458 P-lane sites only.
+
+The P quarters' dependence on it is already **one lemma each**:
+
+| P quarter | imports | uses from it |
+|---|---|---|
+| `Step2/InferP` | `Step2/InferQ` (3415 lines) | **`frame_open2`** — 18 lines, pure `Expr` scoping (`InferQ.lean:1089`) |
+| `Step2/WhnfP` | `Step2/Whnf` (3211 lines) | **`interp2C_trans`** — 8 lines, `interp2` transitivity (`Whnf.lean:2025`) |
+| `Step2/DefEqP` | `Step2/DefEqRun` (4726 lines) | **nothing** |
+| `Step2/NatP` | `Step2/Lit` | **`natLit_facts2`** |
+| `Interp2/Keys2Cond` | `Step2/DefEqRun` | `denote2_{app,const,fvar}` |
+
+Moving `frame_open2` and `interp2C_trans` to the shared base severs
+11 352 lines of 2U from the P tree in two edits.
+
+### 3. BUILD ENFORCEMENT (spec point 1, "cross-import = build error")
+
+#### 3.1 Today
+
+`lakefile.toml`, 5 libs + 2 exes:
+
+```
+defaultTargets = ["Setlec", "SetlecTT", "SetlecSetR", "SetlecCachedV", "setlec"]
+[[lean_lib]] name="SetlecPinCerts" roots=["Setlec.PinGen.Certs"]   # classic, built first
+[[lean_lib]] name="Setlec"         extraDepTargets=["SetlecPinCerts"]
+[[lean_lib]] name="SetlecTT"       roots=["Setlec.TT"]
+[[lean_lib]] name="SetlecSetR"     roots=["Setlec.SetR"]     # ← BOTH LANES, one root
+[[lean_lib]] name="SetlecCachedV"  roots=["Setlec.Verify.Cached"]
+[[lean_lib]] name="SetlecTests"    srcDir="tests"
+[[lean_exe]] name="setlec"         root="Main"
+[[lean_exe]] name="annotate-basis" root="AnnotateBasis"
+```
+
+`Setlec/SetR.lean` is a single 200-line umbrella importing **both**
+lanes; that file alone is why nothing has forced the boundary.  Lake
+gives no cross-lib import barrier by itself, but a `lean_lib` with a
+`globs`/`roots` restriction plus a *missing* dependency edge does:
+a module in lib `X` importing a module that only lib `Y` provides
+fails to resolve.
+
+#### 3.2 Proposal — four libs, one dependency chain
+
+```
+[[lean_lib]] name="SetlecBase"   roots=["Setlec"]         # Kernel/*, Verify/* (model-free),
+                                                          # SetTheory/*, TT/*, SetBase/*
+                                                          # + the shared bridge RECORDS
+[[lean_lib]] name="SetlecR"      roots=["Setlec.SetR"]    # Rel, Sound/*, EnvS, Install/*,
+                                                          # Bridge/* proofs, Main, Main2 (2U)
+[[lean_lib]] name="SetlecP"      roots=["Setlec.SetP"]    # Annot/*, Interp2/*, FoldP, CapstoneP
+[[lean_lib]] name="SetlecCaps"   roots=["Setlec.Capstones"]  # Verify/Cached/MainC + the
+                                                             # two-lane assembly; the ONLY
+                                                             # module allowed to see both
+```
+
+with `SetlecR` and `SetlecP` each depending on `SetlecBase` and
+**neither on the other**.  A stray `import Setlec.SetR.EnvS` inside
+`Setlec/SetP/*` then fails at `lake build SetlecP` with an unresolved
+module — the anti-rot property the user asked for, mechanical and
+un-bypassable.
+
+Namespace move required: the P tree moves `Setlec.SetR.Annot.*` →
+`Setlec.SetP.Annot.*` and `Setlec.SetR.Interp2.*` → `Setlec.SetP.*`
+(the *Lean* namespaces `Setlec.SetR.Interp2` may stay, only the file
+paths and module names move, so the diff is `import` lines plus the
+umbrella).  This is a large but purely mechanical rename.
+
+Belt-and-braces (recommended in addition, because it catches the
+violation at review rather than at a full build): a `tests/layering.sh`
+grep gate in the existing test battery, in the style of the project's
+existing layering rule — `grep -rn '^import Setlec\.SetR\.' Setlec/SetP/`
+must be empty and vice versa.
+
+#### 3.3 FILES THAT MUST BE SPLIT (9)
+
+| file | lines | R part | base/P part |
+|---|---|---|---|
+| `SetR/Annot/Pass.lean` | 617 | `HasSort`/`Annotates` over `Infer`/`DefEq` (24 uses) | `natLitT`, `charListT` — canonical `VExpr` literal towers (consumed by `Annot/Canon` → `Annot/Bit`) |
+| `SetR/Install/Axiom.lean` | — | the `EnvS` axiom install | `erasePw_const_invS`, `eraseNames_const_invS`; the `Interp2.AnnotOk2` conjunct record (the sole R→P edge) |
+| `SetR/Install/BasisS.lean` | — | the six basis installs | `eqValT`, `eqReflValT`, `eqRecValT` |
+| `SetR/Install/ProjInstallS.lean` | — | `projInstallS`, `templatesS` | `ProjPhaseInvS`, `projFwd_renameOkT` |
+| `SetR/Install/ValueKinds.lean` | 277 | `declDefnS`/`declThmS`/`declOpaqueS` | `annotate_syntax` |
+| `SetR/Install/Step.lean` | — | `declStepS`'s `EnvS` half | the `EtaFamiliesClosed` half → `declEtaStep` (C4) |
+| `SetR/Bridge/Iota.lean` | — | `iota_stepR`, `piResidual_frameR` | `defEqListP_get`, `defEqListP_length`, `recFireComparands_fst_nil` |
+| `SetR/Bridge/WhnfCore.lean` | 560 | `denote_beta_stepR`, `whnf_claimsR`, … | the six `whnfCoreR_*` `rfl` lemmas (belong in `Verify/`) |
+| `SetR/DivModPin.lean` | — | `certValueS`, `dmFrameS`'s `EnvS` uses | `dmEvalV` family, `dmLeavesOk` family, `natOpTyPinned_*`, the two `substConst0` lemmas |
+
+Plus the two umbrellas: `Setlec/SetR.lean` splits three ways, and
+`Setlec/SetR/Decl.lean` (1021 lines) is **not** split — it is the
+shared record file, and `DeclRunR` is added beside `DeclR` in it.
+
+Moves (no split): `Interp2/{Interp,Kit,Ops,Value}.lean`,
+`Annot/{Syntax,Ok2}.lean` → `Setlec/SetBase/*`.
+
+### 4. THE MODE-FLAG SURFACE (spec point 4) — ENUMERATED, NOT DECIDED
+
+#### 4.1 Today
+
+`Setlec/Kernel/Env.lean:32`:
+
+```
+inductive CheckMode where
+  | setModel
+  | noModel
+  deriving DecidableEq, Repr, Inhabited
+
+def CheckMode.ttChecks : CheckMode → Bool | _ => false      -- :43, constantly false since #148 T7b
+def CheckMode.verified : CheckMode → Bool
+  | .noModel => false
+  | _ => true                                                -- :54
+```
+
+The #147 precedent (DESIGN.md §"The three-mode setting", l. 9799):
+*one three-valued mode replaces the flag zoo*; validated once in
+`parseArgs` and threaded as configuration, never re-read at runtime
+(the `directStructsEnabled` discipline); each gated site spelled
+`if mode.ttChecks then <check> else pure true`; a **config audit** in
+`tests/SetlecTests.lean` pins the compiled values, one `#guard` per
+value, each naming the theorem family that depends on it.
+
+Driver surface (`Main.lean`): `parseArgs` at `:438-451`
+(`--set-model` / `--no-model`, with explicit exit-3 pointers for the
+retired `--yolo`/`--infer-only`); `usage` at `:379-410`; dispatch at
+`:271-278` (`checkDeclSPStepNM` vs `checkDeclSPStep mode`,
+`checkDeclsSPNM` vs `checkDeclsSP mode`); the re-exec argv
+reconstruction at `:485-492`.
+
+#### 4.2 Where the R/P distinction would live — two shapes
+
+**Shape (i): a third constructor.**  `| setModelIO` with
+`verified = true` and a new accessor `CheckMode.ioGated : Bool`
+(`.setModelIO => true | _ => false`).  The io gate is then
+`mode.verified && mode.ioGated && mt.pw.isNever` inside the *shared*
+bodies.
+
+> **CONSEQUENCE THE LEAD MUST WEIGH**: `no_proof_of_Empty_R`
+> (`SetR/Main.lean:59`) is today **mode-generic** — `{μ : CheckMode}`,
+> no hypothesis.  Adding a constructor whose runs the R rules
+> premise on makes the mode-generic statement **false**.  The R
+> capstone family (10 theorems in `Main.lean`, 16 in `Main2.lean`, 2
+> in `MainC.lean`) would each gain `μ.ioGated = false`.  That is a
+> statement change to landed capstones.
+
+**Shape (ii): duplicate knots, driver-selected.**  No new constructor;
+the io lane is a *separate function* (`inferTypeCoreIO`/`coreKnotIO`,
+already landed at `Kernel/CoreIO.lean`; a `whnfCoreIO` would be added
+for the β-cert gate).  `checkDecls μ …` is byte-untouched, so **every
+R capstone stays verbatim and mode-generic**, and the P lane gains a
+second capstone over `checkDeclsIO`.  This is what B1 already did for
+`inferBodyIO` — `Kernel/Core.lean` was not edited.  The cost is a
+duplicated driver stack (the #147 `CheckerNC.lean` precedent) and a
+duplicated memo/flush discipline.
+
+Note that the parked `agent/bucket2-s1` gate takes shape (i) for the
+β-cert: it edits `Kernel/Core.lean` (+35), `CoreI.lean` (+32),
+`Cached/CoreC.lean` (+27) in place.  **Whichever shape is ruled, that
+branch must be re-based onto it.**
+
+#### 4.3 Which mode bit each capstone would name
+
+| capstone | today | after |
+|---|---|---|
+| `no_proof_of_Empty_R` + 9 siblings (`SetR/Main.lean`) | `{μ}`, no bit | shape (i): `μ.ioGated = false`; shape (ii): **unchanged** |
+| `no_proof_of_Empty_R2*` + 15 siblings (`SetR/Main2.lean`) | `{μ}` / `μ.verified` | as above |
+| `no_proof_of_Empty_SPC_R{,2}` (`Verify/Cached/MainC.lean`) | `{μ}` | as above |
+| `no_proof_of_Empty_P` (`Interp2/FoldP.lean:215`) | `hμ : μ.verified = true` | unchanged — it already covers both verified modes |
+| **`no_proof_of_Empty_SP_P`** | **DOES NOT EXIST** | must be built (finding 2) |
+
+**Finding 2, restated.**  The P capstone family has exactly **two**
+members (`no_proof_of_Empty_P`, `no_proof_of_Empty_P_of`), both over
+the pure `checkDecls`.  The **shipped** driver is `checkDeclsSP` (the
+#64 mode-4 snapshot bracket), covered only by
+`no_proof_of_Empty_SP_R` (`Main.lean:228`, via `foldSP_R` at `:166`)
+and `no_proof_of_Empty_SP_R2` (`Main2.lean:670`).  Spec point 3's "P
+capstone verifying ITS mode" therefore needs the four carrier
+transposes (`foldlM`, `C`, `S`, `SP`) plus the `input` forms — that is
+`Main.lean:71-460`'s structure re-run at the P invariant, ≈8
+theorems, and it is **new work the B1 sizing did not name**.
+
+#### 4.4 Driver/help-text surface to be ruled at design review
+(enumerated, not decided)
+
+1. flag spelling for the P-verified mode (`--set-model-io`?
+   `--p-model`? a `--gate=` selector?);
+2. the default (today `--set-model`; the io mode's prize is the
+   25–40 % bracket, so "default" is a real question);
+3. `usage` text (`Main.lean:379-410`) — one new stanza;
+4. the re-exec argv reconstruction (`Main.lean:485-492`);
+5. interaction with `--core=` (four values) and with the split driver
+   (`--install-only`/`--check-range`, which already refuse
+   `--no-model`);
+6. `tests/arena.sh`'s sweeps (today: default, then the suites again
+   per mode) — a fourth sweep, and the `no-model` divergence ledger;
+7. the `tests/SetlecTests.lean` config audit — one `#guard` per new
+   compiled value, each naming its dependent theorem family (the #147
+   vacuity guard is mandatory here: a mode bit that no capstone names
+   is exactly the failure mode it was built for).
+
+### 5. THE PAYOFF-CHECK PRECONDITIONS (spec point 5) — CONFIRMED
+
+Statement-level trace of what the P lane's rows consume **today**, and
+whether `io_domain_transfer` + the hereditary `AnnotOkP` facts cover
+it after de-basing.
+
+#### 5.1 The app row — `infer_app_claimP` (`Step2/InferP.lean:889`)
+
+Today's argument-side chain (`:977-1002`):
+
+```
+  hia : inferTypeCore μ env fuel d a = .ok tya          -- run 1 (io deletes)
+  hde : isDefEqCore μ env fuel d tya ty' = .ok true     -- run 2 (io deletes)
+  hrowaM : interp2 ρ aa ∈ˢ interp2 ρ tyaA               -- from ihi at run 1
+  hdom   : interp2 ρ tyaA = interp2 ρ Aa                -- from ihd hde  (run 2)
+  ha2    : interp2 ρ aa ∈ˢ interp2 ρ Aa                 -- ← the fact the clause needs
+  hf2    : interp2 ρ fa ∈ˢ interp2 ρ (.pi 0 (pwBit φ mb'.pw) Aa Ba)
+  sound_app V (hrowfE) (hrowaE) hf2 ha2 hcod0          -- grading + membership
+```
+
+**COVERED.**  `AnnotOk2`'s app clause (`Annot/Ok2.lean`, docstring
+l. 12-16) *is* `io_domain_transfer`'s premise package:
+
+> "the application slot carries the product kind —
+> `∃ v A B, ⟦f⟧ ∈ piR v A B ∧ ⟦a⟧ ∈ A ∧ (v = 0 → fibres are truth
+> values)` — so at a provably-positive kind the membership **pins**
+> the domain (`piR_dom_unique`, no side condition) and **the runtime
+> argument re-check becomes derivable**"
+
+and `app_mem_of_slot` (`Interp2/Skeleton.lean:182`) already proves
+"the application's membership follows from the *invariant alone*, at
+every kind".  In premise form (`AnnotOkP ea` premised, `ea = .app fa
+aa`) the gated branch gets `hf`/`ha` from the slot, `v' ≠ 0` from
+`pwBit_ne_zero_of_isNever` (**landed**, `Annot/Bit.lean:93`, audited
+`[propext]`), `hf'` from `hf2` (the head's chain, untouched by the
+gate), and concludes `ha2` by `io_domain_transfer` and the membership
+by `io_app_mem`.  `hcod0`'s hypothesis `pwBit φ mb'.pw = 0` is
+**vacuous on the gated branch** — the gate's condition is exactly its
+negation (`isNever_iff_forall_pwBit_ne_zero`, landed at
+`Annot/Bit.lean:104`).  The grading conclusion `AnnotOkP ta`
+(`ta = Ba.inst aa`) needs `hokBa … (ha2 …)` — same supply.
+
+#### 5.2 The β row — `BetaCertP` / `betaCertP_of_claims`
+(`Step2/WhnfP.lean:402,424`)
+
+Already P-native: the reduction law is `denoteP_beta`
+(`Annot/BitInst.lean`), **a theorem, not a routed residue**
+(`WhnfP.lean:22`), and the grading transports are
+`AnnotOkP_beta_pos`/`AnnotOkP_beta_zero` (`:149,:162`), both derived
+from `AnnotOk2_beta_{pos,zero}` — i.e. from the hereditary invariant.
+**No R rule is consulted, today or after.**  R4 `Red.beta` is a
+premise of `denote_beta_stepR` (`Bridge/WhnfCore.lean:139-165`), which
+lives in the **2U** lane's `Step2/Whnf.lean` and is never named by
+`WhnfP.lean`.
+
+#### 5.3 The irrel row — `Step2/IrrelP.lean`
+
+Consumes the four `inferTypeCore … = .ok` runs
+(`IrrelP.lean:44,47,69,70,111`) through `InferClaims2P`.  Under the
+io lane those runs still happen — the io grade makes them *cheaper*,
+it does not delete them — so the row's supply is unchanged; it
+consumes `InferClaimsIO2P` instead of `InferClaims2P`.  D8
+`DefEq.irrelProp`'s four `Infer` premises are the **R** rule's, in
+`Bridge/Irrel.lean`, and `IrrelP.lean` names none of them.
+
+**Net: all six of B1's "BLOCKED" rules (R4, D8, D9, D10, R12/R13, I8)
+were blocked in the R/2U lane only.  Every one has a landed P-native
+counterpart that consumes runs, or (at the gated app branch) the
+`AnnotOk2` slot.  The R4 wall is GONE for the P mode — subject to the
+de-basing, which is what removes the P fold's dependence on the R
+derivations that made the question moot.**
+
+#### 5.4 Instruments: landed vs owed
+
+| instrument | state |
+|---|---|
+| `pwBit_ne_zero_of_isNever`, `isNever_iff_forall_pwBit_ne_zero` | **landed on master** (`Annot/Bit.lean:93,104`) |
+| `piR_dom_unique` | **landed** (`Interp2/Kit.lean:256`, used at `IndFireP.lean:347`) |
+| `io_domain_transfer`, `io_app_mem` | **PARKED, proved, 17 lines** — `_tmp/inferonly-study/ProbeIO.lean:56-72`; re-land beside `Interp2/Ops.lean` |
+| `io_squash_no_transfer` (the wall) | parked, same file `:84` — the permanent countermodel |
+| the io knot | **landed** — `Kernel/CoreIO.lean`, `Verify/InferIOLemmas.lean`, `Claims2PIO.lean`, `Step2/InferIOP.lean` (5 of 11 arms) |
+| the β-cert gate + its verify-side re-proofs | **PARKED** — `agent/bucket2-s1` @ `139b68db`, 852 insertions across `Kernel/{Core,CoreI,Expr,ArenaWF}`, `Cached/CoreC`, `Verify/{BetaSpine,Deep,Disc,DiscI4,InferLemmas,Cached/DiscC4}`, `Annot/{Bit,SortCoh/*}` |
+| `infer_app_claimIOP` (the app arm) | **owed** — B2's item |
+| the remaining 6 io arms (`.lam`, `.letE`, `.proj`, 2 literal, `.app`) | owed |
+| `sortSemAtIOP_of_claims` (needs the io reads walk) | owed — B3's named risk class |
+| **`no_proof_of_Empty_SP_P` and the P carrier family** | **owed, and previously unnamed** (finding 2) |
+
+### 6. RISKS, RESIDUE ORDER, BATCH ESTIMATE
+
+#### 6.1 The residue, risk-ordered
+
+| rank | item | risk | why |
+|---|---|---|---|
+| 1 | **the P carrier capstone family** (finding 2) | **HIGH** — scope, not difficulty | 8 theorems + 4 fold transposes that no prior sizing named; without them the P mode has no statement about the shipped driver, and the campaign's deliverable is a theorem about a function the checker does not run |
+| 2 | **`DeclRunR` + `checkDeclRun_sound`** (C3) | MEDIUM-HIGH | the one genuinely new artifact; the record split is statement-sensitive (the records are *shared*, so the R lane must keep proving `DeclR` and project); positional destructuring in 11 P files must be re-indexed |
+| 3 | the mode-bit shape (i) vs (ii) (§4.2) | MEDIUM | shape (i) changes **28 landed capstone statements**; shape (ii) duplicates a driver stack.  Statement-sensitive → the lead's |
+| 4 | `Annot/Pass.lean`'s split (edge 14) | MEDIUM | the P lane's `denoteP` foundation currently imports the R relations for two data definitions; the split is easy but touches `Annot/{Canon,Bit,EnvS2,Validity,Kinding}` and the `SortCoh` pilot |
+| 5 | `acval_empty_pinned` (§1.5) | LOW-MEDIUM | statement-touching (capstone key), but strictly simpler than what it replaces |
+| 6 | the 47 install-site premise re-shapes (C2) | LOW, but WIDE | `BasisBlocksP`/`BasisQuotP`/`BasisPSigmaP`/`BasisEqP` are 1500–2500-line files with 3–7 sites each; mechanical, high build-cycle cost |
+| 7 | the 411 field-read renames (C1) | LOW | a `sed` per field plus six new carrier fields and their two `toCore` instances |
+| 8 | the namespace/lakefile move (§3.2) | LOW, MECHANICAL, LARGE | ~200 P modules change module name; must land as one batch or the tree is unbuildable mid-way |
+| 9 | the 2U lane assignment (finding 1) | LOW once ruled | the recommendation costs nothing; the alternative (de-basing 2U too) roughly doubles the campaign |
+
+#### 6.2 No feasibility stop
+
+The charter asked for a STOP-AND-NAME if any fact the P lane consumes
+is **inherently collapsed-model**.  The hunt was run three ways — the
+field census (§1.2), the R-relation scan (§1.4), and the crossing-edge
+symbol audit (§2.2) — and found **none**.  The three candidates that
+looked like they might be, and what they turned out to be:
+
+* `EnvS.wf` (225 sites, the largest single consumer) — `EnvWF`, a
+  **syntactic** predicate in the shared model-free base;
+* `EnvS.cval` (135 sites) — recoverable as `erase ∘ acval`, a **total
+  syntactic function** the carrier already owns via `acval_erase`;
+* `checkDeclR_sound` (the B1 wall itself) — needs `EnvS` only for the
+  record's **derivation** conjuncts, which `HarvestP` binds and never
+  uses.
+
+The one thing that *would* be a stop — a P claim whose conclusion
+quantifies over `Infer`/`DefEq` — does not occur: **zero** such uses
+in the P quarters, rows, installs and harvests.
+
+#### 6.3 Batch estimate
+
+Against the campaign's measured P-quarter rate (900–1250 lines/batch):
+
+| stage | content | batches |
+|---|---|---|
+| S1 | shared-base extraction: move the 6 mis-filed semantic modules; split out the model-free halves of the 9 files in §3.3; move `frame_open2`, `interp2C_trans`, `natLit_facts2`, the six `whnfCoreR_*`, the three `Bridge/Iota` lemmas, `annotate_syntax`, `cvalModeled`, the `dmEvalV` family | 2 |
+| S2 | `EnvS2Core` surgery: six new fields + `cvalE`; the two `toCore` instances; the 411 field-read renames | 2 |
+| S3 | the 47 install sites + the ≈20 `*_cons` premise re-shapes | 3–4 |
+| S4 | `DeclRunR`, `checkDeclRun_sound`, `DeclR.toRun`, `declEtaStep`; re-point the 11 destructuring files | 3–4 |
+| S5 | sever the last edges; drop `base` from `EnvS2Core`; the P umbrella; lakefile lib split + the layering gate | 2 |
+| S6 | the P carrier capstone family (finding 2) + the mode bit + config audit + arena sweeps | 2–3 |
+| S7 | **the payoff check**: re-base `agent/bucket2-s1`'s gate onto the ruled mode shape, re-land `io_domain_transfer`/`io_app_mem`, `infer_app_claimIOP`, measure net vs the −8.09 %/−17.20 % gross | 2–3 |
+| | **total** | **13–18** |
+
+S1–S5 are the separation proper (12–15 batches, no measurement);
+S6–S7 are spec points 3–5.  S1 and S5 must each land atomically
+(mid-batch the tree does not build); S2/S3/S7 are the natural serial
+Opus lanes.
+
+#### 6.4 What this seal does NOT decide
+
+Statement-sensitive, returned to the lead: the 2U lane's assignment
+(finding 1); the P carrier capstone family's scope (finding 2); the
+mode-bit shape (i)/(ii) and every item in §4.4; `acval_empty_pinned`
+as a carrier field; the `DeclRunR` record's exact conjunct list; and
+whether `Verify/Denote/*` is base (this seal's reading) or R.
+
+**Battery**: none run — no file under `Setlec/` was edited; this seal
+is a DESIGN.md append only.  All counts are reproducible from the
+scripts in `_tmp/sep-design/` (`graph.py`, `cross.py`, `cross2.py`,
+`syms.py`, `uses.py`, `rel.py`, `basecount.py`, `lines.py`,
+`path.py`).
+
+## Task #161 THE SEPARATION — design review RULED (2026-09-03;
+coordinator, all four)
+
+1. **Spec extension, ratified**: "everything EnvS-containing lives
+   in R" — the 2U/denote2 lane moves WHOLE; the P re-supply bill is
+   the censused 458.
+2. **Mode shape (ii) ratified** (the frozen-statements discipline
+   decides alone; 28 statements verbatim).  FLAG SURFACE, ruled:
+   bare `--set-model` = alias for `--set-model=r` (no default
+   change); `--set-model=p` opt-in until S8/S9 validate, the default
+   flip its own decision (core-flip precedent).  Help text ruled:
+   "--set-model=r — verified (collapsed model, full certificates;
+   default)"; "--set-model=p — verified (graded model, io-gated
+   internals)"; "--no-model — official-parity configuration,
+   unverified" (citing the canonical-table audit so the parity claim
+   is discoverable); `--core` documented beside as orthogonal.
+3. **The SP_P batch approved** as named, risk-rank 1.  LEDGER
+   (claims family): **a spec point is a claim** — spec point 3's
+   "re-assembled" was under-sized; the census caught it (~8 theorems
+   to build, not re-assemble).
+4. sep-design merged.
+
+S1 DISPATCHED on this ruling; the batch plan as written; campaign
+cadence in full; 13–18 batches the honest bill.
+
+## Task #161 THE SEPARATION — S1 SEALED (2026-09-03, `agent/sep-s1`,
+unpushed): base extraction, the lib targets, and THE LAYERING GATE
+
+**THE HEADLINE.** The shared base exists as a directory
+(`Setlec/SetBase/*`, 11 modules), the boundary is *measured* rather
+than asserted, and it is enforced from now on by `tests/layering.sh`
+inside the standard battery.  Crossings: **31 → 26**, the single R→P
+edge is **dead**, and every surviving crossing is on a whitelist that
+names the batch that removes it.  No statement was edited: the moves
+kept their Lean namespaces, so every frozen name is verbatim and no
+consumer outside `import` lines was touched.  The checker's executable
+sources are byte-identical to master — literally: the shipped binary
+has the same md5 as master's.
+
+### 1. THE LIB LAYOUT AS LANDED
+
+```
+[[lean_lib]] SetlecBase  roots = ["Setlec", "Setlec.TT", "Setlec.SetBase"]
+[[lean_lib]] SetlecR     roots = ["Setlec.SetR"]      # both lanes, until the P path move
+[[lean_lib]] SetlecCaps  roots = ["Setlec.Verify.Cached"]
+[[lean_lib]] SetlecPinCerts / SetlecTests; exes setlec, annotate-basis
+defaultTargets = ["SetlecBase", "SetlecR", "SetlecCaps", "setlec"]
+```
+
+`SetlecTT` folded into `SetlecBase` (the ruled diagram puts `TT/*` in
+the base); `SetlecCachedV` renamed `SetlecCaps` (the two-lane assembly
+tier).  **`SetlecP` is NOT a target yet** and cannot be: the P lane
+still lives at `Setlec/SetR/{Annot,Interp2}/*`.  Creating it needs the
+~115-module path move to `Setlec/SetP/*`, which S2–S5 should do when
+the 2U tier stays behind (finding: the move must NOT be "Interp2 →
+SetP" wholesale — the 2U tier is interleaved in the same directories).
+
+**FINDING — "cross-import = build error" is FALSE for Lake libs.**  The
+census (§3.1/§3.2) proposed the lib split as the fence: "a module in
+lib X importing a module that only lib Y provides fails to resolve".
+Lake does not work that way: import resolution is per **package**, so
+any module of the `setlec` package may import any other regardless of
+which `lean_lib` roots it.  The tree proves it today — `Setlec.SetR.*`
+imports `Setlec.Kernel.*` across exactly such a boundary and always
+has.  A hard build error would need the lanes to become separate Lake
+*packages* (`require … from "…"`), i.e. sub-directory packages with
+their own lakefiles — a real option, priced at "every module moves and
+the P tree may not import R at all", so it is only available AFTER the
+de-basing lands.  **Until then the lib split is the layout and
+`tests/layering.sh` is the fence.**  Recorded here because spec point 1
+says "ENFORCED BY THE BUILD"; the honest form of that is the gate in
+the battery, plus the packages option in the succession.
+
+### 2. THE RE-BASINGS (`Setlec/SetBase/*`)
+
+Moves (paths and module names only; the Lean namespaces
+`Setlec.SetR{,.Interp2}` are unchanged, so no statement moved):
+
+| new module | from | what |
+|---|---|---|
+| `SetBase/Ops` | `Interp2/Ops` | `piR`, `lamC`, `app`, `piR_dom_unique` |
+| `SetBase/Value` | `Interp2/Value` | the graded value tower |
+| `SetBase/Syntax` | `Annot/Syntax` | `AVExpr`, `AVExpr.erase` |
+| `SetBase/Interp` | `Interp2/Interp` | `interp`, `interp2` |
+| `SetBase/Kit` | `Interp2/Kit` | the membership kit |
+| `SetBase/Ok2` | `Annot/Ok2` | `AnnotOk2` |
+
+Splits (the model-free half out; the R lane imports it back, nothing
+duplicated):
+
+| new module | from | what | census |
+|---|---|---|---|
+| `SetBase/DefEqList` | `Bridge/Iota` | `recFireComparands_fst_nil`, `defEqListP_get`, `defEqListP_length` | edge 13 |
+| `SetBase/EqTower` | `Install/BasisS` | `eqValT`, `eqReflValT`, `eqRecValT` | edge 5 |
+| `SetBase/EraseInv` | `Install/Axiom` | `eraseNames_const_invS`, `erasePw_const_invS` | edge 6 |
+| `SetBase/ProjPhase` | `Install/ProjInstallS` | `ProjPhaseInvS`, `projFwd_renameOkT` | edge 10 |
+| `SetBase/DivModEval` | `SetR/DivModPin` | the 17 symbols `DivModCertP` consumes (`dmEvalV` + 3 `rfl` lemmas, `dmLeavesOk` + 3, `dmApplied{1,2}_frame`, `dm{Fvar,App}_wscoped`, `divModCertApplied_mem{1,2}`, `natOpTyPinned_{binary,unary}E`, `natOpCod_ble`, the two `substConst0` invariances) | edge 11 |
+
+**The single R→P edge is dead.**  `Install/Axiom.lean` imported
+`Annot/Ok2` to state `AnnotOk2` conjuncts for the P consumer; `Ok2` is
+base now, and the gate reports **0 R→P edges** with no whitelist.
+
+### 3. THE GATE — `tests/layering.sh`, wired into `tests/arena.sh`
+
+Classification: **path first** (`Setlec/SetBase/*` = base,
+`Setlec/SetP/*` = P — the campaign's target state, so the gate needs no
+maintenance once the path move lands), then, for what still sits under
+`Setlec/SetR/`, the **lane roots' closures**: `P = closure(ROOTS_P) \
+closure(ROOTS_R)`, `R = closure(ROOTS_R)`, a module both lanes need
+counts **R** (the ruling, read conservatively), and a module in neither
+closure is `neutral` — *checked to import no lane content*, otherwise
+the gate names it and demands a root-list assignment.  `ROOTS_P` =
+`FoldP` + the parked P tops (`Claims2PIO`, `IndPinProbeP`,
+`Step2/InferIOP` — the io lane is the P mode's own future, so it must
+be gated); `ROOTS_R` = `Main`, `Main2`, the 2U tier's own capstones
+(`Interp2/Capstone{,2C,2D,2E}` — which `Main2` does NOT import and
+which are what pull `Step2/InferQ` and its closure into R, per the 2U
+ruling) and the R-facing refutations/probes.
+
+It fails on: a P→R edge not on the whitelist; a whitelist entry whose
+edge is **gone** (stale ledger — the whitelist may only shrink, and a
+batch that kills an edge MUST delete its line); any R→P edge; a base
+module importing a lane; an implementation module importing theory (the
+CLAUDE.md rule, generalised into the same gate); an unclassified module
+importing lane content.  `--list` prints the current edges in whitelist
+syntax.  Today: `base 205 / R 142 / P 115 / neutral 3 modules; 26 P->R
+edges, all whitelisted; 0 R->P`.
+
+**The crossing count, honestly.**  The census reported **21** P→R
+edges; that count was taken with the 2U/`denote2` tier on the **P**
+side.  The design review then ruled the 2U lane goes to R WHOLE, which
+turns every P-quarter dependence on it into a crossing.  Measured with
+the gate: **master = 31**, after the six-module re-basing **30**, after
+the five splits **26**.  The whitelist's own tags reconcile it: 15
+edges are 2U (all S2), 3 are the de-basing proper (S3–S5, S7), 6 are
+the v1 install round trip (S3/S4), 2 are the bridge (S4).
+
+### 4. TWO FINDINGS AGAINST THE CENSUS (restrictions-are-findings)
+
+1. **Census row 4 is refuted.**  "`Interp2/AxiomBitsP → SetR/StdAxiomKey`
+   — nothing crosses, 0 symbols matched, dead import, delete" is true of
+   `AxiomBitsP`'s own body and false of the tree: deleting the import
+   broke `AxiomMemP` (`iff_shapes`/`nonempty_shapes`, actually
+   `Verify/StdAxiomPin` — base) and `AxiomPinP`
+   (`propextKeyS_mem`/`choiceKeyS_mem` — genuinely `SetR/StdAxiomKey`).
+   The same happened at `BasisEmptyP` (`extendEmptyS`, reached through
+   `EqTowerP`'s import of `Install/BasisS`).  Both are DIRECT imports
+   now: one base, two whitelisted crossings.  **S1 therefore converts
+   hidden transitive dependence into explicit edges** — the whitelist
+   is longer than a naive reading of the census and it is the honest
+   number.  Every later batch should expect the same: severing a
+   "single symbol" edge can expose a downstream consumer that was
+   riding on it.
+2. **Census row 11 is cheaper than sized.**  `DivModCertP` was listed
+   as consuming `dmFrameS` (an `EnvS`-taking lemma), which would have
+   made the edge a de-basing item.  With comments stripped its real
+   bill is 17 model-free symbols — `dmFrameS`, `dmCertEq{1,2}`,
+   `dmClause1S`, `certValueS` occur in **docstrings only**.  The edge
+   died in S1.
+
+### 5. SPLITS DEFERRED, WITH REASONS
+
+* `Annot/Pass.lean` (census edge 14, `natLitT`/`charListT` out of the
+  `HasSort`/`Annotates` half) — **deferred to S2**.  It does not sever
+  a crossing today: `Annot/Canon` is base-destined but stays
+  R-classified until it is itself re-based, so `Annot/Bit → Annot/Canon`
+  survives the split.  Doing both together (split `Pass`, re-base
+  `Canon`) is one clean S2 unit, and it is the unit that touches the
+  `SortCoh` pilot.
+* `Bridge/WhnfCore.lean`'s six `whnfCoreR_*` `rfl` lemmas — **deferred
+  to S2**.  Their consumer `Step2/Whnf` is 2U, i.e. **R** since the
+  ruling, so the move has zero boundary effect now; it belongs with the
+  2U work (and, as the census says, they belong in `Verify/*`).
+* `Install/ValueKinds.lean`'s `annotate_syntax` — **deferred to S4**.
+  The census filed it as a P consumption; the tree says otherwise —
+  its only callers are `Install/{Axiom,IndMembersS,ValueKinds}` and
+  `DivModPin`, all R.  `HarvestP`'s edge is the base builders alone,
+  which is S4's de-basing.
+* `Install/Step.lean`'s `declEtaStep` (census C4) — **S4 by plan**: it
+  is a ~60-line new theorem, not a move.
+* `SetR/Decl.lean` → base (the layering diagram's "bridge RECORDS") —
+  **not possible before S4**: `DeclR`'s derivation conjuncts name
+  `Infer`/`DefEq`, so the file cannot leave the R lane until
+  `DeclRunR` exists.  This is the diagram's one item S1 could not
+  deliver, and it is exactly the census's C3 artifact.
+
+### 6. BATTERY (verbatim)
+
+* `lake build` — clean, warning-free (full rebuild after the re-basing:
+  511 jobs, 3m10s).
+* `lake test` — exit 0.
+* `tests/layering.sh` — `layering: base 205 / R 142 / P 115 / neutral 3
+  modules; 26 P->R edges, all whitelisted; 0 R->P`, exit 0.
+* `tests/arena.sh` — exit 0, with the gate as its first line:
+
+  ```
+  layering: base 205 / R 142 / P 115 / neutral 3 modules; 26 P->R edges, all whitelisted; 0 R->P
+  arena tutorial: 90/92 good tests accepted
+  e2e: 73/73 as expected
+  annot suite: 14/14 as expected
+  split driver: 11/11 as expected
+  mode flags: 9/9 as expected
+  no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+  ```
+* Axiom audit, 11 capstones — `no_proof_of_Empty_P`,
+  `no_proof_of_Empty_P_of`, `no_proof_of_Empty_{,_input_}{R,SP_R}`,
+  `no_proof_of_Empty_{R2,SP_R2,R2M,SP_R2M}`,
+  `Cached.no_proof_of_Empty_SPC_R{,2}` — every one
+  `[propext, Classical.choice, Quot.sound]`, unchanged.
+* Byte-identity: `git diff master -- Setlec/Kernel Main.lean
+  Setlec/Cached Setlec/Frontend AnnotateBasis.lean Setlec/PinGen*` is
+  **empty**, and `.lake/build/bin/setlec` has the same md5 as master's
+  binary (`764d7d28…`).  init-prelude
+  (`_tmp/perfcmp/init-prelude.preprocessed.ndjson`) accepted in all
+  four configurations — `--set-model`/`--no-model` ×
+  `--core=production`/`--core=cached-parsed` — exit 0 with identical
+  output digests.
+
+### 7. SUCCESSION — where S2 starts
+
+S2 = **the 2U/R move**, and the gate hands it its work order: the
+**15 S2-tagged whitelist lines** are exactly the P quarters' bill.
+Concretely, in the census's own sizing: `frame_open2`
+(`Step2/InferQ:1089`, 18 lines) and `interp2C_trans`
+(`Step2/Whnf:2025`, 8 lines) to the base sever 11 352 lines of 2U in
+two edits; then `natLit_facts2` (`Step2/Lit`), the `denote2_*` family
+(`Keys2Cond`, `Denote2Closed`, `Denote2Extend`, `Install2`,
+`EmptyPin2`), `Claims2E`, `BasisOk`, `Step2/Levels`; and the
+`Annot/Pass` split + `Annot/Canon`'s re-basing as the one unit that
+touches the `SortCoh` pilot.  Each edge removed = one whitelist line
+deleted (the gate FAILS on a stale entry, so the ledger cannot rot in
+either direction).  When the 15 are gone, the P-only set is
+path-movable and S2's successor can create `Setlec/SetP/*` and the
+`SetlecP` lib target — at which point the gate's closure rule falls
+away and the path rule alone carries it.
+
+Kit: `tests/layering.sh --list`; the S1 audit file
+`_tmp/sep-s1/Audit.lean`.
+
+## Task #161 SEPARATION — measurement-framing relay (2026-09-03;
+coordinator, from the engineering-overhead final report on
+agent/perf-eng, landing separately)
+
+For S8/S9's framing (binding): quote the P mode's savings against
+the AMENDED baselines — the perf landings will move them; coordinate
+SHAs with the perf agent's landing.  The R1 memo/alloc round runs in
+PARALLEL with this campaign: machine-solo coordination for heavy
+legs (stamped lock, liveness check) applies as usual.
+
+Context numbers (the honest preprocessed-both-sides gap): official
+1.8–7.7× (cached lane) / 3.7–13.2× (interned), cores SPLITTING by
+stream shape (cached wins term-heavy, interned wins decl-heavy);
+lean4lean ≈ C++ official at 1.0–2.0× on this machine — the gap is
+the hash-consing-everything architecture, not Lean; dominant bucket
+everywhere = term-walk allocation/RC + per-walk DHashMap memo
+traffic (68–97%).  Useful for S-batches: the knot bucket is fixed
+via Thunk-caching with ZERO proof adaptation (the Thunk.get
+definitional trick); the frontend byte parser landed −5.2%
+proof-free.
+
+## Task #161 follow-up 2: THE ENGINEERING-OVERHEAD ATTRIBUTION (2026-09-03, agent/perf-eng)
+
+The canonical tax table separated the verification tax (0.98×–2.04×)
+from the engineering gap (`--no-model` vs official, 3.9×–13.2× on the
+raw pipeline).  This session attributed that gap, controlled it against
+a second Lean-language kernel, and measured seven candidate fixes.
+Method: `perf stat -e instructions:u` median-of-3, `ulimit -v 40G`,
+`nice 5`, `SETLEC_SUPERVISED=1`; profiles `perf record` instructions:u,
+symbol-bucketed; kit and raw TSVs in `_tmp/perf-eng/`.
+
+### P1 — the open-recursion hypothesis: real at the IR level, minor in cost
+
+The compiled C (`.lake/build/ir/Setlec/Kernel/CoreNC.c`) confirmed the
+suspicion literally: every cache-missing recursive call re-evaluated
+`coreKnot* fe fuel`, allocating 11 closures + 1 record = **12 heap
+allocations per call**, and every recursive call dispatches through
+generic `lean_apply_*`.  No `@[inline]`/`@[specialize]` existed on
+knots or bodies — and `@[specialize]` is *structurally inapplicable*: a
+record of runtime closures is not a higher-order argument, so the
+compiler can never turn the knot into direct calls.  But perf pinned
+the entire knot/dispatch bucket at **0.01 %–4.1 %** of the run
+(2.9/2.6/0.08/0.01 % np on init-prelude/grind/beta/app-lam; 3.8/4.1 %
+nc on decl-heavy).  The fix that captures most of it is E1/E6/E7 below;
+a hand-tied direct-mutual core's residual ceiling is ≲1 % and was
+declined on that arithmetic.
+
+### P2 — attribution (share of run, incl. preprocessor child)
+
+`--no-model` prod (np): arena/EStore + memo-HashMaps 26/36/57/62 %
+(init-prelude/grind/beta-ladder/app-lam), allocator 19–25 %, RC
+13–15 %, preprocessor child 23/12/1/0.3 %, `Lean.Json` frontend
+7.3/4.6/0.2/0.1 %, core bodies+levels 4.3/6.6/0.05/0.03 %,
+knot/dispatch as above, fuel arithmetic unmeasurable (< 0.05 %).
+
+`--no-model` cached (nc): ExprC walks + per-walk memo-HashMaps
+31/33/49/49 %, allocator 21–25 %, RC 16–22 %, preprocessor
+15/9/2/0.5 %, parser 4.7/3.0/0.3/0.2 %, knot 3.8/4.1/0.05/0.04 %.
+Top symbols: `ExprC.instantiateRevGo`/`instantiateListGo`, the
+`Std.DHashMap` insert/get/expand at the walk-memo spec sites,
+`ExprC.beqB` (5.3 % on prelude); interned side `EStore.internT/internP`
++ `ENode` hashing.  **Allocation/RC churn plus per-walk hash-map memo
+traffic is 68–97 % of every `--no-model` run.**
+
+### P3 — the language control: lean4lean ≈ official
+
+lean4lean (arena2 checkout @ ecb3b66, `--import`, same raw ndjson;
+numbers include its COUNT instrumentation, so upper bounds):
+beta-ladder 1.00×, app-lam 1.01×, let-ladder 1.01×, init-prelude
+1.42×, grind-ring-5 1.97× of official — a Lean kernel with direct
+recursion, pointer-equality `Expr`s and runtime-cached hashes MATCHES
+the C++ kernel.  "Written in Lean" is not the gap; the architecture is.
+(Caveats: it checks fewer decls — 1774 vs 2056 on init-prelude, Quot
+records erased — and still rejects preprocessed streams at
+`PSigma'.fst` "invalid projection", the known divergence, so the
+control stays raw-only.)
+
+### THE HONEST GAP — preprocessed both sides (user directive)
+
+Official v4.33.0 ingests the preprocessed streams (raw-vs-pre penalty:
++77 % init-prelude, +2.3 % init-full) and the decl counts nearly close
+(60060 vs 61048 on init-full).  Same stream, both kernels, no spawn:
+
+| stream | official | np `--pre` | nc `--pre` |
+|---|---|---|---|
+| init-prelude | 3.914 G | 15.967 (4.08×) | 27.572 (7.04×) |
+| grind-ring-5 | 15.733 | 70.097 (4.46×) | 97.273 (6.18×) |
+| app-lam | 29.451 | 388.404 (13.19×) | 226.906 (7.70×) |
+| beta-ladder | 10.149 | 80.742 (7.96×) | 44.508 (4.39×) |
+| let-ladder | 6.145 | 22.831 (3.72×) | 10.882 (1.77×) |
+| init-full | 412.918 | 1667.930 (4.04×) | 2849.035 (6.90×) |
+
+The cores SPLIT by stream shape: cached wins term-heavy (app-lam 7.7×
+vs 13.2×), interned wins decl-heavy (4.0–4.5× vs 6.2–7.0× — the walk
+memos are cheap indices there).  A per-stream core choice would take
+the min of both columns.
+
+### The seven experiments (all measured, all verdict-identical)
+
+| exp | what | where | measured (instructions) |
+|---|---|---|---|
+| E1 | Thunk-cache the previous fuel level in `coreKnotNC`/`coreKnotFNC` (record built once per level reached, not per call) | `Setlec/Kernel/CoreNC.lean` | np: −0.2/−2.2/−2.5 % (prelude/grind/beta) |
+| E2 | `@[inline]` memo twins (`memoEINC`/`memoBINC`) so the probe compiles into the field closure | `Setlec/Kernel/CoreNC.lean` | np: −1.5/−1.1/−0.0 % |
+| E4 | inferFC-first infer memo — **dropped**: master's `memoEIO` (agent/memoshare, task #161 follow-up 1) is the same restoration, ratified; this landing wires `memoEIO` over the thunked knot | superseded | (master measured −1.79/−1.09/−0.95 %) |
+| E5 | byte-level frontend fast path for `{"ie":…}` app/lam/forallE/const/bvar/sort/letE and `{"in":…,"str":…}` (97 % of preprocessed init-prelude lines), fallback to `Lean.Json` on any mismatch | `Setlec/Frontend/Export.lean` | np prelude −5.2 %; nc prelude −3.3 %; nc grind −2.2 % |
+| E6 | Thunk-cache the **cached certified** knot | `Setlec/Cached/CoreC.lean` | nc: −2.4/−2.5/−0.0 % |
+| E7 | Thunk-cache the **interned certified** knot | `Setlec/Kernel/CoreI.lean` | sp: −2.3/−2.4/−1.7 % |
+
+**THE THUNK.GET DEFINITIONAL FINDING (load-bearing for the R1 round):**
+`Thunk.get ⟨fun _ => x⟩` is definitionally `x`, so Thunk-caching the
+knots changed NO proof: the full build (511 jobs) — including all 207
+`Verify`/`SetR` references to `coreKnotI` and 194 in `Verify/Cached` —
+is green without touching a single proof line.  Both "proof-adaptation
+bills" measured ZERO.  Cumulative branch effect: np init-prelude
+−8.1 %, nc init-prelude −6.0 %, nc grind −4.7 %, sp init-prelude
+−5.4 %, sp grind −4.3 %.  Verdict identity: every A/B row same
+exit/accept counts; arena suite (incl. no-model sweep) green at every
+measured variant; `lake test` green.
+
+### THE ARCHITECTURAL FLOOR (recorded verbatim per coordinator disposition)
+
+Beyond the landed fixes, the only bucket that can move the remaining
+multiple is R1: allocation/RC churn + per-walk DHashMap memo traffic in
+the term walks — pack/flatten walk-memo keys (tuple keys alloc per
+probe), Array-backed per-walk memos, cut node-rebuild allocs.  Est.
+20–40 % on term-heavy rows; ExprC/CoreC shapes are SimC-constrained so
+structural changes carry a real (but, per the thunk precedent,
+sometimes zero) proof bill.  Beyond that, the architecture itself
+(hash-cons/memo-key every intermediate of every substitution — what
+official and lean4lean simply don't do) is the floor; the NbE-pilot
+successor note stands.
+
+Dispositions (coordinator, 2026-09-03): E1/E2/E5/E6/E7 landing granted
+(this merge); E4 dropped for master's memoshare; R1 approved as the
+next scoped campaign (per-experiment A/B, SimC proof bill flagged each
+time, statement-freeze cadence when nonzero); E5's extension to decl
+records folds into R1; preprocessor floor out of kernel scope.

@@ -808,25 +808,35 @@ own closure (no generic `lean_apply` through a `memoEI` closure). -/
         set' st (mp.insert e r)
       pure r
 
-/-- perf-eng E4 (the taxtable's flagged follow-up): infer memo with a
-second, read-only probe of the checking-mode memo `inferFC` — serving
-a checking-mode-derived type to an infer-only query is the safe
-direction (#134's `memoEIO` did this; #147 dropped it, leaving the
-parity lane to compute every checked subterm's type twice).  Writes
-still go to `inferC` only. -/
-@[inline] private def memoInferNC (f : Nat → EIdx → CheckIM EIdx) :
-    Nat → EIdx → CheckIM EIdx :=
+/-- The infer-only inference memo with the **one-directional share**
+from the checking-mode front-door memo (task #134's `memoEIO`, dropped
+by #147's consolidation, restored at task #161 follow-up 1).
+
+Reads `inferFC` first, then `inferC`; writes **only** `inferC`.  The
+direction is the sound one: a checking-mode inference and an infer-only
+inference of the same node compute the same type, but the former also
+*validated* the arguments, so serving it to an infer-only query loses
+nothing.  The converse share would serve an unvalidated type to a
+checking-mode query and must never be added — the front door
+(`coreKnotFNC.infer`) stays a plain `memoEI (·.inferFC)`.
+
+Lifetimes coincide: `checkDeclSPStepNM` clears `inferC` (via `flushS`)
+and `inferFC` (via `flushInferFC`) back to back at every declaration
+boundary, and the value phase's `flushInferFC` precedes the snapshot
+close that may truncate the arena, so no `inferFC` entry outlives the
+index space `inferC` is keyed in. -/
+def memoEIO (f : Nat → EIdx → CheckIM EIdx) : Nat → EIdx → CheckIM EIdx :=
   fun d e => do
-    let st0 ← get
-    match st0.inferC[e]? with
+    let st ← get
+    match st.inferFC[e]? with
     | some r => pure r
     | none =>
-      match st0.inferFC[e]? with
+      match st.inferC[e]? with
       | some r => pure r
       | none =>
         let r ← f d e
         modify fun st =>
-            let mp := st.inferC
+          let mp := st.inferC
           let st := { st with inferC := ∅ }
           { st with inferC := mp.insert e r }
         pure r
@@ -867,7 +877,7 @@ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
         (fun d e => whnfCoreBodyNC prev.get fe d e)
       whnf := memoEINC (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI prev.get fe d e)
-      infer := memoInferNC (fun d e => inferBodyNC prev.get fe d e)
+      infer := memoEIO (fun d e => inferBodyNC prev.get fe d e)
       defeq := memoBINC
         (fun d a b => defeqBodyNC prev.get fe d a b)
       annotate := memoEINC (·.annotC) (fun st mp => { st with annotC := mp })

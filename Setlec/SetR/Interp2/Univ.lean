@@ -1,4 +1,4 @@
-import Setlec.SetR.Interp2.Kit
+import Setlec.SetBase.Kit
 
 /-!
 # The universe question, in the `pt`-free world (task #151, tier B)

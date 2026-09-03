@@ -1,4 +1,4 @@
-import Setlec.SetR.Interp2.Kit
+import Setlec.SetBase.Kit
 import Setlec.SetTheory.Derive.Sigma
 
 /-!

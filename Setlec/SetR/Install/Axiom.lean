@@ -1,5 +1,6 @@
 import Setlec.SetR.Install.ValueKinds
-import Setlec.SetR.Annot.Ok2
+import Setlec.SetBase.EraseInv
+import Setlec.SetBase.Ok2
 import Setlec.Verify.OfReducePin
 import Setlec.Verify.Denote.Inst
 
@@ -82,23 +83,6 @@ theorem annotLeaf2_prf (V : Type w) [SetTheory V] :
   ⟨fun _ => .prf, fun _ => rfl, fun _ _ => by simp⟩
 
 /-! ## Small [set] helpers -/
-
-/-- `eraseNames` fixes a bare constant (local twin of the TT lane's
-`eraseNames_const_inv`). -/
-theorem eraseNames_const_invS {e : Expr} {n : Name} {us : List Level}
-    (h : e.eraseNames = .const n us) : e = .const n us := by
-  cases e <;> simp only [Expr.eraseNames] at h <;> first
-    | exact h
-    | exact nomatch h
-
-/-- `erasePw` fixes a constant (task #161 P5: `matchesPin` compares
-through `Expr.erasePw` as well, so a pinned-shape inversion has to see
-through both erasures).  Head inversion, as above. -/
-theorem erasePw_const_invS {e : Expr} {n : Name} {us : List Level}
-    (h : e.erasePw = .const n us) : e = .const n us := by
-  cases e <;> simp only [Expr.erasePw] at h <;> first
-    | exact h
-    | exact nomatch h
 
 /-- `stdAxiomOk` accepts only the two standard axioms' names (local
 twin of the TT lane's `stdAxiomOk_name`). -/

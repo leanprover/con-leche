@@ -1,5 +1,5 @@
-import Setlec.SetR.Annot.Syntax
-import Setlec.SetR.Interp2.Value
+import Setlec.SetBase.Syntax
+import Setlec.SetBase.Value
 
 /-!
 # `interp2` — the collapse-free two-regime interpretation (task #151, tier B)

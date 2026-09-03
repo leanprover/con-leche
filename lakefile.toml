@@ -1,6 +1,36 @@
 name = "setlec"
-defaultTargets = ["Setlec", "SetlecTT", "SetlecSetR", "SetlecCachedV", "setlec"]
+defaultTargets = ["SetlecBase", "SetlecR", "SetlecCaps", "setlec"]
 testDriver = "SetlecTests"
+
+# THE SEPARATION (task #161) — the ruled four-lib layout, staged.
+#
+#             SetlecBase
+#   Kernel/* · model-free Verify/* · SetTheory/* · TT/*
+#   SetBase/* (the lane-neutral semantic primitives)
+#        ↑                      ↑
+#    SetlecR                SetlecP
+#   EnvS · Sound/* ·       de-based EnvS2Core · Annot
+#   Install/* · the 2U     carriers · Interp2 rows ·
+#   lane · R + R2          self-standing fold · P capstone
+#        ↑                      ↑
+#             SetlecCaps (exe/capstones)
+#
+# STAGING NOTE (S1).  `SetlecP` is not a target yet: the P lane still
+# lives at `Setlec/SetR/{Annot,Interp2}/*` and still imports the R lane
+# at 37 places (`tests/layering.sh`'s whitelist, which names the batch
+# that removes each edge).  It is created when the P modules move to
+# `Setlec/SetP/*` (S2–S5).  Until then `SetlecR` roots BOTH lanes and
+# `tests/layering.sh` is the boundary's enforcement.
+#
+# HONESTY NOTE about "cross-import = build error" (S1 finding).  Lake
+# does NOT give an import barrier between `lean_lib`s of the SAME
+# package: import resolution is per-package, so a module in one lib may
+# import a module rooted in another (today `Setlec.SetR.*` imports
+# `Setlec.Kernel.*` across exactly such a boundary).  The lib split is
+# therefore the layout, not the fence; `tests/layering.sh` is the fence.
+# A hard build error would need the lanes to become separate Lake
+# *packages* (`require ... from "..."`), which is a lakefile-level
+# decision left to the campaign's succession (see DESIGN.md S1 seal).
 
 # The pin-generator's certificate theorems (Setlec/PinGen/Certs.lean) are
 # a classic (non-`module`) library: the proofs unfold core definition
@@ -12,35 +42,34 @@ testDriver = "SetlecTests"
 name = "SetlecPinCerts"
 roots = ["Setlec.PinGen.Certs"]
 
+# The shared base: the checker itself (`Setlec.Kernel.*`), the model-free
+# verification tier (`Setlec.Verify.*`), the `SetTheory` interface, the
+# declarative type-theory layer (`Setlec.TT.*`, task #74 — its own module
+# hierarchy, importing nothing from the checker), and `Setlec.SetBase.*`
+# (task #161 S1: the six lane-neutral semantic primitives).  Both model
+# lanes stand on this and nothing here may import either lane.
 [[lean_lib]]
-name = "Setlec"
+name = "SetlecBase"
+roots = ["Setlec", "Setlec.TT", "Setlec.SetBase"]
 extraDepTargets = ["SetlecPinCerts"]
 
-# The declarative type-theory layer (task #74).  Its own module
-# hierarchy: `Setlec.TT.{Syntax,Subst,Const,Judgment}` import nothing
-# from the checker, and `Setlec.TT.Semantics.*` import only
-# `Setlec.SetTheory.*`.  Nothing in the checker imports it yet, so it
-# needs its own library target to be built at all.
+# The collapsed-model lane (task #148's mode-indexed relation family and
+# everything above it): `Rel`, `Sound/*`, `EnvS`, `Install/*`, `Bridge/*`,
+# the `R` capstones in `Main.lean` and — per the task-#161 ruling
+# "everything EnvS-containing lives in R" — the 2U/`denote2` tier and its
+# `R2` capstones in `Main2.lean`.  Roots the graded lane too until the
+# `Setlec/SetP/*` move lands (see the staging note above).
 [[lean_lib]]
-name = "SetlecTT"
-roots = ["Setlec.TT"]
-
-# The mode-indexed algorithmic relation family (task #148): the
-# `Red`/`Infer`/`DefEq`/`Tele`/`DefEqL` mutual family on the env-free TT
-# syntax, its weakening metatheory, and the `DeclR` per-kind relation
-# statements.  Imports `Setlec` (kernel + Verify) and `SetlecTT`; nothing
-# imports it back.
-[[lean_lib]]
-name = "SetlecSetR"
+name = "SetlecR"
 roots = ["Setlec.SetR"]
 
-# The cached checker variant's verification tier (task #163): the
-# `ExprC` erasure/field-exactness seam, the `SimC` simulation of the
-# cached core against the pure fueled checker, and the consistency
-# corollaries for `--core=cached-parsed`.  Imports `Setlec` (and, at
-# the capstone, `SetlecSetR`); nothing imports it back.
+# The capstone assembly (task #163): the cached checker variant's
+# verification tier — the `ExprC` erasure/field-exactness seam, the `SimC`
+# simulation, and the consistency corollaries for `--core=cached-parsed`.
+# `Verify/Cached/MainC.lean` is the two-lane assembly and is the ONLY
+# module allowed to see both lanes.
 [[lean_lib]]
-name = "SetlecCachedV"
+name = "SetlecCaps"
 roots = ["Setlec.Verify.Cached"]
 
 [[lean_lib]]

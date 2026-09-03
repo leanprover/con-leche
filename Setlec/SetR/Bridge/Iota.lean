@@ -1,4 +1,5 @@
 import Setlec.SetR.Bridge.Major
+import Setlec.SetBase.DefEqList
 import Setlec.Verify.Denote.OpenRevDenote
 import Setlec.Verify.InstSpine
 
@@ -44,35 +45,6 @@ namespace Setlec.SetR
 open Setlec.TT Setlec.TTVerify
 variable {mode : CheckMode} {env : Env}
 
-/-- The level comparand reads no arguments, in either fire branch. -/
-theorem recFireComparands_fst_nil (rl : RecRule) (lps : List Name)
-    (us : List Level) (cvjLps : List Name) (args : List Expr) (rP : Nat) :
-    (recFireComparands rl lps us cvjLps args rP).1
-      = (recFireComparands rl lps us cvjLps [] rP).1 := by
-  unfold recFireComparands
-  cases rl.fire <;> rfl
-
-/-- A successful `defEqList`'s components — the form the nested pin
-premise needs, since only *one* index's comparand is known to denote
-(the rule hypothesises exactly that one). -/
-theorem defEqListP_get {env : Env} {fuel d : Nat} :
-    ∀ {as bs : List Expr}, defEqListP mode env fuel d as bs = .ok true →
-      ∀ i, i < as.length →
-        isDefEqCore mode env fuel d (as.getD i default) (bs.getD i default)
-          = .ok true := by
-  intro as
-  induction as with
-  | nil => intro bs h i hi; exact absurd hi (by simp)
-  | cons x xs ih =>
-    intro bs h i hi
-    cases bs with
-    | nil => simp [defEqListP, defEqList, pure, Except.pure] at h
-    | cons y ys =>
-      obtain ⟨hxy, htail⟩ := defEqList_step_inv h
-      match i with
-      | 0 => exact hxy
-      | j + 1 => simpa using ih htail j (by simpa using hi)
-
 /-- A mapped spine denotes pointwise, at any index type. -/
 theorem DenoteSpine.map_pointwise {cval : TConstVal} {φ : Name → Nat}
     {d : Nat} {α : Type _} {g : α → Expr} {G : α → VExpr} :
@@ -84,23 +56,6 @@ theorem DenoteSpine.map_pointwise {cval : TConstVal} {φ : Name → Nat}
   | cons x xs ih =>
     intro h
     exact DenoteSpine.cons (h x (by simp)) (ih (fun y hy => h y (by simp [hy])))
-
-/-- A successful `defEqList` relates lists of equal length. -/
-theorem defEqListP_length {env : Env} {fuel d : Nat} :
-    ∀ {as bs : List Expr}, defEqListP mode env fuel d as bs = .ok true →
-      as.length = bs.length := by
-  intro as
-  induction as with
-  | nil =>
-    intro bs h
-    cases bs with
-    | nil => rfl
-    | cons _ _ => simp [defEqListP, defEqList, pure, Except.pure] at h
-  | cons x xs ih =>
-    intro bs h
-    cases bs with
-    | nil => simp [defEqListP, defEqList, pure, Except.pure] at h
-    | cons y ys => simpa using ih (defEqList_step_inv h).2
 
 /-- A `DefEqL` derivation's components. -/
 theorem DefEqL.get {cval : TConstVal} {φ : Name → Nat} {Δ : List VExpr} :
