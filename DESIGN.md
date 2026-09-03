@@ -24157,3 +24157,83 @@ check EVERYWHERE, no per-caller specialization.  The per-caller
 idea may be revisited by the user later; it is NOT on the plan.
 CAMPAIGN ORDER, FINAL: design phase → freeze → separation batches →
 β-gate in P mode → io-knot → measurement + closing table.
+
+## Task #161 THE SEPARATION — the layering diagram and the statement
+freeze (2026-09-03; the lead's design, on the design-phase census at
+agent/sep-design @ faff2b0d)
+
+### The lead's statement-layer rulings (for design review)
+
+1. **The 2U/denote2 lane goes to R WHOLE** (adopting the census
+   recommendation): the third EnvS-containing tier (41 modules,
+   23,717 lines, the 16 R2/R2M capstones) is collapsed-model
+   content; it moves with R.  The re-supply bill is then exactly
+   the 458 P-lane sites.
+2. **Mode shape (ii) — duplicate knots, driver-selected** (the B1
+   precedent): all 28 R capstone statements stay VERBATIM (the
+   never-edit-frozen-statements discipline decides this); each
+   capstone names its mode by naming its driver.  Shape (i) is
+   rejected: it edits 28 frozen statements.  Cost accepted: the
+   duplicated driver stack.  Defaults + help text: to the design
+   review.
+3. **The SP_P gap is a named batch, risk-rank 1**: the shipped
+   driver checkDeclsSP has NO P capstone (only R/R2); ~8 carrier
+   transposes must be BUILT (spec point 3's "re-assembled" was
+   under-sized; the census caught it).
+
+### THE LAYERING DIAGRAM (build-enforced)
+
+```
+            SetlecBase
+  Kernel/* · model-free Verify/* · SetTheory/*
+  bridge RECORDS (SetR/Decl.lean: run conjuncts→P,
+    derivation conjuncts→R) · the six re-based neutral
+    semantic modules (Interp2/{Interp,Kit,Ops,Value},
+    Annot/{Syntax,Ok2})
+       ↑                      ↑
+   SetlecR                SetlecP
+  EnvS · Sound/* ·       de-based EnvS2Core (no base) ·
+  Install/* · the 2U     Annot carriers · Interp2
+  lane · R + R2          quarters/rows/installs ·
+  capstones              self-standing fold · P capstone
+       ↑                      ↑
+            Setlec (exe/caps)
+  drivers (R-mode + P-mode knots) · Main dispatch
+```
+Cross-import R↔P = build error (separate lib targets) +
+`tests/layering.sh` grep gate.  Nine files split per the census
+§3.3; the single R→P edge dies with the re-basing of Annot/Ok2.
+
+### THE FROZEN DE-BASING SHAPES
+
+* `EnvS2Core` loses `base : EnvS`.  Re-supplies: `EnvS.wf` (225
+  sites) → the shared `EnvWF`; `EnvS.cval` (135) → `fun n ψ =>
+  (acval n ψ).erase` with `acval_erase` becoming `rfl`; the FoldP
+  v1-fold call → a ~60-line `declEtaStep` (model-free
+  `EtaFamiliesClosed` from `DeclR`'s find? guard alone — deletes
+  the P dependence on all of SetR/Install/*); `HarvestP`'s four
+  unread derivation binds → dashes; the ONE hard-residue fact
+  `EnvS.empty_pinned` → a P-native Empty-key pin (small, the
+  empty-basis-type precedent).
+* The P capstone family: re-assembled on the self-standing fold AND
+  EXTENDED to the shipped driver (`no_proof_of_Empty_SP_P` + the ~8
+  carrier transposes — the named batch).
+* The P mode: the parked β gate (bucket2-s1) + the io knot
+  (CoreIO.lean) re-based as the P driver's internals; the R driver
+  byte-identical to today's checker.
+* Payoff check: CONFIRMED at statement level by the census
+  (AnnotOk2's app slot = io_domain_transfer's premise package;
+  app_mem_of_slot; the gate's hcod0 vacuous by
+  isNever_iff_forall_pwBit_ne_zero); the check itself runs as its
+  own batch after the separation lands.
+
+### BATCH PLAN (est. 13–18; serial Opus; campaign cadence)
+
+S1 base extraction + lib targets + layering gate; S2 the 2U/R move;
+S3–S5 the P de-basing by fact family (458 sites; the three big
+syntactic re-supplies first); S6 the SP_P carrier transposes; S7 the
+self-standing fold + P capstone re-assembly (letter unchanged,
+driver named); S8 THE PAYOFF CHECK (β gate in P mode; is the R4
+wall gone; measure gross AND net); S9+ the io-knot batches (the
+parked B2+ assets resurrected); final: measurement + the closing
+table.  Stop-and-name standing at every frozen shape.
