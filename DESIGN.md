@@ -28785,3 +28785,333 @@ theorem) + measurement.  **ESCALATION RULE RE-ARMED (new form)**:
 any residual surfacing in S10/S11 not already named in the S9 seal
 stops the cadence — back to the coordinator with the accumulated
 bills before proceeding.
+
+## Task #161 THE SEPARATION — S10 SEALED (2026-09-03, `agent/sep-s10`,
+unpushed): **THE ESCALATION FIRES — THE SPLIT IS NARROWER THAN RATIFIED
+AND ITS PRODUCER IS NOT A PROJECTION**
+
+### 0. THE CLOSURE VERDICT, FIRST
+
+**`Red.beta` did NOT leave the shipped P capstone's proof-term
+closure**, and the batch stopped before the record split rather than
+improvise around the reason.  The pinned table, measured by the gate
+this batch lands (`tests/proofdeps.sh`, 72 rows):
+
+| root | `Red` | `Red.beta` | `Infer` | `Infer.app` | `DefEq` | `DefEq.trans` | `EnvS` |
+|---|---|---|---|---|---|---|---|
+| `no_proof_of_Empty_SP_P` | P | **P** | P | P | P | P | **absent** |
+| `no_proof_of_Empty_C_P` | P | **P** | P | P | P | P | **absent** |
+| `no_proof_of_Empty_S_P` | P | **P** | P | P | P | P | **absent** |
+| `no_proof_of_Empty_P` | P | **P** | P | P | P | P | **absent** |
+| …`checkDeclR_ofEnvRE` **cut** | absent | **absent** | P | absent | P | absent | absent |
+| `checkSound2P` (P claims tower) | absent | absent | absent | absent | absent | absent | absent |
+| `declIndP` (the ind tier's step) | absent | absent | **P** | absent | **P** | absent | absent |
+| `harvestDefnP` (value kinds) | absent | absent | absent | absent | absent | absent | absent |
+
+Unchanged from S9 — as it must be: **nothing in this batch touched a
+record or a producer**, by the escalation rule's own instruction.  Two
+rows S9 did not measure are worth reading, because they say exactly
+where the remaining work is:
+
+* under the cut, `Infer`/`DefEq` stay **PRESENT** while `Infer.app`/
+  `DefEq.trans` go absent.  The *type* names arrive through the ind
+  tier's **signatures** (`DeclIndR` carries `∀ φ, … Infer … ∧
+  DefEq …`); the *constructors* arrive through the bridge's proof.  The
+  record split targets the first, the β gate the second, and the two
+  are different obligations.  S9's table read only the constructors and
+  so could not see this;
+* `declIndP` reaches `Infer`/`DefEq` and **no constructor of either**.
+  Mechanically: no P proof in the inductive tier derives anything in
+  the relation tier; the names are statement furniture.
+
+### 1. WHAT THE ESCALATION IS (two residuals, neither named at S9)
+
+The re-armed rule fires on "a consumer needing a derivation row beyond
+the one" and on any residual S9 did not name.  Both happened, and they
+point in opposite directions — the split is **narrower** than ratified
+in its payload and **bigger** than ratified in its producer.
+
+#### RESIDUAL A — the ratified one-row payload is REFUTED (and the rows are now gone)
+
+S4 measured the P lane consuming exactly ONE derivation conjunct at the
+ind kind and S5 froze `IotaNestedPinReadsR` for it.  Measured here, the
+count was **three**, all read for their *denotation* halves only:
+
+| row | record | consumer |
+|---|---|---|
+| `∀ φ, ∃ Rv t, denoteClosed … rhsA … ∧ Infer …` | `IotaRuleR` | `iotaRulePlainP` (`IotaRulePlainP.lean:156`), `iotaRuleNestedP` (`:156`) |
+| the same row at the projection rule | `ProjFnR` | `projFnP` (`ProjInstallP.lean:204`) |
+| `∀ φ, TypedListW … pinsP cdomsP` | `IotaThmNR` | `iotaRuleNestedP` (`:362`, through `typedListW_denote_getD`) — S4's one |
+
+That alone would have stopped the batch.  What makes it a *finding*
+rather than a bill is the reason all three exist:
+
+> **`acceptedReadsP_of` already produces those readings from the RUNS,
+> and the inductive tier predates it.**
+
+`acceptedReadsP_of` (`SetP/Step2/AcceptedP.lean:239`, task #161
+ENDGAME A) is "whatever `inferTypeCore` accepts, `denoteP` reads" — a
+fuel induction over the checker's own clause structure, a coincidence
+of guards, **no relation, no carrier field, no model**.  Every one of
+the three rows sits in a record *beside its own recorded run*
+(`hrun0`, `hrhsRun`, `hTypedP` — H1's widenings, landed for the P
+lane's sake), and the run is all the totality walk needs.  The ind
+tier was written before ENDGAME A landed and nobody went back.
+Measured: `acceptedReadsP_of` and `typedListOk_getD` have
+`Red.beta`/`Infer.app`/`checkBridge`/`EnvS` **absent** from their
+closures.
+
+**So this batch rewired the three sites** (proof bodies only; no
+statement edited, one P→P import added) and dashed out all three
+binders.  **The P lane now consumes ZERO derivation conjuncts from the
+ind-tier record cone.**  Consequences for the ratified design:
+
+* `MemberValRunR`/`IndMembersRunR`/`IndRecsRunR`/`ProjInstallRunR`/
+  `DeclIndRunR` need **no derivation row at all** — the family is
+  valuation-free outright, exactly like `DeclRunR`, and
+  `IotaNestedPinReadsR` should be a tombstone for the second time and
+  for a better reason;
+* the split becomes a **pure deletion** of conjuncts plus a re-signing,
+  with no new mathematics on the record side;
+* `typedListW_denote_getD` (`IotaRuleNestedP.lean:39`) is now
+  consumer-free.  Left in place: deleting a landed statement is the
+  lead's call, not a worker's.
+
+#### RESIDUAL B — `checkDeclRun_of` is a bridge RE-PROOF, not a projection
+
+The batch's item 2 called it "`checkDeclR_of`'s twin with every
+derivation conjunct deleted", and `checkDeclR_of` *is* cheap — measured
+clean (`Red.beta`, `Infer.app`, `checkBridge`, `EnvS` all absent): it
+is the pure kind dispatch, parametric in the six per-kind bridges.  The
+bill is therefore those six bridges at the run level, and **the
+projection route cannot supply them**:
+
+| constant | `Red.beta` | reading |
+|---|---|---|
+| `DeclR.toRun` (the record projection) | **absent** | the records project cleanly — S4's work |
+| `checkDeclR_sound` (the bridge) | PRESENT | the derivation halves' proof |
+| `checkDeclRun_sound` (= `toRun` ∘ bridge) | **PRESENT** | **the projection composed with the bridge keeps the relation tier** |
+| `checkConstantVal_inv` (the checker inversion) | **absent** | the guard/run half's real producer |
+| `constantValR_of` (inversion + derivation) | PRESENT | where the two halves are welded today |
+
+That is the whole shape of the remaining work: today every per-kind
+bridge *welds* the guard extraction (a checker inversion, relation-
+free) to the derivation construction (`checkBridge`, which is where
+`Red.beta` lives).  A relation-free `checkDeclRun_of` needs the weld
+**cut** — a run-only twin of each bridge, sharing the inversion and
+dropping the walk packs.  Priced from the sources:
+
+| piece | today | the run twin owes |
+|---|---|---|
+| `constantValR_of`, `valueFrontR_of`, the four value kinds + 2 pins | ~950 ln (`Bridge/Decl.lean:55-948`) | the `refine` line before each `fun φ => ?_`; **cheap** (`checkConstantVal_inv` is already relation-free) |
+| the ind tier's walk packs (`stmtType_denotes` … `spine_walk_pack`) | 773 ln (`:948-1721`) | **nothing — dropped entirely** |
+| `iotaThmR_of` / `iotaThmNR_of` | 252 / 426 ln | the shape pins and the recorded runs only |
+| `iotaRuleR_of` / `iotaRulesR_of` / `memberValR_of` / `projFnR_of` | 63 / 44 / 56 / 90 ln | ditto |
+| `templatesR_of` | 69 ln | **re-used verbatim** (no derivation) |
+| the five block folds (`Bridge/DeclInd.lean`) | 679 ln | re-typed to the Run records; the `EnvR` carrier drops |
+
+**Estimate: 700–900 new lines, of which none is new mathematics and
+none is a re-signing.**  The S9 succession's "the expected cost is
+re-signing, not re-proving" is refuted — **the seventh correction to a
+sizing**, and the campaign's own warning ("it is the sixth time this
+campaign has predicted a re-signing") was right to be there.
+
+### 2. THE SITE-BY-SITE BILL (item 1's first deliverable)
+
+**P-side signature sites naming an ind-tier R record: 28, in 9 files.**
+
+| file | sites | records |
+|---|---|---|
+| `SetP/DeclIndP.lean` | 8 | `DeclIndR`, `IndMembersR`×4, `IndRecsR`×3 |
+| `SetP/IndMembersP.lean` | 5 | `MemberValR`×3, `IndMembersR`, `ProvisionRecsR` |
+| `SetP/IndRecsP.lean` | 3 | `ProvisionRecsR`, `IndRecsFoldR`, `IndRecsR` |
+| `SetP/ProjInstallP.lean` | 3 | `ProjFnR`, `ProjInstallR`, `TemplatesR` |
+| `SetP/IotaRuleNestedP.lean` | 3 | `IotaRuleR`×2, `IotaRulesR` |
+| `SetP/IotaRulePlainP.lean` | 2 | `IotaRuleR`, `IotaThmR` |
+| `SetP/FoldP.lean` | 2 | `DeclIndR` (the premise and `DeclRunR`'s `Ind` instantiation) |
+| `SetP/IndMemberP.lean`, `SetP/IndUnitLawP.lean` | 1 + 1 | `MemberValR` |
+
+**Derivation conjuncts in the cone, and their consumption AFTER this
+batch's rewiring** (the split's real payload):
+
+| record | derivation conjunct | consumed? |
+|---|---|---|
+| `ConstantValR` (via `MemberValR`) | the `∀ φ … denoteClosed ∧ Infer ∧ DefEq` front door | **no** (both destructurings dash it — S9's diagnostic) |
+| `IotaRuleR` | the rule-rhs front door | **no** (was yes; now `acceptedReadsP_of`) |
+| `IotaThmR` | `∀ φ, DefEqListW …` (parameter domains) | no |
+| `IotaThmR` | `IotaWalksR` | no |
+| `IotaThmNR` | `∀ φ, TypedListW …` | **no** (was yes — S4's one row) |
+| `IotaThmNR` | `IotaWalksR` | no |
+| `ProjFnR` | the rule-rhs front door | **no** (was yes) |
+| `ProjFnR` | `∀ φ, IotaSidesTyR …` | no (bound as `hsidesTy`, never read) |
+
+So the ind-tier run family is **`DeclIndR` with every `∀ φ` conjunct
+struck out**, and nothing else changes — no new row, no new statement,
+and (unlike `DeclRunR`, which had to take the ind kind as a parameter)
+no open design question.
+
+### 3. WHAT LANDED
+
+1. **`tests/ProofDeps.lean` + `tests/proofdeps.sh`** — the ratified
+   proof-term gate, in `tests/arena.sh` beside the layering gate
+   (~9 s).  The `_tmp/sep-s9` instruments productionized: a transitive
+   type+proof-term constant walk with cut points, 72 pinned rows, and a
+   ratchet that fails **in either direction** —
+   * a target that **re-enters** a closure is rot (the point of the
+     gate);
+   * a target that **leaves** is progress that must be *recorded* — the
+     row is flipped in the batch that earned it (the layering gate's
+     shrink-only whitelist discipline, at the proof-term criterion);
+   * plus unpinned rows, stale rows, and `MISSING-ROOT`/`MISSING-TARGET`
+     (vacuity protection: a renamed constant must not silently empty
+     the walk — S9's own trap, and a sentinel row is measured per
+     root).
+   All five failure modes were exercised before landing.  The
+   implementation notes S9 paid for are carried in the file: `.thmInfo`
+   matched directly (`ConstantInfo.value?` is `none` for theorems), and
+   type-vs-value granularity kept visible by measuring each relation at
+   both its type name and a constructor.
+2. **The three-site rewiring** (§1, residual A), the batch's only
+   `Setlec/` change: proof bodies and one P→P import; no statement
+   edited; the binary is untouched.
+
+### 4. WHAT DID NOT LAND, AND WHY
+
+The record family and `checkDeclRun_of`.  The escalation rule is
+explicit — "seal what is clean, itemize, report; do not improvise
+statement changes" — and both residuals are statement-level design
+questions the lead ratified differently:
+
+* the ratified family carries one derivation row; the measurement says
+  it should carry none.  Freezing five records with a payload the
+  consumer does not want would repeat the S7 tombstone in reverse;
+* the ratified producer is a projection; the measurement says it is a
+  700–900-line bridge re-proof.  That is a batch of its own, and its
+  scope (which of the six kinds, in what order, and whether the value
+  kinds land first as a cheap proof of the shape) is the lead's call.
+
+Nothing partial was landed either: a run record with no consumer is
+exactly what D6's house rule forbids.
+
+### 5. FINDINGS (restrictions-are-findings)
+
+1. **The ind tier is behind ENDGAME A** (§1 A).  A landed capability —
+   `acceptedReadsP_of`, "accepted implies read" — made three derivation
+   rows unnecessary, and the tier that predates it kept consuming them
+   for two more batches.  Reusable form: *when a totality/inversion
+   walk lands, sweep the tiers that were written against its absence;
+   the docstrings that say "there is no other supplier" are dated.*
+   (Two such docstrings are now stale and are flagged, not edited:
+   `SetP/Annot/BitReads.lean`'s "the answer is: from the derivation
+   row's own denotation … no row is owed", and
+   `SetP/IndNestedParamP.lean`'s "a run carries none".)
+2. **A projection composed with a bridge is not a projection** (§1 B).
+   `DeclR.toRun` is relation-free; `checkDeclRun_sound` is `toRun`
+   after the bridge and is **not**.  The campaign has been quoting the
+   first as if it were evidence about the second since S4.  General
+   form: *at the proof-term criterion, a theorem's cost is its
+   producer's closure, never its statement's shape.*
+3. **The seventh sizing correction** (§1 B's table): "re-signing, not
+   re-proving" was wrong again, in the batch that was told to expect it.
+   The instrument that would have caught it earlier is the one this
+   batch lands.
+4. **Denotability has no syntactic route, and that is load-bearing.**
+   `EnvR.rec_rhs_denotes`'s own docstring says why (`constsResolve`
+   records *existence* of the referenced constants, not the level-arity
+   match `denote`'s `.const` clause tests).  So "the subject reads" can
+   only come from a carrier field or from an acceptance walk — which is
+   exactly why `acceptedReadsP_of` is the whole answer to residual A,
+   and why a fourth consumer of a denotation row, if one appears, has
+   the same single answer.
+5. **The gate reads two granularities and they disagree** (§0).  Under
+   the one-door cut, the relation *constructors* leave and the relation
+   *types* stay.  Any future statement of the campaign's criterion has
+   to say which it means; "the R tier is out of the P capstone" is two
+   claims, and only one of them is what the β prize needs.
+
+### 6. BATTERY (verbatim)
+
+* `lake build` — clean, warning-free, **538** jobs (unchanged: the two
+  new files are `tests/`, not library modules).
+* `lake test` — exit 0.
+* `tests/arena.sh` — exit 0:
+
+  ```
+  layering: base 260 / R 106 / P 117 / neutral 3 modules; 0 P->R edges (whitelist EMPTY); 0 R->P
+  proofdeps: 72 rows as pinned; EnvS absent from 4/4 P capstones; Red.beta present in 4/4 (doors beyond checkDeclR_ofEnvRE: 0)
+  arena tutorial: 90/92 good tests accepted
+  e2e: 73/73 as expected
+  annot suite: 14/14 as expected
+  split driver: 11/11 as expected
+  mode flags: 9/9 as expected
+  no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+  ```
+
+* Axiom audit (`_tmp/sep-s9/Audit.lean`), **21 declarations**: every one
+  `[propext, Classical.choice, Quot.sound]` — 0 rows deviating.
+* **md5 identity**: `.lake/build/bin/setlec` =
+  `29abe904703a3e634daeb3bfb5706262`, identical to master's.  `git diff
+  master -- Setlec/Kernel Main.lean Setlec/Cached Setlec/Frontend
+  AnnotateBasis.lean Setlec/PinGen` is empty.
+* Zero `sorry`s; no new axioms; **no frozen statement edited** — this
+  batch adds two `tests/` files, rewires three proof bodies and adds one
+  P→P import.
+
+| metric | S9 | S10 |
+|---|---|---|
+| gate: base / R / P / neutral | 260 / 106 / 117 / 3 | 260 / 106 / 117 / 3 |
+| P→R edges | 0 | 0 |
+| proof-term gate rows pinned | — | **72** |
+| `Red.beta` in the four P capstones | PRESENT | PRESENT (unchanged, by the rule) |
+| doors to `Red.beta` | 1 | **1** (`checkDeclR_ofEnvRE`, re-measured) |
+| derivation rows the P lane consumes from the ind cone | 3 (unmeasured at S9; S4 said 1) | **0** |
+| build jobs | 538 | 538 |
+| binary md5 | `29abe904…` | `29abe904…` |
+
+### 7. SUCCESSION — where S11 starts, and what the lead must rule first
+
+**Two rulings are owed before S11 opens:**
+
+1. **The record family's payload.**  Ratified as "one derivation row";
+   measured as "none".  If the lead confirms *none*, the five records
+   are `DeclIndR` with every `∀ φ` conjunct struck, they are
+   valuation-free, `IotaNestedPinReadsR` is a tombstone, and the record
+   half of the split is a mechanical batch (28 signature sites, 9
+   files, no new mathematics).
+2. **The producer's scope.**  `checkDeclRun_of` is a 700–900-line
+   bridge re-proof (§1 B), not a projection.  The natural staging, if
+   the lead wants a cheap first proof of shape: the **five non-`ind`
+   kinds first** (their inversions are already relation-free —
+   `checkConstantVal_inv` measured clean), landing a
+   `DeclRunR`-producing dispatch whose ind premise stays a *parameter*
+   — exactly the slot S4 built for it — and then the ind kind's run
+   bridge as its own batch.  That also gives the gate an intermediate
+   reading to ratchet on.
+
+**Until one of those lands, `Red.beta` stays in the shipped P
+capstone's closure and the honest answer to the user's question is
+unchanged from S9: not yet, one door, no P consumer.**  What changed
+this batch is that the door is now *watched* (the pin cannot slip
+without failing the battery) and that the distance behind it is
+measured rather than predicted.
+
+S12's scope (the flag surface + the measurement) is untouched.
+
+Kit: `tests/ProofDeps.lean`, `tests/proofdeps.sh` (the productionized
+instruments); `_tmp/sep-s10/S10Deps.lean`, `S10b.lean` (the producer
+closures quoted in §1); `_tmp/sep-s9/*` (S9's originals + the audit).
+
+## Task #161 SEPARATION — S10 SEALED, ESCALATED (2026-09-03;
+succession-current)
+
+The proof-term gate is in the battery (72 rows, both-direction
+ratchet).  The ind tier's derivation-row consumption is **0** —
+`acceptedReadsP_of` supplies every reading from the runs, so the
+ratified one-row payload is refuted and the record family can be
+valuation-free.  The split itself did NOT land: `checkDeclRun_of`
+is a 700-900 line bridge re-proof, not a projection
+(`checkDeclRun_sound` = `toRun` ∘ bridge measures PRESENT for
+`Red.beta`; `DeclR.toRun` alone measures absent), and both
+residuals are statement-level questions the lead ratified
+otherwise.  **Two rulings owed before S11 opens** (payload:
+none-vs-one; producer scope: value kinds first?).
