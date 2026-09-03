@@ -183,7 +183,7 @@ theorem indRecsP (hμ : μ.verified = true) (hkey : MemberKeyS V)
       · rw [provisionRecsS_mono recs hprov n ci hf]; rfl
     · exact provisionRecsS_stored recs hprov ci hci
   -- the block renaming, at both tiers
-  have hro := blockRenameOkT mS.base hIS hnames
+  have hro := blockRenameOkT hIS hnames
   have hroP := blockRenameOkP hIS hIAS hnames
   -- the v1 fold, for the swap data alone
   obtain ⟨hswR, -, hcvEq, -, -⟩ :=

@@ -1,5 +1,7 @@
 import Setlec.SetBase.DeclEta
 import Setlec.Verify.Extend.Iota
+import Setlec.Verify.Extend.Block
+import Setlec.Verify.Denote.Rename
 
 /-!
 # The inductive block's **relation-level** residue (task #161 S5,
@@ -854,5 +856,50 @@ theorem declIndEtaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
         (indMembersR_mono _ hmem _ _ hfC)⟩
     · exact absurd he (by decide)
 
+
+/-- **The block renaming is sound at the provisional
+environment.**  Extracted from `indRecsS` when the bridge's own
+rules fold (`indRecsFoldRS`) needed the same fact — the *second*
+consumer, which is the relocation rule's threshold.
+
+**Task #161 S6**: it never used its `mS : EnvS` for anything but the
+valuation in its own statement — S5's finding-2 shape, third instance
+in the ind tier — so it is re-signed over a bare `TConstVal` and moved
+to the base, where the P lane reaches it without a crossing. -/
+theorem blockRenameOkT {blockNames : List Name} {envSelf : Env}
+    {cvalSelf : TConstVal}
+    (hIS : BlockInstalledTT blockNames envSelf cvalSelf)
+    (hnames : ∀ n, blockNames.contains n = true →
+      (envSelf.find? n).isSome = true) :
+    RenameOkT cvalSelf envSelf (fun n =>
+      if blockNames.contains n then n.str "_model" else n) := by
+    refine ⟨?_, ?_, ?_⟩
+    · intro n ciS hfS
+      dsimp only
+      by_cases hc : blockNames.contains n = true
+      · rw [if_pos hc]
+        obtain ⟨cvmS, mvalS, hmS, hfmS, hlpsS, -, -⟩ := hIS n hc ciS hfS
+        exact ⟨.defnInfo cvmS mvalS hmS, hfmS, hlpsS⟩
+      · rw [if_neg hc]
+        exact ⟨ciS, hfS, rfl⟩
+    · intro n hfS
+      dsimp only
+      by_cases hc : blockNames.contains n = true
+      · have := hnames n hc
+        rw [hfS] at this
+        exact nomatch this
+      · rw [if_neg hc]
+        exact hfS
+    · intro n ψ
+      dsimp only
+      by_cases hc : blockNames.contains n = true
+      · rw [if_pos hc]
+        rcases hfS : envSelf.find? n with _ | ciS
+        · have := hnames n hc
+          rw [hfS] at this
+          exact nomatch this
+        · obtain ⟨-, -, -, -, -, -, hvS⟩ := hIS n hc ciS hfS
+          exact (hvS ψ).symm
+      · rw [if_neg hc]
 
 end Setlec.SetR

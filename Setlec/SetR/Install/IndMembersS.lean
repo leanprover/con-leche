@@ -1,4 +1,4 @@
-import Setlec.SetBase.IndBlockR
+import Setlec.SetBase.EnvRCons
 import Setlec.SetR.Install.IndMemberS
 import Setlec.SetR.Install.EtaLawS
 import Setlec.Verify.Extend.Block
@@ -358,46 +358,29 @@ theorem memberInstallS (hkey : MemberKeyS V)
     (hEC : EtaFamiliesClosedO blockNames env)
     (hBP : BlockEtaPinned μ blockNames env)
     (hc₀cv : c₀.toConstantVal = cvA) (hc₀name : c₀.name = cvA.name)
-    (hkind : (∃ caps, c₀ = .indInfo cvA caps) ∨
-      (∃ nP nF, c₀ = .ctorInfo cvA nP nF) ∨
-      (∃ mI rP, c₀ = .recInfo cvA mI rP [])) :
+    (hkind : BlockMemberKind c₀ cvA) :
     ∃ m₁ : EnvS V ⟨c₀ :: env.consts⟩,
       m₁.cval = cvalModeled m.cval cvA.name ∧
       BlockInstalledTT blockNames ⟨c₀ :: env.consts⟩
         (cvalModeled m.cval cvA.name) ∧
       EtaFamiliesClosedO blockNames ⟨c₀ :: env.consts⟩ ∧
       BlockEtaPinned μ blockNames ⟨c₀ :: env.consts⟩ := by
+  -- the three model-free conclusions, at the base (task #161 S6): the
+  -- extended store's `EnvWF`, the block invariant and the two eta side
+  -- invariants never needed a model, and `memberInstallR` proves them
+  -- from the same lemma.
+  obtain ⟨hwf, hI₁, hEC₁, hBP₁⟩ :=
+    memberInstallInv m.wf hmv hI hbn hpins hEC hBP hc₀cv hc₀name hkind
   obtain ⟨type', hcv, hcvA, hms, cvm, mval, hint, hmE, hmlps, hren⟩ :=
     id hmv
-  obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr, -⟩ :=
-    hcv
-  obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
+  obtain ⟨hfind, hnres, hpshape, -, -, -, -, -, -, -, -⟩ := hcv
   have hnameA : cvA.name = cv.name := by rw [hcvA]
   have hlpsA : cvA.levelParams = cv.levelParams := by rw [hcvA]
-  have htypeA : cvA.type = type' := by rw [hcvA]
   have hfreshA : env.find? cvA.name = none := by
     rw [hnameA]
     exact Option.isNone_iff_eq_none.mp hfind
   have hnresA : reservedBasisNames.contains cvA.name = false := by
     rw [hnameA]; exact hnres
-  have hwf : EnvWF ⟨c₀ :: env.consts⟩ := by
-    refine EnvWF.cons m.wf ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-    · rw [hc₀cv, htypeA]; exact htf'
-    · rw [hc₀cv, htypeA, hlpsA]; exact htp
-    · rw [hc₀cv, htypeA]; exact Expr.constsResolve_mono htr
-    · rw [hc₀cv, htypeA]; exact hbt'
-    · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
-        intro cv2 v2 h2 heq <;> exact nomatch heq
-    · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
-        intro cv2 mI2 rP2 rules2 heq
-      · exact nomatch heq
-      · exact nomatch heq
-      · injection heq with _ _ _ h4
-        intro r hr
-        rw [← h4] at hr
-        exact nomatch hr
-    · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
-        intro cv2 v2 heq <;> exact nomatch heq
   have hpinsA : ∀ caps, c₀ = .indInfo cvA caps →
       EtaPins μ env cvA.name cvA.levelParams caps ∧
         (caps.eta = true → blockNames.contains caps.etaCtor = true) ∧
@@ -417,31 +400,7 @@ theorem memberInstallS (hkey : MemberKeyS V)
       exact memberUnitS m hmv hI hbn
         (by rw [hnameA, hlpsA]; exact (hpins caps2 hceq).1) hcapu2
         hnresA)
-  have hfresh0 : env.find? c₀.name = none := by
-    rw [hc₀name]; exact hfreshA
-  have hbn0 : blockNames.contains c₀.name = true := by
-    rw [hc₀name]; exact hbn
-  have hshape0 : c₀.name.isProjFnShape = false := by
-    rw [hc₀name, hnameA]; exact hpshape
-  refine ⟨m₁, hm₁, ?_, EtaFamiliesClosedO.cons hEC hfresh0 hbn0,
-    BlockEtaPinned.cons hBP hfresh0 hshape0
-      (fun cvS capsS heq hcape => by
-        have hcvS : cvS = cvA := by rw [← hc₀cv, heq]; rfl
-        subst hcvS
-        exact ⟨by rw [hc₀name]; exact (hpinsA capsS heq).1,
-          (hpinsA capsS heq).2.1 hcape,
-          by rw [hc₀name]; exact (hpinsA capsS heq).2.2 hcape⟩)⟩
-  refine BlockInstalledTT.step hI (by rw [hc₀name]; exact hms)
-    (by rw [hc₀name]; exact hmE)
-    (by rw [hc₀cv]; exact hmlps)
-    (by rw [hc₀cv]; exact hren)
-    (fun ψ => by
-      rw [hc₀name]
-      exact congrFun cvalWith_self ψ)
-    (fun n ψ hn => by
-      rw [hc₀name] at hn
-      exact congrFun (cvalWith_ne hn) ψ)
-
+  exact ⟨m₁, hm₁, hI₁, hEC₁, hBP₁⟩
 
 /-- **The member fold**: the non-recursor block members install, the
 running valuation ends at the fold's, and the block invariant holds

@@ -32,13 +32,18 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-- **The member fold, walked.**  `indMembersS`' induction with
-`memberValR_of` inserted at each step to *produce* the front door
-instead of consuming it. -/
-theorem indMembersRS (hkey : MemberKeyS V)
+/-- **The member fold, walked — model-free** (task #161 S6).
+`indMembersS`' induction with `memberValR_of` inserted at each step to
+*produce* the front door instead of consuming it, and with
+`memberInstallR` (`SetBase/EnvRCons.lean`) in place of the `EnvS`
+install: the fold now builds its own `EnvR` at every intermediate
+environment, which is exactly what finding 8 said nothing could do.
+The walk still interleaves — the front door is at the accumulator —
+but it interleaves with an **`EnvR` cons**, not with the model. -/
+theorem indMembersRS
     {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {caps : IndCaps} :
-    ∀ (members : List ConstantInfo) {env : Env} (m : EnvS V env)
+    ∀ (members : List ConstantInfo) {env : Env} (m : EnvR env)
       {env₂ : Env},
       (∀ ci ∈ members, blockNames.contains ci.name = true) →
       (∀ (cv : ConstantVal) (caps₂ : IndCaps),
@@ -53,7 +58,7 @@ theorem indMembersRS (hkey : MemberKeyS V)
       BlockEtaPinned μ blockNames env →
       members.foldlM (checkIndMember (m := CheckM) (fueledOps μ F)
         blockNames caps) env = .ok env₂ →
-      ∃ (cval₂ : TConstVal) (m₂ : EnvS V env₂),
+      ∃ (cval₂ : TConstVal) (m₂ : EnvR env₂),
         IndMembersR μ F blockNames caps env m.cval members env₂ cval₂ ∧
         m₂.cval = cval₂ ∧ BlockInstalledTT blockNames env₂ cval₂ ∧
         EtaFamiliesClosedO blockNames env₂ ∧
@@ -75,7 +80,7 @@ theorem indMembersRS (hkey : MemberKeyS V)
     | ok cvA =>
       intro h
       have hmv : MemberValR μ F env m.cval blockNames
-          ci.toConstantVal cvA := memberValR_of m.toEnvR hmv0
+          ci.toConstantVal cvA := memberValR_of m hmv0
       obtain ⟨type', hcv, hcvA, -⟩ := id hmv
       have hnameA : cvA.name = ci.toConstantVal.name := by rw [hcvA]
       have hfreshA : env.find? cvA.name = none := by
@@ -89,7 +94,7 @@ theorem indMembersRS (hkey : MemberKeyS V)
       | indInfo cv caps' =>
         simp only [pure, Except.pure] at h
         obtain ⟨m₁, hm₁cval, hI₁, hEC₁, hBP₁⟩ :=
-          memberInstallS hkey m hmv
+          memberInstallR m hmv
           hI hbnA
           (fun caps₃ heq => by
             obtain ⟨-, -, -, rfl⟩ := ConstantInfo.indInfo.inj heq
@@ -105,7 +110,7 @@ theorem indMembersRS (hkey : MemberKeyS V)
       | ctorInfo cv nP nF =>
         simp only [pure, Except.pure] at h
         obtain ⟨m₁, hm₁cval, hI₁, hEC₁, hBP₁⟩ :=
-          memberInstallS hkey m hmv
+          memberInstallR m hmv
           hI hbnA (fun caps₃ heq => ConstantInfo.noConfusion heq)
           hEC hBP rfl rfl (Or.inr (Or.inl ⟨nP, nF, rfl⟩))
         obtain ⟨cval₂, m₂, hrel, hm₂, hI₂, hEC₂, hBP₂⟩ :=
@@ -135,10 +140,11 @@ provisioning produced.  What varies with the accumulator is only
 the whole rules fold, and the recognition rule's check comes out
 negative for it. -/
 
-/-- **The provisioning fold, walked.** -/
-theorem provisionRecsRS (hkey : MemberKeyS V)
+/-- **The provisioning fold, walked — model-free** (task #161 S6, the
+same move as the member fold's). -/
+theorem provisionRecsRS
     {μ : CheckMode} {F : Nat} {blockNames : List Name} :
-    ∀ (recs : List ConstantInfo) {envAcc : Env} (m : EnvS V envAcc)
+    ∀ (recs : List ConstantInfo) {envAcc : Env} (m : EnvR envAcc)
       {envSelf : Env}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
@@ -147,7 +153,7 @@ theorem provisionRecsRS (hkey : MemberKeyS V)
       BlockEtaPinned μ blockNames envAcc →
       provisionRecs (m := CheckM) (fueledOps μ F) blockNames envAcc recs
         = .ok (envSelf, checked) →
-      ∃ (cvalSelf : TConstVal) (mS : EnvS V envSelf),
+      ∃ (cvalSelf : TConstVal) (mS : EnvR envSelf),
         ProvisionRecsR μ F blockNames envAcc m.cval recs envSelf
           cvalSelf checked ∧
         mS.cval = cvalSelf ∧
@@ -177,12 +183,12 @@ theorem provisionRecsRS (hkey : MemberKeyS V)
         dsimp only at h
         have hmv : MemberValR μ F envAcc m.cval blockNames
             (ConstantInfo.recInfo cv mI rP rules).toConstantVal cvA :=
-          memberValR_of m.toEnvR hmv0
+          memberValR_of m hmv0
         obtain ⟨type', hcv, hcvA, -⟩ := id hmv
         have hnameA : cvA.name = (ConstantInfo.recInfo cv mI rP
             rules).toConstantVal.name := by rw [hcvA]
         obtain ⟨m₁, hm₁cval, hI₁, hEC₁, hBP₁⟩ :=
-          memberInstallS hkey m hmv
+          memberInstallR m hmv
           hI (by rw [hnameA]; exact hbn _ List.mem_cons_self)
           (fun caps₃ heq => ConstantInfo.noConfusion heq)
           hEC hBP rfl rfl (Or.inr (Or.inr ⟨mI, rP, rfl⟩))
@@ -365,10 +371,14 @@ theorem indRecsFoldRS {μ : CheckMode} {F : Nat}
 
 /-- **The recursor-group phase, bridged** (`checkIndRecs`): the
 empty case, the pinned-`Eq` guard, the provisioning (interleaved,
-`provisionRecsRS`), and the rules fold (not interleaved). -/
-theorem indRecsRS (hkey : MemberKeyS V)
+`provisionRecsRS`), and the rules fold (not interleaved).
+
+**Model-free since task #161 S6**: the provisioning walks on an
+`EnvR`, the rules fold always did, and `blockRenameOkT` never used
+its `EnvS` for anything but the valuation in its own statement. -/
+theorem indRecsRS
     {μ : CheckMode} {F : Nat} {blockNames : List Name} :
-    ∀ (recs : List ConstantInfo) {env₂ : Env} (m : EnvS V env₂)
+    ∀ (recs : List ConstantInfo) {env₂ : Env} (m : EnvR env₂)
       {env₃ : Env},
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
       (∀ n, blockNames.contains n = true →
@@ -405,7 +415,7 @@ theorem indRecsRS (hkey : MemberKeyS V)
   intro h
   try dsimp only at h
   obtain ⟨cvalSelf, mS, hprov, hmScval, hIS, -, -⟩ :=
-    provisionRecsRS hkey recs m hbn hI hEC hBP hprovE
+    provisionRecsRS recs m hbn hI hEC hBP hprovE
   rw [← hmScval] at hprov hIS
   have hnames : ∀ n, blockNames.contains n = true →
       (envSelf.find? n).isSome = true := by
@@ -416,8 +426,8 @@ theorem indRecsRS (hkey : MemberKeyS V)
       · rw [provisionRecsS_mono recs hprov n ci hf]; rfl
     · exact provisionRecsS_stored recs hprov ci hci
   obtain ⟨cval₃, hfold⟩ :=
-    indRecsFoldRS (envBase := env₂) mS.toEnvR
-      (blockRenameOkT mS hIS hnames)
+    indRecsFoldRS (envBase := env₂) mS
+      (blockRenameOkT hIS hnames)
       (provisionRecsS_mono recs hprov) checked
       (fun c hc => (provisionRecsS_entries recs hprov c hc).1)
       (cval := m.cval) h
@@ -494,7 +504,7 @@ theorem declIndRS (hkey : MemberKeyS V)
         rw [checkIndRecs_fresh h ci₀ hci₀] at hup
         exact nomatch hup
     obtain ⟨cvalM, m₁, hmem, hm₁cval, hI₁, hEC₁, hBP₁⟩ :=
-      indMembersRS hkey _ m hbnNon
+      indMembersRS _ m.toEnvR hbnNon
         (fun cv caps₂ _ => ⟨etaPins_empty,
           ⟨fun hh => absurd hh (by decide),
             fun hh => absurd hh (by decide)⟩⟩)
@@ -512,7 +522,7 @@ theorem declIndRS (hkey : MemberKeyS V)
       · exact Or.inl (indMembersR_stored _ hmem ci₀ hci₀)
       · exact Or.inr ⟨ci₀, hci₀, rfl⟩
     obtain ⟨cval₂, hrecs⟩ :=
-      indRecsRS hkey _ m₁ hbnRec hall hI₁ hEC₁ hBP₁ h
+      indRecsRS _ m₁ hbnRec hall hI₁ hEC₁ hBP₁ h
     rw [hm₁cval] at hrecs
     refine ⟨hsplit, Or.inr ⟨?_, envM, cvalM, cval₂, hmem, hrecs⟩⟩
     rintro ⟨cvT, capsT, cvC, nP, nF, hI, hC⟩
@@ -615,14 +625,24 @@ theorem declIndRS (hkey : MemberKeyS V)
       · rw [hfR] at h2; exact nomatch h2
       · rw [hfR] at hnone; exact nomatch hnone
   -- the member fold, walked
+  have hpMem : ∀ (cv : ConstantVal) (caps₂ : IndCaps),
+      ConstantInfo.indInfo cv caps₂ ∈ block.filter (fun ci => match ci with
+        | .recInfo _ _ _ _ => false | _ => true) →
+      EtaPins μ env cv.name cv.levelParams
+          (indBlockCaps μ env cvT cvC nP nF) ∧
+        ((indBlockCaps μ env cvT cvC nP nF).eta = true →
+          (block.map (·.name)).contains
+            (indBlockCaps μ env cvT cvC nP nF).etaCtor = true) ∧
+        ((indBlockCaps μ env cvT cvC nP nF).eta = true →
+          0 < (indBlockCaps μ env cvT cvC nP nF).etaFields →
+          env.find? (projFnName cv.name 0) = none) := by
+    intro cv caps₂ hmm
+    obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj
+      (hsingle hIfilt (List.mem_filter.mp hmm).1 rfl)
+    exact ⟨etaPins_of_indBlockCaps, fun _ => hCblockN,
+      fun _ h0 => hpf0 h0⟩
   obtain ⟨cvalM, m₁, hmem, hm₁cval, hI₁, hEC₁, hBP₁⟩ :=
-    indMembersRS hkey _ m hbnNon
-      (fun cv caps₂ hmm => by
-        obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj
-          (hsingle hIfilt (List.mem_filter.mp hmm).1 rfl)
-        exact ⟨etaPins_of_indBlockCaps, fun _ => hCblockN,
-          fun _ h0 => hpf0 h0⟩)
-      hI0 hEC0 hBP0 hmemFold
+    indMembersRS _ m.toEnvR hbnNon hpMem hI0 hEC0 hBP0 hmemFold
   rw [← hm₁cval] at hI₁
   -- the recursor group, bridged then installed
   have hall : ∀ n, (block.map (·.name)).contains n = true →
@@ -637,11 +657,20 @@ theorem declIndRS (hkey : MemberKeyS V)
     · exact Or.inl (indMembersR_stored _ hmem ci₀ hci₀)
     · exact Or.inr ⟨ci₀, hci₀, rfl⟩
   obtain ⟨cvalR, hrecs⟩ :=
-    indRecsRS hkey _ m₁ hbnRec hall hI₁ hEC₁ hBP₁ hrecsFold
+    indRecsRS _ m₁ hbnRec hall hI₁ hEC₁ hBP₁ hrecsFold
+  rw [hm₁cval] at hrecs hI₁
+  -- **the install, run on the relation the bridge just produced**
+  -- (task #161 S6): the two folds no longer walk together — the
+  -- bridge builds its own `EnvR` at each intermediate environment
+  -- (`memberInstallR`), so the `EnvS` the projection phase still needs
+  -- is obtained from the install layer's own fold, off the finished
+  -- record.  Finding 8 survives at the projection walk only.
+  obtain ⟨m₁S, hm₁Scval, hI₁S, hEC₁S, hBP₁S⟩ :=
+    indMembersS hkey _ m hbnNon hpMem hmem hI0 hEC0 hBP0
   obtain ⟨m₂, hm₂cval, hI₂, hnonrecUp, -, -⟩ :=
-    indRecsS hkey m₁ hI₁ hbnRec hall hEC₁ hBP₁ hrecs
+    indRecsS hkey m₁S (by rw [hm₁Scval]; exact hI₁) hbnRec hall
+      hEC₁S hBP₁S (by rw [hm₁Scval]; exact hrecs)
   rw [← hm₂cval] at hI₂
-  rw [hm₁cval] at hrecs
   have hbshape : ∀ n, (block.map (·.name)).contains n = true →
       n.isProjFnShape = false := by
     intro n hn

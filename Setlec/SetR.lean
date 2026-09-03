@@ -39,7 +39,7 @@ import Setlec.SetR.Install.ProjInstallS
 import Setlec.SetR.Install.DeclIndS
 import Setlec.SetR.Install.BasisS
 import Setlec.SetR.Examples
-import Setlec.SetR.Bridge.Env
+import Setlec.SetBase.EnvR
 import Setlec.SetR.Bridge.Claims
 import Setlec.SetR.Bridge.WhnfCore
 import Setlec.SetR.Bridge.Infer

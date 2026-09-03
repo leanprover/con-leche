@@ -32,6 +32,8 @@ import Setlec.SetBase.Decl
 import Setlec.SetBase.DeclEta
 import Setlec.SetBase.DeclRun
 import Setlec.SetBase.IndBlockR
+import Setlec.SetBase.EnvR
+import Setlec.SetBase.EnvRCons
 
 /-!
 # `Setlec.SetBase` — the lane-neutral semantic primitives (task #161, S1)
@@ -98,6 +100,16 @@ being a reason to keep the file in R):
   from `SetR/Install/{IndMembersS,IndRecsS,DeclIndS}`, plus
   `indRecsR_keep`, which replaces `indRecsS`'s model-carrying
   `hnonrecUp`).
+
+S6 (the residue) added:
+
+* `EnvR` — **the bridge invariant** (whole-module move of
+  `SetR/Bridge/Env`).  It never had a lane: every field is V-free by
+  construction (the module docstring says so), its four imports are
+  all base, and both lanes now build one — the R lane by projection
+  from `EnvS` (`EnvS.toEnvR`), the P lane by projection from
+  `EnvS2PM` (`EnvS2PM.toEnvR`), which is what lets the P fold call the
+  bridge without a collapsed-model carrier.
 
 **Only the file paths and module names moved.**  The Lean namespaces
 (`Setlec.SetR.Interp2`, `Setlec.SetR`) are unchanged, so every frozen

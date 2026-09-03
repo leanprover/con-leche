@@ -6,6 +6,14 @@ import Setlec.SetBase.ProjPins
 /-!
 # `EnvR`: the environment facts the bridge consumes (task #148, T3)
 
+**Relocated to the base at task #161 S6** (whole-module move of
+`Setlec/SetR/Bridge/Env.lean`, statements byte-unchanged, namespace
+`Setlec.SetR` kept).  The file never had a lane: the docstring below
+already said every field is V-free, and its four imports were base
+already.  What forced the move is that **both** lanes now build an
+`EnvR` — the R lane by `EnvS.toEnvR`, the P lane by `EnvS2PM.toEnvR`
+— and the P lane may not import `Setlec/SetR/*`.
+
 The bridge (`Setlec/SetR/Bridge/*`) turns a successful `--set-model`
 checker run into a derivation of the relation family
 (`Setlec/SetR/Rel.lean`).  Doing so needs a handful of facts about the
