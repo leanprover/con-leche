@@ -1452,19 +1452,28 @@ theorem whnfCoreBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
     simp only [] at h ⊢
     split at h
     · next n₁ ty₁ body₁ mb₁ =>
-      cases h2 : r₁.infer d a with
-      | error err => rw [h2] at h; exact nomatch h
-      | ok ta =>
-      rw [h2] at h; rw [hs.2.2.1 h2]
-      simp only [] at h ⊢
-      cases h3 : r₁.defeq d ta ty₁ with
-      | error err => rw [h3] at h; exact nomatch h
-      | ok c₃ =>
-      rw [h3] at h; rw [hs.2.2.2.1 h3]
-      simp only [] at h ⊢
-      cases c₃ with
-      | true => exact hs.1 (by simpa using h)
-      | false => exact h
+      -- task #161 bucket 2 stage 1: the β-cert gate is a pure read of
+      -- the binder's datum, identical for both cores.
+      by_cases hg : Setlec.PropWhen.isNever mb₁.pw = true
+      · rw [hg] at h ⊢
+        simp only [if_true, pure, Except.pure] at h ⊢
+        exact hs.1 h
+      · simp only [Bool.not_eq_true] at hg
+        rw [hg] at h ⊢
+        simp only [Bool.false_eq_true, if_false] at h ⊢
+        cases h2 : r₁.infer d a with
+        | error err => rw [h2] at h; exact nomatch h
+        | ok ta =>
+        rw [h2] at h; rw [hs.2.2.1 h2]
+        simp only [] at h ⊢
+        cases h3 : r₁.defeq d ta ty₁ with
+        | error err => rw [h3] at h; exact nomatch h
+        | ok c₃ =>
+        rw [h3] at h; rw [hs.2.2.2.1 h3]
+        simp only [] at h ⊢
+        cases c₃ with
+        | true => exact hs.1 (by simpa using h)
+        | false => exact h
     · next =>
       cases h2 : Setlec.iotaRec μ r₁ env d (.app fw a) with
       | error err => rw [h2] at h; exact nomatch h
