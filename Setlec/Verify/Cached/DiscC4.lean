@@ -159,11 +159,17 @@ theorem whnfAppC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
       rw [show eraseC (ExprC.lam nm ty body mb h bb fb lp)
         = Expr.lam nm (eraseC ty) (eraseC body) mb from rfl, whnfApp_lam]
       unfold whnfAppLam
-      refine SimC.bind (ih.infer hs hax hwxa)
-        (fun s₁ ta tax hs₁ hP => ?_)
-      obtain ⟨htad, hwta⟩ := hP
-      refine SimC.bind (ih.defeq hs₁ htad ⟨hwty, rfl⟩ hwta hwtb.1)
+      -- task #161 bucket 2 stage 1: the β-cert gate.  `eraseC` is the
+      -- identity on binder metadata, so both runs read the same datum
+      -- and take the same side.
+      refine SimC.bind (?_ : SimC _ _ _ RelVC _ _)
         (fun s₂ b b' hs₂ hPb => ?_)
+      · split
+        · exact SimC.pure hs rfl
+        · refine SimC.bind (ih.infer hs hax hwxa)
+            (fun s₁ ta tax hs₁ hP => ?_)
+          obtain ⟨htad, hwta⟩ := hP
+          exact ih.defeq hs₁ htad ⟨hwty, rfl⟩ hwta hwtb.1
       obtain rfl : b = b' := hPb
       cases b with
       | true =>
@@ -351,13 +357,18 @@ theorem betaPeelC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
       have hwsub : Expr.WScoped d ((eraseC body).instantiateList (xa :: ws)) := by
         rw [Expr.instantiateList_cons]
         exact Expr.WScoped.instantiate1_gen hwxa 0 hcomp.2
-      refine SimC.bind_left (instListM_eff (d := 0) hs ⟨hwty', rfl⟩ hacc)
-        (fun s₁ ty' hs₁ hQty => ?_)
-      refine SimC.bind (ih.infer hs₁ hax hwxa)
-        (fun s₂ ta tax hs₂ hP => ?_)
-      obtain ⟨htad, hwta⟩ := hP
-      refine SimC.bind (ih.defeq hs₂ htad hQty hwta hcomp.1)
+      -- task #161 bucket 2 stage 1: the β-cert gate, with the
+      -- domain's bulk substitution inside it.
+      refine SimC.bind (?_ : SimC _ _ _ RelVC _ _)
         (fun s₃ b b' hs₃ hPb => ?_)
+      · split
+        · exact SimC.pure hs rfl
+        · refine SimC.bind_left (instListM_eff (d := 0) hs ⟨hwty', rfl⟩ hacc)
+            (fun s₁ ty' hs₁ hQty => ?_)
+          refine SimC.bind (ih.infer hs₁ hax hwxa)
+            (fun s₂ ta tax hs₂ hP => ?_)
+          obtain ⟨htad, hwta⟩ := hP
+          exact ih.defeq hs₂ htad hQty hwta hcomp.1
       obtain rfl : b = b' := hPb
       cases b with
       | true =>

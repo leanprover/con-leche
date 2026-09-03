@@ -1660,25 +1660,34 @@ theorem whnfCore_reidem_const {μ : CheckMode} {env : Env}
       split at h
       · -- beta path (fw is a λ)
         next n₁ ty₁ body₁ mb₁ =>
-        cases hinf : (Setlec.pureFns μ env f).infer d a₀ with
-        | error err => rw [hinf] at h; exact nomatch h
-        | ok ta =>
-        rw [hinf] at h
-        simp only [] at h
-        cases hdq : (Setlec.pureFns μ env f).defeq d ta ty₁ with
-        | error err => rw [hdq] at h; exact nomatch h
-        | ok c =>
-        rw [hdq] at h
-        simp only [] at h
-        cases c with
-        | true =>
-          simp only [if_true] at h
+        -- task #161 bucket 2 stage 1: the β certificate runs under the
+        -- gate; the skipped side reduces outright.
+        by_cases hg : Setlec.PropWhen.isNever mb₁.pw = true
+        · rw [hg] at h
+          simp only [if_true, pure, Except.pure] at h
           exact hm.2.2.1 (Nat.le_succ f) (ih h hshape)
-        | false =>
+        · simp only [Bool.not_eq_true] at hg
+          rw [hg] at h
           simp only [Bool.false_eq_true, if_false] at h
-          obtain rfl : Expr.app (.lam n₁ ty₁ body₁ mb₁) a₀ = e' :=
-            Except.ok.inj h
-          exact nomatch hshape
+          cases hinf : (Setlec.pureFns μ env f).infer d a₀ with
+          | error err => rw [hinf] at h; exact nomatch h
+          | ok ta =>
+          rw [hinf] at h
+          simp only [] at h
+          cases hdq : (Setlec.pureFns μ env f).defeq d ta ty₁ with
+          | error err => rw [hdq] at h; exact nomatch h
+          | ok c =>
+          rw [hdq] at h
+          simp only [] at h
+          cases c with
+          | true =>
+            simp only [if_true] at h
+            exact hm.2.2.1 (Nat.le_succ f) (ih h hshape)
+          | false =>
+            simp only [Bool.false_eq_true, if_false] at h
+            obtain rfl : Expr.app (.lam n₁ ty₁ body₁ mb₁) a₀ = e' :=
+              Except.ok.inj h
+            exact nomatch hshape
       · -- iota path (fw not a λ)
         rename_i hnelam
         cases hio : Setlec.iotaRec μ (Setlec.pureFns μ env f) env d
