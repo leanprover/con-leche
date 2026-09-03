@@ -24147,20 +24147,13 @@ has nothing with which to say them for us; where sets are graded
 model licenses the skip.  Truth propagates; domains only propagate
 where the sets are big enough to remember them.
 
-### 2. QUEUED FOLLOW-UP PHASE (user-directed): per-caller squash
-refinement — after the main io-knot lands
+### 2. STRUCK (user correction, 2026-09-03): no per-caller squash
+refinement on the plan
 
-"infer_only in isolation needs the check, but maybe not in all
-caller contexts."  For each io caller, classify what its soundness
-row CONSUMES from the inferred type:
-- MEMBERSHIP → the check stays at squash (the wall is real there);
-- SORT-ONLY (isProp-style consumers) → an io-sort claims variant
-  concluding only the sort;
-- SHAPE-ONLY (etaCert's domain comparand, majorToCtor's head+args)
-  → an io-shape variant concluding only the shape.
-For sort/shape consumers, design per-caller claims variants that
-skip the check EVEN AT POSSIBLY-PROP binders — shrinking the squash
-residue below the 4–8%.  Seed data: the inventory table's
-consumption column (column (c)).  Phase order (unchanged): design
-phase → freeze → batches → the β-gate payoff check → the io-knot →
-THEN this refinement.
+The per-caller refinement phase briefly queued here is STRUCK.  The
+campaign aims at THE COMPOSITIONAL IO first and ends there: one io
+lane, the uniform premise-form claims family, squash keeps its
+check EVERYWHERE, no per-caller specialization.  The per-caller
+idea may be revisited by the user later; it is NOT on the plan.
+CAMPAIGN ORDER, FINAL: design phase → freeze → separation batches →
+β-gate in P mode → io-knot → measurement + closing table.
