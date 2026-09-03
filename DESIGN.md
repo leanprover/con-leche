@@ -28091,3 +28091,34 @@ tombstone, nothing is owed.
 Kit: `tests/layering.sh` (and `--list`); `_tmp/sep-s7/Audit.lean`,
 `closure.py`, `basecount.py` (copied forward from S6); the S1–S6 audit
 files.
+
+## Task #161 SEPARATION — S7 LANDED: THE CRITERION IS MET
+(2026-09-03; succession-current)
+
+Master @ `1e4e30ff`; battery green; binary md5-identical; whitelist
+**1** (`FoldP → Bridge/Sound` — a MOVE, not a proof); P-lane
+`.base` reads **0**; `closure(HarvestP) ∩ SetR` **0/0**;
+`EnvS2PM.base` DELETED.  Ledger entries ratified: the
+sizing-correction rule ("count the signatures the premise crosses,
+not the call sites it ends at" — sixth correction, with ConsHeadP
+bundling as the mitigation) and the import-vs-crossing gap's fifth
+instance ("an import-level gate cannot price a de-basing").
+Finding-6 ruling ratified: `declIndRS` consumer-free after re-proof
+= dead code, deleted in S8's opener.  DeclIndRunR's tombstone
+CLOSED per provision.
+
+**S8 (dispatching), RATIFIED**: the ZERO-OPENER (the Bridge/* move
++ the declIndRS deletion — whitelist to NOTHING; the separation
+complete as the user ordered it), then SP_P (the ~8 carrier
+transposes building no_proof_of_Empty_SP_P for the shipped driver;
+risk-rank 1 from the design review).
+
+**S9 GATE (coordinator-set)**: the payoff check lands a parked
+KERNEL-BEHAVIOR change (the β-cert gate in P mode) — it gets its
+own dispatch brief FROM THE COORDINATOR before any worker starts:
+the lead's one-page brief owed first (which gate lands, which mode
+guards it, the verdict-risk assessment, the measurement plan
+against the AMENDED parity baselines — coordinate the baseline
+choice with the perf lead: the cached parity engine now wins every
+stream, so net numbers are stated against current reality, not the
+retracted table).
