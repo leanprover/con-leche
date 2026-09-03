@@ -25942,3 +25942,237 @@ from the production-izing list is STILL OWED as a follow-up
 measurement; its trigger, if not run sooner: any real-stream
 regression report on spine-shaped declarations.  All real workloads
 measured to date favor the new default.
+## Task #161 THE SEPARATION — S1 SEALED (2026-09-03, `agent/sep-s1`,
+unpushed): base extraction, the lib targets, and THE LAYERING GATE
+
+**THE HEADLINE.** The shared base exists as a directory
+(`Setlec/SetBase/*`, 11 modules), the boundary is *measured* rather
+than asserted, and it is enforced from now on by `tests/layering.sh`
+inside the standard battery.  Crossings: **31 → 26**, the single R→P
+edge is **dead**, and every surviving crossing is on a whitelist that
+names the batch that removes it.  No statement was edited: the moves
+kept their Lean namespaces, so every frozen name is verbatim and no
+consumer outside `import` lines was touched.  The checker's executable
+sources are byte-identical to master — literally: the shipped binary
+has the same md5 as master's.
+
+### 1. THE LIB LAYOUT AS LANDED
+
+```
+[[lean_lib]] SetlecBase  roots = ["Setlec", "Setlec.TT", "Setlec.SetBase"]
+[[lean_lib]] SetlecR     roots = ["Setlec.SetR"]      # both lanes, until the P path move
+[[lean_lib]] SetlecCaps  roots = ["Setlec.Verify.Cached"]
+[[lean_lib]] SetlecPinCerts / SetlecTests; exes setlec, annotate-basis
+defaultTargets = ["SetlecBase", "SetlecR", "SetlecCaps", "setlec"]
+```
+
+`SetlecTT` folded into `SetlecBase` (the ruled diagram puts `TT/*` in
+the base); `SetlecCachedV` renamed `SetlecCaps` (the two-lane assembly
+tier).  **`SetlecP` is NOT a target yet** and cannot be: the P lane
+still lives at `Setlec/SetR/{Annot,Interp2}/*`.  Creating it needs the
+~115-module path move to `Setlec/SetP/*`, which S2–S5 should do when
+the 2U tier stays behind (finding: the move must NOT be "Interp2 →
+SetP" wholesale — the 2U tier is interleaved in the same directories).
+
+**FINDING — "cross-import = build error" is FALSE for Lake libs.**  The
+census (§3.1/§3.2) proposed the lib split as the fence: "a module in
+lib X importing a module that only lib Y provides fails to resolve".
+Lake does not work that way: import resolution is per **package**, so
+any module of the `setlec` package may import any other regardless of
+which `lean_lib` roots it.  The tree proves it today — `Setlec.SetR.*`
+imports `Setlec.Kernel.*` across exactly such a boundary and always
+has.  A hard build error would need the lanes to become separate Lake
+*packages* (`require … from "…"`), i.e. sub-directory packages with
+their own lakefiles — a real option, priced at "every module moves and
+the P tree may not import R at all", so it is only available AFTER the
+de-basing lands.  **Until then the lib split is the layout and
+`tests/layering.sh` is the fence.**  Recorded here because spec point 1
+says "ENFORCED BY THE BUILD"; the honest form of that is the gate in
+the battery, plus the packages option in the succession.
+
+### 2. THE RE-BASINGS (`Setlec/SetBase/*`)
+
+Moves (paths and module names only; the Lean namespaces
+`Setlec.SetR{,.Interp2}` are unchanged, so no statement moved):
+
+| new module | from | what |
+|---|---|---|
+| `SetBase/Ops` | `Interp2/Ops` | `piR`, `lamC`, `app`, `piR_dom_unique` |
+| `SetBase/Value` | `Interp2/Value` | the graded value tower |
+| `SetBase/Syntax` | `Annot/Syntax` | `AVExpr`, `AVExpr.erase` |
+| `SetBase/Interp` | `Interp2/Interp` | `interp`, `interp2` |
+| `SetBase/Kit` | `Interp2/Kit` | the membership kit |
+| `SetBase/Ok2` | `Annot/Ok2` | `AnnotOk2` |
+
+Splits (the model-free half out; the R lane imports it back, nothing
+duplicated):
+
+| new module | from | what | census |
+|---|---|---|---|
+| `SetBase/DefEqList` | `Bridge/Iota` | `recFireComparands_fst_nil`, `defEqListP_get`, `defEqListP_length` | edge 13 |
+| `SetBase/EqTower` | `Install/BasisS` | `eqValT`, `eqReflValT`, `eqRecValT` | edge 5 |
+| `SetBase/EraseInv` | `Install/Axiom` | `eraseNames_const_invS`, `erasePw_const_invS` | edge 6 |
+| `SetBase/ProjPhase` | `Install/ProjInstallS` | `ProjPhaseInvS`, `projFwd_renameOkT` | edge 10 |
+| `SetBase/DivModEval` | `SetR/DivModPin` | the 17 symbols `DivModCertP` consumes (`dmEvalV` + 3 `rfl` lemmas, `dmLeavesOk` + 3, `dmApplied{1,2}_frame`, `dm{Fvar,App}_wscoped`, `divModCertApplied_mem{1,2}`, `natOpTyPinned_{binary,unary}E`, `natOpCod_ble`, the two `substConst0` invariances) | edge 11 |
+
+**The single R→P edge is dead.**  `Install/Axiom.lean` imported
+`Annot/Ok2` to state `AnnotOk2` conjuncts for the P consumer; `Ok2` is
+base now, and the gate reports **0 R→P edges** with no whitelist.
+
+### 3. THE GATE — `tests/layering.sh`, wired into `tests/arena.sh`
+
+Classification: **path first** (`Setlec/SetBase/*` = base,
+`Setlec/SetP/*` = P — the campaign's target state, so the gate needs no
+maintenance once the path move lands), then, for what still sits under
+`Setlec/SetR/`, the **lane roots' closures**: `P = closure(ROOTS_P) \
+closure(ROOTS_R)`, `R = closure(ROOTS_R)`, a module both lanes need
+counts **R** (the ruling, read conservatively), and a module in neither
+closure is `neutral` — *checked to import no lane content*, otherwise
+the gate names it and demands a root-list assignment.  `ROOTS_P` =
+`FoldP` + the parked P tops (`Claims2PIO`, `IndPinProbeP`,
+`Step2/InferIOP` — the io lane is the P mode's own future, so it must
+be gated); `ROOTS_R` = `Main`, `Main2`, the 2U tier's own capstones
+(`Interp2/Capstone{,2C,2D,2E}` — which `Main2` does NOT import and
+which are what pull `Step2/InferQ` and its closure into R, per the 2U
+ruling) and the R-facing refutations/probes.
+
+It fails on: a P→R edge not on the whitelist; a whitelist entry whose
+edge is **gone** (stale ledger — the whitelist may only shrink, and a
+batch that kills an edge MUST delete its line); any R→P edge; a base
+module importing a lane; an implementation module importing theory (the
+CLAUDE.md rule, generalised into the same gate); an unclassified module
+importing lane content.  `--list` prints the current edges in whitelist
+syntax.  Today: `base 205 / R 142 / P 115 / neutral 3 modules; 26 P->R
+edges, all whitelisted; 0 R->P`.
+
+**The crossing count, honestly.**  The census reported **21** P→R
+edges; that count was taken with the 2U/`denote2` tier on the **P**
+side.  The design review then ruled the 2U lane goes to R WHOLE, which
+turns every P-quarter dependence on it into a crossing.  Measured with
+the gate: **master = 31**, after the six-module re-basing **30**, after
+the five splits **26**.  The whitelist's own tags reconcile it: 15
+edges are 2U (all S2), 3 are the de-basing proper (S3–S5, S7), 6 are
+the v1 install round trip (S3/S4), 2 are the bridge (S4).
+
+### 4. TWO FINDINGS AGAINST THE CENSUS (restrictions-are-findings)
+
+1. **Census row 4 is refuted.**  "`Interp2/AxiomBitsP → SetR/StdAxiomKey`
+   — nothing crosses, 0 symbols matched, dead import, delete" is true of
+   `AxiomBitsP`'s own body and false of the tree: deleting the import
+   broke `AxiomMemP` (`iff_shapes`/`nonempty_shapes`, actually
+   `Verify/StdAxiomPin` — base) and `AxiomPinP`
+   (`propextKeyS_mem`/`choiceKeyS_mem` — genuinely `SetR/StdAxiomKey`).
+   The same happened at `BasisEmptyP` (`extendEmptyS`, reached through
+   `EqTowerP`'s import of `Install/BasisS`).  Both are DIRECT imports
+   now: one base, two whitelisted crossings.  **S1 therefore converts
+   hidden transitive dependence into explicit edges** — the whitelist
+   is longer than a naive reading of the census and it is the honest
+   number.  Every later batch should expect the same: severing a
+   "single symbol" edge can expose a downstream consumer that was
+   riding on it.
+2. **Census row 11 is cheaper than sized.**  `DivModCertP` was listed
+   as consuming `dmFrameS` (an `EnvS`-taking lemma), which would have
+   made the edge a de-basing item.  With comments stripped its real
+   bill is 17 model-free symbols — `dmFrameS`, `dmCertEq{1,2}`,
+   `dmClause1S`, `certValueS` occur in **docstrings only**.  The edge
+   died in S1.
+
+### 5. SPLITS DEFERRED, WITH REASONS
+
+* `Annot/Pass.lean` (census edge 14, `natLitT`/`charListT` out of the
+  `HasSort`/`Annotates` half) — **deferred to S2**.  It does not sever
+  a crossing today: `Annot/Canon` is base-destined but stays
+  R-classified until it is itself re-based, so `Annot/Bit → Annot/Canon`
+  survives the split.  Doing both together (split `Pass`, re-base
+  `Canon`) is one clean S2 unit, and it is the unit that touches the
+  `SortCoh` pilot.
+* `Bridge/WhnfCore.lean`'s six `whnfCoreR_*` `rfl` lemmas — **deferred
+  to S2**.  Their consumer `Step2/Whnf` is 2U, i.e. **R** since the
+  ruling, so the move has zero boundary effect now; it belongs with the
+  2U work (and, as the census says, they belong in `Verify/*`).
+* `Install/ValueKinds.lean`'s `annotate_syntax` — **deferred to S4**.
+  The census filed it as a P consumption; the tree says otherwise —
+  its only callers are `Install/{Axiom,IndMembersS,ValueKinds}` and
+  `DivModPin`, all R.  `HarvestP`'s edge is the base builders alone,
+  which is S4's de-basing.
+* `Install/Step.lean`'s `declEtaStep` (census C4) — **S4 by plan**: it
+  is a ~60-line new theorem, not a move.
+* `SetR/Decl.lean` → base (the layering diagram's "bridge RECORDS") —
+  **not possible before S4**: `DeclR`'s derivation conjuncts name
+  `Infer`/`DefEq`, so the file cannot leave the R lane until
+  `DeclRunR` exists.  This is the diagram's one item S1 could not
+  deliver, and it is exactly the census's C3 artifact.
+
+### 6. BATTERY (verbatim)
+
+* `lake build` — clean, warning-free (full rebuild after the re-basing:
+  511 jobs, 3m10s).
+* `lake test` — exit 0.
+* `tests/layering.sh` — `layering: base 205 / R 142 / P 115 / neutral 3
+  modules; 26 P->R edges, all whitelisted; 0 R->P`, exit 0.
+* `tests/arena.sh` — exit 0, with the gate as its first line:
+
+  ```
+  layering: base 205 / R 142 / P 115 / neutral 3 modules; 26 P->R edges, all whitelisted; 0 R->P
+  arena tutorial: 90/92 good tests accepted
+  e2e: 73/73 as expected
+  annot suite: 14/14 as expected
+  split driver: 11/11 as expected
+  mode flags: 9/9 as expected
+  no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+  ```
+* Axiom audit, 11 capstones — `no_proof_of_Empty_P`,
+  `no_proof_of_Empty_P_of`, `no_proof_of_Empty_{,_input_}{R,SP_R}`,
+  `no_proof_of_Empty_{R2,SP_R2,R2M,SP_R2M}`,
+  `Cached.no_proof_of_Empty_SPC_R{,2}` — every one
+  `[propext, Classical.choice, Quot.sound]`, unchanged.
+* Byte-identity: `git diff master -- Setlec/Kernel Main.lean
+  Setlec/Cached Setlec/Frontend AnnotateBasis.lean Setlec/PinGen*` is
+  **empty**, and `.lake/build/bin/setlec` has the same md5 as master's
+  binary (`764d7d28…`).  init-prelude
+  (`_tmp/perfcmp/init-prelude.preprocessed.ndjson`) accepted in all
+  four configurations — `--set-model`/`--no-model` ×
+  `--core=production`/`--core=cached-parsed` — exit 0 with identical
+  output digests.
+
+### 7. SUCCESSION — where S2 starts
+
+S2 = **the 2U/R move**, and the gate hands it its work order: the
+**15 S2-tagged whitelist lines** are exactly the P quarters' bill.
+Concretely, in the census's own sizing: `frame_open2`
+(`Step2/InferQ:1089`, 18 lines) and `interp2C_trans`
+(`Step2/Whnf:2025`, 8 lines) to the base sever 11 352 lines of 2U in
+two edits; then `natLit_facts2` (`Step2/Lit`), the `denote2_*` family
+(`Keys2Cond`, `Denote2Closed`, `Denote2Extend`, `Install2`,
+`EmptyPin2`), `Claims2E`, `BasisOk`, `Step2/Levels`; and the
+`Annot/Pass` split + `Annot/Canon`'s re-basing as the one unit that
+touches the `SortCoh` pilot.  Each edge removed = one whitelist line
+deleted (the gate FAILS on a stale entry, so the ledger cannot rot in
+either direction).  When the 15 are gone, the P-only set is
+path-movable and S2's successor can create `Setlec/SetP/*` and the
+`SetlecP` lib target — at which point the gate's closure rule falls
+away and the path rule alone carries it.
+
+Kit: `tests/layering.sh --list`; the S1 audit file
+`_tmp/sep-s1/Audit.lean`.
+
+## Task #161 SEPARATION — measurement-framing relay (2026-09-03;
+coordinator, from the engineering-overhead final report on
+agent/perf-eng, landing separately)
+
+For S8/S9's framing (binding): quote the P mode's savings against
+the AMENDED baselines — the perf landings will move them; coordinate
+SHAs with the perf agent's landing.  The R1 memo/alloc round runs in
+PARALLEL with this campaign: machine-solo coordination for heavy
+legs (stamped lock, liveness check) applies as usual.
+
+Context numbers (the honest preprocessed-both-sides gap): official
+1.8–7.7× (cached lane) / 3.7–13.2× (interned), cores SPLITTING by
+stream shape (cached wins term-heavy, interned wins decl-heavy);
+lean4lean ≈ C++ official at 1.0–2.0× on this machine — the gap is
+the hash-consing-everything architecture, not Lean; dominant bucket
+everywhere = term-walk allocation/RC + per-walk DHashMap memo
+traffic (68–97%).  Useful for S-batches: the knot bucket is fixed
+via Thunk-caching with ZERO proof adaptation (the Thunk.get
+definitional trick); the frontend byte parser landed −5.2%
+proof-free.

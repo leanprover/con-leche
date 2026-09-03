@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.AxiomBitsP
+import Setlec.Verify.StdAxiomPin
 
 /-!
 # The pinned axioms' `interp2` memberships (task #161, ENDGAME C, task 1a)

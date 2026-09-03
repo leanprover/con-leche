@@ -1,4 +1,4 @@
-import Setlec.SetR.Annot.Ok2
+import Setlec.SetBase.Ok2
 
 /-!
 # The spine chain and the pinning fold (task #151 tier C, seal 2)

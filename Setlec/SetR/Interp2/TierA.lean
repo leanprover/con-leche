@@ -1,4 +1,4 @@
-import Setlec.SetR.Interp2.Kit
+import Setlec.SetBase.Kit
 
 /-!
 # The tier-A interface: what the `λ` node must carry (task #151, tier B)
