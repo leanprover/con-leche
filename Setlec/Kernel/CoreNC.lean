@@ -808,6 +808,29 @@ own closure (no generic `lean_apply` through a `memoEI` closure). -/
         set' st (mp.insert e r)
       pure r
 
+/-- perf-eng E4 (the taxtable's flagged follow-up): infer memo with a
+second, read-only probe of the checking-mode memo `inferFC` — serving
+a checking-mode-derived type to an infer-only query is the safe
+direction (#134's `memoEIO` did this; #147 dropped it, leaving the
+parity lane to compute every checked subterm's type twice).  Writes
+still go to `inferC` only. -/
+@[inline] private def memoInferNC (f : Nat → EIdx → CheckIM EIdx) :
+    Nat → EIdx → CheckIM EIdx :=
+  fun d e => do
+    let st0 ← get
+    match st0.inferC[e]? with
+    | some r => pure r
+    | none =>
+      match st0.inferFC[e]? with
+      | some r => pure r
+      | none =>
+        let r ← f d e
+        modify fun st =>
+            let mp := st.inferC
+          let st := { st with inferC := ∅ }
+          { st with inferC := mp.insert e r }
+        pure r
+
 /-- perf-eng E2: `@[inline]` twin of `memoBI` (see `memoEINC`). -/
 @[inline] private def memoBINC (f : Nat → EIdx → EIdx → CheckIM Bool) :
     Nat → EIdx → EIdx → CheckIM Bool :=
@@ -844,8 +867,7 @@ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
         (fun d e => whnfCoreBodyNC prev.get fe d e)
       whnf := memoEINC (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI prev.get fe d e)
-      infer := memoEINC (·.inferC) (fun st mp => { st with inferC := mp })
-        (fun d e => inferBodyNC prev.get fe d e)
+      infer := memoInferNC (fun d e => inferBodyNC prev.get fe d e)
       defeq := memoBINC
         (fun d a b => defeqBodyNC prev.get fe d a b)
       annotate := memoEINC (·.annotC) (fun st mp => { st with annotC := mp })
