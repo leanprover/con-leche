@@ -733,6 +733,18 @@ theorem denoteBM_mono {st st' : EStore} (_hext : Ext st st')
   obtain ⟨bi, pw⟩ := m
   exact h
 
+/-- **The β-cert gate reads the same datum on both sides** (task #161
+bucket 2 stage 1): `denoteBM` is the identity on the prop-ness datum,
+so the interned core's gate (`IBinderMeta.pw` off the arena node) and
+the specification's (`BinderMeta.pw` off the denoted term) are the
+same test. -/
+theorem denoteBM_pw {denL : LIdx → Option Level}
+    {m : IBinderMeta} {bm : BinderMeta}
+    (h : denoteBM denL m = some bm) : bm.pw = m.pw := by
+  obtain ⟨bi, pw⟩ := m
+  simp only [denoteBM, Option.some.injEq] at h
+  exact h ▸ rfl
+
 /-- `denoteNode` transports along extension when the children's
 denotations transport. -/
 theorem denoteNode_mono {st st' : EStore} (hext : Ext st st')

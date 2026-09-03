@@ -954,8 +954,9 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).whnfCore d g' >>= fun f' =>
         match f' with
         | .lam n ty body mb =>
-          (C : CoreFns CheckSM).infer d a >>= fun ta =>
-          (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
+          (if mb.pw.isNever then pure true else
+            (C : CoreFns CheckSM).infer d a >>= fun ta =>
+            (C : CoreFns CheckSM).defeq d ta ty) >>= fun b =>
           if b then
             (C : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
           else pure (.app (.lam n ty body mb) a)
@@ -967,8 +968,9 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       ((G : CoreFns CheckSM).whnfCore d g' >>= fun f' =>
         match f' with
         | .lam n ty body mb =>
-          (G : CoreFns CheckSM).infer d a >>= fun ta =>
-          (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
+          (if mb.pw.isNever then pure true else
+            (G : CoreFns CheckSM).infer d a >>= fun ta =>
+            (G : CoreFns CheckSM).defeq d ta ty) >>= fun b =>
           if b then
             (G : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
           else pure (.app (.lam n ty body mb) a)
@@ -988,11 +990,17 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         exact ⟨hwtb, hwfa.2⟩
       have hwred : WScoped d (body.instantiate1 a) :=
         WScoped.instantiate1_gen hwfa.2 0 hwtb.2
-      refine DiscV.bind (ih.site_infer henv hwfa.2) (fun ta hta => ?_)
-      refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
-      split
-      · exact ih.site_whnfCore henv hwred
-      · exact DiscV.pure hwapp
+      -- task #161 bucket 2 stage 1: the certificate runs under the
+      -- gate; at a `never` datum both sides are `pure true`.
+      refine DiscV.bind (?_ : DiscV mode env (fun _ => True) _ _)
+        (fun b _ => ?_)
+      · split
+        · exact DiscV.pure trivial
+        · refine DiscV.bind (ih.site_infer henv hwfa.2) (fun ta hta => ?_)
+          exact ih.site_defeq hta hwtb.1
+      · split
+        · exact ih.site_whnfCore henv hwred
+        · exact DiscV.pure hwapp
     · -- iota / stuck
       rename_i hnolam
       have hwapp : WScoped d (Expr.app f' a) := by

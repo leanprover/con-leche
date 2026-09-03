@@ -149,33 +149,40 @@ theorem whnfAppI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
           exact WScoped.instantiate1_gen hwxa 0 hwtb.2
         rw [whnfApp_lam]
         unfold whnfAppLam
-        refine SimAt.bind (ih.infer hs hax hwxa)
-          (fun s₁ ta tax hs₁ hext₁ hP => ?_)
-        obtain ⟨htad, hwta⟩ := hP
-        refine SimAt.bind (ih.defeq hs₁ htad
-          (denoteT_mono hext₁ hty) hwta hwtb.1)
+        -- task #161 bucket 2 stage 1: the β-cert gate.  `denoteBM` is
+        -- the identity on `pw` (`EStore.denoteBM_pw`), so the arena
+        -- node's datum and the denoted term's are the same test and
+        -- the two runs take the same side of the gate.
+        rw [EStore.denoteBM_pw hbmDen]
+        refine SimAt.bind (?_ : SimAt mode env s₀ RelV _ _)
           (fun s₂ b b' hs₂ hext₂ hPb => ?_)
+        · split
+          · exact SimAt.pure hs rfl
+          · refine SimAt.bind (ih.infer hs hax hwxa)
+              (fun s₁ ta tax hs₁ hext₁ hP => ?_)
+            obtain ⟨htad, hwta⟩ := hP
+            exact ih.defeq hs₁ htad (denoteT_mono hext₁ hty) hwta hwtb.1
         obtain rfl : b = b' := hPb
         cases b with
         | true =>
           simp only [↓reduceIte]
           exact betaPeelI_sim ih henv hk hs₂
-            (denoteT_mono (hext₁.trans hext₂) hbody)
-            ⟨denoteT_mono (hext₁.trans hext₂) hax, DenL.nil⟩
-            hwsub (hrest.mono (hext₁.trans hext₂)) hwrest
+            (denoteT_mono hext₂ hbody)
+            ⟨denoteT_mono hext₂ hax, DenL.nil⟩
+            hwsub (hrest.mono hext₂) hwrest
         | false =>
           simp only [Bool.false_eq_true, ↓reduceIte]
           have hfa : denoteNode s₂.store.denoteT s₂.store.denoteL
               s₂.store.denoteN (.app v a)
               = some (.app (.lam nm tyx bodyx bm) xa) := by
             rw [denoteNode,
-              denoteT_mono (hext₁.trans hext₂) hv,
-              denoteT_mono (hext₁.trans hext₂) hax]
+              denoteT_mono hext₂ hv,
+              denoteT_mono hext₂ hax]
             rfl
           refine SimAt.bind_left (internI_eff hs₂ hfa)
             (fun s₃ fa hs₃ hext₃ hQfa => ?_)
           refine SimAt.of_eff (mkAppNM_eff hs₃ hQfa
-            (hrest.mono ((hext₁.trans hext₂).trans hext₃))) _
+            (hrest.mono (hext₂.trans hext₃))) _
             (fun s r hQ => ⟨hQ, ?_⟩)
           refine Expr.WScoped.mkAppN ?_ hwrest
           simp only [WScoped]
@@ -382,17 +389,25 @@ theorem betaPeelI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
         have hwsub : WScoped d (bodyx.instantiateList (xa :: ws)) := by
           rw [Expr.instantiateList_cons]
           exact WScoped.instantiate1_gen hwxa 0 hcomp.2
-        refine SimAt.bind_left (instListM_eff (d := 0) hs hty hacc)
-          (fun s₁ ty' hs₁ hext₁ hQty => ?_)
-        refine SimAt.bind (ih.infer hs₁
-          (denoteT_mono hext₁ hax) hwxa)
-          (fun s₂ ta tax hs₂ hext₂ hP => ?_)
-        obtain ⟨htad, hwta⟩ := hP
-        refine SimAt.bind (ih.defeq hs₂ htad
-          (denoteT_mono hext₂ hQty) hwta hcomp.1)
+        -- task #161 bucket 2 stage 1: the β-cert gate, with the
+        -- domain's bulk substitution inside it (it is the
+        -- certificate's own comparand).  `EStore.denoteBM_pw` aligns
+        -- the arena node's datum with the denoted term's.
+        rw [EStore.denoteBM_pw hbmDen]
+        refine SimAt.bind (?_ : SimAt mode env s₀ RelV _ _)
           (fun s₃ b b' hs₃ hext₃ hPb => ?_)
+        · split
+          · exact SimAt.pure hs rfl
+          · refine SimAt.bind_left (instListM_eff (d := 0) hs hty hacc)
+              (fun s₁ ty' hs₁ hext₁ hQty => ?_)
+            refine SimAt.bind (ih.infer hs₁
+              (denoteT_mono hext₁ hax) hwxa)
+              (fun s₂ ta tax hs₂ hext₂ hP => ?_)
+            obtain ⟨htad, hwta⟩ := hP
+            exact ih.defeq hs₂ htad
+              (denoteT_mono hext₂ hQty) hwta hcomp.1
         obtain rfl : b = b' := hPb
-        have hextAll := (hext₁.trans hext₂).trans hext₃
+        have hextAll := hext₃
         cases b with
         | true =>
           simp only [↓reduceIte]

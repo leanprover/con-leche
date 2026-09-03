@@ -50,8 +50,12 @@ def appStep (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) (w a : Expr) : m Expr :=
   match w with
   | .lam n ty body mb => do
-    let ta ← r.infer depth a
-    if ← r.defeq depth ta ty then
+    -- task #161 bucket 2 stage 1: the β-cert gate, mirrored from
+    -- `whnfCoreBody`'s `.app` clause (the mirrors must be the same
+    -- computation for `whnfApp_sound_body` to identify them).
+    if ← (if mb.pw.isNever then pure true else do
+            let ta ← r.infer depth a
+            r.defeq depth ta ty) then
       k (body.instantiate1 a)
     else pure (.app (.lam n ty body mb) a)
   | f' => do
@@ -78,8 +82,10 @@ def whnfApp (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
   | v, a :: rest =>
     match v with
     | .lam n ty body mb => do
-      let ta ← r.infer depth a
-      if ← r.defeq depth ta ty then betaPeel mode r env depth k body [a] rest
+      if ← (if mb.pw.isNever then pure true else do
+              let ta ← r.infer depth a
+              r.defeq depth ta ty) then
+        betaPeel mode r env depth k body [a] rest
       else pure (Expr.mkAppN (.app (.lam n ty body mb) a) rest)
     | v => do
       match ← iotaRec mode r env depth (.app v a) with
@@ -103,8 +109,9 @@ def betaPeel (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
   | t, acc, a :: rest =>
     match t with
     | .lam n ty body mb => do
-      let ta ← r.infer depth a
-      if ← r.defeq depth ta (ty.instantiateList acc) then
+      if ← (if mb.pw.isNever then pure true else do
+              let ta ← r.infer depth a
+              r.defeq depth ta (ty.instantiateList acc)) then
         betaPeel mode r env depth k body (a :: acc) rest
       else pure (Expr.mkAppN
         (.app ((Expr.lam n ty body mb).instantiateList acc) a) rest)
@@ -137,8 +144,10 @@ def whnfAppLam (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
     (n : Name) (ty body : Expr) (mb : BinderMeta) (a : Expr)
     (rest : List Expr) : m Expr := do
-  let ta ← r.infer depth a
-  if ← r.defeq depth ta ty then betaPeel mode r env depth k body [a] rest
+  if ← (if mb.pw.isNever then pure true else do
+          let ta ← r.infer depth a
+          r.defeq depth ta ty) then
+    betaPeel mode r env depth k body [a] rest
   else pure (Expr.mkAppN (.app (.lam n ty body mb) a) rest)
 
 theorem whnfApp_nil (r : CoreFns m) (env : Env) (depth : Nat)
@@ -187,8 +196,9 @@ def betaPeelLam (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
     (n : Name) (ty body : Expr) (mb : BinderMeta) (acc : List Expr)
     (a : Expr) (rest : List Expr) : m Expr := do
-  let ta ← r.infer depth a
-  if ← r.defeq depth ta (ty.instantiateList acc) then
+  if ← (if mb.pw.isNever then pure true else do
+          let ta ← r.infer depth a
+          r.defeq depth ta (ty.instantiateList acc)) then
     betaPeel mode r env depth k body (a :: acc) rest
   else pure (Expr.mkAppN
     (.app ((Expr.lam n ty body mb).instantiateList acc) a) rest)
@@ -277,6 +287,19 @@ theorem appStep_atF (d : Nat) (k : Expr → FueledM Expr)
   unfold appStep
   atF_tac4k hk
 
+/-- The β-cert gate's `atF` equation (task #161 bucket 2 stage 1): the
+gate's condition is a pure read of the binder's metadata, so the
+fueled and pure runs share it and only the kept branch has to move. -/
+theorem gate_atF (d F : Nat) (mb : BinderMeta) (a ty : Expr) :
+    ((if mb.pw.isNever then pure true else do
+        let ta ← (fueledFns mode env).infer d a
+        (fueledFns mode env).defeq d ta ty : FueledM Bool)).val F
+      = (if mb.pw.isNever then pure true else do
+          let ta ← (pureFns mode env F).infer d a
+          (pureFns mode env F).defeq d ta ty) := by
+  rw [FueledM.atF_ite]
+  split <;> rfl
+
 mutual
 
 theorem whnfApp_atF (d : Nat) (k : Expr → FueledM Expr)
@@ -290,10 +313,7 @@ theorem whnfApp_atF (d : Nat) (k : Expr → FueledM Expr)
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [whnfApp_lam, whnfApp_lam]
       unfold whnfAppLam
-      rw [FueledM.atF_bind]
-      congr 1
-      funext ta
-      rw [FueledM.atF_bind]
+      rw [FueledM.atF_bind, gate_atF]
       congr 1
       funext b
       rw [FueledM.atF_ite]
@@ -333,10 +353,7 @@ theorem betaPeel_atF (d : Nat) (k : Expr → FueledM Expr)
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [betaPeel_lam, betaPeel_lam]
       unfold betaPeelLam
-      rw [FueledM.atF_bind]
-      congr 1
-      funext ta
-      rw [FueledM.atF_bind]
+      rw [FueledM.atF_bind, gate_atF]
       congr 1
       funext b
       rw [FueledM.atF_ite]
@@ -431,6 +448,22 @@ theorem projCert_mono {d : Nat} {e : Expr} {i : Nat}
     projCert (pureFns mode env F') env d e i nP = .ok b := by
   rw [← projCert_atF] at h ⊢
   exact (projCert (fueledFns mode env) env d e i nP).property hle h
+
+/-- Fuel monotonicity of the β-cert gate (task #161 bucket 2
+stage 1): at a `never` datum there is no run to move, and otherwise
+this is the certificate's own monotonicity. -/
+theorem gate_mono {d : Nat} {mb : BinderMeta} {a ty : Expr} {F F' : Nat}
+    (hle : F ≤ F') {b : Bool}
+    (h : (if mb.pw.isNever then pure true else do
+            let ta ← (pureFns mode env F).infer d a
+            (pureFns mode env F).defeq d ta ty) = .ok b) :
+    (if mb.pw.isNever then pure true else do
+            let ta ← (pureFns mode env F').infer d a
+            (pureFns mode env F').defeq d ta ty) = .ok b := by
+  rw [← gate_atF] at h ⊢
+  exact (if mb.pw.isNever then pure true else do
+      let ta ← (fueledFns mode env).infer d a
+      (fueledFns mode env).defeq d ta ty : FueledM Bool).property hle h
 
 theorem iotaRec_mono {d : Nat} {e : Expr} {F F' : Nat}
     (hle : F ≤ F') {o : Option Expr}
@@ -564,12 +597,11 @@ theorem whnfApp_snoc {d : Nat} :
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [whnfApp_lam] at H
       unfold whnfAppLam at H
-      obtain ⟨ta, hta, H⟩ := bind_ok H
       obtain ⟨b, hb, H⟩ := bind_ok H
       refine ⟨F, _, by rw [whnfApp_nil]; rfl, ?_⟩
       unfold appStep
       dsimp only
-      rw [hta, ok_bind, hb, ok_bind]
+      rw [hb, ok_bind]
       cases b with
       | true =>
         simp only [↓reduceIte] at H ⊢
@@ -611,7 +643,6 @@ theorem whnfApp_snoc {d : Nat} :
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [whnfApp_lam] at H
       unfold whnfAppLam at H
-      obtain ⟨ta, hta, H⟩ := bind_ok H
       obtain ⟨b, hb, H⟩ := bind_ok H
       cases b with
       | true =>
@@ -622,9 +653,7 @@ theorem whnfApp_snoc {d : Nat} :
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [whnfApp_lam]
         unfold whnfAppLam
-        rw [infer_def,
-          inferTypeCore_mono (Nat.le_max_left F F₁) hta, ok_bind,
-          defeq_def, isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
+        rw [gate_mono (Nat.le_max_left F F₁) hb, ok_bind]
         simp only [↓reduceIte]
         exact betaPeel_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hw
@@ -636,7 +665,7 @@ theorem whnfApp_snoc {d : Nat} :
           (.app (.lam n ty body mb) x) xs', ?_, ?_⟩
         · rw [whnfApp_lam]
           unfold whnfAppLam
-          rw [hta, ok_bind, hb, ok_bind]
+          rw [hb, ok_bind]
           simp only [Bool.false_eq_true, ↓reduceIte]
           rfl
         · rw [Expr.mkAppN_append_one]
@@ -702,13 +731,11 @@ theorem betaPeel_snoc {d : Nat} :
               (body.instantiateList acc 1) mb) := by
         rw [betaPeel_nil, instList_lam]
         exact whnfCore_lam F d n _ _ _
-      obtain ⟨ta, hta, H⟩ := bind_ok H
       obtain ⟨b, hb, H⟩ := bind_ok H
       refine ⟨F + 1, _, hid, ?_⟩
       unfold appStep
       dsimp only
-      rw [infer_def, inferTypeCore_mono (Nat.le_succ F) hta,
-        ok_bind, defeq_def, isDefEqCore_mono (Nat.le_succ F) hb, ok_bind]
+      rw [gate_mono (Nat.le_succ F) hb, ok_bind]
       cases b with
       | true =>
         simp only [↓reduceIte] at H ⊢
@@ -741,7 +768,6 @@ theorem betaPeel_snoc {d : Nat} :
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [betaPeel_lam] at H
       unfold betaPeelLam at H
-      obtain ⟨ta, hta, H⟩ := bind_ok H
       obtain ⟨b, hb, H⟩ := bind_ok H
       cases b with
       | true =>
@@ -753,9 +779,7 @@ theorem betaPeel_snoc {d : Nat} :
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [betaPeel_lam]
         unfold betaPeelLam
-        rw [infer_def,
-          inferTypeCore_mono (Nat.le_max_left F F₁) hta, ok_bind,
-          defeq_def, isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
+        rw [gate_mono (Nat.le_max_left F F₁) hb, ok_bind]
         simp only [↓reduceIte]
         exact betaPeel_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hw
@@ -768,7 +792,7 @@ theorem betaPeel_snoc {d : Nat} :
             x) xs', ?_, ?_⟩
         · rw [betaPeel_lam]
           unfold betaPeelLam
-          rw [hta, ok_bind, hb, ok_bind]
+          rw [hb, ok_bind]
           simp only [Bool.false_eq_true, ↓reduceIte]
           rfl
         · rw [Expr.mkAppN_append_one]
@@ -881,7 +905,6 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [whnfApp_lam] at H
       unfold whnfAppLam at H
-      obtain ⟨ta, hta, H⟩ := bind_ok H
       obtain ⟨b, hb, H⟩ := bind_ok H
       cases b with
       | true =>
@@ -890,9 +913,7 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
         refine ⟨max F F₁, ?_⟩
         rw [whnfApp_lam]
         unfold whnfAppLam
-        rw [infer_def, inferTypeCore_mono (Nat.le_max_left F F₁) hta,
-          ok_bind, defeq_def,
-          isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
+        rw [gate_mono (Nat.le_max_left F F₁) hb, ok_bind]
         simp only [↓reduceIte]
         exact betaPeel_mono ((fueledFns mode env).whnfCore d) _ _
           (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right F F₁) hP
@@ -903,7 +924,7 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
         refine ⟨F, ?_⟩
         rw [whnfApp_lam]
         unfold whnfAppLam
-        rw [hta, ok_bind, hb, ok_bind]
+        rw [hb, ok_bind]
         simp only [Bool.false_eq_true, ↓reduceIte]
         rfl
     · have hv : ∀ n ty body mb, v ≠ Expr.lam n ty body mb :=
@@ -960,7 +981,6 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [betaPeel_lam] at H
       unfold betaPeelLam at H
-      obtain ⟨ta, hta, H⟩ := bind_ok H
       obtain ⟨b, hb, H⟩ := bind_ok H
       cases b with
       | true =>
@@ -970,9 +990,7 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
         refine ⟨max F F₁, ?_⟩
         rw [betaPeel_lam]
         unfold betaPeelLam
-        rw [infer_def, inferTypeCore_mono (Nat.le_max_left F F₁) hta,
-          ok_bind, defeq_def,
-          isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
+        rw [gate_mono (Nat.le_max_left F F₁) hb, ok_bind]
         simp only [↓reduceIte]
         exact betaPeel_mono ((fueledFns mode env).whnfCore d) _ _
           (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right F F₁) hP
@@ -983,7 +1001,7 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
         refine ⟨F, ?_⟩
         rw [betaPeel_lam]
         unfold betaPeelLam
-        rw [hta, ok_bind, hb, ok_bind]
+        rw [hb, ok_bind]
         simp only [Bool.false_eq_true, ↓reduceIte]
         rfl
     · have ht : ∀ n ty body mb, t ≠ Expr.lam n ty body mb :=

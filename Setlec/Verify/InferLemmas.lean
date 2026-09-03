@@ -30,17 +30,29 @@ theorem find?_mem {env : Env} {n : Name} {ci : ConstantInfo}
 
 /-! ## Inversion lemmas -/
 
-/-- Inversion for `whnfCore` on applications: either a certified beta
-step happened (task #100 de-gating: every beta redex carries the
-argument certificate), or an iota step (with the stuck-major
-machinery), or the application is stuck. -/
+/-- Inversion for `whnfCore` on applications: either a beta step
+happened, or an iota step (with the stuck-major machinery), or the
+application is stuck.
+
+**The β disjunct's last conjunct is the certificate, as the gated
+checker supplies it** (task #161 bucket 2 stage 1): either the
+binder's validated datum is `never` — the graph regime at every
+valuation, where the P-tier claim's positive branch consumes no
+certificate (`AnnotOkP_beta_pos` + `annotOk2_beta_dom_pos`) — or the
+run's own `infer`/`defeq` pair, exactly as before the gate.  The two
+alternatives are mutually exclusive on nothing: a consumer that needs
+the pair at a *zero* kind refutes the first by
+`pwBit_ne_zero_of_isNever` (`SetR/Annot/Bit.lean`), which is what
+makes the gate's kernel condition an exact match for the claim's
+split rather than a widening. -/
 theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
     (h : whnfCore mode env (fuel + 1) d (.app f a) = .ok e') :
     ∃ f', whnfCore mode env fuel d f = .ok f' ∧
       ((∃ n ty body m, f' = .lam n ty body m ∧
           whnfCore mode env fuel d (body.instantiate1 a) = .ok e' ∧
-          ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
-            isDefEqCore mode env fuel d ta ty = .ok true) ∨
+          (PropWhen.isNever m.pw = true ∨
+            ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
+              isDefEqCore mode env fuel d ta ty = .ok true)) ∨
         (∃ e'', iotaRecP mode env fuel d (.app f' a) = .ok (some e'') ∧
           whnfCore mode env fuel d e'' = .ok e') ∨
         e' = .app f' a) := by
@@ -68,23 +80,33 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
     dsimp only at h
     try simp only [Bind.bind, Except.bind] at h
     try dsimp only at h
-    cases hta : inferTypeCore mode env fuel d a with
-    | error err => rw [hta] at h; exact nomatch h
-    | ok ta =>
-    rw [hta] at h
-    dsimp only at h
-    cases hde : isDefEqCore mode env fuel d ta ty with
-    | error err => rw [hde] at h; exact nomatch h
-    | ok bb =>
-    rw [hde] at h
-    cases bb with
-    | true =>
-      simp only [if_true] at h
-      exact Or.inl ⟨n, ty, body, m, rfl, h, ta, rfl, hde⟩
-    | false =>
-      simp only [Bool.false_eq_true, if_false, pure, Except.pure,
-        Except.ok.injEq] at h
-      exact Or.inr (Or.inr h.symm)
+    by_cases hg : PropWhen.isNever m.pw = true
+    · rw [hg] at h
+      simp only [if_true, pure, Except.pure] at h
+      try dsimp only at h
+      try simp only [if_true] at h
+      exact Or.inl ⟨n, ty, body, m, rfl, h, Or.inl hg⟩
+    · simp only [Bool.not_eq_true] at hg
+      rw [hg] at h
+      simp only [Bool.false_eq_true, if_false, Bind.bind,
+        Except.bind] at h
+      cases hta : inferTypeCore mode env fuel d a with
+      | error err => rw [hta] at h; exact nomatch h
+      | ok ta =>
+      rw [hta] at h
+      dsimp only at h
+      cases hde : isDefEqCore mode env fuel d ta ty with
+      | error err => rw [hde] at h; exact nomatch h
+      | ok bb =>
+      rw [hde] at h
+      cases bb with
+      | true =>
+        simp only [if_true] at h
+        exact Or.inl ⟨n, ty, body, m, rfl, h, Or.inr ⟨ta, rfl, hde⟩⟩
+      | false =>
+        simp only [Bool.false_eq_true, if_false, pure, Except.pure,
+          Except.ok.injEq] at h
+        exact Or.inr (Or.inr h.symm)
   all_goals
     try simp only [Bind.bind, Except.bind] at h
     cases hio : iotaRecP mode env fuel d (.app _ a) with

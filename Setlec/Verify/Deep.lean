@@ -1957,16 +1957,20 @@ private theorem whnfCore_step (henv : EnvWF env)
     | lam n₁ ty₁ body₁ m₁ =>
       simp only [WScoped] at hwf'
       dsimp only [shiftFrom]
-      refine bind_rel _ _ (ih.infer hpd hw.2) ?_
-      intro ta hta
-      refine bind_rel_eq _
-        (ih.defeq hpd (inferTypeCore_WScoped henv fuel hta hw.2)
-          hwf'.1) ?_
-      intro bb _
-      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-      have h := ih.whnfCore hpd
-        (WScoped.instantiate1_gen hw.2 0 hwf'.2)
-      rwa [shiftFrom_instantiate1_gen] at h
+      -- task #161 bucket 2 stage 1: the β certificate runs under the
+      -- gate.  `shiftFrom` is the identity on binder metadata, so the
+      -- two runs share the gate's condition and `ite_congr'` splits
+      -- them; the skipped side is `pure true` on both.
+      refine bind_rel_eq _ (ite_congr' (fun _ => rfl) (fun _ => ?_)) ?_
+      · refine bind_congr _ (ih.infer hpd hw.2) ?_
+        intro ta hta
+        exact ih.defeq hpd (inferTypeCore_WScoped henv fuel hta hw.2)
+          hwf'.1
+      · intro bb _
+        refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+        have h := ih.whnfCore hpd
+          (WScoped.instantiate1_gen hw.2 0 hwf'.2)
+        rwa [shiftFrom_instantiate1_gen] at h
     | bvar i => exact hiota _ hwf'
     | fvar idx n ty =>
       have h := hiota _ hwf'
