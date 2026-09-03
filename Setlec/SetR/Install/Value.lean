@@ -1,6 +1,6 @@
 import Setlec.SetR.Install.Cons
 import Setlec.SetR.Sound.Main
-import Setlec.SetR.Decl
+import Setlec.SetBase.Decl
 import Setlec.Verify.Denote.SubstConst
 import Setlec.Verify.Abstract
 

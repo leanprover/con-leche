@@ -1,4 +1,4 @@
-import Setlec.SetR.CtxOkR
+import Setlec.SetBase.CtxOkR
 
 /-!
 # Sanity derivations (task #148, T2)

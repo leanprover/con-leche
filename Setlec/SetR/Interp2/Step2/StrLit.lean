@@ -1,4 +1,4 @@
-import Setlec.SetR.Interp2.Step2.Lit
+import Setlec.SetBase.LitStep2
 import Setlec.SetR.Interp2.Step2.Dispatch
 
 /-!

@@ -1,3 +1,4 @@
+import Setlec.SetBase.Frame
 import Setlec.SetR.Interp2.Step2.Routed
 import Setlec.SetR.Interp2.Step2.Fuel
 import Setlec.SetR.Interp2.Claims2B
@@ -1083,26 +1084,11 @@ theorem lamSortE_runs {F d : Nat} {e : Expr} {v : Nat}
     simp only [Except.toOption] at h
     exact ⟨bt, rfl, h⟩
 
-/-- The frame conditions of an opened binder, *without* the context —
-`frame_openR`'s first three components, which need no correspondence in
-either currency. -/
-theorem frame_open2 {d : Nat} {n : Name} {ty body : Expr}
-    (hwty : Expr.WScoped d ty) (hbty : ty.looseBVarsBounded 0 = true)
-    (hwb : Expr.WScoped d body)
-    (hbb : body.looseBVarsBounded 1 = true)
-    (hLty : Expr.LeavesBounded ty)
-    (hLbody : Expr.LeavesBounded body) :
-    Expr.WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) ∧
-      (body.instantiate1 (.fvar d n ty)).looseBVarsBounded 0 = true ∧
-      Expr.LeavesBounded (body.instantiate1 (.fvar d n ty)) := by
-  refine ⟨Expr.WScoped.instantiate1 hwty 0 hwb,
-    Setlec.looseBVarsBounded_instantiate1 body 0 hbb, fun l hl => ?_⟩
-  rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
-  · exact hLbody l h2
-  · rw [Expr.fvarLeaves] at h2
-    rcases List.mem_cons.mp h2 with rfl | h3
-    · exact hbty
-    · exact hLty l h3
+/-! `frame_open2` — the frame conditions of an opened binder — used to
+stand here.  THE SEPARATION's S2 re-based it to `Setlec/SetBase/Frame.lean`
+(it is model-free `Expr` scoping, and it was the ONLY thing the graded
+lane's `Step2/InferP` borrowed from this 2U module); the name and the
+statement are unchanged, and this module imports it back. -/
 
 /-! ### The re-pointed residues
 

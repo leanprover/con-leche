@@ -282,4 +282,40 @@ theorem erase_mkAppN : ∀ (as : List AVExpr) (f : AVExpr),
 
 end AVExpr
 
+
+/-! ## `erase` at the constant clause
+
+Re-based here from `SetR/Interp2/EmptyPin2.lean` at THE SEPARATION's S2
+(task #161): pure syntax, and both lanes read a constant back out of an
+erasure with it.  Its namespace (`Setlec.SetR.Interp2`) is unchanged, so
+the block below re-opens it. -/
+
+namespace Interp2
+
+open Setlec.TT (BConst)
+
+/-- **`erase` is injective at the constant clause.**  Every other
+`AVExpr` constructor erases to a different `VExpr` constructor, so a
+constant erasure has a constant source — with the *same* name and the
+*same* level numerals, since the constant clause carries no
+annotation to forget. -/
+theorem erase_eq_const {ea : AVExpr} {c : BConst} {us : List Nat}
+    (h : ea.erase = .const c us) : ea = .const c us := by
+  cases ea with
+  | bvar i => rw [AVExpr.erase_bvar] at h; exact nomatch h
+  | sort u => rw [AVExpr.erase_sort] at h; exact nomatch h
+  | const c' us' =>
+    rw [AVExpr.erase_const] at h
+    injection h with h1 h2
+    rw [h1, h2]
+  | app f a => rw [AVExpr.erase_app] at h; exact nomatch h
+  | lam u ty b => rw [AVExpr.erase_lam] at h; exact nomatch h
+  | pi u v ty b => rw [AVExpr.erase_pi] at h; exact nomatch h
+  | letE ty v b => rw [AVExpr.erase_letE] at h; exact nomatch h
+  | eqE ty l r => rw [AVExpr.erase_eqE] at h; exact nomatch h
+  | proj i e => rw [AVExpr.erase_proj] at h; exact nomatch h
+  | prf => rw [AVExpr.erase_prf] at h; exact nomatch h
+
+end Interp2
+
 end Setlec.SetR

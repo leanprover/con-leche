@@ -1,5 +1,5 @@
 import Setlec.SetR.Annot.EnvS2U
-import Setlec.SetR.Interp2.Skeleton
+import Setlec.SetBase.Skeleton
 import Setlec.SetR.Annot.SimSubst
 import Setlec.SetR.Bridge.Claims
 import Setlec.SetR.Annot.SortCoh

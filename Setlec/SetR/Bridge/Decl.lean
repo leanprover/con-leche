@@ -4,7 +4,7 @@ import Setlec.Verify.IotaWalkInv
 import Setlec.Verify.Extend.Iota
 import Setlec.Verify.Denote.IndFrame
 import Setlec.Verify.Extend.Proj
-import Setlec.Verify.NatOpFrag
+import Setlec.SetBase.NatFrag
 import Setlec.Verify.ReducePinInv
 import Setlec.Verify.DivModInv
 
@@ -14,7 +14,7 @@ import Setlec.Verify.DivModInv
 `Setlec/SetR/Bridge/*` bridges the checker's *inference* steps into the
 `[set]` relation family; this file bridges its **declarations**.  Each
 of `checkDecl`'s six branches is inverted into the corresponding
-`Decl*R` clause of `Setlec/SetR/Decl.lean`, and `checkDeclR_of`
+`Decl*R` clause of `Setlec/SetBase/Decl.lean`, and `checkDeclR_of`
 assembles them.  Composed with `declStepS` (`Install/Step.lean`) that
 gives the `EnvS`-extension step the consistency fold runs.
 
@@ -30,6 +30,18 @@ open Setlec.TT Setlec.TTVerify SetTheory
 universe w
 
 /-! ## `EnvS` is an `EnvR`
+
+**Task #161 S5 — this file is model-free apart from the projection
+below.**  Ten of its signatures took `m : EnvS V env`; every one used
+it only through `EnvS.toEnvR`, so all ten were re-signed to
+`EnvR env` and **not one proof line changed**.  `declDefnR`,
+`declThmR`, `declOpaqueR`, `declAxiomR`, `natEqsBridge_of`,
+`natFrag_subst_denotes`, `natEqFrame_of_frag`, `natEqsR_of_certs`,
+`reducePinR_of` and `divModPinR_of` therefore carry no `V` at all, and
+`checkDeclR_ofEnvR` (`Bridge/Sound.lean`) assembles the five non-`ind`
+kinds without a model.  The `ind` kind is `Bridge/DeclInd.lean`'s, and
+its obstacle is finding 8 (the member fold's intermediate `EnvR`s),
+not the records.
 
 The bridge runs against `EnvR` — the weakest V-free invariant its
 steps need — and the install layer produces `EnvS`.  The assembly
@@ -246,8 +258,8 @@ depth `2` on each pair; `DefEqClaimsR` turns it into the relation
 family's `DefEq` once both sides have a frame package and a context.
 The context is `CtxOkR.constCtx` at the pinned `Nat` entries — which
 is exactly what the leaf-shape conjunct of `NatEqFrameR` is for. -/
-theorem natEqsBridge_of {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS V env) {μ : CheckMode}
+theorem natEqsBridge_of {env : Env}
+    (m : EnvR env) {μ : CheckMode}
     {F : Nat} {ciN : ConstantInfo}
     (hnatE : env.find? natName = some ciN)
     (hnatL : ciN.toConstantVal.levelParams = [])
@@ -289,7 +301,7 @@ theorem natEqsBridge_of {V : Type w} [SetTheory V] {env : Env}
       obtain ⟨L, hL⟩ := hd1 φ
       obtain ⟨R, hR⟩ := hd2 φ
       refine ⟨L, R, hL, hR, ?_⟩
-      obtain ⟨-, -, ihd, -⟩ := checkBridge m.toEnvR φ F
+      obtain ⟨-, -, ihd, -⟩ := checkBridge m φ F
       have hC1 : CtxOkR μ m.cval env φ 2
           (List.replicate 2 (natVR m.cval φ)) eq.1 :=
         CtxOkR.constCtx (m.cval_closed _ _) (hden φ 2) trivial hl1
@@ -303,69 +315,50 @@ theorem natEqsBridge_of {V : Type w} [SetTheory V] {env : Env}
       exact ih (fun q hq => hfr q (List.mem_cons_of_mem _ hq)) h eq
         heq' φ
 
-/-- **The fragment gives the frame package**, in one induction over
-`natFragOk`'s four constructors.  The operation `c` is the one being
-defined, so it is *not* stored: its occurrences are the ones
-`substConst0` replaces, and the substituted value's own facts stand in
-for them. -/
-theorem natEqFrame_of_frag {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS V env) {c : Name}
+/-- **The fragment's denotation half.**  The four *syntactic*
+conjuncts of `NatEqFrameR` are `natFrag_subst_syntax`'s
+(`SetBase/NatFrag.lean`, model-free — task #161 S4 split them out for
+the graded lane, which consumes only those); what stays here is the
+one conjunct that names a valuation, in the same induction over
+`natFragOk`'s four constructors.
+
+The operation `c` is the one being defined, so it is *not* stored: its
+occurrences are the ones `substConst0` replaces, and the substituted
+value's own denotation (`hvd`) stands in for them. -/
+theorem natFrag_subst_denotes {env : Env}
+    (m : EnvR env) {c : Name}
     {v : Expr} (hvf : v.hasFvar = false)
-    (hvb : v.looseBVarsBounded 0 = true)
     (hvd : ∀ φ : Name → Nat, ∃ V0, denote m.cval env φ 0 v = some V0) :
     ∀ {e : Expr}, natFragOk env c e = true →
-      NatEqFrameR m.cval env (Expr.substConst0 c v e)
+      ∀ φ : Name → Nat,
+        ∃ w, denote m.cval env φ 2 (Expr.substConst0 c v e) = some w
   | .sort u, _ => by
     rw [show Expr.substConst0 c v (Expr.sort u) = Expr.sort u from rfl]
-    refine ⟨by rw [Expr.WScoped]; trivial, rfl, ?_, ?_,
-      fun φ => ⟨_, by rw [denote_sort]⟩⟩
-    · intro l hl; simp [Expr.fvarLeaves] at hl
-    · intro l hl; simp [Expr.fvarLeaves] at hl
+    exact fun φ => ⟨_, by rw [denote_sort]⟩
   | .fvar i n ty, h => by
     simp only [natFragOk, Bool.and_eq_true, Bool.or_eq_true,
       decide_eq_true_eq, beq_iff_eq] at h
-    obtain ⟨hi, rfl⟩ := h
-    have hilt : i < 2 := by rcases hi with rfl | rfl <;> omega
+    obtain ⟨-, rfl⟩ := h
     rw [show Expr.substConst0 c v (Expr.fvar i n (.const natName []))
       = Expr.fvar i n (.const natName []) from rfl]
-    refine ⟨?_, rfl, ?_, ?_, fun φ => ⟨_, by rw [denote_fvar]⟩⟩
-    · rw [Expr.WScoped]
-      exact ⟨hilt, by rw [Expr.WScoped]; trivial⟩
-    · intro l hl
-      rw [Expr.fvarLeaves] at hl
-      rcases List.mem_cons.mp hl with rfl | hl'
-      · rfl
-      · simp [Expr.fvarLeaves] at hl'
-    · intro l hl
-      rw [Expr.fvarLeaves] at hl
-      rcases List.mem_cons.mp hl with rfl | hl'
-      · exact ⟨hilt, rfl⟩
-      · simp [Expr.fvarLeaves] at hl'
+    exact fun φ => ⟨_, by rw [denote_fvar]⟩
   | .const n us, h => by
     rw [show Expr.substConst0 c v (Expr.const n us)
       = (if n = c ∧ us = [] then v else Expr.const n us) from rfl]
     by_cases hn : n = c ∧ us.isEmpty = true
     · rw [if_pos (show n = c ∧ us = [] from
         ⟨hn.1, List.isEmpty_iff.mp hn.2⟩)]
-      refine ⟨Expr.WScoped.mono (Nat.zero_le 2)
-          (Expr.WScoped.of_not_hasFvar hvf), hvb,
-        Expr.LeavesBounded.of_not_hasFvar hvf, ?_, fun φ => ?_⟩
-      · intro l hl
-        rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hvf] at hl
-        exact nomatch hl
-      · obtain ⟨V0, hV0⟩ := hvd φ
-        exact opener_denotes_at m.toEnvR
-          (Expr.WScoped.of_not_hasFvar hvf).fvarsBelow
-          (Nat.zero_le 2) hV0
+      intro φ
+      obtain ⟨V0, hV0⟩ := hvd φ
+      exact opener_denotes_at m
+        (Expr.WScoped.of_not_hasFvar hvf).fvarsBelow
+        (Nat.zero_le 2) hV0
     · rw [if_neg (fun hh => hn ⟨hh.1, by rw [hh.2]; rfl⟩)]
       simp only [natFragOk, Bool.or_eq_true, Bool.and_eq_true,
         decide_eq_true_eq] at h
       rcases h with h' | h'
       · exact absurd h' hn
-      · refine ⟨by rw [Expr.WScoped]; trivial, rfl, ?_, ?_,
-          fun φ => ?_⟩
-        · intro l hl; simp [Expr.fvarLeaves] at hl
-        · intro l hl; simp [Expr.fvarLeaves] at hl
+      · intro φ
         revert h'
         cases hf : env.find? n with
         | none => intro hx; exact nomatch hx
@@ -378,33 +371,35 @@ theorem natEqFrame_of_frag {V : Type w} [SetTheory V] {env : Env}
           rw [if_pos (by simpa using hx)]
   | .app f a, h => by
     simp only [natFragOk, Bool.and_eq_true] at h
-    obtain ⟨hwf, hbf, hLf, hlf, hdf⟩ :=
-      natEqFrame_of_frag m hvf hvb hvd h.1
-    obtain ⟨hwa, hba, hLa, hla, hda⟩ :=
-      natEqFrame_of_frag m hvf hvb hvd h.2
+    have hdf := natFrag_subst_denotes m hvf hvd h.1
+    have hda := natFrag_subst_denotes m hvf hvd h.2
     rw [show Expr.substConst0 c v (Expr.app f a)
       = Expr.app (Expr.substConst0 c v f) (Expr.substConst0 c v a)
       from rfl]
-    refine ⟨by rw [Expr.WScoped]; exact ⟨hwf, hwa⟩, ?_, ?_, ?_,
-      fun φ => ?_⟩
-    · simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
-      exact ⟨hbf, hba⟩
-    · intro l hl
-      rw [Expr.fvarLeaves] at hl
-      rcases List.mem_append.mp hl with h' | h'
-      · exact hLf l h'
-      · exact hLa l h'
-    · intro l hl
-      rw [Expr.fvarLeaves] at hl
-      rcases List.mem_append.mp hl with h' | h'
-      · exact hlf l h'
-      · exact hla l h'
-    · obtain ⟨vf, hvf'⟩ := hdf φ
-      obtain ⟨va, hva'⟩ := hda φ
-      exact ⟨_, by rw [denote_app, hvf', hva']⟩
+    intro φ
+    obtain ⟨vf, hvf'⟩ := hdf φ
+    obtain ⟨va, hva'⟩ := hda φ
+    exact ⟨_, by rw [denote_app, hvf', hva']⟩
   | .bvar _, h | .lam _ _ _ _, h | .forallE _ _ _ _, h
   | .letE _ _ _ _, h | .proj _ _ _, h | .lit _, h => by
     simp [natFragOk] at h
+
+/-- **The fragment gives the frame package**: the model-free syntactic
+half (`natFrag_subst_syntax`) beside the denotation half above.  The
+statement, the name and the consumers are unchanged — only the proof
+is now split across the lane boundary (task #161 S4). -/
+theorem natEqFrame_of_frag {env : Env}
+    (m : EnvR env) {c : Name}
+    {v : Expr} (hvf : v.hasFvar = false)
+    (hvb : v.looseBVarsBounded 0 = true)
+    (hvd : ∀ φ : Name → Nat, ∃ V0, denote m.cval env φ 0 v = some V0)
+    {e : Expr} (h : natFragOk env c e = true) :
+    NatEqFrameR m.cval env (Expr.substConst0 c v e) :=
+  ⟨(natFrag_subst_syntax hvf hvb h).1,
+    (natFrag_subst_syntax hvf hvb h).2.1,
+    (natFrag_subst_syntax hvf hvb h).2.2.1,
+    (natFrag_subst_syntax hvf hvb h).2.2.2,
+    natFrag_subst_denotes m hvf hvd h⟩
 
 /-- **`certifyNatEqs`, discharged.**  The obligation `declDefnR` used
 to carry: the guard pins every constant the fragment admits, the
@@ -413,8 +408,8 @@ fragment gives each substituted side its frame package, and
 the post-insertion guard to the pre-insertion environment is
 `storedNoLevels_of_cons` at names `ne_of_mem_natOpNames` separates
 from the operation — the TT lane's `natOpPinTT` runs the same block. -/
-theorem natEqsR_of_certs {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+theorem natEqsR_of_certs {env : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     {value' : Expr} {hint : ReducibilityHint}
     (hmem : cv.name ∈ natOpNames)
     (hvf : value'.hasFvar = false)
@@ -466,8 +461,8 @@ used to carry.  The element type is a stored level-free constant, so
 it denotes to the pinned valuation and the certificate's context is
 `CtxOkR.constCtx` at one entry; `DefEqClaimsR` then transports the
 depth-`1` identity verdict. -/
-theorem reducePinR_of {V : Type w} [SetTheory V] {env env' : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {c : Name}
+theorem reducePinR_of {env env' : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {c : Name}
     {value : Expr}
     (hvfacts : ∀ a : Expr, annotateCore μ env F 0 value = .ok a →
       a.hasFvar = false ∧ a.looseBVarsBounded 0 = true ∧
@@ -495,7 +490,7 @@ theorem reducePinR_of {V : Type w} [SetTheory V] {env env' : Env}
   have hV0d : ∀ d, denote m.cval env φ d valA = some V0 :=
     (denote_closedExprR m.cval_closed hvAf hvAb hV0).2
   refine ⟨_, V0, hE 0, hV0, ?_⟩
-  obtain ⟨-, -, ihd, -⟩ := checkBridge m.toEnvR φ F
+  obtain ⟨-, -, ihd, -⟩ := checkBridge m φ F
   -- the certificate variable and the two compared sides
   have hcv : reduceCertVar c
       = Expr.fvar 0 (.str .anonymous "a") (.const (reduceElemName c) []) := by
@@ -565,8 +560,8 @@ entering as the checker's own verdict, the whole pack is
 annotate, and the certs run.  The stored value the pack is about is
 the one `env'` holds, which the inversion produces — that is the
 `v`-freeness repair's supplier. -/
-theorem divModPinR_of {V : Type w} [SetTheory V] {env env' : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {c : Name}
+theorem divModPinR_of {env env' : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {c : Name}
     {cv0 : ConstantVal} {v : Expr} {hint0 : ReducibilityHint}
     (hstore : env'.find? c = some (.defnInfo cv0 v hint0))
     (h : checkDivModPin (m := CheckM) (fueledOps μ F) env env' c
@@ -582,8 +577,8 @@ theorem divModPinR_of {V : Type w} [SetTheory V] {env env' : Env}
   exact ⟨henv, hpin, hcertsG, pinA, hpa, hcerts⟩
 
 /-- **`thmDecl`, bridged.** -/
-theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+theorem declThmR {env env₂ : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     {value : Expr}
     (h : checkDecl μ (fueledOps μ F) env (.thmDecl cv value)
       = .ok env₂) :
@@ -596,7 +591,7 @@ theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m.toEnvR hccv
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
   simp only [Pure.pure, Except.pure] at h
   cases hst2 : inferTypeCore μ env F 0 type with
   | error e => rw [hst2] at h; exact nomatch h
@@ -651,10 +646,10 @@ theorem declThmR {V : Type w} [SetTheory V] {env env₂ : Env}
   simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
   refine ⟨type, value', hcv, ⟨stype2, u2, hst2, hsort2, hpz⟩,
     fun φ => ?_,
-    valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt hde
+    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde
       hcv,
     h.symm⟩
-  obtain ⟨-, ihw, -, ihi⟩ := checkBridge m.toEnvR φ F
+  obtain ⟨-, ihw, -, ihi⟩ := checkBridge m φ F
   obtain ⟨hwt, hbt, hLt, hCt⟩ :=
     closed0_framesR (μ := μ) (cval := m.cval) (env := env) (φ := φ)
       htf hbt'
@@ -678,8 +673,8 @@ happens past `ConstantValR` — the axioms' *content* is the install
 layer's `StdAxiomKeyS`/`OfReduceKeyS`, not the bridge's. -/
 
 /-- **`axiomDecl`, bridged.** -/
-theorem declAxiomR {V : Type w} [SetTheory V] {env env₂ : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+theorem declAxiomR {env env₂ : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     (h : checkDecl μ (fueledOps μ F) env (.axiomDecl cv) = .ok env₂) :
     DeclAxiomR μ F env m.cval cv env₂ := by
   simp only [checkDecl, Bind.bind, Except.bind] at h
@@ -688,7 +683,7 @@ theorem declAxiomR {V : Type w} [SetTheory V] {env env₂ : Env}
   | ok cvA =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, -, -, hcv⟩ := constantValR_of m.toEnvR hccv
+  obtain ⟨type, rfl, -, -, hcv⟩ := constantValR_of m hccv
   refine ⟨type, hcv, ?_⟩
   by_cases hstd : stdAxiomOk env { cv with type := type } = true
   · rw [if_pos hstd] at h
@@ -742,8 +737,8 @@ subject. -/
 
 /-- **`opaqueDecl`, bridged**, parametric in the compiler-trust pin's
 own inversion. -/
-theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+theorem declOpaqueR {env env₂ : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     {value : Expr}
     (h : checkDecl μ (fueledOps μ F) env (.opaqueDecl cv value)
       = .ok env₂) :
@@ -755,7 +750,7 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m.toEnvR hccv
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
   simp only [Pure.pure, Except.pure] at h
   by_cases hlbv : value.looseBVarsBounded 0 = true
   case neg => simp [hlbv] at h
@@ -790,7 +785,7 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
   refine ⟨type, value', hcv,
-    valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt hde
+    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde
       hcv,
     ?_, ?_⟩
   · by_cases hro : reduceOpNames.contains cv.name = true
@@ -824,7 +819,7 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
       obtain rfl : a = value' := by
         rw [hannv] at hann; exact (Except.ok.inj hann).symm
       obtain ⟨-, -, -, -, -, -, hf⟩ :=
-        valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt
+        valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt
           hde hcv
       obtain ⟨-, Vv, -, -, hVv, -⟩ := hf φ
       exact ⟨Vv, hVv⟩
@@ -833,8 +828,8 @@ theorem declOpaqueR {V : Type w} [SetTheory V] {env env₂ : Env}
 pin inversions.  Both packs are phrased over the **annotated** value
 the environment actually stores (`value'`), not over the stream's
 `value`. -/
-theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
-    (m : EnvS V env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+theorem declDefnR {env env₂ : Env}
+    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
     {value : Expr} {hint : ReducibilityHint}
     (h : checkDecl μ (fueledOps μ F) env (.defnDecl cv value hint)
       = .ok env₂) :
@@ -846,7 +841,7 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m.toEnvR hccv
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
   simp only [Pure.pure, Except.pure] at h
   by_cases hlbv : value.looseBVarsBounded 0 = true
   case neg => simp [hlbv] at h
@@ -963,7 +958,7 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
         exact ⟨rfl, fun hc => absurd hc hno, fun hc => absurd hc hdn⟩
   obtain ⟨rfl, hnatK, hdmK⟩ := key
   exact ⟨type, value', hcv,
-    valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr hvt hde
+    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde
       hcv,
     rfl,
     fun hc => ⟨(hnatK hc).1, (hnatK hc).2.1,
@@ -976,7 +971,7 @@ theorem declDefnR {V : Type w} [SetTheory V] {env env₂ : Env}
         (annotateCore_looseBVars F value hannv hlbv)
         (fun φ => by
           obtain ⟨-, -, -, -, -, -, hf⟩ :=
-            valueFrontR_of m.toEnvR htf hbt' hlbv hivf' hannv hvp hvr
+            valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr
               hvt hde hcv
           obtain ⟨-, Vv, -, -, hVv, -⟩ := hf φ
           exact ⟨Vv, hVv⟩)

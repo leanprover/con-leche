@@ -1,6 +1,6 @@
 import Setlec.SetBase.Syntax
 import Setlec.Verify.Denote.SubstAlgebra
-import Setlec.SetR.Rel
+import Setlec.SetBase.Rel
 
 /-!
 # The annotation pass, relationally (task #151, tier A)

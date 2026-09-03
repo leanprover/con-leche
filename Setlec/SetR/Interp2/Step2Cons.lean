@@ -1,6 +1,6 @@
 import Setlec.SetR.Interp2.Keys2Bundle
 import Setlec.SetR.Interp2.EmptyPin2
-import Setlec.SetR.Interp2.Denote2Closed
+import Setlec.SetBase.Denote2Closed
 import Setlec.SetR.Install.ValueKinds
 import Setlec.SetR.StdAxiomKey
 

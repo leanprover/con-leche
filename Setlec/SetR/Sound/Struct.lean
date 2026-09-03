@@ -5,7 +5,7 @@ import Setlec.SetR.Sound.Motives
 
 The standalone case lemmas (one per constructor, shaped exactly as the
 recursor minor premises — constructor hypotheses first, then IHs at the
-`*S` motives; `Setlec/SetR/Weaken.lean` is the pattern) for the
+`*S` motives; `Setlec/SetBase/Weaken.lean` is the pattern) for the
 structural rules: `Red`'s refl/trans/appFn/beta/zeta/projArg, `Infer`'s
 sort/bvar/const/pi/lam/app/letE, `DefEq`'s structural core and the
 binder/spine/projection congruences plus D14, and the `Tele`/`DefEqL`

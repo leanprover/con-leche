@@ -9,6 +9,31 @@ import Setlec.SetBase.EqTower
 import Setlec.SetBase.EraseInv
 import Setlec.SetBase.ProjPhase
 import Setlec.SetBase.DivModEval
+import Setlec.SetBase.Frame
+import Setlec.SetBase.LitParams
+import Setlec.SetBase.Sat2
+import Setlec.SetBase.WhnfCoreLeaf
+import Setlec.SetBase.DefEqStep2
+import Setlec.SetBase.Canon
+import Setlec.SetBase.LitStep2
+import Setlec.SetBase.Denote2Closed
+import Setlec.SetBase.Install2
+import Setlec.SetBase.ConstsBound
+import Setlec.SetBase.BasisType
+import Setlec.SetBase.Univ
+import Setlec.SetBase.BasisOk
+import Setlec.SetBase.Skeleton
+import Setlec.SetBase.Hoist
+import Setlec.SetBase.Rel
+import Setlec.SetBase.ProjPins
+import Setlec.SetBase.Weaken
+import Setlec.SetBase.CtxOkR
+import Setlec.SetBase.Decl
+import Setlec.SetBase.DeclEta
+import Setlec.SetBase.DeclRun
+import Setlec.SetBase.IndBlockR
+import Setlec.SetBase.EnvR
+import Setlec.SetBase.EnvRCons
 
 /-!
 # `Setlec.SetBase` — the lane-neutral semantic primitives (task #161, S1)
@@ -31,6 +56,60 @@ S1 re-based them here, below both lanes:
 * `Ok2` — `AnnotOk2`, the annotation invariant.  `Install/Axiom.lean`
   states `AnnotOk2` conjuncts for the P consumer; that import was the
   *single* R→P edge in the whole tree, and this re-basing kills it.
+
+S2 (the 2U/R move) added, on the same terms:
+
+* `Frame` — `frame_open2`, the opened binder's frame conditions (pure
+  `Expr` scoping);
+* `LitParams` — the two `*_levelParams_nil` reads off the literal
+  support guards;
+* `Sat2` — `Sat2` with its intro lemmas, and `interp2C_trans`;
+* `WhnfCoreLeaf` — the six `whnfCoreR_*` `rfl` lemmas about the kernel's
+  `whnfCore` (S1 deferred them here by name);
+* `DefEqStep2` — the definitional-equality quarter's Tier A clauses,
+  which are pure `interp2` algebra and which both lanes' `DefEq…P`
+  quarters consume (whole-module move of `Interp2/Step2/DefEq`);
+* `Canon` — `sortOfE`/`lamSortE`, the annotated literal spines
+  (`natLitT2`, `charListT2`), the canonical annotation pass `denote2`
+  and its erasure law (whole-module move of `Annot/Canon`).  `denote2`
+  takes the annotated valuation as a *parameter*, so the pass carries
+  no environment at all;
+* `LitStep2` — `natLit_facts2`, the numeral induction over
+  `natLitT2` (whole-module move of `Interp2/Step2/Lit`).
+
+S4 (the C3 artifact) added the **shared record family** — the design
+census's spec point 1 ("the bridge records are shared; the derivations
+are R's"), unblocked by S2's finding 2 (`Infer`/`DefEq` became base
+names when `SetR/Rel` moved, so `DeclR`'s derivation conjuncts stopped
+being a reason to keep the file in R):
+
+* `Weaken` — the mutual weakening lemmas for the `Rel` relations
+  (whole-module move of `SetR/Weaken`);
+* `CtxOkR` — the context correspondence for the relation family
+  (whole-module move of `SetR/CtxOkR`);
+* `Decl` — **`DeclR` and the whole per-kind record family**
+  (whole-module move of `SetR/Decl`); both lanes state over it, the R
+  lane proves it (`Bridge/*`), the P lane consumes its run/guard
+  conjuncts;
+* `DeclEta` — `declEtaStep`, the fold's model-free η half (S3's C4;
+  whole-module move of `SetR/DeclEta`, which sat in R only because
+  `Decl` did);
+* `IndBlockR` — the inductive block's relation-level residue and
+  `declIndEtaClosed` (S5's ind unit: the C4 refutation's bill, paid —
+  the `indMembersR_*`/`indRecsR_*`/`ExtEta` lemmas moved here verbatim
+  from `SetR/Install/{IndMembersS,IndRecsS,DeclIndS}`, plus
+  `indRecsR_keep`, which replaces `indRecsS`'s model-carrying
+  `hnonrecUp`).
+
+S6 (the residue) added:
+
+* `EnvR` — **the bridge invariant** (whole-module move of
+  `SetR/Bridge/Env`).  It never had a lane: every field is V-free by
+  construction (the module docstring says so), its four imports are
+  all base, and both lanes now build one — the R lane by projection
+  from `EnvS` (`EnvS.toEnvR`), the P lane by projection from
+  `EnvS2PM` (`EnvS2PM.toEnvR`), which is what lets the P fold call the
+  bridge without a collapsed-model carrier.
 
 **Only the file paths and module names moved.**  The Lean namespaces
 (`Setlec.SetR.Interp2`, `Setlec.SetR`) are unchanged, so every frozen

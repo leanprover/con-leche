@@ -1,4 +1,4 @@
-import Setlec.SetR.Rel
+import Setlec.SetBase.Rel
 import Setlec.SetR.AnnotOkV
 import Setlec.Verify.Denote.Pinned
 import Setlec.Verify.EnvGuards

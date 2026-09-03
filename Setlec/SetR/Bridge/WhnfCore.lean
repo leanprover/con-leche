@@ -1,3 +1,4 @@
+import Setlec.SetBase.WhnfCoreLeaf
 import Setlec.SetR.Bridge.Claims
 import Setlec.Verify.Denote.Inst
 import Setlec.Verify.Denote.InstSimp
@@ -42,32 +43,12 @@ variable {mode : CheckMode} {env : Env} {fuel d : Nat}
 
 /-! ## The leaf clauses
 
-Six shapes `whnfCoreBody` returns unchanged; each unfolding is `rfl`
-(the clause is `pure e`, and `pure` at `Except` is `.ok`).  On this lane
-each is `Red.refl` — R1, the rule that also covers every stuck fallback,
-every `iotaRec = none`, and every uncertified redex. -/
-
-@[simp] theorem whnfCoreR_sort (u : Level) :
-    whnfCore mode env (fuel + 1) d (.sort u) = .ok (.sort u) := rfl
-
-@[simp] theorem whnfCoreR_fvar (idx : Nat) (n : Name) (ty : Expr) :
-    whnfCore mode env (fuel + 1) d (.fvar idx n ty) = .ok (.fvar idx n ty) :=
-  rfl
-
-@[simp] theorem whnfCoreR_forallE (n : Name) (ty body : Expr)
-    (bi : BinderMeta) :
-    whnfCore mode env (fuel + 1) d (.forallE n ty body bi) =
-      .ok (.forallE n ty body bi) := rfl
-
-@[simp] theorem whnfCoreR_lam (n : Name) (ty body : Expr) (mb : BinderMeta) :
-    whnfCore mode env (fuel + 1) d (.lam n ty body mb) =
-      .ok (.lam n ty body mb) := rfl
-
-@[simp] theorem whnfCoreR_const (n : Name) (us : List Level) :
-    whnfCore mode env (fuel + 1) d (.const n us) = .ok (.const n us) := rfl
-
-@[simp] theorem whnfCoreR_lit (l : Literal) :
-    whnfCore mode env (fuel + 1) d (.lit l) = .ok (.lit l) := rfl
+The six `whnfCoreR_*` `rfl` lemmas used to stand here.  THE SEPARATION's
+S2 re-based them to `Setlec/SetBase/WhnfCoreLeaf.lean` (S1 deferred them
+here by name): they say nothing about a model, both lanes simp with
+them, and the graded lane was reading them through the 2U
+`Step2/Whnf`.  Names, statements and `@[simp]` attributes unchanged;
+this module imports them back. -/
 
 /-- The leaf clauses satisfy the `whnfCore` claim: the reduct *is* the
 subject, so the derivation is `Red.refl` and nothing has to be

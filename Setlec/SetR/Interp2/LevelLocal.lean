@@ -1,4 +1,4 @@
-import Setlec.SetR.Decl
+import Setlec.SetBase.Decl
 import Setlec.SetR.Interp2.Step2.Levels
 import Setlec.Verify.LevelPres
 
@@ -725,7 +725,7 @@ Both fields have the same shape — a leaf `A` obtained as a `denote2`
 run on the *annotated* subject, and the demand that it read only the
 constant's own parameters — and both front doors carry the subject's
 `allLevelParamsDefined` as a conjunct (`ConstantValR`,
-`ValueFrontR`, `Setlec/SetR/Decl.lean`).  So one lemma serves
+`ValueFrontR`, `Setlec/SetBase/Decl.lean`).  So one lemma serves
 `ValueResidues2M.params`, `AxiomResidues2M.params` and
 `AxiomResidues3M.params`.
 
