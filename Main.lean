@@ -220,7 +220,7 @@ preprocessed (`--pre`), skipping preprocessor detection and spawn;
 half-open check range. -/
 def checkMain (file : String) (mode : CheckMode) (pre : Bool)
     (split? : Option (Nat × Option Nat))
-    (core : Setlec.Cached.CoreVariant := .production) : IO UInt32 := do
+    (core? : Option Setlec.Cached.CoreVariant := none) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be
     -- readable off the invocation (task #147).
@@ -252,21 +252,38 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool)
     -- T7b); `--no-model` runs the unverified lane
     -- (Setlec/Kernel/CheckerNC.lean — checking-mode front door over
     -- the cert-skipping internals).
-    -- The core selector (`--core=…`, task #163): `cached-parsed` is a
-    -- SUPPORTED, VERIFIED variant — its acceptance is covered by the
+    -- The core selector (`--core=…`, task #163).  THE DEFAULT FLIPPED
+    -- (user grant, 2026-09-03): the certified mode (`--set-model`)
+    -- defaults to `cached-parsed`, whose acceptance is covered by the
     -- same consistency corollaries as production's
     -- (`Setlec/Verify/Cached/MainC.lean`:
     -- `checkDeclsSPCached_sound_R` + the `no_proof_of_Empty_SPC_*`
-    -- family, all three carriers).  `interned-shared` and `cached`
-    -- remain the pilot's unverified measurement instruments (they run
-    -- the `Expr`-typed shared driver, isolating the representation).
-    -- All non-production variants are refused in combination with the
-    -- split driver.  The default stays `production` until the flip is
-    -- ratified.
-    if core != .production && split?.isSome then
+    -- family, all three carriers).  `--core=production` remains
+    -- selectable.  THE DEFAULT IS MODE-AWARE — two carve-outs (an
+    -- explicit `--core=` always wins):
+    -- * `--no-model` keeps the production front door (`CheckerNC`,
+    --   task #147), for two reasons: the cert-skipping lane was never
+    --   cloned (its recorded expectations are relative to that front
+    --   door), and MEASURED shape-dependence — on identical
+    --   preprocessed input at --no-model the interned core wins
+    --   decl-heavy streams (init-prelude 4.1x vs 7.0x official,
+    --   init-full 4.0x vs 6.9x, grind 4.5x vs 6.2x) while cached wins
+    --   term-heavy (app-lam 7.7x vs 13.2x, beta-ladder 4.4x vs 8.0x);
+    --   a global cached default would cost 1.6-1.7x on the parity
+    --   lane's init runs.  (The certified mode's table is different:
+    --   cert machinery dominates there and cached wins everywhere,
+    --   init-full included.)
+    -- * the split driver (`--install-only`/`--check-range`) is
+    --   production machinery (arena `stepF`) and runs it; only an
+    --   *explicit* non-production core is refused with it.
+    -- `interned-shared` and `cached` remain the pilot's unverified
+    -- measurement instruments.
+    if core?.any (· != .production) && split?.isSome then
       IO.eprintln "setlec: --core=… cannot be combined with \
         --install-only/--check-range"
       return 3
+    let core := core?.getD
+      (if mode == .noModel then .production else Setlec.Cached.defaultCore)
     let stepF :=
       if mode == .noModel then checkDeclSPStepNM else checkDeclSPStep mode
     let foldF :=
@@ -394,12 +411,21 @@ def usage : String := String.intercalate "\n" [
   "  --pre             assert FILE is already preprocessed output of",
   "                    lean-inductive-models: skip the preprocessor",
   "                    detection scan and spawn entirely",
-  "  --core=V          core selector: V = production (default) or",
-  "                    cached-parsed (supported, verified: the",
-  "                    computed-field core; same consistency theorems",
-  "                    as production — task #163); interned-shared and",
-  "                    cached remain unverified pilot instruments.",
-  "                    See DESIGN.md, \"Task #163 CACHED-LIVE\"",
+  "  --core=V          core selector: V = cached-parsed (the certified",
+  "                    mode's DEFAULT since the task-#163 flip: the",
+  "                    verified computed-field core, covered by the",
+  "                    same consistency theorems as production —",
+  "                    no_proof_of_Empty_SPC_* in",
+  "                    Setlec/Verify/Cached/MainC.lean) or production",
+  "                    (the interned arena core; the default for",
+  "                    --no-model and the split driver).  The default",
+  "                    is mode-aware because the win is shape-",
+  "                    dependent: term/reduction-heavy work runs",
+  "                    faster on cached; declaration-heavy streams at",
+  "                    --no-model run faster on production.",
+  "                    interned-shared and cached remain unverified",
+  "                    pilot instruments.  See DESIGN.md,",
+  "                    \"Task #163 CACHED-LIVE\"",
   "  --install-only    install the whole stream without checking any",
   "                    declaration (task #108)",
   "  --check-range A:B check only declarations [A, B) of the stream,",
@@ -424,8 +450,10 @@ def parseRangeSpec (s : String) : Option (Nat × Option Nat) :=
 
 structure Args where
   mode : Setlec.CheckMode := .setModel
-  /-- performance-pilot core selector (`--core=…`) -/
-  core : Setlec.Cached.CoreVariant := .production
+  /-- core selector (`--core=…`); `none` = the mode's default
+  (task #163 flip: `cached-parsed` for `--set-model`, the production
+  front door for `--no-model` — resolved in `checkMain`) -/
+  core : Option Setlec.Cached.CoreVariant := none
   pre : Bool := false
   /-- the split driver's check range (`some (0, some 0)` for
   `--install-only`) -/
@@ -451,10 +479,10 @@ def parseArgs : List String → Args → Args
   | "--pre" :: rest, a => parseArgs rest { a with pre := true }
   | "--core" :: spec :: rest, a =>
     match spec with
-    | "production" => parseArgs rest { a with core := .production }
-    | "interned-shared" => parseArgs rest { a with core := .internedShared }
-    | "cached" => parseArgs rest { a with core := .cached }
-    | "cached-parsed" => parseArgs rest { a with core := .cachedParsed }
+    | "production" => parseArgs rest { a with core := some .production }
+    | "interned-shared" => parseArgs rest { a with core := some .internedShared }
+    | "cached" => parseArgs rest { a with core := some .cached }
+    | "cached-parsed" => parseArgs rest { a with core := some .cachedParsed }
     | _ => { a with bad := some s!"unknown core variant {spec}" }
   | "--install-only" :: rest, a =>
     parseArgs rest { a with split? := some (0, some 0) }
@@ -465,10 +493,10 @@ def parseArgs : List String → Args → Args
   | s :: rest, a =>
     if s.startsWith "--core=" then
       match (s.drop "--core=".length).toString with
-      | "production" => parseArgs rest { a with core := .production }
-      | "interned-shared" => parseArgs rest { a with core := .internedShared }
-      | "cached" => parseArgs rest { a with core := .cached }
-      | "cached-parsed" => parseArgs rest { a with core := .cachedParsed }
+      | "production" => parseArgs rest { a with core := some .production }
+      | "interned-shared" => parseArgs rest { a with core := some .internedShared }
+      | "cached" => parseArgs rest { a with core := some .cached }
+      | "cached-parsed" => parseArgs rest { a with core := some .cachedParsed }
       | v => { a with bad := some s!"unknown core variant {v}" }
     else if s.startsWith "--check-range=" then
       match parseRangeSpec ((s.drop "--check-range=".length).toString) with
@@ -486,10 +514,11 @@ def childArgs (a : Args) (file : String) : Array String :=
         | .noModel => #["--no-model"])
     ++ (if a.pre then #["--pre"] else #[])
     ++ (match a.core with
-        | .production => #[]
-        | .internedShared => #["--core=interned-shared"]
-        | .cached => #["--core=cached"]
-        | .cachedParsed => #["--core=cached-parsed"])
+        | none => #[]
+        | some .production => #["--core=production"]
+        | some .internedShared => #["--core=interned-shared"]
+        | some .cached => #["--core=cached"]
+        | some .cachedParsed => #["--core=cached-parsed"])
     ++ (match a.split? with
         | some (0, some 0) => #["--install-only"]
         | some (lo, some hi) => #["--check-range", s!"{lo}:{hi}"]
