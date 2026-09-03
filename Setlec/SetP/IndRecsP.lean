@@ -185,12 +185,21 @@ theorem indRecsP (hμ : μ.verified = true) (hkey : MemberKeyS V)
   -- the block renaming, at both tiers
   have hro := blockRenameOkT hIS hnames
   have hroP := blockRenameOkP hIS hIAS hnames
-  -- the v1 fold, for the swap data alone
+  -- the fold's swap data, model-free (task #161 S6): this call used
+  -- to be `indRecsFoldS mS.base` — the v1 install, run for two of its
+  -- five conclusions.  `indRecsFoldFacts` (`SetBase/IndBlockR.lean`)
+  -- is the same induction with the per-rule conclusion as a
+  -- parameter, and `iotaRulesFactsR` supplies the model-free one, so
+  -- the P lane no longer round-trips through the collapsed install
+  -- here at all.
   obtain ⟨hswR, -, hcvEq, -, -⟩ :=
-    indRecsFoldS mS.base hIS hro
-      (fun n ci hf =>
-        Or.inl (provisionRecsS_mono recs hprov n ci hf))
-      heqf recs (SwapShList.of_eq env₂.consts)
+    indRecsFoldFacts (RuleFactsR envSelf mS.base.cval)
+      (fun _cvA _mI _rP rules rules' _hbnA _hselfA hiot =>
+        iotaRulesFactsR
+          (fun n ci hf =>
+            Or.inl (provisionRecsS_mono recs hprov n ci hf))
+          0 rules rules' hiot)
+      recs (SwapShList.of_eq env₂.consts)
       (SwapNResS.of_eq env₂)
       (fun n ci hf =>
         Or.inl (provisionRecsS_mono recs hprov n ci hf))

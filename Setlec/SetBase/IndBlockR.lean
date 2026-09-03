@@ -2,6 +2,8 @@ import Setlec.SetBase.DeclEta
 import Setlec.Verify.Extend.Iota
 import Setlec.Verify.Extend.Block
 import Setlec.Verify.Denote.Rename
+import Setlec.Verify.Extend.Recs
+import Setlec.SetBase.DeclRun
 
 /-!
 # The inductive block's **relation-level** residue (task #161 S5,
@@ -901,5 +903,314 @@ theorem blockRenameOkT {blockNames : List Name} {envSelf : Env}
         · obtain ⟨-, -, -, -, -, -, hvS⟩ := hIS n hc ciS hfS
           exact (hvS ψ).symm
       · rw [if_neg hc]
+
+/-- The reserved-name side condition of the group swap: a genuinely
+swapped entry never sits at a pinned basis name. -/
+def SwapNResS (env₀ env₃ : Env) : Prop :=
+  ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    env₀.find? n = some (.recInfo cv mI rP []) →
+    env₃.find? n = some (.recInfo cv mI rP rules) →
+    rules = [] ∨ reservedBasisNames.contains n = false
+
+theorem SwapNResS.of_eq (env : Env) : SwapNResS env env := by
+  intro n cv mI rP rules h₀ h₃
+  rw [h₀] at h₃
+  obtain ⟨-, -, -, rfl⟩ := ConstantInfo.recInfo.inj (Option.some.inj h₃)
+  exact Or.inl rfl
+
+/-- The install fold's accumulator, read against the self environment:
+a lookup either agrees or differs only in a recursor's rule list. -/
+def FoldUpS (envAcc envSelf : Env) : Prop :=
+  ∀ (n : Name) (ci : ConstantInfo), envAcc.find? n = some ci →
+    envSelf.find? n = some ci ∨
+    ∃ cv mI' rP' rules rules',
+      ci = .recInfo cv mI' rP' rules ∧
+      envSelf.find? n = some (.recInfo cv mI' rP' rules')
+
+/-! ## The group's rule facts, model-free (task #161 S6)
+
+`RuleFactsS` (`SetR/Install/IndRecsS.lean`) is what one checked rule
+owes the installed environment, and **six of its seven conjuncts are
+syntactic**; the seventh is the fired law, which is the only place a
+model appears.  What the ind tier's de-basing needs is those six plus
+the two the law's *head* carries — `rP ≤ mI` and the right-hand side's
+denotation — because they are exactly what an `EnvR` at the swapped
+environment asks for (`rec_params_le`, `rec_rhs_denotes`).
+
+`RuleFactsR` is that package, and `iotaRulesFactsR` produces it from
+the rule fold's record alone.  `iotaRulesS` is re-proved through it,
+so there is one proof of the syntactic half.
+-/
+
+/-- **What one checked rule owes the environment, model-free**:
+`RuleFactsS`'s six syntactic conjuncts, plus the two facts about a
+*fired* rule an `EnvR` reads — the parameter bound and the right-hand
+side's denotation.  (The law itself stays in `RuleFactsS`.) -/
+def RuleFactsR (envSelf : Env) (cvalSelf : TConstVal)
+    (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) : Prop :=
+  (RecRule.rhs rl).hasFvar = false ∧
+  (RecRule.rhs rl).allLevelParamsDefined cv.levelParams = true ∧
+  (RecRule.rhs rl).constsResolve envSelf = true ∧
+  (RecRule.rhs rl).looseBVarsBounded 0 = true ∧
+  (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
+    rP ≤ mI ∧
+    (∀ l ∈ lvls, l.allParamsDefined cv.levelParams = true) ∧
+    (∀ pin ∈ pins, pin.hasFvar = false ∧
+      pin.allLevelParamsDefined cv.levelParams = true ∧
+      pin.constsResolve envSelf = true ∧
+      pin.looseBVarsBounded rP = true) ∧
+    ∃ pre nm dom body bm D,
+      cv.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
+      dom.getAppFn = .const D lvls ∧
+      dom.getAppArgs =
+        pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
+          (List.range (mI - rP)).map
+            (fun i => Expr.bvar (mI - rP - 1 - i))) ∧
+  (∃ cvj cnP cnF,
+    envSelf.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF)) ∧
+  (RecRule.fire rl ≠ .inert →
+    rP ≤ mI ∧
+    ∀ φ : Name → Nat,
+      ∃ Rv, denoteClosed cvalSelf envSelf φ (RecRule.rhs rl) = some Rv)
+
+/-- A plain fire's shape test carries the parameter bound. -/
+theorem recRulePlain_params_le {recTy : Expr} {mI rP cnP : Nat}
+    (h : Expr.recRulePlain recTy mI rP cnP = true) : rP ≤ mI := by
+  unfold Expr.recRulePlain at h
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at h
+  omega
+
+/-- **Every rule the per-recursor fold returns carries its model-free
+facts.**  `iotaRulesS`'s syntactic half, off `IotaRulesR` alone. -/
+theorem iotaRulesFactsR {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
+    {cvalSelf : TConstVal} {f : Name → Name}
+    (hup : FoldUpS env₂ envSelf)
+    {cvA : ConstantVal} {mI rP : Nat} :
+    ∀ (j : Nat) (rules rules' : List RecRule),
+      IotaRulesR μ F env₂ envSelf cvalSelf f cvA.name cvA.levelParams
+        cvA.type mI rP j rules rules' →
+      ∀ rl ∈ rules', RuleFactsR envSelf cvalSelf cvA mI rP rl := by
+  intro j rules
+  induction rules generalizing j with
+  | nil =>
+    intro rules' h rl hrl
+    rw [h] at hrl
+    exact nomatch hrl
+  | cons r rest ih =>
+    intro rules' h rl hrl
+    obtain ⟨r', rest', hkit, hrec, rfl⟩ := h
+    rcases List.mem_cons.mp hrl with heqrl | hrl'
+    · rw [heqrl]
+      obtain ⟨cvjK, cnPK, cnFK, rhsA, hfcK, hnfK, hrb, hrf, hann, hrlp,
+        hrres, hstripRhs, hkey, hityK, fire, hr'eq, hbranch⟩ := hkit
+      have hr'rhs : RecRule.rhs r' = rhsA := by rw [hr'eq]
+      have hr'ctor : RecRule.ctor r' = RecRule.ctor r := by rw [hr'eq]
+      have hr'fire : RecRule.fire r' = fire := by rw [hr'eq]
+      obtain ⟨hrhsAw, hrhsAb⟩ := annotate_syntax hann hrf hrb
+      have hfcS : envSelf.find? (RecRule.ctor r')
+          = some (.ctorInfo cvjK cnPK cnFK) := by
+        rw [hr'ctor]
+        rcases hup _ _ hfcK with h' |
+          ⟨cv, mI', rP', rules₀, rules₁, heq, -⟩
+        · exact h'
+        · exact nomatch heq
+      refine ⟨by rw [hr'rhs]; exact hrhsAw, by rw [hr'rhs]; exact hrlp,
+        by rw [hr'rhs]; exact hrres, by rw [hr'rhs]; exact hrhsAb, ?_,
+        ⟨cvjK, cnPK, cnFK, hfcS⟩, ?_⟩
+      · -- the nested shape facts, from `nestedRuleShape`
+        intro lvls pins hfireN
+        rw [hr'fire] at hfireN
+        rcases hbranch with ⟨-, hfireP, -⟩ | ⟨-, hrest⟩
+        · rw [hfireP] at hfireN; exact nomatch hfireN
+        rcases hrest with ⟨hfireI, -⟩ | ⟨lvls₀, pins₀, hfireN₀, hthmN⟩
+        · rw [hfireI] at hfireN; exact nomatch hfireN
+        rw [hfireN₀] at hfireN
+        obtain ⟨rfl, rfl⟩ := RecRuleFire.nested.inj hfireN
+        obtain ⟨hshape, -⟩ := hthmN
+        obtain ⟨hrPmI, hlvls, hpins, pre, nm, dom, body, bm, D, hstrip,
+          hfn, hargs, -⟩ := nestedRuleShape_inv hshape
+        exact ⟨hrPmI, hlvls, hpins, pre, nm, dom, body, bm, D, hstrip,
+          hfn, hargs⟩
+      · -- a fired rule: the parameter bound and the rhs's denotation
+        intro hfire
+        refine ⟨?_, fun φ => ?_⟩
+        · rcases hbranch with ⟨hplain, -, -⟩ | ⟨-, hrest⟩
+          · exact recRulePlain_params_le hplain
+          rcases hrest with ⟨hfireI, -⟩ | ⟨lvls₀, pins₀, hfireN₀, hthmN⟩
+          · exact absurd (by rw [hr'fire, hfireI]) hfire
+          exact (nestedRuleShape_inv hthmN.1).1
+        · obtain ⟨Rv, t, hRv, -⟩ := hkey φ
+          exact ⟨Rv, by rw [hr'rhs]; exact hRv⟩
+    · exact ih (j + 1) rest' hrec rl hrl'
+
+set_option maxHeartbeats 1600000 in
+/-- **The provisioning and the install fold, run together —
+generalised over the rule facts** (task #161 S6).  The pairing is what
+makes each rule kit's environment readable: the install fold's
+accumulator is the provisioning's accumulator with some of the group's
+recursors already ruled, which is a swap correspondence (`FoldUpS`),
+never an inclusion.
+
+The induction is **pure bookkeeping about names and rule lists**: the
+only thing it does with a fold step's rules is hand them to the
+per-recursor fold's own conclusion.  Making that conclusion a
+parameter is what lets the [set] install (with its law) and the
+model-free ind tier share one proof of the walk. -/
+theorem indRecsFoldFacts {μ : CheckMode} {F : Nat}
+    {blockNames : List Name}
+    {envSelf envBase : Env} {cvalSelf : TConstVal}
+    (RF : ConstantVal → Nat → Nat → RecRule → Prop)
+    (hfire : ∀ (cvA : ConstantVal) (mI rP : Nat)
+      (rules rules' : List RecRule),
+      blockNames.contains cvA.name = true →
+      envSelf.find? cvA.name = some (.recInfo cvA mI rP []) →
+      IotaRulesR μ F envBase envSelf cvalSelf
+        (fun n => if blockNames.contains n then n.str "_model" else n)
+        cvA.name cvA.levelParams cvA.type mI rP 0 rules rules' →
+      ∀ rl ∈ rules', RF cvA mI rP rl) :
+    ∀ (recs : List ConstantInfo) {envP envF env₃ : Env}
+      {cvalF cval₃ : TConstVal}
+      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
+      SwapShList envP.consts envF.consts →
+      SwapNResS envP envF →
+      FoldUpS envF envSelf →
+      (∀ (n : Name) (ci : ConstantInfo),
+        envP.find? n = some ci → envSelf.find? n = some ci) →
+      envP.find? eqName = some eqA →
+      (∀ c ∈ envF.consts, c ∈ envSelf.consts ∨
+        ∃ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+          c = .recInfo cv mI rP rules ∧
+          ∀ rl ∈ rules, RF cv mI rP rl) →
+      (∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
+        (rules : List RecRule),
+        envF.find? n = some (.recInfo cv mI rP rules) →
+        envSelf.find? n = some (.recInfo cv mI rP rules) ∨
+        ∀ rl ∈ rules, RF cv mI rP rl) →
+      (∀ ci ∈ recs, blockNames.contains ci.name = true) →
+      ProvisionRecsR μ F blockNames envP cvalF recs envSelf cvalSelf
+        checked →
+      IndRecsR.IndRecsFoldR μ F blockNames envBase envSelf cvalSelf
+        envF cvalF checked env₃ cval₃ →
+      SwapShList envSelf.consts env₃.consts ∧
+      SwapNResS envSelf env₃ ∧
+      cvalSelf = cval₃ ∧
+      (∀ c ∈ env₃.consts, c ∈ envSelf.consts ∨
+        ∃ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+          c = .recInfo cv mI rP rules ∧
+          ∀ rl ∈ rules, RF cv mI rP rl) ∧
+      ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
+        (rules : List RecRule),
+        env₃.find? n = some (.recInfo cv mI rP rules) →
+        envSelf.find? n = some (.recInfo cv mI rP rules) ∨
+        ∀ rl ∈ rules, RF cv mI rP rl := by
+  intro recs
+  induction recs with
+  | nil =>
+    intro envP envF env₃ cvalF cval₃ checked hsw hnres hupF hupP heqP
+      hents hentF hbn hprov hfold
+    obtain ⟨rfl, rfl, rfl⟩ := hprov
+    obtain ⟨rfl, rfl⟩ := hfold
+    exact ⟨hsw, hnres, rfl, hents, hentF⟩
+  | cons ci₀ rest ih =>
+    intro envP envF env₃ cvalF cval₃ checked hsw hnres hupF hupP heqP
+      hents hentF hbn hprov hfold
+    obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hprov', rfl⟩ := hprov
+    obtain ⟨rules', hiot, hfold'⟩ := hfold
+    obtain ⟨type', ⟨hfresh0, hres0, -, -, -, -, -, -, -, -⟩, hcvAdef,
+      -⟩ := hmv
+    have hnameA : cvA.name = ci₀.toConstantVal.name := by
+      rw [hcvAdef]
+    have hfreshP : envP.find? cvA.name = none := by
+      rw [hnameA]; exact Option.isNone_iff_eq_none.mp hfresh0
+    have hres : reservedBasisNames.contains cvA.name = false := by
+      rw [hnameA]; exact hres0
+    have hcg : SwapCongr envP envF := SwapShList.congr hsw
+    -- the provisioned entry, at the self environment
+    have hselfA : envSelf.find? cvA.name
+        = some (.recInfo cvA mI rP []) :=
+      provisionRecsS_mono rest hprov' _ _
+        (Env.find?_cons_self (.recInfo cvA mI rP []) envP)
+    have hbnA : blockNames.contains cvA.name = true := by
+      rw [hnameA]; exact hbn ci₀ List.mem_cons_self
+    have heqfF : envF.find? eqName = some eqA :=
+      hcg.findUp eqName eqA heqP
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)
+    -- this recursor's rules, fired
+    have hfacts := hfire cvA mI rP rules rules' hbnA hselfA hiot
+    -- the two accumulators advance in step
+    have hfreshF : envF.find? cvA.name = none := by
+      rcases hF : envF.find? cvA.name with _ | ciF
+      · rfl
+      · have := hcg.isSomeEq cvA.name
+        rw [hF, hfreshP] at this
+        exact nomatch this.symm
+    refine ?_
+    have hsw' : SwapShList
+        (Env.consts ⟨.recInfo cvA mI rP [] :: envP.consts⟩)
+        (Env.consts ⟨.recInfo cvA mI rP rules' :: envF.consts⟩) :=
+      SwapShList.cons (Or.inr ⟨cvA, mI, rP, rules', rfl, rfl⟩) hsw
+    have hnres' : SwapNResS ⟨.recInfo cvA mI rP [] :: envP.consts⟩
+        ⟨.recInfo cvA mI rP rules' :: envF.consts⟩ := by
+      intro n cv mI₀ rP₀ rules₀ h₀ h₃
+      rw [Env.find?_cons] at h₀ h₃
+      split at h₀
+      · next hn =>
+        rw [if_pos (show (ConstantInfo.recInfo cvA mI rP rules').name
+          = n from hn)] at h₃
+        obtain ⟨rfl, -, -, -⟩ :=
+          ConstantInfo.recInfo.inj (Option.some.inj h₀)
+        exact Or.inr (by rw [← hn]; exact hres)
+      · next hn =>
+        rw [if_neg (show ¬(ConstantInfo.recInfo cvA mI rP rules').name
+          = n from hn)] at h₃
+        exact hnres n cv mI₀ rP₀ rules₀ h₀ h₃
+    have hupF' : FoldUpS ⟨.recInfo cvA mI rP rules' :: envF.consts⟩
+        envSelf := by
+      intro n ci hfx
+      rw [Env.find?_cons] at hfx
+      split at hfx
+      · next hn =>
+        obtain rfl := Option.some.inj hfx
+        exact Or.inr ⟨cvA, mI, rP, rules', [], rfl, by
+          rw [← hn]; exact hselfA⟩
+      · exact hupF n ci hfx
+    have hupP' : ∀ (n : Name) (ci : ConstantInfo),
+        (Env.find? ⟨.recInfo cvA mI rP [] :: envP.consts⟩ n) = some ci →
+        envSelf.find? n = some ci := by
+      intro n ci hfx
+      rw [Env.find?_cons] at hfx
+      split at hfx
+      · next hn =>
+        obtain rfl := Option.some.inj hfx
+        rw [← hn]; exact hselfA
+      · exact hupP n ci hfx
+    have heqP' : Env.find? ⟨.recInfo cvA mI rP [] :: envP.consts⟩ eqName
+        = some eqA :=
+      Env.find?_cons_of_fresh (c := .recInfo _ mI rP []) hfreshP heqP
+    have hents' : ∀ c ∈ (Env.consts
+        ⟨.recInfo cvA mI rP rules' :: envF.consts⟩),
+        c ∈ envSelf.consts ∨
+        ∃ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+          c = .recInfo cv mI rP rules ∧
+          ∀ rl ∈ rules, RF cv mI rP rl := by
+      intro c hc
+      rcases List.mem_cons.mp hc with rfl | hc'
+      · exact Or.inr ⟨cvA, mI, rP, rules', rfl, hfacts⟩
+      · exact hents c hc'
+    have hentF' : ∀ (n : Name) (cv : ConstantVal) (mI₀ rP₀ : Nat)
+        (rules₀ : List RecRule),
+        Env.find? ⟨.recInfo cvA mI rP rules' :: envF.consts⟩ n
+          = some (.recInfo cv mI₀ rP₀ rules₀) →
+        envSelf.find? n = some (.recInfo cv mI₀ rP₀ rules₀) ∨
+        ∀ rl ∈ rules₀, RF cv mI₀ rP₀ rl := by
+      intro n cv mI₀ rP₀ rules₀ hfx
+      rw [Env.find?_cons] at hfx
+      split at hfx
+      · obtain ⟨rfl, rfl, rfl, rfl⟩ :=
+          ConstantInfo.recInfo.inj (Option.some.inj hfx)
+        exact Or.inr hfacts
+      · exact hentF n cv mI₀ rP₀ rules₀ hfx
+    exact ih hsw' hnres' hupF' hupP' heqP' hents' hentF'
+      (fun ci hci => hbn ci (List.mem_cons_of_mem _ hci)) hprov' hfold'
 
 end Setlec.SetR
