@@ -1,5 +1,6 @@
 import Setlec.SetR.Install.IndRecsS
 import Setlec.SetBase.ProjPhase
+import Setlec.SetBase.ProjFnRR
 import Setlec.SetR.Install.IndBottomProjS
 import Setlec.Verify.Extend.Iota
 
@@ -66,12 +67,6 @@ definitionally the installed constant's valuation
 
 The same reading is what the TT lane records at
 `TTVerify/DeclIndProj.lean`'s "Where the bottom runs". -/
-
-/-- The stored projection entry: a degenerate recursor, at whatever
-rule list the caller installs. -/
-abbrev projEntry (T : Name) (lps : List Name) (pty : Expr)
-    (nP i : Nat) (rules : List RecRule) : ConstantInfo :=
-  .recInfo ⟨projFnName T i, lps, pty⟩ nP nP rules
 
 set_option maxHeartbeats 3200000 in
 /-- **The projection entry installs.**  Everything but the front door,

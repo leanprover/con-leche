@@ -34,6 +34,8 @@ import Setlec.SetBase.DeclRun
 import Setlec.SetBase.IndBlockR
 import Setlec.SetBase.EnvR
 import Setlec.SetBase.EnvRCons
+import Setlec.SetBase.IndRecsCoreR
+import Setlec.SetBase.ProjFnRR
 
 /-!
 # `Setlec.SetBase` — the lane-neutral semantic primitives (task #161, S1)
