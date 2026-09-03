@@ -21101,6 +21101,21 @@ init-prelude: the infer-app half is 13.37 % / 15.93 %, the β half
 of these gates at +24.7 % init-prelude / +55.1 % init-full — the same
 order, from the other side.
 
+**SUPERSEDED, 2026-09-02 (relayed from the D1 retirement seal,
+`agent/degating-d1` @ `ca479e13`, not re-verified here).**  The
+soundness gap recorded below is stated against the *retired* collapse
+lane: `ptFresh_piC_of`'s nonemptiness conjunct belongs to `piC`/`lamC`,
+gone at #148 T7.  Under `piR`/`lamR` the #100 countermodel dies at the
+invariant instead — `lamR_pos_empty` gives the empty graph, and an
+empty graph in `piR` forces `A' = ∅`, so the application node carries
+no `AnnotOk2` at all.  Read the paragraph below as the record of what
+was believed at the time of measurement; the *numbers* stand, the
+soundness obstruction does not.  Also scope-correcting: the `pw`-gate
+mask is **not language-preserving** (the masked throw at sites 11/12 is
+unreachable; `def bad : Nat := f true` accepts), so "verdict-neutral"
+here means *neutral on well-typed streams*, which is all the
+measurement exercised.
+
 **But the naive gate is unsound-to-model, and the annotation does not
 fix that.**  #109's sufficient condition is `ptFresh_piC_of`:
 uniformly fresh fibres **over a nonempty domain**.  `pw = .never` says
@@ -21817,3 +21832,323 @@ which setlec omits; own fixture hunt; (ii) Bool fall-through vs
 official's COMMIT semantics — verdict-equivalence unproven; needs
 the three-valued threading question answered and its own fixture
 hunt.
+
+## Task #161 HARVEST P1 — the certification-tax cost inventory (2026-09-02)
+
+**Calls to `infer` where `inferOnly` or nothing would do.**  Measurement
+and classification only; no removability argument (a separate worker
+owns feasibility — see RAW NOTES FOR HANDOFF at the end).  All
+instrumentation reverted; the branch carries no kernel diff.
+
+### The classification rule, and the official evidence for it
+
+The official kernel has **one** inference entry point with a Boolean
+`infer_only`, and the default at every internal call is `true`:
+
+```cpp
+// _tmp/lean4-master-kernel/type_checker.cpp:360
+expr type_checker::infer_type(expr const & e) {
+    return infer_type_core(e, true);
+}
+// :364
+expr type_checker::check(expr const & e, names const & lps) {
+    flet<names const *> updt(m_lparams, &lps);
+    return infer_type_core(e, false);
+}
+```
+
+`check` is the declaration front door; `infer_type` is what every
+reduction- and defeq-internal caller uses.  lean4lean states the same
+thing declaratively, and states *why*:
+
+```lean
+-- _tmp/lean4lean/Lean4Lean/TypeChecker.lean:141
+def inferType (e : Expr) (inferOnly := true) : RecM Expr := …
+-- :929
+def checkType (e : Expr) : M Expr := (Inner.inferType e (inferOnly := false)).run
+-- :172  (docstring of `isDefEqCore`)
+/-- … NOTE: This function does not do any typechecking of its own on `t` and `s`.
+So, when this is used as part of a typechecking routine, it is expected that they
+are already well-typed … This is what justifies the internal uses of `inferType`
+at its default `inferOnly := true`: on a well-typed subterm the fast path returns
+the same type the checking path would have. -/
+```
+
+What `infer_only = true` actually skips — the whole footprint, three
+sites, quoted:
+
+```cpp
+// :132  infer_lambda — the λ-domain sort check is gated
+        if (!infer_only) {
+            ensure_sort_core(infer_type_core(d, infer_only), d);
+        }
+// :174  infer_app — the argument/domain comparison is gated
+    if (!infer_only) {
+        expr f_type = ensure_pi_core(infer_type_core(app_fn(e), infer_only), e);
+        expr a_type = infer_type_core(app_arg(e), infer_only);
+        expr d_type = binding_domain(f_type);
+        … if (!is_def_eq(a_type, d_type)) throw app_type_mismatch_exception(…);
+    } else { /* pure telescope walk, no infer of the arguments */ }
+// :216  infer_let — both let checks are gated
+        if (!infer_only) {
+            ensure_sort_core(infer_type_core(type, infer_only), type);
+            expr val_type = infer_type_core(val, infer_only);
+            if (!is_def_eq(val_type, type)) throw def_type_mismatch_exception(…);
+        }
+```
+
+and what it does **not** skip — `infer_pi` sort-checks domains in both
+modes (`:151 expr t1 = ensure_sort_core(infer_type_core(d, infer_only), d);`,
+ungated), so ∀-domain checks are never tax.
+
+Setlec has **no** `infer_only`: `CoreFnsI.infer` is `inferBodyI`, the
+full checker, at every call.  (`IState.inferFC` — "kept apart so a
+result derived in infer-only mode can never be served to a
+checking-mode query" — is the vestige of the retired `coreKnotF`, and
+is always empty on master.  lean4lean keeps the same split live:
+`TypeChecker.lean:269 cond inferOnly state.inferTypeI state.inferTypeC`.)
+**That difference is the certification tax measured below.**
+
+### The instrument
+
+`patch2.py` (in `_tmp/degating-p1/`, self-contained, reverted after
+use) adds to the round-1 site probes an *internal-infer_only mode*:
+
+* the knot opens an internal region at `whnfCore`, `whnf` and `defeq`
+  (`withOrigM 1/2 true`) and each certificate opens one tagged with its
+  own origin (`3` proofIrrel, `4` iotaCerts, `5` beta, `6` projCert,
+  `7` eta/unit, `8` major rescue);
+* `CPIOMASK` selects which of the official-gated sites to skip while
+  internal — `11`/`12` (`inferSpineI`'s two app-argument checks, the
+  `infer_app` footprint), `51` (the λ-domain sort check, the
+  `infer_lambda` footprint), `52` (`inferBodyI`'s `letE` checks, the
+  `infer_let` footprint).  Bit `63` is a no-op: the **memo-split
+  control**, since infer-only results must be memoized apart;
+* `CPORIG` restricts the skipping to one origin — the per-cone-site
+  attribution;
+* `CPCENSUS` tags each fire with its origin (`site*100 + origin`).
+
+Two controls are reported with every number because both cost real
+instructions: `ctrl` (the split memo, nothing skipped) and the
+**origin-probe floor** (`o8`, an origin with negligible content, which
+pays the per-fire `ioFlag`/`ioOrig` reads).  Per-origin savings are
+quoted against the floor; the totals against both.
+
+### The cone: 20 internal `infer` call sites
+
+Enumerated by sweep of `Setlec/Kernel/CoreI.lean` (master `a81cb95c`)
+over `whnfCore`/`whnf`/`defeq`-reachable code, excluding `inferBodyI`'s
+own structural recursion and the annotate pass.  **Independently
+enumerated at 20 by the D2 worker, with the same four
+double-inference chains — the two sweeps agree exactly.**
+
+| # | (a) setlec call (`CoreI.lean:line`) | (b) official at the equivalent point | (c) what setlec uses the result for | (e) bucket |
+|---|---|---|---|---|
+| 1 | `:930` `iotaCertsIAux` — `let ta ← r.infer depth arg`, then `r.defeq depth ta dom'`, per certified spine argument | **NONE.** lean4lean `inductiveReduceRec` (`Inductive/Reduce.lean:80-108`) uses its `inferType`/`isDefEq` arguments only inside `toCtorWhenK` (`:90`) and `toCtorWhenStruct` (`:94`); the fire itself is `let some rule := getRecRuleFor info major` (`:96`) followed by pure `instantiateLevelParams`/`mkAppRange` assembly (`:100-108`) — **no spine is certified, no comparand compared, no residual index checked.**  Same in C++ (`reduce_recursor`, `type_checker.cpp:393`). | supplies `TeleFitPA`, a **premise** of the frozen `RecRuleLawP` (`SetR/Annot/EnvS2P.lean:428`) via `certs_telePA` (`Step2/IotaKitP.lean:241`, which takes `iotaCertsP … = .ok true` as a hypothesis) | **official-none** |
+| 2 | `:982` `proofIrrelI` — `let ta ← r.infer depth a` | **inferOnly.** `is_def_eq_proof_irrel` (`:934`) `expr t_type = infer_type(t);` | `unitIrrelPQ_of_claims` (`Step2/IrrelP.lean:189`) inverts it out of `proofIrrel_inv`; both branches consume it | **official-inferOnly** |
+| 3 | `:985` `proofIrrelI` unit arm — `let tb ← r.infer depth b` | **inferOnly.** `is_def_eq_unit_like` (`:1168`) `is_def_eq_core(t_type, infer_type(s))` | the unit branch's second membership | **official-inferOnly** |
+| 4 | `:992` `proofIrrelI` Prop arm — `let tta ← r.infer depth ta` (**double-inference chain** `a : ta : tta`; `tta` feeds nothing else) | **inferOnly.** official gets Prop-ness from `is_prop` (`:384 ensure_sort(infer_type(e))`) — also `infer_type`, i.e. inferOnly | a **sort**: `prop_side_pt` reads only `uT ≡ 0` | **official-inferOnly** |
+| 5 | `:998` `proofIrrelI` Prop arm — `let tb ← r.infer depth b` | **inferOnly.** `:937 expr s_type = infer_type(s);` | as #2, other side | **official-inferOnly** |
+| 6 | `:999` `proofIrrelI` Prop arm — `let ttb ← r.infer depth tb` (**double-inference chain**) | **inferOnly** (`is_prop`) | a **sort**: `vT ≡ 0` | **official-inferOnly** |
+| 7 | `:1038` `pairEtaCertI` — `let tb ← r.infer depth b` | **inferOnly.** `try_eta_struct_core` (`:897`) `is_def_eq(infer_type(t), infer_type(s))` | a **shape test**: the reduct is matched against `C A B` to read `A`, `B` | **official-inferOnly** |
+| 8 | `:1189` `structEtaCertI` — `let tb ← r.infer depth b` | **inferOnly** (same, `:897`) | the structure head + parameters `targs` fed to `EtaLawP`'s `TeleFitP` | **official-inferOnly** |
+| 9 | `:1196` `structUnitCertI` — `let ta ← r.infer depth a` | **inferOnly.** `is_def_eq_unit_like` (`:1160`) `expr t_type = whnf(infer_type(t));` | the unit-like head + `targs` for `UnitLawP` | **official-inferOnly** |
+| 10 | `:1209` `structUnitCertI` — `let tb ← r.infer depth b` | **inferOnly** (`:1168`) | the second side of the same defEq | **official-inferOnly** |
+| 11 | `:1224` `etaCertI` — `let tb ← r.infer depth b` | **inferOnly.** lean4lean `:624` `let .forallE name ty _ bi ← whnf (← inferType s)` | the function type's domain, to build the η comparand | **official-inferOnly** |
+| 12 | `:1264` `majorToCtorI` K branch — `let tmaj₀ ← r.infer depth major` | **inferOnly.** lean4lean `Inductive/Reduce.lean:31` `toCtorWhenK`: `let appType ← whnf (← inferType e)`; the `inferType` handed in at `TypeChecker.lean:331` is the `inferOnly := true` default | the major's type head + `margs` | **official-inferOnly** |
+| 13 | `:1291` `majorToCtorI` K branch — `let tfab ← r.infer depth fab`, then `r.defeq tmaj tfab` | **inferOnly, and official runs it.** lean4lean `Inductive/Reduce.lean:41` `toCtorWhenK`: `unless ← isDefEq appType (← inferType newCtorApp) do return e` | `MajorStepP` (`Step2/MajorP.lean:166`) consumes it | **official-inferOnly** |
+| 14 | `:1304` `majorToCtorI` η branch — `let tmaj₀ ← r.infer depth major` | **inferOnly, and official runs it.** lean4lean `Inductive/Reduce.lean:56` `toCtorWhenStruct`: `let eType ← whnf (← inferType e)` … `let .sort u ← whnf (← inferType eType)` … `unless u.isNeverZero do return e` — setlec's `piResultNeverZero` guard is the same test.  (What official does *not* do afterwards is certify the fabricated spine: `expandEtaStruct` (`:43`) just builds `ctor params (proj i e)…` and returns it.) | as #12 | **official-inferOnly** |
+| 15 | `:1480` `projCertI` — `let ta ← r.infer depth arg` | **NONE.** `reduce_proj_core` (`:420-442`) matches the constructor and picks `args[nparams + idx]`; there is no typing at the proj reduction at all | discarded — `projStepP_of_claims` (`Step2/ProjRowsP.lean:588`) destructures `projCert_inv` as `⟨…,-,-,-,-,hite,-,-,-⟩` | **official-none** |
+| 16 | `:1481` `projCertI` — `let tta ← r.infer depth ta` (**double-inference chain**) | **NONE** (as #15) | a **sort**, compared to the pinned `fieldSort`; discarded by the P proof | **official-none** |
+| 17 | `:1486` `projCertI` — `let te ← r.infer depth e₂` | **NONE** (as #15) | the **only** conjunct the P proof keeps (`hite`), feeding `psigmaMkSpineP` | **official-none** |
+| 18 | `:1487` `projCertI` — `let tte ← r.infer depth te` (**double-inference chain**) | **NONE** (as #15) | a **sort**, compared to the pinned `structSort`; discarded | **official-none** |
+| 19 | `:1526` `whnfAppI` — `let ta ← r.infer depth a`, then `r.defeq depth ta ty` before β | **NONE.** `whnf_core`'s App/Lambda case (`:511-525`) peels `m` binders and calls `instantiate` — no inference, no comparison, in either mode | `BetaCertP`, consumed by `whnfCore_app_claimP` (`Step2/WhnfP.lean:567`) | **official-none** |
+| 20 | `:1560` `betaPeelI` — `let ty' ← instListM ty acc; let ta ← r.infer depth a`, then `r.defeq` | **NONE** (as #19; the bulk-beta split is setlec's, `Core.lean:1441` in the spec twin) | as #19 | **official-none** |
+
+Out of scope, one row each (the declaration-level typing rule):
+
+| # | setlec call | official | bucket |
+|---|---|---|---|
+| — | `:1674` `inferSpineI` syntactic-Π — `instListRevM dom acc; r.infer depth a; r.defeq depth ta dom'` | `infer_app` at `!infer_only` (`:176-186`) does exactly this | **official-full — out of scope** |
+| — | `:1683` `inferSpineI` whnf'd-Π — `r.infer depth a; r.defeq depth ta dom` | same | **official-full — out of scope** |
+
+Note the geometry: rows 1–20 are the cone's *entry points*; the tax
+they carry is spent **inside** them, and it lands almost entirely on
+the two out-of-scope rows, which the cone re-executes in full mode
+where official would run them in inferOnly (i.e. not at all).  That is
+why the measurement gates the landing sites and attributes by origin.
+
+### Adjacent internal `defeq` calls (same cone, not `infer` calls)
+
+Each cone row's certificate also runs `r.defeq`, and `defeqStepI` calls
+`proofIrrelI` on **every** step past `a == b` — so those `defeq`s are
+themselves large internal-inference drivers.  They are not separate
+rows (they call no `infer` directly), and the origin attribution
+already charges their downstream inference to the certificate that
+opened the region.  For the record, the ones with **no official
+counterpart at all** are:
+
+| setlec call | official |
+|---|---|
+| `:1434` `iotaRecI` — `defEqListI (margs.take ctorParams) cmpArgs` | none: `inductiveReduceRec` (`Reduce.lean:96`) selects the rule by constructor name and never compares parameters |
+| `:1451` `iotaRecI` — `defEqListI (resArgs.drop ctorParams) indices` | none: the RHS is assembled by `mkAppRange` (`Reduce.lean:100-108`); indices are never checked |
+| `:1155`/`:1156` `structEtaCertWithI` — the two `iotaCertsI` telescope runs | none: `expandEtaStruct` (`Reduce.lean:43`) builds the spine and returns it |
+| `:1213` `structUnitCertI` — `iotaCertsI` | none: `is_def_eq_unit_like` (`type_checker.cpp:1159`) is two inferences and one `is_def_eq` |
+| `:1284`/`:1331` `majorToCtorI` — the synthetic-spine `iotaCertsI` (task #71) | none (as above) |
+| `:1293`/`:1338` `majorToCtorI` — `proofIrrelI fab major` | none: `toCtorWhenK` returns `newCtorApp` after the type defEq; there is no irrelevance step |
+
+`defEqListI (aargs.take cnP) targs` / `(aargs.drop cnP) projs`
+(`:1158`/`:1170`) **do** have a counterpart — `try_eta_struct_core`'s
+per-field `is_def_eq(proj, s_args[i])` (`type_checker.cpp:900-903`) —
+and round 1 measured them as verdict-load-bearing.
+
+### Where the internal inference lands: per-origin census
+
+One run per core, `CPIOMASK=1<<63` (origin bookkeeping on, nothing
+skipped), init-prelude.  **Identical on both cores.**
+
+| landing site | total fires | front door | proofIrrel | iotaCerts | beta | projCert | eta/unit | major | defeq (η cert) |
+|---|---|---|---|---|---|---|---|---|---|
+| 11 `inferSpineI` syntactic-Π | 600 817 | 105 437 (17.5 %) | **295 082 (49.1 %)** | **139 221 (23.2 %)** | **123 315 (20.5 %)** | 943 | 8 | 82 | 318 |
+| 12 `inferSpineI` whnf'd-Π | 10 237 | 1 156 (11.3 %) | 7 315 (71.5 %) | 1 205 | 1 143 | 2 | 0 | 0 | 3 |
+| 51 λ-domain sort check | 89 962 | 23 152 (25.7 %) | 16 624 (18.5 %) | **47 594 (52.9 %)** | 7 892 | 140 | 0 | 0 | 36 |
+| 52 `letE` checks | 0 | 0 | — | — | — | — | — | — | — |
+
+**82.5 % of all application-argument certificate work in the checker is
+internal** — done underneath a certificate, where the official kernel
+would be in `inferOnly` and would do none of it.  Site 52 never fires:
+`letE` is zeta-reduced at annotate, so the `infer_let` footprint is
+empty in setlec.
+
+### (d) measured cost
+
+`perf stat -e instructions:u`; init-prelude and grind-ring-5 median of
+3, init-full single runs; every run accepts (3 653 / 3 946 / 61 048).
+
+**Heavy reduction fixture: `grind-ring-5`**, chosen by survey of the
+arena perf family for internal share × absolute volume: 2 565 169
+internal vs 401 017 front-door site-11 fires (**86.5 % internal**) at
+20.6 s — 80× the internal volume of the next candidate.  (`app-lam` is
+longer, 78 s, but is a binder-chain workload: 1 048 internal against
+17 041 front-door, 5.8 % — front-door work, not cone work.
+`church-numerals` has the highest ratio, 99.6 %, at 0.3 s, and is
+quoted as a corroborating micro-witness.)
+
+| | init-prelude prod | init-prelude cached | grind-ring-5 prod | grind-ring-5 cached | init-full prod | init-full cached |
+|---|---|---|---|---|---|---|
+| baseline (G instr) | 38.490 | 32.933 | 126.620 | 107.986 | 3156.25 | 2993.67 |
+| `ctrl` = split memo only | +2.82 % | +3.07 % | +2.53 % | +2.45 % | +2.36 % | +2.18 % |
+| origin-probe floor (`o8`) | +4.20 % | +4.70 % | +4.45 % | +4.71 % | +3.96 % | +3.85 % |
+| **all four sites, all origins** | **−24.35 %** | **−26.39 %** | **−12.72 %** | **−16.88 %** | **−9.83 %** | **−14.74 %** |
+| … against the origin-probe floor | −27.40 % | −29.70 % | −16.43 % | −20.62 % | −13.26 % | −17.90 % |
+
+Per landing site (all origins), against `ctrl`:
+
+| site | prelude prod | prelude cached | grind5 prod | grind5 cached |
+|---|---|---|---|---|
+| 11 `inferSpineI` syntactic-Π | **−26.37 %** | **−28.35 %** | **−14.79 %** | **−18.44 %** |
+| 12 `inferSpineI` whnf'd-Π | −0.08 % | −0.10 % | −0.12 % | −0.36 % |
+| 51 λ-domain sort check | −0.09 % | −0.41 % | −0.05 % | −0.35 % |
+
+Per cone origin (against the origin-probe floor), i.e. **the cost of
+running full `infer` instead of `inferOnly` underneath that site**:
+
+| origin (cone rows) | prelude prod | prelude cached | grind5 prod | grind5 cached | init-full prod | init-full cached |
+|---|---|---|---|---|---|---|
+| 3 `proofIrrel` (rows 2–6) | −3.95 % | −5.34 % | −2.50 % | −3.79 % | −4.51 % | −6.66 % |
+| 4 `iotaCerts` (row 1) | **−11.39 %** | **−11.99 %** | **−6.69 %** | **−8.21 %** | −1.19 % | −2.00 % |
+| 5 beta cert (rows 19–20) | −6.36 % | −7.13 % | −3.04 % | −3.77 % | −3.81 % | −4.87 % |
+| 6 `projCert` (rows 15–18) | −0.005 % | −0.12 % | −0.60 % | −0.75 % | — | — |
+| 7 eta/unit certs (rows 7–10) | +0.01 % | −0.003 % | +0.008 % | 0.00 % | — | — |
+| 8 major rescue (rows 12–14) | (floor) | (floor) | (floor) | (floor) | (floor) | (floor) |
+| 2 `etaCert` + defeq residue (row 11) | −0.02 % | −0.03 % | −0.003 % | −0.01 % | — | — |
+
+The per-origin figures are **sub-additive against the total**
+(3.95 + 11.39 + 6.36 = 21.7 % against a measured 27.4 % on
+init-prelude): the same superadditivity #141 recorded — certified
+reducts feed later certificates, so origins amplify one another.
+
+For the six rows where official runs **nothing at all**, the whole call
+is tax, not just the full-vs-inferOnly delta.  Round-1 `CPMASK`
+measured those directly (init-prelude prod/cached):
+
+| rows | site probe | whole-site cost |
+|---|---|---|
+| 19–20 beta certificate | 9 + 10 | **6.85 % / 10.51 %** |
+| 1 ι telescopes (both callers) | 13 + 14 | 1.20 % / 3.15 % |
+| 15–18 `projCert` | 17 | 0.06 % / 0.17 % |
+| 14 η major rescue | 32 + 33 | ≤0.01 % / ≤0.03 % |
+
+### Headline
+
+* The **internal-inference tax** — full `infer` where official runs
+  `inferOnly` — is **24.4 % / 26.4 %** of init-prelude, **12.7 % /
+  16.9 %** of grind-ring-5 and **9.8 % / 14.7 %** of init-full
+  (production / cached-parsed), measured against the unmodified
+  baseline; against the origin-probe floor, **27.4 % / 29.7 %**,
+  **16.4 % / 20.6 %** and **13.3 % / 17.9 %**.
+* It is concentrated in three cone sites — `iotaCerts` (row 1), the
+  beta certificate (rows 19–20), `proofIrrel` (rows 2–6) — but their
+  **order is stream-dependent**: on init-prelude and grind-ring-5
+  `iotaCerts` leads (11.4 % / 6.7 % prod), on init-full it collapses to
+  1.2 % and `proofIrrel` leads (4.5 % prod).  init-full is front-door
+  dominated (61 048 mostly small declarations); the reduction-heavy
+  streams are cone dominated.  A single ranking would be wrong.
+* The **cached core pays a consistently larger share** of this tax than
+  production — 29.7 vs 27.4, 20.6 vs 16.4, 17.9 vs 13.3 — on identical
+  fire counts, so the difference is per-call cost, not call volume.
+* **82.5 %** of all application-argument certificate work is internal.
+* The **memo split** that an infer-only lane requires costs
+  **2.5–3.1 %** on its own, on every stream and both cores.  Any
+  quoted saving must be net of it.
+
+### RAW NOTES FOR HANDOFF (not inventory material)
+
+Observations collected while building the inventory.  They are
+feasibility- or correctness-flavoured and belong to the workers who own
+those questions; they are recorded here unargued so nothing is lost.
+
+1. **`proofIrrelI` omits official's type comparison.**  Official ends
+   `is_def_eq_proof_irrel` with `return to_lbool(is_def_eq(t_type, s_type));`
+   (`type_checker.cpp:938`); lean4lean likewise (`TypeChecker.lean:680`
+   `toLBoolM <| isDefEq tType (← inferType s)`).  Setlec's
+   `proofIrrelI` (`CoreI.lean:980-1010`) checks that **both** types are
+   sorts at level `≡ 0` and returns `okA && okB` — it never compares
+   `ta` with `tb`.  Verified by reading both sides; no claim made about
+   what it implies.  A restriction-is-a-finding item for the owner of
+   the reference-parity ledger.
+2. **The `infer_let` footprint is empty in setlec.**  Landing site 52
+   fires **zero** times on init-prelude: `letE` is zeta-reduced during
+   annotate (`annotateBodyI`'s `.letE` clause), so `inferBodyI`'s
+   `.letE` clause is not reached on these streams.  An infer-only lane
+   would gain nothing there.
+3. **Four pure double-inference chains** (rows 4, 6, 16, 18): `a : ta :
+   tta` where the intermediate `ta` is consumed by nothing but the
+   second inference.  Rows 16 and 18 are additionally discarded by
+   `projStepP_of_claims`.  Independently flagged by the D2 worker.
+4. **`projCert_inv`'s discard pattern**: `projStepP_of_claims`
+   (`Step2/ProjRowsP.lean:588`) destructures
+   `⟨ta, sta, uT, te, ste, wT, -, -, -, -, hite, -, -, -⟩` — seven of
+   the eight conjuncts are `-`.
+5. **Relayed, not verified here** (from the D1 seal,
+   `agent/degating-d1` @ `ca479e13`): `whnfCore_app_claimP`
+   (`Step2/WhnfP.lean:567`) branches on `pwBit`, and the positive
+   branch consumes no certificate (`AnnotOkP_beta_pos` +
+   `annotOk2_beta_dom_pos` via `piR_dom_unique` + `lamR_ne_pt`,
+   side-condition-free).  Bears on rows 19–20.
+6. **Relayed, not verified here** (from the D2 handoff): no cone site
+   is mode-gated, and `iotaCertsI` is reached ungated from six call
+   sites.
+7. **Language-preservation caveat on every mask in this record.**
+   Skipping an internal argument certificate cannot change the verdict
+   on well-typed input, and every masked run here accepted identically;
+   but the masks are not language-preserving in general (the D1 seal's
+   code-level witness: the masked throw at sites 11/12 is unreachable,
+   so `def bad : Nat := f true` accepts).  All "verdict-neutral"
+   statements in this record are scoped to well-typed streams.
+8. **Machine note.**  The 19 h 47 m runaway reported in the round-1
+   record (PID 2643826) was killed at 21:00:56 by the coordinator; the
+   init-full numbers in this section were taken after that on a clean
+   machine, the round-1 numbers before it on a machine with one core
+   permanently busy.  Instruction counts are per-process and unaffected;
+   wall times are not comparable across the two.
