@@ -1,6 +1,7 @@
 import Setlec.Kernel.CheckerS
 import Setlec.Kernel.CheckerNC
 import Setlec.Cached.Driver
+import Setlec.Cached.ParsedNC
 import Setlec.Kernel.Split
 import Setlec.Frontend.Export
 
@@ -289,7 +290,14 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool)
     let foldF :=
       match core with
       | .cached => Setlec.Cached.checkDeclsSharedC mode
-      | .cachedParsed => Setlec.Cached.checkDeclsSPCached mode
+      | .cachedParsed =>
+        -- The cached parity lane (cross-core comparison prerequisite):
+        -- at `--no-model` the cached-parsed core runs its own
+        -- cert-skipping engine (Setlec/Cached/CoreNC.lean +
+        -- ParsedNC.lean — the cached twin of CheckerNC), not the
+        -- certified engine with mode-gated checks off.
+        if mode == CheckMode.noModel then Setlec.Cached.checkDeclsSPCachedNM
+        else Setlec.Cached.checkDeclsSPCached mode
       | .internedShared => Setlec.Cached.checkDeclsSharedI mode
       | .production =>
         if mode == CheckMode.noModel then checkDeclsSPNM else checkDeclsSP mode
