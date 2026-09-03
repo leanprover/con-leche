@@ -26811,3 +26811,31 @@ The eight surviving edges, by batch:
 
 Kit: `tests/layering.sh` (and `--list`); `_tmp/sep-s3/Audit.lean`;
 the S1/S2 audit files.
+
+## Task #161 SEPARATION — S3 LANDED (2026-09-03; succession-current)
+
+Master @ `f15492df`.  Battery green (build 525 warning-free, test 0,
+arena all counters, layering inside: 8 P→R all whitelisted, 0 R→P);
+binary md5-identical (proof terms only); 12 capstones standard three.
+
+**CAMPAIGN POLICY (ruled verbatim, the gate-rule law)**: *a
+whitelist line dies when the DEPENDENCE dies, not when the import
+does.*  (a) vestigial direct imports (no symbol used) may be removed
+WITH their line — removing the import is the edge's death;
+(b) live-but-transitive dependences keep BOTH the direct import and
+the line until the SYMBOL dependence dies.  The S3 worker's refusal
+to shrink the ledger cosmetically is the record's example.
+
+**Census correction ledger** (+1): C4 refuted at `indDecl` — the
+η-closure there is discharged from model-carrying
+`indMembersS`/`indRecsS`, interleaved with the EnvS fold; the
+DeclIndS η-only unit (~two 800-line inductions) is S4/S5's named
+work item; Install/* (23 modules) dies there.
+
+**S4/S5 RE-PLAN**: S4 = `DeclRunR`/`checkDeclRun_sound` (the C3
+artifact; the five install edges die together there) + the
+rule-(a) vestigial-import cleanup; S5 = the DeclIndS η-only unit +
+the quarantined `EnvS2PM.base` residue removal (staged exactly as
+diffed in the S3 seal — flag immediately if S4 contact changes its
+shape).  S6 SP_P, S7 absorbed into S5 (the empty_pinned edge died
+early), S8 THE PAYOFF CHECK, S9+ io-knot.
