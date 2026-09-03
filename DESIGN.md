@@ -29115,3 +29115,24 @@ is a 700-900 line bridge re-proof, not a projection
 residuals are statement-level questions the lead ratified
 otherwise.  **Two rulings owed before S11 opens** (payload:
 none-vs-one; producer scope: value kinds first?).
+
+## Task #161 SEPARATION — S10 safe half LANDED; the rulings
+(2026-09-04; succession-current)
+
+Master @ the S10 merge; battery green WITH the proofdeps gate line;
+binary md5-identical; escalation worked as re-armed (stopping
+rather than improvising = the record to keep).
+
+**RULING 1 (payload ZERO)**: the five run records go valuation-free
+like DeclRunR.  Correction ledger: the one-row ratification RETIRED
+— *a ratified payload is a claim like any other*; the measurement
+refuted it in the good direction (the P lane consumes NO derivation
+conjunct from the ind-tier cone; consumers rewired and landed).
+
+**RULING 2 (staging split)**: S11a = the five non-ind kinds (cheap
+majority; ind held in DeclRunR's Ind parameter slot); S11b = the
+ind run bridge, its own batch, the 700–900-line bill priced FROM
+SOURCES (the "re-signing, not re-proving" correction series — now
+seven — quoted in the batch brief).  Then S12 tower transposition,
+S13 flag + measurement.  ESCALATION RE-ARMS identically: any
+residual not named in the S10 seal stops the cadence.
