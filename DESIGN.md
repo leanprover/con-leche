@@ -24648,15 +24648,20 @@ delta together**; the parity lane is the closest thing setlec has to
 
 | stream | end-to-end | net of the preprocessor (approximate) |
 |---|---|---|
-| init-prelude | **1.81×** | 2.04× |
-| init-full | **1.69×** | 1.77× |
-| grind-ring-5 | **1.57×** | 1.65× |
+| init-prelude | **1.84×** | 2.09× |
+| init-full | **1.71×** | 1.79× |
+| grind-ring-5 | **1.59×** | 1.67× |
 | app-lam | **0.98×** | 0.98× |
 | beta-ladder | **0.99×** | 0.99× |
 | let-ladder | **0.99×** | 0.99× |
 
+*(Rows amended in place at the memo-share landing, `0f5a5a5a` — the
+parity denominator sharpened by the restored `memoEIO`; the original
+0.98–2.04× medians are preserved in the memo-share round's record
+below.)*
+
 **THE CANONICAL STATEMENT: the verification tax on the six arena
-workloads is between 0 % and 104 % — a factor of 0.98× to 2.04×, never
+workloads is between 0 % and 109 % — a factor of 0.98× to 2.09×, never
 more.  On three of the six rows it is not measurable at all (the
 certified checker is within 1–2 % of the parity lane, on the wrong side
 of zero).**  Nothing in this table resembles 14–16×, and nothing
@@ -24664,22 +24669,19 @@ should: that number was the application typing rule (part 1(c)).
 
 Two second-order readings, both honest and both worth having:
 
-* **The negative rows are real, and their mechanism is named.**
-  `app-lam`, `beta-ladder` and `let-ladder` run 1–2 % *slower* at
-  `--no-model` than at `--set-model`.  These are
-  single-huge-declaration workloads; the parity lane must keep two
-  inference memos (`inferFC` for the checking-mode front door,
-  `inferC` for the io internals), and #147 dropped #134's
-  one-directional share (`memoEIO` read `inferFC` before `inferC`;
-  today's `coreKnotNC.infer` is a plain `memoEI (·.inferC)` —
-  `CoreNC.lean:810`).  On a term that is both checked front-to-back
-  and reduced, every subterm's type is therefore computed twice.  P1
-  independently priced the bare memo split at **2.5–3.1 %** of every
-  stream on both cores.  Restoring the `inferFC`-first read in
-  `coreKnotNC.infer` is a three-line change and is the obvious first
-  follow-up; it would make the parity lane cheaper and every tax
-  number in the table *larger* — i.e. the table currently
-  **understates** the tax by roughly that much.
+* **The negative rows are real; the mechanism claim originally
+  written here is RETRACTED** (the memo-share round, `0f5a5a5a`,
+  refuted it by measurement).  The predicted fix — restoring
+  `memoEIO`'s `inferFC`-first read — was landed and buys NOTHING on
+  `app-lam`/`beta-ladder`/`let-ladder` (+0.03/+0.04 % — the failed
+  hash probe); the win lands on the declaration-count-heavy rows
+  instead (−1.79/−1.09/−0.95 %).  The mechanism the data supports:
+  the share pays only when an internal query hits an arena node the
+  front door inferred IN THE SAME DECLARATION — constant on interned
+  real streams, never on the ladders' freshly-substituted nodes.
+  The ≈0.98–0.99× rows remain UNEXPLAINED, and P1's "2.5–3.1 % memo
+  split" priced a different quantity.  (An honest open row, not a
+  known cause.)
 * **The tax is where the certificates fire, not where the terms are
   big.**  It is largest on the declaration-count-heavy, iota-heavy
   streams (init-prelude 1.81×, init-full 1.69×, grind-ring-5 1.57×)
@@ -24795,12 +24797,11 @@ builds (load average 5–58), which is why wall is secondary here.
 
 #### Follow-ups this measurement opened (none landed here)
 
-1. **Restore `memoEIO`'s one-directional memo share** in
-   `coreKnotNC.infer` (`CoreNC.lean:810`): read `inferFC` before
-   `inferC`, as #134 did.  Three lines; would remove the parity lane's
-   double inference on single-huge-declaration streams and make every
-   tax number in the table larger (the table understates the tax by
-   roughly the 2.5–3.1 % P1 priced the split at).
+1. **Restore `memoEIO`'s one-directional memo share** — LANDED
+   (`0f5a5a5a`); the table rows above are amended in place.  The
+   prediction attached to this follow-up was refuted: the share pays
+   on same-declaration front-door hits (real streams), not on the
+   ladders; see the retracted mechanism note above.
 2. **`--no-model`'s install-only kinds run at io grade** where
    official's `check` does not (part 1(a)).  A parity fix routes
    `checkDeclSPNCPlain`'s member-value checks through `coreKnotFNC`.
