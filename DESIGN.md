@@ -25780,3 +25780,28 @@ is a DESIGN.md append only.  All counts are reproducible from the
 scripts in `_tmp/sep-design/` (`graph.py`, `cross.py`, `cross2.py`,
 `syms.py`, `uses.py`, `rel.py`, `basecount.py`, `lines.py`,
 `path.py`).
+
+## Task #161 THE SEPARATION — design review RULED (2026-09-03;
+coordinator, all four)
+
+1. **Spec extension, ratified**: "everything EnvS-containing lives
+   in R" — the 2U/denote2 lane moves WHOLE; the P re-supply bill is
+   the censused 458.
+2. **Mode shape (ii) ratified** (the frozen-statements discipline
+   decides alone; 28 statements verbatim).  FLAG SURFACE, ruled:
+   bare `--set-model` = alias for `--set-model=r` (no default
+   change); `--set-model=p` opt-in until S8/S9 validate, the default
+   flip its own decision (core-flip precedent).  Help text ruled:
+   "--set-model=r — verified (collapsed model, full certificates;
+   default)"; "--set-model=p — verified (graded model, io-gated
+   internals)"; "--no-model — official-parity configuration,
+   unverified" (citing the canonical-table audit so the parity claim
+   is discoverable); `--core` documented beside as orthogonal.
+3. **The SP_P batch approved** as named, risk-rank 1.  LEDGER
+   (claims family): **a spec point is a claim** — spec point 3's
+   "re-assembled" was under-sized; the census caught it (~8 theorems
+   to build, not re-assemble).
+4. sep-design merged.
+
+S1 DISPATCHED on this ruling; the batch plan as written; campaign
+cadence in full; 13–18 batches the honest bill.
