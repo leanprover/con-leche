@@ -28452,3 +28452,304 @@ ruling (cited per the coordinator).  Measurement: the mode delta
 the winning engine per stream (engine-per-column pending the perf
 lead's confirmation); stage-1 gross figures re-verified on the
 rebased gate BEFORE any net number is quoted.
+
+## Task #161 THE SEPARATION — S9 SEALED (2026-09-03, `agent/sep-s9`,
+unpushed): **THE PAYOFF CHECK — THE β-GATE WALL HAS *NOT* DISAPPEARED,
+AND IT IS NOW ONE CONSTANT WIDE**
+
+### 0. THE USER'S QUESTION, ANSWERED FIRST
+
+> *"has the problem about beta reduction gates disappeared?"*
+
+**No — but it is no longer the problem it was.**  It has gone from *"the
+P capstone runs through `DeclR`, hence through `Red`/`Infer`/`DefEq`, at
+every declaration"* (the io-knot B1 stop-and-name) to a dependence that
+enters the P capstone's proof term through **exactly one constant** and
+is **consumed by no P-tier mathematics at all**.
+
+Mechanized, on the shipped-driver capstone `no_proof_of_Empty_SP_P`
+(transitive constant closure of type + proof term; instrument
+`_tmp/sep-s9/S9Deps.lean`, `S9Cut.lean`, `S9Val.lean`):
+
+| closure | size | `Red.beta` | `Infer.app` | `denote_beta_stepR` | `EnvS` |
+|---|---|---|---|---|---|
+| `no_proof_of_Empty_SP_P` | 20 413 | **PRESENT** | PRESENT | PRESENT | **absent** |
+| …with `checkDeclR_ofEnvRE` **cut** | 19 382 | **absent** | absent | absent | absent |
+| `checkSound2P` (the whole P claims tower) | 4 432 | absent | absent | absent | absent |
+| `declIndP` (the ind tier's P step) | 11 712 | absent | absent | absent | absent |
+| `harvestDefnP` (the value kinds) | 9 702 | absent | absent | absent | absent |
+| `no_proof_of_Empty_P` | 14 948 | PRESENT | PRESENT | — | absent |
+
+Read off the table:
+
+1. **The wall is real and it is still there.**  `Red.beta` — R4, the
+   rule whose premises *are* the two runs the β-cert gate deletes
+   (`SetBase/Rel.lean:141`ff; built at `SetBase/Bridge/WhnfCore.lean:143`,
+   `Red.beta hxT (hTt.trans hDeq)`) — is in the shipped P capstone's
+   proof term today.  Gating the certificate invalidates the landed
+   capstone; **the proof cannot be closed with the gate live**, and per
+   the coordinator's ruling this batch STOPPED rather than patched.
+2. **It enters through one door.**  Cutting the single constant
+   `checkDeclR_ofEnvRE` removes `Red.beta`, `Infer.app` *and*
+   `denote_beta_stepR` from the closure outright.  There is no second
+   route.
+3. **No P-tier consumer touches it.**  The P claims tower, the value
+   kinds' harvest and the whole inductive tier each reach **none** of
+   the three.  Textually: across all **116** `Setlec/SetP/*` modules
+   there are **zero** code occurrences of `Red`, `Infer` or `DefEq`
+   (only docstrings).
+4. **The separation did what it said.**  `EnvS` — the collapsed model —
+   is **absent** from the P capstone's closure.  S1–S8's deliverable is
+   confirmed mechanically, not only at the import gate.
+
+**So the honest one-liner for the user**: *the separation removed the
+collapsed model from the P proof, exactly as ordered; what it did not
+remove — and never checked for — is the R **relation** tier, which S7/S8
+relocated into the shared base.  One record-shaped obligation now stands
+between the campaign and the β prize.*
+
+### 1. THE FINDING THAT MATTERS: A DIRECTORY GATE CANNOT SEE A PROOF PATH
+
+`tests/layering.sh` reads, on this branch:
+
+```
+layering: base 260 / R 106 / P 117 / neutral 3 modules;
+          0 P->R edges (whitelist EMPTY); 0 R->P
+```
+
+and that reading is **true and simultaneously silent about `Red.beta`
+being live on the P capstone's proof path**.  The reason is structural:
+S7 and S8 moved `SetBase/Rel.lean` (which *defines* `Red`, `Infer`,
+`DefEq`), `SetBase/Decl.lean` (`ConstantValR`, `DeclR`, `DeclIndR`) and
+twenty-two `Bridge/*` modules out of `Setlec/SetR/` and into the shared
+base — where the gate, which classifies by **directory**, counts them
+as `base`.  Nothing was hidden; the ratchet was simply measuring a
+different quantity than the one the payoff check needs.
+
+This is the **seventh instance** of the campaign's "an import-level gate
+cannot price a de-basing" ledger entry, and it is the sharpest: the
+previous six under-read a bill by 8, 16, … modules; this one reads
+**zero** while the dependence is live.  The rule the campaign should
+carry forward:
+
+> **An import gate measures where code *sits*; only the proof term
+> measures what a theorem *uses*.  A separation criterion stated over
+> imports cannot certify a proof-path property.**
+
+The instrument that can is in `_tmp/sep-s9/` — a transitive
+constant-dependency walk with **cut points**, ~35 lines of `CoreM`.  Two
+implementation notes for whoever promotes it to the battery: theorem
+proof terms must be reached by matching `.thmInfo` directly
+(`ConstantInfo.value?` returns `none` for theorems at Lean 4.33, which
+silently makes the walk report *nothing*), and TYPE-vs-VALUE must be
+split at the root — `Infer` appears in the *value* of every P ind-tier
+theorem merely because `And` projections carry their component types.
+
+### 2. WHAT THE RESIDUAL OBLIGATION ACTUALLY IS (named and sized)
+
+`checkDeclR_ofEnvRE` is called at **four** sites, all in the P fold:
+`SetP/FoldP.lean:197` and `SetP/MainP.lean:102,148,211`.  Every one
+immediately either projects to `DeclRunR` (`DeclR.toRun`, the run/guard
+half, which is relation-free) or hands the record to the inductive
+tier.  So the P lane uses the R bridge as a **run extractor**, and the
+question is only whether a relation-free extractor can be built.
+
+| kind | what the P step consumes today | relation-free? |
+|---|---|---|
+| `defn`/`thm`/`opaque`/`axiom` | `DeclDefnRunR`/`…` — the S4/S5 run split, already landed; `HarvestP`/`AxiomPinP`/`AxiomReduceP` take `ConstantValRunR` | **yes, already** |
+| `basis` | `DeclBasisR` — guards only, always was | **yes, already** |
+| `ind` | `DeclIndR`, whose `MemberValR`/`IndMembersR`/`IndRecsR`/`ProjInstallR` carry the **full** `ConstantValR`, including its last conjunct `∀ φ, … Infer … ∧ DefEq …` (`SetBase/Decl.lean:152-155`) | **NOT YET — this is the whole bill** |
+
+And the evidence that the bill is *plumbing*, not mathematics: the P
+tree's **only two** destructurings of that `ConstantValR` —
+`memberKeyP` (`SetP/IndMemberP.lean:88`) and `memberTypeReadEq`
+(`SetP/IndUnitLawP.lean:163`) — are both
+
+```lean
+  obtain ⟨-, -, -, -, -, -, -, -, htr, -⟩ := hcv
+```
+
+i.e. they keep the ninth conjunct (`type'.constsResolve env = true`, a
+syntactic guard) and **discard the derivation conjunct**.  That is the
+campaign's own reusable diagnostic, verbatim: *a parameter every proof
+immediately projects away is a layering artifact, not a dependence.*
+
+**So the payoff's residual bill is the ind tier's record split** —
+`MemberValRunR`, `IndMembersRunR`, `IndRecsRunR`, `ProjInstallRunR`,
+`DeclIndRunR`, plus a relation-free `checkDeclRun_of` — which is
+**exactly the artifact S5 designed and S7 closed as a tombstone**
+("`DeclIndRunR`'s tombstone is now due … nothing is owed", S7 finding
+5).  The tombstone was correct against the criterion it was judged by
+(the import whitelist) and wrong against the criterion the campaign is
+actually for.  **Ledger entry proposed: a design note retired for want
+of a consumer should record the criterion it was retired under; the
+payoff check is `DeclIndRunR`'s consumer and it arrived two batches
+later.**
+
+Beyond that record split there is a **second, larger and purely
+mechanical** bill, named here so it is not rediscovered: the P claims
+tower is stated at the concrete `whnfCore μ env fuel d e`
+(`SetP/Claims2P.lean`), not generically over a `CoreFns` record, so a
+gated subject means transposing `WhnfCoreClaims2P`/`WhnfClaims2P`/
+`DefEqClaims2P`/`InferClaims2P` and their step assembly onto
+`whnfCoreP`.  Only the β clause's *content* changes (its positive
+branch already consumes nothing); everything else is re-typing.  This
+is the "duplicate knots" shape's true price and it was not sized before.
+
+### 3. WHAT LANDED (Phase 1, scoped to the STOP)
+
+**`Setlec/Kernel/CoreP.lean`** — the parked stage-1 β-cert gate
+(`agent/bucket2-s1` @ `139b68db`) **rebased onto ruled mode shape
+(ii)**, as a second `whnfCore` body and a second knot:
+
+* `whnfCoreBodyP` — `whnfCoreBody` with one clause changed.  The gate is
+  `mode.verified && mb.pw.isNever` and it wraps the **test** only; both
+  arms are verbatim (law 1 (iii)).  The `mode.verified` conjunct is law
+  1 (i).  The **projection** certificate is *not* gated — the
+  establishment/consumption asymmetry fence, kept absolute;
+* `coreKnotP`, `pureFnsP`, and the five fueled entries
+  (`whnfCoreP`/`whnfP`/`inferTypeCoreP`/`isDefEqCoreP`/`annotateCoreP`,
+  `ensureSortCoreP`);
+* **`Setlec/Kernel/CheckerP.lean`** — `fueledOpsP`/`pureOpsP`.  The
+  declaration checker is *not* duplicated: `checkDecl`/`checkDecls` are
+  written once against `CheckerOps`, so the whole gated pure driver is
+  one instantiation, `checkDecls μ (fueledOpsP μ F)`.
+
+Recorded while doing it (shape (ii)'s cost, against §4.2's estimate):
+**`coreKnotP` is not a leaf lane, and `coreKnotIO` was.**  `inferBodyIO`
+could be a leaf because nothing in the knot calls `infer`'s *result*
+back into reduction; `whnfCore` sits under `whnf`, `defeq` and `infer`,
+so a gated `whnfCore` propagates through the entire knot.  Shape (ii)
+therefore costs a duplicated **knot** here, not a duplicated **clause** —
+which is exactly why the verification side owes a transposed tower
+rather than one extra family (§2).
+
+**The gate is mechanized as LIVE, DATUM-EXACT and MODE-GATED** — five
+new `#guard`s in `tests/SetlecTests.lean`, in the config audit's
+vacuity-protection discipline.  Subject `(fun x : Prop => x) Prop`,
+whose argument is `Type`: the certificate *fails*, so the ungated
+`whnfCore` is stuck at both data, while
+
+* `whnfCoreP .setModel` at `pw = .never` **reduces to `Prop`** (the gate
+  fires — if this guard ever reads "stuck", the duplicated knot has
+  become a no-op);
+* `whnfCoreP .setModel` at `pw = .ifAllZero []` stays stuck (the fence);
+* `whnfCoreP .noModel` at `pw = .never` stays stuck (law 1 (i)).
+
+This is the constructive half of the STOP: the gated knot is a
+demonstrably **different function**, which is precisely why
+`checkDeclR_ofEnvRE` — a theorem about the ungated one — does not
+transfer to it.
+
+### 4. WHAT DID **NOT** LAND, AND WHY
+
+**The `--set-model=p` flag surface is WITHHELD.**  The ruled text (bare
+`--set-model` = alias for `=r`; `=p` opt-in; the three help stanzas)
+was ready to land and was **not landed**, because landing it would ship
+a kernel-behaviour change in a *verified* mode with no soundness
+theorem — which is the one thing the whole campaign exists to prevent,
+and which the standing "conditional forms are not solutions" ruling
+forbids in its own terms.  `Main.lean` is byte-unchanged.
+
+**Consequently the mode delta (Phase 3(a)) is not defined** and no
+measurement was run: with no P driver there is no "P driver vs R
+driver, same binary" column, and no net figure can be quoted.  The
+stage-1 gross figures (−8.09 % / −17.20 % init-full, production /
+cached) were **not** re-verified either: the parked branch's baseline
+`dc2883c2` and today's master differ across `Main.lean`,
+`Frontend/Export.lean`, `Cached/{CoreC,Driver,ExprC}.lean`,
+`Kernel/{CoreI,CoreNC,Expr}.lean`, so its binary is not comparable, and
+a re-verification needs the wiring this batch withheld.  **The prize
+figure on record stays the stage-1 gross one, with its provenance, and
+is not restated here.**
+
+### 5. THE REVOCATION CLAUSE — RECEIPT
+
+The authorization's clause is: the R driver (`--set-model=r`), the
+parity lane (`--no-model`) and every existing mode must remain
+**byte-identical in behaviour**.  Satisfied **by construction, at the
+strongest available standard**:
+
+* `git diff master -- Setlec/Kernel Main.lean Setlec/Cached
+  Setlec/Frontend AnnotateBasis.lean Setlec/PinGen` is **empty** — every
+  pre-existing file on the executable's paths is byte-unchanged; the two
+  additions are new files;
+* neither addition is in `Main.lean`'s import closure (they are reached
+  only from the `Setlec` umbrella), so
+* **`.lake/build/bin/setlec` has md5 `29abe904703a3e634daeb3bfb5706262`
+  — identical to master's.**  The binary is the same binary; no
+  behavioural divergence is possible, and no byte-identity corpus run is
+  owed.  The full arena suite was run anyway (§6).
+
+### 6. BATTERY (verbatim)
+
+* `lake build` — clean, warning-free, **538** jobs (536 +
+  `Kernel/CoreP` + `Kernel/CheckerP`).
+* `lake test` — exit 0 (including the five new gate guards).
+* `tests/arena.sh` — exit 0:
+
+  ```
+  layering: base 260 / R 106 / P 117 / neutral 3 modules; 0 P->R edges (whitelist EMPTY); 0 R->P
+  arena tutorial: 90/92 good tests accepted
+  e2e: 73/73 as expected
+  annot suite: 14/14 as expected
+  split driver: 11/11 as expected
+  mode flags: 9/9 as expected
+  no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+  ```
+
+  (`mode flags` stays **9/9**: no row was added, because no flag was
+  added.  No existing expectation was touched anywhere.)
+* Axiom audit (`_tmp/sep-s9/Audit.lean`), **21 declarations** — the 12
+  landed capstones and the 9 SP_P family members: every one
+  `[propext, Classical.choice, Quot.sound]`, **unchanged**.
+* **md5 identity**: `29abe904…`, identical to master's (§5).
+* Zero `sorry`s; no new axioms; **no frozen statement edited** — this
+  batch adds two kernel modules and five `#guard`s and edits no theorem
+  anywhere.  `no_proof_of_Empty_P`'s and `no_proof_of_Empty_SP_P`'s
+  letters are byte-identical to master's.
+
+| metric | S8 | S9 |
+|---|---|---|
+| gate: base / R / P / neutral | 258 / 106 / 117 / 3 | **260** / 106 / 117 / 3 |
+| P→R edges | 0 | 0 |
+| `Red.beta` in `no_proof_of_Empty_SP_P`'s closure | *unmeasured* | **PRESENT (1 door)** |
+| `EnvS` in that closure | *unmeasured* | **absent** |
+| doors to `Red.beta` | — | **1** (`checkDeclR_ofEnvRE`) |
+| P-tree code occurrences of `Red`/`Infer`/`DefEq` | — | **0 / 0 / 0** (116 modules) |
+| build jobs | 536 | **538** |
+| binary md5 | `29abe904…` | `29abe904…` |
+
+### 7. SUCCESSION — where S10 starts
+
+**S10 = THE IND-TIER RECORD SPLIT**, and it is the *whole* remaining
+mathematical distance to the β prize (§2):
+
+1. `MemberValRunR` / `IndMembersRunR` / `IndRecsRunR` /
+   `ProjInstallRunR` / `DeclIndRunR` — S5's design, un-tombstoned, with
+   the payoff check as its consumer.  The two P-side destructurings
+   already discard what is being deleted (`IndMemberP.lean:88`,
+   `IndUnitLawP.lean:163`), so the expected cost is re-signing, not
+   re-proving — **but that is a prediction, and it is the sixth time
+   this campaign has predicted a re-signing; the site-by-site bill is
+   S10's first deliverable, before any transposition starts.**
+2. `checkDeclRun_of` — the relation-free dispatch, `checkDeclR_of`'s
+   twin with every derivation conjunct deleted.  When it lands,
+   `Red.beta` leaves the P capstone's closure and the answer to the
+   user's question becomes yes.
+3. **Only then** the claims-tower transposition onto `whnfCoreP`, then
+   the flag surface, then the measurement.  The ruled text for the flag
+   surface is unchanged and still on record; it lands with the proof,
+   not before.
+
+**Proposed battery addition (the lead's call)**: the proof-term
+dependency walk with cut points, as a checked-in instrument beside
+`tests/layering.sh`, pinning `Red ∉ closure(no_proof_of_Empty_*_P)`
+once §7.2 lands.  This batch's finding is that the existing gate cannot
+express that property, and a ratchet nobody can read is a ratchet that
+slips.
+
+Kit: `_tmp/sep-s9/` — `S9Deps.lean` (transitive closure),
+`S9Cut.lean` (cut points), `S9Cut2.lean` (record-level), `S9Val.lean`
+(TYPE-vs-VALUE split), `Audit.lean` (21 declarations); the S1–S8 audit
+files; `tests/layering.sh`.
