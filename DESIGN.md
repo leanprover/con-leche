@@ -23609,3 +23609,479 @@ savings quoted NET of the study's 2.2–3.1% memo split):
 + the last open removal rows landed.  The two conformance
 RESTRICTIONS stay with the user (outside the removal goal's
 letter).
+
+## Task #161 BUCKET 2 STAGE 1 — the β-cert gate: landed in the kernel
+and the Verify tier, **STOPPED at the R tier** (2026-09-03,
+`agent/bucket2-s1`, unpushed; grant evidence, nothing landed)
+
+**The one-line verdict**: the gate itself is sound, exact and
+measured — **−4.6 % / −8.2 % on init-prelude, −8.1 % / −17.2 % on
+init-full, −6.8 % / −13.0 % on grind-ring-5** (production /
+cached-parsed, instructions, gross) — but the stage's design claim,
+*"no statement changes"*, is **REFUTED**: `whnfCore`'s β certificate is consumed
+unconditionally by a second live tier the study did not look at, the
+`Red`/`AnnotOkV` (R) tier, which cannot even *express* the gate's
+condition.  The kernel change and its whole `Setlec`-library
+verification are done and green; `SetlecSetR` stops at one module, and
+the P-lane adaptation the study sized could not be attempted because
+the P lane imports the R lane.
+
+### What is in the branch
+
+| commit | content |
+|---|---|
+| `c1601d59` | the gate at the three cores (`Kernel/Core.lean` `whnfCoreBody`, `Kernel/CoreI.lean` `whnfAppI`+`betaPeelI`, `Cached/CoreC.lean` twins) + `PropWhen.isNever` |
+| `f99030bc` | the `Setlec` library under the gate: `whnf_app_inv`, `BetaSpine` mirrors + `gate_atF`/`gate_mono`, `Deep` (shift), `Disc`, `DiscI4`, `EStore.denoteBM_pw` |
+| `c3c8caf3` | `Verify/Cached/DiscC4` (cached simulation) + `SortCoh/Claims` |
+| `0c865695` | the gate condition's exactness in `SetR/Annot/Bit.lean` + `SortCoh/Mono` |
+
+`lake build Setlec` (kernel + Verify + the exe's whole verification
+tier): **green, warning-free, zero sorries**.  `lake build`
+(everything) fails at exactly **two** modules:
+`Setlec.SetR.Bridge.WhnfCore` — the STOP — and
+`Setlec.SetR.Annot.SortCoh.Discharge`, which is mechanical churn the
+batch ran out of room for (its own inversion lemma; enumerated under
+"What is behind the wall").
+
+### The gate, quoted (`Kernel/Core.lean`, the spec twin)
+
+```
+-      | .lam n ty body mb => do
+-        let ta ← r.infer depth a
+-        if ← r.defeq depth ta ty then
++      | .lam n ty body mb => do
++        if ← (if mb.pw.isNever then pure true else do
++                let ta ← r.infer depth a
++                r.defeq depth ta ty) then
+           r.whnfCore depth (body.instantiate1 a)
+         else pure (.app (.lam n ty body mb) a)
+```
+
+The interned and cached twins are the same edit at `whnfAppI`; at
+`betaPeelI` the domain's bulk substitution (`instListM ty acc`) moves
+*inside* the gate with the run it feeds — it is the certificate's own
+comparand and nothing else reads it.  `Kernel/CoreNC.lean` needed no
+edit: its cert-skipping twins already β-reduce unconditionally, so the
+gated core now sits strictly between `CoreI` (always certify) and
+`CoreNC` (never certify).
+
+### THE AMENDED LAW, CLAUSE BY CLAUSE
+
+**(i) the skip's soundness is a P-tier theorem — VERIFIED AT THE
+STATEMENT, NOT COMPILED.**  The branch cited is `whnfCore_app_claimP`'s
+β case (`SetR/Interp2/Step2/WhnfP.lean:660-671`):
+
+```
+      by_cases hz : pwBit φ mm.pw = 0
+      · rw [hz] at hokapp ⊢
+        exact AnnotOkP_beta_zero (hokapp ρ hρ) (hcert hta hde …)
+      · exact AnnotOkP_beta_pos hz (hokapp ρ hρ)
+```
+
+The positive arm consumes no certificate: `AnnotOkP_beta_pos` takes
+`hz` and the redex's own `AnnotOkP`, and the domain membership comes
+from `annotOk2_beta_dom_pos` (`WhnfP.lean:108`) via `lamR_ne_pt` +
+`piR_dom_unique`, side-condition-free.
+
+*The condition matches exactly, and that is now mechanized.*  The
+kernel decides `PropWhen.isNever pw`; the claim splits on `pwBit φ
+mm.pw = 0` at the ambient valuation.  Two new theorems in
+`SetR/Annot/Bit.lean`:
+
+* `pwBit_ne_zero_of_isNever` — a `never` datum is positive at **every**
+  valuation (sound: the gated redex always lands in the claim's
+  cert-free arm);
+* `isNever_iff_forall_pwBit_ne_zero` — and it is the **only** such
+  datum (`ifAllZero ps` holds at the all-zero valuation), so the gate
+  is the ∀-`φ` uniform form of the positive branch, not a widening and
+  not an approximation.
+
+The datum read is the same one the claim splits on: `internBM` is the
+identity on `pw` (`Kernel/IExpr.lean`), `EStore.denoteBM_pw` (new,
+`Kernel/ArenaWF.lean`) carries that through the arena's denotation,
+and `eraseC` is the identity on binder metadata in the cached tier.
+Each simulation proof now rewrites with exactly that fact before
+splitting.
+
+**What is NOT verified**: the P-lane *proof* adaptation was not
+compiled, because `Step2/WhnfP.lean` imports `Step2/Whnf.lean` imports
+`Bridge/WhnfCore.lean` — the module the STOP is about.  What the
+inspection says, unexecuted:
+
+* `BetaCertP`'s statement does **not** move (`WhnfP.lean:402-417`): it
+  takes the two runs as *premises*, so a gated redex simply does not
+  invoke it;
+* `whnfCore_app_claimP`'s statement does not move either; its proof
+  gains two lines — `rcases hcert with hg | ⟨ta, hta, hde⟩`, and in
+  the `hz : pwBit φ mm.pw = 0` arm `exact absurd hz
+  (pwBit_ne_zero_of_isNever hg φ)`;
+* `Step2/ReadsP.lean:433` (the reads/totality walk) is the only other
+  P-lane consumer of the disjunct, and it consumes the runs to account
+  for *their* reads — a gated redex has no sub-run and therefore no
+  reads to account, which is the easy side;
+* the six `whnf_app_inv` consumers that discard the certificate needed
+  no edit at all, which is why they are already green.
+
+So the study's "≈1 batch, the claim statements do not move" is, for
+the P tier, **corroborated by inspection and blocked only by the
+import order**.
+
+**(ii) verdicts move accept-ward only — MEASURED, AND ITS EXACT SCOPE
+NAMED.**  The gate deletes a *test*, and at sites 9/10 the failing
+side of that test is not a rejection but a **stuck fallback**: the
+ungated checker leaves `(fun x : A => b) a` unreduced, the gated one
+β-reduces it.  So:
+
+* no rejection path is added — the two sites contain no `throw`
+  (contrast sites 11/12, where masking makes the `.invalid
+  "application type mismatch"` throw unreachable; those sites are on
+  the never-list and untouched);
+* a rejection path is *removed* only in the sense that a redex whose
+  argument fails its re-check now reduces.  On any term the front door
+  has typed, that re-check cannot fail — it re-certifies an argument
+  the application typing rule already certified (the D1 retirement
+  record's reading of sites 9/10) — so the difference is unreachable
+  on well-typed input;
+* **it is not a theorem.**  "More reduction ⟹ at least as many
+  accepts" is plausible (defeq compares whnf'd forms) but is not
+  proved here, and the P1 record's language-preservation caveat
+  (note 7) applies verbatim: verdict statements are scoped to the
+  measured, well-typed streams.
+
+**Measured** (`_tmp/bucket2-s1/neutrality.sh`: stdout, stderr and exit
+byte-compared against the unmodified master binary, over every arena,
+e2e and annot fixture the suite names, ×2 cores × 3 environment modes,
+plus init-prelude):
+
+```
+neutrality: 1356 paired runs, 1 divergences
+DIVERGE suite [nomodel] --no-model --core=cached-parsed
+  tests/e2e/yolo_decline_vs_accept.ndjson: exit 1 vs 2
+< setlec: not implemented yet: projection on a non-structure type
+      [at theorem PProd'._model.eta]        (master)
+> setlec: invalid: expected a sort [at theorem PProd'._model.eta]
+                                            (branch)
+```
+
+**The one divergence, characterized** (all four cores × both modes,
+run by hand):
+
+| core | `--set-model` (shipped, verified) | `--no-model` (unverified lane) |
+|---|---|---|
+| production | 1 / 1 — identical | 1 / 1 — identical |
+| interned-shared | 1 / 1 — identical | **2 → 1** |
+| cached | 1 / 1 — identical | **2 → 1** |
+| cached-parsed | 1 / 1 — identical | **2 → 1** |
+
+* **The verified lane is byte-identical on every core.**  So is
+  `--no-model` at the production core — which is the only
+  configuration the suite's no-model sweep runs, and the reason the
+  suite is green.
+* The moved verdicts are **decline (2) → reject (1)** on a *defective,
+  purpose-built* fixture, in configurations where `--no-model` is
+  served by the certified interned/cached cores (`Kernel/CoreNC.lean`
+  has no twin for them, so the cert-skipping lane there *is* the
+  certified core).  The branch's verdict is the one
+  `tests/e2e-expected.txt` records (`1`) and the one the certified
+  lane gives; master is the outlier in those three cells.
+* **Why**: master raises its decline from *inside the skipped
+  inference* — `yolo_decline_vs_accept` is the recorded canary for
+  exactly this class.  Its own comment in `tests/e2e-expected.txt`
+  says it: "dropping the per-argument `infer` also drops that
+  argument's universe-arity, non-function-application,
+  binder-domain-is-a-sort and projection-shape checks … a decline can
+  be lost the same way."
+* **The finding this makes explicit, and it is new for law 1 (ii)**:
+  the gate is accept-ward with respect to *rejections*, but it is not
+  **decline**-neutral.  Skipping the certificate also skips the
+  not-implemented detections that the certificate's own inference
+  would have raised.  Here the lost decline lands on a reject; in
+  principle it could land on an accept, and then the checker would
+  have accepted a declaration containing a feature it declines to
+  support elsewhere.  The soundness capstone is unaffected (whatever
+  is accepted is accepted through the claims), but "verdicts move
+  accept-ward only" should be read as "no rejection is added", not as
+  "the exit code cannot change".
+* The project's own convention already names this class:
+  `tests/no-model-expected.txt`'s header says "with the certificate
+  families off, a defect the certified stack positively detects as an
+  unsupported feature (decline, exit 2) inside a certificate-only code
+  path may instead surface as a plain type mismatch (reject, exit 1) …
+  A 1-vs-2 pair like that is the mode's nature and gets a line here."
+  It cannot get a line here, because the no-model sweep runs only the
+  default core; the three cells that move are pilot-core cells the
+  suite never visits.
+* Adversarial floor, unchanged: every `bad/*` arena fixture is still
+  non-accepting (`tests/arena.sh` fails the suite on any `bad/*`
+  exiting 0).
+
+**(iii) reducts and computed types remain annotation-blind —
+VERIFIED, with one word of precision.**  The diff above shows the two
+arms of the outer `if` *unchanged*: the gate wraps the test, never the
+construction.  No expression constructor, no `instantiate`, no
+`instList`, no readback and no inferred type anywhere in the checker
+reads `pw`.  `PropWhen.isNever` has exactly **five** executable call
+sites, all of them the gate test (`Kernel/Core.lean:1453`,
+`Kernel/CoreI.lean:1492` and `:1531`, `Cached/CoreC.lean:715` and
+`:752`); every other occurrence in the tree is a proof-side mirror of
+one of them.  Where both the gated and the ungated run take the β arm
+— every redex on every well-typed stream — the produced term is
+bit-identical.
+
+The precision: the gate does change the *arena*, not the term.
+`betaPeelI` skips `instListM ty acc`, so the interned run allocates
+fewer nodes and later `EIdx`s are numbered differently.  Nothing
+observable depends on that numbering (readback denotes indices to
+`Expr`s; the memo tables are keyed by the same nodes), and the
+byte-identical stdout/stderr over the whole corpus is the empirical
+receipt.  "Bit-for-bit" is a statement about returned and denoted
+terms, not about arena addresses.
+
+### STOP-AND-NAME: the R tier consumes the certificate at every kind
+
+Of the two modules `lake build` fails at, this one is not plumbing:
+`Setlec/SetR/Bridge/WhnfCore.lean`.
+
+**The consumer.**  `whnfCore_app_claimR` (`Bridge/WhnfCore.lean:261`)
+must produce a `Red` derivation for the β step, and `Red`'s R4
+(`SetR/Rel.lean:148`) is
+
+```
+  | beta {Δ : List VExpr} {A b a ta : VExpr} :
+      Infer μ env cval φ Δ a ta →
+      DefEq μ env cval φ Δ ta A →
+      Red μ env cval φ Δ (.app (.lam A b) a) (b.inst a)
+```
+
+— the certificate's two runs, turned into judgements by `ihi`/`ihd`
+inside `denote_beta_stepR` (`:136-162`).  At a gated redex there are no
+runs, and the claim's own premises contain **no typing fact about the
+argument at all**.  The goal, verbatim from the branch (probe:
+`_tmp/bucket2-s1/RProbe.lean`, a copy of the module with the gated
+branch left open):
+
+```
+hgated : mm.pw.isNever = true
+hbeta  : whnfCore mode env fuel d (body.instantiate1 a) = Except.ok e'
+hiapp  : denote m.cval env φ d ((Expr.lam n ty body mm).app a)
+           = some (vf'.app va)
+⊢ ∃ v', denote m.cval env φ d e' = some v' ∧
+        Red mode env m.cval φ Δ (vf.app va) v'
+```
+
+**Why it cannot be repaired inside this stage.**
+
+1. `Red`'s subjects are `VExpr`s, and `VExpr` carries **no binder
+   annotation** — the R tier cannot even *state* the gate's condition.
+   `Annot/Pass.lean:455-470` records this as a design fact:
+   "`Red.beta`'s subject `.app (.lam A b) a` has a λ whose domain sort
+   **no premise supplies** … Reduction is therefore annotation-opaque
+   at this tier."
+2. The only shape available is dropping R4's premises (an untyped β,
+   like R5 ζ).  That is unsound-to-model: `sndRedBeta`
+   (`SetR/Sound/Struct.lean:56-67`) is R4's semantic soundness in the
+   **ungraded** `interp`/`AnnotOkV` model, and it consumes the
+   premises twice —
+   `have hdom : interp V ρ a ∈ˢ interp V ρ A := (ih2 ρ hΔ) ▸ hamem`,
+   then `app_lamC hdom` for the β equation and `h.1.2 _ hdom` for the
+   contractum's `AnnotOkV`.  There is no kind split to hide behind:
+   the collapsed lane has no `pw`, and `piC_dom_unique` needs the
+   `≠ pt` side condition "supplying it is what the collapse made
+   hard" (the study's own quote, `Interp2/Ops.lean:282`).  This is
+   the #100 de-gating ruling, unchanged: *that* is the tier where
+   skipping the β certificate is unsound.
+3. The P lane is **downstream** of the R lane (`Step2/WhnfP.lean` →
+   `Step2/Whnf.lean` → `Bridge/WhnfCore.lean`), so the study's
+   "~1 batch, only the β rows of `WhnfP.lean` re-prove" cannot even be
+   started before the R tier is dispositioned.
+
+**What the study missed.**  Its site table read the β row against
+`WhnfCoreClaims2P` only ("`WhnfCoreClaims2P` *already* carries
+`AnnotOkP ea` as a premise … so NO new claims family is needed for
+this row") and against `whnfCore_app_claimP`'s split.  Both readings
+are correct.  What was not checked is that the same kernel function is
+modelled by **three** live tiers, and the graded P tier is the only
+one of them that has the annotation:
+
+| tier | β step | consumes the cert at | disposition under the gate |
+|---|---|---|---|
+| P (`interp2`/`AnnotOkP`, graded) | `whnfCore_app_claimP` | kind 0 only | fine by construction (unexecuted: downstream of R) |
+| D (`denote2`/`AnnotOk2`, `Step2/Whnf.lean`, 4 sites) | `whnfCore_app_claim2R` &c. | kind 0 only, but the split is `by_cases hv : v = 0` on the **checker-computed** binder numeral, not on `pw` | unexecuted, and *not* free: the gate's condition refutes the zero branch only through the P2 validation bridge (`pwBit_of_equiv_zeronessOf`-shaped), which that lane's claims may not carry.  A second, smaller finding |
+| **R (`Red`/`interp`/`AnnotOkV`, ungraded)** | `whnfCore_app_claimR` → `Red.beta` → `sndRedBeta` | **every kind** | **BLOCKED** |
+
+Every *other* lane that touches the same clause adapted without a
+statement change and is in the branch: the shift walk (`Deep`), the
+scoped simulation (`Disc`), the interned and cached bulk-beta
+simulations (`DiscI4`, `Cached/DiscC4`), the SortCoh trace and
+core-monotonicity walks (`SortCoh/Claims`, `SortCoh/Mono`), and the
+bulk-beta identification (`BetaSpine`, incl. its `atF`/`mono`
+batteries).  `whnf_app_inv` has **13** call sites; **7** of them
+discard the certificate (`rcases … with ⟨n, ty, body, mm, rfl,
+hbeta, -⟩`) and needed no edit at all — `InferLemmas`, `InferLeaves`
+(×2), `LevelPres`, `LeavesPres`, `SortCoh/SubstSim`.  The 6 that read
+it are the 4 D-lane sites, `ReadsP`, `WhnfP` — and the R-lane site
+that stops the build.
+
+**What is behind the wall** (survey, run with the R-lane branch
+stubbed by a `sorry` in the *working tree only* — never committed,
+reverted immediately; `lake build SetlecSetR` reached 252/417).  The
+first item is the second red module of the plain build, so it is not
+hypothetical:
+
+* **`SortCoh/Discharge.lean`'s own inversion**,
+  `whnfCore_app_decompose` (`:2601`), which — unlike `whnf_app_inv` —
+  *distinguishes* the cert-true and cert-false legs in its statement,
+  so the gate forces a statement change there plus edits at its **9
+  consumer sites** (`CoreLock` ×2, `LoopLock` ×2, `Align` ×5) and at
+  the recomposition theorem in the same file.  Mechanical, no wall,
+  but it is more than "the β rows of `WhnfP.lean`";
+* the P and D lanes are downstream of *that* as well, so their cost
+  is still unmeasured.  What the reading says about them is above.
+
+**What the coordinator has to rule** (all outside this stage's
+charter):
+
+* (R1) amend `Red`'s R4 to an annotation-carrying or premise-weakened
+  form — a statement change to the frozen #148 family, and one whose
+  semantic backing (`sndRedBeta`) has to be re-derived in a model
+  where it is currently false;
+* (R2) thread the binder datum into `VExpr`/`Red` — the "carrier
+  bound"-shaped campaign the D1 record priced as bigger than the datum
+  route it was meant to avoid;
+* (R3) restrict the gate to a mode the R bridge does not claim — which
+  forfeits the prize on the shipped configuration;
+* (R4) drop the R tier's β-certificate claim, i.e. accept that the TT
+  bridge no longer models the shipped `whnfCore` — a retreat from
+  "both routes permanent".
+
+Nothing here touches the never-list: `inferSpineI`'s per-argument
+checks (sites 11/12) are untouched — including in `BetaSpine`, where
+an over-broad edit to `inferSpine_snoc` was made and reverted verbatim
+before the file compiled.
+
+### THE BATTERY (verbatim)
+
+`bash tests/arena.sh` on the branch binary, at the current
+expectations, verbatim:
+
+```
+arena tutorial: 90/92 good tests accepted
+e2e: 73/73 as expected
+annot suite: 14/14 as expected
+split driver: 11/11 as expected
+mode flags: 9/9 as expected
+no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+```
+
+`lake test`: **exit 0** (`SetlecTests` builds; the `#guard` config
+audit and the ZeroSet tests pass).
+
+`lake build Setlec`: green, warning-free.  `lake build` (all default
+targets): red at `Setlec.SetR.Bridge.WhnfCore` (the STOP) and
+`Setlec.SetR.Annot.SortCoh.Discharge` (mechanical, enumerated), plus
+everything downstream of them that never got built.
+
+### MEASUREMENT
+
+`perf stat -e instructions:u`, median of 3 (init-full: single run),
+branch binary vs the unmodified master binary
+(`_tmp/bucket2-s1/master-setlec`, built from `dc2883c2`), under the
+stamped machine lock (`_tmp/measure.lock.d/stamp` carries pid + lane),
+`setsid`-detached, `ulimit -v` 32 GiB, `timeout 3600`, `nice -n 5`.
+Harness: `_tmp/bucket2-s1/{battery2,measure}.sh`.
+
+**Baseline cross-check against P1's record** (G instructions,
+master binary): init-prelude 38.488 vs P1's 38.490 prod and 32.944 vs
+32.933 cached; grind-ring-5 126.944 vs 126.620 prod and 108.037 vs
+107.986 cached.  The harness is measuring the same thing the harvest
+measured.
+
+| stream | core | master (G instr) | branch (G instr) | GROSS | memo split | NET (as-if) | wall m→b | max RSS m→b | exit/accepted |
+|---|---|---|---|---|---|---|---|---|---|
+| init-prelude | production | 38.488 | 36.731 | **-4.57 %** | 2.82 % | -1.75 % | 3.6s → 3.4s | 114 → 114 MB | same (accepted 3653, exit 0) |
+| beta-ladder | production | 80.480 | 80.486 | **+0.01 %** | 2.5-3.1 % | +2.51..+3.11 % | 15.5s → 15.3s | 1469 → 1470 MB | same (accepted 56, exit 0) |
+| grind-ring-5 | production | 126.944 | 118.371 | **-6.75 %** | 2.5-3.1 % | -4.25..-3.65 % | 13.7s → 12.9s | 554 → 541 MB | same (accepted 3946, exit 0) |
+| init-prelude | cached-parsed | 32.944 | 30.240 | **-8.21 %** | 3.07 % | -5.14 % | 2.9s → 2.7s | 114 → 113 MB | same (accepted 3653, exit 0) |
+| beta-ladder | cached-parsed | 47.785 | 47.774 | **-0.02 %** | 2.5-3.1 % | +2.48..+3.08 % | 4.2s → 4.2s | 1266 → 1266 MB | same (accepted 56, exit 0) |
+| grind-ring-5 | cached-parsed | 108.037 | 94.036 | **-12.96 %** | 2.5-3.1 % | -10.46..-9.86 % | 10.8s → 9.6s | 512 → 495 MB | same (accepted 3946, exit 0) |
+| init-full | production | 3159.834 | 2904.201 | **-8.09 %** | 2.36 % | -5.73 % | 391.5s → 368.4s | 2116 → 2114 MB | same (accepted 61048, exit 0) |
+| init-full | cached-parsed | 2998.451 | 2482.612 | **-17.20 %** | 2.18 % | -15.02 % | 330.8s → 285.3s | 2191 → 2185 MB | same (accepted 61048, exit 0) |
+
+**Reading the table.**
+
+* The prize is **exactly what the D1 retirement record predicted for
+  sites 9/10** — "their measured share is 4.61 % production / 8.16 %
+  cached of init-prelude"; measured here at **−4.57 % / −8.21 %**.
+  That row was a *masking* estimate; this is the real gate, and it
+  lands on the number.
+* The reduction-heavy stream pays more, and the cached core pays most:
+  **−6.75 % / −12.96 %** on grind-ring-5.  Same shape as P1's
+  finding that "the cached core pays a consistently larger share of
+  this tax than production … so the difference is per-call cost, not
+  call volume".
+* **`beta-ladder` gains nothing** (+0.01 % prod, −0.02 % cached — both
+  inside noise), and that is worth recording: a β-redex-dense workload
+  is not automatically a β-*certificate*-dense one.  The gate pays
+  where the skipped certificate's own inference is expensive (the
+  P1 census: the β origin drives 20.5 % of all `inferSpineI`
+  syntactic-Π fires), not where β steps are merely numerous.
+* Wall and max-RSS move with the instructions and never against them.
+  Wall figures are this machine's clock under the lock; they are
+  quoted as ratios, not as absolute performance claims.
+
+**GROSS vs NET.**  The campaign's convention is that every saving be
+quoted net of the study's 2.5–3.1 % memo split (P1's `ctrl` row:
+2.82 % prelude prod, 3.07 % prelude cached, 2.36 % / 2.18 % init-full).
+Both columns are in the table.  **The convention over-charges this
+stage, and the seal says so explicitly**: the memo split is the cost
+of running an *infer-only lane beside* the checking lane — the second
+memo the io knot needs (`patch2.py`'s bit 63, "since infer-only
+results must be memoized apart").  Stage 1 installs no second lane and
+no second memo; it deletes runs from the single existing lane.  So for
+this stage **GROSS is the saving** and the NET column is the
+as-if-it-had-to-pay figure the convention asks for.  Stage 2 (the
+io-knot campaign) is the stage that really pays it.
+
+### Axiom audits
+
+```
+'Setlec.SetR.Interp2.pwBit_ne_zero_of_isNever'      [propext]
+'Setlec.SetR.Interp2.isNever_iff_forall_pwBit_ne_zero'
+                              [propext, Classical.choice, Quot.sound]
+'Setlec.EStore.denoteBM_pw'                        [propext]
+'Setlec.whnf_app_inv'         [propext, Classical.choice, Quot.sound]
+'Setlec.gate_atF'             [propext, Classical.choice, Quot.sound]
+'Setlec.gate_mono'            [propext, Classical.choice, Quot.sound]
+'Setlec.whnfApp_sound'        [propext, Classical.choice, Quot.sound]
+'Setlec.whnfCoreStepM_sound'  [propext, Classical.choice, Quot.sound]
+'Setlec.whnfBodyI_sim'        [propext, Classical.choice, Quot.sound]
+'Setlec.inferBodyI_sim'       [propext, Classical.choice, Quot.sound]
+'Setlec.Cached.whnfBodyC_sim' [propext, Classical.choice, Quot.sound]
+'Setlec.Cached.inferBodyC_sim'[propext, Classical.choice, Quot.sound]
+'Setlec.defeqBody_disc'       [propext, Classical.choice, Quot.sound]
+'Setlec.isDefEqCore_depth_inv'[propext, Classical.choice, Quot.sound]
+```
+
+Every touched theorem audits at exactly the three standard axioms or
+less.  **The capstone audit is BLOCKED**: `checkSoundAtP` and the
+`no_proof_of_Empty` corollaries live downstream of
+`Bridge/WhnfCore.lean` and cannot be built until the STOP is
+dispositioned.  That is the honest state — no capstone number is
+quoted.
+
+### Disposition
+
+* The kernel gate and the whole `Setlec`-library verification are
+  **ready to land once the R tier is dispositioned and the SortCoh
+  inversion is carried**; they do not land on their own, because
+  `lake build` is red at two modules.
+* The study's shape-(b) sizing stands for the P and D tiers and is
+  **refuted as a whole-repo claim**; bucket 2's stage 2 (the io-knot
+  campaign) inherits the same wall — every `Red`-modelled skip does —
+  and should be re-scoped before it starts.
+* The prize is real, measured, and **bigger than the study's
+  headline**: the study sized shape (b) at "4.6/8.2 % prelude
+  prod/cached"; those two numbers land on the nose, and the streams the
+  study did not price for this row are larger still — **−8.1 % /
+  −17.2 % on init-full**, **−6.8 % / −13.0 % on grind-ring-5**.  It is
+  on the other side of a tier decision, not of a proof effort.
