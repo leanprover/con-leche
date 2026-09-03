@@ -26019,3 +26019,24 @@ away and the path rule alone carries it.
 
 Kit: `tests/layering.sh --list`; the S1 audit file
 `_tmp/sep-s1/Audit.lean`.
+
+## Task #161 SEPARATION — measurement-framing relay (2026-09-03;
+coordinator, from the engineering-overhead final report on
+agent/perf-eng, landing separately)
+
+For S8/S9's framing (binding): quote the P mode's savings against
+the AMENDED baselines — the perf landings will move them; coordinate
+SHAs with the perf agent's landing.  The R1 memo/alloc round runs in
+PARALLEL with this campaign: machine-solo coordination for heavy
+legs (stamped lock, liveness check) applies as usual.
+
+Context numbers (the honest preprocessed-both-sides gap): official
+1.8–7.7× (cached lane) / 3.7–13.2× (interned), cores SPLITTING by
+stream shape (cached wins term-heavy, interned wins decl-heavy);
+lean4lean ≈ C++ official at 1.0–2.0× on this machine — the gap is
+the hash-consing-everything architecture, not Lean; dominant bucket
+everywhere = term-walk allocation/RC + per-walk DHashMap memo
+traffic (68–97%).  Useful for S-batches: the knot bucket is fixed
+via Thunk-caching with ZERO proof adaptation (the Thunk.get
+definitional trick); the frontend byte parser landed −5.2%
+proof-free.
