@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.BasisStepP
+import Setlec.SetR.Install.BasisS
 
 /-!
 # The `Empty` block, P tier: the type-reading recipe, executed once

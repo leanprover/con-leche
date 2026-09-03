@@ -4,6 +4,11 @@ import Setlec.SetBase.Syntax
 import Setlec.SetBase.Interp
 import Setlec.SetBase.Kit
 import Setlec.SetBase.Ok2
+import Setlec.SetBase.DefEqList
+import Setlec.SetBase.EqTower
+import Setlec.SetBase.EraseInv
+import Setlec.SetBase.ProjPhase
+import Setlec.SetBase.DivModEval
 
 /-!
 # `Setlec.SetBase` — the lane-neutral semantic primitives (task #161, S1)

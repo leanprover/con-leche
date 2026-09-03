@@ -1,4 +1,5 @@
-import Setlec.SetR.Install.Axiom
+import Setlec.SetBase.EraseInv
+import Setlec.Verify.Denote
 
 /-!
 # The `erasePw ∘ eraseNames` head inversions (task #161)

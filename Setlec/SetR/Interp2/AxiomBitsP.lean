@@ -1,6 +1,5 @@
 import Setlec.SetR.Interp2.ErasePwInv
 import Setlec.SetR.Interp2.HarvestP
-import Setlec.SetR.StdAxiomKey
 
 /-!
 # The pin tier's bit lemmas (task #161, ENDGAME B, task 1a)
