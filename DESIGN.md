@@ -24069,3 +24069,53 @@ heavy legs; every apples-to-oranges caveat honest (preprocessor
 floor, stream-format differences, export-vs-olean).  Replaces the
 folklore numbers as the canonical statement.  Audit answer reported
 FIRST (it may reframe the table).
+
+## Task #161 CAMPAIGN (B) ORDERED — THE SEPARATION (2026-09-03;
+user ruling, strongest form)
+
+The user's words: "separate the two model proofs cleanly! separate
+modules, no import across them, each with their own environment
+invariant and consistency proof and checker mode flag! then see if
+the problem about beta reduction gates has disappeared."
+
+THE SPEC AS RULED:
+1. **MODULE SEPARATION**: collapsed-model tree (EnvS, the R
+   capstone) and graded-model tree (the P capstone) become disjoint
+   subtrees, NO imports across in either direction.  Shared base
+   BELOW both: Kernel/*, the model-free Verify/* inversion tier,
+   the SetTheory interface, the bridge RECORDS (the widened
+   statements serve both lanes — run conjuncts feed P, derivation
+   conjuncts feed R).  Exact layering diagram in the design;
+   ENFORCED BY THE BUILD (separate lib targets; cross-import = build
+   error, the anti-rot pattern).
+2. **TWO INVARIANTS**: EnvS2Core loses `base : EnvS`; the P fold
+   carries its own content; every P proof consuming a v1 fact
+   through base gets it re-supplied P-natively.  Design phase
+   enumerates the consumption sites — MEASURE FIRST (carrier-slim
+   precedent).
+3. **TWO CONSISTENCY PROOFS**: no_proof_of_Empty_R stands, verifying
+   ITS mode; no_proof_of_Empty_P re-assembled on the self-standing
+   fold, verifying ITS mode.  Neither routes through the other.
+   Both permanent.
+4. **TWO MODE FLAGS**: R-verified = the current full-certificate
+   configuration (unchanged); P-verified = the io-gated
+   configuration the P tier licenses (the parked stage-1 gate + the
+   io-knot family ARE this mode's definition).  Flag surface per the
+   #147 three-mode precedent; defaults/help text ruled at design
+   review; each capstone's statement names its mode bit.
+5. **THE PAYOFF CHECK** (the user's question): after separation,
+   land the parked β-cert gate in the P mode and verify the R4 wall
+   is GONE for that mode (the P β row draws its domain fact from
+   io_domain_transfer; no R rule consulted).  Measure: does
+   −8.09/−17.20% gross materialize net?
+
+CADENCE: full campaign discipline — design phase (consumption-site
+enumeration + layering diagram, statement-sensitive = the lead's),
+statement freeze, worked examples, serial Opus batches, review per
+seal, succession current, stop-and-name standing.  Known risks
+carried from the B1 sizing: the six R rules were premises of the
+CONTAINED lane only — after separation the P lane's own β/irrel/app
+rows must discharge from the graded carrier (io_domain_transfer /
+AnnotOkP hereditary facts); the mode-provenance discipline and the
+never-list survive verbatim; the squash wall is permanent.  This
+campaign completes bucket 2 and with it the goal.
