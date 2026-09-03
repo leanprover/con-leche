@@ -31,7 +31,9 @@ import Setlec.SetBase.CtxOkR
 import Setlec.SetBase.Decl
 import Setlec.SetBase.DeclEta
 import Setlec.SetBase.DeclRun
+import Setlec.SetBase.DeclIndRun
 import Setlec.SetBase.IndBlockR
+import Setlec.SetBase.IndBlockRun
 import Setlec.SetBase.EnvR
 import Setlec.SetBase.EnvRCons
 import Setlec.SetBase.IndRecsCoreR
@@ -61,6 +63,7 @@ import Setlec.SetBase.Bridge.Main
 import Setlec.SetBase.Bridge.Decl
 import Setlec.SetBase.Bridge.DeclInd
 import Setlec.SetBase.Bridge.DeclRun
+import Setlec.SetBase.Bridge.DeclIndRun
 import Setlec.SetBase.Bridge.Sound
 
 /-!
