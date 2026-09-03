@@ -21659,10 +21659,15 @@ stamp, `setsid`-detached wrapper, 2 reps for init-prelude):
 
 | stream | core | base | +check | Δ |
 |---|---|---|---|---|
-| init-prelude | production | 38.5645 G / 38.5658 G | 38.5778 G / 38.5779 G | **+0.035 %** |
-| init-prelude | cached-parsed | 32.9980 G / 33.0057 G | 33.0229 G / 33.0241 G | **+0.062 %** |
-| init-full | production | see `_tmp/proofirrel-check/cost.tsv` | | |
-| init-full | cached-parsed | | | |
+| init-prelude | production | 38.5645 G / 38.5658 G | 38.5778 G / 38.5779 G | **+0.035 % / +0.032 %** |
+| init-prelude | cached-parsed | 32.9980 G / 33.0057 G | 33.0229 G / 33.0241 G | **+0.075 % / +0.056 %** |
+| init-full | production | 3163.820 G | 3165.122 G | **+0.041 %** |
+| init-full | cached-parsed | 3001.604 G | 3004.666 G | **+0.102 %** |
+
+Raw: `_tmp/proofirrel-check/{measure.sh,measure.log,cost.tsv}` (two
+binaries built from the same tree — `git stash` for the baseline —
+`setsid`-detached wrapper, `_tmp/measure.lock.d` stamped with pid and
+lane, released in `_tmp/degating-p1/schedule.log`).
 
 The number is small because the check runs only where proof irrelevance
 *certifies*, and on real streams it always succeeds: the fixture is the
@@ -21685,6 +21690,13 @@ simulation walks); **no claim statement, no `DefEq` rule and no
 `P`-tier premise changed**, and there is no new proof obligation
 anywhere — a bigger `if` in the checker is a smaller accepted
 language, which every soundness direction consumes for free.
+
+**The bill is closed**: `lake build` is green at **507/507**, `lake
+test` passes, no `sorry`, and
+`#print axioms Setlec.SetR.Interp2.no_proof_of_Empty_P` still answers
+`[propext, Classical.choice, Quot.sound]` — the three standard axioms,
+unchanged.  This is the whole cost of the restriction on the proof
+side: five plumbing repairs and nothing else.
 
 `proofIrrel_inv` (`Setlec/Verify/InferLemmas.lean:1669`) keeps its
 **statement**: the added conjunct only strengthens the hypothesis, so
@@ -21732,6 +21744,19 @@ python3 scripts/mk_proofirrel_hetero.py \
 .lake/build/bin/setlec tests/e2e/proof_irrel_hetero.ndjson   # 1 here, 0 on master
 lean tests/e2e/src/proof_irrel_hetero.lean                   # official's reject
 bash tests/arena.sh                                          # the battery
+lake build && lake test                                      # 507/507, green
 ```
+
+lean4lean's verdict (the probe modules stay in the reference checkout,
+gitignored): `_tmp/lean4lean/Lean4Lean/Tests/PIH2.lean` (the
+heterogeneous declaration alone, elaborated under
+`set_option debug.skipKernelTC true` so it reaches the replay) and
+`.../ProofIrrelHomo.lean` (the control).  Compile each with the
+checkout's own toolchain and
+`LEAN_PATH=.lake/build/lib/lean:.lake/packages/batteries/.lake/build/lib/lean
+./.lake/build/bin/lean4lean Lean4Lean.Tests.PIH2` — the hetero module
+reaches `Lean4Lean.Replay.throwKernelException` (and then panics in the
+standalone pretty-printer, which is a lean4lean packaging artefact, not
+the verdict); the control prints "checked 1 declarations".
 
 **Nothing from this record is on master.**  The branch is the evidence.
