@@ -1,5 +1,5 @@
 name = "setlec"
-defaultTargets = ["SetlecBase", "SetlecR", "SetlecCaps", "setlec"]
+defaultTargets = ["SetlecBase", "SetlecR", "SetlecP", "SetlecCaps", "setlec"]
 testDriver = "SetlecTests"
 
 # THE SEPARATION (task #161) — the ruled four-lib layout, staged.
@@ -15,12 +15,11 @@ testDriver = "SetlecTests"
 #        ↑                      ↑
 #             SetlecCaps (exe/capstones)
 #
-# STAGING NOTE (S1).  `SetlecP` is not a target yet: the P lane still
-# lives at `Setlec/SetR/{Annot,Interp2}/*` and still imports the R lane
-# at 37 places (`tests/layering.sh`'s whitelist, which names the batch
-# that removes each edge).  It is created when the P modules move to
-# `Setlec/SetP/*` (S2–S5).  Until then `SetlecR` roots BOTH lanes and
-# `tests/layering.sh` is the boundary's enforcement.
+# STAGING NOTE (S2).  The four-lib layout is now COMPLETE: S2 moved the
+# graded lane's 115 modules to `Setlec/SetP/*` and `SetlecP` is a target.
+# Eleven P→R edges survive, each on `tests/layering.sh`'s whitelist
+# tagged with the batch (S3/S4/S7) that removes it; they are the
+# de-basing's work order, and the whitelist may only ever shrink.
 #
 # HONESTY NOTE about "cross-import = build error" (S1 finding).  Lake
 # does NOT give an import barrier between `lean_lib`s of the SAME
@@ -57,11 +56,22 @@ extraDepTargets = ["SetlecPinCerts"]
 # everything above it): `Rel`, `Sound/*`, `EnvS`, `Install/*`, `Bridge/*`,
 # the `R` capstones in `Main.lean` and — per the task-#161 ruling
 # "everything EnvS-containing lives in R" — the 2U/`denote2` tier and its
-# `R2` capstones in `Main2.lean`.  Roots the graded lane too until the
-# `Setlec/SetP/*` move lands (see the staging note above).
+# `R2` capstones in `Main2.lean`.  Since S2 this lib roots the collapsed
+# lane ALONE.
 [[lean_lib]]
 name = "SetlecR"
 roots = ["Setlec.SetR"]
+
+# The graded-model lane (task #161 S2): the `AnnotOk2` bit carriers, the
+# de-basing's `EnvS2Core`/`EnvS2P`, the per-rule `…P` quarters and rows,
+# the basis/inductive/projection install `…P` families, `FoldP` and
+# `CapstoneP`.  Stands on `SetlecBase`; may not import `SetlecR` (the
+# eleven surviving edges are whitelisted in `tests/layering.sh`).  Only
+# the file paths moved — the Lean namespaces are `Setlec.SetR.{Interp2,
+# Annot}` still, so no frozen statement changed name.
+[[lean_lib]]
+name = "SetlecP"
+roots = ["Setlec.SetP"]
 
 # The capstone assembly (task #163): the cached checker variant's
 # verification tier — the `ExprC` erasure/field-exactness seam, the `SimC`

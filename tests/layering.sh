@@ -46,21 +46,21 @@ WHITELIST = """
 # `Setlec/SetBase/*`) and the section is empty.
 # --- the de-basing proper: `EnvS2Core.base : EnvS` and the P carriers
 # that reach the collapsed carrier through it (spec point 2).
-Setlec.SetR.Annot.EnvS2Core -> Setlec.SetR.Annot.EnvS2U                 # S3-S5: the `base : EnvS` field itself
-Setlec.SetR.Annot.EnvS2P -> Setlec.SetR.Interp2.EnvS2U                  # S3-S5: ditto, the P mirror's own base
-Setlec.SetR.Interp2.CapstoneP -> Setlec.SetR.Interp2.EmptyPin2          # S7: EnvS.empty_pinned, the capstone's Empty key (census §1.5, the ONE hard residue)
+Setlec.SetP.Annot.EnvS2Core -> Setlec.SetR.Annot.EnvS2U                 # S3-S5: the `base : EnvS` field itself
+Setlec.SetP.Annot.EnvS2P -> Setlec.SetR.Interp2.EnvS2U                  # S3-S5: ditto, the P mirror's own base
+Setlec.SetP.CapstoneP -> Setlec.SetR.Interp2.EmptyPin2          # S7: EnvS.empty_pinned, the capstone's Empty key (census §1.5, the ONE hard residue)
 # --- the v1 install round trip (census §1.3's 47 sites): the P side
 # calls a v1 install lemma only to build the new `EnvS`.  The premises
 # vanish with the de-basing, and with them the imports.
-Setlec.SetR.Interp2.AxiomPinP -> Setlec.SetR.StdAxiomKey                # S3: propextKeyS_mem/choiceKeyS_mem at the axiom pin
-Setlec.SetR.Interp2.BasisEmptyP -> Setlec.SetR.Install.BasisS           # S3: extendEmptyS
-Setlec.SetR.Interp2.IndMemberP -> Setlec.SetR.Install.IndMembersS       # S3: indMemberS/memberKeyS base builders
-Setlec.SetR.Interp2.IotaRulePlainP -> Setlec.SetR.Install.IotaRuleS     # S3: iotaRuleS base builder (+ IotaRuleR/IotaThmR records to base)
-Setlec.SetR.Interp2.ProjInstallP -> Setlec.SetR.Install.DeclIndS        # S3: projInstallS/templatesS base builders
-Setlec.SetR.Interp2.HarvestP -> Setlec.SetR.Install.ValueKinds          # S4: declDefnS/declThmS/declOpaqueS base builders (+ annotate_syntax to base)
+Setlec.SetP.AxiomPinP -> Setlec.SetR.StdAxiomKey                # S3: propextKeyS_mem/choiceKeyS_mem at the axiom pin
+Setlec.SetP.BasisEmptyP -> Setlec.SetR.Install.BasisS           # S3: extendEmptyS
+Setlec.SetP.IndMemberP -> Setlec.SetR.Install.IndMembersS       # S3: indMemberS/memberKeyS base builders
+Setlec.SetP.IotaRulePlainP -> Setlec.SetR.Install.IotaRuleS     # S3: iotaRuleS base builder (+ IotaRuleR/IotaThmR records to base)
+Setlec.SetP.ProjInstallP -> Setlec.SetR.Install.DeclIndS        # S3: projInstallS/templatesS base builders
+Setlec.SetP.HarvestP -> Setlec.SetR.Install.ValueKinds          # S4: declDefnS/declThmS/declOpaqueS base builders (+ annotate_syntax to base)
 # --- the bridge: the records are SHARED, the derivations are R's.
-Setlec.SetR.Interp2.FoldP -> Setlec.SetR.Bridge.Sound                   # S4: checkDeclRun_sound + declEtaStep (census C3/C4)
-Setlec.SetR.Interp2.NatEqsP -> Setlec.SetR.Bridge.Decl                  # S4: natEqFrame_of_frag + the DeclR record family to the shared base
+Setlec.SetP.FoldP -> Setlec.SetR.Bridge.Sound                   # S4: checkDeclRun_sound + declEtaStep (census C3/C4)
+Setlec.SetP.NatEqsP -> Setlec.SetR.Bridge.Decl                  # S4: natEqFrame_of_frag + the DeclR record family to the shared base
 """
 
 IMP = re.compile(r'^\s*(?:public\s+|private\s+|meta\s+)*import\s+([A-Za-z0-9_.]+)', re.M)
@@ -93,39 +93,24 @@ def closure(roots):
     return seen
 
 # --------------------------------------------------------------- the
-# lane classification.  Path first (the campaign's target state:
-# `Setlec/SetBase/*` is base, `Setlec/SetP/*` is P, and when the last P
-# module has moved there the closure rule below is dead weight).  For
-# the modules still sitting under `Setlec/SetR/` while S2-S5 move them,
-# the lane is computed from the LANE ROOTS:
+# lane classification.  **BY PATH ALONE** since S2's `Setlec/SetP/*`
+# move: `Setlec/SetBase/*` is base, `Setlec/SetP{,/*}` is P,
+# `Setlec/SetR/*` is R, everything else is base.  S1 had to compute the
+# graded lane as `closure(P roots) minus closure(R roots)` because both
+# lanes lived in the same directories; that closure rule is gone, and
+# with it the P root list (the S1 seal's succession note called this).
 #
-#   P  =  closure(P roots)  minus  closure(R roots)
-#   R  =  closure(R roots),  everything under Setlec/SetR/
-#
-# — a module that BOTH lanes need counts as R (the task-#161 ruling
-# "everything EnvS-containing lives in R", read conservatively: a shared
-# module stays R until it is re-based to `Setlec/SetBase/*` by name).
-# A module under `Setlec/SetR/` in NEITHER closure is `neutral`: it is
-# checked to import no lane content, and must otherwise be assigned to a
-# root list below (the gate says so by name).
-#
-# Consequence to keep in mind when reading the whitelist: some
-# whitelisted edges point at modules that are *base-destined*, not
-# R-lane content (`Annot.Canon`); the batch tag says which.
+# What survives of the closure machinery: the R side still uses it to
+# spot a module under `Setlec/SetR/` that NO R capstone reaches
+# (`neutral`) — such a module is checked to import no lane content, and
+# must otherwise be assigned to `ROOTS_R` by name.
 IMPL_DIRS   = ('Setlec/Kernel/', 'Setlec/Cached/', 'Setlec/Frontend/')
 IMPL_ROOTS  = ('Main', 'AnnotateBasis')
 THEORY_PFX  = ('Setlec.Verify.', 'Setlec.SetTheory.', 'Setlec.SetR.',
-               'Setlec.SetBase.', 'Setlec.TT.')
+               'Setlec.SetP.', 'Setlec.SetBase.', 'Setlec.TT.')
 CAPS        = {'Setlec.Verify.Cached.MainC', 'Setlec.Verify.Cached'}
-UMBRELLAS   = {'Setlec.SetR', 'Setlec'}
+UMBRELLAS   = {'Setlec.SetR', 'Setlec'}   # `Setlec.SetP` is gated as P
 
-# The graded lane's roots: the P capstone, plus the parked/probe tops
-# that no capstone imports (they are the P mode's own future — the io
-# arms above all, so they must be gated).
-ROOTS_P = ['Setlec.SetR.Interp2.FoldP',
-           'Setlec.SetR.Interp2.Claims2PIO',
-           'Setlec.SetR.Interp2.IndPinProbeP',
-           'Setlec.SetR.Interp2.Step2.InferIOP']
 # The collapsed lane's roots: the R and R2 capstones, the 2U tier's own
 # capstones (`Interp2.Capstone*`, which `Main2` does not import and
 # which are what drag `Step2/InferQ` and its closure into R, per the
@@ -154,19 +139,16 @@ ROOTS_R = ['Setlec.SetR.Main', 'Setlec.SetR.Main2',
            # nothing from it (a dead import), and `Lit` is base now.
            'Setlec.SetR.Interp2.Step2.Infer']
 
-cP = closure(ROOTS_P)
 cR = closure(ROOTS_R)
 
 def lane(m):
     rel = mods[m]
     if m in CAPS:      return 'caps'
     if m in UMBRELLAS: return 'umbrella'
-    if rel.startswith('Setlec/SetP/'):    return 'P'
+    if rel == 'Setlec/SetP.lean' or rel.startswith('Setlec/SetP/'): return 'P'
     if rel.startswith('Setlec/SetBase/'): return 'base'
     if rel.startswith('Setlec/SetR/'):
-        if m in cR: return 'R'
-        if m in cP: return 'P'
-        return 'neutral'
+        return 'R' if m in cR else 'neutral'
     return 'base'
 
 LANE = {m: lane(m) for m in mods}
