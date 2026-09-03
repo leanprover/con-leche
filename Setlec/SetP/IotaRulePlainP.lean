@@ -1,3 +1,4 @@
+import Setlec.SetBase.IndBlockRun
 import Setlec.SetP.IndBottomProjP
 import Setlec.SetP.Annot.BitReads
 -- task #161 S10: `acceptedReadsP_of` — the rule rhs's reading comes
@@ -73,14 +74,14 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
-    (hkit : IotaRuleR μ F env₂ envSelf mp.base2.cvalE f cvA.name
+    (hkit : IotaRuleRunR μ F env₂ envSelf f cvA.name
       cvA.levelParams cvA.type mI rP j r r')
     (hfireP : RecRule.fire r' = .plain) (φ : Name → Nat) :
     RecRuleLawP mp.base2 φ cvA.name cvA mI rP r' := by
   obtain ⟨cvjK, cnPK, cnFK, rhsA, hfcK, hnfK, hrb, hrf, hann, hrlp,
     -- `-` at position 13: `IotaRuleR`'s rule-rhs **derivation** row,
     -- no longer consumed (task #161 S10)
-    hrres, hstripRhs, -, hrun0, fire, hr'eq, hbranch⟩ := hkit
+    hrres, hstripRhs, hrun0, fire, hr'eq, hbranch⟩ := hkit
   -- the rule's stored shape
   have hr'rhs : RecRule.rhs r' = rhsA := by rw [hr'eq]
   have hr'ctor : RecRule.ctor r' = RecRule.ctor r := by rw [hr'eq]
@@ -178,7 +179,7 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   -- ===== the canonical branch =====
   obtain ⟨hpl, hfireP0, hthmR⟩ :
       Expr.recRulePlain cvA.type mI rP cnPK = true ∧ fire = .plain ∧
-        IotaThmR μ F env₂ envSelf mp.base2.cvalE f cvA.name
+        IotaThmRunR μ F env₂ envSelf f cvA.name
           cvA.levelParams cvA.type mI rP j r cvjK cnPK cnFK rhsA := by
     rcases hbranch with h | ⟨hnpl, hrest⟩
     · exact h
@@ -193,7 +194,7 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     hlhead0, hlarity0, hlpre0, hmaj0, hCstrips,
     cdoms, cres, rdoms, fvsP, cdomsP, crestP, xFvsP, crest2, ldoms,
     lrest, hcinst, hclen, hrinst, hopenP, hcinstP, hopenXP,
-    ldomsL, lrest2, hinstLam, -, hdeParsRun, -, hruns⟩ := hthmR
+    ldomsL, lrest2, hinstLam, hdeParsRun, hruns⟩ := hthmR
   -- the statement's stored entry and front doors
   obtain ⟨ciT, hciTS, hciTcv⟩ : ∃ ciT, envSelf.find?
       ((cvA.name.str "_model").str s!"iota_{j}") = some ciT ∧

@@ -1,5 +1,6 @@
 import Setlec.SetBase.Bridge.DeclInd
 import Setlec.SetBase.Bridge.DeclRun
+import Setlec.SetBase.Bridge.DeclIndRun
 
 /-!
 # The assembly (task #148, T6): the model-free half
@@ -127,16 +128,15 @@ slot S4 built for it, which S11b replaces with the `ind` run bridge.
 The collapsed lane's projection route (`checkDeclRun_sound`) is gone:
 S11b's opener deleted it, consumer-free. -/
 theorem checkDeclRun_ofEnvRE
-    {μ : CheckMode} {F : Nat}
-    {env env₂ : Env} (mR : EnvR env) (hE : EtaFamiliesClosed env)
+    {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
-    DeclRunR μ F (DeclIndR μ F env mR.cval) env d env₂ :=
+    DeclRunR μ F (DeclIndRunR μ F env) env d env₂ :=
   checkDeclRun_of
     -- the direct-structure path is compile-time disabled
     -- (`directStructsEnabled = false`), so `checkDecl`'s `indDecl`
     -- clause *is* `checkIndDecl` — `directParts?_none` again.
-    (fun hh => declIndRR mR hE
+    (fun hh => declIndRunRR
       (by simpa [checkDecl, directParts?_none] using hh)) h
 
 end Setlec.SetR

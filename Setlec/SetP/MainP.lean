@@ -99,7 +99,7 @@ theorem foldPMC (hμ : μ.verified = true) :
       obtain ⟨F, hF⟩ := checkDecl_bridge mp.toEnvR.wf hd
       exact foldPMC hμ ds env1
         (declStepPM hμ mp hE
-          (Setlec.SetR.checkDeclRun_ofEnvRE mp.toEnvR hE hF)) h
+          (Setlec.SetR.checkDeclRun_ofEnvRE hF)) h
 
 /-- **The acceptance theorem for the cached executable checker, P
 route.** -/
@@ -145,7 +145,7 @@ theorem foldPMS (hμ : μ.verified = true) :
       obtain ⟨hfe1, F, hF⟩ := checkDeclSharedF_bridge mp.toEnvR.wf hd
       exact foldPMS hμ ds fe1 hfe1
         (declStepPM hμ mp hE
-          (Setlec.SetR.checkDeclRun_ofEnvRE mp.toEnvR hE hF)) h
+          (Setlec.SetR.checkDeclRun_ofEnvRE hF)) h
 
 /-- **The acceptance theorem for the shared-state executable, P
 route.** -/
@@ -208,7 +208,7 @@ theorem foldSP_PM (hμ : μ.verified = true) {st0 : EStore} (hwfst : st0.WF) :
       checkDeclSPStep_run mp.toEnvR.wf hres hd hstep
     exact foldSP_PM hμ hwfst pds fe₁ hfe₁
       (declStepPM hμ mp hE
-        (Setlec.SetR.checkDeclRun_ofEnvRE mp.toEnvR hE hF)) hres₁
+        (Setlec.SetR.checkDeclRun_ofEnvRE hF)) hres₁
       (hext0.trans hext₁) h
 
 /-- **The acceptance theorem for the parsed-index executable, P

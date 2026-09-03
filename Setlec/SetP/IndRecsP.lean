@@ -1,3 +1,4 @@
+import Setlec.SetBase.IndBlockRun
 import Setlec.SetBase.IndRecsCoreR
 import Setlec.SetP.SwapP
 import Setlec.SetP.IndMembersP
@@ -69,7 +70,6 @@ theorem indRecsFoldP (hμ : μ.verified = true) {F : Nat}
     (hupB : FoldUpS envBase envSelf)
     (heqfB : envBase.find? eqName = some eqA) :
     ∀ (recs : List ConstantInfo) {envP envF env₃ : Env}
-      {cvalF cval₃ : TConstVal}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
       (∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
         (rules : List RecRule),
@@ -77,10 +77,9 @@ theorem indRecsFoldP (hμ : μ.verified = true) {F : Nat}
         envSelf.find? n = some (.recInfo cv mI rP rules) ∨
         RecLawsAtP mp.base2 cv mI rP rules) →
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
-      ProvisionRecsR μ F blockNames envP cvalF recs envSelf
-        mp.base2.cvalE checked →
-      IndRecsR.IndRecsFoldR μ F blockNames envBase envSelf
-        mp.base2.cvalE envF cvalF checked env₃ cval₃ →
+      ProvisionRecsRunR μ F blockNames envP recs envSelf checked →
+      IndRecsRunR.IndRecsFoldRunR μ F blockNames envBase envSelf
+        envF checked env₃ →
       ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
         (rules : List RecRule),
         env₃.find? n = some (.recInfo cv mI rP rules) →
@@ -98,19 +97,19 @@ theorem indRecsFoldP (hμ : μ.verified = true) {F : Nat}
   intro recs
   induction recs with
   | nil =>
-    intro envP envF env₃ cvalF cval₃ checked hentF hbn hprov hfold
-    obtain ⟨rfl, rfl, rfl⟩ := hprov
-    obtain ⟨rfl, rfl⟩ := hfold
+    intro envP envF env₃ checked hentF hbn hprov hfold
+    obtain ⟨rfl, rfl⟩ := hprov
+    subst hfold
     exact hentF
   | cons ci₀ rest ih =>
-    intro envP envF env₃ cvalF cval₃ checked hentF hbn hprov hfold
+    intro envP envF env₃ checked hentF hbn hprov hfold
     obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hprov', rfl⟩ := hprov
     obtain ⟨rules', hiot, hfold'⟩ := hfold
     obtain ⟨type', hcv, hcvAdef, -⟩ := id hmv
     have hnameA : cvA.name = ci₀.toConstantVal.name := by rw [hcvAdef]
     have hselfA : envSelf.find? cvA.name
         = some (.recInfo cvA mI rP []) :=
-      provisionRecsS_mono rest hprov' _ _
+      provisionRecsRunS_mono rest hprov' _ _
         (Env.find?_cons_self (.recInfo cvA mI rP []) envP)
     have hbnA : blockNames.contains cvA.name = true := by
       rw [hnameA]; exact hbn ci₀ List.mem_cons_self
@@ -152,7 +151,7 @@ The v1 carrier at the group's output is a premise — the install runs
 theorem indRecsP (hμ : μ.verified = true)
     (hetaP : MemberEtaLawP V) (hunitP : MemberUnitLawP V) {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
-    {recs : List ConstantInfo} {cval₃ : TConstVal}
+    {recs : List ConstantInfo}
     (mp : EnvS2PM V μ env₂)
     (hI : BlockInstalledTT blockNames env₂ mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env₂ mp.base2.acval)
@@ -161,18 +160,16 @@ theorem indRecsP (hμ : μ.verified = true)
       (env₂.find? n).isSome = true ∨ ∃ ci ∈ recs, ci.name = n)
     (hEC : Setlec.EtaFamiliesClosedO blockNames env₂)
     (hBP : Setlec.BlockEtaPinned μ blockNames env₂)
-    (h : IndRecsR μ F blockNames env₂ mp.base2.cvalE recs env₃
-      cval₃) :
+    (h : IndRecsRunR μ F blockNames env₂ recs env₃) :
     ∃ mp₃ : EnvS2PM V μ env₃,
-      mp₃.base2.cvalE = cval₃ ∧
+      BlockInstalledTT blockNames env₃ mp₃.base2.cvalE ∧
       BlockAcvalInstalled blockNames env₃ mp₃.base2.acval := by
-  rcases h with ⟨rfl, rfl, rfl⟩ | ⟨-, heqf, envSelf, cvalSelf, checked,
+  rcases h with ⟨rfl, rfl⟩ | ⟨-, heqf, envSelf, checked,
     hprov, hfold⟩
-  · exact ⟨mp, rfl, hIA⟩
+  · exact ⟨mp, hI, hIA⟩
   -- the provisioning, at both tiers
-  obtain ⟨mS, hmScval, hIS, hIAS, hECS, hBPS⟩ :=
+  obtain ⟨mS, hIS, hIAS, hECS, hBPS⟩ :=
     provisionRecsPM hetaP hunitP recs mp hbn hprov hI hIA hEC hBP
-  rw [← hmScval] at hprov hfold hIS
   -- every block member is stored in the provisional environment
   have hnames : ∀ n, blockNames.contains n = true →
       (envSelf.find? n).isSome = true := by
@@ -180,8 +177,8 @@ theorem indRecsP (hμ : μ.verified = true)
     rcases hall n hn with hfound | ⟨ci, hci, rfl⟩
     · rcases hf : env₂.find? n with _ | ci
       · rw [hf] at hfound; exact nomatch hfound
-      · rw [provisionRecsS_mono recs hprov n ci hf]; rfl
-    · exact provisionRecsS_stored recs hprov ci hci
+      · rw [provisionRecsRunS_mono recs hprov n ci hf]; rfl
+    · exact provisionRecsRunS_stored recs hprov ci hci
   -- the block renaming, at both tiers
   have hro := blockRenameOkT hIS hnames
   have hroP := blockRenameOkP hIS hIAS hnames
@@ -192,29 +189,49 @@ theorem indRecsP (hμ : μ.verified = true)
   -- parameter, and `iotaRulesFactsR` supplies the model-free one, so
   -- the P lane no longer round-trips through the collapsed install
   -- here at all.
-  obtain ⟨hswR, hnresR, hcvEq, hentR, hentFR⟩ :=
-    indRecsFoldFacts (RuleFactsR envSelf mS.base2.cvalE)
+  -- **the rule rhs's reading, from the RUN** (task #161 S11b): the
+  -- one row `RuleFactsR` wants that the run record does not carry is
+  -- the fired rhs's denotation, and `acceptedReadsP_of` supplies it at
+  -- the P carrier — the S10 residual-A route, threaded as
+  -- `iotaRulesFactsRunR`'s `hden` premise.
+  have hdenS : ∀ e : Expr, e.hasFvar = false →
+      e.looseBVarsBounded 0 = true →
+      (∃ t', inferTypeCore μ envSelf F 0 e = .ok t') →
+      ∀ φ : Name → Nat,
+        ∃ Rv, denoteClosed mS.base2.cvalE envSelf φ e = some Rv := by
+    intro e hef heb hrun φ
+    obtain ⟨t', hrun'⟩ := hrun
+    obtain ⟨ea, hea⟩ :=
+      acceptedReadsP_of mS.base2 φ hrun'
+        (Expr.WScoped.of_not_hasFvar hef) heb
+        (fun l hl => absurd hl (fun h' => by
+          rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hef] at h'
+          exact nomatch h'))
+    exact ⟨ea.erase,
+      denoteP_erase mS.base2.acval_erase 0 e hea⟩
+  obtain ⟨hswR, hnresR, hentR, hentFR⟩ :=
+    indRecsFoldFactsRun (RuleFactsR envSelf mS.base2.cvalE)
       (fun _cvA _mI _rP rules rules' _hbnA _hselfA hiot =>
-        iotaRulesFactsR
+        iotaRulesFactsRunR
           (fun n ci hf =>
-            Or.inl (provisionRecsS_mono recs hprov n ci hf))
-          0 rules rules' hiot)
+            Or.inl (provisionRecsRunS_mono recs hprov n ci hf))
+          hdenS 0 rules rules' hiot)
       recs (SwapShList.of_eq env₂.consts)
       (SwapNResS.of_eq env₂)
       (fun n ci hf =>
-        Or.inl (provisionRecsS_mono recs hprov n ci hf))
-      (provisionRecsS_mono recs hprov) heqf
-      (fun c hc => Or.inl (provisionRecsS_mem recs hprov c hc))
+        Or.inl (provisionRecsRunS_mono recs hprov n ci hf))
+      (provisionRecsRunS_mono recs hprov) heqf
+      (fun c hc => Or.inl (provisionRecsRunS_mem recs hprov c hc))
       (fun n cv mI rP rules hf =>
-        Or.inl (provisionRecsS_mono recs hprov n _ hf))
+        Or.inl (provisionRecsRunS_mono recs hprov n _ hf))
       hbn hprov hfold
   have hcg : Setlec.SwapCongr envSelf env₃ := SwapShList.congr hswR
   -- the P rows at the group's output
   have hentF := indRecsFoldP (V := V) hμ mS hIS hroP
-    (fun n ci hf => Or.inl (provisionRecsS_mono recs hprov n ci hf))
+    (fun n ci hf => Or.inl (provisionRecsRunS_mono recs hprov n ci hf))
     heqf recs
     (fun n cv mI rP rules hf =>
-      Or.inl (provisionRecsS_mono recs hprov n _ hf))
+      Or.inl (provisionRecsRunS_mono recs hprov n _ hf))
     hbn hprov hfold
   -- `rec_rules` at the swapped carrier
   have hrecP : ∀ m₃ : EnvS2Core V env₃, m₃.acval = mS.base2.acval →
@@ -231,7 +248,25 @@ theorem indRecsP (hμ : μ.verified = true)
       mS.base2.proj_ok hswR hnresR hentR hentFR
   obtain ⟨mp₃, hacc, hcval₃⟩ :=
     EnvS2PM.swapP mS hswR hwf₃ hctors₃ hbp₃ hproj₃ hrecP
-  exact ⟨mp₃, by rw [hcval₃, hcvEq],
-    by rw [hacc]; exact blockAcvalInstalled_swap hcg hIAS⟩
+  refine ⟨mp₃, ?_, by rw [hacc]; exact blockAcvalInstalled_swap hcg hIAS⟩
+  -- the block invariant survives the swap (`indRecsCoreR`'s own
+  -- argument, at the P carrier's valuation)
+  rw [hcval₃]
+  intro n hn ci₃ hf₃
+  rcases swapSh_find?_corr hswR n with heq |
+    ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+  · rw [heq] at hf₃
+    obtain ⟨cvm, mval, hm, hfm, hlps, hren, hv⟩ := hIS n hn ci₃ hf₃
+    exact ⟨cvm, mval, hm,
+      hcg.findUp _ _ hfm
+        (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon),
+      hlps, hren, hv⟩
+  · rw [h₃] at hf₃
+    obtain rfl := Option.some.inj hf₃
+    obtain ⟨cvm, mval, hm, hfm, hlps, hren, hv⟩ := hIS n hn _ h₀
+    exact ⟨cvm, mval, hm,
+      hcg.findUp _ _ hfm
+        (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon),
+      hlps, hren, hv⟩
 
 end Setlec.SetR.Interp2

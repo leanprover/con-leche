@@ -1,3 +1,4 @@
+import Setlec.SetBase.IndBlockRun
 import Setlec.SetP.IndCapsP
 import Setlec.SetBase.EnvRCons
 
@@ -54,7 +55,7 @@ variable {μ : CheckMode} {env : Env} {F : Nat}
 def MemberEtaLawP (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {F : Nat} {blockNames : List Name} {env : Env}
     (mp : EnvS2PM V μ env) {cv cvA : ConstantVal} {c₀ : ConstantInfo},
-    MemberValR μ F env mp.base2.cvalE blockNames cv cvA →
+    MemberValRunR μ F env blockNames cv cvA →
     BlockInstalledTT blockNames env mp.base2.cvalE →
     BlockAcvalInstalled blockNames env mp.base2.acval →
     c₀.toConstantVal = cvA → c₀.name = cvA.name →
@@ -91,7 +92,7 @@ must prove. -/
 def MemberUnitLawP (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {F : Nat} {blockNames : List Name} {env : Env}
     (mp : EnvS2PM V μ env) {cv cvA : ConstantVal} {c₀ : ConstantInfo},
-    MemberValR μ F env mp.base2.cvalE blockNames cv cvA →
+    MemberValRunR μ F env blockNames cv cvA →
     BlockInstalledTT blockNames env mp.base2.cvalE →
     BlockAcvalInstalled blockNames env mp.base2.acval →
     c₀.toConstantVal = cvA → c₀.name = cvA.name →
@@ -110,7 +111,7 @@ theorem memberInstallPM (hetaP : MemberEtaLawP V)
     (hunitP : MemberUnitLawP V)
     {blockNames : List Name} (mp : EnvS2PM V μ env)
     {cv cvA : ConstantVal} {c₀ : ConstantInfo}
-    (hmv : MemberValR μ F env mp.base2.cvalE blockNames cv cvA)
+    (hmv : MemberValRunR μ F env blockNames cv cvA)
     (hI : BlockInstalledTT blockNames env mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
     (hbn : blockNames.contains cvA.name = true)
@@ -225,7 +226,7 @@ theorem indMembersPM (hetaP : MemberEtaLawP V)
     {μ : CheckMode} {F : Nat} {blockNames : List Name}
     {caps : IndCaps} :
     ∀ (members : List ConstantInfo) {env : Env} (mp : EnvS2PM V μ env)
-      {env₂ : Env} {cval₂ : TConstVal},
+      {env₂ : Env},
       (∀ ci ∈ members, blockNames.contains ci.name = true) →
       (∀ (cv : ConstantVal) (caps₂ : IndCaps),
         ConstantInfo.indInfo cv caps₂ ∈ members →
@@ -234,26 +235,24 @@ theorem indMembersPM (hetaP : MemberEtaLawP V)
             blockNames.contains caps.etaCtor = true) ∧
           (caps.eta = true → 0 < caps.etaFields →
             env.find? (Setlec.projFnName cv.name 0) = none)) →
-      IndMembersR μ F blockNames caps env mp.base2.cvalE members
-        env₂ cval₂ →
+      IndMembersRunR μ F blockNames caps env members env₂ →
       BlockInstalledTT blockNames env mp.base2.cvalE →
       BlockAcvalInstalled blockNames env mp.base2.acval →
       Setlec.EtaFamiliesClosedO blockNames env →
       Setlec.BlockEtaPinned μ blockNames env →
       ∃ mp₂ : EnvS2PM V μ env₂,
-        mp₂.base2.cvalE = cval₂ ∧
-        BlockInstalledTT blockNames env₂ cval₂ ∧
+        BlockInstalledTT blockNames env₂ mp₂.base2.cvalE ∧
         BlockAcvalInstalled blockNames env₂ mp₂.base2.acval ∧
         Setlec.EtaFamiliesClosedO blockNames env₂ ∧
         Setlec.BlockEtaPinned μ blockNames env₂ := by
   intro members
   induction members with
   | nil =>
-    intro env mp env₂ cval₂ hbn hp h hI hIA hEC hBP
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨mp, rfl, hI, hIA, hEC, hBP⟩
+    intro env mp env₂ hbn hp h hI hIA hEC hBP
+    subst h
+    exact ⟨mp, hI, hIA, hEC, hBP⟩
   | cons ci rest ih =>
-    intro env mp env₂ cval₂ hbn hp h hI hIA hEC hBP
+    intro env mp env₂ hbn hp h hI hIA hEC hBP
     obtain ⟨cvA, hmv, hmatch⟩ := h
     obtain ⟨type', hcv, hcvA, hms, -⟩ := id hmv
     have hnameA : cvA.name = ci.toConstantVal.name := by rw [hcvA]
@@ -266,7 +265,7 @@ theorem indMembersPM (hetaP : MemberEtaLawP V)
       rw [hnameA]; exact hcv.2.2.1
     cases ci with
     | indInfo cv caps' =>
-      obtain ⟨mp₁, hcval₁, hac₁, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
+      obtain ⟨mp₁, -, -, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
         memberInstallPM hetaP hunitP mp hmv hI hIA hbnA
           (fun caps₃ heq => by
             obtain ⟨-, -, -, rfl⟩ := ConstantInfo.indInfo.inj heq
@@ -276,10 +275,10 @@ theorem indMembersPM (hetaP : MemberEtaLawP V)
         (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
         (fun cv₂ caps₂ hmem => etaMemberData_step hfreshA
           hpshapeA (hp cv₂ caps₂ (List.mem_cons_of_mem _ hmem)))
-        (by rw [hcval₁]; exact hmatch)
+        hmatch
         hI₁ hIA₁ hEC₁ hBP₁
     | ctorInfo cv nP nF =>
-      obtain ⟨mp₁, hcval₁, hac₁, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
+      obtain ⟨mp₁, -, -, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
         memberInstallPM hetaP hunitP mp hmv hI hIA hbnA
           (fun _ heq => ConstantInfo.noConfusion heq)
           hEC hBP rfl rfl (Or.inr (Or.inl ⟨nP, nF, rfl⟩))
@@ -287,7 +286,7 @@ theorem indMembersPM (hetaP : MemberEtaLawP V)
         (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
         (fun cv₂ caps₂ hmem => etaMemberData_step hfreshA
           hpshapeA (hp cv₂ caps₂ (List.mem_cons_of_mem _ hmem)))
-        (by rw [hcval₁]; exact hmatch)
+        hmatch
         hI₁ hIA₁ hEC₁ hBP₁
     | axiomInfo cv => exact nomatch hmatch
     | defnInfo cv v hint => exact nomatch hmatch
@@ -307,39 +306,38 @@ theorem provisionRecsPM (hetaP : MemberEtaLawP V)
     {μ : CheckMode} {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) {envAcc : Env}
       (mp : EnvS2PM V μ envAcc)
-      {envSelf : Env} {cvalSelf : TConstVal}
+      {envSelf : Env}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
-      Setlec.SetR.ProvisionRecsR μ F blockNames envAcc
-        mp.base2.cvalE recs envSelf cvalSelf checked →
+      Setlec.SetR.ProvisionRecsRunR μ F blockNames envAcc
+        recs envSelf checked →
       BlockInstalledTT blockNames envAcc mp.base2.cvalE →
       BlockAcvalInstalled blockNames envAcc mp.base2.acval →
       Setlec.EtaFamiliesClosedO blockNames envAcc →
       Setlec.BlockEtaPinned μ blockNames envAcc →
       ∃ mS : EnvS2PM V μ envSelf,
-        mS.base2.cvalE = cvalSelf ∧
-        BlockInstalledTT blockNames envSelf cvalSelf ∧
+        BlockInstalledTT blockNames envSelf mS.base2.cvalE ∧
         BlockAcvalInstalled blockNames envSelf mS.base2.acval ∧
         Setlec.EtaFamiliesClosedO blockNames envSelf ∧
         Setlec.BlockEtaPinned μ blockNames envSelf := by
   intro recs
   induction recs with
   | nil =>
-    intro envAcc mp envSelf cvalSelf checked hbn h hI hIA hEC hBP
-    obtain ⟨rfl, rfl, -⟩ := h
-    exact ⟨mp, rfl, hI, hIA, hEC, hBP⟩
+    intro envAcc mp envSelf checked hbn h hI hIA hEC hBP
+    obtain ⟨rfl, -⟩ := h
+    exact ⟨mp, hI, hIA, hEC, hBP⟩
   | cons ci rest ih =>
-    intro envAcc mp envSelf cvalSelf checked hbn h hI hIA hEC hBP
+    intro envAcc mp envSelf checked hbn h hI hIA hEC hBP
     obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hrec, -⟩ := h
     obtain ⟨type', hcv, hcvA, -⟩ := id hmv
     have hnameA : cvA.name = ci.toConstantVal.name := by rw [hcvA]
-    obtain ⟨mp₁, hcval₁, hac₁, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
+    obtain ⟨mp₁, -, -, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
       memberInstallPM hetaP hunitP mp hmv hI hIA
         (by rw [hnameA]; exact hbn ci List.mem_cons_self)
         (fun _ heq => ConstantInfo.noConfusion heq)
         hEC hBP rfl rfl (Or.inr (Or.inr ⟨mI, rP, rfl⟩))
     exact ih mp₁
       (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
-      (by rw [hcval₁]; exact hrec) hI₁ hIA₁ hEC₁ hBP₁
+      hrec hI₁ hIA₁ hEC₁ hBP₁
 
 end Setlec.SetR.Interp2

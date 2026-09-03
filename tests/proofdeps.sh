@@ -56,95 +56,91 @@ MEASURED = os.environ['SETLEC_PROOFDEPS_MEASURED']
 # ------------------------------------------------------------------ the
 # PIN.  One line per measured row: "<PRESENT|absent> <label> :: <name>".
 #
-# Read it in four blocks.
+# **TASK #161 S11b — THE TABLE IS EMPTY.**  Every row below reads
+# `absent` except the vacuity sentinel (`Setlec.Expr`, one per root):
+# not one of the eleven R targets is reachable from any of the ten
+# roots, and four of those roots are the SHIPPED P CAPSTONES.  That is
+# the campaign's criterion, mechanized: the graded consistency proof's
+# proof term does not mention the collapsed model (`EnvS`), the
+# declaration bridge (`checkDeclR_ofEnvRE`), its records (`DeclR`,
+# `DeclIndR`), the ind bridge (`declIndRR`), or the derivation tier at
+# either granularity — the relation TYPES `Red`/`Infer`/`DefEq` and the
+# constructors `Red.beta`/`Infer.app`/`DefEq.trans` alike.
+#
+# Read it in three blocks.
 #
 # (A) THE SHIPPED P CAPSTONE FAMILY — the user's question, mechanized.
-#     `EnvS` **absent** is what S1-S8 bought and is now enforced here
-#     rather than only at the import gate.  `checkDeclR_ofEnvRE` and
-#     `DeclR` **absent** is what S11a bought: the graded fold no longer
-#     runs on the declaration bridge or on its record, but on the run
-#     dispatch `checkDeclRun_of` and `DeclRunR`.  `Red`/`Infer`/`DefEq`
-#     and the β rule are still PRESENT — they arrive through the `ind`
-#     kind alone now (block B), and S11b's ind run bridge flips them.
+#     S1-S8 bought `EnvS`; S11a bought `checkDeclR_ofEnvRE` and
+#     `DeclR`; S11b buys the rest — `declIndRR`, `DeclIndR` and the six
+#     relation names — by giving the `ind` kind a run-only bridge
+#     (`declIndRunRR`) and re-pointing the graded fold's `Ind` slot at
+#     `DeclIndRunR`.  **Block (B) is retired**: it pinned a CUT at
+#     `declIndRR`, and a cut at a constant that is not in the closure
+#     measures the uncut reading (S11a finding 1: an inert cut row is
+#     rot-shaped).  The door is now pinned directly, as a target.
 #
-# (B) THE ONE DOOR — S11a MOVED IT.  S9 found the door at
-#     `checkDeclR_ofEnvRE` (the whole declaration bridge); with the five
-#     non-`ind` kinds on run-only producers it is `declIndRR` (the
-#     `ind` kind's bridge alone), and the old cut point is not in the
-#     closure at all any more, so cutting it would measure nothing.
-#     Cutting `declIndRR` removes `Red`, `Red.beta`, `Infer.app` and
-#     `DefEq.trans` outright: there is no second route into the
-#     *derivations*.  A new door shows up here as a PRESENT.  The type
-#     names `Infer`/`DefEq` stay PRESENT under the cut because the P
-#     lane's ind-tier SIGNATURES mention the R records (`DeclIndR`
-#     carries `∀ φ, … Infer … ∧ DefEq …`); that is the ind-tier record
-#     split's target, not the β gate's.
+# (C) THE P TIER'S OWN MATHEMATICS.  The claims tower, the inductive
+#     tier's step and the value kinds' harvest reach none of the eleven.
+#     `declIndP`'s two `PRESENT` rows (`Infer`/`DefEq`, through its
+#     `DeclIndR` premise's statement furniture — the S10 measurement)
+#     are gone with the premise.
 #
-# (C) THE P TIER'S OWN MATHEMATICS.  The claims tower and the value
-#     kinds' harvest reach NONE of the nine; the inductive tier's step
-#     reaches only the two type names, through its `DeclIndR` premise —
-#     which is exactly the S10 measurement: no P proof derives anything
-#     in the R relation tier, the names arrive as statement furniture.
-#
-# (D) THE RUN ROUTE (S11a).  `checkDeclRun_of` — the five non-`ind`
-#     kinds' producer — reaches none of the nine.  This is the batch's
-#     deliverable stated positively rather than as an absence in someone
-#     else's closure: the route derives nothing, and everything the
-#     capstones still reach comes through the `Ind` parameter.
+# (D)/(E) THE RUN ROUTE, AT ITS OWN ROOTS.  `checkDeclRun_of` (the five
+#     non-`ind` kinds' dispatch, S11a), `declIndRunRR` (the `ind` run
+#     bridge, S11b) and `checkDeclRun_ofEnvRE` (the theorem the graded
+#     fold actually calls, all six kinds discharged) reach none of the
+#     eleven.  This is the deliverable stated positively rather than as
+#     an absence in someone else's closure.
 PIN = """
-# (A) the shipped P capstone family
+# (A) the shipped P capstone family — EVERY R target absent
 PRESENT SP_P :: Setlec.Expr
-PRESENT SP_P :: Setlec.SetR.Red
-PRESENT SP_P :: Setlec.SetR.Red.beta
-PRESENT SP_P :: Setlec.SetR.Infer
-PRESENT SP_P :: Setlec.SetR.Infer.app
-PRESENT SP_P :: Setlec.SetR.DefEq
-PRESENT SP_P :: Setlec.SetR.DefEq.trans
+absent  SP_P :: Setlec.SetR.Red
+absent  SP_P :: Setlec.SetR.Red.beta
+absent  SP_P :: Setlec.SetR.Infer
+absent  SP_P :: Setlec.SetR.Infer.app
+absent  SP_P :: Setlec.SetR.DefEq
+absent  SP_P :: Setlec.SetR.DefEq.trans
 absent  SP_P :: Setlec.SetR.EnvS
 absent  SP_P :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  SP_P :: Setlec.SetR.DeclR
+absent  SP_P :: Setlec.SetR.declIndRR
+absent  SP_P :: Setlec.SetR.DeclIndR
 PRESENT C_P :: Setlec.Expr
-PRESENT C_P :: Setlec.SetR.Red
-PRESENT C_P :: Setlec.SetR.Red.beta
-PRESENT C_P :: Setlec.SetR.Infer
-PRESENT C_P :: Setlec.SetR.Infer.app
-PRESENT C_P :: Setlec.SetR.DefEq
-PRESENT C_P :: Setlec.SetR.DefEq.trans
+absent  C_P :: Setlec.SetR.Red
+absent  C_P :: Setlec.SetR.Red.beta
+absent  C_P :: Setlec.SetR.Infer
+absent  C_P :: Setlec.SetR.Infer.app
+absent  C_P :: Setlec.SetR.DefEq
+absent  C_P :: Setlec.SetR.DefEq.trans
 absent  C_P :: Setlec.SetR.EnvS
 absent  C_P :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  C_P :: Setlec.SetR.DeclR
+absent  C_P :: Setlec.SetR.declIndRR
+absent  C_P :: Setlec.SetR.DeclIndR
 PRESENT S_P :: Setlec.Expr
-PRESENT S_P :: Setlec.SetR.Red
-PRESENT S_P :: Setlec.SetR.Red.beta
-PRESENT S_P :: Setlec.SetR.Infer
-PRESENT S_P :: Setlec.SetR.Infer.app
-PRESENT S_P :: Setlec.SetR.DefEq
-PRESENT S_P :: Setlec.SetR.DefEq.trans
+absent  S_P :: Setlec.SetR.Red
+absent  S_P :: Setlec.SetR.Red.beta
+absent  S_P :: Setlec.SetR.Infer
+absent  S_P :: Setlec.SetR.Infer.app
+absent  S_P :: Setlec.SetR.DefEq
+absent  S_P :: Setlec.SetR.DefEq.trans
 absent  S_P :: Setlec.SetR.EnvS
 absent  S_P :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  S_P :: Setlec.SetR.DeclR
+absent  S_P :: Setlec.SetR.declIndRR
+absent  S_P :: Setlec.SetR.DeclIndR
 PRESENT P :: Setlec.Expr
-PRESENT P :: Setlec.SetR.Red
-PRESENT P :: Setlec.SetR.Red.beta
-PRESENT P :: Setlec.SetR.Infer
-PRESENT P :: Setlec.SetR.Infer.app
-PRESENT P :: Setlec.SetR.DefEq
-PRESENT P :: Setlec.SetR.DefEq.trans
+absent  P :: Setlec.SetR.Red
+absent  P :: Setlec.SetR.Red.beta
+absent  P :: Setlec.SetR.Infer
+absent  P :: Setlec.SetR.Infer.app
+absent  P :: Setlec.SetR.DefEq
+absent  P :: Setlec.SetR.DefEq.trans
 absent  P :: Setlec.SetR.EnvS
 absent  P :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  P :: Setlec.SetR.DeclR
-
-# (B) the one door — S11a moved it from `checkDeclR_ofEnvRE` to `declIndRR`
-PRESENT SP_P-cut-ind :: Setlec.Expr
-absent  SP_P-cut-ind :: Setlec.SetR.Red
-absent  SP_P-cut-ind :: Setlec.SetR.Red.beta
-PRESENT SP_P-cut-ind :: Setlec.SetR.Infer
-absent  SP_P-cut-ind :: Setlec.SetR.Infer.app
-PRESENT SP_P-cut-ind :: Setlec.SetR.DefEq
-absent  SP_P-cut-ind :: Setlec.SetR.DefEq.trans
-absent  SP_P-cut-ind :: Setlec.SetR.EnvS
-absent  SP_P-cut-ind :: Setlec.SetR.checkDeclR_ofEnvRE
-absent  SP_P-cut-ind :: Setlec.SetR.DeclR
+absent  P :: Setlec.SetR.declIndRR
+absent  P :: Setlec.SetR.DeclIndR
 
 # (C) the P tier's own mathematics
 PRESENT claims :: Setlec.Expr
@@ -157,16 +153,20 @@ absent  claims :: Setlec.SetR.DefEq.trans
 absent  claims :: Setlec.SetR.EnvS
 absent  claims :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  claims :: Setlec.SetR.DeclR
+absent  claims :: Setlec.SetR.declIndRR
+absent  claims :: Setlec.SetR.DeclIndR
 PRESENT declIndP :: Setlec.Expr
 absent  declIndP :: Setlec.SetR.Red
 absent  declIndP :: Setlec.SetR.Red.beta
-PRESENT declIndP :: Setlec.SetR.Infer
+absent  declIndP :: Setlec.SetR.Infer
 absent  declIndP :: Setlec.SetR.Infer.app
-PRESENT declIndP :: Setlec.SetR.DefEq
+absent  declIndP :: Setlec.SetR.DefEq
 absent  declIndP :: Setlec.SetR.DefEq.trans
 absent  declIndP :: Setlec.SetR.EnvS
 absent  declIndP :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  declIndP :: Setlec.SetR.DeclR
+absent  declIndP :: Setlec.SetR.declIndRR
+absent  declIndP :: Setlec.SetR.DeclIndR
 PRESENT harvestDefnP :: Setlec.Expr
 absent  harvestDefnP :: Setlec.SetR.Red
 absent  harvestDefnP :: Setlec.SetR.Red.beta
@@ -177,8 +177,10 @@ absent  harvestDefnP :: Setlec.SetR.DefEq.trans
 absent  harvestDefnP :: Setlec.SetR.EnvS
 absent  harvestDefnP :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  harvestDefnP :: Setlec.SetR.DeclR
+absent  harvestDefnP :: Setlec.SetR.declIndRR
+absent  harvestDefnP :: Setlec.SetR.DeclIndR
 
-# (D) the run route itself (S11a)
+# (D) the run route, and (E) the ind run bridge + the whole run dispatch
 PRESENT runroute :: Setlec.Expr
 absent  runroute :: Setlec.SetR.Red
 absent  runroute :: Setlec.SetR.Red.beta
@@ -189,6 +191,32 @@ absent  runroute :: Setlec.SetR.DefEq.trans
 absent  runroute :: Setlec.SetR.EnvS
 absent  runroute :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  runroute :: Setlec.SetR.DeclR
+absent  runroute :: Setlec.SetR.declIndRR
+absent  runroute :: Setlec.SetR.DeclIndR
+PRESENT indrunroute :: Setlec.Expr
+absent  indrunroute :: Setlec.SetR.Red
+absent  indrunroute :: Setlec.SetR.Red.beta
+absent  indrunroute :: Setlec.SetR.Infer
+absent  indrunroute :: Setlec.SetR.Infer.app
+absent  indrunroute :: Setlec.SetR.DefEq
+absent  indrunroute :: Setlec.SetR.DefEq.trans
+absent  indrunroute :: Setlec.SetR.EnvS
+absent  indrunroute :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  indrunroute :: Setlec.SetR.DeclR
+absent  indrunroute :: Setlec.SetR.declIndRR
+absent  indrunroute :: Setlec.SetR.DeclIndR
+PRESENT declrun :: Setlec.Expr
+absent  declrun :: Setlec.SetR.Red
+absent  declrun :: Setlec.SetR.Red.beta
+absent  declrun :: Setlec.SetR.Infer
+absent  declrun :: Setlec.SetR.Infer.app
+absent  declrun :: Setlec.SetR.DefEq
+absent  declrun :: Setlec.SetR.DefEq.trans
+absent  declrun :: Setlec.SetR.EnvS
+absent  declrun :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  declrun :: Setlec.SetR.DeclR
+absent  declrun :: Setlec.SetR.declIndRR
+absent  declrun :: Setlec.SetR.DeclIndR
 """
 
 def parse(text):
@@ -255,14 +283,19 @@ if stale:
 
 if not fail:
     caps = ['SP_P', 'C_P', 'S_P', 'P']
-    envs = sum(1 for c in caps if got['%s :: Setlec.SetR.EnvS' % c] == 'absent')
-    recs = sum(1 for c in caps if got['%s :: Setlec.SetR.DeclR' % c] == 'absent')
-    beta = sum(1 for c in caps if got['%s :: Setlec.SetR.Red.beta' % c] == 'PRESENT')
-    doors = 0 if got['SP_P-cut-ind :: Setlec.SetR.Red.beta'] == 'absent' else 1
-    print('proofdeps: %d rows as pinned; EnvS absent from %d/%d and DeclR from '
-          '%d/%d P capstones; Red.beta present in %d/%d '
-          '(doors beyond declIndRR: %d)'
-          % (len(gorder), envs, len(caps), recs, len(caps), beta, len(caps),
-             doors))
+    tgts = ['EnvS', 'checkDeclR_ofEnvRE', 'DeclR', 'DeclIndR', 'declIndRR']
+    rel = ['Red', 'Red.beta', 'Infer', 'Infer.app', 'DefEq', 'DefEq.trans']
+    recs = sum(1 for c in caps for t in tgts
+               if got['%s :: Setlec.SetR.%s' % (c, t)] == 'absent')
+    beta = sum(1 for c in caps for t in rel
+               if got['%s :: Setlec.SetR.%s' % (c, t)] == 'absent')
+    doors = sum(1 for c in caps for t in rel
+                if got['%s :: Setlec.SetR.%s' % (c, t)] == 'PRESENT')
+    print('proofdeps: %d rows as pinned; EnvS/checkDeclR_ofEnvRE/DeclR/'
+          'DeclIndR/declIndRR absent %d/%d and the derivation tier '
+          '(Red, Red.beta, Infer, Infer.app, DefEq, DefEq.trans) absent '
+          '%d/%d across the 4 shipped P capstones (doors: %d)'
+          % (len(gorder), recs, len(caps) * len(tgts), beta,
+             len(caps) * len(rel), doors))
 sys.exit(fail)
 PYEOF

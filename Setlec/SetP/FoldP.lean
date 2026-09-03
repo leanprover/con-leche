@@ -113,10 +113,14 @@ it (`EtaFamiliesClosedO` at the block, the member fold's η side
 condition).  It is an environment fact the fold already owns, never a
 hypothesis of the capstone. -/
 def IndStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
-  ∀ {F : Nat} {env : Env} (mp : EnvS2PM V μ env)
+  -- the input carrier is the bundle's *subject*, not a datum the
+  -- premise mentions: since S11b the ind premise is the **run**
+  -- record, which names no valuation, so `_mp` appears only in the
+  -- conclusion's shape ("a carrier here gives a carrier there").
+  ∀ {F : Nat} {env : Env} (_mp : EnvS2PM V μ env)
     {block : List ConstantInfo} {env₂ : Env},
     Setlec.EtaFamiliesClosed env →
-    DeclIndR μ F env mp.base2.cvalE block env₂ →
+    DeclIndRunR μ F env block env₂ →
     Nonempty (EnvS2PM V μ env₂)
 
 /-- **`IndStepPB`, discharged — THE INDUCTIVE TIER IS CLOSED**
@@ -147,7 +151,7 @@ non-`ind` kinds have run-only bridges (`checkDeclRun_of`,
 reads, and no step below changed a line. -/
 theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvS2PM V μ env) (hE : EtaFamiliesClosed env)
-    (hrun : DeclRunR μ F (DeclIndR μ F env mp.base2.cvalE) env d env₂) :
+    (hrun : DeclRunR μ F (DeclIndRunR μ F env) env d env₂) :
     EnvSPOk V μ env₂ := by
   -- the η half: `declEtaStepRun` (task #161 S3, the census's C4), now
   -- MODEL-FREE at every kind.  S3's stop-and-name left `indDecl`'s
@@ -155,7 +159,7 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
   -- (`SetBase/IndBlockR.lean`) proves it from `DeclIndR` alone, so the
   -- fold consults no install obligation for its η half at all.
   refine ⟨?_, Setlec.SetR.declEtaStepRun
-    (fun h' => Setlec.SetR.declIndEtaClosed hE h') hE hrun⟩
+    (fun h' => Setlec.SetR.declIndEtaClosedRun hE h') hE hrun⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := hrun
@@ -203,7 +207,7 @@ theorem foldPM (hμ : μ.verified = true) {F : Nat} :
           -- *derivation*-free at the five non-`ind` kinds, so the only
           -- route from here into the relation tier is the `Ind`
           -- premise `checkDeclRun_ofEnvRE` fills with `declIndRR`.
-          (Setlec.SetR.checkDeclRun_ofEnvRE mp.toEnvR hE hd)) h
+          (Setlec.SetR.checkDeclRun_ofEnvRE hd)) h
 
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'
