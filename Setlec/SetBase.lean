@@ -38,6 +38,29 @@ import Setlec.SetBase.IndRecsCoreR
 import Setlec.SetBase.BasisRules
 import Setlec.SetBase.PSigmaTower
 import Setlec.SetBase.ProjFnRR
+import Setlec.SetBase.Bridge.Claims
+import Setlec.SetBase.Bridge.WhnfCore
+import Setlec.SetBase.Bridge.Infer
+import Setlec.SetBase.Bridge.DefEq
+import Setlec.SetBase.Bridge.ReduceNat
+import Setlec.SetBase.Bridge.InferStruct
+import Setlec.SetBase.Bridge.Spine
+import Setlec.SetBase.Bridge.Irrel
+import Setlec.SetBase.Bridge.Certs
+import Setlec.SetBase.Bridge.StuckIrrel
+import Setlec.SetBase.Bridge.Eta
+import Setlec.SetBase.Bridge.StrLitR
+import Setlec.SetBase.Bridge.Stuck
+import Setlec.SetBase.Bridge.EtaCerts
+import Setlec.SetBase.Bridge.DefEqClosed
+import Setlec.SetBase.Bridge.Proj
+import Setlec.SetBase.Bridge.ProjRed
+import Setlec.SetBase.Bridge.Major
+import Setlec.SetBase.Bridge.Iota
+import Setlec.SetBase.Bridge.Main
+import Setlec.SetBase.Bridge.Decl
+import Setlec.SetBase.Bridge.DeclInd
+import Setlec.SetBase.Bridge.Sound
 
 /-!
 # `Setlec.SetBase` — the lane-neutral semantic primitives (task #161, S1)
@@ -114,6 +137,33 @@ S6 (the residue) added:
   from `EnvS` (`EnvS.toEnvR`), the P lane by projection from
   `EnvS2PM` (`EnvS2PM.toEnvR`), which is what lets the P fold call the
   bridge without a collapsed-model carrier.
+
+S7 (the de-basing's last wall) added `IndRecsCoreR`, `ProjFnRR`,
+`BasisRules` and `PSigmaTower` — the sixteen syntactic declarations
+the P lane had been resolving *through* the four dying imports.
+
+S8 (**THE ZERO-OPENER**) added `Bridge/*` — the whole
+checker-to-derivation bridge, twenty-two modules, from `Claims` to
+`Sound`:
+
+* the inference chain (`Claims` … `Main`), which never mentioned a
+  model at all — twenty of the twenty-three modules were already
+  `EnvS`-free at S7;
+* `Bridge/Decl` — the six per-kind declaration bridges and their front
+  doors, model-free since S5 (`EnvR`-signed, zero proof edits);
+* `Bridge/DeclInd` — the interleaved `indDecl` walk, model-free since
+  S7 (`declIndRR`, off an `EnvR`; its `EnvS` instance `declIndRS` was
+  consumer-free after that re-proof and is deleted);
+* `Bridge/Sound` — `directParts?_none`, `checkDeclR_ofEnvR` and
+  `checkDeclR_ofEnvRE`, the dispatch off an `EnvR`.
+
+`checkDeclR_ofEnvRE` is the theorem the graded fold imports, and its
+residence here rather than under `Setlec/SetR/` is what takes the
+layering whitelist to **zero**: `tests/layering.sh` reads
+`0 P->R edges (whitelist EMPTY)`.  What stayed in `Setlec/SetR/Bridge/`
+is exactly the collapsed lane's own two instances — `EnvS.toEnvR`
+(`Decl.lean`) and `checkDeclR_sound`/`checkDeclRun_sound`/`foldlM_R`
+(`Sound.lean`).
 
 **Only the file paths and module names moved.**  The Lean namespaces
 (`Setlec.SetR.Interp2`, `Setlec.SetR`) are unchanged, so every frozen

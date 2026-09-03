@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.Infer
+import Setlec.SetBase.Bridge.Infer
 
 /-!
 # The defeq quarter of `CheckStepR` (task #148, T3, batches a/c/d)

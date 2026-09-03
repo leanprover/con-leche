@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.DefEqClosed
+import Setlec.SetBase.Bridge.DefEqClosed
 
 /-!
 # The projection inference clause (task #148, T3, batch e)

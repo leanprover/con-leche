@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.Major
+import Setlec.SetBase.Bridge.Major
 import Setlec.SetBase.DefEqList
 import Setlec.Verify.Denote.OpenRevDenote
 import Setlec.Verify.InstSpine

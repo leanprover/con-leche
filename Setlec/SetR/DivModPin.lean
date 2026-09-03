@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.Main
+import Setlec.SetBase.Bridge.Main
 import Setlec.SetR.Bridge.Decl
 import Setlec.SetR.Install.Value
 import Setlec.Verify.DivModInv

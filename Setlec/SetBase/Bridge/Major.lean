@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.ProjRed
+import Setlec.SetBase.Bridge.ProjRed
 
 /-!
 # The stuck-major rescues (task #148, T3, batch g)
