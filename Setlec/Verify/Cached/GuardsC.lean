@@ -1217,13 +1217,13 @@ theorem isUnitLikeTyC_spec {env : Env} (e : ExprC) :
     isUnitLikeTyC (mkFEnv env) e = isUnitLikeTy env (eraseC e) := by
   cases e with
   | const cn us h bb fb lp =>
-    show ((match (mkFEnv env).find? cn with
+    show (cn == punitName &&
+      (match (mkFEnv env).find? punitName with
         | some (.indInfo _ _) => true
         | _ => false) &&
-      (match (mkFEnv env).find? (cn.str "rec") with
+      (match (mkFEnv env).find? punitRecName with
         | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
-        | _ => false) &&
-      reservedBasisNames.contains (cn.str "rec")) = _
+        | _ => false)) = _
     rw [mkFEnv_find?, mkFEnv_find?]
     rfl
   | _ => rfl

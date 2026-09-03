@@ -433,13 +433,13 @@ theorem proofIrrel_snd_proj (d : Nat) (a b : Expr) :
 theorem pairEtaCert_fst_proj (d : Nat) (a b : Expr) :
     (pairEtaCert mode (pairFns r₁ r₂ h) env d a b).val.1 =
       pairEtaCert mode r₁ env d a b := by
-  unfold pairEtaCert projParamCert
+  unfold pairEtaCert
   fst_tac
 
 theorem pairEtaCert_snd_proj (d : Nat) (a b : Expr) :
     (pairEtaCert mode (pairFns r₁ r₂ h) env d a b).val.2 =
       pairEtaCert mode r₂ env d a b := by
-  unfold pairEtaCert projParamCert
+  unfold pairEtaCert
   snd_tac
 
 theorem structEtaCertWith_fst_proj (d : Nat) (a b wtb : Expr) :
@@ -478,65 +478,17 @@ theorem etaCert_snd_proj (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta)
   unfold etaCert
   snd_tac
 
-theorem projCert_fst_proj (d : Nat) (e₂ : Expr) (i : Nat)
-    (fieldLvl structLvl : Level) (nP : Nat) :
-    (projCert (pairFns r₁ r₂ h) env d e₂ i fieldLvl structLvl nP).val.1 =
-      projCert r₁ env d e₂ i fieldLvl structLvl nP := by
+theorem projCert_fst_proj (d : Nat) (e₂ : Expr) (i : Nat) (nP : Nat) :
+    (projCert (pairFns r₁ r₂ h) env d e₂ i nP).val.1 =
+      projCert r₁ env d e₂ i nP := by
   unfold projCert
   fst_tac
 
-theorem projCert_snd_proj (d : Nat) (e₂ : Expr) (i : Nat)
-    (fieldLvl structLvl : Level) (nP : Nat) :
-    (projCert (pairFns r₁ r₂ h) env d e₂ i fieldLvl structLvl nP).val.2 =
-      projCert r₂ env d e₂ i fieldLvl structLvl nP := by
+theorem projCert_snd_proj (d : Nat) (e₂ : Expr) (i : Nat) (nP : Nat) :
+    (projCert (pairFns r₁ r₂ h) env d e₂ i nP).val.2 =
+      projCert r₂ env d e₂ i nP := by
   unfold projCert
   snd_tac
-
-theorem projTeleCert_fst_proj (d : Nat) (c : Name) (us : List Level)
-    (args : List Expr) :
-    (projTeleCert (pairFns r₁ r₂ h) env d c us args).val.1 =
-      projTeleCert r₁ env d c us args := by
-  unfold projTeleCert
-  cases hf : env.find? c with
-  | none => rfl
-  | some ci =>
-    cases ci with
-    | ctorInfo cvj nP nF => exact iotaCerts_fst d _ args
-    | axiomInfo cv => rfl
-    | projInfo _ => rfl
-    | defnInfo cv value => rfl
-    | thmInfo cv value => rfl
-    | indInfo cv caps => rfl
-    | recInfo cv mI rP rules => rfl
-
-theorem projTeleCert_snd_proj (d : Nat) (c : Name) (us : List Level)
-    (args : List Expr) :
-    (projTeleCert (pairFns r₁ r₂ h) env d c us args).val.2 =
-      projTeleCert r₂ env d c us args := by
-  unfold projTeleCert
-  cases hf : env.find? c with
-  | none => rfl
-  | some ci =>
-    cases ci with
-    | ctorInfo cvj nP nF => exact iotaCerts_snd d _ args
-    | axiomInfo cv => rfl
-    | projInfo _ => rfl
-    | defnInfo cv value => rfl
-    | thmInfo cv value => rfl
-    | indInfo cv caps => rfl
-    | recInfo cv mI rP rules => rfl
-
-theorem projParamCert_fst_proj (d : Nat) (entry : ProjEntry)
-    (us : List Level) (params : List Expr) :
-    (projParamCert (pairFns r₁ r₂ h) env d entry us params).val.1 =
-      projParamCert r₁ env d entry us params :=
-  iotaCerts_fst d _ params
-
-theorem projParamCert_snd_proj (d : Nat) (entry : ProjEntry)
-    (us : List Level) (params : List Expr) :
-    (projParamCert (pairFns r₁ r₂ h) env d entry us params).val.2 =
-      projParamCert r₂ env d entry us params :=
-  iotaCerts_snd d _ params
 
 macro "fst_step2" : tactic =>
   `(tactic| repeat (first
@@ -909,8 +861,6 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [structUnitCert_fst_proj])
     | (rw [etaCert_fst_proj])
     | (rw [projCert_fst_proj])
-    | (rw [projTeleCert_fst_proj])
-    | (rw [projParamCert_fst_proj])
     | (rw [structEtaCert_fst_proj])
     | (rw [majorToCtor_fst_proj])
     | (rw [annotateProjElim_fst_proj])
@@ -959,8 +909,6 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [structUnitCert_snd_proj])
     | (rw [etaCert_snd_proj])
     | (rw [projCert_snd_proj])
-    | (rw [projTeleCert_snd_proj])
-    | (rw [projParamCert_snd_proj])
     | (rw [structEtaCert_snd_proj])
     | (rw [majorToCtor_snd_proj])
     | (rw [annotateProjElim_snd_proj])
@@ -1116,7 +1064,6 @@ theorem annotateBody_snd_proj (d : Nat) (e : Expr) :
       annotateBody mode r₂ env d e := by
   unfold annotateBody annotPwPi annotPwLam
   snd_tac4
-
 
 end Commute
 

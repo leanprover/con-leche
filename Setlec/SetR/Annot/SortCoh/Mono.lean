@@ -94,7 +94,7 @@ theorem reduceNat_mono (hs : CoreSub r₁ r₂) {d : Nat} {e : Expr}
       | ok w => rw [hw] at h; rw [hs.2.1 hw]; exact h
     · rw [if_neg h1] at h ⊢
       by_cases h2 : c = Setlec.natPredName ∧
-          Setlec.natOpGuard env c = true
+          Setlec.natOpStored env c = true
       · rw [if_pos h2] at h ⊢
         simp only [Bind.bind, Except.bind] at h ⊢
         cases hw : r₁.whnf d a with
@@ -102,7 +102,7 @@ theorem reduceNat_mono (hs : CoreSub r₁ r₂) {d : Nat} {e : Expr}
         | ok w => rw [hw] at h; rw [hs.2.1 hw]; exact h
       · rw [if_neg h2] at h ⊢
         by_cases h3 : c = Setlec.natLog2Name ∧
-            Setlec.natOpGuard env c = true
+            Setlec.natOpStored env c = true
         · rw [if_pos h3] at h ⊢
           simp only [Bind.bind, Except.bind] at h ⊢
           cases hw : r₁.whnf d a with
@@ -127,7 +127,7 @@ theorem reduceNat_mono (hs : CoreSub r₁ r₂) {d : Nat} {e : Expr}
         c = Setlec.natGcdName ∨ c = Setlec.natLandName ∨
         c = Setlec.natLorName ∨ c = Setlec.natXorName ∨
         c = Setlec.natShiftLeftName ∨ c = Setlec.natShiftRightName) ∧
-        Setlec.natOpGuard env c = true
+        Setlec.natOpStored env c = true
     · rw [if_pos h1] at h ⊢
       simp only [Bind.bind, Except.bind] at h ⊢
       cases hwa : r₁.whnf d a with
@@ -274,25 +274,6 @@ theorem defeqSpine_mono (hs : CoreSub r₁ r₂) {d : Nat}
   | lit l => rw [hga] at h; exact h
   | bvar i => rw [hga] at h; exact h
 
-/-- `projTeleCert` respects the order. -/
-theorem projTeleCert_mono (hs : CoreSub r₁ r₂) {d : Nat}
-    {c : Name} {us : List Level} {args : List Expr} {v : Bool}
-    (h : Setlec.projTeleCert r₁ env d c us args = .ok v) :
-    Setlec.projTeleCert r₂ env d c us args = .ok v := by
-  unfold Setlec.projTeleCert at h ⊢
-  cases hf : env.find? c with
-  | none => rw [hf] at h; exact h
-  | some ci =>
-    rw [hf] at h
-    cases ci with
-    | ctorInfo cvj na nb => exact iotaCerts_mono hs h
-    | axiomInfo cv => exact h
-    | defnInfo cv vl hint => exact h
-    | thmInfo cv vl => exact h
-    | indInfo cv caps => exact h
-    | recInfo cv mi rp rules => exact h
-    | projInfo entry => exact h
-
 /-- `projLitToCtor` respects the order. -/
 theorem projLitToCtor_mono (hs : CoreSub r₁ r₂) {d : Nat}
     {e x : Expr}
@@ -349,12 +330,11 @@ theorem isPropType_mono (hs : CoreSub r₁ r₂) {d : Nat} {ty : Expr}
         simp only [] at h ⊢
         exact h
 
-
 /-- `projCert` respects the order. -/
 theorem projCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {e₂ : Expr}
-    {i : Nat} {fl sl : Level} {nP : Nat} {v : Bool}
-    (h : Setlec.projCert r₁ env d e₂ i fl sl nP = .ok v) :
-    Setlec.projCert r₂ env d e₂ i fl sl nP = .ok v := by
+    {i : Nat} {nP : Nat} {v : Bool}
+    (h : Setlec.projCert r₁ env d e₂ i nP = .ok v) :
+    Setlec.projCert r₂ env d e₂ i nP = .ok v := by
   unfold Setlec.projCert at h ⊢
   simp only [Bind.bind, Except.bind] at h ⊢
   cases h1 : r₁.infer d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) with
@@ -362,51 +342,12 @@ theorem projCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {e₂ : Expr}
   | ok ta =>
   rw [h1] at h; rw [hs.2.2.1 h1]
   simp only [] at h ⊢
-  cases h2 : r₁.infer d ta with
-  | error err => rw [h2] at h; exact nomatch h
-  | ok tta =>
-  rw [h2] at h; rw [hs.2.2.1 h2]
+  cases h5 : r₁.infer d e₂ with
+  | error err => rw [h5] at h; exact nomatch h
+  | ok te =>
+  rw [h5] at h; rw [hs.2.2.1 h5]
   simp only [] at h ⊢
-  cases h3 : r₁.whnf d tta with
-  | error err => rw [h3] at h; exact nomatch h
-  | ok w =>
-  rw [h3] at h; rw [hs.2.1 h3]
-  simp only [] at h ⊢
-  cases w with
-  | sort uT =>
-    simp only [] at h ⊢
-    cases h4 : Setlec.liftFueled "level comparison"
-        (Level.isEquiv uT fl) (m := Setlec.CheckM) with
-    | error err => rw [h4] at h; exact nomatch h
-    | ok okT =>
-    rw [h4] at h
-    simp only [] at h ⊢
-    cases h5 : r₁.infer d e₂ with
-    | error err => rw [h5] at h; exact nomatch h
-    | ok te =>
-    rw [h5] at h; rw [hs.2.2.1 h5]
-    simp only [] at h ⊢
-    cases h6 : r₁.infer d te with
-    | error err => rw [h6] at h; exact nomatch h
-    | ok tte =>
-    rw [h6] at h; rw [hs.2.2.1 h6]
-    simp only [] at h ⊢
-    cases h7 : r₁.whnf d tte with
-    | error err => rw [h7] at h; exact nomatch h
-    | ok w₂ =>
-    rw [h7] at h; rw [hs.2.1 h7]
-    simp only [] at h ⊢
-    exact h
-  | fvar i' n ty => exact h
-  | app f a => exact h
-  | lam n ty b m => exact h
-  | letE n ty v' b => exact h
-  | proj s i' e => exact h
-  | lit l => exact h
-  | const n us => exact h
-  | forallE n ty b bi => exact h
-  | bvar i' => exact h
-
+  exact h
 
 /-- `proofIrrel` respects the order. -/
 theorem proofIrrel_mono (hs : CoreSub r₁ r₂) {d : Nat} {a b : Expr}
@@ -530,14 +471,6 @@ theorem etaCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {n₁ : Name}
   | const n us => exact h
   | bvar i' => exact h
 
-/-- `projParamCert` respects the order (an `iotaCerts` wrapper). -/
-theorem projParamCert_mono (hs : CoreSub r₁ r₂) {d : Nat}
-    {entry : Setlec.ProjEntry} {us : List Level} {ps : List Expr}
-    {v : Bool}
-    (h : Setlec.projParamCert r₁ env d entry us ps = .ok v) :
-    Setlec.projParamCert r₂ env d entry us ps = .ok v :=
-  iotaCerts_mono hs h
-
 /-- `structEtaProjCerts` respects the order. -/
 theorem structEtaProjCerts_mono (hs : CoreSub r₁ r₂) {d : Nat}
     {T : Name} {us' : List Level} {targs : List Expr} {b : Expr}
@@ -653,18 +586,7 @@ theorem pairEtaCert_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
                       rw [h7] at h; rw [hs.2.2.2.1 h7]
                       simp only [] at h ⊢
                       split at h
-                      · next hc₇ =>
-                        rw [if_pos hc₇]
-                        split at h
-                        · next htt =>
-                          rw [if_pos htt]
-                          split at h
-                          · next entry heq4 =>
-                            exact projParamCert_mono hs h
-                          · exact h
-                        · next htt =>
-                          rw [if_neg htt]
-                          exact h
+                      · next hc₇ => rw [if_pos hc₇]; exact h
                       · next hc₇ => rw [if_neg hc₇]; exact h
                     · next hc₆ => rw [if_neg hc₆]; exact h
                   · next hc₅ => rw [if_neg hc₅]; exact h
@@ -1466,34 +1388,12 @@ theorem annotateBody_mono (hs : CoreSub r₁ r₂) {μ : Setlec.CheckMode}
     | ok ty' =>
     rw [h1] at h; rw [hs.2.2.2.2 h1]
     simp only [] at h ⊢
-    cases h2 : r₁.infer d ty' with
-    | error err => rw [h2] at h; exact nomatch h
-    | ok tty =>
-    rw [h2] at h; rw [hs.2.2.1 h2]
-    simp only [] at h ⊢
-    cases h3 : Setlec.ensureSort r₁ env d tty with
-    | error err => rw [h3] at h; exact nomatch h
-    | ok s =>
-    rw [h3] at h; rw [ensureSort_mono hs h3]
-    simp only [] at h ⊢
     cases h4 : r₁.annotate d v with
     | error err => rw [h4] at h; exact nomatch h
     | ok v' =>
     rw [h4] at h; rw [hs.2.2.2.2 h4]
     simp only [] at h ⊢
-    cases h5 : r₁.infer d v' with
-    | error err => rw [h5] at h; exact nomatch h
-    | ok tv =>
-    rw [h5] at h; rw [hs.2.2.1 h5]
-    simp only [] at h ⊢
-    cases h6 : r₁.defeq d tv ty' with
-    | error err => rw [h6] at h; exact nomatch h
-    | ok c₆ =>
-    rw [h6] at h; rw [hs.2.2.2.1 h6]
-    simp only [] at h ⊢
-    cases c₆ with
-    | false => exact h
-    | true => exact hs.2.2.2.2 (by simpa using h)
+    exact hs.2.2.2.2 h
   | proj sn i pe =>
     simp only [Bind.bind, Except.bind] at h ⊢
     cases h1 : r₁.annotate d pe with
@@ -1595,10 +1495,7 @@ theorem whnfCoreBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
         split at h
         · next hg =>
           rw [if_pos hg]
-          cases h3 : Setlec.projCert r₁ env d w₂ i
-              (Level.subst entry.levelParams us entry.fieldSort)
-              (Level.subst entry.levelParams us entry.structSort)
-              entry.numParams with
+          cases h3 : Setlec.projCert r₁ env d w₂ i entry.numParams with
           | error err => rw [h3] at h; exact nomatch h
           | ok c₃ =>
           rw [h3] at h; rw [projCert_mono hs h3]
@@ -1607,19 +1504,7 @@ theorem whnfCoreBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
           | false => exact h
           | true =>
           simp only [if_true] at h ⊢
-          by_cases htt : μ.ttChecks = true
-          · rw [if_pos htt] at h ⊢
-            cases h4 : Setlec.projTeleCert r₁ env d c us
-                w₂.getAppArgs with
-            | error err => rw [h4] at h; exact nomatch h
-            | ok c₄ =>
-            rw [h4] at h; rw [projTeleCert_mono hs h4]
-            simp only [] at h ⊢
-            cases c₄ with
-            | true => exact hs.1 h
-            | false => exact h
-          · rw [if_neg htt] at h ⊢
-            exact hs.1 (by simpa [pure, Except.pure] using h)
+          exact hs.1 h
         · next hg => rw [if_neg hg]; exact h
       · next => exact h
     · next => exact h
@@ -1757,17 +1642,7 @@ theorem inferBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
         split at h
         · next hg =>
           rw [if_pos hg]
-          by_cases htt : μ.ttChecks = true
-          · rw [if_pos htt] at h ⊢
-            cases h3 : Setlec.projParamCert r₁ env d entry us
-                te.getAppArgs with
-            | error err => rw [h3] at h; exact nomatch h
-            | ok c₃ =>
-            rw [h3] at h; rw [projParamCert_mono hs h3]
-            simp only [] at h ⊢
-            exact h
-          · rw [if_neg htt] at h ⊢
-            exact h
+          exact h
         · next hg => rw [if_neg hg]; exact h
       · next => exact h
     · next => exact h
@@ -2502,7 +2377,7 @@ theorem reduceNat_some_shape {env : Env}
         · exact nomatch h
     · rw [if_neg h1] at h
       by_cases h2 : c = Setlec.natPredName ∧
-          Setlec.natOpGuard env c = true
+          Setlec.natOpStored env c = true
       · rw [if_pos h2] at h
         simp only [Bind.bind, Except.bind] at h
         cases hw : r.whnf d a with
@@ -2515,7 +2390,7 @@ theorem reduceNat_some_shape {env : Env}
           · exact nomatch h
       · rw [if_neg h2] at h
         by_cases h3 : c = Setlec.natLog2Name ∧
-            Setlec.natOpGuard env c = true
+            Setlec.natOpStored env c = true
         · rw [if_pos h3] at h
           simp only [Bind.bind, Except.bind] at h
           cases hw : r.whnf d a with
@@ -2549,7 +2424,7 @@ theorem reduceNat_some_shape {env : Env}
         c = Setlec.natGcdName ∨ c = Setlec.natLandName ∨
         c = Setlec.natLorName ∨ c = Setlec.natXorName ∨
         c = Setlec.natShiftLeftName ∨ c = Setlec.natShiftRightName) ∧
-        Setlec.natOpGuard env c = true
+        Setlec.natOpStored env c = true
     · rw [if_pos h1] at h
       simp only [Bind.bind, Except.bind] at h
       cases hwa : r.whnf d a with

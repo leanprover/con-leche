@@ -49,6 +49,80 @@ theorem projEntry_pins (hpo : ProjOkT env) {sn : Name} {i : Nat}
   rw [← hsn]
   rcases hpin with rfl | rfl <;> rfl
 
+/-! ### The residual, from the computed two-way branch (task #161 B2)
+
+The `.proj` inference clause no longer *walks* the entry type: at a
+pinned entry the parameter spine has exactly two members and the
+residual is `A` or `B (pe.1)`, so the clause returns that outright
+(harvest site 21 / list entry P10).  Both verification tiers state
+their `.proj` conclusion with the walk (`piResidualV`/`denoteP` of
+`piResidual`), so this is where the computed value is turned back into
+the walk's — by `projEntry_pins`, and by the frame fact that the two
+parameters carry no loose `bvar`s, which the clause's callers already
+have. -/
+
+/-- The first pinned entry's residual at a full spine is the type
+argument. -/
+theorem piResidual_pairFstS (l0 l1 : Level) {A B pe : Expr}
+    (hA : ∀ k, Expr.looseBVarsBounded k A = true) :
+    Setlec.piResidual
+      (pairFstEntry.ty.instantiateLevelParams pairFstEntry.levelParams
+        [l0, l1]) [A, B, pe] = some A := by
+  simp +decide [Setlec.piResidual, pairFstEntry, pairFstTyA,
+    Expr.instantiateLevelParams, Level.subst, Level.subst.go,
+    Expr.instantiate1]
+  rw [Setlec.Expr.instantiate1_eq_self (hA 1),
+    Setlec.Expr.instantiate1_eq_self (hA 0)]
+
+/-- The second pinned entry's residual at a full spine is the fibre at
+the first projection. -/
+theorem piResidual_pairSndS (l0 l1 : Level) {A B pe : Expr}
+    (hB : ∀ k, Expr.looseBVarsBounded k B = true) :
+    Setlec.piResidual
+      (pairSndEntry.ty.instantiateLevelParams pairSndEntry.levelParams
+        [l0, l1]) [A, B, pe]
+      = some (.app B (.proj psigmaName 0 pe)) := by
+  simp +decide [Setlec.piResidual, pairSndEntry, pairSndTyA,
+    Expr.instantiateLevelParams, Level.subst, Level.subst.go,
+    Expr.instantiate1]
+  rw [Setlec.Expr.instantiate1_eq_self (hB 0)]
+
+/-- **The walk, from the computed residual.**  What the `.proj`
+inference clause returns is what `piResidual` would have walked to —
+under the pin, the two-element spine and the parameters' closedness. -/
+theorem piResidual_of_computed (hpo : ProjOkT env) {sn : Name} {i : Nat}
+    {entry : ProjEntry} {us : List Level} {A B pe t : Expr}
+    (hfe : env.findProj? sn i = some entry) (hnat : entry.native = true)
+    (hlenUs : us.length = entry.levelParams.length)
+    (hA : Expr.looseBVarsBounded 0 A = true)
+    (hB : Expr.looseBVarsBounded 0 B = true)
+    (hcomp : (i = 0 ∧ t = A) ∨
+      (i = 1 ∧ t = .app B (.proj sn 0 pe))) :
+    Setlec.piResidual
+      (entry.ty.instantiateLevelParams entry.levelParams us)
+      ([A, B] ++ [pe]) = some t := by
+  obtain ⟨hpin, rfl, hidx, -, -⟩ := projEntry_pins hpo hfe hnat
+  have hAk : ∀ k, Expr.looseBVarsBounded k A = true := fun k =>
+    Setlec.Expr.looseBVarsBounded_mono (Nat.zero_le k) hA
+  have hBk : ∀ k, Expr.looseBVarsBounded k B = true := fun k =>
+    Setlec.Expr.looseBVarsBounded_mono (Nat.zero_le k) hB
+  obtain ⟨l0, l1, rfl⟩ : ∃ l0 l1, us = [l0, l1] := by
+    rcases hpin with rfl | rfl <;>
+      (simp only [pairFstEntry, pairSndEntry, List.length_cons,
+        List.length_nil] at hlenUs
+       match us, hlenUs with
+       | [l0, l1], _ => exact ⟨l0, l1, rfl⟩)
+  rw [show ([A, B] ++ [pe] : List Expr) = [A, B, pe] from rfl]
+  rcases hpin with rfl | rfl
+  · have hi : i = 0 := by rw [← hidx]; rfl
+    rcases hcomp with ⟨-, rfl⟩ | ⟨hi1, -⟩
+    · exact piResidual_pairFstS l0 l1 hAk
+    · exact absurd (hi.symm.trans hi1) (by decide)
+  · have hi : i = 1 := by rw [← hidx]; rfl
+    rcases hcomp with ⟨hi0, -⟩ | ⟨-, rfl⟩
+    · exact absurd (hi.symm.trans hi0) (by decide)
+    · exact piResidual_pairSndS l0 l1 hBk
+
 /-! ### The pinned types' denotations (concrete computations) -/
 
 /-- The instantiated first-projection entry type denotes to its

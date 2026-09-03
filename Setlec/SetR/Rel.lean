@@ -156,8 +156,9 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
   /-- R6: the native structural projection
   `proj_i (ctor p⃗ x⃗) ↦ x_i`, driven by the projection table
   (`whnfCoreBody`'s `.proj` clause, `Core.lean:1431-1475`), with the
-  `projCert` pack (`Core.lean:1363-1378`) — and **no `projTeleCert`**
-  (#126 is tt-only).  `sn` is the node's struct-name slot, which the
+  `projCert` pack — and **no constructor-telescope certification**
+  (#126's `projTeleCert` was TT-lane-only; deleted at task #161's
+  de-gating round, item A).  `sn` is the node's struct-name slot, which the
   denotation does not carry; it is quantified, and soundness pins what
   a native entry can be through `ProjOk`.
 
@@ -171,8 +172,7 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
   (`Infer.const` overlaps app-shaped subjects), so the rule exposes
   them as a `Tele` walk over the constructor's denoted stored type —
   the same premise-exactness argument as repair A. -/
-  | projRed {Δ : List VExpr} {p P fv ta ta' tta te te' tte TC restC :
-        VExpr}
+  | projRed {Δ : List VExpr} {p P fv ta ta' te te' TC restC : VExpr}
       {i : Nat} {sn : Name} {entry : ProjEntry} {ci : ConstantInfo}
       {us : List Level} {vs : List VExpr} :
       -- side conditions (V-free), read off the clause's guards
@@ -198,23 +198,21 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       -- the constructor spine's telescope certificate (the infer run's
       -- own argument re-checks, exposed — see the docstring)
       Tele μ env cval φ Δ TC vs restC →
-      -- `projCert`: the projected field's type's sort is the entry's
-      -- instantiated field sort …  (`DefEq`, not `Red`: the checker
-      -- whnfs its own inferred type; the bridge's infer-claim is up to
-      -- `DefEq`, so the normalization premise absorbs the slack — the
-      -- 2026-08-27 amendment, `Setlec/SetR/DESIGN.md`.  The chained
-      -- `Infer`s carry a linking `DefEq` — finding 3, 2026-08-28.)
+      -- `projCert`, task #161 item B1 (harvest site 18 / P9): the
+      -- clause runs two `inferTypeCore`s and nothing else.  The four
+      -- sort legs it used to run — infer *that* type, whnf it to a
+      -- sort, `Level.isEquiv` against the entry's instantiated
+      -- `fieldSort`/`structSort`, for the field and for the subject —
+      -- are deleted, so this rule states only the two runs.  The Prop
+      -- collapse that used the field's sort leg is re-derived from the
+      -- constructor telescope certificate (`Tele` above, the R6
+      -- amendment): `mem_univ_zero` on the pinned pair's own component
+      -- memberships.  (`DefEq`, not `Red`: the bridge's infer-claim is
+      -- up to `DefEq`, the 2026-08-27 amendment.)
       Infer μ env cval φ Δ fv ta →
       DefEq μ env cval φ Δ ta ta' →
-      Infer μ env cval φ Δ ta' tta →
-      DefEq μ env cval φ Δ tta
-        (.sort ((Level.subst entry.levelParams us entry.fieldSort).eval φ)) →
-      -- … and the subject's type's sort is the instantiated struct sort
       Infer μ env cval φ Δ P te →
       DefEq μ env cval φ Δ te te' →
-      Infer μ env cval φ Δ te' tte →
-      DefEq μ env cval φ Δ tte
-        (.sort ((Level.subst entry.levelParams us entry.structSort).eval φ)) →
       Red μ env cval φ Δ (.proj i p) fv
   /-- R7/R16: a `String` literal steps to (the reduction of) its
   denoted constructor form — `projLitToCtor` (`Core.lean:1224-1229`)
@@ -496,9 +494,10 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       Red μ env cval φ Δ (.proj i e) (.proj i e')
 
 /-- **Inference** (design §1.3, I1–I10): successful `inferTypeCore`
-runs (`inferBody`, `Core.lean:1546-1658`), premise-exact at
-`--set-model` — the proj rule carries **no `projParamCert`** (#129 is
-tt-only). -/
+runs (`inferBody`), premise-exact at `--set-model` — the proj rule
+carries **no parameter-telescope certification** (#129's
+`projParamCert` was TT-lane-only; deleted at task #161's de-gating
+round, item A). -/
 inductive Infer (μ : CheckMode) (env : Env) (cval : TConstVal)
     (φ : Name → Nat) : List VExpr → VExpr → VExpr → Prop where
   /-- I1: sorts (`Core.lean:1549`). -/
@@ -578,7 +577,8 @@ inductive Infer (μ : CheckMode) (env : Env) (cval : TConstVal)
   whnfs to a native entry's family application; the conclusion type is
   the entry's stored type peeled along the arguments and the subject
   (`piResidualV`, the `VExpr`-level `piResidual`).  Head-match only —
-  **no `projParamCert`** (#129 is tt-only). -/
+  **no parameter-telescope certification** (#129's `projParamCert` was
+  TT-lane-only; deleted at task #161's de-gating round, item A). -/
   | proj {Δ : List VExpr} {p tp TP resV : VExpr} {i : Nat} {T : Name}
       {entry : ProjEntry} {ciT : ConstantInfo} {us : List Level}
       {ps : List VExpr} :
@@ -775,10 +775,10 @@ inductive DefEq (μ : CheckMode) (env : Env) (cval : TConstVal)
           (cval T (Level.substFn φ cvT.levelParams us')) ts) TB →
       Tele μ env cval φ Δ TFv ts rest →
       DefEq μ env cval φ Δ a b
-  /-- D12: pair eta for the pinned basis pair (`pairEtaCert`,
-  `Core.lean:839-892`), premise-exact at `--set-model`: **no
-  `projParamCert` premise** (#130 is tt-only).  The mirrored direction
-  is D2. -/
+  /-- D12: pair eta for the pinned basis pair (`pairEtaCert`),
+  premise-exact at `--set-model`: **no parameter-telescope premise**
+  (#130's `projParamCert` was TT-lane-only; deleted at task #161's
+  de-gating round, item A).  The mirrored direction is D2. -/
   | pairEta {Δ : List VExpr} {pα pβ s₁ s₂ b tb A B : VExpr}
       {c c' : Name} {cvm : ConstantVal} {cvi : ConstantVal}
       {caps' : IndCaps} {cvr : ConstantVal} {mI rP : Nat} {rr : RecRule}

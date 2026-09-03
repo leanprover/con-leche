@@ -192,7 +192,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       obtain ⟨ba, hba⟩ := ih hbt hwo hbo hLo
       exact ⟨_, by rw [denoteP_lam, hta, hba]; rfl⟩
     | .proj sn i pe =>
-      obtain ⟨tpe, te, T, us, entry, htpe, -, -, hfe, hnat, -, -, -, -⟩ :=
+      obtain ⟨tpe, te, T, us, entry, htpe, -, -, hfe, hnat, -, -, -⟩ :=
         Setlec.inferTypeCore_proj_inv h
       simp only [Expr.WScoped] at hws
       simp only [Expr.looseBVarsBounded] at hb

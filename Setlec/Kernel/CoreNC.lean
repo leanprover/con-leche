@@ -71,6 +71,16 @@ Skipped here (each site cites why it is proof-only):
 * `structUnitCertNC` (vs `structUnitCertI`): the type-former telescope
   certification — lean4lean's `isDefEqUnitLike` checks exactly the
   unit-like shape and the defeq of the two types (kept).
+**RETIRED ROWS (task #161 de-gating round, item A).**  The next three
+entries — `projTeleCertI` (#126), `projParamCertI` on the inference
+path (#129) and at pair-η (#130) — were TT-lane checks in the model
+core, gated on `CheckMode.ttChecks`, which is constantly `false` since
+#148 T7b.  Round A deleted the gated call sites *and the two
+definitions*, so these are no longer divergences at all: both lanes
+skip them.  The reasoning is kept verbatim because it is the evidence
+that the calls were proof-only, and because a future TT lane would
+have to re-argue it.
+
 * `whnfCoreBodyNC`'s proj clause (vs `whnfCoreStepI`'s): the
   constructor-telescope certification `projTeleCertI` (task #126) — the
   same `iotaCertsI` family skipped at every other site above.  It was
@@ -514,15 +524,12 @@ def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           if entry.native ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then do
-            let mx ← substLevelTreeM entry.levelParams us
-              entry.structSort
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
             -- task #100 de-gating: ungated, as in `whnfCoreBodyI`
-            -- (`projCertI` stays — outside the task-#76 skip list)
-            let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
-            if ← projCertI r fe depth e' i fl
-                mx entry.numParams then
+            -- (`projCertI` stays — outside the task-#76 skip list;
+            -- task #161 item B1 shrank it to its two `infer` runs)
+            if ← projCertI r fe depth e' i entry.numParams then
               r.whnfCore depth arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')

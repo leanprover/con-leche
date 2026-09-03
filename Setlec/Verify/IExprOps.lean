@@ -2075,6 +2075,11 @@ theorem strLitSupportedF_eq (env : Env) :
   simp only [strLitSupportedF, strLitSupported, mkFEnv_find?,
     natLitSupportedF_eq]
 
+theorem natOpStoredF_eq (env : Env) (c : Name) :
+    natOpStoredF (mkFEnv env) c = natOpStored env c := by
+  simp only [natOpStoredF, natOpStored, mkFEnv_find?]
+  rfl
+
 theorem natOpGuardF_eq (env : Env) (c : Name) :
     natOpGuardF (mkFEnv env) c = natOpGuard env c := by
   simp only [natOpGuardF, natOpGuard, mkFEnv_find?, natLitSupportedF_eq]
@@ -2097,13 +2102,13 @@ theorem isUnitLikeTyI_spec {st : EStore} {env : Env} {e : EIdx} {x : Expr}
     rw [hwf.readbackN_eq_denoteN, _hnmv]
     dsimp only
     rw [show isUnitLikeTy env (.const _nmv lus) =
-      ((match env.find? _nmv with
+      (_nmv == punitName &&
+      (match env.find? punitName with
         | some (.indInfo _ _) => true
         | _ => false) &&
-      (match env.find? (_nmv.str "rec") with
+      (match env.find? punitRecName with
         | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
-        | _ => false) &&
-      reservedBasisNames.contains (_nmv.str "rec")) from rfl]
+        | _ => false)) from rfl]
     rw [mkFEnv_find?, mkFEnv_find?]
     rfl
   | bvar i => cases hd; rfl

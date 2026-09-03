@@ -21484,3 +21484,292 @@ official; three-core edit; measured cost with the ~80%-of-defeq-
 steps fire rate in mind; coordinator + user grant per protocol); if
 unreachable: the argument recorded next to the omission.  A+B+C and
 the combined report continue as planned.
+
+## Task #161 DE-GATING HARVEST, REMOVAL ROUND A+B+C (2026-09-02)
+
+Branch `agent/degating-abc` off master `eff16e68`: six item commits,
+one per item so a dropped item stays a clean revert, plus a tidy
+commit.  **Six of the seven listed items landed; one (B4/P6) is
+dropped with a measured finding.**
+Kernel diff touches all three cores every time
+(`Kernel/Core.lean` — the spec body the proofs are stated against,
+`Kernel/CoreI.lean` — the interned twin, `Cached/CoreC.lean` /
+`Cached/StateC.lean` — the cached twin), plus `Kernel/CoreNC.lean`
+where the unverified lane shares an interned helper.  Whole-branch
+diff: 55 files, +1 006 / −2 334.  Nothing landed: the branch is the
+evidence for the grant request.
+
+### The items, with the license each was landed on
+
+| item | site | what went | license, and where it is stated |
+|---|---|---|---|
+| **A** | 19/20/23 | `projTeleCert` (#126), `projParamCert` (#129, #130) — the three gated call sites **and both definitions** | `CheckMode.ttChecks = fun _ => false` (`Kernel/Env.lean:43`) since #148 T7b; P1 measured 0 fires on both streams.  A deletion, not a de-gating |
+| **B1** | 18 (P9) | `projCert`'s four sort legs: two `infer`+`whnf`-to-a-sort runs, both `Level.isEquiv`s, the two `Level` parameters and the callers' `Level.subst`/`substLevelTreeM` | P1 FINDING 4 — `projStepP_of_claims` keeps conjunct 5 only; `projEntry_pins` makes `fieldSort`/`structSort` concrete.  **THE FIELD-INFER RUN STAYS** (ratified negative) |
+| **B2** | 21 (P10) | the `.proj` inference clause's `piResidual` walk — *and*, in the interned cores, the entry type's materialisation (`projFnIdxM` + `constTyAtM`) and the `projFnName` build that fed it | `projResidualP`: at a pinned entry the two-parameter spine's residual is `A` or `B (pe.1)` |
+| **B3** | 37 (P7) | `reduceNat`'s per-hit `natOpGuard` re-derivation (~12 `Env.find?`s + a `natOpDeps` list build) → `natOpStored`, one `find?` | `NatOpsV`/`NatOpsP` and `DivModV`/`DivModP`: "stored as a `defnInfo` → `natOpGuard` ∧ the recurrences", established by `checkDecl` *declining* an unguarded store.  Converse by computation (`c ∈ natOpDeps c`) |
+| **C1** | 35 (P8) | `isUnitLikeTy`'s per-call scan (two `find?`s + a `Name.str "rec"` build + a 20-element reserved-list walk) → the pinned-name test | `unitLike_eq_punit` (`Verify/PinnedShapes.lean`): under `BasisPinnedTT`, **only `PUnit` passes** |
+| **C2** | 6 | the annotate-side `.letE` `infer_let` triple | P1's harvest row: redundant with `inferBody`'s own `.letE` clause; no Verify/SetR consumer reads the annotate-side conjuncts |
+| **B4** | 38 (P6) | — **DROPPED**, see the finding below | — |
+
+### The proof layer: what was re-proved, and the two sub-findings
+
+Every consumer of a removed or downgraded run was re-proved **from the
+licensing fact**.  No statement was weakened by adding a hypothesis to
+paper over a missing conjunct; where a fact had to be *carried*, it was
+carried as an environment law already established at install.
+
+**SUB-FINDING 1 (item B1) — P1's license was audited against the P tier
+only, and the v1 tier had one more consumer.**  `Red.projRed`
+(`SetR/Rel.lean`) carried the field's sort chain, and `sndRedProjRed`
+(`SetR/Sound/Proj.lean`) *used* it: in the Prop-collapse branch
+(`max l0 l1 = 0`) it derived `⟦fv⟧ = pt` from `tta ≡ .sort fieldSort`
+via `mem_univ_zero`.  By the round's own test that is a supplier.  It
+is, however, a **replaceable** one, from evidence the rule already
+carries: at a zero level the constructor telescope certificate's own
+component memberships (`TeleFitV_psigmaMk`'s `hm1'`–`hm4'`, plus
+`app_mem_piC`) put the field inside a `univ 0` member, and
+`mem_univ_zero` collapses it there.  Re-proved, not weakened; the rule
+now states exactly the two `Infer`+linking-`DefEq` pairs the checker
+still records, so premise-exactness is preserved.  **The dispositions
+record's supplier list should gain a note that P9's audit was
+P-tier-only.**
+
+**SUB-FINDING 2 (item B3) — the bridge tier needed the law narrowed to
+it.**  `EnvR` (`SetR/Bridge/Env.lean`) carries only what the bridge
+consumes, and it did not carry `nat_ops`/`div_mod`.  It gains one
+V-free field, `nat_op_guard` — those two laws in exactly the direction
+the shrunk test needs — supplied by `EnvS.toEnvR` from
+`EnvS.nat_ops`/`EnvS.div_mod`.  Nothing new is assumed: the field's
+statement is a specialisation of laws the install already establishes.
+The P tier's analogue is `NatOpGuardLawP` + `natOpGuardLawP_of`
+(`Step2/NatP.lean`), threaded to one call site
+(`CapstoneP.lean`); `reduceNatReadsP_of`'s "no premises at all" becomes
+"one environment law", recorded in its own docstring.
+
+**Where the two "invariant, not gate" items get their teeth.**  Both C1
+and B3 replace a per-call environment scan with a test that is only
+equivalent *on environments the checker builds*, so it matters exactly
+what the install path enforces.  `checkConstantValF`
+(`Kernel/CheckerS.lean:377`) is the front door for every stored
+constant and it **rejects two things outright**: a name already stored
+(`duplicate declaration`) and a name in `reservedBasisNames`
+(`reserved basis name`).  So
+
+* a reserved block can never come from the stream at all — the pinned
+  basis installer is its only source — which is what makes C1's
+  "only `PUnit` passes" a fact about the *running* checker and not only
+  about `BasisPinnedTT`-satisfying models; and
+* no later install can shadow an earlier one, which is the monotonicity
+  B3's direction needs: `natOpGuard` established at an operation's own
+  install (where `checkDecl` declines without it) cannot be broken by
+  anything installed afterwards.
+
+Two derivations were **retired as dead** rather than kept:
+`projResidualP` and its `piResidual_pair*A` lemmas
+(`Step2/ProjPinsP.lean`) — their conclusion is now what the checker
+computes, so `inferTypeCore_proj_inv` delivers it verbatim.  The
+converse direction survives, for the v1 tier's `piResidualV`-shaped
+`Infer.proj`, as `piResidual_of_computed` (`SetR/ProjPins.lean`).
+
+### FINDING — item B4 (P6, `strLitSupported`) is DROPPED, and why
+
+Not a supplier finding: **the item's premise is false on the measured
+streams, and the specified replacement is a measured pessimization.**
+
+1. *There is no "per-literal scan" to remove.*  `strLitSupportedF` is
+   reached only inside clauses already dispatched on a `.lit (.strVal
+   _)` node or on the `String.ofList` head — six sites, all shape-
+   guarded.  Counting the streams: **init-prelude carries 25 `strVal`
+   records; init-full carries 1 702.**  That is why P1 measured the
+   site at **−0.00 % / −0.02 %**: masking it entirely is free because
+   it barely runs.
+2. *The specified cache costs more than the scan.*  A "cached
+   per-environment flag" must live on `FEnv` and be maintained wherever
+   the environment changes: `mkFEnv` (once per run), `FEnv.push` (once
+   per installed constant) and `FEnv.restrictTo` (the split driver's
+   prefix views, whose `visibleBelow` can *hide* the block, so the flag
+   cannot simply be inherited).  Declaration records: **3 271 on
+   init-prelude, 52 767 on init-full** (before each inductive block's
+   constructors and recursors, which push too).  So the flag would be
+   evaluated ~130× more often than the guard is today on init-prelude
+   and ~30× more often on init-full.
+3. *The B3 trick is unavailable.*  B3 could shrink its test to one
+   `find?` because `checkDecl` **enforces** `natOpGuard` at install and
+   `NatOpsV`/`DivModV` record it.  There is no counterpart for the
+   `String` block: `grep` finds no `strLitSupported` in any
+   `Checker*.lean` install path and no `EnvS`/`EnvS2PM` law about it.
+   `strLitSupported` is a pure per-use environment test with no
+   install-time invariant behind it, so there is no cheaper equivalent
+   test to fall back on.
+
+Recorded disposition: **P6 is MEASURED-WITH-VERDICT, not removable and
+not worth caching**; the row should move out of the removal table.  If
+a future task wants it, the honest prerequisite is an install-time
+`String`-block check plus an `EnvS` law — i.e. the B3 shape — and that
+is a new establishment obligation, not a licence.
+
+### The battery (one, for the whole round)
+
+**1. Verdict-neutrality, byte-identical.**  Branch binary vs the
+unmodified master binary (`eff16e68`), comparing stdout, stderr *and*
+exit code with `cmp`:
+
+* `init-prelude.preprocessed.ndjson` with `--pre`, × both cores
+  (`--core=production`, `--core=cached-parsed`) × both lanes
+  (`--set-model` default, `--no-model`) × three env settings (plain,
+  `SETLEC_NO_PROOF_CERTS=1`, `SETLEC_INFER_ONLY=1`) = 12 comparisons;
+* every fixture named in `tests/arena-expected.txt`,
+  `tests/e2e-expected.txt` and `tests/annot-expected.txt` (`raw`/`pre`
+  modes honoured), × both cores × both lanes = 896 comparisons.
+
+**908 comparisons, 0 differing — run separately after every one of the
+six items** (`_tmp/degating-abc/neutral-{c2,a,b1,c1,b3,b2}.log`), so
+each commit carries its own neutrality evidence and a dropped item
+stays a clean revert.
+
+*Recorded-modes note.*  The brief's three modes are the pre-#148 names.
+`SETLEC_NO_PROOF_CERTS` and `SETLEC_INFER_ONLY` were absorbed into
+`--no-model` at #148 T7b and are inert; they are swept anyway (to
+confirm inertness) and `--no-model` is swept as the third lane.
+
+**2. Suite counters** (`tests/arena.sh`, full sweeps), identical on
+branch and on the master binary:
+
+| suite | count |
+|---|---|
+| arena tutorial | 90/92 good accepted |
+| e2e | 72/72 |
+| annot | 14/14 |
+| split driver | 11/11 |
+| mode flags | 9/9 |
+| no-model sweep | 138 arena + 72 e2e + 14 annot, 3 recorded divergences |
+
+(The brief's "annot 13/13" is stale; master is 14/14, verified by
+running the suite against the master binary.)
+
+### 3. Measurement — the honest number
+
+`perf stat -e instructions:u`, branch HEAD's binary vs the `eff16e68`
+binary, both cores, both streams; init-prelude is the **median of 3**,
+init-full a single run (P1's protocol).  Wall and peak RSS from
+`/usr/bin/time -v` on the same runs.  Taken under the machine lock
+(`_tmp/measure.lock.d`, stamped with pid and lane), after this lane's
+own neutrality battery had finished so it could not perturb the wall
+column; the run queued **behind `agent/degating-p2`** and the wait is
+in `_tmp/degating-p1/schedule.log`.
+
+**Baselines have moved since P1** — P1 measured at `a81cb95c` and
+reported 38.70 G / 33.15 G on init-prelude; master `eff16e68` is
+33.79 G / 28.22 G.  So the Δ% below are against today's master, which
+is what a landing decision needs.
+
+| stream | core | lane | instructions | wall (s) | peak RSS (MB) | exit |
+|---|---|---|---:|---:|---:|---|
+| init-prelude (median of 3) | `production` | branch | 33,693,750,497 | 3.10 | 114 | 0 |
+| init-prelude (median of 3) | `production` | master | 33,790,438,145 | 3.18 | 114 | 0 |
+| init-prelude (median of 3) | `cached-parsed` | branch | 28,141,194,430 | 2.45 | 108 | 0 |
+| init-prelude (median of 3) | `cached-parsed` | master | 28,215,265,139 | 2.44 | 108 | 0 |
+| init-full (single) | `production` | branch | 3,159,829,031,625 | 393.82 | 2116 | 0 |
+| init-full (single) | `production` | master | 3,163,923,109,911 | 396.66 | 2117 | 0 |
+| init-full (single) | `cached-parsed` | branch | 2,998,509,671,581 | 327.37 | 2191 | 0 |
+| init-full (single) | `cached-parsed` | master | 3,001,719,341,310 | 326.77 | 2190 | 0 |
+
+| stream | core | Δ instructions | **Δ%** | Δ wall % | Δ peak RSS % |
+|---|---|---:|---:|---:|---:|
+| init-prelude | `production` | 96,687,648 | **0.286 %** | +2.52 | +0.38 |
+| init-prelude | `cached-parsed` | 74,070,709 | **0.263 %** | -0.41 | +0.13 |
+| init-full | `production` | 4,094,078,286 | **0.129 %** | +0.72 | +0.02 |
+| init-full | `cached-parsed` | 3,209,669,729 | **0.107 %** | -0.18 | -0.06 |
+
+
+**Verdict identity on the heavy stream too**: both cores, both
+binaries, `setlec: accepted 61048 declarations`, byte-identical stdout
+*and* stderr, exit 0 — 16/16 runs exit 0.  (61 048 is P1's count.)
+
+#### CONFIRM / DEVIATE against the round's predicted prize
+
+The brief predicted **< 0.15 %** combined.  That is **confirmed on
+init-full** (0.129 % / 0.107 %) and **exceeded, roughly two-fold, on
+init-prelude** (0.286 % / 0.263 %).  The deviation is upward and it has
+a specific cause: **two of the six items removed work that P1's
+leave-one-out could not price.**
+
+* **Site 35 (item C1) had no LOO number at all.**  P1 recorded it as
+  "REJECT — the number is a truncated run, not a saving", because
+  masking `isUnitLikeTy` changes the verdict.  So its contribution was
+  outside the < 0.15 % estimate entirely.  C1 does not remove the
+  guard, it makes it cheap — and it is the checker's most-run test
+  after `proofIrrelI` itself: **135 842 calls on init-prelude,
+  12 453 724 on init-full**.
+* **Site 21 (item B2) was priced as "tick only".**  P1's instrument
+  masked the `piResidual` walk; the round also removed what *fed* the
+  walk in the interned cores — the entry type's materialisation
+  (`projFnIdxM` + `constTyAtM`, a level-instantiated intern with its
+  cache lookup) and the `projFnName` name build.
+
+The shape of the remaining gap is the expected one: init-full's profile
+is dominated by the application-argument certificate family (P1: 77 %
+of the run), which this round does not touch, so the same absolute
+savings are a smaller share there.
+
+Wall and peak RSS are reported for completeness and should not be read
+as a result: RSS is flat to ±0.4 %, and wall at a 2.4–3.2 s stream is
+inside its own noise (the two prelude cores disagree on sign).  The
+instruction counts are the measurement.
+
+### 4. Gates
+
+`lake build` warning-free (507 jobs); `lake test` exit 0;
+no `sorry` anywhere in a proof position (every `sorry` hit in the tree
+is the *name* `sorryAx` in the tolerated-axiom machinery or a test
+fixture); no `axiom` declaration added.  `#print axioms` on **30**
+theorems — the nine shipped consistency corollaries
+(`no_proof_of_Empty_{R,SP_R,input_SP_R,R2,SP_R2}`,
+`checkDecls{,SP}_sound_{R,R2}`) plus every theorem this round adapted —
+returns exactly `[propext, Classical.choice, Quot.sound]` or a subset
+(`natOpStored_inv`: `[propext]`; `isUnitLikeTy_inv`,
+`unitLike_eq_punit`, `natOpStored_of_guard`, `piResidual_of_computed`:
+`[propext, Quot.sound]`).  Audit file:
+`_tmp/degating-abc/AxAudit.lean`.
+
+### Reproduction
+
+Artifacts under `_tmp/degating-abc/` (gitignored):
+
+* `setlec-master` — the `eff16e68` binary the whole battery compares
+  against; `setlec-{c2,a,b1,c1,b3,b2}` — the per-item branch binaries;
+  `setlec-abc` — branch HEAD (byte-identical to `setlec-b2`).
+* `neutral.sh` — the byte-identity battery; `neutral-<item>.log` and
+  `neutral.<item>/` — its results (a `DIFF` line and the two outputs
+  are written per differing case; all six logs read
+  `908 comparisons, 0 differing`).
+* `perf.sh` + `run-measure.sh` (lock acquire with a `holder` stamp
+  carrying pid and lane, measure, release) + `chain.sh` (hold off until
+  this lane's own neutrality battery is done, so it cannot perturb the
+  wall numbers) + `report.py`; raw `perf.tsv`, per-run
+  `out.<stream>.<core>.<lane>.<rep>.{out,err}`.
+* `AxAudit.lean` — the `#print axioms` file (run with `LEAN_PATH` set to
+  the worktree's `.lake/build/lib/lean`).
+
+### Resume-here for the coordinator
+
+1. **Rounds A, B and C are done except P6, which should leave the
+   removal table.**  Every other listed candidate in those rounds is
+   now removed-and-measured.  The measured combined prize is in the
+   table above; the round's value was always hygiene and list
+   retirement, and that part is complete: two kernel definitions, one
+   whole derivation family and ~2 300 lines of proof went with them.
+2. **Two dispositions-record edits are owed** (both above): P9's
+   license was audited P-tier-only and the v1 tier had one more
+   consumer (replaced, not weakened); P6 is not a per-literal scan and
+   its specified replacement is a pessimization.
+3. **Round D is unblocked by nothing here** — it still needs the
+   domain-inhabitance datum (FINDING 7), and `BinderMeta` still has no
+   slot for it.  The user-facing proposal is the next step.
+4. **Round F's biggest item is now cheaper to probe.**  Item C1 cut
+   `isUnitLikeTy` to a head-name comparison, which is the first of the
+   two lookups on `proofIrrelI`'s hot path (12.45 M calls on
+   init-full).  The remaining cost there is the *Prop route* — four
+   `infer`s, two `whnf`s, two `Level.isEquiv`, failing 99.99 % of the
+   time (site 36).  The pre-filter FINDING 8 asks for is unchanged in
+   shape and is now the single largest un-costed site in the checker.

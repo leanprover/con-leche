@@ -280,7 +280,7 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
         Setlec.whnf_looseBVars m.base.wf fuel hred hbc,
         fun l hl => hLc l (Setlec.whnf_fvarLeaves m.base.wf fuel hred l hl)⟩
   rcases hcase with rfl | ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU,
-    hwcf, -, -⟩
+    hwcf, -⟩
   · exact ⟨.proj i v₃, by rw [denoteP_proj, hv₃]; exact if_pos hi2⟩
   · -- the table fires: the reduct is a head-normalised spine argument
     have hmem : e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)
@@ -309,8 +309,12 @@ theorem inferProjReadsP_of {m : EnvS2Core V env}
     (ihi : InferReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
     InferProjReadsP μ m φ fuel := by
   intro d i sn pe t ea h hws hb hLb hlr hea
+  -- task #161 item B2 (harvest site 21 / P10): the returned type is
+  -- the clause's own computed two-way residual, so the inversion hands
+  -- it over directly — `projResidualP`'s derivation from a
+  -- `piResidual` premise is retired with the walk.
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, -, hres⟩ := Setlec.inferTypeCore_proj_inv h
+    hlenUs, A, B, hAB, hcase⟩ := Setlec.inferTypeCore_proj_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
   have hLpe : Expr.LeavesBounded pe := fun l hl =>
@@ -329,10 +333,6 @@ theorem inferProjReadsP_of {m : EnvS2Core V env}
   obtain ⟨tea, htea⟩ := ihw hwte hwtpe hbtpe hLtpe htpea
   have hbte : te.looseBVarsBounded 0 = true :=
     Setlec.whnf_looseBVars m.base.wf fuel hwte hbtpe
-  -- the returned type, computed at the pinned entry
-  obtain ⟨A, B, hAB, hcase⟩ :=
-    projResidualP m.base.proj_ok hfe hnat hlenArgs hlenUs
-      (fun x hx => Setlec.looseBVarsBounded_getAppArgs hbte x hx) hres
   -- the reduced type's parameter spine reads
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
     (Setlec.Expr.mkAppN_getApp te).symm] at htea

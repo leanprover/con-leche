@@ -69,6 +69,13 @@ def EnvS.toEnvR {V : Type w} [SetTheory V] {env : Env}
     (m.rec_rules (fun _ => 0) n cv mI rP rules hf r hr hfire).1
   proj_ok := m.proj_ok
   thm_ok := m.thm_ok
+  -- task #161 item B3: the guard, read off `nat_ops`/`div_mod` (the
+  -- guard does not mention the level valuation, so any `φ` serves)
+  nat_op_guard := fun c hmem hst => by
+    obtain ⟨cv, v, hh, hf⟩ := natOpStored_inv hst
+    rcases hmem with hm | hm
+    · exact (m.nat_ops (fun _ => 0) c hm cv v hh hf).1
+    · exact (m.div_mod (fun _ => 0) c hm cv v hh hf).1
 
 /-! ## The shared front doors
 

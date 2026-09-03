@@ -351,7 +351,7 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     InferProjStepP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, -, hres⟩ := Setlec.inferTypeCore_proj_inv h
+    hlenUs, A, B, hAB, hcase⟩ := Setlec.inferTypeCore_proj_inv h
   -- the subject's frames
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
@@ -382,9 +382,6 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
   -- the entry's pins, and the returned type
   obtain ⟨rfl, -, -, -, -, -, hlU, -, hpsig, -⟩ :=
     projPinsP m.base.proj_ok hfe hnat
-  obtain ⟨A, B, hAB, hcase⟩ :=
-    projResidualP m.base.proj_ok hfe hnat hlenArgs hlenUs
-      (fun x hx => Setlec.looseBVarsBounded_getAppArgs hbte x hx) hres
   -- the reduced type's spine
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
     (Setlec.Expr.mkAppN_getApp te).symm, hfn] at htea
@@ -531,7 +528,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
         fun l hl => hLc l (Setlec.whnf_fvarLeaves m.base.wf fuel hred l hl),
         hCc.of_subset (Setlec.whnf_fvarLeaves m.base.wf fuel hred)⟩
   rcases hcase with rfl |
-    ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert, -⟩
+    ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert⟩
   · -- stuck: the projection of the reduced scrutinee
     obtain ⟨v₃', hv₃', -, rfl⟩ := denoteP_proj_inv hea'
     obtain rfl : v₃' = v₃ := Option.some.inj (hv₃'.symm.trans hv₃)
@@ -584,8 +581,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
       intro σ hσ; rw [← hveq]; exact hok₃ σ hσ
     obtain ⟨-, hoA⟩ := hoistP_spine [A0, A1, A2, A3] hok₃'
     -- the four typings, from the certificate's own infer run
-    obtain ⟨ta, sta, uT, te, ste, wT, -, -, -, -, hite, -, -, -⟩ :=
-      Setlec.projCert_inv hcert
+    obtain ⟨ta, te, -, hite⟩ := Setlec.projCert_inv hcert
     rw [he₃] at hite
     have hpack := psigmaMkSpineP ihd ihi hreads hfmk hite
       (hfr a0 (by simp)) (hfr a1 (by simp)) (hfr a2 (by simp))

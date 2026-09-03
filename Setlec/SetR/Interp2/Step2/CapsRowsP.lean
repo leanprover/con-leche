@@ -801,7 +801,7 @@ theorem pairEtaIrrelP_of_claims {m : EnvS2Core V env}
     hokA hokB ρ hρ
   obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
     mI, rP, rr, rfl, hfc, htb, hwtb, hfc', hfrec, hrctor, hrn, hmIrP,
-    hres, hlev, hdα, hdβ, hd₁, hd₂, -⟩ := Setlec.pairEtaCert_inv h
+    hres, hlev, hdα, hdβ, hd₁, hd₂⟩ := Setlec.pairEtaCert_inv h
   -- the pinned pair, identified
   obtain ⟨hcc, hctor⟩ :=
     Setlec.TTVerify.pairLike_eq_psigma m.base.basis_pinned hfrec hrn hmIrP hres

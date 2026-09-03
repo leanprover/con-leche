@@ -108,6 +108,22 @@ structure EnvR (env : Env) where
   thm_ok : ∀ cv value,
     ConstantInfo.thmInfo cv value ∈ env.consts → ∀ ψ : Name → Nat,
       denoteClosed cval env ψ value = some (cval cv.name ψ)
+  /-- **The install fold's `Nat`-op invariant, narrowed to what the
+  literal fast path reads** (task #161 de-gating item B3, harvest site
+  37 / list entry P7): a *stored* one of the sixteen accelerated
+  operations is a *guarded* one.
+
+  `reduceNat` used to re-derive `natOpGuard` at every literal hit — a
+  dozen `Env.find?`s and a dependency-list build; it now tests
+  `natOpStored`, one lookup.  This field is what turns that test back
+  into the guard the R9/R10 premises name, and it is not new evidence:
+  `EnvS.nat_ops`/`EnvS.div_mod` state exactly this under their
+  `defnInfo` hypothesis (they are what `checkDecl` establishes, by
+  declining a stream that stores one of these names unguarded), and
+  `EnvS.toEnvR` supplies the field from them.  V-free, like every other
+  field here. -/
+  nat_op_guard : ∀ c, (c ∈ natOpNames ∨ c ∈ natDivModNames) →
+    natOpStored env c = true → natOpGuard env c = true
 
 /-- `CtxOkR` only reads the leaf set, so it restricts along any subset
 of leaves.  (The `Δ.length` conjunct is carried, not re-derived.)

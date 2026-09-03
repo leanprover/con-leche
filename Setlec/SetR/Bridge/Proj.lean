@@ -25,8 +25,9 @@ what `certs_teleR` is for `iotaCerts` — and, like it, it needed no
 conversion: the rule was already shaped to take what the checker
 computes.
 
-Task #129's `projParamCert` arrives `mode.ttChecks`-gated and is
-discarded — the `-` in the `obtain` pattern, as in D10/D12.
+Task #129's `projParamCert` used to arrive `mode.ttChecks`-gated and
+be discarded; the check was deleted at task #161's de-gating round
+(item A, harvest site 20), so the inversion no longer produces it.
 -/
 
 namespace Setlec.SetR
@@ -151,15 +152,14 @@ theorem denote_entryTyR {env : Env} (m : EnvR env) (φ : Name → Nat)
     exact ⟨_, denote_pairSndTy_eq hpsig l0 l1, hc, hd⟩
 
 /-- **`InferProjStepR`, proved** (I9).  Head-match only — task #129's
-`projParamCert` arrives `mode.ttChecks`-gated and is discarded (the `-`
-in the `obtain`). -/
+`projParamCert` was TT-lane-only and is deleted (task #161, item A). -/
 theorem inferProj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihi : InferClaimsR mode m φ fuel) :
     InferProjStepR (mode := mode) m φ fuel := by
   intro d Δ sn i pe t h hws hb hLb hC
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, -, hres⟩ := inferTypeCore_proj_inv h
+    hlenUs, A₀, B₀, hargs₀, hcomp⟩ := inferTypeCore_proj_inv h
   obtain ⟨hpin, rfl, hidx, hpsig, hpsigMk⟩ := projEntry_pins m.proj_ok hfe hnat
   -- the subject's frames, and its type reduced to the family application
   simp only [Expr.WScoped] at hws
@@ -198,6 +198,17 @@ theorem inferProj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
           (frame_spineR hwr hbr hLr hCr x hx').2.1⟩
       · rcases List.mem_singleton.mp hx' with rfl
         exact ⟨hws, hb⟩
+    -- task #161 item B2 (harvest site 21 / P10): the clause returns
+    -- the *computed* residual; `piResidual_of_computed` turns it back
+    -- into the walk this tier's `Infer.proj` states, using the pin and
+    -- the two parameters' frames (which `hframes` already supplies).
+    have hres : Setlec.piResidual
+        (entry.ty.instantiateLevelParams entry.levelParams us)
+        (te.getAppArgs ++ [pe]) = some t := by
+      rw [hargs₀]
+      exact piResidual_of_computed m.proj_ok hfe hnat hlenUs
+        (hframes A₀ (by rw [hargs₀]; simp)).2
+        (hframes B₀ (by rw [hargs₀]; simp)).2 hcomp
     obtain ⟨RV, hRV, hpres⟩ :=
       denote_piResidualR hcl hres (hTPd d)
         (hspt.append (DenoteSpine.cons hvp DenoteSpine.nil))

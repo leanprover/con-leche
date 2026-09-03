@@ -42,6 +42,25 @@ open Setlec.TT Setlec.TTVerify
 
 variable {mode : CheckMode} {env : Env}
 
+/-! ## The reduction-time test, upgraded to the guard
+
+Task #161 de-gating item B3 (harvest site 37, list entry P7):
+`reduceNat` tests `natOpStored` — one `Env.find?` — where it used to
+re-derive `natOpGuard` per literal hit.  The guard is *carried by the
+install fold invariant*: `NatOpsV`/`DivModV` are `EnvR` fields whose
+statement is exactly "stored as a `defnInfo` → `natOpGuard` ∧ the
+recurrences", established by `checkDecl`, which declines a stream that
+stores one of the sixteen names without the guard.  So the bridge reads
+the guard off the environment rather than off the clause, and every
+rule premise below is unchanged. -/
+
+/-- The guard, from the reduction-time test and the environment's own
+`nat_ops`/`div_mod` law. -/
+theorem natOpGuard_of_storedR {env : Env} (m : EnvR env)
+    {c : Name} (hmem : c ∈ natOpNames ∨ c ∈ natDivModNames)
+    (h : natOpStored env c = true) : natOpGuard env c = true :=
+  m.nat_op_guard c hmem h
+
 /-! ## Denotation facts about literals and fold results -/
 
 /-- A `Nat` literal denotes to the rule's own `natLitV`.  On this lane
@@ -282,7 +301,8 @@ theorem reduceNat_unary_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
   · split at h
     · -- `Nat.pred` (R9)
       next hcond =>
-      obtain ⟨rfl, hguard⟩ := hcond
+      obtain ⟨rfl, hstored⟩ := hcond
+      have hguard := natOpGuard_of_storedR m (Or.inl (by decide)) hstored
       obtain ⟨hnat, -⟩ := natOpGuard_deps hguard
       cases hwa : whnf mode env fuel d a with
       | error err => rw [hwa] at h; exact nomatch h
@@ -308,7 +328,8 @@ theorem reduceNat_unary_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
     · split at h
       · -- the certified `Nat.log2` (R9)
         next hcond =>
-        obtain ⟨rfl, hguard⟩ := hcond
+        obtain ⟨rfl, hstored⟩ := hcond
+        have hguard := natOpGuard_of_storedR m (Or.inr (by decide)) hstored
         obtain ⟨hnat, -⟩ := natOpGuard_deps hguard
         cases hwa : whnf mode env fuel d a with
         | error err => rw [hwa] at h; exact nomatch h
@@ -372,7 +393,14 @@ theorem reduceNat_binary_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
   simp only [reduceNatP, reduceNat, Bind.bind, Except.bind, whnf_def] at h
   split at h
   · next hcond =>
-    obtain ⟨hnames, hguard⟩ := hcond
+    obtain ⟨hnames, hstored⟩ := hcond
+    have hmem : c ∈ natOpNames ∨ c ∈ natDivModNames := by
+      rcases hnames with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+        rfl | rfl | rfl | rfl | rfl | rfl <;>
+        first
+        | exact Or.inl (by decide)
+        | exact Or.inr (by decide)
+    have hguard := natOpGuard_of_storedR m hmem hstored
     obtain ⟨hnat, -⟩ := natOpGuard_deps hguard
     cases hwa : whnf mode env fuel d a with
     | error err => rw [hwa] at h; exact nomatch h

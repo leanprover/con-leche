@@ -83,7 +83,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
             let r ← internExprM (.lit (.natVal (n + 1)))
             pure (some r)
           | none => pure none
-        else if cn = natPredName ∧ natOpGuardF fe cn = true then do
+        else if cn = natPredName ∧ natOpStoredF fe cn = true then do
           let w ← r.whnf depth b
           match ← withStore (rawNatLitI? · w) with
           | some n =>
@@ -93,7 +93,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
               pure (some r)
             | none => pure none
           | none => pure none
-        else if cn = natLog2Name ∧ natOpGuardF fe cn = true then do
+        else if cn = natLog2Name ∧ natOpStoredF fe cn = true then do
           let w ← r.whnf depth b
           match ← withStore (rawNatLitI? · w) with
           | some n =>
@@ -122,7 +122,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
               cn = natDivName ∨ cn = natModName ∨ cn = natGcdName ∨
               cn = natLandName ∨ cn = natLorName ∨ cn = natXorName ∨
               cn = natShiftLeftName ∨ cn = natShiftRightName) ∧
-              natOpGuardF fe cn = true then do
+              natOpStoredF fe cn = true then do
             let w₁ ← r.whnf depth a
             let w₂ ← r.whnf depth b
             match ← withStore (rawNatLitI? · w₁),
@@ -239,21 +239,14 @@ def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
       | _ => pure false
     | _ => pure false
 
-/-- Twin of `projParamCert` (task #129).  The pinned projection type
-`pty` is the caller's — the same interned expression `piResidual`
-peels, and the same one `constTyAtM` caches for the η certificate
-below (task #130) — so this adds a telescope walk and no lookup. -/
-def projParamCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (pty : ExprC) (params : List ExprC) : CheckCM Bool :=
-  iotaCertsI r fe depth pty params
-
 /- Task #147: functions below that mention `mode` take the
 three-mode setting as their first explicit argument; only the seven
 TT-lane check sites branch on it (`CheckMode.ttChecks`). -/
 variable (mode : CheckMode)
 
 /-- Twin of `pairEtaCert`. -/
-def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
+def pairEtaCertI (_mode : CheckMode) (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (a b : ExprC) :
     CheckCM Bool := do
   match ← viewI a with
   | some (.app f₄ s₂) =>
@@ -292,22 +285,7 @@ def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
                                 if ← r.defeq depth s₁ p₀ then do
                                   let p₁ ← internI (.proj c' 1 b)
                                   if ← r.defeq depth s₂ p₁ then do
-                                    -- Task #130: certify the pair
-                                    -- type's parameters against the
-                                    -- projection entry's telescope
-                                    -- (twin of `pairEtaCert`'s call).
-                                    -- TT-lane check (task #147):
-                                    -- skipped unless `mode.ttChecks`.
-                                    if mode.ttChecks then
-                                      match fe.findProj? c'n 0 with
-                                      | some _ => do
-                                        let pf ← projFnIdxM c' 0
-                                        let pty ← constTyAtM fe pf
-                                          (projFnName c'n 0) us'
-                                        projParamCertI r fe depth pty
-                                          [A, B]
-                                      | none => pure false
-                                    else pure true
+                                    pure true
                                   else pure false
                                 else pure false
                               else pure false
@@ -705,37 +683,13 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
 
 /-- Twin of `projCert`. -/
 def projCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
-    (e₂ : ExprC) (i : Nat) (fieldLvl structLvl : Level) (nP : Nat) :
-    CheckCM Bool := do
+    (e₂ : ExprC) (i : Nat) (nP : Nat) : CheckCM Bool := do
   let bvar0 ← internI (.bvar 0)
   let args ← withStore (·.getAppArgsI e₂)
   let arg := args.getD (nP + i) bvar0
-  let ta ← r.infer depth arg
-  let tta ← r.infer depth ta
-  let wtta ← r.whnf depth tta
-  match ← viewI wtta with
-  | some (.sort uT) => do
-    let okT ← liftFueled "level comparison" (← isEquivLM uT fieldLvl)
-    let te ← r.infer depth e₂
-    let tte ← r.infer depth te
-    let wtte ← r.whnf depth tte
-    match ← viewI wtte with
-    | some (.sort wT) => do
-      let okW ← liftFueled "level comparison"
-        (← isEquivLM wT structLvl)
-      pure (okT && okW)
-    | _ => pure false
-  | _ => pure false
-
-/-- Twin of `projTeleCert` (task #126). -/
-def projTeleCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (cI : Name) (c : Name) (us : List Level) (args : List ExprC) :
-    CheckCM Bool := do
-  match fe.find? c with
-  | some (.ctorInfo _ _ _) => do
-    let tyCtor ← constTyAtM fe cI c us
-    iotaCertsI r fe depth tyCtor args
-  | _ => pure false
+  let _ta ← r.infer depth arg
+  let _te ← r.infer depth e₂
+  pure true
 
 mutual
 
@@ -842,24 +796,16 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           if entry.native ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then do
-            let mx ← substLevelTreeM entry.levelParams us
-              entry.structSort
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
             -- task #100 de-gating: the certificate runs
             -- unconditionally (the former nonzero-sort gate is
-            -- unsound-to-model under the domain-relative collapse)
-            let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
-            if ← projCertI r fe depth e' i fl
-                mx entry.numParams then
-              -- task #126: the constructor-telescope certification.
-              -- TT-lane check (task #147): skipped unless
-              -- `mode.ttChecks`.
-              if ← (if mode.ttChecks then
-                  projTeleCertI r fe depth c entry.ctor us args
-                else pure true) then
-                k arg
-              else internI (.proj sn i e')
+            -- unsound-to-model under the domain-relative collapse).
+            -- Task #161 item B1: the two sort legs, their two
+            -- `Level` arguments and the two `substLevelTreeM` calls
+            -- that fed them are gone (see `projCert`).
+            if ← projCertI r fe depth e' i entry.numParams then
+              k arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
@@ -1179,19 +1125,18 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
           let targs ← withStore (·.getAppArgsI te)
           if entry.native ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            let pf ← projFnIdxM T i
-            let pty ← constTyAtM fe pf (projFnName Tn i) us
-            -- Task #129: certify the type former's parameters against
-            -- the entry's own telescope (twin of `projParamCert`).
-            -- TT-lane check (task #147): skipped unless
-            -- `mode.ttChecks`.
-            unless ← (if mode.ttChecks then
-                projParamCertI r fe depth pty targs
-              else pure true) do
-              throw (.invalid "projection parameter type mismatch")
-            match ← piResidualM pty (targs ++ [pe]) with
-            | some resTy => pure resTy
-            | none => throw (.internal "malformed projection entry")
+            -- Task #161 item B2 (harvest site 21 / P10): the
+            -- residual is computed, not walked — see the spec body.
+            -- With the walk gone, so are the entry type's
+            -- materialisation (`projFnIdxM` + `constTyAtM`, a
+            -- level-instantiated intern) and the `projFnName` name
+            -- build that fed it.
+            match targs, i with
+            | [A, _], 0 => pure A
+            | [_, B], 1 => do
+              let p₀ ← internI (.proj T 0 pe)
+              internI (.app B p₀)
+            | _, _ => throw (.internal "malformed projection entry")
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
@@ -1677,17 +1622,13 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
           else pure mb.pw
         internI (.lam n ty' bAbs ⟨mb.bi, pw⟩)
     | some (.letE _ ty v b) => do
-      -- official `infer_let` check order (see the spec body): the
-      -- annotation is a type, the value's inferred type matches it,
-      -- then the body with the value transparent (zeta at annotate;
-      -- `inst1M` keeps the substitution sharing-preserving)
-      let ty' ← r.annotate depth ty
-      let tty ← r.infer depth ty'
-      let _ ← ensureSortI r depth tty
-      let v' ← r.annotate depth v
-      let tv ← r.infer depth v'
-      unless ← r.defeq depth tv ty' do
-        throw (.invalid "let value type mismatch")
+      -- the body with the value transparent (zeta at annotate;
+      -- `inst1M` keeps the substitution sharing-preserving).  Task #161
+      -- item C2 (harvest site 6): the redundant `infer_let` triple was
+      -- deleted here — `inferBodyC`'s own `.letE` clause runs it (see
+      -- the spec body).
+      let _ ← r.annotate depth ty
+      let _ ← r.annotate depth v
       let ob ← inst1M b v
       r.annotate depth ob
     | some (.proj sn i pe) => do

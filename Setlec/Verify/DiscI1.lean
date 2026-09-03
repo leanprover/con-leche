@@ -993,7 +993,7 @@ theorem reduceNatI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
                 let r ← internExprM (.lit (.natVal (n + 1)))
                 pure (some r)
               | none => pure none
-            else if cn = natPredName ∧ natOpGuardF (mkFEnv env) cn = true then
+            else if cn = natPredName ∧ natOpStoredF (mkFEnv env) cn = true then
               (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w =>
               Setlec.withStore (rawNatLitI? · w) >>= fun rn =>
               match rn with
@@ -1004,7 +1004,7 @@ theorem reduceNatI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
                   pure (some r)
                 | none => pure none
               | none => pure none
-            else if cn = natLog2Name ∧ natOpGuardF (mkFEnv env) cn = true then
+            else if cn = natLog2Name ∧ natOpStoredF (mkFEnv env) cn = true then
               (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w =>
               Setlec.withStore (rawNatLitI? · w) >>= fun rn =>
               match rn with
@@ -1036,7 +1036,7 @@ theorem reduceNatI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
                   cn = natDivName ∨ cn = natModName ∨ cn = natGcdName ∨
                   cn = natLandName ∨ cn = natLorName ∨ cn = natXorName ∨
                   cn = natShiftLeftName ∨ cn = natShiftRightName) ∧
-                  natOpGuardF (mkFEnv env) cn = true then
+                  natOpStoredF (mkFEnv env) cn = true then
                 (coreKnotI mode (mkFEnv env) f).whnf d a >>= fun w₁ =>
                 (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w₂ =>
                 Setlec.withStore (rawNatLitI? · w₁) >>= fun rn₁ =>
@@ -1105,12 +1105,12 @@ theorem reduceNatI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
             match rawNatLit? w with
             | some n => pure (some (.lit (.natVal (n + 1))))
             | none => pure none
-          else if c = natPredName ∧ natOpGuard env c = true then
+          else if c = natPredName ∧ natOpStored env c = true then
             (fueledFns mode env).whnf d xb >>= fun w =>
             match rawNatLit? w with
             | some n => pure (natOpResult c n 0)
             | none => pure none
-          else if c = natLog2Name ∧ natOpGuard env c = true then
+          else if c = natLog2Name ∧ natOpStored env c = true then
             (fueledFns mode env).whnf d xb >>= fun w =>
             match rawNatLit? w with
             | some n => pure (natOpResult c n 0)
@@ -1122,7 +1122,7 @@ theorem reduceNatI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
                 s!"native Nat computation on literals ({c})")
             | none => pure none
           else pure none) from rfl]
-        rw [natLitSupportedF_eq, natOpGuardF_eq]
+        rw [natLitSupportedF_eq, natOpStoredF_eq]
         by_cases hg1 : c = natSuccName ∧ natLitSupported env
         · rw [if_pos hg1, if_pos hg1]
           refine SimAt.bind (ih.whnf hs hb hwfb.2)
@@ -1137,7 +1137,7 @@ theorem reduceNatI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
             exact SimAt.pure hs₂ (relO_some_lit hQ)
           | none => exact SimAt.pure hs₁ trivial
         · rw [if_neg hg1, if_neg hg1]
-          by_cases hg2 : c = natPredName ∧ natOpGuard env c = true
+          by_cases hg2 : c = natPredName ∧ natOpStored env c = true
           · rw [if_pos hg2, if_pos hg2]
             refine SimAt.bind (ih.whnf hs hb hwfb.2)
               (fun s₁ w wx hs₁ hext₁ hP => ?_)
@@ -1158,7 +1158,7 @@ theorem reduceNatI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
               | none => exact SimAt.pure hs₁ trivial
             | none => exact SimAt.pure hs₁ trivial
           · rw [if_neg hg2, if_neg hg2]
-            by_cases hg3 : c = natLog2Name ∧ natOpGuard env c = true
+            by_cases hg3 : c = natLog2Name ∧ natOpStored env c = true
             · rw [if_pos hg3, if_pos hg3]
               refine SimAt.bind (ih.whnf hs hb hwfb.2)
                 (fun s₁ w wx hs₁ hext₁ hP => ?_)
@@ -1230,7 +1230,7 @@ theorem reduceNatI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
                 c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
                 c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
                 c = natShiftLeftName ∨ c = natShiftRightName) ∧
-                natOpGuard env c = true then
+                natOpStored env c = true then
               (fueledFns mode env).whnf d xa >>= fun w₁ =>
               (fueledFns mode env).whnf d xb >>= fun w₂ =>
               match rawNatLit? w₁, rawNatLit? w₂ with
@@ -1244,13 +1244,13 @@ theorem reduceNatI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
                   s!"native Nat computation on literals ({c})")
               | _, _ => pure none
             else pure none) from rfl]
-          rw [natOpGuardF_eq, natLitSupportedF_eq]
+          rw [natOpStoredF_eq, natLitSupportedF_eq]
           by_cases hg1 : (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
               c = natPowName ∨ c = natBeqName ∨ c = natBleName ∨
               c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
               c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
               c = natShiftLeftName ∨ c = natShiftRightName) ∧
-              natOpGuard env c = true
+              natOpStored env c = true
           · rw [if_pos hg1, if_pos hg1]
             refine SimAt.bind (ih.whnf hs ha hwf₂a.2)
               (fun s₁ w₁ wx₁ hs₁ hext₁ hP₁ => ?_)

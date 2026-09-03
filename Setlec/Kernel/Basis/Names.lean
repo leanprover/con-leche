@@ -28,6 +28,11 @@ def eqReflName : Name := eqName |>.str "refl"
 /-- The name of the basis unit type. -/
 def punitName : Name := anonymous |>.str "PUnit"
 
+/-- The name of the basis unit type's recursor.  A top-level constant
+so the unit-like head test (`isUnitLikeTy`, task #161 item C1) does not
+rebuild it on every proof-irrelevance attempt. -/
+def punitRecName : Name := punitName |>.str "rec"
+
 /-- The name `Nat`. -/
 def natName : Name := anonymous |>.str "Nat"
 

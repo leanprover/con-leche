@@ -297,37 +297,19 @@ theorem natLitSupported_succ_not_rec
   rw [hf] at hs
   simp [Setlec.natSuccOk] at hs
 
-/-- An op stored as a recursor refutes its own guard (the op is its
-own dependency). -/
-theorem natOpGuard_not_rec {c : Name}
-    (hc : c = Setlec.natPredName ∨ c = Setlec.natAddName ∨
-      c = Setlec.natSubName ∨ c = Setlec.natMulName ∨
-      c = Setlec.natPowName ∨ c = Setlec.natBeqName ∨
-      c = Setlec.natBleName ∨ c = Setlec.natDivName ∨
-      c = Setlec.natModName ∨ c = Setlec.natGcdName ∨
-      c = Setlec.natLandName ∨ c = Setlec.natLorName ∨
-      c = Setlec.natXorName ∨ c = Setlec.natShiftLeftName ∨
-      c = Setlec.natShiftRightName ∨ c = Setlec.natLog2Name)
-    (hg : Setlec.natOpGuard env c = true)
+/-- An op stored as a recursor refutes the reduction-time test.  Task
+#161 item B3: the test is now the single `defnInfo` lookup, so the
+refutation is immediate — it no longer needs the sixteen-name case
+split that pinned `c ∈ natOpDeps c`. -/
+theorem natOpStored_not_rec {c : Name}
+    (hg : Setlec.natOpStored env c = true)
     {cv : Setlec.ConstantVal} {mI rP : Nat}
     {rules : List Setlec.RecRule}
     (hf : env.find? c = some (.recInfo cv mI rP rules)) :
     False := by
-  have hmem : c ∈ Setlec.natOpDeps c := by
-    rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
-      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-      decide
-  have hg' : (Setlec.natOpDeps c).all (fun n =>
-      match env.find? n with
-      | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
-      | _ => false) = true := by
-    unfold Setlec.natOpGuard at hg
-    simp only [Bool.and_eq_true] at hg
-    exact hg.1.2
-  rw [List.all_eq_true] at hg'
-  have hthis := hg' c hmem
-  rw [hf] at hthis
-  exact nomatch hthis
+  unfold Setlec.natOpStored at hg
+  rw [hf] at hg
+  exact nomatch hg
 
 /-- Scrutinee congruence for the proj clause at one fuel: the
 clause's tail is a function of the scrutinee's whnf. -/
@@ -564,10 +546,10 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
       (show (Expr.app (.const c []) x).getAppFn
         = Expr.const c [] from rfl)
       (fun cv mI rP rules hr => absurd hr (fun hr =>
-        natOpGuard_not_rec hc16 hg hr)) hrun
+        natOpStored_not_rec hg hr)) hrun
     subst hW
     exact Or.inr (Or.inr (Or.inr (Or.inl ⟨_, c, n, 0, rfl,
-      fun cv mI rP rules hr => natOpGuard_not_rec hc16 hg hr,
+      fun cv mI rP rules hr => natOpStored_not_rec hg hr,
       Or.inl hres, rest⟩)))
   | natB c x y n₁ n₂ hc hg hx hy hnx hny hres rest ihx ihy ihr =>
     intro hrun
@@ -599,10 +581,10 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
       (show (Expr.app (.app (.const c []) x) y).getAppFn
         = Expr.const c [] from rfl)
       (fun cv mI rP rules hr => absurd hr (fun hr =>
-        natOpGuard_not_rec hc16 hg hr)) hrun
+        natOpStored_not_rec hg hr)) hrun
     subst hW
     exact Or.inr (Or.inr (Or.inr (Or.inl ⟨_, c, n₁, n₂, rfl,
-      fun cv mI rP rules hr => natOpGuard_not_rec hc16 hg hr,
+      fun cv mI rP rules hr => natOpStored_not_rec hg hr,
       Or.inl hres, rest⟩)))
   | appL x h rest ihh ihr =>
     intro hrun
@@ -734,7 +716,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
             simp [Setlec.Expr.getAppArgs] at h2
       rw [he₃] at hbranch
       rcases hbranch with rfl |
-        ⟨us₂, entry₂, hfn₂, hf₂, hnat₂, -, -, -, -, -, -⟩
+        ⟨us₂, entry₂, hfn₂, hf₂, hnat₂, -, -, -, -, -⟩
       · exact Or.inr (Or.inl (Or.inr (Or.inl ⟨sn, i, e₂w, rfl⟩)))
       · exfalso
         rcases hdead with ⟨n, ty, b, m, h1, h2⟩ |
@@ -763,7 +745,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
           · exact nomatch hlit
         rw [he₃] at hbranch
         rcases hbranch with rfl |
-          ⟨us₂, entry₂, hfn₂, -, -, -, -, -, -, -, -⟩
+          ⟨us₂, entry₂, hfn₂, -, -, -, -, -, -, -⟩
         · exact Or.inr (Or.inl (Or.inr (Or.inl ⟨sn, i, _, rfl⟩)))
         · simp [Setlec.Expr.getAppFn] at hfn₂
       · subst hWeq
@@ -1157,7 +1139,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
           simp [Setlec.Expr.getAppFn] at hfn
       rw [he₃] at hbranch
       rcases hbranch with rfl |
-        ⟨us₂, entry₂, hfn₂, hf₂, -, -, -, -, hred₂, -, -⟩
+        ⟨us₂, entry₂, hfn₂, hf₂, -, -, -, -, hred₂, -⟩
       · exact Or.inr (Or.inl (Or.inr (Or.inl ⟨sn, i, _, rfl⟩)))
       · obtain rfl : entry₂ = entry := by
           rw [hf] at hf₂
@@ -1232,45 +1214,10 @@ theorem loopAlign_step {env : Env}
           exact natLitSupported_succ_not_rec hsg h2
         · obtain ⟨hx1, hx2⟩ := h1
           subst hx1
-          refine natOpGuard_not_rec ?_ hgn h2
-          rcases hcn with rfl | rfl
-          · exact Or.inl rfl
-          · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inr (Or.inr (Or.inr rfl))))))))))))))
+          exact natOpStored_not_rec hgn h2
         · obtain ⟨hx1, hx2⟩ := h1
           subst hx1
-          refine natOpGuard_not_rec ?_ hgn h2
-          rcases hcn with rfl | rfl | rfl | rfl | rfl | rfl | rfl |
-            rfl | rfl | rfl | rfl | rfl | rfl | rfl
-          · exact Or.inr (Or.inl rfl)
-          · exact Or.inr (Or.inr (Or.inl rfl))
-          · exact Or.inr (Or.inr (Or.inr (Or.inl rfl)))
-          · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl rfl))))
-          · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inl rfl)))))
-          · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inl rfl))))))
-          · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inr (Or.inl rfl)))))))
-          · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inr (Or.inr (Or.inl rfl))))))))
-          · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inr (Or.inr (Or.inr (Or.inl rfl)))))))))
-          · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl rfl))))))))))
-          · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inl rfl)))))))))))
-          · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inl rfl))))))))))))
-          · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inr (Or.inl rfl)))))))))))))
-          · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-              (Or.inr (Or.inr (Or.inl rfl))))))))))))))
+          exact natOpStored_not_rec hgn h2
       · exfalso
         obtain ⟨c, us, hfnu, hkind⟩ := unfoldDefinition_inv hud
         rcases hdead with ⟨n', ty', b', m', h1, h2⟩ |

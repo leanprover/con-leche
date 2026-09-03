@@ -8,8 +8,8 @@ D10 `structEta` / D11 `structUnit` consume the fired capability laws
 (`EnvSHyp.caps_ok` — the `structEta_sound`/`structUnit_sound`
 re-hangs); D12 `pairEta` is the pinned-pair rigidity elimination
 (`mem_psigmaV_app` + `mem_sigma_elim` + `psigmaMkV_app`/`psigmaMkV_zero`
-— the `pairEta_sound` re-hang, with the tt-only `projParamCert`'s role
-played by off-domain emptiness); R12–R14 (the `majorToCtor` rescues)
+— the `pairEta_sound` re-hang, with the (now deleted) tt-only
+`projParamCert`'s role played by off-domain emptiness); R12–R14 (the `majorToCtor` rescues)
 take their equalities from their `DefEq` certificate premises and
 rebuild the fabrication's truthfulness through `TeleFitV.appN_annot`
 (the `majorToCtor_claims` re-hang, split by branch).

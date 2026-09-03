@@ -193,7 +193,8 @@ theorem reduceNatSemP_unary (mp : EnvS2PM V μ env) {fuel : Nat}
   · split at h
     · -- `Nat.pred`
       next hcond =>
-      obtain ⟨rfl, hguard⟩ := hcond
+      obtain ⟨rfl, hstored⟩ := hcond
+      have hguard := natOpGuardLawP_of mp _ (Or.inl (by decide)) hstored
       obtain ⟨hnat, hdeps, -⟩ := Setlec.natOpGuard_inv hguard
       obtain ⟨cvp, vp, hp, hfp, hlpp⟩ :=
         hdeps Setlec.natPredName (by decide)
@@ -231,7 +232,8 @@ theorem reduceNatSemP_unary (mp : EnvS2PM V μ env) {fuel : Nat}
     · split at h
       · -- the certified `Nat.log2`
         next hcond =>
-        obtain ⟨rfl, hguard⟩ := hcond
+        obtain ⟨rfl, hstored⟩ := hcond
+        have hguard := natOpGuardLawP_of mp _ (Or.inr (by decide)) hstored
         obtain ⟨hnat, hdeps, -⟩ := Setlec.natOpGuard_inv hguard
         obtain ⟨cvl, vl, hl, hfl, hlpl⟩ :=
           hdeps Setlec.natLog2Name (by decide)
@@ -318,7 +320,14 @@ theorem reduceNatSemP_binary (mp : EnvS2PM V μ env) {fuel : Nat}
     Setlec.whnf_def] at h
   split at h
   · next hcond =>
-    obtain ⟨h14, hguard⟩ := hcond
+    obtain ⟨h14, hstored⟩ := hcond
+    have hmemN : c ∈ Setlec.natOpNames ∨ c ∈ Setlec.natDivModNames := by
+      rcases h14 with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+        rfl | rfl | rfl | rfl | rfl | rfl <;>
+        first
+        | exact Or.inl (by decide)
+        | exact Or.inr (by decide)
+    have hguard := natOpGuardLawP_of mp _ hmemN hstored
     obtain ⟨hnat, hdeps, hbool⟩ := Setlec.natOpGuard_inv hguard
     have hself : c ∈ Setlec.natOpDeps c := by
       rcases h14 with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|
@@ -529,7 +538,7 @@ theorem reduceNatStepP_of (mp : EnvS2PM V μ env) {fuel : Nat}
     (ihw : WhnfClaims2P μ mp.base2 φ fuel) :
     ReduceNatStepP μ mp.base2 φ fuel := by
   intro d e e₂ Δa h hws hb hLb ea hC hea hok
-  have hleaf := reduceNat_natLeafP h
+  have hleaf := reduceNat_natLeafP (natOpGuardLawP_of mp) h
   obtain ⟨ea₂, hea₂⟩ :=
     denoteP_of_natLeafP (acval := mp.base2.acval) hleaf d
   obtain ⟨hws₂, hb₂, hLb₂⟩ := frame_of_natLeafP (d := d) hleaf

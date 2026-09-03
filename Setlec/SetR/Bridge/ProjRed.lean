@@ -324,7 +324,7 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     obtain ⟨v₃, hv₃, hR₃, hw₃, hb₃, hL₃, hC₃⟩ :=
       proj_scrutineeR m φ hcl ihw hwpe hlit hws hb hLpe hCpe hvp
     rcases hcase with rfl |
-      ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert, -⟩
+      ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert⟩
     · -- stuck: the reduced scrutinee under the projection — `Red.projArg`
       refine ⟨.proj i v₃, ?_, Red.projArg hR₃⟩
       rw [denote_proj, hv₃]
@@ -352,8 +352,7 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
           (Option.some.inj hvc).symm
         obtain ⟨TC, hTC0, hTCc, hTCd⟩ := denote_ctorTyR m φ hcl hpsig l0 l1
         -- the certificate pack
-        obtain ⟨ta, sta, uT, te, ste, wT, hita, hista, hwsta, hequ, hite,
-          histe, hwste, heqw⟩ := projCert_inv hcert
+        obtain ⟨ta, te, hita, hite⟩ := projCert_inv hcert
         -- frames for the spine and for the projected field
         have hfrE : ∀ x ∈ e₃.getAppArgs, Expr.WScoped d x ∧
             x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
@@ -403,10 +402,6 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         obtain ⟨fv, vta, hfv, hvta, T₁, hI₁, hD₁⟩ := ihi hita hwF hbF hLF hCF
         obtain rfl : fv = vs.getD (entry.numParams + i) default := by
           rw [hfv] at hfvd; exact Option.some.inj hfvd
-        obtain ⟨htaw, htab, htaL, htaC⟩ := frame_inferR m.wf hita hwF hbF hLF hCF
-        obtain ⟨T₂, hI₂, hD₂⟩ :=
-          inferSortR m φ ihw ihi hista hwsta htaw htab htaL htaC hvta
-        rw [Level.isEquiv_sound hequ φ] at hD₂
         -- the subject's chain
         have hE₃ : Expr.mkAppN (Expr.const entry.ctor [l0, l1])
             e₃.getAppArgs = e₃ := by rw [← hfn]; exact Expr.mkAppN_getApp e₃
@@ -416,16 +411,12 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
             (Level.substFn φ psigmaMkA.toConstantVal.levelParams [l0, l1])) vs := by
           rw [hvP] at hv₃
           exact Option.some.inj hv₃
-        obtain ⟨htew, hteb, hteL, hteC⟩ := frame_inferR m.wf hite hw₃ hb₃ hL₃ hC₃
-        obtain ⟨S₂, hJ₂, hE₂⟩ :=
-          inferSortR m φ ihw ihi histe hwste htew hteb hteL hteC hvte
-        rw [Level.isEquiv_sound heqw φ] at hE₂
         -- the field's own head normalization
         obtain ⟨w, hw, hRw⟩ := ihwc hwcf hwF hbF hLF hCF hfvd
         refine ⟨w, hw, Red.trans ?_ hRw⟩
         refine Red.projRed hfe hnat hilt (by rw [hspa.length, hlenA]) hlenU
           hfctor (by rw [← hlenC]) rfl ?_ hTC0 hTCc hR₃ htele
-          hI₁ hD₁ hI₂ hD₂ hJ₁ hE₁ hJ₂ hE₂
+          hI₁ hD₁ hJ₁ hE₁
         simp only [List.getD, List.getElem?_eq_getElem hidx']
         rfl
       · exact nomatch hvc

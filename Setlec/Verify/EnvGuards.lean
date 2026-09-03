@@ -503,4 +503,37 @@ theorem natOp_stored {env : Env} {c : Name} (hg : natOpGuard env c = true)
   obtain ⟨cv, v, hh, hf, -⟩ := hdeps c hc
   exact ⟨cv, v, hh, hf⟩
 
+/-! ### The reduction-time test (task #161 item B3)
+
+`reduceNat` tests `natOpStored` — one `Env.find?` — where it used to
+re-derive `natOpGuard`.  Both directions of the agreement are recorded
+here: the *cheap-to-full* direction is the environment invariant's
+(`NatOpsV`/`DivModV` and their `P` mirrors take the `defnInfo` lookup
+as their hypothesis and hand back the guard), and the *full-to-cheap*
+direction is `natOpGuard_stored` below, by computation. -/
+
+/-- Inversion of the reduction-time test: the operation is stored as a
+definition.  This is exactly the hypothesis `NatOpsV`/`DivModV` (and
+`NatOpsP`/`DivModP`) take before handing back `natOpGuard`. -/
+theorem natOpStored_inv {env : Env} {c : Name}
+    (h : natOpStored env c = true) :
+    ∃ cv v hh, env.find? c = some (.defnInfo cv v hh) := by
+  unfold natOpStored at h
+  cases hx : env.find? c with
+  | none => rw [hx] at h; exact nomatch h
+  | some ci =>
+    rw [hx] at h
+    cases ci with
+    | defnInfo cv v hh => exact ⟨cv, v, hh, rfl⟩
+    | _ => exact nomatch h
+
+/-- The guard implies the reduction-time test (`c ∈ natOpDeps c` for
+every one of the sixteen guarded names). -/
+theorem natOpStored_of_guard {env : Env} {c : Name}
+    (hg : natOpGuard env c = true) (hc : c ∈ natOpDeps c) :
+    natOpStored env c = true := by
+  obtain ⟨cv, v, hh, hf⟩ := natOp_stored hg hc
+  unfold natOpStored
+  rw [hf]
+
 end Setlec

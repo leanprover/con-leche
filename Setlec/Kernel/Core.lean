@@ -145,19 +145,39 @@ def piResultNeverZero (lps : List Name) (us : List Level) (e : Expr) :
 stored inductive whose recursor (under the `<ind>.rec` naming
 convention) has no indices and a single zero-field rule?  All of its
 inhabitants are then equal (in the model: the proof point; the
-environment invariant supplies the fact for the stored constant). -/
+environment invariant supplies the fact for the stored constant).
+
+Task #161 de-gating round A+B+C, item C1 (harvest site 35, list entry
+P8).  The test used to be a *scan*: two `Env.find?`s on the head's own
+name, a `Name.str "rec"` allocation, and a 20-element
+`reservedBasisNames.contains` walk — run on **every** proof-irrelevance
+attempt (12 453 724 of them on init-full).  It is the same Bool as a
+head-name test against the single pin that can pass it:
+`unitLike_eq_punit` (`Setlec/Verify/PinnedShapes.lean`) proves that
+under `BasisPinnedTT` — the reserved-name pinning the install path
+enforces — **only `PUnit` passes**, every other reserved recursor being
+refuted by one of the three conditions.  So the head-name comparison is
+put first and the rest is the *same* two lookups specialised to
+`punitName`: `false` short-circuits after one `Name` comparison at
+every non-`PUnit` head, which is essentially all of them, and the
+`.str "rec"` allocation and the reserved-list walk are gone.
+
+This is a computation downgrade, not a removal: at `c = punitName` the
+two stored-shape checks still run, so an environment that has not
+installed `PUnit` (or has installed it at the wrong shape) still fails
+the test.  Only the *other* reserved heads are decided by the pin
+rather than by a lookup — which is what `unitLike_eq_punit` licenses.
+-/
 def isUnitLikeTy (env : Env) : Expr → Bool
   | .const c _ =>
-    (match env.find? c with
+    c == punitName &&
+    (match env.find? punitName with
       | some (.indInfo _ _) => true
       | _ => false) &&
-    (match env.find? (c.str "rec") with
+    (match env.find? punitRecName with
       -- no indices: the major's position equals the rule prefix
       | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
-      | _ => false) &&
-    -- native unit semantics: pinned basis blocks only (env-stored
-    -- capability flags will replace this)
-    reservedBasisNames.contains (c.str "rec")
+      | _ => false)
   | _ => false
 
 /-- Unfold the (application of a) definition or theorem at the head,
@@ -676,6 +696,31 @@ def natOpStoredOk (env : Env) (n : Name) : Bool :=
     cv.levelParams.isEmpty && natOpTyPinned env n cv.type
   | _ => false
 
+/-- **The reduction-time test for a certified `Nat` operation** (task
+#161 de-gating round A+B+C, item B3; harvest site 37, list entry P7):
+is `c` stored as a definition at all?
+
+`reduceNat` used to re-derive the whole `natOpGuard` at every literal
+hit — `natLitSupported` (three `Env.find?`s), a `natOpDeps c` list
+build plus a lookup per dependency (up to seven), and two more lookups
+for the `Bool` constructors.  That conclusion is *carried by the
+install fold invariant*, in both verification tiers and for every one
+of the sixteen guarded names: `NatOpsP`/`NatOpsV` (the seven structural
+ops, `natOpNames`) and `DivModP`/`DivModV` (the nine WF-pinned ops,
+`natDivModNames`) both read
+
+  `env.find? c = some (.defnInfo cv v hint) → natOpGuard env c = true ∧ …`
+
+and `checkDecl` is what establishes them: it *declines* a stream that
+stores one of these names without `natOpGuard env₂ c` (Checker.lean's
+`.defnDecl` clause).  The converse is by computation — `c ∈ natOpDeps
+c` for all sixteen — so on every environment the checker builds the two
+tests agree, and the cheap one is a single `find?`. -/
+def natOpStored (env : Env) (c : Name) : Bool :=
+  match env.find? c with
+  | some (.defnInfo _ _ _) => true
+  | _ => false
+
 /-- Literal acceleration (the official kernel's `reduceNat`, run in the
 `whnf` loop *before* delta-unfolding): pack `Nat.succ` applied to a
 literal back into a literal.  Binary operations on literal arguments
@@ -693,11 +738,11 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (some (.lit (.natVal (n + 1))))
       | none => pure none
-    else if c = natPredName ∧ natOpGuard env c = true then
+    else if c = natPredName ∧ natOpStored env c = true then
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (natOpResult c n 0)
       | none => pure none
-    else if c = natLog2Name ∧ natOpGuard env c = true then
+    else if c = natLog2Name ∧ natOpStored env c = true then
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (natOpResult c n 0)
       | none => pure none
@@ -715,7 +760,7 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
         c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
         c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
         c = natShiftLeftName ∨ c = natShiftRightName) ∧
-        natOpGuard env c = true then
+        natOpStored env c = true then
       match rawNatLit? (← r.whnf depth a),
           rawNatLit? (← r.whnf depth b) with
       | some n₁, some n₂ => pure (natOpResult c n₁ n₂)
@@ -792,36 +837,6 @@ def proofIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
       | _ => pure false
     | _ => pure false
 
-/-- Certify a projection entry's *parameters* against its own pinned
-telescope (task #129): each parameter's inferred type is defeq to the
-telescope domain the projection rules name for it.
-
-The projection typing rules carry three premises: `⊢ A : Sort u`,
-`⊢ B : A → Sort v` and `⊢ p : PSigma' u v A B`.  The `.proj` clause of
-`inferBody` establishes the third (it whnfs the subject's inferred type
-and matches the head against the table) and, before this call, none of
-the first two — it *certified less than its rule needs*.  Nothing here
-says the inference is wrong; the checker simply did not write down
-enough for a typing derivation to be rebuilt from it (see
-`Setlec/TTVerify/DESIGN.md` §10.3).
-
-The two missing premises are exactly the first `numParams` telescope
-domains of the entry's stored type `entry.ty` — for the pinned pair,
-`∀ (α : Sort u) (β : α → Sort v), PSigma' α β → …` — so the same
-`iotaCerts` call `projTeleCert` makes for the constructor's telescope
-supplies both, at the domains the rule names rather than at some
-inferred sort.
-
-`pairEtaCert` below runs the same call (task #130): its rule
-`psigmaEta` names the *same* two premises about the *same* pair type,
-and the pair type is precisely this entry, so the two certificates of
-the pinned pair consume the same evidence. -/
-def projParamCert (r : CoreFns m) (env : Env) (depth : Nat)
-    (entry : ProjEntry) (us : List Level) (params : List Expr) :
-    m Bool :=
-  iotaCerts r env depth
-    (entry.ty.instantiateLevelParams entry.levelParams us) params
-
 /-- Pair eta certification: `a` is a fully applied structure
 constructor (a stored constructor that is the single rule of an
 index-free recursor, under the `<ind>.rec` naming convention), `b`
@@ -831,13 +846,18 @@ are then the pair of `b`'s components (or the proof point at the Prop
 collapse); the environment invariant supplies the facts for the stored
 constants.
 
-Task #130 adds the last check: the pair type's two arguments are
-certified against the projection entry's telescope (`projParamCert`),
-because the η rule this certificate justifies asks for `⊢ A : Sort u`
-and `⊢ B : arrow A (Sort v)` and the four `defeq`s establish neither —
-the certificate *certified less than its rule needs*.  It runs last, so
-it only fires on runs that would otherwise have succeeded. -/
-def pairEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+Task #130's extra check — the pair type's two arguments certified
+against the projection entry's telescope (`projParamCert`) — was a
+TT-lane check, statically dead since #148 T7b (`CheckMode.ttChecks ≡
+false`) and deleted with the rest of that code at task #161's de-gating
+round A+B+C (item A, harvest site 23).  It was the clause's only reader
+of the mode, so the first parameter is now `_mode`: kept, deliberately,
+because the whole `stuckIrrel` cascade and its verification family
+(`pairEtaCertP`, `_inv`, `_mono`, `_disc`, `_atF`, `_fst/snd_proj`,
+`_sim` in both twins) share one signature shape, and narrowing this
+member alone would churn ~40 proof sites for no statement change. -/
+def pairEtaCert (_mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+    (a b : Expr) :
     m Bool := do
   match a with
   | .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ =>
@@ -865,21 +885,7 @@ def pairEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
                   if ← r.defeq depth pβ B then
                     if ← r.defeq depth s₁ (.proj c' 0 b) then
                       if ← r.defeq depth s₂ (.proj c' 1 b) then
-                        -- Task #130: certify the pair type's own
-                        -- parameters against the projection entry's
-                        -- telescope, so `psigmaEta`'s first two
-                        -- premises (`⊢ A : Sort u`,
-                        -- `⊢ B : arrow A (Sort v)`) are recorded where
-                        -- the rule fires.  The levels are the *type*'s
-                        -- (`us'`), which is where `A` and `B` sit.
-                        -- TT-lane check (task #147): skipped unless
-                        -- `mode.ttChecks`.
-                        if mode.ttChecks then
-                          match env.findProj? c' 0 with
-                          | some entry =>
-                            projParamCert r env depth entry us' [A, B]
-                          | none => pure false
-                        else pure true
+                        pure true
                       else pure false
                     else pure false
                   else pure false
@@ -1373,45 +1379,33 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
 
 /-- Certification for a possibly-Prop structural projection
 `proj_i (ctor p⃗ x⃗)` (the subject `e₂` is the whnf'd constructor
-application): the projected argument's *type's sort* matches the
-entry's instantiated field sort, and the subject's type's sort matches
-the entry's instantiated result sort.  At Prop instances this
-collapses both the argument and the subject to the proof point, which
-is exactly what the reduction's soundness needs there. -/
-def projCert (r : CoreFns m) (_env : Env) (depth : Nat)
-    (e₂ : Expr) (i : Nat) (fieldLvl structLvl : Level) (nP : Nat) :
-    m Bool := do
-  let arg := e₂.getAppArgs.getD (nP + i) (.bvar 0)
-  let ta ← r.infer depth arg
-  match ← r.whnf depth (← r.infer depth ta) with
-  | .sort uT =>
-    let okT ← liftFueled "level comparison" (Level.isEquiv uT fieldLvl)
-    let te ← r.infer depth e₂
-    match ← r.whnf depth (← r.infer depth te) with
-    | .sort wT =>
-      let okW ← liftFueled "level comparison"
-        (Level.isEquiv wT structLvl)
-      pure (okT && okW)
-    | _ => pure false
-  | _ => pure false
+application): the projected argument and the subject are both typed.
 
-/-- Certify the reduct's constructor spine against the constructor's
-own stored telescope (task #126): each spine argument's inferred type
-is defeq to the corresponding instantiated domain.  This is the same
-call `iotaRec` makes for its constructor telescope, and it is what
-records the four premises the projection rules name — the sorts of the
-parameters and the typings of the fields, each at the domain the rule
-fires at.  Without it the clause *certifies less than its rule needs*
-(nothing here says the reduction is wrong; the checker simply did not
-write down enough for a typing derivation to be rebuilt from it — see
-`Setlec/TTVerify/DESIGN.md` §10). -/
-def projTeleCert (r : CoreFns m) (env : Env) (depth : Nat)
-    (c : Name) (us : List Level) (args : List Expr) : m Bool := do
-  match env.find? c with
-  | some (.ctorInfo cvj _ _) =>
-    iotaCerts r env depth
-      (cvj.type.instantiateLevelParams cvj.levelParams us) args
-  | _ => pure false
+Task #161 de-gating round A+B+C, item B1 (harvest site 18, list entry
+P9).  The clause used to run six things: infer the field, infer *its*
+type and whnf it to a sort, compare that sort with the entry's
+instantiated `fieldSort`; then the same three for the subject against
+`structSort`.  `projStepP_of_claims` (`SetR/Interp2/Step2/ProjRowsP.lean`)
+destructures `projCert_inv` as `⟨…, -, -, -, -, hite, -, -, -⟩`: it
+consumes **conjunct 5 only**, the subject's own `inferTypeCore` run.
+The four sort legs — the two `infer`+`whnf`-to-a-sort runs and the two
+`Level.isEquiv` comparisons — are inspected by nothing, and they cannot
+become load-bearing later either: `projEntry_pins` (`SetR/ProjPins.lean`)
+pins a `native` entry to one of the two basis pair entries, so
+`fieldSort`/`structSort` are *concrete* and carry no information the
+model does not already have.  They are deleted, and with them the two
+`Level` arguments and the callers' `Level.subst`/`substLevelTreeM` of
+the pinned sorts.
+
+THE FIELD-INFER RUN STAYS (the ratified negative verdict of the harvest
+list): it is not licensed by anything, it is simply not on the removal
+list. -/
+def projCert (r : CoreFns m) (_env : Env) (depth : Nat)
+    (e₂ : Expr) (i : Nat) (nP : Nat) : m Bool := do
+  let arg := e₂.getAppArgs.getD (nP + i) (.bvar 0)
+  let _ta ← r.infer depth arg
+  let _te ← r.infer depth e₂
+  pure true
 
 /-- The head-normalization body: beta (with the per-redex argument
 certificate, unconditional since the task-#100 de-gating), iota (with
@@ -1464,29 +1458,17 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then
-            let mx : Level := Level.subst entry.levelParams us
-              entry.structSort
             let arg := args.getD (entry.numParams + i) (.bvar 0)
             -- Certify the reduction: at Prop instances both the
             -- projected argument and the subject collapse to the
             -- proof point (see DESIGN.md on beta certification).
             -- Task #100 de-gating: the former nonzero-sort gate is
             -- unsound-to-model under the domain-relative collapse,
-            -- so the certificate runs unconditionally.
-            if ← projCert r env depth e' i
-                (Level.subst entry.levelParams us entry.fieldSort)
-                mx entry.numParams then
-              -- Task #126: also certify the spine against the
-              -- constructor's stored telescope, so the reduction's
-              -- typing premises (the parameters' sorts and the fields'
-              -- typings, at the domains the rule names) are recorded
-              -- where the rule fires.  TT-lane check (task #147):
-              -- skipped unless `mode.ttChecks`.
-              if ← (if mode.ttChecks then
-                  projTeleCert r env depth c us args
-                else pure true) then
-                r.whnfCore depth arg
-              else pure (.proj sn i e')
+            -- so the certificate runs unconditionally.  Task #161
+            -- item B1: the two sort legs and their `Level.subst`s are
+            -- gone (see `projCert`).
+            if ← projCert r env depth e' i entry.numParams then
+              r.whnfCore depth arg
             else pure (.proj sn i e')
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
@@ -1684,21 +1666,22 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         | some entry =>
           if entry.native ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            -- Task #129: certify the type former's parameters against
-            -- the entry's own telescope, so the two premises the
-            -- projection rules name about them (`⊢ A : Sort u` and
-            -- `⊢ B : A → Sort v`) are recorded where the rule fires.
-            -- TT-lane check (task #147): skipped unless
-            -- `mode.ttChecks`.
-            unless ← (if mode.ttChecks then
-                projParamCert r env depth entry us te.getAppArgs
-              else pure true) do
-              throw (.invalid "projection parameter type mismatch")
-            match piResidual
-                (entry.ty.instantiateLevelParams entry.levelParams us)
-                (te.getAppArgs ++ [pe]) with
-            | some resTy => pure resTy
-            | none => throw (.internal "malformed projection entry")
+            -- Task #161 de-gating round A+B+C, item B2 (harvest site
+            -- 21, list entry P10): the residual is **computed**, not
+            -- walked.  `projEntry_pins` (`SetR/ProjPins.lean`) pins a
+            -- `native` entry to one of the two basis pair entries, so
+            -- the parameter spine has exactly two members and the
+            -- entry type's residual at `[A, B, pe]` is `A` (first
+            -- projection) or `B (pe.1)` (second) — which is precisely
+            -- what `projResidualP`
+            -- (`SetR/Interp2/Step2/ProjPinsP.lean`) proves the walk
+            -- collapses to.  The `Expr` walk peeled three binders with
+            -- three `instantiate1`s per `.proj` inference; the branch
+            -- below is a list match.
+            match te.getAppArgs, i with
+            | [A, _], 0 => pure A
+            | [_, B], 1 => pure (.app B (.proj T 0 pe))
+            | _, _ => throw (.internal "malformed projection entry")
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
@@ -2231,22 +2214,25 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         else pure mb.pw
       pure (.lam n ty' (body'.abstract1 depth) ⟨mb.bi, pw⟩)
     | .letE _ ty v b => do
-      -- The official kernel's `infer_let` check order (`!infer_only`):
-      -- the annotation is a type (`ensure_sort_core(infer(type))`), the
-      -- value's inferred type matches it (`is_def_eq(val_type, type)`),
-      -- then the body *with the value transparent* — nanoda's
+      -- The body is annotated *with the value transparent* — nanoda's
       -- `infer_let` instantiates the body with the value and recurses
       -- (the official kernel gets the same transparency from valued
       -- let-fvars in its local context).  Setlec fvars carry no value,
       -- so the body is annotated as its zeta reduct; an opened opaque
       -- variable was tried and rejects real streams (elaborated `let`
       -- bodies rely on the value definitionally — see DESIGN.md).
-      let ty' ← r.annotate depth ty
-      let _ ← ensureSort r env depth (← r.infer depth ty')
-      let v' ← r.annotate depth v
-      let tv ← r.infer depth v'
-      unless ← r.defeq depth tv ty' do
-        throw (.invalid "let value type mismatch")
+      --
+      -- Task #161 de-gating round A+B+C (item C2, harvest site 6): the
+      -- official `infer_let` triple — `ensure_sort_core(infer(type))`,
+      -- `infer(val)`, `is_def_eq(val_type, type)` — used to run *here*
+      -- as well.  It is redundant: `inferBody`'s own `.letE` clause
+      -- runs exactly those three checks on the same `letE` node during
+      -- the driver's inference sweep, and nothing in the annotation
+      -- pass's contract reads them.  The two `annotate` traversals stay
+      -- — they are the pass itself (leaf scope checks, literal support
+      -- verdicts), not a certificate.
+      let _ ← r.annotate depth ty
+      let _ ← r.annotate depth v
       r.annotate depth (b.instantiate1 v)
     | .proj sn i pe => do
       let e' ← r.annotate depth pe

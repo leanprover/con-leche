@@ -1126,7 +1126,7 @@ theorem whnfCore_proj_spine_inv {μ : CheckMode} {env : Env}
     obtain ⟨e₂, e₃, he, hlit, hcase⟩ := whnf_proj_inv h
     refine ⟨f', e₂, e₃, Nat.le_refl _, he, hlit, ?_⟩
     rcases hcase with rfl |
-      ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -, -⟩
+      ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
     · exact .inl rfl
     · exact .inr ⟨us, entry, t, hfn, hf, hnat, hi, hlen, hred,
         .inl ⟨rfl, rfl⟩⟩

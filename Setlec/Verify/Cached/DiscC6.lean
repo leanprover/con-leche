@@ -532,31 +532,14 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     try dsimp only
     refine SimC.bind (ih.annotate hs ⟨hwtc, rfl⟩ hwtvb.1)
       (fun s₁ ty' ty'x hs₁ hP₁ => ?_)
-    obtain ⟨hty'd, hwty'⟩ := hP₁
-    refine SimC.bind (ih.infer hs₁ hty'd hwty')
-      (fun s₂ tty ttyx hs₂ hP₂ => ?_)
-    obtain ⟨httyd, hwtty⟩ := hP₂
-    refine SimC.bind (ensureSortC_sim ih hs₂ httyd hwtty)
-      (fun s₃ u lu hs₃ hPu => ?_)
-    refine SimC.bind (ih.annotate hs₃ ⟨hwvc, rfl⟩ hwtvb.2.1)
+    obtain ⟨-, -⟩ := hP₁
+    refine SimC.bind (ih.annotate hs₁ ⟨hwvc, rfl⟩ hwtvb.2.1)
       (fun s₄ v' v'x hs₄ hP₄ => ?_)
-    obtain ⟨hv'd, hwv'⟩ := hP₄
-    refine SimC.bind (ih.infer hs₄ hv'd hwv')
-      (fun s₅ tv tvx hs₅ hP₅ => ?_)
-    obtain ⟨htvd, hwtv⟩ := hP₅
-    refine SimC.bind (ih.defeq hs₅ htvd hty'd hwtv hwty')
-      (fun s₆ ok ok' hs₆ hPb => ?_)
-    obtain rfl : ok = ok' := hPb
-    cases ok with
-    | false =>
-      simp only [Bool.false_eq_true, ↓reduceIte]
-      exact SimC.throw_bind
-    | true =>
-      simp only [↓reduceIte]
-      refine SimC.bind_left (inst1M_eff hs₆ ⟨hwbc, rfl⟩ ⟨hwvc, rfl⟩)
-        (fun s₇ ob hs₇ hQob => ?_)
-      exact ih.annotate hs₇ hQob
-        (Expr.WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
+    obtain ⟨-, -⟩ := hP₄
+    refine SimC.bind_left (inst1M_eff hs₄ ⟨hwbc, rfl⟩ ⟨hwvc, rfl⟩)
+      (fun s₇ ob hs₇ hQob => ?_)
+    exact ih.annotate hs₇ hQob
+      (Expr.WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
   | fvar idx nmN t hh bb fb lp =>
     dsimp only [eraseC, ExprC.view]
     unfold annotateBody

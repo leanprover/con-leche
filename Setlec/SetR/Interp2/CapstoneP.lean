@@ -126,7 +126,7 @@ theorem TierInputsAtP.ofSem (mp : EnvS2PM V μ env) (φ : Name → Nat) :
     TierInputsAtP V μ mp.base2 φ :=
   TierInputsAtP.ofEnvS2PM mp
     (@fun _ _ _ _ h hw hb hL => acceptedReadsP_of mp.base2 φ h hw hb hL)
-    (fun fuel => reduceNatReadsP_of mp.base2 φ fuel)
+    (fun fuel => reduceNatReadsP_of mp.base2 (natOpGuardLawP_of mp) φ fuel)
     (fun _fuel ihw => reduceNatStepP_of mp ihw)
     (fun _fuel ihw => reduceNatStepPQ_of mp ihw)
 

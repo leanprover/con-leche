@@ -29,8 +29,10 @@ and this file proves them all, unconditionally:
   and `AnnotValidV_natLitT2` on the numeral spine, `acval_ok2` and
   `AcvalValidP` on the constant.
 
-That closes `ReduceNatReadsP` outright (`reduceNatReadsP_of`, **no
-premises at all**).
+That closes `ReduceNatReadsP` outright (`reduceNatReadsP_of`) — with
+one environment law since task #161's item B3: `NatOpGuardLawP`, the
+`nat_ops`/`div_mod` fields read in the direction the shrunk
+reduction-time test needs (see `NatOpGuardLawP` below).
 
 ## The wall that stood here, and how it fell (SUPERSEDED)
 
@@ -143,11 +145,33 @@ private theorem natLeafP_of_natOpResult {c : Name} {n₁ n₂ : Nat}
     · exact Or.inr ⟨_, ciT, rfl, hfT, hlpT⟩
     · exact Or.inr ⟨_, ciF, rfl, hfF, hlpF⟩
 
+/-- **The install fold's `Nat`-op invariant, in the form the literal
+tier reads it** (task #161 de-gating item B3, harvest site 37 / list
+entry P7).  `reduceNat` tests `natOpStored` — one `Env.find?` — where
+it used to re-derive `natOpGuard` per literal hit; the guard is what
+the leaf analysis below needs (`natLitSupported` for the numeral
+shapes, the two `Bool` constructors for the comparison shapes), and it
+is carried by `NatOpsP`/`DivModP`, whose statement is exactly "stored
+as a `defnInfo` → guard ∧ the recurrences".  So the tier reads the
+guard off the environment, and nothing about the shapes changes. -/
+def NatOpGuardLawP (env : Env) : Prop :=
+  ∀ c, (c ∈ Setlec.natOpNames ∨ c ∈ Setlec.natDivModNames) →
+    Setlec.natOpStored env c = true → Setlec.natOpGuard env c = true
+
+/-- `EnvS2PM` supplies it, from `nat_ops` and `div_mod`. -/
+theorem natOpGuardLawP_of (mp : EnvS2PM V μ env) : NatOpGuardLawP env := by
+  intro c hmem hst
+  obtain ⟨cv, v, hh, hf⟩ := Setlec.natOpStored_inv hst
+  rcases hmem with hm | hm
+  · exact (mp.nat_ops (fun _ => 0) c hm cv v hh hf).1
+  · exact (mp.div_mod (fun _ => 0) c hm cv v hh hf).1
+
 /-- The unary clause's branch analysis: `Nat.succ` packing, `Nat.pred`,
 the certified `Nat.log2`, and the capless `log2` safety net (which
 throws on a literal and returns `none` without one, so it never hands
 back a reduct). -/
-private theorem natLeafP_unary {fuel d : Nat} {c : Name} {a e₂ : Expr}
+private theorem natLeafP_unary (hlaw : NatOpGuardLawP env)
+    {fuel d : Nat} {c : Name} {a e₂ : Expr}
     (h : reduceNatP μ env fuel d (.app (.const c []) a)
       = .ok (some e₂)) : NatLeafP env e₂ := by
   simp only [reduceNatP, Setlec.reduceNat, Bind.bind, Except.bind,
@@ -172,7 +196,8 @@ private theorem natLeafP_unary {fuel d : Nat} {c : Name} {a e₂ : Expr}
   · split at h
     · -- `Nat.pred`
       next hcond =>
-      obtain ⟨rfl, hguard⟩ := hcond
+      obtain ⟨rfl, hstored⟩ := hcond
+      have hguard := hlaw _ (Or.inl (by decide)) hstored
       cases hwa : Setlec.whnf μ env fuel d a with
       | error err => rw [hwa] at h; exact nomatch h
       | ok a0 =>
@@ -194,7 +219,8 @@ private theorem natLeafP_unary {fuel d : Nat} {c : Name} {a e₂ : Expr}
     · split at h
       · -- the certified `Nat.log2`
         next hcond =>
-        obtain ⟨rfl, hguard⟩ := hcond
+        obtain ⟨rfl, hstored⟩ := hcond
+        have hguard := hlaw _ (Or.inr (by decide)) hstored
         cases hwa : Setlec.whnf μ env fuel d a with
         | error err => rw [hwa] at h; exact nomatch h
         | ok a0 =>
@@ -230,7 +256,8 @@ private theorem natLeafP_unary {fuel d : Nat} {c : Name} {a e₂ : Expr}
 /-- The binary clause's branch analysis: the fourteen certified
 operations, and the WF-pin safety net (which throws on literal
 arguments and returns `none` otherwise). -/
-private theorem natLeafP_binary {fuel d : Nat} {c : Name}
+private theorem natLeafP_binary (hlaw : NatOpGuardLawP env)
+    {fuel d : Nat} {c : Name}
     {a b e₂ : Expr}
     (h : reduceNatP μ env fuel d (.app (.app (.const c []) a) b)
       = .ok (some e₂)) : NatLeafP env e₂ := by
@@ -238,7 +265,14 @@ private theorem natLeafP_binary {fuel d : Nat} {c : Name}
     Setlec.whnf_def] at h
   split at h
   · next hcond =>
-    obtain ⟨-, hguard⟩ := hcond
+    obtain ⟨hnames, hstored⟩ := hcond
+    have hmem : c ∈ Setlec.natOpNames ∨ c ∈ Setlec.natDivModNames := by
+      rcases hnames with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+        rfl | rfl | rfl | rfl | rfl | rfl <;>
+        first
+        | exact Or.inl (by decide)
+        | exact Or.inr (by decide)
+    have hguard := hlaw _ hmem hstored
     cases hwa : Setlec.whnf μ env fuel d a with
     | error err => rw [hwa] at h; exact nomatch h
     | ok a0 =>
@@ -290,12 +324,13 @@ private theorem natLeafP_binary {fuel d : Nat} {c : Name}
 /-- **`Setlec.reduceNat_inv`, strengthened with the guard.**  The two
 accelerating shapes are the only ones that reduce, and each carries the
 stored-environment fact its reading needs. -/
-theorem reduceNat_natLeafP {fuel d : Nat} {e e₂ : Expr}
+theorem reduceNat_natLeafP (hlaw : NatOpGuardLawP env)
+    {fuel d : Nat} {e e₂ : Expr}
     (h : reduceNatP μ env fuel d e = .ok (some e₂)) :
     NatLeafP env e₂ := by
   match e, h with
-  | .app (.const c []) a, h => exact natLeafP_unary h
-  | .app (.app (.const c []) a) b, h => exact natLeafP_binary h
+  | .app (.const c []) a, h => exact natLeafP_unary hlaw h
+  | .app (.app (.const c []) a) b, h => exact natLeafP_binary hlaw h
   | .bvar _, h | .fvar _ _ _, h | .sort _, h | .lam _ _ _ _, h
   | .forallE _ _ _ _, h | .letE _ _ _ _, h | .lit _, h
   | .proj _ _ _, h | .const _ _, h =>
@@ -384,10 +419,11 @@ because nothing here is graded. -/
 
 /-- **`ReduceNatReadsP`, proved**, for every carrier, mode, assignment
 and fuel. -/
-theorem reduceNatReadsP_of (m : EnvS2Core V env) (φ : Name → Nat)
+theorem reduceNatReadsP_of (m : EnvS2Core V env) (hlaw : NatOpGuardLawP env)
+    (φ : Name → Nat)
     (fuel : Nat) : ReduceNatReadsP μ m φ fuel := by
   intro d e e₂ ea h _hws _hb _hLb _hea
-  have hleaf := reduceNat_natLeafP h
+  have hleaf := reduceNat_natLeafP hlaw h
   obtain ⟨ea', hea'⟩ := denoteP_of_natLeafP (acval := m.acval) hleaf d
   obtain ⟨hws₂, hb₂, hLb₂⟩ := frame_of_natLeafP (d := d) hleaf
   exact ⟨ea', hea', hws₂, hb₂, hLb₂⟩

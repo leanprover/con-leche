@@ -97,13 +97,14 @@ end CStore
 def isUnitLikeTyC (fe : FEnv) (e : ExprC) : Bool :=
   match e with
   | .const cn _ .. =>
-    (match fe.find? cn with
+    -- task #161 item C1: the pinned-name test (see `isUnitLikeTy`)
+    cn == punitName &&
+    (match fe.find? punitName with
       | some (.indInfo _ _) => true
       | _ => false) &&
-    (match fe.find? (cn.str "rec") with
+    (match fe.find? punitRecName with
       | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
-      | _ => false) &&
-    reservedBasisNames.contains (cn.str "rec")
+      | _ => false)
   | _ => false
 
 /-- `isCtorApp` through the index. -/

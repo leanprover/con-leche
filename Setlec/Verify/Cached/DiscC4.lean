@@ -58,16 +58,9 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
               e'.getAppArgs.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then
             projCert (fueledFns mode env) env d e' i
-              (Level.subst entry.levelParams us entry.fieldSort)
-              (Level.subst entry.levelParams us entry.structSort)
               entry.numParams >>= fun b =>
             if b then
-              (if mode.ttChecks then
-                  projTeleCert (fueledFns mode env) env d c us e'.getAppArgs
-                else pure true) >>= fun b₂ =>
-              if b₂ then
-                kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-              else pure (.proj sn i e')
+              kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
             else pure (.proj sn i e')
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
@@ -594,47 +587,17 @@ theorem whnfCoreStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
         split
         · rename_i hcond
           obtain ⟨-, rfl, -, -, -⟩ := hcond
-          refine SimC.bind_left (substLevelTreeM_eff hs₁
-            entry.levelParams us entry.structSort)
-            (fun s₁m mx hs₁m hQmx => ?_)
-          subst hQmx
           refine SimC.bind_left
-            (internI_eff hs₁m (n := ExprView.bvar 0) trivial)
+            (internI_eff hs₁ (n := ExprView.bvar 0) trivial)
             (fun s₂ bvar0 hs₂ hQ0 => ?_)
-          refine SimC.bind_left (substLevelTreeM_eff hs₂
-            entry.levelParams us entry.fieldSort)
-            (fun s₂f fl hs₂f hQfl => ?_)
-          subst hQfl
-          refine SimC.bind (projCertC_sim ih hs₂f he'd hwe')
+          refine SimC.bind (projCertC_sim ih hs₂ he'd hwe')
             (fun s₃ b b' hs₃ hPb => ?_)
           obtain rfl : b = b' := hPb
           cases b with
           | true =>
             simp only [↓reduceIte]
-            -- task #147: the telescope certification is mode-gated;
-            -- the gate is the same on both sides
-            refine SimC.bind (P := RelVC) ?_
-              (fun s₄ b₂ b₂' hs₄ hPb₂ => ?_)
-            case _ =>
-              cases htt : mode.ttChecks with
-              | false =>
-                simp only [Bool.false_eq_true, ↓reduceIte]
-                exact SimC.pure hs₃ rfl
-              | true =>
-                simp only [↓reduceIte]
-                exact projTeleCertC_sim ih henv hs₃ hargs hwe'.getAppArgs
-            case _ =>
-            obtain rfl : b₂ = b₂' := hPb₂
-            cases b₂ with
-            | true =>
-              simp only [↓reduceIte]
-              exact hk hs₄
-                (RelCL.getD hQ0 (entry.numParams + ip) hargs) hwarg
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimC.of_eff
-                (internI_eff hs₄ (n := ExprView.proj sn ip e') he'wf) _
-                (fun pr hQ => ⟨hQ, hwproj⟩)
+            exact hk hs₃
+              (RelCL.getD hQ0 (entry.numParams + ip) hargs) hwarg
           | false =>
             simp only [Bool.false_eq_true, ↓reduceIte]
             exact SimC.of_eff
@@ -1586,66 +1549,44 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           ExprC.getAppArgs_spec htewf
         rw [htargs.length]
         split
-        · refine SimC.bind_left (projFnIdxM_eff hs₂ T ip)
-            (fun s₂p pf hs₂ hQpf => ?_)
-          subst pf
-          refine SimC.bind_left
-            (constTyAtM_eff hs₂ (Env.findProj?_some hfp))
-            (fun s₃ pty hs₃ hQty => ?_)
-          simp only [ConstantInfo.toConstantVal] at hQty
-          -- task #129: the parameter-telescope certification, at the
-          -- same stored type `piResidualM` then peels
-          have hwty : Expr.WScoped d
-              (entry.ty.instantiateLevelParams entry.levelParams us) :=
-            wscoped_instLevels_of_not_hasFvar
-              (henv _ (find?_mem (Env.findProj?_some hfp))).1 _ _
-          refine SimC.bind (P := RelVC) ?_
-            (fun s₃c bp bp' hs₃c hPbp => ?_)
-          case _ =>
-            -- task #147: the certification is mode-gated; the gate is
-            -- the same on both sides
-            cases htt : mode.ttChecks with
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimC.pure hs₃ rfl
-            | true =>
-              simp only [↓reduceIte]
-              exact projParamCertC_sim ih hs₃ hQty hwty htargs
-                hwte.getAppArgs
-          case _ =>
-          obtain rfl : bp = bp' := hPbp
-          cases bp with
-          | false => exact SimC.throw
-          | true =>
-          simp only [↓reduceIte]
-          refine SimC.bind_left (piResidualM_eff hs₃c hQty
-            (htargs.append (RelCL.cons ⟨hwpec, rfl⟩ RelCL.nil)))
-            (fun s₄ ores hs₄ hQres => ?_)
-          cases hres : Setlec.piResidual
-              (entry.ty.instantiateLevelParams entry.levelParams us)
-              ((eraseC te).getAppArgs ++ [eraseC pe]) with
-          | some resTy =>
-            rw [hres] at hQres
-            cases ores with
-            | none => exact absurd hQres (by simp [OptEr])
-            | some res =>
-              refine SimC.pure hs₄ ⟨hQres, ?_⟩
-              have hclosed := (henv _ (find?_mem
-                (Env.findProj?_some hfp))).1
-              refine piResidual_WScoped hres
-                (Expr.WScoped.of_not_hasFvar (by
-                  rw [Expr.hasFvar_instantiateLevelParams]
-                  exact hclosed)) ?_
-              intro x hx
-              rcases List.mem_append.mp hx with hx | hx
-              · exact hwte.getAppArgs x hx
-              · rcases List.mem_singleton.mp hx with rfl
-                exact hwpe
-          | none =>
-            rw [hres] at hQres
-            cases ores with
-            | some res => exact absurd hQres (by simp [OptEr])
-            | none => exact SimC.throw
+        · -- task #161 item B2 (harvest site 21 / P10): the residual is
+          -- the *computed* two-way branch on both sides.  `RelCL` maps
+          -- the interned spine onto the spec's, so matching the
+          -- interned list fixes both; the second branch's node is two
+          -- `internI`s whose erasure is the spec's `Expr`.
+          match hgt : ExprC.getAppArgs te, ip with
+          | [], _ => exact SimC.throw
+          | [_], _ => exact SimC.throw
+          | _ :: _ :: _ :: _, _ => exact SimC.throw
+          | [Ai, Bi], 0 =>
+            rw [hgt] at htargs
+            have hspec := htargs.2
+            simp only [List.map] at hspec
+            rw [← hspec]
+            have hwA : WFc Ai := htargs.1.head
+            refine SimC.pure hs₂ ⟨⟨hwA, rfl⟩, ?_⟩
+            exact hwte.getAppArgs (eraseC Ai) (by rw [← hspec]; simp)
+          | [Ai, Bi], 1 =>
+            rw [hgt] at htargs
+            have hspec := htargs.2
+            simp only [List.map] at hspec
+            rw [← hspec]
+            have hwB : WFc Bi := htargs.1.tail.head
+            refine SimC.bind_left
+              (internI_eff hs₂ (n := ExprView.proj T 0 pe) hwpec)
+              (fun s₃ p₀ hs₃ hQ₀ => ?_)
+            refine SimC.of_eff
+              (internI_eff hs₃ (n := ExprView.app Bi p₀)
+                ⟨hwB, hQ₀.1⟩) _
+              (fun pr hQ => ⟨⟨hQ.1, ?_⟩, ?_⟩)
+            · rw [hQ.2]
+              show Expr.app (eraseC Bi) (eraseC p₀) = _
+              rw [hQ₀.2]
+              rfl
+            · simp only [Expr.WScoped]
+              exact ⟨hwte.getAppArgs (eraseC Bi) (by rw [← hspec]; simp),
+                hwpe⟩
+          | [Ai, Bi], _ + 2 => exact SimC.throw
         · exact SimC.throw
     | bvar k' hc bbc fbc lpc => exact SimC.throw
     | sort u' hc bbc fbc lpc => exact SimC.throw
