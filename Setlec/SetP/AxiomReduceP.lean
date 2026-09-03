@@ -323,7 +323,7 @@ or a `simp` on a leaf clause and the whole content is the
 membership. -/
 theorem axiomOfReduceP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
-    (hcv : ConstantValR μ F env mp.base.cval cv type')
+    (hcv : ConstantValRunR μ F env cv type')
     (hor : cv.name = Setlec.ofReduceNatName ∨
       cv.name = Setlec.ofReduceBoolName)
     (hok : Setlec.ofReduceAxOk env ⟨cv.name, cv.levelParams, type'⟩
@@ -332,7 +332,7 @@ theorem axiomOfReduceP (hμ : μ.verified = true)
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT, hfrontT⟩ := hcv'
+    hrunT⟩ := hcv'
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
     Option.isNone_iff_eq_none.mp hfind

@@ -897,7 +897,7 @@ itself. -/
 theorem harvestAxiomP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → AVExpr}
-    (hcv : ConstantValR μ F env mp.base.cval cv type')
+    (hcv : ConstantValRunR μ F env cv type')
     (hbase : EnvS V ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts⟩)
     (hag : ∀ n, n ≠ cv.name → mp.base.cval n = hbase.cval n)
@@ -920,7 +920,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
     Nonempty (EnvS2PM V μ
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT, hfrontT⟩ := hcv
+    hrunT⟩ := hcv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
     Option.isNone_iff_eq_none.mp hfind
