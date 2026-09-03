@@ -15,12 +15,36 @@ nothing here is carried over from an older round.
 | official kernel | `/home/joachim/setlec/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
 | preprocessor | `/home/joachim/setlec/_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models` |
 
-## Invocation
+> **KNOWN STALENESS — the `--no-model --core=cached-parsed` column.**
+> If the binary-provenance commit above predates the cached
+> parity-lane landing
+> (`agent/cached-parity-lane`), that column is **not** a cert-free
+> engine measurement: with no cert-skipping twin under
+> `Setlec/Cached/` it is the certified cached driver with two checks
+> gated off, which is caveat 1 below.  When the parity lane lands the
+> column changes meaning — it becomes a real cert-free lane — and
+> this file must be regenerated before any of its numbers are quoted
+> again.  In particular today's headline oddity, `NM/cached` being
+> the *most expensive* cell on `init-full`, is that confound and not
+> a property of the cached core.
+
+## Regenerating this file
+
+One line, from the repository root:
 
 ```
-lake build setlec        # the binary measured below
-scripts/perf-tables.sh   # ~2-4 h; rewrites PERF.md after every stream
-scripts/perf-tables.sh --render   # re-render from _tmp/perf-tables/table.tsv
+lake build setlec && scripts/perf-tables.sh
+```
+
+It takes 2-4 h (the `init-full` leg alone is over an hour, plus
+however long it waits for the machine to go idle), rewrites PERF.md
+after every stream, and needs no target beyond `setlec`.  Useful
+variants:
+
+```
+scripts/perf-tables.sh --render                  # re-render from the saved TSV, no measuring
+PERF_APPEND=1 PERF_STREAMS=init-full scripts/perf-tables.sh   # resume one interrupted leg
+PERF_REPS=1 PERF_STREAMS=let-ladder scripts/perf-tables.sh    # smoke test (~30 s)
 ```
 
 Per timed run, verbatim from the script:
@@ -109,8 +133,11 @@ is **not** one — caveat 1.
    where the annotation validation bites; see the derived table
    above, and do not read that column as a certificate cost.)  This
    is caveat 5 of the task-#161 canonical table; the cached NC twin
-   does not exist.  The parity lane is `--no-model --core=production`
-   and only that.
+   does not exist **as of the binary measured above** — see the
+   staleness note in the header: `agent/cached-parity-lane` builds
+   one, and this table must be regenerated once it lands.  Until
+   then the parity lane is `--no-model --core=production` and only
+   that.
 2. **The preprocessor floor is removed, the modeled encoding is not.**
    Both sides read the same preprocessed bytes, so no setlec cell
    pays the preprocessor here — but every setlec cell still checks a
