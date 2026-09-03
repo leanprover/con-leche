@@ -84,12 +84,20 @@ carries `∀ φ, … Infer … ∧ DefEq …`, so every ind-tier P signature
 drags the names in without any P proof ever deriving anything — while
 a *constructor* (`Infer.app`, `Red.beta`) enters only when a proof
 term actually builds a derivation.  The record split targets the
-first; the β-certificate gate targets the second. -/
+first; the β-certificate gate targets the second.
+
+S11a added the ninth target, `DeclR` itself: the per-declaration
+*record* the graded lane consumed until S11a re-pointed its fold at
+`DeclRunR`.  It is the record-level reading of the same separation —
+`Red.beta` is about derivations built, `DeclR` about the record
+carried — and it left the P capstones' closures outright when the run
+route landed. -/
 private def targets : List Name :=
   [`Setlec.SetR.Red, `Setlec.SetR.Red.beta,
    `Setlec.SetR.Infer, `Setlec.SetR.Infer.app,
    `Setlec.SetR.DefEq, `Setlec.SetR.DefEq.trans,
-   `Setlec.SetR.EnvS, `Setlec.SetR.checkDeclR_ofEnvRE]
+   `Setlec.SetR.EnvS, `Setlec.SetR.checkDeclR_ofEnvRE,
+   `Setlec.SetR.DeclR]
 
 /-- The vacuity sentinel: a constant that MUST be in every closure
 measured here.  If a root is misspelled the walk collapses and every
@@ -118,16 +126,27 @@ def setlecProofDeps : CoreM Unit := do
   emit env "C_P" `Setlec.SetR.Interp2.no_proof_of_Empty_C_P []
   emit env "S_P" `Setlec.SetR.Interp2.no_proof_of_Empty_S_P []
   emit env "P" `Setlec.SetR.Interp2.no_proof_of_Empty_P []
-  -- (B) THE ONE DOOR (S9's measurement, pinned): cutting the single
-  -- constant `checkDeclR_ofEnvRE` removes the relation tier outright.
-  -- A second route would show up here as a `PRESENT`.
-  emit env "SP_P-cut-bridge" `Setlec.SetR.Interp2.no_proof_of_Empty_SP_P
-    [`Setlec.SetR.checkDeclR_ofEnvRE]
+  -- (B) THE ONE DOOR.  S9 found it at `checkDeclR_ofEnvRE` (the whole
+  -- declaration bridge); S11a moved it to `declIndRR` (the `ind`
+  -- kind's bridge alone) by giving the five non-`ind` kinds run-only
+  -- producers, and `checkDeclR_ofEnvRE` left the P closure entirely —
+  -- so the old cut point is no longer *in* the closure and cutting it
+  -- would measure nothing.  The row is therefore re-pointed, not
+  -- deleted: the door is still exactly one constant, and a second
+  -- route would show up here as a `PRESENT`.
+  emit env "SP_P-cut-ind" `Setlec.SetR.Interp2.no_proof_of_Empty_SP_P
+    [`Setlec.SetR.declIndRR]
   -- (C) the P tier's own mathematics: the claims tower, the inductive
   -- tier's step, the value kinds' harvest.  All relation-free, and
   -- that is the separation's real deliverable.
   emit env "claims" `Setlec.SetR.Interp2.checkSound2P []
   emit env "declIndP" `Setlec.SetR.Interp2.declIndP []
   emit env "harvestDefnP" `Setlec.SetR.Interp2.harvestDefnP []
+  -- (D) THE RUN ROUTE ITSELF (task #161 S11a): the five non-`ind`
+  -- kinds' producer, measured at its own root.  Every target absent is
+  -- the batch's deliverable stated positively — the dispatch derives
+  -- nothing, carries no `DeclR`, and its only route into the relation
+  -- tier is the `Ind` parameter its callers fill.
+  emit env "runroute" `Setlec.SetR.checkDeclRun_of []
 
 #eval setlecProofDeps
