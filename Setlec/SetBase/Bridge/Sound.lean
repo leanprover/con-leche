@@ -11,9 +11,11 @@ proof tree mentions no model), and the last P→R edge survived only
 because this file still *sat* under `Setlec/SetR/`.  Killing it was a
 MOVE, and this is it: the three model-free theorems below are
 byte-unchanged from `Setlec/SetR/Bridge/Sound.lean`, and the collapsed
-lane's own fold — `checkDeclR_sound`, `checkDeclRun_sound`,
-`foldlM_R`, which carry the `EnvS` invariant along the dispatch —
-stayed behind in that file, which now imports this one.
+lane's own fold — `checkDeclR_sound` and `foldlM_R`, which carry the
+`EnvS` invariant along the dispatch — stayed behind in that file,
+which now imports this one.  (`checkDeclRun_sound` stayed behind too
+until S11b's opener deleted it: consumer-free, and the S10 seal
+measured its composition as a derivation route, not a projection.)
 
 The three per-declaration bridge obligations that the collapsed fold
 keeps as named hypotheses (the `Nat` equation certificates, the
@@ -112,18 +114,18 @@ except through the `ind` kind's premise**.
 
 This is `checkDeclR_ofEnvRE`'s run twin and the theorem the graded
 lane's fold now imports.  The difference is not cosmetic and is the
-batch's whole point (the S10 seal's residual B): `checkDeclRun_sound`
-— `DeclR.toRun` composed *after* `checkDeclR_sound` — projects the
-derivation conjuncts away in its *statement* while keeping them in its
-*proof term*, so the P lane inherited `Red.beta` for a record it never
-reads.  Here the five non-`ind` kinds never build one
+batch's whole point (the S10 seal's residual B): the deleted
+`checkDeclRun_sound` — `DeclR.toRun` composed *after*
+`checkDeclR_sound` — projected the derivation conjuncts away in its
+*statement* while keeping them in its *proof term*, so the P lane
+inherited `Red.beta` for a record it never reads.  Here the five
+non-`ind` kinds never build one
 (`checkDeclRun_of`, `SetBase/Bridge/DeclRun.lean`), and the sixth
 enters through `declIndRR` alone — one named door, in the parameter
 slot S4 built for it, which S11b replaces with the `ind` run bridge.
 
-`checkDeclRun_sound` (`SetR/Bridge/Sound.lean`) keeps its statement and
-its consumers; it is the collapsed lane's projection route and is not
-what the graded fold runs on any more. -/
+The collapsed lane's projection route (`checkDeclRun_sound`) is gone:
+S11b's opener deleted it, consumer-free. -/
 theorem checkDeclRun_ofEnvRE
     {μ : CheckMode} {F : Nat}
     {env env₂ : Env} (mR : EnvR env) (hE : EtaFamiliesClosed env)

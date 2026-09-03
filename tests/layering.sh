@@ -66,8 +66,8 @@ WHITELIST = """
 # namespace `Setlec.SetR` unchanged); `declIndRS`, consumer-free after
 # its S7 re-proof, is deleted; and what stayed in `Setlec/SetR/Bridge/`
 # is exactly the collapsed lane's own two instances -- `EnvS.toEnvR`
-# (`Decl.lean`) and `checkDeclR_sound`/`checkDeclRun_sound`/`foldlM_R`
-# (`Sound.lean`), the fold that carries the `EnvS` invariant.
+# (`Decl.lean`) and `checkDeclR_sound`/`foldlM_R` (`Sound.lean`), the
+# fold that carries the `EnvS` invariant.
 """
 
 IMP = re.compile(r'^\s*(?:public\s+|private\s+|meta\s+)*import\s+([A-Za-z0-9_.]+)', re.M)

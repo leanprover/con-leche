@@ -174,8 +174,7 @@ residence here rather than under `Setlec/SetR/` is what takes the
 layering whitelist to **zero**: `tests/layering.sh` reads
 `0 P->R edges (whitelist EMPTY)`.  What stayed in `Setlec/SetR/Bridge/`
 is exactly the collapsed lane's own two instances — `EnvS.toEnvR`
-(`Decl.lean`) and `checkDeclR_sound`/`checkDeclRun_sound`/`foldlM_R`
-(`Sound.lean`).
+(`Decl.lean`) and `checkDeclR_sound`/`foldlM_R` (`Sound.lean`).
 
 **Only the file paths and module names moved.**  The Lean namespaces
 (`Setlec.SetR.Interp2`, `Setlec.SetR`) are unchanged, so every frozen

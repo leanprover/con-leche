@@ -43,32 +43,18 @@ theorem checkDeclR_sound
     DeclR μ F m.cval env d env₂ :=
   checkDeclR_ofEnvRE m.toEnvR hE h
 
-/-- **The run half, from the checker** — the design census's **C3**
-(task #161 S4).
-
-`DeclRunR` (`SetBase/DeclRun.lean`) is `DeclR` with every derivation
-conjunct deleted; this is `checkDeclR_sound` composed with the
-projection, so the records stay single-sourced — nothing in `Bridge/*`
-re-proves anything.
-
-**Why it still takes `m` — S5's measurement.**  S4 read the obstacle
-as "the bridge's per-kind proofs build guard and derivation conjuncts
-interleaved, so an `m`-dropped form is a re-factoring of
-`Bridge/Decl.lean`".  Measured, that is **false of five kinds and true
-of one**: `Bridge/Decl.lean` re-signed to `EnvR` with zero proof edits
-(see `checkDeclR_ofEnvR`), and what remained was `indDecl`'s
-interleave with its install (`Bridge/DeclInd.lean`'s finding 8), which
-S6/S7 then closed.  So the `m` here is no longer forced by the
-dispatch at all — the skeleton `checkDeclR_ofEnvRE` is model-free —
-and what it now carries is exactly what the *fold* below needs: the
-install invariant `declStepS` extends. -/
-theorem checkDeclRun_sound
-    {μ : CheckMode} {F : Nat}
-    {env env₂ : Env} (m : EnvS V env) (hE : EtaFamiliesClosed env)
-    {d : Declaration}
-    (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
-    DeclRunR μ F (DeclIndR μ F env m.cval) env d env₂ :=
-  DeclR.toRun (checkDeclR_sound m hE h)
+-- **`checkDeclRun_sound` is deleted** (task #161 S11b, the opener).
+-- The design census's C3 artifact was `DeclR.toRun` composed *after*
+-- `checkDeclR_sound`, and the S10 seal's residual B measured what that
+-- composition costs: the projection hides the derivation conjuncts in
+-- the *statement* while keeping them in the *proof term*, so it was
+-- never a route off the relation tier.  It has had no consumer since
+-- the graded fold began calling `checkDeclR_ofEnvRE` directly, and
+-- `checkDeclRun_ofEnvRE` (`SetBase/Bridge/Sound.lean`) supersedes it
+-- functionally without the weld.  Deleted on the S7 `declIndRS`
+-- precedent: a consumer-free statement is not kept for its shape.
+-- (`DeclR.toRun` itself stays live — `declEtaStep`,
+-- `SetBase/DeclEta.lean`, is its consumer.)
 
 theorem foldlM_R
     {μ : CheckMode} {F : Nat}
