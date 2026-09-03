@@ -23288,3 +23288,40 @@ reference checkout: `Lean4Lean/Tests/IrrelCommit.lean` and
 reaches `Lean4Lean.Replay.throwKernelException` (and then panics in the
 standalone pretty-printer, the known lean4lean packaging artefact, not
 the verdict); the control prints "checked 1 declarations".
+
+## Task #161 HARVEST STANDING STATE (2026-09-03; succession-current)
+
+Master @ `bd4ffc15` (residual-hunts merged; e2e now 73/73 — the
+irrel_commit fixture pinned at the CURRENT divergent verdict 0 with
+its flip comment).  Push pending with the user.  Battery green:
+build 507 warning-free, test 0, arena 90/92, e2e 73/73, annot
+14/14, split 11/11, mode 9/9, no-model 138+73+14 with the 3
+recorded divergences.
+
+**THE GOAL TABLE — closed except three rows, all with the user:**
+1. proofIrrel restriction (divergence 1): branch
+   `agent/proofirrel-check` @ 3a0be1cd HELD READY; lands on the
+   user's grant against this baseline (expect Core/CoreI/CoreC
+   merge friction vs the A+B+C landing — small change, re-battery
+   validates; the irrel_commit fixture's verdict does NOT flip on
+   this landing, only proof_irrel_hetero's does).
+2. Commit-semantics round (divergence 2, survives #1): with the
+   user as its own proposal — three-valued proofIrrel3, zero
+   runtime cost, proof bill ~14 walk files + 9 frozen .ok-false
+   premises + 3 kernel defs + 4 hoist edits.  On a grant this is a
+   scoped campaign round (statement repairs through the lead per
+   the ownership rule).  When it lands, irrel_commit's expectation
+   flips 0→1.
+3. Bucket 2 (verified infer_only): with the user's law ruling;
+   evidence on master (the inventory, the D2 handoff notes); the
+   feasibility half owned outside this thread.
+
+Everything else: REMOVED-AND-MEASURED (A+B+C, landed 17e4cdef) or
+MEASURED-WITH-VERDICT (the supplier class incl. P2/P3/P11b-c; B4's
+pessimization; the unit-like unreachable-by-pin; the
+non-candidates).  Parked evidence branches: proofirrel-check,
+degating-p2 (+p2b — variant B tied to the bucket-2 ruling),
+residual-hunts (merged), degating-p1/d1/d2/abc (merged).
+
+Standing by for the user's three rulings, routed by the
+coordinator.
