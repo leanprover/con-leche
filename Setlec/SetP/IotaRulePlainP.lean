@@ -1,6 +1,5 @@
 import Setlec.SetP.IndBottomProjP
 import Setlec.SetP.Annot.BitReads
-import Setlec.SetR.Install.IotaRuleS
 
 /-!
 # The per-rule bridge, canonical branch (task #161, IND TIER part 9)
