@@ -26019,3 +26019,249 @@ away and the path rule alone carries it.
 
 Kit: `tests/layering.sh --list`; the S1 audit file
 `_tmp/sep-s1/Audit.lean`.
+
+## Task #161 THE SEPARATION — S2 SEALED (2026-09-03, `agent/sep-s2`,
+unpushed): the 2U/R move, and THE TWO LANES ARE NOW TWO TREES
+
+**THE HEADLINE.**  The graded model has its own directory, its own
+umbrella and its own Lake library: `Setlec/SetP/*`, `Setlec/SetP.lean`,
+`SetlecP`.  The fifteen S2-tagged crossings are all dead — **26 → 11**
+P→R edges — and every one of the eleven survivors is a *de-basing*
+item (S3/S4/S7), not a 2U item.  The ruled four-lib layout is complete.
+No statement was edited anywhere: every move kept its Lean namespace,
+so all frozen names are verbatim, and the checker's executable sources
+are byte-identical to the branch's base (`master` @ `9bd403f2`) — the
+shipped binary still has md5 `764d7d28…`.
+
+Five units, each its own commit:
+
+| | | edges |
+|---|---|---|
+| `ea660787` | **S2a** the two-edit sever — `frame_open2`, `interp2C_trans` | 26 → 24 |
+| `2c6f5922` | **S2b** three whole-module re-basings — `DefEq`, `Canon`, `Lit` | 24 → 21 |
+| `68cc4d02` | **S2c** `Denote2Closed` re-based (already base-only) | 21 → 18 |
+| `b5c79d44` | **S2d** the last seven 2U crossings + their riders | 18 → **11** |
+| `292b1a13` | **S2e** THE SetP MOVE + the `SetlecP` lib target | 11 → 11 |
+
+### 1. THE RE-BASINGS — 17 modules and 9 lemma families to `Setlec/SetBase/*`
+
+`Setlec/SetBase/` goes 11 → 28 modules.  Whole-module moves (paths and
+module names only; namespaces, statements and proofs verbatim):
+
+| from | to | unit |
+|---|---|---|
+| `Interp2/Step2/DefEq` | `SetBase/DefEqStep2` | S2b |
+| `Annot/Canon` | `SetBase/Canon` | S2b |
+| `Interp2/Step2/Lit` | `SetBase/LitStep2` | S2b |
+| `Interp2/Denote2Closed` | `SetBase/Denote2Closed` | S2c |
+| `Interp2/Univ` | `SetBase/Univ` | S2d |
+| `Interp2/BasisOk` | `SetBase/BasisOk` | S2d |
+| `Interp2/BasisType` | `SetBase/BasisType` | S2d |
+| `Interp2/Skeleton` | `SetBase/Skeleton` | S2d |
+| `Interp2/Install2` | `SetBase/Install2` | S2d |
+| `SetR/Rel` | `SetBase/Rel` | S2d |
+| `SetR/ProjPins` | `SetBase/ProjPins` | S2d |
+
+New base modules holding lemma families lifted out of lane files
+(statements verbatim):
+
+| module | content | unit |
+|---|---|---|
+| `SetBase/Frame` | `frame_open2` (out of `Step2/InferQ`) | S2a |
+| `SetBase/Sat2` | `Sat2` + intros + `interp2C_trans` (`Step2/Whnf`, `Annot/EnvS2`); `Sat2_tail` joins at S2d | S2a/d |
+| `SetBase/LitParams` | `natName_levelParams_nil`, `stringName_levelParams_nil` | S2a |
+| `SetBase/WhnfCoreLeaf` | the six `whnfCoreR_*` `rfl` lemmas (S1 deferred them here by name) | S2a |
+| `SetBase/ConstsBound` | `ConstsBound`/`FindPreserved`, the clause kit, `instantiate1`, `strLitSupported_listNames`, `LitGuardsAgree`, `levelParamsAt_congr`, `constsBound_of_constsResolve`, `envWF_constsBound` | S2d |
+| `SetBase/Hoist` | the generation-four `AnnotOk2` hoist kit out of `Step2/Dispatch` | S2d |
+| `SetBase/Syntax` | `erase_eq_const` joins (out of `Interp2/EmptyPin2`) | S2d |
+
+Module accounting, S1 → S2: `base 205 → 222` (+17 = the 11 modules
+moved out of R, plus the 6 new base files above), `R 142 → 131` (−11,
+the same 11), `P 115 → 116` (+1 = the new `Setlec/SetP.lean` umbrella;
+the lane's own 115 modules moved *path*, not lane), `neutral 3`
+unchanged.  Total modules 465 → 472, i.e. +7 files created and nothing
+deleted.
+
+### 2. THE SetP MOVE (S2e)
+
+The S1 seal's condition — "when those 15 are gone the P-only set is
+path-movable" — held exactly.  115 modules moved by the census §3.2
+rename:
+
+```
+Setlec/SetR/Interp2/X.lean  ->  Setlec/SetP/X.lean          (102)
+Setlec/SetR/Annot/X.lean    ->  Setlec/SetP/Annot/X.lean     (13)
+```
+
+**Pure path move.**  Only file paths, module names and `import` lines
+changed — 286 import lines in 113 files, rewritten mechanically
+(`^import` lines only, so nothing inside a proof was touched).  The
+Lean *namespaces* stay `Setlec.SetR.Interp2` / `Setlec.SetR.Annot`
+verbatim; the namespace rename, if ever, is a separate batch that is
+allowed to touch declaration names.  Consequence worth knowing: a
+`Setlec.SetP.*` module still declares into `Setlec.SetR.Interp2`, so
+`open` lines and qualified references throughout the tree are unchanged
+and the paths no longer predict the namespaces.
+
+**Why it was clean.**  The only non-P importer of P content in the
+entire tree was the `Setlec/SetR.lean` umbrella: R→P has been 0 since
+S1, no `caps` module reaches P, and no P module reaches the three
+`neutral` modules.  So the umbrella split: its 103 P imports became
+`Setlec/SetP.lean` (which also names the 12 P modules it had covered
+only transitively, so `lake build SetlecP` roots the whole lane), and
+`Setlec/SetR.lean` went 244 → 141 lines as the R lane alone.  The
+census's "`Setlec/SetR.lean` splits three ways" is now discharged:
+`SetBase.lean` (S1), `SetR.lean`, `SetP.lean`.
+
+**The lib layout as landed — the ruled four, complete:**
+
+```
+[[lean_lib]] SetlecBase  roots = ["Setlec", "Setlec.TT", "Setlec.SetBase"]
+[[lean_lib]] SetlecR     roots = ["Setlec.SetR"]            # collapsed lane ALONE now
+[[lean_lib]] SetlecP     roots = ["Setlec.SetP"]            # NEW
+[[lean_lib]] SetlecCaps  roots = ["Setlec.Verify.Cached"]
+[[lean_lib]] SetlecPinCerts / SetlecTests; exes setlec, annotate-basis
+defaultTargets = ["SetlecBase", "SetlecR", "SetlecP", "SetlecCaps", "setlec"]
+```
+
+The S1 finding stands and the lakefile still records it: Lake gives no
+import barrier between libs of one *package*, so the split is the
+LAYOUT and `tests/layering.sh` is the FENCE.  Separate Lake *packages*
+remain the succession's option, available once the de-basing lands.
+
+**The gate is now PATH-ONLY.**  S1 had to compute P as `closure(P
+roots) minus closure(R roots)` because both lanes shared directories.
+That rule and its `ROOTS_P` list are deleted, exactly as the S1
+succession note predicted; `Setlec/SetBase/*` = base, `Setlec/SetP{,/*}`
+= P, `Setlec/SetR/*` = R, by path.  What survives of the closure
+machinery is the R side's `neutral` detector (a module under
+`Setlec/SetR/` that no R capstone reaches must be named in `ROOTS_R`).
+`Setlec/SetP.lean` is classified P rather than `umbrella`, so the P
+umbrella's own imports are gated too.  `THEORY_PFX` gained
+`Setlec.SetP.` for the implementation→theory rule.
+
+### 3. THE WHITELIST — 26 → 11, and the delta is honest
+
+The eleven survivors are the SAME eleven edges before and after S2e;
+S2e only rewrote their left-hand module names to the new paths.  **The
+whitelist never grew.**  The 2U section is empty and the file says so.
+What remains, by batch:
+
+* **S3–S5 (2)** — `EnvS2Core → Annot/EnvS2U`, `EnvS2P → Interp2/EnvS2U`:
+  the `base : EnvS` field itself.
+* **S3 (5)** — the v1 install round trip: `AxiomPinP → StdAxiomKey`,
+  `BasisEmptyP → Install/BasisS`, `IndMemberP → Install/IndMembersS`,
+  `IotaRulePlainP → Install/IotaRuleS`, `ProjInstallP → Install/DeclIndS`.
+* **S4 (3)** — `HarvestP → Install/ValueKinds`, `FoldP → Bridge/Sound`,
+  `NatEqsP → Bridge/Decl`.
+* **S7 (1)** — `CapstoneP → Interp2/EmptyPin2`: `EnvS.empty_pinned`, the
+  census's one hard residue.
+
+### 4. FINDINGS (restrictions-are-findings)
+
+1. **Census edge 14 is REFUTED — the `Annot/Pass` split is not owed.**
+   S1 deferred "split `Pass` so `Canon` can take `natLitT`/`charListT`
+   out of it" to S2 as one unit with `Canon`'s re-basing.  `Canon`
+   never imported `Pass` for that: the literal towers it mirrors are
+   `Setlec.TTVerify`'s `natLitT`/`charListT` from `Verify/Denote.lean`
+   (base already), and `Canon`'s `Pass` import was transitive cover for
+   `Expr.WScoped`/`shiftFrom`, re-pointed at `Verify/Shift`.  `Canon`
+   re-based whole with no split (S2b).  **`Annot/Pass.lean` is R-lane
+   and stays whole**: it is in no P closure, its importers are
+   `Annot/{Kinding,Validity,EnvS2}` (all R), and it crosses nothing.
+   The census's "base/P part" column for that row was simply wrong
+   about where the towers live.  With this, the §3.3 nine-file split
+   list stands at: **5 done in S1** (`Install/Axiom`, `Install/BasisS`,
+   `Install/ProjInstallS`, `Bridge/Iota`, `DivModPin`), **1 done in S2**
+   (`Bridge/WhnfCore`), **1 refuted** (`Annot/Pass`), **2 open for S4**
+   (`Install/ValueKinds`'s `annotate_syntax`, `Install/Step`'s
+   `declEtaStep` — and the latter is a new theorem, not a split).
+2. **`SetR/Rel` and `SetR/ProjPins` were forced into the base and were
+   NOT on the census's move list** (S2d).  The `DefEqP → DefEqRun`
+   sever cut the graded lane's only route to `projEntry_pins`, and the
+   whitelist may not grow.  They meet the ruled base criterion exactly
+   (no `EnvS`; they import only `Setlec/Verify/*`), and both consistency
+   proofs are stated over `Rel`.  **This bears on S4**: S1 deferred
+   `SetR/Decl.lean` to the base on the grounds that "`DeclR`'s
+   derivation conjuncts name `Infer`/`DefEq`" — those are base names
+   now, so that reason alone no longer keeps the file out of the base.
+3. **`Interp2/Step2/Infer`'s only importer was a dead import** (S2b).
+   `Step2/Lit` imported it and used nothing from it; with `Lit` in the
+   base, `Step2/Infer` has no consumer at all.  It is 2U content
+   (`EnvS2UM` rows), so it is named in the gate's `ROOTS_R` rather than
+   deleted.
+4. **Severing keeps exposing riders** — S1's finding repeated at every
+   S2 unit, and it is the reason S2 re-based 17 modules to close 15
+   edges.  S2a's two-line sever exposed three (`LitParams`,
+   `WhnfCoreLeaf`, `Sat2`); S2d's exposed four (`IrrelP` →
+   `Verify/PinnedShapes`, `StuckP` → `Verify/Denote/StrLit`, `Claims2P`
+   → `Verify/InferLeaves`, `Annot/BitShift` → `Verify/Shift`).  Every
+   one was a module reaching a *base* supplier transitively through a
+   lane module; the sever turns hidden dependence into an explicit
+   import, which is the point.
+5. **Consumers of the P capstones must now `import Setlec.SetP`.**  The
+   `Setlec.SetR` umbrella no longer covers the graded lane (that is the
+   separation working), so the axiom-audit file and any future P-facing
+   assembly names both umbrellas.  Recorded because it is the first
+   place the split is *visible* to a consumer.
+
+### 5. BATTERY (verbatim)
+
+* `lake build` — clean, warning-free; 524 jobs, 2m17s from the move.
+* `lake test` — exit 0.
+* `tests/layering.sh` — exit 0:
+
+  ```
+  layering: base 222 / R 131 / P 116 / neutral 3 modules; 11 P->R edges, all whitelisted; 0 R->P
+  ```
+* `tests/arena.sh` — exit 0, the gate as its first line:
+
+  ```
+  layering: base 222 / R 131 / P 116 / neutral 3 modules; 11 P->R edges, all whitelisted; 0 R->P
+  arena tutorial: 90/92 good tests accepted
+  e2e: 73/73 as expected
+  annot suite: 14/14 as expected
+  split driver: 11/11 as expected
+  mode flags: 9/9 as expected
+  no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+  ```
+* Axiom audit, 11 capstones (`_tmp/sep-s2/Audit.lean`) —
+  `no_proof_of_Empty_P`, `no_proof_of_Empty_P_of`,
+  `no_proof_of_Empty_{,_input_}{R,SP_R}`,
+  `no_proof_of_Empty_{R2,SP_R2,R2M,SP_R2M}`,
+  `Cached.no_proof_of_Empty_SPC_R{,2}` — every one
+  `[propext, Classical.choice, Quot.sound]`, unchanged.
+* Byte-identity: `git diff 9bd403f2 -- Setlec/Kernel Main.lean
+  Setlec/Cached Setlec/Frontend AnnotateBasis.lean Setlec/PinGen` is
+  **empty**, and `.lake/build/bin/setlec` md5 is `764d7d28…`, the same
+  the S1 seal recorded for `master` @ `9bd403f2`.  (`master` has since
+  advanced ten commits including `agent/perf-eng`, which *does* change
+  executables, so the md5 standard is stated against the branch's base,
+  as S2a–d also did.  The merge is the coordinator's call.)
+* Zero `sorry`s; no new axioms; no frozen statement edited.
+
+### 6. SUCCESSION — where S3 starts
+
+S3 = **the de-basing proper**, and it begins with a tree that can no
+longer hide a crossing: the gate is path-only, so any new P→R import is
+a whitelist entry or a failure, full stop.  The work order is the
+eleven remaining lines, read as three jobs:
+
+1. **The five S3 install edges** (`AxiomPinP`, `BasisEmptyP`,
+   `IndMemberP`, `IotaRulePlainP`, `ProjInstallP`) — the v1 install
+   round trip, census §1.3's 47 sites.  These are the cheapest: the P
+   side calls a v1 install lemma *only* to build the new `EnvS`, so
+   they vanish with the field, not before it.
+2. **The two `base : EnvS` edges** (`EnvS2Core`, `EnvS2P`) — the frozen
+   de-basing shape itself, and the campaign's centre of mass: `EnvS.wf`
+   (225 sites) → the shared `EnvWF`, `EnvS.cval` (135) → `fun n ψ =>
+   (acval n ψ).erase` with `acval_erase` becoming `rfl`.  The three big
+   syntactic re-supplies come first, per the batch plan.
+3. **S4's three** (`HarvestP`, `FoldP`, `NatEqsP`) and **S7's one**
+   (`CapstoneP → EnvS.empty_pinned`) stay parked where the plan put
+   them.  S2's finding 2 hands S4 a bonus: `SetR/Decl.lean`'s deferral
+   reason is gone, so `DeclRunR` beside `DeclR` in a *base* `Decl.lean`
+   is now a live option rather than a blocked one.
+
+Kit: `tests/layering.sh` (and `--list`); `_tmp/sep-s2/Audit.lean`; the
+S1 audit file `_tmp/sep-s1/Audit.lean`.
