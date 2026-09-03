@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.EtaCerts
+import Setlec.SetBase.Bridge.EtaCerts
 
 /-!
 # `DefEqClaimsR` at `fuel + 1`, closed (task #148, T3, batch d)

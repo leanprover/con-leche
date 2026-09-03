@@ -5,7 +5,7 @@ import Setlec.SetR.Interp2.Claims2B
 import Setlec.SetR.Interp2.Claims2C
 import Setlec.SetR.Interp2.Claims2D
 import Setlec.SetR.Interp2.Dual2E
-import Setlec.SetR.Bridge.InferStruct
+import Setlec.SetBase.Bridge.InferStruct
 
 /-!
 # `InferStep2` — the inference quarter, discharged and routed

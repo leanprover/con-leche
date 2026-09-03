@@ -30,6 +30,20 @@ testDriver = "SetlecTests"
 # A hard build error would need the lanes to become separate Lake
 # *packages* (`require ... from "..."`), which is a lakefile-level
 # decision left to the campaign's succession (see DESIGN.md S1 seal).
+#
+# S8's RULING on that succession item, now that the whitelist is empty:
+# **it stays a named follow-up, not this batch's work.**  Package
+# separation is no longer a de-basing question (there is nothing left
+# to de-base) but a build-system one: three packages sharing one
+# toolchain and one `.lake`, with `require` edges, changes how every
+# target, the test driver and the two executables are named and built,
+# and it buys a *stronger form of a property the tree already has*
+# rather than a property it lacks.  The honest trade: `tests/layering.sh`
+# enforces the fence at zero cost inside the standard battery and
+# cannot be bypassed by adding an import, while the package split would
+# make the fence structural at the cost of a lakefile rewrite whose
+# failure modes (stale inter-package oleans, a split `.lake`) are new
+# and would land on top of a green tree.  Recorded; not attempted.
 
 # The pin-generator's certificate theorems (Setlec/PinGen/Certs.lean) are
 # a classic (non-`module`) library: the proofs unfold core definition

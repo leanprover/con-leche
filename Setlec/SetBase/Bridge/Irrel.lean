@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.Spine
+import Setlec.SetBase.Bridge.Spine
 
 /-!
 # `ProofIrrelStepR`, discharged (task #148, T3, batch c)

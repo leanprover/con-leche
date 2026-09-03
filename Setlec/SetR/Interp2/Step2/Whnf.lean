@@ -4,7 +4,7 @@ import Setlec.SetR.Interp2.Claims2B
 import Setlec.SetR.Interp2.Claims2C
 import Setlec.SetR.Interp2.Claims2D
 import Setlec.SetR.Interp2.Dual2E
-import Setlec.SetR.Bridge.WhnfCore
+import Setlec.SetBase.Bridge.WhnfCore
 
 /-!
 # `WhnfCoreStep2` / `WhnfStep2` — the discharge, and its two STOPs

@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.InferStruct
+import Setlec.SetBase.Bridge.InferStruct
 
 /-!
 # `DefEqSpineStepR`, discharged (task #148, T3, batch d — spine part)

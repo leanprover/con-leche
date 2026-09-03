@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.StuckIrrel
+import Setlec.SetBase.Bridge.StuckIrrel
 
 /-!
 # `etaCert`, bridged (task #148, T3, batch c/d — the one-sided λ)

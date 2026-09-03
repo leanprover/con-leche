@@ -1,5 +1,4 @@
-import Setlec.SetR.Bridge.Decl
-import Setlec.SetR.Install.DeclIndS
+import Setlec.SetBase.Bridge.Decl
 import Setlec.SetBase.IndRecsCoreR
 import Setlec.SetBase.ProjFnRR
 
@@ -24,6 +23,14 @@ So each fold below runs the checker's own step, bridges it at the
 current invariant's `EnvR`, installs it, and recurses — accumulating
 the relation *and* the invariant.  Every sub-theorem is the install
 layer's, unchanged; only the orchestration is written a second time.
+
+**Task #161 S7 closed finding 8** — `declIndRR` runs off an `EnvR`
+outright — and **S8's zero-opener cashed it**: the `EnvS` instance
+`declIndRS` was consumer-free after that re-proof (S7 finding 6,
+ruling ratified at the succession), so it is deleted, the
+`SetR/Install/DeclIndS` import it alone needed is gone, and this
+module moved from `Setlec/SetR/Bridge/DeclInd.lean` to the base with
+every surviving statement byte-unchanged.
 -/
 
 namespace Setlec.SetR
@@ -31,8 +38,6 @@ namespace Setlec.SetR
 open Setlec.TT Setlec.TTVerify SetTheory
 
 universe w
-
-variable {V : Type w} [SetTheory V]
 
 /-- **The member fold, walked — model-free** (task #161 S6).
 `indMembersS`' induction with `memberValR_of` inserted at each step to
@@ -670,19 +675,5 @@ theorem declIndRR
   refine ⟨hsplit, Or.inl ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt,
     envM, cvalM, envR, cvalR, hmem, hrecs, hres, hprojFresh,
     envP, cvalP, hproj, templatesR_of _ h⟩⟩
-
-/-- **The `indDecl` branch, walked** (`checkIndDecl`) — the `EnvS`
-instance of `declIndRR`, statement byte-unchanged.  The `hkey` premise
-is inert since task #161 S7: the walk builds its own carrier at every
-intermediate environment (`memberInstallR`, `EnvR.swap`,
-`EnvR.consProjFn`), so no member front door is consumed. -/
-theorem declIndRS (hkey : MemberKeyS V)
-    {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} (m : EnvS V env)
-    (hE : EtaFamiliesClosed env)
-    (h : checkIndDecl (m := CheckM) μ (fueledOps μ F) env block
-      = .ok env₂) :
-    DeclIndR μ F env m.cval block env₂ :=
-  (fun (_ : MemberKeyS V) => declIndRR m.toEnvR hE h) hkey
 
 end Setlec.SetR

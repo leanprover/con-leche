@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.DefEq
+import Setlec.SetBase.Bridge.DefEq
 import Setlec.Verify.EnvGuards
 
 /-!

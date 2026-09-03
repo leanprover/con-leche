@@ -1,4 +1,4 @@
-import Setlec.SetR.Bridge.Irrel
+import Setlec.SetBase.Bridge.Irrel
 
 /-!
 # `Tele` from `iotaCerts` (task #148, T3, shared by batches d/e/g)

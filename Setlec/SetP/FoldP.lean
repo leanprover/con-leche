@@ -2,7 +2,7 @@ import Setlec.SetP.AxiomReduceP
 import Setlec.SetP.BasisPSigmaP
 import Setlec.SetP.DeclIndP
 import Setlec.SetBase.IndBlockR
-import Setlec.SetR.Bridge.Sound
+import Setlec.SetBase.Bridge.Sound
 
 /-!
 # The P declaration fold, and the conditional capstone (task #161, P4)
