@@ -23959,3 +23959,90 @@ disposition lands.
 3. The remaining six arms (`.lam`, `.letE`, `.proj`, the two literal
    arms, and the `.app` clause) complete the quarter;
    `sortSemAtIOP_of_claims` needs the io reads walk (B3).
+
+## Task #161 THE FINAL HARVEST TABLE (2026-09-03; the goal CLOSED by
+its own letter)
+
+**THE GOAL**: every cert-tax contribution measured and, if possible
+with the new interp, removed.  **CLOSED**: every row below is
+removed-and-measured or measured-with-verdict; "possible with the
+new interp" is a precise, mechanized answer at every row.
+
+### REMOVED-AND-MEASURED (landed)
+| row | landing | measure |
+|---|---|---|
+| dead tt-gated proj code (19/20/23) | A+B+C @ 17e4cdef | 0 fires |
+| projCert's four sort legs (P9) | " | part of the round's 0.129%/0.107% init-full |
+| the piResidual walk (P10) | " | " |
+| natOpGuard → one find? (P7) | " | " |
+| isUnitLikeTy → pinned-name test (P8) | " | " |
+| the annotate letE recheck (6) | " | " |
+| round total | | 0.129%/0.107% init-full, 0.286%/0.263% prelude, byte-identical |
+
+### MEASURED-WITH-VERDICT (complete outcomes, never re-litigate)
+| row | verdict | measure |
+|---|---|---|
+| iotaCerts telescope runs (P2) | SUPPLIER (fit-from-arity FALSE; readings from the cert alone) | 3.2%/9.0% init-full (variant A, parked) |
+| recFireComparands defEqList (P3) | SUPPLIER (RecRuleLawP premises) | in P2's share |
+| variant B (rP-prefix truncation) | licensable; PARKED to the (B) decision | −1.20%/−2.73% init-full |
+| structUnit/structEta telescopes (P11b/c) | SUPPLIERS (UnitLawP/EtaLawP premises) | below noise |
+| P1-family validation half (2-5) | SUPPLIER (pwBit establishment) | 0.99%/0.83% |
+| strLitSupported (B4/P6) | premise FALSE; "downgrade" = ~130×/~30× PESSIMIZATION | −0.00% |
+| certifyNatEqs / checkDivModCerts | ESTABLISHMENT SOURCES | 0.01% / 5.5% prelude (fixed ~24G per stream) |
+| projCert's infer run | ratified squash countermodel | — |
+| struct-η defEqList (26) | LOAD-BEARING, confirmed | 16.7%/9.1% prelude |
+| majorToCtor as a block | MajorStepP consumes every run | — |
+| unit-like final comparison | UNREACHABLE-BY-PIN (argued, canary-supported) | 0 fires on the corpus |
+| front-door app defeq (11/12) | THE APP TYPING RULE (user: "and rightly so") | out of scope forever |
+| **the io rows (internal inference, bucket 2)** | **P-TIER LICENSE PROVED AND MECHANIZED (io_domain_transfer/io_app_mem; InferClaimsIO2P landed with 5 worked arms); REMOVAL BLOCKED BY R-TIER CONTAINMENT (EnvS2Core.base : EnvS, checkDeclR_sound at FoldP.lean:173, six R rules' premises ARE the runs); REQUIRES A USER-LEVEL ARCHITECTURE DECISION** | price tag: −8.09%/−17.20% init-full gross (β half, measured, branch parked); ≈25–40% heavy-stream bracket (full knot, study) |
+| squash-regime checks | KEPT FOREVER (model-class-wide wall, mechanized) | the 4–8% uncaptured fires |
+
+### WITH THE USER (outside the removal goal's letter)
+1. proofIrrel restriction (divergence 1) — agent/proofirrel-check @ 3a0be1cd held ready.
+2. Commit-semantics round (divergence 2, survives 1) — proposal filed.
+3. **PROPOSAL (B) — the de-basing** (below).
+
+## Task #161 PROPOSAL (B) FOR THE USER: de-basing the P fold from
+checkDeclR_sound
+
+The io prize (−8/−17% measured at the β half alone; 25–40% bracket)
+is blocked by one architectural fact: `EnvS2Core` CONTAINS the R
+invariant (`base : EnvS`) and the P fold discharges every step
+through `checkDeclR_sound` — so the capstone consumes syntactic
+R-derivations whose premises are the runs the gates delete.
+PROPOSAL: a SCOPED ASSESSMENT first (statement-level, the campaign's
+probe-first discipline): what EnvS2Core must carry natively, which
+R-claims the P fold actually consumes per step, the de-based fold's
+shape, and the honest batch count.  Opened only on the user's word.
+NOTE (coordinator): this is also the natural moment for the
+interned-tier retirement decision — the same EnvS dependency family.
+Rejected alternative (A) on record: an io R-family's soundness core
+is FALSE in the ungraded model; the factoring bridge is mechanically
+refuted (rebuilding the escaped problem).
+
+## Task #161 LEDGER: the freeze-error entry (claims family)
+
+**A freeze is a claim.**  Stage 2's freeze shape 3 ("the R tier is
+untouched, fed by the full lane only") was the lead's text, frozen
+on the study's authority without checking the containment; the B1
+worker's contact-check caught it (the study had sized the P lane
+only).  The discipline ran bidirectional to the end: workers'
+statements checked by the lead, the lead's freezes checked by
+workers, both catching real errors.
+
+## Task #161 SUCCESSION RECORD — THE CLOSED STATE (2026-09-03)
+
+Master @ this commit.  Battery green (build 511 warning-free, test
+0, arena 90/92, e2e 73/73, annot 14/14, split 11/11, mode 9/9,
+no-model 138+73+14 with 3 recorded divergences); capstone re-audited
+`[propext, Classical.choice, Quot.sound]`; zero sorries.  Push
+pending with the user.
+
+THE HARVEST GOAL IS CLOSED (the table above).  Open items, all with
+the user: the two conformance restrictions + proposal (B).  Parked
+branches: proofirrel-check (ready), degating-p2/p2b (variant A
+evidence / variant B pending (B)), bucket2-s1 (the instrument),
+ioknot-b1 (merged).  Law 1's final text stands (mode-gate in (i),
+strict accept-ward (ii)); the never-list and the
+establishment/consumption asymmetry are permanent fences; the
+supplier class and the squash wall are never re-litigated.
