@@ -157,23 +157,34 @@ for f in "$BIN" "$OFFICIAL" "$PREPROC"; do
   [ -x "$f" ] || { echo "missing binary: $f  (lake build setlec)" >&2; exit 1; }
 done
 
-{
-  echo "sha	$(git -C "$ROOT" rev-parse HEAD)"
-  echo "shashort	$(git -C "$ROOT" rev-parse --short HEAD)"
-  echo "dirty	$(git -C "$ROOT" status --porcelain -- ':!PERF.md' | wc -l)"
-  echo "date	$(date -Iseconds)"
-  echo "host	$(hostname)"
-  echo "cpu	$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')"
-  echo "cores	$(nproc)"
-  echo "mem	$(awk '/MemTotal/{printf "%.0f GB", $2/1048576}' /proc/meminfo)"
-  echo "kernelver	$(uname -r)"
-  echo "official	$(readlink -f "$OFFICIAL")"
-  echo "preproc	$(readlink -f "$PREPROC")"
-  echo "reps	$REPS"
-  echo "timeout	$TIMEOUT"
-} > "$CACHE/meta.txt"
+# PERF_APPEND=1 resumes an interrupted battery: keep the cells already
+# in the TSV (and the run's metadata) and only measure what is asked
+# for now.  Cells are appended, so re-running a stream duplicates its
+# rows and the renderer keeps the LAST one.
+if [ -n "${PERF_APPEND:-}" ] && [ -s "$TSV" ]; then
+  say "APPEND mode: keeping $(wc -l < "$TSV") existing cells"
+else
+  : > "$TSV"
+  {
+    echo "sha	$(git -C "$ROOT" rev-parse HEAD)"
+    echo "shashort	$(git -C "$ROOT" rev-parse --short HEAD)"
+    # the last commit that could change the measured binary (script-only
+    # commits do not rebuild it)
+    echo "binsha	$(git -C "$ROOT" log -1 --format=%H -- . ':!scripts' ':!PERF.md')"
+    echo "dirty	$(git -C "$ROOT" status --porcelain -- ':!PERF.md' | wc -l)"
+    echo "date	$(date -Iseconds)"
+    echo "host	$(hostname)"
+    echo "cpu	$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')"
+    echo "cores	$(nproc)"
+    echo "mem	$(awk '/MemTotal/{printf "%.0f GB", $2/1048576}' /proc/meminfo)"
+    echo "kernelver	$(uname -r)"
+    echo "official	$(readlink -f "$OFFICIAL")"
+    echo "preproc	$(readlink -f "$PREPROC")"
+    echo "reps	$REPS"
+    echo "timeout	$TIMEOUT"
+  } > "$CACHE/meta.txt"
+fi
 
-: > "$TSV"
 say "BATTERY START — sha $(git -C "$ROOT" rev-parse --short HEAD), reps $REPS"
 for s in $STREAMS; do
   raw=$(stream_path "$s")

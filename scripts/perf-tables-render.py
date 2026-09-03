@@ -75,6 +75,10 @@ A("| | |")
 A("|---|---|")
 A(f"| commit measured | `{meta.get('sha', '?')}`"
   + (" **(dirty working tree)**" if meta.get("dirty", "0") not in ("0", "") else "") + " |")
+if meta.get("binsha") and meta.get("binsha") != meta.get("sha"):
+    A(f"| binary provenance | `{meta['binsha']}` — the last commit that can change "
+      "`.lake/build/bin/setlec`; the commits between it and the one above touch "
+      "only `scripts/` and this file |")
 A(f"| date | {meta.get('date', '?')} |")
 A(f"| machine | {meta.get('host', '?')} — {meta.get('cpu', '?')}, "
   f"{meta.get('cores', '?')} cores, {meta.get('mem', '?')} RAM, Linux {meta.get('kernelver', '?')} |")
