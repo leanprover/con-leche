@@ -23609,3 +23609,80 @@ savings quoted NET of the study's 2.2–3.1% memo split):
 + the last open removal rows landed.  The two conformance
 RESTRICTIONS stay with the user (outside the removal goal's
 letter).
+
+## Task #161 STAGE-2 RULINGS + THE LAW TEXT (2026-09-03;
+coordinator-ruled)
+
+**THE FOLD APPROVED**: stage 1 folds into stage 2 (the
+double-surgery-avoidance pattern); the R4 wall becomes one row of
+the io-knot claims design; branch `agent/bucket2-s1` @ 139b68db
+PARKS AS THE INSTRUMENT (gate + exactness lemmas
+`pwBit_ne_zero_of_isNever`/`isNever_iff_forall_pwBit_ne_zero` +
+measurement kit, reusable verbatim).  Options (1)/(2)/(4) REJECTED
+with reasons; (4) explicitly barred by the both-routes-permanent
+user ruling.
+
+**LAW 1, FINAL TEXT (amended; goal-derived, user-overridable)**:
+annotations never change a reduct or a computed type;
+annotation-gated CHECK-SKIPPING is permitted where
+(i) the skip's soundness is a P-tier theorem AND the gate fires
+    only in modes where the licensing theorems' hypotheses hold
+    (μ.verified = true) — THE MODE-GATE IS PART OF THE LAW TEXT;
+(ii) STRICT ACCEPT-WARD: for every input, a licensed gate may
+    change a verdict ONLY from {reject, decline} to accept; any
+    other movement, INCLUDING decline→reject, is a violation (the
+    arena convention gives decline and reject distinct meanings);
+(iii) reducts and computed types remain annotation-blind.
+The establishment/consumption asymmetry is the fence: gates skip
+only where the sealed claims consume nothing; front-door gating
+stays dead.
+
+## Task #161 STAGE 2 STATEMENT FREEZE — the io-knot campaign
+(2026-09-03; the lead's freeze, consumer-validated by the study)
+
+The study's wait-conditions are all met (bucket-2 attribution
+landed; law 1 ruled; A+B+C landed).  FROZEN SHAPES:
+
+1. **Kernel frame**: the two-knot pattern (`coreKnotIO`/`coreKnotF`)
+   resurrected from 63f2af1a; `inferSpineIO` runs the per-binder
+   pw-gate — skip arg infer+defeq iff the ∀'s stored `pw = .never`
+   AND μ.verified (the mode-gate, law text (i)); the SAME mode-gated
+   gate at the whnfCore β certs (the parked stage-1 instrument);
+   memo separation per #134's `inferFC` discipline (its 2.2–3.1%
+   cost is the NET baseline for every quoted saving).
+2. **`InferClaimsIO2P` — PREMISE FORM** (the frozen species):
+   `AnnotOkP ea` as PREMISE; conclusions `AnnotOkP ta` + membership
+   in the io-computed type.  The app clause is the only new
+   mathematics, discharged on the study's mechanized
+   `io_domain_transfer`/`io_app_mem` (graph regime, no side
+   conditions) with the kept-check branch reusing today's ihd
+   route.  The squash regime keeps every check FOREVER
+   (`io_membership_fails_at_squash` — the wall is
+   model-class-wide); `pw = .never` is the whole licensed fragment.
+3. **The R4 io row (the fold)**: the io lane's β step draws its
+   domain fact from the graded carrier through the app slot
+   (`io_domain_transfer` + `piR_dom_unique`), NOT from certificate
+   runs; the R tier (`Red`/`VExpr`) is UNTOUCHED — the knot
+   boundary keeps R-tier claims fed by the full lane only.
+4. **Five-way step assembly**: the four sealed families + the io
+   family; consumers switch ihi→ihio at INTERNAL sites only
+   (IrrelP/StuckP/DefEqP composite rows — the consumers already
+   hold the premise, IrrelP.lean:187-188).
+5. **Mode-provenance discipline (binding)**: an io conclusion never
+   feeds a site needing establishment form; the knot boundary is
+   the enforcement, engineered once.
+6. **NEVER-LIST (absolute)**: no front-door gating; no squash
+   skips; no supplier io-grading.
+7. **Capstone**: `checkSoundAtP` EXTENDED (one family added), never
+   edited; `no_proof_of_Empty_P`'s letter unchanged and re-audited
+   at every seal.
+
+BATCH PLAN (serial Opus, campaign cadence): B1 kernel knot + gates
++ the io claims statements landed with the first worked example
+(leaves/binders) + sim-tower start; B2 the io infer quarter (the
+app clause); B3 io twins of the scoped/leaves/reads walks (the
+named risk class); B4 five-way assembly + consumer switch; B5
+fold/capstone extension + full battery + the measured prize (gross
+AND net); B6 reserve.  Stop-and-name standing at every frozen
+shape; all savings net of the memo split; verdict discipline = the
+strict accept-ward law.
