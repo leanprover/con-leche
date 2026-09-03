@@ -1,5 +1,5 @@
 import Setlec.SetR.Install.ValueKinds
-import Setlec.SetR.Annot.Ok2
+import Setlec.SetBase.Ok2
 import Setlec.Verify.OfReducePin
 import Setlec.Verify.Denote.Inst
 

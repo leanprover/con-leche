@@ -1,4 +1,4 @@
-import Setlec.SetR.Annot.Syntax
+import Setlec.SetBase.Syntax
 import Setlec.TT.Const
 
 /-!

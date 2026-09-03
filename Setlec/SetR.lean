@@ -65,7 +65,6 @@ import Setlec.SetR.Bridge.DeclInd
 import Setlec.SetR.Bridge.Sound
 import Setlec.SetR.Main
 import Setlec.SetR.Main2
-import Setlec.SetR.Annot.Syntax
 import Setlec.SetR.Annot.Pass
 import Setlec.SetR.Annot.Kinding
 import Setlec.SetR.Annot.Validity
@@ -73,7 +72,6 @@ import Setlec.SetR.Interp2.Univ
 import Setlec.SetR.Interp2.TierA
 import Setlec.SetR.Interp2.Graded
 import Setlec.SetR.Interp2.Pilot
-import Setlec.SetR.Annot.Ok2
 import Setlec.SetR.Annot.Spine2
 import Setlec.SetR.Annot.EnvS2
 import Setlec.SetR.Interp2.BasisType

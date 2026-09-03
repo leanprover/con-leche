@@ -1,4 +1,4 @@
-import Setlec.SetR.Interp2.Ops
+import Setlec.SetBase.Ops
 
 /-!
 # Option C: the graded soundness judgment — feasibility (task #151, tier B)
