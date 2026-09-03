@@ -1,7 +1,7 @@
 import Setlec.SetBase.Sat2
 import Setlec.SetR.Annot.Spine2
 import Setlec.SetR.Annot.Pass
-import Setlec.SetR.Annot.Canon
+import Setlec.SetBase.Canon
 import Setlec.SetR.EnvS
 
 /-!

@@ -1,4 +1,6 @@
-import Setlec.SetR.Annot.Pass
+import Setlec.SetBase.Syntax
+import Setlec.Verify.Denote
+import Setlec.Verify.Knot
 
 /-!
 # Canonical annotations (task #151 tier C — the R1 resolution of WALL 3)

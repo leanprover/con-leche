@@ -53,10 +53,7 @@ Setlec.SetR.Interp2.Claims2P -> Setlec.SetR.Interp2.Claims2E            # S2: th
 Setlec.SetR.Interp2.InstallP -> Setlec.SetR.Interp2.Keys2Cond           # S2: denote2_{app,const,fvar}
 Setlec.SetR.Interp2.BasisTypeOk -> Setlec.SetR.Interp2.BasisOk          # S2: the 2U basis-ok carrier
 Setlec.SetR.Interp2.Step2.BitLevels -> Setlec.SetR.Interp2.Step2.Levels # S2: the 2U levels walk
-Setlec.SetR.Interp2.Step2.DefEqP -> Setlec.SetR.Interp2.Step2.DefEqRun  # S2: census §2.4 — uses NOTHING from it
-Setlec.SetR.Interp2.Step2.NatP -> Setlec.SetR.Interp2.Step2.Lit         # S2: natLit_facts2
 Setlec.SetR.Interp2.Step2.IrrelP -> Setlec.SetR.Interp2.EmptyPin2       # S2: the 2U empty pin
-Setlec.SetR.Annot.Bit -> Setlec.SetR.Annot.Canon                        # S2: Canon needs natLitT+charListT out of Annot/Pass (census edge 14 split); Canon is base-destined, not R content
 # --- the de-basing proper: `EnvS2Core.base : EnvS` and the P carriers
 # that reach the collapsed carrier through it (spec point 2).
 Setlec.SetR.Annot.EnvS2Core -> Setlec.SetR.Annot.EnvS2U                 # S3-S5: the `base : EnvS` field itself
@@ -161,7 +158,11 @@ ROOTS_R = ['Setlec.SetR.Main', 'Setlec.SetR.Main2',
            'Setlec.SetR.Interp2.Step2.LevelsInst',
            'Setlec.SetR.Interp2.Step2.StrLit',
            'Setlec.SetR.Interp2.IotaArity',
-           'Setlec.SetR.Interp2.Step2.SeamMono']
+           'Setlec.SetR.Interp2.Step2.SeamMono',
+           # 2U content (`EnvS2UM` rows) that S2 left without a
+           # consumer: its only importer was `Step2/Lit`, which used
+           # nothing from it (a dead import), and `Lit` is base now.
+           'Setlec.SetR.Interp2.Step2.Infer']
 
 cP = closure(ROOTS_P)
 cR = closure(ROOTS_R)

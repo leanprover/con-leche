@@ -1,7 +1,13 @@
-import Setlec.SetR.Interp2.Claims2
+import Setlec.SetBase.Kit
 
 /-!
 # `CheckStep2`, the definitional-equality quarter — Tier A clauses
+
+*(Re-based to `Setlec/SetBase/*` at THE SEPARATION's S2, task #161:
+every theorem here is pure `interp2` algebra — no `EnvS`, no
+environment invariant, no claim carrier — and BOTH lanes' definitional
+-equality quarters consume it.  Path and module name changed; the Lean
+namespace, the statements and the proofs are verbatim.)*
 
 Per-clause lemmas for `DefEqClaims2`.  The claim is **unconditional in
 truthfulness** — an `interp2` equality and nothing else — which is the
@@ -18,7 +24,7 @@ respectively, and appear here only as names.
 
 namespace Setlec.SetR.Interp2
 
-open Setlec.TT Setlec.TTVerify SetTheory
+open Setlec.TT SetTheory
 open Setlec.SetR (AVExpr)
 
 universe w

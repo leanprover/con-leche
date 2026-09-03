@@ -80,9 +80,8 @@ import Setlec.SetR.Interp2.Skeleton
 import Setlec.SetR.Interp2.Claims2
 import Setlec.SetR.Interp2.Step2.Infer
 import Setlec.SetR.Interp2.Step2.WhnfCore
-import Setlec.SetR.Interp2.Step2.DefEq
 import Setlec.SetR.Interp2.Step2.Loop
-import Setlec.SetR.Interp2.Step2.Lit
+import Setlec.SetBase.LitStep2
 import Setlec.SetR.Interp2.Step2.StrLit
 import Setlec.SetR.Interp2.Step2.Dispatch
 import Setlec.SetR.Interp2.Step2.Routed
@@ -218,7 +217,7 @@ import Setlec.SetR.Interp2.Dual2E
 import Setlec.SetR.Interp2.Capstone2E
 import Setlec.SetR.Interp2.Capstone
 import Setlec.SetR.Interp2.Install2
-import Setlec.SetR.Annot.Canon
+import Setlec.SetBase.Canon
 import Setlec.SetR.Annot.Bit
 import Setlec.SetR.Annot.BitLemmas
 import Setlec.SetR.Annot.BitShift

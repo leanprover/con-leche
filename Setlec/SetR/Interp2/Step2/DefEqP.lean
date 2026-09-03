@@ -1,6 +1,6 @@
 import Setlec.SetR.Interp2.CtxOkPKit
 import Setlec.SetR.Annot.BitLemmas
-import Setlec.SetR.Interp2.Step2.DefEqRun
+import Setlec.SetBase.DefEqStep2
 
 /-!
 # The definitional-equality quarter, P currency (task #161, P3 batch 5)

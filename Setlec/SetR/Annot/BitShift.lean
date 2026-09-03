@@ -1,4 +1,5 @@
 import Setlec.SetR.Annot.BitLemmas
+import Setlec.Verify.Shift
 
 /-!
 # `denoteP`'s depth shift (task #161, P3.2)

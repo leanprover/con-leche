@@ -1,6 +1,6 @@
 import Setlec.SetR.Interp2.Step2.Routed
 import Setlec.SetR.Interp2.Step2.Whnf
-import Setlec.SetR.Interp2.Step2.DefEq
+import Setlec.SetBase.DefEqStep2
 import Setlec.SetR.Interp2.Claims2B
 import Setlec.SetR.Interp2.Claims2C
 import Setlec.SetR.Interp2.Claims2D

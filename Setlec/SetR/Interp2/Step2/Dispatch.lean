@@ -1,5 +1,5 @@
 import Setlec.SetR.Annot.EnvS2U
-import Setlec.SetR.Interp2.Step2.Lit
+import Setlec.SetBase.LitStep2
 import Setlec.SetR.Interp2.Step2.Fuel
 
 /-!

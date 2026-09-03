@@ -1,4 +1,4 @@
-import Setlec.SetR.Annot.Canon
+import Setlec.SetBase.Canon
 import Setlec.Verify.Denote.Shift
 
 /-!

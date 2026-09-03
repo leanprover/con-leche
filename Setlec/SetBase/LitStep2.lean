@@ -1,8 +1,15 @@
-import Setlec.SetR.Interp2.Step2.Infer
-import Setlec.SetR.Interp2.BasisType
+import Setlec.SetBase.Ok2
+import Setlec.SetBase.Canon
 
 /-!
 # `CheckStep2`, the literal clauses — Tier B (the transposition batch)
+
+*(Re-based to `Setlec/SetBase/*` at THE SEPARATION's S2, task #161:
+`natLit_facts2` is the module's only theorem, it mentions no `EnvS`,
+no fuel and no mode — a pure `interp2`/`AnnotOk2` statement about a
+`natLitT2` spine, as the note below already observes — and both lanes'
+numeral clauses consume it.  Path and module name changed; the Lean
+namespace, the statement and the proof are verbatim.)*
 
 `Sound/Lit.lean`'s numeral facts onto `piR`/`AnnotOk2`/`interp2` and
 `denote2`'s own numeral spine (`natLitT2`, from `Interp2/BasisType.lean`
