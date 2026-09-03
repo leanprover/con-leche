@@ -28122,3 +28122,308 @@ against the AMENDED parity baselines — coordinate the baseline
 choice with the perf lead: the cached parity engine now wins every
 stream, so net numbers are stated against current reality, not the
 retracted table).
+
+## Task #161 THE SEPARATION — S8 SEALED (2026-09-03, `agent/sep-s8`,
+unpushed): THE WHITELIST READS NOTHING; THE SHIPPED DRIVER HAS A P
+CAPSTONE
+
+**THE GATE LINE, FIRST, VERBATIM.**
+
+```
+layering: base 258 / R 106 / P 117 / neutral 3 modules;
+          0 P->R edges (whitelist EMPTY); 0 R->P
+```
+
+The whitelist is not "one line", not "one tolerated edge": it reads
+**NOTHING**.  The module separation is complete as the user ordered
+it — the collapsed-model tree and the graded-model tree are disjoint
+subtrees over a shared base, with no import across in either
+direction.
+
+### 1. THE ZERO-OPENER (batch item 1)
+
+**(a) The move.**  S7's finding was that the last edge had stopped
+being a proof obligation: what `FoldP` imports is
+`checkDeclR_ofEnvRE`, whose statement and whose whole proof tree
+mention no model, and the edge survived only because `Bridge/*` still
+*sat* under `Setlec/SetR/`.  So this was a move, and it is done.
+Twenty-two of the twenty-three `Bridge/*` modules are now
+`Setlec/SetBase/Bridge/*`:
+
+* **twenty** — the inference chain, `Claims` through `Main` — are
+  **byte-identical apart from their one intra-chain import line**
+  (diffed individually against master; each diff is exactly
+  `< import Setlec.SetR.Bridge.X` / `> import Setlec.SetBase.Bridge.X`);
+* `Bridge/Decl` and `Bridge/Sound` were **split**, not moved whole:
+  each left its collapsed-lane instance behind (below);
+* `Bridge/DeclInd` moved whole, minus the deletion.
+
+**(b) The deletion.**  `declIndRS` is gone — consumer-free after its
+S7 re-proof (S7 finding 6, ruling ratified at the succession).  With
+it went `Bridge/DeclInd`'s `SetR/Install/DeclIndS` import and its `V`
+variable, and the module re-based model-free.
+
+**What stayed in `Setlec/SetR/Bridge/` is exactly the collapsed
+lane's own two instances**, and they are the honest residue of a
+two-lane tree, not a leftover:
+
+* `Decl.lean` — `EnvS.toEnvR`, the install carrier's projection to
+  the bridge invariant (the P lane has its own twin,
+  `EnvS2PM.toEnvR`; neither lane sees the other's);
+* `Sound.lean` — `checkDeclR_sound`, `checkDeclRun_sound`, `foldlM_R`:
+  the `EnvS` instance of the dispatch and the fold that carries the
+  install invariant along it.
+
+**The package-separation decision (S1's succession item), RULED:
+it stays a NAMED FOLLOW-UP.**  Reasoning recorded in `lakefile.toml`
+where the S1 honesty note lives.  In short: with the whitelist empty
+this is no longer a de-basing question (there is nothing left to
+de-base) but a build-system one.  Three Lake *packages* with
+`require` edges would make the fence structural — but it buys a
+*stronger form of a property the tree already has*, at the cost of a
+lakefile rewrite that renames every target, the test driver and both
+executables, and whose failure modes (stale inter-package oleans, a
+split `.lake`) are new and would land on top of a green tree.
+`tests/layering.sh` already enforces the fence at zero cost inside
+the standard battery and cannot be bypassed by adding an import.  The
+gate's own header and the whitelist block were rewritten to record
+that the ratchet has reached zero.
+
+### 2. SP_P — THE SHIPPED DRIVER'S CAPSTONE FAMILY (batch item 2)
+
+`Setlec/SetP/MainP.lean`, new.  The design census's **finding 2**
+("owed, and previously unnamed", risk-rank 1) is closed: the P
+capstone family had exactly two members, both over the pure
+`checkDecls`, while the executable runs `checkDeclsSP`.
+
+| driver | fold | acceptance | capstone |
+|---|---|---|---|
+| `checkDecls μ (cachedOps μ)` | `foldPMC` | `checkDeclsC_sound_P` | `no_proof_of_Empty_C_P` |
+| `checkDeclsShared μ` | `foldPMS` | `checkDeclsS_sound_P` | `no_proof_of_Empty_S_P` |
+| **`checkDeclsSP μ st pds`** | `foldSP_PM` | `checkDeclsSP_sound_P` | **`no_proof_of_Empty_SP_P`** |
+
+**THE NEW STATEMENTS, QUOTED, with the per-statement justification.
+They are frozen as of this landing.**
+
+```lean
+theorem no_proof_of_Empty_SP_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verified = true)
+    {st : WFStore} {pds : List DeclP} {env' : Env}
+    (h : checkDeclsSP μ st pds = .ok env') :
+    ∀ c ∈ env'.consts,
+      c.toConstantVal.type = .const emptyName [] → False
+```
+
+*Justification.*  Mode/driver named per the separation spec: the
+**P-verified lane** (`hμ : μ.verified = true`, `EnvS2PM` carrier) over
+the **shipped parsed-index driver** `checkDeclsSP`.  Hypotheses are
+input-level only in the #16 sense — the store bundle `st : WFStore`
+(whose well-formedness is a *field*, which is what makes it a bundle
+rather than a premise), the parsed declarations, the accepted run, and
+`hμ`, which is `no_proof_of_Empty_P`'s own mode hypothesis and part of
+the goal's letter (the annotated checker *is* the verified mode;
+`--no-model` ignores annotations by design).  The conclusion is
+verbatim `no_proof_of_Empty_P`'s, driver swapped.  **There is no
+milestone-shaped `_of` sibling**: `FoldP.lean` keeps one beside
+`no_proof_of_Empty_P` for history, but every tier bundle was
+discharged before that close and this file adds none, so an `_of` form
+here would carry nothing — and per the conditional-forms ruling a
+hypothesis-free conditional is not a deliverable, it is noise.
+
+```lean
+theorem no_proof_of_Empty_C_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verified = true)
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (cachedOps μ) ds = .ok env') :
+    ∀ c ∈ env'.consts,
+      c.toConstantVal.type = .const emptyName [] → False
+
+theorem no_proof_of_Empty_S_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verified = true)
+    {ds : List Declaration} {env' : Env}
+    (h : checkDeclsShared μ ds = .ok env') :
+    ∀ c ∈ env'.consts,
+      c.toConstantVal.type = .const emptyName [] → False
+```
+
+*Justification.*  The other two executable cores (`--core=cached`,
+`--core=shared`), same letter, driver swapped; they are the census's
+`C` and `S` transposes and they exist so that "the P mode has a
+statement about the function the checker runs" is true of **every**
+core the driver can select, not only the default.  Both take the same
+`hμ` and nothing else.
+
+```lean
+theorem checkDeclsSP_sound_P (hμ : μ.verified = true)
+    {st : WFStore} {pds : List DeclP} {env' : Env}
+    (h : checkDeclsSP μ st pds = .ok env') :
+    Nonempty (EnvS2PM V μ env')
+```
+
+*Justification.*  The acceptance theorem the capstone factors
+through — `checkDeclsSP_sound_R`'s letter at the graded carrier.
+`Nonempty` because the carrier is data and only its existence is
+claimed; the two sibling acceptances (`checkDeclsC_sound_P`,
+`checkDeclsS_sound_P`) are the same at their drivers.
+
+```lean
+theorem foldSP_PM (hμ : μ.verified = true) {st0 : EStore} (hwfst : st0.WF) :
+    ∀ (pds : List DeclP) (fe : FEnv) {fe' : FEnv} {s₀ s' : IState},
+      fe = mkFEnv fe.env →
+      EnvSPOk V μ fe.env →
+      ISOKF s₀ → Ext st0 s₀.store →
+      (pds.foldlM (checkDeclSPStep μ
+        (st0.nodes.size + st0.nodes.size)) fe) s₀ = .ok (fe', s') →
+      EnvSPOk V μ fe'.env
+```
+
+*Justification.*  `foldSP_R`'s statement with `EnvSOk V` replaced by
+`EnvSPOk V μ`, nothing else.  The store premises (`ISOKF`, `Ext`, the
+`mkFEnv` normal form) are the driver's own bookkeeping, threaded by
+`checkDeclSPStep_run`; they are the "name the environment each premise
+is at" discipline applied at the store, and they are *identical* to
+the R lane's because they are facts about the parser's index, not
+about a model.  `foldPMC`/`foldPMS` are the same trade at their
+drivers.
+
+### 3. FINDINGS
+
+1. **NOTHING SEMANTIC WAS ADDED BY SP_P — and that is the finding.**
+   The census priced this batch HIGH (risk-rank 1) *for scope*, and
+   the scope was real: nine theorems that no prior sizing named.  But
+   every one came in as a transposition, first try, with no
+   STOP-AND-NAME owed.  The reason is S7: each driver's
+   step-to-`checkDecl` bridge (`checkDecl_bridge`,
+   `checkDeclSharedF_bridge`, `checkDeclSPStep_run`) asks for exactly
+   **one** fact about the environment — `EnvWF` — and since S7 the
+   graded carrier supplies it through its own projection,
+   `mp.toEnvR.wf`, with no collapsed-model round trip.  **General
+   form, worth keeping: a driver transpose costs the carrier's
+   weakest environment fact, not the carrier.**  Had this batch run
+   before the de-basing it would have had to route `EnvWF` through
+   `EnvS2PM.base`, and the "8 theorems" would have dragged the whole
+   install layer behind them.  The de-basing paid for SP_P in
+   advance.
+2. **The import-level gate under-read the move by eight base modules
+   — the SIXTH instance of "an import-level gate cannot price a
+   de-basing".**  `Bridge/Decl.lean`'s `SetR/Install/Step` import
+   looked like a one-line drop (grep found no `Install/Step` symbol in
+   the file).  It was resolving **eight base modules** *through* the R
+   lane: `SetBase/{DeclEta,Ok2,EraseInv,DivModEval}` and
+   `Verify/{OfReducePin,PinnedShapes,Extend.Sibs}`.  Every one
+   re-based verbatim — and the measurement that matters is the
+   negative one: **nothing from `SetR/Sound/*`, `SetR/EnvS` or
+   `SetR/Install/*` was needed**, which is the mechanical proof that
+   the declaration bridge is model-free.  The rule S7 recorded ("count
+   the signatures the premise crosses, not the call sites it ends at")
+   has a move-shaped twin: *count the modules the import resolves,
+   not the symbols it names.*
+3. **The P lane has no input-level capstone at any driver, and that
+   is a scope boundary, not an omission.**  The R and R2 lanes each
+   carry four `no_proof_of_Empty_input_*` theorems; the P lane closes
+   at `no_proof_of_Empty_P` and stops.  Those forms are a *different
+   argument* — `foldlM_no_Empty_R`, that a declared `Empty`-typed
+   `def`/`thm` cannot survive the fold with its annotated type — not a
+   carrier transpose, so building them would be a new statement family
+   rather than this batch's ratified scope.  **Named as a follow-up**
+   in `MainP.lean`'s docstring so it cannot be mistaken for done.
+
+### 4. BATTERY (verbatim)
+
+* `lake build` — clean, warning-free, **536** jobs (533 + the two
+  `SetR/Bridge/{Decl,Sound}` splits + `SetP/MainP`).
+* `lake test` — exit 0.
+* `tests/arena.sh` — exit 0:
+
+  ```
+  layering: base 258 / R 106 / P 117 / neutral 3 modules; 0 P->R edges (whitelist EMPTY); 0 R->P
+  arena tutorial: 90/92 good tests accepted
+  e2e: 73/73 as expected
+  annot suite: 14/14 as expected
+  split driver: 11/11 as expected
+  mode flags: 9/9 as expected
+  no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+  ```
+* Axiom audit (`_tmp/sep-s8/Audit.lean`), **21 declarations**: the 12
+  landed capstones **and** the 9 new SP_P family members
+  (`no_proof_of_Empty_{SP,C,S}_P`, `checkDecls{SP,C,S}_sound_P`,
+  `foldSP_PM`, `foldPMC`, `foldPMS`) — every one
+  `[propext, Classical.choice, Quot.sound]`.
+* **md5 identity**: `git diff master -- Setlec/Kernel Main.lean
+  Setlec/Cached Setlec/Frontend AnnotateBasis.lean Setlec/PinGen` is
+  **empty**, and `.lake/build/bin/setlec` has md5 `29abe904…` —
+  **identical to master's**.  The whole batch is proof-and-move only:
+  the zero-opener half is moves, and **the SP_P half changes no
+  executable either** (it adds theorems about existing drivers and
+  touches nothing under `Setlec/Kernel`).  The arena suite was run
+  anyway.
+* Zero `sorry`s; no new axioms; **no frozen statement edited.**
+  `directParts?_none`, `checkDeclR_ofEnvR`, `checkDeclR_ofEnvRE`,
+  `checkDeclR_sound`, `checkDeclRun_sound`, `foldlM_R`, `EnvS.toEnvR`
+  and every declaration of `Bridge/Decl`/`Bridge/DeclInd` are
+  byte-identical in statement against master; only docstrings and
+  import lines moved.  The one removal is `declIndRS`, ratified as
+  dead code.
+
+| metric | S7 | S8 |
+|---|---|---|
+| gate: base / R / P / neutral | 235 / 127 / 116 / 3 | **258 / 106 / 117 / 3** |
+| **P→R edges** | 1 | **0 (whitelist EMPTY)** |
+| `closure(FoldP) ∩ SetR` | 61 mod / 35 233 ln | **0 / 0** |
+| `closure(MainP) ∩ SetR` | — | **0 / 0** |
+| `closure(HarvestP) ∩ SetR` | 0 / 0 | 0 / 0 |
+| `Bridge/*` modules under `SetR/` | 23 | **2** |
+| — of those, containing `EnvS V` | 3 | **2** |
+| P capstones over the SHIPPED driver | **0** | **1** (+2 sibling cores) |
+| base modules | 41 | **64** |
+| build jobs | 533 | **536** |
+
+### 5. SUCCESSION — where S9 starts
+
+**S9 = THE PAYOFF CHECK, and it is GATED.** The coordinator's own
+dispatch brief comes first (the S7 seal's provision, unchanged and
+restated here so no worker can start off this seal alone): the payoff
+check lands a parked **kernel-behavior** change — the β-cert gate in P
+mode — and the lead owes a one-page brief before any worker starts:
+which gate lands, which mode guards it, the verdict-risk assessment,
+and the measurement plan against the **amended** parity baselines
+(coordinate the baseline choice with the perf lead: the cached parity
+engine now wins every stream, so net numbers are stated against
+current reality, not the retracted table).  **No S9 work was started
+here.**
+
+Two items sit beside it, both named above and neither a proof:
+
+1. **Package separation** — ruled a named follow-up (§1), reasoning in
+   `lakefile.toml`.  Revisit trigger: if the fence is ever bypassed in
+   practice (a P module importing R and someone editing the gate
+   rather than the import), the structural form earns its cost.
+2. **The P lane's input-level capstones** (finding 3) — a new
+   statement family, not a transpose; unowed until someone rules that
+   the P lane must mirror R's four.
+
+Kit: `tests/layering.sh` (and `--list`); `_tmp/sep-s8/Audit.lean`
+(21 declarations), `closure.py`, `basecount.py`; the S1–S7 audit
+files.
+
+## Task #161 SEPARATION — S8 LANDED: THE WHITELIST READS NOTHING
+(2026-09-03; succession-current)
+
+Branch `agent/sep-s8` @ `f244c1fb`, unpushed, worktree clean.
+Battery green; binary md5 `29abe904…` identical to master's;
+**whitelist EMPTY** (`0 P->R edges`); `closure(FoldP) ∩ SetR`
+**0/0**; `declIndRS` DELETED; the shipped driver `checkDeclsSP`
+now carries `no_proof_of_Empty_SP_P`.  Ledger entries proposed for
+ratification: **"a driver transpose costs the carrier's weakest
+environment fact, not the carrier"** (finding 1 — why risk-rank 1
+came in first try: the de-basing paid for SP_P in advance) and the
+move-shaped twin of the sizing rule, **"count the modules the
+import resolves, not the symbols it names"** (finding 2, sixth
+instance of the import-vs-crossing gap).  Package separation RULED
+a named follow-up; the P input-level capstones NAMED as unowed
+scope.
+
+**S9 GATE (coordinator-set, unchanged)**: the payoff check lands a
+parked KERNEL-BEHAVIOR change (the β-cert gate in P mode) — it gets
+its own dispatch brief FROM THE COORDINATOR before any worker
+starts, with the lead's one-page brief owed first.
