@@ -619,7 +619,7 @@ theorem projFnS {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     hrulesWFS hheadCtorsS hheadRecS
   -- the two model-free conclusions are `projFnInv`'s, at the base
   -- (task #161 S6): one proof, both lanes.
-  obtain ⟨hinv₁, hIB₁⟩ := projFnInv hRid hinv hIB hbshape
+  obtain ⟨hinv₁, hIB₁⟩ := projFnInv hRid.toRun hinv hIB hbshape
   exact ⟨m₁, hm₁cval, by rw [hm₁cval]; exact hinv₁,
     by rw [hm₁cval]; exact hIB₁⟩
 

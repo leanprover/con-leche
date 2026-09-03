@@ -1,4 +1,5 @@
 import Setlec.SetBase.EnvRCons
+import Setlec.SetBase.DeclIndRun
 import Setlec.Verify.Denote.Levels
 
 /-!
@@ -233,10 +234,10 @@ stored rule's constructor.  Both lanes' conses need them — the R lane
 inside `projConsS`, the P lane at `projConsP` — and neither is
 semantic. -/
 theorem projFnR_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
-    {cval : TConstVal} {T ctorName : Name} {lps : List Name}
+    {T ctorName : Name} {lps : List Name}
     {nP nF i : Nat}
     (hwfE : EnvWF env')
-    (hR : ProjFnR μ F env' cval T ctorName lps nP nF i env₁) :
+    (hR : ProjFnRunR μ F env' T ctorName lps nP nF i env₁) :
     EnvWF env₁ ∧
       ∀ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
         (env₁.consts.headD default) = .recInfo cvR mI rP rules →
@@ -343,7 +344,7 @@ theorem projFnRR {μ : CheckMode} {F : Nat} {env' env₁ : Env}
   obtain ⟨m₁, hm₁cval⟩ :=
     EnvR.consProjFn m hfm hmlps hpnone hround hptyres hptyb hptyf
       hptylp hinv hrulesWF hrhsDen
-  obtain ⟨hinv₁, hIB₁⟩ := projFnInv hRid hinv hIB hbshape
+  obtain ⟨hinv₁, hIB₁⟩ := projFnInv hRid.toRun hinv hIB hbshape
   exact ⟨m₁, hm₁cval, by rw [hm₁cval]; exact hinv₁,
     by rw [hm₁cval]; exact hIB₁⟩
 
