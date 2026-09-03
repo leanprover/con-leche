@@ -1,5 +1,5 @@
 import Setlec.SetR.Annot.BitInstall
-import Setlec.SetR.Interp2.Denote2Extend
+import Setlec.SetBase.ConstsBound
 
 /-!
 # `denoteP` across an environment extension (task #161, P3.2)

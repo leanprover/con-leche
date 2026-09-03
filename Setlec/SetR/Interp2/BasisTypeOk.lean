@@ -1,4 +1,4 @@
-import Setlec.SetR.Interp2.BasisOk
+import Setlec.SetBase.BasisType
 import Setlec.SetR.Interp2.BitAgree
 import Setlec.SetR.Interp2.Claims2P
 

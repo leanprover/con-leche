@@ -3,6 +3,12 @@ import Setlec.SetBase.Kit
 /-!
 # The universe question, in the `pt`-free world (task #151, tier B)
 
+*(Re-based to `Setlec/SetBase/*` at THE SEPARATION's S2, task #161: the
+module already imported nothing but base, and the graded lane needs it.
+Path and module name changed; namespaces, statements and proofs
+verbatim.)*
+
+
 The record's version of the question was: *`pt ∈ univ (u+1)` was forced
 — the collapse puts the proof point into `Type`-level function spaces
 (`lamC` collapses at every level), so every universe has to contain it,

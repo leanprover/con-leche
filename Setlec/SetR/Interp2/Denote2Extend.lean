@@ -1,3 +1,4 @@
+import Setlec.SetBase.ConstsBound
 import Setlec.SetR.Interp2.Keys2
 import Setlec.SetR.Interp2.EnvS2UNe
 
@@ -71,104 +72,13 @@ open Setlec (CheckMode Env Expr Name Level ConstantInfo
 
 /-! ## The `ConstsBound` kit
 
-`ConstsBound` landed with no lemmas — its only consumer so far took it
-as a premise and never took it apart.  These are the clause equations
-and the one closure fact `denote2`'s binder cases need. -/
-
-@[simp] theorem constsBound_const {env₀ : Env} {n : Name}
-    {us : List Level} :
-    ConstsBound env₀ (.const n us) ↔ (env₀.find? n).isSome = true := by
-  rw [ConstsBound]
-
-@[simp] theorem constsBound_app {env₀ : Env} {f a : Expr} :
-    ConstsBound env₀ (.app f a) ↔
-      ConstsBound env₀ f ∧ ConstsBound env₀ a := by
-  rw [ConstsBound]
-
-@[simp] theorem constsBound_lam {env₀ : Env} {n : Name} {ty b : Expr}
-    {m : Setlec.BinderMeta} :
-    ConstsBound env₀ (.lam n ty b m) ↔
-      ConstsBound env₀ ty ∧ ConstsBound env₀ b := by
-  rw [ConstsBound]
-
-@[simp] theorem constsBound_forallE {env₀ : Env} {n : Name}
-    {ty b : Expr} {m : Setlec.BinderMeta} :
-    ConstsBound env₀ (.forallE n ty b m) ↔
-      ConstsBound env₀ ty ∧ ConstsBound env₀ b := by
-  rw [ConstsBound]
-
-@[simp] theorem constsBound_letE {env₀ : Env} {n : Name}
-    {t v b : Expr} :
-    ConstsBound env₀ (.letE n t v b) ↔
-      ConstsBound env₀ t ∧ ConstsBound env₀ v ∧ ConstsBound env₀ b := by
-  rw [ConstsBound]
-
-@[simp] theorem constsBound_proj {env₀ : Env} {s : Name} {i : Nat}
-    {e : Expr} :
-    ConstsBound env₀ (.proj s i e) ↔ ConstsBound env₀ e := by
-  rw [ConstsBound]
-
-@[simp] theorem constsBound_fvar {env₀ : Env} {idx : Nat} {n : Name}
-    {ty : Expr} :
-    ConstsBound env₀ (.fvar idx n ty) ↔ ConstsBound env₀ ty := by
-  rw [ConstsBound]
-
-@[simp] theorem constsBound_sort {env₀ : Env} {u : Level} :
-    ConstsBound env₀ (.sort u) := by rw [ConstsBound] <;> simp
-
-@[simp] theorem constsBound_bvar {env₀ : Env} {i : Nat} :
-    ConstsBound env₀ (.bvar i) := by rw [ConstsBound] <;> simp
-
-/-- **The literal case is the catch-all.**  Stated, rather than left
-implicit, because it is the whole of finding 2: the premise of
-`Denote2EnvExtend` says *nothing* about a literal, while `denote2`'s
-literal clauses are gated on an environment-global guard. -/
-@[simp] theorem constsBound_lit {env₀ : Env} {l : Setlec.Literal} :
-    ConstsBound env₀ (.lit l) := by rw [ConstsBound] <;> simp
-
-/-- Instantiation preserves prefix-boundness: every constant leaf of
-the result comes from the body or from the substituted term. -/
-theorem ConstsBound.instantiate1 {env₀ : Env} {v : Expr}
-    (hv : ConstsBound env₀ v) :
-    ∀ (e : Expr) (d : Nat), ConstsBound env₀ e →
-      ConstsBound env₀ (e.instantiate1 v d) := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro d _
-    rw [Setlec.Expr.instantiate1]
-    split
-    · exact hv
-    · split <;> simp
-  | sort u => intro d _; rw [Setlec.Expr.instantiate1]; simp
-  | const n us => intro d h; rw [Setlec.Expr.instantiate1]; exact h
-  | fvar idx n ty => intro d h; rw [Setlec.Expr.instantiate1]; exact h
-  | lit l => intro d _; rw [Setlec.Expr.instantiate1]; simp
-  | app f a ihf iha =>
-    intro d h
-    rw [constsBound_app] at h
-    rw [Setlec.Expr.instantiate1, constsBound_app]
-    exact ⟨ihf d h.1, iha d h.2⟩
-  | lam n ty b m ihty ihb =>
-    intro d h
-    rw [constsBound_lam] at h
-    rw [Setlec.Expr.instantiate1, constsBound_lam]
-    exact ⟨ihty d h.1, ihb (d + 1) h.2⟩
-  | forallE n ty b m ihty ihb =>
-    intro d h
-    rw [constsBound_forallE] at h
-    rw [Setlec.Expr.instantiate1, constsBound_forallE]
-    exact ⟨ihty d h.1, ihb (d + 1) h.2⟩
-  | letE n t val b iht ihval ihb =>
-    intro d h
-    rw [constsBound_letE] at h
-    rw [Setlec.Expr.instantiate1, constsBound_letE]
-    exact ⟨iht d h.1, ihval d h.2.1, ihb (d + 1) h.2.2⟩
-  | proj s i e ihe =>
-    intro d h
-    rw [constsBound_proj] at h
-    rw [Setlec.Expr.instantiate1, constsBound_proj]
-    exact ihe d h
+The kit — the clause equations and `ConstsBound.instantiate1` — moved
+to `Setlec/SetBase/ConstsBound.lean` at THE SEPARATION's S2, alongside
+the definition it is about (which used to sit in
+`Annot/SortCoh/Discharge.lean`).  It is model-free, both lanes use it,
+and the graded lane's `Annot/BitExtend` was importing this whole 2U
+module to reach it.  Names, statements and `@[simp]` attributes
+unchanged; this module imports them back. -/
 
 /-! ## Finding 2, mechanized
 
@@ -239,7 +149,7 @@ def EnvExtendReflect (μ : CheckMode) (env₀ env : Env) : Prop :=
   (∀ {f d : Nat} {e x : Expr}, ConstsBound env₀ e →
     whnf μ env f d e = .ok x → whnf μ env₀ f d e = .ok x)
 
-/-- **Finding 2's repair: the literal guards agree.**  `FindPreserved`
+/-! **Finding 2's repair: the literal guards agree.**  `FindPreserved`
 gives the prefix-to-extension direction only, and
 `denote2EnvExtend_lit_refuted` shows the converse is not optional.
 
@@ -247,10 +157,12 @@ gives the prefix-to-extension direction only, and
 `whnf`/`infer`/`annotate` clauses consult the same guards, so an
 extension that flips one is very unlikely to satisfy (E) either —
 i.e. this is an exposure request, not new content, exactly as
-`InferOutputBound` was. -/
-def LitGuardsAgree (env₀ env : Env) : Prop :=
-  natLitSupported env₀ = natLitSupported env ∧
-  strLitSupported env₀ = strLitSupported env
+`InferOutputBound` was.
+
+`LitGuardsAgree`'s *definition* moved to
+`Setlec/SetBase/ConstsBound.lean` at THE SEPARATION's S2, carrying this
+docstring's content as its own; the design note stays here, where it
+was written.  Statement unchanged. -/
 
 /-- The sort computations agree, at both of `denote2`'s entry points. -/
 def SortAgree (μ : CheckMode) (env₀ env : Env) (φ : Name → Nat) :
@@ -305,26 +217,12 @@ theorem sortAgree_of {μ : CheckMode} {env₀ env : Env} {φ : Name → Nat}
 
 /-! ## The discharge -/
 
-/-- A stored lookup's level parameters do not move. -/
-theorem levelParamsAt_congr {env₀ env : Env}
-    (hF : FindPreserved env₀ env) {n : Name}
-    (h : (env₀.find? n).isSome = true) :
-    levelParamsAt env₀ n = levelParamsAt env n := by
-  cases hf : env₀.find? n with
-  | none => rw [hf] at h; exact nomatch h
-  | some ci => rw [levelParamsAt, levelParamsAt, hf, hF hf]
+/-! `levelParamsAt_congr` moved to `Setlec/SetBase/ConstsBound.lean`
+with the rest of the extension vocabulary at S2. -/
 
-/-- The string guard pins `List.nil` and `List.cons` in the store. -/
-theorem strLitSupported_listNames {env₀ : Env}
-    (h : strLitSupported env₀ = true) :
-    (env₀.find? listNilName).isSome = true ∧
-      (env₀.find? listConsName).isSome = true := by
-  simp only [strLitSupported, Bool.and_eq_true] at h
-  constructor
-  · revert h
-    cases env₀.find? listNilName <;> simp [Setlec.listNilTyOk]
-  · revert h
-    cases env₀.find? listConsName <;> simp [Setlec.listConsTyOk]
+/-! `strLitSupported_listNames` moved to
+`Setlec/SetBase/ConstsBound.lean` with the kit, at the same S2 sever
+and for the same consumer. -/
 
 /-- **`Denote2EnvExtend`, discharged.**  The premise set is seal 35's
 plus the two findings above; every other clause composes exactly as

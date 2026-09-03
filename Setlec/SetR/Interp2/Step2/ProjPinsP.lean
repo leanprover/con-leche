@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.Step2.StuckP
+import Setlec.SetBase.ProjPins
 
 /-!
 # The pinned projection table, at the P currency (task #161, PROJ/STR

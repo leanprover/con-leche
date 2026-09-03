@@ -1,7 +1,7 @@
 import Setlec.SetR.CtxOkR
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InferLeaves
-import Setlec.SetR.ProjPins
+import Setlec.SetBase.ProjPins
 
 /-!
 # `EnvR`: the environment facts the bridge consumes (task #148, T3)

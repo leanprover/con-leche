@@ -1,3 +1,4 @@
+import Setlec.SetBase.ConstsBound
 import Setlec.SetR.Annot.SortCoh.Mono
 
 /-!
@@ -1276,29 +1277,14 @@ fold facts.  Discharge = the `CoreSub`-pattern oracle-extension
 induction (the `KnotFuelMono` precedent), with the internal motive
 strengthened by output-boundness. -/
 
-/-- Every constant the expression mentions is bound in `env₀`
-(hereditarily through annotations, like the leaf machinery). -/
-def ConstsBound (env₀ : Env) : Expr → Prop
-  | .const n _ => (env₀.find? n).isSome = true
-  | .app f a => ConstsBound env₀ f ∧ ConstsBound env₀ a
-  | .lam _ ty b _ => ConstsBound env₀ ty ∧ ConstsBound env₀ b
-  | .forallE _ ty b _ => ConstsBound env₀ ty ∧ ConstsBound env₀ b
-  | .letE _ t v b =>
-      ConstsBound env₀ t ∧ ConstsBound env₀ v ∧ ConstsBound env₀ b
-  | .proj _ _ e => ConstsBound env₀ e
-  | .fvar _ _ ty => ConstsBound env₀ ty
-  | _ => True
-termination_by e => e.sizeF
-decreasing_by all_goals first
-  | (simp [Setlec.Expr.sizeF]; omega)
-  | simp [Setlec.Expr.sizeF]
-
-/-- The extension is conservative on the prefix: every stored lookup
-survives verbatim (no shadowing — duplicate installs are
-rejected). -/
-def FindPreserved (env₀ env : Env) : Prop :=
-  ∀ {n : Name} {ci : Setlec.ConstantInfo},
-    env₀.find? n = some ci → env.find? n = some ci
+/-! `ConstsBound` used to be defined here.  THE SEPARATION's S2 re-based
+it to `Setlec/SetBase/ConstsBound.lean`, together with the clause kit
+that `Interp2/Denote2Extend.lean` had grown for it: the predicate is a
+model-free `Expr`/`Env` fact that both lanes' extension statements name,
+and the graded lane's `Annot/BitExtend` was crossing to the 2U module to
+get the kit.  Name and statement unchanged; this module imports it
+back.  `FindPreserved`, which stood beside it, went the same way and
+for the same reason. -/
 
 /-- **(E)**: successful runs on prefix-bound subjects are reproduced
 verbatim at the extended env, knot-wide (the `CoreSub` field set).

@@ -17,6 +17,15 @@ import Setlec.SetBase.DefEqStep2
 import Setlec.SetBase.Canon
 import Setlec.SetBase.LitStep2
 import Setlec.SetBase.Denote2Closed
+import Setlec.SetBase.Install2
+import Setlec.SetBase.ConstsBound
+import Setlec.SetBase.BasisType
+import Setlec.SetBase.Univ
+import Setlec.SetBase.BasisOk
+import Setlec.SetBase.Skeleton
+import Setlec.SetBase.Hoist
+import Setlec.SetBase.Rel
+import Setlec.SetBase.ProjPins
 
 /-!
 # `Setlec.SetBase` — the lane-neutral semantic primitives (task #161, S1)

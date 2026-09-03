@@ -1,4 +1,4 @@
-import Setlec.SetR.Rel
+import Setlec.SetBase.Rel
 import Setlec.Verify.Denote.HasTypeSubst
 import Setlec.Verify.Denote.Shift
 

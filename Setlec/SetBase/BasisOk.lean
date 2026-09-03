@@ -1,8 +1,14 @@
-import Setlec.SetR.Interp2.BasisType
+import Setlec.SetBase.BasisType
 import Setlec.SetBase.Interp
 
 /-!
 # `bval2_mem_type` — every built-in inhabits its annotated type
+
+*(Re-based to `Setlec/SetBase/*` at THE SEPARATION's S2, task #161: the
+module already imported nothing but base, and the graded lane needs it.
+Path and module name changed; namespaces, statements and proofs
+verbatim.)*
+
 
 Step 2's second entry item, and the skeleton's `const` row's remaining
 supplier: `Setlec/TT/Semantics/ConstOk.lean`'s capstone ported onto

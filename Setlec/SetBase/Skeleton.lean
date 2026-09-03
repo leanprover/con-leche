@@ -1,10 +1,19 @@
 import Setlec.SetBase.Ok2
-import Setlec.SetR.Annot.EnvS2
-import Setlec.SetR.Interp2.Univ
-import Setlec.SetR.Interp2.BasisOk
+import Setlec.SetBase.Sat2
+import Setlec.SetBase.Univ
+import Setlec.SetBase.BasisOk
 
 /-!
 # The second soundness's per-former skeleton (task #151, arc step 4)
+
+*(Re-based to `Setlec/SetBase/*` at THE SEPARATION's S2, task #161: the
+per-former rows are stated over `AnnotOk2`/`interp2`/`Sat2` and nothing
+else — that is the module's own design rule — so they carry no
+environment, and BOTH lanes' inference quarters close their rows with
+them.  Its `Annot/EnvS2` import was transitive cover (`Sat2`, now
+`SetBase/Sat2`).  Path and module name changed; namespaces, statements
+and proofs verbatim.)*
+
 
 The case statements of the `interp2` soundness, one per `AVExpr`
 former, each stated over **exactly the facts the frozen Claims2

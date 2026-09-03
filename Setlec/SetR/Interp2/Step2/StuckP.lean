@@ -1,4 +1,5 @@
 import Setlec.SetR.Interp2.Step2.IrrelP
+import Setlec.Verify.Denote.StrLit
 
 /-!
 # The stuck fallbacks over `interp2` (task #161, P4 — batch 7)

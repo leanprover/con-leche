@@ -1,4 +1,5 @@
-import Setlec.SetR.Interp2.Claims2E
+import Setlec.Verify.InferLeaves
+import Setlec.SetBase.Skeleton
 import Setlec.SetR.Annot.ValidV
 import Setlec.SetR.Annot.EnvS2Core
 

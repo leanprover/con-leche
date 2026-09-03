@@ -39,18 +39,11 @@ import os, re, sys
 # whitelist: P→R edges that still exist, each tagged with the batch that
 # removes it.  Format: "<importer> -> <imported>  # <batch>: <why>".
 WHITELIST = """
-# --- the 2U/denote2 lane.  RULED (design review pt 1): it goes to R
-# WHOLE, so every P-quarter dependence on it is a cross edge.  Each is
-# one or two model-free lemmas (census §2.4: frame_open2,
-# interp2C_trans, natLit_facts2, denote2_{app,const,fvar}); S2 moves
-# those to the base and the edges die with the 2U move.
-Setlec.SetR.Annot.BitExtend -> Setlec.SetR.Interp2.Denote2Extend        # S2: denote2 extension
-Setlec.SetR.Annot.BitInstall -> Setlec.SetR.Interp2.Install2            # S2: denote2 install
-Setlec.SetR.Interp2.Claims2P -> Setlec.SetR.Interp2.Claims2E            # S2: the 2U claims carrier
-Setlec.SetR.Interp2.InstallP -> Setlec.SetR.Interp2.Keys2Cond           # S2: denote2_{app,const,fvar}
-Setlec.SetR.Interp2.BasisTypeOk -> Setlec.SetR.Interp2.BasisOk          # S2: the 2U basis-ok carrier
-Setlec.SetR.Interp2.Step2.BitLevels -> Setlec.SetR.Interp2.Step2.Levels # S2: the 2U levels walk
-Setlec.SetR.Interp2.Step2.IrrelP -> Setlec.SetR.Interp2.EmptyPin2       # S2: the 2U empty pin
+# --- the 2U/denote2 lane: ALL FIFTEEN EDGES CLOSED BY S2.  The ruling
+# (design review pt 1) was that the 2U lane goes to R whole, so every
+# P-quarter dependence on it was a crossing; S2 re-based what both
+# lanes actually shared (17 modules and 9 lemma families to
+# `Setlec/SetBase/*`) and the section is empty.
 # --- the de-basing proper: `EnvS2Core.base : EnvS` and the P carriers
 # that reach the collapsed carrier through it (spec point 2).
 Setlec.SetR.Annot.EnvS2Core -> Setlec.SetR.Annot.EnvS2U                 # S3-S5: the `base : EnvS` field itself

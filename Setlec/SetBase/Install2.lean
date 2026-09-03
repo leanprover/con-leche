@@ -1,7 +1,19 @@
-import Setlec.SetR.Annot.EnvS2
+import Setlec.SetBase.Canon
+import Setlec.SetBase.Ok2
+import Setlec.Verify.EnvGuards
+import Setlec.Verify.Denote.Install
 
 /-!
 # The `acval` install algebra — the install tier's V-free half
+
+*(Re-based to `Setlec/SetBase/*` at THE SEPARATION's S2, task #161.
+The module's own title says it: this is the V-free half, and the one
+theorem that does mention `V` (`acvalWith_ok2`) takes `AnnotOk2` as a
+hypothesis and returns it — no `EnvS`, no `EnvS2`.  Its
+`Annot/EnvS2` import was transitive cover for four base facts
+(`natLitSupported_inv`, `strLitSupported_inv`, `cvalWith_{ne,self}`),
+which it now takes directly.  Path and module name changed;
+namespaces, statements and proofs verbatim.)*
 
 The keys survey (task: the six install keys over `interp2`) found
 that the `EnvS2` delta over `EnvS` is **six syntactic fields and

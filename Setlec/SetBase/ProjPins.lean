@@ -1,10 +1,17 @@
-import Setlec.SetR.Rel
+import Setlec.SetBase.Rel
 import Setlec.Verify.Denote.SubstAlgebra
 import Setlec.Verify.Denote.Levels
 import Setlec.Verify.EnvPreds
 
 /-!
 # The pinned projection entries, denoted (task #148)
+
+*(Re-based to `Setlec/SetBase/*` at THE SEPARATION's S2, task #161, with
+`SetBase/Rel` which it stands on: the graded lane's
+`Step2/ProjPinsP` consumes `projEntry_pins` and was reaching it
+through the 2U `Step2/DefEqRun`.  Path and module name changed;
+namespaces, statements and proofs verbatim.)*
+
 
 The projection table's `native` entries are pinned to the basis pair
 (`ProjOkT`), so the entry types, the constructor's type and the

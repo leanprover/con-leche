@@ -1,6 +1,6 @@
 import Setlec.SetR.Interp2.Step2.TiersP
-import Setlec.SetR.Interp2.Keys2Cond
 import Setlec.SetR.Annot.BitExtend
+import Setlec.SetBase.ConstsBound
 
 /-!
 # The P declaration step (task #161, P4 — the fold's species)

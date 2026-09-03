@@ -1,3 +1,4 @@
+import Setlec.SetBase.ConstsBound
 import Setlec.SetR.Interp2.Claims2U
 import Setlec.SetR.Interp2.EnvS2UPi
 import Setlec.SetR.Interp2.EnvS2UDef
@@ -123,62 +124,11 @@ syntactic, so it cannot supply the *run* facts `Denote2Bodies` wants,
 but it does supply every *syntactic* one, and the keys were paying for
 those twice. -/
 
-/-- `constsResolve` is the decidable form of `ConstsBound`, and
-strictly stronger: it additionally pins the literal-support block and
-a projection's structure name. -/
-theorem constsBound_of_constsResolve {env₀ : Env} :
-    ∀ e : Expr,
-      Expr.constsResolve env₀ e = true → ConstsBound env₀ e := by
-  intro e
-  induction e with
-  | bvar i => intro _; simp
-  | sort u => intro _; simp
-  | lit l => intro _; simp
-  | const n us =>
-    intro h
-    rw [constsBound_const]
-    simpa [Expr.constsResolve] using h
-  | fvar idx n ty ih =>
-    intro h
-    rw [constsBound_fvar]
-    exact ih (by simpa [Expr.constsResolve] using h)
-  | app f a ihf iha =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    exact constsBound_app.mpr ⟨ihf h.1, iha h.2⟩
-  | lam n ty b mb ihty ihb =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    exact constsBound_lam.mpr ⟨ihty h.1, ihb h.2⟩
-  | forallE n ty b mb ihty ihb =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    exact constsBound_forallE.mpr ⟨ihty h.1, ihb h.2⟩
-  | letE n ty v b ihty ihv ihb =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    exact constsBound_letE.mpr ⟨ihty h.1.1, ihv h.1.2, ihb h.2⟩
-  | proj s i e ihe =>
-    intro h
-    simp only [Expr.constsResolve, Bool.and_eq_true] at h
-    exact constsBound_proj.mpr (ihe h.2)
-
-/-- **`declStep2_of_axiom`'s `hbound` premise, from the invariant.**
-Every stored type and every stored `def`/`thm` body is prefix-bound,
-because `ConstWF` says it resolves. -/
-theorem envWF_constsBound {env : Env} (hwf : EnvWF env) :
-    ∀ c ∈ env.consts,
-      ConstsBound env c.toConstantVal.type ∧
-      (∀ cv value hint, c = .defnInfo cv value hint →
-        ConstsBound env value) ∧
-      (∀ cv value, c = .thmInfo cv value → ConstsBound env value) := by
-  intro c hc
-  obtain ⟨-, -, hty, -, hdefn, -, hthm⟩ := hwf c hc
-  exact ⟨constsBound_of_constsResolve _ hty,
-    fun cv value hint heq =>
-      constsBound_of_constsResolve _ (hdefn cv value hint heq).2.2.1,
-    fun cv value heq =>
-      constsBound_of_constsResolve _ (hthm cv value heq).2.2.1⟩
+/-! `constsBound_of_constsResolve` and `envWF_constsBound` moved to
+`Setlec/SetBase/ConstsBound.lean` at THE SEPARATION's S2: they are
+model-free `ConstsBound`/`EnvWF` facts, and the graded lane's
+`Interp2/InstallP` was importing this 2U module for them.  Names and
+statements unchanged; this module imports them back. -/
 
 /-! ## `ReducePin2` -/
 

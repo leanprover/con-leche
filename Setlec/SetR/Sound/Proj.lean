@@ -1,5 +1,5 @@
 import Setlec.SetR.Sound.Rigidity
-import Setlec.SetR.ProjPins
+import Setlec.SetBase.ProjPins
 import Setlec.Verify.Denote.SubstAlgebra
 
 /-!

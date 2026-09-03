@@ -1,5 +1,5 @@
 import Setlec.SetR.Annot.BitClosed
-import Setlec.SetR.Interp2.Install2
+import Setlec.SetBase.Install2
 import Setlec.Verify.EnvGuards
 
 /-!

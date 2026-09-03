@@ -1,5 +1,5 @@
-import Setlec.SetR.Rel
-import Setlec.SetR.ProjPins
+import Setlec.SetBase.Rel
+import Setlec.SetBase.ProjPins
 import Setlec.SetR.AnnotOkV
 import Setlec.SetR.Sound.Motives
 import Setlec.SetR.Sound.Struct
@@ -68,15 +68,15 @@ import Setlec.SetR.Main2
 import Setlec.SetR.Annot.Pass
 import Setlec.SetR.Annot.Kinding
 import Setlec.SetR.Annot.Validity
-import Setlec.SetR.Interp2.Univ
+import Setlec.SetBase.Univ
 import Setlec.SetR.Interp2.TierA
 import Setlec.SetR.Interp2.Graded
 import Setlec.SetR.Interp2.Pilot
 import Setlec.SetR.Annot.Spine2
 import Setlec.SetR.Annot.EnvS2
-import Setlec.SetR.Interp2.BasisType
-import Setlec.SetR.Interp2.BasisOk
-import Setlec.SetR.Interp2.Skeleton
+import Setlec.SetBase.BasisType
+import Setlec.SetBase.BasisOk
+import Setlec.SetBase.Skeleton
 import Setlec.SetR.Interp2.Claims2
 import Setlec.SetR.Interp2.Step2.Infer
 import Setlec.SetR.Interp2.Step2.WhnfCore
@@ -216,7 +216,7 @@ import Setlec.SetR.Interp2.Capstone2D
 import Setlec.SetR.Interp2.Dual2E
 import Setlec.SetR.Interp2.Capstone2E
 import Setlec.SetR.Interp2.Capstone
-import Setlec.SetR.Interp2.Install2
+import Setlec.SetBase.Install2
 import Setlec.SetBase.Canon
 import Setlec.SetR.Annot.Bit
 import Setlec.SetR.Annot.BitLemmas

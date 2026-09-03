@@ -55,6 +55,13 @@ end
 section
 variable {V : Type w} [SetTheory V]
 
+/-- The tail of a satisfying valuation satisfies the tail context —
+`Sat2_cons`'s inverse, and what every weakening step consumes. -/
+theorem Sat2_tail {Δa : List AVExpr} {Ba : AVExpr} {ρ : Nat → V}
+    (hρ : Sat2 V (Ba :: Δa) ρ) : Sat2 V Δa (fun j => ρ (j + 1)) := by
+  intro i Aa hi
+  exact hρ (i + 1) Aa (by simpa using hi)
+
 /-- Equalities compose per valuation; the invariant does not travel
 with them, because in the hoisted currency it is carried separately
 and uniformly. -/

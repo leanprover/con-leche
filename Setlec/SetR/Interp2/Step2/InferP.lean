@@ -4,6 +4,9 @@ import Setlec.SetR.Annot.BitInst
 import Setlec.SetR.Annot.ValidVSpine
 import Setlec.Verify.InferLemmas
 import Setlec.SetBase.Frame
+import Setlec.SetBase.Skeleton
+import Setlec.SetBase.Hoist
+import Setlec.SetBase.LitStep2
 import Setlec.SetBase.LitParams
 
 /-!

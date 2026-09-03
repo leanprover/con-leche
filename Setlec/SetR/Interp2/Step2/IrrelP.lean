@@ -1,6 +1,6 @@
 import Setlec.SetR.Interp2.Step2.DefEqP
 import Setlec.SetR.Interp2.Step2.InferP
-import Setlec.SetR.Interp2.EmptyPin2
+import Setlec.Verify.PinnedShapes
 
 /-!
 # Proof irrelevance over `interp2` (task #161, P4 — the semantic rows begin)

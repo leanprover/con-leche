@@ -4,6 +4,14 @@ import Setlec.TT.Const
 /-!
 # `BConst.type2` — the annotated basis-constant types (#151, step 2)
 
+*(Re-based to `Setlec/SetBase/*` at THE SEPARATION's S2, task #161: the
+module already imported nothing but `SetBase/Syntax` and `TT/Const` —
+it is the basis constants' *annotated types*, pure syntax — and the
+graded lane's `Interp2/BasisTypeOk` was reaching it through the 2U
+`Interp2/BasisOk`.  Path and module name changed; namespaces,
+statements and proofs verbatim.)*
+
+
 The first of the two suppliers the skeleton's `const` row waits on
 (`Interp2/Skeleton.lean`): the annotated mirror of
 `Setlec/TT/Const.lean`'s `BConst.type`, so that a built-in constant's

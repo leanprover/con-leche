@@ -1,4 +1,3 @@
-import Setlec.SetR.Interp2.Step2.Levels
 import Setlec.SetR.Annot.Bit
 import Setlec.SetR.Annot.EnvS2Core
 

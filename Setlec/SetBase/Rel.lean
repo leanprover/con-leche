@@ -5,6 +5,17 @@ import Setlec.Verify.Denote.VClosed
 /-!
 # The mode-indexed algorithmic relation family (task #148, T2)
 
+*(Re-based to `Setlec/SetBase/*` at THE SEPARATION's S2, task #161.  The
+ruled criterion for the base is "no `EnvS`": these relations are
+parametric in `cval : TConstVal` and import nothing but
+`Setlec/Verify/*`, and BOTH consistency proofs are stated over them —
+the collapsed lane's `no_proof_of_Empty_R` and the graded lane's
+`no_proof_of_Empty_P` alike.  The gate's own rule says a module both
+lanes need "stays R until it is re-based to `Setlec/SetBase/*` by
+name"; this is that re-basing.  Path and module name changed;
+namespaces, statements and proofs verbatim.)*
+
+
 The five mutually inductive relations of the campaign design's §1
 (`Setlec/SetR/DESIGN.md` records the deviations): reduction, inference,
 definitional equality, the telescope walk and the spine walk, on
