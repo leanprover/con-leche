@@ -133,7 +133,7 @@ theorem SpineFit.append :
   | [], [], _, _, _, _, h₂ => h₂
   | [], _ :: _, _, _, _, h₁, _ => h₁.elim
   | _ :: _, [], _, _, _, h₁, _ => h₁.elim
-  | _ :: Fs₁, a :: as₁, _, _, _, h₁, h₂ =>
+  | _ :: Fs₁, _a :: as₁, _, _, _, h₁, h₂ =>
     ⟨h₁.1, SpineFit.append (Fs₁ := Fs₁) (as₁ := as₁) h₁.2 h₂⟩
 
 theorem SpineFit.length_eq :
