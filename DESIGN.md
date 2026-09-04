@@ -33404,6 +33404,98 @@ lifetimes are unchanged.  The census's part 5 §1 prediction — *"#171 is
 orthogonal to tri-core and serves all three cached cores"* — holds as
 measured.
 
+## THE PERF/R1 CAMPAIGN — ROUND SEAL (2026-09-04, agent/perf-eng)
+
+The engineering-overhead campaign that opened with "there is no reason
+to be slower in no-model mode — investigate!" closes here.  Every item
+is landed, refuted with evidence, handed off, or honestly open.
+
+### 1. LANDED (all master, all full-battery green at their landings)
+
+* **The attribution** (`5e4455b8`): the gap was never the knot, the
+  fuel, or the language — it is allocation/RC churn + per-walk memo
+  traffic in the term walks (68–97 % of every `--no-model` run), with
+  lean4lean ≈ 1.0–2.0× official as the language control.
+* **Thunk-cached knots on all three cores + the inlined memo twins +
+  the E5 byte fast path** (`5e4455b8`): −5 to −8 % per lane, ZERO
+  proof adaptation (`Thunk.get ⟨fun _ => x⟩` is definitionally `x`).
+* **The memo-share wiring** (with agent/memoshare's ratified
+  `memoEIO`, composed over the thunked knot).
+* **The trust-shrink round** (`b7e2191f`): the two-escape #163 census
+  is ONE escape — `ofExprFast` deleted by architecture; `beqFast`
+  proven irreducible (`withPtrAddr` constancy is falsified by any
+  address-keyed memo; Bool-only `withPtrEq` cannot thread the node
+  budget — +60 % / +4–12 % variants measured).
+* **The cached parity lane** (with the parity-port agent): a real
+  cert-skipping cached engine behind `--no-model --core=cached-parsed`
+  — and with it the caveat-5 confound CORRECTION: cached-NC ties or
+  wins every cross-core row; init-full 3.55× vs interned's 4.62×.
+  The evidence base of the user's one-type ruling.
+* **Task #171, direct-to-`ExprC` parsing** (`5f9478f7`): the
+  ie-indices ARE the sharing; the arena detour is gone from the
+  cached pipeline; `WFc` rides in the parse-table types (the
+  `WFStore` pattern) and the capstone's entry premise is the carried
+  invariant.  Parity init-full 3.49×.
+
+### 2. REFUTED WITH EVIDENCE (do not re-attempt without new facts)
+
+* **RC-gated memoization, CATEGORICALLY** (coordinator-ratified): any
+  Lean-defined sharing-preserving walk whose cutoff branches can
+  return the input forces owned traversal — refcount ≥ 2 at every
+  gate site, the gate saturates (measured +6.5–7 %, pure overhead).
+  Const-ref traversal has no Lean analogue.  Structural signals only.
+* **The construction-time packed shared-bit**: hit-time setting needs
+  mutation (or a rebuild that kills the sharing it records); rebuilt
+  nodes carry no signal at construction.
+* **`sharedBs` (cons-hit marking), overtaken by the one-type ruling**
+  — but its one measured row is preserved: beta-ladder −9.0 % against
+  a −47 % deletion ceiling, DIAGNOSED as rebuild-hit inflation
+  (walk-rebuilt nodes cons-hit during result interning and re-enter
+  the memo regime).  The diagnosis upgrades the parse-time-bit lead
+  below from observation to mechanism.
+
+### 3. OPEN PROBLEMS (stated honestly)
+
+* **The E12 tree-term ceiling**: deleting the walk memos is worth
+  −46.7 % on tree-shaped term traffic (beta-ladder class) and
+  diverges on DAG-shared traffic (app-lam class).  NO LIVE ROUTE
+  ships today.  The one lead on record: the direct parser knows
+  sharing STRUCTURALLY — a two-pass parse (byte-level reference count
+  over the ie-indices, then build) can thread a parse-born skip-safe
+  bit that never marks rebuild hits (dodging the diagnosed inflation);
+  rebuilt nodes must stay memoized (duplicate-cascade blowup
+  otherwise).  Best carried as a packed-word bit if #167 lands.
+* **The app-lam gap** (7.7× at parity): DAG-shared reduction traffic;
+  now owned by the tri-core P-core's content decisions.
+
+### 4. HANDOFFS
+
+* **ExprC-native constant service → the tri-core env batch**
+  (coordinator-ratified): the env re-typing recovers the ofExprFast
+  deletion's +2.49 % grind residue by construction — that residue IS
+  the acceptance test.  The parked interim designs (the tagged
+  `ruleRhsRaw` raw-RHS memo, its self-certifying CSOK clause plan,
+  `recordInstalledC`) are in `_tmp/perf-eng/RESULTS.md` if any
+  fragment is wanted.
+* **#167 Data-packing**: resumes on coordinator dispatch when the
+  tri-core template surface settles; sized as accessor-precursor
+  first, arity diff second; hosts the parse-born bit if revived.
+* **Cleanup inventory** (tri-core batches own the deletions):
+  `OfStoreC.lean`, `declsCOfP`, the WFStore-input driver entries, and
+  the whole interned tower per the one-type ruling.
+
+### 5. MEASUREMENT DISCIPLINE (as amended by this campaign's errors)
+
+* Every A/B row carries a **baseline stamp** (raw/vs-official-raw vs
+  pre/vs-official-pre); the mixed-baseline error class has three
+  strikes on record and is closed.
+* A/B campaigns **snapshot their baseline binary** before starting —
+  the shared checkout's binary is a moving target (one campaign lost
+  its baseline to exactly this).
+* Median-of-3 instructions:u remains the primary metric; verdicts and
+  accepted counts are part of every row; suites at pinned counts are
+  the identity bar.  The kit: `_tmp/perf-eng/{ab.sh,RESULTS.md}`.
+
 ## TASK #172 — BATCH B2: THE TEMPLATE MECHANICS SLICE (2026-09-04,
 `agent/tricore-b2`; LANDS CODE — scoped to R↔P, and to ExprC after the
 mid-flight one-representation ruling)
