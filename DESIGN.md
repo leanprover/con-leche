@@ -31173,6 +31173,7 @@ refactor**, which may resolve several by construction.
 | 13 | `--set-model=p`'s help text | `Main.lean:407` | says "annotation-gated checks"; the ruled text's "io-gated internals" wording is deliberately not shipped until the io internals land |
 | 14 | **the owed `whnfCore` fuel fixture** (added by B1b, coordinator-granted as a named follow-up) | `tests/` + `Main.lean` | B1b's restrictions-are-findings entry closes the parity/certified half of the resource-limit divergence but leaves *no stream-level regression fixture*: an `.ndjson` witness tripping the shipped ceiling needs a chain of ~1 000 000 reduction steps (post-B1b; ~100 000 pre-). **Prerequisite: a CLI-settable `checkFuel`/`whnfCoreLoopFuel`**, after which the fixture is a few hundred bytes at a small budget. Until then `_tmp/parity-align/FuelProbe{Before,After}.lean` is the executable stand-in and is the thing to keep green |
 | 15 | the by-construction successor to `ProjEntry.native` | `ProjEntry` + `findProj?` ×3 + the five `.proj` inference bodies + `whnfCore`'s proj clause + both annotate clauses + `ProjOkT` | the two-valued pinned tag of the pin record's §8 ("NOTED, NOT TAKEN"), which deletes the fall-through branch instead of proving it dead and makes `projEntry_pins` `rfl`. It was deferred *"cleanup docket, after the parity-alignment batch"* — **that trigger has now fired** (B1b landed), so the item is live; the blast radius is unchanged and still argues for doing it against a settled surface |
+| 16 | **the `Verify/BridgeDecl.lean` split** (task #77, coordinator-granted as a named follow-up) | `Verify/BridgeDecl.lean`, 2234 lines | the audit's grade-**A** split and the only one that buys wall time: the module is 57.5 s and sits alone on the critical path for a full minute, so splitting the `datF` half (lines 1533-2246, `FueledM`-only) and the `*2`/`*3` macro families off the base family turns one serial node into three parallel ones — **worth ≈ 35 s of a 245 s build**.  APPROVED, not executed: it is a deliberate module split, not a proof edit.  Re-measure with `perf stat -e instructions:u`, not wall time (§ task #77) |
 
 ### 11. SUCCESSION
 
@@ -37000,6 +37001,9 @@ The chain is what the build costs, so the split that pays is the split
 of a chain module.  In descending order of payoff:
 
 1. **`Verify/BridgeDecl.lean`** (57.5 s, 684 G, 1 file, ~2250 lines).
+   **Coordinator-granted at the merge as cleanup-docket item 16** —
+   approved as a named follow-up, explicitly not executed here, because
+   it is a module split and not a proof edit.
    It is a *battery*: six independent macro families over disjoint
    `check*` groups, plus the `datF` half (lines 1533-2246) which depends
    only on `FueledM` and could stand alone.  Splitting `datF` off, and
