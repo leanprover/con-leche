@@ -34137,6 +34137,22 @@ whole inductive-block phase.
    `annotatePisI m₁ …` vs `annotatePisI m₂ …`), while reducing each
    side to its clause first is instant.
 
+### 2b. THE AXIOM AUDIT, IN DETAIL
+
+Not merely "the standard three": the batch's own theorems use *less*
+than the licence, which is worth recording because it says how much of
+the agreement family is pure computation.
+
+| theorem family | axioms |
+|---|---|
+| the six floor theorems (`parity_agrees_P_*`) | `propext, Classical.choice, Quot.sound` |
+| T2a (`annotateBodyI_mode_eq`), `annotateBindersOutI_erasePwC`, the two leaf clauses | `propext, Quot.sound` — **no choice** |
+| `ExprC.eraseC_erasePwC` | `propext` alone |
+
+The floor's `Classical.choice` enters only through the `Decidable`
+instances the drivers' guards use (`Std.HashMap` and the `by_cases` on
+the tolerated-axiom name), not through anything the statements assert.
+
 ### 3. SCOPE — WHAT B7 DOES NOT CLAIM
 
 * Accept verdicts only.  Nothing about declines, errors or resource
