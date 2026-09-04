@@ -30817,3 +30817,174 @@ Claims/SimC treatment follows the split: the full-infer memo's
 invariant stays EXACTLY the current one; the inferOnly memo gets
 its own WEAKER invariant matching what an inferOnly run witnesses
 per mode.  Folded into the census.
+
+## TASK #172 — THE TRI-CORE REFACTOR: DESIGN CENSUS, part 1 —
+THE RETIREMENT INVENTORY (2026-09-04, `agent/tricore-design`)
+
+The user's order, verbatim: *"do build three cores, one for
+production parity, one for the set R model and one for the P model.
+proofs talk about just their model.  for each core, a cached and an
+interned variant.  the production parity code is not proven sound,
+but do prove that whenever it succeeds and the P core succeeds, they
+agree, to avoid drift.  big refactoring and cleanup."*
+
+This **supersedes the mode-flag architecture** — `CheckMode` threaded
+through the cores, the S13a in-body β gate, the `hg` hypotheses, the
+coverage certificate.  Parts 1–6 are the design phase only: an
+inventory, a decision, a price.  No statement is frozen here and no
+implementation is proposed for landing.
+
+All counts below are **measured on master `7e79cadb`**, either by grep
+against the tree or by the proof-term instrument
+`_tmp/tricore-design/Bill172.lean` (the S12 `S12Bill2.lean` walk,
+re-pointed at three roots and extended with a tier tally and a
+closure-intersection).  Where a count corrects the brief that ordered
+this census, it says so.
+
+### 1. THE MODE TYPE AND ITS THREE ACCESSORS
+
+`Setlec/Kernel/Env.lean:39-86` — one inductive (`CheckMode`, three
+constructors) and three accessors, each a distinct retirement story:
+
+| accessor | shipped meaning | read sites (impl) | fate under tri-core |
+|---|---|---|---|
+| `ttChecks` | the seven TT-lane checks; **constantly `false` since #148 T7b** | **20 lines** — `Modeled` 8, `CheckerS` 6, `Core` 2, `CoreI` 2, `Cached/CoreC` 2 | all three cores have it `false`; the branches are **deleted**, not collapsed — see the caveat below |
+| `verified` | the λ-codomain sort check + the ∀/λ annotation validation: on in both model lanes, off at parity | **33 lines** — `Cached/CoreC` 9, `CoreI` 9, `Core` 7, `CoreIO` 4, `CoreP` 2, `Expr` 2 (doc) | `true` in R and P (then-arm), `false` in parity (else-arm); every branch collapses definitionally |
+| `betaGate` | the S13a β-certificate gate, `.setModelP` only | **7 lines** via `betaGateFires` — `Core` 3, `CoreI` 2, `Cached/CoreC` 2 | the R core loses the branch entirely; the P core keeps a branch that reads **`mb.pw`, the validated annotation datum** — data, not a flag |
+
+**CAVEAT, needing the coordinator's word.**  `ttChecks`'s own docstring
+says the statically-dead call sites are kept *"so that the checks
+themselves survive as reviewed code and the accessor stays the single
+place a future lane would turn them back on."*  Deleting the accessor
+deletes that reviewed code.  This is a deliberate loss, not a
+simplification, and it is listed as a decision, not done silently.
+
+### 2. MODE THREADING IN THE IMPLEMENTATION TIER
+
+`CheckMode` appears **42 times across 21 implementation modules**; the
+`mode` *token* (the threaded variable) appears **498 times across 14**:
+
+| module | `mode` tokens | module | `mode` tokens |
+|---|---|---|---|
+| `Kernel/CheckerS` | 110 | `Kernel/Split` | 30 |
+| `Kernel/CoreI` | 79 | `Kernel/Modeled` | 26 |
+| `Cached/CoreC` | 73 | `Kernel/CheckerBase` | 12 |
+| `Kernel/Core` | 67 | `Kernel/TypeChecker` | 8 |
+| `Cached/CheckerC` | 47 | `Cached/Driver` | 7 |
+| `Cached/ParsedC` | 32 | `Kernel/Checker` 3, `Direct` 2, `TypeCheckerC` 2 | 7 |
+
+Eleven top-level definitions take `mode` explicitly; the rest inherit
+it through the knots (`coreKnotI mode`, `coreKnotC mode`, `pureFns
+mode`) and the driver stacks.
+
+**The parity engines are already flag-free**, and this is the census's
+first structural finding: `Kernel/CoreNC.lean` and
+`Cached/CoreNC.lean` carry **no `mode` parameter at all**.  What they
+carry instead is **22 `.noModel` literal cross-calls into 11 shared
+mode-parametric helpers** — `etaCertI` 4, `annotateBodyI` 4,
+`inferPisI` 2, `inferLamsI` 2, `inferBodyI` 2, `indBlockCapsF` 2,
+`ctorResidualOkF` 2, `checkProjIotaF` 2, `checkIotaRulesF` 2.  Those 22
+sites are the entire residual sharing between the parity core and the
+certified one, and they are the whole of what part 2's specialization
+has to resolve on the parity side.
+
+### 3. THE S13a β-GATE APPARATUS
+
+| item | count | source |
+|---|---|---|
+| `betaGateFires` mentions, project-wide | **61** | 15 modules |
+| …impl read sites | **7** | `Core` 3, `CoreI` 2, `Cached/CoreC` 2 |
+| …proof-side mirror sites | **29** | `Verify/BetaSpine` 13 (the five mirrored β clauses), `Verify/DiscI4` 6, `Verify/Cached/DiscC4` 4, `Verify/InferLemmas` 3, `Verify/Disc` 2, `Verify/Deep` 1 |
+| …tower read sites | **10** | `SetR/Interp2/Step2/Whnf` 4, `SetR/Annot/SortCoh/{Discharge,Mono,Claims}` 5, `SetP/Step2/WhnfP` 1 |
+| `Verify/BetaGate.lean` | **8 theorems / 92 lines** | the whole proof interface |
+| `(hg : μ.betaGate = false)` premise carriers | **165 declarations / 26 modules** | instrument-reproduced; matches S13a's measured 165/25 (+`Env.lean`'s docstring) |
+| `hg`/`hgOff` call-site passes | **635** | S13a's own measurement |
+| `whnf_app_inv_ungated` | 1 | the pre-gate letter kept beside the gate-disjunct one |
+
+The 165 premise carriers, by module (top rows): `SetR/Main2` 44,
+`SetBase/Bridge/Decl` 22, `SetR/Main` 19, `SetR/Interp2/Step2/Whnf`
+13, `Verify/Cached/MainC` 12, `SetR/Interp2/Step2/DefEqRun` 11,
+`SetBase/Bridge/DeclInd` 6, `SetR/Annot/SortCoh/LoopLock` 6,
+`SetR/DivModPin` 5, `SetR/Annot/SortCoh/Align` 3, then 16 modules at 1–2.
+
+Of `Verify/BetaGate.lean`'s eight theorems: `betaGateFires_off` (the
+dead-branch collapse), `betaGate_setModel`, `betaGate_noModel`,
+`verified_of_betaGate` and **`betaGate_off_or_verified` (the coverage
+certificate)** all become **vacuous** — there is no mode to partition
+once each tower speaks about its own core.  `isNever_of_betaGateFires`
+and `verified_isNever_of_betaGateFires` survive in substance as the P
+core's datum readers.  Net: **6 of 8 theorems retire**.
+
+### 4. THE R CAPSTONE LETTERS — A CORRECTION TO THE BRIEF
+
+The brief says *"the 19 R capstone letters"*.  **Measured: 32.**  Every
+one of them carries `(hg : μ.betaGate = false)`:
+
+| module | letters |
+|---|---|
+| `SetR/Main.lean` | 8 — `no_proof_of_Empty_{,C_,S_,SP_}R` and their four `input_` siblings |
+| `SetR/Main2.lean` | 18 — the eight `R2` twins, the eight `R2M` twins, plus `no_proof_of_Empty_R2M_of_installs{,R}` |
+| `Verify/Cached/MainC.lean` | 6 — `no_proof_of_Empty_{,input_}SPC_{R,R2,R2M}` |
+
+The P family is untouched by the `hg` sweep (`SetP/FoldP.lean`,
+`SetP/MainP.lean`, `SetP/CapstoneP.lean` were byte-unchanged at S13a
+and remain so): 5 letters + `no_proof_of_Empty_P_of`.
+
+### 5. MODE-GATED PREMISES IN THE TOWERS
+
+Beyond the 165 `hg` carriers, **59 declarations across 26 modules
+carry `μ.verified = true` as a premise** (`SetP/MainP` 9, `SetP/FoldP`
+7, `SetP/HarvestP` 4, `Verify/InferLemmas` 3, `SetP/AxiomReduceP` 3,
+`SetP/Step2/InferP` 3, then 20 modules at 1–2).  Under tri-core both
+model cores are verified by construction and every one of those
+premises is discharged by `rfl` at definition time — i.e. **deleted**.
+
+### 6. THE DRIVER AND FLAG DISPATCH
+
+`Main.lean` carries a **two-axis** dispatch that tri-core collapses to
+one.  Today: mode ∈ {`.setModel`, `.setModelP`, `.noModel`} × core ∈
+{`production`, `cached-parsed`, `cached`, `interned-shared`}, resolved
+at `Main.lean:286-303` with three special cases (`--no-model` keeps the
+production front door; `--no-model --core=cached-parsed` routes to the
+cached parity twin; `--core=…` refuses to combine with `--split`), plus
+the argument parser at `:485-525` and the child re-exec array at
+`:537-547`.  ≈ 60 lines of dispatch.  Under tri-core the two axes
+**merge into one 6-way selection** (3 cores × 2 representations), which
+is strictly simpler and is the user-visible payoff of the refactor.
+
+### 7. SUPERSEDED SCAFFOLD
+
+| artefact | lines | importers | fate |
+|---|---|---|---|
+| `Kernel/CoreP.lean` | 173 | `CheckerP`, `Verify/CoreP`, `Setlec.lean` | retire (the P core replaces it) |
+| `Kernel/CheckerP.lean` | 35 | `Setlec.lean` | retire |
+| `Verify/CoreP.lean` | 245 | `Setlec.lean` | the knot-level equations retire; **`whnfCoreBodyP_eq`, the collapse, is the pattern part 4 reuses** |
+| `agent/bucket2-s1` branch | — | — | archive |
+
+`Kernel/CoreIO.lean` (215) + `Verify/InferIOLemmas.lean` (90) +
+`SetP/Claims2PIO.lean` (144) + `SetP/Step2/InferIOP.lean` (290) are
+**NOT retired** — they are the P core's io ancestor and are *promoted*
+in part 2.  See part 5.
+
+### 8. THE HEADLINE RETIREMENT COUNT
+
+| what retires | count |
+|---|---|
+| `(hg : μ.betaGate = false)` premise carriers | **165 decls / 26 modules** |
+| …their call-site passes | **635** |
+| `μ.verified = true` premise carriers | **59 decls / 26 modules** |
+| `betaGateFires` mentions | **61** (7 impl, 29 proof-mirror, 10 tower, 15 in `BetaGate` itself) |
+| `ttChecks` read lines (impl) | **20** |
+| `verified` read lines (impl) | **33** |
+| `mode` tokens in the implementation tier | **498 / 14 modules** |
+| `Verify/BetaGate.lean` theorems | **6 of 8** |
+| `CheckMode` + its three accessors | **1 type + 3 defs** |
+| superseded scaffold | **453 lines / 3 modules** |
+| `Main.lean` two-axis dispatch | **≈60 lines → one 6-way selection** |
+
+**Every row on this table is a DELETION.**  That matters for the
+migration's acceptance check (part 6): the S13a directive's rule —
+*converting a threaded hypothesis to concrete instantiation must delete
+lines, not add them* — applies to the whole retirement inventory, and
+the inventory passes it on its face.  What can still *add* lines is
+parts 2 and 4, and those are priced separately.
