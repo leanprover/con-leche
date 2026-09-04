@@ -139,6 +139,25 @@ task #106's shape — `whnfCoreStepNC` + `whnfCoreLoopNC` on
 `whnfAppNC`/`betaPeelNC`, only the spine head's normalization left as a
 knot call.  The verdict-divergence class this closes is recorded under
 *restrictions are findings* in `DESIGN.md`.
+
+**Also not a skip (task #172 batch B1b, E2).**  `inferBodyNC`'s `.proj`
+clause used to *walk* the stored projection-entry type
+(`projFnIdxM` + `constTyAtM` + `piResidualM (targs ++ [pe])`) where the
+certified cores *compute* the residual from the pinned two-parameter
+basis shape.  Off the pin those were different functions, throwing
+`.internal "malformed projection entry"` on disjoint inputs in both
+directions.  On the user's ruling the parity cores adopt the computed
+clause, so all five inference bodies now run the same one.  The pin is
+an **install-time invariant of the checker's own code**
+(`NativeProjPinned`, `Setlec/Verify/ProjPinInv.lean`), not a model
+licence: the native projection table is a two-element literal the
+checker injects and no input can reach, so `spineShape` retires the
+fall-through branch and `piResidual_of_invariant` supplies agreement
+with the walk — neither carries an environment predicate, and this lane
+acquires no model dependency.  Official's `infer_proj` walks the
+*constructor's* type, which is a third shape and neither of ours; that
+remains a recorded fidelity difference (B1 finding F9), kept
+deliberately over adopting it (E2 option (a) over option (b)).
 -/
 
 namespace Setlec
@@ -650,11 +669,22 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           let targs ← withStore (·.getAppArgsI te)
           if entry.native ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            let pf ← projFnIdxM T i
-            let pty ← constTyAtM fe pf (projFnName Tn i) us
-            match ← piResidualM pty (targs ++ [pe]) with
-            | some resTy => pure resTy
-            | none => throw (.internal "malformed projection entry")
+            -- Task #172 batch B1b (E2): the same clause as
+            -- `inferBodyI`'s — the residual is computed from the
+            -- pinned two-parameter basis shape, not walked out of the
+            -- stored entry type.  `NativeProjPinned.spineShape`
+            -- (`Verify/ProjPinInv.lean`) makes the fall-through branch
+            -- unreachable on every environment the checker builds, and
+            -- `piResidual_of_invariant` (`SetBase/ProjPins.lean`)
+            -- proves the computed value is what the walk would have
+            -- returned — both with no environment predicate as a
+            -- premise, so this lane stays licence-free.
+            match targs, i with
+            | [A, _], 0 => pure A
+            | [_, B], 1 => do
+              let p₀ ← internI (.proj T 0 pe)
+              internI (.app B p₀)
+            | _, _ => throw (.internal "malformed projection entry")
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")

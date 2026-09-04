@@ -539,11 +539,22 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
           let targs ← withStore (·.getAppArgsI te)
           if entry.native ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            let pf ← projFnIdxM T i
-            let pty ← constTyAtM fe pf (projFnName Tn i) us
-            match ← piResidualM pty (targs ++ [pe]) with
-            | some resTy => pure resTy
-            | none => throw (.internal "malformed projection entry")
+            -- Task #172 batch B1b (E2): the same clause as
+            -- `inferBodyI`'s — the residual is computed from the
+            -- pinned two-parameter basis shape, not walked out of the
+            -- stored entry type.  `NativeProjPinned.spineShape`
+            -- (`Verify/ProjPinInv.lean`) makes the fall-through branch
+            -- unreachable on every environment the checker builds, and
+            -- `piResidual_of_invariant` (`SetBase/ProjPins.lean`)
+            -- proves the computed value is what the walk would have
+            -- returned — both with no environment predicate as a
+            -- premise, so this lane stays licence-free.
+            match targs, i with
+            | [A, _], 0 => pure A
+            | [_, B], 1 => do
+              let p₀ ← internI (.proj T 0 pe)
+              internI (.app B p₀)
+            | _, _ => throw (.internal "malformed projection entry")
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
