@@ -34267,3 +34267,235 @@ function and that premise is definitional.
 census, the two superseded-record markers above, and this section.  No
 code moved, no statement changed, and the batch's own code stages are
 what the following sections record.
+
+
+## TASK #172 — BATCH B3a: THE TYPE MIGRATES TO `@[computed_field]`
+(2026-09-04, `agent/tricore-b3a`; LANDS CODE — the user's adoption
+ruling, executed)
+
+### 0. WHAT LANDED, IN ONE LINE
+
+**There is one expression type.**  `Setlec.Expr` carries the four
+derived data (`hash`, `bvarB`, `fvarB`, `hasLP`) as Lean
+`@[computed_field]`s — exactly `Lean.Expr`'s arrangement — and
+`Setlec.Cached.ExprC` is an abbreviation for it.  With the second type
+went the erasure, the conversions, the equality normal form and the
+readback: **+2668 / −3526 lines across 22 modules**, battery green at
+every pinned count, capstone statements byte-identical.
+
+### 1. THE THREE COMMITS
+
+| stage | what |
+|---|---|
+| `46f48632` | the trust census amended (docs only, landed first) |
+| `de79b00b` | the type: `with`-block, `abbrev ExprC := Expr`, `beq`/`Hashable`/`BEq` moved to `Kernel/Expr.lean` |
+| `72338525` | the erasure's mediation deleted (`eraseC` ×1351, `toExpr`, `ofExpr`'s hot-path callers, `zeroC`/`beqSpec`) |
+| `38555583` | `eraseCV`, the view-level erasure |
+
+### 2. THE COUNT — DELETIONS, MEASURED
+
+| retired | size |
+|---|---|
+| `Verify/Cached/Erase.lean` (the "seam floor") | **847 → 190 lines** |
+| `eraseC` and its mentions | 1 definition, **1351 mentions** |
+| `eraseCV` (view-level) | 1 definition, 12 mentions |
+| `toExpr`/`toExprGo`/`MemoErase`/`toExprGo_spec`/`toExpr_eq` | the whole readback, ~180 lines |
+| `beqSpec`/`zeroC`/`beqSpec_iff_zeroC`/`hashSpec`/`hash_exact` and the six `beqSpec_*` corollaries | the equality normal form, ~250 lines |
+| `eraseC_inj`, the `eraseC_mk*` family (renamed `mk*_eq`, now the constructors' own equations) | 1 + 10 |
+| `Expr.hashB` (the node-budgeted pure hash) | 25 lines |
+| the four `ExprC` field readers, the four field arguments on ten constructors, the ten smart-constructor bodies | the representation itself |
+
+**What did NOT need touching, and it is the batch's cheapest finding:**
+the **implementation** compiled unchanged apart from the two type
+modules.  Every construction site already went through a smart
+constructor and every pattern already elided the fields with `..`, so
+the discipline `WFc` enforced was in fact followed everywhere — the
+migration's first act was to prove that by deleting the discipline and
+rebuilding.
+
+### 3. THE FIELD-LAYOUT DECISION: FOUR FIELDS, MEASURED AGAINST PACKED
+
+The charter asked for four-vs-packed to be *decided by measurement of
+the accessor cost*.  Measured — `_tmp/tricore-b3a/pack/{PackA,PackB}.lean`,
+compiled with `leanc -O2`, 300 000 nodes × 40 read passes, median of 3:
+
+| variant | instructions:u | peak RSS |
+|---|---|---|
+| **A: four computed fields** (landed) | 1.0746 G | 45.4 MB |
+| **B: one packed `UInt64`** (hash 32 ǀ bvarB 15 ǀ fvarB 15 ǀ hasLP 1) | **0.6904 G (−35.8 %)** | **27.8 MB (−38.8 %)** |
+
+So the charter's stated worry is answered *in packing's favour*: bit
+extraction is **cheaper** than four field reads, not dearer (four
+`Nat`-typed fields are tagged reads; one `UInt64` is a load and a
+shift), and the node shrinks by ~29 bytes.
+
+**And the batch still lands four fields.**  The reason is not the
+accessor and it is not taste; it is that packing changes the *logical*
+functions, which B2's "zero-churn internal change" did not price:
+
+* `bvarB`/`fvarB` are `Nat`.  In 15 bits they must saturate, and the
+  charter's own rule — *saturate conservatively, never license a
+  skip* — forces the saturated value to mean **unbounded**, not
+  "32767".  So the field stops being `Expr.bvarBound` and becomes
+  `bvarBound`-with-a-top;
+* every exactness lemma this batch just rewrote (`bvarB_eq`,
+  `fvarB_eq` and the cutoff consequences `bvarB_le`/`fvarB_le`) then
+  becomes an *inequality* lemma with a not-saturated side condition,
+  and every executed skip site needs a runtime saturation guard to
+  keep the rule;
+* the hash also narrows to 32 bits, which is sound (it is still a
+  function of the node) but changes `beqFast`'s reject rate.
+
+That is a priced, self-contained follow-up — **task #167, re-scoped:
+the blocker is the exactness→saturation cascade in
+`Verify/Cached/Erase.lean` and its ~70 consumers, not the accessor
+cost, which is now measured and favourable.**  Landing it inside B3a
+would have mixed a representation change into a migration whose whole
+claim is that *nothing about the fields' meaning moved*.
+
+### 4. THE A/B, ON THE SHIPPED LANE
+
+`--set-model --core=cached-parsed`, instructions:u, median of 3,
+against the pre-migration binary built at `db165820`:
+
+| stream | baseline | B3a | Δ |
+|---|---|---|---|
+| `init-prelude` | 30.86 G | 29.78 G | **−3.5 %** |
+| `app-lam` (term-heavy) | 302.65 G | 291.16 G | **−3.8 %** |
+
+Peak RSS is unmoved (`init-prelude` 114.9 → 113.9 MB, `app-lam`
+5241.9 → 5230.2 MB), as it must be: the node layout is the same four
+fields, now written by the compiler instead of by hand.
+
+**Both streams gain ~3.5–3.8 %, and it is not from the fields** — it is
+the **deleted conversions**: `opE`/`opB`/`opS` (`Cached/CheckerC.lean`,
+`Cached/ParsedNC.lean`) converted every `CheckerOps` argument in and
+every result out; with one type they pass the argument through.
+
+### 5. THE TRAP, AND WHY THE MIGRATION SCRIPT IS AN ARTIFACT
+
+`_tmp/tricore-b3a/dropErase.py` is kept, and its docstring is the
+finding:
+
+> `(eraseC e).getAppFn` resolved to `Setlec.Expr.getAppFn` because its
+> receiver was an `Expr`.  Dropping the token leaves `e.getAppFn`,
+> whose receiver is *written* `ExprC` — and dot notation then finds
+> `Setlec.Cached.ExprC.getAppFn`, the **memoized cached operation**, a
+> different function.  It typechecks.
+
+Fourteen operation names live in both namespaces (`getAppFn`,
+`getAppArgs`, `instantiate1`, `instantiateList`, `abstract1`,
+`abstractRange`, `fvarLeaves`, `wscopedB`, `looseBVarsBounded`,
+`allLevelParamsDefined`, `view`, `hasFvar`, `instSpine`, `pisToLams`)
+— by design, since the verification's whole subject is that the two
+agree.  A statement whose pure side silently became the cached one is
+**vacuous**, and 480 dot calls were exposed to that.
+
+Three facts, all measured, that a later batch should not re-derive:
+
+1. **An `(e : Expr)` ascription does not steer the resolution back**
+   inside `namespace ExprC` (`_tmp/tricore-b3a/DotProbe3.lean`:
+   `(e : Expr).instantiate1 v d` elaborates to
+   `Setlec.Cached.ExprC.instantiate1`).  Dot notation follows the
+   *binder's* type constant, and `abbrev` does not hide it here.
+2. So every pure-side receiver became an explicit `Expr.f` application
+   — **with the receiver in the slot dot notation would have used**,
+   which is not always the first: `stripPis`, `wscopedB`,
+   `looseBVarsBounded`, `allLevelParamsDefined` and `fvarsBelow` take
+   the `Expr` *second*.  A naive prefix rewrite silently swaps
+   arguments.
+3. **The compiler catches most of it, and the model catches the rest.**
+   A vacuous intermediate breaks its consumer, because the consumers
+   are chained to statements whose pure side is pinned by the model
+   (`foldSPC_R` → `EnvS`).  Belt and braces: `_tmp/tricore-b3a/Audit.lean`
+   `#check`s the eight `*_spec` families and both capstone families
+   with `pp.fullNames`; every right-hand side still names a
+   `Setlec.Expr` constant, and the capstone letters print verbatim.
+
+Two smaller traps of the same class, recorded because they cost time:
+
+* a token-level `eraseC` deletion also edits **string literals and
+  prose** (`"sort-annotation mismatch (eta)"` lost its parentheses).
+  Restoring from `git show HEAD:` per literal is the cheap fix; a
+  paren-normalizing rewrite must skip quoted regions;
+* once two terms become *the same term*, `rw [if_pos h, if_pos h]`
+  breaks in **both** directions — sometimes the first rewrite now
+  fires on both sides (drop the duplicate), sometimes the two `ite`s
+  differ only by a `Decidable` instance and neither `rw` nor
+  `simp only [if_pos h]` reaches the second (keep the duplicate).
+  There is no rule; it is read off the goal.  Likewise `rwa [h.2] at
+  h'` — where `h.2` used to rewrite only an erased occurrence — now
+  rewrites the cached side too, and the repair is to rewrite the goal
+  backwards (`rw [← h.2]; exact h'`).
+
+### 6. THE ESCALATION, AND WHERE THE DELETION STOPS
+
+The charter's stop condition — *"a capstone letter that would have to
+change"* — **fired**, once, and the batch stopped at it.
+
+`WFc` is the predicate of `WDeclC`
+(`{pc : DeclC // DeclCWFc pc}`, `Cached/ParsedC.lean`), and **six
+direct-parse capstone letters are stated over `List WDeclC`**:
+`checkDeclsSPCachedD_sound_R`, `_R2`, `_R2M` and
+`no_proof_of_Empty_SPCD_R`, `_R2`, `_R2M`
+(`Verify/Cached/MainC.lean`).  Deleting the subtype changes their
+statements to `List DeclC`.
+
+So `WFc` **stays**, restated without the erasure (`ofExpr e = e`) and
+proved **total** (`WFc_all`), together with `ofExpr`/`ofExprSpec`
+(its witness-builder), the `WFc.mk*` closure, `WExprC` and the
+frontend's `mk*W`.  Every `WFc` hypothesis in the verification tier is
+now vestigial — the lemmas take it and ignore it (`_hw`).
+
+**THE RULING WANTED**, and it is one line: *may the six direct-parse
+capstone letters be restated over `List DeclC`?*  The change drops a
+hypothesis that is now provable of everything, so it **strictly
+strengthens** each letter (it covers every parsed declaration list, not
+only the ones carrying a proof); nothing else in the statements moves.
+With that ruling the following delete with no other consequence:
+`WFc`, `DeclCWFc`, `WDeclC`, `WExprC`, `WFc_all`, the ten `WFc.mk*`,
+the ten `mk*W`, `ofExprW`, `ofExpr`/`ofExprSpec`/`ofExpr_eq_self`, the
+six `WFc.*_inv`, `WFcL`/`WFcV`, and the `WFc` conjunct of `RelC` —
+which collapses `RelC` to `Eq` and takes the `DiscC` family's ~400
+`⟨hw, rfl⟩` destructurings with it.  **Priced at one batch (B3b), all
+of it mechanical, none of it blocked by anything else.**
+
+### 7. RECEIPTS
+
+* `lake build` green and **warning-free**, 555 jobs;
+* `lake test` green;
+* `tests/layering.sh`: base 272 / R 106 / P 118 / neutral 3; **0 P→R,
+  0 R→P**;
+* `tests/proofdeps.sh`: **120 rows as pinned**, doors 0;
+* arena tutorial **90/92**, e2e **73/73**, annot **14/14**, split
+  **11/11**, mode flags **9/9**, no-model sweep **as expected with its
+  3 recorded divergences** — verdict identity everywhere;
+* axiom audit, and it is *smaller* than the licence: the six cached
+  capstones `propext, Classical.choice, Quot.sound`; `beq_iff`
+  `propext, Quot.sound`; **`bvarB_eq`, `hasLP_eq`, `WFc_all`
+  `propext` alone**;
+* probes kept: `_tmp/tricore-b3a/{DotProbe,DotProbe2,DotProbe3,
+  ExactProbe,Audit}.lean`, `pack/{PackA,PackB}.lean`, and the
+  migration script `dropErase.py`;
+* **no `sorry`, no new axiom, no statement left conditional.**
+
+### 8. WHAT B3a HANDS BACK
+
+1. **One expression type**, with the compiler maintaining its derived
+   data — the user's ruling executed, and the census amended to name
+   the escape it buys.
+2. **The spec type question is not answered, it is dissolved**: there
+   is no erasure to mediate, so a claim about the cached engine and a
+   claim about the pure spec are claims about the same terms.  B2 §5's
+   prediction 2, landed.
+3. **The four-vs-packed decision, measured**: packing wins
+   mechanically (−35.8 % instructions, −38.8 % RSS on the accessor
+   benchmark) and is blocked only by the exactness→saturation proof
+   cascade.  Task #167 re-scoped, not closed.
+4. **The dot-notation trap**, with its three measured facts and the
+   audit that closes it — the reusable form: *when two namespaces
+   describe one type, deleting the function that distinguished them
+   makes every dot call a resolution question, and the compiler will
+   not ask it for you.*
+5. **One ruling wanted** (§6), one batch behind it (B3b), and a green
+   tree in the meantime.
