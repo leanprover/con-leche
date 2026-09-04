@@ -30988,3 +30988,219 @@ migration's acceptance check (part 6): the S13a directive's rule —
 lines, not add them* — applies to the whole retirement inventory, and
 the inventory passes it on its face.  What can still *add* lines is
 parts 2 and 4, and those are priced separately.
+
+## TASK #172 — DESIGN CENSUS, part 2 — THE THREE CORES, AND THE
+SINGLE-SOURCING DECISION (2026-09-04)
+
+### 1. WHAT EXISTS TODAY, AS A MATRIX
+
+Six shipped engines are already in the tree, in four core files plus
+one pure reference body:
+
+| | interned (`EIdx` over the arena) | cached (`ExprC`) | pure (`Expr`) |
+|---|---|---|---|
+| certified, mode-parametric | `Kernel/CoreI.lean` (2 532) | `Cached/CoreC.lean` (1 722) | `Kernel/Core.lean` (2 331) |
+| parity, flag-free | `Kernel/CoreNC.lean` (925) | `Cached/CoreNC.lean` (831) | — |
+
+with drivers `Kernel/CheckerS.lean` (1 795) / `Cached/ParsedC.lean`
+(419) for the certified lanes and `Kernel/CheckerNC.lean` (510) /
+`Cached/ParsedNC.lean` (377) for the parity lanes.  `Kernel/Core.lean`
+is the *pure reference body*: it is what the towers' claims are stated
+about, and the interned and cached engines reach it through two
+simulation towers (`Verify/Disc*`, 10 723 lines / 7 modules;
+`Verify/Cached/*`, 21 238 lines / 22 modules).
+
+So the tri-core order's "three cores × cached and interned" is a
+**2×3 target over an existing 2×2 + reference**: the R and P columns
+are today one mode-parametric column, and the parity column is
+already separate — and already unverified, which is what the order
+asks for.
+
+### 2. THE THREE CORES, DEFINED
+
+**(a) The production-parity core.**  `Kernel/CoreNC` + `Cached/CoreNC`,
+promoted from "measurement lane" to "one of the three cores".
+Official-shaped: infer-only internals with the two-memo layout
+(`inferC` internal, `inferFC` checking-mode front door, the #134
+pattern), no certificate families, the `.noModel` gates on the
+λ-codomain sort and the annotation validation.  **Not proven sound,
+by the order.**  Zero theorems exist about it today — measured: no
+module under `Verify/`, `SetR/`, `SetP/` or `SetBase/` mentions
+`coreKnotNC`, `inferBodyNC`, `whnfCoreBodyNC` or `CheckerNC`.  Its
+three recorded deviations from official (two strict, one weak) stand
+as documented in the canonical tax table, part 1(a).
+
+**(b) The R core.**  The certified body with every certificate
+unconditional and **no mode parameter**: no β gate, no io skip, the
+λ-codomain sort check and the annotation validation always on, the TT
+branches gone.  This is exactly today's body at `μ = .setModel`, which
+S13a's kernel-checked probe (`_tmp/sep-s13a/Probe.lean`) already
+establishes is the pre-gate body **definitionally** — `betaGateFires
+.setModel pw = false` by `rfl`, and `whnfCoreBody .setModel r env d
+(.app f a) = <the pre-gate clause>` by `rfl`.
+
+**(c) The P core.**  The certified body with the P-licensed skips
+**baked in unconditionally**, i.e. the skip conditions read *data*,
+never a mode:
+
+1. **the β skip at `pw = .never`** — licensed by `AnnotOkP_beta_gate`
+   (`SetP/Step2/GateP.lean`), with `gate_zero_kind_unreachable` as the
+   asymmetry fence.  Landed, and it transfers whole: S13a measured the
+   P lane's payoff clause as needing **no statement change and
+   consuming no certificate**;
+2. **the infer-only skips at the graph-regime license** — the
+   `inferOnly` flag in official's own signature shape, per the #170
+   design refinement, with the skip firing where the graph regime is
+   licensed (`io_domain_transfer` + `piR_dom_unique`, no nonemptiness
+   and no freshness premise) and the squash regime mechanically
+   refuted (`io_membership_fails_at_squash`);
+3. **the two-memo layout**, per the #170 memo ruling: a hit in the
+   inferOnly memo never serves a full-infer query; no cross-memo reuse
+   lemma this campaign.  This is official's own layout (its infer
+   cache is a two-element array keyed by `infer_only`) and it is
+   already `CoreNC`'s layout, so the P core and the parity core agree
+   on the memo *shape* — which part 4 needs.
+
+**Annotation stays its own pass** (the user's concession: *"annotation
+isn't a flag, that needs its own code"*).  Note the consequence, which
+part 4 pays for: `annotateBody`'s two `pw` writes are `mode.verified`-
+gated (`Kernel/Core.lean:2244,2251`), so the parity core's annotate
+produces a **different term** from the model cores', and the
+environment stores the *annotated* value (`Kernel/Checker.lean:367,
+390,415`).  The three cores' annotate passes are three instantiations,
+not one.
+
+### 3. THE SINGLE-SOURCING QUESTION — DECIDED
+
+> **DECISION: one body template, three named concrete cores.**  The
+> three cores are *definitions*, not clones: each is a concrete
+> instantiation of one shared body, and each unfolds to a flag-free
+> term.  The base structural library stays generic over the template's
+> parameter.  The towers are instantiated at their own core and
+> mention no parameter at all.
+
+Three findings drove it.
+
+**Finding 1 — the flag-free core the user is asking for is already
+available definitionally, and was kernel-checked at S13a.**  At a
+concrete constructor the gate branch is not "collapsed by a lemma"; it
+is *gone*, by `rfl` (S13a §8, `_tmp/sep-s13a/Probe.lean`, four green
+examples).  The early-return gate shape is what buys that, and S13a
+records it as a reusable form.  So "three cores with no flags in them"
+does not require writing three bodies — it requires *naming* three
+instantiations and pointing the towers at them.
+
+**Finding 2 — the parameter is doing two different jobs, and only one
+of them is the flag the user objects to.**  Write the distinction down,
+because it is the whole design:
+
+* **a flag** is a value read at a *branch in a shipped core*, so that
+  reading the code requires knowing which mode you are in.  This is
+  what the order removes: after instantiation no shipped core reads
+  `CheckMode`;
+* **genericity** is the same value *universally quantified in a
+  proof*, so that one lemma serves every core.  `theorem whnf_app_inv
+  {mode : CheckMode} … ` (`Verify/InferLemmas.lean:50`) is genericity.
+  There is no branch anywhere in it.
+
+The rule this census proposes, for the record:
+
+> *A configuration value may survive only where it is (i) universally
+> quantified in a proof, or (ii) definitionally eliminated in a shipped
+> core.  It may never be read at a branch in a shipped core.*
+
+The P core's residual β branch satisfies (ii): after instantiation
+what remains is `if mb.pw.isNever then … else …`, a read of the
+**validated annotation datum**.  That is data, and it is the licence's
+own subject — not a flag.
+
+**Finding 3 — the price of the alternative, MEASURED.**  Writing three
+bodies triplicates the base structural library, and the library is not
+small.  Instrument: `_tmp/tricore-design/Bill172.lean`.
+
+| closure | owned constants | statements naming a fueled entry | statements naming `CheckMode` |
+|---|---|---|---|
+| P capstone (`no_proof_of_Empty_P`) | 8 004 | **712** (Verify 565, P 96, SetBase 51) | 1 473 |
+| R capstone (`no_proof_of_Empty_R2M`) | 7 993 | **725** (Verify 603, SetBase 105, R 17) | 1 617 |
+| R cached capstone (`no_proof_of_Empty_SPC_R2M`) | 10 937 | **945** (Verify 829, SetBase 105, R 11) | 2 377 |
+
+and the number that decides the question:
+
+| | count |
+|---|---|
+| **entry-naming statements in BOTH the R and the P closure** | **567** |
+| …in `Setlec/Verify/*` | **562** |
+| …in `Setlec/SetBase/*` | **5** |
+| `CheckMode`-naming statements in both closures | **932** (Verify 848, impl 56, SetBase 25, 3 eq-lemmas) |
+
+The 562 shared `Verify` statements live in twelve modules:
+`InferLemmas` 265, `Extend/Iota` 85, `Extend/Proj` 80, `Abstract` 46,
+`InferLeaves` 29, `DivModInv` 16, `IotaWalkInv` 12, `Knot` 11,
+`Extend/Inversions` 5, `Mono` 5, `Leaves` 4, `ReducePinInv` 4 — the
+scoping / loose-bvar / fvar-leaf / extension / monotonicity /
+inversion family, **7 400 source lines** in the five biggest modules
+alone.  This is S12's "unnamed tier" seen from the other side: it is
+the thing that is proved once today *because* the mode is a parameter.
+
+**Three hand-written bodies therefore cost ~+1 124 statements over
+~15 000 new lines in the base library alone, and 3× the drift
+surface — before a single tower statement moves.**  Under the
+template-and-instantiation design the library is proved once,
+instantiated three times, and costs **zero new statements**.
+
+### 4. THE DRIFT-RISK TRADE, PRICED FROM THE INCIDENT RECORD
+
+The order's own justification is drift ("to avoid drift"), so price the
+choice against the two recorded incidents, which point opposite ways.
+
+**Incident 1 — #139 (2026-08-27), the parity clone.**  Task #105 moved
+the certified `iotaRecI` pin instantiation into the prefix context
+(`args.take mI` → `args.take rP`, `mI - 1` → `rP - 1`) and did **not**
+move the cert-skipping twin `iotaRecNC`.  *Two tokens, three days, one
+wrong verdict*: the parity lane **rejected** (exit 1) an e2e fixture
+the certified stack accepts.  Caught by a fixture sweep, and only
+after it was run.
+
+**Incident 2 — #163 batch 9 (2026-09-02), the representation clone.**
+`Cached/CoreC.lean` was cut from a `CoreI` predating the #161 P5
+annotate repair: the annotation binder loops threaded the wrong `pw`
+datum at nine sites and lost the ∀-residual head read.  **223-fixture
+parity never noticed.**  The *simulation proof* noticed, because the
+transposed statement was false.  The seal's own standing consequence:
+*"the simulation proof is the drift-enforcement mechanism the pilot's
+own section said nothing provided."*
+
+Ledger form, and it is the trade:
+
+> *A clone is caught by a proof or not at all.  Fixtures catch the
+> clone divergences that reach a verdict on a fixture you happen to
+> have; they do not catch the rest, and they do not catch them
+> promptly.  Single-sourcing removes the clone; where a clone must
+> remain, a simulation statement is the only enforcement.*
+
+Both incidents are arguments **for** the template.  The one argument
+against it — that a shared body makes the three cores' code read as
+one confusing artefact — is answered by finding 1: after
+instantiation each core is a flag-free term, and the template is a
+private elaboration device, not the thing anyone reads.
+
+### 5. WHAT THE DECISION LEAVES OPEN
+
+* **the template's parameter type.**  `CheckMode` as a name is
+  retired; whether its replacement is a three-constructor tag or a
+  record of Bools (`CoreCfg`) is an implementation choice with one
+  hard requirement: **every field must compute away by `rfl` at each
+  of the three concrete cores**, since that identity is the entire
+  mechanism (S13a: a `Bool`-wrapping gate would not have been `rfl`).
+* **whether the parity core can be expressed as a template
+  instantiation at all.**  This is the design's one open feasibility
+  question and part 4 answers it: the answer is *mostly yes, with an
+  enumerated exception list*, and the exception list is exactly the
+  agreement theorem's content.
+* **the pure reference body's status.**  `Kernel/Core.lean` is the
+  towers' subject; under tri-core it becomes three named pure cores
+  (`coreR`, `coreP`, `coreNC`) with the two simulation towers
+  re-pointed.  The simulations are *representation* statements and are
+  mode-generic today, so they instantiate rather than triplicate — but
+  that claim needs the instrument re-run per core before the batch is
+  priced, and part 6 sequences it accordingly.
