@@ -32396,3 +32396,141 @@ certified one stops.  That is why part 4 recommends agreement **by
 construction** (route C) over a simulation tower, and why the verdict
 form (T2) is carried with one named open obligation rather than
 promised.
+
+## TASK #172 — DESIGN CENSUS, part 8 — THE B0 RULINGS RECORDED, AND
+THE `ttChecks` EVIDENCE (2026-09-04; coordinator-granted)
+
+### 1. RULING 1 — THE TEMPLATE APPROACH, RATIFIED
+
+One body template, three named flag-free concrete cores, under the
+census's own rule, recorded verbatim as the ratified form:
+
+> *A configuration value may survive only where it is (i) universally
+> quantified in a proof, or (ii) definitionally eliminated in a shipped
+> core.  It may never be read at a branch in a shipped core.*
+
+This satisfies the user's order — three cores, proofs at concrete
+cores, no runtime flags — without the ~15 000-line / 3×-drift
+triplication measured in part 2 §3.  The deciding argument is the
+drift history, in its ledger form: *a clone is caught by a proof or not
+at all.*  The coordinator is reporting the reasoning to the user; **if
+the user overrides toward hand-written bodies, B2 re-scopes.**  Proceed
+on the template until then.
+
+### 2. RULING 2 — THE `.noModel` CAPSTONE NARROWING, GRANTED
+
+The R capstones' subject becomes the R core; they stop quantifying
+modes.  This is the user's *"proofs talk about just their model"*
+verbatim, and it releases the ~800-line deletion (part 3 §1).
+
+**Recorded as a deliberate ratified-statement change, with the old
+letter preserved here as the ledger requires.**  The pre-narrowing
+letter, as it stands on master for all 32 R capstones (shown at the
+family head; the other 31 differ only in driver and carrier):
+
+```lean
+theorem no_proof_of_Empty_R (V : Type w) [SetTheory V] {μ : CheckMode}
+    (hg : μ.betaGate = false) {F ds env'}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] → False
+```
+
+and what replaces it drops **both** the mode variable and the
+hypothesis, taking the R core as its concrete subject.  What is
+narrowed, exactly: the instance at `μ = .noModel`, which part 3 §2
+measured as covering `--core=cached` and `--core=interned-shared`
+only — the two lanes `Cached/Driver.lean`'s own `CoreVariant`
+docstring calls *"pilot measurement instrument, unverified"* — and
+covering **nothing** that any shipped `--no-model` lane runs.  No
+claim about a shipped configuration is lost.
+
+### 3. RULING 3 — `ttChecks`: THE EVIDENCE, AND A RE-PRICING
+
+The coordinator required evidence rather than a default.  Both halves
+were run; the instrument is `_tmp/tricore-design/TTProbe.lean`.
+
+**(a) THE CONSUMER QUESTION — ANSWERED: THERE ARE NONE, AND THERE
+CANNOT BE.**  Kernel-checked, both green:
+
+```lean
+example (μ : Setlec.CheckMode) : Setlec.CheckMode.ttChecks μ = false := by
+  cases μ <;> rfl
+example (μ : Setlec.CheckMode) (h : Setlec.CheckMode.ttChecks μ = true) : False := by
+  cases μ <;> exact absurd h (by decide)
+```
+
+`ttChecks = true` is **uninhabited**.  Any theorem that consumed a
+TT-lane check would have to discharge it, so no such theorem can
+exist — this is stronger than "no consumer was found", it is "no
+consumer is possible".  Corroborated by the tree:
+`Setlec/TTVerify/` holds **no code at all** (a `DESIGN.md` only) — the
+declarative verification lane the checks served was deleted with the
+`.ttModel` mode at #148 T7b — and `SetBase/Bridge/Claims.lean:73-77`
+already says in prose what the probe now says as a type: the seven
+certificates *"are extra facts a `.ttModel` run happens to establish;
+the inversions hand them back as `mode.ttChecks = true → conjunct`
+implications, which the bridge simply does not consume."*
+
+`Setlec/TT/*` (8 modules) is **not** the retired lane: it is the
+syntax/semantics library the denotation machinery consumes
+(`Verify/Denote/*`, `SetBase/Value`, `SetBase/BasisType`,
+`SetR/AnnotOkV`).  It is untouched by this question.
+
+**(b) THE DOCSTRING'S STATED PURPOSE — read, and it does not survive
+contact with (a).**  The accessor's docstring keeps the call sites
+*"so that the checks themselves survive as reviewed code and the
+accessor stays the single place a future lane would turn them back
+on."*  That is a **preservation** purpose, not a consumption one: no
+proof depends on it, and the reviewed code is preserved by git
+regardless.  Under ruling 1's rule the accessor cannot stay — it is
+read at a branch in three shipped cores.
+
+**VERDICT: DELETE, with the walk quoted above as the license.**
+
+**(c) AND THE RE-PRICING — THIS CENSUS MIS-SIZED ITS OWN ROW.**  Part 1
+§1 and §8 priced the `ttChecks` retirement at **20 implementation read
+lines** (+ ~37 tower reads found by grep).  The proof-term walk says
+the *statement* population is an order of magnitude larger:
+
+| capstone closure | statements naming `ttChecks` | proof-only |
+|---|---|---|
+| `no_proof_of_Empty_P` (8 004 owned) | **281** | 24 |
+| `no_proof_of_Empty_R2M` (7 993) | **285** | 25 |
+| `no_proof_of_Empty_SPC_R2M` (10 937) | **285** | 36 |
+
+concentrated in **four modules**: `Verify/Extend/Iota` **186**,
+`Verify/Extend/Proj` **58**, `Verify/InferLemmas` **37**, and
+`SetR/Annot/SortCoh/Mono` **4** (R-only).  Every one is a vacuous
+`(mode.ttChecks = true → C)` conjunct riding inside a larger
+conclusion.  Deleting the accessor forces all ~285 to drop the
+conjunct, and each drop changes the **arity** of a conjunction its
+consumers destructure.
+
+The deletion is still mechanical and still net-negative on lines — but
+it is **not** a line in B9's cleanup sweep.  **It becomes its own batch
+row**, sized at ~285 statements across four modules plus their
+consumers, and it should be sequenced with B3/B4 (the tower
+instantiations) because it edits the same three `Verify` families.
+
+**Ledger entry — the ELEVENTH correction, and it is class I (the
+mis-sized row), committed by this census against itself.**  The error
+was reaching for a grep of *read sites* where the question was
+*statement population*, which is the same reflex class III names.  Its
+reusable form:
+
+> *An accessor's retirement bill is not where it is read — it is where
+> it is **mentioned**, and a vacuous conjunct mentions it in a hundred
+> statements that never branch on it.  Walk the closure; do not grep
+> the call sites.*
+
+That this correction was produced by the design phase, at zero
+implementation cost, is the phase working as intended.
+
+### 4. THE AMENDED BATCH TABLE (part 6 §2, deltas only)
+
+| batch | amendment |
+|---|---|
+| **B0** | CLOSED — all three rulings granted and recorded above |
+| **B3 / B4** | each gains its lane's share of the ~285 `ttChecks` conjunct deletions, since both edit `Verify/Extend/{Iota,Proj}` and `Verify/InferLemmas` already; `SetR/Annot/SortCoh/Mono`'s 4 go with B3 |
+| **B9** | LOSES the `ttChecks` row (promoted out, per §3(c)) |
+| all | ruling 1 carries the standing re-scope condition: a user override toward hand-written bodies re-opens B2 |
