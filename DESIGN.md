@@ -30817,3 +30817,154 @@ Claims/SimC treatment follows the split: the full-infer memo's
 invariant stays EXACTLY the current one; the inferOnly memo gets
 its own WEAKER invariant matching what an inferOnly run witnesses
 per mode.  Folded into the census.
+
+# Task #161 — THE SEPARATION CAMPAIGN: FINAL SEAL + HANDOFF RECORD
+(2026-09-04; the lead's own seal, per the user's tri-core
+architecture ruling)
+
+The user's ruling, verbatim, which ends this campaign and the #170
+flag campaign with it: **"the flags are confusing you too much. do
+build three cores, one for production parity, one for the set R
+model and one for the P model. proofs talk about just their model.
+for each core, a cached and an interned variant. the production
+parity code is not proven sound, but do prove that whenever it
+succeeds and the P core succeeds, they agree, to avoid drift. big
+refactoring and cleanup."**  The tri-core refactor runs under
+direct coordination; this seal is the campaign's end and the
+refactor's inheritance.
+
+## 1. THE CLOSING STATE (S1–S13a)
+
+* **The separation is COMPLETE and machine-checked at two levels**:
+  the import gate (`tests/layering.sh`: 0 P→R, 0 R→P, whitelist
+  EMPTY since S8) and the proof-term gate (`tests/proofdeps.sh`,
+  120 rows: EnvS and the derivation tier — Red, Red.beta, Infer,
+  Infer.app, DefEq, DefEq.trans — absent from all four shipped P
+  capstones' proof terms, doors 0, since S11b).  Both run inside
+  the battery.
+* **The two carriers are self-standing**: `EnvS2Core`/`EnvS2PM`
+  de-based (S3–S7; `.base` reads 174→0); the run-record family
+  (`DeclRunR` + the ind family, S4/S11a/S11b) feeds the P fold
+  with valuation-free records; `closure(FoldP/MainP) ∩ SetR` = 0/0.
+  SP_P covers the shipped driver (nine theorems, S8).
+* **The licensed β-gate SHIPPED** (S13a, one batch, the user's
+  in-body design quartering the hoist bill): `.setModelP` +
+  `CheckMode.betaGate`, the early-return gate at the β site, the
+  clause sweep in both towers, `AnnotOkP_beta_gate` (the license,
+  certificate-free), `gate_zero_kind_unreachable` (the asymmetry
+  fence as a type), `betaGate_off_or_verified` (the mode partition
+  as a theorem), the capstone at the gated mode by typechecking
+  alone.  Verdict-identity 496/0 on pre-existing modes; gated
+  agreement 248/0; the flag surface shipped with the audited help
+  text.
+* **The measurements, on the corrected axes** (§10 as amended; the
+  caveat-5 retraction on record): the MODE DELTA is the headline —
+  **−8.9 % init-prelude, −13.5 % grind-ring-5** (p vs r, same
+  engine); p ≈ **1.8× true parity** on init-prelude (Cached/CoreNC
+  15.99 G, unmerged reference), which is what theory demands; the
+  residual is the per-argument application certificate.  Zero on
+  the synthetic β ladders is the license working.
+* **The ledger's campaign-spanning yield**: nine sizing
+  corrections in three error classes (+ one confirmed win), the
+  claims family (a freeze / a tombstone / a ratified payload / a
+  spec point / a census row is a claim), the supplier class, the
+  gate-blindness series ("an import-level gate cannot see a proof
+  path" — resolved by the proofdeps gate), the harness-labeling
+  process lesson, the concrete-instantiation acceptance check.
+
+## 2. WHAT THE TRI-CORE PIVOT RETIRES vs REUSES
+
+**RETIRES** (mode-flag machinery — the modes become CORES):
+* `CheckMode` in the core layer, `betaGateFires`, and every
+  mode-guarded check site (each core carries its checks
+  unconditionally present or absent);
+* the `(hg : μ.betaGate = false)` hypotheses on the 19 R letters
+  AND `betaGate_off_or_verified` — under tri-core the R capstones
+  stop quantifying modes entirely, so the letters shed the
+  hypothesis and the partition theorem loses its subject;
+* the `--set-model=r/=p` flag surface as mode dispatch (becomes
+  core selection); the noModel-in-shared-body endgame (superseded:
+  parity is its own first-class core);
+* the S9 knot scaffold (`Kernel/CoreP.lean`, `CheckerP.lean` —
+  already tombstone-listed) and the S13a in-body gate ITSELF as a
+  runtime conditional: in the P core the licensed skip is simply
+  the code.
+
+**REUSES** (the campaign's content — the refactor's foundation):
+* **The separation itself** (SetBase/SetR/SetP trees, both gates,
+  the de-based carriers, the run-record family): "proofs talk about
+  just their model" was this campaign's design goal — the tri-core
+  ruling completes it at the CORE layer, on the module/proof
+  separation already landed;
+* **`AnnotOkP_beta_gate` and the io graph-regime license**
+  (`io_domain_transfer`/`io_app_mem`, the mechanized squash wall):
+  become UNCONDITIONAL content of the P core — the license
+  theorems discharge the P core's claims directly, no gate
+  condition to carry;
+* **The S13a proof-case work** (the P-lane clauses at the gated
+  site, `whnfCoreBodyP_eq`'s collapse pattern) transfers as the P
+  core's clauses;
+* **The parity clones get PROMOTED**: `CoreNC`/`CheckerNC` (+ the
+  unmerged `Cached/CoreNC` on agent/cached-parity-lane) are the
+  production-parity core's seed — first-class, not clones; the
+  taxtable audit's call-graph map and the D2 official-footprint
+  quotes are its spec;
+* **The #170 rulings re-target cleanly**: the official call-site
+  map = the parity core's spec; the licensed-skip inventory = the
+  P core's internal-inference design; the two-memo ruling maps
+  per-core; ANNOTATION IS NOT A FLAG stands (annotate remains its
+  own pass in every core that runs it);
+* **The AGREEMENT THEOREM is the refactor's new obligation**
+  (parity ∧ P succeed ⇒ agree): prior art = the verdict-identity
+  batteries, the SimC/sim towers, S13a's 248/0 gated-agreement
+  receipts (its empirical shadow), the #163 SimAt precedents.
+
+## 3. THE .noModel / EnvS2Refute DISPOSITION
+
+RESOLVED BY ARCHITECTURE.  The cleanup-docket question ("is
+`no_proof_of_Empty_R` at `.noModel` load-bearing, or over-promising
+by design history?") dissolves: under tri-core the R capstones'
+subject is the R core — they stop quantifying modes, so no R letter
+covers the parity core, which is unproven-sound BY THE USER'S OWN
+RULING (drift prevention via the agreement theorem instead).
+`EnvS2Refute`'s multi-mode application (the named #148-shaped
+consumer that decided the hg-hypothesis ratification) loses its
+mode-typed subject and is re-stated per-core or retired with it.
+No ratified letter is narrowed; the letters' subjects are replaced
+by the refactor, which is the honest way for the question to close.
+
+## 4. OPEN ITEMS HANDED TO THE REFACTOR
+
+1. **The agreement theorem** (new; prior art above).  Design
+   question inherited with it: the parity core's EXACT-official
+   fidelity vs the current NC lane's known strict-direction
+   deviations (the taxtable audit's residuals) and the two
+   user-held conformance restrictions (proofirrel-check @ 3a0be1cd
+   ready+unmerged; the commit-semantics proposal) — under
+   tri-core the parity core plausibly takes official's checks BY
+   CONSTRUCTION; needs a deliberate ruling against the user's
+   "soundness licenses the omission" standing ruling (which was
+   about the VERIFIED lanes).
+2. **The #170 content** (order + refinement + memo ruling, recorded
+   2026-09-04) re-targeted per §2.
+3. **The cleanup docket, consolidated**: the S9 knot scaffold;
+   bucket2-s1 + ioknot-b1 branch dispositions (measurement kits
+   extracted, branches archived); the S11b duplicated residue
+   lemmas (both halves priced in its seal); `checkDeclR_ofEnvRE`'s
+   status (inert cut-point since S11a); the sep-s7-wip recovery
+   branch; the retired-by-pivot list from §2 (executed as part of
+   the refactor, not before it).
+4. **The true-parity measurement cells** pending
+   agent/cached-parity-lane's landing; the S13-closing worker's
+   measurement appendix (branch agent/sep-s13close, sealed as
+   handoff on the stop directive) including the harness labeling
+   fix (survives the pivot).
+5. **The proof-term gate's evolution**: under tri-core its roots
+   become per-core capstone families; the tighten-only discipline
+   and the cut-point methodology transfer.
+
+The campaign closes.  Its record — S1's first re-based module to
+the license theorem to the corrected table — is the refactor's
+inheritance, and the discipline that built it (freeze, probe,
+measure, escalate, correct in both directions) is the part that
+was never specific to β.
