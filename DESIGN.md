@@ -30758,3 +30758,39 @@ cert-tax asymmetry, not (only) core architecture.  The core-drop
 decision is the USER'S, on this evidence; nothing is retired here.
 R1's remaining experiments (sharedBs gate, oracle-parametric gate,
 `ExprC` Data-packing) re-baseline against the TWO PARITY LANES.
+
+## TASK #170 — USER DESIGN REFINEMENT (2026-09-04; supersedes the
+"inferOnly intent at call sites" phrasing)
+
+Verbatim: **"for infer_only, all modes should call infer_only where
+the official code does, and then infer_only itself runs more or
+less checks depending on the flag. or better: infer_only becomes a
+flag to infer and some checks are omitted depending on mode and
+infer_only flag."**
+
+BINDING DESIGN: ONE infer function with an `inferOnly : Bool`
+parameter — official's exact signature shape
+(`infer_type_core(e, infer_only)`).  Call sites pass
+`inferOnly = true` at EXACTLY the official kernel's positions, IN
+ALL MODES — the call-site structure is official-shaped everywhere;
+only the flag's INTERPRETATION varies.  Inside infer, each
+omittable check guards on a function of (μ, inferOnly):
+- R mode: ignores the flag entirely — the condition computes away
+  at the concrete constructor (inferOnly ≡ infer; claims preserved
+  VERBATIM);
+- P mode: omits where the GRAPH-REGIME LICENSE applies
+  (annotation-conditioned, exactly as the β-gate);
+- noModel: omits everything official omits — official parity IN THE
+  SHARED BODY (a concrete step toward the clone-retirement
+  endgame).
+
+THE CONCESSION, recorded alongside (user, explicit): **ANNOTATION
+IS NOT A FLAG** — annotate stays its own pass with its own code;
+do not attempt to fold it into this mechanism.
+
+MEMO-KEY QUESTION for the design census (decide + document before
+the mechanics slice): inferOnly=true/false results differ in
+checking DEPTH but not the returned TYPE — does the infer memo key
+on the flag, or does a single entry serve both?  Official's answer
+is a fine default; whichever is chosen, the SimC/claims treatment
+MUST match it.
