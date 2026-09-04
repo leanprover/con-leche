@@ -35110,3 +35110,14 @@ compiler can see the mistake; the dangerous rules are the ones whose
 misfires still typecheck.*  Both dangerous classes here (1 and 2) fail
 loudly — 3 does not, which is why it is the one that needs a
 convention.
+
+### 5. POST-MERGE REVALIDATION (2026-09-04)
+
+The io-license tier landed on master (`4aade17f`) while B3b was in
+flight; that branch touched no implementation file, and B3b touches no
+`SetP`/`Verify/InferIO*` file, so the merge is a `DESIGN.md`
+append/append (resolved by landing order: io license first, B3b
+after).  Rechecked after it: **build warning-free, `lake test` green,
+layering base 274 / R 106 / P 119 with 0/0 edges, proofdeps 120 rows
+as pinned, arena 90/92, e2e 73/73, annot 14/14, split 11/11, mode
+flags 9/9, no-model sweep as expected.**
