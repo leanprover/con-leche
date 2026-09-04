@@ -39,6 +39,7 @@ import Setlec.SetBase.EnvRCons
 import Setlec.SetBase.IndRecsCoreR
 import Setlec.SetBase.BasisRules
 import Setlec.SetBase.PSigmaTower
+import Setlec.SetBase.TupleTower
 import Setlec.SetBase.ProjFnRR
 import Setlec.SetBase.Bridge.Claims
 import Setlec.SetBase.Bridge.WhnfCore
