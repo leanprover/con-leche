@@ -33083,3 +33083,46 @@ question — setlec discharges level scoping on the install path, in code
 both lanes share — and not a *parity* deviation.  B1 records the
 observation and leaves it where it belongs.
 
+### 10. AMENDED B2–B9 IMPLICATIONS
+
+Deltas only, against part 6 §2 as amended by part 8 §4.  These are
+consequences of what B1 measured; **none of them chooses a disposition
+for E1/E2/E3**, which is the escalation's content and above this batch.
+
+| batch | amendment |
+|---|---|
+| **B0** | **RE-OPENS on one question.**  Ruling 1 ratified "one body template, three named concrete cores" on the census's finding that the parity core is *mostly* expressible.  §8 says: for 25 of 26 deviations yes, for E1/E2 no.  The template ruling survives for the **R and P** cores untouched (they differ from each other only by class-1/2/3 items and the β datum); what needs re-deciding is whether the **parity** core joins the template at all, or stays a named engine outside it with the agreement obligation re-scoped |
+| **B1** | closed by this section; its output is §3's table, which is the config-field inventory for the R/P pair and the *exception list* for parity |
+| **B2** | **the slice's chosen function is the one E1 breaks.**  B2 was to prove the `rfl` identity end-to-end on `whnfCore` in both representations; between the R and P instantiations that is still exactly right and unaffected.  Between either of them and the **parity** instantiation it is false today at every recursive clause.  B2 must therefore either (i) scope its slice to R↔P and report parity separately, or (ii) wait on the E1 ruling.  B1 recommends (i) — it keeps B2's sizing sample and does not pre-empt the ruling |
+| **B2** | **new obligation, cheap: R2.**  The interned engines read the arena node count as the binder-peel fuel; the cached engines read `peelFuelM`.  Any `rfl`-grade `inferBody` identity has to dispose of that first, and B2 is where a landed sample would show what it costs.  Add it to the slice's report; it is one row, not a batch |
+| **B3 / B4** | unchanged, including their share of the ~285 `ttChecks` conjunct deletions.  B1 adds one datum: the `ttChecks` **behavioural** site inside `structEtaCertWithI` is confirmed vacuous by the same walk that priced the statement population, so B3/B4 delete a branch with no verdict consequence in any core |
+| **B4** | one sharpening: §3 note ‡ measured that at `pw = .never` the P core's β clause **is** the parity clause.  The P tower's β chapter therefore transposes not merely "whole and unchanged" (census part 3 §3) but into a clause that agrees with parity by construction on the gated data — the one place route C's economy is realised today |
+| **B5 / B6** | **halved in inventory, unchanged in price.**  §2 measured the two parity engines identical in 20 of 21 definitions, so B5's and B6's T1 families are the same statements twice rather than two inventories; the ~250 ln × 5 functions × 2 representations estimate stands only if E1/E2 are dispositioned, since without that the `whnfCore` and `infer` families have no statement to prove |
+| **B7** | unchanged.  `parity_agrees_P_names` reads the driver fold and no core clause; it is the one deliverable no B1 finding touches, and B1 repeats the census's recommendation to land it first, independent of the re-scope |
+| **B8** | unchanged (the two-axis dispatch collapse), with one rider: if E1 is dispositioned toward mirroring the loop into parity, the `sharedBs` re-baselining instruction (census part 5 §1) binds — that is a measurement whose baseline would move, and the standing rule is to run it *before* or *after*, never across |
+| **B9** | unchanged |
+| *(carried)* | **T2c grows a second obligation** (§8): `annotateBody`'s `.proj` clause is the annotation pass's only call into the core, and E2 is a divergence in `infer` at `.proj`.  Head-shape agreement is no longer T2c's whole content |
+| *(new, and not a refactor row)* | **a regression fixture for E1.**  Independent of the tri-core order, the parity lane rejects `whnfCore` chains longer than `checkFuel − 1` that the model lanes reduce.  That is a live verdict divergence of the #139 class, found by reading rather than by a sweep — exactly the failure mode the order was given to end.  Under *restrictions-are-findings* it wants a fixture and a record whatever the refactor decides.  `_tmp/tricore-b1/FuelProbe.lean` is the shape; an `.ndjson` witness at the shipped fuel needs a ~100 000-step chain, which is why B1 delivers the executable probe instead |
+
+### 11. WHAT B1 HANDS BACK
+
+1. **Route C's verdict**: expressible for 25 of 26 deviations, **not**
+   for E1 and E2; stop condition 1 of the census's three is tripped.
+2. **The classification**: 12 class-1 (with the §4 correction that the
+   class belongs to the site × call site pair, and three lemma shapes,
+   not one), 12 class-2 (the census named four), 1 class-3 family with
+   three writes, 2 measured-vacuous rows.
+3. **Two executed witnesses**, `_tmp/tricore-b1/{FuelProbe,ProjProbe}.lean`,
+   reproducible with `lake env lean`.
+4. **The parity-fidelity table**: 2 ruled-deliberate items, both reaching
+   the parity core through shared code; 4 tax-table findings carried;
+   5 new or newly sized, of which `projCertI` (F4) and the enlarged
+   install-kinds set (F8′) are the ones the pending user ruling's
+   evidence base was missing.
+5. **One structural finding with no verdict content but real economy**:
+   the two parity engines, and the two certified engines, are each the
+   same function twice (§2).
+
+Nothing in this batch lands code, freezes a statement, or picks a
+disposition.
+
