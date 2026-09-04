@@ -36825,6 +36825,277 @@ deletion, check whether the hypothesis has a line to itself.*  The
 acceptance check still passes (net negative in both waves); the
 headline number is the declaration count, not the line count.
 
+## TASK #175 — THE DIRECT-STRUCTURE INTRODUCTION MACHINERY
+(2026-09-04, `agent/direct-intro`)
+
+The priced "needs work" item of the tuple-tier landing record: the
+proof-side bridge from a CHECKED direct-structure block (the #82
+syntactic checks O1–O3, O5) to the tuple tier, so the eventual wiring
+batch only flips switches.  Scope: NEW modules in `SetBase`/`SetP`
+only — no kernel code, no `AnnotOk2`/`denoteP` clause changes, no
+`directStructsEnabled` movement, nothing on the B4 or interned-removal
+surfaces.
+
+### 0. The dialect finding that fixes the whole shape
+
+The retired `Model/*` introduction (`teleLamV`/`sigmaTowerV`, the
+2026-08-23 record) stored constant denotations as **V-values** under a
+`val : Name → … → V` valuation.  The P dialect does not: `EnvS2Core`
+stores `acval : Name → (Name → Nat) → AVExpr` — a **syntactic leaf
+over the closed `BConst` alphabet**, interpreted by `interp2`.  So the
+introduction machinery is NOT a re-land of `DirectVal` — it is a
+**leaf synthesis** problem: for a checked block, produce the three
+closed `AVExpr` families (⟦T⟧/⟦C⟧/⟦T.rec⟧) whose `interp2` readings
+are the tier's tower values, plus the graded battery
+(`AnnotOk2`/`AnnotValidV`/closedness/level-params/membership) that
+`declStepPM_of_basis_cons` consumes — the `EqTowerP` pattern
+(`eqValT2`/`eqReflValT2`/`eqRecValT2`, the one precedent for
+hand-built composite leaves).
+
+Two interface facts make the synthesis expressible at all:
+
+* `sigmaSet w` reads `w` **only through its zero test**
+  (`sigmaSet_zero`/`sigmaSet_pos`), so the `.psigma`-const spelling at
+  level instantiation `[w, w]` (`bval2` → `psigmaV2 w w` →
+  `sigmaSet (max w w) = sigmaSet w`) lands exactly on the tier's
+  `towerSet w` node, at every regime;
+* `AVExpr.proj` at indices `0`/`1` interprets to `sfst`/`ssnd`, so the
+  tier's structure-independent `projS i = sfst ∘ ssnd^i` is spelled by
+  the **iterated proj node** `projAV i = .proj 0 ∘ (.proj 1)^i` — no
+  type arguments, no entry consultation, uniform in `i`.
+
+### 1. Statement freeze — stage 1, the telescope introduction
+(`Setlec/SetBase/TowerIntro.lean`, namespace `Setlec.SetR.Interp2`)
+
+The semantic telescope over the interpreted binder chain (`Fs` = the
+constructor type reading's field pi-domains, in order, each scoped
+under its predecessors; `ρ` = the frame the params landed at):
+
+    consN ρ pre            -- the env after binding `pre` outermost-first
+    SpineFit ρ Fs as       -- aᵢ ∈ˢ ⟦Fᵢ⟧ at the consed envs, lengths equal
+    teleOfFields ρ Fs : TeleS V Fs.length
+                           -- nil ↦ .nil; F::Fs ↦ .cons ⟦F⟧ρ (fun a => … (cons a ρ))
+    FieldsBound w ρ Fs     -- ⟦Fᵢ⟧ ∈ˢ univ w hereditarily (O5's semantic form)
+    FieldsGraded ρ Ds      -- per-field: ⟦Fᵢ⟧ ∈ˢ univ uᵢ hereditarily, Ds = (uᵢ, Fᵢ) zipped
+
+Bridges (the well-formedness the tier's laws consume):
+
+    SpineFit.length_eq     : SpineFit ρ Fs as → as.length = Fs.length
+    fitsS_teleOfFields     : FitsS (teleOfFields ρ Fs) as ↔ SpineFit ρ Fs as
+    teleNth_teleOfFields   : i < Fs.length → pre.length = i →
+                               teleNth (teleOfFields ρ Fs) i pre = ⟦Fs[i]⟧(consN ρ pre)
+    boundS_teleOfFields    : BoundS w (teleOfFields ρ Fs) ↔ FieldsBound w ρ Fs
+    propS_teleOfFields     : PropS (teleOfFields ρ Fs) ↔ FieldsBound 0 ρ Fs
+    fieldsBound_of_graded  : FieldsGraded ρ Ds → (∀ d ∈ Ds, d.1 ≤ w) →
+                               FieldsBound w ρ (Ds.map (·.2))     -- O5 discharge
+    propS_of_graded        : FieldsGraded ρ Ds → (∀ d ∈ Ds, d.1 = 0) →
+                               PropS (teleOfFields ρ (Ds.map (·.2)))  -- O4/R1 squash side
+
+Tier laws at the interpreted telescope (corollaries, AVExpr currency):
+
+    mkTower_mem_teleOfFields    : w ≠ 0 → SpineFit ρ Fs as →
+                                    mkTower as ∈ˢ towerSet w (teleOfFields ρ Fs)
+    towerSet_elim_teleOfFields  : w ≠ 0 → x ∈ˢ towerSet w (teleOfFields ρ Fs) →
+                                    SpineFit ρ Fs (projList Fs.length x) ∧
+                                    x = mkTower (projList Fs.length x)
+    projS_mem_teleOfFields      : (w = 0 → FieldsBound 0 ρ Fs) →
+                                    x ∈ˢ towerSet w (teleOfFields ρ Fs) → i < Fs.length →
+                                    projS i x ∈ˢ ⟦Fs[i]⟧(consN ρ (projList i x))
+    towerSet_univ_teleOfFields  : FieldsBound w ρ Fs →
+                                    towerSet w (teleOfFields ρ Fs) ∈ˢ univ w
+
+`projS_mem_teleOfFields`'s premise IS the O4/R1 per-use branch: at a
+graph instantiation it is vacuous; at a squash instantiation it is the
+proof-field legality (`PropS` via `propS_teleOfFields`) that the
+checker's own `infer_proj` Prop restriction discharges — and in the
+O5-checked class it is *derivable* (`fieldsBound_of_graded` at
+`w = 0` forces every field sort to `0`).  R2 (recursive fields) never
+reaches this file: O2 excludes the class syntactically and no
+machinery here mentions recursion.
+
+### 2. Statement freeze — stage 2, the carrier body and the uniform
+projection spelling (`Setlec/SetBase/TowerLeaf.lean`)
+
+    towerBodyAV w Fs   -- [] ↦ .const .punit [w+1]
+                       -- F::Fs ↦ .app (.app (.const .psigma [w,w]) F)
+                       --            (.lam (w+1) F (towerBodyAV w Fs))
+    projAV i e         -- 0 ↦ .proj 0 e; i+1 ↦ projAV i (.proj 1 e)
+
+    towerBodyAV_interp : FieldsBound w ρ Fs →
+        interp2 V ρ (towerBodyAV w Fs) = towerSet w (teleOfFields ρ Fs)
+    projAV_interp      : interp2 V ρ (projAV i e) = projS i (interp2 V ρ e)
+    towerBodyAV_ok2    : FieldsOkB w ρ Fs → AnnotOk2 V ρ (towerBodyAV w Fs)
+    towerBodyAV_validV -- (SetP stage; hereditary, no pi nodes)
+
+with `FieldsOkB` the hereditary conjunction of `FieldsBound` and the
+domains' own `AnnotOk2` (the λ/app clauses of the body read both).
+The fibre-lam bit is `w + 1 ≠ 0`, so the psigma application computes
+by `app_lamR_pos` + `sigma_congr` in BOTH regimes; the premises of
+`psigmaV2_app` are exactly `FieldsBound w` (O5 + cumulativity).
+
+### 3. Stages 3–4, frozen in shape (λ-tower leaves + P battery)
+
+Stage 3 (`TowerLeaf.lean` continued): `mkLamsAV`/`mkPisAV` (the
+λ/Π-tower formers over `List (Nat × AVExpr)`), the application fold
+(`app_lamR_pos` chain at nonzero bits, `lamR_zero` collapse at zero
+bits), and the three leaf families over the peeled domain data:
+
+    directTyAV  ps w Fs      = mkLamsAV (bits w+1) ps (towerBodyAV w Fs)
+    directMkAV  ps w Fs      = mkLamsAV (bits w)  (ps ++ Fs) (mkTowerGo w Fs)
+      -- mkTowerGo: right fold of .psigmaMk [w,w] apps; node with m LATER
+      -- fields uses A = F.liftN (m+1), B = .lam (w+1) (F.liftN (m+1))
+      --   ((towerBodyAV w rest).liftN (m+1) 1), value = .bvar m,
+      -- terminator .const .punitUnit []
+    directRecAV ps w Fs ℓ    = mkLamsAV (bits ℓ) (ps ++ [motive, minor, major])
+                                 (mkAppN (.bvar 1) ((range nF).map (projAV · (.bvar 0))))
+
+with interp/mem/fold equations: ⟦directTyAV⟧ applied to a fitting
+param spine = `towerSet w (teleOfFields …)`; ⟦directMkAV⟧ applied to a
+fitting param+field spine = `mkTower [fields]` at `w ≠ 0`, `pt` at
+`w = 0` (the λ bits are `w`, so the tower collapses of itself);
+⟦directRecAV⟧'s body = the minor app-folded along `projS` of the major
+(the `towerRec` witness `m ∘ projList`, spelled).
+
+Stage 4 (`Setlec/SetP/DirectIntroP.lean`): the
+`declStepPM_of_basis_cons`-shaped battery per leaf (closed/params/
+ok2/validV/mem-of-type-reading) and the law package (projection
+membership + iota + eta + recursor typing/iota at the leaves) in the
+form the install-step soundness consumes.
+
+### Honest scope
+
+Committed stage by stage; whatever is not landed when the batch
+stands down is recorded below its freeze as the wiring batch's
+checklist, walls named exactly.
+
+### LANDED — stages 1–4a: the introduction machinery, no walls
+(2026-09-04, `agent/direct-intro`)
+
+Everything below builds warning-free, sorry-free, condition-free
+(every theorem's premises are data the wiring computes, never a
+deferred proof).  The pre-declared hard part — building the
+length-indexed, fully dependent `TeleS` from an interpreted binder
+chain — turned out to have **no wall at all**: the dependency threads
+through `interp2`'s own environment (`teleOfFields ρ (F :: Fs) =
+.cons ⟦F⟧ρ (fun a => teleOfFields (cons a ρ) Fs)`), a two-clause
+definition.  The load-bearing interface facts, named once: the level
+operators read their numerals **only through zero tests**
+(`sigmaSet_pos`/`piR`/`lamR` + `max w w = w` + zero-agreement), which
+closes all level bookkeeping; and pt-separation (`projS_pt`) makes the
+squash regime ride the same definitions.
+
+**Stage 1 — `Setlec/SetBase/TowerIntro.lean`** (the telescope
+introduction): `teleOfFields`, `SpineFit`, `FieldsBound`,
+`FieldsGraded`, `consList` (the freeze wrote `consN`; renamed — SetP's
+`IndTeleP.consN` is the same fold in the same namespace, and this
+module is lane-neutral base), the four currency bridges
+(`fitsS_/teleNth_/boundS_/propS_teleOfFields`), the O5/O4-R1
+discharges (`fieldsBound_of_graded`, `propS_of_graded`), and the tier
+laws in AVExpr currency: `mkTower_mem_/pt_mem_tower_/towerSet_elim_/
+projS_mem_/towerSet_univ_/towerSet_zero_univZero_teleOfFields` +
+`SpineFit.append`/`consList_append`.  `projS_mem_teleOfFields`'s
+premise `(w = 0 → FieldsBound 0 ρ Fs)` IS the O4/R1 per-use branch.
+
+**Stage 2 — `Setlec/SetBase/TowerLeaf.lean`** (carrier body +
+projection spelling): `towerBodyAV` (`.psigma [w, w]` tower,
+`.punit`-terminated, fibre-λ bit `w + 1`) with `towerBodyAV_interp`
+(`= towerSet w (teleOfFields ρ Fs)` from `FieldsBound` ALONE, both
+regimes) and `towerBodyAV_ok2` (off hereditary `FieldsOkB`;
+`psigmaV2_ww_mem` supplies the app slots); `projAV`
+(`.proj 0 ∘ (.proj 1)^i`) with the premise-free `projAV_interp`
+(`= projS i`) + `projAV_liftN`/`projAV_inst`.
+
+**Stage 3 — `TowerLeaf.lean` (cont.), `TowerMk.lean`, `TowerRec.lean`**
+(the three leaves):
+
+* the formers `mkLamsAV`/`mkPisAV`/`stripPisAV` (+ inversion
+  `stripPisAV_eq_mkPis`, the wiring's peel hook), the generic
+  nonzero-bit fold `mkLamsAV_fold` and zero-head collapse;
+* **the one engine**: every leaf is a constant-bit tower
+  `mkLamsC m ds b` (`m` = `w+1` / `w` / `ℓ` resp.), and
+  `mkLamsC_mem`/`mkLamsC_ok2` prove membership-in-`mkPisAV` and
+  grading from ONE hereditary premise `UnderTowerOk`
+  (+ `underTowerOk_res_univZero` for the squash fibre components);
+* **⟦T⟧** `directTyAV w pps Fs` (laws off `ParamsOkT`): `_mem`,
+  `_ok2`, `_fold` (`⟦T p⃗⟧ = towerSet w ⟨fields⟩`);
+* **⟦C⟧** `directMkAV w ds Fs` with body `mkTowerGo` — the tupler at
+  the λ-frame (`psigmaMk [w, w]` nodes, `.bvar` values, domains
+  lifted by later-count + 1, cutoffs 0/1; the de Bruijn accounting is
+  self-consistent with NO length threading).  `mkTowerGo_interp` is
+  one equation, two regimes: `if w = 0 then pt else mkTower bs` —
+  `psigmaMkV2_app`'s own collapse.  Laws off `MkPre`:
+  `directMkAV_mem/_ok2/_fold/_zero`; `underTowerOk_fields` threads
+  the field phase with a spine ACCUMULATOR (the tupler reads the full
+  frame, so the walk carries the prefix fit — `FieldsOkB.drop`);
+  `psigmaMkV2_ww_mem` (both regimes: `spair_mem` at graph,
+  inhabitation at squash) + `mkTowerGo_ok2`;
+* **⟦T.rec⟧** `directRecAV ℓ ds nF` with body `recBodyAV` — the minor
+  applied along `projAV` of the major: **`towerRec`'s witness
+  `m ∘ projList`, spelled**.  `minorSp` (the interpreted minor space),
+  `minorSp_spine` (grading AND motive membership in one induction),
+  `projAV_ok2_tower` (one `sigmaSet` level per `.proj` node, peeled by
+  `mem_sigma_elim`, both regimes), `argsOkFit_projSpine`
+  (`projList_snoc` steps the environment), `RecBase`/`RecPre` (O3's
+  pins consumed as interp equations: motive space =
+  `piR (ℓ+1) carrier (fun _ => univ ℓ)`, minor space = `minorSp`,
+  major = carrier), `underTowerOk_of_recPre` (eta closes the graph
+  regime, `towerSet_zero_elim` the squash — subsingleton elimination
+  at squash is the SAME base at `w = 0`, not a separate law),
+  `directRecAV_mem/_ok2`; iota side `recBodyAV_interp` (premise-free)
+  + `recBodyAV_fold_mk` (`projS_mkTower` pointwise).
+
+**Stage 4a — `Setlec/SetP/DirectIntroP.lean`** (bit validity + P
+packages): the leaves contain no `.pi` node, so `AnnotValidV` is pure
+hereditary plumbing — `FieldsValid`/`UnderTowerValid` premises,
+`towerBodyAV_/projAV_/mkAppN_/recBodyAV_/mkTowerGo_/mkLamsC_validV`,
+and the `AnnotOkP` packages `directTyAV_okP`/`directMkAV_okP`/
+`directRecAV_okP` (the `hAok`+`hAvalid` rows, per leaf).
+
+**Freeze deviations, all cosmetic**: `consList` for `consN` (above);
+the leaves take the full `(u, v, dom)` binder triples (`pps`/`ds`)
+rather than re-zipped bit lists — the bits are computed, the domains
+shared with the Π-side, which is what makes the membership statements
+premise-light; `directRecAV` takes `nF` (the body needs only the
+count).
+
+### THE WIRING CHECKLIST — what this batch leaves for post-B4
+
+Recorded as the successor's work order; nothing here was started.
+
+1. **The syntactic leaf battery** (`hAclosed`/`hAparams` rows):
+   liftN-invariance of the assembled leaves from the readings'
+   closedness.  Suggested route: one generic lemma "`AVExpr.liftN n k`
+   fixes `e` when `VExpr.bvarsBelow k e.erase`" (annotations are inert
+   — only bvars move), then structural erase/liftN commutations for
+   `mkLamsAV`/`towerBodyAV`/`mkTowerGo`/`recBodyAV`.  Level-parameter
+   congruence (`hAparams`) reduces to congruence of the computed
+   numerals (`w`, `ℓ`, the binder bits) in the reading — the leaf
+   constructors are plain functions of them.
+2. **Premise discharge from the checker's own runs**:
+   `ParamsOkT`/`MkPre`/`RecPre`/`UnderTowerValid`/`hz` from `denoteP`
+   readings of the annotated block types (peel via
+   `stripPisAV_eq_mkPis`), O3's `checkDirectDomsAt` soundness (the
+   interp equations: C's parameter domains ≐ T's; the recursor's
+   telescope ≐ the generated shape — `RecBase`'s three equations), O5's
+   `checkDirectFieldUniv` (→ `FieldsGraded` → `fieldsBound_of_graded`),
+   and the annotation pass's sort facts for the zero-agreements.
+3. **The install-step rows**: `htyReads`/`htyOk`/`hmemNew` with the
+   type readings in `mkPisAV` form and `hmemNew` =
+   `directTyAV_mem`/`directMkAV_mem`/`directRecAV_mem`.  NOTE:
+   `declStepPM_of_basis_cons` does NOT apply as-is — its `caps_ok`
+   disjunct requires a reserved name or a non-ind/ctor/rec kind, and a
+   direct block's constants are unreserved ind/ctor/rec kinds.  The
+   wiring goes through `declStepPM_of_cons` directly and owes the
+   `caps_ok`/`rec_rules` rows a bespoke discharge (the tier supplies
+   the semantic content: `towerSet_elim_teleOfFields` for eta,
+   `recBodyAV_fold_mk` for the rule fold).
+4. **The `.proj` row generalization** (the tuple-tier handoff's item
+   5, unchanged): `AnnotOk2`/`denoteP`/`AVExpr.proj` entry-key work —
+   the tier side is ready (`projS_mem_teleOfFields` is the infer row,
+   `projAV_interp` + `projS_mkTower` the iota rows).
+5. **Kernel entry install** (handoff items 1–3, unchanged): native
+   `ProjEntry`s with the O4 per-field branch, `directStructsEnabled`'s
+   documented flip recipe, R2's decline for recursive `.proj` uses.
 ## Task #77 — the build-time audit: what a clean `lake build` actually costs
 
 **Headline.**  On a quiet machine a clean `lake build` of the whole tree
