@@ -12,6 +12,32 @@
 #
 # Every run is under `timeout` and a 16 GB address-space ulimit.
 #
+# THE PARITY-LANE CAVEAT, CARRIED BY THE HARNESS (task #161 S13; the
+# ledger's process lesson — a caveat must live with the measurement,
+# not only in prose).  `--no-model` is the unverified/parity mode, but
+# only ONE of its cores is a cert-skipping parity ENGINE:
+#
+#   --no-model --core=production      CheckerNC/CoreNC — certificates
+#                                     stripped, internals infer-only.
+#                                     THE PARITY LANE, always.
+#   --no-model --core=cached-parsed   a parity engine ONLY IF
+#                                     `Setlec/Cached/CoreNC.lean` is in
+#                                     the tree (landed at `1fa6444f`).
+#                                     Without it this dispatches to the
+#                                     CERTIFIED cached driver with
+#                                     `CheckMode.verified = false` — the
+#                                     two mode-gated checks off and
+#                                     NOTHING else, every internal
+#                                     certificate still running.
+#   --no-model --core=cached          never a parity engine (the shared
+#   --no-model --core=interned-shared pilot cores have no NC twins).
+#
+# A still-certifying cell's distance from `--set-model` is NOT a
+# verification tax; quoting it as one is the canonical table's caveat 5,
+# and it has been mis-quoted at least twice.  So the `core` column below
+# labels itself — `(parity)` / `*STILL-CERT`, decided by reading the
+# tree — and a cell can never be quoted without its caveat.
+#
 # Usage:
 #   tests/pilot-measure.sh [--variants=a,b,c] [--reps=N] WORKLOAD...
 # where a WORKLOAD is `label=path` or `label=path::extra-flags`.
@@ -100,14 +126,38 @@ print(f"{instr} {wall:.3f} {rss} {r.returncode}")
 EOF
 }
 
-printf '%-22s %-16s %14s %9s %10s %5s\n' workload core instructions wall_s rss_MB exit
+# The mode×engine label: a `--no-model` cell that is NOT a
+# cert-skipping engine says so out loud (canonical table caveat 5), and
+# the ones that are say `(parity)`.  Whether `--core=cached-parsed` has
+# a real parity engine is read OFF THE TREE (`Cached/CoreNC.lean`), so
+# this label follows the source instead of going stale with it.
+CACHED_PARITY_WIRED=0
+[ -f Setlec/Cached/CoreNC.lean ] && CACHED_PARITY_WIRED=1
+
+core_label() {
+  case "$MODEFLAG:$1" in
+    --no-model:production) printf '%s' "$1(parity)";;
+    --no-model:cached-parsed)
+      if [ "$CACHED_PARITY_WIRED" = 1 ]
+      then printf '%s' "$1(parity)"
+      else printf '%s' "$1*STILL-CERT"; fi;;
+    --no-model:cached|--no-model:interned-shared) printf '%s' "$1*STILL-CERT";;
+    *) printf '%s' "$1";;
+  esac
+}
+
+if [ "$MODEFLAG" = "--no-model" ]; then
+  echo "note: *STILL-CERT = the certified driver with verified=false," \
+       "NOT a cert-skipping parity engine (caveat 5); only (parity) is one."
+fi
+printf '%-22s %-26s %14s %9s %10s %5s\n' workload core instructions wall_s rss_MB exit
 for w in "${WORKLOADS[@]}"; do
   label="${w%%=*}"; rest="${w#*=}"
   file="${rest%%::*}"
   extra=""
   [ "$rest" != "$file" ] && extra="${rest#*::}"
   if [ ! -f "$file" ]; then
-    printf '%-22s %-16s %14s\n' "$label" "-" "MISSING($file)"
+    printf '%-22s %-26s %14s\n' "$label" "-" "MISSING($file)"
     continue
   fi
   for core in ${VARIANTS//,/ }; do
@@ -123,6 +173,6 @@ for w in "${WORKLOADS[@]}"; do
     mr=$(maxof "${rsss[@]}")
     mrmb=$(awk -v k="$mr" 'BEGIN{printf "%.1f", k/1024}')
     mig="-"; [ "$mi" != "-" ] && mig=$(awk -v n="$mi" 'BEGIN{printf "%.2fG", n/1e9}')
-    printf '%-22s %-16s %14s %9s %10s %5s\n' "$label" "$core" "$mig" "$mw" "$mrmb" "$ec"
+    printf '%-22s %-26s %14s %9s %10s %5s\n' "$label" "$(core_label "$core")" "$mig" "$mw" "$mrmb" "$ec"
   done
 done

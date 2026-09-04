@@ -30818,6 +30818,558 @@ invariant stays EXACTLY the current one; the inferOnly memo gets
 its own WEAKER invariant matching what an inferOnly run witnesses
 per mode.  Folded into the census.
 
+## Task #161 SEPARATION — S13 CLOSING MEASUREMENT: THE β CHAPTER'S
+MEASUREMENT APPENDIX (2026-09-04, `agent/sep-s13close`, unpushed;
+every master cell measured at master `ab75ec82`, binary md5
+`c6b61c15…` — byte-identical to master's own build)
+
+### 0. STATUS — SEALED AS HANDOFF, NOT AS A CAMPAIGN CLOSE
+
+This section was commissioned as the campaign's closing table.  While
+it was being written the user's **tri-core architecture ruling** (three
+first-class cores — production-parity / R / P — replacing the mode
+flags) superseded the charter, and the campaign's final seal moved to
+the lead.  **What follows is therefore the β chapter's measurement
+appendix, handed to the tri-core refactor**, which will re-measure on
+the new cores.  Every measurement leg listed here RAN TO COMPLETION
+before the stop; nothing is partial.  Kit and raw data:
+`_tmp/sep-s13close/{run.sh,battery.sh,ref.sh,report.py,table.tsv,ref.tsv}`.
+
+**THE PIN, stated once.**  Every master cell below is `ab75ec82` —
+the SHA the charter named, and the SHA whose binary this branch
+reproduces byte for byte.  Master has since advanced (through
+`1fa6444f`, which **landed the cached parity lane**, and `7e79cadb`);
+where that changes how a column should be read, §5 and §9 say so
+explicitly rather than silently re-baselining.
+
+### 1. THE CAMPAIGN'S ANSWER, IN THREE LINES
+
+The user's question was: *"separate the two model proofs cleanly!
+separate modules, no import across them, each with their own
+environment invariant and consistency proof and checker mode flag!
+then see if the problem about beta reduction gates has disappeared."*
+
+* **THE SEPARATION — done, and the build says so, not the prose.**
+  The battery's own two lines:
+
+  ```
+  layering: base 266 / R 106 / P 118 / neutral 3 modules; 0 P->R edges (whitelist EMPTY); 0 R->P
+  proofdeps: 120 rows as pinned; EnvS/checkDeclR_ofEnvRE/DeclR/DeclIndR/declIndRR absent 20/20 and the derivation tier (Red, Red.beta, Infer, Infer.app, DefEq, DefEq.trans) absent 24/24 across the 4 shipped P capstones (doors: 0)
+  ```
+
+  Two disjoint subtrees, no edge in either direction, and — the
+  criterion that counts — `Red.beta` and the whole R derivation tier
+  absent from the *proof terms* of all four shipped P capstones, 24
+  rows out of 24, zero doors.
+
+* **THE LICENSE — the beta-reduction gate problem HAS disappeared, in
+  the P mode, and it disappeared as a theorem.**
+  `AnnotOkP_beta_gate` (`SetP/Step2/GateP.lean:74`) discharges the β
+  step's two obligations from the redex's own `AnnotOkP` slot, and its
+  docstring states the content exactly: *"No certificate appears in
+  this statement or in its proof."*  The R4 wall — `Red.beta` needing
+  the argument's `Infer`/`DefEq` certificate — is not patched, routed
+  around, or weakened; at a `.never` datum the graded model supplies
+  the domain and the certificate is simply not the arm taken
+  (`gate_zero_kind_unreachable` proves the certificate-consuming arm
+  unreachable under a fired gate).  The checker skips the check
+  because a theorem says it may.
+
+* **THE PAYOFF — the gross materialized, and net = gross.**
+  The stage-1 estimate the campaign was ordered against was
+  **−8.09 % / −17.20 % on init-full** (production / cached-parsed,
+  β-cert half, `agent/bucket2-s1`, gross).  Measured on the shipped
+  binary: **−7.96 % / −17.27 %**.  init-prelude **−4.73 % / −8.94 %**
+  (estimate −4.57 / −8.21) and grind-ring-5 **−6.89 % / −13.46 %**
+  (estimate −6.75 / −12.96) came in *ahead* of their estimates.  The
+  campaign's own question — "does the gross materialize net?" — is
+  answered **yes, in full**: the in-body design installs no second
+  memo and no second knot, so the 2.2–3.1 % memo-split convention the
+  estimate was to be discounted by charges nothing here (§4).
+
+### 2. THE TABLE
+
+**Method** (the canonical statement's, unchanged, so the rows extend
+it rather than compete with it): `perf stat -e instructions:u`,
+**median of 3**, every run under `ulimit -v 40 GB` + `timeout 3600` +
+`nice -n 5`; instructions primary, **wall secondary and indicative
+only** (shared machine; load average 2–15 across the battery); peak
+RSS is max-of-3 of the process tree.  Supervision re-exec left ON, as
+in the canonical table (its caveat 8).  Columns: `prod` =
+`--core=production`, `cached` = `--core=cached-parsed`; `r` =
+`--set-model=r`, `p` = `--set-model=p`, `nm` = `--no-model`.
+
+**Instructions (G) / wall (s), master `ab75ec82`:**
+
+| stream | r prod | r cached | **p prod** | **p cached** | `nm` prod = **PARITY** | `nm` cached ⚠ **STILL-CERT** |
+|---|---|---|---|---|---|---|
+| init-prelude | 36.59 / 3.58 s | 31.23 / 3.01 s | **34.86 / 3.42 s** | **28.44 / 2.75 s** | 19.62 / 1.92 s | 30.89 / 2.92 s |
+| init-full | 3149.82 / 433.23 s | 3003.39 / 387.26 s | **2899.24 / 465.42 s** | **2484.66 / 352.43 s** | 1865.61 / 277.27 s | 3037.07 / 392.26 s |
+| grind-ring-5 | 121.61 / 13.58 s | 105.74 / 11.67 s | **113.23 / 12.86 s** | **91.51 / 10.20 s** | 75.16 / 8.63 s | 105.05 / 11.17 s |
+| app-lam | 382.69 / 78.70 s | 302.96 / 29.04 s | **382.64 / 78.33 s** | **303.00 / 28.59 s** | 386.39 / 85.83 s | 228.44 / 24.66 s |
+| beta-ladder | 79.23 / 15.00 s | 47.86 / 4.14 s | **79.22 / 15.14 s** | **47.85 / 4.15 s** | 79.05 / 16.43 s | 45.44 / 4.13 s |
+| let-ladder | 23.30 / 5.02 s | 11.60 / 1.05 s | **23.30 / 4.94 s** | **11.60 / 1.06 s** | 23.52 / 5.00 s | 11.60 / 1.06 s |
+| shared-subterm | 5.10 / 0.54 s | 4.41 / 0.48 s | **4.90 / 0.53 s** | **4.12 / 0.46 s** | 4.00 / 0.43 s | 4.39 / 0.47 s |
+
+**⚠ THE COLUMN LABEL IS PART OF THE DATUM.**  `nm` prod IS the parity
+lane (`CheckerNC`/`CoreNC`: certificates stripped, internals
+infer-only — the canonical statement's part 1(a) audit).  `nm` cached
+IS NOT: at master it dispatches to `Cached.checkDeclsSPCached` — the
+**certified** cached driver with `CheckMode.verified = false`, i.e.
+the two mode-gated checks off and **every internal certificate still
+running** (`Main.lean:290-296`; canonical caveat 5).  Its distance from
+the `r`/`p` cached columns is NOT a verification tax.  §5 prices the
+confound.
+
+**Peak RSS (MB, max of 3)** — flat between `r` and `p` on every row,
+which is the other half of "no second memo":
+
+| stream | r prod | r cached | p prod | p cached | nm prod | nm cached |
+|---|---|---|---|---|---|---|
+| init-prelude | 114 | 126 | 113 | 124 | 114 | 140 |
+| init-full | 2093 | 2168 | 2089 | 2163 | 1696 | 2183 |
+| grind-ring-5 | 554 | 512 | 542 | 497 | 436 | 512 |
+| app-lam | 5410 | 5245 | 5412 | 5245 | 5505 | 7815 |
+| beta-ladder | 1470 | 1266 | 1470 | 1268 | 1470 | 1666 |
+| let-ladder | 836 | 470 | 837 | 469 | 835 | 469 |
+| shared-subterm | 97 | 96 | 96 | 96 | 97 | 96 |
+
+### 3. (a) THE MODE DELTA — p vs r, per engine
+
+| stream | r prod | p prod | **Δ prod** | r cached | p cached | **Δ cached** |
+|---|---|---|---|---|---|---|
+| init-prelude | 36.59 | 34.86 | **−4.73 %** | 31.23 | 28.44 | **−8.94 %** |
+| init-full | 3149.82 | 2899.24 | **−7.96 %** | 3003.39 | 2484.66 | **−17.27 %** |
+| grind-ring-5 | 121.61 | 113.23 | **−6.89 %** | 105.74 | 91.51 | **−13.46 %** |
+| shared-subterm | 5.10 | 4.90 | **−3.80 %** | 4.41 | 4.12 | **−6.59 %** |
+| app-lam | 382.69 | 382.64 | **−0.01 %** | 302.96 | 303.00 | **+0.01 %** |
+| beta-ladder | 79.23 | 79.22 | **−0.01 %** | 47.86 | 47.85 | **−0.02 %** |
+| let-ladder | 23.30 | 23.30 | **−0.00 %** | 11.60 | 11.60 | **−0.01 %** |
+
+**This is the campaign's headline number and the only clean one**: same
+binary, same engine, same stream, one mode constructor apart, and the
+only difference between the two runs is the β certificate the licence
+deletes.
+
+* The gate pays **where the annotations are real** — the two Lean-output
+  streams and the milestone: init-full −17.3 %, grind-ring-5 −13.5 %,
+  init-prelude −8.9 % on the cached engine, roughly half that on
+  production (the production core's β sites are a smaller share of its
+  run).
+* It pays **nothing on the synthetic β ladders**, and that is the
+  licence working: those fixtures' binders carry possibly-zero data,
+  the gate never fires, every certificate still runs.  Zero is the
+  correct answer there.
+
+### 4. NET vs GROSS — is there a p-only overhead?  MEASURED: NO.
+
+Charter question: *does the in-body design introduce any memo split or
+overhead the r mode does not pay?*  **It does not, by construction and
+by the numbers.**
+
+* **By construction.**  One body, one knot, one memo set.
+  `betaGateFires mode pw = mode.betaGate && pw.isNever`
+  (`Kernel/Core.lean:1441`, `@[inline]`) is a pure test on a mode value
+  and a binder datum; it reads no state and writes none.  The memo
+  fields (`CoreI.lean:320-329`: `whnfC`, `inferC`, `inferFC`, `annotC`)
+  are **mode-independent** and `coreKnotI mode fe fuel` builds the same
+  record at `.setModel` and `.setModelP` — the mode is a parameter of
+  the bodies, never of a memo key.  There is no `p` twin of any knot,
+  driver or cache.
+* **By the numbers.**  The three β-dense fixtures on which the gate
+  **never fires** price the gate's own cost directly, since on them the
+  p run and the r run execute the identical work plus one `Bool` test
+  per redex: **app-lam +0.01 %, beta-ladder −0.01/−0.02 %, let-ladder
+  −0.00/−0.01 %** — all inside the median-of-3 noise floor, on both
+  engines, on the largest β populations in the corpus (app-lam is 383 G
+  / 303 G of almost pure β work).  Peak RSS is flat to within 1–2 MB
+  on every row (§2).
+
+**Therefore gross = net on every row of §3.**  The campaign's
+2.2–3.1 % "memo-split convention" — invented for a design that would
+have installed a second memo — **charges nothing against this design
+and should not be applied to these rows**.  (Stage 1's own seal said
+the convention over-charged a stage that installs no second memo; this
+is that judgement, now measured on a shipped binary rather than a
+parked branch.)
+
+### 5. (b) p AGAINST THE PARITY LANE — and the caveat-5 confound, priced
+
+Two comparisons, both same-engine.  The **true** cached parity engine
+(`Cached/CoreNC` + `Cached/ParsedNC`, a real cert-skipping cached
+lane) was, at `ab75ec82`, only on `agent/cached-parity-lane`
+(`a06733e9`); its numbers below were measured on **that branch's
+binary**, kept separate from master's cells.  **It has since landed on
+master at `1fa6444f`** — so this column is no longer a branch
+reference but the behaviour of master's own
+`--no-model --core=cached-parsed`, and the `nc` column of §2 is the
+**superseded, pre-landing** configuration (kept because every §2 cell
+must be one binary).  Calibration receipt:
+that binary's *production* parity lane reproduces master's to five
+figures (init-prelude 19.6156 G vs master's 19.6158 G; grind-ring-5
+75.158 G vs 75.158 G; init-full 1865.654 G vs 1865.608 G), so its
+cached-parity column is comparable to master's columns.
+
+| stream | r prod ÷ parity | **p prod ÷ parity** | TRUE cached parity (`a06733e9`) | r cached ÷ true | **p cached ÷ true** | `nm` cached (STILL-CERT) ÷ true |
+|---|---|---|---|---|---|---|
+| init-prelude | 1.87× | **1.78×** | 16.16 G | 1.93× | **1.76×** | **1.91×** |
+| init-full | 1.69× | **1.55×** | 1432.95 G | 2.10× | **1.73×** | **2.12×** |
+| grind-ring-5 | 1.62× | **1.51×** | 55.39 G | 1.91× | **1.65×** | **1.90×** |
+| shared-subterm | 1.27× | **1.22×** | 3.31 G | 1.33× | **1.25×** | 1.33× |
+| app-lam | 0.99× | **0.99×** | 228.44 G | 1.33× | **1.33×** | 1.00× |
+| beta-ladder | 1.00× | **1.00×** | 45.41 G | 1.05× | **1.05×** | 1.00× |
+| let-ladder | 0.99× | **0.99×** | 11.58 G | 1.00× | **1.00×** | 1.00× |
+
+**Read this way, and only this way:** *the gated certified checker
+costs ≈1.8× the parity lane on init-prelude* (1.78× interned, 1.76×
+cached), *≈1.6–1.7× on init-full and grind-ring-5*, and **nothing at
+all on the ladders**.  That is what the theory demands — the parity
+lane performs no check the official kernel lacks, and infer-on-β is
+not one of official's checks — and the gate moved every one of those
+ratios in the right direction (1.87→1.78, 1.69→1.55, 1.62→1.51,
+2.10→1.73, 1.91→1.65).
+
+**THE CONFOUND, PRICED (canonical caveat 5, resurfaced, quantified —
+and now fixed at the source).**  At `ab75ec82`,
+`--no-model --core=cached-parsed` was
+**1.90–2.12× a real cached parity engine** on the three
+declaration-heavy streams, and **1.00× it on the three ladders**.  It
+is still certifying, and it certifies exactly where certificates fire.
+Any sentence of the form "the verified mode is close to / beats the
+unverified one" that rests on that column is measuring the confound.
+No such sentence appears in this record.  The relayed engine-split
+folklore ("cached wins term-heavy, interned wins decl-heavy") is a
+`--no-model` statement resting on the same confounded cell, and the
+`agent/perf-eng` correction entry already retracted it: head-to-head
+on the true parity engines, cached ties or wins every row.
+
+### 6. (c) THE WINNING ENGINE, PER ROW
+
+On the **certified** lanes — where both engines run the same
+certificates, so the comparison is apples to apples — **cached-parsed
+wins every single row, in both modes**:
+
+| stream | r: winner (spread) | p: winner |
+|---|---|---|
+| init-prelude | cached, 31.23 G (−14.6 %) | cached, 28.44 G |
+| init-full | cached, 3003.39 G (−4.6 %) | cached, 2484.66 G |
+| grind-ring-5 | cached, 105.74 G (−13.0 %) | cached, 91.51 G |
+| app-lam | cached, 302.96 G (−20.8 %) | cached, 303.00 G |
+| beta-ladder | cached, 47.86 G (−39.6 %) | cached, 47.85 G |
+| let-ladder | cached, 11.60 G (−50.2 %) | cached, 11.60 G |
+| shared-subterm | cached, 4.41 G (−13.4 %) | cached, 4.12 G |
+
+This CONFIRMS `Main.lean`'s own default-flip note ("the certified
+mode's table is different: cert machinery dominates there and cached
+wins everywhere, init-full included") and it does **not** contradict
+the decl-heavy/term-heavy split, which was only ever a `--no-model`
+statement — and a confounded one (§5).  **The shipped default
+(`cached-parsed` for `--set-model`, `production` for `--no-model`) is
+the right one on every row of this table**, and `p` inherits it
+correctly.
+
+### 7. RE-VERIFYING THE S13a PREVIEW, AND EXTENDING IT TO PRODUCTION
+
+S13a's §10 measured the cached core only.  Re-measured here at the
+help-surface tip, with the production core added:
+
+| workload | S13a preview (cached) | this run (cached) | this run (production) |
+|---|---|---|---|
+| init-prelude | −8.9 % | **−8.94 %** | −4.73 % |
+| grind-ring-5 | −13.5 % | **−13.46 %** | −6.89 % |
+| shared-subterm | −6.6 % | **−6.59 %** | −3.80 % |
+| beta-ladder | ±0 % | **−0.02 %** | −0.01 % |
+| app-lam | ±0 % | **+0.01 %** | −0.01 % |
+| init-full | not run | **−17.27 %** | −7.96 % |
+
+**Every preview figure reproduces to two decimals.**  The production
+core's delta is consistently about half the cached core's, on the
+three rows where the gate fires: the interned core's β sites are a
+smaller share of its (larger) run, so the same deleted work is a
+smaller fraction.
+
+### 8. VERDICT SANITY — REQUIRED, AND CLEAN
+
+Every one of the 42 master cells and 10 reference cells: **exit 0**,
+and the accepted-declaration count identical across all six columns of
+each row — init-prelude 3653, init-full 61048, grind-ring-5 3946,
+app-lam 97, beta-ladder 56, let-ladder 69, shared-subterm 445.  No
+divergence anywhere, i.e. no verdict change in a shipped mode.  (This
+extends S13a's 248-fixture `--set-model=p` vs `--set-model` agreement
+run to the heavy streams, including init-full, which S13a did not run.)
+
+### 9. CAVEATS — read every number through these
+
+1. **The column labels are load-bearing** — `nm` cached is
+   still-certifying, not a parity lane (§5).  This caveat now lives in
+   the standing harness, not only in prose: `tests/pilot-measure.sh`
+   labels the cell `*STILL-CERT` and the parity cell `(parity)` in its
+   own output (this batch's one code change).
+2. **The true-parity reference rows are not `ab75ec82`'s binary.**
+   They are `agent/cached-parity-lane` @ `a06733e9`, calibrated
+   against master on the production parity lane (§5) and recorded
+   separately for that reason.  That branch **has since landed**
+   (`1fa6444f`), so the column is now reproducible from master — but
+   from master *after* the pin, not at it.
+3. **The preprocessor floor is inside every setlec cell** and official
+   pays none of it (canonical caveats 1, 2, 4).  No official column
+   appears here deliberately: this table's job is intra-binary deltas,
+   where the floor cancels exactly.  For cross-pipeline ratios the
+   canonical table remains the statement.
+4. **`--no-model` prod under-checks install-only kinds** (canonical
+   caveat 6), which flatters the parity denominator on
+   inductive-heavy streams — init-full above all.  The §5 ratios are
+   therefore, if anything, *upper* bounds on the true tax.
+5. **The baselines moved since the canonical table** (`8c881c57` →
+   `ab75ec82`): the perf-eng landings + memoshare shifted the `r`
+   columns by −4.9 % (init-prelude prod), −5.2 % (init-prelude
+   cached), −0.3 % (init-full prod), +0.2 % (init-full cached), and
+   the parity lane by −7.9 % (init-prelude) / −0.0 % (init-full).
+   All §3/§5 ratios are computed **within** this run, never against
+   the canonical table's cells.
+6. **Wall is indicative only** (shared machine, load average 2–15);
+   note init-full `p prod` shows a *higher* wall than `r prod` while
+   its instruction count is 8 % lower — a contention artifact, and
+   exactly why instructions are primary.
+7. **Fuel** unchanged (`checkFuel = 100000`); no row exhausts it.
+
+### 10. THE CLEANUP DOCKET, CONSOLIDATED
+
+Every item accreted across the S-series records, gathered once.
+Listed, not actioned — and **all of it is now input to the tri-core
+refactor**, which may resolve several by construction.
+
+| # | item | where | status / note |
+|---|---|---|---|
+| 1 | the S9 gated-knot scaffold: `Kernel/CoreP.lean`, `Kernel/CheckerP.lean`, the knot-level half of `Verify/CoreP.lean` | in tree | superseded in fact by the in-body gate; keep `whnfCoreBodyP_eq` only if a future lane needs it |
+| 2 | `agent/bucket2-s1` | unmerged branch, 5 commits ahead | measurement kit extracted; archive |
+| 3 | `agent/ioknot-b1` (the CoreIO lane, unwired since B1) | merged; code inert | same class as 1 |
+| 4 | S11b's 21 duplicated residue lemmas | `SetP`/`SetR` | de-duplicate or justify the duplication |
+| 5 | `checkDeclR_ofEnvRE` | in tree | absent from all four P capstone closures since S11a; decide keep-or-delete now that the run route supersedes it |
+| 6 | the inert cut-point constants | proofdeps gate | the gate no longer needs them as cut points (S11a finding 1: an inert cut-point row reads as rot) |
+| 7 | **the `.noModel` letter question** | `no_proof_of_Empty_R` + 15 siblings | is the R family at `μ = .noModel` load-bearing, or over-promising by design history (the shipped help calls `--no-model` unverified)?  If NOT load-bearing: instantiate the R tower at `.setModel`, **delete ~800 lines**, and the R letters become concrete instead of hypothesis-carrying (S13a §8's measured acceptance check).  **The tri-core pivot very likely decides this by construction.** |
+| 8 | `whnf_app_inv_ungated` | `Verify/InferLemmas.lean` | dead the day the R lane stops needing the pre-gate letter |
+| 9 | the `hg` / `hgOff` binder-name split | 3 modules | one-pass rename for uniformity |
+| 10 | `Verify/BetaSpine.lean`'s five mirrored β clauses | 13 gate sites | a single `betaArm` helper collapses them |
+| 11 | `GateP.lean`'s `(mode.verified && mb.pw.isNever)` spelling | `SetP/Step2/GateP.lean` | replace with `betaGateFires`, delete the adapter `verified_isNever_of_betaGateFires` |
+| 12 | ~~the cached parity lane is unmerged~~ | `agent/cached-parity-lane` @ `a06733e9` | **RESOLVED at `1fa6444f`**, after this table's pin.  Canonical caveat 5 is retired at the source; the canonical table's `--no-model cached` row is now stale and wants a re-measure whenever that table is next touched |
+| 13 | `--set-model=p`'s help text | `Main.lean:407` | says "annotation-gated checks"; the ruled text's "io-gated internals" wording is deliberately not shipped until the io internals land |
+
+### 11. SUCCESSION
+
+**The β chapter is closed and measured.**  What it hands forward:
+
+1. **To the tri-core refactor (the live work):** this appendix's method
+   and kit re-run unchanged on the new cores — `_tmp/sep-s13close/`
+   holds `run.sh` (six configs, one stream), `battery.sh`, `ref.sh`
+   (the unmerged parity binary), `report.py` and both raw TSVs.  The
+   three numbers to preserve across the pivot are the **mode delta**
+   (§3), the **parity ratios** (§5) and the **verdict-identity check**
+   (§8).
+2. **The user's standing next items** — *fast `infer_only`
+   (**now task #170, issued at `427ebd61` and sequenced after this
+   seal**), then `isProof`* — are pointed at the scaffold this
+   campaign built (the P tier's licence machinery), and §5
+   substantiates #170's own point 5:
+   **the residual distance to parity is dominated by the per-argument
+   application certificate**, not by β.  app-lam is the instrument:
+   303 G cached certified vs 228 G cached parity, a 1.33× gap that the
+   β gate does not touch by design and that `inferSpine`'s per-argument
+   `infer` + `defeq` owns entirely (canonical part 1(c), family 11).
+   That is the next licence to prove, and #170 is where it is proved.
+3. **The cleanup docket** (§10), 13 items.
+4. **Parked branches, with dispositions**: `agent/bucket2-s1`
+   (unmerged, kit extracted → archive); `agent/cached-parity-lane` /
+   `agent/perf-eng` (**LANDED at `1fa6444f`** — the true parity engine
+   and the caveat-5 correction; worktrees disposable);
+   `agent/sep-s9`…`agent/sep-s13a` (all merged; worktrees disposable);
+   `agent/sep-s13close` (this branch, unpushed);
+   `agent/sortspec-pilot` and `agent/nbe-pilot` (older parks, per the
+   standing records — the NbE pilot remains the successor-checker
+   candidate the architectural floor points at).
+
+### 12. WHAT RAN, AND WHAT DID NOT
+
+**Ran to completion**: all 42 master cells (7 streams × 6 columns,
+median of 3 = 126 checker runs) and all 10 true-parity reference cells
+(30 runs).  Battery at seal: `lake build` 545 jobs warning-free,
+`lake test` exit 0, `tests/arena.sh` green at pinned counts with the
+layering and proofdeps lines quoted in §1.  The checker binary built
+from this branch is **md5-identical to master's build at the pinned
+SHA** (`c6b61c15…`, `ab75ec82`) — this batch changes no Lean source.
+
+**Did not run** (out of scope, or stopped by the pivot): the official
+v4.33.0 cross-pipeline column (the canonical table remains the
+statement for it); the `Std.Time` cone; the generated scale shapes
+(growth statements, orthogonal to this constant-factor table); a
+pre-gate binary A/B for the gate's r-lane cost — unnecessary, since
+the three non-firing ladders price that cost in-binary at ≤0.02 % (§4).
+
+**The one code change in this measurement-only batch** (by the lead's
+mid-batch correction, and it survives the pivot):
+`tests/pilot-measure.sh` now labels its own mode×engine cells —
+`(parity)` for the one real parity lane and `*STILL-CERT` for the
+`--no-model` cached cells — with the caveat spelled out in the
+harness header.  **Ledger form:** *a caveat that lives only in prose
+will be dropped by the next person to quote the number; put it in the
+harness that prints the number.*
+
+# Task #161 — THE SEPARATION CAMPAIGN: FINAL SEAL + HANDOFF RECORD
+(2026-09-04; the lead's own seal, per the user's tri-core
+architecture ruling)
+
+The user's ruling, verbatim, which ends this campaign and the #170
+flag campaign with it: **"the flags are confusing you too much. do
+build three cores, one for production parity, one for the set R
+model and one for the P model. proofs talk about just their model.
+for each core, a cached and an interned variant. the production
+parity code is not proven sound, but do prove that whenever it
+succeeds and the P core succeeds, they agree, to avoid drift. big
+refactoring and cleanup."**  The tri-core refactor runs under
+direct coordination; this seal is the campaign's end and the
+refactor's inheritance.
+
+## 1. THE CLOSING STATE (S1–S13a)
+
+* **The separation is COMPLETE and machine-checked at two levels**:
+  the import gate (`tests/layering.sh`: 0 P→R, 0 R→P, whitelist
+  EMPTY since S8) and the proof-term gate (`tests/proofdeps.sh`,
+  120 rows: EnvS and the derivation tier — Red, Red.beta, Infer,
+  Infer.app, DefEq, DefEq.trans — absent from all four shipped P
+  capstones' proof terms, doors 0, since S11b).  Both run inside
+  the battery.
+* **The two carriers are self-standing**: `EnvS2Core`/`EnvS2PM`
+  de-based (S3–S7; `.base` reads 174→0); the run-record family
+  (`DeclRunR` + the ind family, S4/S11a/S11b) feeds the P fold
+  with valuation-free records; `closure(FoldP/MainP) ∩ SetR` = 0/0.
+  SP_P covers the shipped driver (nine theorems, S8).
+* **The licensed β-gate SHIPPED** (S13a, one batch, the user's
+  in-body design quartering the hoist bill): `.setModelP` +
+  `CheckMode.betaGate`, the early-return gate at the β site, the
+  clause sweep in both towers, `AnnotOkP_beta_gate` (the license,
+  certificate-free), `gate_zero_kind_unreachable` (the asymmetry
+  fence as a type), `betaGate_off_or_verified` (the mode partition
+  as a theorem), the capstone at the gated mode by typechecking
+  alone.  Verdict-identity 496/0 on pre-existing modes; gated
+  agreement 248/0; the flag surface shipped with the audited help
+  text.
+* **The measurements, on the corrected axes** (§10 as amended; the
+  caveat-5 retraction on record): the MODE DELTA is the headline —
+  **−8.9 % init-prelude, −13.5 % grind-ring-5** (p vs r, same
+  engine); p ≈ **1.8× true parity** on init-prelude (Cached/CoreNC
+  15.99 G, unmerged reference), which is what theory demands; the
+  residual is the per-argument application certificate.  Zero on
+  the synthetic β ladders is the license working.
+* **The ledger's campaign-spanning yield**: nine sizing
+  corrections in three error classes (+ one confirmed win), the
+  claims family (a freeze / a tombstone / a ratified payload / a
+  spec point / a census row is a claim), the supplier class, the
+  gate-blindness series ("an import-level gate cannot see a proof
+  path" — resolved by the proofdeps gate), the harness-labeling
+  process lesson, the concrete-instantiation acceptance check.
+
+## 2. WHAT THE TRI-CORE PIVOT RETIRES vs REUSES
+
+**RETIRES** (mode-flag machinery — the modes become CORES):
+* `CheckMode` in the core layer, `betaGateFires`, and every
+  mode-guarded check site (each core carries its checks
+  unconditionally present or absent);
+* the `(hg : μ.betaGate = false)` hypotheses on the 19 R letters
+  AND `betaGate_off_or_verified` — under tri-core the R capstones
+  stop quantifying modes entirely, so the letters shed the
+  hypothesis and the partition theorem loses its subject;
+* the `--set-model=r/=p` flag surface as mode dispatch (becomes
+  core selection); the noModel-in-shared-body endgame (superseded:
+  parity is its own first-class core);
+* the S9 knot scaffold (`Kernel/CoreP.lean`, `CheckerP.lean` —
+  already tombstone-listed) and the S13a in-body gate ITSELF as a
+  runtime conditional: in the P core the licensed skip is simply
+  the code.
+
+**REUSES** (the campaign's content — the refactor's foundation):
+* **The separation itself** (SetBase/SetR/SetP trees, both gates,
+  the de-based carriers, the run-record family): "proofs talk about
+  just their model" was this campaign's design goal — the tri-core
+  ruling completes it at the CORE layer, on the module/proof
+  separation already landed;
+* **`AnnotOkP_beta_gate` and the io graph-regime license**
+  (`io_domain_transfer`/`io_app_mem`, the mechanized squash wall):
+  become UNCONDITIONAL content of the P core — the license
+  theorems discharge the P core's claims directly, no gate
+  condition to carry;
+* **The S13a proof-case work** (the P-lane clauses at the gated
+  site, `whnfCoreBodyP_eq`'s collapse pattern) transfers as the P
+  core's clauses;
+* **The parity clones get PROMOTED**: `CoreNC`/`CheckerNC` (+ the
+  unmerged `Cached/CoreNC` on agent/cached-parity-lane) are the
+  production-parity core's seed — first-class, not clones; the
+  taxtable audit's call-graph map and the D2 official-footprint
+  quotes are its spec;
+* **The #170 rulings re-target cleanly**: the official call-site
+  map = the parity core's spec; the licensed-skip inventory = the
+  P core's internal-inference design; the two-memo ruling maps
+  per-core; ANNOTATION IS NOT A FLAG stands (annotate remains its
+  own pass in every core that runs it);
+* **The AGREEMENT THEOREM is the refactor's new obligation**
+  (parity ∧ P succeed ⇒ agree): prior art = the verdict-identity
+  batteries, the SimC/sim towers, S13a's 248/0 gated-agreement
+  receipts (its empirical shadow), the #163 SimAt precedents.
+
+## 3. THE .noModel / EnvS2Refute DISPOSITION
+
+RESOLVED BY ARCHITECTURE.  The cleanup-docket question ("is
+`no_proof_of_Empty_R` at `.noModel` load-bearing, or over-promising
+by design history?") dissolves: under tri-core the R capstones'
+subject is the R core — they stop quantifying modes, so no R letter
+covers the parity core, which is unproven-sound BY THE USER'S OWN
+RULING (drift prevention via the agreement theorem instead).
+`EnvS2Refute`'s multi-mode application (the named #148-shaped
+consumer that decided the hg-hypothesis ratification) loses its
+mode-typed subject and is re-stated per-core or retired with it.
+No ratified letter is narrowed; the letters' subjects are replaced
+by the refactor, which is the honest way for the question to close.
+
+## 4. OPEN ITEMS HANDED TO THE REFACTOR
+
+1. **The agreement theorem** (new; prior art above).  Design
+   question inherited with it: the parity core's EXACT-official
+   fidelity vs the current NC lane's known strict-direction
+   deviations (the taxtable audit's residuals) and the two
+   user-held conformance restrictions (proofirrel-check @ 3a0be1cd
+   ready+unmerged; the commit-semantics proposal) — under
+   tri-core the parity core plausibly takes official's checks BY
+   CONSTRUCTION; needs a deliberate ruling against the user's
+   "soundness licenses the omission" standing ruling (which was
+   about the VERIFIED lanes).
+2. **The #170 content** (order + refinement + memo ruling, recorded
+   2026-09-04) re-targeted per §2.
+3. **The cleanup docket, consolidated**: the S9 knot scaffold;
+   bucket2-s1 + ioknot-b1 branch dispositions (measurement kits
+   extracted, branches archived); the S11b duplicated residue
+   lemmas (both halves priced in its seal); `checkDeclR_ofEnvRE`'s
+   status (inert cut-point since S11a); the sep-s7-wip recovery
+   branch; the retired-by-pivot list from §2 (executed as part of
+   the refactor, not before it).
+4. **RESOLVED DURING THE SEAL'S OWN WRITING**: the cached parity
+   lane LANDED on master (1fa6444f) — the true-parity cells are
+   measured, and the S13-closing worker finished COMPLETE before
+   its stop directive arrived (branch agent/sep-s13close @
+   c3be7395): the full table on the corrected axes, the answer in
+   three lines, net = gross verified two ways, the confound priced
+   (1.90–2.12× on decl-heavy streams), the original stage-1
+   estimate (−8.09/−17.20% init-full) delivered at −7.96/−17.27%,
+   and the harness fix that labels parity-vs-still-cert by READING
+   THE TREE so the label cannot go stale.  That branch lands
+   beside this seal as the β chapter's measurement record.
+5. **The proof-term gate's evolution**: under tri-core its roots
+   become per-core capstone families; the tighten-only discipline
+   and the cut-point methodology transfer.
+
+The campaign closes.  Its record — S1's first re-based module to
+the license theorem to the corrected table — is the refactor's
+inheritance, and the discipline that built it (freeze, probe,
+measure, escalate, correct in both directions) is the part that
+was never specific to β.
 ## TASK #172 — THE TRI-CORE REFACTOR: DESIGN CENSUS, part 1 —
 THE RETIREMENT INVENTORY (2026-09-04, `agent/tricore-design`)
 
