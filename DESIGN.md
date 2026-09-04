@@ -34752,3 +34752,20 @@ of it mechanical, none of it blocked by anything else.**
    not ask it for you.*
 5. **One ruling wanted** (§6), one batch behind it (B3b), and a green
    tree in the meantime.
+
+### 9. POST-MERGE REVALIDATION (2026-09-04)
+
+B3a was written against master `db165820`; the E2 `.proj`-pin gate and
+the `PERF.md` format ruling landed at `3631324a` while it was in
+flight.  Merged (one conflict, both sides *appended* sections of this
+file — resolved by ordering: the E2 note first, B3a's records after)
+and rechecked: **full build warning-free, `lake test` green, layering
+base 273 / R 106 / P 118 with 0/0 edges, proofdeps 120 rows as pinned,
+arena 90/92, e2e 73/73, annot 14/14, split 11/11, mode flags 9/9,
+no-model sweep as expected.**
+
+The charter's *"do not touch the five `.proj` inference clauses"* holds
+by construction and is checkable in one command: `git diff db165820 HEAD
+-- Setlec/Kernel/Core*.lean Setlec/Cached/Core*.lean` is **empty**.  The
+only implementation change outside the two type modules is
+`Cached/CheckerC.lean`'s three entry points losing their conversions.
