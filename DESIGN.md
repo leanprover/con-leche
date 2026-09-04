@@ -31652,3 +31652,119 @@ Recorded so no batch assumes otherwise:
   change subject (from `checkDecls μ` to `checkDeclsR`) and must be
   re-pinned in the batch that moves them, per the ratchet's rule that
   a row moves only in the batch that earns it.
+
+## TASK #172 — DESIGN CENSUS, part 6 — MIGRATION SEQUENCE AND PRICING
+(2026-09-04)
+
+### 1. THE CORRECTION LEDGER, QUOTED — SO THE PRICING AVOIDS IT
+
+The campaign's ledger records **nine sizing corrections in three error
+classes** (not nine classes — the correction below is to the brief that
+ordered this census).  Every price in §3 is annotated with which class
+it is guarding against.
+
+| class | corrections | the reusable form, verbatim from the record |
+|---|---|---|
+| **I — the mis-sized row** | 1–7 | a named row priced low; the bill is the row, but bigger |
+| **II — the missing file** | 8 (S11b) | *"a record split's bill is its consumers plus the residue proved about it; a grep for the record's name in signatures finds the first and misses the second."*  The S10 bill counted 28 P-side signature sites and missed `SetBase/IndBlockR.lean`'s 1 216 lines of lemmas *about* the record |
+| **III — the missing tier** | 9 (S12) | *"a transposition's bill is not the statements you transpose — it is the statements they are proved from.  Before sizing 're-typing', ask what the re-typed proofs CALL, and whether those are theorems about the old subject."*  129 unnamed `Verify` statements sat under the S9-named row, and the named row could not be *started* first |
+| **IV — the mis-read witness** | **10, THIS CENSUS** (part 3 §2) | *"a concrete constructor appearing in a proof is not evidence that the constructor is load-bearing.  Check whether the lemma the proof rewrites with quantifies over it; a witness choice is not a consumer."* |
+
+Three process rules ride alongside and are in force for every batch
+below:
+
+* **the acceptance check** (user, S13a): *converting a threaded
+  hypothesis to concrete instantiation must DELETE lines, not add
+  them* — the delta measured and reported per batch;
+* **the harness rule** (S13a §10): *a caveat must live with the
+  measurement harness, not in prose* — no confounded column ships
+  again;
+* **the escalation rule** (S9, re-armed): an unnamed residual, or a
+  bill that doubles, stops the batch and is flagged mid-flight.
+
+**How this census guarded itself.**  Against class III: every price
+below was taken from the **proof-term instrument**
+(`_tmp/tricore-design/Bill172.lean`), which walks the actual closure of
+a capstone and reports what its statements *name*, rather than from a
+grep of the names a batch expects to touch.  Against class II: the
+instrument reports per-module tallies and the census reports the
+*modules*, not just the counts, so an omitted file is visible as an
+absent row.  Against class I: the two anchors used for the largest
+estimate (route A) are **landed towers with measured line counts**
+(`Verify/Disc*` 10 723; `Verify/Cached/*` 21 238), not judgement.
+Against class IV: the one witness this census re-checked
+(`EnvS2Refute`) is the correction it reports.
+
+### 2. THE RECOMMENDED BATCH ORDER
+
+The order is driven by one rule: **probe the wall before spending on
+the route that assumes it isn't there.**  Route C's whole economy
+rests on the parity core being expressible as a template
+instantiation, and nothing in the tree proves it is.  So that question
+goes first, as a measurement, before any tower moves.
+
+| batch | content | landing? |
+|---|---|---|
+| **B0 — RATIFICATIONS** | three questions, no code: (i) the `.noModel` capstone narrowing (part 3 §2); (ii) `ttChecks`'s reviewed-code deletion (part 1 §1); (iii) the config type's shape and the `rfl`-eliminability requirement (part 2 §5) | none |
+| **B1 — THE PARITY-EXPRESSIBILITY PROBE** | clause-by-clause classification of every `CoreNC` deviation from `CoreI` into class 1 / 2 / 3 (part 4 §1); output = the **config-field list**, which *is* T1's statement inventory.  **ESCALATE if any deviation falls in none of the three classes** — that is the wall, and it invalidates route C | measurement only |
+| **B2 — THE TEMPLATE MECHANICS SLICE** | the config replaces `CheckMode` **inside the kernel only**; three named cores as concrete instantiations; the `rfl` identity proved end-to-end on **one** core function (`whnfCore`) in **both** representations.  Reports the MEASURED per-module cost so B3–B6 are priced from a landed sample.  S13a's slice discipline, verbatim | yes |
+| **B3 — THE R TOWER, INSTANTIATED** | delete 165 `hg` binders + 635 passes; instantiate at `coreR`; the R share of the 59 `verified` premises; the 32 capstone letters narrowed (needs B0(i)); `whnf_app_inv_ungated` retires | yes |
+| **B4 — THE P TOWER, INSTANTIATED** | instantiate at `coreP`; `GateP`'s three theorems re-point; 6 of 8 `BetaGate` theorems retire; `BetaSpine`'s 13 gate sites fall to ~5; the P share of the 59 premises | yes |
+| **B5 — PARITY INTO THE TEMPLATE (interned) + T1 interned** | `Kernel/CoreNC.lean` (925 ln) retires into an instantiation; the T1 collapse family for the interned core, on B1's enumerated divergence list | yes |
+| **B6 — PARITY (cached) + T1 cached** | `Cached/CoreNC.lean` (831 ln) retires; the cached T1 family | yes |
+| **B7 — THE FLOOR + T2a/T2b** | `parity_agrees_P_names` from the driver fold; `annotate` agreement modulo `pw`-erasure at the ten non-`proj` clauses | yes |
+| **B8 — DISPATCH + FLAGS + MEASUREMENT** | `Main.lean`'s two axes collapse to one 6-way selection; the help surface; the full ladder with the corrected harness labels from day one | yes |
+| **B9 — CLEANUP SWEEP** | part 5 §2 items 1, 2, 4, 5, 6, 9, 10 | yes |
+| *(carried)* | **T2c** — head-shape agreement at `.proj`; and the io content (part 3 §3): 6 of 11 clauses + the `.app` clause + the two unlanded licence theorems | not promised |
+
+### 3. THE PRICES, FROM SOURCES
+
+| batch | measured input | price | guarding against |
+|---|---|---|---|
+| B1 | `Kernel/CoreNC` 925 ln / 20 defs vs `Kernel/CoreI` 2 532 ln; 22 `.noModel` cross-calls into 11 helpers | 1 batch, measurement only; output is a table, not a diff | **class III** — it asks what the parity core's clauses *are*, before anything is priced on what they are assumed to be |
+| B2 | the S13a slice precedent: the gate landed at 45 files / +1 061 / −649 across the whole tree | slice only: the kernel's 14 `mode`-threading modules (498 tokens) plus one core function's identity proofs.  **Expect ~1 batch**; report the measured per-module cost | **class I** — the estimate is replaced by a landed sample before B3 |
+| B3 | 165 binders, 635 passes, 211 R-tier mode statements, 17 R-tier entry statements; S13a's own one-instantiation column | **net ≈ −800 lines**; must satisfy the acceptance check or stop | **class I**; the acceptance check is the brake |
+| B4 | 415 P-tier mode statements, 96 P-tier entry statements; `GateP` 3 theorems; `BetaGate` 8 → 2; `BetaSpine` 13 → ~5 | ~1 batch; the β mathematics moves **whole** and unchanged (part 3 §3) | **class III** — the transposition's sources (`AnnotOkP_beta_gate`, `pw_of_denoteBM`) are landed and named |
+| B5 + B6 | 1 756 ln of clone retiring; the T1 family sized against `Verify/CoreP.lean`'s collapse (245 ln for one core function on one representation) | ~250 ln × (whnfCore, whnf, infer, defeq, annotate) × 2 representations ≈ **2 500 ln new**, against **1 756 ln deleted**; 2 batches | **class II** — the residue here is the *lemmas about* the retiring clone, and there are none (measured: zero theorems mention `coreKnotNC`/`inferBodyNC`/`whnfCoreBodyNC`/`CheckerNC`), which is why this row is cheap and why the census says so explicitly rather than assuming it |
+| B7 | `annotateBody` 90 ln / 11 clauses / 1 core call; the erasure machinery in `SetBase/EraseInv`, `SetP/ErasePwInv`, `Verify/Denote/Inst` | ~1 batch | **class II** — the erasure residue is named by module |
+| B8 | `Main.lean` ≈60 ln of dispatch | small; the measurement ladder dominates the wall-clock | **the harness rule** |
+| B9 | part 5 §2, sized per row | 1 batch | — |
+
+**Total shape**: **9 landing batches**, with the largest single new-line
+row being B5+B6's ~2 500 lines of T1 collapse family against 1 756
+lines of clone deleted — i.e. the campaign is **net-negative on lines
+outside the agreement theorem, and roughly break-even including it.**
+That is the opposite shape from S12's 860-declaration hoist estimate,
+and the reason is structural: this refactor's dominant operation is
+*deletion of a parameter*, and deletions do not have hidden tiers
+underneath them.
+
+### 4. THE ONE PRICE THIS CENSUS REFUSES TO GIVE
+
+**T2c** — head-shape agreement at `.proj` between the parity and P
+cores — has no prior art in the tree, no anchor to price against, and
+sits on the far side of class 2.  Per the escalation discipline it is
+**named, not estimated**.  If a batch is ever dispatched at it, it goes
+out as its own design phase, not as a row in someone else's bill.
+
+### 5. THE THREE THINGS THAT WOULD STOP THIS DESIGN
+
+Written down now so a later batch does not have to discover them:
+
+1. **B1 finds a `CoreNC` deviation in none of the three classes.**
+   Route C dies; the agreement theorem falls back to route A's
+   12 000–25 000 lines, and the whole tri-core order should be
+   re-scoped before B2.  *This is the census's single most likely
+   wall, and it is why B1 is first.*
+2. **The config's fields do not compute away by `rfl` at some core.**
+   Then the "flag-free core" is a claim, not an identity, and every
+   collapse becomes a lemma.  S13a's early-return form is the known
+   mitigation and the known trap (*a gate that wraps the guarded
+   computation's value changes its shape, and you pay at every
+   consumer*); B2's slice is where this is checked.
+3. **The two simulation towers do not instantiate.**  Part 5 §3 flags
+   this as a *prediction*.  If `Verify/Disc*` or `Verify/Cached/*`
+   turn out to need per-core proofs, that is **32 000 lines** entering
+   the bill and it is a class-III error of exactly S12's shape.  B2's
+   slice must touch one simulation lemma end-to-end for this reason,
+   and its seal must report the answer.
