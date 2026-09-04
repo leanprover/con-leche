@@ -31370,3 +31370,1167 @@ the license theorem to the corrected table — is the refactor's
 inheritance, and the discipline that built it (freeze, probe,
 measure, escalate, correct in both directions) is the part that
 was never specific to β.
+## TASK #172 — THE TRI-CORE REFACTOR: DESIGN CENSUS, part 1 —
+THE RETIREMENT INVENTORY (2026-09-04, `agent/tricore-design`)
+
+The user's order, verbatim: *"do build three cores, one for
+production parity, one for the set R model and one for the P model.
+proofs talk about just their model.  for each core, a cached and an
+interned variant.  the production parity code is not proven sound,
+but do prove that whenever it succeeds and the P core succeeds, they
+agree, to avoid drift.  big refactoring and cleanup."*
+
+This **supersedes the mode-flag architecture** — `CheckMode` threaded
+through the cores, the S13a in-body β gate, the `hg` hypotheses, the
+coverage certificate.  Parts 1–6 are the design phase only: an
+inventory, a decision, a price.  No statement is frozen here and no
+implementation is proposed for landing.
+
+All counts below are **measured on master `7e79cadb`**, either by grep
+against the tree or by the proof-term instrument
+`_tmp/tricore-design/Bill172.lean` (the S12 `S12Bill2.lean` walk,
+re-pointed at three roots and extended with a tier tally and a
+closure-intersection).  Where a count corrects the brief that ordered
+this census, it says so.
+
+### 1. THE MODE TYPE AND ITS THREE ACCESSORS
+
+`Setlec/Kernel/Env.lean:39-86` — one inductive (`CheckMode`, three
+constructors) and three accessors, each a distinct retirement story:
+
+| accessor | shipped meaning | read sites (impl) | fate under tri-core |
+|---|---|---|---|
+| `ttChecks` | the seven TT-lane checks; **constantly `false` since #148 T7b** | **20 lines** — `Modeled` 8, `CheckerS` 6, `Core` 2, `CoreI` 2, `Cached/CoreC` 2 | all three cores have it `false`; the branches are **deleted**, not collapsed — see the caveat below |
+| `verified` | the λ-codomain sort check + the ∀/λ annotation validation: on in both model lanes, off at parity | **33 lines** — `Cached/CoreC` 9, `CoreI` 9, `Core` 7, `CoreIO` 4, `CoreP` 2, `Expr` 2 (doc) | `true` in R and P (then-arm), `false` in parity (else-arm); every branch collapses definitionally |
+| `betaGate` | the S13a β-certificate gate, `.setModelP` only | **7 lines** via `betaGateFires` — `Core` 3, `CoreI` 2, `Cached/CoreC` 2 | the R core loses the branch entirely; the P core keeps a branch that reads **`mb.pw`, the validated annotation datum** — data, not a flag |
+
+**CAVEAT, needing the coordinator's word.**  `ttChecks`'s own docstring
+says the statically-dead call sites are kept *"so that the checks
+themselves survive as reviewed code and the accessor stays the single
+place a future lane would turn them back on."*  Deleting the accessor
+deletes that reviewed code.  This is a deliberate loss, not a
+simplification, and it is listed as a decision, not done silently.
+
+### 2. MODE THREADING IN THE IMPLEMENTATION TIER
+
+`CheckMode` appears **42 times across 21 implementation modules**; the
+`mode` *token* (the threaded variable) appears **498 times across 14**:
+
+| module | `mode` tokens | module | `mode` tokens |
+|---|---|---|---|
+| `Kernel/CheckerS` | 110 | `Kernel/Split` | 30 |
+| `Kernel/CoreI` | 79 | `Kernel/Modeled` | 26 |
+| `Cached/CoreC` | 73 | `Kernel/CheckerBase` | 12 |
+| `Kernel/Core` | 67 | `Kernel/TypeChecker` | 8 |
+| `Cached/CheckerC` | 47 | `Cached/Driver` | 7 |
+| `Cached/ParsedC` | 32 | `Kernel/Checker` 3, `Direct` 2, `TypeCheckerC` 2 | 7 |
+
+Eleven top-level definitions take `mode` explicitly; the rest inherit
+it through the knots (`coreKnotI mode`, `coreKnotC mode`, `pureFns
+mode`) and the driver stacks.
+
+**The parity engines are already flag-free**, and this is the census's
+first structural finding: `Kernel/CoreNC.lean` and
+`Cached/CoreNC.lean` carry **no `mode` parameter at all**.  What they
+carry instead is **22 `.noModel` literal cross-calls into 9 shared
+mode-parametric helpers** — `annotateBodyI` 4, `etaCertI` 4,
+`ctorResidualOkF` 2, `indBlockCapsF` 2, `inferPisI` 2, `inferLamsI` 2,
+`inferBodyI` 2, `checkIotaRulesF` 2, `checkProjIotaF` 2.  Those 22
+sites are the entire residual sharing between the parity core and the
+certified one, and they are the whole of what part 2's specialization
+has to resolve on the parity side.
+
+### 3. THE S13a β-GATE APPARATUS
+
+| item | count | source |
+|---|---|---|
+| `betaGateFires` mentions, project-wide | **61** | 15 modules |
+| …impl read sites | **7** | `Core` 3, `CoreI` 2, `Cached/CoreC` 2 |
+| …proof-side mirror sites | **29** | `Verify/BetaSpine` 13 (the five mirrored β clauses), `Verify/DiscI4` 6, `Verify/Cached/DiscC4` 4, `Verify/InferLemmas` 3, `Verify/Disc` 2, `Verify/Deep` 1 |
+| …tower read sites | **10** | `SetR/Interp2/Step2/Whnf` 4, `SetR/Annot/SortCoh/{Discharge,Mono,Claims}` 5, `SetP/Step2/WhnfP` 1 |
+| `Verify/BetaGate.lean` | **8 theorems / 92 lines** | the whole proof interface |
+| `(hg : μ.betaGate = false)` premise carriers | **165 declarations / 26 modules** | instrument-reproduced; matches S13a's measured 165/25 (+`Env.lean`'s docstring) |
+| `hg`/`hgOff` call-site passes | **635** | S13a's own measurement |
+| `whnf_app_inv_ungated` | 1 | the pre-gate letter kept beside the gate-disjunct one |
+
+The 165 premise carriers, by module (top rows): `SetR/Main2` 44,
+`SetBase/Bridge/Decl` 22, `SetR/Main` 19, `SetR/Interp2/Step2/Whnf`
+13, `Verify/Cached/MainC` 12, `SetR/Interp2/Step2/DefEqRun` 11,
+`SetBase/Bridge/DeclInd` 6, `SetR/Annot/SortCoh/LoopLock` 6,
+`SetR/DivModPin` 5, `SetR/Annot/SortCoh/Align` 3, then 16 modules at 1–2.
+
+Of `Verify/BetaGate.lean`'s eight theorems: `betaGateFires_off` (the
+dead-branch collapse), `betaGate_setModel`, `betaGate_noModel`,
+`verified_of_betaGate` and **`betaGate_off_or_verified` (the coverage
+certificate)** all become **vacuous** — there is no mode to partition
+once each tower speaks about its own core.  `isNever_of_betaGateFires`
+and `verified_isNever_of_betaGateFires` survive in substance as the P
+core's datum readers.  Net: **6 of 8 theorems retire**.
+
+### 4. THE R CAPSTONE LETTERS — A CORRECTION TO THE BRIEF
+
+The brief says *"the 19 R capstone letters"*.  **Measured: 32.**  Every
+one of them carries `(hg : μ.betaGate = false)`:
+
+| module | letters |
+|---|---|
+| `SetR/Main.lean` | 8 — `no_proof_of_Empty_{,C_,S_,SP_}R` and their four `input_` siblings |
+| `SetR/Main2.lean` | 18 — the eight `R2` twins, the eight `R2M` twins, plus `no_proof_of_Empty_R2M_of_installs{,R}` |
+| `Verify/Cached/MainC.lean` | 6 — `no_proof_of_Empty_{,input_}SPC_{R,R2,R2M}` |
+
+The P family is untouched by the `hg` sweep (`SetP/FoldP.lean`,
+`SetP/MainP.lean`, `SetP/CapstoneP.lean` were byte-unchanged at S13a
+and remain so): 5 letters + `no_proof_of_Empty_P_of`.
+
+### 5. MODE-GATED PREMISES IN THE TOWERS
+
+Beyond the 165 `hg` carriers, **59 declarations across 26 modules
+carry `μ.verified = true` as a premise** (`SetP/MainP` 9, `SetP/FoldP`
+7, `SetP/HarvestP` 4, `Verify/InferLemmas` 3, `SetP/AxiomReduceP` 3,
+`SetP/Step2/InferP` 3, then 20 modules at 1–2).  Under tri-core both
+model cores are verified by construction and every one of those
+premises is discharged by `rfl` at definition time — i.e. **deleted**.
+
+### 6. THE DRIVER AND FLAG DISPATCH
+
+`Main.lean` carries a **two-axis** dispatch that tri-core collapses to
+one.  Today: mode ∈ {`.setModel`, `.setModelP`, `.noModel`} × core ∈
+{`production`, `cached-parsed`, `cached`, `interned-shared`}, resolved
+at `Main.lean:286-303` with three special cases (`--no-model` keeps the
+production front door; `--no-model --core=cached-parsed` routes to the
+cached parity twin; `--core=…` refuses to combine with `--split`), plus
+the argument parser at `:485-525` and the child re-exec array at
+`:537-547`.  ≈ 60 lines of dispatch.  Under tri-core the two axes
+**merge into one 6-way selection** (3 cores × 2 representations), which
+is strictly simpler and is the user-visible payoff of the refactor.
+
+### 7. SUPERSEDED SCAFFOLD
+
+| artefact | lines | importers | fate |
+|---|---|---|---|
+| `Kernel/CoreP.lean` | 173 | `CheckerP`, `Verify/CoreP`, `Setlec.lean` | retire (the P core replaces it) |
+| `Kernel/CheckerP.lean` | 35 | `Setlec.lean` | retire |
+| `Verify/CoreP.lean` | 245 | `Setlec.lean` | the knot-level equations retire; **`whnfCoreBodyP_eq`, the collapse, is the pattern part 4 reuses** |
+| `agent/bucket2-s1` branch | — | — | archive |
+
+`Kernel/CoreIO.lean` (215) + `Verify/InferIOLemmas.lean` (90) +
+`SetP/Claims2PIO.lean` (144) + `SetP/Step2/InferIOP.lean` (290) are
+**NOT retired** — they are the P core's io ancestor and are *promoted*
+in part 2.  See part 5.
+
+### 8. THE HEADLINE RETIREMENT COUNT
+
+| what retires | count |
+|---|---|
+| `(hg : μ.betaGate = false)` premise carriers | **165 decls / 26 modules** |
+| …their call-site passes | **635** |
+| `μ.verified = true` premise carriers | **59 decls / 26 modules** |
+| `betaGateFires` mentions | **61** (7 impl, 29 proof-mirror, 10 tower, 15 in `BetaGate` itself) |
+| `ttChecks` read lines (impl) | **20** |
+| `verified` read lines (impl) | **33** |
+| `mode` tokens in the implementation tier | **498 / 14 modules** |
+| `Verify/BetaGate.lean` theorems | **6 of 8** |
+| `CheckMode` + its three accessors | **1 type + 3 defs** |
+| superseded scaffold | **453 lines / 3 modules** |
+| `Main.lean` two-axis dispatch | **≈60 lines → one 6-way selection** |
+
+**Every row on this table is a DELETION.**  That matters for the
+migration's acceptance check (part 6): the S13a directive's rule —
+*converting a threaded hypothesis to concrete instantiation must delete
+lines, not add them* — applies to the whole retirement inventory, and
+the inventory passes it on its face.  What can still *add* lines is
+parts 2 and 4, and those are priced separately.
+
+## TASK #172 — DESIGN CENSUS, part 2 — THE THREE CORES, AND THE
+SINGLE-SOURCING DECISION (2026-09-04)
+
+### 1. WHAT EXISTS TODAY, AS A MATRIX
+
+Six shipped engines are already in the tree, in four core files plus
+one pure reference body:
+
+| | interned (`EIdx` over the arena) | cached (`ExprC`) | pure (`Expr`) |
+|---|---|---|---|
+| certified, mode-parametric | `Kernel/CoreI.lean` (2 532) | `Cached/CoreC.lean` (1 722) | `Kernel/Core.lean` (2 331) |
+| parity, flag-free | `Kernel/CoreNC.lean` (925) | `Cached/CoreNC.lean` (831) | — |
+
+with drivers `Kernel/CheckerS.lean` (1 795) / `Cached/ParsedC.lean`
+(419) for the certified lanes and `Kernel/CheckerNC.lean` (510) /
+`Cached/ParsedNC.lean` (377) for the parity lanes.  `Kernel/Core.lean`
+is the *pure reference body*: it is what the towers' claims are stated
+about, and the interned and cached engines reach it through two
+simulation towers (`Verify/Disc*`, 10 723 lines / 7 modules;
+`Verify/Cached/*`, 21 238 lines / 22 modules).
+
+So the tri-core order's "three cores × cached and interned" is a
+**2×3 target over an existing 2×2 + reference**: the R and P columns
+are today one mode-parametric column, and the parity column is
+already separate — and already unverified, which is what the order
+asks for.
+
+### 2. THE THREE CORES, DEFINED
+
+**(a) The production-parity core.**  `Kernel/CoreNC` + `Cached/CoreNC`,
+promoted from "measurement lane" to "one of the three cores".
+Official-shaped: infer-only internals with the two-memo layout
+(`inferC` internal, `inferFC` checking-mode front door, the #134
+pattern), no certificate families, the `.noModel` gates on the
+λ-codomain sort and the annotation validation.  **Not proven sound,
+by the order.**  Zero theorems exist about it today — measured: no
+module under `Verify/`, `SetR/`, `SetP/` or `SetBase/` mentions
+`coreKnotNC`, `inferBodyNC`, `whnfCoreBodyNC` or `CheckerNC`.  Its
+three recorded deviations from official (two strict, one weak) stand
+as documented in the canonical tax table, part 1(a).
+
+**(b) The R core.**  The certified body with every certificate
+unconditional and **no mode parameter**: no β gate, no io skip, the
+λ-codomain sort check and the annotation validation always on, the TT
+branches gone.  This is exactly today's body at `μ = .setModel`, which
+S13a's kernel-checked probe (`_tmp/sep-s13a/Probe.lean`) already
+establishes is the pre-gate body **definitionally** — `betaGateFires
+.setModel pw = false` by `rfl`, and `whnfCoreBody .setModel r env d
+(.app f a) = <the pre-gate clause>` by `rfl`.
+
+**(c) The P core.**  The certified body with the P-licensed skips
+**baked in unconditionally**, i.e. the skip conditions read *data*,
+never a mode:
+
+1. **the β skip at `pw = .never`** — licensed by `AnnotOkP_beta_gate`
+   (`SetP/Step2/GateP.lean`), with `gate_zero_kind_unreachable` as the
+   asymmetry fence.  Landed, and it transfers whole: S13a measured the
+   P lane's payoff clause as needing **no statement change and
+   consuming no certificate**;
+2. **the infer-only skips at the graph-regime license** — the
+   `inferOnly` flag in official's own signature shape, per the #170
+   design refinement, with the skip firing where the graph regime is
+   licensed (`io_domain_transfer` + `piR_dom_unique`, no nonemptiness
+   and no freshness premise) and the squash regime mechanically
+   refuted (`io_membership_fails_at_squash`);
+3. **the two-memo layout**, per the #170 memo ruling: a hit in the
+   inferOnly memo never serves a full-infer query; no cross-memo reuse
+   lemma this campaign.  This is official's own layout (its infer
+   cache is a two-element array keyed by `infer_only`) and it is
+   already `CoreNC`'s layout, so the P core and the parity core agree
+   on the memo *shape* — which part 4 needs.
+
+**Annotation stays its own pass** (the user's concession: *"annotation
+isn't a flag, that needs its own code"*).  Note the consequence, which
+part 4 pays for: `annotateBody`'s two `pw` writes are `mode.verified`-
+gated (`Kernel/Core.lean:2244,2251`), so the parity core's annotate
+produces a **different term** from the model cores', and the
+environment stores the *annotated* value (`Kernel/Checker.lean:367,
+390,415`).  The three cores' annotate passes are three instantiations,
+not one.
+
+### 3. THE SINGLE-SOURCING QUESTION — DECIDED
+
+> **DECISION: one body template, three named concrete cores.**  The
+> three cores are *definitions*, not clones: each is a concrete
+> instantiation of one shared body, and each unfolds to a flag-free
+> term.  The base structural library stays generic over the template's
+> parameter.  The towers are instantiated at their own core and
+> mention no parameter at all.
+
+Three findings drove it.
+
+**Finding 1 — the flag-free core the user is asking for is already
+available definitionally, and was kernel-checked at S13a.**  At a
+concrete constructor the gate branch is not "collapsed by a lemma"; it
+is *gone*, by `rfl` (S13a §8, `_tmp/sep-s13a/Probe.lean`, four green
+examples).  The early-return gate shape is what buys that, and S13a
+records it as a reusable form.  So "three cores with no flags in them"
+does not require writing three bodies — it requires *naming* three
+instantiations and pointing the towers at them.
+
+**Finding 2 — the parameter is doing two different jobs, and only one
+of them is the flag the user objects to.**  Write the distinction down,
+because it is the whole design:
+
+* **a flag** is a value read at a *branch in a shipped core*, so that
+  reading the code requires knowing which mode you are in.  This is
+  what the order removes: after instantiation no shipped core reads
+  `CheckMode`;
+* **genericity** is the same value *universally quantified in a
+  proof*, so that one lemma serves every core.  `theorem whnf_app_inv
+  {mode : CheckMode} … ` (`Verify/InferLemmas.lean:50`) is genericity.
+  There is no branch anywhere in it.
+
+The rule this census proposes, for the record:
+
+> *A configuration value may survive only where it is (i) universally
+> quantified in a proof, or (ii) definitionally eliminated in a shipped
+> core.  It may never be read at a branch in a shipped core.*
+
+The P core's residual β branch satisfies (ii): after instantiation
+what remains is `if mb.pw.isNever then … else …`, a read of the
+**validated annotation datum**.  That is data, and it is the licence's
+own subject — not a flag.
+
+**Finding 3 — the price of the alternative, MEASURED.**  Writing three
+bodies triplicates the base structural library, and the library is not
+small.  Instrument: `_tmp/tricore-design/Bill172.lean`.
+
+| closure | owned constants | statements naming a fueled entry | statements naming `CheckMode` |
+|---|---|---|---|
+| P capstone (`no_proof_of_Empty_P`) | 8 004 | **712** (Verify 565, P 96, SetBase 51) | 1 473 |
+| R capstone (`no_proof_of_Empty_R2M`) | 7 993 | **725** (Verify 603, SetBase 105, R 17) | 1 617 |
+| R cached capstone (`no_proof_of_Empty_SPC_R2M`) | 10 937 | **945** (Verify 829, SetBase 105, R 11) | 2 377 |
+
+and the number that decides the question:
+
+| | count |
+|---|---|
+| **entry-naming statements in BOTH the R and the P closure** | **567** |
+| …in `Setlec/Verify/*` | **562** |
+| …in `Setlec/SetBase/*` | **5** |
+| `CheckMode`-naming statements in both closures | **932** (Verify 848, impl 56, SetBase 25, 3 eq-lemmas) |
+
+The 562 shared `Verify` statements live in twelve modules:
+`InferLemmas` 265, `Extend/Iota` 85, `Extend/Proj` 80, `Abstract` 46,
+`InferLeaves` 29, `DivModInv` 16, `IotaWalkInv` 12, `Knot` 11,
+`Extend/Inversions` 5, `Mono` 5, `Leaves` 4, `ReducePinInv` 4 — the
+scoping / loose-bvar / fvar-leaf / extension / monotonicity /
+inversion family, **7 400 source lines** in the five biggest modules
+alone.  This is S12's "unnamed tier" seen from the other side: it is
+the thing that is proved once today *because* the mode is a parameter.
+
+**Three hand-written bodies therefore cost ~+1 124 statements over
+~15 000 new lines in the base library alone, and 3× the drift
+surface — before a single tower statement moves.**  Under the
+template-and-instantiation design the library is proved once,
+instantiated three times, and costs **zero new statements**.
+
+### 4. THE DRIFT-RISK TRADE, PRICED FROM THE INCIDENT RECORD
+
+The order's own justification is drift ("to avoid drift"), so price the
+choice against the two recorded incidents, which point opposite ways.
+
+**Incident 1 — #139 (2026-08-27), the parity clone.**  Task #105 moved
+the certified `iotaRecI` pin instantiation into the prefix context
+(`args.take mI` → `args.take rP`, `mI - 1` → `rP - 1`) and did **not**
+move the cert-skipping twin `iotaRecNC`.  *Two tokens, three days, one
+wrong verdict*: the parity lane **rejected** (exit 1) an e2e fixture
+the certified stack accepts.  Caught by a fixture sweep, and only
+after it was run.
+
+**Incident 2 — #163 batch 9 (2026-09-02), the representation clone.**
+`Cached/CoreC.lean` was cut from a `CoreI` predating the #161 P5
+annotate repair: the annotation binder loops threaded the wrong `pw`
+datum at nine sites and lost the ∀-residual head read.  **223-fixture
+parity never noticed.**  The *simulation proof* noticed, because the
+transposed statement was false.  The seal's own standing consequence:
+*"the simulation proof is the drift-enforcement mechanism the pilot's
+own section said nothing provided."*
+
+Ledger form, and it is the trade:
+
+> *A clone is caught by a proof or not at all.  Fixtures catch the
+> clone divergences that reach a verdict on a fixture you happen to
+> have; they do not catch the rest, and they do not catch them
+> promptly.  Single-sourcing removes the clone; where a clone must
+> remain, a simulation statement is the only enforcement.*
+
+Both incidents are arguments **for** the template.  The one argument
+against it — that a shared body makes the three cores' code read as
+one confusing artefact — is answered by finding 1: after
+instantiation each core is a flag-free term, and the template is a
+private elaboration device, not the thing anyone reads.
+
+### 5. WHAT THE DECISION LEAVES OPEN
+
+* **the template's parameter type.**  `CheckMode` as a name is
+  retired; whether its replacement is a three-constructor tag or a
+  record of Bools (`CoreCfg`) is an implementation choice with one
+  hard requirement: **every field must compute away by `rfl` at each
+  of the three concrete cores**, since that identity is the entire
+  mechanism (S13a: a `Bool`-wrapping gate would not have been `rfl`).
+* **whether the parity core can be expressed as a template
+  instantiation at all.**  This is the design's one open feasibility
+  question and part 4 answers it: the answer is *mostly yes, with an
+  enumerated exception list*, and the exception list is exactly the
+  agreement theorem's content.
+* **the pure reference body's status.**  `Kernel/Core.lean` is the
+  towers' subject; under tri-core it becomes three named pure cores
+  (`coreR`, `coreP`, `coreNC`) with the two simulation towers
+  re-pointed.  The simulations are *representation* statements and are
+  mode-generic today, so they instantiate rather than triplicate — but
+  that claim needs the instrument re-run per core before the batch is
+  priced, and part 6 sequences it accordingly.
+
+## TASK #172 — DESIGN CENSUS, part 3 — PROOF RE-POINTING, AND THE
+`.noModel` QUESTION DISSOLVED (2026-09-04)
+
+### 1. THE R TOWER: DROP THE MODE QUANTIFICATION
+
+Under tri-core the R capstones speak about **the R core**, full stop.
+The conversion is the S13a §8 "one instantiation" column, which that
+seal already priced and which the user's own acceptance check demands
+(*a conversion must delete lines, not add them*):
+
+| | measured |
+|---|---|
+| `(hg : μ.betaGate = false)` binders deleted | **−165** |
+| `hg`/`hgOff` call-site passes deleted | **−635** |
+| `μ.verified = true` premises deleted (both towers) | **−59** |
+| S13a's own estimate of the net for the one-instantiation column | **≈ −800 lines** |
+
+On top of that the mode *binder* leaves the R tower's own statements.
+Instrument counts for the `no_proof_of_Empty_R2M` closure (7 993
+setlec-owned constants): **1 617 statements name `CheckMode`**, split
+Verify 894 / SetBase 453 / R 211 / impl 56 / 3 equation lemmas.  The
+cached R capstone's closure (`no_proof_of_Empty_SPC_R2M`, 10 937
+owned) has **2 377**, split Verify 1 586 / SetBase 453 / R 205 / impl
+130 / 3.
+
+**But only part of that is a bill, and the distinction is the design's
+load-bearing choice.**  Of the 1 617, the R tower's *own* statements
+are the **211 R-tier rows**; the 894 Verify rows and (most of) the 453
+SetBase rows are the shared base library, which **keeps its
+parameter** as genericity (part 2, finding 2).  So the honest R-tower
+re-pointing bill is:
+
+| population | count | what it costs |
+|---|---|---|
+| R-tier statements naming `CheckMode` | **211** | delete a binder / a `variable` line; call sites lose an argument.  Mechanical, net negative |
+| SetBase statements in the R closure but **not** in the P closure | **428** (453 − 25 shared) | same, but each needs the check "is this really R-only?" before the binder goes |
+| shared base library (Verify 848 + SetBase 25 = **873**) | | **UNCHANGED** — stays generic, instantiated three times |
+| entry-naming R-tier statements | **17** | re-point at `coreR`'s entries |
+| entry-naming SetBase-in-R-closure | **105** | of which **5** are shared with P and stay generic |
+
+### 2. `EnvS2Refute`'s `.noModel` INSTANCE — THE QUESTION DISSOLVES,
+AND THE S13a WITNESS WAS MIS-READ
+
+The S13a ruling chain kept the hypothesis form over concrete
+instantiation because *"a NAMED consumer needs one claims family at
+several concrete modes simultaneously"*, naming two witnesses.  This
+census checked both.
+
+**Witness A — the R capstone letters themselves — HOLDS.**  All 32
+letters read `{μ : CheckMode}` with no mode hypothesis, so they do
+claim the pure checker sound at `.setModel` *and* at `.noModel`.  That
+part of the ruling was correct.
+
+**Witness B — `SetR/Interp2/EnvS2Refute.lean:136,149,162` — DOES NOT
+HOLD, and this is the tenth correction.**  Those three lines do not
+apply a claims family.  They instantiate a **refuted-shape predicate**
+— `AcvalDefnUniform` / `AcvalThmUniform`, whose own definitions begin
+`∀ (μ : CheckMode) (φ) (fuel) …` — at an arbitrary witness mode, and
+then rewrite with `denote2_one_lam` /
+`denote2_one_forallE` (`SetR/Interp2/Step2/Whnf.lean:157,165`), both
+of which are **mode-generic with no hypothesis**
+(`denote2 μ acval env φ 1 d (.lam …) = none`, proved by `rw [denote2];
+simp [lamSortE_one]`).  Replacing the three `.noModel` literals with
+`.setModel` is a three-token edit that changes no proof and loses no
+content.  Ledger form:
+
+> *A concrete constructor appearing in a proof is not evidence that
+> the constructor is load-bearing.  Check whether the lemma the proof
+> rewrites with quantifies over it; a witness choice is not a
+> consumer.*
+
+**And under tri-core witness A dissolves too, without narrowing any
+shipped claim.**  The chain, from sources:
+
+1. `no_proof_of_Empty_R` at `μ = .noModel` speaks about `checkDecls
+   .noModel …` — the **certified body with two checks off**, which is
+   not what any shipped `--no-model` lane runs.  `--no-model
+   --core=production` runs `checkDeclsSPNM` → `CoreNC`
+   (`Main.lean:303`); `--no-model --core=cached-parsed` runs
+   `checkDeclsSPCachedNM` → `Cached/CoreNC` (`Main.lean:299`).
+2. The configuration the letter *does* cover is reachable only through
+   `--core=cached` (`Main.lean:292`) and `--core=interned-shared`
+   (`Main.lean:301`) — the two lanes `Cached/Driver.lean`'s own
+   `CoreVariant` docstring calls *"pilot measurement instrument,
+   unverified"*.
+3. About the lanes the shipped `--no-model` actually runs there is
+   **no theorem anywhere in the tree** (measured: zero modules under
+   `Verify/`, `SetR/`, `SetP/`, `SetBase/` mention `coreKnotNC`,
+   `inferBodyNC`, `whnfCoreBodyNC` or `CheckerNC`).
+4. Under tri-core the parity core is a different function, unverified
+   by the order.  There is no `.noModel` instance of the R core to
+   take, because there is no `.noModel`.
+
+**Therefore: the cleanup docket item "is `no_proof_of_Empty_R` at
+`.noModel` load-bearing?" is answered NO, on evidence.**  What the
+instance covers today is two unverified measurement lanes and nothing
+the record claims; the shipped help text already calls `--no-model`
+unverified.  This is the docket item's disposition, not a new ruling —
+but it is a *narrowing of a ratified letter* and therefore the
+coordinator's to grant.  It costs nothing and it is what makes the
+R tower's ~800-line deletion available.
+
+### 3. THE P TOWER: RE-POINT AT THE P CORE
+
+Instrument, `no_proof_of_Empty_P` closure: **8 004 owned constants,
+712 entry-naming statements (Verify 565, P 96, SetBase 51), 1 473
+`CheckMode`-naming statements (Verify 854, P 415, SetBase 148, impl
+56)**.  Same split as the R side: the 854 Verify rows stay generic;
+the P tower's own **415** rows and the P-only SetBase rows lose the
+binder.
+
+**How much of the S13a case work transfers: all of it.**  Measured
+against the seal's own three populations:
+
+| S13a population | S13a count | transfers to the P core |
+|---|---|---|
+| (i) proofs that DISCARD the certificate | the silent majority | **whole** — `whnf_app_inv`'s gate *disjunct* is mode-generic and becomes the P core's own inversion with the disjunct's first arm reading `mb.pw.isNever` |
+| (ii) proofs that UNFOLD the clause structurally | 48 sites / 16 modules | **whole on the P side**; the R side's share **retires** (the R core has no branch there) |
+| (iii) proofs that CONSUME the certificate | 165 decls / 25 modules | **retires entirely** — this population is the R lane's `hg` sweep |
+| the P lane's payoff clause | 0 statement changes, 0 certificate consumed | **whole, unchanged** |
+| `AnnotOkP_beta_gate` + `gate_zero_kind_unreachable` + `gate_pwBit_ne_zero` | 3 theorems | **whole** — none of the three mentions a mode in its content; `GateP.lean`'s `(mode.verified && mb.pw.isNever)` spelling becomes the P core's literal branch |
+| `EStore.pw_of_denoteBM` (`Kernel/ArenaWF.lean`) | 3 lines | **whole** — it is what makes the interned and pure P cores take the same branch |
+
+So the β chapter's mathematics is **entirely P-tier content already**,
+and the tri-core pivot *shrinks* it by deleting its R-side shadow.
+
+**The io skips are NOT a transposition — they are unbuilt work, and
+the census says so plainly.**  Prior art, measured:
+
+| artefact | state |
+|---|---|
+| `Kernel/CoreIO.lean` (215 ln) | the io knot; wired into `Verify/Knot.lean` (the `pureFnsIO` equations) and `SetP/Claims2PIO.lean`, not into any driver |
+| `Verify/InferIOLemmas.lean` (90 ln) | the io inversions |
+| `SetP/Claims2PIO.lean` (144 ln) | `InferClaimsIO2P`, `CheckStep2P5`, `checkSound2P5` — the frozen species |
+| `SetP/Step2/InferIOP.lean` (290 ln) | **5 of the 11 clauses** — the four leaves and the ∀ binder |
+| the `.app` clause | **NOT PROVED.**  Its own header calls it *"the only new mathematics of the campaign"* |
+| `io_domain_transfer`, `io_app_mem` | **NOT LANDED** — still in `_tmp/inferonly-study/ProbeIO.lean` |
+| `io_squash_no_transfer`, `io_membership_fails_at_squash` | the mechanized refutations that **bound** the licence |
+
+Counting rule applied throughout (the ledger's ninth): *a
+transposition's bill is not the statements you transpose, it is the
+statements they are proved from.*  The io row above is priced as
+**new**, not as re-signing, precisely because what it is proved from
+does not exist yet.
+
+### 4. THE HEADLINE RE-POINTING COUNT
+
+| | R tower | P tower |
+|---|---|---|
+| capstone-closure owned constants | 7 993 (interned) / 10 937 (cached) | 8 004 |
+| own-tier statements losing the mode binder | **211** | **415** |
+| own-tier statements re-pointed at a named core | **17** | **96** |
+| shared base library statements — **unchanged, stays generic** | **873** `CheckMode`-naming / **567** entry-naming, 562 in twelve `Verify` modules | *(the same rows — one library, both towers)* |
+| premises deleted | 165 `hg` + share of 59 `verified` | share of 59 `verified` |
+| call-site passes deleted | **635** | — |
+| genuinely NEW work | none | the io `.app` clause + 2 unlanded licence theorems + 6 of 11 io clauses |
+
+## TASK #172 — DESIGN CENSUS, part 4 — THE AGREEMENT THEOREM (the new
+obligation) (2026-09-04)
+
+The order: *"the production parity code is not proven sound, but do
+prove that whenever it succeeds and the P core succeeds, they agree, to
+avoid drift."*  This part decides what "agree" can mean, what route
+proves it, what it costs, and — the part the census owes honestly —
+**which half of it is provable and which half is not**.
+
+### 1. WHAT "AGREE" CANNOT MEAN: THREE MEASURED DIVERGENCE CLASSES
+
+The two cores do not merely differ by guards.  Enumerated from
+sources, with the class that kills the naive answer named:
+
+**Class 1 — acceptance-only divergences.**  A dropped guard whose
+failure `throw`s or yields `false`.  Removing it can only turn
+`.error`/`false` into `.ok`/`true`; **values agree wherever both
+succeed**.  Members: `inferSpineNC` (`Kernel/CoreNC.lean:134` — no
+`r.infer` on the argument, no `r.defeq` against the domain, official's
+`infer_app` at `infer_only = true`); `structEtaCertWithNC`,
+`structUnitCertNC`, `pairEtaCertNC` (the telescope certifications
+dropped, the lean4lean-shaped checks kept); the `mode.verified` `pw`
+comparisons inside `defeq`; the λ-codomain sort check and the ∀
+annotation validation (`CoreNC.lean:585-599`).
+
+**Class 2 — STUCK-DEGRADING divergences.  This is the one that kills a
+value-level simulation, and it is not obvious from the file names.**
+In the certified core a failing certificate does **not** raise an
+error — it returns a *stuck term*, and reduction stops there:
+
+```lean
+-- Kernel/Core.lean:1471-1477, the β clause
+if betaGateFires mode mb.pw then
+  r.whnfCore depth (body.instantiate1 a)
+else do
+  let ta ← r.infer depth a
+  if ← r.defeq depth ta ty then r.whnfCore depth (body.instantiate1 a)
+  else pure (.app (.lam n ty body mb) a)      -- STUCK, not an error
+```
+
+and `iotaRecI` returns `pure none` (stuck) when `iotaCertsI` or the
+comparand `defEqListI` fails.  The parity core has neither guard, so
+**it reduces in exactly the positions where the certified core gets
+stuck**: `whnfCoreNC` and `whnfCore` at the P core are *different
+partial functions on values*, not one plus guards, and NC's reduction
+relation strictly extends P's.  A second class-2 member:
+`iotaRecNC` narrows the non-nested comparand check to
+`if Name.isProjFnShape cn then defEqListI … else pure true`
+(`CoreNC.lean:433`) where `iotaRecI` always compares — again a
+reduction that fires where the certified one does not.
+
+**Class 3 — the annotation datum.**  The environment stores the
+**annotated** value and type (`Kernel/Checker.lean:367,390,415`), and
+`annotateBody`'s two `pw` writes are `mode.verified`-gated
+(`Kernel/Core.lean:2244,2251`): at parity the *input* datum survives
+unwritten, at the model cores a computed one is written.  So the two
+installed environments are **not syntactically equal even when both
+accept**.  Quotienting machinery exists (`SetBase/EraseInv.lean`,
+`SetP/ErasePwInv.lean`, `Verify/Denote/Inst.lean`'s erase family).
+
+**Consequences, stated as refutations:**
+
+* *"agree = same inferred types / same intermediate values"* —
+  **REFUTED by class 2.**  Do not state it.
+* *"agree = same installed environment, syntactically"* — **REFUTED by
+  class 3.**  Needs the `pw` erasure.
+* *"agree on decline / error classes"* — **REFUTED and undesirable.**
+  `tests/no-model-expected.txt` records `yolo_decline_vs_accept` as a
+  designed, accepted divergence, and the no-model sweep carries **3
+  recorded divergences** today.  The parity core's whole purpose is to
+  reject less.  The theorem must be scoped to *accept* verdicts.
+
+### 2. THE ROUTE — THREE PRICED, ONE RECOMMENDED
+
+**Route A — clone simulation** (relate `CoreNC` and the P core as
+written, the way `Verify/Disc*` relates interned to pure).  Price
+anchors, measured: the interned↔pure tower is **10 723 lines / 7
+modules**; the cached↔interned tower is **21 238 lines / 22 modules**.
+Both relate functions that compute *the same* thing.  A check-erasure
+simulation relates functions that deliberately differ, so it is at
+least that: **12 000–25 000 lines, 4–8 batches** — and class 2 means
+large parts of it are simply *false as stated* and would need
+hypotheses, i.e. would land as conditional forms.  **NOT
+RECOMMENDED.**
+
+**Route B — via the P claims** (relate the parity run's result to
+denotations).  **NOT AVAILABLE**, and not by cost: it requires a
+soundness statement about the parity core, which the order forbids
+("not proven sound") and which nothing in the tree supports (zero
+theorems mention `coreKnotNC` / `inferBodyNC` / `whnfCoreBodyNC` /
+`CheckerNC`).  Recorded so the route is not re-proposed.
+
+**Route C — AGREEMENT BY CONSTRUCTION.  RECOMMENDED.**  Make the
+parity core the *third instantiation of part 2's template*.  Then:
+
+* wherever the three configs differ only by a **class-1** guard,
+  agreement is one template-level guard-monotonicity lemma
+  instantiated — proved **once**, not once per clause;
+* wherever they differ by a **class-2** stuck-degrader, agreement is
+  false and the divergence is **enumerated by construction**: the
+  config record's fields *are* the divergence list, so no clause can
+  drift out of the list silently.  This is exactly S12's
+  `whnfCoreBodyP_eq` pattern — ten constructors, nine `rfl`, one
+  named — applied to a third config;
+* **class 3** is one erasure lemma about `annotateBody`;
+* and the clone dies: `Kernel/CoreNC.lean` (925) + `Cached/CoreNC.lean`
+  (831) = **1 756 lines of hand-maintained clone retire**, which is
+  where **both** recorded drift incidents lived.
+
+### 3. THE RECOMMENDED DELIVERABLE — TWO PARTS, ONE PROMISED
+
+**T1 — THE STRUCTURAL AGREEMENT FAMILY (recommended as *the*
+deliverable; provable; nothing assumed).**
+
+For every clause of every core function, either a `rfl`-grade identity
+between the parity instantiation and the P instantiation, or a
+**named divergence lemma with its firing condition**.  Shape, per the
+S12 collapse:
+
+```lean
+theorem whnfCoreBodyNC_eq_P (r : CoreFns) (env : Env) (d : Nat) (e : Expr)
+    (h : e.isDivergenceSite = false) :
+    whnfCoreBody cfgNC r env d e = whnfCoreBody cfgP r env d e
+```
+
+with the divergence sites finite, named, and *listed in the config*.
+
+**Why this is the drift protection the order asks for, and why it is
+strictly better than what caught the two incidents:** an unmirrored
+edit breaks a `rfl`.  Replay #139 against it: task #105's two-token
+change to `iotaRecI`'s pin instantiation would have broken the plain
+rule's clause identity **at build time**, not three days later at a
+fixture sweep.  Replay #163 batch 9: the nine `pw` sites are class-3
+content, and T1's erasure lemma is exactly the statement that went
+false.
+
+**T2 — THE VERDICT THEOREM (priced, NOT promised this campaign).**
+
+```lean
+theorem parity_agrees_P (ds : List Declaration) {envP envN : Env}
+    (hP : checkDeclsP  ds = .ok envP)
+    (hN : checkDeclsNC ds = .ok envN) :
+    envN.erasePw = envP.erasePw
+```
+
+This is the user's sentence, made exact.  **It is more nearly reachable
+than class 2 first suggests, and the census locates precisely why**:
+
+* what the environment *stores* comes from **`annotate`**, not from
+  `whnf`/`defeq`/`infer`.  Class 2 lives entirely in the latter, which
+  contribute only to accept/reject.  So class 2 does not, by itself,
+  make the two installed environments differ;
+* `annotateBody` is **90 lines / 11 clauses**, and it calls the core in
+  **exactly one place**: the `.proj` clause's
+  `let te ← r.whnf depth (← r.infer depth e')`;
+* and even there, only the **weak head shape** of `te` is read —
+  `te.getAppFn` matching `.const T _`, and `te.getAppArgs.length`
+  against `entry.numParams`.  Not the whole term.
+
+So T2 decomposes into three obligations, of which two are routine and
+one is the named residual:
+
+| obligation | status |
+|---|---|
+| **T2a** — `annotate` agreement modulo `pw`-erasure at the ten non-`proj` clauses | routine; class 3 machinery exists |
+| **T2b** — the two `pw` writes are exactly the erased datum | routine; one lemma |
+| **T2c** — **at `.proj` subjects, the two cores' `whnf ∘ infer` agree on the weak head's constant and argument count** | **THE RESIDUAL.**  This is where class 2 becomes value-visible.  It is one clause, and the target is head-shape agreement rather than reduction agreement — genuinely smaller than a completeness proof, but it is *not* free and it has no prior art in the tree |
+
+**RECOMMENDATION: commit to T1; carry T2 as a named, scoped follow-on
+whose single open obligation is T2c.**  Do **not** ship T2 in a
+conditional form (a hypothesis "the divergence sites did not fire on
+this run") — the standing ruling is that conditional forms are not
+solutions, and such a hypothesis is exactly a run predicate that only
+an instrumented execution could discharge.
+
+**THE CHEAP FLOOR, worth having regardless.**  Independent of T1 and
+T2, and needing no core reasoning at all:
+
+```lean
+theorem parity_agrees_P_names (ds) (hP : …) (hN : …) :
+    envN.consts.map (·.toConstantVal.name)
+      = envP.consts.map (·.toConstantVal.name)
+```
+
+— both drivers are the same fold installing one constant per
+declaration in stream order, so this follows from the driver
+structure.  It catches "one core installed a different set of
+constants", which is the coarsest drift and the one a verdict-only
+fixture sweep already half-covers.  Price: small.  Recommend landing it
+first, as the batch that proves the two drivers really are the same
+fold.
+
+### 4. THE COST TABLE
+
+| deliverable | route | price | recommendation |
+|---|---|---|---|
+| name-level floor | driver fold structure | small (1 batch, low hundreds of lines) | **land first** |
+| **T1** structural agreement family | route C (template) | the template refactor + a collapse family sized like `Verify/CoreP.lean`'s (245 ln) × 3 core functions × 2 representations; **plus** the 1 756-line clone retirement, which is a *deletion* | **THE DELIVERABLE** |
+| T2a + T2b | erasure lemmas over an 11-clause pass | contained; the machinery exists | fold into T1's batch or the next |
+| **T2c** | head-shape agreement at `.proj` | **named residual, no prior art, unpriced** | carry, do not promise |
+| route A (clone simulation) | — | 12 000–25 000 lines, 4–8 batches, partly false as stated | **refused** |
+| route B (via the P claims) | — | requires parity soundness | **unavailable** |
+
+### 5. EVALUATED AGAINST THE DRIFT-BUG HISTORY
+
+| incident | what caught it | would T1 have caught it? | would the floor? |
+|---|---|---|---|
+| **#139** `iotaRecNC` two tokens unmirrored; parity **rejected** a fixture the certified stack accepts; 3 days | a fixture sweep, once run | **YES, at build time** — the plain-rule clause identity goes false | no |
+| **#163 b9** `Cached/CoreC` cut from a stale `CoreI`; 9 wrong-`pw` sites; **223-fixture parity did not notice** | the simulation proof (the transposed statement was false) | **YES** — class-3 content, T2a/T2b's subject | no |
+
+Both incidents are inside T1's reach, and neither was inside a fixture
+sweep's reach promptly.  That is the case for the theorem, and it is
+the case the order already made.
+
+## TASK #172 — DESIGN CENSUS, part 5 — WHAT SURVIVES IN FLIGHT, AND
+THE FOLDED CLEANUP INVENTORY (2026-09-04)
+
+### 1. THE IN-FLIGHT ITEMS
+
+**#171 — direct-to-`ExprC` parse.**  Orthogonal to tri-core and
+**serves all three cached cores**: it changes the parse→`ExprC`
+boundary, not any core body.  Under tri-core it lands once and three
+of the six engines inherit it.  One sequencing consequence, already on
+the cleanup list: it obsoletes the conversion boundary
+(`Verify/Cached/OfStoreC`), so *that* removal is sequenced **after**
+#171 and not before.
+
+**The interned `sharedBs` gate.**  An R1 perf experiment; the record's
+standing instruction is that it re-baselines against the **two parity
+lanes**.  Under tri-core the parity lanes stop being clones and become
+instantiations, so their instruction counts may move.  **Sequencing
+ruling this census recommends: run the `sharedBs` measurement either
+*before* the clone retirement or *after* it, never across it** — a
+measurement whose baseline changes mid-flight is the caveat-5 failure
+mode, and the record already carries the lesson (*a caveat must live
+with the measurement harness, not in prose*).
+
+**#167 — `ExprC` Data-packing.**  Same class as #171: representation,
+not core.  Serves the three cached engines; orthogonal.
+
+**#168 — fast `isProof`.**  **Becomes P-core content**, not a flag.
+It joins the β skip and the io skips as the P core's *third* licensed
+deviation, and it inherits the #170 discipline verbatim: **the licence
+theorem lands before any behaviour does.**  Under tri-core this is
+cleaner than under the mode design — there is no gate to add, only a
+clause in one named core, and the R core is untouched by construction
+rather than by a collapse lemma.
+
+### 2. THE CLEANUP INVENTORY, FOLDED AND SIZED
+
+The campaign's running list (S13a §6 plus the S9/S13 accretions),
+carried forward with sizes and with this census's dispositions:
+
+| # | item | size | disposition under tri-core |
+|---|---|---|---|
+| 1 | `Kernel/CoreP.lean` + `Kernel/CheckerP.lean` + the knot half of `Verify/CoreP.lean` (the S9 gated-knot scaffold) | 173 + 35 + 245 ln; imported only by `Setlec.lean` (and `CheckerP`/`Verify.CoreP` by `CoreP`) | **RETIRE whole.**  The P core replaces it.  **KEEP** the collapse `whnfCoreBodyP_eq` — part 4 route C reuses its pattern; **KEEP** `SetP/Step2/GateP.lean`'s three theorems |
+| 2 | `agent/bucket2-s1` branch | — | **ARCHIVE** (measurement kit extracted) |
+| 3 | the `ioknot-b1` `CoreIO` lane | `Kernel/CoreIO` 215 + `Verify/InferIOLemmas` 90 + `SetP/Claims2PIO` 144 + `SetP/Step2/InferIOP` 290 = **739 ln** | **NOT cleanup — PROMOTE.**  This is the P core's io ancestor.  Its `pureFnsIO` equations are already wired into `Verify/Knot.lean` |
+| 4 | the 21 duplicated residue lemmas (S11b's route choice); `checkDeclR_ofEnvRE` if the run route supersedes it; the inert cut-point constants the proofdeps gate no longer needs | — | carried unchanged; re-assess at the batch that touches each |
+| 5 | `whnf_app_inv_ungated` | 1 statement | **RETIRE.**  S13a listed it "for completeness, not for removal" because the R lane needed the pre-gate letter.  Under tri-core the R core *has no gate*, so `whnf_app_inv` at the R core **is** the ungated letter and the pair collapses to one |
+| 6 | the `hg` / `hgOff` binder-name split (3 modules) | — | **DISSOLVES** with the 165 premises |
+| 7 | `Verify/BetaSpine.lean`'s five mirrored β clauses | **13 gate sites**, the heaviest single module of the S13a sweep | **13 → ~5**: the R mirror loses the branch entirely; the P mirror keeps one data branch.  The `betaArm` helper S13a proposed becomes unnecessary rather than necessary |
+| 8 | **NEW (this census)** — the `.noModel` capstone-letter question | 1 docket item | **CLOSED**, part 3 §2: answered NO on evidence.  Needs the coordinator's grant as a ratified-letter narrowing, costs nothing, unlocks the R tower's ~800-line deletion |
+| 9 | **NEW (this census)** — `CheckMode.ttChecks` | 20 impl read lines + ~37 tower read lines; a ~7-check reviewed-code block | **RULING NEEDED.**  Constantly `false` since #148 T7b.  Under tri-core the branch is deleted in all three cores, which deletes reviewed code the accessor's docstring says was kept on purpose.  Deliberate loss, flagged not defaulted |
+| 10 | **NEW (this census)** — `Verify/BetaGate.lean` | 8 theorems / 92 ln | **6 of 8 RETIRE** (the collapse, the three mode facts, the fence, the coverage certificate `betaGate_off_or_verified`); 2 survive in substance as the P core's datum readers |
+| 11 | **NEW (this census)** — the two-axis `Main.lean` dispatch | ≈60 ln | **COLLAPSES to a 6-way core selection.**  This is the refactor's user-visible payoff and should be reported as such |
+| 12 | **NEW (this census)** — `Kernel/CoreNC.lean` + `Cached/CoreNC.lean` | **1 756 ln of hand-maintained clone** | **RETIRE into the template** (part 4 route C).  Both recorded drift incidents lived here or in its sibling |
+
+### 3. WHAT THE ORDER DOES *NOT* TOUCH
+
+Recorded so no batch assumes otherwise:
+
+* the two simulation towers (`Verify/Disc*` 10 723 ln;
+  `Verify/Cached/*` 21 238 ln) are **representation** statements and
+  are mode-generic today.  They should *instantiate* rather than
+  triplicate — but that claim is a prediction, not a measurement, and
+  part 6 sequences a batch to check it before the bulk is priced on
+  it;
+* `SetTheory/*`, the `SetBase` currency (`AnnotOkP`, `CtxOkP`, `Sat2`,
+  `interp2`) and every knot-free family: **untouched**.  S12's
+  reuse-vs-restate table already measured these as knot-free;
+* the layering gate (`tests/layering.sh`): its R/P/base classification
+  is by path and does not read `CheckMode`.  The gate is **unchanged**
+  by tri-core and should stay green through every batch — it is the
+  cheapest continuous check that the separation is not being rebuilt
+  as a coupling;
+* the proofdeps gate's 120 pinned rows: unchanged in count; the R rows
+  change subject (from `checkDecls μ` to `checkDeclsR`) and must be
+  re-pinned in the batch that moves them, per the ratchet's rule that
+  a row moves only in the batch that earns it.
+
+## TASK #172 — DESIGN CENSUS, part 6 — MIGRATION SEQUENCE AND PRICING
+(2026-09-04)
+
+### 1. THE CORRECTION LEDGER, QUOTED — SO THE PRICING AVOIDS IT
+
+The campaign's ledger records **nine sizing corrections in three error
+classes** (not nine classes — the correction below is to the brief that
+ordered this census).  Every price in §3 is annotated with which class
+it is guarding against.
+
+| class | corrections | the reusable form, verbatim from the record |
+|---|---|---|
+| **I — the mis-sized row** | 1–7 | a named row priced low; the bill is the row, but bigger |
+| **II — the missing file** | 8 (S11b) | *"a record split's bill is its consumers plus the residue proved about it; a grep for the record's name in signatures finds the first and misses the second."*  The S10 bill counted 28 P-side signature sites and missed `SetBase/IndBlockR.lean`'s 1 216 lines of lemmas *about* the record |
+| **III — the missing tier** | 9 (S12) | *"a transposition's bill is not the statements you transpose — it is the statements they are proved from.  Before sizing 're-typing', ask what the re-typed proofs CALL, and whether those are theorems about the old subject."*  129 unnamed `Verify` statements sat under the S9-named row, and the named row could not be *started* first |
+| **IV — the mis-read witness** | **10, THIS CENSUS** (part 3 §2) | *"a concrete constructor appearing in a proof is not evidence that the constructor is load-bearing.  Check whether the lemma the proof rewrites with quantifies over it; a witness choice is not a consumer."* |
+
+Three process rules ride alongside and are in force for every batch
+below:
+
+* **the acceptance check** (user, S13a): *converting a threaded
+  hypothesis to concrete instantiation must DELETE lines, not add
+  them* — the delta measured and reported per batch;
+* **the harness rule** (S13a §10): *a caveat must live with the
+  measurement harness, not in prose* — no confounded column ships
+  again;
+* **the escalation rule** (S9, re-armed): an unnamed residual, or a
+  bill that doubles, stops the batch and is flagged mid-flight.
+
+**How this census guarded itself.**  Against class III: every price
+below was taken from the **proof-term instrument**
+(`_tmp/tricore-design/Bill172.lean`), which walks the actual closure of
+a capstone and reports what its statements *name*, rather than from a
+grep of the names a batch expects to touch.  Against class II: the
+instrument reports per-module tallies and the census reports the
+*modules*, not just the counts, so an omitted file is visible as an
+absent row.  Against class I: the two anchors used for the largest
+estimate (route A) are **landed towers with measured line counts**
+(`Verify/Disc*` 10 723; `Verify/Cached/*` 21 238), not judgement.
+Against class IV: the one witness this census re-checked
+(`EnvS2Refute`) is the correction it reports.
+
+### 2. THE RECOMMENDED BATCH ORDER
+
+The order is driven by one rule: **probe the wall before spending on
+the route that assumes it isn't there.**  Route C's whole economy
+rests on the parity core being expressible as a template
+instantiation, and nothing in the tree proves it is.  So that question
+goes first, as a measurement, before any tower moves.
+
+| batch | content | landing? |
+|---|---|---|
+| **B0 — RATIFICATIONS** | three questions, no code: (i) the `.noModel` capstone narrowing (part 3 §2); (ii) `ttChecks`'s reviewed-code deletion (part 1 §1); (iii) the config type's shape and the `rfl`-eliminability requirement (part 2 §5) | none |
+| **B1 — THE PARITY-EXPRESSIBILITY PROBE** | clause-by-clause classification of every `CoreNC` deviation from `CoreI` into class 1 / 2 / 3 (part 4 §1); output = the **config-field list**, which *is* T1's statement inventory.  **ESCALATE if any deviation falls in none of the three classes** — that is the wall, and it invalidates route C | measurement only |
+| **B2 — THE TEMPLATE MECHANICS SLICE** | the config replaces `CheckMode` **inside the kernel only**; three named cores as concrete instantiations; the `rfl` identity proved end-to-end on **one** core function (`whnfCore`) in **both** representations.  Reports the MEASURED per-module cost so B3–B6 are priced from a landed sample.  S13a's slice discipline, verbatim | yes |
+| **B3 — THE R TOWER, INSTANTIATED** | delete 165 `hg` binders + 635 passes; instantiate at `coreR`; the R share of the 59 `verified` premises; the 32 capstone letters narrowed (needs B0(i)); `whnf_app_inv_ungated` retires | yes |
+| **B4 — THE P TOWER, INSTANTIATED** | instantiate at `coreP`; `GateP`'s three theorems re-point; 6 of 8 `BetaGate` theorems retire; `BetaSpine`'s 13 gate sites fall to ~5; the P share of the 59 premises | yes |
+| **B5 — PARITY INTO THE TEMPLATE (interned) + T1 interned** | `Kernel/CoreNC.lean` (925 ln) retires into an instantiation; the T1 collapse family for the interned core, on B1's enumerated divergence list | yes |
+| **B6 — PARITY (cached) + T1 cached** | `Cached/CoreNC.lean` (831 ln) retires; the cached T1 family | yes |
+| **B7 — THE FLOOR + T2a/T2b** | `parity_agrees_P_names` from the driver fold; `annotate` agreement modulo `pw`-erasure at the ten non-`proj` clauses | yes |
+| **B8 — DISPATCH + FLAGS + MEASUREMENT** | `Main.lean`'s two axes collapse to one 6-way selection; the help surface; the full ladder with the corrected harness labels from day one | yes |
+| **B9 — CLEANUP SWEEP** | part 5 §2 items 1, 2, 4, 5, 6, 9, 10 | yes |
+| *(carried)* | **T2c** — head-shape agreement at `.proj`; and the io content (part 3 §3): 6 of 11 clauses + the `.app` clause + the two unlanded licence theorems | not promised |
+
+### 3. THE PRICES, FROM SOURCES
+
+| batch | measured input | price | guarding against |
+|---|---|---|---|
+| B1 | `Kernel/CoreNC` 925 ln / 20 defs vs `Kernel/CoreI` 2 532 ln; 22 `.noModel` cross-calls into 9 helpers | 1 batch, measurement only; output is a table, not a diff | **class III** — it asks what the parity core's clauses *are*, before anything is priced on what they are assumed to be |
+| B2 | the S13a slice precedent: the gate landed at 45 files / +1 061 / −649 across the whole tree | slice only: the kernel's 14 `mode`-threading modules (498 tokens) plus one core function's identity proofs.  **Expect ~1 batch**; report the measured per-module cost | **class I** — the estimate is replaced by a landed sample before B3 |
+| B3 | 165 binders, 635 passes, 211 R-tier mode statements, 17 R-tier entry statements; S13a's own one-instantiation column | **net ≈ −800 lines**; must satisfy the acceptance check or stop | **class I**; the acceptance check is the brake |
+| B4 | 415 P-tier mode statements, 96 P-tier entry statements; `GateP` 3 theorems; `BetaGate` 8 → 2; `BetaSpine` 13 → ~5 | ~1 batch; the β mathematics moves **whole** and unchanged (part 3 §3) | **class III** — the transposition's sources (`AnnotOkP_beta_gate`, `pw_of_denoteBM`) are landed and named |
+| B5 + B6 | 1 756 ln of clone retiring; the T1 family sized against `Verify/CoreP.lean`'s collapse (245 ln for one core function on one representation) | ~250 ln × (whnfCore, whnf, infer, defeq, annotate) × 2 representations ≈ **2 500 ln new**, against **1 756 ln deleted**; 2 batches | **class II** — the residue here is the *lemmas about* the retiring clone, and there are none (measured: zero theorems mention `coreKnotNC`/`inferBodyNC`/`whnfCoreBodyNC`/`CheckerNC`), which is why this row is cheap and why the census says so explicitly rather than assuming it |
+| B7 | `annotateBody` 90 ln / 11 clauses / 1 core call; the erasure machinery in `SetBase/EraseInv`, `SetP/ErasePwInv`, `Verify/Denote/Inst` | ~1 batch | **class II** — the erasure residue is named by module |
+| B8 | `Main.lean` ≈60 ln of dispatch | small; the measurement ladder dominates the wall-clock | **the harness rule** |
+| B9 | part 5 §2, sized per row | 1 batch | — |
+
+**Total shape**: **9 landing batches**, with the largest single new-line
+row being B5+B6's ~2 500 lines of T1 collapse family against 1 756
+lines of clone deleted — i.e. the campaign is **net-negative on lines
+outside the agreement theorem, and roughly break-even including it.**
+That is the opposite shape from S12's 860-declaration hoist estimate,
+and the reason is structural: this refactor's dominant operation is
+*deletion of a parameter*, and deletions do not have hidden tiers
+underneath them.
+
+### 4. THE ONE PRICE THIS CENSUS REFUSES TO GIVE
+
+**T2c** — head-shape agreement at `.proj` between the parity and P
+cores — has no prior art in the tree, no anchor to price against, and
+sits on the far side of class 2.  Per the escalation discipline it is
+**named, not estimated**.  If a batch is ever dispatched at it, it goes
+out as its own design phase, not as a row in someone else's bill.
+
+### 5. THE THREE THINGS THAT WOULD STOP THIS DESIGN
+
+Written down now so a later batch does not have to discover them:
+
+1. **B1 finds a `CoreNC` deviation in none of the three classes.**
+   Route C dies; the agreement theorem falls back to route A's
+   12 000–25 000 lines, and the whole tri-core order should be
+   re-scoped before B2.  *This is the census's single most likely
+   wall, and it is why B1 is first.*
+2. **The config's fields do not compute away by `rfl` at some core.**
+   Then the "flag-free core" is a claim, not an identity, and every
+   collapse becomes a lemma.  S13a's early-return form is the known
+   mitigation and the known trap (*a gate that wraps the guarded
+   computation's value changes its shape, and you pay at every
+   consumer*); B2's slice is where this is checked.
+3. **The two simulation towers do not instantiate.**  Part 5 §3 flags
+   this as a *prediction*.  If `Verify/Disc*` or `Verify/Cached/*`
+   turn out to need per-core proofs, that is **32 000 lines** entering
+   the bill and it is a class-III error of exactly S12's shape.  B2's
+   slice must touch one simulation lemma end-to-end for this reason,
+   and its seal must report the answer.
+
+## TASK #172 — DESIGN CENSUS, part 7 — RECONCILIATION WITH THE
+CAMPAIGN-CLOSE SEAL (2026-09-04)
+
+The separation campaign's closing seal (§§1–4 above, landed on master
+at `01ec5f0e` while this census was being written) states the tri-core
+pivot's retire/reuse lists and the `.noModel` disposition at the
+*ruling* level.  This census is the *measured* version of the same
+ground, taken independently, and it agrees with the seal everywhere
+except on three points, all of which sharpen rather than contradict.
+Recorded here so the record has one story.
+
+**1. "the 19 R letters" — MEASURED AT 32.**  The seal's retire list
+(§2) and the brief that ordered this census both say nineteen.  The
+tree says **32**, every one carrying `(hg : μ.betaGate = false)`:
+`SetR/Main.lean` 8, `SetR/Main2.lean` 18 (the eight `R2`, the eight
+`R2M`, plus `no_proof_of_Empty_R2M_of_installs` and `…_of_installsR`),
+`Verify/Cached/MainC.lean` 6.  The retirement bill is unchanged in
+kind and 1.7× in size.
+
+**2. `EnvS2Refute` — the seal says it "loses its mode-typed subject and
+is re-stated per-core or retired with it"; the measurement says it
+never had a stake.**  Part 3 §2: the three sites apply a
+*refuted-shape predicate* whose own definition quantifies `∀ μ`, then
+rewrite with `denote2_one_lam`/`denote2_one_forallE`, both mode-generic
+and hypothesis-free.  The three `.noModel` literals are witness
+choices; replacing them with `.setModel` changes no proof.  So the
+module needs **no** per-core restatement and **no** retirement — it
+needs three tokens, or nothing at all.  The seal's conclusion (the
+docket question dissolves, no ratified letter is narrowed in
+substance) stands unchanged; only the reason is smaller than recorded.
+This is the census's tenth correction and its fourth error class.
+
+**3. The seal's §2 lists `Cached/CoreNC` as "unmerged on
+agent/cached-parity-lane"; its own §4 item 4 records it as landed
+(`1fa6444f`).**  The tree confirms landed: `Setlec/Cached/CoreNC.lean`,
+831 lines, plus `Cached/ParsedNC.lean` 377.  Every parity-side count in
+this census (the 1 756-line clone retirement, the 22 `.noModel`
+cross-calls, the zero-theorems finding) is taken against the landed
+pair.
+
+**4. One item the seal hands over that this census did not price, and
+where it belongs.**  Seal §4 item 1: *the parity core's exact-official
+fidelity vs the NC lane's known strict-direction deviations (taxtable
+audit residuals: `inferBodyNC`'s `.lam` domain sort-check, its `.letE`
+double check, and the weak-direction install-kinds-at-io-grade
+finding), plus the two user-held conformance restrictions
+(proofirrel-check @ `3a0be1cd`, the commit-semantics proposal).*  That
+question's natural home is **B1, the parity-expressibility probe**
+(part 6 §2): B1 already walks every `CoreNC` clause and classifies its
+deviation, so it can classify *deviations from official* in the same
+pass at no extra cost, and it produces the ruling's evidence before any
+core is written.  Recommended: fold seal §4 item 1 into B1's charter
+rather than scheduling it separately.  The ruling it needs — whether
+the parity core takes official's checks by construction — is a
+**user** decision, because the standing "soundness licenses the
+omission" ruling was about the *verified* lanes and does not reach
+this one.
+
+**Where the seal and the census agree, and it matters:** the parity
+clones are *promoted*, not retired-in-place; `AnnotOkP_beta_gate` and
+the io graph-regime license become unconditional P-core content;
+annotation stays its own pass in every core; the two gates
+(`tests/layering.sh`, `tests/proofdeps.sh`) survive the refactor with
+their roots re-pointed per core; and the agreement theorem is the
+refactor's one genuinely new obligation.  On that last point the seal
+lists the prior art as "the verdict-identity batteries, the SimC/sim
+towers, S13a's 248/0 gated-agreement receipts (its empirical shadow)".
+This census's part 4 prices exactly that inheritance and reports the
+finding the empirical shadow cannot show: **the parity and P cores are
+not related by check-erasure alone** — a failing certificate returns a
+*stuck term*, not an error, so the parity core reduces where the
+certified one stops.  That is why part 4 recommends agreement **by
+construction** (route C) over a simulation tower, and why the verdict
+form (T2) is carried with one named open obligation rather than
+promised.
+
+## TASK #172 — DESIGN CENSUS, part 8 — THE B0 RULINGS RECORDED, AND
+THE `ttChecks` EVIDENCE (2026-09-04; coordinator-granted)
+
+### 1. RULING 1 — THE TEMPLATE APPROACH, RATIFIED
+
+One body template, three named flag-free concrete cores, under the
+census's own rule, recorded verbatim as the ratified form:
+
+> *A configuration value may survive only where it is (i) universally
+> quantified in a proof, or (ii) definitionally eliminated in a shipped
+> core.  It may never be read at a branch in a shipped core.*
+
+This satisfies the user's order — three cores, proofs at concrete
+cores, no runtime flags — without the ~15 000-line / 3×-drift
+triplication measured in part 2 §3.  The deciding argument is the
+drift history, in its ledger form: *a clone is caught by a proof or not
+at all.*  The coordinator is reporting the reasoning to the user; **if
+the user overrides toward hand-written bodies, B2 re-scopes.**  Proceed
+on the template until then.
+
+### 2. RULING 2 — THE `.noModel` CAPSTONE NARROWING, GRANTED
+
+The R capstones' subject becomes the R core; they stop quantifying
+modes.  This is the user's *"proofs talk about just their model"*
+verbatim, and it releases the ~800-line deletion (part 3 §1).
+
+**Recorded as a deliberate ratified-statement change, with the old
+letter preserved here as the ledger requires.**  The pre-narrowing
+letter, as it stands on master for all 32 R capstones (shown at the
+family head; the other 31 differ only in driver and carrier):
+
+```lean
+theorem no_proof_of_Empty_R (V : Type w) [SetTheory V] {μ : CheckMode}
+    (hg : μ.betaGate = false) {F ds env'}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] → False
+```
+
+and what replaces it drops **both** the mode variable and the
+hypothesis, taking the R core as its concrete subject.  What is
+narrowed, exactly: the instance at `μ = .noModel`, which part 3 §2
+measured as covering `--core=cached` and `--core=interned-shared`
+only — the two lanes `Cached/Driver.lean`'s own `CoreVariant`
+docstring calls *"pilot measurement instrument, unverified"* — and
+covering **nothing** that any shipped `--no-model` lane runs.  No
+claim about a shipped configuration is lost.
+
+### 3. RULING 3 — `ttChecks`: THE EVIDENCE, AND A RE-PRICING
+
+The coordinator required evidence rather than a default.  Both halves
+were run; the instrument is `_tmp/tricore-design/TTProbe.lean`.
+
+**(a) THE CONSUMER QUESTION — ANSWERED: THERE ARE NONE, AND THERE
+CANNOT BE.**  Kernel-checked, both green:
+
+```lean
+example (μ : Setlec.CheckMode) : Setlec.CheckMode.ttChecks μ = false := by
+  cases μ <;> rfl
+example (μ : Setlec.CheckMode) (h : Setlec.CheckMode.ttChecks μ = true) : False := by
+  cases μ <;> exact absurd h (by decide)
+```
+
+`ttChecks = true` is **uninhabited**.  Any theorem that consumed a
+TT-lane check would have to discharge it, so no such theorem can
+exist — this is stronger than "no consumer was found", it is "no
+consumer is possible".  Corroborated by the tree:
+`Setlec/TTVerify/` holds **no code at all** (a `DESIGN.md` only) — the
+declarative verification lane the checks served was deleted with the
+`.ttModel` mode at #148 T7b — and `SetBase/Bridge/Claims.lean:73-77`
+already says in prose what the probe now says as a type: the seven
+certificates *"are extra facts a `.ttModel` run happens to establish;
+the inversions hand them back as `mode.ttChecks = true → conjunct`
+implications, which the bridge simply does not consume."*
+
+`Setlec/TT/*` (8 modules) is **not** the retired lane: it is the
+syntax/semantics library the denotation machinery consumes
+(`Verify/Denote/*`, `SetBase/Value`, `SetBase/BasisType`,
+`SetR/AnnotOkV`).  It is untouched by this question.
+
+**(b) THE DOCSTRING'S STATED PURPOSE — read, and it does not survive
+contact with (a).**  The accessor's docstring keeps the call sites
+*"so that the checks themselves survive as reviewed code and the
+accessor stays the single place a future lane would turn them back
+on."*  That is a **preservation** purpose, not a consumption one: no
+proof depends on it, and the reviewed code is preserved by git
+regardless.  Under ruling 1's rule the accessor cannot stay — it is
+read at a branch in three shipped cores.
+
+**VERDICT: DELETE, with the walk quoted above as the license.**
+
+**(c) AND THE RE-PRICING — THIS CENSUS MIS-SIZED ITS OWN ROW.**  Part 1
+§1 and §8 priced the `ttChecks` retirement at **20 implementation read
+lines** (+ ~37 tower reads found by grep).  The proof-term walk says
+the *statement* population is an order of magnitude larger:
+
+| capstone closure | statements naming `ttChecks` | proof-only |
+|---|---|---|
+| `no_proof_of_Empty_P` (8 004 owned) | **281** | 24 |
+| `no_proof_of_Empty_R2M` (7 993) | **285** | 25 |
+| `no_proof_of_Empty_SPC_R2M` (10 937) | **285** | 36 |
+
+concentrated in **four modules**: `Verify/Extend/Iota` **186**,
+`Verify/Extend/Proj` **58**, `Verify/InferLemmas` **37**, and
+`SetR/Annot/SortCoh/Mono` **4** (R-only).  Every one is a vacuous
+`(mode.ttChecks = true → C)` conjunct riding inside a larger
+conclusion.  Deleting the accessor forces all ~285 to drop the
+conjunct, and each drop changes the **arity** of a conjunction its
+consumers destructure.
+
+The deletion is still mechanical and still net-negative on lines — but
+it is **not** a line in B9's cleanup sweep.  **It becomes its own batch
+row**, sized at ~285 statements across four modules plus their
+consumers, and it should be sequenced with B3/B4 (the tower
+instantiations) because it edits the same three `Verify` families.
+
+**Ledger entry — the ELEVENTH correction, and it is class I (the
+mis-sized row), committed by this census against itself.**  The error
+was reaching for a grep of *read sites* where the question was
+*statement population*, which is the same reflex class III names.  Its
+reusable form:
+
+> *An accessor's retirement bill is not where it is read — it is where
+> it is **mentioned**, and a vacuous conjunct mentions it in a hundred
+> statements that never branch on it.  Walk the closure; do not grep
+> the call sites.*
+
+That this correction was produced by the design phase, at zero
+implementation cost, is the phase working as intended.
+
+### 4. THE AMENDED BATCH TABLE (part 6 §2, deltas only)
+
+| batch | amendment |
+|---|---|
+| **B0** | CLOSED — all three rulings granted and recorded above |
+| **B3 / B4** | each gains its lane's share of the ~285 `ttChecks` conjunct deletions, since both edit `Verify/Extend/{Iota,Proj}` and `Verify/InferLemmas` already; `SetR/Annot/SortCoh/Mono`'s 4 go with B3 |
+| **B9** | LOSES the `ttChecks` row (promoted out, per §3(c)) |
+| all | ruling 1 carries the standing re-scope condition: a user override toward hand-written bodies re-opens B2 |
