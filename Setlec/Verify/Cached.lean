@@ -21,6 +21,7 @@ import Setlec.Verify.Cached.BridgeCP
 import Setlec.Verify.Cached.OfStoreC
 import Setlec.Verify.Cached.MainC
 import Setlec.Verify.Cached.AgreeFloor
+import Setlec.Verify.Cached.AgreeAnnot
 
 /-!
 # The cached checker variant's verification (task #163)
