@@ -37175,3 +37175,241 @@ imports by brute force (drop one import, rebuild the module, keep if it
 still elaborates) restricted to the ~11 chain modules, where a removed
 edge would actually shorten the build.  The second is cheap enough to be
 worth doing next time the chain is the target.
+
+## TASK #172 — THE INTERNED-WORLD REMOVAL: STOP-FINDING, INVENTORY AND
+SEQUENCING (2026-09-04, agent/interned-removal; assessment only, nothing
+deleted)
+
+### 0. THE FINDING, FIRST
+
+The batch was chartered as a deletion — *"delete the interned
+expression representation end to end"* — and it is not one.  Measured
+on the tree at `788e6511`, the interned world is **load-bearing for the
+cached lane in three separate ways**, and removing it is a *cached-tower
+re-statement* whose edit surface is, module for module, the surface B4
+was concurrently given.  The batch was stopped before any deletion, the
+worktree removed, master untouched.
+
+Three facts, each measured, in the order that decides the batch:
+
+1. **Seven surviving cached modules import interned ones**, and one of
+   those edges is a genuine mathematical dependency, not namespace
+   residue.
+2. **The representation-free residue lives INSIDE the interned
+   modules.**  `FEnv`, `mkFEnv`, `IState`, `CheckIM`, `natOpGuardF`
+   and ~30 declaration-level checkers (`checkConstantValF`,
+   `checkDefnValF`, `checkIndDeclSF`, `checkDirect*F`, …) sit in
+   `Kernel/CoreI.lean` and `Kernel/CheckerS.lean` and are consumed by
+   `Cached/{StateC,CheckerC,CoreC,CoreNC,ParsedC,ParsedNC}`.  So the
+   removal is **split-and-delete**: ≈ 2 000 lines have to be extracted
+   into new homes before `git rm` is even well-typed.
+3. **27 of the tree's 40 capstone letters retire with their subjects**,
+   including all three interned P letters — and the P family then has
+   **no letter about any shipped engine**, because the cached lane has
+   no P capstone at all.
+
+### 1. THE SEVEN CACHED→INTERNED EDGES, CLASSIFIED
+
+| cached module | imports | what it actually needs | class |
+|---|---|---|---|
+| `Verify/Cached/OfStoreC` | `Verify/ParseP` | `denoteDeclP`, `denoteCVP`, `denoteDeclP_total` | **genuine** — the arena declaration denotation; dies with the `SPC` letters |
+| `Verify/Cached/Erase` | `Verify/IExpr`, `Kernel/ArenaWF` | `EStore.looseBVarsBounded_iff`, `EStore.fvarsBelow_iff` | **movable** — `Expr` lemmas parked in an arena namespace |
+| `Verify/Cached/GuardsC` | `Verify/IExprOps` | nothing | **residue** — its `isCtorAppI_spec` &c. are its own `Setlec.Cached` declarations; the interned names appear only in prose |
+| `Verify/Cached/SimC` | `Verify/ILevel` | to be confirmed at extraction | residue/movable |
+| `Verify/Cached/BridgeCS4` | `Verify/CheckerF` | the F-mirror agreement | **survives** — `Verify/CheckerF` (575) and `Verify/FastOps` (174) are representation-free |
+| `Verify/Cached/DiscC1` | `Verify/Disc` | the pure-side call-discipline walk | **survives** — `Verify/Disc` (1 654) is not part of the interned tower |
+| `Verify/Cached/AgreeFloor` | `Verify/EnvBound` | `mkFEnv_find?` | **survives** once `FEnv` moves |
+
+The rule this yields, and it is the batch's first ledger row:
+
+> *After a representation is unified, "which tower is on top" stops
+> being readable from directory names.*  `Verify/Disc` is pure and
+> `Verify/DiscI*` is interned; `Verify/CheckerF` is representation-free
+> and `Kernel/CheckerS` — which it is about — is half interned.  Before
+> pricing a tower deletion, classify every cross-edge by **what the
+> importer uses**, not by where the exporter sits.  Four of the seven
+> edges above are prose or namespace artefacts and cost nothing; one is
+> real and decides a whole letter family.
+
+### 2. THE CAPSTONE CENSUS — 27 OF 40 RETIRE
+
+Measured subjects, not inferred:
+
+* `_C_*` → `checkDecls μ (cachedOps μ)`, and `cachedOps`
+  (`Kernel/CheckerBase.lean:57`) is `runEntryE/B/S` **from
+  `Kernel/CoreI.lean`** — interned;
+* `_S_*` → `Setlec.checkDeclsShared` (`Kernel/CheckerS.lean:1367`) —
+  interned;
+* `_SP_*` → `checkDeclsSP (st : WFStore) (pds : List DeclP)` —
+  interned;
+* `_SPC_*` → `checkDeclsSPCached (st : WFStore) (pds : List DeclP)` —
+  the **arena-fed** cached entry, which dies with `WFStore`/`DeclP`.
+
+| file | letters retired |
+|---|---|
+| `SetR/Main.lean` | `{C,S,SP}_R`, `input_{C,S,SP}_R` — 6 |
+| `SetR/Main2.lean` | `{C,S,SP}_{R2,R2M}`, `input_{C,S,SP}_{R2,R2M}` — 12 |
+| `SetP/MainP.lean` | `C_P`, `S_P`, `SP_P` — 3 |
+| `Verify/Cached/MainC.lean` | `SPC_{R,R2,R2M}`, `input_SPC_{R,R2,R2M}` — 6 |
+
+**Surviving 13:** the pure `R`/`R2`/`R2M` family with its `input_`
+mirrors, `R2M_of_installs(R)`, `P_of`/`P`, and `SPCD_{R,R2,R2M}` — the
+direct-parse cached driver the binary actually runs.
+
+**The proofdeps consequence, stated exactly.**  `tests/ProofDeps.lean`
+roots block (A) — *"THE SHIPPED P CAPSTONE FAMILY"* — at `SP_P`, `C_P`,
+`S_P` and `P`.  Three of those four are interned, so **36 of the gate's
+120 rows retire** (3 roots × 12 targets), and block (A) collapses to a
+single root, `no_proof_of_Empty_P`, about the *pure fueled* checker —
+which the binary does not run.
+
+**The gap is pre-existing, and the deletion is what makes it
+unrecoverable in place.**  There is no `no_proof_of_Empty_*_P` letter
+over any cached driver anywhere in the tree (checked: `MainC` carries
+`_R`-lane letters only).  The #163 default flip to `cached-parsed`
+already left the shipped path P-uncovered; the interned letters have
+been covering non-default drivers since that day.  Deleting them does
+not lose coverage of the shipped path — there is none — but it removes
+the last P letters that are about *any* executable, which is a
+different and worse state to ship.
+
+Ledger row:
+
+> *A capstone letter's subject can go stale without the letter
+> changing.*  `SP_P` was the shipped P capstone until the default
+> flipped cores; nothing in the letter, the gate, or the module tree
+> recorded that it stopped being one.  When a driver stops being the
+> default, re-read every letter that names it **in that batch** —
+> otherwise the discovery arrives as a deletion's side effect, one
+> refactor too late.
+
+### 3. THE INVENTORY (gross lines, measured at `788e6511`)
+
+| tier | modules | lines |
+|---|---|---|
+| impl, whole-module | `Kernel/{IExpr 2145, ArenaWF 5791, WFStore 497, Promote 206, DeclI 98, CoreNC 991, CheckerNC 510, Split 251}` | **10 489** |
+| impl, split | `Kernel/CoreI` 2 532 → keep ≈ 150; `Kernel/CheckerS` 1 795 → keep ≈ 1 060 (lines 41–318 + the 363–1105 Mirrors block); `Frontend/Export` 1 098 → keep ≈ 700; `Cached/Driver` 95 → keep ≈ 40; `Main.lean` ≈ 250 | **≈ 3 800** |
+| Verify, whole-module | `IExpr 4102, IExprOps 3244, ILevel 1083, BinderLoopI 1757, SimI 1672, SimIKnot 459, BridgeI 177, ParseP 865, Promote 676, BracketB4 843, SimS 178, DiscI1–6 9061, BridgeS1–4 3047, BridgeSDecl 324, BridgeP 721, BridgePDecl 81, DeclStores 198, Cached/OfStoreC 287` | **28 775** |
+| letters | `SetR/Main` ≈ 350, `SetR/Main2` ≈ 1 100, `SetP/MainP` ≈ 250, `Verify/{Bridge,BridgeDecl,BridgeWFDecl}` ≈ 360, `Verify/Cached/{MainC,AgreeFloor,BridgeCP}` ≈ 670 | **≈ 2 730** |
+| tests / gates | `SetlecTests.lean` arena fixtures (≈ 110), `arena.sh`'s split-driver section + its 11 pinned cases, the proofdeps PIN's 36 rows | **≈ 200** |
+
+**≈ 46 000 lines deleted, ≈ 2 000 relocated.**
+
+### 4. THE BUILD-TIME NUMBER, AND AN INDEPENDENT CONFIRMATION
+
+Clean `lake build` at `788e6511`: **282 s wall, 560 jobs, exit 0,
+warning-free** (`_tmp/interned-removal/build-baseline.log`).  Modelling
+the longest import chain from the log's per-module times gives **275.6 s**
+— within 2.3 % of the observed wall, which is the same "99 % of the wall
+is one chain" fact task #77 reports.  Recomputing the chain with the
+interned tower removed gives **244.5 s**: a **−31.1 s** serial saving,
+because `Verify/Bridge → BridgeI → DiscI6 → DiscI5 → DiscI4 →
+BinderLoopI → DiscI3 → DiscI2 → DiscI1` is a prefix of the path into
+`Verify/BridgeDecl`, the chain's most expensive node.
+
+**Task #77's audit found the same edge and the same segment
+independently** (§ *"The one structurally surprising edge"*): 33.1 s of
+its post-optimisation 242.9 s chain.  The two measurements are the same
+fact at two tree states; #77's is the one to quote, and its ≈ 210 s
+post-removal expectation stands.  What this batch adds is the rest of
+the delete set's cost **off** the chain: total CPU in the delete set is
+**78.7 s of 1 003.9 s (7.8 %)**, so ≈ 47 s of the saving is parallel
+slack and only the 31–33 s prefix is wall.
+
+### 5. THE TWO DISPOSITIONS THE CHARTER ASKED FOR
+
+**`Kernel/CoreNC.lean` (991) — DELETABLE, cleanly, with
+`Kernel/CheckerNC.lean` (510).**  Measured: **zero** occurrences of
+`coreKnotNC`, `inferBodyNC`, `whnfCoreBodyNC` or `CheckerNC` anywhere
+in `Verify/`, `SetR/`, `SetP/`, `SetBase/` — the census's claim still
+holds.  `Cached/ParsedNC.lean`'s five references to
+`checkConstantValPNC`, `checkDeclSPNCPlain`, `checkDeclSPStepNM` and
+`sharedOpsNC` are **all in docstrings**; it defines its own twins.  The
+only consumers are `Main.lean`'s `--no-model --core=production` arm and
+the `Setlec.lean` umbrella, so nothing but the deleted dispatch consumes
+it and the parity CLI collapses to the cached parity engine as ruled.
+Main's default resolves after the collapse: with `production` gone the
+core is always `cachedParsed`, and with the split driver and the
+`SETLEC_PROGRESS` arena arm gone, `--no-model` reaches
+`Setlec.Cached.checkDeclsSPCachedDNM` through `parseExportStreamD`.
+
+**`CheckMode` — B3c is NOT forced, and the bill is not paid twice.**
+`CheckMode` has **1 469** occurrences: 59 in the implementation tier
+(Kernel 39, Cached 11, `Main.lean` 9) and 1 403 in the proof tiers.  The
+interned removal deletes ≈ 25 implementation-tier tokens (`CoreI`,
+`CoreNC`, `CheckerS`, `CheckerNC`, `Main`) and **zero** of B3c's 51
+carriers — those sit entirely in `SetR/Interp2/*`,
+`SetR/Annot/SortCoh/*`, `SetBase/Bridge/{Main,WhnfCore}` and
+`Verify/{BetaGate,InferLemmas}`, none of which is an interned module.
+The `CheckMode` *type* stays in `Kernel/Env.lean`; the cached engine and
+every tower still take `μ`.  So the merge grant's costing warning does
+not bind here: **the interned removal is not the `CheckMode` type
+retirement**, and B3c stays deferred and unpaid.
+
+### 6. THE PERF PROBE IS COUPLED TO A FLAG SURFACE THAT DOES NOT EXIST
+
+`scripts/perf-tables.sh:76` flips `INTERNED=no` when
+`Setlec/Kernel/CoreI.lean` is gone **or** `"production"` leaves
+`Main.lean`, and then measures `CONFIG_IDS=(official parity R P)` with
+`--set-model=r` and `--set-model=p`.  Those flags are not in the
+argument parser.  So even a CLI-only slice — dropping `--core=production`
+while leaving the towers alone — breaks table generation on its own.
+The probe is therefore not merely self-describing; it **encodes the
+coordinator's expectation that the R/P flag surface lands together with
+the removal**, and that expectation is now a scheduling constraint.
+
+### 7. THE SEQUENCING, AS ADOPTED
+
+1. **B4 delivers the shipped direct-parse cached-driver P letter** — a
+   `no_proof_of_Empty_*_P` over `checkDeclsSPCachedD`.  Without it the
+   proofdeps gate's block (A) has no shipped root and the removal is a
+   trust-story regression rather than a cleanup.  *(B4's charter
+   amended.)*
+2. **The `--set-model=r` / `--set-model=p` flag spelling** lands with
+   whoever touches `Main.lean` first.
+3. **The residue-extraction stage** (pure moves, no statement changes,
+   all gates hold): `FEnv` + the indexed guards out of `Kernel/CoreI`;
+   the Mirrors block (lines 363–1105) out of `Kernel/CheckerS`;
+   `EStore.looseBVarsBounded_iff` / `fvarsBelow_iff` / `exprPtrBEq` out
+   of `Kernel/IExpr`; `Frontend/Export`'s shared scaffolding (canon,
+   taint, budget, the JSON getters, the byte fast path) split from its
+   arena parse.  **After this the interned modules have no
+   non-interned consumer**, and stage 4 really is `git rm`.
+4. **The removal proper**: ≈ 46 000 lines, 27 letters, 36 proofdeps
+   rows retired *with their subjects*, the gate re-pinned to the
+   surviving roots including B4's new letter.
+
+Stages 3 and 4 are **one sequenced batch, two commits**, on a fresh
+worktree off post-B4 master.
+
+### 8. THE BASELINE THIS BATCH LEAVES BEHIND
+
+Measured at `788e6511`, artifacts in `_tmp/interned-removal/`
+(`build-baseline.log` with per-module timings, `battery-baseline.log`,
+`impgraph.json` — the full module import/reverse-import graph):
+
+* clean build **282 s / 560 jobs / warning-free**;
+* arena tutorial **90/92** good accepted, e2e **73/73**, annot
+  **14/14**, split driver **11/11**, mode flags **9/9**, no-model sweep
+  **138 arena + 73 e2e + 14 annot** as expected (3 recorded
+  divergences);
+* proofdeps **120/120 rows as pinned**, doors 0;
+* layering **base 275 / R 106 / P 120 / neutral 3**, 0 P→R, 0 R→P,
+  whitelist empty.
+
+### 9. THE ESCALATION RULE, RESTATED
+
+This batch is the second instance in task #172 of the escalation rule
+firing (B3's 51-carrier residual was the first), and the shape is the
+same both times: **the charter's unit of work and the tree's unit of
+work were different quantities.**  B3 priced a hypothesis sweep in
+lines and delivered declarations; this batch was chartered as a
+deletion and the tree holds a re-statement.  The generalisation worth
+keeping:
+
+> *Before executing a deletion, verify that the delete set has no
+> surviving consumer — at the level of names, not imports.*  An import
+> graph said this batch touched 136 modules and 107 900 lines; a
+> name-level census said the genuine cross-edges were seven, four of
+> them prose.  Neither number is the batch's size, and only the second
+> one tells you whether it is a deletion at all.
