@@ -180,6 +180,19 @@ else
     echo "kernelver	$(uname -r)"
     echo "official	$(readlink -f "$OFFICIAL")"
     echo "preproc	$(readlink -f "$PREPROC")"
+    # Does the measured tree have the cached PARITY engine
+    # (Setlec/Cached/CoreNC.lean, dispatched for --no-model
+    # --core=cached-parsed)?  Before it landed, that cell was the
+    # certified cached engine with two checks gated off — a different
+    # measurement wearing the same flags, so the renderer must label
+    # the column differently.  See DESIGN.md, "The cached parity lane
+    # and the confound correction".
+    if [ -f "$ROOT/Setlec/Cached/CoreNC.lean" ] \
+       && grep -q "checkDeclsSPCachedNM" "$ROOT/Main.lean" 2>/dev/null; then
+      echo "cachednc	yes"
+    else
+      echo "cachednc	no"
+    fi
     echo "reps	$REPS"
     echo "timeout	$TIMEOUT"
   } > "$CACHE/meta.txt"

@@ -15,18 +15,43 @@ nothing here is carried over from an older round.
 | official kernel | `/home/joachim/setlec/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
 | preprocessor | `/home/joachim/setlec/_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models` |
 
-> **KNOWN STALENESS — the `--no-model --core=cached-parsed` column.**
-> If the binary-provenance commit above predates the cached
-> parity-lane landing
-> (`agent/cached-parity-lane`), that column is **not** a cert-free
-> engine measurement: with no cert-skipping twin under
-> `Setlec/Cached/` it is the certified cached driver with two checks
-> gated off, which is caveat 1 below.  When the parity lane lands the
-> column changes meaning — it becomes a real cert-free lane — and
-> this file must be regenerated before any of its numbers are quoted
-> again.  In particular today's headline oddity, `NM/cached` being
-> the *most expensive* cell on `init-full`, is that confound and not
-> a property of the cached core.
+> **⚠ SUPERSEDED COLUMN — `--no-model --core=cached-parsed`.**
+> The binary measured above **predates the cached parity lane**
+> (`Setlec/Cached/CoreNC.lean`, landed on master at `1fa6444f`).
+> In this table that cell is **not a parity lane**: it is the
+> *certified* cached engine with two mode-gated checks off, all
+> internal certification still running, while `--no-model
+> --core=production` beside it **is** one (`CoreNC`, certs
+> stripped).  Every comparison between those two columns here
+> puts a still-certifying engine against a cert-free one — the
+> caveat-5 confound, whose full consequence is worked out in
+> DESIGN.md, "The cached parity lane and the confound
+> correction".  Read the column as *the certified cached engine
+> minus two checks*, which is what it measured; do not read it as
+> the cached core's speed.  In particular the oddity below —
+> `NM/cached` the **most expensive** cell on `init-full` — is
+> that confound, not a property of the cached core.
+>
+> A real cert-free cached engine now exists and `--no-model
+> --core=cached-parsed` dispatches to it, so **these cells are
+> historical**.  The perf lead's reference medians for the new
+> engine, pending regeneration: init-prelude 15.99 G,
+> grind-ring-5 55.2, app-lam 228.0, beta-ladder 45.2, let-ladder
+> 11.4, **init-full 1432.9 (3.55× official)** — head to head the
+> cached parity lane ties or beats the interned one on every
+> row.  **Those figures are on the RAW pipeline with the
+> preprocessor included and are quoted against official-RAW;
+> this file's cells are preprocessed-both-sides against
+> official-PRE.  The two bases are not interchangeable** — mixing
+> them is exactly the mixed-baseline error the DESIGN entry
+> records — so do not compute a ratio across the boundary.  They
+> are quoted here only to say which way the column will move.
+>
+> Regeneration is deferred until the #171 direct-to-ExprC parse
+> lands, since that moves the cached-lane numbers again and a
+> full battery costs hours.  When it is in, one command
+> (below) rewrites this file and this note disappears on its
+> own.
 
 ## Regenerating this file
 
@@ -68,7 +93,7 @@ Instructions are the primary metric (contention-independent); wall is
 indicative only (caveat 6).  Ratios are against the official column
 on the same row and are cross-pipeline — read them through caveat 2.
 
-| stream | official v4.33.0 | `--set-model` `--core=production` | `--set-model` `--core=cached-parsed` | `--tt-model` `--core=production` | `--tt-model` `--core=cached-parsed` | `--no-model` `--core=production` | `--no-model` `--core=cached-parsed` |
+| stream | official v4.33.0 | `--set-model` `--core=production` | `--set-model` `--core=cached-parsed` | `--tt-model` `--core=production` | `--tt-model` `--core=cached-parsed` | `--no-model` `--core=production` | `--no-model` `--core=cached-parsed` ⚠ **not a parity lane** |
 |---|---|---|---|---|---|---|---|
 | `let-ladder` | 6.15 G / 0.56 s | 22.53 G (3.66×) / 5.06 s | 10.83 G (1.76×) / 1.00 s | **exit 3** | **exit 3** | 22.75 G (3.70×) / 5.00 s | 10.83 G (1.76×) / 1.00 s |
 | `beta-ladder` | 10.15 G / 1.25 s | 78.48 G (7.73×) / 15.49 s | 47.16 G (4.65×) / 4.37 s | **exit 3** | **exit 3** | 78.28 G (7.71×) / 16.83 s | 44.68 G (4.40×) / 4.26 s |
@@ -82,7 +107,7 @@ on the same row and are cross-pipeline — read them through caveat 2.
 Cells that did not exit 0 show their exit code instead.  Counts
 differ between the two pipelines by construction — caveat 3.
 
-| stream | official | SM/prod | SM/cached | TT/prod | TT/cached | NM/prod | NM/cached |
+| stream | official | SM/prod | SM/cached | TT/prod | TT/cached | NM/prod | NM/cached ⚠ |
 |---|---|---|---|---|---|---|---|
 | `let-ladder` | 62 | 69 | 69 | exit 3 | exit 3 | 69 | 69 |
 | `beta-ladder` | 50 | 56 | 56 | exit 3 | exit 3 | 56 | 56 |
@@ -93,10 +118,11 @@ differ between the two pipelines by construction — caveat 3.
 
 ## Derived: `--set-model` ÷ `--no-model`, same core
 
-The certified checker over the cert-skipping lane, same binary,
-same stream, same engine.  On the production core this is the
-project's canonical verification-tax figure; on the cached core it
-is **not** one — caveat 1.
+The certified checker over the cert-skipping lane, same
+binary, same stream, same engine.  On the production core
+this is the project's canonical verification-tax figure; on
+the cached core it is **not** one and never was — it is the
+two mode-gated checks alone (caveat 1 and the header note).
 
 | stream | production | cached-parsed |
 |---|---|---|
@@ -111,33 +137,35 @@ is **not** one — caveat 1.
 
 | stream | cheapest setlec configuration | ratio vs official |
 |---|---|---|
-| `let-ladder` | NM/cached | 1.76× |
-| `beta-ladder` | NM/cached | 4.40× |
+| `let-ladder` | NM/cached ⚠ | 1.76× |
+| `beta-ladder` | NM/cached ⚠ | 4.40× |
 | `init-prelude` | NM/prod | 3.75× |
 | `grind-ring-5` | NM/prod | 4.16× |
-| `app-lam` | NM/cached | 7.72× |
+| `app-lam` | NM/cached ⚠ | 7.72× |
 | `init-full` | NM/prod | 4.08× |
 
 ## CAVEATS — read every number through these
 
-1. **`--no-model` on `--core=cached-parsed` is NOT a parity lane.**
-   There is no cert-skipping/infer-only twin under `Setlec/Cached/`;
-   that cell is the *certified* cached driver (`CoreC`) running with
-   `CheckMode.verified = false`, which gates exactly two checks
-   (λ-codomain sort validation and annotation validation) and still
-   runs the whole certification machinery.  Its distance from
-   `--set-model --core=cached-parsed` is therefore **exactly those
-   two gated checks and nothing else** — bounded by construction, and
-   not a verification tax whatever it measures.  (It is a few percent
-   on the declaration-heavy streams and materially more on `app-lam`,
-   where the annotation validation bites; see the derived table
-   above, and do not read that column as a certificate cost.)  This
-   is caveat 5 of the task-#161 canonical table; the cached NC twin
-   does not exist **as of the binary measured above** — see the
-   staleness note in the header: `agent/cached-parity-lane` builds
-   one, and this table must be regenerated once it lands.  Until
-   then the parity lane is `--no-model --core=production` and only
-   that.
+1. **`--no-model` on `--core=cached-parsed` is NOT a parity lane**
+   — see the superseded-column note in the header, which is the
+   short version of this caveat and takes precedence.  There was
+   no cert-skipping twin under `Setlec/Cached/` when this binary
+   was built; that cell is the *certified* cached driver
+   (`CoreC`) running with `CheckMode.verified = false`, which
+   gates exactly two checks (λ-codomain sort validation and
+   annotation validation) and still runs the whole certification
+   machinery.  Its distance from `--set-model
+   --core=cached-parsed` is therefore **exactly those two gated
+   checks and nothing else** — bounded by construction, and not a
+   verification tax whatever it measures.  (It is a few percent
+   on the declaration-heavy streams and materially more on
+   `app-lam`, where the annotation validation bites; see the
+   derived table above, and do not read that column as a
+   certificate cost.)  This is caveat 5 of the task-#161
+   canonical table, whose full consequence — that the
+   `--no-model` cross-core comparison was confounded — was
+   worked out only after this run.  In this table the parity
+   lane is `--no-model --core=production` and only that.
 2. **The preprocessor floor is removed, the modeled encoding is not.**
    Both sides read the same preprocessed bytes, so no setlec cell
    pays the preprocessor here — but every setlec cell still checks a
