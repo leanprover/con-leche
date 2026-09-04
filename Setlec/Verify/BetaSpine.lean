@@ -1,4 +1,5 @@
 import Setlec.Verify.Fueled
+import Setlec.Verify.BetaGate
 import Setlec.Verify.Knot
 import Setlec.Verify.InstList
 import Setlec.Verify.InferLemmas

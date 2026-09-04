@@ -89,4 +89,35 @@ theorem verified_isNever_of_betaGateFires
   rcases Bool.and_eq_true .. |>.mp h with ⟨hg, hn⟩
   simp [CheckMode.verified_of_betaGate hg, hn]
 
+/-! ## The template bridge (task #172, batch B2)
+
+`CoreCfg` (`Setlec/Kernel/CoreCfg.lean`) replaces the mode flag as the
+body template's parameter.  These three are the whole bridge, and all
+three are `rfl`: `cfgOf`'s fields are *projections of a literal
+constructor*, so a config read is the old accessor definitionally even
+at a **variable** mode.  That is what let the template be introduced
+without disturbing a landed statement. -/
+
+/-- The template's β field at `cfgOf mode` **is** the gate predicate. -/
+@[simp] theorem cfgOf_betaSkip :
+    (cfgOf mode).betaSkip pw = betaGateFires mode pw := rfl
+
+/-- The template's verified field at `cfgOf mode` **is** the accessor. -/
+@[simp] theorem cfgOf_verified :
+    (cfgOf mode).verified = mode.verified := rfl
+
+/-- The transitional ι-cone field at `cfgOf mode` **is** the mode. -/
+@[simp] theorem cfgOf_iotaMode : (cfgOf mode).iotaMode = mode := rfl
+
+/-- **The R core's β branch is gone, not collapsed**: at `cfgR` the
+skip predicate is `false` by `rfl`, so the gated `if` *is* its `else`
+arm — the unconditional per-redex argument certificate. -/
+theorem cfgR_betaSkip_eq_setModel (pw : PropWhen) :
+    cfgR.betaSkip pw = betaGateFires .setModel pw := rfl
+
+/-- **The P core's β branch reads the datum, not a flag**: at `cfgP`
+the skip predicate is the redex's own validated annotation. -/
+theorem cfgP_betaSkip_eq_setModelP (pw : PropWhen) :
+    cfgP.betaSkip pw = betaGateFires .setModelP pw := rfl
+
 end Setlec
