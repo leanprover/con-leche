@@ -42,7 +42,12 @@ LOG=$CACHE/battery.log
 # configuration it can no longer measure into `retired.tsv` instead of
 # dropping them (the relabel-don't-erase convention).
 DATA=${PERF_DATA:-$ROOT/perf-data}
-REPS=${PERF_REPS:-3}
+# ONE run per cell.  The medians-of-3 round measured the spreads at
+# 0.01-0.5 % on instructions:u, so the third significant figure is
+# stable off a single run and tripling every cell buys nothing.  If a
+# number ever looks wrong, re-run that cell (PERF_STREAMS/PERF_CONFIGS)
+# rather than re-running all of them.
+REPS=${PERF_REPS:-1}
 TIMEOUT=${PERF_TIMEOUT:-1800}
 VLIMIT=41943040            # 40 GB virtual, the standing ceiling
 
@@ -75,25 +80,33 @@ else
 fi
 
 # The cells per stream.  Every flag explicit; no defaults relied on.
-# NOTE (reconciliation with the work order): `--tt-model` is RETIRED in
-# Main.lean (task #148 T7b) and `--core=cached` is an unverified pilot
-# instrument, while `--core=cached-parsed` is the supported, verified
-# cached core (task #163).  The tt cells are measured anyway so the table
-# records their real exit code rather than silently dropping the column.
+# Only LIVE, MUTUALLY COMPARABLE configurations are measured — the table
+# is meant to be read, not decoded.  Nothing retired appears: `--tt-model`
+# (task #148 T7b) and `--core=cached` (an unverified pilot instrument)
+# are simply not in the matrix, and cells of anything dropped later are
+# archived, not printed (see carry_retired).
 if [ "$INTERNED" = yes ]; then
-  CONFIG_IDS=(official sm-prod sm-cached tt-prod tt-cached nm-prod nm-cached)
+  # TRANSITIONAL, while two representations exist: mode x core.
+  CONFIG_IDS=(official sm-prod sm-cached nm-prod nm-cached)
 else
-  CONFIG_IDS=(official sm-cached tt-cached nm-cached)
+  # POST-TRI-CORE (task #172): one representation, so the core axis is
+  # gone and the columns are official + the three verification lanes.
+  # NB confirm the flag surface when the refactor lands — if a `--core`
+  # selector survives with the three lanes on it, move it here.
+  CONFIG_IDS=(official parity R P)
 fi
 config_cmd() { # $1 = config id, $2 = stream file -> fills CMD
   case "$1" in
     official)  CMD=("$OFFICIAL" "$2") ;;
+    # transitional (mode x core)
     sm-prod)   CMD=("$BIN" --set-model --core=production    --pre "$2") ;;
     sm-cached) CMD=("$BIN" --set-model --core=cached-parsed --pre "$2") ;;
-    tt-prod)   CMD=("$BIN" --tt-model  --core=production    --pre "$2") ;;
-    tt-cached) CMD=("$BIN" --tt-model  --core=cached-parsed --pre "$2") ;;
     nm-prod)   CMD=("$BIN" --no-model  --core=production    --pre "$2") ;;
     nm-cached) CMD=("$BIN" --no-model  --core=cached-parsed --pre "$2") ;;
+    # post-tri-core (the three lanes on the one representation)
+    parity)    CMD=("$BIN" --no-model    --pre "$2") ;;
+    R)         CMD=("$BIN" --set-model=r --pre "$2") ;;
+    P)         CMD=("$BIN" --set-model=p --pre "$2") ;;
     *) echo "unknown config $1" >&2; exit 1 ;;
   esac
 }
@@ -168,35 +181,40 @@ cell() { # $1 = stream label, $2 = config id, $3 = preprocessed stream
   say "  $1/$2: $(median "${instrs[@]}") instr, $(median "${walls[@]}") s, exit $ex, ${decls:-?} decls"
 }
 
+# Render from the working copy when a run has produced one, else from
+# the tracked record — `--render` must work on a clean checkout, where
+# the gitignored _tmp cache does not exist.
 render() {
-  python3 "$ROOT/scripts/perf-tables-render.py" "$TSV" "$ROOT/PERF.md" \
-    "$CACHE/meta.txt" "$DATA"
+  local t=$TSV m=$CACHE/meta.txt
+  if [ ! -s "$t" ]; then t=$DATA/table.tsv; m=$DATA/meta.txt; fi
+  python3 "$ROOT/scripts/perf-tables-render.py" "$t" "$ROOT/PERF.md" "$m" "$DATA"
 }
 
-# Before a full run truncates the table: any configuration in the
-# TRACKED snapshot that this run will not measure has just been retired
-# out of the matrix.  Carry its cells into retired.tsv with the metadata
-# of the run that produced them, so the historical numbers keep their
-# provenance instead of disappearing.  (Rows are appended; the renderer
-# keeps the last row per stream+config, as everywhere else.)
+# Before a full run truncates the table: the outgoing TRACKED snapshot
+# is superseded wholesale — its cells came from an older binary, and any
+# configuration this run will not measure has left the matrix outright.
+# Archive every one of those rows, stamped with the binary that produced
+# them, so nothing is lost and nothing stale can leak into the live
+# tables.  PERF.md prints one pointer line at them and no more.
 carry_retired() {
   [ -s "$DATA/table.tsv" ] || return 0
-  local keep=" $CONFIGS " gone n
-  gone=$(awk -F'\t' -v keep="$keep" \
-           'index(keep, " " $2 " ") == 0 { print $2 }' "$DATA/table.tsv" \
-         | sort -u)
-  [ -n "$gone" ] || return 0
-  local oldsha olddate
+  local oldsha olddate keep=" $CONFIGS " gone n
   oldsha=$(awk -F'\t' '$1=="binsha"{print $2}' "$DATA/meta.txt" 2>/dev/null)
   olddate=$(awk -F'\t' '$1=="date"{print $2}' "$DATA/meta.txt" 2>/dev/null)
   mkdir -p "$DATA"
-  awk -F'\t' -v keep="$keep" 'index(keep, " " $2 " ") == 0' \
-    "$DATA/table.tsv" >> "$DATA/retired.tsv"
-  for n in $gone; do
+  # 9th column = the binary that measured the row; readers take the
+  # first 8, so the archive stays format-compatible with table.tsv.
+  awk -F'\t' -v OFS='\t' -v sha="${oldsha:-unknown}" \
+    '{print $0, sha}' "$DATA/table.tsv" >> "$DATA/retired.tsv"
+  gone=$(awk -F'\t' -v keep="$keep" \
+           'index(keep, " " $2 " ") == 0 { print $2 }' "$DATA/table.tsv" \
+         | sort -u)
+  for n in ${gone:-}; do
     printf '%s\t%s\t%s\t%s\n' "$n" "$(date -Iseconds)" \
       "${oldsha:-unknown}" "${olddate:-unknown}" >> "$DATA/retired.meta"
-    say "RETIRED config $n — cells carried into $DATA/retired.tsv"
+    say "RETIRED config $n — left the matrix; cells archived"
   done
+  say "archived $(wc -l < "$DATA/table.tsv") superseded cells to $DATA/retired.tsv"
 }
 
 # After a full run: refresh the tracked snapshot.
@@ -253,6 +271,8 @@ else
       echo "cachednc	no"
     fi
     echo "interned	$INTERNED"
+    # the live matrix: exactly the columns the renderer may print
+    echo "configs	$CONFIGS"
     echo "reps	$REPS"
     echo "timeout	$TIMEOUT"
   } > "$CACHE/meta.txt"

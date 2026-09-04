@@ -34188,6 +34188,259 @@ mode-parameterised, so T2a's statement is unaffected — and when the
 annotation pass joins the template, `annotateBodyI_mode_eq` is exactly
 the collapse lemma that batch will need.
 
+## The `.proj` pin is an install-time invariant, not a model licence (2026-09-04, E2 gate)
+
+The user's chosen E2 disposition — **pinned-residual everywhere**, every
+core's `.proj` inference running the certified two-case computation —
+was made conditional on one question: can the fragment of
+`projEntry_pins` that the fast-path clause reads be established as a
+**syntactic install-time invariant** (by construction of the projection
+table, or by a cheap insertion-time check), rather than as the tier
+fact it is consumed as today?
+
+**Verdict: YES**, and in the strongest available form — there is
+nothing to check at insertion, because there is no native-table
+*construction* to audit.  The native table is a two-element **literal
+injected by the checker**: never parsed, never derived, never computed.
+
+Probes: `_tmp/proj-pin-probe/Pin.lean` (the invariant kit, mechanized)
+and `_tmp/proj-pin-probe/Reach.lean` (reachability through the real
+`checkDecls`).  Both executed; outputs quoted below verbatim.
+
+### 1. Two corrections to the B1 report's framing
+
+B1 §7.2 calls `projEntry_pins` *"a model-tier fact"* and says the only
+statement making the two cores agree is *"premised on an R-tier
+environment license"*.  Both are off, and the correction is what
+unblocks the disposition:
+
+* **`ProjOkT` was always syntactic.**  It is a `Prop` over `Env` alone
+  (`Verify/EnvPreds.lean:106`) — no values, no interpretation, no `V`,
+  as its own docstring says and as `SetR/Interp2/EnvS2U.lean:199`
+  records.  It is a *tower-carried* environment invariant, not a model
+  theorem.  What was missing was never a de-semanticization; it was a
+  **standalone route** to the invariant, independent of holding an
+  `EnvR`/`EnvS` for the environment.
+* **Only the entry-identity conjunct is clause-facing.**  Of
+  `projEntry_pins`' five outputs, the `.proj` inference clause consumes
+  exactly `entry = pairFstEntry ∨ entry = pairSndEntry`.  Totality (the
+  `.internal "malformed projection entry"` branch being dead) needs only
+  `numParams = 2` and `entry.idx = i < 2`; agreement with the parity
+  walk needs `entry.ty` too, i.e. the full identity.  The two
+  stored-block conjuncts (`find? psigmaName = some psigmaA`,
+  `find? psigmaMkName = some psigmaMkA`) are consumed **only** by
+  `denote_pairFstTy_eq` / `denote_pairSndTy_eq` / `denote_psigmaMkTy_eq`
+  — certified-tier denotation lemmas, and they stay in the tower.
+
+### 2. The census — five `ProjEntry` construction sites, tree-wide
+
+| site | native slot |
+|---|---|
+| `Kernel/Basis/PSigma.lean:310` `pairFstEntry` | `true` (literal) |
+| `Kernel/Basis/PSigma.lean:318` `pairSndEntry` | `true` (literal) |
+| `Kernel/Modeled.lean:689` `installProjTemplate` | `false` (literal) |
+| `Kernel/CheckerS.lean:1197` `installProjTemplateS` | `false` (literal) |
+| `Cached/CheckerC.lean:147` | `false` (literal) |
+
+No record updates (`{entry with …}`) exist anywhere.  **The task-#107
+table-construction code builds only template entries**, with the flag a
+literal `false` at the cons site; the native pair reaches an environment
+through exactly one function, `installBasisDecl`/`installBasisDeclF`
+applied to `BasisKind.declsA .psigmaK` (`Basis.lean:38`), at seven call
+sites across the lanes, all the same literal list.
+
+Decisive detail: the frontend's **matching** list `psigmaBasis` has
+three members and *zero* `projInfo`; the **install** list `declsA` has
+five, of which two are the pinned entries.  The entries are injected,
+and a matching input block's own version is discarded.
+`Frontend/Export.lean:104` says it outright — *"table entries never
+occur in parsed input"* — and the block parser (`:573-596`) builds only
+`indInfo`/`ctorInfo`/`recInfo`.
+
+### 3. The invariant
+
+```lean
+def NativeProjPinned (env : Env) : Prop :=
+  ∀ e : ProjEntry, (ConstantInfo.projInfo e) ∈ env.consts →
+    e.native = true → e = pairFstEntry ∨ e = pairSndEntry
+```
+
+Over the raw `consts` list: no `find?`, no freshness, no valuation, no
+`V`.  **It is a closed induction — it needs no auxiliary invariant.**
+Every environment extension is one of three shapes: it conses a
+non-`projInfo` (preserved trivially), conses a template entry (the
+`false` is a literal at the cons site), or conses a member of
+`k.declsA` (a `decide` over a closed list).  That is what distinguishes
+it from every other field of the tower's environment records, all of
+which are inductive only *together*.
+
+Home: `Setlec/Verify/ProjPinInv.lean` — the implementation-adjacent
+proof tier, importing `Kernel` and nothing from `SetR`/`SetBase`/`SetP`.
+This is the task-#42 *validate-at-insertion* pattern with the check cost
+**zero**: validation degenerates to construction.  It is deliberately
+**not** the `Std.HashMap` exception — nothing needs to be carried in the
+data structure for the proof route to work.
+
+### 4. Reachability, executed through the real `checkDecls`
+
+`_tmp/tricore-b1/ProjProbe.lean` hand-builds its off-pin environment;
+this suite asks whether any *declaration stream* can build one.
+
+```
+A.  .projInfo smuggled into an indDecl block   → REJECT not implemented yet: missing model for T
+A'. checkIndMember on a .projInfo directly     → REJECT invalid: reserved projection name T.proj.0
+B.  block whose type former is named PSigma'   → REJECT invalid: reserved basis name PSigma'
+C.  axiom named T.proj.0                       → REJECT invalid: reserved projection name T.proj.0
+C'. axiom named PSigma'.proj.7                 → REJECT invalid: reserved projection name PSigma'.proj.7
+D.  .basisDecl .psigmaK twice                  → REJECT invalid: duplicate declaration PSigma'
+E.  .basisDecl .psigmaK once                   → native entries: 2; all pinned: true; names: [PSigma'.proj.1, PSigma'.proj.0]
+F.  psigmaBasis: 3 members, 0 projInfo;  declsA: 5 members, 2 projInfo
+G.  per-basis native census: eqK [] natK [] psigmaK [(fst),(snd)] punitK [] emptyK [] quotK []
+```
+
+The three gates that make A–D fire all live in `checkConstantVal`
+(`Kernel/CheckerBase.lean:70-76`): duplicate name, `reservedBasisNames`
+(which contains `psigmaName`, `Basis/Names.lean:98`), and
+`Name.isProjFnShape` (`Level.lean:208`) — the projection-name family is
+reserved for the checker's own installs.  Every ordinary declaration and
+every block member (`checkMemberVal` → `checkConstantVal`) passes
+through it.
+
+The degenerate routes, closed one by one:
+
+* **direct structures** — `directStructsEnabled = false`
+  (`Direct.lean:316`), and even enabled the path installs *degenerate
+  recursors*, never a table entry; `directParts?` excludes reserved
+  names (`:166-168`);
+* **modeled structures** — `checkProjFn` installs `.recInfo` at
+  `projFnName T i` (`Modeled.lean:572`); `checkIndMember` throws
+  `"non-inductive member"` on anything but ind/ctor (`:404`),
+  `provisionRecs` on anything but rec (`:423`);
+* **`Quot`** — `quotK.declsA` carries no `projInfo` (probe G);
+* **sliced / reordered streams (the #113 precedent)** —
+  `FEnv.restrictTo` (`CoreI.lean:90`) is a prefix cut on install
+  counters that does not touch `consts` at all, so the invariant is
+  *literally* invariant under it; and it is prefix-closed, so
+  `pairFstA` visible implies `psigmaA` visible.  `Split.lean`'s recheck
+  pushes only `defnInfo`/`thmInfo`/`axiomInfo` (`:123,128,133`);
+* **partial basis install** — `declsA` is folded in dependency order
+  inside one declaration and any step's throw aborts the whole
+  `checkDecl`, so `pairFstA` present implies `psigmaA`/`psigmaMkA`
+  present;
+* **interned / cached lanes** — identical code, and bridged to the `Env`
+  lane by `mkFEnv_push` (`Verify/SimS.lean:39`), so the invariant is
+  stated once on `Env` and transports for free.
+
+### 5. Why this is ratified design, not an accident
+
+Task #107's audit (this file, *"Projection-unification audit"*) ruled
+both restrictions **permanent**: the Prop template tail cannot be served
+by a native entry even in principle (legality is per-level-instantiation
+and a single level-parametric `ty` cannot express it), and modeled
+structures cannot go native (the squashing countermodel).  The native
+table is frozen at the pinned pair by ruling.  Finding A even
+anticipates this note's shape: *"Any future generalization of native
+entries must add that bound as an install-time obligation."*
+
+### 6. A field with no consumer
+
+`ProjOkT`'s **second** conjunct (`Verify/EnvPreds.lean:112` — an entry
+stored at `projFnName psigmaName i` is native) is used nowhere outside
+three transport sites that only re-establish it
+(`SetR/Install/SwapS.lean:145`, `SetBase/IndRecsCoreR.lean:182,335`).
+It is not read by the `.proj` inference clause, by `whnfCore`'s
+projection clause, or by the annotate dispatch.  Recorded, not acted
+on: it is one plausible future guard for annotate's
+`.internal "native projection entry reached the fallback"`
+(`Core.lean:2122`), and deleting a maintained-but-unconsumed conjunct is
+a cleanup-docket decision, not this note's.
+
+### 7. Consequence for the E2 option table
+
+Option (i) was priced as *"expected to die"* because a parity-side
+agreement lemma carrying `projEntry_pins` would be a conditional form in
+the sense the standing ruling forbids.  **That objection dissolves**:
+the premise is an unconditional install-time invariant of the checker's
+own code, discharged without the tower, so the agreement lemma is
+unconditional.  The disposition actually chosen — pinned-residual
+everywhere — is stronger still: the parity clause's `.internal` throw
+becomes *provably dead*, which is what the exit-code convention (an
+`.internal` is exit 3, "crash for unclear reasons", which verification
+should make rare) asks for.
+
+### 8. The optional successor — NOTED, NOT TAKEN
+
+There is a **by-construction** variant that deletes the branch rather
+than proving it dead.  Since the native table is two closed constants,
+replace `ProjEntry.native : Bool` with a two-valued pinned tag (`none` =
+template, `some .fst` / `some .snd` = pinned) and read the entry data
+from the literals instead of storing it; the `.proj` clause then has no
+fourth branch at all and `projEntry_pins` becomes `rfl`.
+
+Not taken now: the blast radius runs through `ProjEntry`, the three
+template constructors, `findProj?` in three representations, the five
+`.proj` inference bodies, `whnfCore`'s projection clause
+(`Core.lean:1498`, which reads `ctor`/`numFields`/`numParams`), both
+annotate clauses (`:2122`, `:2290`) and the tiers' `ProjOkT` —
+a representation change against a surface that is mid-migration.
+**Cleanup docket, after the parity-alignment batch.**
+
+### 9. AS LANDED
+
+| stage | artefact |
+|---|---|
+| the note | this section |
+| the invariant | `Setlec/Verify/ProjPinInv.lean`, **559 lines** |
+| the re-point | `Setlec/SetBase/ProjPins.lean` — `projEntry_pins` statement byte-unchanged, `piResidual_of_pinned` + `piResidual_of_invariant` added |
+
+**Line accounting against the estimate.**  The probe's bill put the
+`checkDecl`-level fold at 300–500 lines.  Landed: **392** (the
+install-site inversions, the preservation lemmas, and the declaration
+and stream folds — module lines 111–502).  The rest of the module is
+the header (42), the invariant kit and basis census promoted from the
+probe (68), and the consumer-facing corollaries (57).
+
+**Axioms: `propext` and `Quot.sound` only — no `Classical.choice`
+anywhere in the module**, and `projEntry_pins` is now `propext` alone.
+
+Three findings from the mechanization, all method-level and worth
+carrying to the next batch that inverts checker do-blocks:
+
+1. **Peel, do not inline.**  `simp only [bind, Except.bind] at h`
+   materialises a checker's whole nested do-block, and `split`'s
+   internal `simp` then exceeds its step budget on anything the size of
+   `checkThmVal` (*"maximum number of steps exceeded"*, which reads as
+   a `split` failure and is not one).  Peeling one bind at a time
+   through `exceptBind_ok` keeps every intermediate term small; the
+   whole module compiles in 5 s.
+2. **`dsimp only at h` belongs in the peel loop.**  `checkIndDecl`'s
+   `let recs := …` / `let nonrecs := …` become `letFun` wrappers that
+   `split` looks straight past — it finds the *inner* match on the
+   block filters first and leaves the outer guard unpeeled.  One
+   `dsimp only` alternative in the `repeat' first | …` loop zeta-reduces
+   them and the walk becomes linear.
+3. **`refine`, not `exact`, when the folded function is a metavariable.**
+   `exact foldlM_preserves (fun e e' a … => …) hI h` elaborates the step
+   lambda before `h` has fixed `f`; `refine foldlM_preserves ?_ hI h`
+   fixes `f` first and the step goal comes out concrete.  Relatedly,
+   `exact absurd h (by simp)` must come *last* in a `first`, since its
+   `by simp` defers rather than failing and silently swallows the
+   alternative that would have worked.
+
+**What the invariant now buys, concretely.**
+`NativeProjPinned.spineShape` says that at a `native` entry the
+parameter spine has exactly two members and the index is `0` or `1` —
+so the `.proj` inference clause's `.internal "malformed projection
+entry"` branch is **unreachable on any environment the checker builds**,
+unconditionally.  `piResidual_of_invariant` is the residual-agreement
+statement with no environment record in its premises.  Together they are
+what the parity-alignment batch consumes when the five `.proj` clauses
+unify onto the pinned residual; the batch adds no new licence.
+
+`checkDirectStruct` is covered although `directStructsEnabled = false`
+makes it unreachable from `checkDecl`: nothing about the pin should
+depend on a feature flag, and the arm cost eleven lines.
+
 
 ## TASK #172 — BATCH B3a: THE TRUST CENSUS AMENDED (2026-09-04,
 `agent/tricore-b3a`; DOCS ONLY — landed before any code, as the batch's
