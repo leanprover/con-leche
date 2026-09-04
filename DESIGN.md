@@ -36084,3 +36084,179 @@ Auxiliary (not frozen, expected): `FitsS.length_eq`, `projList_length`,
 Install obligations, the capability table and the post-B4 kernel
 handoff plan are recorded with the tier's landing record (below, same
 lane).
+
+### LANDED: the tier (`Setlec/SetBase/TupleTower.lean`), obligations, capabilities, handoff (2026-09-04, agent/tuple-model)
+
+**The tier as proved.**  All frozen statements landed verbatim
+(namespace `Setlec.SetTheory.Tower`, over the bare `SetTheory`
+interface, no syntax/env imports; every frozen theorem audits to
+exactly `[propext, Classical.choice, Quot.sound]`).  Findings from the
+proofs, all strengthenings or free rides — **no walls**:
+
+* **Iota is unconditional** (`projS_mkTower`): no membership premise,
+  no level — `sfst_spair`/`ssnd_spair` iterated.  The checker's
+  `.proj`-of-`mk` reduction is denotation-sound with *no typing of the
+  fields at all*, which is exactly the official `reduce_proj_core`
+  shape (no typing at the reduction; #161 P9 row 15 "official-none").
+* **Coherence collapsed to four lines** (`mkTower_inj` via the iota
+  law + `List.ext_getElem`) — `ProjCoh` by representation, as the
+  amendment predicted (`coh_of_uniform`'s tier instance).
+* **The dependency structure was absorbed by the telescope type**:
+  `TeleS` is length-indexed with a fully dependent tail
+  (`cons (A : V) (B : V → TeleS V n)`), so the recursor derivation for
+  dependent field types — the pre-declared hard part — needed no
+  extra machinery: `towerRec` handles every arity and dependency
+  shape with `r := m ∘ projList n`, eta (`towerSet_elim`)
+  load-bearing in the typing exactly as in the probe's
+  `builtModel_recElimU2`.
+* **The Prop branch is literally the same function**: `projS_pt` is
+  definitional (`sfst_pt`/`ssnd_pt` iterated), `projS_mem_zero` is
+  the SAME membership statement as `projS_mem` with `PropS` replacing
+  `w ≠ 0`.  No `pw` field, no second definition — one premise swap.
+* **One addition beyond the freeze** (additive, nothing weakened):
+  `towerSet_zero_mem_univZero` — squash-regime formation is
+  *unconditional* (no field bounds), so definitely-`Prop` structures
+  with arbitrary-sorted data fields (`Exists`) get a lawful carrier;
+  only their projections wait on `PropS`.  `BoundS`/`towerSet_mem_univ`
+  is the graph-regime formation; the two split exactly on the regime.
+* Degeneracy checks are build-time `example`s in the module (`n = 0`:
+  sole member `mkTower []`; `n = 1`, `n = 2`: read-back through the
+  one family).
+
+**Install obligations** — what the installer checks *syntactically* on
+a structure declaration for the built model to be faithful.  This
+REPLACES the `_model` syntactic contract for covered types (no
+companion, no renaming roundtrip, no artifact phase).  O1–O3 and O5
+are **already implemented** by the dormant #82 machinery
+(`directPartsCore?`/`directShape` in `Kernel/Direct.lean:100-180`,
+`checkDirectInd`/`checkDirectCtor`/`checkDirectRecTy` +
+`checkDirectDomsAt`/`checkDirectFieldUniv` in
+`Kernel/Checker.lean:60-160`); O4 is the one genuinely new check:
+
+* **O1 — shape** (landed: `directShape`, run on the raw block at
+  recognition AND re-run on the annotated constants at install):
+  single type former + single constructor + single recursor with one
+  rule; former = `nP`-binder telescope ending in `.sort resSort`,
+  index-free; constructor = `nP + nF` telescope ending in
+  `directFam T` at the declaration's own level params; recursor =
+  exactly the generated shape (fresh elim level in front, dependent
+  motive, one minor over the field telescope, major,
+  `majorIdx = rulePrefix = nP + 2`); rule rhs =
+  `λ p⃗ motive minor f⃗, minor f⃗`; level-parameter discipline; not
+  `reservedBasisNames`.
+* **O2 — non-recursive, non-indexed** (landed: `directParts?` +
+  O1's index-freeness): every constructor binder domain resolves in
+  the pre-block environment (subsumes positivity for this class, and
+  is what makes the `TeleS` build non-circular).
+* **O3 — binder-domain pins** (landed: `checkDirectDomsAt`,
+  definitional at each binder's own frame): the constructor's
+  parameter domains against the former's, the recursor telescope
+  against the generated one.  These pins are exactly the
+  interpretation equalities the `TeleS`-building walk will consume —
+  the stored types are pinned to the tower's shape, which is the
+  entire faithfulness argument.
+* **O4 — the per-field entry bound** (NEW; the #107 Finding-A
+  obligation): field `i` gets a native `ProjEntry` iff the levelwise
+  bound `ψ(structSort) = 0 → ψ(fieldSort_i) = 0` holds at every
+  level assignment `ψ`.  Sufficient decidable checks, in order:
+  `resSort.isNonZero` (bound vacuous — today's entire recognised
+  class) OR `Level.leq fieldSort_i resSort` (the monotone case:
+  `PProd'`/`PSigma'`-style possibly-`Prop` structures).  Fields
+  failing the bound get NO entry; their `.proj` uses stay per-use
+  checked (the official `infer_proj` Prop restriction), whose
+  semantic reading is `projS` at `pt` (= `const pt`,
+  `projS_pt`/`projS_mem_zero`).  Consequence: **recognition widens** —
+  `directShape`'s `s.isNonZero` gate and `checkDirectFieldUniv`'s
+  blanket `Level.leq u s` stop being class boundaries and become the
+  per-field entry condition; possibly- and definitely-`Prop`
+  structures enter the class with per-field entry coverage
+  (`towerSet_zero_mem_univZero` covers their formation).
+* **O5 — formation bound** (landed for the current class:
+  `checkDirectFieldUniv`'s `Level.leq u s`; kept per-field): each
+  entry-covered field's sort `≤` the result sort discharges `BoundS`
+  via cumulativity (`towerSet_mem_univ`); squash instantiations need
+  nothing (`towerSet_zero_mem_univZero`).
+
+What the dormant machinery is missing (= the #107 feasible-slice
+items, unchanged): `checkDirectProj` installs degenerate recursors,
+not native `ProjEntry`s (`ty` = `directProjTy` in `.proj`-node
+spelling, `fieldSort` via `ensureSort` at the opened frame,
+`structSort := resSort`); the O4 per-field branch; and the gate
+inversion (artifact-absence → priority for covered blocks).
+
+**Capability derivation** — what the built model derives vs. what the
+artifact route had to certify or ship `false`:
+
+| capability / row | status under the tower tier |
+|---|---|
+| projection membership (infer rows) | **free** — `projS_mem` / `projS_mem_zero` (one statement, two premise regimes) |
+| projection iota (whnf/defeq rows) | **free and unconditional** — `projS_mkTower`; official-parity (no typing at the reduction) |
+| structure **eta** | **free** — `towerSet_elim` IS the model-side split (member = tower of its own projections, projections fit); the artifact route's frame-relative walls (`directCaps` ships `eta := false`) do not exist here.  Remaining: install-derivation plumbing to the `EtaLaw` public-name discharge (engineering, no math) |
+| **unit-like** (`nF = 0`) | **free** — `tower_nil_unitlike`; carrier is `unitSet` at every `w` (`towerSet_nil`) |
+| recursor typing + iota (large elim) | **derived** — `towerRec` (`r := m ∘ projList`, eta load-bearing); replaces the artifact `rec_rules`/fold contract for covered types |
+| subsingleton elimination at squash | **derived** — `towerRec_zero` (constant minors lawful; matches Lean's criterion semantically) |
+| **K** | out of class (indexed `Eq`-likes) — unchanged, artifact/pinned route |
+| formation | **free** — `towerSet_mem_univ` (graph, via `BoundS` from O5) + `towerSet_zero_mem_univZero` (squash, unconditional) |
+| stored-value hygiene (`≠ pt`) | **free** — `towerSet_ne_pt` |
+| coherence (`ProjCoh`) | **by representation** — `mkTower_inj`; not an obligation at all |
+
+**Needs work** (priced, no walls): the install-side derivation that
+*connects* the tier to a checked block — building the `TeleS` from
+the interpreted field telescope over O3's frame pins, and the λ-tower
+values for the stored constants (`⟦T⟧`/`⟦C⟧`/`⟦T.rec⟧` as
+`teleLamV`-style towers with `towerSet`/`mkTower`/`towerRec` bodies).
+This is the re-land of the retired `DirectVal`/`DirectDecl`
+introduction machinery in SetBase/SetP dialect — the historic record
+prices it at several worktree-days (2026-08-23 sections); the
+*semantic* half it consumed is what landed today.
+
+**One honest trade, restated from the amendment**: the pinned pair
+(`PSigma'`, bare `sfst`/`ssnd`) is NOT the `n = 2` tower instance —
+the terminator buys index-only uniformity at the price of two
+representations in the table.  `NativeProjPinned`'s generalization
+keys entries pair-backed vs tower-backed; the `.proj` interp clause
+stays env-independent by reading the *entry kind*, not the entry.
+
+**THE HANDOFF PLAN — post-B4 kernel wiring (record only; nothing here
+is started on this branch):**
+
+1. **Entry install**: `checkDirectProj`(+`F`/`sS` twins) switch from
+   degenerate-recursor install to native `ProjEntry` install with the
+   O4 per-field branch; `Core`/`CoreI` annotate/infer/whnf `.proj`
+   clauses need NO changes (already generic over native entries —
+   the guard fields already read `ctor`/`numFields`/`numParams`;
+   #107 audit, re-confirmed by the #161 P9 rows).
+2. **Rewrite deletion for covered types**: `annotateProjElim` stops
+   firing on tower-backed structures (their `.proj` stays first-class
+   end to end); `annotateProjRec` + its template-entry install pass
+   delete outright once the per-use `infer_proj` official check
+   serves the Finding-A class (semantics: `projS` at `pt`) — which
+   also removes the nanoda-panic/lean4lean-error divergence class D4
+   from the annotate path.  `annotateProjElim` REMAINS for opaquely
+   modeled structures (recursive/indexed/nested-packed) until/unless
+   #173.
+3. **The gate**: `directStructsEnabled` flips per the documented
+   #148 T0b recipe (constant + `#guard` + `CertifiedConfigTT`
+   conjunct) only after the model rows generalize; the gate's
+   *meaning* inverts from artifact-absence to priority for covered
+   blocks (skip-stream-artifacts precedent: the taint pre-scan,
+   `_model` skips).  #148 T7's deletion trajectory for the structure
+   path stays halted (eventual-direction ruling).
+4. **Preprocessor interplay**: `lean-inductive-models` skips
+   generation for covered blocks (the #82 endgame's dependency-aware
+   skip rule applies unchanged) — a preprocessor-cost win on top of
+   the checker win: init-full's rewrite census is 83 % covered-class
+   (`PProd` 3 565 + `PProd'` 1 911 + `PSigma` 1 940 of 8 895), and
+   ~103/149 init-prelude blocks stop needing model generation at all.
+5. **Model rows**: `AnnotOk2`'s `.proj` clause (`SetBase/Ok2.lean`)
+   generalizes from the `i < 2` pair primitive over `sigmaSet` to a
+   per-entry-kind clause whose tower branch is `projS idx ⟦e⟧` with
+   today's tier lemmas as the row facts; `denoteP`'s `i ≥ 2` failure
+   and `projPinsP` lift the same way; **`AVExpr.proj` gains the entry
+   key first** (the study's caveat (i) — a mechanical but broad ride
+   through the substitution metatheory and every P-lane `.proj` row);
+   `NativeProjPinned` de-pins to "every native entry is pair- or
+   tower-backed" and the B2 fast-path win gets re-measured.
+6. **Sequencing**: all of 1–5 waits for post-B4 coordination; the
+   tier (this branch) is self-contained and lane-neutral, so it can
+   merge independently of any kernel change.

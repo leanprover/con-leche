@@ -309,6 +309,19 @@ theorem towerSet_mem_univ {w : Nat} : ∀ {n} (T : TeleS V n),
       (fun a ha => towerSet_mem_univ (B a) (hb.2 a ha))
     rwa [show Nat.max w w = w from Nat.max_self w] at h
 
+/-- **Formation, squash regime — UNCONDITIONAL**: at `w = 0` the
+carrier is a truth value with no field bounds at all (`sigmaSet 0`
+truncates whatever its arguments are), so definitely-`Prop`
+structures with arbitrary-sorted data fields (`Exists`) still get a
+lawful carrier; only their *projections* wait on `PropS`. -/
+theorem towerSet_zero_mem_univZero : ∀ {n} (T : TeleS V n),
+    towerSet 0 T ∈ˢ (univZero : V)
+  | _, .nil => univ_zero (V := V) ▸ unitSet_mem_univ 0
+  | _, .cons _ B => by
+    show sigmaSet 0 _ (fun a => towerSet 0 (B a)) ∈ˢ (univZero : V)
+    rw [sigmaSet_zero]
+    exact truthVal_mem_univZero _
+
 /-- **Storage hygiene**: a tower carrier is never the proof point
 (the task-#100 collapse-era non-`pt`-ness of stored values). -/
 theorem towerSet_ne_pt {w : Nat} : ∀ {n} (T : TeleS V n),
