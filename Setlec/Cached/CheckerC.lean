@@ -26,12 +26,14 @@ variable (mode : CheckMode)
 
 /-! ## The entry-point record over the cached core
 
-`opE`/`opB`/`opS` convert their `Expr` arguments in and their results
-out, exactly as the interned `opE`/`opB`/`opS` intern and read back at
-the same seam. -/
+`opE`/`opB`/`opS` used to convert their `Expr` arguments in and their
+results out, exactly as the interned `opE`/`opB`/`opS` intern and read
+back at the same seam.  Since task #172 B3a there is one expression
+type, so they pass their arguments through — measured at −3.5 % / −3.8 %
+instructions on `init-prelude` / `app-lam`, which is where that batch's
+win came from. -/
 
-/-- Shared-state unary entry point: convert in, run the cached knot,
-convert back. -/
+/-- Shared-state unary entry point: run the cached knot. -/
 def opE (fe : FEnv) (pick : CoreFnsI → Nat → ExprC → CheckCM ExprC)
     (d : Nat) (e : Expr) : CheckCM Expr := do
   pick (coreKnotI mode fe checkFuel) d e
