@@ -125,6 +125,20 @@ have to re-argue it.
 Not skipped (also proof-only, but outside the task-#76 site list —
 reported as residue): `projCertI`, the possibly-Prop projection
 reduction certificate in the `whnfCoreBody` proj clause.
+
+**Not a skip, a shape (task #172 batch B1b, E1).**  Until this batch
+the parity core had no `whnfCore` loop: every β/ι/ζ/proj step was
+`r.whnfCore depth …`, a knot call, so a reduction chain of length `N`
+cost `N` units of the *shared* `checkFuel` and the lane rejected
+(`.internal "fuel exhausted: whnfCore"`) chains longer than
+`checkFuel − 1` that the certified cores reduce.  B1 measured that
+ceiling exactly; the coordinator's disposition is that fuel and depth
+limits are implementation QoS, not semantics, so this core now runs
+task #106's shape — `whnfCoreStepNC` + `whnfCoreLoopNC` on
+`whnfCoreLoopFuel`, the continuation `k` threaded through
+`whnfAppNC`/`betaPeelNC`, only the spine head's normalization left as a
+knot call.  The verdict-divergence class this closes is recorded under
+*restrictions are findings* in `DESIGN.md`.
 -/
 
 namespace Setlec
@@ -455,20 +469,23 @@ mutual
 
 /-- Cert-skipping twin of `whnfAppI`: a λ-binder always beta-reduces
 (no per-redex argument re-check; since task #100 de-gating the
-certified twin re-checks every redex). -/
-def whnfAppNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+certified twin re-checks every redex).  The head-normalization loop's
+continuation `k` is threaded through, exactly as in `whnfAppI`
+(task #172 batch B1b, E1: the parity core adopts task #106's loop). -/
+def whnfAppNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : EIdx → CheckIM EIdx) :
     EIdx → List EIdx → CheckIM EIdx
   | v, [] => pure v
   | v, a :: rest => do
     match ← viewI v with
-    | some (.lam _ _ty body _mb) => betaPeelNC r fe depth body [a] rest
+    | some (.lam _ _ty body _mb) => betaPeelNC r fe depth k body [a] rest
     | _ => do
       let fa ← internI (.app v a)
       match ← iotaRecNC r fe depth fa with
       | some e'' => do
-        let v' ← r.whnfCore depth e''
-        whnfAppNC r fe depth v' rest
-      | none => whnfAppNC r fe depth fa rest
+        let v' ← k e''
+        whnfAppNC r fe depth k v' rest
+      | none => whnfAppNC r fe depth k fa rest
 termination_by _ args => (args.length, 0)
 decreasing_by
   all_goals first
@@ -476,18 +493,19 @@ decreasing_by
     | (apply Prod.Lex.right' <;> simp)
 
 /-- Cert-skipping twin of `betaPeelI`. -/
-def betaPeelNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+def betaPeelNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : EIdx → CheckIM EIdx) :
     EIdx → List EIdx → List EIdx → CheckIM EIdx
   | t, acc, [] => do
     let e' ← instListM t acc
-    r.whnfCore depth e'
+    k e'
   | t, acc, a :: rest => do
     match ← viewI t with
-    | some (.lam _ _ty body _mb) => betaPeelNC r fe depth body (a :: acc) rest
+    | some (.lam _ _ty body _mb) => betaPeelNC r fe depth k body (a :: acc) rest
     | _ => do
       let e' ← instListM t acc
-      let v ← r.whnfCore depth e'
-      whnfAppNC r fe depth v (a :: rest)
+      let v ← k e'
+      whnfAppNC r fe depth k v (a :: rest)
 termination_by _ _acc args => (args.length, 1)
 decreasing_by
   all_goals first
@@ -496,14 +514,19 @@ decreasing_by
 
 end
 
-/-- Cert-skipping twin of `whnfCoreBodyI`: the app clause differs
+/-- Cert-skipping twin of `whnfCoreStepI`: one head-normalization step
+with the loop's continuation `k` abstracted.  The app clause differs
 through `whnfAppNC`, and the proj clause drops the
 constructor-telescope certification `projTeleCertI` (task #126, an
 `iotaCertsI` site like every other one this mode skips).  The
 possibly-Prop projection certificate `projCertI` is outside the
-task-#76 site list and kept. -/
-def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
-  fun depth e => do
+task-#76 site list and kept.
+
+Task #172 batch B1b (E1): only the spine head's normalization is left
+as a knot call; every *reduction* step is iteration, so a reduction
+chain no longer charges the shared `checkFuel` one unit per step. -/
+def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : EIdx → CheckIM EIdx) (e : EIdx) : CheckIM EIdx := do
     match ← viewI e with
     | some (.sort _) | some (.fvar ..) | some (.forallE ..)
     | some (.lam ..) | some (.const ..) | some (.lit _) => pure e
@@ -511,7 +534,7 @@ def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let v ← r.whnfCore depth h
-      whnfAppNC r fe depth v args
+      whnfAppNC r fe depth k v args
     | some (.proj sn i pe) => do
       let e' ← r.whnf depth pe
       let e' ← projLitToCtorI r fe depth e'
@@ -526,21 +549,34 @@ def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
               us.length = entry.levelParams.length then do
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
-            -- task #100 de-gating: ungated, as in `whnfCoreBodyI`
+            -- task #100 de-gating: ungated, as in `whnfCoreStepI`
             -- (`projCertI` stays — outside the task-#76 skip list;
             -- task #161 item B1 shrank it to its two `infer` runs)
             if ← projCertI r fe depth e' i entry.numParams then
-              r.whnfCore depth arg
+              k arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
       | none => internI (.proj sn i e')
     | some (.letE _ _ v b) => do
       let e' ← inst1M b v
-      r.whnfCore depth e'
+      k e'
     | some (.bvar _) =>
       throw (.notImplemented "whnf beyond the supported fragment")
     | none => throw (.internal "interned node missing")
+
+/-- Cert-skipping twin of `whnfCoreLoopI`: iterate `whnfCoreStepNC` on
+its own step budget. -/
+def whnfCoreLoopNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    Nat → EIdx → CheckIM EIdx
+  | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
+  | n + 1, e =>
+    whnfCoreStepNC r fe depth (whnfCoreLoopNC r fe depth n) e
+
+/-- Cert-skipping twin of `whnfCoreBodyI`: the head-normalization loop
+at its own step budget. -/
+def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
+  fun depth e => whnfCoreLoopNC r fe depth whnfCoreLoopFuel e
 
 /-- Cert-skipping twin of `inferBodyI` (the app clause differs, through
 `inferSpineNC`; the proj clause drops `projParamCertI`, task #129). -/
