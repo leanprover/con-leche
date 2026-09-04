@@ -30794,3 +30794,26 @@ checking DEPTH but not the returned TYPE — does the infer memo key
 on the flag, or does a single entry serve both?  Official's answer
 is a fine default; whichever is chosen, the SimC/claims treatment
 MUST match it.
+
+## TASK #170 — USER MEMO RULING (2026-09-04; closes the census's
+memo-key question)
+
+Verbatim: **"since caching has no access to semantic reasoning
+(yet) we need two memos, one with and one without the flag."**
+
+BINDING: the infer memo SPLITS by the inferOnly flag.  A hit in the
+inferOnly memo never serves a full-infer query (it witnesses fewer
+checks than the claims consume).  NO cross-memo reuse lemma in this
+campaign — the full→only direction would be sound by a monotonicity
+argument, but that is exactly the semantic reasoning the user is
+deferring: recorded as a NAMED FUTURE OPTION, not built.
+
+Conformance note: this is OFFICIAL'S OWN LAYOUT — the C++ kernel
+keys its infer cache by infer_only (a two-element cache array) — so
+the design stays conformance-readable site by site AND cache by
+cache.
+
+Claims/SimC treatment follows the split: the full-infer memo's
+invariant stays EXACTLY the current one; the inferOnly memo gets
+its own WEAKER invariant matching what an inferOnly run witnesses
+per mode.  Folded into the census.
