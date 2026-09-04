@@ -36359,3 +36359,219 @@ the full battery green on preprocessed streams — which lean on
 lowering target must demonstrably work through the new path before
 the pin dies.  Until that gate, the two kinds coexist exactly as the
 landing record describes.
+
+## Task #77 — the build-time audit: what a clean `lake build` actually costs
+
+**Headline.**  On a quiet machine a clean `lake build` of the whole tree
+is **283 s**, not fifteen minutes; the fifteen-minute figure is what the
+box does when two or three agent worktrees build (or a `perf` battery
+runs) at once, and it is therefore a *contention* number, not a tree
+number.  The audit's own fixes take the clean build to **245 s**
+(−13.3 %) and the whole build's instruction count from **8800 G to
+8183 G** (−7.0 %, `perf stat -e instructions:u` around `lake build`,
+which is the load-insensitive figure and the one to quote).
+
+### The structural finding: the build is CRITICAL-PATH bound
+
+| | baseline | after #77 |
+|---|---|---|
+| clean build wall (quiet machine) | 282.9 s | 245.2 s |
+| whole-build `instructions:u` | 8800.5 G | 8183.3 G |
+| Σ per-module wall over 506 modules | 910.4 s | 847.3 s |
+| Σ per-module CPU (user+sys) | 1671.6 s | 1606.2 s |
+| longest *measured* import chain | 280.4 s | 242.9 s |
+| effective parallelism (Σwall / span) | 3.2× | 3.5× |
+
+The machine has 96 cores and Lake runs one job per core (Lake 5.0 has
+**no `-j`/jobs flag at all** — parallelism is `nproc`, not tunable), yet
+the whole build achieves 3.2×.  The reason is in the last row but one:
+the longest import chain, weighted by measured per-module time, is
+**99 % of the wall clock**.  For long stretches — a full minute at
+`Verify/BridgeDecl`, another at `SetP/IndBottomNestedP` — exactly *one*
+`lean` process is alive on a 96-core box.
+
+**Consequence, and it is the one to remember: only modules ON the chain
+move the wall clock.**  The chain is
+
+```
+Verify.PairM 22.6 → Verify.Deep 6.5 → Verify.Fueled 13.8 → Verify.Disc 12.3
+  → Verify.DiscI3 5.1 → DiscI4 9.1 → DiscI5 7.5 → Verify.BridgeDecl 57.5
+  → Verify.BridgeWfImp 5.9 → SetP.IndBottomPlainP 13.2
+  → SetP.IndBottomNestedP 26.4 → … → SetP  (58 modules, 242.9 s)
+```
+
+`Kernel/NatOpPins` (27.6 s) and `Install/IndBottomProjS` (32.1 s before
+the fix) are among the four most expensive modules in the tree and are
+**not** on the chain: making them free would not shorten the build by
+one second.  They are still worth fixing for the CPU bill, and the
+`ProjS` fix below is the audit's single largest instruction win.
+
+### The measurement kit (reproducible; lives in `_tmp/build-audit/`)
+
+1. **Per-module wall/CPU/maxRSS during a real parallel build.**  Lake
+   resolves `lean` from its *own* sysroot, so neither `PATH` nor the
+   `LEAN` env var can interpose a wrapper.  What works: a fake sysroot
+   (`_tmp/build-audit/fakeroot`) whose entries symlink the real
+   toolchain except `bin/lean`, which is a shell shim running the real
+   binary under GNU `time`; a **copy** of the `lake` binary is placed in
+   the same fake `bin/` and invoked from there, because Lake derives the
+   sysroot from its own executable path.  Each invocation drops one
+   `.rec` line (start, end, wall, user, sys, maxRSS, argv).
+2. **Whole-build totals**: `perf stat -e instructions:u` around that
+   `lake build`.  Wall time on this box is noise-prone; instructions are
+   not.  Single-module A/B likewise (`_tmp/build-audit/meas.sh`).
+3. **Per-declaration attribution**: `-Dtrace.profiler=true
+   -Dtrace.profiler.threshold=<ms>`, reading the **printed trace tree**,
+   not the JSON.  The tree nests each `Elab.step` under the *source text
+   of the tactic*, which is what localizes a hotspot.  The older note in
+   this file — "the profiler's own output has no positions, so bisection
+   is what localizes" — applies to plain `-Dprofiler=true` and is now
+   superseded for practical purposes: the trace tree needs no bisection.
+   (Caveat: trace profiling itself burns heartbeats, so modules tuned
+   near their budget report spurious `maxHeartbeats` errors under it.)
+
+### The proof-cost finding: `omega`'s cost is in the AMBIENT context
+
+Every hotspot the audit could fix was one shape: **a single `omega` call
+inside a ~100-hypothesis proof context**.  Measured, in the trace tree:
+
+| site | cost of that one `omega` |
+|---|---|
+| `IndBottomNestedP`, the slot-shift `funext j; congr 1; omega` | **39.1 s** |
+| `IndBottomProjS` ×2, `show cnP + cnF - 1 - k = rP + cnF - 1 - k` | **15.2 s each** |
+| `IndBottomNestedP`, `show rP + (i - rP) = i` | 9.7 s |
+| `IndBottomProjP` ×2, the same two `cnP`/`rP` shows | 6.4 s + 4.7 s |
+| `IndBottomNestedP`/`PlainP`, `hfldK`'s three position side conditions | 5.2 s |
+| `IndBottomNestedP`/`PlainP`, `show cnP + (rP + (q - cnP) - rP) = q` | 4.0 s |
+
+The goals are trivial.  The cost is that `omega` ingests **every** `Nat`
+hypothesis in scope and case-splits on **every** truncated subtraction it
+finds there; with a dozen nested `a - 1 - b` shapes in the ambient facts
+the split is exponential in the context, not in the goal.  Three cures,
+in order of preference:
+
+1. **Name the cancellation.**  `Nat.add_sub_cancel' hi` for
+   `rP + (i - rP) = i`; `Nat.add_sub_cancel_left, Nat.add_sub_cancel' hqc`
+   for `cnP + (rP + (q - cnP) - rP) = q`.  Zero solver.
+2. **Rewrite by the hypothesis that makes it true.**  The two 15.2 s
+   `IndBottomProjS` sites are `rw [hcnPrP]` — the spec *hands* the proof
+   `cnP = rP`, and `omega` was rediscovering it through a truncated-
+   subtraction search.  56.8 % of that module's instructions.
+3. **`grind`, not `omega`** (user's call, and it is right).  Where no
+   term proof is at hand, `grind` closed the same goals at a *flat* cost:
+   the 15.2 s site fell to ~0.4 s under `grind`, and at the 39 s
+   slot-shift site `grind` beat even a hand-extracted standalone lemma
+   (298.0 G vs 306.6 G for the module).  **But it is not a blanket
+   substitution**: rewriting *all* 44 `omega`s in `IndBottomNestedP` to
+   `grind` fails outright and costs 150 s before it does.  Targeted only.
+
+**The general rule this yields**, for the next such proof: an `omega`
+inside one of these thousand-line P/S proofs is a cost site by default.
+If the fact is a cancellation, name it; if it follows from a hypothesis,
+rewrite by it; otherwise say `grind`.  Reach for `omega` when the goal
+genuinely needs linear-arithmetic search over the context — which, in
+this tree, is almost never.
+
+### What landed (five files; NO statement changed)
+
+Every edit is inside a proof body or a tactic macro.  No theorem
+statement, signature, `private`/`public` marker or declaration name was
+added, removed or altered anywhere in the diff.  Per-module A/B by
+`perf stat -e instructions:u` on a single-module elaboration:
+
+| module | before | after | Δ | what changed |
+|---|---|---|---|---|
+| `Verify/BridgeDecl.lean` | 759.8 G | 683.9 G | −10.0 % | the 18 `d{fst,snd}_step*` cascades |
+| `SetP/IndBottomNestedP.lean` | 548.3 G | 259.9 G | **−52.6 %** | 4 `omega` sites |
+| `SetR/Install/IndBottomProjS.lean` | 274.8 G | 118.7 G | **−56.8 %** | 2 `omega` sites |
+| `SetP/IndBottomPlainP.lean` | 166.8 G | 141.4 G | −15.2 % | 3 `omega` sites |
+| `SetP/IndBottomProjP.lean` | 134.8 G | 66.1 G | **−51.0 %** | 2 `omega` sites |
+| **sum** | 1884.5 G | 1270.0 G | −32.6 % | |
+
+Peak memory falls with it: `IndBottomNestedP` 10.9 GB → 5.7 GB maxRSS,
+`IndBottomProjS` 6.1 GB → 3.5 GB.  The theorems whose *proofs* were
+touched: `indBottomNestedP`, `indBottomPlainP`, `indBottomProjP`,
+`indBottomProjS`, and in `BridgeDecl` the whole `*_dproj` / `*_datF`
+battery (`checkConstantVal`, `checkProjLookups`, `checkProjTy`,
+`checkProjShape`, `checkTypedList`, `checkAnnotList`, `checkDefEqList`,
+`checkIotaSidesTy`, `checkProjIota`, `checkIotaThm`, `checkIotaThmN`,
+`checkIotaRule(s)`, `checkProjRule`, `checkMemberVal`, `checkIndMember`,
+`provisionRecs`, `checkIndRecs`, `checkDefnVal`, `checkThmVal`,
+`checkOpaqueVal`, `certifyNatEqs`, `checkDivModCerts`, `checkDivModPin`,
+`checkReducePin`, `checkDecl(s)` — each in its `_fst_dproj`,
+`_snd_dproj` and `_datF` forms), which consume the rewritten macros.
+
+**The `BridgeDecl` cascade rewrite, precisely.**  Each family was
+`macro "X_step" => repeat (first | … )` together with
+`macro "X_tac" => X_step <;> X_step <;> … ` twelve or fifteen times
+deep.  Because Lean's `repeat` descends only into the *main* goal, the
+`<;>` chain was the author's way of reaching the goal tree — but it
+re-runs the whole alternation's **failure sweep** (every `rw` attempt,
+then `simp only []` over a large monadic goal) once per level per goal.
+The rewrite splits the alternation out as `X_step_alt`, keeps
+`X_step := repeat X_step_alt` for the call sites that used it directly,
+and defines `X_tac := repeat' X_step_alt` — `repeat'` *is* the fixpoint
+over all goals, computed once.  Same normal form, one sweep.
+
+Two further `BridgeDecl` experiments **failed** and are recorded so they
+are not retried: moving `split` to the end of the alternations (650.6 G
+but does not compile) and `with_reducible rfl` in place of `rfl`
+(699.1 G, does not compile).  Replacing the alternation's `simp only []`
+by `dsimp only []` compiles and is exactly instruction-neutral, so it
+was dropped as churn.
+
+**Where nothing was found.**  `Verify/PairM` (343.6 G, #3 on the chain)
+carries the same cascade shape, and the same `repeat'` rewrite moves it
+by 0.1 G — measured, reverted.  Its alternation ends in `dsimp only []`,
+not `simp only []`, and its failure sweep is simply cheap.  `Fueled`,
+`Disc`, `DiscI3/4/5`, `Abstract`, `Extend/Iota`, `SortCoh/Mono`,
+`IndStagesS`, `BasisS`, `IndBottomNestedS`, `IndBottomPlainS`, `Deep`
+were all trace-profiled: **no tactic in any of them costs more than
+1.3 s.**  Those modules are honestly large (class (c)), not badly
+written, and only a module split would help them.
+
+### Split candidates (NOT done — a separate, deliberate task)
+
+The chain is what the build costs, so the split that pays is the split
+of a chain module.  In descending order of payoff:
+
+1. **`Verify/BridgeDecl.lean`** (57.5 s, 684 G, 1 file, ~2250 lines).
+   It is a *battery*: six independent macro families over disjoint
+   `check*` groups, plus the `datF` half (lines 1533-2246) which depends
+   only on `FueledM` and could stand alone.  Splitting `datF` off, and
+   the `*2`/`*3` families from the base family, would turn one 57 s
+   serial node into three ~20 s parallel ones.  Highest single lever in
+   the tree: worth ~35 s of wall.
+2. **`SetP/IndBottomNestedP.lean`** (26.4 s, 260 G, one 1360-line
+   theorem).  Not splittable as a file without extracting proof stages
+   into lemmas — a proof-engineering task, not a file move.
+3. **`Verify/PairM.lean`** (22.6 s, 344 G) — five macro families and
+   their theorem blocks; mechanically separable.
+4. `Verify/Disc.lean` (12.3 s) and the `DiscI3/4/5` trio (21.7 s
+   together, already split, in series on the chain).
+
+Off-chain but expensive, for the CPU bill only: `Kernel/NatOpPins`
+(27.6 s, 32 G but 1.9 GB and heavy interpretation — the elab-time pin
+splice of task #53, class (b) big-data, nothing to fix) and
+`SetR/Annot/SortCoh/Mono` (17.3 s / 42 s CPU).
+
+### Toolchain observations (ours vs Lean's)
+
+* **`ulimit -v` is incompatible with `lean`.**  Any virtual-memory cap —
+  32 GB *or* 100 GB — makes `lean` die at startup with
+  `libc++abi: terminating due to uncaught exception of type
+  lean::exception: failed to create thread` (exit 134), because it
+  reserves per-thread arenas for `nproc` threads.  A cap on `lake`
+  itself kills the driver the same way.  **The standing "run under
+  `ulimit -v`" rule is for the checker, not for builds**; build memory
+  must be watched, not capped (peak here: 79 GB available throughout,
+  single-module peak 10.9 GB before the fixes, 5.7 GB after).
+* Lake 5.0 has no jobs flag; `-j` is rejected outright.
+* `lean --profile`-style cumulative output carries no source positions;
+  only the trace-profiler tree does.  Worth an upstream request.
+* `omega`'s preprocessing cost is superlinear in the ambient context and
+  it gives no diagnostic saying so — a 39 s success looks exactly like a
+  fast one from the outside.  `grind` on the same goals is 30×+ faster.
+  This is a plausible upstream report (`omega` should bound, or at least
+  warn about, the truncated-subtraction split it does over hypotheses it
+  was never asked about).

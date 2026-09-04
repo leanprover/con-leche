@@ -242,35 +242,33 @@ theorem foldlM_snd {α β : Type} (g : β → α → PairM rel β) :
     funext b
     exact foldlM_snd g l b
 
-macro "dfst_step" : tactic =>
-  `(tactic| repeat (first
+macro "dfst_step_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_fst_proj])
     | (rw [foldlM_fst])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "dfst_step" : tactic => `(tactic| repeat dfst_step_alt)
 
 macro "dfst_tac" : tactic =>
-  `(tactic| dfst_step <;> dfst_step <;> dfst_step <;>
-    dfst_step <;> dfst_step <;> dfst_step <;>
-    dfst_step <;> dfst_step <;> dfst_step <;>
-    dfst_step <;> dfst_step <;> dfst_step)
+  `(tactic| repeat' dfst_step_alt)
 
-macro "dsnd_step" : tactic =>
-  `(tactic| repeat (first
+macro "dsnd_step_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_snd_proj])
     | (rw [foldlM_snd])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "dsnd_step" : tactic => `(tactic| repeat dsnd_step_alt)
 
 macro "dsnd_tac" : tactic =>
-  `(tactic| dsnd_step <;> dsnd_step <;> dsnd_step <;>
-    dsnd_step <;> dsnd_step <;> dsnd_step <;>
-    dsnd_step <;> dsnd_step <;> dsnd_step <;>
-    dsnd_step <;> dsnd_step <;> dsnd_step)
+  `(tactic| repeat' dsnd_step_alt)
 
 theorem checkConstantVal_fst_dproj (env : Env) (cv : ConstantVal) :
     (checkConstantVal (pairOps o₁ o₂ h) env cv).val.1 =
@@ -444,37 +442,39 @@ theorem checkIotaSidesTy_snd_dproj (envSelf : Env) (depth : Nat)
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, pairOps_isDefEq_snd, pairOps_inferType_snd]
 
-macro "dfst_stepPI" : tactic =>
-  `(tactic| repeat (first
+macro "dfst_stepPI_alt" : tactic =>
+  `(tactic| first
     | (rw [checkIotaSidesTy_fst_dproj])
     | (rw [unwrapOr_fst_dproj])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
 
-macro "dsnd_stepPI" : tactic =>
-  `(tactic| repeat (first
+macro "dfst_stepPI" : tactic => `(tactic| repeat dfst_stepPI_alt)
+
+macro "dsnd_stepPI_alt" : tactic =>
+  `(tactic| first
     | (rw [checkIotaSidesTy_snd_dproj])
     | (rw [unwrapOr_snd_dproj])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "dsnd_stepPI" : tactic => `(tactic| repeat dsnd_stepPI_alt)
 
 theorem checkProjIota_fst_dproj (env' envSelf : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) :
     (checkProjIota mode (pairOps o₁ o₂ h) env' envSelf T ctorName lps cvj nP nF i).val.1 =
       checkProjIota mode o₁ env' envSelf T ctorName lps cvj nP nF i := by
   unfold checkProjIota
-  dfst_stepPI <;> dfst_stepPI <;> dfst_stepPI <;> dfst_stepPI <;>
-    dfst_stepPI <;> dfst_stepPI
+  repeat' dfst_stepPI_alt
 
 theorem checkProjIota_snd_dproj (env' envSelf : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) :
     (checkProjIota mode (pairOps o₁ o₂ h) env' envSelf T ctorName lps cvj nP nF i).val.2 =
       checkProjIota mode o₂ env' envSelf T ctorName lps cvj nP nF i := by
   unfold checkProjIota
-  dsnd_stepPI <;> dsnd_stepPI <;> dsnd_stepPI <;> dsnd_stepPI <;>
-    dsnd_stepPI <;> dsnd_stepPI
+  repeat' dsnd_stepPI_alt
 
 theorem checkIotaThm_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -616,8 +616,8 @@ theorem checkIotaRules_snd_dproj (env' envSelf : Env)
       mI rP (j + 1) rest]
     rfl
 
-macro "dfst_step2" : tactic =>
-  `(tactic| repeat (first
+macro "dfst_step2_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_fst_proj])
     | (rw [foldlM_fst])
     | (rw [checkConstantVal_fst_dproj])
@@ -633,16 +633,15 @@ macro "dfst_step2" : tactic =>
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "dfst_step2" : tactic => `(tactic| repeat dfst_step2_alt)
 
 macro "dfst_tac2" : tactic =>
-  `(tactic| dfst_step2 <;> dfst_step2 <;> dfst_step2 <;>
-    dfst_step2 <;> dfst_step2 <;> dfst_step2 <;>
-    dfst_step2 <;> dfst_step2 <;> dfst_step2 <;>
-    dfst_step2 <;> dfst_step2 <;> dfst_step2)
+  `(tactic| repeat' dfst_step2_alt)
 
-macro "dsnd_step2" : tactic =>
-  `(tactic| repeat (first
+macro "dsnd_step2_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_snd_proj])
     | (rw [foldlM_snd])
     | (rw [checkConstantVal_snd_dproj])
@@ -658,13 +657,12 @@ macro "dsnd_step2" : tactic =>
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "dsnd_step2" : tactic => `(tactic| repeat dsnd_step2_alt)
 
 macro "dsnd_tac2" : tactic =>
-  `(tactic| dsnd_step2 <;> dsnd_step2 <;> dsnd_step2 <;>
-    dsnd_step2 <;> dsnd_step2 <;> dsnd_step2 <;>
-    dsnd_step2 <;> dsnd_step2 <;> dsnd_step2 <;>
-    dsnd_step2 <;> dsnd_step2 <;> dsnd_step2)
+  `(tactic| repeat' dsnd_step2_alt)
 
 theorem checkProjRule_fst_dproj (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
     (checkProjRule (pairOps o₁ o₂ h) env' pty cvj lps nP nF i).val.1 =
@@ -750,8 +748,8 @@ theorem checkIndRecs_snd_dproj (blockNames : List Name) (env₂ : Env)
     PairM.snd_ite, provisionRecs_snd_dproj, foldlM_snd,
     checkIotaRules_snd_dproj]
 
-macro "dfst_step3" : tactic =>
-  `(tactic| repeat (first
+macro "dfst_step3_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_fst_proj])
     | (rw [foldlM_fst])
     | (rw [checkConstantVal_fst_dproj])
@@ -767,16 +765,15 @@ macro "dfst_step3" : tactic =>
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "dfst_step3" : tactic => `(tactic| repeat dfst_step3_alt)
 
 macro "dfst_tac3" : tactic =>
-  `(tactic| dfst_step3 <;> dfst_step3 <;> dfst_step3 <;>
-    dfst_step3 <;> dfst_step3 <;> dfst_step3 <;>
-    dfst_step3 <;> dfst_step3 <;> dfst_step3 <;>
-    dfst_step3 <;> dfst_step3 <;> dfst_step3)
+  `(tactic| repeat' dfst_step3_alt)
 
-macro "dsnd_step3" : tactic =>
-  `(tactic| repeat (first
+macro "dsnd_step3_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_snd_proj])
     | (rw [foldlM_snd])
     | (rw [checkConstantVal_snd_dproj])
@@ -792,13 +789,12 @@ macro "dsnd_step3" : tactic =>
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "dsnd_step3" : tactic => `(tactic| repeat dsnd_step3_alt)
 
 macro "dsnd_tac3" : tactic =>
-  `(tactic| dsnd_step3 <;> dsnd_step3 <;> dsnd_step3 <;>
-    dsnd_step3 <;> dsnd_step3 <;> dsnd_step3 <;>
-    dsnd_step3 <;> dsnd_step3 <;> dsnd_step3 <;>
-    dsnd_step3 <;> dsnd_step3 <;> dsnd_step3)
+  `(tactic| repeat' dsnd_step3_alt)
 
 theorem checkProjFn_fst_dproj (env' : Env) (T ctorName : Name) (lps : List Name) (nP nF i : Nat) :
     (checkProjFn mode (pairOps o₁ o₂ h) env' T ctorName lps nP nF i).val.1 =
@@ -1070,8 +1066,8 @@ theorem checkDirectStruct_snd_dproj (env : Env) (p : DirectParts) :
     checkDirectRecTy_snd_dproj, checkDirectRule_snd_dproj,
     checkDirectProj_snd_fun]
 
-macro "dfst_step4" : tactic =>
-  `(tactic| repeat (first
+macro "dfst_step4_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_fst_proj])
     | (rw [foldlM_fst])
     | (simp only [checkIndMember_fst_dproj, checkProjFn_fst_dproj,
@@ -1093,16 +1089,15 @@ macro "dfst_step4" : tactic =>
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "dfst_step4" : tactic => `(tactic| repeat dfst_step4_alt)
 
 macro "dfst_tac4" : tactic =>
-  `(tactic| dfst_step4 <;> dfst_step4 <;> dfst_step4 <;>
-    dfst_step4 <;> dfst_step4 <;> dfst_step4 <;>
-    dfst_step4 <;> dfst_step4 <;> dfst_step4 <;>
-    dfst_step4 <;> dfst_step4 <;> dfst_step4)
+  `(tactic| repeat' dfst_step4_alt)
 
-macro "dsnd_step4" : tactic =>
-  `(tactic| repeat (first
+macro "dsnd_step4_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_snd_proj])
     | (rw [foldlM_snd])
     | (simp only [checkIndMember_snd_dproj, checkProjFn_snd_dproj,
@@ -1124,13 +1119,12 @@ macro "dsnd_step4" : tactic =>
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "dsnd_step4" : tactic => `(tactic| repeat dsnd_step4_alt)
 
 macro "dsnd_tac4" : tactic =>
-  `(tactic| dsnd_step4 <;> dsnd_step4 <;> dsnd_step4 <;>
-    dsnd_step4 <;> dsnd_step4 <;> dsnd_step4 <;>
-    dsnd_step4 <;> dsnd_step4 <;> dsnd_step4 <;>
-    dsnd_step4 <;> dsnd_step4 <;> dsnd_step4)
+  `(tactic| repeat' dsnd_step4_alt)
 
 theorem checkIndDecl_fst_dproj (env : Env) (block : List ConstantInfo) :
     (checkIndDecl mode (pairOps o₁ o₂ h) env block).val.1 =
@@ -1144,8 +1138,8 @@ theorem checkIndDecl_snd_dproj (env : Env) (block : List ConstantInfo) :
   unfold checkIndDecl
   dsnd_tac4
 
-macro "dfst_step5" : tactic =>
-  `(tactic| repeat (first
+macro "dfst_step5_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_fst_proj])
     | (rw [foldlM_fst])
     | (simp only [checkIndMember_fst_dproj, checkProjFn_fst_dproj,
@@ -1168,16 +1162,15 @@ macro "dfst_step5" : tactic =>
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "dfst_step5" : tactic => `(tactic| repeat dfst_step5_alt)
 
 macro "dfst_tac5" : tactic =>
-  `(tactic| dfst_step5 <;> dfst_step5 <;> dfst_step5 <;>
-    dfst_step5 <;> dfst_step5 <;> dfst_step5 <;>
-    dfst_step5 <;> dfst_step5 <;> dfst_step5 <;>
-    dfst_step5 <;> dfst_step5 <;> dfst_step5)
+  `(tactic| repeat' dfst_step5_alt)
 
-macro "dsnd_step5" : tactic =>
-  `(tactic| repeat (first
+macro "dsnd_step5_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_snd_proj])
     | (rw [foldlM_snd])
     | (simp only [checkIndMember_snd_dproj, checkProjFn_snd_dproj,
@@ -1200,13 +1193,12 @@ macro "dsnd_step5" : tactic =>
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "dsnd_step5" : tactic => `(tactic| repeat dsnd_step5_alt)
 
 macro "dsnd_tac5" : tactic =>
-  `(tactic| dsnd_step5 <;> dsnd_step5 <;> dsnd_step5 <;>
-    dsnd_step5 <;> dsnd_step5 <;> dsnd_step5 <;>
-    dsnd_step5 <;> dsnd_step5 <;> dsnd_step5 <;>
-    dsnd_step5 <;> dsnd_step5 <;> dsnd_step5)
+  `(tactic| repeat' dsnd_step5_alt)
 
 theorem checkDefnVal_fst_dproj (env : Env) (cv : ConstantVal)
     (value : Expr) (hint : ReducibilityHint) :
@@ -1552,20 +1544,19 @@ theorem foldlM_atF {α β : Type} (g : β → α → FueledM β) (F : Nat) :
     funext b
     exact foldlM_atF g F l b
 
-macro "datF_step" : tactic =>
-  `(tactic| repeat (first
+macro "datF_step_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_atF])
     | (rw [foldlM_atF])
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "datF_step" : tactic => `(tactic| repeat datF_step_alt)
 
 macro "datF_tac" : tactic =>
-  `(tactic| datF_step <;> datF_step <;> datF_step <;>
-    datF_step <;> datF_step <;> datF_step <;>
-    datF_step <;> datF_step <;> datF_step <;>
-    datF_step <;> datF_step <;> datF_step)
+  `(tactic| repeat' datF_step_alt)
 
 theorem checkConstantVal_datF (env : Env) (cv : ConstantVal) (F : Nat) :
     (checkConstantVal (fueledOpsM mode) env cv).val F =
@@ -1657,21 +1648,22 @@ theorem checkIotaSidesTy_datF (envSelf : Env) (depth : Nat)
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF]
 
-macro "datF_stepPI" : tactic =>
-  `(tactic| repeat (first
+macro "datF_stepPI_alt" : tactic =>
+  `(tactic| first
     | (rw [checkIotaSidesTy_datF])
     | (rw [unwrapOr_atF])
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "datF_stepPI" : tactic => `(tactic| repeat datF_stepPI_alt)
 
 theorem checkProjIota_datF (env' envSelf : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) (F : Nat) :
     (checkProjIota mode (fueledOpsM mode) env' envSelf T ctorName lps cvj nP nF i).val F =
       checkProjIota mode (fueledOps mode F) env' envSelf T ctorName lps cvj nP nF i := by
   unfold checkProjIota
-  datF_stepPI <;> datF_stepPI <;> datF_stepPI <;> datF_stepPI <;>
-    datF_stepPI <;> datF_stepPI
+  repeat' datF_stepPI_alt
 
 theorem checkIotaThm_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -1744,8 +1736,8 @@ theorem checkIotaRules_datF (env' envSelf : Env)
       tyA mI rP F (j + 1) rest]
     rfl
 
-macro "datF_step2" : tactic =>
-  `(tactic| repeat (first
+macro "datF_step2_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_atF])
     | (rw [foldlM_atF])
     | (rw [checkConstantVal_datF])
@@ -1761,13 +1753,12 @@ macro "datF_step2" : tactic =>
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "datF_step2" : tactic => `(tactic| repeat datF_step2_alt)
 
 macro "datF_tac2" : tactic =>
-  `(tactic| datF_step2 <;> datF_step2 <;> datF_step2 <;>
-    datF_step2 <;> datF_step2 <;> datF_step2 <;>
-    datF_step2 <;> datF_step2 <;> datF_step2 <;>
-    datF_step2 <;> datF_step2 <;> datF_step2)
+  `(tactic| repeat' datF_step2_alt)
 
 theorem checkProjRule_datF (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) (F : Nat) :
     (checkProjRule (fueledOpsM mode) env' pty cvj lps nP nF i).val F =
@@ -1810,8 +1801,8 @@ theorem checkIndRecs_datF (blockNames : List Name) (env₂ : Env)
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     provisionRecs_datF, foldlM_atF, checkIotaRules_datF]
 
-macro "datF_step3" : tactic =>
-  `(tactic| repeat (first
+macro "datF_step3_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_atF])
     | (rw [foldlM_atF])
     | (rw [checkConstantVal_datF])
@@ -1828,13 +1819,12 @@ macro "datF_step3" : tactic =>
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "datF_step3" : tactic => `(tactic| repeat datF_step3_alt)
 
 macro "datF_tac3" : tactic =>
-  `(tactic| datF_step3 <;> datF_step3 <;> datF_step3 <;>
-    datF_step3 <;> datF_step3 <;> datF_step3 <;>
-    datF_step3 <;> datF_step3 <;> datF_step3 <;>
-    datF_step3 <;> datF_step3 <;> datF_step3)
+  `(tactic| repeat' datF_step3_alt)
 
 theorem checkProjFn_datF (env' : Env) (T ctorName : Name) (lps : List Name) (nP nF i : Nat) (F : Nat) :
     (checkProjFn mode (fueledOpsM mode) env' T ctorName lps nP nF i).val F =
@@ -1974,8 +1964,8 @@ theorem checkDirectStruct_datF (env : Env) (p : DirectParts) (F : Nat) :
     checkDirectInd_datF, checkDirectCtor_datF, checkDirectRecTy_datF,
     checkDirectRule_datF, checkDirectProj_datF_fun]
 
-macro "datF_step4" : tactic =>
-  `(tactic| repeat (first
+macro "datF_step4_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_atF])
     | (rw [foldlM_atF])
     | (simp only [checkIndMember_datF, checkProjFn_datF,
@@ -1998,13 +1988,12 @@ macro "datF_step4" : tactic =>
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "datF_step4" : tactic => `(tactic| repeat datF_step4_alt)
 
 macro "datF_tac4" : tactic =>
-  `(tactic| datF_step4 <;> datF_step4 <;> datF_step4 <;>
-    datF_step4 <;> datF_step4 <;> datF_step4 <;>
-    datF_step4 <;> datF_step4 <;> datF_step4 <;>
-    datF_step4 <;> datF_step4 <;> datF_step4)
+  `(tactic| repeat' datF_step4_alt)
 
 theorem checkIndDecl_datF (env : Env) (block : List ConstantInfo) (F : Nat) :
     (checkIndDecl mode (fueledOpsM mode) env block).val F =
@@ -2012,8 +2001,8 @@ theorem checkIndDecl_datF (env : Env) (block : List ConstantInfo) (F : Nat) :
   unfold checkIndDecl
   datF_tac4
 
-macro "datF_step5" : tactic =>
-  `(tactic| repeat (first
+macro "datF_step5_alt" : tactic =>
+  `(tactic| first
     | (rw [liftFueled_atF])
     | (rw [foldlM_atF])
     | (simp only [checkIndMember_datF, checkProjFn_datF,
@@ -2037,13 +2026,12 @@ macro "datF_step5" : tactic =>
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
-    | (simp only [])))
+    | (simp only []))
+
+macro "datF_step5" : tactic => `(tactic| repeat datF_step5_alt)
 
 macro "datF_tac5" : tactic =>
-  `(tactic| datF_step5 <;> datF_step5 <;> datF_step5 <;>
-    datF_step5 <;> datF_step5 <;> datF_step5 <;>
-    datF_step5 <;> datF_step5 <;> datF_step5 <;>
-    datF_step5 <;> datF_step5 <;> datF_step5)
+  `(tactic| repeat' datF_step5_alt)
 
 theorem checkDefnVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
     (hint : ReducibilityHint) (F : Nat) :
