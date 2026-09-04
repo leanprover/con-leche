@@ -31432,10 +31432,10 @@ mode`) and the driver stacks.
 **The parity engines are already flag-free**, and this is the census's
 first structural finding: `Kernel/CoreNC.lean` and
 `Cached/CoreNC.lean` carry **no `mode` parameter at all**.  What they
-carry instead is **22 `.noModel` literal cross-calls into 11 shared
-mode-parametric helpers** — `etaCertI` 4, `annotateBodyI` 4,
-`inferPisI` 2, `inferLamsI` 2, `inferBodyI` 2, `indBlockCapsF` 2,
-`ctorResidualOkF` 2, `checkProjIotaF` 2, `checkIotaRulesF` 2.  Those 22
+carry instead is **22 `.noModel` literal cross-calls into 9 shared
+mode-parametric helpers** — `annotateBodyI` 4, `etaCertI` 4,
+`ctorResidualOkF` 2, `indBlockCapsF` 2, `inferPisI` 2, `inferLamsI` 2,
+`inferBodyI` 2, `checkIotaRulesF` 2, `checkProjIotaF` 2.  Those 22
 sites are the entire residual sharing between the parity core and the
 certified one, and they are the whole of what part 2's specialization
 has to resolve on the parity side.
@@ -32273,7 +32273,7 @@ goes first, as a measurement, before any tower moves.
 
 | batch | measured input | price | guarding against |
 |---|---|---|---|
-| B1 | `Kernel/CoreNC` 925 ln / 20 defs vs `Kernel/CoreI` 2 532 ln; 22 `.noModel` cross-calls into 11 helpers | 1 batch, measurement only; output is a table, not a diff | **class III** — it asks what the parity core's clauses *are*, before anything is priced on what they are assumed to be |
+| B1 | `Kernel/CoreNC` 925 ln / 20 defs vs `Kernel/CoreI` 2 532 ln; 22 `.noModel` cross-calls into 9 helpers | 1 batch, measurement only; output is a table, not a diff | **class III** — it asks what the parity core's clauses *are*, before anything is priced on what they are assumed to be |
 | B2 | the S13a slice precedent: the gate landed at 45 files / +1 061 / −649 across the whole tree | slice only: the kernel's 14 `mode`-threading modules (498 tokens) plus one core function's identity proofs.  **Expect ~1 batch**; report the measured per-module cost | **class I** — the estimate is replaced by a landed sample before B3 |
 | B3 | 165 binders, 635 passes, 211 R-tier mode statements, 17 R-tier entry statements; S13a's own one-instantiation column | **net ≈ −800 lines**; must satisfy the acceptance check or stop | **class I**; the acceptance check is the brake |
 | B4 | 415 P-tier mode statements, 96 P-tier entry statements; `GateP` 3 theorems; `BetaGate` 8 → 2; `BetaSpine` 13 → ~5 | ~1 batch; the β mathematics moves **whole** and unchanged (part 3 §3) | **class III** — the transposition's sources (`AnnotOkP_beta_gate`, `pw_of_denoteBM`) are landed and named |
