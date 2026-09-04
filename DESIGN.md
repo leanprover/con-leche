@@ -32534,3 +32534,122 @@ implementation cost, is the phase working as intended.
 | **B3 / B4** | each gains its lane's share of the ~285 `ttChecks` conjunct deletions, since both edit `Verify/Extend/{Iota,Proj}` and `Verify/InferLemmas` already; `SetR/Annot/SortCoh/Mono`'s 4 go with B3 |
 | **B9** | LOSES the `ttChecks` row (promoted out, per §3(c)) |
 | all | ruling 1 carries the standing re-scope condition: a user override toward hand-written bodies re-opens B2 |
+
+## TASK #172 — BATCH B1: THE PARITY-EXPRESSIBILITY PROBE (2026-09-04,
+`agent/tricore-b1`; MEASUREMENT ONLY — no code, no statement frozen)
+
+### 0. THE VERDICT, FIRST
+
+**ROUTE C IS ESCALATED.  The probe found CoreNC deviations that fall in
+none of the census's three divergence classes, and it reproduced two of
+them by execution.**  Per the census's own escalation rule (part 6 §5
+item 1) this is the wall B1 was ordered first to find.  The batch does
+not design around it: the two items are stated, reproduced, and handed
+back.
+
+| | count |
+|---|---|
+| class 1 — acceptance-only guard drops | **12 sites** |
+| class 2 — stuck-degraders | **12 sites** |
+| class 3 — the annotation datum | **1 family / 3 writes** |
+| **outside all three classes** | **2 clause-level + 1 structural** |
+| deviations measured to be **vacuous** (zero behaviour) | **2** (`ttChecks` at `structEtaCertWithI`; the whole of `pairEtaCertNC`) |
+
+The two clause-level outside-class items, both executed:
+
+* **E1 — `whnfCore`'s reduction continuation.**  The parity core has no
+  `whnfCoreLoopI`: every β/ι/ζ/proj step is `r.whnfCore depth …`, a
+  **knot** call, so a reduction chain of length N costs N units of the
+  shared `checkFuel`.  The certified cores run the chain as a loop on
+  `whnfCoreLoopFuel = 1 000 000` (task #106).  Measured ceiling
+  (`_tmp/tricore-b1/FuelProbe.lean`): the parity core accepts chains of
+  **exactly `F − 1`** steps at knot fuel `F`, for `F ∈ {8,16,32,64}`;
+  the P core accepts 5 000 at `F = 16`.  **The parity core therefore
+  REJECTS (`internal error: fuel exhausted: whnfCore`) inputs the P core
+  reduces** — the direction the census says cannot occur ("the parity
+  core's whole purpose is to reject less").
+* **E2 — `inferBodyNC`'s `.proj` residual.**  The certified cores
+  *compute* the residual from the pinned two-parameter basis shape
+  (`[A,_],0 => A`; `[_,B],1 => .app B (.proj T 0 pe)`), licensed by
+  `projEntry_pins` (`SetR/ProjPins.lean`); the parity core *walks* the
+  stored entry type (`constTyAtM` + `piResidualM (targs ++ [pe])`).  The
+  divergence is **deliberate and documented at the landing** (commit
+  `2e7000c2`: *"CoreNC.lean untouched — the unverified lane is
+  official-parity and keeps its own walk"*).  Measured
+  (`_tmp/tricore-b1/ProjProbe.lean`): on a three-parameter native entry
+  the parity core infers `Sort 0` and both certified cores raise
+  `internal error: malformed projection entry`.
+
+and the structural one:
+
+* **E3 — the knot shape.**  The parity engine is a **pair** of knots
+  (`coreKnotNC`, infer-only internals; `coreKnotFNC`, the checking-mode
+  front door) with two infer memos and a **cross-memo one-directional
+  share** (`memoEIO` reads `inferFC` before `inferC`).  The certified
+  engine is one knot, one memo, `memoEI (·.inferC)`.  The census plans
+  the two-memo layout for the P core (part 2 §2(c)3) but that work is
+  unbuilt, and the *share* is outside the #170 memo ruling.
+
+Why this is not a class-1/2/3 item, in one sentence each: **E1 diverges
+in the reject direction** (class 1 is accept-ward by definition, class 2
+is parity-reduces-where-certified-stops, class 3 is a `pw` write);
+**E2 is two different computations of one value**, agreeing only under
+an R-tier environment license, with `.internal` throws firing on
+disjoint inputs in *both* directions; **E3 is a difference of tie-up,
+not of clause** — the `infer` field is bound to two different bodies
+depending on which knot the caller is in, which no field of a config
+record over one body can express.
+
+Everything else in the two parity engines classifies cleanly, and §4
+reports one **correction** to the class-1 monotonicity claim the census
+asked B1 to verify.
+
+### 1. METHOD, AND THE INSTRUMENTS
+
+Three instruments, all in `_tmp/tricore-b1/`:
+
+| instrument | what it does |
+|---|---|
+| `norm.py` | normalizing whole-file diff: strips comments, applies the documented representational substitution (`CheckIM`↔`CheckCM`, `EIdx`↔`ExprC`, `LIdx`↔`Level`, `IState`↔`CState`, `NIdx`↔`Name`, `withStore (·.nodes.size)`↔`peelFuelM`, …), then compares definition by definition |
+| `extract.py` | per-definition extraction, for the clause-level `diff`s quoted in §3 |
+| `FuelProbe.lean`, `ProjProbe.lean` | **executed** witnesses for E1 and E2 (`lake env lean`, outputs quoted verbatim in §7) |
+
+The census's eleventh correction was applied as a method rule — *an
+accessor's retirement bill is not where it is read, it is where it is
+mentioned* — in its behavioural form: a **mention** of a mode accessor
+inside a parity-relevant clause was classified by what the accessor
+*evaluates to*, not by the presence of the branch.  That is what turns
+the `mode.ttChecks` certificate inside `structEtaCertWithI` into a
+**zero-deviation row** (part 8 §3(a) proved `ttChecks = true`
+uninhabited) rather than a class-1 guard drop, and it is what exposed
+`pairEtaCertNC` as a clone with **no deviation left at all** (its
+docstring still cites `projParamCertI`, which the #161 de-gating round
+deleted from both lanes).
+
+Micro-correction to the census's own arithmetic: part 6 §3 prices B1
+against *"`Kernel/CoreNC` 925 ln / 20 defs"*.  Measured: **21
+definitions** (925 lines), and `Cached/CoreNC` **21 definitions** (831
+lines).  No consequence beyond the row.
+
+### 2. THE REPRESENTATION FINDING — ONE TABLE SERVES BOTH ENGINES
+
+Run before any classification, because it decides whether the batch's
+output is one table or two:
+
+| pair | definitions | identical after the documented substitution | residue |
+|---|---|---|---|
+| `Kernel/CoreNC` vs `Cached/CoreNC` | 21 / 21 | **20** | `flushInferFC` — the closing `end Setlec` vs `end Setlec.Cached`, i.e. **nothing** |
+| `Kernel/CoreI` vs `Cached/CoreC` | 59 shared | **58** | `coreKnotI` — a comment (the reverted perf-eng E6 experiment note) and the `Thunk` binding it describes |
+
+**So the parity engines are clause-for-clause the same function twice,
+and so are the certified engines.**  Consequences the batch table should
+absorb:
+
+1. the classification below is **representation-independent**: every row
+   holds verbatim on both engines, and B5/B6's T1 families are the same
+   statements twice rather than two inventories;
+2. it also means the #163-batch-9 incident's shape (a cached core cut
+   from a stale interned one) **has not recurred** on the parity side:
+   the cached parity lane is byte-faithful to the interned one, including
+   the E1 and E2 deviations, which it inherited rather than introduced.
+
