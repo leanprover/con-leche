@@ -31575,3 +31575,80 @@ fold.
 Both incidents are inside T1's reach, and neither was inside a fixture
 sweep's reach promptly.  That is the case for the theorem, and it is
 the case the order already made.
+
+## TASK #172 — DESIGN CENSUS, part 5 — WHAT SURVIVES IN FLIGHT, AND
+THE FOLDED CLEANUP INVENTORY (2026-09-04)
+
+### 1. THE IN-FLIGHT ITEMS
+
+**#171 — direct-to-`ExprC` parse.**  Orthogonal to tri-core and
+**serves all three cached cores**: it changes the parse→`ExprC`
+boundary, not any core body.  Under tri-core it lands once and three
+of the six engines inherit it.  One sequencing consequence, already on
+the cleanup list: it obsoletes the conversion boundary
+(`Verify/Cached/OfStoreC`), so *that* removal is sequenced **after**
+#171 and not before.
+
+**The interned `sharedBs` gate.**  An R1 perf experiment; the record's
+standing instruction is that it re-baselines against the **two parity
+lanes**.  Under tri-core the parity lanes stop being clones and become
+instantiations, so their instruction counts may move.  **Sequencing
+ruling this census recommends: run the `sharedBs` measurement either
+*before* the clone retirement or *after* it, never across it** — a
+measurement whose baseline changes mid-flight is the caveat-5 failure
+mode, and the record already carries the lesson (*a caveat must live
+with the measurement harness, not in prose*).
+
+**#167 — `ExprC` Data-packing.**  Same class as #171: representation,
+not core.  Serves the three cached engines; orthogonal.
+
+**#168 — fast `isProof`.**  **Becomes P-core content**, not a flag.
+It joins the β skip and the io skips as the P core's *third* licensed
+deviation, and it inherits the #170 discipline verbatim: **the licence
+theorem lands before any behaviour does.**  Under tri-core this is
+cleaner than under the mode design — there is no gate to add, only a
+clause in one named core, and the R core is untouched by construction
+rather than by a collapse lemma.
+
+### 2. THE CLEANUP INVENTORY, FOLDED AND SIZED
+
+The campaign's running list (S13a §6 plus the S9/S13 accretions),
+carried forward with sizes and with this census's dispositions:
+
+| # | item | size | disposition under tri-core |
+|---|---|---|---|
+| 1 | `Kernel/CoreP.lean` + `Kernel/CheckerP.lean` + the knot half of `Verify/CoreP.lean` (the S9 gated-knot scaffold) | 173 + 35 + 245 ln; imported only by `Setlec.lean` (and `CheckerP`/`Verify.CoreP` by `CoreP`) | **RETIRE whole.**  The P core replaces it.  **KEEP** the collapse `whnfCoreBodyP_eq` — part 4 route C reuses its pattern; **KEEP** `SetP/Step2/GateP.lean`'s three theorems |
+| 2 | `agent/bucket2-s1` branch | — | **ARCHIVE** (measurement kit extracted) |
+| 3 | the `ioknot-b1` `CoreIO` lane | `Kernel/CoreIO` 215 + `Verify/InferIOLemmas` 90 + `SetP/Claims2PIO` 144 + `SetP/Step2/InferIOP` 290 = **739 ln** | **NOT cleanup — PROMOTE.**  This is the P core's io ancestor.  Its `pureFnsIO` equations are already wired into `Verify/Knot.lean` |
+| 4 | the 21 duplicated residue lemmas (S11b's route choice); `checkDeclR_ofEnvRE` if the run route supersedes it; the inert cut-point constants the proofdeps gate no longer needs | — | carried unchanged; re-assess at the batch that touches each |
+| 5 | `whnf_app_inv_ungated` | 1 statement | **RETIRE.**  S13a listed it "for completeness, not for removal" because the R lane needed the pre-gate letter.  Under tri-core the R core *has no gate*, so `whnf_app_inv` at the R core **is** the ungated letter and the pair collapses to one |
+| 6 | the `hg` / `hgOff` binder-name split (3 modules) | — | **DISSOLVES** with the 165 premises |
+| 7 | `Verify/BetaSpine.lean`'s five mirrored β clauses | **13 gate sites**, the heaviest single module of the S13a sweep | **13 → ~5**: the R mirror loses the branch entirely; the P mirror keeps one data branch.  The `betaArm` helper S13a proposed becomes unnecessary rather than necessary |
+| 8 | **NEW (this census)** — the `.noModel` capstone-letter question | 1 docket item | **CLOSED**, part 3 §2: answered NO on evidence.  Needs the coordinator's grant as a ratified-letter narrowing, costs nothing, unlocks the R tower's ~800-line deletion |
+| 9 | **NEW (this census)** — `CheckMode.ttChecks` | 20 impl read lines + ~37 tower read lines; a ~7-check reviewed-code block | **RULING NEEDED.**  Constantly `false` since #148 T7b.  Under tri-core the branch is deleted in all three cores, which deletes reviewed code the accessor's docstring says was kept on purpose.  Deliberate loss, flagged not defaulted |
+| 10 | **NEW (this census)** — `Verify/BetaGate.lean` | 8 theorems / 92 ln | **6 of 8 RETIRE** (the collapse, the three mode facts, the fence, the coverage certificate `betaGate_off_or_verified`); 2 survive in substance as the P core's datum readers |
+| 11 | **NEW (this census)** — the two-axis `Main.lean` dispatch | ≈60 ln | **COLLAPSES to a 6-way core selection.**  This is the refactor's user-visible payoff and should be reported as such |
+| 12 | **NEW (this census)** — `Kernel/CoreNC.lean` + `Cached/CoreNC.lean` | **1 756 ln of hand-maintained clone** | **RETIRE into the template** (part 4 route C).  Both recorded drift incidents lived here or in its sibling |
+
+### 3. WHAT THE ORDER DOES *NOT* TOUCH
+
+Recorded so no batch assumes otherwise:
+
+* the two simulation towers (`Verify/Disc*` 10 723 ln;
+  `Verify/Cached/*` 21 238 ln) are **representation** statements and
+  are mode-generic today.  They should *instantiate* rather than
+  triplicate — but that claim is a prediction, not a measurement, and
+  part 6 sequences a batch to check it before the bulk is priced on
+  it;
+* `SetTheory/*`, the `SetBase` currency (`AnnotOkP`, `CtxOkP`, `Sat2`,
+  `interp2`) and every knot-free family: **untouched**.  S12's
+  reuse-vs-restate table already measured these as knot-free;
+* the layering gate (`tests/layering.sh`): its R/P/base classification
+  is by path and does not read `CheckMode`.  The gate is **unchanged**
+  by tri-core and should stay green through every batch — it is the
+  cheapest continuous check that the separation is not being rebuilt
+  as a coupling;
+* the proofdeps gate's 120 pinned rows: unchanged in count; the R rows
+  change subject (from `checkDecls μ` to `checkDeclsR`) and must be
+  re-pinned in the batch that moves them, per the ratchet's rule that
+  a row moves only in the batch that earns it.
