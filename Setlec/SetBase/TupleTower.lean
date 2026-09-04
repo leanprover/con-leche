@@ -30,14 +30,22 @@ instantiation-independent function with global left inverses
 discharged by representation — tier form `mkTower_inj`, proved through
 the iota law alone.
 
-**The `pw` branch is a premise, not a second function**: at squash
-instantiations (`w = 0`) every carrier member is `pt` and
-`projS i pt = pt` (`sfst_pt`/`ssnd_pt` iterated), so `projS` *is* the
-`const pt` proof-field projection there.  The law families hold under
-`w ≠ 0` (graph regime) or under `PropS` (every field set a truth
-value — the levelwise `structSort = 0 → fieldSort = 0` bound) at
-`w = 0`; the checker's own `infer_proj` Prop restriction discharges
-the `PropS`-side premise at use sites.
+**No `pw` datum — `pt` is separate from pairs** (user refinement,
+2026-09-04): the interface keeps the proof point apart from every
+Kuratowski pair (`pt_ne_kpair`, the `Derive/Pt.lean` selection
+principle, surfaced as `sfst_pt`/`ssnd_pt`; the task-#109 pt-freshness
+battery is the systematic form), so the destructors fix `pt` and
+`projS i pt = pt` holds outright.  A `Prop` structure's element
+denotes `pt` and its proof fields denote `pt`, so projection-of-`pt`
+is the *correct* answer by proof irrelevance — iota and membership
+hold with one uniform `projS`, no per-structure variant.  The squash
+membership law carries the proof-field premise `PropS` (every field
+set a truth value — the levelwise `structSort = 0 → fieldSort = 0`
+bound); that is not a datum on the projection but the per-use
+legality the checker's own `infer_proj` Prop restriction discharges.
+The two regimes are disjoint by the same separation: graph-regime
+members of a nonempty tower are never `pt` (`tower_mem_ne_pt`, from
+`ptFresh_sigmaSet_pos`), squash members are exactly `pt`.
 
 Everything here is over the bare `SetTheory` interface; no syntax, no
 environment.  Kernel wiring is out of scope (post-B4; see the DESIGN
@@ -146,8 +154,10 @@ theorem projList_pt : ∀ n : Nat, projList n (pt : V) = List.replicate n pt
     show sfst (pt : V) :: projList n (ssnd (pt : V)) = pt :: List.replicate n pt
     rw [sfst_pt, ssnd_pt, projList_pt n]
 
-/-- The degenerate projection: `projS` is `const pt` on `pt` — the
-`pw`/proof-field branch is the same definition. -/
+/-- `projS` fixes `pt`: the interface's pt-vs-pair separation
+(`sfst_pt`/`ssnd_pt`, from `pt_ne_kpair`) makes projection-of-`pt`
+return `pt` — the correct proof-field answer, with no separate
+`Prop`-structure variant. -/
 theorem projS_pt : ∀ i : Nat, projS i (pt : V) = pt
   | 0 => sfst_pt
   | i + 1 => by rw [projS, ssnd_pt, projS_pt i]
@@ -246,10 +256,10 @@ theorem projS_mem {w : Nat} (hw : w ≠ 0) {n} {T : TeleS V n} {x : V}
   rw [← projList_get n i x h]
   exact hm
 
-/-- **Membership** (squash regime, the `pw` branch): the SAME
-statement, with `PropS` in place of `w ≠ 0` — `projS` degenerates to
-`const pt` and every truth-value field set at the all-`pt` prefix
-contains it. -/
+/-- **Membership** (squash regime): the SAME statement, with the
+proof-field premise `PropS` in place of `w ≠ 0` — every member is
+`pt`, `projS` fixes it, and every truth-value field set at the
+all-`pt` prefix contains it (proof irrelevance, semantically). -/
 theorem projS_mem_zero {n} {T : TeleS V n} {x : V} (hP : PropS T)
     (hx : x ∈ˢ towerSet 0 T) (i : Nat) (h : i < n) :
     projS i x ∈ˢ teleNth T i (projList i x) := by
@@ -321,6 +331,16 @@ theorem towerSet_zero_mem_univZero : ∀ {n} (T : TeleS V n),
     show sigmaSet 0 _ (fun a => towerSet 0 (B a)) ∈ˢ (univZero : V)
     rw [sigmaSet_zero]
     exact truthVal_mem_univZero _
+
+/-- **Regime disjointness** (the #109 pt-freshness battery consumed,
+not restated): a graph-regime member of a nonempty tower is never
+`pt` — squash members are exactly `pt`, so the two readings of
+`projS` never compete.  (`n = 0` is the recorded exception by design:
+`unitSet`'s member IS `pt`, and `projS` on it is still correct.) -/
+theorem tower_mem_ne_pt {w : Nat} (hw : w ≠ 0) {n : Nat} {A : V}
+    {B : V → TeleS V n} {x : V} (hx : x ∈ˢ towerSet w (.cons A B)) :
+    x ≠ pt :=
+  ne_pt_of_mem_fresh (ptFresh_sigmaSet_pos hw) hx
 
 /-- **Storage hygiene**: a tower carrier is never the proof point
 (the task-#100 collapse-era non-`pt`-ness of stored values). -/

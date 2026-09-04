@@ -36260,3 +36260,71 @@ is started on this branch):**
 6. **Sequencing**: all of 1–5 waits for post-B4 coordination; the
    tier (this branch) is self-contained and lane-neutral, so it can
    merge independently of any kernel change.
+
+### REFINEMENTS + SCOPE CORRECTION folded in pre-landing (2026-09-04, agent/tuple-model)
+
+Three user rulings arrived after the landing record; all three are
+folded in.  The frozen statements are untouched (additions only).
+
+**(R1) The `pw` datum is DEAD — pt-separation is the mechanism**
+(verbatim: "the pw is likely not needed if we keep pt separate from
+pairs, as then proj of pt can simply be pt — correct for Prop
+structures").  Confirmed at the tier with **zero new interface
+facts** — no wall, the minimal-axiomatization ruling untouched.  The
+separation already lives in the interface: `pt_ne_kpair`
+(`Derive/Pt.lean`, the selection principle "no data-value encoding
+produces `pt`"), consumed by the tier only through its surfaced forms
+`sfst_pt`/`ssnd_pt`; the systematic machinery is the **#109
+pt-freshness battery** (`Derive/PtFresh.lean` — cited and consumed,
+not restated).  Consequences in the module: `projS i pt = pt`
+(`projS_pt`) is the destructors fixing `pt`; the `Prop`-structure law
+family holds by proof irrelevance (element denotes `pt`, proof fields
+denote `pt`, projection-of-`pt` = `pt` is the correct answer —
+`projS_mem_zero` is the graph-regime statement with the proof-field
+premise `PropS` swapped in for `w ≠ 0`); and the NEW corollary
+`tower_mem_ne_pt` (from `ptFresh_sigmaSet_pos`) records the regime
+disjointness — graph-regime members of a nonempty tower are never
+`pt`, squash members are exactly `pt`, so the two readings of `projS`
+never compete.  (`n = 0` is PtFresh's recorded by-design exception:
+`unitSet`'s member IS `pt`; `projS` on it is still correct.)  The
+amendment's "`pw` branch" phrasing is superseded: one uniform
+`projS`, no per-structure variant, no datum — `PropS` is the per-use
+proof-field legality premise (what `infer_proj` checks), not a field
+on anything.
+
+**(R2) Recursive single-constructor types: EXCLUDED, uses DECLINE**
+(verbatim: "there may be a snag with recursive structures.  these are
+hopefully odd rare beasts, so granting to decline uses of .proj on
+those for now").  The pair tower has no fixpoint for a field type
+mentioning `T` itself, and O2 already excludes the class
+*syntactically* (every constructor binder domain must resolve in the
+pre-block environment — detection is exactly "`T` occurs in a field
+type", `hasIndOcc`-style).  NEW, the user-granted disposition for the
+handoff: at the eventual wiring, a `.proj` on a recursive
+single-constructor type **with no other route available** DECLINES
+(exit 2 — a positively-detected unsupported feature, the arena
+convention's letter).  Today nothing changes: such types ride the
+modeled/artifact route wherever artifacts exist, and the decline can
+only ever fire on artifact-free uses (raw streams).  **Measurement
+hook** (pre-wiring): census `.proj`-on-recursive-single-ctor over
+init-full and the Mathlib cone — expected **zero** ("odd rare
+beasts"); the decline path is the honest fallback until a real
+stream cares.
+
+**(SC) Handoff item 4 RESCINDED from the near-term plan** (verbatim
+intent: "for now the preprocessor will still produce _model decls and
+we process them, we just don't use them on these types.  do not start
+ignoring them more thoroughly or change the preprocessor").  The
+preprocessor pipeline stays **byte-untouched**; `_model` declarations
+keep being parsed, checked and installed exactly as today for ALL
+types, covered or not.  The ONLY change for covered types is
+consumption: their `.proj` semantics (and eventually capabilities)
+come from the tuple tier instead of the `_model` proj/eta artifacts.
+Handoff item 4 (preprocessor skips covered blocks; the #82
+dependency-aware skip rule) is re-filed as a **far-future option
+only**, explicitly not part of the wiring; the 83 %-rewrite-mass and
+preprocessor-cost-win figures stay in the record as measurements of
+that deferred option, nothing more.  Item 3's gate-inversion language
+is read accordingly: "priority" means covered types *prefer* tower
+semantics while their artifacts continue to install; no artifact is
+skipped anywhere.
