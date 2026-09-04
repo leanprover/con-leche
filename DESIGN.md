@@ -34872,3 +34872,109 @@ branch is not vacuous.  The semantic half of the waiver test is the
 landed fence itself: the same premise package with the bit `0` has a
 mechanized countermodel, so the statement cannot be weakened to
 arbitrary `pw` — the restriction is load-bearing, not decorative.
+
+## THE IO LICENSE BATCH — WHAT LANDED (2026-09-04, agent/io-license;
+seal)
+
+**The io quarter is COMPLETE and the five-way step is PAID.**  Every
+deliverable of the freeze above landed, statements verbatim, zero
+conditional forms, zero sorries.
+
+### 1. The licenses, in SetP proper (`Setlec/SetP/IOLicenseP.lean`)
+
+`io_domain_transfer` / `io_app_mem` (graph regime, side-condition
+free) and `io_squash_no_transfer` / `io_membership_fails_at_squash`
+(the fence) — promoted verbatim from `_tmp/inferonly-study/ProbeIO.lean`
+(study branch `agent/inferonly-study` @ `17e943d0`).  The fence is the
+license's boundary as a theorem, the `gate_zero_kind_unreachable`
+pattern: the same premise package at bit `0` has a closed countermodel,
+so `pw = .never` is the whole licensed fragment, forever.
+
+### 2. The Verify tier
+
+* `Verify/InferIOLemmas.lean`: `inferTypeCoreIO_lam_inv`,
+  `inferIO_lam_meta_copy`, `inferTypeCoreIO_app_inv` (the frozen
+  disjunction — gate fired OR certificate ran, `whnf_app_inv`'s
+  β-gate pattern at the infer tier), `inferTypeCoreIO_letE_inv`,
+  `inferTypeCoreIO_proj_inv`, `inferTypeCoreIO_lit_eq` (the literal
+  clauses are lane-independent: neither recurses, so the io run IS
+  the full run).
+* `Verify/InferIOLeaves.lean` (new): the WScoped / fvarLeaves /
+  looseBVars preservation inductions at the io lane.  All three
+  discard the certificate disjunct exactly as the full proofs discard
+  the certificate conjunct — the gate costs the scoping metatheory
+  nothing.
+
+### 3. The quarter (`SetP/Step2/InferIOP.lean`) — 11 of 11 arms
+
+| clause | disposition |
+|---|---|
+| `.sort`/`.bvar`/`.fvar`/`.const`/`.forallE` | B1's five, unchanged |
+| `.lit (.natVal _)` | `infer_natLit_claimIOP` = `infer_natLit_claimP` across `inferTypeCoreIO_lit_eq` |
+| `.lit (.strVal _)` | `infer_strLit_claimIOP` = the full lane's routed `InferStrLitStepP` across the transfer — **no new residue** |
+| `.lam` | `infer_lam_claimIOP` — premise form sheds the domain's sort run (`AnnotOkP.hoist_lam`); fibre fact keeps the chain/leaf split |
+| `.letE` | `infer_letE_claimIOP` — sheds BOTH full-lane residues (`SortSemAtP`, `InferReadsP`); ζ crossing from `hoist_letE` + `AnnotOkP_inst0` alone |
+| `.app` | `infer_app_claimIOP` — the frozen statement verbatim; gated arm = `io_domain_transfer` against the premise's hereditary app slot at `pwBit_ne_zero_of_isNever`; kept arm = `infer_app_claimP`'s `ihd` route, io lanes threaded; arms rejoin at `ha2`, close by `AnnotOkP_inst0` + `sound_app` |
+| `.proj` | routed (`InferProjStepIOP`, premise form) — as the full lane routes it |
+
+New kit: `AnnotOkP.hoist_lam` / `hoist_app` (slot included) /
+`hoist_letE`.  **`SortSemAtIOP` is now DERIVED, not routed**
+(`sortSemAtIOP_of_claims`) — B1's carried residue dissolved once the
+io scoping trio landed; the io reads *totality* residue
+(`InferReadsIOP`) remains routed (B3's walk).
+
+### 4. The assembly (`SetP/Step2/AssemblyP.lean`)
+
+`inferStepIOP_of` (the eleven-arm dispatch, modulo `InferInputsIOP` =
+`InferInputsP` + `infer_reads_io` + `proj_io`), then
+`checkStep2P5_of_quarters` and `checkSoundP5_of_inputs` — the
+five-way ladder closed over fuel.  The freeze's "remaining bill"
+(`CheckStep2P5`) is paid; `checkSound2P5` was already generic.
+
+### 5. THE B4 HANDOFF — license → skip site
+
+B4 bakes the skips into the P core under the task-#170 io design
+(official call-site shape; two infer memos split by the inferOnly
+flag, the io memo carrying the weaker premise-form invariant; R
+ignores the flag; P skips at `pw = .never` under the graph license;
+`.noModel` takes official-parity skips outside the claims).  The
+discharge map:
+
+| P-core skip site | discharging license/claim |
+|---|---|
+| the app-argument certificate at a `μ.verified && pw.isNever` ∀ (the ONE io-graded check, `inferBodyIO`'s app clause) | `infer_app_claimIOP`'s gated arm: hereditary app slot (`AnnotOkP.hoist_app`) + `pwBit_ne_zero_of_isNever` + `io_domain_transfer` (+ `sound_app`; `io_app_mem` is the packaged composition) |
+| every internal `r.infer` site switched to the io memo (proofIrrel's four, eta/unit certificates, K/η rescues, spine checks — the stop-and-name table's rows) | the premise-form family end-to-end: `InferClaimsIO2P` at every fuel via `checkSoundP5_of_inputs`'s fifth conjunct; each consumer already holds the subject's `AnnotOkP` premise (the `ProofIrrelPQ` pattern, `Step2/IrrelP.lean`) |
+| the gate condition itself | exact, both directions: `isNever_iff_forall_pwBit_ne_zero`; kernel-level exactness pinned by the four io-gate guards in `tests/SetlecTests.lean` |
+| any extension beyond `pw = .never` | FORBIDDEN — `io_membership_fails_at_squash` (model-class-wide); the never-list (`iotaCerts`/`projCert`) stays full-grade by design |
+
+What B4/B3 still owe the assembly: `InferReadsIOP` (the io reads
+walk — B3's named risk class), `InferProjStepIOP` (the structure-type
+walk tier), and the full lane's `InferInputsP` (install tier), all
+routed through `InferInputsIOP`.  Mode provenance stays structural:
+no full-lane body mentions `coreKnotIO`, and `inferStepIOP_of`
+consumes the sealed four without producing one.
+
+### 6. B3a EXPOSURE — zero retargets
+
+B3a (the computed-field batch) merged into master mid-batch
+(`41f90cf5`); master was merged back here with one DESIGN.md ordering
+conflict and **zero Lean conflicts, zero retargeted lines**: B3a
+re-typed the interned/cached tier (`ExprC` `@[computed_field]`,
+`Verify/Cached/*`), while every statement of this batch is over the
+pure-tree checker (`inferTypeCore*`/`whnf`/`isDefEqCore`), which B3a
+does not touch.  Full battery re-run green post-merge.
+
+### RECEIPTS
+
+* `lake build`: green, warning-free (558 jobs), pre- and post-merge.
+* `lake test`: exit 0, including the four new io-gate guards.
+* `tests/layering.sh`: 0 P→R, 0 R→P, whitelist EMPTY.
+* Axiom audit: all four licenses, all six io inversions, the scoping
+  trio, the three splitters, the six new clauses,
+  `sortSemAtIOP_of_claims`, `inferStepIOP_of`,
+  `checkStep2P5_of_quarters`, `checkSoundP5_of_inputs`,
+  `checkSound2P5` — every one at exactly
+  `[propext, Classical.choice, Quot.sound]`.
+* Zero sorries, zero conditional forms; no implementation file
+  touched (`Kernel/*`, `Cached/*`, `Main.lean` untouched by this
+  branch — verdict-neutrality is a theorem of the diff).
