@@ -37039,3 +37039,135 @@ splice of task #53, class (b) big-data, nothing to fix) and
   This is a plausible upstream report (`omega` should bound, or at least
   warn about, the truncated-subtraction split it does over hypotheses it
   was never asked about).
+
+### Task #77, house-order half: large files and import hygiene
+
+**(1) LARGE FILES — size is a weak predictor of cost.**  Over the 504
+measured modules the correlation between line count and elaboration wall
+time is **r = 0.37**: real, but far from the story.  Files ≥ 2000 lines
+average 6.5 s, the rest 1.4 s — yet the tree's most expensive module,
+`Verify/BridgeDecl` (57.5 s), is *mid-sized* at 2234 lines, and the
+largest file in the tree, `Kernel/ArenaWF` (5791 lines), costs 4.9 s.
+**Split large files for readability; split chain modules for build time.
+They are different lists and they overlap in exactly one place.**
+
+Twenty-seven files are ≥ 2000 lines.  `T` = triviality of the split
+(A = mechanical, the file is already sections over disjoint subjects;
+B = needs a shared-prelude module extracted first; C = one theorem,
+splittable only by extracting proof stages into lemmas).
+
+| lines | wall | file | chain? | split | T |
+|---|---|---|---|---|---|
+| 5791 | 4.9 s | `Kernel/ArenaWF.lean` | no | invariant/preservation halves | B |
+| 5666 | 7.3 s | `SetR/Install/BasisS.lean` | no | **per-basis-block** — the precedent already exists (`Kernel/Basis/*`) | A |
+| 4725 | 9.1 s | `SetR/Interp2/Step2/DefEqRun.lean` | no | per defeq-rule group | B |
+| 3925 | 3.5 s | `SetR/Annot/SortCoh/Discharge.lean` | no | leave (SortCoh was already split once) | — |
+| 3400 | 2.6 s | `SetR/Interp2/Step2/InferQ.lean` | no | per infer-rule group | B |
+| 3334 | 5.9 s | `Verify/BridgeWfImp.lean` | **yes** | wf-ops vs implication halves | B |
+| 3224 | 2.0 s | `SetR/Interp2/Step2/Whnf.lean` | no | leave | — |
+| 3045 | 6.5 s | `Verify/Deep.lean` | **yes** | per-walk (whnf / infer / defeq) | B |
+| 3004 | 4.6 s | `Verify/InferLemmas.lean` | **yes** | per-rule | B |
+| 2845 | 7.3 s | `SetR/Install/IndStagesS.lean` | no | per stage | B |
+| 2754 | 4.9 s | `SetBase/Bridge/Decl.lean` | no | *(B3's surface — noted, not touched)* | — |
+| 2617 | 6.2 s | `SetR/DivModPin.lean` | no | per pinned op | A |
+| 2529 | **17.3 s** | `SetR/Annot/SortCoh/Mono.lean` | no | per monotonicity family — **cost outlier for its size** | B |
+| 2508 | 2.1 s | `SetP/BasisQuotP.lean` | no | leave | — |
+| 2451 | 2.9 s | `Verify/Denote/IndFrame.lean` | **yes** | leave | — |
+| 2395 | 3.0 s | `SetR/Annot/SortCoh/SubstSim.lean` | no | leave | — |
+| 2332 | 1.6 s | `Kernel/Core.lean` | **yes** | leave — it is the checker's core, cheap | — |
+| 2307 | 3.0 s | `SetP/DivModCertP.lean` | no | per certificate | A |
+| **2234** | **57.5 s** | **`Verify/BridgeDecl.lean`** | **yes** | **the one split that pays: see the split-candidate list above** | **A** |
+| 2136 | 3.7 s | `SetR/Annot/SortCoh/Claims.lean` | no | leave | — |
+| 2124 | 2.4 s | `SetR/Annot/SortCoh/LoopLock.lean` | no | leave | — |
+| 2039 | 2.7 s | `Verify/Cached/OpsC.lean` | no | leave | — |
+| 2009 | 1.6 s | `SetP/BasisBlocksP.lean` | no | per block (mirrors `BasisS`) | A |
+
+Five further ≥ 2000-line files — `Verify/IExpr` (4102), `Verify/IExprOps`
+(3244), `Kernel/CoreI` (2532), `Kernel/IExpr` (2145), and by the same
+token `Verify/DiscI*`, `Verify/BinderLoopI`, `Verify/SimI`,
+`Verify/BridgeI`, `Kernel/CheckerS` — sit on the **interned surface that
+task #172 is deleting** and are excluded from this list per the batch's
+fence.  (The exclusion is name-based on this side; it should be checked
+against #172's own deletion inventory before anyone acts on it.)
+
+**(2) DEPENDENCY EDGES.**  The graph is a DAG (Lake would refuse
+otherwise) and 509 of 537 `.lean` files are reachable from the declared
+targets.  The 28 unreachable are all expected: three `_probe/*`
+one-offs, `scripts/DumpNatOpPinConsts`, `tests/ProofDeps` and
+`tests/SetlecTests/ZeroSetTests` (driven by the shell gates and the
+test-lib root), and 22 `tests/e2e/src/*` fixtures.  **No dead library
+module.**
+
+Cross-tier census (importer tier → imported tier, edges):
+
+```
+SetR→SetBase 66   SetBase→Verify 61   SetP→SetBase 54   Verify→Kernel 45
+SetR→Verify  40   SetP→Verify   35    VerifyCached→Verify 19
+VerifyCached→Cached 9   Cached→Kernel 8   Frontend→Kernel 7
+SetBase→Kernel 5   Verify→TT 4   Kernel→PinGen 3   VerifyCached→SetR 2
+```
+
+Every edge a reader might query, checked:
+
+* **`SetBase → Verify`, 61 edges over 28 modules** (`Bridge/Decl` 9,
+  `IndBlockR` 4, `ProjPins` 4, `Bridge/WhnfCore` 4, …).  *Expected*:
+  `SetBase` is the lane-neutral **semantic** tier and must talk about the
+  checker's functions; `Verify` is where the model-free lemmas about
+  those functions live.  Both are in `SetlecBase`; no fence is involved.
+  Not a finding.
+* **`VerifyCached → SetR`, exactly 2 edges, both from
+  `Verify/Cached/MainC`** — precisely the lakefile's "the ONLY module
+  allowed to see both lanes".  The fence holds by measurement.
+* **`Kernel → PinGen`, 3 edges** (`NatOpPins`, `TrustPins`,
+  `ZeroSetPin`) — the documented `meta import` of the elab-time
+  generator.  Expected.
+* Singletons, all checked and expected: `Frontend/ExportC → Cached/ParsedC`,
+  `SetP/Claims2PIO → Kernel/CoreIO`, `SetP/NatWfP → PinGen/Certs`,
+  `SetR/AnnotOkV → TT/Semantics/Soundness`.
+* `tests/layering.sh` independently reports **0 P→R and 0 R→P edges,
+  whitelist empty**.
+
+**The one structurally surprising edge, and it has a measured price.**
+`Verify/Bridge.lean` imports `Verify/BridgeI.lean` (the interned
+bridge), and `Verify/BridgeDecl` — the chain's biggest node — imports
+`Verify/Bridge`.  That single edge threads the whole interned
+discrimination tower onto the critical path:
+
+```
+Verify.Disc → DiscI1 1.8 → DiscI2 4.0 → DiscI3 5.1 → BinderLoopI 4.1
+  → DiscI4 9.1 → DiscI5 7.5 → DiscI6 1.2 → BridgeI 0.3 → Bridge → BridgeDecl
+```
+
+**33.1 s — 13.6 % of the 242.9 s chain — is interned modules that the
+cached lane's proofs do not use**, in series, ahead of the most
+expensive node in the tree.  Recorded as a *fact about the chain*, with
+no recommendation attached: those files are #172's to delete, and when
+they go the chain shortens by that much for free.  Anyone measuring
+build time across #172's landing should expect ≈ 210 s, not 243 s, and
+should not attribute the drop to anything else.
+
+**Implied imports: 598, and no way to check for truly dead ones.**  A
+transitive-closure sweep finds 598 import lines that are already implied
+by a sibling import in the same file.  Ninety-three of them are in the
+two **umbrella** files (`Setlec.lean` 38 of 52, `Setlec/SetBase.lean`
+55 of 68), where listing every member is the file's whole purpose and
+removing them would be wrong.  The remaining ≈ 505 are spread thin
+(1-3 per file).  **Not executed**, and deliberately so: removing an
+implied import changes the transitive closure by exactly nothing, so it
+buys **zero build time**, while a 500-file diff would collide with every
+concurrent branch.  Recommendation: a scripted pass (triviality **A**,
+the sweep is in `_tmp/build-audit/depsweep.py`) run once, alone, on a
+quiet tree between batches — as hygiene, not as performance work.
+
+**`lake shake` cannot run on this tree** — `error: lake shake only works
+with modules currently`, and exactly **4 of 505** files carry the
+`module` header (`PinGen`, `Kernel/Expr`, `Kernel/NatOpPins`,
+`Kernel/TrustPins`).  So *truly* dead imports — as opposed to the
+implied ones above — are not mechanically detectable here today, and
+this report does not claim there are none.  Two ways out, both
+recommended-not-done: adopt the module header tree-wide (large, and it
+changes `public import` semantics — a deliberate task), or detect dead
+imports by brute force (drop one import, rebuild the module, keep if it
+still elaborates) restricted to the ~11 chain modules, where a removed
+edge would actually shorten the build.  The second is cheap enough to be
+worth doing next time the chain is the target.
