@@ -96,7 +96,7 @@ private theorem whnfCoreC_iota_tail (ih : SSimC mode env f) (henv : EnvWF env)
   have hQfa' : RelC fa (Expr.app f'x xa) := by
     refine ⟨hQfa.1, ?_⟩
     have h := hQfa.2
-    rw [show ofViewE (eraseCV (ExprView.app f' a))
+    rw [show ofViewE (ExprView.app f' a)
       = Expr.app f' a from rfl, hf'd.2, had.2] at h
     exact h
   refine SimC.bind (iotaRecC_sim ih henv hs₁ hQfa' hwapp)
@@ -189,8 +189,8 @@ theorem whnfAppC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
             (Expr.app (.lam nm ty body mb) xa) := by
           refine ⟨hQfa.1, ?_⟩
           have hh := hQfa.2
-          rw [show ofViewE (eraseCV (ExprView.app
-              (Expr.lam nm ty body mb) a))
+          rw [show ofViewE (ExprView.app
+              (Expr.lam nm ty body mb) a)
             = Expr.app (.lam nm ty body mb) a
             from rfl, hax.2] at hh
           exact hh
@@ -289,7 +289,7 @@ theorem whnfAppIotaC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
     have hQfa' : RelC fa (Expr.app vx xa) := by
       refine ⟨hQfa.1, ?_⟩
       have h := hQfa.2
-      rw [show ofViewE (eraseCV (ExprView.app v a))
+      rw [show ofViewE (ExprView.app v a)
         = Expr.app v a from rfl, hv.2, hax.2] at h
       exact h
     refine SimC.bind (iotaRecC_sim ih henv hs₁ hQfa' hwapp)
@@ -392,7 +392,7 @@ theorem betaPeelC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
               mb).instantiateList ws) xa) := by
           refine ⟨hQfa.1, ?_⟩
           have hh := hQfa.2
-          rw [show ofViewE (eraseCV (ExprView.app f' a))
+          rw [show ofViewE (ExprView.app f' a)
             = Expr.app f' a from rfl, hQf'.2, hax.2] at hh
           exact hh
         refine SimC.of_eff (mkAppNM_eff hs₅ hQfa' hrest) _

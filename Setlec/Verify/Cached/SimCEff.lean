@@ -155,7 +155,7 @@ private theorem internI_run (n : ExprView ExprC) (s : CState) :
 `intern_spec` becomes `ofView_spec`). -/
 theorem internI_eff (hs : CSOK mode env s₀) {n : ExprView ExprC}
     (hv : WFcV n) :
-    CEff mode env s₀ (fun i => RelC i (ofViewE (eraseCV n))) (internI n) :=
+    CEff mode env s₀ (fun i => RelC i (ofViewE (n))) (internI n) :=
   CEff.pure hs (ofView_spec hv)
 
 /-- Converting a whole `Expr`. -/

@@ -46,7 +46,7 @@ collapses show up only here:
 
 The `mk`/`mkX` premise of `annotateBindersOutC_sim` is the transposition
 of the interned `denoteNode`-agreement premise: `WFcV` of the built view
-plus `ofViewE ∘ eraseCV` agreement (what `internI_eff` consumes and
+plus `ofViewE` agreement (what `internI_eff` consumes and
 produces here).
 
 With this the port of `BinderLoopI.lean` is COMPLETE — every theorem of
@@ -914,7 +914,7 @@ theorem annotateBindersOutC_sim
     (hmk : ∀ (n : Name) (ty : ExprC) (tyx : Expr) (b : ExprC) (bx : Expr)
       (mi : BinderMeta), RelC ty tyx → RelC b bx →
       WFcV (mk n ty b mi) ∧
-        ofViewE (eraseCV (mk n ty b mi)) = mkX n tyx bx mi) {d : Nat} :
+        ofViewE (mk n ty b mi) = mkX n tyx bx mi) {d : Nat} :
     ∀ {stk : List AnnotBinderEntry} {stkx : List AnnotBinderEntryX}
       {j : Nat} {pw? : Option PropWhen} {cur : ExprC} {curx : Expr}
       {s₀ : CState},
@@ -1098,7 +1098,7 @@ theorem annotatePisLeafC_sim (ih : SSimC mode env f) {d : Nat}
     (fun s₅ cur hs₅ hQcur => ?_)
   refine annotateBindersOutC_sim ?_ hs₅ hstk hQcur
   exact fun _n ty tyx b bx _mi hty hb => ⟨⟨hty.1, hb.1⟩, by
-    dsimp only [eraseCV, ofViewE]
+    dsimp only [ofViewE]
     rw [hty.2, hb.2]⟩
 
 theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
@@ -1202,7 +1202,7 @@ theorem annotateLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
     (fun s₆ cur hs₆ hQcur => ?_)
   refine annotateBindersOutC_sim ?_ hs₆ hstk hQcur
   exact fun _n ty tyx b bx _mi hty hb => ⟨⟨hty.1, hb.1⟩, by
-    dsimp only [eraseCV, ofViewE]
+    dsimp only [ofViewE]
     rw [hty.2, hb.2]⟩
 
 theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :

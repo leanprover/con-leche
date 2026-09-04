@@ -145,19 +145,6 @@ def ofViewE : ExprView Expr → Expr
 @[simp] theorem ofViewE_view (a : Expr) : ofViewE a.view = a := by
   cases a <;> rfl
 
-/-- Erasure at the view level. -/
-def eraseCV : ExprView ExprC → ExprView Expr
-  | .bvar i => .bvar i
-  | .fvar idx n ty => .fvar idx n ty
-  | .sort u => .sort u
-  | .const n us => .const n us
-  | .app f a => .app f a
-  | .lam n ty b m => .lam n ty b m
-  | .forallE n ty b m => .forallE n ty b m
-  | .letE n ty v b => .letE n ty v b
-  | .lit l => .lit l
-  | .proj s i e => .proj s i e
-
 /-- The field invariant on a view's children. -/
 def WFcV : ExprView ExprC → Prop
   | .bvar _ | .sort _ | .const _ _ | .lit _ => True
@@ -170,7 +157,7 @@ def WFcV : ExprView ExprC → Prop
 /-- Reading a node one level down preserves the invariant and commutes
 with the erasure. -/
 theorem view_spec {e : ExprC} (hw : WFc e) :
-    WFcV (view e) ∧ eraseCV (view e) = (Expr.view e) := by
+    WFcV (view e) ∧ (view e) = (Expr.view e) := by
   cases e with
   | fvar idx n ty => exact ⟨hw.fvar_inv.1, rfl⟩
   | app f a => exact ⟨⟨hw.app_inv.1, hw.app_inv.2.1⟩, rfl⟩
@@ -186,7 +173,7 @@ theorem view_spec {e : ExprC} (hw : WFc e) :
 commutes with the erasure — the transposition of the arena's
 `intern_spec`. -/
 theorem ofView_spec {v : ExprView ExprC} (hv : WFcV v) :
-    WFc (ofView v) ∧ (ofView v) = ofViewE (eraseCV v) := by
+    WFc (ofView v) ∧ (ofView v) = ofViewE (v) := by
   cases v with
   | bvar i => exact ⟨WFc.mkBVar i, rfl⟩
   | fvar idx n ty => exact ⟨WFc.mkFVar idx n hv, rfl⟩
