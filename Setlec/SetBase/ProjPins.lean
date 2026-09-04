@@ -2,6 +2,7 @@ import Setlec.SetBase.Rel
 import Setlec.Verify.Denote.SubstAlgebra
 import Setlec.Verify.Denote.Levels
 import Setlec.Verify.EnvPreds
+import Setlec.Verify.ProjPinInv
 
 /-!
 # The pinned projection entries, denoted (task #148)
@@ -37,7 +38,23 @@ variable {env : Env} {cval : TConstVal} {φ : Name → Nat}
 
 /-- A native table entry is one of the two pinned pair entries, its
 stored name pins the struct name and index, and the pair block is
-stored.  (`Model/Core/Whnf.lean:317-326`'s moves, packaged.) -/
+stored.  (`Model/Core/Whnf.lean:317-326`'s moves, packaged.)
+
+**Re-pointed (2026-09-04, the E2 gate).**  Statement unchanged; the
+proof is now three parts with three different premises, which is the
+finding:
+
+* the **entry identity** comes from `ProjOkT` here, but it does not
+  have to — `NativeProjPinned.pinned` (`Verify/ProjPinInv.lean`)
+  derives it with **no environment predicate at all**, as an
+  install-time invariant of the checker's own code.  That is what makes
+  the `.proj` clause's pinned residual unconditional rather than a
+  tier licence;
+* the **name and index** never needed a predicate: `projEntry_names`
+  reads them off the lookup, since a table entry is stored under
+  `projFnName entry.structName entry.idx`;
+* only the two **stored-block** conjuncts genuinely use `ProjOkT`, and
+  they are read only by the denotation lemmas below.  They stay here. -/
 theorem projEntry_pins (hpo : ProjOkT env) {sn : Name} {i : Nat}
     {entry : ProjEntry}
     (hf : env.findProj? sn i = some entry) (hnat : entry.native = true) :
@@ -47,14 +64,8 @@ theorem projEntry_pins (hpo : ProjOkT env) {sn : Name} {i : Nat}
     env.find? psigmaMkName = some psigmaMkA := by
   obtain ⟨hpin, hpsig, hpsigMk⟩ :=
     hpo.1 _ _ (Env.findProj?_some hf) hnat
-  have h1 := List.find?_some (Env.findProj?_some hf)
-  have h2 : (ConstantInfo.projInfo entry).name = projFnName sn i :=
-    eq_of_beq (by simpa using h1)
-  simp only [ConstantInfo.name, ConstantInfo.toConstantVal] at h2
-  refine ⟨hpin, ?_, (projFnName_inj h2).2, hpsig, hpsigMk⟩
-  have hsn : entry.structName = sn := (projFnName_inj h2).1
-  rw [← hsn]
-  rcases hpin with rfl | rfl <;> rfl
+  obtain ⟨hsn, hidx⟩ := Setlec.projEntry_names hf hpin
+  exact ⟨hpin, hsn, hidx, hpsig, hpsigMk⟩
 
 /-! ### The residual, from the computed two-way branch (task #161 B2)
 
@@ -94,12 +105,18 @@ theorem piResidual_pairSndS (l0 l1 : Level) {A B pe : Expr}
     Expr.instantiate1]
   rw [Setlec.Expr.instantiate1_eq_self (hB 0)]
 
-/-- **The walk, from the computed residual.**  What the `.proj`
-inference clause returns is what `piResidual` would have walked to —
-under the pin, the two-element spine and the parameters' closedness. -/
-theorem piResidual_of_computed (hpo : ProjOkT env) {sn : Name} {i : Nat}
+/-- **The walk, from the computed residual — from the entry alone.**
+
+Re-pointed (2026-09-04, the E2 gate): this carries no environment
+predicate.  Everything it needs is the pinned entry's *identity*, which
+`ProjOkT` supplies in the tower and `NativeProjPinned.pinned`
+(`Verify/ProjPinInv.lean`) supplies from the install path with no
+premise at all.  `piResidual_of_computed` below is the `ProjOkT`
+instance, statement byte-unchanged. -/
+theorem piResidual_of_pinned {sn : Name} {i : Nat}
     {entry : ProjEntry} {us : List Level} {A B pe t : Expr}
-    (hfe : env.findProj? sn i = some entry) (hnat : entry.native = true)
+    (hpin : entry = pairFstEntry ∨ entry = pairSndEntry)
+    (hsn : sn = psigmaName) (hidx : entry.idx = i)
     (hlenUs : us.length = entry.levelParams.length)
     (hA : Expr.looseBVarsBounded 0 A = true)
     (hB : Expr.looseBVarsBounded 0 B = true)
@@ -108,7 +125,7 @@ theorem piResidual_of_computed (hpo : ProjOkT env) {sn : Name} {i : Nat}
     Setlec.piResidual
       (entry.ty.instantiateLevelParams entry.levelParams us)
       ([A, B] ++ [pe]) = some t := by
-  obtain ⟨hpin, rfl, hidx, -, -⟩ := projEntry_pins hpo hfe hnat
+  subst hsn
   have hAk : ∀ k, Expr.looseBVarsBounded k A = true := fun k =>
     Setlec.Expr.looseBVarsBounded_mono (Nat.zero_le k) hA
   have hBk : ∀ k, Expr.looseBVarsBounded k B = true := fun k =>
@@ -129,6 +146,45 @@ theorem piResidual_of_computed (hpo : ProjOkT env) {sn : Name} {i : Nat}
     rcases hcomp with ⟨hi0, -⟩ | ⟨-, rfl⟩
     · exact absurd (hi.symm.trans hi0) (by decide)
     · exact piResidual_pairSndS l0 l1 hBk
+
+/-- **The walk, from the computed residual.**  What the `.proj`
+inference clause returns is what `piResidual` would have walked to —
+under the pin, the two-element spine and the parameters' closedness.
+
+The `ProjOkT` instance of `piResidual_of_pinned`; statement unchanged
+across the E2-gate re-point, so its callers are untouched. -/
+theorem piResidual_of_computed (hpo : ProjOkT env) {sn : Name} {i : Nat}
+    {entry : ProjEntry} {us : List Level} {A B pe t : Expr}
+    (hfe : env.findProj? sn i = some entry) (hnat : entry.native = true)
+    (hlenUs : us.length = entry.levelParams.length)
+    (hA : Expr.looseBVarsBounded 0 A = true)
+    (hB : Expr.looseBVarsBounded 0 B = true)
+    (hcomp : (i = 0 ∧ t = A) ∨
+      (i = 1 ∧ t = .app B (.proj sn 0 pe))) :
+    Setlec.piResidual
+      (entry.ty.instantiateLevelParams entry.levelParams us)
+      ([A, B] ++ [pe]) = some t :=
+  let p := projEntry_pins hpo hfe hnat
+  piResidual_of_pinned p.1 p.2.1 p.2.2.1 hlenUs hA hB hcomp
+
+/-- **The walk, from the install-time invariant** — the same conclusion
+with no environment record anywhere in the premises.  This is the form
+the parity-alignment batch consumes when the five `.proj` inference
+clauses unify onto the pinned residual. -/
+theorem piResidual_of_invariant {sn : Name} {i : Nat}
+    {entry : ProjEntry} {us : List Level} {A B pe t : Expr}
+    (hI : Setlec.NativeProjPinned env)
+    (hfe : env.findProj? sn i = some entry) (hnat : entry.native = true)
+    (hlenUs : us.length = entry.levelParams.length)
+    (hA : Expr.looseBVarsBounded 0 A = true)
+    (hB : Expr.looseBVarsBounded 0 B = true)
+    (hcomp : (i = 0 ∧ t = A) ∨
+      (i = 1 ∧ t = .app B (.proj sn 0 pe))) :
+    Setlec.piResidual
+      (entry.ty.instantiateLevelParams entry.levelParams us)
+      ([A, B] ++ [pe]) = some t :=
+  let p := hI.pinned hfe hnat
+  piResidual_of_pinned p.1 p.2.1 p.2.2 hlenUs hA hB hcomp
 
 /-! ### The pinned types' denotations (concrete computations) -/
 
