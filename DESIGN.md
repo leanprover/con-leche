@@ -33654,6 +33654,7 @@ obligation (`withStore (·.nodes.size)`); the cached engines read
 `peelFuelM`, a constant, and B1 §4 already noted R2 "does not arise on
 the cached engines".  With the interned variants dropped there is no
 engine left that carries it.  One row off B3–B6's bill.
+**RATIFIED by the coordinator at B2's merge grant.**
 
 ### 4. THE TRANSITIONAL RESIDUE, NAMED AND PRICED
 
@@ -33680,7 +33681,8 @@ one-representation ruling and for §6's disposition of the spec type.
 
 `iotaMode` retires with the `ttChecks` row (census part 8 §3(c)), and
 B2 confirms that row's placement: it is the same edit as the ι cone's
-de-parameterization, so **they are one batch, not two**.
+de-parameterization, so **they are one batch, not two**.  **RATIFIED
+by the coordinator at B2's merge grant.**
 
 ### 5. THE `@[computed_field]` EVALUATION (user design input, mid-flight)
 
@@ -33758,14 +33760,21 @@ ways:
   construction site — precisely the class of thing the drift ledger
   says a clone-shaped discipline loses.
 
-**Recommendation: ADOPT, with the trust point written down first.**
+> **STATUS: PENDING USER RULING.**  Adoption is otherwise
+> **RECOMMENDED AND VERIFIED** — every mechanical count in the table
+> above was checked by execution, not argued — but the batch does not
+> proceed on it, and neither does any batch after it.
+
 The ruling wanted is one sentence — *does a compiler-implemented field
 count as a trusted escape on the same footing as `beqFast`?* — and it
 belongs beside the two existing escapes in `Cached/ExprC.lean`'s
 docstring and in whatever the proofdeps gate says about escapes, since
 the gate cannot see it.  This is a **user** decision by the standing
 "no non-standard axioms / pinned trust points" discipline; it is
-recorded, not self-granted.
+recorded, not self-granted.  The coordinator's disposition at B2's
+merge grant: the finding goes to the user quoted, and **B3/B4 wait on
+the answer** — it decides whether the towers re-point once or twice,
+so the ExprC-field version is deliberately *not* built ahead of it.
 
 **Re-pricing this implies (delta only, honestly small because B2 did
 not spend on the retiring surface):**
@@ -33817,5 +33826,20 @@ shared pure mirror and are deletions in waiting.
    dissolves the spec-`Expr` question, shrinks `beqFast`'s premise —
    and moves the derived-field correctness from a theorem of this
    repository to a compiler escape that `#print axioms` cannot see.
-   **That last one is a user ruling, and it is the only thing B2 asks
-   for before the representation moves.**
+   Adoption is **recommended and verified**; the trust question is
+   **PENDING USER RULING**, and it is the only thing B2 asks for
+   before the representation moves.  **B3/B4 do not dispatch until it
+   is answered** (coordinator, at B2's merge grant): the answer
+   decides whether the towers re-point once or twice.
+
+**Ledger entry — the config-shape rule, and it is the batch's cheapest
+transferable finding.**  Three shapes of one config all satisfied the
+`rfl`-eliminability requirement and all passed the full battery; they
+differed by **2×–4.5×** in cost (+0.359 % / +0.155 % / +0.080 %), and
+nothing but a measurement distinguished them.  Its reusable form:
+
+> *An identity requirement is not a cost requirement.  When a
+> refactor's correctness criterion is definitional, every candidate
+> shape passes it — so the shape must be chosen by measurement, and a
+> config value must be scalar data built once per knot level, never a
+> closure evaluated per call.*
