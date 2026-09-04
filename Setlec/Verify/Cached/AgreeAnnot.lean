@@ -1,26 +1,28 @@
 import Setlec.Cached.ParsedNC
 
 /-!
-# T2a / T2b — `annotate`'s mode identity and the `pw` writes
+# T2a / T2b — `annotate`'s config identity and the `pw` writes
 (task #172, batch B7)
 
 Census part 4 §3's second and third obligations, at the **cached** tier
 (the user's drop-the-interned ruling).
 
 At this tier the parity core's `annotate` **is** the certified body at
-`.noModel` — `Cached/CoreNC.lean` ties
-`annotate := memoEINC … (fun d e => annotateBodyI .noModel prev.get fe d e)`
-— so the two obligations are a *mode collapse on one function*, stated
+`cfgNC` (task #172 B3: the parity core's *config*, the mode
+accessor's successor) — `Cached/CoreNC.lean` ties
+`annotate := memoEINC … (fun d e => annotateBodyI cfgNC prev.get fe d e)`
+— so the two obligations are a *config collapse on one function*, stated
 in the T1 shape: a **shared** `r`, one unfolding of the body.
 
-* **T2a** (`annotateBodyI_mode_eq`): at a shared `r` the two modes'
+* **T2a** (`annotateBodyI_cfg_eq`): at a shared `r` the two configs'
   `annotateBodyI` are the *same action* at every node that is not a
-  binder.  A freeze-time finding, recorded because it narrows T2c: the
-  `.proj` clause is **mode-free**, so it is inside T2a, not carried to
+  binder — and B3's templating **strengthened** it: the statement now
+  quantifies over every `CoreCfg`, not only the three a mode maps to.  A freeze-time finding, recorded because it narrows T2c: the
+  `.proj` clause is **config-free**, so it is inside T2a, not carried to
   T2c.  What is left in T2c is entirely the two cores' `r` differing
   (class 2) — nothing about `annotateBody` itself.
 * **T2b** (`annotateBindersOutI_erasePwC` and the two leaf clauses):
-  at the two binder telescopes the modes differ *only* by the datum
+  at the two binder telescopes the configs differ *only* by the datum
   written into the rebuilt binder's `BinderMeta.pw`, which is exactly
   what `erasePw` forgets.
 
@@ -34,21 +36,21 @@ namespace Setlec.Cached
 
 open Setlec
 
-/-! ## T2a — the clause-level mode identity -/
+/-! ## T2a — the clause-level config identity -/
 
 /-- The two binder nodes: the only clauses of `annotateBodyI` in which
-the mode occurs at all. -/
+the config occurs at all. -/
 def ExprC.isBinderNode : ExprC → Bool
   | .lam .. | .forallE .. => true
   | _ => false
 
 set_option maxRecDepth 10000 in
 /-- **T2a.**  At a shared `r`, `annotateBodyI` does not depend on the
-mode at any non-binder node — *including* `.proj`, `.letE` and the two
+config at any non-binder node — *including* `.proj`, `.letE` and the two
 literal clauses.  `rfl`-grade, clause by clause. -/
-theorem annotateBodyI_mode_eq (mode : CheckMode) (r : CoreFnsI) (fe : FEnv)
+theorem annotateBodyI_cfg_eq (cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv)
     (d : Nat) (e : ExprC) (h : ExprC.isBinderNode e = false) :
-    annotateBodyI .noModel r fe d e = annotateBodyI mode r fe d e := by
+    annotateBodyI cfgNC r fe d e = annotateBodyI cfg r fe d e := by
   cases e with
   | bvar _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
   | fvar _ _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
@@ -97,15 +99,17 @@ theorem annotBinderMetaI_bi (pw? : Option PropWhen) (mb : BinderMeta) :
   | none => rfl
   | some p => by_cases h : pwWritten mb.pw <;> simp [annotBinderMetaI, h]
 
-/-- At `.noModel` the telescope loops write nothing — the gate is the
-mode accessor and nothing else. -/
-@[simp] theorem annotatePisPwI_noModel (r : CoreFnsI) (d k : Nat)
+/-- At `cfgNC` the telescope loops write nothing — the gate is the
+config's `verified` field and nothing else, and it is a literal
+`false` there (task #172 B3: the mode accessor became a config
+field; the collapse is still `rfl`). -/
+@[simp] theorem annotatePisPwI_cfgNC (r : CoreFnsI) (d k : Nat)
     (leaf' : ExprC) :
-    annotatePisPwI .noModel r d k leaf' = pure none := rfl
+    annotatePisPwI cfgNC r d k leaf' = pure none := rfl
 
-@[simp] theorem annotateLamsPwI_noModel (r : CoreFnsI) (d k : Nat)
+@[simp] theorem annotateLamsPwI_cfgNC (r : CoreFnsI) (d k : Nat)
     (leaf' : ExprC) :
-    annotateLamsPwI .noModel r d k leaf' = pure none := rfl
+    annotateLamsPwI cfgNC r d k leaf' = pure none := rfl
 
 /-- **T2b, the rebuild loop.**  `annotateBindersOutI`'s output does not
 depend on the datum written: two runs whose inputs agree modulo
@@ -158,7 +162,7 @@ theorem ofView_lam_erasePwC (n : Name) (ty b₁ b₂ : ExprC)
 /-! ### T2b at the two gated clauses
 
 The two telescope leaves are the *only* places the annotation pass
-consults the mode.  Both runs start from the same state and call the
+consults the config.  Both runs start from the same state and call the
 same `r`, so they reach the rebuild loop with the same leaf; from there
 the datum is all that differs, and `erasePwC` forgets it.
 
@@ -166,20 +170,20 @@ Scoped to *accept*, as everywhere in B7: the verified run's datum
 computation calls `r.infer`, which may fail where the parity run does
 not (a class-1, acceptance-only divergence). -/
 
-theorem annotatePisLeafI_erasePwC (mode : CheckMode) (r : CoreFnsI) (d : Nat)
+theorem annotatePisLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (d : Nat)
     (t : ExprC) (k : Nat) (fvs : Array ExprC) (stk : List AnnotBinderEntry)
     {s : CState} {a₁ a₂ : ExprC} {s₁ s₂ : CState}
-    (h₁ : annotatePisLeafI .noModel r d t k fvs stk s = .ok (a₁, s₁))
-    (h₂ : annotatePisLeafI mode r d t k fvs stk s = .ok (a₂, s₂)) :
+    (h₁ : annotatePisLeafI cfgNC r d t k fvs stk s = .ok (a₁, s₁))
+    (h₂ : annotatePisLeafI cfg r d t k fvs stk s = .ok (a₂, s₂)) :
     ExprC.erasePwC a₁ = ExprC.erasePwC a₂ := by
-  have e₁ : annotatePisLeafI .noModel r d t k fvs stk s
+  have e₁ : annotatePisLeafI cfgNC r d t k fvs stk s
       = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
           (fun p => annotateBindersOutI
             (fun n ty b mb => ExprView.forallE n ty b mb) d none stk (k - 1)
             (ExprC.abstractRange p.1 d k) p.2) := rfl
-  have e₂ : annotatePisLeafI mode r d t k fvs stk s
+  have e₂ : annotatePisLeafI cfg r d t k fvs stk s
       = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
-          (fun p => (annotatePisPwI mode r d k p.1 p.2).bind
+          (fun p => (annotatePisPwI cfg r d k p.1 p.2).bind
             (fun q => annotateBindersOutI
               (fun n ty b mb => ExprView.forallE n ty b mb) d q.1 stk (k - 1)
               (ExprC.abstractRange p.1 d k) q.2)) := rfl
@@ -189,7 +193,7 @@ theorem annotatePisLeafI_erasePwC (mode : CheckMode) (r : CoreFnsI) (d : Nat)
   | ok p =>
     rw [hA] at h₁ h₂
     simp only [Except.bind] at h₁ h₂
-    cases hB : annotatePisPwI mode r d k p.1 p.2 with
+    cases hB : annotatePisPwI cfg r d k p.1 p.2 with
     | error e => rw [hB] at h₂; cases h₂
     | ok q =>
       rw [hB] at h₂
@@ -204,20 +208,20 @@ theorem annotatePisLeafI_erasePwC (mode : CheckMode) (r : CoreFnsI) (d : Nat)
       simp only [Except.map] at hh
       exact Except.ok.inj hh
 
-theorem annotateLamsLeafI_erasePwC (mode : CheckMode) (r : CoreFnsI) (d : Nat)
+theorem annotateLamsLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (d : Nat)
     (t : ExprC) (k : Nat) (fvs : Array ExprC) (stk : List AnnotBinderEntry)
     {s : CState} {a₁ a₂ : ExprC} {s₁ s₂ : CState}
-    (h₁ : annotateLamsLeafI .noModel r d t k fvs stk s = .ok (a₁, s₁))
-    (h₂ : annotateLamsLeafI mode r d t k fvs stk s = .ok (a₂, s₂)) :
+    (h₁ : annotateLamsLeafI cfgNC r d t k fvs stk s = .ok (a₁, s₁))
+    (h₂ : annotateLamsLeafI cfg r d t k fvs stk s = .ok (a₂, s₂)) :
     ExprC.erasePwC a₁ = ExprC.erasePwC a₂ := by
-  have e₁ : annotateLamsLeafI .noModel r d t k fvs stk s
+  have e₁ : annotateLamsLeafI cfgNC r d t k fvs stk s
       = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
           (fun p => annotateBindersOutI
             (fun n ty b mb => ExprView.lam n ty b mb) d none stk (k - 1)
             (ExprC.abstractRange p.1 d k) p.2) := rfl
-  have e₂ : annotateLamsLeafI mode r d t k fvs stk s
+  have e₂ : annotateLamsLeafI cfg r d t k fvs stk s
       = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
-          (fun p => (annotateLamsPwI mode r d k p.1 p.2).bind
+          (fun p => (annotateLamsPwI cfg r d k p.1 p.2).bind
             (fun q => annotateBindersOutI
               (fun n ty b mb => ExprView.lam n ty b mb) d q.1 stk (k - 1)
               (ExprC.abstractRange p.1 d k) q.2)) := rfl
@@ -227,7 +231,7 @@ theorem annotateLamsLeafI_erasePwC (mode : CheckMode) (r : CoreFnsI) (d : Nat)
   | ok p =>
     rw [hA] at h₁ h₂
     simp only [Except.bind] at h₁ h₂
-    cases hB : annotateLamsPwI mode r d k p.1 p.2 with
+    cases hB : annotateLamsPwI cfg r d k p.1 p.2 with
     | error e => rw [hB] at h₂; cases h₂
     | ok q =>
       rw [hB] at h₂
