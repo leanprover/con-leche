@@ -197,4 +197,146 @@ theorem towerBodyAV_ok2 {w : Nat} :
           rw [hG x hx]
           exact towerSet_univ_teleOfFields (hb.2 x hx)
 
+/-! ## Stage 3: the λ/Π-tower formers and the type-former leaf
+
+`mkLamsAV`/`mkPisAV` are the generic tower formers over peeled binder
+data; `stripPisAV` is the peel whose inversion hands the wiring the
+`(binder data, body)` decomposition of a stored type's reading.  The
+type-former leaf `directTyAV` is the λ-tower over the parameter
+domains with the carrier body — its three laws (`_mem`, `_ok2`,
+`_fold`) consume ONE hereditary premise, `ParamsOkT`. -/
+
+/-- The λ-tower former over `(codomain-sort bit, domain)` data. -/
+def mkLamsAV : List (Nat × AVExpr) → AVExpr → AVExpr
+  | [], b => b
+  | d :: ds, b => .lam d.1 d.2 (mkLamsAV ds b)
+
+/-- The Π-tower former over `(domain sort, codomain sort, domain)`
+data — the shape of a stored Π-type's reading. -/
+def mkPisAV : List (Nat × Nat × AVExpr) → AVExpr → AVExpr
+  | [], b => b
+  | d :: ds, b => .pi d.1 d.2.1 d.2.2 (mkPisAV ds b)
+
+/-- Peel `n` Π-binders off a reading. -/
+def stripPisAV : Nat → AVExpr → Option (List (Nat × Nat × AVExpr) × AVExpr)
+  | 0, e => some ([], e)
+  | n + 1, .pi u v A B =>
+    (stripPisAV n B).map fun p => ((u, v, A) :: p.1, p.2)
+  | _ + 1, _ => none
+
+/-- The peel's inversion: a successful strip exhibits the reading as
+the Π-tower of its parts (the wiring's hook). -/
+theorem stripPisAV_eq_mkPis :
+    ∀ {n : Nat} {e : AVExpr} {ps : List (Nat × Nat × AVExpr)} {b : AVExpr},
+      stripPisAV n e = some (ps, b) → e = mkPisAV ps b ∧ ps.length = n
+  | 0, e, ps, b, h => by
+    obtain ⟨rfl, rfl⟩ : ps = [] ∧ b = e := by
+      simpa [stripPisAV] using h.symm
+    exact ⟨rfl, rfl⟩
+  | n + 1, .pi u v A B, ps, b, h => by
+    simp only [stripPisAV, Option.map_eq_some_iff] at h
+    obtain ⟨⟨ps', b'⟩, hstrip, heq⟩ := h
+    obtain ⟨rfl, rfl⟩ : (u, v, A) :: ps' = ps ∧ b' = b := by
+      simpa using heq
+    obtain ⟨hB, hlen⟩ := stripPisAV_eq_mkPis hstrip
+    exact ⟨by rw [mkPisAV, ← hB], by simp [hlen]⟩
+
+/-- **The generic λ-tower fold**: at all-nonzero bits, applying the
+tower along a fitting spine computes the body at the spine's
+environment (`app_lamR_pos` iterated). -/
+theorem mkLamsAV_fold :
+    ∀ {ds : List (Nat × AVExpr)} {b : AVExpr} {ρ : Nat → V} {as : List V},
+      (∀ d ∈ ds, d.1 ≠ 0) → SpineFit ρ (ds.map (·.2)) as →
+      as.foldl SetTheory.app (interp2 V ρ (mkLamsAV ds b))
+        = interp2 V (consList as ρ) b
+  | [], _, _, [], _, _ => rfl
+  | [], _, _, _ :: _, _, hsp => hsp.elim
+  | _ :: _, _, _, [], _, hsp => hsp.elim
+  | d :: ds, b, ρ, a :: as, hnz, hsp => by
+    show (as.foldl SetTheory.app
+      (SetTheory.app (lamR d.1 (interp2 V ρ d.2)
+        fun x => interp2 V (cons x ρ) (mkLamsAV ds b)) a)) = _
+    rw [app_lamR_pos (hnz d (.head _)) hsp.1]
+    exact mkLamsAV_fold (fun d' hd' => hnz d' (.tail _ hd')) hsp.2
+
+/-- A zero-annotated head collapses the tower to the proof point — the
+squash regime of a value whose type became a proposition. -/
+theorem mkLamsAV_zero_head (A : AVExpr) (ds : List (Nat × AVExpr))
+    (b : AVExpr) (ρ : Nat → V) :
+    interp2 V ρ (mkLamsAV ((0, A) :: ds) b) = (pt : V) := lamR_zero
+
+/-- **The type-former leaf**: the λ-tower over the parameter domains
+(read off the former's own type reading, bits `w + 1` — a type
+former is a graph at every regime) with the carrier body. -/
+def directTyAV (w : Nat) (pps : List (Nat × Nat × AVExpr))
+    (Fs : List AVExpr) : AVExpr :=
+  mkLamsAV (pps.map fun d => (w + 1, d.2.2)) (towerBodyAV w Fs)
+
+/-- `ParamsOkT`: the ONE hereditary premise of the type-former leaf's
+three laws — each parameter's codomain bit is nonzero (it types a
+telescope ending in `Sort w`), each domain is graded, and under every
+fitting parameter spine the field chain is `FieldsOkB`-graded. -/
+def ParamsOkT (w : Nat) (ρ : Nat → V) (Fs : List AVExpr) :
+    List (Nat × Nat × AVExpr) → Prop
+  | [] => FieldsOkB w ρ Fs
+  | d :: pps => d.2.1 ≠ 0 ∧ AnnotOk2 V ρ d.2.2 ∧
+      ∀ a, a ∈ˢ interp2 V ρ d.2.2 → ParamsOkT w (cons a ρ) Fs pps
+
+/-- **The type-former leaf inhabits its type's reading**: the λ-tower
+lands in the interpreted Π-tower ending `Sort w`, by
+`lamR_mem_zero_agree` per binder and formation at the base. -/
+theorem directTyAV_mem {w : Nat} {Fs : List AVExpr} :
+    ∀ {pps : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
+      ParamsOkT w ρ Fs pps →
+      interp2 V ρ (directTyAV w pps Fs)
+        ∈ˢ interp2 V ρ (mkPisAV pps (.sort w))
+  | [], ρ, h => by
+    show interp2 V ρ (towerBodyAV w Fs) ∈ˢ (univ w : V)
+    rw [towerBodyAV_interp h.toBound]
+    exact towerSet_univ_teleOfFields h.toBound
+  | d :: pps, ρ, h => by
+    show (lamR (w + 1) (interp2 V ρ d.2.2)
+        fun a => interp2 V (cons a ρ)
+          (mkLamsAV (pps.map fun d => (w + 1, d.2.2)) (towerBodyAV w Fs)))
+      ∈ˢ piR d.2.1 (interp2 V ρ d.2.2)
+        fun a => interp2 V (cons a ρ) (mkPisAV pps (.sort w))
+    exact lamR_mem_zero_agree
+      (iff_of_false (Nat.succ_ne_zero w) h.1)
+      (fun a ha => directTyAV_mem (h.2.2 a ha))
+
+/-- **The type-former leaf is graded** (`AnnotOk2`): the λ clauses'
+fibre packages are the interpreted residual types, supplied by
+`directTyAV_mem` at each suffix. -/
+theorem directTyAV_ok2 {w : Nat} {Fs : List AVExpr} :
+    ∀ {pps : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
+      ParamsOkT w ρ Fs pps →
+      AnnotOk2 V ρ (directTyAV w pps Fs)
+  | [], _, h => towerBodyAV_ok2 h
+  | d :: pps, ρ, h => by
+    show AnnotOk2 V ρ (.lam (w + 1) d.2.2
+      (mkLamsAV (pps.map fun d => (w + 1, d.2.2)) (towerBodyAV w Fs)))
+    rw [AnnotOk2_lam]
+    exact ⟨h.2.1, fun a ha => directTyAV_ok2 (h.2.2 a ha),
+      ⟨fun a => interp2 V (cons a ρ) (mkPisAV pps (.sort w)),
+       fun a ha => directTyAV_mem (h.2.2 a ha),
+       fun h0 => absurd h0 (Nat.succ_ne_zero w)⟩⟩
+
+/-- **The type-former leaf's application fold**: along a fitting
+parameter spine the leaf computes the instantiated carrier — the
+`⟦T p⃗⟧ = towerSet w ⟨fields⟩` reading the `.proj`/eta/recursor rows
+will consume. -/
+theorem directTyAV_fold {w : Nat} {Fs : List AVExpr}
+    {pps : List (Nat × Nat × AVExpr)} {ρ : Nat → V} {as : List V}
+    (hsp : SpineFit ρ (pps.map (·.2.2)) as)
+    (hb : FieldsBound w (consList as ρ) Fs) :
+    as.foldl SetTheory.app (interp2 V ρ (directTyAV w pps Fs))
+      = towerSet w (teleOfFields (consList as ρ) Fs) := by
+  have hsp' : SpineFit ρ ((pps.map fun d => (w + 1, d.2.2)).map (·.2)) as := by
+    rwa [List.map_map]
+  rw [directTyAV,
+    mkLamsAV_fold (fun d hd => by
+      obtain ⟨d', -, rfl⟩ := List.mem_map.mp hd
+      exact Nat.succ_ne_zero w) hsp',
+    towerBodyAV_interp hb]
+
 end Setlec.SetR.Interp2
