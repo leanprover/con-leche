@@ -30172,3 +30172,433 @@ measurement lands:
    from S11b's route choice; checkDeclR_ofEnvRE if the run route
    fully supersedes it; the inert cut-point constants the proofdeps
    gate no longer needs as cut points).
+
+## Task #161 SEPARATION — S13a SEALED: the IN-BODY β GATE LANDED,
+and the ONE ratification item (2026-09-04)
+
+### 0. VERDICT, first
+
+**The in-body design works, and it is one batch — but not for free.**
+
+The gate is landed in the shared body as a mode value; the whole
+programme is **green at 545 jobs, warning-free**, with `lake test` 0,
+the full arena battery green at pinned counts, **496/496 verdict- and
+byte-identical runs** against master's binary on both pre-existing
+modes, **248/248 verdict-identical** runs of the gated mode against
+the certified mode, and an 87-row axiom audit inside the three
+standard axioms.  The measured payoff on `init-prelude` is
+**−8.9 % instructions** (31.23 G → 28.44 G).
+
+**And there is exactly one ratification item, named here and nowhere
+buried**: *the R lane's capstone letters gained a hypothesis.*
+`no_proof_of_Empty_R` and its family quantify over **all** of
+`CheckMode` with no mode hypothesis at all.  Adding a constructor
+therefore *widens what they claim*, and the R lane **cannot** meet the
+widened claim: `Red.beta` (`SetBase/Rel.lean` R4) requires the
+argument's `Infer`/`DefEq` certificate, and the R lane has no
+validated annotation to derive it from — that is the whole reason the
+gate is a *P-tier* theorem.  The pre-ratification content is restored
+by `(hg : μ.betaGate = false)`, which is `rfl` at every mode that
+existed before this batch.
+
+Weigh it against the certificate that makes it exact:
+
+```lean
+theorem CheckMode.betaGate_off_or_verified (mode : CheckMode) :
+    mode.betaGate = false ∨ mode.verified = true
+```
+
+**Every mode is either ungated (the R capstones cover it) or verified
+(the P capstones, whose letters are byte-unchanged, cover it).**  The
+union of the two capstone families still covers `CheckMode`
+exhaustively.  No claim was dropped; one claim's scope is written down
+where it was previously implicit in the constructor list.
+
+### 1. THE DESIGN, AS LANDED
+
+Three declarations carry the whole thing:
+
+```lean
+inductive CheckMode where | setModel | setModelP | noModel   -- Env.lean
+def CheckMode.betaGate : CheckMode → Bool | .setModelP => true | _ => false
+@[inline] def betaGateFires (mode : CheckMode) (pw : PropWhen) : Bool :=
+  mode.betaGate && pw.isNever                                -- Core.lean
+```
+
+and the β site becomes a **pure early return**:
+
+```lean
+| .lam n ty body mb => do
+  if betaGateFires mode mb.pw then
+    r.whnfCore depth (body.instantiate1 a)
+  else do
+    let ta ← r.infer depth a                    -- the pre-gate clause,
+    if ← r.defeq depth ta ty then …             -- byte-for-byte
+```
+
+**The early-return shape is load-bearing and was a mid-batch
+correction.**  The first landing wrapped the certificate's `Bool`
+(`betaGateTest mode pw (do let ta ← …; …)`).  That form is prettier
+but it *re-associates the certificate's binds*, so every existing
+proof owed a `bind_assoc` on top of the gate case.  With the early
+return the `else` arm is the old term verbatim and the ungated proofs
+resume with **no** structural edit.  Reusable form, for the ledger:
+
+> *When you gate a clause, gate it with a pure test that returns
+> early.  A gate that wraps the guarded computation's value changes
+> the guarded computation's shape, and you pay for that at every
+> consumer.*
+
+Gated at **all four β-cert lanes off the one predicate**: the pure
+body (`Kernel/Core.lean`), the interned `whnfAppI`/`betaPeelI`
+(`Kernel/CoreI.lean`), their cached twins (`Cached/CoreC.lean`) and
+the pure mirrors `appStep`/`whnfApp`/`betaPeel`/`whnfAppLam`/
+`betaPeelLam` (`Verify/BetaSpine.lean`).  `Setlec/Verify/BetaGate.lean`
+is the whole proof interface (8 theorems, 92 lines): the dead-branch
+collapse `betaGateFires_off`, the three mode facts, the fence
+`verified_of_betaGate`, the datum reader `isNever_of_betaGateFires`,
+and the coverage certificate above.
+
+**Flag decision: `--set-model=p`**, the ruled surface, kept.  Reason:
+the user's floated `--set2-model` collides with the record's existing
+*2U/R2* lane naming (`no_proof_of_Empty_SP_R2`, `EnvS2U`), which is a
+different axis entirely; `--set-model=p` reads as what it is, a
+variant of the same set-model surface with one licensed skip.  It
+parses and is reachable; it is **deliberately absent from `--help`**
+until the gated mode's soundness theorem lands (S9's standing clause,
+honoured).
+
+### 2. THE PROOF SHAPE — CONFIRMED, WITH ONE CORRECTION
+
+The predicted shape held: statements about the *shared body* did not
+move, and each proof clause unfolding the gated site gained **one**
+case.  Three populations, and the split is the batch's real finding:
+
+| population | what it needed | count |
+|---|---|---|
+| **(i) proofs that DISCARD the certificate** (`whnfPres_*`, the leaf/level/bridge/simulation families) | **nothing at all** | the silent majority — `Verify/InferLemmas.lean` rebuilt with *one* edited theorem |
+| **(ii) proofs that UNFOLD the clause structurally** (tactic cascades, `atF`/pair projections, shift/erase/interning simulations) | one `by_cases hgate` / one cascade alternative; both arms then verbatim | **48 sites / 16 modules** |
+| **(iii) proofs that CONSUME the certificate** | the gate hypothesis, threaded | **165 declarations / 25 modules** |
+
+The mechanism that makes (i) free is a *statement* change in exactly
+one place: `whnf_app_inv` now carries the gate as a **disjunct**
+
+```lean
+(betaGateFires mode m.pw = true ∨
+  ∃ ta, inferTypeCore … a = .ok ta ∧ isDefEqCore … ta ty = .ok true)
+```
+
+— mode-generic and true at every mode, so the ~all consumers that
+already wrote `-` for the certificate component keep compiling
+untouched.  `whnf_app_inv_ungated` is the pre-gate letter, kept beside
+it, one `betaGateFires_off` away.  (S12's `whnfCoreP_app_inv` was the
+same shape on the knot clone; this is that design, at the shared body.)
+
+**The P lane's payoff clause needed NO statement change and consumes
+NO certificate:**
+
+```lean
+by_cases hz : pwBit φ mm.pw = 0
+· rcases hcertOr with hfired | ⟨ta, hta, hde⟩
+  · exact absurd hz (pwBit_ne_zero_of_isNever
+      (isNever_of_betaGateFires hfired) φ)      -- THE FENCE, discharged
+  · … AnnotOkP_beta_zero … (the certificate arm)
+· exact AnnotOkP_beta_pos hz (hokapp ρ hρ)      -- no certificate at all
+```
+
+A fired gate cannot reach the certificate-consuming zero-kind arm.
+That is `gate_zero_kind_unreachable`'s content inlined at the clause
+that owes it — the asymmetry fence, discharged rather than assumed.
+
+**One genuinely new base lemma** was needed for the interning
+simulations: `EStore.pw_of_denoteBM` (`Kernel/ArenaWF.lean`) — the
+binder-meta denotation copies `pw`, which is what makes the interned
+gate and the pure gate take the *same* branch.  Three lines.
+
+### 3. THE TWO COUNTS, MEASURED
+
+**(a) The R-lane count** (charter item 4a).  **165 declarations across
+25 modules** carry `betaGate = false`, and they are the R/2U family
+end to end — the β claim → the claims tower → the bridges → the
+declaration kinds → the folds → the four R capstone families and the
+four R2/R2M families:
+
+| module | decls | module | decls |
+|---|---|---|---|
+| `SetR/Main2` | 44 | `SetR/Annot/SortCoh/Align` | 3 |
+| `SetBase/Bridge/Decl` | 22 | `SetR/Interp2/Capstone{,2E}` | 2+2 |
+| `SetR/Main` | 19 | `SetR/Bridge/Sound` | 2 |
+| `SetR/Interp2/Step2/Whnf` | 13 | `SetR/Annot/SortCoh/{SubstSim,Discharge,CoreLock}` | 2+2+2 |
+| `Verify/Cached/MainC` | 12 | `SetBase/Bridge/{WhnfCore,Sound,Main}` | 2+2+2 |
+| `SetR/Interp2/Step2/DefEqRun` | 11 | `Verify/InferLemmas` | 1 |
+| `SetR/Annot/SortCoh/LoopLock` | 6 | `SetR/Interp2/Capstone2{C,D}` | 1+1 |
+| `SetBase/Bridge/DeclInd` | 6 | `SetR/Install/{Value,ValueKinds,Step}` | 1+1+1 |
+| `SetR/DivModPin` | 5 | | |
+
+Two of those are *bundled Prop definitions* (`DivModPinS` gained a
+`μ.betaGate = false →` premise; `CheckStepR` took it as a binder on
+its producer), which is the only place the threading touches a
+definition rather than a signature.
+
+**The separation of proof trees SURVIVES, and the record should say
+why plainly:** both trees now talk about the *one* executable, and
+that is the architecture, not a leak.  The layering gate is unmoved —
+**0 P→R edges, whitelist empty** — because the gate's proof interface
+(`Verify/BetaGate.lean`) is base-tier and each tower consumes it in
+its own currency: R by killing the branch, P by licensing it.
+
+**(b) The true clause sweep** (charter item 4b).  **48 gate-case sites
+across 16 modules**, of which the tactic-cascade ones cost *one line
+each* (`PairM`: 2 lines total for the whole module; `Fueled`: 1).  The
+heaviest single module is `Verify/BetaSpine.lean` (13 sites, the
+spine-identification family, +154/−… lines) because it mirrors the
+gated clause five times over.
+
+**Totals**: 45 source files, **+1 061 / −649 lines**, one new module
+(92 ln), one new kernel accessor, one new kernel predicate, one new
+arena lemma, one new mode constructor, one new flag.
+
+### 4. RE-PRICING THE PROGRAMME
+
+| | S12's estimate (hoist) | S13a, MEASURED (in-body) |
+|---|---|---|
+| declarations touched | 860 | **213** (165 hypothesis + 48 clause) |
+| modules | 59 | **45** |
+| lines | 6 000–8 000 touched, ~2 500 new | **1 710 touched, ~1 060 new** |
+| batches | 3–5 | **1** |
+| ratified-statement items | the `DeclRunR` letter-move | **the R capstone letters' mode hypothesis** |
+
+The ~1-batch expectation **holds**, and by a factor of four on the
+declaration count.  The escalation rule was not tripped: the bill did
+not double, it quartered.  The one thing the redesign did **not**
+remove is a ratified-statement question — it *moved* it, from
+`DeclRunR`'s letter to the R capstones' mode hypothesis, and made it
+smaller and provably content-preserving (§0).
+
+### 5. BATTERY (verbatim)
+
+* `lake build` — clean, warning-free, **545** jobs (544 + `Verify/BetaGate`).
+* `lake test` — exit 0.
+* `tests/arena.sh` — exit 0:
+
+  ```
+  layering: base 266 / R 106 / P 118 / neutral 3 modules; 0 P->R edges (whitelist EMPTY); 0 R->P
+  proofdeps: 120 rows as pinned; EnvS/checkDeclR_ofEnvRE/DeclR/DeclIndR/declIndRR absent 20/20 and the derivation tier (Red, Red.beta, Infer, Infer.app, DefEq, DefEq.trans) absent 24/24 across the 4 shipped P capstones (doors: 0)
+  arena tutorial: 90/92 good tests accepted
+  e2e: 73/73 as expected
+  annot suite: 14/14 as expected
+  split driver: 11/11 as expected
+  mode flags: 9/9 as expected
+  no-model sweep: 138 arena + 73 e2e + 14 annot as expected (3 recorded divergences)
+  ```
+
+  The four capstones' proofdeps rows did **not** move; `base` is 266
+  (was 265) for the new `Verify/BetaGate.lean` and nothing else.
+
+* **VERDICT IDENTITY** (`_tmp/sep-s13a/verdict.sh`), the receipt that
+  replaces md5 identity by the ruling: master's binary vs this
+  binary, 248 fixtures (full arena tree + e2e + annot) × 2
+  pre-existing modes = **496 runs, 0 divergences** in exit code *and*
+  in byte-compared stdout+stderr.
+* **GATED-MODE AGREEMENT** (`_tmp/sep-s13a/pverdict.sh`):
+  `--set-model=p` vs `--set-model`, 248 fixtures, **0 verdict
+  divergences** — the gate is verdict-transparent on the whole corpus,
+  which is what the licence predicts.
+* Axiom audit (`_tmp/sep-s13a/Audit.lean`), **87 declarations** (S12's
+  75 + the 12 new): every one within `[propext, Classical.choice,
+  Quot.sound]`; the gate's own family uses `[propext]` alone.  0 rows
+  deviating.
+* **md5 identity ENDS HERE, by the ruling** and not by accident:
+  `.lake/build/bin/setlec` = `57afd770…` vs master's `29abe904…`.
+  Recorded as the deliberate consequence of putting the gate in the
+  shipped body.  The kernel diff is exactly six files
+  (`Env`, `Core`, `CoreI`, `Cached/CoreC`, `ArenaWF`, `Main.lean`,
+  +132/−28) and every hunk is the gate or its flag.
+* Zero `sorry`s; no new axioms; **the four shipped P capstone letters
+  are byte-unchanged** (`SetP/FoldP.lean`, `SetP/MainP.lean`,
+  `SetP/CapstoneP.lean` show an empty diff against master).
+
+| metric | S12 | S13a |
+|---|---|---|
+| gate: base / R / P / neutral | 265 / 106 / 118 / 3 | **266** / 106 / 118 / 3 |
+| P→R edges | 0 | 0 |
+| proof-term gate rows pinned | 120 | 120 |
+| capstones in the P family | 4 | 4 (letters byte-identical) |
+| build jobs | 544 | **545** |
+| binary md5 | `29abe904…` | **`57afd770…`** (chain ended by ruling) |
+
+### 6. CLEANUP INVENTORY (additions from this batch)
+
+Listed, not deleted — the cleanup phase is separate and follows the
+measurement.
+
+5. **`Kernel/CoreP.lean` + `Kernel/CheckerP.lean` + the knot-level
+   half of `Verify/CoreP.lean`** — now *superseded in fact*: the gate
+   ships in the shared body, so the second knot is measurement
+   scaffolding.  **Keep** `whnfCoreBodyP_eq` (the collapse) only if a
+   future lane needs it; `SetP/Step2/GateP.lean`'s three theorems
+   **survive** — `AnnotOkP_beta_gate` is the licence and
+   `gate_pwBit_ne_zero`'s composition is what `WhnfP.lean`'s clause
+   now inlines.  Candidate: replace GateP's `(mode.verified &&
+   mb.pw.isNever)` spelling with `betaGateFires` and delete the
+   adapter `verified_isNever_of_betaGateFires`.
+6. **`whnf_app_inv_ungated`** — becomes dead the day the R lane stops
+   needing the pre-gate letter (i.e. never, while the R capstones are
+   the ungated modes' route).  Listed for completeness, not for
+   removal.
+7. **The `hg` / `hgOff` binder-name split** — three modules
+   (`SetR/DivModPin`, the SortCoh Lock family, `SetR/Interp2` +
+   `SetR/Main2`) use `hgOff` because `hg` collides with a *local* of
+   the same name.  Harmless, but a one-pass rename would make the
+   sweep uniform.
+8. **`Verify/BetaSpine.lean`'s five mirrored β clauses** — the gate is
+   now written five times in that file because the mirror family is
+   written five times.  A single `betaArm` helper would collapse it.
+
+### 7. SUCCESSION
+
+**The one thing S13b must not start without: the ruling on §0.**  The
+R capstones' mode hypothesis is a ratified-statement edit; the branch
+is unpushed and nothing lands without the coordinator's grant.  With
+the grant, what remains of the programme is small and is **not** a
+transposition:
+
+1. the gated mode's own **soundness capstone** — **it already
+   exists**, checked in §9: `no_proof_of_Empty_P V rfl h` typechecks
+   at `μ = .setModelP`, letter byte-unchanged.  S13b need only carry
+   it to the shipped driver's own route (`checkDeclsSP μ`);
+2. `--set-model=p` into `--help` and the mode-flags fixture;
+3. the full measurement ladder (init-full, the wider ladders) — the
+   perf family and the `--no-model` parity row landed in this batch
+   (§10: **−8.9 %** on init-prelude, **−13.5 %** on grind-ring-5, and
+   the gated mode beating `--no-model` on both);
+4. the cleanup phase, from §6.
+
+### 8. THE MID-BATCH PROOF-STYLE DIRECTIVE — premise VALIDATED,
+exception NAMED, conversion NOT defaulted
+
+The lead relayed a binding style directive after the sweep had landed:
+*the R tower must not carry a threaded `betaGate = false` hypothesis;
+instead prove each lane at its concrete mode constructor, so the gate
+branch computes away definitionally.*  Reported, not defaulted, per
+the directive's own exception clause.
+
+**The technical premise is CORRECT, and now checked by the kernel**
+(`_tmp/sep-s13a/Probe.lean`, all four examples `rfl`/green):
+
+```lean
+example (pw : PropWhen) : betaGateFires .setModel pw = false := rfl
+example (pw : PropWhen) : betaGateFires .noModel  pw = false := rfl
+example … : whnfCoreBody .setModel r env d (.app f a) = <the pre-gate clause> := rfl
+```
+
+At a concrete ungated mode the gated body **is** the pre-gate body —
+definitionally, `rfl`, no lemma and no hypothesis.  The early-return
+shape (§1) is what buys that; a `Bool`-wrapping gate would not have
+been `rfl`.
+
+**THE NAMED EXCEPTION (the reason this batch did not convert).**  The
+consumer that needs a claims family at *several* concrete modes
+simultaneously is **the R capstone family itself**, and it is named by
+its own ratified letter: `no_proof_of_Empty_R` / `_C_R` / `_S_R` /
+`_SP_R`, their four `input_` siblings, the eight `R2`/`R2M` twins in
+`SetR/Main2.lean` and the three cached ones in
+`Verify/Cached/MainC.lean` all read `{μ : CheckMode}` with **no** mode
+hypothesis, i.e. they claim the pure checker sound at `.setModel`
+**and** at `.noModel`.  A second, concrete witness that `.noModel` is
+not vestigial in this tier: `SetR/Interp2/EnvS2Refute.lean:136,149,162`
+applies a claims family at the literal `Setlec.CheckMode.noModel`.
+
+So "instantiate concretely" means, for the R lane, **instantiate
+twice** — the mode is baked in at the β clause, which sits at the
+bottom of the tower, so nothing above it can be shared between the two
+instantiations.
+
+**THE ACCEPTANCE CHECK, measured** (the user's: conversion should
+delete lines, not add them):
+
+| conversion | binders deleted | call-site args deleted | tower cost | net |
+|---|---|---|---|---|
+| **one** instantiation (`.setModel` only) | **−165** | **−635** | 0 | **DELETES ~800 lines** — passes the check |
+| **two** instantiations (`.setModel` + `.noModel`) | −165 | −635 | **+165 declarations duplicated** (~+1 600 ln) | **ADDS** — fails the check |
+
+The one-instantiation column is what the directive expects, and it is
+genuinely better than what shipped here — **but it is only available
+if the R capstones drop their `.noModel` instance**, which is a
+*narrowing* of a ratified letter (content loss), where the shipped
+hypothesis form is a *conservative restriction* (content preserved, §0).
+
+**The choice is therefore the coordinator's, and it is one question:**
+
+> Is `no_proof_of_Empty_R` at `μ = .noModel` load-bearing?  If **no**,
+> convert: instantiate the R tower at `.setModel`, delete ~800 lines,
+> and the R letters become concrete instead of hypothesis-carrying.
+> If **yes**, the hypothesis form is the cheaper of the two honest
+> options and should stand.
+
+This batch ships the hypothesis form because it is the one that
+preserves every ratified claim, and because reversing it is a
+mechanical *deletion* (the binders and their 635 call-site passes are
+all `hg`/`hgOff`-named and grep-addressable) — the conversion is
+strictly easier to do later than to undo.
+
+### 9. THE GATED MODE'S CAPSTONE ALREADY EXISTS
+
+Also checked by the kernel in `_tmp/sep-s13a/Probe.lean`:
+
+```lean
+example (V) [SetTheory V] {F ds env'}
+    (h : checkDecls .setModelP (fueledOps .setModelP F) ds = .ok env') :
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] → False :=
+  no_proof_of_Empty_P V rfl h
+```
+
+**`rfl` discharges `μ.verified = true` at `.setModelP`**, so the
+shipped P capstone — letter byte-unchanged, proofdeps rows unmoved —
+**already proves the gated mode sound**.  Succession item (1) of §7 is
+answered in the affirmative: no new letter is needed for the gated
+mode, and the flag can go into `--help` on the coordinator's word
+alone.
+
+### 10. THE MEASUREMENT — the payoff, at last
+
+`tests/pilot-measure.sh --variants=cached-parsed --reps=3`
+(instructions `perf stat -e instructions:u`, median of 3, under the
+harness's `timeout` + 16 GB `RLIMIT_AS`; engine = the shipped
+`cached-parsed` core).
+
+| workload | r (`--set-model`) | **p (`--set-model=p`)** | Δ | `--no-model` |
+|---|---|---|---|---|
+| **init-prelude** | 31.23 G | **28.44 G** | **−8.9 %** | 30.89 G |
+| **grind-ring-5** | 105.75 G | **91.51 G** | **−13.5 %** | 105.05 G |
+| shared-subterm | 4.41 G | 4.12 G | −6.6 % | 4.39 G |
+| repeated-subproblem | 3.68 G | 3.57 G | −3.0 % | 3.66 G |
+| church-numerals | 1.37 G | 1.36 G | −0.7 % | 1.37 G |
+| shift-cascade | 1.02 G | 1.02 G | ±0 % | 1.01 G |
+| beta-ladder | 47.86 G | 47.85 G | ±0 % | 45.44 G |
+| app-lam | 302.96 G | 303.01 G | ±0 % | 228.42 G |
+
+**Read it in three lines.**
+
+* **The gate pays where the annotations are real**: −13.5 % on
+  `grind-ring-5` and −8.9 % on `init-prelude`, the two workloads that
+  are actual Lean output rather than synthetic β stress.  On
+  `init-prelude` the **gated mode is FASTER than `--no-model`**
+  (28.44 G vs 30.89 G) — the verified lane, with the licensed skip,
+  now beats the unverified lane on the milestone stream.  That is the
+  number the "fast beta" item was asked for.
+* **It pays nothing on the synthetic β ladders** (`app-lam`,
+  `beta-ladder`, `shift-cascade`), and that is the licence working as
+  designed: those fixtures' binders carry possibly-zero data, so the
+  gate does not fire and every certificate still runs.  Zero is the
+  correct answer there, not a disappointment.
+* **`--no-model` parity**: p beats `--no-model` on init-prelude and
+  ties it on grind-ring-5 (91.51 G vs 105.05 G — p *wins* by 12.9 %).
+  `app-lam` remains the one place `--no-model` is far ahead
+  (228 G vs 303 G), which is the per-argument application certificate,
+  not β — untouched by this gate and the next item on the ladder.
+
+Peak RSS is flat (p vs r within noise on every row; `--no-model`'s
+`app-lam` is *worse*, 7.8 GB vs 5.2 GB).  `init-full` and the wider
+ladders were not run in this batch — they belong with the flag's
+`--help` landing (§7 item 3).

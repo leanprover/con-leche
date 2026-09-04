@@ -61,6 +61,21 @@ theorem CheckMode.verified_of_betaGate (h : mode.betaGate = true) :
     mode.verified = true := by
   cases mode <;> simp_all [CheckMode.betaGate, CheckMode.verified]
 
+/-- **THE COVERAGE CERTIFICATE** (task #161, S13a).  Every mode is
+either **ungated** — so the R lane's capstones, which now carry
+`betaGate = false`, cover it — or **verified** — so the P lane's
+capstones, which already carry `verified = true`, cover it.  Adding a
+gated mode therefore widens no claim and drops none: the union of the
+two capstone families still covers `CheckMode` exhaustively, which is
+exactly what the R letters' new hypothesis has to be weighed against.
+
+(At `.setModel` both disjuncts hold, which is the pre-existing
+situation; at `.noModel` only the first; at `.setModelP` only the
+second.) -/
+theorem CheckMode.betaGate_off_or_verified (mode : CheckMode) :
+    mode.betaGate = false ∨ mode.verified = true := by
+  cases mode <;> simp [CheckMode.betaGate, CheckMode.verified]
+
 /-- A fired gate's datum is `.never`. -/
 theorem isNever_of_betaGateFires (h : betaGateFires mode pw = true) :
     pw.isNever = true :=
