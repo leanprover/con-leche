@@ -73,8 +73,8 @@ theorem opE_sim {pick : CoreFnsI → Nat → ExprC → CheckCM ExprC}
         (pick (coreKnotI mode (mkFEnv env) checkFuel) d i) pf)
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ (RelW d) (opE mode (mkFEnv env) pick d e) pf := by
-  refine SimC.mono ?_ (hsim hs ⟨WFc_all e, rfl⟩)
-  rintro v' v ⟨⟨-, rfl⟩, hw⟩
+  refine SimC.mono ?_ (hsim hs rfl)
+  rintro v' v ⟨rfl, hw⟩
   exact ⟨rfl, hw⟩
 
 /-- Shared `annotate` simulates the fueled family, from any invariant
@@ -108,8 +108,8 @@ theorem opB_sim (henv : EnvWF env) {d : Nat} {a b : Expr}
     (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC (opB mode (mkFEnv env) d a b)
       ((fueledOpsM mode).isDefEq env d a b) := by
-  exact (ssimC env henv checkFuel).defeq hs ⟨WFc_all a, rfl⟩
-    ⟨WFc_all b, rfl⟩ hwa hwb
+  exact (ssimC env henv checkFuel).defeq hs rfl
+    rfl hwa hwb
 
 /-- Shared `ensureSort` simulates the fueled family. -/
 theorem opS_sim (henv : EnvWF env) {d : Nat} {e : Expr}
@@ -118,7 +118,7 @@ theorem opS_sim (henv : EnvWF env) {d : Nat} {e : Expr}
       ((fueledOpsM mode).ensureSort env d e) := by
   have h1 : SimC mode env s₀ RelVC (opS mode (mkFEnv env) d e)
       (ensureSort (fueledFns mode env) env d e) :=
-    ensureSortC_sim (ssimC env henv checkFuel) hs ⟨WFc_all e, rfl⟩ hw
+    ensureSortC_sim (ssimC env henv checkFuel) hs rfl hw
   refine SimC.wr h1 (fun u F h => ⟨F, ?_⟩)
   rw [ensureSort_atF, ensureSort_def] at h
   exact h

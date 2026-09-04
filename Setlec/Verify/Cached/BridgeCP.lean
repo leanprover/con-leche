@@ -52,7 +52,7 @@ variable {mode : CheckMode}
 The parsed-index layer's premise is `denoteDeclP s₀.store pd = some d`.
 `DeclC` holds `ExprC` objects rather than arena indices, so the cached
 premise is the state-free per-constructor erasure relation: `RelC`
-(`WFc` + `eraseC`) on every `ExprC` slot, equality on the rest.  The
+(`RelC`, now equality) on every `ExprC` slot, equality on the rest.  The
 `Declaration` is *indexed* by the constructor exactly as `denoteDeclP`
 builds it, so `cases` on the relation reproduces the interned walks'
 destructuring of `hden`. -/
@@ -92,9 +92,9 @@ private theorem fueledM_bind_pure' {α : Type} (x : FueledM α) :
 
 /-- `ExprC.hasFvar` is `Expr.hasFvar` of the erasure (the store-shaped
 `hasFvarI_spec` at the unit store). -/
-theorem hasFvar_spec {e : ExprC} {ex : Expr} (hw : WFc e)
+theorem hasFvar_spec {e : ExprC} {ex : Expr}
     (h : e = ex) : e.hasFvar = ex.hasFvar :=
-  hasFvarI_spec (st := default) hw h
+  hasFvarI_spec (st := default) h
 
 /-! ## Parsed-index entry operations -/
 
@@ -124,7 +124,7 @@ theorem checkConstantValC_sim (henv : EnvWF env) {cvp : ConstantValC}
       (checkConstantValC mode (mkFEnv env) cvp)
       (checkConstantVal (fueledOpsM mode) env
         ⟨cvp.name, cvp.levelParams, tyE⟩) := by
-  obtain ⟨hwty0, rfl⟩ := hden
+  obtain rfl := hden
   unfold checkConstantValC checkConstantVal
   simp only [mkFEnv_find?]
   by_cases h1 : (env.find? cvp.name).isSome = true
@@ -144,41 +144,41 @@ theorem checkConstantValC_sim (henv : EnvWF env) {cvp : ConstantValC}
     simp only [if_neg h4]
     exact SimC.throw_bind
   simp only [if_pos h4]
-  rw [ExprC.looseBVarsBounded_spec hwty0]
+  rw [ExprC.looseBVarsBounded_spec]
   by_cases h5 : Expr.looseBVarsBounded 0 cvp.type = true
   case neg =>
     simp only [if_neg h5]
     exact SimC.throw_bind
   simp only [if_pos h5]
-  rw [hasFvar_spec hwty0 rfl]
+  rw [hasFvar_spec rfl]
   by_cases h6 : Expr.hasFvar cvp.type = true
   · simp only [if_pos h6]
     exact SimC.throw_bind
   simp only [if_neg h6]
   refine SimC.bind ((ssimC env henv checkFuel).annotate hs
-      ⟨hwty0, rfl⟩
+      rfl
       (Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h6)))
     (fun s₁ jA w hs₁ hP => ?_)
   obtain ⟨hjA, hwty⟩ := hP
-  obtain ⟨hwjA, rfl⟩ := hjA
-  rw [ExprC.allLevelParamsDefined_spec hwjA]
+  obtain rfl := hjA
+  rw [ExprC.allLevelParamsDefined_spec]
   by_cases h7 : Expr.allLevelParamsDefined cvp.levelParams jA = true
   case neg =>
     simp only [if_neg h7]
     exact SimC.throw_bind
   simp only [if_pos h7]
-  rw [constsResolveFC_spec hwjA, constsResolveF_eq]
+  rw [constsResolveFC_spec, constsResolveF_eq]
   by_cases h8 : Expr.constsResolve env jA = true
   case neg =>
     simp only [if_neg h8]
     exact SimC.throw_bind
   simp only [if_pos h8]
-  refine SimC.bind ((ssimC env henv checkFuel).infer hs₁ ⟨hwjA, rfl⟩ hwty)
+  refine SimC.bind ((ssimC env henv checkFuel).infer hs₁ rfl hwty)
     (fun s₂ jsty wsty hs₂ hP₂ => ?_)
   obtain ⟨hjsty, hwsty⟩ := hP₂
   refine SimC.bind (opSIxC_sim henv hs₂ hjsty hwsty)
     (fun s₃ u u' hs₃ hP₃ => ?_)
-  exact SimC.pure hs₃ ⟨rfl, rfl, hwty, hwjA, rfl⟩
+  exact SimC.pure hs₃ ⟨rfl, rfl, hwty, rfl⟩
 
 /-- `checkDefnValC` simulates the generic `checkDefnVal`: the pushed
 index is `mkFEnv` of the fueled environment, whose head stores the
@@ -192,31 +192,31 @@ theorem checkDefnValC_sim (henv : EnvWF env) {cvA : ConstantVal}
           v'.hasFvar = false)
       (checkDefnValC mode (mkFEnv env) cvA jty value hint)
       (checkDefnVal (fueledOpsM mode) env cvA ve hint) := by
-  obtain ⟨hwv0, rfl⟩ := hdenv
+  obtain rfl := hdenv
   unfold checkDefnValC checkDefnVal
-  rw [ExprC.looseBVarsBounded_spec hwv0]
+  rw [ExprC.looseBVarsBounded_spec]
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg =>
     simp only [if_neg h1]
     exact SimC.throw_bind
   simp only [if_pos h1]
-  rw [hasFvar_spec hwv0 rfl]
+  rw [hasFvar_spec rfl]
   by_cases h2 : Expr.hasFvar value = true
   · simp only [if_pos h2]
     exact SimC.throw_bind
   simp only [if_neg h2]
-  refine SimC.bind ((ssimC env henv checkFuel).annotate hs ⟨hwv0, rfl⟩
+  refine SimC.bind ((ssimC env henv checkFuel).annotate hs rfl
       (Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2)))
     (fun s₁ jv w hs₁ hP => ?_)
   obtain ⟨hjv, hwv⟩ := hP
-  obtain ⟨hwjv, rfl⟩ := hjv
-  rw [ExprC.allLevelParamsDefined_spec hwjv]
+  obtain rfl := hjv
+  rw [ExprC.allLevelParamsDefined_spec]
   by_cases h3 : Expr.allLevelParamsDefined cvA.levelParams jv = true
   case neg =>
     simp only [if_neg h3]
     exact SimC.throw_bind
   simp only [if_pos h3]
-  rw [constsResolveFC_spec hwjv, constsResolveF_eq]
+  rw [constsResolveFC_spec, constsResolveF_eq]
   by_cases h4 : Expr.constsResolve env jv = true
   case neg =>
     simp only [if_neg h4]
@@ -225,9 +225,9 @@ theorem checkDefnValC_sim (henv : EnvWF env) {cvA : ConstantVal}
   refine SimC.bind_left (recordCConst_eff hs₁ hjty
       (fun vE' vi h => by
         cases h
-        exact ⟨hwjv, rfl⟩))
+        exact rfl))
     (fun s₂' u hs₂' hQ' => ?_)
-  refine SimC.bind ((ssimC env henv checkFuel).infer hs₂' ⟨hwjv, rfl⟩ hwv)
+  refine SimC.bind ((ssimC env henv checkFuel).infer hs₂' rfl hwv)
     (fun s₂ jvt wvt hs₂ hP₂ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₂
   refine SimC.bind ((ssimC env henv checkFuel).defeq hs₂ hjvt hjty hwvt htf)
@@ -273,30 +273,30 @@ theorem checkThmValC_sim (henv : EnvWF env) {cvA : ConstantVal}
     exact SimC.throw_bind
   | true =>
   simp only [↓reduceIte]
-  obtain ⟨hwv0, rfl⟩ := hdenv
-  rw [ExprC.looseBVarsBounded_spec hwv0]
+  obtain rfl := hdenv
+  rw [ExprC.looseBVarsBounded_spec]
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg =>
     simp only [if_neg h1]
     exact SimC.throw_bind
   simp only [if_pos h1]
-  rw [hasFvar_spec hwv0 rfl]
+  rw [hasFvar_spec rfl]
   by_cases h2 : Expr.hasFvar value = true
   · simp only [if_pos h2]
     exact SimC.throw_bind
   simp only [if_neg h2]
-  refine SimC.bind ((ssimC env henv checkFuel).annotate hs₃ ⟨hwv0, rfl⟩
+  refine SimC.bind ((ssimC env henv checkFuel).annotate hs₃ rfl
       (Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2)))
     (fun s₄ jv w hs₄ hP₄ => ?_)
   obtain ⟨hjv, hwv⟩ := hP₄
-  obtain ⟨hwjv, rfl⟩ := hjv
-  rw [ExprC.allLevelParamsDefined_spec hwjv]
+  obtain rfl := hjv
+  rw [ExprC.allLevelParamsDefined_spec]
   by_cases h3 : Expr.allLevelParamsDefined cvA.levelParams jv = true
   case neg =>
     simp only [if_neg h3]
     exact SimC.throw_bind
   simp only [if_pos h3]
-  rw [constsResolveFC_spec hwjv, constsResolveF_eq]
+  rw [constsResolveFC_spec, constsResolveF_eq]
   by_cases h4 : Expr.constsResolve env jv = true
   case neg =>
     simp only [if_neg h4]
@@ -305,9 +305,9 @@ theorem checkThmValC_sim (henv : EnvWF env) {cvA : ConstantVal}
   refine SimC.bind_left (recordCConst_eff hs₄ hjty
       (fun vE' vi h => by
         cases h
-        exact ⟨hwjv, rfl⟩))
+        exact rfl))
     (fun s₅' u₀ hs₅' hQ' => ?_)
-  refine SimC.bind ((ssimC env henv checkFuel).infer hs₅' ⟨hwjv, rfl⟩ hwv)
+  refine SimC.bind ((ssimC env henv checkFuel).infer hs₅' rfl hwv)
     (fun s₅ jvt wvt hs₅ hP₅ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₅
   refine SimC.bind ((ssimC env henv checkFuel).defeq hs₅ hjvt hjty hwvt htf)
@@ -330,31 +330,31 @@ theorem checkOpaqueValC_sim (henv : EnvWF env) {cvA : ConstantVal}
         ve.hasFvar = false)
       (checkOpaqueValC mode (mkFEnv env) cvA jty value)
       (checkOpaqueVal (fueledOpsM mode) env cvA ve) := by
-  obtain ⟨hwv0, rfl⟩ := hdenv
+  obtain rfl := hdenv
   unfold checkOpaqueValC checkOpaqueVal
-  rw [ExprC.looseBVarsBounded_spec hwv0]
+  rw [ExprC.looseBVarsBounded_spec]
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg =>
     simp only [if_neg h1]
     exact SimC.throw_bind
   simp only [if_pos h1]
-  rw [hasFvar_spec hwv0 rfl]
+  rw [hasFvar_spec rfl]
   by_cases h2 : Expr.hasFvar value = true
   · simp only [if_pos h2]
     exact SimC.throw_bind
   simp only [if_neg h2]
-  refine SimC.bind ((ssimC env henv checkFuel).annotate hs ⟨hwv0, rfl⟩
+  refine SimC.bind ((ssimC env henv checkFuel).annotate hs rfl
       (Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2)))
     (fun s₁ jv w hs₁ hP => ?_)
   obtain ⟨hjv, hwv⟩ := hP
-  obtain ⟨hwjv, rfl⟩ := hjv
-  rw [ExprC.allLevelParamsDefined_spec hwjv]
+  obtain rfl := hjv
+  rw [ExprC.allLevelParamsDefined_spec]
   by_cases h3 : Expr.allLevelParamsDefined cvA.levelParams jv = true
   case neg =>
     simp only [if_neg h3]
     exact SimC.throw_bind
   simp only [if_pos h3]
-  rw [constsResolveFC_spec hwjv, constsResolveF_eq]
+  rw [constsResolveFC_spec, constsResolveF_eq]
   by_cases h4 : Expr.constsResolve env jv = true
   case neg =>
     simp only [if_neg h4]
@@ -363,7 +363,7 @@ theorem checkOpaqueValC_sim (henv : EnvWF env) {cvA : ConstantVal}
   refine SimC.bind_left (recordCConst_eff hs₁ hjty
       (fun vE' vi h => nomatch h))
     (fun s₁' u hs₁' hQ' => ?_)
-  refine SimC.bind ((ssimC env henv checkFuel).infer hs₁' ⟨hwjv, rfl⟩ hwv)
+  refine SimC.bind ((ssimC env henv checkFuel).infer hs₁' rfl hwv)
     (fun s₂ jvt wvt hs₂ hP₂ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₂
   refine SimC.bind ((ssimC env henv checkFuel).defeq hs₂ hjvt hjty hwvt htf)
@@ -501,7 +501,7 @@ theorem checkDeclSPC_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
       simp only [if_neg hred]
       exact SimC.pure hs₂ ⟨rfl, hmk ▸ hmk⟩
     simp only [if_pos hred]
-    rw [hv.2, checkReducePinF_eq]
+    rw [hv, checkReducePinF_eq]
     refine SimC.bind (checkReducePinS_sim henv hvf hs₂)
       (fun s₄ u u' hs₄ hP₄ => ?_)
     exact SimC.pure hs₄ ⟨rfl, hmk ▸ hmk⟩

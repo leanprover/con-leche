@@ -1139,40 +1139,32 @@ installs, newest first. -/
 def streamSkels (ds : List DeclC) : List InstallSkel :=
   ds.foldl (fun sk pd => declCSkels pd sk) []
 
-theorem streamSkels_map (ds : List WDeclC) :
-    streamSkels (ds.map (·.1))
-      = ds.foldl (fun sk pc => declCSkels pc.1 sk) [] := by
-  unfold streamSkels
-  rw [List.foldl_map]
-
 /-! ### The direct-parse entry points (task #171's route) -/
 
-theorem checkDeclsSPCachedD_skels {mode : CheckMode} {ds : List WDeclC}
+theorem checkDeclsSPCachedD_skels {mode : CheckMode} {ds : List DeclC}
     {env : Env} (h : checkDeclsSPCachedD mode ds = .ok env) :
-    envSkels env = streamSkels (ds.map (·.1)) := by
+    envSkels env = streamSkels ds := by
   unfold checkDeclsSPCachedD at h
   obtain ⟨fe, hx, rfl⟩ := env_of_run h
-  have := (Yields.foldlM_rel (R := SkelIs)
-    (g := fun sk (pc : WDeclC) => declCSkels pc.1 sk)
-    (fun b a c hb => checkDeclSPStepC_skels mode hb a.1) ds
-    (mkFEnv Env.empty) [] skelIs_empty).run' hx
-  exact this.2.trans (streamSkels_map ds).symm
+  exact ((Yields.foldlM_rel (R := SkelIs)
+    (g := fun sk (pc : DeclC) => declCSkels pc sk)
+    (fun b a c hb => checkDeclSPStepC_skels mode hb a) ds
+    (mkFEnv Env.empty) [] skelIs_empty).run' hx).2
 
-theorem checkDeclsSPCachedDNM_skels {ds : List WDeclC} {env : Env}
+theorem checkDeclsSPCachedDNM_skels {ds : List DeclC} {env : Env}
     (h : checkDeclsSPCachedDNM ds = .ok env) :
-    envSkels env = streamSkels (ds.map (·.1)) := by
+    envSkels env = streamSkels ds := by
   unfold checkDeclsSPCachedDNM at h
   obtain ⟨fe, hx, rfl⟩ := env_of_run h
-  have := (Yields.foldlM_rel (R := SkelIs)
-    (g := fun sk (pc : WDeclC) => declCSkels pc.1 sk)
-    (fun b a c hb => checkDeclSPStepCNC_skels hb a.1) ds
-    (mkFEnv Env.empty) [] skelIs_empty).run' hx
-  exact this.2.trans (streamSkels_map ds).symm
+  exact ((Yields.foldlM_rel (R := SkelIs)
+    (g := fun sk (pc : DeclC) => declCSkels pc sk)
+    (fun b a c hb => checkDeclSPStepCNC_skels hb a) ds
+    (mkFEnv Env.empty) [] skelIs_empty).run' hx).2
 
 /-- **The floor, direct-parse route.**  Whenever the cached parity
 driver and the cached certified driver both accept the same stream,
 the two installed environments carry the same install skeletons. -/
-theorem parity_agrees_P_skels_D {mode : CheckMode} {ds : List WDeclC}
+theorem parity_agrees_P_skels_D {mode : CheckMode} {ds : List DeclC}
     {envP envN : Env}
     (hP : checkDeclsSPCachedD mode ds = .ok envP)
     (hN : checkDeclsSPCachedDNM ds = .ok envN) :
@@ -1180,7 +1172,7 @@ theorem parity_agrees_P_skels_D {mode : CheckMode} {ds : List WDeclC}
   (checkDeclsSPCachedDNM_skels hN).trans (checkDeclsSPCachedD_skels hP).symm
 
 /-- The census's sentence: the accepted declaration **names** agree. -/
-theorem parity_agrees_P_names_D {mode : CheckMode} {ds : List WDeclC}
+theorem parity_agrees_P_names_D {mode : CheckMode} {ds : List DeclC}
     {envP envN : Env}
     (hP : checkDeclsSPCachedD mode ds = .ok envP)
     (hN : checkDeclsSPCachedDNM ds = .ok envN) :
@@ -1189,7 +1181,7 @@ theorem parity_agrees_P_names_D {mode : CheckMode} {ds : List WDeclC}
   simpa [envSkels, List.map_map, Function.comp_def] using h
 
 /-- … and so do the accepted declaration **counts**. -/
-theorem parity_agrees_P_count_D {mode : CheckMode} {ds : List WDeclC}
+theorem parity_agrees_P_count_D {mode : CheckMode} {ds : List DeclC}
     {envP envN : Env}
     (hP : checkDeclsSPCachedD mode ds = .ok envP)
     (hN : checkDeclsSPCachedDNM ds = .ok envN) :

@@ -232,9 +232,11 @@ interned twins call for call) -/
 @[inline] def internI (n : ExprView ExprC) : CheckCM ExprC :=
   pure (ExprC.ofView n)
 
-/-- Convert a whole `Expr` (fabricated terms, stored instantiations). -/
+/-- Convert a whole `Expr` (fabricated terms, stored instantiations).
+The identity since task #172 B3a — one type — kept under the interned
+twin's name so the two read the same. -/
 @[inline] def internExprM (x : Expr) : CheckCM ExprC :=
-  pure (ExprC.ofExpr x)
+  pure x
 
 /-- Run a store query (the store is a unit here). -/
 @[inline] def withStore {α : Type} (f : CStore → α) : CheckCM α :=

@@ -12,7 +12,7 @@ reconstructs, so the parse keeps a stream-index-keyed table of
 `ExprC` values and a table hit is a shared node by reference.
 Sharing is preserved structurally; the derived fields are computed
 once per node by the smart constructors, which is also what makes
-every parsed term `WFc` **by construction** — the entry obligation
+every parsed term well-formed **by construction** — the entry obligation
 the capstone consumes (`Setlec/Verify/Cached/ParseC.lean`), replacing
 `OfStoreC`'s index-memo lemma.
 
@@ -33,8 +33,7 @@ namespace Setlec.Frontend
 
 open Lean (Json)
 open Setlec
-open Setlec.Cached (ExprC ConstantValC DeclC WDeclC DeclCWFc)
-open Setlec.Cached.ExprC (WExprC)
+open Setlec.Cached (ExprC ConstantValC DeclC)
 
 private abbrev M := Except String
 
@@ -48,8 +47,8 @@ keyed by stream indices, so they are representation-independent). -/
 structure StateD where
   names : Std.HashMap Nat Name := .ofList [(0, .anonymous)]
   levels : Std.HashMap Nat Level := .ofList [(0, .zero)]
-  exprs : Std.HashMap Nat WExprC := {}
-  decls : Array WDeclC := #[]
+  exprs : Std.HashMap Nat ExprC := {}
+  decls : Array DeclC := #[]
   tainted : Std.HashMap Nat Name := {}
   taintedNames : Std.HashMap Name Name := {}
   taintSkipped : Array (Name × Name) := #[]
@@ -65,7 +64,7 @@ private def StateD.level (st : StateD) (i : Nat) : M Level :=
   | some l => pure l
   | none => throw s!"undefined level index {i}"
 
-private def StateD.expr (st : StateD) (i : Nat) : M WExprC :=
+private def StateD.expr (st : StateD) (i : Nat) : M ExprC :=
   match st.exprs[i]? with
   | some e => pure e
   | none => throw s!"undefined expr index {i}"
@@ -73,14 +72,14 @@ private def StateD.expr (st : StateD) (i : Nat) : M WExprC :=
 private def getNameD (st : StateD) (j : Json) (key : String) : M Name := do
   st.name (← getIdx j key)
 
-private def getExprD (st : StateD) (j : Json) (key : String) : M WExprC := do
+private def getExprD (st : StateD) (j : Json) (key : String) : M ExprC := do
   st.expr (← getIdx j key)
 
 /-- Declaration-level expression lookup (twin of `getDeclEIdx'`):
 taint sentinel, then the tree-size budget when `budgeted`, then the
 table read. -/
 private def getDeclD (st : StateD) (j : Json) (key : String)
-    (budgeted : Bool) : M WExprC := do
+    (budgeted : Bool) : M ExprC := do
   let i ← getIdx j key
   if st.tainted[i]?.isSome then
     throw taintSentinel
@@ -92,8 +91,7 @@ private def getDeclD (st : StateD) (j : Json) (key : String)
 `getDeclExpr'`): budgeted; since task #172 B3a there is one type, so
 the "tree" is the parsed node itself. -/
 private def getDeclExprD (st : StateD) (j : Json) (key : String) : M Expr := do
-  let c ← getDeclD st j key (budgeted := true)
-  pure c.1
+  getDeclD st j key (budgeted := true)
 
 /-- Twin of `parsePw` over the direct name table. -/
 private def parsePwD (st : StateD) (j : Json) : M PropWhen := do
@@ -143,15 +141,14 @@ private def parseLevelEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
   pure { st with levels := st.levels.insert i l }
 
 /-- Twin of `parseExprEntry`: build the `ExprC` node from the
-children's table values through the smart constructors (derived
-fields computed once; `WFc` by construction), with the taint/size
-bookkeeping unchanged. -/
+children's table values (the derived fields are the compiler's, task
+#172 B3a), with the taint/size bookkeeping unchanged. -/
 private def parseExprEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
   let (e, taintConst) ←
     if let .ok v := j.getObjVal? "bvar" then do
-      pure (ExprC.mkBVarW (← v.getNat?), none)
+      pure (ExprC.mkBVar (← v.getNat?), none)
     else if let .ok v := j.getObjVal? "sort" then do
-      pure (ExprC.mkSortW (← st.level (← v.getNat?)), none)
+      pure (ExprC.mkSort (← st.level (← v.getNat?)), none)
     else if let .ok v := j.getObjVal? "const" then do
       let n ← getNameD st v "name"
       let us ← (← (← v.getObjVal? "us").getArr?).mapM
@@ -159,32 +156,32 @@ private def parseExprEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
       let taintC : Option Name ←
         if st.taintedNames.isEmpty then pure none
         else do pure st.taintedNames[n]?
-      pure (ExprC.mkConstW n us.toList, taintC)
+      pure (ExprC.mkConst n us.toList, taintC)
     else if let .ok v := j.getObjVal? "app" then do
-      pure (ExprC.mkAppW (← getExprD st v "fn") (← getExprD st v "arg"), none)
+      pure (ExprC.mkApp (← getExprD st v "fn") (← getExprD st v "arg"), none)
     else if let .ok v := j.getObjVal? "lam" then do
       parseBinderInfo v
-      pure (ExprC.mkLamW (← getNameD st v "name")
+      pure (ExprC.mkLam (← getNameD st v "name")
         (← getExprD st v "type") (← getExprD st v "body")
         ⟨.default, ← parsePwD st v⟩, none)
     else if let .ok v := j.getObjVal? "forallE" then do
       parseBinderInfo v
-      pure (ExprC.mkForallEW (← getNameD st v "name")
+      pure (ExprC.mkForallE (← getNameD st v "name")
         (← getExprD st v "type") (← getExprD st v "body")
         ⟨.default, ← parsePwD st v⟩, none)
     else if let .ok v := j.getObjVal? "letE" then do
-      pure (ExprC.mkLetEW (← getNameD st v "name")
+      pure (ExprC.mkLetE (← getNameD st v "name")
         (← getExprD st v "type") (← getExprD st v "value")
         (← getExprD st v "body"), none)
     else if let .ok v := j.getObjVal? "proj" then do
-      pure (ExprC.mkProjW (← getNameD st v "typeName")
+      pure (ExprC.mkProj (← getNameD st v "typeName")
         (← (← v.getObjVal? "idx").getNat?) (← getExprD st v "struct"), none)
     else if let .ok v := j.getObjVal? "natVal" then
       match (← v.getStr?).toNat? with
-      | some n => pure (ExprC.mkLitW (.natVal n), none)
+      | some n => pure (ExprC.mkLit (.natVal n), none)
       | none => throw "malformed natVal literal"
     else if let .ok v := j.getObjVal? "strVal" then do
-      pure (ExprC.mkLitW (.strVal (← v.getStr?)), none)
+      pure (ExprC.mkLit (.strVal (← v.getStr?)), none)
     else
       throw "malformed or unsupported expr entry"
   let cs ← exprEntryChildren j
@@ -209,12 +206,12 @@ private def parseExprEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
 
 /-- Twin of `parseConstantValP`: the type stays `ExprC`. -/
 private def parseConstantValD (st : StateD) (v : Json) (budgeted : Bool) :
-    M ({ cv : ConstantValC // ExprC.WFc cv.type }) := do
+    M ConstantValC := do
   let name ← getNameD st v "name"
   let ty ← getDeclD st v "type" (budgeted || budgetedName name)
-  pure ⟨{ name := name
-          levelParams := (← (← getIdxs v "levelParams").mapM st.name).toList
-          type := ty.1 }, ty.2⟩
+  pure { name := name
+         levelParams := (← (← getIdxs v "levelParams").mapM st.name).toList
+         type := ty }
 
 /-- Twin of `parseConstantVal` (tree form, the bounded consumers). -/
 private def parseConstantValTD (st : StateD) (v : Json) : M ConstantVal := do
@@ -241,35 +238,35 @@ private def processLineCoreD (st : StateD) (j : Json)
     let cvp ← parseConstantValD st v (budgeted := true)
     if (← (← v.getObjVal? "isUnsafe").getBool?) then
       return .inr "unsafe axiom"
-    if cvp.1.name = quotSoundName then
+    if cvp.name = quotSoundName then
       let cv ← parseConstantValTD st v
       if ConstantInfo.canon (.axiomInfo cv) =
           ConstantInfo.canon (quotBasis.getD 4 (.axiomInfo default)) then
         return .inl st
       else
         return .inr "quotient soundness axiom mismatch"
-    return .inl { st with decls := st.decls.push ⟨.axiomDecl cvp.1, cvp.2⟩ }
+    return .inl { st with decls := st.decls.push (.axiomDecl cvp) }
   else if let .ok v := j.getObjVal? "def" then
     let cvp ← parseConstantValD st v (budgeted := false)
     match (← (← v.getObjVal? "safety").getStr?) with
     | "safe" =>
-      let vl ← getDeclD st v "value" (budgetedName cvp.1.name)
+      let vl ← getDeclD st v "value" (budgetedName cvp.name)
       let h ← parseHints v
       return .inl { st with
-        decls := st.decls.push ⟨.defnDecl cvp.1 vl.1 h, cvp.2, vl.2⟩ }
+        decls := st.decls.push (.defnDecl cvp vl h) }
     | s => return .inr s!"definition with safety '{s}'"
   else if let .ok v := j.getObjVal? "thm" then
     let cvp ← parseConstantValD st v (budgeted := false)
-    let vl ← getDeclD st v "value" (budgetedName cvp.1.name)
+    let vl ← getDeclD st v "value" (budgetedName cvp.name)
     return .inl { st with
-      decls := st.decls.push ⟨.thmDecl cvp.1 vl.1, cvp.2, vl.2⟩ }
+      decls := st.decls.push (.thmDecl cvp vl) }
   else if let .ok v := j.getObjVal? "opaque" then
     let cvp ← parseConstantValD st v (budgeted := false)
     if (← (← v.getObjVal? "isUnsafe").getBool?) then
       return .inr "unsafe opaque declaration"
-    let vl ← getDeclD st v "value" (budgetedName cvp.1.name)
+    let vl ← getDeclD st v "value" (budgetedName cvp.name)
     return .inl { st with
-      decls := st.decls.push ⟨.opaqueDecl cvp.1 vl.1, cvp.2, vl.2⟩ }
+      decls := st.decls.push (.opaqueDecl cvp vl) }
   else if let .ok v := j.getObjVal? "quot" then
     let cv ← parseConstantValTD st v
     let slot ← match (← (← v.getObjVal? "kind").getStr?) with
@@ -282,7 +279,7 @@ private def processLineCoreD (st : StateD) (j : Json)
     if (ConstantInfo.canon (.axiomInfo cv)).toConstantVal =
         (ConstantInfo.canon pin).toConstantVal then
       if slot = 0 then
-        return .inl { st with decls := st.decls.push ⟨.basisDecl .quotK, trivial⟩ }
+        return .inl { st with decls := st.decls.push (.basisDecl .quotK) }
       else
         return .inl st
     else
@@ -309,18 +306,18 @@ private def processLineCoreD (st : StateD) (j : Json)
     let block := types.toList ++ ctors.toList ++ recs.toList
     let blockC := block.map ConstantInfo.canon
     if blockC = BasisKind.eqK.decls.map ConstantInfo.canon then
-      return .inl { st with decls := st.decls.push ⟨.basisDecl .eqK, trivial⟩ }
+      return .inl { st with decls := st.decls.push (.basisDecl .eqK) }
     else if blockC = BasisKind.natK.decls.map ConstantInfo.canon then
-      return .inl { st with decls := st.decls.push ⟨.basisDecl .natK, trivial⟩ }
+      return .inl { st with decls := st.decls.push (.basisDecl .natK) }
     else if blockC = BasisKind.psigmaK.decls.map ConstantInfo.canon then
-      return .inl { st with decls := st.decls.push ⟨.basisDecl .psigmaK, trivial⟩ }
+      return .inl { st with decls := st.decls.push (.basisDecl .psigmaK) }
     else if blockC = BasisKind.punitK.decls.map ConstantInfo.canon then
-      return .inl { st with decls := st.decls.push ⟨.basisDecl .punitK, trivial⟩ }
+      return .inl { st with decls := st.decls.push (.basisDecl .punitK) }
     else if blockC = BasisKind.emptyK.decls.map ConstantInfo.canon then
-      return .inl { st with decls := st.decls.push ⟨.basisDecl .emptyK, trivial⟩ }
+      return .inl { st with decls := st.decls.push (.basisDecl .emptyK) }
     else
       if modeled then
-        return .inl { st with decls := st.decls.push ⟨.indDecl block, trivial⟩ }
+        return .inl { st with decls := st.decls.push (.indDecl block) }
       else
         -- alias every member to its `_model` counterpart; the member
         -- type is the parsed `ExprC` slot itself (no re-interning, no
@@ -343,8 +340,8 @@ where
     let name ← getNameD st t "name"
     let lps := (← (← getIdxs t "levelParams").mapM st.name).toList
     let ty ← getDeclD st t "type" (budgeted := true)
-    let v := ExprC.mkConstW (Name.str name "_model") (lps.map .param)
-    let d : WDeclC := ⟨.defnDecl ⟨name, lps, ty.1⟩ v.1 .abbrev, ty.2, v.2⟩
+    let v := ExprC.mkConst (Name.str name "_model") (lps.map .param)
+    let d : DeclC := .defnDecl ⟨name, lps, ty⟩ v .abbrev
     pure { st with decls := st.decls.push d }
 
 /-- Twin of `declRecordScan` (read-only pre-scan for the taint
@@ -405,32 +402,32 @@ private inductive FastResD where
 
 /-- Semantic phase for a hot `{"ie":…}` line, direct construction. -/
 private def fastApplyIED (st : StateD) (i : Nat) (fn : FastNode) : FastResD :=
-  let mk : Option (WExprC × List Nat) :=
+  let mk : Option (ExprC × List Nat) :=
     match fn with
     | .app f a => do
       let fe ← st.exprs[f]?
       let ae ← st.exprs[a]?
-      pure (ExprC.mkAppW fe ae, [f, a])
+      pure (ExprC.mkApp fe ae, [f, a])
     | .binder isAll nm ty bd => do
       let nI ← st.names[nm]?
       let tI ← st.exprs[ty]?
       let bI ← st.exprs[bd]?
-      pure (if isAll then (ExprC.mkForallEW nI tI bI ⟨.default, .never⟩, [ty, bd])
-            else (ExprC.mkLamW nI tI bI ⟨.default, .never⟩, [ty, bd]))
+      pure (if isAll then (ExprC.mkForallE nI tI bI ⟨.default, .never⟩, [ty, bd])
+            else (ExprC.mkLam nI tI bI ⟨.default, .never⟩, [ty, bd]))
     | .letE nm ty vl bd => do
       let nI ← st.names[nm]?
       let tI ← st.exprs[ty]?
       let vI ← st.exprs[vl]?
       let bI ← st.exprs[bd]?
-      pure (ExprC.mkLetEW nI tI vI bI, [ty, vl, bd])
+      pure (ExprC.mkLetE nI tI vI bI, [ty, vl, bd])
     | .const nm us => do
       let nI ← st.names[nm]?
       let usI ← us.mapM (st.levels[·]?)
-      pure (ExprC.mkConstW nI usI, [])
-    | .bvar k => pure (ExprC.mkBVarW k, [])
+      pure (ExprC.mkConst nI usI, [])
+    | .bvar k => pure (ExprC.mkBVar k, [])
     | .sort l => do
       let lI ← st.levels[l]?
-      pure (ExprC.mkSortW lI, [])
+      pure (ExprC.mkSort lI, [])
   match mk with
   | none => .fallback st
   | some (node, cs) =>
@@ -473,7 +470,7 @@ private def fastEntryD (st : StateD) (line : String) : FastResD :=
 /-- The direct parse result: declarations over `ExprC` and the taint
 skips.  No arena. -/
 structure ParseResultD where
-  decls : Array WDeclC
+  decls : Array DeclC
   taintSkipped : Array (Name × Name)
 
 /-- Twin of `feedLine`. -/

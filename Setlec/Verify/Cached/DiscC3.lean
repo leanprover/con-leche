@@ -233,9 +233,9 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     (majorToCtor mode (fueledFns mode env) env d recName rules major)
   rw [majorToCtor_unfold]
   refine SimC.withStore ?_
-  obtain ⟨hwc, rfl⟩ := hden
-  have hden : RelC i i := ⟨hwc, rfl⟩
-  rw [isCtorAppI_spec hwc rfl]
+  obtain rfl := hden
+  have hden : RelC i i := rfl
+  rw [isCtorAppI_spec rfl]
   by_cases hctor : isCtorApp env i
   · rw [if_pos hctor, if_pos hctor]
     exact SimC.pure hs ⟨hden, hmaj⟩
@@ -271,14 +271,14 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                   obtain ⟨htmd, hwtm⟩ := hP
                   refine SimC.bind (ih.whnf hs₁ htmd hwtm)
                     (fun s₂ tmaj tmajx hs₂ hP₂ => ?_)
-                  obtain ⟨⟨hwtmajc, rfl⟩, hwtmaj⟩ := hP₂
+                  obtain ⟨rfl, hwtmaj⟩ := hP₂
                   have hmargs : RelCL (ExprC.getAppArgs tmaj)
                       (Expr.getAppArgs tmaj) :=
-                    ExprC.getAppArgs_spec hwtmajc
+                    ExprC.getAppArgs_spec _
                   refine SimC.withStore ?_
-                  obtain ⟨hwfn, hfn⟩ := ExprC.getAppFn_spec hwtmajc
+                  have hfn := ExprC.getAppFn_spec tmaj
                   dsimp only [CStore.getNode, CStore.getAppFnI]
-                  generalize hg : ExprC.getAppFn tmaj = g at hwfn hfn ⊢
+                  generalize hg : ExprC.getAppFn tmaj = g at hfn ⊢
                   cases g with
                   | const T' ust =>
                     rw [show (Expr.getAppFn tmaj) = Expr.const T' ust
@@ -298,7 +298,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         (fun s₂n ctorI hs₂ hQctorI => ?_)
                       subst hQctorI
                       refine SimC.bind_left (internI_eff hs₂
-                        (n := ExprView.const rl.ctor ust) trivial)
+                        (n := ExprView.const rl.ctor ust))
                         (fun s₃ hd hs₃ hQh => ?_)
                       refine SimC.bind_left (mkAppNM_eff hs₃ hQh
                         (hmargs.take cnP))
@@ -307,9 +307,9 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                           (Expr.mkAppN (.const rl.ctor ust)
                             ((Expr.getAppArgs tmaj).take cnP)) := hQfab
                       refine SimC.withStore ?_
-                      rw [wscopedBI_spec hQfab'.1 hQfab'.2,
-                        looseBVarsBoundedI_spec hQfab'.1 hQfab'.2,
-                        leafGuardI_spec hQfab'.1 hwc hQfab'.2 rfl]
+                      rw [wscopedBI_spec hQfab',
+                        looseBVarsBoundedI_spec hQfab',
+                        leafGuardI_spec hQfab' rfl]
                       split
                       · rename_i hguard
                         have hwfab := Expr.WScoped.of_wscopedB
@@ -341,7 +341,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                           refine SimC.bind (ih.infer hs₄d hQfab' hwfab)
                             (fun s₄e tfab tfabx hs₄e hPtf => ?_)
                           obtain ⟨htfd, hwtf⟩ := hPtf
-                          refine SimC.bind (ih.defeq hs₄e ⟨hwtmajc, rfl⟩
+                          refine SimC.bind (ih.defeq hs₄e rfl
                             htfd hwtmaj hwtf)
                             (fun s₄f rd rd' hs₄f hPrd => ?_)
                           obtain rfl : rd = rd' := hPrd
@@ -412,14 +412,14 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                     obtain ⟨htmd, hwtm⟩ := hP
                     refine SimC.bind (ih.whnf hs₁ htmd hwtm)
                       (fun s₂ tmaj tmajx hs₂ hP₂ => ?_)
-                    obtain ⟨⟨hwtmajc, rfl⟩, hwtmaj⟩ := hP₂
+                    obtain ⟨rfl, hwtmaj⟩ := hP₂
                     have hmargs : RelCL (ExprC.getAppArgs tmaj)
                         (Expr.getAppArgs tmaj) :=
-                      ExprC.getAppArgs_spec hwtmajc
+                      ExprC.getAppArgs_spec _
                     refine SimC.withStore ?_
-                    obtain ⟨hwfn, hfn⟩ := ExprC.getAppFn_spec hwtmajc
+                    have hfn := ExprC.getAppFn_spec tmaj
                     dsimp only [CStore.getNode, CStore.getAppFnI]
-                    generalize hg : ExprC.getAppFn tmaj = g at hwfn hfn ⊢
+                    generalize hg : ExprC.getAppFn tmaj = g at hfn ⊢
                     cases g with
                     | const T' ust =>
                       rw [show (Expr.getAppFn tmaj) = Expr.const T' ust
@@ -449,7 +449,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                           (fun s₃n ctorI hs₃ hQctorI => ?_)
                         subst hQctorI
                         refine SimC.bind_left (internI_eff hs₃
-                          (n := ExprView.const caps.etaCtor ust) trivial)
+                          (n := ExprView.const caps.etaCtor ust))
                           (fun s₄ hd hs₄ hQh => ?_)
                         refine SimC.bind_left (mkAppNM_eff hs₄ hQh
                           (hmargs.append hQp))
@@ -462,9 +462,9 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                                     ((Expr.getAppArgs tmaj) ++
                                       [i]))) := hQfab
                         refine SimC.withStore ?_
-                        rw [wscopedBI_spec hQfab'.1 hQfab'.2,
-                          looseBVarsBoundedI_spec hQfab'.1 hQfab'.2,
-                          leafGuardI_spec hQfab'.1 hwc hQfab'.2 rfl]
+                        rw [wscopedBI_spec hQfab',
+                          looseBVarsBoundedI_spec hQfab',
+                          leafGuardI_spec hQfab' rfl]
                         split
                         · rename_i hguard
                           have hwfab := Expr.WScoped.of_wscopedB
@@ -501,7 +501,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                           | true =>
                             simp only [↓reduceIte]
                             refine SimC.bind (structEtaCertWithC_sim ih
-                              henv hs₅d hQfab' hden ⟨hwtmajc, rfl⟩
+                              henv hs₅d hQfab' hden rfl
                               hwfab hmaj hwtmaj)
                               (fun s₆ r r' hs₆ hPr => ?_)
                             obtain rfl : r = r' := hPr
@@ -750,8 +750,8 @@ private theorem iotaRec_certs_tail (ih : SSimC mode env f) (henv : EnvWF env)
           (((cvj.type.instantiateLevelParams cvj.levelParams usj).stripPis
             (rl.ctorParams + rl.nfields)).map (·.2)) := by
         have h := ExprC.stripPisBody_spec
-          (k := rl.ctorParams + rl.nfields) hQctor.1
-        rw [← hQctor.2]
+          (rl.ctorParams + rl.nfields) tyCtor
+        rw [← hQctor]
         exact h
       simp only [CStore.stripPisBodyI]
       refine SimC.bind_left (piResidualM_eff hs₄ hQctor hmargs)
@@ -783,7 +783,7 @@ private theorem iotaRec_certs_tail (ih : SSimC mode env f) (henv : EnvWF env)
         | some cb =>
           rw [hocb] at hsp
           have hcbd : RelC cb cbody := hsp
-          obtain ⟨hwcb, rfl⟩ := hcbd
+          obtain rfl := hcbd
           cases hresx : piResidual (cvj.type.instantiateLevelParams
               cvj.levelParams usj) majorx.getAppArgs with
           | none =>
@@ -799,12 +799,12 @@ private theorem iotaRec_certs_tail (ih : SSimC mode env f) (henv : EnvWF env)
               have hresd : RelC res residual := hQres
               have hresW : Expr.WScoped d residual :=
                 piResidual_WScoped hresx hwctorty hmaj.getAppArgs
-              obtain ⟨hwres, rfl⟩ := hresd
+              obtain rfl := hresd
               dsimp only
               refine SimC.withStore ?_
-              obtain ⟨hwfn'', hfn''⟩ := ExprC.getAppFn_spec hwcb
+              have hfn'' := ExprC.getAppFn_spec cb
               dsimp only [CStore.getNode, CStore.getAppFnI]
-              generalize hg'' : ExprC.getAppFn cb = g'' at hwfn'' hfn'' ⊢
+              generalize hg'' : ExprC.getAppFn cb = g'' at hfn'' ⊢
               cases g'' with
               | const cnᵢ cus =>
                 rw [show (Expr.getAppFn cb) = Expr.const cnᵢ cus
@@ -812,7 +812,7 @@ private theorem iotaRec_certs_tail (ih : SSimC mode env f) (henv : EnvWF env)
                 dsimp only
                 refine SimC.withStore ?_
                 have hres : RelCL (ExprC.getAppArgs res)
-                    (Expr.getAppArgs res) := ExprC.getAppArgs_spec hwres
+                    (Expr.getAppArgs res) := ExprC.getAppArgs_spec res
                 simp only [CStore.getAppArgsI]
                 refine SimC.bind (defEqListC_sim ih hs₅
                   (hres.drop rl.ctorParams)
@@ -978,13 +978,13 @@ theorem iotaRecC_sim (ih : SSimC mode env f) (henv : EnvWF env)
   unfold iotaRecI
   rw [iotaRec_unfold]
   refine SimC.withStore ?_
-  obtain ⟨hwc, rfl⟩ := hden
-  have hden : RelC i i := ⟨hwc, rfl⟩
+  obtain rfl := hden
+  have hden : RelC i i := rfl
   have hargs : RelCL (ExprC.getAppArgs i) (Expr.getAppArgs i) :=
-    ExprC.getAppArgs_spec hwc
-  obtain ⟨hwfn, hfn⟩ := ExprC.getAppFn_spec hwc
+    ExprC.getAppArgs_spec i
+  have hfn := ExprC.getAppFn_spec i
   dsimp only [CStore.getNode, CStore.getAppFnI]
-  generalize hg : ExprC.getAppFn i = g at hwfn hfn ⊢
+  generalize hg : ExprC.getAppFn i = g at hfn ⊢
   cases g with
   | const c us =>
     rw [show (Expr.getAppFn i) = Expr.const c us from hfn.symm]
@@ -1004,7 +1004,7 @@ theorem iotaRecC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             us.length = cv.levelParams.length
         · rw [if_pos hlen, if_pos hlen]
           refine SimC.bind_left
-            (internI_eff hs (n := ExprView.bvar 0) trivial)
+            (internI_eff hs (n := ExprView.bvar 0))
             (fun s₁ bvar0 hs₁ hQ0 => ?_)
           have hQ0' : RelC bvar0 (Expr.bvar 0) := hQ0
           refine SimC.bind (ih.whnf hs₁ (RelCL.getD hQ0' mI hargs)
@@ -1016,12 +1016,12 @@ theorem iotaRecC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           obtain ⟨hm₁d, hwm₁⟩ := hP₁
           refine SimC.bind (majorToCtorC_sim ih henv hs₃ hm₁d hwm₁)
             (fun s₄ major majorx hs₄ hP₂ => ?_)
-          obtain ⟨⟨hwmajc, rfl⟩, hmaj⟩ := hP₂
+          obtain ⟨rfl, hmaj⟩ := hP₂
           have hmargs : RelCL (ExprC.getAppArgs major)
-              (Expr.getAppArgs major) := ExprC.getAppArgs_spec hwmajc
+              (Expr.getAppArgs major) := ExprC.getAppArgs_spec major
           refine SimC.withStore ?_
-          obtain ⟨hwfn', hfn'⟩ := ExprC.getAppFn_spec hwmajc
-          generalize hg' : ExprC.getAppFn major = g' at hwfn' hfn' ⊢
+          have hfn' := ExprC.getAppFn_spec major
+          generalize hg' : ExprC.getAppFn major = g' at hfn' ⊢
           cases g' with
           | const cj usj =>
             rw [show (Expr.getAppFn major) = Expr.const cj usj
@@ -1109,7 +1109,7 @@ theorem iotaRecC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                             | true =>
                               simp only [↓reduceIte]
                               exact iotaRec_certs_tail ih henv hs₇ hden hw
-                                hfc hfj hrule ⟨hwmajc, rfl⟩ hmaj hargs
+                                hfc hfj hrule rfl hmaj hargs
                                 hmargs
                         | nested lvls pins =>
                           simp only [recFireComparands, hfire] at hcmpW ⊢
@@ -1147,7 +1147,7 @@ theorem iotaRecC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                             | true =>
                               simp only [↓reduceIte]
                               exact iotaRec_certs_tail ih henv hs₇ hden hw
-                                hfc hfj hrule ⟨hwmajc, rfl⟩ hmaj hargs
+                                hfc hfj hrule rfl hmaj hargs
                                 hmargs
                       · rw [if_neg hpins, if_neg hpins]
                         exact SimC.pure hs₄ trivial

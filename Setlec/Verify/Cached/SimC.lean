@@ -182,75 +182,67 @@ end ListKey
 /-! ## The value relations -/
 
 /-- The cached counterpart of a denotation fact.  State-free — there is
-no arena to be relative to — and, since task #172 B3a, *equality*: the
-`WFc` conjunct is vacuous and the second is `v' = v` on one type.  It
-is kept as a named relation because the whole `DiscC` family is written
-in it; collapsing it to `Eq` is the follow-up batch's first row. -/
-def RelC (v' : ExprC) (v : Expr) : Prop := WFc v' ∧ v' = v
+no arena to be relative to — and, since task #172 B3b, **equality**: it
+was `WFc v' ∧ v' = v`, the invariant conjunct went with `WFc`, and one
+type made the second conjunct an equation between the two sides
+themselves.  The name is kept because the whole `DiscC` family is
+written in it, and it still marks *which* side is which. -/
+def RelC (v' : ExprC) (v : Expr) : Prop := v' = v
 
-theorem RelC.wf {v' : ExprC} {v : Expr} (h : RelC v' v) : WFc v' := h.1
-
-theorem RelC.erase {v' : ExprC} {v : Expr} (h : RelC v' v) :
-    v' = v := h.2
+theorem RelC.erase {v' : ExprC} {v : Expr} (h : RelC v' v) : v' = v := h
 
 /-- `RelC` determines the pure value. -/
 theorem RelC.det {v' : ExprC} {a b : Expr} (ha : RelC v' a)
-    (hb : RelC v' b) : a = b := ha.2.symm.trans hb.2
+    (hb : RelC v' b) : a = b := ha.symm.trans hb
 
 /-- `RelC` determines the cached value. -/
 theorem RelC.det' {a b : ExprC} {v : Expr} (ha : RelC a v)
-    (hb : RelC b v) : a = b := ha.2.trans hb.2.symm
+    (hb : RelC b v) : a = b := ha.trans hb.symm
 
-/-- The conversion of a pure expression is always related to it. -/
-theorem RelC.ofExpr (x : Expr) : RelC (ExprC.ofExpr x) x :=
-  ⟨WFc_ofExpr x, ofExpr_eq_self x⟩
+/-- Every expression is related to itself (there is one type). -/
+theorem RelC.refl (x : Expr) : RelC x x := rfl
 
 /-- The list-level relation: the `DiscC` walks' replacement for the
 arena's `DenL`. -/
-def RelCL (l : List ExprC) (xs : List Expr) : Prop :=
-  WFcL l ∧ l = xs
+def RelCL (l : List ExprC) (xs : List Expr) : Prop := l = xs
 
 namespace RelCL
 
-theorem nil : RelCL [] [] := ⟨WFcL.nil, rfl⟩
+theorem nil : RelCL [] [] := rfl
 
 theorem cons {x : ExprC} {v : Expr} {l : List ExprC} {xs : List Expr}
-    (hx : RelC x v) (hl : RelCL l xs) : RelCL (x :: l) (v :: xs) :=
-  ⟨WFcL.cons hx.1 hl.1, by rw [hx.2, hl.2]⟩
-
-theorem wf {l : List ExprC} {xs : List Expr} (h : RelCL l xs) : WFcL l := h.1
+    (hx : RelC x v) (hl : RelCL l xs) : RelCL (x :: l) (v :: xs) := by
+  rw [show x = v from hx, show l = xs from hl]; rfl
 
 /-- The list projection. -/
 theorem map {l : List ExprC} {xs : List Expr} (h : RelCL l xs) :
-    l = xs := h.2
+    l = xs := h
 
-/-- The relation is `WFcL` plus the projection, so it is exactly
-determined by them. -/
-theorem intro {l : List ExprC} {xs : List Expr} (hw : WFcL l)
-    (hm : l = xs) : RelCL l xs := ⟨hw, hm⟩
+theorem intro {l : List ExprC} {xs : List Expr}
+    (hm : l = xs) : RelCL l xs := hm
 
-theorem nil_inv {xs : List Expr} (h : RelCL [] xs) : xs = [] := h.2.symm
+theorem nil_inv {xs : List Expr} (h : RelCL [] xs) : xs = [] := h.symm
 
 theorem cons_inv {x : ExprC} {l : List ExprC} {xs : List Expr}
     (h : RelCL (x :: l) xs) :
     ∃ v vs, xs = v :: vs ∧ RelC x v ∧ RelCL l vs :=
-  ⟨x, l, h.2.symm, ⟨h.1.head, rfl⟩, ⟨h.1.tail, rfl⟩⟩
+  ⟨x, l, h.symm, rfl, rfl⟩
 
 theorem length {l : List ExprC} {xs : List Expr} (h : RelCL l xs) :
-    l.length = xs.length := by rw [h.2]
+    l.length = xs.length := by rw [h]
 
 theorem append {l₁ l₂ : List ExprC} {xs₁ xs₂ : List Expr}
     (h₁ : RelCL l₁ xs₁) (h₂ : RelCL l₂ xs₂) :
-    RelCL (l₁ ++ l₂) (xs₁ ++ xs₂) :=
-  ⟨WFcL.append h₁.1 h₂.1, by rw [h₁.2, h₂.2]⟩
+    RelCL (l₁ ++ l₂) (xs₁ ++ xs₂) := by
+  rw [show l₁ = xs₁ from h₁, show l₂ = xs₂ from h₂]; rfl
 
 theorem reverse {l : List ExprC} {xs : List Expr} (h : RelCL l xs) :
-    RelCL l.reverse xs.reverse :=
-  ⟨WFcL.reverse h.1, by rw [h.2]⟩
+    RelCL l.reverse xs.reverse := by
+  rw [show l = xs from h]; rfl
 
 /-- `RelCL` determines the pure list. -/
 theorem det {l : List ExprC} {xs ys : List Expr} (hx : RelCL l xs)
-    (hy : RelCL l ys) : xs = ys := hx.2.symm.trans hy.2
+    (hy : RelCL l ys) : xs = ys := hx.symm.trans hy
 
 end RelCL
 
@@ -278,16 +270,16 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
     env.find? c = some (.recInfo cv mI rP rules) ∧
     rules.find? (fun r' => r'.ctor == j) = some rl ∧
     RelC i (rl.rhs.instantiateLevelParams cv.levelParams us)
-  whnfCoreC : ∀ k v, s.whnfCoreC[k]? = some v → WFc v ∧
+  whnfCoreC : ∀ k v, s.whnfCoreC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
       whnfCore mode env F d k = .ok v
-  whnfC : ∀ k v, s.whnfC[k]? = some v → WFc v ∧
+  whnfC : ∀ k v, s.whnfC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
       whnf mode env F d k = .ok v
-  inferC : ∀ k v, s.inferC[k]? = some v → WFc v ∧
+  inferC : ∀ k v, s.inferC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
       inferTypeCore mode env F d k = .ok v
-  annotC : ∀ k v, s.annotC[k]? = some v → WFc v ∧
+  annotC : ∀ k v, s.annotC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
       annotateCore mode env F d k = .ok v
   defeqC : ∀ a b r, s.defeqC[(a, b)]? = some r →
@@ -304,7 +296,7 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
     RelC ent.ty ent.tyE ∧
     ∀ vE vi, ent.val = some (vE, vi) → RelC vi vE
   instC : ∀ (k : ExprC) (vs : List ExprC) (d : Nat) (r : ExprC),
-    s.instC[(k, vs, d)]? = some r → WFc r ∧
+    s.instC[(k, vs, d)]? = some r →
       r = (Expr.instantiateList k vs d)
 
 /-- The environment-free residue: exactly the clauses `flushC`

@@ -153,22 +153,21 @@ private theorem internI_run (n : ExprView ExprC) (s : CState) :
 
 /-- Building one node: the port of `internI_eff` (the arena's
 `intern_spec` becomes `ofView_spec`). -/
-theorem internI_eff (hs : CSOK mode env s₀) {n : ExprView ExprC}
-    (hv : WFcV n) :
+theorem internI_eff (hs : CSOK mode env s₀) {n : ExprView ExprC} :
     CEff mode env s₀ (fun i => RelC i (ofViewE (n))) (internI n) :=
-  CEff.pure hs (ofView_spec hv)
+  CEff.pure hs (ofView_spec n)
 
 /-- Converting a whole `Expr`. -/
 theorem internExprM_eff (hs : CSOK mode env s₀) (x : Expr) :
     CEff mode env s₀ (fun i => RelC i x) (internExprM x) :=
-  CEff.pure hs (RelC.ofExpr x)
+  CEff.pure hs (RelC.refl x)
 
 theorem inst1M_eff (hs : CSOK mode env s₀) {e v : ExprC} {d : Nat}
     {a w : Expr} (he : RelC e a) (hv : RelC v w) :
     CEff mode env s₀ (fun i => RelC i (a.instantiate1 w d)) (inst1M e v d) := by
   refine CEff.pure hs ?_
-  obtain ⟨h1, h2⟩ := instantiate1_spec (d := d) he.1 hv.1
-  exact ⟨h1, by rw [h2, he.2, hv.2]⟩
+  show _ = _
+  rw [instantiate1_spec (d := d), he.erase, hv.erase]
 
 theorem instListRevM_eff (hs : CSOK mode env s₀) {e : ExprC}
     {vs : Array ExprC} {d : Nat} {a : Expr} {ws : List Expr}
@@ -176,42 +175,39 @@ theorem instListRevM_eff (hs : CSOK mode env s₀) {e : ExprC}
     CEff mode env s₀ (fun i => RelC i (a.instantiateList ws d))
       (instListRevM e vs d) := by
   refine CEff.pure hs ?_
-  have hwf : WFcL vs.toList := by
-    intro x hx
-    exact hvs.1 x (List.mem_reverse.mpr hx)
-  obtain ⟨h1, h2⟩ := instantiateRev_spec (d := d) he.1 hwf
-  exact ⟨h1, by rw [h2, he.2, hvs.2]⟩
+  show _ = _
+  rw [instantiateRev_spec (d := d), he.erase, hvs.map]
 
 theorem abstract1M_eff (hs : CSOK mode env s₀) {e : ExprC} {d : Nat}
     {a : Expr} (he : RelC e a) :
     CEff mode env s₀ (fun i => RelC i (a.abstract1 d)) (abstract1M e d) := by
   refine CEff.pure hs ?_
-  obtain ⟨h1, h2⟩ := abstract1_spec (d := d) (k := 0) he.1
-  exact ⟨h1, by rw [h2, he.2]⟩
+  show _ = _
+  rw [abstract1_spec (d := d) (k := 0), he.erase]
 
 theorem abstractRangeM_eff (hs : CSOK mode env s₀) {e : ExprC} {d k : Nat}
     {a : Expr} (he : RelC e a) :
     CEff mode env s₀ (fun i => RelC i (a.abstractRange d k))
       (abstractRangeM e d k) := by
   refine CEff.pure hs ?_
-  obtain ⟨h1, h2⟩ := abstractRange_spec (d := d) (k := k) (c := 0) he.1
-  exact ⟨h1, by rw [h2, he.2]⟩
+  show _ = _
+  rw [abstractRange_spec (d := d) (k := k) (c := 0), he.erase]
 
 /-- The `O(1)` loose-bvar bound field is exact on the invariant, so the
 value it returns bounds the erasure (the port of `bvarBoundM_eff`,
 whose arena leg was `TWF.bvarBoundD_le2`). -/
-theorem bvarBoundM_eff (hs : CSOK mode env s₀) {e : ExprC} (hw : WFc e) :
+theorem bvarBoundM_eff (hs : CSOK mode env s₀) {e : ExprC} :
     CEff mode env s₀ (fun b => (Expr.looseBVarsBounded b e) = true)
       (bvarBoundM e) :=
-  CEff.pure hs (bvarB_le hw (Nat.le_refl _))
+  CEff.pure hs (bvarB_le (Nat.le_refl _))
 
 theorem mkAppNM_eff (hs : CSOK mode env s₀) {f : ExprC} {args : List ExprC}
     {x : Expr} {xs : List Expr}
     (hf : RelC f x) (hargs : RelCL args xs) :
     CEff mode env s₀ (fun i => RelC i (Expr.mkAppN x xs)) (mkAppNM f args) := by
   refine CEff.pure hs ?_
-  obtain ⟨h1, h2⟩ := mkAppN_spec hargs.1 hf.1
-  exact ⟨h1, by rw [h2, hf.2, hargs.2]⟩
+  show _ = _
+  rw [mkAppN_spec args f, hf.erase, hargs.map]
 
 theorem instSpineM_eff (hs : CSOK mode env s₀) {args : List ExprC} {t : Nat}
     {e : ExprC} {x : Expr} {xs : List Expr}
@@ -219,8 +215,8 @@ theorem instSpineM_eff (hs : CSOK mode env s₀) {args : List ExprC} {t : Nat}
     CEff mode env s₀ (fun i => RelC i (Expr.instSpine xs t x))
       (instSpineM args t e) := by
   refine CEff.pure hs ?_
-  obtain ⟨h1, h2⟩ := instSpine_spec (t := t) hargs.1 he.1
-  exact ⟨h1, by rw [h2, he.2, hargs.2]⟩
+  show _ = _
+  rw [instSpine_spec (t := t), he.erase, hargs.map]
 
 theorem piResidualM_eff (hs : CSOK mode env s₀) {e : ExprC}
     {args : List ExprC} {x : Expr} {xs : List Expr}
@@ -228,8 +224,8 @@ theorem piResidualM_eff (hs : CSOK mode env s₀) {e : ExprC}
     CEff mode env s₀ (fun o => OptEr o (Setlec.piResidual x xs))
       (piResidualM e args) := by
   refine CEff.pure hs ?_
-  have h := piResidual_spec he.1 hargs.1
-  rw [← he.2, ← hargs.2]
+  have h := piResidual_spec (e := e) (args := args)
+  rw [← he.erase, ← hargs.map]
   exact h
 
 theorem pisToLamsM_eff (hs : CSOK mode env s₀) {k : Nat} {e body : ExprC}
@@ -237,8 +233,8 @@ theorem pisToLamsM_eff (hs : CSOK mode env s₀) {k : Nat} {e body : ExprC}
     CEff mode env s₀ (fun o => OptEr o (Expr.pisToLams k x xb))
       (pisToLamsM k e body) := by
   refine CEff.pure hs ?_
-  have h := pisToLams_spec (k := k) he.1 hb.1
-  rw [← he.2, ← hb.2]
+  have h := pisToLams_spec k e body
+  rw [← he.erase, ← hb.erase]
   exact h
 
 theorem instLevelParamsM_eff (hs : CSOK mode env s₀) {ks : List Name}
@@ -247,8 +243,8 @@ theorem instLevelParamsM_eff (hs : CSOK mode env s₀) {ks : List Name}
       (fun i => RelC i (a.instantiateLevelParams ks us))
       (instLevelParamsM ks us e) := by
   refine CEff.pure hs ?_
-  obtain ⟨h1, h2⟩ := instLevelParams_spec (ks := ks) (us := us) he.1
-  exact ⟨h1, by rw [h2, he.2]⟩
+  show _ = _
+  rw [instLevelParams_spec (ks := ks) (us := us), he.erase]
 
 /-- The binder-telescope peel fuel is a constant (the clone has no
 arena node count to read). -/
@@ -570,9 +566,8 @@ theorem CSOK.insertInstC {s : CState} (hs : CSOK mode env s)
     {e r : ExprC} {vs : List ExprC} {d : Nat}
     {mp : Std.HashMap (ExprC × List ExprC × Nat) ExprC}
     (hmp : ∀ (i : ExprC) (vs' : List ExprC) (d' : Nat) (r' : ExprC),
-      mp[(i, vs', d')]? = some r' → WFc r' ∧
+      mp[(i, vs', d')]? = some r' →
         r' = (Expr.instantiateList i vs' d'))
-    (hw : WFc r)
     (hE : r = (Expr.instantiateList e vs d)) :
     CSOK mode env { s with instC := mp.insert (e, vs, d) r } := by
   refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
@@ -584,7 +579,7 @@ theorem CSOK.insertInstC {s : CState} (hs : CSOK mode env s)
   · rw [if_pos hk] at hl
     cases hl
     obtain ⟨h1, h2, rfl⟩ := instKey_inv hk
-    exact ⟨hw, by rw [hE, h1, h2]⟩
+    rw [hE, h1, h2]
   · rw [if_neg hk] at hl
     exact hmp i' vs' d' r' hl
 
@@ -615,23 +610,24 @@ theorem instListM_eff (hs : CSOK mode env s₀) {e : ExprC} {vs : List ExprC}
   by_cases hble : e.bvarB ≤ d
   · rw [if_pos hble] at h1
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
-    refine ⟨hs, he.1, ?_⟩
-    have hb : Expr.looseBVarsBounded d a = true := he.2 ▸ bvarB_le he.1 hble
-    rw [he.2, Expr.instantiateList_eq_self hb]
+    refine ⟨hs, ?_⟩
+    have hb : Expr.looseBVarsBounded d a = true := he.erase ▸ bvarB_le hble
+    show _ = _
+    rw [he.erase, Expr.instantiateList_eq_self hb]
   · rw [if_neg hble] at h1
     cases hhit : s₀.instC[(e, vs, d)]? with
     | some j =>
       rw [hhit] at h1
       obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
-      obtain ⟨hw, hE⟩ := hs.instC e vs d _ hhit
-      exact ⟨hs, hw, by rw [hE, he.2, hvs.2]⟩
+      have hE := hs.instC e vs d _ hhit
+      exact ⟨hs, by show _ = _; rw [hE, he.erase, hvs.map]⟩
     | none =>
       rw [hhit] at h1
       dsimp only at h1
       obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
-      obtain ⟨hw, hE⟩ := instantiateList_spec (d := d) he.1 hvs.1
-      refine ⟨?_, hw, by rw [hE, he.2, hvs.2]⟩
-      refine hs.insertInstC ?_ hw hE
+      have hE := instantiateList_spec (e := e) (vs := vs) (d := d)
+      refine ⟨?_, by show _ = _; rw [hE, he.erase, hvs.map]⟩
+      refine hs.insertInstC ?_ hE
       -- the retained table is either the old one or empty, both backed
       split
       · exact hs.instC

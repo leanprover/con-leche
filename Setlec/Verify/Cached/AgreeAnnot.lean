@@ -84,7 +84,7 @@ def ExprC.erasePwC : ExprC → ExprC
 
 /-- The cached erasure is the plain one: `erasePwC` computes
 `Expr.erasePw` under `eraseC`.  Unconditional — the smart
-constructors' erasure lemmas are `rfl`, so no `WFc` is needed. -/
+constructors' equations are `rfl`. -/
 theorem ExprC.eraseC_erasePwC (e : ExprC) :
     (ExprC.erasePwC e) = e.erasePw := by
   induction e <;>

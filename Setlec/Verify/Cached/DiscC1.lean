@@ -8,10 +8,10 @@ import Setlec.Verify.Disc
 
 Per-helper simulation walks: each cached twin
 (`Setlec/Cached/CoreC.lean`) is `SimC`-related to its `Expr` original
-at the fueled record, on `WFc`, well-scoped inputs.  Ports of
+at the fueled record, on well-scoped inputs.  Ports of
 `Setlec/Verify/DiscI1.lean`'s walks under the recipe (DESIGN.md,
 task #163): `SimAt → SimC`, denotation hypotheses → `RelC`/`RelCL`,
-no `Ext`, node inversion by the `WFc.*_inv` lemmas instead of
+no `Ext`, node inversion by `cases` instead of
 `denoteNode` unpacking.  The pure comparand side of every statement is
 byte-identical to the interned original's.
 -/
@@ -24,7 +24,7 @@ variable {mode : CheckMode}
 
 /-- The cached conditional simulation at fuel `f` (the `SSimI` mirror):
 every cached entry point simulates the corresponding fueled family on
-`WFc`, well-scoped inputs.  Declared here so the per-body walks can
+well-scoped inputs.  Declared here so the per-body walks can
 take it as their induction hypothesis; the knot batch proves it at
 every fuel. -/
 structure SSimC (mode : CheckMode) (env : Env) (f : Nat) : Prop where
@@ -135,10 +135,9 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} :
     obtain ⟨x, xs, rfl, hax, hasxs⟩ := hargs.cons_inv
     rw [iotaCertsIAux.eq_def]
     refine SimC.view ?_
-    obtain ⟨hwc, rfl⟩ := hty
+    obtain rfl := hty
     cases ty with
     | forallE nm t b m =>
-      obtain ⟨hwt, hwb, -⟩ := hwc.forallE_inv
       rw [show (Expr.instantiateList (Expr.forallE nm t b m) ws)
           = .forallE nm ((Expr.instantiateList t ws))
               ((Expr.instantiateList b ws 1)) m by
@@ -160,7 +159,7 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} :
             (((Expr.instantiateList b ws 1)).instantiate1 x) xs
           else pure false)
       have hwx : Expr.WScoped d x := hwargs x (List.mem_cons_self ..)
-      refine SimC.bind_left (instListM_eff (d := 0) hs ⟨hwt, rfl⟩ hacc)
+      refine SimC.bind_left (instListM_eff (d := 0) hs rfl hacc)
         (fun s₁ dom' hs₁ hQdom => ?_)
       refine SimC.bind (ih.infer hs₁ hax hwx) (fun s₂ ta tax hs₂ hP => ?_)
       obtain ⟨htax, hwtax⟩ := hP
@@ -171,7 +170,7 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} :
       | true =>
         simp only [↓reduceIte]
         rw [← Expr.instantiateList_cons]
-        refine iotaCertsCAux_sim ih hs₃ ⟨hwb, rfl⟩ (RelCL.cons hax hacc) ?_
+        refine iotaCertsCAux_sim ih hs₃ rfl (RelCL.cons hax hacc) ?_
           hasxs (fun x' hx' => hwargs x' (List.mem_cons_of_mem _ hx'))
         rw [Expr.instantiateList_cons]
         exact Expr.WScoped.instantiate1_gen hwx 0 hwtb.2
@@ -193,7 +192,7 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} :
           (iotaCerts (fueledFns mode env) env d
             ((Expr.instantiateList (Expr.bvar k) (w :: ws')))
             (x :: xs))
-        refine SimC.bind_left (instListM_eff (d := 0) hs ⟨hwc, rfl⟩ hacc)
+        refine SimC.bind_left (instListM_eff (d := 0) hs rfl hacc)
           (fun s₁ ty' hs₁ hQty => ?_)
         have := iotaCertsCAux_sim ih (acc := []) (ws := [])
           (args := a :: as) (xs := x :: xs) hs₁ hQty RelCL.nil
@@ -287,7 +286,7 @@ theorem ensureSortC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
   refine SimC.bind (ih.whnf hs hden hw) (fun s₁ w wx hs₁ hP => ?_)
   obtain ⟨hwden, hww⟩ := hP
   refine SimC.view ?_
-  obtain ⟨hwc, rfl⟩ := hwden
+  obtain rfl := hwden
   cases w with
   | sort u => exact SimC.pure hs₁ rfl
   | bvar k => exact SimC.throw
@@ -314,8 +313,8 @@ theorem litToCtorIfNatC_eff {s₀ : CState} (hs : CSOK mode env s₀)
       else pure i
     | _ => pure i)
   refine CEff.view ?_
-  obtain ⟨hwc, rfl⟩ := hden
-  have hden : RelC i i := ⟨hwc, rfl⟩
+  obtain rfl := hden
+  have hden : RelC i i := rfl
   cases i with
   | lit l =>
     cases l with
@@ -379,7 +378,7 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
         | _ => pure none
       | _ => pure none)
   refine CEff.withStore ?_
-  obtain ⟨hwc, rfl⟩ := hden
+  obtain rfl := hden
   have hspec : unfoldDefinition env i =
       (match (Expr.getAppFn i) with
       | .const n us =>
@@ -396,9 +395,9 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
           else none
         | _ => none
       | _ => none) := rfl
-  obtain ⟨hwfn, hfn⟩ := ExprC.getAppFn_spec hwc
+  have hfn := ExprC.getAppFn_spec i
   dsimp only [CStore.getNode, CStore.getAppFnI]
-  generalize hg : ExprC.getAppFn i = g at hwfn hfn ⊢
+  generalize hg : ExprC.getAppFn i = g at hfn ⊢
   cases g with
   | const nm us =>
     have hfn' : (Expr.getAppFn i) = Expr.const nm us := hfn.symm
@@ -420,7 +419,7 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
           intro s₁ v hs₁ hQv
           refine CEff.withStore ?_
           dsimp only [CStore.getAppArgsI]
-          refine CEff.bind (mkAppNM_eff hs₁ hQv (ExprC.getAppArgs_spec hwc)) ?_
+          refine CEff.bind (mkAppNM_eff hs₁ hQv (ExprC.getAppArgs_spec _)) ?_
           intro s₂ r hs₂ hQr
           exact CEff.pure hs₂ hQr
         · rw [if_neg hlen, if_neg hlen]
@@ -435,7 +434,7 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
           intro s₁ v hs₁ hQv
           refine CEff.withStore ?_
           dsimp only [CStore.getAppArgsI]
-          refine CEff.bind (mkAppNM_eff hs₁ hQv (ExprC.getAppArgs_spec hwc)) ?_
+          refine CEff.bind (mkAppNM_eff hs₁ hQv (ExprC.getAppArgs_spec _)) ?_
           intro s₂ r hs₂ hQr
           exact CEff.pure hs₂ hQr
         · rw [if_neg hlen, if_neg hlen]
@@ -518,8 +517,8 @@ theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       | _ => litToCtorIfNatI (mkFEnv env) i)
     (litMajorToCtor (fueledFns mode env) env d e)
   refine SimC.view ?_
-  obtain ⟨hwc, rfl⟩ := hden
-  have hden : RelC i i := ⟨hwc, rfl⟩
+  obtain rfl := hden
+  have hden : RelC i i := rfl
   cases i with
   | lit l =>
     cases l with
@@ -588,8 +587,8 @@ theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       | _ => pure i)
     (projLitToCtor (fueledFns mode env) env d e)
   refine SimC.view ?_
-  obtain ⟨hwc, rfl⟩ := hden
-  have hden : RelC i i := ⟨hwc, rfl⟩
+  obtain rfl := hden
+  have hden : RelC i i := rfl
   cases i with
   | lit l =>
     cases l with
@@ -649,8 +648,8 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
       | _ => pure false)
     (defeqSpine (fueledFns mode env) env d a b)
   refine SimC.withStore ?_
-  obtain ⟨hwca, rfl⟩ := hdena
-  obtain ⟨hwcb, rfl⟩ := hdenb
+  obtain rfl := hdena
+  obtain rfl := hdenb
   have hspec : defeqSpine (fueledFns mode env) env d i j =
       (match (Expr.getAppFn i) with
       | .const nm us =>
@@ -666,23 +665,23 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
           else pure false
         | _ => pure false
       | _ => pure false) := rfl
-  have haargs := ExprC.getAppArgs_spec hwca
-  have hbargs := ExprC.getAppArgs_spec hwcb
+  have haargs := ExprC.getAppArgs_spec i
+  have hbargs := ExprC.getAppArgs_spec j
   have hlena : (ExprC.getAppArgs i).length = (Expr.getAppArgs i).length :=
     RelCL.length haargs
   have hlenb : (ExprC.getAppArgs j).length = (Expr.getAppArgs j).length :=
     RelCL.length hbargs
-  obtain ⟨hwfa, hfa⟩ := ExprC.getAppFn_spec hwca
-  obtain ⟨hwfb, hfb⟩ := ExprC.getAppFn_spec hwcb
+  have hfa := ExprC.getAppFn_spec i
+  have hfb := ExprC.getAppFn_spec j
   dsimp only [CStore.getNode, CStore.getAppFnI]
-  generalize hga : ExprC.getAppFn i = ga at hwfa hfa ⊢
+  generalize hga : ExprC.getAppFn i = ga at hfa ⊢
   cases ga with
   | const nm us =>
     have hfa' : (Expr.getAppFn i) = Expr.const nm us := hfa.symm
     rw [hspec, hfa']
     dsimp only
     refine SimC.withStore ?_
-    generalize hgb : ExprC.getAppFn j = gb at hwfb hfb ⊢
+    generalize hgb : ExprC.getAppFn j = gb at hfb ⊢
     cases gb with
     | const nm' us' =>
       have hfb' : (Expr.getAppFn j) = Expr.const nm' us' := hfb.symm
@@ -883,10 +882,9 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       | _ => pure none)
     (reduceNat (fueledFns mode env) env d e)
   refine SimC.view ?_
-  obtain ⟨hwc, rfl⟩ := hden
+  obtain rfl := hden
   cases i with
   | app f₁ b =>
-    obtain ⟨hwf₁, hwb, -⟩ := hwc.app_inv
     rw [show (Expr.app f₁ b)
         = Expr.app (f₁) b from rfl] at hw ⊢
     have hwfb : Expr.WScoped d (f₁) ∧ Expr.WScoped d b := by
@@ -929,11 +927,11 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
         rw [natLitSupportedF_eq, natOpStoredF_eq]
         by_cases hg1 : cv = natSuccName ∧ natLitSupported env
         · rw [if_pos hg1, if_pos hg1]
-          refine SimC.bind (ih.whnf hs ⟨hwb, rfl⟩ hwfb.2)
+          refine SimC.bind (ih.whnf hs rfl hwfb.2)
             (fun s₁ w wx hs₁ hP => ?_)
           obtain ⟨hwden, hww⟩ := hP
           refine SimC.withStore ?_
-          rw [rawNatLitI?_spec hwden.2]
+          rw [rawNatLitI?_spec hwden]
           cases rawNatLit? wx with
           | some k =>
             refine SimC.bind_left (internExprM_eff hs₁ _)
@@ -943,11 +941,11 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
         · rw [if_neg hg1, if_neg hg1]
           by_cases hg2 : cv = natPredName ∧ natOpStored env cv = true
           · rw [if_pos hg2, if_pos hg2]
-            refine SimC.bind (ih.whnf hs ⟨hwb, rfl⟩ hwfb.2)
+            refine SimC.bind (ih.whnf hs rfl hwfb.2)
               (fun s₁ w wx hs₁ hP => ?_)
             obtain ⟨hwden, hww⟩ := hP
             refine SimC.withStore ?_
-            rw [rawNatLitI?_spec hwden.2]
+            rw [rawNatLitI?_spec hwden]
             cases rawNatLit? wx with
             | some k =>
               dsimp only
@@ -964,11 +962,11 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
           · rw [if_neg hg2, if_neg hg2]
             by_cases hg3 : cv = natLog2Name ∧ natOpStored env cv = true
             · rw [if_pos hg3, if_pos hg3]
-              refine SimC.bind (ih.whnf hs ⟨hwb, rfl⟩ hwfb.2)
+              refine SimC.bind (ih.whnf hs rfl hwfb.2)
                 (fun s₁ w wx hs₁ hP => ?_)
               obtain ⟨hwden, hww⟩ := hP
               refine SimC.withStore ?_
-              rw [rawNatLitI?_spec hwden.2]
+              rw [rawNatLitI?_spec hwden]
               cases rawNatLit? wx with
               | some k =>
                 dsimp only
@@ -985,18 +983,17 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
             · rw [if_neg hg3, if_neg hg3]
               by_cases hg4 : cv = natLog2Name ∧ natLitSupported env
               · rw [if_pos hg4, if_pos hg4]
-                refine SimC.bind (ih.whnf hs ⟨hwb, rfl⟩ hwfb.2)
+                refine SimC.bind (ih.whnf hs rfl hwfb.2)
                   (fun s₁ w wx hs₁ hP => ?_)
                 obtain ⟨hwden, hww⟩ := hP
                 refine SimC.withStore ?_
-                rw [rawNatLitI?_spec hwden.2]
+                rw [rawNatLitI?_spec hwden]
                 cases rawNatLit? wx with
                 | some k => exact SimC.throw
                 | none => exact SimC.pure hs₁ trivial
               · rw [if_neg hg4, if_neg hg4]
                 exact SimC.pure hs trivial
     | app f₂ a =>
-      obtain ⟨hwf₂, hwa, -⟩ := hwf₁.app_inv
       rw [show (Expr.app f₂ a)
           = Expr.app (f₂) a from rfl] at hwfb ⊢
       have hwf₂a : Expr.WScoped d (f₂) ∧ Expr.WScoped d a := by
@@ -1041,15 +1038,15 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
               cv = natXorName ∨ cv = natShiftLeftName ∨
               cv = natShiftRightName) ∧ natOpStored env cv = true
           · rw [if_pos hg1, if_pos hg1]
-            refine SimC.bind (ih.whnf hs ⟨hwa, rfl⟩ hwf₂a.2)
+            refine SimC.bind (ih.whnf hs rfl hwf₂a.2)
               (fun s₁ w₁ wx₁ hs₁ hP₁ => ?_)
             obtain ⟨hw1den, hww1⟩ := hP₁
-            refine SimC.bind (ih.whnf hs₁ ⟨hwb, rfl⟩ hwfb.2)
+            refine SimC.bind (ih.whnf hs₁ rfl hwfb.2)
               (fun s₂ w₂ wx₂ hs₂ hP₂ => ?_)
             obtain ⟨hw2den, hww2⟩ := hP₂
             refine SimC.withStore ?_
             refine SimC.withStore ?_
-            rw [rawNatLitI?_spec hw1den.2, rawNatLitI?_spec hw2den.2]
+            rw [rawNatLitI?_spec hw1den, rawNatLitI?_spec hw2den]
             cases rawNatLit? wx₁ with
             | some n₁ =>
               cases rawNatLit? wx₂ with
@@ -1072,15 +1069,15 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
           · rw [if_neg hg1, if_neg hg1]
             by_cases hg2 : natOpWfNames.contains cv ∧ natLitSupported env
             · rw [if_pos hg2, if_pos hg2]
-              refine SimC.bind (ih.whnf hs ⟨hwa, rfl⟩ hwf₂a.2)
+              refine SimC.bind (ih.whnf hs rfl hwf₂a.2)
                 (fun s₁ w₁ wx₁ hs₁ hP₁ => ?_)
               obtain ⟨hw1den, hww1⟩ := hP₁
-              refine SimC.bind (ih.whnf hs₁ ⟨hwb, rfl⟩ hwfb.2)
+              refine SimC.bind (ih.whnf hs₁ rfl hwfb.2)
                 (fun s₂ w₂ wx₂ hs₂ hP₂ => ?_)
               obtain ⟨hw2den, hww2⟩ := hP₂
               refine SimC.withStore ?_
               refine SimC.withStore ?_
-              rw [rawNatLitI?_spec hw1den.2, rawNatLitI?_spec hw2den.2]
+              rw [rawNatLitI?_spec hw1den, rawNatLitI?_spec hw2den]
               cases rawNatLit? wx₁ with
               | some n₁ =>
                 cases rawNatLit? wx₂ with
