@@ -1,0 +1,16 @@
+sha	8690a41b6a69f6d0281cd40a46dae2a0c1036d0a
+shashort	8690a41b
+dirty	0
+date	2026-09-03T20:02:21+00:00
+host	bubblewrap
+cpu	AMD EPYC 9455 48-Core Processor
+cores	96
+mem	125 GB
+kernelver	6.12.100
+official	/home/joachim/setlec/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel
+preproc	/home/joachim/setlec/_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models
+reps	3
+timeout	1800
+binsha	644f03171fc5485ab3a6e131d180e2d18df109ce
+cachednc	no
+interned	yes

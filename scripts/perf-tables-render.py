@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render PERF.md from the battery's raw TSV.
 
-    perf-tables-render.py table.tsv PERF.md meta.txt
+    perf-tables-render.py table.tsv PERF.md meta.txt [perf-data-dir]
 
 Pure formatting: every number comes from the TSV, every caveat is
 static text.  Re-runnable without re-measuring (`perf-tables.sh
@@ -10,26 +10,52 @@ static text.  Re-runnable without re-measuring (`perf-tables.sh
 import sys, os
 
 tsv, out_path, meta_path = sys.argv[1], sys.argv[2], sys.argv[3]
+data_dir = sys.argv[4] if len(sys.argv) > 4 else None
 
-meta = {}
-if os.path.exists(meta_path):
-    for line in open(meta_path):
-        if "\t" in line:
-            k, v = line.rstrip("\n").split("\t", 1)
-            meta[k] = v
 
-# stream -> cfg -> record
-cells, stream_order = {}, []
-for line in open(tsv):
-    f = line.rstrip("\n").split("\t")
-    if len(f) < 8:
-        continue
-    s, c, instr, wall, ex, decls, load, verdict = f[:8]
-    if s not in cells:
-        cells[s] = {}
-        stream_order.append(s)
-    cells[s][c] = dict(instr=int(instr or 0), wall=float(wall or 0),
-                       exit=int(ex), decls=decls, load=load, verdict=verdict)
+def read_meta(path):
+    m = {}
+    if path and os.path.exists(path):
+        for line in open(path):
+            if "\t" in line:
+                k, v = line.rstrip("\n").split("\t", 1)
+                m[k] = v
+    return m
+
+
+def read_cells(path):
+    """Last row per (stream, config) wins — re-measured cells override."""
+    cs, order = {}, []
+    if not path or not os.path.exists(path):
+        return cs, order
+    for line in open(path):
+        f = line.rstrip("\n").split("\t")
+        if len(f) < 8:
+            continue
+        s, c, instr, wall, ex, decls, load, verdict = f[:8]
+        if s not in cs:
+            cs[s] = {}
+            order.append(s)
+        cs[s][c] = dict(instr=int(instr or 0), wall=float(wall or 0),
+                        exit=int(ex), decls=decls, load=load, verdict=verdict)
+    return cs, order
+
+
+meta = read_meta(meta_path)
+cells, stream_order = read_cells(tsv)
+
+# Configurations dropped from the matrix by a ruling.  Their cells are
+# carried out of the live table rather than deleted (the same
+# relabel-don't-erase convention as the caveat-5 correction), together
+# with the provenance of the run that measured them.
+retired_cells, retired_order = read_cells(
+    os.path.join(data_dir, "retired.tsv") if data_dir else None)
+retired_meta = {}
+if data_dir and os.path.exists(os.path.join(data_dir, "retired.meta")):
+    for line in open(os.path.join(data_dir, "retired.meta")):
+        f = line.rstrip("\n").split("\t")
+        if len(f) >= 4:
+            retired_meta[f[0]] = dict(retired=f[1], binsha=f[2], measured=f[3])
 
 # Did the measured binary have the cached PARITY engine
 # (Setlec/Cached/CoreNC.lean)?  Before it landed, `--no-model
@@ -53,6 +79,16 @@ CFGS = [
     ("nm-prod",   "`--no-model` `--core=production`"),
     ("nm-cached", NMC_LABEL),
 ]
+# Only render columns the run actually produced.  When task #172 drops
+# the interned representation the battery stops emitting the `*-prod`
+# cells, and the matrix halves to the cached columns plus official with
+# no edit here.
+CFGS = [(c, lbl) for c, lbl in CFGS
+        if any(c in cells[s] for s in stream_order)]
+
+# Does the measured tree still have the interned representation and its
+# `--core=production` dispatch?  Task #172 drops it on the user's ruling.
+INTERNED = meta.get("interned", "yes") == "yes"
 SHORT = {"official": "official", "sm-prod": "SM/prod", "sm-cached": "SM/cached",
          "tt-prod": "TT/prod", "tt-cached": "TT/cached",
          "nm-prod": "NM/prod",
@@ -140,6 +176,18 @@ if not PARITY:
     A("> (below) rewrites this file and this note disappears on its")
     A("> own.")
     A("")
+if INTERNED:
+    A("> **PENDING RULING — the `--core=production` columns.**  The user")
+    A("> has ruled the interned representation **dropped entirely**")
+    A("> (\"one expr type with computed fields everywhere\", task #172,")
+    A("> the tri-core refactor).  When it lands, this matrix halves to")
+    A("> the cached columns plus official; the interned cells below are")
+    A("> not deleted but carried into a retired-configurations section")
+    A("> with their provenance.  Until the tri-core template batches")
+    A("> land, core names and dispatch are still moving and these")
+    A("> columns remain live.")
+    A("")
+
 A("## Regenerating this file")
 A("")
 A("One line, from the repository root:")
@@ -234,10 +282,13 @@ if taxrows:
         A("the cached core it is **not** one and never was — it is the")
         A("two mode-gated checks alone (caveat 1 and the header note).")
     A("")
-    A("| stream | production | cached-parsed |")
-    A("|---|---|---|")
+    cores = [(0, "production"), (1, "cached-parsed")]
+    # drop a core whose columns the matrix no longer has
+    cores = [(i, n) for i, n in cores if any(r[i] != "—" for _, r in taxrows)]
+    A("| stream | " + " | ".join(n for _, n in cores) + " |")
+    A("|" + "---|" * (len(cores) + 1))
     for s, r in taxrows:
-        A(f"| `{s}` | {r[0]} | {r[1]} |")
+        A(f"| `{s}` | " + " | ".join(r[i] for i, _ in cores) + " |")
     A("")
 
 # Derived: the engineering gap, cheapest setlec cell vs official.
@@ -255,6 +306,37 @@ for s in stream_order:
     v, c = min(cand)
     A(f"| `{s}` | {SHORT[c]} | {v / base_rec['instr']:.2f}× |")
 A("")
+
+if retired_order:
+    A("## Retired configurations — historical, superseded by ruling")
+    A("")
+    A("These cells are **not current** and must not be compared with the")
+    A("tables above: they were measured by a binary that still had the")
+    A("configuration, which the checker no longer offers.  They are kept")
+    A("rather than deleted so the record can be read back — the same")
+    A("relabel-don't-erase convention the caveat-5 correction used.")
+    A("")
+    rcfgs = sorted({c for s in retired_order for c in retired_cells[s]})
+    for c in rcfgs:
+        rm = retired_meta.get(c, {})
+        A(f"**`{c}`** — retired {rm.get('retired', '(date not recorded)')}; "
+          f"cells measured {rm.get('measured', '?')} at binary "
+          f"`{(rm.get('binsha') or '?')[:8]}`.")
+    A("")
+    A("| stream | " + " | ".join(SHORT.get(c, c) for c in rcfgs) + " |")
+    A("|" + "---|" * (len(rcfgs) + 1))
+    for s in retired_order:
+        row = []
+        for c in rcfgs:
+            r = retired_cells[s].get(c)
+            row.append("—" if r is None else
+                       (f"**exit {r['exit']}**" if r["exit"] != 0
+                        else f"{g(r['instr'])} G / {r['wall']:.2f} s"))
+        A(f"| `{s}` | " + " | ".join(row) + " |")
+    A("")
+    A("Raw rows with full provenance: `perf-data/retired.tsv` and")
+    A("`perf-data/retired.meta`.")
+    A("")
 
 A("## CAVEATS — read every number through these")
 A("")
@@ -320,20 +402,26 @@ A("   the machine is shared with concurrent agent builds.  Instructions:u")
 A("   is robust to that; **wall seconds are not** and should be read as")
 A("   indicative only.  The per-cell load average at launch is recorded")
 A("   in the raw TSV.")
-A("7. **`--no-model --core=production` under-checks install-only kinds**")
-A("   relative to official (axioms, inductive blocks, quot and the")
-A("   pinned-cert branches run at io grade there, where official's")
-A("   declaration-type check is `check`).  This flatters the parity")
-A("   column on inductive-heavy streams — init-full most of all.")
+A("7. **`--no-model` under-checks install-only kinds** relative to")
+A("   official (axioms, inductive blocks, quot and the pinned-cert")
+A("   branches run at io grade there, where official's declaration-type")
+A("   check is `check`).  This flatters every parity column on")
+A("   inductive-heavy streams — init-full most of all.")
 A("8. **Fuel.**  setlec compiles in `checkFuel = 100000` plus")
 A("   `defeqLoopFuel`; official has no fuel.  No row above exhausts it.")
 A("")
 A("## Raw data")
 A("")
-A("`_tmp/perf-tables/table.tsv` — one line per cell:")
-A("`stream, config, median instructions:u, median wall s, exit code,")
-A("accepted declarations, 1-min load average at launch, verdict text`.")
-A("The preprocessed streams are cached at `_tmp/perf-tables/pre/`.")
+A("Tracked in `perf-data/`: `table.tsv` (the cells behind the live")
+A("tables), `meta.txt` (the run's provenance), and `retired.tsv` /")
+A("`retired.meta` when a configuration has been ruled out of the")
+A("matrix.  One line per cell: `stream, config, median instructions:u,")
+A("median wall s, exit code, accepted declarations, 1-min load average")
+A("at launch, verdict text`.")
+A("")
+A("The working copy of a run lives at `_tmp/perf-tables/` (gitignored,")
+A("so it is a cache and not the record) and the preprocessed streams")
+A("are cached beside it at `_tmp/perf-tables/pre/`.")
 A("")
 
 open(out_path, "w").write("\n".join(L) + "\n")
