@@ -35,6 +35,13 @@ ARENA=$ROOT/_tmp/arena-tests/good
 CACHE=${PERF_CACHE:-$ROOT/_tmp/perf-tables}
 TSV=$CACHE/table.tsv
 LOG=$CACHE/battery.log
+# The TRACKED record.  $CACHE lives under the gitignored _tmp, so the raw
+# cells behind PERF.md would not survive a clean of that directory — and
+# a record that can evaporate cannot be relabelled later.  A full run
+# therefore snapshots its cells here, and carries the cells of any
+# configuration it can no longer measure into `retired.tsv` instead of
+# dropping them (the relabel-don't-erase convention).
+DATA=${PERF_DATA:-$ROOT/perf-data}
 REPS=${PERF_REPS:-3}
 TIMEOUT=${PERF_TIMEOUT:-1800}
 VLIMIT=41943040            # 40 GB virtual, the standing ceiling
@@ -54,13 +61,30 @@ stream_path() {
   esac
 }
 
-# The seven cells per stream.  Every flag explicit; no defaults relied on.
+# Does the tree still have the INTERNED representation and its
+# `--core=production` dispatch?  Task #172 (the tri-core refactor) drops
+# it on the user's ruling — "one expr type with computed fields
+# everywhere" — after which those flags no longer name a core and the
+# matrix halves to the cached columns plus official.  Probed, not
+# assumed, so this script needs no edit on the day it lands.
+if [ -f "$ROOT/Setlec/Kernel/CoreI.lean" ] \
+   && grep -q '"production"' "$ROOT/Main.lean" 2>/dev/null; then
+  INTERNED=yes
+else
+  INTERNED=no
+fi
+
+# The cells per stream.  Every flag explicit; no defaults relied on.
 # NOTE (reconciliation with the work order): `--tt-model` is RETIRED in
 # Main.lean (task #148 T7b) and `--core=cached` is an unverified pilot
 # instrument, while `--core=cached-parsed` is the supported, verified
 # cached core (task #163).  The tt cells are measured anyway so the table
 # records their real exit code rather than silently dropping the column.
-CONFIG_IDS=(official sm-prod sm-cached tt-prod tt-cached nm-prod nm-cached)
+if [ "$INTERNED" = yes ]; then
+  CONFIG_IDS=(official sm-prod sm-cached tt-prod tt-cached nm-prod nm-cached)
+else
+  CONFIG_IDS=(official sm-cached tt-cached nm-cached)
+fi
 config_cmd() { # $1 = config id, $2 = stream file -> fills CMD
   case "$1" in
     official)  CMD=("$OFFICIAL" "$2") ;;
@@ -146,7 +170,41 @@ cell() { # $1 = stream label, $2 = config id, $3 = preprocessed stream
 
 render() {
   python3 "$ROOT/scripts/perf-tables-render.py" "$TSV" "$ROOT/PERF.md" \
-    "$CACHE/meta.txt"
+    "$CACHE/meta.txt" "$DATA"
+}
+
+# Before a full run truncates the table: any configuration in the
+# TRACKED snapshot that this run will not measure has just been retired
+# out of the matrix.  Carry its cells into retired.tsv with the metadata
+# of the run that produced them, so the historical numbers keep their
+# provenance instead of disappearing.  (Rows are appended; the renderer
+# keeps the last row per stream+config, as everywhere else.)
+carry_retired() {
+  [ -s "$DATA/table.tsv" ] || return 0
+  local keep=" $CONFIGS " gone n
+  gone=$(awk -F'\t' -v keep="$keep" \
+           'index(keep, " " $2 " ") == 0 { print $2 }' "$DATA/table.tsv" \
+         | sort -u)
+  [ -n "$gone" ] || return 0
+  local oldsha olddate
+  oldsha=$(awk -F'\t' '$1=="binsha"{print $2}' "$DATA/meta.txt" 2>/dev/null)
+  olddate=$(awk -F'\t' '$1=="date"{print $2}' "$DATA/meta.txt" 2>/dev/null)
+  mkdir -p "$DATA"
+  awk -F'\t' -v keep="$keep" 'index(keep, " " $2 " ") == 0' \
+    "$DATA/table.tsv" >> "$DATA/retired.tsv"
+  for n in $gone; do
+    printf '%s\t%s\t%s\t%s\n' "$n" "$(date -Iseconds)" \
+      "${oldsha:-unknown}" "${olddate:-unknown}" >> "$DATA/retired.meta"
+    say "RETIRED config $n — cells carried into $DATA/retired.tsv"
+  done
+}
+
+# After a full run: refresh the tracked snapshot.
+snapshot() {
+  mkdir -p "$DATA"
+  cp "$TSV" "$DATA/table.tsv"
+  cp "$CACHE/meta.txt" "$DATA/meta.txt"
+  say "tracked snapshot refreshed at $DATA"
 }
 
 # ---------------------------------------------------------------- main
@@ -164,6 +222,7 @@ done
 if [ -n "${PERF_APPEND:-}" ] && [ -s "$TSV" ]; then
   say "APPEND mode: keeping $(wc -l < "$TSV") existing cells"
 else
+  carry_retired
   : > "$TSV"
   {
     echo "sha	$(git -C "$ROOT" rev-parse HEAD)"
@@ -193,6 +252,7 @@ else
     else
       echo "cachednc	no"
     fi
+    echo "interned	$INTERNED"
     echo "reps	$REPS"
     echo "timeout	$TIMEOUT"
   } > "$CACHE/meta.txt"
@@ -208,5 +268,8 @@ for s in $STREAMS; do
   render   # keep PERF.md current after every stream
 done
 say "BATTERY DONE"
+# Only a full sweep may replace the tracked record; a partial run
+# (PERF_STREAMS/PERF_CONFIGS) would snapshot a hole.
+if [ -z "${PERF_STREAMS:-}${PERF_CONFIGS:-}" ]; then snapshot; fi
 render
-echo "wrote $ROOT/PERF.md (raw cells: $TSV)"
+echo "wrote $ROOT/PERF.md (raw cells: $TSV, tracked record: $DATA)"
