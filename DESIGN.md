@@ -30735,9 +30735,15 @@ declaration; no tier-two bracket to guard).  `Main.lean` dispatches
 `--no-model --core=cached-parsed` to it.  Measurement-only and
 unverified, like the interned parity lane.
 
-**THE CORRECTED CROSS-CORE PARITY TABLE** (instructions:u, median of
-3, `--no-model`, raw pipeline with preprocessor; ratios vs official
-raw):
+**THE CORRECTED CROSS-CORE PARITY TABLE** — BASELINE: RAW pipeline
+(preprocessor spawn INCLUDED in every setlec cell), ratios vs
+official-RAW.  NOT comparable by ratio to PERF.md's
+preprocessed-both-sides cells (official-PRE baseline; the ~180 G
+preprocessor floor sits between the two conventions on init-full —
+e.g. interned parity 1865.5 G raw vs 1685.4 G pre).  Every
+measurement row in later rounds carries an explicit baseline stamp;
+this error class (mixed-baseline comparison) has three strikes on
+record and stops here.  (instructions:u, median of 3, `--no-model`):
 
 | stream | official | interned parity (np) | cached parity (nc) |
 |---|---|---|---|
