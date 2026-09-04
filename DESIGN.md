@@ -36773,3 +36773,53 @@ a wave that does not costs a full-tree error cascade.
 7. **B3c, named and sized**: 51 carriers behind 277 parameterized
    definitions and 6 400 occurrences, to be dispatched with the
    `ttChecks` row and with the top-down order this batch measured.
+
+### 7. THE MERGE GRANT'S RULINGS (coordinator, at B3's landing)
+
+**(1) B3c is ACCEPTED and DEFERRED — off the critical path.**  The 51
+residual carriers (§4) are a **proof-tier vestige**: the shipped cores
+are flag-free by construction and the R capstone letters name them, so
+nothing user-visible and nothing in the trust argument waits on the
+sweep.  B4 dispatches on this landing, not on B3c.
+
+**With one warning attached to the deferral, and it is a costing
+warning, not a design one:** the retirement phase deletes the
+`CheckMode` *type* (census part 1 §8), and deleting the type **forces
+the same sweep** over the same 277 definitions and 6 400 occurrences.
+So a standalone B3c and the type retirement would **pay the bill
+twice**.  Whoever schedules B3c should either fold it into the
+`CheckMode` retirement or explicitly accept the double payment; the
+recommendation from this batch's measurement is to fold it, since the
+top-down order (§4) is the same in both cases and the second pass
+would re-walk the identical modules.
+
+**(2) Two findings to the ledger.**
+
+> *A configuration parameter is only worth naming per core where a
+> core reads it.*  `whnf` reads no field of `CoreCfg` — its whole
+> δ/ι/β content is `whnfCore`'s, reached through the knot — so the R
+> and P `whnf` are ONE function, and instantiating it twice would
+> have asserted a distinction that does not exist.  Check what a
+> family reads before templating it; the charter assumed four
+> families and the tree has three.
+
+> *A licensed skip costs the totality metatheory nothing when the
+> skip sits behind the result.*  `inferBodyIO`'s io clause drops the
+> per-argument certificate but returns `body.instantiate1 a`, the
+> full clause's own answer — and a *reads* statement only looks at
+> the returned type.  So the io walk consumes strictly LESS than the
+> full walk at exactly the clause the license touches, and
+> `InferReadsIOP` needed **no new routed leaf** (`ReadsInputsP`
+> unchanged).  The reusable test: *ask whether the skipped work is
+> upstream or downstream of the value the residue quantifies over.*
+
+**(3) The sizing correction, owed and recorded** (§3.2): the
+`.noModel` narrowing was priced at *"~800 lines"* and delivered
+**−15 net lines** on **121 retired declarations**.  The estimate
+counted 165 binders and 635 passes as if each held a line; they share
+lines with their neighbours, and `μ → modeR` adds characters back.
+Ledger form: *an estimate in lines and a measurement in tokens are
+different quantities — before pricing a hypothesis sweep as a line
+deletion, check whether the hypothesis has a line to itself.*  The
+acceptance check still passes (net negative in both waves); the
+headline number is the declaration count, not the line count.
