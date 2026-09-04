@@ -32982,3 +32982,104 @@ withheld deliberately:
   12 000–25 000-line anchor is the census's, unchanged, and E1/E2 make
   parts of it *more* conditional rather than less.
 
+### 8. THE ROUTE-C VERDICT
+
+> **Parity-expressibility: NO, not as the census defines it.**  Twenty-five
+> of the twenty-six behavioural deviations (12 class-1, 12 class-2,
+> 1 class-3 family) are config-expressible and their divergence lists are
+> finite, named and enumerated above — that half of route C survives
+> intact and is stronger than the census assumed (§2: the list is
+> representation-independent).  But `whnfCore`'s continuation (E1) and
+> `.proj`'s residual (E2) are **not guards**, and no field of a config
+> record over one shared body makes the parity and P instantiations
+> `rfl`-equal at those clauses.  T1 as stated — *"for every clause,
+> either a `rfl`-grade identity or a named divergence lemma with its
+> firing condition"* — is therefore not reachable for `whnfCore` at all
+> (E1 falsifies the identity at every recursive clause, and its "firing
+> condition" is a run-length property, not a term predicate: exactly the
+> shape the census's own recommendation forbids as a conditional form).
+
+Stated against the census's three stop conditions (part 6 §5):
+
+| stop condition | status after B1 |
+|---|---|
+| 1 — a `CoreNC` deviation in none of the three classes | **TRIPPED**, twice at clause level and once structurally |
+| 2 — the config's fields do not compute away by `rfl` | untested here (B2's slice); E1/E2 make it *moot* for `whnfCore` and `infer`, since the fields would not exist to compute away |
+| 3 — the two simulation towers do not instantiate | untouched by B1; still B2's question |
+
+**What is NOT refuted, and should be preserved in any re-scope:**
+
+* the class-1/2/3 census content itself, at twelve/twelve/one, with the
+  §4 correction;
+* the **cheap floor** (`parity_agrees_P_names`, census part 4 §3): it
+  reads the driver fold and no core clause, so E1/E2/E3 do not touch it.
+  B1's recommendation is unchanged — land it first, and land it whatever
+  the re-scope decides;
+* **T2's decomposition** (part 4 §3): T2a/T2b are class-3 content and
+  survive; T2c is unmoved.  Note that E2 lands *inside* T2c's clause —
+  `annotateBody`'s `.proj` is the one place the annotation pass calls the
+  core, and E2 is a divergence in `infer` at `.proj` — so T2c is now
+  known to carry **two** obligations, head-shape agreement *and* the
+  residual-computation agreement, and its "unpriced" status is if
+  anything more firmly earned;
+* the **1 756-line clone retirement** as a goal: §2 shows the clone is
+  a *pure* clone across representations, so whatever route survives, the
+  cached parity engine costs nothing extra to carry along with the
+  interned one.
+
+### 9. PARITY FIDELITY vs THE OFFICIAL KERNEL (census part 7 §4, seal §4
+item 1)
+
+Reference: `_tmp/lean4-master-kernel/type_checker.cpp` (read for this
+batch, line numbers quoted), plus lean4lean where the census cites it.
+**Ruled-deliberate items are separated from findings, per the charter.**
+
+#### 9.1 RULED DELIBERATE (user ruling 2026-09-03 — "we have a proof of
+soundness, so we can omit the check and still sleep well")
+
+| | divergence | present in the parity core? |
+|---|---|---|
+| D1 | `proofIrrelI` omits official's type comparison.  Official (`:932-939`): `t_type = infer_type(t)`; `if (!is_prop(t_type)) return l_undef`; `s_type = infer_type(s)`; `return to_lbool(is_def_eq(t_type, s_type))`.  setlec checks only that **both** types' sorts are zero, and never compares them — the heterogeneous proof-irrelevance accept-superset | **YES, unchanged** — `proofIrrelI` is *shared*: the parity lane calls the certified definition verbatim (`CoreNC:295,366,646`) |
+| D2 | the Bool fall-through vs official's COMMIT.  Official (`:1202-1203`) commits: once `t_type` is a Prop the result of `is_def_eq(t_type,s_type)` **is** the answer.  setlec returns a `Bool` and falls through to the rest of `defeq` | **YES, unchanged** — `defeqStepNC:646` is `if ← proofIrrelI … then pure true else <the whole remaining body>`, byte-identical in shape to `defeqStepI:1952` |
+
+**One thing the coordinator must not read past.**  The ruling's own
+rationale is a *soundness* argument, and the census already flagged
+(part 7 §4) that it "does not reach" the unverified lane.  B1 confirms
+the mechanics: both divergences reach the parity core **through shared
+code**, so they are not parity decisions at all — they are the certified
+core's decisions, inherited.  Whether the licence transfers to a lane
+with no soundness proof is the user decision the census named; B1 adds
+only that *no separate parity-side edit exists or is needed either way*
+(`agent/proofirrel-check` @ `3a0be1cd` fixes `proofIrrelI`, hence both
+lanes at once).
+
+#### 9.2 FINDINGS — recorded in the canonical tax table, part 1(a)
+
+| | direction | status |
+|---|---|---|
+| F1 | **strict** — `inferBodyNC`'s `.lam` infers and sort-checks the λ **domain**; official gates that at `infer_only` (`:132`, `if (!infer_only) ensure_sort_core(...)`) | recorded; priced −0.09 % / −0.41 % |
+| F2 | **strict** — `inferBodyNC`'s `.letE` runs both checks; official gates them (`:216`) | recorded; **0 fires** measured (zeta at annotate empties the footprint) |
+| F3 | **strict** — the `annotate` pass has no official counterpart at all | recorded |
+| F8 | **weak** — `checkDeclSPNC` routes install-only kinds through `sharedOpsNC` → `coreKnotNC`, i.e. at io grade, where official's declaration check is `infer_only = false` | recorded |
+
+#### 9.3 FINDINGS — NEW OR NEWLY SIZED BY THIS BATCH
+
+| | direction | finding |
+|---|---|---|
+| **F4** | **strict** | `whnfCoreBodyNC`'s proj clause keeps **`projCertI`** — two `r.infer` runs (`CoreI:1459-1466`) that official's `whnf_core` proj case (`reduce_proj`, `:504-510`) does not perform.  `CoreNC.lean`'s own docstring records it (*"Not skipped … reported as residue"*), but it is **absent from the tax table's part 1(a) list**, i.e. missing from the evidence base of the ruling the seal is asking for.  Two `infer`s per projection reduction is not a rounding error |
+| **F5** | **strict** | `iotaRecNC` keeps four checks `inductiveReduceRec` / `reduce_recursor` do not: the two `stripPis` arity pins (`:417-418`), the constructor↔recursor **level-linkage** comparison (`:426`, `isEquivListLM usj cmpLvls`), the **exact** `margs.length = rl.ctorParams + rl.nfields` (`:412`; official/lean4lean test `nfields ≤ major_args.size`), and the projection-rule parameter comparison (`:434`).  All four are documented in the module docstring as deliberate, and the last is *load-bearing* — skipping it rejects five good arena/e2e tests.  Also `rl.fire = .inert` **declines** (`:413-415`), a setlec-only notion |
+| **F6** | **strict / reject-ward inside a reduction** | `majorToCtorNC`'s three scoping guards (`wscopedBI`, `looseBVarsBoundedI`, `leafGuardI`, `:330-332` and `:359-361`), the instantiated `piResultNeverZero` non-Prop guard (`:352`) and the `Name.isProjFnShape recName = false` exclusion (`:342`) have no counterpart in official's `to_ctor_when_K` / `to_ctor_when_struct`.  On failure the rescue silently does not fire, so **official reduces where parity gets stuck** — the same *direction* as E1, though here it is a documented setlec encoding rather than an unmirrored refactor |
+| **F7** | **strict, and it is E1** | `whnfCoreBodyNC` charges one unit of the shared `checkFuel` per reduction step.  Official *also* guards per step (`scope_rec_depth`, `:469`), so the parity core is official-shaped here — **but the certified core is not**, and the two setlec cores therefore disagree.  Recorded in both tables on purpose: it is simultaneously the strongest parity-fidelity *defence* and the batch's first escalation |
+| **F8′** | **weak — the recorded item is larger than recorded** | the tax table's weak-direction finding names "axioms, inductive blocks, quot, the pinned-cert branches".  Measured at `CheckerNC.lean:475-491`: `checkDeclSPNC` *also* routes the **`natOpNames` / `natDivModNames` definitions and the `reduceOpNames` opaques** to `checkDeclSPNCPlain` → `sharedOpsNC` → io grade.  The GMP pin declarations are checked infer-only in the parity lane |
+| **F9** | shape, both cores | `inferBodyNC`'s `.proj` walks the *projection-entry* type; official's `infer_proj` (`:247-291`) walks the **constructor's** type, instantiating the parameters and peeling `idx` fields, and performs the Prop-structure field-sort checks **ungated**.  Neither setlec core matches official's shape — the parity core's walk is the closer of the two, and setlec discharges the Prop discipline at `annotate` (`projFieldDomI`) plus the `native` pin.  Recorded, not new (the projection-unification limits) |
+| — | shape, not a check | official's `infer_lambda` ends with `cheap_beta_reduce(r)` (`:140`); neither setlec core does.  Result-syntax only; cannot change a verdict (defeq is up to β).  Listed for completeness, not as a finding |
+
+#### 9.4 EXPLICITLY OUT OF SCOPE, AND WHY
+
+The `.sort` and `.const` clauses of `inferBodyNC` are **byte-identical**
+to `inferBodyI`'s, so official's `!infer_only` level checks
+(`check_level` at `:346` and in `infer_constant`) are a whole-checker
+question — setlec discharges level scoping on the install path, in code
+both lanes share — and not a *parity* deviation.  B1 records the
+observation and leaves it where it belongs.
+
