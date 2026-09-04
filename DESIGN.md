@@ -33843,3 +33843,336 @@ nothing but a measurement distinguished them.  Its reusable form:
 > shape passes it — so the shape must be chosen by measurement, and a
 > config value must be scalar data built once per knot level, never a
 > closure evaluated per call.*
+## TASK #172 — BATCH B7: THE AGREEMENT FLOOR — STATEMENT FREEZE
+(2026-09-04, the B7 worker; amended-order position 1)
+
+B7 lands the *cheap floor* of the parity↔P agreement family: census
+part 4 §3's `parity_agrees_P_names` plus T2a/T2b.  T2c is **out of
+scope** (it waits on the E2 ruling).  Per the coordinator's mid-flight
+user ruling (*"drop the interned variants … one expr type everywhere"*)
+every named instance below is stated at the **cached** pair —
+`Setlec/Cached/ParsedC.lean` (the P driver) and
+`Setlec/Cached/ParsedNC.lean` (the parity driver).  The interned pair
+(`Kernel/CheckerS.lean` / `Kernel/CheckerNC.lean`) is *word-for-word
+the same fold*, so the statements below are driver-generic in
+substance; they are simply not instantiated there, because that
+representation retires.
+
+This section is the **freeze**: it is committed before any proof is
+attempted, and a statement that turns out unprovable as frozen stops
+the batch and is reported with its refutation (the escalation rule),
+never weakened silently.
+
+### 1. WHAT THE FLOOR CAN CLAIM — AND THE INVARIANT IT NEEDS
+
+The census's floor sentence is *"both drivers are the same fold
+installing one constant per declaration in stream order"*.  Read
+against the sources that is **almost** right and the gap is the whole
+design problem:
+
+* the def / thm / opaque / axiom / basis branches install a constant
+  list determined by the **parsed declaration alone** — every
+  `FEnv.push` in them carries `cvA` whose `name` and `levelParams` come
+  straight from the header (`checkConstantValC`/`checkConstantValCNC`
+  return `⟨cv.name, cv.levelParams, tyE⟩`, and only `tyE` is
+  core-computed);
+* but `.indDecl` is **not** determined by the declaration alone.  Three
+  of its installs are guarded by environment lookups —
+  `installProjFnStep*` on `(fe.find? (projModelName T i)).isSome`, and
+  `installProjTemplateStepS` on `(fe.find? (projFnName T i)).isNone`
+  *and* on the stored recursor's `majorIdx`, `rulePrefix` and its
+  single rule's `ctor`.
+
+So a names-only induction hypothesis is **not** preserved by the fold:
+`installProjTemplateS` reads numeric and rule data of an already
+installed constant.  The floor therefore runs on a slightly larger
+invariant — the **install skeleton** — and names fall out as a
+corollary.  This is a finding of the freeze, and it is recorded because
+the census priced the floor as names-only.
+
+Two facts make the invariant closable and both are checked:
+
+* `directStructsEnabled = false` (`Kernel/Direct.lean:319`), so
+  `directPartsF? fe block = none` for every `fe`, and the direct
+  simple-structure clause (`checkDirectStructS` / `checkDirectStructNC`)
+  is **unreachable in both drivers**.  The floor proves this rather than
+  assuming it.
+* `toleratedAxiomNames = [sorryAx]` and `stdAxiomOkF` is `false` off
+  `propext`/`Classical.choice`, so at `.axiomDecl` the *push-or-not*
+  decision is a function of the header name only: `sorryAx` installs
+  nothing in **both** drivers, every other accepted name installs
+  exactly `.axiomInfo cvA`.
+
+### 2. THE FROZEN STATEMENTS
+
+#### (a) The kit — final-value reasoning for `CheckCM`
+
+```lean
+/-- `P` holds of every value the action can return (the state is
+irrelevant: the floor reads returned environments only). -/
+def Yields {α : Type} (m : CheckCM α) (P : α → Prop) : Prop :=
+  ∀ s a s', m s = .ok (a, s') → P a
+```
+
+with `Yields.pure`, `Yields.bind` (**no** hypothesis on the bound
+action — the point of the abstraction), `Yields.throw`, `Yields.ite`,
+`Yields.foldlM`.
+
+#### (b) The install skeleton
+
+```lean
+/-- Exactly the data of an installed constant that the *drivers*'
+install guards read, and nothing the cores compute. -/
+inductive InstallSkel where
+  | ax   (n : Name)
+  | defn (n : Name)
+  | thm  (n : Name)
+  | ind  (n : Name)
+  | ctor (n : Name) (numParams numFields : Nat)
+  | recr (n : Name) (majorIdx rulePrefix : Nat) (ctors : List Name)
+  | proj (n : Name)
+  deriving DecidableEq, Repr
+
+def ConstantInfo.skel : ConstantInfo → InstallSkel
+def Env.skels (env : Env) : List InstallSkel := env.consts.map ConstantInfo.skel
+
+theorem InstallSkel.name_skel (ci : ConstantInfo) : ci.skel.name = ci.name
+```
+
+`skel` deliberately **forgets** every core-computed field: the
+annotated type, the annotated value, `IndCaps`, the rules' right-hand
+sides and their `plain`/`inert` fire tags.  Those are exactly the
+class-1/2/3 divergent data, and forgetting them is what makes the floor
+free of core reasoning.
+
+#### (c) The spec fold — one pure function, two drivers
+
+```lean
+/-- The skeletons one declaration installs, as a pure function of the
+declaration and the skeletons already installed.  Total: on inputs the
+drivers reject it is junk, and `Yields` makes junk vacuous. -/
+def declCSkels : DeclC → List InstallSkel → List InstallSkel
+```
+
+with the two correctness statements — the batch's real content:
+
+```lean
+theorem checkDeclSPC_skels (mode : CheckMode) (fe : FEnv) (pd : DeclC) :
+    Yields (checkDeclSPC mode fe pd)
+      (fun fe' => fe'.Canon ∧ fe'.env.skels = declCSkels pd fe.env.skels)
+
+theorem checkDeclSPCNC_skels (fe : FEnv) (pd : DeclC) :
+    Yields (checkDeclSPCNC fe pd)
+      (fun fe' => fe'.Canon ∧ fe'.env.skels = declCSkels pd fe.env.skels)
+```
+
+`FEnv.Canon fe := fe = mkFEnv fe.env` is carried because the guards read
+`FEnv.find?` and the floor must know it computes `Env.find?`
+(`mkFEnv_find?`); `mkFEnv_push` makes it `rfl`-preserved by every
+install.
+
+#### (d) The floor — the census's sentence, made exact
+
+```lean
+theorem parity_agrees_P_skels_D {mode : CheckMode} {ds : List WDeclC}
+    {envP envN : Env}
+    (hP : checkDeclsSPCachedD mode ds = .ok envP)
+    (hN : checkDeclsSPCachedDNM ds = .ok envN) :
+    envN.skels = envP.skels
+
+theorem parity_agrees_P_names_D … :
+    envN.consts.map ConstantInfo.name = envP.consts.map ConstantInfo.name
+
+theorem parity_agrees_P_count_D … : envN.consts.length = envP.consts.length
+```
+
+and the same three at the arena-parse entry points
+(`checkDeclsSPCached` / `checkDeclsSPCachedNM`), which share the
+conversion `declsCOfP` verbatim:
+`parity_agrees_P_skels`, `parity_agrees_P_names`, `parity_agrees_P_count`.
+
+**Scope, stated honestly.** These are *accept-verdict* statements —
+scoped exactly as census part 4 §1's third refutation requires (the
+no-model sweep's 3 recorded divergences are decline/accept divergences
+and are untouched by them).
+
+#### (e) T2a — `annotate`'s clause-level mode identity
+
+At the cached tier the parity core's `annotate` **is** the certified
+body at `.noModel` (`Cached/CoreNC.lean:794,823`:
+`annotateBodyI .noModel prev.get fe d e`), so T2a is a mode-collapse on
+one function, stated in census part 4 §3's T1 shape (a *shared* `r`):
+
+```lean
+theorem annotateBodyI_mode_eq (mode : CheckMode) (r : CoreFnsI)
+    (fe : FEnv) (d : Nat) (e : ExprC) (h : e.isBinderNode = false) :
+    annotateBodyI .noModel r fe d e = annotateBodyI mode r fe d e
+```
+
+`isBinderNode` = `.lam`/`.forallE`.  **A freeze-time finding, recorded
+because it narrows T2c**: the `.proj` clause of `annotateBodyI` is
+*mode-free*, so it is inside this theorem, not outside it.  The census
+listed T2a as "the ten non-`proj` clauses" and carried `.proj` to T2c;
+at a shared `r` the `.proj` clause is a `rfl`.  T2c's residual is
+therefore entirely about the two cores' `r` differing (class 2), and
+**nothing about `annotateBody` itself is left in it**.
+
+#### (f) T2b — the two `pw` writes are exactly the erased datum
+
+```lean
+/-- `Expr.erasePw` at the cached representation. -/
+def ExprC.erasePwC : ExprC → ExprC
+
+theorem ExprC.eraseC_erasePwC (e : ExprC) :
+    eraseC (erasePwC e) = (eraseC e).erasePw
+
+theorem annotBinderMetaI_bi (pw? : Option PropWhen) (mb : BinderMeta) :
+    (annotBinderMetaI pw? mb).bi = mb.bi
+
+/-- The rebuild loop's output does not depend on the datum written. -/
+theorem annotateBindersOutI_erasePwC_eq …
+
+/-- The two gated clauses agree modulo `pw`-erasure. -/
+theorem annotatePisLeafI_erasePwC_eq …
+theorem annotateLamsLeafI_erasePwC_eq …
+theorem annotatePisI_erasePwC_eq …
+theorem annotateLamsI_erasePwC_eq …
+```
+
+stated as agreement of the two runs *from the same state* (the cached
+representation is pure — `viewI = pure ∘ view`, `internI = pure ∘
+ofView`, `abstractRangeM` pure — so no state relation is needed, which
+is exactly why the user ruling's "one expr type" makes this batch
+cheaper than the interned tier would have).
+
+### 3. WHAT B7 DOES NOT CLAIM
+
+* No statement about the cores' `whnf`/`infer`/`defeq` (class 2), and
+  none about the `.proj` *inference* clause (E2).  T2c is untouched.
+* Nothing about declines, errors, or resource limits.
+* No conditional form: every theorem above is closed, or the batch
+  stops and reports.
+
+## TASK #172 — BATCH B7: WHAT LANDED (2026-09-04)
+
+Everything in the freeze above is proved, unconditionally, at the
+cached driver pair.  Two modules, no `sorry`, no new axioms
+(`propext, Classical.choice, Quot.sound` only), `lake build`
+warning-free, `lake test` green.
+
+### 1. THE DELIVERABLES
+
+**`Setlec/Verify/Cached/AgreeFloor.lean`** — the floor.
+
+| name | statement |
+|---|---|
+| `parity_agrees_P_skels_D` / `_names_D` / `_count_D` | direct-parse route (`checkDeclsSPCachedD` vs `checkDeclsSPCachedDNM`) |
+| `parity_agrees_P_skels` / `_names` / `_count` | arena-parse route (`checkDeclsSPCached` vs `checkDeclsSPCachedNM`) |
+
+Each: *whenever both drivers accept the same stream, the two installed
+environments carry the same install skeletons* — hence the same
+accepted declaration names, in stream order, and the same count.
+Supporting content: `Yields` (the `CheckCM` final-value kit),
+`InstallSkel`/`ciSkel`/`SkelIs`, the spec fold `declCSkels`, and the
+two per-driver correctness theorems `checkDeclSPC_skels` /
+`checkDeclSPCNC_skels` over every clause of both drivers, including the
+whole inductive-block phase.
+
+**`Setlec/Verify/Cached/AgreeAnnot.lean`** — T2a and T2b.
+
+| name | statement |
+|---|---|
+| `annotateBodyI_mode_eq` | **T2a**: at a shared `r`, the two modes' `annotateBodyI` are the *same action* at every non-binder node |
+| `ExprC.erasePwC`, `ExprC.eraseC_erasePwC` | the cached `pw`-erasure, and that it computes `Expr.erasePw` under `eraseC` (unconditional — no `WFc` needed) |
+| `annotBinderMetaI_bi`, `annotatePisPwI_noModel`, `annotateLamsPwI_noModel` | the write touches only `pw`; at `.noModel` there is no write |
+| `annotateBindersOutI_erasePwC` | **T2b, the rebuild loop**: its output does not depend on the datum written |
+| `annotatePisLeafI_erasePwC`, `annotateLamsLeafI_erasePwC` | **T2b at the two gated clauses**: both runs agree modulo `pw`-erasure |
+
+### 2. THE FOUR FINDINGS
+
+1. **The floor is not closable on names alone.**  The census priced it
+   as `envN.consts.map name = envP.consts.map name` "from the driver
+   fold structure".  It is not: `installProjTemplateStepS`
+   (`Cached/CheckerC.lean:141-166`) installs *conditionally on a stored
+   recursor's* `majorIdx`, `rulePrefix` **and its single rule's
+   `ctor`** — data no name-level invariant carries.  The induction
+   therefore runs on `InstallSkel` (name + kind + those three numbers +
+   the rule ctors), and names are a corollary.  The skeleton still
+   forgets every core-computed field (annotated type, annotated value,
+   `IndCaps`, rule right-hand sides, the `plain`/`inert` fire tag) —
+   i.e. exactly the class-1/2/3 divergent data — which is what keeps
+   the floor free of core reasoning, as the census intended.
+
+2. **`annotateBodyI`'s `.proj` clause is mode-free.**  The census put
+   T2a at "the ten non-`proj` clauses" and carried `.proj` to T2c.  At
+   a shared `r` the `.proj` clause is a `rfl` like the others
+   (`annotateProjRecI`/`annotateProjElimI` take no mode), so it is
+   **inside** `annotateBodyI_mode_eq`.  **Consequence for the T2c
+   docket**: nothing about `annotateBody` is left in T2c.  What remains
+   is exactly the two cores' `r` differing (class 2) plus B1's E2 — the
+   `.proj` clause of `infer`.
+
+3. **Two branch conditions had to be *proved* rather than assumed**, and
+   both are recorded as named lemmas because a future edit could
+   silently break them: `directPartsF?_eq_none` (`directStructsEnabled`
+   is a compile-time `false`, so the direct simple-structure clause is
+   unreachable in *both* drivers — `checkDirectStructS`/`…NC` are dead
+   code today), and the tolerated-axiom family (`toleratedAxiomNames`
+   is exactly `[sorryAx]` and no pinned axiom guard can fire on it, so
+   `.axiomDecl`'s push-or-not decision is a function of the header name
+   alone).  If either goes false the floor goes false, loudly.
+
+4. **A `with_reducible` discipline is mandatory for monadic clause
+   walks** and is recorded for B2/B5/B6, which will want the same kit.
+   At default transparency `Bind.bind ?m ?f`, `letFun ?v ?f` and
+   `pure ?a` all unify *vacuously* against an arbitrary `CheckCM`
+   action (verified: `apply Yields.bind` succeeds on `pure x`), so a
+   `repeat first | …` walker loops instead of descending — the first
+   attempt hit `maxRecDepth`/`maxHeartbeats` on a 10-guard clause.
+   Under `with_reducible` each rule matches exactly its own head and
+   the walk is linear; the whole floor then compiles in ~5 s.
+   A second trap, same class: `rfl` on
+   `annotateBodyI m₁ … e = annotateBodyI m₂ … e` diverges (equal head
+   constants send `isDefEq` into congruence, which meets
+   `annotatePisI m₁ …` vs `annotatePisI m₂ …`), while reducing each
+   side to its clause first is instant.
+
+### 2b. THE AXIOM AUDIT, IN DETAIL
+
+Not merely "the standard three": the batch's own theorems use *less*
+than the licence, which is worth recording because it says how much of
+the agreement family is pure computation.
+
+| theorem family | axioms |
+|---|---|
+| the six floor theorems (`parity_agrees_P_*`) | `propext, Classical.choice, Quot.sound` |
+| T2a (`annotateBodyI_mode_eq`), `annotateBindersOutI_erasePwC`, the two leaf clauses | `propext, Quot.sound` — **no choice** |
+| `ExprC.eraseC_erasePwC` | `propext` alone |
+
+The floor's `Classical.choice` enters only through the `Decidable`
+instances the drivers' guards use (`Std.HashMap` and the `by_cases` on
+the tolerated-axiom name), not through anything the statements assert.
+
+### 3. SCOPE — WHAT B7 DOES NOT CLAIM
+
+* Accept verdicts only.  Nothing about declines, errors or resource
+  limits; the no-model sweep's 3 recorded divergences are untouched.
+* No statement about `whnf`/`infer`/`defeq` (class 2).  **T2c is not
+  started** and is not made cheaper by this batch except by finding 2,
+  which *removes* an obligation from it.
+* The interned pair (`Kernel/CheckerS.lean` / `Kernel/CheckerNC.lean`)
+  is word-for-word the same fold and the statements are generic in
+  substance, but per the user's drop-the-interned ruling **no interned
+  instance is frozen or proved**.
+
+### 4. POST-MERGE REVALIDATION (task #172 B2 landed under B7)
+
+B7 was written against master `4a09e09b`; B2 (the template mechanics
+slice, `Kernel/CoreCfg.lean` + the `whnfCore` identity) landed at
+`bd78bc6e` while B7 was being proved.  Merged and rechecked: **both B7
+modules compile unchanged**, the full build stays warning-free, `lake
+test` is green and the axiom audit is unchanged.  B2's config replaces
+`CheckMode` at the `whnfCore` seam only; `annotateBodyI` is still
+mode-parameterised, so T2a's statement is unaffected — and when the
+annotation pass joins the template, `annotateBodyI_mode_eq` is exactly
+the collapse lemma that batch will need.
