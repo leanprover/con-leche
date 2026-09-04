@@ -32813,3 +32813,172 @@ lemma about `annotateBody`"* holds; the erasure has to cover three write
 sites, all of which write the *same* datum shape (`annotBinderMetaI`'s
 `pw?`), which is why one lemma suffices.
 
+### 7. THE ESCALATION — THREE DEVIATIONS IN NO CLASS, TWO OF THEM
+EXECUTED
+
+Per the batch's charter these are stated and reproduced, **not designed
+around**.  Each row gives the clause, the deviation, the evidence, and
+the one-line argument that no class fits.
+
+#### 7.1 E1 — `whnfCore`'s reduction continuation (parity REJECTS where
+the P core reduces)
+
+**The clause.**  `whnfCoreBodyI` is `whnfCoreLoopI mode r fe depth
+whnfCoreLoopFuel e` — a loop on its own budget, threading its
+continuation `k` through `whnfAppI`/`betaPeelI`, so beta, iota, zeta and
+projection steps are *iteration* and only the spine head's
+normalization is a knot call (task #106, commit `0da999a0`, defect A).
+`whnfCoreBodyNC` **is the step**: there is no loop, and the five
+reduction-step sites call `r.whnfCore depth …`, the memoized knot.
+
+Task #106 touched `Setlec/Kernel/CoreNC.lean` (73 lines) and gave it
+`defeqLoopNC` — the *defeq* loop — but not the `whnfCore` loop.  Whether
+that was a decision or an omission is not recorded anywhere in the tree;
+the commit message describes `whnfCoreLoopI` as "(CoreI, threaded
+through `whnfAppI`/`betaPeelI`)" and does not mention the parity twin.
+
+**The evidence** (`_tmp/tricore-b1/FuelProbe.lean`, executed with `lake
+env lean`).  The witness is a right-nested chain of N identity redexes
+at `pw = .never`, so at `.setModelP` the β gate fires on **both** sides
+and no certificate runs anywhere: the only remaining difference at the
+clause is `k` versus `r.whnfCore`.
+
+```
+#eval runNC 64  8   -- "ok Setlec.Expr.sort (Setlec.Level.zero)"
+#eval runP  64  8   -- "ok Setlec.Expr.sort (Setlec.Level.zero)"
+#eval runNC 16 40   -- "ERROR internal error: fuel exhausted: whnfCore"
+#eval runP  16 40   -- "ok Setlec.Expr.sort (Setlec.Level.zero)"
+#eval runP  16 5000 -- true
+#eval [8,16,32,64].map (fun F => (F, <accepted chain lengths at knot fuel F>))
+                    -- [(8, 8), (16, 16), (32, 32), (64, 64)]
+```
+
+i.e. **the parity core's ceiling is exactly `checkFuel − 1` reduction
+steps per `whnfCore` chain**, one unit of the shared knot budget per
+step; the P core is bounded only by `whnfCoreLoopFuel`, a factor of ten
+larger *and* not shared with anything else.  At the shipped
+`checkFuel = 100 000` / `whnfCoreLoopFuel = 1 000 000` the gap is live,
+not hypothetical: task #106's own measurement on
+`_tmp/std-time-cone/pre2.ndjson` records the required knot depth
+dropping from **>400 000** (the pre-#106 shape, which is today's parity
+shape) to **~175 000** once the loop landed.
+
+The R core caps at the same `F − 1` on this witness, but for a
+*different* reason — with the gate off, the β certificate's own
+`r.infer` recursion descends the knot once per redex — which is why the
+divergence is stated against the **P** core, the agreement theorem's
+actual subject.
+
+**Why no class fits.**  Class 1 is accept-ward by definition ("removing
+it can only turn `.error`/`false` into `.ok`/`true`"); class 2 is
+"parity reduces where the certified core gets stuck".  E1 is neither: it
+is the certified core succeeding where **parity errors**.  The census
+states the opposite as a design fact — *"the parity core's whole purpose
+is to reject less"* — and scopes the agreement theorem to accept
+verdicts on that basis.  E1 does not break T2 (a run in which parity
+errors is outside T2's hypothesis) but it makes T1 — a `rfl`-grade
+clause identity between the parity and P instantiations of one template
+— **false at every recursive clause of `whnfCore`**, not at an
+enumerated finite set of divergence sites.
+
+**And it has no obvious repair direction**, which is why the batch does
+not choose one: the official kernel's `whnf_core` *also* charges a
+recursion-depth guard per step (`scope_rec_depth guard`,
+`_tmp/lean4-master-kernel/type_checker.cpp:469`), so today's parity
+shape is the official-faithful one and the certified core's local loop
+follows lean4lean's `FuelConfig.whnf` separation.  Mirroring #106 into
+the parity core would move it toward lean4lean and away from official;
+leaving it makes the parity lane reject inputs the model lanes accept.
+**That is a conformance ruling, not an implementation choice, and it is
+the coordinator's / the user's.**
+
+#### 7.2 E2 — `inferBodyNC`'s `.proj` residual (parity ACCEPTS where the
+certified cores raise an internal error)
+
+**The clause.**  Task #161 item B2 (commit `2e7000c2`, harvest site 21 /
+P10) replaced the certified `.proj` inference's telescope walk with the
+two-case computation, licensed by `projEntry_pins`
+(`SetR/ProjPins.lean`) — a *model-tier* fact pinning any `native` table
+entry to one of the two basis pair entries, so the parameter spine has
+exactly two members.  The commit is explicit that the parity lane was
+left behind on purpose: *"CoreNC.lean untouched — the unverified lane is
+official-parity and keeps its own walk."*
+
+**The evidence** (`_tmp/tricore-b1/ProjProbe.lean`, executed).  A
+three-parameter `native` projection entry — off the pin, and therefore
+outside any environment the install path builds, which is the point:
+
+```
+#eval runInfer inferBodyNC            coreKnotNC              -- "ok Setlec.Expr.sort (Setlec.Level.zero)"
+#eval runInfer (inferBodyI .setModelP) (coreKnotI .setModelP) -- "ERROR internal error: malformed projection entry"
+#eval runInfer (inferBodyI .setModel)  (coreKnotI .setModel)  -- "ERROR internal error: malformed projection entry"
+```
+
+**Why no class fits.**  Nothing is dropped and nothing is added: the two
+cores run **two different computations** of what is intended to be the
+same value.  They coincide exactly on environments satisfying
+`projEntry_pins`, and they raise `.internal "malformed projection
+entry"` on *disjoint* input sets (the certified core whenever the
+parameter spine is not a two-list; the parity core whenever the stored
+entry type will not peel).  So:
+
+* it is not class 1 — the divergence is not a guard, and it runs in
+  **both** directions;
+* it is not class 2 — no stuck term is involved;
+* it is not class 3 — no `pw` datum;
+* and the only statement that makes the two agree is **premised on an
+  R-tier environment license**.  Under the standing "conditional forms
+  are not solutions" ruling, an agreement lemma for the parity core
+  carrying `projEntry_pins` as a hypothesis is not a close; and route
+  C's premise is that the parity core is an instantiation of the shared
+  body, which here would mean either the parity lane pays the pin's
+  specialization (losing the official-parity property that is the lane's
+  entire purpose) or the certified cores give back a landed,
+  measured optimisation (3 288 fires on init-prelude, 9 204 on
+  init-full, plus an entry-type intern and a name build per fire).
+
+#### 7.3 E3 — the knot shape (structural)
+
+The parity engine ties **two** knots: `coreKnotNC` (internals: cert-
+skipping bodies, `infer := memoEIO (inferBodyNC …)`) and `coreKnotFNC`
+(the checking-mode front door: `infer := memoEINC (·.inferFC)
+(inferBodyI .noModel …)`, `whnfCore`/`whnf`/`defeq` borrowed from the
+internal knot).  The `CoreFnsI.infer` field is therefore bound to **two
+different bodies** depending on which knot the caller holds, and
+`memoEIO` reads the front door's memo before the internal one — a
+cross-memo share in the sound direction, restored at the #161 follow-up.
+
+The certified engine is one knot, one memo, `memoEI (·.inferC)
+(inferBodyI mode …)`.
+
+**Why no class fits.**  A config record over one body cannot express
+"two bodies for one field, selected by caller"; and the memo share means
+a *checking-grade* result can answer an *infer-only* query, which is the
+converse of the direction the #170 memo ruling addressed ("a hit in the
+inferOnly memo never serves a full-infer query; no cross-memo reuse
+lemma this campaign").  The census plans the two-memo layout for the P
+core (part 2 §2(c)3) — so the *layout* half of E3 closes by construction
+once that unbuilt work lands, and the batch records E3 at lower severity
+than E1/E2 for that reason.  The *share* half does not close: it is a
+statement about two bodies computing the same type, which is a lemma
+nobody has and which route C's clause identities do not provide.
+
+#### 7.4 WHAT THE BATCH DID **NOT** DO
+
+The charter's escalation rule says to stop at the finding and not design
+around it.  The classification was already complete when E1 surfaced
+(the walk is a single normalized diff, not an incremental search), so
+§§3–6 are reported in full — they are the census's requested
+config-field inventory and they cost nothing extra.  What the batch
+withheld deliberately:
+
+* **no disposition is chosen** for E1, E2 or E3.  Each is a conformance
+  or economics ruling above this batch's pay grade, and E1's two
+  candidate repairs point at *different reference kernels*;
+* **no fourth class is proposed.**  Naming a "class 4" would make the
+  three-class taxonomy look complete again, which is precisely the
+  conclusion the escalation rule exists to prevent;
+* **no re-pricing of route A.**  If the coordinator re-scopes, route A's
+  12 000–25 000-line anchor is the census's, unchanged, and E1/E2 make
+  parts of it *more* conditional rather than less.
+
