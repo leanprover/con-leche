@@ -505,7 +505,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (annotateBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (annotateBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
       (annotateBody mode (fueledFns mode env) env d ex) := by
   unfold annotateBodyI
   refine SimC.view ?_
@@ -673,12 +673,18 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             rw [h2, hQabs], by
             simp only [Expr.WScoped]
             exact ⟨hwty', Setlec.WScoped.abstract1 0 hwbody'⟩⟩)
-      split
-      · refine SimC.bind (annotPwLamC_sim ih hs₈ hbody'd hwbody')
+      -- task #172 B3 method row: the cached guard reads
+      -- `(cfgOf mode).verified`, the pure one `mode.verified`; a bare
+      -- `split` decides only one of the two `if`s.
+      by_cases hpw : (mode.verified && !pwWritten m.pw) = true
+      · simp only [cfgOf_verified, hpw, ↓reduceIte]
+        refine SimC.bind (annotPwLamC_sim ih hs₈ hbody'd hwbody')
           (fun s₉ pw pwx hs₉ hPpw => ?_)
         obtain rfl : pw = pwx := hPpw
         exact hstep s₉ pw hs₉
-      · exact hstep s₈ m.pw hs₈
+      · simp only [Bool.not_eq_true] at hpw
+        simp only [cfgOf_verified, hpw, ↓reduceIte]
+        exact hstep s₈ m.pw hs₈
   | proj snN ipN pe =>
     dsimp only [ExprC.view]
     have hwpe : Expr.WScoped d pe := by

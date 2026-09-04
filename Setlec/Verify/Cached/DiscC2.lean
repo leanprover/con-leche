@@ -166,7 +166,7 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
     (hwty : Expr.WScoped d ty₁x) (hwbody : Expr.WScoped d body₁x)
     (hwb : Expr.WScoped d bx) :
     SimC mode env s₀ RelVC
-      (etaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
+      (etaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
         n₁ ty₁ body₁ m₁ b)
       (etaCert mode (fueledFns mode env) env d n₁ ty₁x body₁x m₁ bx) := by
   show SimC mode env s₀ RelVC
@@ -523,7 +523,7 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
     (hs : CSOK mode env s₀) (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (pairEtaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+      (pairEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       (pairEtaCert mode (fueledFns mode env) env d a b) := by
   show SimC mode env s₀ RelVC
     (viewI i >>= fun n₀ =>
@@ -1367,7 +1367,7 @@ theorem structEtaCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     (hs : CSOK mode env s₀) (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (structEtaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+      (structEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       (structEtaCert mode (fueledFns mode env) env d a b) := by
   show SimC mode env s₀ RelVC
     ((coreKnotI mode (mkFEnv env) f).infer d j >>= fun tb =>
@@ -1389,19 +1389,19 @@ theorem stuckIrrelC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     (hs : CSOK mode env s₀) (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (stuckIrrelI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+      (stuckIrrelI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       (stuckIrrel mode (fueledFns mode env) env d a b) := by
   show SimC mode env s₀ RelVC
-    (pairEtaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j >>=
+    (pairEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j >>=
       fun r₁ =>
       if r₁ then pure true else
-      pairEtaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d j i >>=
+      pairEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d j i >>=
         fun r₂ =>
       if r₂ then pure true else
-      structEtaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j >>=
+      structEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j >>=
         fun r₃ =>
       if r₃ then pure true else
-      structEtaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d j i >>=
+      structEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d j i >>=
         fun r₄ =>
       if r₄ then pure true else
       structUnitCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j >>=

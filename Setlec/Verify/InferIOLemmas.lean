@@ -391,4 +391,40 @@ theorem inferTypeCoreIO_lit_eq {env : Env} {fuel d : Nat} {l : Literal} :
   rw [inferTypeCoreIO_succ, inferTypeCore_succ]
   cases l <;> rfl
 
+/-! ## The three remaining lane-independent shapes (task #172, B3)
+
+`inferTypeCoreIO_lit_eq` is one instance of a small family, and the
+io reads walk (`SetP/Step2/ReadsIOP.lean`) wants the rest of it: a
+clause that never touches `r` is the *same clause* in both bodies, so
+the io statement about it is the full statement transported across an
+equation rather than a re-proof.  Four of the eleven `inferBody`
+shapes are of that kind — `.sort`, `.fvar`, `.const` and `.lit` — and
+`.bvar` is a fifth that both lanes reject.  The equations below are
+each `rfl` after one unfolding on each side, which is the mechanical
+content of "the io grade narrows the application clause and nothing
+else" at the leaves. -/
+
+/-- `.sort` is lane-independent (no recursive run). -/
+theorem inferTypeCoreIO_sort_eq {env : Env} {fuel d : Nat} {u : Level} :
+    inferTypeCoreIO mode env (fuel + 1) d (.sort u) =
+      inferTypeCore mode env (fuel + 1) d (.sort u) := by
+  rw [inferTypeCoreIO_succ, inferTypeCore_succ]
+  rfl
+
+/-- `.fvar` is lane-independent (the stored annotation, no run). -/
+theorem inferTypeCoreIO_fvar_eq {env : Env} {fuel d idx : Nat}
+    {n : Name} {ty : Expr} :
+    inferTypeCoreIO mode env (fuel + 1) d (.fvar idx n ty) =
+      inferTypeCore mode env (fuel + 1) d (.fvar idx n ty) := by
+  rw [inferTypeCoreIO_succ, inferTypeCore_succ]
+  rfl
+
+/-- `.const` is lane-independent (the stored type, no run). -/
+theorem inferTypeCoreIO_const_eq {env : Env} {fuel d : Nat} {n : Name}
+    {us : List Level} :
+    inferTypeCoreIO mode env (fuel + 1) d (.const n us) =
+      inferTypeCore mode env (fuel + 1) d (.const n us) := by
+  rw [inferTypeCoreIO_succ, inferTypeCore_succ]
+  rfl
+
 end Setlec

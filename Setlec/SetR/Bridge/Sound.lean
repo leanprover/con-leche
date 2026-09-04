@@ -36,12 +36,12 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 theorem checkDeclR_sound
-    {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat}
+    {F : Nat}
     {env env₂ : Env} (m : EnvS V env) (hE : EtaFamiliesClosed env)
     {d : Declaration}
-    (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
-    DeclR μ F m.cval env d env₂ :=
-  checkDeclR_ofEnvRE (hg := hg) m.toEnvR hE h
+    (h : checkDecl modeR (fueledOps modeR F) env d = .ok env₂) :
+    DeclR modeR F m.cval env d env₂ :=
+  checkDeclR_ofEnvRE m.toEnvR hE h
 
 -- **`checkDeclRun_sound` is deleted** (task #161 S11b, the opener).
 -- The design census's C3 artifact was `DeclR.toRun` composed *after*
@@ -57,25 +57,23 @@ theorem checkDeclR_sound
 -- `SetBase/DeclEta.lean`, is its consumer.)
 
 theorem foldlM_R
-    {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat}
-     :
+    {F : Nat} :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       EnvSOk V env →
-      ds.foldlM (checkDecl μ (fueledOps μ F)) env = .ok env' →
+      ds.foldlM (checkDecl modeR (fueledOps modeR F)) env = .ok env' →
       EnvSOk V env'
   | [], _, _, hm, h => by
     simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
     exact h ▸ hm
   | d :: ds, env, _, hm, h => by
     simp only [List.foldlM, Bind.bind, Except.bind] at h
-    cases hd : checkDecl μ (fueledOps μ F) env d with
+    cases hd : checkDecl modeR (fueledOps modeR F) env d with
     | error e => rw [hd] at h; exact nomatch h
     | ok env1 =>
       rw [hd] at h
       obtain ⟨⟨m⟩, hE⟩ := hm
-      exact foldlM_R (hg := hg) ds env1
-        (declStepS (hg := hg) divModPinS reducePinS stdAxiomKeyS declBasisS
+      exact foldlM_R ds env1
+        (declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
           (declIndS memberKeyS) m hE
-            (checkDeclR_sound (hg := hg) m hE hd)) h
-
+            (checkDeclR_sound m hE hd)) h
 end Setlec.SetR

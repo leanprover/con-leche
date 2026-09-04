@@ -51,10 +51,10 @@ private theorem defeqC_etaR_arm (ih : SSimC mode env f) (henv : EnvWF env)
     (hwa' : Expr.WScoped d a'x)
     (hwb' : Expr.WScoped d (Expr.lam nm₂x ty₂x body₂x bm₂)) :
     SimC mode env s₀ RelVC
-      (etaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
+      (etaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
           nm₂x t₂ b₂ bm₂ a' >>= fun r =>
         if r then pure true
-        else stuckIrrelI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a' b')
+        else stuckIrrelI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a' b')
       (etaCert mode (fueledFns mode env) env d nm₂x ty₂x body₂x bm₂
           a'x >>= fun r =>
         if r then pure true
@@ -84,10 +84,10 @@ private theorem defeqC_etaL_arm (ih : SSimC mode env f) (henv : EnvWF env)
     (hwa' : Expr.WScoped d (Expr.lam nm₁x ty₁x body₁x bm₁))
     (hwb' : Expr.WScoped d b'x) :
     SimC mode env s₀ RelVC
-      (etaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
+      (etaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
           nm₁x t₁ b₁ bm₁ b' >>= fun r =>
         if r then pure true
-        else stuckIrrelI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a' b')
+        else stuckIrrelI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a' b')
       (etaCert mode (fueledFns mode env) env d nm₁x ty₁x body₁x bm₁
           b'x >>= fun r =>
         if r then pure true
@@ -169,7 +169,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (defeqStepI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i j)
+      (defeqStepI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i j)
       (defeqStep mode (fueledFns mode env) env d kM a b) := by
   unfold defeqStepI
   unfold defeqStep
@@ -575,10 +575,21 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         simp only [Bool.false_eq_true, ↓reduceIte]
                         exact SimC.pure hs₁₂ rfl
                       | true =>
+                        -- task #172 B3 method row: the cached side's
+                        -- guard reads `(cfgOf mode).verified`, the
+                        -- pure side's `mode.verified`.  They are
+                        -- `rfl`-equal but their `Decidable` instances
+                        -- are not syntactically one, so `split`
+                        -- decides only one `if`; `by_cases` on the
+                        -- guard plus `↓reduceIte` decides both.
                         simp only [↓reduceIte]
-                        split
-                        · exact SimC.throw_bind
-                        · exact SimC.pure hs₁₂ rfl
+                        by_cases hpw :
+                            (mode.verified && !m₁.pw.equiv m₂.pw) = true
+                        · simp only [cfgOf_verified, hpw, ↓reduceIte]
+                          exact SimC.throw_bind
+                        · simp only [Bool.not_eq_true] at hpw
+                          simp only [cfgOf_verified, hpw, ↓reduceIte]
+                          exact SimC.pure hs₁₂ rfl
                   | lam nm₂ t₂ b₂ m₂ =>
                     dsimp only [ExprC.view]
                     exact defeqC_etaR_arm ih henv hs₆ haS rfl
@@ -636,10 +647,21 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         simp only [Bool.false_eq_true, ↓reduceIte]
                         exact SimC.pure hs₁₂ rfl
                       | true =>
+                        -- task #172 B3 method row: the cached side's
+                        -- guard reads `(cfgOf mode).verified`, the
+                        -- pure side's `mode.verified`.  They are
+                        -- `rfl`-equal but their `Decidable` instances
+                        -- are not syntactically one, so `split`
+                        -- decides only one `if`; `by_cases` on the
+                        -- guard plus `↓reduceIte` decides both.
                         simp only [↓reduceIte]
-                        split
-                        · exact SimC.throw_bind
-                        · exact SimC.pure hs₁₂ rfl
+                        by_cases hpw :
+                            (mode.verified && !m₁.pw.equiv m₂.pw) = true
+                        · simp only [cfgOf_verified, hpw, ↓reduceIte]
+                          exact SimC.throw_bind
+                        · simp only [Bool.not_eq_true] at hpw
+                          simp only [cfgOf_verified, hpw, ↓reduceIte]
+                          exact SimC.pure hs₁₂ rfl
                   | _ =>
                     dsimp only [ExprC.view]
                     exact defeqC_etaL_arm ih henv hs₆ haS rfl
@@ -837,7 +859,7 @@ theorem defeqLoopC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       RelC i a → RelC j b →
       Expr.WScoped d a → Expr.WScoped d b →
       SimC mode env s₀ RelVC
-        (defeqLoopI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i j)
+        (defeqLoopI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i j)
         (defeqLoop mode (fueledFns mode env) env d n a b)
   | 0, _, _, _, _, _, _, _, _, _, _ => SimC.throw
   | n + 1, _, _, _, _, _, hs, hda, hdb, hwa, hwb => by
@@ -851,7 +873,7 @@ theorem defeqBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+      (defeqBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       (defeqBody mode (fueledFns mode env) env d a b) :=
   defeqLoopC_sim ih henv defeqLoopFuel hs hdena hdenb hwa hwb
 

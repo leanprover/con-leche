@@ -14,6 +14,7 @@ import Setlec.SetP.Annot.EnvS2P
 import Setlec.SetP.Step2.IrrelP
 import Setlec.SetP.Step2.StuckP
 import Setlec.SetP.Step2.ReadsP
+import Setlec.SetP.Step2.ReadsIOP
 import Setlec.SetP.Step2.AcceptedP
 import Setlec.SetP.Step2.NatP
 import Setlec.SetP.Step2.CapsRowsP

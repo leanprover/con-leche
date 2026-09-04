@@ -509,7 +509,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         let fuel ← peelFuelM
         -- At `.noModel` the ∀-annotation validation is off (task
         -- #161), matching the spec's parity lane.
-        inferPisI .noModel r depth fuel body 1 #[fv] [(u, mb.pw)]
+        inferPisI cfgNC r depth fuel body 1 #[fv] [(u, mb.pw)]
       | _ => throw (.invalid "expected a sort")
     | some (.lam n ty body mb) => do
       let tty ← r.infer depth ty
@@ -521,7 +521,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         -- official-kernel parity is this lane's whole point).
         let fv ← internI (.fvar depth n ty)
         let fuel ← peelFuelM
-        inferLamsI .noModel r depth fuel body 1 #[fv] [(n, ty, mb)]
+        inferLamsI cfgNC r depth fuel body 1 #[fv] [(n, ty, mb)]
       | _ => throw (.invalid "expected a sort")
     | some (.app _ _) => do
       let h ← withStore (fun st => st.getAppFnI e)
@@ -709,10 +709,10 @@ def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         else stuckIrrelNC r fe depth a' b'
       else stuckIrrelNC r fe depth a' b'
     | some (.lam n₁ ty₁ body₁ m₁), _ => do
-      if ← etaCertI .noModel r fe depth n₁ ty₁ body₁ m₁ b' then pure true
+      if ← etaCertI cfgNC r fe depth n₁ ty₁ body₁ m₁ b' then pure true
       else stuckIrrelNC r fe depth a' b'
     | _, some (.lam n₂ ty₂ body₂ m₂) => do
-      if ← etaCertI .noModel r fe depth n₂ ty₂ body₂ m₂ a' then pure true
+      if ← etaCertI cfgNC r fe depth n₂ ty₂ body₂ m₂ a' then pure true
       else stuckIrrelNC r fe depth a' b'
     | some _, some _ => stuckIrrelNC r fe depth a' b'
     | _, _ => throw (.internal "interned node missing")
@@ -819,7 +819,7 @@ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
       defeq := memoBINC
         (fun d a b => defeqBodyNC prev.get fe d a b)
       annotate := memoEINC (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI .noModel prev.get fe d e) }
+        (fun d e => annotateBodyI cfgNC prev.get fe d e) }
 
 /-- The `--no-model` cached **checking-mode front-door knot** (port of
 `Setlec/Kernel/CoreNC.lean`'s `coreKnotFNC`; the task-#134 `coreKnotF`
@@ -846,9 +846,9 @@ def coreKnotFNC (fe : FEnv) : Nat → CoreFnsI
       whnf := nc.whnf
       defeq := nc.defeq
       infer := memoEINC (·.inferFC) (fun st mp => { st with inferFC := mp })
-        (fun d e => inferBodyI .noModel prev.get fe d e)
+        (fun d e => inferBodyI cfgNC prev.get fe d e)
       annotate := memoEINC (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI .noModel prev.get fe d e) }
+        (fun d e => annotateBodyI cfgNC prev.get fe d e) }
 
 /-- Drop the checking-mode inference memo (port of
 `Setlec/Kernel/CoreNC.lean`'s `flushInferFC`); called back to back
