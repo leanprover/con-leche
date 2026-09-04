@@ -30710,3 +30710,51 @@ SEQUENCE: after the S13-closing seal lands and the β chapter's
 succession record closes.  Opens with the standard design phase
 (inventory + census + frozen statement drafts), then the mechanics
 slice.
+## The cached parity lane and the confound correction (2026-09-03, agent/perf-eng + agent/cached-parity-lane)
+
+**CORRECTION ENTRY (canonical-record fix).**  The engineering-gap
+merge message (`5e4455b8`) claimed "cores SPLITTING by stream shape
+(cached wins term-heavy, interned wins decl-heavy)".  The decl-heavy
+half was a CONFOUND, caveat 5's full consequence never propagated:
+`--no-model cached` was NOT a parity lane (the certified cached engine
+with two mode-gated checks off — all internal certification still
+running), while `--no-model production` WAS (CoreNC, certs stripped).
+The comparison put a still-certifying engine against a cert-free one.
+The fair certified comparison already had cached winning init-full
+(sc 2998.75 G vs sp 3159.76 G).
+
+**The fix: a real cached parity engine.**  `Setlec/Cached/CoreNC.lean`
+(831 lines) ports `Setlec/Kernel/CoreNC.lean` clause by clause onto
+`ExprC` (the `CoreC`-cloning conventions; zero behavioral deviations
+by normalized diff), with the knot refinements carried (Thunk-cached
+levels, inlined memo twins, `memoEIO`'s one-directional share into the
+new `CState.inferFC`).  `Setlec/Cached/ParsedNC.lean` (377 lines) is
+the driver twin (`CheckerNC`'s substitution applied to the cached
+parsed driver; `flushInferFC` back to back with `flushC` per
+declaration; no tier-two bracket to guard).  `Main.lean` dispatches
+`--no-model --core=cached-parsed` to it.  Measurement-only and
+unverified, like the interned parity lane.
+
+**THE CORRECTED CROSS-CORE PARITY TABLE** (instructions:u, median of
+3, `--no-model`, raw pipeline with preprocessor; ratios vs official
+raw):
+
+| stream | official | interned parity (np) | cached parity (nc) |
+|---|---|---|---|
+| init-prelude | 2.21 G | 15.97 (7.2×) | 15.99 (7.2×) — tie |
+| grind-ring-5 | 13.42 | 70.1 (5.2×) | 55.2 (4.1×) |
+| app-lam | 29.42 | 388.4 (13.2×) | 228.0 (7.8×) |
+| beta-ladder | 10.12 | 80.7 (8.0×) | 45.2 (4.5×) |
+| let-ladder | 6.13 | 22.8 (3.7×) | 11.4 (1.9×) |
+| **init-full** | 403.47 | 1865.5 (**4.62×**) | 1432.9 (**3.55×**) |
+
+**Cached-NC ties or wins EVERY row head-to-head**, including the
+decisive decl-heavy init-full at 1.30× over interned.  (An earlier
+per-stream note comparing init-prelude "4.08×" to "7.2×" mixed
+official-PRE and official-RAW baselines — head-to-head the instruction
+counts tie; recorded here so the mixed-baseline form doesn't
+propagate.)  The `--no-model` split reported at `5e4455b8` was
+cert-tax asymmetry, not (only) core architecture.  The core-drop
+decision is the USER'S, on this evidence; nothing is retired here.
+R1's remaining experiments (sharedBs gate, oracle-parametric gate,
+`ExprC` Data-packing) re-baseline against the TWO PARITY LANES.
