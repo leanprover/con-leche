@@ -67,7 +67,7 @@ theorem closed0_framesR {μ : CheckMode} {cval : TConstVal} {env : Env}
 /-- **`checkConstantVal`, bridged.**  Beside `ConstantValR` the caller
 gets the annotated type's two closedness facts, which every branch
 then needs for its own value front door and for `EnvWF`. -/
-theorem constantValR_of {env : Env} (m : EnvR env) {μ : CheckMode} {F :
+theorem constantValR_of {env : Env} (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false) {F :
   Nat} {cv cv' : ConstantVal}
     (h : checkConstantVal (fueledOps μ F) env cv = .ok cv') :
     ∃ type', cv' = { cv with type := type' } ∧
@@ -84,7 +84,7 @@ theorem constantValR_of {env : Env} (m : EnvR env) {μ : CheckMode} {F :
   refine ⟨type, rfl, htf, hbt',
     Option.isNone_iff_eq_none.mpr hfind, hres, hpsh, hnd, hlbt, hitf,
     hann, htp, htr, ⟨stype, u, hst, hsort⟩, fun φ => ?_⟩
-  obtain ⟨-, ihw, -, ihi⟩ := checkBridge m φ F
+  obtain ⟨-, ihw, -, ihi⟩ := checkBridge hg m φ F
   obtain ⟨hwt, hbt, hLt, hCt⟩ :=
     closed0_framesR (μ := μ) (cval := m.cval) (env := env) (φ := φ)
       htf hbt'
@@ -104,7 +104,7 @@ theorem constantValR_of {env : Env} (m : EnvR env) {μ : CheckMode} {F :
 lane's `value_key`, in the relation's own vocabulary: `Infer` of the
 value's denotation up to `DefEq`, then the checker's own
 `vtype ≡ type` verdict composed on. -/
-theorem valueFrontR_of {env : Env} (m : EnvR env) {μ : CheckMode} {F :
+theorem valueFrontR_of {env : Env} (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false) {F :
   Nat} {cv : ConstantVal}
     {value type' value' vtype : Expr}
     (htf : type'.hasFvar = false)
@@ -119,7 +119,7 @@ theorem valueFrontR_of {env : Env} (m : EnvR env) {μ : CheckMode} {F :
     (hcv : ConstantValR μ F env m.cval cv type') :
     ValueFrontR μ F env m.cval cv value type' value' := by
   refine ⟨hlbv, hivf, hannv, hvp, hvr, ⟨vtype, hvt, hde⟩, fun φ => ?_⟩
-  obtain ⟨-, -, ihd, ihi⟩ := checkBridge m φ F
+  obtain ⟨-, -, ihd, ihi⟩ := checkBridge hg m φ F
   have hvf' : value'.hasFvar = false :=
     Expr.not_hasFvar_of_fvarsBelow_zero
       ((annotateCore_WScoped F value hannv
@@ -213,7 +213,7 @@ family's `DefEq` once both sides have a frame package and a context.
 The context is `CtxOkR.constCtx` at the pinned `Nat` entries — which
 is exactly what the leaf-shape conjunct of `NatEqFrameR` is for. -/
 theorem natEqsBridge_of {env : Env}
-    (m : EnvR env) {μ : CheckMode}
+    (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false)
     {F : Nat} {ciN : ConstantInfo}
     (hnatE : env.find? natName = some ciN)
     (hnatL : ciN.toConstantVal.levelParams = [])
@@ -255,7 +255,7 @@ theorem natEqsBridge_of {env : Env}
       obtain ⟨L, hL⟩ := hd1 φ
       obtain ⟨R, hR⟩ := hd2 φ
       refine ⟨L, R, hL, hR, ?_⟩
-      obtain ⟨-, -, ihd, -⟩ := checkBridge m φ F
+      obtain ⟨-, -, ihd, -⟩ := checkBridge hg m φ F
       have hC1 : CtxOkR μ m.cval env φ 2
           (List.replicate 2 (natVR m.cval φ)) eq.1 :=
         CtxOkR.constCtx (m.cval_closed _ _) (hden φ 2) trivial hl1
@@ -355,15 +355,15 @@ theorem natEqFrame_of_frag {env : Env}
     (natFrag_subst_syntax hvf hvb h).2.2.2,
     natFrag_subst_denotes m hvf hvd h⟩
 
-/-- **`certifyNatEqs`, discharged.**  The obligation `declDefnR` used
+/-- **`certifyNatEqs`, discharged.**  The obligation `declDefnR (hg := hg)` used
 to carry: the guard pins every constant the fragment admits, the
 fragment gives each substituted side its frame package, and
-`natEqsBridge_of` turns the verdicts into `NatEqsR`.  The descent from
+`natEqsBridge_of (hg := hg)` turns the verdicts into `NatEqsR`.  The descent from
 the post-insertion guard to the pre-insertion environment is
 `storedNoLevels_of_cons` at names `ne_of_mem_natOpNames` separates
 from the operation — the TT lane's `natOpPinTT` runs the same block. -/
 theorem natEqsR_of_certs {env : Env}
-    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+    (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat} {cv : ConstantVal}
     {value' : Expr} {hint : ReducibilityHint}
     (hmem : cv.name ∈ natOpNames)
     (hvf : value'.hasFvar = false)
@@ -397,7 +397,7 @@ theorem natEqsR_of_certs {env : Env}
   have hnF : boolFalseName ≠ cv.name :=
     ne_of_mem_natOpNames (by decide) hmem
   obtain ⟨ciN, hfN, hlpN⟩ := storedNoLevels_exists (tr hnN hN')
-  refine natEqsBridge_of m hfN hlpN _ (fun eq hq => ?_) hcerts
+  refine natEqsBridge_of (hg := hg) m hfN hlpN _ (fun eq hq => ?_) hcerts
   obtain ⟨eq0, hq0, rfl⟩ := List.mem_map.mp hq
   obtain ⟨hf1, hf2⟩ := natOpEquations_frag (env := env) (c := cv.name)
     (tr hnz hz') (tr hns hs') (fun n hn hne => tr hne (hdeps' n hn))
@@ -410,13 +410,13 @@ theorem natEqsR_of_certs {env : Env}
   exact ⟨natEqFrame_of_frag m hvf hbv hden0 hf1,
     natEqFrame_of_frag m hvf hbv hden0 hf2⟩
 
-/-- **`checkReducePin`, discharged.**  The obligation `declOpaqueR`
+/-- **`checkReducePin`, discharged.**  The obligation `declOpaqueR (hg := hg)`
 used to carry.  The element type is a stored level-free constant, so
 it denotes to the pinned valuation and the certificate's context is
 `CtxOkR.constCtx` at one entry; `DefEqClaimsR` then transports the
 depth-`1` identity verdict. -/
 theorem reducePinR_of {env env' : Env}
-    (m : EnvR env) {μ : CheckMode} {F : Nat} {c : Name}
+    (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat} {c : Name}
     {value : Expr}
     (hvfacts : ∀ a : Expr, annotateCore μ env F 0 value = .ok a →
       a.hasFvar = false ∧ a.looseBVarsBounded 0 = true ∧
@@ -444,7 +444,7 @@ theorem reducePinR_of {env env' : Env}
   have hV0d : ∀ d, denote m.cval env φ d valA = some V0 :=
     (denote_closedExprR m.cval_closed hvAf hvAb hV0).2
   refine ⟨_, V0, hE 0, hV0, ?_⟩
-  obtain ⟨-, -, ihd, -⟩ := checkBridge m φ F
+  obtain ⟨-, -, ihd, -⟩ := checkBridge hg m φ F
   -- the certificate variable and the two compared sides
   have hcv : reduceCertVar c
       = Expr.fvar 0 (.str .anonymous "a") (.const (reduceElemName c) []) := by
@@ -532,7 +532,7 @@ theorem divModPinR_of {env env' : Env}
 
 /-- **`thmDecl`, bridged.** -/
 theorem declThmR {env env₂ : Env}
-    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+    (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat} {cv : ConstantVal}
     {value : Expr}
     (h : checkDecl μ (fueledOps μ F) env (.thmDecl cv value)
       = .ok env₂) :
@@ -545,7 +545,7 @@ theorem declThmR {env env₂ : Env}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of (hg := hg) m hccv
   simp only [Pure.pure, Except.pure] at h
   cases hst2 : inferTypeCore μ env F 0 type with
   | error e => rw [hst2] at h; exact nomatch h
@@ -600,10 +600,10 @@ theorem declThmR {env env₂ : Env}
   simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
   refine ⟨type, value', hcv, ⟨stype2, u2, hst2, hsort2, hpz⟩,
     fun φ => ?_,
-    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde
+    valueFrontR_of (hg := hg) m htf hbt' hlbv hivf' hannv hvp hvr hvt hde
       hcv,
     h.symm⟩
-  obtain ⟨-, ihw, -, ihi⟩ := checkBridge m φ F
+  obtain ⟨-, ihw, -, ihi⟩ := checkBridge hg m φ F
   obtain ⟨hwt, hbt, hLt, hCt⟩ :=
     closed0_framesR (μ := μ) (cval := m.cval) (env := env) (φ := φ)
       htf hbt'
@@ -628,7 +628,7 @@ layer's `StdAxiomKeyS`/`OfReduceKeyS`, not the bridge's. -/
 
 /-- **`axiomDecl`, bridged.** -/
 theorem declAxiomR {env env₂ : Env}
-    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+    (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat} {cv : ConstantVal}
     (h : checkDecl μ (fueledOps μ F) env (.axiomDecl cv) = .ok env₂) :
     DeclAxiomR μ F env m.cval cv env₂ := by
   simp only [checkDecl, Bind.bind, Except.bind] at h
@@ -637,7 +637,7 @@ theorem declAxiomR {env env₂ : Env}
   | ok cvA =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, -, -, hcv⟩ := constantValR_of m hccv
+  obtain ⟨type, rfl, -, -, hcv⟩ := constantValR_of (hg := hg) m hccv
   refine ⟨type, hcv, ?_⟩
   by_cases hstd : stdAxiomOk env { cv with type := type } = true
   · rw [if_pos hstd] at h
@@ -692,7 +692,7 @@ subject. -/
 /-- **`opaqueDecl`, bridged**, parametric in the compiler-trust pin's
 own inversion. -/
 theorem declOpaqueR {env env₂ : Env}
-    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+    (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat} {cv : ConstantVal}
     {value : Expr}
     (h : checkDecl μ (fueledOps μ F) env (.opaqueDecl cv value)
       = .ok env₂) :
@@ -704,7 +704,7 @@ theorem declOpaqueR {env env₂ : Env}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of (hg := hg) m hccv
   simp only [Pure.pure, Except.pure] at h
   by_cases hlbv : value.looseBVarsBounded 0 = true
   case neg => simp [hlbv] at h
@@ -739,7 +739,7 @@ theorem declOpaqueR {env env₂ : Env}
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
   refine ⟨type, value', hcv,
-    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde
+    valueFrontR_of (hg := hg) m htf hbt' hlbv hivf' hannv hvp hvr hvt hde
       hcv,
     ?_, ?_⟩
   · by_cases hro : reduceOpNames.contains cv.name = true
@@ -765,7 +765,7 @@ theorem declOpaqueR {env env₂ : Env}
       rw [hrpin] at h
       simp only [Except.ok.injEq] at h
       subst h
-      refine reducePinR_of m (fun a hann => ?_) hrpin
+      refine reducePinR_of (hg := hg) m (fun a hann => ?_) hrpin
       refine ⟨Expr.not_hasFvar_of_fvarsBelow_zero
           ((annotateCore_WScoped F value hann
             (Expr.WScoped.of_not_hasFvar hivf')).fvarsBelow),
@@ -773,7 +773,7 @@ theorem declOpaqueR {env env₂ : Env}
       obtain rfl : a = value' := by
         rw [hannv] at hann; exact (Except.ok.inj hann).symm
       obtain ⟨-, -, -, -, -, -, hf⟩ :=
-        valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt
+        valueFrontR_of (hg := hg) m htf hbt' hlbv hivf' hannv hvp hvr hvt
           hde hcv
       obtain ⟨-, Vv, -, -, hVv, -⟩ := hf φ
       exact ⟨Vv, hVv⟩
@@ -783,7 +783,7 @@ pin inversions.  Both packs are phrased over the **annotated** value
 the environment actually stores (`value'`), not over the stream's
 `value`. -/
 theorem declDefnR {env env₂ : Env}
-    (m : EnvR env) {μ : CheckMode} {F : Nat} {cv : ConstantVal}
+    (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat} {cv : ConstantVal}
     {value : Expr} {hint : ReducibilityHint}
     (h : checkDecl μ (fueledOps μ F) env (.defnDecl cv value hint)
       = .ok env₂) :
@@ -795,7 +795,7 @@ theorem declDefnR {env env₂ : Env}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of m hccv
+  obtain ⟨type, rfl, htf, hbt', hcv⟩ := constantValR_of (hg := hg) m hccv
   simp only [Pure.pure, Except.pure] at h
   by_cases hlbv : value.looseBVarsBounded 0 = true
   case neg => simp [hlbv] at h
@@ -912,11 +912,11 @@ theorem declDefnR {env env₂ : Env}
         exact ⟨rfl, fun hc => absurd hc hno, fun hc => absurd hc hdn⟩
   obtain ⟨rfl, hnatK, hdmK⟩ := key
   exact ⟨type, value', hcv,
-    valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr hvt hde
+    valueFrontR_of (hg := hg) m htf hbt' hlbv hivf' hannv hvp hvr hvt hde
       hcv,
     rfl,
     fun hc => ⟨(hnatK hc).1, (hnatK hc).2.1,
-      natEqsR_of_certs m
+      natEqsR_of_certs (hg := hg) m
         (cv := { cv with type := type }) (hint := hint)
         (by simpa using hc)
         (Expr.not_hasFvar_of_fvarsBelow_zero
@@ -925,7 +925,7 @@ theorem declDefnR {env env₂ : Env}
         (annotateCore_looseBVars F value hannv hlbv)
         (fun φ => by
           obtain ⟨-, -, -, -, -, -, hf⟩ :=
-            valueFrontR_of m htf hbt' hlbv hivf' hannv hvp hvr
+            valueFrontR_of (hg := hg) m htf hbt' hlbv hivf' hannv hvp hvr
               hvt hde hcv
           obtain ⟨-, Vv, -, -, hVv, -⟩ := hf φ
           exact ⟨Vv, hVv⟩)
@@ -978,7 +978,7 @@ theorem stmtOpened_denotes {env : Env} (m : EnvR env) {φ : Name → Nat}
   rwa [Nat.zero_add] at h
 
 
-/-- **The openers' walk package.**  Everything `defEqListW_of` needs
+/-- **The openers' walk package.**  Everything `defEqListW_of (hg := hg)` needs
 about a statement walk's *left*-hand list, for a telescope opened from
 a stored, closed subject at depth `0`: the three frame facts and the
 denotation, all at the walk's depth `D`.
@@ -1338,7 +1338,7 @@ derivation up to `DefEq` (`InferClaimsR`); the *inferred* type's own
 context correspondence, which `DefEqClaimsR` then needs, is not
 supplied by the caller and is not meant to be: it follows from the
 subject's by `CtxOkR.of_subset` and `inferTypeCore_fvarLeaves`. -/
-theorem iotaSidesTyR_of {env : Env} (m : EnvR env) {μ : CheckMode}
+theorem iotaSidesTyR_of {env : Env} (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false)
     {F : Nat} {φ : Name → Nat} {d : Nat} {αS lhsS rhsS : Expr}
     (hwA : Expr.WScoped d αS) (hbA : αS.looseBVarsBounded 0 = true)
     (hLA : Expr.LeavesBounded αS)
@@ -1357,7 +1357,7 @@ theorem iotaSidesTyR_of {env : Env} (m : EnvR env) {μ : CheckMode}
     (hdr : isDefEqCore μ env F d tr αS = .ok true) :
     IotaSidesTyR μ env m.cval φ d αS lhsS rhsS := by
   refine ⟨Av, Lv, Rv, hAv, hLv, hRv, fun Δ hCA hCL hCR => ?_⟩
-  obtain ⟨-, -, ihd, ihi⟩ := checkBridge m φ F
+  obtain ⟨-, -, ihd, ihi⟩ := checkBridge hg m φ F
   constructor
   · obtain ⟨v, tv, hv, htv, T', hI, hD⟩ := ihi hil hwL hbL hLL hCL
     obtain rfl : v = Lv := by rw [hv] at hLv; exact Option.some.inj hLv
@@ -1421,7 +1421,7 @@ supply per element is a denotation and three frame facts, both of
 which the opened statement's own type carries. -/
 
 /-- **One comparison, bridged.** -/
-theorem defEqAtW_of {env : Env} (m : EnvR env) {μ : CheckMode}
+theorem defEqAtW_of {env : Env} (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false)
     {F : Nat} {φ : Name → Nat} {d : Nat} {a b : Expr}
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a)
@@ -1433,14 +1433,14 @@ theorem defEqAtW_of {env : Env} (m : EnvR env) {μ : CheckMode}
     (h : isDefEqCore μ env F d a b = .ok true) :
     DefEqAtW μ env m.cval φ d a b := by
   refine ⟨Av, Bv, hAv, hBv, fun Δ hCa hCb => ?_⟩
-  obtain ⟨-, -, ihd, -⟩ := checkBridge m φ F
+  obtain ⟨-, -, ihd, -⟩ := checkBridge hg m φ F
   exact ihd h hwa hba hLa hwb hbb hLb hCa hCb hAv hBv
 
 /-- **A comparison list, bridged** — `checkDefEqList`'s verdict pack
 (`DefEqListOk`) against the relation's pointwise quantified walk.  The
 per-element frames and denotations are the caller's; the fold itself
 is this induction. -/
-theorem defEqListW_of {env : Env} (m : EnvR env) {μ : CheckMode}
+theorem defEqListW_of {env : Env} (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false)
     {F : Nat} {φ : Name → Nat} {d : Nat} :
     ∀ (as bs : List Expr),
       (∀ e ∈ as ++ bs, Expr.WScoped d e ∧
@@ -1452,8 +1452,8 @@ theorem defEqListW_of {env : Env} (m : EnvR env) {μ : CheckMode}
   | a :: as, b :: bs, hfr, h => by
     obtain ⟨hwa, hba, hLa, Av, hAv⟩ := hfr a (by simp)
     obtain ⟨hwb, hbb, hLb, Bv, hBv⟩ := hfr b (by simp)
-    exact ⟨defEqAtW_of m hwa hba hLa hwb hbb hLb hAv hBv h.1,
-      defEqListW_of m as bs
+    exact ⟨defEqAtW_of (hg := hg) m hwa hba hLa hwb hbb hLb hAv hBv h.1,
+      defEqListW_of (hg := hg) m as bs
         (fun e he => hfr e (by
           rcases List.mem_append.mp he with h' | h'
           · exact List.mem_append.mpr
@@ -1506,9 +1506,9 @@ theorem getLastD_mem {as : List Expr} {n : Nat} {d : Expr}
   exact List.getElem_mem _
 
 /-- `checkTypedList`'s per-element inference verdict, extracted.  The
-nested pack needs the verdicts *before* it can call `typedListW_of`,
+nested pack needs the verdicts *before* it can call `typedListW_of (hg := hg)`,
 because the pins' denotations — which that fold takes as inputs — are
-exactly what the verdicts produce (`denote_of_inferR`). -/
+exactly what the verdicts produce (`denote_of_inferR (hg := hg)`). -/
 theorem typedListOk_infer {μ : CheckMode} {F : Nat} {env : Env}
     {d : Nat} :
     ∀ {es doms : List Expr}, TypedListOk μ F env d es doms →
@@ -1555,7 +1555,7 @@ which the checker's sole verdict is that it inferred a type.  The
 denotation `InferClaimsR` returns does not mention `Δ`, so the context
 is scaffolding — supply one with `openPisAtFvars_ctxOkR` and
 `CtxOkR.of_cover` and discard it. -/
-theorem denote_of_inferR {env : Env} (m : EnvR env) {μ : CheckMode}
+theorem denote_of_inferR {env : Env} (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false)
     {F : Nat} {φ : Name → Nat} {d : Nat} {e t : Expr}
     {Δ : List VExpr}
     (hi : inferTypeCore μ env F d e = .ok t)
@@ -1563,15 +1563,15 @@ theorem denote_of_inferR {env : Env} (m : EnvR env) {μ : CheckMode}
     (hL : Expr.LeavesBounded e)
     (hC : CtxOkR μ m.cval env φ d Δ e) :
     ∃ v, denote m.cval env φ d e = some v := by
-  obtain ⟨-, -, -, ihi⟩ := checkBridge m φ F
+  obtain ⟨-, -, -, ihi⟩ := checkBridge hg m φ F
   obtain ⟨v, -, hv, -⟩ := ihi hi hw hb hL hC
   exact ⟨v, hv⟩
 
 /-- **One typed comparison, bridged** — `checkTypedList`'s element, the
-`Infer`-side twin of `defEqAtW_of`.  Both denotations are premises:
+`Infer`-side twin of `defEqAtW_of (hg := hg)`.  Both denotations are premises:
 `TypedAtW` states them outside its `∀ Δ` (the soundness side reads the
 values back), so they cannot be produced inside. -/
-theorem typedAtW_of {env : Env} (m : EnvR env) {μ : CheckMode}
+theorem typedAtW_of {env : Env} (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false)
     {F : Nat} {φ : Name → Nat} {d : Nat} {e dom : Expr}
     (hwe : Expr.WScoped d e) (hbe : e.looseBVarsBounded 0 = true)
     (hLe : Expr.LeavesBounded e)
@@ -1585,7 +1585,7 @@ theorem typedAtW_of {env : Env} (m : EnvR env) {μ : CheckMode}
     (hde : isDefEqCore μ env F d ty dom = .ok true) :
     TypedAtW μ env m.cval φ d e dom := by
   refine ⟨Ev, Dv, hEv, hDv, fun Δ hCe hCd => ?_⟩
-  obtain ⟨-, -, ihd, ihi⟩ := checkBridge m φ F
+  obtain ⟨-, -, ihd, ihi⟩ := checkBridge hg m φ F
   obtain ⟨v, tv, hv, htv, T', hI, hD⟩ := ihi hi hwe hbe hLe hCe
   obtain rfl : v = Ev := by rw [hv] at hEv; exact Option.some.inj hEv
   exact ⟨T', hI, DefEq.trans hD (ihd hde
@@ -1597,8 +1597,8 @@ theorem typedAtW_of {env : Env} (m : EnvR env) {μ : CheckMode}
     hCd htv hDv)⟩
 
 /-- **A typed walk, bridged** — `checkTypedList`'s verdict pack, the
-`Infer`-side twin of `defEqListW_of`. -/
-theorem typedListW_of {env : Env} (m : EnvR env) {μ : CheckMode}
+`Infer`-side twin of `defEqListW_of (hg := hg)`. -/
+theorem typedListW_of {env : Env} (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false)
     {F : Nat} {φ : Name → Nat} {d : Nat} :
     ∀ (es doms : List Expr),
       (∀ x ∈ es ++ doms, Expr.WScoped d x ∧
@@ -1611,8 +1611,8 @@ theorem typedListW_of {env : Env} (m : EnvR env) {μ : CheckMode}
     obtain ⟨hwa, hba, hLa, Av, hAv⟩ := hfr a (by simp)
     obtain ⟨hwb, hbb, hLb, Bv, hBv⟩ := hfr b (by simp)
     obtain ⟨ty, hi, hde⟩ := h.1
-    exact ⟨typedAtW_of m hwa hba hLa hwb hbb hLb hAv hBv hi hde,
-      typedListW_of m as bs
+    exact ⟨typedAtW_of (hg := hg) m hwa hba hLa hwb hbb hLb hAv hBv hi hde,
+      typedListW_of (hg := hg) m as bs
         (fun e he => hfr e (by
           rcases List.mem_append.mp he with h' | h'
           · exact List.mem_append.mpr
@@ -1626,8 +1626,8 @@ theorem typedListW_of {env : Env} (m : EnvR env) {μ : CheckMode}
 /-- **A statement walk, closed.**  The shape every `iota_j` walk has:
 a prefix of an opened telescope's annotations against the domains an
 `instPisAt` run collects from a stored type.  The two packs supply
-both sides; `defEqListW_of` does the fold. -/
-theorem stmtWalk_of {env : Env} (m : EnvR env) {μ : CheckMode}
+both sides; `defEqListW_of (hg := hg)` does the fold. -/
+theorem stmtWalk_of {env : Env} (m : EnvR env) {μ : CheckMode} (hg : μ.betaGate = false)
     {F : Nat} {φ : Name → Nat} {D : Nat}
     {nR : Name} {ciR : ConstantInfo} {cvR : ConstantVal}
     {nC : Name} {ciC : ConstantInfo} {cvj : ConstantVal}
@@ -1656,7 +1656,7 @@ theorem stmtWalk_of {env : Env} (m : EnvR env) {μ : CheckMode}
       (hFvar a (List.mem_of_mem_take ha)).2.2.1⟩)
     (fun j y hy => (hFvar y
       (List.mem_of_mem_take (List.mem_of_getElem? hy))).2.2.2) hTC
-  refine defEqListW_of m _ _ (fun e he => ?_) hde
+  refine defEqListW_of (hg := hg) m _ _ (fun e he => ?_) hde
   rcases List.mem_append.mp he with h' | h'
   · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
     obtain ⟨i, hi⟩ := List.getElem?_of_mem (List.mem_of_mem_take hx)
@@ -1689,7 +1689,7 @@ theorem spine_walk_pack {env : Env} (m : EnvR env) {φ : Name → Nat}
 /-! ## `indDecl`, the front half: the member fold
 
 `checkMemberVal` is `checkConstantVal` plus the model-artifact
-conjuncts, so `memberValR_of` is `constantValR_of` plus four
+conjuncts, so `memberValR_of (hg := hg)` is `constantValR_of (hg := hg)` plus four
 inversions.  The fold's threaded valuation is **determined** —
 `cvalModeled` at each member — so the bridge chooses nothing; it only
 has to keep the recursion's `cval` in step with the environment. -/
@@ -1698,8 +1698,8 @@ set_option maxHeartbeats 2000000 in
 /-- **A canonical rule's `iota_j` theorem, bridged** — the transpose
 of `checkIotaThm` at the *stored* environment.  The shape pins are
 pure equations on the destructured data and transcribe; the content is
-`IotaWalksR`'s six rows, and each row is one `defEqListW_of` (or
-`defEqAtW_of`) over a *left* package and a *right* package:
+`IotaWalksR`'s six rows, and each row is one `defEqListW_of (hg := hg)` (or
+`defEqAtW_of (hg := hg)`) over a *left* package and a *right* package:
 
 * *index* — the statement's `lhs` spine against the ctor residual's
   (`instPisAt_res_pack`, then `spine_walk_pack` on each);
@@ -1711,7 +1711,7 @@ pure equations on the destructured data and transcribe; the content is
   against `instLamsAt`'s domains (`instLamsAt_walk_pack`);
 * *rhs* — the statement's `rhs` against the renamed rule rhs applied
   to the whole opening (`mkAppN_walk_pack`);
-* *sides* — `iotaSidesTyR_of`.
+* *sides* — `iotaSidesTyR_of (hg := hg)`.
 
 The recursor is taken at its **stored `recInfo`** rather than at a
 bare `ConstantInfo`: the λ-row needs the rule's right-hand side to
@@ -1719,7 +1719,7 @@ bare `ConstantInfo`: the λ-row needs the rule's right-hand side to
 to be a stored fireable one.  That is not a strengthening of what the
 caller has — the iota fold walks exactly the stored rules. -/
 theorem iotaThmR_of {env' envSelf : Env} (m : EnvR envSelf)
-    {μ : CheckMode} {F : Nat} {f : Name → Name} {cvA cvj : ConstantVal}
+    {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat} {f : Name → Name} {cvA cvj : ConstantVal}
     {mI rP cnP cnF j : Nat} {r : RecRule} {rhsA : Expr}
     {ciR ciC : ConstantInfo}
     (hrecSelf : envSelf.find? cvA.name = some ciR)
@@ -1757,7 +1757,7 @@ theorem iotaThmR_of {env' envSelf : Env} (m : EnvR envSelf)
       crest2, rrest, hcinst, hclen, hrinst, hopenP, hcinstP, hopenX,
       ldoms, lrest, hlinst, fun φ => ?_, hdeP, ?_,
       ⟨hdeIdx, hdeFld, hdePre, hdeLam, hdeRhs, hty1, hty2⟩⟩
-    · exact stmtWalk_of m hrecSelf hcvRR hctorSelf hcvC hopenP
+    · exact stmtWalk_of (hg := hg) m hrecSelf hcvRR hctorSelf hcvC hopenP
         (by omega) hcinstP hdeP
     · intro φ
       simp only [List.getD_cons_zero, List.getD_cons_succ]
@@ -1906,12 +1906,12 @@ theorem iotaThmR_of {env' envSelf : Env} (m : EnvR envSelf)
       ---------------------------------------------------------------
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
       · -- 1. the index arguments against the residual's canonical tuple
-        refine defEqListW_of m _ _ (fun e he => ?_) hdeIdx
+        refine defEqListW_of (hg := hg) m _ _ (fun e he => ?_) hdeIdx
         rcases List.mem_append.mp he with h' | h'
         · exact hlhsA e (List.mem_of_mem_drop (List.mem_of_mem_take h'))
         · exact hcresA e (List.mem_of_mem_drop h')
       · -- 2. the field annotations against the constructor domains
-        refine defEqListW_of m _ _ (fun e he => ?_) hdeFld
+        refine defEqListW_of (hg := hg) m _ _ (fun e he => ?_) hdeFld
         rcases List.mem_append.mp he with h' | h'
         · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
           obtain ⟨i, hi⟩ :=
@@ -1919,7 +1919,7 @@ theorem iotaThmR_of {env' envSelf : Env} (m : EnvR envSelf)
           exact hstmt i x hi
         · exact hcdoms e (List.mem_of_mem_drop h')
       · -- 3. the prefix annotations against the recursor's domains
-        refine defEqListW_of m _ _ (fun e he => ?_) hdePre
+        refine defEqListW_of (hg := hg) m _ _ (fun e he => ?_) hdePre
         rcases List.mem_append.mp he with h' | h'
         · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
           obtain ⟨i, hi⟩ :=
@@ -1927,7 +1927,7 @@ theorem iotaThmR_of {env' envSelf : Env} (m : EnvR envSelf)
           exact hstmt i x hi
         · exact hrdoms e h'
       · -- 4. the rule telescope's annotations against its λ domains
-        refine defEqListW_of m _ _ (fun e he => ?_) hdeLam
+        refine defEqListW_of (hg := hg) m _ _ (fun e he => ?_) hdeLam
         rcases List.mem_append.mp he with h' | h'
         · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
           rcases List.mem_append.mp hx with h'' | h''
@@ -1937,17 +1937,17 @@ theorem iotaThmR_of {env' envSelf : Env} (m : EnvR envSelf)
             exact hX i x hi
         · exact hldoms e h'
       · -- 5. the statement's right side against the applied rhs
-        exact defEqAtW_of m hwr hbr hLr hwRhs hbRhs hLRhs hvr hvRhs
+        exact defEqAtW_of (hg := hg) m hwr hbr hLr hwRhs hbRhs hLRhs hvr hvRhs
           hdeRhs
       · -- 6. the two sides' types against the statement's `α`
         obtain ⟨tl, hil, hdl⟩ := hty1
         obtain ⟨tr, hir, hdr⟩ := hty2
-        exact iotaSidesTyR_of m hwα hbα hLα hwl hbl hLl hwr hbr hLr
+        exact iotaSidesTyR_of (hg := hg) m hwα hbα hLα hwl hbl hLl hwr hbr hLr
           hvα hvl hvr hil hdl hir hdr
 
 set_option maxHeartbeats 4000000 in
 /-- **A nested-auxiliary rule's `iota_j` theorem, bridged** — the
-transpose of `checkIotaThmN`.  Structurally `iotaThmR_of` at a
+transpose of `checkIotaThmN`.  Structurally `iotaThmR_of (hg := hg)` at a
 different constructor spine and a level-instantiated constructor type,
 plus a seventh walk (`TypedListW`, not `DefEqListW`) over the stored
 parameter pins.
@@ -1960,7 +1960,7 @@ spines:
 
 * `pinsP` (recursor-type openers, unrenamed) denotes because the
   checker *inferred its type*: `typedListOk_infer` extracts the
-  verdict, `denote_of_inferR` converts it, at the context
+  verdict, `denote_of_inferR (hg := hg)` converts it, at the context
   `openPisAtFvars_ctxOkR` builds and `CtxOkR.of_cover` transfers;
 * `pinsF` (statement openers, renamed) denotes because the statement's
   own **major** does: `hmaj` is an `ErasedEq` to the constructor
@@ -1971,7 +1971,7 @@ Their three *syntactic* facts are not `ErasedEq`-transportable
 (erasure drops `fvar` annotations, `WScoped` does not), so both
 spellings take them directly from `instSpine_pin_pack`. -/
 theorem iotaThmNR_of {env' envSelf : Env} (m : EnvR envSelf)
-    {μ : CheckMode} {F : Nat} {f : Name → Name} {cvA cvj : ConstantVal}
+    {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat} {f : Name → Name} {cvA cvj : ConstantVal}
     {mI rP cnP cnF j : Nat} {r : RecRule} {rhsA : Expr}
     {ciR ciC : ConstantInfo}
     {lvls : List Level} {pins : List Expr}
@@ -2070,7 +2070,7 @@ theorem iotaThmNR_of {env' envSelf : Env} (m : EnvR envSelf)
         intro x hx
         obtain ⟨ty, hi⟩ := typedListOk_infer htypedP x hx
         obtain ⟨p, hp, hxe⟩ := List.mem_map.mp hx
-        refine denote_of_inferR m hi (hpinPsyn x hx).1
+        refine denote_of_inferR (hg := hg) m hi (hpinPsyn x hx).1
           (hpinPsyn x hx).2.1 (hpinPsyn x hx).2.2
           (CtxOkR.of_cover (L := fvsP.take rP) hΔlen
             (fun y hy => hΔfvs y (List.mem_of_mem_take hy))
@@ -2093,7 +2093,7 @@ theorem iotaThmNR_of {env' envSelf : Env} (m : EnvR envSelf)
       have hcdomsP := instPisAt_walk_pack m (φ := φ) hcinstP
         hwCl hbCl hLCl hpinPsyn
         (fun _ y hy => hpinPden y (List.mem_of_getElem? hy)) hTCl
-      exact typedListW_of m _ _ (fun e he => by
+      exact typedListW_of (hg := hg) m _ _ (fun e he => by
         rcases List.mem_append.mp he with h' | h'
         · exact ⟨(hpinPsyn e h').1, (hpinPsyn e h').2.1,
             (hpinPsyn e h').2.2, hpinPden e h'⟩
@@ -2257,7 +2257,7 @@ theorem iotaThmNR_of {env' envSelf : Env} (m : EnvR envSelf)
             List.length_append, hΔ₀len]
           simp
           omega
-        refine denote_of_inferR m hi
+        refine denote_of_inferR (hg := hg) m hi
           (Expr.WScoped.mono (by omega) (hpinPlow x hx).1)
           (hpinPlow x hx).2.1 (hpinPlow x hx).2.2
           (CtxOkR.of_cover (L := fvsP.take rP) hΔlen
@@ -2351,25 +2351,25 @@ theorem iotaThmNR_of {env' envSelf : Env} (m : EnvR envSelf)
       -- the six rows
       ---------------------------------------------------------------
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · refine defEqListW_of m _ _ (fun e he => ?_) hdeIdx
+      · refine defEqListW_of (hg := hg) m _ _ (fun e he => ?_) hdeIdx
         rcases List.mem_append.mp he with h' | h'
         · exact hlhsA e (List.mem_of_mem_drop (List.mem_of_mem_take h'))
         · exact hcresA e (List.mem_of_mem_drop h')
-      · refine defEqListW_of m _ _ (fun e he => ?_) hdeFld
+      · refine defEqListW_of (hg := hg) m _ _ (fun e he => ?_) hdeFld
         rcases List.mem_append.mp he with h' | h'
         · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
           obtain ⟨i, hi⟩ :=
             List.getElem?_of_mem (List.mem_of_mem_drop hx)
           exact hstmt i x hi
         · exact hcdoms e (List.mem_of_mem_drop h')
-      · refine defEqListW_of m _ _ (fun e he => ?_) hdePre
+      · refine defEqListW_of (hg := hg) m _ _ (fun e he => ?_) hdePre
         rcases List.mem_append.mp he with h' | h'
         · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
           obtain ⟨i, hi⟩ :=
             List.getElem?_of_mem (List.mem_of_mem_take hx)
           exact hstmt i x hi
         · exact hrdoms e h'
-      · refine defEqListW_of m _ _ (fun e he => ?_) hdeLam
+      · refine defEqListW_of (hg := hg) m _ _ (fun e he => ?_) hdeLam
         rcases List.mem_append.mp he with h' | h'
         · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp h'
           rcases List.mem_append.mp hx with h'' | h''
@@ -2378,18 +2378,18 @@ theorem iotaThmNR_of {env' envSelf : Env} (m : EnvR envSelf)
           · obtain ⟨i, hi⟩ := List.getElem?_of_mem h''
             exact hX i x hi
         · exact hldoms e h'
-      · exact defEqAtW_of m hwr hbr hLr hwRhs hbRhs hLRhs hvr hvRhs
+      · exact defEqAtW_of (hg := hg) m hwr hbr hLr hwRhs hbRhs hLRhs hvr hvRhs
           hdeRhs
       · obtain ⟨tl, hil, hdl⟩ := hty1
         obtain ⟨tr, hir, hdr⟩ := hty2
-        exact iotaSidesTyR_of m hwα hbα hLα hwl hbl hLl hwr hbr hLr
+        exact iotaSidesTyR_of (hg := hg) m hwα hbα hLα hwl hbl hLl hwr hbr hLr
           hvα hvl hvr hil hdl hir hdr
 
 set_option maxHeartbeats 1600000 in
 /-- **One modeled recursor rule, bridged** (`checkIotaRule`).  The
 shape data comes from `checkIotaRule_inv`'s kit; the fire-mode
 dispatch runs on `RuleChecked`'s `plain ↔ recRulePlain` equivalence
-and its nested clause, into `iotaThmR_of` / `iotaThmNR_of`.
+and its nested clause, into `iotaThmR_of (hg := hg)` / `iotaThmNR_of (hg := hg)`.
 
 The rule's annotated right-hand side denotes *because the fold
 inferred its type* — `RuleChecked` carries the verdict at depth `0`
@@ -2397,7 +2397,7 @@ and `InferClaimsR` converts it at the empty context.  It is emphatically
 not `EnvR.rec_rhs_denotes`: the rules are being checked against the
 **provisional** environment, where they are not yet stored. -/
 theorem iotaRuleR_of {env' envSelf : Env} (m : EnvR envSelf)
-    {μ : CheckMode} {F : Nat} {f : Name → Name} {cvA : ConstantVal}
+    {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat} {f : Name → Name} {cvA : ConstantVal}
     {mI rP j : Nat} {r r' : RecRule} {ciR : ConstantInfo}
     (hrecSelf : envSelf.find? cvA.name = some ciR)
     (hcvRR : ciR.toConstantVal = cvA)
@@ -2424,7 +2424,7 @@ theorem iotaRuleR_of {env' envSelf : Env} (m : EnvR envSelf)
       denoteClosed m.cval envSelf φ rhsA0 = some Rv ∧
       Infer μ envSelf m.cval φ [] Rv t := by
     intro φ
-    obtain ⟨-, -, -, ihi⟩ := checkBridge m φ F
+    obtain ⟨-, -, -, ihi⟩ := checkBridge hg m φ F
     obtain ⟨hw, hb, hL, hC⟩ :=
       closed0_framesR (μ := μ) (cval := m.cval) (env := envSelf)
         (φ := φ) hrhsnf hrhsb
@@ -2443,7 +2443,7 @@ theorem iotaRuleR_of {env' envSelf : Env} (m : EnvR envSelf)
   by_cases hplain :
       Expr.recRulePlain cvA.type mI rP cnP0 = true
   · refine Or.inl ⟨hplain, hplainIff.mpr hplain, ?_⟩
-    exact iotaThmR_of m hrecSelf hcvRR hrhsnf hrhsb hrhsDen
+    exact iotaThmR_of (hg := hg) m hrecSelf hcvRR hrhsnf hrhsb hrhsDen
       hciC hcvC' hro htransfer (hplainKit hplain)
   · have hplainF : Expr.recRulePlain cvA.type mI rP cnP0 = false := by
       revert hplain
@@ -2456,11 +2456,11 @@ theorem iotaRuleR_of {env' envSelf : Env} (m : EnvR envSelf)
     | nested lvls pins =>
       refine Or.inr ⟨lvls, pins, rfl, ?_⟩
       obtain ⟨-, -, -, -, -, hkitN⟩ := hnested lvls pins hf
-      exact iotaThmNR_of m hrecSelf hcvRR hrhsnf hrhsb hrhsDen
+      exact iotaThmNR_of (hg := hg) m hrecSelf hcvRR hrhsnf hrhsb hrhsDen
         hciC hcvC' hro htransfer (hnestShape lvls pins hf) hkitN
 
 theorem iotaRulesR_of {env' envSelf : Env} (m : EnvR envSelf)
-    {μ : CheckMode} {F : Nat} {f : Name → Name} {cvA : ConstantVal}
+    {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat} {f : Name → Name} {cvA : ConstantVal}
     {mI rP : Nat} {ciR : ConstantInfo}
     (hrecSelf : envSelf.find? cvA.name = some ciR)
     (hcvRR : ciR.toConstantVal = cvA)
@@ -2499,11 +2499,11 @@ theorem iotaRulesR_of {env' envSelf : Env} (m : EnvR envSelf)
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
     exact ⟨r₁, rest',
-      iotaRuleR_of m hrecSelf hcvRR hro htransfer hr1,
+      iotaRuleR_of (hg := hg) m hrecSelf hcvRR hro htransfer hr1,
       ih (j + 1) rest' hrest, rfl⟩
 
 /-- **`checkMemberVal`, bridged.** -/
-theorem memberValR_of {env' : Env} (m : EnvR env') {μ : CheckMode} {F :
+theorem memberValR_of {env' : Env} (m : EnvR env') {μ : CheckMode} (hg : μ.betaGate = false) {F :
   Nat} {blockNames : List Name}
     {cv cvA : ConstantVal}
     (h : checkMemberVal (m := CheckM) (fueledOps μ F) blockNames env' cv
@@ -2515,7 +2515,7 @@ theorem memberValR_of {env' : Env} (m : EnvR env') {μ : CheckMode} {F :
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, -, -, hcv⟩ := constantValR_of m hccv
+  obtain ⟨type, rfl, -, -, hcv⟩ := constantValR_of (hg := hg) m hccv
   by_cases hms : cv.name.isModelSuffix = true
   · rw [if_pos hms] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
@@ -2623,12 +2623,12 @@ already has machinery for:
 * the rule's front door is `checkProjRule`'s own `inferTypeCore`
   verdict at depth `0`, converted by `InferClaimsR` at the empty
   context (`closed0_framesR`) — the same three lines as
-  `iotaRuleR_of`'s;
-* the `proj_i.iota` sides pack is `iotaSidesTyR_of`, fed by
+  `iotaRuleR_of (hg := hg)`'s;
+* the `proj_i.iota` sides pack is `iotaSidesTyR_of (hg := hg)`, fed by
   `projStmtParts`, which turns the statement's *pin* into its opened
   spine — a three-element list, so the `getD 0/1/2` slots the
   relation names are literally its entries. -/
-theorem projFnR_of {env' env₁ : Env} (m : EnvR env') {μ : CheckMode}
+theorem projFnR_of {env' env₁ : Env} (m : EnvR env') {μ : CheckMode} (hg : μ.betaGate = false)
     {F : Nat} {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
     (h : checkProjFn μ (fueledOps μ F) env' T ctorName lps nP nF i
       = .ok env₁) :
@@ -2672,7 +2672,7 @@ theorem projFnR_of {env' env₁ : Env} (m : EnvR env') {μ : CheckMode}
       (by simpa using hb) (by simpa using hb')
   · -- the rule's front door
     intro φ
-    obtain ⟨-, -, -, ihi⟩ := checkBridge m φ F
+    obtain ⟨-, -, -, ihi⟩ := checkBridge hg m φ F
     obtain ⟨hw, hb, hL, hC⟩ :=
       closed0_framesR (μ := μ) (cval := m.cval) (env := env')
         (φ := φ) hrhsnf hrhsb
@@ -2707,7 +2707,7 @@ theorem projFnR_of {env' env₁ : Env} (m : EnvR env') {μ : CheckMode}
             (fvsO.take nP ++ fvsO.drop nP)])) (by simp)
     obtain ⟨hwr, hbr, hLr, vr, hvr⟩ :=
       hargs (fvsO.getD (nP + i) default) (by simp)
-    exact iotaSidesTyR_of m hwα hbα hLα hwl hbl hLl hwr hbr hLr
+    exact iotaSidesTyR_of (hg := hg) m hwα hbα hLα hwl hbl hLl hwr hbr hLr
       hvα hvl hvr hil hdl hir hdr
 
 /-! ## `basisDecl`

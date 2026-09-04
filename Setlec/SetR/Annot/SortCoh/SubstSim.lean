@@ -1459,7 +1459,7 @@ theorem substSimClaims {env : Env} (henv : EnvWF env) :
 /-- **The λ-head case DISCHARGED**: build the spine zip from the
 congruent λ components and dispatch. -/
 theorem zipLamHeadCase_of {φ : Name → Nat}
-    {Q : Nat → Expr → Expr → Prop}
+    {Q : Nat → Expr → Expr → Prop} (hgOff : μ.betaGate = false)
     (hm : KnotFuelMono μ env) (hB : BoolCtorsInert env)
     (hIC : InvPreserveCoreF μ env)
     (hLC : PairedPreserveCoreF μ env)
@@ -1477,7 +1477,7 @@ theorem zipLamHeadCase_of {φ : Name → Nat}
     ZipLamHeadCase μ env φ Q := by
   intro fc d ga la gb lb n ty₁ ty₂ b₁ b₂ m₁ m₂ as bs ℓa ℓb below hty
     hbody hlen hargs hIs hIt hp hQ ha hb
-  exact zipHeadDispatch (φ := φ) (Q := Q) hm hB hIC hLC hQC hQB
+  exact zipHeadDispatch (φ := φ) (Q := Q) (hg := hgOff) hm hB hIC hLC hQC hQB
     hQZ hQH hLS
     (fun {d'} {a b} h => hQs h) (fun {d'} {P} {y} {R} {z} h => hQA h)
     hΘ hConst hIo hProj
@@ -1490,7 +1490,7 @@ theorem zipLamHeadCase_of {φ : Name → Nat}
 /-- **The letE-head case DISCHARGED**: same dispatch, letE-node
 head zip. -/
 theorem zipLetEHeadCase_of {φ : Name → Nat}
-    {Q : Nat → Expr → Expr → Prop}
+    {Q : Nat → Expr → Expr → Prop} (hgOff : μ.betaGate = false)
     (hm : KnotFuelMono μ env) (hB : BoolCtorsInert env)
     (hIC : InvPreserveCoreF μ env)
     (hLC : PairedPreserveCoreF μ env)
@@ -1508,7 +1508,7 @@ theorem zipLetEHeadCase_of {φ : Name → Nat}
     ZipLetEHeadCase μ env φ Q := by
   intro fc d ga la gb lb n ty₁ ty₂ v₁ v₂ b₁ b₂ as bs ℓa ℓb below
     hty hval hbody hlen hargs hIs hIt hp hQ ha hb
-  exact zipHeadDispatch (φ := φ) (Q := Q) hm hB hIC hLC hQC hQB
+  exact zipHeadDispatch (φ := φ) (Q := Q) (hg := hgOff) hm hB hIC hLC hQC hQB
     hQZ hQH hLS
     (fun {d'} {a b} h => hQs h) (fun {d'} {P} {y} {R} {z} h => hQA h)
     hΘ hConst hIo hProj

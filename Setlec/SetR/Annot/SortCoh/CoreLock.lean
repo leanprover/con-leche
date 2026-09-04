@@ -1190,7 +1190,7 @@ exit at a liftable seam re-based by connecting runs and reduction
 traces, so the top-level caller can loop-align.  Strong induction
 on the pair's core-run fuel sum; subjects peeled one app-layer at
 a time, never reassociated. -/
-theorem coreLock {μ : CheckMode} {env : Env}
+theorem coreLock {μ : CheckMode} (hg : μ.betaGate = false) {env : Env}
     {Q : Nat → Expr → Expr → Prop}
     (hm : KnotFuelMono μ env)
     (hIC : InvPreserveCoreF μ env)
@@ -1334,8 +1334,8 @@ theorem coreLock {μ : CheckMode} {env : Env}
     cases g₂ with
     | zero => rw [Setlec.whnfCore_zero] at h₂; exact nomatch h₂
     | succ gr =>
-    obtain ⟨F₁, hh₁, legs₁⟩ := whnfCore_app_decompose h₁
-    obtain ⟨F₂, hh₂, legs₂⟩ := whnfCore_app_decompose h₂
+    obtain ⟨F₁, hh₁, legs₁⟩ := whnfCore_app_decompose hg h₁
+    obtain ⟨F₂, hh₂, legs₂⟩ := whnfCore_app_decompose hg h₂
     obtain ⟨hIf₁, hIa₁⟩ := subjInv_app hIu
     obtain ⟨hIf₂, hIa₂⟩ := subjInv_app hIv
     have hPf : PairedLeaves f₁ f₂ := pairedLeaves_mono
@@ -1363,8 +1363,8 @@ theorem coreLock {μ : CheckMode} {env : Env}
         intro hS₁ hS₂ hba hbb hc
         exact .inr ⟨.app F₁ a₁, .app F₂ a₂,
           max gp gp + 1, max gr gr + 1, (by omega), (by omega),
-          whnfCore_app_assemble hm hS₁ legs₁,
-          whnfCore_app_assemble hm hS₂ legs₂,
+          whnfCore_app_assemble (hg := hg) hm hS₁ legs₁,
+          whnfCore_app_assemble (hg := hg) hm hS₂ legs₂,
           Contracts.head f₁ F₁ [a₁] gp hh₁ (.refl _),
           Contracts.head f₂ F₂ [a₂] gr hh₂ (.refl _),
           CoreSeam.certHead F₁ F₂ [a₁] [a₂] hba hbb hc rfl
@@ -1526,9 +1526,9 @@ theorem coreLock {μ : CheckMode} {env : Env}
               exact .inr ⟨.app F₁ a₁, .app F₂ a₂,
                 max gp gp + 1, max gr gr + 1,
                 (by omega), (by omega),
-                whnfCore_app_assemble hm hS₁
+                whnfCore_app_assemble (hg := hg) hm hS₁
                   (.inr (.inr ⟨hnl₁, .inl ⟨e₁'', hio₁s, hrun₁'⟩⟩)),
-                whnfCore_app_assemble hm
+                whnfCore_app_assemble (hg := hg) hm
                   (whnfCore_reidem_const hm hh₂ hhd₂)
                   (.inr (.inr ⟨hnl₂, .inl ⟨e₂'', hio₂s, hrun₂'⟩⟩)),
                 Contracts.head f₁ F₁ [a₁] gp hh₁ (.refl _),
@@ -1541,9 +1541,9 @@ theorem coreLock {μ : CheckMode} {env : Env}
                 exact .inr ⟨.app F₁ a₁, .app F₂ a₂,
                   max gp gp + 1, max gr gr + 1,
                   (by omega), (by omega),
-                  whnfCore_app_assemble hm hS₁
+                  whnfCore_app_assemble (hg := hg) hm hS₁
                     (.inr (.inr ⟨hnl₁, .inl ⟨e₁'', hio₁s, hrun₁'⟩⟩)),
-                  whnfCore_app_assemble hm
+                  whnfCore_app_assemble (hg := hg) hm
                     (whnfCore_reidem_const hm hh₂ hhd₂)
                     (.inr (.inr ⟨hnl₂, .inr ⟨hio₂n, rfl⟩⟩)),
                   Contracts.head f₁ F₁ [a₁] gp hh₁ (.refl _),
@@ -1567,10 +1567,10 @@ theorem coreLock {μ : CheckMode} {env : Env}
                 exact .inr ⟨.app F₁ a₁, .app F₂ a₂,
                   max gp gp + 1, max gr gr + 1,
                   (by omega), (by omega),
-                  whnfCore_app_assemble hm
+                  whnfCore_app_assemble (hg := hg) hm
                     (whnfCore_reidem_const hm hh₁ hhd₁)
                     (.inr (.inr ⟨hnl₁, .inr ⟨hio₁n, rfl⟩⟩)),
-                  whnfCore_app_assemble hm
+                  whnfCore_app_assemble (hg := hg) hm
                     (whnfCore_reidem_const hm hh₂ hhd₂)
                     (.inr (.inr ⟨hnl₂, .inl ⟨e₂'', hio₂s, hrun₂'⟩⟩)),
                   Contracts.head f₁ F₁ [a₁] gp hh₁ (.refl _),
@@ -1592,8 +1592,8 @@ theorem coreLock {μ : CheckMode} {env : Env}
     · -- seam from the heads: lift it through the layer
       exact .inr ⟨.app w₁h a₁, .app w₂h a₂,
         max c₁ gp + 1, max c₂ gr + 1, (by omega), (by omega),
-        whnfCore_app_assemble hm hw₁ legs₁,
-        whnfCore_app_assemble hm hw₂ legs₂,
+        whnfCore_app_assemble (hg := hg) hm hw₁ legs₁,
+        whnfCore_app_assemble (hg := hg) hm hw₂ legs₂,
         ht₁.app_lift, ht₂.app_lift,
         coreSeam_lift_app hza hsm⟩
 
@@ -1672,7 +1672,7 @@ converted by the routed loop-level cases with re-based loop runs
 fuels — the coreLock fuel bounds).  Both the λ- and letE-head
 cases collapse onto this. -/
 theorem zipHeadDispatch {φ : Name → Nat}
-    {Q : Nat → Expr → Expr → Prop}
+    {Q : Nat → Expr → Expr → Prop} (hg : μ.betaGate = false)
     (hm : KnotFuelMono μ env) (hB : BoolCtorsInert env)
     (hIC : InvPreserveCoreF μ env)
     (hLC : PairedPreserveCoreF μ env)
@@ -1740,7 +1740,7 @@ theorem zipHeadDispatch {φ : Name → Nat}
   have belowFc : ZipBelowFc μ env φ Q fc :=
     fun hlt hz' hIs hIt hp' hq' hla hlb =>
       below (Or.inl hlt) hz' hIs hIt hp' hq' hla hlb
-  rcases @coreLock μ env Q hm hIC hLC hQC hQB hQZ hQH hLS
+  rcases @coreLock μ hg env Q hm hIC hLC hQC hQB hQZ hQH hLS
       (fun {d'} {a b} h => hQs h) (fun {d'} {P} {y} {R} {z} h => hQA h)
       (ga + gb) ga gb fc d X₁ X₂ e₁ e₂
       (Nat.le_refl _) hz hI₁ hI₂ hp hQ hwca' hwcb' with

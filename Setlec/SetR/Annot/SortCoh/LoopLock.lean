@@ -523,7 +523,7 @@ loop-budget sum); per step: decompose both sides, coreLock on the
 core parts, recHead/projHead seams unpacked through the routed step
 Props, δ synced by name-determinism or exited at cert layers, nat
 to the progress-marked split. -/
-theorem loopLock {μ : CheckMode} {env : Env}
+theorem loopLock {μ : CheckMode} (hgOff : μ.betaGate = false) {env : Env}
     {Q : Nat → Expr → Expr → Prop}
     (hm : KnotFuelMono μ env)
     (hIC : InvPreserveCoreF μ env) (hIDl : InvPreserveDeltaF env)
@@ -598,7 +598,7 @@ theorem loopLock {μ : CheckMode} {env : Env}
     · exact whnfStep_assemble_delta hW hrn hud hkx
     · rw [hstop]
       exact whnfStep_assemble_stuck hW hrn hud
-  rcases @coreLock μ env Q hm hIC hLC hQC hQB hQZ hQH hLS
+  rcases @coreLock μ hgOff env Q hm hIC hLC hQC hQB hQZ hQH hLS
       (fun {d'} {a b} h => hQs h)
       (fun {d'} {P} {y} {Rz} {z} h => hQA h)
       (f₁ + f₂) f₁ f₂ fc d u v t₁ t₂
@@ -1043,7 +1043,7 @@ whnf and the projection decision — stuck (the rebuilt spine), or
 fired with the field's run and a residual that is a run, the empty
 spine, or a dead shape (the nil/dead disjuncts dodge every
 idempotence, per the map). -/
-theorem whnfCore_proj_spine_inv {μ : CheckMode} {env : Env}
+theorem whnfCore_proj_spine_inv {μ : CheckMode} (hgOff : μ.betaGate = false) {env : Env}
     (hm : KnotFuelMono μ env) :
     ∀ {as : List Expr} {f d i : Nat} {sn : Name} {e t : Expr},
       whnfCore μ env f d (Setlec.Expr.mkAppN (.proj sn i e) as)
@@ -1153,7 +1153,7 @@ theorem whnfCore_proj_spine_inv {μ : CheckMode} {env : Env}
       cases f with
       | zero => exact nomatch h
       | succ f' =>
-      obtain ⟨P', hhead, legs⟩ := whnfCore_app_decompose h
+      obtain ⟨P', hhead, legs⟩ := whnfCore_app_decompose hgOff h
       obtain ⟨g, e₂, e₃, hg, he, hlit, hcase⟩ := ih hhead
       refine ⟨g, e₂, e₃, by omega, he, hlit, ?_⟩
       rcases hcase with rfl |
@@ -1186,7 +1186,7 @@ theorem whnfCore_proj_spine_inv {μ : CheckMode} {env : Env}
             rw [show Setlec.Expr.mkAppN P' ([] ++ [b])
                 = Expr.app (Setlec.Expr.mkAppN P' []) b
               from mkAppN_append_one]
-            exact whnfCore_app_assemble (g := f') (gl := f') hm
+            exact whnfCore_app_assemble (hg := hgOff) (g := f') (gl := f') hm
               (hm.2.2.1 (by omega) hS) legs
           · rcases legs with ⟨n', ty', b', m', ta', hPlam, -, -, -⟩ |
               ⟨n', ty', b', m', ta', hPlam, -, -, rfl⟩ | ⟨hnl, hio⟩
@@ -1204,7 +1204,7 @@ theorem whnfCore_proj_spine_inv {μ : CheckMode} {env : Env}
           rw [show Setlec.Expr.mkAppN h' (as₀ ++ [b])
               = Expr.app (Setlec.Expr.mkAppN h' as₀) b
             from mkAppN_append_one]
-          exact whnfCore_app_assemble (g := f') (gl := f') hm
+          exact whnfCore_app_assemble (hg := hgOff) (g := f') (gl := f') hm
             (hm.2.2.1 (Nat.le_trans hc (by omega)) hresrun) legs
         · -- dead residual: the layer stays dead
           rcases legs with ⟨n', ty', b', m', ta', hPlam, -, -, -⟩ |
@@ -1293,7 +1293,7 @@ scrutinees at knot minus one and FORWARDS the analysis' out inside
 the proj split — the split is the interface, and the sync work
 belongs to its sort-premised consumers, which hold strictly more
 facts. -/
-theorem loopProjStep_of {μ : CheckMode} {env : Env}
+theorem loopProjStep_of {μ : CheckMode} (hgOff : μ.betaGate = false) {env : Env}
     {Q : Nat → Expr → Expr → Prop}
     (hm : KnotFuelMono μ env)
     (hQA : QDescendAppF Q) (hQPd : QDescendProjF Q) :
@@ -1342,9 +1342,9 @@ theorem loopProjStep_of {μ : CheckMode} {env : Env}
       LoopSeam.deadR _ _ t₂ f₂ (fun g hg => hm.2.2.1 hg hwc₂')
         hnc hnl hns⟩
   obtain ⟨g₁, w₁, e₃₁, hg₁, hw₁, hlit₁, hcase₁⟩ :=
-    whnfCore_proj_spine_inv hm hwc₁'
+    whnfCore_proj_spine_inv (hgOff := hgOff) hm hwc₁'
   obtain ⟨g₂, w₂, e₃₂, hg₂, hw₂, hlit₂, hcase₂⟩ :=
-    whnfCore_proj_spine_inv hm hwc₂'
+    whnfCore_proj_spine_inv (hgOff := hgOff) hm hwc₂'
   rcases hcase₁ with rfl |
     ⟨us₁, entry₁, h₁', hfn₁, hf₁, hnat₁, hi₁, hlen₁, hred₁, hres₁⟩
   · -- side 1 stuck: dead-shaped output
@@ -1487,7 +1487,7 @@ dead seams by `loop_dead_exit`, the nat split by `NatStepNoSort`
 (its fields are the exact premises), the proj split to the routed
 Θ-family conversion. -/
 theorem zipProjHeadCase_of {φ : Name → Nat}
-    {Q : Nat → Expr → Expr → Prop}
+    {Q : Nat → Expr → Expr → Prop} (hgOff : μ.betaGate = false)
     (hm : KnotFuelMono μ env) (hB : BoolCtorsInert env)
     (hIC : InvPreserveCoreF μ env) (hIDl : InvPreserveDeltaF env)
     (hIN : InvPreserveNatF μ env)
@@ -1515,12 +1515,12 @@ theorem zipProjHeadCase_of {φ : Name → Nat}
       (Setlec.Expr.mkAppN (.proj sn i e₁) as)
       (Setlec.Expr.mkAppN (.proj sn i e₂) bs) :=
     certZip_mkAppN_zips (.proj sn i e₁ e₂ hze) hlen hargs
-  have hout := loopLock (μ := μ) (env := env) (Q := Q) hm hIC hIDl
+  have hout := loopLock (μ := μ) (env := env) (Q := Q) (hgOff := hgOff) hm hIC hIDl
     hLC hLD hQC hQD hQB hQZ hQH hLS
     (fun {d'} {a b} h => hQs h)
     (fun {d'} {P} {y} {Rz} {z} h => hQA h)
     (loopIotaStep_of (μ := μ) (env := env) (Q := Q))
-    (loopProjStep_of (μ := μ) (env := env) (Q := Q) hm
+    (loopProjStep_of (μ := μ) (env := env) (Q := Q) (hgOff := hgOff) hm
       (fun {d'} {P} {y} {Rz} {z} h => hQA h)
       (fun {d'} {ia} {ib} {sna} {snb} {a} {b} h =>
         hQPd (d := d') (i := ia) (i' := ib) (sn := sna)
@@ -1618,7 +1618,7 @@ theorem unfoldDefinition_none_of_recInfo {env : Env} {e : Expr}
 run on a recursor-headed spine is stuck (the spine — under-applied
 or iota-none at the arity layer) or fired at some prefix, with the
 continuation's run and the run/nil/dead residual. -/
-theorem whnfCore_rec_spine_inv {μ : CheckMode} {env : Env}
+theorem whnfCore_rec_spine_inv {μ : CheckMode} (hgOff : μ.betaGate = false) {env : Env}
     (hm : KnotFuelMono μ env) :
     ∀ {as : List Expr} {f d : Nat} {n : Name} {us : List Level}
       {t : Expr},
@@ -1683,7 +1683,7 @@ theorem whnfCore_rec_spine_inv {μ : CheckMode} {env : Env}
       cases f with
       | zero => exact nomatch h
       | succ f' =>
-      obtain ⟨P', hhead, legs⟩ := whnfCore_app_decompose h
+      obtain ⟨P', hhead, legs⟩ := whnfCore_app_decompose hgOff h
       rcases ihm as₀ hlen₀ hhead with rfl |
         ⟨pre, post, g, e'', h', heq, hg, hio, hcont, hres⟩
       · -- head stuck: fire here or stay stuck
@@ -1718,7 +1718,7 @@ theorem whnfCore_rec_spine_inv {μ : CheckMode} {env : Env}
             rw [show Setlec.Expr.mkAppN P' ([] ++ [b])
                 = Expr.app (Setlec.Expr.mkAppN P' []) b
               from mkAppN_append_one]
-            exact whnfCore_app_assemble (g := f') (gl := f') hm
+            exact whnfCore_app_assemble (hg := hgOff) (g := f') (gl := f') hm
               (hm.2.2.1 (by omega) hS) legs
           · rcases legs with
               ⟨n', ty', b', m', ta', hPlam, -, -, -⟩ |
@@ -1738,7 +1738,7 @@ theorem whnfCore_rec_spine_inv {μ : CheckMode} {env : Env}
           rw [show Setlec.Expr.mkAppN h' (post ++ [b])
               = Expr.app (Setlec.Expr.mkAppN h' post) b
             from mkAppN_append_one]
-          exact whnfCore_app_assemble (g := f') (gl := f') hm
+          exact whnfCore_app_assemble (hg := hgOff) (g := f') (gl := f') hm
             (hm.2.2.1 (Nat.le_trans hc (by omega)) hresrun) legs
         · -- dead residual: the layer stays dead
           rcases legs with
@@ -1877,7 +1877,7 @@ supplies the majors' loopLock analysis and FORWARDS everything to
 the routed `IotaMajorSortAgree` — the sync algebra lives at Θ's
 arc, which holds the same data plus the claim-level facts. -/
 theorem zipIotaCase_of {φ : Name → Nat}
-    {Q : Nat → Expr → Expr → Prop}
+    {Q : Nat → Expr → Expr → Prop} (hgOff : μ.betaGate = false)
     (hm : KnotFuelMono μ env) (hB : BoolCtorsInert env)
     (hIC : InvPreserveCoreF μ env) (hIDl : InvPreserveDeltaF env)
     (hLC : PairedPreserveCoreF μ env)
@@ -1946,10 +1946,10 @@ theorem zipIotaCase_of {φ : Name → Nat}
           (F := Expr.const n us') (a := b) (as := bs')
         rw [hpq] at hstop
         exact nomatch hstop
-  rcases whnfCore_rec_spine_inv hm hwc₁' with heq₁ |
+  rcases whnfCore_rec_spine_inv (hgOff := hgOff) hm hwc₁' with heq₁ |
     ⟨pre₁, post₁, g₁, e₁'', h₁', heq₁, hg₁, hio₁, hcont₁, hres₁⟩
   · exact stuckKill₁ heq₁
-  rcases whnfCore_rec_spine_inv hm hwc₂' with heq₂ |
+  rcases whnfCore_rec_spine_inv (hgOff := hgOff) hm hwc₂' with heq₂ |
     ⟨pre₂, post₂, g₂, e₂'', h₂', heq₂, hg₂, hio₂, hcont₂, hres₂⟩
   · exact stuckKill₂ heq₂
   subst heq₁
@@ -2102,12 +2102,12 @@ theorem zipIotaCase_of {φ : Name → Nat}
   have hl₂ : Setlec.whnfLoop (Setlec.pureFns μ env gB) env d
       Setlec.whnfLoopFuel (pre₂.getD mI (.bvar 0))
       = .ok major₀₂ := hmaj₂
-  have hout := loopLock (μ := μ) (env := env) (Q := Q) hm hIC hIDl
+  have hout := loopLock (μ := μ) (env := env) (Q := Q) (hgOff := hgOff) hm hIC hIDl
     hLC hLD hQC hQD hQB hQZ hQH hLS
     (fun {d'} {a b} h => hQs h)
     (fun {d'} {P} {y} {Rz} {z} h => hQA h)
     (loopIotaStep_of (μ := μ) (env := env) (Q := Q))
-    (loopProjStep_of (μ := μ) (env := env) (Q := Q) hm
+    (loopProjStep_of (μ := μ) (env := env) (Q := Q) (hgOff := hgOff) hm
       (fun {d'} {P} {y} {Rz} {z} h => hQA h)
       (fun {d'} {ia} {ib} {sna} {snb} {a} {b} h =>
         hQPd (d := d') (i := ia) (i' := ib) (sn := sna)

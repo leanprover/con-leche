@@ -51,7 +51,7 @@ universe w
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- **The generation-five step, from the quarters' routed residues.** -/
-theorem checkStep2D_of_quarters
+theorem checkStep2D_of_quarters (hgOff : μ.betaGate = false)
     (hwc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
     (hio : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -83,7 +83,7 @@ theorem checkStep2D_of_quarters
       (fuel : Nat), EtaCert2D μ m φ fuel)
     (hi : InferInputs2D V μ) :
     CheckStep2D μ V :=
-  checkStep2D_of (whnfCoreStep2D_of hwc hio hpj)
+  checkStep2D_of (whnfCoreStep2D_of hgOff hwc hio hpj)
     (whnfStep2D_of hrn hdl)
     (defEqStep2D_of hdd hrn2 hpi hsp hsi hsl hap hbs hac het)
     (inferStep2D_of hi)

@@ -178,7 +178,7 @@ theorem declOpaqueS (hrp : ReducePinS V) {μ : CheckMode} {F : Nat}
 /-- A checked `def` extends the invariant, given the div/mod
 obligation; the structural-`Nat` recurrence clause is discharged
 inline, and the extension's valuation agreement is exposed. -/
-theorem declDefnS (hdm : DivModPinS V) {μ : CheckMode} {F : Nat}
+theorem declDefnS (hdm : DivModPinS V) {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat}
     {env env₂ : Env} {cv : ConstantVal} {value : Expr}
     {hint : ReducibilityHint} (m : EnvS V env)
     (h : DeclDefnR μ F env m.cval cv value hint env₂) :
@@ -264,7 +264,7 @@ theorem declDefnS (hdm : DivModPinS V) {μ : CheckMode} {F : Nat}
         v2 = value' ∧ hint2 = hint := by
       injection heq with a b c
       exact ⟨a.symm, b.symm, c.symm⟩
-    exact hdm m (hmem : cv.name ∈ natDivModNames) hfresh
+    exact hdm m hg (hmem : cv.name ∈ natDivModNames) hfresh
       ⟨hfind, hres, hpshape, hnd, hlbt, hitf, hann, htp, htr, hfrontT⟩
       ⟨hvlb, hvhf, hannv, hvp, hvr, hfrontV⟩
       (hdmc (List.contains_iff_mem.mpr hmem))

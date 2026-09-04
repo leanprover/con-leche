@@ -159,6 +159,15 @@ theorem whnfAppC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
       rw [show eraseC (ExprC.lam nm ty body mb h bb fb lp)
         = Expr.lam nm (eraseC ty) (eraseC body) mb from rfl, whnfApp_lam]
       unfold whnfAppLam
+      -- task #161: the β gate reads the *same* `mb` on both sides
+      -- (`eraseC` copies the binder meta), so one `by_cases`
+      by_cases hgate : betaGateFires mode mb.pw = true
+      · simp only [hgate, ↓reduceIte]
+        exact betaPeelC_sim ih henv hk hs ⟨hwbody, rfl⟩
+          (RelCL.cons hax RelCL.nil) hwsub hrest hwrest
+      have hgf : betaGateFires mode mb.pw = false := by
+        simpa only [Bool.not_eq_true] using hgate
+      simp only [hgf, Bool.false_eq_true, ↓reduceIte]
       refine SimC.bind (ih.infer hs hax hwxa)
         (fun s₁ ta tax hs₁ hP => ?_)
       obtain ⟨htad, hwta⟩ := hP
@@ -351,6 +360,14 @@ theorem betaPeelC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
       have hwsub : Expr.WScoped d ((eraseC body).instantiateList (xa :: ws)) := by
         rw [Expr.instantiateList_cons]
         exact Expr.WScoped.instantiate1_gen hwxa 0 hcomp.2
+      -- task #161: the β gate, same datum on both sides
+      by_cases hgate : betaGateFires mode mb.pw = true
+      · simp only [hgate, ↓reduceIte]
+        exact betaPeelC_sim ih henv hk hs ⟨hwbody, rfl⟩
+          (RelCL.cons hax hacc) hwsub hrest hwrest
+      have hgf : betaGateFires mode mb.pw = false := by
+        simpa only [Bool.not_eq_true] using hgate
+      simp only [hgf, Bool.false_eq_true, ↓reduceIte]
       refine SimC.bind_left (instListM_eff (d := 0) hs ⟨hwty', rfl⟩ hacc)
         (fun s₁ ty' hs₁ hQty => ?_)
       refine SimC.bind (ih.infer hs₁ hax hwxa)

@@ -24,7 +24,7 @@ universe w
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- **The generation-four step, from the quarters' routed residues.** -/
-theorem checkStep2C_of_quarters
+theorem checkStep2C_of_quarters (hgOff : μ.betaGate = false)
     (hwc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
     (hbc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -58,9 +58,9 @@ theorem checkStep2C_of_quarters
       (fuel : Nat), EtaCert2C μ m φ fuel)
     (hi : InferInputs2C V μ) :
     CheckStep2C μ V :=
-  checkStep2C_of (whnfCoreStep2C_of hwc hbc hio hpj)
+  checkStep2C_of (whnfCoreStep2C_of hgOff hwc hbc hio hpj)
     (whnfStep2C_of hrn hdl)
-    (defEqStep2C_of hdd hrn2 hpi hsp hsi hsl hap hbs hac het)
+    (defEqStep2C_of hgOff hdd hrn2 hpi hsp hsi hsl hap hbs hac het)
     (inferStep2C_of hi)
 
 end Setlec.SetR.Interp2

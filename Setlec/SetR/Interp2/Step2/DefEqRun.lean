@@ -913,9 +913,9 @@ converts — so the *relational* verdict a binder congruence needs for
 STOP note flagged in the other direction: relational facts flow **into**
 the annotated lane freely; it is `DefEq → interp2` that does not
 exist. -/
-theorem defeqR_at (m : EnvS2UM V μ env) (fuel : Nat) :
+theorem defeqR_at (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env) (fuel : Nat) :
     DefEqClaimsR (mode := μ) m.base.toEnvR φ fuel :=
-  (checkBridge (mode := μ) m.base.toEnvR φ fuel).2.2.1
+  (checkBridge (hg := hgOff) (mode := μ) m.base.toEnvR φ fuel).2.2.1
 
 /-- The same constant at level-equivalent instantiations has one
 canonical annotation. -/
@@ -946,7 +946,7 @@ cases: the domain equality, and the opened bodies' equality read in the
 *left* domain's own value set.  This is where `CtxOkR.openCong` fires,
 and its `DefEq` premise is the free relational fact `defeqR_at`
 supplies. -/
-theorem binder_congr2 {m : EnvS2UM V μ env} {fuel : Nat}
+theorem binder_congr2 (hgOff : μ.betaGate = false) {m : EnvS2UM V μ env} {fuel : Nat}
     (ihd : DefEqClaims2 μ m φ fuel)
     {d : Nat} {Δa : List AVExpr} {n₁ n₂ : Name}
     {ty₁ bd₁ ty₂ bd₂ : Expr} {ta₁ ba₁ ta₂ ba₂ : AVExpr}
@@ -983,7 +983,7 @@ theorem binder_congr2 {m : EnvS2UM V μ env} {fuel : Nat}
     denote2_erase m.acval_erase d ty₂ hta₂
   have hDA : DefEq μ env m.base.cval φ (Δa.map AVExpr.erase)
       ta₁.erase ta₂.erase :=
-    defeqR_at m fuel hdt hwt₁ hbt₁ hLt₁ hwt₂ hbt₂ hLt₂ hCt₁ hCt₂
+    defeqR_at hgOff m fuel hdt hwt₁ hbt₁ hLt₁ hwt₂ hbt₂ hLt₂ hCt₁ hCt₂
       hAe₁ hAe₂
   obtain ⟨hwo₁, hbo₁, hLo₁, hCo₁⟩ :=
     frame_openR (n := n₁) (A := ta₁.erase) hcl hwt₁ hbt₁ hwb₁ hbb₁
@@ -1008,7 +1008,7 @@ theorem binder_congr2 {m : EnvS2UM V μ env} {fuel : Nat}
 
 /-- **`DefEqStuck2`**: ten of the seventeen cases closed here, seven
 routed. -/
-theorem defeqStuck_claim2 {m : EnvS2UM V μ env} {fuel : Nat}
+theorem defeqStuck_claim2 (hgOff : μ.betaGate = false) {m : EnvS2UM V μ env} {fuel : Nat}
     (ihd : DefEqClaims2 μ m φ fuel) (hsi : StuckIrrel2 μ m φ fuel)
     (hstr : Denote2StrLit2 μ m φ fuel) (hap : AcvalParams2 m)
     (hbs : BinderSortAgree2 μ env φ fuel)
@@ -1198,7 +1198,7 @@ theorem defeqStuck_claim2 {m : EnvS2UM V μ env} {fuel : Nat}
           | false => simp [pure, Except.pure] at h
           | true => rfl
       obtain rfl : v₁ = v₂ := hbs.1 hbd hv₁ hv₂
-      obtain ⟨hDA, hDB⟩ := binder_congr2 ihd hdt hbd
+      obtain ⟨hDA, hDB⟩ := binder_congr2 hgOff ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -1244,7 +1244,7 @@ theorem defeqStuck_claim2 {m : EnvS2UM V μ env} {fuel : Nat}
           | false => simp [pure, Except.pure] at h
           | true => rfl
       obtain rfl : v₁ = v₂ := hbs.2 hbd hv₁ hv₂
-      obtain ⟨hDA, hDB⟩ := binder_congr2 ihd hdt hbd
+      obtain ⟨hDA, hDB⟩ := binder_congr2 hgOff ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -1349,7 +1349,7 @@ branch's plumbing, and ten of the stuck block's seventeen cases —
 `sort`/`sort`, `lit`/`lit`, both `Nat.zero` orders, both `Nat.succ`
 orders, `fvar`/`fvar`, `const`/`const`, and the `∀`, `λ` and `proj`
 congruences. -/
-theorem defeqStep2_of
+theorem defeqStep2_of (hgOff : μ.betaGate = false)
     (hfd : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), Denote2FuelDownM μ m φ fuel)
     (hdel : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -1376,7 +1376,7 @@ theorem defeqStep2_of
   exact defeq_claims2 (hfd env m φ fuel)
     (defeqStep_claim2 ihwc (hdel env m φ fuel) (hnat env m φ fuel)
       (hpi env m φ fuel)
-      (defeqStuck_claim2 ihd (hsi env m φ fuel) (hstr env m φ fuel)
+      (defeqStuck_claim2 hgOff ihd (hsi env m φ fuel) (hstr env m φ fuel)
         (hap env m) (hbs env φ fuel) (happ env m φ fuel)
         (heta env m φ fuel))
       (hspine env m φ fuel))
@@ -2000,7 +2000,7 @@ back from the two nodes, which is why the grading costs the congruences
 nothing: the codomain's truthfulness is already *in* the node's.  The
 right-hand body is read at the left domain's value set, so the domain
 equality is proved first and transports the membership. -/
-theorem binder_congr2A {m : EnvS2UM V μ env} {fuel F : Nat}
+theorem binder_congr2A (hgOff : μ.betaGate = false) {m : EnvS2UM V μ env} {fuel F : Nat}
     (ihd : DefEqClaims2AP μ m φ fuel)
     {d : Nat} {Δa : List AVExpr} {n₁ n₂ : Name}
     {ty₁ bd₁ ty₂ bd₂ : Expr} {ta₁ ba₁ ta₂ ba₂ : AVExpr}
@@ -2040,7 +2040,7 @@ theorem binder_congr2A {m : EnvS2UM V μ env} {fuel F : Nat}
     denote2_erase m.acval_erase d ty₂ hta₂
   have hDA : DefEq μ env m.base.cval φ (Δa.map AVExpr.erase)
       ta₁.erase ta₂.erase :=
-    defeqR_at m fuel hdt hwt₁ hbt₁ hLt₁ hwt₂ hbt₂ hLt₂ hCt₁ hCt₂
+    defeqR_at hgOff m fuel hdt hwt₁ hbt₁ hLt₁ hwt₂ hbt₂ hLt₂ hCt₁ hCt₂
       hAe₁ hAe₂
   obtain ⟨hwo₁, hbo₁, hLo₁, hCo₁⟩ :=
     frame_openR (n := n₁) (A := ta₁.erase) hcl hwt₁ hbt₁ hwb₁ hbb₁
@@ -2073,7 +2073,7 @@ at — `AnnotOk2_app` for the two `Nat.succ` orders, `AnnotOk2_pi` and
 for both string cases the constructor form *is* the literal's own
 annotation, so the premise transfers unchanged.  R2 costs this block
 nothing. -/
-theorem defeqStuck_claim2A {m : EnvS2UM V μ env} {fuel F : Nat}
+theorem defeqStuck_claim2A (hgOff : μ.betaGate = false) {m : EnvS2UM V μ env} {fuel F : Nat}
     (ihd : DefEqClaims2AP μ m φ fuel) (hsi : StuckIrrel2A μ m φ fuel)
     (hstr : Denote2StrLit2A μ m φ) (hap : AcvalParams2 m)
     (hbs : BinderSortAgree2A μ env φ fuel F)
@@ -2294,7 +2294,7 @@ theorem defeqStuck_claim2A {m : EnvS2UM V μ env} {fuel F : Nat}
           | true => rfl
       obtain rfl : v₁ = v₂ := hbs.1 hbd hv₁ hv₂
       rw [AnnotOk2_pi] at hokA hokB
-      obtain ⟨hDA, hDB⟩ := binder_congr2A ihd hdt hbd
+      obtain ⟨hDA, hDB⟩ := binder_congr2A hgOff ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -2341,7 +2341,7 @@ theorem defeqStuck_claim2A {m : EnvS2UM V μ env} {fuel F : Nat}
           | true => rfl
       obtain rfl : v₁ = v₂ := hbs.2 hbd hv₁ hv₂
       rw [AnnotOk2_lam] at hokA hokB
-      obtain ⟨hDA, hDB⟩ := binder_congr2A ihd hdt hbd
+      obtain ⟨hDA, hDB⟩ := binder_congr2A hgOff ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -2466,7 +2466,7 @@ claim is syntactic.  So the exemption `Claims2A` granted the defeq
 claim from R2 needs the same second look the reduction claims' from R3
 got.  `defEqStep2B_toAP` below localises the gap to those two premises
 and nothing else. -/
-theorem defEqStep2BP_of
+theorem defEqStep2BP_of (hgOff : μ.betaGate = false)
     (hdel : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Delta2A μ m φ)
     (hnat : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -2492,7 +2492,7 @@ theorem defEqStep2BP_of
     (hnat env m φ fuel) (hpi env m φ fuel) ?_ (hspine env m φ fuel))
   intro d Δa k a b a' b' h hab hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb hCa hCb F aa' ba' hda hdb
-  exact defeqStuck_claim2A ihd (hsi env m φ fuel) (hstr env m φ)
+  exact defeqStuck_claim2A hgOff ihd (hsi env m φ fuel) (hstr env m φ)
     (hap env m) (hbs env φ fuel F) (happ env m φ fuel)
     (heta env m φ fuel) h hab hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb hCa hCb hda hdb
@@ -3029,7 +3029,7 @@ the domain equality, which is itself ρ-uniform because it is `ihd`'s
 conclusion before its `ρ`.  The `…A` lane did the same move at a single
 valuation (`hoB₂ x (hdom ▸ hx)`); hoisting it changes the transport's
 shape, not its content. -/
-theorem binder_congr2C {m : EnvS2UM V μ env} {fuel F : Nat}
+theorem binder_congr2C (hgOff : μ.betaGate = false) {m : EnvS2UM V μ env} {fuel F : Nat}
     (ihd : DefEqClaims2C μ m φ fuel)
     {d : Nat} {Δa : List AVExpr} {n₁ n₂ : Name}
     {ty₁ bd₁ ty₂ bd₂ : Expr} {ta₁ ba₁ ta₂ ba₂ : AVExpr}
@@ -3070,7 +3070,7 @@ theorem binder_congr2C {m : EnvS2UM V μ env} {fuel F : Nat}
     denote2_erase m.acval_erase d ty₂ hta₂
   have hDA : DefEq μ env m.base.cval φ (Δa.map AVExpr.erase)
       ta₁.erase ta₂.erase :=
-    defeqR_at m fuel hdt hwt₁ hbt₁ hLt₁ hwt₂ hbt₂ hLt₂ hCt₁ hCt₂
+    defeqR_at hgOff m fuel hdt hwt₁ hbt₁ hLt₁ hwt₂ hbt₂ hLt₂ hCt₁ hCt₂
       hAe₁ hAe₂
   obtain ⟨hwo₁, hbo₁, hLo₁, hCo₁⟩ :=
     frame_openR (n := n₁) (A := ta₁.erase) hcl hwt₁ hbt₁ hwb₁ hbb₁
@@ -3179,7 +3179,7 @@ at, in hoisted form — `AnnotOk2.hoist_app` for the two `Nat.succ`
 orders, `hoist_pi`/`hoist_lam` for the congruences, `hoist_proj` for
 `proj`, and for both string cases the constructor form *is* the
 literal's own annotation, so the premise transfers unchanged. -/
-theorem defeqStuck_claim2C {m : EnvS2UM V μ env} {fuel F : Nat}
+theorem defeqStuck_claim2C (hgOff : μ.betaGate = false) {m : EnvS2UM V μ env} {fuel F : Nat}
     (ihd : DefEqClaims2C μ m φ fuel) (hsi : StuckIrrel2C μ m φ fuel)
     (hstr : Denote2StrLit2A μ m φ) (hap : AcvalParams2 m)
     (hbs : BinderSortAgree2A μ env φ fuel F)
@@ -3412,7 +3412,7 @@ theorem defeqStuck_claim2C {m : EnvS2UM V μ env} {fuel F : Nat}
       obtain rfl : v₁ = v₂ := hbs.1 hbd hv₁ hv₂
       obtain ⟨hoT₁, hoB₁⟩ := AnnotOk2.hoist_pi hokA
       obtain ⟨hoT₂, hoB₂⟩ := AnnotOk2.hoist_pi hokB
-      obtain ⟨hDA, hDB⟩ := binder_congr2C ihd hdt hbd
+      obtain ⟨hDA, hDB⟩ := binder_congr2C hgOff ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -3460,7 +3460,7 @@ theorem defeqStuck_claim2C {m : EnvS2UM V μ env} {fuel F : Nat}
       obtain rfl : v₁ = v₂ := hbs.2 hbd hv₁ hv₂
       obtain ⟨hoT₁, hoB₁⟩ := AnnotOk2.hoist_lam hokA
       obtain ⟨hoT₂, hoB₂⟩ := AnnotOk2.hoist_lam hokB
-      obtain ⟨hDA, hDB⟩ := binder_congr2C ihd hdt hbd
+      obtain ⟨hDA, hDB⟩ := binder_congr2C hgOff ihd hdt hbd
         hwa.1 hba.1 (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
         (CtxOkR.of_subset
           (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
@@ -3574,7 +3574,7 @@ so there is no `…P` currency left over and no `defEqStep2B_toAP`-style
 gap note to write.  Generation three's report to the junction —
 "the conclusion is `DefEqClaims2AP`, not `DefEqClaims2A`" — is
 answered by the statement itself. -/
-theorem defEqStep2C_of
+theorem defEqStep2C_of (hgOff : μ.betaGate = false)
     (hdel : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Delta2A μ m φ)
     (hnat : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -3600,7 +3600,7 @@ theorem defEqStep2C_of
     (hnat env m φ fuel) (hpi env m φ fuel) ?_ (hspine env m φ fuel))
   intro d Δa k a b a' b' h hab hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb hCa hCb F aa' ba' hda hdb
-  exact defeqStuck_claim2C ihd (hsi env m φ fuel) (hstr env m φ)
+  exact defeqStuck_claim2C hgOff ihd (hsi env m φ fuel) (hstr env m φ)
     (hap env m) (hbs env φ fuel F) (happ env m φ fuel)
     (heta env m φ fuel) h hab hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb hCa hCb hda hdb
@@ -3678,7 +3678,7 @@ theorem reduceNat2C_of_A {m : EnvS2UM V μ env} {fuel : Nat}
 four costs the ten suppliers nothing: hand `defEqStep2C_of` exactly the
 obligations the `…A` lane already routed and it delivers the canonical
 generation-four claim. -/
-theorem defEqStep2C_of_A
+theorem defEqStep2C_of_A (hgOff : μ.betaGate = false)
     (hdel : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Delta2A μ m φ)
     (hnat : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -3699,7 +3699,7 @@ theorem defEqStep2C_of_A
     (heta : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), EtaCert2A μ m φ fuel) :
     DefEqStep2C μ V :=
-  defEqStep2C_of hdel
+  defEqStep2C_of hgOff hdel
     (fun env m φ fuel => reduceNat2C_of_A (hnat env m φ fuel))
     (fun env m φ fuel => proofIrrel2C_of_A (hpi env m φ fuel))
     (fun env m φ fuel => defEqSpine2C_of_A (hspine env m φ fuel))

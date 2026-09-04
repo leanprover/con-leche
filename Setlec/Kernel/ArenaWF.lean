@@ -82,6 +82,16 @@ fields: the prop-ness datum is stored raw, task #161). -/
 def denoteBM (_denL : LIdx → Option Level) : IBinderMeta → Option BinderMeta
   | ⟨bi, pw⟩ => some ⟨bi, pw⟩
 
+/-- The binder-meta denotation copies the possibly-Prop datum.  Task
+#161: the β gate reads exactly that datum, on both the interned and
+the pure side, so this is what makes the two gates take the same
+branch in every simulation proof. -/
+theorem pw_of_denoteBM {denL : LIdx → Option Level} {m : IBinderMeta}
+    {bm : BinderMeta} (h : denoteBM denL m = some bm) : bm.pw = m.pw := by
+  cases m
+  cases h
+  rfl
+
 /-- `denoteLList` only looks at the listed indices. -/
 theorem denoteLList_congr {l₁ l₂ : LIdx → Option Level} :
     ∀ {us : List LIdx}, (∀ u ∈ us, l₁ u = l₂ u) →

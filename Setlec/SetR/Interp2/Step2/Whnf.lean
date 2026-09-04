@@ -774,7 +774,7 @@ def BetaCert2 (μ : CheckMode) {env : Env} (m : EnvS2UM V μ env)
 
 /-- **The `.app` clause of the `whnfCore` quarter**, in the repaired
 currency. -/
-theorem whnfCore_app_claim2R (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnfCore_app_claim2R (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env) {fuel : Nat}
     (hinst : Denote2Inst1 μ m.acval env φ)
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2 μ m φ fuel)
     (ihwc : WhnfCoreClaims2R μ m φ fuel)
@@ -841,7 +841,7 @@ theorem whnfCore_app_claim2R (m : EnvS2UM V μ env) {fuel : Nat}
     rcases hl with hl | hl
     · exact hCf'.2 l hl
     · exact hCa.2 l hl
-  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, ta, hta, hde⟩ |
+  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, hcertOr⟩ |
     ⟨e'', hio, hwe''⟩ | rfl
   · -- β
     rw [denote2] at hfa'
@@ -880,6 +880,11 @@ theorem whnfCore_app_claim2R (m : EnvS2UM V μ env) {fuel : Nat}
       rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
       · exact hCf'.2 l (by simp [Expr.fvarLeaves, h2])
       · exact hCa.2 l h2
+    -- task #161: this lane's λ kind is the *computed* `lamSortE`, not
+    -- the validated `pw` datum, so the β gate is NOT licensed here —
+    -- the lane carries `hgOff` and the gate arm is dead
+    obtain ⟨ta, hta, hde⟩ :=
+      hcertOr.resolve_left (by simp [betaGateFires, hgOff])
     obtain ⟨ea', hea', hD⟩ :=
       ihwc hbeta hwred hbred hLred hCred (hinst htya haa hbb)
     refine ⟨ea', hea', fun ρ hρ => step2_trans (hDapp ρ hρ) ?_⟩
@@ -907,7 +912,7 @@ needs `Denote2Inst1`; `.app` needs that plus `BetaCert2` and
 
 /-- **The `WhnfCoreStep2` quarter, routed**, in the repaired
 currency. -/
-theorem whnfCore_claims2R (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnfCore_claims2R (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env) {fuel : Nat}
     (hinst : Denote2Inst1 μ m.acval env φ)
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2 μ m φ fuel)
     (hproj : ProjStep2 μ m φ fuel)
@@ -949,7 +954,7 @@ theorem whnfCore_claims2R (m : EnvS2UM V μ env) {fuel : Nat}
   | .letE nn tt vv bb =>
     exact whnfCore_letE_claim2R m hinst ihwc h hws hb hLb hC hea
   | .app f a =>
-    exact whnfCore_app_claim2R m hinst hcert hiota ihwc h hws hb hLb
+    exact whnfCore_app_claim2R hgOff m hinst hcert hiota ihwc h hws hb hLb
       hC hea
   | .proj sn i pe => exact hproj h hws hb hLb hC hea
 
@@ -957,7 +962,7 @@ theorem whnfCore_claims2R (m : EnvS2UM V μ env) {fuel : Nat}
 repaired currency: the four residues plus the induction hypothesis.
 (The defeq and inference claims are not consumed — the β certificate
 is what would consume them, and it is `BetaCert2`.) -/
-theorem whnfCoreStep2R_of
+theorem whnfCoreStep2R_of (hgOff : μ.betaGate = false)
     (hinst : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1 μ m.acval env φ)
     (hcert : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -970,7 +975,7 @@ theorem whnfCoreStep2R_of
       WhnfCoreClaims2R μ m φ fuel →
         WhnfCoreClaims2R μ m φ (fuel + 1) :=
   fun env m φ fuel ihwc =>
-    whnfCore_claims2R m (hinst env m φ) (hcert env m φ fuel)
+    whnfCore_claims2R hgOff m (hinst env m φ) (hcert env m φ fuel)
       (hiota env m φ fuel) (hproj env m φ fuel) ihwc
 
 /-! ## Closing note — what the two STOPs cost
@@ -1361,7 +1366,7 @@ theorem whnfCore_letE_claim2B (m : EnvS2UM V μ env) {fuel : Nat}
 reduction moves the fuel first in all three, and `denote2_fuelMono`
 carries the *argument's* annotation up to meet it — unchanged, so the
 grading premise survives. -/
-theorem whnfCore_app_claim2B (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnfCore_app_claim2B (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2B μ m φ fuel)
     (ihwc : WhnfCoreClaims2B μ m φ fuel)
@@ -1431,9 +1436,14 @@ theorem whnfCore_app_claim2B (m : EnvS2UM V μ env) {fuel : Nat}
     rcases hl with hl | hl
     · exact hCf'.2 l hl
     · exact hCa.2 l hl
-  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, ta, hta, hde⟩ |
+  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, hcertOr⟩ |
     ⟨e'', hio, hwe''⟩ | rfl
   · -- β
+    -- task #161: this lane's λ kind is the *computed* `lamSortE`, not
+    -- the validated `pw` datum, so the β gate is NOT licensed here —
+    -- the lane carries `hgOff` and the gate arm is dead
+    obtain ⟨ta, hta, hde⟩ :=
+      hcertOr.resolve_left (by simp [betaGateFires, hgOff])
     rw [denote2] at hfa'
     rcases htya : denote2 μ m.acval env φ F₁ d ty with _ | tya
     · rw [htya] at hfa'; exact nomatch hfa'
@@ -1498,7 +1508,7 @@ theorem whnfCore_app_claim2B (m : EnvS2UM V μ env) {fuel : Nat}
 /-- **`WhnfCoreClaims2B` at `fuel + 1`** — the nine cases.  The seven
 that take `F' = F` do so through `whnfCore_leaf_claim2`, reused
 verbatim from the `…R` lane: they were never wrong. -/
-theorem whnfCore_claims2B (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnfCore_claims2B (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2B μ m φ fuel)
     (hproj : ProjStep2B μ m φ fuel)
@@ -1540,14 +1550,14 @@ theorem whnfCore_claims2B (m : EnvS2UM V μ env) {fuel : Nat}
   | .letE nn tt vv bb =>
     exact whnfCore_letE_claim2B m hinst ihwc h hws hb hLb hC hea
   | .app f a =>
-    exact whnfCore_app_claim2B m hinst hcert hiota ihwc h hws hb
+    exact whnfCore_app_claim2B hgOff m hinst hcert hiota ihwc h hws hb
       hLb hC hea
   | .proj sn i pe => exact hproj h hws hb hLb hC hea
 
 /-- **`WhnfCoreStep2B`, routed.**  The quarter's deliverable against
 `Claims2B.lean`.  The defeq and inference claims are not consumed —
 `BetaCert2` is what would consume them, and it is a residue. -/
-theorem whnfCoreStep2B_of
+theorem whnfCoreStep2B_of (hgOff : μ.betaGate = false)
     (hinst : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
     (hcert : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -1558,7 +1568,7 @@ theorem whnfCoreStep2B_of
       (fuel : Nat), ProjStep2B μ m φ fuel) :
     WhnfCoreStep2B μ V :=
   fun env m φ fuel ihwc _ _ _ =>
-    whnfCore_claims2B m (hinst env m φ) (hcert env m φ fuel)
+    whnfCore_claims2B hgOff m (hinst env m φ) (hcert env m φ fuel)
       (hiota env m φ fuel) (hproj env m φ fuel) ihwc
 
 /-- **The budget induction**, corrected.  The chain of exits
@@ -2230,7 +2240,7 @@ only recursive call whose subject fact has to be manufactured, and
 sub-cases then differ only in how the reduct's uniform invariant is
 obtained: from `AnnotOk2_beta_*` (β), from `IotaStep2C` (ι), or not at
 all (stuck). -/
-theorem whnfCore_app_claim2C (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnfCore_app_claim2C (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2C μ m φ fuel)
     (ihwc : WhnfCoreClaims2C μ m φ fuel)
@@ -2309,9 +2319,14 @@ theorem whnfCore_app_claim2C (m : EnvS2UM V μ env) {fuel : Nat}
     rcases hl with hl | hl
     · exact hCf'.2 l hl
     · exact hCa.2 l hl
-  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, ta, hta, hde⟩ |
+  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, hcertOr⟩ |
     ⟨e'', hio, hwe''⟩ | rfl
   · -- β
+    -- task #161: this lane's λ kind is the *computed* `lamSortE`, not
+    -- the validated `pw` datum, so the β gate is NOT licensed here —
+    -- the lane carries `hgOff` and the gate arm is dead
+    obtain ⟨ta, hta, hde⟩ :=
+      hcertOr.resolve_left (by simp [betaGateFires, hgOff])
     rw [denote2] at hfa'
     rcases htya : denote2 μ m.acval env φ F₁ d ty with _ | tya
     · rw [htya] at hfa'; exact nomatch hfa'
@@ -2381,7 +2396,7 @@ theorem whnfCore_app_claim2C (m : EnvS2UM V μ env) {fuel : Nat}
 `F' = F` cases still go through `whnfCore_leaf_claim2`, reused
 verbatim from the `…R` lane: the subject *is* the reduct there, so the
 hoisted invariant is the premise itself. -/
-theorem whnfCore_claims2C (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnfCore_claims2C (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (hcert : BetaCert2 μ m φ fuel) (hiota : IotaStep2C μ m φ fuel)
     (hproj : ProjStep2C μ m φ fuel)
@@ -2423,7 +2438,7 @@ theorem whnfCore_claims2C (m : EnvS2UM V μ env) {fuel : Nat}
   | .letE nn tt vv bb =>
     exact whnfCore_letE_claim2C m hinst ihwc h hws hb hLb hC hea hok
   | .app f a =>
-    exact whnfCore_app_claim2C m hinst hcert hiota ihwc h hws hb
+    exact whnfCore_app_claim2C hgOff m hinst hcert hiota ihwc h hws hb
       hLb hC hea hok
   | .proj sn i pe => exact hproj h hws hb hLb hC hea hok
 
@@ -2431,7 +2446,7 @@ theorem whnfCore_claims2C (m : EnvS2UM V μ env) {fuel : Nat}
 generation four.**  Same four residues as the `…B` lane, three of them
 hoisted and `BetaCert2` unchanged; the defeq and inference claims are
 still not consumed here. -/
-theorem whnfCoreStep2C_of
+theorem whnfCoreStep2C_of (hgOff : μ.betaGate = false)
     (hinst : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
     (hcert : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -2442,7 +2457,7 @@ theorem whnfCoreStep2C_of
       (fuel : Nat), ProjStep2C μ m φ fuel) :
     WhnfCoreStep2C μ V :=
   fun env m φ fuel ihwc _ _ _ =>
-    whnfCore_claims2C m (hinst env m φ) (hcert env m φ fuel)
+    whnfCore_claims2C hgOff m (hinst env m φ) (hcert env m φ fuel)
       (hiota env m φ fuel) (hproj env m φ fuel) ihwc
 
 /-- **The budget induction, hoisted.**  `Delta2B` enters unchanged —
@@ -2846,7 +2861,7 @@ kit call: `app_fn`/`app_arg` down, `app` back up at the head's new
 fuel, `of_subset` into the β reduct.  The certificate `hcert` now
 reads the *same* context hypothesis the clause holds — that is the
 whole of what generation five changes here. -/
-theorem whnfCore_app_claim2D (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnfCore_app_claim2D (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (hcert : BetaCert2D μ m φ fuel) (hiota : IotaStep2D μ m φ fuel)
     (ihwc : WhnfCoreClaims2D μ m φ fuel)
@@ -2918,9 +2933,14 @@ theorem whnfCore_app_claim2D (m : EnvS2UM V μ env) {fuel : Nat}
     · exact hLa l hl
   have hCapp : CtxOk2D m μ φ F₁ d Δa (.app f' a) :=
     CtxOk2D.app hCf' hCa₁
-  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, ta, hta, hde⟩ |
+  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, hcertOr⟩ |
     ⟨e'', hio, hwe''⟩ | rfl
   · -- β
+    -- task #161: this lane's λ kind is the *computed* `lamSortE`, not
+    -- the validated `pw` datum, so the β gate is NOT licensed here —
+    -- the lane carries `hgOff` and the gate arm is dead
+    obtain ⟨ta, hta, hde⟩ :=
+      hcertOr.resolve_left (by simp [betaGateFires, hgOff])
     rw [denote2] at hfa'
     rcases htya : denote2 μ m.acval env φ F₁ d ty with _ | tya
     · rw [htya] at hfa'; exact nomatch hfa'
@@ -2982,7 +3002,7 @@ theorem whnfCore_app_claim2D (m : EnvS2UM V μ env) {fuel : Nat}
     exact ⟨F₁, _, hle₁, hiapp, hokapp, heqapp⟩
 
 /-- **`WhnfCoreClaims2D` at `fuel + 1`** — the nine cases. -/
-theorem whnfCore_claims2D (m : EnvS2UM V μ env) {fuel : Nat}
+theorem whnfCore_claims2D (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env) {fuel : Nat}
     (hinst : Denote2Inst1B μ m.acval env φ)
     (hcert : BetaCert2D μ m φ fuel) (hiota : IotaStep2D μ m φ fuel)
     (hproj : ProjStep2D μ m φ fuel)
@@ -3024,7 +3044,7 @@ theorem whnfCore_claims2D (m : EnvS2UM V μ env) {fuel : Nat}
   | .letE nn tt vv bb =>
     exact whnfCore_letE_claim2D m hinst ihwc h hws hb hLb hC hea hok
   | .app f a =>
-    exact whnfCore_app_claim2D m hinst hcert hiota ihwc h hws hb
+    exact whnfCore_app_claim2D hgOff m hinst hcert hiota ihwc h hws hb
       hLb hC hea hok
   | .proj sn i pe => exact hproj h hws hb hLb hC hea hok
 
@@ -3032,7 +3052,7 @@ theorem whnfCore_claims2D (m : EnvS2UM V μ env) {fuel : Nat}
 generation five.**  Three routed residues, not four: `BetaCert2D` is
 built from the defeq and inference claims the quarter is already
 handed. -/
-theorem whnfCoreStep2D_of
+theorem whnfCoreStep2D_of (hgOff : μ.betaGate = false)
     (hinst : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
     (hiota : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -3041,7 +3061,7 @@ theorem whnfCoreStep2D_of
       (fuel : Nat), ProjStep2D μ m φ fuel) :
     WhnfCoreStep2D μ V :=
   fun env m φ fuel ihwc _ ihd ihi =>
-    whnfCore_claims2D m (hinst env m φ)
+    whnfCore_claims2D hgOff m (hinst env m φ)
       (betaCert2D_of_claims m ihd ihi) (hiota env m φ fuel)
       (hproj env m φ fuel) ihwc
 
@@ -3170,7 +3190,7 @@ produced an annotation.  The bundle is passed whole for uniformity. -/
 
 /-- **`whnfCoreStep2E_of` — the head-normalisation quarter against
 generation six**, with the existence factor handed back. -/
-theorem whnfCoreStep2E_of
+theorem whnfCoreStep2E_of (hgOff : μ.betaGate = false)
     (hex : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
       (fuel : Nat), Exists2E μ m φ fuel)
     (hinst : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
@@ -3184,7 +3204,7 @@ theorem whnfCoreStep2E_of
   obtain ⟨j1, j2, j3, j4⟩ :=
     claims2D_of_2E (hex env m φ fuel) ihwc ihw ihd ihi
   exact whnfCoreClaims2E_of_2D
-    (whnfCoreStep2D_of hinst hiota hproj env m φ fuel j1 j2 j3 j4)
+    (whnfCoreStep2D_of hgOff hinst hiota hproj env m φ fuel j1 j2 j3 j4)
 
 /-- **`whnfStep2E_of` — the reduction loop against generation six.** -/
 theorem whnfStep2E_of

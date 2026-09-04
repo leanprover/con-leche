@@ -30,7 +30,7 @@ universe w
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- **The step, from the four quarters' routed residues.** -/
-theorem checkStep2B_of_quarters
+theorem checkStep2B_of_quarters (hgOff : μ.betaGate = false)
     (hwc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
     (hbc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -45,12 +45,12 @@ theorem checkStep2B_of_quarters
       Delta2B μ m φ)
     (hd : DefEqStep2BP μ V) (hi : InferInputs2A V μ) :
     CheckStep2B μ V :=
-  checkStep2B_of (whnfCoreStep2B_of hwc hbc hio hpj)
+  checkStep2B_of (whnfCoreStep2B_of hgOff hwc hbc hio hpj)
     (whnfStep2B_of hrn hdl) (defEqStep2B_of hd) (inferStep2B_of hi)
 
 /-- **The induction, from the same.**  `checkSound2B` applied to the
 assembly: at every fuel, all four claims. -/
-theorem checkSound2B_of_quarters {env : Env}
+theorem checkSound2B_of_quarters (hgOff : μ.betaGate = false) {env : Env}
     (hwc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
     (hbc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -68,6 +68,6 @@ theorem checkSound2B_of_quarters {env : Env}
     WhnfCoreClaims2B μ m φ fuel ∧ WhnfClaims2B μ m φ fuel ∧
       DefEqClaims2B μ m φ fuel ∧ InferClaims2A μ m φ fuel :=
   checkSound2B
-    (checkStep2B_of_quarters hwc hbc hio hpj hrn hdl hd hi) m φ fuel
+    (checkStep2B_of_quarters hgOff hwc hbc hio hpj hrn hdl hd hi) m φ fuel
 
 end Setlec.SetR.Interp2
