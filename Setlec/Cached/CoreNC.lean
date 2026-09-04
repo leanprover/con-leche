@@ -359,20 +359,22 @@ mutual
 
 /-- Cert-skipping twin of `whnfAppI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `whnfAppNC`): a λ-binder always
-beta-reduces (no per-redex argument re-check). -/
-def whnfAppNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+beta-reduces (no per-redex argument re-check).  The head-normalization
+loop's continuation `k` is threaded through (task #172 batch B1b, E1). -/
+def whnfAppNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : ExprC → CheckCM ExprC) :
     ExprC → List ExprC → CheckCM ExprC
   | v, [] => pure v
   | v, a :: rest => do
     match ← viewI v with
-    | some (.lam _ _ty body _mb) => betaPeelNC r fe depth body [a] rest
+    | some (.lam _ _ty body _mb) => betaPeelNC r fe depth k body [a] rest
     | _ => do
       let fa ← internI (.app v a)
       match ← iotaRecNC r fe depth fa with
       | some e'' => do
-        let v' ← r.whnfCore depth e''
-        whnfAppNC r fe depth v' rest
-      | none => whnfAppNC r fe depth fa rest
+        let v' ← k e''
+        whnfAppNC r fe depth k v' rest
+      | none => whnfAppNC r fe depth k fa rest
 termination_by _ args => (args.length, 0)
 decreasing_by
   all_goals first
@@ -381,18 +383,19 @@ decreasing_by
 
 /-- Cert-skipping twin of `betaPeelI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `betaPeelNC`). -/
-def betaPeelNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+def betaPeelNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : ExprC → CheckCM ExprC) :
     ExprC → List ExprC → List ExprC → CheckCM ExprC
   | t, acc, [] => do
     let e' ← instListM t acc
-    r.whnfCore depth e'
+    k e'
   | t, acc, a :: rest => do
     match ← viewI t with
-    | some (.lam _ _ty body _mb) => betaPeelNC r fe depth body (a :: acc) rest
+    | some (.lam _ _ty body _mb) => betaPeelNC r fe depth k body (a :: acc) rest
     | _ => do
       let e' ← instListM t acc
-      let v ← r.whnfCore depth e'
-      whnfAppNC r fe depth v (a :: rest)
+      let v ← k e'
+      whnfAppNC r fe depth k v (a :: rest)
 termination_by _ _acc args => (args.length, 1)
 decreasing_by
   all_goals first
@@ -401,14 +404,15 @@ decreasing_by
 
 end
 
-/-- Cert-skipping twin of `whnfCoreBodyI` (port of
-`Setlec/Kernel/CoreNC.lean`'s `whnfCoreBodyNC`): the app clause
+/-- Cert-skipping twin of `whnfCoreStepI` (port of
+`Setlec/Kernel/CoreNC.lean`'s `whnfCoreStepNC`): one head-normalization
+step with the loop's continuation `k` abstracted.  The app clause
 differs through `whnfAppNC`, and the proj clause drops the
 constructor-telescope certification `projTeleCertI` (task #126).  The
 possibly-Prop projection certificate `projCertI` is outside the
 task-#76 site list and kept. -/
-def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
-  fun depth e => do
+def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (k : ExprC → CheckCM ExprC) (e : ExprC) : CheckCM ExprC := do
     match ← viewI e with
     | some (.sort _) | some (.fvar ..) | some (.forallE ..)
     | some (.lam ..) | some (.const ..) | some (.lit _) => pure e
@@ -416,7 +420,7 @@ def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC 
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let v ← r.whnfCore depth h
-      whnfAppNC r fe depth v args
+      whnfAppNC r fe depth k v args
     | some (.proj sn i pe) => do
       let e' ← r.whnf depth pe
       let e' ← projLitToCtorI r fe depth e'
@@ -431,21 +435,34 @@ def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC 
               us.length = entry.levelParams.length then do
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
-            -- task #100 de-gating: ungated, as in `whnfCoreBodyI`
+            -- task #100 de-gating: ungated, as in `whnfCoreStepI`
             -- (`projCertI` stays — outside the task-#76 skip list;
             -- task #161 item B1 shrank it to its two `infer` runs)
             if ← projCertI r fe depth e' i entry.numParams then
-              r.whnfCore depth arg
+              k arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
       | none => internI (.proj sn i e')
     | some (.letE _ _ v b) => do
       let e' ← inst1M b v
-      r.whnfCore depth e'
+      k e'
     | some (.bvar _) =>
       throw (.notImplemented "whnf beyond the supported fragment")
     | none => throw (.internal "interned node missing")
+
+/-- Cert-skipping twin of `whnfCoreLoopI`: iterate `whnfCoreStepNC` on
+its own step budget. -/
+def whnfCoreLoopNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    Nat → ExprC → CheckCM ExprC
+  | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
+  | n + 1, e =>
+    whnfCoreStepNC r fe depth (whnfCoreLoopNC r fe depth n) e
+
+/-- Cert-skipping twin of `whnfCoreBodyI`: the head-normalization loop
+at its own step budget. -/
+def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
+  fun depth e => whnfCoreLoopNC r fe depth whnfCoreLoopFuel e
 
 /-- Cert-skipping twin of `inferBodyI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `inferBodyNC`; the app clause differs,
@@ -522,11 +539,22 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
           let targs ← withStore (·.getAppArgsI te)
           if entry.native ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            let pf ← projFnIdxM T i
-            let pty ← constTyAtM fe pf (projFnName Tn i) us
-            match ← piResidualM pty (targs ++ [pe]) with
-            | some resTy => pure resTy
-            | none => throw (.internal "malformed projection entry")
+            -- Task #172 batch B1b (E2): the same clause as
+            -- `inferBodyI`'s — the residual is computed from the
+            -- pinned two-parameter basis shape, not walked out of the
+            -- stored entry type.  `NativeProjPinned.spineShape`
+            -- (`Verify/ProjPinInv.lean`) makes the fall-through branch
+            -- unreachable on every environment the checker builds, and
+            -- `piResidual_of_invariant` (`SetBase/ProjPins.lean`)
+            -- proves the computed value is what the walk would have
+            -- returned — both with no environment predicate as a
+            -- premise, so this lane stays licence-free.
+            match targs, i with
+            | [A, _], 0 => pure A
+            | [_, B], 1 => do
+              let p₀ ← internI (.proj T 0 pe)
+              internI (.app B p₀)
+            | _, _ => throw (.internal "malformed projection entry")
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
