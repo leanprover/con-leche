@@ -31171,6 +31171,8 @@ refactor**, which may resolve several by construction.
 | 11 | `GateP.lean`'s `(mode.verified && mb.pw.isNever)` spelling | `SetP/Step2/GateP.lean` | replace with `betaGateFires`, delete the adapter `verified_isNever_of_betaGateFires` |
 | 12 | ~~the cached parity lane is unmerged~~ | `agent/cached-parity-lane` @ `a06733e9` | **RESOLVED at `1fa6444f`**, after this table's pin.  Canonical caveat 5 is retired at the source; the canonical table's `--no-model cached` row is now stale and wants a re-measure whenever that table is next touched |
 | 13 | `--set-model=p`'s help text | `Main.lean:407` | says "annotation-gated checks"; the ruled text's "io-gated internals" wording is deliberately not shipped until the io internals land |
+| 14 | **the owed `whnfCore` fuel fixture** (added by B1b, coordinator-granted as a named follow-up) | `tests/` + `Main.lean` | B1b's restrictions-are-findings entry closes the parity/certified half of the resource-limit divergence but leaves *no stream-level regression fixture*: an `.ndjson` witness tripping the shipped ceiling needs a chain of ~1 000 000 reduction steps (post-B1b; ~100 000 pre-). **Prerequisite: a CLI-settable `checkFuel`/`whnfCoreLoopFuel`**, after which the fixture is a few hundred bytes at a small budget. Until then `_tmp/parity-align/FuelProbe{Before,After}.lean` is the executable stand-in and is the thing to keep green |
+| 15 | the by-construction successor to `ProjEntry.native` | `ProjEntry` + `findProj?` ×3 + the five `.proj` inference bodies + `whnfCore`'s proj clause + both annotate clauses + `ProjOkT` | the two-valued pinned tag of the pin record's §8 ("NOTED, NOT TAKEN"), which deletes the fall-through branch instead of proving it dead and makes `projEntry_pins` `rfl`. It was deferred *"cleanup docket, after the parity-alignment batch"* — **that trigger has now fired** (B1b landed), so the item is live; the blast radius is unchanged and still argues for doing it against a settled surface |
 
 ### 11. SUCCESSION
 
@@ -35302,7 +35304,9 @@ directions — and per the B1b charter, which requires this record
 >   (pre-B1b) or ~1 000 000 (post-B1b).  `FuelProbe.lean` is the
 >   executable stand-in and is kept; a stream-level regression fixture
 >   is still owed, and is cheap only if `checkFuel` is made settable at
->   the CLI, which is not this batch's call.
+>   the CLI, which is not this batch's call.  **Coordinator ruling
+>   (merge grant): docketed as a named follow-up, not this batch** — it
+>   is §10 item 14, with the CLI prerequisite recorded as its blocker.
 
 #### 1.4 THE RECEIPT (charter obligation 2): the exemption list
 
@@ -35448,10 +35452,39 @@ on this stream because 3 288 proj fires is a thin slice of 20 G
 instructions; the #161-B2 measurement stands, it just does not dominate
 here.
 
-**`sharedBs` re-baselining**: B1's rider on B8 binds — the parity
-lane's instruction baseline moved by +0.35 % today, so any `sharedBs`
-measurement must be run entirely before or entirely after this commit,
-never across it.
+**`sharedBs` re-baselining — the rider is MOOT, and the reason is
+worth more than the rider.**  B1 attached a rider to B8: *if* E1 were
+dispositioned toward mirroring the loop into parity, the census's
+`sharedBs` re-baselining instruction (part 5 §1 — run the measurement
+entirely before or entirely after the clone retirement, never across
+it) would bind, because the parity lane's baseline would move.  E1 was
+so dispositioned and the baseline did move (+0.35 %).  **But there is
+no measurement left to re-baseline**: `sharedBs` (cons-hit marking) is
+already recorded in this file's *"REFUTED WITH EVIDENCE"* list as
+**overtaken by the one-type ruling** — the interned representation and
+its `--core=production` dispatch that the gate was an experiment on are
+being dropped, so the gate has no lane to be measured in.
+
+Recorded rather than deleted, deliberately, for two reasons.  First,
+the rider was *correct*: it identified a real baseline move from a
+disposition that had not yet been taken, which is exactly what a rider
+is for — it simply aimed at a target that a different ruling removed
+first.  Second, the surviving datum outlives the gate: `sharedBs`' one
+measured row (beta-ladder −9.0 % against a −47 % deletion ceiling,
+diagnosed as rebuild-hit inflation) is preserved in the refuted list
+because it upgrades the parse-time-bit lead from observation to
+mechanism, and *that* lead is still open (E12's tree-term ceiling).
+Anyone who revives a cons-hit experiment inherits both the diagnosis
+and this baseline move; deleting the rider would have hidden the
+second.
+
+**What still binds from the same instruction**: the general rule, which
+is not `sharedBs`-specific — *a measurement whose baseline changes
+mid-flight is the caveat-5 failure mode*.  The parity lane's
+instruction baseline moved on this commit, so any parity-lane
+perf comparison must be run entirely before or entirely after
+`22540972`, never across it.  The canonical perf table's `--no-model`
+rows are stale as of today.
 
 ### 4. RECEIPTS
 
@@ -35484,6 +35517,7 @@ never across it.
 | **B2** | no longer needs the R↔P scoping *because of E1* — the parity instantiation's `whnfCore` is now the same shape.  B2's own sizing sample is unaffected; R1 and R2 keep their named rows |
 | **B5 / B6** | **UNBLOCKED.**  Both waited on "the E1 landing **and** the user's E2 ruling"; both have happened.  What remains for them is E3's content — the template over the **knot pair**, with the cross-memo one-directional share expressed at pair level — which is the only structural item left and is B2's mechanics to hand them |
 | **B4** | gains `InferProjStepIOP` as an owned row (see the io handoff map above): with the `.proj` clause settled and its residue premise-free, it is a P-core skip-site discharge like the map's other rows, not a B3 walk |
-| **B8** | the `sharedBs` re-baselining rider fires — see §3 |
+| **B8** | unchanged.  B1's `sharedBs` re-baselining rider **fired and is moot** — the gate it re-baselined is dead by the one-type ruling; the rider, its correctness and the surviving measured row are kept in §3 rather than deleted, and the general baseline rule is restated there |
+| the docket | two named follow-ups added (§10 items 14, 15): the owed stream-level fuel fixture, blocked on a CLI-settable `checkFuel`; and the `ProjEntry.native` two-valued-tag successor, whose "after the parity-alignment batch" trigger has now fired |
 | **T2c** | the second obligation B1 added (§8: `annotateBody`'s `.proj` + the residual-computation agreement) **discharges to one**: the residual computation is now the same in every body, so T2c is back to head-shape agreement alone |
 | the cleanup docket | the by-construction successor to `ProjEntry.native` (the two-valued pinned tag, "NOTED, NOT TAKEN" §8 of the pin record) was parked "after the parity-alignment batch" — that is now |
