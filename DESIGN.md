@@ -30172,3 +30172,21 @@ measurement lands:
    from S11b's route choice; checkDeclR_ofEnvRE if the run route
    fully supersedes it; the inert cut-point constants the proofdeps
    gate no longer needs as cut points).
+
+## Task #161 — USER DESIGN DIRECTIVE: concrete mode instantiation,
+no threaded hypothesis (2026-09-04)
+
+The R tower does NOT carry a threaded `mode.betaTest` hypothesis.
+Each lane's proofs run with μ INSTANTIATED at that lane's concrete
+mode constructor: the gate branch computes away DEFINITIONALLY in
+the R lane (betaTest → false, the if collapses by rfl — no
+hypothesis, no collapse lemma) and is concretely live in the P lane
+where AnnotOkP_beta_gate discharges it.  EXCEPTION reported, not
+defaulted: a NAMED consumer needing one claims family at several
+concrete modes simultaneously (the #148 unified-layer case) — name
++ path + duplication cost, chosen deliberately.  The ledger's rule
+applies: a threaded hypothesis pays its cost at every signature it
+crosses.  ACCEPTANCE CHECK: converting a built hypothesis version
+to concrete instantiation must DELETE lines, not add them — the
+delta measured and reported.  Relayed to the build worker
+mid-flight.
