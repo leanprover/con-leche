@@ -30487,9 +30487,10 @@ transposition:
    it to the shipped driver's own route (`checkDeclsSP μ`);
 2. `--set-model=p` into `--help` and the mode-flags fixture;
 3. the full measurement ladder (init-full, the wider ladders) — the
-   perf family and the `--no-model` parity row landed in this batch
-   (§10: **−8.9 %** on init-prelude, **−13.5 %** on grind-ring-5, and
-   the gated mode beating `--no-model` on both);
+   perf family landed in this batch (§10, AS AMENDED at landing:
+   **−8.9 %** on init-prelude, **−13.5 %** on grind-ring-5 — the mode
+   delta; the "beating --no-model" reading was the caveat-5 confound,
+   RETRACTED — see §10's amendment);
 4. the cleanup phase, from §6.
 
 ### 8. THE MID-BATCH PROOF-STYLE DIRECTIVE — premise VALIDATED,
@@ -30596,25 +30597,38 @@ harness's `timeout` + 16 GB `RLIMIT_AS`; engine = the shipped
 | beta-ladder | 47.86 G | 47.85 G | ±0 % | 45.44 G |
 | app-lam | 302.96 G | 303.01 G | ±0 % | 228.42 G |
 
-**Read it in three lines.**
+**Read it in three lines** (AMENDED AT LANDING — the user caught the
+caveat-5 confound in the original headline; the correction is the
+coordinator's ruling, applied here):
 
-* **The gate pays where the annotations are real**: −13.5 % on
-  `grind-ring-5` and −8.9 % on `init-prelude`, the two workloads that
-  are actual Lean output rather than synthetic β stress.  On
-  `init-prelude` the **gated mode is FASTER than `--no-model`**
-  (28.44 G vs 30.89 G) — the verified lane, with the licensed skip,
-  now beats the unverified lane on the milestone stream.  That is the
-  number the "fast beta" item was asked for.
+* **THE HEADLINE IS THE MODE DELTA**: −13.5 % on `grind-ring-5` and
+  −8.9 % on `init-prelude` — p vs r, same engine, the unconfounded
+  β-cert-removal payoff on the two workloads that are actual Lean
+  output.  That is the number the "fast beta" item was asked for.
 * **It pays nothing on the synthetic β ladders** (`app-lam`,
   `beta-ladder`, `shift-cascade`), and that is the licence working as
   designed: those fixtures' binders carry possibly-zero data, so the
   gate does not fire and every certificate still runs.  Zero is the
   correct answer there, not a disappointment.
-* **`--no-model` parity**: p beats `--no-model` on init-prelude and
-  ties it on grind-ring-5 (91.51 G vs 105.05 G — p *wins* by 12.9 %).
-  `app-lam` remains the one place `--no-model` is far ahead
-  (228 G vs 303 G), which is the per-argument application certificate,
-  not β — untouched by this gate and the next item on the ladder.
+* **THE `--no-model` COLUMN ABOVE IS NOT PARITY** — it is the cached
+  engine's still-certifying no-model lane (canonical-table caveat 5
+  resurfaced; that is why it sits within 1 % of r).  The TRUE cached
+  parity engine (`Cached/CoreNC`, unmerged on
+  `agent/cached-parity-lane`) measured **15.99 G** on init-prelude —
+  so **p ≈ 1.8× true parity there, which is what theory demands**:
+  parity has no checks official lacks, and infer-on-beta is not in
+  official.  (grind-ring-5/init-full true-parity cells PENDING that
+  branch's landing.)  The struck sentence "the verified lane now
+  beats the unverified lane" is RETRACTED as confounded.  The
+  residual, named honestly: the remaining distance to parity is
+  dominated by the **per-argument application certificate** — the
+  named next target, the user's infer_only item pointed at it.
+
+**Process lesson (ledger)**: a confound corrected in one campaign's
+record resurfaced in another's headline — a caveat must live with
+the MEASUREMENT HARNESS, not in prose.  The harness fix (the
+no-model×cached column labels ITSELF still-certifying) lands with
+the S13-closing batch.
 
 Peak RSS is flat (p vs r within noise on every row; `--no-model`'s
 `app-lam` is *worse*, 7.8 GB vs 5.2 GB).  `init-full` and the wider
