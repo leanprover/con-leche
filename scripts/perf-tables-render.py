@@ -6,6 +6,12 @@
 Pure formatting: every number comes from the TSV, every caveat is
 static text.  Re-runnable without re-measuring (`perf-tables.sh
 --render`).
+
+LAYOUT RULE (user, 2026-09-04): *less noise, fewer axes, just the
+numbers.*  Only live, mutually comparable configurations appear.
+Anything retired or superseded leaves the tables entirely and is
+reachable through one pointer line; instructions are the only metric
+printed.
 """
 import sys, os
 
@@ -37,62 +43,59 @@ def read_cells(path):
             cs[s] = {}
             order.append(s)
         cs[s][c] = dict(instr=int(instr or 0), wall=float(wall or 0),
-                        exit=int(ex), decls=decls, load=load, verdict=verdict)
+                        exit=int(ex), decls=decls)
     return cs, order
 
 
 meta = read_meta(meta_path)
 cells, stream_order = read_cells(tsv)
+retired_path = os.path.join(data_dir, "retired.tsv") if data_dir else None
+has_archive = bool(retired_path and os.path.exists(retired_path))
 
-# Configurations dropped from the matrix by a ruling.  Their cells are
-# carried out of the live table rather than deleted (the same
-# relabel-don't-erase convention as the caveat-5 correction), together
-# with the provenance of the run that measured them.
-retired_cells, retired_order = read_cells(
-    os.path.join(data_dir, "retired.tsv") if data_dir else None)
-retired_meta = {}
-if data_dir and os.path.exists(os.path.join(data_dir, "retired.meta")):
-    for line in open(os.path.join(data_dir, "retired.meta")):
-        f = line.rstrip("\n").split("\t")
-        if len(f) >= 4:
-            retired_meta[f[0]] = dict(retired=f[1], binsha=f[2], measured=f[3])
-
-# Did the measured binary have the cached PARITY engine
-# (Setlec/Cached/CoreNC.lean)?  Before it landed, `--no-model
-# --core=cached-parsed` selected the CERTIFIED cached engine with two
-# mode-gated checks off — all internal certification still running.
-# The same flags therefore name two different measurements, and a table
-# that does not say which one it holds is the caveat-5 confound in
-# print.  See DESIGN.md, "The cached parity lane and the confound
-# correction".
-PARITY = meta.get("cachednc", "no") == "yes"
-
-NMC_LABEL = ("`--no-model` `--core=cached-parsed`" if PARITY else
-             "`--no-model` `--core=cached-parsed` ⚠ **not a parity lane**")
-
-CFGS = [
-    ("official",  "official v4.33.0"),
-    ("sm-prod",   "`--set-model` `--core=production`"),
-    ("sm-cached", "`--set-model` `--core=cached-parsed`"),
-    ("tt-prod",   "`--tt-model` `--core=production`"),
-    ("tt-cached", "`--tt-model` `--core=cached-parsed`"),
-    ("nm-prod",   "`--no-model` `--core=production`"),
-    ("nm-cached", NMC_LABEL),
-]
-# Only render columns the run actually produced.  When task #172 drops
-# the interned representation the battery stops emitting the `*-prod`
-# cells, and the matrix halves to the cached columns plus official with
-# no edit here.
-CFGS = [(c, lbl) for c, lbl in CFGS
-        if any(c in cells[s] for s in stream_order)]
-
-# Does the measured tree still have the interned representation and its
-# `--core=production` dispatch?  Task #172 drops it on the user's ruling.
-INTERNED = meta.get("interned", "yes") == "yes"
+# Column catalogue.  A configuration is printed only if the run declared
+# it live (meta `configs`) AND it produced cells.  Everything else — a
+# retired flag, a lane whose meaning changed, a dropped representation —
+# is archived, never shown beside numbers it cannot be compared with.
+LABELS = {
+    "official":  "official v4.33.0",
+    # transitional: mode x core
+    "sm-prod":   "`--set-model` `--core=production`",
+    "sm-cached": "`--set-model` `--core=cached-parsed`",
+    "nm-prod":   "`--no-model` `--core=production`",
+    "nm-cached": "`--no-model` `--core=cached-parsed`",
+    # post-tri-core: the three lanes on the one representation
+    "parity":    "parity (`--no-model`)",
+    "R":         "R (`--set-model=r`)",
+    "P":         "P (`--set-model=p`)",
+}
 SHORT = {"official": "official", "sm-prod": "SM/prod", "sm-cached": "SM/cached",
-         "tt-prod": "TT/prod", "tt-cached": "TT/cached",
-         "nm-prod": "NM/prod",
-         "nm-cached": "NM/cached" if PARITY else "NM/cached ⚠"}
+         "nm-prod": "NM/prod", "nm-cached": "NM/cached",
+         "parity": "parity", "R": "R", "P": "P"}
+
+# every configuration the data actually contains, catalogued or not, so
+# that a column retired before the catalogue existed still gets counted
+# as superseded rather than vanishing without trace
+present = []
+for s in stream_order:
+    for c in cells[s]:
+        if c not in present:
+            present.append(c)
+
+if meta.get("configs"):
+    live = [c for c in meta["configs"].split() if c in present]
+else:
+    # Snapshot from before the matrix was declared in metadata: fall back
+    # to the flags, so an old table still renders without stale columns.
+    live = [c for c in present if not c.startswith("tt-")]
+    if meta.get("cachednc", "no") != "yes" and "nm-cached" in live:
+        live.remove("nm-cached")
+    if meta.get("interned", "yes") != "yes":
+        live = [c for c in live if not c.endswith("-prod")]
+superseded = [c for c in present if c not in live]
+
+REPS = meta.get("reps", "1")
+runs_note = ("single run per cell" if REPS == "1"
+             else f"median of {REPS} per cell")
 
 
 def ok(r):
@@ -103,13 +106,12 @@ def g(n):
     return f"{n / 1e9:.2f}"
 
 
-def full_cell(r, base):
+def cell_text(r, base):
     if r is None:
         return "—"
     if r["exit"] != 0:
         return f"**exit {r['exit']}**"
-    ratio = f" ({r['instr'] / base:.2f}×)" if base else ""
-    return f"{g(r['instr'])} G{ratio} / {r['wall']:.2f} s"
+    return f"{g(r['instr'])} G" + (f" ({r['instr'] / base:.2f}×)" if base else "")
 
 
 L = []
@@ -129,66 +131,14 @@ if meta.get("binsha") and meta.get("binsha") != meta.get("sha"):
     A(f"| binary provenance | `{meta['binsha']}` — the last commit that can change "
       "`.lake/build/bin/setlec`; the commits between it and the one above touch "
       "only `scripts/` and this file |")
-A(f"| battery started | {meta.get('date', '?')} (a full run spans several hours) |")
+A(f"| battery started | {meta.get('date', '?')} |")
 A(f"| machine | {meta.get('host', '?')} — {meta.get('cpu', '?')}, "
   f"{meta.get('cores', '?')} cores, {meta.get('mem', '?')} RAM, Linux {meta.get('kernelver', '?')} |")
-A(f"| repetitions | median of {meta.get('reps', '?')} per cell |")
+A(f"| runs per cell | {runs_note} |")
 A(f"| per-run timeout | {meta.get('timeout', '?')} s |")
 A(f"| official kernel | `{meta.get('official', '?')}` |")
 A(f"| preprocessor | `{meta.get('preproc', '?')}` |")
 A("")
-if not PARITY:
-    A("> **⚠ SUPERSEDED COLUMN — `--no-model --core=cached-parsed`.**")
-    A("> The binary measured above **predates the cached parity lane**")
-    A("> (`Setlec/Cached/CoreNC.lean`, landed on master at `1fa6444f`).")
-    A("> In this table that cell is **not a parity lane**: it is the")
-    A("> *certified* cached engine with two mode-gated checks off, all")
-    A("> internal certification still running, while `--no-model")
-    A("> --core=production` beside it **is** one (`CoreNC`, certs")
-    A("> stripped).  Every comparison between those two columns here")
-    A("> puts a still-certifying engine against a cert-free one — the")
-    A("> caveat-5 confound, whose full consequence is worked out in")
-    A("> DESIGN.md, \"The cached parity lane and the confound")
-    A("> correction\".  Read the column as *the certified cached engine",)
-    A("> minus two checks*, which is what it measured; do not read it as")
-    A("> the cached core's speed.  In particular the oddity below —")
-    A("> `NM/cached` the **most expensive** cell on `init-full` — is")
-    A("> that confound, not a property of the cached core.")
-    A(">")
-    A("> A real cert-free cached engine now exists and `--no-model")
-    A("> --core=cached-parsed` dispatches to it, so **these cells are")
-    A("> historical**.  The perf lead's reference medians for the new")
-    A("> engine, pending regeneration: init-prelude 15.99 G,")
-    A("> grind-ring-5 55.2, app-lam 228.0, beta-ladder 45.2, let-ladder")
-    A("> 11.4, **init-full 1432.9 (3.55× official)** — head to head the")
-    A("> cached parity lane ties or beats the interned one on every")
-    A("> row.  **Those figures are on the RAW pipeline with the")
-    A("> preprocessor included and are quoted against official-RAW;")
-    A("> this file's cells are preprocessed-both-sides against")
-    A("> official-PRE.  The two bases are not interchangeable** — mixing")
-    A("> them is exactly the mixed-baseline error the DESIGN entry")
-    A("> records — so do not compute a ratio across the boundary.  They")
-    A("> are quoted here only to say which way the column will move.")
-    A(">")
-    A("> The #171 direct-to-ExprC parse has since landed too, moving the")
-    A("> cached-lane numbers again, so **every cached cell here is stale")
-    A("> on two counts**.  Regeneration is nonetheless still deferred:")
-    A("> the tri-core refactor (task #172) is mid-flight and core names")
-    A("> and dispatch will move again, and a full battery costs hours.")
-    A("> One command (below) rewrites this file when the word comes, and")
-    A("> this note disappears on its own.")
-    A("")
-if INTERNED:
-    A("> **PENDING RULING — the `--core=production` columns.**  The user")
-    A("> has ruled the interned representation **dropped entirely**")
-    A("> (\"one expr type with computed fields everywhere\", task #172,")
-    A("> the tri-core refactor).  When it lands, this matrix halves to")
-    A("> the cached columns plus official; the interned cells below are")
-    A("> not deleted but carried into a retired-configurations section")
-    A("> with their provenance.  Until the tri-core template batches")
-    A("> land, core names and dispatch are still moving and these")
-    A("> columns remain live.")
-    A("")
 
 A("## Regenerating this file")
 A("")
@@ -198,15 +148,12 @@ A("```")
 A("lake build setlec && scripts/perf-tables.sh")
 A("```")
 A("")
-A("It takes 2-4 h (the `init-full` leg alone is over an hour, plus")
-A("however long it waits for the machine to go idle), rewrites PERF.md")
-A("after every stream, and needs no target beyond `setlec`.  Useful")
-A("variants:")
+A("Useful variants:")
 A("")
 A("```")
-A("scripts/perf-tables.sh --render                  # re-render from the saved TSV, no measuring")
-A("PERF_APPEND=1 PERF_STREAMS=init-full scripts/perf-tables.sh   # resume one interrupted leg")
-A("PERF_REPS=1 PERF_STREAMS=let-ladder scripts/perf-tables.sh    # smoke test (~30 s)")
+A("scripts/perf-tables.sh --render                  # re-render from the saved cells")
+A("PERF_STREAMS=init-full PERF_APPEND=1 scripts/perf-tables.sh   # re-run one stream")
+A("PERF_CONFIGS=nm-cached PERF_APPEND=1 scripts/perf-tables.sh   # confirm one suspect cell")
 A("```")
 A("")
 A("Per timed run, verbatim from the script:")
@@ -222,209 +169,123 @@ A("once per stream, off the clock; the resulting file is fed to the")
 A("official kernel *and* to setlec under `--pre`.  No setlec cell pays")
 A("the preprocessor or its process spawn, and both checkers see the same")
 A("bytes.  **All flags are passed explicitly** — no cell relies on a")
-A("mode-aware default.")
+A("mode-aware default.  One timed cell runs at a time, and each waits")
+A("for the machine to go idle first.")
 A("")
 
-A("## The table — instructions:u (G), ratio vs official, wall seconds")
+A("## The table — instructions:u in G, ratio vs official")
 A("")
-A("Instructions are the primary metric (contention-independent); wall is")
-A("indicative only (caveat 6).  Ratios are against the official column")
-A("on the same row and are cross-pipeline — read them through caveat 2.")
-A("")
-head = "| stream | " + " | ".join(lbl for _, lbl in CFGS) + " |"
-A(head)
-A("|" + "---|" * (len(CFGS) + 1))
+A("| stream | " + " | ".join(LABELS.get(c, c) for c in live) + " |")
+A("|" + "---|" * (len(live) + 1))
 for s in stream_order:
     base_rec = cells[s].get("official")
     base = base_rec["instr"] if ok(base_rec) else 0
-    A(f"| `{s}` | " + " | ".join(full_cell(cells[s].get(c), base if c != "official" else 0)
-                                 for c, _ in CFGS) + " |")
+    A(f"| `{s}` | " + " | ".join(
+        cell_text(cells[s].get(c), base if c != "official" else 0)
+        for c in live) + " |")
+A("")
+A("Ratios are against the official column on the same row.  They are")
+A("cross-pipeline, not same-work speed ratios — caveat 1.")
 A("")
 
 A("## Accepted declarations (verdict sanity)")
 A("")
-A("Cells that did not exit 0 show their exit code instead.  Counts")
-A("differ between the two pipelines by construction — caveat 3.")
-A("")
-A("| stream | " + " | ".join(SHORT[c] for c, _ in CFGS) + " |")
-A("|" + "---|" * (len(CFGS) + 1))
+A("| stream | " + " | ".join(SHORT.get(c, c) for c in live) + " |")
+A("|" + "---|" * (len(live) + 1))
 for s in stream_order:
     row = []
-    for c, _ in CFGS:
+    for c in live:
         r = cells[s].get(c)
-        if r is None:
-            row.append("—")
-        elif r["exit"] != 0:
-            row.append(f"exit {r['exit']}")
-        else:
-            row.append(r["decls"] or "?")
+        row.append("—" if r is None else
+                   (f"exit {r['exit']}" if r["exit"] != 0 else (r["decls"] or "?")))
     A(f"| `{s}` | " + " | ".join(row) + " |")
 A("")
 
-# Derived: the verification tax per core (set-model / no-model).
-taxrows = []
-for s in stream_order:
-    r = []
-    for core in ("prod", "cached"):
-        a, b = cells[s].get("sm-" + core), cells[s].get("nm-" + core)
-        r.append(f"{a['instr'] / b['instr']:.2f}×" if ok(a) and ok(b) else "—")
-    taxrows.append((s, r))
-if taxrows:
-    A("## Derived: `--set-model` ÷ `--no-model`, same core")
+# Derived: the verification tax, wherever a certified column and a
+# cert-free column share a core.
+PAIRS = [("sm-prod", "nm-prod", "production"),
+         ("sm-cached", "nm-cached", "cached-parsed"),
+         ("R", "parity", "R ÷ parity"),
+         ("P", "parity", "P ÷ parity")]
+pairs = [(a, b, n) for a, b, n in PAIRS if a in live and b in live]
+if pairs:
+    A("## Derived: the verification tax")
     A("")
-    if PARITY:
-        A("The certified checker over the cert-skipping lane, same")
-        A("binary, same stream, same engine.  With the cached parity")
-        A("engine in the measured binary, **both** columns are genuine")
-        A("verification-tax figures — the cached one for the first time.")
-    else:
-        A("The certified checker over the cert-skipping lane, same")
-        A("binary, same stream, same engine.  On the production core")
-        A("this is the project's canonical verification-tax figure; on")
-        A("the cached core it is **not** one and never was — it is the")
-        A("two mode-gated checks alone (caveat 1 and the header note).")
+    A("The certified checker over the cert-free lane — same binary, same")
+    A("stream, same engine.")
     A("")
-    cores = [(0, "production"), (1, "cached-parsed")]
-    # drop a core whose columns the matrix no longer has
-    cores = [(i, n) for i, n in cores if any(r[i] != "—" for _, r in taxrows)]
-    A("| stream | " + " | ".join(n for _, n in cores) + " |")
-    A("|" + "---|" * (len(cores) + 1))
-    for s, r in taxrows:
-        A(f"| `{s}` | " + " | ".join(r[i] for i, _ in cores) + " |")
-    A("")
-
-# Derived: the engineering gap, cheapest setlec cell vs official.
-A("## Derived: best setlec cell ÷ official, per stream")
-A("")
-A("| stream | cheapest setlec configuration | ratio vs official |")
-A("|---|---|---|")
-for s in stream_order:
-    base_rec = cells[s].get("official")
-    cand = [(r["instr"], c) for c, r in cells[s].items()
-            if c != "official" and ok(r)]
-    if not cand or not ok(base_rec):
-        A(f"| `{s}` | — | — |")
-        continue
-    v, c = min(cand)
-    A(f"| `{s}` | {SHORT[c]} | {v / base_rec['instr']:.2f}× |")
-A("")
-
-if retired_order:
-    A("## Retired configurations — historical, superseded by ruling")
-    A("")
-    A("These cells are **not current** and must not be compared with the")
-    A("tables above: they were measured by a binary that still had the")
-    A("configuration, which the checker no longer offers.  They are kept")
-    A("rather than deleted so the record can be read back — the same")
-    A("relabel-don't-erase convention the caveat-5 correction used.")
-    A("")
-    rcfgs = sorted({c for s in retired_order for c in retired_cells[s]})
-    for c in rcfgs:
-        rm = retired_meta.get(c, {})
-        A(f"**`{c}`** — retired {rm.get('retired', '(date not recorded)')}; "
-          f"cells measured {rm.get('measured', '?')} at binary "
-          f"`{(rm.get('binsha') or '?')[:8]}`.")
-    A("")
-    A("| stream | " + " | ".join(SHORT.get(c, c) for c in rcfgs) + " |")
-    A("|" + "---|" * (len(rcfgs) + 1))
-    for s in retired_order:
+    A("| stream | " + " | ".join(n for _, _, n in pairs) + " |")
+    A("|" + "---|" * (len(pairs) + 1))
+    for s in stream_order:
         row = []
-        for c in rcfgs:
-            r = retired_cells[s].get(c)
-            row.append("—" if r is None else
-                       (f"**exit {r['exit']}**" if r["exit"] != 0
-                        else f"{g(r['instr'])} G / {r['wall']:.2f} s"))
+        for a, b, _ in pairs:
+            ra, rb = cells[s].get(a), cells[s].get(b)
+            row.append(f"{ra['instr'] / rb['instr']:.2f}×"
+                       if ok(ra) and ok(rb) else "—")
         A(f"| `{s}` | " + " | ".join(row) + " |")
     A("")
-    A("Raw rows with full provenance: `perf-data/retired.tsv` and")
-    A("`perf-data/retired.meta`.")
+
+if superseded or has_archive:
+    names = ", ".join(f"`{c}`" for c in superseded) if superseded else ""
+    A("## Superseded cells")
+    A("")
+    A("Configurations that have left the matrix — a retired flag, a lane")
+    A("whose meaning changed, an earlier representation — are not shown")
+    A("above; their cells keep full provenance (the binary that measured")
+    A("them) in `perf-data/retired.tsv`."
+      + (f"  Currently held there: {names}." if names else ""))
     A("")
 
-A("## CAVEATS — read every number through these")
+A("## CAVEATS")
 A("")
-if PARITY:
-    A("1. **Both `--no-model` columns are parity lanes.**  The binary")
-    A("   measured above has the cached parity engine")
-    A("   (`Setlec/Cached/CoreNC.lean`), so `--no-model` strips the")
-    A("   certificates on *either* core and the two columns are a")
-    A("   like-for-like core comparison.  This is what the pre-`1fa6444f`")
-    A("   tables could not do: there the cached cell was the certified")
-    A("   engine with two checks gated off, and comparing it to the")
-    A("   interned parity lane compared a still-certifying engine with a")
-    A("   cert-free one (DESIGN.md, \"The cached parity lane and the")
-    A("   confound correction\").  Any older `--no-model` cross-core")
-    A("   split should be re-read against this table, not merged with it.")
-else:
-    A("1. **`--no-model` on `--core=cached-parsed` is NOT a parity lane**")
-    A("   — see the superseded-column note in the header, which is the")
-    A("   short version of this caveat and takes precedence.  There was")
-    A("   no cert-skipping twin under `Setlec/Cached/` when this binary")
-    A("   was built; that cell is the *certified* cached driver")
-    A("   (`CoreC`) running with `CheckMode.verified = false`, which")
-    A("   gates exactly two checks (λ-codomain sort validation and")
-    A("   annotation validation) and still runs the whole certification")
-    A("   machinery.  Its distance from `--set-model")
-    A("   --core=cached-parsed` is therefore **exactly those two gated")
-    A("   checks and nothing else** — bounded by construction, and not a")
-    A("   verification tax whatever it measures.  (It is a few percent")
-    A("   on the declaration-heavy streams and materially more on")
-    A("   `app-lam`, where the annotation validation bites; see the")
-    A("   derived table above, and do not read that column as a")
-    A("   certificate cost.)  This is caveat 5 of the task-#161")
-    A("   canonical table, whose full consequence — that the")
-    A("   `--no-model` cross-core comparison was confounded — was")
-    A("   worked out only after this run.  In this table the parity")
-    A("   lane is `--no-model --core=production` and only that.")
-A("2. **The preprocessor floor is removed, the modeled encoding is not.**")
-A("   Both sides read the same preprocessed bytes, so no setlec cell")
-A("   pays the preprocessor here — but every setlec cell still checks a")
-A("   *modeled* encoding of the inductive blocks (plus the `annotate`")
-A("   pass, which has no official counterpart), while official checks")
-A("   the same file with native inductive/recursor support.  Every")
-A("   official ratio is cross-pipeline, not a same-work speed ratio.")
-A("3. **Declaration counts differ from official** — the preprocessor's")
+A("1. **Cross-pipeline, not same-work.**  Both sides read the same")
+A("   preprocessed bytes, so no setlec cell pays the preprocessor — but")
+A("   every setlec cell checks a *modeled* encoding of the inductive")
+A("   blocks, plus an `annotate` pass with no official counterpart,")
+A("   while official checks that file with native inductive/recursor")
+A("   support.  Every official ratio carries that difference.")
+A("2. **Declaration counts differ from official** — the preprocessor's")
 A("   `_model` declarations.  On a preprocessed stream the gap is small")
-A("   (init-full: official 60 060 vs setlec 61 048) but it is never")
-A("   zero, and the two checkers are not checking the same list.")
-A("4. **`--tt-model` is retired** (task #148 T7b): `Main.lean` rejects the")
-A("   flag outright, so those two columns are argument-parse failures,")
-A("   not measurements.  The certified mode is `--set-model`.  The")
-A("   columns are kept, and measured, so the table records the real exit")
-A("   code instead of quietly dropping the requested combination.")
-A("5. **`--core=cached` vs `--core=cached-parsed`.**  The cached column")
-A("   is `cached-parsed`, the supported and verified cached core (task")
-A("   #163; acceptance covered by `no_proof_of_Empty_SPC_*`).")
-A("   `--core=cached` also parses, but selects `checkDeclsSharedC`, an")
-A("   explicitly unverified pilot measurement instrument — measuring it")
-A("   here would put a non-shipping lane in the headline table.")
-A("6. **Medians of 3, one machine, concurrent load.**  All cells ran on")
-A("   the single machine named above, one timed run at a time (the")
-A("   script blocks until no other checker/`perf` process is live), but")
-A("   the machine is shared with concurrent agent builds.  Instructions:u")
-A("   is robust to that; **wall seconds are not** and should be read as")
-A("   indicative only.  The per-cell load average at launch is recorded")
-A("   in the raw TSV.")
-A("7. **`--no-model` under-checks install-only kinds** relative to")
+A("   but never zero, and the two checkers are not checking the same")
+A("   list.")
+A("3. **`--no-model` under-checks install-only kinds** relative to")
 A("   official (axioms, inductive blocks, quot and the pinned-cert")
 A("   branches run at io grade there, where official's declaration-type")
-A("   check is `check`).  This flatters every parity column on")
+A("   check is `check`).  This flatters the cert-free columns on")
 A("   inductive-heavy streams — init-full most of all.")
-A("8. **Fuel.**  setlec compiles in `checkFuel = 100000` plus")
+if REPS == "1":
+    A("4. **One run per cell, one machine.**  The medians-of-3 round")
+    A("   measured per-cell spreads at 0.01–0.5 % on instructions:u, so")
+    A("   a single run carries the figures printed here.  Instructions:u")
+    A("   is robust to the concurrent load this shared machine sees; a")
+    A("   cell that ever looks wrong should be re-run on its own rather")
+    A("   than the whole battery re-medianed.")
+else:
+    A(f"4. **Median of {REPS} per cell, one machine.**  Instructions:u is")
+    A("   robust to the concurrent load this shared machine sees.")
+A("5. **Fuel.**  setlec compiles in `checkFuel = 100000` plus")
 A("   `defeqLoopFuel`; official has no fuel.  No row above exhausts it.")
+if any(c.endswith("-cached") for c in live):
+    A("6. **`--core=cached-parsed`, not `--core=cached`.**  The latter")
+    A("   parses but selects `checkDeclsSharedC`, an explicitly")
+    A("   unverified pilot instrument; the cached column is the")
+    A("   supported, verified core (task #163).")
 A("")
+
 A("## Raw data")
 A("")
-A("Tracked in `perf-data/`: `table.tsv` (the cells behind the live")
-A("tables), `meta.txt` (the run's provenance), and `retired.tsv` /")
-A("`retired.meta` when a configuration has been ruled out of the")
-A("matrix.  One line per cell: `stream, config, median instructions:u,")
-A("median wall s, exit code, accepted declarations, 1-min load average")
-A("at launch, verdict text`.")
+A("Tracked in `perf-data/`: `table.tsv` (the cells behind the tables),")
+A("`meta.txt` (the run's provenance), and `retired.tsv` / `retired.meta`")
+A("(superseded cells, stamped with the binary that measured them).  One")
+A("line per cell: `stream, config, instructions:u, wall s, exit code,")
+A("accepted declarations, 1-min load average at launch, verdict text` —")
+A("wall and load are recorded but not printed.")
 A("")
 A("The working copy of a run lives at `_tmp/perf-tables/` (gitignored,")
-A("so it is a cache and not the record) and the preprocessed streams")
-A("are cached beside it at `_tmp/perf-tables/pre/`.")
+A("so it is a cache and not the record); preprocessed streams are cached")
+A("beside it at `_tmp/perf-tables/pre/`.")
 A("")
 
 open(out_path, "w").write("\n".join(L) + "\n")
-print(f"rendered {out_path} ({len(stream_order)} streams)")
+print(f"rendered {out_path} ({len(stream_order)} streams, "
+      f"{len(live)} live columns, {len(superseded)} superseded)")
