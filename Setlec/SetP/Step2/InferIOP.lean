@@ -98,6 +98,53 @@ def SortSemAtIOP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     ∀ ρ : Nat → V, Sat2 V Δa ρ →
       AnnotOkP V ρ ea ∧ interp2 V ρ ea ∈ˢ (univ (u.eval φ) : V)
 
+/-- **The io-inferred type reads** (the io lane's totality residue —
+`InferReadsP` at the io run, with the same `LeafReadsP` repair).  Its
+discharge is the io *reads* walk, batch B3's named risk class; until
+then it routes exactly as the full lane's does. -/
+def InferReadsIOP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e t : Expr} {ea : AVExpr},
+    inferTypeCoreIO μ env fuel d e = .ok t →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    LeafReadsP m φ d e →
+    denoteP m.acval env φ d e = some ea →
+    ∃ ta, denoteP m.acval env φ d t = some ta
+
+/-- The projection clause, io lane, premise form (routed —
+`InferProjStepP` transposed: the run is the io lane's because the
+clause infers its scrutinee, and the subject's `AnnotOkP` moves to
+the premises).  Its discharge is the structure-type walk, exactly as
+the full lane's. -/
+def InferProjStepIOP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d i : Nat} {sn : Name} {pe t : Expr} {Δa : List AVExpr}
+    {ea ta : AVExpr},
+    inferTypeCoreIO μ env (fuel + 1) d (.proj sn i pe) = .ok t →
+    Expr.WScoped d (.proj sn i pe) →
+    (Expr.proj sn i pe).looseBVarsBounded 0 = true →
+    Expr.LeavesBounded (.proj sn i pe) →
+    CtxOkP m φ d Δa (.proj sn i pe) →
+    denoteP m.acval env φ d (.proj sn i pe) = some ea →
+    denoteP m.acval env φ d t = some ta →
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) →
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta
+
+/-- **The io quarter's step shape** (`InferStepP`'s mirror): the five
+claims at `fuel` give the io claim at `fuel + 1`, at a validating
+mode.  This is the io slot of `CheckStep2P5`
+(`Claims2PIO.lean`). -/
+def InferStepIOP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
+  ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
+    μ.verified = true →
+    WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
+    DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
+    InferClaimsIO2P μ m φ fuel →
+    InferClaimsIO2P μ m φ (fuel + 1)
+
 /-! ## The leaves -/
 
 /-- `.sort`, io lane: both readings are sort nodes, the row is

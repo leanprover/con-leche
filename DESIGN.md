@@ -34429,3 +34429,82 @@ unify onto the pinned residual; the batch adds no new licence.
 `checkDirectStruct` is covered although `directStructsEnabled = false`
 makes it unreachable from `checkDecl`: nothing about the pin should
 depend on a feature flag, and the arm cost eleven lines.
+
+## THE IO LICENSE BATCH — STATEMENT FREEZE (2026-09-04,
+agent/io-license; the P core's infer_only content, sequenced ahead of
+isProof #168, consumed by B4)
+
+**Landed first, verbatim promotion (commit 1)**: the graph-regime
+licenses `io_domain_transfer` / `io_app_mem` and the squash fence
+`io_squash_no_transfer` / `io_membership_fails_at_squash` moved from
+`_tmp/inferonly-study/ProbeIO.lean` to `Setlec/SetP/IOLicenseP.lean`,
+statements unchanged, all four at exactly
+`[propext, Classical.choice, Quot.sound]`.  The fence is the license's
+boundary as a theorem — the `gate_zero_kind_unreachable` pattern.
+
+**Frozen here, proofs to follow (the freeze discipline)**:
+
+1. The io app inversion — the one inversion whose *shape* differs from
+   the full lane's, because the certificate is behind the gate:
+
+```
+theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
+    (h : inferTypeCoreIO mode env (fuel + 1) d (.app f a) = .ok t) :
+    ∃ tf n' ty' body' m', inferTypeCoreIO mode env fuel d f = .ok tf ∧
+      whnf mode env fuel d tf = .ok (.forallE n' ty' body' m') ∧
+      t = body'.instantiate1 a ∧
+      ((mode.verified && m'.pw.isNever) = true ∨
+        ∃ ta, inferTypeCoreIO mode env fuel d a = .ok ta ∧
+          isDefEqCore mode env fuel d ta ty' = .ok true)
+```
+
+2. The io app clause, premise form — the campaign's only new
+   mathematics.  No `μ.verified` hypothesis: the gated arm of the
+   disjunction *carries* the mode conjunct, so the licensing theorems'
+   hypotheses hold exactly where the gate fired:
+
+```
+theorem infer_app_claimIOP (m : EnvS2Core V env)
+    (hir : InferReadsIOP m μ φ fuel) (hwr : WhnfReadsP m μ φ fuel)
+    (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
+    (ihio : InferClaimsIO2P μ m φ fuel)
+    {d : Nat} {f a t : Expr} {Δa : List AVExpr} {ea ta : AVExpr}
+    (h : inferTypeCoreIO μ env (fuel + 1) d (.app f a) = .ok t)
+    (hws : Expr.WScoped d (.app f a))
+    (hb : (Expr.app f a).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.app f a))
+    (hC : CtxOkP m φ d Δa (.app f a))
+    (hea : denoteP m.acval env φ d (.app f a) = some ea)
+    (hta : denoteP m.acval env φ d t = some ta)
+    (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) :
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+      ∀ ρ : Nat → V, Sat2 V Δa ρ →
+        interp2 V ρ ea ∈ˢ interp2 V ρ ta
+```
+
+   Consumption plan, branch by branch: the gated arm consumes the
+   subject's hereditary app slot (`AnnotOk2`'s app clause, reached by
+   the premise) + `pwBit_ne_zero_of_isNever` + `io_domain_transfer`
+   (the skipped `⟦a⟧ ∈ ⟦Aa⟧`) + the standard row (`sound_app`, whose
+   `hcod` premise is vacuous at the nonzero bit); the kept arm is
+   `infer_app_claimP`'s `ihd` route with the io lanes threaded and the
+   establishment conclusions dropped.  Nothing else:
+   `io_membership_fails_at_squash` is a wall, not a gap.
+
+3. The routed residues and the step shape, compiled in this commit
+   (`Step2/InferIOP.lean`): `InferReadsIOP` (io totality residue —
+   discharge = the io reads walk, B3's named risk class),
+   `InferProjStepIOP` (premise-form proj residue, structure-type walk
+   tier), `InferStepIOP` (the io slot of `CheckStep2P5`).
+
+**Take-the-waiver probe (ran BEFORE the induction)**: the gated arm of
+the frozen disjunction is REACHABLE and exactly scoped, mechanized as
+four kernel-level guards in `tests/SetlecTests.lean` ("The io gate"):
+(a) live at `.never`+verified on a subject whose argument inference
+throws, (b) datum-exact (`.ifAllZero []` fails), (c) mode-gated
+(`.noModel` fails), (d) the full lane fails at both data — so the
+gated arm is not absorbed by the kept one, and the claim's gated
+branch is not vacuous.  The semantic half of the waiver test is the
+landed fence itself: the same premise package with the bit `0` has a
+mechanized countermodel, so the statement cannot be weakened to
+arbitrary `pw` — the restriction is load-bearing, not decorative.

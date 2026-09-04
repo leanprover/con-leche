@@ -562,4 +562,45 @@ private def gateStuck (mb : BinderMeta) : Expr := gateRedex mb
   == some (gateStuck gateNever)
 #guard CheckMode.verified .noModel == false
 
+/-! ## The io gate (the io-license batch, `Setlec/Kernel/CoreIO.lean`)
+
+The take-the-waiver probe for the io app clause's statement, at the
+kernel level: the gated arm of `inferTypeCoreIO_app_inv`'s disjunction
+must be REACHABLE (else the clause's gated branch is a vacuous theorem
+wearing a disjunction), and it must be exactly scoped — datum-exact
+and mode-gated, the same three-point battery as the β gate above.
+
+The subject applies a ∀-typed head to `.bvar 0`, whose inference
+THROWS (out of fragment) — so any lane that runs the argument
+certificate fails, and only a *fired* gate succeeds.  Only the ∀'s
+`pw` datum and the mode distinguish the outcomes. -/
+
+private def ioPiTy (mb : BinderMeta) : Expr :=
+  .forallE (.str .anonymous "x") (.sort .zero) (.sort .zero) mb
+
+private def ioRedex (mb : BinderMeta) : Expr :=
+  .app (.fvar 0 (.str .anonymous "f") (ioPiTy mb)) (.bvar 0)
+
+-- (a) THE io GATE IS LIVE: at a `.never` binder the io lane skips the
+-- argument certificate and computes the type.
+#guard (inferTypeCoreIO .setModel Env.empty 6 1 (ioRedex gateNever)).toOption
+  == some (.sort .zero)
+
+-- (b) THE io GATE IS DATUM-EXACT: at a possibly-zero datum the
+-- certificate runs unconditionally (the squash fence,
+-- `io_membership_fails_at_squash`).
+#guard (inferTypeCoreIO .setModel Env.empty 6 1 (ioRedex gateMaybe)).toOption
+  == none
+
+-- (c) THE io GATE IS MODE-GATED (law 1 (i)): at `--no-model` the
+-- annotation is not validated, so the certificate runs even at
+-- `.never`.
+#guard (inferTypeCoreIO .noModel Env.empty 6 1 (ioRedex gateNever)).toOption
+  == none
+
+-- (d) THE FULL LANE IS STRICTER AT BOTH DATA: the io grade narrows
+-- exactly one check, so the gated arm is not absorbed by the kept one.
+#guard (inferTypeCore .setModel Env.empty 6 1 (ioRedex gateNever)).toOption
+  == none
+
 end SetlecTests
