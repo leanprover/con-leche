@@ -30671,3 +30671,42 @@ noted to the chain.
 REMAINING: the S13 closing measurement table against the amended
 baselines (engines per the perf lead) — the table + this record
 close the campaign's original question.
+
+## TASK #170 ISSUED (2026-09-04; user order, on the S13a
+vindication): ATTACK INFER_ONLY
+
+Verbatim: **"attack infer_only. same in body flag control - in R
+mode infer_only is just equivalent to infer, in P mode (and more so
+in no-model-mode) it skips checks."**
+
+DESIGN CONSTRAINTS (ruling + record):
+1. The S13a pattern EXACTLY: one shared body; internal inference
+   call sites carry an inferOnly INTENT; mode-guarded skip — R mode:
+   the condition computes to false at the concrete constructor
+   (inferOnly ≡ infer; existing R claims preserved per the ratified
+   betaGate precedent, hypothesis or rfl); P mode: the skip fires
+   only where LICENSED; no-model mode: the official-parity skips
+   outright.
+2. The P license is the GRAPH-REGIME THEOREM, not a blank check:
+   proved at pw = .never (io_domain_transfer / piR_dom_unique); the
+   squash-regime refutation is MECHANIZED and BOUNDS the design —
+   the P gate conditions on the annotation exactly as the β-gate
+   does; any skip outside the licensed regime is a statement-freeze
+   + probe candidate, never a default.
+3. Prior art inventoried before pricing: the inferonly-study
+   (@ 17e943d0), SetP/Claims2PIO.lean (already in the P tree), the
+   ioknot-b1 stage-2 frozen io claims, #124's closure record (its
+   R-route refutations consistent — R skips nothing).
+4. Discipline unchanged: license theorems BEFORE flag behavior;
+   verdict-identity on all existing modes; escalation + mid-batch
+   flag armed; measurement = same-engine mode delta AND the true
+   parity lane, corrected-§10 harness labeling from day one (no
+   confounded columns).
+5. Payoff context: the largest named cert-tax item (internal infer
+   where official runs infer_only); app-lam's 303-vs-228 G names
+   the per-argument application certificate as the visible target.
+
+SEQUENCE: after the S13-closing seal lands and the β chapter's
+succession record closes.  Opens with the standard design phase
+(inventory + census + frozen statement drafts), then the mechanics
+slice.
