@@ -63,13 +63,13 @@ variable {V : Type w} [SetTheory V]
 residue `CSOKF` threaded across the steps (the flush lives inside the
 step), and the per-step relation premise supplied by the driver's
 conversion pass. -/
-theorem foldSPC_R {μ : CheckMode} (hgOff : μ.betaGate = false) :
+theorem foldSPC_R :
     ∀ (ds : List DeclC) (fe : FEnv) {fe' : FEnv} {s₀ s' : CState},
       fe = mkFEnv fe.env →
       EnvSOk V fe.env →
       CSOKF s₀ →
       (∀ pc ∈ ds, ∃ d, DeclCRel pc d) →
-      (ds.foldlM (checkDeclSPStepC μ) fe) s₀ = .ok (fe', s') →
+      (ds.foldlM (checkDeclSPStepC modeR) fe) s₀ = .ok (fe', s') →
       EnvSOk V fe'.env
   | [], fe, fe', s₀, s', _, hm, _, _, h => by
     obtain ⟨hfe, rfl⟩ := pureC_ok h
@@ -82,9 +82,9 @@ theorem foldSPC_R {μ : CheckMode} (hgOff : μ.betaGate = false) :
     obtain ⟨d, hd⟩ := hrel pc List.mem_cons_self
     rw [hfe] at hstep
     obtain ⟨hres₁, hfe₁, F, hF⟩ := checkDeclSPStepC_run m.wf hres hd hstep
-    exact foldSPC_R (hgOff := hgOff) ds fe₁ hfe₁
-      (declStepS (hg := hgOff) divModPinS reducePinS stdAxiomKeyS declBasisS
-        (declIndS memberKeyS) m hE (checkDeclR_sound (hg := hgOff) m hE hF)) hres₁
+    exact foldSPC_R ds fe₁ hfe₁
+      (declStepS (hg := rfl) divModPinS reducePinS stdAxiomKeyS declBasisS
+        (declIndS memberKeyS) m hE (checkDeclR_sound (hg := rfl) m hE hF)) hres₁
       (fun p hp => hrel p (List.mem_cons_of_mem _ hp)) h
 
 /-- **The driver, dissected.**  A successful `checkDeclsSPCached` run
@@ -135,22 +135,22 @@ theorem declsCOfP_rel_run {st : WFStore} {pds : List DeclP}
 `--core=cached-parsed` accepts only environments carrying the set
 model's invariant — the `checkDeclsSP_sound_R` mirror. -/
 theorem checkDeclsSPCached_sound_R (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hgOff : μ.betaGate = false) {st : WFStore} {pds : List DeclP} {env' : Env}
-    (h : checkDeclsSPCached μ st pds = .ok env') :
+    {st : WFStore} {pds : List DeclP} {env' : Env}
+    (h : checkDeclsSPCached modeR st pds = .ok env') :
     Nonempty (EnvS V env') := by
   obtain ⟨ds, fe, s', hconv, hrun, rfl⟩ := checkDeclsSPCached_run h
-  exact (foldSPC_R (hgOff := hgOff) ds (mkFEnv Env.empty) rfl
+  exact (foldSPC_R ds (mkFEnv Env.empty) rfl
     ⟨⟨EnvS.empty V⟩, EtaFamiliesClosed.empty⟩ CSOKF.empty
     (declsCOfP_rel_run hconv) hrun).1
 
 /-- **No proof of `Empty`** is accepted by the cached parsed-index
 executable — the `no_proof_of_Empty_SP_R` mirror. -/
 theorem no_proof_of_Empty_SPC_R (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hgOff : μ.betaGate = false) {st : WFStore} {pds : List DeclP} {env' : Env}
-    (h : checkDeclsSPCached μ st pds = .ok env')
+    {st : WFStore} {pds : List DeclP} {env' : Env}
+    (h : checkDeclsSPCached modeR st pds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨m⟩ := checkDeclsSPCached_sound_R (hgOff := hgOff) V h
+  obtain ⟨m⟩ := checkDeclsSPCached_sound_R V h
   exact no_constant_of_Empty_R m c hc hty
 
 /-! ## The `Main2` siblings
@@ -167,13 +167,13 @@ transpose. -/
 
 /-- The converted-declaration fold, over `EnvS2U` (the `foldSP_R2`
 mirror). -/
-theorem foldSPC_R2 {μ : CheckMode} (hgOff : μ.betaGate = false) (hstep : DeclStep2All V μ) :
+theorem foldSPC_R2 (hstep : DeclStep2All V modeR) :
     ∀ (ds : List DeclC) (fe : FEnv) {fe' : FEnv} {s₀ s' : CState},
       fe = mkFEnv fe.env →
       EnvS2UOk V fe.env →
       CSOKF s₀ →
       (∀ pc ∈ ds, ∃ d, DeclCRel pc d) →
-      (ds.foldlM (checkDeclSPStepC μ) fe) s₀ = .ok (fe', s') →
+      (ds.foldlM (checkDeclSPStepC modeR) fe) s₀ = .ok (fe', s') →
       EnvS2UOk V fe'.env
   | [], fe, fe', s₀, s', _, hm, _, _, h => by
     obtain ⟨hfe, rfl⟩ := pureC_ok h
@@ -187,42 +187,42 @@ theorem foldSPC_R2 {μ : CheckMode} (hgOff : μ.betaGate = false) (hstep : DeclS
     rw [hfe] at hstepC
     obtain ⟨hres₁, hfe₁, F, hF⟩ :=
       checkDeclSPStepC_run m.base.wf hres hd hstepC
-    exact foldSPC_R2 (hgOff := hgOff) hstep ds fe₁ hfe₁
-      (checkDecl_sound_R2 (hgOff := hgOff) hstep m hE hF) hres₁
+    exact foldSPC_R2 hstep ds fe₁ hfe₁
+      (checkDecl_sound_R2 hstep m hE hF) hres₁
       (fun p hp => hrel p (List.mem_cons_of_mem _ hp)) h
 
 /-- **The cached parsed-index executable's acceptance theorem, over
 `EnvS2U`.** -/
-theorem checkDeclsSPCached_sound_R2 {μ : CheckMode} (hgOff : μ.betaGate = false)
-    (hstep : DeclStep2All V μ)
+theorem checkDeclsSPCached_sound_R2
+    (hstep : DeclStep2All V modeR)
     {st : WFStore} {pds : List DeclP} {env' : Env}
-    (h : checkDeclsSPCached μ st pds = .ok env') :
+    (h : checkDeclsSPCached modeR st pds = .ok env') :
     Nonempty (EnvS2U V env') := by
   obtain ⟨ds, fe, s', hconv, hrun, rfl⟩ := checkDeclsSPCached_run h
-  exact (foldSPC_R2 (hgOff := hgOff) hstep ds (mkFEnv Env.empty) rfl (EnvS2UOk.empty V)
+  exact (foldSPC_R2 hstep ds (mkFEnv Env.empty) rfl (EnvS2UOk.empty V)
     CSOKF.empty (declsCOfP_rel_run hconv) hrun).1
 
 /-- **No proof of `Empty`** — cached parsed-index executable,
 annotated fold. -/
 theorem no_proof_of_Empty_SPC_R2 (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hgOff : μ.betaGate = false) (hstep : DeclStep2All V μ)
+    (hstep : DeclStep2All V modeR)
     {st : WFStore} {pds : List DeclP} {env' : Env}
-    (h : checkDeclsSPCached μ st pds = .ok env')
+    (h : checkDeclsSPCached modeR st pds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨m⟩ := checkDeclsSPCached_sound_R2 (hgOff := hgOff) (V := V) hstep h
+  obtain ⟨m⟩ := checkDeclsSPCached_sound_R2 (V := V) hstep h
   exact no_constant_of_Empty_R2 m c hc hty
 
 /-- The converted-declaration fold, over `EnvS2UM` (the `foldSP_R2M`
 mirror). -/
-theorem foldSPC_R2M {μ : CheckMode} (hgOff : μ.betaGate = false) (hstep : DeclStep2AllM V μ) :
+theorem foldSPC_R2M (hstep : DeclStep2AllM V modeR) :
     ∀ (ds : List DeclC) (fe : FEnv) {fe' : FEnv} {s₀ s' : CState},
       fe = mkFEnv fe.env →
-      EnvS2UOkM V μ fe.env →
+      EnvS2UOkM V modeR fe.env →
       CSOKF s₀ →
       (∀ pc ∈ ds, ∃ d, DeclCRel pc d) →
-      (ds.foldlM (checkDeclSPStepC μ) fe) s₀ = .ok (fe', s') →
-      EnvS2UOkM V μ fe'.env
+      (ds.foldlM (checkDeclSPStepC modeR) fe) s₀ = .ok (fe', s') →
+      EnvS2UOkM V modeR fe'.env
   | [], fe, fe', s₀, s', _, hm, _, _, h => by
     obtain ⟨hfe, rfl⟩ := pureC_ok h
     subst hfe
@@ -235,30 +235,30 @@ theorem foldSPC_R2M {μ : CheckMode} (hgOff : μ.betaGate = false) (hstep : Decl
     rw [hfe] at hstepC
     obtain ⟨hres₁, hfe₁, F, hF⟩ :=
       checkDeclSPStepC_run m.base.wf hres hd hstepC
-    exact foldSPC_R2M (hgOff := hgOff) hstep ds fe₁ hfe₁
-      (checkDecl_sound_R2M (hgOff := hgOff) hstep m hE hF) hres₁
+    exact foldSPC_R2M hstep ds fe₁ hfe₁
+      (checkDecl_sound_R2M hstep m hE hF) hres₁
       (fun p hp => hrel p (List.mem_cons_of_mem _ hp)) h
 
 /-- **The cached parsed-index executable's acceptance theorem, over
 `EnvS2UM`.** -/
-theorem checkDeclsSPCached_sound_R2M {μ : CheckMode} (hgOff : μ.betaGate = false)
-    (hstep : DeclStep2AllM V μ)
+theorem checkDeclsSPCached_sound_R2M
+    (hstep : DeclStep2AllM V modeR)
     {st : WFStore} {pds : List DeclP} {env' : Env}
-    (h : checkDeclsSPCached μ st pds = .ok env') :
-    Nonempty (EnvS2UM V μ env') := by
+    (h : checkDeclsSPCached modeR st pds = .ok env') :
+    Nonempty (EnvS2UM V modeR env') := by
   obtain ⟨ds, fe, s', hconv, hrun, rfl⟩ := checkDeclsSPCached_run h
-  exact (foldSPC_R2M (hgOff := hgOff) hstep ds (mkFEnv Env.empty) rfl
-    (EnvS2UOkM.empty V μ) CSOKF.empty (declsCOfP_rel_run hconv) hrun).1
+  exact (foldSPC_R2M hstep ds (mkFEnv Env.empty) rfl
+    (EnvS2UOkM.empty V modeR) CSOKF.empty (declsCOfP_rel_run hconv) hrun).1
 
 /-- **No proof of `Empty`** — cached parsed-index executable,
 annotated fold at one mode. -/
 theorem no_proof_of_Empty_SPC_R2M (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hgOff : μ.betaGate = false) (hstep : DeclStep2AllM V μ)
+    (hstep : DeclStep2AllM V modeR)
     {st : WFStore} {pds : List DeclP} {env' : Env}
-    (h : checkDeclsSPCached μ st pds = .ok env')
+    (h : checkDeclsSPCached modeR st pds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨m⟩ := checkDeclsSPCached_sound_R2M (hgOff := hgOff) (V := V) hstep h
+  obtain ⟨m⟩ := checkDeclsSPCached_sound_R2M (V := V) hstep h
   exact no_constant_of_Empty_R2M m c hc hty
 
 /-! ## The input-level form
@@ -279,8 +279,8 @@ converted twin's `DeclCRel` (for the step).  Nothing else changes; the
 parsed-index executable, at the stream level (the
 `no_proof_of_Empty_input_SP_R` mirror). -/
 theorem no_proof_of_Empty_input_SPC_R (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hgOff : μ.betaGate = false) {st : WFStore} {pds : List DeclP} {env' : Env}
-    (h : checkDeclsSPCached μ st pds = .ok env')
+    {st : WFStore} {pds : List DeclP} {env' : Env}
+    (h : checkDeclsSPCached modeR st pds = .ok env')
     {cvp : ConstantValP} {value : EIdx}
     (hd : (∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
       DeclP.thmDecl cvp value ∈ pds)
@@ -295,7 +295,7 @@ theorem no_proof_of_Empty_input_SPC_R (V : Type w) [SetTheory V]
       DeclsPCRel st.raw pds ds →
       ∀ (fe : FEnv) {fe' : FEnv} {s₀ s' : CState},
         fe = mkFEnv fe.env → EnvSOk V fe.env → CSOKF s₀ →
-        (ds.foldlM (checkDeclSPStepC μ) fe) s₀ = .ok (fe', s') →
+        (ds.foldlM (checkDeclSPStepC modeR) fe) s₀ = .ok (fe', s') →
         ((∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
           DeclP.thmDecl cvp value ∈ pds) → False by
     exact hgen pds ds hall (mkFEnv Env.empty) rfl
@@ -344,7 +344,7 @@ theorem no_proof_of_Empty_input_SPC_R (V : Type w) [SetTheory V]
               ⟨cvp.name, cvp.levelParams, .const emptyName []⟩ ve hint)) →
           False := by
         intro hcase
-        have hstores : ∃ type, annotateCore μ fe.env F 0
+        have hstores : ∃ type, annotateCore modeR fe.env F 0
               (.const emptyName []) = .ok type ∧
             ∃ c, c ∈ fe₁.env.consts ∧ c.toConstantVal =
               ⟨cvp.name, cvp.levelParams, type⟩ := by
@@ -357,7 +357,7 @@ theorem no_proof_of_Empty_input_SPC_R (V : Type w) [SetTheory V]
         obtain ⟨type, hann, c, hc, hcv⟩ := hstores
         obtain rfl : Expr.const emptyName [] = type :=
           annotate_empty_const_eq hann
-        obtain ⟨m1⟩ := (checkDecl_sound_R (hg := hgOff) (d := d) m hE hF).1
+        obtain ⟨m1⟩ := (checkDecl_sound_R (d := d) m hE hF).1
         exact no_constant_of_Empty_R m1 c hc (by rw [hcv])
       rcases hdd with ⟨hint, rfl⟩ | rfl
       · exact hfin (.inr ⟨hint, rfl⟩)
@@ -372,17 +372,17 @@ theorem no_proof_of_Empty_input_SPC_R (V : Type w) [SetTheory V]
           · exact absurd (.inr heq.symm) hdis
           · exact .inr hmem
       exact ih fe₁ hfe₁
-        (declStepS (hg := hgOff) divModPinS reducePinS stdAxiomKeyS declBasisS
-          (declIndS memberKeyS) m hE (checkDeclR_sound (hg := hgOff) m hE hF))
+        (declStepS (hg := rfl) divModPinS reducePinS stdAxiomKeyS declBasisS
+          (declIndS memberKeyS) m hE (checkDeclR_sound (hg := rfl) m hE hF))
         hres₁ h hd'
 
 /-- **No accepted stream declares a proof of `Empty`** — cached
 parsed-index executable, annotated fold (the
 `no_proof_of_Empty_input_SP_R2` mirror). -/
 theorem no_proof_of_Empty_input_SPC_R2 (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hgOff : μ.betaGate = false) (hstep : DeclStep2All V μ)
+    (hstep : DeclStep2All V modeR)
     {st : WFStore} {pds : List DeclP} {env' : Env}
-    (h : checkDeclsSPCached μ st pds = .ok env')
+    (h : checkDeclsSPCached modeR st pds = .ok env')
     {cvp : ConstantValP} {value : EIdx}
     (hd : (∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
       DeclP.thmDecl cvp value ∈ pds)
@@ -397,7 +397,7 @@ theorem no_proof_of_Empty_input_SPC_R2 (V : Type w) [SetTheory V]
       DeclsPCRel st.raw pds ds →
       ∀ (fe : FEnv) {fe' : FEnv} {s₀ s' : CState},
         fe = mkFEnv fe.env → EnvS2UOk V fe.env → CSOKF s₀ →
-        (ds.foldlM (checkDeclSPStepC μ) fe) s₀ = .ok (fe', s') →
+        (ds.foldlM (checkDeclSPStepC modeR) fe) s₀ = .ok (fe', s') →
         ((∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
           DeclP.thmDecl cvp value ∈ pds) → False by
     exact hgen pds ds hall (mkFEnv Env.empty) rfl
@@ -446,7 +446,7 @@ theorem no_proof_of_Empty_input_SPC_R2 (V : Type w) [SetTheory V]
               ⟨cvp.name, cvp.levelParams, .const emptyName []⟩ ve hint)) →
           False := by
         intro hcase
-        have hstores : ∃ type, annotateCore μ fe.env F 0
+        have hstores : ∃ type, annotateCore modeR fe.env F 0
               (.const emptyName []) = .ok type ∧
             ∃ c, c ∈ fe₁.env.consts ∧ c.toConstantVal =
               ⟨cvp.name, cvp.levelParams, type⟩ := by
@@ -459,7 +459,7 @@ theorem no_proof_of_Empty_input_SPC_R2 (V : Type w) [SetTheory V]
         obtain ⟨type, hann, c, hc, hcv⟩ := hstores
         obtain rfl : Expr.const emptyName [] = type :=
           annotate_empty_const_eq hann
-        obtain ⟨m1⟩ := (checkDecl_sound_R2 (hgOff := hgOff) (d := d) hstep m hE hF).1
+        obtain ⟨m1⟩ := (checkDecl_sound_R2 (d := d) hstep m hE hF).1
         exact no_constant_of_Empty_R2 m1 c hc (by rw [hcv])
       rcases hdd with ⟨hint, rfl⟩ | rfl
       · exact hfin (.inr ⟨hint, rfl⟩)
@@ -473,16 +473,16 @@ theorem no_proof_of_Empty_input_SPC_R2 (V : Type w) [SetTheory V]
         · rcases List.mem_cons.mp hdm2 with heq | hmem
           · exact absurd (.inr heq.symm) hdis
           · exact .inr hmem
-      exact ih fe₁ hfe₁ (checkDecl_sound_R2 (hgOff := hgOff) (d := d) hstep m hE hF)
+      exact ih fe₁ hfe₁ (checkDecl_sound_R2 (d := d) hstep m hE hF)
         hres₁ h hd'
 
 /-- **No accepted stream declares a proof of `Empty`** — cached
 parsed-index executable, annotated fold at one mode (the
 `no_proof_of_Empty_input_SP_R2M` mirror). -/
 theorem no_proof_of_Empty_input_SPC_R2M (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hgOff : μ.betaGate = false) (hstep : DeclStep2AllM V μ)
+    (hstep : DeclStep2AllM V modeR)
     {st : WFStore} {pds : List DeclP} {env' : Env}
-    (h : checkDeclsSPCached μ st pds = .ok env')
+    (h : checkDeclsSPCached modeR st pds = .ok env')
     {cvp : ConstantValP} {value : EIdx}
     (hd : (∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
       DeclP.thmDecl cvp value ∈ pds)
@@ -496,12 +496,12 @@ theorem no_proof_of_Empty_input_SPC_R2M (V : Type w) [SetTheory V]
   suffices hgen : ∀ (pds : List DeclP) (ds : List DeclC),
       DeclsPCRel st.raw pds ds →
       ∀ (fe : FEnv) {fe' : FEnv} {s₀ s' : CState},
-        fe = mkFEnv fe.env → EnvS2UOkM V μ fe.env → CSOKF s₀ →
-        (ds.foldlM (checkDeclSPStepC μ) fe) s₀ = .ok (fe', s') →
+        fe = mkFEnv fe.env → EnvS2UOkM V modeR fe.env → CSOKF s₀ →
+        (ds.foldlM (checkDeclSPStepC modeR) fe) s₀ = .ok (fe', s') →
         ((∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
           DeclP.thmDecl cvp value ∈ pds) → False by
     exact hgen pds ds hall (mkFEnv Env.empty) rfl
-      (EnvS2UOkM.empty V μ) CSOKF.empty hrun hd
+      (EnvS2UOkM.empty V modeR) CSOKF.empty hrun hd
   clear hrun hd hall
   intro pds ds hall
   induction hall with
@@ -546,7 +546,7 @@ theorem no_proof_of_Empty_input_SPC_R2M (V : Type w) [SetTheory V]
               ⟨cvp.name, cvp.levelParams, .const emptyName []⟩ ve hint)) →
           False := by
         intro hcase
-        have hstores : ∃ type, annotateCore μ fe.env F 0
+        have hstores : ∃ type, annotateCore modeR fe.env F 0
               (.const emptyName []) = .ok type ∧
             ∃ c, c ∈ fe₁.env.consts ∧ c.toConstantVal =
               ⟨cvp.name, cvp.levelParams, type⟩ := by
@@ -559,7 +559,7 @@ theorem no_proof_of_Empty_input_SPC_R2M (V : Type w) [SetTheory V]
         obtain ⟨type, hann, c, hc, hcv⟩ := hstores
         obtain rfl : Expr.const emptyName [] = type :=
           annotate_empty_const_eq hann
-        obtain ⟨m1⟩ := (checkDecl_sound_R2M (hgOff := hgOff) (d := d) hstep m hE hF).1
+        obtain ⟨m1⟩ := (checkDecl_sound_R2M (d := d) hstep m hE hF).1
         exact no_constant_of_Empty_R2M m1 c hc (by rw [hcv])
       rcases hdd with ⟨hint, rfl⟩ | rfl
       · exact hfin (.inr ⟨hint, rfl⟩)
@@ -573,7 +573,7 @@ theorem no_proof_of_Empty_input_SPC_R2M (V : Type w) [SetTheory V]
         · rcases List.mem_cons.mp hdm2 with heq | hmem
           · exact absurd (.inr heq.symm) hdis
           · exact .inr hmem
-      exact ih fe₁ hfe₁ (checkDecl_sound_R2M (hgOff := hgOff) (d := d) hstep m hE hF)
+      exact ih fe₁ hfe₁ (checkDecl_sound_R2M (d := d) hstep m hE hF)
         hres₁ h hd'
 
 /-! ## The direct-parse driver (task #171; restated at #172 B3b)
@@ -639,64 +639,62 @@ theorem wdecl_rel {ds : List DeclC} :
 /-- **Acceptance, direct-parse driver, `EnvS`** (the
 `checkDeclsSPCached_sound_R` mirror). -/
 theorem checkDeclsSPCachedD_sound_R (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hgOff : μ.betaGate = false)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    (h : checkDeclsSPCachedD modeR ds = .ok env') :
     Nonempty (EnvS V env') := by
   obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
-  exact (foldSPC_R (hgOff := hgOff) ds (mkFEnv Env.empty) rfl
+  exact (foldSPC_R ds (mkFEnv Env.empty) rfl
     ⟨⟨EnvS.empty V⟩, EtaFamiliesClosed.empty⟩ CSOKF.empty
     wdecl_rel hrun).1
 
 /-- **No proof of `Empty`, direct-parse driver.** -/
 theorem no_proof_of_Empty_SPCD_R (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hgOff : μ.betaGate = false)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env')
+    (h : checkDeclsSPCachedD modeR ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨m⟩ := checkDeclsSPCachedD_sound_R (hgOff := hgOff) V h
+  obtain ⟨m⟩ := checkDeclsSPCachedD_sound_R V h
   exact no_constant_of_Empty_R m c hc hty
 
 /-- **Acceptance, direct-parse driver, `EnvS2U`.** -/
-theorem checkDeclsSPCachedD_sound_R2 {μ : CheckMode}
-    (hgOff : μ.betaGate = false) (hstep : DeclStep2All V μ)
+theorem checkDeclsSPCachedD_sound_R2
+    (hstep : DeclStep2All V modeR)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    (h : checkDeclsSPCachedD modeR ds = .ok env') :
     Nonempty (EnvS2U V env') := by
   obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
-  exact (foldSPC_R2 (hgOff := hgOff) hstep ds (mkFEnv Env.empty)
+  exact (foldSPC_R2 hstep ds (mkFEnv Env.empty)
     rfl (EnvS2UOk.empty V) CSOKF.empty wdecl_rel hrun).1
 
 /-- **No proof of `Empty`, direct-parse driver, annotated fold.** -/
 theorem no_proof_of_Empty_SPCD_R2 (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hgOff : μ.betaGate = false) (hstep : DeclStep2All V μ)
+    (hstep : DeclStep2All V modeR)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env')
+    (h : checkDeclsSPCachedD modeR ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨m⟩ := checkDeclsSPCachedD_sound_R2 (hgOff := hgOff) (V := V) hstep h
+  obtain ⟨m⟩ := checkDeclsSPCachedD_sound_R2 (V := V) hstep h
   exact no_constant_of_Empty_R2 m c hc hty
 
 /-- **Acceptance, direct-parse driver, `EnvS2UM`.** -/
-theorem checkDeclsSPCachedD_sound_R2M {μ : CheckMode}
-    (hgOff : μ.betaGate = false) (hstep : DeclStep2AllM V μ)
+theorem checkDeclsSPCachedD_sound_R2M
+    (hstep : DeclStep2AllM V modeR)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env') :
-    Nonempty (EnvS2UM V μ env') := by
+    (h : checkDeclsSPCachedD modeR ds = .ok env') :
+    Nonempty (EnvS2UM V modeR env') := by
   obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
-  exact (foldSPC_R2M (hgOff := hgOff) hstep ds (mkFEnv Env.empty)
-    rfl (EnvS2UOkM.empty V μ) CSOKF.empty wdecl_rel hrun).1
+  exact (foldSPC_R2M hstep ds (mkFEnv Env.empty)
+    rfl (EnvS2UOkM.empty V modeR) CSOKF.empty wdecl_rel hrun).1
 
 /-- **No proof of `Empty`, direct-parse driver, annotated fold at one
 mode.** -/
 theorem no_proof_of_Empty_SPCD_R2M (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hgOff : μ.betaGate = false) (hstep : DeclStep2AllM V μ)
+    (hstep : DeclStep2AllM V modeR)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env')
+    (h : checkDeclsSPCachedD modeR ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨m⟩ := checkDeclsSPCachedD_sound_R2M (hgOff := hgOff) (V := V) hstep h
+  obtain ⟨m⟩ := checkDeclsSPCachedD_sound_R2M (V := V) hstep h
   exact no_constant_of_Empty_R2M m c hc hty
 
 end Setlec.Cached
