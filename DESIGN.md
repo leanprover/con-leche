@@ -30115,3 +30115,60 @@ so the remaining batches are priced from a landed sample, not the
 estimate.  Escalation armed with the mid-batch flag; the 95
 genuinely-new statements get statement-freeze + probe discipline.
 The cadence RESUMES.
+
+## Task #161 SEPARATION — SUPERSEDING USER DESIGN RULING: the
+IN-BODY MODE-GUARDED GATE (2026-09-04)
+
+The user's words: **"I thought we'd just add a new mode. Not a code
+clone, but a local flag check. --set2-model maybe."**  Supersedes
+the hoist-vs-duplicate fork ENTIRELY: the gate lands IN THE SHARED
+BODY as a mode-guarded branch (μ = p ∧ pw.isNever), a new mode
+value on the existing mode type; no second knot, no re-pointed
+tower.
+
+**THE MD5-IDENTITY CHAIN ENDS AT THIS BATCH BY DELIBERATE RULING**
+(recorded as such): the S12 860-declaration bill was an artifact of
+the byte-identity containment, now RELAXED for this landing; the
+receipt becomes VERDICT-IDENTITY on all existing modes (full
+battery + no-model sweep).
+
+Expected shape (slice-verified): statements UNMOVED; each proof
+clause unfolding the gated site gains ONE case — existing modes by
+a dead-branch collapse lemma (μ ≠ p ⇒ inert; one simp lemma per
+gate site), the p mode by AnnotOkP_beta_gate.  TWO CATCHES priced
+honestly: (1) R-lane proofs unfold the same clause and need the
+same mechanical case — enumerated and counted; the separation of
+proof trees SURVIVES (both trees may talk about the one executable
+— that is the architecture); (2) the true clause sweep counted in
+BOTH towers.  Re-priced programme reported BEFORE bulk dispatch;
+expectation ~1 batch; contradiction escalates per the rule.  Flag
+spelling: --set-model=p kept unless the slice finds a reason for
+--set2-model (the user's floated spelling; decision recorded either
+way).  The S9 gated-knot code + bucket2-s1 branch → measurement
+scaffolding, tombstoned when the in-body gate lands.  The S13a
+worker re-charted mid-flight onto the redesigned slice.
+
+## Task #161 — "anyways, build it." (2026-09-04; user, verbatim)
+
+STANDING AUTHORIZATION: on a GREEN mechanics slice, the build
+proceeds directly into the full in-body gate + flag surface +
+measurement WITHOUT a re-ratification round-trip; the escalation
+rule (unnamed residual or bill-doubling ⇒ stop and flag) is the
+only brake.  Merge grants per batch still through the coordinator.
+
+CLEANUP INVENTORY (user: "what a mess... hope we can clean up a
+lot") — running list kept in the record from this point, feeding
+the deliberate cleanup phase (task #104's successor) AFTER the
+measurement lands:
+1. The S9 gated-knot scaffold (Kernel/CoreP.lean, CheckerP.lean +
+   Verify/CoreP.lean's knot-level equations) — tombstone when the
+   in-body gate lands (the collapse lemma + license theorem
+   survive; the knot clone dies).
+2. The bucket2-s1 branch — disposition (measurement kit extracted;
+   branch archived).
+3. The ioknot-b1 CoreIO lane (unwired since B1) — same class.
+4. Any clone/bridge artifacts the in-body redesign obsoletes
+   (candidates accrete per batch: the duplicated 21 residue lemmas
+   from S11b's route choice; checkDeclR_ofEnvRE if the run route
+   fully supersedes it; the inert cut-point constants the proofdeps
+   gate no longer needs as cut points).
