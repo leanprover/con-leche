@@ -47,11 +47,13 @@ nothing here is carried over from an older round.
 > records — so do not compute a ratio across the boundary.  They
 > are quoted here only to say which way the column will move.
 >
-> Regeneration is deferred until the #171 direct-to-ExprC parse
-> lands, since that moves the cached-lane numbers again and a
-> full battery costs hours.  When it is in, one command
-> (below) rewrites this file and this note disappears on its
-> own.
+> The #171 direct-to-ExprC parse has since landed too, moving the
+> cached-lane numbers again, so **every cached cell here is stale
+> on two counts**.  Regeneration is nonetheless still deferred:
+> the tri-core refactor (task #172) is mid-flight and core names
+> and dispatch will move again, and a full battery costs hours.
+> One command (below) rewrites this file when the word comes, and
+> this note disappears on its own.
 
 > **PENDING RULING — the `--core=production` columns.**  The user
 > has ruled the interned representation **dropped entirely**
