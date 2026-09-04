@@ -160,8 +160,8 @@ theorem inferLamsOutC_sim {d : Nat} :
       have hQnode' : RelC node
           (Expr.forallE n (tyox.abstractRange d j) curx mb) := by
         refine ⟨hQnode.1, ?_⟩
-        rw [show eraseC node
-            = .forallE n (eraseC tyAbs) (eraseC cur) mb from hQnode.2,
+        rw [show node
+            = .forallE n tyAbs cur mb from hQnode.2,
           hQab.2, hcur.2]
       exact ihOut hs₄ hrest hQnode'
 
@@ -186,14 +186,14 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
   obtain ⟨hwc, rfl⟩ := ht
   cases t
   case lam nmN tyN bodyN mbN =>
-    dsimp only [ExprC.view, eraseC]
+    dsimp only [ExprC.view]
     refine SimC.bind_left (abstractRangeM_eff hs₂ hbtd)
       (fun s₅ cur hs₅ hQcur => ?_)
     refine SimC.view ?_
     dsimp only [ExprC.view, Expr.lamPw]
     exact inferLamsOutC_sim hs₅ hstk hQcur
   all_goals
-    dsimp only [ExprC.view, eraseC, Expr.lamPw]
+    dsimp only [ExprC.view, Expr.lamPw]
     by_cases hv : mode.verified = true
     case neg =>
       simp only [if_neg hv]
@@ -232,7 +232,7 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
     obtain ⟨hwdc, rfl⟩ := hwd
     cases wbt
     case sort v =>
-      dsimp only [ExprC.view, eraseC]
+      dsimp only [ExprC.view]
       -- the leaf validation (task #161): both sides read the same
       -- datum of the same sort; then the fold, per stack head
       cases hstk0 : stk with
@@ -310,15 +310,15 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     obtain ⟨hwc, rfl⟩ := ht
     cases t
     case lam nm ty body mb =>
-      dsimp only [ExprC.view, eraseC] at hw ⊢
+      dsimp only [ExprC.view] at hw ⊢
       rw [inferLams_succ_lam]
       obtain ⟨hwty, hwbody, -⟩ := hwc.lam_inv
-      have hlamL : (Expr.lam nm (eraseC ty) (eraseC body) mb).instantiateList
-          ws = Expr.lam nm ((eraseC ty).instantiateList ws)
-            ((eraseC body).instantiateList ws 1) mb := by
+      have hlamL : (Expr.lam nm ty body mb).instantiateList
+          ws = Expr.lam nm ((Expr.instantiateList ty ws))
+            ((Expr.instantiateList body ws 1)) mb := by
         simp [Expr.instantiateList]
-      have hwcomp : Expr.WScoped (d + k) ((eraseC ty).instantiateList ws)
-          ∧ Expr.WScoped (d + k) ((eraseC body).instantiateList ws 1) := by
+      have hwcomp : Expr.WScoped (d + k) ((Expr.instantiateList ty ws))
+          ∧ Expr.WScoped (d + k) ((Expr.instantiateList body ws 1)) := by
         rw [hlamL] at hw
         simpa only [Expr.WScoped] using hw
       refine SimC.bind_left
@@ -334,18 +334,18 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
       obtain ⟨hwdc, rfl⟩ := hwd
       cases wtty
       case sort u =>
-        dsimp only [ExprC.view, eraseC]
+        dsimp only [ExprC.view]
         refine SimC.bind_left
           (internI_eff hs₃ (n := ExprView.fvar (d + k) nm tyo) hQtyo.1)
           (fun s₄ fv hs₄ hQfv => ?_)
         have hQfv' : RelC fv
-            (Expr.fvar (d + k) nm ((eraseC ty).instantiateList ws)) := by
+            (Expr.fvar (d + k) nm ((Expr.instantiateList ty ws))) := by
           refine ⟨hQfv.1, ?_⟩
-          rw [show eraseC fv = .fvar (d + k) nm (eraseC tyo) from hQfv.2,
+          rw [show fv = .fvar (d + k) nm tyo from hQfv.2,
             hQtyo.2]
         have hwopen : Expr.WScoped (d + (k + 1))
-            ((eraseC body).instantiateList
-              (Expr.fvar (d + k) nm ((eraseC ty).instantiateList ws) :: ws)) := by
+            ((Expr.instantiateList body
+              (Expr.fvar (d + k) nm (ty.instantiateList ws) :: ws))) := by
           rw [Expr.instantiateList_cons]
           have := Expr.WScoped.instantiate1 (n := nm) hwcomp.1 0 hwcomp.2
           simpa [Nat.add_assoc] using this
@@ -355,7 +355,7 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
           ⟨⟨rfl, hQtyo, rfl⟩, hstk⟩ hwopen
       all_goals exact SimC.throw
     all_goals
-      dsimp only [ExprC.view, eraseC]
+      dsimp only [ExprC.view]
       rw [inferLams_succ_ne_lam _ (fun _ _ _ _ h => Expr.noConfusion h)]
       exact inferLamsLeafC_sim ih hs ht' hfvs hstk hw
 
@@ -445,13 +445,13 @@ theorem inferPisLeafC_sim (ih : SSimC mode env f) {d : Nat}
   obtain ⟨hwdc, rfl⟩ := hwd
   cases wbt
   case sort v =>
-    dsimp only [ExprC.view, eraseC]
+    dsimp only [ExprC.view]
     refine SimC.bind (inferPisOutC_sim hs₃ hstk rfl PWMemoInvC.empty)
       (fun s₄ iv ivx hs₄ hiv => ?_)
     exact SimC.of_eff (internI_eff hs₄ (n := ExprView.sort iv) trivial)
       _ (fun s hQ => by
         refine ⟨hQ.1, ?_⟩
-        rw [show eraseC s = Expr.sort iv from hQ.2, hiv])
+        rw [show s = Expr.sort iv from hQ.2, hiv])
   all_goals exact SimC.throw
 
 theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
@@ -493,15 +493,15 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
     obtain ⟨hwc, rfl⟩ := ht
     cases t
     case forallE nm ty body mb =>
-      dsimp only [ExprC.view, eraseC] at hw ⊢
+      dsimp only [ExprC.view] at hw ⊢
       rw [inferPis_succ_pi]
       obtain ⟨hwty, hwbody, -⟩ := hwc.forallE_inv
-      have hpiL : (Expr.forallE nm (eraseC ty) (eraseC body) mb).instantiateList
-          ws = Expr.forallE nm ((eraseC ty).instantiateList ws)
-            ((eraseC body).instantiateList ws 1) mb := by
+      have hpiL : (Expr.forallE nm ty body mb).instantiateList
+          ws = Expr.forallE nm ((Expr.instantiateList ty ws))
+            ((Expr.instantiateList body ws 1)) mb := by
         simp [Expr.instantiateList]
-      have hwcomp : Expr.WScoped (d + k) ((eraseC ty).instantiateList ws)
-          ∧ Expr.WScoped (d + k) ((eraseC body).instantiateList ws 1) := by
+      have hwcomp : Expr.WScoped (d + k) ((Expr.instantiateList ty ws))
+          ∧ Expr.WScoped (d + k) ((Expr.instantiateList body ws 1)) := by
         rw [hpiL] at hw
         simpa only [Expr.WScoped] using hw
       refine SimC.bind_left
@@ -517,18 +517,18 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
       obtain ⟨hwdc, rfl⟩ := hwd
       cases wtty
       case sort u =>
-        dsimp only [ExprC.view, eraseC]
+        dsimp only [ExprC.view]
         refine SimC.bind_left
           (internI_eff hs₃ (n := ExprView.fvar (d + k) nm tyo) hQtyo.1)
           (fun s₄ fv hs₄ hQfv => ?_)
         have hQfv' : RelC fv
-            (Expr.fvar (d + k) nm ((eraseC ty).instantiateList ws)) := by
+            (Expr.fvar (d + k) nm ((Expr.instantiateList ty ws))) := by
           refine ⟨hQfv.1, ?_⟩
-          rw [show eraseC fv = .fvar (d + k) nm (eraseC tyo) from hQfv.2,
+          rw [show fv = .fvar (d + k) nm tyo from hQfv.2,
             hQtyo.2]
         have hwopen : Expr.WScoped (d + (k + 1))
-            ((eraseC body).instantiateList
-              (Expr.fvar (d + k) nm ((eraseC ty).instantiateList ws) :: ws)) := by
+            ((Expr.instantiateList body
+              (Expr.fvar (d + k) nm (ty.instantiateList ws) :: ws))) := by
           rw [Expr.instantiateList_cons]
           have := Expr.WScoped.instantiate1 (n := nm) hwcomp.1 0 hwcomp.2
           simpa [Nat.add_assoc] using this
@@ -538,7 +538,7 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
           ⟨⟨rfl, rfl⟩, hstk⟩ hwopen
       all_goals exact SimC.throw
     all_goals
-      dsimp only [ExprC.view, eraseC]
+      dsimp only [ExprC.view]
       rw [inferPis_succ_ne_pi _ (fun _ _ _ _ h => Expr.noConfusion h)]
       exact inferPisLeafC_sim ih hs ht' hfvs hstk hw
 
@@ -990,10 +990,10 @@ theorem annotPwPiC_sim (ih : SSimC mode env f) {d : Nat}
   obtain ⟨hwc, rfl⟩ := hl
   cases body'
   case forallE nmN tyN bodyN mbN =>
-    dsimp only [ExprC.view, eraseC, Expr.forallPw]
+    dsimp only [ExprC.view, Expr.forallPw]
     exact SimC.pure hs rfl
   all_goals
-    dsimp only [ExprC.view, eraseC, Expr.forallPw]
+    dsimp only [ExprC.view, Expr.forallPw]
     refine SimC.bind (ih.infer hs hl' hw)
       (fun s₂ bt btx hs₂ hPbt => ?_)
     obtain ⟨hbtd, hwbt⟩ := hPbt
@@ -1020,10 +1020,10 @@ theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
   obtain ⟨hwc, rfl⟩ := hl
   cases body'
   case lam nmN tyN bodyN mbN =>
-    dsimp only [ExprC.view, eraseC, Expr.lamPw]
+    dsimp only [ExprC.view, Expr.lamPw]
     exact SimC.pure hs rfl
   all_goals
-    dsimp only [ExprC.view, eraseC, Expr.lamPw]
+    dsimp only [ExprC.view, Expr.lamPw]
     refine SimC.bind (ih.infer hs hl' hw)
       (fun s₂ bt btx hs₂ hPbt => ?_)
     obtain ⟨hbtd, hwbt⟩ := hPbt
@@ -1136,15 +1136,15 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
     obtain ⟨hwc, rfl⟩ := ht
     cases t
     case forallE nm ty body mb =>
-      dsimp only [ExprC.view, eraseC] at hw ⊢
+      dsimp only [ExprC.view] at hw ⊢
       rw [annotatePis_succ_pi]
       obtain ⟨hwty, hwbody, -⟩ := hwc.forallE_inv
-      have hpiL : (Expr.forallE nm (eraseC ty) (eraseC body) mb).instantiateList
-          ws = Expr.forallE nm ((eraseC ty).instantiateList ws)
-            ((eraseC body).instantiateList ws 1) mb := by
+      have hpiL : (Expr.forallE nm ty body mb).instantiateList
+          ws = Expr.forallE nm ((Expr.instantiateList ty ws))
+            ((Expr.instantiateList body ws 1)) mb := by
         simp [Expr.instantiateList]
-      have hwcomp : Expr.WScoped (d + k) ((eraseC ty).instantiateList ws)
-          ∧ Expr.WScoped (d + k) ((eraseC body).instantiateList ws 1) := by
+      have hwcomp : Expr.WScoped (d + k) ((Expr.instantiateList ty ws))
+          ∧ Expr.WScoped (d + k) ((Expr.instantiateList body ws 1)) := by
         rw [hpiL] at hw
         simpa only [Expr.WScoped] using hw
       refine SimC.bind_left
@@ -1158,10 +1158,10 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
         (fun s₃ fv hs₃ hQfv => ?_)
       have hQfv' : RelC fv (Expr.fvar (d + k) nm tyx') := by
         refine ⟨hQfv.1, ?_⟩
-        rw [show eraseC fv = .fvar (d + k) nm (eraseC ty') from hQfv.2,
+        rw [show fv = .fvar (d + k) nm ty' from hQfv.2,
           hty'd.2]
       have hwopen : Expr.WScoped (d + (k + 1))
-          ((eraseC body).instantiateList (Expr.fvar (d + k) nm tyx' :: ws)) := by
+          ((Expr.instantiateList body (Expr.fvar (d + k) nm tyx' :: ws))) := by
         rw [Expr.instantiateList_cons]
         have := Expr.WScoped.instantiate1 (n := nm) hwty' 0 hwcomp.2
         simpa [Nat.add_assoc] using this
@@ -1171,7 +1171,7 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
         ⟨⟨rfl, rfl, hty'd, (by simpa using hwty')⟩, (by simpa using hstk)⟩
         hwopen
     all_goals
-      dsimp only [ExprC.view, eraseC]
+      dsimp only [ExprC.view]
       rw [annotatePis_succ_ne_pi _ (fun _ _ _ _ h => Expr.noConfusion h)]
       exact annotatePisLeafC_sim ih hs ht' hfvs hstk hw
 
@@ -1240,15 +1240,15 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     obtain ⟨hwc, rfl⟩ := ht
     cases t
     case lam nm ty body mb =>
-      dsimp only [ExprC.view, eraseC] at hw ⊢
+      dsimp only [ExprC.view] at hw ⊢
       rw [annotateLams_succ_lam]
       obtain ⟨hwty, hwbody, -⟩ := hwc.lam_inv
-      have hlamL : (Expr.lam nm (eraseC ty) (eraseC body) mb).instantiateList
-          ws = Expr.lam nm ((eraseC ty).instantiateList ws)
-            ((eraseC body).instantiateList ws 1) mb := by
+      have hlamL : (Expr.lam nm ty body mb).instantiateList
+          ws = Expr.lam nm ((Expr.instantiateList ty ws))
+            ((Expr.instantiateList body ws 1)) mb := by
         simp [Expr.instantiateList]
-      have hwcomp : Expr.WScoped (d + k) ((eraseC ty).instantiateList ws)
-          ∧ Expr.WScoped (d + k) ((eraseC body).instantiateList ws 1) := by
+      have hwcomp : Expr.WScoped (d + k) ((Expr.instantiateList ty ws))
+          ∧ Expr.WScoped (d + k) ((Expr.instantiateList body ws 1)) := by
         rw [hlamL] at hw
         simpa only [Expr.WScoped] using hw
       refine SimC.bind_left
@@ -1262,10 +1262,10 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
         (fun s₃ fv hs₃ hQfv => ?_)
       have hQfv' : RelC fv (Expr.fvar (d + k) nm tyx') := by
         refine ⟨hQfv.1, ?_⟩
-        rw [show eraseC fv = .fvar (d + k) nm (eraseC ty') from hQfv.2,
+        rw [show fv = .fvar (d + k) nm ty' from hQfv.2,
           hty'd.2]
       have hwopen : Expr.WScoped (d + (k + 1))
-          ((eraseC body).instantiateList (Expr.fvar (d + k) nm tyx' :: ws)) := by
+          ((Expr.instantiateList body (Expr.fvar (d + k) nm tyx' :: ws))) := by
         rw [Expr.instantiateList_cons]
         have := Expr.WScoped.instantiate1 (n := nm) hwty' 0 hwcomp.2
         simpa [Nat.add_assoc] using this
@@ -1275,7 +1275,7 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
         ⟨⟨rfl, rfl, hty'd, (by simpa using hwty')⟩, (by simpa using hstk)⟩
         hwopen
     all_goals
-      dsimp only [ExprC.view, eraseC]
+      dsimp only [ExprC.view]
       rw [annotateLams_succ_ne_lam _ (fun _ _ _ _ h => Expr.noConfusion h)]
       exact annotateLamsLeafC_sim ih hs ht' hfvs hstk hw
 

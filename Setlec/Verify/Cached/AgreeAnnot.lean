@@ -86,9 +86,9 @@ def ExprC.erasePwC : ExprC → ExprC
 `Expr.erasePw` under `eraseC`.  Unconditional — the smart
 constructors' erasure lemmas are `rfl`, so no `WFc` is needed. -/
 theorem ExprC.eraseC_erasePwC (e : ExprC) :
-    ExprC.eraseC (ExprC.erasePwC e) = (ExprC.eraseC e).erasePw := by
+    (ExprC.erasePwC e) = e.erasePw := by
   induction e <;>
-    simp [ExprC.erasePwC, ExprC.eraseC, Expr.erasePw, *]
+    simp [ExprC.erasePwC, ExprC, Expr.erasePw, *]
 
 /-- The write touches the `pw` field and nothing else. -/
 theorem annotBinderMetaI_bi (pw? : Option PropWhen) (mb : BinderMeta) :

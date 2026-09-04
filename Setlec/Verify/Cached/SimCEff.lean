@@ -32,7 +32,7 @@ variable {mode : CheckMode}
 (`beq_sound`), and the rest is honest equality. -/
 
 private theorem map_eraseC_of_beq : ∀ {a b : List ExprC}, (a == b) = true →
-    a.map eraseC = b.map eraseC := by
+    a = b := by
   intro a
   induction a with
   | nil =>
@@ -47,13 +47,12 @@ private theorem map_eraseC_of_beq : ∀ {a b : List ExprC}, (a == b) = true →
     | cons y ys =>
       have h' : ((x == y) && (xs == ys)) = true := h
       rw [Bool.and_eq_true] at h'
-      rw [List.map_cons, List.map_cons, ih h'.2,
-        beq_sound h'.1]
+      rw [ih h'.2, beq_sound h'.1]
 
 /-- The components of a `BEq`-equal `instC` key. -/
 private theorem instKey_inv {a c : ExprC} {vs vs' : List ExprC} {d d' : Nat}
     (h : ((a, vs, d) == (c, vs', d')) = true) :
-    eraseC a = eraseC c ∧ vs.map eraseC = vs'.map eraseC ∧ d = d' := by
+    a = c ∧ vs = vs' ∧ d = d' := by
   obtain ⟨h1, h2⟩ := pairKey_inv h
   have h2' : ((vs == vs') && (d == d')) = true := h2
   rw [Bool.and_eq_true] at h2'
@@ -202,7 +201,7 @@ theorem abstractRangeM_eff (hs : CSOK mode env s₀) {e : ExprC} {d k : Nat}
 value it returns bounds the erasure (the port of `bvarBoundM_eff`,
 whose arena leg was `TWF.bvarBoundD_le2`). -/
 theorem bvarBoundM_eff (hs : CSOK mode env s₀) {e : ExprC} (hw : WFc e) :
-    CEff mode env s₀ (fun b => (eraseC e).looseBVarsBounded b = true)
+    CEff mode env s₀ (fun b => (Expr.looseBVarsBounded b e) = true)
       (bvarBoundM e) :=
   CEff.pure hs (bvarB_le hw (Nat.le_refl _))
 
@@ -230,7 +229,8 @@ theorem piResidualM_eff (hs : CSOK mode env s₀) {e : ExprC}
       (piResidualM e args) := by
   refine CEff.pure hs ?_
   have h := piResidual_spec he.1 hargs.1
-  rwa [he.2, hargs.2] at h
+  rw [← he.2, ← hargs.2]
+  exact h
 
 theorem pisToLamsM_eff (hs : CSOK mode env s₀) {k : Nat} {e body : ExprC}
     {x xb : Expr} (he : RelC e x) (hb : RelC body xb) :
@@ -238,7 +238,8 @@ theorem pisToLamsM_eff (hs : CSOK mode env s₀) {k : Nat} {e body : ExprC}
       (pisToLamsM k e body) := by
   refine CEff.pure hs ?_
   have h := pisToLams_spec (k := k) he.1 hb.1
-  rwa [he.2, hb.2] at h
+  rw [← he.2, ← hb.2]
+  exact h
 
 theorem instLevelParamsM_eff (hs : CSOK mode env s₀) {ks : List Name}
     {us : List Level} {e : ExprC} {a : Expr} (he : RelC e a) :
@@ -570,9 +571,9 @@ theorem CSOK.insertInstC {s : CState} (hs : CSOK mode env s)
     {mp : Std.HashMap (ExprC × List ExprC × Nat) ExprC}
     (hmp : ∀ (i : ExprC) (vs' : List ExprC) (d' : Nat) (r' : ExprC),
       mp[(i, vs', d')]? = some r' → WFc r' ∧
-        eraseC r' = (eraseC i).instantiateList (vs'.map eraseC) d')
+        r' = (Expr.instantiateList i vs' d'))
     (hw : WFc r)
-    (hE : eraseC r = (eraseC e).instantiateList (vs.map eraseC) d) :
+    (hE : r = (Expr.instantiateList e vs d)) :
     CSOK mode env { s with instC := mp.insert (e, vs, d) r } := by
   refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
     hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, ?_⟩

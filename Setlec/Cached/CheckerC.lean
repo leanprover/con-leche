@@ -34,17 +34,15 @@ the same seam. -/
 convert back. -/
 def opE (fe : FEnv) (pick : CoreFnsI → Nat → ExprC → CheckCM ExprC)
     (d : Nat) (e : Expr) : CheckCM Expr := do
-  let i := ExprC.ofExpr e
-  let j ← pick (coreKnotI mode fe checkFuel) d i
-  pure (ExprC.toExpr j)
+  pick (coreKnotI mode fe checkFuel) d e
 
 /-- Shared-state definitional-equality entry point. -/
 def opB (fe : FEnv) (d : Nat) (a b : Expr) : CheckCM Bool :=
-  (coreKnotI mode fe checkFuel).defeq d (ExprC.ofExpr a) (ExprC.ofExpr b)
+  (coreKnotI mode fe checkFuel).defeq d a b
 
 /-- Shared-state sort-ensuring entry point. -/
 def opS (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Level :=
-  ensureSortI (coreKnotI mode fe checkFuel) d (ExprC.ofExpr e)
+  ensureSortI (coreKnotI mode fe checkFuel) d e
 
 /-- The per-declaration shared operations at a fixed environment
 index (the clone's `sharedOps`). -/

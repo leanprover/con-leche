@@ -25,7 +25,7 @@ direct-construction apply functions.
 
 The frontend-budgeted tree consumers (basis/quotient pin matching,
 inductive blocks) read their `Expr` trees through the memoized
-`ExprC.toExpr` of the parsed slot — the same bounded-tree contract as
+the parsed slot itself — the same bounded-tree contract as
 the arena's budgeted readback, without the arena.
 -/
 
@@ -89,10 +89,11 @@ private def getDeclD (st : StateD) (j : Json) (key : String)
   st.expr i
 
 /-- Declaration-level *tree* lookup for the bounded consumers (twin of
-`getDeclExpr'`): budgeted, through the memoized `ExprC.toExpr`. -/
+`getDeclExpr'`): budgeted; since task #172 B3a there is one type, so
+the "tree" is the parsed node itself. -/
 private def getDeclExprD (st : StateD) (j : Json) (key : String) : M Expr := do
   let c ← getDeclD st j key (budgeted := true)
-  pure (ExprC.toExpr c.1)
+  pure c.1
 
 /-- Twin of `parsePw` over the direct name table. -/
 private def parsePwD (st : StateD) (j : Json) : M PropWhen := do

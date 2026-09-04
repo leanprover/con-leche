@@ -139,12 +139,12 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} :
     cases ty with
     | forallE nm t b m =>
       obtain ⟨hwt, hwb, -⟩ := hwc.forallE_inv
-      rw [show (eraseC (Expr.forallE nm t b m)).instantiateList ws
-          = .forallE nm ((eraseC t).instantiateList ws)
-              ((eraseC b).instantiateList ws 1) m by
-        simp [eraseC, Expr.instantiateList]] at hwty ⊢
-      have hwtb : Expr.WScoped d ((eraseC t).instantiateList ws)
-          ∧ Expr.WScoped d ((eraseC b).instantiateList ws 1) := by
+      rw [show (Expr.instantiateList (Expr.forallE nm t b m) ws)
+          = .forallE nm ((Expr.instantiateList t ws))
+              ((Expr.instantiateList b ws 1)) m by
+        simp [Expr.instantiateList]] at hwty ⊢
+      have hwtb : Expr.WScoped d ((Expr.instantiateList t ws))
+          ∧ Expr.WScoped d ((Expr.instantiateList b ws 1)) := by
         simpa only [Expr.WScoped] using hwty
       show SimC mode env s₀ RelVC
         (instListM t acc >>= fun dom' =>
@@ -154,10 +154,10 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} :
             (mkFEnv env) d b (a :: acc) as
           else pure false)
         ((fueledFns mode env).infer d x >>= fun ta =>
-          (fueledFns mode env).defeq d ta ((eraseC t).instantiateList ws) >>=
+          (fueledFns mode env).defeq d ta ((Expr.instantiateList t ws)) >>=
             fun r =>
           if r then iotaCerts (fueledFns mode env) env d
-            (((eraseC b).instantiateList ws 1).instantiate1 x) xs
+            (((Expr.instantiateList b ws 1)).instantiate1 x) xs
           else pure false)
       have hwx : Expr.WScoped d x := hwargs x (List.mem_cons_self ..)
       refine SimC.bind_left (instListM_eff (d := 0) hs ⟨hwt, rfl⟩ hacc)
@@ -191,7 +191,7 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} :
             iotaCertsIAux (coreKnotI mode (mkFEnv env) f) (mkFEnv env)
               d ty' [] (a :: as))
           (iotaCerts (fueledFns mode env) env d
-            ((eraseC (Expr.bvar k)).instantiateList (w :: ws'))
+            ((Expr.instantiateList (Expr.bvar k) (w :: ws')))
             (x :: xs))
         refine SimC.bind_left (instListM_eff (d := 0) hs ⟨hwc, rfl⟩ hacc)
           (fun s₁ ty' hs₁ hQty => ?_)
@@ -201,44 +201,44 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} :
           (RelCL.cons hax hasxs) hwargs
         rwa [Expr.instantiateList_nil] at this
     | sort u =>
-      rw [show (eraseC (Expr.sort u)).instantiateList ws
-          = .sort u by simp [eraseC, Expr.instantiateList]]
+      rw [show (Expr.instantiateList (Expr.sort u) ws)
+          = .sort u by simp [Expr.instantiateList]]
       exact SimC.pure hs rfl
     | const nm us =>
-      rw [show (eraseC (Expr.const nm us)).instantiateList ws
-          = .const nm us by simp [eraseC, Expr.instantiateList]]
+      rw [show (Expr.instantiateList (Expr.const nm us) ws)
+          = .const nm us by simp [Expr.instantiateList]]
       exact SimC.pure hs rfl
     | lit l =>
-      rw [show (eraseC (Expr.lit l)).instantiateList ws
-          = .lit l by simp [eraseC, Expr.instantiateList]]
+      rw [show (Expr.instantiateList (Expr.lit l) ws)
+          = .lit l by simp [Expr.instantiateList]]
       exact SimC.pure hs rfl
     | fvar idx nm t =>
-      rw [show (eraseC (Expr.fvar idx nm t)).instantiateList ws
-          = .fvar idx nm (eraseC t) by simp [eraseC, Expr.instantiateList]]
+      rw [show (Expr.instantiateList (Expr.fvar idx nm t) ws)
+          = .fvar idx nm t by simp [Expr.instantiateList]]
       exact SimC.pure hs rfl
     | app f' a' =>
-      rw [show (eraseC (Expr.app f' a')).instantiateList ws
-          = .app ((eraseC f').instantiateList ws)
-              ((eraseC a').instantiateList ws) by
-        simp [eraseC, Expr.instantiateList]]
+      rw [show (Expr.instantiateList (Expr.app f' a') ws)
+          = .app ((Expr.instantiateList f' ws))
+              ((Expr.instantiateList a' ws)) by
+        simp [Expr.instantiateList]]
       exact SimC.pure hs rfl
     | lam nm t b m =>
-      rw [show (eraseC (Expr.lam nm t b m)).instantiateList ws
-          = .lam nm ((eraseC t).instantiateList ws)
-              ((eraseC b).instantiateList ws 1) m by
-        simp [eraseC, Expr.instantiateList]]
+      rw [show (Expr.instantiateList (Expr.lam nm t b m) ws)
+          = .lam nm ((Expr.instantiateList t ws))
+              ((Expr.instantiateList b ws 1)) m by
+        simp [Expr.instantiateList]]
       exact SimC.pure hs rfl
     | letE nm t v b =>
-      rw [show (eraseC (Expr.letE nm t v b)).instantiateList ws
-          = .letE nm ((eraseC t).instantiateList ws)
-              ((eraseC v).instantiateList ws)
-              ((eraseC b).instantiateList ws 1) by
-        simp [eraseC, Expr.instantiateList]]
+      rw [show (Expr.instantiateList (Expr.letE nm t v b) ws)
+          = .letE nm ((Expr.instantiateList t ws))
+              ((Expr.instantiateList v ws))
+              ((Expr.instantiateList b ws 1)) by
+        simp [Expr.instantiateList]]
       exact SimC.pure hs rfl
     | proj sn j e' =>
-      rw [show (eraseC (Expr.proj sn j e')).instantiateList ws
-          = .proj sn j ((eraseC e').instantiateList ws) by
-        simp [eraseC, Expr.instantiateList]]
+      rw [show (Expr.instantiateList (Expr.proj sn j e') ws)
+          = .proj sn j ((Expr.instantiateList e' ws)) by
+        simp [Expr.instantiateList]]
       exact SimC.pure hs rfl
 termination_by args _ acc => (args.length, acc.length)
 decreasing_by
@@ -315,14 +315,14 @@ theorem litToCtorIfNatC_eff {s₀ : CState} (hs : CSOK mode env s₀)
     | _ => pure i)
   refine CEff.view ?_
   obtain ⟨hwc, rfl⟩ := hden
-  have hden : RelC i (eraseC i) := ⟨hwc, rfl⟩
+  have hden : RelC i i := ⟨hwc, rfl⟩
   cases i with
   | lit l =>
     cases l with
     | natVal k =>
       dsimp only [ExprC.view]
       rw [natLitSupportedF_eq]
-      rw [show litToCtorIfNat env (eraseC (Expr.lit (.natVal k))) =
+      rw [show litToCtorIfNat env ((Expr.lit (.natVal k))) =
         (if natLitSupported env then natLitToConstructor k
          else .lit (.natVal k)) from rfl]
       by_cases hg : natLitSupported env
@@ -380,19 +380,19 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
       | _ => pure none)
   refine CEff.withStore ?_
   obtain ⟨hwc, rfl⟩ := hden
-  have hspec : unfoldDefinition env (eraseC i) =
-      (match (eraseC i).getAppFn with
+  have hspec : unfoldDefinition env i =
+      (match (Expr.getAppFn i) with
       | .const n us =>
         match env.find? n with
         | some (.defnInfo cv value _) =>
           if us.length = cv.levelParams.length then
             some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
-              (eraseC i).getAppArgs)
+              (Expr.getAppArgs i))
           else none
         | some (.thmInfo cv value) =>
           if us.length = cv.levelParams.length then
             some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
-              (eraseC i).getAppArgs)
+              (Expr.getAppArgs i))
           else none
         | _ => none
       | _ => none) := rfl
@@ -401,7 +401,7 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
   generalize hg : ExprC.getAppFn i = g at hwfn hfn ⊢
   cases g with
   | const nm us =>
-    have hfn' : (eraseC i).getAppFn = Expr.const nm us := hfn.symm
+    have hfn' : (Expr.getAppFn i) = Expr.const nm us := hfn.symm
     rw [hspec, hfn']
     dsimp only
     refine (readbackNM_eff hs nm).bind ?_
@@ -445,43 +445,43 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
       | recInfo cv mI rP rules => exact CEff.pure hs trivial
       | projInfo entry => exact CEff.pure hs trivial
   | bvar k =>
-    have hfn' : (eraseC i).getAppFn = Expr.bvar k := hfn.symm
+    have hfn' : (Expr.getAppFn i) = Expr.bvar k := hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | sort u =>
-    have hfn' : (eraseC i).getAppFn = Expr.sort u := hfn.symm
+    have hfn' : (Expr.getAppFn i) = Expr.sort u := hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | lit l =>
-    have hfn' : (eraseC i).getAppFn = Expr.lit l := hfn.symm
+    have hfn' : (Expr.getAppFn i) = Expr.lit l := hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | fvar idx nm t =>
-    have hfn' : (eraseC i).getAppFn = Expr.fvar idx nm (eraseC t) := hfn.symm
+    have hfn' : (Expr.getAppFn i) = Expr.fvar idx nm t := hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | app f' a' =>
-    have hfn' : (eraseC i).getAppFn = Expr.app (eraseC f') (eraseC a') :=
+    have hfn' : (Expr.getAppFn i) = Expr.app f' a' :=
       hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | lam nm t b m =>
-    have hfn' : (eraseC i).getAppFn = Expr.lam nm (eraseC t) (eraseC b) m :=
+    have hfn' : (Expr.getAppFn i) = Expr.lam nm t b m :=
       hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | forallE nm t b m =>
-    have hfn' : (eraseC i).getAppFn
-        = Expr.forallE nm (eraseC t) (eraseC b) m := hfn.symm
+    have hfn' : (Expr.getAppFn i)
+        = Expr.forallE nm t b m := hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | letE nm t v b =>
-    have hfn' : (eraseC i).getAppFn
-        = Expr.letE nm (eraseC t) (eraseC v) (eraseC b) := hfn.symm
+    have hfn' : (Expr.getAppFn i)
+        = Expr.letE nm t v b := hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | proj sn j e' =>
-    have hfn' : (eraseC i).getAppFn = Expr.proj sn j (eraseC e') := hfn.symm
+    have hfn' : (Expr.getAppFn i) = Expr.proj sn j e' := hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
 
@@ -519,14 +519,14 @@ theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     (litMajorToCtor (fueledFns mode env) env d e)
   refine SimC.view ?_
   obtain ⟨hwc, rfl⟩ := hden
-  have hden : RelC i (eraseC i) := ⟨hwc, rfl⟩
+  have hden : RelC i i := ⟨hwc, rfl⟩
   cases i with
   | lit l =>
     cases l with
     | strVal str =>
       dsimp only [ExprC.view]
       rw [show litMajorToCtor (fueledFns mode env) env d
-          (eraseC (Expr.lit (.strVal str))) =
+          ((Expr.lit (.strVal str))) =
         (if strLitSupported env then
           (fueledFns mode env).whnf d (strLitToConstructor str)
          else pure (.lit (.strVal str))) from rfl]
@@ -589,14 +589,14 @@ theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     (projLitToCtor (fueledFns mode env) env d e)
   refine SimC.view ?_
   obtain ⟨hwc, rfl⟩ := hden
-  have hden : RelC i (eraseC i) := ⟨hwc, rfl⟩
+  have hden : RelC i i := ⟨hwc, rfl⟩
   cases i with
   | lit l =>
     cases l with
     | strVal str =>
       dsimp only [ExprC.view]
       rw [show projLitToCtor (fueledFns mode env) env d
-          (eraseC (Expr.lit (.strVal str))) =
+          ((Expr.lit (.strVal str))) =
         (if strLitSupported env then
           (fueledFns mode env).whnf d (strLitToConstructor str)
          else pure (.lit (.strVal str))) from rfl]
@@ -651,26 +651,26 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
   refine SimC.withStore ?_
   obtain ⟨hwca, rfl⟩ := hdena
   obtain ⟨hwcb, rfl⟩ := hdenb
-  have hspec : defeqSpine (fueledFns mode env) env d (eraseC i) (eraseC j) =
-      (match (eraseC i).getAppFn with
+  have hspec : defeqSpine (fueledFns mode env) env d i j =
+      (match (Expr.getAppFn i) with
       | .const nm us =>
-        match (eraseC j).getAppFn with
+        match (Expr.getAppFn j) with
         | .const nm' us' =>
           if nm = nm' ∧
-              (eraseC i).getAppArgs.length = (eraseC j).getAppArgs.length then
+              (Expr.getAppArgs i).length = (Expr.getAppArgs j).length then
             match Level.isEquivList us us' with
             | some true =>
               defEqList (fueledFns mode env) env d
-                (eraseC i).getAppArgs (eraseC j).getAppArgs
+                (Expr.getAppArgs i) (Expr.getAppArgs j)
             | _ => pure false
           else pure false
         | _ => pure false
       | _ => pure false) := rfl
   have haargs := ExprC.getAppArgs_spec hwca
   have hbargs := ExprC.getAppArgs_spec hwcb
-  have hlena : (ExprC.getAppArgs i).length = (eraseC i).getAppArgs.length :=
+  have hlena : (ExprC.getAppArgs i).length = (Expr.getAppArgs i).length :=
     RelCL.length haargs
-  have hlenb : (ExprC.getAppArgs j).length = (eraseC j).getAppArgs.length :=
+  have hlenb : (ExprC.getAppArgs j).length = (Expr.getAppArgs j).length :=
     RelCL.length hbargs
   obtain ⟨hwfa, hfa⟩ := ExprC.getAppFn_spec hwca
   obtain ⟨hwfb, hfb⟩ := ExprC.getAppFn_spec hwcb
@@ -678,21 +678,21 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
   generalize hga : ExprC.getAppFn i = ga at hwfa hfa ⊢
   cases ga with
   | const nm us =>
-    have hfa' : (eraseC i).getAppFn = Expr.const nm us := hfa.symm
+    have hfa' : (Expr.getAppFn i) = Expr.const nm us := hfa.symm
     rw [hspec, hfa']
     dsimp only
     refine SimC.withStore ?_
     generalize hgb : ExprC.getAppFn j = gb at hwfb hfb ⊢
     cases gb with
     | const nm' us' =>
-      have hfb' : (eraseC j).getAppFn = Expr.const nm' us' := hfb.symm
+      have hfb' : (Expr.getAppFn j) = Expr.const nm' us' := hfb.symm
       rw [hfb']
       dsimp only
       refine SimC.withStore ?_
       refine SimC.withStore ?_
       simp only [CStore.getAppArgsI, hlena, hlenb]
       by_cases hcnd : nm = nm' ∧
-          (eraseC i).getAppArgs.length = (eraseC j).getAppArgs.length
+          (Expr.getAppArgs i).length = (Expr.getAppArgs j).length
       · rw [if_pos hcnd, if_pos hcnd]
         refine SimC.bind_left (isEquivListLM_eff hs) ?_
         intro s₁ ob hs₁ hob
@@ -708,69 +708,69 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
       · rw [if_neg hcnd, if_neg hcnd]
         exact SimC.pure hs rfl
     | bvar k =>
-      rw [show (eraseC j).getAppFn = Expr.bvar k from hfb.symm]
+      rw [show (Expr.getAppFn j) = Expr.bvar k from hfb.symm]
       exact SimC.pure hs rfl
     | sort u' =>
-      rw [show (eraseC j).getAppFn = Expr.sort u' from hfb.symm]
+      rw [show (Expr.getAppFn j) = Expr.sort u' from hfb.symm]
       exact SimC.pure hs rfl
     | lit l' =>
-      rw [show (eraseC j).getAppFn = Expr.lit l' from hfb.symm]
+      rw [show (Expr.getAppFn j) = Expr.lit l' from hfb.symm]
       exact SimC.pure hs rfl
     | fvar idx' nm₂ t' =>
-      rw [show (eraseC j).getAppFn = Expr.fvar idx' nm₂ (eraseC t')
+      rw [show (Expr.getAppFn j) = Expr.fvar idx' nm₂ t'
         from hfb.symm]
       exact SimC.pure hs rfl
     | app f₂ a₂ =>
-      rw [show (eraseC j).getAppFn = Expr.app (eraseC f₂) (eraseC a₂)
+      rw [show (Expr.getAppFn j) = Expr.app (f₂) (a₂)
         from hfb.symm]
       exact SimC.pure hs rfl
     | lam nm₂ t' b' m' =>
-      rw [show (eraseC j).getAppFn
-        = Expr.lam nm₂ (eraseC t') (eraseC b') m' from hfb.symm]
+      rw [show (Expr.getAppFn j)
+        = Expr.lam nm₂ t' b' m' from hfb.symm]
       exact SimC.pure hs rfl
     | forallE nm₂ t' b' m' =>
-      rw [show (eraseC j).getAppFn
-        = Expr.forallE nm₂ (eraseC t') (eraseC b') m' from hfb.symm]
+      rw [show (Expr.getAppFn j)
+        = Expr.forallE nm₂ t' b' m' from hfb.symm]
       exact SimC.pure hs rfl
     | letE nm₂ t' v' b' =>
-      rw [show (eraseC j).getAppFn
-        = Expr.letE nm₂ (eraseC t') (eraseC v') (eraseC b') from hfb.symm]
+      rw [show (Expr.getAppFn j)
+        = Expr.letE nm₂ t' v' b' from hfb.symm]
       exact SimC.pure hs rfl
     | proj sn' j' e' =>
-      rw [show (eraseC j).getAppFn = Expr.proj sn' j' (eraseC e')
+      rw [show (Expr.getAppFn j) = Expr.proj sn' j' e'
         from hfb.symm]
       exact SimC.pure hs rfl
   | bvar k =>
-    rw [hspec, show (eraseC i).getAppFn = Expr.bvar k from hfa.symm]
+    rw [hspec, show (Expr.getAppFn i) = Expr.bvar k from hfa.symm]
     exact SimC.pure hs rfl
   | sort u =>
-    rw [hspec, show (eraseC i).getAppFn = Expr.sort u from hfa.symm]
+    rw [hspec, show (Expr.getAppFn i) = Expr.sort u from hfa.symm]
     exact SimC.pure hs rfl
   | lit l =>
-    rw [hspec, show (eraseC i).getAppFn = Expr.lit l from hfa.symm]
+    rw [hspec, show (Expr.getAppFn i) = Expr.lit l from hfa.symm]
     exact SimC.pure hs rfl
   | fvar idx nm t =>
-    rw [hspec, show (eraseC i).getAppFn = Expr.fvar idx nm (eraseC t)
+    rw [hspec, show (Expr.getAppFn i) = Expr.fvar idx nm t
       from hfa.symm]
     exact SimC.pure hs rfl
   | app f' a' =>
-    rw [hspec, show (eraseC i).getAppFn = Expr.app (eraseC f') (eraseC a')
+    rw [hspec, show (Expr.getAppFn i) = Expr.app f' a'
       from hfa.symm]
     exact SimC.pure hs rfl
   | lam nm t b' m =>
-    rw [hspec, show (eraseC i).getAppFn
-      = Expr.lam nm (eraseC t) (eraseC b') m from hfa.symm]
+    rw [hspec, show (Expr.getAppFn i)
+      = Expr.lam nm t b' m from hfa.symm]
     exact SimC.pure hs rfl
   | forallE nm t b' m =>
-    rw [hspec, show (eraseC i).getAppFn
-      = Expr.forallE nm (eraseC t) (eraseC b') m from hfa.symm]
+    rw [hspec, show (Expr.getAppFn i)
+      = Expr.forallE nm t b' m from hfa.symm]
     exact SimC.pure hs rfl
   | letE nm t v b' =>
-    rw [hspec, show (eraseC i).getAppFn
-      = Expr.letE nm (eraseC t) (eraseC v) (eraseC b') from hfa.symm]
+    rw [hspec, show (Expr.getAppFn i)
+      = Expr.letE nm t v b' from hfa.symm]
     exact SimC.pure hs rfl
   | proj sn j' e' =>
-    rw [hspec, show (eraseC i).getAppFn = Expr.proj sn j' (eraseC e')
+    rw [hspec, show (Expr.getAppFn i) = Expr.proj sn j' e'
       from hfa.symm]
     exact SimC.pure hs rfl
 
@@ -887,14 +887,14 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
   cases i with
   | app f₁ b =>
     obtain ⟨hwf₁, hwb, -⟩ := hwc.app_inv
-    rw [show eraseC (Expr.app f₁ b)
-        = Expr.app (eraseC f₁) (eraseC b) from rfl] at hw ⊢
-    have hwfb : Expr.WScoped d (eraseC f₁) ∧ Expr.WScoped d (eraseC b) := by
+    rw [show (Expr.app f₁ b)
+        = Expr.app (f₁) b from rfl] at hw ⊢
+    have hwfb : Expr.WScoped d (f₁) ∧ Expr.WScoped d b := by
       simpa only [Expr.WScoped] using hw
     refine SimC.view ?_
     cases f₁ with
     | const c us =>
-      rw [show eraseC (Expr.const c us)
+      rw [show (Expr.const c us)
           = Expr.const c us from rfl]
       cases us with
       | cons u us' => exact SimC.pure hs trivial
@@ -903,24 +903,24 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
           (fun s₀' cv hs hcv => ?_)
         subst hcv
         rw [show reduceNat (fueledFns mode env) env d
-          (.app (.const cv []) (eraseC b)) =
+          (.app (.const cv []) b) =
           (if cv = natSuccName ∧ natLitSupported env then
-            (fueledFns mode env).whnf d (eraseC b) >>= fun w =>
+            (fueledFns mode env).whnf d b >>= fun w =>
             match rawNatLit? w with
             | some n => pure (some (.lit (.natVal (n + 1))))
             | none => pure none
           else if cv = natPredName ∧ natOpStored env cv = true then
-            (fueledFns mode env).whnf d (eraseC b) >>= fun w =>
+            (fueledFns mode env).whnf d b >>= fun w =>
             match rawNatLit? w with
             | some n => pure (natOpResult cv n 0)
             | none => pure none
           else if cv = natLog2Name ∧ natOpStored env cv = true then
-            (fueledFns mode env).whnf d (eraseC b) >>= fun w =>
+            (fueledFns mode env).whnf d b >>= fun w =>
             match rawNatLit? w with
             | some n => pure (natOpResult cv n 0)
             | none => pure none
           else if cv = natLog2Name ∧ natLitSupported env then
-            (fueledFns mode env).whnf d (eraseC b) >>= fun w =>
+            (fueledFns mode env).whnf d b >>= fun w =>
             match rawNatLit? w with
             | some _ => throw (.notImplemented
                 s!"native Nat computation on literals ({cv})")
@@ -997,14 +997,14 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
                 exact SimC.pure hs trivial
     | app f₂ a =>
       obtain ⟨hwf₂, hwa, -⟩ := hwf₁.app_inv
-      rw [show eraseC (Expr.app f₂ a)
-          = Expr.app (eraseC f₂) (eraseC a) from rfl] at hwfb ⊢
-      have hwf₂a : Expr.WScoped d (eraseC f₂) ∧ Expr.WScoped d (eraseC a) := by
+      rw [show (Expr.app f₂ a)
+          = Expr.app (f₂) a from rfl] at hwfb ⊢
+      have hwf₂a : Expr.WScoped d (f₂) ∧ Expr.WScoped d a := by
         simpa only [Expr.WScoped] using hwfb.1
       refine SimC.view ?_
       cases f₂ with
       | const c us =>
-        rw [show eraseC (Expr.const c us)
+        rw [show (Expr.const c us)
             = Expr.const c us from rfl]
         cases us with
         | cons u us' => exact SimC.pure hs trivial
@@ -1013,21 +1013,21 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
             (fun s₀' cv hs hcv => ?_)
           subst hcv
           rw [show reduceNat (fueledFns mode env) env d
-            (.app (.app (.const cv []) (eraseC a)) (eraseC b)) =
+            (.app (.app (.const cv []) a) b) =
             (if (cv = natAddName ∨ cv = natSubName ∨ cv = natMulName ∨
                 cv = natPowName ∨ cv = natBeqName ∨ cv = natBleName ∨
                 cv = natDivName ∨ cv = natModName ∨ cv = natGcdName ∨
                 cv = natLandName ∨ cv = natLorName ∨ cv = natXorName ∨
                 cv = natShiftLeftName ∨ cv = natShiftRightName) ∧
                 natOpStored env cv = true then
-              (fueledFns mode env).whnf d (eraseC a) >>= fun w₁ =>
-              (fueledFns mode env).whnf d (eraseC b) >>= fun w₂ =>
+              (fueledFns mode env).whnf d a >>= fun w₁ =>
+              (fueledFns mode env).whnf d b >>= fun w₂ =>
               match rawNatLit? w₁, rawNatLit? w₂ with
               | some n₁, some n₂ => pure (natOpResult cv n₁ n₂)
               | _, _ => pure none
             else if natOpWfNames.contains cv ∧ natLitSupported env then
-              (fueledFns mode env).whnf d (eraseC a) >>= fun w₁ =>
-              (fueledFns mode env).whnf d (eraseC b) >>= fun w₂ =>
+              (fueledFns mode env).whnf d a >>= fun w₁ =>
+              (fueledFns mode env).whnf d b >>= fun w₂ =>
               match rawNatLit? w₁, rawNatLit? w₂ with
               | some _, some _ => throw (.notImplemented
                   s!"native Nat computation on literals ({cv})")

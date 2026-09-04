@@ -7,15 +7,17 @@ import Setlec.Verify.ILevel
 # The cached-core faithfulness kit (task #163, batch 5)
 
 The relation and combinators for proving that the cached clone core
-(`Setlec/Cached/CoreC.lean`) simulates the pure fueled families under
-the *erasure* — the port of `Setlec/Verify/SimI.lean` minus the arena.
+(`Setlec/Cached/CoreC.lean`) simulates the pure fueled families — the
+port of `Setlec/Verify/SimI.lean` minus the arena, and (task #172 B3a)
+minus the erasure: the cached and pure sides are *the same terms*, so
+the value relation is equality.
 
 * `CSOK mode env s` — the cached-state invariant: the lazy
   stored-constant caches hold `RelC`-related conversions of the
   level-instantiated stored data and every entry-point memo entry is
   backed by a pure run at some fuel, valid at every depth at which the
-  key is well scoped (`ISOK`'s `CacheOK` shape, transported along
-  `eraseC` instead of `denote`).
+  key is well scoped (`ISOK`'s `CacheOK` shape, with no denotation to
+  transport along).
 * `SimC mode env s₀ P c p` — a successful cached run of `c` from `s₀`
   preserves `CSOK` and produces a value `P`-related to a successful run
   of the fueled computation `p` at some fuel.
@@ -29,9 +31,9 @@ is **state-free** (no denotation to transport).  Everything else keeps
 edits.
 
 Memo clauses obey the binding rule of the P1 freeze: a clause asserts
-`WFc` of *stored values* and facts that are a function of the key's
-**erasure**, never `WFc` of keys — a `beq` collision pins the stored
-key to the query only up to erasure (`beq_sound`).
+facts that are a **function of the key**, never `WFc` of keys — a `beq`
+collision pins the stored key to the query (`beq_sound`, which since
+B3a is `eq_of_beq`).
 -/
 
 namespace Setlec.Cached
@@ -179,34 +181,34 @@ end ListKey
 
 /-! ## The value relations -/
 
-/-- The cached counterpart of a denotation fact: the node satisfies the
-field invariant and erases to the pure value.  State-free — there is no
-arena to be relative to. -/
-def RelC (v' : ExprC) (v : Expr) : Prop := WFc v' ∧ eraseC v' = v
+/-- The cached counterpart of a denotation fact.  State-free — there is
+no arena to be relative to — and, since task #172 B3a, *equality*: the
+`WFc` conjunct is vacuous and the second is `v' = v` on one type.  It
+is kept as a named relation because the whole `DiscC` family is written
+in it; collapsing it to `Eq` is the follow-up batch's first row. -/
+def RelC (v' : ExprC) (v : Expr) : Prop := WFc v' ∧ v' = v
 
 theorem RelC.wf {v' : ExprC} {v : Expr} (h : RelC v' v) : WFc v' := h.1
 
 theorem RelC.erase {v' : ExprC} {v : Expr} (h : RelC v' v) :
-    eraseC v' = v := h.2
+    v' = v := h.2
 
 /-- `RelC` determines the pure value. -/
 theorem RelC.det {v' : ExprC} {a b : Expr} (ha : RelC v' a)
     (hb : RelC v' b) : a = b := ha.2.symm.trans hb.2
 
-/-- `RelC` determines the cached value (erasure is injective on the
-invariant). -/
+/-- `RelC` determines the cached value. -/
 theorem RelC.det' {a b : ExprC} {v : Expr} (ha : RelC a v)
-    (hb : RelC b v) : a = b :=
-  eraseC_inj ha.1 hb.1 (ha.2.trans hb.2.symm)
+    (hb : RelC b v) : a = b := ha.2.trans hb.2.symm
 
 /-- The conversion of a pure expression is always related to it. -/
 theorem RelC.ofExpr (x : Expr) : RelC (ExprC.ofExpr x) x :=
-  ⟨WFc_ofExpr x, eraseC_ofExpr x⟩
+  ⟨WFc_ofExpr x, ofExpr_eq_self x⟩
 
 /-- The list-level relation: the `DiscC` walks' replacement for the
 arena's `DenL`. -/
 def RelCL (l : List ExprC) (xs : List Expr) : Prop :=
-  WFcL l ∧ l.map eraseC = xs
+  WFcL l ∧ l = xs
 
 namespace RelCL
 
@@ -214,37 +216,37 @@ theorem nil : RelCL [] [] := ⟨WFcL.nil, rfl⟩
 
 theorem cons {x : ExprC} {v : Expr} {l : List ExprC} {xs : List Expr}
     (hx : RelC x v) (hl : RelCL l xs) : RelCL (x :: l) (v :: xs) :=
-  ⟨WFcL.cons hx.1 hl.1, by rw [List.map_cons, hx.2, hl.2]⟩
+  ⟨WFcL.cons hx.1 hl.1, by rw [hx.2, hl.2]⟩
 
 theorem wf {l : List ExprC} {xs : List Expr} (h : RelCL l xs) : WFcL l := h.1
 
-/-- The `map eraseC` projection. -/
+/-- The list projection. -/
 theorem map {l : List ExprC} {xs : List Expr} (h : RelCL l xs) :
-    l.map eraseC = xs := h.2
+    l = xs := h.2
 
 /-- The relation is `WFcL` plus the projection, so it is exactly
 determined by them. -/
 theorem intro {l : List ExprC} {xs : List Expr} (hw : WFcL l)
-    (hm : l.map eraseC = xs) : RelCL l xs := ⟨hw, hm⟩
+    (hm : l = xs) : RelCL l xs := ⟨hw, hm⟩
 
 theorem nil_inv {xs : List Expr} (h : RelCL [] xs) : xs = [] := h.2.symm
 
 theorem cons_inv {x : ExprC} {l : List ExprC} {xs : List Expr}
     (h : RelCL (x :: l) xs) :
     ∃ v vs, xs = v :: vs ∧ RelC x v ∧ RelCL l vs :=
-  ⟨eraseC x, l.map eraseC, h.2.symm, ⟨h.1.head, rfl⟩, ⟨h.1.tail, rfl⟩⟩
+  ⟨x, l, h.2.symm, ⟨h.1.head, rfl⟩, ⟨h.1.tail, rfl⟩⟩
 
 theorem length {l : List ExprC} {xs : List Expr} (h : RelCL l xs) :
-    l.length = xs.length := by rw [← h.2, List.length_map]
+    l.length = xs.length := by rw [h.2]
 
 theorem append {l₁ l₂ : List ExprC} {xs₁ xs₂ : List Expr}
     (h₁ : RelCL l₁ xs₁) (h₂ : RelCL l₂ xs₂) :
     RelCL (l₁ ++ l₂) (xs₁ ++ xs₂) :=
-  ⟨WFcL.append h₁.1 h₂.1, by rw [List.map_append, h₁.2, h₂.2]⟩
+  ⟨WFcL.append h₁.1 h₂.1, by rw [h₁.2, h₂.2]⟩
 
 theorem reverse {l : List ExprC} {xs : List Expr} (h : RelCL l xs) :
     RelCL l.reverse xs.reverse :=
-  ⟨WFcL.reverse h.1, by rw [List.map_reverse, h.2]⟩
+  ⟨WFcL.reverse h.1, by rw [h.2]⟩
 
 /-- `RelCL` determines the pure list. -/
 theorem det {l : List ExprC} {xs ys : List Expr} (hx : RelCL l xs)
@@ -277,20 +279,20 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
     rules.find? (fun r' => r'.ctor == j) = some rl ∧
     RelC i (rl.rhs.instantiateLevelParams cv.levelParams us)
   whnfCoreC : ∀ k v, s.whnfCoreC[k]? = some v → WFc v ∧
-    ∃ F, ∀ d, (eraseC k).wscopedB d = true →
-      whnfCore mode env F d (eraseC k) = .ok (eraseC v)
+    ∃ F, ∀ d, (Expr.wscopedB d k) = true →
+      whnfCore mode env F d k = .ok v
   whnfC : ∀ k v, s.whnfC[k]? = some v → WFc v ∧
-    ∃ F, ∀ d, (eraseC k).wscopedB d = true →
-      whnf mode env F d (eraseC k) = .ok (eraseC v)
+    ∃ F, ∀ d, (Expr.wscopedB d k) = true →
+      whnf mode env F d k = .ok v
   inferC : ∀ k v, s.inferC[k]? = some v → WFc v ∧
-    ∃ F, ∀ d, (eraseC k).wscopedB d = true →
-      inferTypeCore mode env F d (eraseC k) = .ok (eraseC v)
+    ∃ F, ∀ d, (Expr.wscopedB d k) = true →
+      inferTypeCore mode env F d k = .ok v
   annotC : ∀ k v, s.annotC[k]? = some v → WFc v ∧
-    ∃ F, ∀ d, (eraseC k).wscopedB d = true →
-      annotateCore mode env F d (eraseC k) = .ok (eraseC v)
+    ∃ F, ∀ d, (Expr.wscopedB d k) = true →
+      annotateCore mode env F d k = .ok v
   defeqC : ∀ a b r, s.defeqC[(a, b)]? = some r →
-    ∃ F, ∀ d, (eraseC a).wscopedB d = true → (eraseC b).wscopedB d = true →
-      isDefEqCore mode env F d (eraseC a) (eraseC b) = .ok r
+    ∃ F, ∀ d, (Expr.wscopedB d a) = true → (Expr.wscopedB d b) = true →
+      isDefEqCore mode env F d a b = .ok r
   lsimp : ∀ u v, s.lsimpC[u]? = some v → v = Level.simplify u
   lnz : ∀ u b, s.lnzC[u]? = some b → b = Level.isNonZero u
   eqv : ∀ l r b, s.eqvC[(l, r)]? = some b → Level.isEquiv l r = some b
@@ -303,7 +305,7 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
     ∀ vE vi, ent.val = some (vE, vi) → RelC vi vE
   instC : ∀ (k : ExprC) (vs : List ExprC) (d : Nat) (r : ExprC),
     s.instC[(k, vs, d)]? = some r → WFc r ∧
-      eraseC r = (eraseC k).instantiateList (vs.map eraseC) d
+      r = (Expr.instantiateList k vs d)
 
 /-- The environment-free residue: exactly the clauses `flushC`
 preserves — the level-operation memos and the self-certifying

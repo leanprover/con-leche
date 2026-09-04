@@ -87,11 +87,11 @@ theorem projFieldDomC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     obtain ⟨hwc, rfl⟩ := hdt
     cases tel with
     | forallE nmN dom rest mbN =>
-      dsimp only [eraseC, ExprC.view]
+      dsimp only [ExprC.view]
       obtain ⟨hdomc, hrestc, -⟩ := hwc.forallE_inv
-      have hw' : Expr.WScoped d (eraseC dom) ∧ Expr.WScoped d (eraseC rest) := by
+      have hw' : Expr.WScoped d dom ∧ Expr.WScoped d rest := by
         have hw2 : Expr.WScoped d
-          (Expr.forallE nmN (eraseC dom) (eraseC rest) mbN) := hwtel
+          (Expr.forallE nmN dom rest mbN) := hwtel
         simpa only [Expr.WScoped] using hw2
       exact SimC.pure hs ⟨⟨hdomc, rfl⟩, hw'.1⟩
     | bvar k => exact SimC.throw
@@ -109,21 +109,21 @@ theorem projFieldDomC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     obtain ⟨hwc, rfl⟩ := hdt
     cases tel with
     | forallE nmN dom rest mbN =>
-      dsimp only [eraseC, ExprC.view]
+      dsimp only [ExprC.view]
       obtain ⟨hdomc, hrestc, -⟩ := hwc.forallE_inv
-      have hw' : Expr.WScoped d (eraseC dom) ∧ Expr.WScoped d (eraseC rest) := by
+      have hw' : Expr.WScoped d dom ∧ Expr.WScoped d rest := by
         have hw2 : Expr.WScoped d
-          (Expr.forallE nmN (eraseC dom) (eraseC rest) mbN) := hwtel
+          (Expr.forallE nmN dom rest mbN) := hwtel
         simpa only [Expr.WScoped] using hw2
       have hwpj : Expr.WScoped d (Expr.proj sn jj e'x) := by
         simpa only [Expr.WScoped] using hwe
       have hwrest' : Expr.WScoped d
-          ((eraseC rest).instantiate1 (.proj sn jj e'x)) :=
+          ((Expr.instantiate1 rest (.proj sn jj e'x))) :=
         Expr.WScoped.instantiate1_gen hwpj 0 hw'.2
       dsimp only [projFieldDom]
       refine SimC.withStore ?_
       rw [looseBVarsBoundedI_spec hrestc rfl]
-      by_cases hcl : (eraseC rest).looseBVarsBounded 0 = true
+      by_cases hcl : (Expr.looseBVarsBounded 0 rest) = true
       · rw [if_pos hcl, if_pos hcl]
         exact projFieldDomC_sim ih henv hde hwe k (jj + 1) hs
           ⟨hrestc, rfl⟩ hw'.2
@@ -145,7 +145,7 @@ theorem projFieldDomC_sim (ih : SSimC mode env f) (henv : EnvWF env)
               (fun s₂ pj hs₂ hQpj => ?_)
             have hQpj' : RelC pj (Expr.proj sn jj e'x) :=
               ⟨hQpj.1, by
-                have h2 : eraseC pj = Expr.proj sn jj (eraseC e') := hQpj.2
+                have h2 : pj = Expr.proj sn jj e' := hQpj.2
                 rw [h2, hde.2]⟩
             refine SimC.bind_left (inst1M_eff hs₂ ⟨hrestc, rfl⟩ hQpj')
               (fun s₃ rest' hs₃ hQr => ?_)
@@ -158,7 +158,7 @@ theorem projFieldDomC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             (fun s₂ pj hs₂ hQpj => ?_)
           have hQpj' : RelC pj (Expr.proj sn jj e'x) :=
             ⟨hQpj.1, by
-              have h2 : eraseC pj = Expr.proj sn jj (eraseC e') := hQpj.2
+              have h2 : pj = Expr.proj sn jj e' := hQpj.2
               rw [h2, hde.2]⟩
           refine SimC.bind_left (inst1M_eff hs₂ ⟨hrestc, rfl⟩ hQpj')
             (fun s₃ rest' hs₃ hQr => ?_)
@@ -236,8 +236,8 @@ private theorem annotateProjRecC_rest (ih : SSimC mode env f)
   have hQmot' : RelC motive
       (Expr.lam (.str .anonymous "t") tex fix ⟨.default, .never⟩) :=
     ⟨hQmot.1, by
-      have h2 : eraseC motive =
-        Expr.lam (.str .anonymous "t") (eraseC te) (eraseC fi)
+      have h2 : motive =
+        Expr.lam (.str .anonymous "t") te fi
           ⟨.default, .never⟩ := hQmot.2
       rw [h2, hte.2, hfi.2]⟩
   refine SimC.bind_left (mkAppNM_eff hs₂ hQrec'
@@ -401,15 +401,15 @@ theorem annotateProjElimC_sim (ih : SSimC mode env f) (henv : EnvWF env)
   unfold annotateProjElim
   refine SimC.withStore ?_
   obtain ⟨hwc, rfl⟩ := hte
-  have hte : RelC te (eraseC te) := ⟨hwc, rfl⟩
-  have htargs : RelCL (ExprC.getAppArgs te) (eraseC te).getAppArgs :=
+  have hte : RelC te te := ⟨hwc, rfl⟩
+  have htargs : RelCL (ExprC.getAppArgs te) (Expr.getAppArgs te) :=
     ExprC.getAppArgs_spec hwc
   obtain ⟨hwfn, hfn⟩ := ExprC.getAppFn_spec hwc
   dsimp only [CStore.getNode, CStore.getAppFnI]
   generalize hgn : ExprC.getAppFn te = g at hwfn hfn ⊢
   cases g with
   | const T us =>
-    rw [show (eraseC te).getAppFn = Expr.const T us from hfn.symm]
+    rw [show (Expr.getAppFn te) = Expr.const T us from hfn.symm]
     dsimp only
     refine SimC.bind_left (readbackNM_eff hs T)
       (fun s₀T Tw hs hTw => ?_)
@@ -466,36 +466,36 @@ theorem annotateProjElimC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     · rw [if_neg hT, if_neg hT]
       exact SimC.throw
   | bvar k =>
-    rw [show (eraseC te).getAppFn = Expr.bvar k from hfn.symm]
+    rw [show (Expr.getAppFn te) = Expr.bvar k from hfn.symm]
     exact SimC.throw
   | sort u =>
-    rw [show (eraseC te).getAppFn = Expr.sort u from hfn.symm]
+    rw [show (Expr.getAppFn te) = Expr.sort u from hfn.symm]
     exact SimC.throw
   | lit l =>
-    rw [show (eraseC te).getAppFn = Expr.lit l from hfn.symm]
+    rw [show (Expr.getAppFn te) = Expr.lit l from hfn.symm]
     exact SimC.throw
   | fvar idx nmN t =>
-    rw [show (eraseC te).getAppFn = Expr.fvar idx nmN (eraseC t)
+    rw [show (Expr.getAppFn te) = Expr.fvar idx nmN t
       from hfn.symm]
     exact SimC.throw
   | app f' a' =>
-    rw [show (eraseC te).getAppFn = Expr.app (eraseC f') (eraseC a')
+    rw [show (Expr.getAppFn te) = Expr.app f' a'
       from hfn.symm]
     exact SimC.throw
   | lam nmN t b m =>
-    rw [show (eraseC te).getAppFn = Expr.lam nmN (eraseC t) (eraseC b) m
+    rw [show (Expr.getAppFn te) = Expr.lam nmN t b m
       from hfn.symm]
     exact SimC.throw
   | forallE nmN t b m =>
-    rw [show (eraseC te).getAppFn = Expr.forallE nmN (eraseC t) (eraseC b) m
+    rw [show (Expr.getAppFn te) = Expr.forallE nmN t b m
       from hfn.symm]
     exact SimC.throw
   | letE nmN t v b =>
-    rw [show (eraseC te).getAppFn
-      = Expr.letE nmN (eraseC t) (eraseC v) (eraseC b) from hfn.symm]
+    rw [show (Expr.getAppFn te)
+      = Expr.letE nmN t v b from hfn.symm]
     exact SimC.throw
   | proj s'N j' e'' =>
-    rw [show (eraseC te).getAppFn = Expr.proj s'N j' (eraseC e'')
+    rw [show (Expr.getAppFn te) = Expr.proj s'N j' e''
       from hfn.symm]
     exact SimC.throw
 
@@ -509,24 +509,24 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
   unfold annotateBodyI
   refine SimC.view ?_
   obtain ⟨hwc, rfl⟩ := hden
-  have hden : RelC i (eraseC i) := ⟨hwc, rfl⟩
+  have hden : RelC i i := ⟨hwc, rfl⟩
   cases i with
   | bvar k =>
-    dsimp only [eraseC, ExprC.view]
+    dsimp only [ExprC.view]
     exact SimC.pure hs ⟨hden, hw⟩
   | sort u =>
-    dsimp only [eraseC, ExprC.view]
+    dsimp only [ExprC.view]
     exact SimC.pure hs ⟨hden, hw⟩
   | const nmN us =>
-    dsimp only [eraseC, ExprC.view]
+    dsimp only [ExprC.view]
     exact SimC.pure hs ⟨hden, hw⟩
   | letE nmN t v b =>
-    dsimp only [eraseC, ExprC.view]
+    dsimp only [ExprC.view]
     obtain ⟨hwtc, hwvc, hwbc, -⟩ := hwc.letE_inv
-    have hwtvb : Expr.WScoped d (eraseC t) ∧ Expr.WScoped d (eraseC v) ∧
-        Expr.WScoped d (eraseC b) := by
+    have hwtvb : Expr.WScoped d t ∧ Expr.WScoped d v ∧
+        Expr.WScoped d b := by
       have hw' : Expr.WScoped d
-        (Expr.letE nmN (eraseC t) (eraseC v) (eraseC b)) := hw
+        (Expr.letE nmN t v b) := hw
       simpa only [Expr.WScoped] using hw'
     unfold annotateBody
     try dsimp only
@@ -541,7 +541,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     exact ih.annotate hs₇ hQob
       (Expr.WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
   | fvar idx nmN t =>
-    dsimp only [eraseC, ExprC.view]
+    dsimp only [ExprC.view]
     unfold annotateBody
     try dsimp only
     by_cases hidx : idx < d
@@ -552,7 +552,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
   | lit l =>
     cases l with
     | natVal k =>
-      dsimp only [eraseC, ExprC.view]
+      dsimp only [ExprC.view]
       unfold annotateBody
       try dsimp only
       rw [natLitSupportedF_eq]
@@ -562,7 +562,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       · rw [if_neg hg, if_neg hg]
         exact SimC.throw
     | strVal str =>
-      dsimp only [eraseC, ExprC.view]
+      dsimp only [ExprC.view]
       unfold annotateBody
       try dsimp only
       rw [strLitSupportedF_eq]
@@ -572,13 +572,13 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       · rw [if_neg hg, if_neg hg]
         exact SimC.throw
   | app g' a =>
-    dsimp only [eraseC, ExprC.view]
+    dsimp only [ExprC.view]
     obtain ⟨hwgc, hwac, -⟩ := hwc.app_inv
     -- structural (task #100 stage 6: the application rule's checks
     -- moved to the driver's inference sweep, so the spine loop is
     -- gone and the clause annotates the two children)
-    have hwga : Expr.WScoped d (eraseC g') ∧ Expr.WScoped d (eraseC a) := by
-      have hw' : Expr.WScoped d (Expr.app (eraseC g') (eraseC a)) := hw
+    have hwga : Expr.WScoped d g' ∧ Expr.WScoped d a := by
+      have hw' : Expr.WScoped d (Expr.app g' a) := hw
       simpa only [Expr.WScoped] using hw'
     unfold annotateBody
     try dsimp only
@@ -596,11 +596,11 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
         simp only [Expr.WScoped]
         exact ⟨Expr.WScoped.mono (Nat.le_refl _) hwg'', hwa''⟩⟩)
   | forallE nmN t b m =>
-    dsimp only [eraseC, ExprC.view]
+    dsimp only [ExprC.view]
     obtain ⟨hwtc, hwbc, -⟩ := hwc.forallE_inv
-    have hwtb : Expr.WScoped d (eraseC t) ∧ Expr.WScoped d (eraseC b) := by
+    have hwtb : Expr.WScoped d t ∧ Expr.WScoped d b := by
       have hw' : Expr.WScoped d
-        (Expr.forallE nmN (eraseC t) (eraseC b) m) := hw
+        (Expr.forallE nmN t b m) := hw
       simpa only [Expr.WScoped] using hw'
     unfold annotateBody
     try dsimp only
@@ -611,17 +611,17 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     refine SimC.bind_left
       (internI_eff hs₁ (n := ExprView.fvar d nmN ty') hty'w)
       (fun s₂ fv hs₂ hQfv => ?_)
-    have hQfv' : RelC fv (Expr.fvar d nmN (eraseC ty')) := hQfv
+    have hQfv' : RelC fv (Expr.fvar d nmN ty') := hQfv
     refine SimC.bind_left (peelFuelM_eff hs₂)
       (fun s₃ fuel hs₃ _hQfuel => ?_)
     exact annotatePisC_tail_sim ih hs₃ rfl rfl ⟨hwbc, rfl⟩ ⟨hty'w, rfl⟩
       hQfv' hwty' hwtb.2
   | lam nmN t b m =>
-    dsimp only [eraseC, ExprC.view]
+    dsimp only [ExprC.view]
     obtain ⟨hwtc, hwbc, -⟩ := hwc.lam_inv
-    have hwtb : Expr.WScoped d (eraseC t) ∧ Expr.WScoped d (eraseC b) := by
+    have hwtb : Expr.WScoped d t ∧ Expr.WScoped d b := by
       have hw' : Expr.WScoped d
-        (Expr.lam nmN (eraseC t) (eraseC b) m) := hw
+        (Expr.lam nmN t b m) := hw
       simpa only [Expr.WScoped] using hw'
     unfold annotateBody
     try dsimp only
@@ -637,7 +637,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       refine SimC.bind_left
         (internI_eff hs₁ (n := ExprView.fvar d nmN ty') hty'w)
         (fun s₂ fv hs₂ hQfv => ?_)
-      have hQfv' : RelC fv (Expr.fvar d nmN (eraseC ty')) := hQfv
+      have hQfv' : RelC fv (Expr.fvar d nmN ty') := hQfv
       refine SimC.bind_left (peelFuelM_eff hs₂)
         (fun s₃ fuel hs₃ _hQfuel => ?_)
       exact annotateLamsC_tail_sim ih hs₃ rfl rfl ⟨hwbc, rfl⟩ ⟨hty'w, rfl⟩
@@ -650,7 +650,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       refine SimC.bind_left
         (internI_eff hs₁ (n := ExprView.fvar d nmN ty') hty'w)
         (fun s₂ fv hs₂ hQfv => ?_)
-      have hQfv' : RelC fv (Expr.fvar d nmN (eraseC ty')) := hQfv
+      have hQfv' : RelC fv (Expr.fvar d nmN ty') := hQfv
       refine SimC.bind_left (inst1M_eff hs₂ ⟨hwbc, rfl⟩ hQfv')
         (fun s₃ ob hs₃ hQob => ?_)
       refine SimC.bind (ih.annotate hs₃ hQob
@@ -665,14 +665,14 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       have hstep : ∀ (s' : CState) (pw : PropWhen), CSOK mode env s' →
           SimC mode env s' (RelEC d)
             (internI (.lam nmN ty' bAbs ⟨m.bi, pw⟩))
-            (pure (Expr.lam nmN (eraseC ty') (body'x.abstract1 d)
+            (pure (Expr.lam nmN ty' (body'x.abstract1 d)
               ⟨m.bi, pw⟩)) := by
         intro s' pw hsS
         refine SimC.of_eff (internI_eff hsS
           (n := ExprView.lam nmN ty' bAbs ⟨m.bi, pw⟩)
           ⟨hty'w, hQabs.1⟩) _ (fun r hQ => ⟨⟨hQ.1, by
-            have h2 : eraseC r
-              = Expr.lam nmN (eraseC ty') (eraseC bAbs) ⟨m.bi, pw⟩ := hQ.2
+            have h2 : r
+              = Expr.lam nmN ty' bAbs ⟨m.bi, pw⟩ := hQ.2
             rw [h2, hQabs.2]⟩, by
             simp only [Expr.WScoped]
             exact ⟨hwty', Setlec.WScoped.abstract1 0 hwbody'⟩⟩)
@@ -683,10 +683,10 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
         exact hstep s₉ pw hs₉
       · exact hstep s₈ m.pw hs₈
   | proj snN ipN pe =>
-    dsimp only [eraseC, ExprC.view]
+    dsimp only [ExprC.view]
     obtain ⟨hwpec, -⟩ := hwc.proj_inv
-    have hwpe : Expr.WScoped d (eraseC pe) := by
-      have hw' : Expr.WScoped d (Expr.proj snN ipN (eraseC pe)) := hw
+    have hwpe : Expr.WScoped d pe := by
+      have hw' : Expr.WScoped d (Expr.proj snN ipN pe) := hw
       simpa only [Expr.WScoped] using hw'
     unfold annotateBody
     try dsimp only
@@ -701,15 +701,15 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     obtain ⟨hted, hwte⟩ := hP₃
     refine SimC.withStore ?_
     obtain ⟨hwtec, rfl⟩ := hted
-    have hted : RelC te (eraseC te) := ⟨hwtec, rfl⟩
-    have htargs : RelCL (ExprC.getAppArgs te) (eraseC te).getAppArgs :=
+    have hted : RelC te te := ⟨hwtec, rfl⟩
+    have htargs : RelCL (ExprC.getAppArgs te) (Expr.getAppArgs te) :=
       ExprC.getAppArgs_spec hwtec
     obtain ⟨hwfn, hfn⟩ := ExprC.getAppFn_spec hwtec
     dsimp only [CStore.getNode, CStore.getAppFnI]
     generalize hgn : ExprC.getAppFn te = g at hwfn hfn ⊢
     cases g with
     | const T us =>
-      rw [show (eraseC te).getAppFn = Expr.const T us from hfn.symm]
+      rw [show (Expr.getAppFn te) = Expr.const T us from hfn.symm]
       dsimp only
       refine SimC.bind_left (readbackNM_eff hs₃ T)
         (fun s₃T Tw hs₃T hTw => ?_)
@@ -728,48 +728,48 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           simp only [↓reduceIte]
           refine SimC.withStore ?_
           simp only [CStore.getAppArgsI, RelCL.length htargs]
-          by_cases hlen : (eraseC te).getAppArgs.length = entry.numParams
+          by_cases hlen : (Expr.getAppArgs te).length = entry.numParams
           · rw [if_pos hlen, if_pos hlen]
             exact SimC.of_eff
               (internI_eff hs₃T (n := ExprView.proj Tw ipN e') he'd.1) _
               (fun r hQ => ⟨⟨hQ.1, by
-                  have h2 : eraseC r = Expr.proj Tw ipN (eraseC e') := hQ.2
+                  have h2 : r = Expr.proj Tw ipN e' := hQ.2
                   rw [h2, he'd.2]⟩, by
                 simp only [Expr.WScoped]
                 exact hwe'⟩)
           · rw [if_neg hlen, if_neg hlen]
             exact SimC.throw
     | bvar k =>
-      rw [show (eraseC te).getAppFn = Expr.bvar k from hfn.symm]
+      rw [show (Expr.getAppFn te) = Expr.bvar k from hfn.symm]
       exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
     | sort u =>
-      rw [show (eraseC te).getAppFn = Expr.sort u from hfn.symm]
+      rw [show (Expr.getAppFn te) = Expr.sort u from hfn.symm]
       exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
     | lit l =>
-      rw [show (eraseC te).getAppFn = Expr.lit l from hfn.symm]
+      rw [show (Expr.getAppFn te) = Expr.lit l from hfn.symm]
       exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
     | fvar idx nm' t' =>
-      rw [show (eraseC te).getAppFn = Expr.fvar idx nm' (eraseC t')
+      rw [show (Expr.getAppFn te) = Expr.fvar idx nm' t'
         from hfn.symm]
       exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
     | app f₂ a₂ =>
-      rw [show (eraseC te).getAppFn = Expr.app (eraseC f₂) (eraseC a₂)
+      rw [show (Expr.getAppFn te) = Expr.app (f₂) (a₂)
         from hfn.symm]
       exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
     | lam nm' t' b' m' =>
-      rw [show (eraseC te).getAppFn = Expr.lam nm' (eraseC t') (eraseC b') m'
+      rw [show (Expr.getAppFn te) = Expr.lam nm' t' b' m'
         from hfn.symm]
       exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
     | forallE nm' t' b' m' =>
-      rw [show (eraseC te).getAppFn
-        = Expr.forallE nm' (eraseC t') (eraseC b') m' from hfn.symm]
+      rw [show (Expr.getAppFn te)
+        = Expr.forallE nm' t' b' m' from hfn.symm]
       exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
     | letE nm' t' v' b' =>
-      rw [show (eraseC te).getAppFn
-        = Expr.letE nm' (eraseC t') (eraseC v') (eraseC b') from hfn.symm]
+      rw [show (Expr.getAppFn te)
+        = Expr.letE nm' t' v' b' from hfn.symm]
       exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
     | proj s' j' e'' =>
-      rw [show (eraseC te).getAppFn = Expr.proj s' j' (eraseC e'')
+      rw [show (Expr.getAppFn te) = Expr.proj s' j' e''
         from hfn.symm]
       exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
 
