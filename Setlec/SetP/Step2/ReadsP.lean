@@ -605,7 +605,7 @@ Per clause, what the inferred type's reading *is*:
 * `.proj` → routed (`InferProjReadsP`). -/
 
 /-- `.sort`: the inferred type is `.sort (.succ u)`. -/
-private theorem inferReads_sort {m : EnvS2Core V env}
+theorem inferReads_sort {m : EnvS2Core V env}
     {d : Nat} {u : Level} {t : Expr}
     (h : inferTypeCore μ env (fuel + 1) d (.sort u) = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
@@ -617,7 +617,7 @@ private theorem inferReads_sort {m : EnvS2Core V env}
 
 /-- `.fvar`: the inferred type is the leaf's stored annotation, and its
 reading is exactly what `LeafReadsP` provides. -/
-private theorem inferReads_fvar {m : EnvS2Core V env}
+theorem inferReads_fvar {m : EnvS2Core V env}
     {d idx : Nat} {n : Name} {ty t : Expr}
     (h : inferTypeCore μ env (fuel + 1) d (.fvar idx n ty) = .ok t)
     (hlr : LeafReadsP m φ d (.fvar idx n ty)) :
@@ -633,7 +633,7 @@ private theorem inferReads_fvar {m : EnvS2Core V env}
 
 /-- `.const`: the subject's own reading pins `env.find?` and the arity,
 and `ConstTypeP` answers with the instantiated type's row. -/
-private theorem inferReads_const {m : EnvS2Core V env}
+theorem inferReads_const {m : EnvS2Core V env}
     (hct : ConstTypeP m φ) {d : Nat} {n : Name} {us : List Level}
     {t : Expr} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.const n us) = .ok t)
@@ -650,7 +650,7 @@ private theorem inferReads_const {m : EnvS2Core V env}
 
 /-- `.lit (.natVal _)`: the inferred type is `.const natName []`, whose
 reading the support guard pins to the `Nat` leaf itself. -/
-private theorem inferReads_natLit {m : EnvS2Core V env}
+theorem inferReads_natLit {m : EnvS2Core V env}
     {d k : Nat} {t : Expr}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.natVal k)) = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
@@ -683,7 +683,7 @@ private theorem inferReads_natLit {m : EnvS2Core V env}
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- `.lit (.strVal _)`: the same move at `String`. -/
-private theorem inferReads_strLit {m : EnvS2Core V env}
+theorem inferReads_strLit {m : EnvS2Core V env}
     {d : Nat} {s : String} {t : Expr}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.strVal s)) = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by

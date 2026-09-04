@@ -24,7 +24,7 @@ install's own `EnvS` already provides.
 
 What is here:
 
-* `certValueS (hgOff := hgOff)` — one certificate run to *the statement's
+* `certValueS` — one certificate run to *the statement's
   interpretation is inhabited*, via `InferClaimsR`/`DefEqClaimsR` at
   depth 4 and `Infer.sound`/`DefEq.sound`;
 * the substitution facts the frame reads (`substConst0` rewrites
@@ -77,10 +77,10 @@ variable {V : Type w} [SetTheory V]
 /-- **One certificate, extracted**: a successful run identifies the
 applied proof's inferred type with the pinned statement, so the
 statement's interpretation is inhabited at any satisfying valuation. -/
-theorem certValueS {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env : Env}
+theorem certValueS {F : Nat} {env : Env}
     (m : EnvS V env) (φ : Name → Nat) {c : Name} {annVal : Expr}
     {st : List Expr × Expr} {proof : Expr}
-    (hfacts : CertRunFacts μ env F c annVal st proof)
+    (hfacts : CertRunFacts modeR env F c annVal st proof)
     {Δ : List VExpr}
     (hW : Expr.WScoped 4 (divModCertApplied
       (Expr.substConstAll c annVal proof)
@@ -90,27 +90,27 @@ theorem certValueS {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env
     (hL : Expr.LeavesBounded (divModCertApplied
       (Expr.substConstAll c annVal proof)
       (st.1.map (Expr.substConst0 c annVal))))
-    (hCA : CtxOkR μ m.cval env φ 4 Δ (divModCertApplied
+    (hCA : CtxOkR modeR m.cval env φ 4 Δ (divModCertApplied
       (Expr.substConstAll c annVal proof)
       (st.1.map (Expr.substConst0 c annVal))))
     (hWE : Expr.WScoped 4 (Expr.substConst0 c annVal st.2))
     (hBE : (Expr.substConst0 c annVal st.2).looseBVarsBounded 0 = true)
     (hLE : Expr.LeavesBounded (Expr.substConst0 c annVal st.2))
-    (hCE : CtxOkR μ m.cval env φ 4 Δ (Expr.substConst0 c annVal st.2))
+    (hCE : CtxOkR modeR m.cval env φ 4 Δ (Expr.substConst0 c annVal st.2))
     {vE : VExpr}
     (hvE : denote m.cval env φ 4 (Expr.substConst0 c annVal st.2)
       = some vE)
     (ρ : Nat → V) (hsat : Sat V Δ ρ) :
     ∃ w : V, w ∈ˢ interp V ρ vE := by
   obtain ⟨hguard, appliedA, tp, hann, hinf, hde⟩ := hfacts
-  obtain ⟨-, -, ihd, ihi⟩ := checkBridge (hg := hgOff) (mode := μ) m.toEnvR φ F
+  obtain ⟨-, -, ihd, ihi⟩ := checkBridge (mode := modeR) rfl m.toEnvR φ F
   -- the annotated applied proof keeps the frame
   have hWA : Expr.WScoped 4 appliedA := annotateCore_WScoped F _ hann hW
   have hBA : appliedA.looseBVarsBounded 0 = true :=
     annotateCore_looseBVars F _ hann hB
   have hsub := annotateCore_leaves_sub F _ hann hW hB
   have hLA : Expr.LeavesBounded appliedA := fun l hl => hL l (hsub l hl)
-  have hCA' : CtxOkR μ m.cval env φ 4 Δ appliedA :=
+  have hCA' : CtxOkR modeR m.cval env φ 4 Δ appliedA :=
     CtxOkR.of_subset hsub hCA
   obtain ⟨v, tv, hv, htv, T', hInf, hDeq⟩ :=
     ihi hinf hWA hBA hLA hCA'
@@ -120,9 +120,9 @@ theorem certValueS {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env
     inferTypeCore_looseBVars m.wf F hinf hWA hBA hLA
   have hLtp : Expr.LeavesBounded tp :=
     fun l hl => hLA l (inferTypeCore_fvarLeaves m.wf F hinf hWA l hl)
-  have hCtp : CtxOkR μ m.cval env φ 4 Δ tp :=
+  have hCtp : CtxOkR modeR m.cval env φ 4 Δ tp :=
     CtxOkR.of_subset (inferTypeCore_fvarLeaves m.wf F hinf hWA) hCA'
-  have hDeq2 : DefEq μ env m.cval φ Δ tv vE :=
+  have hDeq2 : DefEq modeR env m.cval φ Δ tv vE :=
     ihd hde hWtp hBtp hLtp hWE hBE hLE hCtp hCE htv hvE
   have hI := (Infer.sound (m.toHyp φ) hInf ρ hsat).2
   have hD1 := DefEq.sound (m.toHyp φ) hDeq ρ hsat
@@ -388,7 +388,7 @@ theorem denote_lift2 {env : Env} {cval : TConstVal} {φ : Name → Nat}
 
 /-! ### Why the slots are not built here
 
-An earlier version of this layer supplied `certValueS (hgOff := hgOff)` with
+An earlier version of this layer supplied `certValueS` with
 `CtxOkR.pinnedCtx`'s *closed-entry* form: `Δ.length = 4`, every entry
 closed, and each leaf's annotation denoting to `Δ.getD (3 - l.1)`.
 For the two `Nat` slots that is right.  For a **hypothesis** slot it is
@@ -402,7 +402,7 @@ premises*).
 `CtxOkR` itself is **slack** — it asks for `Infer Δ (.bvar (d-1-l.1)) T'`
 and `DefEq T' T`, not for entry equality — so the frame is satisfiable
 with `Δ`'s hypothesis entries at depth 2 and `Infer.bvar`'s own
-`liftN 2` supplying the depth-4 denotation.  So `certValueS (hgOff := hgOff)`,
+`liftN 2` supplying the depth-4 denotation.  So `certValueS`,
 `dmCertEq1` and `dmCertEq2` take `CtxOkR` **directly**: strictly more
 general, and it puts the lift where the caller can see it. -/
 
@@ -412,13 +412,13 @@ general, and it puts the lift where the caller can see it. -/
 /-- **A two-hypothesis certificate, discharged**: at a frame
 satisfying its hypotheses, the pinned equation's two sides have equal
 interpretation. -/
-theorem dmCertEq2 {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env : Env}
+theorem dmCertEq2 {F : Nat} {env : Env}
     (m : EnvS V env) (φ : Name → Nat) {c : Name} {value' : Expr}
     (hEq : env.find? eqName = some eqA) (hneN : natName ≠ c)
     (hvf : value'.hasFvar = false)
     (hvb : value'.looseBVarsBounded 0 = true)
     {h1 h2 l r proof : Expr}
-    (hfacts : CertRunFacts μ env F c value'
+    (hfacts : CertRunFacts modeR env F c value'
       ([h1, h2], .app (.app (.app (.const eqName [.succ .zero])
         (.const natName [])) l) r) proof)
     (hl1 : dmLeavesOk h1 = true) (hl2 : dmLeavesOk h2 = true)
@@ -435,10 +435,10 @@ theorem dmCertEq2 {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env 
       = some lV)
     (hdr : denote m.cval env φ 4 (Expr.substConst0 c value' r)
       = some rV)
-    (hCA : CtxOkR μ m.cval env φ 4 Δ (divModCertApplied
+    (hCA : CtxOkR modeR m.cval env φ 4 Δ (divModCertApplied
       (Expr.substConstAll c value' proof)
       ([h1, h2].map (Expr.substConst0 c value'))))
-    (hCE : CtxOkR μ m.cval env φ 4 Δ (Expr.substConst0 c value'
+    (hCE : CtxOkR modeR m.cval env φ 4 Δ (Expr.substConst0 c value'
       (.app (.app (.app (.const eqName [.succ .zero])
         (.const natName [])) l) r)))
     (ρ : Nat → V) (hsat : Sat V Δ ρ)
@@ -501,7 +501,7 @@ theorem dmCertEq2 {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env 
         (.const natName [])) l) r)) :=
     dmLeavesOk_leavesBounded (dmLeavesOk_substConst0 hvf hlE)
   -- the certificate
-  have hw := certValueS (hgOff := hgOff) m φ hfacts (Δ := Δ) hWA hBA hLA hCA
+  have hw := certValueS m φ hfacts (Δ := Δ) hWA hBA hLA hCA
     hwE hbE hLE hCE hvE ρ hsat
   obtain ⟨w, hw'⟩ := hw
   exact eqSpine_eq m φ hEq ρ hNU hlm hrm hw'
@@ -509,13 +509,13 @@ theorem dmCertEq2 {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env 
 /-- **A one-hypothesis certificate, discharged**: at a frame
 satisfying its hypotheses, the pinned equation's two sides have equal
 interpretation. -/
-theorem dmCertEq1 {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env : Env}
+theorem dmCertEq1 {F : Nat} {env : Env}
     (m : EnvS V env) (φ : Name → Nat) {c : Name} {value' : Expr}
     (hEq : env.find? eqName = some eqA) (hneN : natName ≠ c)
     (hvf : value'.hasFvar = false)
     (hvb : value'.looseBVarsBounded 0 = true)
     {h1 l r proof : Expr}
-    (hfacts : CertRunFacts μ env F c value'
+    (hfacts : CertRunFacts modeR env F c value'
       ([h1], .app (.app (.app (.const eqName [.succ .zero])
         (.const natName [])) l) r) proof)
     (hl1 : dmLeavesOk h1 = true)
@@ -531,10 +531,10 @@ theorem dmCertEq1 {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env 
       = some lV)
     (hdr : denote m.cval env φ 4 (Expr.substConst0 c value' r)
       = some rV)
-    (hCA : CtxOkR μ m.cval env φ 4 Δ (divModCertApplied
+    (hCA : CtxOkR modeR m.cval env φ 4 Δ (divModCertApplied
       (Expr.substConstAll c value' proof)
       ([h1].map (Expr.substConst0 c value'))))
-    (hCE : CtxOkR μ m.cval env φ 4 Δ (Expr.substConst0 c value'
+    (hCE : CtxOkR modeR m.cval env φ 4 Δ (Expr.substConst0 c value'
       (.app (.app (.app (.const eqName [.succ .zero])
         (.const natName [])) l) r)))
     (ρ : Nat → V) (hsat : Sat V Δ ρ)
@@ -590,7 +590,7 @@ theorem dmCertEq1 {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env 
         (.const natName [])) l) r)) :=
     dmLeavesOk_leavesBounded (dmLeavesOk_substConst0 hvf hlE)
   -- the certificate
-  have hw := certValueS (hgOff := hgOff) m φ hfacts (Δ := Δ) hWA hBA hLA hCA
+  have hw := certValueS m φ hfacts (Δ := Δ) hWA hBA hLA hCA
     hwE hbE hLE hCE hvE ρ hsat
   obtain ⟨w, hw'⟩ := hw
   exact eqSpine_eq m φ hEq ρ hNU hlm hrm hw'
@@ -1342,11 +1342,11 @@ syntactic about a statement is `by decide` at the call site. -/
 
 set_option maxHeartbeats 12800000 in
 /-- **A guarded div/mod clause, discharged.** -/
-theorem dmClause1S {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env : Env}
+theorem dmClause1S {F : Nat} {env : Env}
     (m : EnvS V env) {cv : ConstantVal} {type' value value' : Expr}
     {hint : ReducibilityHint} {c : Name}
     (hmem : cv.name ∈ natDivModNames)
-    (hvfr : ValueFrontR μ F env m.cval cv value type' value')
+    (hvfr : ValueFrontR modeR F env m.cval cv value type' value')
     (hgenv : divModEnvGuard ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩
       value' hint :: env.consts⟩ cv.name = true)
     (hc : cv.name = c)
@@ -1356,7 +1356,7 @@ theorem dmClause1S {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env
     (hyy : yy ∈ˢ interp V ρ (cvalAt m.cval env cv.name value' natName
       (Level.substFn φ ([] : List Name) ([] : List Level)))) :
     ∀ gl gr lhs rhs proof : Expr,
-      CertRunFacts μ env F c value'
+      CertRunFacts modeR env F c value'
         ([Expr.app (.app (.app (.const eqName [.succ .zero])
             (.const boolName [])) gl) gr],
          Expr.app (.app (.app (.const eqName [.succ .zero])
@@ -1459,10 +1459,10 @@ theorem dmClause1S {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env
   intro gl gr lhs rhs proof hfacts hfgl hfgr hflhs hfrhs hwH hwL hwR
     hbH hbL hbR hlH hlL hlR hmL hmR hmgl hmgr hguard
   have hpf : (Expr.substConstAll c value' proof).hasFvar = false := by
-    have hg := hfacts.1
+    have rfl := hfacts.1
     simp only [divModCertGuard, Bool.and_eq_true,
-      Bool.not_eq_true'] at hg
-    exact hg.1.1.1.1.2
+      Bool.not_eq_true'] at rfl
+    exact rfl.1.1.1.1.2
   obtain ⟨glV, hgld, hgle⟩ := dmDenEval m φ (d := 4) m.cval_closed
     hvf' hbv' hVc hstore gl hfgl
   obtain ⟨grV, hgrd, hgre⟩ := dmDenEval m φ (d := 4) m.cval_closed
@@ -1488,9 +1488,9 @@ theorem dmClause1S {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env
     simp only [dmLeavesOk, Expr.fvarLeaves, List.nil_append,
       List.all_append, Bool.and_eq_true]
     exact ⟨hlL, hlR⟩
-  have hCA := dmCtxOk_applied1 (μ := μ) (H2 := m.cval natName φ) φ
+  have hCA := dmCtxOk_applied1 (μ := modeR) (H2 := m.cval natName φ) φ
     m.cval_closed hvf' hclN (hnatDen 4) hpf hlH hfb1 hH1
-  have hCE := dmCtxOk_stmt (μ := μ) (c := c) (value' := value')
+  have hCE := dmCtxOk_stmt (μ := modeR) (c := c) (value' := value')
     (H1 := VExpr.mkAppN (m.cval eqName (Level.substFn φ
       eqA.toConstantVal.levelParams [Level.zero.succ]))
       [m.cval boolName φ, gl2, gr2])
@@ -1528,7 +1528,7 @@ theorem dmClause1S {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env
       exact pt_mem_eqv_self _)
     (by rw [interp_closed V hclN _ ρ]; exact hyy)
     (by rw [interp_closed V hclN _ ρ]; exact hxx)
-  have heq := dmCertEq1 (hgOff := hgOff) m φ hEqE (hneAll _ (by simp)) hvf' hbv'
+  have heq := dmCertEq1 m φ hEqE (hneAll _ (by simp)) hvf' hbv'
     hfacts hlH hlL hlR hwH hwL hwR hbH hbL hbR (hnatDen 4) hld hrd
     hCA hCE
     _ hsat (hNU _)
@@ -1540,11 +1540,11 @@ theorem dmClause1S {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env
 set_option maxHeartbeats 12800000 in
 /-- **A two-hypothesis guarded div/mod clause, discharged** —
 `Nat.div`/`Nat.mod`'s recursive certificate. -/
-theorem dmClause2S {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env : Env}
+theorem dmClause2S {F : Nat} {env : Env}
     (m : EnvS V env) {cv : ConstantVal} {type' value value' : Expr}
     {hint : ReducibilityHint} {c : Name}
     (hmem : cv.name ∈ natDivModNames)
-    (hvfr : ValueFrontR μ F env m.cval cv value type' value')
+    (hvfr : ValueFrontR modeR F env m.cval cv value type' value')
     (hgenv : divModEnvGuard ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩
       value' hint :: env.consts⟩ cv.name = true)
     (hc : cv.name = c)
@@ -1554,7 +1554,7 @@ theorem dmClause2S {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env
     (hyy : yy ∈ˢ interp V ρ (cvalAt m.cval env cv.name value' natName
       (Level.substFn φ ([] : List Name) ([] : List Level)))) :
     ∀ gl gr gl2e gr2e lhs rhs proof : Expr,
-      CertRunFacts μ env F c value'
+      CertRunFacts modeR env F c value'
         ([Expr.app (.app (.app (.const eqName [.succ .zero])
             (.const boolName [])) gl) gr,
           Expr.app (.app (.app (.const eqName [.succ .zero])
@@ -1681,10 +1681,10 @@ theorem dmClause2S {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env
     hwH2 hfgl2 hfgr2 hbH2 hlH2 hmgl2 hmgr2 hguard2 hwL hwR
     hbH hbL hbR hlH hlL hlR hmL hmR hmgl hmgr hguard
   have hpf : (Expr.substConstAll c value' proof).hasFvar = false := by
-    have hg := hfacts.1
+    have rfl := hfacts.1
     simp only [divModCertGuard, Bool.and_eq_true,
-      Bool.not_eq_true'] at hg
-    exact hg.1.1.1.1.2
+      Bool.not_eq_true'] at rfl
+    exact rfl.1.1.1.1.2
   obtain ⟨glV, hgld, hgle⟩ := dmDenEval m φ (d := 4) m.cval_closed
     hvf' hbv' hVc hstore gl hfgl
   obtain ⟨grV, hgrd, hgre⟩ := dmDenEval m φ (d := 4) m.cval_closed
@@ -1721,10 +1721,10 @@ theorem dmClause2S {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env
     simp only [dmLeavesOk, Expr.fvarLeaves, List.nil_append,
       List.all_append, Bool.and_eq_true]
     exact ⟨hlL, hlR⟩
-  have hCA := dmCtxOk_applied2 (μ := μ) φ
+  have hCA := dmCtxOk_applied2 (μ := modeR) φ
     m.cval_closed hvf' hclN (hnatDen 4) hpf hlH hlH2 hfb1 hfb2 hH1
     hH2
-  have hCE := dmCtxOk_stmt (μ := μ) (c := c) (value' := value')
+  have hCE := dmCtxOk_stmt (μ := modeR) (c := c) (value' := value')
     (H1 := VExpr.mkAppN (m.cval eqName (Level.substFn φ
       eqA.toConstantVal.levelParams [Level.zero.succ]))
       [m.cval boolName φ, gl2, gr2])
@@ -1785,7 +1785,7 @@ theorem dmClause2S {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env
       exact pt_mem_eqv_self _)
     (by rw [interp_closed V hclN _ ρ]; exact hyy)
     (by rw [interp_closed V hclN _ ρ]; exact hxx)
-  have heq := dmCertEq2 (hgOff := hgOff) m φ hEqE (hneAll _ (by simp)) hvf' hbv'
+  have heq := dmCertEq2 m φ hEqE (hneAll _ (by simp)) hvf' hbv'
     hfacts hlH hlH2 hlL hlR hwH hwH2 hwL hwR hbH hbH2 hbL hbR
     (hnatDen 4) hld hrd hCA hCE
     _ hsat (hNU _)
@@ -1799,7 +1799,7 @@ theorem dmClause2S {μ : CheckMode} (hgOff : μ.betaGate = false) {F : Nat} {env
 set_option maxHeartbeats 12800000 in
 /-- **`DivModPinS`, discharged.** -/
 theorem divModPinS : DivModPinS V := by
-  intro μ F env m cv type' value value' hint hgOff hmem hfresh hcv hvfr hpin
+  intro F env m cv type' value value' hint hmem hfresh hcv hvfr hpin
   obtain ⟨hgenv, hgpin, hgcerts, pinA, hannP, hcerts⟩ := hpin
   refine ⟨?_, ?_⟩
   · simp only [divModEnvGuard, Bool.and_eq_true] at hgenv
@@ -1887,7 +1887,7 @@ theorem divModPinS : DivModPinS V := by
           simp only [DivModClausesV, if_true, reduceIte,
             if_pos (show natDivName = natDivName from rfl)]
           refine ⟨fun hg hg2 => ?_, fun hg => ?_, fun hg => ?_⟩
-          · have h := dmClause2S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+          · have h := dmClause2S m (by rw [hcname]; exact hmem0) hvfr hgenv
               hcname φ ρ xx yy hxx hyy _ _ _ _ _ _ _ f1
               (by decide) (by decide) (by decide) (by decide)
               (by simp [Expr.wscopedB])
@@ -1926,7 +1926,7 @@ theorem divModPinS : DivModPinS V := by
                   exact hg)
             simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
               using h
-          · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+          · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
               hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
               (by decide) (by decide) (by decide) (by decide)
               (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -1952,7 +1952,7 @@ theorem divModPinS : DivModPinS V := by
                   exact hg)
             simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
               using h
-          · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+          · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
               hcname φ ρ xx yy hxx hyy _ _ _ _ _ f3
               (by decide) (by decide) (by decide) (by decide)
               (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2001,7 +2001,7 @@ theorem divModPinS : DivModPinS V := by
           simp only [DivModClausesV, if_true, reduceIte,
             if_neg (show ¬(natModName = natDivName) from by decide)]
           refine ⟨fun hg hg2 => ?_, fun hg => ?_, fun hg => ?_⟩
-          · have h := dmClause2S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+          · have h := dmClause2S m (by rw [hcname]; exact hmem0) hvfr hgenv
               hcname φ ρ xx yy hxx hyy _ _ _ _ _ _ _ f1
               (by decide) (by decide) (by decide) (by decide)
               (by simp [Expr.wscopedB])
@@ -2040,7 +2040,7 @@ theorem divModPinS : DivModPinS V := by
                   exact hg)
             simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
               using h
-          · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+          · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
               hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
               (by decide) (by decide) (by decide) (by decide)
               (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2066,7 +2066,7 @@ theorem divModPinS : DivModPinS V := by
                   exact hg)
             simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
               using h
-          · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+          · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
               hcname φ ρ xx yy hxx hyy _ _ _ _ _ f3
               (by decide) (by decide) (by decide) (by decide)
               (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2111,7 +2111,7 @@ theorem divModPinS : DivModPinS V := by
         have hVmod := hVd natModName (by decide)
         simp only [DivModClausesV, if_true, reduceIte]
         refine ⟨fun hg => ?_, fun hg => ?_⟩
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2137,7 +2137,7 @@ theorem divModPinS : DivModPinS V := by
                 exact hg)
           simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
             using h
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2188,7 +2188,7 @@ theorem divModPinS : DivModPinS V := by
         have hVmod := hVd natModName (by decide)
         simp only [DivModClausesV, if_true, reduceIte]
         refine ⟨fun hg => ?_, fun hg => ?_⟩
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2214,7 +2214,7 @@ theorem divModPinS : DivModPinS V := by
                 exact hg)
           simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
             using h
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2267,7 +2267,7 @@ theorem divModPinS : DivModPinS V := by
         have hVsub := hVd natSubName (by decide)
         simp only [DivModClausesV, if_true, reduceIte]
         refine ⟨fun hg => ?_, fun hg => ?_⟩
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2293,7 +2293,7 @@ theorem divModPinS : DivModPinS V := by
                 exact hg)
           simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
             using h
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2344,7 +2344,7 @@ theorem divModPinS : DivModPinS V := by
         have hVmod := hVd natModName (by decide)
         simp only [DivModClausesV, if_true, reduceIte]
         refine ⟨fun hg => ?_, fun hg => ?_⟩
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2370,7 +2370,7 @@ theorem divModPinS : DivModPinS V := by
                 exact hg)
           simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
             using h
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2417,7 +2417,7 @@ theorem divModPinS : DivModPinS V := by
         have hVsub := hVd natSubName (by decide)
         simp only [DivModClausesV, if_true, reduceIte]
         refine ⟨fun hg => ?_, fun hg => ?_⟩
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2443,7 +2443,7 @@ theorem divModPinS : DivModPinS V := by
                 exact hg)
           simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
             using h
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2490,7 +2490,7 @@ theorem divModPinS : DivModPinS V := by
         have hVsub := hVd natSubName (by decide)
         simp only [DivModClausesV, if_true, reduceIte]
         refine ⟨fun hg => ?_, fun hg => ?_⟩
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2516,7 +2516,7 @@ theorem divModPinS : DivModPinS V := by
                 exact hg)
           simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
             using h
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2561,7 +2561,7 @@ theorem divModPinS : DivModPinS V := by
         have hVdiv := hVd natDivName (by decide)
         simp only [DivModClausesV, if_true, reduceIte]
         refine ⟨fun hg => ?_, fun hg => ?_⟩
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f1
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])
@@ -2587,7 +2587,7 @@ theorem divModPinS : DivModPinS V := by
                 exact hg)
           simpa [dmEvalV_app, dmEvalV_const, dmEvalV_fvar, dmVal]
             using h
-        · have h := dmClause1S (hgOff := hgOff) m (by rw [hcname]; exact hmem0) hvfr hgenv
+        · have h := dmClause1S m (by rw [hcname]; exact hmem0) hvfr hgenv
             hcname φ ρ xx yy hxx hyy _ _ _ _ _ f2
             (by decide) (by decide) (by decide) (by decide)
             (by simp [Expr.wscopedB]) (by simp [Expr.wscopedB])

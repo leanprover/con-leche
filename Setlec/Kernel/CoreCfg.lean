@@ -103,6 +103,61 @@ def cfgP : CoreCfg where
   verified := true
   iotaMode := .setModelP
 
+/-- **The R core, at the pure tier** (task #172, batch B3).
+
+`Kernel/Core.lean`'s reference body is still parameterized by
+`CheckMode` — it is what the whole shared base library
+(`Verify/*`, most of `SetBase/*`) is stated over, generically, and
+census part 2 finding 2 keeps it there: *genericity* in a proof is not
+a flag.  What the tri-core order retires is the R **tower**'s
+quantification over it, and this is the name the tower instantiates
+at.
+
+`modeR` is an `abbrev`, so it is reducible and every accessor
+computes: `modeR.betaGate = false` and `modeR.verified = true` are
+`rfl`, which is exactly how the R capstones' `(hg : μ.betaGate =
+false)` hypotheses were discharged away — not by a lemma, by the
+constructor.  `cfgOf modeR = cfgR` is `rfl` too (`cfgOf_setModel`), so
+the pure-tier name and the templated-core config are the same
+selection said twice.
+
+The precedent is in the tree: `SetR/Annot/PremiseLadder.lean` has
+carried `μ0 : CheckMode := .setModel` since the refutation ladder was
+built, for the same reason — a lane's proofs run at that lane's
+concrete mode. -/
+abbrev modeR : CheckMode := .setModel
+
+/-- `modeR`'s gate is off, by the constructor.  This is the R
+capstones' retired hypothesis, as a `rfl`. -/
+theorem modeR_betaGate : modeR.betaGate = false := rfl
+
+/-- `modeR` is a verified mode, by the constructor. -/
+theorem modeR_verified : modeR.verified = true := rfl
+
+/-- **The production-parity core's configuration** (task #172, batch
+B3).  Not a third *verified* core — the parity core is unproven-sound
+by the user's own order — but a named config all the same, because
+`Cached/CoreNC.lean`'s cross-calls into the shared helpers have to say
+which configuration they mean, and `.noModel` is no longer a thing a
+templated helper can take.
+
+Its `verified := false` is the *whole* content of the parity lane's
+divergence at these seven sites: the λ-codomain sort check and the ∀/λ
+annotation validation are off, which is census class 1
+(acceptance-only guard drops) and is what makes the lane
+official-shaped.  `cfgNC.betaGate` is `false` for the same reason the
+R core's is: there is no validated datum at parity, so there is
+nothing a gate could read.
+
+B5/B6 retire `Cached/CoreNC.lean` into a full instantiation at this
+config; until then it is the residual sharing's name, and naming it is
+route C's own discipline (*the config record's fields are the
+divergence list*) applied to the parity side. -/
+def cfgNC : CoreCfg where
+  betaGate := false
+  verified := false
+  iotaMode := .noModel
+
 /-- The transition map from the retiring flag to the template's
 parameter.  Every field is written so that the projection of
 `cfgOf mode` is the old accessor **definitionally**, for a *variable*
@@ -127,8 +182,18 @@ is the census's finding 1 (the flag-free core is already available
 definitionally) at the record level. -/
 theorem cfgOf_setModel : cfgOf .setModel = cfgR := rfl
 
+/-- `cfgOf` at `modeR` **is** the R core's config, by `rfl` — the
+pure tier's name and the template's config are one selection said
+twice. -/
+theorem cfgOf_modeR : cfgOf modeR = cfgR := rfl
+
 /-- `cfgOf` at `.setModelP` **is** the P core's config, by `rfl`. -/
 theorem cfgOf_setModelP : cfgOf .setModelP = cfgP := rfl
+
+/-- `cfgOf` at `.noModel` **is** the parity core's config, by `rfl` —
+so the seven parity cross-calls into the shared helpers are, still,
+the mode-parametric helper at the mode they always meant. -/
+theorem cfgOf_noModel : cfgOf .noModel = cfgNC := rfl
 
 /-! ## The three fields, eliminated at each core
 

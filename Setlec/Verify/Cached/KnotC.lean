@@ -257,7 +257,7 @@ theorem memoEI_infer_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
-        (inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+        (inferBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
         (inferBody mode (fueledFns mode env) env d e))
     {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
@@ -268,7 +268,7 @@ theorem memoEI_infer_sim (henv : EnvWF env)
   intro v' s' hr
   rw [show (coreKnotI mode (mkFEnv env) (f + 1)).infer d i =
     memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-      (fun d e => inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
+      (fun d e => inferBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
       d i from rfl] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -286,7 +286,7 @@ theorem memoEI_infer_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀ with
+    cases hb : inferBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀ with
     | error err =>
       rw [hb] at hr
       simp only [Bind.bind, Except.bind] at hr
@@ -311,7 +311,7 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
-        (annotateBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+        (annotateBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
         (annotateBody mode (fueledFns mode env) env d e))
     {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
@@ -322,7 +322,7 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
   intro v' s' hr
   rw [show (coreKnotI mode (mkFEnv env) (f + 1)).annotate d i =
     memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-      (fun d e => annotateBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
+      (fun d e => annotateBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
       d i from rfl] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -340,7 +340,7 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : annotateBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀
+    cases hb : annotateBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀
         with
     | error err =>
       rw [hb] at hr
@@ -367,7 +367,7 @@ theorem memoBI_defeq_sim (henv : EnvWF env)
       CSOK mode env s₀ → RelC i a → RelC j b →
       Expr.WScoped d a → Expr.WScoped d b →
       SimC mode env s₀ RelVC
-        (defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+        (defeqBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
         (defeqBody mode (fueledFns mode env) env d a b))
     {s₀ : CState} {d : Nat} {i j : ExprC} {a b : Expr}
     (hs : CSOK mode env s₀) (hdena : RelC i a) (hdenb : RelC j b)
@@ -381,7 +381,7 @@ theorem memoBI_defeq_sim (henv : EnvWF env)
   intro v' s' hr
   rw [show (coreKnotI mode (mkFEnv env) (f + 1)).defeq d i j =
     memoBI
-      (fun d i j => defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+      (fun d i j => defeqBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       d i j from rfl] at hr
   simp only [memoBI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -397,7 +397,7 @@ theorem memoBI_defeq_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j s₀
+    cases hb : defeqBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j s₀
         with
     | error err =>
       rw [hb] at hr

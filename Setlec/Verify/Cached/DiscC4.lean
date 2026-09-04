@@ -1324,7 +1324,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (inferBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
       (inferBody mode (fueledFns mode env) env d ex) := by
   unfold inferBodyI
   refine SimC.view ?_

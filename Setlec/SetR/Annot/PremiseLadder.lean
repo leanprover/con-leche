@@ -257,7 +257,7 @@ theorem SortSubstStable_mem_refuted (V : Type w) [SetTheory V] :
     ¬ SortSubstStable_mem V := by
   intro h
   obtain ⟨env, hrun, h1, h2, hfT, hfU⟩ := cm_facts
-  obtain ⟨mS⟩ := checkDecls_sound_R (V := V) (by rfl) hrun
+  obtain ⟨mS⟩ := checkDecls_sound_R (V := V) hrun
   have h1' : lamSortE μ0 env φ0 f0 (0 + 1)
       ((Expr.bvar 0).instantiate1 (.fvar 0 nX tyE)) = some 2 := by
     rw [inst1_bvar0]; exact h1
@@ -299,7 +299,7 @@ theorem SortSubstStable_interpEq_refuted (V : Type w) [SetTheory V] :
     ¬ SortSubstStable_interpEq V := by
   intro h
   obtain ⟨env, hrun, h1, h2, hfT, hfU⟩ := cm_facts
-  obtain ⟨mS⟩ := checkDecls_sound_R (V := V) (by rfl) hrun
+  obtain ⟨mS⟩ := checkDecls_sound_R (V := V) hrun
   have h1' : lamSortE μ0 env φ0 f0 (0 + 1)
       ((Expr.bvar 0).instantiate1 (.fvar 0 nX tyE)) = some 2 := by
     rw [inst1_bvar0]; exact h1

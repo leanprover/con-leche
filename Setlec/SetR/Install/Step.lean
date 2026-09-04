@@ -66,13 +66,13 @@ declaration of any kind extends the invariant. -/
 theorem declStepS (hdm : DivModPinS V) (hrp : ReducePinS V)
     (hstd : StdAxiomKeyS V)
     (hbas : DeclBasisS V) (hind : DeclIndS V)
-    {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat} {env env₂ : Env} {d : Declaration}
+    {F : Nat} {env env₂ : Env} {d : Declaration}
     (m : EnvS V env) (hE : EtaFamiliesClosed env)
-    (h : DeclR μ F m.cval env d env₂) :
+    (h : DeclR modeR F m.cval env d env₂) :
     Nonempty (EnvS V env₂) ∧ EtaFamiliesClosed env₂ := by
   refine ⟨?_, declEtaStep (fun h' => (hind m hE h').2) hE h⟩
   cases d with
-  | defnDecl cv value hint => exact ⟨(declDefnS (hg := hg) hdm m h).choose⟩
+  | defnDecl cv value hint => exact ⟨(declDefnS hdm m h).choose⟩
   | thmDecl cv value => exact ⟨(declThmS m h).choose⟩
   | opaqueDecl cv value => exact ⟨(declOpaqueS hrp m h).choose⟩
   | axiomDecl cv => exact declAxiomS hstd ofReduceKeyS m h

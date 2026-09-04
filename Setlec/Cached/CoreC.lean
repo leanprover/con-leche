@@ -257,7 +257,7 @@ eliminated there (`Setlec/Kernel/CoreCfg.lean`). -/
 variable (cfg : CoreCfg)
 
 /-- Twin of `pairEtaCert`. -/
-def pairEtaCertI (_mode : CheckMode) (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+def pairEtaCertI (_cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (a b : ExprC) :
     CheckCM Bool := do
   match ← viewI a with
@@ -411,7 +411,7 @@ def structEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
   let tb ← r.infer depth b
   let wtb ← r.whnf depth tb
-  structEtaCertWithI mode r fe depth a b wtb
+  structEtaCertWithI cfg.iotaMode r fe depth a b wtb
 
 /-- Twin of `structUnitCert`. -/
 def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
@@ -454,7 +454,7 @@ def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
       let b₁ ← inst1M body₁ fv
       let ba ← internI (.app b fv)
       unless ← r.defeq (depth + 1) b₁ ba do return false
-      if mode.verified && !(m₁.pw.equiv m₂.pw) then
+      if cfg.verified && !(m₁.pw.equiv m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (eta)")
       pure true
     else pure false
@@ -463,10 +463,10 @@ def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
 /-- Twin of `stuckIrrel`. -/
 def stuckIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
-  if ← pairEtaCertI mode r fe depth a b then pure true
-  else if ← pairEtaCertI mode r fe depth b a then pure true
-  else if ← structEtaCertI mode r fe depth a b then pure true
-  else if ← structEtaCertI mode r fe depth b a then pure true
+  if ← pairEtaCertI cfg r fe depth a b then pure true
+  else if ← pairEtaCertI cfg r fe depth b a then pure true
+  else if ← structEtaCertI cfg r fe depth a b then pure true
+  else if ← structEtaCertI cfg r fe depth b a then pure true
   else if ← structUnitCertI r fe depth a b then pure true
   else proofIrrelI r fe depth a b
 
@@ -951,7 +951,7 @@ def inferLamsOutI (d : Nat) :
     -- node's prop-ness annotation must agree with its inner
     -- neighbour's (the innermost step compares the entry with itself
     -- — vacuously true).
-    if mode.verified && !(mb.pw.equiv prevPw) then
+    if cfg.verified && !(mb.pw.equiv prevPw) then
       throw (.notImplemented "sort-annotation mismatch (lam-cod-chain)")
     let tyAbs ← abstractRangeM tyo d j
     let node ← internI (.forallE n tyAbs cur mb)
@@ -972,7 +972,7 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
   match ← viewI t with
   | some (.lam ..) => pure ()
   | _ =>
-    if mode.verified then
+    if cfg.verified then
       let btt ← r.infer (d + k) bt
       let wbtt ← r.whnf (d + k) btt
       match ← viewI wbtt with
@@ -1001,7 +1001,7 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
       pure (match stk with
         | (_, _, mb₀) :: _ => mb₀.pw
         | [] => .never)
-  inferLamsOutI mode d stk (k - 1) cur prevPw
+  inferLamsOutI cfg d stk (k - 1) cur prevPw
 
 /-- λ-telescope inference loop (task #72; used by `inferBodyI`'s and
 `inferBodyNC`'s lam cases): peel the raw λ-chain, checking each opened
@@ -1022,8 +1022,8 @@ def inferLamsI (r : CoreFnsI) (d : Nat) :
         inferLamsI r d fuel body (k + 1) (fvs.push fv)
           ((n, tyo, mb) :: stk)
       | _ => throw (.invalid "expected a sort")
-    | _ => inferLamsLeafI mode r d t k fvs stk
-  | 0, t, k, fvs, stk => inferLamsLeafI mode r d t k fvs stk
+    | _ => inferLamsLeafI cfg r d t k fvs stk
+  | 0, t, k, fvs, stk => inferLamsLeafI cfg r d t k fvs stk
 
 /-- Rebuild loop of `inferPisI`: fold the accumulated domain sorts by
 `imax`, innermost binder first — exactly the chained `∀`-rule's result
@@ -1035,7 +1035,7 @@ def inferPisOutI : List (Level × PropWhen) → Level → CStore.PWMemo → Chec
     -- inferred codomain sort (`v` is exactly the spec `∀`-clause's
     -- `v` at this node); the readout is memoized across the fold.
     let (pv, memo) ← withStore fun st => st.zeronessOfLIGo memo v
-    if mode.verified && !(pv.equiv pw) then
+    if cfg.verified && !(pv.equiv pw) then
       throw (.notImplemented "sort-annotation mismatch (forall-cod)")
     let v' ← internLM (.imax u v)
     inferPisOutI rest v' memo
@@ -1049,7 +1049,7 @@ def inferPisLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
   let wbt ← r.whnf (d + k) bt
   match ← viewI wbt with
   | some (.sort v) => do
-    let iv ← inferPisOutI mode stk v ({} : CStore.PWMemo)
+    let iv ← inferPisOutI cfg stk v ({} : CStore.PWMemo)
     internI (.sort iv)
   | _ => throw (.invalid "expected a sort")
 
@@ -1073,8 +1073,8 @@ def inferPisI (r : CoreFnsI) (d : Nat) :
         inferPisI r d fuel body (k + 1) (fvs.push fv)
           ((u, mb.pw) :: stk)
       | _ => throw (.invalid "expected a sort")
-    | _ => inferPisLeafI mode r d t k fvs stk
-  | 0, t, k, fvs, stk => inferPisLeafI mode r d t k fvs stk
+    | _ => inferPisLeafI cfg r d t k fvs stk
+  | 0, t, k, fvs, stk => inferPisLeafI cfg r d t k fvs stk
 
 /-- Twin of `inferBody`. -/
 def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
@@ -1116,7 +1116,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       | some (.sort u) => do
         let fv ← internI (.fvar depth n ty)
         let fuel ← peelFuelM
-        inferPisI mode r depth fuel body 1 #[fv] [(u, mb.pw)]
+        inferPisI cfg r depth fuel body 1 #[fv] [(u, mb.pw)]
       | _ => throw (.invalid "expected a sort")
     | some (.lam n ty body mb) => do
       let tty ← r.infer depth ty
@@ -1127,7 +1127,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         -- open in bulk, rebuild with `abstractRange`.
         let fv ← internI (.fvar depth n ty)
         let fuel ← peelFuelM
-        inferLamsI mode r depth fuel body 1 #[fv] [(n, ty, mb)]
+        inferLamsI cfg r depth fuel body 1 #[fv] [(n, ty, mb)]
       | _ => throw (.invalid "expected a sort")
     | some (.app _ _) => do
       -- Bulk telescope consumption (task #50): infer the spine head
@@ -1240,51 +1240,51 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.lit l₁), some (.lit l₂) => pure (l₁ == l₂)
     | some (.lit (.natVal n)), some (.const c us) =>
       if (← beqNameM c natZeroName) ∧ us = [] then pure (n == 0)
-      else stuckIrrelI mode r fe depth a' b'
+      else stuckIrrelI cfg r fe depth a' b'
     | some (.const c us), some (.lit (.natVal n)) =>
       if (← beqNameM c natZeroName) ∧ us = [] then pure (n == 0)
-      else stuckIrrelI mode r fe depth a' b'
+      else stuckIrrelI cfg r fe depth a' b'
     | some (.lit (.natVal nn)), some (.app f x) => do
       match nn, ← viewI f with
       | k + 1, some (.const c []) =>
         if ← beqNameM c natSuccName then do
           let kl ← internI (.lit (.natVal k))
           r.defeq depth kl x
-        else stuckIrrelI mode r fe depth a' b'
-      | _, _ => stuckIrrelI mode r fe depth a' b'
+        else stuckIrrelI cfg r fe depth a' b'
+      | _, _ => stuckIrrelI cfg r fe depth a' b'
     | some (.app f x), some (.lit (.natVal nn)) => do
       match nn, ← viewI f with
       | k + 1, some (.const c []) =>
         if ← beqNameM c natSuccName then do
           let kl ← internI (.lit (.natVal k))
           r.defeq depth x kl
-        else stuckIrrelI mode r fe depth a' b'
-      | _, _ => stuckIrrelI mode r fe depth a' b'
+        else stuckIrrelI cfg r fe depth a' b'
+      | _, _ => stuckIrrelI cfg r fe depth a' b'
     | some (.lit (.strVal s)), some (.app fO _x) => do
       match ← viewI fO with
       | some (.const cO usO) =>
         if (← beqNameM cO stringOfListName) ∧ usO = [] ∧ strLitSupportedF fe then do
           let sc ← internExprM (strLitToConstructor s)
           r.defeq depth sc b'
-        else stuckIrrelI mode r fe depth a' b'
-      | _ => stuckIrrelI mode r fe depth a' b'
+        else stuckIrrelI cfg r fe depth a' b'
+      | _ => stuckIrrelI cfg r fe depth a' b'
     | some (.app fO _x), some (.lit (.strVal s)) => do
       match ← viewI fO with
       | some (.const cO usO) =>
         if (← beqNameM cO stringOfListName) ∧ usO = [] ∧ strLitSupportedF fe then do
           let sc ← internExprM (strLitToConstructor s)
           r.defeq depth a' sc
-        else stuckIrrelI mode r fe depth a' b'
-      | _ => stuckIrrelI mode r fe depth a' b'
+        else stuckIrrelI cfg r fe depth a' b'
+      | _ => stuckIrrelI cfg r fe depth a' b'
     | some (.fvar i _ _), some (.fvar j _ _) =>
       if i == j then pure true
-      else stuckIrrelI mode r fe depth a' b'
+      else stuckIrrelI cfg r fe depth a' b'
     | some (.const n us), some (.const n' us') =>
       if n = n' then do
         if ← liftFueled "level comparison" (← isEquivListLM us us') then
           pure true
-        else stuckIrrelI mode r fe depth a' b'
-      else stuckIrrelI mode r fe depth a' b'
+        else stuckIrrelI cfg r fe depth a' b'
+      else stuckIrrelI cfg r fe depth a' b'
     | some (.forallE n₁ ty₁ body₁ m₁), some (.forallE n₂ ty₂ body₂ m₂) => do
       -- prop-ness agreement checked LAST (task #161); see `defeqBody`
       unless ← r.defeq depth ty₁ ty₂ do return false
@@ -1293,7 +1293,7 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      if mode.verified && !(m₁.pw.equiv m₂.pw) then
+      if cfg.verified && !(m₁.pw.equiv m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
       pure true
     | some (.lam n₁ ty₁ body₁ m₁), some (.lam n₂ ty₂ body₂ m₂) => do
@@ -1303,7 +1303,7 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      if mode.verified && !(m₁.pw.equiv m₂.pw) then
+      if cfg.verified && !(m₁.pw.equiv m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-lam)")
       pure true
     | some (.app _f₁ _a₁), some (.app _f₂ _a₂) => do
@@ -1316,21 +1316,21 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         let h₂ ← withStore (fun st => st.getAppFnI b')
         if ← r.defeq depth h₁ h₂ then do
           if ← defEqListI r fe depth as₁ as₂ then pure true
-          else stuckIrrelI mode r fe depth a' b'
-        else stuckIrrelI mode r fe depth a' b'
-      else stuckIrrelI mode r fe depth a' b'
+          else stuckIrrelI cfg r fe depth a' b'
+        else stuckIrrelI cfg r fe depth a' b'
+      else stuckIrrelI cfg r fe depth a' b'
     | some (.proj _s₁ i₁ e₁), some (.proj _s₂ i₂ e₂) => do
       if i₁ == i₂ then do
         if ← r.defeq depth e₁ e₂ then pure true
-        else stuckIrrelI mode r fe depth a' b'
-      else stuckIrrelI mode r fe depth a' b'
+        else stuckIrrelI cfg r fe depth a' b'
+      else stuckIrrelI cfg r fe depth a' b'
     | some (.lam n₁ ty₁ body₁ m₁), _ => do
-      if ← etaCertI mode r fe depth n₁ ty₁ body₁ m₁ b' then pure true
-      else stuckIrrelI mode r fe depth a' b'
+      if ← etaCertI cfg r fe depth n₁ ty₁ body₁ m₁ b' then pure true
+      else stuckIrrelI cfg r fe depth a' b'
     | _, some (.lam n₂ ty₂ body₂ m₂) => do
-      if ← etaCertI mode r fe depth n₂ ty₂ body₂ m₂ a' then pure true
-      else stuckIrrelI mode r fe depth a' b'
-    | some _, some _ => stuckIrrelI mode r fe depth a' b'
+      if ← etaCertI cfg r fe depth n₂ ty₂ body₂ m₂ a' then pure true
+      else stuckIrrelI cfg r fe depth a' b'
+    | some _, some _ => stuckIrrelI cfg r fe depth a' b'
     | _, _ => throw (.internal "interned node missing")
 
 /-- Twin of `defeqLoop`. -/
@@ -1338,11 +1338,11 @@ def defeqLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Nat → ExprC → ExprC → CheckCM Bool
   | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
   | fl + 1, a, b =>
-    defeqStepI mode r fe depth (defeqLoopI r fe depth fl) a b
+    defeqStepI cfg r fe depth (defeqLoopI r fe depth fl) a b
 
 /-- Twin of `defeqBody`. -/
 def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → ExprC → CheckCM Bool :=
-  fun depth a b => defeqLoopI mode r fe depth defeqLoopFuel a b
+  fun depth a b => defeqLoopI cfg r fe depth defeqLoopFuel a b
 
 /-- Twin of `isPropType`. -/
 def isPropTypeI (r : CoreFnsI) (_fe : FEnv) (depth : Nat) (ty : ExprC) :
@@ -1511,7 +1511,7 @@ def annotPwPiI (r : CoreFnsI) (depth : Nat) (body' : ExprC) :
 /-- Gated for the telescope loop: `none` = no write. -/
 def annotatePisPwI (r : CoreFnsI) (d k : Nat) (leaf' : ExprC) :
     CheckCM (Option PropWhen) :=
-  if mode.verified then do
+  if cfg.verified then do
     let p ← annotPwPiI r (d + k) leaf'
     pure (some p)
   else pure none
@@ -1522,7 +1522,7 @@ def annotatePisLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
     (fvs : Array ExprC) (stk : List AnnotBinderEntry) : CheckCM ExprC := do
   let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
-  let pw? ← annotatePisPwI mode r d k leaf'
+  let pw? ← annotatePisPwI cfg r d k leaf'
   let cur ← abstractRangeM leaf' d k
   annotateBindersOutI (fun n ty b mb => .forallE n ty b mb) d pw?
     stk (k - 1) cur
@@ -1541,8 +1541,8 @@ def annotatePisI (r : CoreFnsI) (d : Nat) :
       let fv ← internI (.fvar (d + k) n ty')
       annotatePisI r d fuel body (k + 1) (fvs.push fv)
         ((n, ty', mb) :: stk)
-    | _ => annotatePisLeafI mode r d t k fvs stk
-  | 0, t, k, fvs, stk => annotatePisLeafI mode r d t k fvs stk
+    | _ => annotatePisLeafI cfg r d t k fvs stk
+  | 0, t, k, fvs, stk => annotatePisLeafI cfg r d t k fvs stk
 
 /-- The λ chain's datum (task #161 P5): the zero-ness of the sort of
 the innermost body's TYPE; every λ node of the chain shares it (the
@@ -1561,7 +1561,7 @@ def annotPwLamI (r : CoreFnsI) (depth : Nat) (body' : ExprC) :
 /-- Gated for the telescope loop: `none` = no write. -/
 def annotateLamsPwI (r : CoreFnsI) (d k : Nat) (leaf' : ExprC) :
     CheckCM (Option PropWhen) :=
-  if mode.verified then do
+  if cfg.verified then do
     let p ← annotPwLamI r (d + k) leaf'
     pure (some p)
   else pure none
@@ -1572,7 +1572,7 @@ def annotateLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
     (fvs : Array ExprC) (stk : List AnnotBinderEntry) : CheckCM ExprC := do
   let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
-  let pw? ← annotateLamsPwI mode r d k leaf'
+  let pw? ← annotateLamsPwI cfg r d k leaf'
   let cur ← abstractRangeM leaf' d k
   annotateBindersOutI (fun n ty b mb => .lam n ty b mb) d pw?
     stk (k - 1) cur
@@ -1589,8 +1589,8 @@ def annotateLamsI (r : CoreFnsI) (d : Nat) :
       let fv ← internI (.fvar (d + k) n ty')
       annotateLamsI r d fuel body (k + 1) (fvs.push fv)
         ((n, ty', mb) :: stk)
-    | _ => annotateLamsLeafI mode r d t k fvs stk
-  | 0, t, k, fvs, stk => annotateLamsLeafI mode r d t k fvs stk
+    | _ => annotateLamsLeafI cfg r d t k fvs stk
+  | 0, t, k, fvs, stk => annotateLamsLeafI cfg r d t k fvs stk
 
 /-- Twin of `annotateBody`. -/
 def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
@@ -1621,7 +1621,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
       let ty' ← r.annotate depth ty
       let fv ← internI (.fvar depth n ty')
       let fuel ← peelFuelM
-      annotatePisI mode r depth fuel body 1 #[fv] [(n, ty', mb)]
+      annotatePisI cfg r depth fuel body 1 #[fv] [(n, ty', mb)]
     | some (.lam n ty body mb) => do
       -- The λ-loop is chain-identical only on bvar-closed nodes (the
       -- chained tails re-open exactly what they closed); disciplined
@@ -1630,7 +1630,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
         let ty' ← r.annotate depth ty
         let fv ← internI (.fvar depth n ty')
         let fuel ← peelFuelM
-        annotateLamsI mode r depth fuel body 1 #[fv] [(n, ty', mb)]
+        annotateLamsI cfg r depth fuel body 1 #[fv] [(n, ty', mb)]
       else do
         let ty' ← r.annotate depth ty
         let fv ← internI (.fvar depth n ty')
@@ -1639,7 +1639,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
         let bAbs ← abstract1M body' depth
         -- task #161 P5: the single-binder write (the λ-loop's rule at
         -- a chain of length one; see `annotateLamsLeafI`)
-        let pw ← if mode.verified && !pwWritten mb.pw then
+        let pw ← if cfg.verified && !pwWritten mb.pw then
             annotPwLamI r (depth + 1) body'
           else pure mb.pw
         internI (.lam n ty' bAbs ⟨mb.bi, pw⟩)
@@ -1730,17 +1730,17 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI prev.get fe d e)
       infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-        (fun d e => inferBodyI mode prev.get fe d e)
+        (fun d e => inferBodyI cfg prev.get fe d e)
       defeq := memoBI
-        (fun d a b => defeqBodyI mode prev.get fe d a b)
+        (fun d a b => defeqBodyI cfg prev.get fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI mode prev.get fe d e) }
+        (fun d e => annotateBodyI cfg prev.get fe d e) }
 
-/-! ## The two named concrete cores (task #172, batch B2)
+/-! ## The named concrete cores (task #172, batches B2 and B3)
 
 The template's whole point, spelled out: these are **definitions, not
-clones** — one body, two names, and each unfolds to a term with no
-`CheckMode` branch left in it.
+clones** — one body, two names per family, and each unfolds to a term
+with no `CheckMode` branch left in it.
 
 * `whnfCoreBodyRC` is the R core's head normalization: `cfgR.betaSkip`
   is `fun _ => false`, so the β `if` **is** its `else` arm — the
@@ -1751,11 +1751,33 @@ clones** — one body, two names, and each unfolds to a term with no
   **validated annotation datum**.  That is data, and it is the
   licence's own subject (`AnnotOkP_beta_gate`), not a flag.
 
+B3 adds the remaining three configured families.  Their config read is
+`cfg.verified` — the λ-codomain sort check and the ∀/λ annotation
+validation — which is `true` at **both** `cfgR` and `cfgP`, so at each
+named core the `if` is its own *then* arm by `rfl` and the check is
+unconditionally present.  That is the R core's definition (census part
+2 §2(b): *"every certificate unconditional"*), now true of the shipped
+body by construction rather than by a hypothesis:
+
+* `inferBodyRC` / `inferBodyPC` — the λ-chain codomain sort check and
+  the ∀/λ chain-rule `pw` agreement, both unconditional;
+* `defeqBodyRC` / `defeqBodyPC` — the `pw`-agreement comparisons at the
+  ∀/λ conversion clauses and inside `etaCertI`, unconditional;
+* `annotateBodyRC` / `annotateBodyPC` — the two annotation `pw` writes,
+  unconditional.
+
+**`whnf` needs no instantiation and that is a finding, not an
+omission.**  `whnfBodyI` (and `whnfStepI`/`whnfLoopI` under it) reads
+no configuration field at all: the whole δ/ι/β content sits in
+`whnfCore`, which `whnf` reaches through the knot.  So the R and P
+`whnf` are *the same function*, and naming it twice would assert a
+distinction that does not exist.
+
 The `rfl` identities against the mode-parametric spelling are in
 `Setlec/Verify/BetaGate.lean` (the implementation tier may not import
 `Verify`); they are what keeps the transition free: every landed
-statement about `whnfCoreBodyI (cfgOf mode)` is a statement about
-these two cores at the two concrete modes, definitionally. -/
+statement about `inferBodyI (cfgOf mode)` (etc.) is a statement about
+these cores at the two concrete modes, definitionally. -/
 
 /-- **The R core's head-normalization body.**  Flag-free by
 construction. -/
@@ -1767,5 +1789,41 @@ construction; the one surviving branch reads the validated annotation
 datum. -/
 def whnfCoreBodyPC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
   whnfCoreBodyI cfgP r fe
+
+/-- **The R core's inference body.**  Flag-free: `cfgR.verified` is
+`true`, so the λ-codomain sort check and the chain-rule annotation
+agreement are unconditional. -/
+def inferBodyRC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
+  inferBodyI cfgR r fe
+
+/-- **The P core's inference body.**  Flag-free, and identical in
+shape to `inferBodyRC`: the io-graded skips are B4's, not this
+field's. -/
+def inferBodyPC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
+  inferBodyI cfgP r fe
+
+/-- **The R core's conversion body.**  Flag-free: the ∀/λ `pw`
+agreement checks are unconditional. -/
+def defeqBodyRC (r : CoreFnsI) (fe : FEnv) :
+    Nat → ExprC → ExprC → CheckCM Bool :=
+  defeqBodyI cfgR r fe
+
+/-- **The P core's conversion body.**  Flag-free. -/
+def defeqBodyPC (r : CoreFnsI) (fe : FEnv) :
+    Nat → ExprC → ExprC → CheckCM Bool :=
+  defeqBodyI cfgP r fe
+
+/-- **The R core's annotation pass.**  Flag-free: the two `pw` writes
+are unconditional.  (Annotation stays its own pass in every core — the
+user's concession; what the template removes is the *flag*, not the
+pass.) -/
+def annotateBodyRC (r : CoreFnsI) (fe : FEnv) :
+    Nat → ExprC → CheckCM ExprC :=
+  annotateBodyI cfgR r fe
+
+/-- **The P core's annotation pass.**  Flag-free. -/
+def annotateBodyPC (r : CoreFnsI) (fe : FEnv) :
+    Nat → ExprC → CheckCM ExprC :=
+  annotateBodyI cfgP r fe
 
 end Setlec.Cached
