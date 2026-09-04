@@ -30735,9 +30735,15 @@ declaration; no tier-two bracket to guard).  `Main.lean` dispatches
 `--no-model --core=cached-parsed` to it.  Measurement-only and
 unverified, like the interned parity lane.
 
-**THE CORRECTED CROSS-CORE PARITY TABLE** (instructions:u, median of
-3, `--no-model`, raw pipeline with preprocessor; ratios vs official
-raw):
+**THE CORRECTED CROSS-CORE PARITY TABLE** — BASELINE: RAW pipeline
+(preprocessor spawn INCLUDED in every setlec cell), ratios vs
+official-RAW.  NOT comparable by ratio to PERF.md's
+preprocessed-both-sides cells (official-PRE baseline; the ~180 G
+preprocessor floor sits between the two conventions on init-full —
+e.g. interned parity 1865.5 G raw vs 1685.4 G pre).  Every
+measurement row in later rounds carries an explicit baseline stamp;
+this error class (mixed-baseline comparison) has three strikes on
+record and stops here.  (instructions:u, median of 3, `--no-model`):
 
 | stream | official | interned parity (np) | cached parity (nc) |
 |---|---|---|---|
@@ -32534,3 +32540,54 @@ implementation cost, is the phase working as intended.
 | **B3 / B4** | each gains its lane's share of the ~285 `ttChecks` conjunct deletions, since both edit `Verify/Extend/{Iota,Proj}` and `Verify/InferLemmas` already; `SetR/Annot/SortCoh/Mono`'s 4 go with B3 |
 | **B9** | LOSES the `ttChecks` row (promoted out, per §3(c)) |
 | all | ruling 1 carries the standing re-scope condition: a user override toward hand-written bodies re-opens B2 |
+## Task #171: DIRECT-TO-ExprC PARSING — the detour deleted (2026-09-04, agent/perf-eng)
+
+User order, verbatim: "do not parse via interned expressions, that's an
+unnecessary detour! directly to ExprC was the task!"  Landed as
+ordered.
+
+**The design.**  The export's `ie`-indices ARE the sharing: the format
+already externalizes exactly the DAG structure the arena used to
+reconstruct.  `Setlec/Frontend/ExportC.lean` parses each record
+straight into a stream-index-keyed table of `ExprC` values — a table
+hit is a shared node by reference — through the smart constructors,
+which compute the derived fields once and give every parsed term `WFc`
+**by construction**.  No arena, no `ofStore`, no conversion, for
+`--core=cached-parsed` in both modes (Main dispatches; the split
+driver, an arena-level diagnostic instrument, keeps the arena parse).
+The byte fast path is shared with the arena parser (`fastParse`
+produces stream indices — representation-independent); only the apply
+functions are per-representation.
+
+**The invariant is carried in the types** (the `WFStore` pattern): the
+parse tables hold `WExprC := {e : ExprC // WFc e}`, declarations land
+as `WDeclC := {pc : DeclC // DeclCWFc pc}`, and the invariant-carrying
+constructors (`mkAppW`, …) erase at runtime — measured: the subtyped
+and pre-subtype binaries count IDENTICAL instructions.  To make `WFc`
+visible implementation-side, the self-contained kit (`eraseC`, `WFc`,
+`eraseC_ofExpr`, `eraseC_inj`, the `WFc.mk*` closure) moved from
+`Verify/Cached/Erase.lean` into `Setlec/Cached/ExprC.lean` under the
+self-contained-verification exception — same namespace, zero
+downstream reference changes.
+
+**The capstone follows the shrinking proof surface.**  The entry
+premise `∃ d, DeclCRel pc d` now comes from the carried invariant
+alone — the witness is the record's own erasure (`DeclCRel_of_WFc`,
+six lines).  `Verify/Cached/MainC.lean` gains the direct-parse mirrors
+(`checkDeclsSPCachedD_run`, `_sound_R`/`_R2`/`_R2M`,
+`no_proof_of_Empty_SPCD_R`/`_R2`/`_R2M`) covering the SHIPPING path;
+the type-carried invariant covers the streaming parser exactly as
+`WFStore` covered the arena stream parse.  CLEANUP INVENTORY
+(deletable once the arena parse leaves the cached chain entirely):
+`Verify/Cached/OfStoreC.lean`, `declsCOfP` and the WFStore-input
+driver entries.
+
+**Measured** (median-of-3 instructions:u, raw/vs-official-raw,
+verdicts identical, full battery green incl. the no-model sweep):
+cached parity lane (`--no-model`): init-prelude 15.995 → 15.595 G
+(−2.50 %), grind-ring-5 55.227 → 54.269 G (−1.73 %); certified default
+(`--set-model`): init-prelude 31.07 → 30.67 G (−1.28 %), grind −0.92 %,
+app-lam −0.09 %.  NOT recovered here: the +2.49 % grind residue from
+the ofExprFast deletion (stored-constant conversions at `ienv` misses
+— an env-side cost, not a parse-side one; it returns with the
+sharing-gate campaign's SimC adaptation as recorded).

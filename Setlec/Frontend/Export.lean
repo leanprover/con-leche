@@ -46,7 +46,7 @@ open Lean (Json)
 
 /-- Rename level parameters (for basis-block matching up to
 level-parameter names). -/
-private def canonLevel (m : Name → Name) : Level → Level
+def canonLevel (m : Name → Name) : Level → Level
   | .zero => .zero
   | .succ u => .succ (canonLevel m u)
   | .max u v => .max (canonLevel m u) (canonLevel m v)
@@ -67,7 +67,7 @@ stream binder to `.default`, but the pinned declarations keep the real
 `ConstantInfo.canon` comparison go through here, so erasing the
 annotation here is what keeps the two sides consistent; without it the
 strip would *invert* the bug and no basis block would ever match. -/
-private def canonExpr (m : Name → Name) : Expr → Expr
+def canonExpr (m : Name → Name) : Expr → Expr
   | .bvar i => .bvar i
   | .fvar idx _ ty => .fvar idx .anonymous (canonExpr m ty)
   | .sort u => .sort (canonLevel m u)
@@ -82,7 +82,7 @@ private def canonExpr (m : Name → Name) : Expr → Expr
   | .proj s i e => .proj s i (canonExpr m e)
 
 /-- Canonical form of a stored constant for basis matching. -/
-private def ConstantInfo.canon (ci : ConstantInfo) : ConstantInfo :=
+def ConstantInfo.canon (ci : ConstantInfo) : ConstantInfo :=
   let ps := ci.toConstantVal.levelParams
   let m : Name → Name := fun n =>
     match ps.findIdx? (fun p => p == n) with
@@ -154,10 +154,10 @@ tainted entry.  Backstop only — `processLine`'s read-only pre-scan
 (`declRecordScan`) skips tainted declarations before any parsing, so
 this should be unreachable; if it fires anyway it is converted to a
 decline at the record level (the pre-change behavior). -/
-private def taintSentinel : String := "\x00uses-skipped-axiom"
+def taintSentinel : String := "\x00uses-skipped-axiom"
 
 /-- Internal sentinel converted to a decline at the record level. -/
-private def sizeSentinel : String := "\x00tree-size-budget"
+def sizeSentinel : String := "\x00tree-size-budget"
 
 /-- Cap on a declaration's *unshared tree size* (nodes of the
 expression tree with all sharing expanded).  `2^25`: at and beyond this
@@ -183,7 +183,7 @@ def declTreeSizeBudget : Nat := 33554432
 
 /-- Any name component is `_model` (the preprocessor's model-family
 shape: `T._model`, `T._model.iota_j`, `T._model.proj_i.iota`, …). -/
-private def anyComponentModel : Name → Bool
+def anyComponentModel : Name → Bool
   | .anonymous => false
   | .str p s => s == "_model" || anyComponentModel p
   | .num p _ => anyComponentModel p
@@ -191,7 +191,7 @@ private def anyComponentModel : Name → Bool
 /-- Does the budget apply to a definition/theorem/opaque record of
 this name?  (Inductive, quotient and axiom records are always
 budgeted.) -/
-private def budgetedName (n : Name) : Bool :=
+def budgetedName (n : Name) : Bool :=
   anyComponentModel n || natOpNames.contains n || natDivModNames.contains n
 
 private abbrev M := Except String
@@ -218,7 +218,7 @@ private def State.expr (st : State) (i : Nat) : M EIdx :=
   | some e => pure e
   | none => throw s!"undefined expr index {i}"
 
-private def getIdx (j : Json) (key : String) : M Nat := do
+def getIdx (j : Json) (key : String) : M Nat := do
   (← j.getObjVal? key).getNat?
 
 private def getName' (st : State) (j : Json) (key : String) : M Name := do
@@ -253,7 +253,7 @@ private def getDeclExpr' (st : State) (j : Json) (key : String) : M Expr := do
   | some e => pure e
   | none => throw "internal: parse-arena readback failed"
 
-private def getIdxs (j : Json) (key : String) : M (Array Nat) := do
+def getIdxs (j : Json) (key : String) : M (Array Nat) := do
   (← (← j.getObjVal? key).getArr?).mapM (·.getNat?)
 
 /-- Validate a binder record's `binderInfo` field and **discard** it
@@ -264,7 +264,7 @@ annotation-only deviation cannot exist anywhere downstream (in
 particular it can no longer make a basis block miss its pin).  The
 field is still parsed: an unknown spelling is a malformed record, not
 a silently ignored one. -/
-private def parseBinderInfo (j : Json) : M Unit := do
+def parseBinderInfo (j : Json) : M Unit := do
   match (← (← j.getObjVal? "binderInfo").getStr?) with
   | "default" | "implicit" | "strictImplicit" | "instImplicit" => pure ()
   | s => throw s!"unknown binderInfo {s}"
@@ -353,7 +353,7 @@ private def parseLevelEntry (st : State) (j : Json) (i : Nat) : M State := do
 
 /-- The child expression-table indices of an entry (for taint and size
 propagation). -/
-private def exprEntryChildren (j : Json) : M (List Nat) := do
+def exprEntryChildren (j : Json) : M (List Nat) := do
   if let .ok v := j.getObjVal? "app" then
     pure [← getIdx v "fn", ← getIdx v "arg"]
   else if let .ok v := j.getObjVal? "lam" then
@@ -447,7 +447,7 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
 `{"regular": n}`.  A missing field defaults to `regular 0` — hints
 steer only the unfolding order of lazy delta, so any default is
 behaviorally safe. -/
-private def parseHints (v : Json) : M ReducibilityHint := do
+def parseHints (v : Json) : M ReducibilityHint := do
   match v.getObjVal? "hints" with
   | .error _ => pure (.regular 0)
   | .ok h =>
@@ -722,7 +722,7 @@ the taint/size bookkeeping); intern-time errors reuse the generic
 error strings.  No verified module imports the frontend. -/
 
 /-- A parsed hot expression-table node, still in stream indices. -/
-private inductive FastNode where
+inductive FastNode where
   | app (f a : Nat)
   | binder (isAll : Bool) (name ty body : Nat)
   | letE (name ty vl body : Nat)
@@ -731,7 +731,7 @@ private inductive FastNode where
   | sort (l : Nat)
 
 /-- A parsed hot line. -/
-private inductive FastLine where
+inductive FastLine where
   | ie (i : Nat) (n : FastNode)
   | inStr (i pre : Nat) (s : String)
 
@@ -768,7 +768,7 @@ private def bBIstrict : ByteArray := "strictImplicit".toUTF8
 private def bBIinst : ByteArray := "instImplicit".toUTF8
 
 /-- Match a literal byte string at `i`; the position after it. -/
-private def fsLit (b : ByteArray) (i : Nat) (lit : ByteArray) :
+def fsLit (b : ByteArray) (i : Nat) (lit : ByteArray) :
     Option Nat := Id.run do
   let n := lit.size
   if i + n > b.size then return none
@@ -777,7 +777,7 @@ private def fsLit (b : ByteArray) (i : Nat) (lit : ByteArray) :
   return some (i + n)
 
 /-- Parse a decimal `Nat` at `i` (≤ 20 digits; longer falls back). -/
-private def fsNat (b : ByteArray) (i0 : Nat) : Option (Nat × Nat) := Id.run do
+def fsNat (b : ByteArray) (i0 : Nat) : Option (Nat × Nat) := Id.run do
   let mut acc : Nat := 0
   let mut i := i0
   let mut seen := false
@@ -796,7 +796,7 @@ private def fsNat (b : ByteArray) (i0 : Nat) : Option (Nat × Nat) := Id.run do
 
 /-- Parse a JSON string at `i` with no escapes (backslash falls back;
 multi-byte UTF-8 passes through `String.fromUTF8?` validation). -/
-private def fsStr (b : ByteArray) (i0 : Nat) : Option (String × Nat) := Id.run do
+def fsStr (b : ByteArray) (i0 : Nat) : Option (String × Nat) := Id.run do
   if h : i0 < b.size then
     if b[i0] != 34 then return none
   else return none
@@ -816,12 +816,12 @@ private def fsStr (b : ByteArray) (i0 : Nat) : Option (String × Nat) := Id.run 
 
 /-- The four `binderInfo` spellings (validated and discarded, as
 `parseBinderInfo`). -/
-private def fsBinderInfo (b : ByteArray) (i : Nat) : Option Nat :=
+def fsBinderInfo (b : ByteArray) (i : Nat) : Option Nat :=
   (fsLit b i bBIstrict) <|> (fsLit b i bBIinst) <|>
   (fsLit b i bBIimplicit) <|> (fsLit b i bBIdefault)
 
 /-- `NAT ("," NAT)* "]"` or `"]"` — the `us` list tail. -/
-private def fsNatList (b : ByteArray) (i0 : Nat) :
+def fsNatList (b : ByteArray) (i0 : Nat) :
     Option (List Nat × Nat) := Id.run do
   if h : i0 < b.size then
     if b[i0] == 93 then return some ([], i0 + 1)  -- ']'
@@ -841,7 +841,7 @@ private def fsNatList (b : ByteArray) (i0 : Nat) :
   return none
 
 /-- Parse one hot line; `none` = not a handled shape. -/
-private def fastParse (b : ByteArray) : Option FastLine := do
+def fastParse (b : ByteArray) : Option FastLine := do
   let n := b.size
   let ate (i : Nat) (lit : ByteArray) : Option Nat := fsLit b i lit
   let atEnd2 (i : Nat) : Option Unit := do

@@ -374,4 +374,11 @@ def checkDeclsSPCachedNM (st : WFStore) (pds : List DeclP) : CheckM Env := do
   let fe ← (ds.foldlM checkDeclSPStepCNC (mkFEnv Env.empty)).run' {}
   pure fe.env
 
+/-- Task #171: the direct-parse `--no-model` driver (see
+`checkDeclsSPCachedD`). -/
+def checkDeclsSPCachedDNM (ds : List WDeclC) : CheckM Env := do
+  let fe ← (ds.foldlM (fun fe pc => checkDeclSPStepCNC fe pc.1)
+    (mkFEnv Env.empty)).run' {}
+  pure fe.env
+
 end Setlec.Cached

@@ -407,6 +407,30 @@ def checkDeclSPStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do
   flushC
   checkDeclSPC mode fe pd
 
+/-- The per-slot field invariant of a directly parsed declaration
+(task #171): every `ExprC` the record carries is `WFc`.  The basis and
+inductive kinds carry no `ExprC` slots. -/
+def DeclCWFc : DeclC → Prop
+  | .axiomDecl cv => ExprC.WFc cv.type
+  | .defnDecl cv v _ => ExprC.WFc cv.type ∧ ExprC.WFc v
+  | .thmDecl cv v => ExprC.WFc cv.type ∧ ExprC.WFc v
+  | .opaqueDecl cv v => ExprC.WFc cv.type ∧ ExprC.WFc v
+  | .basisDecl _ => True
+  | .indDecl _ => True
+
+/-- A parsed declaration carrying its invariant (the `WFStore`
+pattern: the type is the receipt; the wrapper erases at runtime). -/
+abbrev WDeclC := { pc : DeclC // DeclCWFc pc }
+
+/-- Task #171: the direct-parse driver.  `DeclC` records come straight
+from the frontend (`Setlec/Frontend/ExportC.lean`) — no arena, no
+conversion pass; the capstone's entry premise is the parser's
+`WFc`-by-construction theorem (`Setlec/Verify/Cached/ParseC.lean`). -/
+def checkDeclsSPCachedD (mode : CheckMode) (ds : List WDeclC) : CheckM Env := do
+  let fe ← (ds.foldlM (fun fe pc => checkDeclSPStepC mode fe pc.1)
+    (mkFEnv Env.empty)).run' {}
+  pure fe.env
+
 /-- The converted-declaration checker: the parse arena is converted
 once (sharing preserved), then the whole fold runs in one `CState`
 with the environment-dependent caches flushed per declaration. -/
