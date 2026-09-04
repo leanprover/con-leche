@@ -1,5 +1,7 @@
 module
 
+public import Std.Data.HashMap
+
 /-!
 # Kernel expressions
 
@@ -190,11 +192,75 @@ inductive Literal where
   | strVal (s : String)
   deriving DecidableEq, Repr, Inhabited, Hashable
 
+/-- Depth-bounded `Level` hash (towers from universe arithmetic can be
+deep; the memo maps only need *some* function of the value). -/
+def Level.hashB : Nat → Level → UInt64
+  | 0, _ => 511
+  | _ + 1, .zero => 1
+  | n + 1, .succ u => mixHash 3 (Level.hashB n u)
+  | n + 1, .max u v => mixHash 5 (mixHash (Level.hashB n u) (Level.hashB n v))
+  | n + 1, .imax u v => mixHash 7 (mixHash (Level.hashB n u) (Level.hashB n v))
+  | _ + 1, .param p => mixHash 11 (hash p)
+
+/-- Does the level mention a parameter (the official kernel's
+`level.has_param`)?  There is no interned level table here, so this is
+an `O(|u|)` walk — paid once per `.sort`/`.const` node construction,
+never per memo touch. -/
+def levelHasParam : Level → Bool
+  | .zero => false
+  | .param _ => true
+  | .succ u => levelHasParam u
+  | .max u v | .imax u v => levelHasParam u || levelHasParam v
+
+/-- `levelHasParam` over a `const` node's level arguments. -/
+def levelsHaveParam : List Level → Bool
+  | [] => false
+  | u :: us => levelHasParam u || levelsHaveParam us
+
+/-- Depth-bounded level hash (a hash may ignore structure; `BEq` stays
+full).  Keeping it bounded is what makes a `.sort`/`.const` node's
+`hash` field `O(1)` in the level's size. -/
+@[inline] def levelHash (u : Level) : UInt64 := Level.hashB 4 u
+
+/-- `levelHash` folded over a level list. -/
+def levelsHash : List Level → UInt64
+  | [] => 13
+  | u :: us => mixHash (levelHash u) (levelsHash us)
+
 /-- Kernel expressions.
 
 `fvar idx name type`: an opened variable, identified by its de Bruijn level
 `idx` *and* its type; the binder `name` is display-only.  Closed input terms
-contain no `fvar`s. -/
+contain no `fvar`s.
+
+## The computed fields (task #172 B3a)
+
+Every node carries a block of derived data, **computed once at
+construction time** by Lean's `@[computed_field]` feature — exactly
+`Lean.Expr`'s own arrangement:
+
+* `hash`  — the node's hash, so hashing a term for a memo lookup is a
+  field read instead of a traversal;
+* `bvarB` — the loose-bvar *bound*: the least `k` with
+  `looseBVarsBounded k` (`Expr.bvarBound` is the same recurrence
+  spelled as an ordinary function; `bvarB_eq` proves them equal).
+  Instantiation at or above the bound is the identity;
+* `fvarB` — the fvar *range*: max fvar index + 1 (`0` = fvar-free;
+  `fvar` type annotations are not descended, matching the abstraction
+  traversals — `Expr.fvarRange`).  Abstraction at or above the range
+  is the identity;
+* `hasLP` — has-level-param (`Expr.hasLevelParam`; the official
+  kernel's `has_univ_param`).  Level instantiation on a node without
+  it is the identity.
+
+Logically each field is an ordinary recursive function — the
+constructors take no extra arguments, patterns are unaffected, and
+`(Expr.app f a).bvarB = max f.bvarB a.bvarB` is `rfl`.  The *storage*
+is the compiler's: `Lean/Elab/ComputedFields.lean:33` — *"This file
+implements the computed fields feature by simulating it via
+`implemented_by`."*  That is a named trust escape; it is enumerated,
+with the user ruling that adopted it, in the trust census in
+`Setlec/Cached/ExprC.lean`'s module docstring. -/
 inductive Expr where
   | bvar (i : Nat)
   | fvar (idx : Nat) (name : Name) (type : Expr)
@@ -206,49 +272,216 @@ inductive Expr where
   | letE (n : Name) (type value body : Expr)
   | lit (l : Literal)
   | proj (structName : Name) (idx : Nat) (e : Expr)
-  deriving DecidableEq, Repr, Inhabited
+with
+  /-- The node's hash (`O(1)`; display-only payload is included, which a
+  hash may do — `DecidableEq` remains full structural equality). -/
+  @[computed_field] hash : Expr → UInt64
+    | .bvar i => mixHash 3 (Hashable.hash i)
+    | .fvar idx n ty =>
+      mixHash 5 (mixHash (Hashable.hash idx)
+        (mixHash (Hashable.hash n) ty.hash))
+    | .sort u => mixHash 7 (levelHash u)
+    | .const n us => mixHash 11 (mixHash (Hashable.hash n) (levelsHash us))
+    | .app f a => mixHash 17 (mixHash f.hash a.hash)
+    | .lam n ty b m =>
+      mixHash 19 (mixHash (Hashable.hash n)
+        (mixHash ty.hash (mixHash b.hash (Hashable.hash m))))
+    | .forallE n ty b m =>
+      mixHash 23 (mixHash (Hashable.hash n)
+        (mixHash ty.hash (mixHash b.hash (Hashable.hash m))))
+    | .letE n ty v b =>
+      mixHash 29 (mixHash (Hashable.hash n)
+        (mixHash ty.hash (mixHash v.hash b.hash)))
+    | .lit l => mixHash 31 (Hashable.hash l)
+    | .proj s i e =>
+      mixHash 37 (mixHash (Hashable.hash s) (mixHash (Hashable.hash i) e.hash))
+  /-- The loose-bvar bound: the least `k` with `looseBVarsBounded k`. -/
+  @[computed_field] bvarB : Expr → Nat
+    | .bvar i => i + 1
+    | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => 0
+    | .app f a => max f.bvarB a.bvarB
+    | .lam _ ty b _ | .forallE _ ty b _ => max ty.bvarB (b.bvarB - 1)
+    | .letE _ ty v b => max (max ty.bvarB v.bvarB) (b.bvarB - 1)
+    | .proj _ _ e => e.bvarB
+  /-- The fvar range: max fvar index + 1 (`0` = fvar-free). -/
+  @[computed_field] fvarB : Expr → Nat
+    | .fvar idx _ _ => idx + 1
+    | .bvar _ | .sort _ | .const _ _ | .lit _ => 0
+    | .app f a => max f.fvarB a.fvarB
+    | .lam _ ty b _ | .forallE _ ty b _ => max ty.fvarB b.fvarB
+    | .letE _ ty v b => max (max ty.fvarB v.fvarB) b.fvarB
+    | .proj _ _ e => e.fvarB
+  /-- Has-level-param: is level instantiation ever non-trivial here? -/
+  @[computed_field] hasLP : Expr → Bool
+    | .bvar _ | .lit _ => false
+    | .sort u => levelHasParam u
+    | .const _ us => levelsHaveParam us
+    | .fvar _ _ ty => ty.hasLP
+    | .app f a => f.hasLP || a.hasLP
+    | .lam _ ty b m | .forallE _ ty b m =>
+      ty.hasLP || b.hasLP || m.pw.hasParams
+    | .letE _ ty v b => ty.hasLP || v.hasLP || b.hasLP
+    | .proj _ _ e => e.hasLP
+deriving DecidableEq, Repr, Inhabited
 
-/-- Depth-bounded `Level` hash (towers from universe arithmetic can be
-deep; the memo maps only need *some* function of the value). -/
-def Level.hashB : Nat → Level → UInt64
-  | 0, _ => 511
-  | _ + 1, .zero => 1
-  | n + 1, .succ u => mixHash 3 (Level.hashB n u)
-  | n + 1, .max u v => mixHash 5 (mixHash (Level.hashB n u) (Level.hashB n v))
-  | n + 1, .imax u v => mixHash 7 (mixHash (Level.hashB n u) (Level.hashB n v))
-  | _ + 1, .param p => mixHash 11 (hash p)
+/-- Hashing is the computed field: `O(1)`, no traversal.  (Before task
+#172 B3a this was a *node-budgeted* walk, `Expr.hashB`, because the
+pure representation had nowhere to put a hash; the budget is now only
+inside `levelHash`.) -/
+instance : Hashable Expr := ⟨Expr.hash⟩
 
-/-- Node-budget-bounded `Expr` hash: visits at most `budget` nodes and
-salts the remainder with a sentinel, so memo-map lookups cost `O(1)`
-in the term size instead of a full traversal.  Display-only fields
-(binder and `fvar` names, binder metadata, `fvar` types) are skipped —
-a hash may ignore fields; `BEq`/`DecidableEq` remain full structural
-equality, so the memo maps stay correct. -/
-def Expr.hashB : Expr → Nat → UInt64 → UInt64 × Nat
-  | _, 0, acc => (mixHash acc 511, 0)
-  | .bvar i, n + 1, acc => (mixHash acc (mixHash 3 (hash i)), n)
-  | .fvar idx _ _, n + 1, acc => (mixHash acc (mixHash 5 (hash idx)), n)
-  | .sort u, n + 1, acc => (mixHash acc (mixHash 7 (Level.hashB 4 u)), n)
-  | .const c us, n + 1, acc =>
-    (mixHash acc (mixHash 11 (mixHash (hash c)
-      (us.foldl (fun a u => mixHash a (Level.hashB 4 u)) 13))), n)
-  | .app f a, n + 1, acc =>
-    let (h₁, n₁) := f.hashB n (mixHash acc 17)
-    a.hashB n₁ h₁
-  | .lam _ ty b _, n + 1, acc =>
-    let (h₁, n₁) := ty.hashB n (mixHash acc 19)
-    b.hashB n₁ h₁
-  | .forallE _ ty b _, n + 1, acc =>
-    let (h₁, n₁) := ty.hashB n (mixHash acc 23)
-    b.hashB n₁ h₁
-  | .letE _ ty v b, n + 1, acc =>
-    let (h₁, n₁) := ty.hashB n (mixHash acc 29)
-    let (h₂, n₂) := v.hashB n₁ h₁
-    b.hashB n₂ h₂
-  | .lit l, n + 1, acc => (mixHash acc (mixHash 31 (hash l)), n)
-  | .proj s i e, n + 1, acc =>
-    e.hashB n (mixHash acc (mixHash 37 (mixHash (hash s) (hash i))))
+namespace Expr
 
-instance : Hashable Expr := ⟨fun e => (e.hashB 64 7).1⟩
+/-! ## Equality
+
+The official kernel's `is_equal`: pointer identity, then the computed
+hashes (a cheap reject — a hash mismatch *is* an inequality), then
+structural descent.  Since instantiation and abstraction return
+unchanged subterms **by reference**, the pointer test decides most
+comparisons in `O(1)`, which is the arena's index comparison in a
+different mechanism.
+
+**The specification is plain decidable equality** (task #172 B3a).  It
+used to be `beqSpec`, a hash-checking descent, because the hash was a
+*stored* datum that could disagree with the term: the spec had to
+compare it so that the `implemented_by` claim stayed faithful on
+field-incorrect inputs.  Under `@[computed_field]` there are no
+field-incorrect inputs — `a.hash` is a function of `a` — so the hash
+test is an implementation detail of the fast path again, and
+`beq = decide (a = b)` is defeq to the `BEq` instance any type gets
+from its `DecidableEq`. -/
+
+/-- The executed equality: pointer test, hash test, then a **memoized**
+structural descent.
+
+The memo (keyed by the pair of addresses, storing the decided answer)
+is what keeps equality `O(DAG)` rather than `O(tree)`.  It is not
+optional at this representation: hash-consing identifies structurally
+equal terms *however they arose*, so the arena never compares two
+distinct-but-equal DAGs; the clone does exactly that whenever a
+reduction rebuilds a term the arena would have collapsed, and without
+the memo `good/perf/app-lam` (24 k arena nodes, ~10^1160 unshared
+tree) is unreachable.  Pointer identity and the hash test still carry
+the overwhelming majority of comparisons; the memo is allocated only
+on the descent. -/
+unsafe def beqGo (memo : Std.HashMap (USize × USize) Bool) (a b : Expr) :
+    Bool × Std.HashMap (USize × USize) Bool :=
+  let pa := ptrAddrUnsafe a
+  let pb := ptrAddrUnsafe b
+  if pa == pb then (true, memo)
+  else if a.hash != b.hash then (false, memo)
+  else
+    match memo[(pa, pb)]? with
+    | some r => (r, memo)
+    | none =>
+      let and2 := fun (memo : Std.HashMap (USize × USize) Bool)
+          (x y : Expr) (z w : Expr) =>
+        let (r₁, memo) := beqGo memo x y
+        if r₁ then beqGo memo z w else (false, memo)
+      let (r, memo) : Bool × Std.HashMap (USize × USize) Bool :=
+        match a, b with
+        | .bvar i .., .bvar j .. => (i == j, memo)
+        | .fvar i n t .., .fvar j m u .. =>
+          if i == j && n == m then beqGo memo t u else (false, memo)
+        | .sort u .., .sort v .. => (u == v, memo)
+        | .const n us .., .const m vs .. => (n == m && us == vs, memo)
+        | .app f x .., .app g y .. => and2 memo f g x y
+        | .lam n t b m .., .lam n' t' b' m' .. =>
+          if n == n' && m == m' then and2 memo t t' b b' else (false, memo)
+        | .forallE n t b m .., .forallE n' t' b' m' .. =>
+          if n == n' && m == m' then and2 memo t t' b b' else (false, memo)
+        | .letE n t v b .., .letE n' t' v' b' .. =>
+          if n == n' then
+            let (r₁, memo) := beqGo memo t t'
+            if r₁ then and2 memo v v' b b' else (false, memo)
+          else (false, memo)
+        | .lit l .., .lit l' .. => (l == l', memo)
+        | .proj s i e .., .proj s' i' e' .. =>
+          if s == s' && i == i' then beqGo memo e e' else (false, memo)
+        | _, _ => (false, memo)
+      (r, memo.insert (pa, pb) r)
+
+/-- Node budget of the allocation-free descent before the memoized one
+takes over.  Almost every comparison the checker makes is decided by
+the pointer test, the hash test, or a handful of nodes; paying for a
+memo table there was measured at +33 % instructions on `init-prelude`.
+Beyond the budget the term is big enough that `O(tree)` is the real
+risk, and the memoized descent is restarted from scratch. -/
+def beqBudget : Nat := 4096
+
+/-- Allocation-free structural descent on a node budget: `none` when
+the budget runs out (the caller retries under the memo). -/
+unsafe def beqB (fuel : Nat) (a b : Expr) : Option Bool × Nat :=
+  if ptrAddrUnsafe a == ptrAddrUnsafe b then (some true, fuel)
+  else if a.hash != b.hash then (some false, fuel)
+  else
+    match fuel with
+    | 0 => (none, 0)
+    | fuel + 1 =>
+      let and2 := fun (fuel : Nat) (x y z w : Expr) =>
+        match beqB fuel x y with
+        | (some true, fuel) => beqB fuel z w
+        | r => r
+      match a, b with
+      | .bvar i .., .bvar j .. => (some (i == j), fuel)
+      | .fvar i n t .., .fvar j m u .. =>
+        if i == j && n == m then beqB fuel t u else (some false, fuel)
+      | .sort u .., .sort v .. => (some (u == v), fuel)
+      | .const n us .., .const m vs .. => (some (n == m && us == vs), fuel)
+      | .app f x .., .app g y .. => and2 fuel f g x y
+      | .lam n t b m .., .lam n' t' b' m' .. =>
+        if n == n' && m == m' then and2 fuel t t' b b' else (some false, fuel)
+      | .forallE n t b m .., .forallE n' t' b' m' .. =>
+        if n == n' && m == m' then and2 fuel t t' b b' else (some false, fuel)
+      | .letE n t v b .., .letE n' t' v' b' .. =>
+        if n == n' then
+          match beqB fuel t t' with
+          | (some true, fuel) => and2 fuel v v' b b'
+          | r => r
+        else (some false, fuel)
+      | .lit l .., .lit l' .. => (some (l == l'), fuel)
+      | .proj s i e .., .proj s' i' e' .. =>
+        if s == s' && i == i' then beqB fuel e e' else (some false, fuel)
+      | _, _ => (some false, fuel)
+
+/-- The executed equality (see `beqGo`).
+
+**TRUST POINT** (task #163; the first of the **two** escapes the
+verified cached variant rests on — see the census in this module's
+header docstring).  The pure spec is *decidable equality*, and under
+computed fields the hash test needs no side condition (`a.hash` is a
+function of `a`, so a hash mismatch is an inequality outright — task
+#172 B3a shrank this argument exactly as B2 predicted).  What is left
+to trust is two facts about the runtime: (a) *pointer equality implies structural equality* —
+Lean objects are immutable, so two references to one address are one
+value (the pointer short-circuits here and in `beqB`/`beqGo`, and the
+address-pair memo keys, all rest on this); (b) *the address-keyed memo
+entries stay valid for the life of one comparison* — both roots are
+live for the whole call, so every keyed subobject is reachable and
+the collector, which never moves objects, cannot reuse a keyed
+address.  The verification (`Setlec/Verify/Cached/*`) consumes only
+`beq`'s pure definition and never this function. -/
+unsafe def beqFast (a b : Expr) : Bool :=
+  if ptrAddrUnsafe a == ptrAddrUnsafe b then true
+  else if a.hash != b.hash then false
+  else
+    match (beqB beqBudget a b).1 with
+    | some r => r
+    | none => (beqGo {} a b).1
+
+/-- The executed structural equality.  Definitionally `decide (a = b)`,
+hence definitionally the `BEq` any `DecidableEq` type has; the
+`implemented_by` above replaces it by the accelerated descent. -/
+@[implemented_by beqFast]
+def beq (a b : Expr) : Bool := decide (a = b)
+
+instance : BEq Expr := ⟨Expr.beq⟩
+
+/-- `beq` is lawful — it *is* `decide (· = ·)`. -/
+instance : LawfulBEq Expr where
+  eq_of_beq h := of_decide_eq_true h
+  rfl := by simp [BEq.beq, Expr.beq]
+
+end Expr
 
 end Setlec

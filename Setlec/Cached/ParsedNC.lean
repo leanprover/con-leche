@@ -32,17 +32,15 @@ open Setlec
 `opE`; port of `CheckerNC`'s `opENC`). -/
 def opENC (fe : FEnv) (pick : CoreFnsI → Nat → ExprC → CheckCM ExprC)
     (d : Nat) (e : Expr) : CheckCM Expr := do
-  let i := ExprC.ofExpr e
-  let j ← pick (coreKnotNC fe checkFuel) d i
-  pure (ExprC.toExpr j)
+  pick (coreKnotNC fe checkFuel) d e
 
 /-- `opB` at the cert-skipping cached knot. -/
 def opBNC (fe : FEnv) (d : Nat) (a b : Expr) : CheckCM Bool :=
-  (coreKnotNC fe checkFuel).defeq d (ExprC.ofExpr a) (ExprC.ofExpr b)
+  (coreKnotNC fe checkFuel).defeq d a b
 
 /-- `opS` at the cert-skipping cached knot. -/
 def opSNC (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Level :=
-  ensureSortI (coreKnotNC fe checkFuel) d (ExprC.ofExpr e)
+  ensureSortI (coreKnotNC fe checkFuel) d e
 
 /-- `sharedOpsC` at the cert-skipping cached knot (the cached
 `sharedOpsNC`). -/
@@ -221,7 +219,7 @@ def checkConstantValCNC (fe : FEnv) (cv : ConstantValC) :
     throw (.invalid s!"unknown constant in type of {cv.name}")
   let jsty ← (coreKnotFNC fe checkFuel).infer 0 jty
   let _u ← opSIxNC fe 0 jsty
-  let tyE := ExprC.toExpr jty
+  let tyE := jty
   pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
 
 /-- `checkDefnValC` at the cert-skipping knot. -/
@@ -236,7 +234,7 @@ def checkDefnValCNC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let vE := ExprC.toExpr jv
+  let vE := jv
   recordCConst cvA.name cvA.type jty (some (vE, jv))
   let jvt ← (coreKnotFNC fe checkFuel).infer 0 jv
   unless ← (coreKnotFNC fe checkFuel).defeq 0 jvt jty do
@@ -259,7 +257,7 @@ def checkThmValCNC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let vE := ExprC.toExpr jv
+  let vE := jv
   recordCConst cvA.name cvA.type jty (some (vE, jv))
   let jvt ← (coreKnotFNC fe checkFuel).infer 0 jv
   unless ← (coreKnotFNC fe checkFuel).defeq 0 jvt jty do
@@ -320,7 +318,7 @@ def checkDeclSPCNC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
     let (cvA, jty) ← checkConstantValCNC fe cv
     let fe2 ← checkOpaqueValCNC fe cvA jty value
     if reduceOpNames.contains cvA.name then do
-      let vE := ExprC.toExpr value
+      let vE := value
       checkReducePinF (sharedOpsCNC fe) fe fe2 cvA.name vE
     pure fe2
   | .axiomDecl cv => do
