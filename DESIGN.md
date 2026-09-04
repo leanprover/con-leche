@@ -30094,3 +30094,24 @@ new, the DeclRunR letter-move needing a ratified-statement ruling);
 MECHANICS-VALIDATION SLICE (the shared-body identity proven on one
 module family end-to-end) before the bulk commits.  No dispatch
 until the ruling returns.
+
+## Task #161 SEPARATION — THE SHIPPED-GATE PROGRAMME RULED: PROCEED,
+HOIST, STAGED (2026-09-04; user ruling relayed)
+
+The user's framing (verbatim intent): "we now have an R model and a
+P model, surely we can let the P mode behave differently and skip
+the check, and (after that) use fast infer_only" — the licensed
+gate ships in the P mode; the re-pointed tower is the SCAFFOLD the
+infer_only and isProof items build on (their standing priority:
+"fast beta and infer_only and isProof certainly come first").
+
+ROUTE: HOIST, staged S13a–f.  The DeclRunR letter-move statement
+ruling is GRANTED — a deliberate ratified-statement RELOCATION,
+the old letter preserved in this ledger when moved.  FIRST BATCH =
+the pre-registered MECHANICS-VALIDATION SLICE: one module family
+hoisted end-to-end on the whnfCoreBodyP_eq-driven shared-body
+identity mechanism; its seal reports the MEASURED PER-MODULE COST
+so the remaining batches are priced from a landed sample, not the
+estimate.  Escalation armed with the mid-batch flag; the 95
+genuinely-new statements get statement-freeze + probe discipline.
+The cadence RESUMES.
