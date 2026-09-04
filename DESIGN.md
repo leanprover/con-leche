@@ -35521,3 +35521,417 @@ rows are stale as of today.
 | the docket | two named follow-ups added (§10 items 14, 15): the owed stream-level fuel fixture, blocked on a CLI-settable `checkFuel`; and the `ProjEntry.native` two-valued-tag successor, whose "after the parity-alignment batch" trigger has now fired |
 | **T2c** | the second obligation B1 added (§8: `annotateBody`'s `.proj` + the residual-computation agreement) **discharges to one**: the residual computation is now the same in every body, so T2c is back to head-shape agreement alone |
 | the cleanup docket | the by-construction successor to `ProjEntry.native` (the two-valued pinned tag, "NOTED, NOT TAKEN" §8 of the pin record) was parked "after the parity-alignment batch" — that is now |
+
+
+## TASK #172 — BATCH B3: THE R SIDE OF THE TOWER RE-POINTING
+(2026-09-04, `agent/tricore-b3`)
+
+### 0. THE ANSWER, FIRST
+
+**The R tower's top is re-pointed and the io row is paid; the R
+tower's *claims tier* is not, and the reason is a sizing correction
+this batch owes the ledger.**
+
+* the remaining three configured body families (`infer`, `defeq`,
+  `annotate`) are through B2's template with six more named flag-free
+  cores, and **`whnf` needed no instantiation** — a finding, not an
+  omission;
+* **121 of the 172 gate-hypothesis carriers are gone** (70 %),
+  including **every one of the R capstone letters**: they drop the
+  mode binder AND the `(hg : μ.betaGate = false)` hypothesis and take
+  the named R core as their subject.  Verified by printing;
+* **`InferReadsIOP` is DISCHARGED** — the io lane's named risk class,
+  and it came in *cheaper* than the full lane's walk for a structural
+  reason worth carrying;
+* **ESCALATED, mid-batch:** the residual 51 carriers do not come out
+  by deleting a binder.  They sit under **277 mode-*parameterized*
+  predicate definitions** in `SetR/Interp2/Step2/*` and
+  `SetR/Annot/SortCoh/*`; retiring their parameter changes the arity
+  of every application, and there are **6 400 `μ` occurrences in
+  `Setlec/SetR/`** downstream of them.  That is a different edit from
+  the one the census priced, it is a bill-doubling by the escalation
+  rule's own test, and it is named here rather than half-done.
+
+### 1. THE TEMPLATE, THE REST OF THE WAY (deliverable 1)
+
+`Cached/CoreC.lean`, B2's discipline verbatim: `cfg : CoreCfg` in
+place of `mode : CheckMode`, `cfg.verified` at the read sites,
+`cfg.iotaMode` at the ι cone's calls, `cfgOf mode` in the knot,
+concrete-constructor named cores at the end of the module.
+
+| family | definitions templated | config read | named cores |
+|---|---|---|---|
+| infer | `inferBodyI`, `inferLams{I,LeafI,OutI}`, `inferPis{I,LeafI,OutI}` — **7** | `cfg.verified` ×3 | `inferBodyRC` / `inferBodyPC` |
+| defeq | `defeqBodyI`, `defeqLoopI`, `defeqStepI`, `stuckIrrelI`, `etaCertI`, `structEtaCertI`, `pairEtaCertI` — **7** | `cfg.verified` ×3, `cfg.iotaMode` ×1 | `defeqBodyRC` / `defeqBodyPC` |
+| annotate | `annotateBodyI`, `annotate{Pis,Lams}{I,PwI,LeafI}` — **7** | `cfg.verified` ×3 | `annotateBodyRC` / `annotateBodyPC` |
+| whnf | **none — see below** | — | — |
+
+**`whnf` reads no configuration field at all**, and that is worth
+recording because the charter asked for it as a fourth family:
+`whnfBodyI`/`whnfStepI`/`whnfLoopI` carry the reduction *loop*, and
+the entire δ/ι/β content is `whnfCore`'s, reached through the knot.
+The R and P `whnf` are therefore **one function**, and naming it twice
+would have asserted a distinction that does not exist.  One family
+fewer, by measurement.
+
+`cfgNC` joins `cfgR`/`cfgP` — the parity core's config — because
+`Cached/CoreNC.lean`'s seven `.noModel` cross-calls into the shared
+helpers must now name a configuration.  `cfgOf .noModel = cfgNC` by
+`rfl`, so no parity call site moved in substance.  `modeR` (an
+`abbrev` for `.setModel`, with `modeR_betaGate` / `modeR_verified` /
+`cfgOf_modeR`, all `rfl`) is the pure tier's name for the same
+selection, and it is what §3's tower instantiates at.
+
+#### 1.1 THE COST, AGAINST B2's SAMPLE
+
+B2's per-clause number: *"for one core function, on one
+representation, across the impl body + its pure mirror + its
+simulation family, ≈40 lines of genuine change and ~0 proof repair."*
+
+| | B2 (`whnfCore`) | B3 (`infer` + `defeq` + `annotate`) |
+|---|---|---|
+| core functions templated | 1 (5 definitions) | 3 (21 definitions) |
+| shipped-core diff | `Cached/CoreC` +51/−7 | `Cached/CoreC` **+123/−65** |
+| proof-tier statement retargets | 21 | **56**, across 6 modules |
+| proof-tier *tactic* repairs | 0 | **5** (one method row, §1.2) |
+| whole-slice diff | +432/−163, 9 modules | **+346/−178, 10 modules** |
+| lines of genuine change per core function | ≈40 | **≈43** |
+
+So **B2's sample held to within 8 %** across three more families and
+a different config field, which is the answer the census wanted from
+a landed sample rather than from an argument.  The one place B3 is
+dearer than B2 is proof repair, and it is a single cause.
+
+#### 1.2 THE METHOD ROW — WHY `split` STOPS WORKING AND `by_cases` DOES NOT
+
+B2's second mechanical finding said the surviving idiom is
+`simp only [hgate, ↓reduceIte]`, not `rw [if_pos]`.  B3 met the same
+wall from the other side and can now say *why*, which makes the rule
+predictive instead of anecdotal:
+
+> **A `rfl`-equal rewrite of a decided condition does not make two
+> `ite`s one.**  After templating, the cached side's guard reads
+> `(cfgOf mode).verified` and the pure side's reads `mode.verified`.
+> They are `rfl`-equal — `cfgOf_verified` is `rfl` — and `simp only
+> [cfgOf_verified]` normalizes the *proposition*.  It does not
+> normalize the `Decidable` **instance**, and `split`, `if_pos` and
+> `if_neg` all match on the instance.  So a simulation proof that
+> used to decide both sides with ONE `split` now decides one, and the
+> failure is a type mismatch at the next `refine`, not at the split.
+>
+> The repair that works is uniform: `by_cases h : <the condition>`
+> then `simp only [cfgOf_verified, h, ↓reduceIte]` — `↓reduceIte`
+> reduces `if true = true`/`if false = true` whatever the instance.
+
+Five sites, all of that one shape: `Verify/Cached/BinderLoopC.lean`
+×4 (the two `annotate*PwC_sim` and the two `inferLamsLeafC_sim`
+arms), `Verify/Cached/DiscC5.lean` ×2 (the ∀/λ conversion clauses),
+`Verify/Cached/DiscC6.lean` ×1 (the single-binder annotation write).
+Everything else — 51 of 56 retargets — needed **no** proof edit, as
+B2 predicted.
+
+**And one landed statement STRENGTHENED, deliberately.**
+`Verify/Cached/AgreeAnnot.lean`'s B7 letter `annotateBodyI_mode_eq`
+became `annotateBodyI_cfg_eq` and now quantifies over **every**
+`CoreCfg`, not only the three a `CheckMode` maps to: the clause-level
+identity holds of any configuration because no non-binder clause
+reads one.  The old letter is the new one at `cfgOf mode`.
+
+#### 1.3 THE BINARY MOVED — THE EXPLANATION, MEASURED
+
+The charter asked for md5-identity or an explanation.  **The binary
+moves** (`6b3b16df…` → `d6a7bd2d…`) and the reason is the same one
+B2 measured and priced: three more function families now take a
+**three-field record** where they took a scalar enum, so the emitted
+code reads `cfg.verified` as a field projection instead of matching
+an enum tag, and `Cached/CoreNC.lean`'s seven cross-calls pass the
+`cfgNC` constant.  Byte-identity was never available for this slice;
+verdict identity is, and the cost is bounded.  `perf stat -e
+instructions:u`, median of 3, master `7d13626e` vs this branch:
+
+| stream / config | master | B3 | Δ |
+|---|---|---|---|
+| `init-prelude` `--set-model --core=cached-parsed` | 28.3598 G | 28.3806 G | **+0.073 %** |
+| `init-prelude` `--no-model --core=cached-parsed` | 13.8648 G | 13.8652 G | +0.003 % |
+| `app-lam` `--set-model --core=cached-parsed` | 291.130 G | 291.127 G | −0.001 % |
+| `app-lam` `--no-model --core=cached-parsed` | 218.331 G | 218.335 G | +0.002 % |
+
+B2's landed residual for `whnfCore` alone was **+0.080 %** on
+`init-prelude` and 0 % on `app-lam`.  Adding three families kept it
+at **+0.073 %** — i.e. *the residual did not grow*, which is B2's
+config-shape rule doing its work: the record is still built **once
+per knot level**, so the marginal cost of a family reading it is the
+projection, not another allocation.  That is a second, independent
+confirmation of the rule and it is the number a later batch should
+carry when it templates the ι cone.
+
+### 2. `InferReadsIOP` — THE RISK CLASS, PAID (deliverable 3)
+
+`SetP/Step2/ReadsIOP.lean`, 359 lines.  The io-license batch's
+handoff map routed `InferReadsIOP` through
+`InferInputsIOP.infer_reads_io` with no supplier and called its
+discharge *"B3's named risk class"*.  It is discharged, and it is
+**cheaper than the full lane's walk**, for a reason that is the io
+license's own shape seen from the totality side:
+
+> **`inferBodyIO` differs from `inferBody` in one clause, and the
+> difference sits BEHIND the result.**  The io application clause
+> skips the per-argument certificate but returns
+> `body.instantiate1 a`, the full clause's own answer.  A *reads*
+> statement only ever looks at the returned type — so at the app
+> clause the io walk consumes strictly **less** than the full walk
+> does: it discards the inversion's certificate disjunct in *both*
+> arms.  **The licensed skip costs the totality metatheory nothing**,
+> and that is a fact about the license, not about this proof.
+
+Composition, by shape:
+
+| shapes | how the io walk gets them | new proof |
+|---|---|---|
+| `.sort`, `.fvar`, `.const`, `.lit` (2) | the **full lane's own clause lemma**, transported across a lane equation | none — 3 new `rfl`-grade equations (`inferTypeCoreIO_{sort,fvar,const}_eq`, siblings of the landed `_lit_eq`), 5 lemmas lose `private` |
+| `.bvar` | the subject's reading is already `none` (`denoteP_bvar`); the run is not consulted | none |
+| `.forallE` | the inversion pins `t = .sort (.imax u v)` | 2 lines |
+| `.lam`, `.app`, `.letE`, `.proj` | the four genuine mirrors | ~200 lines |
+
+and the fact that made the mirrors mechanical: **every `obtain`
+pattern is arity-identical to its full-lane twin.**  The io-license
+batch stated its six inversions to that shape, so not one
+destructuring moved — the edit is three names per clause
+(`inferTypeCore_*_inv` → `inferTypeCoreIO_*_inv`, and the scoping
+trio → `Verify/InferIOLeaves.lean`'s).  *A transposition is cheap
+exactly when the statements it transposes were written to the
+original's shape*, and this is the second batch in two days where
+that decided the price.
+
+**The induction's shape is the io knot's leaf-lane asymmetry, in the
+proof tier.**  The full walk is a *joint* induction over three
+statements (`ReadsAllP`) because the certified knot is mutual; the io
+knot's `whnfCore`/`whnf`/`defeq` **are** the certified knot's, so the
+io walk is a separate, single-statement induction that *consumes*
+`WhnfReadsP` at each level and produces nothing the full lane could
+consume.  Consequently:
+
+* **`ReadsInputsP` is unchanged**: the io lane introduces **no new
+  routed leaf**.  Every leaf the io body can reach (ι right-hand
+  sides, the literal acceleration, stored constant types, stored
+  definitions) is reached through the full knot's reduction fields;
+* `inferReadsIOP_of : ReadsInputsP μ m φ → ∀ fuel, InferReadsIOP m μ φ fuel`
+  is exactly what `InferInputsIOP.infer_reads_io` wants.  Mode
+  provenance stays structural, now on the proof side too.
+
+Axioms: `inferReadsIOP_of` / `_succ` / `_zero` and the three lane
+equations at exactly `[propext, Classical.choice, Quot.sound]`.
+
+**What B3 does NOT close, and it was never B3's**: `InferProjStepIOP`
+is B4's by the B1b owner assignment, and it stays there.
+
+### 3. THE R TOWER — WHAT MOVED (deliverable 2)
+
+Two waves, both compiler-driven, both net-negative on lines.
+
+| wave | modules | carrier declarations retired | binders | passes | diff |
+|---|---|---|---|---|---|
+| 3a — the capstone letters | `SetR/Main`, `SetR/Main2`, `Verify/Cached/MainC` (+`SetR/Annot/PremiseLadder`) | **81** | 162 | 130 | +402 / −412 |
+| 3b — the fold and install chain | `SetR/Bridge/Sound`, `SetR/Install/{Step,Value,ValueKinds}`, `SetR/DivModPin`, `SetBase/Bridge/{Sound,DeclInd,Decl}` | **40** | 77 | 107 | +362 / −367 |
+| **total** | 11 modules | **121 of 172 (70 %)** | **239** | **237** | **+764 / −779** |
+
+#### 3.1 THE LETTERS' RESTATEMENT, VERIFIED BY PRINTING
+
+`_tmp/tricore-b3/Letters.lean`, `pp.fullNames`.  Every R capstone
+letter now prints with **no `{μ : CheckMode}` binder, no
+`μ.betaGate = false` premise, and a single token in the mode slot**:
+
+```
+Setlec.SetR.no_proof_of_Empty_R : ∀ (V : Type u_1) [Setlec.SetTheory V] {F : Nat}
+  {ds : List Setlec.Declaration} {env' : Setlec.Env},
+  Setlec.checkDecls Setlec.modeR (Setlec.fueledOps Setlec.modeR F) ds = Except.ok env' →
+    ∀ (c : Setlec.ConstantInfo), c ∈ env'.consts →
+      c.toConstantVal.type = Setlec.Expr.const Setlec.emptyName [] → False
+```
+
+and the `R2`/`R2M`/`SPC`/`SPCD` families likewise, with their model
+tier's hypothesis reading `Setlec.SetR.DeclStep2AllM V Setlec.modeR`.
+**Nothing else in any statement moved.**  This is the entry
+re-pointing too: `checkDecls modeR (fueledOps modeR F)` *is* the R
+core's entry at the pure tier, which is what a named core is there.
+
+**THE PRE-RESTATEMENT STATEMENTS, VERBATIM** (ratified-statement
+discipline — the family heads; the other 79 differ only in driver,
+carrier and model tier):
+
+```lean
+theorem no_proof_of_Empty_R (V : Type w) [SetTheory V] {μ : CheckMode}
+    (hg : μ.betaGate = false) {F ds env'}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] → False
+
+theorem no_proof_of_Empty_R2M (V : Type w) [SetTheory V] {μ : CheckMode}
+    (hgOff : μ.betaGate = false) {F : Nat} (hstep : DeclStep2AllM V μ)
+    {ds env'} (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] → False
+```
+
+#### 3.2 THE `.noModel` NARROWING — THE ACTUAL DELETION COUNT
+
+The charter carried it as *"the ~800-line deletion"*.  **Measured:
+the net is −15 lines**, and the estimate was a class-I mis-size in
+the optimistic direction, for a reason that is checkable in advance:
+
+> The −800 estimate counted **165 binders + 635 passes** as if each
+> occupied a line.  They do not.  A binder shares its line with the
+> declaration's other binders (`{μ : CheckMode} (hg : …) {F : Nat}`
+> is ONE line and stays one line), and a pass shares its line with
+> its call (`foldlM_R (hg := hg) ds env1`).  What the sweep deletes
+> is **tokens**, and what it adds back is 8 characters per `μ →
+> modeR`.  **A token count is not a line count**, and the acceptance
+> check is stated in lines.
+
+The acceptance check (*converting a threaded hypothesis to concrete
+instantiation must DELETE lines, not add them*) **passes** — +764 /
+−779 across the two waves — but it passes by 15 lines, not by 800,
+and both waves are individually negative.  The honest headline is the
+*declaration* count: **121 of 172 carriers retired, 239 binders and
+237 passes deleted**.
+
+Ledger form, and it is the census's own eleventh correction in a new
+disguise:
+
+> *An estimate in lines and a measurement in tokens are different
+> quantities.  Before pricing a hypothesis sweep as a line deletion,
+> check whether the hypothesis has a line to itself.*
+
+#### 3.3 `EnvS2Refute` — RE-READ BEFORE DELETING AROUND IT, AS ORDERED
+
+The charter required its actual need to be verified rather than
+assumed (the census's tenth correction).  **Verified, and it needed
+nothing**: `SetR/Interp2/EnvS2Refute.lean` carries **no**
+`betaGate = false` premise and is untouched by both waves; its three
+`.noModel` literals are witness choices for a `∀ μ`-quantified
+refuted-shape predicate, exactly as part 3 §2 measured.  It compiles
+unchanged.  No deletion was taken around it and none is owed.
+
+#### 3.4 THE `SetBase/Bridge/*` HALF — CHECKED, NOT ASSUMED
+
+33 of wave 3b's carriers live in the shared base.  They are there for
+the S8 layering-zero move and are R content by subject (`EnvR`,
+`DeclR`, `checkDeclR_*`).  Before instantiating them, every one of
+the 33 names was grepped against `Setlec/SetP/`: the result is **two
+docstring mentions and zero proof terms** (`FoldP.lean`'s
+`declIndRR`, `Annot/EnvS2P.lean`'s `checkDeclR_ofEnvRE` — both
+prose).  So no P-tier statement consumes a gate-off lemma and the
+narrowing takes nothing from the graded lane.  `Verify/*` is
+untouched: it is the shared library the census keeps **generic**
+(part 2, finding 2), and `whnf_app_inv_ungated` stays there with its
+hypothesis, now supplied as `rfl` from the R side.
+
+#### 3.5 THREE METHOD ROWS FROM THE SWEEP
+
+The next mechanical batch will meet all three:
+
+1. **A blanket `hg → rfl` substitution is unsafe where the proof
+   *rebinds* the name.**  Exactly one declaration did
+   (`SetBase/Bridge/Decl.lean`'s `by_cases hg : natOpGuard … = true`).
+   The misfire typechecks nowhere, so the compiler caught it — but
+   the repair is by name, not by pattern, and the local is now `hgd`.
+   B3b's rule 2 at a different token.
+2. **A named argument's NAME is not its value.**  `(μ := μ)` must
+   become `(μ := modeR)`, not `(modeR := modeR)`; likewise
+   `(hg := hg)`.  Fails loudly, costs a round.
+3. **Deleting a hypothesis deletes an INFERENCE CHANNEL.**
+   `checkBridge`'s implicit `mode` was inferred from its `hg`
+   argument's type; with `rfl` in that slot there is nothing to
+   unify against, and eleven call sites had to name it
+   (`checkBridge (mode := modeR) rfl …`).  This one is invisible to
+   any pre-flight grep and is the reason a hypothesis sweep is
+   compiler-driven rather than scripted end to end.
+
+### 4. THE ESCALATION — WHAT B3 DID NOT DO, AND WHAT IT COSTS
+
+**51 carrier declarations remain**, and they are NOT the same edit:
+
+| module | carriers | why it is not wave 3's edit |
+|---|---|---|
+| `SetR/Interp2/Step2/Whnf` | 13 | section `variable {μ : CheckMode}` + **25** mode-parameterized `def`s |
+| `SetR/Interp2/Step2/DefEqRun` | 11 | same; **45** parameterized `def`s |
+| `SetR/Annot/SortCoh/{LoopLock,Align,CoreLock,Discharge,SubstSim}` | 15 | same; **56** parameterized `def`s between them |
+| `SetR/Interp2/Capstone{,2C,2D,2E}` | 6 | same |
+| `SetBase/Bridge/{Main,WhnfCore}` | 4 | section `variable {mode : CheckMode}`, consumed **generically** by the modules above |
+| `Verify/{BetaGate,InferLemmas}` | 2 | **STAY** — shared-base genericity, the census's rule clause (i) |
+
+**The sizing correction, and it is the escalation.**  The census
+priced this as *"211 R-tier statements lose a binder — mechanical,
+net negative"*.  Measured on the tree: those statements sit
+downstream of **277 mode-parameterized predicate and structure
+definitions** in `Setlec/SetR/` (`def SortOfAgreeRQ (μ : CheckMode)
+…`, `def WhnfCoreClaims2R (μ : CheckMode) …`, and 275 more), and
+`Setlec/SetR/` holds **6 400 `μ` occurrences**.  Retiring the
+parameter is not "delete a binder": it **changes the arity of every
+application of 277 definitions**, and the section-`variable` files
+cannot be done one declaration at a time because the binder is
+file-scoped.
+
+Against the batch's own delivered rate — 121 carriers, 11 modules,
+one batch — the residual 51 carriers carry ~20× the token surface.
+**By the escalation rule (*an unnamed residual, or a bill that
+doubles, stops the batch and is flagged*), this is flagged and not
+attempted.**  It is a well-defined follow-up, it is entirely
+mechanical, and it should be dispatched as **B3c** with its own
+charter, sequenced with (not inside) the `ttChecks` row that census
+part 8 §3(c) already places beside B3/B4 — the two edit the same
+`SetR/Interp2` and `SetR/Annot/SortCoh` families and would collide.
+
+Recommended B3c shape, from this batch's evidence: **top-down, not
+bottom-up.**  Instantiating a callee forces every caller to be at the
+concrete mode, so the only safe order is the one wave 3a/3b used —
+capstones first, then the layer they call, with `(hg := rfl)` as the
+temporary interface at every not-yet-converted boundary and a final
+strip pass.  Waves that respect that order cost one build round each;
+a wave that does not costs a full-tree error cascade.
+
+### 5. RECEIPTS
+
+* `lake build` green and **warning-free**, 559 jobs, at every commit;
+* `tests/layering.sh`: base 274 / R 106 / P **120** / neutral 3;
+  **0 P→R, 0 R→P**, whitelist EMPTY (P gains the one new module);
+* `tests/proofdeps.sh`: **120 rows as pinned**, doors 0;
+* `tests/arena.sh` full: arena tutorial **90/92**, e2e **73/73**,
+  annot **14/14**, split **11/11**, mode flags **9/9**, no-model
+  sweep **138 arena + 73 e2e + 14 annot as expected (3 recorded
+  divergences)** — **verdict identity everywhere**, run twice (after
+  the template, and after both tower waves);
+* axiom audit (`_tmp/tricore-b3/Audit.lean`): `inferReadsIOP_of`,
+  `_succ`, `_zero` and the three lane equations at exactly
+  `[propext, Classical.choice, Quot.sound]`; the restated
+  `no_proof_of_Empty_R`, `_R2M`, `SPC_R2M` and the P capstone
+  `no_proof_of_Empty_P` unchanged at the same three; the `rfl`-grade
+  core identities at `[propext]`;
+* the six named cores checked flag-free by `rfl` `example`s in the
+  same probe; `_tmp/tricore-b3/Letters.lean` is the restatement
+  print;
+* the binary MOVES and §1.3 prices it: **+0.073 % `init-prelude`
+  certified, ≤0.003 % elsewhere** — B2's config-shape residual, not
+  grown by three more families;
+* **no `sorry`, no new axiom, no statement left conditional.**
+
+### 6. WHAT B3 HANDS BACK
+
+1. **Three more families through the template**, six more named
+   flag-free cores, and the finding that **`whnf` has no
+   configuration** — one family fewer than the charter assumed.
+2. **The `split`-vs-`by_cases` method row with its mechanism** (the
+   `Decidable` instance, not the proposition), which makes B2's
+   `↓reduceIte` rule predictive.
+3. **B2's per-function cost sample confirmed to 8 %** across three
+   families, and its config-shape residual confirmed **not to grow**
+   with family count.
+4. **The R capstone letters, restated and printed** — no mode, no
+   gate, single-token subject; 121 of 172 carriers retired.
+5. **`InferReadsIOP` discharged from `ReadsInputsP` alone**, with the
+   finding that the licensed io skip costs the totality metatheory
+   nothing.
+6. **The `.noModel` narrowing's honest number** (−15 net lines, not
+   −800) and the ledger rule behind the miss (*a token count is not a
+   line count*).
+7. **B3c, named and sized**: 51 carriers behind 277 parameterized
+   definitions and 6 400 occurrences, to be dispatched with the
+   `ttChecks` row and with the top-down order this batch measured.
