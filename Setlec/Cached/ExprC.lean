@@ -45,6 +45,50 @@ O(1) exactly as an index comparison does.
 This module is implementation-only and unverified — the pilot is a
 measurement instrument (like the NbE and sortSpec pilots), not part of
 the verified checker.
+
+## THE TRUST CENSUS (task #172 B3a, 2026-09-04) — the escapes, all of
+them
+
+`#print axioms` and `tests/proofdeps.sh` measure the *proof* term; an
+`implemented_by` escape is invisible to both, so the escapes are
+enumerated here by hand and this list is the pin.
+
+1. **`ExprC.beqFast` for `ExprC.beq`** — written in this file,
+   docstringed at its definition: pointer equality implies structural
+   equality; address-keyed memo entries stay valid for one
+   comparison's lifetime.
+2. **The `@[computed_field]` machinery** (NEW).  The per-node derived
+   data (`hash`, `bvarB`, `fvarB`, `hasLP`) is declared in the
+   inductive's `with` block; logically each is an ordinary recursive
+   function, and the *agreement between the stored word and that
+   function is the code generator's*, not a theorem of this
+   repository.  `Lean/Elab/ComputedFields.lean:33`, verbatim: *"This
+   file implements the computed fields feature by simulating it via
+   `implemented_by`."*  Hence it is an escape of exactly the class of
+   row 1, and it is likewise invisible to `#print axioms` and to
+   `tests/proofdeps.sh`.
+
+   **USER RULING, 2026-09-04, verbatim:** *"Adopt computed_fields.
+   It's a compiler feature, we trust the compiler."*
+
+   What the row buys, measured before adoption (task #172 B2 §5,
+   probes `_tmp/tricore-b2/{CF,CF2,CF3}.lean`): the field functions
+   reduce definitionally on constructors, so `WFc` — the hand-rolled
+   field invariant — **disappears** rather than becomes true, and with
+   it the smart-constructor discipline, the `WExprC`/`WDeclC`
+   subtypes, `eraseC`/`ofExpr` and their injectivity lemma.  The
+   escape replaces a hand-maintained discipline (every construction
+   site must use a smart constructor) with the compiler's own, on the
+   feature `Lean.Expr` itself is built from.
+
+**Census history, so the count is readable.**  The task-#163 census
+said *two* escapes (`beqFast`, `ofExprFast`); `ofExprFast` was
+**deleted by architecture** on 2026-09-03 (see `ofExpr` below), which
+left **one** — a shrink DESIGN.md records but this docstring did not,
+so its "exactly two" was stale by one row when B3a opened.  The
+corrected count with the computed-fields row is therefore **two, with
+a different second member**, not three; the escape *class* is what B2
+flagged for ruling, and it is the row above.
 -/
 
 namespace Setlec.Cached
@@ -327,8 +371,9 @@ unsafe def beqB (fuel : Nat) (a b : ExprC) : Option Bool × Nat :=
 
 /-- The executed equality (see `beqGo`).
 
-**TRUST POINT** (task #163; one of exactly two `implemented_by`
-escapes the verified cached variant rests on).  The pure spec is
+**TRUST POINT** (task #163; the first of the **two** escapes the
+verified cached variant rests on — see the census in this module's
+header docstring).  The pure spec is
 `beqSpec`; the acceleration is faithful to it given two facts about
 the runtime: (a) *pointer equality implies structural equality* —
 Lean objects are immutable, so two references to one address are one

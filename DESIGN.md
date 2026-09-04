@@ -16250,6 +16250,12 @@ mirroring what `beqB`/`beqGo` actually test).  This makes:
 
 ### The trust points (all of them; each named in its docstring)
 
+> **SUPERSEDED TWICE — see "TASK #172 — BATCH B3a: THE TRUST CENSUS
+> AMENDED" at the end of this file.**  `ofExprFast` was deleted by
+> architecture (2026-09-03) and the `@[computed_field]` machinery was
+> adopted by user ruling (2026-09-04).  The live census is `beqFast`
+> + computed fields.
+
 Exactly **two** `unsafe` `implemented_by` escapes survive, both in
 `Setlec/Cached/ExprC.lean`; the proof consumes only the pure specs:
 
@@ -19673,6 +19679,11 @@ verdict.  The probe landed as `tests/annot/annot_pw_thread.ndjson`
    deviation.
 
 ### The trust points (final)
+
+> **SUPERSEDED TWICE — see "TASK #172 — BATCH B3a: THE TRUST CENSUS
+> AMENDED" at the end of this file** (`ofExprFast` deleted 2026-09-03;
+> `@[computed_field]` adopted by user ruling 2026-09-04).  "Final" was
+> final for task #163.
 
 Exactly **two** `unsafe implemented_by` escapes, both in
 `Setlec/Cached/ExprC.lean`, both docstring-named: `beqFast` (pointer
@@ -34176,3 +34187,83 @@ test` is green and the axiom audit is unchanged.  B2's config replaces
 mode-parameterised, so T2a's statement is unaffected — and when the
 annotation pass joins the template, `annotateBodyI_mode_eq` is exactly
 the collapse lemma that batch will need.
+
+
+## TASK #172 — BATCH B3a: THE TRUST CENSUS AMENDED (2026-09-04,
+`agent/tricore-b3a`; DOCS ONLY — landed before any code, as the batch's
+first commit)
+
+### THE RULING
+
+B2 §5 verified the `@[computed_field]` migration on every mechanical
+count and stopped at one question it would not self-grant: *does a
+compiler-implemented field count as a trusted escape on the same
+footing as `beqFast`?*  Answered by the user, verbatim:
+
+> **"Adopt computed_fields.  It's a compiler feature, we trust the
+> compiler."**
+
+### WHAT THE ESCAPE IS, PRECISELY
+
+`Lean/Elab/ComputedFields.lean:33`
+(`~/.elan/toolchains/leanprover--lean4---v4.33.0/src/lean/`), verbatim:
+
+> *"This file implements the computed fields feature by simulating it
+> via `implemented_by`."*
+
+So the migration does not remove the field-correctness obligation, it
+**moves** it: today `WFc` (`ofExpr (eraseC e) = e`) is a theorem of
+this repository and a discipline at every construction site; after the
+migration the logical field function is definitional on constructors
+and the agreement between it and the *stored word* is the code
+generator's.  Like every `implemented_by`, that agreement is invisible
+to `#print axioms` — hence to this project's axiom discipline and to
+`tests/proofdeps.sh`, which measures the proof term.  It is therefore
+a **named escape**, enumerated by hand or not at all.
+
+### THE COUNT — AND A STALE PIN FOUND WHILE AMENDING IT
+
+The census B2 quoted (`Cached/ExprC.lean:330`, *"one of exactly two
+`implemented_by` escapes"*) was **stale by one row**: `ofExprFast` was
+deleted by architecture on 2026-09-03 (#171 made the parse route
+`ExprC`-native, so nothing converts materialized `Expr` trees on the
+hot path), a shrink recorded in this file — *"the two-escape #163
+census is ONE escape"* — but never carried into the docstring the
+census is pinned in.  Measured at B3a's open, `grep -rn
+'implemented_by\|@\[extern\|native_decide'` over `Setlec/` + `Main.lean`
+returns **exactly one** row in the checker: `@[implemented_by beqFast]`.
+(`Setlec/PinGen*` is elaboration-time tooling, not the checker's
+runtime.)
+
+**So the corrected census is TWO, with a different second member** —
+not three:
+
+| # | escape | written where | what is trusted |
+|---|---|---|---|
+| 1 | `ExprC.beqFast` for `ExprC.beq` | `Setlec/Cached/ExprC.lean`, docstringed at the definition | pointer equality ⟹ structural equality; address-keyed memo entries valid for one comparison |
+| 2 | the `@[computed_field]` machinery (**NEW**, this ruling) | **not in setlec's source** — `Lean/Elab/ComputedFields.lean` | the stored word agrees with the field's logical function at every construction |
+| — | ~~`ExprC.ofExprFast`~~ | deleted 2026-09-03 | — |
+
+The pin now lives in `Setlec/Cached/ExprC.lean`'s **module header**
+(it enumerates all rows in one place, instead of one row knowing it is
+"one of two"), and each row keeps its own docstring at its definition.
+The lesson is the ledger's own, at a new instrument: *a census pinned
+inside one row's docstring cannot record the deletion of another row.*
+
+### WHAT THE ESCAPE BUYS, SO THE TRADE IS ON THE RECORD
+
+Row 2 is not free trust bought for tidiness.  Against it (B2 §5, all
+verified by execution) it retires: `WFc`, the smart-constructor
+discipline at **every** construction site, the `WExprC`/`WDeclC`
+subtypes, `eraseC`/`ofExpr` and the injectivity lemma — a
+hand-maintained surface whose correctness today depends on a
+convention being followed everywhere, which is precisely the class of
+thing the drift ledger says a discipline-shaped invariant loses.  And
+it *shrinks* row 1: `beqFast`'s hash short-circuit is faithful today
+only *given* `WFc`; under computed fields `a.hash` **is** the hash
+function and that premise is definitional.
+
+**Scope note.**  This commit is documentation only: the docstring
+census, the two superseded-record markers above, and this section.  No
+code moved, no statement changed, and the batch's own code stages are
+what the following sections record.
