@@ -50,37 +50,37 @@ theorem annotateBodyI_mode_eq (mode : CheckMode) (r : CoreFnsI) (fe : FEnv)
     (d : Nat) (e : ExprC) (h : ExprC.isBinderNode e = false) :
     annotateBodyI .noModel r fe d e = annotateBodyI mode r fe d e := by
   cases e with
-  | bvar _ _ _ _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | fvar _ _ _ _ _ _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | sort _ _ _ _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | const _ _ _ _ _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | app _ _ _ _ _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | letE _ _ _ _ _ _ _ _ =>
+  | bvar _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
+  | fvar _ _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
+  | sort _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
+  | const _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
+  | app _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
+  | letE _ _ _ _ =>
     simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | lit l _ _ _ _ =>
+  | lit l =>
     cases l <;> simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | proj _ _ _ _ _ _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | lam _ _ _ _ _ _ _ _ => exact absurd h (by simp [ExprC.isBinderNode])
-  | forallE _ _ _ _ _ _ _ _ => exact absurd h (by simp [ExprC.isBinderNode])
+  | proj _ _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
+  | lam _ _ _ _ => exact absurd h (by simp [ExprC.isBinderNode])
+  | forallE _ _ _ _ => exact absurd h (by simp [ExprC.isBinderNode])
 
 /-! ## T2b — the `pw`-erasure at the cached representation -/
 
 /-- `Expr.erasePw` at the cached representation: the binder data is
 rebuilt with the `pw` field cleared, every other node structurally. -/
 def ExprC.erasePwC : ExprC → ExprC
-  | .bvar i _ _ _ _ => ExprC.mkBVar i
-  | .fvar idx n ty _ _ _ _ => ExprC.mkFVar idx n (erasePwC ty)
-  | .sort u _ _ _ _ => ExprC.mkSort u
-  | .const n us _ _ _ _ => ExprC.mkConst n us
-  | .app f a _ _ _ _ => ExprC.mkApp (erasePwC f) (erasePwC a)
-  | .lam n ty b m _ _ _ _ =>
+  | .bvar i => ExprC.mkBVar i
+  | .fvar idx n ty => ExprC.mkFVar idx n (erasePwC ty)
+  | .sort u => ExprC.mkSort u
+  | .const n us => ExprC.mkConst n us
+  | .app f a => ExprC.mkApp (erasePwC f) (erasePwC a)
+  | .lam n ty b m =>
     ExprC.mkLam n (erasePwC ty) (erasePwC b) ⟨m.bi, .never⟩
-  | .forallE n ty b m _ _ _ _ =>
+  | .forallE n ty b m =>
     ExprC.mkForallE n (erasePwC ty) (erasePwC b) ⟨m.bi, .never⟩
-  | .letE n ty v b _ _ _ _ =>
+  | .letE n ty v b =>
     ExprC.mkLetE n (erasePwC ty) (erasePwC v) (erasePwC b)
-  | .lit l _ _ _ _ => ExprC.mkLit l
-  | .proj s i e _ _ _ _ => ExprC.mkProj s i (erasePwC e)
+  | .lit l => ExprC.mkLit l
+  | .proj s i e => ExprC.mkProj s i (erasePwC e)
 
 /-- The cached erasure is the plain one: `erasePwC` computes
 `Expr.erasePw` under `eraseC`.  Unconditional — the smart

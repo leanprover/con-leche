@@ -185,7 +185,7 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
   refine SimC.view ?_
   obtain ⟨hwc, rfl⟩ := ht
   cases t
-  case lam nmN tyN bodyN mbN h bb fb lp =>
+  case lam nmN tyN bodyN mbN =>
     dsimp only [ExprC.view, eraseC]
     refine SimC.bind_left (abstractRangeM_eff hs₂ hbtd)
       (fun s₅ cur hs₅ hQcur => ?_)
@@ -231,7 +231,7 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
     refine SimC.view ?_
     obtain ⟨hwdc, rfl⟩ := hwd
     cases wbt
-    case sort v hh bb' fb' lp' =>
+    case sort v =>
       dsimp only [ExprC.view, eraseC]
       -- the leaf validation (task #161): both sides read the same
       -- datum of the same sort; then the fold, per stack head
@@ -309,7 +309,7 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     have ht' := ht
     obtain ⟨hwc, rfl⟩ := ht
     cases t
-    case lam nm ty body mb h bb fb lp =>
+    case lam nm ty body mb =>
       dsimp only [ExprC.view, eraseC] at hw ⊢
       rw [inferLams_succ_lam]
       obtain ⟨hwty, hwbody, -⟩ := hwc.lam_inv
@@ -333,7 +333,7 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
       refine SimC.view ?_
       obtain ⟨hwdc, rfl⟩ := hwd
       cases wtty
-      case sort u hh bb' fb' lp' =>
+      case sort u =>
         dsimp only [ExprC.view, eraseC]
         refine SimC.bind_left
           (internI_eff hs₃ (n := ExprView.fvar (d + k) nm tyo) hQtyo.1)
@@ -444,7 +444,7 @@ theorem inferPisLeafC_sim (ih : SSimC mode env f) {d : Nat}
   refine SimC.view ?_
   obtain ⟨hwdc, rfl⟩ := hwd
   cases wbt
-  case sort v hh bb fb lp =>
+  case sort v =>
     dsimp only [ExprC.view, eraseC]
     refine SimC.bind (inferPisOutC_sim hs₃ hstk rfl PWMemoInvC.empty)
       (fun s₄ iv ivx hs₄ hiv => ?_)
@@ -492,7 +492,7 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
     have ht' := ht
     obtain ⟨hwc, rfl⟩ := ht
     cases t
-    case forallE nm ty body mb h bb fb lp =>
+    case forallE nm ty body mb =>
       dsimp only [ExprC.view, eraseC] at hw ⊢
       rw [inferPis_succ_pi]
       obtain ⟨hwty, hwbody, -⟩ := hwc.forallE_inv
@@ -516,7 +516,7 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
       refine SimC.view ?_
       obtain ⟨hwdc, rfl⟩ := hwd
       cases wtty
-      case sort u hh bb' fb' lp' =>
+      case sort u =>
         dsimp only [ExprC.view, eraseC]
         refine SimC.bind_left
           (internI_eff hs₃ (n := ExprView.fvar (d + k) nm tyo) hQtyo.1)
@@ -989,7 +989,7 @@ theorem annotPwPiC_sim (ih : SSimC mode env f) {d : Nat}
   have hl' := hl
   obtain ⟨hwc, rfl⟩ := hl
   cases body'
-  case forallE nmN tyN bodyN mbN h bb fb lp =>
+  case forallE nmN tyN bodyN mbN =>
     dsimp only [ExprC.view, eraseC, Expr.forallPw]
     exact SimC.pure hs rfl
   all_goals
@@ -1019,7 +1019,7 @@ theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
   have hl' := hl
   obtain ⟨hwc, rfl⟩ := hl
   cases body'
-  case lam nmN tyN bodyN mbN h bb fb lp =>
+  case lam nmN tyN bodyN mbN =>
     dsimp only [ExprC.view, eraseC, Expr.lamPw]
     exact SimC.pure hs rfl
   all_goals
@@ -1135,7 +1135,7 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
     have ht' := ht
     obtain ⟨hwc, rfl⟩ := ht
     cases t
-    case forallE nm ty body mb h bb fb lp =>
+    case forallE nm ty body mb =>
       dsimp only [ExprC.view, eraseC] at hw ⊢
       rw [annotatePis_succ_pi]
       obtain ⟨hwty, hwbody, -⟩ := hwc.forallE_inv
@@ -1239,7 +1239,7 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     have ht' := ht
     obtain ⟨hwc, rfl⟩ := ht
     cases t
-    case lam nm ty body mb h bb fb lp =>
+    case lam nm ty body mb =>
       dsimp only [ExprC.view, eraseC] at hw ⊢
       rw [annotateLams_succ_lam]
       obtain ⟨hwty, hwbody, -⟩ := hwc.lam_inv

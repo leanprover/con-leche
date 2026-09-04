@@ -22,8 +22,7 @@ variable {mode : CheckMode}
 `DiscC` replacement for the interned walks' `simp only [WScoped] at`
 steps, which had a denoted `Expr` to unfold). -/
 private theorem wscoped_appC_inv {d : Nat} {fn arg : ExprC}
-    {h : UInt64} {bb fb : Nat} {lp : Bool}
-    (hw : Expr.WScoped d (eraseC (ExprC.app fn arg h bb fb lp))) :
+    (hw : Expr.WScoped d (eraseC (Expr.app fn arg))) :
     Expr.WScoped d (eraseC fn) ∧ Expr.WScoped d (eraseC arg) := by
   have hw' : Expr.WScoped d (.app (eraseC fn) (eraseC arg)) := hw
   simpa only [Expr.WScoped] using hw'
@@ -100,7 +99,7 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     refine SimC.view ?_
     obtain ⟨hwc, rfl⟩ := hwttad
     cases wtta with
-    | sort uT h bb fb lp =>
+    | sort uT =>
       refine SimC.bind_left (internLM_eff hs₄ .zero)
         (fun s₄z zA hs₄z hzA => ?_)
       subst hzA
@@ -120,7 +119,7 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
       refine SimC.view ?_
       obtain ⟨hwc', rfl⟩ := hwttbd
       cases wttb with
-      | sort vT h' bb' fb' lp' =>
+      | sort vT =>
         refine SimC.bind_left (internLM_eff hs₈ .zero)
           (fun s₈z zB hs₈z hzB => ?_)
         subst hzB
@@ -131,24 +130,24 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
           (fun s₉ okB okB' hs₉ hPok' => ?_)
         obtain rfl : okB = okB' := hPok'
         exact SimC.pure hs₉ rfl
-      | bvar k h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-      | const nm us h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-      | lit l h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-      | fvar idx nm t h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-      | app f' a' h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-      | lam nm t b' m h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-      | forallE nm t b' m h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-      | letE nm t v b' h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-      | proj sn j' e' h' bb' fb' lp' => exact SimC.pure hs₈ rfl
-    | bvar k h bb fb lp => exact SimC.pure hs₄ rfl
-    | const nm us h bb fb lp => exact SimC.pure hs₄ rfl
-    | lit l h bb fb lp => exact SimC.pure hs₄ rfl
-    | fvar idx nm t h bb fb lp => exact SimC.pure hs₄ rfl
-    | app f' a' h bb fb lp => exact SimC.pure hs₄ rfl
-    | lam nm t b' m h bb fb lp => exact SimC.pure hs₄ rfl
-    | forallE nm t b' m h bb fb lp => exact SimC.pure hs₄ rfl
-    | letE nm t v b' h bb fb lp => exact SimC.pure hs₄ rfl
-    | proj sn j' e' h bb fb lp => exact SimC.pure hs₄ rfl
+      | bvar k => exact SimC.pure hs₈ rfl
+      | const nm us => exact SimC.pure hs₈ rfl
+      | lit l => exact SimC.pure hs₈ rfl
+      | fvar idx nm t => exact SimC.pure hs₈ rfl
+      | app f' a' => exact SimC.pure hs₈ rfl
+      | lam nm t b' m => exact SimC.pure hs₈ rfl
+      | forallE nm t b' m => exact SimC.pure hs₈ rfl
+      | letE nm t v b' => exact SimC.pure hs₈ rfl
+      | proj sn j' e' => exact SimC.pure hs₈ rfl
+    | bvar k => exact SimC.pure hs₄ rfl
+    | const nm us => exact SimC.pure hs₄ rfl
+    | lit l => exact SimC.pure hs₄ rfl
+    | fvar idx nm t => exact SimC.pure hs₄ rfl
+    | app f' a' => exact SimC.pure hs₄ rfl
+    | lam nm t b' m => exact SimC.pure hs₄ rfl
+    | forallE nm t b' m => exact SimC.pure hs₄ rfl
+    | letE nm t v b' => exact SimC.pure hs₄ rfl
+    | proj sn j' e' => exact SimC.pure hs₄ rfl
 
 end Walks
 
@@ -221,10 +220,10 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
   refine SimC.view ?_
   obtain ⟨hwc, rfl⟩ := hwtbd
   cases wtb with
-  | forallE nm ty₂ b₂ m₂ h bb fb lp =>
+  | forallE nm ty₂ b₂ m₂ =>
     obtain ⟨hwty₂, hwb₂, -⟩ := hwc.forallE_inv
     have hwty₂x : Expr.WScoped d (eraseC ty₂) := by
-      rw [show eraseC (ExprC.forallE nm ty₂ b₂ m₂ h bb fb lp)
+      rw [show eraseC (Expr.forallE nm ty₂ b₂ m₂)
           = Expr.forallE nm (eraseC ty₂) (eraseC b₂) m₂ from rfl] at hwwtb
       simp only [Expr.WScoped] at hwwtb
       exact hwwtb.1
@@ -268,15 +267,15 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
         split
         · exact SimC.throw_bind
         · exact SimC.pure hs₈ rfl
-  | bvar k h bb fb lp => exact SimC.pure hs₂ rfl
-  | sort u h bb fb lp => exact SimC.pure hs₂ rfl
-  | const nm us h bb fb lp => exact SimC.pure hs₂ rfl
-  | lit l h bb fb lp => exact SimC.pure hs₂ rfl
-  | fvar idx nm t h bb fb lp => exact SimC.pure hs₂ rfl
-  | app f' a' h bb fb lp => exact SimC.pure hs₂ rfl
-  | lam nm t b' m h bb fb lp => exact SimC.pure hs₂ rfl
-  | letE nm t v b' h bb fb lp => exact SimC.pure hs₂ rfl
-  | proj sn j' e' h bb fb lp => exact SimC.pure hs₂ rfl
+  | bvar k => exact SimC.pure hs₂ rfl
+  | sort u => exact SimC.pure hs₂ rfl
+  | const nm us => exact SimC.pure hs₂ rfl
+  | lit l => exact SimC.pure hs₂ rfl
+  | fvar idx nm t => exact SimC.pure hs₂ rfl
+  | app f' a' => exact SimC.pure hs₂ rfl
+  | lam nm t b' m => exact SimC.pure hs₂ rfl
+  | letE nm t v b' => exact SimC.pure hs₂ rfl
+  | proj sn j' e' => exact SimC.pure hs₂ rfl
 
 /-- Indexed readout of a related list (the `DenL.getD` transposition:
 the erasure is a `List.map`, so the default travels with it). -/
@@ -394,7 +393,7 @@ theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
   dsimp only [CStore.getNode, CStore.getAppFnI]
   generalize hg : ExprC.getAppFn wta = g at hwfn hfn ⊢
   cases g with
-  | const T us' h bb fb lp =>
+  | const T us' =>
     rw [show (eraseC wta).getAppFn = Expr.const T us' from hfn.symm]
     dsimp only
     refine SimC.bind_left (readbackNM_eff hs₂ T)
@@ -439,36 +438,36 @@ theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       | ctorInfo cv nP nF => exact SimC.pure hs₂ rfl
       | recInfo cv mI rP rules => exact SimC.pure hs₂ rfl
       | projInfo entry => exact SimC.pure hs₂ rfl
-  | bvar k h bb fb lp =>
+  | bvar k =>
     rw [show (eraseC wta).getAppFn = Expr.bvar k from hfn.symm]
     exact SimC.pure hs₂ rfl
-  | sort u h bb fb lp =>
+  | sort u =>
     rw [show (eraseC wta).getAppFn = Expr.sort u from hfn.symm]
     exact SimC.pure hs₂ rfl
-  | lit l h bb fb lp =>
+  | lit l =>
     rw [show (eraseC wta).getAppFn = Expr.lit l from hfn.symm]
     exact SimC.pure hs₂ rfl
-  | fvar idx nm t h bb fb lp =>
+  | fvar idx nm t =>
     rw [show (eraseC wta).getAppFn = Expr.fvar idx nm (eraseC t)
       from hfn.symm]
     exact SimC.pure hs₂ rfl
-  | app f' a' h bb fb lp =>
+  | app f' a' =>
     rw [show (eraseC wta).getAppFn = Expr.app (eraseC f') (eraseC a')
       from hfn.symm]
     exact SimC.pure hs₂ rfl
-  | lam nm t b' m h bb fb lp =>
+  | lam nm t b' m =>
     rw [show (eraseC wta).getAppFn = Expr.lam nm (eraseC t) (eraseC b') m
       from hfn.symm]
     exact SimC.pure hs₂ rfl
-  | forallE nm t b' m h bb fb lp =>
+  | forallE nm t b' m =>
     rw [show (eraseC wta).getAppFn = Expr.forallE nm (eraseC t) (eraseC b') m
       from hfn.symm]
     exact SimC.pure hs₂ rfl
-  | letE nm t v b' h bb fb lp =>
+  | letE nm t v b' =>
     rw [show (eraseC wta).getAppFn
       = Expr.letE nm (eraseC t) (eraseC v) (eraseC b') from hfn.symm]
     exact SimC.pure hs₂ rfl
-  | proj sn j' e' h bb fb lp =>
+  | proj sn j' e' =>
     rw [show (eraseC wta).getAppFn = Expr.proj sn j' (eraseC e')
       from hfn.symm]
     exact SimC.pure hs₂ rfl
@@ -606,27 +605,27 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
   rw [pairEtaCertC_unfold]
   refine SimC.view ?_
   cases i with
-  | app f₄ s₂ h₄ bb₄ fb₄ lp₄ =>
+  | app f₄ s₂ =>
     obtain ⟨hwf₄, hws₂w⟩ := wscoped_appC_inv hwa
     obtain ⟨hwcf₄, hwcs₂, -⟩ := hwca.app_inv
     refine SimC.view ?_
     cases f₄ with
-    | app f₃ s₁ h₃ bb₃ fb₃ lp₃ =>
+    | app f₃ s₁ =>
       obtain ⟨hwf₃, hws₁w⟩ := wscoped_appC_inv hwf₄
       obtain ⟨hwcf₃, hwcs₁, -⟩ := hwcf₄.app_inv
       refine SimC.view ?_
       cases f₃ with
-      | app f₂ pβ h₂ bb₂ fb₂ lp₂ =>
+      | app f₂ pβ =>
         obtain ⟨hwf₂, hwpβ⟩ := wscoped_appC_inv hwf₃
         obtain ⟨hwcf₂, hwcpβ, -⟩ := hwcf₃.app_inv
         refine SimC.view ?_
         cases f₂ with
-        | app f₁ pα h₁ bb₁ fb₁ lp₁ =>
+        | app f₁ pα =>
           obtain ⟨hwf₁, hwpα⟩ := wscoped_appC_inv hwf₂
           obtain ⟨hwcf₁, hwcpα, -⟩ := hwcf₂.app_inv
           refine SimC.view ?_
           cases f₁ with
-          | const c us h₀ bb₀ fb₀ lp₀ =>
+          | const c us =>
             dsimp only [eraseC]
             refine SimC.bind_left (readbackNM_eff hs c)
               (fun s₀' cv hs hcv => ?_)
@@ -648,17 +647,17 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
                   refine SimC.view ?_
                   obtain ⟨hwcw, rfl⟩ := hwtbd
                   cases wtb with
-                  | app g₂ B hgB bbB fbB lpB =>
+                  | app g₂ B =>
                     obtain ⟨hwg₂, hwB⟩ := wscoped_appC_inv hwwtb
                     obtain ⟨hwcg₂, hwcB, -⟩ := hwcw.app_inv
                     refine SimC.view ?_
                     cases g₂ with
-                    | app g₁ A hgA bbA fbA lpA =>
+                    | app g₁ A =>
                       obtain ⟨hwg₁, hwA⟩ := wscoped_appC_inv hwg₂
                       obtain ⟨hwcg₁, hwcA, -⟩ := hwcg₂.app_inv
                       refine SimC.view ?_
                       cases g₁ with
-                      | const c' us' hc'0 bbc' fbc' lpc' =>
+                      | const c' us' =>
                         dsimp only [eraseC]
                         refine SimC.bind_left (readbackNM_eff hs₂' c')
                           (fun s₂'' c'w hs₂' hc'w => ?_)
@@ -777,40 +776,40 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
                           | ctorInfo cv nP' nF' => exact SimC.pure hs₂' rfl
                           | recInfo cv mI rP rules => exact SimC.pure hs₂' rfl
                           | projInfo entry => exact SimC.pure hs₂' rfl
-                      | bvar k hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                      | sort u hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                      | lit l hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                      | fvar ix nm t hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                      | app g₀ a₀ hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                      | lam nm t b' m hk bbk fbk lpk =>
+                      | bvar k => exact SimC.pure hs₂' rfl
+                      | sort u => exact SimC.pure hs₂' rfl
+                      | lit l => exact SimC.pure hs₂' rfl
+                      | fvar ix nm t => exact SimC.pure hs₂' rfl
+                      | app g₀ a₀ => exact SimC.pure hs₂' rfl
+                      | lam nm t b' m =>
                         exact SimC.pure hs₂' rfl
-                      | forallE nm t b' m hk bbk fbk lpk =>
+                      | forallE nm t b' m =>
                         exact SimC.pure hs₂' rfl
-                      | letE nm t v b' hk bbk fbk lpk =>
+                      | letE nm t v b' =>
                         exact SimC.pure hs₂' rfl
-                      | proj sn jx e' hk bbk fbk lpk =>
+                      | proj sn jx e' =>
                         exact SimC.pure hs₂' rfl
-                    | bvar k hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                    | sort u hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                    | const nm us'' hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                    | lit l hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                    | fvar ix nm t hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                    | lam nm t b' m hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                    | forallE nm t b' m hk bbk fbk lpk =>
+                    | bvar k => exact SimC.pure hs₂' rfl
+                    | sort u => exact SimC.pure hs₂' rfl
+                    | const nm us'' => exact SimC.pure hs₂' rfl
+                    | lit l => exact SimC.pure hs₂' rfl
+                    | fvar ix nm t => exact SimC.pure hs₂' rfl
+                    | lam nm t b' m => exact SimC.pure hs₂' rfl
+                    | forallE nm t b' m =>
                       exact SimC.pure hs₂' rfl
-                    | letE nm t v b' hk bbk fbk lpk =>
+                    | letE nm t v b' =>
                       exact SimC.pure hs₂' rfl
-                    | proj sn jx e' hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                  | bvar k hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                  | sort u hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                  | const nm us'' hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                  | lit l hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                  | fvar ix nm t hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                  | lam nm t b' m hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                  | forallE nm t b' m hk bbk fbk lpk =>
+                    | proj sn jx e' => exact SimC.pure hs₂' rfl
+                  | bvar k => exact SimC.pure hs₂' rfl
+                  | sort u => exact SimC.pure hs₂' rfl
+                  | const nm us'' => exact SimC.pure hs₂' rfl
+                  | lit l => exact SimC.pure hs₂' rfl
+                  | fvar ix nm t => exact SimC.pure hs₂' rfl
+                  | lam nm t b' m => exact SimC.pure hs₂' rfl
+                  | forallE nm t b' m =>
                     exact SimC.pure hs₂' rfl
-                  | letE nm t v b' hk bbk fbk lpk => exact SimC.pure hs₂' rfl
-                  | proj sn jx e' hk bbk fbk lpk => exact SimC.pure hs₂' rfl
+                  | letE nm t v b' => exact SimC.pure hs₂' rfl
+                  | proj sn jx e' => exact SimC.pure hs₂' rfl
                 | 0, _ => exact SimC.pure hs rfl
                 | 1, _ => exact SimC.pure hs rfl
                 | Nat.succ (Nat.succ (Nat.succ _)), _ => exact SimC.pure hs rfl
@@ -823,51 +822,51 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
               | indInfo cv caps => exact SimC.pure hs rfl
               | recInfo cv mI rP rules => exact SimC.pure hs rfl
               | projInfo entry => exact SimC.pure hs rfl
-          | bvar k hk bbk fbk lpk => exact SimC.pure hs rfl
-          | sort u hk bbk fbk lpk => exact SimC.pure hs rfl
-          | lit l hk bbk fbk lpk => exact SimC.pure hs rfl
-          | fvar ix nm t hk bbk fbk lpk => exact SimC.pure hs rfl
-          | app f₀ a₀ hk bbk fbk lpk => exact SimC.pure hs rfl
-          | lam nm t b' m hk bbk fbk lpk => exact SimC.pure hs rfl
-          | forallE nm t b' m hk bbk fbk lpk => exact SimC.pure hs rfl
-          | letE nm t v b' hk bbk fbk lpk => exact SimC.pure hs rfl
-          | proj sn jx e' hk bbk fbk lpk => exact SimC.pure hs rfl
-        | bvar k hk bbk fbk lpk => exact SimC.pure hs rfl
-        | sort u hk bbk fbk lpk => exact SimC.pure hs rfl
-        | const nm us hk bbk fbk lpk => exact SimC.pure hs rfl
-        | lit l hk bbk fbk lpk => exact SimC.pure hs rfl
-        | fvar ix nm t hk bbk fbk lpk => exact SimC.pure hs rfl
-        | lam nm t b' m hk bbk fbk lpk => exact SimC.pure hs rfl
-        | forallE nm t b' m hk bbk fbk lpk => exact SimC.pure hs rfl
-        | letE nm t v b' hk bbk fbk lpk => exact SimC.pure hs rfl
-        | proj sn jx e' hk bbk fbk lpk => exact SimC.pure hs rfl
-      | bvar k hk bbk fbk lpk => exact SimC.pure hs rfl
-      | sort u hk bbk fbk lpk => exact SimC.pure hs rfl
-      | const nm us hk bbk fbk lpk => exact SimC.pure hs rfl
-      | lit l hk bbk fbk lpk => exact SimC.pure hs rfl
-      | fvar ix nm t hk bbk fbk lpk => exact SimC.pure hs rfl
-      | lam nm t b' m hk bbk fbk lpk => exact SimC.pure hs rfl
-      | forallE nm t b' m hk bbk fbk lpk => exact SimC.pure hs rfl
-      | letE nm t v b' hk bbk fbk lpk => exact SimC.pure hs rfl
-      | proj sn jx e' hk bbk fbk lpk => exact SimC.pure hs rfl
-    | bvar k hk bbk fbk lpk => exact SimC.pure hs rfl
-    | sort u hk bbk fbk lpk => exact SimC.pure hs rfl
-    | const nm us hk bbk fbk lpk => exact SimC.pure hs rfl
-    | lit l hk bbk fbk lpk => exact SimC.pure hs rfl
-    | fvar ix nm t hk bbk fbk lpk => exact SimC.pure hs rfl
-    | lam nm t b' m hk bbk fbk lpk => exact SimC.pure hs rfl
-    | forallE nm t b' m hk bbk fbk lpk => exact SimC.pure hs rfl
-    | letE nm t v b' hk bbk fbk lpk => exact SimC.pure hs rfl
-    | proj sn jx e' hk bbk fbk lpk => exact SimC.pure hs rfl
-  | bvar k hk bbk fbk lpk => exact SimC.pure hs rfl
-  | sort u hk bbk fbk lpk => exact SimC.pure hs rfl
-  | const nm us hk bbk fbk lpk => exact SimC.pure hs rfl
-  | lit l hk bbk fbk lpk => exact SimC.pure hs rfl
-  | fvar ix nm t hk bbk fbk lpk => exact SimC.pure hs rfl
-  | lam nm t b' m hk bbk fbk lpk => exact SimC.pure hs rfl
-  | forallE nm t b' m hk bbk fbk lpk => exact SimC.pure hs rfl
-  | letE nm t v b' hk bbk fbk lpk => exact SimC.pure hs rfl
-  | proj sn jx e' hk bbk fbk lpk => exact SimC.pure hs rfl
+          | bvar k => exact SimC.pure hs rfl
+          | sort u => exact SimC.pure hs rfl
+          | lit l => exact SimC.pure hs rfl
+          | fvar ix nm t => exact SimC.pure hs rfl
+          | app f₀ a₀ => exact SimC.pure hs rfl
+          | lam nm t b' m => exact SimC.pure hs rfl
+          | forallE nm t b' m => exact SimC.pure hs rfl
+          | letE nm t v b' => exact SimC.pure hs rfl
+          | proj sn jx e' => exact SimC.pure hs rfl
+        | bvar k => exact SimC.pure hs rfl
+        | sort u => exact SimC.pure hs rfl
+        | const nm us => exact SimC.pure hs rfl
+        | lit l => exact SimC.pure hs rfl
+        | fvar ix nm t => exact SimC.pure hs rfl
+        | lam nm t b' m => exact SimC.pure hs rfl
+        | forallE nm t b' m => exact SimC.pure hs rfl
+        | letE nm t v b' => exact SimC.pure hs rfl
+        | proj sn jx e' => exact SimC.pure hs rfl
+      | bvar k => exact SimC.pure hs rfl
+      | sort u => exact SimC.pure hs rfl
+      | const nm us => exact SimC.pure hs rfl
+      | lit l => exact SimC.pure hs rfl
+      | fvar ix nm t => exact SimC.pure hs rfl
+      | lam nm t b' m => exact SimC.pure hs rfl
+      | forallE nm t b' m => exact SimC.pure hs rfl
+      | letE nm t v b' => exact SimC.pure hs rfl
+      | proj sn jx e' => exact SimC.pure hs rfl
+    | bvar k => exact SimC.pure hs rfl
+    | sort u => exact SimC.pure hs rfl
+    | const nm us => exact SimC.pure hs rfl
+    | lit l => exact SimC.pure hs rfl
+    | fvar ix nm t => exact SimC.pure hs rfl
+    | lam nm t b' m => exact SimC.pure hs rfl
+    | forallE nm t b' m => exact SimC.pure hs rfl
+    | letE nm t v b' => exact SimC.pure hs rfl
+    | proj sn jx e' => exact SimC.pure hs rfl
+  | bvar k => exact SimC.pure hs rfl
+  | sort u => exact SimC.pure hs rfl
+  | const nm us => exact SimC.pure hs rfl
+  | lit l => exact SimC.pure hs rfl
+  | fvar ix nm t => exact SimC.pure hs rfl
+  | lam nm t b' m => exact SimC.pure hs rfl
+  | forallE nm t b' m => exact SimC.pure hs rfl
+  | letE nm t v b' => exact SimC.pure hs rfl
+  | proj sn jx e' => exact SimC.pure hs rfl
 
 end Walks3
 
@@ -1155,7 +1154,7 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
   dsimp only [CStore.getNode, CStore.getAppFnI]
   generalize hga : ExprC.getAppFn i = ga at hwfa hfa ⊢
   cases ga with
-  | const c us hh bb fb lp =>
+  | const c us =>
     rw [show (eraseC i).getAppFn = Expr.const c us from hfa.symm]
     dsimp only
     refine SimC.bind_left (readbackNM_eff hs c) (fun s₀c cw hs hcw => ?_)
@@ -1173,7 +1172,7 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
         · refine SimC.withStore ?_
           generalize hgw : ExprC.getAppFn w = gw at hwfw hfw ⊢
           cases gw with
-          | const T us' hh' bb' fb' lp' =>
+          | const T us' =>
             rw [show (eraseC w).getAppFn = Expr.const T us' from hfw.symm]
             dsimp only
             refine SimC.bind_left (readbackNM_eff hs T)
@@ -1298,37 +1297,37 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
               | ctorInfo cv nP' nF' => exact SimC.pure hs rfl
               | recInfo cv mI rP rules => exact SimC.pure hs rfl
               | projInfo entry => exact SimC.pure hs rfl
-          | bvar k hk bbk fbk lpk =>
+          | bvar k =>
             rw [show (eraseC w).getAppFn = Expr.bvar k from hfw.symm]
             exact SimC.pure hs rfl
-          | sort u hk bbk fbk lpk =>
+          | sort u =>
             rw [show (eraseC w).getAppFn = Expr.sort u from hfw.symm]
             exact SimC.pure hs rfl
-          | lit l hk bbk fbk lpk =>
+          | lit l =>
             rw [show (eraseC w).getAppFn = Expr.lit l from hfw.symm]
             exact SimC.pure hs rfl
-          | fvar ix nm t hk bbk fbk lpk =>
+          | fvar ix nm t =>
             rw [show (eraseC w).getAppFn = Expr.fvar ix nm (eraseC t)
               from hfw.symm]
             exact SimC.pure hs rfl
-          | app f' a' hk bbk fbk lpk =>
+          | app f' a' =>
             rw [show (eraseC w).getAppFn = Expr.app (eraseC f') (eraseC a')
               from hfw.symm]
             exact SimC.pure hs rfl
-          | lam nm t b' m hk bbk fbk lpk =>
+          | lam nm t b' m =>
             rw [show (eraseC w).getAppFn
               = Expr.lam nm (eraseC t) (eraseC b') m from hfw.symm]
             exact SimC.pure hs rfl
-          | forallE nm t b' m hk bbk fbk lpk =>
+          | forallE nm t b' m =>
             rw [show (eraseC w).getAppFn
               = Expr.forallE nm (eraseC t) (eraseC b') m from hfw.symm]
             exact SimC.pure hs rfl
-          | letE nm t v b' hk bbk fbk lpk =>
+          | letE nm t v b' =>
             rw [show (eraseC w).getAppFn
               = Expr.letE nm (eraseC t) (eraseC v) (eraseC b')
               from hfw.symm]
             exact SimC.pure hs rfl
-          | proj sn jx e' hk bbk fbk lpk =>
+          | proj sn jx e' =>
             rw [show (eraseC w).getAppFn = Expr.proj sn jx (eraseC e')
               from hfw.symm]
             exact SimC.pure hs rfl
@@ -1339,35 +1338,35 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       | indInfo cv caps => exact SimC.pure hs rfl
       | recInfo cv mI rP rules => exact SimC.pure hs rfl
       | projInfo entry => exact SimC.pure hs rfl
-  | bvar k hk bbk fbk lpk =>
+  | bvar k =>
     rw [show (eraseC i).getAppFn = Expr.bvar k from hfa.symm]
     exact SimC.pure hs rfl
-  | sort u hk bbk fbk lpk =>
+  | sort u =>
     rw [show (eraseC i).getAppFn = Expr.sort u from hfa.symm]
     exact SimC.pure hs rfl
-  | lit l hk bbk fbk lpk =>
+  | lit l =>
     rw [show (eraseC i).getAppFn = Expr.lit l from hfa.symm]
     exact SimC.pure hs rfl
-  | fvar ix nm t hk bbk fbk lpk =>
+  | fvar ix nm t =>
     rw [show (eraseC i).getAppFn = Expr.fvar ix nm (eraseC t) from hfa.symm]
     exact SimC.pure hs rfl
-  | app f' a' hk bbk fbk lpk =>
+  | app f' a' =>
     rw [show (eraseC i).getAppFn = Expr.app (eraseC f') (eraseC a')
       from hfa.symm]
     exact SimC.pure hs rfl
-  | lam nm t b' m hk bbk fbk lpk =>
+  | lam nm t b' m =>
     rw [show (eraseC i).getAppFn = Expr.lam nm (eraseC t) (eraseC b') m
       from hfa.symm]
     exact SimC.pure hs rfl
-  | forallE nm t b' m hk bbk fbk lpk =>
+  | forallE nm t b' m =>
     rw [show (eraseC i).getAppFn = Expr.forallE nm (eraseC t) (eraseC b') m
       from hfa.symm]
     exact SimC.pure hs rfl
-  | letE nm t v b' hk bbk fbk lpk =>
+  | letE nm t v b' =>
     rw [show (eraseC i).getAppFn
       = Expr.letE nm (eraseC t) (eraseC v) (eraseC b') from hfa.symm]
     exact SimC.pure hs rfl
-  | proj sn jx e' hk bbk fbk lpk =>
+  | proj sn jx e' =>
     rw [show (eraseC i).getAppFn = Expr.proj sn jx (eraseC e') from hfa.symm]
     exact SimC.pure hs rfl
 

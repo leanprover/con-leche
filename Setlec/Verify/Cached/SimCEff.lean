@@ -29,7 +29,7 @@ variable {mode : CheckMode}
 
 `Std.HashMap.getElem?_insert` splits on `storedKey == queryKey`; the
 `ExprC` halves of a colliding key have equal erasures
-(`beqSpec_sound`), and the rest is honest equality. -/
+(`beq_sound`), and the rest is honest equality. -/
 
 private theorem map_eraseC_of_beq : ∀ {a b : List ExprC}, (a == b) = true →
     a.map eraseC = b.map eraseC := by
@@ -48,7 +48,7 @@ private theorem map_eraseC_of_beq : ∀ {a b : List ExprC}, (a == b) = true →
       have h' : ((x == y) && (xs == ys)) = true := h
       rw [Bool.and_eq_true] at h'
       rw [List.map_cons, List.map_cons, ih h'.2,
-        beqSpec_sound (beq_eq_beqSpec x y ▸ h'.1)]
+        beq_sound h'.1]
 
 /-- The components of a `BEq`-equal `instC` key. -/
 private theorem instKey_inv {a c : ExprC} {vs vs' : List ExprC} {d d' : Nat}

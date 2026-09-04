@@ -175,9 +175,9 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
   unfold defeqStep
   rw [beq_transferC hdena hdenb]
   by_cases hab : (a == b) = true
-  · rw [if_pos hab, if_pos hab]
+  · simp only [if_pos hab]
     exact SimC.pure hs rfl
-  · rw [if_neg hab, if_neg hab]
+  · simp only [if_neg hab]
     refine SimC.bind (ih.whnfCore hs hdena hwa)
       (fun s₁ a' a'x hs₁ hPa => ?_)
     obtain ⟨ha'd, hwa'⟩ := hPa
@@ -186,9 +186,9 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     obtain ⟨hb'd, hwb'⟩ := hPb
     rw [beq_transferC ha'd hb'd]
     by_cases hab' : (a'x == b'x) = true
-    · rw [if_pos hab', if_pos hab']
+    · simp only [if_pos hab']
       exact SimC.pure hs₂ rfl
-    · rw [if_neg hab', if_neg hab']
+    · simp only [if_neg hab']
       -- hoisted proof irrelevance
       refine SimC.bind (proofIrrelC_sim ih hs₂ ha'd hb'd hwa' hwb')
         (fun s₂p rpi rpix hs₂p hPpi => ?_)
@@ -347,15 +347,15 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                 refine SimC.view ?_
                 refine SimC.view ?_
                 cases a' with
-                | sort u₁ hh₁ bb₁ fb₁ lp₁ =>
+                | sort u₁ =>
                   cases b' with
-                  | sort u₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | sort u₂ =>
                     dsimp only [eraseC, ExprC.view]
                     refine SimC.bind_left (isEquivLM_eff hs₆ u₁ u₂)
                       (fun sE o hsE ho => ?_)
                     subst ho
                     exact SimC.liftFueled _ _ hsE
-                  | lam nm₂ t₂ b₂ m₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | lam nm₂ t₂ b₂ m₂ =>
                     dsimp only [eraseC, ExprC.view]
                     obtain ⟨hwt₂, hwb₂, -⟩ := hwcb.lam_inv
                     exact defeqC_etaR_arm ih henv hs₆ haS ⟨hwt₂, rfl⟩
@@ -363,14 +363,14 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                   | _ =>
                     dsimp only [eraseC, ExprC.view]
                     exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                | lit l₁ hh₁ bb₁ fb₁ lp₁ =>
+                | lit l₁ =>
                   cases l₁ with
                   | natVal n₁ =>
                     cases b' with
-                    | lit l₂ hh₂ bb₂ fb₂ lp₂ =>
+                    | lit l₂ =>
                       dsimp only [eraseC, ExprC.view]
                       exact SimC.pure hs₆ rfl
-                    | const c₂ us₂ hh₂ bb₂ fb₂ lp₂ =>
+                    | const c₂ us₂ =>
                       dsimp only [eraseC, ExprC.view]
                       refine SimC.bind_left (beqNameM_eff hs₆ c₂ natZeroName)
                         (fun s₆b bq hs₆b hbq => ?_)
@@ -381,7 +381,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         exact SimC.pure hs₆b rfl
                       · rw [if_neg hz, if_neg hz]
                         exact stuckIrrelC_sim ih henv hs₆b haS hbS hwa' hwb'
-                    | app f₂ x₂ hh₂ bb₂ fb₂ lp₂ =>
+                    | app f₂ x₂ =>
                       obtain ⟨hwf₂, hwx₂, -⟩ := hwcb.app_inv
                       have hwb'' : Expr.WScoped d
                         (Expr.app (eraseC f₂) (eraseC x₂)) := hwb'
@@ -396,7 +396,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
                       | succ k =>
                         cases f₂ with
-                        | const cf usf hhf bbf fbf lpf =>
+                        | const cf usf =>
                           cases usf with
                           | cons u us' =>
                             dsimp only [eraseC, ExprC.view]
@@ -423,7 +423,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         | _ =>
                           dsimp only [eraseC, ExprC.view]
                           exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                    | lam nm₂ t₂ b₂ m₂ hh₂ bb₂ fb₂ lp₂ =>
+                    | lam nm₂ t₂ b₂ m₂ =>
                       dsimp only [eraseC, ExprC.view]
                       obtain ⟨hwt₂, hwb₂, -⟩ := hwcb.lam_inv
                       exact defeqC_etaR_arm ih henv hs₆ haS ⟨hwt₂, rfl⟩
@@ -433,14 +433,14 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
                   | strVal str =>
                     cases b' with
-                    | lit l₂ hh₂ bb₂ fb₂ lp₂ =>
+                    | lit l₂ =>
                       dsimp only [eraseC, ExprC.view]
                       exact SimC.pure hs₆ rfl
-                    | app f₂ x₂ hh₂ bb₂ fb₂ lp₂ =>
+                    | app f₂ x₂ =>
                       dsimp only [eraseC, ExprC.view]
                       refine SimC.view ?_
                       cases f₂ with
-                      | const cf usf hhf bbf fbf lpf =>
+                      | const cf usf =>
                         dsimp only [eraseC, ExprC.view]
                         rw [strLitSupportedF_eq]
                         refine SimC.bind_left
@@ -461,7 +461,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       | _ =>
                         dsimp only [eraseC, ExprC.view]
                         exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                    | lam nm₂ t₂ b₂ m₂ hh₂ bb₂ fb₂ lp₂ =>
+                    | lam nm₂ t₂ b₂ m₂ =>
                       dsimp only [eraseC, ExprC.view]
                       obtain ⟨hwt₂, hwb₂, -⟩ := hwcb.lam_inv
                       exact defeqC_etaR_arm ih henv hs₆ haS ⟨hwt₂, rfl⟩
@@ -469,16 +469,16 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                     | _ =>
                       dsimp only [eraseC, ExprC.view]
                       exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                | fvar i₁ nm₁ t₁ hh₁ bb₁ fb₁ lp₁ =>
+                | fvar i₁ nm₁ t₁ =>
                   cases b' with
-                  | fvar i₂ nm₂ t₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | fvar i₂ nm₂ t₂ =>
                     dsimp only [eraseC, ExprC.view]
                     by_cases hij : (i₁ == i₂) = true
                     · rw [if_pos hij, if_pos hij]
                       exact SimC.pure hs₆ rfl
                     · rw [if_neg hij, if_neg hij]
                       exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                  | lam nm₂ t₂ b₂ m₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | lam nm₂ t₂ b₂ m₂ =>
                     dsimp only [eraseC, ExprC.view]
                     obtain ⟨hwt₂, hwb₂, -⟩ := hwcb.lam_inv
                     exact defeqC_etaR_arm ih henv hs₆ haS ⟨hwt₂, rfl⟩
@@ -486,9 +486,9 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                   | _ =>
                     dsimp only [eraseC, ExprC.view]
                     exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                | const c₁ us₁ hh₁ bb₁ fb₁ lp₁ =>
+                | const c₁ us₁ =>
                   cases b' with
-                  | const c₂ us₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | const c₂ us₂ =>
                     dsimp only [eraseC, ExprC.view]
                     by_cases hcc : c₁ = c₂
                     · rw [if_pos hcc, if_pos hcc]
@@ -507,7 +507,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         exact stuckIrrelC_sim ih henv hs₇ haS hbS hwa' hwb'
                     · rw [if_neg hcc, if_neg hcc]
                       exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                  | lit l₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | lit l₂ =>
                     cases l₂ with
                     | natVal n₂ =>
                       dsimp only [eraseC, ExprC.view]
@@ -523,7 +523,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                     | strVal str =>
                       dsimp only [eraseC, ExprC.view]
                       exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                  | lam nm₂ t₂ b₂ m₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | lam nm₂ t₂ b₂ m₂ =>
                     dsimp only [eraseC, ExprC.view]
                     obtain ⟨hwt₂, hwb₂, -⟩ := hwcb.lam_inv
                     exact defeqC_etaR_arm ih henv hs₆ haS ⟨hwt₂, rfl⟩
@@ -531,7 +531,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                   | _ =>
                     dsimp only [eraseC, ExprC.view]
                     exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                | forallE nm₁ t₁ b₁ m₁ hh₁ bb₁ fb₁ lp₁ =>
+                | forallE nm₁ t₁ b₁ m₁ =>
                   obtain ⟨hwt₁, hwb₁, -⟩ := hwca.forallE_inv
                   have hwa'' : Expr.WScoped d
                     (Expr.forallE nm₁ (eraseC t₁) (eraseC b₁) m₁) := hwa'
@@ -539,7 +539,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       Expr.WScoped d (eraseC b₁) := by
                     simpa only [Expr.WScoped] using hwa''
                   cases b' with
-                  | forallE nm₂ t₂ b₂ m₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | forallE nm₂ t₂ b₂ m₂ =>
                     dsimp only [eraseC, ExprC.view]
                     obtain ⟨hwt₂, hwb₂, -⟩ := hwcb.forallE_inv
                     have hwb'' : Expr.WScoped d
@@ -587,7 +587,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         split
                         · exact SimC.throw_bind
                         · exact SimC.pure hs₁₂ rfl
-                  | lam nm₂ t₂ b₂ m₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | lam nm₂ t₂ b₂ m₂ =>
                     dsimp only [eraseC, ExprC.view]
                     obtain ⟨hwt₂, hwb₂, -⟩ := hwcb.lam_inv
                     exact defeqC_etaR_arm ih henv hs₆ haS ⟨hwt₂, rfl⟩
@@ -595,7 +595,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                   | _ =>
                     dsimp only [eraseC, ExprC.view]
                     exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                | lam nm₁ t₁ b₁ m₁ hh₁ bb₁ fb₁ lp₁ =>
+                | lam nm₁ t₁ b₁ m₁ =>
                   obtain ⟨hwt₁, hwb₁, -⟩ := hwca.lam_inv
                   have hwa'' : Expr.WScoped d
                     (Expr.lam nm₁ (eraseC t₁) (eraseC b₁) m₁) := hwa'
@@ -603,7 +603,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       Expr.WScoped d (eraseC b₁) := by
                     simpa only [Expr.WScoped] using hwa''
                   cases b' with
-                  | lam nm₂ t₂ b₂ m₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | lam nm₂ t₂ b₂ m₂ =>
                     dsimp only [eraseC, ExprC.view]
                     obtain ⟨hwt₂, hwb₂, -⟩ := hwcb.lam_inv
                     have hwb'' : Expr.WScoped d
@@ -655,7 +655,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                     dsimp only [eraseC, ExprC.view]
                     exact defeqC_etaL_arm ih henv hs₆ haS ⟨hwt₁, rfl⟩
                       ⟨hwb₁, rfl⟩ hbS hwa' hwb'
-                | app f₁ x₁ hh₁ bb₁ fb₁ lp₁ =>
+                | app f₁ x₁ =>
                   obtain ⟨hwf₁, hwx₁, -⟩ := hwca.app_inv
                   have hwa'' : Expr.WScoped d
                     (Expr.app (eraseC f₁) (eraseC x₁)) := hwa'
@@ -663,27 +663,27 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       Expr.WScoped d (eraseC x₁) := by
                     simpa only [Expr.WScoped] using hwa''
                   cases b' with
-                  | app f₂ x₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | app f₂ x₂ =>
                     dsimp only [eraseC, ExprC.view]
                     -- spine-wise congruence (task #106)
                     refine SimC.withStore ?_
                     refine SimC.withStore ?_
                     have hAA : RelCL
-                        (ExprC.getAppArgs (ExprC.app f₁ x₁ hh₁ bb₁ fb₁ lp₁))
+                        (ExprC.getAppArgs (Expr.app f₁ x₁))
                         (Expr.app (eraseC f₁) (eraseC x₁)).getAppArgs :=
                       ExprC.getAppArgs_spec hwca
                     have hBB : RelCL
-                        (ExprC.getAppArgs (ExprC.app f₂ x₂ hh₂ bb₂ fb₂ lp₂))
+                        (ExprC.getAppArgs (Expr.app f₂ x₂))
                         (Expr.app (eraseC f₂) (eraseC x₂)).getAppArgs :=
                       ExprC.getAppArgs_spec hwcb
                     have hlena :
                         (ExprC.getAppArgs
-                          (ExprC.app f₁ x₁ hh₁ bb₁ fb₁ lp₁)).length
+                          (Expr.app f₁ x₁)).length
                         = (Expr.app (eraseC f₁) (eraseC x₁)).getAppArgs.length :=
                       RelCL.length hAA
                     have hlenb :
                         (ExprC.getAppArgs
-                          (ExprC.app f₂ x₂ hh₂ bb₂ fb₂ lp₂)).length
+                          (Expr.app f₂ x₂)).length
                         = (Expr.app (eraseC f₂) (eraseC x₂)).getAppArgs.length :=
                       RelCL.length hBB
                     simp only [CStore.getAppArgsI, hlena, hlenb]
@@ -719,7 +719,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         exact stuckIrrelC_sim ih henv hs₇ haS hbS hwa' hwb'
                     · rw [if_neg hlen, if_neg hlen]
                       exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                  | lit l₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | lit l₂ =>
                     cases l₂ with
                     | natVal nn =>
                       dsimp only [eraseC, ExprC.view]
@@ -730,7 +730,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
                       | succ k =>
                         cases f₁ with
-                        | const cf usf hhf bbf fbf lpf =>
+                        | const cf usf =>
                           cases usf with
                           | cons u us' =>
                             dsimp only [eraseC, ExprC.view]
@@ -761,7 +761,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       dsimp only [eraseC, ExprC.view]
                       refine SimC.view ?_
                       cases f₁ with
-                      | const cf usf hhf bbf fbf lpf =>
+                      | const cf usf =>
                         dsimp only [eraseC, ExprC.view]
                         rw [strLitSupportedF_eq]
                         refine SimC.bind_left
@@ -782,7 +782,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       | _ =>
                         dsimp only [eraseC, ExprC.view]
                         exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                  | lam nm₂ t₂ b₂ m₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | lam nm₂ t₂ b₂ m₂ =>
                     dsimp only [eraseC, ExprC.view]
                     obtain ⟨hwt₂, hwb₂, -⟩ := hwcb.lam_inv
                     exact defeqC_etaR_arm ih henv hs₆ haS ⟨hwt₂, rfl⟩
@@ -790,9 +790,9 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                   | _ =>
                     dsimp only [eraseC, ExprC.view]
                     exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                | bvar k₁ hh₁ bb₁ fb₁ lp₁ =>
+                | bvar k₁ =>
                   cases b' with
-                  | lam nm₂ t₂ b₂ m₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | lam nm₂ t₂ b₂ m₂ =>
                     dsimp only [eraseC, ExprC.view]
                     obtain ⟨hwt₂, hwb₂, -⟩ := hwcb.lam_inv
                     exact defeqC_etaR_arm ih henv hs₆ haS ⟨hwt₂, rfl⟩
@@ -800,9 +800,9 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                   | _ =>
                     dsimp only [eraseC, ExprC.view]
                     exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                | letE nm₁ t₁ v₁ b₁ hh₁ bb₁ fb₁ lp₁ =>
+                | letE nm₁ t₁ v₁ b₁ =>
                   cases b' with
-                  | lam nm₂ t₂ b₂ m₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | lam nm₂ t₂ b₂ m₂ =>
                     dsimp only [eraseC, ExprC.view]
                     obtain ⟨hwt₂, hwb₂, -⟩ := hwcb.lam_inv
                     exact defeqC_etaR_arm ih henv hs₆ haS ⟨hwt₂, rfl⟩
@@ -810,14 +810,14 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                   | _ =>
                     dsimp only [eraseC, ExprC.view]
                     exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                | proj s₁' j₁ e₁ hh₁ bb₁ fb₁ lp₁ =>
+                | proj s₁' j₁ e₁ =>
                   obtain ⟨hwe₁, -⟩ := hwca.proj_inv
                   have hwa'' : Expr.WScoped d
                     (Expr.proj s₁' j₁ (eraseC e₁)) := hwa'
                   have h1 : Expr.WScoped d (eraseC e₁) := by
                     simpa only [Expr.WScoped] using hwa''
                   cases b' with
-                  | proj s₂' j₂ e₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | proj s₂' j₂ e₂ =>
                     dsimp only [eraseC, ExprC.view]
                     obtain ⟨hwe₂, -⟩ := hwcb.proj_inv
                     have hwb'' : Expr.WScoped d
@@ -839,7 +839,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         exact stuckIrrelC_sim ih henv hs₇ haS hbS hwa' hwb'
                     · rw [if_neg hjj, if_neg hjj]
                       exact stuckIrrelC_sim ih henv hs₆ haS hbS hwa' hwb'
-                  | lam nm₂ t₂ b₂ m₂ hh₂ bb₂ fb₂ lp₂ =>
+                  | lam nm₂ t₂ b₂ m₂ =>
                     dsimp only [eraseC, ExprC.view]
                     obtain ⟨hwt₂, hwb₂, -⟩ := hwcb.lam_inv
                     exact defeqC_etaR_arm ih henv hs₆ haS ⟨hwt₂, rfl⟩

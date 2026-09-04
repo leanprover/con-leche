@@ -31,7 +31,7 @@ edits.
 Memo clauses obey the binding rule of the P1 freeze: a clause asserts
 `WFc` of *stored values* and facts that are a function of the key's
 **erasure**, never `WFc` of keys — a `beq` collision pins the stored
-key to the query only up to erasure (`beqSpec_sound`).
+key to the query only up to erasure (`beq_sound`).
 -/
 
 namespace Setlec.Cached

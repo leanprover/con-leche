@@ -37,7 +37,7 @@ variable {mode : CheckMode}
 The port of `ISOK.insert*`: the stored value's `WFc` and the
 depth-universal backing run replace the arena's two denotation legs.
 A `beq` collision pins the stored key to the query only up to erasure
-(`beqSpec_sound`), which is exactly what the clauses — erasure
+(`beq_sound`), which is exactly what the clauses — erasure
 functions of their keys — need. -/
 
 section Inserts
@@ -57,7 +57,7 @@ theorem CSOK.insertWhnfCoreC {s : CState} (hs : CSOK mode env s)
   by_cases hk : i == k
   · rw [if_pos hk] at hl
     cases hl
-    rw [← beqSpec_sound (beq_eq_beqSpec i k ▸ hk)]
+    rw [← beq_sound hk]
     exact ⟨hj, hrun⟩
   · rw [if_neg hk] at hl
     exact hs.whnfCoreC k v hl
@@ -75,7 +75,7 @@ theorem CSOK.insertWhnfC {s : CState} (hs : CSOK mode env s)
   by_cases hk : i == k
   · rw [if_pos hk] at hl
     cases hl
-    rw [← beqSpec_sound (beq_eq_beqSpec i k ▸ hk)]
+    rw [← beq_sound hk]
     exact ⟨hj, hrun⟩
   · rw [if_neg hk] at hl
     exact hs.whnfC k v hl
@@ -93,7 +93,7 @@ theorem CSOK.insertInferC {s : CState} (hs : CSOK mode env s)
   by_cases hk : i == k
   · rw [if_pos hk] at hl
     cases hl
-    rw [← beqSpec_sound (beq_eq_beqSpec i k ▸ hk)]
+    rw [← beq_sound hk]
     exact ⟨hj, hrun⟩
   · rw [if_neg hk] at hl
     exact hs.inferC k v hl
@@ -111,7 +111,7 @@ theorem CSOK.insertAnnotC {s : CState} (hs : CSOK mode env s)
   by_cases hk : i == k
   · rw [if_pos hk] at hl
     cases hl
-    rw [← beqSpec_sound (beq_eq_beqSpec i k ▸ hk)]
+    rw [← beq_sound hk]
     exact ⟨hj, hrun⟩
   · rw [if_neg hk] at hl
     exact hs.annotC k v hl
@@ -130,7 +130,7 @@ theorem CSOK.insertDefeqC {s : CState} (hs : CSOK mode env s)
   by_cases hk : ((i, j) : ExprC × ExprC) == (a, b)
   · rw [if_pos hk] at hl
     obtain ⟨hia, hjb⟩ := pairKey_inv hk
-    have hjb' : eraseC j = eraseC b := beqSpec_sound (beq_eq_beqSpec j b ▸ hjb)
+    have hjb' : eraseC j = eraseC b := beq_sound hjb
     cases hl
     rw [← hia, ← hjb']
     exact hrun

@@ -23,9 +23,9 @@ no `TWF` anywhere.
 The memoized walks carry their memo invariant in the
 **erasure-function-of-key** form (`… memo[k]? = some r → WFc r ∧
 eraseC r = f (eraseC k) …`): the key is never assumed `WFc`, because a
-memo hit's key is only `BEq`-equal to the query and `beqSpec_sound`
+memo hit's key is only `BEq`-equal to the query and `beq_sound`
 transports the *erasure*, not the fields.  Insert-preservation goes
-through `Std.HashMap.getElem?_insert` plus `beqSpec_sound` on the
+through `Std.HashMap.getElem?_insert` plus `beq_sound` on the
 colliding key.
 -/
 
@@ -50,15 +50,15 @@ instance : EquivBEq (ExprC × β) where
   symm := by
     intro a b h
     simp only [BEq.beq, Bool.and_eq_true] at *
-    exact ⟨beqSpec_symm h.1, BEq.symm h.2⟩
+    exact ⟨by rw [beq_eq h.1]; exact beq_self _, BEq.symm h.2⟩
   trans := by
     intro a b c h₁ h₂
     simp only [BEq.beq, Bool.and_eq_true] at *
-    exact ⟨beqSpec_trans h₁.1 h₂.1, BEq.trans h₁.2 h₂.2⟩
+    exact ⟨by rw [beq_eq h₁.1]; exact h₂.1, BEq.trans h₁.2 h₂.2⟩
   rfl := by
     intro a
     simp only [BEq.beq, Bool.and_eq_true]
-    exact ⟨beqSpec_refl _, BEq.refl _⟩
+    exact ⟨beq_self _, BEq.refl _⟩
 
 instance : LawfulHashable (ExprC × β) where
   hash_eq := by
@@ -66,7 +66,7 @@ instance : LawfulHashable (ExprC × β) where
     simp only [BEq.beq, Bool.and_eq_true] at h
     have h₂ := LawfulHashable.hash_eq _ _ h.2
     simp only [Hashable.hash]
-    rw [beqSpec_hash h.1]
+    rw [show Prod.fst a = Prod.fst b from beq_eq h.1]
     exact congrArg _ h₂
 
 omit [Hashable β] [EquivBEq β] [LawfulHashable β] in
@@ -75,7 +75,7 @@ have equal erasures, the rest is honest equality. -/
 theorem pairKey_inv {a c : ExprC} {b d : β} (h : ((a, b) == (c, d)) = true) :
     eraseC a = eraseC c ∧ (b == d) = true := by
   simp only [BEq.beq, Bool.and_eq_true] at h
-  exact ⟨beqSpec_sound h.1, h.2⟩
+  exact ⟨beq_sound h.1, h.2⟩
 
 end PairKey
 
@@ -172,14 +172,14 @@ with the erasure. -/
 theorem view_spec {e : ExprC} (hw : WFc e) :
     WFcV (view e) ∧ eraseCV (view e) = (eraseC e).view := by
   cases e with
-  | fvar idx n ty h bb fb lp => exact ⟨hw.fvar_inv.1, rfl⟩
-  | app f a h bb fb lp => exact ⟨⟨hw.app_inv.1, hw.app_inv.2.1⟩, rfl⟩
-  | lam n ty b m h bb fb lp => exact ⟨⟨hw.lam_inv.1, hw.lam_inv.2.1⟩, rfl⟩
-  | forallE n ty b m h bb fb lp =>
+  | fvar idx n ty => exact ⟨hw.fvar_inv.1, rfl⟩
+  | app f a => exact ⟨⟨hw.app_inv.1, hw.app_inv.2.1⟩, rfl⟩
+  | lam n ty b m => exact ⟨⟨hw.lam_inv.1, hw.lam_inv.2.1⟩, rfl⟩
+  | forallE n ty b m =>
     exact ⟨⟨hw.forallE_inv.1, hw.forallE_inv.2.1⟩, rfl⟩
-  | letE n ty v b h bb fb lp =>
+  | letE n ty v b =>
     exact ⟨⟨hw.letE_inv.1, hw.letE_inv.2.1, hw.letE_inv.2.2.1⟩, rfl⟩
-  | proj s i sub h bb fb lp => exact ⟨hw.proj_inv.1, rfl⟩
+  | proj s i sub => exact ⟨hw.proj_inv.1, rfl⟩
   | _ => exact ⟨trivial, rfl⟩
 
 /-- Building a node from a one-level view preserves the invariant and
@@ -205,7 +205,7 @@ theorem getAppFn_spec : ∀ {e : ExprC}, WFc e →
     WFc (getAppFn e) ∧ eraseC (getAppFn e) = (eraseC e).getAppFn := by
   intro e
   induction e with
-  | app f a h bb fb lp ihf iha =>
+  | app f a ihf iha =>
     intro hw
     exact ihf hw.app_inv.1
   | _ => intro hw; exact ⟨hw, rfl⟩
@@ -217,14 +217,14 @@ theorem getAppArgsAcc_spec : ∀ {e : ExprC}, WFc e →
           = (eraseC e).getAppArgs ++ acc.map eraseC := by
   intro e
   induction e with
-  | app f a h bb fb lp ihf iha =>
+  | app f a ihf iha =>
     intro hw acc hacc
     obtain ⟨hf, ha, -⟩ := hw.app_inv
     obtain ⟨h₁, h₂⟩ := ihf hf (acc := a :: acc) (WFcL.cons ha hacc)
     refine ⟨h₁, ?_⟩
-    rw [show getAppArgsAcc (.app f a h bb fb lp) acc
+    rw [show getAppArgsAcc (.app f a) acc
         = getAppArgsAcc f (a :: acc) from rfl, h₂,
-      show eraseC (.app f a h bb fb lp)
+      show eraseC (.app f a)
         = .app (eraseC f) (eraseC a) from rfl,
       show ((.app (eraseC f) (eraseC a) : Expr)).getAppArgs
         = (eraseC f).getAppArgs ++ [eraseC a] from rfl,
@@ -261,12 +261,12 @@ theorem stripPisBody_spec : ∀ {k : Nat} {e : ExprC}, WFc e →
   | succ k ih =>
     intro e hw
     cases e with
-    | forallE n ty b m h bb fb lp =>
+    | forallE n ty b m =>
       obtain ⟨-, hb, -⟩ := hw.forallE_inv
       have := ih (e := b) hb
-      rw [show stripPisBody (k + 1) (.forallE n ty b m h bb fb lp)
+      rw [show stripPisBody (k + 1) (.forallE n ty b m)
           = stripPisBody k b from rfl]
-      rw [show ((eraseC (.forallE n ty b m h bb fb lp)).stripPis (k + 1)).map
+      rw [show ((eraseC (.forallE n ty b m)).stripPis (k + 1)).map
             (·.2)
           = ((eraseC b).stripPis k).map (·.2) by
         cases hs : (eraseC b).stripPis k <;>
@@ -283,15 +283,15 @@ theorem pisToLams_spec : ∀ {k : Nat} {e body : ExprC}, WFc e → WFc body →
   | succ k ih =>
     intro e body hw hb
     cases e with
-    | forallE n ty rest mb h bb fb lp =>
+    | forallE n ty rest mb =>
       obtain ⟨hty, hrest, -⟩ := hw.forallE_inv
       have hrec := ih (e := rest) (body := body) hrest hb
-      rw [show pisToLams (k + 1) (.forallE n ty rest mb h bb fb lp) body
+      rw [show pisToLams (k + 1) (.forallE n ty rest mb) body
           = (match pisToLams k rest body with
              | some b => some (mkLam n ty b ⟨mb.bi, .never⟩)
              | none => none) from rfl]
       rw [show Expr.pisToLams (k + 1)
-            (eraseC (.forallE n ty rest mb h bb fb lp)) (eraseC body)
+            (eraseC (.forallE n ty rest mb)) (eraseC body)
           = (Expr.pisToLams k (eraseC rest) (eraseC body)).map
               (fun bx => .lam n (eraseC ty) bx ⟨mb.bi, .never⟩) from rfl]
       cases hgo : pisToLams k rest body with
@@ -371,7 +371,7 @@ theorem instantiate1Go_spec {v : ExprC} (hv : WFc v) : ∀ {e : ExprC}, WFc e �
           = (eraseC e).instantiate1 (eraseC v) d := by
   intro e
   induction e with
-  | bvar i hh bb fb lp =>
+  | bvar i =>
     intro hw memo d hm
     rw [instantiate1Go.eq_def]
     split
@@ -392,7 +392,7 @@ theorem instantiate1Go_spec {v : ExprC} (hv : WFc v) : ∀ {e : ExprC}, WFc e �
           · rename_i hid hid'
             refine ⟨hw, hm.insert hw ?_, ?_⟩ <;>
               simp [eraseC, hid, hid']
-  | fvar idx n ty hh bb fb lp iht =>
+  | fvar idx n ty iht =>
     intro hw memo d hm
     rw [instantiate1Go.eq_def]
     split
@@ -402,7 +402,7 @@ theorem instantiate1Go_spec {v : ExprC} (hv : WFc v) : ∀ {e : ExprC}, WFc e �
       · rename_i r hhit
         exact ⟨(hm _ _ _ hhit).1, hm, (hm _ _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | sort u hh bb fb lp =>
+  | sort u =>
     intro hw memo d hm
     rw [instantiate1Go.eq_def]
     split
@@ -412,7 +412,7 @@ theorem instantiate1Go_spec {v : ExprC} (hv : WFc v) : ∀ {e : ExprC}, WFc e �
       · rename_i r hhit
         exact ⟨(hm _ _ _ hhit).1, hm, (hm _ _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | const n us hh bb fb lp =>
+  | const n us =>
     intro hw memo d hm
     rw [instantiate1Go.eq_def]
     split
@@ -422,7 +422,7 @@ theorem instantiate1Go_spec {v : ExprC} (hv : WFc v) : ∀ {e : ExprC}, WFc e �
       · rename_i r hhit
         exact ⟨(hm _ _ _ hhit).1, hm, (hm _ _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | lit l hh bb fb lp =>
+  | lit l =>
     intro hw memo d hm
     rw [instantiate1Go.eq_def]
     split
@@ -432,7 +432,7 @@ theorem instantiate1Go_spec {v : ExprC} (hv : WFc v) : ∀ {e : ExprC}, WFc e �
       · rename_i r hhit
         exact ⟨(hm _ _ _ hhit).1, hm, (hm _ _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | app f a hh bb fb lp ihf iha =>
+  | app f a ihf iha =>
     intro hw memo d hm
     obtain ⟨hf, ha, -⟩ := hw.app_inv
     rw [instantiate1Go.eq_def]
@@ -450,10 +450,10 @@ theorem instantiate1Go_spec {v : ExprC} (hv : WFc v) : ∀ {e : ExprC}, WFc e �
         rw [hpa] at ha1 ha2 ha3
         simp only [hpf, hpa]
         have hres : eraseC (mkApp f' a')
-            = (eraseC (.app f a hh bb fb lp)).instantiate1 (eraseC v) d := by
+            = (eraseC (.app f a)).instantiate1 (eraseC v) d := by
           rw [eraseC_mkApp, hf3, ha3]; rfl
         exact ⟨WFc.mkApp hf1 ha1, ha2.insert (WFc.mkApp hf1 ha1) hres, hres⟩
-  | lam n ty bd m hh bb fb lp iht ihb =>
+  | lam n ty bd m iht ihb =>
     intro hw memo d hm
     obtain ⟨hty, hbd, -⟩ := hw.lam_inv
     rw [instantiate1Go.eq_def]
@@ -471,12 +471,12 @@ theorem instantiate1Go_spec {v : ExprC} (hv : WFc v) : ∀ {e : ExprC}, WFc e �
         rw [hq] at h4 h5 h6
         simp only [hp, hq]
         have hres : eraseC (mkLam n ty' b' m)
-            = (eraseC (.lam n ty bd m hh bb fb lp)).instantiate1
+            = (eraseC (.lam n ty bd m)).instantiate1
                 (eraseC v) d := by
           rw [eraseC_mkLam, h3, h6]; rfl
         exact ⟨WFc.mkLam n m h1 h4, h5.insert (WFc.mkLam n m h1 h4) hres,
           hres⟩
-  | forallE n ty bd m hh bb fb lp iht ihb =>
+  | forallE n ty bd m iht ihb =>
     intro hw memo d hm
     obtain ⟨hty, hbd, -⟩ := hw.forallE_inv
     rw [instantiate1Go.eq_def]
@@ -494,12 +494,12 @@ theorem instantiate1Go_spec {v : ExprC} (hv : WFc v) : ∀ {e : ExprC}, WFc e �
         rw [hq] at h4 h5 h6
         simp only [hp, hq]
         have hres : eraseC (mkForallE n ty' b' m)
-            = (eraseC (.forallE n ty bd m hh bb fb lp)).instantiate1
+            = (eraseC (.forallE n ty bd m)).instantiate1
                 (eraseC v) d := by
           rw [eraseC_mkForallE, h3, h6]; rfl
         exact ⟨WFc.mkForallE n m h1 h4,
           h5.insert (WFc.mkForallE n m h1 h4) hres, hres⟩
-  | letE n ty val bd hh bb fb lp iht ihv ihb =>
+  | letE n ty val bd iht ihv ihb =>
     intro hw memo d hm
     obtain ⟨hty, hval, hbd, -⟩ := hw.letE_inv
     rw [instantiate1Go.eq_def]
@@ -520,12 +520,12 @@ theorem instantiate1Go_spec {v : ExprC} (hv : WFc v) : ∀ {e : ExprC}, WFc e �
         rw [hr] at h7 h8 h9
         simp only [hp, hq, hr]
         have hres : eraseC (mkLetE n ty' v' b')
-            = (eraseC (.letE n ty val bd hh bb fb lp)).instantiate1
+            = (eraseC (.letE n ty val bd)).instantiate1
                 (eraseC v) d := by
           rw [eraseC_mkLetE, h3, h6, h9]; rfl
         exact ⟨WFc.mkLetE n h1 h4 h7,
           h8.insert (WFc.mkLetE n h1 h4 h7) hres, hres⟩
-  | proj s i sub hh bb fb lp ihe =>
+  | proj s i sub ihe =>
     intro hw memo d hm
     obtain ⟨he, -⟩ := hw.proj_inv
     rw [instantiate1Go.eq_def]
@@ -540,7 +540,7 @@ theorem instantiate1Go_spec {v : ExprC} (hv : WFc v) : ∀ {e : ExprC}, WFc e �
         rw [hp] at h1 h2 h3
         simp only [hp]
         have hres : eraseC (mkProj s i s')
-            = (eraseC (.proj s i sub hh bb fb lp)).instantiate1
+            = (eraseC (.proj s i sub)).instantiate1
                 (eraseC v) d := by
           rw [eraseC_mkProj, h3]; rfl
         exact ⟨WFc.mkProj s i h1, h2.insert (WFc.mkProj s i h1) hres, hres⟩
@@ -645,7 +645,7 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
   | _ k ihk =>
   intro e
   induction e with
-  | bvar i hh bb fb lp =>
+  | bvar i =>
     intro hw memo d hk hm
     rw [instantiateListGo.eq_def]
     split
@@ -665,8 +665,8 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
           dsimp only
           split
           · rename_i hid
-            have hres : eraseC (ExprC.bvar i hh bb fb lp)
-                = (eraseC (ExprC.bvar i hh bb fb lp)).instantiateList
+            have hres : eraseC (Expr.bvar i)
+                = (eraseC (Expr.bvar i)).instantiateList
                     ((vs.toList.map eraseC).take k) d := by
               simp [eraseC, Expr.instantiateList, hid]
             exact ⟨hw, hm.insert hw hres, hres⟩
@@ -692,9 +692,9 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
                   congr 1
                   omega
                 have hres : eraseC r₁
-                    = (eraseC (ExprC.bvar i hh bb fb lp)).instantiateList
+                    = (eraseC (Expr.bvar i)).instantiateList
                         ((vs.toList.map eraseC).take k) d := by
-                  rw [h3, show eraseC (ExprC.bvar i hh bb fb lp)
+                  rw [h3, show eraseC (Expr.bvar i)
                       = Expr.bvar i from rfl, Expr.instantiateList,
                     if_neg hid, dif_pos (by rw [hlen]; exact hidk), hget,
                     htk]
@@ -703,13 +703,13 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
                 exact absurd (by omega : i - d < vs.size) hidv
             · rename_i hidk
               have hres : eraseC (mkBVar (i - k))
-                  = (eraseC (ExprC.bvar i hh bb fb lp)).instantiateList
+                  = (eraseC (Expr.bvar i)).instantiateList
                       ((vs.toList.map eraseC).take k) d := by
-                rw [eraseC_mkBVar, show eraseC (ExprC.bvar i hh bb fb lp)
+                rw [eraseC_mkBVar, show eraseC (Expr.bvar i)
                     = Expr.bvar i from rfl, Expr.instantiateList,
                   if_neg hid, dif_neg (by rw [hlen]; exact hidk), hlen]
               exact ⟨WFc.mkBVar _, hm.insert (WFc.mkBVar _) hres, hres⟩
-  | fvar idx n ty hh bb fb lp iht =>
+  | fvar idx n ty iht =>
     intro hw memo d hk hm
     rw [instantiateListGo.eq_def]
     split
@@ -724,7 +724,7 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
         · rename_i r hhit
           exact ⟨(hm _ _ _ _ hhit).1, hm, (hm _ _ _ _ hhit).2⟩
         · exact ⟨hw, hm.insert hw (instList_leaf rfl), instList_leaf rfl⟩
-  | sort u hh bb fb lp =>
+  | sort u =>
     intro hw memo d hk hm
     rw [instantiateListGo.eq_def]
     split
@@ -739,7 +739,7 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
         · rename_i r hhit
           exact ⟨(hm _ _ _ _ hhit).1, hm, (hm _ _ _ _ hhit).2⟩
         · exact ⟨hw, hm.insert hw (instList_leaf rfl), instList_leaf rfl⟩
-  | const n us hh bb fb lp =>
+  | const n us =>
     intro hw memo d hk hm
     rw [instantiateListGo.eq_def]
     split
@@ -754,7 +754,7 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
         · rename_i r hhit
           exact ⟨(hm _ _ _ _ hhit).1, hm, (hm _ _ _ _ hhit).2⟩
         · exact ⟨hw, hm.insert hw (instList_leaf rfl), instList_leaf rfl⟩
-  | lit l hh bb fb lp =>
+  | lit l =>
     intro hw memo d hk hm
     rw [instantiateListGo.eq_def]
     split
@@ -769,7 +769,7 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
         · rename_i r hhit
           exact ⟨(hm _ _ _ _ hhit).1, hm, (hm _ _ _ _ hhit).2⟩
         · exact ⟨hw, hm.insert hw (instList_leaf rfl), instList_leaf rfl⟩
-  | app f a hh bb fb lp ihf iha =>
+  | app f a ihf iha =>
     intro hw memo d hk hm
     obtain ⟨hf, ha, -⟩ := hw.app_inv
     rw [instantiateListGo.eq_def]
@@ -792,13 +792,13 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
           rw [hq] at h4 h5 h6
           simp only [hp, hq]
           have hres : eraseC (mkApp f' a')
-              = (eraseC (.app f a hh bb fb lp)).instantiateList
+              = (eraseC (.app f a)).instantiateList
                   ((vs.toList.map eraseC).take k) d := by
-            rw [show eraseC (ExprC.app f a hh bb fb lp)
+            rw [show eraseC (Expr.app f a)
                 = Expr.app (eraseC f) (eraseC a) from rfl,
               instList_app, eraseC_mkApp, h3, h6]
           exact ⟨WFc.mkApp h1 h4, h5.insert (WFc.mkApp h1 h4) hres, hres⟩
-  | lam n ty bd m hh bb fb lp iht ihb =>
+  | lam n ty bd m iht ihb =>
     intro hw memo d hk hm
     obtain ⟨hty, hbd, -⟩ := hw.lam_inv
     rw [instantiateListGo.eq_def]
@@ -821,14 +821,14 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
           rw [hq] at h4 h5 h6
           simp only [hp, hq]
           have hres : eraseC (mkLam n ty' b' m)
-              = (eraseC (.lam n ty bd m hh bb fb lp)).instantiateList
+              = (eraseC (.lam n ty bd m)).instantiateList
                   ((vs.toList.map eraseC).take k) d := by
-            rw [show eraseC (ExprC.lam n ty bd m hh bb fb lp)
+            rw [show eraseC (Expr.lam n ty bd m)
                 = Expr.lam n (eraseC ty) (eraseC bd) m from rfl,
               instList_lam, eraseC_mkLam, h3, h6]
           exact ⟨WFc.mkLam n m h1 h4, h5.insert (WFc.mkLam n m h1 h4) hres,
             hres⟩
-  | forallE n ty bd m hh bb fb lp iht ihb =>
+  | forallE n ty bd m iht ihb =>
     intro hw memo d hk hm
     obtain ⟨hty, hbd, -⟩ := hw.forallE_inv
     rw [instantiateListGo.eq_def]
@@ -851,14 +851,14 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
           rw [hq] at h4 h5 h6
           simp only [hp, hq]
           have hres : eraseC (mkForallE n ty' b' m)
-              = (eraseC (.forallE n ty bd m hh bb fb lp)).instantiateList
+              = (eraseC (.forallE n ty bd m)).instantiateList
                   ((vs.toList.map eraseC).take k) d := by
-            rw [show eraseC (ExprC.forallE n ty bd m hh bb fb lp)
+            rw [show eraseC (Expr.forallE n ty bd m)
                 = Expr.forallE n (eraseC ty) (eraseC bd) m from rfl,
               instList_forallE, eraseC_mkForallE, h3, h6]
           exact ⟨WFc.mkForallE n m h1 h4,
             h5.insert (WFc.mkForallE n m h1 h4) hres, hres⟩
-  | letE n ty val bd hh bb fb lp iht ihv ihb =>
+  | letE n ty val bd iht ihv ihb =>
     intro hw memo d hk hm
     obtain ⟨hty, hval, hbd, -⟩ := hw.letE_inv
     rw [instantiateListGo.eq_def]
@@ -884,14 +884,14 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
           rw [hr] at h7 h8 h9
           simp only [hp, hq, hr]
           have hres : eraseC (mkLetE n ty' v' b')
-              = (eraseC (.letE n ty val bd hh bb fb lp)).instantiateList
+              = (eraseC (.letE n ty val bd)).instantiateList
                   ((vs.toList.map eraseC).take k) d := by
-            rw [show eraseC (ExprC.letE n ty val bd hh bb fb lp)
+            rw [show eraseC (Expr.letE n ty val bd)
                 = Expr.letE n (eraseC ty) (eraseC val) (eraseC bd) from rfl,
               instList_letE, eraseC_mkLetE, h3, h6, h9]
           exact ⟨WFc.mkLetE n h1 h4 h7,
             h8.insert (WFc.mkLetE n h1 h4 h7) hres, hres⟩
-  | proj s i sub hh bb fb lp ihe =>
+  | proj s i sub ihe =>
     intro hw memo d hk hm
     obtain ⟨he, -⟩ := hw.proj_inv
     rw [instantiateListGo.eq_def]
@@ -911,9 +911,9 @@ theorem instantiateListGo_spec {vs : Array ExprC} (hvs : WFcL vs.toList) :
           rw [hp] at h1 h2 h3
           simp only [hp]
           have hres : eraseC (mkProj s i s')
-              = (eraseC (.proj s i sub hh bb fb lp)).instantiateList
+              = (eraseC (.proj s i sub)).instantiateList
                   ((vs.toList.map eraseC).take k) d := by
-            rw [show eraseC (ExprC.proj s i sub hh bb fb lp)
+            rw [show eraseC (Expr.proj s i sub)
                 = Expr.proj s i (eraseC sub) from rfl,
               instList_proj, eraseC_mkProj, h3]
           exact ⟨WFc.mkProj s i h1, h2.insert (WFc.mkProj s i h1) hres, hres⟩
@@ -988,16 +988,16 @@ theorem instantiateRevGo_eq {vs : Array ExprC} :
   | _ k ihk =>
   intro e
   induction e with
-  | bvar i hh bb fb lp =>
+  | bvar i =>
     intro memo d
     rw [instantiateRevGo.eq_def, instantiateListGo.eq_def]
     by_cases hk0 : k = 0
     · simp only [if_pos hk0]
     rw [if_neg hk0, if_neg hk0]
-    by_cases hcut : (ExprC.bvar i hh bb fb lp).bvarB ≤ d
+    by_cases hcut : (Expr.bvar i).bvarB ≤ d
     · rw [if_pos hcut, if_pos hcut]
     rw [if_neg hcut, if_neg hcut]
-    cases hmemo : memo[(ExprC.bvar i hh bb fb lp, k, d)]? with
+    cases hmemo : memo[(Expr.bvar i, k, d)]? with
     | some r => rfl
     | none =>
       dsimp only
@@ -1015,76 +1015,76 @@ theorem instantiateRevGo_eq {vs : Array ExprC} :
           rw [ihk (i - d) hidk, hget]
         · rw [dif_neg hidv, dif_neg (fun h => hidv (hsz ▸ h))]
       · rw [dif_neg hidk, dif_neg hidk]
-  | fvar idx n ty hh bb fb lp iht =>
+  | fvar idx n ty iht =>
     intro memo d
     rw [instantiateRevGo.eq_def, instantiateListGo.eq_def]
-  | sort u hh bb fb lp =>
+  | sort u =>
     intro memo d
     rw [instantiateRevGo.eq_def, instantiateListGo.eq_def]
-  | const n us hh bb fb lp =>
+  | const n us =>
     intro memo d
     rw [instantiateRevGo.eq_def, instantiateListGo.eq_def]
-  | lit l hh bb fb lp =>
+  | lit l =>
     intro memo d
     rw [instantiateRevGo.eq_def, instantiateListGo.eq_def]
-  | app f a hh bb fb lp ihf iha =>
+  | app f a ihf iha =>
     intro memo d
     rw [instantiateRevGo.eq_def, instantiateListGo.eq_def]
     by_cases hk0 : k = 0
     · simp only [if_pos hk0]
     rw [if_neg hk0, if_neg hk0]
-    by_cases hcut : (ExprC.app f a hh bb fb lp).bvarB ≤ d
+    by_cases hcut : (Expr.app f a).bvarB ≤ d
     · rw [if_pos hcut, if_pos hcut]
     rw [if_neg hcut, if_neg hcut]
-    cases hmemo : memo[(ExprC.app f a hh bb fb lp, k, d)]? with
+    cases hmemo : memo[(Expr.app f a, k, d)]? with
     | some r => rfl
     | none =>
       dsimp only
       rw [ihf memo d]
       rcases h1 : instantiateListGo vs.reverse memo f k d with ⟨f', m₁⟩
       rw [iha m₁ d]
-  | lam n ty bd m hh bb fb lp iht ihb =>
+  | lam n ty bd m iht ihb =>
     intro memo d
     rw [instantiateRevGo.eq_def, instantiateListGo.eq_def]
     by_cases hk0 : k = 0
     · simp only [if_pos hk0]
     rw [if_neg hk0, if_neg hk0]
-    by_cases hcut : (ExprC.lam n ty bd m hh bb fb lp).bvarB ≤ d
+    by_cases hcut : (Expr.lam n ty bd m).bvarB ≤ d
     · rw [if_pos hcut, if_pos hcut]
     rw [if_neg hcut, if_neg hcut]
-    cases hmemo : memo[(ExprC.lam n ty bd m hh bb fb lp, k, d)]? with
+    cases hmemo : memo[(Expr.lam n ty bd m, k, d)]? with
     | some r => rfl
     | none =>
       dsimp only
       rw [iht memo d]
       rcases h1 : instantiateListGo vs.reverse memo ty k d with ⟨ty', m₁⟩
       rw [ihb m₁ (d + 1)]
-  | forallE n ty bd m hh bb fb lp iht ihb =>
+  | forallE n ty bd m iht ihb =>
     intro memo d
     rw [instantiateRevGo.eq_def, instantiateListGo.eq_def]
     by_cases hk0 : k = 0
     · simp only [if_pos hk0]
     rw [if_neg hk0, if_neg hk0]
-    by_cases hcut : (ExprC.forallE n ty bd m hh bb fb lp).bvarB ≤ d
+    by_cases hcut : (Expr.forallE n ty bd m).bvarB ≤ d
     · rw [if_pos hcut, if_pos hcut]
     rw [if_neg hcut, if_neg hcut]
-    cases hmemo : memo[(ExprC.forallE n ty bd m hh bb fb lp, k, d)]? with
+    cases hmemo : memo[(Expr.forallE n ty bd m, k, d)]? with
     | some r => rfl
     | none =>
       dsimp only
       rw [iht memo d]
       rcases h1 : instantiateListGo vs.reverse memo ty k d with ⟨ty', m₁⟩
       rw [ihb m₁ (d + 1)]
-  | letE n ty val bd hh bb fb lp iht ihv ihb =>
+  | letE n ty val bd iht ihv ihb =>
     intro memo d
     rw [instantiateRevGo.eq_def, instantiateListGo.eq_def]
     by_cases hk0 : k = 0
     · simp only [if_pos hk0]
     rw [if_neg hk0, if_neg hk0]
-    by_cases hcut : (ExprC.letE n ty val bd hh bb fb lp).bvarB ≤ d
+    by_cases hcut : (Expr.letE n ty val bd).bvarB ≤ d
     · rw [if_pos hcut, if_pos hcut]
     rw [if_neg hcut, if_neg hcut]
-    cases hmemo : memo[(ExprC.letE n ty val bd hh bb fb lp, k, d)]? with
+    cases hmemo : memo[(Expr.letE n ty val bd, k, d)]? with
     | some r => rfl
     | none =>
       dsimp only
@@ -1093,16 +1093,16 @@ theorem instantiateRevGo_eq {vs : Array ExprC} :
       rw [ihv m₁ d]
       rcases h2 : instantiateListGo vs.reverse m₁ val k d with ⟨v', m₂⟩
       rw [ihb m₂ (d + 1)]
-  | proj s i sub hh bb fb lp ihe =>
+  | proj s i sub ihe =>
     intro memo d
     rw [instantiateRevGo.eq_def, instantiateListGo.eq_def]
     by_cases hk0 : k = 0
     · simp only [if_pos hk0]
     rw [if_neg hk0, if_neg hk0]
-    by_cases hcut : (ExprC.proj s i sub hh bb fb lp).bvarB ≤ d
+    by_cases hcut : (Expr.proj s i sub).bvarB ≤ d
     · rw [if_pos hcut, if_pos hcut]
     rw [if_neg hcut, if_neg hcut]
-    cases hmemo : memo[(ExprC.proj s i sub hh bb fb lp, k, d)]? with
+    cases hmemo : memo[(Expr.proj s i sub, k, d)]? with
     | some r => rfl
     | none =>
       dsimp only
@@ -1193,7 +1193,7 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC}, WFc e →
         eraseC (abstract1Go d memo e k).1 = (eraseC e).abstract1 d k := by
   intro e
   induction e with
-  | fvar idx n ty hh bb fb lp iht =>
+  | fvar idx n ty iht =>
     intro hw memo k hm
     rw [abstract1Go.eq_def]
     split
@@ -1210,7 +1210,7 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC}, WFc e →
         · rename_i hidx
           refine ⟨hw, hm.insert hw ?_, ?_⟩ <;>
             simp [eraseC, Expr.abstract1, hidx]
-  | bvar i hh bb fb lp =>
+  | bvar i =>
     intro hw memo k hm
     rw [abstract1Go.eq_def]
     split
@@ -1220,7 +1220,7 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC}, WFc e →
       · rename_i r hhit
         exact ⟨(hm _ _ _ hhit).1, hm, (hm _ _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | sort u hh bb fb lp =>
+  | sort u =>
     intro hw memo k hm
     rw [abstract1Go.eq_def]
     split
@@ -1230,7 +1230,7 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC}, WFc e →
       · rename_i r hhit
         exact ⟨(hm _ _ _ hhit).1, hm, (hm _ _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | const n us hh bb fb lp =>
+  | const n us =>
     intro hw memo k hm
     rw [abstract1Go.eq_def]
     split
@@ -1240,7 +1240,7 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC}, WFc e →
       · rename_i r hhit
         exact ⟨(hm _ _ _ hhit).1, hm, (hm _ _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | lit l hh bb fb lp =>
+  | lit l =>
     intro hw memo k hm
     rw [abstract1Go.eq_def]
     split
@@ -1250,7 +1250,7 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC}, WFc e →
       · rename_i r hhit
         exact ⟨(hm _ _ _ hhit).1, hm, (hm _ _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | app f a hh bb fb lp ihf iha =>
+  | app f a ihf iha =>
     intro hw memo k hm
     obtain ⟨hf, ha, -⟩ := hw.app_inv
     rw [abstract1Go.eq_def]
@@ -1268,10 +1268,10 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC}, WFc e →
         rw [hq] at h4 h5 h6
         simp only [hp, hq]
         have hres : eraseC (mkApp f' a')
-            = (eraseC (.app f a hh bb fb lp)).abstract1 d k := by
+            = (eraseC (.app f a)).abstract1 d k := by
           rw [eraseC_mkApp, h3, h6]; rfl
         exact ⟨WFc.mkApp h1 h4, h5.insert (WFc.mkApp h1 h4) hres, hres⟩
-  | lam n ty bd m hh bb fb lp iht ihb =>
+  | lam n ty bd m iht ihb =>
     intro hw memo k hm
     obtain ⟨hty, hbd, -⟩ := hw.lam_inv
     rw [abstract1Go.eq_def]
@@ -1289,11 +1289,11 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC}, WFc e →
         rw [hq] at h4 h5 h6
         simp only [hp, hq]
         have hres : eraseC (mkLam n ty' b' m)
-            = (eraseC (.lam n ty bd m hh bb fb lp)).abstract1 d k := by
+            = (eraseC (.lam n ty bd m)).abstract1 d k := by
           rw [eraseC_mkLam, h3, h6]; rfl
         exact ⟨WFc.mkLam n m h1 h4, h5.insert (WFc.mkLam n m h1 h4) hres,
           hres⟩
-  | forallE n ty bd m hh bb fb lp iht ihb =>
+  | forallE n ty bd m iht ihb =>
     intro hw memo k hm
     obtain ⟨hty, hbd, -⟩ := hw.forallE_inv
     rw [abstract1Go.eq_def]
@@ -1311,11 +1311,11 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC}, WFc e →
         rw [hq] at h4 h5 h6
         simp only [hp, hq]
         have hres : eraseC (mkForallE n ty' b' m)
-            = (eraseC (.forallE n ty bd m hh bb fb lp)).abstract1 d k := by
+            = (eraseC (.forallE n ty bd m)).abstract1 d k := by
           rw [eraseC_mkForallE, h3, h6]; rfl
         exact ⟨WFc.mkForallE n m h1 h4,
           h5.insert (WFc.mkForallE n m h1 h4) hres, hres⟩
-  | letE n ty val bd hh bb fb lp iht ihv ihb =>
+  | letE n ty val bd iht ihv ihb =>
     intro hw memo k hm
     obtain ⟨hty, hval, hbd, -⟩ := hw.letE_inv
     rw [abstract1Go.eq_def]
@@ -1336,11 +1336,11 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC}, WFc e →
         rw [hr] at h7 h8 h9
         simp only [hp, hq, hr]
         have hres : eraseC (mkLetE n ty' v' b')
-            = (eraseC (.letE n ty val bd hh bb fb lp)).abstract1 d k := by
+            = (eraseC (.letE n ty val bd)).abstract1 d k := by
           rw [eraseC_mkLetE, h3, h6, h9]; rfl
         exact ⟨WFc.mkLetE n h1 h4 h7,
           h8.insert (WFc.mkLetE n h1 h4 h7) hres, hres⟩
-  | proj s i sub hh bb fb lp ihe =>
+  | proj s i sub ihe =>
     intro hw memo k hm
     obtain ⟨he, -⟩ := hw.proj_inv
     rw [abstract1Go.eq_def]
@@ -1355,7 +1355,7 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC}, WFc e →
         rw [hp] at h1 h2 h3
         simp only [hp]
         have hres : eraseC (mkProj s i s')
-            = (eraseC (.proj s i sub hh bb fb lp)).abstract1 d k := by
+            = (eraseC (.proj s i sub)).abstract1 d k := by
           rw [eraseC_mkProj, h3]; rfl
         exact ⟨WFc.mkProj s i h1, h2.insert (WFc.mkProj s i h1) hres, hres⟩
 
@@ -1409,7 +1409,7 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC}, WFc e →
           = (eraseC e).abstractRange d k c := by
   intro e
   induction e with
-  | fvar idx n ty hh bb fb lp iht =>
+  | fvar idx n ty iht =>
     intro hw memo c hm
     rw [abstractRangeGo.eq_def]
     split
@@ -1426,7 +1426,7 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC}, WFc e →
         · rename_i hidx
           refine ⟨hw, hm.insert hw ?_, ?_⟩ <;>
             simp [eraseC, Expr.abstractRange, hidx]
-  | bvar i hh bb fb lp =>
+  | bvar i =>
     intro hw memo c hm
     rw [abstractRangeGo.eq_def]
     split
@@ -1436,7 +1436,7 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC}, WFc e →
       · rename_i r hhit
         exact ⟨(hm _ _ _ hhit).1, hm, (hm _ _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | sort u hh bb fb lp =>
+  | sort u =>
     intro hw memo c hm
     rw [abstractRangeGo.eq_def]
     split
@@ -1446,7 +1446,7 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC}, WFc e →
       · rename_i r hhit
         exact ⟨(hm _ _ _ hhit).1, hm, (hm _ _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | const n us hh bb fb lp =>
+  | const n us =>
     intro hw memo c hm
     rw [abstractRangeGo.eq_def]
     split
@@ -1456,7 +1456,7 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC}, WFc e →
       · rename_i r hhit
         exact ⟨(hm _ _ _ hhit).1, hm, (hm _ _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | lit l hh bb fb lp =>
+  | lit l =>
     intro hw memo c hm
     rw [abstractRangeGo.eq_def]
     split
@@ -1466,7 +1466,7 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC}, WFc e →
       · rename_i r hhit
         exact ⟨(hm _ _ _ hhit).1, hm, (hm _ _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | app f a hh bb fb lp ihf iha =>
+  | app f a ihf iha =>
     intro hw memo c hm
     obtain ⟨hf, ha, -⟩ := hw.app_inv
     rw [abstractRangeGo.eq_def]
@@ -1484,10 +1484,10 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC}, WFc e →
         rw [hq] at h4 h5 h6
         simp only [hp, hq]
         have hres : eraseC (mkApp f' a')
-            = (eraseC (.app f a hh bb fb lp)).abstractRange d k c := by
+            = (eraseC (.app f a)).abstractRange d k c := by
           rw [eraseC_mkApp, h3, h6]; rfl
         exact ⟨WFc.mkApp h1 h4, h5.insert (WFc.mkApp h1 h4) hres, hres⟩
-  | lam n ty bd m hh bb fb lp iht ihb =>
+  | lam n ty bd m iht ihb =>
     intro hw memo c hm
     obtain ⟨hty, hbd, -⟩ := hw.lam_inv
     rw [abstractRangeGo.eq_def]
@@ -1505,11 +1505,11 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC}, WFc e →
         rw [hq] at h4 h5 h6
         simp only [hp, hq]
         have hres : eraseC (mkLam n ty' b' m)
-            = (eraseC (.lam n ty bd m hh bb fb lp)).abstractRange d k c := by
+            = (eraseC (.lam n ty bd m)).abstractRange d k c := by
           rw [eraseC_mkLam, h3, h6]; rfl
         exact ⟨WFc.mkLam n m h1 h4, h5.insert (WFc.mkLam n m h1 h4) hres,
           hres⟩
-  | forallE n ty bd m hh bb fb lp iht ihb =>
+  | forallE n ty bd m iht ihb =>
     intro hw memo c hm
     obtain ⟨hty, hbd, -⟩ := hw.forallE_inv
     rw [abstractRangeGo.eq_def]
@@ -1527,12 +1527,12 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC}, WFc e →
         rw [hq] at h4 h5 h6
         simp only [hp, hq]
         have hres : eraseC (mkForallE n ty' b' m)
-            = (eraseC (.forallE n ty bd m hh bb fb lp)).abstractRange
+            = (eraseC (.forallE n ty bd m)).abstractRange
                 d k c := by
           rw [eraseC_mkForallE, h3, h6]; rfl
         exact ⟨WFc.mkForallE n m h1 h4,
           h5.insert (WFc.mkForallE n m h1 h4) hres, hres⟩
-  | letE n ty val bd hh bb fb lp iht ihv ihb =>
+  | letE n ty val bd iht ihv ihb =>
     intro hw memo c hm
     obtain ⟨hty, hval, hbd, -⟩ := hw.letE_inv
     rw [abstractRangeGo.eq_def]
@@ -1553,12 +1553,12 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC}, WFc e →
         rw [hr] at h7 h8 h9
         simp only [hp, hq, hr]
         have hres : eraseC (mkLetE n ty' v' b')
-            = (eraseC (.letE n ty val bd hh bb fb lp)).abstractRange
+            = (eraseC (.letE n ty val bd)).abstractRange
                 d k c := by
           rw [eraseC_mkLetE, h3, h6, h9]; rfl
         exact ⟨WFc.mkLetE n h1 h4 h7,
           h8.insert (WFc.mkLetE n h1 h4 h7) hres, hres⟩
-  | proj s i sub hh bb fb lp ihe =>
+  | proj s i sub ihe =>
     intro hw memo c hm
     obtain ⟨he, -⟩ := hw.proj_inv
     rw [abstractRangeGo.eq_def]
@@ -1573,7 +1573,7 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC}, WFc e →
         rw [hp] at h1 h2 h3
         simp only [hp]
         have hres : eraseC (mkProj s i s')
-            = (eraseC (.proj s i sub hh bb fb lp)).abstractRange d k c := by
+            = (eraseC (.proj s i sub)).abstractRange d k c := by
           rw [eraseC_mkProj, h3]; rfl
         exact ⟨WFc.mkProj s i h1, h2.insert (WFc.mkProj s i h1) hres, hres⟩
 
@@ -1612,7 +1612,7 @@ theorem MemoLPInv.insert {ks : List Name} {us : List Level} {memo : Memo0}
   split at hk
   · rename_i hbeq
     cases hk
-    rw [← beqSpec_sound hbeq]
+    rw [← beq_sound hbeq]
     exact ⟨hr, heq⟩
   · exact hm e' r' hk
 
@@ -1627,7 +1627,7 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
           = (eraseC e).instantiateLevelParams ks us := by
   intro e
   induction e with
-  | bvar i hh bb fb lp =>
+  | bvar i =>
     intro hw memo hm
     rw [instLevelParamsGo.eq_def]
     split
@@ -1637,7 +1637,7 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).1, hm, (hm _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | lit l hh bb fb lp =>
+  | lit l =>
     intro hw memo hm
     rw [instLevelParamsGo.eq_def]
     split
@@ -1647,7 +1647,7 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).1, hm, (hm _ _ hhit).2⟩
       · exact ⟨hw, hm.insert hw rfl, rfl⟩
-  | sort u hh bb fb lp =>
+  | sort u =>
     intro hw memo hm
     rw [instLevelParamsGo.eq_def]
     split
@@ -1657,7 +1657,7 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).1, hm, (hm _ _ hhit).2⟩
       · exact ⟨WFc.mkSort _, (hm.insert (WFc.mkSort _) rfl), rfl⟩
-  | const n vs hh bb fb lp =>
+  | const n vs =>
     intro hw memo hm
     rw [instLevelParamsGo.eq_def]
     split
@@ -1667,7 +1667,7 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).1, hm, (hm _ _ hhit).2⟩
       · exact ⟨WFc.mkConst .., (hm.insert (WFc.mkConst ..) rfl), rfl⟩
-  | fvar idx n ty hh bb fb lp iht =>
+  | fvar idx n ty iht =>
     intro hw memo hm
     obtain ⟨hty, -⟩ := hw.fvar_inv
     rw [instLevelParamsGo.eq_def]
@@ -1682,12 +1682,12 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
         rw [hp] at h1 h2 h3
         simp only [hp]
         have hres : eraseC (mkFVar idx n t)
-            = (eraseC (.fvar idx n ty hh bb fb lp)).instantiateLevelParams
+            = (eraseC (.fvar idx n ty)).instantiateLevelParams
                 ks us := by
           rw [eraseC_mkFVar, h3]; rfl
         exact ⟨WFc.mkFVar idx n h1, h2.insert (WFc.mkFVar idx n h1) hres,
           hres⟩
-  | app f a hh bb fb lp ihf iha =>
+  | app f a ihf iha =>
     intro hw memo hm
     obtain ⟨hf, ha, -⟩ := hw.app_inv
     rw [instLevelParamsGo.eq_def]
@@ -1705,11 +1705,11 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
         rw [hq] at h4 h5 h6
         simp only [hp, hq]
         have hres : eraseC (mkApp f' a')
-            = (eraseC (.app f a hh bb fb lp)).instantiateLevelParams
+            = (eraseC (.app f a)).instantiateLevelParams
                 ks us := by
           rw [eraseC_mkApp, h3, h6]; rfl
         exact ⟨WFc.mkApp h1 h4, h5.insert (WFc.mkApp h1 h4) hres, hres⟩
-  | lam n ty bd m hh bb fb lp iht ihb =>
+  | lam n ty bd m iht ihb =>
     intro hw memo hm
     obtain ⟨hty, hbd, -⟩ := hw.lam_inv
     rw [instLevelParamsGo.eq_def]
@@ -1727,12 +1727,12 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
         rw [hq] at h4 h5 h6
         simp only [hp, hq]
         have hres : eraseC (mkLam n ty' b' ⟨m.bi, Level.substPW ks us m.pw⟩)
-            = (eraseC (.lam n ty bd m hh bb fb lp)).instantiateLevelParams
+            = (eraseC (.lam n ty bd m)).instantiateLevelParams
                 ks us := by
           rw [eraseC_mkLam, h3, h6]; rfl
         exact ⟨WFc.mkLam n _ h1 h4, h5.insert (WFc.mkLam n _ h1 h4) hres,
           hres⟩
-  | forallE n ty bd m hh bb fb lp iht ihb =>
+  | forallE n ty bd m iht ihb =>
     intro hw memo hm
     obtain ⟨hty, hbd, -⟩ := hw.forallE_inv
     rw [instLevelParamsGo.eq_def]
@@ -1751,12 +1751,12 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
         simp only [hp, hq]
         have hres : eraseC
               (mkForallE n ty' b' ⟨m.bi, Level.substPW ks us m.pw⟩)
-            = (eraseC (.forallE n ty bd m hh bb fb lp)).instantiateLevelParams
+            = (eraseC (.forallE n ty bd m)).instantiateLevelParams
                 ks us := by
           rw [eraseC_mkForallE, h3, h6]; rfl
         exact ⟨WFc.mkForallE n _ h1 h4,
           h5.insert (WFc.mkForallE n _ h1 h4) hres, hres⟩
-  | letE n ty val bd hh bb fb lp iht ihv ihb =>
+  | letE n ty val bd iht ihv ihb =>
     intro hw memo hm
     obtain ⟨hty, hval, hbd, -⟩ := hw.letE_inv
     rw [instLevelParamsGo.eq_def]
@@ -1777,12 +1777,12 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
         rw [hr] at h7 h8 h9
         simp only [hp, hq, hr]
         have hres : eraseC (mkLetE n ty' v' b')
-            = (eraseC (.letE n ty val bd hh bb fb lp)).instantiateLevelParams
+            = (eraseC (.letE n ty val bd)).instantiateLevelParams
                 ks us := by
           rw [eraseC_mkLetE, h3, h6, h9]; rfl
         exact ⟨WFc.mkLetE n h1 h4 h7,
           h8.insert (WFc.mkLetE n h1 h4 h7) hres, hres⟩
-  | proj s i sub hh bb fb lp ihe =>
+  | proj s i sub ihe =>
     intro hw memo hm
     obtain ⟨he, -⟩ := hw.proj_inv
     rw [instLevelParamsGo.eq_def]
@@ -1797,7 +1797,7 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
         rw [hp] at h1 h2 h3
         simp only [hp]
         have hres : eraseC (mkProj s i s')
-            = (eraseC (.proj s i sub hh bb fb lp)).instantiateLevelParams
+            = (eraseC (.proj s i sub)).instantiateLevelParams
                 ks us := by
           rw [eraseC_mkProj, h3]; rfl
         exact ⟨WFc.mkProj s i h1, h2.insert (WFc.mkProj s i h1) hres, hres⟩
@@ -1897,7 +1897,7 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
         MemoWInv (wscopedBGo memo d e).2 := by
   intro e
   induction e with
-  | bvar i hh bb fb lp =>
+  | bvar i =>
     intro hw memo d hm
     rw [wscopedBGo.eq_def]
     split
@@ -1909,7 +1909,7 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
         exact ⟨hm _ _ _ hhit, hm⟩
       · exact ⟨(wscopedB_bvar i d).symm,
           hm.insert (wscopedB_bvar i d).symm⟩
-  | sort u hh bb fb lp =>
+  | sort u =>
     intro hw memo d hm
     rw [wscopedBGo.eq_def]
     split
@@ -1921,7 +1921,7 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
         exact ⟨hm _ _ _ hhit, hm⟩
       · exact ⟨(wscopedB_sort u d).symm,
           hm.insert (wscopedB_sort u d).symm⟩
-  | const n us hh bb fb lp =>
+  | const n us =>
     intro hw memo d hm
     rw [wscopedBGo.eq_def]
     split
@@ -1933,7 +1933,7 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
         exact ⟨hm _ _ _ hhit, hm⟩
       · exact ⟨(wscopedB_const n us d).symm,
           hm.insert (wscopedB_const n us d).symm⟩
-  | lit l hh bb fb lp =>
+  | lit l =>
     intro hw memo d hm
     rw [wscopedBGo.eq_def]
     split
@@ -1944,7 +1944,7 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
       · rename_i r hhit
         exact ⟨hm _ _ _ hhit, hm⟩
       · exact ⟨(wscopedB_lit l d).symm, hm.insert (wscopedB_lit l d).symm⟩
-  | fvar idx n ty hh bb fb lp iht =>
+  | fvar idx n ty iht =>
     intro hw memo d hm
     obtain ⟨hty, -⟩ := hw.fvar_inv
     rw [wscopedBGo.eq_def]
@@ -1961,19 +1961,19 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
           obtain ⟨h1, h2⟩ := iht hty (d := idx) hm
           rcases hp : wscopedBGo memo idx ty with ⟨rt, mt⟩
           rw [hp] at h1 h2
-          have hres : rt = (eraseC (.fvar idx n ty hh bb fb lp)).wscopedB d := by
-            rw [show eraseC (ExprC.fvar idx n ty hh bb fb lp)
+          have hres : rt = (eraseC (.fvar idx n ty)).wscopedB d := by
+            rw [show eraseC (Expr.fvar idx n ty)
                 = Expr.fvar idx n (eraseC ty) from rfl, wscopedB_fvar,
               ← h1, decide_eq_true hidx, Bool.true_and]
           exact ⟨hres, h2.insert hres⟩
         · rename_i hidx
           have hres : false
-              = (eraseC (.fvar idx n ty hh bb fb lp)).wscopedB d := by
-            rw [show eraseC (ExprC.fvar idx n ty hh bb fb lp)
+              = (eraseC (.fvar idx n ty)).wscopedB d := by
+            rw [show eraseC (Expr.fvar idx n ty)
                 = Expr.fvar idx n (eraseC ty) from rfl, wscopedB_fvar,
               decide_eq_false hidx, Bool.false_and]
           exact ⟨hres, hm.insert hres⟩
-  | app f a hh bb fb lp ihf iha =>
+  | app f a ihf iha =>
     intro hw memo d hm
     obtain ⟨hf, ha, -⟩ := hw.app_inv
     rw [wscopedBGo.eq_def]
@@ -1993,18 +1993,18 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
           obtain ⟨h3, h4⟩ := iha ha (d := d) h2
           rcases hq : wscopedBGo mf d a with ⟨ra, ma⟩
           rw [hq] at h3 h4
-          have hres : ra = (eraseC (.app f a hh bb fb lp)).wscopedB d := by
-            rw [show eraseC (ExprC.app f a hh bb fb lp)
+          have hres : ra = (eraseC (.app f a)).wscopedB d := by
+            rw [show eraseC (Expr.app f a)
                 = Expr.app (eraseC f) (eraseC a) from rfl, wscopedB_app,
               ← h1, ← h3, Bool.true_and]
           exact ⟨hres, h4.insert hres⟩
         | false =>
-          have hres : false = (eraseC (.app f a hh bb fb lp)).wscopedB d := by
-            rw [show eraseC (ExprC.app f a hh bb fb lp)
+          have hres : false = (eraseC (.app f a)).wscopedB d := by
+            rw [show eraseC (Expr.app f a)
                 = Expr.app (eraseC f) (eraseC a) from rfl, wscopedB_app,
               ← h1, Bool.false_and]
           exact ⟨hres, h2.insert hres⟩
-  | lam n ty bd m hh bb fb lp iht ihb =>
+  | lam n ty bd m iht ihb =>
     intro hw memo d hm
     obtain ⟨hty, hbd, -⟩ := hw.lam_inv
     rw [wscopedBGo.eq_def]
@@ -2025,19 +2025,19 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
           rcases hq : wscopedBGo mt d bd with ⟨rb, mb⟩
           rw [hq] at h3 h4
           have hres : rb
-              = (eraseC (.lam n ty bd m hh bb fb lp)).wscopedB d := by
-            rw [show eraseC (ExprC.lam n ty bd m hh bb fb lp)
+              = (eraseC (.lam n ty bd m)).wscopedB d := by
+            rw [show eraseC (Expr.lam n ty bd m)
                 = Expr.lam n (eraseC ty) (eraseC bd) m from rfl,
               wscopedB_lam, ← h1, ← h3, Bool.true_and]
           exact ⟨hres, h4.insert hres⟩
         | false =>
           have hres : false
-              = (eraseC (.lam n ty bd m hh bb fb lp)).wscopedB d := by
-            rw [show eraseC (ExprC.lam n ty bd m hh bb fb lp)
+              = (eraseC (.lam n ty bd m)).wscopedB d := by
+            rw [show eraseC (Expr.lam n ty bd m)
                 = Expr.lam n (eraseC ty) (eraseC bd) m from rfl,
               wscopedB_lam, ← h1, Bool.false_and]
           exact ⟨hres, h2.insert hres⟩
-  | forallE n ty bd m hh bb fb lp iht ihb =>
+  | forallE n ty bd m iht ihb =>
     intro hw memo d hm
     obtain ⟨hty, hbd, -⟩ := hw.forallE_inv
     rw [wscopedBGo.eq_def]
@@ -2058,19 +2058,19 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
           rcases hq : wscopedBGo mt d bd with ⟨rb, mb⟩
           rw [hq] at h3 h4
           have hres : rb
-              = (eraseC (.forallE n ty bd m hh bb fb lp)).wscopedB d := by
-            rw [show eraseC (ExprC.forallE n ty bd m hh bb fb lp)
+              = (eraseC (.forallE n ty bd m)).wscopedB d := by
+            rw [show eraseC (Expr.forallE n ty bd m)
                 = Expr.forallE n (eraseC ty) (eraseC bd) m from rfl,
               wscopedB_forallE, ← h1, ← h3, Bool.true_and]
           exact ⟨hres, h4.insert hres⟩
         | false =>
           have hres : false
-              = (eraseC (.forallE n ty bd m hh bb fb lp)).wscopedB d := by
-            rw [show eraseC (ExprC.forallE n ty bd m hh bb fb lp)
+              = (eraseC (.forallE n ty bd m)).wscopedB d := by
+            rw [show eraseC (Expr.forallE n ty bd m)
                 = Expr.forallE n (eraseC ty) (eraseC bd) m from rfl,
               wscopedB_forallE, ← h1, Bool.false_and]
           exact ⟨hres, h2.insert hres⟩
-  | letE n ty val bd hh bb fb lp iht ihv ihb =>
+  | letE n ty val bd iht ihv ihb =>
     intro hw memo d hm
     obtain ⟨hty, hval, hbd, -⟩ := hw.letE_inv
     rw [wscopedBGo.eq_def]
@@ -2081,7 +2081,7 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
     · split
       · rename_i r hhit
         exact ⟨hm _ _ _ hhit, hm⟩
-      · have herase : eraseC (ExprC.letE n ty val bd hh bb fb lp)
+      · have herase : eraseC (Expr.letE n ty val bd)
             = Expr.letE n (eraseC ty) (eraseC val) (eraseC bd) := rfl
         obtain ⟨h1, h2⟩ := iht hty (d := d) hm
         rcases hp : wscopedBGo memo d ty with ⟨rt, mt⟩
@@ -2090,7 +2090,7 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
         cases rt with
         | false =>
           have hres : false
-              = (eraseC (.letE n ty val bd hh bb fb lp)).wscopedB d := by
+              = (eraseC (.letE n ty val bd)).wscopedB d := by
             rw [herase, wscopedB_letE, ← h1]
             simp
           exact ⟨hres, h2.insert hres⟩
@@ -2101,7 +2101,7 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
           cases rv with
           | false =>
             have hres : false
-                = (eraseC (.letE n ty val bd hh bb fb lp)).wscopedB d := by
+                = (eraseC (.letE n ty val bd)).wscopedB d := by
               rw [herase, wscopedB_letE, ← h1, ← h3]
               simp
             exact ⟨hres, h4.insert hres⟩
@@ -2110,11 +2110,11 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
             rcases hr : wscopedBGo mv d bd with ⟨rb, mb⟩
             rw [hr] at h5 h6
             have hres : rb
-                = (eraseC (.letE n ty val bd hh bb fb lp)).wscopedB d := by
+                = (eraseC (.letE n ty val bd)).wscopedB d := by
               rw [herase, wscopedB_letE, ← h1, ← h3, ← h5]
               simp
             exact ⟨hres, h6.insert hres⟩
-  | proj s i sub hh bb fb lp ihe =>
+  | proj s i sub ihe =>
     intro hw memo d hm
     obtain ⟨he, -⟩ := hw.proj_inv
     rw [wscopedBGo.eq_def]
@@ -2130,8 +2130,8 @@ theorem wscopedBGo_spec : ∀ {e : ExprC}, WFc e →
         rw [hp] at h1 h2
         simp only [hp]
         have hres : rs
-            = (eraseC (.proj s i sub hh bb fb lp)).wscopedB d := by
-          rw [show eraseC (ExprC.proj s i sub hh bb fb lp)
+            = (eraseC (.proj s i sub)).wscopedB d := by
+          rw [show eraseC (Expr.proj s i sub)
               = Expr.proj s i (eraseC sub) from rfl, wscopedB_proj, ← h1]
         exact ⟨hres, h2.insert hres⟩
 
@@ -2157,11 +2157,11 @@ theorem piResidualAcc_spec :
     exact ⟨h1, h2⟩
   | a :: as, acc, e, he, hacc, has => by
     cases e with
-    | forallE n ty b m hh bb fb lp =>
+    | forallE n ty b m =>
       obtain ⟨-, hb, -⟩ := he.forallE_inv
       rw [piResidualAcc.eq_def]
       dsimp only
-      rw [show eraseC (ExprC.forallE n ty b m hh bb fb lp)
+      rw [show eraseC (Expr.forallE n ty b m)
           = Expr.forallE n (eraseC ty) (eraseC b) m from rfl,
         instList_forallE, List.map_cons,
         show _root_.Setlec.piResidual
@@ -2174,7 +2174,7 @@ theorem piResidualAcc_spec :
         ← Expr.instantiateList_cons]
       exact piResidualAcc_spec as (a :: acc) b hb (WFcL.cons has.head hacc)
         has.tail
-    | bvar i hh bb fb lp =>
+    | bvar i =>
       rw [piResidualAcc.eq_def]
       dsimp only
       cases acc with
@@ -2183,60 +2183,60 @@ theorem piResidualAcc_spec :
         exact trivial
       | cons a' acc' =>
         obtain ⟨h1, h2⟩ :=
-          instantiateList_spec (e := ExprC.bvar i hh bb fb lp)
+          instantiateList_spec (e := Expr.bvar i)
             (vs := a' :: acc') (d := 0) he hacc
         have hrec := piResidualAcc_spec (a :: as) []
-          (instantiateList (ExprC.bvar i hh bb fb lp) (a' :: acc') 0) h1
+          (instantiateList (Expr.bvar i) (a' :: acc') 0) h1
           WFcL.nil has
         rw [List.map_nil, Expr.instantiateList_nil, h2] at hrec
         exact hrec
-    | fvar idx n ty hh bb fb lp =>
+    | fvar idx n ty =>
       rw [piResidualAcc.eq_def]
       dsimp only
-      rw [← instList_leaf (e := ExprC.fvar idx n ty hh bb fb lp)
+      rw [← instList_leaf (e := Expr.fvar idx n ty)
         (ws := acc.map eraseC) (d := 0) rfl]
       exact trivial
-    | sort u hh bb fb lp =>
+    | sort u =>
       rw [piResidualAcc.eq_def]
       dsimp only
-      rw [← instList_leaf (e := ExprC.sort u hh bb fb lp)
+      rw [← instList_leaf (e := Expr.sort u)
         (ws := acc.map eraseC) (d := 0) rfl]
       exact trivial
-    | const n us hh bb fb lp =>
+    | const n us =>
       rw [piResidualAcc.eq_def]
       dsimp only
-      rw [← instList_leaf (e := ExprC.const n us hh bb fb lp)
+      rw [← instList_leaf (e := Expr.const n us)
         (ws := acc.map eraseC) (d := 0) rfl]
       exact trivial
-    | lit l hh bb fb lp =>
+    | lit l =>
       rw [piResidualAcc.eq_def]
       dsimp only
-      rw [← instList_leaf (e := ExprC.lit l hh bb fb lp)
+      rw [← instList_leaf (e := Expr.lit l)
         (ws := acc.map eraseC) (d := 0) rfl]
       exact trivial
-    | app f a' hh bb fb lp =>
+    | app f a' =>
       rw [piResidualAcc.eq_def]
       dsimp only
-      rw [show eraseC (ExprC.app f a' hh bb fb lp)
+      rw [show eraseC (Expr.app f a')
           = Expr.app (eraseC f) (eraseC a') from rfl, instList_app]
       exact trivial
-    | lam n ty b m hh bb fb lp =>
+    | lam n ty b m =>
       rw [piResidualAcc.eq_def]
       dsimp only
-      rw [show eraseC (ExprC.lam n ty b m hh bb fb lp)
+      rw [show eraseC (Expr.lam n ty b m)
           = Expr.lam n (eraseC ty) (eraseC b) m from rfl, instList_lam]
       exact trivial
-    | letE n ty v b hh bb fb lp =>
+    | letE n ty v b =>
       rw [piResidualAcc.eq_def]
       dsimp only
-      rw [show eraseC (ExprC.letE n ty v b hh bb fb lp)
+      rw [show eraseC (Expr.letE n ty v b)
           = Expr.letE n (eraseC ty) (eraseC v) (eraseC b) from rfl,
         instList_letE]
       exact trivial
-    | proj s i sub hh bb fb lp =>
+    | proj s i sub =>
       rw [piResidualAcc.eq_def]
       dsimp only
-      rw [show eraseC (ExprC.proj s i sub hh bb fb lp)
+      rw [show eraseC (Expr.proj s i sub)
           = Expr.proj s i (eraseC sub) from rfl, instList_proj]
       exact trivial
 termination_by as acc => (as.length, acc.length)
