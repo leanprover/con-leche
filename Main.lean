@@ -167,13 +167,13 @@ never shared a store with them). -/
 partial def diagLoopC
     (stepF : Setlec.FEnv → Setlec.Cached.DeclC → Setlec.Cached.CState →
       Except Setlec.CheckError (Setlec.FEnv × Setlec.Cached.CState))
-    (decls : Array Setlec.Cached.WDeclC) (i : Nat)
+    (decls : Array Setlec.Cached.DeclC) (i : Nat)
     (fe : Setlec.FEnv) (s : Setlec.Cached.CState) : String :=
   if h : i < decls.size then
     let d := decls[i]
-    match stepF fe d.1 s with
+    match stepF fe d s with
     | .ok (fe, s) => diagLoopC stepF decls (i + 1) fe s
-    | .error _ => s!" [at {declCName d.1}]"
+    | .error _ => s!" [at {declCName d}]"
   else ""
 
 /-- Diagnostic second-pass loop (locates the failing declaration for
@@ -350,7 +350,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool)
             if taintSkipped.isEmpty then return code
             IO.eprintln s!"setlec: declined: {Frontend.taintSummary taintSkipped}"
             return (if code = 0 then 2 else code)
-          let foldD : List Setlec.Cached.WDeclC → Setlec.CheckM Setlec.Env :=
+          let foldD : List Setlec.Cached.DeclC → Setlec.CheckM Setlec.Env :=
             if mode == Setlec.CheckMode.noModel then
               Setlec.Cached.checkDeclsSPCachedDNM
             else Setlec.Cached.checkDeclsSPCachedD mode

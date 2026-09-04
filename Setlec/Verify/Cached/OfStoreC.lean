@@ -70,7 +70,7 @@ theorem ofStore_denote_of_some {st : EStore} (hwf : st.WF) {s : OfStoreS}
   | some y =>
     rw [hm] at hgo
     injection hgo with h1
-    obtain ⟨-, hdy⟩ := hs.1 e y hm
+    have hdy := hs.1 e y hm
     rw [hwf.denoteT_eq] at hdy
     exact ⟨_, hdy⟩
   | none =>
@@ -94,10 +94,10 @@ theorem ofStore_rel {st : EStore} (hwf : st.WF) {s : OfStoreS}
     (∃ x, st.denote e = some x ∧ RelC c x) ∧
       OfStoreS.Inv st (ofStore st s e).2 := by
   obtain ⟨x, hx⟩ := ofStore_denote_of_some hwf hs h
-  obtain ⟨c', hc', hwc, hec, hinv⟩ := ofStore_spec_denote hwf hs hx
+  obtain ⟨c', hc', hec, hinv⟩ := ofStore_spec_denote hwf hs hx
   rw [hc'] at h
   obtain rfl : c' = c := Option.some.inj h
-  exact ⟨⟨x, hx, hwc, hec⟩, hinv⟩
+  exact ⟨⟨x, hx, hec⟩, hinv⟩
 
 /-! ## Headers and declarations -/
 

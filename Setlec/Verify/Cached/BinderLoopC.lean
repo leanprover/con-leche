@@ -45,7 +45,7 @@ collapses show up only here:
   originals.
 
 The `mk`/`mkX` premise of `annotateBindersOutC_sim` is the transposition
-of the interned `denoteNode`-agreement premise: `WFcV` of the built view
+of the interned `denoteNode`-agreement premise: the built view
 plus `ofViewE` agreement (what `internI_eff` consumes and
 produces here).
 
@@ -154,15 +154,14 @@ theorem inferLamsOutC_sim {d : Nat} :
       refine SimC.bind_left (abstractRangeM_eff hs htyo)
         (fun s₃ tyAbs hs₃ hQab => ?_)
       refine SimC.bind_left
-        (internI_eff hs₃ (n := ExprView.forallE n tyAbs cur mb)
-          ⟨hQab.1, hcur.1⟩)
+        (internI_eff hs₃ (n := ExprView.forallE n tyAbs cur mb))
         (fun s₄ node hs₄ hQnode => ?_)
       have hQnode' : RelC node
           (Expr.forallE n (tyox.abstractRange d j) curx mb) := by
-        refine ⟨hQnode.1, ?_⟩
+        show _ = _
         rw [show node
-            = .forallE n tyAbs cur mb from hQnode.2,
-          hQab.2, hcur.2]
+            = .forallE n tyAbs cur mb from hQnode,
+          hQab, hcur]
       exact ihOut hs₄ hrest hQnode'
 
 theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
@@ -183,7 +182,7 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
   -- the λ-chain guard (task #152): the residual's head shape, read on
   -- both sides of the erasure
   refine SimC.view ?_
-  obtain ⟨hwc, rfl⟩ := ht
+  obtain rfl := ht
   cases t
   case lam nmN tyN bodyN mbN =>
     dsimp only [ExprC.view]
@@ -229,7 +228,7 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
       (fun s₄ wbt wx hs₄ hPw => ?_)
     obtain ⟨hwd, hww⟩ := hPw
     refine SimC.view ?_
-    obtain ⟨hwdc, rfl⟩ := hwd
+    obtain rfl := hwd
     cases wbt
     case sort v =>
       dsimp only [ExprC.view]
@@ -307,12 +306,11 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
       _
     refine SimC.view ?_
     have ht' := ht
-    obtain ⟨hwc, rfl⟩ := ht
+    obtain rfl := ht
     cases t
     case lam nm ty body mb =>
       dsimp only [ExprC.view] at hw ⊢
       rw [inferLams_succ_lam]
-      obtain ⟨hwty, hwbody, -⟩ := hwc.lam_inv
       have hlamL : (Expr.lam nm ty body mb).instantiateList
           ws = Expr.lam nm ((Expr.instantiateList ty ws))
             ((Expr.instantiateList body ws 1)) mb := by
@@ -322,7 +320,7 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
         rw [hlamL] at hw
         simpa only [Expr.WScoped] using hw
       refine SimC.bind_left
-        (instListRevM_eff (d := 0) hs ⟨hwty, rfl⟩ hfvs)
+        (instListRevM_eff (d := 0) hs rfl hfvs)
         (fun s₁ tyo hs₁ hQtyo => ?_)
       refine SimC.bind (ih.infer hs₁ hQtyo hwcomp.1)
         (fun s₂ tty ttyx hs₂ hPtty => ?_)
@@ -331,25 +329,25 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
         (fun s₃ wtty wx hs₃ hPw => ?_)
       obtain ⟨hwd, hww⟩ := hPw
       refine SimC.view ?_
-      obtain ⟨hwdc, rfl⟩ := hwd
+      obtain rfl := hwd
       cases wtty
       case sort u =>
         dsimp only [ExprC.view]
         refine SimC.bind_left
-          (internI_eff hs₃ (n := ExprView.fvar (d + k) nm tyo) hQtyo.1)
+          (internI_eff hs₃ (n := ExprView.fvar (d + k) nm tyo))
           (fun s₄ fv hs₄ hQfv => ?_)
         have hQfv' : RelC fv
             (Expr.fvar (d + k) nm ((Expr.instantiateList ty ws))) := by
-          refine ⟨hQfv.1, ?_⟩
-          rw [show fv = .fvar (d + k) nm tyo from hQfv.2,
-            hQtyo.2]
+          show _ = _
+          rw [show fv = .fvar (d + k) nm tyo from hQfv,
+            hQtyo]
         have hwopen : Expr.WScoped (d + (k + 1))
             ((Expr.instantiateList body
               (Expr.fvar (d + k) nm (ty.instantiateList ws) :: ws))) := by
           rw [Expr.instantiateList_cons]
           have := Expr.WScoped.instantiate1 (n := nm) hwcomp.1 0 hwcomp.2
           simpa [Nat.add_assoc] using this
-        refine inferLamsC_sim ih fuel hs₄ ⟨hwbody, rfl⟩
+        refine inferLamsC_sim ih fuel hs₄ rfl
           (by rw [toListRev_push]
               exact RelCL.cons hQfv' hfvs)
           ⟨⟨rfl, hQtyo, rfl⟩, hstk⟩ hwopen
@@ -442,16 +440,16 @@ theorem inferPisLeafC_sim (ih : SSimC mode env f) {d : Nat}
     (fun s₃ wbt wx hs₃ hPw => ?_)
   obtain ⟨hwd, hww⟩ := hPw
   refine SimC.view ?_
-  obtain ⟨hwdc, rfl⟩ := hwd
+  obtain rfl := hwd
   cases wbt
   case sort v =>
     dsimp only [ExprC.view]
     refine SimC.bind (inferPisOutC_sim hs₃ hstk rfl PWMemoInvC.empty)
       (fun s₄ iv ivx hs₄ hiv => ?_)
-    exact SimC.of_eff (internI_eff hs₄ (n := ExprView.sort iv) trivial)
+    exact SimC.of_eff (internI_eff hs₄ (n := ExprView.sort iv))
       _ (fun s hQ => by
-        refine ⟨hQ.1, ?_⟩
-        rw [show s = Expr.sort iv from hQ.2, hiv])
+        show _ = _
+        rw [show s = Expr.sort iv from hQ, hiv])
   all_goals exact SimC.throw
 
 theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
@@ -490,12 +488,11 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
       _
     refine SimC.view ?_
     have ht' := ht
-    obtain ⟨hwc, rfl⟩ := ht
+    obtain rfl := ht
     cases t
     case forallE nm ty body mb =>
       dsimp only [ExprC.view] at hw ⊢
       rw [inferPis_succ_pi]
-      obtain ⟨hwty, hwbody, -⟩ := hwc.forallE_inv
       have hpiL : (Expr.forallE nm ty body mb).instantiateList
           ws = Expr.forallE nm ((Expr.instantiateList ty ws))
             ((Expr.instantiateList body ws 1)) mb := by
@@ -505,7 +502,7 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
         rw [hpiL] at hw
         simpa only [Expr.WScoped] using hw
       refine SimC.bind_left
-        (instListRevM_eff (d := 0) hs ⟨hwty, rfl⟩ hfvs)
+        (instListRevM_eff (d := 0) hs rfl hfvs)
         (fun s₁ tyo hs₁ hQtyo => ?_)
       refine SimC.bind (ih.infer hs₁ hQtyo hwcomp.1)
         (fun s₂ tty ttyx hs₂ hPtty => ?_)
@@ -514,25 +511,25 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
         (fun s₃ wtty wx hs₃ hPw => ?_)
       obtain ⟨hwd, hww⟩ := hPw
       refine SimC.view ?_
-      obtain ⟨hwdc, rfl⟩ := hwd
+      obtain rfl := hwd
       cases wtty
       case sort u =>
         dsimp only [ExprC.view]
         refine SimC.bind_left
-          (internI_eff hs₃ (n := ExprView.fvar (d + k) nm tyo) hQtyo.1)
+          (internI_eff hs₃ (n := ExprView.fvar (d + k) nm tyo))
           (fun s₄ fv hs₄ hQfv => ?_)
         have hQfv' : RelC fv
             (Expr.fvar (d + k) nm ((Expr.instantiateList ty ws))) := by
-          refine ⟨hQfv.1, ?_⟩
-          rw [show fv = .fvar (d + k) nm tyo from hQfv.2,
-            hQtyo.2]
+          show _ = _
+          rw [show fv = .fvar (d + k) nm tyo from hQfv,
+            hQtyo]
         have hwopen : Expr.WScoped (d + (k + 1))
             ((Expr.instantiateList body
               (Expr.fvar (d + k) nm (ty.instantiateList ws) :: ws))) := by
           rw [Expr.instantiateList_cons]
           have := Expr.WScoped.instantiate1 (n := nm) hwcomp.1 0 hwcomp.2
           simpa [Nat.add_assoc] using this
-        exact inferPisC_sim ih fuel hs₄ ⟨hwbody, rfl⟩
+        exact inferPisC_sim ih fuel hs₄ rfl
           (by rw [toListRev_push]
               exact RelCL.cons hQfv' hfvs)
           ⟨⟨rfl, rfl⟩, hstk⟩ hwopen
@@ -913,7 +910,6 @@ theorem annotateBindersOutC_sim
     {mkX : Name → Expr → Expr → BinderMeta → Expr}
     (hmk : ∀ (n : Name) (ty : ExprC) (tyx : Expr) (b : ExprC) (bx : Expr)
       (mi : BinderMeta), RelC ty tyx → RelC b bx →
-      WFcV (mk n ty b mi) ∧
         ofViewE (mk n ty b mi) = mkX n tyx bx mi) {d : Nat} :
     ∀ {stk : List AnnotBinderEntry} {stkx : List AnnotBinderEntryX}
       {j : Nat} {pw? : Option PropWhen} {cur : ExprC} {curx : Expr}
@@ -955,13 +951,13 @@ theorem annotateBindersOutC_sim
         (fun s₁ tyAbs hs₁ hQab => ?_)
       refine SimC.bind_left
         (internI_eff hs₁
-          (hmk n tyAbs (tyx'.abstractRange d j) cur curx
-            (annotBinderMeta pw? bi) hQab hcur).1)
+          (n := _))
         (fun s₂ node hs₂ hQnode => ?_)
-      refine ihOut hs₂ hrest ⟨hQnode.1, ?_⟩
-      rw [hQnode.2,
+      refine ihOut hs₂ hrest ?_
+      show _ = _
+      rw [hQnode,
         (hmk n tyAbs (tyx'.abstractRange d j) cur curx
-          (annotBinderMeta pw? bi) hQab hcur).2]
+          (annotBinderMeta pw? bi) hQab hcur)]
 
 /-- A bare store read against a pure fueled result (the write's last
 step: `zeronessOfLIGo` on the sort level).  The cached `withStore` is
@@ -987,7 +983,7 @@ theorem annotPwPiC_sim (ih : SSimC mode env f) {d : Nat}
   unfold annotPwPiI annotPwPi
   refine SimC.view ?_
   have hl' := hl
-  obtain ⟨hwc, rfl⟩ := hl
+  obtain rfl := hl
   cases body'
   case forallE nmN tyN bodyN mbN =>
     dsimp only [ExprC.view, Expr.forallPw]
@@ -1017,7 +1013,7 @@ theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
   unfold annotPwLamI annotPwLam
   refine SimC.view ?_
   have hl' := hl
-  obtain ⟨hwc, rfl⟩ := hl
+  obtain rfl := hl
   cases body'
   case lam nmN tyN bodyN mbN =>
     dsimp only [ExprC.view, Expr.lamPw]
@@ -1097,9 +1093,9 @@ theorem annotatePisLeafC_sim (ih : SSimC mode env f) {d : Nat}
   refine SimC.bind_left (abstractRangeM_eff hs₄ hld)
     (fun s₅ cur hs₅ hQcur => ?_)
   refine annotateBindersOutC_sim ?_ hs₅ hstk hQcur
-  exact fun _n ty tyx b bx _mi hty hb => ⟨⟨hty.1, hb.1⟩, by
+  exact fun _n ty tyx b bx _mi hty hb => by
     dsimp only [ofViewE]
-    rw [hty.2, hb.2]⟩
+    rw [hty, hb]
 
 theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
     ∀ (fuel : Nat) {t : ExprC} {tx : Expr} {k : Nat}
@@ -1133,12 +1129,11 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
       _
     refine SimC.view ?_
     have ht' := ht
-    obtain ⟨hwc, rfl⟩ := ht
+    obtain rfl := ht
     cases t
     case forallE nm ty body mb =>
       dsimp only [ExprC.view] at hw ⊢
       rw [annotatePis_succ_pi]
-      obtain ⟨hwty, hwbody, -⟩ := hwc.forallE_inv
       have hpiL : (Expr.forallE nm ty body mb).instantiateList
           ws = Expr.forallE nm ((Expr.instantiateList ty ws))
             ((Expr.instantiateList body ws 1)) mb := by
@@ -1148,24 +1143,24 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
         rw [hpiL] at hw
         simpa only [Expr.WScoped] using hw
       refine SimC.bind_left
-        (instListRevM_eff (d := 0) hs ⟨hwty, rfl⟩ hfvs)
+        (instListRevM_eff (d := 0) hs rfl hfvs)
         (fun s₁ tyo hs₁ hQtyo => ?_)
       refine SimC.bind (ih.annotate hs₁ hQtyo hwcomp.1)
         (fun s₂ ty' tyx' hs₂ hPty' => ?_)
       obtain ⟨hty'd, hwty'⟩ := hPty'
       refine SimC.bind_left
-        (internI_eff hs₂ (n := ExprView.fvar (d + k) nm ty') hty'd.1)
+        (internI_eff hs₂ (n := ExprView.fvar (d + k) nm ty'))
         (fun s₃ fv hs₃ hQfv => ?_)
       have hQfv' : RelC fv (Expr.fvar (d + k) nm tyx') := by
-        refine ⟨hQfv.1, ?_⟩
-        rw [show fv = .fvar (d + k) nm ty' from hQfv.2,
-          hty'd.2]
+        show _ = _
+        rw [show fv = .fvar (d + k) nm ty' from hQfv,
+          hty'd]
       have hwopen : Expr.WScoped (d + (k + 1))
           ((Expr.instantiateList body (Expr.fvar (d + k) nm tyx' :: ws))) := by
         rw [Expr.instantiateList_cons]
         have := Expr.WScoped.instantiate1 (n := nm) hwty' 0 hwcomp.2
         simpa [Nat.add_assoc] using this
-      refine annotatePisC_sim ih fuel hs₃ ⟨hwbody, rfl⟩
+      refine annotatePisC_sim ih fuel hs₃ rfl
         (by rw [toListRev_push]
             exact RelCL.cons hQfv' hfvs)
         ⟨⟨rfl, rfl, hty'd, (by simpa using hwty')⟩, (by simpa using hstk)⟩
@@ -1201,9 +1196,9 @@ theorem annotateLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
   refine SimC.bind_left (abstractRangeM_eff hs₄ hld)
     (fun s₆ cur hs₆ hQcur => ?_)
   refine annotateBindersOutC_sim ?_ hs₆ hstk hQcur
-  exact fun _n ty tyx b bx _mi hty hb => ⟨⟨hty.1, hb.1⟩, by
+  exact fun _n ty tyx b bx _mi hty hb => by
     dsimp only [ofViewE]
-    rw [hty.2, hb.2]⟩
+    rw [hty, hb]
 
 theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     ∀ (fuel : Nat) {t : ExprC} {tx : Expr} {k : Nat}
@@ -1237,12 +1232,11 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
       _
     refine SimC.view ?_
     have ht' := ht
-    obtain ⟨hwc, rfl⟩ := ht
+    obtain rfl := ht
     cases t
     case lam nm ty body mb =>
       dsimp only [ExprC.view] at hw ⊢
       rw [annotateLams_succ_lam]
-      obtain ⟨hwty, hwbody, -⟩ := hwc.lam_inv
       have hlamL : (Expr.lam nm ty body mb).instantiateList
           ws = Expr.lam nm ((Expr.instantiateList ty ws))
             ((Expr.instantiateList body ws 1)) mb := by
@@ -1252,24 +1246,24 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
         rw [hlamL] at hw
         simpa only [Expr.WScoped] using hw
       refine SimC.bind_left
-        (instListRevM_eff (d := 0) hs ⟨hwty, rfl⟩ hfvs)
+        (instListRevM_eff (d := 0) hs rfl hfvs)
         (fun s₁ tyo hs₁ hQtyo => ?_)
       refine SimC.bind (ih.annotate hs₁ hQtyo hwcomp.1)
         (fun s₂ ty' tyx' hs₂ hPty' => ?_)
       obtain ⟨hty'd, hwty'⟩ := hPty'
       refine SimC.bind_left
-        (internI_eff hs₂ (n := ExprView.fvar (d + k) nm ty') hty'd.1)
+        (internI_eff hs₂ (n := ExprView.fvar (d + k) nm ty'))
         (fun s₃ fv hs₃ hQfv => ?_)
       have hQfv' : RelC fv (Expr.fvar (d + k) nm tyx') := by
-        refine ⟨hQfv.1, ?_⟩
-        rw [show fv = .fvar (d + k) nm ty' from hQfv.2,
-          hty'd.2]
+        show _ = _
+        rw [show fv = .fvar (d + k) nm ty' from hQfv,
+          hty'd]
       have hwopen : Expr.WScoped (d + (k + 1))
           ((Expr.instantiateList body (Expr.fvar (d + k) nm tyx' :: ws))) := by
         rw [Expr.instantiateList_cons]
         have := Expr.WScoped.instantiate1 (n := nm) hwty' 0 hwcomp.2
         simpa [Nat.add_assoc] using this
-      refine annotateLamsC_sim ih fuel hs₃ ⟨hwbody, rfl⟩
+      refine annotateLamsC_sim ih fuel hs₃ rfl
         (by rw [toListRev_push]
             exact RelCL.cons hQfv' hfvs)
         ⟨⟨rfl, rfl, hty'd, (by simpa using hwty')⟩, (by simpa using hstk)⟩

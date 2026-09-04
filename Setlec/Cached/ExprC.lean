@@ -147,77 +147,23 @@ simulation).  `ExprC.beq` is `Expr.beq`; the trust census, including
 the `beqFast` escape and the computed-fields row, is that module's
 header. -/
 
-/-! ## The former `Expr` boundary, and the field invariant
+/-! ## The former `Expr` boundary, and the former field invariant
 
-**Both are gone with the type (task #172 B3a).**  `ofExpr`/`toExpr`
-converted between the checker's `Expr`-typed declaration layer and the
-core's `ExprC`; with one type there is nothing to convert, and every
-call site now passes its argument through.  The erasure `eraseC` and
-its injectivity lemma likewise: the fields are functions of the node,
-so a node *is* its own erasure.
+**Both are gone with the type** (task #172 B3a for the boundary, B3b
+for the invariant).  `ofExpr`/`toExpr` converted between the checker's
+`Expr`-typed declaration layer and the core's `ExprC`; with one type
+there is nothing to convert, and every call site passes its argument
+through.  The erasure `eraseC` and its injectivity lemma likewise: the
+fields are functions of the node, so a node *is* its own erasure.
 
-What is left of the tier is the field invariant `WFc`, and it is kept
-for one reason, recorded so it is not mistaken for content: the
-direct-parse capstone letters (`no_proof_of_Empty_SPCD_R` and its five
-siblings, `Setlec/Verify/Cached/MainC.lean`) are stated over
-`List WDeclC`, the subtype of declarations whose slots carry it.  A
-frozen capstone statement does not move without a ratified-statement
-ruling, so `WFc` — now *provably total* (`WFc_all`) — stays as the
-subtype's predicate until that ruling.  It is stated without the
-erasure: a node is well-formed when rebuilding it from itself is the
-identity, which is what field exactness always meant.
-
-`ofExprSpec`/`ofExpr` survive only as `WFc`'s witness-builder; the
-rebuild is the identity (`ofExpr_eq_self`). -/
-
-/-- Structural rebuild — every node re-created from its own payload.
-The identity (`ofExpr_eq_self`), and `WFc`'s subject. -/
-def ofExprSpec : Expr → ExprC
-  | .bvar i => mkBVar i
-  | .fvar idx n ty => mkFVar idx n (ofExprSpec ty)
-  | .sort u => mkSort u
-  | .const n us => mkConst n us
-  | .app f a => mkApp (ofExprSpec f) (ofExprSpec a)
-  | .lam n ty b m => mkLam n (ofExprSpec ty) (ofExprSpec b) m
-  | .forallE n ty b m => mkForallE n (ofExprSpec ty) (ofExprSpec b) m
-  | .letE n ty v b => mkLetE n (ofExprSpec ty) (ofExprSpec v) (ofExprSpec b)
-  | .lit l => mkLit l
-  | .proj s i e => mkProj s i (ofExprSpec e)
-
-@[inherit_doc ofExprSpec]
-def ofExpr (e : Expr) : ExprC := ofExprSpec e
-
-/-- The rebuild is the identity. -/
-@[simp] theorem ofExpr_eq_self : ∀ x : Expr, ofExpr x = x := by
-  intro x
-  induction x with
-  | bvar i => rfl
-  | sort u => rfl
-  | const n us => rfl
-  | lit l => rfl
-  | fvar idx n ty ih =>
-    show mkFVar idx n (ofExprSpec ty) = _
-    simp [show ofExprSpec ty = ofExpr ty from rfl, ih, mkFVar]
-  | app f a ihf iha =>
-    show mkApp (ofExprSpec f) (ofExprSpec a) = _
-    simp [show ofExprSpec f = ofExpr f from rfl,
-      show ofExprSpec a = ofExpr a from rfl, ihf, iha, mkApp]
-  | lam n ty b m iht ihb =>
-    show mkLam n (ofExprSpec ty) (ofExprSpec b) m = _
-    simp [show ofExprSpec ty = ofExpr ty from rfl,
-      show ofExprSpec b = ofExpr b from rfl, iht, ihb, mkLam]
-  | forallE n ty b m iht ihb =>
-    show mkForallE n (ofExprSpec ty) (ofExprSpec b) m = _
-    simp [show ofExprSpec ty = ofExpr ty from rfl,
-      show ofExprSpec b = ofExpr b from rfl, iht, ihb, mkForallE]
-  | letE n ty v b iht ihv ihb =>
-    show mkLetE n (ofExprSpec ty) (ofExprSpec v) (ofExprSpec b) = _
-    simp [show ofExprSpec ty = ofExpr ty from rfl,
-      show ofExprSpec v = ofExpr v from rfl,
-      show ofExprSpec b = ofExpr b from rfl, iht, ihv, ihb, mkLetE]
-  | proj s i e ih =>
-    show mkProj s i (ofExprSpec e) = _
-    simp [show ofExprSpec e = ofExpr e from rfl, ih, mkProj]
+`WFc` outlived them by one batch, as the predicate of the `WDeclC`
+subtype six direct-parse capstone letters were stated over.  With those
+letters restated over `List DeclC` (ratified; a strengthening — the
+dropped hypothesis was provable of everything), the whole tier goes:
+`WFc`, `WFc_all`, `WFc.mk*`, `WExprC` and the `mk*W` constructors,
+`DeclCWFc`/`WDeclC`, `ofExpr`/`ofExprSpec`.  What the invariant used to
+buy — that every node's derived data satisfies its recurrence — is now
+the compiler's, which is what the census's second escape names. -/
 
 /-! ### The constructor equations
 
@@ -251,72 +197,6 @@ own equations, and the tier still rewrites with them. -/
 
 @[simp] theorem mkProj_eq (s : Name) (i : Nat) (e : ExprC) :
     mkProj s i e = .proj s i e := rfl
-
-/-- The field invariant: rebuilding the node from itself is the
-identity.  **Total** (`WFc_all`, `Setlec/Verify/Cached/Erase.lean`) —
-see the section note above for why it is still here. -/
-def WFc (e : ExprC) : Prop := ofExpr e = e
-
-/-- Every term is well-formed. -/
-theorem WFc_all (e : ExprC) : WFc e := ofExpr_eq_self e
-
-@[inherit_doc WFc_all] theorem WFc_ofExpr (x : Expr) : WFc (ofExpr x) :=
-  WFc_all _
-
-/-! ### Closure under the constructors (kept with `WFc`) -/
-
-protected theorem WFc.mkBVar (i : Nat) : WFc (mkBVar i) := WFc_all _
-
-protected theorem WFc.mkFVar {ty : ExprC} (idx : Nat) (n : Name)
-    (_hty : WFc ty) : WFc (mkFVar idx n ty) := WFc_all _
-
-protected theorem WFc.mkSort (u : Level) : WFc (mkSort u) := WFc_all _
-
-protected theorem WFc.mkConst (n : Name) (us : List Level) :
-    WFc (mkConst n us) := WFc_all _
-
-protected theorem WFc.mkApp {f a : ExprC} (_hf : WFc f) (_ha : WFc a) :
-    WFc (mkApp f a) := WFc_all _
-
-protected theorem WFc.mkLam {ty b : ExprC} (n : Name) (m : BinderMeta)
-    (_hty : WFc ty) (_hb : WFc b) : WFc (mkLam n ty b m) := WFc_all _
-
-protected theorem WFc.mkForallE {ty b : ExprC} (n : Name) (m : BinderMeta)
-    (_hty : WFc ty) (_hb : WFc b) : WFc (mkForallE n ty b m) := WFc_all _
-
-protected theorem WFc.mkLetE {ty v b : ExprC} (n : Name)
-    (_hty : WFc ty) (_hv : WFc v) (_hb : WFc b) : WFc (mkLetE n ty v b) :=
-  WFc_all _
-
-protected theorem WFc.mkLit (l : Literal) : WFc (mkLit l) := WFc_all _
-
-protected theorem WFc.mkProj {e : ExprC} (s : Name) (i : Nat)
-    (_he : WFc e) : WFc (mkProj s i e) := WFc_all _
-
-/-! ### The invariant-carrying constructors
-
-Kept with `WFc` and for the same reason (the direct-parse capstone
-letters' `WDeclC`); the wrapper erases at runtime. -/
-
-/-- An `ExprC` carrying its (total) field invariant. -/
-abbrev WExprC := { e : ExprC // WFc e }
-
-@[inline] def mkBVarW (i : Nat) : WExprC := ⟨mkBVar i, WFc.mkBVar i⟩
-@[inline] def mkSortW (u : Level) : WExprC := ⟨mkSort u, WFc.mkSort u⟩
-@[inline] def mkConstW (n : Name) (us : List Level) : WExprC :=
-  ⟨mkConst n us, WFc.mkConst n us⟩
-@[inline] def mkAppW (f a : WExprC) : WExprC :=
-  ⟨mkApp f.1 a.1, WFc.mkApp f.2 a.2⟩
-@[inline] def mkLamW (n : Name) (ty b : WExprC) (m : BinderMeta) : WExprC :=
-  ⟨mkLam n ty.1 b.1 m, WFc.mkLam n m ty.2 b.2⟩
-@[inline] def mkForallEW (n : Name) (ty b : WExprC) (m : BinderMeta) : WExprC :=
-  ⟨mkForallE n ty.1 b.1 m, WFc.mkForallE n m ty.2 b.2⟩
-@[inline] def mkLetEW (n : Name) (ty v b : WExprC) : WExprC :=
-  ⟨mkLetE n ty.1 v.1 b.1, WFc.mkLetE n ty.2 v.2 b.2⟩
-@[inline] def mkLitW (l : Literal) : WExprC := ⟨mkLit l, WFc.mkLit l⟩
-@[inline] def mkProjW (s : Name) (i : Nat) (e : WExprC) : WExprC :=
-  ⟨mkProj s i e.1, WFc.mkProj s i e.2⟩
-@[inline] def ofExprW (x : Expr) : WExprC := ⟨ofExpr x, WFc_ofExpr x⟩
 
 end ExprC
 

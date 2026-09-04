@@ -5,7 +5,7 @@ import Setlec.Verify.Cached.DiscC1
 
 The port of `Setlec/Verify/DiscI2.lean` under the recipe (DESIGN.md,
 task #163): `SimAt → SimC`, denotation hypotheses → `RelC`/`RelCL`, no
-`Ext`, node inversion by `WFc.*_inv` and `cases` on the `ExprC`
+`Ext`, node inversion by `cases` on the `ExprC`
 constructor instead of `denoteNode` unpacking, and the identity
 name/level wrapper effects of `SimCEff.lean` where the interned walks
 carried interning and readback steps.  The pure comparand side of every
@@ -77,7 +77,7 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
   refine SimC.bind (ih.whnf hs₁ htad hwta) (fun s₂ wta wtax hs₂ hP₂ => ?_)
   obtain ⟨hwtad, hwwta⟩ := hP₂
   refine SimC.withStore ?_
-  rw [isUnitLikeTyI_spec hwtad.2]
+  rw [isUnitLikeTyI_spec hwtad]
   by_cases hu : isUnitLikeTy env wtax
   · rw [if_pos hu, if_pos hu]
     refine SimC.bind (ih.infer hs₂ hdenb hwb) (fun s₃ tb tbx hs₃ hP₃ => ?_)
@@ -85,7 +85,7 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     refine SimC.bind (ih.whnf hs₃ htbd hwtb) (fun s₄ wtb wtbx hs₄ hP₄ => ?_)
     obtain ⟨hwtbd, hwwtb⟩ := hP₄
     refine SimC.withStore ?_
-    rw [isUnitLikeTyI_spec hwtbd.2]
+    rw [isUnitLikeTyI_spec hwtbd]
     by_cases hu₂ : isUnitLikeTy env wtbx
     · rw [if_pos hu₂, if_pos hu₂]
       exact SimC.pure hs₄ rfl
@@ -97,7 +97,7 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     refine SimC.bind (ih.whnf hs₃ httad hwtta) (fun s₄ wtta wttax hs₄ hP₄ => ?_)
     obtain ⟨hwttad, hwwtta⟩ := hP₄
     refine SimC.view ?_
-    obtain ⟨hwc, rfl⟩ := hwttad
+    obtain rfl := hwttad
     cases wtta with
     | sort uT =>
       refine SimC.bind_left (internLM_eff hs₄ .zero)
@@ -207,27 +207,26 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
           else pure false
         else pure false
       | _ => pure false)
-  obtain ⟨hwty₁, rfl⟩ := hty
-  obtain ⟨hwbody₁, rfl⟩ := hbody
-  obtain ⟨hwb₁, rfl⟩ := hb
-  have hty : RelC ty₁ (ty₁) := ⟨hwty₁, rfl⟩
-  have hbody : RelC body₁ (body₁) := ⟨hwbody₁, rfl⟩
-  have hb : RelC b b := ⟨hwb₁, rfl⟩
+  obtain rfl := hty
+  obtain rfl := hbody
+  obtain rfl := hb
+  have hty : RelC ty₁ (ty₁) := rfl
+  have hbody : RelC body₁ (body₁) := rfl
+  have hb : RelC b b := rfl
   refine SimC.bind (ih.infer hs hb hwb) (fun s₁ tb tbx hs₁ hP => ?_)
   obtain ⟨htbd, hwtb⟩ := hP
   refine SimC.bind (ih.whnf hs₁ htbd hwtb) (fun s₂ wtb wtbx hs₂ hP₂ => ?_)
   obtain ⟨hwtbd, hwwtb⟩ := hP₂
   refine SimC.view ?_
-  obtain ⟨hwc, rfl⟩ := hwtbd
+  obtain rfl := hwtbd
   cases wtb with
   | forallE nm ty₂ b₂ m₂ =>
-    obtain ⟨hwty₂, hwb₂, -⟩ := hwc.forallE_inv
     have hwty₂x : Expr.WScoped d (ty₂) := by
       rw [show (Expr.forallE nm ty₂ b₂ m₂)
           = Expr.forallE nm (ty₂) (b₂) m₂ from rfl] at hwwtb
       simp only [Expr.WScoped] at hwwtb
       exact hwwtb.1
-    refine SimC.bind (ih.defeq hs₂ ⟨hwty₂, rfl⟩ hty hwty₂x hwty)
+    refine SimC.bind (ih.defeq hs₂ rfl hty hwty₂x hwty)
       (fun s₄ r r' hs₄ hPr => ?_)
     obtain rfl : r = r' := hPr
     cases r with
@@ -237,18 +236,18 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
     | true =>
       simp only [↓reduceIte]
       refine SimC.bind_left
-        (internI_eff hs₄ (n := ExprView.fvar d n₁ ty₁) hwty₁)
+        (internI_eff hs₄ (n := ExprView.fvar d n₁ ty₁))
         (fun s₅ fv hs₅ hQfv => ?_)
       have hQfv' : RelC fv (.fvar d n₁ (ty₁)) := hQfv
       refine SimC.bind_left (inst1M_eff hs₅ hbody hQfv')
         (fun s₆ b₁ hs₆ hQb₁ => ?_)
       refine SimC.bind_left
-        (internI_eff hs₆ (n := ExprView.app b fv) ⟨hwb₁, hQfv.1⟩)
+        (internI_eff hs₆ (n := ExprView.app b fv))
         (fun s₇ ba hs₇ hQba => ?_)
       have hQba' : RelC ba (.app b (.fvar d n₁ (ty₁))) := by
-        refine ⟨hQba.1, ?_⟩
-        rw [show ba = .app b fv from hQba.2,
-          hQfv'.2]
+        show _ = _
+        rw [show ba = .app b fv from hQba,
+          hQfv']
       have hwapp : Expr.WScoped (d + 1)
           (.app b (.fvar d n₁ (ty₁))) := by
         simp only [Expr.WScoped]
@@ -306,11 +305,11 @@ theorem projCertC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       (coreKnotI mode (mkFEnv env) f).infer d i >>= fun _te =>
       pure true)
     (projCert (fueledFns mode env) env d e₂ idx nP)
-  refine SimC.bind_left (internI_eff hs (n := ExprView.bvar 0) trivial)
+  refine SimC.bind_left (internI_eff hs (n := ExprView.bvar 0))
     (fun s₁ bvar0 hs₁ hQ0 => ?_)
   refine SimC.withStore ?_
-  obtain ⟨hwc, rfl⟩ := hden
-  have hargs := ExprC.getAppArgs_spec hwc
+  obtain rfl := hden
+  have hargs := ExprC.getAppArgs_spec i
   have hargd : RelC ((ExprC.getAppArgs i).getD (nP + idx) bvar0)
       ((Expr.getAppArgs i).getD (nP + idx) (.bvar 0)) :=
     RelCL.getD hQ0 (nP + idx) hargs
@@ -319,7 +318,7 @@ theorem projCertC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     wscoped_getD hw.getAppArgs _
   refine SimC.bind (ih.infer hs₁ hargd hwarg)
     (fun s₂ ta tax hs₂ hP₂ => ?_)
-  refine SimC.bind (ih.infer hs₂ ⟨hwc, rfl⟩ hw)
+  refine SimC.bind (ih.infer hs₂ rfl hw)
     (fun s₃ te tex hs₃ hP₃ => ?_)
   exact SimC.pure hs₃ rfl
 
@@ -385,13 +384,13 @@ theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
   refine SimC.bind (ih.whnf hs₁ htad hwta) (fun s₂ wta wtax hs₂ hP₂ => ?_)
   obtain ⟨hwtad, hwwta⟩ := hP₂
   refine SimC.withStore ?_
-  obtain ⟨hwc, rfl⟩ := hwtad
-  have hargs := ExprC.getAppArgs_spec hwc
+  obtain rfl := hwtad
+  have hargs := ExprC.getAppArgs_spec wta
   have hlena : (ExprC.getAppArgs wta).length
       = (Expr.getAppArgs wta).length := RelCL.length hargs
-  obtain ⟨hwfn, hfn⟩ := ExprC.getAppFn_spec hwc
+  have hfn := ExprC.getAppFn_spec wta
   dsimp only [CStore.getNode, CStore.getAppFnI]
-  generalize hg : ExprC.getAppFn wta = g at hwfn hfn ⊢
+  generalize hg : ExprC.getAppFn wta = g at hfn ⊢
   cases g with
   | const T us' =>
     rw [show (Expr.getAppFn wta) = Expr.const T us' from hfn.symm]
@@ -415,7 +414,7 @@ theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           refine SimC.bind (ih.whnf hs₃ htbd hwtb)
             (fun s₄ wtb wtbx hs₄ hP₄ => ?_)
           obtain ⟨hwtbd, hwwtb⟩ := hP₄
-          refine SimC.bind (ih.defeq hs₄ ⟨hwc, rfl⟩ hwtbd hwwta hwwtb)
+          refine SimC.bind (ih.defeq hs₄ rfl hwtbd hwwta hwwtb)
             (fun s₅ r r' hs₅ hPr => ?_)
           obtain rfl : r = r' := hPr
           cases r with
@@ -599,30 +598,26 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
         | _ => pure false
       | _ => pure false)
     (pairEtaCert mode (fueledFns mode env) env d a b)
-  obtain ⟨hwca, rfl⟩ := hdena
-  obtain ⟨hwcb, rfl⟩ := hdenb
-  have hdenb : RelC j j := ⟨hwcb, rfl⟩
+  obtain rfl := hdena
+  obtain rfl := hdenb
+  have hdenb : RelC j j := rfl
   rw [pairEtaCertC_unfold]
   refine SimC.view ?_
   cases i with
   | app f₄ s₂ =>
     obtain ⟨hwf₄, hws₂w⟩ := wscoped_appC_inv hwa
-    obtain ⟨hwcf₄, hwcs₂, -⟩ := hwca.app_inv
     refine SimC.view ?_
     cases f₄ with
     | app f₃ s₁ =>
       obtain ⟨hwf₃, hws₁w⟩ := wscoped_appC_inv hwf₄
-      obtain ⟨hwcf₃, hwcs₁, -⟩ := hwcf₄.app_inv
       refine SimC.view ?_
       cases f₃ with
       | app f₂ pβ =>
         obtain ⟨hwf₂, hwpβ⟩ := wscoped_appC_inv hwf₃
-        obtain ⟨hwcf₂, hwcpβ, -⟩ := hwcf₃.app_inv
         refine SimC.view ?_
         cases f₂ with
         | app f₁ pα =>
           obtain ⟨hwf₁, hwpα⟩ := wscoped_appC_inv hwf₂
-          obtain ⟨hwcf₁, hwcpα, -⟩ := hwcf₂.app_inv
           refine SimC.view ?_
           cases f₁ with
           | const c us =>
@@ -645,16 +640,14 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
                     (fun s₂' wtb wtbx hs₂' hP₂ => ?_)
                   obtain ⟨hwtbd, hwwtb⟩ := hP₂
                   refine SimC.view ?_
-                  obtain ⟨hwcw, rfl⟩ := hwtbd
+                  obtain rfl := hwtbd
                   cases wtb with
                   | app g₂ B =>
                     obtain ⟨hwg₂, hwB⟩ := wscoped_appC_inv hwwtb
-                    obtain ⟨hwcg₂, hwcB, -⟩ := hwcw.app_inv
                     refine SimC.view ?_
                     cases g₂ with
                     | app g₁ A =>
                       obtain ⟨hwg₁, hwA⟩ := wscoped_appC_inv hwg₂
-                      obtain ⟨hwcg₁, hwcA, -⟩ := hwcg₂.app_inv
                       refine SimC.view ?_
                       cases g₁ with
                       | const c' us' =>
@@ -696,7 +689,7 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
                                     | true =>
                                       simp only [↓reduceIte]
                                       refine SimC.bind (ih.defeq hs₃'
-                                        ⟨hwcpα, rfl⟩ ⟨hwcA, rfl⟩ hwpα hwA)
+                                        rfl rfl hwpα hwA)
                                         (fun sA' rA rA' hsA' hPrA => ?_)
                                       obtain rfl : rA = rA' := hPrA
                                       cases rA with
@@ -707,7 +700,7 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
                                       | true =>
                                         simp only [↓reduceIte]
                                         refine SimC.bind (ih.defeq hsA'
-                                          ⟨hwcpβ, rfl⟩ ⟨hwcB, rfl⟩ hwpβ hwB)
+                                          rfl rfl hwpβ hwB)
                                           (fun sB' rB rB' hsB' hPrB => ?_)
                                         obtain rfl : rB = rB' := hPrB
                                         cases rB with
@@ -719,8 +712,7 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
                                           simp only [↓reduceIte]
                                           refine SimC.bind_left
                                             (internI_eff hsB'
-                                              (n := ExprView.proj c' 0 j)
-                                              hwcb)
+                                              (n := ExprView.proj c' 0 j))
                                             (fun s₄' p₀ hs₄' hQ₀ => ?_)
                                           have hQ₀' :
                                               RelC p₀ (.proj c' 0 j) :=
@@ -730,7 +722,7 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
                                             simp only [Expr.WScoped]
                                             exact hwb
                                           refine SimC.bind (ih.defeq hs₄'
-                                            ⟨hwcs₁, rfl⟩ hQ₀' hws₁w hwp₀)
+                                            rfl hQ₀' hws₁w hwp₀)
                                             (fun s₅' r₁ r₁' hs₅' hPr₁ => ?_)
                                           obtain rfl : r₁ = r₁' := hPr₁
                                           cases r₁ with
@@ -742,8 +734,7 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
                                             simp only [↓reduceIte]
                                             refine SimC.bind_left
                                               (internI_eff hs₅'
-                                                (n := ExprView.proj c' 1 j)
-                                                hwcb)
+                                                (n := ExprView.proj c' 1 j))
                                               (fun s₆' p₁ hs₆' hQ₁ => ?_)
                                             have hQ₁' : RelC p₁
                                                 (.proj c' 1 j) := hQ₁
@@ -752,7 +743,7 @@ theorem pairEtaCertC_sim (ih : SSimC mode env f)
                                               simp only [Expr.WScoped]
                                               exact hwb
                                             refine SimC.bind (ih.defeq hs₆'
-                                              ⟨hwcs₂, rfl⟩ hQ₁' hws₂w hwp₁)
+                                              rfl hQ₁' hws₂w hwp₁)
                                               (fun s₇' r₂ r₂' hs₇' hPr₂ => ?_)
                                             obtain rfl : r₂ = r₂' := hPr₂
                                             cases r₂ with
@@ -896,7 +887,7 @@ theorem projAppsC_eff (T : Name) (us' : List Level) :
     refine CEff.bind (projFnIdxM_eff hs T i) (fun s₀' pf hs₀' hQpf => ?_)
     subst hQpf
     refine CEff.bind
-      (internI_eff hs₀' (n := ExprView.const (projFnName T i) us') trivial)
+      (internI_eff hs₀' (n := ExprView.const (projFnName T i) us'))
       (fun s₁ hd hs₁ hQh => ?_)
     refine CEff.bind
       (mkAppNM_eff hs₁ hQh (htargs.append (RelCL.cons hb RelCL.nil)))
@@ -990,15 +981,15 @@ theorem structEtaProjCertsC_sim (ih : SSimC mode env f) (henv : EnvWF env)
 
 /-- Prefix of a related list. -/
 theorem RelCL.take {l : List ExprC} {xs : List Expr} (h : RelCL l xs)
-    (k : Nat) : RelCL (l.take k) (xs.take k) :=
-  ⟨fun x hx => h.1 x (List.mem_of_mem_take hx),
-    by rw [← h.2]⟩
+    (k : Nat) : RelCL (l.take k) (xs.take k) := by
+  show _ = _
+  rw [show l = xs from h]
 
 /-- Suffix of a related list. -/
 theorem RelCL.drop {l : List ExprC} {xs : List Expr} (h : RelCL l xs)
-    (k : Nat) : RelCL (l.drop k) (xs.drop k) :=
-  ⟨fun x hx => h.1 x (List.mem_of_mem_drop hx),
-    by rw [← h.2]⟩
+    (k : Nat) : RelCL (l.drop k) (xs.drop k) := by
+  show _ = _
+  rw [show l = xs from h]
 
 private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
     (a b wtb : Expr) :
@@ -1135,24 +1126,24 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
         | _ => pure false
       | _ => pure false)
     (structEtaCertWith mode (fueledFns mode env) env d a b wtb)
-  obtain ⟨hwca, rfl⟩ := hdena
-  obtain ⟨hwcb, rfl⟩ := hdenb
-  obtain ⟨hwcw, rfl⟩ := hdenw
-  have hdenb : RelC j j := ⟨hwcb, rfl⟩
+  obtain rfl := hdena
+  obtain rfl := hdenb
+  obtain rfl := hdenw
+  have hdenb : RelC j j := rfl
   rw [structEtaCertWithC_unfold]
   refine SimC.withStore ?_
   have haargs : RelCL (ExprC.getAppArgs i) (Expr.getAppArgs i) :=
-    ExprC.getAppArgs_spec hwca
+    ExprC.getAppArgs_spec i
   have hlena : (ExprC.getAppArgs i).length
       = (Expr.getAppArgs i).length := RelCL.length haargs
   have htargs : RelCL (ExprC.getAppArgs w) (Expr.getAppArgs w) :=
-    ExprC.getAppArgs_spec hwcw
+    ExprC.getAppArgs_spec w
   have hlenw : (ExprC.getAppArgs w).length
       = (Expr.getAppArgs w).length := RelCL.length htargs
-  obtain ⟨hwfa, hfa⟩ := ExprC.getAppFn_spec hwca
-  obtain ⟨hwfw, hfw⟩ := ExprC.getAppFn_spec hwcw
+  have hfa := ExprC.getAppFn_spec i
+  have hfw := ExprC.getAppFn_spec w
   dsimp only [CStore.getNode, CStore.getAppFnI]
-  generalize hga : ExprC.getAppFn i = ga at hwfa hfa ⊢
+  generalize hga : ExprC.getAppFn i = ga at hfa ⊢
   cases ga with
   | const c us =>
     rw [show (Expr.getAppFn i) = Expr.const c us from hfa.symm]
@@ -1170,7 +1161,7 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
         simp only [CStore.getAppArgsI, hlena]
         split
         · refine SimC.withStore ?_
-          generalize hgw : ExprC.getAppFn w = gw at hwfw hfw ⊢
+          generalize hgw : ExprC.getAppFn w = gw at hfw ⊢
           cases gw with
           | const T us' =>
             rw [show (Expr.getAppFn w) = Expr.const T us' from hfw.symm]

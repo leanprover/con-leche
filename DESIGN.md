@@ -34978,3 +34978,146 @@ does not touch.  Full battery re-run green post-merge.
 * Zero sorries, zero conditional forms; no implementation file
   touched (`Kernel/*`, `Cached/*`, `Main.lean` untouched by this
   branch — verdict-neutrality is a theorem of the diff).
+
+
+
+## TASK #172 — BATCH B3b: THE `WFc` TIER DELETES, AND THE SIX
+DIRECT-PARSE LETTERS RESTATE (2026-09-04, `agent/tricore-b3b`)
+
+### 0. THE RULING, AND WHY IT IS A STRENGTHENING
+
+B3a stopped at one wall: `WFc` was `WDeclC`'s predicate, and six frozen
+direct-parse capstone letters were stated over `List WDeclC`.  Granted
+by the coordinator:
+
+> *"THE RULING, granted: the six direct-parse capstone letters restate
+> over `List DeclC`.  Grounds: `WFc_all` proves the dropped hypothesis
+> of everything, so each new letter strictly implies its old one — this
+> is a strengthening by vacuous-hypothesis deletion, the old letters
+> remain derivable."*
+
+The old letter is the new one at `ds.map (·.1)`, so nothing is lost and
+the quantifier now ranges over *every* parsed declaration list rather
+than the ones carrying a (total) certificate.
+
+**THE PRE-RESTATEMENT STATEMENTS, VERBATIM** (ledger discipline: a
+ratified statement change records what it replaced).  All six had the
+same shape; the two representatives are
+
+```lean
+theorem checkDeclsSPCachedD_sound_R (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hgOff : μ.betaGate = false)
+    {ds : List WDeclC} {env' : Env}
+    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    Nonempty (EnvS V env')
+
+theorem no_proof_of_Empty_SPCD_R (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hgOff : μ.betaGate = false)
+    {ds : List WDeclC} {env' : Env}
+    (h : checkDeclsSPCachedD μ ds = .ok env')
+    (c : ConstantInfo) (hc : c ∈ env'.consts)
+    (hty : c.toConstantVal.type = .const emptyName []) : False
+```
+
+and the other four (`_R2`, `_R2M` of each) differ only by their model
+tier's hypothesis (`DeclStep2All V μ` / `DeclStep2AllM V μ`) and
+conclusion (`EnvS2U` / `EnvS2UM`).  **The only edit in each is
+`List WDeclC` → `List DeclC`.**  `WDeclC` was
+`{pc : DeclC // DeclCWFc pc}`, and `DeclCWFc` demanded `ExprC.WFc` of
+every slot.
+
+### 1. WHAT WENT WITH IT
+
+| deleted | where |
+|---|---|
+| `WFc`, `WFc_all`, `WFc_ofExpr`, the ten `WFc.mk*`, `WExprC` and the ten `mk*W`, `ofExprW` | `Cached/ExprC.lean` |
+| `ofExpr`/`ofExprSpec`/`ofExpr_eq_self` — `WFc`'s witness-builder, with nothing left to witness | `Cached/ExprC.lean` |
+| the six `WFc.*_inv` inversions | `Verify/Cached/Erase.lean` |
+| `DeclCWFc`, `WDeclC`, `foldlM_wdecl`, `DeclCRel_of_WFc` (→ `DeclCRel_total`), `streamSkels_map` | `Cached/ParsedC.lean`, `Verify/Cached/{MainC,AgreeFloor}.lean` |
+| `WFcL`, `WFcV`, and the `WFc` conjunct of `OptEr`, of **seven** memo invariants (`Memo1Inv`, `MemoLInv`, `MemoAInv`, `MemoARInv`, `MemoLPInv`, `MemoSubInv`, `OfStoreInv`), of `CSOK`'s four entry-point memo clauses and its `instC` clause, and of **every** `*_spec` | `Verify/Cached/{OpsC,GuardsC,SimC,SimCEff,KnotC}.lean` |
+| **`RelC` and `RelCL` collapse to equality** — they were `WFc v' ∧ v' = v` — and the ~400 `⟨hw, rfl⟩` destructurings with them | the whole `DiscC` family |
+| the frontend's subtype plumbing: `StateD.exprs`/`decls` are `ExprC`/`DeclC`, the parser builds with the plain constructors, both direct-parse drivers fold over `List DeclC` | `Frontend/ExportC.lean`, `Cached/ParsedC.lean`, `Cached/ParsedNC.lean`, `Main.lean` |
+
+**+1475 / −1947 lines across 25 modules.**  `Cached/ExprC.lean` is
+**665 → 209** lines across B3a+B3b; `Verify/Cached/Erase.lean` is
+**847 → 151**.
+
+**The shape of what remains is the point.**  A `*_spec` used to read
+*"on `WFc` inputs, the memoized operation returns a `WFc` result whose
+erasure is the pure function of the erasure"*.  It now reads
+
+```lean
+theorem instantiate1_spec {e v : ExprC} {d : Nat} :
+    e.instantiate1 v d = Expr.instantiate1 e v d
+```
+
+— the cached operation **is** the pure one.  That is the whole content
+of the two batches, and it is now the statement.
+
+### 2. THE MEASUREMENT
+
+`--set-model --core=cached-parsed`, instructions:u, median of 3:
+
+| | init-prelude |
+|---|---|
+| pre-migration (`db165820`) | 30.86 G |
+| after B3a | 29.78 G (−3.5 %) |
+| after B3b | **29.44 G (−4.6 % cumulative)** |
+
+B3b's extra ~1.1 % is the subtype wrappers and their `.1` projections
+leaving the parse-and-fold path.  Peak RSS 114.0 MB, unmoved.
+
+### 3. RECEIPTS
+
+* `lake build` warning-free; `lake test` green (exit 0);
+* layering base 273 / R 106 / P 118 / neutral 3, **0 P→R, 0 R→P**;
+* `tests/proofdeps.sh` **120 rows as pinned**, doors 0;
+* arena tutorial **90/92**, e2e **73/73**, annot **14/14**, split
+  **11/11**, mode flags **9/9**, no-model sweep **as expected (3
+  recorded divergences)** — verdict identity everywhere;
+* axioms unchanged: the six restated capstones and their arena-parse
+  siblings depend on `propext, Classical.choice, Quot.sound`;
+* the restated letters printed with `pp.fullNames`
+  (`_tmp/tricore-b3a/AxiomsB3b.lean`): the *only* difference from the
+  pre-restatement print is `List Setlec.Cached.WDeclC` →
+  `List Setlec.Cached.DeclC`;
+* **no `sorry`, no new axiom, no statement left conditional.**
+
+### 4. THE METHOD NOTE, FOR THE NEXT MECHANICAL BATCH
+
+B3b was ~700 edit sites driven by the compiler, and three regex classes
+cost most of the repair time.  Recorded because the next such batch
+will meet them again:
+
+1. **`⟨h, rfl⟩` is not always `RelC`.**  Collapsing an anonymous
+   constructor whose second component is `rfl` also hits
+   `rcases hdis with ⟨hint, rfl⟩`, `obtain ⟨hfe, rfl⟩ := pureC_ok h`
+   and `⟨ve, .inl ⟨hint, rfl⟩⟩` — pairs with nothing to do with the
+   relation.  The distinguisher that worked: the RelC ones destructure
+   a **bare hypothesis variable**, the others a **function
+   application**.
+2. **`h.2` is not always the erasure leg.**  The same projection appears
+   on `Expr.WScoped` conjunctions (`hwfb.2`), and stripping it there is
+   silent until a later `apply`.  Restore by name, not by pattern.
+3. **A token-level rewrite edits strings and prose.**  `"sort-annotation
+   mismatch (eta)"` lost its parentheses to a paren-normalizing rule;
+   restore per literal from `git show HEAD:`, and skip quoted regions
+   next time.
+
+The general lesson, and it is the same one B3a recorded at the dot
+notation: *a mechanical pass over proofs is safe exactly where the
+compiler can see the mistake; the dangerous rules are the ones whose
+misfires still typecheck.*  Both dangerous classes here (1 and 2) fail
+loudly — 3 does not, which is why it is the one that needs a
+convention.
+
+### 5. POST-MERGE REVALIDATION (2026-09-04)
+
+The io-license tier landed on master (`4aade17f`) while B3b was in
+flight; that branch touched no implementation file, and B3b touches no
+`SetP`/`Verify/InferIO*` file, so the merge is a `DESIGN.md`
+append/append (resolved by landing order: io license first, B3b
+after).  Rechecked after it: **build warning-free, `lake test` green,
+layering base 274 / R 106 / P 119 with 0/0 edges, proofdeps 120 rows
+as pinned, arena 90/92, e2e 73/73, annot 14/14, split 11/11, mode
+flags 9/9, no-model sweep as expected.**

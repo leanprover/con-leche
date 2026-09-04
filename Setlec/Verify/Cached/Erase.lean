@@ -33,11 +33,12 @@ Deleted with the seam: `eraseC` and `eraseC_inj`, `hashSpec` and
 apparatus, `MemoErase`/`toExprGo_spec`/`toExpr_eq` (there is no
 readback).  847 lines to this.
 
-`WFc` survives — see `Setlec/Cached/ExprC.lean`'s note: it is the
-predicate of `WDeclC`, which six frozen direct-parse capstone letters
-are stated over.  It is *total* (`WFc_all`), so the arguments the
-lemmas below still take are vestigial and are removed when that
-statement change is ratified.
+**Task #172 B3b**: `WFc` itself is gone — the six direct-parse capstone
+letters it survived for are restated over `List DeclC` — so the
+lemmas below take no invariant argument, the six `WFc.*_inv`
+inversions are deleted (a node's children need no certificate), and
+what is left is exactly three field equations and their two cutoff
+consequences.
 -/
 
 namespace Setlec.Cached
@@ -45,40 +46,6 @@ namespace Setlec.Cached
 open Setlec
 
 namespace ExprC
-
-/-! ## The inversion lemmas
-
-`rfl` plus totality now: a node's children are well-formed because
-everything is, and a node *is* its constructor's application. -/
-
-theorem WFc.fvar_inv {idx : Nat} {n : Name} {ty : ExprC}
-    (_hw : WFc (.fvar idx n ty)) :
-    WFc ty ∧ Expr.fvar idx n ty = mkFVar idx n ty :=
-  ⟨WFc_all ty, rfl⟩
-
-theorem WFc.app_inv {f a : ExprC} (_hw : WFc (.app f a)) :
-    WFc f ∧ WFc a ∧ Expr.app f a = mkApp f a :=
-  ⟨WFc_all f, WFc_all a, rfl⟩
-
-theorem WFc.lam_inv {n : Name} {ty b : ExprC} {m : BinderMeta}
-    (_hw : WFc (.lam n ty b m)) :
-    WFc ty ∧ WFc b ∧ Expr.lam n ty b m = mkLam n ty b m :=
-  ⟨WFc_all ty, WFc_all b, rfl⟩
-
-theorem WFc.forallE_inv {n : Name} {ty b : ExprC} {m : BinderMeta}
-    (_hw : WFc (.forallE n ty b m)) :
-    WFc ty ∧ WFc b ∧ Expr.forallE n ty b m = mkForallE n ty b m :=
-  ⟨WFc_all ty, WFc_all b, rfl⟩
-
-theorem WFc.letE_inv {n : Name} {ty v b : ExprC}
-    (_hw : WFc (.letE n ty v b)) :
-    WFc ty ∧ WFc v ∧ WFc b ∧ Expr.letE n ty v b = mkLetE n ty v b :=
-  ⟨WFc_all ty, WFc_all v, WFc_all b, rfl⟩
-
-theorem WFc.proj_inv {s : Name} {i : Nat} {e : ExprC}
-    (_hw : WFc (.proj s i e)) :
-    WFc e ∧ Expr.proj s i e = mkProj s i e :=
-  ⟨WFc_all e, rfl⟩
 
 /-! ## Field exactness
 
@@ -91,13 +58,9 @@ theorem bvarB_eq : ∀ e : ExprC, e.bvarB = Expr.bvarBound e := by
   intro e
   induction e <;> simp_all [Expr.bvarB, Expr.bvarBound]
 
-@[inherit_doc bvarB_eq]
-theorem bvarB_exact {e : ExprC} (_hw : WFc e) : e.bvarB = Expr.bvarBound e :=
-  bvarB_eq e
-
 /-- Cutoff consequence: a bound at or below the cursor certifies
 `looseBVarsBounded` (the transposition of `TWF.bvarBoundD_le2`). -/
-theorem bvarB_le {e : ExprC} {d : Nat} (_hw : WFc e) (hle : e.bvarB ≤ d) :
+theorem bvarB_le {e : ExprC} {d : Nat} (hle : e.bvarB ≤ d) :
     Expr.looseBVarsBounded d e = true :=
   EStore.looseBVarsBounded_iff.mpr (bvarB_eq e ▸ hle)
 
@@ -106,14 +69,10 @@ theorem fvarB_eq : ∀ e : ExprC, e.fvarB = Expr.fvarRange e := by
   intro e
   induction e <;> simp_all [Expr.fvarB, Expr.fvarRange]
 
-@[inherit_doc fvarB_eq]
-theorem fvarB_exact {e : ExprC} (_hw : WFc e) : e.fvarB = Expr.fvarRange e :=
-  fvarB_eq e
-
 /-- Cutoff consequence: a range at or below the base certifies
 `Expr.fvarsBelow` — the predicate the abstraction traversals consume
 (`abstractRange_eq_self`); the transposition of `TWF.fvarRangeD_le`. -/
-theorem fvarB_le {e : ExprC} {d : Nat} (_hw : WFc e) (hle : e.fvarB ≤ d) :
+theorem fvarB_le {e : ExprC} {d : Nat} (hle : e.fvarB ≤ d) :
     Expr.fvarsBelow d e :=
   EStore.fvarsBelow_iff.mpr (fvarB_eq e ▸ hle)
 
@@ -139,15 +98,11 @@ theorem hasLP_eq : ∀ e : ExprC, e.hasLP = Expr.hasLevelParam e := by
     simp_all [Expr.hasLP, Expr.hasLevelParam, levelHasParam_eq,
       levelsHaveParam_eq]
 
-@[inherit_doc hasLP_eq]
-theorem hasLP_exact {e : ExprC} (_hw : WFc e) : e.hasLP = Expr.hasLevelParam e :=
-  hasLP_eq e
-
 /-- Invisibility consequence: level instantiation is the identity on a
 node whose flag is off (the `O(1)` shortcut every `instLevelParams`
 traversal takes). -/
 theorem hasLP_false {e : ExprC} {ks : List Name} {us : List Level}
-    (_hw : WFc e) (h : e.hasLP = false) :
+    (h : e.hasLP = false) :
     e.instantiateLevelParams ks us = e :=
   Expr.instantiateLevelParams_eq_self (by rw [← hasLP_eq e, h])
 
@@ -187,9 +142,9 @@ instance : LawfulHashable ExprC where
 
 /-- Decided equality **is** equality.  (Before B3a the `←` direction
 needed `WFc` on both sides — `eraseC_inj` — because distinct field
-blocks could erase alike; the arguments are vestigial.) -/
-theorem beq_iff {a b : ExprC} (_ha : WFc a) (_hb : WFc b) :
-    (a == b) = true ↔ a = b := beq_iff_eq
+blocks could erase alike; B3b deleted the hypotheses with the
+invariant.) -/
+theorem beq_iff {a b : ExprC} : (a == b) = true ↔ a = b := beq_iff_eq
 
 end ExprC
 
