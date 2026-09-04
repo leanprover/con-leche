@@ -31173,6 +31173,7 @@ refactor**, which may resolve several by construction.
 | 13 | `--set-model=p`'s help text | `Main.lean:407` | says "annotation-gated checks"; the ruled text's "io-gated internals" wording is deliberately not shipped until the io internals land |
 | 14 | **the owed `whnfCore` fuel fixture** (added by B1b, coordinator-granted as a named follow-up) | `tests/` + `Main.lean` | B1b's restrictions-are-findings entry closes the parity/certified half of the resource-limit divergence but leaves *no stream-level regression fixture*: an `.ndjson` witness tripping the shipped ceiling needs a chain of ~1 000 000 reduction steps (post-B1b; ~100 000 pre-). **Prerequisite: a CLI-settable `checkFuel`/`whnfCoreLoopFuel`**, after which the fixture is a few hundred bytes at a small budget. Until then `_tmp/parity-align/FuelProbe{Before,After}.lean` is the executable stand-in and is the thing to keep green |
 | 15 | the by-construction successor to `ProjEntry.native` | `ProjEntry` + `findProj?` ×3 + the five `.proj` inference bodies + `whnfCore`'s proj clause + both annotate clauses + `ProjOkT` | the two-valued pinned tag of the pin record's §8 ("NOTED, NOT TAKEN"), which deletes the fall-through branch instead of proving it dead and makes `projEntry_pins` `rfl`. It was deferred *"cleanup docket, after the parity-alignment batch"* — **that trigger has now fired** (B1b landed), so the item is live; the blast radius is unchanged and still argues for doing it against a settled surface |
+| 16 | **the `Verify/BridgeDecl.lean` split** (task #77, coordinator-granted as a named follow-up) | `Verify/BridgeDecl.lean`, 2234 lines | the audit's grade-**A** split and the only one that buys wall time: the module is 57.5 s and sits alone on the critical path for a full minute, so splitting the `datF` half (lines 1533-2246, `FueledM`-only) and the `*2`/`*3` macro families off the base family turns one serial node into three parallel ones — **worth ≈ 35 s of a 245 s build**.  APPROVED, not executed: it is a deliberate module split, not a proof edit.  Re-measure with `perf stat -e instructions:u`, not wall time (§ task #77) |
 
 ### 11. SUCCESSION
 
@@ -37095,3 +37096,591 @@ Recorded as the successor's work order; nothing here was started.
 5. **Kernel entry install** (handoff items 1–3, unchanged): native
    `ProjEntry`s with the O4 per-field branch, `directStructsEnabled`'s
    documented flip recipe, R2's decline for recursive `.proj` uses.
+## Task #77 — the build-time audit: what a clean `lake build` actually costs
+
+**Headline.**  On a quiet machine a clean `lake build` of the whole tree
+is **283 s**, not fifteen minutes; the fifteen-minute figure is what the
+box does when two or three agent worktrees build (or a `perf` battery
+runs) at once, and it is therefore a *contention* number, not a tree
+number.  The audit's own fixes take the clean build to **245 s**
+(−13.3 %) and the whole build's instruction count from **8800 G to
+8183 G** (−7.0 %, `perf stat -e instructions:u` around `lake build`,
+which is the load-insensitive figure and the one to quote).
+
+### The structural finding: the build is CRITICAL-PATH bound
+
+| | baseline | after #77 |
+|---|---|---|
+| clean build wall (quiet machine) | 282.9 s | 245.2 s |
+| whole-build `instructions:u` | 8800.5 G | 8183.3 G |
+| Σ per-module wall over 506 modules | 910.4 s | 847.3 s |
+| Σ per-module CPU (user+sys) | 1671.6 s | 1606.2 s |
+| longest *measured* import chain | 280.4 s | 242.9 s |
+| effective parallelism (Σwall / span) | 3.2× | 3.5× |
+
+The machine has 96 cores and Lake runs one job per core (Lake 5.0 has
+**no `-j`/jobs flag at all** — parallelism is `nproc`, not tunable), yet
+the whole build achieves 3.2×.  The reason is in the last row but one:
+the longest import chain, weighted by measured per-module time, is
+**99 % of the wall clock**.  For long stretches — a full minute at
+`Verify/BridgeDecl`, another at `SetP/IndBottomNestedP` — exactly *one*
+`lean` process is alive on a 96-core box.
+
+**Consequence, and it is the one to remember: only modules ON the chain
+move the wall clock.**  The chain is
+
+```
+Verify.PairM 22.6 → Verify.Deep 6.5 → Verify.Fueled 13.8 → Verify.Disc 12.3
+  → Verify.DiscI3 5.1 → DiscI4 9.1 → DiscI5 7.5 → Verify.BridgeDecl 57.5
+  → Verify.BridgeWfImp 5.9 → SetP.IndBottomPlainP 13.2
+  → SetP.IndBottomNestedP 26.4 → … → SetP  (58 modules, 242.9 s)
+```
+
+`Kernel/NatOpPins` (27.6 s) and `Install/IndBottomProjS` (32.1 s before
+the fix) are among the four most expensive modules in the tree and are
+**not** on the chain: making them free would not shorten the build by
+one second.  They are still worth fixing for the CPU bill, and the
+`ProjS` fix below is the audit's single largest instruction win.
+
+### The measurement kit (reproducible; lives in `_tmp/build-audit/`)
+
+1. **Per-module wall/CPU/maxRSS during a real parallel build.**  Lake
+   resolves `lean` from its *own* sysroot, so neither `PATH` nor the
+   `LEAN` env var can interpose a wrapper.  What works: a fake sysroot
+   (`_tmp/build-audit/fakeroot`) whose entries symlink the real
+   toolchain except `bin/lean`, which is a shell shim running the real
+   binary under GNU `time`; a **copy** of the `lake` binary is placed in
+   the same fake `bin/` and invoked from there, because Lake derives the
+   sysroot from its own executable path.  Each invocation drops one
+   `.rec` line (start, end, wall, user, sys, maxRSS, argv).
+2. **Whole-build totals**: `perf stat -e instructions:u` around that
+   `lake build`.  Wall time on this box is noise-prone; instructions are
+   not.  Single-module A/B likewise (`_tmp/build-audit/meas.sh`).
+3. **Per-declaration attribution**: `-Dtrace.profiler=true
+   -Dtrace.profiler.threshold=<ms>`, reading the **printed trace tree**,
+   not the JSON.  The tree nests each `Elab.step` under the *source text
+   of the tactic*, which is what localizes a hotspot.  The older note in
+   this file — "the profiler's own output has no positions, so bisection
+   is what localizes" — applies to plain `-Dprofiler=true` and is now
+   superseded for practical purposes: the trace tree needs no bisection.
+   (Caveat: trace profiling itself burns heartbeats, so modules tuned
+   near their budget report spurious `maxHeartbeats` errors under it.)
+
+### The proof-cost finding: `omega`'s cost is in the AMBIENT context
+
+Every hotspot the audit could fix was one shape: **a single `omega` call
+inside a ~100-hypothesis proof context**.  Measured, in the trace tree:
+
+| site | cost of that one `omega` |
+|---|---|
+| `IndBottomNestedP`, the slot-shift `funext j; congr 1; omega` | **39.1 s** |
+| `IndBottomProjS` ×2, `show cnP + cnF - 1 - k = rP + cnF - 1 - k` | **15.2 s each** |
+| `IndBottomNestedP`, `show rP + (i - rP) = i` | 9.7 s |
+| `IndBottomProjP` ×2, the same two `cnP`/`rP` shows | 6.4 s + 4.7 s |
+| `IndBottomNestedP`/`PlainP`, `hfldK`'s three position side conditions | 5.2 s |
+| `IndBottomNestedP`/`PlainP`, `show cnP + (rP + (q - cnP) - rP) = q` | 4.0 s |
+
+The goals are trivial.  The cost is that `omega` ingests **every** `Nat`
+hypothesis in scope and case-splits on **every** truncated subtraction it
+finds there; with a dozen nested `a - 1 - b` shapes in the ambient facts
+the split is exponential in the context, not in the goal.  Three cures,
+in order of preference:
+
+1. **Name the cancellation.**  `Nat.add_sub_cancel' hi` for
+   `rP + (i - rP) = i`; `Nat.add_sub_cancel_left, Nat.add_sub_cancel' hqc`
+   for `cnP + (rP + (q - cnP) - rP) = q`.  Zero solver.
+2. **Rewrite by the hypothesis that makes it true.**  The two 15.2 s
+   `IndBottomProjS` sites are `rw [hcnPrP]` — the spec *hands* the proof
+   `cnP = rP`, and `omega` was rediscovering it through a truncated-
+   subtraction search.  56.8 % of that module's instructions.
+3. **`grind`, not `omega`** (user's call, and it is right).  Where no
+   term proof is at hand, `grind` closed the same goals at a *flat* cost:
+   the 15.2 s site fell to ~0.4 s under `grind`, and at the 39 s
+   slot-shift site `grind` beat even a hand-extracted standalone lemma
+   (298.0 G vs 306.6 G for the module).  **But it is not a blanket
+   substitution**: rewriting *all* 44 `omega`s in `IndBottomNestedP` to
+   `grind` fails outright and costs 150 s before it does.  Targeted only.
+
+**The general rule this yields**, for the next such proof: an `omega`
+inside one of these thousand-line P/S proofs is a cost site by default.
+If the fact is a cancellation, name it; if it follows from a hypothesis,
+rewrite by it; otherwise say `grind`.  Reach for `omega` when the goal
+genuinely needs linear-arithmetic search over the context — which, in
+this tree, is almost never.
+
+### What landed (five files; NO statement changed)
+
+Every edit is inside a proof body or a tactic macro.  No theorem
+statement, signature, `private`/`public` marker or declaration name was
+added, removed or altered anywhere in the diff.  Per-module A/B by
+`perf stat -e instructions:u` on a single-module elaboration:
+
+| module | before | after | Δ | what changed |
+|---|---|---|---|---|
+| `Verify/BridgeDecl.lean` | 759.8 G | 683.9 G | −10.0 % | the 18 `d{fst,snd}_step*` cascades |
+| `SetP/IndBottomNestedP.lean` | 548.3 G | 259.9 G | **−52.6 %** | 4 `omega` sites |
+| `SetR/Install/IndBottomProjS.lean` | 274.8 G | 118.7 G | **−56.8 %** | 2 `omega` sites |
+| `SetP/IndBottomPlainP.lean` | 166.8 G | 141.4 G | −15.2 % | 3 `omega` sites |
+| `SetP/IndBottomProjP.lean` | 134.8 G | 66.1 G | **−51.0 %** | 2 `omega` sites |
+| **sum** | 1884.5 G | 1270.0 G | −32.6 % | |
+
+Peak memory falls with it: `IndBottomNestedP` 10.9 GB → 5.7 GB maxRSS,
+`IndBottomProjS` 6.1 GB → 3.5 GB.  The theorems whose *proofs* were
+touched: `indBottomNestedP`, `indBottomPlainP`, `indBottomProjP`,
+`indBottomProjS`, and in `BridgeDecl` the whole `*_dproj` / `*_datF`
+battery (`checkConstantVal`, `checkProjLookups`, `checkProjTy`,
+`checkProjShape`, `checkTypedList`, `checkAnnotList`, `checkDefEqList`,
+`checkIotaSidesTy`, `checkProjIota`, `checkIotaThm`, `checkIotaThmN`,
+`checkIotaRule(s)`, `checkProjRule`, `checkMemberVal`, `checkIndMember`,
+`provisionRecs`, `checkIndRecs`, `checkDefnVal`, `checkThmVal`,
+`checkOpaqueVal`, `certifyNatEqs`, `checkDivModCerts`, `checkDivModPin`,
+`checkReducePin`, `checkDecl(s)` — each in its `_fst_dproj`,
+`_snd_dproj` and `_datF` forms), which consume the rewritten macros.
+
+**The `BridgeDecl` cascade rewrite, precisely.**  Each family was
+`macro "X_step" => repeat (first | … )` together with
+`macro "X_tac" => X_step <;> X_step <;> … ` twelve or fifteen times
+deep.  Because Lean's `repeat` descends only into the *main* goal, the
+`<;>` chain was the author's way of reaching the goal tree — but it
+re-runs the whole alternation's **failure sweep** (every `rw` attempt,
+then `simp only []` over a large monadic goal) once per level per goal.
+The rewrite splits the alternation out as `X_step_alt`, keeps
+`X_step := repeat X_step_alt` for the call sites that used it directly,
+and defines `X_tac := repeat' X_step_alt` — `repeat'` *is* the fixpoint
+over all goals, computed once.  Same normal form, one sweep.
+
+Two further `BridgeDecl` experiments **failed** and are recorded so they
+are not retried: moving `split` to the end of the alternations (650.6 G
+but does not compile) and `with_reducible rfl` in place of `rfl`
+(699.1 G, does not compile).  Replacing the alternation's `simp only []`
+by `dsimp only []` compiles and is exactly instruction-neutral, so it
+was dropped as churn.
+
+**Where nothing was found.**  `Verify/PairM` (343.6 G, #3 on the chain)
+carries the same cascade shape, and the same `repeat'` rewrite moves it
+by 0.1 G — measured, reverted.  Its alternation ends in `dsimp only []`,
+not `simp only []`, and its failure sweep is simply cheap.  `Fueled`,
+`Disc`, `DiscI3/4/5`, `Abstract`, `Extend/Iota`, `SortCoh/Mono`,
+`IndStagesS`, `BasisS`, `IndBottomNestedS`, `IndBottomPlainS`, `Deep`
+were all trace-profiled: **no tactic in any of them costs more than
+1.3 s.**  Those modules are honestly large (class (c)), not badly
+written, and only a module split would help them.
+
+### Split candidates (NOT done — a separate, deliberate task)
+
+The chain is what the build costs, so the split that pays is the split
+of a chain module.  In descending order of payoff:
+
+1. **`Verify/BridgeDecl.lean`** (57.5 s, 684 G, 1 file, ~2250 lines).
+   **Coordinator-granted at the merge as cleanup-docket item 16** —
+   approved as a named follow-up, explicitly not executed here, because
+   it is a module split and not a proof edit.
+   It is a *battery*: six independent macro families over disjoint
+   `check*` groups, plus the `datF` half (lines 1533-2246) which depends
+   only on `FueledM` and could stand alone.  Splitting `datF` off, and
+   the `*2`/`*3` families from the base family, would turn one 57 s
+   serial node into three ~20 s parallel ones.  Highest single lever in
+   the tree: worth ~35 s of wall.
+2. **`SetP/IndBottomNestedP.lean`** (26.4 s, 260 G, one 1360-line
+   theorem).  Not splittable as a file without extracting proof stages
+   into lemmas — a proof-engineering task, not a file move.
+3. **`Verify/PairM.lean`** (22.6 s, 344 G) — five macro families and
+   their theorem blocks; mechanically separable.
+4. `Verify/Disc.lean` (12.3 s) and the `DiscI3/4/5` trio (21.7 s
+   together, already split, in series on the chain).
+
+Off-chain but expensive, for the CPU bill only: `Kernel/NatOpPins`
+(27.6 s, 32 G but 1.9 GB and heavy interpretation — the elab-time pin
+splice of task #53, class (b) big-data, nothing to fix) and
+`SetR/Annot/SortCoh/Mono` (17.3 s / 42 s CPU).
+
+### Toolchain observations (ours vs Lean's)
+
+* **`ulimit -v` is incompatible with `lean`.**  Any virtual-memory cap —
+  32 GB *or* 100 GB — makes `lean` die at startup with
+  `libc++abi: terminating due to uncaught exception of type
+  lean::exception: failed to create thread` (exit 134), because it
+  reserves per-thread arenas for `nproc` threads.  A cap on `lake`
+  itself kills the driver the same way.  **The standing "run under
+  `ulimit -v`" rule is for the checker, not for builds**; build memory
+  must be watched, not capped (peak here: 79 GB available throughout,
+  single-module peak 10.9 GB before the fixes, 5.7 GB after).
+* Lake 5.0 has no jobs flag; `-j` is rejected outright.
+* `lean --profile`-style cumulative output carries no source positions;
+  only the trace-profiler tree does.  Worth an upstream request.
+* `omega`'s preprocessing cost is superlinear in the ambient context and
+  it gives no diagnostic saying so — a 39 s success looks exactly like a
+  fast one from the outside.  `grind` on the same goals is 30×+ faster.
+  This is a plausible upstream report (`omega` should bound, or at least
+  warn about, the truncated-subtraction split it does over hypotheses it
+  was never asked about).
+
+### Task #77, house-order half: large files and import hygiene
+
+**(1) LARGE FILES — size is a weak predictor of cost.**  Over the 504
+measured modules the correlation between line count and elaboration wall
+time is **r = 0.37**: real, but far from the story.  Files ≥ 2000 lines
+average 6.5 s, the rest 1.4 s — yet the tree's most expensive module,
+`Verify/BridgeDecl` (57.5 s), is *mid-sized* at 2234 lines, and the
+largest file in the tree, `Kernel/ArenaWF` (5791 lines), costs 4.9 s.
+**Split large files for readability; split chain modules for build time.
+They are different lists and they overlap in exactly one place.**
+
+Twenty-seven files are ≥ 2000 lines.  `T` = triviality of the split
+(A = mechanical, the file is already sections over disjoint subjects;
+B = needs a shared-prelude module extracted first; C = one theorem,
+splittable only by extracting proof stages into lemmas).
+
+| lines | wall | file | chain? | split | T |
+|---|---|---|---|---|---|
+| 5791 | 4.9 s | `Kernel/ArenaWF.lean` | no | invariant/preservation halves | B |
+| 5666 | 7.3 s | `SetR/Install/BasisS.lean` | no | **per-basis-block** — the precedent already exists (`Kernel/Basis/*`) | A |
+| 4725 | 9.1 s | `SetR/Interp2/Step2/DefEqRun.lean` | no | per defeq-rule group | B |
+| 3925 | 3.5 s | `SetR/Annot/SortCoh/Discharge.lean` | no | leave (SortCoh was already split once) | — |
+| 3400 | 2.6 s | `SetR/Interp2/Step2/InferQ.lean` | no | per infer-rule group | B |
+| 3334 | 5.9 s | `Verify/BridgeWfImp.lean` | **yes** | wf-ops vs implication halves | B |
+| 3224 | 2.0 s | `SetR/Interp2/Step2/Whnf.lean` | no | leave | — |
+| 3045 | 6.5 s | `Verify/Deep.lean` | **yes** | per-walk (whnf / infer / defeq) | B |
+| 3004 | 4.6 s | `Verify/InferLemmas.lean` | **yes** | per-rule | B |
+| 2845 | 7.3 s | `SetR/Install/IndStagesS.lean` | no | per stage | B |
+| 2754 | 4.9 s | `SetBase/Bridge/Decl.lean` | no | *(B3's surface — noted, not touched)* | — |
+| 2617 | 6.2 s | `SetR/DivModPin.lean` | no | per pinned op | A |
+| 2529 | **17.3 s** | `SetR/Annot/SortCoh/Mono.lean` | no | per monotonicity family — **cost outlier for its size** | B |
+| 2508 | 2.1 s | `SetP/BasisQuotP.lean` | no | leave | — |
+| 2451 | 2.9 s | `Verify/Denote/IndFrame.lean` | **yes** | leave | — |
+| 2395 | 3.0 s | `SetR/Annot/SortCoh/SubstSim.lean` | no | leave | — |
+| 2332 | 1.6 s | `Kernel/Core.lean` | **yes** | leave — it is the checker's core, cheap | — |
+| 2307 | 3.0 s | `SetP/DivModCertP.lean` | no | per certificate | A |
+| **2234** | **57.5 s** | **`Verify/BridgeDecl.lean`** | **yes** | **the one split that pays: see the split-candidate list above** | **A** |
+| 2136 | 3.7 s | `SetR/Annot/SortCoh/Claims.lean` | no | leave | — |
+| 2124 | 2.4 s | `SetR/Annot/SortCoh/LoopLock.lean` | no | leave | — |
+| 2039 | 2.7 s | `Verify/Cached/OpsC.lean` | no | leave | — |
+| 2009 | 1.6 s | `SetP/BasisBlocksP.lean` | no | per block (mirrors `BasisS`) | A |
+
+Five further ≥ 2000-line files — `Verify/IExpr` (4102), `Verify/IExprOps`
+(3244), `Kernel/CoreI` (2532), `Kernel/IExpr` (2145), and by the same
+token `Verify/DiscI*`, `Verify/BinderLoopI`, `Verify/SimI`,
+`Verify/BridgeI`, `Kernel/CheckerS` — sit on the **interned surface that
+task #172 is deleting** and are excluded from this list per the batch's
+fence.  (The exclusion is name-based on this side; it should be checked
+against #172's own deletion inventory before anyone acts on it.)
+
+**(2) DEPENDENCY EDGES.**  The graph is a DAG (Lake would refuse
+otherwise) and 509 of 537 `.lean` files are reachable from the declared
+targets.  The 28 unreachable are all expected: three `_probe/*`
+one-offs, `scripts/DumpNatOpPinConsts`, `tests/ProofDeps` and
+`tests/SetlecTests/ZeroSetTests` (driven by the shell gates and the
+test-lib root), and 22 `tests/e2e/src/*` fixtures.  **No dead library
+module.**
+
+Cross-tier census (importer tier → imported tier, edges):
+
+```
+SetR→SetBase 66   SetBase→Verify 61   SetP→SetBase 54   Verify→Kernel 45
+SetR→Verify  40   SetP→Verify   35    VerifyCached→Verify 19
+VerifyCached→Cached 9   Cached→Kernel 8   Frontend→Kernel 7
+SetBase→Kernel 5   Verify→TT 4   Kernel→PinGen 3   VerifyCached→SetR 2
+```
+
+Every edge a reader might query, checked:
+
+* **`SetBase → Verify`, 61 edges over 28 modules** (`Bridge/Decl` 9,
+  `IndBlockR` 4, `ProjPins` 4, `Bridge/WhnfCore` 4, …).  *Expected*:
+  `SetBase` is the lane-neutral **semantic** tier and must talk about the
+  checker's functions; `Verify` is where the model-free lemmas about
+  those functions live.  Both are in `SetlecBase`; no fence is involved.
+  Not a finding.
+* **`VerifyCached → SetR`, exactly 2 edges, both from
+  `Verify/Cached/MainC`** — precisely the lakefile's "the ONLY module
+  allowed to see both lanes".  The fence holds by measurement.
+* **`Kernel → PinGen`, 3 edges** (`NatOpPins`, `TrustPins`,
+  `ZeroSetPin`) — the documented `meta import` of the elab-time
+  generator.  Expected.
+* Singletons, all checked and expected: `Frontend/ExportC → Cached/ParsedC`,
+  `SetP/Claims2PIO → Kernel/CoreIO`, `SetP/NatWfP → PinGen/Certs`,
+  `SetR/AnnotOkV → TT/Semantics/Soundness`.
+* `tests/layering.sh` independently reports **0 P→R and 0 R→P edges,
+  whitelist empty**.
+
+**The one structurally surprising edge, and it has a measured price.**
+`Verify/Bridge.lean` imports `Verify/BridgeI.lean` (the interned
+bridge), and `Verify/BridgeDecl` — the chain's biggest node — imports
+`Verify/Bridge`.  That single edge threads the whole interned
+discrimination tower onto the critical path:
+
+```
+Verify.Disc → DiscI1 1.8 → DiscI2 4.0 → DiscI3 5.1 → BinderLoopI 4.1
+  → DiscI4 9.1 → DiscI5 7.5 → DiscI6 1.2 → BridgeI 0.3 → Bridge → BridgeDecl
+```
+
+**33.1 s — 13.6 % of the 242.9 s chain — is interned modules that the
+cached lane's proofs do not use**, in series, ahead of the most
+expensive node in the tree.  Recorded as a *fact about the chain*, with
+no recommendation attached: those files are #172's to delete, and when
+they go the chain shortens by that much for free.  Anyone measuring
+build time across #172's landing should expect ≈ 210 s, not 243 s, and
+should not attribute the drop to anything else.
+
+**Implied imports: 598, and no way to check for truly dead ones.**  A
+transitive-closure sweep finds 598 import lines that are already implied
+by a sibling import in the same file.  Ninety-three of them are in the
+two **umbrella** files (`Setlec.lean` 38 of 52, `Setlec/SetBase.lean`
+55 of 68), where listing every member is the file's whole purpose and
+removing them would be wrong.  The remaining ≈ 505 are spread thin
+(1-3 per file).  **Not executed**, and deliberately so: removing an
+implied import changes the transitive closure by exactly nothing, so it
+buys **zero build time**, while a 500-file diff would collide with every
+concurrent branch.  Recommendation: a scripted pass (triviality **A**,
+the sweep is in `_tmp/build-audit/depsweep.py`) run once, alone, on a
+quiet tree between batches — as hygiene, not as performance work.
+
+**`lake shake` cannot run on this tree** — `error: lake shake only works
+with modules currently`, and exactly **4 of 505** files carry the
+`module` header (`PinGen`, `Kernel/Expr`, `Kernel/NatOpPins`,
+`Kernel/TrustPins`).  So *truly* dead imports — as opposed to the
+implied ones above — are not mechanically detectable here today, and
+this report does not claim there are none.  Two ways out, both
+recommended-not-done: adopt the module header tree-wide (large, and it
+changes `public import` semantics — a deliberate task), or detect dead
+imports by brute force (drop one import, rebuild the module, keep if it
+still elaborates) restricted to the ~11 chain modules, where a removed
+edge would actually shorten the build.  The second is cheap enough to be
+worth doing next time the chain is the target.
+
+## TASK #172 — THE INTERNED-WORLD REMOVAL: STOP-FINDING, INVENTORY AND
+SEQUENCING (2026-09-04, agent/interned-removal; assessment only, nothing
+deleted)
+
+### 0. THE FINDING, FIRST
+
+The batch was chartered as a deletion — *"delete the interned
+expression representation end to end"* — and it is not one.  Measured
+on the tree at `788e6511`, the interned world is **load-bearing for the
+cached lane in three separate ways**, and removing it is a *cached-tower
+re-statement* whose edit surface is, module for module, the surface B4
+was concurrently given.  The batch was stopped before any deletion, the
+worktree removed, master untouched.
+
+Three facts, each measured, in the order that decides the batch:
+
+1. **Seven surviving cached modules import interned ones**, and one of
+   those edges is a genuine mathematical dependency, not namespace
+   residue.
+2. **The representation-free residue lives INSIDE the interned
+   modules.**  `FEnv`, `mkFEnv`, `IState`, `CheckIM`, `natOpGuardF`
+   and ~30 declaration-level checkers (`checkConstantValF`,
+   `checkDefnValF`, `checkIndDeclSF`, `checkDirect*F`, …) sit in
+   `Kernel/CoreI.lean` and `Kernel/CheckerS.lean` and are consumed by
+   `Cached/{StateC,CheckerC,CoreC,CoreNC,ParsedC,ParsedNC}`.  So the
+   removal is **split-and-delete**: ≈ 2 000 lines have to be extracted
+   into new homes before `git rm` is even well-typed.
+3. **27 of the tree's 40 capstone letters retire with their subjects**,
+   including all three interned P letters — and the P family then has
+   **no letter about any shipped engine**, because the cached lane has
+   no P capstone at all.
+
+### 1. THE SEVEN CACHED→INTERNED EDGES, CLASSIFIED
+
+| cached module | imports | what it actually needs | class |
+|---|---|---|---|
+| `Verify/Cached/OfStoreC` | `Verify/ParseP` | `denoteDeclP`, `denoteCVP`, `denoteDeclP_total` | **genuine** — the arena declaration denotation; dies with the `SPC` letters |
+| `Verify/Cached/Erase` | `Verify/IExpr`, `Kernel/ArenaWF` | `EStore.looseBVarsBounded_iff`, `EStore.fvarsBelow_iff` | **movable** — `Expr` lemmas parked in an arena namespace |
+| `Verify/Cached/GuardsC` | `Verify/IExprOps` | nothing | **residue** — its `isCtorAppI_spec` &c. are its own `Setlec.Cached` declarations; the interned names appear only in prose |
+| `Verify/Cached/SimC` | `Verify/ILevel` | to be confirmed at extraction | residue/movable |
+| `Verify/Cached/BridgeCS4` | `Verify/CheckerF` | the F-mirror agreement | **survives** — `Verify/CheckerF` (575) and `Verify/FastOps` (174) are representation-free |
+| `Verify/Cached/DiscC1` | `Verify/Disc` | the pure-side call-discipline walk | **survives** — `Verify/Disc` (1 654) is not part of the interned tower |
+| `Verify/Cached/AgreeFloor` | `Verify/EnvBound` | `mkFEnv_find?` | **survives** once `FEnv` moves |
+
+The rule this yields, and it is the batch's first ledger row:
+
+> *After a representation is unified, "which tower is on top" stops
+> being readable from directory names.*  `Verify/Disc` is pure and
+> `Verify/DiscI*` is interned; `Verify/CheckerF` is representation-free
+> and `Kernel/CheckerS` — which it is about — is half interned.  Before
+> pricing a tower deletion, classify every cross-edge by **what the
+> importer uses**, not by where the exporter sits.  Four of the seven
+> edges above are prose or namespace artefacts and cost nothing; one is
+> real and decides a whole letter family.
+
+### 2. THE CAPSTONE CENSUS — 27 OF 40 RETIRE
+
+Measured subjects, not inferred:
+
+* `_C_*` → `checkDecls μ (cachedOps μ)`, and `cachedOps`
+  (`Kernel/CheckerBase.lean:57`) is `runEntryE/B/S` **from
+  `Kernel/CoreI.lean`** — interned;
+* `_S_*` → `Setlec.checkDeclsShared` (`Kernel/CheckerS.lean:1367`) —
+  interned;
+* `_SP_*` → `checkDeclsSP (st : WFStore) (pds : List DeclP)` —
+  interned;
+* `_SPC_*` → `checkDeclsSPCached (st : WFStore) (pds : List DeclP)` —
+  the **arena-fed** cached entry, which dies with `WFStore`/`DeclP`.
+
+| file | letters retired |
+|---|---|
+| `SetR/Main.lean` | `{C,S,SP}_R`, `input_{C,S,SP}_R` — 6 |
+| `SetR/Main2.lean` | `{C,S,SP}_{R2,R2M}`, `input_{C,S,SP}_{R2,R2M}` — 12 |
+| `SetP/MainP.lean` | `C_P`, `S_P`, `SP_P` — 3 |
+| `Verify/Cached/MainC.lean` | `SPC_{R,R2,R2M}`, `input_SPC_{R,R2,R2M}` — 6 |
+
+**Surviving 13:** the pure `R`/`R2`/`R2M` family with its `input_`
+mirrors, `R2M_of_installs(R)`, `P_of`/`P`, and `SPCD_{R,R2,R2M}` — the
+direct-parse cached driver the binary actually runs.
+
+**The proofdeps consequence, stated exactly.**  `tests/ProofDeps.lean`
+roots block (A) — *"THE SHIPPED P CAPSTONE FAMILY"* — at `SP_P`, `C_P`,
+`S_P` and `P`.  Three of those four are interned, so **36 of the gate's
+120 rows retire** (3 roots × 12 targets), and block (A) collapses to a
+single root, `no_proof_of_Empty_P`, about the *pure fueled* checker —
+which the binary does not run.
+
+**The gap is pre-existing, and the deletion is what makes it
+unrecoverable in place.**  There is no `no_proof_of_Empty_*_P` letter
+over any cached driver anywhere in the tree (checked: `MainC` carries
+`_R`-lane letters only).  The #163 default flip to `cached-parsed`
+already left the shipped path P-uncovered; the interned letters have
+been covering non-default drivers since that day.  Deleting them does
+not lose coverage of the shipped path — there is none — but it removes
+the last P letters that are about *any* executable, which is a
+different and worse state to ship.
+
+Ledger row:
+
+> *A capstone letter's subject can go stale without the letter
+> changing.*  `SP_P` was the shipped P capstone until the default
+> flipped cores; nothing in the letter, the gate, or the module tree
+> recorded that it stopped being one.  When a driver stops being the
+> default, re-read every letter that names it **in that batch** —
+> otherwise the discovery arrives as a deletion's side effect, one
+> refactor too late.
+
+### 3. THE INVENTORY (gross lines, measured at `788e6511`)
+
+| tier | modules | lines |
+|---|---|---|
+| impl, whole-module | `Kernel/{IExpr 2145, ArenaWF 5791, WFStore 497, Promote 206, DeclI 98, CoreNC 991, CheckerNC 510, Split 251}` | **10 489** |
+| impl, split | `Kernel/CoreI` 2 532 → keep ≈ 150; `Kernel/CheckerS` 1 795 → keep ≈ 1 060 (lines 41–318 + the 363–1105 Mirrors block); `Frontend/Export` 1 098 → keep ≈ 700; `Cached/Driver` 95 → keep ≈ 40; `Main.lean` ≈ 250 | **≈ 3 800** |
+| Verify, whole-module | `IExpr 4102, IExprOps 3244, ILevel 1083, BinderLoopI 1757, SimI 1672, SimIKnot 459, BridgeI 177, ParseP 865, Promote 676, BracketB4 843, SimS 178, DiscI1–6 9061, BridgeS1–4 3047, BridgeSDecl 324, BridgeP 721, BridgePDecl 81, DeclStores 198, Cached/OfStoreC 287` | **28 775** |
+| letters | `SetR/Main` ≈ 350, `SetR/Main2` ≈ 1 100, `SetP/MainP` ≈ 250, `Verify/{Bridge,BridgeDecl,BridgeWFDecl}` ≈ 360, `Verify/Cached/{MainC,AgreeFloor,BridgeCP}` ≈ 670 | **≈ 2 730** |
+| tests / gates | `SetlecTests.lean` arena fixtures (≈ 110), `arena.sh`'s split-driver section + its 11 pinned cases, the proofdeps PIN's 36 rows | **≈ 200** |
+
+**≈ 46 000 lines deleted, ≈ 2 000 relocated.**
+
+### 4. THE BUILD-TIME NUMBER, AND AN INDEPENDENT CONFIRMATION
+
+Clean `lake build` at `788e6511`: **282 s wall, 560 jobs, exit 0,
+warning-free** (`_tmp/interned-removal/build-baseline.log`).  Modelling
+the longest import chain from the log's per-module times gives **275.6 s**
+— within 2.3 % of the observed wall, which is the same "99 % of the wall
+is one chain" fact task #77 reports.  Recomputing the chain with the
+interned tower removed gives **244.5 s**: a **−31.1 s** serial saving,
+because `Verify/Bridge → BridgeI → DiscI6 → DiscI5 → DiscI4 →
+BinderLoopI → DiscI3 → DiscI2 → DiscI1` is a prefix of the path into
+`Verify/BridgeDecl`, the chain's most expensive node.
+
+**Task #77's audit found the same edge and the same segment
+independently** (§ *"The one structurally surprising edge"*): 33.1 s of
+its post-optimisation 242.9 s chain.  The two measurements are the same
+fact at two tree states; #77's is the one to quote, and its ≈ 210 s
+post-removal expectation stands.  What this batch adds is the rest of
+the delete set's cost **off** the chain: total CPU in the delete set is
+**78.7 s of 1 003.9 s (7.8 %)**, so ≈ 47 s of the saving is parallel
+slack and only the 31–33 s prefix is wall.
+
+### 5. THE TWO DISPOSITIONS THE CHARTER ASKED FOR
+
+**`Kernel/CoreNC.lean` (991) — DELETABLE, cleanly, with
+`Kernel/CheckerNC.lean` (510).**  Measured: **zero** occurrences of
+`coreKnotNC`, `inferBodyNC`, `whnfCoreBodyNC` or `CheckerNC` anywhere
+in `Verify/`, `SetR/`, `SetP/`, `SetBase/` — the census's claim still
+holds.  `Cached/ParsedNC.lean`'s five references to
+`checkConstantValPNC`, `checkDeclSPNCPlain`, `checkDeclSPStepNM` and
+`sharedOpsNC` are **all in docstrings**; it defines its own twins.  The
+only consumers are `Main.lean`'s `--no-model --core=production` arm and
+the `Setlec.lean` umbrella, so nothing but the deleted dispatch consumes
+it and the parity CLI collapses to the cached parity engine as ruled.
+Main's default resolves after the collapse: with `production` gone the
+core is always `cachedParsed`, and with the split driver and the
+`SETLEC_PROGRESS` arena arm gone, `--no-model` reaches
+`Setlec.Cached.checkDeclsSPCachedDNM` through `parseExportStreamD`.
+
+**`CheckMode` — B3c is NOT forced, and the bill is not paid twice.**
+`CheckMode` has **1 469** occurrences: 59 in the implementation tier
+(Kernel 39, Cached 11, `Main.lean` 9) and 1 403 in the proof tiers.  The
+interned removal deletes ≈ 25 implementation-tier tokens (`CoreI`,
+`CoreNC`, `CheckerS`, `CheckerNC`, `Main`) and **zero** of B3c's 51
+carriers — those sit entirely in `SetR/Interp2/*`,
+`SetR/Annot/SortCoh/*`, `SetBase/Bridge/{Main,WhnfCore}` and
+`Verify/{BetaGate,InferLemmas}`, none of which is an interned module.
+The `CheckMode` *type* stays in `Kernel/Env.lean`; the cached engine and
+every tower still take `μ`.  So the merge grant's costing warning does
+not bind here: **the interned removal is not the `CheckMode` type
+retirement**, and B3c stays deferred and unpaid.
+
+### 6. THE PERF PROBE IS COUPLED TO A FLAG SURFACE THAT DOES NOT EXIST
+
+`scripts/perf-tables.sh:76` flips `INTERNED=no` when
+`Setlec/Kernel/CoreI.lean` is gone **or** `"production"` leaves
+`Main.lean`, and then measures `CONFIG_IDS=(official parity R P)` with
+`--set-model=r` and `--set-model=p`.  Those flags are not in the
+argument parser.  So even a CLI-only slice — dropping `--core=production`
+while leaving the towers alone — breaks table generation on its own.
+The probe is therefore not merely self-describing; it **encodes the
+coordinator's expectation that the R/P flag surface lands together with
+the removal**, and that expectation is now a scheduling constraint.
+
+### 7. THE SEQUENCING, AS ADOPTED
+
+1. **B4 delivers the shipped direct-parse cached-driver P letter** — a
+   `no_proof_of_Empty_*_P` over `checkDeclsSPCachedD`.  Without it the
+   proofdeps gate's block (A) has no shipped root and the removal is a
+   trust-story regression rather than a cleanup.  *(B4's charter
+   amended.)*
+2. **The `--set-model=r` / `--set-model=p` flag spelling** lands with
+   whoever touches `Main.lean` first.
+3. **The residue-extraction stage** (pure moves, no statement changes,
+   all gates hold): `FEnv` + the indexed guards out of `Kernel/CoreI`;
+   the Mirrors block (lines 363–1105) out of `Kernel/CheckerS`;
+   `EStore.looseBVarsBounded_iff` / `fvarsBelow_iff` / `exprPtrBEq` out
+   of `Kernel/IExpr`; `Frontend/Export`'s shared scaffolding (canon,
+   taint, budget, the JSON getters, the byte fast path) split from its
+   arena parse.  **After this the interned modules have no
+   non-interned consumer**, and stage 4 really is `git rm`.
+4. **The removal proper**: ≈ 46 000 lines, 27 letters, 36 proofdeps
+   rows retired *with their subjects*, the gate re-pinned to the
+   surviving roots including B4's new letter.
+
+Stages 3 and 4 are **one sequenced batch, two commits**, on a fresh
+worktree off post-B4 master.
+
+### 8. THE BASELINE THIS BATCH LEAVES BEHIND
+
+Measured at `788e6511`, artifacts in `_tmp/interned-removal/`
+(`build-baseline.log` with per-module timings, `battery-baseline.log`,
+`impgraph.json` — the full module import/reverse-import graph):
+
+* clean build **282 s / 560 jobs / warning-free**;
+* arena tutorial **90/92** good accepted, e2e **73/73**, annot
+  **14/14**, split driver **11/11**, mode flags **9/9**, no-model sweep
+  **138 arena + 73 e2e + 14 annot** as expected (3 recorded
+  divergences);
+* proofdeps **120/120 rows as pinned**, doors 0;
+* layering **base 275 / R 106 / P 120 / neutral 3**, 0 P→R, 0 R→P,
+  whitelist empty.
+
+### 9. THE ESCALATION RULE, RESTATED
+
+This batch is the second instance in task #172 of the escalation rule
+firing (B3's 51-carrier residual was the first), and the shape is the
+same both times: **the charter's unit of work and the tree's unit of
+work were different quantities.**  B3 priced a hypothesis sweep in
+lines and delivered declarations; this batch was chartered as a
+deletion and the tree holds a re-statement.  The generalisation worth
+keeping:
+
+> *Before executing a deletion, verify that the delete set has no
+> surviving consumer — at the level of names, not imports.*  An import
+> graph said this batch touched 136 modules and 107 900 lines; a
+> name-level census said the genuine cross-edges were seven, four of
+> them prose.  Neither number is the batch's size, and only the second
+> one tells you whether it is a deletion at all.
