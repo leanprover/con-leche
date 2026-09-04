@@ -116,6 +116,26 @@ def FieldsGraded (ρ : Nat → V) : List (Nat × AVExpr) → Prop
   | d :: Ds => interp2 V ρ d.2 ∈ˢ (univ d.1 : V) ∧
       ∀ a, a ∈ˢ interp2 V ρ d.2 → FieldsGraded (cons a ρ) Ds
 
+omit [SetTheory V] in
+theorem consList_append (xs ys : List V) (ρ : Nat → V) :
+    consList (xs ++ ys) ρ = consList ys (consList xs ρ) := by
+  induction xs generalizing ρ with
+  | nil => rfl
+  | cons x xs ih => rw [List.cons_append, consList_cons, consList_cons, ih]
+
+/-- Fits concatenate: a fit of the first chain and a fit of the second
+at the extended environment give a fit of the concatenation. -/
+theorem SpineFit.append :
+    ∀ {Fs₁ : List AVExpr} {as₁ : List V} {Fs₂ : List AVExpr}
+      {as₂ : List V} {ρ : Nat → V},
+      SpineFit ρ Fs₁ as₁ → SpineFit (consList as₁ ρ) Fs₂ as₂ →
+      SpineFit ρ (Fs₁ ++ Fs₂) (as₁ ++ as₂)
+  | [], [], _, _, _, _, h₂ => h₂
+  | [], _ :: _, _, _, _, h₁, _ => h₁.elim
+  | _ :: _, [], _, _, _, h₁, _ => h₁.elim
+  | _ :: Fs₁, a :: as₁, _, _, _, h₁, h₂ =>
+    ⟨h₁.1, SpineFit.append (Fs₁ := Fs₁) (as₁ := as₁) h₁.2 h₂⟩
+
 theorem SpineFit.length_eq :
     ∀ {Fs : List AVExpr} {ρ : Nat → V} {as : List V},
       SpineFit ρ Fs as → as.length = Fs.length

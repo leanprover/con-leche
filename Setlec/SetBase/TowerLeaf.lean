@@ -265,6 +265,79 @@ theorem mkLamsAV_zero_head (A : AVExpr) (ds : List (Nat × AVExpr))
     (b : AVExpr) (ρ : Nat → V) :
     interp2 V ρ (mkLamsAV ((0, A) :: ds) b) = (pt : V) := lamR_zero
 
+/-! ### The constant-bit λ-tower, generically
+
+The constructor and recursor leaves are λ-towers whose bits are ONE
+numeral (`w`, resp. the elimination level) zero-agreeing with every
+codomain annotation of their Π-type's reading.  `mkLamsC` is that
+shape; `UnderTowerOk` is its single hereditary premise; `mkLamsC_mem`
+and `mkLamsC_ok2` are the once-for-all membership and grading. -/
+
+/-- The constant-bit λ-tower over a Π-tower's own binder data. -/
+def mkLamsC (m : Nat) (ds : List (Nat × Nat × AVExpr)) (b : AVExpr) :
+    AVExpr :=
+  mkLamsAV (ds.map fun d => (m, d.2.2)) b
+
+/-- The hereditary premise of the constant-bit tower's laws: each
+domain graded, and at every fitting spine the body is graded, a member
+of the result type's reading, and — when the bit is zero — that
+reading is a truth value. -/
+def UnderTowerOk (m : Nat) (ρ : Nat → V) (b T : AVExpr) :
+    List (Nat × Nat × AVExpr) → Prop
+  | [] => AnnotOk2 V ρ b ∧ interp2 V ρ b ∈ˢ interp2 V ρ T ∧
+      (m = 0 → interp2 V ρ T ∈ˢ (univZero : V))
+  | d :: ds => AnnotOk2 V ρ d.2.2 ∧
+      ∀ a, a ∈ˢ interp2 V ρ d.2.2 → UnderTowerOk m (cons a ρ) b T ds
+
+/-- The residual Π-tower is a truth value at a zero bit (either the
+first codomain annotation is zero, or the base's own condition). -/
+theorem underTowerOk_res_univZero {m : Nat} {b T : AVExpr} (h0 : m = 0) :
+    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
+      (∀ d ∈ ds, (m = 0 ↔ d.2.1 = 0)) → UnderTowerOk m ρ b T ds →
+      interp2 V ρ (mkPisAV ds T) ∈ˢ (univZero : V)
+  | [], _, _, h => h.2.2 h0
+  | d :: ds, ρ, hz, _ => by
+    show piR d.2.1 _ _ ∈ˢ _
+    rw [(hz d (.head _)).mp h0]
+    exact piR_zero_mem_univZero
+
+/-- **The constant-bit tower inhabits its Π-tower's reading**
+(`lamR_mem_zero_agree` per binder, the base's membership at the
+bottom). -/
+theorem mkLamsC_mem {m : Nat} {b T : AVExpr} :
+    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
+      (∀ d ∈ ds, (m = 0 ↔ d.2.1 = 0)) → UnderTowerOk m ρ b T ds →
+      interp2 V ρ (mkLamsC m ds b) ∈ˢ interp2 V ρ (mkPisAV ds T)
+  | [], _, _, h => h.2.1
+  | d :: ds, ρ, hz, h => by
+    show (lamR m (interp2 V ρ d.2.2)
+        fun a => interp2 V (cons a ρ) (mkLamsC m ds b))
+      ∈ˢ piR d.2.1 (interp2 V ρ d.2.2)
+        fun a => interp2 V (cons a ρ) (mkPisAV ds T)
+    exact lamR_mem_zero_agree (hz d (.head _))
+      fun a ha => mkLamsC_mem (fun d' hd' => hz d' (.tail _ hd'))
+        (h.2 a ha)
+
+/-- **The constant-bit tower is graded** (`AnnotOk2`): the fibre
+packages are the interpreted residual Π-towers, membership from
+`mkLamsC_mem` at each suffix, the zero component from
+`underTowerOk_res_univZero`. -/
+theorem mkLamsC_ok2 {m : Nat} {b T : AVExpr} :
+    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
+      (∀ d ∈ ds, (m = 0 ↔ d.2.1 = 0)) → UnderTowerOk m ρ b T ds →
+      AnnotOk2 V ρ (mkLamsC m ds b)
+  | [], _, _, h => h.1
+  | d :: ds, ρ, hz, h => by
+    show AnnotOk2 V ρ (.lam m d.2.2 (mkLamsC m ds b))
+    rw [AnnotOk2_lam]
+    refine ⟨h.1, fun a ha => mkLamsC_ok2
+        (fun d' hd' => hz d' (.tail _ hd')) (h.2 a ha),
+      ⟨fun a => interp2 V (cons a ρ) (mkPisAV ds T),
+       fun a ha => mkLamsC_mem (fun d' hd' => hz d' (.tail _ hd'))
+         (h.2 a ha),
+       fun h0 a ha => underTowerOk_res_univZero h0
+         (fun d' hd' => hz d' (.tail _ hd')) (h.2 a ha)⟩⟩
+
 /-- **The type-former leaf**: the λ-tower over the parameter domains
 (read off the former's own type reading, bits `w + 1` — a type
 former is a graph at every regime) with the carrier body. -/
