@@ -258,17 +258,14 @@ discharged in their own modules. -/
 operation, from its `DeclR` certificate pack.  The obligation
 `checkDivModPin`'s relation transpose leaves behind. -/
 def DivModPinS (V : Type w) [SetTheory V] : Prop :=
-  ∀ {μ : CheckMode} {F : Nat} {env : Env} (m : EnvS V env)
+  ∀ {F : Nat} {env : Env} (m : EnvS V env)
     {cv : ConstantVal} {type' value value' : Expr}
     {hint : ReducibilityHint},
-    -- task #161: the β gate is off (the R lane's `Red.beta` needs the
-    -- argument certificate and has no annotation to read it off)
-    μ.betaGate = false →
     cv.name ∈ natDivModNames →
     env.find? cv.name = none →
-    ConstantValR μ F env m.cval cv type' →
-    ValueFrontR μ F env m.cval cv value type' value' →
-    DivModPinR μ F env
+    ConstantValR modeR F env m.cval cv type' →
+    ValueFrontR modeR F env m.cval cv value type' value' →
+    DivModPinR modeR F env
       ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
         env.consts⟩ m.cval cv.name value' →
     natOpGuard ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::

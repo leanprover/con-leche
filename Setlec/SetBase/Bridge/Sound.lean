@@ -65,19 +65,19 @@ which is what `checkDeclR_ofEnvRE` below cashes.
 `checkDeclR_sound` (`SetR/Bridge/Sound.lean`) is this theorem's `EnvS`
 instance — statement byte-unchanged, one source of truth. -/
 theorem checkDeclR_ofEnvR
-    {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat}
+    {F : Nat}
     {env env₂ : Env} (mR : EnvR env)
     {d : Declaration}
     (hind : ∀ {block : List ConstantInfo} {envI : Env},
-      checkIndDecl (m := CheckM) μ (fueledOps μ F) env block = .ok envI →
-      DeclIndR μ F env mR.cval block envI)
-    (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
-    DeclR μ F mR.cval env d env₂ :=
+      checkIndDecl (m := CheckM) modeR (fueledOps modeR F) env block = .ok envI →
+      DeclIndR modeR F env mR.cval block envI)
+    (h : checkDecl modeR (fueledOps modeR F) env d = .ok env₂) :
+    DeclR modeR F mR.cval env d env₂ :=
   checkDeclR_of
-    (fun hh => declDefnR mR hg hh)
-    (fun hh => declThmR mR hg hh)
-    (fun hh => declOpaqueR mR hg hh)
-    (fun hh => declAxiomR mR hg hh)
+    (fun hh => declDefnR mR hh)
+    (fun hh => declThmR mR hh)
+    (fun hh => declOpaqueR mR hh)
+    (fun hh => declAxiomR mR hh)
     (fun hh => declBasisR hh)
     -- the direct-structure path is compile-time disabled
     -- (`directStructsEnabled = false`), so `checkDecl`'s `indDecl`
@@ -102,12 +102,12 @@ truth.
 through `EnvS2PM.toEnvR`), and its residence here rather than under
 `Setlec/SetR/` is what takes the layering whitelist to zero. -/
 theorem checkDeclR_ofEnvRE
-    {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat}
+    {F : Nat}
     {env env₂ : Env} (mR : EnvR env) (hE : EtaFamiliesClosed env)
     {d : Declaration}
-    (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
-    DeclR μ F mR.cval env d env₂ :=
-  checkDeclR_ofEnvR (hg := hg) mR (fun hh => declIndRR (hg := hg) mR hE hh) h
+    (h : checkDecl modeR (fueledOps modeR F) env d = .ok env₂) :
+    DeclR modeR F mR.cval env d env₂ :=
+  checkDeclR_ofEnvR mR (fun hh => declIndRR mR hE hh) h
 
 /-- **The RUN bridge, whole, from an `EnvR`** (task #161 S11a): the
 run/guard record, from the checker, with **no derivation on the path

@@ -52,7 +52,7 @@ theorem checkDecls_sound_R
     {ds : List Declaration} {env' : Env}
     (h : checkDecls modeR (fueledOps modeR F) ds = .ok env') :
     Nonempty (EnvS V env') :=
-  (foldlM_R (hg := rfl)
+  (foldlM_R
     ds Env.empty ⟨⟨EnvS.empty V⟩, EtaFamiliesClosed.empty⟩ h).1
 
 /-- **No proof of `Empty` is ever accepted**, on the `SetR` route. -/
@@ -67,7 +67,7 @@ theorem no_proof_of_Empty_R (V : Type w) [SetTheory V]
 
 /-- The cached-executable fold.  `checkDecl_bridge` supplies, per
 declaration, a fuel at which the pure checker reproduces the cached
-run; everything after that is `foldlM_R (hg := rfl)`'s step. -/
+run; everything after that is `foldlM_R`'s step. -/
 theorem foldlM_RC :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       EnvSOk V env →
@@ -86,8 +86,8 @@ theorem foldlM_RC :
       obtain ⟨⟨m⟩, hE⟩ := hm
       obtain ⟨F, hF⟩ := checkDecl_bridge m.wf hd
       exact foldlM_RC ds env1
-        (declStepS (hg := rfl) divModPinS reducePinS stdAxiomKeyS declBasisS
-          (declIndS memberKeyS) m hE (checkDeclR_sound (hg := rfl) m hE hF)) h
+        (declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
+          (declIndS memberKeyS) m hE (checkDeclR_sound m hE hF)) h
 /-- **The acceptance theorem for the cached executable checker.** -/
 theorem checkDeclsC_sound_R
     {ds : List Declaration} {env' : Env}
@@ -126,8 +126,8 @@ theorem foldlM_RS :
       rw [hfe] at hd
       obtain ⟨hfe1, F, hF⟩ := checkDeclSharedF_bridge m.wf hd
       exact foldlM_RS ds fe1 hfe1
-        (declStepS (hg := rfl) divModPinS reducePinS stdAxiomKeyS declBasisS
-          (declIndS memberKeyS) m hE (checkDeclR_sound (hg := rfl) m hE hF)) h
+        (declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
+          (declIndS memberKeyS) m hE (checkDeclR_sound m hE hF)) h
 /-- **The acceptance theorem for the shared-state executable.** -/
 theorem checkDeclsS_sound_R
     {ds : List Declaration} {env' : Env}
@@ -184,8 +184,8 @@ theorem foldSP_R
     obtain ⟨hres₁, hext₁, hfe₁, F, hF⟩ :=
       checkDeclSPStep_run m.wf hres hd hstep
     exact foldSP_R hwfst pds fe₁ hfe₁
-      (declStepS (hg := rfl) divModPinS reducePinS stdAxiomKeyS declBasisS
-        (declIndS memberKeyS) m hE (checkDeclR_sound (hg := rfl) m hE hF)) hres₁
+      (declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
+        (declIndS memberKeyS) m hE (checkDeclR_sound m hE hF)) hres₁
       (hext0.trans hext₁) h
 
 /-- **The acceptance theorem for the parsed-index executable.** -/
@@ -236,9 +236,9 @@ theorem checkDecl_sound_R
     (hE : EtaFamiliesClosed env)
     (h : checkDecl modeR (fueledOps modeR F) env d = .ok env₂) :
     EnvSOk V env₂ :=
-  declStepS (hg := rfl) divModPinS reducePinS stdAxiomKeyS declBasisS
+  declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
     (declIndS memberKeyS) m hE
-    (checkDeclR_sound (hg := rfl) m hE h)
+    (checkDeclR_sound m hE h)
 
 /-- A declared `Empty`-typed `def`/`theorem` cannot survive the fold:
 the stored constant would carry the annotated type, which annotation

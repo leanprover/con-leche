@@ -83,8 +83,8 @@ theorem foldSPC_R :
     rw [hfe] at hstep
     obtain ⟨hres₁, hfe₁, F, hF⟩ := checkDeclSPStepC_run m.wf hres hd hstep
     exact foldSPC_R ds fe₁ hfe₁
-      (declStepS (hg := rfl) divModPinS reducePinS stdAxiomKeyS declBasisS
-        (declIndS memberKeyS) m hE (checkDeclR_sound (hg := rfl) m hE hF)) hres₁
+      (declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
+        (declIndS memberKeyS) m hE (checkDeclR_sound m hE hF)) hres₁
       (fun p hp => hrel p (List.mem_cons_of_mem _ hp)) h
 
 /-- **The driver, dissected.**  A successful `checkDeclsSPCached` run
@@ -372,8 +372,8 @@ theorem no_proof_of_Empty_input_SPC_R (V : Type w) [SetTheory V]
           · exact absurd (.inr heq.symm) hdis
           · exact .inr hmem
       exact ih fe₁ hfe₁
-        (declStepS (hg := rfl) divModPinS reducePinS stdAxiomKeyS declBasisS
-          (declIndS memberKeyS) m hE (checkDeclR_sound (hg := rfl) m hE hF))
+        (declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
+          (declIndS memberKeyS) m hE (checkDeclR_sound m hE hF))
         hres₁ h hd'
 
 /-- **No accepted stream declares a proof of `Empty`** — cached

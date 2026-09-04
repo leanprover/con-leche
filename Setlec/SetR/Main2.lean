@@ -214,7 +214,7 @@ theorem declStep2_defn (hdm : DivModPinS V) {F : Nat}
     Nonempty (EnvS2U V
       ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
         env.consts⟩) := by
-  obtain ⟨hbase, hag⟩ := declDefnS (hg := rfl) hdm m.base h
+  obtain ⟨hbase, hag⟩ := declDefnS hdm m.base h
   exact declStep2_of_valueResidues m
     (Option.isNone_iff_eq_none.mp hcvR.1) hvf hrun hbase hag
     (leafEq_defn hbase)
@@ -428,7 +428,7 @@ theorem declStep2M_defn (hdm : DivModPinS V) {F : Nat}
     Nonempty (EnvS2UM V modeR
       ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
         env.consts⟩) := by
-  obtain ⟨hbase, hag⟩ := declDefnS (hg := rfl) hdm m.base h
+  obtain ⟨hbase, hag⟩ := declDefnS hdm m.base h
   exact declStep2M_of_valueResidues m
     (Option.isNone_iff_eq_none.mp hcvR.1) hvf hrun hbase hag
     (leafEq_defn hbase)
@@ -470,10 +470,10 @@ theorem checkDecl_sound_R2 (hstep : DeclStep2All V modeR)
     (hE : EtaFamiliesClosed env)
     (h : checkDecl modeR (fueledOps modeR F) env d = .ok env₂) :
     EnvS2UOk V env₂ :=
-  ⟨hstep m hE (checkDeclR_sound (hg := rfl) m.base hE h),
-    (declStepS (hg := rfl) divModPinS reducePinS stdAxiomKeyS declBasisS
+  ⟨hstep m hE (checkDeclR_sound m.base hE h),
+    (declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
       (declIndS memberKeyS) m.base hE
-      (checkDeclR_sound (hg := rfl) m.base hE h)).2⟩
+      (checkDeclR_sound m.base hE h)).2⟩
 
 /-- The pure checker's fold, over `EnvS2U`. -/
 theorem foldlM_R2 {F : Nat}
@@ -1034,10 +1034,10 @@ theorem checkDecl_sound_R2M (hstep : DeclStep2AllM V modeR)
     (hE : EtaFamiliesClosed env)
     (h : checkDecl modeR (fueledOps modeR F) env d = .ok env₂) :
     EnvS2UOkM V modeR env₂ :=
-  ⟨hstep m hE (checkDeclR_sound (hg := rfl) m.base hE h),
-    (declStepS (hg := rfl) divModPinS reducePinS stdAxiomKeyS declBasisS
+  ⟨hstep m hE (checkDeclR_sound m.base hE h),
+    (declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
       (declIndS memberKeyS) m.base hE
-      (checkDeclR_sound (hg := rfl) m.base hE h)).2⟩
+      (checkDeclR_sound m.base hE h)).2⟩
 
 /-- The pure checker's fold, over `EnvS2UM`. -/
 theorem foldlM_R2M {F : Nat}
