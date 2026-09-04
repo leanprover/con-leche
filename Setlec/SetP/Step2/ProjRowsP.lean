@@ -1,5 +1,6 @@
 import Setlec.SetP.Step2.CapsRowsP
 import Setlec.SetP.Step2.ProjPinsP
+import Setlec.SetP.Step2.InferIOP
 
 /-!
 # The two semantic projection rows (task #161, PROJ/STR install tier)
@@ -460,6 +461,138 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
       rw [interp2_proj, if_neg (by omega), interp2_app, interp2_proj,
         if_pos rfl]
       exact ssnd_mem2 V hA hB hsig
+
+/-! ## `InferProjStepIOP` (task #172 B4 — the B1b-assigned owed row)
+
+`inferProjStepP_of_claims` transposed to the io lane: the scrutinee's
+run is the io lane's (the clause infers it at the io grade) and the
+subject's `AnnotOkP` moves to the premises, where its `AnnotOk2` proj
+slot replaces the full lane's establishment of the scrutinee.  The
+structure-type walk — whnf, the entry's pins, the spine, the pair-space
+inversion — is the full row's, verbatim: those lanes are shared, which
+is the io knot's leaf-lane asymmetry seen from the proj clause. -/
+
+theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
+    (ihw : WhnfClaims2P μ m φ fuel) (ihio : InferClaimsIO2P μ m φ fuel)
+    (hreads : InferReadsIOP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
+    InferProjStepIOP m μ φ fuel := by
+  intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta hok
+  obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
+    hlenUs, A, B, hAB, hcase⟩ := Setlec.inferTypeCoreIO_proj_inv h
+  -- the subject's frames
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded] at hb
+  have hLpe : Expr.LeavesBounded pe := fun l hl =>
+    hLb l (by simpa [Expr.fvarLeaves] using hl)
+  have hCpe : CtxOkP m φ d Δa pe :=
+    hC.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)
+  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv hea
+  -- the scrutinee's AnnotOkP, off the subject's own proj slot (premise
+  -- form: the full lane established it; the io lane reads it)
+  have hokPe : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ vp := fun ρ hρ =>
+    ⟨AnnotOk2.hoist_proj (V := V) (fun σ hσ => (hok σ hσ).1) ρ hρ,
+      (AnnotValidV_proj V ρ i vp) ▸ (hok ρ hρ).2⟩
+  -- its io-inferred type: reading, then grading + membership
+  obtain ⟨tpea, htpea⟩ :=
+    hreads htpe hws hb hLpe (LeafReadsP.of_ctxOkP hCpe) hvp
+  obtain ⟨hokTpe, hmemPe⟩ := ihio htpe hws hb hLpe hCpe hvp htpea hokPe
+  have hwtpe : Expr.WScoped d tpe :=
+    Setlec.inferTypeCoreIO_WScoped m.wf fuel htpe hws
+  have hbtpe : tpe.looseBVarsBounded 0 = true :=
+    Setlec.inferTypeCoreIO_looseBVars m.wf fuel htpe hws hb hLpe
+  have hLtpe : Expr.LeavesBounded tpe := fun l hl =>
+    hLpe l (Setlec.inferTypeCoreIO_fvarLeaves m.wf fuel htpe hws l hl)
+  have hCtpe : CtxOkP m φ d Δa tpe :=
+    hCpe.of_subset
+      (Setlec.inferTypeCoreIO_fvarLeaves m.wf fuel htpe hws)
+  -- reduced to the family instance
+  obtain ⟨tea, htea⟩ := hwreads hwte hwtpe hbtpe hLtpe htpea
+  obtain ⟨hokTe, heqTe⟩ :=
+    ihw hwte hwtpe hbtpe hLtpe hCtpe htpea htea hokTpe
+  have hbte : te.looseBVarsBounded 0 = true :=
+    Setlec.whnf_looseBVars m.wf fuel hwte hbtpe
+  -- the entry's pins, and the returned type
+  obtain ⟨rfl, -, -, -, -, -, hlU, -, hpsig, -⟩ :=
+    projPinsP m.proj_ok hfe hnat
+  -- the reduced type's spine
+  rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
+    (Setlec.Expr.mkAppN_getApp te).symm, hfn] at htea
+  obtain ⟨vT, vs, hvT, hspt, hteq⟩ := denoteP_mkAppN_inv htea
+  rw [denoteP_const hpsig (by rw [hlenUs, hlU]; rfl)] at hvT
+  obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
+      Level.substFn φ Setlec.psigmaA.toConstantVal.levelParams us = ψ :=
+    ⟨_, rfl⟩
+  rw [hψ] at hvT
+  obtain rfl : vT = m.acval Setlec.psigmaName ψ := (Option.some.inj hvT).symm
+  rw [hAB] at hspt
+  cases hspt with | @cons _ Aa _ vs' hAa hsp1 => ?_
+  cases hsp1 with | @cons _ Ba _ _ hBa hsp2 => ?_
+  cases hsp2
+  subst hteq
+  -- the pinned leaf, and the pair-space inversion
+  have hleafI : m.acval Setlec.psigmaName ψ
+      = .const .psigma [ψ uN, ψ vN] := acval_psigma_leaf hpsig ψ
+  have hpack : ∀ σ : Nat → V, Sat2 V Δa σ →
+      interp2 V σ Aa ∈ˢ (univ (ψ uN) : V) ∧
+      interp2 V σ Ba ∈ˢ psigmaFibreSpace V (ψ vN) (interp2 V σ Aa) ∧
+      interp2 V σ vp ∈ˢ sigmaSet (Nat.max (ψ uN) (ψ vN))
+        (interp2 V σ Aa) fun y => SetTheory.app (interp2 V σ Ba) y := by
+    intro σ hσ
+    refine mem_psigmaV2_app V ?_
+    have hm := (heqTe σ hσ) ▸ hmemPe σ hσ
+    rw [show AVExpr.mkAppN (m.acval Setlec.psigmaName ψ) [Aa, Ba]
+        = AVExpr.app (.app (m.acval Setlec.psigmaName ψ) Aa) Ba from rfl,
+      interp2_app, interp2_app, hleafI, interp2_const] at hm
+    exact hm
+  -- the two parameters' gradings
+  obtain ⟨-, hoT⟩ := hoistP_spine [Aa, Ba] hokTe
+  have hokAa : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ Aa :=
+    hoT Aa (by simp)
+  have hokBa : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ Ba :=
+    hoT Ba (by simp)
+  -- the subject's own grading (`AnnotOk2_proj` is the pack, verbatim)
+  have hokProj : ∀ j : Nat, j < 2 → ∀ σ : Nat → V, Sat2 V Δa σ →
+      AnnotOkP V σ ((.proj j vp) : AVExpr) := by
+    intro j hj σ hσ
+    obtain ⟨hA, hB, hsig⟩ := hpack σ hσ
+    refine ⟨?_, ?_⟩
+    · rw [AnnotOk2_proj]
+      exact ⟨(hokPe σ hσ).1, hj, _, _, _, _, hsig, hA,
+        fun x hx => psigmaFibre_apply V hB hx⟩
+    · rw [AnnotValidV_proj]; exact (hokPe σ hσ).2
+  have hokSubj : ∀ σ : Nat → V, Sat2 V Δa σ →
+      AnnotOkP V σ ((.proj i vp) : AVExpr) := hokProj i hi2
+  rcases hcase with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+  · -- the first component
+    obtain rfl : ta = Aa := Option.some.inj (hta.symm.trans hAa)
+    refine ⟨hokAa, fun σ hσ => ?_⟩
+    obtain ⟨hA, -, hsig⟩ := hpack σ hσ
+    rw [interp2_proj, if_pos rfl]
+    exact sfst_mem2 V hA hsig
+  · -- the second component: the fibre at the first projection
+    have hcompute : denoteP m.acval env φ d
+        (Expr.app B (.proj Setlec.psigmaName 0 pe))
+        = some ((.app Ba (.proj 0 vp)) : AVExpr) := by
+      rw [denoteP_app, hBa, denoteP_proj, hvp]
+      rfl
+    obtain rfl : ta = .app Ba (.proj 0 vp) :=
+      Option.some.inj (hta.symm.trans hcompute)
+    refine ⟨fun σ hσ => ?_, fun σ hσ => ?_⟩
+    · obtain ⟨hA, hB, hsig⟩ := hpack σ hσ
+      refine ⟨?_, ?_⟩
+      · rw [AnnotOk2_app]
+        refine ⟨(hokBa σ hσ).1, (hokProj 0 (by omega) σ hσ).1, (ψ vN) + 1,
+          interp2 V σ Aa, (fun _ => (univ (ψ vN) : V)), hB, ?_,
+          fun h0 => absurd h0 (Nat.succ_ne_zero _)⟩
+        rw [interp2_proj, if_pos rfl]
+        exact sfst_mem2 V hA hsig
+      · rw [AnnotValidV_app]
+        exact ⟨(hokBa σ hσ).2, (hokProj 0 (by omega) σ hσ).2⟩
+    · obtain ⟨hA, hB, hsig⟩ := hpack σ hσ
+      rw [interp2_proj, if_neg (by omega), interp2_app, interp2_proj,
+        if_pos rfl]
+      exact ssnd_mem2 V hA hB hsig
+
 
 /-! ## `ProjStepP` -/
 

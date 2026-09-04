@@ -1,4 +1,5 @@
 import Setlec.SetP.Step2.ReadsP
+import Setlec.SetP.Step2.ReadsIOP
 import Setlec.SetP.Step2.CapsRowsP
 import Setlec.SetP.Step2.StrLitP
 import Setlec.SetP.Step2.ProjRowsP
@@ -170,6 +171,79 @@ theorem checkSoundAtP (hμ : μ.verified = true)
       | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
         exact inferProjStepP_of_claims ihw ihi hreads hwreads hrun hws hb
           hLb hC hea hta
+
+/-! ## The io claim at every fuel (task #172 B4)
+
+The io lane is a *leaf* in the claim dependency order — its step
+consumes the four sealed claims plus itself one fuel down, and nothing
+in the sealed four consumes it — so it closes by its own induction on
+top of `checkSoundAtP`, with the `.proj` arm's row
+(`inferProjStepIOP_of_claims`, the B1b-assigned owed row) and the io
+reads walk (`inferReadsIOP_of`, B3) discharged from the same
+`TierInputsAtP`.  This is the install-tier discharge the io-license
+handoff called "the full lane's `InferInputsP`": at the At
+architecture the bundle dissolves into this inline dispatch, exactly
+as the full quarter's did. -/
+
+/-- **The io soundness claim at one environment, every fuel.** -/
+theorem checkSoundAtIOP (hμ : μ.verified = true)
+    {m : EnvS2Core V env} (h : TierInputsAtP V μ m φ) :
+    ∀ fuel : Nat, InferClaimsIO2P μ m φ fuel := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro d e t Δa hrun
+    rw [Setlec.inferTypeCoreIO_zero] at hrun
+    simp [throw, throwThe, MonadExceptOf.throw] at hrun
+  | succ fuel ihio =>
+    obtain ⟨ihwc, ihw, ihd, ihi⟩ := checkSoundAtP hμ h fuel
+    have hreads_io : InferReadsIOP m μ φ fuel :=
+      inferReadsIOP_of h.reads fuel
+    have hwreads : WhnfReadsP m μ φ fuel := whnfReadsP_of h.reads
+    have hss : SortSemAtIOP m μ φ fuel :=
+      sortSemAtIOP_of_claims ihw ihio hreads_io
+    intro d e t Δa hrun hws hb hLb ea ta hC hea hta hok
+    match e, hrun, hws, hb, hLb, hC, hea, hok with
+    | .sort u, hrun, _, _, _, _, hea, _ =>
+      exact infer_sort_claimIOP m hrun hea hta
+    | .bvar i, hrun, _, _, _, _, hea, _ =>
+      exact infer_bvar_claimIOP m hrun hea hta
+    | .fvar idx nm ty, hrun, _, _, _, hC, hea, _ =>
+      exact infer_fvar_claimIOP m hC hrun hea hta
+    | .const nm us, hrun, _, _, _, _, hea, _ =>
+      exact infer_const_claimIOP m (h.reads.const_ty) hrun hea hta
+    | .lit (.natVal k), hrun, _, _, _, _, hea, _ =>
+      exact infer_natLit_claimIOP m h.nat_heads h.acval_valid hrun hea hta
+    | .lit (.strVal s), hrun, _, _, _, _, hea, _ =>
+      exact infer_strLit_claimIOP m
+        (inferStrLitStepP_of_claims h.reads.const_ty h.acval_valid
+          h.nat_heads) hrun hea hta
+    | .forallE nm ty body mb, hrun, hws, hb, hLb, hC, hea, hok =>
+      exact infer_forallE_claimIOP m hμ hss hrun hws hb hLb hC hea hta hok
+    | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea, hok =>
+      exact infer_lam_claimIOP m hμ hss ihio hrun hws hb hLb hC hea hta
+        hok
+    | .app fe ae, hrun, hws, hb, hLb, hC, hea, hok =>
+      exact infer_app_claimIOP m hreads_io hwreads ihw ihd ihio hrun
+        hws hb hLb hC hea hta hok
+    | .letE nm ty val bd, hrun, hws, hb, hLb, hC, hea, hok =>
+      exact infer_letE_claimIOP m ihio hrun hws hb hLb hC hea hta hok
+    | .proj sn i pe, hrun, hws, hb, hLb, hC, hea, hok =>
+      exact inferProjStepIOP_of_claims ihw ihio hreads_io hwreads hrun
+        hws hb hLb hC hea hta hok
+
+/-- **The five-way P soundness ladder at one environment** — the four
+sealed claims plus the io claim, at every fuel, from one
+`TierInputsAtP`.  What the P core's converted call sites consume. -/
+theorem checkSoundAtP5 (hμ : μ.verified = true)
+    {m : EnvS2Core V env} (h : TierInputsAtP V μ m φ) :
+    ∀ fuel : Nat,
+      WhnfCoreClaims2P μ m φ fuel ∧ WhnfClaims2P μ m φ fuel ∧
+        DefEqClaims2P μ m φ fuel ∧ InferClaims2P μ m φ fuel ∧
+          InferClaimsIO2P μ m φ fuel := fun fuel =>
+  ⟨(checkSoundAtP hμ h fuel).1, (checkSoundAtP hμ h fuel).2.1,
+    (checkSoundAtP hμ h fuel).2.2.1, (checkSoundAtP hμ h fuel).2.2.2,
+    checkSoundAtIOP hμ h fuel⟩
 
 /-- **The env-tier entries, from the fold's invariant**: an `EnvS2PM`
 supplies the readability bundle, the leaf validity, and the numeral
