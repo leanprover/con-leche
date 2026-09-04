@@ -29,6 +29,7 @@ namespace Setlec.Cached
 open Setlec.Cached.ExprC
 
 variable {mode : CheckMode}
+variable {cfg : CoreCfg}
 
 section Walks
 
@@ -36,7 +37,7 @@ variable {env : Env} {f : Nat}
 
 private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
     (kM : Expr → FueledM Expr) (e : Expr) :
-    whnfCoreStepM mode (fueledFns mode env) env d kM e =
+    whnfCoreStepM cfg (fueledFns mode env) env d kM e =
     (match e with
     | .sort u => pure (.sort u)
     | .fvar idx n ty => pure (.fvar idx n ty)
@@ -46,7 +47,7 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
     | .lit l => pure (.lit l)
     | .app g' a =>
       (fueledFns mode env).whnfCore d (Expr.app g' a).getAppFn >>= fun v =>
-        whnfApp mode (fueledFns mode env) env d kM v (Expr.app g' a).getAppArgs
+        whnfApp cfg (fueledFns mode env) env d kM v (Expr.app g' a).getAppArgs
     | .proj sn i pe =>
       (fueledFns mode env).whnf d pe >>= fun e' =>
       projLitToCtor (fueledFns mode env) env d e' >>= fun e' =>
@@ -78,11 +79,11 @@ private theorem whnfCoreC_iota_tail (ih : SSimC mode env f) (henv : EnvWF env)
     (hwf' : Expr.WScoped d f'x) (hwa : Expr.WScoped d xa) :
     SimC mode env s₀ (RelEC d)
       (internI (.app f' a) >>= fun fa =>
-        iotaRecI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
+        iotaRecI cfg.iotaMode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
         match o with
         | some e'' => (coreKnotI mode (mkFEnv env) f).whnfCore d e''
         | none => pure fa)
-      (iotaRec mode (fueledFns mode env) env d (.app f'x xa) >>= fun o =>
+      (iotaRec cfg.iotaMode (fueledFns mode env) env d (.app f'x xa) >>= fun o =>
         match o with
         | some e'' => (fueledFns mode env).whnfCore d e''
         | none => pure (.app f'x xa)) := by
@@ -125,8 +126,8 @@ theorem whnfAppC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
       RelC v vx → Expr.WScoped d vx →
       RelCL args xs → (∀ x ∈ xs, Expr.WScoped d x) →
       SimC mode env s₀ (RelEC d)
-        (whnfAppI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI v args)
-        (whnfApp mode (fueledFns mode env) env d kM vx xs)
+        (whnfAppI cfg (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI v args)
+        (whnfApp cfg (fueledFns mode env) env d kM vx xs)
   | [], xs, v, vx, s₀, hs, hv, hwv, hargs, hwargs => by
     obtain rfl := hargs.nil_inv
     rw [whnfAppI.eq_def]
@@ -161,11 +162,11 @@ theorem whnfAppC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
       unfold whnfAppLam
       -- task #161: the β gate reads the *same* `mb` on both sides
       -- (`eraseC` copies the binder meta), so one `by_cases`
-      by_cases hgate : betaGateFires mode mb.pw = true
+      by_cases hgate : cfg.betaSkip mb.pw = true
       · simp only [hgate, ↓reduceIte]
         exact betaPeelC_sim ih henv hk hs ⟨hwbody, rfl⟩
           (RelCL.cons hax RelCL.nil) hwsub hrest hwrest
-      have hgf : betaGateFires mode mb.pw = false := by
+      have hgf : cfg.betaSkip mb.pw = false := by
         simpa only [Bool.not_eq_true] using hgate
       simp only [hgf, Bool.false_eq_true, ↓reduceIte]
       refine SimC.bind (ih.infer hs hax hwxa)
@@ -270,14 +271,14 @@ theorem whnfAppIotaC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
     (hrest : RelCL rest xs) (hwrest : ∀ x ∈ xs, Expr.WScoped d x) :
     SimC mode env s₀ (RelEC d)
       (internI (.app v a) >>= fun fa =>
-        iotaRecI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
+        iotaRecI cfg.iotaMode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
         match o with
         | some e'' =>
           kI e'' >>= fun v' =>
-            whnfAppI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI v' rest
+            whnfAppI cfg (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI v' rest
         | none =>
-          whnfAppI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI fa rest)
-      (whnfAppIota mode (fueledFns mode env) env d kM vx xa xs) := by
+          whnfAppI cfg (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI fa rest)
+      (whnfAppIota cfg (fueledFns mode env) env d kM vx xa xs) := by
     unfold whnfAppIota
     have hwapp : Expr.WScoped d (.app vx xa) := by
       simp only [Expr.WScoped]
@@ -322,8 +323,8 @@ theorem betaPeelC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
       Expr.WScoped d (tx.instantiateList ws) →
       RelCL args xs → (∀ x ∈ xs, Expr.WScoped d x) →
       SimC mode env s₀ (RelEC d)
-        (betaPeelI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI t acc args)
-        (betaPeel mode (fueledFns mode env) env d kM tx ws xs)
+        (betaPeelI cfg (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI t acc args)
+        (betaPeel cfg (fueledFns mode env) env d kM tx ws xs)
   | [], xs, t, tx, acc, ws, s₀, hs, ht, hacc, hwty, hargs, hwargs => by
     obtain rfl := hargs.nil_inv
     rw [betaPeelI.eq_def]
@@ -361,11 +362,11 @@ theorem betaPeelC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
         rw [Expr.instantiateList_cons]
         exact Expr.WScoped.instantiate1_gen hwxa 0 hcomp.2
       -- task #161: the β gate, same datum on both sides
-      by_cases hgate : betaGateFires mode mb.pw = true
+      by_cases hgate : cfg.betaSkip mb.pw = true
       · simp only [hgate, ↓reduceIte]
         exact betaPeelC_sim ih henv hk hs ⟨hwbody, rfl⟩
           (RelCL.cons hax hacc) hwsub hrest hwrest
-      have hgf : betaGateFires mode mb.pw = false := by
+      have hgf : cfg.betaSkip mb.pw = false := by
         simpa only [Bool.not_eq_true] using hgate
       simp only [hgf, Bool.false_eq_true, ↓reduceIte]
       refine SimC.bind_left (instListM_eff (d := 0) hs ⟨hwty', rfl⟩ hacc)
@@ -514,8 +515,8 @@ theorem whnfCoreStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (whnfCoreStepI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i)
-      (whnfCoreStepM mode (fueledFns mode env) env d kM ex) := by
+      (whnfCoreStepI cfg (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i)
+      (whnfCoreStepM cfg (fueledFns mode env) env d kM ex) := by
   unfold whnfCoreStepI
   rw [whnfCoreStepM_unfold]
   refine SimC.view ?_
@@ -682,8 +683,8 @@ theorem whnfCoreLoopC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     ∀ (n : Nat) {i : ExprC} {ex : Expr} {s₀ : CState}, CSOK mode env s₀ →
       RelC i ex → Expr.WScoped d ex →
       SimC mode env s₀ (RelEC d)
-        (whnfCoreLoopI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i)
-        (whnfCoreLoopM mode (fueledFns mode env) env d n ex)
+        (whnfCoreLoopI cfg (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i)
+        (whnfCoreLoopM cfg (fueledFns mode env) env d n ex)
   | 0, _, _, _, _, _, _ => SimC.throw
   | n + 1, _, _, _, hs, hden, hw => by
     simp only [whnfCoreLoopI, whnfCoreLoopM]
@@ -697,11 +698,47 @@ theorem whnfCoreBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfCoreBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
       (whnfCoreBody mode (fueledFns mode env) env d ex) := by
   unfold whnfCoreBodyI
   exact SimC.wr (whnfCoreLoopC_sim ih henv whnfCoreLoopFuel hs hden hw)
     (fun v F hF => whnfCoreLoop_sound_body d ex v whnfCoreLoopFuel F hF)
+
+/-! ## The two named concrete cores' simulations (task #172, batch B2)
+
+**THE MEASUREMENT the batch was dispatched for.**  The walks above are
+generic in `cfg`, so one proof serves every instantiation; the
+capstone is pinned at `cfgOf mode`, and `cfgOf .setModel` **is** `cfgR`
+by `rfl` (`cfgOf_setModel`).  The two per-core letters are therefore
+`exact` with no conversion step and no restated lemma:
+
+* the towers **INSTANTIATE**.  Per concrete core the whnfCore family
+  costs **one proof line** (a term application) and **zero** new
+  proof steps;
+* nothing here is a second copy of anything: `whnfCoreBodyRC` and
+  `whnfCoreBodyPC` are the *same body* at two configs, and this pair
+  of letters is what makes that visible to a reader who never opens
+  the template. -/
+
+/-- The R core's head normalization simulates the specification. -/
+theorem whnfCoreBodyRC_sim (ih : SSimC .setModel env f) (henv : EnvWF env)
+    {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState}
+    (hs : CSOK .setModel env s₀)
+    (hden : RelC i ex) (hw : Expr.WScoped d ex) :
+    SimC .setModel env s₀ (RelEC d)
+      (whnfCoreBodyRC (coreKnotI .setModel (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfCoreBody .setModel (fueledFns .setModel env) env d ex) :=
+  whnfCoreBodyC_sim ih henv hs hden hw
+
+/-- The P core's head normalization simulates the specification. -/
+theorem whnfCoreBodyPC_sim (ih : SSimC .setModelP env f) (henv : EnvWF env)
+    {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState}
+    (hs : CSOK .setModelP env s₀)
+    (hden : RelC i ex) (hw : Expr.WScoped d ex) :
+    SimC .setModelP env s₀ (RelEC d)
+      (whnfCoreBodyPC (coreKnotI .setModelP (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfCoreBody .setModelP (fueledFns .setModelP env) env d ex) :=
+  whnfCoreBodyC_sim ih henv hs hden hw
 
 end Walks
 

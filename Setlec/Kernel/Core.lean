@@ -1,3 +1,4 @@
+import Setlec.Kernel.CoreCfg
 import Setlec.Kernel.Env
 import Setlec.Kernel.Level
 import Setlec.Kernel.ExprOps

@@ -33495,3 +33495,351 @@ is landed, refuted with evidence, handed off, or honestly open.
 * Median-of-3 instructions:u remains the primary metric; verdicts and
   accepted counts are part of every row; suites at pinned counts are
   the identity bar.  The kit: `_tmp/perf-eng/{ab.sh,RESULTS.md}`.
+
+## TASK #172 — BATCH B2: THE TEMPLATE MECHANICS SLICE (2026-09-04,
+`agent/tricore-b2`; LANDS CODE — scoped to R↔P, and to ExprC after the
+mid-flight one-representation ruling)
+
+### 0. THE ANSWER, FIRST — THE 32k-LINE QUESTION IS **INSTANTIATE**
+
+The census's prediction 4 and its stop condition 3 (*"the two
+simulation towers do not instantiate … that is 32 000 lines entering
+the bill"*) are **settled by a landed sample, not by argument**:
+
+> **THE SIMULATION TOWER INSTANTIATES.**  One `cfg`-generic walk serves
+> every concrete core.  Per core the `whnfCore` family costs **one
+> proof line** — a bare term application, accepted with no conversion
+> step — and **zero new proof steps**.  The kernel-checked witnesses are
+> `whnfCoreBodyRC_sim` and `whnfCoreBodyPC_sim`
+> (`Verify/Cached/DiscC4.lean`).
+
+And the number that makes it a measurement rather than a claim: taking
+the whole cached `whnfCore` simulation family through the template cost
+**21 statement retargets and ZERO tactic restructurings**.  The walks'
+proof bodies are byte-unchanged.
+
+**Why, in one sentence, and it is the reusable form:** the β step was
+already a `by_cases` on the *gate predicate's value*, never a `cases` on
+the mode — so the proofs were already parametric and only their
+statements had to learn the new parameter.  Measured tree-wide, the
+mode is destructed in exactly **3 places** in the whole proof tier
+(`Verify/BetaGate.lean` ×2 — both theorems the census already retires —
+and `SetR/Interp2/IotaArity.lean` ×1).  That is the structural reason
+the towers instantiate, and it is checkable in one grep before any
+future batch prices a re-pointing.
+
+Stop condition 2 (*"the config's fields do not compute away by `rfl`"*)
+is also answered **NO**: every field of every config is `rfl` at every
+core (`Setlec/Kernel/CoreCfg.lean`, eight `@[simp]` collapse lemmas),
+and the two named cores are flag-free *definitionally* — probe
+`_tmp/tricore-b2/Probe.lean`, six green `rfl` examples.
+
+### 1. THE TEMPLATE AS BUILT
+
+`Setlec/Kernel/CoreCfg.lean` (157 lines, 63 of them code):
+
+```lean
+structure CoreCfg where
+  betaGate : Bool        -- read (via `betaSkip`) at whnfCore's β site
+  verified : Bool        -- carried for B3/B4's inferBody/defeqStep
+  iotaMode : CheckMode   -- TRANSITIONAL: the untemplated ι cone
+
+def cfgR : CoreCfg where betaGate := false; verified := true; iotaMode := .setModel
+def cfgP : CoreCfg where betaGate := true;  verified := true; iotaMode := .setModelP
+def cfgOf (mode : CheckMode) : CoreCfg where
+  betaGate := mode.betaGate; verified := mode.verified; iotaMode := mode
+@[inline] def CoreCfg.betaSkip (cfg : CoreCfg) (pw : PropWhen) : Bool :=
+  cfg.betaGate && pw.isNever
+```
+
+**The one design decision that made the slice cheap, and it should be
+copied by every later batch.**  `cfgOf`'s every field is written so
+that a projection of `cfgOf mode` is the **old accessor
+definitionally, for a *variable* `mode`** — `(cfgOf mode).betaSkip pw`
+*is* `betaGateFires mode pw` by `rfl`.  That is what let the template
+be introduced with **no landed statement disturbed**: the towers keep
+their mode binder, `cfgOf mode` occupies the config slot, and
+`cfgOf .setModel = cfgR` / `cfgOf .setModelP = cfgP` are `rfl`
+(`cfgOf_setModel`, `cfgOf_setModelP`), so the two named cores are the
+tower's own subject at the two concrete modes and nothing is restated.
+
+The templated family, and it is exactly the census's slice:
+
+| tier | templated definitions |
+|---|---|
+| shipped core (ExprC) `Cached/CoreC.lean` | `whnfAppI`, `betaPeelI`, `whnfCoreStepI`, `whnfCoreLoopI`, `whnfCoreBodyI` |
+| named concrete cores, same file | **`whnfCoreBodyRC := whnfCoreBodyI cfgR`**, **`whnfCoreBodyPC := whnfCoreBodyI cfgP`** |
+| pure mirror (proof-side) `Verify/BetaSpine.lean` | `appStep`, `whnfApp`, `betaPeel`, `whnfAppIota`, `whnfAppLam`, `betaPeelLam`, `whnfCoreStepM`, `whnfCoreLoopM` |
+| bridge `Verify/BetaGate.lean` | `cfgOf_betaSkip`/`_verified`/`_iotaMode` + the two per-core identities — five theorems, all `rfl` |
+
+**The config's shape was decided by measurement, not taste**, and the
+result is a rule worth carrying: *the template's fields must be scalar
+data, and the config must be built once per knot level, never per
+call.*  Instructions:u, median of 3, `init-prelude`, `--set-model`,
+against master `4a09e09b` at 30.8313 G:
+
+| config shape | init-prelude | Δ |
+|---|---|---|
+| `betaSkip : PropWhen → Bool` (a field of function type) | 30.9419 G | **+0.359 %** |
+| `betaGate : Bool`, `cfgOf mode` inside the knot's closure | 30.8791 G | **+0.155 %** |
+| `betaGate : Bool`, `cfgOf mode` hoisted per knot level | **30.8560 G** | **+0.080 %** |
+
+`app-lam` (β-heavy) is unmoved throughout — 302.656 G vs master's
+302.664 G, −0.003 %.  The landed residual is **+0.080 % on
+`init-prelude`, 0 % on `app-lam`**: the config is a heap record where
+the retiring flag was a scalar enum.  Two of the three shapes that
+would have shipped silently cost 2×–4.5× that.
+
+### 2. THE MEASURED COST SAMPLE — WHAT B3/B4 SHOULD BE PRICED FROM
+
+Whole slice: **+432 / −163 lines across 9 modules**, of which **181
+added lines are docstring**.  Net *code* added: ~+251, and 157 of the
+432 are the new config module itself.
+
+| module | +/− | what it is |
+|---|---|---|
+| `Kernel/CoreCfg.lean` | +157/−0 | new; 94 doc, 63 code |
+| `Verify/BetaSpine.lean` | +98/−95 | the mirror; **net +3** |
+| `Verify/Cached/DiscC4.lean` | +58/−21 | 21 retargets + the two per-core letters + their prose |
+| `Cached/CoreC.lean` | +51/−7 | 34 doc; the family's 6 reads and the two named cores |
+| `Verify/BetaGate.lean` | +31/−0 | the bridge |
+| `Verify/Fueled.lean` | +19/−14 | 7 ι-cone `_atF` generalizations |
+| `Verify/DiscI4.lean` | +15/−23 | **net −8** (the retiring interned tower) |
+| `Verify/Cached/KnotC.lean` | +3/−3 | 3 retargets |
+| `Kernel/Core.lean` | +1/−0 | one import |
+
+**The per-clause number B3–B6 should carry**: for one core function, on
+one representation, across the impl body + its pure mirror + its
+simulation family, the template conversion is **≈40 lines of genuine
+change and ~0 proof repair**.  The census priced B2 at "~1 batch"; the
+sample says the *mechanism* is much cheaper than that and the cost is
+dominated by (i) the config module, paid once, and (ii) the *reach* of
+each function's mention set, which is what B3/B4 must count.
+
+**Two mechanical findings that generalize:**
+
+1. **A generalization is free where a coupling was incidental.**  The
+   `_atF` cascade tied the ι cone's mode to the *knot's* mode.  Giving
+   the ι cone its own variable (`mi`) so `cfg.iotaMode` can occupy it
+   was **7 statement edits and 0 proof edits** — the proofs never used
+   the coupling.  Expect the same shape wherever a later batch has to
+   split one threaded parameter into two.
+2. **The idiom that survives the conversion is `simp only [hgate,
+   ↓reduceIte]`, not `rw [if_pos]; show …; rw [if_pos]`.**  DiscC4
+   already used the former and needed no proof edit; DiscI4 used the
+   latter at 4 sites and needed one, and converting it to DiscC4's
+   idiom made those proofs **8 lines shorter**.  A `show` that restates
+   one side's `if` in a specific syntactic form is a conversion hazard;
+   a `simp only` on the decided condition is not.
+
+### 3. THE CHARTER'S NAMED ROWS, DISPOSITIONED
+
+**E3 — the template over the knot pair.**  Confirmed at zero cost for
+R↔P: the R and P cores instantiate the pair **degenerately**, and B2
+shows what that means concretely — `coreKnotI` is one knot with one
+memo and the config enters it at a single site (`let cfg := cfgOf
+mode`).  Nothing in the pair shape has R↔P content.  E3's
+non-degenerate half is entirely B5/B6's, and it is untouched here.
+
+**Rider R1 — `iotaRecI`'s `pinArgsI` effect order.**  **Has no R↔P
+content, measured.**  `iotaRecI` is the *same function* at `cfgR` and
+at `cfgP`: its only mode read is `ttChecks`, in `structEtaCertWithI`,
+which the census proved uninhabited-true.  R1 is a parity-vs-certified
+row and becomes live only at B5/B6.  Recorded so the row is not
+re-opened against the wrong pair.
+
+**Rider R2 — the arena node count as binder-peel fuel.**  **RETIRED by
+the one-representation ruling.**  R2 was an *interned*-engine
+obligation (`withStore (·.nodes.size)`); the cached engines read
+`peelFuelM`, a constant, and B1 §4 already noted R2 "does not arise on
+the cached engines".  With the interned variants dropped there is no
+engine left that carries it.  One row off B3–B6's bill.
+**RATIFIED by the coordinator at B2's merge grant.**
+
+### 4. THE TRANSITIONAL RESIDUE, NAMED AND PRICED
+
+`CoreCfg.iotaMode` is the honest boundary of the slice, and it is a
+**named field rather than a silent leftover** — route C's own
+discipline (*the config record's fields are the divergence list*)
+applied to a transition.  The ι cone (`iotaRec` → `majorToCtor` →
+`structEtaCertWith`) still takes a `CheckMode`; its **one** read is
+`ttChecks`, and at each concrete core `cfgR.iotaMode` is a literal, so
+that read is **definitionally eliminated** — census rule clause (ii),
+kernel-checked (`cfgR_iotaMode_ttChecks`, `cfgP_iotaMode_ttChecks`).
+The cores are flag-free today; the field is what says where the work
+stops.
+
+**Why it was not done in B2, with the number.**  Templating the ι cone
+means changing three signatures whose mention sets are, in the *pure*
+tier, `iotaRec` **136**, `majorToCtor` **73**, `structEtaCertWith`
+**49** — **258 proof-tier mentions**, which is a B3/B4-sized row
+inside a mechanics slice.  On the **cached** tier the same three cost
+**5 + 2 + 3 = 10**.  That asymmetry is itself the finding: *the ExprC
+tier is an order of magnitude cheaper to re-parameterize than the pure
+tier*, which is a direct argument for the coordinator's
+one-representation ruling and for §6's disposition of the spec type.
+
+`iotaMode` retires with the `ttChecks` row (census part 8 §3(c)), and
+B2 confirms that row's placement: it is the same edit as the ι cone's
+de-parameterization, so **they are one batch, not two**.  **RATIFIED
+by the coordinator at B2's merge grant.**
+
+### 5. THE `@[computed_field]` EVALUATION (user design input, mid-flight)
+
+Ordered: *"use Lean's built-in `@[computed_field]` … exactly as
+`Lean.Expr` does, instead of ExprC's hand-rolled field arguments"*,
+with four expected consequences to verify.  **The feature FITS.  Every
+mechanical expectation is confirmed by execution** — probes
+`_tmp/tricore-b2/{CF,CF2,CF3}.lean`, `lake env lean`, all green — **and
+one consequence the input did not name must be ruled on before it
+lands.**
+
+**Confirmed, by execution:**
+
+| check | result |
+|---|---|
+| an `ExprC`-shaped inductive (10 constructors, `List Lvl` payload, three computed fields: `UInt64`, `Nat`, `Bool`, each recursing through sub-nodes' fields) elaborates | **YES** |
+| **the field functions reduce definitionally on constructors** — the enabling fact for the whole proof side | **YES**, `rfl`: `(EC.app f a).bvarB = max f.bvarB a.bvarB`, `(EC.bvar i).bvarB = i + 1`, the hash and the `hasLP` clauses likewise |
+| `simp [F]`, `rw [F]` and `F.eq_def` behave as for any recursive definition | **YES** — `E3.bb.eq_def` has exactly the match shape the tier already `simp`s with |
+| pattern matching is unaffected; the constructors have **no** field arguments logically | **YES** — `cases`/`match` see `.app f a` |
+| `deriving Inhabited, Repr, DecidableEq, BEq` alongside computed fields | **YES** (the `deriving` clause goes **after** the `with` block — `Lean/Parser/Command.lean:240`, `many ctor >> optional computedFields >> optDeriving`) |
+| the storage is real in compiled code — `O(1)`, not a re-traversal | **YES**: a `2^40`-nominal-node DAG's field read returns instantly (`CF2.lean`) |
+| no new axioms | **YES** — `#print axioms` on a field-using theorem returns the standard set only |
+| a compiler limitation biting | **NONE FOUND** |
+
+**So the input's four consequences hold, and the third one is the
+biggest:**
+
+1. `WFc` **disappears** rather than becomes true: there is no stored
+   field that could disagree with its recurrence, because logically
+   there is no stored field.  With it go the smart-constructor
+   discipline, the `WExprC`/`WDeclC` subtypes, and `eraseC`/`ofExpr`
+   with their injectivity lemma;
+2. **the spec type and the runtime type unify**, and this **dissolves
+   the open design question the previous redirect asked me to flag**
+   (spec-`Expr` as an erasure target vs. claims restated on `ExprC`).
+   There is nothing to erase and nothing to restate: `Setlec.Expr`
+   *gains a `with` block* and is the one type.  §4's 258-vs-10 asymmetry
+   is what makes this attractive rather than merely tidy — it removes
+   the expensive tier instead of re-pointing it;
+3. **`beqFast`'s trust argument gets strictly SMALLER, not
+   re-anchored.**  Today the hash short-circuit (`a.hash != b.hash →
+   false`) is faithful *given `WFc`* — the stored hash must be the right
+   hash.  Under computed fields `a.hash` **is** the hash function, so
+   that premise is definitional and the escape rests on the two runtime
+   facts it already names (pointer equality implies structural
+   equality; address-keyed memo entries stay valid).  The trust point
+   does not move and its statement shrinks;
+4. **#167 packing** becomes internal: the field's type is a `Data`-like
+   `UInt64` wrapper and no `match` sees it — this is exactly
+   `Lean.Expr`'s own arrangement.
+
+**THE ONE THING THAT MUST BE RULED ON, and it is not in the input's
+list.**  `Lean/Elab/ComputedFields.lean:33`, verbatim: *"This file
+implements the computed fields feature by simulating it via
+`implemented_by`."*  So the agreement between the **stored** field and
+the **logical** function is the code generator's, not a theorem — and
+`implemented_by` is invisible to `#print axioms`, hence invisible to
+this project's axiom discipline and to `tests/proofdeps.sh`.
+
+Stated as the trade, because it is a genuine one and it points both
+ways:
+
+* **what is lost**: today `WFc` is a *proved* invariant, so the runtime
+  field's correctness is a theorem of this repository.  Under computed
+  fields it becomes a property of the Lean compiler — a **third**
+  `implemented_by` escape, and one that is not written in setlec's
+  source, so the module docstring that today enumerates *"exactly two
+  `implemented_by` escapes the verified cached variant rests on"*
+  (`Cached/ExprC.lean:330`) would become wrong without an edit;
+* **what is gained**: the escape is `Lean.Expr`'s own, exercised by the
+  entire Lean toolchain on every proof this project already trusts;
+  and it *retires* a much larger hand-maintained surface (the smart
+  constructors, the subtypes, the conversion boundary) whose
+  correctness today depends on a discipline being followed at every
+  construction site — precisely the class of thing the drift ledger
+  says a clone-shaped discipline loses.
+
+> **STATUS: PENDING USER RULING.**  Adoption is otherwise
+> **RECOMMENDED AND VERIFIED** — every mechanical count in the table
+> above was checked by execution, not argued — but the batch does not
+> proceed on it, and neither does any batch after it.
+
+The ruling wanted is one sentence — *does a compiler-implemented field
+count as a trusted escape on the same footing as `beqFast`?* — and it
+belongs beside the two existing escapes in `Cached/ExprC.lean`'s
+docstring and in whatever the proofdeps gate says about escapes, since
+the gate cannot see it.  This is a **user** decision by the standing
+"no non-standard axioms / pinned trust points" discipline; it is
+recorded, not self-granted.  The coordinator's disposition at B2's
+merge grant: the finding goes to the user quoted, and **B3/B4 wait on
+the answer** — it decides whether the towers re-point once or twice,
+so the ExprC-field version is deliberately *not* built ahead of it.
+
+**Re-pricing this implies (delta only, honestly small because B2 did
+not spend on the retiring surface):**
+
+| row | before | after |
+|---|---|---|
+| the open spec-`Expr` question | carried, "cheap option default" | **DISSOLVED** — one type, no erasure target |
+| `WFc` / `WExprC` / `eraseC` / `ofExpr` / injectivity | maintained | **DELETE** — its own batch, sized by `Verify/Cached/Erase.lean` + the `WFc.mk*` closure + every construction site |
+| B2's own scope | unaffected | **unaffected** — the template's parameter is orthogonal to the term representation; `CoreCfg`, the two named cores and the instantiate answer stand verbatim on either type |
+| #167 | a representation batch | **zero-churn internal change** |
+
+Nothing in this batch was spent on interned or tree-`Expr` surfaces
+beyond keeping them compiling, so **there is nothing to discard**: both
+redirects arrived before the corresponding work.  The interned tower's
+only edits are the 7 mirror retargets and the 4 gate-idiom conversions
+(`Verify/DiscI4.lean`, **net −8 lines**), which were forced by the
+shared pure mirror and are deletions in waiting.
+
+### 6. RECEIPTS
+
+* full build green and **warning-free**, 553 jobs;
+* `tests/layering.sh`: base 270 / R 106 / P 118 / neutral 3; **0 P→R,
+  0 R→P**;
+* `tests/proofdeps.sh`: **120 rows as pinned**, doors 0;
+* arena tutorial **90/92**, e2e **73/73**, annot **14/14**, split
+  **11/11**, mode flags **9/9**, no-model sweep **as expected with its
+  3 recorded divergences** — verdict identity everywhere;
+* probes, `lake env lean`, all green: `_tmp/tricore-b2/Probe.lean`
+  (flag-freeness, 6 `rfl` examples), `CF.lean` / `CF2.lean` /
+  `CF3.lean` (the computed-field evaluation);
+* **no `sorry`, no new axiom, no statement left conditional.**
+
+### 7. WHAT B2 HANDS BACK
+
+1. **The instantiate answer, with numbers**: 21 statement retargets, 0
+   tactic restructurings, 1 proof line per concrete core.  Census stop
+   condition 3 is **cleared**; stop condition 2 is **cleared**.
+2. **The template**, landed and shipping, with two named flag-free
+   cores on the ExprC lineage and a `rfl` bridge that left every landed
+   statement alone.
+3. **The config-shape rule**, measured: scalar fields, built once per
+   knot level (+0.080 % / 0 %; the shapes not taken cost up to
+   +0.359 %).
+4. **R2 retired, R1 out of scope for R↔P, E3 degenerate for R and P.**
+5. **`iotaMode`**, the named transitional residue, priced at 258
+   pure-tier vs 10 cached-tier mentions, and merged into the
+   `ttChecks` row.
+6. **The computed-field verdict**: fits on every mechanical count,
+   dissolves the spec-`Expr` question, shrinks `beqFast`'s premise —
+   and moves the derived-field correctness from a theorem of this
+   repository to a compiler escape that `#print axioms` cannot see.
+   Adoption is **recommended and verified**; the trust question is
+   **PENDING USER RULING**, and it is the only thing B2 asks for
+   before the representation moves.  **B3/B4 do not dispatch until it
+   is answered** (coordinator, at B2's merge grant): the answer
+   decides whether the towers re-point once or twice.
+
+**Ledger entry — the config-shape rule, and it is the batch's cheapest
+transferable finding.**  Three shapes of one config all satisfied the
+`rfl`-eliminability requirement and all passed the full battery; they
+differed by **2×–4.5×** in cost (+0.359 % / +0.155 % / +0.080 %), and
+nothing but a measurement distinguished them.  Its reusable form:
+
+> *An identity requirement is not a cost requirement.  When a
+> refactor's correctness criterion is definitional, every candidate
+> shape passes it — so the shape must be chosen by measurement, and a
+> config value must be scalar data built once per knot level, never a
+> closure evaluated per call.*
