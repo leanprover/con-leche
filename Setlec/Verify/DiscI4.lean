@@ -24,7 +24,7 @@ variable {env : Env} {f : Nat}
 
 private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
     (kM : Expr → FueledM Expr) (e : Expr) :
-    whnfCoreStepM mode (fueledFns mode env) env d kM e =
+    whnfCoreStepM (cfgOf mode) (fueledFns mode env) env d kM e =
     (match e with
     | .sort u => pure (.sort u)
     | .fvar idx n ty => pure (.fvar idx n ty)
@@ -34,7 +34,7 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
     | .lit l => pure (.lit l)
     | .app g' a =>
       (fueledFns mode env).whnfCore d (Expr.app g' a).getAppFn >>= fun v =>
-        whnfApp mode (fueledFns mode env) env d kM v (Expr.app g' a).getAppArgs
+        whnfApp (cfgOf mode) (fueledFns mode env) env d kM v (Expr.app g' a).getAppArgs
     | .proj sn i pe =>
       (fueledFns mode env).whnf d pe >>= fun e' =>
       projLitToCtor (fueledFns mode env) env d e' >>= fun e' =>
@@ -111,7 +111,7 @@ theorem whnfAppI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
       DenL s₀.store args xs → (∀ x ∈ xs, WScoped d x) →
       SimAt mode env s₀ (RelE d)
         (whnfAppI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI v args)
-        (whnfApp mode (fueledFns mode env) env d kM vx xs)
+        (whnfApp (cfgOf mode) (fueledFns mode env) env d kM vx xs)
   | [], xs, v, vx, s₀, hs, hv, hwv, hargs, hwargs => by
     match xs, hargs with
     | [], _ =>
@@ -155,16 +155,12 @@ theorem whnfAppI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
         -- the pre-gate proof, verbatim
         rw [pw_of_denoteBM hbmDen]
         by_cases hgate : betaGateFires mode mb.pw = true
-        · rw [if_pos hgate]
-          show SimAt _ _ _ _
-            (if betaGateFires mode mb.pw = true then _ else _) _
-          rw [if_pos hgate]
+        · simp only [cfgOf_betaSkip, hgate, ↓reduceIte]
           exact betaPeelI_sim ih henv hk hs hbody ⟨hax, DenL.nil⟩
             hwsub hrest hwrest
-        rw [if_neg hgate]
-        show SimAt _ _ _ _
-          (if betaGateFires mode mb.pw = true then _ else _) _
-        rw [if_neg hgate]
+        have hgf : betaGateFires mode mb.pw = false := by
+          simpa only [Bool.not_eq_true] using hgate
+        simp only [cfgOf_betaSkip, hgf, Bool.false_eq_true, ↓reduceIte]
         refine SimAt.bind (ih.infer hs hax hwxa)
           (fun s₁ ta tax hs₁ hext₁ hP => ?_)
         obtain ⟨htad, hwta⟩ := hP
@@ -313,7 +309,7 @@ theorem whnfAppIotaI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
             whnfAppI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI v' rest
         | none =>
           whnfAppI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI fa rest)
-      (whnfAppIota mode (fueledFns mode env) env d kM vx xa xs) := by
+      (whnfAppIota (cfgOf mode) (fueledFns mode env) env d kM vx xa xs) := by
     unfold whnfAppIota
     have hwapp : WScoped d (.app vx xa) := by
       simp only [WScoped]
@@ -357,7 +353,7 @@ theorem betaPeelI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
       DenL s₀.store args xs → (∀ x ∈ xs, WScoped d x) →
       SimAt mode env s₀ (RelE d)
         (betaPeelI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI t acc args)
-        (betaPeel mode (fueledFns mode env) env d kM tx ws xs)
+        (betaPeel (cfgOf mode) (fueledFns mode env) env d kM tx ws xs)
   | [], xs, t, tx, acc, ws, s₀, hs, ht, hacc, hwty, hargs, hwargs => by
     match xs, hargs with
     | [], _ =>
@@ -401,16 +397,12 @@ theorem betaPeelI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
         -- task #161: the β gate, both sides on the same datum
         rw [pw_of_denoteBM hbmDen]
         by_cases hgate : betaGateFires mode mb.pw = true
-        · rw [if_pos hgate]
-          show SimAt _ _ _ _
-            (if betaGateFires mode mb.pw = true then _ else _) _
-          rw [if_pos hgate]
+        · simp only [cfgOf_betaSkip, hgate, ↓reduceIte]
           exact betaPeelI_sim ih henv hk hs hbody ⟨hax, hacc⟩
             hwsub hrest hwrest
-        rw [if_neg hgate]
-        show SimAt _ _ _ _
-          (if betaGateFires mode mb.pw = true then _ else _) _
-        rw [if_neg hgate]
+        have hgf : betaGateFires mode mb.pw = false := by
+          simpa only [Bool.not_eq_true] using hgate
+        simp only [cfgOf_betaSkip, hgf, Bool.false_eq_true, ↓reduceIte]
         refine SimAt.bind_left (instListM_eff (d := 0) hs hty hacc)
           (fun s₁ ty' hs₁ hext₁ hQty => ?_)
         refine SimAt.bind (ih.infer hs₁
@@ -619,7 +611,7 @@ theorem whnfCoreStepI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
     SimAt mode env s₀ (RelE d)
       (whnfCoreStepI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i)
-      (whnfCoreStepM mode (fueledFns mode env) env d kM ex) := by
+      (whnfCoreStepM (cfgOf mode) (fueledFns mode env) env d kM ex) := by
   unfold whnfCoreStepI
   rw [whnfCoreStepM_unfold]
   refine SimAt.view ?_
@@ -818,7 +810,7 @@ theorem whnfCoreLoopI_sim (ih : SSimI mode env f) (henv : EnvWF env)
       s₀.store.denoteT i = some ex → WScoped d ex →
       SimAt mode env s₀ (RelE d)
         (whnfCoreLoopI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i)
-        (whnfCoreLoopM mode (fueledFns mode env) env d n ex)
+        (whnfCoreLoopM (cfgOf mode) (fueledFns mode env) env d n ex)
   | 0, _, _, _, _, _, _ => SimAt.throw
   | n + 1, _, _, _, hs, hden, hw => by
     simp only [whnfCoreLoopI, whnfCoreLoopM]

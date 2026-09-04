@@ -1,4 +1,5 @@
 import Setlec.Cached.StateC
+import Setlec.Kernel.CoreCfg
 
 /-!
 # The cached-clone checker core
@@ -243,6 +244,17 @@ def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
 three-mode setting as their first explicit argument; only the seven
 TT-lane check sites branch on it (`CheckMode.ttChecks`). -/
 variable (mode : CheckMode)
+
+/- Task #172 batch B2 — **THE BODY TEMPLATE'S PARAMETER.**  The
+`whnfCore` clause family below (`whnfAppI`, `betaPeelI`,
+`whnfCoreStepI`, `whnfCoreLoopI`, `whnfCoreBodyI`) takes `cfg :
+CoreCfg` instead of `mode : CheckMode`, and is instantiated at the two
+named flag-free concrete cores `whnfCoreBodyRC` / `whnfCoreBodyPC` at
+the end of this module.  Nothing in the family branches on a
+`CheckMode`; the ι cone's transitional `cfg.iotaMode` is a literal at
+each core and its one downstream read (`ttChecks`) is definitionally
+eliminated there (`Setlec/Kernel/CoreCfg.lean`). -/
+variable (cfg : CoreCfg)
 
 /-- Twin of `pairEtaCert`. -/
 def pairEtaCertI (_mode : CheckMode) (r : CoreFnsI) (fe : FEnv) (depth : Nat)
@@ -712,7 +724,7 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.lam _ ty body mb) => do
         -- task #161: the β gate is a pure early return; the `else`
         -- arm is the pre-gate clause, verbatim (`betaGateFires`)
-        if betaGateFires mode mb.pw then
+        if cfg.betaSkip mb.pw then
           betaPeelI r fe depth k body [a] rest
         else do
           let ta ← r.infer depth a
@@ -723,7 +735,7 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             mkAppNM fa rest
     | _ => do
       let fa ← internI (.app v a)
-      match ← iotaRecI mode r fe depth fa with
+      match ← iotaRecI cfg.iotaMode r fe depth fa with
       | some e'' => do
         let v' ← k e''
         whnfAppI r fe depth k v' rest
@@ -750,7 +762,7 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.lam _ ty body mb) => do
         -- task #161: the β gate is a pure early return; the `else`
         -- arm is the pre-gate clause, verbatim (`betaGateFires`)
-        if betaGateFires mode mb.pw then
+        if cfg.betaSkip mb.pw then
           betaPeelI r fe depth k body (a :: acc) rest
         else do
           let ty' ← instListM ty acc
@@ -793,7 +805,7 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let v ← r.whnfCore depth h
-      whnfAppI mode r fe depth k v args
+      whnfAppI cfg r fe depth k v args
     | some (.proj sn i pe) => do
       let e' ← r.whnf depth pe
       let e' ← projLitToCtorI r fe depth e'
@@ -835,12 +847,12 @@ def whnfCoreLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Nat → ExprC → CheckCM ExprC
   | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
   | n + 1, e =>
-    whnfCoreStepI mode r fe depth (whnfCoreLoopI r fe depth n) e
+    whnfCoreStepI cfg r fe depth (whnfCoreLoopI r fe depth n) e
 
 /-- Twin of `whnfCoreBody`: the head-normalization loop at its own step
 budget. -/
 def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
-  fun depth e => whnfCoreLoopI mode r fe depth whnfCoreLoopFuel e
+  fun depth e => whnfCoreLoopI cfg r fe depth whnfCoreLoopFuel e
 
 /-- Application-inference spine loop (task #50): walk the raw
 Π-telescope against the arguments with deferred substitution — each
@@ -1707,9 +1719,14 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
     -- equations, a real proof-adaptation bill): Thunk-cache the
     -- previous fuel level, as `coreKnotNC`'s E1.
     let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotI fe fuel⟩
+    -- task #172 B2: the template's config is built ONCE per knot
+    -- level, not per `whnfCore` call.  Measured: leaving `cfgOf mode`
+    -- inside the closure costs +0.155 % on `init-prelude` — a record
+    -- allocation at every head-normalization entry.
+    let cfg := cfgOf mode
     { whnfCore := memoEI (·.whnfCoreC)
         (fun st mp => { st with whnfCoreC := mp })
-        (fun d e => whnfCoreBodyI mode prev.get fe d e)
+        (fun d e => whnfCoreBodyI cfg prev.get fe d e)
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI prev.get fe d e)
       infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
@@ -1718,5 +1735,37 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
         (fun d a b => defeqBodyI mode prev.get fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
         (fun d e => annotateBodyI mode prev.get fe d e) }
+
+/-! ## The two named concrete cores (task #172, batch B2)
+
+The template's whole point, spelled out: these are **definitions, not
+clones** — one body, two names, and each unfolds to a term with no
+`CheckMode` branch left in it.
+
+* `whnfCoreBodyRC` is the R core's head normalization: `cfgR.betaSkip`
+  is `fun _ => false`, so the β `if` **is** its `else` arm — the
+  per-redex argument certificate, unconditional — by `rfl`, not by a
+  collapse lemma;
+* `whnfCoreBodyPC` is the P core's: `cfgP.betaSkip` is
+  `PropWhen.isNever`, so the surviving branch reads the redex's
+  **validated annotation datum**.  That is data, and it is the
+  licence's own subject (`AnnotOkP_beta_gate`), not a flag.
+
+The `rfl` identities against the mode-parametric spelling are in
+`Setlec/Verify/BetaGate.lean` (the implementation tier may not import
+`Verify`); they are what keeps the transition free: every landed
+statement about `whnfCoreBodyI (cfgOf mode)` is a statement about
+these two cores at the two concrete modes, definitionally. -/
+
+/-- **The R core's head-normalization body.**  Flag-free by
+construction. -/
+def whnfCoreBodyRC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
+  whnfCoreBodyI cfgR r fe
+
+/-- **The P core's head-normalization body.**  Flag-free by
+construction; the one surviving branch reads the validated annotation
+datum. -/
+def whnfCoreBodyPC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
+  whnfCoreBodyI cfgP r fe
 
 end Setlec.Cached

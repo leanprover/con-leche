@@ -1,4 +1,5 @@
 import Setlec.Verify.Fueled
+import Setlec.Verify.BetaGate
 import Setlec.Verify.Knot
 import Setlec.Verify.InstList
 import Setlec.Verify.InferLemmas
@@ -38,6 +39,8 @@ set_option maxHeartbeats 1000000
 namespace Setlec
 
 variable {mode : CheckMode}
+variable {mi : CheckMode}
+variable {cfg : CoreCfg}
 
 open Expr
 
@@ -46,11 +49,11 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 /-- The continuation of `whnfCoreBody`'s app case after the function
 part's head normalization: beta with the possibly-Prop certificate on
 a lambda, iota otherwise. -/
-def appStep (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+def appStep (cfg : CoreCfg) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) (w a : Expr) : m Expr :=
   match w with
   | .lam n ty body mb => do
-    if betaGateFires mode mb.pw then
+    if cfg.betaSkip mb.pw then
       k (body.instantiate1 a)
     else do
       let ta ← r.infer depth a
@@ -58,7 +61,7 @@ def appStep (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
         k (body.instantiate1 a)
       else pure (.app (.lam n ty body mb) a)
   | f' => do
-    match ← iotaRec mode r env depth (.app f' a) with
+    match ← iotaRec cfg.iotaMode r env depth (.app f' a) with
     | some e'' => k e''
     | none => pure (.app f' a)
 
@@ -68,32 +71,32 @@ theorem whnfCoreBody_app (r : CoreFns m) (env : Env) (depth : Nat)
     (f a : Expr) :
     whnfCoreBody mode r env depth (.app f a)
       = r.whnfCore depth f >>= fun w =>
-          appStep mode r env depth (r.whnfCore depth) w a := rfl
+          appStep (cfgOf mode) r env depth (r.whnfCore depth) w a := rfl
 
 mutual
 
 /-- Pure mirror of the interned bulk-beta loop `whnfAppI`: consume the
 spine against the whnf'd head. -/
-def whnfApp (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+def whnfApp (cfg : CoreCfg) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) :
     Expr → List Expr → m Expr
   | v, [] => pure v
   | v, a :: rest =>
     match v with
     | .lam n ty body mb => do
-      if betaGateFires mode mb.pw then
-        betaPeel mode r env depth k body [a] rest
+      if cfg.betaSkip mb.pw then
+        betaPeel cfg r env depth k body [a] rest
       else do
         let ta ← r.infer depth a
         if ← r.defeq depth ta ty then
-          betaPeel mode r env depth k body [a] rest
+          betaPeel cfg r env depth k body [a] rest
         else pure (Expr.mkAppN (.app (.lam n ty body mb) a) rest)
     | v => do
-      match ← iotaRec mode r env depth (.app v a) with
+      match ← iotaRec cfg.iotaMode r env depth (.app v a) with
       | some e'' => do
         let v' ← k e''
-        whnfApp mode r env depth k v' rest
-      | none => whnfApp mode r env depth k (.app v a) rest
+        whnfApp cfg r env depth k v' rest
+      | none => whnfApp cfg r env depth k (.app v a) rest
 termination_by _ args => (args.length, 0)
 decreasing_by
   all_goals first
@@ -103,24 +106,24 @@ decreasing_by
 /-- Pure mirror of the interned peel loop `betaPeelI`: `t` is the raw
 lambda body after the binders consumed so far, `acc` their arguments
 (innermost first). -/
-def betaPeel (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+def betaPeel (cfg : CoreCfg) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) :
     Expr → List Expr → List Expr → m Expr
   | t, acc, [] => k (t.instantiateList acc)
   | t, acc, a :: rest =>
     match t with
     | .lam n ty body mb => do
-      if betaGateFires mode mb.pw then
-        betaPeel mode r env depth k body (a :: acc) rest
+      if cfg.betaSkip mb.pw then
+        betaPeel cfg r env depth k body (a :: acc) rest
       else do
         let ta ← r.infer depth a
         if ← r.defeq depth ta (ty.instantiateList acc) then
-          betaPeel mode r env depth k body (a :: acc) rest
+          betaPeel cfg r env depth k body (a :: acc) rest
         else pure (Expr.mkAppN
           (.app ((Expr.lam n ty body mb).instantiateList acc) a) rest)
     | t => do
       let v ← k (t.instantiateList acc)
-      whnfApp mode r env depth k v (a :: rest)
+      whnfApp cfg r env depth k v (a :: rest)
 termination_by _ _ args => (args.length, 1)
 decreasing_by
   all_goals first
@@ -133,47 +136,47 @@ end
 as a standalone computation: `whnfApp_ne_lam` identifies the loop with
 it, giving every downstream proof a single equation instead of nine
 head shapes. -/
-def whnfAppIota (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+def whnfAppIota (cfg : CoreCfg) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) (v a : Expr) (rest : List Expr) : m Expr := do
-  match ← iotaRec mode r env depth (.app v a) with
+  match ← iotaRec cfg.iotaMode r env depth (.app v a) with
   | some e'' => do
     let v' ← k e''
-    whnfApp mode r env depth k v' rest
-  | none => whnfApp mode r env depth k (.app v a) rest
+    whnfApp cfg r env depth k v' rest
+  | none => whnfApp cfg r env depth k (.app v a) rest
 
 /-- The lambda arm of `whnfApp` (first binder of the peel), as a
 standalone computation. -/
-def whnfAppLam (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+def whnfAppLam (cfg : CoreCfg) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
     (n : Name) (ty body : Expr) (mb : BinderMeta) (a : Expr)
     (rest : List Expr) : m Expr := do
-  if betaGateFires mode mb.pw then
-    betaPeel mode r env depth k body [a] rest
+  if cfg.betaSkip mb.pw then
+    betaPeel cfg r env depth k body [a] rest
   else do
     let ta ← r.infer depth a
     if ← r.defeq depth ta ty then
-      betaPeel mode r env depth k body [a] rest
+      betaPeel cfg r env depth k body [a] rest
     else pure (Expr.mkAppN (.app (.lam n ty body mb) a) rest)
 
 theorem whnfApp_nil (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) (v : Expr) :
-    whnfApp mode r env depth k v [] = pure v := by
+    whnfApp cfg r env depth k v [] = pure v := by
   rw [whnfApp]
 
 theorem whnfApp_lam (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
     (n : Name) (ty body : Expr) (mb : BinderMeta) (a : Expr)
     (rest : List Expr) :
-    whnfApp mode r env depth k (.lam n ty body mb) (a :: rest)
-      = whnfAppLam mode r env depth k n ty body mb a rest := by
+    whnfApp cfg r env depth k (.lam n ty body mb) (a :: rest)
+      = whnfAppLam cfg r env depth k n ty body mb a rest := by
   rw [whnfApp, whnfAppLam]
 
 theorem whnfApp_ne_lam (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
     {v : Expr} (hv : ∀ n ty body mb, v ≠ .lam n ty body mb)
     (a : Expr) (rest : List Expr) :
-    whnfApp mode r env depth k v (a :: rest)
-      = whnfAppIota mode r env depth k v a rest := by
+    whnfApp cfg r env depth k v (a :: rest)
+      = whnfAppIota cfg r env depth k v a rest := by
   cases v with
   | lam n ty body mb => exact absurd rfl (hv n ty body mb)
   | _ => rw [whnfApp, whnfAppIota] <;> exact fun _ _ _ _ h => nomatch h
@@ -184,29 +187,29 @@ theorem betaPeel_ne_lam (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
     {t : Expr} (ht : ∀ n ty body mb, t ≠ .lam n ty body mb)
     (acc : List Expr) (a : Expr) (rest : List Expr) :
-    betaPeel mode r env depth k t acc (a :: rest)
+    betaPeel cfg r env depth k t acc (a :: rest)
       = k (t.instantiateList acc) >>= fun v =>
-          whnfApp mode r env depth k v (a :: rest) := by
+          whnfApp cfg r env depth k v (a :: rest) := by
   cases t with
   | lam n ty body mb => exact absurd rfl (ht n ty body mb)
   | _ => rw [betaPeel] <;> exact fun _ _ _ _ h => nomatch h
 
 theorem betaPeel_nil (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) (t : Expr) (acc : List Expr) :
-    betaPeel mode r env depth k t acc [] = k (t.instantiateList acc) := by
+    betaPeel cfg r env depth k t acc [] = k (t.instantiateList acc) := by
   rw [betaPeel]
 
 /-- The lambda arm of `betaPeel` (peel one more binder). -/
-def betaPeelLam (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+def betaPeelLam (cfg : CoreCfg) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
     (n : Name) (ty body : Expr) (mb : BinderMeta) (acc : List Expr)
     (a : Expr) (rest : List Expr) : m Expr := do
-  if betaGateFires mode mb.pw then
-    betaPeel mode r env depth k body (a :: acc) rest
+  if cfg.betaSkip mb.pw then
+    betaPeel cfg r env depth k body (a :: acc) rest
   else do
     let ta ← r.infer depth a
     if ← r.defeq depth ta (ty.instantiateList acc) then
-      betaPeel mode r env depth k body (a :: acc) rest
+      betaPeel cfg r env depth k body (a :: acc) rest
     else pure (Expr.mkAppN
       (.app ((Expr.lam n ty body mb).instantiateList acc) a) rest)
 
@@ -214,8 +217,8 @@ theorem betaPeel_lam (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
     (n : Name) (ty body : Expr) (mb : BinderMeta) (acc : List Expr)
     (a : Expr) (rest : List Expr) :
-    betaPeel mode r env depth k (.lam n ty body mb) acc (a :: rest)
-      = betaPeelLam mode r env depth k n ty body mb acc a rest := by
+    betaPeel cfg r env depth k (.lam n ty body mb) acc (a :: rest)
+      = betaPeelLam cfg r env depth k n ty body mb acc a rest := by
   rw [betaPeel, betaPeelLam]
 
 /-- `iotaRec` is `none` whenever the spine head is not a constant. -/
@@ -241,7 +244,7 @@ unchanged. -/
 
 /-- Pure mirror of `whnfCoreStepI`: one head-normalization step with
 the loop's continuation `k` abstracted. -/
-def whnfCoreStepM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+def whnfCoreStepM (cfg : CoreCfg) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) : Expr → m Expr
   | .sort u => pure (.sort u)
   | .fvar idx n ty => pure (.fvar idx n ty)
@@ -251,7 +254,7 @@ def whnfCoreStepM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
   | .lit l => pure (.lit l)
   | .app f a =>
     r.whnfCore depth (Expr.app f a).getAppFn >>= fun v =>
-      whnfApp mode r env depth k v (Expr.app f a).getAppArgs
+      whnfApp cfg r env depth k v (Expr.app f a).getAppArgs
   | .proj sn i pe => do
     let e' ← r.whnf depth pe
     let e' ← projLitToCtor r env depth e'
@@ -275,10 +278,10 @@ def whnfCoreStepM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
 
 /-- Pure mirror of `whnfCoreLoopI`: iterate `whnfCoreStepM` on the
 step budget. -/
-def whnfCoreLoopM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat) :
+def whnfCoreLoopM (cfg : CoreCfg) (r : CoreFns m) (env : Env) (depth : Nat) :
     Nat → Expr → m Expr
   | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
-  | n + 1, e => whnfCoreStepM mode r env depth (whnfCoreLoopM mode r env depth n) e
+  | n + 1, e => whnfCoreStepM cfg r env depth (whnfCoreLoopM cfg r env depth n) e
 
 /-! ## `atF` equations and fuel monotonicity for the mirrors -/
 
@@ -289,8 +292,8 @@ variable {env : Env}
 theorem appStep_atF (d : Nat) (k : Expr → FueledM Expr)
     (kF : Expr → CheckM Expr) (F : Nat) (hk : ∀ e, (k e).val F = kF e)
     (w a : Expr) :
-    (appStep mode (fueledFns mode env) env d k w a).val F
-      = appStep mode (pureFns mode env F) env d kF w a := by
+    (appStep cfg (fueledFns mode env) env d k w a).val F
+      = appStep cfg (pureFns mode env F) env d kF w a := by
   unfold appStep
   atF_tac4k hk
 
@@ -299,8 +302,8 @@ mutual
 theorem whnfApp_atF (d : Nat) (k : Expr → FueledM Expr)
     (kF : Expr → CheckM Expr) (F : Nat) (hk : ∀ e, (k e).val F = kF e) :
     ∀ (xs : List Expr) (v : Expr),
-      (whnfApp mode (fueledFns mode env) env d k v xs).val F
-        = whnfApp mode (pureFns mode env F) env d kF v xs
+      (whnfApp cfg (fueledFns mode env) env d k v xs).val F
+        = whnfApp cfg (pureFns mode env F) env d kF v xs
   | [], v => by rw [whnfApp_nil, whnfApp_nil]; rfl
   | a :: rest, v => by
     by_cases hlam : ∃ n ty body mb, v = Expr.lam n ty body mb
@@ -310,7 +313,7 @@ theorem whnfApp_atF (d : Nat) (k : Expr → FueledM Expr)
       -- task #161: the β gate is decided before the certificate, and
       -- its condition is the *same* on both sides (`mb` is copied),
       -- so one `by_cases` and the ungated arm is verbatim
-      by_cases hgate : betaGateFires mode mb.pw = true
+      by_cases hgate : cfg.betaSkip mb.pw = true
       · rw [if_pos hgate, if_pos hgate]
         exact betaPeel_atF d k kF F hk rest body [a]
       rw [if_neg hgate, if_neg hgate]
@@ -349,15 +352,15 @@ decreasing_by
 theorem betaPeel_atF (d : Nat) (k : Expr → FueledM Expr)
     (kF : Expr → CheckM Expr) (F : Nat) (hk : ∀ e, (k e).val F = kF e) :
     ∀ (xs : List Expr) (t : Expr) (acc : List Expr),
-      (betaPeel mode (fueledFns mode env) env d k t acc xs).val F
-        = betaPeel mode (pureFns mode env F) env d kF t acc xs
+      (betaPeel cfg (fueledFns mode env) env d k t acc xs).val F
+        = betaPeel cfg (pureFns mode env F) env d kF t acc xs
   | [], t, acc => by rw [betaPeel_nil, betaPeel_nil]; exact hk _
   | a :: rest, t, acc => by
     by_cases hlam : ∃ n ty body mb, t = Expr.lam n ty body mb
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [betaPeel_lam, betaPeel_lam]
       unfold betaPeelLam
-      by_cases hgate : betaGateFires mode mb.pw = true
+      by_cases hgate : cfg.betaSkip mb.pw = true
       · rw [if_pos hgate, if_pos hgate]
         exact betaPeel_atF d k kF F hk rest body (a :: acc)
       rw [if_neg hgate, if_neg hgate]
@@ -391,8 +394,8 @@ end
 theorem whnfCoreStepM_atF (d : Nat) (k : Expr → FueledM Expr)
     (kF : Expr → CheckM Expr) (F : Nat) (hk : ∀ e, (k e).val F = kF e)
     (e : Expr) :
-    (whnfCoreStepM mode (fueledFns mode env) env d k e).val F
-      = whnfCoreStepM mode (pureFns mode env F) env d kF e := by
+    (whnfCoreStepM cfg (fueledFns mode env) env d k e).val F
+      = whnfCoreStepM cfg (pureFns mode env F) env d kF e := by
   cases e <;> (unfold whnfCoreStepM; try rfl)
   case letE nm ty v bd => exact hk _
   case app f a =>
@@ -405,8 +408,8 @@ theorem whnfCoreStepM_atF (d : Nat) (k : Expr → FueledM Expr)
 
 theorem whnfCoreLoopM_atF (d : Nat) :
     ∀ (n : Nat) (e : Expr) (F : Nat),
-      (whnfCoreLoopM mode (fueledFns mode env) env d n e).val F
-        = whnfCoreLoopM mode (pureFns mode env F) env d n e
+      (whnfCoreLoopM cfg (fueledFns mode env) env d n e).val F
+        = whnfCoreLoopM cfg (pureFns mode env F) env d n e
   | 0, _, _ => rfl
   | n + 1, e, F => by
     simp only [whnfCoreLoopM]
@@ -419,32 +422,32 @@ theorem whnfApp_mono {d : Nat} {xs : List Expr} {v : Expr} {F F' : Nat}
     (k : Expr → FueledM Expr) (kF kF' : Expr → CheckM Expr)
     (hkF : ∀ e, (k e).val F = kF e) (hkF' : ∀ e, (k e).val F' = kF' e)
     (hle : F ≤ F') {res : Expr}
-    (h : whnfApp mode (pureFns mode env F) env d kF v xs = .ok res) :
-    whnfApp mode (pureFns mode env F') env d kF' v xs = .ok res := by
+    (h : whnfApp cfg (pureFns mode env F) env d kF v xs = .ok res) :
+    whnfApp cfg (pureFns mode env F') env d kF' v xs = .ok res := by
   rw [← whnfApp_atF d k kF F hkF] at h
   rw [← whnfApp_atF d k kF' F' hkF']
-  exact (whnfApp mode (fueledFns mode env) env d k v xs).property hle h
+  exact (whnfApp cfg (fueledFns mode env) env d k v xs).property hle h
 
 theorem betaPeel_mono {d : Nat} {xs acc : List Expr} {t : Expr}
     {F F' : Nat}
     (k : Expr → FueledM Expr) (kF kF' : Expr → CheckM Expr)
     (hkF : ∀ e, (k e).val F = kF e) (hkF' : ∀ e, (k e).val F' = kF' e)
     (hle : F ≤ F') {res : Expr}
-    (h : betaPeel mode (pureFns mode env F) env d kF t acc xs = .ok res) :
-    betaPeel mode (pureFns mode env F') env d kF' t acc xs = .ok res := by
+    (h : betaPeel cfg (pureFns mode env F) env d kF t acc xs = .ok res) :
+    betaPeel cfg (pureFns mode env F') env d kF' t acc xs = .ok res := by
   rw [← betaPeel_atF d k kF F hkF] at h
   rw [← betaPeel_atF d k kF' F' hkF']
-  exact (betaPeel mode (fueledFns mode env) env d k t acc xs).property hle h
+  exact (betaPeel cfg (fueledFns mode env) env d k t acc xs).property hle h
 
 theorem appStep_mono {d : Nat} {w a : Expr} {F F' : Nat}
     (k : Expr → FueledM Expr) (kF kF' : Expr → CheckM Expr)
     (hkF : ∀ e, (k e).val F = kF e) (hkF' : ∀ e, (k e).val F' = kF' e)
     (hle : F ≤ F') {res : Expr}
-    (h : appStep mode (pureFns mode env F) env d kF w a = .ok res) :
-    appStep mode (pureFns mode env F') env d kF' w a = .ok res := by
+    (h : appStep cfg (pureFns mode env F) env d kF w a = .ok res) :
+    appStep cfg (pureFns mode env F') env d kF' w a = .ok res := by
   rw [← appStep_atF d k kF F hkF] at h
   rw [← appStep_atF d k kF' F' hkF']
-  exact (appStep mode (fueledFns mode env) env d k w a).property hle h
+  exact (appStep cfg (fueledFns mode env) env d k w a).property hle h
 
 theorem projLitToCtor_mono {d : Nat} {e : Expr} {F F' : Nat}
     (hle : F ≤ F') {res : Expr}
@@ -462,10 +465,10 @@ theorem projCert_mono {d : Nat} {e : Expr} {i : Nat}
 
 theorem iotaRec_mono {d : Nat} {e : Expr} {F F' : Nat}
     (hle : F ≤ F') {o : Option Expr}
-    (h : iotaRec mode (pureFns mode env F) env d e = .ok o) :
-    iotaRec mode (pureFns mode env F') env d e = .ok o := by
+    (h : iotaRec mi (pureFns mode env F) env d e = .ok o) :
+    iotaRec mi (pureFns mode env F') env d e = .ok o := by
   rw [← iotaRec_atF] at h ⊢
-  exact (iotaRec mode (fueledFns mode env) env d e).property hle h
+  exact (iotaRec mi (fueledFns mode env) env d e).property hle h
 
 theorem inferTypeCore_det {d F₁ F₂ : Nat} {e v₁ v₂ : Expr}
     (h1 : inferTypeCore mode env F₁ d e = .ok v₁)
@@ -492,8 +495,8 @@ theorem whnfCore_det {d F₁ F₂ : Nat} {e v₁ v₂ : Expr}
   exact (Except.ok.injEq .. ▸ g2)
 
 theorem iotaRec_det {d F₁ F₂ : Nat} {e : Expr} {o₁ o₂ : Option Expr}
-    (h1 : iotaRec mode (pureFns mode env F₁) env d e = .ok o₁)
-    (h2 : iotaRec mode (pureFns mode env F₂) env d e = .ok o₂) : o₁ = o₂ := by
+    (h1 : iotaRec mi (pureFns mode env F₁) env d e = .ok o₁)
+    (h2 : iotaRec mi (pureFns mode env F₂) env d e = .ok o₂) : o₁ = o₂ := by
   have g1 := iotaRec_mono (Nat.le_max_left F₁ F₂) h1
   have g2 := iotaRec_mono (Nat.le_max_right F₁ F₂) h2
   rw [g1] at g2
@@ -559,8 +562,8 @@ private theorem appStep_stuck (F d : Nat) (kF : Expr → CheckM Expr)
     {w : Expr} (a : Expr)
     (hnl : ∀ n ty body mb, w ≠ Expr.lam n ty body mb)
     (hnc : ∀ c us, w.getAppFn ≠ Expr.const c us) :
-    appStep mode (pureFns mode env F) env d kF w a = .ok (.app w a) := by
-  have hiota : iotaRec mode (pureFns mode env F) env d (.app w a) = pure none := by
+    appStep cfg (pureFns mode env F) env d kF w a = .ok (.app w a) := by
+  have hiota : iotaRec cfg.iotaMode (pureFns mode env F) env d (.app w a) = pure none := by
     refine iotaRec_head_not_const _ env d ?_
     intro c us h
     exact hnc c us h
@@ -580,11 +583,11 @@ mutual
 
 theorem whnfApp_snoc {d : Nat} :
     ∀ (xs : List Expr) (v a : Expr) (F : Nat) (vres : Expr),
-      whnfApp mode (pureFns mode env F) env d (whnfCore mode env F d) v (xs ++ [a])
+      whnfApp cfg (pureFns mode env F) env d (whnfCore mode env F d) v (xs ++ [a])
           = .ok vres →
       ∃ F' w,
-        whnfApp mode (pureFns mode env F') env d (whnfCore mode env F' d) v xs = .ok w ∧
-        appStep mode (pureFns mode env F') env d (whnfCore mode env F' d) w a = .ok vres
+        whnfApp cfg (pureFns mode env F') env d (whnfCore mode env F' d) v xs = .ok w ∧
+        appStep cfg (pureFns mode env F') env d (whnfCore mode env F' d) w a = .ok vres
   | [], v, a, F, vres => by
     intro H
     rw [List.nil_append] at H
@@ -595,7 +598,7 @@ theorem whnfApp_snoc {d : Nat} :
       -- task #161: the β gate fires identically in `whnfAppLam` and
       -- in `appStep`; on the fired arm both are the peel/reduct with
       -- no certificate, and the ungated arm is the pre-gate proof
-      by_cases hgate : betaGateFires mode mb.pw = true
+      by_cases hgate : cfg.betaSkip mb.pw = true
       · rw [if_pos hgate] at H
         refine ⟨F, _, by rw [whnfApp_nil]; rfl, ?_⟩
         unfold appStep
@@ -653,7 +656,7 @@ theorem whnfApp_snoc {d : Nat} :
       unfold whnfAppLam at H
       -- task #161: the fired β gate takes the peel arm with no
       -- certificate; the ungated arm below is the pre-gate proof
-      by_cases hgate : betaGateFires mode mb.pw = true
+      by_cases hgate : cfg.betaSkip mb.pw = true
       · rw [if_pos hgate] at H
         obtain ⟨F₁, w, hw, hstep⟩ := betaPeel_snoc xs' body [x] a F vres H
         refine ⟨max F F₁, w, ?_,
@@ -737,12 +740,12 @@ decreasing_by
 theorem betaPeel_snoc {d : Nat} :
     ∀ (xs : List Expr) (t : Expr) (acc : List Expr) (a : Expr) (F : Nat)
       (vres : Expr),
-      betaPeel mode (pureFns mode env F) env d (whnfCore mode env F d) t acc (xs ++ [a])
+      betaPeel cfg (pureFns mode env F) env d (whnfCore mode env F d) t acc (xs ++ [a])
           = .ok vres →
       ∃ F' w,
-        betaPeel mode (pureFns mode env F') env d (whnfCore mode env F' d) t acc xs
+        betaPeel cfg (pureFns mode env F') env d (whnfCore mode env F' d) t acc xs
           = .ok w ∧
-        appStep mode (pureFns mode env F') env d (whnfCore mode env F' d) w a = .ok vres
+        appStep cfg (pureFns mode env F') env d (whnfCore mode env F' d) w a = .ok vres
   | [], t, acc, a, F, vres => by
     intro H
     rw [List.nil_append] at H
@@ -750,13 +753,13 @@ theorem betaPeel_snoc {d : Nat} :
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [betaPeel_lam] at H
       unfold betaPeelLam at H
-      have hid : betaPeel mode (pureFns mode env (F + 1)) env d
+      have hid : betaPeel cfg (pureFns mode env (F + 1)) env d
           (whnfCore mode env (F + 1) d) (Expr.lam n ty body mb) acc []
           = .ok (.lam n (ty.instantiateList acc)
               (body.instantiateList acc 1) mb) := by
         rw [betaPeel_nil, instList_lam]
         exact whnfCore_lam F d n _ _ _
-      by_cases hgate : betaGateFires mode mb.pw = true
+      by_cases hgate : cfg.betaSkip mb.pw = true
       · rw [if_pos hgate] at H
         refine ⟨F + 1, _, hid, ?_⟩
         unfold appStep
@@ -805,7 +808,7 @@ theorem betaPeel_snoc {d : Nat} :
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [betaPeel_lam] at H
       unfold betaPeelLam at H
-      by_cases hgate : betaGateFires mode mb.pw = true
+      by_cases hgate : cfg.betaSkip mb.pw = true
       · rw [if_pos hgate] at H
         obtain ⟨F₁, w, hw, hstep⟩ :=
           betaPeel_snoc xs' body (x :: acc) a F vres H
@@ -889,7 +892,7 @@ variable {env : Env}
 private theorem whnfApp_sound_rev {d : Nat} :
     ∀ (rxs : List Expr) (h vh vres : Expr) (F₀ F : Nat),
       whnfCore mode env F₀ d h = .ok vh →
-      whnfApp mode (pureFns mode env F) env d (whnfCore mode env F d) vh rxs.reverse
+      whnfApp (cfgOf mode) (pureFns mode env F) env d (whnfCore mode env F d) vh rxs.reverse
           = .ok vres →
       ∃ F', whnfCore mode env F' d (Expr.mkAppN h rxs.reverse) = .ok vres
   | [], h, vh, vres, F₀, F => by
@@ -914,7 +917,7 @@ private theorem whnfApp_sound_rev {d : Nat} :
 chained `whnfCore` recursion on the whole application, at some fuel. -/
 theorem whnfApp_sound {d : Nat} (xs : List Expr) (h vh vres : Expr)
     (F₀ F : Nat) (hh : whnfCore mode env F₀ d h = .ok vh)
-    (H : whnfApp mode (pureFns mode env F) env d (whnfCore mode env F d) vh xs
+    (H : whnfApp (cfgOf mode) (pureFns mode env F) env d (whnfCore mode env F d) vh xs
       = .ok vres) :
     ∃ F', whnfCore mode env F' d (Expr.mkAppN h xs) = .ok vres := by
   have hx : xs.reverse.reverse = xs := List.reverse_reverse xs
@@ -942,9 +945,9 @@ mutual
 theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
     (hks : KSound mode env d k) :
     ∀ (xs : List Expr) (v res : Expr) (F : Nat),
-      whnfApp mode (pureFns mode env F) env d (fun e => (k e).val F) v xs
+      whnfApp (cfgOf mode) (pureFns mode env F) env d (fun e => (k e).val F) v xs
         = .ok res →
-      ∃ F', whnfApp mode (pureFns mode env F') env d (whnfCore mode env F' d) v xs
+      ∃ F', whnfApp (cfgOf mode) (pureFns mode env F') env d (whnfCore mode env F' d) v xs
         = .ok res
   | [], v, res, F => by
     intro H
@@ -958,7 +961,7 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [whnfApp_lam] at H
       unfold whnfAppLam at H
-      by_cases hgate : betaGateFires mode mb.pw = true
+      by_cases hgate : (cfgOf mode).betaSkip mb.pw = true
       · rw [if_pos hgate] at H
         obtain ⟨F₁, hP⟩ := betaPeel_ksound k hks rest body [a] res F H
         refine ⟨max F F₁, ?_⟩
@@ -1033,9 +1036,9 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
     (hks : KSound mode env d k) :
     ∀ (xs : List Expr) (t : Expr) (acc : List Expr) (res : Expr)
       (F : Nat),
-      betaPeel mode (pureFns mode env F) env d (fun e => (k e).val F) t acc xs
+      betaPeel (cfgOf mode) (pureFns mode env F) env d (fun e => (k e).val F) t acc xs
         = .ok res →
-      ∃ F', betaPeel mode (pureFns mode env F') env d (whnfCore mode env F' d) t acc xs
+      ∃ F', betaPeel (cfgOf mode) (pureFns mode env F') env d (whnfCore mode env F' d) t acc xs
         = .ok res
   | [], t, acc, res, F => by
     intro H
@@ -1048,7 +1051,7 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
     · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
       rw [betaPeel_lam] at H
       unfold betaPeelLam at H
-      by_cases hgate : betaGateFires mode mb.pw = true
+      by_cases hgate : (cfgOf mode).betaSkip mb.pw = true
       · rw [if_pos hgate] at H
         obtain ⟨F₁, hP⟩ :=
           betaPeel_ksound k hks rest body (a :: acc) res F H
@@ -1109,7 +1112,7 @@ end
 chained specification body `whnfCoreBody` at some knot fuel. -/
 theorem whnfCoreStepM_sound {d : Nat} (k : Expr → FueledM Expr)
     (hks : KSound mode env d k) {e res : Expr} (F : Nat)
-    (H : whnfCoreStepM mode (pureFns mode env F) env d (fun x => (k x).val F) e
+    (H : whnfCoreStepM (cfgOf mode) (pureFns mode env F) env d (fun x => (k x).val F) e
       = .ok res) :
     ∃ F', whnfCoreBody mode (pureFns mode env F') env d e = .ok res := by
   cases e with
@@ -1198,7 +1201,7 @@ some knot fuel, so `whnfCoreBody` (and everything above it) never sees
 the loop. -/
 theorem whnfCoreLoopM_ksound {d : Nat} :
     ∀ (n : Nat),
-      KSound mode env d (fun e => whnfCoreLoopM mode (fueledFns mode env) env d n e)
+      KSound mode env d (fun e => whnfCoreLoopM (cfgOf mode) (fueledFns mode env) env d n e)
   | 0 => by
     intro G e v h
     rw [whnfCoreLoopM_atF d 0 e G] at h
@@ -1209,11 +1212,11 @@ theorem whnfCoreLoopM_ksound {d : Nat} :
     simp only [whnfCoreLoopM] at h
     obtain ⟨F', hF'⟩ :=
       whnfCoreStepM_sound (env := env) (d := d)
-        (fun x => whnfCoreLoopM mode (fueledFns mode env) env d n x)
+        (fun x => whnfCoreLoopM (cfgOf mode) (fueledFns mode env) env d n x)
         (whnfCoreLoopM_ksound n) (e := e) (res := v) G
         (by
-          rw [show (fun x => (whnfCoreLoopM mode (fueledFns mode env) env d n x).val G)
-              = whnfCoreLoopM mode (pureFns mode env G) env d n from
+          rw [show (fun x => (whnfCoreLoopM (cfgOf mode) (fueledFns mode env) env d n x).val G)
+              = whnfCoreLoopM (cfgOf mode) (pureFns mode env G) env d n from
             funext fun x => whnfCoreLoopM_atF d n x G]
           exact h)
     exact ⟨F' + 1, by rw [whnfCore_succ]; exact hF'⟩
@@ -1222,7 +1225,7 @@ theorem whnfCoreLoopM_ksound {d : Nat} :
 fueled record is reproduced by `whnfCoreBody` on the same node, at
 some knot fuel. -/
 theorem whnfCoreLoop_sound_body (d : Nat) (e vres : Expr) (n F : Nat)
-    (H : (whnfCoreLoopM mode (fueledFns mode env) env d n e).val F = .ok vres) :
+    (H : (whnfCoreLoopM (cfgOf mode) (fueledFns mode env) env d n e).val F = .ok vres) :
     ∃ F', (whnfCoreBody mode (fueledFns mode env) env d e).val F' = .ok vres := by
   obtain ⟨M, hM⟩ := whnfCoreLoopM_ksound n F e vres H
   cases M with

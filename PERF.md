@@ -47,11 +47,23 @@ nothing here is carried over from an older round.
 > records — so do not compute a ratio across the boundary.  They
 > are quoted here only to say which way the column will move.
 >
-> Regeneration is deferred until the #171 direct-to-ExprC parse
-> lands, since that moves the cached-lane numbers again and a
-> full battery costs hours.  When it is in, one command
-> (below) rewrites this file and this note disappears on its
-> own.
+> The #171 direct-to-ExprC parse has since landed too, moving the
+> cached-lane numbers again, so **every cached cell here is stale
+> on two counts**.  Regeneration is nonetheless still deferred:
+> the tri-core refactor (task #172) is mid-flight and core names
+> and dispatch will move again, and a full battery costs hours.
+> One command (below) rewrites this file when the word comes, and
+> this note disappears on its own.
+
+> **PENDING RULING — the `--core=production` columns.**  The user
+> has ruled the interned representation **dropped entirely**
+> ("one expr type with computed fields everywhere", task #172,
+> the tri-core refactor).  When it lands, this matrix halves to
+> the cached columns plus official; the interned cells below are
+> not deleted but carried into a retired-configurations section
+> with their provenance.  Until the tri-core template batches
+> land, core names and dispatch are still moving and these
+> columns remain live.
 
 ## Regenerating this file
 
@@ -195,18 +207,24 @@ two mode-gated checks alone (caveat 1 and the header note).
    is robust to that; **wall seconds are not** and should be read as
    indicative only.  The per-cell load average at launch is recorded
    in the raw TSV.
-7. **`--no-model --core=production` under-checks install-only kinds**
-   relative to official (axioms, inductive blocks, quot and the
-   pinned-cert branches run at io grade there, where official's
-   declaration-type check is `check`).  This flatters the parity
-   column on inductive-heavy streams — init-full most of all.
+7. **`--no-model` under-checks install-only kinds** relative to
+   official (axioms, inductive blocks, quot and the pinned-cert
+   branches run at io grade there, where official's declaration-type
+   check is `check`).  This flatters every parity column on
+   inductive-heavy streams — init-full most of all.
 8. **Fuel.**  setlec compiles in `checkFuel = 100000` plus
    `defeqLoopFuel`; official has no fuel.  No row above exhausts it.
 
 ## Raw data
 
-`_tmp/perf-tables/table.tsv` — one line per cell:
-`stream, config, median instructions:u, median wall s, exit code,
-accepted declarations, 1-min load average at launch, verdict text`.
-The preprocessed streams are cached at `_tmp/perf-tables/pre/`.
+Tracked in `perf-data/`: `table.tsv` (the cells behind the live
+tables), `meta.txt` (the run's provenance), and `retired.tsv` /
+`retired.meta` when a configuration has been ruled out of the
+matrix.  One line per cell: `stream, config, median instructions:u,
+median wall s, exit code, accepted declarations, 1-min load average
+at launch, verdict text`.
+
+The working copy of a run lives at `_tmp/perf-tables/` (gitignored,
+so it is a cache and not the record) and the preprocessed streams
+are cached beside it at `_tmp/perf-tables/pre/`.
 
