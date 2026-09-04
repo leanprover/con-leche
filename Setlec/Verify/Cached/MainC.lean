@@ -576,4 +576,137 @@ theorem no_proof_of_Empty_input_SPC_R2M (V : Type w) [SetTheory V]
       exact ih fe₁ hfe₁ (checkDecl_sound_R2M (hgOff := hgOff) (d := d) hstep m hE hF)
         hres₁ h hd'
 
+/-! ## The direct-parse driver (task #171)
+
+`Setlec/Frontend/ExportC.lean` parses the export straight into
+`WDeclC` — declarations whose `ExprC` slots carry `WFc` in the type
+(the `WFStore` pattern).  The capstone premise `∃ d, DeclCRel pc d`
+follows from the carried invariant alone: the witness is the slot's
+own erasure.  `OfStoreC`'s conversion machinery is not consumed on
+this path (cleanup inventory: deletable once the arena parse leaves
+the cached chain entirely). -/
+
+/-- The carried invariant supplies the fold's premise: the witness
+declaration is the record's own erasure. -/
+theorem DeclCRel_of_WFc : ∀ {pc : DeclC}, DeclCWFc pc → ∃ d, DeclCRel pc d
+  | .axiomDecl _, h => ⟨_, .axiomDecl ⟨h, rfl⟩⟩
+  | .defnDecl _ _ _, h => ⟨_, .defnDecl ⟨h.1, rfl⟩ ⟨h.2, rfl⟩⟩
+  | .thmDecl _ _, h => ⟨_, .thmDecl ⟨h.1, rfl⟩ ⟨h.2, rfl⟩⟩
+  | .opaqueDecl _ _, h => ⟨_, .opaqueDecl ⟨h.1, rfl⟩ ⟨h.2, rfl⟩⟩
+  | .basisDecl _, _ => ⟨_, .basisDecl⟩
+  | .indDecl _, _ => ⟨_, .indDecl⟩
+
+/-- The subtype-unwrapping fold is the plain fold over the projected
+list. -/
+theorem foldlM_wdecl {μ : CheckMode} : ∀ (ds : List WDeclC) (fe : FEnv),
+    (ds.foldlM (fun fe pc => checkDeclSPStepC μ fe pc.1) fe)
+      = ((ds.map (·.1)).foldlM (checkDeclSPStepC μ) fe)
+  | [], _ => rfl
+  | pc :: ds, fe => by
+    rw [List.foldlM_cons, List.map_cons, List.foldlM_cons]
+    exact congrArg _ (funext fun fe' => foldlM_wdecl ds fe')
+
+/-- The direct-parse driver, dissected (the `checkDeclsSPCached_run`
+mirror; no conversion pass to peel). -/
+theorem checkDeclsSPCachedD_run {μ : CheckMode}
+    {ds : List WDeclC} {env' : Env}
+    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    ∃ fe s', ((ds.map (·.1)).foldlM (checkDeclSPStepC μ)
+        (mkFEnv Env.empty)) ({} : CState) = .ok (fe, s') ∧
+      fe.env = env' := by
+  unfold checkDeclsSPCachedD at h
+  simp only [Bind.bind, Except.bind] at h
+  rw [foldlM_wdecl] at h
+  cases hf : ((ds.map (·.1)).foldlM (checkDeclSPStepC μ)
+      (mkFEnv Env.empty)).run' ({} : CState) with
+  | error e => rw [hf] at h; exact nomatch h
+  | ok fe =>
+    rw [hf] at h
+    obtain rfl : fe.env = env' := by
+      have h' : (Except.ok fe.env : CheckM Env) = .ok env' := h
+      exact Except.ok.inj h'
+    simp only [StateT.run'] at hf
+    cases hrun : ((ds.map (·.1)).foldlM (checkDeclSPStepC μ)
+        (mkFEnv Env.empty)) ({} : CState) with
+    | error e => rw [hrun] at hf; exact nomatch hf
+    | ok pr =>
+      obtain ⟨feO, sO⟩ := pr
+      rw [hrun] at hf
+      simp only [Functor.map, Except.map, Except.ok.injEq] at hf
+      subst hf
+      first
+      | exact ⟨feO, sO, hrun, rfl⟩
+      | exact ⟨feO, sO, rfl, rfl⟩
+
+/-- The parsed records' carried invariant, in the fold's premise
+shape. -/
+theorem wdecl_rel {ds : List WDeclC} :
+    ∀ pc ∈ ds.map (·.1), ∃ d, DeclCRel pc d := by
+  intro pc hpc
+  obtain ⟨wpc, _, rfl⟩ := List.mem_map.mp hpc
+  exact DeclCRel_of_WFc wpc.2
+
+/-- **Acceptance, direct-parse driver, `EnvS`** (the
+`checkDeclsSPCached_sound_R` mirror). -/
+theorem checkDeclsSPCachedD_sound_R (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hgOff : μ.betaGate = false)
+    {ds : List WDeclC} {env' : Env}
+    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    Nonempty (EnvS V env') := by
+  obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
+  exact (foldSPC_R (hgOff := hgOff) (ds.map (·.1)) (mkFEnv Env.empty) rfl
+    ⟨⟨EnvS.empty V⟩, EtaFamiliesClosed.empty⟩ CSOKF.empty
+    wdecl_rel hrun).1
+
+/-- **No proof of `Empty`, direct-parse driver.** -/
+theorem no_proof_of_Empty_SPCD_R (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hgOff : μ.betaGate = false)
+    {ds : List WDeclC} {env' : Env}
+    (h : checkDeclsSPCachedD μ ds = .ok env')
+    (c : ConstantInfo) (hc : c ∈ env'.consts)
+    (hty : c.toConstantVal.type = .const emptyName []) : False := by
+  obtain ⟨m⟩ := checkDeclsSPCachedD_sound_R (hgOff := hgOff) V h
+  exact no_constant_of_Empty_R m c hc hty
+
+/-- **Acceptance, direct-parse driver, `EnvS2U`.** -/
+theorem checkDeclsSPCachedD_sound_R2 {μ : CheckMode}
+    (hgOff : μ.betaGate = false) (hstep : DeclStep2All V μ)
+    {ds : List WDeclC} {env' : Env}
+    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    Nonempty (EnvS2U V env') := by
+  obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
+  exact (foldSPC_R2 (hgOff := hgOff) hstep (ds.map (·.1)) (mkFEnv Env.empty)
+    rfl (EnvS2UOk.empty V) CSOKF.empty wdecl_rel hrun).1
+
+/-- **No proof of `Empty`, direct-parse driver, annotated fold.** -/
+theorem no_proof_of_Empty_SPCD_R2 (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hgOff : μ.betaGate = false) (hstep : DeclStep2All V μ)
+    {ds : List WDeclC} {env' : Env}
+    (h : checkDeclsSPCachedD μ ds = .ok env')
+    (c : ConstantInfo) (hc : c ∈ env'.consts)
+    (hty : c.toConstantVal.type = .const emptyName []) : False := by
+  obtain ⟨m⟩ := checkDeclsSPCachedD_sound_R2 (hgOff := hgOff) (V := V) hstep h
+  exact no_constant_of_Empty_R2 m c hc hty
+
+/-- **Acceptance, direct-parse driver, `EnvS2UM`.** -/
+theorem checkDeclsSPCachedD_sound_R2M {μ : CheckMode}
+    (hgOff : μ.betaGate = false) (hstep : DeclStep2AllM V μ)
+    {ds : List WDeclC} {env' : Env}
+    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    Nonempty (EnvS2UM V μ env') := by
+  obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
+  exact (foldSPC_R2M (hgOff := hgOff) hstep (ds.map (·.1)) (mkFEnv Env.empty)
+    rfl (EnvS2UOkM.empty V μ) CSOKF.empty wdecl_rel hrun).1
+
+/-- **No proof of `Empty`, direct-parse driver, annotated fold at one
+mode.** -/
+theorem no_proof_of_Empty_SPCD_R2M (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hgOff : μ.betaGate = false) (hstep : DeclStep2AllM V μ)
+    {ds : List WDeclC} {env' : Env}
+    (h : checkDeclsSPCachedD μ ds = .ok env')
+    (c : ConstantInfo) (hc : c ∈ env'.consts)
+    (hty : c.toConstantVal.type = .const emptyName []) : False := by
+  obtain ⟨m⟩ := checkDeclsSPCachedD_sound_R2M (hgOff := hgOff) (V := V) hstep h
+  exact no_constant_of_Empty_R2M m c hc hty
+
 end Setlec.Cached

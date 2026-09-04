@@ -2,6 +2,7 @@ import Setlec.Kernel.CheckerS
 import Setlec.Kernel.CheckerNC
 import Setlec.Cached.Driver
 import Setlec.Cached.ParsedNC
+import Setlec.Frontend.ExportC
 import Setlec.Kernel.Split
 import Setlec.Frontend.Export
 
@@ -150,6 +151,30 @@ def declPName : Setlec.DeclP → String
   | .axiomDecl cv => s!"axiom {cv.name}"
   | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
   | .basisDecl k => s!"basis block {repr k}"
+
+/-- `declPName` for the direct-parse `DeclC` records (task #171). -/
+def declCName : Setlec.Cached.DeclC → String
+  | .defnDecl cv _ _ => s!"def {cv.name}"
+  | .thmDecl cv _ => s!"theorem {cv.name}"
+  | .opaqueDecl cv _ => s!"opaque {cv.name}"
+  | .axiomDecl cv => s!"axiom {cv.name}"
+  | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
+  | .basisDecl k => s!"basis block {repr k}"
+
+/-- Diagnostic second-pass loop over `DeclC` (task #171; the direct
+pipeline needs no re-parse — the records carry no arena, so the fold
+never shared a store with them). -/
+partial def diagLoopC
+    (stepF : Setlec.FEnv → Setlec.Cached.DeclC → Setlec.Cached.CState →
+      Except Setlec.CheckError (Setlec.FEnv × Setlec.Cached.CState))
+    (decls : Array Setlec.Cached.WDeclC) (i : Nat)
+    (fe : Setlec.FEnv) (s : Setlec.Cached.CState) : String :=
+  if h : i < decls.size then
+    let d := decls[i]
+    match stepF fe d.1 s with
+    | .ok (fe, s) => diagLoopC stepF decls (i + 1) fe s
+    | .error _ => s!" [at {declCName d.1}]"
+  else ""
 
 /-- Diagnostic second-pass loop (locates the failing declaration for
 the error message), as explicit recursion with the accumulators passed
@@ -307,6 +332,44 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool)
     -- declaration records.  `--pre` (an explicit user assertion, never
     -- content sniffing) skips detection and the preprocessor spawn.
     let (path, isTemp) ← if pre then pure (file, false) else preprocess file
+    -- Task #171: the cached-parsed core parses DIRECTLY to `ExprC`
+    -- (user order: no arena, no conversion detour).  The split driver
+    -- (an arena-level diagnostic instrument) keeps the arena parse.
+    if core == .cachedParsed ∧ split?.isNone ∧
+        !(← IO.getEnv "SETLEC_PROGRESS").isSome then
+      try
+        match ← Frontend.parseExportStreamD path (modeled := true) with
+        | .error (.unsupported what) =>
+          IO.eprintln s!"setlec: declined: {what}"
+          return 2
+        | .error (.parseError line msg) =>
+          IO.eprintln s!"setlec: {file}:{line}: {msg}"
+          return 3
+        | .ok ⟨decls, taintSkipped⟩ =>
+          let finish : UInt32 → IO UInt32 := fun code => do
+            if taintSkipped.isEmpty then return code
+            IO.eprintln s!"setlec: declined: {Frontend.taintSummary taintSkipped}"
+            return (if code = 0 then 2 else code)
+          let foldD : List Setlec.Cached.WDeclC → Setlec.CheckM Setlec.Env :=
+            if mode == Setlec.CheckMode.noModel then
+              Setlec.Cached.checkDeclsSPCachedDNM
+            else Setlec.Cached.checkDeclsSPCachedD mode
+          match foldD decls.toList with
+          | .ok env =>
+            IO.println s!"setlec: accepted {env.consts.length} declarations"
+            return ← finish 0
+          | .error e =>
+            let stepD := fun fe d s =>
+              if mode == Setlec.CheckMode.noModel then
+                (Setlec.Cached.checkDeclSPStepCNC fe d).run s
+              else (Setlec.Cached.checkDeclSPStepC mode fe d).run s
+            let ctx := diagLoopC stepD decls 0
+              (Setlec.mkFEnv Setlec.Env.empty) {}
+            IO.eprintln s!"setlec: {e}{ctx}"
+            return ← finish e.exitCode
+      finally
+        if isTemp then
+          try IO.FS.removeFile path catch _ => pure ()
     try
       match ← Frontend.parseExportStream path (modeled := true) with
       | .error (.unsupported what) =>

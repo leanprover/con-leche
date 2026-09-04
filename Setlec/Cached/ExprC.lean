@@ -456,6 +456,204 @@ def toExprGo (memo : Std.HashMap ExprC Expr) (e : ExprC) :
 /-- Read an `ExprC` back as an `Expr` (memoized DAG walk). -/
 def toExpr (e : ExprC) : Expr := (toExprGo {} e).1
 
+
+/-! ## The erasure and the field invariant (task #171)
+
+Moved from `Setlec/Verify/Cached/Erase.lean` under the
+self-contained-verification exception (the `Std.HashMap` pattern): the
+direct-parse frontend (`Setlec/Frontend/ExportC.lean`) carries `WFc`
+in its table types, so the invariant and its smart-constructor closure
+must be visible implementation-side.  Same namespace as before — every
+downstream reference is unchanged. -/
+
+/-! ## The erasure -/
+
+/-- Erase the four computed fields, yielding the plain expression the
+node represents.  Non-injective on raw `ExprC` (garbage fields erase
+away); injective on `WFc` (`eraseC_inj`). -/
+def eraseC : ExprC → Expr
+  | .bvar i .. => .bvar i
+  | .fvar idx n ty .. => .fvar idx n (eraseC ty)
+  | .sort u .. => .sort u
+  | .const n us .. => .const n us
+  | .app f a .. => .app (eraseC f) (eraseC a)
+  | .lam n ty b m .. => .lam n (eraseC ty) (eraseC b) m
+  | .forallE n ty b m .. => .forallE n (eraseC ty) (eraseC b) m
+  | .letE n ty v b .. => .letE n (eraseC ty) (eraseC v) (eraseC b)
+  | .lit l .. => .lit l
+  | .proj s i e .. => .proj s i (eraseC e)
+
+/-! The smart constructors erase to the plain constructors (the
+"erasure half" of field exactness: all `rfl`). -/
+
+@[simp] theorem eraseC_mkBVar (i : Nat) : eraseC (mkBVar i) = .bvar i := rfl
+
+@[simp] theorem eraseC_mkFVar (idx : Nat) (n : Name) (ty : ExprC) :
+    eraseC (mkFVar idx n ty) = .fvar idx n (eraseC ty) := rfl
+
+@[simp] theorem eraseC_mkSort (u : Level) : eraseC (mkSort u) = .sort u := rfl
+
+@[simp] theorem eraseC_mkConst (n : Name) (us : List Level) :
+    eraseC (mkConst n us) = .const n us := rfl
+
+@[simp] theorem eraseC_mkApp (f a : ExprC) :
+    eraseC (mkApp f a) = .app (eraseC f) (eraseC a) := rfl
+
+@[simp] theorem eraseC_mkLam (n : Name) (ty b : ExprC) (m : BinderMeta) :
+    eraseC (mkLam n ty b m) = .lam n (eraseC ty) (eraseC b) m := rfl
+
+@[simp] theorem eraseC_mkForallE (n : Name) (ty b : ExprC) (m : BinderMeta) :
+    eraseC (mkForallE n ty b m) = .forallE n (eraseC ty) (eraseC b) m := rfl
+
+@[simp] theorem eraseC_mkLetE (n : Name) (ty v b : ExprC) :
+    eraseC (mkLetE n ty v b) = .letE n (eraseC ty) (eraseC v) (eraseC b) := rfl
+
+@[simp] theorem eraseC_mkLit (l : Literal) : eraseC (mkLit l) = .lit l := rfl
+
+@[simp] theorem eraseC_mkProj (s : Name) (i : Nat) (e : ExprC) :
+    eraseC (mkProj s i e) = .proj s i (eraseC e) := rfl
+
+/-- `ofExpr` (the pure conversion) is a section of the erasure. -/
+@[simp] theorem eraseC_ofExpr : ∀ x : Expr, eraseC (ofExpr x) = x := by
+  intro x
+  induction x with
+  | bvar i => rfl
+  | fvar idx n ty ih =>
+    show eraseC (mkFVar idx n (ofExprSpec ty)) = _
+    simp [show ofExprSpec ty = ofExpr ty from rfl, ih]
+  | sort u => rfl
+  | const n us => rfl
+  | app f a ihf iha =>
+    show eraseC (mkApp (ofExprSpec f) (ofExprSpec a)) = _
+    simp [show ofExprSpec f = ofExpr f from rfl,
+      show ofExprSpec a = ofExpr a from rfl, ihf, iha]
+  | lam n ty b m iht ihb =>
+    show eraseC (mkLam n (ofExprSpec ty) (ofExprSpec b) m) = _
+    simp [show ofExprSpec ty = ofExpr ty from rfl,
+      show ofExprSpec b = ofExpr b from rfl, iht, ihb]
+  | forallE n ty b m iht ihb =>
+    show eraseC (mkForallE n (ofExprSpec ty) (ofExprSpec b) m) = _
+    simp [show ofExprSpec ty = ofExpr ty from rfl,
+      show ofExprSpec b = ofExpr b from rfl, iht, ihb]
+  | letE n ty v b iht ihv ihb =>
+    show eraseC (mkLetE n (ofExprSpec ty) (ofExprSpec v) (ofExprSpec b)) = _
+    simp [show ofExprSpec ty = ofExpr ty from rfl,
+      show ofExprSpec v = ofExpr v from rfl,
+      show ofExprSpec b = ofExpr b from rfl, iht, ihv, ihb]
+  | lit l => rfl
+  | proj s i e ih =>
+    show eraseC (mkProj s i (ofExprSpec e)) = _
+    simp [show ofExprSpec e = ofExpr e from rfl, ih]
+
+/-! ## The field invariant -/
+
+/-- The field invariant: the term is exactly what the pure conversion
+builds from its own erasure, i.e. every field of every node satisfies
+the smart-constructor recurrence.  Everything the checker constructs
+is `WFc`: raw constructor applications appear nowhere outside the
+smart constructors. -/
+def WFc (e : ExprC) : Prop := ofExpr (eraseC e) = e
+
+/-- The conversion of any expression is well-formed. -/
+theorem WFc_ofExpr (x : Expr) : WFc (ofExpr x) := by
+  show ofExpr (eraseC (ofExpr x)) = ofExpr x
+  rw [eraseC_ofExpr]
+
+/-- **Injectivity on the invariant** — the arena's `denote_inj`
+without a table: a well-formed node is determined by its erasure. -/
+theorem eraseC_inj {a b : ExprC} (ha : WFc a) (hb : WFc b)
+    (h : eraseC a = eraseC b) : a = b := by
+  rw [← ha, ← hb, h]
+
+/-! ### Closure under the smart constructors -/
+
+protected theorem WFc.mkBVar (i : Nat) : WFc (mkBVar i) := rfl
+
+protected theorem WFc.mkFVar {ty : ExprC} (idx : Nat) (n : Name)
+    (hty : WFc ty) : WFc (mkFVar idx n ty) := by
+  show ofExpr (eraseC (mkFVar idx n ty)) = _
+  rw [eraseC_mkFVar]
+  show mkFVar idx n (ofExprSpec (eraseC ty)) = mkFVar idx n ty
+  rw [show ofExprSpec (eraseC ty) = ofExpr (eraseC ty) from rfl, hty]
+
+protected theorem WFc.mkSort (u : Level) : WFc (mkSort u) := rfl
+
+protected theorem WFc.mkConst (n : Name) (us : List Level) :
+    WFc (mkConst n us) := rfl
+
+protected theorem WFc.mkApp {f a : ExprC} (hf : WFc f) (ha : WFc a) :
+    WFc (mkApp f a) := by
+  show ofExpr (eraseC (mkApp f a)) = _
+  rw [eraseC_mkApp]
+  show mkApp (ofExprSpec (eraseC f)) (ofExprSpec (eraseC a)) = mkApp f a
+  rw [show ofExprSpec (eraseC f) = ofExpr (eraseC f) from rfl,
+    show ofExprSpec (eraseC a) = ofExpr (eraseC a) from rfl, hf, ha]
+
+protected theorem WFc.mkLam {ty b : ExprC} (n : Name) (m : BinderMeta)
+    (hty : WFc ty) (hb : WFc b) : WFc (mkLam n ty b m) := by
+  show ofExpr (eraseC (mkLam n ty b m)) = _
+  rw [eraseC_mkLam]
+  show mkLam n (ofExprSpec (eraseC ty)) (ofExprSpec (eraseC b)) m =
+    mkLam n ty b m
+  rw [show ofExprSpec (eraseC ty) = ofExpr (eraseC ty) from rfl,
+    show ofExprSpec (eraseC b) = ofExpr (eraseC b) from rfl, hty, hb]
+
+protected theorem WFc.mkForallE {ty b : ExprC} (n : Name) (m : BinderMeta)
+    (hty : WFc ty) (hb : WFc b) : WFc (mkForallE n ty b m) := by
+  show ofExpr (eraseC (mkForallE n ty b m)) = _
+  rw [eraseC_mkForallE]
+  show mkForallE n (ofExprSpec (eraseC ty)) (ofExprSpec (eraseC b)) m =
+    mkForallE n ty b m
+  rw [show ofExprSpec (eraseC ty) = ofExpr (eraseC ty) from rfl,
+    show ofExprSpec (eraseC b) = ofExpr (eraseC b) from rfl, hty, hb]
+
+protected theorem WFc.mkLetE {ty v b : ExprC} (n : Name)
+    (hty : WFc ty) (hv : WFc v) (hb : WFc b) : WFc (mkLetE n ty v b) := by
+  show ofExpr (eraseC (mkLetE n ty v b)) = _
+  rw [eraseC_mkLetE]
+  show mkLetE n (ofExprSpec (eraseC ty)) (ofExprSpec (eraseC v))
+    (ofExprSpec (eraseC b)) = mkLetE n ty v b
+  rw [show ofExprSpec (eraseC ty) = ofExpr (eraseC ty) from rfl,
+    show ofExprSpec (eraseC v) = ofExpr (eraseC v) from rfl,
+    show ofExprSpec (eraseC b) = ofExpr (eraseC b) from rfl, hty, hv, hb]
+
+protected theorem WFc.mkLit (l : Literal) : WFc (mkLit l) := rfl
+
+protected theorem WFc.mkProj {e : ExprC} (s : Name) (i : Nat)
+    (he : WFc e) : WFc (mkProj s i e) := by
+  show ofExpr (eraseC (mkProj s i e)) = _
+  rw [eraseC_mkProj]
+  show mkProj s i (ofExprSpec (eraseC e)) = mkProj s i e
+  rw [show ofExprSpec (eraseC e) = ofExpr (eraseC e) from rfl, he]
+
+
+
+/-! ### The invariant-carrying constructors (task #171)
+
+Subtype-wrapped smart constructors for the direct-parse tables: the
+value is the smart constructor's, the invariant travels in the type,
+and the wrapper erases at runtime. -/
+
+/-- An `ExprC` carrying its field invariant. -/
+abbrev WExprC := { e : ExprC // WFc e }
+
+@[inline] def mkBVarW (i : Nat) : WExprC := ⟨mkBVar i, WFc.mkBVar i⟩
+@[inline] def mkSortW (u : Level) : WExprC := ⟨mkSort u, WFc.mkSort u⟩
+@[inline] def mkConstW (n : Name) (us : List Level) : WExprC :=
+  ⟨mkConst n us, WFc.mkConst n us⟩
+@[inline] def mkAppW (f a : WExprC) : WExprC :=
+  ⟨mkApp f.1 a.1, WFc.mkApp f.2 a.2⟩
+@[inline] def mkLamW (n : Name) (ty b : WExprC) (m : BinderMeta) : WExprC :=
+  ⟨mkLam n ty.1 b.1 m, WFc.mkLam n m ty.2 b.2⟩
+@[inline] def mkForallEW (n : Name) (ty b : WExprC) (m : BinderMeta) : WExprC :=
+  ⟨mkForallE n ty.1 b.1 m, WFc.mkForallE n m ty.2 b.2⟩
+@[inline] def mkLetEW (n : Name) (ty v b : WExprC) : WExprC :=
+  ⟨mkLetE n ty.1 v.1 b.1, WFc.mkLetE n ty.2 v.2 b.2⟩
+@[inline] def mkLitW (l : Literal) : WExprC := ⟨mkLit l, WFc.mkLit l⟩
+@[inline] def mkProjW (s : Name) (i : Nat) (e : WExprC) : WExprC :=
+  ⟨mkProj s i e.1, WFc.mkProj s i e.2⟩
+@[inline] def ofExprW (x : Expr) : WExprC := ⟨ofExpr x, WFc_ofExpr x⟩
+
 end ExprC
 
 /-! ## The one-level view
