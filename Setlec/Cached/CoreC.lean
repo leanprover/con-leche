@@ -1719,9 +1719,14 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
     -- equations, a real proof-adaptation bill): Thunk-cache the
     -- previous fuel level, as `coreKnotNC`'s E1.
     let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotI fe fuel⟩
+    -- task #172 B2: the template's config is built ONCE per knot
+    -- level, not per `whnfCore` call.  Measured: leaving `cfgOf mode`
+    -- inside the closure costs +0.155 % on `init-prelude` — a record
+    -- allocation at every head-normalization entry.
+    let cfg := cfgOf mode
     { whnfCore := memoEI (·.whnfCoreC)
         (fun st mp => { st with whnfCoreC := mp })
-        (fun d e => whnfCoreBodyI (cfgOf mode) prev.get fe d e)
+        (fun d e => whnfCoreBodyI cfg prev.get fe d e)
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI prev.get fe d e)
       infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })

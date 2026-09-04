@@ -22,12 +22,16 @@ core's branches disappear rather than collapse.
 This is the whole mechanism, and it is why the fields are shaped the
 way they are:
 
-* `betaSkip` is a **function** field, not a `Bool`-valued gate applied
-  to a wrapper.  At `cfgR` it is `fun _ => false`, so
-  `cfgR.betaSkip pw` reduces to `false` and the gated `if` *is* its
-  `else` arm, definitionally.  At `cfgP` it is `PropWhen.isNever`, so
-  the surviving branch reads the **validated annotation datum** — data,
-  not a flag, which is exactly the census's finding 2 distinction;
+* the β field is a **pure early-return gate**, not a wrapper around
+  the certificate's `Bool`.  At `cfgR` the read `cfgR.betaSkip pw`
+  reduces to `false`, so the gated `if` *is* its `else` arm —
+  definitionally, and the `else` arm is the pre-gate clause
+  byte-for-byte.  At `cfgP` the read reduces to `pw.isNever`, so the
+  surviving branch inspects the **validated annotation datum** — data,
+  not a flag, which is exactly the census's finding 2 distinction.
+  (The field itself is a `Bool` and `betaSkip` a definition over it;
+  a field of *function* type eliminates just as well but is a closure
+  at every β site — measured at B2, +0.36 % on `init-prelude`.);
 * every field of `cfgOf mode` is a *projection of a literal
   constructor*, so `(cfgOf mode).betaSkip pw` is `betaGateFires mode
   pw` by `rfl` for a **variable** `mode` too.  That is what lets the
@@ -60,12 +64,19 @@ namespace Setlec
 every field must compute away by `rfl` at each named core (see the
 module docstring). -/
 structure CoreCfg where
-  /-- The β-certificate skip predicate, read at `whnfCore`'s β site.
-  `fun _ => false` runs the per-redex argument certificate always; at
-  the P core it is `PropWhen.isNever`, i.e. the skip is licensed by the
-  redex's own *validated* annotation datum (`AnnotOkP_beta_gate`,
-  `SetP/Step2/GateP.lean`). -/
-  betaSkip : PropWhen → Bool
+  /-- Is the β-certificate skip on?  Read (through `betaSkip`) at
+  `whnfCore`'s β site.  `false` runs the per-redex argument
+  certificate always; at the P core it is `true`, and then the branch
+  reads the redex's own *validated* annotation datum
+  (`AnnotOkP_beta_gate`, `SetP/Step2/GateP.lean`).
+
+  **A `Bool` and not a `PropWhen → Bool`, on measured grounds.**  Both
+  shapes satisfy the `rfl`-eliminability requirement, but a function
+  field is a closure at every β site: measured at B2, the function
+  shape cost **+0.36 % instructions on `init-prelude`** (β-heavy
+  `app-lam` was unmoved).  The `Bool` field's codegen is the retiring
+  flag's, exactly. -/
+  betaGate : Bool
   /-- The verified lanes' extra checks: the λ-codomain sort check and
   the ∀/λ annotation validation.  Carried by the record from B2 on;
   the clauses that read it are `inferBody`'s and `defeqStep`'s, which
@@ -79,7 +90,7 @@ structure CoreCfg where
 /-- **The R core's configuration**: every certificate unconditional.
 No gate, no skip — the census's part 2 §2(b) core. -/
 def cfgR : CoreCfg where
-  betaSkip := fun _ => false
+  betaGate := false
   verified := true
   iotaMode := .setModel
 
@@ -88,7 +99,7 @@ in, reading the validated annotation datum (census part 2 §2(c)1).
 Every other certificate is `cfgR`'s — the establishment/consumption
 asymmetry fence (`gate_zero_kind_unreachable`) is why. -/
 def cfgP : CoreCfg where
-  betaSkip := PropWhen.isNever
+  betaGate := true
   verified := true
   iotaMode := .setModelP
 
@@ -98,9 +109,18 @@ parameter.  Every field is written so that the projection of
 `mode` — that is what makes the template's introduction invisible to
 the mode-parametric towers. -/
 def cfgOf (mode : CheckMode) : CoreCfg where
-  betaSkip := fun pw => mode.betaGate && pw.isNever
+  betaGate := mode.betaGate
   verified := mode.verified
   iotaMode := mode
+
+/-- **The β site's read.**  Spelled as a definition over the `Bool`
+field rather than as a field of function type, so that a core's β site
+compiles to the retiring flag's own two field reads and no closure
+(see `CoreCfg.betaGate`).  The elimination is unchanged: at `cfgR` the
+conjunction's left operand is the literal `false`, so the whole read is
+`false` by `rfl`, and at `cfgP` it is the annotation datum. -/
+@[inline] def CoreCfg.betaSkip (cfg : CoreCfg) (pw : PropWhen) : Bool :=
+  cfg.betaGate && pw.isNever
 
 /-- `cfgOf` at `.setModel` **is** the R core's config — by `rfl`, which
 is the census's finding 1 (the flag-free core is already available
@@ -119,6 +139,8 @@ scopes.  Every one is `rfl`. -/
 @[simp] theorem cfgR_betaSkip (pw : PropWhen) : cfgR.betaSkip pw = false := rfl
 @[simp] theorem cfgP_betaSkip (pw : PropWhen) :
     cfgP.betaSkip pw = pw.isNever := rfl
+@[simp] theorem cfgR_betaGate : cfgR.betaGate = false := rfl
+@[simp] theorem cfgP_betaGate : cfgP.betaGate = true := rfl
 @[simp] theorem cfgR_verified : cfgR.verified = true := rfl
 @[simp] theorem cfgP_verified : cfgP.verified = true := rfl
 @[simp] theorem cfgR_iotaMode : cfgR.iotaMode = .setModel := rfl
