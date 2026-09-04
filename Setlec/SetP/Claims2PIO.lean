@@ -60,7 +60,9 @@ one slot and nothing else moves —
 with the io slot at `fuel + 1` consuming `Whnf`, `DefEq` and `InferIO`
 at `fuel` (and, at the kept-check branch of the app clause, nothing
 else).  `checkSound2P5` closes that induction generically; the step
-itself (`CheckStep2P5`) is the campaign's remaining bill.
+itself is PAID since the io-license batch —
+`checkStep2P5_of_quarters` / `checkSoundP5_of_inputs`
+(`Step2/AssemblyP.lean`), modulo the routed `InferInputsIOP`.
 
 **Mode provenance (binding).**  An io conclusion must never feed a
 site that needs establishment form.  The knot boundary is the
