@@ -1452,6 +1452,12 @@ theorem whnfCoreBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
     simp only [] at h ⊢
     split at h
     · next n₁ ty₁ body₁ mb₁ =>
+      -- task #161: the β gate's fired arm is the reduct site; the
+      -- other arm is the pre-gate proof, verbatim
+      by_cases hgate : betaGateFires μ mb₁.pw = true
+      · rw [if_pos hgate] at h ⊢
+        exact hs.1 h
+      rw [if_neg hgate] at h ⊢
       cases h2 : r₁.infer d a with
       | error err => rw [h2] at h; exact nomatch h
       | ok ta =>

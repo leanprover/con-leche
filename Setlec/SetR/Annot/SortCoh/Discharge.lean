@@ -2584,7 +2584,7 @@ campaign's first brick): every success on an application splits into
 the head's core run at knot `g` plus exactly one of the four
 continuations — fired β (with the argument cert), stuck β (cert
 false), fired iota, or stuck iota. -/
-theorem whnfCore_app_decompose {μ : CheckMode} {env : Env}
+theorem whnfCore_app_decompose {μ : CheckMode} (hg : μ.betaGate = false) {env : Env}
     {g d : Nat} {f x s : Expr}
     (h : whnfCore μ env (g + 1) d (.app f x) = .ok s) :
     ∃ f', whnfCore μ env g d f = .ok f' ∧
@@ -2615,6 +2615,9 @@ theorem whnfCore_app_decompose {μ : CheckMode} {env : Env}
   refine ⟨f', hwf, ?_⟩
   split at h
   · next n ty body mb =>
+    -- task #161: the gate is off at this mode, so the `if` takes its
+    -- `else` arm — the pre-gate clause, verbatim
+    rw [if_neg (by simp [betaGateFires, hg])] at h
     cases hinf : (Setlec.pureFns μ env g).infer d x with
     | error err => rw [hinf] at h; exact nomatch h
     | ok ta =>
@@ -2653,7 +2656,7 @@ plus a leg package build the layer's core run at joined fuel.  The
 connecting runs of re-based seams are assembled with this — the
 seam's own head run replaces the original's, the original legs are
 reused verbatim. -/
-theorem whnfCore_app_assemble {μ : CheckMode} {env : Env}
+theorem whnfCore_app_assemble {μ : CheckMode} (hg : μ.betaGate = false) {env : Env}
     (hm : KnotFuelMono μ env) {g gl d : Nat} {P y h' s : Expr}
     (hh : whnfCore μ env g d P = .ok h')
     (hlegs :
@@ -2687,6 +2690,7 @@ theorem whnfCore_app_assemble {μ : CheckMode} {env : Env}
   rcases hlegs with ⟨n, ty, body, mb, ta, rfl, hinf, hdq, hrun⟩ |
     ⟨n, ty, body, mb, ta, rfl, hinf, hdq, rfl⟩ | ⟨hnl, hio⟩
   · simp only []
+    rw [if_neg (by simp [betaGateFires, hg])]
     rw [show (Setlec.pureFns μ env (max g gl)).infer d y = .ok ta
       from hm.1 (Nat.le_max_right g gl) hinf]
     simp only []
@@ -2697,6 +2701,7 @@ theorem whnfCore_app_assemble {μ : CheckMode} {env : Env}
     rw [if_pos trivial]
     exact hm.2.2.1 (Nat.le_max_right g gl) hrun
   · simp only []
+    rw [if_neg (by simp [betaGateFires, hg])]
     rw [show (Setlec.pureFns μ env (max g gl)).infer d y = .ok ta
       from hm.1 (Nat.le_max_right g gl) hinf]
     simp only []

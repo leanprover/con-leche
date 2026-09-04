@@ -32,10 +32,10 @@ open Setlec.TT Setlec.TTVerify
 variable {mode : CheckMode}
 
 /-- **`CheckStepR`, proved.**  The bridge half of task #148. -/
-theorem checkStepR : CheckStepR mode := by
+theorem checkStepR (hg : mode.betaGate = false) : CheckStepR mode := by
   intro env m φ fuel ihwc ihw ihd ihi
   have hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ) := m.cval_closed
-  exact ⟨whnfCore_claimsR m φ hcl
+  exact ⟨whnfCore_claimsR m φ hg hcl
       (iota_stepR m φ hcl ihw ihd ihi) (proj_stepR m φ hcl ihwc ihw ihd ihi)
       ihwc ihw ihd ihi,
     whnf_claimsR_closed m φ hcl ihwc ihw,
@@ -48,9 +48,10 @@ theorem checkStepR : CheckStepR mode := by
 /-- **The bridge, at every fuel.**  Successful inference yields an
 `Infer` derivation up to `DefEq`; a positive defeq verdict yields a
 `DefEq`; reduction yields a `Red`. -/
-theorem checkBridge {env : Env} (m : EnvR env) (φ : Name → Nat) :
+theorem checkBridge {env : Env} (hg : mode.betaGate = false)
+    (m : EnvR env) (φ : Name → Nat) :
     ∀ fuel : Nat, WhnfCoreClaimsR mode m φ fuel ∧ WhnfClaimsR mode m φ fuel ∧
       DefEqClaimsR mode m φ fuel ∧ InferClaimsR mode m φ fuel :=
-  checkSoundR checkStepR m φ
+  checkSoundR (checkStepR hg) m φ
 
 end Setlec.SetR

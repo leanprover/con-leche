@@ -1407,6 +1407,40 @@ def projCert (r : CoreFns m) (_env : Env) (depth : Nat)
   let _te ← r.infer depth e₂
   pure true
 
+/-- **THE β SITE'S GATE** (task #161): does the mode's β gate fire at
+this binder?
+
+At `mode.betaGate` (i.e. at `.setModelP`, and nowhere else) a λ-binder
+whose *validated* annotation datum is `.never` — "the codomain sort is
+nonzero at every valuation" — licenses skipping the certificate: the
+sealed P claim's positive branch (`AnnotOkP_beta_gate`,
+`Setlec/SetP/Step2/GateP.lean`) derives the domain membership from the
+redex's own `AnnotOk2` slot and consumes no certificate at all.
+
+At a possibly-zero datum, and at every non-gated mode, the certificate
+runs unconditionally — the establishment/consumption asymmetry fence,
+and task #100's de-gating ruling, both untouched: *that* gate read a
+**computed** nonzero sort (unsound-to-model under the domain-relative
+collapse); this one reads a **validated annotation**.
+
+Both arms hand back the same reduct, so reducts stay
+annotation-blind; the dead-branch collapse is `betaGateFires_off`
+(`Verify/BetaGate.lean`).
+
+The gate is a **pure early return**, not a wrapper around the test's
+`Bool`, and that shape is load-bearing: the `else` arm is then the
+pre-gate clause *byte-for-byte*, so every existing proof of every
+non-gated mode continues verbatim after one `simp only` on the
+condition.  (A wrapper around the test would have re-associated the
+certificate's binds and cost every site a `bind_assoc` as well.)
+
+`betaGateFires` is deliberately mode-and-datum only — it reads no
+expression and runs no computation, so it is decidable *before* the
+certificate would have started, which is the whole performance
+point. -/
+@[inline] def betaGateFires (mode : CheckMode) (pw : PropWhen) : Bool :=
+  mode.betaGate && pw.isNever
+
 /-- The head-normalization body: beta (with the per-redex argument
 certificate, unconditional since the task-#100 de-gating), iota (with
 the stuck-major machinery) and the native basis pair projection — but
@@ -1431,11 +1465,16 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         -- former possibly-Prop annotation gate (skip the certificate
         -- at a provably nonzero codomain sort) is unsound-to-model
         -- under the domain-relative collapse (DESIGN.md), so the
-        -- certificate now runs unconditionally.
-        let ta ← r.infer depth a
-        if ← r.defeq depth ta ty then
+        -- certificate now runs unconditionally — except at the task
+        -- #161 β gate, which reads a *validated* annotation instead
+        -- (`betaGateFires`, and only at `mode.betaGate`).
+        if betaGateFires mode mb.pw then
           r.whnfCore depth (body.instantiate1 a)
-        else pure (.app (.lam n ty body mb) a)
+        else do
+          let ta ← r.infer depth a
+          if ← r.defeq depth ta ty then
+            r.whnfCore depth (body.instantiate1 a)
+          else pure (.app (.lam n ty body mb) a)
       | f' => do
         match ← iotaRec mode r env depth (.app f' a) with
         | some e'' => r.whnfCore depth e''

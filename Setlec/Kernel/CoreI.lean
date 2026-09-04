@@ -1483,13 +1483,18 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
   | v, [] => pure v
   | v, a :: rest => do
     match ← viewI v with
-    | some (.lam _ ty body _mb) => do
-        let ta ← r.infer depth a
-        if ← r.defeq depth ta ty then
+    | some (.lam _ ty body mb) => do
+        -- task #161: the β gate is a pure early return; the `else`
+        -- arm is the pre-gate clause, verbatim (`betaGateFires`)
+        if betaGateFires mode mb.pw then
           betaPeelI r fe depth k body [a] rest
         else do
-          let fa ← internI (.app v a)
-          mkAppNM fa rest
+          let ta ← r.infer depth a
+          if ← r.defeq depth ta ty then
+            betaPeelI r fe depth k body [a] rest
+          else do
+            let fa ← internI (.app v a)
+            mkAppNM fa rest
     | _ => do
       let fa ← internI (.app v a)
       match ← iotaRecI mode r fe depth fa with
@@ -1516,15 +1521,20 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     k e'
   | t, acc, a :: rest => do
     match ← viewI t with
-    | some (.lam _ ty body _mb) => do
-        let ty' ← instListM ty acc
-        let ta ← r.infer depth a
-        if ← r.defeq depth ta ty' then
+    | some (.lam _ ty body mb) => do
+        -- task #161: the β gate is a pure early return; the `else`
+        -- arm is the pre-gate clause, verbatim (`betaGateFires`)
+        if betaGateFires mode mb.pw then
           betaPeelI r fe depth k body (a :: acc) rest
         else do
-          let f' ← instListM t acc
-          let fa ← internI (.app f' a)
-          mkAppNM fa rest
+          let ty' ← instListM ty acc
+          let ta ← r.infer depth a
+          if ← r.defeq depth ta ty' then
+            betaPeelI r fe depth k body (a :: acc) rest
+          else do
+            let f' ← instListM t acc
+            let fa ← internI (.app f' a)
+            mkAppNM fa rest
     | _ => do
       let e' ← instListM t acc
       let v ← k e'

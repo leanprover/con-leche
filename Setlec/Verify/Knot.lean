@@ -1,5 +1,6 @@
 import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.CoreIO
+import Setlec.Verify.BetaGate
 
 /-!
 # Knot equations

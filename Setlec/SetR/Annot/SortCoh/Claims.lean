@@ -1660,6 +1660,12 @@ theorem whnfCore_reidem_const {μ : CheckMode} {env : Env}
       split at h
       · -- beta path (fw is a λ)
         next n₁ ty₁ body₁ mb₁ =>
+        -- task #161: a fired β gate reduces without the certificate;
+        -- the other arm is the pre-gate proof, verbatim
+        by_cases hgate : betaGateFires μ mb₁.pw = true
+        · rw [if_pos hgate] at h
+          exact hm.2.2.1 (Nat.le_succ f) (ih h hshape)
+        rw [if_neg hgate] at h
         cases hinf : (Setlec.pureFns μ env f).infer d a₀ with
         | error err => rw [hinf] at h; exact nomatch h
         | ok ta =>

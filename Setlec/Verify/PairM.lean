@@ -869,6 +869,9 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [projLitToCtor_fst_proj])
     | (rw [defeqSpine_fst])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    -- task #161: the β gate's dead branch — unfolding the *one* gate
+    -- primitive hands both arms back to the cascade's own `split`
+    | ((rw [PairM.fst_ite]; congr 1) <;> try rfl)
     | (dsimp only [])
     | split))
 
@@ -917,6 +920,9 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [projLitToCtor_snd_proj])
     | (rw [defeqSpine_snd])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    -- task #161: the β gate's dead branch — unfolding the *one* gate
+    -- primitive hands both arms back to the cascade's own `split`
+    | ((rw [PairM.snd_ite]; congr 1) <;> try rfl)
     | (dsimp only [])
     | split))
 

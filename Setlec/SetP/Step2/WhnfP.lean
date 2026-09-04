@@ -636,7 +636,7 @@ theorem whnfCore_app_claimP (m : EnvS2Core V env) {fuel : Nat}
     · exact hLf' l hl
     · exact hLa l hl
   have hCapp : CtxOkP m φ d Δa (.app f' a) := CtxOkP.app hCf' hCa
-  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, ta, hta, hde⟩ |
+  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, hcertOr⟩ |
     ⟨e'', hio, hwe''⟩ | rfl
   · -- β
     obtain ⟨tya, ba, htya, hbb, rfl⟩ := denoteP_lam_inv hfa'
@@ -663,12 +663,22 @@ theorem whnfCore_app_claimP (m : EnvS2Core V env) {fuel : Nat}
           AnnotOkP V ρ (ba.inst aa) := by
       intro ρ hρ
       by_cases hz : pwBit φ mm.pw = 0
-      · rw [hz] at hokapp ⊢
-        exact AnnotOkP_beta_zero (hokapp ρ hρ)
-          (hcert hta hde hws.2 hb.2 hLa hwf'.1 hbf'.1 hLty hCa
-            hCty haa htya (fun ρ' hρ' => AnnotOkP.lam_dom (hokf' ρ' hρ'))
-            ρ hρ)
-      · exact AnnotOkP_beta_pos hz (hokapp ρ hρ)
+      · -- task #161: the zero-kind arm is the one that consumes a
+        -- certificate, and it is exactly the arm a **fired β gate**
+        -- cannot reach — the asymmetry fence, discharged here rather
+        -- than assumed (`gate_zero_kind_unreachable`, `GateP.lean`,
+        -- is this same composition packaged).
+        rcases hcertOr with hfired | ⟨ta, hta, hde⟩
+        · exact absurd hz
+            (pwBit_ne_zero_of_isNever (isNever_of_betaGateFires hfired) φ)
+        · rw [hz] at hokapp ⊢
+          exact AnnotOkP_beta_zero (hokapp ρ hρ)
+            (hcert hta hde hws.2 hb.2 hLa hwf'.1 hbf'.1 hLty hCa
+              hCty haa htya (fun ρ' hρ' => AnnotOkP.lam_dom (hokf' ρ' hρ'))
+              ρ hρ)
+      · -- the positive arm consumes no certificate at all: this is
+        -- the branch a fired gate always lands in (`AnnotOkP_beta_gate`)
+        exact AnnotOkP_beta_pos hz (hokapp ρ hρ)
     have hred : denoteP m.acval env φ d (body.instantiate1 a)
         = some (ba.inst aa) := by
       rw [denoteP_beta m.acval_closed (acval_inst_self m)

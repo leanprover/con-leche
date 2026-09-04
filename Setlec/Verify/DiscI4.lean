@@ -149,6 +149,22 @@ theorem whnfAppI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
           exact WScoped.instantiate1_gen hwxa 0 hwtb.2
         rw [whnfApp_lam]
         unfold whnfAppLam
+        -- task #161: both gates read the *same* datum — the binder
+        -- meta's `pw`, which `denoteBM` copies (`pw_of_denoteBM`) —
+        -- so one `by_cases` serves both sides and the ungated arm is
+        -- the pre-gate proof, verbatim
+        rw [pw_of_denoteBM hbmDen]
+        by_cases hgate : betaGateFires mode mb.pw = true
+        · rw [if_pos hgate]
+          show SimAt _ _ _ _
+            (if betaGateFires mode mb.pw = true then _ else _) _
+          rw [if_pos hgate]
+          exact betaPeelI_sim ih henv hk hs hbody ⟨hax, DenL.nil⟩
+            hwsub hrest hwrest
+        rw [if_neg hgate]
+        show SimAt _ _ _ _
+          (if betaGateFires mode mb.pw = true then _ else _) _
+        rw [if_neg hgate]
         refine SimAt.bind (ih.infer hs hax hwxa)
           (fun s₁ ta tax hs₁ hext₁ hP => ?_)
         obtain ⟨htad, hwta⟩ := hP
@@ -382,6 +398,19 @@ theorem betaPeelI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
         have hwsub : WScoped d (bodyx.instantiateList (xa :: ws)) := by
           rw [Expr.instantiateList_cons]
           exact WScoped.instantiate1_gen hwxa 0 hcomp.2
+        -- task #161: the β gate, both sides on the same datum
+        rw [pw_of_denoteBM hbmDen]
+        by_cases hgate : betaGateFires mode mb.pw = true
+        · rw [if_pos hgate]
+          show SimAt _ _ _ _
+            (if betaGateFires mode mb.pw = true then _ else _) _
+          rw [if_pos hgate]
+          exact betaPeelI_sim ih henv hk hs hbody ⟨hax, hacc⟩
+            hwsub hrest hwrest
+        rw [if_neg hgate]
+        show SimAt _ _ _ _
+          (if betaGateFires mode mb.pw = true then _ else _) _
+        rw [if_neg hgate]
         refine SimAt.bind_left (instListM_eff (d := 0) hs hty hacc)
           (fun s₁ ty' hs₁ hext₁ hQty => ?_)
         refine SimAt.bind (ih.infer hs₁

@@ -217,6 +217,7 @@ theorem whnfCore_app_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
     (ihwc : WhnfCoreClaimsR mode m φ fuel)
     (ihd : DefEqClaimsR mode m φ fuel) (ihi : InferClaimsR mode m φ fuel)
     {d : Nat} {Δ : List VExpr} {f a e' : Expr} {v : VExpr}
+    (hg : mode.betaGate = false)
     (h : whnfCore mode env (fuel + 1) d (.app f a) = .ok e')
     (hws : Expr.WScoped d (.app f a))
     (hb : (Expr.app f a).looseBVarsBounded 0 = true)
@@ -239,7 +240,7 @@ theorem whnfCore_app_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
   split at hv
   · next vf va hif hia =>
     obtain rfl : v = .app vf va := (Option.some.inj hv).symm
-    obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
+    obtain ⟨f', hwf, hcase⟩ := whnf_app_inv_ungated hg h
     obtain ⟨vf', hif', hDf, hwf', hbf', hLf', hCf'⟩ :=
       whnfCore_packageR m φ ihwc hwf hws.1 hb.1 hLf hCf hif
     have hiapp : denote m.cval env φ d (.app f' a)
@@ -319,7 +320,8 @@ needed by exactly one clause — the projection clause reduces its
 scrutinee with `whnf` — and that clause is `hproj`.  The binder stays so
 that discharging `ProjStepR` does not change this signature. -/
 theorem whnfCore_claimsR {env : Env} (m : EnvR env) (φ : Name → Nat)
-    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    {fuel : Nat} (hg : mode.betaGate = false)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (hiota : IotaStepR (mode := mode) m φ fuel)
     (hproj : ProjStepR (mode := mode) m φ fuel)
     (ihwc : WhnfCoreClaimsR mode m φ fuel) (_ihw : WhnfClaimsR mode m φ fuel)
@@ -370,7 +372,7 @@ theorem whnfCore_claimsR {env : Env} (m : EnvR env) (φ : Name → Nat)
     obtain ⟨v', hv', hDeq'⟩ := ihwc h hwred hbred hLred hCred hW
     exact ⟨v', hv', hDeq.trans hDeq'⟩
   | .app f a =>
-    exact whnfCore_app_claimR m φ hcl hiota ihwc ihd ihi h hws hb hLb hC hv
+    exact whnfCore_app_claimR m φ hcl hiota ihwc ihd ihi hg h hws hb hLb hC hv
   | .proj sn i pe => exact hproj h hws hb hLb hC hv
 
 /-! ## The delta step

@@ -361,7 +361,7 @@ theorem unfoldDefinition_inv {e u : Expr}
 
 /-- A const-headed run whose head is not a recursor is the
 identity (the spine inversion's fired disjunct is refuted). -/
-theorem whnfCore_nonrec_id (hm : KnotFuelMono μ env)
+theorem whnfCore_nonrec_id (hgOff : μ.betaGate = false) (hm : KnotFuelMono μ env)
     {g d : Nat} {f W : Expr} {c : Name} {us : List Level}
     (hfn : f.getAppFn = Expr.const c us)
     (hnr : ∀ cv mI rP rules,
@@ -372,7 +372,7 @@ theorem whnfCore_nonrec_id (hm : KnotFuelMono μ env)
     have he := Setlec.Expr.mkAppN_getApp f
     rw [hfn] at he
     exact he
-  have hspine := whnfCore_rec_spine_inv (μ := μ) hm
+  have hspine := whnfCore_rec_spine_inv (μ := μ) (hgOff := hgOff) hm
     (as := f.getAppArgs) (n := c) (us := us)
     (by rw [hfeq]; exact hrun)
   rcases hspine with heq | ⟨pre, post, g₀, e'', h', hsplit, -, hio,
@@ -445,7 +445,7 @@ theorem whnf_lit_id {g d : Nat} {v : Setlec.Literal} :
 set_option maxHeartbeats 3200000 in
 /-- **The core alignment discharge at one knot fuel** — trace
 induction; strictly-lower tiers through the fuel IHs. -/
-theorem coreAlign_step {env : Env} (_henv : EnvWF env)
+theorem coreAlign_step {env : Env} (hgOff : μ.betaGate = false) (_henv : EnvWF env)
     (hm : KnotFuelMono μ env) (hPC : ProjCtorWF env) {g : Nat}
     (ihC : ∀ g', g' < g → CoreAlignAt μ env g')
     (ihL : ∀ g', g' < g → LoopAlignAt μ env g') :
@@ -460,7 +460,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
     cases g with
     | zero => exact nomatch hrun
     | succ g' =>
-    obtain ⟨f_act, hhead, hcase⟩ := whnfCore_app_decompose hrun
+    obtain ⟨f_act, hhead, hcase⟩ := whnfCore_app_decompose hgOff hrun
     have hfl : f_act = Expr.lam n ty b m := by
       cases g' with
       | zero => exact nomatch hhead
@@ -511,7 +511,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
   | delta hu rest ih =>
     intro hrun
     obtain ⟨c, us, hfn, hkind⟩ := unfoldDefinition_inv hu
-    have hW := whnfCore_nonrec_id hm hfn
+    have hW := whnfCore_nonrec_id hgOff hm hfn
       (fun cv mI rP rules hr => by
         rcases hkind with ⟨cv', v', h', hf⟩ | ⟨cv', v', hf⟩ <;>
           (rw [hf] at hr; exact nomatch hr)) hrun
@@ -519,7 +519,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
     exact Or.inr (Or.inr (Or.inl ⟨_, hu, rest⟩))
   | natSucc x n hs hx hnl rest ihx ihr =>
     intro hrun
-    have hW := whnfCore_nonrec_id hm
+    have hW := whnfCore_nonrec_id hgOff hm
       (show (Expr.app (.const Setlec.natSuccName []) x).getAppFn
         = Expr.const Setlec.natSuccName [] from rfl)
       (fun cv mI rP rules hr => absurd hr (fun hr =>
@@ -542,7 +542,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
       rcases hc with rfl | rfl
       · exact Or.inl rfl
       · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (rfl)))))))))))))))
-    have hW := whnfCore_nonrec_id hm
+    have hW := whnfCore_nonrec_id hgOff hm
       (show (Expr.app (.const c []) x).getAppFn
         = Expr.const c [] from rfl)
       (fun cv mI rP rules hr => absurd hr (fun hr =>
@@ -577,7 +577,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
       · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl rfl))))))))))))
       · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl rfl)))))))))))))
       · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl rfl))))))))))))))
-    have hW := whnfCore_nonrec_id hm
+    have hW := whnfCore_nonrec_id hgOff hm
       (show (Expr.app (.app (.const c []) x) y).getAppFn
         = Expr.const c [] from rfl)
       (fun cv mI rP rules hr => absurd hr (fun hr =>
@@ -591,12 +591,12 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
     cases g with
     | zero => exact nomatch hrun
     | succ g' =>
-    obtain ⟨f_act, hhead, hcase⟩ := whnfCore_app_decompose hrun
+    obtain ⟨f_act, hhead, hcase⟩ := whnfCore_app_decompose hgOff hrun
     rcases ihC g' (Nat.lt_succ_self g') h hhead with
       ⟨g₂, hg₂, hrun₂⟩ | hdead | ⟨u, hu, hrest_u⟩ |
       ⟨res, c, n₁, n₂, hhd, hnr, hprov, hrest_n⟩ |
       hlit | hfs | hps | hcs | hns
-    · have hasm := whnfCore_app_assemble hm (y := x) hrun₂ hcase
+    · have hasm := whnfCore_app_assemble (hg := hgOff) hm (y := x) hrun₂ hcase
       exact ihr (hm.2.2.1 (by omega : max g₂ g' + 1 ≤ g' + 1)
         hasm)
     · rcases hcase with ⟨n, ty, b, m, ta, heq, -, -, -⟩ |
@@ -790,7 +790,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
           | (exact ⟨_, _, rfl⟩)
           | (exfalso
              simp [Setlec.Expr.getAppArgs] at hlen)
-    obtain ⟨f_act, hhead, hcase⟩ := whnfCore_app_decompose hrun
+    obtain ⟨f_act, hhead, hcase⟩ := whnfCore_app_decompose hgOff hrun
     -- the inner spine is fire-proof: identity
     have hfn' : S'.getAppFn = Expr.const c us := hfn
     have hlen' : S'.getAppArgs.length = mI := by
@@ -806,7 +806,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
         have he := Setlec.Expr.mkAppN_getApp S'
         rw [hfn'] at he
         exact he
-      rcases whnfCore_rec_spine_inv (μ := μ) hm
+      rcases whnfCore_rec_spine_inv (μ := μ) (hgOff := hgOff) hm
         (as := S'.getAppArgs) (n := c) (us := us)
         (by rw [hfeq]; exact hhead) with heq |
         ⟨pre, post, g₀, e₀, h₀, hsplit, -, hio₀, -, -⟩
@@ -893,7 +893,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
           | (exact ⟨_, _, rfl⟩)
           | (exfalso
              simp [Setlec.Expr.getAppArgs] at hlen)
-    obtain ⟨f_act, hhead, hcase⟩ := whnfCore_app_decompose hrun
+    obtain ⟨f_act, hhead, hcase⟩ := whnfCore_app_decompose hgOff hrun
     -- the inner spine is fire-proof: identity
     have hfn' : S'.getAppFn = Expr.const c us := hfn
     have hlen' : S'.getAppArgs.length = mI := by
@@ -909,7 +909,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
         have he := Setlec.Expr.mkAppN_getApp S'
         rw [hfn'] at he
         exact he
-      rcases whnfCore_rec_spine_inv (μ := μ) hm
+      rcases whnfCore_rec_spine_inv (μ := μ) (hgOff := hgOff) hm
         (as := S'.getAppArgs) (n := c) (us := us)
         (by rw [hfeq]; exact hhead) with heq |
         ⟨pre, post, g₀, e₀, h₀, hsplit, -, hio₀, -, -⟩
@@ -996,7 +996,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
           | (exact ⟨_, _, rfl⟩)
           | (exfalso
              simp [Setlec.Expr.getAppArgs] at hlen)
-    obtain ⟨f_act, hhead, hcase⟩ := whnfCore_app_decompose hrun
+    obtain ⟨f_act, hhead, hcase⟩ := whnfCore_app_decompose hgOff hrun
     -- the inner spine is fire-proof: identity
     have hfn' : S'.getAppFn = Expr.const c us := hfn
     have hlen' : S'.getAppArgs.length = mI := by
@@ -1012,7 +1012,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
         have he := Setlec.Expr.mkAppN_getApp S'
         rw [hfn'] at he
         exact he
-      rcases whnfCore_rec_spine_inv (μ := μ) hm
+      rcases whnfCore_rec_spine_inv (μ := μ) (hgOff := hgOff) hm
         (as := S'.getAppArgs) (n := c) (us := us)
         (by rw [hfeq]; exact hhead) with heq |
         ⟨pre, post, g₀, e₀, h₀, hsplit, -, hio₀, -, -⟩
@@ -1114,7 +1114,7 @@ theorem coreAlign_step {env : Env} (_henv : EnvWF env)
     rw [hbud] at hloop
     obtain ⟨e₁, hwc, htri⟩ := whnfStep_decompose hloop
     rw [Setlec.whnfCore_def] at hwc
-    have hid : e₁ = ES := whnfCore_nonrec_id hm hfn hnr hwc
+    have hid : e₁ = ES := whnfCore_nonrec_id hgOff hm hfn hnr hwc
     rcases htri with ⟨e₂n, hrn, -⟩ | ⟨hrn, u, hud, -⟩ |
       ⟨hrn, hud, hstop⟩
     · rw [hid] at hrn
@@ -1290,14 +1290,14 @@ theorem loopAlign_step {env : Env}
 induction on the knot — scrutinee whnfs run one fuel down, the
 kernel's own discipline; the loop tier consumes the core tier at
 the same fuel). -/
-theorem alignAt {env : Env} (henv : EnvWF env)
+theorem alignAt {env : Env} (hgOff : μ.betaGate = false) (henv : EnvWF env)
     (hm : KnotFuelMono μ env) (hPC : ProjCtorWF env) :
     ∀ (g : Nat), CoreAlignAt μ env g ∧ LoopAlignAt μ env g := by
   intro g
   induction g using Nat.strongRecOn with
   | ind g IH =>
     have hC : CoreAlignAt μ env g :=
-      coreAlign_step henv hm hPC (fun g' hg' => (IH g' hg').1)
+      coreAlign_step hgOff henv hm hPC (fun g' hg' => (IH g' hg').1)
         (fun g' hg' => (IH g' hg').2)
     exact ⟨hC, loopAlign_step hm hC⟩
 

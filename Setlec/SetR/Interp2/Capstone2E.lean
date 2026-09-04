@@ -77,7 +77,7 @@ theorem exists2E_of_checkStep2D (hstep : CheckStep2D μ V)
 
 /-- **The generation-six step, from the generation-five residues.**
 Route A: the four `…2E` induction hypotheses are unused. -/
-theorem checkStep2E_of_quarters
+theorem checkStep2E_of_quarters (hgOff : μ.betaGate = false)
     (hwc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
     (hio : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -110,7 +110,7 @@ theorem checkStep2E_of_quarters
     (hi : InferInputs2D V μ) :
     CheckStep2E μ V := by
   have hD : CheckStep2D μ V :=
-    checkStep2D_of_quarters hwc hio hpj hrn hdl hdd hrn2 hpi hsp hsi
+    checkStep2D_of_quarters hgOff hwc hio hpj hrn hdl hdd hrn2 hpi hsp hsi
       hsl hap hbs hac het hi
   intro env m φ fuel _ _ _ _
   obtain ⟨d1, d2, d3, d4⟩ := checkSound2D hD m φ (fuel + 1)
@@ -121,7 +121,7 @@ theorem checkStep2E_of_quarters
 Route B: every hypothesis is used, and the existence factor the
 quarters demand is supplied by `exists2E_of_checkStep2D` rather than
 routed. -/
-theorem checkStep2E_of_quarters_routed
+theorem checkStep2E_of_quarters_routed (hgOff : μ.betaGate = false)
     (hwc : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat),
       Denote2Inst1B μ m.acval env φ)
     (hio : ∀ (env : Env) (m : EnvS2UM V μ env) (φ : Name → Nat)
@@ -154,9 +154,9 @@ theorem checkStep2E_of_quarters_routed
     (hi : InferInputs2D V μ) :
     CheckStep2E μ V := by
   have hex := exists2E_of_checkStep2D
-    (checkStep2D_of_quarters hwc hio hpj hrn hdl hdd hrn2 hpi hsp hsi
+    (checkStep2D_of_quarters hgOff hwc hio hpj hrn hdl hdd hrn2 hpi hsp hsi
       hsl hap hbs hac het hi)
-  exact checkStep2E_of (whnfCoreStep2E_of hex hwc hio hpj)
+  exact checkStep2E_of (whnfCoreStep2E_of hgOff hex hwc hio hpj)
     (whnfStep2E_of hex hrn hdl)
     (defEqStep2E_of hex hdd hrn2 hpi hsp hsi hsl hap hbs hac het)
     (inferStep2E_of hex hi)

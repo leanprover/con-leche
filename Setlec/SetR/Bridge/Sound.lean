@@ -36,12 +36,12 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 theorem checkDeclR_sound
-    {μ : CheckMode} {F : Nat}
+    {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat}
     {env env₂ : Env} (m : EnvS V env) (hE : EtaFamiliesClosed env)
     {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
     DeclR μ F m.cval env d env₂ :=
-  checkDeclR_ofEnvRE m.toEnvR hE h
+  checkDeclR_ofEnvRE (hg := hg) m.toEnvR hE h
 
 -- **`checkDeclRun_sound` is deleted** (task #161 S11b, the opener).
 -- The design census's C3 artifact was `DeclR.toRun` composed *after*
@@ -57,7 +57,7 @@ theorem checkDeclR_sound
 -- `SetBase/DeclEta.lean`, is its consumer.)
 
 theorem foldlM_R
-    {μ : CheckMode} {F : Nat}
+    {μ : CheckMode} (hg : μ.betaGate = false) {F : Nat}
      :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       EnvSOk V env →
@@ -73,8 +73,9 @@ theorem foldlM_R
     | ok env1 =>
       rw [hd] at h
       obtain ⟨⟨m⟩, hE⟩ := hm
-      exact foldlM_R ds env1
-        (declStepS divModPinS reducePinS stdAxiomKeyS declBasisS
-          (declIndS memberKeyS) m hE (checkDeclR_sound m hE hd)) h
+      exact foldlM_R (hg := hg) ds env1
+        (declStepS (hg := hg) divModPinS reducePinS stdAxiomKeyS declBasisS
+          (declIndS memberKeyS) m hE
+            (checkDeclR_sound (hg := hg) m hE hd)) h
 
 end Setlec.SetR

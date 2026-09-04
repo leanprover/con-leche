@@ -261,6 +261,9 @@ def DivModPinS (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {F : Nat} {env : Env} (m : EnvS V env)
     {cv : ConstantVal} {type' value value' : Expr}
     {hint : ReducibilityHint},
+    -- task #161: the β gate is off (the R lane's `Red.beta` needs the
+    -- argument certificate and has no annotation to read it off)
+    μ.betaGate = false →
     cv.name ∈ natDivModNames →
     env.find? cv.name = none →
     ConstantValR μ F env m.cval cv type' →

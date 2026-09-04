@@ -464,6 +464,11 @@ structure Args where
 def parseArgs : List String → Args → Args
   | [], a => a
   | "--set-model" :: rest, a => parseArgs rest { a with mode := .setModel }
+  -- Task #161: the β-certificate gate, a *mode value* on the one
+  -- executable (`CheckMode.betaGate`), not a second knot.  Deliberately
+  -- absent from `usage` until the gated mode's soundness theorem
+  -- lands: reachable for measurement, not advertised.
+  | "--set-model=p" :: rest, a => parseArgs rest { a with mode := .setModelP }
   | "--tt-model" :: _, a =>
     { a with bad := some "--tt-model is retired; the declarative \
         verification lane it selected was deleted with the mode, and \
@@ -511,6 +516,7 @@ def childArgs (a : Args) (file : String) : Array String :=
   #[file]
     ++ (match a.mode with
         | .setModel => #[]
+        | .setModelP => #["--set-model=p"]
         | .noModel => #["--no-model"])
     ++ (if a.pre then #["--pre"] else #[])
     ++ (match a.core with

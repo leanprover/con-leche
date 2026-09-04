@@ -451,7 +451,7 @@ private theorem whnfCoreReads_app {m : EnvS2Core V env}
     rcases hl with hl | hl
     · exact hLf' l hl
     · exact hLa l hl
-  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, ta, hta, hde⟩ |
+  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, -⟩ |
     ⟨e'', hio, hwe''⟩ | rfl
   · -- β: the reduct is the λ's body opened at the argument
     obtain ⟨tya, ba, htya, hbb, rfl⟩ := denoteP_lam_inv hfa'
