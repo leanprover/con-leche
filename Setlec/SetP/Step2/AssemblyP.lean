@@ -1,4 +1,5 @@
 import Setlec.SetP.Step2.InferP
+import Setlec.SetP.Step2.InferIOP
 import Setlec.SetP.Step2.WhnfP
 import Setlec.SetP.Step2.DefEqP
 
@@ -70,5 +71,40 @@ theorem checkSoundP_of_inputs (hμ : μ.verified = true)
       WhnfCoreClaims2P μ m φ fuel ∧ WhnfClaims2P μ m φ fuel ∧
         DefEqClaims2P μ m φ fuel ∧ InferClaims2P μ m φ fuel :=
   checkSound2P (checkStep2P_of_quarters hμ hwin hdin hiin) m φ
+
+/-! ## The five-way assembly (the io-license batch)
+
+`Claims2PIO.lean` froze `CheckStep2P5` as "the campaign's remaining
+bill"; with the io quarter's eleven arms closed
+(`inferStepIOP_of`, `Step2/InferIOP.lean`) the bill is paid by
+composition: the io slot consumes the same four steps plus the io
+step, and the sealed four never mention the io claim (the knot
+boundary — no full-lane claim is discharged from an io claim, by
+construction). -/
+
+/-- **The five-way step, from the quarters.** -/
+theorem checkStep2P5_of_quarters (hμ : μ.verified = true)
+    (hwin : WhnfInputsP V μ) (hdin : DefEqInputsP μ V)
+    (hiin : InferInputsIOP V μ) : CheckStep2P5 μ V :=
+  fun env m φ fuel h1 h2 h3 h4 h5 =>
+    ⟨whnfCoreStepP_of hμ hwin env m φ fuel h1 h2 h3 h4,
+     whnfStepP_of hμ hwin env m φ fuel h1 h2 h3 h4,
+     defEqStepP_of hμ hdin env m φ fuel h1 h2 h3 h4,
+     inferStepP_of hiin.base hμ env m φ fuel hμ h1 h2 h3 h4,
+     inferStepIOP_of hiin hμ env m φ fuel hμ h1 h2 h3 h4 h5⟩
+
+/-- **The five-way ladder, closed over fuel**: the four sealed claims
+and the io claim hold at every fuel, at a validating mode, given the
+routed input bundles.  This is what B4's driver-side skip baking
+consumes at each io call site. -/
+theorem checkSoundP5_of_inputs (hμ : μ.verified = true)
+    (hwin : WhnfInputsP V μ) (hdin : DefEqInputsP μ V)
+    (hiin : InferInputsIOP V μ) {env : Env} (m : EnvS2Core V env)
+    (φ : Name → Nat) :
+    ∀ fuel : Nat,
+      WhnfCoreClaims2P μ m φ fuel ∧ WhnfClaims2P μ m φ fuel ∧
+        DefEqClaims2P μ m φ fuel ∧ InferClaims2P μ m φ fuel ∧
+          InferClaimsIO2P μ m φ fuel :=
+  checkSound2P5 (checkStep2P5_of_quarters hμ hwin hdin hiin) m φ
 
 end Setlec.SetR.Interp2
