@@ -32320,3 +32320,79 @@ Written down now so a later batch does not have to discover them:
    the bill and it is a class-III error of exactly S12's shape.  B2's
    slice must touch one simulation lemma end-to-end for this reason,
    and its seal must report the answer.
+
+## TASK #172 — DESIGN CENSUS, part 7 — RECONCILIATION WITH THE
+CAMPAIGN-CLOSE SEAL (2026-09-04)
+
+The separation campaign's closing seal (§§1–4 above, landed on master
+at `01ec5f0e` while this census was being written) states the tri-core
+pivot's retire/reuse lists and the `.noModel` disposition at the
+*ruling* level.  This census is the *measured* version of the same
+ground, taken independently, and it agrees with the seal everywhere
+except on three points, all of which sharpen rather than contradict.
+Recorded here so the record has one story.
+
+**1. "the 19 R letters" — MEASURED AT 32.**  The seal's retire list
+(§2) and the brief that ordered this census both say nineteen.  The
+tree says **32**, every one carrying `(hg : μ.betaGate = false)`:
+`SetR/Main.lean` 8, `SetR/Main2.lean` 18 (the eight `R2`, the eight
+`R2M`, plus `no_proof_of_Empty_R2M_of_installs` and `…_of_installsR`),
+`Verify/Cached/MainC.lean` 6.  The retirement bill is unchanged in
+kind and 1.7× in size.
+
+**2. `EnvS2Refute` — the seal says it "loses its mode-typed subject and
+is re-stated per-core or retired with it"; the measurement says it
+never had a stake.**  Part 3 §2: the three sites apply a
+*refuted-shape predicate* whose own definition quantifies `∀ μ`, then
+rewrite with `denote2_one_lam`/`denote2_one_forallE`, both mode-generic
+and hypothesis-free.  The three `.noModel` literals are witness
+choices; replacing them with `.setModel` changes no proof.  So the
+module needs **no** per-core restatement and **no** retirement — it
+needs three tokens, or nothing at all.  The seal's conclusion (the
+docket question dissolves, no ratified letter is narrowed in
+substance) stands unchanged; only the reason is smaller than recorded.
+This is the census's tenth correction and its fourth error class.
+
+**3. The seal's §2 lists `Cached/CoreNC` as "unmerged on
+agent/cached-parity-lane"; its own §4 item 4 records it as landed
+(`1fa6444f`).**  The tree confirms landed: `Setlec/Cached/CoreNC.lean`,
+831 lines, plus `Cached/ParsedNC.lean` 377.  Every parity-side count in
+this census (the 1 756-line clone retirement, the 22 `.noModel`
+cross-calls, the zero-theorems finding) is taken against the landed
+pair.
+
+**4. One item the seal hands over that this census did not price, and
+where it belongs.**  Seal §4 item 1: *the parity core's exact-official
+fidelity vs the NC lane's known strict-direction deviations (taxtable
+audit residuals: `inferBodyNC`'s `.lam` domain sort-check, its `.letE`
+double check, and the weak-direction install-kinds-at-io-grade
+finding), plus the two user-held conformance restrictions
+(proofirrel-check @ `3a0be1cd`, the commit-semantics proposal).*  That
+question's natural home is **B1, the parity-expressibility probe**
+(part 6 §2): B1 already walks every `CoreNC` clause and classifies its
+deviation, so it can classify *deviations from official* in the same
+pass at no extra cost, and it produces the ruling's evidence before any
+core is written.  Recommended: fold seal §4 item 1 into B1's charter
+rather than scheduling it separately.  The ruling it needs — whether
+the parity core takes official's checks by construction — is a
+**user** decision, because the standing "soundness licenses the
+omission" ruling was about the *verified* lanes and does not reach
+this one.
+
+**Where the seal and the census agree, and it matters:** the parity
+clones are *promoted*, not retired-in-place; `AnnotOkP_beta_gate` and
+the io graph-regime license become unconditional P-core content;
+annotation stays its own pass in every core; the two gates
+(`tests/layering.sh`, `tests/proofdeps.sh`) survive the refactor with
+their roots re-pointed per core; and the agreement theorem is the
+refactor's one genuinely new obligation.  On that last point the seal
+lists the prior art as "the verdict-identity batteries, the SimC/sim
+towers, S13a's 248/0 gated-agreement receipts (its empirical shadow)".
+This census's part 4 prices exactly that inheritance and reports the
+finding the empirical shadow cannot show: **the parity and P cores are
+not related by check-erasure alone** — a failing certificate returns a
+*stuck term*, not an error, so the parity core reduces where the
+certified one stops.  That is why part 4 recommends agreement **by
+construction** (route C) over a simulation tower, and why the verdict
+form (T2) is carried with one named open obligation rather than
+promised.
