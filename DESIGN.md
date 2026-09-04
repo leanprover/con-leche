@@ -30071,3 +30071,26 @@ differing-body proofs → S13c the tower's knot parameter → S13d the run
 records over `CheckerOps`, **which needs a ruling on `DeclRunR`'s
 letter** → S13e capstone + fifth root → S13f flag + measurement), or a
 re-scope.
+
+## Task #161 SEPARATION — S12 safe half LANDED; THE CADENCE HOLDS
+(2026-09-04; succession-current)
+
+Master @ the S12 merge; battery green; binary md5-identical.
+LANDED: the β-gate's license AS A THEOREM (AnnotOkP_beta_gate — no
+certificate in statement or proof), the asymmetry fence as a type
+(gate_zero_kind_unreachable), the collapse (whnfCoreBodyP_eq).
+
+**Correction ledger (ninth; THIRD ERROR CLASS)**: *a transposition's
+bill is not the statements you transpose, it is the statements they
+are proved from* (129 unnamed Verify statements under the S9-named
+row; the fueledOpsP capstone target = 860 declarations / 59
+modules: 617 hoistable shared-body, 95 genuinely new).
+
+**THE CADENCE HOLDS** pending the user's programme ruling
+(escalated verbatim): the license-vs-shipped fork; route (a)
+duplicate ≈18–20k lines vs route (b) hoist ≈6–8k touched (~2.5k
+new, the DeclRunR letter-move needing a ratified-statement ruling);
+3–5 batches either way.  If proceed-hoist: the first batch is a
+MECHANICS-VALIDATION SLICE (the shared-body identity proven on one
+module family end-to-end) before the bulk commits.  No dispatch
+until the ruling returns.
