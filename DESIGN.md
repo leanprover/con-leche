@@ -30147,3 +30147,28 @@ spelling: --set-model=p kept unless the slice finds a reason for
 way).  The S9 gated-knot code + bucket2-s1 branch → measurement
 scaffolding, tombstoned when the in-body gate lands.  The S13a
 worker re-charted mid-flight onto the redesigned slice.
+
+## Task #161 — "anyways, build it." (2026-09-04; user, verbatim)
+
+STANDING AUTHORIZATION: on a GREEN mechanics slice, the build
+proceeds directly into the full in-body gate + flag surface +
+measurement WITHOUT a re-ratification round-trip; the escalation
+rule (unnamed residual or bill-doubling ⇒ stop and flag) is the
+only brake.  Merge grants per batch still through the coordinator.
+
+CLEANUP INVENTORY (user: "what a mess... hope we can clean up a
+lot") — running list kept in the record from this point, feeding
+the deliberate cleanup phase (task #104's successor) AFTER the
+measurement lands:
+1. The S9 gated-knot scaffold (Kernel/CoreP.lean, CheckerP.lean +
+   Verify/CoreP.lean's knot-level equations) — tombstone when the
+   in-body gate lands (the collapse lemma + license theorem
+   survive; the knot clone dies).
+2. The bucket2-s1 branch — disposition (measurement kit extracted;
+   branch archived).
+3. The ioknot-b1 CoreIO lane (unwired since B1) — same class.
+4. Any clone/bridge artifacts the in-body redesign obsoletes
+   (candidates accrete per batch: the duplicated 21 residue lemmas
+   from S11b's route choice; checkDeclR_ofEnvRE if the run route
+   fully supersedes it; the inert cut-point constants the proofdeps
+   gate no longer needs as cut points).
