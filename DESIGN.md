@@ -35521,3 +35521,426 @@ rows are stale as of today.
 | the docket | two named follow-ups added (§10 items 14, 15): the owed stream-level fuel fixture, blocked on a CLI-settable `checkFuel`; and the `ProjEntry.native` two-valued-tag successor, whose "after the parity-alignment batch" trigger has now fired |
 | **T2c** | the second obligation B1 added (§8: `annotateBody`'s `.proj` + the residual-computation agreement) **discharges to one**: the residual computation is now the same in every body, so T2c is back to head-shape agreement alone |
 | the cleanup docket | the by-construction successor to `ProjEntry.native` (the two-valued pinned tag, "NOTED, NOT TAKEN" §8 of the pin record) was parked "after the parity-alignment batch" — that is now |
+
+## PARKED DESIGN STUDY: annotation-free `.proj` — semantic projections in the proof invariant (2026-09-04, agent/proj-semantic)
+
+**Charter** (user, verbatim intent): "`.proj` handling that does not
+need annotations.  the env stores which projections are valid.  the
+proof invariant carries for each projection a function in the model
+that does not even take the arguments — it works directly on the
+interp of the subject, with a proof that it lands in the right set and
+the iota rule.  at install time the installer proves that such a
+function exists — maybe from the iota rule and maybe the recursor to
+prove that every value looks like the constructor."
+
+Formalized: for each valid `(T, i)` the environment invariant carries
+a **semantic projection** `projS : V → V` with two laws —
+
+* *membership*: `x ∈ˢ carrier(φ, p⃗) → projS x ∈ˢ fieldSet_i(φ, p⃗,
+  earlier fields of x)`, quantified over every legal level valuation
+  `φ` and parameter tuple `p⃗`;
+* *iota*: `projS (mkS(φ, p⃗) a⃗) = a_i`, same quantification —
+
+and the interpretation of `.proj T i e` is `projS ⟦e⟧`:
+syntax-directed, **no parameters, no annotations**.  The
+missing-parameters problem of first-class `.proj` (task #107's frame)
+is dissolved *semantically* instead of syntactically (#173 dissolves
+it by annotating the parent type onto the node).  The checker keeps
+official-style `.proj` typing/reduction; the annotate-time rewrite
+(`annotateProjElim`/`annotateProjRec`) would leave the checker.
+
+This section is a THINK-THROUGH-THEN-SHELVE record: no implementation,
+no statement freezes.  Evidence is the probe file
+**`_probe/ProjSemantic.lean`** (committed on this branch, not in any
+lakefile target; check with `lake env lean _probe/ProjSemantic.lean`
+from a built master checkout, also at `_tmp/proj-semantic/`).  All
+probes compile warning-free; key theorems audited to exactly
+`[propext, Classical.choice, Quot.sound]`.
+
+### 1. Where the design sits against today's three routes
+
+Today `.proj` reaches the semantics through exactly three routes:
+(i) **native pair entries** — `AnnotOk2`'s `.proj` clause is the `i <
+2` pair primitive over `sigmaSet` (`Setlec/SetBase/Ok2.lean:95-98`),
+`interp2`'s clause is `sfst`/`ssnd` (`SetBase/Interp.lean:157`),
+`denoteP` fails any `.proj` with `i ≥ 2` (`SetP/Annot/Bit.lean:180`),
+and `NativeProjPinned` (`Verify/ProjPinInv.lean`) pins every native
+table entry to the two basis pair entries; (ii) **`annotateProjElim`**
+(`Kernel/Core.lean:2101`) rewrites `.proj T i e` on modeled/direct
+structures into applications of installed projection-function
+constants, whose `acval` leaves carry the `_model.proj_i` values;
+(iii) **`annotateProjRec`** (`Kernel/Core.lean:2055`) inlines the
+recursor elimination for the Prop template class (7 template entries;
+113 accepting uses in init-full, all `Exists` 0/1 at `Prop`-collapsed
+instantiations; verdict-load-bearing on arena 087–092).
+
+The proposed design generalizes route (i): the model-side environment
+record (the `ProjOk`-successor clause) carries `projS` + laws per
+entry, and `interp2`/`denoteP`/`AnnotOk2` read `.proj` through it.
+Note the pinned pair **is already the design's shape**: `sfst`/`ssnd`
+are global, classically-defined, parameter-free destructors
+(`SetTheory/Derive/Sigma.lean:32-39`), well-defined by `kpair_inj`,
+with `sfst pt = pt` handling the squash regime.  The study's question
+is which `(T, i)` beyond the pair can carry such a function, and from
+what the installer can prove existence.
+
+### 2. The four questions, answered
+
+**The organizing fact** (all four answers reduce to it): every law the
+install can consume — artifact theorems (`proj_i.iota`, `eta`), the
+recursor's typing and iota, `mem_typeP` readings — is
+**per-instantiation**: it quantifies one level valuation and one
+parameter tuple at a time.  The design's `projS` is a
+**cross-instantiation object**: one function serving every
+instantiation at once.  Per-instantiation laws never determine a
+cross-instantiation choice; the precise gap is one predicate:
+
+> **ProjCoherence** (`ProjCoh`, probe Part 3): for instantiations
+> `i j` and field values `a ∈ˢ F i`, `b ∈ˢ F j`:
+> `mk i a = mk j b → a = b` — cross-instantiation injectivity of the
+> semantic constructor on the projected component.
+
+**THE BOUNDARY THEOREM** (proved, `projS_exists_iff`; the statement as
+it would be frozen):
+
+    theorem projS_exists_iff {ι : Type v} (C F : ι → V) (mk : ι → V → V)
+        (hsurj : ∀ i x, x ∈ˢ C i → ∃ a, a ∈ˢ F i ∧ x = mk i a) :
+        (∃ projS : V → V,
+          (∀ i x, x ∈ˢ C i → projS x ∈ˢ F i) ∧
+          (∀ i a, a ∈ˢ F i → projS (mk i a) = a)) ↔ ProjCoh F mk
+
+(`ι` abstracts (level valuation, parameter tuple, earlier-field
+tuple); dependent field sets are the same statement at that reading.)
+
+**Q1 — from the recursor alone, ignoring `_model.proj_i`/eta?**
+Split answer, both halves mechanized:
+
+* *Surjectivity: YES.*  The recursor's Prop-motive slice — which
+  exists for every structure, elimination into `Prop` being always
+  allowed, and which the invariant supplies as `mem_typeP` of the
+  stored recursor at the `u := 0` instantiation — proves every carrier
+  member constructor-shaped, by instantiating the motive at the truth
+  value of `∃ a⃗, x = mk a⃗` (probe `RecElim0`/`mk_surjective`; the
+  membership in the motive's fibre forces the truth value nonempty).
+* *The function: NO for data fields.*  Large elimination yields the
+  **per-instantiation** projection outright (probe `RecElimU`/
+  `per_instantiation_proj`: motive := the field set, minor := the
+  identity) — but that is a *family* `projS_{φ,p⃗}`, and the `.proj`
+  node names no instantiation, so the design needs the glued global
+  function, and gluing is exactly `ProjCoh` — which no
+  per-instantiation law implies.  Witness: the #107-Finding-B
+  countermodel data *satisfies the full semantic recursor package at
+  every instantiation* (probe `crossing_per_inst_ok`: `ι := Bool`,
+  carriers colliding at `pt`, disjoint singleton field sets, per-
+  instantiation injectivity and large elimination all hold) while
+  even the membership half alone is unsatisfiable
+  (`crossing_no_mem`).  So the recursor route hits Finding B's wall
+  exactly; ignoring the artifacts changes nothing.  Corollary worth
+  recording: Finding B upgrades from "under the current artifact set"
+  to **"under any TT-expressible artifact set"** — a TT theorem's
+  semantic content is a conjunction of per-instantiation V-statements
+  (one per level valuation), `mk 1 x : T 1` and `mk 2 y : T 2` are not
+  even comparable in TT, and the countermodel realizes two healthy
+  instantiations whose gluing fails; no checkable artifact can pin
+  what TT cannot state.
+* *Exception (degenerate gluing):* zero-parameter, level-monomorphic
+  structures have one instantiation; there `per_instantiation_proj`
+  IS the global function and the recursor route succeeds outright.
+
+**Q2 — Prop-eliminating restrictions?**  The break is mechanized and
+is *the same line* as the squashing countermodel, with proof
+irrelevance rather than an adversarial model doing the squashing:
+
+* probe `squash_recElim0` + `squash_no_iota`: the `Exists`-shaped
+  instance (carrier `{pt}`, field set `{∅, pt}`, constructor
+  `fun _ => pt`) **satisfies the entire Prop-elimination package**,
+  yet *no* function satisfies iota on it (`projS pt` would be both
+  `∅` and `pt`).  Prop-only elimination can therefore never supply a
+  data-field projection — `RecElim0` holds of squashed data, so no
+  argument from it can produce what `squash_no_iota` refutes.  The
+  missing ingredient is per-instantiation injectivity = large
+  elimination, unavailable by the restriction; semantically it is
+  *false*, not merely unprovable.
+* *The positive half:* on **proof fields** — field set a truth value
+  at every legal instantiation, exactly what the official
+  `infer_proj` Prop restriction licenses — the constant-`pt` function
+  is a lawful semantic projection **uniformly across all
+  instantiations at once** (probe `propField_projS`; membership needs
+  the field inhabited, which is Q1's surjectivity).  This covers
+  Finding A's template class *semantically*: the per-use legality
+  stays a checker-side check (official kernel parity, unchanged), and
+  every use it licenses reads as `projS = const pt`.  The
+  level-instantiation-dependence that killed native *entries*
+  (Finding A) does not kill the semantic *function* — one function
+  serves all legal instantiations; the laws simply carry the legality
+  premise ("the field's set is a truth value here"), discharged at
+  the use site by the checker's own Prop-restriction check.
+
+**Q3 — non-parametric `T._model`?**  What "parametricity" actually
+buys is now precise: nothing about `fieldSet_i` well-definedness per
+se — the failure mode is **carrier collision across instantiations**.
+A non-parametric model (the countermodel's `fun _ => PUnit'`) makes
+`carrier(1)` and `carrier(2)` share elements while the field data
+differs; then membership at a shared point forces `projS x ∈ F₁ ∩ F₂`
+(empty in the countermodel) and iota forces the collision-inverse to
+be single-valued.  The exact extra hypothesis is `ProjCoh` itself
+(necessary: `coh_of_iota`; sufficient given surjectivity:
+`projS_exists_iff`).  Two natural sufficient conditions, both proved:
+
+* `coh_of_uniform` — **uniform tupling**: the constructor is one
+  instantiation-independent function with one global left inverse
+  (the pair's `kpair`/`sfst`; the built tower below);
+* `coh_of_disjoint` — **carrier disjointness** + per-instantiation
+  injectivity: a model that remembers its instantiation glues the
+  Q1 per-instantiation family.
+
+Opaque models guarantee neither; the direct/pair towers have the
+first by construction.
+
+**Q4 — classical existence?**  The classical construction is exactly
+`projChoice` (probe Part 3): choose any constructor preimage across
+all instantiations, `Classical.choice` on `∃ i a, a ∈ˢ F i ∧ x = mk
+i a`.  Mechanized findings:
+
+* surjectivity comes from the recursor's Prop slice (Q1) — the
+  "every value looks like the constructor" step works;
+* iota of the choice function needs the chosen preimage's component
+  to agree with every actual one — precisely `ProjCoh`
+  (`projChoice_iota`); membership follows from surjectivity +
+  `ProjCoh` (`projChoice_mem`);
+* per-instantiation injectivity (no-confusion) IS derivable from the
+  recursor — but only with **large elimination** into the field's
+  universe (`RecElimU`; for Prop-restricted owners it is false, probe
+  Part 2), and per-instantiation injectivity does *not* give
+  cross-instantiation `ProjCoh` (probe `crossing_per_inst_ok` +
+  `crossing_no_mem` is per-instantiation injective);
+* where squashed/proof-irrelevant components violate iota: the
+  squashed instance (`squash_no_iota`) *is* the #107 boundary — the
+  choice function's failure point is reproduced exactly there.
+
+**The exact class where the classical construction succeeds**: given
+surjectivity (free, Q1), existence ⟺ `ProjCoh` — concretely the union
+of (α) proof fields of any owner (via `const pt`, choice not even
+needed), (β) uniform-tupling models (pair, built towers; choice
+already packaged inside `sfst`/`ssnd`), (γ) instantiation-disjoint
+models with per-instantiation injectivity, (δ) single-instantiation
+(zero-parameter monomorphic) structures with large elimination.
+Opaquely modeled data fields are in none of these and **provably
+cannot be certified into any** (the TT-inexpressibility corollary,
+Q1).
+
+### 3. THE ADDENDUM VARIANT — the proof tier builds the model (USER'S EVENTUAL-DIRECTION RULING)
+
+User addendum, verbatim intent: "if the `_model` dependency is a
+problem we can (and should eventually) resurrect the native support
+for structures, build the set model completely in the proof, and get
+simple projection out of it — generalizing `PSigma'` essentially."
+Recorded as the **eventual-direction ruling**, not an option among
+options.
+
+This is the strongest point on the Q1/Q3 axis: instead of *deriving*
+`projS` from artifacts or the recursor, the installer **builds** the
+carrier as an iterated dependent `sigmaSet` (the pinned `PSigma'`
+pattern at `n` fields), the constructor as the uniform Kuratowski
+tupler, and the projections as the interface's own global destructors.
+`ProjCoh` then holds by `coh_of_uniform` (`kpair_inj` is its
+instance), no `_model` is consumed at all, and the laws are free.
+Mechanized (probe Part 4):
+
+* `builtModel_projections` — membership + iota for `sfst`/`ssnd` on
+  `sigmaSet w A B`, for **every** `A`, `B` at once (= uniformly
+  across instantiations), `w ≠ 0`;
+* `builtModel_recElimU2` — **the reverse of Q1**: the recursor's
+  large-elimination semantics is *derived from the built model*
+  (`r x := m (sfst x) (ssnd x)`), with structure **eta** — every
+  member is the pair of its own components, `mem_sigma_elim` — as the
+  load-bearing step of its typing;
+* `builtModel_squash_proofField` — at squash instantiations
+  (`w = 0`) the destructors return `pt` (`sfst_pt`), which is the
+  *correct* value exactly for proof components; a data component
+  there is Part 2's squashed instance verbatim.
+
+**(a) Which structures qualify.**  Non-recursive, non-indexed
+structures — the direct-recognition class (`directPartsCore?` +
+`directNonRec`).  Dependent fields are native to the construction
+(iterated `sigmaSet` is dependent by nature).  Prop-valued and
+possibly-Prop owners are *graceful*, not excluded: at instantiations
+where the result sort evaluates to `0` the built carrier is the truth
+value (`sigmaSet_zero`) and projections are lawful exactly for proof
+components — which is exactly what the levelwise universe bound
+**`structSort = 0 → fieldSort = 0` at every level assignment**
+(Finding A's missing `projCert` obligation, #107) licenses, and what
+the official `infer_proj` per-use check enforces.  So the bound bites
+as the *install-time semantic-coherence condition* (as #107 predicted
+for any native generalization), and the current gate's blunt
+`resSort ≠ 0` recognition can widen to the levelwise bound.  Still
+excluded: recursive structures (fixpoints, a different build),
+indexed families, and everything already modeled that does not
+qualify (which the ruling handles by *priority*, see (b)).
+
+**(b) Relation to the dormant direct machinery (task #82,
+`directStructsEnabled = false`).**  The syntactic half exists and is
+exactly right: `checkDirectInd`/`checkDirectCtor`/`checkDirectRecTy`
+(`Kernel/Checker.lean:40-160`) already verify the telescope shapes,
+binder-domain pins at own frames, non-recursiveness resolving
+pre-block, and `checkDirectFieldUniv`.  It currently installs
+*degenerate recursors* as projection functions; the resurrection
+would install **native `ProjEntry`s** instead — which is verbatim the
+#107 "feasible slice" work plan (tower dialect, `ProjOk` keyed
+per-entry, the three claim sites).  The model half (DirectTower,
+`tupleV`/`projV`, `sigmaTowerV_split`, `directProj_iota`, the frame
+pins) was retired with `Setlec/Model/*` at #148 T7 — **no `tupleV`/
+`projV` survives in the tree** — but its complete proof architecture
+is recorded in this file (the direct-path sections, 2026-08-23) and
+re-lands in the SetBase/SetP dialect.  Two rulings collide and the
+addendum resolves them: #148 T0b ("direct installs are
+optional/removable, pending deletion") is **superseded in direction**
+by this ruling — the machinery is the seed of the eventual design,
+so T7's deletion should NOT proceed for the structure path.  The gate
+also inverts: today the direct path is artifact-*absence* gated
+(preprocessed streams never reach it); the eventual design gives the
+built model *priority* over artifacts for qualifying blocks (skipping
+stream artifacts has precedent: the taint pre-scan, `_model` skips).
+
+**(c) What the installer checks syntactically** (replacing the
+`_model` syntactic contract for these types): exactly the existing
+stage checks — constructor telescope = `nP` params + `nF` fields
+ending in the family at the opened params (`directFam`), field
+domains resolving in the pre-block env (non-recursiveness), binder
+domains defeq-pinned against the former's at their own frames,
+recursor type = the generated shape — PLUS the levelwise
+`structSort = 0 → fieldSort = 0` bound from (a).  That is the entire
+faithfulness contract: the built tower interprets the *stored*
+constants because the stored types are pinned to the tower's shape.
+No `_model` companion, no renaming roundtrip, no artifact phase for
+these blocks.
+
+**(d) The recursor derived, and the capabilities.**  Mechanized in
+miniature by `builtModel_recElimU2`: recursor value := λ-tower whose
+body applies the minor to the subject's destructor chain; iota is the
+destructor laws; typing is **eta** (`mem_sigma_elim`), which the
+built model proves rather than assumes.  Consequently the eta
+capability comes *for free* for built structures — the very
+capability `directCaps` currently ships `false` (the frame-relative
+walls of the artifact-side eta certificates do not exist here; the
+model-side split IS `mem_sigma_elim` iterated).  Unit-like follows
+the same way for `nF = 0` (the tower degenerates to the unit
+carrier).  K is about indexed `Eq`-likes and is out of the class.
+Large elimination holds at every graph-regime instantiation; at
+squash instantiations elimination is lawful for all-proof-field
+instantiations (the levelwise bound again) — matching Lean's
+subsingleton-elimination criterion semantically.
+
+**Payoff shape** (why this is the eventual direction): the
+annotate-time rewrite census is dominated by exactly the qualifying
+types — init-full 8 895 rewrites, of which `PProd` 3 565 + `PProd'`
+1 911 + `PSigma` 1 940 = 83 %, all simple non-recursive structures.
+Under the built-model design those blocks install natively, their
+`.proj` stays first-class end to end, and `annotateProjElim` shrinks
+to genuinely-opaque modeled structures (recursive/indexed/nested-
+packed), with `annotateProjRec` deleted outright (its class is served
+by `const pt` + the checker's own official-parity `infer_proj`
+restriction — which also removes the nanoda-panic/lean4lean-error
+divergence class D4 from the annotate path).
+
+### 4. Relation map
+
+| task | relation |
+|---|---|
+| **#173** (type-annotated `.proj` node) | **Complementary; partitioned by `ProjCoh`.**  #173 fixes *reduction/typing fidelity* by putting the instantiation on the node; this design fixes *denotation shape* by removing the need for the instantiation.  On the coherent class the annotation is unnecessary (this design wins: no annotation maintenance under substitution/reduction); on opaquely modeled data fields this design is impossible (Q1/Q3) while #173 still works — its annotated node names `(φ, p⃗)`, so the denotation can use the **per-instantiation family** `projS_{φ,p⃗}`, which Q1 *does* supply (`per_instantiation_proj` — the family exists; only the gluing fails).  Composed, they cover everything and delete the rewrite entirely; neither supersedes the other.  The eventual-direction ruling shrinks #173's necessary domain to recursive/indexed/nested-packed structures. |
+| **#117 / #174** (normalization-pass survivors; fuse conjecture) | The projection rewrite is the one annotate clause that is *not a function of the expression* (it enters `norm` as an oracle).  This design (with the addendum) shrinks the oracle's domain by ~83 % of rewrite mass and deletes the `annotateProjRec` branch, so `norm_keep_id` covers correspondingly more streams and the fuse's oracle burden drops — but the rewrite **survives** for genuinely-opaque structures, so #174 keeps its oracle unless #173 also lands. |
+| **#107** | The audit's two findings are *reproduced from the interface alone* by the probes (Finding B = `crossing_*`; Finding A's semantic-incoherence bound = the levelwise `structSort = 0 → fieldSort = 0` reappearing as the built model's squash condition), and Finding B is **strengthened**: impossible under any TT-expressible artifact set, not just the current one.  The feasible slice's work plan is the addendum's implementation skeleton. |
+| **#82 / #148 T0b/T7** | The dormant direct machinery is the addendum's syntactic half; the eventual-direction ruling supersedes the deletion trajectory for the structure path (see 3(b)). |
+| **#161 B2 (`NativeProjPinned`)** | Widening native entries beyond the pair de-pins the `.proj` infer fast path: the pin invariant generalizes to "every native entry carries a semantic-projection clause" and the residual computation returns to entry-driven (the B2 measurement's win is partially given back at `.proj`-heavy streams; re-measure at implementation). |
+
+### 5. What it deletes, what it costs, trust shape
+
+**Deletes** (with the addendum, at the eventual design):
+`annotateProjRec` + its template-entry install pass (the class moves
+to checker-native `.proj` + `const pt` semantics); `annotateProjElim`
+for qualifying structures (83 % of rewrite mass); the `_model`
+artifact phase for qualifying blocks (projection functions, `proj_i`
+renaming checks, `ProjPhaseInv` for them).  **Keeps**: the rewrite
+for opaque modeled structures (until/unless #173); the official
+`infer_proj` legality check (it *is* the design's per-use premise
+discharger); the pinned pair (now the `n = 2` instance of the general
+pattern).
+
+**Install-time proof obligation cost** (engineering estimate): O(1)
+generic theorems, instantiated per structure — no per-structure proof
+search.  The coherent classes each discharge by one lemma family:
+`const pt` (probe-sized, ~20 lines), the tower laws (the retired
+direct-path battery re-landed once, in SetBase dialect — the historic
+record prices it: the 2026-08-23 direct sections, several worktree-
+days), the pair (already landed).  The *recursor-existence* route
+(surjectivity + choice) is never needed for the built classes and is
+refuted for the opaque class, so it costs nothing.
+
+**Trust/layering**: the semantic functions live in the **proof
+invariant** (the model env record's `ProjOk`-successor clause,
+SetBase/SetP side) — `Kernel/*` gains no proof obligation and no
+model import.  Executable-side changes are *deletions plus the
+existing generic rules*: per #107's audit, `Core`/`CoreI`'s
+annotate/infer/whnf `.proj` clauses are already generic over native
+entries, so no new kernel mechanism is forced.  Three caveats keep
+this honest: (i) the `i < 2`/`projPinsP` gates in
+`denoteP`/`AcceptedP` and the `AnnotOk2` proj clause generalize to
+per-entry clauses, and **`AVExpr.proj` must carry the entry key**
+(today the structure name is dropped at the reading) — a mechanical
+but broad ride through the substitution metatheory and every P-lane
+`.proj` row; (ii) the `NativeProjPinned` de-pin, above; (iii) the
+addendum's install stages are new checker code (the resurrected
+direct path with native entries), i.e. "no implementation change" is
+true for the *invariant* design but not for the *built-model*
+variant, which is an implementation feature by definition.
+
+### 6. Boundary statements as they would be frozen
+
+1. `projS_exists_iff` (§2) — existence ⟺ `ProjCoh`, given
+   recursor-derived surjectivity.  THE boundary.
+2. `mk_surjective` — Prop elimination ⇒ constructor-shapedness (the
+   installer's usable half of "from the recursor").
+3. `propField_projS` — `const pt` serves every legal proof-field
+   projection uniformly (Finding A's class, semantically).
+4. `squash_recElim0 ∧ squash_no_iota` — Prop-only elimination is
+   *consistent with* iota-impossibility (the Q2 no-go pair).
+5. `crossing_per_inst_ok ∧ crossing_no_mem` — full per-instantiation
+   health does not glue (the Q1/Q3 no-go pair; #107 Finding B's
+   semantic core).
+6. `builtModel_projections` / `builtModel_recElimU2` /
+   `builtModel_squash_proofField` — the built sigma model's free
+   laws, derived recursor (eta-load-bearing), and squash boundary.
+
+### 7. Parking verdict
+
+The design is **sound and is the right form** for the coherent class:
+it names the exact invariant (a global `projS` with membership +
+iota) that the pinned pair already instantiates, the direct slice
+planned, and proof fields satisfy via `const pt`.  Its hoped-for full
+payoff — the rewrite leaving the checker for *all* structures — is
+**refuted** for opaquely modeled data fields: existence ⟺
+`ProjCoh`, which is underivable from any TT-expressible artifact and
+false in a realizable countermodel; the recursor route (Q1) and the
+classical route (Q4) both terminate on that same wall, which is #107
+Finding B relocated to the interface.  The road forward is the
+**addendum's eventual-direction ruling**: build the model in the
+proof tier for the direct class (generalizing `PSigma'`), where
+`ProjCoh` holds by uniform tupling, eta/recursor come free, and 83 %
+of the rewrite mass goes first-class; compose with #173 for the
+opaque remainder if full deletion is ever wanted.
+
+**Resume here**: (1) the #107 feasible-slice work items (tower
+dialect, keyed `ProjOk`, the three claim sites) are the
+implementation skeleton; (2) re-land the direct model battery in
+SetBase/SetP dialect (the 2026-08-23 direct sections of this file are
+the map; `_probe/ProjSemantic.lean` Part 4 is the semantic core in
+miniature); (3) halt #148 T7's deletion of the direct structure path;
+(4) widen `directPartsCore?`'s `resSort ≠ 0` recognition to the
+levelwise `structSort = 0 → fieldSort = 0` bound; (5) `AVExpr.proj`
+gains the entry key before any model clause generalizes; (6)
+re-measure the `NativeProjPinned` fast path at the widened table.
+
+**PARKED.  This design goes on the shelf: no implementation, no
+statement freezes — the branch carries this record and
+`_probe/ProjSemantic.lean` only, and nothing on master moves until
+the user schedules the built-model resurrection.**
