@@ -35944,3 +35944,143 @@ re-measure the `NativeProjPinned` fast path at the widened table.
 statement freezes — the branch carries this record and
 `_probe/ProjSemantic.lean` only, and nothing on master moves until
 the user schedules the built-model resurrection.**
+
+## AMENDMENT — the uniform tuple model: activation and the tupling refinement (2026-09-04, agent/tuple-model)
+
+**Activation ruling** (user, verbatim): "the direct route is very
+promising.  surely we can work on that in parallel.  if structures are
+modelled very uniformly (nesting pairs with a unit at the end), then
+the `.proj` interpretation is completely uniform and depends only on
+`i` (and maybe a `pw` field to add to it, for prop structures that
+work differently, that is already granted).  the checker itself can
+then work like the official, no normalization needed."
+
+This unparks the study's §3 addendum (the built-model variant) as a
+working lane and REFINES its representation.  Scope of this lane: the
+semantic tier only — the carrier construction, the uniform projection
+family and its once-for-all laws, the install-obligation statement,
+and the capability derivation.  **Kernel wiring is explicitly out of
+scope** and waits for post-B4 coordination (the handoff plan is
+recorded, not executed).
+
+### The refinement: uniform tupling as THE representation
+
+The study's addendum said "iterated dependent `sigmaSet`" and §3(b)
+noted the tower dialect question (unit-terminated vs bare-tailed) as
+an open option.  The refinement CLOSES that question the other way
+from #107's option (i): every direct structure's carrier is the
+**right-nested pair tower with unit terminator**
+
+    ⟦T p⃗⟧  =  F₀ ⋉ (F₁ ⋉ (… ⋉ (F_{n−1} ⋉ unitSet)))
+            =  towerSet w ⟨field telescope⟩,   w = the result sort's value
+
+(each `⋉` a `sigmaSet w`, dependency right-nested along the telescope),
+the constructor is the uniform tupler
+
+    mkTower [a₀, …, a_{n−1}]  =  spair a₀ (spair a₁ (… (spair a_{n−1} pt)))
+
+and the semantic projection family is **one definition depending only
+on the index**:
+
+    projS i  =  sfst ∘ ssnd^i        (structure-independent)
+
+Consequences the bare-tail dialect does not have:
+
+* **One `projS` for every structure and every index.**  No per-entry
+  semantic function is stored or quantified: the `ProjOk`-successor
+  clause degenerates to "the entry is tower-backed", and the
+  `interpExpr`/`interp2` `.proj` clause is a closed expression in `i`
+  alone — no `findProj?` consultation, no env-dependence, no
+  extension-lemma conditions (#107 option (iii)'s cost is gone).
+* **`ProjCoherence` by uniform tupling, made the representation.**
+  The study's boundary predicate `ProjCoh` (existence ⟺ coherence,
+  `projS_exists_iff`) is discharged by `coh_of_uniform` whose
+  hypothesis — one instantiation-independent constructor with global
+  left inverses — is `kpair_inj` iterated.  Tier form:
+  `mkTower_inj` (equal-arity towers with equal values have equal
+  components), proved through `projS_mkTower` alone.
+* **The last field is not special.**  With a bare tail, `projS` at
+  the last index would be `ssnd^{n−1}` (no `sfst`), so the family
+  would depend on `n` — i.e. on the structure.  The unit terminator
+  buys index-only uniformity, at the price that the pinned pair
+  (`PSigma'`: bare `sfst`/`ssnd`) is NOT the `n = 2` instance of the
+  tower; the pair stays its own pinned representation and the
+  `NativeProjPinned` generalization keys entries as
+  pair-vs-tower-backed.  (Recorded trade; the study's "now the n = 2
+  instance" sentence is superseded.)
+* **0/1-field degeneracy for free.**  `n = 0`: the carrier is
+  `unitSet` at every `w` — members are exactly `pt = mkTower []`, and
+  unit-likeness (any two members equal) is a two-line corollary.
+  `n = 1`: the carrier is `sigmaSet w F₀ (λ _ ⇒ unitSet)`, member
+  `spair a pt`, and `projS 0 = sfst` is lawful — with a bare tail a
+  one-field carrier would be `F₀` itself and `projS 0` would have to
+  be the identity, breaking index-only uniformity again.
+
+### The `pw` branch: Prop structures ride the SAME definition
+
+The granted `pw`-style datum for Prop structures needs **no second
+function**: at squash instantiations (`w = 0`) every tower member is
+`pt`, and `projS i pt = pt` holds definitionally (`sfst_pt`/`ssnd_pt`
+iterated) — `projS` *is* the study's `const pt` on the squash regime.
+The branch datum is therefore a **premise**, not a function: the law
+families hold under `w ≠ 0` (graph regime) or under `PropS`
+(every field set a truth value — the levelwise
+`structSort = 0 → fieldSort = 0` bound, #107 Finding A) at `w = 0`.
+One `projS`, two premise regimes; the per-use `infer_proj` Prop
+restriction is what discharges the `PropS`-side premise at use sites,
+exactly as the study's Q2 recorded.
+
+### Statement freeze — the tier (`Setlec/SetBase/TupleTower.lean`, namespace `Setlec.SetTheory.Tower`)
+
+Carriers of the freeze (definitions):
+
+    inductive TeleS (V) : Nat → Type   -- dependent field-set telescope
+      | nil : TeleS V 0
+      | cons (A : V) (B : V → TeleS V n) : TeleS V (n+1)
+
+    FitsS   : TeleS V n → List V → Prop          -- a⃗ fits the telescope
+    towerSet (w : Nat) : TeleS V n → V           -- nil ↦ unitSet; cons ↦ sigmaSet w A (towerSet w ∘ B)
+    mkTower : List V → V                         -- [] ↦ pt; a::as ↦ spair a (mkTower as)
+    projS   : Nat → V → V                        -- 0 ↦ sfst; i+1 ↦ projS i ∘ ssnd
+    projList : Nat → V → List V                  -- the first-n projection tuple
+    teleNth : TeleS V n → Nat → List V → V       -- i-th field set at a prefix valuation
+    PropS   : TeleS V n → Prop                   -- every field set ∈ univZero, hereditarily
+    BoundS (w) : TeleS V n → Prop                -- every field set ∈ univ w, hereditarily
+
+The law families (frozen; `T : TeleS V n` throughout):
+
+    -- intro
+    mkTower_mem      : w ≠ 0 → FitsS T as → mkTower as ∈ˢ towerSet w T
+    pt_mem_tower     : FitsS T as → pt ∈ˢ towerSet 0 T
+    -- iota (UNCONDITIONAL: no membership premise, no w)
+    projS_mkTower    : (h : i < as.length) → projS i (mkTower as) = as[i]
+    -- eta + elim
+    towerSet_elim    : w ≠ 0 → x ∈ˢ towerSet w T →
+                         FitsS T (projList n x) ∧ x = mkTower (projList n x)
+    towerSet_zero_elim : x ∈ˢ towerSet 0 T → x = pt ∧ ∃ as, FitsS T as
+    -- membership (one statement, two premise regimes)
+    projS_mem        : w ≠ 0 → x ∈ˢ towerSet w T → i < n →
+                         projS i x ∈ˢ teleNth T i (projList i x)
+    projS_mem_zero   : PropS T → x ∈ˢ towerSet 0 T → i < n →
+                         projS i x ∈ˢ teleNth T i (projList i x)
+    projS_pt         : projS i (pt : V) = pt
+    -- coherence (ProjCoh by uniform tupling)
+    mkTower_inj      : as.length = bs.length → mkTower as = mkTower bs → as = bs
+    -- the recursor, DERIVED (eta load-bearing)
+    towerRec         : w ≠ 0 → (∀ as, FitsS T as → m as ∈ˢ M (mkTower as)) →
+                         ∃ r : V → V, (∀ x, x ∈ˢ towerSet w T → r x ∈ˢ M x) ∧
+                           (∀ as, FitsS T as → r (mkTower as) = m as)
+    towerRec_zero    : ((∃ as, FitsS T as) → m ∈ˢ M pt) →
+                         ∀ x, x ∈ˢ towerSet 0 T → m ∈ˢ M x
+    -- formation, storage hygiene, degeneracy
+    towerSet_mem_univ : BoundS w T → towerSet w T ∈ˢ univ w
+    towerSet_ne_pt    : towerSet w T ≠ pt
+    towerSet_nil      : towerSet w (.nil) = unitSet   -- hence unit-likeness at n = 0
+
+Auxiliary (not frozen, expected): `FitsS.length_eq`, `projList_length`,
+`projList_get`, `projList_take`/`projList_prefix`, `projList_mkTower`,
+`projList_pt`, `fitsS_replicate_of_prop`.
+
+Install obligations, the capability table and the post-B4 kernel
+handoff plan are recorded with the tier's landing record (below, same
+lane).
