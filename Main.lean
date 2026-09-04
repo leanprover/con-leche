@@ -394,20 +394,31 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool)
         try IO.FS.removeFile path catch _ => pure ()
 
 def usage : String := String.intercalate "\n" [
-  "usage: setlec [--set-model|--no-model] [--pre]",
+  "usage: setlec [--set-model[=r|=p]|--no-model] [--pre]",
   "              [--install-only] [--check-range A:B] FILE.ndjson",
   "",
-  "  --set-model       the default: the verified checker, the surface",
-  "                    the set-theoretic consistency proofs are about.",
-  "                    The seven TT-lane checks (tasks #126/#129/#130/",
-  "                    #135/#136/#137/#146) are off; every always-on",
+  "  --set-model,",
+  "  --set-model=r     the default: verified (collapsed model, full",
+  "                    certificates).  The surface the set-theoretic",
+  "                    consistency proofs are about.  The seven",
+  "                    TT-lane checks (tasks #126/#129/#130/#135/",
+  "                    #136/#137/#146) are off; every always-on",
   "                    certificate family runs",
+  "  --set-model=p     verified (graded model, annotation-gated",
+  "                    checks): the validated-annotation beta gate",
+  "                    skips per-redex argument certificates at",
+  "                    provably non-Prop binders.  Covered by",
+  "                    no_proof_of_Empty_P at the gated mode",
+  "                    (Setlec/SetP; the coverage certificate",
+  "                    betaGate_off_or_verified partitions the modes)",
   "  --no-model        the unverified lane: full checking-mode front",
   "                    door per declaration (official-kernel parity),",
   "                    infer-only internal re-derivations, and no",
   "                    certificate families at all.  Replaces the",
   "                    retired --yolo/SETLEC_NO_PROOF_CERTS and",
-  "                    --infer-only/SETLEC_INFER_ONLY",
+  "                    --infer-only/SETLEC_INFER_ONLY.  The parity",
+  "                    claim is audited: DESIGN.md, \"THE CANONICAL",
+  "                    VERIFICATION-TAX STATEMENT\"",
   "  --pre             assert FILE is already preprocessed output of",
   "                    lean-inductive-models: skip the preprocessor",
   "                    detection scan and spawn entirely",
@@ -464,6 +475,7 @@ structure Args where
 def parseArgs : List String → Args → Args
   | [], a => a
   | "--set-model" :: rest, a => parseArgs rest { a with mode := .setModel }
+  | "--set-model=r" :: rest, a => parseArgs rest { a with mode := .setModel }
   -- Task #161: the β-certificate gate, a *mode value* on the one
   -- executable (`CheckMode.betaGate`), not a second knot.  Deliberately
   -- absent from `usage` until the gated mode's soundness theorem

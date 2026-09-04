@@ -30620,3 +30620,40 @@ Peak RSS is flat (p vs r within noise on every row; `--no-model`'s
 `app-lam` is *worse*, 7.8 GB vs 5.2 GB).  `init-full` and the wider
 ladders were not run in this batch — they belong with the flag's
 `--help` landing (§7 item 3).
+
+## Task #161 SEPARATION — S13a LANDED: THE GATE SHIPS; the help
+surface granted (2026-09-04; succession-current)
+
+Master @ the S13a merge + the help commit.  Battery green.
+
+**THE RULING CHAIN, verbatim** (per the coordinator): the user
+ordered concrete instantiation UNLESS a named multi-mode consumer
+exists — it does (`EnvS2Refute` applying the R family at the
+`.noModel` literal), it was priced both ways, and the alternative
+fails the user's own acceptance check (+1,600 lines instead of
+deletions).  The `(hg : μ.betaGate = false)` hypothesis is `rfl` at
+every pre-existing mode — no consumer pays anything; the coverage
+certificate `betaGate_off_or_verified` makes the mode partition a
+theorem.  RATIFIED.
+
+**CLEANUP-PHASE DOCKET (+1, named)**: is `no_proof_of_Empty_R` at
+`.noModel` load-bearing, or over-promising by design history (the
+ruled help text calls --no-model "unverified")?
+
+**THE HELP SURFACE GRANTED AND SHIPPED**: `--set-model=r` alias
+added; `--set-model=p` in usage with the accurate shipped
+description ("graded model, annotation-gated checks: the
+validated-annotation beta gate…" — NOTE: the ruled text's
+"io-gated internals" wording predates the in-body redesign; the
+shipped text describes what shipped; the io internals remain the
+user's next item and the text extends when they land);
+`--no-model`'s parity claim now cites the canonical-table audit.
+Ruled condition met: the capstone typechecks at the gated mode.
+
+**FOR THE RECORD (coordinator)**: the user's redesign QUARTERED the
+bill (860 declarations/3–5 batches → 213/one).  Congratulations
+noted to the chain.
+
+REMAINING: the S13 closing measurement table against the amended
+baselines (engines per the perf lead) — the table + this record
+close the campaign's original question.
