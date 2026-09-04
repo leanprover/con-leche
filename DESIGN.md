@@ -34753,6 +34753,31 @@ of it mechanical, none of it blocked by anything else.**
 5. **One ruling wanted** (§6), one batch behind it (B3b), and a green
    tree in the meantime.
 
+### 8b. THE CENSUS CORRECTION CHAIN, RECORDED (coordinator's request at
+the merge grant)
+
+The escape count moved three times, and the chain is worth keeping
+because every step was a *record* going stale rather than a fact
+changing:
+
+| when | the pinned claim | reality |
+|---|---|---|
+| task #163 | "exactly **two** `implemented_by` escapes" (`beqFast`, `ofExprFast`) | true then |
+| 2026-09-03 | `ofExprFast` **deleted by architecture** (#171 made the parse route `ExprC`-native).  DESIGN.md recorded the shrink — *"the two-escape #163 census is ONE escape"* | the docstring the census is pinned in was **not** edited, so `Cached/ExprC.lean:330` still said "one of exactly two" |
+| 2026-09-04, B2 §5 | quoted that docstring, so the finding was framed as *"a **third** `implemented_by` escape"* | it would have been the **second** |
+| 2026-09-04, B3a's charter | inherited the framing: *"amend … to THREE escapes"* | — |
+| 2026-09-04, B3a | measured it (`grep -rn 'implemented_by\|@\[extern\|native_decide'` over `Setlec/` + `Main.lean` returns exactly one row) and amended to **TWO**, with a different second member | current |
+
+**The coordinator's disposition at the merge grant:** *"my own
+three-escape framing was stale against the `ofExprFast` deletion"* —
+recorded here so the chain, not just the number, survives.
+
+The lesson is the one the amendment already carries, and this is its
+second instance in two days: *a census pinned inside one row's
+docstring cannot record the deletion of another row.*  The pin now
+lives in the module header, where a row can be struck out, and it
+carries a "census history" paragraph for exactly this reason.
+
 ### 9. POST-MERGE REVALIDATION (2026-09-04)
 
 B3a was written against master `db165820`; the E2 `.proj`-pin gate and
