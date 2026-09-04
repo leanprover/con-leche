@@ -31204,3 +31204,160 @@ private elaboration device, not the thing anyone reads.
   mode-generic today, so they instantiate rather than triplicate — but
   that claim needs the instrument re-run per core before the batch is
   priced, and part 6 sequences it accordingly.
+
+## TASK #172 — DESIGN CENSUS, part 3 — PROOF RE-POINTING, AND THE
+`.noModel` QUESTION DISSOLVED (2026-09-04)
+
+### 1. THE R TOWER: DROP THE MODE QUANTIFICATION
+
+Under tri-core the R capstones speak about **the R core**, full stop.
+The conversion is the S13a §8 "one instantiation" column, which that
+seal already priced and which the user's own acceptance check demands
+(*a conversion must delete lines, not add them*):
+
+| | measured |
+|---|---|
+| `(hg : μ.betaGate = false)` binders deleted | **−165** |
+| `hg`/`hgOff` call-site passes deleted | **−635** |
+| `μ.verified = true` premises deleted (both towers) | **−59** |
+| S13a's own estimate of the net for the one-instantiation column | **≈ −800 lines** |
+
+On top of that the mode *binder* leaves the R tower's own statements.
+Instrument counts for the `no_proof_of_Empty_R2M` closure (7 993
+setlec-owned constants): **1 617 statements name `CheckMode`**, split
+Verify 894 / SetBase 453 / R 211 / impl 56 / 3 equation lemmas.  The
+cached R capstone's closure (`no_proof_of_Empty_SPC_R2M`, 10 937
+owned) has **2 377**, split Verify 1 586 / SetBase 453 / R 205 / impl
+130 / 3.
+
+**But only part of that is a bill, and the distinction is the design's
+load-bearing choice.**  Of the 1 617, the R tower's *own* statements
+are the **211 R-tier rows**; the 894 Verify rows and (most of) the 453
+SetBase rows are the shared base library, which **keeps its
+parameter** as genericity (part 2, finding 2).  So the honest R-tower
+re-pointing bill is:
+
+| population | count | what it costs |
+|---|---|---|
+| R-tier statements naming `CheckMode` | **211** | delete a binder / a `variable` line; call sites lose an argument.  Mechanical, net negative |
+| SetBase statements in the R closure but **not** in the P closure | **428** (453 − 25 shared) | same, but each needs the check "is this really R-only?" before the binder goes |
+| shared base library (Verify 848 + SetBase 25 = **873**) | | **UNCHANGED** — stays generic, instantiated three times |
+| entry-naming R-tier statements | **17** | re-point at `coreR`'s entries |
+| entry-naming SetBase-in-R-closure | **105** | of which **5** are shared with P and stay generic |
+
+### 2. `EnvS2Refute`'s `.noModel` INSTANCE — THE QUESTION DISSOLVES,
+AND THE S13a WITNESS WAS MIS-READ
+
+The S13a ruling chain kept the hypothesis form over concrete
+instantiation because *"a NAMED consumer needs one claims family at
+several concrete modes simultaneously"*, naming two witnesses.  This
+census checked both.
+
+**Witness A — the R capstone letters themselves — HOLDS.**  All 32
+letters read `{μ : CheckMode}` with no mode hypothesis, so they do
+claim the pure checker sound at `.setModel` *and* at `.noModel`.  That
+part of the ruling was correct.
+
+**Witness B — `SetR/Interp2/EnvS2Refute.lean:136,149,162` — DOES NOT
+HOLD, and this is the tenth correction.**  Those three lines do not
+apply a claims family.  They instantiate a **refuted-shape predicate**
+— `AcvalDefnUniform` / `AcvalThmUniform`, whose own definitions begin
+`∀ (μ : CheckMode) (φ) (fuel) …` — at an arbitrary witness mode, and
+then rewrite with `denote2_one_lam` /
+`denote2_one_forallE` (`SetR/Interp2/Step2/Whnf.lean:157,165`), both
+of which are **mode-generic with no hypothesis**
+(`denote2 μ acval env φ 1 d (.lam …) = none`, proved by `rw [denote2];
+simp [lamSortE_one]`).  Replacing the three `.noModel` literals with
+`.setModel` is a three-token edit that changes no proof and loses no
+content.  Ledger form:
+
+> *A concrete constructor appearing in a proof is not evidence that
+> the constructor is load-bearing.  Check whether the lemma the proof
+> rewrites with quantifies over it; a witness choice is not a
+> consumer.*
+
+**And under tri-core witness A dissolves too, without narrowing any
+shipped claim.**  The chain, from sources:
+
+1. `no_proof_of_Empty_R` at `μ = .noModel` speaks about `checkDecls
+   .noModel …` — the **certified body with two checks off**, which is
+   not what any shipped `--no-model` lane runs.  `--no-model
+   --core=production` runs `checkDeclsSPNM` → `CoreNC`
+   (`Main.lean:303`); `--no-model --core=cached-parsed` runs
+   `checkDeclsSPCachedNM` → `Cached/CoreNC` (`Main.lean:299`).
+2. The configuration the letter *does* cover is reachable only through
+   `--core=cached` (`Main.lean:292`) and `--core=interned-shared`
+   (`Main.lean:301`) — the two lanes `Cached/Driver.lean`'s own
+   `CoreVariant` docstring calls *"pilot measurement instrument,
+   unverified"*.
+3. About the lanes the shipped `--no-model` actually runs there is
+   **no theorem anywhere in the tree** (measured: zero modules under
+   `Verify/`, `SetR/`, `SetP/`, `SetBase/` mention `coreKnotNC`,
+   `inferBodyNC`, `whnfCoreBodyNC` or `CheckerNC`).
+4. Under tri-core the parity core is a different function, unverified
+   by the order.  There is no `.noModel` instance of the R core to
+   take, because there is no `.noModel`.
+
+**Therefore: the cleanup docket item "is `no_proof_of_Empty_R` at
+`.noModel` load-bearing?" is answered NO, on evidence.**  What the
+instance covers today is two unverified measurement lanes and nothing
+the record claims; the shipped help text already calls `--no-model`
+unverified.  This is the docket item's disposition, not a new ruling —
+but it is a *narrowing of a ratified letter* and therefore the
+coordinator's to grant.  It costs nothing and it is what makes the
+R tower's ~800-line deletion available.
+
+### 3. THE P TOWER: RE-POINT AT THE P CORE
+
+Instrument, `no_proof_of_Empty_P` closure: **8 004 owned constants,
+712 entry-naming statements (Verify 565, P 96, SetBase 51), 1 473
+`CheckMode`-naming statements (Verify 854, P 415, SetBase 148, impl
+56)**.  Same split as the R side: the 854 Verify rows stay generic;
+the P tower's own **415** rows and the P-only SetBase rows lose the
+binder.
+
+**How much of the S13a case work transfers: all of it.**  Measured
+against the seal's own three populations:
+
+| S13a population | S13a count | transfers to the P core |
+|---|---|---|
+| (i) proofs that DISCARD the certificate | the silent majority | **whole** — `whnf_app_inv`'s gate *disjunct* is mode-generic and becomes the P core's own inversion with the disjunct's first arm reading `mb.pw.isNever` |
+| (ii) proofs that UNFOLD the clause structurally | 48 sites / 16 modules | **whole on the P side**; the R side's share **retires** (the R core has no branch there) |
+| (iii) proofs that CONSUME the certificate | 165 decls / 25 modules | **retires entirely** — this population is the R lane's `hg` sweep |
+| the P lane's payoff clause | 0 statement changes, 0 certificate consumed | **whole, unchanged** |
+| `AnnotOkP_beta_gate` + `gate_zero_kind_unreachable` + `gate_pwBit_ne_zero` | 3 theorems | **whole** — none of the three mentions a mode in its content; `GateP.lean`'s `(mode.verified && mb.pw.isNever)` spelling becomes the P core's literal branch |
+| `EStore.pw_of_denoteBM` (`Kernel/ArenaWF.lean`) | 3 lines | **whole** — it is what makes the interned and pure P cores take the same branch |
+
+So the β chapter's mathematics is **entirely P-tier content already**,
+and the tri-core pivot *shrinks* it by deleting its R-side shadow.
+
+**The io skips are NOT a transposition — they are unbuilt work, and
+the census says so plainly.**  Prior art, measured:
+
+| artefact | state |
+|---|---|
+| `Kernel/CoreIO.lean` (215 ln) | the io knot; wired into `Verify/Knot.lean` (the `pureFnsIO` equations) and `SetP/Claims2PIO.lean`, not into any driver |
+| `Verify/InferIOLemmas.lean` (90 ln) | the io inversions |
+| `SetP/Claims2PIO.lean` (144 ln) | `InferClaimsIO2P`, `CheckStep2P5`, `checkSound2P5` — the frozen species |
+| `SetP/Step2/InferIOP.lean` (290 ln) | **5 of the 11 clauses** — the four leaves and the ∀ binder |
+| the `.app` clause | **NOT PROVED.**  Its own header calls it *"the only new mathematics of the campaign"* |
+| `io_domain_transfer`, `io_app_mem` | **NOT LANDED** — still in `_tmp/inferonly-study/ProbeIO.lean` |
+| `io_squash_no_transfer`, `io_membership_fails_at_squash` | the mechanized refutations that **bound** the licence |
+
+Counting rule applied throughout (the ledger's ninth): *a
+transposition's bill is not the statements you transpose, it is the
+statements they are proved from.*  The io row above is priced as
+**new**, not as re-signing, precisely because what it is proved from
+does not exist yet.
+
+### 4. THE HEADLINE RE-POINTING COUNT
+
+| | R tower | P tower |
+|---|---|---|
+| capstone-closure owned constants | 7 993 (interned) / 10 937 (cached) | 8 004 |
+| own-tier statements losing the mode binder | **211** | **415** |
+| own-tier statements re-pointed at a named core | **17** | **96** |
+| shared base library statements — **unchanged, stays generic** | \multicolumn{2}{c}{**873** (`CheckMode`-naming) / **567** (entry-naming), 562 of them in twelve `Verify` modules} |
+| premises deleted | 165 `hg` + share of 59 `verified` | share of 59 `verified` |
+| call-site passes deleted | **635** | — |
+| genuinely NEW work | none | the io `.app` clause + 2 unlanded licence theorems + 6 of 11 io clauses |
