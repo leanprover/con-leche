@@ -1493,7 +1493,11 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         if betaGateFires mode mb.pw then
           r.whnfCore depth (body.instantiate1 a)
         else do
-          let ta ← r.infer depth a
+          -- task #172 B4: the certificate's inference runs at the io
+          -- grade — the argument sits inside a subject whose AnnotOkP
+          -- the P claims carry (the user's criterion: AnnotOk2 is
+          -- around), and official's whnf never infers here at all
+          let ta ← r.inferIO depth a
           if ← r.defeq depth ta ty then
             r.whnfCore depth (body.instantiate1 a)
           else pure (.app (.lam n ty body mb) a)

@@ -1508,7 +1508,8 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         if betaGateFires mode mb.pw then
           betaPeelI r fe depth k body [a] rest
         else do
-          let ta ← r.infer depth a
+          -- task #172 B4: the β certificate's inference at the io grade
+          let ta ← r.inferIO depth a
           if ← r.defeq depth ta ty then
             betaPeelI r fe depth k body [a] rest
           else do
@@ -1547,7 +1548,8 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           betaPeelI r fe depth k body (a :: acc) rest
         else do
           let ty' ← instListM ty acc
-          let ta ← r.infer depth a
+          -- task #172 B4: the io grade (see `whnfAppI`)
+          let ta ← r.inferIO depth a
           if ← r.defeq depth ta ty' then
             betaPeelI r fe depth k body (a :: acc) rest
           else do
@@ -1666,35 +1668,6 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
         unless ← r.defeq depth ta dom do
           throw (.invalid "application type mismatch")
         inferSpineI r fe depth body #[a] rest
-      | _ => throw (.invalid "function expected")
-
-/-- **The io-grade spine walk** (task #172 B4): `inferSpineI` with the
-per-argument certificate gated at a validated `.never` binder — the
-interned twin of `Setlec/Cached/CoreC.lean`'s `inferSpineIOI`; see the
-design comments there.  The gate reads `mode.verified` directly (this
-tier is not config-templated). -/
-def inferSpineIOI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    EIdx → Array EIdx → List EIdx → CheckIM EIdx
-  | ty, acc, [] => instListRevM ty acc
-  | ty, acc, a :: rest => do
-    match ← viewI ty with
-    | some (.forallE _ dom body mt) => do
-      unless mode.verified && mt.pw.isNever do
-        let dom' ← instListRevM dom acc
-        let ta ← r.infer depth a
-        unless ← r.defeq depth ta dom' do
-          throw (.invalid "application type mismatch")
-      inferSpineIOI r fe depth body (acc.push a) rest
-    | _ => do
-      let ty' ← instListRevM ty acc
-      let w ← r.whnf depth ty'
-      match ← viewI w with
-      | some (.forallE _ dom body mt) => do
-        unless mode.verified && mt.pw.isNever do
-          let ta ← r.infer depth a
-          unless ← r.defeq depth ta dom do
-            throw (.invalid "application type mismatch")
-        inferSpineIOI r fe depth body #[a] rest
       | _ => throw (.invalid "function expected")
 
 /-- Twin of `whnfStep`. -/
@@ -1987,22 +1960,6 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
     | some (.bvar _) =>
       throw (.notImplemented "inferType beyond the supported fragment")
     | none => throw (.internal "interned node missing")
-
-/-- **The io-grade inference body** (task #172 B4): `inferBodyI` with
-exactly the application clause changed — the spine walk is the gated
-`inferSpineIOI`.  Every non-application view dispatches to
-`inferBodyI`'s own clause, so there is no textual clone to drift.
-The knot ties this body to `CoreFnsI.ioView`, so `r.infer` here is
-the io slot one level down (the grade propagates). -/
-def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
-  fun depth e => do
-    match ← viewI e with
-    | some (.app _ _) => do
-      let h ← withStore (fun st => st.getAppFnI e)
-      let args ← withStore (·.getAppArgsI e)
-      let tf ← r.infer depth h
-      inferSpineIOI mode r fe depth tf #[] args
-    | _ => inferBodyI mode r fe depth e
 
 /-- Twin of `defeqStep`. -/
 def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
@@ -2557,17 +2514,16 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
         (fun d a b => defeqBodyI mode prev.get fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
         (fun d e => annotateBodyI mode prev.get fe d e)
-      -- **The io slot** (task #170 / #172 B4): the gated mode runs the
-      -- io body under its own memo (`IState.inferIOC`, the task-#170
-      -- memo ruling), tied to the io-grade view of the previous level;
-      -- every other mode runs the full inference closure verbatim
-      -- ("in R mode infer_only is just equivalent to infer").
-      inferIO := if mode.betaGate then
-          memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
-            (fun d e => inferBodyIOI mode prev.get.ioView fe d e)
-        else
-          memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-            (fun d e => inferBodyI mode prev.get fe d e) }
+      -- **The io slot, interned tier** (task #172 B4): bound to the
+      -- full inference closure at EVERY mode — this retiring core
+      -- deliberately does not take the io skips (the shipped P core is
+      -- the cached-parsed one; DESIGN.md B4 seal, "the interned
+      -- short-bridge").  Internal call sites therefore run full
+      -- inference here: strictly more checking than the io grade, and
+      -- the simulation clause is the io weakening
+      -- (`inferTypeCoreIO_of_full`).
+      inferIO := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
+          (fun d e => inferBodyI mode prev.get fe d e) }
 
 /-! ## Entry runners
 

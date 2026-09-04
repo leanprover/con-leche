@@ -1,6 +1,7 @@
 import Setlec.Verify.Fueled
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InferLeaves
+import Setlec.Verify.InferIOLeaves
 import Setlec.Verify.Abstract
 
 /-!
@@ -55,10 +56,12 @@ def CacheOK (mode : CheckMode) (env : Env) (σ : KCache) : Prop :=
     ∃ F, ∀ d, a.wscopedB d = true → b.wscopedB d = true →
       isDefEqCore mode env F d a b = .ok r) ∧
   (∀ e r, σ.annot[e]? = some r →
-    ∃ F, ∀ d, e.wscopedB d = true → annotateCore mode env F d e = .ok r)
+    ∃ F, ∀ d, e.wscopedB d = true → annotateCore mode env F d e = .ok r) ∧
+  (∀ e r, σ.inferIO[e]? = some r →
+    ∃ F, ∀ d, e.wscopedB d = true → inferTypeIO mode env F d e = .ok r)
 
 theorem CacheOK.empty (env : Env) : CacheOK mode env {} := by
-  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro e r hl
     rw [Std.HashMap.getElem?_empty] at hl
     exact nomatch hl
@@ -69,6 +72,9 @@ theorem CacheOK.empty (env : Env) : CacheOK mode env {} := by
     rw [Std.HashMap.getElem?_empty] at hl
     exact nomatch hl
   · intro a b r hl
+    rw [Std.HashMap.getElem?_empty] at hl
+    exact nomatch hl
+  · intro e r hl
     rw [Std.HashMap.getElem?_empty] at hl
     exact nomatch hl
   · intro e r hl
@@ -133,6 +139,11 @@ structure ScopedSim (mode : CheckMode) (env : Env) (f : Nat) : Prop where
   annotate : ∀ {d : Nat} {e : Expr}, e.wscopedB d = true →
     (simRel mode env).R ((fueledFns mode env).annotate d e)
       ((cachedFns mode env f).annotate d e)
+  /-- the io slot (task #172 B4): the memoized knot's `inferIO` entry
+  simulates the fueled `inferTypeIO` family -/
+  inferIO : ∀ {d : Nat} {e : Expr}, e.wscopedB d = true →
+    (simRel mode env).R ((fueledFns mode env).inferIO d e)
+      ((cachedFns mode env f).inferIO d e)
 
 /-- The *guarded* twin of the cached record (verification-only): each
 entry checks its argument's scoping and throws on violation.  The call
@@ -154,12 +165,9 @@ def gFns (mode : CheckMode) (env : Env) (f : Nat) : CoreFns CheckSM where
   annotate d e :=
     if e.wscopedB d then (cachedFns mode env f).annotate d e
     else throw (.internal "scope discipline")
-  -- task #172 B4: the io slot is guarded shut until a body consumes it
-  -- (S1 wires the slot; no shared body calls `r.inferIO` yet).  A
-  -- throwing entry is vacuously related, so the pair battery stays
-  -- total without an io simulation clause; the clause arrives with the
-  -- first converted call site.
-  inferIO _ _ := throw (.internal "scope discipline")
+  inferIO d e :=
+    if e.wscopedB d then (cachedFns mode env f).inferIO d e
+    else throw (.internal "scope discipline")
 
 theorem gFns_whnfCore_pos {env : Env} {f d : Nat} {e : Expr}
     (hg : e.wscopedB d = true) :
@@ -191,15 +199,19 @@ theorem gFns_annotate_pos {env : Env} {f d : Nat} {e : Expr}
   simp only [gFns]
   exact if_pos hg
 
+theorem gFns_inferIO_pos {env : Env} {f d : Nat} {e : Expr}
+    (hg : e.wscopedB d = true) :
+    (gFns mode env f).inferIO d e = (cachedFns mode env f).inferIO d e := by
+  simp only [gFns]
+  exact if_pos hg
+
 /-- The guarded record is `simRel`-related to the fueled families
 *unconditionally*: on well-scoped arguments by the conditional
 simulation, on ill-scoped ones vacuously (the guard throws). -/
 theorem gFns_rel {env : Env} {f : Nat} (ih : ScopedSim mode env f) :
     FnsRel (simRel mode env) (fueledFns mode env) (gFns mode env f) := by
   refine ⟨fun d e => ?_, fun d e => ?_, fun d e => ?_, fun d a b => ?_,
-    fun d e => ?_,
-    -- the io slot (task #172 B4): the guard throws, vacuous
-    fun d e σ hσ v σ' h => nomatch h⟩
+    fun d e => ?_, fun d e => ?_⟩
   · by_cases hg : e.wscopedB d
     · rw [gFns_whnfCore_pos hg]
       exact ih.whnfCore hg
@@ -246,6 +258,17 @@ theorem gFns_rel {env : Env} {f : Nat} (ih : ScopedSim mode env f) :
       exact ih.annotate hg
     · intro σ hσ v σ' h
       have hgg : (gFns mode env f).annotate d e =
+          throw (.internal "scope discipline") := by
+        simp only [gFns]
+        exact if_neg hg
+      rw [hgg] at h
+      exact nomatch h
+  · -- the io slot (task #172 B4), the same guard discipline
+    by_cases hg : e.wscopedB d
+    · rw [gFns_inferIO_pos hg]
+      exact ih.inferIO hg
+    · intro σ hσ v σ' h
+      have hgg : (gFns mode env f).inferIO d e =
           throw (.internal "scope discipline") := by
         simp only [gFns]
         exact if_neg hg
@@ -374,6 +397,15 @@ theorem ScopedSim.site_annotate (ih : ScopedSim mode env f)
   rw [gFns_annotate_pos hw.to_wscopedB]
   obtain ⟨⟨F, hpure⟩, hσ'⟩ := ih.annotate hw.to_wscopedB σ hσ v σ' h
   exact ⟨h, hσ', annotateCore_WScoped F e hpure hw⟩
+
+theorem ScopedSim.site_inferIO (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV mode env (WScoped d) ((cachedFns mode env f).inferIO d e)
+      ((gFns mode env f).inferIO d e) := by
+  intro σ hσ v σ' h
+  rw [gFns_inferIO_pos hw.to_wscopedB]
+  obtain ⟨⟨F, hpure⟩, hσ'⟩ := ih.inferIO hw.to_wscopedB σ hσ v σ' h
+  exact ⟨h, hσ', inferTypeIO_WScoped henv F hpure hw⟩
 
 end Sites
 

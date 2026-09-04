@@ -547,6 +547,17 @@ theorem inferBody_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold inferBody
   atF_tac4
 
+/-- The io inference body over the io-grade views (task #172 B4): the
+same walk, the slot's family in the recursion sites. -/
+theorem inferBodyIO_atF (d : Nat) (e : Expr) (F : Nat) :
+    (inferBodyIO mode (CoreFns.ioView (fueledFns mode env)) env d e).val F =
+      inferBodyIO mode (CoreFns.ioView (pureFns mode env F)) env d e := by
+  unfold inferBodyIO CoreFns.ioView
+  atF_tac4
+  -- the residual `ensureSort` goals: the view leaves `whnf` (the only
+  -- field `ensureSort` reads) untouched, so the plain lemma closes them
+  all_goals exact ensureSort_atF _ _ _
+
 theorem defeqStep_atF (d : Nat) (k : Expr → Expr → FueledM Bool)
     (kF : Expr → Expr → CheckM Bool)
     (hk : ∀ a b, (k a b).val F = kF a b) (a b : Expr) :

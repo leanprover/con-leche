@@ -885,6 +885,7 @@ theorem whnfCore_app_claim2R (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env
     -- the lane carries `hgOff` and the gate arm is dead
     obtain ⟨ta, hta, hde⟩ :=
       hcertOr.resolve_left (by simp [betaGateFires, hgOff])
+    rw [Setlec.inferTypeIO_off hgOff] at hta
     obtain ⟨ea', hea', hD⟩ :=
       ihwc hbeta hwred hbred hLred hCred (hinst htya haa hbb)
     refine ⟨ea', hea', fun ρ hρ => step2_trans (hDapp ρ hρ) ?_⟩
@@ -1444,6 +1445,7 @@ theorem whnfCore_app_claim2B (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env
     -- the lane carries `hgOff` and the gate arm is dead
     obtain ⟨ta, hta, hde⟩ :=
       hcertOr.resolve_left (by simp [betaGateFires, hgOff])
+    rw [Setlec.inferTypeIO_off hgOff] at hta
     rw [denote2] at hfa'
     rcases htya : denote2 μ m.acval env φ F₁ d ty with _ | tya
     · rw [htya] at hfa'; exact nomatch hfa'
@@ -2327,6 +2329,7 @@ theorem whnfCore_app_claim2C (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env
     -- the lane carries `hgOff` and the gate arm is dead
     obtain ⟨ta, hta, hde⟩ :=
       hcertOr.resolve_left (by simp [betaGateFires, hgOff])
+    rw [Setlec.inferTypeIO_off hgOff] at hta
     rw [denote2] at hfa'
     rcases htya : denote2 μ m.acval env φ F₁ d ty with _ | tya
     · rw [htya] at hfa'; exact nomatch hfa'
@@ -2941,6 +2944,7 @@ theorem whnfCore_app_claim2D (hgOff : μ.betaGate = false) (m : EnvS2UM V μ env
     -- the lane carries `hgOff` and the gate arm is dead
     obtain ⟨ta, hta, hde⟩ :=
       hcertOr.resolve_left (by simp [betaGateFires, hgOff])
+    rw [Setlec.inferTypeIO_off hgOff] at hta
     rw [denote2] at hfa'
     rcases htya : denote2 μ m.acval env φ F₁ d ty with _ | tya
     · rw [htya] at hfa'; exact nomatch hfa'

@@ -740,7 +740,8 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         if cfg.betaSkip mb.pw then
           betaPeelI r fe depth k body [a] rest
         else do
-          let ta ← r.infer depth a
+          -- task #172 B4: the β certificate's inference at the io grade
+          let ta ← r.inferIO depth a
           if ← r.defeq depth ta ty then
             betaPeelI r fe depth k body [a] rest
           else do
@@ -779,7 +780,8 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           betaPeelI r fe depth k body (a :: acc) rest
         else do
           let ty' ← instListM ty acc
-          let ta ← r.infer depth a
+          -- task #172 B4: the io grade (see `whnfAppI`)
+          let ta ← r.inferIO depth a
           if ← r.defeq depth ta ty' then
             betaPeelI r fe depth k body (a :: acc) rest
           else do
@@ -1241,6 +1243,51 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       let args ← withStore (·.getAppArgsI e)
       let tf ← r.infer depth h
       inferSpineIOI cfg r fe depth tf #[] args
+    | some (.forallE n ty body mb) => do
+      -- the pure io ∀ clause, **chained** (deliberately not the
+      -- task-#72 telescope loop: the loops are the front door's
+      -- optimization, and looping the io lane would owe the whole
+      -- loop-identification walk family a second, io-graded instance
+      -- for a lane whose subjects are internal re-inferences —
+      -- recorded in the B4 seal as a measured-need follow-up)
+      let tty ← r.infer depth ty
+      let wtty ← r.whnf depth tty
+      match ← viewI wtty with
+      | some (.sort u) => do
+        let fv ← internI (.fvar depth n ty)
+        let ob ← inst1M body fv
+        let bt ← r.infer (depth + 1) ob
+        let v ← ensureSortI r (depth + 1) bt
+        if cfg.verified then
+          unless (Level.zeronessOf v).equiv mb.pw do
+            throw (.notImplemented "sort-annotation mismatch (forall-cod)")
+        let iu ← internLM (.imax u v)
+        internI (.sort iu)
+      | _ => throw (.invalid "expected a sort")
+    | some (.lam n ty body mb) => do
+      -- the pure io λ clause, chained
+      let tty ← r.infer depth ty
+      let wtty ← r.whnf depth tty
+      match ← viewI wtty with
+      | some (.sort _) => do
+        let fv ← internI (.fvar depth n ty)
+        let ob ← inst1M body fv
+        let bt ← r.infer (depth + 1) ob
+        if cfg.verified then
+          match body.lamPw with
+          | some pwI =>
+            unless mb.pw.equiv pwI do
+              throw (.notImplemented
+                "sort-annotation mismatch (lam-cod-chain)")
+          | none =>
+            let btt ← r.infer (depth + 1) bt
+            let vb ← ensureSortI r (depth + 1) btt
+            unless (Level.zeronessOf vb).equiv mb.pw do
+              throw (.notImplemented
+                "sort-annotation mismatch (lam-cod-leaf)")
+        let bAbs ← abstract1M bt depth
+        internI (.forallE n ty bAbs mb)
+      | _ => throw (.invalid "expected a sort")
     | _ => inferBodyI cfg r fe depth e
 
 /-- Twin of `defeqStep`. -/

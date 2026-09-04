@@ -427,4 +427,158 @@ theorem inferTypeCoreIO_const_eq {env : Env} {fuel d : Nat} {n : Name}
   rw [inferTypeCoreIO_succ, inferTypeCore_succ]
   rfl
 
+
+/-! ## The full→io weakening (task #172 B4 — the interned short-bridge)
+
+A successful full-grade inference is a successful io-grade inference
+with the same value: the io lane runs a *subset* of the full lane's
+checks and computes the same result at every clause.  This is the
+mathematical core of the cross-memo "peek" future option (task #170's
+memo ruling records it as an option, not a runtime device); here it
+discharges the retiring interned core's io simulation clause — that
+core's io slot deliberately stays at full grade (the interned
+short-bridge, DESIGN.md B4 seal). -/
+
+theorem inferTypeCoreIO_of_full {env : Env} :
+    ∀ {fuel d : Nat} {e t : Expr},
+      inferTypeCore mode env fuel d e = .ok t →
+      inferTypeCoreIO mode env fuel d e = .ok t
+  | 0, d, e, t, h => by
+    rw [inferTypeCore_zero] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+  | fuel + 1, d, e, t, h => by
+    match e with
+    | .sort u => rw [inferTypeCoreIO_sort_eq]; exact h
+    | .fvar idx n ty => rw [inferTypeCoreIO_fvar_eq]; exact h
+    | .const n us => rw [inferTypeCoreIO_const_eq]; exact h
+    | .lit l => rw [inferTypeCoreIO_lit_eq]; exact h
+    | .bvar i =>
+      rw [inferTypeCore_succ] at h
+      simp [inferBody, viewM, Expr.view, throw, throwThe,
+        MonadExceptOf.throw, Bind.bind, Except.bind, pure,
+        Except.pure] at h
+    | .forallE n ty body mb =>
+      obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, hval, rfl⟩ :=
+        inferTypeCore_forall_inv h
+      rw [inferTypeCoreIO_succ]
+      simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
+        Bind.bind, Except.bind]
+      simp only [inferIO_def, pureFnsIO_whnf, ensureSortIO_def]
+      rw [inferTypeCoreIO_of_full hty]
+      dsimp only
+      rw [hwt]
+      dsimp only
+      rw [inferTypeCoreIO_of_full hbt]
+      dsimp only
+      rw [hes]
+      dsimp only
+      cases hv : mode.verified with
+      | false => simp [hv]
+      | true => simp [hv, hval hv]
+    | .lam n ty body mb =>
+      obtain ⟨tty, u, bt, hty, hwt, hbt, hleaf, hchain, rfl⟩ :=
+        inferTypeCore_lam_inv h
+      rw [inferTypeCoreIO_succ]
+      simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
+        Bind.bind, Except.bind]
+      simp only [inferIO_def, pureFnsIO_whnf, ensureSortIO_def]
+      rw [inferTypeCoreIO_of_full hty]
+      dsimp only
+      rw [hwt]
+      dsimp only
+      rw [inferTypeCoreIO_of_full hbt]
+      dsimp only
+      cases hv : mode.verified with
+      | false => simp [hv]
+      | true =>
+        simp only [hv, if_true]
+        cases hlp : body.lamPw with
+        | some pwI =>
+          simp [hchain hv pwI hlp]
+        | none =>
+          obtain ⟨btt, vb, hbtt, hesb, heqv⟩ :=
+            hleaf hv (by
+              cases hb : body.isLam
+              · rfl
+              · exact absurd hlp (by
+                  cases body <;> simp_all [Expr.isLam, Expr.lamPw]))
+          rw [inferTypeCoreIO_of_full hbtt]
+          dsimp only
+          have hesb' : ensureSortCore mode env fuel (d + 1) btt
+              = .ok vb := by
+            show ((pureFns mode env fuel).whnf (d + 1) btt >>= fun w =>
+              match w with
+              | .sort u => pure u
+              | _ => throw (.invalid "expected a sort")) = .ok vb
+            rw [show (pureFns mode env fuel).whnf (d + 1) btt =
+              whnf mode env fuel (d + 1) btt from rfl, hesb]
+            rfl
+          rw [hesb']
+          dsimp only
+          simp [heqv]
+    | .app f a =>
+      obtain ⟨tf, n', ty', body', m', htf, hw, rfl, ta, hta, hde⟩ :=
+        inferTypeCore_app_inv h
+      rw [inferTypeCoreIO_succ]
+      simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
+        Bind.bind, Except.bind]
+      simp only [inferIO_def, pureFnsIO_whnf, pureFnsIO_defeq]
+      rw [inferTypeCoreIO_of_full htf]
+      dsimp only
+      rw [hw]
+      dsimp only
+      by_cases hg2 : (mode.verified && m'.pw.isNever) = true
+      · simp [hg2]
+      · simp only [hg2, Bool.false_eq_true, if_false]
+        rw [inferTypeCoreIO_of_full hta]
+        dsimp only
+        rw [hde]
+        simp
+    | .letE n ty v b =>
+      obtain ⟨tty, sv, tv, hty, hes, htv, hde, htail⟩ :=
+        inferTypeCore_letE_inv h
+      rw [inferTypeCoreIO_succ]
+      simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
+        Bind.bind, Except.bind]
+      simp only [inferIO_def, pureFnsIO_whnf, pureFnsIO_defeq,
+        ensureSortIO_def]
+      rw [inferTypeCoreIO_of_full hty]
+      dsimp only
+      rw [hes]
+      dsimp only
+      rw [inferTypeCoreIO_of_full htv]
+      dsimp only
+      rw [hde]
+      simp only [if_true, ↓reduceIte]
+      exact inferTypeCoreIO_of_full htail
+    | .proj sn i pe =>
+      obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat,
+        hlenArgs, hlenUs, A, B, hAB, hcase⟩ :=
+        Setlec.inferTypeCore_proj_inv h
+      rw [inferTypeCoreIO_succ]
+      simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
+        Bind.bind, Except.bind]
+      simp only [inferIO_def, pureFnsIO_whnf]
+      rw [inferTypeCoreIO_of_full htpe]
+      dsimp only
+      rw [hwte]
+      dsimp only
+      rw [hfn]
+      dsimp only
+      rw [hfe]
+      dsimp only
+      rw [if_pos ⟨hnat, hlenArgs, hlenUs⟩, hAB]
+      rcases hcase with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> rfl
+
+/-- The weakening at the knot's io slot: at any mode, a full-grade
+success is an io-slot success with the same value (gate-off: the slot
+IS the full lane; gate-on: `inferTypeCoreIO_of_full`). -/
+theorem inferTypeIO_of_full {env : Env} {fuel d : Nat} {e t : Expr}
+    (h : inferTypeCore mode env fuel d e = .ok t) :
+    inferTypeIO mode env fuel d e = .ok t := by
+  cases hg : mode.betaGate with
+  | false => rw [inferTypeIO_off hg]; exact h
+  | true => rw [inferTypeIO_on hg]; exact inferTypeCoreIO_of_full h
+
+
 end Setlec

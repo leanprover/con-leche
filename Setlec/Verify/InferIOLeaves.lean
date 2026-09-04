@@ -424,4 +424,44 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
           simp only [fvarLeaves, List.mem_append]
           exact Or.inl (Or.inr h2))
 
+
+
+/-! ## The slot shims (task #172 B4)
+
+The knot's io slot (`inferTypeIO`) inherits each scoping preservation
+from whichever lane the mode selects — `inferTypeIO_off`/`_on` plus
+the full- and io-lane inductions above.  Stated once here so every
+walk that meets a converted call site consumes one name. -/
+
+theorem inferTypeIO_WScoped {env : Env} (henv : EnvWF env)
+    (fuel : Nat) {d : Nat} {e t : Expr}
+    (h : inferTypeIO mode env fuel d e = .ok t) (hw : WScoped d e) :
+    WScoped d t := by
+  cases hg : mode.betaGate with
+  | false => rw [inferTypeIO_off hg] at h
+             exact inferTypeCore_WScoped henv fuel h hw
+  | true => rw [inferTypeIO_on hg] at h
+            exact inferTypeCoreIO_WScoped henv fuel h hw
+
+theorem inferTypeIO_fvarLeaves {env : Env} (henv : EnvWF env)
+    (fuel : Nat) {d : Nat} {e t : Expr}
+    (h : inferTypeIO mode env fuel d e = .ok t) (hw : WScoped d e) :
+    ∀ l ∈ t.fvarLeaves, l ∈ e.fvarLeaves := by
+  cases hg : mode.betaGate with
+  | false => rw [inferTypeIO_off hg] at h
+             exact inferTypeCore_fvarLeaves henv fuel h hw
+  | true => rw [inferTypeIO_on hg] at h
+            exact inferTypeCoreIO_fvarLeaves henv fuel h hw
+
+theorem inferTypeIO_looseBVars {env : Env} (henv : EnvWF env)
+    (fuel : Nat) {d : Nat} {e t : Expr}
+    (h : inferTypeIO mode env fuel d e = .ok t) (hw : WScoped d e)
+    (hb : e.looseBVarsBounded 0 = true) (hLb : Expr.LeavesBounded e) :
+    t.looseBVarsBounded 0 = true := by
+  cases hg : mode.betaGate with
+  | false => rw [inferTypeIO_off hg] at h
+             exact inferTypeCore_looseBVars henv fuel h hw hb hLb
+  | true => rw [inferTypeIO_on hg] at h
+            exact inferTypeCoreIO_looseBVars henv fuel h hw hb hLb
+
 end Setlec

@@ -47,6 +47,14 @@ structure SSimI (mode : CheckMode) (env : Env) (f : Nat) : Prop where
     ISOK mode env s₀ → s₀.store.denoteT i = some e → WScoped d e →
     SimAt mode env s₀ (RelE d) ((coreKnotI mode (mkFEnv env) f).annotate d i)
       ((fueledFns mode env).annotate d e)
+  /-- the io slot (task #172 B4).  This retiring core's io slot is the
+  full inference closure (the interned short-bridge, DESIGN.md B4
+  seal), so the clause is the infer clause weakened through
+  `inferTypeIO_of_full`. -/
+  inferIO : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
+    ISOK mode env s₀ → s₀.store.denoteT i = some e → WScoped d e →
+    SimAt mode env s₀ (RelE d) ((coreKnotI mode (mkFEnv env) f).inferIO d i)
+      ((fueledFns mode env).inferIO d e)
 
 /-- The base case: fuel `0` throws everywhere. -/
 theorem ssimI_zero (env : Env) : SSimI mode env 0 :=
@@ -54,7 +62,8 @@ theorem ssimI_zero (env : Env) : SSimI mode env 0 :=
     whnf := fun _ _ _ => SimAt.throw
     infer := fun _ _ _ => SimAt.throw
     defeq := fun _ _ _ _ _ => SimAt.throw
-    annotate := fun _ _ _ => SimAt.throw }
+    annotate := fun _ _ _ => SimAt.throw
+    inferIO := fun _ _ _ => SimAt.throw }
 
 /-! ## Cache-insert preservation for the entry-point memos -/
 

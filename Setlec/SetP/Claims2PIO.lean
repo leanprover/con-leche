@@ -98,6 +98,52 @@ def InferClaimsIO2P (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
         ∀ ρ : Nat → V, Sat2 V Δa ρ →
           interp2 V ρ ea ∈ˢ interp2 V ρ ta
 
+/-! ## The slot family (task #172 B4)
+
+The executable's internal inference call sites run the knot's io
+*slot* (`inferTypeIO`, `Kernel/TypeChecker.lean`): the io lane at the
+gated mode, full inference everywhere else.  The slot's claim is the
+premise-form statement at that function, and it is DERIVED, not
+proved by a walk: at a gate-off mode the slot is `inferTypeCore`
+(`inferTypeIO_off`) and the full establishment claim is stronger than
+the premise form; at the gated mode the slot is `inferTypeCoreIO`
+(`inferTypeIO_on`) and the io claim is exactly it.  Every converted
+call site's `of_claims` supplier consumes this one family. -/
+
+/-- Premise form at the io slot. -/
+def InferClaimsIOS2P (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
+    Setlec.inferTypeIO μ env fuel d e = .ok t →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    ∀ {ea ta : AVExpr},
+      CtxOkP m φ d Δa e →
+      denoteP m.acval env φ d e = some ea →
+      denoteP m.acval env φ d t = some ta →
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) →
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
+        ∀ ρ : Nat → V, Sat2 V Δa ρ →
+          interp2 V ρ ea ∈ˢ interp2 V ρ ta
+
+/-- **The slot claim, from the two lanes' claims** — one `Bool` case
+on the mode's gate bit, one lane equation each way.  (The gate-off arm
+drops the establishment conclusion's first conjunct; the premise is
+unused there.) -/
+theorem inferClaimsIOS2P_of {μ : CheckMode} {env : Env}
+    {m : EnvS2Core V env} {φ : Name → Nat} {fuel : Nat}
+    (hfull : InferClaims2P μ m φ fuel) (hio : InferClaimsIO2P μ m φ fuel) :
+    InferClaimsIOS2P μ m φ fuel := by
+  intro d e t Δa hrun hws hb hLb ea ta hC hea hta hok
+  cases hg : μ.betaGate with
+  | false =>
+    rw [Setlec.inferTypeIO_off hg] at hrun
+    obtain ⟨-, hokta, hmem⟩ := hfull hrun hws hb hLb hC hea hta
+    exact ⟨hokta, hmem⟩
+  | true =>
+    rw [Setlec.inferTypeIO_on hg] at hrun
+    exact hio hrun hws hb hLb hC hea hta hok
+
 /-- **The five-way step** (statement only; the assembly proof is the
 campaign's B4).  The four sealed families and the io family, all at
 `fuel`, give the same five at `fuel + 1`. -/

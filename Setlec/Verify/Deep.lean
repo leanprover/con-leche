@@ -2,6 +2,7 @@ import Setlec.Kernel.TypeChecker
 import Setlec.Verify.Shift
 import Setlec.Verify.EnvWF
 import Setlec.Verify.InstLevels
+import Setlec.Verify.InferIOLeaves
 import Setlec.Verify.Knot
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InferLeaves
@@ -372,6 +373,15 @@ def AnnotShift (mode : CheckMode) (env : Env) (fuel : Nat) : Prop :=
     annotateCore mode env fuel (d + 1) (shiftFrom p e) =
       (annotateCore mode env fuel d e).map (shiftFrom p)
 
+/-- The knot's io slot commutes with the fvar shift (task #172 B4).
+At a gate-off mode this is `InferShift` through `inferTypeIO_off`; at
+the gated mode it is the io lane's own walk
+(`inferIOCore_step` below). -/
+def InferIOShift (mode : CheckMode) (env : Env) (fuel : Nat) : Prop :=
+  ∀ {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
+    inferTypeIO mode env fuel (d + 1) (shiftFrom p e) =
+      (inferTypeIO mode env fuel d e).map (shiftFrom p)
+
 /-- All entry-point bisimulation claims at one fuel. -/
 structure ShiftClaims (mode : CheckMode) (env : Env) (fuel : Nat) : Prop where
   whnfCore : WhnfCoreShift mode env fuel
@@ -379,6 +389,7 @@ structure ShiftClaims (mode : CheckMode) (env : Env) (fuel : Nat) : Prop where
   infer : InferShift mode env fuel
   defeq : DefEqShift mode env fuel
   annotate : AnnotShift mode env fuel
+  inferIO : InferIOShift mode env fuel
 
 /-! ## Helper bodies at the same fuel
 
@@ -1970,10 +1981,11 @@ private theorem whnfCore_step (henv : EnvWF env)
         simp only [whnfCore_def]
         exact h
       · rw [if_neg hgate, if_neg hgate]
-        refine bind_rel _ _ (ih.infer hpd hw.2) ?_
+        -- task #172 B4: the certificate's inference is the io slot
+        refine bind_rel _ _ (ih.inferIO hpd hw.2) ?_
         intro ta hta
         refine bind_rel_eq _
-          (ih.defeq hpd (inferTypeCore_WScoped henv fuel hta hw.2)
+          (ih.defeq hpd (inferTypeIO_WScoped henv fuel hta hw.2)
             hwf'.1) ?_
         intro bb _
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
@@ -2279,6 +2291,265 @@ private theorem infer_step (henv : EnvWF env)
               rw [shiftFrom]
               rfl
             | _ + 2 => rfl
+
+/-- The io *lane* (the leaf knot, `inferTypeCoreIO`) commutes with the
+shift (task #172 B4): `infer_step`'s walk with the io folds, the io
+scoping lemmas, and the one gated clause split on its (shift-invariant)
+datum. -/
+private theorem inferIOCore_step (henv : EnvWF env)
+    (ih : ShiftClaims mode env fuel)
+    (ihio : ∀ {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
+      inferTypeCoreIO mode env fuel (d + 1) (shiftFrom p e) =
+        (inferTypeCoreIO mode env fuel d e).map (shiftFrom p)) :
+    ∀ {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
+      inferTypeCoreIO mode env (fuel + 1) (d + 1) (shiftFrom p e) =
+        (inferTypeCoreIO mode env (fuel + 1) d e).map (shiftFrom p) := by
+  intro p d hpd e hw
+  rw [inferTypeCoreIO_succ, inferTypeCoreIO_succ]
+  match e with
+  | .bvar i => rfl
+  | .letE n ty v body =>
+    simp only [WScoped] at hw
+    rw [shiftFrom_letE]
+    show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1)
+        (.letE n (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
+      (inferBodyIO mode (pureFnsIO mode env fuel) env d (.letE n ty v body)).map
+        (shiftFrom p)
+    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
+      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    refine bind_rel _ _ (ihio hpd hw.1) ?_
+    intro tty htty
+    refine bind_rel_eq _ (ensureSort_shift henv ih hpd
+      (inferTypeCoreIO_WScoped henv fuel htty hw.1)) ?_
+    intro s _
+    refine bind_rel _ _ (ihio hpd hw.2.1) ?_
+    intro tv htv
+    refine bind_rel_eq _ (ih.defeq hpd
+      (inferTypeCoreIO_WScoped henv fuel htv hw.2.1) hw.1) ?_
+    intro bb _
+    refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+    have h := ihio hpd (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+    rwa [shiftFrom_instantiate1_gen] at h
+  | .sort u => rfl
+  | .lit (.natVal n) =>
+    show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1) (.lit (.natVal n)) =
+      (inferBodyIO mode (pureFnsIO mode env fuel) env d (.lit (.natVal n))).map
+        (shiftFrom p)
+    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
+      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
+  | .lit (.strVal str) =>
+    show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1) (.lit (.strVal str)) =
+      (inferBodyIO mode (pureFnsIO mode env fuel) env d (.lit (.strVal str))).map
+        (shiftFrom p)
+    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
+      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
+  | .fvar idx n ty =>
+    simp only [WScoped] at hw
+    rw [shiftFrom_fvar]
+    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
+      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    rw [if_pos (show shiftIdx p idx < d + 1 by
+          simp only [shiftIdx]; split <;> omega),
+        if_pos hw.1]
+    by_cases hp : p ≤ idx
+    · simp [shiftTy, hp, pure, Except.pure]
+    · simp only [shiftTy, if_neg hp, pure, Except.pure, map_ok]
+      rw [shiftFrom_eq_self (fvarsBelow_mono (by omega) hw.2.fvarsBelow)]
+  | .const n us =>
+    show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1) (.const n us) =
+      (inferBodyIO mode (pureFnsIO mode env fuel) env d (.const n us)).map (shiftFrom p)
+    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
+      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    cases hf : env.find? n with
+    | none => rfl
+    | some ci =>
+      dsimp only
+      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+      have hty : (ci.toConstantVal.type.instantiateLevelParams
+          ci.toConstantVal.levelParams us).hasFvar = false := by
+        rw [hasFvar_instantiateLevelParams]
+        exact (henv _ (find?_mem hf)).1
+      simp only [pure, Except.pure, map_ok,
+        shiftFrom_eq_self_of_not_hasFvar hty]
+  | .forallE n ty body mb =>
+    simp only [WScoped] at hw
+    show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1)
+        (.forallE n (shiftFrom p ty) (shiftFrom p body) mb) =
+      (inferBodyIO mode (pureFnsIO mode env fuel) env d (.forallE n ty body mb)).map
+        (shiftFrom p)
+    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
+      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    refine bind_rel _ _ (ihio hpd hw.1) ?_
+    intro tty htty
+    refine bind_rel _ _
+      (ih.whnf hpd (inferTypeCoreIO_WScoped henv fuel htty hw.1)) ?_
+    intro w _
+    cases w <;> try rfl
+    case fvar => rw [shiftFrom_fvar]; rfl
+    case sort u =>
+    have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
+      WScoped.instantiate1 (n := n) hw.1 0 hw.2
+    have hbody := ihio (p := p) (d := d + 1) (by omega) hwo
+    rw [shiftFrom_instantiate1 hpd] at hbody
+    refine bind_rel _ _ hbody ?_
+    intro bt hbt
+    have hwbt : WScoped (d + 1) bt :=
+      inferTypeCoreIO_WScoped henv fuel hbt hwo
+    refine bind_rel_eq _ (ensureSort_shift henv ih (p := p)
+      (d := d + 1) (by omega) hwbt) ?_
+    intro v _
+    -- the ∀-annotation validation (task #161) is shift-invariant
+    rw [apply_ite (Except.map (shiftFrom p))]
+    refine ite_congr' (fun _ => ?_) (fun _ => rfl)
+    rw [apply_ite (Except.map (shiftFrom p))]
+    exact ite_congr' (fun _ => rfl) (fun _ => rfl)
+  | .lam n ty body mb =>
+    simp only [WScoped] at hw
+    show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1)
+        (.lam n (shiftFrom p ty) (shiftFrom p body) mb) =
+      (inferBodyIO mode (pureFnsIO mode env fuel) env d (.lam n ty body mb)).map
+        (shiftFrom p)
+    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
+      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    refine bind_rel _ _ (ihio hpd hw.1) ?_
+    intro tty htty
+    refine bind_rel _ _
+      (ih.whnf hpd (inferTypeCoreIO_WScoped henv fuel htty hw.1)) ?_
+    intro w _
+    cases w <;> try rfl
+    case fvar => rw [shiftFrom_fvar]; rfl
+    case sort u =>
+    have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
+      WScoped.instantiate1 (n := n) hw.1 0 hw.2
+    have hbody := ihio (p := p) (d := d + 1) (by omega) hwo
+    rw [shiftFrom_instantiate1 hpd] at hbody
+    refine bind_rel _ _ hbody ?_
+    intro bt hbt
+    have hwbt : WScoped (d + 1) bt :=
+      inferTypeCoreIO_WScoped henv fuel hbt hwo
+    -- the λ-annotation validation (tasks #152/#161) commutes: the
+    -- body's head constructor and the data compared are
+    -- shift-invariant
+    rw [apply_ite (Except.map (shiftFrom p))]
+    refine ite_congr' (fun hv => ?_)
+      (fun _ => by rw [← shiftFrom_abstract1 hpd]; rfl)
+    rw [lamPw_shiftFrom]
+    cases hbp : body.lamPw with
+    | some pwI =>
+      rw [apply_ite (Except.map (shiftFrom p))]
+      refine ite_congr'
+        (fun _ => by rw [← shiftFrom_abstract1 hpd]; rfl)
+        (fun _ => rfl)
+    | none =>
+      refine bind_rel _ _ (ihio (p := p) (d := d + 1)
+        (by omega) hwbt) ?_
+      intro btt hbtt
+      have hwbtt : WScoped (d + 1) btt :=
+        inferTypeCoreIO_WScoped henv fuel hbtt hwbt
+      refine bind_rel_eq _ (ensureSort_shift henv ih (p := p)
+        (d := d + 1) (by omega) hwbtt) ?_
+      intro v _
+      rw [apply_ite (Except.map (shiftFrom p))]
+      refine ite_congr'
+        (fun _ => by rw [← shiftFrom_abstract1 hpd]; rfl)
+        (fun _ => rfl)
+  | .app f a =>
+    simp only [WScoped] at hw
+    rw [shiftFrom_app]
+    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
+      pureFnsIO_whnf, pureFnsIO_defeq]
+    refine bind_rel _ _ (ihio hpd hw.1) ?_
+    intro tf htf
+    refine bind_rel _ _
+      (ih.whnf hpd (inferTypeCoreIO_WScoped henv fuel htf hw.1)) ?_
+    intro w hww
+    cases w <;> try rfl
+    case fvar => rw [shiftFrom_fvar]; rfl
+    case forallE n' ty' body' m' =>
+    have hwPi : WScoped d (Expr.forallE n' ty' body' m') :=
+      whnf_WScoped henv fuel hww (inferTypeCoreIO_WScoped henv fuel htf hw.1)
+    simp only [WScoped] at hwPi
+    dsimp only [shiftFrom]
+    -- **the io gate**: the datum is the whnf'd type's own binder meta,
+    -- which the shift copies verbatim, so both sides take one branch
+    by_cases hg2 : (mode.verified && m'.pw.isNever) = true
+    · simp only [hg2, if_true]
+      simp only [pure, Except.pure, map_ok]
+      rw [← shiftFrom_instantiate1_gen]
+    · simp only [hg2, Bool.false_eq_true, if_false]
+      refine bind_rel (shiftFrom p) _ (ihio hpd hw.2) ?_
+      intro ta hta
+      refine bind_rel_eq _
+        (ih.defeq hpd (inferTypeCoreIO_WScoped henv fuel hta hw.2)
+          hwPi.1) ?_
+      intro bb _
+      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+      simp only [pure, Except.pure, map_ok]
+      rw [← shiftFrom_instantiate1_gen]
+  | .proj sn i pe =>
+    simp only [WScoped] at hw
+    show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1)
+        (.proj sn i (shiftFrom p pe)) =
+      (inferBodyIO mode (pureFnsIO mode env fuel) env d (.proj sn i pe)).map
+        (shiftFrom p)
+    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
+      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    refine bind_rel _ _ (ihio hpd hw) ?_
+    intro te hte
+    refine bind_rel _ _
+      (ih.whnf hpd (inferTypeCoreIO_WScoped henv fuel hte hw)) ?_
+    intro w hww
+    rw [getAppFn_shiftFrom]
+    cases hfn : w.getAppFn <;> try rfl
+    case fvar => rw [shiftFrom_fvar]; rfl
+    case const T us₂ =>
+    simp only [shiftFrom]
+    cases hfp : env.findProj? T i with
+    | none => rfl
+    | some entry =>
+      dsimp only
+      simp only [getAppArgs_shiftFrom, List.length_map]
+      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+      -- task #161 item B2: the computed residual commutes with the
+      -- shift by `List.map`'s own shape — the two-element match sees
+      -- the same list on both sides
+      cases hargs : w.getAppArgs with
+      | nil => rfl
+      | cons A rest =>
+        cases rest with
+        | nil => rfl
+        | cons B rest2 =>
+          cases rest2 with
+          | cons _ _ => rfl
+          | nil =>
+            match i with
+            | 0 => rfl
+            | 1 =>
+              simp only [List.map, pure, Except.pure, map_ok]
+              rw [shiftFrom]
+              rfl
+            | _ + 2 => rfl
+
+
+/-- The knot's io *slot* commutes with the shift, at `fuel + 1`
+(task #172 B4): at a gate-off mode it is `infer_step` through
+`inferTypeIO_off`; at the gated mode it is the io lane's walk through
+`inferTypeIO_on`. -/
+private theorem inferIOSlot_step (henv : EnvWF env)
+    (ih : ShiftClaims mode env fuel) : InferIOShift mode env (fuel + 1) := by
+  intro p d hpd e hw
+  cases hg : mode.betaGate with
+  | false =>
+    rw [inferTypeIO_off hg, inferTypeIO_off hg]
+    exact infer_step henv ih hpd hw
+  | true =>
+    rw [inferTypeIO_on hg, inferTypeIO_on hg]
+    refine inferIOCore_step henv ih ?_ hpd hw
+    intro p' d' hpd' e' hw'
+    rw [← inferTypeIO_on hg, ← inferTypeIO_on hg]
+    exact ih.inferIO hpd' hw'
 
 /-- The lazy-delta *loop* is shift-invariant, by induction on its own
 step budget (task #106); the per-step `whnfCore`, proof irrelevance
@@ -2854,10 +3125,10 @@ theorem shiftClaims {env : Env} (henv : EnvWF env) :
   induction fuel with
   | zero =>
     exact ⟨fun _ _ _ => rfl, fun _ _ _ => rfl, fun _ _ _ => rfl,
-      fun _ _ _ _ _ => rfl, fun _ _ _ => rfl⟩
+      fun _ _ _ _ _ => rfl, fun _ _ _ => rfl, fun _ _ _ => rfl⟩
   | succ fuel ih =>
     exact ⟨whnfCore_step henv ih, whnf_step henv ih, infer_step henv ih,
-      defeq_step henv ih, annotate_step henv ih⟩
+      defeq_step henv ih, annotate_step henv ih, inferIOSlot_step henv ih⟩
 
 /-! ## Depth invariance -/
 
@@ -2964,6 +3235,29 @@ private theorem isDefEqCore_depth_le (henv : EnvWF env) (fuel : Nat)
       isDefEqCore_depth_succ henv fuel (hwa.mono (by omega))
         (hwb.mono (by omega)), ih]
 
+private theorem inferTypeIO_depth_succ (henv : EnvWF env) (fuel : Nat)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    inferTypeIO mode env fuel (d + 1) e = inferTypeIO mode env fuel d e := by
+  have h := (shiftClaims (mode := mode) henv fuel).inferIO (Nat.le_refl d) hw
+  rw [shiftFrom_eq_self hw.fvarsBelow] at h
+  rw [h]
+  cases hres : inferTypeIO mode env fuel d e with
+  | error err => rfl
+  | ok r =>
+    simp [shiftFrom_eq_self
+      (inferTypeIO_WScoped henv fuel hres hw).fvarsBelow]
+
+private theorem inferTypeIO_depth_le (henv : EnvWF env) (fuel : Nat)
+    {d₁ d₂ : Nat} (hle : d₁ ≤ d₂) {e : Expr} (hw : WScoped d₁ e) :
+    inferTypeIO mode env fuel d₂ e = inferTypeIO mode env fuel d₁ e := by
+  obtain ⟨k, rfl⟩ : ∃ k, d₂ = d₁ + k := ⟨d₂ - d₁, by omega⟩
+  clear hle
+  induction k with
+  | zero => rfl
+  | succ k ih =>
+    rw [show d₁ + (k + 1) = (d₁ + k) + 1 from rfl,
+      inferTypeIO_depth_succ henv fuel (hw.mono (by omega)), ih]
+
 private theorem annotateCore_depth_le (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} (hle : d₁ ≤ d₂) {e : Expr} (hw : WScoped d₁ e) :
     annotateCore mode env fuel d₂ e = annotateCore mode env fuel d₁ e := by
@@ -3004,6 +3298,16 @@ theorem inferTypeCore_depth_inv (henv : EnvWF env) (fuel : Nat)
   · exact (inferTypeCore_depth_le henv fuel hle
       (WScoped.of_wscopedB h₁)).symm
   · exact inferTypeCore_depth_le henv fuel hle (WScoped.of_wscopedB h₂)
+
+/-- **Depth invariance of the io inference slot** (task #172 B4). -/
+theorem inferTypeIO_depth_inv (henv : EnvWF env) (fuel : Nat)
+    {d₁ d₂ : Nat} {e : Expr} (h₁ : e.wscopedB d₁ = true)
+    (h₂ : e.wscopedB d₂ = true) :
+    inferTypeIO mode env fuel d₁ e = inferTypeIO mode env fuel d₂ e := by
+  rcases Nat.le_total d₁ d₂ with hle | hle
+  · exact (inferTypeIO_depth_le henv fuel hle
+      (WScoped.of_wscopedB h₁)).symm
+  · exact inferTypeIO_depth_le henv fuel hle (WScoped.of_wscopedB h₂)
 
 /-- **Depth invariance of definitional equality**. -/
 theorem isDefEqCore_depth_inv (henv : EnvWF env) (fuel : Nat)

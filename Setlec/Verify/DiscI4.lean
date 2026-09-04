@@ -161,7 +161,7 @@ theorem whnfAppI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
         have hgf : betaGateFires mode mb.pw = false := by
           simpa only [Bool.not_eq_true] using hgate
         simp only [cfgOf_betaSkip, hgf, Bool.false_eq_true, ↓reduceIte]
-        refine SimAt.bind (ih.infer hs hax hwxa)
+        refine SimAt.bind (ih.inferIO hs hax hwxa)
           (fun s₁ ta tax hs₁ hext₁ hP => ?_)
         obtain ⟨htad, hwta⟩ := hP
         refine SimAt.bind (ih.defeq hs₁ htad
@@ -405,7 +405,7 @@ theorem betaPeelI_sim (ih : SSimI mode env f) (henv : EnvWF env) {d : Nat}
         simp only [cfgOf_betaSkip, hgf, Bool.false_eq_true, ↓reduceIte]
         refine SimAt.bind_left (instListM_eff (d := 0) hs hty hacc)
           (fun s₁ ty' hs₁ hext₁ hQty => ?_)
-        refine SimAt.bind (ih.infer hs₁
+        refine SimAt.bind (ih.inferIO hs₁
           (denoteT_mono hext₁ hax) hwxa)
           (fun s₂ ta tax hs₂ hext₂ hP => ?_)
         obtain ⟨htad, hwta⟩ := hP

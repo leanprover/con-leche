@@ -53,14 +53,15 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
       ((∃ n ty body m, f' = .lam n ty body m ∧
           whnfCore mode env fuel d (body.instantiate1 a) = .ok e' ∧
           (betaGateFires mode m.pw = true ∨
-            ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
+            ∃ ta, inferTypeIO mode env fuel d a = .ok ta ∧
               isDefEqCore mode env fuel d ta ty = .ok true)) ∨
         (∃ e'', iotaRecP mode env fuel d (.app f' a) = .ok (some e'') ∧
           whnfCore mode env fuel d e'' = .ok e') ∨
         e' = .app f' a) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
-  simp only [whnfCore_def, infer_def, defeq_def, iotaRec_fold] at h
+  simp only [whnfCore_def, infer_def, inferTypeIO_def, defeq_def,
+    iotaRec_fold] at h
   cases hwf : whnfCore mode env fuel d f with
   | error err => rw [hwf] at h; exact nomatch h
   | ok f' =>
@@ -86,7 +87,7 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
     · rw [if_neg hg] at h
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
-      cases hta : inferTypeCore mode env fuel d a with
+      cases hta : inferTypeIO mode env fuel d a with
       | error err => rw [hta] at h; exact nomatch h
       | ok ta =>
       rw [hta] at h
@@ -135,7 +136,9 @@ theorem whnf_app_inv_ungated {env : Env} {fuel d : Nat} {f a e' : Expr}
   rcases hcase with ⟨n, ty, body, m, hf', hbeta, hc⟩ | hrest
   · rcases hc with hfired | hcert
     · rw [betaGateFires_off hg] at hfired; exact absurd hfired (by simp)
-    · exact Or.inl ⟨n, ty, body, m, hf', hbeta, hcert⟩
+    · obtain ⟨ta, hta, hde⟩ := hcert
+      rw [inferTypeIO_off hg] at hta
+      exact Or.inl ⟨n, ty, body, m, hf', hbeta, ta, hta, hde⟩
   · exact Or.inr hrest
 
 /-- Inversion for one iteration of the reduction loop

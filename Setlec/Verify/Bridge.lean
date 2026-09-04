@@ -91,7 +91,7 @@ theorem cached_whnfCore_sim (env : Env) (henv : EnvWF env) (f : Nat)
       obtain ⟨rfl, rfl⟩ := hrun
       obtain ⟨⟨F, hpure⟩, hσ₁⟩ := hbody r σ₁ hb
       refine ⟨⟨F + 1, hpure⟩, ?_, hσ₁.2.1, hσ₁.2.2.1, hσ₁.2.2.2.1,
-        hσ₁.2.2.2.2⟩
+        hσ₁.2.2.2.2.1, hσ₁.2.2.2.2.2⟩
       intro e' r' hl'
       simp only at hl'
       rw [Std.HashMap.getElem?_insert] at hl'
@@ -157,7 +157,7 @@ theorem cached_whnf_sim (env : Env) (henv : EnvWF env) (f : Nat)
       obtain ⟨rfl, rfl⟩ := hrun
       obtain ⟨⟨F, hpure⟩, hσ₁⟩ := hbody r σ₁ hb
       refine ⟨⟨F + 1, hpure⟩, hσ₁.1, ?_, hσ₁.2.2.1, hσ₁.2.2.2.1,
-        hσ₁.2.2.2.2⟩
+        hσ₁.2.2.2.2.1, hσ₁.2.2.2.2.2⟩
       intro e' r' hl'
       simp only at hl'
       rw [Std.HashMap.getElem?_insert] at hl'
@@ -223,7 +223,7 @@ theorem cached_infer_sim (env : Env) (henv : EnvWF env) (f : Nat)
       obtain ⟨rfl, rfl⟩ := hrun
       obtain ⟨⟨F, hpure⟩, hσ₁⟩ := hbody r σ₁ hb
       refine ⟨⟨F + 1, hpure⟩, hσ₁.1, hσ₁.2.1, ?_, hσ₁.2.2.2.1,
-        hσ₁.2.2.2.2⟩
+        hσ₁.2.2.2.2.1, hσ₁.2.2.2.2.2⟩
       intro e' r' hl'
       simp only at hl'
       rw [Std.HashMap.getElem?_insert] at hl'
@@ -269,7 +269,7 @@ theorem cached_annotate_sim (env : Env) (henv : EnvWF env) (f : Nat)
     simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,
       Prod.mk.injEq] at hrun
     obtain ⟨rfl, rfl⟩ := hrun
-    obtain ⟨F, hall⟩ := hσ.2.2.2.2 e r hl
+    obtain ⟨F, hall⟩ := hσ.2.2.2.2.1 e r hl
     exact ⟨⟨F, hall d hg⟩, hσ⟩
   | none =>
     rw [hl] at hrun
@@ -289,7 +289,7 @@ theorem cached_annotate_sim (env : Env) (henv : EnvWF env) (f : Nat)
       obtain ⟨rfl, rfl⟩ := hrun
       obtain ⟨⟨F, hpure⟩, hσ₁⟩ := hbody r σ₁ hb
       refine ⟨⟨F + 1, hpure⟩, hσ₁.1, hσ₁.2.1, hσ₁.2.2.1,
-        hσ₁.2.2.2.1, ?_⟩
+        hσ₁.2.2.2.1, ?_, hσ₁.2.2.2.2.2⟩
       intro e' r' hl'
       simp only at hl'
       rw [Std.HashMap.getElem?_insert] at hl'
@@ -301,7 +301,7 @@ theorem cached_annotate_sim (env : Env) (henv : EnvWF env) (f : Nat)
         rw [annotateCore_depth_inv henv (F + 1) hd' hg]
         exact hpure
       · rw [if_neg hk] at hl'
-        exact hσ₁.2.2.2.2 e' r' hl'
+        exact hσ₁.2.2.2.2.1 e' r' hl'
 
 theorem cached_defeq_sim (env : Env) (henv : EnvWF env) (f : Nat)
     (ih : ScopedSim mode env f)
@@ -355,7 +355,7 @@ theorem cached_defeq_sim (env : Env) (henv : EnvWF env) (f : Nat)
       obtain ⟨rfl, rfl⟩ := hrun
       obtain ⟨⟨F, hpure⟩, hσ₁⟩ := hbody r σ₁ hb
       refine ⟨⟨F + 1, hpure⟩, hσ₁.1, hσ₁.2.1, hσ₁.2.2.1, ?_,
-        hσ₁.2.2.2.2⟩
+        hσ₁.2.2.2.2.1, hσ₁.2.2.2.2.2⟩
       intro a' b' r' hl'
       simp only at hl'
       rw [Std.HashMap.getElem?_insert] at hl'
@@ -371,6 +371,107 @@ theorem cached_defeq_sim (env : Env) (henv : EnvWF env) (f : Nat)
       · rw [if_neg hk] at hl'
         exact hσ₁.2.2.2.1 a' b' r' hl'
 
+/-- **The io slot's memo step** (task #172 B4).  At a gate-off mode the
+slot is the full-inference memo closure, verbatim — one memo, the
+task-#170 R clause — so the infer step's simulation transports across
+`inferTypeIO_off`.  At the gated mode it is the io body under its own
+memo (`KCache.inferIO`), and the proof is `cached_infer_sim`'s shape
+with the io walk (`inferBodyIO_disc`), the io pair projections, the io
+`atF`, and the io depth invariance. -/
+theorem cached_inferIO_sim (env : Env) (henv : EnvWF env) (f : Nat)
+    (ih : ScopedSim mode env f)
+    {d : Nat} {e : Expr} (hg : e.wscopedB d = true) :
+    (simRel mode env).R ((fueledFns mode env).inferIO d e)
+      ((cachedFns mode env (f + 1)).inferIO d e) := by
+  cases hgb : mode.betaGate with
+  | false =>
+    have hio : (cachedFns mode env (f + 1)).inferIO =
+        (cachedFns mode env (f + 1)).infer := by
+      show (if mode.betaGate then _ else _) = _
+      rw [if_neg (by simp [hgb])]
+      rfl
+    rw [hio]
+    intro σ hσ v σ' hrun
+    obtain ⟨⟨F, hF⟩, hσ'⟩ :=
+      cached_infer_sim env henv f ih hg σ hσ v σ' hrun
+    refine ⟨⟨F, ?_⟩, hσ'⟩
+    show inferTypeIO mode env F d e = .ok v
+    rw [inferTypeIO_off hgb]
+    exact hF
+  | true =>
+    have hio : (cachedFns mode env (f + 1)).inferIO =
+        memoE (·.inferIO) (fun st mp => { st with inferIO := mp })
+          (fun d e => inferBodyIO mode
+            (CoreFns.ioView (cachedFns mode env f)) env d e) := by
+      show (if mode.betaGate then _ else _) = _
+      rw [if_pos hgb]
+      congr 1
+      funext d' e'
+      exact if_pos hgb
+    rw [hio]
+    intro σ hσ v σ' hrun
+    have hbody : ∀ v σ',
+        inferBodyIO mode (CoreFns.ioView (cachedFns mode env f)) env d e σ =
+          .ok (v, σ') →
+        (∃ F, inferTypeIO mode env (F + 1) d e = .ok v) ∧
+          CacheOK mode env σ' := by
+      intro v σ' hb
+      have hgbody := (inferBodyIO_disc ih henv (WScoped.of_wscopedB hg)
+        σ hσ v σ' hb).1
+      have hpair := (inferBodyIO mode
+        (pairFns (CoreFns.ioView (fueledFns mode env))
+          (CoreFns.ioView (gFns mode env f)) (gFns_rel ih).ioView)
+        env d e).property
+      rw [inferBodyIO_fst_proj, inferBodyIO_snd_proj] at hpair
+      obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ v σ' hgbody
+      rw [inferBodyIO_atF] at hF
+      refine ⟨⟨F, ?_⟩, hσ₁⟩
+      rw [inferTypeIO_succ, hgb, if_pos rfl]
+      exact hF
+    simp only [memoE, Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
+      StateT.get, pure, StateT.pure, Except.pure, Except.bind] at hrun
+    cases hl : σ.inferIO[e]? with
+    | some r =>
+      rw [hl] at hrun
+      try dsimp only at hrun
+      simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,
+        Prod.mk.injEq] at hrun
+      obtain ⟨rfl, rfl⟩ := hrun
+      obtain ⟨F, hall⟩ := hσ.2.2.2.2.2 e r hl
+      exact ⟨⟨F, hall d hg⟩, hσ⟩
+    | none =>
+      rw [hl] at hrun
+      try dsimp only at hrun
+      try simp only [StateT.bind] at hrun
+      cases hb : inferBodyIO mode
+          (CoreFns.ioView (cachedFns mode env f)) env d e σ with
+      | error err =>
+        rw [hb] at hrun
+        simp only [Bind.bind, Except.bind] at hrun
+        exact nomatch hrun
+      | ok pr =>
+        obtain ⟨r, σ₁⟩ := pr
+        rw [hb] at hrun
+        simp only [Bind.bind, Except.bind, modify, modifyGet,
+          MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
+          Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+        obtain ⟨rfl, rfl⟩ := hrun
+        obtain ⟨⟨F, hpure⟩, hσ₁⟩ := hbody r σ₁ hb
+        refine ⟨⟨F + 1, hpure⟩, hσ₁.1, hσ₁.2.1, hσ₁.2.2.1, hσ₁.2.2.2.1,
+          hσ₁.2.2.2.2.1, ?_⟩
+        intro e' r' hl'
+        simp only at hl'
+        rw [Std.HashMap.getElem?_insert] at hl'
+        by_cases hk : e == e'
+        · rw [if_pos hk] at hl'
+          obtain rfl : e = e' := eq_of_beq hk
+          obtain rfl : r = r' := by injection hl'
+          refine ⟨F + 1, fun d' hd' => ?_⟩
+          rw [inferTypeIO_depth_inv henv (F + 1) hd' hg]
+          exact hpure
+        · rw [if_neg hk] at hl'
+          exact hσ₁.2.2.2.2.2 e' r' hl'
+
 /-- The memoized knot simulates the fueled families at every level, on
 well-scoped arguments (well-formed environments). -/
 theorem scopedSim (env : Env) (henv : EnvWF env) :
@@ -380,7 +481,8 @@ theorem scopedSim (env : Env) (henv : EnvWF env) :
       whnf := fun {_ _} _ _ _ _ _ hrun => nomatch hrun
       infer := fun {_ _} _ _ _ _ _ hrun => nomatch hrun
       defeq := fun {_ _ _} _ _ _ _ _ _ hrun => nomatch hrun
-      annotate := fun {_ _} _ _ _ _ _ hrun => nomatch hrun }
+      annotate := fun {_ _} _ _ _ _ _ hrun => nomatch hrun
+      inferIO := fun {_ _} _ _ _ _ _ hrun => nomatch hrun }
   | f + 1 =>
     { whnfCore := fun hg =>
         cached_whnfCore_sim env henv f (scopedSim env henv f) hg
@@ -391,7 +493,9 @@ theorem scopedSim (env : Env) (henv : EnvWF env) :
       defeq := fun hga hgb =>
         cached_defeq_sim env henv f (scopedSim env henv f) hga hgb
       annotate := fun hg =>
-        cached_annotate_sim env henv f (scopedSim env henv f) hg }
+        cached_annotate_sim env henv f (scopedSim env henv f) hg
+      inferIO := fun hg =>
+        cached_inferIO_sim env henv f (scopedSim env henv f) hg }
 
 /-! ## From the executable entry points to pure runs at some fuel
 

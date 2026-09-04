@@ -2618,7 +2618,7 @@ theorem whnfCore_app_decompose {μ : CheckMode} (hg : μ.betaGate = false) {env 
     -- task #161: the gate is off at this mode, so the `if` takes its
     -- `else` arm — the pre-gate clause, verbatim
     rw [if_neg (by simp [betaGateFires, hg])] at h
-    cases hinf : (Setlec.pureFns μ env g).infer d x with
+    cases hinf : (Setlec.pureFns μ env g).inferIO d x with
     | error err => rw [hinf] at h; exact nomatch h
     | ok ta =>
     rw [hinf] at h
@@ -2631,10 +2631,12 @@ theorem whnfCore_app_decompose {μ : CheckMode} (hg : μ.betaGate = false) {env 
     cases c with
     | true =>
       rw [if_pos rfl] at h
-      exact .inl ⟨n, ty, body, mb, ta, rfl, hinf, hdq, h⟩
+      exact .inl ⟨n, ty, body, mb, ta, rfl,
+        (by rw [← Setlec.inferTypeIO_off hg]; exact hinf), hdq, h⟩
     | false =>
       rw [if_neg Bool.false_ne_true] at h
-      exact .inr (.inl ⟨n, ty, body, mb, ta, rfl, hinf, hdq,
+      exact .inr (.inl ⟨n, ty, body, mb, ta, rfl,
+        (by rw [← Setlec.inferTypeIO_off hg]; exact hinf), hdq,
         (Except.ok.inj h).symm⟩)
   · next hne =>
     cases hio : Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
@@ -2691,8 +2693,9 @@ theorem whnfCore_app_assemble {μ : CheckMode} (hg : μ.betaGate = false) {env :
     ⟨n, ty, body, mb, ta, rfl, hinf, hdq, rfl⟩ | ⟨hnl, hio⟩
   · simp only []
     rw [if_neg (by simp [betaGateFires, hg])]
-    rw [show (Setlec.pureFns μ env (max g gl)).infer d y = .ok ta
-      from hm.1 (Nat.le_max_right g gl) hinf]
+    rw [show (Setlec.pureFns μ env (max g gl)).inferIO d y = .ok ta
+      from Setlec.inferTypeIO_mono (Nat.le_max_right g gl)
+        (by rw [Setlec.inferTypeIO_off hg]; exact hinf)]
     simp only []
     rw [show (Setlec.pureFns μ env (max g gl)).defeq d ta ty
         = .ok true
@@ -2702,8 +2705,9 @@ theorem whnfCore_app_assemble {μ : CheckMode} (hg : μ.betaGate = false) {env :
     exact hm.2.2.1 (Nat.le_max_right g gl) hrun
   · simp only []
     rw [if_neg (by simp [betaGateFires, hg])]
-    rw [show (Setlec.pureFns μ env (max g gl)).infer d y = .ok ta
-      from hm.1 (Nat.le_max_right g gl) hinf]
+    rw [show (Setlec.pureFns μ env (max g gl)).inferIO d y = .ok ta
+      from Setlec.inferTypeIO_mono (Nat.le_max_right g gl)
+        (by rw [Setlec.inferTypeIO_off hg]; exact hinf)]
     simp only []
     rw [show (Setlec.pureFns μ env (max g gl)).defeq d ta ty
         = .ok false

@@ -279,6 +279,15 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
   inferC : ∀ k v, s.inferC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
       inferTypeCore mode env F d k = .ok v
+  /-- The io memo's clause (task #172 B4, the task-#170 memo ruling):
+  an entry is backed by an io-*slot* run — the WEAKER invariant, since
+  at the gated mode the slot witnesses fewer checks than `inferC`'s
+  clause consumes.  A hit here never serves a full-infer query (the
+  maps are separate), which is exactly what lets this clause be
+  weaker. -/
+  inferIOC : ∀ k v, s.inferIOC[k]? = some v →
+    ∃ F, ∀ d, (Expr.wscopedB d k) = true →
+      inferTypeIO mode env F d k = .ok v
   annotC : ∀ k v, s.annotC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
       annotateCore mode env F d k = .ok v
@@ -317,7 +326,7 @@ theorem CSOK.residue {env : Env} {s : CState} (h : CSOK mode env s) :
 
 /-- The empty state satisfies the invariant for any environment. -/
 theorem CSOK.empty (env : Env) : CSOK mode env ({} : CState) := by
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     (intros; simp_all)
 
 /-- The empty state carries the residue. -/
@@ -338,7 +347,7 @@ surviving components are the residue and the dropped caches' clauses
 are vacuous. -/
 theorem flushC_csok {env' : Env} {s : CState} (hs : CSOKF s) :
     CSOK mode env' s.flushed := by
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hs.lsimp, hs.lnz, hs.eqv,
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hs.lsimp, hs.lnz, hs.eqv,
     hs.ienv, ?_⟩ <;> (intros; simp_all [CState.flushed])
 
 /-- Flushing preserves the residue (it touches none of its
