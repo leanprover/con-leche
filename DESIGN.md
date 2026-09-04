@@ -34373,3 +34373,59 @@ template constructors, `findProj?` in three representations, the five
 annotate clauses (`:2122`, `:2290`) and the tiers' `ProjOkT` —
 a representation change against a surface that is mid-migration.
 **Cleanup docket, after the parity-alignment batch.**
+
+### 9. AS LANDED
+
+| stage | artefact |
+|---|---|
+| the note | this section |
+| the invariant | `Setlec/Verify/ProjPinInv.lean`, **559 lines** |
+| the re-point | `Setlec/SetBase/ProjPins.lean` — `projEntry_pins` statement byte-unchanged, `piResidual_of_pinned` + `piResidual_of_invariant` added |
+
+**Line accounting against the estimate.**  The probe's bill put the
+`checkDecl`-level fold at 300–500 lines.  Landed: **392** (the
+install-site inversions, the preservation lemmas, and the declaration
+and stream folds — module lines 111–502).  The rest of the module is
+the header (42), the invariant kit and basis census promoted from the
+probe (68), and the consumer-facing corollaries (57).
+
+**Axioms: `propext` and `Quot.sound` only — no `Classical.choice`
+anywhere in the module**, and `projEntry_pins` is now `propext` alone.
+
+Three findings from the mechanization, all method-level and worth
+carrying to the next batch that inverts checker do-blocks:
+
+1. **Peel, do not inline.**  `simp only [bind, Except.bind] at h`
+   materialises a checker's whole nested do-block, and `split`'s
+   internal `simp` then exceeds its step budget on anything the size of
+   `checkThmVal` (*"maximum number of steps exceeded"*, which reads as
+   a `split` failure and is not one).  Peeling one bind at a time
+   through `exceptBind_ok` keeps every intermediate term small; the
+   whole module compiles in 5 s.
+2. **`dsimp only at h` belongs in the peel loop.**  `checkIndDecl`'s
+   `let recs := …` / `let nonrecs := …` become `letFun` wrappers that
+   `split` looks straight past — it finds the *inner* match on the
+   block filters first and leaves the outer guard unpeeled.  One
+   `dsimp only` alternative in the `repeat' first | …` loop zeta-reduces
+   them and the walk becomes linear.
+3. **`refine`, not `exact`, when the folded function is a metavariable.**
+   `exact foldlM_preserves (fun e e' a … => …) hI h` elaborates the step
+   lambda before `h` has fixed `f`; `refine foldlM_preserves ?_ hI h`
+   fixes `f` first and the step goal comes out concrete.  Relatedly,
+   `exact absurd h (by simp)` must come *last* in a `first`, since its
+   `by simp` defers rather than failing and silently swallows the
+   alternative that would have worked.
+
+**What the invariant now buys, concretely.**
+`NativeProjPinned.spineShape` says that at a `native` entry the
+parameter spine has exactly two members and the index is `0` or `1` —
+so the `.proj` inference clause's `.internal "malformed projection
+entry"` branch is **unreachable on any environment the checker builds**,
+unconditionally.  `piResidual_of_invariant` is the residual-agreement
+statement with no environment record in its premises.  Together they are
+what the parity-alignment batch consumes when the five `.proj` clauses
+unify onto the pinned residual; the batch adds no new licence.
+
+`checkDirectStruct` is covered although `directStructsEnabled = false`
+makes it unreachable from `checkDecl`: nothing about the pin should
+depend on a feature flag, and the arm cost eleven lines.
