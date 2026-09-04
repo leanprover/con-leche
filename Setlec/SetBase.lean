@@ -43,6 +43,7 @@ import Setlec.SetBase.TupleTower
 import Setlec.SetBase.TowerIntro
 import Setlec.SetBase.TowerLeaf
 import Setlec.SetBase.TowerMk
+import Setlec.SetBase.TowerRec
 import Setlec.SetBase.ProjFnRR
 import Setlec.SetBase.Bridge.Claims
 import Setlec.SetBase.Bridge.WhnfCore
