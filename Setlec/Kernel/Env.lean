@@ -24,6 +24,13 @@ startup and threaded as configuration — never re-read at runtime (the
   certificate family (per-redex beta, per-argument application,
   proof-irrelevance chains, `etaCert`, `iotaCerts`, `projCert`) keeps
   running.
+* `.setModelP` (`--set-model=p`, task #161): the *same* surface with
+  the β-certificate gate on — at a λ-binder whose **validated**
+  annotation is `.never` the per-redex argument certificate is skipped
+  (`betaTest`, `Setlec/Kernel/Core.lean`).  Everything else, including
+  every zero-kind certificate and the whole projection clause, is
+  `.setModel`'s verbatim: the gate wraps the *test* only.  This is a
+  mode value on the *one* executable, not a second knot.
 * `.noModel` (`--no-model`): the unverified lane — full front-door
   check per declaration (official-kernel parity), infer-only internal
   discipline (task #134), and **no certificate families at all**
@@ -31,6 +38,7 @@ startup and threaded as configuration — never re-read at runtime (the
   (`Setlec/Kernel/CheckerNM.lean`). -/
 inductive CheckMode where
   | setModel
+  | setModelP
   | noModel
   deriving DecidableEq, Repr, Inhabited
 
@@ -54,6 +62,27 @@ must run at `.setModel` too; and it is a check the reference kernel's
 def CheckMode.verified : CheckMode → Bool
   | .noModel => false
   | _ => true
+
+/-- Is the **β-certificate gate** on (task #161)?  The third accessor
+the kernel branches on, and the *only* place `.setModelP` differs from
+`.setModel`: at a λ-binder whose validated annotation datum is
+`.never` the per-redex argument certificate is skipped
+(`betaTest`, `Setlec/Kernel/Core.lean`).
+
+Two disciplines ride on this accessor being a *mode* accessor rather
+than a second knot:
+
+* **the establishment/consumption asymmetry fence** — the gate reads a
+  *validated* annotation (only meaningful where `verified = true`) and
+  wraps the **test** only, so no certificate a possibly-zero datum
+  needs is ever skipped;
+* **the dead-branch collapse** — at `betaGate = false` the gated test
+  is definitionally the ungated one (`betaTest_of_gate_off`), which is
+  what keeps every non-gated mode's proof one rewrite away from its
+  pre-gate form. -/
+def CheckMode.betaGate : CheckMode → Bool
+  | .setModelP => true
+  | _ => false
 
 /-- Data common to all constants: name, universe parameters, type. -/
 structure ConstantVal where

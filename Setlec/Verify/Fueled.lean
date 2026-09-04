@@ -485,6 +485,9 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [projLitToCtor_atF])
     | (rw [defeqSpine_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    -- task #161: the β gate's dead branch — unfolding the *one* gate
+    -- primitive hands both arms back to the cascade's own `split`
+    | ((rw [FueledM.atF_ite]; congr 1) <;> try rfl)
     | (dsimp only [])
     | split))
 

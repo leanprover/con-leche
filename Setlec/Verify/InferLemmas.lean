@@ -30,17 +30,31 @@ theorem find?_mem {env : Env} {n : Name} {ci : ConstantInfo}
 
 /-! ## Inversion lemmas -/
 
-/-- Inversion for `whnfCore` on applications: either a certified beta
-step happened (task #100 de-gating: every beta redex carries the
-argument certificate), or an iota step (with the stuck-major
-machinery), or the application is stuck. -/
+set_option linter.unusedSimpArgs false in
+/-- Inversion for `whnfCore` on applications: either a beta step
+happened, or an iota step (with the stuck-major machinery), or the
+application is stuck.
+
+**Task #161, the β gate.**  The beta disjunct's certificate premise is
+a *disjunction* — "either the mode's gate fired at a `.never` binder,
+or the certificate ran and passed" (`betaGateTest`,
+`Verify/BetaGate.lean`).  The statement is therefore mode-generic and
+true at every mode, gated or not, which is what keeps the whole
+population of consumers that *discard* the certificate component
+(`whnfPres_*`, the leaf/level/bridge/simulation families) verbatim.
+
+Consumers that *consume* the certificate use `whnf_app_inv_ungated`
+below and owe a `mode.betaGate = false` hypothesis: they are the R
+lane, whose `Red.beta` needs the argument's domain membership and has
+no annotation to read it off. -/
 theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
     (h : whnfCore mode env (fuel + 1) d (.app f a) = .ok e') :
     ∃ f', whnfCore mode env fuel d f = .ok f' ∧
       ((∃ n ty body m, f' = .lam n ty body m ∧
           whnfCore mode env fuel d (body.instantiate1 a) = .ok e' ∧
-          ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
-            isDefEqCore mode env fuel d ta ty = .ok true) ∨
+          (betaGateFires mode m.pw = true ∨
+            ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
+              isDefEqCore mode env fuel d ta ty = .ok true)) ∨
         (∃ e'', iotaRecP mode env fuel d (.app f' a) = .ok (some e'') ∧
           whnfCore mode env fuel d e'' = .ok e') ∨
         e' = .app f' a) := by
@@ -66,25 +80,29 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
   | .proj s' i' e'', h => ?_
   case _ =>
     dsimp only at h
-    try simp only [Bind.bind, Except.bind] at h
-    try dsimp only at h
-    cases hta : inferTypeCore mode env fuel d a with
-    | error err => rw [hta] at h; exact nomatch h
-    | ok ta =>
-    rw [hta] at h
-    dsimp only at h
-    cases hde : isDefEqCore mode env fuel d ta ty with
-    | error err => rw [hde] at h; exact nomatch h
-    | ok bb =>
-    rw [hde] at h
-    cases bb with
-    | true =>
-      simp only [if_true] at h
-      exact Or.inl ⟨n, ty, body, m, rfl, h, ta, rfl, hde⟩
-    | false =>
-      simp only [Bool.false_eq_true, if_false, pure, Except.pure,
-        Except.ok.injEq] at h
-      exact Or.inr (Or.inr h.symm)
+    by_cases hg : betaGateFires mode m.pw = true
+    · rw [if_pos hg] at h
+      exact Or.inl ⟨n, ty, body, m, rfl, h, Or.inl hg⟩
+    · rw [if_neg hg] at h
+      try simp only [Bind.bind, Except.bind] at h
+      try dsimp only at h
+      cases hta : inferTypeCore mode env fuel d a with
+      | error err => rw [hta] at h; exact nomatch h
+      | ok ta =>
+      rw [hta] at h
+      dsimp only at h
+      cases hde : isDefEqCore mode env fuel d ta ty with
+      | error err => rw [hde] at h; exact nomatch h
+      | ok bb =>
+      rw [hde] at h
+      cases bb with
+      | true =>
+        simp only [if_true] at h
+        exact Or.inl ⟨n, ty, body, m, rfl, h, Or.inr ⟨ta, rfl, hde⟩⟩
+      | false =>
+        simp only [Bool.false_eq_true, if_false, pure, Except.pure,
+          Except.ok.injEq] at h
+        exact Or.inr (Or.inr h.symm)
   all_goals
     try simp only [Bind.bind, Except.bind] at h
     cases hio : iotaRecP mode env fuel d (.app _ a) with
@@ -97,6 +115,28 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
       | none =>
         simp only [pure, Except.pure, Except.ok.injEq] at h
         exact Or.inr (Or.inr h.symm)
+
+/-- `whnf_app_inv` at a mode whose β gate is off — the **pre-gate
+letter**, verbatim: the beta disjunct carries the certificate itself.
+The dead-branch collapse (`betaGateTest_off`) is the whole proof. -/
+theorem whnf_app_inv_ungated {env : Env} {fuel d : Nat} {f a e' : Expr}
+    (hg : mode.betaGate = false)
+    (h : whnfCore mode env (fuel + 1) d (.app f a) = .ok e') :
+    ∃ f', whnfCore mode env fuel d f = .ok f' ∧
+      ((∃ n ty body m, f' = .lam n ty body m ∧
+          whnfCore mode env fuel d (body.instantiate1 a) = .ok e' ∧
+          ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
+            isDefEqCore mode env fuel d ta ty = .ok true) ∨
+        (∃ e'', iotaRecP mode env fuel d (.app f' a) = .ok (some e'') ∧
+          whnfCore mode env fuel d e'' = .ok e') ∨
+        e' = .app f' a) := by
+  obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
+  refine ⟨f', hwf, ?_⟩
+  rcases hcase with ⟨n, ty, body, m, hf', hbeta, hc⟩ | hrest
+  · rcases hc with hfired | hcert
+    · rw [betaGateFires_off hg] at hfired; exact absurd hfired (by simp)
+    · exact Or.inl ⟨n, ty, body, m, hf', hbeta, hcert⟩
+  · exact Or.inr hrest
 
 /-- Inversion for one iteration of the reduction loop
 (`whnfStep`): head-normalize, then either the literal acceleration or

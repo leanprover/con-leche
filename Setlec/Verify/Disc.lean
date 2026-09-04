@@ -954,6 +954,9 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).whnfCore d g' >>= fun f' =>
         match f' with
         | .lam n ty body mb =>
+          if betaGateFires mode mb.pw then
+            (C : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
+          else
           (C : CoreFns CheckSM).infer d a >>= fun ta =>
           (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
           if b then
@@ -967,6 +970,9 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       ((G : CoreFns CheckSM).whnfCore d g' >>= fun f' =>
         match f' with
         | .lam n ty body mb =>
+          if betaGateFires mode mb.pw then
+            (G : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
+          else
           (G : CoreFns CheckSM).infer d a >>= fun ta =>
           (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
           if b then
@@ -988,6 +994,10 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         exact ⟨hwtb, hwfa.2⟩
       have hwred : WScoped d (body.instantiate1 a) :=
         WScoped.instantiate1_gen hwfa.2 0 hwtb.2
+      -- task #161: the β gate's two arms — the fired one is the reduct
+      -- site, the other is the pre-gate clause verbatim
+      split
+      · exact ih.site_whnfCore henv hwred
       refine DiscV.bind (ih.site_infer henv hwfa.2) (fun ta hta => ?_)
       refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
       split
