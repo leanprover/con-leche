@@ -32653,3 +32653,163 @@ absorb:
    the cached parity lane is byte-faithful to the interned one, including
    the E1 and E2 deviations, which it inherited rather than introduced.
 
+### 3. THE CLAUSE-BY-CLAUSE CLASSIFICATION TABLE
+
+Read against the certified body at **`μ = .setModelP` (the P core)**,
+which is the agreement theorem's subject; where the R core (`.setModel`)
+differs the row says so.  Line numbers are `Kernel/CoreNC.lean` /
+`Kernel/CoreI.lean` on master `c3ebe6fe`; the cached rows are the same
+rows (§2).
+
+| # | parity definition | site | what the certified core does and parity does not | on failure the certified core… | class |
+|---|---|---|---|---|---|
+| 1 | `inferSpineNC` | `:139` syntactic-∀ arm | `instListRevM dom acc`; `r.infer a`; `unless r.defeq ta dom'` | `throw (.invalid "application type mismatch")` | **1** |
+| 2 | `inferSpineNC` | `:145` whnf'd-∀ arm | `r.infer a`; `unless r.defeq ta dom` | `throw` | **1** |
+| 3 | `structUnitCertNC` | `:218` | `constTyAtM tyT`; `iotaCertsI tyT targs` | `pure false` | **1** |
+| 4 | `structEtaCertWithNC` | `:178` | `constTyAtM tyT`; `iotaCertsI tyT targs` | `pure false` | **1 / 2** † |
+| 5 | `structEtaCertWithNC` | `:178` | `structEtaProjCertsI` (per-projection telescopes) | `pure false` | **1 / 2** † |
+| 6 | `structEtaCertWithNC` | `:180` | the `mode.ttChecks` constructor-telescope certificate | — | **0 (vacuous)** |
+| 7 | `defeqStepNC` | `:749` ∀/∀ | `if mode.verified && !(m₁.pw.equiv m₂.pw)` | `throw (.notImplemented "sort-annotation mismatch (defeq-forall)")` | **1** |
+| 8 | `defeqStepNC` | `:756` λ/λ | same, `(defeq-lam)` | `throw` | **1** |
+| 9 | `etaCertI .noModel` | `CoreI:1219` | same, `(eta)` | `throw` | **1** |
+| 10 | `inferPisI .noModel` | `CoreI:1800` `inferPisOutI` | the ∀-annotation validation against the codomain sort | `throw (… "(forall-cod)")` | **1** |
+| 11 | `inferLamsI .noModel` | `CoreI:1737` `inferLamsLeafI` | the λ-codomain **sort inference** `r.infer bt` + `r.whnf` + sort match | `throw (.invalid "expected a sort")` | **1** |
+| 12 | `inferLamsI .noModel` | `CoreI:1746` `inferLamsLeafI` | the innermost-binder annotation validation | `throw (… "(lam-cod-leaf)")` | **1** |
+| 13 | `inferLamsI .noModel` | `CoreI:1716` `inferLamsOutI` | the λ chain-rule annotation validation | `throw (… "(lam-cod-chain)")` | **1** |
+| 14 | `whnfAppNC` | `:464` λ head | the per-redex argument certificate `r.infer a` + `r.defeq ta ty` | **returns the stuck term** `mkAppNM (.app v a) rest` | **2** ‡ |
+| 15 | `betaPeelNC` | `:486` λ binder | same, with `instListM ty acc` | **stuck term** | **2** ‡ |
+| 16 | `majorToCtorNC` | `:329` K branch | the guard `cnP ≤ margs.length ∧ (cvj.type.stripPis cnP).isSome` | `pure major` (no K rescue → `iotaRec` returns `none`, stuck) | **2** |
+| 17 | `majorToCtorNC` | `:329` K branch | `iotaCertsI tyCtor (margs.take cnP)` | `pure major` | **2** |
+| 18 | `majorToCtorNC` | `:336` K branch | `proofIrrelI fab major` after the official `toCtorWhenK` defeq | `pure major` | **2** |
+| 19 | `majorToCtorNC` | `:353` η branch | the guard `cvj.levelParams.length = ust.length ∧ (cvj.type.stripPis (etaParams+etaFields)).isSome` | `pure major` | **2** |
+| 20 | `majorToCtorNC` | `:358` η branch | `iotaCertsI tyCtor (margs ++ projs)` | `pure major` | **2** |
+| 21 | `majorToCtorNC` | `:362` η branch | rows 4–5 **at a value-returning call site** | `pure major` | **2** † |
+| 22 | `iotaRecNC` | `:434` | the plain-rule parameter comparison, narrowed to `if Name.isProjFnShape cn then defEqListI … else pure true` (certified: always `defEqListI (margs.take rl.ctorParams) cmpArgs`) | `pure none` (stuck) | **2** |
+| 23 | `iotaRecNC` | `:438` | `iotaCertsI tyRec (args.take mI ++ [major])` | `pure none` | **2** |
+| 24 | `iotaRecNC` | `:438` | `iotaCertsI tyCtor margs` | `pure none` | **2** |
+| 25 | `iotaRecNC` | `:438` | the canonical-index residual block: `stripPisBodyI` + `piResidualM tyCtor margs` + the const-head match + `defEqListI (resArgs.drop rl.ctorParams) ((args.take mI).drop rP)` | `pure none` | **2** |
+| 26 | `coreKnotNC.annotate`, `coreKnotFNC.annotate` | `:884`, `:916` | `annotateBodyI .noModel`: three `pw` writes suppressed (`annotatePisPwI`, `annotateLamsPwI`, the single-binder λ write at `CoreI:2404`) | — (the environment stores a **different term**) | **3** |
+| E1 | `whnfCoreBodyNC`, `whnfAppNC`, `betaPeelNC` | `:469`, `:483`, `:489`, `:514`, `:533`, `:540` | five reduction-step sites call the memoized knot `r.whnfCore depth` where the certified core calls the loop continuation `k`; and `whnfCoreBodyNC` **is** the step, with no `whnfCoreLoopI` wrapper | parity throws `.internal "fuel exhausted: whnfCore"` where the certified core reduces | **NONE** |
+| E2 | `inferBodyNC` | `:617` `.proj` | parity walks `constTyAtM (projFnName Tn i)` + `piResidualM pty (targs ++ [pe])`; certified computes the pinned two-case residual | the two raise `.internal "malformed projection entry"` on **disjoint** inputs | **NONE** |
+| E3 | `coreKnotNC` + `coreKnotFNC`, `memoEIO` | `:862`, `:898`, `:828` | a knot **pair** with two infer memos and a cross-memo one-directional share; certified: one knot, one memo | — | **NONE** |
+| R1 | `iotaRecNC` | `:428-437` | `pinArgsI` is computed **after** the level comparison; certified computes `cmpArgs` **before** it | — (effect order only) | **1-rider** |
+| R2 | rows 1–25 collectively | `CoreNC:584,598` | the dropped certificates intern nodes, and `inferBodyI/NC`'s ∀/λ clauses read the **arena node count** as the binder-peel fuel | — (fuel value differs) | **1-rider** |
+
+† **rows 4, 5, 21 are the correction of §4.**  The same two dropped
+certificates are **class 1** when `structEtaCertWithNC` is reached
+through `structEtaCertNC` ← `stuckIrrelNC` ← `defeq` (a `Bool` that only
+narrows acceptance) and **class 2** when reached through
+`majorToCtorNC`'s η rescue (where the `Bool` decides whether the major
+is *replaced by a fabricated constructor application*, i.e. whether the
+subsequent `iotaRec` fires).  One definition, two classes, decided by
+the call site.
+
+‡ **rows 14–15 at the P core are conditional on the datum.**
+`betaGateFires .setModelP pw = pw.isNever`, so at `pw = .never` the P
+core takes parity's arm and there is **no divergence at all**; the
+class-2 surface is exactly the non-`.never` data.  At the R core the
+gate is off and the divergence is total.  This is the census's *"data,
+not a flag"* holding up under measurement, and it is the one place where
+the P core is genuinely closer to parity than the R core is.
+
+### 4. THE CLASS-1 MONOTONICITY CLAIM — VERIFIED, WITH ONE CORRECTION
+AND TWO RIDERS
+
+The census's claim (part 4 §2, route C): *"wherever the three configs
+differ only by a class-1 guard, agreement is one template-level
+guard-monotonicity lemma instantiated — proved once, not once per
+clause."*  Walked clause by clause against rows 1–13.
+
+**VERIFIED, in substance.**  At every one of the twelve class-1 sites
+the removed code is a *pure guard*: the certified and parity arms
+continue with **identical continuation values**, and the only
+observable difference is that the certified arm can `throw` or return
+`false` where parity proceeds.  No class-1 site is value-visible.  That
+is exactly the shape a monotonicity lemma needs.
+
+**CORRECTION — the lemma is not one, and it is not keyed by clause.**
+Two refinements the census's sentence does not carry:
+
+1. **Three syntactic shapes, three lemmas.**  The twelve sites come in
+   three forms — `unless ← r.defeq … do throw` in a *sequenced* position
+   (rows 1, 2); `if ← cert then … else pure false` in a *`Bool`-valued*
+   position (rows 3–5); `if mode.verified && … then throw` *after* the
+   value is already determined (rows 7–13).  Each needs its own
+   monotonicity statement.  Still `O(1)` in the number of clauses, which
+   is the census's real point — but "one lemma" understates it by three.
+2. **The class is a property of the (site × call site) pair, not of the
+   site.**  Rows 4/5/21 are the witness: the identical dropped
+   certificate is accept-ward at one caller and reduction-changing at
+   another.  **A monotonicity lemma stated about `structEtaCertWithNC`
+   alone would be applied at `majorToCtorNC`, where it is false.**  Any
+   config-field list must therefore be keyed by call site, or carry the
+   call-site condition in the lemma's statement.  This is the same
+   failure mode as the #139 incident (a definition mirrored, a *use* not
+   mirrored) and it is worth the census's ledger.
+
+**Two riders that the monotonicity lemma does not discharge:**
+
+* **R1, effect order.**  `iotaRecNC` builds the nested-rule pins
+  (`pinArgsI`) *inside* the comparand match, i.e. after the level
+  comparison; `iotaRecI` builds `cmpArgs` before it.  When the level
+  comparison fails the certified core has interned pin nodes and the
+  parity core has not.  No verdict consequence; a state-equality
+  obligation for any simulation-shaped statement.
+* **R2, the peel fuel.**  On the **interned** engines the ∀/λ clauses
+  read `withStore (·.nodes.size)` as the binder-telescope peel fuel
+  (`CoreNC:584,598` / `CoreI:1880,1891`).  Every class-1 and class-2
+  drop changes the arena's node count, hence that fuel value.  The
+  argument that the peel fuel is semantically transparent (on exhaustion
+  the leaf phase hands the residual chain back to the knot) is landed
+  doctrine, but it is a *separate* obligation from guard monotonicity
+  and it must be discharged before any `rfl`-grade clause identity is
+  claimed for `inferBody`.  Note it does **not** arise on the cached
+  engines, which use `peelFuelM`: a second reason §2's
+  representation-independence is not quite total, and a reason B2 should
+  slice `whnfCore` on **both** representations as the census already
+  requires.
+
+### 5. CLASS 2 — CONFIRMED, AND LARGER THAN THE CENSUS'S ENUMERATION
+
+The census named four class-2 members (the β clause, `iotaRecI`'s
+`pure none`, `iotaRecNC`'s narrowed comparand, and implicitly the
+certificate cascade).  Measured: **twelve sites**, in three families:
+
+| family | sites | the stuck value |
+|---|---|---|
+| β (`whnfAppNC` / `betaPeelNC`) | 14, 15 | the un-reduced application `mkAppNM (.app v a) rest` |
+| the major rescue (`majorToCtorNC`) | 16–21 | `major` un-replaced ⇒ `iotaRec` yields `none` |
+| ι (`iotaRecNC`) | 22–25 | `none` |
+
+All twelve are *stuck-degrading* in the census's sense — the certified
+core stops and the parity core reduces — so the census's headline claim
+survives verbatim, and the refutation it draws from it (*"agree = same
+inferred types / same intermediate values"* is false) is confirmed at
+twelve sites rather than four.
+
+Two observations for the B5/B6 collapse family:
+
+* the six `majorToCtorNC` sites are **not** independent: they are one
+  chain of nested `if`s inside one definition, and the certified core's
+  `pure major` is the same fallthrough at all six.  A single
+  "the rescue did not fire" divergence predicate covers the family;
+* row 22 is the **only** class-2 site where parity performs a check the
+  certified core does not *in a different shape* rather than simply
+  omitting one: parity compares parameters exactly when
+  `Name.isProjFnShape cn`, the certified core always.  It is therefore
+  the one class-2 row whose divergence predicate mentions a *name test*
+  and not a certificate outcome.
+
+### 6. CLASS 3 — ONE FAMILY, THREE WRITES, TWO KNOTS
+
+`annotateBodyI .noModel` is installed at **both** parity knots
+(`coreKnotNC:884`, `coreKnotFNC:916`), so the parity lane annotates with
+the `mode.verified` gate off at every entry.  The suppressed writes are
+exactly three: `annotatePisPwI` (∀ telescope), `annotateLamsPwI` (λ
+telescope), and the single-binder λ write in `annotateBodyI`'s
+non-chain-identical branch (`CoreI:2404`).  Nothing else in the
+annotation pass reads a mode.  The census's *"class 3 is one erasure
+lemma about `annotateBody`"* holds; the erasure has to cover three write
+sites, all of which write the *same* datum shape (`annotBinderMetaI`'s
+`pw?`), which is why one lemma suffices.
+
