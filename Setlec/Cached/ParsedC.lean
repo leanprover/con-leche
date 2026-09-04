@@ -267,7 +267,7 @@ def checkConstantValC (fe : FEnv) (cv : ConstantValC) :
     throw (.invalid s!"unknown constant in type of {cv.name}")
   let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
   let _u ← opSIxC mode fe 0 jsty
-  let tyE := ExprC.toExpr jty
+  let tyE := jty
   pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
 
 /-- `checkDefnValP` over `ExprC`. -/
@@ -282,7 +282,7 @@ def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let vE := ExprC.toExpr jv
+  let vE := jv
   recordCConst cvA.name cvA.type jty (some (vE, jv))
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
@@ -305,7 +305,7 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let vE := ExprC.toExpr jv
+  let vE := jv
   recordCConst cvA.name cvA.type jty (some (vE, jv))
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
@@ -366,7 +366,7 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
     let (cvA, jty) ← checkConstantValC mode fe cv
     let fe2 ← checkOpaqueValC mode fe cvA jty value
     if reduceOpNames.contains cvA.name then do
-      let vE := ExprC.toExpr value
+      let vE := value
       checkReducePinF (sharedOpsC mode fe) fe fe2 cvA.name vE
     pure fe2
   | .axiomDecl cv => do

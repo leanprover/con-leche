@@ -26,25 +26,25 @@ variable (mode : CheckMode)
 
 /-! ## The entry-point record over the cached core
 
-`opE`/`opB`/`opS` convert their `Expr` arguments in and their results
-out, exactly as the interned `opE`/`opB`/`opS` intern and read back at
-the same seam. -/
+`opE`/`opB`/`opS` used to convert their `Expr` arguments in and their
+results out, exactly as the interned `opE`/`opB`/`opS` intern and read
+back at the same seam.  Since task #172 B3a there is one expression
+type, so they pass their arguments through — measured at −3.5 % / −3.8 %
+instructions on `init-prelude` / `app-lam`, which is where that batch's
+win came from. -/
 
-/-- Shared-state unary entry point: convert in, run the cached knot,
-convert back. -/
+/-- Shared-state unary entry point: run the cached knot. -/
 def opE (fe : FEnv) (pick : CoreFnsI → Nat → ExprC → CheckCM ExprC)
     (d : Nat) (e : Expr) : CheckCM Expr := do
-  let i := ExprC.ofExpr e
-  let j ← pick (coreKnotI mode fe checkFuel) d i
-  pure (ExprC.toExpr j)
+  pick (coreKnotI mode fe checkFuel) d e
 
 /-- Shared-state definitional-equality entry point. -/
 def opB (fe : FEnv) (d : Nat) (a b : Expr) : CheckCM Bool :=
-  (coreKnotI mode fe checkFuel).defeq d (ExprC.ofExpr a) (ExprC.ofExpr b)
+  (coreKnotI mode fe checkFuel).defeq d a b
 
 /-- Shared-state sort-ensuring entry point. -/
 def opS (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Level :=
-  ensureSortI (coreKnotI mode fe checkFuel) d (ExprC.ofExpr e)
+  ensureSortI (coreKnotI mode fe checkFuel) d e
 
 /-- The per-declaration shared operations at a fixed environment
 index (the clone's `sharedOps`). -/
