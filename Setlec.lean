@@ -15,6 +15,7 @@ import Setlec.Verify.EnvWF
 import Setlec.Verify.ProjPinInv
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InferIOLemmas
+import Setlec.Verify.InferIOLeaves
 import Setlec.Verify.CoreP
 import Setlec.Verify.AnnotDefense
 import Setlec.SetTheory.Basic
