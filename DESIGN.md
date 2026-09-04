@@ -36328,3 +36328,34 @@ that deferred option, nothing more.  Item 3's gate-inversion language
 is read accordingly: "priority" means covered types *prefer* tower
 semantics while their artifacts continue to install; no artifact is
 skipped anywhere.
+
+**(R3) The pinned `PSigma'` support is TRANSITIONAL — delete it once
+covered** (user ruling, verbatim: "just remove the pinned PSigma'
+support once it is covered by the direct structure support").  The
+two-entry-kinds trade (the amendment's "one honest trade";
+`NativeProjPinned` keying pair- vs tower-backed) is hereby
+**transitional, not permanent**: the endgame is `PSigma'` itself
+installing as a direct structure through the tuple tier — it is a
+2-field dependent-pair structure, and the unit-terminated tower
+replaces the bespoke bare-pair semantics.  At that point:
+
+* the pinned basis block DELETES — `Kernel/Basis/PSigma.lean`'s
+  `pairFstEntry`/`pairSndEntry` (`:310`/`:318`) and their
+  `projInfo` wrappers, the pin machinery, and the eta-inert special
+  case;
+* `NativeProjPinned` **dissolves** rather than re-measures — the
+  landing record's handoff item 5 "de-pins to pair- or tower-backed
+  + re-measure" is superseded: the entry table ends with ONE kind
+  (tower-backed) and the `.proj` interp clause has one branch;
+* **cleanup-docket item 15 is MOOTED** (§10 item 15, the two-valued
+  pinned-tag successor to `ProjEntry.native`, live since B1b): its
+  target tag distinction ceases to exist — superseded by this
+  deletion, do not execute it independently.
+
+**Sequencing**: the removal is the **closing step of the wiring
+phase**, gated on (a) the covered-class install being live and (b)
+the full battery green on preprocessed streams — which lean on
+`PSigma'` pervasively (the preprocessor's lowering target), so the
+lowering target must demonstrably work through the new path before
+the pin dies.  Until that gate, the two kinds coexist exactly as the
+landing record describes.
