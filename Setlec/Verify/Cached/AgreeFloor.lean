@@ -819,4 +819,444 @@ theorem checkDeclSPStepC_skels (mode : CheckMode) {fe : FEnv}
   ybind
   exact checkDeclSPC_skels mode h pd
 
+/-! ## The cached parity driver's install stages
+
+`Setlec/Cached/ParsedNC.lean` duplicates its certified counterpart
+definition by definition with `sharedOpsC mode` replaced by
+`sharedOpsCNC` and the front-door knot on `coreKnotFNC`.  The
+skeleton facts therefore mirror the certified ones line for line, and
+land on **the same specification functions** — which is the whole
+content of the floor.  Note `installProjTemplateStepS` is *shared*
+between the two drivers, so its lemma is reused rather than mirrored. -/
+
+theorem checkConstantValCNC_name (fe : FEnv) (cv : ConstantValC) :
+    Yields (checkConstantValCNC fe cv) (fun p => p.1.name = cv.name) := by
+  unfold checkConstantValCNC
+  yields
+  all_goals (apply Yields.pure; rfl)
+
+theorem checkDefnValCNC_skels {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (cvA : ConstantVal) (jty value : ExprC)
+    (hint : ReducibilityHint) :
+    Yields (checkDefnValCNC fe cvA jty value hint)
+      (fun fe' => SkelIs fe' (.defn cvA.name :: sk)) := by
+  unfold checkDefnValCNC
+  yields
+  all_goals (apply Yields.pure; exact h.push _)
+
+theorem checkThmValCNC_skels {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (cvA : ConstantVal) (jty value : ExprC) :
+    Yields (checkThmValCNC fe cvA jty value)
+      (fun fe' => SkelIs fe' (.thm cvA.name :: sk)) := by
+  unfold checkThmValCNC
+  yields
+  all_goals (apply Yields.pure; exact h.push _)
+
+theorem checkOpaqueValCNC_skels {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (cvA : ConstantVal) (jty value : ExprC) :
+    Yields (checkOpaqueValCNC fe cvA jty value)
+      (fun fe' => SkelIs fe' (.ax cvA.name :: sk)) := by
+  unfold checkOpaqueValCNC
+  yields
+  all_goals (apply Yields.pure; exact h.push _)
+
+theorem checkIndMemberNC_skels (blockNames : List Name) (caps : IndCaps)
+    {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
+    (ci : ConstantInfo) :
+    Yields (checkIndMemberNC blockNames caps fe ci)
+      (fun fe' => SkelIs fe' (indMemberSkel ci :: sk)) := by
+  unfold checkIndMemberNC
+  ybind
+  refine Yields.bind'
+    (checkMemberValF_name (sharedOpsCNC fe) blockNames fe ci.toConstantVal)
+    fun cvA hcvA => ?_
+  cases ci with
+  | indInfo cvI capsI =>
+    refine Yields.pure ?_
+    have := h.push (.indInfo cvA caps)
+    simpa [ciSkel, indMemberSkel, hcvA, ConstantInfo.toConstantVal] using this
+  | ctorInfo cvI nP nF =>
+    refine Yields.pure ?_
+    have := h.push (.ctorInfo cvA nP nF)
+    simpa [ciSkel, indMemberSkel, hcvA, ConstantInfo.toConstantVal] using this
+  | _ => exact Yields.ofThrow
+
+theorem provisionRecsNC_spec (blockNames : List Name) :
+    ∀ (recs : List ConstantInfo) (feAcc : FEnv),
+      Yields (provisionRecsNC blockNames feAcc recs)
+        (fun p => p.2.map provSkel = recs.map recMemberSkel) := by
+  intro recs
+  induction recs with
+  | nil => intro feAcc; unfold provisionRecsNC; exact Yields.pure rfl
+  | cons ci rest ih =>
+    intro feAcc
+    unfold provisionRecsNC
+    cases ci with
+    | recInfo cv mI rP rules =>
+      ybind
+      refine Yields.bind'
+        (checkMemberValF_name (sharedOpsCNC feAcc) blockNames feAcc _)
+        fun cvA hcvA => ?_
+      refine Yields.bind' (ih _) fun q hq => ?_
+      obtain ⟨feSelf, others⟩ := q
+      refine Yields.pure ?_
+      simp only [List.map_cons, provSkel, recMemberSkel, hcvA,
+        ConstantInfo.toConstantVal] at hq ⊢
+      rw [hq]
+    | _ => exact Yields.ofThrow
+
+theorem checkIndRecsNC_skels (blockNames : List Name) {fe₂ : FEnv}
+    {sk : List InstallSkel} (h : SkelIs fe₂ sk) (recs : List ConstantInfo) :
+    Yields (checkIndRecsNC blockNames fe₂ recs)
+      (fun fe' => SkelIs fe' (recs.foldl recMemberSkels sk)) := by
+  unfold checkIndRecsNC
+  simp only []
+  split
+  · rename_i hemp
+    have hr : recs = [] := by cases recs <;> simp_all
+    subst hr
+    exact Yields.pure h
+  · split
+    · refine Yields.bind'
+        (provisionRecsNC_spec blockNames recs fe₂) fun q hq => ?_
+      obtain ⟨feSelf, checked⟩ := q
+      ybind
+      have hstep : ∀ (acc : FEnv) (c : ConstantVal × Nat × Nat × List RecRule)
+          (sk' : List InstallSkel), SkelIs acc sk' →
+          Yields (do
+            let rules' ← checkIotaRulesF .noModel (sharedOpsCNC feSelf) fe₂ feSelf
+              (fun n => if blockNames.contains n then n.str "_model" else n)
+              c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
+            pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules')))
+            (fun acc' => SkelIs acc' (provSkel c :: sk')) := by
+        intro acc c sk' hacc
+        refine Yields.bind'
+          (checkIotaRulesF_ctors .noModel (sharedOpsCNC feSelf) fe₂ feSelf _
+            c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2)
+          fun rules' hrules' => ?_
+        refine Yields.pure ?_
+        simpa [ciSkel, provSkel, hrules'] using hacc.push
+          (.recInfo c.1 c.2.1 c.2.2.1 rules')
+      refine Yields.mono
+        (Yields.foldlM_rel (R := SkelIs) hstep checked fe₂ sk h)
+        fun fe' hfe' => ?_
+      rw [foldl_recMemberSkels]
+      simp only [foldl_cons_map] at hfe'
+      simp only [show checked.map provSkel = recs.map recMemberSkel from hq] at hfe'
+      exact hfe'
+    · exact Yields.ofThrowBind
+
+theorem checkProjFnNC_skels {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (T ctorName : Name) (lps : List Name) (nP nF i : Nat) :
+    Yields (checkProjFnNC fe T ctorName lps nP nF i)
+      (fun fe' => SkelIs fe' (.recr (projFnName T i) nP nP [ctorName] :: sk)) := by
+  unfold checkProjFnNC
+  yields
+  all_goals (apply Yields.pure; exact h.push _)
+
+theorem installProjFnStepNC_skels {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (T ctorName : Name) (lps : List Name) (nP nF i : Nat) :
+    Yields (installProjFnStepNC T ctorName lps nP nF fe i)
+      (fun fe' => SkelIs fe' (projFnStepSkels T ctorName nP sk i)) := by
+  unfold installProjFnStepNC projFnStepSkels
+  rw [h.isSome (projModelName T i)]
+  split <;> rename_i hb
+  · ybind
+    exact checkProjFnNC_skels h T ctorName lps nP nF i
+  · exact Yields.pure h
+
+theorem indBaseNC_skels (blockNames : List Name) (caps : IndCaps)
+    {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
+    (nonrecs recs : List ConstantInfo) :
+    Yields (do
+        let fe₂ ← nonrecs.foldlM (checkIndMemberNC blockNames caps) fe
+        checkIndRecsNC blockNames fe₂ recs)
+      (fun fe' => SkelIs fe'
+        (recs.foldl recMemberSkels (nonrecs.foldl indMemberSkels sk))) := by
+  refine Yields.bind'
+    (Yields.foldlM_rel (R := SkelIs) (g := indMemberSkels)
+      (fun acc ci sk' hacc => checkIndMemberNC_skels blockNames caps hacc ci)
+      nonrecs fe sk h) fun fe₂ h₂ => ?_
+  exact checkIndRecsNC_skels blockNames h₂ recs
+
+theorem checkIndDeclNC_skels {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (block : List ConstantInfo) :
+    Yields (checkIndDeclNC fe block)
+      (fun fe' => SkelIs fe' (indDeclSkels block sk)) := by
+  unfold checkIndDeclNC indDeclSkels
+  simp only []
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue =>
+    split
+    case h_1 cvT capsT cvC nP nF hI hC =>
+      have hI' : block.filter isIndCI = [ConstantInfo.indInfo cvT capsT] := hI
+      have hC' : block.filter isCtorCI = [ConstantInfo.ctorInfo cvC nP nF] := hC
+      rw [hI', hC']
+      simp only []
+      ybind
+      refine Yields.bind'
+        (Yields.foldlM_rel (R := SkelIs) (g := indMemberSkels)
+          (fun acc ci sk' hacc =>
+            checkIndMemberNC_skels _ _ hacc ci) _ fe sk h)
+        fun fe₂ h₂ => ?_
+      refine Yields.bind' (checkIndRecsNC_skels _ h₂ _) fun fe₃ h₃ => ?_
+      split
+      case isFalse => exact Yields.ofThrowBind
+      case isTrue =>
+        split
+        case isFalse => exact Yields.ofThrowBind
+        case isTrue =>
+          refine Yields.bind'
+            (Yields.foldlM_rel (R := SkelIs)
+              (g := projFnStepSkels cvT.name cvC.name nP)
+              (fun acc i sk' hacc =>
+                installProjFnStepNC_skels hacc cvT.name cvC.name
+                  cvT.levelParams nP nF i) (List.range nF) fe₃ _ h₃)
+            fun fe₄ h₄ => ?_
+          exact Yields.foldlM_rel (R := SkelIs)
+            (g := projTemplateStepSkels cvT.name cvC.name nP nF)
+            (fun acc i sk' hacc =>
+              installProjTemplateStepS_skels hacc cvT.name cvC.name
+                cvT.levelParams nP nF i) (List.range nF) fe₄ _ h₄
+    case h_2 hne =>
+      split
+      case h_1 cvT capsT cvC nP nF hI hC =>
+        exact absurd hC (hne cvT capsT cvC nP nF hI)
+      case h_2 => exact indBaseNC_skels _ _ h _ _
+
+theorem checkDeclSPCNC_skels {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (pd : DeclC) :
+    Yields (checkDeclSPCNC fe pd)
+      (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
+  unfold checkDeclSPCNC declCSkels
+  cases pd with
+  | defnDecl cv value hint =>
+    simp only []
+    refine Yields.bind' (checkConstantValCNC_name fe cv) fun p hp => ?_
+    obtain ⟨cvA, jty⟩ := p
+    simp only []
+    have key : Yields (checkDefnValCNC fe cvA jty value hint)
+        (fun fe' => SkelIs fe' (.defn cv.name :: sk)) := by
+      rw [← hp]; exact checkDefnValCNC_skels h cvA jty value hint
+    split
+    · refine Yields.bind' key fun fe2 h2 => ?_
+      yields
+      all_goals (apply Yields.pure; exact h2)
+    · exact key
+  | thmDecl cv value =>
+    simp only []
+    refine Yields.bind' (checkConstantValCNC_name fe cv) fun p hp => ?_
+    obtain ⟨cvA, jty⟩ := p
+    rw [← hp]
+    exact checkThmValCNC_skels h cvA jty value
+  | opaqueDecl cv value =>
+    simp only []
+    refine Yields.bind' (checkConstantValCNC_name fe cv) fun p hp => ?_
+    obtain ⟨cvA, jty⟩ := p
+    simp only []
+    have key : Yields (checkOpaqueValCNC fe cvA jty value)
+        (fun fe' => SkelIs fe' (.ax cv.name :: sk)) := by
+      rw [← hp]; exact checkOpaqueValCNC_skels h cvA jty value
+    refine Yields.bind' key fun fe2 h2 => ?_
+    yields
+    all_goals (apply Yields.pure; exact h2)
+  | axiomDecl cv =>
+    simp only []
+    refine Yields.bind' (checkConstantValCNC_name fe cv) fun p hp => ?_
+    obtain ⟨cvA, jty⟩ := p
+    simp only []
+    rw [← hp]
+    by_cases ht : toleratedAxiomNames.contains cvA.name = true
+    · rw [if_pos ht,
+        if_neg (by rw [tolerated_not_std fe cvA ht]; exact Bool.false_ne_true),
+        if_neg (tolerated_ne_trust ht), if_neg (tolerated_ne_ofReduce ht),
+        if_neg (tolerated_ne_std ht), if_pos ht]
+      exact Yields.pure h
+    · rw [if_neg ht]
+      yields
+      all_goals first
+        | (apply Yields.pure; exact h.push _)
+        | exact absurd (by assumption) ht
+  | basisDecl kind =>
+    have hfold : ∀ (fe' : FEnv) (sk' : List InstallSkel), SkelIs fe' sk' →
+        Yields (kind.declsA.foldlM installBasisDeclF fe')
+          (fun x => SkelIs x
+            (kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk')) :=
+      fun fe' sk' h' =>
+        Yields.foldlM_rel (R := SkelIs) (g := fun acc ci => ciSkel ci :: acc)
+          (fun acc ci sk'' hacc => installBasisDeclF_skels hacc ci)
+          kind.declsA fe' sk' h'
+    simp only []
+    yields
+    all_goals exact hfold fe sk h
+  | indDecl block =>
+    simp only []
+    rw [directPartsF?_eq_none]
+    exact checkIndDeclNC_skels h block
+
+theorem checkDeclSPStepCNC_skels {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (pd : DeclC) :
+    Yields (checkDeclSPStepCNC fe pd)
+      (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
+  unfold checkDeclSPStepCNC
+  ybind
+  ybind
+  exact checkDeclSPCNC_skels h pd
+
+/-! ## The floor
+
+Both drivers are the same fold over the same converted declaration
+list, so the skeleton spec `declCSkels` computes *both* installed
+environments.  Hence: whenever both **accept**, they installed the same
+constants, in the same order, with the same skeletons — and in
+particular the same names and the same count.
+
+Scope, stated exactly: these are **accept-verdict** statements.  The
+parity core's purpose is to reject less, and the recorded no-model
+divergences are decline/accept divergences, untouched here. -/
+
+theorem Yields.run' {α : Type} {m : CheckCM α} {P : α → Prop}
+    (h : Yields m P) {s : CState} {a : α} (hr : StateT.run' m s = .ok a) :
+    P a := by
+  have hs : StateT.run' m s = (m s).bind (fun p => .ok p.1) := rfl
+  rw [hs] at hr
+  cases hm : m s with
+  | error e => rw [hm] at hr; cases hr
+  | ok b => rw [hm] at hr; cases hr; exact h s b.1 b.2 hm
+
+theorem env_of_run {X : CheckM FEnv} {env : Env}
+    (h : (do let fe ← X; pure fe.env) = .ok env) :
+    ∃ fe, X = .ok fe ∧ fe.env = env := by
+  cases hx : X with
+  | error e => rw [hx] at h; cases h
+  | ok fe => rw [hx] at h; cases h; exact ⟨fe, rfl, rfl⟩
+
+theorem skelIs_empty : SkelIs (mkFEnv Env.empty) [] := ⟨⟨_, rfl⟩, rfl⟩
+
+/-- The declaration-stream specification: the skeletons a stream
+installs, newest first. -/
+def streamSkels (ds : List DeclC) : List InstallSkel :=
+  ds.foldl (fun sk pd => declCSkels pd sk) []
+
+theorem streamSkels_map (ds : List WDeclC) :
+    streamSkels (ds.map (·.1))
+      = ds.foldl (fun sk pc => declCSkels pc.1 sk) [] := by
+  unfold streamSkels
+  rw [List.foldl_map]
+
+/-! ### The direct-parse entry points (task #171's route) -/
+
+theorem checkDeclsSPCachedD_skels {mode : CheckMode} {ds : List WDeclC}
+    {env : Env} (h : checkDeclsSPCachedD mode ds = .ok env) :
+    envSkels env = streamSkels (ds.map (·.1)) := by
+  unfold checkDeclsSPCachedD at h
+  obtain ⟨fe, hx, rfl⟩ := env_of_run h
+  have := (Yields.foldlM_rel (R := SkelIs)
+    (g := fun sk (pc : WDeclC) => declCSkels pc.1 sk)
+    (fun b a c hb => checkDeclSPStepC_skels mode hb a.1) ds
+    (mkFEnv Env.empty) [] skelIs_empty).run' hx
+  exact this.2.trans (streamSkels_map ds).symm
+
+theorem checkDeclsSPCachedDNM_skels {ds : List WDeclC} {env : Env}
+    (h : checkDeclsSPCachedDNM ds = .ok env) :
+    envSkels env = streamSkels (ds.map (·.1)) := by
+  unfold checkDeclsSPCachedDNM at h
+  obtain ⟨fe, hx, rfl⟩ := env_of_run h
+  have := (Yields.foldlM_rel (R := SkelIs)
+    (g := fun sk (pc : WDeclC) => declCSkels pc.1 sk)
+    (fun b a c hb => checkDeclSPStepCNC_skels hb a.1) ds
+    (mkFEnv Env.empty) [] skelIs_empty).run' hx
+  exact this.2.trans (streamSkels_map ds).symm
+
+/-- **The floor, direct-parse route.**  Whenever the cached parity
+driver and the cached certified driver both accept the same stream,
+the two installed environments carry the same install skeletons. -/
+theorem parity_agrees_P_skels_D {mode : CheckMode} {ds : List WDeclC}
+    {envP envN : Env}
+    (hP : checkDeclsSPCachedD mode ds = .ok envP)
+    (hN : checkDeclsSPCachedDNM ds = .ok envN) :
+    envSkels envN = envSkels envP :=
+  (checkDeclsSPCachedDNM_skels hN).trans (checkDeclsSPCachedD_skels hP).symm
+
+/-- The census's sentence: the accepted declaration **names** agree. -/
+theorem parity_agrees_P_names_D {mode : CheckMode} {ds : List WDeclC}
+    {envP envN : Env}
+    (hP : checkDeclsSPCachedD mode ds = .ok envP)
+    (hN : checkDeclsSPCachedDNM ds = .ok envN) :
+    envN.consts.map ConstantInfo.name = envP.consts.map ConstantInfo.name := by
+  have h := congrArg (List.map skelName) (parity_agrees_P_skels_D hP hN)
+  simpa [envSkels, List.map_map, Function.comp_def] using h
+
+/-- … and so do the accepted declaration **counts**. -/
+theorem parity_agrees_P_count_D {mode : CheckMode} {ds : List WDeclC}
+    {envP envN : Env}
+    (hP : checkDeclsSPCachedD mode ds = .ok envP)
+    (hN : checkDeclsSPCachedDNM ds = .ok envN) :
+    envN.consts.length = envP.consts.length := by
+  have h := congrArg List.length (parity_agrees_P_skels_D hP hN)
+  simpa [envSkels] using h
+
+/-! ### The arena-parse entry points
+
+The two drivers run `declsCOfP` — the same conversion, on the same
+arena — before the fold, so they fold the same `DeclC` list. -/
+
+theorem checkDeclsSPCached_skels {mode : CheckMode} {st : WFStore}
+    {pds : List DeclP} {ds : List DeclC} {env : Env}
+    (hds : declsCOfP st.raw {} pds = .ok ds)
+    (h : checkDeclsSPCached mode st pds = .ok env) :
+    envSkels env = streamSkels ds := by
+  unfold checkDeclsSPCached at h
+  rw [hds] at h
+  obtain ⟨fe, hx, rfl⟩ := env_of_run h
+  exact ((Yields.foldlM_rel (R := SkelIs)
+    (g := fun sk (pd : DeclC) => declCSkels pd sk)
+    (fun b a c hb => checkDeclSPStepC_skels mode hb a) ds
+    (mkFEnv Env.empty) [] skelIs_empty).run' hx).2
+
+theorem checkDeclsSPCachedNM_skels {st : WFStore} {pds : List DeclP}
+    {ds : List DeclC} {env : Env}
+    (hds : declsCOfP st.raw {} pds = .ok ds)
+    (h : checkDeclsSPCachedNM st pds = .ok env) :
+    envSkels env = streamSkels ds := by
+  unfold checkDeclsSPCachedNM at h
+  rw [hds] at h
+  obtain ⟨fe, hx, rfl⟩ := env_of_run h
+  exact ((Yields.foldlM_rel (R := SkelIs)
+    (g := fun sk (pd : DeclC) => declCSkels pd sk)
+    (fun b a c hb => checkDeclSPStepCNC_skels hb a) ds
+    (mkFEnv Env.empty) [] skelIs_empty).run' hx).2
+
+/-- **The floor, arena-parse route.** -/
+theorem parity_agrees_P_skels {mode : CheckMode} {st : WFStore}
+    {pds : List DeclP} {envP envN : Env}
+    (hP : checkDeclsSPCached mode st pds = .ok envP)
+    (hN : checkDeclsSPCachedNM st pds = .ok envN) :
+    envSkels envN = envSkels envP := by
+  cases hds : declsCOfP st.raw {} pds with
+  | error e =>
+    unfold checkDeclsSPCached at hP
+    rw [hds] at hP
+    cases hP
+  | ok ds =>
+    exact (checkDeclsSPCachedNM_skels hds hN).trans
+      (checkDeclsSPCached_skels hds hP).symm
+
+theorem parity_agrees_P_names {mode : CheckMode} {st : WFStore}
+    {pds : List DeclP} {envP envN : Env}
+    (hP : checkDeclsSPCached mode st pds = .ok envP)
+    (hN : checkDeclsSPCachedNM st pds = .ok envN) :
+    envN.consts.map ConstantInfo.name = envP.consts.map ConstantInfo.name := by
+  have h := congrArg (List.map skelName) (parity_agrees_P_skels hP hN)
+  simpa [envSkels, List.map_map, Function.comp_def] using h
+
+theorem parity_agrees_P_count {mode : CheckMode} {st : WFStore}
+    {pds : List DeclP} {envP envN : Env}
+    (hP : checkDeclsSPCached mode st pds = .ok envP)
+    (hN : checkDeclsSPCachedNM st pds = .ok envN) :
+    envN.consts.length = envP.consts.length := by
+  have h := congrArg List.length (parity_agrees_P_skels hP hN)
+  simpa [envSkels] using h
+
 end Setlec.Cached
