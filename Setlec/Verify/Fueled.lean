@@ -18,6 +18,11 @@ set_option linter.unusedSimpArgs false
 namespace Setlec
 
 variable {mode : CheckMode}
+/- Task #172 B2: the ι cone's mode is decoupled from the knot's, so
+that the `whnfCore` template's `cfg.iotaMode` can occupy it while the
+knot stays at the tower's `mode`.  Generalization only — every landed
+call site unifies `mi := mode`. -/
+variable {mi : CheckMode}
 
 /-- Monotone fuel-indexed families of pure computations. -/
 def FueledM (α : Type) : Type :=
@@ -254,14 +259,14 @@ theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
   atF_tac
 
 theorem pairEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (pairEtaCert mode (fueledFns mode env) env d a b).val F =
-      pairEtaCert mode (pureFns mode env F) env d a b := by
+    (pairEtaCert mi (fueledFns mode env) env d a b).val F =
+      pairEtaCert mi (pureFns mode env F) env d a b := by
   unfold pairEtaCert
   atF_tac
 
 theorem structEtaCertWith_atF (d : Nat) (a b wtb : Expr) (F : Nat) :
-    (structEtaCertWith mode (fueledFns mode env) env d a b wtb).val F =
-      structEtaCertWith mode (pureFns mode env F) env d a b wtb := by
+    (structEtaCertWith mi (fueledFns mode env) env d a b wtb).val F =
+      structEtaCertWith mi (pureFns mode env F) env d a b wtb := by
   unfold structEtaCertWith
   atF_tac
 
@@ -272,8 +277,8 @@ theorem structUnitCert_atF (d : Nat) (a b : Expr) (F : Nat) :
   atF_tac
 
 theorem etaCert_atF (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta) (b : Expr) (F : Nat) :
-    (etaCert mode (fueledFns mode env) env d n ty body mb b).val F =
-      etaCert mode (pureFns mode env F) env d n ty body mb b := by
+    (etaCert mi (fueledFns mode env) env d n ty body mb b).val F =
+      etaCert mi (pureFns mode env F) env d n ty body mb b := by
   unfold etaCert
   atF_tac
 
@@ -309,8 +314,8 @@ macro "atF_tac2" : tactic =>
     atF_step2 <;> atF_step2 <;> atF_step2)
 
 theorem structEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (structEtaCert mode (fueledFns mode env) env d a b).val F =
-      structEtaCert mode (pureFns mode env F) env d a b := by
+    (structEtaCert mi (fueledFns mode env) env d a b).val F =
+      structEtaCert mi (pureFns mode env F) env d a b := by
   unfold structEtaCert
   atF_tac2
 
@@ -318,8 +323,8 @@ theorem structEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
 -- body outgrew the split-driven macro.
 set_option maxHeartbeats 800000 in
 theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (F : Nat) :
-    (majorToCtor mode (fueledFns mode env) env d c rules e).val F =
-      majorToCtor mode (pureFns mode env F) env d c rules e := by
+    (majorToCtor mi (fueledFns mode env) env d c rules e).val F =
+      majorToCtor mi (pureFns mode env F) env d c rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
   · rw [if_pos hca, if_pos hca]; rfl
@@ -447,14 +452,14 @@ macro "atF_tac3" : tactic =>
     atF_step3 <;> atF_step3 <;> atF_step3)
 
 theorem stuckIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (stuckIrrel mode (fueledFns mode env) env d a b).val F =
-      stuckIrrel mode (pureFns mode env F) env d a b := by
+    (stuckIrrel mi (fueledFns mode env) env d a b).val F =
+      stuckIrrel mi (pureFns mode env F) env d a b := by
   unfold stuckIrrel
   atF_tac3
 
 theorem iotaRec_atF (d : Nat) (e : Expr) (F : Nat) :
-    (iotaRec mode (fueledFns mode env) env d e).val F =
-      iotaRec mode (pureFns mode env F) env d e := by
+    (iotaRec mi (fueledFns mode env) env d e).val F =
+      iotaRec mi (pureFns mode env F) env d e := by
   unfold iotaRec
   atF_tac3
 
