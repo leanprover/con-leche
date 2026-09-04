@@ -34148,3 +34148,15 @@ whole inductive-block phase.
   is word-for-word the same fold and the statements are generic in
   substance, but per the user's drop-the-interned ruling **no interned
   instance is frozen or proved**.
+
+### 4. POST-MERGE REVALIDATION (task #172 B2 landed under B7)
+
+B7 was written against master `4a09e09b`; B2 (the template mechanics
+slice, `Kernel/CoreCfg.lean` + the `whnfCore` identity) landed at
+`bd78bc6e` while B7 was being proved.  Merged and rechecked: **both B7
+modules compile unchanged**, the full build stays warning-free, `lake
+test` is green and the axiom audit is unchanged.  B2's config replaces
+`CheckMode` at the `whnfCore` seam only; `annotateBodyI` is still
+mode-parameterised, so T2a's statement is unaffected — and when the
+annotation pass joins the template, `annotateBodyI_mode_eq` is exactly
+the collapse lemma that batch will need.
