@@ -30954,11 +30954,17 @@ by the refactor, which is the honest way for the question to close.
    status (inert cut-point since S11a); the sep-s7-wip recovery
    branch; the retired-by-pivot list from §2 (executed as part of
    the refactor, not before it).
-4. **The true-parity measurement cells** pending
-   agent/cached-parity-lane's landing; the S13-closing worker's
-   measurement appendix (branch agent/sep-s13close, sealed as
-   handoff on the stop directive) including the harness labeling
-   fix (survives the pivot).
+4. **RESOLVED DURING THE SEAL'S OWN WRITING**: the cached parity
+   lane LANDED on master (1fa6444f) — the true-parity cells are
+   measured, and the S13-closing worker finished COMPLETE before
+   its stop directive arrived (branch agent/sep-s13close @
+   c3be7395): the full table on the corrected axes, the answer in
+   three lines, net = gross verified two ways, the confound priced
+   (1.90–2.12× on decl-heavy streams), the original stage-1
+   estimate (−8.09/−17.20% init-full) delivered at −7.96/−17.27%,
+   and the harness fix that labels parity-vs-still-cert by READING
+   THE TREE so the label cannot go stale.  That branch lands
+   beside this seal as the β chapter's measurement record.
 5. **The proof-term gate's evolution**: under tri-core its roots
    become per-core capstone families; the tighten-only discipline
    and the cut-point methodology transfer.
