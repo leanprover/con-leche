@@ -31361,3 +31361,217 @@ does not exist yet.
 | premises deleted | 165 `hg` + share of 59 `verified` | share of 59 `verified` |
 | call-site passes deleted | **635** | — |
 | genuinely NEW work | none | the io `.app` clause + 2 unlanded licence theorems + 6 of 11 io clauses |
+
+## TASK #172 — DESIGN CENSUS, part 4 — THE AGREEMENT THEOREM (the new
+obligation) (2026-09-04)
+
+The order: *"the production parity code is not proven sound, but do
+prove that whenever it succeeds and the P core succeeds, they agree, to
+avoid drift."*  This part decides what "agree" can mean, what route
+proves it, what it costs, and — the part the census owes honestly —
+**which half of it is provable and which half is not**.
+
+### 1. WHAT "AGREE" CANNOT MEAN: THREE MEASURED DIVERGENCE CLASSES
+
+The two cores do not merely differ by guards.  Enumerated from
+sources, with the class that kills the naive answer named:
+
+**Class 1 — acceptance-only divergences.**  A dropped guard whose
+failure `throw`s or yields `false`.  Removing it can only turn
+`.error`/`false` into `.ok`/`true`; **values agree wherever both
+succeed**.  Members: `inferSpineNC` (`Kernel/CoreNC.lean:134` — no
+`r.infer` on the argument, no `r.defeq` against the domain, official's
+`infer_app` at `infer_only = true`); `structEtaCertWithNC`,
+`structUnitCertNC`, `pairEtaCertNC` (the telescope certifications
+dropped, the lean4lean-shaped checks kept); the `mode.verified` `pw`
+comparisons inside `defeq`; the λ-codomain sort check and the ∀
+annotation validation (`CoreNC.lean:585-599`).
+
+**Class 2 — STUCK-DEGRADING divergences.  This is the one that kills a
+value-level simulation, and it is not obvious from the file names.**
+In the certified core a failing certificate does **not** raise an
+error — it returns a *stuck term*, and reduction stops there:
+
+```lean
+-- Kernel/Core.lean:1471-1477, the β clause
+if betaGateFires mode mb.pw then
+  r.whnfCore depth (body.instantiate1 a)
+else do
+  let ta ← r.infer depth a
+  if ← r.defeq depth ta ty then r.whnfCore depth (body.instantiate1 a)
+  else pure (.app (.lam n ty body mb) a)      -- STUCK, not an error
+```
+
+and `iotaRecI` returns `pure none` (stuck) when `iotaCertsI` or the
+comparand `defEqListI` fails.  The parity core has neither guard, so
+**it reduces in exactly the positions where the certified core gets
+stuck**: `whnfCoreNC` and `whnfCore` at the P core are *different
+partial functions on values*, not one plus guards, and NC's reduction
+relation strictly extends P's.  A second class-2 member:
+`iotaRecNC` narrows the non-nested comparand check to
+`if Name.isProjFnShape cn then defEqListI … else pure true`
+(`CoreNC.lean:433`) where `iotaRecI` always compares — again a
+reduction that fires where the certified one does not.
+
+**Class 3 — the annotation datum.**  The environment stores the
+**annotated** value and type (`Kernel/Checker.lean:367,390,415`), and
+`annotateBody`'s two `pw` writes are `mode.verified`-gated
+(`Kernel/Core.lean:2244,2251`): at parity the *input* datum survives
+unwritten, at the model cores a computed one is written.  So the two
+installed environments are **not syntactically equal even when both
+accept**.  Quotienting machinery exists (`SetBase/EraseInv.lean`,
+`SetP/ErasePwInv.lean`, `Verify/Denote/Inst.lean`'s erase family).
+
+**Consequences, stated as refutations:**
+
+* *"agree = same inferred types / same intermediate values"* —
+  **REFUTED by class 2.**  Do not state it.
+* *"agree = same installed environment, syntactically"* — **REFUTED by
+  class 3.**  Needs the `pw` erasure.
+* *"agree on decline / error classes"* — **REFUTED and undesirable.**
+  `tests/no-model-expected.txt` records `yolo_decline_vs_accept` as a
+  designed, accepted divergence, and the no-model sweep carries **3
+  recorded divergences** today.  The parity core's whole purpose is to
+  reject less.  The theorem must be scoped to *accept* verdicts.
+
+### 2. THE ROUTE — THREE PRICED, ONE RECOMMENDED
+
+**Route A — clone simulation** (relate `CoreNC` and the P core as
+written, the way `Verify/Disc*` relates interned to pure).  Price
+anchors, measured: the interned↔pure tower is **10 723 lines / 7
+modules**; the cached↔interned tower is **21 238 lines / 22 modules**.
+Both relate functions that compute *the same* thing.  A check-erasure
+simulation relates functions that deliberately differ, so it is at
+least that: **12 000–25 000 lines, 4–8 batches** — and class 2 means
+large parts of it are simply *false as stated* and would need
+hypotheses, i.e. would land as conditional forms.  **NOT
+RECOMMENDED.**
+
+**Route B — via the P claims** (relate the parity run's result to
+denotations).  **NOT AVAILABLE**, and not by cost: it requires a
+soundness statement about the parity core, which the order forbids
+("not proven sound") and which nothing in the tree supports (zero
+theorems mention `coreKnotNC` / `inferBodyNC` / `whnfCoreBodyNC` /
+`CheckerNC`).  Recorded so the route is not re-proposed.
+
+**Route C — AGREEMENT BY CONSTRUCTION.  RECOMMENDED.**  Make the
+parity core the *third instantiation of part 2's template*.  Then:
+
+* wherever the three configs differ only by a **class-1** guard,
+  agreement is one template-level guard-monotonicity lemma
+  instantiated — proved **once**, not once per clause;
+* wherever they differ by a **class-2** stuck-degrader, agreement is
+  false and the divergence is **enumerated by construction**: the
+  config record's fields *are* the divergence list, so no clause can
+  drift out of the list silently.  This is exactly S12's
+  `whnfCoreBodyP_eq` pattern — ten constructors, nine `rfl`, one
+  named — applied to a third config;
+* **class 3** is one erasure lemma about `annotateBody`;
+* and the clone dies: `Kernel/CoreNC.lean` (925) + `Cached/CoreNC.lean`
+  (831) = **1 756 lines of hand-maintained clone retire**, which is
+  where **both** recorded drift incidents lived.
+
+### 3. THE RECOMMENDED DELIVERABLE — TWO PARTS, ONE PROMISED
+
+**T1 — THE STRUCTURAL AGREEMENT FAMILY (recommended as *the*
+deliverable; provable; nothing assumed).**
+
+For every clause of every core function, either a `rfl`-grade identity
+between the parity instantiation and the P instantiation, or a
+**named divergence lemma with its firing condition**.  Shape, per the
+S12 collapse:
+
+```lean
+theorem whnfCoreBodyNC_eq_P (r : CoreFns) (env : Env) (d : Nat) (e : Expr)
+    (h : e.isDivergenceSite = false) :
+    whnfCoreBody cfgNC r env d e = whnfCoreBody cfgP r env d e
+```
+
+with the divergence sites finite, named, and *listed in the config*.
+
+**Why this is the drift protection the order asks for, and why it is
+strictly better than what caught the two incidents:** an unmirrored
+edit breaks a `rfl`.  Replay #139 against it: task #105's two-token
+change to `iotaRecI`'s pin instantiation would have broken the plain
+rule's clause identity **at build time**, not three days later at a
+fixture sweep.  Replay #163 batch 9: the nine `pw` sites are class-3
+content, and T1's erasure lemma is exactly the statement that went
+false.
+
+**T2 — THE VERDICT THEOREM (priced, NOT promised this campaign).**
+
+```lean
+theorem parity_agrees_P (ds : List Declaration) {envP envN : Env}
+    (hP : checkDeclsP  ds = .ok envP)
+    (hN : checkDeclsNC ds = .ok envN) :
+    envN.erasePw = envP.erasePw
+```
+
+This is the user's sentence, made exact.  **It is more nearly reachable
+than class 2 first suggests, and the census locates precisely why**:
+
+* what the environment *stores* comes from **`annotate`**, not from
+  `whnf`/`defeq`/`infer`.  Class 2 lives entirely in the latter, which
+  contribute only to accept/reject.  So class 2 does not, by itself,
+  make the two installed environments differ;
+* `annotateBody` is **90 lines / 11 clauses**, and it calls the core in
+  **exactly one place**: the `.proj` clause's
+  `let te ← r.whnf depth (← r.infer depth e')`;
+* and even there, only the **weak head shape** of `te` is read —
+  `te.getAppFn` matching `.const T _`, and `te.getAppArgs.length`
+  against `entry.numParams`.  Not the whole term.
+
+So T2 decomposes into three obligations, of which two are routine and
+one is the named residual:
+
+| obligation | status |
+|---|---|
+| **T2a** — `annotate` agreement modulo `pw`-erasure at the ten non-`proj` clauses | routine; class 3 machinery exists |
+| **T2b** — the two `pw` writes are exactly the erased datum | routine; one lemma |
+| **T2c** — **at `.proj` subjects, the two cores' `whnf ∘ infer` agree on the weak head's constant and argument count** | **THE RESIDUAL.**  This is where class 2 becomes value-visible.  It is one clause, and the target is head-shape agreement rather than reduction agreement — genuinely smaller than a completeness proof, but it is *not* free and it has no prior art in the tree |
+
+**RECOMMENDATION: commit to T1; carry T2 as a named, scoped follow-on
+whose single open obligation is T2c.**  Do **not** ship T2 in a
+conditional form (a hypothesis "the divergence sites did not fire on
+this run") — the standing ruling is that conditional forms are not
+solutions, and such a hypothesis is exactly a run predicate that only
+an instrumented execution could discharge.
+
+**THE CHEAP FLOOR, worth having regardless.**  Independent of T1 and
+T2, and needing no core reasoning at all:
+
+```lean
+theorem parity_agrees_P_names (ds) (hP : …) (hN : …) :
+    envN.consts.map (·.toConstantVal.name)
+      = envP.consts.map (·.toConstantVal.name)
+```
+
+— both drivers are the same fold installing one constant per
+declaration in stream order, so this follows from the driver
+structure.  It catches "one core installed a different set of
+constants", which is the coarsest drift and the one a verdict-only
+fixture sweep already half-covers.  Price: small.  Recommend landing it
+first, as the batch that proves the two drivers really are the same
+fold.
+
+### 4. THE COST TABLE
+
+| deliverable | route | price | recommendation |
+|---|---|---|---|
+| name-level floor | driver fold structure | small (1 batch, low hundreds of lines) | **land first** |
+| **T1** structural agreement family | route C (template) | the template refactor + a collapse family sized like `Verify/CoreP.lean`'s (245 ln) × 3 core functions × 2 representations; **plus** the 1 756-line clone retirement, which is a *deletion* | **THE DELIVERABLE** |
+| T2a + T2b | erasure lemmas over an 11-clause pass | contained; the machinery exists | fold into T1's batch or the next |
+| **T2c** | head-shape agreement at `.proj` | **named residual, no prior art, unpriced** | carry, do not promise |
+| route A (clone simulation) | — | 12 000–25 000 lines, 4–8 batches, partly false as stated | **refused** |
+| route B (via the P claims) | — | requires parity soundness | **unavailable** |
+
+### 5. EVALUATED AGAINST THE DRIFT-BUG HISTORY
+
+| incident | what caught it | would T1 have caught it? | would the floor? |
+|---|---|---|---|
+| **#139** `iotaRecNC` two tokens unmirrored; parity **rejected** a fixture the certified stack accepts; 3 days | a fixture sweep, once run | **YES, at build time** — the plain-rule clause identity goes false | no |
+| **#163 b9** `Cached/CoreC` cut from a stale `CoreI`; 9 wrong-`pw` sites; **223-fixture parity did not notice** | the simulation proof (the transposed statement was false) | **YES** — class-3 content, T2a/T2b's subject | no |
+
+Both incidents are inside T1's reach, and neither was inside a fixture
+sweep's reach promptly.  That is the case for the theorem, and it is
+the case the order already made.
