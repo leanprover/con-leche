@@ -31357,7 +31357,7 @@ does not exist yet.
 | capstone-closure owned constants | 7 993 (interned) / 10 937 (cached) | 8 004 |
 | own-tier statements losing the mode binder | **211** | **415** |
 | own-tier statements re-pointed at a named core | **17** | **96** |
-| shared base library statements — **unchanged, stays generic** | \multicolumn{2}{c}{**873** (`CheckMode`-naming) / **567** (entry-naming), 562 of them in twelve `Verify` modules} |
+| shared base library statements — **unchanged, stays generic** | **873** `CheckMode`-naming / **567** entry-naming, 562 in twelve `Verify` modules | *(the same rows — one library, both towers)* |
 | premises deleted | 165 `hg` + share of 59 `verified` | share of 59 `verified` |
 | call-site passes deleted | **635** | — |
 | genuinely NEW work | none | the io `.app` clause + 2 unlanded licence theorems + 6 of 11 io clauses |
