@@ -325,6 +325,13 @@ structure IState where
   empty — on the default (fully certified) path, which never builds
   `coreKnotF`; see `Setlec/Kernel/CoreIO.lean`. -/
   inferFC : Std.HashMap EIdx EIdx := {}
+  /-- **The io-grade inference memo** (task #170 / #172 B4): results of
+  the certified knot's `inferIO` slot at the gated mode, kept apart
+  from `inferC` per the task-#170 memo ruling (a hit in the io memo
+  never serves a full-infer query — it witnesses fewer checks than the
+  full claims consume).  The interned twin of `CState.inferIOC`.  At
+  gate-off modes the slot shares `inferC` and this map stays empty. -/
+  inferIOC : Std.HashMap EIdx EIdx := {}
   defeqC : Std.HashMap (EIdx × EIdx) Bool := {}
   annotC : Std.HashMap EIdx EIdx := {}
   lsimpC : EStore.LMemo := {}
@@ -805,6 +812,18 @@ structure CoreFnsI where
   infer : Nat → EIdx → CheckIM EIdx
   defeq : Nat → EIdx → EIdx → CheckIM Bool
   annotate : Nat → EIdx → CheckIM EIdx
+  /-- Type inference at the **infer-only grade** (task #170 / #172 B4)
+  — the interned twin of `CoreFns.inferIO` (`Setlec/Kernel/Core.lean`):
+  what every internal inference call site runs.  The knot selects the
+  grade's meaning per mode: the full `infer` at gate-off modes, the io
+  body (own memo, `IState.inferIOC`) at the gated mode. -/
+  inferIO : Nat → EIdx → CheckIM EIdx
+
+/-- The io-grade view (twin of `CoreFns.ioView`): the record whose
+full-grade `infer` slot is the io slot, so a body written against
+`r.infer` recurses at the io grade when handed `r.ioView`. -/
+def CoreFnsI.ioView (r : CoreFnsI) : CoreFnsI :=
+  { r with infer := r.inferIO }
 
 /-- Twin of `unfoldDefinition` (monadic: the unfolded value is interned
 through the `(name, levels)` cache).  Like the spec, theorem values
@@ -1649,6 +1668,35 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
         inferSpineI r fe depth body #[a] rest
       | _ => throw (.invalid "function expected")
 
+/-- **The io-grade spine walk** (task #172 B4): `inferSpineI` with the
+per-argument certificate gated at a validated `.never` binder — the
+interned twin of `Setlec/Cached/CoreC.lean`'s `inferSpineIOI`; see the
+design comments there.  The gate reads `mode.verified` directly (this
+tier is not config-templated). -/
+def inferSpineIOI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    EIdx → Array EIdx → List EIdx → CheckIM EIdx
+  | ty, acc, [] => instListRevM ty acc
+  | ty, acc, a :: rest => do
+    match ← viewI ty with
+    | some (.forallE _ dom body mt) => do
+      unless mode.verified && mt.pw.isNever do
+        let dom' ← instListRevM dom acc
+        let ta ← r.infer depth a
+        unless ← r.defeq depth ta dom' do
+          throw (.invalid "application type mismatch")
+      inferSpineIOI r fe depth body (acc.push a) rest
+    | _ => do
+      let ty' ← instListRevM ty acc
+      let w ← r.whnf depth ty'
+      match ← viewI w with
+      | some (.forallE _ dom body mt) => do
+        unless mode.verified && mt.pw.isNever do
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta dom do
+            throw (.invalid "application type mismatch")
+        inferSpineIOI r fe depth body #[a] rest
+      | _ => throw (.invalid "function expected")
+
 /-- Twin of `whnfStep`. -/
 def whnfStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : EIdx → CheckIM EIdx) (e : EIdx) : CheckIM EIdx := do
@@ -1939,6 +1987,22 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
     | some (.bvar _) =>
       throw (.notImplemented "inferType beyond the supported fragment")
     | none => throw (.internal "interned node missing")
+
+/-- **The io-grade inference body** (task #172 B4): `inferBodyI` with
+exactly the application clause changed — the spine walk is the gated
+`inferSpineIOI`.  Every non-application view dispatches to
+`inferBodyI`'s own clause, so there is no textual clone to drift.
+The knot ties this body to `CoreFnsI.ioView`, so `r.infer` here is
+the io slot one level down (the grade propagates). -/
+def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
+  fun depth e => do
+    match ← viewI e with
+    | some (.app _ _) => do
+      let h ← withStore (fun st => st.getAppFnI e)
+      let args ← withStore (·.getAppArgsI e)
+      let tf ← r.infer depth h
+      inferSpineIOI mode r fe depth tf #[] args
+    | _ => inferBodyI mode r fe depth e
 
 /-- Twin of `defeqStep`. -/
 def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
@@ -2474,7 +2538,8 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
       infer := fun _ _ => throw (.internal "fuel exhausted: infer")
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
+      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+      inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   | fuel + 1 =>
     -- perf-eng E7: the previous fuel level is built at most once per
     -- record (Thunk-cached) instead of once per cache-missing call —
@@ -2491,7 +2556,18 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       defeq := memoBI
         (fun d a b => defeqBodyI mode prev.get fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI mode prev.get fe d e) }
+        (fun d e => annotateBodyI mode prev.get fe d e)
+      -- **The io slot** (task #170 / #172 B4): the gated mode runs the
+      -- io body under its own memo (`IState.inferIOC`, the task-#170
+      -- memo ruling), tied to the io-grade view of the previous level;
+      -- every other mode runs the full inference closure verbatim
+      -- ("in R mode infer_only is just equivalent to infer").
+      inferIO := if mode.betaGate then
+          memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
+            (fun d e => inferBodyIOI mode prev.get.ioView fe d e)
+        else
+          memoEI (·.inferC) (fun st mp => { st with inferC := mp })
+            (fun d e => inferBodyI mode prev.get fe d e) }
 
 /-! ## Entry runners
 

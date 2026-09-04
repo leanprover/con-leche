@@ -79,6 +79,8 @@ def fueledFns (mode : CheckMode) (env : Env) : CoreFns FueledM where
     fun hle h => isDefEqCore_mono hle h⟩
   annotate d e := ⟨fun F => annotateCore mode env F d e,
     fun hle h => annotateCore_mono hle h⟩
+  inferIO d e := ⟨fun F => inferTypeIO mode env F d e,
+    fun hle h => inferTypeIO_mono hle h⟩
 
 section AtF
 

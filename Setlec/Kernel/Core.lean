@@ -90,6 +90,27 @@ structure CoreFns (m : Type → Type u) where
   infer : Nat → Expr → m Expr
   defeq : Nat → Expr → Expr → m Bool
   annotate : Nat → Expr → m Expr
+  /-- Type inference at the **infer-only grade** (task #170): the
+  official kernel's `infer_type_core(e, infer_only = true)`, the entry
+  every *internal* inference call site uses — a subject that already
+  carries a validated annotation invariant (`AnnotOkP` in the P
+  claims) is re-inferred without re-establishing it.  The knot decides
+  the grade's meaning per mode: at a gate-off mode (`μ.betaGate =
+  false` — the R core, the parity core) this is the full `infer`,
+  verbatim (the flag is ignored, task #170's R clause); at the gated
+  mode (`.setModelP`, the P core) it is the io body, whose application
+  clause skips the per-argument certificate exactly at a validated
+  `.never` binder under the graph-regime license
+  (`Setlec/SetP/IOLicenseP.lean`). -/
+  inferIO : Nat → Expr → m Expr
+
+/-- The **io-grade view** of a core record: the record whose full-grade
+`infer` slot is the io slot, so that a body written against `r.infer`
+recurses at the io grade when handed `r.ioView`.  This is how the io
+inference body propagates its own grade (official: `infer_type_core`
+passes `infer_only` down) without a textual twin. -/
+def CoreFns.ioView {m : Type → Type u} (r : CoreFns m) : CoreFns m :=
+  { r with infer := r.inferIO }
 
 section Bodies
 
@@ -1740,6 +1761,117 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .bvar _ =>
       throw (.notImplemented "inferType beyond the supported fragment")
 
+/-- **The io inference body** (task #161 stage 2 / task #170): `inferBody`
+with one clause changed — the application rule's per-argument
+certificate is skipped when the ∀'s validated annotation licenses it
+(`Setlec/Kernel/CoreIO.lean`'s module docstring holds the design
+record).  The gate wraps the *test* only; the computed type
+(`body.instantiate1 a`) and the "function expected" rejection are
+`inferBody`'s, verbatim, so the lane is annotation-blind in its
+results (law 1 (iii)).  Recursion is through `r.infer`: the io knot
+ties this body to an io-grade record (`CoreFns.ioView` at the knot's
+io slot, or `coreKnotIO`'s leaf lane), which is how the grade
+propagates — official's `infer_type_core(e, infer_only)` passing
+`infer_only` to every recursive call.
+
+Moved here from `Setlec/Kernel/CoreIO.lean` (task #172 B4) so the knot
+can tie the io slot; the definition is byte-identical to the io-license
+batch's. -/
+def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+  fun depth e => do
+    match ← viewM (m := m) e with
+    | .sort u => pure (.sort (.succ u))
+    | .fvar idx _ ty =>
+      if idx < depth then pure ty
+      else throw (.invalid "free variable out of scope")
+    | .const n us => do
+      match env.find? n with
+      | none => throw (.invalid s!"unknown constant {n}")
+      | some ci =>
+        let cv := ci.toConstantVal
+        unless us.length = cv.levelParams.length do
+          throw (.invalid s!"incorrect number of universe levels for {n}")
+        pure (cv.type.instantiateLevelParams cv.levelParams us)
+    | .lit (.natVal _) => do
+      if natLitSupported env then pure (.const natName [])
+      else throw (.invalid "Nat literal without the Nat basis declarations")
+    | .lit (.strVal _) => do
+      if strLitSupported env then pure (.const stringName [])
+      else throw (.notImplemented
+        "string literals before the String support declarations")
+    | .forallE n ty body mb => do
+      match ← r.whnf depth (← r.infer depth ty) with
+      | .sort u => do
+        let v ← ensureSort r env (depth + 1)
+          (← r.infer (depth + 1) (body.instantiate1 (.fvar depth n ty)))
+        if mode.verified then
+          unless (Level.zeronessOf v).equiv mb.pw do
+            throw (.notImplemented "sort-annotation mismatch (forall-cod)")
+        pure (.sort (.imax u v))
+      | _ => throw (.invalid "expected a sort")
+    | .lam n ty body mb => do
+      match ← r.whnf depth (← r.infer depth ty) with
+      | .sort _ => do
+        let bt ← r.infer (depth + 1)
+          (body.instantiate1 (.fvar depth n ty))
+        if mode.verified then
+          match body.lamPw with
+          | some pwI =>
+            unless mb.pw.equiv pwI do
+              throw (.notImplemented
+                "sort-annotation mismatch (lam-cod-chain)")
+          | none =>
+            let btt ← r.infer (depth + 1) bt
+            let vb ← ensureSort r env (depth + 1) btt
+            unless (Level.zeronessOf vb).equiv mb.pw do
+              throw (.notImplemented
+                "sort-annotation mismatch (lam-cod-leaf)")
+        pure (.forallE n ty (bt.abstract1 depth) mb)
+      | _ => throw (.invalid "expected a sort")
+    | .app f a => do
+      let tf ← r.infer depth f
+      match ← r.whnf depth tf with
+      | .forallE _ ty body mt => do
+        -- **THE io SITE.**  At a ∀ whose validated datum is `never`
+        -- the certificate is dead weight: the premise-form io claim
+        -- derives `⟦a⟧ ∈ ⟦ty⟧` from the subject's own `AnnotOk2` app
+        -- slot (`io_domain_transfer` + `piR_dom_unique`,
+        -- side-condition free).  At a possibly-zero datum the
+        -- certificate runs unconditionally — the squash regime's
+        -- membership is model-class-wide unrecoverable
+        -- (`io_membership_fails_at_squash`), and that fence is
+        -- absolute.  `mode.verified` is the law's mode gate: the
+        -- annotation is only *validated* at the verified modes.
+        unless mode.verified && mt.pw.isNever do
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta ty do
+            throw (.invalid "application type mismatch")
+        pure (body.instantiate1 a)
+      | _ => throw (.invalid "function expected")
+    | .proj _sn i pe => do
+      let te ← r.whnf depth (← r.infer depth pe)
+      match te.getAppFn with
+      | .const T us =>
+        match env.findProj? T i with
+        | some entry =>
+          if entry.native ∧ te.getAppArgs.length = entry.numParams ∧
+              us.length = entry.levelParams.length then do
+            match te.getAppArgs, i with
+            | [A, _], 0 => pure A
+            | [_, B], 1 => pure (.app B (.proj T 0 pe))
+            | _, _ => throw (.internal "malformed projection entry")
+          else throw (.notImplemented "projection without a native entry")
+        | none => throw (.notImplemented "projection without a native entry")
+      | _ => throw (.notImplemented "projection without a native entry")
+    | .letE _ ty v b => do
+      let _ ← ensureSort r env depth (← r.infer depth ty)
+      let tv ← r.infer depth v
+      unless ← r.defeq depth tv ty do
+        throw (.invalid "let value type mismatch")
+      r.infer depth (b.instantiate1 v)
+    | .bvar _ =>
+      throw (.notImplemented "inferType beyond the supported fragment")
+
 /-- Levels-and-spine congruence for two applications of the same
 stored constant — the lazy delta *same-head short-circuit* (the
 official kernel's `try_eq_const_app`): before unfolding both sides of
@@ -2311,7 +2443,8 @@ def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
       infer := fun _ _ => throw (.internal "fuel exhausted: infer")
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
+      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+      inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   | fuel + 1 =>
     wrap
       { whnfCore := fun d e =>
@@ -2322,7 +2455,20 @@ def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
         defeq := fun d a b =>
           defeqBody mode (coreKnot mode env wrap fuel) env d a b
         annotate := fun d e =>
-          annotateBody mode (coreKnot mode env wrap fuel) env d e }
+          annotateBody mode (coreKnot mode env wrap fuel) env d e
+        -- **The io slot** (task #170 / #172 B4).  The grade's meaning is
+        -- the mode's: at the gated mode the io body, tied to the io-grade
+        -- view of the knot one level down (the grade propagates, as
+        -- official's `infer_only` does); at every other mode the full
+        -- inference body, verbatim — "in R mode infer_only is just
+        -- equivalent to infer" (the task-#170 order).  The selection
+        -- reads mode-and-datum-free data (`mode.betaGate`, the same bit
+        -- the β gate reads) and is made once per knot level.
+        inferIO := fun d e =>
+          if mode.betaGate then
+            inferBodyIO mode
+              (CoreFns.ioView (coreKnot mode env wrap fuel)) env d e
+          else inferBody mode (coreKnot mode env wrap fuel) env d e }
 
 /-- The shared fuel for the checker core: bounds the recursion depth of
 reduction, inference and definitional equality.  Exhaustion is an

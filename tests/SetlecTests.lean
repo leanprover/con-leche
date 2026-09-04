@@ -204,6 +204,7 @@ private def stubFns : CoreFns CheckM where
   infer _ _ := pure (.sort (.succ .zero))
   defeq _ a b := pure (a == b)
   annotate _ e := pure e
+  inferIO _ _ := pure (.sort (.succ .zero))
 
 private def pwForall (pw : PropWhen) : Expr :=
   .forallE (.str .anonymous "p") (.sort .zero) (.sort .zero) ⟨.default, pw⟩

@@ -154,6 +154,12 @@ def gFns (mode : CheckMode) (env : Env) (f : Nat) : CoreFns CheckSM where
   annotate d e :=
     if e.wscopedB d then (cachedFns mode env f).annotate d e
     else throw (.internal "scope discipline")
+  -- task #172 B4: the io slot is guarded shut until a body consumes it
+  -- (S1 wires the slot; no shared body calls `r.inferIO` yet).  A
+  -- throwing entry is vacuously related, so the pair battery stays
+  -- total without an io simulation clause; the clause arrives with the
+  -- first converted call site.
+  inferIO _ _ := throw (.internal "scope discipline")
 
 theorem gFns_whnfCore_pos {env : Env} {f d : Nat} {e : Expr}
     (hg : e.wscopedB d = true) :
@@ -191,7 +197,9 @@ simulation, on ill-scoped ones vacuously (the guard throws). -/
 theorem gFns_rel {env : Env} {f : Nat} (ih : ScopedSim mode env f) :
     FnsRel (simRel mode env) (fueledFns mode env) (gFns mode env f) := by
   refine ⟨fun d e => ?_, fun d e => ?_, fun d e => ?_, fun d a b => ?_,
-    fun d e => ?_⟩
+    fun d e => ?_,
+    -- the io slot (task #172 B4): the guard throws, vacuous
+    fun d e σ hσ v σ' h => nomatch h⟩
   · by_cases hg : e.wscopedB d
     · rw [gFns_whnfCore_pos hg]
       exact ih.whnfCore hg

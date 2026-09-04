@@ -125,7 +125,8 @@ def coreKnotP (env : Env) : Nat → CoreFns m
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
       infer := fun _ _ => throw (.internal "fuel exhausted: infer")
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
+      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+      inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   | fuel + 1 =>
     { whnfCore := fun d e =>
         whnfCoreBodyP mode (coreKnotP env fuel) env d e
@@ -135,7 +136,12 @@ def coreKnotP (env : Env) : Nat → CoreFns m
       defeq := fun d a b =>
         defeqBody mode (coreKnotP env fuel) env d a b
       annotate := fun d e =>
-        annotateBody mode (coreKnotP env fuel) env d e }
+        annotateBody mode (coreKnotP env fuel) env d e
+      -- parked stage-1 artifact: the io grade postdates this knot, and
+      -- nothing states claims at its io slot — the full body keeps the
+      -- record well-formed
+      inferIO := fun d e =>
+        inferBody mode (coreKnotP env fuel) env d e }
 
 /-- The P core, tied at `CheckM`: the specification a gated-lane claims
 tower would be stated at. -/

@@ -28,9 +28,18 @@ def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
 def whnf (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
   (pureFns mode env fuel).whnf depth e
 
-/-- Infer-only type inference (fueled). -/
+/-- Full-grade type inference (fueled): the declaration front door's
+entry — official's `infer_type_core(e, infer_only = false)`. -/
 def inferTypeCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
   (pureFns mode env fuel).infer depth e
+
+/-- Type inference at the io grade (fueled): the knot's `inferIO` slot
+— what every internal inference call site runs (task #170).  At a
+gate-off mode this **is** `inferTypeCore` (`inferTypeIO_off`,
+`Verify/Knot.lean`); at the gated mode it is the io lane
+(`inferTypeIO_on`). -/
+def inferTypeIO (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
+  (pureFns mode env fuel).inferIO depth e
 
 /-- Definitional equality (fueled). -/
 def isDefEqCore (env : Env) (fuel depth : Nat) (a b : Expr) : CheckM Bool :=

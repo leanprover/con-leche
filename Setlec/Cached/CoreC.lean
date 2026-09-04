@@ -32,6 +32,19 @@ structure CoreFnsI where
   infer : Nat → ExprC → CheckCM ExprC
   defeq : Nat → ExprC → ExprC → CheckCM Bool
   annotate : Nat → ExprC → CheckCM ExprC
+  /-- Type inference at the **infer-only grade** (task #170 / #172 B4)
+  — the twin of `CoreFns.inferIO` (`Setlec/Kernel/Core.lean`): what
+  every internal inference call site runs.  The knot selects the
+  grade's meaning per config (`cfg.ioGate`): the full `infer` at the
+  R/parity configs, the io body (own memo, `CState.inferFC`) at the P
+  config. -/
+  inferIO : Nat → ExprC → CheckCM ExprC
+
+/-- The io-grade view (twin of `CoreFns.ioView`): the record whose
+full-grade `infer` slot is the io slot, so a body written against
+`r.infer` recurses at the io grade when handed `r.ioView`. -/
+def CoreFnsI.ioView (r : CoreFnsI) : CoreFnsI :=
+  { r with infer := r.inferIO }
 
 /-- Twin of `unfoldDefinition` (monadic: the unfolded value is interned
 through the `(name, levels)` cache).  Like the spec, theorem values
@@ -887,6 +900,40 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
         inferSpineI r fe depth body #[a] rest
       | _ => throw (.invalid "function expected")
 
+/-- **The io-grade spine walk** (task #172 B4): `inferSpineI` with the
+per-argument certificate gated — the ONE io-graded check
+(`inferBodyIO`'s app clause, `Setlec/Kernel/Core.lean`), in the bulk
+telescope form.  At a ∀ step whose validated annotation datum is
+`.never` (and only at a verified config — `cfg.verified` is law 1's
+mode gate) the argument's inference and the domain comparison are
+skipped; the returned type is the same telescope walk either way, so
+the lane is annotation-blind in its results.  A syntactic `.forallE`
+is its own whnf, so the syntactic step's datum is the datum the pure
+io body reads off the whnf'd type. -/
+def inferSpineIOI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    ExprC → Array ExprC → List ExprC → CheckCM ExprC
+  | ty, acc, [] => instListRevM ty acc
+  | ty, acc, a :: rest => do
+    match ← viewI ty with
+    | some (.forallE _ dom body mt) => do
+      unless cfg.verified && mt.pw.isNever do
+        let dom' ← instListRevM dom acc
+        let ta ← r.infer depth a
+        unless ← r.defeq depth ta dom' do
+          throw (.invalid "application type mismatch")
+      inferSpineIOI r fe depth body (acc.push a) rest
+    | _ => do
+      let ty' ← instListRevM ty acc
+      let w ← r.whnf depth ty'
+      match ← viewI w with
+      | some (.forallE _ dom body mt) => do
+        unless cfg.verified && mt.pw.isNever do
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta dom do
+            throw (.invalid "application type mismatch")
+        inferSpineIOI r fe depth body #[a] rest
+      | _ => throw (.invalid "function expected")
+
 /-- Twin of `whnfStep`. -/
 def whnfStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : ExprC → CheckCM ExprC) (e : ExprC) : CheckCM ExprC := do
@@ -1177,6 +1224,24 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
     | some (.bvar _) =>
       throw (.notImplemented "inferType beyond the supported fragment")
     | none => throw (.internal "interned node missing")
+
+/-- **The io-grade inference body** (task #172 B4): `inferBodyI` with
+exactly the application clause changed — the spine walk is the gated
+`inferSpineIOI` (the ONE io-graded check).  Every non-application
+view dispatches to `inferBodyI`'s own clause, so there is no textual
+clone to drift: the two bodies differ in one clause by construction.
+Recursion grade is the record's: the knot ties this body to
+`CoreFnsI.ioView`, so `r.infer` here is the io slot one level down —
+the grade propagates exactly as official's `infer_only` does. -/
+def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
+  fun depth e => do
+    match ← viewI e with
+    | some (.app _ _) => do
+      let h ← withStore (fun st => st.getAppFnI e)
+      let args ← withStore (·.getAppArgsI e)
+      let tf ← r.infer depth h
+      inferSpineIOI cfg r fe depth tf #[] args
+    | _ => inferBodyI cfg r fe depth e
 
 /-- Twin of `defeqStep`. -/
 def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
@@ -1712,7 +1777,8 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
       infer := fun _ _ => throw (.internal "fuel exhausted: infer")
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
+      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+      inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   | fuel + 1 =>
     -- perf-eng E6 (EXPERIMENT, exe-only pricing — reverted before
     -- landing: 194 Verify/Cached references unfold this knot's
@@ -1734,7 +1800,21 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       defeq := memoBI
         (fun d a b => defeqBodyI cfg prev.get fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI cfg prev.get fe d e) }
+        (fun d e => annotateBodyI cfg prev.get fe d e)
+      -- **The io slot** (task #170 / #172 B4), selected once per knot
+      -- level: at the gated config the io body under its OWN memo
+      -- (`CState.inferIOC` — the task-#170 memo ruling: a hit in the io
+      -- memo never serves a full-infer query), tied to the io-grade
+      -- view of the previous level (the grade propagates); at every
+      -- other config the full inference closure, verbatim — one memo,
+      -- because the two grades are the same function there (task #170:
+      -- "in R mode infer_only is just equivalent to infer").
+      inferIO := if cfg.ioGate then
+          memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
+            (fun d e => inferBodyIOI cfg prev.get.ioView fe d e)
+        else
+          memoEI (·.inferC) (fun st mp => { st with inferC := mp })
+            (fun d e => inferBodyI cfg prev.get fe d e) }
 
 /-! ## The named concrete cores (task #172, batches B2 and B3)
 

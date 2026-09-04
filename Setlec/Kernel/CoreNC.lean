@@ -931,7 +931,8 @@ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
       infer := fun _ _ => throw (.internal "fuel exhausted: infer")
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
+      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+      inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   | fuel + 1 =>
     -- perf-eng E1: the previous fuel level is built at most once per
     -- record (Thunk-cached) instead of once per cache-missing call
@@ -944,6 +945,10 @@ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
       whnf := memoEINC (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI prev.get fe d e)
       infer := memoEIO (fun d e => inferBodyNC prev.get fe d e)
+      -- task #172 B4 (field added to the shared record): the internal
+      -- knot's inference IS the io grade at parity — bind the io slot to
+      -- the same memoized closure (nothing in the NC bodies reads it).
+      inferIO := memoEIO (fun d e => inferBodyNC prev.get fe d e)
       defeq := memoBINC
         (fun d a b => defeqBodyNC prev.get fe d a b)
       annotate := memoEINC (·.annotC) (fun st mp => { st with annotC := mp })
@@ -967,7 +972,8 @@ def coreKnotFNC (fe : FEnv) : Nat → CoreFnsI
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
       infer := fun _ _ => throw (.internal "fuel exhausted: infer")
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
+      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+      inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   | fuel + 1 =>
     -- perf-eng E1: share one `coreKnotNC` build across the three
     -- reduction fields, and Thunk-cache the recursive front-door level.
@@ -978,6 +984,10 @@ def coreKnotFNC (fe : FEnv) : Nat → CoreFnsI
       defeq := nc.defeq
       infer := memoEINC (·.inferFC) (fun st mp => { st with inferFC := mp })
         (fun d e => inferBodyI .noModel prev.get fe d e)
+      -- task #172 B4: the front-door knot never serves internal calls;
+      -- its io slot is the internal (cert-skipping) knot's inference,
+      -- which is what an internal caller would mean at parity.
+      inferIO := nc.infer
       annotate := memoEINC (·.annotC) (fun st mp => { st with annotC := mp })
         (fun d e => annotateBodyI .noModel prev.get fe d e) }
 
