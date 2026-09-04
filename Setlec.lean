@@ -12,6 +12,7 @@ import Setlec.Verify.Level
 import Setlec.Verify.Shift
 import Setlec.Verify.InstLevels
 import Setlec.Verify.EnvWF
+import Setlec.Verify.ProjPinInv
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InferIOLemmas
 import Setlec.Verify.CoreP
