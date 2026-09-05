@@ -39248,3 +39248,306 @@ counter bump is **not** usable for this: LCNF drops an `if c then pure
 () else pure ()` whose branches agree, and drops an unused pure `let`;
 the census therefore goes through `dbg_trace` (`never_extract`) and the
 duplication probes fold their result into both sides of an arity test.
+
+## THE PACKED `pw` DATUM: memory census, positional-bitmask design, probe (2026-09-05, `agent/pw-bitmask`)
+
+**User question (2026-09-05, verbatim):** *"i wonder if our pw
+annotations will have noticeable memory overhead. especially since we
+don't dedup them, and persist them in the env. can we measure them?
+also, if we know the current list of level params whenever we
+normalize or substitute (we should), then we could store a single
+UInt64, with a positional bitmask instead, and MAXUINT for never-prop,
+so that it becomes a flat field. decline on more than 63 level
+parameters in that case."*
+
+**User ruling (2026-09-05, relayed by the coordinator, verbatim):** *"I
+think it is clear that the packed pw is desirable. So if it looks good
+on init-full I'm happy."*  It looks good on init-full (§3).  The design
+is pre-approved in principle; this section is the record, the laws,
+the statement-impact list and the landing route.  The probe branch
+`agent/pw-bitmask` (commit `17e6be5d`) is a measurement prototype and
+does NOT land.
+
+### 1. The census: what the persisted `pw` payload actually costs
+
+Method: an address-keyed (`ptrAddrUnsafe`) walk of every `Expr`
+reachable from the final environment (types, values, iota rhs's,
+nested pins), counting *distinct heap objects* exactly as the
+allocator sees them — shared objects (the chain rule threads ONE datum
+object along a whole telescope; `.ifAllZero []` is a compiler-static
+constant; `.never` is a boxed scalar) count once.  Probe-only code in
+`Main.lean` behind `SETLEC_PW_CENSUS`.  Stream: `init-full-pre2`
+(61 048 decls, `--set-model --pre`).
+
+| quantity | init-full |
+|---|---|
+| persisted `Expr` DAG nodes | 13 046 426 (est. 736 MB of node objects) |
+| binder nodes (DAG) | 1 229 779 — `.never` 500 939, `.ifAllZero` 728 840 |
+| `.ifAllZero` list lengths | `[]` 605 492 · 1 name 123 332 · 2 names 16 · ≥3: 0 |
+| distinct `BinderMeta` objects | 979 130 (24 B each = 23.5 MB — present in EITHER representation) |
+| distinct `.ifAllZero` objects | 34 095 (16 B each) |
+| distinct cons cells | 33 232 (24 B each) |
+| **`pw` payload bytes** | **1 343 088 B = 1.34 MB** |
+| distinct canonical name-sets | 29 |
+| distinct `Name` objects at list heads | 35 — **all 35 pointer-shared** with the term's own level params (verified: the parser interns names; `zeronessOf (.param n)` reuses the level's `n`) |
+
+Peak RSS of the same run (process-tree `ru_maxrss`, checker run
+directly, 16 GB `ulimit -v`): **1 793 168 KB / 1 786 800 KB** (two
+runs).  So the persisted `pw` payload is **0.075 % of peak RSS** on
+init-full.  Why so small although nothing is deduplicated: 83 % of the
+data are the static `ifAllZero []`, the chain rule shares one object
+per telescope (728 840 logical data → 34 095 objects, 21×), and the
+transient copies `substPW` makes under level instantiation die with
+the per-declaration flush (`constTyAt`/`constValAt`/`ruleRhsAt` are
+environment-dependent caches, `CState.flushed`).
+
+**Verdict on the memory question: NOT noticeable** — the datum is not
+where the memory goes (the 13 M persisted term nodes are).  The packed
+representation is nevertheless worth having, for the *instruction*
+count (§3) and for the collapse of the comparison machinery (§2.ii).
+
+Mathlib prefix (`prefix-12M-pre.ndjson`, 22 GB cap): the three runs
+(baseline census, baseline plain, prototype plain) were **stopped on
+the user's ruling before completion**; the only data are incidental
+partial RSS samples, labeled as such — baseline plain 9.12 GB at
+58 min, baseline census 6.87 GB at 46 min, prototype 2.25 GB at
+4.5 min — three different phases, not comparable, recorded only in
+`_tmp/pw-bitmask/results.tsv`.
+
+### 2. The design: `pw : UInt64`, positional over the declaration's level parameters
+
+`abbrev PropWhen := UInt64`.  Bit `i` set = "the `i`-th level parameter
+of the *current declaration* must be zero"; `always = 0`; `never = all
+ones`.  A `BinderMeta` then holds the datum as an inline scalar (its
+object stays 24 B: header + `UInt64` + the `BinderInfo` byte); no list,
+no second object, `Hashable`/`DecidableEq`/`BEq` are the word's.
+
+**Decline threshold.**  `never` coincides with a satisfiable set only
+at 64 parameters, so declarations with more than **63** level
+parameters are declined (exit 2, positively detected).  Measured
+margin: max level-parameter count is **7** on init-full (60 063
+records: 0:31 633, 1:18 051, 2:7 242, 3:2 355, 4:676, 5:84, 6:14,
+7:8) and **12** on the Mathlib prefix (97 702 records; ≥8: 150,
+≥10: 20, 12: 5).  The margin is 5×.
+
+**(i) Substitution — the OR-of-masks law.**  With `maskOf ps : Level →
+PropWhen` (`zero ↦ 0`, `succ _ ↦ never`, `param n ↦ bit (posOf ps n)`,
+`max a b ↦ maskOf a ||| maskOf b`, `imax _ b ↦ maskOf b`; a parameter
+outside `ps` reads `never`), level instantiation at `ks := us` into a
+new context `ps'` pushes the datum through
+
+    substPW ms pw := if pw = never then never
+                     else OR over the set bits i of pw of ms[i]   (i ≥ |ms| ↦ never)
+    where ms := masksOf ps' us := us.map (maskOf ps')
+
+`inter` (the `max` rule) is `|||`; `never` absorbs because it is all
+ones.  Laws (property-tested on 20 000 random contexts/levels/masks,
+`_tmp/pw-bitmask/lawtest.lean`, 0 failures; mechanization is part of
+the landing bill):
+
+* **pushforward** `holds ψ' (substPW (masksOf ps' us) pw) = holds (fun i => eval ψ' us[i]) pw`
+  — the positional twin of `holds_substPW`;
+* **identity** `substPW (masksOf ks (ks.map param)) pw = pw` — for
+  `pw` with all set bits `< |ks|` (`paramsDefined |ks|`) and `ks`
+  nodup; **NOT unconditional** any more: the free datum's unlisted
+  parameter reproduced itself, a bit beyond the list has no name and
+  reads `never`.  Definedness is the invariant the checker already
+  enforces at insertion (`allLevelParamsDefined`), so this is the same
+  hypothesis `substPW_comp` carries today, now also on `_self`;
+* **composition** `substPW ms₂ (substPW ms₁ pw) = substPW (ms₁.map (substPW ms₂)) pw`
+  and `= substPW (masksOf ps'' (us.map (subst ps' vs))) pw`
+  (agrees with instantiating the levels), unconditional in `pw`
+  under the ≤ 63 bound (bit algebra: OR distributes, `never` absorbs);
+* **subst commutation** `maskOf ps'' (subst ps' vs u) = substPW (masksOf ps'' vs) (maskOf ps' u)`
+  — the positional `zeronessOf_subst`.
+
+Shape: there is no shape — the datum is a word; `bindZ` is a 64-step
+bit loop, no allocation.  `Expr.instantiateLevelParams ks us` gains a
+third argument `ms` (the instantiating levels' masks over the NEW
+context), computed once per instantiation at the call site.
+
+**(ii) Comparison.**  Every validation site compared `equiv` (mutual
+containment = zero-ness agreement at every valuation).  With canonical
+words, agreement IS equality: `equiv a b := a == b`.  (The one-sided
+subset test `(a &&& b) == a` is available but no site needs it —
+all sites compare for agreement.)  The consequence for the canonical
+form: `Setlec/Kernel/ZeroSet.lean` (477 lines), `Kernel/ZeroSetPin.lean`
+(47) and `Verify/ZeroSet.lean` (604) are **deleted** — the word is the
+canonical form, `=`/`decide`/`hash` decide the semantic question, and
+`Verify/PropWhen.lean` (443 lines) shrinks to the bit-algebra battery
+above.
+
+**(iii) The semantic interface — what moves in the P tier.**  Today
+`pwBit (φ : Name → Nat) (pw) := if pw.holds φ then 0 else 1` and
+`denoteP acval env φ d e` reads `pwBit φ m.pw` at every binder.  A
+positional datum needs the *universe context* `ps` to read a name
+valuation: the boundary becomes
+
+    pwBit (ps : List Name) (φ : Name → Nat) (pw : PropWhen) : Nat
+      := if pw.holds (fun i => φ (ps[i]?.getD default)) then 0 else 1
+
+and `denoteP` gains `ps` (the context of the term it reads).  What
+stays and what moves:
+
+* **unchanged**: the `AVExpr` bit currency (a `Nat` in `{0,1}` on
+  `pi`/`lam`), `AnnotValidV`, `interp2`, the establishment step's
+  *shape* (`pwBit … = 0 → x ∈ univZero`), the substitution pair
+  (`AnnotOk2_liftN/_inst`), everything stated over `AVExpr`;
+* **re-indexed by `ps`** (mechanical: one extra argument threaded):
+  `denoteP` and every statement mentioning it — 47 files / 492 lines
+  mention `pwBit`, 52 files / 619 lines mention `substFn` (upper
+  bounds: many of those are `acval`/`EnvS2Core` rows that only use
+  `substFn` at constants and do not move);
+* **restated**: `pwBit_of_equiv_zeronessOf` — the establishment
+  hypothesis `equiv (zeronessOf v) pw = true` becomes
+  `maskOf ps v = pw` (word equality); it needs `v`'s parameters within
+  `ps` to read `eval φ v`, which the site's success supplies if
+  `maskOf` is made `Option`-valued at the executable validation site
+  (decline on an undefined parameter — reads-as-`never` would be a
+  silent false claim, still sound because validation compares both
+  sides under the same `maskOf`, but the theorem would carry a
+  definedness premise); `pwBit_substPW` / `denotePInstLevels`
+  (`Step2/BitLevels.lean:137`) become
+  `denoteP ps' φ (e.instantiateLevelParams ks us (masksOf ps' us)) = denoteP ks (substFn φ ks us) e`
+  under `∀ u ∈ us, u.allParamsDefined ps'` — the "unconditional
+  crossing" of P3 gains the definedness premise the level side
+  (`InstLevels.subst_subst`) already has;
+* **unchanged in content**: `isNever_iff_forall_pwBit_ne_zero` — any
+  `pw ≠ never` holds at the all-zero valuation, `never` nowhere — the
+  graph/squash regime fence at `pw = never` is representation-free;
+  `PropWhen.isNever` is `pw == never`.
+
+**(iv) Where the current level-parameter list must be threaded — and
+the finding.**  The prototype puts the universe context beside the
+environment: `Env.lps : List Name` (the official kernel's `lparams`
+next to its local context), entered per declaration by the drivers
+(`FEnv.withLps`: `checkDeclSPC`'s four kinds, `checkIndMemberS`,
+`provisionRecsS`, `checkIndRecsS` per recursor, `checkProjFnS`,
+`checkDirectStructS` per phase, `checkDirectProjsS`).  Read at: the
+four annotate/validate sites (`annotPwPi/Lam`, `inferBody`'s ∀/λ
+clauses, `inferPisOutI`, `inferLamsLeafI`), the ~20
+`instantiateLevelParams` sites (Core, DeclCheck, Modeled, CoreC, CoreNC,
+StateC's three lazy caches, `pinArgsI`/`recFireComparands`), the
+`allLevelParamsDefined` twins (count instead of list).  It always is
+threadable — but it was **not always consistent**, which is the
+probe's finding:
+
+> **The checker reuses annotated terms across universe contexts by
+> parameter-NAME identity.**  A recursor's parameter list is the
+> type's with the motive universe PREPENDED (`Trans.rec : [u_4, u, v,
+> w, u_1, u_2, u_3]` vs `Trans : [u, v, w, u_1, u_2, u_3]`), so every
+> position shifts by one.  The block-install paths read the
+> *constructor's* stored (annotated) type in the *recursor's* context
+> without instantiating it: `checkIotaRule` (`DeclCheck.lean:384,400`,
+> the `.plain` path) and `checkDirectRecTyF`/`checkDirectRuleF`
+> (`:919,970`).  Under the free datum this is legitimate (same names,
+> same meaning); under positional masks it declines with
+> `sort-annotation mismatch (forall-cod)` at the first structure with a
+> universe-polymorphic field (`Trans`, init-full decl ~1 000).  The fix
+> is `Expr.remapPW from to e := e.instantiateLevelParams from
+> (from.map param) (masksOf to (from.map param))` — the identity level
+> substitution with a context change — at those four sites (projection
+> installs share the type's list, no remap).  The invariant to state
+> and keep: *an annotation is read only in the context it was written
+> in; crossing contexts goes through `instantiateLevelParams` (or
+> `remapPW`), never by name identity.*  Its proof obligation in the P
+> tier is the crossing law at identity levels — derivable from the
+> general crossing.
+
+Two consequences worth ruling on at landing: (a) **input annotations**
+— the export format carries no `pw` fields (0 in both streams), but the
+parser supports named lists (`parsePwD`) and 17 test fixtures use
+them; a parse-table node is shared across declarations, so a name list
+cannot be positionalized at parse time — either drop input annotations
+(the annotate pass writes every datum anyway) or make the format
+positional; (b) **cross-declaration sharing** of annotated subterms
+becomes order-sensitive — irrelevant today (each declaration's
+annotate rebuilds its own terms; the census counts 13 M nodes for
+61 k decls with no cross-declaration sharing), relevant only if a
+future hash-consing across declarations is attempted.  A global
+name→position table is NOT an alternative: 60 distinct level-parameter
+names on init-full, **112** on the Mathlib prefix (> 63).
+
+### 3. The probe's numbers (init-full-pre2, `--set-model --pre`, direct child, 16 GB `ulimit -v`)
+
+| binary | instructions (user) | wall | peak RSS | verdict |
+|---|---|---|---|---|
+| master `7d3d4dbf` (run 1) | 2 749 546 610 065 | 350.5 s | 1 793 168 KB | accepted 61 048 |
+| master (run 2) | 2 749 696 763 828 | 360.1 s | 1 786 800 KB | accepted 61 048 |
+| probe `17e6be5d` | **2 594 882 243 108** | 350.0 s | **1 782 568 KB** | accepted 61 048 |
+
+**Instructions −5.6 %** (run-to-run noise on this stream: 0.005 %) —
+larger than the payload predicts: it is the `BinderMeta` hash (the
+node's computed `hash` field mixes the datum at every ∀/λ
+construction — a list walk before, one word now), `DecidableEq` on
+metas at memo hits, the `equiv` containment loops at every validation
+and defeq site, and the `bindZ` allocations under instantiation.
+**RSS −0.3 % to −0.6 %** (10.6 MB / 4.2 MB against the two baselines
+— within the 0.4 % baseline spread, consistent with the 1.34 MB census
+plus the transient copies).  Verdicts: init-full identical; the arena
+suite (`tests/arena-expected.txt`, 138 fixtures) **0 exit-code
+deltas** against the master binary.
+
+Probe scope and honesty count: the executable cone only (Kernel,
+Cached, Frontend, Main; 26 files, +540/−403); **0 sorries** in it (the
+`ExprOps` has-param shortcut lemmas are re-proved for the word); the
+proof tier (Verify/SetP, `tests/SetlecTests.lean`) is **not adapted
+and does not build** on the branch — 61 files there reference the free
+datum's constructors or laws (`.ifAllZero` 13 files/351 lines,
+`zeronessOf` 17/180, `substPW` 10/107, `bindZ` 2/68, `paramsDefined`
+5/74).  Probe shortcuts that must not be copied: `CoreFnsI.lps` as a
+knot-record field (the perf-eng E6 note: 194 `Verify/Cached`
+references unfold the knot's equations — thread `fe` into the six
+telescope helpers instead), the parser declining named `pw` input,
+the census in `Main.lean`.
+
+### 4. Landing bill and route
+
+**Bill (estimate).**
+* Kernel layer, mechanical, reusable from the probe: `Expr.lean`
+  `PropWhen` block; `Level.lean` `maskOf/masksOf/substPW/remapPW` and
+  the three-argument `instantiateLevelParams`; `ExprOps.lean` lemmas
+  (done); `Env.lps` + `FEnv.withLps` + the driver entries; the ~20
+  instantiation sites; the 4 remap sites; pins (all `ifAllZero []` →
+  `always`, 60 non-empty lists → masks by position — regenerate with
+  `PinGen`, whose `ToExpr` quotes the word); the > 63 decline in
+  `checkConstantVal{,C}`.  ~1 day.
+* Cached layer: `CoreC` (four annotate/validate sites, `inferPisOutI`,
+  `pinArgsI`), `ExprOpsC.instLevelParamsGo`, `StateC` (three lazy
+  caches, `zeronessOfLIGo` takes the list) — with `fe`/`lps` threaded
+  as arguments, not a knot field.  ~½ day, plus the `Verify/Cached`
+  twins (`BinderLoopC`, `DiscC4`, `AgreeAnnot`, bridges) — the
+  signature changes propagate mechanically.
+* Verification: `Verify/PropWhen.lean` rewritten as the bit battery
+  (identity/composition/pushforward/subst-commutation over `UInt64`
+  bit operations — `BitVec` reasoning, the one genuinely new proof
+  work; ~1–2 days); `Verify/InstLevels` (`instLevels_instLevels` with
+  mask composition); deletions (ZeroSet ×3, −1 128 lines);
+  `SetP/Annot/Bit.lean` + `ValidV` + `Step2/BitLevels` restated
+  (§2.iii); the `ps` re-indexing across the `denoteP` statements
+  (mechanical, wide: ≤ 47 files); `tests/SetlecTests.lean` (17 refs).
+  ~3–4 days.
+* Total: roughly one week of agent batches; no new axioms, no
+  representation escape (the word is a plain `UInt64`).
+
+**Route.**  Land as its own batch **after** `agent/packing` (task #167,
+the packed node word — it is editing `Kernel/Expr.lean`'s computed
+fields now; the `PropWhen` block is disjoint from the fields except
+`hasLP`'s `m.pw.hasParams` read, which is unchanged — a trivial rebase)
+and **after the wiring flip** (`agent/wiring` owns `Cached/CoreC` +
+`SetP` + `Verify/Denote/Install`, exactly this batch's collision
+surface: the four `CoreC` sites, `BitLevels`, `Annot/Bit`, `ValidV`,
+and every `denoteP` statement).  Landing it concurrently with wiring
+would put two batches into `denoteP`'s signature at once; sequenced
+after it, the re-indexing is one mechanical pass over the settled
+statements.
+
+**Base.**  A **clean re-implementation, using the probe as the map**,
+is cheaper than rebasing the probe: cherry-pick the Kernel-layer hunks
+(`Expr`, `Level`, `ExprOps`, pins, `Env`/`FEnv`, drivers, DeclCheck
+remaps — they are exactly what a landing wants), redo the `CoreC`
+threading without the knot field, keep the parser's named-list path
+behind a ruling on (a) above, and leave the census out.  The probe
+branch stays where it is as the reference (`agent/pw-bitmask` @
+`17e6be5d`; measurement harness and results in `_tmp/pw-bitmask/`:
+`run.py`, `results.tsv`, `lawtest.lean`).
