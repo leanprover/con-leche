@@ -38785,3 +38785,189 @@ What this buys W5: the rename half of the interlock is *gone*
 any more), leaving `ProjOkT`'s third conjunct as the single remaining
 pin — whose consumers are exactly the P `.proj` rows that the tower
 law must replace (S2/S3 below).
+
+### S2–S5a — THE TOWER LAW, THE ROWS, THE WEAKENED INVARIANT, THE η DISPATCH
+(2026-09-05, `agent/wiring2`, six commits `429a7781..276f46d3`; every one
+builds warning-free, `lake test` green, battery byte-identical, proofdeps
+88 rows as pinned, zero sorries, zero conditional forms)
+
+**The order the frozen route did not anticipate, and why.**  The freeze
+said "weaken the invariant, THEN land the install rows on top".  That is
+impossible as a seam: the P `.proj` rows (`ProjRowsP`, `ReadsP`,
+`ReadsIOP`, `DefEqP`, `AcceptedP`) killed the tower side of every
+inversion with `ProjOkT.towerFree`, so weakening the invariant first
+leaves the capstone conditional until the rows can handle a tower
+entry — and the rows need an *environment law* about tower entries
+that nothing supplied.  The dependency chain is therefore
+
+    law field (S2a) → kernel name-agreements (S2b) → P rows' tower branches (S3a)
+      → invariant weakening + base rows (S4+S3b) → η dispatch (S5a)
+      → install soundness (W4c, the P install half) → flip (W5).
+
+**S2a — `TowerOkP`, a field of `EnvS2PM`** (`Annot/EnvS2P.lean`).  Per
+stored tower-backed entry `(T, i, entry)`: the entry's data agrees with
+the stored former and constructor; and at every level instantiation
+(A) the **typing law** — for a *graded* family application
+`⟦T⟧ vs` and a graded member `x` of it, the syntactic peel of the
+entry-type reading along `vs ++ [x]` (`AVExpr.peelPis`, the fit's
+spine with the memberships dropped) is graded and contains
+`projS i ⟦x⟧`; (B) the **iota law** — for a graded constructor
+application `⟦C⟧ ys`, `projS i ⟦C ys⟧ = ⟦ys[nP+i]⟧`.  Both premises are
+the applications' *gradings alone*: the infer row holds the reduced
+subject type as a graded reading, never a certified spine (it is a
+type the run produced), and the whnfCore row holds the constructor
+spine under the io skip (every binder of today's recognised class is
+`isNonZero`, so every certificate is skipped and only the slot chain
+survives — the pair row's own graph-regime route, `piR_dom_unique`).
+The establishment therefore pins the leaf's λ-domains to the reading's
+Π-domains **once**, at the install.  Transport: `towerOkP_cons_fresh`
+(`RecRulesPCons`) at every non-tower cons, the swap case in `SwapP`,
+the empty case; `declStepPM_of_cons` takes it as its twelfth premise
+and all 13 callers supply the transport.
+
+**S2b — two kernel name-agreements** (both `.proj` node vs. its
+entry): infer's `.proj` clause (four twins) requires the node's struct
+name to be the subject type's head — the official `infer_proj`'s
+`const_name(I) == proj_sname(e)`, a **conformance fix**; defeq's
+stuck-proj congruence (three twins) requires equal struct names —
+**a restriction, transitional**: the two entry kinds read differently
+(`.proj 1` is `ssnd`, `projAV 1` is `sfst ∘ ssnd`), so a mixed-kind
+congruence is unprovable, and on annotated terms the name *is* the
+type head, so defeq subjects always agree; dissolves at W6 with the
+second kind.  Verdict-neutral, measured (battery + init-full 61 048 in
+both modes).  Inversions gain the `T = sn` conjunct.
+
+**S3a — the P rows' tower branches** (`Step2/TowerKitP`,
+`Step2/ProjAVKitP`, the six rows).  The kit: the reading's tower
+clause/inversion; `denoteP_instPisAt_peel` (the checker's peel reads
+to the syntactic peel — `teleFitPA_residual` minus the fit); the
+stored entry type is closed hence depth-free; `projAV`'s grading
+hoists and transfers along equal-valued subjects (the stuck and
+congruence rows replace the subject by its head normal form).  The
+rows consume the law exactly at its two clauses; `TowerOkP` reaches
+them through `ReadsInputsP`.  `ProjAVKitP` sits *below* `DefEqP`
+(which is under the step assembly and cannot see the law).
+
+**S4 — the invariant, weakened** (`EnvPreds`, `ProjPinInv`,
+`ProjPins`, `Install`, `IndRecsCoreR`).  `ProjOkT`'s first conjunct
+pins native entries **only when not tower-backed**; the third (W3's
+blanket tower-freeness) becomes `TowerHead`: a tower entry is native,
+its former, the former's `rec` and its constructor are **unreserved
+names** (the recogniser's own guards — so a tower entry never sits at
+`PSigma'`, which is what `ProjOkT.psigma_not_tower` reads and every
+pinned-pair site now consumes), its index is in range, and the former
+(`indInfo`) and constructor (`ctorInfo`, with its telescope shape) are
+stored at the entry's arities and level parameters.
+`NativeProjPinned` likewise; the pin lemmas take `tower = false`;
+`ProjOkT.cons` and the swap transports carry `TowerHead`
+(`TowerHead.mono`).  `ConsHeadP` is untouched (it is the *non-tower*
+head record; the direct install's tower conses get their own).
+
+**S3b — the base (derivation-tier) rows.**  `Infer.projTower` (I9′)
+and `Red.projRedTower` (R6′): I9/R6's premises verbatim plus the entry
+kind, concluding at `projNV i`; their weakening cases (`Weaken`); the
+`projNV` congruences.  `Bridge/{Proj,ProjRed,Stuck,EtaCerts}` handle
+tower entries — the stored entry/constructor types through
+`EnvR.ty_denotes` + `denote_instLevels`, the checker's `instPisAt`
+peel as `piResidual`'s walk (`piResidual_of_instPisAt`), the
+constructor spine's telescope through `tele_of_inferSpineR` off
+`TowerHead`'s telescope fact.  These rows have no semantic consumer
+(the R model went at Stage A); they are kept sorry-free because
+`checkDeclR_ofEnvRE` is a proofdeps target.
+
+**S5a — the η half is flag-agnostic** (`SetBase/DeclDirectEta`).  The
+stage inversions (the `checkConstantVal` run as an existential — the
+shape walk's `split` re-introduces the bound constant anonymously, so
+its guards are read off the run afterwards; `checkDirectProj`'s
+"no entry or a fresh tower entry"), `declDirectR_etaClosed` (every
+store is a fresh cons; `directCaps.eta` is a literal `false`), and the
+two dispatch lemmas by the kernel's own `directParts?` case split.
+`declStepPM`'s η half and `declEtaStep` (relocated) no longer read the
+flag.
+
+**THE REMAINING FLAG FRONTIER, exactly** (the W5 work order as it now
+stands):
+
+1. `SetP/FoldP.lean:189` — the P install half: `IndStepPB`'s
+   direct arm, i.e. **W4c** (below).  The single semantic reader.
+2. `Verify/ProjPinInv.lean:470` — `NativeProjPinned` across the direct
+   arm: `checkDirectStruct` conses `native ∧ tower` entries, admitted
+   by the weakened pin; needs `checkDirectProj_inv` (landed at S5a)
+   at the fold — mechanical.
+3. `Verify/Cached/AgreeFloor.lean:811,1095`, `Verify/Cached/BridgeCSDecl.lean:424`
+   — the cached lane's agreement/sim for the direct path (its twins
+   landed at W2b); a per-stage sim in `BridgeCS3`'s style.
+4. the three `directParts?_none` bodies (`Bridge/Sound`, `BridgeDecl`,
+   `ProjPinInv`) and the two `_eq_ind` lemmas (`Decl`, `DeclDirect`)
+   — deleted at the flip; `tests/SetlecTests.lean:56`'s guard flips.
+
+**W4c, re-priced from inside** (the P install half, `DeclDirectR →
+EnvS2PM`; each item is what a successor lands first):
+
+* **the projection-function leaf** — a fourth leaf family is needed:
+  an entry is a stored constant (`.projInfo entry ∈ consts`), so
+  `mem_typeP` wants a leaf inhabiting the entry type's reading:
+  `λ p⃗ t, projAV i t` (`mkLamsC` over the entry type's own binders
+  with body `projAV i (.bvar 0)`), membership by
+  `projS_mem_teleOfFields`, grading by `projAV_ok2_tower`;
+* **the tower-cons transport** — `denoteP_envExtend_mono` refutes a
+  tower head outright (its `hproj` premise says a fresh entry is
+  non-tower, because the reading of a `.proj T i` node with *no* entry
+  is the pair fallback and would move).  Consing entry `(T, i)` needs
+  the refined lemma with a syntactic side condition "`e` has no
+  `.proj T i` node", discharged for every stored expression: pre-block
+  constants resolve in the pre-block environment, where `T` is not
+  stored (`constsResolve`'s `.proj` clause reads `find? s`); the
+  block's own annotated types contain no `.proj T j` beyond the
+  entries already stored (the annotation rule throws at an absent
+  slot) — the latter needs an annotate-inversion walk;
+* **the `caps_ok` row at the former's cons** — `capsOkP_cons_fresh`
+  takes "not an `indInfo`"; a former with `directCaps` (both
+  capabilities `false`) needs the descent lemma at an `indInfo` head
+  whose laws are vacuous;
+* **`rec_rules` at the recursor's cons** — the direct rule fires
+  `.plain` (never `.inert`: an inert rule would not reduce and would
+  move raw-fixture verdicts), so the full `RecRuleLawP` contract is
+  owed: `⟦T.rec p⃗ M m (C p⃗ f⃗)⟧ = ⟦m f⃗⟧` from `directRecAV`'s body
+  along `recBodyAV_fold_mk`, with the fit machinery of the iota tier;
+* **the claims-interface discharge** (the freeze's item 2, unchanged):
+  the annotated types' readings peeled by `stripPisAV_eq_mkPis`, O3's
+  `checkDirectDomsAt` rows into `RecBase`/the parameter-domain pins
+  through `DefEqClaims2P` at the opened frames (`CtxOkP` from
+  `openPisAtFvars`), O5's `checkDirectFieldUniv` into `FieldsGraded`,
+  `ensureSort` into the bits; then `ParamsOkT`/`MkPre`/`RecPre`/
+  `UnderTowerValid` — the modeled ind tier's `IndFrameP`/`IndDomGradeP`
+  machinery is the template, but it is stated for `checkIndMember`'s
+  runs and does not apply verbatim;
+* **the law's establishment** — (A) from `Ta`'s peel + the
+  `checkDirectProj` residual pin at the opened frame + the substitution
+  metatheory (`interp2` of `peelPis` at `consList`), the slot chain of
+  the graded family application pinned to the parameter domains by
+  graph rigidity (`directTyAV`'s bits are `w + 1`); (B) from
+  `directMkAV_fold` + `projS_mkTower` after the same rigidity at bits
+  `w ≠ 0` (`isNonZero` of the result sort).
+
+**THE FLIP'S SEMANTICS, settled from the record rather than the
+summary** (for W5's census and battery): the gate stays
+**artifact-absence** (`directStructsEnabled && directNonRec &&
+directNoModel`) — the "priority for covered blocks" inversion of the
+handoff's item 3 would drop structure eta on every preprocessed
+structure (tower eta in the kernel is explicitly deferred by the W1
+freeze), which no census explains; so the expected verdict moves are
+exactly the five recorded in `Kernel/Direct.lean`'s docstring
+(`direct_struct_raw` raw/pre `2 → 0`, `bad/tutorial/13{3,4,7}`
+`2 → 1`) and init-full stays byte-identical.  `annotateProjElim`'s
+projection-function rewrite stays for modeled (artifact-carrying)
+structures; `annotateProjRec` and the template pass **cannot** be
+deleted in this batch — they serve `Prop` structures (`Exists`, 113
+accepting uses in init-full), whose direct coverage is the O4
+recognition widening (`directShape`'s `isNonZero` gate), a separate
+batch; their deletion is gated on it.
+
+**Two engineering notes for the successor**: (i) `split at h` on a
+kernel do-block re-introduces every dependent hypothesis anonymously
+— state stage inversions with the run existential and `assumption`
+into it, never name a constant before the walk; (ii) an rcases `-`
+on an existential witness that a later component depends on derails
+the naming of the later components silently — name such witnesses
+`_`.
