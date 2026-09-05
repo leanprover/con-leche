@@ -2,6 +2,7 @@ import Setlec.SetP.Step2.IrrelP
 import Setlec.SetP.Step2.IotaRowsP
 import Setlec.SetP.Step2.IotaKitP
 import Setlec.SetP.IOLicenseP
+import Setlec.SetP.Step2.IotaGateP
 import Setlec.Verify.PropRead
 
 /-!
@@ -173,15 +174,6 @@ theorem neverChainP_of_peel {acval : Name → (Name → Nat) → AVExpr} :
     obtain ⟨tA, tB, -, htB, rfl⟩ := denoteP_forallE_inv hd
     exact ⟨pwBit_ne_zero_of_isNever hnev φ,
       ih (Expr.peelNeverPis_instantiate1 n _ 0 hb) htB⟩
-
-theorem annotOkP_mkAppN_head {ρ : Nat → V} :
-    ∀ (as : List AVExpr) {f : AVExpr},
-      AnnotOkP V ρ (AVExpr.mkAppN f as) → AnnotOkP V ρ f
-  | [], _, h => h
-  | a :: as, f, h => by
-    have h' : AnnotOkP V ρ (.app f a) := annotOkP_mkAppN_head as h
-    exact ⟨((AnnotOk2_app V ρ f a) ▸ h'.1).1,
-      ((AnnotValidV_app V ρ f a) ▸ h'.2).1⟩
 
 /-- **A type former's application lands in its result universe.**  The
 walk along the chain: at every slot the bit is nonzero, so the
