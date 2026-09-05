@@ -111,4 +111,49 @@ theorem stripLamsAV_of_lamTeleP :
     obtain ⟨lds, rfl, hΓ, hlen⟩ := ih
     exact ⟨(v, A) :: lds, rfl, by simp [hΓ], by simp [hlen]⟩
 
+/-- **A graded λ-tower applied along a fitting spine is graded**: each
+step's Π-package is the layer's own (`lamR_mem` over the grading's
+fibre family), or — once a zero layer has collapsed the value to the
+point — the trivial one. -/
+theorem mkAppN_okP_of_lam :
+    ∀ {lds : List (Nat × AVExpr)} {b f : AVExpr} {args : List AVExpr} {ρ σ : Nat → V},
+      AnnotOkP V ρ f → (∀ a ∈ args, AnnotOkP V ρ a) →
+      AnnotOk2 V σ (mkLamsAV lds b) →
+      (interp2 V ρ f = (pt : V) ∨ interp2 V ρ f = interp2 V σ (mkLamsAV lds b)) →
+      SpineFit σ (lds.map (·.2)) (args.map (interp2 V ρ)) →
+      AnnotOkP V ρ (AVExpr.mkAppN f args)
+  | [], _, _, [], _, _, hf, _, _, _, _ => hf
+  | [], _, _, _ :: _, _, _, _, _, _, _, hsp => hsp.elim
+  | _ :: _, _, _, [], _, _, hf, _, _, _, _ => hf
+  | d :: lds, b, f, a :: args, ρ, σ, hf, hargs, hok, hval, hsp => by
+    simp only [List.map_cons, SpineFit] at hsp
+    have hok' := hok
+    simp only [mkLamsAV, AnnotOk2_lam] at hok'
+    obtain ⟨-, hrest, B, hB, hB0⟩ := hok'
+    have ha := hargs a List.mem_cons_self
+    rw [AVExpr.mkAppN_cons]
+    -- the application's package
+    have hokApp : AnnotOkP V ρ (.app f a) := by
+      refine ⟨?_, by rw [AnnotValidV_app]; exact ⟨hf.2, ha.2⟩⟩
+      rw [AnnotOk2_app]
+      rcases hval with hpt | heq
+      · exact ⟨hf.1, ha.1, 0, interp2 V σ d.2, fun _ => unitSet,
+          by rw [hpt, piR_zero]; exact pt_mem_truthVal fun x _ => ⟨pt, pt_mem_unitSet⟩,
+          hsp.1, fun _ _ _ => mem_univZero.mpr (Subset.refl _)⟩
+      · refine ⟨hf.1, ha.1, d.1, interp2 V σ d.2, B, ?_, hsp.1, fun h0 x hx => hB0 h0 x hx⟩
+        rw [heq]
+        simp only [mkLamsAV, interp2_lam]
+        exact lamR_mem hB
+    refine mkAppN_okP_of_lam hokApp (fun a' ha' => hargs a' (List.mem_cons_of_mem _ ha'))
+      (hrest _ hsp.1) ?_ hsp.2
+    -- the continuation's value
+    rw [interp2_app]
+    rcases hval with hpt | heq
+    · left; rw [hpt, app_pt]
+    · rw [heq]
+      simp only [mkLamsAV, interp2_lam]
+      rcases Nat.eq_zero_or_pos d.1 with h0 | hpos
+      · left; rw [h0, lamR_zero, app_pt]
+      · right; rw [app_lamR_pos (Nat.pos_iff_ne_zero.mp hpos) hsp.1]
+
 end Setlec.SetR.Interp2
