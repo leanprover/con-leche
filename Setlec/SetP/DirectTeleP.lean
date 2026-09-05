@@ -94,7 +94,7 @@ theorem hereditaryWalk {Q : (Nat → V) → List (Nat × Nat × AVExpr) → Prop
     (hnil : ∀ ρ : Nat → V, Sat2 V Γ ρ → Q ρ [])
     (hcons : ∀ (ρ : Nat → V) (d : Nat × Nat × AVExpr)
       (ds : List (Nat × Nat × AVExpr)), d ∈ pps →
-      AnnotOk2 V ρ d.2.2 →
+      AnnotOkP V ρ d.2.2 →
       (∀ a, a ∈ˢ interp2 V ρ d.2.2 → Q (cons a ρ) ds) → Q ρ (d :: ds)) :
     ∀ (i : Nat), i ≤ n → ∀ ρ : Nat → V, Sat2 V (Γ.drop (n - i)) ρ →
       Q ρ (pps.drop i) := by
@@ -125,7 +125,7 @@ theorem hereditaryWalk {Q : (Nat → V) → List (Nat × Nat × AVExpr) → Prop
       exact Option.some.inj hp
     rw [hdrop]
     refine hcons ρ p _ (List.mem_of_getElem? hp) ?_ fun a ha => ?_
-    · rw [hpe]; exact (okΓ i hlt ρ hρ).1
+    · rw [hpe]; exact okΓ i hlt ρ hρ
     · refine ih (i + 1) (by omega) (by omega) (cons a ρ) ?_
       rw [show n - (i + 1) = n - i - 1 from by omega,
         List.drop_eq_getElem_cons (l := Γ) (i := n - i - 1) (by omega)]
