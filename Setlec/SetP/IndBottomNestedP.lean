@@ -1295,7 +1295,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
           (Level.substFn (Level.substFn φ lps us) cvj.levelParams lvls) :=
       mp.base2.acval_params ctor _ hctorE _ _ (fun p hp => hagree p hp)
     rw [denoteP_const hfCmE (by rw [hCmlps]; exact hlvlsLen), hCmlps,
-      hroT.2.2, hctorLev]
+      hroT.2.2.1, hctorLev]
   have hspMem : ∀ σ : Nat → V, Sat2 V Γs σ →
       ∀ (q : Nat) (x : Expr),
         (psR ++ fvs.drop rP)[q]? = some x →

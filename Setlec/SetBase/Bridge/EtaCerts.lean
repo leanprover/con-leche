@@ -312,7 +312,8 @@ theorem pairEtaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
       have hpj : ∀ (i : Nat), i < 2 →
           denote m.cval env φ d (.proj c' i b) = some (.proj i vb) := by
         intro i hi
-        rw [denote_proj, hvb]
+        rw [denote_proj_pair m.cval env φ d c' i b
+          (fun entry hf => m.proj_ok.towerFree _ _ _ hf), hvb]
         dsimp only
         rw [if_pos hi]
       have hfpj : ∀ (i : Nat), Expr.WScoped d (.proj c' i b) ∧

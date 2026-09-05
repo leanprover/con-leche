@@ -274,7 +274,8 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
     hLb l (by simpa [Expr.fvarLeaves] using hl)
   have hlrpe : LeafReadsP m φ d pe :=
     hlr.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)
-  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv hea
+  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv_pair
+    (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf') hea
   obtain ⟨tpea, htpea⟩ := ihi htpe hws hb hLpe hlrpe hvp
   have hwtpe : Expr.WScoped d tpe :=
     inferTypeCoreIO_WScoped m.wf fuel htpe hws
@@ -295,7 +296,9 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
   · exact hspt.mem t (by simp)
   · obtain ⟨Ba, hBa⟩ := hspt.mem B (by simp)
     exact ⟨.app Ba (.proj 0 vp), by
-      rw [denoteP_app, hBa, denoteP_proj, hvp]
+      rw [denoteP_app, hBa,
+        denoteP_proj_pair m.acval (env := env) (φ := φ) _ _ _ _
+          (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf'), hvp]
       simp⟩
 
 /-! ## The walk -/

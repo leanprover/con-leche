@@ -31,6 +31,7 @@ import Setlec.SetBase.CtxOkR
 import Setlec.SetBase.Decl
 import Setlec.SetBase.DeclEta
 import Setlec.SetBase.DeclRun
+import Setlec.SetBase.DeclDirect
 import Setlec.SetBase.DeclIndRun
 import Setlec.SetBase.IndBlockR
 import Setlec.SetBase.IndBlockRun
@@ -44,6 +45,7 @@ import Setlec.SetBase.TowerIntro
 import Setlec.SetBase.TowerLeaf
 import Setlec.SetBase.TowerMk
 import Setlec.SetBase.TowerRec
+import Setlec.SetBase.TowerWire
 import Setlec.SetBase.ProjFnRR
 import Setlec.SetBase.Bridge.Claims
 import Setlec.SetBase.Bridge.WhnfCore

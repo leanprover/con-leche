@@ -88,6 +88,7 @@ premise is `rules = []` rather than "not a recursor". -/
 theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) {n : Name} {cv : ConstantVal} {mI rP : Nat}
@@ -104,7 +105,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
   obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP rules rfl rl hmem
   refine ⟨Ra, ?_, hokRa, ?_, ?_⟩
   · rw [hac]
-    exact denoteP_cons_fresh_mono hfresh _ 0 _
+    exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
       (constsBound_of_constsResolve _ (by
         rw [Setlec.Expr.constsResolve_instantiateLevelParams]
         exact hRres)) hRa0
@@ -123,7 +124,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
         rfl
     refine ⟨vpa, ?_, ?_⟩
     · rw [hac]
-      exact denoteP_cons_fresh_mono hfresh _ rP _
+      exact denoteP_cons_fresh_mono hfresh hntc _ rP _
         (constsBound_openRev (constsBound_of_constsResolve _ (by
           rw [Setlec.Expr.constsResolve_instantiateLevelParams]
           exact hpinCR)) 0 rP) hvpa
@@ -136,7 +137,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
       obtain rfl : TVa' = TVa := by
         refine Option.some.inj (Eq.trans ?_ hTVa)
         rw [hac]
-        exact (denoteP_cons_fresh_mono hfresh _ 0 _
+        exact (denoteP_cons_fresh_mono hfresh hntc _ 0 _
           (constsBound_instType mp.base2.wf
             (Setlec.SetR.Env.find?_mem hfE) us) hTVa').symm
       exact hok ρ zs TVa' restR hzl hzok hTVa' hfit
@@ -161,7 +162,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     obtain rfl : TVa' = TVa := by
       refine Option.some.inj (Eq.trans ?_ hTVa)
       rw [hac]
-      exact (denoteP_cons_fresh_mono hfresh _ 0 _
+      exact (denoteP_cons_fresh_mono hfresh hntc _ 0 _
         (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfE) us) hTVa').symm
     obtain ⟨TVja', hTVja', -, -⟩ :=
@@ -169,7 +170,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     obtain rfl : TVja' = TVja := by
       refine Option.some.inj (Eq.trans ?_ hTVja)
       rw [hac]
-      exact (denoteP_cons_fresh_mono hfresh _ 0 _
+      exact (denoteP_cons_fresh_mono hfresh hntc _ 0 _
         (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfcjE) usj) hTVja').symm
     -- the `.nested` premise, contravariantly: a prefix pin reading is
@@ -193,7 +194,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
         · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
           rfl
       rw [hac]
-      exact denoteP_cons_fresh_mono hfresh _ rP _
+      exact denoteP_cons_fresh_mono hfresh hntc _ rP _
         (constsBound_openRev (constsBound_of_constsResolve _ (by
           rw [Setlec.Expr.constsResolve_instantiateLevelParams]
           exact hpinCR)) 0 rP) hvpa
@@ -209,6 +210,7 @@ row, the freshness supplying the disequality. -/
 theorem recRulesP_cons_fresh (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
       rules = [])
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
@@ -226,7 +228,7 @@ theorem recRulesP_cons_fresh (mp : EnvS2PM V μ env)
       (Option.some.inj ((Setlec.Env.find?_cons_self c₀ env).symm.trans hf))
     rw [hrl] at hmem
     exact nomatch hmem
-  exact recRuleLawP_cons_prefix mp hfresh m₂ hac φ hnN
+  exact recRuleLawP_cons_prefix mp hfresh hntc m₂ hac φ hnN
     (by rw [Setlec.Env.find?_cons, if_neg (fun hh => hnN hh.symm)] at hf
         exact hf) hmem hfire
 
@@ -257,7 +259,9 @@ theorem recRulesP_cons_rec (mp : EnvS2PM V μ env)
     injection heq with h1 h2 h3 h4
     subst h1; subst h2; subst h3; subst h4
     exact hnew rl hmem hfire
-  · exact recRuleLawP_cons_prefix mp hfresh m₂ hac φ hnN
+  · exact recRuleLawP_cons_prefix mp hfresh
+      (fun _ heq => by rw [hkind] at heq; exact nomatch heq)
+      m₂ hac φ hnN
       (by rw [Setlec.Env.find?_cons, if_neg (fun hh => hnN hh.symm)] at hf
           exact hf) hmem hfire
 

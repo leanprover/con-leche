@@ -266,7 +266,8 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
     hLb l (by simpa [Expr.fvarLeaves] using hl)
   have hlrpe : LeafReadsP m φ d pe :=
     hlrb.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)
-  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv hea
+  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv_pair
+    (fun entry hf => m.proj_ok.towerFree _ _ _ hf) hea
   -- the reduced scrutinee
   obtain ⟨v₂, hv₂⟩ := ihw hwpe hws hb hLpe hlrpe hvp
   have hlr₂ : LeafReadsP m φ d e₂ :=
@@ -294,7 +295,10 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
         hlrc.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hred)⟩
   rcases hcase with rfl | ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU,
     hwcf, -⟩
-  · exact ⟨.proj i v₃, by rw [denoteP_proj, hv₃]; exact if_pos hi2⟩
+  · refine ⟨.proj i v₃, ?_⟩
+    rw [denoteP_proj_pair m.acval (env := env) (φ := φ) _ _ _ _
+      (fun entry hf => m.proj_ok.towerFree _ _ _ hf), hv₃]
+    exact if_pos hi2
   · -- the table fires: the reduct is a head-normalised spine argument
     have hmem : e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)
         ∈ e₃.getAppArgs := Setlec.getD_mem (by rw [hlenA]; omega)
@@ -337,7 +341,8 @@ theorem inferProjReadsP_of {m : EnvS2Core V env}
     hLb l (by simpa [Expr.fvarLeaves] using hl)
   have hlrpe : LeafReadsP m φ d pe :=
     hlr.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)
-  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv hea
+  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv_pair
+    (fun entry hf => m.proj_ok.towerFree _ _ _ hf) hea
   -- the subject's type, and its head normal form
   obtain ⟨tpea, htpea⟩ := ihi htpe hws hb hLpe hlrpe hvp
   have hwtpe : Expr.WScoped d tpe :=
@@ -360,7 +365,9 @@ theorem inferProjReadsP_of {m : EnvS2Core V env}
   · exact hspt.mem t (by simp)
   · obtain ⟨Ba, hBa⟩ := hspt.mem B (by simp)
     exact ⟨.app Ba (.proj 0 vp), by
-      rw [denoteP_app, hBa, denoteP_proj, hvp]
+      rw [denoteP_app, hBa, denoteP_proj_pair m.acval (env := env)
+        (φ := φ) _ _ _ _
+        (fun entry hf => m.proj_ok.towerFree _ _ _ hf), hvp]
       simp⟩
 
 /-! ## T3a — the `whnfCore` clauses -/

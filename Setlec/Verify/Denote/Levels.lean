@@ -274,27 +274,39 @@ theorem denote_params_ext {env : Env} {cval : TConstVal}
     intro hd
     rw [denote_proj, denote_proj,
       ← ihe (by simpa [Expr.allLevelParamsDefined] using hd)]
-  | case18 d sn i e B h1 h2 ihe =>
+  | case18 d sn i e B h1 entry h2 h3 ihe =>
     intro hd
     rw [denote_proj, denote_proj,
       ← ihe (by simpa [Expr.allLevelParamsDefined] using hd)]
-  | case19 d sn i e B h1 h2 ihe =>
+  | case19 d sn i e B h1 entry h2 h3 h4 ihe =>
     intro hd
     rw [denote_proj, denote_proj,
       ← ihe (by simpa [Expr.allLevelParamsDefined] using hd)]
-  | case20 d n hg =>
+  | case20 d sn i e B h1 entry h2 h3 h4 ihe =>
+    intro hd
+    rw [denote_proj, denote_proj,
+      ← ihe (by simpa [Expr.allLevelParamsDefined] using hd)]
+  | case21 d sn i e B h1 h2 h3 ihe =>
+    intro hd
+    rw [denote_proj, denote_proj,
+      ← ihe (by simpa [Expr.allLevelParamsDefined] using hd)]
+  | case22 d sn i e B h1 h2 h3 ihe =>
+    intro hd
+    rw [denote_proj, denote_proj,
+      ← ihe (by simpa [Expr.allLevelParamsDefined] using hd)]
+  | case23 d n hg =>
     intro _
     rw [denote_natLit, denote_natLit, natLitT_params hp hg φ₁ φ₂ n]
-  | case21 d n hg =>
+  | case24 d n hg =>
     intro _
     rw [denote_natLit, denote_natLit, if_neg hg, if_neg hg]
-  | case22 d t hg =>
+  | case25 d t hg =>
     intro _
     rw [denote_strLit, denote_strLit, strLitT_params hp hg φ₁ φ₂ t]
-  | case23 d t hg =>
+  | case26 d t hg =>
     intro _
     rw [denote_strLit, denote_strLit, if_neg hg, if_neg hg]
-  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case27 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     intro _
     match x with
     | .bvar i => rw [denote_bvar, denote_bvar]
@@ -373,23 +385,29 @@ theorem denote_instLevels {env : Env} {cval : TConstVal}
     simp only [Expr.instantiateLevelParams, denote_letE, ihty, ihval]
   | case17 d sn i e h1 ihe =>
     simp only [Expr.instantiateLevelParams, denote_proj, ihe]
-  | case18 d sn i e B h1 h2 ihe =>
+  | case18 d sn i e B h1 entry h2 h3 ihe =>
     simp only [Expr.instantiateLevelParams, denote_proj, ihe]
-  | case19 d sn i e B h1 h2 ihe =>
+  | case19 d sn i e B h1 entry h2 h3 h4 ihe =>
     simp only [Expr.instantiateLevelParams, denote_proj, ihe]
-  | case20 d n hg =>
+  | case20 d sn i e B h1 entry h2 h3 h4 ihe =>
+    simp only [Expr.instantiateLevelParams, denote_proj, ihe]
+  | case21 d sn i e B h1 h2 h3 ihe =>
+    simp only [Expr.instantiateLevelParams, denote_proj, ihe]
+  | case22 d sn i e B h1 h2 h3 ihe =>
+    simp only [Expr.instantiateLevelParams, denote_proj, ihe]
+  | case23 d n hg =>
     simp only [Expr.instantiateLevelParams, denote_natLit]
     rw [if_pos hg, if_pos hg, natLitT_params hp hg φ (Level.substFn φ ks us)]
-  | case21 d n hg =>
+  | case24 d n hg =>
     simp only [Expr.instantiateLevelParams, denote_natLit]
     rw [if_neg hg, if_neg hg]
-  | case22 d t hg =>
+  | case25 d t hg =>
     simp only [Expr.instantiateLevelParams, denote_strLit]
     rw [if_pos hg, if_pos hg, strLitT_params hp hg φ (Level.substFn φ ks us)]
-  | case23 d t hg =>
+  | case26 d t hg =>
     simp only [Expr.instantiateLevelParams, denote_strLit]
     rw [if_neg hg, if_neg hg]
-  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case27 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     match x with
     | .bvar i => simp only [Expr.instantiateLevelParams, denote_bvar]
     | .sort u => exact (k1 u rfl).elim

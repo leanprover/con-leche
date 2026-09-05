@@ -495,7 +495,10 @@ theorem defeqStuck_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
       cases r with
       | false => exact hfall h
       | true =>
-        rw [denote_proj] at hva hvb
+        rw [denote_proj_pair m.cval env φ d s₁ i₁ e₁
+          (fun entry hf => m.proj_ok.towerFree _ _ _ hf)] at hva
+        rw [denote_proj_pair m.cval env φ d s₂ i₁ e₂
+          (fun entry hf => m.proj_ok.towerFree _ _ _ hf)] at hvb
         cases he₁ : denote m.cval env φ d e₁ with
         | none => rw [he₁] at hva; exact nomatch hva
         | some ve₁ =>

@@ -230,7 +230,9 @@ theorem projEtaLawP : ProjEtaLawP V := by
     rw [hEqTy]; exact htaM'
   refine ⟨ta, ?_, hokta, ?_⟩
   · rw [denotePInstLevels m₂ φ' cvT.levelParams us 0 cvT.type, ← hψ, hac]
-    exact denoteP_cons_fresh_mono hfresh0 ψ 0 cvT.type hcbT hta
+    exact denoteP_cons_fresh_mono hfresh0
+      (fun _ h => by rw [hc₀eq] at h; exact nomatch h)
+      ψ 0 cvT.type hcbT hta
   intro ρ ts rest x hlents hfit hmx
   rw [← hψ, hvT] at hmx
   rw [← hψ, hvC]

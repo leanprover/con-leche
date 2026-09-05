@@ -1,4 +1,5 @@
 import Setlec.SetBase.Canon
+import Setlec.SetBase.TowerLeaf
 import Setlec.Verify.PropWhen
 
 /-!
@@ -177,9 +178,18 @@ def denoteP (acval : Name → (Name → Nat) → AVExpr)
     let ba ← denoteP acval env φ (d + 1)
       (body.instantiate1 (.fvar d n ty))
     some (.letE ta va ba)
-  | d, .proj _ i e => do
+  | d, .proj sn i e => do
     let ea ← denoteP acval env φ d e
-    if i < 2 then some (.proj i ea) else none
+    -- the entry-kind branch (task #175 wiring W3): a tower-backed
+    -- entry reads field `i` by the uniform iterated spelling
+    -- (`projAV`, whose `AnnotOk2`/substitution batteries are the
+    -- introduction machinery's); the pair/absent side is the pre-W3
+    -- clause
+    match env.findProj? sn i with
+    | some entry =>
+      if entry.tower then some (projAV i ea)
+      else if i < 2 then some (.proj i ea) else none
+    | none => if i < 2 then some (.proj i ea) else none
   | _, .lit (.natVal n) =>
     if natLitSupported env then
       some (natLitT2 (acval natZeroName (Level.substFn φ [] []))
@@ -315,17 +325,39 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     rcases hea : denoteP acval env φ d e with _ | ea'
     · rw [hea] at h; exact nomatch h
     rw [hea] at h
-    replace h : (if i < 2 then some (AVExpr.proj i ea') else none)
-        = some ea := h
-    by_cases hi : i < 2
-    · rw [if_pos hi] at h
-      obtain rfl := Option.some.inj h
-      rw [denote_proj, ihe hea]
-      dsimp only
-      rw [if_pos hi]
-      rfl
-    · rw [if_neg hi] at h
-      exact nomatch h
+    replace h : (match env.findProj? sn i with
+        | some entry => if entry.tower = true then some (projAV i ea')
+            else if i < 2 then some (AVExpr.proj i ea') else none
+        | none => if i < 2 then some (AVExpr.proj i ea') else none)
+          = some ea := h
+    rw [denote_proj, ihe hea]
+    dsimp only
+    cases hfp : env.findProj? sn i with
+    | some entry =>
+      rw [hfp] at h
+      dsimp only at h ⊢
+      by_cases htw : entry.tower = true
+      · rw [if_pos htw] at h
+        obtain rfl := Option.some.inj h
+        rw [if_pos htw, erase_projAV]
+      · rw [if_neg htw] at h ⊢
+        by_cases hi : i < 2
+        · rw [if_pos hi] at h
+          obtain rfl := Option.some.inj h
+          rw [if_pos hi]
+          rfl
+        · rw [if_neg hi] at h
+          exact nomatch h
+    | none =>
+      rw [hfp] at h
+      dsimp only at h ⊢
+      by_cases hi : i < 2
+      · rw [if_pos hi] at h
+        obtain rfl := Option.some.inj h
+        rw [if_pos hi]
+        rfl
+      · rw [if_neg hi] at h
+        exact nomatch h
   | case11 d k hsup =>
     intro ea h
     rw [denoteP, if_pos hsup] at h

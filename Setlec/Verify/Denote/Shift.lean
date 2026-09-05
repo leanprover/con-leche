@@ -140,6 +140,21 @@ theorem strLitT_closed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
   · exact ⟨hcl _ _, hcl _ _⟩
   · exact ⟨hcl _ _, hcl _ _⟩
 
+/-- `projNV` commutes with lifting (it introduces no binders; task
+#175 wiring W3). -/
+theorem liftN_projNV (n : Nat) :
+    ∀ (i : Nat) (v : VExpr) (k : Nat),
+      (projNV i v).liftN n k = projNV i (v.liftN n k)
+  | 0, _, _ => rfl
+  | i + 1, v, k => liftN_projNV n i (.proj 1 v) k
+
+/-- `projNV` preserves bvar bounds (hereditary proj clauses). -/
+theorem projNV_bvarsBelow {d : Nat} :
+    ∀ (i : Nat) {v : VExpr}, VExpr.bvarsBelow d v →
+      VExpr.bvarsBelow d (projNV i v)
+  | 0, _, h => h
+  | i + 1, v, h => projNV_bvarsBelow i (v := .proj 1 v) h
+
 /-- **Depth shifting.**  Denoting `e.shiftFrom p` one level deeper is
 denoting `e` and lifting at cut `d - p`.
 
@@ -234,9 +249,19 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
     | none => rfl
     | some ve =>
       simp only [Option.map_some]
-      split
-      · simp only [Option.map_some, VExpr.liftN_proj]
-      · rfl
+      cases env.findProj? s i with
+      | none =>
+        dsimp only
+        split
+        · simp only [Option.map_some, VExpr.liftN_proj]
+        · rfl
+      | some entry =>
+        dsimp only
+        split
+        · simp only [Option.map_some, liftN_projNV]
+        · split
+          · simp only [Option.map_some, VExpr.liftN_proj]
+          · rfl
   | .lit (.natVal k), d, hpd, hfb => by
     simp only [Expr.shiftFrom, denote_natLit]
     split
@@ -404,34 +429,55 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     · exact nomatch h
   | case17 d sn i e h1 ihe =>
     intro _ _ v h; rw [denote_proj, h1] at h; exact nomatch h
-  | case18 d sn i e B h1 h2 ihe =>
+  | case18 d sn i e B h1 entry h2 h3 ihe =>
     intro hws hb v h
-    rw [denote_proj, h1] at h
-    simp only [if_pos h2, Option.some.injEq] at h
+    rw [denote_proj, h1, h2] at h
+    simp only [if_pos h3, Option.some.injEq] at h
+    simp only [Expr.WScoped] at hws
+    obtain rfl : v = projNV i B := h.symm
+    exact projNV_bvarsBelow i (ihe hws hb h1)
+  | case19 d sn i e B h1 entry h2 h3 h4 ihe =>
+    intro hws hb v h
+    rw [denote_proj, h1, h2] at h
+    simp only [if_neg h3, if_pos h4, Option.some.injEq] at h
     simp only [Expr.WScoped] at hws
     obtain rfl : v = .proj i B := h.symm
     show VExpr.bvarsBelow d B
     exact ihe hws hb h1
-  | case19 d sn i e B h1 h2 ihe =>
+  | case20 d sn i e B h1 entry h2 h3 h4 ihe =>
     intro _ _ v h
-    simp only [denote_proj, h1, if_neg h2] at h
+    rw [denote_proj, h1, h2] at h
+    simp only [if_neg h3, if_neg h4] at h
     exact nomatch h
-  | case20 d n hg =>
+  | case21 d sn i e B h1 h2 h3 ihe =>
+    intro hws hb v h
+    rw [denote_proj, h1, h2] at h
+    simp only [if_pos h3, Option.some.injEq] at h
+    simp only [Expr.WScoped] at hws
+    obtain rfl : v = .proj i B := h.symm
+    show VExpr.bvarsBelow d B
+    exact ihe hws hb h1
+  | case22 d sn i e B h1 h2 h3 ihe =>
+    intro _ _ v h
+    rw [denote_proj, h1, h2] at h
+    simp only [if_neg h3] at h
+    exact nomatch h
+  | case23 d n hg =>
     intro _ _ v h
     rw [denote_natLit, if_pos hg] at h
     obtain rfl := (Option.some.inj h).symm
     exact VExpr.bvarsBelow.mono (Nat.zero_le d)
       (natLitT_closed (hcl _ _) (hcl _ _) n)
-  | case21 d n hg =>
+  | case24 d n hg =>
     intro _ _ v h; rw [denote_natLit, if_neg hg] at h; exact nomatch h
-  | case22 d t hg =>
+  | case25 d t hg =>
     intro _ _ v h
     rw [denote_strLit, if_pos hg] at h
     obtain rfl := (Option.some.inj h).symm
     exact VExpr.bvarsBelow.mono (Nat.zero_le d) (strLitT_closed hcl t)
-  | case23 d t hg =>
+  | case26 d t hg =>
     intro _ _ v h; rw [denote_strLit, if_neg hg] at h; exact nomatch h
-  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case27 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     intro _ _ v h
     match x with
     | .bvar i => rw [denote_bvar] at h; exact nomatch h

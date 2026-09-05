@@ -92,7 +92,10 @@ theorem EnvR.consBlockMember {env : Env} (m : EnvR env)
   have hne := name_ne_of_mem_of_fresh hfresh'
   -- the install context: the valuation moves only at the new name
   have hi : Installs env m.cval (cvalModeled m.cval cvA.name) c₀ :=
-    Installs.of_fresh hfresh' (fun n hn => by
+    Installs.of_fresh hfresh'
+      (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+            intro _ h <;> exact nomatch h)
+      (fun n hn => by
       rw [hc₀name] at hn
       exact (cvalWith_ne hn).symm)
   -- the head is none of the value kinds, and its rules (if any) are []
@@ -193,6 +196,7 @@ theorem EnvR.consBlockMember {env : Env} (m : EnvR env)
     exact ProjOkT.cons m.proj_ok hfresh'
       (fun entry heq => absurd heq (hnproj entry))
       (fun _ entry heq => absurd heq (hnproj entry))
+      (fun entry heq => absurd heq (hnproj entry))
   · -- the theorem unfoldings: vacuous at the head
     intro cv value hmem ψ
     rcases List.mem_cons.mp hmem with h | h

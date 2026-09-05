@@ -307,7 +307,8 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     ProjStepR (mode := mode) m φ fuel := by
   intro d Δ sn i pe e' v h hws hb hLb hC hv
   obtain ⟨e₂, e₃, hwpe, hlit, hcase⟩ := whnf_proj_inv h
-  rw [denote_proj] at hv
+  rw [denote_proj_pair m.cval env φ d sn i pe
+    (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf')] at hv
   cases hvp : denote m.cval env φ d pe with
   | none => rw [hvp] at hv; exact nomatch hv
   | some vp =>
@@ -328,7 +329,8 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
       ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert⟩
     · -- stuck: the reduced scrutinee under the projection — `Red.projArg`
       refine ⟨.proj i v₃, ?_, Red.projArg hR₃⟩
-      rw [denote_proj, hv₃]
+      rw [denote_proj_pair m.cval env φ d sn i _
+        (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf'), hv₃]
       dsimp only
       rw [if_pos hi2]
     · -- the table fires

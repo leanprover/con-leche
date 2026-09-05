@@ -179,6 +179,14 @@ def strLitT (cval : TConstVal) (env : Env) (φ : Name → Nat) (s : String) :
       (cval natSuccName (Level.substFn φ [] []))
       s.toList)
 
+/-- The tower projection's `VExpr` spelling (task #175 wiring W3):
+`.proj 0 ∘ (.proj 1)^i` — the erase image of the P reading's `projAV`
+(`SetBase/TowerLeaf.lean`), interpreting to `projS i` on the tuple
+tier's carriers.  Depends only on the index. -/
+def projNV : Nat → VExpr → VExpr
+  | 0, e => .proj 0 e
+  | i + 1, e => projNV i (.proj 1 e)
+
 /-- Denote an expression under constant valuation `cval`, level
 assignment `φ` and binder depth `d`.  Clause for clause the transpose
 of `Setlec.interpExpr`; see the module docstring, in particular for the
@@ -222,13 +230,19 @@ def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
       | none => none
       | some b => some (.letE A xv b)
     | _, _ => none
-  | d, .proj _ i e =>
-    -- the transpose of `interpExpr`'s clause, `i < 2` guard included:
-    -- the former carries only the index and the subject, and its
-    -- typing rules read the pair's type arguments off the premise
+  | d, .proj sn i e =>
+    -- the transpose of `interpExpr`'s clause, `i < 2` guard included
+    -- on the pair side; a tower-backed entry (task #175 wiring W3)
+    -- reads field `i` by the uniform iterated spelling instead — the
+    -- entry key consumed at the reading, never carried in the syntax
     match denote cval env φ d e with
     | none => none
-    | some ve => if i < 2 then some (.proj i ve) else none
+    | some ve =>
+      match env.findProj? sn i with
+      | some entry =>
+        if entry.tower then some (projNV i ve)
+        else if i < 2 then some (.proj i ve) else none
+      | none => if i < 2 then some (.proj i ve) else none
   | _, .lit (.natVal n) =>
     -- guarded exactly like the checker's literal paths
     if natLitSupported env then
@@ -324,8 +338,35 @@ theorem denote_proj (cval : TConstVal) (env : Env) (φ : Name → Nat)
     denote cval env φ d (.proj T i e) =
       match denote cval env φ d e with
       | none => none
-      | some ve => if i < 2 then some (.proj i ve) else none := by
+      | some ve =>
+        match env.findProj? T i with
+        | some entry =>
+          if entry.tower then some (projNV i ve)
+          else if i < 2 then some (.proj i ve) else none
+        | none => if i < 2 then some (.proj i ve) else none := by
   rw [denote]
+
+/-- The clause at a pair-backed (or absent) entry — the pre-W3 shape,
+for consumers holding a pin (`projEntry_not_tower`/
+`NativeProjPinned.not_tower`) or an absence fact. -/
+theorem denote_proj_pair (cval : TConstVal) (env : Env) (φ : Name → Nat)
+    (d : Nat) (T : Name) (i : Nat) (e : Expr)
+    (hnt : ∀ entry, env.findProj? T i = some entry →
+      entry.tower = false) :
+    denote cval env φ d (.proj T i e) =
+      match denote cval env φ d e with
+      | none => none
+      | some ve => if i < 2 then some (.proj i ve) else none := by
+  rw [denote_proj]
+  cases denote cval env φ d e with
+  | none => rfl
+  | some ve =>
+    dsimp only
+    cases hfp : env.findProj? T i with
+    | none => rfl
+    | some entry =>
+      dsimp only
+      rw [if_neg (by simp [hnt entry hfp])]
 
 @[simp] theorem denote_bvar (cval : TConstVal) (env : Env) (φ : Name → Nat)
     (d i : Nat) : denote cval env φ d (.bvar i) = none := by

@@ -138,6 +138,7 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
     {blockNames : List Name} {c₀ : ConstantInfo} {cvA : ConstantVal}
     {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hc₀cv : c₀.toConstantVal = cvA) (hc₀name : c₀.name = cvA.name)
     (hpshape0 : c₀.name.isProjFnShape = false)
     (hbn : blockNames.contains cvA.name = true)
@@ -184,7 +185,7 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
         mp.caps_ok.1 T cvT caps hfE hcape hres hfam₀ φ' us hlen
       refine ⟨TVa, ?_, hokTVa, ?_⟩
       · rw [hac]
-        exact denoteP_cons_fresh_mono hfresh _ 0 _
+        exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
           (constsBound_instType mp.base2.wf
             (Setlec.SetR.Env.find?_mem hfE) us) hTVa
       · intro ρ ts rest x hlents hfit hmem
@@ -223,7 +224,7 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
         mp.caps_ok.2 T cvT caps hfE hcapu hres φ' us hlen
       refine ⟨TVa, ?_, hokTVa, ?_⟩
       · rw [hac]
-        exact denoteP_cons_fresh_mono hfresh _ 0 _
+        exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
           (constsBound_instType mp.base2.wf
             (Setlec.SetR.Env.find?_mem hfE) us) hTVa
       · intro ρ ts rest x y hlents hfit hmx hmy

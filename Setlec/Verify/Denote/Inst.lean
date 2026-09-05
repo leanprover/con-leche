@@ -46,6 +46,14 @@ open Setlec.TT
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
+/-- `projNV` commutes with instantiation (no binders; task #175
+wiring W3). -/
+theorem inst_projNV :
+    ∀ (i : Nat) (v x : VExpr) (k : Nat),
+      (projNV i v).inst x k = projNV i (v.inst x k)
+  | 0, _, _, _ => rfl
+  | i + 1, v, x, k => inst_projNV i (.proj 1 v) x k
+
 /-- **The substitution lemma.**  Substituting the expression `a` for
 `fvar p` corresponds to instantiating the denotation at de Bruijn cut
 `D - p`. -/
@@ -156,9 +164,19 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     | none => rfl
     | some ve =>
       simp only [Option.map_some]
-      split
-      · simp only [Option.map_some, VExpr.inst_proj]
-      · rfl
+      cases env.findProj? s i with
+      | none =>
+        dsimp only
+        split
+        · simp only [Option.map_some, VExpr.inst_proj]
+        · rfl
+      | some entry =>
+        dsimp only
+        split
+        · simp only [Option.map_some, inst_projNV]
+        · split
+          · simp only [Option.map_some, VExpr.inst_proj]
+          · rfl
   | .lit (.natVal k), D, hpD, hfb => by
     simp only [Expr.substFvarAt, denote_natLit]
     split
