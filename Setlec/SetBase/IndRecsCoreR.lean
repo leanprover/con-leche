@@ -167,8 +167,8 @@ def EnvR.swap {env₀ env₃ : Env} (m₀ : EnvR env₀)
       exact m₀.defn_eq cv value hint hc₀ ψ
     · exact nomatch heq
   · -- proj_ok: projection entries and their blocks are untouched
-    obtain ⟨hp1, hp2⟩ := m₀.proj_ok
-    refine ⟨?_, ?_⟩
+    obtain ⟨hp1, hp2, hp3⟩ := m₀.proj_ok
+    refine ⟨?_, ?_, ?_⟩
     · intro n entry hf hnat
       obtain ⟨he, hps, hpm⟩ :=
         hp1 n entry ((hsame n _
@@ -180,6 +180,9 @@ def EnvR.swap {env₀ env₃ : Env} (m₀ : EnvR env₀)
           (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hpm
     · intro i entry hf
       exact hp2 i entry ((hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+    · intro n entry hf
+      exact hp3 n entry ((hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
   · -- thm_ok: likewise a theorem is never a swap's right side
     intro cv value hmem ψ
@@ -322,8 +325,8 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
           exact nomatch hres
     exact hbpS n ci hf₀ hres
   · -- `ProjOkT`: projection entries are untouched
-    obtain ⟨hp1, hp2⟩ := hprojS
-    refine ⟨?_, ?_⟩
+    obtain ⟨hp1, hp2, hp3⟩ := hprojS
+    refine ⟨?_, ?_, ?_⟩
     · intro n entry hf hnat
       obtain ⟨he, hps, hpm⟩ :=
         hp1 n entry ((hsame n _
@@ -333,6 +336,9 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
         (hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hpm⟩
     · intro i entry hf
       exact hp2 i entry ((hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+    · intro n entry hf
+      exact hp3 n entry ((hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
 
 /-! ## The group phase, at the `EnvR` level -/

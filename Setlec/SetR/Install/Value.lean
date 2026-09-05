@@ -171,6 +171,7 @@ theorem extendValueS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
     (fun cv2 caps heq => absurd heq (hc₀nind cv2 caps))
     (fun entry heq => absurd heq (hc₀nproj entry))
     (fun _ entry heq => absurd heq (hc₀nproj entry))
+    (fun entry heq => absurd heq (hc₀nproj entry))
     ?_ ?_ hheadNat hheadDivMod hheadReduce,
     fun n hn => (cvalAt_ne hn).symm,
     fun ψ => by

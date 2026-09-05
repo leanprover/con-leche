@@ -148,6 +148,7 @@ theorem projConsS {μ : CheckMode} {env' : Env} (m : EnvS V env')
     (fun cv2 caps2 heq => ConstantInfo.noConfusion heq)
     (fun e heq => ConstantInfo.noConfusion heq)
     (fun i2 e heq => ConstantInfo.noConfusion heq)
+    (fun e heq => ConstantInfo.noConfusion heq)
     (fun heq => absurd heq (Name.num_ne_str _ _ _ _))
     (fun hres => absurd
       (show reservedBasisNames.contains (projFnName T i) = true
@@ -707,6 +708,7 @@ theorem templateConsS {env' : Env} (m : EnvS V env')
     {T : Name} {lps : List Name} {i : Nat} {entry : ProjEntry}
     (hstruct : entry.structName = T) (hidx : entry.idx = i)
     (hnat : entry.native = false)
+    (htower : entry.tower = false)
     (hlps : entry.levelParams = lps)
     (hty : entry.ty = .sort .zero)
     (hpnone : (env'.find? (projFnName T i)).isNone = true)
@@ -755,6 +757,9 @@ theorem templateConsS {env' : Env} (m : EnvS V env')
       rw [hnat] at hnat2
       exact nomatch hnat2)
     ?_
+    (fun e2 heq => by
+      obtain rfl := ConstantInfo.projInfo.inj heq
+      exact htower)
     (fun heq => absurd (hname ▸ heq) (Name.num_ne_str _ _ _ _))
     (fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h))
     (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq)
@@ -830,11 +835,11 @@ theorem templatesS {T ctorName : Name} {lps : List Name} {nP nF : Nat}
   | cons i rest ih =>
     intro env' m env₂ h
     obtain ⟨env'', hstep, hrec⟩ := h
-    rcases hstep with rfl | ⟨entry, hstruct, hidx, hnat, hlps,
+    rcases hstep with rfl | ⟨entry, hstruct, hidx, hnat, htower, hlps,
       hty, hpnone, rfl⟩
     · exact ih m hrec
     · obtain ⟨m', -⟩ :=
-        templateConsS m hstruct hidx hnat hlps hty hpnone hTnres
+        templateConsS m hstruct hidx hnat htower hlps hty hpnone hTnres
       exact ih m' hrec
 
 end Setlec.SetR

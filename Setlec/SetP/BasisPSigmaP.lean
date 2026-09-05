@@ -674,6 +674,9 @@ theorem extendPairFstP (mp : EnvS2PM V μ env)
       (fun _ entry heq _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rfl),
+      (fun entry heq => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        rfl),
       (fun _ _ _ _ h => nomatch h)⟩)
     (fun ψ k => AVExpr.liftN_eq_self _
       (VExpr.bvarsBelow.mono (Nat.zero_le k)
@@ -723,6 +726,9 @@ theorem extendPairSndP (mp : EnvS2PM V μ env)
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact ⟨Or.inr rfl, hP, hM⟩),
       (fun _ entry heq _ => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        rfl),
+      (fun entry heq => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rfl),
       (fun _ _ _ _ h => nomatch h)⟩)

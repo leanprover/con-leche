@@ -484,6 +484,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
     {T : Name} {lps : List Name} {i : Nat} {entry : ProjEntry}
     (hstruct : entry.structName = T) (hidx : entry.idx = i)
     (hnat : entry.native = false)
+    (htower : entry.tower = false)
     (hlps : entry.levelParams = lps)
     (hty : entry.ty = .sort .zero)
     (hpnone : (env'.find? (projFnName T i)).isNone = true)
@@ -533,6 +534,9 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
           exact (Name.str.inj (Name.num.inj hh).1).1
         rw [hTps] at hTnres
         exact absurd hTnres (by decide)),
+      (fun e2 heq => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact htower),
       (fun _ _ _ _ heq => nomatch heq)⟩
     refine Setlec.EnvWF.cons mp.base2.wf ⟨?_, ?_, ?_, ?_,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq),
@@ -604,11 +608,11 @@ theorem templatesP {T ctorName : Name} {lps : List Name} {nP nF : Nat}
   | cons i rest ih =>
     intro env' mp env₂ h
     obtain ⟨env'', hstep, hrec⟩ := h
-    rcases hstep with rfl | ⟨entry, hstruct, hidx, hnat, hlps,
+    rcases hstep with rfl | ⟨entry, hstruct, hidx, hnat, htower, hlps,
       hty, hpnone, rfl⟩
     · exact ih mp hrec
     · obtain ⟨mp', hcval'⟩ :=
-        templateConsP mp hstruct hidx hnat hlps hty hpnone hTnres
+        templateConsP mp hstruct hidx hnat htower hlps hty hpnone hTnres
       exact ih mp' hrec
 
 end Setlec.SetR.Interp2

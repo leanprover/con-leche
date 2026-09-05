@@ -553,6 +553,8 @@ def EnvS.cons {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
       env.find? psigmaMkName = some psigmaMkA)
     (hheadProjPair : ∀ i entry, c₀ = .projInfo entry →
       c₀.name = projFnName psigmaName i → entry.native = true)
+    (hheadProjTower : ∀ entry, c₀ = .projInfo entry →
+      entry.tower = false)
     (hheadEq : c₀.name = eqName → EqLawV V ⟨c₀ :: env.consts⟩ cval')
     (hheadBasis : reservedBasisNames.contains c₀.name = true →
       (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
@@ -598,6 +600,7 @@ def EnvS.cons {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
       empty_pinned := ?_
       basis_pinned := BasisPinnedTT.cons m.basis_pinned hi hheadBasis
       proj_ok := ProjOkT.cons m.proj_ok hi.fresh hheadProj hheadProjPair
+        hheadProjTower
       rec_ctors := RecCtorsStored.cons m.rec_ctors hi.fresh hheadCtors
       eq_lawV := EqLawV.cons m.eq_lawV hi.ag hheadEq
       rec_rules := fun φ => RecRulesV.cons (m.rec_rules φ) m.wf hi

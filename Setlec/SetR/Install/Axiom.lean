@@ -155,7 +155,8 @@ theorem extendAxiomS {env : Env} (m : EnvS V env) {cv : ConstantVal}
     (fun _ _ heq => nomatch heq) ?_
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     ?_ (fun _ _ heq => nomatch heq)
-    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq) ?_ ?_
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) ?_ ?_
     (fun _ _ _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) ?_,
     fun n hn => (cvalWith_ne hn).symm,
     fun ψ => congrFun cvalWith_self ψ⟩

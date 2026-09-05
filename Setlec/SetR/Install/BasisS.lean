@@ -272,6 +272,8 @@ theorem extendBasisS {env : Env} (m : EnvS V env) {ci : ConstantInfo}
       env.find? psigmaMkName = some psigmaMkA)
     (hheadProjPair : ∀ i entry, ci = .projInfo entry →
       ci.name = projFnName psigmaName i → entry.native = true)
+    (hheadProjTower : ∀ entry, ci = .projInfo entry →
+      entry.tower = false)
     (hheadEq : ci.name = eqName →
       EqLawV V ⟨ci :: env.consts⟩ (cvalWith m.cval ci.name val)) :
     ∃ m' : EnvS V ⟨ci :: env.consts⟩,
@@ -289,7 +291,7 @@ theorem extendBasisS {env : Env} (m : EnvS V env) {ci : ConstantInfo}
       ⟨(hheadRec cv mI rP rules heq rl hrl hfire (fun _ => 0)).1,
        fun φ us hus =>
          (hheadRec cv mI rP rules heq rl hrl hfire φ).2 us hus⟩)
-    hheadEta hheadUnit hheadProj hheadProjPair hheadEq
+    hheadEta hheadUnit hheadProj hheadProjPair hheadProjTower hheadEq
     (fun _ => ⟨hpin, fun ψ t hp => by rw [hself]; exact hdirect ψ t hp⟩)
     (fun cv v h heq => absurd heq (hnodefn cv v h))
     (fun cv v h heq => absurd heq (hnodefn cv v h))
@@ -323,6 +325,7 @@ theorem extendEmptyS {env : Env} (m : EnvS V env)
     (fun _ heq => nomatch heq) (fun _ ψ => ⟨1, rfl⟩)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro ψ t hp
     simp only [pinnedDirectT, emptyA, ConstantInfo.name] at hp ⊢
@@ -386,6 +389,7 @@ theorem extendEmptyRecS {env : Env} (m : EnvS V env)
       subst h4
       intro rl hrl; exact nomatch hrl)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro ψ t hp
     have hpr : pinnedDirectT (emptyName.str "rec") ψ
@@ -497,6 +501,7 @@ theorem extendPUnitS {env : Env} (m : EnvS V env)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ₁ φ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
@@ -529,6 +534,7 @@ theorem extendPUnitUnitS {env : Env} (m : EnvS V env)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ₁ φ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
@@ -591,6 +597,7 @@ theorem extendPUnitRecS {env : Env} (m : EnvS V env)
     (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq) ?_ ?_
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · -- the valuation reads only `u` and `u_1`
     intro φ₁ φ₂ hp
@@ -806,6 +813,7 @@ theorem extendNatS {env : Env} (m : EnvS V env)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ
     refine ⟨.sort 1, ?_, fun ρ =>
@@ -834,6 +842,7 @@ theorem extendNatZeroS {env : Env} (m : EnvS V env)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ
     refine ⟨natT, ?_, fun ρ =>
@@ -874,6 +883,7 @@ theorem extendNatSuccS {env : Env} (m : EnvS V env)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ
     refine ⟨.pi natT natT, ?_, fun ρ =>
@@ -1051,6 +1061,7 @@ theorem extendNatRecS {env : Env} (m : EnvS V env)
     (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq) ?_ ?_
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ₁ φ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
@@ -1562,6 +1573,7 @@ theorem extendQuotS {env : Env} (m : EnvS V env)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ₁ φ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
@@ -1610,6 +1622,7 @@ theorem extendQuotMkS {env : Env} (m : EnvS V env)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ₁ φ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
@@ -1823,6 +1836,7 @@ theorem extendQuotIndS {env : Env} (m : EnvS V env)
     (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq) ?_ ?_
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ₁ φ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
@@ -2431,6 +2445,7 @@ theorem extendQuotLiftS {env : Env} (m : EnvS V env)
     (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq) ?_ ?_
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ₁ φ₂ hp
     rw [hp uN (by show uN ∈ [uN, vN]; exact List.mem_cons_self),
@@ -3174,7 +3189,8 @@ theorem extendEqS {env : Env} (m : EnvS V env)
     (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
-    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq) ?_
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) ?_
   · intro φ₁ φ₂ hp
     exact eqValT_congr (hp uN (by show uN ∈ [uN]; exact
       List.mem_cons_self))
@@ -3233,6 +3249,7 @@ theorem extendEqReflS {env : Env} (m : EnvS V env)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ₁ φ₂ hp
     exact eqReflValT_congr
@@ -3436,6 +3453,7 @@ theorem extendEqRecS {env : Env} (m : EnvS V env)
     (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq) ?_ ?_
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · -- the valuation reads only `u` and `u_1`
     intro φ₁ φ₂ hp
@@ -4016,6 +4034,7 @@ theorem extendPSigmaS {env : Env} (m : EnvS V env)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ₁ φ₂ hp
     rw [hp uN (by show uN ∈ [uN, vN]; exact List.mem_cons_self),
@@ -4070,6 +4089,7 @@ theorem extendPSigmaMkS {env : Env} (m : EnvS V env)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ₁ φ₂ hp
     rw [hp uN (by show uN ∈ [uN, vN]; exact List.mem_cons_self),
@@ -4290,6 +4310,10 @@ theorem extendPairProjS {env : Env} (m : EnvS V env) {i : Nat}
       rw [hci] at heq
       injection heq with he
       exact he ▸ hnat)
+    (fun e heq => by
+      rw [hci] at heq
+      injection heq with he
+      rcases he ▸ hentry with rfl | rfl <;> rfl)
     (fun heq => by
       rw [hname] at heq
       exact absurd heq (projFnName_ne_reserved (n := eqName) (by
@@ -4652,6 +4676,7 @@ theorem extendPSigmaRecS {env : Env} (m : EnvS V env)
     (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq) ?_ ?_
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · -- the valuation reads only `u` and `v`
     intro φ₁ φ₂ hp
@@ -5163,6 +5188,7 @@ theorem extendQuotSoundS {env : Env} (m : EnvS V env)
     (fun _ _ hmem => absurd hmem (by decide)) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq)
     (fun heq => nomatch heq)
   · intro φ₁ φ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]

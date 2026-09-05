@@ -107,6 +107,7 @@ theorem indMemberS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
     hheadEta hheadUnit
     (fun entry heq => absurd heq (hnproj entry))
     (fun _ entry heq => absurd heq (hnproj entry))
+    (fun entry heq => absurd heq (hnproj entry))
     ?_ ?_
     (fun cv2 v2 h2 heq => absurd heq (hndefn cv2 v2 h2))
     (fun cv2 v2 h2 heq => absurd heq (hndefn cv2 v2 h2))

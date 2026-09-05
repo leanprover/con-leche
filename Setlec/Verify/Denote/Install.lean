@@ -880,7 +880,9 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
       env.find? psigmaName = some psigmaA ∧
       env.find? psigmaMkName = some psigmaMkA)
     (hheadPair : ∀ i entry, c₀ = .projInfo entry →
-      c₀.name = projFnName psigmaName i → entry.native = true) :
+      c₀.name = projFnName psigmaName i → entry.native = true)
+    (hheadTower : ∀ entry, c₀ = .projInfo entry →
+      entry.tower = false) :
     ProjOkT ⟨c₀ :: env.consts⟩ := by
   have step : ∀ entry,
       ((entry = pairFstEntry ∨ entry = pairSndEntry) ∧
@@ -893,7 +895,7 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
     refine ⟨h1, ?_, ?_⟩
     · rw [Env.find?_cons_of_isSome hfresh (by rw [h2]; rfl)]; exact h2
     · rw [Env.find?_cons_of_isSome hfresh (by rw [h3]; rfl)]; exact h3
-  refine ⟨?_, ?_⟩
+  refine ⟨?_, ?_, ?_⟩
   · intro n entry hf hnat
     by_cases hn : c₀.name = n
     · subst hn
@@ -906,7 +908,14 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
     · rw [Env.find?_cons, if_pos hn] at hf
       exact hheadPair i entry (Option.some.inj hf) hn
     · rw [Env.find?_cons, if_neg hn] at hf
-      exact h.2 i entry hf
+      exact h.2.1 i entry hf
+  · intro n entry hf
+    by_cases hn : c₀.name = n
+    · subst hn
+      rw [Env.find?_cons, if_pos rfl] at hf
+      exact hheadTower entry (Option.some.inj hf)
+    · rw [Env.find?_cons, if_neg hn] at hf
+      exact h.2.2 n entry hf
 
 /-- Every name a clause set reads is valued the same after an install
 at a different name. -/

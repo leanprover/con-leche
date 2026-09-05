@@ -324,6 +324,7 @@ def piProbeEnvS : EnvS V piProbeEnv := by
     (hheadUnit := fun _ _ heq => nomatch heq)
     (hheadProj := fun _ heq => nomatch heq)
     (hheadProjPair := fun _ _ heq => nomatch heq)
+    (hheadProjTower := fun _ heq => nomatch heq)
     (hheadEq := fun heq => absurd heq (by decide))
     (hheadBasis := fun heq => nomatch heq)
     (hheadNat := fun _ _ _ heq => nomatch heq)

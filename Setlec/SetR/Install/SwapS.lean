@@ -130,8 +130,8 @@ def EnvS.swap {env₀ env₃ : Env} (m₀ : EnvS V env₀)
           exact nomatch hres
     exact m₀.basis_pinned n ci hf₀ hres
   · -- proj_ok: projection entries and their blocks are untouched
-    obtain ⟨hp1, hp2⟩ := m₀.proj_ok
-    refine ⟨?_, ?_⟩
+    obtain ⟨hp1, hp2, hp3⟩ := m₀.proj_ok
+    refine ⟨?_, ?_, ?_⟩
     · intro n entry hf hnat
       obtain ⟨he, hps, hpm⟩ :=
         hp1 n entry ((hsame n _
@@ -143,6 +143,9 @@ def EnvS.swap {env₀ env₃ : Env} (m₀ : EnvS V env₀)
           (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hpm
     · intro i entry hf
       exact hp2 i entry ((hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+    · intro n entry hf
+      exact hp3 n entry ((hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
   · -- eq_lawV: `Eq` is stored as an `indInfo`, so it is never swapped
     intro hf

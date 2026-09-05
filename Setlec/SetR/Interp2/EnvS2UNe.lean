@@ -98,6 +98,7 @@ def probeEnvS : EnvS V probeEnv := by
     (hheadUnit := fun _ _ heq => nomatch heq)
     (hheadProj := fun _ heq => nomatch heq)
     (hheadProjPair := fun _ _ heq => nomatch heq)
+    (hheadProjTower := fun _ heq => nomatch heq)
     (hheadEq := fun heq => nomatch heq)
     (hheadBasis := fun heq => nomatch heq)
     (hheadNat := fun _ _ _ heq => nomatch heq)

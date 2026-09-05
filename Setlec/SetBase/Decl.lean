@@ -952,6 +952,9 @@ where
         (env'' = env' ∨
          ∃ entry : ProjEntry, entry.structName = T ∧ entry.idx = i ∧
            entry.native = false ∧
+           -- task #175 wiring W3: template entries are tower-free
+           -- (what `ProjOkT`'s third conjunct consumes at the cons)
+           entry.tower = false ∧
            -- the stored shape and the freshness `installProjTemplate`
            -- checks (`Modeled.lean:687-691`), both of which the cons
            -- needs

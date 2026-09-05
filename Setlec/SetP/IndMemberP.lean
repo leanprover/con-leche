@@ -214,6 +214,8 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
             intro _ h <;> exact nomatch h)
       (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
             intro _ _ h <;> exact nomatch h)
+      (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+            intro _ h <;> exact nomatch h)
       (fun cv2 mI2 rP2 rules2 heq r hr => by
         rw [hnorules cv2 mI2 rP2 rules2 heq] at hr
         exact nomatch hr))

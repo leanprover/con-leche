@@ -149,6 +149,9 @@ structure ConsHeadP (env : Env) (c₀ : ConstantInfo)
   projPair : ∀ (i : Nat) entry, c₀ = .projInfo entry →
     c₀.name = Setlec.projFnName Setlec.psigmaName i →
     entry.native = true
+  /-- a head entry is tower-free (task #175 wiring W3; weakens to the
+  coverage disjunction at the flip) -/
+  projTower : ∀ entry, c₀ = .projInfo entry → entry.tower = false
   /-- a head recursor's rules' constructors are stored
   (`RecCtorsStored`'s head) -/
   ctorsHead : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
@@ -174,7 +177,8 @@ theorem ConsHeadP.ofBasis {c₀ : ConstantInfo}
     ConsHeadP env c₀ A :=
   ⟨hwf, hvclosed, fun _ => ⟨hpinned, hleaf⟩,
     fun entry heq => absurd heq (hnotproj entry),
-    fun _ entry heq => absurd heq (hnotproj entry), hctors⟩
+    fun _ entry heq => absurd heq (hnotproj entry),
+    fun entry heq => absurd heq (hnotproj entry), hctors⟩
 
 /-- **The head obligations of an ordinary (non-reserved) cons**: the
 pin clause is vacuous. -/
@@ -190,6 +194,7 @@ theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
     (hprojPair : ∀ (i : Nat) entry, c₀ = .projInfo entry →
       c₀.name = Setlec.projFnName Setlec.psigmaName i →
       entry.native = true)
+    (hprojTower : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (Setlec.RecRule.ctor r)
@@ -197,7 +202,7 @@ theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
     ConsHeadP env c₀ A :=
   ⟨hwf, hvclosed,
     fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),
-    hprojHead, hprojPair, hctors⟩
+    hprojHead, hprojPair, hprojTower, hctors⟩
 
 /-- **The de-based core at a fresh cons** — `coreOfBase`'s successor
 (task #161 S7).  Every field is the prefix's own, stepped by the
@@ -231,6 +236,7 @@ def coreCons (m : EnvS2Core V env) {c₀ : ConstantInfo}
           acvalWith_self]
         exact (hh.pin hres).2 ψ t hp⟩)
   proj_ok := ProjOkT.cons m.proj_ok hfresh hh.projHead hh.projPair
+    hh.projTower
   rec_ctors := Setlec.RecCtorsStored.cons m.rec_ctors hfresh hh.ctorsHead
   acval_closed := acvalWith_closed m.acval_closed hAclosed
   acval_params := acvalWith_params m.acval_params hAparams

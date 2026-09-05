@@ -106,7 +106,7 @@ theorem templatesR_ext {T ctorName : Name} {lps : List Name}
     intro env' env₂ h
     obtain ⟨env'', hstep, htail⟩ := h
     refine ExtEta.trans ?_ (ih htail)
-    rcases hstep with rfl | ⟨entry, hst, hix, -, -, -, hfresh, rfl⟩
+    rcases hstep with rfl | ⟨entry, hst, hix, -, -, -, -, hfresh, rfl⟩
     · exact ExtEta.refl _
     · refine ExtEta.cons ?_ (fun _ _ hh => ConstantInfo.noConfusion hh)
       show env'.find? (projFnName entry.structName entry.idx) = none

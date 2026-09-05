@@ -214,6 +214,7 @@ theorem EnvR.consProjFn {env' : Env} (m : EnvR env')
     exact ProjOkT.cons m.proj_ok hfresh0
       (fun entry heq => ConstantInfo.noConfusion heq)
       (fun _ entry heq => ConstantInfo.noConfusion heq)
+      (fun entry heq => ConstantInfo.noConfusion heq)
   · -- theorem unfoldings: vacuous at the head
     intro cv value hmem ψ
     rcases List.mem_cons.mp hmem with h | h
