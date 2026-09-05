@@ -38696,15 +38696,54 @@ The one trap: `omega` needs the *outer* `% 2^64` discharged, so each
 lemma carries the componentwise range hypotheses and `cases lp` first
 (otherwise `(if lp then 1 else 0).toNat` blocks it).
 
-### 5. RECEIPTS
+### 5. THE A/B — INSTRUCTIONS FLAT, MEMORY HALVED
 
-`lake build` green and **warning-free**, 521 jobs; `lake test` green;
-layering base 246 / R 105 / P 120 / neutral 3, **0 P→R, 0 R→P**;
-proofdeps **96 rows as pinned**, doors 0; arena tutorial **90/92**,
+The shipped lane (`--set-model`), `instructions:u` and peak RSS,
+median of 3, against the baseline binary snapshotted at `a9399a80`
+**before** the batch opened.  Baseline stamp `raw/vs-official-raw`
+except the last row.
+
+| stream | instr base → pack | Δ | peak RSS base → pack | Δ |
+|---|---|---|---|---|
+| `init-full` (61 048 decls) | 2929.44 → 2931.91 G | **+0.08 %** | 1744.6 → 931.0 MB | **−46.6 %** |
+| `grind-ring-5` | 98.00 → 97.65 G | **−0.35 %** | 489.6 → 349.4 MB | **−28.6 %** |
+| `app-lam` (the DAG/RSS stress) | 291.12 → 282.72 G | **−2.88 %** | 5248.0 → 2788.4 MB | **−46.9 %** |
+| `init-full.pre` (`--pre`; stamp `pre/vs-official-pre`) | 2749.54 → 2751.89 G | **+0.09 %** | 1746.3 → 926.8 MB | **−46.9 %** |
+
+Read it as the promise kept and the worry answered:
+
+* **the promise was memory, and it is halved** — 5.25 GB → 2.79 GB on
+  `app-lam`, 1.74 GB → 0.93 GB on `init-full`.  That is *more* than
+  B3a's synthetic accessor bench predicted (−38.8 %), because the
+  bench measured a node array while the real streams pay the same
+  saving on every live node of a 24 k-node DAG plus every rebuilt
+  intermediate;
+* **the worry was the accessor, and it costs nothing** — +0.08 % on
+  `init-full` is inside run-to-run noise, and `app-lam` is **−2.88 %**:
+  on DAG-shared reduction traffic the smaller node pays for its own
+  extraction through the cache.  B3a's `PackB` bench said bit
+  extraction is cheaper than four tagged reads; at scale it is
+  cache behaviour, not instruction count, that decides, and both
+  point the same way.
+
+`app-lam`'s baseline row (291.12 G) reproduces B3a's own pre-migration
+measurement of the same stream (291.16 G) to 0.01 %, which is the
+harness's own control.
+
+### 6. RECEIPTS
+
+`lake build` green and **warning-free**, 407 jobs (521 before the
+merge with master's SetR deletion); `lake test` green;
+layering base 242 / P 120 / caps 2 / umbrella 1, **0 base→lane, 0
+impl→theory** (pre-merge: base 246 / R 105 / P 120 / neutral 3, 0
+P→R, 0 R→P); proofdeps **88 rows as pinned**, doors 0 (pre-merge
+96); arena tutorial **90/92**,
 e2e **73/73**, annot **14/14**, retired flags 8/8, mode flags 11/11,
 **no-model sweep 138 arena + 73 e2e + 14 annot as expected (its 3
-recorded divergences)** — verdict identity everywhere, and **no
-stream reached the saturated branch**; axioms of `bvarB_eq`,
+recorded divergences)**; `init-full` **accepted 61 048 declarations
+under all three modes** (`--set-model`, `--set-model=p`,
+`--no-model`), baseline and packed alike — verdict identity
+everywhere, and **no stream reached the saturated branch**; axioms of `bvarB_eq`,
 `fvarB_eq`, `hasLP_eq`, `bvarBoundMemo_eq`, `fvarRangeMemo_eq` and
 both cached capstones exactly the standard three; no `sorry`, no new
 axiom, no statement left conditional.
