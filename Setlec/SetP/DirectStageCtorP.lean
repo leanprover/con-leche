@@ -208,4 +208,202 @@ theorem ctorWalks {m : EnvS2Core V env} {T : Name} {cvT cvC : ConstantVal}
     have := mkTowerGo_validV (w := resSort.eval ψ) hval (fun hw => hokB.toBound hw) hspF
     rwa [consList_range_reverse] at this
 
+/-! ## The cons -/
+
+/-- **The P step at the constructor's cons.** -/
+theorem stageCtor
+    (hE₀ : Setlec.EtaFamiliesClosed env)
+    {F : Nat} {p : DirectParts} {envI envC : Env} {cvTa cvCa : ConstantVal}
+    {sorts : List Level}
+    (henvI : envI = ⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩)
+    (hTfresh₀ : env.find? p.cvT.name = none)
+    (hTname : cvTa.name = p.cvT.name)
+    (hlpsC : cvCa.levelParams = cvTa.levelParams)
+    (mpI : EnvS2PM V μ envI)
+    (hCtor : Setlec.checkDirectCtor (Setlec.fueledOps μ F) env envI p cvTa
+      = .ok (envC, cvCa, sorts))
+    -- the first projection slot is still empty at the extension (all
+    -- slots are, until the entries are installed), so the block's
+    -- family is η-complete there only when fieldless
+    (hslot0 : 0 < p.nF → envC.find? (Setlec.projFnName p.cvT.name 0) = none)
+    {pps ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
+    (hFD : FormerData mpI.base2 cvTa p.nP p.resSort pps)
+    (hCD : CtorData mpI.base2 p.cvT.name cvCa p.nP p.nF p.resSort ds)
+    (hleafT : ∀ ψ, mpI.base2.acval p.cvT.name ψ
+      = directTyAV (p.resSort.eval ψ) (pps ψ) (((ds ψ).drop p.nP).map (·.2.2)))
+    (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V ((pps ψ).map (·.2.2)).reverse ρ ↔
+        Sat2 V (((ds ψ).take p.nP).map (·.2.2)).reverse ρ)
+    (hfields : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ds ψ).take p.nP).map (·.2.2)).reverse ρ →
+        FieldsOkB (p.resSort.eval ψ) ρ (((ds ψ).drop p.nP).map (·.2.2)) ∧
+        FieldsValid ρ (((ds ψ).drop p.nP).map (·.2.2))) :
+    ∃ mp' : EnvS2PM V μ envC,
+      mp'.base2.acval = acvalWith mpI.base2.acval cvCa.name
+        (fun ψ => directMkAV (p.resSort.eval ψ) (ds ψ) (((ds ψ).drop p.nP).map (·.2.2))) := by
+  obtain ⟨hccv, rfl, -, -⟩ := Setlec.checkDirectCtor_shape hCtor
+  obtain ⟨hfind, hnres, hpshape, -, hlbt, hitf, type', -, -, hann', -, htr', -, -, hty⟩ :=
+    Setlec.checkConstantVal_inv hccv
+  obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
+  have hCname : cvCa.name = p.cvC.name := by rw [hty]
+  have hfresh : envI.find? cvCa.name = none := by rw [hCname]; exact hfind
+  have htr : cvCa.type.constsResolve envI = true := by rw [hty]; exact htr'
+  have hcb : ConstsBound envI cvCa.type := constsBound_of_constsResolve _ htr
+  have hfT : envI.find? p.cvT.name = some (.indInfo cvTa (Setlec.directCaps p)) := by
+    subst henvI
+    have := Setlec.Env.find?_cons_self (ConstantInfo.indInfo cvTa (Setlec.directCaps p)) env
+    rw [← hTname]
+    exact this
+  have hTC : p.cvT.name ≠ cvCa.name := by
+    intro h; rw [h, hfresh] at hfT; exact nomatch hfT
+  obtain ⟨hwfC, -, -⟩ := Setlec.direct_ctor_wf mpI.base2.wf hCtor
+  -- the leaf
+  let Fs : (Name → Nat) → List AVExpr := fun ψ => ((ds ψ).drop p.nP).map (·.2.2)
+  let A : (Name → Nat) → AVExpr :=
+    fun ψ => directMkAV (p.resSort.eval ψ) (ds ψ) (Fs ψ)
+  have hAbelow : ∀ ψ, VExpr.bvarsBelow 0 (A ψ).erase := fun ψ =>
+    directMkAV_below (hCD.below ψ) ((DomsBelow.drop p.nP (hCD.below ψ)).fields)
+      (by show p.nP + (((ds ψ).drop p.nP).map (·.2.2)).length = (ds ψ).length
+          simp [hCD.len ψ])
+  have hwalks := ctorWalks hFD hCD hleafT hiff hfields
+  have hz : ∀ ψ, ∀ d ∈ (ds ψ).take p.nP ++ (ds ψ).drop p.nP,
+      (p.resSort.eval ψ = 0 ↔ d.2.1 = 0) := by
+    intro ψ d hd
+    rw [List.take_append_drop] at hd
+    exact hCD.bits ψ d hd
+  have hFsmap : ∀ ψ, ((ds ψ).drop p.nP).map (·.2.2) = Fs ψ := fun _ => rfl
+  -- the reading at the extension
+  have hreadC : ∀ ψ : Name → Nat,
+      denoteP (acvalWith mpI.base2.acval cvCa.name A)
+        ⟨.ctorInfo cvCa p.nP p.nF :: envI.consts⟩ ψ 0 cvCa.type
+        = some (mkPisAV (ds ψ) (ctorBodyAV mpI.base2 p.cvT.name p.nP p.nF ψ)) := fun ψ =>
+    denoteP_cons_mono (c₀ := .ctorInfo cvCa p.nP p.nF) hfresh
+      (ConsCrossAt.ofNtc fun _ h => nomatch h) ψ 0 hcb (hCD.read ψ)
+  have hnresC : Setlec.reservedBasisNames.contains
+      (ConstantInfo.ctorInfo cvCa p.nP p.nF).name = false := by
+    show Setlec.reservedBasisNames.contains cvCa.name = false
+    rw [hCname]; exact hnres
+  have hpshapeC : (ConstantInfo.ctorInfo cvCa p.nP p.nF).name.isProjFnShape = false := by
+    show cvCa.name.isProjFnShape = false
+    rw [hCname]; exact hpshape
+  refine declStepPM_of_ind_member_cons mpI (c₀ := .ctorInfo cvCa p.nP p.nF)
+    (A := A) hfresh hnresC (Or.inr ⟨_, _, _, rfl⟩)
+    (ConsHeadP.ofFresh hwfC (fun ψ => hAbelow ψ) hnresC
+      (fun _ h => nomatch h) (fun _ _ h => nomatch h) (fun _ h => nomatch h)
+      (fun _ _ _ _ h => nomatch h))
+    (fun ψ k => AVExpr.liftN_eq_self _
+      (VExpr.bvarsBelow.mono (Nat.zero_le k) (hAbelow ψ)) 1)
+    ?_ ?_ ?_ ?_ ?_ ?_ ?_
+  · -- level dependence
+    intro ψ₁ ψ₂ hφ
+    have hφT : ∀ q ∈ cvTa.levelParams, ψ₁ q = ψ₂ q := by rw [← hlpsC]; exact hφ
+    obtain ⟨-, hw⟩ := hFD.params ψ₁ ψ₂ hφT
+    show directMkAV _ (ds ψ₁) (((ds ψ₁).drop p.nP).map (·.2.2))
+      = directMkAV _ (ds ψ₂) (((ds ψ₂).drop p.nP).map (·.2.2))
+    rw [hw, hCD.params ψ₁ ψ₂ hφ]
+  · intro ψ ρ
+    have := directMkAV_okP (V := V) (hz ψ) (hwalks ψ ρ).1 (hwalks ψ ρ).2
+    rw [List.take_append_drop] at this
+    exact this.1
+  · intro ψ ρ
+    have := directMkAV_okP (V := V) (hz ψ) (hwalks ψ ρ).1 (hwalks ψ ρ).2
+    rw [List.take_append_drop] at this
+    exact this.2
+  · exact fun ψ => ⟨_, hreadC ψ⟩
+  · intro ψ ta hta ρ
+    obtain rfl := Option.some.inj ((hreadC ψ).symm.trans hta)
+    exact hCD.okTy ψ ρ
+  · intro ψ ta hta ρ
+    obtain rfl := Option.some.inj ((hreadC ψ).symm.trans hta)
+    have := directMkAV_mem (V := V) (hz ψ) (hwalks ψ ρ).1
+    rw [List.take_append_drop] at this
+    exact this
+  · -- `caps_ok`
+    intro m₂ hac
+    refine capsOkP_cons_direct mpI (c₀ := .ctorInfo cvCa p.nP p.nF) (A := A)
+      (T := p.cvT.name) hfresh (ConsCrossEnv.ofNtc fun _ h => nomatch h) hpshapeC
+      (Or.inr fun _ _ h => nomatch h) ?_ m₂ hac ?_
+    · -- every other family's constructor is stored in the pre-block
+      -- environment, hence here
+      intro T' cvT' caps' hf hne hres hcape
+      have hf₀ : env.find? T' = some (.indInfo cvT' caps') := by
+        rw [henvI, Setlec.Env.find?_cons] at hf
+        split at hf
+        · next heq =>
+          exfalso
+          apply hne
+          have : cvTa.name = T' := heq
+          rw [← this, hTname]
+        · exact hf
+      obtain ⟨cvC', hfC'⟩ := hE₀ T' cvT' caps' hf₀ hcape hres
+      refine ⟨cvC', ?_⟩
+      rw [henvI, Setlec.Env.find?_cons_of_isSome
+        (by show env.find? cvTa.name = none; rw [hTname]; exact hTfresh₀)
+        (by rw [hfC']; rfl)]
+      exact hfC'
+    · intro cvT caps hf hres
+      have hfT' : (⟨.ctorInfo cvCa p.nP p.nF :: envI.consts⟩ : Env).find? p.cvT.name
+          = some (.indInfo cvTa (Setlec.directCaps p)) := by
+        rw [Setlec.Env.find?_cons, if_neg (fun h => hTC h.symm)]
+        exact hfT
+      obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))
+      have hFD₂ : FormerData m₂ cvTa p.nP p.resSort pps :=
+        hFD.cross (c₀ := .ctorInfo cvCa p.nP p.nF) (A := A) hfresh
+          (ConsCrossAt.ofNtc fun _ h => nomatch h)
+          (constsBound_of_constsResolve _
+            (mpI.base2.wf _ (Setlec.SetR.Env.find?_mem hfT)).2.2.1) m₂ hac
+      have hleafT₂ : ∀ ψ, m₂.acval p.cvT.name ψ
+          = directTyAV (p.resSort.eval ψ) (pps ψ) (Fs ψ) := by
+        intro ψ
+        rw [hac]
+        show acvalWith mpI.base2.acval cvCa.name A p.cvT.name ψ = _
+        rw [acvalWith_ne hTC]
+        exact hleafT ψ
+      have hpok : ∀ ψ ρ, ParamsOkT (p.resSort.eval ψ) ρ (Fs ψ) (pps ψ) := fun ψ ρ =>
+        (formerWalks hFD (fun ψ' ρ' h => hfields ψ' ρ' ((hiff ψ' ρ').mp h)) ψ ρ).1
+      refine ⟨fun _ hfam φ' => ?_, fun hunit φ' => ?_⟩
+      · -- η: fieldless (the slots are empty otherwise)
+        rcases Nat.eq_zero_or_pos p.nF with hnF | hnF
+        · have hFs0 : ∀ ψ, Fs ψ = [] := by
+            intro ψ
+            show ((ds ψ).drop p.nP).map (·.2.2) = []
+            rw [List.drop_eq_nil_of_le (by rw [hCD.len ψ, hnF]; exact Nat.le_refl _)]
+            rfl
+          refine directEtaLawP0 (m := m₂) (T := p.cvT.name) (caps := Setlec.directCaps p)
+            (ds := ds) hnF ?_ ?_ hFD₂.read hFD₂.okTy ?_ ?_ ?_
+          · intro ψ; rw [hleafT₂ ψ, hFs0 ψ]
+          · intro ψ
+            rw [show (Setlec.directCaps p).etaCtor = cvCa.name from by rw [hCname]; rfl, hac]
+            show acvalWith mpI.base2.acval cvCa.name A cvCa.name ψ = _
+            rw [acvalWith_self]
+            show directMkAV _ _ (Fs ψ) = _
+            rw [hFs0 ψ]
+          · intro ψ ρ; have := hpok ψ ρ; rwa [hFs0 ψ] at this
+          · intro ψ ρ as hsp
+            have hl := hsp.length_eq
+            have hds : ds ψ = (ds ψ).take p.nP := by
+              rw [List.take_of_length_le (by rw [hCD.len ψ, hnF]; exact Nat.le_refl _)]
+            rw [hds]
+            exact (spineFit_iff_of_sat2_iff (by simp [hFD.len ψ, hCD.len ψ, hnF])
+              (hiff ψ) ρ as (by simpa using hl)).mp hsp
+          · intro ψ; show p.nP = (pps ψ).length; rw [hFD.len ψ]
+        · exfalso
+          obtain ⟨-, -, hfP⟩ := hfam
+          obtain ⟨cv, mI, rP, rules, hf0⟩ := hfP 0 hnF
+          rw [hslot0 hnF] at hf0
+          exact nomatch hf0
+      · have hnF : p.nF = 0 := by
+          have : (p.nF == 0) = true := hunit
+          simpa using this
+        have hFs0 : ∀ ψ, Fs ψ = [] := by
+          intro ψ
+          show ((ds ψ).drop p.nP).map (·.2.2) = []
+          rw [List.drop_eq_nil_of_le (by rw [hCD.len ψ, hnF]; exact Nat.le_refl _)]
+          rfl
+        refine directUnitLawP (m := m₂) (T := p.cvT.name) (caps := Setlec.directCaps p)
+          ?_ hFD₂.read hFD₂.okTy ?_ ?_
+        · intro ψ; rw [hleafT₂ ψ, hFs0 ψ]
+        · intro ψ ρ; have := hpok ψ ρ; rwa [hFs0 ψ] at this
+        · intro ψ; show p.nP = (pps ψ).length; rw [hFD.len ψ]
+
 end Setlec.SetR.Interp2
