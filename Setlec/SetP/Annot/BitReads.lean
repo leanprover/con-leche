@@ -128,14 +128,52 @@ theorem denoteP_isSome_of_denote
     · rw [hE] at h; exact nomatch h
     rw [hE] at h
     dsimp only at h
-    by_cases hi : i < 2
-    · obtain ⟨ea, hea⟩ := ihe hE
-      refine ⟨AVExpr.proj i ea, ?_⟩
-      rw [denoteP, hea]
-      show (if i < 2 then some (AVExpr.proj i ea) else none) = _
-      rw [if_pos hi]
-    · rw [if_neg hi] at h
-      exact nomatch h
+    obtain ⟨ea, hea⟩ := ihe hE
+    cases hfp : env.findProj? sn i with
+    | some entry =>
+      rw [hfp] at h
+      dsimp only at h
+      by_cases htw : entry.tower = true
+      · refine ⟨projAV i ea, ?_⟩
+        rw [denoteP, hea]
+        show (match env.findProj? sn i with
+          | some entry => if entry.tower = true then some (projAV i ea)
+              else if i < 2 then some (AVExpr.proj i ea) else none
+          | none => if i < 2 then some (AVExpr.proj i ea) else none)
+            = _
+        rw [hfp]
+        dsimp only
+        rw [if_pos htw]
+      · rw [if_neg htw] at h
+        by_cases hi : i < 2
+        · refine ⟨AVExpr.proj i ea, ?_⟩
+          rw [denoteP, hea]
+          show (match env.findProj? sn i with
+            | some entry => if entry.tower = true then some (projAV i ea)
+                else if i < 2 then some (AVExpr.proj i ea) else none
+            | none => if i < 2 then some (AVExpr.proj i ea) else none)
+              = _
+          rw [hfp]
+          dsimp only
+          rw [if_neg htw, if_pos hi]
+        · rw [if_neg hi] at h
+          exact nomatch h
+    | none =>
+      rw [hfp] at h
+      dsimp only at h
+      by_cases hi : i < 2
+      · refine ⟨AVExpr.proj i ea, ?_⟩
+        rw [denoteP, hea]
+        show (match env.findProj? sn i with
+          | some entry => if entry.tower = true then some (projAV i ea)
+              else if i < 2 then some (AVExpr.proj i ea) else none
+          | none => if i < 2 then some (AVExpr.proj i ea) else none)
+            = _
+        rw [hfp]
+        dsimp only
+        rw [if_pos hi]
+      · rw [if_neg hi] at h
+        exact nomatch h
   | case11 d k hsup =>
     intro v _
     refine Option.isSome_iff_exists.mp ?_
