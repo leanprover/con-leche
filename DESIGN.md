@@ -38971,3 +38971,1405 @@ into it, never name a constant before the walk; (ii) an rcases `-`
 on an existential witness that a later component depends on derails
 the naming of the later components silently — name such witnesses
 `_`.
+## TASK #167 — THE PACKED NODE WORD (2026-09-05, `agent/packing`;
+LANDS CODE — the user's saturating ruling, executed)
+
+### 0. WHAT LANDED, IN ONE LINE
+
+`Setlec.Expr`'s **four** `@[computed_field]`s are **one**: a packed
+`UInt64` laid out as `Lean.Expr.Data` is — and `Expr.bvarB`,
+`Expr.fvarB`, `Expr.hasLP`, `Expr.hash` are still the same functions,
+so **not one statement below `Kernel/Expr.lean` moved**.
+
+### 1. THE LAYOUT, AND THE WIDTH DECISION
+
+| bits | field | width |
+|---|---|---|
+| 63…32 | `hash` | 32 |
+| 31 | *reserved* | 1 |
+| 30…16 | `bvarB` (saturating) | 15 |
+| 15…1 | `fvarB` (saturating) | 15 |
+| 0 | `hasLP` | 1 |
+
+`Lean.Expr.Data`'s own proportions are hash 32 + `looseBVarRange` 20 +
+flags; setlec needs **two** ranges (Lean carries only a `hasFVar`
+bool), so the 31 bits below the hash split 15/15/1 with one spare.
+The hash stays wide at 32 — the coordinator's constraint — and is the
+one *value* the packing changes (it was 64 bits; `beqFast`'s
+false-agree probability goes from `2^-64` to `2^-32`, which is
+`Lean.Expr`'s own bargain).
+
+**The measured maxima** — a temporary fifth computed field `mxB`
+(the max over a subtree of `max bvarB fvarB`) read at `internI`, at
+the seven `ExprOpsC` build sites and at the parser's `ie` node, so
+every node the checker ever builds was observed:
+
+| stream | max `max bvarB fvarB` | headroom to 32767 |
+|---|---|---|
+| `init-full` (61 048 decls) | **213** | 154× |
+| `grind-ring-5` | **488** | 67× |
+| `app-lam` (the deepest artificial workload) | **4000** | 8.2× |
+
+The parser's own site never exceeded the probe's 48-node threshold on
+`init-full`: input terms are shallow, and what grows the bound is the
+checker's own binder cursors.
+
+**The fvar-allocation finding, asked for by the charter**: fvar
+indices are **de Bruijn levels**, not a global counter.  Every
+`internI (.fvar depth …)` in `Cached/CoreC.lean` and `CoreNC.lean`
+takes the `depth` parameter threaded through the core (or `d + k`
+inside a telescope loop), so `fvarB` is bounded by the local-context
+depth exactly as `bvarB` is bounded by the binder nesting.  **A
+global counter would have forced a wide field or a different
+treatment; a level does not.**  15 bits serve both.
+
+### 2. THE OVERFLOW CONVENTION — SATURATE, AND STAY EXACT ANYWAY
+
+The charter opened with *decline on overflow* (exit 2, with a width
+invariant maintained at the entry points).  The user withdrew that
+mid-batch — *"I have qualms about introducing a WFe invariant for the
+packed bvar field.  Maybe saturating is easier, with degraded
+performance once saturated?"* — and the batch executed the second
+design.
+
+The coordinator's proposed proof shape for saturation was
+*exact-below-saturation*: weaken `bvarB_eq` to a one-directional
+lemma and let the `≤`-comparison consumers ride free.  **That shape
+was checked and rejected on a finding**, which is worth recording
+because it is not obvious:
+
+> `bvarB_le : e.bvarB ≤ d → looseBVarsBounded d e` is **not** free
+> under a saturating field.  It fails exactly when `d ≥ satRange`,
+> and `d` is a traversal cursor — a variable at every one of the ~90
+> call sites, with no statically provable bound.  Making the skip
+> tests carry the guard (`e.bvarB ≤ min d satMax`) works, but it
+> weakens `looseBVarsBounded_spec` (a *both-directions* equation
+> consumed by `rw` at 8 sites, and by four **parse-time accept
+> guards** — a false reject is a wrong verdict, not a slow one) and
+> it restates `bvarBoundM_eff`.  Priced at ~60 hand edits in
+> `Verify/Cached/{OpsC,GuardsC,SimCEff}.lean` **plus two statement
+> moves**.
+
+So the batch saturates the **storage** and keeps the **accessor**
+exact:
+
+```
+def bvarB (e : Expr) : Nat :=
+  let r := e.bvarBRaw                     -- the packed 15-bit field
+  if r == satRange then bvarBoundMemo e else r
+```
+
+`bvarBoundMemo` is the *same recurrence*, memoized (`Std.HashMap`
+keyed by the node) so the fallback is `O(DAG)` — the standing
+no-unmemoized-traversals rule holds on the saturated branch too.
+This is the user's sentence taken literally: **saturation costs time,
+and only on terms that saturate**; it costs no truth anywhere.
+
+Proof shape, three lemmas where there was one, landing on the old one:
+
+1. `bvarBRaw_exact : e.bvarBRaw < satRange → e.bvarBRaw =
+   Expr.bvarBound e` — induction on the packed word's per-constructor
+   equations.  The binder arm is the only interesting one: the
+   *saturating predecessor* `satPred` maps `satRange` to itself
+   rather than to `satRange - 1`, which is what keeps "stored value
+   `satRange` means *at least* `satRange`" true through a binder;
+2. `bvarBoundMemo_eq : Expr.bvarBoundMemo e = Expr.bvarBound e` —
+   the `MemoBInv` pattern, cloned from `wscopedBGo_spec`;
+3. `bvarB_eq : e.bvarB = Expr.bvarBound e` — **verbatim the old
+   statement**, by a two-way split on the saturation test.
+
+Same three for `fvarB`.  `hasLP` is one bit, hence exact with no
+fallback; `hash` has no exactness lemma to keep.
+
+### 3. THE CHURN, AND WHY IT IS FOUR LINES
+
+Files touched: `Kernel/Expr.lean` (the word, the roundtrip family, the
+per-constructor equations), `Kernel/ExprOps.lean` (the two memoized
+walks and the two accessors), `Verify/Cached/Erase.lean` (the six new
+lemmas landing on the two old ones).
+
+**Everything else: four lines** — `simpa using hcut` → `simp` at the
+`bvar` and `lit` arms of `instLevelParamsGo_spec`
+(`Verify/Cached/OpsC.lean`) and `allLevelParamsDefinedGo_spec`
+(`Verify/Cached/GuardsC.lean`), where `hasLP` is now a `@[simp]`
+equation and the hypothesis became redundant.  Every one of the ~70
+`bvarB_le` / `fvarB_le` / `hasLP_false` consumers B3a counted, and
+every executable skip site in `Cached/ExprOpsC.lean` and
+`Cached/StateC.lean`, compiled **untouched**.
+
+That is the batch's reusable lesson, and it is B3a's §3 answered:
+*the exactness→saturation cascade B3a priced is avoidable — pay for a
+slow exact branch instead of a weak lemma, and the representation
+change stays a representation change.*
+
+### 4. THE PROOF TECHNIQUE WORTH KEEPING
+
+The packing is written with **arithmetic**, not bitwise, operators:
+
+```
+packData h b f lp = h * 4294967296 + b * 65536 + f * 2 + (if lp then 1 else 0)
+bvarOfData w      = w / 65536 % 32768
+```
+
+Disjoint fields make `+` the bitwise join and `/`,`%` by powers of two
+the shift-and-mask — LLVM emits the same instructions — and every
+roundtrip lemma is then `UInt64.toNat_inj` + `simp [UInt64.toNat_*]` +
+**`omega`**.  No `bv_decide`, no `BitVec` bridging, no `Nat.land`
+lemma hunting.  The whole family (`bvarOfData_pack`, `fvarOfData_pack`,
+`lpOfData_pack`, `hashOfData_pack` and their range companions) is 40
+lines.
+
+The one trap: `omega` needs the *outer* `% 2^64` discharged, so each
+lemma carries the componentwise range hypotheses and `cases lp` first
+(otherwise `(if lp then 1 else 0).toNat` blocks it).
+
+### 5. THE A/B — INSTRUCTIONS FLAT, MEMORY HALVED
+
+The shipped lane (`--set-model`), `instructions:u` and peak RSS,
+median of 3, against the baseline binary snapshotted at `a9399a80`
+**before** the batch opened.  Baseline stamp `raw/vs-official-raw`
+except the last row.
+
+| stream | instr base → pack | Δ | peak RSS base → pack | Δ |
+|---|---|---|---|---|
+| `init-full` (61 048 decls) | 2929.44 → 2931.91 G | **+0.08 %** | 1744.6 → 931.0 MB | **−46.6 %** |
+| `grind-ring-5` | 98.00 → 97.65 G | **−0.35 %** | 489.6 → 349.4 MB | **−28.6 %** |
+| `app-lam` (the DAG/RSS stress) | 291.12 → 282.72 G | **−2.88 %** | 5248.0 → 2788.4 MB | **−46.9 %** |
+| `init-full.pre` (`--pre`; stamp `pre/vs-official-pre`) | 2749.54 → 2751.89 G | **+0.09 %** | 1746.3 → 926.8 MB | **−46.9 %** |
+
+Read it as the promise kept and the worry answered:
+
+* **the promise was memory, and it is halved** — 5.25 GB → 2.79 GB on
+  `app-lam`, 1.74 GB → 0.93 GB on `init-full`.  That is *more* than
+  B3a's synthetic accessor bench predicted (−38.8 %), because the
+  bench measured a node array while the real streams pay the same
+  saving on every live node of a 24 k-node DAG plus every rebuilt
+  intermediate;
+* **the worry was the accessor, and it costs nothing** — +0.08 % on
+  `init-full` is inside run-to-run noise, and `app-lam` is **−2.88 %**:
+  on DAG-shared reduction traffic the smaller node pays for its own
+  extraction through the cache.  B3a's `PackB` bench said bit
+  extraction is cheaper than four tagged reads; at scale it is
+  cache behaviour, not instruction count, that decides, and both
+  point the same way.
+
+`app-lam`'s baseline row (291.12 G) reproduces B3a's own pre-migration
+measurement of the same stream (291.16 G) to 0.01 %, which is the
+harness's own control.
+
+### 6. RECEIPTS
+
+`lake build` green and **warning-free**, 407 jobs (521 before the
+merges with master's SetR deletion and the wiring W3+W4 seams);
+`lake test` green; layering base 244 / P 120 / caps 2 / umbrella 1,
+**0 base→lane, 0 impl→theory**; proofdeps **88 rows as pinned**,
+doors 0; arena tutorial **90/92**,
+e2e **73/73**, annot **14/14**, retired flags 8/8, mode flags 11/11,
+**no-model sweep 138 arena + 73 e2e + 14 annot as expected (its 3
+recorded divergences)**; `init-full` **accepted 61 048 declarations
+under all three modes** (`--set-model`, `--set-model=p`,
+`--no-model`), baseline and packed alike — verdict identity
+everywhere, and **no stream reached the saturated branch**; axioms of `bvarB_eq`,
+`fvarB_eq`, `hasLP_eq`, `bvarBoundMemo_eq`, `fvarRangeMemo_eq` and
+both shipped cached capstones (`checkDeclsSPCachedD_sound_P`,
+`no_proof_of_Empty_SPCD_P`) exactly the standard three; **zero**
+`sorry`, no new axiom, no statement left conditional.
+
+### 7. LEDGER ENTRY (coordinator-ratified at the merge grant): a
+proposed PROOF SHAPE is a claim
+
+The discipline ledger's family — *a ratified license is a claim*
+(#161 endgame E), *a recorded freedom is a claim* (F), *a recorded
+wall is a claim* (D), *a freeze is a claim* (the B1 contact-check) —
+gains its fourth member, and this batch is the instance:
+
+> **The charter's proposed proof shape was a claim, and it was
+> false.**  *"The exactness family becomes exact-below-saturation;
+> the `≤`-comparison consumers are free"* reads as arithmetic — a
+> bound below the saturation point is the true bound, so a
+> comparison against it decides — and it is wrong for one reason
+> that the sentence hides: **the thing compared against is a
+> variable.**  `bvarB_le : e.bvarB ≤ d → looseBVarsBounded d e` is
+> sound only for `d < satRange`, and `d` is a traversal cursor —
+> universally quantified at all ~90 sites, with no statically
+> provable bound anywhere.
+
+What makes it a ledger entry rather than a footnote is **where** the
+falsification bit.  Guarding the skip tests would have been merely
+tedious; what it actually costs is `looseBVarsBounded_spec`, a
+*both-directions* equation, and four of its consumers are **parse-time
+accept guards** (`Cached/ParsedC.lean`, `ParsedNC.lean`:
+`unless ExprC.looseBVarsBounded 0 …`).  A saturating field weakened
+there turns a *false reject* into a shipped verdict — the one failure
+class the arena convention treats as worse than a crash.  The wrong
+shape would not have shown up as a broken proof; it would have shown
+up as a wrong answer on a stream nobody runs.
+
+The corollary, and it is the reusable half: **when a representation
+change proposes to weaken a lemma, enumerate the lemma's consumers by
+DIRECTION before pricing the churn.**  A one-directional consumer (a
+skip) tolerates a weaker lemma at the cost of a guard; a
+both-directions consumer (a guard, a spec equation, an `rw` site) does
+not tolerate it at any price.  B3a priced this batch at "~70
+consumers" and got the count right; the count was never the question.
+
+And the answer that dissolved it is worth keeping in the same breath:
+**pay for a slow exact branch instead of a weak lemma.**  Saturation
+is then a storage decision that no statement can see — which is what
+"representation change" is supposed to mean.
+## THE ι AUDIT: what the iota path spends per redex, and what could be
+## dropped, moved to install, or licensed (2026-09-05, `agent/iota-audit`)
+
+**Read-only.**  Nothing under `Setlec/**` changed on this branch; the
+instruments are a throwaway measurement copy (`_tmp/iota-meas`: a
+`dbg_trace` census and an `IMASK` leave-one-out mask over
+`Setlec/Cached/CoreC.lean`), never landed.  The user's question:
+*"look at our iota code: are we doing any work there that could be
+dropped or moved to install time?"*
+
+Sites are the shipping core `Setlec/Cached/CoreC.lean` — `iotaRecI`
+(`:624-707`), `majorToCtorI` (`:487-588`), `iotaCertsIAux`
+(`:170-193`), `whnfAppI` (`:731-758`) — with the spec twin
+`Setlec/Kernel/Core.lean` (`iotaRec :1310`, `majorToCtor :1116`,
+`iotaCerts :803`).  References read: `_tmp/lean4-master-kernel/
+type_checker.cpp` and `_tmp/lean4lean/Lean4Lean/Inductive/Reduce.lean`.
+The ι cone reads no mode but the statically-false `ttChecks`
+(`CoreCfg.lean`'s `iotaMode` note), so every number below holds for
+`--set-model=r` and `--set-model=p` alike.
+
+### 1. The organising fact: every fire-time check but two is a
+### hypothesis of the stored equation
+
+`RecRuleLawP` (`SetP/Annot/EnvS2P.lean:431-521`) — the surviving
+statement of the install-verified ι equation; its collapsed-lane
+original `RecRuleLawV` went with the `Setlec/SetR/*` tier on
+2026-09-05 — reads
+
+    rec p⃗ M m⃗ i⃗ (ctor p⃗ x⃗)  =  rhs p⃗ x⃗
+
+and the law's own hypotheses are, in order: the level linkage
+(`Level.substFn φ cvj.levelParams usj = (recFireComparands …).1`), the
+`.plain` parameter agreement, the `.nested` pin equations,
+`IotaIndexPinP` (`EnvS2P.lean:419`), and the two `TeleFitPA` telescope
+fits.  **Firing is reflecting that equation, and the per-redex work is
+— with two exceptions — the discharge of its applicability conditions
+at the redex.**  `iotaStepP_of` (`SetP/Step2/IotaRowsP.lean:506`)
+feeds them to the law one by one, and the deleted collapsed lane's
+`sndRedIota` did the same (`h12`, `ih19`, `ih20`, `ih25`, `ih21`,
+`ih22`) before it went.
+
+The two exceptions are the `stripPis` arity pins.  `iotaStepP_of` and
+`iotaReadsP_of` (`SetP/Step2/IotaRowsP.lean:364,521`) bind
+`hstripR`/`hstripC` and never mention them again; `sndRedIota` bound
+them as anonymous `_`.  Their one surviving mention anywhere is
+`Red.iota`'s two premise slots (`SetBase/Rel.lean:304-305`), supplied
+by `iota_stepR` (`SetBase/Bridge/Iota.lean:183`) to a relation whose
+soundness interpretation was deleted with the SetR tier.  They are
+*shape* facts, and the install path already establishes both:
+
+* plain rules — `Expr.recRulePlain tyA mI rP cnP` (`ExprOps.lean:490`)
+  is `cnP ≤ rP ∧ rP ≤ mI ∧ recTy.stripPis mI = some (_, .forallE …)`,
+  i.e. exactly `(cv.type.stripPis (mI+1)).isSome`; and `checkIotaThmF`
+  (`DeclCheck.lean:381`) checks `(cvj.type.stripPis (cnP+cnF)).isSome`
+  outright;
+* nested rules — `nestedRuleShapeF` (`:422`) matches `tyA.stripPis mI`
+  against a `∀`-body, and `checkIotaThmNF` (`:482`) unwraps
+  `cvj.type.stripPis (cnP + cnF)`;
+* projection-function recursors — `checkProjTyF` (`:598`) checks
+  `(pty.stripPis (nP+1)).isSome` and `checkProjRuleF` (`:617`) unwraps
+  `cvj.type.stripPis (nP+nF)`; the stored rule's `fire` is `.plain`
+  only when `Expr.recRulePlain pty nP nP nP`;
+* the hard-coded basis/pinned recursors (`Kernel/Basis/*.lean`,
+  `StdAxioms.lean`) carry literal types, so both pins are `decide`-able.
+
+`iotaRecI` declines `.inert` before reading anything else, so every
+*firing* rule went through one of those paths.  The pins are therefore
+an environment invariant re-checked per redex — the exact pattern the
+"invariants over runtime gates" ruling (task #42) forbids.
+
+### 2. The census (`--set-model`, one instrumented run per stream)
+
+| counter | init-full | grind-ring-5 | init-prelude |
+|---|---|---|---|
+| ι attempts (`iotaRecI` reaches a stored recursor) | 17 618 745 | 1 091 821 | 167 854 |
+| … passing the arity gate (major whnf'd, `majorToCtorI` called) | 4 576 302 | 272 023 | 39 937 |
+| fires | 4 165 022 | 253 180 | 33 003 |
+| — `.plain` / `.nested` | 4 164 972 / **50** | 253 180 / 0 | 32 958 / 45 |
+| `stripPis` pins passed / evaluated | 4 165 022 / 4 165 022 | 253 180 / 253 180 | 33 003 / 33 003 |
+| Σ recursor-telescope certificate slots | 15 746 872 | 1 008 580 | 135 083 |
+| Σ constructor-telescope certificate slots | 10 112 531 | 375 995 | 38 906 |
+| Σ comparand `defEqList` length | 4 763 390 | 69 590 | 8 674 |
+| Σ index `defEqList` length (`mI − rP`) | **1 881** | **134** | **361** |
+| stuck majors reaching the rescue | 417 533 | 18 994 | 6 981 |
+| K-branch entries / fabrications | 5 358 / 127 | 677 / 32 | 649 / 28 |
+| η-branch entries / fabrications | 6 126 / 6 126 | 119 / 119 | 19 / 19 |
+| `iotaCerts` slots by binder datum — `.never` | **25 894 353** | — | — |
+| … `.ifAllZero []` (always Prop) / `.ifAllZero ps` | 45 722 / 14 398 | — | — |
+
+Four numbers decide the report.  **The `stripPis` pins never failed**
+(4 165 022 of 4 165 022, on every stream).  **The index comparison
+compares empty lists** — 1 881 elements over 4.165 M fires, i.e.
+`mI = rP` in all but a handful of firing recursors.  **The nested-rule
+machinery fires 50 times.**  And **99.77 % of all 25.95 M certificate
+slots sit at a `.never` binder**, which is precisely the datum the β
+gate reads.
+
+### 3. The measured cost (leave-one-out, `instructions:u`)
+
+One run per init-full cell, median of three per grind-ring-5 cell,
+`ulimit -v 16000000`.  The machine was shared with two other agents'
+init-full runs throughout, so **only instruction counts are reported**
+(wall times were contended).  Round-1 baselines: init-full 2 753.90 G,
+grind-ring-5 88.886 G; round-2 baselines (a second instrumented build)
+2 756.21 G / 89.008 G.  **Every masked run still accepted 61 048 /
+3 946 declarations.**
+
+| masked-off site | init-full | grind-ring-5 |
+|---|---|---|
+| both `stripPis` pins dropped | −0.457 % | −0.773 % |
+| … pins kept but computed allocation-free (`piArityGE`) | −0.431 % | −0.729 % |
+| the constructor↔recursor level linkage | −0.278 % | −0.259 % |
+| the comparand `defEqList` | −0.479 % | −0.296 % |
+| … narrowed to projection recursors (`CoreNC`'s shape) | −0.126 % | −0.156 % |
+| `iotaCerts`, recursor telescope | **−7.221 %** | **−6.161 %** |
+| `iotaCerts`, constructor telescope | −1.843 % | −1.382 % |
+| both `iotaCerts` runs | **−9.086 %** | **−7.530 %** |
+| the canonical-index block (`stripPisBody` + `piResidual` + `defEqList`) | −0.869 % | −0.855 % |
+| **every ι check at once** | **−11.536 %** | **−9.873 %** |
+| the whole rescue family (K type check, synthetic certs, `proofIrrel`) | −0.005 % | +0.040 % |
+| *(round 2)* `iotaCerts` slots at `.never` binders skipped | **−8.658 %** | **−6.741 %** |
+| *(round 2)* one extra attempt prologue (prices the per-prefix attempt) | +0.263 % | +0.493 % |
+| *(round 2)* one extra `rules.find?` per fire | — | −0.003 % |
+| *(round 2)* one extra pair of `constTyAtM` lookups per fire | — | +0.587 % |
+| *(round 2)* the no-proof-change package (pins allocation-free + index block + narrowed comparand) | — | −1.717 % |
+
+The costs are additive to within measurement noise (16 ⊕ 32 = 9.064 %
+against 48's 9.086 %; the six single-site figures sum to 11.18 %
+against 119's 11.54 %).
+
+### 4. The classification
+
+**(A) DROPPABLE — official does not do it and the P model does not
+need it.**  Exactly one entry: **the two `stripPis` arity pins**
+(`CoreC.lean:652-654`).  Official has no counterpart (F5); the P lane
+binds and discards them; the R lane carries them only as `Red.iota`
+premise slots (`SetBase/Rel.lean:304-305`) that no surviving theorem interprets.
+Cost −0.457 % init-full / −0.773 % grind-ring-5.  Nothing else in the
+fire path is droppable: §1 shows the rest are the stored equation's own
+hypotheses, and `CoreNC`'s evidence that the battery still passes
+without them is a *parity-lane* fact with no soundness obligation
+behind it.
+
+**(B) MOVABLE TO INSTALL — a property of the stored entry re-checked
+per redex.**
+
+1. The same two `stripPis` pins, if the pins are wanted as facts rather
+   than deleted: they are decidable consequences of the install checks
+   listed in §1, so they belong in `RecRuleLawP` beside its existing
+   `rP ≤ mI` conjunct (or as a standalone `EnvS2PM` lemma), not in the
+   reduction.  A cheaper half-measure that needs no proof-side motion
+   at all is to keep the test and stop allocating: today
+   `Expr.stripPis k t |>.isSome` builds a `List (Name × Expr ×
+   BinderMeta)` of length `k` per fire (≈ 26 M triples per init-full
+   run) only to ask whether it exists.  An allocation-free
+   `piArityGE` recovers 94 % of the drop (−0.431 % vs −0.457 %).
+2. **The canonical-index block at `mI = rP`.**  `IotaIndexPinP`
+   (`EnvS2P.lean:419`) is `∃ H cargs, restC = mkAppN H cargs ∧
+   (mI = rP ∨ …) ∧ ∀ i < mI − rP, …`; at `mI = rP` both are discharged
+   by `⟨restC, [], rfl, Or.inl rfl, fun i hi => absurd hi (by omega)⟩`
+   — no residual, no head test, no comparison.  `mI = rP` is a stored
+   property of the recursor, and the census says it holds in all but
+   ~0.05 % of fires.  Cost −0.869 % / −0.855 %.
+3. The constructor↔recursor **level-linkage map** is install-invariant
+   even though the comparison is not: at `.plain` the comparand is
+   `cvj.levelParams.map (Level.subst cv.levelParams us ∘ .param)`, a
+   name-keyed lookup per parameter per fire, where install could store
+   the index permutation.  Bounded above by the whole linkage's
+   −0.278 % / −0.259 %.
+4. Not worth moving, measured: the per-fire `rules.find?` scan
+   (−0.003 %; and official's `getRecRuleFor` does the same scan), and
+   the `(Name, List Level)`-keyed `constTyAtM`/`ruleRhsAtM` memo
+   lookups (0.587 % per extra pass on grind-ring-5 — real, but the
+   memo is already doing its job).
+
+**(C) LICENSABLE — needs the redex, but only at the squash regime.**
+**The two `iotaCerts` runs, which are the entire cost.**  They
+establish `TeleFitPA`'s per-slot membership `interp2 ρ a ∈ˢ interp2 ρ A`
+(`certs_telePA`, `SetP/Step2/IotaKitP.lean`).  The licence has exactly
+the β site's shape: read the telescope binder's *validated* annotation
+datum and skip the slot at `.never`, i.e. `cfg.betaSkip mb.pw` moved
+from `whnfAppI`'s λ binder to `iotaCertsIAux`'s `∀` binder
+(`CoreC.lean:175`).  The semantic ground is the same D1 mechanism the
+β gate stands on (`lamR_pos_empty` + `piR_dom_unique` kill the
+empty-domain witness at positive kind, so the app node carries no
+`AnnotOk2` slot).  `.never` is instantiation-stable, so the datum
+stored in the recursor's/constructor's type is usable at every level
+instantiation.  **Coverage measured: 99.77 % of slots; cost recovered
+−8.658 % init-full, −6.741 % grind-ring-5 — 95 % of what deleting both
+runs outright would save, and the whole battery still accepts.**
+Note this is a *proposal to be validated by the P lane*, not a proved
+fact: the ∀-binder's `pw` claims the codomain sort's prop-ness, and
+whether that is the right premise for `TeleFitPA.cons` is precisely
+the obligation a licence theorem would discharge.
+
+The (A)-shaped alternative — "derive the fit from the fact that the
+redex was already inferred" — is blocked by the same mechanism that
+stopped the io-knot's β/`inferSpine` de-gating (DESIGN.md, the io-knot
+STOP table): the skipped runs *are* the premises, and no weaker run
+produces them.  The de-gating harvest's row for this site ("a law
+carrying the fits (or an install-time fit record) would license
+dropping the per-fire runs") is refined by this audit: a law cannot
+carry them (they are about the redex's arguments); the licence can.
+
+**(D) INHERENT — genuinely per-redex.**  The major's `whnf`; the
+literal-to-constructor conversion; the rescue (`majorToCtorI`); the
+rule lookup; the RHS instantiation and application; and — because §1
+says so — the **level linkage**, the **comparand `defEqList`** and the
+**index comparison where indices exist**.  Each of those three is a
+side condition of the stored equation, and each measures under 0.5 %.
+
+### 5. Prioritised proposal list (largest measured cost first)
+
+| # | proposal | route | measured | proof-side cost |
+|---|---|---|---|---|
+| 1 | skip the `iotaCerts` slot at a `.never` telescope binder | **licence** (β-shaped) | **−8.66 %** init-full | one licence theorem, the β gate's analogue at `TeleFitPA.cons`; `cfg` already carries the datum |
+| 2 | short-circuit the canonical-index block at `mI = rP` | **install-validate** | −0.87 % | one line on each side (`Or.inl rfl`), plus dropping four conjuncts from `iotaRec_inv` |
+| 3 | delete the two `stripPis` pins (or carry them in `RecRuleLawP`) | **drop** / install-validate | −0.46 % | zero in P (bound, never used); elsewhere only `Red.iota`'s two premise slots, uninterpreted since the SetR removal |
+| 3′ | *or*, with no proof motion at all: keep the pins, compute them allocation-free | local | −0.43 % | a `stripPis_isSome_iff` lemma for `iotaRec_inv` |
+| 4 | precompute the `.plain` level-linkage index map at install | install-validate | ≤ −0.28 % | `recFireComparands`' `.plain` branch changes shape; `recFireComparands_fst_nil` and the law's linkage hypothesis follow |
+| 5 | look the recursor up once per spine instead of once per prefix | drop duplicated work | −0.20 % (est. from +0.26 % per extra prologue × 74 % wasted attempts) | `whnfApp`'s clause shape changes → the `whnfApp` rows in both towers |
+| — | the rescue family | **no action** | −0.005 % | — |
+| — | the `.nested` fire machinery | **no action** | 50 fires per init-full run | — |
+
+Items 2+3′ together are the *no-proof-change package*: measured
+−1.717 % on grind-ring-5 with the battery green.
+
+### 6. Conformance implications (restrictions are findings)
+
+* F5 (the parity-fidelity table) is confirmed and now priced: the two
+  `stripPis` pins −0.46 %, the level linkage −0.28 %, the exact
+  `margs.length` test (official/lean4lean use `nfields ≤
+  majorArgs.size`) unmeasurably small, and the projection-rule
+  parameter comparison load-bearing.  The comparand comparison as a
+  whole costs −0.479 %; narrowing it to projection recursors (what
+  `iotaRecNC` does) leaves −0.126 %.
+* **New, verdict-neutral, and not previously recorded**: setlec
+  *attempts* ι once per spine **prefix** and official attempts it once
+  per application.  `whnfAppI` (`CoreC.lean:752`, spec twin
+  `Core.lean:1514`) calls `iotaRecI` on every accumulated
+  `.app v a`, which bails on `args.length = mI + 1`; official's
+  `whnf_core` App case calls `reduce_recursor(e)` once on the whole
+  application (`type_checker.cpp:526`) and `inductiveReduceRec` indexes
+  the major directly (`recArgs[majorIdx]?`, `Reduce.lean:87`),
+  re-applying trailing arguments rather than requiring exact arity.
+  Measured: 17.62 M attempts against 4.58 M arity matches on init-full
+  (3.85×), costing ≈ 0.20 %.  Recorded as a work divergence, not a
+  check divergence; it changes no verdict.
+* F6's rescue guards are confirmed free (−0.005 %), so the
+  conformance question there is not a cost question.
+* The `to_cnstr_when_K` fabrication type check stays: it is official's
+  own check and arena `bad/098_ruleKbad` fires on it, and it costs
+  nothing (5 358 K-branch entries per init-full run).
+
+### 7. Interaction with the SetR removal (landed 2026-09-05)
+
+The removal deleted every `Setlec/SetR/*.lean`, and with them
+`RecRuleLawV`, `IotaIndexPinV` and `sndRedIota` — the only theorems
+that ever *interpreted* `Red.iota`.  What survives is the syntactic
+relation itself (`SetBase/Rel.lean`) and its bridge
+(`SetBase/Bridge/Iota.lean`, `Bridge/Main.lean`), whose importers on
+master are other `SetBase` modules and the umbrella.
+
+**That is where the `stripPis` pins' last mention lives.**  Proposal 3
+is therefore now a pure deletion: the P lane binds the two conjuncts
+and uses neither, so removing the runtime tests changes
+`iotaRec_inv`'s shape, `Red.iota`'s premise list, and nothing else —
+and if the orphaned `Red`/bridge cluster is retired in a later stage,
+it changes `iotaRec_inv` alone.  Proposal 2 is only mildly affected:
+`IotaIndexPinP` survives as a `RecRuleLawP` hypothesis, but its
+`mI = rP` discharge is a single term.  Proposal 1 (the licence) is
+unaffected — it was always a P-lane statement.
+
+### 8. Instruments
+
+`_tmp/iota-meas` (throwaway, never landed): `Setlec/Cached/Diag.lean`
+(the `ICENSUS` `dbg_trace` census and the `IMASK` skip mask),
+`round2.py` (the second instrumentation round: the per-slot `pw`
+census, the `.never` licence, and the anti-DCE duplication probes),
+`run.sh` / `all.sh` (the leave-one-out harness), `full.tsv`,
+`grind5.tsv`, `full-r2.tsv`, `grind5-r2.tsv`, `census2.txt`.  A pure
+counter bump is **not** usable for this: LCNF drops an `if c then pure
+() else pure ()` whose branches agree, and drops an unused pure `let`;
+the census therefore goes through `dbg_trace` (`never_extract`) and the
+duplication probes fold their result into both sides of an arity test.
+
+### 9. SECOND LOOK (2026-09-05, `agent/iota-second`, read-only)
+
+Per the user's ruling ("let the opus agent finish and then let a fable
+agent have a second look"): verify or refute, sharpen, and rank.  The
+audit's numbers are not re-measured; every claim below is checked
+against the shipping code and the P lane's proofs, and the licence is
+mechanized over the `SetTheory` interface in
+`_tmp/iota-second/IotaLicence.lean` (compiles against master, axioms
+exactly `propext`/`Classical.choice`/`Quot.sound`); the basis pins are
+decided in `_tmp/iota-second/BasisPins.lean`.  Neither lands.
+
+| # | proposal | verdict |
+|---|---|---|
+| 1 | skip the `iotaCerts` slot at a `.never` binder | **CONFIRMED, SHARPENED** — the licence is `io_domain_transfer` verbatim (an io-gate analogue, not a β-gate one); the datum question is answered positively; the fence is `io_squash_no_transfer`'s witness; a **scoping correction** (§9.1.4) is binding; the proof-side cost is *smaller* than priced |
+| 2 | short-circuit the index block at `mI = rP` | **SHARPENED** — it is an (A) drop, not (B) install-validate: the P lane consumes nothing from the block at `mI = rP`, and the head-const test is unconsumed at *every* `mI` |
+| 3 | delete the two `stripPis` pins | **CONFIRMED** (all four routes + the pinned literals, decided); the "orphaned `Red.iota` cluster is deletable outright" reading is **REFUTED** — the cluster is a build dependency of the P assembly (§9.3) |
+| 3′ | pins kept, allocation-free | CONFIRMED (dominated by 3) |
+| 4 | precompute the `.plain` level-linkage map | CONFIRMED, with one semantic caveat (§9.3) |
+| 5 | ι once per spine, not per prefix | **CONFIRMED** reading of both references; verdict-neutral by construction; the saving is a *lower* bound (§9.4) |
+| — | rescue family, `.nested` machinery | CONFIRMED no-action; one duplicate-walk note (§9.5) |
+
+#### 9.1 Proposal 1 — the licence, stated and fenced
+
+**9.1.1 The mechanism.**  `TeleFitPA.cons` (`SetP/Annot/EnvS2P.lean:378`)
+needs `interp2 ρ a ∈ˢ interp2 ρ A` for the telescope binder's domain
+`A`.  The redex `rec p⃗ M m⃗ i⃗ major` is an application spine, and the
+P claims carry `AnnotOkP` of it (`hok` in `iotaStepP_of`,
+`Step2/IotaRowsP.lean:518`); `AnnotOk2`'s app clause
+(`SetBase/Ok2.lean:87-91`) therefore supplies, at *every* prefix
+`f_i := rec p⃗ … a_{i-1}`, the slot `∃ v' A' B', ⟦f_i⟧ ∈ piR v' A' B' ∧
+⟦a_i⟧ ∈ A'`.  That is what plays the role of the app node's `AnnotOk2`
+slot at the ι site — not `hoistP_spine` (which extracts the *gradings*
+of head and arguments, dropping the slots) but the app clause itself,
+read at each prefix (`annotOkP_mkAppN_head` in the probe;
+`AnnotOk2_spine_slots` in `SetBase/Spine2.lean:111` is the same
+extraction at the value level).  The head's own membership in the
+telescope reading, `⟦acval rec⟧ ∈ ⟦TVa⟧`, is `mem_typeP`
+(`EnvS2P.lean:553`, delivered to the row by `constTypeP_pkg`'s third
+conjunct, `IotaRowsP.lean:191`), and the prefix's membership in the
+*peeled* reading follows from the prefix's fit by
+`annotOkP_mkAppN_of_fitA` (`Step2/IotaKitP.lean:365`).  So at slot `i`
+one holds `⟦f_i⟧ ∈ piR v_i ⟦A_i⟧ B_i` — `v_i` the binder's bit — and the
+slot; at `v_i ≠ 0` graph rigidity pins `A' = ⟦A_i⟧` and the argument
+lands in the telescope's domain.  **The licence theorem is**
+
+    theorem iota_slot_transfer {v v' : Nat} {A A' f a : V} {B B' : V → V}
+        (hv : v ≠ 0)                       -- the binder's bit (`.never`)
+        (hf : f ∈ˢ piR v A B)              -- head-prefix in the telescope's product reading
+        (hslot : f ∈ˢ piR v' A' B')        -- the redex's own app slot …
+        (ha : a ∈ˢ A') :                   -- … and its argument membership
+        a ∈ˢ A :=
+      io_domain_transfer hv hslot ha hf
+
+i.e. **`io_domain_transfer` (`SetP/IOLicenseP.lean:71`) with its
+arguments renamed** — no new semantic theorem exists to be proved.
+The gate form `iota_slot_transfer_gate` takes the kernel's own
+condition `(mode.verified && mb.pw.isNever) = true` and reads the bit
+through `gate_pwBit_ne_zero` (`Step2/GateP.lean:59`), exactly as the
+β licence does.  This is **not** the β gate's analogue: the β gate
+reads a λ-binder's datum and gets the head's own product from the λ
+clause's fibre package (`AnnotOk2_beta_pos`, `Ok2.lean:281`); the io
+gate reads the ∀-binder's datum of a *computed* function type and gets
+the head's product from the io run (`InferIOP.lean:775-788`); the ι
+slot reads the ∀-binder's datum of a *stored* type and gets the head's
+product from `mem_typeP` + the prefix fit.  All three are
+`piR_dom_unique` with a different supplier of the head's membership;
+the ι site is io-shaped.
+
+**9.1.2 The datum question, answered.**  The audit asked whether "the
+∀-binder's `pw` claims the codomain sort's prop-ness" is the right
+premise.  It is the *only* right premise, by definition of the model:
+`piR v A B` (`SetBase/Ops.lean:52`) dispatches on the **product's**
+regime numeral, and `denoteP`'s `.forallE` clause
+(`SetP/Annot/Bit.lean:161-165`) sets that numeral to `pwBit φ m.pw` of
+exactly the node being peeled — the codomain sort's zeroness *is* the
+product's regime (the `imax` rule; the annotator's chain rule,
+`annotPwPi`, `Core.lean:2355` and its docstring, makes every telescope
+node carry the leaf codomain's).  The domain's own kind plays no role:
+`iota_slot_transfer` has no hypothesis on `A` whatsoever (a `Prop`-typed
+minor-premise slot such as `h : p` in `And.rec.{1}` is licensed like
+any other; `Spine2.lean`'s docstring says the same).  **The datum read
+is the right binder's**: `iotaCertsIAux` (`Cached/CoreC.lean:175`)
+reads `mb` off `viewI ty`, the ∀ node it is about to peel, the spec
+`iotaCerts` (`Core.lean:806`) matches the same node, `iotaCerts_step_inv`
++ `denoteP_forallE_inv` in `certs_telePA` (`IotaKitP.lean:277-291`)
+produce the `.pi 0 (pwBit φ mb.pw) doma bodya` whose `v` the fit's
+`.cons` is at — one node, one datum.  Two things the audit left
+implicit and which close the wrong-datum worry:
+
+* the `.bvar` re-entry of `iotaCertsIAux` (`:181-186`) never fires on
+  either ι telescope — the pins guarantee at least `mI+1` /
+  `cnP+cnF` binders and the walks are handed exactly that many
+  arguments — so no datum is ever read off a *substituted* node;
+* the datum read at fire time is the **level-instantiated** one:
+  `Expr.instantiateLevelParams` maps binder data through
+  `Level.substPW` (`Kernel/Level.lean:220-225`), so `Nat.rec.{u}`'s
+  stored `.ifAllZero [u]` (`Basis/Nat.lean:99-107`) is `.never` at
+  `us = [succ _]`.  **That is where the census's 99.77 % comes from** —
+  not from stored `.never` data (which are few), and it is exactly the
+  expression `constTypeP_pkg` denotes, so the row's `TVa` carries that
+  bit.  The audit's "`.never` is instantiation-stable" is true but is
+  the minor direction.
+
+**9.1.3 The mixed walk and the fence.**  Telescopes mix — at a generic
+`u` the major binder of `Nat.rec.{u}` is `.ifAllZero [u]` while
+`motive`'s type-binder is `.never` — so the kernel-shaped statement is
+per slot.  `TeleFitMix` (the probe) is `TeleFitPA` with the `.cons`
+premise weakened to `v ≠ 0 ∨ ⟦a⟧ ∈ ⟦A⟧` (gate fired ∨ certificate
+ran), and
+
+    theorem teleFitPA_of_mix : TeleFitMix V ρ T as rest → AnnotOkP V ρ T →
+        AnnotOkP V ρ (AVExpr.mkAppN f as) → interp2 V ρ f ∈ˢ interp2 V ρ T →
+        TeleFitPA V ρ T as rest
+
+recovers the P lane's own fit with no certificate at a licensed slot
+(≈ 40 lines; the certified arm is `certs_telePA`'s step verbatim).
+**The audit missed that the whole-telescope case is already on
+master**: `slotChain_fits` / `AnnotOk2_redex_fits`
+(`SetBase/Spine2.lean:81,142`, tier C seal 2 — "what replaces the
+per-fire `iotaCertsI` walk at a positive-kind telescope") prove it at
+the value level for `PosShape` (every binder positive) and have **no
+consumer** outside docstrings.  Proposal 1 is that design's resumption
+at per-slot granularity and at `AVExpr`.
+
+The fence is `iota_slot_fence` — `io_squash_no_transfer`'s witness
+with the roles renamed: at `v = 0` the head-prefix inhabits the
+telescope's product vacuously (`pt ∈ piR 0 ∅ B`), the redex's slot
+holds (`pt ∈ piR 0 (truthVal True) B'`, `pt ∈ truthVal True`), and
+`pt ∉ ∅` — the `TeleFitPA.cons` premise is **false** with every
+licence premise true, model-class-wide.  With
+`isNever_iff_forall_pwBit_ne_zero` (completeness half) the licensed
+fragment is exactly `.never`, as for β and io; the census's 60 120
+non-`.never` slots must keep running.
+
+**9.1.4 The scoping correction (binding).**  The audit's route —
+"`cfg.betaSkip mb.pw` moved to `iotaCertsIAux`'s ∀ binder
+(`CoreC.lean:175`)" — gates **every** caller of `iotaCertsIAux`, and
+two of them are unlicensed: the rescue's synthetic-spine
+certifications in `majorToCtorI` (`:519` K branch, `:567` η branch).
+A fabricated `ctor p⃗ (proj_i major)` is not a subterm of the subject,
+so it carries no `AnnotOk2` slot; in the P lane its grading `hokMj`
+is *produced from* that certificate (`Step2/MajorP.lean:407-411,
+509-518`: `certs_telePA` then `annotOkP_mkAppN_of_fitA`).  Gating
+there would have the licence consume the slots the certificate is
+there to create — circular.  The gate must live at `iotaRecI`'s two
+calls (`:673`, `:676`) only, e.g. a `licensed : Bool` parameter of
+`iotaCertsIAux` that only `iotaRecI` sets.  (Round 2's bit 13 gated
+globally; the rescue's share is 6 253 fabrications per init-full run,
+so the −8.658 % stands.)  Note also that for a *rescued* major the
+constructor-telescope slots do exist (the rescue's certificate
+established `hokMj`), so `iotaRecI:676` is licensed on rescued majors
+too.
+
+**9.1.5 Proof-side cost, re-priced.**  Zero new semantic theorems
+(`io_domain_transfer` is landed).  The work: the spec `iotaCerts` gains
+the gate in `whnfCoreBody`'s β-gate shape; `iotaCerts_step_inv`
+gains the disjunct; `certs_telePA` becomes the mixed walk with two
+extra inputs (the spine's `AnnotOkP` — for the recursor telescope's
+major slot through `heqAll`, `IotaRowsP.lean:561`, since the slot is
+about `xs[mI]` and the walk is handed the rescued major — and the
+head's `mem_typeP` membership); `iotaStepP_of` feeds them; the six
+cached-simulation sites of `iotaCertsI` (`Verify/Cached/DiscC2.lean:354,
+375, 432, 920, 932, 962`) gain a case.  `iotaRec_inv` keeps its shape.
+`iotaReadsP_of` is untouched (B4 already made reads independent of the
+certificate, `IotaRowsP.lean:385-388`).
+
+#### 9.2 The reflection lens — decision
+
+**The per-check accounting stays; a generic "fire a stored equation
+whose applicability conditions hold" lemma would absorb no conjunct.**
+Reason: `RecRuleLawP`'s hypotheses (`EnvS2P.lean:474-508`) are already
+exactly the redex-dependent facts — the two fits, the index pin, the
+level linkage, the parameter/pin agreements — and the two
+install-invariant tests the audit found (the `stripPis` pins) are
+**not hypotheses of the law at all**; they are `Red.iota` premise
+slots (`SetBase/Rel.lean:304-305`) bound and discarded by the P row.
+There is nothing to move into an "environment-invariant conjunct":
+the only place such a conjunct could live, the law's leading
+`rP ≤ mI`, is where the pins would go *if anyone consumed them*, and
+no one does — so deletion, not relocation, is the honest shape.  The
+`mI = rP` short-circuit likewise needs no law change (`IotaIndexPinP`
+is discharged by `Or.inl rfl`); it is a row-side one-liner plus a
+kernel-side drop.  A `FireOk` predicate bundling `iotaRec_inv`'s
+twenty-odd conjuncts would be a readability refactor with no
+proof-cost change and is not proposed.  What the lens *does* buy is
+§9.3's finding: every fire-path test that is **not** a law hypothesis
+(`hstripR`, `hstripC`, `hstripEq`, `hcbody`) is R-lane residue, and
+each is a deletion.
+
+#### 9.3 Proposals 2–5 and the no-action rows
+
+**Proposal 2, sharpened to an (A) drop.**  In `iotaStepP_of` the block's
+four conjuncts are consumed as follows: `hstripEq` (`stripPisBody`) —
+**never**; `hcbody` (residual head is a `.const`) — **never** (the
+row's `denoteP_mkAppN_inv hresC` accepts any head, `IotaRowsP.lean:650`);
+`hpres` (`piResidual`) — only to name the residual the index comparison
+reads (`:630,645`); `hdefI` — only through `hmapI`'s *length* at
+`mI = rP` (`:666-671`), where `IotaIndexPinP` is `Or.inl rfl` anyway.
+So at `mI = rP` the P lane consumes **nothing** from the block; the
+head-const test is unconsumed at every `mI`; and official has no
+counterpart to any of it (F5).  No install check needs adding —
+dropping the tests can only enlarge the accept set (a redex the
+residual-shape tests would leave stuck now fires) under a soundness
+proof that never read them, which is the accept-superset licence of
+the proofIrrel ruling.  (The install-side twin of the head-const test,
+`ctorResidualOk`, `Modeled.lean:751`, is `ttChecks`-gated and
+statically dead; the audit's "install-validated" framing would have
+had to revive it.)  Shape change: `iotaRec_inv` loses `hstripEq`,
+`hcbody` and the binders `cbinders cbody cr usr` outright, and
+`hpres`/`hdefI` become conditional on `rP < mI`.
+
+**Proposal 3, confirmed; the "deletable outright" reading refuted.**
+The pins hold on every route — modeled plain (`recRulePlain`,
+`ExprOps.lean:490`) and nested (`nestedRuleShapeF`, `DeclCheck.lean:418`;
+`stripPis mI = some (_, .forallE …)` is `stripPis (mI+1)` by
+`stripPis`'s clause, `ExprOps.lean:374`); projection-function
+recursors (`Modeled.lean:572`: `mI = rP = nP`, `checkProjTyF`
+`:598`, `checkProjRuleF` `:617`); the direct structure route
+(`Checker.lean:347`: `mI = rP = nP+2`, the rule `.plain` only under
+`recRulePlain`, `checkDirectRecTy`'s `stripPis (nP+nF)` at
+`DeclCheck.lean:887`); and the pinned literals, **decided** in
+`_tmp/iota-second/BasisPins.lean` for all eight
+(`Eq/Nat/PSigma'/PUnit/Empty.rec`, `Quot.lift/ind`, plus the
+shape-pinned `Iff.rec`/`Nonempty.rec`, whose rule lists arrive by
+`checkIotaRulesF`).  The `mI − rP` census of the pinned recursors is
+`0` everywhere except `Eq.rec` (`5, 4`), which is why the audit's 1 881
+index elements exist at all.  But the `Red`/bridge cluster is **not
+orphaned as a module set**: `SetP/FoldP.lean` imports
+`SetBase/Bridge/Sound.lean` (task #148 T6's model-free assembly half,
+`checkDecls_sound_P_of` at `FoldP.lean:219`) whose chain
+`Bridge/DeclInd → Bridge/Decl → Bridge/Main` reaches
+`Bridge/Iota.lean`; and `SetP/Annot/EnvS2P.lean` imports
+`SetBase/EnvR` → `CtxOkR` → `Weaken` → `Rel`.  What is orphaned is
+the *interpretation* (gone with SetR); the syntactic relations are
+still derived by the P assembly's build.  The pins' two premise slots
+can be dropped locally in three modules — `Rel.lean` (`Red.iota`),
+`Bridge/Iota.lean` (`iota_stepR`), `Weaken.lean:431` (`Red.weakenN`'s
+ι case; the only other eliminator of `Red.iota`) — but retiring the
+cluster is a separate stage that re-founds `Bridge/Sound` and `EnvR`
+on `Verify/*` directly.
+
+**Proposal 4, confirmed with a caveat.**  At `.plain` the comparand is
+`cvj.levelParams.map (Level.subst cv.levelParams us ∘ .param)`
+(`CoreC.lean:661-662`); a stored position map is install-invariant
+*provided* it reproduces `Level.subst`'s miss semantics — a
+constructor parameter absent from the recursor's list is kept as
+`.param n`, not dropped — or install rejects unlinked parameters (an
+invariant `checkIotaRuleF` does not currently check).  The P side
+(`recFireComparands_fst_nil`, `IotaRowsP.lean:626`) follows once a
+one-line install lemma equates the select with the map.
+
+**Proposal 3′**: confirmed, dominated by 3.
+
+**No-action rows**: confirmed.  The K fabrication is licensed by the
+stored `ruleK` capability with its per-fire hypotheses discharged at
+the fire (`caps.ruleK`, `CoreC.lean:499`; `CapsOkP` in the row); the
+η fabrication likewise by `caps.eta`/`etaCtor`/`etaParams`/`etaFields`
+(`EtaLaw` premised on `EtaFamilyStored`).  Neither re-derives a law;
+both discharge redex-dependent hypotheses, which is §1's organising
+fact again.  The `.nested` machinery (50 fires) needs no motion.
+
+#### 9.4 Conformance: ι once per spine
+
+**Reading confirmed.**  `type_checker.cpp:511-535` (`whnf_core`,
+`expr_kind::App`): `f = whnf_core(f0)`; a λ head takes the β branch;
+`else if (f == f0)` (`:525`) calls `reduce_recursor(e)` **once on the
+whole application** and returns `whnf_core(*r)` (`:533`); otherwise it re-whnfs
+`mk_rev_app(f, args)`, which re-enters the same case with `f == f0`
+— one attempt per application.  lean4lean `TypeChecker.lean:397-405`
+is the same shape (its own comment at `:404-405`: "the recursive call
+re-decomposes `r` and reaches the `f == f0` branch above"), and
+`inductiveReduceRec` (`Inductive/Reduce.lean:87,105-106`) indexes the
+major by `recArgs[majorIdx]?` and re-applies `recArgs[majorIdx+1..]`.
+Setlec's `whnfAppI` (`CoreC.lean:750-756`) calls `iotaRecI` on every
+accumulated `.app v a`, and `iotaRecI` bails at
+`args.length = mI + 1` (`:634`) after the prologue
+(`getAppFn`/`getNode`/`readbackNM`/`fe.find?`/`getAppArgsI`).
+
+**Verdict-neutral by construction.**  `iotaRecI` at a prefix of the
+wrong length returns `none` by its first test, so a `whnfAppI` that
+reads `mI` once at the head and calls `iotaRecI` only at the prefix of
+length `mI + 1` computes the same function: the skipped calls are
+exactly calls that return `none`, and the fired reduct is then
+re-applied to `rest` as today (`:754-755`).  The identification needs
+one lemma, `iotaRec` returns `none` unless `args.length = mI + 1`
+(the definition's `if`, the direction `iotaRec_inv`'s `hlenA` already
+records for the `some` case).  **Rows touched**: the twin ↔ spec
+identification in `Verify/BetaSpine.lean` (`whnfApp_ne_lam :174`,
+`whnfApp_atF :302`, `whnfApp_snoc :584`, `whnfApp_sound :918`,
+`whnfApp_ksound :945`), the cached simulation `Verify/Cached/DiscC4.lean`
+(`whnfAppC_sim :119`, `whnfAppIotaC_sim :260`), and `CoreNC`'s twin;
+the spec `whnfCoreBody` (`Core.lean:1514`) and the P/R claim rows are
+untouched — the spec keeps its per-node shape and the twin merely
+skips calls the spec makes and that return `none`.
+
+**The saving is a lower bound.**  The census counter 0 ticks only after
+`fe.find?` returns a `recInfo` ("reaches a stored recursor"), so the
+17.62 M attempts and the +0.263 %-per-prologue price cover
+recursor-headed spines only.  Every application spine whose head is
+any other stored constant (a definition, a constructor, an axiom)
+pays the same prologue up to `find?` at **every** prefix and was never
+counted.  The once-per-spine shape removes those too; one `dbg_trace`
+before `find?` prices them.  −0.20 % is therefore the floor, and
+proposal 5 may deserve a higher rank than the audit gave it once that
+number exists.
+
+#### 9.5 What the audit did not mention
+
+* **Duplicate walk on rescued majors.**  For a K- or η-rescued major
+  the constructor-telescope certificate runs twice on the same spine
+  and the same `tyCtor`: once inside the rescue (`majorToCtorI:519`
+  / `:567`) and again at `iotaRecI:676`.  6 253 fabrications per
+  init-full run — free, but a shape fact worth recording when the
+  licence lands (the second run is the licensed one; the first is
+  not, §9.1.4).
+* **The literal conversion** (`litMajorToCtorI`, `CoreC.lean:590`;
+  `natLitToConstructor`, `Core.lean:270`) is one node per fire
+  (`Nat.succ (lit (k))`) and identical to official; inherent.
+* **`cfg.iotaMode`** is the section variable `mode` threaded
+  `iotaRecI → majorToCtorI → structEtaCertWithI`, whose one read is the
+  `ttChecks` branch at `CoreC.lean:405` — statically dead; retires with
+  the `ttChecks` row as `CoreCfg.lean:41-55` already says.  Nothing
+  ι-specific to do.
+* **`AnnotValidV` is one-directional** (`SetP/Annot/ValidV.lean:55-59`:
+  `v = 0 → fibres in univZero`), so the licence needs no validity
+  fact at all — it reads `v ≠ 0` and the head's membership.  This is
+  also why the licence is immune to the basis literals' provenance
+  (they are generated by the same annotator, `AnnotateBasis.lean`, and
+  `natRecA` does carry `.ifAllZero [u]` on the `u`-graded binders).
+
+#### 9.6 Prioritised list for the grant
+
+| rank | item | route | measured | proof-side cost, re-priced |
+|---|---|---|---|---|
+| 1 | licence at `.never`, **scoped to `iotaRecI`'s two calls** | licence (io-shaped) | −8.66 % init-full | no new theorem; mixed `certs_telePA` + gate in spec/twin + 6 sim sites |
+| 2 | drop `stripPisBody` + head-const at every `mI`; drop `piResidual` + `defEqList` at `mI = rP` | **drop** (A) | −0.87 % | `iotaRec_inv` shrinks; row: `Or.inl rfl` |
+| 3 | delete the two `stripPis` pins | drop (A) | −0.46 % | `iotaRec_inv`; `Red.iota`/`iota_stepR`/`Red.weakenN` lose two slots |
+| 4 | ι once per spine | drop duplicated work | ≥ −0.20 % (floor; price the non-recursor prologues first) | BetaSpine + DiscC4 rows, one `none`-lemma |
+| 5 | `.plain` level-linkage select | install-validate | ≤ −0.28 % | one install lemma; miss-semantics caveat |
+| — | rescue family, `.nested`, `iotaMode` | no action | — | — |
+
+Items 2+3 are the enlarged no-proof-change-in-P package (the audit's
+2+3′ measured −1.717 % on grind-ring-5; 2+3 as drops should not be
+smaller).  Item 1 is the only large item and is ready: the licence is
+a landed theorem, the walk is mechanized in the probe, and the one
+hazard (§9.1.4) is named.
+
+## THE PACKED `pw` DATUM: memory census, positional-bitmask design, probe (2026-09-05, `agent/pw-bitmask`)
+
+**User question (2026-09-05, verbatim):** *"i wonder if our pw
+annotations will have noticeable memory overhead. especially since we
+don't dedup them, and persist them in the env. can we measure them?
+also, if we know the current list of level params whenever we
+normalize or substitute (we should), then we could store a single
+UInt64, with a positional bitmask instead, and MAXUINT for never-prop,
+so that it becomes a flat field. decline on more than 63 level
+parameters in that case."*
+
+**User ruling (2026-09-05, relayed by the coordinator, verbatim):** *"I
+think it is clear that the packed pw is desirable. So if it looks good
+on init-full I'm happy."*  It looks good on init-full (§3).  The design
+is pre-approved in principle; this section is the record, the laws,
+the statement-impact list and the landing route.  The probe branch
+`agent/pw-bitmask` (commit `17e6be5d`) is a measurement prototype and
+does NOT land.
+
+### 1. The census: what the persisted `pw` payload actually costs
+
+Method: an address-keyed (`ptrAddrUnsafe`) walk of every `Expr`
+reachable from the final environment (types, values, iota rhs's,
+nested pins), counting *distinct heap objects* exactly as the
+allocator sees them — shared objects (the chain rule threads ONE datum
+object along a whole telescope; `.ifAllZero []` is a compiler-static
+constant; `.never` is a boxed scalar) count once.  Probe-only code in
+`Main.lean` behind `SETLEC_PW_CENSUS`.  Stream: `init-full-pre2`
+(61 048 decls, `--set-model --pre`).
+
+| quantity | init-full |
+|---|---|
+| persisted `Expr` DAG nodes | 13 046 426 (est. 736 MB of node objects) |
+| binder nodes (DAG) | 1 229 779 — `.never` 500 939, `.ifAllZero` 728 840 |
+| `.ifAllZero` list lengths | `[]` 605 492 · 1 name 123 332 · 2 names 16 · ≥3: 0 |
+| distinct `BinderMeta` objects | 979 130 (24 B each = 23.5 MB — present in EITHER representation) |
+| distinct `.ifAllZero` objects | 34 095 (16 B each) |
+| distinct cons cells | 33 232 (24 B each) |
+| **`pw` payload bytes** | **1 343 088 B = 1.34 MB** |
+| distinct canonical name-sets | 29 |
+| distinct `Name` objects at list heads | 35 — **all 35 pointer-shared** with the term's own level params (verified: the parser interns names; `zeronessOf (.param n)` reuses the level's `n`) |
+
+Peak RSS of the same run (process-tree `ru_maxrss`, checker run
+directly, 16 GB `ulimit -v`): **1 793 168 KB / 1 786 800 KB** (two
+runs).  So the persisted `pw` payload is **0.075 % of peak RSS** on
+init-full.  Why so small although nothing is deduplicated: 83 % of the
+data are the static `ifAllZero []`, the chain rule shares one object
+per telescope (728 840 logical data → 34 095 objects, 21×), and the
+transient copies `substPW` makes under level instantiation die with
+the per-declaration flush (`constTyAt`/`constValAt`/`ruleRhsAt` are
+environment-dependent caches, `CState.flushed`).
+
+**Verdict on the memory question: NOT noticeable** — the datum is not
+where the memory goes (the 13 M persisted term nodes are).  The packed
+representation is nevertheless worth having, for the *instruction*
+count (§3) and for the collapse of the comparison machinery (§2.ii).
+
+Mathlib prefix (`prefix-12M-pre.ndjson`, 22 GB cap): the three runs
+(baseline census, baseline plain, prototype plain) were **stopped on
+the user's ruling before completion**; the only data are incidental
+partial RSS samples, labeled as such — baseline plain 9.12 GB at
+58 min, baseline census 6.87 GB at 46 min, prototype 2.25 GB at
+4.5 min — three different phases, not comparable, recorded only in
+`_tmp/pw-bitmask/results.tsv`.
+
+### 2. The design: `pw : UInt64`, positional over the declaration's level parameters
+
+`abbrev PropWhen := UInt64`.  Bit `i` set = "the `i`-th level parameter
+of the *current declaration* must be zero"; `always = 0`; `never = all
+ones`.  A `BinderMeta` then holds the datum as an inline scalar (its
+object stays 24 B: header + `UInt64` + the `BinderInfo` byte); no list,
+no second object, `Hashable`/`DecidableEq`/`BEq` are the word's.
+
+**Decline threshold.**  `never` coincides with a satisfiable set only
+at 64 parameters, so declarations with more than **63** level
+parameters are declined (exit 2, positively detected).  Measured
+margin: max level-parameter count is **7** on init-full (60 063
+records: 0:31 633, 1:18 051, 2:7 242, 3:2 355, 4:676, 5:84, 6:14,
+7:8) and **12** on the Mathlib prefix (97 702 records; ≥8: 150,
+≥10: 20, 12: 5).  The margin is 5×.
+
+**(i) Substitution — the OR-of-masks law.**  With `maskOf ps : Level →
+PropWhen` (`zero ↦ 0`, `succ _ ↦ never`, `param n ↦ bit (posOf ps n)`,
+`max a b ↦ maskOf a ||| maskOf b`, `imax _ b ↦ maskOf b`; a parameter
+outside `ps` reads `never`), level instantiation at `ks := us` into a
+new context `ps'` pushes the datum through
+
+    substPW ms pw := if pw = never then never
+                     else OR over the set bits i of pw of ms[i]   (i ≥ |ms| ↦ never)
+    where ms := masksOf ps' us := us.map (maskOf ps')
+
+`inter` (the `max` rule) is `|||`; `never` absorbs because it is all
+ones.  Laws (property-tested on 20 000 random contexts/levels/masks,
+`_tmp/pw-bitmask/lawtest.lean`, 0 failures; mechanization is part of
+the landing bill):
+
+* **pushforward** `holds ψ' (substPW (masksOf ps' us) pw) = holds (fun i => eval ψ' us[i]) pw`
+  — the positional twin of `holds_substPW`;
+* **identity** `substPW (masksOf ks (ks.map param)) pw = pw` — for
+  `pw` with all set bits `< |ks|` (`paramsDefined |ks|`) and `ks`
+  nodup; **NOT unconditional** any more: the free datum's unlisted
+  parameter reproduced itself, a bit beyond the list has no name and
+  reads `never`.  Definedness is the invariant the checker already
+  enforces at insertion (`allLevelParamsDefined`), so this is the same
+  hypothesis `substPW_comp` carries today, now also on `_self`;
+* **composition** `substPW ms₂ (substPW ms₁ pw) = substPW (ms₁.map (substPW ms₂)) pw`
+  and `= substPW (masksOf ps'' (us.map (subst ps' vs))) pw`
+  (agrees with instantiating the levels), unconditional in `pw`
+  under the ≤ 63 bound (bit algebra: OR distributes, `never` absorbs);
+* **subst commutation** `maskOf ps'' (subst ps' vs u) = substPW (masksOf ps'' vs) (maskOf ps' u)`
+  — the positional `zeronessOf_subst`.
+
+Shape: there is no shape — the datum is a word; `bindZ` is a 64-step
+bit loop, no allocation.  `Expr.instantiateLevelParams ks us` gains a
+third argument `ms` (the instantiating levels' masks over the NEW
+context), computed once per instantiation at the call site.
+
+**(ii) Comparison.**  Every validation site compared `equiv` (mutual
+containment = zero-ness agreement at every valuation).  With canonical
+words, agreement IS equality: `equiv a b := a == b`.  (The one-sided
+subset test `(a &&& b) == a` is available but no site needs it —
+all sites compare for agreement.)  The consequence for the canonical
+form: `Setlec/Kernel/ZeroSet.lean` (477 lines), `Kernel/ZeroSetPin.lean`
+(47) and `Verify/ZeroSet.lean` (604) are **deleted** — the word is the
+canonical form, `=`/`decide`/`hash` decide the semantic question, and
+`Verify/PropWhen.lean` (443 lines) shrinks to the bit-algebra battery
+above.
+
+**(iii) The semantic interface — what moves in the P tier.**  Today
+`pwBit (φ : Name → Nat) (pw) := if pw.holds φ then 0 else 1` and
+`denoteP acval env φ d e` reads `pwBit φ m.pw` at every binder.  A
+positional datum needs the *universe context* `ps` to read a name
+valuation: the boundary becomes
+
+    pwBit (ps : List Name) (φ : Name → Nat) (pw : PropWhen) : Nat
+      := if pw.holds (fun i => φ (ps[i]?.getD default)) then 0 else 1
+
+and `denoteP` gains `ps` (the context of the term it reads).  What
+stays and what moves:
+
+* **unchanged**: the `AVExpr` bit currency (a `Nat` in `{0,1}` on
+  `pi`/`lam`), `AnnotValidV`, `interp2`, the establishment step's
+  *shape* (`pwBit … = 0 → x ∈ univZero`), the substitution pair
+  (`AnnotOk2_liftN/_inst`), everything stated over `AVExpr`;
+* **re-indexed by `ps`** (mechanical: one extra argument threaded):
+  `denoteP` and every statement mentioning it — 47 files / 492 lines
+  mention `pwBit`, 52 files / 619 lines mention `substFn` (upper
+  bounds: many of those are `acval`/`EnvS2Core` rows that only use
+  `substFn` at constants and do not move);
+* **restated**: `pwBit_of_equiv_zeronessOf` — the establishment
+  hypothesis `equiv (zeronessOf v) pw = true` becomes
+  `maskOf ps v = pw` (word equality); it needs `v`'s parameters within
+  `ps` to read `eval φ v`, which the site's success supplies if
+  `maskOf` is made `Option`-valued at the executable validation site
+  (decline on an undefined parameter — reads-as-`never` would be a
+  silent false claim, still sound because validation compares both
+  sides under the same `maskOf`, but the theorem would carry a
+  definedness premise); `pwBit_substPW` / `denotePInstLevels`
+  (`Step2/BitLevels.lean:137`) become
+  `denoteP ps' φ (e.instantiateLevelParams ks us (masksOf ps' us)) = denoteP ks (substFn φ ks us) e`
+  under `∀ u ∈ us, u.allParamsDefined ps'` — the "unconditional
+  crossing" of P3 gains the definedness premise the level side
+  (`InstLevels.subst_subst`) already has;
+* **unchanged in content**: `isNever_iff_forall_pwBit_ne_zero` — any
+  `pw ≠ never` holds at the all-zero valuation, `never` nowhere — the
+  graph/squash regime fence at `pw = never` is representation-free;
+  `PropWhen.isNever` is `pw == never`.
+
+**(iv) Where the current level-parameter list must be threaded — and
+the finding.**  The prototype puts the universe context beside the
+environment: `Env.lps : List Name` (the official kernel's `lparams`
+next to its local context), entered per declaration by the drivers
+(`FEnv.withLps`: `checkDeclSPC`'s four kinds, `checkIndMemberS`,
+`provisionRecsS`, `checkIndRecsS` per recursor, `checkProjFnS`,
+`checkDirectStructS` per phase, `checkDirectProjsS`).  Read at: the
+four annotate/validate sites (`annotPwPi/Lam`, `inferBody`'s ∀/λ
+clauses, `inferPisOutI`, `inferLamsLeafI`), the ~20
+`instantiateLevelParams` sites (Core, DeclCheck, Modeled, CoreC, CoreNC,
+StateC's three lazy caches, `pinArgsI`/`recFireComparands`), the
+`allLevelParamsDefined` twins (count instead of list).  It always is
+threadable — but it was **not always consistent**, which is the
+probe's finding:
+
+> **The checker reuses annotated terms across universe contexts by
+> parameter-NAME identity.**  A recursor's parameter list is the
+> type's with the motive universe PREPENDED (`Trans.rec : [u_4, u, v,
+> w, u_1, u_2, u_3]` vs `Trans : [u, v, w, u_1, u_2, u_3]`), so every
+> position shifts by one.  The block-install paths read the
+> *constructor's* stored (annotated) type in the *recursor's* context
+> without instantiating it: `checkIotaRule` (`DeclCheck.lean:384,400`,
+> the `.plain` path) and `checkDirectRecTyF`/`checkDirectRuleF`
+> (`:919,970`).  Under the free datum this is legitimate (same names,
+> same meaning); under positional masks it declines with
+> `sort-annotation mismatch (forall-cod)` at the first structure with a
+> universe-polymorphic field (`Trans`, init-full decl ~1 000).  The fix
+> is `Expr.remapPW from to e := e.instantiateLevelParams from
+> (from.map param) (masksOf to (from.map param))` — the identity level
+> substitution with a context change — at those four sites (projection
+> installs share the type's list, no remap).  The invariant to state
+> and keep: *an annotation is read only in the context it was written
+> in; crossing contexts goes through `instantiateLevelParams` (or
+> `remapPW`), never by name identity.*  Its proof obligation in the P
+> tier is the crossing law at identity levels — derivable from the
+> general crossing.
+
+Two consequences worth ruling on at landing: (a) **input annotations**
+— the export format carries no `pw` fields (0 in both streams), but the
+parser supports named lists (`parsePwD`) and 17 test fixtures use
+them; a parse-table node is shared across declarations, so a name list
+cannot be positionalized at parse time — either drop input annotations
+(the annotate pass writes every datum anyway) or make the format
+positional; (b) **cross-declaration sharing** of annotated subterms
+becomes order-sensitive — irrelevant today (each declaration's
+annotate rebuilds its own terms; the census counts 13 M nodes for
+61 k decls with no cross-declaration sharing), relevant only if a
+future hash-consing across declarations is attempted.  A global
+name→position table is NOT an alternative: 60 distinct level-parameter
+names on init-full, **112** on the Mathlib prefix (> 63).
+
+### 3. The probe's numbers (init-full-pre2, `--set-model --pre`, direct child, 16 GB `ulimit -v`)
+
+| binary | instructions (user) | wall | peak RSS | verdict |
+|---|---|---|---|---|
+| master `7d3d4dbf` (run 1) | 2 749 546 610 065 | 350.5 s | 1 793 168 KB | accepted 61 048 |
+| master (run 2) | 2 749 696 763 828 | 360.1 s | 1 786 800 KB | accepted 61 048 |
+| probe `17e6be5d` | **2 594 882 243 108** | 350.0 s | **1 782 568 KB** | accepted 61 048 |
+
+**Instructions −5.6 %** (run-to-run noise on this stream: 0.005 %) —
+larger than the payload predicts: it is the `BinderMeta` hash (the
+node's computed `hash` field mixes the datum at every ∀/λ
+construction — a list walk before, one word now), `DecidableEq` on
+metas at memo hits, the `equiv` containment loops at every validation
+and defeq site, and the `bindZ` allocations under instantiation.
+**RSS −0.3 % to −0.6 %** (10.6 MB / 4.2 MB against the two baselines
+— within the 0.4 % baseline spread, consistent with the 1.34 MB census
+plus the transient copies).  Verdicts: init-full identical; the arena
+suite (`tests/arena-expected.txt`, 138 fixtures) **0 exit-code
+deltas** against the master binary.
+
+Probe scope and honesty count: the executable cone only (Kernel,
+Cached, Frontend, Main; 26 files, +540/−403); **0 sorries** in it (the
+`ExprOps` has-param shortcut lemmas are re-proved for the word); the
+proof tier (Verify/SetP, `tests/SetlecTests.lean`) is **not adapted
+and does not build** on the branch — 61 files there reference the free
+datum's constructors or laws (`.ifAllZero` 13 files/351 lines,
+`zeronessOf` 17/180, `substPW` 10/107, `bindZ` 2/68, `paramsDefined`
+5/74).  Probe shortcuts that must not be copied: `CoreFnsI.lps` as a
+knot-record field (the perf-eng E6 note: 194 `Verify/Cached`
+references unfold the knot's equations — thread `fe` into the six
+telescope helpers instead), the parser declining named `pw` input,
+the census in `Main.lean`.
+
+### 4. Landing bill and route
+
+**Bill (estimate).**
+* Kernel layer, mechanical, reusable from the probe: `Expr.lean`
+  `PropWhen` block; `Level.lean` `maskOf/masksOf/substPW/remapPW` and
+  the three-argument `instantiateLevelParams`; `ExprOps.lean` lemmas
+  (done); `Env.lps` + `FEnv.withLps` + the driver entries; the ~20
+  instantiation sites; the 4 remap sites; pins (all `ifAllZero []` →
+  `always`, 60 non-empty lists → masks by position — regenerate with
+  `PinGen`, whose `ToExpr` quotes the word); the > 63 decline in
+  `checkConstantVal{,C}`.  ~1 day.
+* Cached layer: `CoreC` (four annotate/validate sites, `inferPisOutI`,
+  `pinArgsI`), `ExprOpsC.instLevelParamsGo`, `StateC` (three lazy
+  caches, `zeronessOfLIGo` takes the list) — with `fe`/`lps` threaded
+  as arguments, not a knot field.  ~½ day, plus the `Verify/Cached`
+  twins (`BinderLoopC`, `DiscC4`, `AgreeAnnot`, bridges) — the
+  signature changes propagate mechanically.
+* Verification: `Verify/PropWhen.lean` rewritten as the bit battery
+  (identity/composition/pushforward/subst-commutation over `UInt64`
+  bit operations — `BitVec` reasoning, the one genuinely new proof
+  work; ~1–2 days); `Verify/InstLevels` (`instLevels_instLevels` with
+  mask composition); deletions (ZeroSet ×3, −1 128 lines);
+  `SetP/Annot/Bit.lean` + `ValidV` + `Step2/BitLevels` restated
+  (§2.iii); the `ps` re-indexing across the `denoteP` statements
+  (mechanical, wide: ≤ 47 files); `tests/SetlecTests.lean` (17 refs).
+  ~3–4 days.
+* Total: roughly one week of agent batches; no new axioms, no
+  representation escape (the word is a plain `UInt64`).
+
+**Route.**  Land as its own batch **after** `agent/packing` (task #167,
+the packed node word — it is editing `Kernel/Expr.lean`'s computed
+fields now; the `PropWhen` block is disjoint from the fields except
+`hasLP`'s `m.pw.hasParams` read, which is unchanged — a trivial rebase)
+and **after the wiring flip** (`agent/wiring` owns `Cached/CoreC` +
+`SetP` + `Verify/Denote/Install`, exactly this batch's collision
+surface: the four `CoreC` sites, `BitLevels`, `Annot/Bit`, `ValidV`,
+and every `denoteP` statement).  Landing it concurrently with wiring
+would put two batches into `denoteP`'s signature at once; sequenced
+after it, the re-indexing is one mechanical pass over the settled
+statements.
+
+**Base.**  A **clean re-implementation, using the probe as the map**,
+is cheaper than rebasing the probe: cherry-pick the Kernel-layer hunks
+(`Expr`, `Level`, `ExprOps`, pins, `Env`/`FEnv`, drivers, DeclCheck
+remaps — they are exactly what a landing wants), redo the `CoreC`
+threading without the knot field, keep the parser's named-list path
+behind a ruling on (a) above, and leave the census out.  The probe
+branch stays where it is as the reference (`agent/pw-bitmask` @
+`17e6be5d`; measurement harness and results in `_tmp/pw-bitmask/`:
+`run.py`, `results.tsv`, `lawtest.lean`).
+
+## POINTER-FIRST EQUALITY: the core-data-structure audit (2026-09-05, `agent/ptreq-audit`)
+
+**User question (2026-09-05, verbatim):** *"are there more core data
+structures that should compare ptrs during eq checking? Name maybe?
+what does the official kernel do?"*
+
+Answer, short: **yes — `Name` and `Level`.**  `Expr` is already
+pointer-first (`Expr.beqFast`) and is what fires at every `Expr`-keyed
+memo probe (verified below).  `Name` and `Level` are plain derived
+`DecidableEq`/`Hashable`, i.e. a full structural walk *both* for the
+comparison *and* for the hash, at every const lookup, every level memo
+probe, and — five times per node — inside `Expr.beqB`, the single
+largest symbol in the checker after the RC decrementer.  Official is
+pointer-first (and cached-hash-first) at every one of those places.
+Measured ceiling on init-full: **≈ 2.9 %** of instructions, of which
+≈ 2 % is realistically recoverable.  This section is the record; no
+implementation lands on this branch (drafts in `_tmp/ptreq-audit/`).
+
+### 1. What the official kernel does
+
+Sources: `_tmp/lean4-master-kernel/` (fetched from `leanprover/lean4`
+master: `expr.h`, `expr.cpp`, `expr_eq_fn.cpp`, `level.h`, `level.cpp`,
+`name.h`, `name.cpp`, `type_checker.cpp`, `declaration.h`, plus
+`lean4_lean.h` = `src/include/lean/lean.h` and `lean4_object.cpp` =
+`src/runtime/object.cpp`) and the Lean-side sources shipped with the
+toolchain (`~/.elan/toolchains/leanprover--lean4---v4.33.1/src/lean/`).
+
+| structure | executed entry point | fast path, in order | mechanism | citation |
+|---|---|---|---|---|
+| `expr` | `is_equal` = `expr_eq_fn<false>`; Lean side `Expr.eqv`, `@[extern "lean_expr_eqv"]` | **`is_eqp` (raw pointer)** → 64-bit cached `hash` → `kind` → structural, with an address-pair memo on *shared* subterms only | `is_eqp(e1,e2) { return e1.raw() == e2.raw(); }` | `expr_eq_fn.cpp:45-47`, `expr.h:112`, `Lean/Expr.lean:808` |
+| `expr`, defeq entry | `type_checker::quick_is_def_eq` | `t == s` (hence `is_eqp` first) before anything else | ” | `type_checker.cpp:838` |
+| `expr`, delta step | `lazy_delta_reduction` | `is_eqp(*d_t, *d_s)` on the two `constant_info` **objects** — same-definition heads skip unfolding | `is_eqp(constant_info,…)` = `raw() == raw()` | `type_checker.cpp:1032`, `declaration.h:449` |
+| `expr`, whnf idempotence | `is_def_eq_core` | `is_eqp(t_n, t)` — "did `whnf_core` change anything" is a *pointer* test, not a comparison | ” | `type_checker.cpp:1197, 1226` |
+| `expr`, rebuild | `Expr.updateApp!`, `updateForall!`, … | `ptrEq` on each child → return the original node | `Init/Util.lean:111` | `Lean/Expr.lean:1846-1947` |
+| `level` | `operator==`; Lean side `Level.beq`, `@[extern "lean_level_eq"]` | `kind` → **cached `hash`** → **`is_eqp`** → `depth` → structural | hash read from the level's data word (`level::hash()`) | `level.cpp:125-149`, `level.h:55`, `Lean/Level.lean:255` |
+| `level`, semantic | `is_equivalent`; Lean side `Level.isEquiv` | **`lhs == rhs` BEFORE normalising**, then `normalize lhs == normalize rhs` | ” | `level.cpp:518`, `Lean/Level.lean:410` |
+| `level`, rebuild | `update_succ` / `update_max`; Lean `updateSucc!` &c. | `is_eqp` on children → return the original level | ” | `level.cpp:301-315`, `Lean/Level.lean:566, 577, 588` |
+| `level`, instantiate | `level instantiate` | `if (!has_param(l))` cutoff (flag in the data word) before descending | ” | `level.cpp:385-390` |
+| `name` | `name::operator==` → `lean_name_eq` | **pointer (`n1 == n2`)** → scalar-ness → **cached hash (`lean_name_hash_ptr`)** → limb-by-limb, each limb's string compared by `lean_string_eq` (itself pointer-first), with a *second* pointer test on each prefix step | hash stored in the object at `sizeof(void*)*2`; Lean side `@[extern "lean_name_eq"] Name.beq` | `lean4_object.cpp:2762-2791`, `lean4_lean.h:3124-3136`, `name.h:55, 108`, `Init/Prelude.lean:4814` |
+| `string` | `lean_string_eq` | **`s1 == s2`** → size → `memcmp` | inline in the runtime header | `lean4_lean.h:1383` |
+| the primitive | `withPtrEq a b k h` | `ptrEq a b` then `k ()`; the *pure* definition is `k ()` | `@[implemented_by withPtrEqUnsafe]`; obligation `h : a = b → k () = true` | `Init/Util.lean:126-140` |
+
+Two remarks that matter downstream.
+
+* **`lean_is_exclusive` is not an equality device.**  It is the RC
+  linearity test used for destructive update (`lean4_lean.h:704`); the
+  kernel's only equality-adjacent use of the RC is the *dual* — 
+  `expr_eq_fn::check_cache` memoizes an address pair only
+  `if (is_shared(a) && is_shared(b))`, because an unshared subterm can
+  never be met twice (`expr_eq_fn.cpp:33-43`).  Setlec's `beqGo` memo
+  has no such guard; the `beqB` fuel budget plays the same role.
+* **Official's kernel equality compares *less* than ours.**
+  `is_equal` is `expr_eq_fn<false>`, which skips binder names and
+  binder info entirely (`expr_eq_fn.cpp:102-103, 110`); `is_bi_equal`
+  (`<true>`) is the elaborator's.  `Setlec.Expr.beq` is
+  `decide (a = b)` on a type that *carries* the binder name and the
+  `BinderMeta`, so `beqB` compares a `Name` and a `BinderMeta` at every
+  binder node where official compares nothing.  This is a deliberate
+  consequence of "one `Expr`, decidable equality, `LawfulBEq`" and is
+  not proposed for change — but it is precisely why a pointer-first
+  `Name` pays off more here than it would in the C++ kernel.
+
+### 2. What Setlec does — every equality entry point on the core data
+
+Measurement: one `perf record -F 499 -e instructions:u` run of the
+master binary (`_tmp/ptreq-base-setlec`, master @ `564e6a3a`) on
+`init-full` (`--set-model=p --pre`, 61 048 declarations accepted,
+exit 0, 141 582 samples, `ulimit -v 16000000`).  Shares are
+`--percentage absolute`, i.e. of the whole process.  Raw:
+`_tmp/ptreq-audit/initfull.data`, symbol table `syms.txt`.
+Calibration: the sibling batch's independently measured A/B for
+`PropWhen.equiv` (init-full −0.005 %) matches this profile's
+`PropWhen_equiv` symbol share (0.01 %) — so a symbol's share is a
+sound *ceiling* on what removing its work can save.
+
+| structure | entry point that executes | instance that actually fires | ptr-first? | measured init-full share |
+|---|---|---|---|---|
+| `Expr` | `Expr.beq`, `@[implemented_by Expr.beqFast]` | `beqFast` → `beqB` (budgeted) → `beqGo` (memoized) | **yes** — `ptrAddrUnsafe` then the 32-bit packed hash | `beqB` **10.05 %**, `beqFast` 1.01 %, `beqGo` 0.25 % |
+| `Expr` as memo key | `Std.HashMap Expr _` (`whnfCoreC`, `whnfC`, `inferC`, `inferFC`, `inferIOC`, `annotC`, `instC`, `defeqC`, `instantiate*Go`, `bvarBoundGo`) | key `BEq` = `Expr.beq` → `beqFast`; `Hashable Expr` = `Expr.hash`, an `O(1)` field read | **yes** | `instDecidableEqExpr_decEq` **0.00 %** — confirmation that the derived instance never fires |
+| `Name` | derived `DecidableEq`, via `instBEqOfDecidableEq` | `instDecidableEqName_decEq`, full structural walk; strings by `lean_string_eq` (ptr-first, so *that* half is fine) | **no** | **1.19 %** (+ `memcmp` 0.08 %, `lean_string_eq_cold` 0.01 %) |
+| `Name` as hash-map key | derived `Hashable` | `instHashableName_hash`, full structural walk, `lean_string_hash` per limb (uncached, byte-wise: `lean4_object.cpp:2488`) | n/a — **no cached hash** | **0.65 %** + `hash_str` 0.28 % + `lean_string_hash` 0.03 % |
+| `Name`-keyed maps | `FEnv.idx` (`FEnv.find?`), `CState.ienv`, `constTyAt`/`constValAt` (`Name × List Level`), `ruleRhsAt` (`Name × Name × List Level`) | `Std.HashMap`; bucket walk calls the two rows above | **no** | probe machinery: `FEnv.find?` **1.29 % + 0.35 %**; `constTyAtM`/`constValAtM`/`ruleRhsAtM` ≈ 0.50 % |
+| `Level` | derived `DecidableEq` | `instDecidableEqLevel_decEq` | **no** | **0.62 %** |
+| `Level` as hash-map key | derived `Hashable` (`lsimpC`, `lnzC`, `eqvC`, and inside the `Name × List Level` keys) | `instHashableLevel_hash`, structural walk | n/a — **no cached hash** | **0.29 %** |
+| `Level`, semantic | `Cached.isEquivLM` → `eqvC[(l,r)]?` → `Level.simplify`/`leqCore` | no `l == r` disjunct at all (see §3, P2) | **no** | `isEquivLM` 0.11 % + its probe 0.08 % |
+| `Level`, substitution | `Level.subst` / `subst.go`, `allParamsDefined` | `if k = n` — derived `Name` decEq per parameter; no `hasParam` cutoff inside the level tree (official has one) | **no** | `Level_subst` + `subst_go` 0.09 % |
+| `PropWhen` | `PropWhen.equiv` (containment) — the *sibling* batch's site | structural containment | not yet (sibling's patch) | 0.01 % |
+| `BinderMeta` | derived `DecidableEq`, called by `beqB`/`beqGo` per binder node | `instDecidableEqBinderMeta_decEq` | no | 0.00 % |
+| `Literal` | derived `DecidableEq`, `.lit` case of `beqB` | `instDecidableEqLiteral_decEq` | no | absent from the profile (below the sampling floor) |
+
+**Which instance fires — verified in the compiled IR**, not inferred:
+`.lake/build/ir/Setlec/Kernel/Expr.c` (same build as the profiled
+binary — the `.c` and its `.lean` carry the same mtime; the `ir/`
+directory also holds orphan `.c` files of modules deleted at task
+#172, which lake does not sweep, so check mtimes before reading it),
+the body of
+`lp_setlec_Setlec_Expr_beqB`, calls
+`lp_setlec_Setlec_instDecidableEqName_decEq` **five times** (fvar name,
+const name, binder name on `lam` and on `forallE`, `letE` name, `proj`
+struct name — counted by brace-matching the whole 840-line function),
+`lp_setlec_Setlec_instDecidableEqLevel_decEq` once (`.sort`),
+`instDecidableEqBinderMeta_decEq` and `instDecidableEqLiteral_decEq`
+once each, and `List_beq…beqGo_spec__2` for a `.const`'s level list —
+while the
+`Expr` recursion itself is guarded by two `lean_ptr_addr` calls.  So
+**`beqB`, at 10.05 % the checker's second-largest symbol, is the single
+biggest consumer of the structural `Name`/`Level` comparisons**, and
+every `Name` it meets is a parser-table object (§3) that a pointer
+test would settle in one instruction.
+
+**Are `Name`/`Level` objects actually shared?**  Yes, by construction:
+the export parser keeps `names : Std.HashMap Nat Name` and
+`levels : Std.HashMap Nat Level` index tables
+(`Setlec/Frontend/ExportC.lean:48-49`) and hands the *same object* to
+every occurrence of a stream index — so a `.const n us` node's `n`, the
+`ConstantInfo.name` it resolves to, and the `levelParams` a
+`Level.subst` walks are one object each.  Independently confirmed by
+the task-#167/pw census (this file, "THE PACKED `pw` DATUM"): *"35
+distinct `Name` objects at list heads — all 35 pointer-shared with the
+term's own level params (verified: the parser interns names)"*.
+
+**Item (iii): the 32-bit hash narrowing.**  `Hashable Expr` is
+`Expr.hash`, the packed word's top 32 bits (`Kernel/Expr.lean:500,
+518`) — an `O(1)` field read, and `beqFast`'s second test.  A
+hash-equal-but-unequal key therefore descends into `beqB`.  The
+exposure is bounded: `Std.DHashMap` stores no per-entry hash, so a
+probe compares every key in its bucket, but each of those comparisons
+exits at `a.hash != b.hash` unless the 32-bit hashes collide.  With
+`M` distinct keys in a memo the expected number of colliding *pairs*
+is `M²/2^33`; the memos are per-declaration (`CState` flush) and hold
+`O(10^5…10^6)` entries, so ≤ ~10² colliding pairs per declaration,
+each costing one descent bounded by `beqBudget = 4096` nodes.  Against
+`beqB`'s 10.05 % this is noise: **the descent cost is genuine
+structural work on equal-but-unshared DAGs** (the cached tier rebuilds
+terms the retired arena would have hash-consed), not collision
+fallout.  No action proposed on the hash width.
+
+### 3. Proposals, prioritized by measured ceiling
+
+All three are `withPtrEq`/`@[computed_field]` shaped, all three have
+**zero statement impact** (`withPtrEq a b k h` is *definitionally*
+`k ()`; the drafts below carry the `rfl` proofs), and all three
+typecheck as written — `_tmp/ptreq-audit/proto.lean`,
+`proto2.lean` (both green under the project toolchain).
+
+| # | site | what official does | ceiling (init-full) | proof obligation |
+|---|---|---|---|---|
+| **P1** | `Name` equality — the derived `DecidableEq Name` | `lean_name_eq` is ptr-first | **1.19 %** (+0.09 % string tail) | `a = b → (a == b) = true`, i.e. `by subst h; simp` |
+| **P2** | `Level` equality + the missing `l == r` disjunct in `isEquiv`/`isEquivLM` | `operator==` is hash+`is_eqp`-first; `is_equivalent` tries `lhs == rhs` **before** normalising | **0.62 %** eq + 0.19 % memo | same, plus `Level.isEquiv l l = some true` (immediate: `simplify l = simplify l`) |
+| **P3** | cached hash as a `@[computed_field]` on `Name` and `Level`, and the `Expr.beqFast`-shaped `beqFast` it enables | the hash is in the object header (`lean_name_hash_ptr`, `level::hash()`) | **0.65 + 0.29 + 0.28 = 1.22 %** | none new: the field is a function of the value, so a hash mismatch *is* an inequality (`Name.ne_of_hash_ne`) — the same argument task #172 B3a used for `Expr` |
+| P4 | `Level.subst` / `Level.simplify` returning the *original* object when nothing changed (official `update_succ`/`update_max`, and the `has_param` cutoff) | ditto | 0.09 % + downstream allocator/RC relief | `update`-lemmas of the form `subst ks us l = l` under `¬ hasParam` |
+| — | `PropWhen.equiv` | (no counterpart) | 0.01 % | sibling batch `agent/ptreq`; measured A/B −0.005 % on init-full — **immaterial**, and this profile says so independently |
+
+**P1 — pointer-first `Name`** (`_tmp/ptreq-audit/P1-name-ptreq.lean`).
+Two variants.  *Site-local*: a `namePtrBEq` next to `Expr.exprPtrBEq`
+(`Kernel/ExprOps.lean:733`, the existing precedent) used at
+`Cached/CoreC.lean:218` and `:1403` (delta same-head and const/const
+defeq — official's `const_name(a) == const_name(b)`),
+`Kernel/Level.lean:33` (`subst.go`) and `:90` (`rest`'s `.param`
+case).  *Global*: drop `DecidableEq` from `Name`'s `deriving` clause
+and define
+
+    instance : DecidableEq Name := fun a b =>
+      withPtrEqDecEq a b (fun _ => Name.decEqCore a b)
+
+which makes **every** `==`, `if a = b` and hash-map key comparison
+pointer-first at once — including the four calls per node inside
+`beqB` and the `FEnv.find?` bucket walk, which is where the 1.19 %
+actually is.  `Decidable (a = b)` is a subsingleton, so `decide` is
+unchanged as a `Bool`; the proof bill is a `Subsingleton.elim` bridge
+wherever a proof names the derived instance (`grep -rn
+instDecidableEqName Setlec/Verify Setlec/SetR`).  The global variant
+is the one worth doing; the site-local one is the fallback if that
+grep is ugly.
+
+**P2 — pointer-first `Level`, and the official disjunct**
+(`_tmp/ptreq-audit/P2-level-ptreq.lean`).  This is also a
+**restrictions-are-findings** item: `Level.isEquiv`
+(`Kernel/Level.lean:141`) simplifies *both* sides unconditionally,
+where official (`level.cpp:518`) tries `lhs == rhs` first; and the
+executed `isEquivLM` (`Cached/StateC.lean:390`) goes straight to a
+`(Level × Level)`-keyed memo probe that structurally hashes both
+levels before it can discover they are the same object.  Add the
+disjunct to the pure spec (redundant, hence provably equal to the old
+definition) and a `levelPtrBEq` guard at the head of `isEquivLM`.
+
+**P3 — cached hashes** (`_tmp/ptreq-audit/P3-cached-hash.lean`).  This
+is the item with no analogue in the current tree and the largest
+single ceiling: `Name` and `Level` gain
+
+    with @[computed_field] hashData : Name → UInt64 | …
+
+and their `Hashable` instances read the field.  `@[computed_field]` is
+an **already-enumerated** trust escape (the census in
+`Setlec/Cached/ExprC.lean`'s module docstring, task #172 B3a) — this
+adds users, not a class.  It turns every `HashMap Name _` /
+`HashMap Level _` probe's hash from `O(|name| + bytes)` into one field
+read, and it supplies the hash test that makes a ptr-first
+`Name.beqFast`/`Level.beqFast` exactly `lean_name_eq`'s and
+`operator==`'s shape.  Caveat to check before landing: the numeric
+value of `Expr.data`'s hash field changes (it folds
+`Hashable.hash n`), so re-run any `#guard` over a concrete hash; no
+*statement* mentions a hash value.  Memory: one `UInt64` per distinct
+`Name`/`Level` object, and the parser builds each exactly once.
+
+**Combined ceiling: 2.24 % (`Name` eq+hash) + 0.96 % (`Level` eq+hash)
+≈ 2.9 % of init-full**, of which the pointer tests recover the part
+where the operands are shared — by §2's sharing argument, most of it.
+Realistic expectation ≈ 2 %, i.e. the size of one of the perf/R1
+campaign's E-steps, for a few dozen lines and no new trust class.
+
+**Sequencing.**  P3 first (it is the only one that needs a type-level
+edit and a rebuild of everything downstream of `Kernel/Expr.lean`),
+then P1's global variant, then P2, then P4 if the allocator share still
+justifies it.  Each is independently A/B-able with
+`_tmp/perf-eng/ab.sh` on `init-prelude` + `grind-ring-5` + `init-full`.
+Instruments and drafts: `_tmp/ptreq-audit/` (`initfull.data`,
+`syms.txt`, `grind.data`, `proto.lean`, `proto2.lean`,
+`P1-name-ptreq.lean`, `P2-level-ptreq.lean`, `P3-cached-hash.lean`);
+fetched official sources in `_tmp/lean4-master-kernel/`.

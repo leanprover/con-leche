@@ -227,17 +227,170 @@ def levelsHash : List Level → UInt64
   | [] => 13
   | u :: us => mixHash (levelHash u) (levelsHash us)
 
+/-! ## The packed node word (task #167)
+
+`Lean.Expr` stores its derived data in one `UInt64` (`Lean.Expr.Data`:
+a 32-bit hash, a 20-bit `looseBVarRange`, flags).  `Setlec.Expr` does
+the same, with one `@[computed_field] data : Expr → UInt64` whose
+layout is
+
+| bits | field | width |
+|---|---|---|
+| 63…32 | `hash` | 32 |
+| 31 | *reserved* (always 0) | 1 |
+| 30…16 | `bvarB`, the loose-bvar bound | 15 |
+| 15…1 | `fvarB`, the fvar range | 15 |
+| 0 | `hasLP` | 1 |
+
+The two ranges **saturate** at `satRange = 2^15 - 1`: a node whose
+bound would not fit stores `satRange`, which reads as "*at least*
+`satRange`".  Saturation is a *representation* decision and costs
+nothing logically — `Expr.bvarB`/`Expr.fvarB` remain the exact
+functions `Expr.bvarBound`/`Expr.fvarRange` (`bvarB_eq`, `fvarB_eq`),
+because the accessors fall back to a memoized exact walk on the
+saturated branch.  What saturation costs is *performance*, and only
+on terms that saturate: the `O(1)` field read becomes an `O(DAG)`
+walk.  Measured maxima on the real streams — `init-full` 213,
+`grind-ring-5` 488, `app-lam` (the deepest artificial workload) 4000 —
+leave the branch unreached with 8× headroom.
+
+The packing is written with **arithmetic**, not bitwise, operators
+(`* 65536` for a shift, `/ 65536 % 32768` for a field read): the code
+LLVM emits is the same shift-and-mask, and every roundtrip lemma
+below is then `omega` after `UInt64.toNat`. -/
+
+/-- Saturation value of the two 15-bit range fields: a stored
+`satRange` reads as "at least `satRange`". -/
+def satRange : Nat := 32767
+
+/-- Assemble the packed word from a 32-bit hash, two 15-bit ranges and
+the level-param flag.  Sums, not `|||`: the fields are disjoint, so
+addition *is* the bitwise join, and the arithmetic form is what makes
+the roundtrip lemmas `omega`-provable. -/
+@[inline] def packData (h b f : UInt64) (lp : Bool) : UInt64 :=
+  h * 4294967296 + b * 65536 + f * 2 + (if lp then 1 else 0)
+
+/-- Hash field of a packed word (bits 63…32). -/
+@[inline] def hashOfData (w : UInt64) : UInt64 := w / 4294967296
+
+/-- Loose-bvar-bound field of a packed word (bits 30…16). -/
+@[inline] def bvarOfData (w : UInt64) : UInt64 := w / 65536 % 32768
+
+/-- Fvar-range field of a packed word (bits 15…1). -/
+@[inline] def fvarOfData (w : UInt64) : UInt64 := w / 2 % 32768
+
+/-- Has-level-param field of a packed word (bit 0). -/
+@[inline] def lpOfData (w : UInt64) : Bool := w % 2 == 1
+
+/-- Truncate a mixed hash to the packed word's 32 bits. -/
+@[inline] def hash32 (w : UInt64) : UInt64 := w % 4294967296
+
+/-- A leaf's range field: `n + 1`, saturating. -/
+@[inline] def satSucc (n : Nat) : UInt64 := UInt64.ofNat (min (n + 1) satRange)
+
+/-- A binder's range field: the body's bound less one, saturating
+(a saturated body keeps a saturated bound — the stored value means
+"at least", and subtracting from it would under-approximate). -/
+@[inline] def satPred (x : UInt64) : UInt64 :=
+  if x == 32767 then 32767 else if x == 0 then 0 else x - 1
+
+/-! ### The packing roundtrip -/
+
+theorem bvarOfData_lt (w : UInt64) : (bvarOfData w).toNat < 32768 := by
+  simp [bvarOfData, UInt64.toNat_mod]; omega
+
+theorem fvarOfData_lt (w : UInt64) : (fvarOfData w).toNat < 32768 := by
+  simp [fvarOfData, UInt64.toNat_mod]; omega
+
+theorem hashOfData_lt (w : UInt64) : (hashOfData w).toNat < 4294967296 := by
+  have hs := UInt64.toNat_lt_size w
+  simp only [UInt64.size] at hs
+  simp [hashOfData, UInt64.toNat_div]
+  omega
+
+theorem satSucc_lt (n : Nat) : (satSucc n).toNat < 32768 := by
+  simp [satSucc, satRange]; omega
+
+/-- `UInt64.max` transports to `Nat.max` through `toNat`. -/
+theorem toNat_max (a b : UInt64) : (max a b).toNat = max a.toNat b.toNat := by
+  simp only [Max.max]
+  split <;> rename_i h <;> simp_all [UInt64.le_iff_toNat_le] <;> omega
+
+/-- Predecessor on a `UInt64` known to be nonzero. -/
+theorem toNat_sub_one {x : UInt64} (h : x.toNat ≠ 0) :
+    (x - 1).toNat = x.toNat - 1 := by
+  have hs := UInt64.toNat_lt_size x
+  simp only [UInt64.size] at hs
+  simp only [UInt64.toNat_sub, UInt64.toNat_one]
+  omega
+
+theorem satPred_lt {x : UInt64} (hx : x.toNat < 32768) :
+    (satPred x).toNat < 32768 := by
+  unfold satPred
+  split
+  · decide
+  · split
+    · decide
+    · rename_i h₁ h₂
+      have hne : x.toNat ≠ 0 := by
+        simpa [← UInt64.toNat_inj] using h₂
+      rw [toNat_sub_one hne]
+      omega
+
+theorem max_lt_32768 {a b : UInt64} (ha : a.toNat < 32768)
+    (hb : b.toNat < 32768) : (max a b).toNat < 32768 := by
+  rw [toNat_max]; omega
+
+theorem bvarOfData_pack (h b f : UInt64) (lp : Bool)
+    (hb : b.toNat < 32768) (hf : f.toNat < 32768) :
+    bvarOfData (packData h b f lp) = b := by
+  apply UInt64.toNat_inj.mp
+  cases lp <;>
+  · simp [bvarOfData, packData, UInt64.toNat_add, UInt64.toNat_mul,
+      UInt64.toNat_div, UInt64.toNat_mod]
+    omega
+
+theorem fvarOfData_pack (h b f : UInt64) (lp : Bool)
+    (_hb : b.toNat < 32768) (hf : f.toNat < 32768) :
+    fvarOfData (packData h b f lp) = f := by
+  apply UInt64.toNat_inj.mp
+  cases lp <;>
+  · simp [fvarOfData, packData, UInt64.toNat_add, UInt64.toNat_mul,
+      UInt64.toNat_div, UInt64.toNat_mod]
+    omega
+
+theorem lpOfData_pack (h b f : UInt64) (lp : Bool)
+    (_hb : b.toNat < 32768) (_hf : f.toNat < 32768) :
+    lpOfData (packData h b f lp) = lp := by
+  cases lp <;>
+  · simp [lpOfData, packData, ← UInt64.toNat_inj, UInt64.toNat_add,
+      UInt64.toNat_mul, UInt64.toNat_mod]
+    omega
+
+theorem hashOfData_pack (h b f : UInt64) (lp : Bool)
+    (_hh : h.toNat < 4294967296) (hb : b.toNat < 32768)
+    (hf : f.toNat < 32768) :
+    hashOfData (packData h b f lp) = hash32 h := by
+  apply UInt64.toNat_inj.mp
+  cases lp <;>
+  · simp [hashOfData, hash32, packData, UInt64.toNat_add, UInt64.toNat_mul,
+      UInt64.toNat_div, UInt64.toNat_mod]
+    omega
+
+theorem hash32_lt (w : UInt64) : (hash32 w).toNat < 4294967296 := by
+  simp [hash32, UInt64.toNat_mod]; omega
+
 /-- Kernel expressions.
 
 `fvar idx name type`: an opened variable, identified by its de Bruijn level
 `idx` *and* its type; the binder `name` is display-only.  Closed input terms
 contain no `fvar`s.
 
-## The computed fields (task #172 B3a)
+## The computed field (task #172 B3a; packed at task #167)
 
 Every node carries a block of derived data, **computed once at
 construction time** by Lean's `@[computed_field]` feature — exactly
-`Lean.Expr`'s own arrangement:
+`Lean.Expr`'s own arrangement, down to the packing:
 
 * `hash`  — the node's hash, so hashing a term for a memo lookup is a
   field read instead of a traversal;
@@ -253,14 +406,21 @@ construction time** by Lean's `@[computed_field]` feature — exactly
   kernel's `has_univ_param`).  Level instantiation on a node without
   it is the identity.
 
-Logically each field is an ordinary recursive function — the
-constructors take no extra arguments, patterns are unaffected, and
-`(Expr.app f a).bvarB = max f.bvarB a.bvarB` is `rfl`.  The *storage*
-is the compiler's: `Lean/Elab/ComputedFields.lean:33` — *"This file
-implements the computed fields feature by simulating it via
-`implemented_by`."*  That is a named trust escape; it is enumerated,
-with the user ruling that adopted it, in the trust census in
-`Setlec/Cached/ExprC.lean`'s module docstring. -/
+**One word holds all four** (`data`, the layout table above
+`satRange`), which is where the node's memory goes: four separate
+fields cost a `UInt64`, two boxed `Nat` pointers and a `Bool`; one
+word costs eight bytes.  `bvarB` and `fvarB` *saturate* at
+`satRange`; the accessors stay **exact** by falling back, on the
+saturated branch alone, to a memoized walk (`bvarBoundMemo`,
+`fvarRangeMemo` in `Kernel/ExprOps.lean`).  So no lemma anywhere
+weakens and no invariant is threaded: saturation buys memory and
+costs performance, and only on terms that saturate.
+
+The *storage* is the compiler's: `Lean/Elab/ComputedFields.lean:33` —
+*"This file implements the computed fields feature by simulating it
+via `implemented_by`."*  That is a named trust escape; it is
+enumerated, with the user ruling that adopted it, in the trust census
+in `Setlec/Cached/ExprC.lean`'s module docstring. -/
 inductive Expr where
   | bvar (i : Nat)
   | fvar (idx : Nat) (name : Name) (type : Expr)
@@ -273,56 +433,83 @@ inductive Expr where
   | lit (l : Literal)
   | proj (structName : Name) (idx : Nat) (e : Expr)
 with
-  /-- The node's hash (`O(1)`; display-only payload is included, which a
-  hash may do — `DecidableEq` remains full structural equality). -/
-  @[computed_field] hash : Expr → UInt64
-    | .bvar i => mixHash 3 (Hashable.hash i)
+  /-- The packed derived-data word: `hash` (32) ǀ reserved (1) ǀ
+  `bvarB` (15, saturating) ǀ `fvarB` (15, saturating) ǀ `hasLP` (1). -/
+  @[computed_field] data : Expr → UInt64
+    | .bvar i =>
+      packData (hash32 (mixHash 3 (Hashable.hash i))) (satSucc i) 0 false
     | .fvar idx n ty =>
-      mixHash 5 (mixHash (Hashable.hash idx)
-        (mixHash (Hashable.hash n) ty.hash))
-    | .sort u => mixHash 7 (levelHash u)
-    | .const n us => mixHash 11 (mixHash (Hashable.hash n) (levelsHash us))
-    | .app f a => mixHash 17 (mixHash f.hash a.hash)
+      packData (hash32 (mixHash 5 (mixHash (Hashable.hash idx)
+          (mixHash (Hashable.hash n) (hashOfData ty.data)))))
+        0 (satSucc idx) (lpOfData ty.data)
+    | .sort u =>
+      packData (hash32 (mixHash 7 (levelHash u))) 0 0 (levelHasParam u)
+    | .const n us =>
+      packData (hash32 (mixHash 11 (mixHash (Hashable.hash n)
+          (levelsHash us)))) 0 0 (levelsHaveParam us)
+    | .app f a =>
+      packData (hash32 (mixHash 17
+          (mixHash (hashOfData f.data) (hashOfData a.data))))
+        (max (bvarOfData f.data) (bvarOfData a.data))
+        (max (fvarOfData f.data) (fvarOfData a.data))
+        (lpOfData f.data || lpOfData a.data)
     | .lam n ty b m =>
-      mixHash 19 (mixHash (Hashable.hash n)
-        (mixHash ty.hash (mixHash b.hash (Hashable.hash m))))
+      packData (hash32 (mixHash 19 (mixHash (Hashable.hash n)
+          (mixHash (hashOfData ty.data)
+            (mixHash (hashOfData b.data) (Hashable.hash m))))))
+        (max (bvarOfData ty.data) (satPred (bvarOfData b.data)))
+        (max (fvarOfData ty.data) (fvarOfData b.data))
+        (lpOfData ty.data || lpOfData b.data || m.pw.hasParams)
     | .forallE n ty b m =>
-      mixHash 23 (mixHash (Hashable.hash n)
-        (mixHash ty.hash (mixHash b.hash (Hashable.hash m))))
+      packData (hash32 (mixHash 23 (mixHash (Hashable.hash n)
+          (mixHash (hashOfData ty.data)
+            (mixHash (hashOfData b.data) (Hashable.hash m))))))
+        (max (bvarOfData ty.data) (satPred (bvarOfData b.data)))
+        (max (fvarOfData ty.data) (fvarOfData b.data))
+        (lpOfData ty.data || lpOfData b.data || m.pw.hasParams)
     | .letE n ty v b =>
-      mixHash 29 (mixHash (Hashable.hash n)
-        (mixHash ty.hash (mixHash v.hash b.hash)))
-    | .lit l => mixHash 31 (Hashable.hash l)
+      packData (hash32 (mixHash 29 (mixHash (Hashable.hash n)
+          (mixHash (hashOfData ty.data)
+            (mixHash (hashOfData v.data) (hashOfData b.data))))))
+        (max (max (bvarOfData ty.data) (bvarOfData v.data))
+          (satPred (bvarOfData b.data)))
+        (max (max (fvarOfData ty.data) (fvarOfData v.data))
+          (fvarOfData b.data))
+        (lpOfData ty.data || lpOfData v.data || lpOfData b.data)
+    | .lit l => packData (hash32 (mixHash 31 (Hashable.hash l))) 0 0 false
     | .proj s i e =>
-      mixHash 37 (mixHash (Hashable.hash s) (mixHash (Hashable.hash i) e.hash))
-  /-- The loose-bvar bound: the least `k` with `looseBVarsBounded k`. -/
-  @[computed_field] bvarB : Expr → Nat
-    | .bvar i => i + 1
-    | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => 0
-    | .app f a => max f.bvarB a.bvarB
-    | .lam _ ty b _ | .forallE _ ty b _ => max ty.bvarB (b.bvarB - 1)
-    | .letE _ ty v b => max (max ty.bvarB v.bvarB) (b.bvarB - 1)
-    | .proj _ _ e => e.bvarB
-  /-- The fvar range: max fvar index + 1 (`0` = fvar-free). -/
-  @[computed_field] fvarB : Expr → Nat
-    | .fvar idx _ _ => idx + 1
-    | .bvar _ | .sort _ | .const _ _ | .lit _ => 0
-    | .app f a => max f.fvarB a.fvarB
-    | .lam _ ty b _ | .forallE _ ty b _ => max ty.fvarB b.fvarB
-    | .letE _ ty v b => max (max ty.fvarB v.fvarB) b.fvarB
-    | .proj _ _ e => e.fvarB
-  /-- Has-level-param: is level instantiation ever non-trivial here? -/
-  @[computed_field] hasLP : Expr → Bool
-    | .bvar _ | .lit _ => false
-    | .sort u => levelHasParam u
-    | .const _ us => levelsHaveParam us
-    | .fvar _ _ ty => ty.hasLP
-    | .app f a => f.hasLP || a.hasLP
-    | .lam _ ty b m | .forallE _ ty b m =>
-      ty.hasLP || b.hasLP || m.pw.hasParams
-    | .letE _ ty v b => ty.hasLP || v.hasLP || b.hasLP
-    | .proj _ _ e => e.hasLP
+      packData (hash32 (mixHash 37 (mixHash (Hashable.hash s)
+          (mixHash (Hashable.hash i) (hashOfData e.data)))))
+        (bvarOfData e.data) (fvarOfData e.data) (lpOfData e.data)
 deriving DecidableEq, Repr, Inhabited
+
+/-! ## The packed word's accessors
+
+`hash` and `hasLP` are exact bit reads.  `bvarBRaw`/`fvarBRaw` are the
+*saturating* reads: below `satRange` they are the exact bound
+(`bvarBRaw_exact`, `fvarBRaw_exact` in `Verify/Cached/Erase.lean`); at
+`satRange` they mean "at least that", and `Expr.bvarB`/`Expr.fvarB`
+(`Kernel/ExprOps.lean`) recover exactness there with a memoized
+walk. -/
+
+namespace Expr
+
+/-- The node's 32-bit hash (`O(1)`; display-only payload is included,
+which a hash may do — `DecidableEq` remains full structural
+equality). -/
+@[inline] def hash (e : Expr) : UInt64 := hashOfData e.data
+
+/-- Has-level-param: is level instantiation ever non-trivial here?
+One bit, so this read is *exact*. -/
+@[inline] def hasLP (e : Expr) : Bool := lpOfData e.data
+
+/-- The stored loose-bvar bound, saturating at `satRange`. -/
+@[inline] def bvarBRaw (e : Expr) : Nat := (bvarOfData e.data).toNat
+
+/-- The stored fvar range, saturating at `satRange`. -/
+@[inline] def fvarBRaw (e : Expr) : Nat := (fvarOfData e.data).toNat
+
+end Expr
 
 /-- Hashing is the computed field: `O(1)`, no traversal.  (Before task
 #172 B3a this was a *node-budgeted* walk, `Expr.hashB`, because the
@@ -331,6 +518,240 @@ inside `levelHash`.) -/
 instance : Hashable Expr := ⟨Expr.hash⟩
 
 namespace Expr
+
+/-! ### The stored ranges, constructor by constructor
+
+Each equation is the packed word's recurrence read back through the
+roundtrip lemmas; together they are what the exactness induction in
+`Verify/Cached/Erase.lean` runs on. -/
+
+theorem bvarBRaw_lt (e : Expr) : e.bvarBRaw < 32768 := bvarOfData_lt _
+
+theorem fvarBRaw_lt (e : Expr) : e.fvarBRaw < 32768 := fvarOfData_lt _
+
+private theorem toNat_satSucc (n : Nat) :
+    (satSucc n).toNat = min (n + 1) satRange := by
+  simp [satSucc, satRange]
+  omega
+
+private theorem toNat_satPred {x : UInt64} (_hx : x.toNat < 32768) :
+    (satPred x).toNat = if x.toNat = satRange then satRange else x.toNat - 1 := by
+  by_cases hs : x.toNat = satRange
+  · have : x = 32767 := by rw [← UInt64.toNat_inj]; simpa [satRange] using hs
+    simp [satPred, this, satRange]
+  · have hne : x ≠ 32767 := by
+      rw [Ne, ← UInt64.toNat_inj]; simpa [satRange] using hs
+    by_cases hz : x.toNat = 0
+    · have : x = 0 := by rw [← UInt64.toNat_inj]; simpa using hz
+      simp [satPred, this, satRange]
+    · have hz' : x ≠ 0 := by rw [Ne, ← UInt64.toNat_inj]; simpa using hz
+      simp only [satPred, beq_iff_eq, hne, hz', if_false, if_neg hs,
+        toNat_sub_one hz]
+
+@[simp] theorem bvarBRaw_bvar (i : Nat) :
+    (Expr.bvar i).bvarBRaw = min (i + 1) satRange := by
+  show (bvarOfData (packData _ (satSucc i) 0 false)).toNat = _
+  rw [bvarOfData_pack _ _ _ _ (satSucc_lt i) (by decide), toNat_satSucc]
+
+@[simp] theorem bvarBRaw_fvar (idx : Nat) (n : Name) (ty : Expr) :
+    (Expr.fvar idx n ty).bvarBRaw = 0 := by
+  show (bvarOfData (packData _ 0 (satSucc idx) _)).toNat = _
+  rw [bvarOfData_pack _ _ _ _ (by decide) (satSucc_lt idx)]; rfl
+
+@[simp] theorem bvarBRaw_sort (u : Level) : (Expr.sort u).bvarBRaw = 0 := by
+  show (bvarOfData (packData _ 0 0 _)).toNat = _
+  rw [bvarOfData_pack _ _ _ _ (by decide) (by decide)]; rfl
+
+@[simp] theorem bvarBRaw_const (n : Name) (us : List Level) :
+    (Expr.const n us).bvarBRaw = 0 := by
+  show (bvarOfData (packData _ 0 0 _)).toNat = _
+  rw [bvarOfData_pack _ _ _ _ (by decide) (by decide)]; rfl
+
+@[simp] theorem bvarBRaw_lit (l : Literal) : (Expr.lit l).bvarBRaw = 0 := by
+  show (bvarOfData (packData _ 0 0 _)).toNat = _
+  rw [bvarOfData_pack _ _ _ _ (by decide) (by decide)]; rfl
+
+@[simp] theorem bvarBRaw_app (f a : Expr) :
+    (Expr.app f a).bvarBRaw = max f.bvarBRaw a.bvarBRaw := by
+  show (bvarOfData (packData _ (max _ _) (max _ _) _)).toNat = _
+  rw [bvarOfData_pack _ _ _ _
+    (max_lt_32768 (bvarOfData_lt _) (bvarOfData_lt _))
+    (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _)), toNat_max]
+  rfl
+
+@[simp] theorem bvarBRaw_lam (n : Name) (ty b : Expr) (m : BinderMeta) :
+    (Expr.lam n ty b m).bvarBRaw =
+      max ty.bvarBRaw
+        (if b.bvarBRaw = satRange then satRange else b.bvarBRaw - 1) := by
+  show (bvarOfData (packData _ (max _ (satPred _)) (max _ _) _)).toNat = _
+  rw [bvarOfData_pack _ _ _ _
+    (max_lt_32768 (bvarOfData_lt _) (satPred_lt (bvarOfData_lt _)))
+    (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _)), toNat_max,
+    toNat_satPred (bvarOfData_lt _)]
+  rfl
+
+@[simp] theorem bvarBRaw_forallE (n : Name) (ty b : Expr) (m : BinderMeta) :
+    (Expr.forallE n ty b m).bvarBRaw =
+      max ty.bvarBRaw
+        (if b.bvarBRaw = satRange then satRange else b.bvarBRaw - 1) := by
+  show (bvarOfData (packData _ (max _ (satPred _)) (max _ _) _)).toNat = _
+  rw [bvarOfData_pack _ _ _ _
+    (max_lt_32768 (bvarOfData_lt _) (satPred_lt (bvarOfData_lt _)))
+    (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _)), toNat_max,
+    toNat_satPred (bvarOfData_lt _)]
+  rfl
+
+@[simp] theorem bvarBRaw_letE (n : Name) (ty v b : Expr) :
+    (Expr.letE n ty v b).bvarBRaw =
+      max (max ty.bvarBRaw v.bvarBRaw)
+        (if b.bvarBRaw = satRange then satRange else b.bvarBRaw - 1) := by
+  show (bvarOfData (packData _ (max (max _ _) (satPred _)) (max (max _ _) _)
+    _)).toNat = _
+  rw [bvarOfData_pack _ _ _ _
+    (max_lt_32768 (max_lt_32768 (bvarOfData_lt _) (bvarOfData_lt _))
+      (satPred_lt (bvarOfData_lt _)))
+    (max_lt_32768 (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _))
+      (fvarOfData_lt _)), toNat_max, toNat_max,
+    toNat_satPred (bvarOfData_lt _)]
+  rfl
+
+@[simp] theorem bvarBRaw_proj (s : Name) (i : Nat) (e : Expr) :
+    (Expr.proj s i e).bvarBRaw = e.bvarBRaw := by
+  show (bvarOfData (packData _ _ _ _)).toNat = _
+  rw [bvarOfData_pack _ _ _ _ (bvarOfData_lt _) (fvarOfData_lt _)]
+  rfl
+
+@[simp] theorem fvarBRaw_bvar (i : Nat) : (Expr.bvar i).fvarBRaw = 0 := by
+  show (fvarOfData (packData _ (satSucc i) 0 false)).toNat = _
+  rw [fvarOfData_pack _ _ _ _ (satSucc_lt i) (by decide)]; rfl
+
+@[simp] theorem fvarBRaw_fvar (idx : Nat) (n : Name) (ty : Expr) :
+    (Expr.fvar idx n ty).fvarBRaw = min (idx + 1) satRange := by
+  show (fvarOfData (packData _ 0 (satSucc idx) _)).toNat = _
+  rw [fvarOfData_pack _ _ _ _ (by decide) (satSucc_lt idx), toNat_satSucc]
+
+@[simp] theorem fvarBRaw_sort (u : Level) : (Expr.sort u).fvarBRaw = 0 := by
+  show (fvarOfData (packData _ 0 0 _)).toNat = _
+  rw [fvarOfData_pack _ _ _ _ (by decide) (by decide)]; rfl
+
+@[simp] theorem fvarBRaw_const (n : Name) (us : List Level) :
+    (Expr.const n us).fvarBRaw = 0 := by
+  show (fvarOfData (packData _ 0 0 _)).toNat = _
+  rw [fvarOfData_pack _ _ _ _ (by decide) (by decide)]; rfl
+
+@[simp] theorem fvarBRaw_lit (l : Literal) : (Expr.lit l).fvarBRaw = 0 := by
+  show (fvarOfData (packData _ 0 0 _)).toNat = _
+  rw [fvarOfData_pack _ _ _ _ (by decide) (by decide)]; rfl
+
+@[simp] theorem fvarBRaw_app (f a : Expr) :
+    (Expr.app f a).fvarBRaw = max f.fvarBRaw a.fvarBRaw := by
+  show (fvarOfData (packData _ (max _ _) (max _ _) _)).toNat = _
+  rw [fvarOfData_pack _ _ _ _
+    (max_lt_32768 (bvarOfData_lt _) (bvarOfData_lt _))
+    (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _)), toNat_max]
+  rfl
+
+@[simp] theorem fvarBRaw_lam (n : Name) (ty b : Expr) (m : BinderMeta) :
+    (Expr.lam n ty b m).fvarBRaw = max ty.fvarBRaw b.fvarBRaw := by
+  show (fvarOfData (packData _ (max _ (satPred _)) (max _ _) _)).toNat = _
+  rw [fvarOfData_pack _ _ _ _
+    (max_lt_32768 (bvarOfData_lt _) (satPred_lt (bvarOfData_lt _)))
+    (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _)), toNat_max]
+  rfl
+
+@[simp] theorem fvarBRaw_forallE (n : Name) (ty b : Expr) (m : BinderMeta) :
+    (Expr.forallE n ty b m).fvarBRaw = max ty.fvarBRaw b.fvarBRaw := by
+  show (fvarOfData (packData _ (max _ (satPred _)) (max _ _) _)).toNat = _
+  rw [fvarOfData_pack _ _ _ _
+    (max_lt_32768 (bvarOfData_lt _) (satPred_lt (bvarOfData_lt _)))
+    (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _)), toNat_max]
+  rfl
+
+@[simp] theorem fvarBRaw_letE (n : Name) (ty v b : Expr) :
+    (Expr.letE n ty v b).fvarBRaw =
+      max (max ty.fvarBRaw v.fvarBRaw) b.fvarBRaw := by
+  show (fvarOfData (packData _ (max (max _ _) (satPred _)) (max (max _ _) _)
+    _)).toNat = _
+  rw [fvarOfData_pack _ _ _ _
+    (max_lt_32768 (max_lt_32768 (bvarOfData_lt _) (bvarOfData_lt _))
+      (satPred_lt (bvarOfData_lt _)))
+    (max_lt_32768 (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _))
+      (fvarOfData_lt _)), toNat_max, toNat_max]
+  rfl
+
+@[simp] theorem fvarBRaw_proj (s : Name) (i : Nat) (e : Expr) :
+    (Expr.proj s i e).fvarBRaw = e.fvarBRaw := by
+  show (fvarOfData (packData _ _ _ _)).toNat = _
+  rw [fvarOfData_pack _ _ _ _ (bvarOfData_lt _) (fvarOfData_lt _)]
+  rfl
+
+/-! ### The has-level-param bit, constructor by constructor -/
+
+@[simp] theorem hasLP_bvar (i : Nat) : (Expr.bvar i).hasLP = false := by
+  show lpOfData (packData _ (satSucc i) 0 false) = _
+  rw [lpOfData_pack _ _ _ _ (satSucc_lt i) (by decide)]
+
+@[simp] theorem hasLP_fvar (idx : Nat) (n : Name) (ty : Expr) :
+    (Expr.fvar idx n ty).hasLP = ty.hasLP := by
+  show lpOfData (packData _ 0 (satSucc idx) _) = _
+  rw [lpOfData_pack _ _ _ _ (by decide) (satSucc_lt idx)]; rfl
+
+@[simp] theorem hasLP_sort (u : Level) :
+    (Expr.sort u).hasLP = levelHasParam u := by
+  show lpOfData (packData _ 0 0 _) = _
+  rw [lpOfData_pack _ _ _ _ (by decide) (by decide)]
+
+@[simp] theorem hasLP_const (n : Name) (us : List Level) :
+    (Expr.const n us).hasLP = levelsHaveParam us := by
+  show lpOfData (packData _ 0 0 _) = _
+  rw [lpOfData_pack _ _ _ _ (by decide) (by decide)]
+
+@[simp] theorem hasLP_lit (l : Literal) : (Expr.lit l).hasLP = false := by
+  show lpOfData (packData _ 0 0 _) = _
+  rw [lpOfData_pack _ _ _ _ (by decide) (by decide)]
+
+@[simp] theorem hasLP_app (f a : Expr) :
+    (Expr.app f a).hasLP = (f.hasLP || a.hasLP) := by
+  show lpOfData (packData _ (max _ _) (max _ _) _) = _
+  rw [lpOfData_pack _ _ _ _
+    (max_lt_32768 (bvarOfData_lt _) (bvarOfData_lt _))
+    (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _))]
+  rfl
+
+@[simp] theorem hasLP_lam (n : Name) (ty b : Expr) (m : BinderMeta) :
+    (Expr.lam n ty b m).hasLP = (ty.hasLP || b.hasLP || m.pw.hasParams) := by
+  show lpOfData (packData _ (max _ (satPred _)) (max _ _) _) = _
+  rw [lpOfData_pack _ _ _ _
+    (max_lt_32768 (bvarOfData_lt _) (satPred_lt (bvarOfData_lt _)))
+    (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _))]
+  rfl
+
+@[simp] theorem hasLP_forallE (n : Name) (ty b : Expr) (m : BinderMeta) :
+    (Expr.forallE n ty b m).hasLP =
+      (ty.hasLP || b.hasLP || m.pw.hasParams) := by
+  show lpOfData (packData _ (max _ (satPred _)) (max _ _) _) = _
+  rw [lpOfData_pack _ _ _ _
+    (max_lt_32768 (bvarOfData_lt _) (satPred_lt (bvarOfData_lt _)))
+    (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _))]
+  rfl
+
+@[simp] theorem hasLP_letE (n : Name) (ty v b : Expr) :
+    (Expr.letE n ty v b).hasLP = (ty.hasLP || v.hasLP || b.hasLP) := by
+  show lpOfData (packData _ (max (max _ _) (satPred _)) (max (max _ _) _)
+    _) = _
+  rw [lpOfData_pack _ _ _ _
+    (max_lt_32768 (max_lt_32768 (bvarOfData_lt _) (bvarOfData_lt _))
+      (satPred_lt (bvarOfData_lt _)))
+    (max_lt_32768 (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _))
+      (fvarOfData_lt _))]
+  rfl
+
+@[simp] theorem hasLP_proj (s : Name) (i : Nat) (e : Expr) :
+    (Expr.proj s i e).hasLP = e.hasLP := by
+  show lpOfData (packData _ _ _ _) = _
+  rw [lpOfData_pack _ _ _ _ (bvarOfData_lt _) (fvarOfData_lt _)]
+  rfl
+
 
 /-! ## Equality
 
