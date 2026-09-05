@@ -38920,3 +38920,46 @@ everywhere, and **no stream reached the saturated branch**; axioms of `bvarB_eq`
 both shipped cached capstones (`checkDeclsSPCachedD_sound_P`,
 `no_proof_of_Empty_SPCD_P`) exactly the standard three; **zero**
 `sorry`, no new axiom, no statement left conditional.
+
+### 7. LEDGER ENTRY (coordinator-ratified at the merge grant): a
+proposed PROOF SHAPE is a claim
+
+The discipline ledger's family — *a ratified license is a claim*
+(#161 endgame E), *a recorded freedom is a claim* (F), *a recorded
+wall is a claim* (D), *a freeze is a claim* (the B1 contact-check) —
+gains its fourth member, and this batch is the instance:
+
+> **The charter's proposed proof shape was a claim, and it was
+> false.**  *"The exactness family becomes exact-below-saturation;
+> the `≤`-comparison consumers are free"* reads as arithmetic — a
+> bound below the saturation point is the true bound, so a
+> comparison against it decides — and it is wrong for one reason
+> that the sentence hides: **the thing compared against is a
+> variable.**  `bvarB_le : e.bvarB ≤ d → looseBVarsBounded d e` is
+> sound only for `d < satRange`, and `d` is a traversal cursor —
+> universally quantified at all ~90 sites, with no statically
+> provable bound anywhere.
+
+What makes it a ledger entry rather than a footnote is **where** the
+falsification bit.  Guarding the skip tests would have been merely
+tedious; what it actually costs is `looseBVarsBounded_spec`, a
+*both-directions* equation, and four of its consumers are **parse-time
+accept guards** (`Cached/ParsedC.lean`, `ParsedNC.lean`:
+`unless ExprC.looseBVarsBounded 0 …`).  A saturating field weakened
+there turns a *false reject* into a shipped verdict — the one failure
+class the arena convention treats as worse than a crash.  The wrong
+shape would not have shown up as a broken proof; it would have shown
+up as a wrong answer on a stream nobody runs.
+
+The corollary, and it is the reusable half: **when a representation
+change proposes to weaken a lemma, enumerate the lemma's consumers by
+DIRECTION before pricing the churn.**  A one-directional consumer (a
+skip) tolerates a weaker lemma at the cost of a guard; a
+both-directions consumer (a guard, a spec equation, an `rw` site) does
+not tolerate it at any price.  B3a priced this batch at "~70
+consumers" and got the count right; the count was never the question.
+
+And the answer that dissolved it is worth keeping in the same breath:
+**pay for a slow exact branch instead of a weak lemma.**  Saturation
+is then a storage decision that no statement can see — which is what
+"representation change" is supposed to mean.
