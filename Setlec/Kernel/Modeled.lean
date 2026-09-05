@@ -676,10 +676,13 @@ of a single-constructor block whose `_model.proj_i` artifact is absent
 instantiations): the parent's elimination *shape* — a structure
 recursor with one rule for the block's constructor, no indices, and a
 prefix of params + one motive + one minor — is checked here, once, and
-recorded as a `native = false` projection-table entry consumed by
-`annotateProjRec`.  When the shape does not support the elimination
-the entry is simply not installed, and use sites positively decline —
-exactly as the per-use shape checks did before. -/
+recorded as a `native = false` projection-table entry.  Task #175
+wiring W5: the recursor-inlining fallback that consumed it
+(`annotateProjRec`) is gone — every supported `.proj` node is typed by
+a native tower entry of the direct install — so the entry is inert
+(it holds the slot; a `.proj` use on the family declines at its own
+site).  When the shape does not support the elimination the entry is
+simply not installed. -/
 def installProjTemplate (env : Env) (T ctorName : Name) (lps : List Name)
     (nP nF i : Nat) : m Env := do
   match env.find? (T.str "rec") with

@@ -724,113 +724,6 @@ theorem isPropType_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   refine DiscV.bind (ensureSort_disc ih henv hs) (fun u _ => ?_)
   exact DiscV.liftFueled_true _ _
 
-theorem projFieldDom_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
-    {d : Nat} {structProp : Bool} {sn : Name} {e' : Expr}
-    (hwe : WScoped d e') :
-    ∀ (k j : Nat) {tel : Expr}, WScoped d tel →
-      DiscV mode env (WScoped d)
-        (projFieldDom C env d structProp sn e' j k tel)
-        (projFieldDom G env d structProp sn e' j k tel) := by
-  intro k
-  induction k with
-  | zero =>
-    intro j tel hwtel
-    cases tel <;> try exact DiscV.throw _
-    case forallE n dom rest mb =>
-      have hw' : WScoped d dom ∧ WScoped d rest := by
-        simpa only [WScoped] using hwtel
-      exact DiscV.pure hw'.1
-  | succ k ihk =>
-    intro j tel hwtel
-    cases tel <;> try exact DiscV.throw _
-    case forallE n dom rest mb =>
-      have hw' : WScoped d dom ∧ WScoped d rest := by
-        simpa only [WScoped] using hwtel
-      have hwrest' : WScoped d (rest.instantiate1 (.proj sn j e')) :=
-        WScoped.instantiate1_gen
-          (show WScoped d (.proj sn j e') by
-            simpa only [WScoped] using hwe) 0 hw'.2
-      dsimp only [projFieldDom]
-      split
-      · exact ihk (j + 1) hw'.2
-      · split
-        · refine DiscV.bind (isPropType_disc ih henv hw'.1)
-            (fun b _ => ?_)
-          split
-          · exact ihk (j + 1) hwrest'
-          · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
-              (fun _ h => h.elim)
-        · exact ihk (j + 1) hwrest'
-
-theorem annotateProjRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
-    {d : Nat} {entry : ProjEntry} {i : Nat} {te e' : Expr}
-    {us : List Level}
-    (hwte : WScoped d te) (hwe : WScoped d e') :
-    DiscV mode env (WScoped d) (annotateProjRec C env d entry i te e' us)
-      (annotateProjRec G env d entry i te e' us) := by
-  unfold annotateProjRec
-  split <;> try exact DiscV.throw _
-  rename_i cvC cnFdummy cnF hfC
-  dsimp only []
-  split <;> try exact DiscV.throw _
-  split <;> try exact DiscV.throw _
-  rename_i tel htel
-  refine DiscV.bind (isPropType_disc ih henv hwte)
-    (fun structProp _ => ?_)
-  have hwtel : WScoped d tel := by
-    refine instPis_WScoped htel ?_ hwte.getAppArgs
-    obtain ⟨htf, -⟩ := henv _ (find?_mem hfC)
-    exact wscoped_instLevels_of_not_hasFvar htf _ _
-  refine DiscV.bind (projFieldDom_disc ih henv hwe i 0 hwtel)
-    (fun fi hfi => ?_)
-  split <;> try exact DiscV.throw _
-  refine DiscV.bind (ih.site_annotate hfi) (fun fi' hfi' => ?_)
-  refine DiscV.bind (ih.site_inferIO henv hfi') (fun sfi₀ hsfi₀ => ?_)
-  refine DiscV.bind (ensureSort_disc ih henv hsfi₀) (fun sfi _ => ?_)
-  split
-  · -- Prop structure: the field-sort check runs, then (under the
-    -- inlined motive-level `if`) the scope guard
-    refine DiscV.bind (DiscV.liftFueled_true _ _) (fun ok _ => ?_)
-    split
-    · split <;> split <;> first
-        | exact DiscV.throw _
-        | (rename_i hguard
-           exact ih.site_annotate (WScoped.of_wscopedB
-             (by simp only [Bool.and_eq_true] at hguard; exact hguard.1.1)))
-    · first
-        | exact DiscV.throw _
-        | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
-            (fun _ h => h.elim)
-  · split <;> split <;> first
-      | exact DiscV.throw _
-      | (rename_i hguard
-         exact ih.site_annotate (WScoped.of_wscopedB
-           (by simp only [Bool.and_eq_true] at hguard; exact hguard.1.1)))
-
-theorem annotateProjElim_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
-    {d : Nat} {sn : Name} {i : Nat} {te e' : Expr}
-    (hwte : WScoped d te) (hwe : WScoped d e') :
-    DiscV mode env (WScoped d) (annotateProjElim C env d sn i te e')
-      (annotateProjElim G env d sn i te e') := by
-  unfold annotateProjElim
-  split <;> try exact DiscV.throw _
-  split <;> try exact DiscV.throw _
-  split
-  · -- installed projection function: the scope-guarded rewrite
-    dsimp only []
-    split
-    · split
-      · rename_i hguard
-        exact ih.site_annotate (WScoped.of_wscopedB
-          (by simp only [Bool.and_eq_true] at hguard; exact hguard.1.1))
-      · exact DiscV.throw _
-    · exact DiscV.throw _
-  · -- table entry: the template fallback (native entries throw)
-    split
-    · exact DiscV.throw _
-    · exact annotateProjRec_disc ih henv hwte hwe
-  · exact DiscV.throw _
-
 theorem litMajorToCtor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
     DiscV mode env (WScoped d) (litMajorToCtor C env d e)
@@ -1242,9 +1135,12 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
               if te.getAppArgs.length = entry.numParams then
                 pure (Expr.proj T i e')
               else throw (.invalid "projection parameter mismatch")
-            else annotateProjElim C env d sn i te e'
-          | none => annotateProjElim C env d sn i te e'
-        | _ => annotateProjElim C env d sn i te e')
+            else throw (.invalid
+              "projection from a propositional structure must be a proposition")
+          | none => throw (if (env.findProj? T 0).isSome then
+              CheckError.invalid "projection index out of range"
+            else .notImplemented "projection on a non-structure-like type")
+        | _ => throw (.notImplemented "projection on a non-structure type"))
       ((G : CoreFns CheckSM).annotate d pe >>= fun e' =>
         (G : CoreFns CheckSM).inferIO d e' >>= fun te₀ =>
         (G : CoreFns CheckSM).whnf d te₀ >>= fun te =>
@@ -1256,21 +1152,24 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
               if te.getAppArgs.length = entry.numParams then
                 pure (Expr.proj T i e')
               else throw (.invalid "projection parameter mismatch")
-            else annotateProjElim G env d sn i te e'
-          | none => annotateProjElim G env d sn i te e'
-        | _ => annotateProjElim G env d sn i te e')
+            else throw (.invalid
+              "projection from a propositional structure must be a proposition")
+          | none => throw (if (env.findProj? T 0).isSome then
+              CheckError.invalid "projection index out of range"
+            else .notImplemented "projection on a non-structure-like type")
+        | _ => throw (.notImplemented "projection on a non-structure type"))
     refine DiscV.bind (ih.site_annotate hwpe) (fun e' he' => ?_)
     refine DiscV.bind (ih.site_inferIO henv he') (fun te₀ hte₀ => ?_)
     refine DiscV.bind (ih.site_whnf henv hte₀) (fun te hte => ?_)
-    split <;> try exact annotateProjElim_disc ih henv hte he'
-    split <;> try exact annotateProjElim_disc ih henv hte he'
+    split <;> try exact DiscV.throw _
+    split <;> try exact DiscV.throw _
     split
     · split
       · refine DiscV.pure ?_
         show WScoped d (Expr.proj _ i e')
         simpa only [WScoped] using he'
       · exact DiscV.throw _
-    · exact annotateProjElim_disc ih henv hte he'
+    · exact DiscV.throw _
 
 set_option maxHeartbeats 1600000 in
 theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)

@@ -214,11 +214,12 @@ structName idx`; see `Env.findProj?`).
   structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i`, guarded at possibly-Prop
   instances by the stored `fieldSort`/`structSort` levels.  Installed
   by the pinned `PSigma'` basis block.
-* `native = false`: the Prop-structure elimination-template entry —
-  per-declaration shape facts for the permanent recursor-inlining
-  fallback (`annotateProjRec`), whose per-instantiation typing check
-  remains at use; `ty` is the closed junk `Prop` and
-  `fieldSort`/`structSort` are unused. -/
+* `native = false`: an inert entry — the modeled path's
+  elimination-template entry (`ty` the closed junk `Prop`) or the
+  direct path's `directInertEntry` at an unadmitted slot (`ty` is
+  `Sort 1`; task #175 W4c P3 module 7).  It types no node and fires no
+  reduction; a `.proj` use on the slot is a verdict at its own site
+  (task #175 wiring W5: the recursor-inlining fallback is gone). -/
 structure ProjEntry where
   structName : Name
   idx : Nat

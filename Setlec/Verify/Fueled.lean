@@ -366,52 +366,6 @@ theorem isPropType_atF (d : Nat) (ty : Expr) (F : Nat) :
   unfold isPropType
   atF_tac2
 
-theorem projFieldDom_atF (structProp : Bool) (sn : Name) (e₂ : Expr) :
-    ∀ (k j d : Nat) (tel : Expr) (F : Nat),
-      (projFieldDom (fueledFns mode env) env d structProp sn e₂ j k tel).val F =
-        projFieldDom (pureFns mode env F) env d structProp sn e₂ j k tel := by
-  intro k
-  induction k with
-  | zero =>
-    intro j d tel F
-    cases tel <;> dsimp only [projFieldDom] <;> rfl
-  | succ k ih =>
-    intro j d tel F
-    cases tel <;> dsimp only [projFieldDom] <;> try rfl
-    repeat (first
-      | rfl
-      | (rw [ih])
-      | (rw [isPropType_atF])
-      | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
-      | (dsimp only [])
-      | split)
-
-theorem annotateProjRec_atF (d : Nat) (entry : ProjEntry) (i : Nat)
-    (te e₂ : Expr) (us : List Level) (F : Nat) :
-    (annotateProjRec (fueledFns mode env) env d entry i te e₂ us).val F =
-      annotateProjRec (pureFns mode env F) env d entry i te e₂ us := by
-  unfold annotateProjRec
-  repeat (first
-    | rfl
-    | (rw [isPropType_atF])
-    | (rw [projFieldDom_atF])
-    | (rw [ensureSort_atF])
-    | (rw [liftFueled_atF])
-    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
-    | (dsimp only [])
-    | split)
-
-theorem annotateProjElim_atF (d : Nat) (sn : Name) (i : Nat) (te e₂ : Expr) (F : Nat) :
-    (annotateProjElim (fueledFns mode env) env d sn i te e₂).val F =
-      annotateProjElim (pureFns mode env F) env d sn i te e₂ := by
-  unfold annotateProjElim
-  repeat (first
-    | rfl
-    | (rw [annotateProjRec_atF])
-    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
-    | (dsimp only [])
-    | split)
-
 macro "atF_step3" : tactic =>
   `(tactic| repeat (first
     | rfl
@@ -430,7 +384,6 @@ macro "atF_step3" : tactic =>
     | (rw [structEtaCert_atF])
     | (rw [majorToCtor_atF])
     | (rw [litMajorToCtor_atF])
-    | (rw [annotateProjElim_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
     | split))
@@ -474,7 +427,6 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [projCert_atF])
     | (rw [structEtaCert_atF])
     | (rw [majorToCtor_atF])
-    | (rw [annotateProjElim_atF])
     | (rw [stuckIrrel_atF])
     | (rw [iotaRec_atF])
     | (rw [projLitToCtor_atF])

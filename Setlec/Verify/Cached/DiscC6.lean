@@ -1,23 +1,23 @@
 import Setlec.Verify.Cached.DiscC5
 
 /-!
-# Cached body walks, part 6: annotation and the projection fallbacks
+# Cached body walks, part 6: annotation
 
 Port of `Setlec/Verify/DiscI6.lean` under the recipe (DESIGN.md,
-task #163): the simulation walks for `isPropTypeI`, `projFieldDomI`,
-`annotateProjRecI`, `annotateProjElimI` and `annotateBodyI`
+task #163): the simulation walks for `isPropTypeI` and `annotateBodyI`
 (`Setlec/Cached/CoreC.lean`), whose bodies are character-identical to
 their `Setlec/Kernel/CoreI.lean` originals up to `EIdx → ExprC` /
 `CheckIM → CheckCM` (plus the two recorded `peelFuelM` deviation lines
-in `annotateBodyI`'s binder clauses).
+in `annotateBodyI`'s binder clauses).  Task #175 wiring W5: the
+projection elimination fallbacks (`projFieldDomI`,
+`annotateProjRecI`, `annotateProjElimI`) and their walks are gone —
+every supported projection is a native table entry, and the
+`.proj` clause's non-native arms are verdicts.
 
-Two representation shrinkages simplify the statements against the
+One representation shrinkage simplifies the statements against the
 interned originals: the structure/constructor names are plain `Name`s
-(so the `NIdx` denotation premises vanish) and the level lists are
-plain `List Level`s (so `denoteLList` premises — and with them the
-`entry.recExtraLevel` case split of `annotateProjRecI_sim`'s `uf`
-argument — vanish).  The pure comparand side of every statement is
-byte-identical to the interned original's.
+(so the `NIdx` denotation premises vanish).  The pure comparand side
+of every statement is byte-identical to the interned original's.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -67,441 +67,14 @@ theorem isPropTypeC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
   subst ho
   exact SimC.liftFueled _ _ hs₃o
 
-/-- Port of `projFieldDomI_sim`.  The `NIdx` denotation premise of the
-interned original vanishes (the structure name is a plain `Name`), so
-the walk's `∀` carries only the telescope's relation. -/
-theorem projFieldDomC_sim (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {structProp : Bool} {sn : Name}
-    {e' : ExprC} {e'x : Expr}
-    (hde : RelC e' e'x) (hwe : Expr.WScoped d e'x) :
-    ∀ (k j : Nat) {tel : ExprC} {telx : Expr} {s₀ : CState},
-      CSOK mode env s₀ → RelC tel telx → Expr.WScoped d telx →
-      SimC mode env s₀ (RelEC d)
-        (projFieldDomI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
-          structProp sn e' j k tel)
-        (projFieldDom (fueledFns mode env) env d structProp sn e'x j k
-          telx)
-  | 0, jj, tel, telx, s₀, hs, hdt, hwtel => by
-    unfold projFieldDomI
-    refine SimC.view ?_
-    obtain rfl := hdt
-    cases tel with
-    | forallE nmN dom rest mbN =>
-      dsimp only [ExprC.view]
-      have hw' : Expr.WScoped d dom ∧ Expr.WScoped d rest := by
-        have hw2 : Expr.WScoped d
-          (Expr.forallE nmN dom rest mbN) := hwtel
-        simpa only [Expr.WScoped] using hw2
-      exact SimC.pure hs ⟨rfl, hw'.1⟩
-    | bvar k => exact SimC.throw
-    | sort u => exact SimC.throw
-    | const nmN us => exact SimC.throw
-    | lit l => exact SimC.throw
-    | fvar idx nmN t => exact SimC.throw
-    | app f' a' => exact SimC.throw
-    | lam nmN t b m => exact SimC.throw
-    | letE nmN t v b => exact SimC.throw
-    | proj s'N j' e'' => exact SimC.throw
-  | k + 1, jj, tel, telx, s₀, hs, hdt, hwtel => by
-    unfold projFieldDomI
-    refine SimC.view ?_
-    obtain rfl := hdt
-    cases tel with
-    | forallE nmN dom rest mbN =>
-      dsimp only [ExprC.view]
-      have hw' : Expr.WScoped d dom ∧ Expr.WScoped d rest := by
-        have hw2 : Expr.WScoped d
-          (Expr.forallE nmN dom rest mbN) := hwtel
-        simpa only [Expr.WScoped] using hw2
-      have hwpj : Expr.WScoped d (Expr.proj sn jj e'x) := by
-        simpa only [Expr.WScoped] using hwe
-      have hwrest' : Expr.WScoped d
-          ((Expr.instantiate1 rest (.proj sn jj e'x))) :=
-        Expr.WScoped.instantiate1_gen hwpj 0 hw'.2
-      dsimp only [projFieldDom]
-      refine SimC.withStore ?_
-      rw [looseBVarsBoundedI_spec rfl]
-      by_cases hcl : (Expr.looseBVarsBounded 0 rest) = true
-      · rw [if_pos hcl, if_pos hcl]
-        exact projFieldDomC_sim ih henv hde hwe k (jj + 1) hs
-          rfl hw'.2
-      · rw [if_neg hcl, if_neg hcl]
-        cases structProp with
-        | true =>
-          simp only [↓reduceIte]
-          refine SimC.bind (isPropTypeC_sim ih hs rfl hw'.1)
-            (fun s₁ p p' hs₁ hPp => ?_)
-          obtain rfl : p = p' := hPp
-          cases p with
-          | false =>
-            simp only [Bool.false_eq_true, ↓reduceIte]
-            exact SimC.throw_bind
-          | true =>
-            simp only [↓reduceIte]
-            refine SimC.bind_left
-              (internI_eff hs₁ (n := ExprView.proj sn jj e'))
-              (fun s₂ pj hs₂ hQpj => ?_)
-            have hQpj' : RelC pj (Expr.proj sn jj e'x) :=
-              by
-                show _ = _
-                have h2 : pj = Expr.proj sn jj e' := hQpj
-                rw [h2, hde]
-            refine SimC.bind_left (inst1M_eff hs₂ rfl hQpj')
-              (fun s₃ rest' hs₃ hQr => ?_)
-            exact projFieldDomC_sim ih henv hde hwe k (jj + 1) hs₃
-              hQr hwrest'
-        | false =>
-          simp only [Bool.false_eq_true, ↓reduceIte]
-          refine SimC.bind_left
-            (internI_eff hs (n := ExprView.proj sn jj e'))
-            (fun s₂ pj hs₂ hQpj => ?_)
-          have hQpj' : RelC pj (Expr.proj sn jj e'x) :=
-            by
-              show _ = _
-              have h2 : pj = Expr.proj sn jj e' := hQpj
-              rw [h2, hde]
-          refine SimC.bind_left (inst1M_eff hs₂ rfl hQpj')
-            (fun s₃ rest' hs₃ hQr => ?_)
-          exact projFieldDomC_sim ih henv hde hwe k (jj + 1) hs₃
-            hQr hwrest'
-    | bvar k' => exact SimC.throw
-    | sort u => exact SimC.throw
-    | const nmN us => exact SimC.throw
-    | lit l => exact SimC.throw
-    | fvar idx nmN t => exact SimC.throw
-    | app f' a' => exact SimC.throw
-    | lam nmN t b m => exact SimC.throw
-    | letE nmN t v b => exact SimC.throw
-    | proj s'N j' e'' => exact SimC.throw
-
 end Walks
-
-section Walks2
-
-variable {env : Env} {f : Nat}
-
-/-- The shared reduct tail of the Prop-projection fallback: build the
-recursor elimination and re-annotate it under the scope guard. -/
-private theorem annotateProjRecC_rest (ih : SSimC mode env f)
-    {d : Nat} {entry : ProjEntry} {te e' fi minor : ExprC}
-    {params : List ExprC} {tex e'x fix minorx : Expr}
-    {paramsx : List Expr} {us uf : List Level}
-    {s₀ : CState}
-    (hs : CSOK mode env s₀)
-    (hte : RelC te tex)
-    (hde : RelC e' e'x)
-    (hfi : RelC fi fix)
-    (hmin : RelC minor minorx)
-    (hparams : RelCL params paramsx) :
-    SimC mode env s₀ (RelEC d)
-      (internNameM (entry.structName.str "rec") >>= fun recI =>
-       internI (.const recI (uf ++ us)) >>=
-        fun recC =>
-       internNameM (.str .anonymous "t") >>= fun tI =>
-       internI (.lam tI te fi ⟨.default, .never⟩) >>=
-        fun motive =>
-       mkAppNM recC (params ++ [motive, minor, e']) >>= fun raw =>
-       Setlec.Cached.withStore (fun st => st.wscopedBI d raw &&
-         st.looseBVarsBoundedI 0 raw &&
-         st.leafGuardI raw e') >>= fun g =>
-       if g then (coreKnotI mode (mkFEnv env) f).annotate d raw
-       else throw (.notImplemented "projection elimination scoping"))
-      (let raw := Expr.mkAppN
-          (.const (entry.structName.str "rec") (uf ++ us))
-          (paramsx ++ [.lam (.str .anonymous "t") tex fix
-            ⟨.default, .never⟩, minorx, e'x])
-        if raw.wscopedB d && raw.looseBVarsBounded 0 &&
-            raw.fvarLeaves.all
-              (fun l => e'x.fvarLeaves.contains l) then
-          (fueledFns mode env).annotate d raw
-        else throw (.notImplemented "projection elimination scoping")) := by
-  refine SimC.bind_left
-    (internNameM_eff hs (entry.structName.str "rec"))
-    (fun s₀r recI hs hQrecI => ?_)
-  subst hQrecI
-  refine SimC.bind_left
-    (internI_eff hs
-      (n := ExprView.const (entry.structName.str "rec") (uf ++ us)))
-    (fun s₁ recC hs₁ hQrec => ?_)
-  have hQrec' : RelC recC
-    (Expr.const (entry.structName.str "rec") (uf ++ us)) := hQrec
-  refine SimC.bind_left (internNameM_eff hs₁ (.str .anonymous "t"))
-    (fun s₁t tI hs₁t hQtI => ?_)
-  subst hQtI
-  refine SimC.bind_left
-    (internI_eff hs₁t
-      (n := ExprView.lam (.str .anonymous "t") te fi ⟨.default, .never⟩))
-    (fun s₂ motive hs₂ hQmot => ?_)
-  have hQmot' : RelC motive
-      (Expr.lam (.str .anonymous "t") tex fix ⟨.default, .never⟩) :=
-    by
-      show _ = _
-      have h2 : motive =
-        Expr.lam (.str .anonymous "t") te fi
-          ⟨.default, .never⟩ := hQmot
-      rw [h2, hte, hfi]
-  refine SimC.bind_left (mkAppNM_eff hs₂ hQrec'
-    (hparams.append (RelCL.cons hQmot' (RelCL.cons hmin
-      (RelCL.cons hde RelCL.nil)))))
-    (fun s₃ raw hs₃ hQraw => ?_)
-  refine SimC.withStore ?_
-  rw [wscopedBI_spec hQraw, looseBVarsBoundedI_spec hQraw,
-    leafGuardI_spec hQraw hde]
-  dsimp only
-  split
-  · rename_i hguard
-    exact ih.annotate hs₃ hQraw (Expr.WScoped.of_wscopedB
-      (by simp only [Bool.and_eq_true] at hguard; exact hguard.1.1))
-  · exact SimC.throw
-
-/-- Port of `annotateProjRecI_sim`. -/
-theorem annotateProjRecC_sim (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {entry : ProjEntry} {ip : Nat} {te e' : ExprC}
-    {tex e'x : Expr} {us : List Level} {s₀ : CState}
-    (hs : CSOK mode env s₀)
-    (hte : RelC te tex)
-    (hde : RelC e' e'x)
-    (hwte : Expr.WScoped d tex) (hwe : Expr.WScoped d e'x) :
-    SimC mode env s₀ (RelEC d)
-      (annotateProjRecI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d entry
-        ip te e' us)
-      (annotateProjRec (fueledFns mode env) env d entry ip tex e'x us) := by
-  unfold annotateProjRecI
-  unfold annotateProjRec
-  rw [mkFEnv_find?]
-  cases hfC : env.find? entry.ctor with
-  | none => exact SimC.throw
-  | some ci =>
-    cases ci with
-    | ctorInfo cvC cnP cnF =>
-      dsimp only
-      refine SimC.withStore ?_
-      have hparams : RelCL (ExprC.getAppArgs te) tex.getAppArgs := by
-        have hg := ExprC.getAppArgs_spec te
-        show _ = _
-        rw [hg, hte]
-      simp only [CStore.getAppArgsI, RelCL.length hparams]
-      split
-      · refine SimC.bind_left (internNameM_eff hs entry.ctor)
-          (fun s₀c ctorI hs hQctorI => ?_)
-        subst hQctorI
-        refine SimC.bind_left (constTyAtM_eff hs hfC)
-          (fun s₁ ctorTy hs₁ hQty => ?_)
-        simp only [ConstantInfo.toConstantVal] at hQty
-        refine SimC.bind_left (piResidualM_eff hs₁ hQty hparams)
-          (fun s₂ otel hs₂ hQtel => ?_)
-        rw [instPis_eq_piResidual]
-        cases htel : piResidual
-            (cvC.type.instantiateLevelParams cvC.levelParams us)
-            tex.getAppArgs with
-        | none =>
-          rw [htel] at hQtel
-          cases otel with
-          | some tel => exact absurd hQtel (by simp [OptEr])
-          | none => exact SimC.throw
-        | some telx =>
-          rw [htel] at hQtel
-          cases otel with
-          | none => exact absurd hQtel (by simp [OptEr])
-          | some tel =>
-            have hwtel : Expr.WScoped d telx := by
-              refine instPis_WScoped
-                (by rw [instPis_eq_piResidual]; exact htel) ?_
-                hwte.getAppArgs
-              obtain ⟨htf, -⟩ := henv _ (find?_mem hfC)
-              exact wscoped_instLevels_of_not_hasFvar htf _ _
-            refine SimC.bind (isPropTypeC_sim ih hs₂ hte hwte)
-              (fun s₃ sp sp' hs₃ hPsp => ?_)
-            obtain rfl : sp = sp' := hPsp
-            refine SimC.bind_left
-              (internNameM_eff hs₃ entry.structName)
-              (fun s₃n snI hs₃n hQsnI => ?_)
-            subst hQsnI
-            refine SimC.bind (projFieldDomC_sim ih henv hde hwe ip 0 hs₃n
-              hQtel hwtel)
-              (fun s₄ fi fix hs₄ hPfi => ?_)
-            obtain ⟨hfid, hwfi⟩ := hPfi
-            refine SimC.bind_left
-              (internI_eff hs₄ (n := ExprView.bvar (cnF - 1 - ip)))
-              (fun s₅ fieldBvar hs₅ hQbv => ?_)
-            have hQbv' : RelC fieldBvar (Expr.bvar (cnF - 1 - ip)) := hQbv
-            refine SimC.bind_left (pisToLamsM_eff (k := cnF) hs₅
-              hQtel hQbv') (fun s₆ ominor hs₆ hQmin => ?_)
-            cases hmin : Expr.pisToLams cnF telx
-                (.bvar (cnF - 1 - ip)) with
-            | none =>
-              rw [hmin] at hQmin
-              cases ominor with
-              | some minor => exact absurd hQmin (by simp [OptEr])
-              | none => exact SimC.throw
-            | some minorx =>
-              rw [hmin] at hQmin
-              cases ominor with
-              | none => exact absurd hQmin (by simp [OptEr])
-              | some minor =>
-                refine SimC.bind (ih.annotate hs₆ hfid hwfi)
-                  (fun s₇ fi' fi'x hs₇ hPfi' => ?_)
-                obtain ⟨hfi'd, hwfi'⟩ := hPfi'
-                refine SimC.bind (ih.inferIO hs₇ hfi'd hwfi')
-                  (fun s₈ tfi tfix hs₈ hPtfi => ?_)
-                obtain ⟨htfid, hwtfi⟩ := hPtfi
-                refine SimC.bind (ensureSortC_sim ih hs₈ htfid hwtfi)
-                  (fun s₉ sfi lsfi hs₉ hPsfi => ?_)
-                obtain rfl : sfi = lsfi := hPsfi
-                cases sp with
-                | true =>
-                  simp only [↓reduceIte]
-                  refine SimC.bind_left (internLM_eff hs₉ .zero)
-                    (fun s₉z z hs₉z hz => ?_)
-                  subst hz
-                  refine SimC.bind_left (isEquivLM_eff hs₉z sfi Level.zero)
-                    (fun s₉o o hs₉o ho => ?_)
-                  subst ho
-                  refine SimC.bind (SimC.liftFueled _ _ hs₉o)
-                    (fun s₁₀ ok ok' hs₁₀ hPok => ?_)
-                  obtain rfl : ok = ok' := hPok
-                  cases ok with
-                  | false =>
-                    simp only [Bool.false_eq_true, ↓reduceIte]
-                    exact SimC.throw_bind
-                  | true =>
-                    simp only [↓reduceIte]
-                    exact annotateProjRecC_rest ih hs₁₀ hte hde hfid hQmin
-                      hparams
-                | false =>
-                  simp only [Bool.false_eq_true, ↓reduceIte]
-                  exact annotateProjRecC_rest ih hs₉ hte hde hfid hQmin
-                    hparams
-      · exact SimC.throw
-    | axiomInfo cv => exact SimC.throw
-    | defnInfo cv v h => exact SimC.throw
-    | thmInfo cv v => exact SimC.throw
-    | indInfo cv caps => exact SimC.throw
-    | recInfo cv mI rP rules => exact SimC.throw
-    | projInfo entry' => exact SimC.throw
-
-end Walks2
 
 section Walks3
 
 variable {env : Env} {f : Nat}
 
-/-- Port of `annotateProjElimI_sim`. -/
-theorem annotateProjElimC_sim (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {sn : Name} {ip : Nat} {te e' : ExprC}
-    {tex e'x : Expr}
-    {s₀ : CState} (hs : CSOK mode env s₀)
-    (hte : RelC te tex)
-    (hde : RelC e' e'x)
-    (hwte : Expr.WScoped d tex) (hwe : Expr.WScoped d e'x) :
-    SimC mode env s₀ (RelEC d)
-      (annotateProjElimI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d sn
-        ip te e')
-      (annotateProjElim (fueledFns mode env) env d sn ip tex e'x) := by
-  unfold annotateProjElimI
-  unfold annotateProjElim
-  refine SimC.withStore ?_
-  obtain rfl := hte
-  have hte : RelC te te := rfl
-  have htargs : RelCL (ExprC.getAppArgs te) (Expr.getAppArgs te) :=
-    ExprC.getAppArgs_spec te
-  have hfn := ExprC.getAppFn_spec te
-  dsimp only [CStore.getNode, CStore.getAppFnI]
-  generalize hgn : ExprC.getAppFn te = g at hfn ⊢
-  cases g with
-  | const T us =>
-    rw [show (Expr.getAppFn te) = Expr.const T us from hfn.symm]
-    dsimp only
-    refine SimC.bind_left (readbackNM_eff hs T)
-      (fun s₀T Tw hs hTw => ?_)
-    subst hTw
-    by_cases hT : Tw = sn
-    · rw [if_pos hT, if_pos hT]
-      rw [mkFEnv_find?]
-      cases hfp : env.find? (projFnName Tw ip) with
-      | none => exact SimC.throw
-      | some ci =>
-        cases ci with
-        | recInfo cvp mI rP rules =>
-          dsimp only
-          refine SimC.withStore ?_
-          simp only [CStore.getAppArgsI, RelCL.length htargs]
-          split
-          · refine SimC.bind_left (projFnIdxM_eff hs Tw ip)
-              (fun s₀p pf hs hQpf => ?_)
-            subst hQpf
-            refine SimC.bind_left
-              (internI_eff hs
-                (n := ExprView.const (projFnName Tw ip) us))
-              (fun s₁ hcst hs₁ hQh => ?_)
-            have hQh' : RelC hcst (Expr.const (projFnName Tw ip) us) := hQh
-            refine SimC.bind_left (mkAppNM_eff hs₁ hQh'
-              (htargs.append (RelCL.cons hde RelCL.nil)))
-              (fun s₂ raw hs₂ hQraw => ?_)
-            refine SimC.withStore ?_
-            rw [wscopedBI_spec hQraw,
-              looseBVarsBoundedI_spec hQraw,
-              leafGuardI_spec hQraw hde]
-            try dsimp only
-            split
-            · rename_i hguard
-              exact ih.annotate hs₂ hQraw (Expr.WScoped.of_wscopedB
-                (by simp only [Bool.and_eq_true] at hguard
-                    exact hguard.1.1))
-            · exact SimC.throw
-          · exact SimC.throw
-        | projInfo entry =>
-          dsimp only
-          cases hnat : entry.native with
-          | true =>
-            simp only [↓reduceIte]
-            exact SimC.throw
-          | false =>
-            simp only [Bool.false_eq_true, ↓reduceIte]
-            exact annotateProjRecC_sim ih henv hs hte hde hwte hwe
-        | axiomInfo cv => exact SimC.throw
-        | defnInfo cv v hd => exact SimC.throw
-        | thmInfo cv v => exact SimC.throw
-        | indInfo cv caps => exact SimC.throw
-        | ctorInfo cv nP nF => exact SimC.throw
-    · rw [if_neg hT, if_neg hT]
-      exact SimC.throw
-  | bvar k =>
-    rw [show (Expr.getAppFn te) = Expr.bvar k from hfn.symm]
-    exact SimC.throw
-  | sort u =>
-    rw [show (Expr.getAppFn te) = Expr.sort u from hfn.symm]
-    exact SimC.throw
-  | lit l =>
-    rw [show (Expr.getAppFn te) = Expr.lit l from hfn.symm]
-    exact SimC.throw
-  | fvar idx nmN t =>
-    rw [show (Expr.getAppFn te) = Expr.fvar idx nmN t
-      from hfn.symm]
-    exact SimC.throw
-  | app f' a' =>
-    rw [show (Expr.getAppFn te) = Expr.app f' a'
-      from hfn.symm]
-    exact SimC.throw
-  | lam nmN t b m =>
-    rw [show (Expr.getAppFn te) = Expr.lam nmN t b m
-      from hfn.symm]
-    exact SimC.throw
-  | forallE nmN t b m =>
-    rw [show (Expr.getAppFn te) = Expr.forallE nmN t b m
-      from hfn.symm]
-    exact SimC.throw
-  | letE nmN t v b =>
-    rw [show (Expr.getAppFn te)
-      = Expr.letE nmN t v b from hfn.symm]
-    exact SimC.throw
-  | proj s'N j' e'' =>
-    rw [show (Expr.getAppFn te) = Expr.proj s'N j' e''
-      from hfn.symm]
-    exact SimC.throw
-
 /-- Port of `annotateBodyI_sim`. -/
-theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
+theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
@@ -719,13 +292,13 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       rw [mkFEnv_findProj?]
       cases hfp : env.findProj? Tw ipN with
       | none =>
-        exact annotateProjElimC_sim ih henv hs₃T hted he'd hwte hwe'
+        exact SimC.throw
       | some entry =>
         dsimp only
         cases hnat : entry.native with
         | false =>
           simp only [Bool.false_eq_true, ↓reduceIte]
-          exact annotateProjElimC_sim ih henv hs₃T hted he'd hwte hwe'
+          exact SimC.throw
         | true =>
           simp only [↓reduceIte]
           refine SimC.withStore ?_
@@ -744,37 +317,37 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             exact SimC.throw
     | bvar k =>
       rw [show (Expr.getAppFn te) = Expr.bvar k from hfn.symm]
-      exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
+      exact SimC.throw
     | sort u =>
       rw [show (Expr.getAppFn te) = Expr.sort u from hfn.symm]
-      exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
+      exact SimC.throw
     | lit l =>
       rw [show (Expr.getAppFn te) = Expr.lit l from hfn.symm]
-      exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
+      exact SimC.throw
     | fvar idx nm' t' =>
       rw [show (Expr.getAppFn te) = Expr.fvar idx nm' t'
         from hfn.symm]
-      exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
+      exact SimC.throw
     | app f₂ a₂ =>
       rw [show (Expr.getAppFn te) = Expr.app (f₂) (a₂)
         from hfn.symm]
-      exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
+      exact SimC.throw
     | lam nm' t' b' m' =>
       rw [show (Expr.getAppFn te) = Expr.lam nm' t' b' m'
         from hfn.symm]
-      exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
+      exact SimC.throw
     | forallE nm' t' b' m' =>
       rw [show (Expr.getAppFn te)
         = Expr.forallE nm' t' b' m' from hfn.symm]
-      exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
+      exact SimC.throw
     | letE nm' t' v' b' =>
       rw [show (Expr.getAppFn te)
         = Expr.letE nm' t' v' b' from hfn.symm]
-      exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
+      exact SimC.throw
     | proj s' j' e'' =>
       rw [show (Expr.getAppFn te) = Expr.proj s' j' e''
         from hfn.symm]
-      exact annotateProjElimC_sim ih henv hs₃ hted he'd hwte hwe'
+      exact SimC.throw
 
 end Walks3
 

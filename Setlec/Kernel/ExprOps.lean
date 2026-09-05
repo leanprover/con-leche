@@ -255,8 +255,8 @@ Not on any per-memo-op path (task #43): the memoized knot's cache
 operations run unguarded, justified by the proven call discipline
 (`Setlec/Verify/Disc.lean`).  Remaining executable call sites are the
 scope guards on checker-fabricated terms in `Setlec/Kernel/Core.lean`
-(the stuck-major rescues in `majorToCtor` and the projection
-eliminations in `annotateProjRec`/`annotateProjElim`), each O(small
+(the stuck-major rescues in `majorToCtor`; the projection
+eliminations went with task #175 wiring W5), each O(small
 fabricated term) once per fabrication.  TODO(cleanup, task #26):
 interning should cache the fvar range per node, making those O(1). -/
 def wscopedB : (d : Nat) → Expr → Bool
@@ -512,9 +512,10 @@ claims the *codomain*'s prop-ness, which is not the λ's claim (the sort
 of the body's *type*), so carrying it over would be a wrong annotation.
 The result is emitted at the parse placeholder `.never` and **every
 consumer must run the annotate pass over it before storing or using
-it** — audited: `CheckerS.checkProjRule`, `CheckerBase`'s projection
-rule builder and `annotateProjRec` all feed `ops.annotate`
-(DESIGN.md, task #161, manufacture-site audit row 9). -/
+it** — audited: `CheckerS.checkProjRule` and `CheckerBase`'s projection
+rule builder feed `ops.annotate` (DESIGN.md, task #161,
+manufacture-site audit row 9; the third consumer, `annotateProjRec`,
+went with task #175 wiring W5). -/
 def pisToLams : Nat → Expr → Expr → Option Expr
   | 0, _, body => some body
   | k + 1, .forallE n ty rest m, body =>

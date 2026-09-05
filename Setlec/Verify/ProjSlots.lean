@@ -699,17 +699,10 @@ theorem annotateCore_projSlotsOk {env : Env} :
         annotateCore_projSlotsOk fuel a haa hf.2⟩
   | fuel + 1, .proj sn i e, d, e', h, hf => by
     rw [Expr.fvarTysOk_proj] at hf
-    obtain ⟨e₂, tt, te, he, -, -, hres⟩ := annotateCore_proj_inv h
+    obtain ⟨e₂, tt, te, he, -, -, T, us, entry, -, hfe, hnat, -, rfl⟩ :=
+      annotateCore_proj_inv h
     have hok₂ := annotateCore_projSlotsOk fuel e he hf
-    rcases hres with ⟨T, us, entry, -, hfe, hnat, -, rfl⟩ | hel
-    · exact Expr.projSlotsOk_proj.mpr ⟨⟨entry, hfe, hnat⟩, hok₂⟩
-    · obtain ⟨raw, -, -, hleaves, hann⟩ := annotateProjElim_inv hel
-      refine annotateCore_projSlotsOk fuel raw hann
-        (Expr.FvarTysOk.of_fvarLeaves raw fun l hl => ?_)
-      have hmem : l ∈ e₂.fvarLeaves := by
-        have := List.all_eq_true.mp hleaves l hl
-        exact List.contains_iff_mem.mp this
-      exact Expr.ProjSlotsOk.fvarLeaves e₂ hok₂ l hmem
+    exact Expr.projSlotsOk_proj.mpr ⟨⟨entry, hfe, hnat⟩, hok₂⟩
   | fuel + 1, .forallE n ty body m, d, e', h, hf => by
     rw [Expr.fvarTysOk_forallE] at hf
     obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_forallE_inv h
