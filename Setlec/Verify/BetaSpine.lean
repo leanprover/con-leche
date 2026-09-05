@@ -268,7 +268,7 @@ def whnfCoreStepM (cfg : CoreCfg) (r : CoreFns m) (env : Env) (depth : Nat)
             us.length = entry.levelParams.length ∧
             entry.fireOk us = true then
           let arg := args.getD (entry.numParams + i) (.bvar 0)
-          if ← projCert r env depth e' i entry.numParams then
+          if ← projCert r env depth c us args then
             k arg
           else pure (.proj sn i e')
         else pure (.proj sn i e')

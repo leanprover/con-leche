@@ -1390,54 +1390,66 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     | _ => pure none
   | _ => pure none
 
-/-- **The tower-fire guard** (task #175 W4c/O4): `whnfCore` fires the
-structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i` at a tower-backed entry only
-when the structure's sort is provably nonzero at the constructor's
-own level instantiation (`Level.isNonZero`).  At a `Prop` instance
-the constructor application is a proof: in a proof-irrelevant model
-its value is the point, and nothing pins the field argument's value
-to the field — a `whnfCore` step certifies no typing — so the rule
-would be unsound-to-model there; and it is never *needed* there
-either, since two proofs of one proposition are already definitionally
-equal (proof irrelevance), and a `Prop`-structure field is a proof.
-Every `structure` command's result sort is `max 1 …` (nonzero at every
-instantiation); the guard bites only at `Prop`-declared blocks and at
-a single-constructor `Sort u` inductive instantiated at a possibly-zero
-level.  The pair entries are ungated. -/
+/-- **The tower-fire guard** (task #175 W4c/O4, restated at W6):
+`whnfCore` fires the structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i` at a
+tower-backed entry under exactly the guard the tower infer branch
+types the node with — at a `Prop`-declared structure the field's guard
+level must be a proposition at this instantiation; at every other
+family the rule fires unconditionally.
+
+Until W6 the guard was "the structure's sort is provably nonzero at
+this instantiation", which is *not* what the official kernel does
+(`reduce_proj` reduces every constructor redex) and rejects the
+preprocessor's own `PSigma'.fst_mk` (`PSigma'.fst (PSigma'.mk a b) ≡ a`
+at symbolic `u v`, where `max u v` is neither provably zero nor
+nonzero) once the pinned pair — whose entries were ungated — is
+retired.  The model licence: at a squash instance (the structure's
+sort is `0` at the valuation) the constructor application reads as
+the point, and so does the selected field — for a non-`Prop`-declared
+family every field's sort is bounded by the structure's (the O5 bound
+`checkDirectFieldSorts` checks), so at a zero instantiation every
+field is a proposition; for a `Prop`-declared family the guard says
+so of the projected field directly (`TowerEntryLawP`'s iota clause,
+`Setlec/SetP/Annot/EnvS2P.lean`).  Ungated rules on a data field of a
+`Prop`-declared structure stay out: such a node is not even typed
+(`inferBody`'s guard). -/
 def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
   !entry.tower ||
-    (Level.subst entry.levelParams us entry.structSort).isNonZero
+    !(Level.isEquiv entry.structSort .zero == some true) ||
+    (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
+      == some true)
 
-/-- Certification for a possibly-Prop structural projection
-`proj_i (ctor p⃗ x⃗)` (the subject `e₂` is the whnf'd constructor
-application): the projected argument and the subject are both typed.
+/-- **The structural projection's certificate** (task #175 W6, the
+squash-regime licence): the redex `proj_i (C p⃗ x⃗)` fires only after
+its constructor spine is certified against `C`'s stored type at the
+redex's own levels — `iotaCerts`, each argument's inferred type defeq
+to its binder domain, the domains instantiated along the spine.  This
+is what makes the rule sound-to-model at a squash instantiation: there
+the constructor application is the point and so is every field
+(every field of a non-`Prop`-declared family is a proposition where
+the family is one, by the O5 bound; at a `Prop`-declared family the
+fire guard says so of the projected field), and the certified fit is
+what pins the selected argument to its domain — a grading alone pins
+nothing at bit `0`.  In the graph regime the fit is redundant with
+the application's grading, which the tower law consumes there.
 
-Task #161 de-gating round A+B+C, item B1 (harvest site 18, list entry
-P9).  The clause used to run six things: infer the field, infer *its*
-type and whnf it to a sort, compare that sort with the entry's
-instantiated `fieldSort`; then the same three for the subject against
-`structSort`.  `projStepP_of_claims` (`SetR/Interp2/Step2/ProjRowsP.lean`)
-destructures `projCert_inv` as `⟨…, -, -, -, -, hite, -, -, -⟩`: it
-consumes **conjunct 5 only**, the subject's own `inferTypeCore` run.
-The four sort legs — the two `infer`+`whnf`-to-a-sort runs and the two
-`Level.isEquiv` comparisons — are inspected by nothing, and they cannot
-become load-bearing later either: `projEntry_pins` (`SetR/ProjPins.lean`)
-pins a `native` entry to one of the two basis pair entries, so
-`fieldSort`/`structSort` are *concrete* and carry no information the
-model does not already have.  They are deleted, and with them the two
-`Level` arguments and the callers' `Level.subst`/`substLevelTreeM` of
-the pinned sorts.
-
-THE FIELD-INFER RUN STAYS (the ratified negative verdict of the harvest
-list): it is not licensed by anything, it is simply not on the removal
-list. -/
-def projCert (r : CoreFns m) (_env : Env) (depth : Nat)
-    (e₂ : Expr) (i : Nat) (nP : Nat) : m Bool := do
-  let arg := e₂.getAppArgs.getD (nP + i) (.bvar 0)
-  -- task #172 B4: io grade
-  let _ta ← r.inferIO depth arg
-  let _te ← r.inferIO depth e₂
-  pure true
+History: until task #161 P9 the certificate ran six things (the two
+sort legs and their comparisons, on top of the two `inferTypeCore`
+runs); P9 cut it to the two runs (the pinned pair's row walked the
+spine's typings out of the subject's own run, concretely at arity
+four); W6 replaces the two runs by the one telescope certificate,
+which is the same per-argument `inferIO` + `defeq` work the subject's
+run performed inside `inferSpine`, and drops the field's separate
+`inferIO`.  The official kernel's `reduce_proj` certifies nothing —
+this is the F4 conformance residue, which the P lane's `ProjStepP`
+row consumes through `certs_teleP`. -/
+def projCert (r : CoreFns m) (env : Env) (depth : Nat)
+    (c : Name) (us : List Level) (args : List Expr) : m Bool := do
+  match env.find? c with
+  | some (.ctorInfo cvC _ _) =>
+    iotaCerts r env depth (cvC.type.instantiateLevelParams cvC.levelParams us)
+      args
+  | _ => pure false
 
 /-- **THE β SITE'S GATE** (task #161): does the mode's β gate fire at
 this binder?
@@ -1535,15 +1547,13 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then
             let arg := args.getD (entry.numParams + i) (.bvar 0)
-            -- Certify the reduction: at Prop instances both the
-            -- projected argument and the subject collapse to the
-            -- proof point (see DESIGN.md on beta certification).
-            -- Task #100 de-gating: the former nonzero-sort gate is
-            -- unsound-to-model under the domain-relative collapse,
-            -- so the certificate runs unconditionally.  Task #161
-            -- item B1: the two sort legs and their `Level.subst`s are
-            -- gone (see `projCert`).
-            if ← projCert r env depth e' i entry.numParams then
+            -- Certify the reduction: the constructor spine against
+            -- the constructor's stored type (task #175 W6; see
+            -- `projCert`).  Task #100 de-gating: the former
+            -- nonzero-sort gate is unsound-to-model under the
+            -- domain-relative collapse, so the certificate runs
+            -- unconditionally.
+            if ← projCert r env depth c us args then
               r.whnfCore depth arg
             else pure (.proj sn i e')
           else pure (.proj sn i e')

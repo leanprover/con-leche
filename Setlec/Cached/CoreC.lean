@@ -674,14 +674,14 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
   | _ => pure none
 
 /-- Twin of `projCert`. -/
-def projCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
-    (e₂ : ExprC) (i : Nat) (nP : Nat) : CheckCM Bool := do
-  let bvar0 ← internI (.bvar 0)
-  let args ← withStore (·.getAppArgsI e₂)
-  let arg := args.getD (nP + i) bvar0
-  let _ta ← r.inferIO depth arg
-  let _te ← r.inferIO depth e₂
-  pure true
+def projCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (c : Name) (us : List Level) (args : List ExprC) : CheckCM Bool := do
+  let cn ← readbackNM c
+  match fe.find? cn with
+  | some (.ctorInfo _ _ _) => do
+    let tyC ← constTyAtM fe c cn us
+    iotaCertsI r fe depth tyC args
+  | _ => pure false
 
 mutual
 
@@ -805,11 +805,10 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             let arg := args.getD (entry.numParams + i) bvar0
             -- task #100 de-gating: the certificate runs
             -- unconditionally (the former nonzero-sort gate is
-            -- unsound-to-model under the domain-relative collapse).
-            -- Task #161 item B1: the two sort legs, their two
-            -- `Level` arguments and the two `substLevelTreeM` calls
-            -- that fed them are gone (see `projCert`).
-            if ← projCertI r fe depth e' i entry.numParams then
+            -- unsound-to-model under the domain-relative collapse);
+            -- task #175 W6: the spine against the constructor's type
+            -- (see `projCert`).
+            if ← projCertI r fe depth c us args then
               k arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')
