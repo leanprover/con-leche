@@ -31,6 +31,7 @@ import Setlec.SetBase.CtxOkR
 import Setlec.SetBase.Decl
 import Setlec.SetBase.DeclEta
 import Setlec.SetBase.DeclRun
+import Setlec.SetBase.DeclDirect
 import Setlec.SetBase.DeclIndRun
 import Setlec.SetBase.IndBlockR
 import Setlec.SetBase.IndBlockRun

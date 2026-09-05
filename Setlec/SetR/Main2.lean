@@ -180,7 +180,7 @@ theorem declStep2All_of {μ : CheckMode} (hval : DeclValue2S V μ)
     · exact hax m hcv
     · exact ⟨m⟩
   | basisDecl kind => exact hbas ⟨m⟩ h
-  | indDecl block => exact hind m hE h
+  | indDecl block => exact hind m hE (declIndDispatchR_eq_ind.mp h)
 
 /-- **The `def` kind, on the interp2 residues alone.**  Every
 collapse-lane input is v1's own and none of them is assumed:
@@ -277,7 +277,7 @@ theorem declStep2AllM_of {μ : CheckMode} (hval : DeclValue2SM V μ)
     · exact hax m hcv
     · exact ⟨m⟩
   | basisDecl kind => exact hbas ⟨m⟩ h
-  | indDecl block => exact hind m hE h
+  | indDecl block => exact hind m hE (declIndDispatchR_eq_ind.mp h)
 
 /-! ### The axiom obligation, at the premise it can actually be met on
 
@@ -403,7 +403,7 @@ theorem declStep2AllM_ofR {μ : CheckMode} (hval : DeclValue2SM V μ)
       (fun cv2 v2 heq => nomatch heq)
   | axiomDecl cv => exact hax m h
   | basisDecl kind => exact hbas ⟨m⟩ h
-  | indDecl block => exact hind m hE h
+  | indDecl block => exact hind m hE (declIndDispatchR_eq_ind.mp h)
 
 /-- **The `def` kind at one mode, and the residue is four.**
 `declStep2_defn` with `EnvS2UM` in place of `EnvS2U`: every

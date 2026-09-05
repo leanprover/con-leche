@@ -77,6 +77,7 @@ theorem declStepS (hdm : DivModPinS V) (hrp : ReducePinS V)
   | opaqueDecl cv value => exact ⟨(declOpaqueS hrp m h).choose⟩
   | axiomDecl cv => exact declAxiomS hstd ofReduceKeyS m h
   | basisDecl kind => exact hbas m h
-  | indDecl block => exact (hind m hE h).1
+  | indDecl block =>
+    exact (hind m hE (declIndDispatchR_eq_ind.mp h)).1
 
 end Setlec.SetR

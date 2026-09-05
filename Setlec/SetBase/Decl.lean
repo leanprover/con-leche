@@ -963,6 +963,84 @@ where
            env'' = ⟨.projInfo entry :: env'.consts⟩) ∧
         TemplatesR T ctorName lps nP nF env'' rest env₂
 
+/-! ## The direct-structure arm (task #175 wiring, W4)
+
+The direct arm of the `.indDecl` clause, recorded as a **run
+relation** (the W4 freeze's threading decision): the direct block has
+no model artifacts, so nothing V-free can pin its valuations here —
+the tier's leaves are built by the install soundness from these rows'
+readings, with the semantics coming from the claims interface.  The
+per-stage anatomy is exposed by inversion lemmas on the stage
+functions where the dischargers need it (`SetBase/DeclDirect.lean`
+holds the `checkDirectStruct` inversion). -/
+
+/-- The projection-slot fold (`checkDirectStruct`'s tail): each slot
+is `checkDirectProj`'s own run at the accumulator — the O4 branch
+decides *inside* the run whether an entry installs. -/
+def DirectProjFoldR (μ : CheckMode) (F : Nat) (T C : Name)
+    (lps : List Name) (nP nF : Nat) (resSort : Level)
+    (cvTa cvCa : ConstantVal) : Env → List Nat → Env → Prop
+  | env', [], env₂ => env₂ = env'
+  | env', i :: rest, env₂ =>
+    ∃ env'', checkDirectProj (m := Setlec.CheckM) (fueledOps μ F)
+        T C lps nP nF resSort cvTa cvCa env' i = .ok env'' ∧
+      DirectProjFoldR μ F T C lps nP nF resSort cvTa cvCa env'' rest env₂
+
+/-- **The direct-structure declaration, as checked**: the stage runs
+of `checkDirectStruct`, with the intermediate environments and the
+recursor install named.  `env` is the pre-block environment. -/
+def DeclDirectR (μ : CheckMode) (F : Nat) (env : Env)
+    (p : DirectParts) (env₂ : Env) : Prop :=
+  ∃ (cvTa cvCa cvRa : ConstantVal) (rhsA : Expr) (envI envC : Env),
+    checkDirectInd (m := Setlec.CheckM) (fueledOps μ F) env p
+      = .ok (envI, cvTa) ∧
+    checkDirectCtor (m := Setlec.CheckM) (fueledOps μ F) env envI p cvTa
+      = .ok (envC, cvCa) ∧
+    checkConstantVal (m := Setlec.CheckM) (fueledOps μ F) envC p.cvR
+      = .ok cvRa ∧
+    checkDirectRecTy (m := Setlec.CheckM) (fueledOps μ F) envC p
+      cvTa cvCa cvRa = .ok () ∧
+    checkDirectRule (m := Setlec.CheckM) (fueledOps μ F) envC p
+      cvCa cvRa = .ok rhsA ∧
+    (let env₃ : Env :=
+      ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+        [⟨p.cvC.name, p.nF, p.nP,
+          if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
+            .plain else .inert,
+          rhsA⟩] :: envC.consts⟩
+     (List.range p.nF).all
+        (fun j => (env₃.find? (projFnName p.cvT.name j)).isNone)
+        = true ∧
+      DirectProjFoldR μ F p.cvT.name p.cvC.name p.cvT.levelParams
+        p.nP p.nF p.resSort cvTa cvCa env₃ (List.range p.nF) env₂)
+
+/-- The `.indDecl` dispatch, post-#175: the recognised direct class
+goes through `checkDirectStruct` and everything else through the
+modeled path — `checkDecl`'s own branch, mirrored.  Pre-flip
+`directParts?_none` reduces this to `DeclIndR` outright. -/
+def DeclIndDispatchR (μ : CheckMode) (F : Nat) (env : Env)
+    (cval : Setlec.TTVerify.TConstVal) (block : List ConstantInfo)
+    (env₂ : Env) : Prop :=
+  match Setlec.directParts? env block with
+  | some p => DeclDirectR μ F env p env₂
+  | none => DeclIndR μ F env cval block env₂
+
+/-- Pre-flip the dispatch **is** the modeled relation
+(`directParts?_none`) — the consumers' one-line reduction. -/
+theorem declIndDispatchR_eq_ind {μ : CheckMode} {F : Nat} {env : Env}
+    {cval : Setlec.TTVerify.TConstVal} {block : List ConstantInfo}
+    {env₂ : Env} :
+    DeclIndDispatchR μ F env cval block env₂
+      ↔ DeclIndR μ F env cval block env₂ := by
+  rw [DeclIndDispatchR]
+  have hnone : Setlec.directParts? env block = none := by
+    unfold Setlec.directParts?
+    cases Setlec.directPartsCore? block with
+    | none => rfl
+    | some p => simp [Setlec.directStructsEnabled]
+  rw [hnone]
+
+
 /-! ## The assembly -/
 
 /-- The per-declaration relation: kind dispatch into the six per-kind
@@ -975,7 +1053,7 @@ def DeclR (μ : CheckMode) (F : Nat) (cval : TConstVal) (env : Env) :
   | .opaqueDecl cv value, env₂ => DeclOpaqueR μ F env cval cv value env₂
   | .axiomDecl cv, env₂ => DeclAxiomR μ F env cval cv env₂
   | .basisDecl kind, env₂ => DeclBasisR env kind env₂
-  | .indDecl block, env₂ => DeclIndR μ F env cval block env₂
+  | .indDecl block, env₂ => DeclIndDispatchR μ F env cval block env₂
 
 /-- **The assembly shape** (transpose of `checkDeclTT_of`'s dispatch):
 the six per-kind bridge obligations assemble into the whole
@@ -1009,7 +1087,7 @@ theorem checkDeclR_of {μ : CheckMode} {F : Nat} {cval : TConstVal}
       DeclBasisR env kind env₂)
     (hind : ∀ {block : List ConstantInfo},
       checkDecl μ (fueledOps μ F) env (.indDecl block) = .ok env₂ →
-      DeclIndR μ F env cval block env₂)
+      DeclIndDispatchR μ F env cval block env₂)
     {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
     DeclR μ F cval env d env₂ := by

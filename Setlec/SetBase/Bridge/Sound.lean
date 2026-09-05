@@ -83,7 +83,8 @@ theorem checkDeclR_ofEnvR
     -- (`directStructsEnabled = false`), so `checkDecl`'s `indDecl`
     -- clause *is* `checkIndDecl`.  The `DeclR` relation records the
     -- modeled path only, and this is where that is discharged.
-    (fun hh => hind (by simpa [checkDecl, directParts?_none] using hh)) h
+    (fun hh => declIndDispatchR_eq_ind.mpr
+      (hind (by simpa [checkDecl, directParts?_none] using hh))) h
 
 /-- **The bridge, whole, from an `EnvR`** (task #161 S7): the ind
 kind's premise of `checkDeclR_ofEnvR` is discharged by `declIndRR`,
