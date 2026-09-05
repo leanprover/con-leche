@@ -1,5 +1,7 @@
 import Setlec.SetBase.DeclRun
 import Setlec.SetBase.Bridge.Decl
+import Setlec.Verify.ReducePinInv
+import Setlec.Verify.DivModInv
 
 /-!
 # The **run-only** declaration bridges (task #161 S11a, THE SEPARATION)

@@ -3,6 +3,7 @@ import Setlec.SetP.Step2.ProjPinsP
 import Setlec.SetP.Step2.InferIOP
 import Setlec.SetBase.Spine2
 import Setlec.SetP.Step2.TowerKitP
+import Setlec.SetBase.SpineV
 
 /-!
 # The two semantic projection rows (task #161, PROJ/STR install tier)

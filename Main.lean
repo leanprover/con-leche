@@ -217,7 +217,7 @@ def usage : String := String.intercalate "\n" [
   "with the collapsed-model consistency proof it was the subject of)."]
 
 structure Args where
-  mode : Setlec.CheckMode := .setModelP
+  mode : Setlec.CheckMode := .setModel
   pre : Bool := false
   files : Array String := #[]
   bad : Option String := none
@@ -227,8 +227,8 @@ def parseArgs : List String → Args → Args
   -- The verified lane is the GRADED core since the R core's retirement
   -- (2026-09-05): `--set-model` and `--set-model=p` are the same
   -- selection, and `no_proof_of_Empty_SPCD_P` is its letter.
-  | "--set-model" :: rest, a => parseArgs rest { a with mode := .setModelP }
-  | "--set-model=p" :: rest, a => parseArgs rest { a with mode := .setModelP }
+  | "--set-model" :: rest, a => parseArgs rest { a with mode := .setModel }
+  | "--set-model=p" :: rest, a => parseArgs rest { a with mode := .setModel }
   -- The retired-spelling discipline (task #172): a verdict's
   -- provenance must be readable off the invocation, so the R lane's
   -- spelling is a hard error naming what replaced it — never a silent
@@ -284,14 +284,11 @@ def parseArgs : List String → Args → Args
 /-- The child's argument vector, reassembled from the parsed options. -/
 def childArgs (a : Args) (file : String) : Array String :=
   #[file]
+    -- Two modes, and `.setModel` is the default, so it re-emits
+    -- nothing.  (The dead `.setModel = R` arm this replaced went with
+    -- the constructor when `CheckMode` collapsed to two values.)
     ++ (match a.mode with
-        -- `.setModel` is the R mode: no flag produces it any more
-        -- (`--set-model=r` is a hard error), so this arm is dead.  It
-        -- re-emits the retired spelling on purpose — if it ever became
-        -- reachable the child would fail loudly rather than silently
-        -- run a different core.
-        | .setModel => #["--set-model=r"]
-        | .setModelP => #[]
+        | .setModel => #[]
         | .noModel => #["--no-model"])
     ++ (if a.pre then #["--pre"] else #[])
 

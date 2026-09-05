@@ -20,11 +20,10 @@ interface, and it is deliberately small:
   which is what the P tier's licensing composition
   (`AnnotOkP_beta_gate`, `SetP/Step2/GateP.lean`, via
   `pwBit_ne_zero_of_isNever`) consumes.  No certificate appears in it;
-* **`CheckMode.verified_of_betaGate`** — the gate refines `verified`:
-  the gate reads a *validated* annotation, so a gated mode is a
-  verified mode.  This is the asymmetry fence at the mode level, and
-  it is what lets the P capstone's existing `μ.verified = true` letter
-  cover the gated mode with no new hypothesis.
+* **`verified_isNever_of_betaGateFires`** — a fired gate is a verified
+  mode's gate, which is the pair the P tier's licensing theorem is
+  stated against.  (The mode-level coverage certificates that used to
+  sit here retired with the mode set they partitioned; see below.)
 
 The module imports `Kernel.Core` and nothing else: it is base-tier.
 -/
@@ -40,45 +39,27 @@ fires, so the gated `if`'s `else` arm — the pre-gate clause, verbatim
     betaGateFires mode pw = false := by
   simp [betaGateFires, h]
 
-/-- The gate is off at `.setModel`. -/
-@[simp] theorem betaGate_off_setModel :
-    CheckMode.betaGate .setModel = false := rfl
-
 /-- The gate is off at `.noModel`. -/
 @[simp] theorem betaGate_off_noModel :
     CheckMode.betaGate .noModel = false := rfl
 
-/-- The gate is on at `.setModelP`, and there only. -/
-@[simp] theorem betaGate_on_setModelP :
-    CheckMode.betaGate .setModelP = true := rfl
+/-- The gate is on at `.setModel` — the one verified mode. -/
+@[simp] theorem betaGate_on_setModel :
+    CheckMode.betaGate .setModel = true := rfl
 
-/-- A gated mode is a verified mode: the gate reads a *validated*
-annotation, so `betaGate` refines `verified` — the asymmetry fence at
-the mode level, and the reason the P capstone's `μ.verified = true`
-letter already covers the gated mode. -/
-theorem CheckMode.verified_of_betaGate (h : mode.betaGate = true) :
-    mode.verified = true := by
-  cases mode <;> simp_all [CheckMode.betaGate, CheckMode.verified]
+/-! ## The coverage certificates, RETIRED (2026-09-05)
 
-/-- **THE COVERAGE CERTIFICATE** (task #161, S13a).  Every mode is
-either **ungated** or **verified**, so the P lane's capstones — which
-carry `verified = true` — cover every *verified* mode, and no gated
-mode escapes them.
-
-(At `.setModel` both disjuncts hold; at `.noModel` only the first; at
-`.setModelP` only the second.)
-
-**RE-READ AT THE SetR REMOVAL** (2026-09-05).  The certificate was
-written as a *partition of the capstone families*: ungated modes were
-the R letters', verified modes the P letters'.  The R family is gone,
-so the reading is now one-sided — it says the gated mode is a verified
-mode, which is the asymmetry fence, and the shipped verified core
-(`.setModelP`) is on the P side of it.  `.noModel` is covered by
-nothing, by design: the parity lane is unverified by the user's own
-order. -/
-theorem CheckMode.betaGate_off_or_verified (mode : CheckMode) :
-    mode.betaGate = false ∨ mode.verified = true := by
-  cases mode <;> simp [CheckMode.betaGate, CheckMode.verified]
+`CheckMode.verified_of_betaGate` (a gated mode is a verified mode) and
+`CheckMode.betaGate_off_or_verified` (every mode is ungated or
+verified) were a **partition of the capstone families**: ungated modes
+were the R letters', verified modes the P letters'.  With one verified
+mode and one unverified one there is no partition to certify — the
+statements would be true and empty.  The user's ruling at the SetR
+removal is that they go, not that they be restated one-sided:
+*coverage certificates were the pathology.*  What the fence actually
+needs is stated where it is consumed (`AnnotOkP_beta_gate`,
+`SetP/Step2/GateP.lean`), against the datum, not against the mode
+set. -/
 
 /-- A fired gate's datum is `.never`. -/
 theorem isNever_of_betaGateFires (h : betaGateFires mode pw = true) :
@@ -91,7 +72,7 @@ theorem verified_isNever_of_betaGateFires
     (h : betaGateFires mode pw = true) :
     (mode.verified && pw.isNever) = true := by
   rcases Bool.and_eq_true .. |>.mp h with ⟨hg, hn⟩
-  simp [CheckMode.verified_of_betaGate hg, hn]
+  cases mode <;> simp_all [CheckMode.betaGate, CheckMode.verified]
 
 /-! ## The template bridge (task #172, batch B2)
 
@@ -115,7 +96,7 @@ without disturbing a landed statement. -/
 
 /-- **The P core's β branch reads the datum, not a flag**: at `cfgP`
 the skip predicate is the redex's own validated annotation. -/
-theorem cfgP_betaSkip_eq_setModelP (pw : PropWhen) :
-    cfgP.betaSkip pw = betaGateFires .setModelP pw := rfl
+theorem cfgP_betaSkip_eq_setModel (pw : PropWhen) :
+    cfgP.betaSkip pw = betaGateFires .setModel pw := rfl
 
 end Setlec

@@ -703,8 +703,8 @@ R letter retired 2026-09-05)
 
 **THE MEASUREMENT the batch was dispatched for.**  The walks above are
 generic in `cfg`, so one proof serves every instantiation; the
-capstone is pinned at `cfgOf mode`, and `cfgOf .setModelP` **is**
-`cfgP` by `rfl` (`cfgOf_setModelP`).  The per-core letter is therefore
+capstone is pinned at `cfgOf mode`, and `cfgOf .setModel` **is**
+`cfgP` by `rfl` (`cfgOf_setModel`).  The per-core letter is therefore
 `exact` with no conversion step and no restated lemma: the tower
 **INSTANTIATES**, and per concrete core the whnfCore family costs
 **one proof line** (a term application) and **zero** new proof steps.
@@ -716,13 +716,13 @@ measurement it recorded is not lost — it is the same one this letter
 records, at the core that ships. -/
 
 /-- The P core's head normalization simulates the specification. -/
-theorem whnfCoreBodyPC_sim (ih : SSimC .setModelP env f) (henv : EnvWF env)
+theorem whnfCoreBodyPC_sim (ih : SSimC .setModel env f) (henv : EnvWF env)
     {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState}
-    (hs : CSOK .setModelP env s₀)
+    (hs : CSOK .setModel env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
-    SimC .setModelP env s₀ (RelEC d)
-      (whnfCoreBodyPC (coreKnotI .setModelP (mkFEnv env) f) (mkFEnv env) d i)
-      (whnfCoreBody .setModelP (fueledFns .setModelP env) env d ex) :=
+    SimC .setModel env s₀ (RelEC d)
+      (whnfCoreBodyPC (coreKnotI .setModel (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfCoreBody .setModel (fueledFns .setModel env) env d ex) :=
   whnfCoreBodyC_sim ih henv hs hden hw
 
 end Walks

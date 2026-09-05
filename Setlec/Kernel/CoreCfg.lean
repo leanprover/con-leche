@@ -50,7 +50,7 @@ census proved uninhabited-true (part 8 §3(a): `ttChecks = true` has no
 inhabitant, so no theorem can consume it).  Rather than pretend the
 residue is not there, it is a **named field**: `iotaMode` carries the
 mode the ι cone still wants, and at each concrete core it is a literal
-(`cfgP.iotaMode = .setModelP` by `rfl`), so the downstream `ttChecks`
+(`cfgP.iotaMode = .setModel` by `rfl`), so the downstream `ttChecks`
 branch is *definitionally eliminated* — the rule's clause (ii), and
 the reason the concrete cores are flag-free today even though the ι
 cone has not been templated yet.
@@ -112,45 +112,7 @@ def cfgP : CoreCfg where
   betaGate := true
   ioGate := true
   verified := true
-  iotaMode := .setModelP
-
-/-- **The concrete verified mode the shared declaration bridge is
-instantiated at** (task #172 batch B3, as `modeR`; re-read 2026-09-05).
-
-`Kernel/Core.lean`'s reference body is parameterized by `CheckMode` —
-it is what the whole shared base library (`Verify/*`, most of
-`SetBase/*`) is stated over, generically, and census part 2 finding 2
-keeps it there: *genericity* in a proof is not a flag.  This is the
-name a tower instantiates that genericity at.
-
-`modeR` is an `abbrev`, so it is reducible and every accessor
-computes: `modeR.betaGate = false` and `modeR.verified = true` are
-`rfl`.  That is what `SetBase/Bridge/*`'s derivation tier needs —
-`checkBridge` is premised on `mode.betaGate = false` — and it is why
-the bridge cannot simply be re-pointed at `.setModelP`.
-
-**WHAT CHANGED AT THE SetR REMOVAL** (2026-09-05).  `modeR` was named
-for the R core, and the R core is gone: `cfgR`, the four `…RC` bodies
-and the `--set-model=r` spelling retired with the collapsed-model
-consistency proof they were the subject of.  What survives under this
-name is *not* a core selection but a **proof-tier constant**: the mode
-at which `SetBase/Bridge/{Main,Decl,DeclInd}` states the derivation
-bridge.  Measured (`_tmp/setr-b/Probe.lean`): `modeR`, `cfgR`,
-`checkBridge`, `declDefnR` and `checkDeclR_ofEnvRE` are **absent** from
-both surviving capstones' proof-term closures and from the run route
-(`checkDeclRun_ofEnvRE`, `declIndRunRR`) the graded fold actually
-calls — so this whole tier is off the shipped path, and its deletion is
-a separate, larger question than the core's (it retires four of
-`tests/proofdeps.sh`'s ten targets, which is the campaign's own
-instrument). Flagged, not taken. -/
-abbrev modeR : CheckMode := .setModel
-
-/-- `modeR`'s gate is off, by the constructor — the premise
-`SetBase/Bridge/Main.lean`'s `checkBridge` takes, as a `rfl`. -/
-theorem modeR_betaGate : modeR.betaGate = false := rfl
-
-/-- `modeR` is a verified mode, by the constructor. -/
-theorem modeR_verified : modeR.verified = true := rfl
+  iotaMode := .setModel
 
 /-- **The production-parity core's configuration** (task #172, batch
 B3).  Not a third *verified* core — the parity core is unproven-sound
@@ -198,10 +160,11 @@ the literal `false`, so the whole read is `false` by `rfl`, and at
 @[inline] def CoreCfg.betaSkip (cfg : CoreCfg) (pw : PropWhen) : Bool :=
   cfg.betaGate && pw.isNever
 
-/-- `cfgOf` at `.setModelP` **is** the P core's config — by `rfl`,
+/-- `cfgOf` at `.setModel` **is** the P core's config — by `rfl`,
 which is the census's finding 1 (the flag-free core is already
-available definitionally) at the record level. -/
-theorem cfgOf_setModelP : cfgOf .setModelP = cfgP := rfl
+available definitionally) at the record level.  With two modes this and
+`cfgOf_noModel` are the whole transition map. -/
+theorem cfgOf_setModel : cfgOf .setModel = cfgP := rfl
 
 /-- `cfgOf` at `.noModel` **is** the parity core's config, by `rfl` —
 so the seven parity cross-calls into the shared helpers are, still,
@@ -223,7 +186,7 @@ theorem cfgOf_ioGate (mode : CheckMode) :
     (cfgOf mode).ioGate = mode.betaGate := rfl
 @[simp] theorem cfgP_betaGate : cfgP.betaGate = true := rfl
 @[simp] theorem cfgP_verified : cfgP.verified = true := rfl
-@[simp] theorem cfgP_iotaMode : cfgP.iotaMode = .setModelP := rfl
+@[simp] theorem cfgP_iotaMode : cfgP.iotaMode = .setModel := rfl
 
 /-- The transitional field's downstream read is eliminated at the P
 core: `ttChecks` is uninhabited-true, so the ι cone's one branch is
