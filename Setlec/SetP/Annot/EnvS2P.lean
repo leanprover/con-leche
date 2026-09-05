@@ -562,9 +562,8 @@ entry-type reading along the readings (`denoteP_piResidual_peel`,
 the fit-free mirror of `teleFitPA_residual`), which the row computes
 from the checker's own `instPisAt` run.
 
-The iota law keeps the fit (`TeleFitPA`) — there the row *does* hold
-a certified spine (`projCert`'s `inferTypeCore` run on the
-constructor application, walked by `certs_teleP`). -/
+The iota law takes the constructor application's grading alone (see
+its clause). -/
 
 /-- The syntactic Π-peel along a list of readings: the fit's residual
 without the memberships (`TeleFitPA`'s spine, data only). -/
@@ -613,17 +612,21 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
           Setlec.SetR.AVExpr.peelPis Ta (vs ++ [x]) = some rest →
           AnnotOkP V ρ (projAV i x) ∧ AnnotOkP V ρ rest ∧
             interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest) ∧
-      -- (B) the iota law
-      (∃ TCa : AVExpr,
-        denoteP m.acval env φ 0
-          (cvC.type.instantiateLevelParams cvC.levelParams us) = some TCa ∧
-        ∀ (ρ : Nat → V) (ys : List AVExpr) (rest : AVExpr),
-          ys.length = entry.numParams + entry.numFields →
-          (∀ y ∈ ys, AnnotOkP V ρ y) →
-          TeleFitPA V ρ TCa ys rest →
-          interp2 V ρ (projAV i (AVExpr.mkAppN
-              (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys))
-            = interp2 V ρ (ys.getD (entry.numParams + i) default))
+      -- (B) the iota law: the projection of a *graded* constructor
+      -- application is the selected field.  The premise is the
+      -- application's grading alone (its slot chain): in today's
+      -- recognised class the result sort is `isNonZero`, so every
+      -- constructor binder is graph-regime and graph rigidity pins the
+      -- memberships without a certificate — which is what the
+      -- `whnfCore` row holds under the io skip.  (A Prop-widened
+      -- class would add the certified-fit alternative here.)
+      (∀ (ρ : Nat → V) (ys : List AVExpr),
+        ys.length = entry.numParams + entry.numFields →
+        AnnotOkP V ρ (AVExpr.mkAppN
+          (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys) →
+        interp2 V ρ (projAV i (AVExpr.mkAppN
+            (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys))
+          = interp2 V ρ (ys.getD (entry.numParams + i) default))
 
 /-- **The tower projection law, keyed on every stored tower-backed
 entry** (`RecRulesP`'s sibling). -/

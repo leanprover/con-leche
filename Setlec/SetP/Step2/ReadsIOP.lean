@@ -1,4 +1,5 @@
 import Setlec.SetP.Step2.ReadsP
+import Setlec.SetP.Step2.TowerKitP
 import Setlec.SetP.Step2.InferIOP
 
 /-!
@@ -248,13 +249,10 @@ private theorem inferReadsIO_letE {m : EnvS2Core V env}
     (Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
     (fun l hl => hLb l (hsubred l hl)) (hlr.of_subset hsubred) hred
 
-/-- `.proj`, io lane: the clause's own computed two-way residual.  The
-parameters read because the reduced subject type reads (`ihi` at the
-io lane, then `ihw` at the full one); the projection node reads
-because the subject's own reading supplies `i < 2`.  Post-B1b all five
-inference bodies run this one clause, so the io mirror is the full
-lemma with the inversion swapped. -/
+/-- `.proj`, io lane: the full row's mirror with the io inversion
+(`inferProjReadsP_of`; task #175 wiring W5 for the tower branch). -/
 private theorem inferReadsIO_proj {m : EnvS2Core V env}
+    (htower : TowerOkP m φ)
     (ihi : InferReadsIOP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel)
     {d i : Nat} {sn : Name} {pe t : Expr} {ea : AVExpr}
     (h : inferTypeCoreIO μ env (fuel + 1) d (.proj sn i pe) = .ok t)
@@ -265,17 +263,15 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
     (hea : denoteP m.acval env φ d (.proj sn i pe) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, hpair, -⟩ := Setlec.inferTypeCoreIO_proj_inv h
-  obtain ⟨A, B, hAB, hcase⟩ :=
-    hpair (projEntry_not_tower m.proj_ok hfe hnat)
+    hlenUs, hpair, htow, hsn⟩ := Setlec.inferTypeCoreIO_proj_inv h
+  subst hsn
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
   have hLpe : Expr.LeavesBounded pe := fun l hl =>
     hLb l (by simpa [Expr.fvarLeaves] using hl)
   have hlrpe : LeafReadsP m φ d pe :=
     hlr.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)
-  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv_pair
-    (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf') hea
+  obtain ⟨vp, hvp, hrd⟩ := denoteP_proj_inv hea
   obtain ⟨tpea, htpea⟩ := ihi htpe hws hb hLpe hlrpe hvp
   have hwtpe : Expr.WScoped d tpe :=
     inferTypeCoreIO_WScoped m.wf fuel htpe hws
@@ -286,20 +282,55 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
   obtain ⟨tea, htea⟩ := ihw hwte hwtpe hbtpe hLtpe
     (hlrpe.of_subset
       (inferTypeCoreIO_fvarLeaves m.wf fuel htpe hws)) htpea
+  have hwte' : Expr.WScoped d te := Setlec.whnf_WScoped m.wf fuel hwte hwtpe
   have hbte : te.looseBVarsBounded 0 = true :=
     Setlec.whnf_looseBVars m.wf fuel hwte hbtpe
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
     (Setlec.Expr.mkAppN_getApp te).symm] at htea
   obtain ⟨-, vs, -, hspt, -⟩ := denoteP_mkAppN_inv htea
-  rw [hAB] at hspt
-  rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
-  · exact hspt.mem t (by simp)
-  · obtain ⟨Ba, hBa⟩ := hspt.mem B (by simp)
-    exact ⟨.app Ba (.proj 0 vp), by
-      rw [denoteP_app, hBa,
-        denoteP_proj_pair m.acval (env := env) (φ := φ) _ _ _ _
-          (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf'), hvp]
-      simp⟩
+  by_cases htw : entry.tower = true
+  · obtain ⟨ds, hpi⟩ := htow htw
+    obtain ⟨-, -, -, -, -, -, -, -, hlaw⟩ := htower T i entry hfe htw
+    obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
+    obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
+    have hframes : ∀ x ∈ te.getAppArgs ++ [pe],
+        Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true := by
+      intro x hx
+      rcases List.mem_append.mp hx with hx' | hx'
+      · exact ⟨hwte'.getAppArgs x hx',
+          Setlec.looseBVarsBounded_getAppArgs hbte x hx'⟩
+      · rcases List.mem_singleton.mp hx' with rfl
+        exact ⟨hws, hb⟩
+    obtain ⟨restA, hrest, -⟩ := denoteP_instPisAt_peel m.acval_closed
+      (acval_inst_self m) (te.getAppArgs ++ [pe]) hpi
+      (Expr.WScoped.of_not_hasFvar (towerEntry_tyI_closed m.wf hfe us).1)
+      hframes (hTad d) (hspt.snoc hvp)
+    exact ⟨restA, hrest⟩
+  · have htw' : entry.tower = false := by
+      cases hv : entry.tower
+      · rfl
+      · exact absurd hv htw
+    obtain ⟨A, B, hAB, hcase⟩ := hpair htw'
+    obtain ⟨hnt, hi2, rfl⟩ : (∀ entry', env.findProj? T i = some entry' →
+        entry'.tower = false) ∧ i < 2 ∧ ea = .proj i vp := by
+      rcases hrd with ⟨entry', hfe', htw'', -⟩ | h
+      · obtain rfl := Option.some.inj (hfe'.symm.trans hfe)
+        exact absurd htw'' htw
+      · exact h
+    rw [hAB] at hspt
+    rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
+    · exact hspt.mem t (by simp)
+    · obtain ⟨Ba, hBa⟩ := hspt.mem B (by simp)
+      -- the first projection node sits at the pair block's own slot
+      obtain ⟨rfl, -⟩ := projPinsP m.proj_ok hfe hnat
+      have hnt0 : ∀ entry', env.findProj? Setlec.psigmaName 0 = some entry' →
+          entry'.tower = false := fun e he =>
+        projEntry_not_tower m.proj_ok he
+          (m.proj_ok.2.1 0 e (Setlec.Env.findProj?_some he))
+      exact ⟨.app Ba (.proj 0 vp), by
+        rw [denoteP_app, hBa, denoteP_proj_pair m.acval (env := env)
+          (φ := φ) _ _ _ _ hnt0, hvp]
+        simp⟩
 
 /-! ## The walk -/
 
@@ -308,7 +339,7 @@ shapes are the full lane's lemmas across a lane equation, one is
 closed by the subject's reading alone, one is a single line, and four
 are the mirrors above. -/
 theorem inferReadsIOP_succ {m : EnvS2Core V env}
-    (hct : ConstTypeP m φ)
+    (hct : ConstTypeP m φ) (htower : TowerOkP m φ)
     (ihi : InferReadsIOP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
     InferReadsIOP m μ φ (fuel + 1) := by
   intro d e t ea h hws hb hLb hlr hea
@@ -336,7 +367,7 @@ theorem inferReadsIOP_succ {m : EnvS2Core V env}
   | .letE nn tt vv bb =>
     exact inferReadsIO_letE ihi h hws hb hLb hlr hea
   | .proj sn i pe =>
-    exact inferReadsIO_proj ihi ihw h hws hb hLb hlr hea
+    exact inferReadsIO_proj htower ihi ihw h hws hb hLb hlr hea
 
 /-- Fuel zero: the io entry point throws, so the statement is
 vacuous. -/
@@ -367,8 +398,8 @@ theorem readsAll4P_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
     let ih := readsAll4P_of hin fuel
     ⟨whnfCoreReadsP_succ (hin.iota fuel ih.2.1 ih.2.2.2) ih.1 ih.2.1,
       whnfReadsP_succ ih.1 (hin.nat fuel) (deltaP_of m hin.defn),
-      inferReadsP_succ hin.const_ty ih.2.2.1 ih.2.1,
-      inferReadsIOP_succ hin.const_ty ih.2.2.2 ih.2.1⟩
+      inferReadsP_succ hin.const_ty hin.tower_ok ih.2.2.1 ih.2.1,
+      inferReadsIOP_succ hin.const_ty hin.tower_ok ih.2.2.2 ih.2.1⟩
 
 /-- The `whnfCore` reduct reads, at every fuel. -/
 theorem whnfCoreReadsP_of {m : EnvS2Core V env}

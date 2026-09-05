@@ -313,8 +313,8 @@ theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
     fun us hus => ?_⟩
   · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfT]; rfl)]; exact hfT
   · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]; exact hfC
-  obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
-  refine ⟨⟨Ta, ?_, ?_⟩, ⟨TCa, ?_, ?_⟩⟩
+  obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
+  refine ⟨⟨Ta, ?_, ?_⟩, ?_⟩
   · rw [hac]
     exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
       (constsBound_instType mp.base2.wf
@@ -322,12 +322,8 @@ theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
   · intro ρ vs x rest hlen hokT hokx hmem hpeel
     rw [hac, acvalWith_ne hnT] at hokT hmem
     exact hA ρ vs x rest hlen hokT hokx hmem hpeel
-  · rw [hac]
-    exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
-      (constsBound_instType mp.base2.wf
-        (Setlec.SetR.Env.find?_mem hfC) us) hTCa
-  · intro ρ ys rest hlen hok hfit
-    rw [hac, acvalWith_ne hnC]
-    exact hB ρ ys rest hlen hok hfit
+  · intro ρ ys hlen hok
+    rw [hac, acvalWith_ne hnC] at hok ⊢
+    exact hB ρ ys hlen hok
 
 end Setlec.SetR.Interp2

@@ -2,6 +2,7 @@ import Setlec.SetP.CtxOkPKit
 import Setlec.SetP.Annot.BitLemmas
 import Setlec.SetBase.DefEqStep2
 import Setlec.SetBase.Hoist
+import Setlec.SetP.Step2.ProjAVKitP
 
 /-!
 # The definitional-equality quarter, P currency (task #161, P3 batch 5)
@@ -1120,17 +1121,30 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       cases r with
       | false => exact hfall h
       | true =>
-        obtain ⟨ia₁, he₁, -, rfl⟩ := denoteP_proj_inv_pair
-          (fun entry hf => m.proj_ok.towerFree _ _ _ hf) hda
-        obtain ⟨ia₂, he₂, -, rfl⟩ := denoteP_proj_inv_pair
-          (fun entry hf => m.proj_ok.towerFree _ _ _ hf) hdb
+        -- both nodes carry the same struct name and index (the W5
+        -- congruence guard), so both readings take the same entry
+        -- kind: `.proj i` at a pair-backed entry, `projAV i` at a
+        -- tower-backed one — each a congruence in the subject's value
+        obtain ⟨ia₁, he₁, hrd₁⟩ := denoteP_proj_inv hda
+        obtain ⟨ia₂, he₂, hrd₂⟩ := denoteP_proj_inv hdb
         simp only [Expr.WScoped] at hwa hwb
         simp only [Expr.looseBVarsBounded] at hba hbb
-        exact deqStep2_projCong (ihd hde hwa hba
-          (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
-          hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
-          hCa.proj_arg hCb.proj_arg
-          he₁ he₂ (hoistP_proj hokA) (hoistP_proj hokB) ρ hρ)
+        rcases hrd₁ with ⟨entry, hfe, htw, rfl⟩ | ⟨hnt, -, rfl⟩
+        · rcases hrd₂ with ⟨-, -, -, rfl⟩ | ⟨hnt', -, -⟩
+          · exact interp2_projAV_congr (ihd hde hwa hba
+              (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
+              hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
+              hCa.proj_arg hCb.proj_arg he₁ he₂
+              (fun σ hσ => AnnotOkP_projAV_hoist (hokA σ hσ))
+              (fun σ hσ => AnnotOkP_projAV_hoist (hokB σ hσ)) ρ hρ)
+          · exact absurd htw (by simp [hnt' entry hfe])
+        · rcases hrd₂ with ⟨entry', hfe', htw', -⟩ | ⟨-, -, rfl⟩
+          · exact absurd htw' (by simp [hnt entry' hfe'])
+          · exact deqStep2_projCong (ihd hde hwa hba
+              (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
+              hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
+              hCa.proj_arg hCb.proj_arg
+              he₁ he₂ (hoistP_proj hokA) (hoistP_proj hokB) ρ hρ)
     · exact hfall h
   -- 15: one-sided λ on the left
   · rename_i n₁ ty₁ bd₁ mb₁ hnl

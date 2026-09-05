@@ -352,8 +352,7 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
       cvC, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
       fun us hus => ?_⟩
-    obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
-    exact ⟨⟨Ta, by rw [← hde]; exact hTa, hA⟩,
-      ⟨TCa, by rw [← hde]; exact hTCa, hB⟩⟩
+    obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
+    exact ⟨⟨Ta, by rw [← hde]; exact hTa, hA⟩, hB⟩
 
 end Setlec.SetR.Interp2
