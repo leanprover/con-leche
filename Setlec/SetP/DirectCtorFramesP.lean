@@ -101,16 +101,16 @@ theorem fieldsValid_of_frame {Γ : List AVExpr} {k nP nF : Nat}
     rw [hG, show k - (nP + j) - 1 + 1 = k - (nP + j) from by omega]
     exact Sat2_cons V hρ ha
 
-/-- The field chain's squash bound, walked like its grading. -/
-theorem fieldsBound_of_frame {Γ : List AVExpr} {k nP nF : Nat}
+/-- The field chain's universe bound, walked like its grading. -/
+theorem fieldsBound_of_frame {Γ : List AVExpr} {k nP nF w : Nat}
     (hk : k = nP + nF) (hΓ : Γ.length = k)
     (hbnd : ∀ j, j < nF → ∀ ρ : Nat → V, Sat2 V (Γ.drop (k - (nP + j))) ρ →
-      interp2 V ρ (Γ.getD (k - 1 - (nP + j)) default) ∈ˢ (univ 0 : V)) :
+      interp2 V ρ (Γ.getD (k - 1 - (nP + j)) default) ∈ˢ (univ w : V)) :
     ∀ (j : Nat), j ≤ nF → ∀ ρ : Nat → V, Sat2 V (Γ.drop (k - (nP + j))) ρ →
-      FieldsBound 0 ρ (fieldsFrom Γ k nP nF j) := by
+      FieldsBound w ρ (fieldsFrom Γ k nP nF j) := by
   suffices ∀ (m j : Nat), nF - j = m → j ≤ nF → ∀ ρ : Nat → V,
       Sat2 V (Γ.drop (k - (nP + j))) ρ →
-      FieldsBound 0 ρ (fieldsFrom Γ k nP nF j) from
+      FieldsBound w ρ (fieldsFrom Γ k nP nF j) from
     fun j => this (nF - j) j rfl
   intro m
   induction m with
@@ -160,6 +160,8 @@ theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       Sat2 V (((ds ψ).take p.nP).map (·.2.2)).reverse ρ →
         FieldsOkB (p.resSort.eval ψ) ρ (((ds ψ).drop p.nP).map (·.2.2)) ∧
         FieldsValid ρ (((ds ψ).drop p.nP).map (·.2.2)) ∧
+        (p.isProp = false →
+          FieldsBound (p.resSort.eval ψ) ρ (((ds ψ).drop p.nP).map (·.2.2))) ∧
         (p.isProp = true → p.large = true →
           FieldsBound 0 ρ (((ds ψ).drop p.nP).map (·.2.2)))) := by
   obtain ⟨hccv, -, -, fvsP, crest, tfvs, trest, xFvs, hopC, hopT, hdoms, hopX,
@@ -183,6 +185,8 @@ theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       ∀ ρ : Nat → V, Sat2 V (((ds ψ).take p.nP).map (·.2.2)).reverse ρ →
         FieldsOkB (p.resSort.eval ψ) ρ (((ds ψ).drop p.nP).map (·.2.2)) ∧
         FieldsValid ρ (((ds ψ).drop p.nP).map (·.2.2)) ∧
+        (p.isProp = false →
+          FieldsBound (p.resSort.eval ψ) ρ (((ds ψ).drop p.nP).map (·.2.2))) ∧
         (p.isProp = true → p.large = true →
           FieldsBound 0 ρ (((ds ψ).drop p.nP).map (·.2.2))) := by
     intro ψ
@@ -237,7 +241,7 @@ theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       have hread := hC.doms (p.nP + j) fv hfvA
       exact (hc.sortRow hi hens hws hb hL hCtx hread ρ hρ).2
     have hFsEq := fieldsFrom_eq_drop (ds := ds ψ) (nP := p.nP) (nF := p.nF) hlenDs
-    refine ⟨?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_⟩
     · -- `FieldsOkB`
       rw [← hFsEq]
       refine fieldsOkB_of_frame rfl hΓlen hC.okΓ ?_ 0 (Nat.zero_le _) ρ hρ'
@@ -252,6 +256,14 @@ theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
         exact univ_mono hle _ (hmem ρ hρ)
     · rw [← hFsEq]
       exact fieldsValid_of_frame rfl hΓlen hC.okΓ 0 (Nat.zero_le _) ρ hρ'
+    · -- the universe bound (O5), at every value of the result sort
+      intro hnp
+      rw [← hFsEq]
+      refine fieldsBound_of_frame rfl hΓlen ?_ 0 (Nat.zero_le _) ρ hρ'
+      intro j hj ρ hρ
+      obtain ⟨u, -, hleq, -, hmem⟩ := hrow j hj
+      have hle := Level.leq_sound (hleq hnp) ψ
+      exact univ_mono hle _ (hmem ρ hρ)
     · intro hp hl
       rw [← hFsEq]
       refine fieldsBound_of_frame rfl hΓlen ?_ 0 (Nat.zero_le _) ρ hρ'
