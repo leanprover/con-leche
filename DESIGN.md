@@ -40373,3 +40373,189 @@ Instruments and drafts: `_tmp/ptreq-audit/` (`initfull.data`,
 `syms.txt`, `grind.data`, `proto.lean`, `proto2.lean`,
 `P1-name-ptreq.lean`, `P2-level-ptreq.lean`, `P3-cached-hash.lean`);
 fetched official sources in `_tmp/lean4-master-kernel/`.
+
+## TASK #176 — POINTER-FIRST EQUALITY, LANDED (2026-09-05, `agent/ptreq-land`)
+
+The audit section above (`agent/ptreq-audit`, docs only) proposed P1–P4.
+The user granted **P1, P2 and P3**; P4 was not granted.  This section is
+what actually landed, where the landed shape departs from the drafts and
+why, and the measured effect.
+
+### 0. WHAT LANDED, IN ONE LINE
+
+`Setlec.Name` and `Setlec.Level` gained a cached hash
+(`@[computed_field] hashData`, P3) and their own pointer-and-hash-first
+`BEq` (P1, P2), and `Level.isEquiv`/`isEquivLM` gained official's
+`lhs == rhs` disjunct (P2).  **`init-full` −5.7 % instructions for
++0.9 % peak RSS**; not one public statement moved.
+
+### 1. THE SHAPE THAT LANDED — AND THE MODULE-SYSTEM FINDING
+
+The audit's P1 draft offered two routes: a global
+`instance : DecidableEq Name := withPtrEqDecEq …`, or the BEq route.
+**Both drafts are wrong as written, and the reason is a finding worth
+recording.**
+
+`withPtrEq` is `public` but not `@[expose]` (`Init/Util.lean:130`), so
+its body — the whole point, `withPtrEq a b k h = k ()` — is invisible
+outside `Init.Util`.  Two consequences, both measured, not guessed:
+
+1. A `rfl` through `withPtrEq` needs `import all Init.Util`.
+   `Setlec/Kernel/Expr.lean` is one of the tree's four `module` files,
+   so it now carries that import (with a comment saying why).  This is
+   the sibling ptreq batch's note, confirmed.
+2. **Much worse: a `withPtrEq`-bodied `==` is opaque to the *kernel*.**
+   Putting `withPtrEq` in the pure body of `Name.beq` breaks every
+   `by decide` and `#guard` whose computation touches a `Name` — the
+   first full build failed in `Setlec/SetBase/DeclEta.lean`,
+   `Setlec/Verify/InferLemmas.lean`, `Setlec/Verify/NatOpFrag.lean` and
+   `Setlec/Verify/Extend/Inversions.lean`, all with *"reduction got
+   stuck at the `Decidable` instance"* on `List.elem` over a name list.
+   The drafts' global-`DecidableEq` route fails for exactly the same
+   reason, and worse (it hits `decide` directly).
+
+So the landed shape is the **two-function** one:
+
+    @[inline] def Name.beqPtr (a b : Name) : Bool :=
+      withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
+        (fun h => by subst h; simp)
+
+    theorem Name.beqPtr_eq (a b : Name) :
+        Name.beqPtr a b = decide (a = b) := …
+
+    @[implemented_by Name.beqPtr]
+    def Name.beq (a b : Name) : Bool := decide (a = b)
+
+and identically for `Level`.  The *pure* side is plain decidable
+equality, so the kernel, `decide` and `#guard` see exactly what they saw
+before; the *compiled* side is `lean_ptr_addr` → cached hash → derived
+`decEq`, i.e. `lean_name_eq`'s own order (`object.cpp:2762`) and
+`level.cpp:125`'s.
+
+**This `implemented_by` is not a trust escape.**  It is the `Expr.beq`
+/ `beqFast` *shape* without `Expr.beqFast`'s *content*: there the
+substitute is `unsafe` and the census (`Setlec/Cached/ExprC.lean`,
+row 1) carries "pointer equality implies structural equality" as a
+trusted fact; here `Name.beqPtr` is a **safe** definition **proved
+equal** to what it replaces (`Name.beqPtr_eq`, `Level.beqPtr_eq`),
+because `withPtrEq`'s obligation `a = b → k () = true` is discharged
+and the hash guard is sound outright (`hashData` is a function of the
+value, so a hash mismatch *is* an inequality — the task-#172 B3a
+argument).  The census gained **users of the `@[computed_field]` row**
+(P3) and **no new row**.
+
+Verified in the compiled IR (`.lake/build/ir/Setlec/Kernel/Expr.c`):
+`beqB`'s five per-node `Name` comparisons are each now
+`lean_ptr_addr` ×2 → `Name_hashData` ×2 → `instDecidableEqName_decEq`
+(14 `lean_ptr_addr` in `beqB`, up from 2).
+
+`levelHash`'s depth-4 budget (`Level.hashB`) is **deleted**: with a
+cached level hash a `.sort`/`.const` node's `hash` field is `O(1)`
+*and* exact.  Nothing in the tree referenced `Level.hashB`.
+
+### 2. THE MEASURED EFFECT (median-of-3, `instructions:u` + peak RSS)
+
+Baseline binary snapshotted before any edit
+(`_tmp/ptreq-land/baseline/setlec`, master @ `0754bf88`); shipped lane
+`--set-model`; `ulimit -v 40G`, `nice -n 5`; harness
+`_tmp/ptreq-land/one.sh`, rows in `_tmp/ptreq-land/rows/`.  Every row
+exit 0 with the same accepted count (61 048 / 3 946 / 97) — **verdict
+identity**.
+
+| stream | variant | G instr | Δ vs base | peak RSS (MB) | Δ vs base |
+|---|---|---|---|---|---|
+| `init-full` | base | 2931.77 | — | 923.7 | — |
+| | +P3 | 2853.31 | **−2.68 %** | 932.8 | +0.99 % |
+| | +P3+P1 | 2765.95 | **−5.66 %** | 930.8 | +0.77 % |
+| | +P3+P1+P2 | 2764.32 | **−5.71 %** | 931.5 | **+0.85 %** |
+| `grind-ring-5` | base | 97.65 | — | 346.8 | — |
+| | +P3 | 94.82 | −2.90 % | 347.6 | +0.23 % |
+| | +P3+P1 | 93.01 | −4.76 % | 346.8 | −0.01 % |
+| | +P3+P1+P2 | 92.98 | **−4.79 %** | 348.5 | **+0.50 %** |
+| `app-lam` | base | 282.72 | — | 2789.8 | — |
+| | +P3 | 280.58 | −0.76 % | 2788.3 | −0.05 % |
+| | +P3+P1 | 279.90 | −1.00 % | 2790.7 | +0.03 % |
+| | +P3+P1+P2 | 279.90 | **−1.00 %** | 2791.6 | **+0.07 %** |
+
+Per-item, on the decisive stream: **P3 −2.68 %, P1 −3.06 %, P2
+−0.06 %**.  P2's *speed* contribution is inside the noise; P2's value
+is the conformance row in §3, and the user's grant said so ("even if
+the effect is small").
+
+**The size cost the user was wary about.**  One `UInt64` per distinct
+`Name` and `Level` object.  Nullary constructors (`Name.anonymous`,
+`Level.zero`) do not pay it per occurrence — Lean allocates a shared
+singleton for a computed-field inductive's nullary constructors.  The
+measured cost is **+0.9 % peak RSS on `init-full`** (+8 MB on 924 MB),
+the name-heaviest stream in the suite (61 048 declarations, so the
+largest name and level tables); on the two DAG-stress streams it is
+**flat within ±0.1 %**, because their memory is `Expr` nodes and memo
+tables, not names.  The reference is the task-#167 packing batch's
+figures on the same streams (`init-full` 931 MB, `app-lam` 2788 MB) —
+the deltas here are one to two orders of magnitude smaller than that
+batch's **−47 %**, so P3 gives back about 2 % of what #167 won on
+`init-full` and nothing at all on `app-lam`.
+
+### 3. FINDINGS (restrictions-are-findings)
+
+**(i) The `is_equivalent` disjunct — an alignment TOWARD official,
+verdict-neutral.**  Official:
+
+    bool is_equivalent(level const & lhs, level const & rhs) {
+        return lhs == rhs || normalize(lhs) == normalize(rhs); }
+                                                -- level.cpp:518
+
+`Setlec.Level.isEquiv` had no such disjunct: it called `simplify` on
+*both* sides unconditionally, and the executed `isEquivLM`
+(`Setlec/Cached/StateC.lean`) went straight to a `(Level × Level)`-keyed
+memo probe that structurally hashed both levels before it could find out
+they were the same object.  Both now test `l == r` first.
+
+This is **not** an accept-superset: it is *provably nothing at all*.
+`l = r` implies `simplify l = simplify r`, which already returned
+`some true`, so the new definition is **equal** to the old one —
+`Level.isEquiv_eq_withoutPtr` (`Setlec/Verify/Level.lean`) states
+exactly that, and `isEquiv_of_beq` reads the new branch off.  The three
+proofs that unfolded `isEquiv` (`isEquiv_sound'`, `isEquiv_cascade`,
+`isEquivLM_eff`) rewrite with `isEquiv_eq_withoutPtr` instead; the
+`isEquivLM` head test writes no cache entry, so `CSOK.eqv` is untouched
+(`isEquivLM_run_ptr`).
+
+**(ii) The module system hides `withPtrEq` from the kernel** — §1 item
+2.  Recorded because it constrains every future pointer-first site in
+this tree: the pure body of anything the kernel may have to *reduce*
+must stay `withPtrEq`-free, and the pointer test goes in an
+`@[implemented_by]` twin proved equal to it.  This is a strictly better
+discipline than `Expr.beqFast`'s and is the recommended pattern for the
+remaining sites.
+
+### 4. WHAT IS LEFT
+
+* **P1b — the two `if n = n'` sites in `Setlec/Cached/CoreC.lean`**
+  (`:218` delta same-head, `:1403` const/const defeq).  These use
+  `Decidable` equality, not `==`, so the landed `BEq Name` does not
+  reach them; they still run the derived structural `decEq`.  Making
+  them benefit needs either a one-word edit at each site (`=` → `==`,
+  which moves no statement — `LawfulBEq` closes the gap) or a
+  pointer-first `DecidableEq Name` instance, which §1 item 2 says would
+  need an exposed clone of `withPtrEq` and hence a new census row.
+  The site-local edit is the recommendation; it was out of scope here
+  because `Cached/CoreC.lean` belonged to a concurrent branch.
+* **P4** (`Level.subst`/`simplify` returning the original object; the
+  `has_param` cutoff) — not granted, ceiling 0.09 % plus allocator
+  relief.
+
+### 5. RECEIPTS
+
+Full `lake build` warning-free (412 jobs) and `lake test` green, both
+before and after merging `master` (`8648880a`).  `tests/arena.sh`:
+90/92 arena tutorial, 73/73 e2e, 14/14 annot, 8/8 retired flags, 11/11
+mode flags, no-model sweep 138 + 73 + 14 as expected (3 recorded
+divergences), layering 0 impl→theory edges, proofdeps 88 rows as
+pinned.  `#print axioms` on
+`Setlec.SetR.Interp2.no_proof_of_Empty_P`,
+`…no_proof_of_Empty_P_of` and `Setlec.Cached.no_proof_of_Empty_SPCD_P`:
+`[propext, Classical.choice, Quot.sound]` for all three, unchanged.
+
+Three commits, one per item, so the attribution above is reproducible:
+P3 (cached hashes), P1 (`Name`), P2 (`Level` + the disjunct).
