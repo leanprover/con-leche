@@ -286,21 +286,6 @@ def directProjTyP (T : Name) (lps : List Name) (nP nF i : Nat)
   let args := directProjPs nP ++ (List.range i).map (directProjArgP T)
   directProjTyR T lps nP nF i tty (Expr.instPisAtLift args cty)
 
-/-- Does `bvar i` occur loose in `e`?  (Not through fvar type
-annotations — the generated telescopes are fvar-free.) -/
-def Expr.hasLooseBVar : Nat → Expr → Bool
-  | i, .bvar j => i == j
-  | _, .fvar .. => false
-  | _, .sort _ => false
-  | _, .const .. => false
-  | _, .lit _ => false
-  | i, .app f a => hasLooseBVar i f || hasLooseBVar i a
-  | i, .lam _ ty b _ => hasLooseBVar i ty || hasLooseBVar (i + 1) b
-  | i, .forallE _ ty b _ => hasLooseBVar i ty || hasLooseBVar (i + 1) b
-  | i, .letE _ t v b =>
-    hasLooseBVar i t || hasLooseBVar i v || hasLooseBVar (i + 1) b
-  | i, .proj _ _ e => hasLooseBVar i e
-
 /-- Every `.proj s j` node of `e` satisfies `P s j` (not through fvar
 type annotations). -/
 def Expr.projNodesOk (P : Name → Nat → Bool) : Expr → Bool
@@ -311,29 +296,30 @@ def Expr.projNodesOk (P : Name → Nat → Bool) : Expr → Bool
   | .letE _ t v b => projNodesOk P t && projNodesOk P v && projNodesOk P b
   | _ => true
 
-/-- **Field `j` is used by a later field** — the official
-`infer_proj`'s `has_loose_bvars(binding_body(r))` at step `j`: the
-field's variable occurs in the constructor telescope's remainder after
-binder `j` (a later field's domain; the result never mentions a
-field). -/
-def directUsedLater (cty : Expr) (nP j : Nat) : Bool :=
-  match cty.stripPis (nP + j + 1) with
-  | some (_, rest) => rest.hasLooseBVar 0
-  | none => false
-
 /-- **The projection guard levels** (task #175 W4c/O4): for field `i`,
-its own sort joined with the sorts of the earlier fields that a later
-field uses — the level a `.proj T i` use on a `Prop`-declared
-structure must instantiate to `Prop` (the official `infer_proj`
-restriction, both of its clauses, as one level).  `sorts` are the
-fields' sorts in order (`checkDirectFieldSorts`). -/
-def directProjGuards (cty : Expr) (nP nF : Nat) (sorts : List Level) :
+its own sort joined with the sorts of **every** earlier field — the
+level a `.proj T i` use on a `Prop`-declared structure must
+instantiate to `Prop`.  `sorts` are the fields' sorts in order
+(`checkDirectFieldSorts`).
+
+The official `infer_proj` joins only the earlier fields *used by a
+later field* (`has_loose_bvars(binding_body(r))`).  The join over all
+earlier fields is a strict restriction (a recorded finding, task #175
+W4c P3 module 7): at a squash instance the structure's members are
+one point, so a field's projection law needs its type at the
+all-point prefix to be inhabited, which the coarse guard gives by
+proof irrelevance of every earlier field, while the official guard
+additionally needs the type's *invariance* in the unused earlier
+slots — a syntactic-to-semantic transport (`Expr.hasLooseBVar`
+against the reading's environment) the battery does not carry.  The
+two guards differ only on a `Prop`-declared structure with a data
+field that no later field mentions, projected at a later `Prop`
+field; the init-full census records no such use. -/
+def directProjGuards (_cty : Expr) (_nP nF : Nat) (sorts : List Level) :
     List Level :=
   (List.range nF).map fun i =>
     (List.range i).foldl
-      (fun acc j =>
-        if directUsedLater cty nP j then .max acc (sorts.getD j .zero)
-        else acc)
+      (fun acc j => .max acc (sorts.getD j .zero))
       (sorts.getD i .zero)
 
 /-- **The entry decision of a projection slot** (task #175 W4c/O4), a
