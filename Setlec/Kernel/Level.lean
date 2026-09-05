@@ -136,10 +136,24 @@ def leq (l r : Level) : Option Bool :=
   leqCore defaultFuel (simplify l) (simplify r) 0
 
 /-- Decide semantic equality of two levels; `none` is an internal error.
-Simplified-form syntactic equality decides directly (the reference
-kernels' fast path); otherwise antisymmetric `leq`, short-circuited. -/
+Syntactic equality decides directly — first on the levels themselves
+(`l == r`, which is pointer- and hash-first, task #176 P2), then on
+their simplified forms (the reference kernels' fast path); otherwise
+antisymmetric `leq`, short-circuited.
+
+**Conformance note (restrictions-are-findings, task #176 P2).**  The
+first disjunct is what official's `is_equivalent` does and setlec did
+not: `bool is_equivalent(level const & lhs, level const & rhs) {
+return lhs == rhs || normalize(lhs) == normalize(rhs); }`
+(`level.cpp:518`).  It is *provably redundant* here — `l = r` implies
+`simplify l = simplify r` — so the alignment is verdict-neutral by
+construction, not merely accept-superset: `isEquiv_eq_withoutPtr` and
+`isEquiv_of_beq` (`Verify/Level.lean`) pin both directions.  What it
+buys is speed: `simplify` allocates, `l == r` on a shared level is one
+pointer compare. -/
 def isEquiv (l r : Level) : Option Bool := do
-  if simplify l = simplify r then pure true
+  if l == r then pure true
+  else if simplify l = simplify r then pure true
   else if ← leq l r then leq r l else pure false
 
 /-- Decide pointwise semantic equality of two level lists (`false` on length

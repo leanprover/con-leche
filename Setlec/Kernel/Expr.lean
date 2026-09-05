@@ -1,6 +1,13 @@
 module
 
 public import Std.Data.HashMap
+/- `withPtrEq` is `public` but not `@[expose]`, and its whole point here
+is that it is *definitionally* `k ()` — which is what
+`Name.beqPtr_eq` and `Level.beqPtr_eq` prove.  `import all` makes that
+body visible **in this module only**; those two theorems are the public
+relay, so no importer needs it, and the executed `Name.beq`/`Level.beq`
+stay the plain `decide (· = ·)` that the kernel can still reduce. -/
+import all Init.Util
 
 /-!
 # Kernel expressions
@@ -22,13 +29,66 @@ Design decisions (see DESIGN.md):
 
 namespace Setlec
 
-/-- Hierarchical names, same shape as `Lean.Name` but without the cached hash,
-so that it is a plain inductive datatype convenient for verification. -/
+/-- Hierarchical names, same shape as `Lean.Name` — including the
+cached hash, which lives in a `@[computed_field]` exactly as
+`Lean.Name`'s does (`@[computed_field, inline] hash : Name → UInt64`,
+`Init/Prelude.lean`; the C runtime stores it in the object header and
+reads it with `lean_name_hash_ptr`).  Logically the field is a
+*function of the value*, so it is invisible to every statement:
+`DecidableEq` is still the derived structural equality, and the field
+only spares the `Hashable` instance a walk (task #176 P3). -/
 inductive Name where
   | anonymous
   | str (pre : Name) (s : String)
   | num (pre : Name) (n : Nat)
-  deriving DecidableEq, Repr, Inhabited, Hashable
+with
+  /-- The cached hash of a name (official: the `uint64` in the `Name`
+  object's header). -/
+  @[computed_field] hashData : Name → UInt64
+    | .anonymous => 1723
+    | .str p s => mixHash (mixHash 1 p.hashData) (hash s)
+    | .num p n => mixHash (mixHash 2 p.hashData) (hash n)
+deriving DecidableEq, Repr, Inhabited
+
+/-- Hashing a name is an `O(1)` field read, not a structural walk with
+a byte-wise `String` hash per limb. -/
+instance : Hashable Name := ⟨Name.hashData⟩
+
+/-- Name equality in the official kernel's shape (task #176 P1):
+**pointer** (`lean_name_eq`'s `if (n1 == n2) return true`), then the
+**cached hash** (`lean_name_hash_ptr`), then the structural walk —
+`_tmp/lean4-master-kernel/lean4_object.cpp:2762`.  This is the
+*implementation* of `Name.beq`; `Name.beqPtr_eq` proves the two guards
+redundant. -/
+@[inline] def Name.beqPtr (a b : Name) : Bool :=
+  withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
+    (fun h => by subst h; simp)
+
+/-- Both guards are redundant: `withPtrEq a b k h` is *defined* as
+`k ()`, and `hashData` is a function of the value, so a hash mismatch
+**is** an inequality. -/
+theorem Name.beqPtr_eq (a b : Name) : Name.beqPtr a b = decide (a = b) := by
+  show (a.hashData == b.hashData && decide (a = b)) = decide (a = b)
+  by_cases h : a = b
+  · subst h; simp
+  · simp [h]
+
+/-- The executed name equality.  Definitionally `decide (a = b)` — so
+the kernel, `by decide` and `#guard` still see plain structural
+equality — with `beqPtr` substituted by the *compiler*.  Unlike
+`Expr.beqFast` this `implemented_by` is **not** a trust escape: the
+two functions are proved equal (`Name.beqPtr_eq`), and `withPtrEq`'s
+own obligation is discharged above; nothing is taken on faith about
+the runtime. -/
+@[implemented_by Name.beqPtr]
+def Name.beq (a b : Name) : Bool := decide (a = b)
+
+instance : BEq Name := ⟨Name.beq⟩
+
+/-- `Name.beq` is lawful — it *is* `decide (· = ·)`. -/
+instance : LawfulBEq Name where
+  eq_of_beq h := of_decide_eq_true h
+  rfl := by simp [BEq.beq, Name.beq]
 
 namespace Name
 
@@ -49,14 +109,59 @@ instance : ToString Name := ⟨Name.toString⟩
 
 end Name
 
-/-- Universe levels, mirroring `Lean.Level` without metavariables. -/
+/-- Universe levels, mirroring `Lean.Level` without metavariables —
+including the cached hash, which `Lean.Level` also keeps in a
+`@[computed_field]` (`data`, `Lean/Level.lean`) and the C++ kernel in
+the level's packed data word (`level::hash()`).  As for `Name`, the
+field is a function of the value and no statement sees it. -/
 inductive Level where
   | zero
   | succ (u : Level)
   | max (u v : Level)
   | imax (u v : Level)
   | param (n : Name)
-  deriving DecidableEq, Repr, Inhabited, Hashable
+with
+  /-- The cached hash of a level. -/
+  @[computed_field] hashData : Level → UInt64
+    | .zero => 1
+    | .succ u => mixHash 3 u.hashData
+    | .max u v => mixHash 5 (mixHash u.hashData v.hashData)
+    | .imax u v => mixHash 7 (mixHash u.hashData v.hashData)
+    | .param n => mixHash 11 (hash n)
+deriving DecidableEq, Repr, Inhabited
+
+/-- Hashing a level is an `O(1)` field read (the memo maps keyed by
+`Level` — `lsimpC`, `lnzC`, `eqvC` — probe with this). -/
+instance : Hashable Level := ⟨Level.hashData⟩
+
+/-- Level equality in the official kernel's shape (task #176 P2):
+the cached **hash** and the **pointer** before the structural walk —
+`level.cpp:125` is `kind` → `hash` → `is_eqp` → structural.  The
+implementation of `Level.beq`; `Level.beqPtr_eq` proves both guards
+redundant. -/
+@[inline] def Level.beqPtr (a b : Level) : Bool :=
+  withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
+    (fun h => by subst h; simp)
+
+/-- Both guards are redundant (see `Name.beqPtr_eq`). -/
+theorem Level.beqPtr_eq (a b : Level) : Level.beqPtr a b = decide (a = b) := by
+  show (a.hashData == b.hashData && decide (a = b)) = decide (a = b)
+  by_cases h : a = b
+  · subst h; simp
+  · simp [h]
+
+/-- The executed level equality: definitionally `decide (a = b)`, with
+`beqPtr` substituted by the compiler (proved equal, so no trust
+escape — see `Name.beq`). -/
+@[implemented_by Level.beqPtr]
+def Level.beq (a b : Level) : Bool := decide (a = b)
+
+instance : BEq Level := ⟨Level.beq⟩
+
+/-- `Level.beq` is lawful — it *is* `decide (· = ·)`. -/
+instance : LawfulBEq Level where
+  eq_of_beq h := of_decide_eq_true h
+  rfl := by simp [BEq.beq, Level.beq]
 
 /-- Binder annotations. Irrelevant to checking; kept for round-tripping and
 error messages. -/
@@ -192,16 +297,6 @@ inductive Literal where
   | strVal (s : String)
   deriving DecidableEq, Repr, Inhabited, Hashable
 
-/-- Depth-bounded `Level` hash (towers from universe arithmetic can be
-deep; the memo maps only need *some* function of the value). -/
-def Level.hashB : Nat → Level → UInt64
-  | 0, _ => 511
-  | _ + 1, .zero => 1
-  | n + 1, .succ u => mixHash 3 (Level.hashB n u)
-  | n + 1, .max u v => mixHash 5 (mixHash (Level.hashB n u) (Level.hashB n v))
-  | n + 1, .imax u v => mixHash 7 (mixHash (Level.hashB n u) (Level.hashB n v))
-  | _ + 1, .param p => mixHash 11 (hash p)
-
 /-- Does the level mention a parameter (the official kernel's
 `level.has_param`)?  There is no interned level table here, so this is
 an `O(|u|)` walk — paid once per `.sort`/`.const` node construction,
@@ -217,10 +312,12 @@ def levelsHaveParam : List Level → Bool
   | [] => false
   | u :: us => levelHasParam u || levelsHaveParam us
 
-/-- Depth-bounded level hash (a hash may ignore structure; `BEq` stays
-full).  Keeping it bounded is what makes a `.sort`/`.const` node's
-`hash` field `O(1)` in the level's size. -/
-@[inline] def levelHash (u : Level) : UInt64 := Level.hashB 4 u
+/-- A level's hash: the cached `@[computed_field]`, so a `.sort`/`.const`
+node's `hash` field is `O(1)` in the level's size *and* exact (before
+task #176 P3 this was a depth-4-bounded walk, `Level.hashB`, because
+the level had nowhere to put a hash — the same trade `Expr.hashB` made
+before task #172 B3a). -/
+@[inline] def levelHash (u : Level) : UInt64 := u.hashData
 
 /-- `levelHash` folded over a level list. -/
 def levelsHash : List Level → UInt64
@@ -513,8 +610,9 @@ end Expr
 
 /-- Hashing is the computed field: `O(1)`, no traversal.  (Before task
 #172 B3a this was a *node-budgeted* walk, `Expr.hashB`, because the
-pure representation had nowhere to put a hash; the budget is now only
-inside `levelHash`.) -/
+pure representation had nowhere to put a hash.  `levelHash` kept a
+depth budget for the same reason until task #176 P3 gave `Level` its
+own computed field; no hash in the tree is budgeted any more.) -/
 instance : Hashable Expr := ⟨Expr.hash⟩
 
 namespace Expr
