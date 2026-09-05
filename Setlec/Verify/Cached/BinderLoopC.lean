@@ -991,7 +991,7 @@ theorem annotPwPiC_sim (ih : SSimC mode env f) {d : Nat}
     exact SimC.pure hs rfl
   all_goals
     dsimp only [ExprC.view, Expr.forallPw]
-    refine SimC.bind (ih.infer hs hl' hw)
+    refine SimC.bind (ih.inferIO hs hl' hw)
       (fun s₂ bt btx hs₂ hPbt => ?_)
     obtain ⟨hbtd, hwbt⟩ := hPbt
     refine SimC.bind (ensureSortC_sim ih hs₂ hbtd hwbt)
@@ -1021,10 +1021,10 @@ theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
     exact SimC.pure hs rfl
   all_goals
     dsimp only [ExprC.view, Expr.lamPw]
-    refine SimC.bind (ih.infer hs hl' hw)
+    refine SimC.bind (ih.inferIO hs hl' hw)
       (fun s₂ bt btx hs₂ hPbt => ?_)
     obtain ⟨hbtd, hwbt⟩ := hPbt
-    refine SimC.bind (ih.infer hs₂ hbtd hwbt)
+    refine SimC.bind (ih.inferIO hs₂ hbtd hwbt)
       (fun s₃ btt bttx hs₃ hPbtt => ?_)
     obtain ⟨hbttd, hwbtt⟩ := hPbtt
     refine SimC.bind (ensureSortC_sim ih hs₃ hbttd hwbtt)

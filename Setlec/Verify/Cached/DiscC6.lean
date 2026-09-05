@@ -41,19 +41,19 @@ theorem isPropTypeC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       (isPropType (fueledFns mode env) env d ty) := by
   show SimC mode env s₀ RelVC
     ((coreKnotI mode (mkFEnv env) f).annotate d i >>= fun ty' =>
-      (coreKnotI mode (mkFEnv env) f).infer d ty' >>= fun tty =>
+      (coreKnotI mode (mkFEnv env) f).inferIO d ty' >>= fun tty =>
       ensureSortI (coreKnotI mode (mkFEnv env) f) d tty >>= fun s =>
       internLM .zero >>= fun z =>
       isEquivLM s z >>= fun o =>
       liftFueled "level comparison" o)
     ((fueledFns mode env).annotate d ty >>= fun ty' =>
-      (fueledFns mode env).infer d ty' >>= fun tty =>
+      (fueledFns mode env).inferIO d ty' >>= fun tty =>
       ensureSort (fueledFns mode env) env d tty >>= fun s =>
       liftFueled "level comparison" (Level.isEquiv s Level.zero))
   refine SimC.bind (ih.annotate hs hden hw)
     (fun s₁ ty' ty'x hs₁ hP => ?_)
   obtain ⟨hty'd, hwty'⟩ := hP
-  refine SimC.bind (ih.infer hs₁ hty'd hwty')
+  refine SimC.bind (ih.inferIO hs₁ hty'd hwty')
     (fun s₂ tty ttyx hs₂ hP₂ => ?_)
   obtain ⟨httyd, hwtty⟩ := hP₂
   refine SimC.bind (ensureSortC_sim ih hs₂ httyd hwtty)
@@ -342,7 +342,7 @@ theorem annotateProjRecC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                 refine SimC.bind (ih.annotate hs₆ hfid hwfi)
                   (fun s₇ fi' fi'x hs₇ hPfi' => ?_)
                 obtain ⟨hfi'd, hwfi'⟩ := hPfi'
-                refine SimC.bind (ih.infer hs₇ hfi'd hwfi')
+                refine SimC.bind (ih.inferIO hs₇ hfi'd hwfi')
                   (fun s₈ tfi tfix hs₈ hPtfi => ?_)
                 obtain ⟨htfid, hwtfi⟩ := hPtfi
                 refine SimC.bind (ensureSortC_sim ih hs₈ htfid hwtfi)
@@ -695,7 +695,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     refine SimC.bind (ih.annotate hs rfl hwpe)
       (fun s₁ e' e'x hs₁ hP => ?_)
     obtain ⟨he'd, hwe'⟩ := hP
-    refine SimC.bind (ih.infer hs₁ he'd hwe')
+    refine SimC.bind (ih.inferIO hs₁ he'd hwe')
       (fun s₂ tpe tpex hs₂ hP₂ => ?_)
     obtain ⟨htped, hwtpe⟩ := hP₂
     refine SimC.bind (ih.whnf hs₂ htped hwtpe)

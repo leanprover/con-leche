@@ -430,10 +430,10 @@ private theorem annotPwPi_shift (henv : EnvWF env)
   | some pwI => rfl
   | none =>
     dsimp only
-    refine bind_congr _ (ih.infer hpd hw) ?_
+    refine bind_congr _ (ih.inferIO hpd hw) ?_
     intro t ht
     refine bind_congr_eq (ensureSort_shift henv ih hpd
-      (inferTypeCore_WScoped henv fuel ht hw)) ?_
+      (inferTypeIO_WScoped henv fuel ht hw)) ?_
     intro v _
     rfl
 
@@ -450,13 +450,13 @@ private theorem annotPwLam_shift (henv : EnvWF env)
   | some pwI => rfl
   | none =>
     dsimp only
-    refine bind_congr _ (ih.infer hpd hw) ?_
+    refine bind_congr _ (ih.inferIO hpd hw) ?_
     intro bt hbt
-    have hwbt : WScoped d bt := inferTypeCore_WScoped henv fuel hbt hw
-    refine bind_congr _ (ih.infer hpd hwbt) ?_
+    have hwbt : WScoped d bt := inferTypeIO_WScoped henv fuel hbt hw
+    refine bind_congr _ (ih.inferIO hpd hwbt) ?_
     intro btt hbtt
     refine bind_congr_eq (ensureSort_shift henv ih hpd
-      (inferTypeCore_WScoped henv fuel hbtt hwbt)) ?_
+      (inferTypeIO_WScoped henv fuel hbtt hwbt)) ?_
     intro vb _
     rfl
 
@@ -1628,10 +1628,10 @@ private theorem isPropType_shift (henv : EnvWF env)
   refine bind_congr _ (ih.annotate hpd hwty) ?_
   intro ty' hty'
   have hwty' : WScoped d ty' := annotateCore_WScoped fuel ty hty' hwty
-  refine bind_congr _ (ih.infer hpd hwty') ?_
+  refine bind_congr _ (ih.inferIO hpd hwty') ?_
   intro t ht
   refine bind_congr_eq (ensureSort_shift henv ih hpd
-    (inferTypeCore_WScoped henv fuel ht hwty')) ?_
+    (inferTypeIO_WScoped henv fuel ht hwty')) ?_
   intro sk _
   rfl
 
@@ -1813,10 +1813,10 @@ private theorem annotateProjRec_shift (henv : EnvWF env)
       intro fi' hfi'
       have hwfi' : WScoped d fi' :=
         annotateCore_WScoped fuel fi hfi' hwfi
-      refine bind_rel _ _ (ih.infer hpd hwfi') ?_
+      refine bind_rel _ _ (ih.inferIO hpd hwfi') ?_
       intro tfi htfi
       refine bind_rel_eq _ (ensureSort_shift henv ih hpd
-        (inferTypeCore_WScoped henv fuel htfi hwfi')) ?_
+        (inferTypeIO_WScoped henv fuel htfi hwfi')) ?_
       intro sfi _
       have hraw : Expr.mkAppN
           (Expr.const (entry.structName.str "rec")
@@ -3092,13 +3092,13 @@ private theorem annotate_step (henv : EnvWF env)
     refine bind_rel _ _ (ih.annotate hpd hw) ?_
     intro e'' he''
     have hwe'' : WScoped d e'' := annotateCore_WScoped fuel pe he'' hw
-    refine bind_rel _ _ (ih.infer hpd hwe'') ?_
+    refine bind_rel _ _ (ih.inferIO hpd hwe'') ?_
     intro te₀ hte₀
     refine bind_rel _ _
-      (ih.whnf hpd (inferTypeCore_WScoped henv fuel hte₀ hwe'')) ?_
+      (ih.whnf hpd (inferTypeIO_WScoped henv fuel hte₀ hwe'')) ?_
     intro te hte
     have hwte : WScoped d te := whnf_WScoped henv fuel hte
-      (inferTypeCore_WScoped henv fuel hte₀ hwe'')
+      (inferTypeIO_WScoped henv fuel hte₀ hwe'')
     have helim := annotateProjElim_shift henv ih hpd sn i hwte hwe''
     rw [getAppFn_shiftFrom]
     cases hfn : te.getAppFn <;> try exact helim

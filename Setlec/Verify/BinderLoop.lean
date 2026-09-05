@@ -1467,10 +1467,10 @@ theorem annotPwPi_mono {env : Env} {F F' : Nat} (hle : F ≤ F')
     dsimp only
     intro h
     obtain ⟨bt, hbt, h⟩ := bind_okB h
-    rw [infer_def] at hbt
-    rw [show ((pureFns mode env F').infer d e) =
-      inferTypeCore mode env F' d e from rfl,
-      inferTypeCore_mono hle hbt, okB_bind]
+    rw [inferTypeIO_def] at hbt
+    rw [show ((pureFns mode env F').inferIO d e) =
+      inferTypeIO mode env F' d e from rfl,
+      inferTypeIO_mono hle hbt, okB_bind]
     obtain ⟨v, hv, h⟩ := bind_okB h
     rw [show ensureSort (pureFns mode env F') env d bt =
       ensureSortCore mode env F' d bt from rfl,
@@ -1491,15 +1491,15 @@ theorem annotPwLam_mono {env : Env} {F F' : Nat} (hle : F ≤ F')
     dsimp only
     intro h
     obtain ⟨bt, hbt, h⟩ := bind_okB h
-    rw [infer_def] at hbt
-    rw [show ((pureFns mode env F').infer d e) =
-      inferTypeCore mode env F' d e from rfl,
-      inferTypeCore_mono hle hbt, okB_bind]
+    rw [inferTypeIO_def] at hbt
+    rw [show ((pureFns mode env F').inferIO d e) =
+      inferTypeIO mode env F' d e from rfl,
+      inferTypeIO_mono hle hbt, okB_bind]
     obtain ⟨btt, hbtt, h⟩ := bind_okB h
-    rw [infer_def] at hbtt
-    rw [show ((pureFns mode env F').infer d bt) =
-      inferTypeCore mode env F' d bt from rfl,
-      inferTypeCore_mono hle hbtt, okB_bind]
+    rw [inferTypeIO_def] at hbtt
+    rw [show ((pureFns mode env F').inferIO d bt) =
+      inferTypeIO mode env F' d bt from rfl,
+      inferTypeIO_mono hle hbtt, okB_bind]
     obtain ⟨v, hv, h⟩ := bind_okB h
     rw [show ensureSort (pureFns mode env F') env d btt =
       ensureSortCore mode env F' d btt from rfl,

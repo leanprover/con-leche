@@ -2162,7 +2162,10 @@ its sort. -/
 def isPropType (r : CoreFns m) (env : Env) (depth : Nat) (ty : Expr) :
     m Bool := do
   let ty' ← r.annotate depth ty
-  let s ← ensureSort r env depth (← r.infer depth ty')
+  -- io grade (task #172 B4): `ty'` is the pass's own output, already
+  -- annotated — the bottom-up circularity guard: annotation of a node
+  -- consults `inferIO` only on subterms whose annotation is complete
+  let s ← ensureSort r env depth (← r.inferIO depth ty')
   liftFueled "level comparison" (Level.isEquiv s Level.zero)
 
 /-- Walk a field telescope to the `i`-th binder and return its domain,
@@ -2218,7 +2221,7 @@ def annotateProjRec (r : CoreFns m) (env : Env) (depth : Nat)
           -- restriction, and the motive level for subsingleton
           -- eliminators
           let fi' ← r.annotate depth fi
-          let sfi ← ensureSort r env depth (← r.infer depth fi')
+          let sfi ← ensureSort r env depth (← r.inferIO depth fi')
           if structProp then
             unless ← liftFueled "level comparison"
                 (Level.isEquiv sfi Level.zero) do
@@ -2330,7 +2333,8 @@ def annotPwPi (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
   match body'.forallPw with
   | some pwI => pure pwI
   | none => do
-    let v ← ensureSort r env depth (← r.infer depth body')
+    -- io grade: `body'` is already annotated (bottom-up)
+    let v ← ensureSort r env depth (← r.inferIO depth body')
     pure (Level.zeronessOf v)
 
 /-- The λ node's datum: the zero-ness of the sort of the *body's type*.
@@ -2342,8 +2346,9 @@ def annotPwLam (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
   match body'.lamPw with
   | some pwI => pure pwI
   | none => do
-    let bt ← r.infer depth body'
-    let vb ← ensureSort r env depth (← r.infer depth bt)
+    -- io grade: `body'` is already annotated (bottom-up)
+    let bt ← r.inferIO depth body'
+    let vb ← ensureSort r env depth (← r.inferIO depth bt)
     pure (Level.zeronessOf vb)
 
 /-- The annotation body: compute the codomain-sort annotations of every
@@ -2429,7 +2434,7 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- name is normalized to the type's head, so reduction's table
       -- lookup is complete on annotated terms); anything else goes
       -- through the rewrite/fallback dispatch.
-      let te ← r.whnf depth (← r.infer depth e')
+      let te ← r.whnf depth (← r.inferIO depth e')
       match te.getAppFn with
       | .const T _ =>
         match env.findProj? T i with

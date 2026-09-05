@@ -29,19 +29,19 @@ theorem isPropTypeI_sim (ih : SSimI mode env f) {d : Nat} {i : EIdx}
       (isPropType (fueledFns mode env) env d ty) := by
   show SimAt mode env s₀ RelV
     ((coreKnotI mode (mkFEnv env) f).annotate d i >>= fun ty' =>
-      (coreKnotI mode (mkFEnv env) f).infer d ty' >>= fun tty =>
+      (coreKnotI mode (mkFEnv env) f).inferIO d ty' >>= fun tty =>
       ensureSortI (coreKnotI mode (mkFEnv env) f) d tty >>= fun s =>
       internLM .zero >>= fun z =>
       isEquivLM s z >>= fun o =>
       liftFueled "level comparison" o)
     ((fueledFns mode env).annotate d ty >>= fun ty' =>
-      (fueledFns mode env).infer d ty' >>= fun tty =>
+      (fueledFns mode env).inferIO d ty' >>= fun tty =>
       ensureSort (fueledFns mode env) env d tty >>= fun s =>
       liftFueled "level comparison" (Level.isEquiv s Level.zero))
   refine SimAt.bind (ih.annotate hs hden hw)
     (fun s₁ ty' ty'x hs₁ hext₁ hP => ?_)
   obtain ⟨hty'd, hwty'⟩ := hP
-  refine SimAt.bind (ih.infer hs₁ hty'd hwty')
+  refine SimAt.bind (ih.inferIO hs₁ hty'd hwty')
     (fun s₂ tty ttyx hs₂ hext₂ hP₂ => ?_)
   obtain ⟨httyd, hwtty⟩ := hP₂
   refine SimAt.bind (ensureSortI_sim ih hs₂ httyd hwtty)
@@ -381,7 +381,7 @@ theorem annotateProjRecI_sim (ih : SSimI mode env f) (henv : EnvWF env)
                   (denoteT_mono (hext₅.trans hext₆) hfid)
                   hwfi) (fun s₇ fi' fi'x hs₇ hext₇ hPfi' => ?_)
                 obtain ⟨hfi'd, hwfi'⟩ := hPfi'
-                refine SimAt.bind (ih.infer hs₇ hfi'd hwfi')
+                refine SimAt.bind (ih.inferIO hs₇ hfi'd hwfi')
                   (fun s₈ tfi tfix hs₈ hext₈ hPtfi => ?_)
                 obtain ⟨htfid, hwtfi⟩ := hPtfi
                 refine SimAt.bind (ensureSortI_sim ih hs₈ htfid hwtfi)
@@ -818,7 +818,7 @@ theorem annotateBodyI_sim (ih : SSimI mode env f) (henv : EnvWF env)
     refine SimAt.bind (ih.annotate hs hpe hwpe)
       (fun s₁ e' e'x hs₁ hext₁ hP => ?_)
     obtain ⟨he'd, hwe'⟩ := hP
-    refine SimAt.bind (ih.infer hs₁ he'd hwe')
+    refine SimAt.bind (ih.inferIO hs₁ he'd hwe')
       (fun s₂ tpe tpex hs₂ hext₂ hP₂ => ?_)
     obtain ⟨htped, hwtpe⟩ := hP₂
     refine SimAt.bind (ih.whnf hs₂ htped hwtpe)

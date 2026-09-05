@@ -2131,7 +2131,7 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bo
 def isPropTypeI (r : CoreFnsI) (_fe : FEnv) (depth : Nat) (ty : EIdx) :
     CheckIM Bool := do
   let ty' ← r.annotate depth ty
-  let tty ← r.infer depth ty'
+  let tty ← r.inferIO depth ty'
   let s ← ensureSortI r depth tty
   let z ← internLM .zero
   liftFueled "level comparison" (← isEquivLM s z)
@@ -2179,7 +2179,7 @@ def annotateProjRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         match ← pisToLamsM cnF tel fieldBvar with
         | some minor => do
           let fi' ← r.annotate depth fi
-          let tfi ← r.infer depth fi'
+          let tfi ← r.inferIO depth fi'
           let sfi ← ensureSortI r depth tfi
           if structProp then do
             let z ← internLM .zero
@@ -2287,7 +2287,7 @@ def annotPwPiI (r : CoreFnsI) (depth : Nat) (body' : EIdx) :
   match ← viewI body' with
   | some (.forallE _ _ _ mbT) => pure mbT.pw
   | _ => do
-    let bt ← r.infer depth body'
+    let bt ← r.inferIO depth body'
     let v ← ensureSortI r depth bt
     withStore fun st => (st.zeronessOfLIGo {} v).1
 
@@ -2336,8 +2336,8 @@ def annotPwLamI (r : CoreFnsI) (depth : Nat) (body' : EIdx) :
   match ← viewI body' with
   | some (.lam _ _ _ mbT) => pure mbT.pw
   | _ => do
-    let bt ← r.infer depth body'
-    let btt ← r.infer depth bt
+    let bt ← r.inferIO depth body'
+    let btt ← r.inferIO depth bt
     let vb ← ensureSortI r depth btt
     withStore fun st => (st.zeronessOfLIGo {} vb).1
 
@@ -2438,7 +2438,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       r.annotate depth ob
     | some (.proj sn i pe) => do
       let e' ← r.annotate depth pe
-      let tpe ← r.infer depth e'
+      let tpe ← r.inferIO depth e'
       let te ← r.whnf depth tpe
       match ← withStore (fun st => st.getNode (st.getAppFnI te)) with
       | some (.const T _) => do

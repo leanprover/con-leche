@@ -814,7 +814,7 @@ theorem annotPwPiI_sim (ih : SSimI mode env f) {d : Nat}
   all_goals
     (first | invert_node hd | cases hd)
     dsimp only [Expr.forallPw]
-    refine SimAt.bind (ih.infer hs hl hw)
+    refine SimAt.bind (ih.inferIO hs hl hw)
       (fun s₂ bt btx hs₂ hext₂ hPbt => ?_)
     obtain ⟨hbtd, hwbt⟩ := hPbt
     refine SimAt.bind (ensureSortI_sim ih hs₂ hbtd hwbt)
@@ -853,10 +853,10 @@ theorem annotPwLamI_sim (ih : SSimI mode env f) {d : Nat}
   all_goals
     (first | invert_node hd | cases hd)
     dsimp only [Expr.lamPw]
-    refine SimAt.bind (ih.infer hs hl hw)
+    refine SimAt.bind (ih.inferIO hs hl hw)
       (fun s₂ bt btx hs₂ hext₂ hPbt => ?_)
     obtain ⟨hbtd, hwbt⟩ := hPbt
-    refine SimAt.bind (ih.infer hs₂ hbtd hwbt)
+    refine SimAt.bind (ih.inferIO hs₂ hbtd hwbt)
       (fun s₃ btt bttx hs₃ hext₃ hPbtt => ?_)
     obtain ⟨hbttd, hwbtt⟩ := hPbtt
     refine SimAt.bind (ensureSortI_sim ih hs₃ hbttd hwbtt)

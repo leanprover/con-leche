@@ -318,11 +318,11 @@ theorem isPropType_mono (hs : CoreSub r₁ r₂) {d : Nat} {ty : Expr}
     rw [han] at h
     rw [hs.2.2.2.2.1 han]
     simp only [] at h ⊢
-    cases hi : r₁.infer d ty' with
+    cases hi : r₁.inferIO d ty' with
     | error err => rw [hi] at h; exact nomatch h
     | ok t =>
       rw [hi] at h
-      rw [hs.2.2.1 hi]
+      rw [hs.2.2.2.2.2 hi]
       simp only [] at h ⊢
       cases hes : Setlec.ensureSort r₁ env d t with
       | error err => rw [hes] at h; exact nomatch h
@@ -1186,10 +1186,10 @@ theorem annotateProjRec_mono (hs : CoreSub r₁ r₂) {d : Nat}
           | ok fi' =>
           rw [h3] at h; rw [hs.2.2.2.2.1 h3]
           simp only [] at h ⊢
-          cases h4 : r₁.infer d fi' with
+          cases h4 : r₁.inferIO d fi' with
           | error err => rw [h4] at h; exact nomatch h
           | ok tfi =>
-          rw [h4] at h; rw [hs.2.2.1 h4]
+          rw [h4] at h; rw [hs.2.2.2.2.2 h4]
           simp only [] at h ⊢
           cases h5 : Setlec.ensureSort r₁ env d tfi with
           | error err => rw [h5] at h; exact nomatch h
@@ -1285,10 +1285,10 @@ theorem annotPwPi_sub (hs : CoreSub r₁ r₂) {d : Nat} {e : Expr}
   | some p => exact id
   | none =>
     simp only [Bind.bind, Except.bind]
-    cases h1 : r₁.infer d e with
+    cases h1 : r₁.inferIO d e with
     | error err => intro h; exact nomatch h
     | ok bt =>
-      rw [hs.2.2.1 h1]
+      rw [hs.2.2.2.2.2 h1]
       simp only []
       cases h2 : Setlec.ensureSort r₁ env d bt with
       | error err => intro h; exact nomatch h
@@ -1304,15 +1304,15 @@ theorem annotPwLam_sub (hs : CoreSub r₁ r₂) {d : Nat} {e : Expr}
   | some p => exact id
   | none =>
     simp only [Bind.bind, Except.bind]
-    cases h1 : r₁.infer d e with
+    cases h1 : r₁.inferIO d e with
     | error err => intro h; exact nomatch h
     | ok bt =>
-      rw [hs.2.2.1 h1]
+      rw [hs.2.2.2.2.2 h1]
       simp only []
-      cases h2 : r₁.infer d bt with
+      cases h2 : r₁.inferIO d bt with
       | error err => intro h; exact nomatch h
       | ok btt =>
-        rw [hs.2.2.1 h2]
+        rw [hs.2.2.2.2.2 h2]
         simp only []
         cases h3 : Setlec.ensureSort r₁ env d btt with
         | error err => intro h; exact nomatch h
@@ -1403,10 +1403,10 @@ theorem annotateBody_mono (hs : CoreSub r₁ r₂) {μ : Setlec.CheckMode}
     | ok e' =>
     rw [h1] at h; rw [hs.2.2.2.2.1 h1]
     simp only [] at h ⊢
-    cases h2 : r₁.infer d e' with
+    cases h2 : r₁.inferIO d e' with
     | error err => rw [h2] at h; exact nomatch h
     | ok te₀ =>
-    rw [h2] at h; rw [hs.2.2.1 h2]
+    rw [h2] at h; rw [hs.2.2.2.2.2 h2]
     simp only [] at h ⊢
     cases h3 : r₁.whnf d te₀ with
     | error err => rw [h3] at h; exact nomatch h

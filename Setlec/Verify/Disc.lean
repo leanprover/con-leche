@@ -73,7 +73,7 @@ theorem annotPwPi_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   unfold annotPwPi
   split
   · exact DiscV.pure trivial
-  · refine DiscV.bind (ih.site_infer henv hw) (fun t ht => ?_)
+  · refine DiscV.bind (ih.site_inferIO henv hw) (fun t ht => ?_)
     refine DiscV.bind (ensureSort_disc ih henv ht) (fun v _ => ?_)
     exact DiscV.pure trivial
 
@@ -86,8 +86,8 @@ theorem annotPwLam_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   unfold annotPwLam
   split
   · exact DiscV.pure trivial
-  · refine DiscV.bind (ih.site_infer henv hw) (fun bt hbt => ?_)
-    refine DiscV.bind (ih.site_infer henv hbt) (fun btt hbtt => ?_)
+  · refine DiscV.bind (ih.site_inferIO henv hw) (fun bt hbt => ?_)
+    refine DiscV.bind (ih.site_inferIO henv hbt) (fun btt hbtt => ?_)
     refine DiscV.bind (ensureSort_disc ih henv hbtt) (fun vb _ => ?_)
     exact DiscV.pure trivial
 
@@ -714,7 +714,7 @@ theorem isPropType_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       (isPropType G env d ty) := by
   unfold isPropType
   refine DiscV.bind (ih.site_annotate hwty) (fun ty' hty' => ?_)
-  refine DiscV.bind (ih.site_infer henv hty') (fun s hs => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hty') (fun s hs => ?_)
   refine DiscV.bind (ensureSort_disc ih henv hs) (fun u _ => ?_)
   exact DiscV.liftFueled_true _ _
 
@@ -779,7 +779,7 @@ theorem annotateProjRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     (fun fi hfi => ?_)
   split <;> try exact DiscV.throw _
   refine DiscV.bind (ih.site_annotate hfi) (fun fi' hfi' => ?_)
-  refine DiscV.bind (ih.site_infer henv hfi') (fun sfi₀ hsfi₀ => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hfi') (fun sfi₀ hsfi₀ => ?_)
   refine DiscV.bind (ensureSort_disc ih henv hsfi₀) (fun sfi _ => ?_)
   split
   · -- Prop structure: the field-sort check runs, then (under the
@@ -1224,7 +1224,7 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hwpe : WScoped d pe := by simpa only [WScoped] using hw
     show DiscV mode env _
       ((C : CoreFns CheckSM).annotate d pe >>= fun e' =>
-        (C : CoreFns CheckSM).infer d e' >>= fun te₀ =>
+        (C : CoreFns CheckSM).inferIO d e' >>= fun te₀ =>
         (C : CoreFns CheckSM).whnf d te₀ >>= fun te =>
         match te.getAppFn with
         | .const T _ =>
@@ -1238,7 +1238,7 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           | none => annotateProjElim C env d sn i te e'
         | _ => annotateProjElim C env d sn i te e')
       ((G : CoreFns CheckSM).annotate d pe >>= fun e' =>
-        (G : CoreFns CheckSM).infer d e' >>= fun te₀ =>
+        (G : CoreFns CheckSM).inferIO d e' >>= fun te₀ =>
         (G : CoreFns CheckSM).whnf d te₀ >>= fun te =>
         match te.getAppFn with
         | .const T _ =>
@@ -1252,7 +1252,7 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           | none => annotateProjElim G env d sn i te e'
         | _ => annotateProjElim G env d sn i te e')
     refine DiscV.bind (ih.site_annotate hwpe) (fun e' he' => ?_)
-    refine DiscV.bind (ih.site_infer henv he') (fun te₀ hte₀ => ?_)
+    refine DiscV.bind (ih.site_inferIO henv he') (fun te₀ hte₀ => ?_)
     refine DiscV.bind (ih.site_whnf henv hte₀) (fun te hte => ?_)
     split <;> try exact annotateProjElim_disc ih henv hte he'
     split <;> try exact annotateProjElim_disc ih henv hte he'
