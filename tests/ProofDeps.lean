@@ -1,4 +1,4 @@
-import Setlec.SetR
+import Setlec.SetBase
 import Setlec.SetP
 import Setlec.Verify.Cached
 
@@ -102,12 +102,23 @@ with them the six relation names went `absent` at BOTH granularities.
 There is no cut point left to measure: block (B)'s cut was retired in
 the batch that emptied it, exactly as this file's own rule says (a
 cut-point row measures a route; when the route is gone the row goes
-with it, and the uncut reading is the honest one). -/
+with it, and the uncut reading is the honest one).
+
+**THE SetR REMOVAL (2026-09-05) RETIRES THE TWELFTH TARGET,
+`Setlec.SetR.EnvS`** — the collapsed model's environment invariant,
+which was the campaign's very first target.  It is gone with the tier
+it lived in (`Setlec/SetR/EnvS.lean`), so its rows go with their
+subject; the file's own vacuity protection would otherwise have read
+`MISSING-TARGET` forever.  The ten survivors all live in
+`Setlec/SetBase/*` under the unchanged namespace `Setlec.SetR`, which
+is why the removal moved no row but this one: what the gate measures is
+the SHARED relation tier the graded proof must not touch, and that tier
+was never in the deleted directory. -/
 private def targets : List Name :=
   [`Setlec.SetR.Red, `Setlec.SetR.Red.beta,
    `Setlec.SetR.Infer, `Setlec.SetR.Infer.app,
    `Setlec.SetR.DefEq, `Setlec.SetR.DefEq.trans,
-   `Setlec.SetR.EnvS, `Setlec.SetR.checkDeclR_ofEnvRE,
+   `Setlec.SetR.checkDeclR_ofEnvRE,
    `Setlec.SetR.DeclR, `Setlec.SetR.declIndRR,
    `Setlec.SetR.DeclIndR]
 
