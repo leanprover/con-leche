@@ -40630,3 +40630,450 @@ decisive A/B row to confirm the win survived the attribute change.
 Measurement artifacts: `_tmp/ptreq-land/` — `baseline/setlec` (the
 snapshot), `p3/setlec`, `p3p1-setlec`, `p3p1p2-setlec`, `one.sh`,
 `rows/*.tsv`.
+
+## TASK #168 — FAST `isProp`/`isProof` OFF THE HEAD SYMBOL: census, design,
+## licence, payoff, plan (2026-09-05, `agent/isproof-design`, read-only)
+
+**Read-only.**  Nothing under `Setlec/**` changed on this branch; the
+instruments are two throwaway measurement copies (`_tmp/isproof-meas`,
+`_tmp/isproof-meas2`, a `dbg_trace` census + `IMASK` fast-path masks
+over `Setlec/Cached/CoreC.lean`, the ι audit's discipline) and one
+probe compiled against master (`_tmp/isproof-design/IsProofLicence.lean`,
+axioms exactly `propext`/`Classical.choice`/`Quot.sound` on every
+theorem).  None of it lands.  The user's idea (task #168, 2026-09-03):
+*"fast `isProof` and `isProp` functions that only look at the head
+symbol (and maybe arity) of a term, and that make use of our
+annotations on lambdas and pis … probably needs similar proof machinery
+as `infer_only`, as it really is a restricted form of that."*
+
+### 0. The answer, first
+
+* **The idea is right and the payoff is large: −8.79 % instructions on
+  init-full** (P mode, verdict identical, 61 048 accepted) from the
+  `proofIrrel` fast path alone; **−16.83 % with the annotate-pass
+  leaves and the unconsumed io-λ domain check** (§2).  `proofIrrel` is
+  called 8.63 M times per init-full run — once per `defeqStep` that
+  survives the pointer/whnfCore tests — and 99.7 % of those calls
+  answer `false`.
+* **Prop-ness is invariant under application** (`zeronessOf (imax u v)
+  = zeronessOf v`, i.e. `eval φ (imax u v) = 0 ↔ eval φ v = 0`), so the
+  head's *stored* type decides at every arity, over-application
+  included: the datum a head-symbol reader needs is **one `PropWhen` per
+  constant** — the zero-ness of the sort of its type — substituted at
+  the use's levels by `substPW`.  Arity enters only the *unit-like*
+  question (§3.3).
+* **The "definitely not a proof" arm carries 97 % of the payoff and
+  needs no model theorem at all**: a refused equation is always sound;
+  its obligation is kernel-level *agreement* with the slow path on
+  validated annotations — a verdict question, which the census answers
+  with **0 disagreements in 7.82 M decided calls** (§4.3).
+* **The "definitely a proof" arm is a SQUASH-regime licence**, the io
+  licence's dual: an always-zero datum makes the head's product reading
+  a truth value, its inhabitant `pt`, and `app pt _ = pt`.  No
+  `AnnotOk2` slot, no domain membership, no graph rigidity — three
+  kernel-shaped theorems, probed (§4.1).  The graph regime enters once,
+  for a proof whose type is a type-former application (`h : a = b`):
+  `io_domain_transfer` per slot of the former's all-`.never` telescope
+  (§4.2).  The fence is `irrel_fast_fence`: at a nonzero bit the product
+  has two distinct members.
+* Two census findings beyond the idea: the io-lane λ clause's
+  domain-sort check is **unconsumed by the P proof and skipped by
+  official** at `infer_only` (−0.60 %, §5.3); and the annotate pass's
+  leaf inferences are the same two readers with **no licence obligation
+  at all** (the pass is untrusted; validation judges the datum),
+  −7.17 % (§5.2).
+* Landing: sequenced after the wiring batch releases `CoreC`/the P
+  rows; three stages, the first (the no-arm) with zero P-lane theorems
+  (§7).
+
+### 1. The census — every place the checker asks "is this a Prop / a proof?"
+
+Shipping core `Setlec/Cached/CoreC.lean` (spec twin `Kernel/Core.lean`);
+fire counts are one instrumented `--set-model=p --pre` run per stream
+(`ICENSUS=1`); official = `_tmp/lean4-master-kernel/type_checker.cpp`
+and lean4lean.
+
+| # | site (CoreC) | computes today | init-full | init-prelude | official counterpart | fast reader |
+|---|---|---|---|---|---|---|
+| A | `proofIrrelI` (`:226-254`), called from the `defeqStep` hoist `:1310`, `stuckIrrelI :484`, the K rescue `:529`, the η rescue `:574` | `inferIO a`, `whnf`, `isUnitLikeTy`; then `inferIO ta`, `whnf`, `.sort u` + `isEquiv u 0`; same for `b` — 4 io inferences + 2–4 whnfs | **8.63** calls (hoist 8 618 879, stuck 7 566, K 127, η 1); results: false 8 596 942, Prop-true 28 237, unit-true 1 394 | 103 185 (hoist 103 028, stuck 129, K 28, η 0); false 101 547, Prop-true 1 164, unit-true 474 | `is_def_eq_proof_irrel` `:932-939` — `infer_type(t)`, `is_prop` (`:383-390`: `ensure_sort(infer_type)` + `normalizes_to_zero`), `infer_type(s)`, `is_def_eq(t_type, s_type)`; no unit-like branch (that is `is_def_eq_unit_like`, last in `is_def_eq_core` `:1245`) | `isProofFast` both sides (§3) |
+| B | `isPropTypeI` (`:1467`) at `annotateProjRecI :1511` (the structure's Prop-ness) and `projFieldDomI :1491` (a depended-on field) | `annotate ty`, `inferIO`, `ensureSort`, `isEquiv 0` | 149 | 0 | `infer_proj` `:274` `is_prop(type)`, `:279`/`:289` `is_prop` of the field domain | `isPropFast` on the annotated type |
+| B′ | `annotateProjRecI :1519-1525` — the projected field's sort (`sfi`) and its Prop test | `annotate`, `inferIO`, `ensureSort`, `isEquiv 0` | 112 | 0 | `infer_proj :289` | `isPropFast` (the level `sfi` is also needed for `recExtraLevel`; keep the run there) |
+| C | binder-domain sort checks, full lane: `inferPisI :1117` + `inferBodyI :1162`; `inferLamsI :1066` + `:1171`; `letE :1228` | `infer dom`, `whnf`, `.sort` — an *is-a-type* check whose level `u` is consumed (∀) or discarded (λ, let) | ∀ 440 166, λ 556 549, let 0 | ∀ 26 232, λ 23 004, let 0 | `infer_pi :151` (always), `infer_lambda :130-133` and `infer_let :216` (only at `!infer_only`) | not a prop test; out of scope (a fast *sort* reader is full `infer_only` territory) |
+| C′ | binder-domain sort checks, io lane: `inferBodyIOI` ∀ `:1261`, λ `:1277` | same | ∀ 4 446 410, λ 4 654 797 | ∀ 84 623, λ 55 363 | `infer_pi :151` runs it; **`infer_lambda :131` skips it at `infer_only`** | the io λ check is **unconsumed** by `infer_lam_claimIOP` (§5.3) — droppable |
+| D | leaf sort checks: `inferPisLeafI :1098`; `inferLamsLeafI :1025` (verified: the body's type's sort, for the `(lam-cod-leaf)` validation); io λ leaf `:1291`; io ∀ leaf `:1268` | `infer body` (+ `inferIO bt` for λ), `whnf`, `.sort v`, `zeronessOf v` vs `mb.pw` | ∀ 178 786, λ 277 095, io-λ 3 241 548, io-∀ 4 446 410 | 11 253, 9 366, 31 632, 84 623 | `infer_pi :158` (the codomain sort is the result); no λ counterpart (the validation is ours) | the *validation* must stay a run (it is what makes the datum trustworthy — the P2 supplier class); the io leaves are `proofIrrel`'s own type-of-type inferences and go with A |
+| E | K/η rescue prop tests: `majorToCtorI` η branch `:550` `piResultNeverZero` (the instantiated non-Prop guard); the K branch's `proofIrrelI fab major :529`; the type discovery `inferIO major :500/:540` | the guard is already a **level read, no inference**; the K certificate is A; the discovery is inference | guard: η entries 5 634; K 5 253 | 19; 649 | lean4lean `toCtorWhenStruct` `Reduce.lean:63-64` (`whnf (inferType eType)` then `u.isNeverZero`) — setlec's guard is the head-read version already; `toCtorWhenK :29-40` has no `is_prop` | nothing to do (the ι audit: the rescue family costs −0.005 %) |
+| F | the ι certificate's regime reads (`iotaCertsIAux :175`, `mb.pw` of the telescope binder) | a datum read (proposed licence, ι audit #1 / second look §9.1) | 25.9 M slots, 99.77 % `.never` (ι audit) | — | none | not a prop test; the ι licence is `io_domain_transfer`, unchanged by this design |
+| G | annotate's own sort inferences: `annotPwPiI :1622` leaf, `annotPwLamI :1671` leaf (the chain rule collapses telescopes: chain hits 139 / 229) | ∀ leaf: `inferIO body'`, `ensureSort`, `zeronessOf`; λ leaf: `inferIO body'`, `inferIO bt`, `ensureSort`, `zeronessOf` | ∀ 179 487, λ 278 768 | 11 298, 9 443 | none (the pass is ours) | `isPropFast` (∀ leaf) / `isProofFast` (λ leaf): the datum IS what the readers compute; **no licence** (the pass is untrusted, `infer` validates) |
+| H | `etaCertI :470` `m₁.pw.equiv m₂.pw`; `inferLamsOutI :1003`, `inferPisOutI :1087` (validation against a computed sort) | datum comparisons | — | — | none | already reads; the validations are the datum's *suppliers* and stay |
+
+The proofIrrel call profile (init-full, `a` = the first side, after `whnfCore`):
+
+| head class of `a` | init-full | init-prelude |
+|---|---|---|
+| `.const` app | 5 854 833 | 44 813 |
+| `.fvar` app | 163 873 | 10 913 |
+| `.forallE` | 2 327 313 | 40 235 |
+| `.sort` | 156 712 | 4 059 |
+| `.lam` | 67 498 | 1 553 |
+| `.lit` | 54 781 | 1 105 |
+| `.proj` | 1 563 | 507 |
+| other (`.letE`) | 0 | 243 |
+
+### 2. The measured cost (`instructions:u`, one run per init-full cell, `ulimit -v 16000000`, `--set-model=p --pre`; the instrumented binary at mask 0 is the baseline — the `IMASK` reads cost the same in every cell)
+
+| mask (what is live) | init-full | Δ | grind-ring-5 | Δ |
+|---|---|---|---|---|
+| 0 baseline (instrumented) | 1803.38 G | — | 60.275 G | — |
+| 1 `proofIrrel` fast path, all arms (copy 1: conservative unit-like reader) | 1644.92 G | **−8.79 %** | 54.796 G | **−9.09 %** |
+| 16 … the `notPrf → false` arm only | 1650.54 G | −8.48 % | 54.936 G | −8.86 % |
+| 2 annotate leaves (`annotPwPi`/`annotPwLam`) fast | 1674.17 G | −7.17 % | 57.473 G | −4.65 % |
+| 4 `isPropType` fast | 1803.40 G | +0.00 % | 60.273 G | −0.00 % |
+| 8 io-λ domain sort check dropped | 1792.52 G | −0.60 % | 59.863 G | −0.68 % |
+| 15 all four | 1499.88 G | **−16.83 %** | 51.623 G | **−14.36 %** |
+| 1 (copy 2: the residual reader with per-binder `instantiate1`, §3.3) | 1735.81 G | −3.75 % | — | — |
+| 15 (copy 2) | 1590.38 G | −11.81 % | — | — |
+| 1 (copy 2b: the same reader, allocation-light — peel without substitution, one `instantiateList` on the residual) | 1672.85 G | −7.24 % | — | — |
+
+**Every masked run accepted 61 048 / 3 946 declarations** — the fast
+paths are verdict-identical on both streams (and the census's
+disagreement counter is 0, §4.3).  The arms are additive within noise
+(1 ⊕ 2 ⊕ 8 on grind: 9.09 + 4.65 + 0.68 = 14.42 against 15's 14.36).
+
+**The reader's own cost is decisive (the copy-2 rows).**  The
+residual reader that substituted every peeled binder (`b.instantiate1
+a` per ∀ — the ι audit's `stripPis` allocation pattern, ×8.6 M calls)
+gave away most of the win — copy 2, mask 1: −3.75 % against copy 1's
+−8.79 % — although it decides more calls (96 % vs 91 % on prelude);
+peeling without substitution and instantiating only the small residual
+once (copy 2b) recovers part of it, −7.24 %, and is *still* behind
+copy 1: the extra 5 % of decided calls are worth less than one
+`instantiateList` per call.  So the landing shape is **copy 1's
+allocation-free reader** (peel the syntactic telescope, resolve a bvar
+residual to the spine argument it names, strip a λ argument's binders
+and read its body's head; no substitution anywhere) — and the reader's
+existence is itself the strongest argument for Option U (§3.3), under
+which the no arm needs no residual read at all.
+
+### 3. The fast functions — what they read, what they answer
+
+Two readers, three-valued (`some true` = definitely, `some false` =
+definitely not, `none` = fall back to today's io inference).  Both are
+*pure functions of the head symbol, the arity and the `pw` data* — no
+run, no memo, no mode.  Prototype (measurement grade) in
+`_tmp/isproof-meas2/Setlec/Cached/Diag.lean` (`typeSortPW`, `proofPW`,
+`residualClass`, `unitClass`, `irrelDecide`).
+
+**3.1 `typeSortPW env T : Option PropWhen`** — the zero-ness datum of
+the sort of the *type* `T` (so `isPropFast T = (typeSortPW T).map
+(·.equiv (.ifAllZero []))`):
+
+| `T` | datum | why |
+|---|---|---|
+| `∀ x : A, B` with meta `m` | `m.pw` | the ∀'s sort is `imax u v`, zero iff `v` is; `m.pw` IS `zeronessOf v` (validated: `(forall-cod)`, `inferPisOutI`) |
+| `Sort u` | `.never` | `Sort u : Sort (u+1)` |
+| `I a₁ … aₙ`, `I` a stored constant at levels `us`, `I`'s stored type syntactically `∀ p₁ … pₖ, R` with `k ≥ n` | `substPW lps us (zeronessOf u)` if `R = Sort u` after peeling `n`; `substPW lps us m.pw` if the residual is a ∀ with meta `m` | the residual's sort, read at the stored type, then instantiated (`pwBit_substPW`) |
+| `x a₁ … aₙ`, `x` an fvar of type `ty` | as the previous row on `ty`, no level substitution | fvar types are already at the declaration's levels |
+| anything else (proj-, let-, λ-headed; a peel failure) | `none` | fall back |
+
+**3.2 `proofPW env a : Option PropWhen`** — the datum of the sort of the
+*type* of `a` (so `isProofFast a = (proofPW a).map (·.equiv (.ifAllZero
+[]))`), read off `a.getAppFn` **at any arity**:
+
+| head of `a` | datum | licence (§4) |
+|---|---|---|
+| `.const c us`, stored type `T_c` | `(typeSortPW env T_c).map (substPW lps us)` — the sort-zero-ness of `T_c`, which is that of the type of `c a⃗` for every `a⃗` (prop-ness is invariant under application) | `irrel_fast_const_pi` (T_c a ∀), `prf_of_type_former_spine` (T_c = `I b⃗`) |
+| `.fvar _ _ ty` | `typeSortPW env ty` | `irrel_fast_fvar_pi` (+ the `ty = p`, `p : Sort 0` twin — Sat2 twice) |
+| `.lam _ _ _ m`, unapplied | `m.pw` (the λ datum is the zero-ness of the sort of the body's type — `(lam-cod-leaf)`) | `irrel_fast_lam` |
+| `.sort`, `.forallE`, `.lit` | `.never` | never proofs (their types are sorts / `Nat` / `String`) |
+| `.proj`, `.letE`, applied λ | `none` | fall back (an applied λ never reaches `proofIrrel`: the sides are `whnfCore`'d) |
+
+The kernel's three-valued verdict on a datum is exactly the slow path's
+`Level.isEquiv u .zero`: `pw.equiv (.ifAllZero [])` ⟺ the sort is zero
+at every valuation (`alwaysZero_iff_forall_pwBit_eq_zero`, both
+directions, probed); `.never` and `.ifAllZero (ps ≠ [])` are "not a
+Prop" exactly as `isEquiv (param u) 0 = false` is.
+
+**3.3 The unit-like question — the only place arity matters.**
+`proofIrrel`'s first branch is `isUnitLikeTy` (the pinned `PUnit` only,
+`unitLike_eq_punit`), tested on the *whnf* of the type.  A
+"definitely not a proof" verdict may only return `false` if the type is
+also definitely not `PUnit` after whnf, and that is a question about
+the *residual* of the head's telescope after **all** the spine's
+arguments — over-application through a recursor/matcher motive (`Nat.casesOn (motive := fun _ => A → B) n f g x`) is common (11 % of
+prelude calls).  `residualClass` (`_tmp/isproof-meas2`) reads it:
+instantiate the syntactic ∀s with the arguments (the residual is small
+— this is `inferSpine`'s own leaf `instListRev`), β-peel a λ-headed
+residual syntactically (bounded), then classify the head: ∀/`Sort`/
+fvar/inductive-or-axiom-or-ctor constant ≠ `PUnit` → rigid (`0`);
+`PUnit` → unit-like; a def-headed residual is followed one syntactic
+unfolding level (`Unit := PUnit.{1}`) and otherwise unknown.  Coverage
+on init-prelude (§4.3): decided 96.3 % of calls; the residue is `PUnit`
+itself (0.5 %), def-headed residuals (2.1 %: `x : Set α`-like fvars,
+`PSigma'.snd`'s `β p.1`, `Eq.rec` motives) and 0.5 % arity failures.
+
+**Option U (cleaner endpoint, recorded, not measured):** move the
+`PUnit` test out of the hoist into `stuckIrrel` — where official has it
+(`is_def_eq_unit_like`, the last test of `is_def_eq_core`,
+`type_checker.cpp:1245`) and where setlec already keeps the
+capability-based `structUnitCertI`.  Then `proofIrrel` is pure
+prop-ness, the no-arm needs **no residual read at all** (100 % of
+`notPrf` verdicts decide), and `proofIrrel_inv` loses its unit disjunct
+(`UnitIrrelPQ` moves to the stuck row, which already discharges the caps
+unit row).  Verdict-neutrality: every structural-failure exit of
+`defeqStep` reaches `stuckIrrelI` (`.proj`/`.proj` included,
+`CoreC.lean:1442-1446`); the exits that do not (`.sort`/`.sort`, literal
+mismatches) cannot be `PUnit`-typed.  `stuckIrrel` fires 129 times per
+prelude run against 103 028 hoists, so the relocated test is free.
+Accept-superset only; the conformance ruling's class.
+
+### 4. The licences (frozen, probed — `_tmp/isproof-design/IsProofLicence.lean`)
+
+**4.1 The squash-regime licence (the "yes" arm).**  The io licence
+skips a certificate at a `.never` binder because in the *graph* regime
+membership is graph-hood and domains are unique
+(`io_domain_transfer`).  The proof-irrelevance fast path is the dual:
+at an **always-zero** datum the reading's binder bit is `0` at every
+valuation (`pwBit_eq_zero_of_alwaysZero`), the product is
+`piR 0 A B = truthVal (…)`, its inhabitant is `pt`
+(`eq_pt_of_mem_piR_zero`), and `app pt a = pt` (`app_pt`) — so every
+spine on such a head is `pt`, with **no hypothesis on the domain, the
+codomain, the arguments, or `AnnotOkP`**:
+
+    theorem prf_of_mem_piR_zero_spine {f A : V} {B : V → V}
+        (hf : f ∈ˢ piR 0 A B) (as : List V) : as.foldl app f = pt
+
+The kernel-shaped forms, one per head class, each closing
+`ProofIrrelPQ`'s conclusion `interp2 ρ aa = pt` for its side:
+
+    theorem irrel_fast_const_pi (hct : ConstTypeP m φ)      -- the stored `mem_typeP` fact
+        (hf : env.find? c = some ci) (hlen : us.length = lps.length)
+        (hty : ci.toConstantVal.type = .forallE n A B mb)
+        (hz : (Level.substPW lps us mb.pw).equiv (.ifAllZero []) = true)
+        (hea : denoteP m.acval env φ d (Expr.mkAppN (.const c us) as) = some ea)
+        (ρ) : interp2 V ρ ea = pt
+    theorem irrel_fast_fvar_pi (hC : CtxOkP m φ d Δa (mkAppN (.fvar idx n (.forallE n' A B mb)) as))
+        (hz : mb.pw.equiv (.ifAllZero []) = true) (hea : …) (ρ) (hρ : Sat2 V Δa ρ) :
+        interp2 V ρ ea = pt
+    theorem irrel_fast_lam (hea : denoteP acval env φ d (.lam n ty bd mb) = some ea)
+        (hz : mb.pw.equiv (.ifAllZero []) = true) (ρ) : interp2 V ρ ea = pt
+
+`irrel_fast_const_pi`'s premise is `ConstTypeP` — the same input
+`iotaStepP_of` consumes (`constTypeP_pkg`) — supplied by the tier
+inputs; the row today (`proofIrrelPQ_of_claims`, `Step2/IrrelP.lean`)
+takes `ihis`/`hsss`/`hreads`/`hunit` and would gain `hct` (in scope at
+its three callers: `StuckP.lean:406`, `TiersP.lean:160`,
+`MajorP.lean:312`, all under the tier inputs).  The `AnnotOkP` premise
+`ProofIrrelPQ` already holds is **not used** by the yes arm — the
+subject's grading does not enter; only the head's stored membership
+does.  `irrel_fast_lam` needs nothing at all: `interp2 (.lam 0 A b) =
+lamR 0 _ _ = pt` is the reading's definition.
+
+**4.2 The one graph-regime step.**  For `c : I b⃗` (no ∀ at the head's
+type: `trivial : True`, `h : a = b`, `h : x ∈ s`), `⟦c⟧ = pt` needs
+`⟦I b⃗⟧ ∈ univ 0`, and that is the type former's telescope walked with
+the spine's own app slots — every binder of `∀ p⃗, Sort u` is `.never`
+(the codomain's sort is `succ`), so every slot is licensed and
+`io_domain_transfer` transfers each argument into its domain:
+
+    theorem type_former_spine_univ (hmix : TeleFitMix V ρ Ta as (.sort u))
+        (hokT : AnnotOkP V ρ Ta) (hokS : AnnotOkP V ρ (mkAppN f as))
+        (hf : interp2 V ρ f ∈ˢ interp2 V ρ Ta) :
+        interp2 V ρ (mkAppN f as) ∈ˢ univ u
+    theorem prf_of_type_former_spine (bs : List V) (hmix : TeleFitMix V ρ Ta as (.sort 0))
+        (hokT …) (hokS …) (hI …) (hc : c ∈ˢ interp2 V ρ (mkAppN I as)) : bs.foldl app c = pt
+
+`TeleFitMix`/`teleFitPA_of_mix` are the ι second look's (restated in
+the probe, verbatim); the P-lane premises are `type_okP` (the grading
+of `T_c`'s reading, which IS `mkAppN ⟦I⟧ ⟦b⃗⟧`) and `mem_typeP` twice
+(`c` in `T_c`, `I` in `T_I`) — all `ConstTypeP`/`EnvS2PM` rows.  The
+kernel-shaped statement (the reading of `I`'s instantiated stored type
+peeled to `.sort`, one `denoteP_forallE_inv` per binder with
+`gate_pwBit_ne_zero` at each `.never` datum) is the ι licence's mixed
+walk again (`certs_telePA`'s shape); it is the yes arm's only real
+proof bill, and the yes arm is ≈ 2 % of the win (§2, masks 1 vs 16).
+
+**4.3 The "no" arm has no licence and no fence — it has a census.**
+`proofIrrel = false` refuses an equation; refusing is always sound, so
+the P row is untouched (`proofIrrel_inv` is stated at `.ok true`).  What
+the no arm owes is *conformance*: on validated annotations the
+head-read datum and the slow path's `isEquiv u 0` agree exactly
+(validation is `equiv` against the computed `zeronessOf`, sound and
+complete; level instantiation commutes, `holds_substPW`; term
+instantiation leaves the datum untouched and the sort unchanged), so a
+fast `false` is the slow `false`.  The census runs both and counts:
+init-full 7.82 decided calls, **0 disagreements**; init-prelude
+99 382 decided (96.3 %), 0 disagreements; grind-ring-5 verdicts equal.
+Where validation does *not* reach — the parity core writes no data
+(`annotatePisPwI` returns `none` at `cfg.verified = false`, the parser
+default `.never` stays) — the fast arm must not fire: **the gate is
+`cfg.verified`**, law 1's mode conjunct, as at the io site.
+
+One more accept-superset inside the yes arm, named: `a : PUnit.{0}` is
+both a proof and unit-like; the slow path's unit-first ordering answers
+`b unit-like?` while the fast path answers `b a proof?`.  Both are
+sound; the fast one is the larger accept set; the census never saw it.
+
+**4.4 The fence.**  Where does a head-symbol read lie about prop-ness?
+Only where the datum is not always-zero: at a nonzero bit the product
+reading is a graph set with two distinct members, so a `prf` verdict
+from a `.never` or `.ifAllZero [u]` datum would equate distinct values:
+
+    theorem irrel_fast_fence : ∃ (A : V) (B : V → V) (f g : V),
+        f ∈ˢ piR 1 A B ∧ g ∈ˢ piR 1 A B ∧ f ≠ g
+    theorem not_alwaysZero_exists_pos (h : pw.equiv (.ifAllZero []) = false) :
+        ∃ φ, pwBit φ pw ≠ 0
+
+(witness: `lamR 1 {pt} (fun _ => truthVal False)` vs `… truthVal
+True`, separated by `app_lamR_pos`).  The second theorem says the fence
+is reachable from every other datum — the licensed fragment is exactly
+`pw ≡ .ifAllZero []`, as `pw = .never` is exactly the io fragment.  The
+"wrong binder" error (reading the *domain's* prop-ness — `h : p → Nat`)
+is the same fence: the ∀'s datum is its codomain's, by the annotator's
+chain rule and by `denoteP`'s `.forallE` clause, and nothing else on
+the node is a prop-ness datum.
+
+### 5. Findings
+
+**5.1 The datum is per constant, and it belongs at install.**  Since
+prop-ness is application-invariant, `proofPW` for a constant head is a
+function of the *stored* type alone: `sortPW c := zeronessOf u_c` where
+the front door already computes `T_c : Sort u_c` (`checkDecl`'s
+`ensureSort`).  Computing it per call syntactically (the prototype:
+peel the stored telescope, read the residual) is the ι audit's
+"environment invariant re-checked per redex" pattern; the
+invariants-over-runtime-gates ruling (task #42) says store it once.  Two
+routes, priced: (a) **a stored datum** — an `Env` side table (the
+`findProj?` precedent) or a `ConstantVal` field, written by `checkDecl`
+from `u_c`, with one new `EnvS2PM` row (`type_sortP : (sortPW c).holds
+ψ → ⟦T_c⟧ ∈ univ 0`, discharged at install from the front-door run's
+`SortSemAtP`), threaded through the fold's cons/basis/extend sites the
+way `TowerFree` rode `ProjOkT` (zero new threading if it rides an
+existing per-constant record) — covers **every** constant, no peel
+failures, O(1) per call + `substPW`; (b) **derive at the use site** from
+`ConstTypeP` + the syntactic telescope (§4.1/4.2) — no install ride, no
+new row, but the yes arm's type-former case needs the mixed walk and
+the datum read is a telescope walk per call (memoizable per constant in
+`CState`).  The census says (b)'s syntactic coverage is 96 % of calls;
+the no arm — the payoff — needs neither the row nor the walk.
+
+**5.2 The annotate pass is the free lunch.**  `annotPwPi`/`annotPwLam`
+leaves compute exactly `typeSortPW`/`proofPW` by inference
+(init-prelude: 11 298 + 9 443 leaves; fast definite on 98 % / 99 %;
+0 non-equivalent data).  The pass is untrusted — `infer` validates
+every datum it writes — so a fast leaf has **no licence obligation**;
+its only risk is a wrong datum turning a reject (exit 1) into a
+`sort-annotation mismatch` decline (exit 2) on an *ill-typed* input,
+which the readers cannot do on validated stored types.  −7.17 % on
+init-full.
+
+**5.3 The io-lane λ domain-sort check is unconsumed.**  `inferBodyIO`'s
+λ clause runs `infer dom; whnf; .sort` (`CoreC.lean:1277-1280`);
+official's `infer_lambda` skips it at `infer_only` (`:131`); and the P
+row `infer_lam_claimIOP` (`Step2/InferIOP.lean:460`) binds the domain
+run (`hty`/`hwu` of `inferTypeCoreIO_lam_inv`) and never uses it — the
+domain's grading comes from the premise (`AnnotOkP.hoist_lam`).  So it
+is an (A)-class drop in the ι audit's taxonomy: official does not do
+it, the P model does not need it.  −0.60 % init-full; 4 654 797 fires.
+(The io ∀ clause's domain run stays: its level is the result's `imax`.)
+
+**5.4 Where the proofIrrel cost actually sits.**  The io ∀ clause fires
+4 446 410 times per init-full run against 440 166 full-lane ∀ domain
+checks: the io lane's ∀ traffic is overwhelmingly `proofIrrel`'s
+type-of-type inferences (`inferIO ta` on a ∀-typed `ta`, chained one
+clause per binder — the B4 seal's "chained, not looped" follow-up), and
+it disappears with the fast path rather than needing the loop.
+
+**5.5 Conformance (restrictions are findings).**  (i) Official's
+`is_def_eq_proof_irrel` has no unit-like branch; setlec's hoist has one
+(the D9 rule).  Option U (§3.3) is the official shape.  (ii) The fast
+yes arm is an accept-superset of the slow path at `PUnit.{0}` (§4.3);
+tolerated by the proofIrrel conformance ruling.  (iii) The yes arm
+keeps both recorded divergences (no `is_def_eq(t_type, s_type)`, Bool
+fall-through) — the ruling stands; a fast path changes neither.
+(iv) `piResultNeverZero` at the η rescue is already the head-read form
+of lean4lean's `u.isNeverZero` (`Reduce.lean:64`).
+
+### 6. The payoff, per site (init-full, from §2)
+
+| site | what the fast path removes | share |
+|---|---|---|
+| A `proofIrrel`, the no arm (`notPrf` + rigid residual → `false`) | 2 io inferences + 2 whnfs + the unit test per call, on 90.3 % of calls | **−8.48 %** |
+| A `proofIrrel`, the yes arm (`prf`/`prf` → `true`) | the same on 26 576 calls | −0.31 % |
+| G annotate leaves | one/two io inferences + `ensureSort` per telescope | −7.17 % |
+| C′ io-λ domain check | one io inference + whnf per io λ clause | −0.60 % |
+| B/B′ `isPropType` | (no fires on these streams) | 0 |
+| C/D/E/F/H | not prop tests (suppliers, level reads, the ι licence) | — |
+| **total (mask 15)** | | **−16.83 %** |
+
+For scale: the io bake was −13.9 % on init-full from verified
+`infer_only`; this is the same order from a *restricted* `infer_only`
+that infers nothing.
+
+### 7. The landing plan (after the wiring batch releases `Cached/CoreC`, `Kernel/Core`, the `SetP/Step2` rows)
+
+**Stage 1 — the no arm (the payoff; zero P-lane theorems).**
+Spec `Kernel/Core.lean`: `proofIrrel` gains, under `mode.verified`, the
+head-read prelude `match isProofFast env a with | .notPrf (rigid) =>
+pure false | …` before the io inferences; `isProofFast`/`typeSortPW`/
+`residualClass` land in `Kernel/ExprOps.lean` (pure, total, fuelled) —
+with Option U folded in if the user takes it (then `proofIrrel` = the
+Prop branch only and the residual reader is not needed).  Twins:
+`CoreC.proofIrrelI`, `CoreNC.proofIrrelNC` (parity core: the gate is
+false there, the code path identical by `cfg.verified`).  Verify:
+`proofIrrel_inv` (`Verify/InferLemmas.lean:1584`) is stated at
+`.ok true` and is **unchanged**; the cached sims (`DiscC2.lean` ×5,
+`DiscC3.lean` ×4, `DiscC5.lean` ×1) gain the fast-arm case by the
+`iotaCertsI`-gate recipe (both twins take the same branch on the same
+datum).  R lane (`SetBase/Bridge/Irrel.lean`, `ProofIrrelStepR`): reads
+`proofIrrel_inv` only — untouched.  **No new theorem; the bill is the
+sim cases.**  A verdict census (the instrumented copy's counter 22) runs
+once on init-full at landing and is recorded as a receipt.
+
+**Stage 2 — the annotate leaves and the io-λ drop (no licence).**
+`annotPwPi`/`annotPwLam` (spec + `CoreC` loops) take the reader first;
+`inferBodyIO`'s λ clause loses its domain run.  Proof side: the annotate
+identification walks (`Verify/Cached/BinderLoopC.lean:982-1074`,
+`AgreeAnnot.lean`) follow the clause change mechanically;
+`inferTypeCoreIO_lam_inv` loses two conjuncts and its consumers
+(`infer_lam_claimIOP`, the io leaf/scoping trio) drop the binders.
+
+**Stage 3 — the yes arm (the licence, priced).**  Gate `mode.verified
+&& mode.betaGate` (the P flag; R collapses with `hg` as at every
+converted row).  `proofIrrel_inv` gains a third disjunct (both sides
+`isProofFast = .prf`), with an inversion `isProofFast_prf_inv` giving
+the head shape and the datum facts; `proofIrrelPQ_of_claims` gains
+`hct : ConstTypeP` and the three probe theorems close the ∀-typed and λ
+cases outright; the type-former case is the mixed walk over `I`'s
+instantiated stored type (`denoteP_forallE_inv` per binder,
+`gate_pwBit_ne_zero`, `teleFitPA_of_mix`, `prf_of_type_former_spine`)
+— ~150–250 lines by the ι licence's measure.  Its payoff is ≈ −0.31 %,
+so it is sequenced last and may be left on the shelf if the ι licence
+(−8.66 %) is the better use of the same walk.
+
+**Stage 4 — the stored datum (route (a) of §5.1)**, if the census at
+stage 1 shows the syntactic reader's 4 % residue matters or the packed
+`pw` (the bitmask design) lands and wants a flat per-constant field: one
+`Env` side table + one `EnvS2PM` row + the install discharge from
+`SortSemAtP`.
+
+Not in the plan: the binder-domain sort checks of the full lane (C) —
+suppliers; the ι regime reads (F) — the ι licence; the rescue family
+(E) — free.
+
+### 8. Instruments
+
+* `_tmp/isproof-meas` (copy 1, the timed masks): `patch.py` (the
+  reproducible CoreC instrumentation: counters 0–52 + masks 0/1/2/3/4),
+  `Setlec/Cached/Diag.lean` (`typeSortPW`, `proofPW`, the conservative
+  `unitClass`, `irrelDecide`), `run.sh`/`all.sh`/`census.sh`,
+  `grind5.tsv`, `full.tsv`, `census-full.txt`.
+* `_tmp/isproof-meas2` (copy 2 / 2b): the `residualClass` reader
+  (final form: allocation-light), the name traces (`NAME`/`UNK`/`R5`),
+  `names.sh`, `full2.tsv` (copy 2, per-binder substitution),
+  `full2b.tsv` (copy 2b).
+* `_tmp/isproof-design/IsProofLicence.lean`: the probe — compile from
+  the master checkout with `lake env lean`; every theorem prints
+  exactly the standard three axioms.
+* Census discipline as the ι audit's: `dbg_trace` (`never_extract`)
+  counters aggregated by `awk`; the fast-live masks are timed runs, the
+  census run is never timed.
