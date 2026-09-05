@@ -3,10 +3,10 @@ module
 public import Std.Data.HashMap
 /- `withPtrEq` is `public` but not `@[expose]`, and its whole point here
 is that it is *definitionally* `k ()` — which is what
-`Name.beqPtr_eq` (and, at P2, `Level.beqPtr_eq`) proves.  `import all`
-makes that body visible **in this module only**; those theorems are the
-public relay, so no importer needs it, and the executed `Name.beq` is
-the plain `decide (· = ·)` that the kernel can still reduce. -/
+`Name.beqPtr_eq` and `Level.beqPtr_eq` prove.  `import all` makes that
+body visible **in this module only**; those two theorems are the public
+relay, so no importer needs it, and the executed `Name.beq`/`Level.beq`
+stay the plain `decide (· = ·)` that the kernel can still reduce. -/
 import all Init.Util
 
 /-!
