@@ -38963,3 +38963,288 @@ And the answer that dissolved it is worth keeping in the same breath:
 **pay for a slow exact branch instead of a weak lemma.**  Saturation
 is then a storage decision that no statement can see — which is what
 "representation change" is supposed to mean.
+## THE ι AUDIT: what the iota path spends per redex, and what could be
+## dropped, moved to install, or licensed (2026-09-05, `agent/iota-audit`)
+
+**Read-only.**  Nothing under `Setlec/**` changed on this branch; the
+instruments are a throwaway measurement copy (`_tmp/iota-meas`: a
+`dbg_trace` census and an `IMASK` leave-one-out mask over
+`Setlec/Cached/CoreC.lean`), never landed.  The user's question:
+*"look at our iota code: are we doing any work there that could be
+dropped or moved to install time?"*
+
+Sites are the shipping core `Setlec/Cached/CoreC.lean` — `iotaRecI`
+(`:624-707`), `majorToCtorI` (`:487-588`), `iotaCertsIAux`
+(`:170-193`), `whnfAppI` (`:731-758`) — with the spec twin
+`Setlec/Kernel/Core.lean` (`iotaRec :1310`, `majorToCtor :1116`,
+`iotaCerts :803`).  References read: `_tmp/lean4-master-kernel/
+type_checker.cpp` and `_tmp/lean4lean/Lean4Lean/Inductive/Reduce.lean`.
+The ι cone reads no mode but the statically-false `ttChecks`
+(`CoreCfg.lean`'s `iotaMode` note), so every number below holds for
+`--set-model=r` and `--set-model=p` alike.
+
+### 1. The organising fact: every fire-time check but two is a
+### hypothesis of the stored equation
+
+`RecRuleLawP` (`SetP/Annot/EnvS2P.lean:431-521`) — the surviving
+statement of the install-verified ι equation; its collapsed-lane
+original `RecRuleLawV` went with the `Setlec/SetR/*` tier on
+2026-09-05 — reads
+
+    rec p⃗ M m⃗ i⃗ (ctor p⃗ x⃗)  =  rhs p⃗ x⃗
+
+and the law's own hypotheses are, in order: the level linkage
+(`Level.substFn φ cvj.levelParams usj = (recFireComparands …).1`), the
+`.plain` parameter agreement, the `.nested` pin equations,
+`IotaIndexPinP` (`EnvS2P.lean:419`), and the two `TeleFitPA` telescope
+fits.  **Firing is reflecting that equation, and the per-redex work is
+— with two exceptions — the discharge of its applicability conditions
+at the redex.**  `iotaStepP_of` (`SetP/Step2/IotaRowsP.lean:506`)
+feeds them to the law one by one, and the deleted collapsed lane's
+`sndRedIota` did the same (`h12`, `ih19`, `ih20`, `ih25`, `ih21`,
+`ih22`) before it went.
+
+The two exceptions are the `stripPis` arity pins.  `iotaStepP_of` and
+`iotaReadsP_of` (`SetP/Step2/IotaRowsP.lean:364,521`) bind
+`hstripR`/`hstripC` and never mention them again; `sndRedIota` bound
+them as anonymous `_`.  Their one surviving mention anywhere is
+`Red.iota`'s two premise slots (`SetBase/Rel.lean:304-305`), supplied
+by `iota_stepR` (`SetBase/Bridge/Iota.lean:183`) to a relation whose
+soundness interpretation was deleted with the SetR tier.  They are
+*shape* facts, and the install path already establishes both:
+
+* plain rules — `Expr.recRulePlain tyA mI rP cnP` (`ExprOps.lean:490`)
+  is `cnP ≤ rP ∧ rP ≤ mI ∧ recTy.stripPis mI = some (_, .forallE …)`,
+  i.e. exactly `(cv.type.stripPis (mI+1)).isSome`; and `checkIotaThmF`
+  (`DeclCheck.lean:381`) checks `(cvj.type.stripPis (cnP+cnF)).isSome`
+  outright;
+* nested rules — `nestedRuleShapeF` (`:422`) matches `tyA.stripPis mI`
+  against a `∀`-body, and `checkIotaThmNF` (`:482`) unwraps
+  `cvj.type.stripPis (cnP + cnF)`;
+* projection-function recursors — `checkProjTyF` (`:598`) checks
+  `(pty.stripPis (nP+1)).isSome` and `checkProjRuleF` (`:617`) unwraps
+  `cvj.type.stripPis (nP+nF)`; the stored rule's `fire` is `.plain`
+  only when `Expr.recRulePlain pty nP nP nP`;
+* the hard-coded basis/pinned recursors (`Kernel/Basis/*.lean`,
+  `StdAxioms.lean`) carry literal types, so both pins are `decide`-able.
+
+`iotaRecI` declines `.inert` before reading anything else, so every
+*firing* rule went through one of those paths.  The pins are therefore
+an environment invariant re-checked per redex — the exact pattern the
+"invariants over runtime gates" ruling (task #42) forbids.
+
+### 2. The census (`--set-model`, one instrumented run per stream)
+
+| counter | init-full | grind-ring-5 | init-prelude |
+|---|---|---|---|
+| ι attempts (`iotaRecI` reaches a stored recursor) | 17 618 745 | 1 091 821 | 167 854 |
+| … passing the arity gate (major whnf'd, `majorToCtorI` called) | 4 576 302 | 272 023 | 39 937 |
+| fires | 4 165 022 | 253 180 | 33 003 |
+| — `.plain` / `.nested` | 4 164 972 / **50** | 253 180 / 0 | 32 958 / 45 |
+| `stripPis` pins passed / evaluated | 4 165 022 / 4 165 022 | 253 180 / 253 180 | 33 003 / 33 003 |
+| Σ recursor-telescope certificate slots | 15 746 872 | 1 008 580 | 135 083 |
+| Σ constructor-telescope certificate slots | 10 112 531 | 375 995 | 38 906 |
+| Σ comparand `defEqList` length | 4 763 390 | 69 590 | 8 674 |
+| Σ index `defEqList` length (`mI − rP`) | **1 881** | **134** | **361** |
+| stuck majors reaching the rescue | 417 533 | 18 994 | 6 981 |
+| K-branch entries / fabrications | 5 358 / 127 | 677 / 32 | 649 / 28 |
+| η-branch entries / fabrications | 6 126 / 6 126 | 119 / 119 | 19 / 19 |
+| `iotaCerts` slots by binder datum — `.never` | **25 894 353** | — | — |
+| … `.ifAllZero []` (always Prop) / `.ifAllZero ps` | 45 722 / 14 398 | — | — |
+
+Four numbers decide the report.  **The `stripPis` pins never failed**
+(4 165 022 of 4 165 022, on every stream).  **The index comparison
+compares empty lists** — 1 881 elements over 4.165 M fires, i.e.
+`mI = rP` in all but a handful of firing recursors.  **The nested-rule
+machinery fires 50 times.**  And **99.77 % of all 25.95 M certificate
+slots sit at a `.never` binder**, which is precisely the datum the β
+gate reads.
+
+### 3. The measured cost (leave-one-out, `instructions:u`)
+
+One run per init-full cell, median of three per grind-ring-5 cell,
+`ulimit -v 16000000`.  The machine was shared with two other agents'
+init-full runs throughout, so **only instruction counts are reported**
+(wall times were contended).  Round-1 baselines: init-full 2 753.90 G,
+grind-ring-5 88.886 G; round-2 baselines (a second instrumented build)
+2 756.21 G / 89.008 G.  **Every masked run still accepted 61 048 /
+3 946 declarations.**
+
+| masked-off site | init-full | grind-ring-5 |
+|---|---|---|
+| both `stripPis` pins dropped | −0.457 % | −0.773 % |
+| … pins kept but computed allocation-free (`piArityGE`) | −0.431 % | −0.729 % |
+| the constructor↔recursor level linkage | −0.278 % | −0.259 % |
+| the comparand `defEqList` | −0.479 % | −0.296 % |
+| … narrowed to projection recursors (`CoreNC`'s shape) | −0.126 % | −0.156 % |
+| `iotaCerts`, recursor telescope | **−7.221 %** | **−6.161 %** |
+| `iotaCerts`, constructor telescope | −1.843 % | −1.382 % |
+| both `iotaCerts` runs | **−9.086 %** | **−7.530 %** |
+| the canonical-index block (`stripPisBody` + `piResidual` + `defEqList`) | −0.869 % | −0.855 % |
+| **every ι check at once** | **−11.536 %** | **−9.873 %** |
+| the whole rescue family (K type check, synthetic certs, `proofIrrel`) | −0.005 % | +0.040 % |
+| *(round 2)* `iotaCerts` slots at `.never` binders skipped | **−8.658 %** | **−6.741 %** |
+| *(round 2)* one extra attempt prologue (prices the per-prefix attempt) | +0.263 % | +0.493 % |
+| *(round 2)* one extra `rules.find?` per fire | — | −0.003 % |
+| *(round 2)* one extra pair of `constTyAtM` lookups per fire | — | +0.587 % |
+| *(round 2)* the no-proof-change package (pins allocation-free + index block + narrowed comparand) | — | −1.717 % |
+
+The costs are additive to within measurement noise (16 ⊕ 32 = 9.064 %
+against 48's 9.086 %; the six single-site figures sum to 11.18 %
+against 119's 11.54 %).
+
+### 4. The classification
+
+**(A) DROPPABLE — official does not do it and the P model does not
+need it.**  Exactly one entry: **the two `stripPis` arity pins**
+(`CoreC.lean:652-654`).  Official has no counterpart (F5); the P lane
+binds and discards them; the R lane carries them only as `Red.iota`
+premise slots (`SetBase/Rel.lean:304-305`) that no surviving theorem interprets.
+Cost −0.457 % init-full / −0.773 % grind-ring-5.  Nothing else in the
+fire path is droppable: §1 shows the rest are the stored equation's own
+hypotheses, and `CoreNC`'s evidence that the battery still passes
+without them is a *parity-lane* fact with no soundness obligation
+behind it.
+
+**(B) MOVABLE TO INSTALL — a property of the stored entry re-checked
+per redex.**
+
+1. The same two `stripPis` pins, if the pins are wanted as facts rather
+   than deleted: they are decidable consequences of the install checks
+   listed in §1, so they belong in `RecRuleLawP` beside its existing
+   `rP ≤ mI` conjunct (or as a standalone `EnvS2PM` lemma), not in the
+   reduction.  A cheaper half-measure that needs no proof-side motion
+   at all is to keep the test and stop allocating: today
+   `Expr.stripPis k t |>.isSome` builds a `List (Name × Expr ×
+   BinderMeta)` of length `k` per fire (≈ 26 M triples per init-full
+   run) only to ask whether it exists.  An allocation-free
+   `piArityGE` recovers 94 % of the drop (−0.431 % vs −0.457 %).
+2. **The canonical-index block at `mI = rP`.**  `IotaIndexPinP`
+   (`EnvS2P.lean:419`) is `∃ H cargs, restC = mkAppN H cargs ∧
+   (mI = rP ∨ …) ∧ ∀ i < mI − rP, …`; at `mI = rP` both are discharged
+   by `⟨restC, [], rfl, Or.inl rfl, fun i hi => absurd hi (by omega)⟩`
+   — no residual, no head test, no comparison.  `mI = rP` is a stored
+   property of the recursor, and the census says it holds in all but
+   ~0.05 % of fires.  Cost −0.869 % / −0.855 %.
+3. The constructor↔recursor **level-linkage map** is install-invariant
+   even though the comparison is not: at `.plain` the comparand is
+   `cvj.levelParams.map (Level.subst cv.levelParams us ∘ .param)`, a
+   name-keyed lookup per parameter per fire, where install could store
+   the index permutation.  Bounded above by the whole linkage's
+   −0.278 % / −0.259 %.
+4. Not worth moving, measured: the per-fire `rules.find?` scan
+   (−0.003 %; and official's `getRecRuleFor` does the same scan), and
+   the `(Name, List Level)`-keyed `constTyAtM`/`ruleRhsAtM` memo
+   lookups (0.587 % per extra pass on grind-ring-5 — real, but the
+   memo is already doing its job).
+
+**(C) LICENSABLE — needs the redex, but only at the squash regime.**
+**The two `iotaCerts` runs, which are the entire cost.**  They
+establish `TeleFitPA`'s per-slot membership `interp2 ρ a ∈ˢ interp2 ρ A`
+(`certs_telePA`, `SetP/Step2/IotaKitP.lean`).  The licence has exactly
+the β site's shape: read the telescope binder's *validated* annotation
+datum and skip the slot at `.never`, i.e. `cfg.betaSkip mb.pw` moved
+from `whnfAppI`'s λ binder to `iotaCertsIAux`'s `∀` binder
+(`CoreC.lean:175`).  The semantic ground is the same D1 mechanism the
+β gate stands on (`lamR_pos_empty` + `piR_dom_unique` kill the
+empty-domain witness at positive kind, so the app node carries no
+`AnnotOk2` slot).  `.never` is instantiation-stable, so the datum
+stored in the recursor's/constructor's type is usable at every level
+instantiation.  **Coverage measured: 99.77 % of slots; cost recovered
+−8.658 % init-full, −6.741 % grind-ring-5 — 95 % of what deleting both
+runs outright would save, and the whole battery still accepts.**
+Note this is a *proposal to be validated by the P lane*, not a proved
+fact: the ∀-binder's `pw` claims the codomain sort's prop-ness, and
+whether that is the right premise for `TeleFitPA.cons` is precisely
+the obligation a licence theorem would discharge.
+
+The (A)-shaped alternative — "derive the fit from the fact that the
+redex was already inferred" — is blocked by the same mechanism that
+stopped the io-knot's β/`inferSpine` de-gating (DESIGN.md, the io-knot
+STOP table): the skipped runs *are* the premises, and no weaker run
+produces them.  The de-gating harvest's row for this site ("a law
+carrying the fits (or an install-time fit record) would license
+dropping the per-fire runs") is refined by this audit: a law cannot
+carry them (they are about the redex's arguments); the licence can.
+
+**(D) INHERENT — genuinely per-redex.**  The major's `whnf`; the
+literal-to-constructor conversion; the rescue (`majorToCtorI`); the
+rule lookup; the RHS instantiation and application; and — because §1
+says so — the **level linkage**, the **comparand `defEqList`** and the
+**index comparison where indices exist**.  Each of those three is a
+side condition of the stored equation, and each measures under 0.5 %.
+
+### 5. Prioritised proposal list (largest measured cost first)
+
+| # | proposal | route | measured | proof-side cost |
+|---|---|---|---|---|
+| 1 | skip the `iotaCerts` slot at a `.never` telescope binder | **licence** (β-shaped) | **−8.66 %** init-full | one licence theorem, the β gate's analogue at `TeleFitPA.cons`; `cfg` already carries the datum |
+| 2 | short-circuit the canonical-index block at `mI = rP` | **install-validate** | −0.87 % | one line on each side (`Or.inl rfl`), plus dropping four conjuncts from `iotaRec_inv` |
+| 3 | delete the two `stripPis` pins (or carry them in `RecRuleLawP`) | **drop** / install-validate | −0.46 % | zero in P (bound, never used); elsewhere only `Red.iota`'s two premise slots, uninterpreted since the SetR removal |
+| 3′ | *or*, with no proof motion at all: keep the pins, compute them allocation-free | local | −0.43 % | a `stripPis_isSome_iff` lemma for `iotaRec_inv` |
+| 4 | precompute the `.plain` level-linkage index map at install | install-validate | ≤ −0.28 % | `recFireComparands`' `.plain` branch changes shape; `recFireComparands_fst_nil` and the law's linkage hypothesis follow |
+| 5 | look the recursor up once per spine instead of once per prefix | drop duplicated work | −0.20 % (est. from +0.26 % per extra prologue × 74 % wasted attempts) | `whnfApp`'s clause shape changes → the `whnfApp` rows in both towers |
+| — | the rescue family | **no action** | −0.005 % | — |
+| — | the `.nested` fire machinery | **no action** | 50 fires per init-full run | — |
+
+Items 2+3′ together are the *no-proof-change package*: measured
+−1.717 % on grind-ring-5 with the battery green.
+
+### 6. Conformance implications (restrictions are findings)
+
+* F5 (the parity-fidelity table) is confirmed and now priced: the two
+  `stripPis` pins −0.46 %, the level linkage −0.28 %, the exact
+  `margs.length` test (official/lean4lean use `nfields ≤
+  majorArgs.size`) unmeasurably small, and the projection-rule
+  parameter comparison load-bearing.  The comparand comparison as a
+  whole costs −0.479 %; narrowing it to projection recursors (what
+  `iotaRecNC` does) leaves −0.126 %.
+* **New, verdict-neutral, and not previously recorded**: setlec
+  *attempts* ι once per spine **prefix** and official attempts it once
+  per application.  `whnfAppI` (`CoreC.lean:752`, spec twin
+  `Core.lean:1514`) calls `iotaRecI` on every accumulated
+  `.app v a`, which bails on `args.length = mI + 1`; official's
+  `whnf_core` App case calls `reduce_recursor(e)` once on the whole
+  application (`type_checker.cpp:526`) and `inductiveReduceRec` indexes
+  the major directly (`recArgs[majorIdx]?`, `Reduce.lean:87`),
+  re-applying trailing arguments rather than requiring exact arity.
+  Measured: 17.62 M attempts against 4.58 M arity matches on init-full
+  (3.85×), costing ≈ 0.20 %.  Recorded as a work divergence, not a
+  check divergence; it changes no verdict.
+* F6's rescue guards are confirmed free (−0.005 %), so the
+  conformance question there is not a cost question.
+* The `to_cnstr_when_K` fabrication type check stays: it is official's
+  own check and arena `bad/098_ruleKbad` fires on it, and it costs
+  nothing (5 358 K-branch entries per init-full run).
+
+### 7. Interaction with the SetR removal (landed 2026-09-05)
+
+The removal deleted every `Setlec/SetR/*.lean`, and with them
+`RecRuleLawV`, `IotaIndexPinV` and `sndRedIota` — the only theorems
+that ever *interpreted* `Red.iota`.  What survives is the syntactic
+relation itself (`SetBase/Rel.lean`) and its bridge
+(`SetBase/Bridge/Iota.lean`, `Bridge/Main.lean`), whose importers on
+master are other `SetBase` modules and the umbrella.
+
+**That is where the `stripPis` pins' last mention lives.**  Proposal 3
+is therefore now a pure deletion: the P lane binds the two conjuncts
+and uses neither, so removing the runtime tests changes
+`iotaRec_inv`'s shape, `Red.iota`'s premise list, and nothing else —
+and if the orphaned `Red`/bridge cluster is retired in a later stage,
+it changes `iotaRec_inv` alone.  Proposal 2 is only mildly affected:
+`IotaIndexPinP` survives as a `RecRuleLawP` hypothesis, but its
+`mI = rP` discharge is a single term.  Proposal 1 (the licence) is
+unaffected — it was always a P-lane statement.
+
+### 8. Instruments
+
+`_tmp/iota-meas` (throwaway, never landed): `Setlec/Cached/Diag.lean`
+(the `ICENSUS` `dbg_trace` census and the `IMASK` skip mask),
+`round2.py` (the second instrumentation round: the per-slot `pw`
+census, the `.never` licence, and the anti-DCE duplication probes),
+`run.sh` / `all.sh` (the leave-one-out harness), `full.tsv`,
+`grind5.tsv`, `full-r2.tsv`, `grind5-r2.tsv`, `census2.txt`.  A pure
+counter bump is **not** usable for this: LCNF drops an `if c then pure
+() else pure ()` whose branches agree, and drops an unused pure `let`;
+the census therefore goes through `dbg_trace` (`never_extract`) and the
+duplication probes fold their result into both sides of an arity test.
