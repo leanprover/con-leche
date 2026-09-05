@@ -42126,9 +42126,16 @@ parity lane's only change); `iotaRec_inv` drops `har1 har2`; the R
 cluster's two premise slots (`Red.iota` h10/h11, `wkRedIota`) dropped.
 The R-cluster edits (`Rel.lean`, `Weaken.lean`, `Bridge/Iota.lean`,
 `Bridge/Certs.lean`, `Bridge/EtaCerts.lean`) were made minimal and
-build-green on `3ce7622b`; SetR Stage B (merged to master as
-`9f44b2c8`) deletes those files, and the master merge below resolves
-them by deletion.
+build-green on `3ce7622b`.  SetR Stage B (merged to master as
+`9f44b2c8`) turned out to remove the R *core*, flag and letters only —
+`SetBase/Rel.lean` and `SetBase/Bridge/*` survive as the P assembly's
+build dependency (§9.3 of the second look) — so these edits stand
+after the master merge (`819e5c6d`; the only conflict was this
+file's tail).  What they do: `Red.iota` and `wkRedIota` lose the two
+pin slots; `iota_stepR` rewrites the licence off (`rw [hg]`, the lane
+is at `betaGate = false`), destructures the new `iotaRec_inv`, and
+builds the index premises by the same `mI = rP` split as the P row;
+`certs_teleR` and the two `EtaCerts` spellings are at `lic = false`.
 
 ### 4. Measurements (init-full-pre2, `--pre`, `ulimit -v 16G`, `perf stat -e instructions:u`, single runs, one session)
 
@@ -42156,6 +42163,16 @@ priced is gone with the interned world.  The absolute licence saving
 because the per-slot `inferIO` runs got relatively costlier as the
 rest got cheaper; the shape is as predicted (99.77 % of slots
 licensed).
+
+**Merged-tip receipts** (`819e5c6d` = the batch with master `9f44b2c8`
+merged; same harness, single runs): P **1265.25 G**, parity
+**1056.74 G**, exit 0 / accepted 61 048 in both — identical to the
+pre-merge numbers to 0.01 %.  Gates at the tip: `lake build`
+warning-free, `lake test`, `tests/layering.sh`, `tests/proofdeps.sh`
+(88 rows as pinned), `tests/arena.sh` 0 FAIL with the bad-test
+expectations unchanged; the capstone
+`no_proof_of_Empty_SPCD_P`, `certs_teleLicP` and `iota_slot_fence` depend
+on exactly `[propext, Classical.choice, Quot.sound]`.
 
 ### 5. Item 4 (RHS stored as the peeled body) — skipped, estimate
 
