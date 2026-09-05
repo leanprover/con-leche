@@ -49,7 +49,7 @@ theorem CSOK.insertWhnfCoreC {s : CState} (hs : CSOK mode env s)
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       whnfCore mode env F d i = .ok j) :
     CSOK mode env { s with whnfCoreC := s.whnfCoreC.insert i j } := by
-  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, ?_, hs.whnfC, hs.inferC,
+  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, ?_, hs.whnfC, hs.inferC, hs.inferIOC,
     hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
   intro k v hl
   simp only at hl
@@ -67,7 +67,7 @@ theorem CSOK.insertWhnfC {s : CState} (hs : CSOK mode env s)
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       whnf mode env F d i = .ok j) :
     CSOK mode env { s with whnfC := s.whnfC.insert i j } := by
-  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, ?_, hs.inferC,
+  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, ?_, hs.inferC, hs.inferIOC,
     hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
   intro k v hl
   simp only at hl
@@ -86,7 +86,8 @@ theorem CSOK.insertInferC {s : CState} (hs : CSOK mode env s)
       inferTypeCore mode env F d i = .ok j) :
     CSOK mode env { s with inferC := s.inferC.insert i j } := by
   refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC, ?_,
-    hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
+    hs.inferIOC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv,
+    hs.instC⟩
   intro k v hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
@@ -98,13 +99,35 @@ theorem CSOK.insertInferC {s : CState} (hs : CSOK mode env s)
   · rw [if_neg hk] at hl
     exact hs.inferC k v hl
 
+/-- Insert into the io memo (task #172 B4): the entry is backed by an
+io-slot run — the weaker clause. -/
+theorem CSOK.insertInferIOC {s : CState} (hs : CSOK mode env s)
+    {i j : ExprC}
+    (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
+      inferTypeIO mode env F d i = .ok j) :
+    CSOK mode env { s with inferIOC := s.inferIOC.insert i j } := by
+  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
+    hs.inferC, ?_, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
+    hs.ienv, hs.instC⟩
+  intro k v hl
+  simp only at hl
+  rw [Std.HashMap.getElem?_insert] at hl
+  by_cases hk : i == k
+  · rw [if_pos hk] at hl
+    cases hl
+    rw [← beq_sound hk]
+    exact hrun
+  · rw [if_neg hk] at hl
+    exact hs.inferIOC k v hl
+
 theorem CSOK.insertAnnotC {s : CState} (hs : CSOK mode env s)
     {i j : ExprC}
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       annotateCore mode env F d i = .ok j) :
     CSOK mode env { s with annotC := s.annotC.insert i j } := by
   refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
-    hs.inferC, ?_, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
+    hs.inferC, hs.inferIOC, ?_, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
+    hs.ienv, hs.instC⟩
   intro k v hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
@@ -123,7 +146,7 @@ theorem CSOK.insertDefeqC {s : CState} (hs : CSOK mode env s)
       isDefEqCore mode env F d i j = .ok r) :
     CSOK mode env { s with defeqC := s.defeqC.insert (i, j) r } := by
   refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
-    hs.inferC, hs.annotC, ?_, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
+    hs.inferC, hs.inferIOC, hs.annotC, ?_, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
   intro a b r' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
@@ -307,6 +330,76 @@ theorem memoEI_infer_sim (henv : EnvWF env)
           exact hF⟩
       exact ⟨hins, r, ⟨rfl, hwv⟩, F + 1, hF⟩
 
+/-- The io memo-wrapper step (task #172 B4), **at the gated mode**:
+the slot is the io body under its own memo (`CState.inferIOC`); a hit
+consumes the io clause, a miss runs the io body walk and re-inserts in
+depth-universal form through `inferTypeIO_depth_inv`. -/
+theorem memoEI_inferIO_sim (hgb : mode.betaGate = true) (henv : EnvWF env)
+    (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
+      CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
+      SimC mode env s₀ (RelEC d)
+        (inferBodyIOI (cfgOf mode)
+          (CoreFnsI.ioView (coreKnotI mode (mkFEnv env) f)) (mkFEnv env) d i)
+        (inferBodyIO mode (CoreFns.ioView (fueledFns mode env)) env d e))
+    {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
+    (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
+    SimC mode env s₀ (RelEC d)
+      ((coreKnotI mode (mkFEnv env) (f + 1)).inferIO d i)
+      ((fueledFns mode env).inferIO d e) := by
+  obtain rfl := hden
+  have hden : RelC i i := rfl
+  intro v' s' hr
+  have hslot : (coreKnotI mode (mkFEnv env) (f + 1)).inferIO =
+      memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
+        (fun d e => inferBodyIOI (cfgOf mode)
+          (CoreFnsI.ioView (coreKnotI mode (mkFEnv env) f)) (mkFEnv env)
+          d e) := by
+    show (if (cfgOf mode).ioGate then _ else _) = _
+    rw [show (cfgOf mode).ioGate = mode.betaGate from rfl, hgb]
+    simp only [↓reduceIte]
+    rfl
+  rw [hslot] at hr
+  simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
+    MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
+    Except.bind] at hr
+  cases hl : s₀.inferIOC[i]? with
+  | some j =>
+    rw [hl] at hr
+    simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
+    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
+    obtain ⟨F, hall⟩ := hs.inferIOC i _ hl
+    have hrun := hall d hw.to_wscopedB
+    exact ⟨hs, j,
+      ⟨rfl, inferTypeIO_WScoped henv F hrun hw⟩, F, hrun⟩
+  | none =>
+    rw [hl] at hr
+    try dsimp only at hr
+    try simp only [StateT.bind] at hr
+    cases hb : inferBodyIOI (cfgOf mode)
+        (CoreFnsI.ioView (coreKnotI mode (mkFEnv env) f)) (mkFEnv env) d i
+        s₀ with
+    | error err =>
+      rw [hb] at hr
+      simp only [Bind.bind, Except.bind] at hr
+      exact nomatch hr
+    | ok pr =>
+      obtain ⟨r, s₁⟩ := pr
+      rw [hb] at hr
+      simp only [Bind.bind, Except.bind, modify, modifyGet,
+        MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
+        Except.pure, Except.ok.injEq] at hr
+      obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
+      obtain ⟨hs₁, v, ⟨rfl, hwv⟩, F, hF⟩ := hbody hs hden hw r s₁ hb
+      rw [inferBodyIO_atF] at hF
+      rw [show inferBodyIO mode (CoreFns.ioView (pureFns mode env F)) env d i
+          = inferTypeIO mode env (F + 1) d i from by
+        rw [inferTypeIO_succ, hgb]; simp only [↓reduceIte]] at hF
+      have hins := hs₁.insertInferIOC
+        ⟨F + 1, fun d' hd' => by
+          rw [inferTypeIO_depth_inv henv (F + 1) hd' hw.to_wscopedB]
+          exact hF⟩
+      exact ⟨hins, r, ⟨rfl, hwv⟩, F + 1, hF⟩
+
 theorem memoEI_annotate_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
@@ -457,6 +550,34 @@ theorem ssimC (env : Env) (henv : EnvWF env) : ∀ f, SSimC mode env f
         memoEI_annotate_sim henv
           (fun hs' hden' hw' =>
             annotateBodyC_sim (ssimC env henv f) henv hs' hden' hw')
-          hs hden hw }
+          hs hden hw
+      inferIO := fun {s₀} {d} {i} {e} hs hden hw => by
+        -- the io slot (task #172 B4): gate-off, the slot IS the
+        -- full-inference memo closure and the fueled family collapses
+        -- (`inferTypeIO_off`); gate-on, the io memo-wrapper step
+        cases hgb : mode.betaGate with
+        | false =>
+          have hio : (coreKnotI mode (mkFEnv env) (f + 1)).inferIO
+              = (coreKnotI mode (mkFEnv env) (f + 1)).infer := by
+            show (if (cfgOf mode).ioGate then _ else _) = _
+            rw [show (cfgOf mode).ioGate = mode.betaGate from rfl, hgb]
+            simp only [Bool.false_eq_true, ↓reduceIte]
+            rfl
+          rw [hio]
+          intro v' s' hr
+          obtain ⟨hs', v, hrel, F, hF⟩ :=
+            memoEI_infer_sim henv
+              (fun hs' hden' hw' =>
+                inferBodyC_sim (ssimC env henv f) henv hs' hden' hw')
+              hs hden hw v' s' hr
+          refine ⟨hs', v, hrel, F, ?_⟩
+          show inferTypeIO mode env F d _ = .ok v
+          rw [inferTypeIO_off hgb]
+          exact hF
+        | true =>
+          exact memoEI_inferIO_sim hgb henv
+            (fun hs' hden' hw' =>
+              inferBodyIOC_sim hgb (ssimC env henv f) henv hs' hden' hw')
+            hs hden hw }
 
 end Setlec.Cached

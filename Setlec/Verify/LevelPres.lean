@@ -606,6 +606,117 @@ theorem inferTypeCore_lvlParams {env : Env} (henv : EnvWF env)
         (Expr.allLevelParamsDefined_instantiate1_gen hp.1.2 0 hp.2)
 
 
+
+/-- The io lane keeps the level parameters bounded (task #172 B4):
+`inferTypeCore_lvlParams`'s walk at the io inversions.  The leaf
+clauses delegate through the lane equations; the gated app clause
+never consults its certificate, so the walk is clause-for-clause the
+full one's. -/
+theorem inferTypeCoreIO_lvlParams {env : Env} (henv : EnvWF env)
+    {ps : List Name} :
+    ∀ (fuel : Nat),
+      (∀ (F d : Nat) (e t : Expr), F < fuel →
+        e.allLevelParamsDefined ps = true →
+        iotaRecP mode env F d e = .ok (some t) →
+        t.allLevelParamsDefined ps = true) →
+      ∀ {d : Nat} {e t : Expr},
+      inferTypeCoreIO mode env fuel d e = .ok t →
+      e.allLevelParamsDefined ps = true →
+      t.allLevelParamsDefined ps = true
+  | 0, _, d, e, t, h, _ => nomatch h
+  | fuel + 1, hiota', d, e, t, h, hp => by
+    have hiota : ∀ (F d : Nat) (e t : Expr), F < fuel →
+        e.allLevelParamsDefined ps = true →
+        iotaRecP mode env F d e = .ok (some t) →
+        t.allLevelParamsDefined ps = true :=
+      fun F d e t hF => hiota' F d e t (Nat.lt_succ_of_lt hF)
+    have ihI : ∀ {d' : Nat} {e' t' : Expr},
+        inferTypeCoreIO mode env fuel d' e' = .ok t' →
+        e'.allLevelParamsDefined ps = true →
+        t'.allLevelParamsDefined ps = true :=
+      fun {_ _ _} hh hpp =>
+        inferTypeCoreIO_lvlParams henv fuel hiota hh hpp
+    cases e with
+    | sort u =>
+      rw [inferTypeCoreIO_sort_eq] at h
+      exact inferTypeCore_lvlParams henv (fuel + 1) hiota' h hp
+    | fvar idx n ty =>
+      rw [inferTypeCoreIO_fvar_eq] at h
+      exact inferTypeCore_lvlParams henv (fuel + 1) hiota' h hp
+    | const n ws =>
+      rw [inferTypeCoreIO_const_eq] at h
+      exact inferTypeCore_lvlParams henv (fuel + 1) hiota' h hp
+    | lit l0 =>
+      rw [inferTypeCoreIO_lit_eq] at h
+      exact inferTypeCore_lvlParams henv (fuel + 1) hiota' h hp
+    | bvar i =>
+      rw [inferTypeCoreIO_succ] at h
+      simp [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind, pure,
+        Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+    | forallE n ty body m =>
+      obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, -, rfl⟩ :=
+        inferTypeCoreIO_forall_inv h
+      simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
+      have hu : u.allParamsDefined ps = true := by
+        simpa [allLevelParamsDefined]
+          using whnf_lvlParams henv fuel hiota hwt (ihI hty hp.1.1)
+      have hbtp := ihI hbt
+        (Expr.allLevelParamsDefined_instantiate1_gen
+          (v := .fvar d n ty) hp.1.1 0 hp.1.2)
+      have hv := ensureSortCore_lvlParams henv fuel hiota hes hbtp
+      simp [allLevelParamsDefined, Level.allParamsDefined, hu, hv]
+    | lam n ty body m =>
+      obtain ⟨tty, u, bt, -, -, hbt, -, -, rfl⟩ :=
+        inferTypeCoreIO_lam_inv h
+      simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
+      have hbtp := ihI hbt
+        (Expr.allLevelParamsDefined_instantiate1_gen
+          (v := .fvar d n ty) hp.1.1 0 hp.1.2)
+      simp only [allLevelParamsDefined, Bool.and_eq_true]
+      exact ⟨⟨hp.1.1, allLevelParamsDefined_abstract1 d 0 hbtp⟩, hp.2⟩
+    | app f a =>
+      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl, -⟩ :=
+        inferTypeCoreIO_app_inv h
+      simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
+      have hPi := whnf_lvlParams henv fuel hiota hwh (ihI htf hp.1)
+      simp only [allLevelParamsDefined, Bool.and_eq_true] at hPi
+      exact Expr.allLevelParamsDefined_instantiate1_gen hp.2 0 hPi.1.2
+    | proj sn i pe =>
+      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
+        hus, A, B, hargs, hres⟩ := inferTypeCoreIO_proj_inv h
+      simp only [allLevelParamsDefined] at hp
+      have hte' := whnf_lvlParams henv fuel hiota hwt (ihI hte hp)
+      have hA := allLevelParamsDefined_getAppArgs hte' A (by rw [hargs]; simp)
+      have hB := allLevelParamsDefined_getAppArgs hte' B (by rw [hargs]; simp)
+      rcases hres with ⟨-, rfl⟩ | ⟨-, rfl⟩
+      · exact hA
+      · simp only [allLevelParamsDefined, Bool.and_eq_true]
+        exact ⟨hB, hp⟩
+    | letE n' t' v' b' =>
+      obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCoreIO_letE_inv h
+      simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
+      exact ihI h'
+        (Expr.allLevelParamsDefined_instantiate1_gen hp.1.2 0 hp.2)
+
+/-- The slot keeps the level parameters bounded. -/
+theorem inferTypeIO_lvlParams {env : Env} (henv : EnvWF env)
+    {ps : List Name} (fuel : Nat)
+    (hiota' : ∀ (F d : Nat) (e t : Expr), F < fuel →
+      e.allLevelParamsDefined ps = true →
+      iotaRecP mode env F d e = .ok (some t) →
+      t.allLevelParamsDefined ps = true)
+    {d : Nat} {e t : Expr}
+    (h : inferTypeIO mode env fuel d e = .ok t)
+    (hp : e.allLevelParamsDefined ps = true) :
+    t.allLevelParamsDefined ps = true := by
+  cases hg : mode.betaGate with
+  | false =>
+    rw [inferTypeIO_off hg] at h
+    exact inferTypeCore_lvlParams henv fuel hiota' h hp
+  | true =>
+    rw [inferTypeIO_on hg] at h
+    exact inferTypeCoreIO_lvlParams henv fuel hiota' h hp
+
 /-! ## The iota case, closed by checker change #9
 
 `iotaRec` now guards `us.length = cv.levelParams.length` alongside the
@@ -620,6 +731,10 @@ theorem iotaRec_lvlParams {env : Env} (henv : EnvWF env)
       b.allLevelParamsDefined ps = true)
     (hiF : ∀ {d : Nat} {a b : Expr},
       inferTypeCore mode env F d a = .ok b →
+      a.allLevelParamsDefined ps = true →
+      b.allLevelParamsDefined ps = true)
+    (hioF : ∀ {d : Nat} {a b : Expr},
+      Setlec.inferTypeIO mode env F d a = .ok b →
       a.allLevelParamsDefined ps = true →
       b.allLevelParamsDefined ps = true)
     {d : Nat} {e t : Expr} (hp : e.allLevelParamsDefined ps = true)
@@ -643,7 +758,7 @@ theorem iotaRec_lvlParams {env : Env} (henv : EnvWF env)
       hwhnf, hTfn, hbranch⟩
     · exact hmaj1
     · have htmaj : tmaj.allLevelParamsDefined ps = true :=
-        hwF hwhnf (hiF hinf hmaj1)
+        hwF hwhnf (hioF hinf hmaj1)
       have hust : ∀ u ∈ ust, u.allParamsDefined ps = true := by
         have := allLevelParamsDefined_getAppFn htmaj
         rw [hTfn] at this
@@ -704,7 +819,8 @@ theorem iotaRec_lvlParams_lt {env : Env} (henv : EnvWF env)
           (Nat.lt_of_lt_of_le hF' (Nat.le_of_lt_succ hF))
     exact iotaRec_lvlParams henv F
       (fun hw hpw => whnf_lvlParams henv F ih hw hpw)
-      (fun hi hpi => inferTypeCore_lvlParams henv F ih hi hpi) hp h
+      (fun hi hpi => inferTypeCore_lvlParams henv F ih hi hpi)
+      (fun hi hpi => inferTypeIO_lvlParams henv F ih hi hpi) hp h
 
 /-- **Iota keeps the subject's level parameters** — unconditionally,
 at every fuel.  This is what checker change #9 bought. -/

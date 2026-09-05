@@ -240,7 +240,7 @@ form `accepted_reads` consumes. -/
 theorem iotaCertsP_infers {d : Nat} :
     ∀ (ty : Expr) (args : List Expr),
       Setlec.iotaCertsP μ env fuel d ty args = .ok true →
-      ∀ a ∈ args, ∃ ta, inferTypeCore μ env fuel d a = .ok ta := by
+      ∀ a ∈ args, ∃ ta, Setlec.inferTypeIO μ env fuel d a = .ok ta := by
   intro ty args
   induction args generalizing ty with
   | nil => intro _ a ha; exact nomatch ha
@@ -356,13 +356,9 @@ a suffix of the rescued major's; the first spine reads because the
 subject does, the second because the clause's `iotaCerts` run inferred
 every one of its members. -/
 theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
-    (hacc : ∀ {F d' : Nat} {x t : Expr},
-      inferTypeCore μ env F d' x = .ok t →
-      Expr.WScoped d' x → x.looseBVarsBounded 0 = true →
-      Expr.LeavesBounded x →
-      ∃ xa, denoteP m.acval env φ d' x = some xa) :
+    (ihw : WhnfReadsP m μ φ fuel) (ihio : InferReadsIOP m μ φ fuel) :
     IotaReadsP μ m φ fuel := by
-  intro d e e'' ea h hws hb hLb hea
+  intro d e e'' ea h hws hb hLb hlr hea
   obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
     cnF, r, cbinders, cbody, residual, cr, usr, hfn, hfrec, hlenA, hlenU,
     hwmaj, hlitmaj, hmajc, hfnmaj, hfcj, hrfind, hlenM, hstripR, hstripC,
@@ -386,24 +382,56 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
       x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x := fun x hx =>
     ⟨hwm.getAppArgs x hx, Setlec.looseBVarsBounded_getAppArgs hbm x hx,
       fun l hl => hLm l (Setlec.fvarLeaves_getAppArgs hx l hl)⟩
-  -- the major's arguments read, because the certificate inferred them
+  -- **the major reads through the chain** (task #172 B4: the io-graded
+  -- certificate no longer traverses every argument, so per-argument
+  -- readability comes from the subject's own reading, transported by
+  -- the reads walk and the fabrication lemma)
+  have hlrM0 : LeafReadsP m φ d (e.getAppArgs.getD mI (.bvar 0)) :=
+    hlr.of_subset
+      (fun l hl => Setlec.fvarLeaves_getAppArgs (Setlec.getD_mem hmIlt) l hl)
+  have hdM : denoteP m.acval env φ d (e.getAppArgs.getD mI (.bvar 0))
+      = some (xs.getD mI default) := hspx.getD _ mI hmIlt
+  obtain ⟨m0a, hm0a⟩ := ihw hwmaj hwMa hbMa hLMa hlrM0 hdM
+  -- major₀'s frames
+  have hwM0 : Expr.WScoped d major₀ :=
+    Setlec.whnf_WScoped m.wf fuel hwmaj hwMa
+  have hbM0 : major₀.looseBVarsBounded 0 = true :=
+    Setlec.whnf_looseBVars m.wf fuel hwmaj hbMa
+  have hLM0 : Expr.LeavesBounded major₀ := fun l hl =>
+    hLMa l (Setlec.whnf_fvarLeaves m.wf fuel hwmaj l hl)
+  have hlrM0' : LeafReadsP m φ d major₀ :=
+    hlrM0.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwmaj)
+  -- the literal conversion step
+  obtain ⟨m1a, hm1a, hwM1, hbM1, hLM1, hlrM1⟩ :
+      ∃ m1a, denoteP m.acval env φ d major₁ = some m1a ∧
+        Expr.WScoped d major₁ ∧ major₁.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded major₁ ∧ LeafReadsP m φ d major₁ := by
+    rcases Setlec.litMajorToCtorP_inv hlitmaj with rfl | ⟨st, rfl, hg, hred⟩
+    · refine ⟨m0a, ?_, Setlec.litToCtorIfNat_WScoped hwM0,
+        Setlec.litToCtorIfNat_looseBVars hbM0,
+        fun l hl => hLM0 l (Setlec.litToCtorIfNat_fvarLeaves l hl),
+        hlrM0'.of_subset Setlec.litToCtorIfNat_fvarLeaves⟩
+      rw [denoteP_litToCtorIfNat]
+      exact hm0a
+    · obtain ⟨hSC, hwc, hbc, hLc, hfv⟩ :=
+        denotePStrLit_of_guard (m := m) d st hg hm0a
+      have hlrc : LeafReadsP m φ d (Setlec.strLitToConstructor st) := by
+        intro l hl; rw [hfv] at hl; exact nomatch hl
+      obtain ⟨m1a, hm1a⟩ := ihw hred hwc hbc hLc hlrc hSC
+      exact ⟨m1a, hm1a, Setlec.whnf_WScoped m.wf fuel hred hwc,
+        Setlec.whnf_looseBVars m.wf fuel hred hbc,
+        fun l hl => hLc l (Setlec.whnf_fvarLeaves m.wf fuel hred l hl),
+        hlrc.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hred)⟩
+  -- the rescue's fabrication reads
+  obtain ⟨⟨ma, hma⟩, hlrMj⟩ :=
+    majorToCtorP_reads ihw ihio hmajc hwM1 hbM1 hLM1 hlrM1 hm1a
+  -- its spine decomposes into per-argument readings
   have hspy : ∃ ys, DenoteSpineP m.acval env φ d major.getAppArgs ys := by
-    have hall : ∀ x ∈ major.getAppArgs,
-        ∃ xa, denoteP m.acval env φ d x = some xa := by
-      intro x hx
-      obtain ⟨tx, htx⟩ := iotaCertsP_infers _ _ hcertC x hx
-      obtain ⟨hwx, hbx, hLx⟩ := hfrM x hx
-      exact hacc htx hwx hbx hLx
-    clear hcertC
-    revert hall
-    generalize major.getAppArgs = args
-    intro hall
-    induction args with
-    | nil => exact ⟨[], .nil⟩
-    | cons x xs ih =>
-      obtain ⟨xa, hxa⟩ := hall x List.mem_cons_self
-      obtain ⟨ys, hys⟩ := ih (fun y hy => hall y (List.mem_cons_of_mem x hy))
-      exact ⟨xa :: ys, .cons hxa hys⟩
+    have hma' := hma
+    rw [show major = Expr.mkAppN major.getAppFn major.getAppArgs from
+      (Setlec.Expr.mkAppN_getApp major).symm] at hma'
+    obtain ⟨-, ys, -, hspy, -⟩ := denoteP_mkAppN_inv hma'
+    exact ⟨ys, hspy⟩
   obtain ⟨ys, hspy⟩ := hspy
   -- the right-hand side reads at the ambient depth
   obtain ⟨-, hlaw0⟩ := hrec c cv mI rP rules hfrec r
@@ -416,7 +444,7 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
       (e.getAppArgs.take rP ++ major.getAppArgs.drop (RecRule.ctorParams r))
       (xs.take rP ++ ys.drop (RecRule.ctorParams r)) :=
     (hspx.take rP).append (hspy.drop (RecRule.ctorParams r))
-  refine ⟨_, denoteP_mkAppN hspOut (hRa d), ?_, ?_, ?_⟩
+  refine ⟨_, denoteP_mkAppN hspOut (hRa d), ?_, ?_, ?_, ?_⟩
   · exact Expr.WScoped.mkAppN (Expr.WScoped.of_not_hasFvar hRnf)
       (fun y hy => by
         rcases List.mem_append.mp hy with hy' | hy'
@@ -433,6 +461,15 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
     · rcases List.mem_append.mp hy with hy' | hy'
       · exact (hfrE y (List.mem_of_mem_take hy')).2.2 l hly
       · exact (hfrM y (List.mem_of_mem_drop hy')).2.2 l hly
+  · intro l hl
+    rcases Setlec.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+    · exact absurd hl' (by
+        rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hRnf]; simp)
+    · rcases List.mem_append.mp hy with hy' | hy'
+      · exact hlr l (Setlec.fvarLeaves_getAppArgs
+          (List.mem_of_mem_take hy') l hly)
+      · exact hlrMj l (Setlec.fvarLeaves_getAppArgs
+          (List.mem_of_mem_drop hy') l hly)
 
 /-! ## THE NAMED WALL — the `.nested` pin comparand has no grading source
 
@@ -472,8 +509,11 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     (hrec : RecRulesP m φ) (hcaps : CapsOkP m) (hct : ConstTypeP m φ)
     (hav : AcvalValidP m)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
-    (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
+    (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hsss : SortSemAtIOSP m μ φ fuel)
+    (hexi : InferExistsIOSP μ m φ fuel)
+    (hreads_ios : InferReadsIOSP m μ φ fuel)
+    (hwreads : WhnfReadsP m μ φ fuel) :
     IotaStepP μ m φ fuel := by
   intro d e e'' Δa h hws hb hLb ea hC hea hok
   obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
@@ -504,7 +544,8 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   have hokMajArg : ∀ ρ : Nat → V, Sat2 V Δa ρ →
       AnnotOkP V ρ (xs.getD mI default) :=
     hoX _ (Setlec.getD_mem (by rw [← hspx.length]; exact hmIlt))
-  obtain ⟨mj0a, hmj0a⟩ := hwreads hwmaj hwM hbM hLM hdMaj
+  obtain ⟨mj0a, hmj0a⟩ := hwreads hwmaj hwM hbM hLM
+    (LeafReadsP.of_ctxOkP hCM) hdMaj
   obtain ⟨hokMj0, heqMj0⟩ := ihw hwmaj hwM hbM hLM hCM hdMaj hmj0a hokMajArg
   obtain ⟨mj1a, hmj1a, hokMj1, heqMj1, hw1, hb1, hL1, hC1⟩ :=
     litMajorToCtorP_stepP ihw hwreads hlitmaj
@@ -514,7 +555,8 @@ theorem iotaStepP_of {m : EnvS2Core V env}
       (hCM.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwmaj))
       hmj0a hokMj0
   obtain ⟨vmaj, hvmajSave, hokMj, heqMj, hwmj, hbmj, hLmj, hCmj⟩ :=
-    majorToCtorP_stepP hcaps hct hav ihw ihd ihi hreads hwreads hmajc
+    majorToCtorP_stepP hcaps hct hav ihw ihd ihis hsss hexi hreads_ios
+      hwreads hmajc
       hw1 hb1 hL1 hC1 hmj1a hokMj1
   have heqAll : ∀ ρ : Nat → V, Sat2 V Δa ρ →
       interp2 V ρ (xs.getD mI default) = interp2 V ρ vmaj := fun ρ hρ =>
@@ -559,16 +601,23 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     · exact hfrE x (List.mem_of_mem_take hx')
     · rcases List.mem_singleton.mp hx' with rfl
       exact ⟨hwmj, hbmj, hLmj, hCmj⟩
+  have hoksR : ∀ x ∈ (xs.take mI ++ [AVExpr.mkAppN
+      (m.acval r.ctor (Level.substFn φ cvj.levelParams usj)) ys]),
+      ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · exact hoX x (List.mem_of_mem_take hx')
+    · rcases List.mem_singleton.mp hx' with rfl; exact hokMj
   obtain ⟨restR, hfitR, -, -⟩ :=
-    certs_telePA ihd ihi hreads _ (e.getAppArgs.take mI ++ [major]) _ TVa
+    certs_telePA ihd ihis hexi _ (e.getAppArgs.take mI ++ [major]) _ TVa
       hcertR (Setlec.Expr.WScoped.of_not_hasFvar hnfR) hbdR
       (Setlec.Expr.LeavesBounded.of_not_hasFvar hnfR) hCR (hTVaD d)
-      (fun σ _ => hokTVa σ) hframesR hspR
+      (fun σ _ => hokTVa σ) hframesR hspR hoksR
   obtain ⟨restC, hfitC, hokRestC, -⟩ :=
-    certs_telePA ihd ihi hreads _ major.getAppArgs ys TVja hcertC
+    certs_telePA ihd ihis hexi _ major.getAppArgs ys TVja hcertC
       (Setlec.Expr.WScoped.of_not_hasFvar hnfJ) hbdJ
       (Setlec.Expr.LeavesBounded.of_not_hasFvar hnfJ) hCJ (hTVjaD d)
-      (fun σ _ => hokTVja σ) hfrC hspy
+      (fun σ _ => hokTVja σ) hfrC hspy hoY
   -- the level congruence (currency-free: the comparand reads no arguments)
   have hψ : Level.substFn φ cvj.levelParams usj
       = Level.substFn φ cvj.levelParams

@@ -3,16 +3,20 @@ import Setlec.Kernel.TypeChecker
 /-!
 # The io lane: infer at the licensed infer-only grade (task #161, stage 2)
 
-**Status: the statement subject, not yet an executable lane.**  The
-definitions below are the *frozen kernel frame* of the io-knot campaign
-— `inferBodyIO`, the io knot, and the fueled entry point the
-`InferClaimsIO2P` family is stated at.  They are **not wired into any
-driver**: the shipped stacks (`Setlec/Kernel/Checker*.lean`,
-`Setlec/Cached/*`) run the full knot exactly as before, so the
-executable is byte-identical to master.  The wiring is HELD at the
-stop-and-name recorded in `DESIGN.md` ("Task #161 STAGE 2 BATCH 1") —
-see "The knot boundary, and why it cannot be drawn where the freeze
-says" there.
+**Status (task #172 B4): the io lane is LIVE in the executable's gated
+mode.**  `inferBodyIO` lives in `Setlec/Kernel/Core.lean` (moved
+byte-identical, so the knot can tie it); the executable knot's
+`inferIO` slot runs it at `mode.betaGate` and the full body everywhere
+else (task #170: R ignores the flag).  The leaf lane below
+(`coreKnotIO` / `inferTypeCoreIO`) remains the *statement subject* the
+`InferClaimsIO2P` family and the io-gate kernel fixtures are phrased
+at; `Verify/Knot.lean`'s `inferTypeIO_on` identifies the executable
+slot with it at the gated mode, and `inferTypeIO_off` collapses the
+slot to `inferTypeCore` at every gate-off mode.  The stage-2
+stop-and-name ("the knot boundary", DESIGN.md "Task #161 STAGE 2
+BATCH 1") was dissolved by the R/P separation: the P tower no longer
+routes through the R derivation tier, so a P-mode io call site
+invalidates no R claim.
 
 ## What the lane is
 
@@ -80,126 +84,35 @@ namespace Setlec
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
 
-/-- **The io inference body**: `inferBody` with one clause changed —
-the application rule's per-argument certificate is skipped when the
-∀'s validated annotation licenses it (see the module docstring).  The
-gate wraps the *test* only; the computed type (`body.instantiate1 a`)
-and the "function expected" rejection are `inferBody`'s, verbatim, so
-the lane is annotation-blind in its results (law 1 (iii)). -/
-def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
-  fun depth e => do
-    match ← viewM (m := m) e with
-    | .sort u => pure (.sort (.succ u))
-    | .fvar idx _ ty =>
-      if idx < depth then pure ty
-      else throw (.invalid "free variable out of scope")
-    | .const n us => do
-      match env.find? n with
-      | none => throw (.invalid s!"unknown constant {n}")
-      | some ci =>
-        let cv := ci.toConstantVal
-        unless us.length = cv.levelParams.length do
-          throw (.invalid s!"incorrect number of universe levels for {n}")
-        pure (cv.type.instantiateLevelParams cv.levelParams us)
-    | .lit (.natVal _) => do
-      if natLitSupported env then pure (.const natName [])
-      else throw (.invalid "Nat literal without the Nat basis declarations")
-    | .lit (.strVal _) => do
-      if strLitSupported env then pure (.const stringName [])
-      else throw (.notImplemented
-        "string literals before the String support declarations")
-    | .forallE n ty body mb => do
-      match ← r.whnf depth (← r.infer depth ty) with
-      | .sort u => do
-        let v ← ensureSort r env (depth + 1)
-          (← r.infer (depth + 1) (body.instantiate1 (.fvar depth n ty)))
-        if mode.verified then
-          unless (Level.zeronessOf v).equiv mb.pw do
-            throw (.notImplemented "sort-annotation mismatch (forall-cod)")
-        pure (.sort (.imax u v))
-      | _ => throw (.invalid "expected a sort")
-    | .lam n ty body mb => do
-      match ← r.whnf depth (← r.infer depth ty) with
-      | .sort _ => do
-        let bt ← r.infer (depth + 1)
-          (body.instantiate1 (.fvar depth n ty))
-        if mode.verified then
-          match body.lamPw with
-          | some pwI =>
-            unless mb.pw.equiv pwI do
-              throw (.notImplemented
-                "sort-annotation mismatch (lam-cod-chain)")
-          | none =>
-            let btt ← r.infer (depth + 1) bt
-            let vb ← ensureSort r env (depth + 1) btt
-            unless (Level.zeronessOf vb).equiv mb.pw do
-              throw (.notImplemented
-                "sort-annotation mismatch (lam-cod-leaf)")
-        pure (.forallE n ty (bt.abstract1 depth) mb)
-      | _ => throw (.invalid "expected a sort")
-    | .app f a => do
-      let tf ← r.infer depth f
-      match ← r.whnf depth tf with
-      | .forallE _ ty body mt => do
-        -- **THE io SITE.**  At a ∀ whose validated datum is `never`
-        -- the certificate is dead weight: the premise-form io claim
-        -- derives `⟦a⟧ ∈ ⟦ty⟧` from the subject's own `AnnotOk2` app
-        -- slot (`io_domain_transfer` + `piR_dom_unique`,
-        -- side-condition free).  At a possibly-zero datum the
-        -- certificate runs unconditionally — the squash regime's
-        -- membership is model-class-wide unrecoverable
-        -- (`io_membership_fails_at_squash`), and that fence is
-        -- absolute.  `mode.verified` is the law's mode gate: the
-        -- annotation is only *validated* at the verified modes.
-        unless mode.verified && mt.pw.isNever do
-          let ta ← r.infer depth a
-          unless ← r.defeq depth ta ty do
-            throw (.invalid "application type mismatch")
-        pure (body.instantiate1 a)
-      | _ => throw (.invalid "function expected")
-    | .proj _sn i pe => do
-      let te ← r.whnf depth (← r.infer depth pe)
-      match te.getAppFn with
-      | .const T us =>
-        match env.findProj? T i with
-        | some entry =>
-          if entry.native ∧ te.getAppArgs.length = entry.numParams ∧
-              us.length = entry.levelParams.length then do
-            match te.getAppArgs, i with
-            | [A, _], 0 => pure A
-            | [_, B], 1 => pure (.app B (.proj T 0 pe))
-            | _, _ => throw (.internal "malformed projection entry")
-          else throw (.notImplemented "projection without a native entry")
-        | none => throw (.notImplemented "projection without a native entry")
-      | _ => throw (.notImplemented "projection without a native entry")
-    | .letE _ ty v b => do
-      let _ ← ensureSort r env depth (← r.infer depth ty)
-      let tv ← r.infer depth v
-      unless ← r.defeq depth tv ty do
-        throw (.invalid "let value type mismatch")
-      r.infer depth (b.instantiate1 v)
-    | .bvar _ =>
-      throw (.notImplemented "inferType beyond the supported fragment")
-
 /-- **The io knot** (the leaf lane).  `whnfCore`/`whnf`/`defeq`/
 `annotate` are the *full* knot's at the same fuel — the io lane
 consumes the certified reduction and definitional equality and never
 supplies them — and `infer` is `inferBodyIO` tied to the io knot one
 level down.  The full knot never mentions this one: that asymmetry is
-the mode-provenance discipline, engineered rather than reviewed. -/
+the mode-provenance discipline, engineered rather than reviewed.
+
+Task #172 B4: `inferBodyIO` itself moved to `Setlec/Kernel/Core.lean`
+(byte-identical) so the executable knot's io slot can tie it; this
+leaf lane stays as the *statement subject* the io claims and the io
+gate's kernel fixtures are phrased at, and the knot equations
+(`Verify/Knot.lean`) identify the executable slot with it at the
+gated mode.  Its own `inferIO` slot is the io body again — the io
+grade is idempotent (there is nothing below io to select). -/
 def coreKnotIO (env : Env) : Nat → CoreFns m
   | 0 =>
     { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
       infer := fun _ _ => throw (.internal "fuel exhausted: infer")
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
+      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+      inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   | fuel + 1 =>
     { whnfCore := (coreKnot mode env id (fuel + 1)).whnfCore
       whnf := (coreKnot mode env id (fuel + 1)).whnf
       defeq := (coreKnot mode env id (fuel + 1)).defeq
       annotate := (coreKnot mode env id (fuel + 1)).annotate
-      infer := fun d e => inferBodyIO mode (coreKnotIO env fuel) env d e }
+      infer := fun d e => inferBodyIO mode (coreKnotIO env fuel) env d e
+      inferIO := fun d e => inferBodyIO mode (coreKnotIO env fuel) env d e }
 
 /-- The io core, tied at `CheckM`: the specification the
 `InferClaimsIO2P` family is stated at. -/

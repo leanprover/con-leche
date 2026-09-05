@@ -62,6 +62,7 @@ import Setlec.SetBase.Bridge.EtaCerts
 import Setlec.SetBase.Bridge.DefEqClosed
 import Setlec.SetBase.Bridge.Proj
 import Setlec.SetBase.Bridge.ProjRed
+import Setlec.SetBase.Spine2
 import Setlec.SetBase.Bridge.Major
 import Setlec.SetBase.Bridge.Iota
 import Setlec.SetBase.Bridge.Main

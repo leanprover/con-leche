@@ -173,7 +173,8 @@ theorem binder_congrR {env : Env} (m : EnvR env) (φ : Name → Nat)
 /-- **`DefEqStuckStepR`, proved**, modulo `StuckIrrelStepR` (which is
 itself proved modulo the two eta certificates). -/
 theorem defeqStuck_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
-    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    {fuel : Nat} (hg : mode.betaGate = false)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
     (ihi : InferClaimsR mode m φ fuel)
     (hsi : StuckIrrelStepR (mode := mode) m φ fuel) :
@@ -527,7 +528,7 @@ theorem defeqStuck_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     dsimp only at h
     cases r with
     | true =>
-      exact etaCert_stepR m φ hcl ihw ihd ihi he hwa hba hLa hwb hbb hLb
+      exact etaCert_stepR m φ hg hcl ihw ihd ihi he hwa hba hLa hwb hbb hLb
         hCa hCb hva hvb
     | false => exact hfall h
   -- 16: one-sided λ on the right (D13 + D2)
@@ -539,7 +540,7 @@ theorem defeqStuck_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     dsimp only at h
     cases r with
     | true =>
-      exact (etaCert_stepR m φ hcl ihw ihd ihi he hwb hbb hLb hwa hba hLa
+      exact (etaCert_stepR m φ hg hcl ihw ihd ihi he hwb hbb hLb hwa hba hLa
         hCb hCa hvb hva).symm
     | false => exact hfall h
   -- 17: distinct stuck heads — only the stuck fallbacks can equate them

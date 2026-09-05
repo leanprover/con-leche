@@ -89,14 +89,23 @@ instance : MonadExceptOf CheckError (PairM rel) where
 
 end PairM
 
-/-- Componentwise relatedness of two core records. -/
+/-- Componentwise relatedness of two core records.  (Task #172 B4: the
+io slot joins as the sixth component.) -/
 def FnsRel (rel : MonadRel M₁ M₂) (r₁ : CoreFns M₁) (r₂ : CoreFns M₂) :
     Prop :=
   (∀ d e, rel.R (r₁.whnfCore d e) (r₂.whnfCore d e)) ∧
   (∀ d e, rel.R (r₁.whnf d e) (r₂.whnf d e)) ∧
   (∀ d e, rel.R (r₁.infer d e) (r₂.infer d e)) ∧
   (∀ d a b, rel.R (r₁.defeq d a b) (r₂.defeq d a b)) ∧
-  (∀ d e, rel.R (r₁.annotate d e) (r₂.annotate d e))
+  (∀ d e, rel.R (r₁.annotate d e) (r₂.annotate d e)) ∧
+  (∀ d e, rel.R (r₁.inferIO d e) (r₂.inferIO d e))
+
+/-- Relatedness transports along the io-grade view: the view only
+permutes fields. -/
+theorem FnsRel.ioView {rel : MonadRel M₁ M₂} {r₁ : CoreFns M₁}
+    {r₂ : CoreFns M₂} (h : FnsRel rel r₁ r₂) :
+    FnsRel rel r₁.ioView r₂.ioView :=
+  ⟨h.1, h.2.1, h.2.2.2.2.2, h.2.2.2.1, h.2.2.2.2.1, h.2.2.2.2.2⟩
 
 /-- The paired record. -/
 def pairFns {rel : MonadRel M₁ M₂} (r₁ : CoreFns M₁) (r₂ : CoreFns M₂)
@@ -105,7 +114,8 @@ def pairFns {rel : MonadRel M₁ M₂} (r₁ : CoreFns M₁) (r₂ : CoreFns M�
   whnf d e := ⟨(r₁.whnf d e, r₂.whnf d e), h.2.1 d e⟩
   infer d e := ⟨(r₁.infer d e, r₂.infer d e), h.2.2.1 d e⟩
   defeq d a b := ⟨(r₁.defeq d a b, r₂.defeq d a b), h.2.2.2.1 d a b⟩
-  annotate d e := ⟨(r₁.annotate d e, r₂.annotate d e), h.2.2.2.2 d e⟩
+  annotate d e := ⟨(r₁.annotate d e, r₂.annotate d e), h.2.2.2.2.1 d e⟩
+  inferIO d e := ⟨(r₁.inferIO d e, r₂.inferIO d e), h.2.2.2.2.2 d e⟩
 
 section Commute
 
@@ -119,11 +129,11 @@ theorem iotaCerts_fst (d : Nat) :
   | _, [] => rfl
   | .forallE n ty body mb, arg :: rest => by
     show ((do
-        let ta ← (pairFns r₁ r₂ h).infer d arg
+        let ta ← (pairFns r₁ r₂ h).inferIO d arg
         if ← (pairFns r₁ r₂ h).defeq d ta ty then
           iotaCerts (pairFns r₁ r₂ h) env d (body.instantiate1 arg) rest
         else pure false : PairM rel Bool)).val.1 = (do
-        let ta ← r₁.infer d arg
+        let ta ← r₁.inferIO d arg
         if ← r₁.defeq d ta ty then
           iotaCerts r₁ env d (body.instantiate1 arg) rest
         else pure false)
@@ -149,11 +159,11 @@ theorem iotaCerts_snd (d : Nat) :
   | _, [] => rfl
   | .forallE n ty body mb, arg :: rest => by
     show ((do
-        let ta ← (pairFns r₁ r₂ h).infer d arg
+        let ta ← (pairFns r₁ r₂ h).inferIO d arg
         if ← (pairFns r₁ r₂ h).defeq d ta ty then
           iotaCerts (pairFns r₁ r₂ h) env d (body.instantiate1 arg) rest
         else pure false : PairM rel Bool)).val.2 = (do
-        let ta ← r₂.infer d arg
+        let ta ← r₂.inferIO d arg
         if ← r₂.defeq d ta ty then
           iotaCerts r₂ env d (body.instantiate1 arg) rest
         else pure false)
@@ -1009,6 +1019,23 @@ theorem inferBody_snd_proj (d : Nat) (e : Expr) :
     (inferBody mode (pairFns r₁ r₂ h) env d e).val.2 =
       inferBody mode r₂ env d e := by
   unfold inferBody
+  snd_tac4
+
+/-! The io inference body (task #172 B4): same walk, one clause's gate
+more.  The pairing of the io-grade views is definitionally the io-grade
+view of the pairing on the fields the body reads, so the walks go
+through the plain `pairFns` of the viewed records. -/
+
+theorem inferBodyIO_fst_proj (d : Nat) (e : Expr) :
+    (inferBodyIO mode (pairFns r₁ r₂ h) env d e).val.1 =
+      inferBodyIO mode r₁ env d e := by
+  unfold inferBodyIO
+  fst_tac4
+
+theorem inferBodyIO_snd_proj (d : Nat) (e : Expr) :
+    (inferBodyIO mode (pairFns r₁ r₂ h) env d e).val.2 =
+      inferBodyIO mode r₂ env d e := by
+  unfold inferBodyIO
   snd_tac4
 
 theorem defeqStep_fst_proj (d : Nat) (k : Expr → Expr → PairM rel Bool)

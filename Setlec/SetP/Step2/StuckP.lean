@@ -395,13 +395,15 @@ def StructUnitIrrelP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 certificates: the cascade's dispatch order, arm for arm, with the
 proof-irrelevance arm closed outright by `proofIrrelPQ_of_claims`. -/
 theorem stuckIrrelP_of_claims {m : EnvS2Core V env}
-    (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel) (hunit : UnitIrrelPQ μ m φ fuel)
+    (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hsss : SortSemAtIOSP m μ φ fuel)
+    (hreads : InferReadsIOSP m μ φ fuel)
+    (hunit : UnitIrrelPQ μ m φ fuel)
     (hpair : PairEtaIrrelP μ m φ fuel) (hseta : StructEtaIrrelP μ m φ fuel)
     (hsunit : StructUnitIrrelP μ m φ fuel) :
     StuckIrrelPQ μ m φ fuel := by
   have hpi : ProofIrrelPQ μ m φ fuel :=
-    proofIrrelPQ_of_claims ihw ihi hreads hunit
+    proofIrrelPQ_of_claims ihis hsss hreads hunit
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
   simp only [Setlec.stuckIrrelP, Setlec.stuckIrrel, Bind.bind,
@@ -595,8 +597,8 @@ routed `InferReadsP`/`WhnfReadsP`; no new residue. -/
 theorem etaCertStepP_of_claims {m : EnvS2Core V env}
     (hμ : μ.verified = true)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
-    (ihi : InferClaims2P μ m φ fuel)
-    (hir : InferReadsP m μ φ fuel) (hwr : WhnfReadsP m μ φ fuel) :
+    (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hir : InferReadsIOSP m μ φ fuel) (hwr : WhnfReadsP m μ φ fuel) :
     EtaCertStepP μ m φ fuel := by
   intro d n ty bd b mb Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
@@ -633,15 +635,16 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
   obtain ⟨tba, htba⟩ :=
     hir htb hwb hbb hLb (LeafReadsP.of_ctxOkP hCb) hdb
   have htbW : Expr.WScoped d tb :=
-    Setlec.inferTypeCore_WScoped m.wf fuel htb hwb
+    Setlec.inferTypeIO_WScoped m.wf fuel htb hwb
   have htbB : tb.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLb
+    Setlec.inferTypeIO_looseBVars m.wf fuel htb hwb hbb hLb
   have htbL : Expr.LeavesBounded tb := fun l hl =>
-    hLb l (Setlec.inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
+    hLb l (Setlec.inferTypeIO_fvarLeaves m.wf fuel htb hwb l hl)
   have hCtb : CtxOkP m φ d Δa tb :=
-    hCb.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel htb hwb)
-  obtain ⟨-, hokTb, hmemB⟩ := ihi htb hwb hbb hLb hCb hdb htba
-  obtain ⟨wtba, hwtba⟩ := hwr hwtb htbW htbB htbL htba
+    hCb.of_subset (Setlec.inferTypeIO_fvarLeaves m.wf fuel htb hwb)
+  obtain ⟨hokTb, hmemB⟩ := ihis htb hwb hbb hLb hCb hdb htba hokB
+  obtain ⟨wtba, hwtba⟩ := hwr hwtb htbW htbB htbL
+    (LeafReadsP.of_ctxOkP hCtb) htba
   obtain ⟨hokW, heqW⟩ :=
     ihw hwtb htbW htbB htbL hCtb htba hwtba hokTb
   have hwrW : Expr.WScoped d (Expr.forallE n₂ ty₂ fb m₂) :=

@@ -54,6 +54,13 @@ structure SSimC (mode : CheckMode) (env : Env) (f : Nat) : Prop where
     SimC mode env s₀ (RelEC d)
       ((coreKnotI mode (mkFEnv env) f).annotate d i)
       ((fueledFns mode env).annotate d e)
+  /-- the io slot (task #172 B4): the memoized knot's `inferIO` entry
+  simulates the fueled io-slot family -/
+  inferIO : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
+    CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
+    SimC mode env s₀ (RelEC d)
+      ((coreKnotI mode (mkFEnv env) f).inferIO d i)
+      ((fueledFns mode env).inferIO d e)
 
 /-- The base case: fuel `0` throws everywhere. -/
 theorem ssimC_zero (env : Env) : SSimC mode env 0 :=
@@ -61,7 +68,8 @@ theorem ssimC_zero (env : Env) : SSimC mode env 0 :=
     whnf := fun _ _ _ => SimC.throw
     infer := fun _ _ _ => SimC.throw
     defeq := fun _ _ _ _ _ => SimC.throw
-    annotate := fun _ _ _ => SimC.throw }
+    annotate := fun _ _ _ => SimC.throw
+    inferIO := fun _ _ _ => SimC.throw }
 
 section Walks
 
@@ -147,12 +155,12 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} :
         simpa only [Expr.WScoped] using hwty
       show SimC mode env s₀ RelVC
         (instListM t acc >>= fun dom' =>
-          (coreKnotI mode (mkFEnv env) f).infer d a >>= fun ta =>
+          (coreKnotI mode (mkFEnv env) f).inferIO d a >>= fun ta =>
           (coreKnotI mode (mkFEnv env) f).defeq d ta dom' >>= fun r =>
           if r then iotaCertsIAux (coreKnotI mode (mkFEnv env) f)
             (mkFEnv env) d b (a :: acc) as
           else pure false)
-        ((fueledFns mode env).infer d x >>= fun ta =>
+        ((fueledFns mode env).inferIO d x >>= fun ta =>
           (fueledFns mode env).defeq d ta ((Expr.instantiateList t ws)) >>=
             fun r =>
           if r then iotaCerts (fueledFns mode env) env d
@@ -161,7 +169,7 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} :
       have hwx : Expr.WScoped d x := hwargs x (List.mem_cons_self ..)
       refine SimC.bind_left (instListM_eff (d := 0) hs rfl hacc)
         (fun s₁ dom' hs₁ hQdom => ?_)
-      refine SimC.bind (ih.infer hs₁ hax hwx) (fun s₂ ta tax hs₂ hP => ?_)
+      refine SimC.bind (ih.inferIO hs₁ hax hwx) (fun s₂ ta tax hs₂ hP => ?_)
       obtain ⟨htax, hwtax⟩ := hP
       refine SimC.bind (ih.defeq hs₂ htax hQdom hwtax hwtb.1)
         (fun s₃ rb r hs₃ hP₂ => ?_)

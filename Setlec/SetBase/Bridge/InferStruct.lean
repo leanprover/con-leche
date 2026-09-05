@@ -199,7 +199,8 @@ private theorem denote_opened_isLam {cval : TConstVal} {env : Env}
     rfl
 
 /-- `.lam` infers by `Infer.lam`. -/
-theorem infer_lam_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
+theorem infer_lam_claimR {env : Env} (hg : mode.betaGate = false)
+    (m : EnvR env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihi : InferClaimsR mode m φ fuel)
     {d : Nat} {Δ : List VExpr} {n : Name} {ty body t : Expr}
@@ -264,6 +265,7 @@ theorem infer_lam_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
           (fun _ hnl => absurd hBlam (by rw [hnl]; exact Bool.noConfusion))
       · obtain ⟨btt, v', hbtt, hwv, -⟩ :=
           h152 hver (by simpa using hbl)
+        rw [Setlec.inferTypeIO_off hg] at hbtt
         have hwsbt : Expr.WScoped (d + 1) bt :=
           inferTypeCore_WScoped m.wf fuel hbt hwopen
         have hLbt : Expr.LeavesBounded bt := fun l hl =>
@@ -448,11 +450,12 @@ theorem inferPi_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
   infer_forallE_claimR m φ hcl ihw ihi h hws hb hLb hC
 
 /-- **`InferLamStepR`, proved.** -/
-theorem inferLam_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
+theorem inferLam_stepR {env : Env} (hg : mode.betaGate = false)
+    (m : EnvR env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihi : InferClaimsR mode m φ fuel) :
     InferLamStepR (mode := mode) m φ fuel := fun h hws hb hLb hC =>
-  infer_lam_claimR m φ hcl ihw ihi h hws hb hLb hC
+  infer_lam_claimR hg m φ hcl ihw ihi h hws hb hLb hC
 
 /-- **`InferAppStepR`, proved.** -/
 theorem inferApp_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)

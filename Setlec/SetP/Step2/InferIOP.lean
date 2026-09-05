@@ -101,6 +101,21 @@ def SortSemAtIOP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     ∀ ρ : Nat → V, Sat2 V Δa ρ →
       AnnotOkP V ρ ea ∧ interp2 V ρ ea ∈ˢ (univ (u.eval φ) : V)
 
+/-- **The slot sort-sem** (task #172 B4): `SortSemAtIOSP` from the two
+lanes' — the mode-bit case, one lane equation each way. -/
+theorem sortSemAtIOSP_of {env : Env} {m : EnvS2Core V env}
+    {φ : Name → Nat} {fuel : Nat}
+    (hfull : SortSemAtP m μ φ fuel) (hio : SortSemAtIOP m μ φ fuel) :
+    SortSemAtIOSP m μ φ fuel := by
+  intro d e t u Δa ea hC hws hb hLb hrun hw hden hok ρ hρ
+  cases hg : μ.betaGate with
+  | false =>
+    rw [Setlec.inferTypeIO_off hg] at hrun
+    exact hfull hC hws hb hLb hrun hw hden ρ hρ
+  | true =>
+    rw [Setlec.inferTypeIO_on hg] at hrun
+    exact hio hC hws hb hLb hrun hw hden hok ρ hρ
+
 /-- The `AnnotOkP` λ-splitter (`hoist_pi`'s sibling): the premise
 form's entry into the λ clause. -/
 theorem AnnotOkP.hoist_lam {Δa : List AVExpr} {v : Nat} {A b : AVExpr}
@@ -163,6 +178,21 @@ def InferReadsIOP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     LeafReadsP m φ d e →
     denoteP m.acval env φ d e = some ea →
     ∃ ta, denoteP m.acval env φ d t = some ta
+
+/-- **The slot reads** (task #172 B4): `InferReadsIOSP` from the two
+lanes'. -/
+theorem inferReadsIOSP_of {env : Env} {m : EnvS2Core V env}
+    {φ : Name → Nat} {fuel : Nat}
+    (hfull : InferReadsP m μ φ fuel) (hio : InferReadsIOP m μ φ fuel) :
+    InferReadsIOSP m μ φ fuel := by
+  intro d e t ea hrun hws hb hLb hlr hden
+  cases hg : μ.betaGate with
+  | false =>
+    rw [Setlec.inferTypeIO_off hg] at hrun
+    exact hfull hrun hws hb hLb hlr hden
+  | true =>
+    rw [Setlec.inferTypeIO_on hg] at hrun
+    exact hio hrun hws hb hLb hlr hden
 
 /-- The projection clause, io lane, premise form (routed —
 `InferProjStepP` transposed: the run is the io lane's because the
@@ -701,7 +731,8 @@ theorem infer_app_claimIOP (m : EnvS2Core V env)
   have htfL : Expr.LeavesBounded tf := fun l hl => hLf l (htfsub l hl)
   have htfC : CtxOkP m φ d Δa tf := hC.app_fn.of_subset htfsub
   -- the ∀-type: read (routed) and graded by the reduction claim
-  obtain ⟨pa, hpa⟩ := hwr hwf htfw htfb htfL htfa
+  obtain ⟨pa, hpa⟩ := hwr hwf htfw htfb htfL
+    (LeafReadsP.of_ctxOkP htfC) htfa
   obtain ⟨hokpa, hredf⟩ :=
     ihw hwf htfw htfb htfL htfC htfa hpa hrowfT
   have hwfe : Expr.WScoped d (Expr.forallE n' ty' body' mb') :=

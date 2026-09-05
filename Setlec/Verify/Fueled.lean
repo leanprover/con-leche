@@ -79,6 +79,8 @@ def fueledFns (mode : CheckMode) (env : Env) : CoreFns FueledM where
     fun hle h => isDefEqCore_mono hle h⟩
   annotate d e := ⟨fun F => annotateCore mode env F d e,
     fun hle h => annotateCore_mono hle h⟩
+  inferIO d e := ⟨fun F => inferTypeIO mode env F d e,
+    fun hle h => inferTypeIO_mono hle h⟩
 
 section AtF
 
@@ -95,11 +97,11 @@ theorem iotaCerts_atF (d : Nat) (F : Nat) :
   | _, [] => rfl
   | .forallE n ty body mb, arg :: rest => by
     show ((do
-        let ta ← (fueledFns mode env).infer d arg
+        let ta ← (fueledFns mode env).inferIO d arg
         if ← (fueledFns mode env).defeq d ta ty then
           iotaCerts (fueledFns mode env) env d (body.instantiate1 arg) rest
         else pure false : FueledM Bool)).val F = (do
-        let ta ← (pureFns mode env F).infer d arg
+        let ta ← (pureFns mode env F).inferIO d arg
         if ← (pureFns mode env F).defeq d ta ty then
           iotaCerts (pureFns mode env F) env d (body.instantiate1 arg) rest
         else pure false)
@@ -544,6 +546,17 @@ theorem inferBody_atF (d : Nat) (e : Expr) (F : Nat) :
       inferBody mode (pureFns mode env F) env d e := by
   unfold inferBody
   atF_tac4
+
+/-- The io inference body over the io-grade views (task #172 B4): the
+same walk, the slot's family in the recursion sites. -/
+theorem inferBodyIO_atF (d : Nat) (e : Expr) (F : Nat) :
+    (inferBodyIO mode (CoreFns.ioView (fueledFns mode env)) env d e).val F =
+      inferBodyIO mode (CoreFns.ioView (pureFns mode env F)) env d e := by
+  unfold inferBodyIO CoreFns.ioView
+  atF_tac4
+  -- the residual `ensureSort` goals: the view leaves `whnf` (the only
+  -- field `ensureSort` reads) untouched, so the plain lemma closes them
+  all_goals exact ensureSort_atF _ _ _
 
 theorem defeqStep_atF (d : Nat) (k : Expr → Expr → FueledM Bool)
     (kF : Expr → Expr → CheckM Bool)

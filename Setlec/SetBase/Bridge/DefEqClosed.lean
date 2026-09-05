@@ -23,24 +23,26 @@ variable {mode : CheckMode} {env : Env}
 
 /-- **`StuckIrrelStepR`, proved.** -/
 theorem stuckIrrel_stepR_closed {env : Env} (m : EnvR env) (φ : Name → Nat)
-    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    {fuel : Nat} (hg : mode.betaGate = false)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
     (ihi : InferClaimsR mode m φ fuel) :
     StuckIrrelStepR (mode := mode) m φ fuel :=
-  stuckIrrel_stepR m φ hcl ihw ihd ihi
-    (pairEtaCert_stepR m φ ihw ihd ihi)
-    (structEtaCert_stepR m φ hcl ihw ihd ihi)
+  stuckIrrel_stepR m φ hg hcl ihw ihd ihi
+    (pairEtaCert_stepR m φ hg ihw ihd ihi)
+    (structEtaCert_stepR m φ hg hcl ihw ihd ihi)
 
 /-- **`DefEqClaimsR` at `fuel + 1`, with no outstanding obligation.** -/
 theorem defeq_claimsR_full {env : Env} (m : EnvR env) (φ : Name → Nat)
-    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    {fuel : Nat} (hg : mode.betaGate = false)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihwc : WhnfCoreClaimsR mode m φ fuel) (ihw : WhnfClaimsR mode m φ fuel)
     (ihd : DefEqClaimsR mode m φ fuel) (ihi : InferClaimsR mode m φ fuel) :
     DefEqClaimsR mode m φ (fuel + 1) :=
   defeq_claimsR_closed m φ hcl ihwc (reduceNat_stepR m φ hcl ihw)
-    (proofIrrel_stepR m φ ihw ihi)
-    (defeqStuck_stepR m φ hcl ihw ihd ihi
-      (stuckIrrel_stepR_closed m φ hcl ihw ihd ihi))
+    (proofIrrel_stepR hg m φ ihw ihi)
+    (defeqStuck_stepR m φ hg hcl ihw ihd ihi
+      (stuckIrrel_stepR_closed m φ hg hcl ihw ihd ihi))
     (defeqSpine_stepR m φ ihd)
 
 end Setlec.SetR

@@ -143,7 +143,7 @@ theorem annotateProjRec_inv {env : Env} {fuel d : Nat}
       raw.fvarLeaves.all (fun l => e₂.fvarLeaves.contains l) = true ∧
       annotateCore mode env fuel d raw = .ok e' := by
   simp only [annotateProjRecP, annotateProjRec, Bind.bind, Except.bind,
-    annotate_def, infer_def] at h
+    annotate_def, inferTypeIO_def] at h
   split at h
   case h_2 => exact nomatch h
   split at h
@@ -172,7 +172,7 @@ theorem annotateProjRec_inv {env : Env} {fuel d : Nat}
   intro h
   dsimp only at h
   revert h
-  cases hi : inferTypeCore mode env fuel d fi' with
+  cases hi : inferTypeIO mode env fuel d fi' with
   | error err => intro h; exact nomatch h
   | ok tfi =>
   intro h
@@ -317,7 +317,7 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
     {i : Nat} {e e' : Expr}
     (h : annotateCore mode env (fuel + 1) d (.proj sn i e) = .ok e') :
     ∃ e₂ tt te, annotateCore mode env fuel d e = .ok e₂ ∧
-      inferTypeCore mode env fuel d e₂ = .ok tt ∧ whnf mode env fuel d tt = .ok te ∧
+      inferTypeIO mode env fuel d e₂ = .ok tt ∧ whnf mode env fuel d tt = .ok te ∧
       ((∃ T us entry, te.getAppFn = .const T us ∧
           env.findProj? T i = some entry ∧ entry.native = true ∧
           te.getAppArgs.length = entry.numParams ∧
@@ -325,13 +325,14 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
         annotateProjElimP mode env fuel d sn i te e₂ = .ok e') := by
   rw [annotateCore_succ] at h
   simp only [annotateBody, Bind.bind, Except.bind] at h
-  simp only [annotate_def, infer_def, whnf_def, annotateProjElim_fold] at h
+  simp only [annotate_def, inferTypeIO_def, whnf_def,
+    annotateProjElim_fold] at h
   cases he : annotateCore mode env fuel d e with
   | error err => rw [he] at h; exact nomatch h
   | ok e₂ =>
   rw [he] at h
   dsimp only at h
-  cases hte : inferTypeCore mode env fuel d e₂ with
+  cases hte : inferTypeIO mode env fuel d e₂ with
   | error err => rw [hte] at h; exact nomatch h
   | ok tt =>
   rw [hte] at h

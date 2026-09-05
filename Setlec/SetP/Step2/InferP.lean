@@ -1,3 +1,4 @@
+import Setlec.SetP.Claims2PIO
 import Setlec.SetP.CtxOkPKit
 import Setlec.SetP.Annot.BitLemmas
 import Setlec.SetP.Annot.BitInst
@@ -75,6 +76,24 @@ def SortSemAtP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     inferTypeCore μ env fuel d e = .ok t →
     whnf μ env fuel d t = .ok (.sort u) →
     denoteP m.acval env φ d e = some ea →
+    ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      AnnotOkP V ρ ea ∧ interp2 V ρ ea ∈ˢ (univ (u.eval φ) : V)
+
+/-- `SortSemAtP` at the knot's io slot (task #172 B4): the premise
+form — the subject's `AnnotOkP` is consumed, because at the gated mode
+the slot's run establishes nothing.  Derived from the two lanes'
+(`sortSemAtIOSP_of`, `InferIOP.lean`). -/
+def SortSemAtIOSP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e t : Expr} {u : Level} {Δa : List AVExpr}
+    {ea : AVExpr},
+    CtxOkP m φ d Δa e →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    Setlec.inferTypeIO μ env fuel d e = .ok t →
+    whnf μ env fuel d t = .ok (.sort u) →
+    denoteP m.acval env φ d e = some ea →
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) →
     ∀ ρ : Nat → V, Sat2 V Δa ρ →
       AnnotOkP V ρ ea ∧ interp2 V ρ ea ∈ˢ (univ (u.eval φ) : V)
 
@@ -331,6 +350,7 @@ on the body:
   #152 chain guard lost) dissolves into the model's own law. -/
 theorem infer_lam_claimP (m : EnvS2Core V env)
     (hμ : μ.verified = true) (hss : SortSemAtP m μ φ fuel)
+    (hsss : SortSemAtIOSP m μ φ fuel)
     (ihi : InferClaims2P μ m φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
@@ -439,11 +459,11 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
       obtain ⟨btt, vb, hbtt, hwbtt, hzeq⟩ :=
         hleafC hμ (by simpa using hbl)
       exact pwBit_zero_mem_univZero hzeq hb0
-        (hss hCbt (inferTypeCore_WScoped m.wf fuel hbt hwopen)
+        (hsss hCbt (inferTypeCore_WScoped m.wf fuel hbt hwopen)
           hbtb
           (fun l hl => hLopen l
             (inferTypeCore_fvarLeaves m.wf fuel hbt hwopen l hl))
-          hbtt hwbtt hbtA ρ' hρ').2
+          hbtt hwbtt hbtA hrowT ρ' hρ').2
   refine ⟨?_, ?_, ?_⟩
   · -- AnnotOkP of the λ
     intro ρ hρ
@@ -743,6 +763,18 @@ def InferReadsP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     denoteP m.acval env φ d e = some ea →
     ∃ ta, denoteP m.acval env φ d t = some ta
 
+/-- `InferReadsP` at the knot's io slot (task #172 B4); derived from
+the two lanes' (`inferReadsIOSP_of`, `InferIOP.lean`). -/
+def InferReadsIOSP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e t : Expr} {ea : AVExpr},
+    Setlec.inferTypeIO μ env fuel d e = .ok t →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    LeafReadsP m φ d e →
+    denoteP m.acval env φ d e = some ea →
+    ∃ ta, denoteP m.acval env φ d t = some ta
+
 /-- **The head normal form reads** (P-tier totality residue, the
 reduction producer). -/
 def WhnfReadsP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
@@ -751,6 +783,7 @@ def WhnfReadsP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     whnf μ env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
+    LeafReadsP m φ d e →
     denoteP m.acval env φ d e = some ea →
     ∃ ea', denoteP m.acval env φ d e' = some ea'
 
@@ -940,7 +973,8 @@ theorem infer_app_claimP (m : EnvS2Core V env)
   have htfL : Expr.LeavesBounded tf := fun l hl => hLf l (htfsub l hl)
   have htfC : CtxOkP m φ d Δa tf := hC.app_fn.of_subset htfsub
   -- the ∀-type: read (routed) and graded by the reduction claim
-  obtain ⟨pa, hpa⟩ := hwr hwf htfw htfb htfL htfa
+  obtain ⟨pa, hpa⟩ := hwr hwf htfw htfb htfL
+    (LeafReadsP.of_ctxOkP htfC) htfa
   obtain ⟨hokpa, hredf⟩ :=
     ihw hwf htfw htfb htfL htfC htfa hpa hrowfT
   have hwfe : Expr.WScoped d (Expr.forallE n' ty' body' mb') :=
@@ -1080,17 +1114,23 @@ def InferStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
     μ.verified = true →
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
+    InferClaimsIO2P μ m φ fuel →
     InferClaims2P μ m φ (fuel + 1)
 
 /-- **`InferStepP`, modulo the routed inputs** — the eleven shapes
 dispatched to the eleven clause lemmas, exactly as `inferStep2D_of`
 does.  Nine are theorems of this file; `.lit (.strVal _)` and `.proj`
 route through the input structure. -/
-theorem inferStepP_of (h : InferInputsP V μ) (hμ : μ.verified = true) :
+theorem inferStepP_of (h : InferInputsP V μ)
+    (hsssF : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
+      (fuel : Nat), WhnfClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
+      InferClaimsIO2P μ m φ fuel → SortSemAtIOSP m μ φ fuel)
+    (hμ : μ.verified = true) :
     InferStepP μ V := by
-  intro env m φ fuel _hv _ihwc ihw ihd ihi
+  intro env m φ fuel _hv _ihwc ihw ihd ihi ihio
   have hss : SortSemAtP m μ φ fuel :=
     sortSemAtP_of_claims ihw ihi (h.infer_reads m φ fuel)
+  have hsss : SortSemAtIOSP m μ φ fuel := hsssF m φ fuel ihw ihi ihio
   intro d e t Δa hrun hws hb hLb ea ta hC hea hta
   match e, hrun, hws, hb, hLb, hC, hea with
   | .sort u, hrun, _, _, _, _, hea =>
@@ -1110,7 +1150,7 @@ theorem inferStepP_of (h : InferInputsP V μ) (hμ : μ.verified = true) :
   | .forallE nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
     exact infer_forallE_claimP m hμ hss hrun hws hb hLb hC hea hta
   | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
-    exact infer_lam_claimP m hμ hss ihi hrun hws hb hLb
+    exact infer_lam_claimP m hμ hss hsss ihi hrun hws hb hLb
       hC hea hta
   | .app fe ae, hrun, hws, hb, hLb, hC, hea =>
     exact infer_app_claimP m (h.infer_reads m φ fuel)

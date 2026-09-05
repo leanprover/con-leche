@@ -56,15 +56,18 @@ theorem unitLike_denote {cval : TConstVal} {φ : Name → Nat} {d : Nat}
     · exact nomatch hW
 
 /-- **`ProofIrrelStepR`, proved.** -/
-theorem proofIrrel_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
+theorem proofIrrel_stepR {env : Env} (hg : mode.betaGate = false)
+    (m : EnvR env) (φ : Name → Nat)
     {fuel : Nat} (ihw : WhnfClaimsR mode m φ fuel)
     (ihi : InferClaimsR mode m φ fuel) :
     ProofIrrelStepR (mode := mode) m φ fuel := by
   intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   obtain ⟨ta, wta, hta, hwta, hcase⟩ := proofIrrel_inv h
+  rw [Setlec.inferTypeIO_off hg] at hta
   rcases hcase with ⟨hu, tb, wtb, htb, hwtb, hub⟩ |
     ⟨sta, uT, tb, stb, vT, hsta, hwsta, hequ, htb, hstb, hwstb, heqv⟩
   · -- D9: the unit branch
+    rw [Setlec.inferTypeIO_off hg] at htb
     obtain ⟨va', WA, hva', hWA, TA, hAI, hAD⟩ :=
       inferShapeR m φ ihw ihi hta hwta hwa hba hLa hCa
     obtain rfl : va' = va := by rw [hva'] at hva; exact Option.some.inj hva
@@ -75,6 +78,7 @@ theorem proofIrrel_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     obtain ⟨c₂, us₂, hu₂, hlen₂, rfl⟩ := unitLike_denote hub hWB
     exact DefEq.irrelUnit hu₁ hlen₁ hu₂ hlen₂ hAI hAD hBI hBD
   · -- D8: the `Prop` branch
+    rw [Setlec.inferTypeIO_off hg] at hsta htb hstb
     have hu0 : Level.eval φ uT = 0 := by
       have := Level.isEquiv_sound hequ φ
       simpa [Level.eval] using this

@@ -49,28 +49,12 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-- **The P-generation step, from the quarters.** -/
-theorem checkStep2P_of_quarters (hμ : μ.verified = true)
-    (hwin : WhnfInputsP V μ) (hdin : DefEqInputsP μ V)
-    (hiin : InferInputsP V μ) : CheckStep2P μ V :=
-  fun env m φ fuel h1 h2 h3 h4 =>
-    ⟨whnfCoreStepP_of hμ hwin env m φ fuel h1 h2 h3 h4,
-     whnfStepP_of hμ hwin env m φ fuel h1 h2 h3 h4,
-     defEqStepP_of hμ hdin env m φ fuel h1 h2 h3 h4,
-     inferStepP_of hiin hμ env m φ fuel hμ h1 h2 h3 h4⟩
-
-/-- **The P-tier soundness ladder, closed over fuel**: at a validating
-mode, given the three input bundles, the four claims hold at every
-fuel — the checker's runs are sound for the collapse-free
-interpretation of the validated annotations. -/
-theorem checkSoundP_of_inputs (hμ : μ.verified = true)
-    (hwin : WhnfInputsP V μ) (hdin : DefEqInputsP μ V)
-    (hiin : InferInputsP V μ) {env : Env} (m : EnvS2Core V env)
-    (φ : Name → Nat) :
-    ∀ fuel : Nat,
-      WhnfCoreClaims2P μ m φ fuel ∧ WhnfClaims2P μ m φ fuel ∧
-        DefEqClaims2P μ m φ fuel ∧ InferClaims2P μ m φ fuel :=
-  checkSound2P (checkStep2P_of_quarters hμ hwin hdin hiin) m φ
+/-! **The four-way milestone forms are RETIRED here** (task #172 B4):
+with the β certificate's inference converted to the io slot, the
+head-normalisation quarter consumes the io claim at the same fuel, so
+`CheckStep2P` (the four-way step) is no longer assemblable from the
+quarters — the five-way ladder below is the (only) closed form, and
+its first four conjuncts are the old conclusion. -/
 
 /-! ## The five-way assembly (the io-license batch)
 
@@ -87,10 +71,15 @@ theorem checkStep2P5_of_quarters (hμ : μ.verified = true)
     (hwin : WhnfInputsP V μ) (hdin : DefEqInputsP μ V)
     (hiin : InferInputsIOP V μ) : CheckStep2P5 μ V :=
   fun env m φ fuel h1 h2 h3 h4 h5 =>
-    ⟨whnfCoreStepP_of hμ hwin env m φ fuel h1 h2 h3 h4,
-     whnfStepP_of hμ hwin env m φ fuel h1 h2 h3 h4,
+    ⟨whnfCoreStepP_of hμ hwin env m φ fuel h1 h2 h3 h4 h5,
+     whnfStepP_of hμ hwin env m φ fuel h1 h2 h3 h4 h5,
      defEqStepP_of hμ hdin env m φ fuel h1 h2 h3 h4,
-     inferStepP_of hiin.base hμ env m φ fuel hμ h1 h2 h3 h4,
+     inferStepP_of hiin.base
+       (fun m' φ' fuel' ihw' ihi' ihio' => sortSemAtIOSP_of
+         (sortSemAtP_of_claims ihw' ihi' (hiin.base.infer_reads m' φ' fuel'))
+         (sortSemAtIOP_of_claims ihw' ihio'
+           (hiin.infer_reads_io m' φ' fuel')))
+       hμ env m φ fuel hμ h1 h2 h3 h4 h5,
      inferStepIOP_of hiin hμ env m φ fuel hμ h1 h2 h3 h4 h5⟩
 
 /-- **The five-way ladder, closed over fuel**: the four sealed claims

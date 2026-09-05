@@ -48,6 +48,12 @@ structure KCache where
   infer : Std.HashMap Expr Expr := {}
   defeq : Std.HashMap (Expr × Expr) Bool := {}
   annot : Std.HashMap Expr Expr := {}
+  /-- The io-grade inference memo (task #170 / #172 B4): the `inferIO`
+  slot's results at the gated mode, split from `infer` per the
+  task-#170 memo ruling (a hit here never serves a full-infer query).
+  At gate-off modes the io slot shares the `infer` memo and this map
+  stays empty. -/
+  inferIO : Std.HashMap Expr Expr := {}
 
 instance : Inhabited KCache := ⟨{}⟩
 
@@ -100,6 +106,16 @@ def cachedFns (mode : CheckMode) (env : Env) : Nat → CoreFns CheckSM :=
       infer := memoE (·.infer) (fun st mp => { st with infer := mp }) r.infer
       defeq := memoB r.defeq
       annotate := memoE (·.annot)
-        (fun st mp => { st with annot := mp }) r.annotate }
+        (fun st mp => { st with annot := mp }) r.annotate
+      -- the io slot (task #170 / #172 B4): its own memo at the gated
+      -- mode (the two-memo ruling); the full memo's wrapper — the same
+      -- closure the `infer` field carries — everywhere else, because
+      -- the two grades are one function there
+      inferIO := if mode.betaGate then
+          memoE (·.inferIO)
+            (fun st mp => { st with inferIO := mp }) r.inferIO
+        else
+          memoE (·.infer)
+            (fun st mp => { st with infer := mp }) r.infer }
 
 end Setlec

@@ -1,9 +1,11 @@
+import Setlec.Verify.InferIOLeaves
 import Setlec.SetP.CtxOkPKit
 import Setlec.SetP.Annot.BitInst
 import Setlec.SetP.Annot.BitInstall
 import Setlec.SetP.Step2.BitLevels
 import Setlec.SetBase.Sat2
 import Setlec.SetBase.WhnfCoreLeaf
+import Setlec.SetP.Claims2PIO
 
 /-!
 # The two head-normalisation quarters, P currency (task #161, P3.4)
@@ -397,13 +399,26 @@ def InferExistsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
       denoteP m.acval env φ d e = some ea →
       ∃ ta, denoteP m.acval env φ d t = some ta
 
+/-- `InferExistsP` at the io slot (task #172 B4): the totality factor
+for a converted call site's inferred type. -/
+def InferExistsIOSP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
+    Setlec.inferTypeIO μ env fuel d e = .ok t →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e →
+    ∀ {ea : AVExpr},
+      CtxOkP m φ d Δa e →
+      denoteP m.acval env φ d e = some ea →
+      ∃ ta, denoteP m.acval env φ d t = some ta
+
 /-! # T4a — the β certificate -/
 
 /-- `BetaCert2D` in the P currency. -/
 def BetaCertP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δa : List AVExpr} {a ty ta : Expr} {aa tya : AVExpr},
-    inferTypeCore μ env fuel d a = .ok ta →
+    Setlec.inferTypeIO μ env fuel d a = .ok ta →
     Setlec.isDefEqCore μ env fuel d ta ty = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
@@ -413,6 +428,7 @@ def BetaCertP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     CtxOkP m φ d Δa ty →
     denoteP m.acval env φ d a = some aa →
     denoteP m.acval env φ d ty = some tya →
+    (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ aa) →
     (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ tya) →
     ∀ ρ : Nat → V, Sat2 V Δa ρ →
       interp2 V ρ aa ∈ˢ interp2 V ρ tya
@@ -423,21 +439,21 @@ along `inferTypeCore_fvarLeaves`; the ascribed type keeps its own, with
 no fuel to raise it to), and the one new input is the inference
 existence factor the dual-success claim withholds. -/
 theorem betaCertP_of_claims (m : EnvS2Core V env) {fuel : Nat}
-    (hexi : InferExistsP μ m φ fuel)
+    (hexi : InferExistsIOSP μ m φ fuel)
     (ihd : DefEqClaims2P μ m φ fuel)
-    (ihi : InferClaims2P μ m φ fuel) :
+    (ihis : InferClaimsIOS2P μ m φ fuel) :
     BetaCertP μ m φ fuel := by
   intro d Δa a ty ta aa tya hta hde hwa hba hLa hwty hbty hLty
-    hCa hCty haa htya hoktya ρ hρ
+    hCa hCty haa htya hoka hoktya ρ hρ
   have hwta : Expr.WScoped d ta :=
-    Setlec.inferTypeCore_WScoped m.wf fuel hta hwa
+    Setlec.inferTypeIO_WScoped m.wf fuel hta hwa
   have hbta : ta.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars m.wf fuel hta hwa hba hLa
-  have hsub := Setlec.inferTypeCore_fvarLeaves m.wf fuel hta hwa
+    Setlec.inferTypeIO_looseBVars m.wf fuel hta hwa hba hLa
+  have hsub := Setlec.inferTypeIO_fvarLeaves m.wf fuel hta hwa
   have hLta : Expr.LeavesBounded ta := fun l hl => hLa l (hsub l hl)
   have hCta : CtxOkP m φ d Δa ta := hCa.of_subset hsub
   obtain ⟨ta', hta'⟩ := hexi hta hwa hba hLa hCa haa
-  obtain ⟨-, hokta, hcon⟩ := ihi hta hwa hba hLa hCa haa hta'
+  obtain ⟨hokta, hcon⟩ := ihis hta hwa hba hLa hCa haa hta' hoka
   have heq := ihd hde hwta hbta hLta hwty hbty hLty hCta hCty hta'
     htya hokta hoktya ρ hρ
   exact heq ▸ hcon ρ hρ
@@ -674,7 +690,8 @@ theorem whnfCore_app_claimP (m : EnvS2Core V env) {fuel : Nat}
         · rw [hz] at hokapp ⊢
           exact AnnotOkP_beta_zero (hokapp ρ hρ)
             (hcert hta hde hws.2 hb.2 hLa hwf'.1 hbf'.1 hLty hCa
-              hCty haa htya (fun ρ' hρ' => AnnotOkP.lam_dom (hokf' ρ' hρ'))
+              hCty haa htya hoka
+              (fun ρ' hρ' => AnnotOkP.lam_dom (hokf' ρ' hρ'))
               ρ hρ)
       · -- the positive arm consumes no certificate at all: this is
         -- the branch a fired gate always lands in (`AnnotOkP_beta_gate`)
@@ -828,6 +845,7 @@ def WhnfCoreStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
+    InferClaimsIO2P μ m φ fuel →
     WhnfCoreClaims2P μ m φ (fuel + 1)
 
 /-- The reduction-loop quarter, P currency. -/
@@ -835,6 +853,7 @@ def WhnfStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
+    InferClaimsIO2P μ m φ fuel →
     WhnfClaims2P μ m φ (fuel + 1)
 
 /-- **The two quarters' routed inputs.**  Six fields where the `…D`
@@ -849,9 +868,11 @@ structure WhnfInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
   /-- the head reduct annotates (`WhnfCoreExists2E`'s transpose) -/
   core_exists : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), WhnfCoreExistsP μ m φ fuel
-  /-- the inferred type annotates (`InferExists2E`'s transpose) -/
+  /-- the inferred type annotates (`InferExists2E`'s transpose), at
+  the io slot (task #172 B4 — the β certificate's inference is a
+  converted call site) -/
   infer_exists : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), InferExistsP μ m φ fuel
+    (fuel : Nat), InferExistsIOSP μ m φ fuel
   /-- the ι clause -/
   iota : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), IotaStepP μ m φ fuel
@@ -874,16 +895,17 @@ currency.**  `hμ` is *unused* (flagged in the module docstring); it is
 carried so the four quarters assemble under one mode hypothesis. -/
 theorem whnfCoreStepP_of (_hμ : μ.verified = true)
     (hin : WhnfInputsP V μ) : WhnfCoreStepP μ V :=
-  fun _env m φ fuel ihwc _ ihd ihi =>
+  fun _env m φ fuel ihwc _ ihd ihi ihio =>
     whnfCore_claimsP m (hin.core_exists m φ fuel)
-      (betaCertP_of_claims m (hin.infer_exists m φ fuel) ihd ihi)
+      (betaCertP_of_claims m (hin.infer_exists m φ fuel) ihd
+        (inferClaimsIOS2P_of ihi ihio))
       (hin.iota m φ fuel) (hin.proj m φ fuel) ihwc
 
 /-- **`whnfStepP_of` — the reduction loop, P currency.**  `hμ` unused,
 as above. -/
 theorem whnfStepP_of (_hμ : μ.verified = true)
     (hin : WhnfInputsP V μ) : WhnfStepP μ V :=
-  fun _env m φ fuel ihwc ihw _ _ =>
+  fun _env m φ fuel ihwc ihw _ _ _ =>
     whnf_claimsP m (hin.core_exists m φ fuel) ihwc
       (hin.nat m φ fuel ihw) (deltaP_of m (hin.defn m))
 

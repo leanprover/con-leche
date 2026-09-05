@@ -48,7 +48,18 @@ theorem ssimI (env : Env) (henv : EnvWF env) : ∀ f, SSimI mode env f
         memoEI_annotate_sim henv
           (fun hs' hden' hw' =>
             annotateBodyI_sim (ssimI env henv f) henv hs' hden' hw')
-          hs hden hw }
+          hs hden hw
+      inferIO := fun hs hden hw => by
+        -- the interned short-bridge (task #172 B4): the io slot IS the
+        -- infer closure, and a full-grade success is an io-grade
+        -- success with the same value
+        intro v' s' hr
+        obtain ⟨hs', hext, v, hrel, F, hF⟩ :=
+          memoEI_infer_sim henv
+            (fun hs' hden' hw' =>
+              inferBodyI_sim (ssimI env henv f) henv hs' hden' hw')
+            hs hden hw v' s' hr
+        exact ⟨hs', hext, v, hrel, F, inferTypeIO_of_full hF⟩ }
 
 /-! ## Entry runners: from a successful interned run to a pure run
 

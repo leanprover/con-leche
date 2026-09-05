@@ -300,7 +300,8 @@ branch is `Red.projArg` — finding 2's rule, and the reason it had to
 exist: *every* non-firing branch of the clause returns the reduced
 scrutinee under the projection. -/
 theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
-    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    {fuel : Nat} (hg : mode.betaGate = false)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihwc : WhnfCoreClaimsR mode m φ fuel) (ihw : WhnfClaimsR mode m φ fuel)
     (ihd : DefEqClaimsR mode m φ fuel) (ihi : InferClaimsR mode m φ fuel) :
     ProjStepR (mode := mode) m φ fuel := by
@@ -353,6 +354,7 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         obtain ⟨TC, hTC0, hTCc, hTCd⟩ := denote_ctorTyR m φ hcl hpsig l0 l1
         -- the certificate pack
         obtain ⟨ta, te, hita, hite⟩ := projCert_inv hcert
+        rw [Setlec.inferTypeIO_off hg] at hita hite
         -- frames for the spine and for the projected field
         have hfrE : ∀ x ∈ e₃.getAppArgs, Expr.WScoped d x ∧
             x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧

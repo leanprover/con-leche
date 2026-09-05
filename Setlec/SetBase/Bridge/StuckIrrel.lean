@@ -57,6 +57,7 @@ them, and the type-former's telescope certificate — the last through
 
 /-- **`StructUnitCertStepR`, proved.** -/
 theorem structUnitCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
+    (hg : mode.betaGate = false)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
     (ihi : InferClaimsR mode m φ fuel)
@@ -74,6 +75,7 @@ theorem structUnitCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
   obtain ⟨ta, wta, T, us', cvT, caps, tb, wtb, hta, hwta, hfn, hfind, hunit,
     hres, hlenArgs, hlenUs, hstrip, htb, hwtb, hdeq, hcerts⟩ :=
     structUnitCert_inv h
+  rw [Setlec.inferTypeIO_off hg] at hta htb
   -- both sides' types, at the `whnf`'d shapes
   obtain ⟨va', WA, hva', hWA, TA, hAI, hAD⟩ :=
     inferShapeR m φ ihw ihi hta hwta hwa hba hLa hCa
@@ -117,7 +119,7 @@ theorem structUnitCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
       frame_declTypeR (cval := m.cval) (φ := φ) (mode := mode) m.wf hfind us' d
         hCa.1
     obtain ⟨ts', rest, hsp', htele⟩ :=
-      certs_teleR m φ hcl ihd ihi _ wta.getAppArgs TFv hcerts hTw hTb hTL hTC
+      certs_teleR m φ hg hcl ihd ihi _ wta.getAppArgs TFv hcerts hTw hTb hTL hTC
         hTFvd (frame_spineR hwtaw hwtab hwtaL hwtaC)
     obtain rfl : ts' = ts := DenoteSpine.det hsp' hspa
     exact DefEq.structUnit hfind hunit hres
@@ -145,7 +147,8 @@ def StuckIrrelStepR {env : Env} (m : EnvR env) (φ : Name → Nat)
 reversed arms are `DefEq.symm` (D2) — which is exactly what the design
 says D2 is there for. -/
 theorem stuckIrrel_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
-    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    {fuel : Nat} (hg : mode.betaGate = false)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
     (ihi : InferClaimsR mode m φ fuel)
     (hpair : PairEtaCertStepR (mode := mode) m φ fuel)
@@ -194,10 +197,10 @@ theorem stuckIrrel_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
   dsimp only at h
   cases r5 with
   | true =>
-    exact structUnitCert_stepR m φ hcl ihw ihd ihi h5 hwa hba hLa hwb hbb
+    exact structUnitCert_stepR m φ hg hcl ihw ihd ihi h5 hwa hba hLa hwb hbb
       hLb hCa hCb hva hvb
   | false =>
-    exact proofIrrel_stepR m φ ihw ihi h hwa hba hLa hwb hbb hLb hCa hCb
+    exact proofIrrel_stepR hg m φ ihw ihi h hwa hba hLa hwb hbb hLb hCa hCb
       hva hvb
 
 end Setlec.SetR

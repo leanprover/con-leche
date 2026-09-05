@@ -319,8 +319,8 @@ effect. -/
 def IState.flushed (s : IState) : IState :=
   { s with
       constTyAt := {}, constValAt := {}, ruleRhsAt := {},
-      whnfCoreC := {}, whnfC := {}, inferC := {}, defeqC := {},
-      annotC := {}, instC := {} }
+      whnfCoreC := {}, whnfC := {}, inferC := {}, inferIOC := {},
+      defeqC := {}, annotC := {}, instC := {} }
 
 def flushS : CheckIM Unit :=
   modify (·.flushed)

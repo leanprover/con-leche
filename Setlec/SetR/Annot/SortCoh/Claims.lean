@@ -1666,7 +1666,7 @@ theorem whnfCore_reidem_const {μ : CheckMode} {env : Env}
         · rw [if_pos hgate] at h
           exact hm.2.2.1 (Nat.le_succ f) (ih h hshape)
         rw [if_neg hgate] at h
-        cases hinf : (Setlec.pureFns μ env f).infer d a₀ with
+        cases hinf : (Setlec.pureFns μ env f).inferIO d a₀ with
         | error err => rw [hinf] at h; exact nomatch h
         | ok ta =>
         rw [hinf] at h

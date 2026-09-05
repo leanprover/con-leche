@@ -73,7 +73,7 @@ theorem annotPwPi_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   unfold annotPwPi
   split
   · exact DiscV.pure trivial
-  · refine DiscV.bind (ih.site_infer henv hw) (fun t ht => ?_)
+  · refine DiscV.bind (ih.site_inferIO henv hw) (fun t ht => ?_)
     refine DiscV.bind (ensureSort_disc ih henv ht) (fun v _ => ?_)
     exact DiscV.pure trivial
 
@@ -86,8 +86,8 @@ theorem annotPwLam_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   unfold annotPwLam
   split
   · exact DiscV.pure trivial
-  · refine DiscV.bind (ih.site_infer henv hw) (fun bt hbt => ?_)
-    refine DiscV.bind (ih.site_infer henv hbt) (fun btt hbtt => ?_)
+  · refine DiscV.bind (ih.site_inferIO henv hw) (fun bt hbt => ?_)
+    refine DiscV.bind (ih.site_inferIO henv hbt) (fun btt hbtt => ?_)
     refine DiscV.bind (ensureSort_disc ih henv hbtt) (fun vb _ => ?_)
     exact DiscV.pure trivial
 
@@ -217,15 +217,15 @@ theorem iotaCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       have hwtb : WScoped d ty ∧ WScoped d body := by
         simpa only [WScoped] using hwty
       show DiscV mode env _
-        ((C : CoreFns CheckSM).infer d arg >>= fun ta =>
+        ((C : CoreFns CheckSM).inferIO d arg >>= fun ta =>
           (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
           if b then iotaCerts C env d (body.instantiate1 arg) rest
           else pure false)
-        ((G : CoreFns CheckSM).infer d arg >>= fun ta =>
+        ((G : CoreFns CheckSM).inferIO d arg >>= fun ta =>
           (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
           if b then iotaCerts G env d (body.instantiate1 arg) rest
           else pure false)
-      refine DiscV.bind (ih.site_infer henv hwarg) (fun ta hta => ?_)
+      refine DiscV.bind (ih.site_inferIO henv hwarg) (fun ta hta => ?_)
       refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
       cases b with
       | true =>
@@ -307,21 +307,21 @@ theorem proofIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     DiscV mode env (fun _ => True) (proofIrrel C env d a b)
       (proofIrrel G env d a b) := by
   unfold proofIrrel
-  refine DiscV.bind (ih.site_infer henv hwa) (fun ta hta => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwa) (fun ta hta => ?_)
   refine DiscV.bind (ih.site_whnf henv hta) (fun w₁ _ => ?_)
   split
-  · refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
+  · refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
     refine DiscV.bind (ih.site_whnf henv htb) (fun w₂ _ => ?_)
     split
     · exact DiscV.pure trivial
     · exact DiscV.pure trivial
-  · refine DiscV.bind (ih.site_infer henv hta) (fun tta htta => ?_)
+  · refine DiscV.bind (ih.site_inferIO henv hta) (fun tta htta => ?_)
     refine DiscV.bind (ih.site_whnf henv htta) (fun w _ => ?_)
     cases w <;> try exact DiscV.pure trivial
     case sort uT =>
       refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okA _ => ?_)
-      refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
-      refine DiscV.bind (ih.site_infer henv htb) (fun ttb httb => ?_)
+      refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
+      refine DiscV.bind (ih.site_inferIO henv htb) (fun ttb httb => ?_)
       refine DiscV.bind (ih.site_whnf henv httb) (fun w' _ => ?_)
       cases w' <;> try exact DiscV.pure trivial
       case sort vT =>
@@ -343,7 +343,7 @@ theorem pairEtaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       exact ⟨hwa.1.1.1.2, hwa.1.1.2⟩
     split
     case _ cvm =>
-      refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
+      refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
       refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwwtb => ?_)
       split
       case _ c' us' A B =>
@@ -519,7 +519,7 @@ theorem structEtaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     DiscV mode env (fun _ => True) (structEtaCert mode C env d a b)
       (structEtaCert mode G env d a b) := by
   unfold structEtaCert
-  refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
   refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
   exact structEtaCertWith_disc ih henv hwa hwb hwtb
 
@@ -528,14 +528,14 @@ theorem structUnitCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     DiscV mode env (fun _ => True) (structUnitCert C env d a b)
       (structUnitCert G env d a b) := by
   unfold structUnitCert
-  refine DiscV.bind (ih.site_infer henv hwa) (fun ta hta => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwa) (fun ta hta => ?_)
   refine DiscV.bind (ih.site_whnf henv hta) (fun wta hwta => ?_)
   split <;> try exact DiscV.pure trivial
   rename_i T us' heqw
   split <;> try exact DiscV.pure trivial
   rename_i cvT caps hfT
   split <;> try exact DiscV.pure trivial
-  refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
   refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
   refine DiscV.bind (ih.site_defeq hwta hwtb) (fun r _ => ?_)
   split <;> try exact DiscV.pure trivial
@@ -553,7 +553,7 @@ theorem etaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       (etaCert mode C env d n₁ ty₁ body₁ m₁ b)
       (etaCert mode G env d n₁ ty₁ body₁ m₁ b) := by
   unfold etaCert
-  refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
   refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
   split <;> try exact DiscV.pure trivial
   rename_i n₂ ty₂ body₂ m₂
@@ -582,8 +582,8 @@ theorem projCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   unfold projCert
   have hwarg : WScoped d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) :=
     wscoped_getD hwe.getAppArgs _
-  refine DiscV.bind (ih.site_infer henv hwarg) (fun ta hta => ?_)
-  refine DiscV.bind (ih.site_infer henv hwe) (fun te hte => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwarg) (fun ta hta => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwe) (fun te hte => ?_)
   exact DiscV.pure trivial
 
 theorem stuckIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
@@ -640,7 +640,7 @@ theorem majorToCtor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have htfC : cvj.type.hasFvar = false := (henv _ (find?_mem hfr)).1
     split
     · -- K branch
-      refine DiscV.bind (ih.site_infer henv hmaj) (fun tm htm => ?_)
+      refine DiscV.bind (ih.site_inferIO henv hmaj) (fun tm htm => ?_)
       refine DiscV.bind (ih.site_whnf henv htm) (fun tmaj htmaj => ?_)
       split <;> try exact DiscV.pure hmaj
       split <;> try exact DiscV.pure hmaj
@@ -655,7 +655,7 @@ theorem majorToCtor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           (fun x hx => htmaj.getAppArgs x (List.mem_of_mem_take hx)))
           (fun rc _ => ?_)
         split
-        · refine DiscV.bind (ih.site_infer henv hwfab)
+        · refine DiscV.bind (ih.site_inferIO henv hwfab)
             (fun tfab htfab => ?_)
           refine DiscV.bind (ih.site_defeq htmaj htfab) (fun rde _ => ?_)
           split
@@ -669,7 +669,7 @@ theorem majorToCtor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       · exact DiscV.pure hmaj
     split
     · -- eta branch
-      refine DiscV.bind (ih.site_infer henv hmaj) (fun tm htm => ?_)
+      refine DiscV.bind (ih.site_inferIO henv hmaj) (fun tm htm => ?_)
       refine DiscV.bind (ih.site_whnf henv htm) (fun tmaj htmaj => ?_)
       split <;> try exact DiscV.pure hmaj
       split <;> try exact DiscV.pure hmaj
@@ -714,7 +714,7 @@ theorem isPropType_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       (isPropType G env d ty) := by
   unfold isPropType
   refine DiscV.bind (ih.site_annotate hwty) (fun ty' hty' => ?_)
-  refine DiscV.bind (ih.site_infer henv hty') (fun s hs => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hty') (fun s hs => ?_)
   refine DiscV.bind (ensureSort_disc ih henv hs) (fun u _ => ?_)
   exact DiscV.liftFueled_true _ _
 
@@ -779,7 +779,7 @@ theorem annotateProjRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     (fun fi hfi => ?_)
   split <;> try exact DiscV.throw _
   refine DiscV.bind (ih.site_annotate hfi) (fun fi' hfi' => ?_)
-  refine DiscV.bind (ih.site_infer henv hfi') (fun sfi₀ hsfi₀ => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hfi') (fun sfi₀ hsfi₀ => ?_)
   refine DiscV.bind (ensureSort_disc ih henv hsfi₀) (fun sfi _ => ?_)
   split
   · -- Prop structure: the field-sort check runs, then (under the
@@ -957,7 +957,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           if betaGateFires mode mb.pw then
             (C : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
           else
-          (C : CoreFns CheckSM).infer d a >>= fun ta =>
+          (C : CoreFns CheckSM).inferIO d a >>= fun ta =>
           (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
           if b then
             (C : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
@@ -973,7 +973,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           if betaGateFires mode mb.pw then
             (G : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
           else
-          (G : CoreFns CheckSM).infer d a >>= fun ta =>
+          (G : CoreFns CheckSM).inferIO d a >>= fun ta =>
           (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
           if b then
             (G : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
@@ -998,7 +998,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       -- site, the other is the pre-gate clause verbatim
       split
       · exact ih.site_whnfCore henv hwred
-      refine DiscV.bind (ih.site_infer henv hwfa.2) (fun ta hta => ?_)
+      refine DiscV.bind (ih.site_inferIO henv hwfa.2) (fun ta hta => ?_)
       refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
       split
       · exact ih.site_whnfCore henv hwred
@@ -1224,7 +1224,7 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hwpe : WScoped d pe := by simpa only [WScoped] using hw
     show DiscV mode env _
       ((C : CoreFns CheckSM).annotate d pe >>= fun e' =>
-        (C : CoreFns CheckSM).infer d e' >>= fun te₀ =>
+        (C : CoreFns CheckSM).inferIO d e' >>= fun te₀ =>
         (C : CoreFns CheckSM).whnf d te₀ >>= fun te =>
         match te.getAppFn with
         | .const T _ =>
@@ -1238,7 +1238,7 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           | none => annotateProjElim C env d sn i te e'
         | _ => annotateProjElim C env d sn i te e')
       ((G : CoreFns CheckSM).annotate d pe >>= fun e' =>
-        (G : CoreFns CheckSM).infer d e' >>= fun te₀ =>
+        (G : CoreFns CheckSM).inferIO d e' >>= fun te₀ =>
         (G : CoreFns CheckSM).whnf d te₀ >>= fun te =>
         match te.getAppFn with
         | .const T _ =>
@@ -1252,7 +1252,7 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           | none => annotateProjElim G env d sn i te e'
         | _ => annotateProjElim G env d sn i te e')
     refine DiscV.bind (ih.site_annotate hwpe) (fun e' he' => ?_)
-    refine DiscV.bind (ih.site_infer henv he') (fun te₀ hte₀ => ?_)
+    refine DiscV.bind (ih.site_inferIO henv he') (fun te₀ hte₀ => ?_)
     refine DiscV.bind (ih.site_whnf henv hte₀) (fun te hte => ?_)
     split <;> try exact annotateProjElim_disc ih henv hte he'
     split <;> try exact annotateProjElim_disc ih henv hte he'
@@ -1378,7 +1378,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
             (fun _ h => h.elim)
       | none =>
         dsimp only
-        refine DiscV.bind (ih.site_infer henv hbt) (fun btt hbtt => ?_)
+        refine DiscV.bind (ih.site_inferIO henv hbt) (fun btt hbtt => ?_)
         refine DiscV.bind (ensureSort_disc ih henv hbtt) (fun v _ => ?_)
         split
         · exact hpure
@@ -1419,6 +1419,174 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split <;> try exact DiscV.throw _
     rename_i hcond
     -- task #161 item B2: the computed two-way residual
+    split
+    · rename_i A _ heq
+      exact DiscV.pure (hww.getAppArgs A (by rw [heq]; simp))
+    · rename_i _ B heq
+      refine DiscV.pure ?_
+      simp only [WScoped]
+      exact ⟨hww.getAppArgs B (by rw [heq]; simp), hwpe⟩
+    · exact DiscV.throw _
+
+/-- The io inference body's walk (task #172 B4): `inferBody_disc` over
+the io-grade views — the recursion sites are the io slot
+(`site_inferIO`), the reduction/conversion sites are the shared knot's,
+and the application clause splits on the (data-only) gate; the gated
+arm consumes no certificate site at all. -/
+theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV mode env (WScoped d)
+      (inferBodyIO mode (CoreFns.ioView C) env d e)
+      (inferBodyIO mode (CoreFns.ioView G) env d e) := by
+  match e with
+  | .bvar _ => exact DiscV.throw _
+  | .letE _ ty v b =>
+    have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
+      simpa only [WScoped] using hw
+    unfold inferBodyIO
+    dsimp only [viewM, Expr.view]
+    simp only [pure_bind]
+    refine DiscV.bind (ih.site_inferIO henv hwtvb.1) (fun tty htty => ?_)
+    refine DiscV.bind (ensureSort_disc ih henv htty) (fun u _ => ?_)
+    refine DiscV.bind (ih.site_inferIO henv hwtvb.2.1) (fun tv htv => ?_)
+    refine DiscV.bind (ih.site_defeq htv hwtvb.1) (fun r _ => ?_)
+    split
+    · exact ih.site_inferIO henv
+        (WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
+    · exact DiscV.throw _
+  | .lit (.strVal s) =>
+    show DiscV mode env _
+      (if strLitSupported env then pure (Expr.const stringName [])
+       else throw (.notImplemented
+         "string literals before the String support declarations"))
+      (if strLitSupported env then pure (Expr.const stringName [])
+       else throw (.notImplemented
+         "string literals before the String support declarations"))
+    split
+    · exact DiscV.pure (by simp [WScoped])
+    · exact DiscV.throw _
+  | .sort u => exact DiscV.pure (by simp [WScoped])
+  | .fvar idx n ty =>
+    have h' : idx < d ∧ WScoped idx ty := by
+      simpa only [WScoped] using hw
+    show DiscV mode env _
+      (if idx < d then pure ty
+       else throw (.invalid "free variable out of scope"))
+      (if idx < d then pure ty
+       else throw (.invalid "free variable out of scope"))
+    split
+    · exact DiscV.pure (WScoped.mono (Nat.le_of_lt h'.1) h'.2)
+    · exact DiscV.throw _
+  | .lit (.natVal n) =>
+    show DiscV mode env _
+      (if natLitSupported env then pure (Expr.const natName [])
+       else throw (.invalid "Nat literal without the Nat basis declarations"))
+      (if natLitSupported env then pure (Expr.const natName [])
+       else throw (.invalid "Nat literal without the Nat basis declarations"))
+    split
+    · exact DiscV.pure (by simp [WScoped])
+    · exact DiscV.throw _
+  | .const n us =>
+    unfold inferBodyIO
+    dsimp only [viewM, Expr.view]
+    simp only [pure_bind]
+    split <;> try exact DiscV.throw _
+    rename_i ci hfn
+    split
+    · refine DiscV.pure ?_
+      obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
+      exact wscoped_instLevels_of_not_hasFvar htf _ _
+    · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+        (fun _ h => h.elim)
+  | .forallE n ty body mb =>
+    have hwtb : WScoped d ty ∧ WScoped d body := by
+      simpa only [WScoped] using hw
+    unfold inferBodyIO
+    dsimp only [viewM, Expr.view]
+    simp only [pure_bind]
+    refine DiscV.bind (ih.site_inferIO henv hwtb.1) (fun tty htty => ?_)
+    refine DiscV.bind (ih.site_whnf henv htty) (fun w hww => ?_)
+    split <;> try exact DiscV.throw _
+    refine DiscV.bind (ih.site_inferIO henv
+      (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
+    refine DiscV.bind (ensureSort_disc ih henv hbt) (fun v _ => ?_)
+    split
+    · split
+      · exact DiscV.pure (by simp [WScoped])
+      · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+          (fun _ h => h.elim)
+    · exact DiscV.pure (by simp [WScoped])
+  | .lam n ty body mb =>
+    have hwtb : WScoped d ty ∧ WScoped d body := by
+      simpa only [WScoped] using hw
+    unfold inferBodyIO
+    dsimp only [viewM, Expr.view]
+    simp only [pure_bind]
+    refine DiscV.bind (ih.site_inferIO henv hwtb.1) (fun tty htty => ?_)
+    refine DiscV.bind (ih.site_whnf henv htty) (fun w hww => ?_)
+    split <;> try exact DiscV.throw _
+    refine DiscV.bind (ih.site_inferIO henv
+      (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
+    have hpure : DiscV mode env
+        (fun r => Expr.WScoped d r)
+        (pure (Expr.forallE n ty (bt.abstract1 d) mb))
+        (pure (Expr.forallE n ty (bt.abstract1 d) mb)) :=
+      DiscV.pure (by
+        simp only [WScoped]
+        exact ⟨hwtb.1, WScoped.abstract1 0 hbt⟩)
+    split
+    · cases body.lamPw with
+      | some pwI =>
+        dsimp only
+        split
+        · exact hpure
+        · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+            (fun _ h => h.elim)
+      | none =>
+        dsimp only
+        refine DiscV.bind (ih.site_inferIO henv hbt) (fun btt hbtt => ?_)
+        refine DiscV.bind (ensureSort_disc ih henv hbtt) (fun v _ => ?_)
+        split
+        · exact hpure
+        · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+            (fun _ h => h.elim)
+    · exact hpure
+  | .app g' a =>
+    have hwfa : WScoped d g' ∧ WScoped d a := by
+      simpa only [WScoped] using hw
+    unfold inferBodyIO
+    dsimp only [viewM, Expr.view]
+    simp only [pure_bind]
+    refine DiscV.bind (ih.site_inferIO henv hwfa.1) (fun tf htf => ?_)
+    refine DiscV.bind (ih.site_whnf henv htf) (fun w hww => ?_)
+    split <;> try exact DiscV.throw _
+    rename_i nw tyw bodyw mbw
+    have hwtb : WScoped d tyw ∧ WScoped d bodyw := by
+      simpa only [WScoped] using hww
+    -- the io gate: data only; the fired arm consumes no site
+    split
+    · exact DiscV.pure (WScoped.instantiate1_gen hwfa.2 0 hwtb.2)
+    · refine DiscV.bind (ih.site_inferIO henv hwfa.2) (fun ta hta => ?_)
+      refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
+      split
+      · exact DiscV.pure (WScoped.instantiate1_gen hwfa.2 0 hwtb.2)
+      · first
+          | exact DiscV.throw _
+          | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+              (fun _ h => h.elim)
+  | .proj sn i pe =>
+    have hwpe : WScoped d pe := by simpa only [WScoped] using hw
+    unfold inferBodyIO
+    dsimp only [viewM, Expr.view]
+    simp only [pure_bind]
+    refine DiscV.bind (ih.site_inferIO henv hwpe) (fun tpe htpe => ?_)
+    refine DiscV.bind (ih.site_whnf henv htpe) (fun w hww => ?_)
+    split <;> try exact DiscV.throw _
+    rename_i Tw usw hfnw
+    split <;> try exact DiscV.throw _
+    rename_i entry hfpw
+    split <;> try exact DiscV.throw _
+    rename_i hcond
     split
     · rename_i A _ heq
       exact DiscV.pure (hww.getAppArgs A (by rw [heq]; simp))

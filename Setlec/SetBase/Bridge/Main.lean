@@ -36,12 +36,12 @@ theorem checkStepR (hg : mode.betaGate = false) : CheckStepR mode := by
   intro env m φ fuel ihwc ihw ihd ihi
   have hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ) := m.cval_closed
   exact ⟨whnfCore_claimsR m φ hg hcl
-      (iota_stepR m φ hcl ihw ihd ihi) (proj_stepR m φ hcl ihwc ihw ihd ihi)
+      (iota_stepR m φ hg hcl ihw ihd ihi) (proj_stepR m φ hg hcl ihwc ihw ihd ihi)
       ihwc ihw ihd ihi,
     whnf_claimsR_closed m φ hcl ihwc ihw,
-    defeq_claimsR_full m φ hcl ihwc ihw ihd ihi,
+    defeq_claimsR_full m φ hg hcl ihwc ihw ihd ihi,
     infer_claimsR m φ hcl
-      (inferPi_stepR m φ hcl ihw ihi) (inferLam_stepR m φ hcl ihw ihi)
+      (inferPi_stepR m φ hcl ihw ihi) (inferLam_stepR hg m φ hcl ihw ihi)
       (inferApp_stepR m φ hcl ihw ihd ihi) (inferLet_stepR m φ hcl ihw ihd ihi)
       (inferProj_stepR m φ hcl ihw ihi)⟩
 

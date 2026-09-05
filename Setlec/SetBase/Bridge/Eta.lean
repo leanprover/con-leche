@@ -51,12 +51,14 @@ def EtaCertStepR {env : Env} (m : EnvR env) (φ : Name → Nat)
 
 /-- **`EtaCertStepR`, proved.** -/
 theorem etaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
-    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    {fuel : Nat} (hg : mode.betaGate = false)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
     (ihi : InferClaimsR mode m φ fuel) : EtaCertStepR (mode := mode) m φ fuel := by
   intro d Δ n₁ ty₁ body₁ b mb h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   obtain ⟨tb, n₂, ty₂, fb, mb₂, htb, hwtb, hdty, hdbody, -⟩ :=
     etaCert_inv h
+  rw [Setlec.inferTypeIO_off hg] at htb
   simp only [Expr.WScoped] at hwa
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hba
   have hLty₁ : Expr.LeavesBounded ty₁ := fun l hl =>

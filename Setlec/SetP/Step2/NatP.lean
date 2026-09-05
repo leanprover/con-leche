@@ -426,7 +426,10 @@ theorem reduceNatReadsP_of (m : EnvS2Core V env) (hlaw : NatOpGuardLawP env)
   have hleaf := reduceNat_natLeafP hlaw h
   obtain ⟨ea', hea'⟩ := denoteP_of_natLeafP (acval := m.acval) hleaf d
   obtain ⟨hws₂, hb₂, hLb₂⟩ := frame_of_natLeafP (d := d) hleaf
-  exact ⟨ea', hea', hws₂, hb₂, hLb₂⟩
+  refine ⟨ea', hea', hws₂, hb₂, hLb₂, ?_⟩
+  intro l hl
+  rw [fvarLeaves_of_natLeafP hleaf] at hl
+  exact nomatch hl
 
 end Setlec.SetR.Interp2
 

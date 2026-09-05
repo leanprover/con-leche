@@ -77,6 +77,18 @@ structure CoreCfg where
   `app-lam` was unmoved).  The `Bool` field's codegen is the retiring
   flag's, exactly. -/
   betaGate : Bool
+  /-- Is the **io-grade knot slot** the io body (task #170 / #172 B4)?
+  Read once per knot level to select what the internal inference call
+  sites run: at `false` the io slot is the full inference body,
+  verbatim (the flag is ignored — the R core and the parity core); at
+  `true` it is `inferBodyIO`, whose application clause skips the
+  per-argument certificate exactly at a validated `.never` binder
+  under the graph-regime license (`Setlec/SetP/IOLicenseP.lean`).
+  Maps to the same mode bit as `betaGate` (`cfgOf` reads
+  `mode.betaGate` for both) — the two skips are sibling licenses of
+  the one validated-annotation regime — but is its own field so an
+  attribution probe can flip one without the other. -/
+  ioGate : Bool
   /-- The verified lanes' extra checks: the λ-codomain sort check and
   the ∀/λ annotation validation.  Carried by the record from B2 on;
   the clauses that read it are `inferBody`'s and `defeqStep`'s, which
@@ -91,6 +103,7 @@ structure CoreCfg where
 No gate, no skip — the census's part 2 §2(b) core. -/
 def cfgR : CoreCfg where
   betaGate := false
+  ioGate := false
   verified := true
   iotaMode := .setModel
 
@@ -100,6 +113,7 @@ Every other certificate is `cfgR`'s — the establishment/consumption
 asymmetry fence (`gate_zero_kind_unreachable`) is why. -/
 def cfgP : CoreCfg where
   betaGate := true
+  ioGate := true
   verified := true
   iotaMode := .setModelP
 
@@ -155,6 +169,7 @@ route C's own discipline (*the config record's fields are the
 divergence list*) applied to the parity side. -/
 def cfgNC : CoreCfg where
   betaGate := false
+  ioGate := false
   verified := false
   iotaMode := .noModel
 
@@ -165,6 +180,7 @@ parameter.  Every field is written so that the projection of
 the mode-parametric towers. -/
 def cfgOf (mode : CheckMode) : CoreCfg where
   betaGate := mode.betaGate
+  ioGate := mode.betaGate
   verified := mode.verified
   iotaMode := mode
 
@@ -205,6 +221,11 @@ scopes.  Every one is `rfl`. -/
 @[simp] theorem cfgP_betaSkip (pw : PropWhen) :
     cfgP.betaSkip pw = pw.isNever := rfl
 @[simp] theorem cfgR_betaGate : cfgR.betaGate = false := rfl
+@[simp] theorem cfgR_ioGate : cfgR.ioGate = false := rfl
+@[simp] theorem cfgP_ioGate : cfgP.ioGate = true := rfl
+@[simp] theorem cfgNC_ioGate : cfgNC.ioGate = false := rfl
+theorem cfgOf_ioGate (mode : CheckMode) :
+    (cfgOf mode).ioGate = mode.betaGate := rfl
 @[simp] theorem cfgP_betaGate : cfgP.betaGate = true := rfl
 @[simp] theorem cfgR_verified : cfgR.verified = true := rfl
 @[simp] theorem cfgP_verified : cfgP.verified = true := rfl

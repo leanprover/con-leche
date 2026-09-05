@@ -191,7 +191,9 @@ private theorem inferReadsIO_app {m : EnvS2Core V env}
     hLf l (inferTypeCoreIO_fvarLeaves m.wf fuel hif hws.1 l hl)
   -- its head normal form, a ∀ — at the FULL lane (the io knot's
   -- reduction fields are the certified knot's)
-  obtain ⟨wa, hwa⟩ := ihw hwf hwtf hbtf hLtf htfa
+  obtain ⟨wa, hwa⟩ := ihw hwf hwtf hbtf hLtf
+    ((hlr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl])).of_subset
+      (inferTypeCoreIO_fvarLeaves m.wf fuel hif hws.1)) htfa
   obtain ⟨-, b'a, -, hb'a, -⟩ := denoteP_forallE_inv hwa
   have hwW : Expr.WScoped d (.forallE n' ty' body' mt') :=
     Setlec.whnf_WScoped m.wf fuel hwf hwtf
@@ -278,7 +280,9 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
     inferTypeCoreIO_looseBVars m.wf fuel htpe hws hb hLpe
   have hLtpe : Expr.LeavesBounded tpe := fun l hl =>
     hLpe l (inferTypeCoreIO_fvarLeaves m.wf fuel htpe hws l hl)
-  obtain ⟨tea, htea⟩ := ihw hwte hwtpe hbtpe hLtpe htpea
+  obtain ⟨tea, htea⟩ := ihw hwte hwtpe hbtpe hLtpe
+    (hlrpe.of_subset
+      (inferTypeCoreIO_fvarLeaves m.wf fuel htpe hws)) htpea
   have hbte : te.looseBVarsBounded 0 = true :=
     Setlec.whnf_looseBVars m.wf fuel hwte hbtpe
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
@@ -337,23 +341,73 @@ theorem inferReadsIOP_zero (m : EnvS2Core V env) :
   rw [Setlec.inferTypeCoreIO_zero] at h
   simp [throw, throwThe, MonadExceptOf.throw] at h
 
-/-- **The io reads residue, DISCHARGED** — at every fuel, from the
-full walk's own routed bundle and nothing else.
+/-! ## The joint walk, at every fuel (task #172 B4)
 
-Two things are worth reading off the signature.  First, `ReadsInputsP`
-is *unchanged*: the io lane introduces no new routed leaf, because
-every leaf the io body can reach (the ι right-hand sides, the literal
-acceleration, the stored constant types, the stored definitions) is
-reached through the **full** knot's reduction fields.  Second, the
-induction is single-statement and one-directional — it consumes
-`whnfReadsP_of hin` at each level and produces nothing the full lane
-could consume, which is the io knot's leaf-lane asymmetry showing up
-in the proof tier. -/
-theorem inferReadsIOP_of {m : EnvS2Core V env}
-    (hin : ReadsInputsP μ m φ) : ∀ fuel, InferReadsIOP m μ φ fuel
-  | 0 => inferReadsIOP_zero m
+The io lane joins the induction: the ι row consumes the same-fuel
+`whnf` and io-infer walks (the io-graded certificate does not traverse
+its arguments, so the fabrication's readability is derived
+semantically — `iotaReadsP_of`'s new premises), which is well-founded
+because `whnfCore` at `fuel + 1` fires `iotaRec` at `fuel`. -/
+def ReadsAll4P {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  WhnfCoreReadsP m μ φ fuel ∧ WhnfReadsP m μ φ fuel ∧
+    InferReadsP m μ φ fuel ∧ InferReadsIOP m μ φ fuel
+
+theorem readsAll4P_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
+    ∀ fuel, ReadsAll4P m μ φ fuel
+  | 0 =>
+    ⟨(readsAllP_zero m).1, (readsAllP_zero m).2.1,
+      (readsAllP_zero m).2.2, inferReadsIOP_zero m⟩
   | fuel + 1 =>
-    inferReadsIOP_succ hin.const_ty (inferReadsIOP_of hin fuel)
-      (whnfReadsP_of hin)
+    let ih := readsAll4P_of hin fuel
+    ⟨whnfCoreReadsP_succ (hin.iota fuel ih.2.1 ih.2.2.2) ih.1 ih.2.1,
+      whnfReadsP_succ ih.1 (hin.nat fuel) (deltaP_of m hin.defn),
+      inferReadsP_succ hin.const_ty ih.2.2.1 ih.2.1,
+      inferReadsIOP_succ hin.const_ty ih.2.2.2 ih.2.1⟩
+
+/-- The `whnfCore` reduct reads, at every fuel. -/
+theorem whnfCoreReadsP_of {m : EnvS2Core V env}
+    (hin : ReadsInputsP μ m φ) : WhnfCoreReadsP m μ φ fuel :=
+  (readsAll4P_of hin fuel).1
+
+/-- **Residue 1/6 — `WhnfReadsP`, discharged outright.** -/
+theorem whnfReadsP_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
+    WhnfReadsP m μ φ fuel :=
+  (readsAll4P_of hin fuel).2.1
+
+/-- **Residue 6/6 — `InferReadsP`, discharged outright.** -/
+theorem inferReadsP_of {m : EnvS2Core V env}
+    (hin : ReadsInputsP μ m φ) : InferReadsP m μ φ fuel :=
+  (readsAll4P_of hin fuel).2.2.1
+
+/-- **The io reads residue, DISCHARGED** — a projection of the joint
+walk. -/
+theorem inferReadsIOP_of {m : EnvS2Core V env}
+    (hin : ReadsInputsP μ m φ) : ∀ fuel, InferReadsIOP m μ φ fuel :=
+  fun fuel => (readsAll4P_of hin fuel).2.2.2
+
+/-- **Residue 2/6 — `WhnfCoreExistsP`, discharged outright.** -/
+theorem whnfCoreExistsP_of {m : EnvS2Core V env}
+    (hin : ReadsInputsP μ m φ) : WhnfCoreExistsP μ m φ fuel := by
+  intro _d _e _e' _Δa hrun hws hb hLb _ea hC hea _hok
+  exact whnfCoreReadsP_of hin hrun hws hb hLb
+    (LeafReadsP.of_ctxOkP hC) hea
+
+/-- **Residue 3/6 — `WhnfCoreReductExistsP`, discharged outright.** -/
+theorem whnfCoreReductExistsP_of' {m : EnvS2Core V env}
+    (hin : ReadsInputsP μ m φ) : WhnfCoreReductExistsP μ m φ fuel :=
+  whnfCoreExistsP_of_reduct (whnfCoreExistsP_of hin)
+
+/-- **Residue 4/6 — `InferExistsP`, discharged outright.** -/
+theorem inferExistsP_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
+    InferExistsP μ m φ fuel := by
+  intro _d _e _t _Δa hrun hws hb hLb _ea hC hea
+  exact inferReadsP_of hin hrun hws hb hLb (LeafReadsP.of_ctxOkP hC)
+    hea
+
+/-- **Residue 5/6 — `DenotePDeltaP`, discharged outright.** -/
+theorem denotePDeltaP_of {m : EnvS2Core V env}
+    (hin : ReadsInputsP μ m φ) : DenotePDeltaP m φ :=
+  denotePDeltaP_of_fields m hin.defn
 
 end Setlec.SetR.Interp2

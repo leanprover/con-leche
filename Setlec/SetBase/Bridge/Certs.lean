@@ -49,7 +49,8 @@ theorem DenoteSpine.det {cval : TConstVal} {env : Env} {φ : Name → Nat}
 /-- **A certified spine is a `Tele`.**  The spine's denotation is
 existential (the inference claim *produces* it), as on the TT lane. -/
 theorem certs_teleR {env : Env} (m : EnvR env) (φ : Name → Nat)
-    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    {fuel : Nat} (hg : mode.betaGate = false)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihd : DefEqClaimsR mode m φ fuel) (ihi : InferClaimsR mode m φ fuel) :
     ∀ {d : Nat} {Δ : List VExpr} (ty : Expr) (args : List Expr) (T : VExpr),
       iotaCertsP mode env fuel d ty args = .ok true →
@@ -80,6 +81,7 @@ theorem certs_teleR {env : Env} (m : EnvR env) (φ : Name → Nat)
     | .proj _ _ _, hc => exact nomatch hc
     | .forallE n dom body mt, hc =>
     obtain ⟨ta, hta, hde, hrest⟩ := iotaCerts_step_inv hc
+    rw [Setlec.inferTypeIO_off hg] at hta
     obtain ⟨haw, hab, haLb, haC⟩ := hargs a List.mem_cons_self
     obtain ⟨hdomw, hbodyw⟩ : Expr.WScoped d dom ∧ Expr.WScoped d body := by
       simpa [Expr.WScoped] using hwty

@@ -325,6 +325,13 @@ structure IState where
   empty — on the default (fully certified) path, which never builds
   `coreKnotF`; see `Setlec/Kernel/CoreIO.lean`. -/
   inferFC : Std.HashMap EIdx EIdx := {}
+  /-- **The io-grade inference memo** (task #170 / #172 B4): results of
+  the certified knot's `inferIO` slot at the gated mode, kept apart
+  from `inferC` per the task-#170 memo ruling (a hit in the io memo
+  never serves a full-infer query — it witnesses fewer checks than the
+  full claims consume).  The interned twin of `CState.inferIOC`.  At
+  gate-off modes the slot shares `inferC` and this map stays empty. -/
+  inferIOC : Std.HashMap EIdx EIdx := {}
   defeqC : Std.HashMap (EIdx × EIdx) Bool := {}
   annotC : Std.HashMap EIdx EIdx := {}
   lsimpC : EStore.LMemo := {}
@@ -805,6 +812,18 @@ structure CoreFnsI where
   infer : Nat → EIdx → CheckIM EIdx
   defeq : Nat → EIdx → EIdx → CheckIM Bool
   annotate : Nat → EIdx → CheckIM EIdx
+  /-- Type inference at the **infer-only grade** (task #170 / #172 B4)
+  — the interned twin of `CoreFns.inferIO` (`Setlec/Kernel/Core.lean`):
+  what every internal inference call site runs.  The knot selects the
+  grade's meaning per mode: the full `infer` at gate-off modes, the io
+  body (own memo, `IState.inferIOC`) at the gated mode. -/
+  inferIO : Nat → EIdx → CheckIM EIdx
+
+/-- The io-grade view (twin of `CoreFns.ioView`): the record whose
+full-grade `infer` slot is the io slot, so a body written against
+`r.infer` recurses at the io grade when handed `r.ioView`. -/
+def CoreFnsI.ioView (r : CoreFnsI) : CoreFnsI :=
+  { r with infer := r.inferIO }
 
 /-- Twin of `unfoldDefinition` (monadic: the unfolded value is interned
 through the `(name, levels)` cache).  Like the spec, theorem values
@@ -934,7 +953,7 @@ def iotaCertsIAux (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     match ← viewI ty with
     | some (.forallE _ dom body _) => do
       let dom' ← instListM dom acc
-      let ta ← r.infer depth arg
+      let ta ← r.inferIO depth arg
       if ← r.defeq depth ta dom' then
         iotaCertsIAux r fe depth body (arg :: acc) rest
       else pure false
@@ -986,24 +1005,24 @@ def defeqSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
 /-- Twin of `proofIrrel`. -/
 def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     CheckIM Bool := do
-  let ta ← r.infer depth a
+  let ta ← r.inferIO depth a
   let wta ← r.whnf depth ta
   if ← withStore (fun st => isUnitLikeTyI fe st wta) then do
-    let tb ← r.infer depth b
+    let tb ← r.inferIO depth b
     let wtb ← r.whnf depth tb
     if ← withStore (fun st => isUnitLikeTyI fe st wtb) then
       pure true
     else
       pure false
   else do
-    let tta ← r.infer depth ta
+    let tta ← r.inferIO depth ta
     let wtta ← r.whnf depth tta
     match ← viewI wtta with
     | some (.sort uT) => do
       let z ← internLM .zero
       let okA ← liftFueled "level comparison" (← isEquivLM uT z)
-      let tb ← r.infer depth b
-      let ttb ← r.infer depth tb
+      let tb ← r.inferIO depth b
+      let ttb ← r.inferIO depth tb
       let wttb ← r.whnf depth ttb
       match ← viewI wttb with
       | some (.sort vT) => do
@@ -1035,7 +1054,7 @@ def pairEtaCertI (_mode : CheckMode) (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             let cn ← readbackNM c
             match fe.find? cn with
             | some (.ctorInfo _cvm 2 2) => do
-              let tb ← r.infer depth b
+              let tb ← r.inferIO depth b
               let wtb ← r.whnf depth tb
               match ← viewI wtb with
               | some (.app g₂ B) =>
@@ -1171,14 +1190,14 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 /-- Twin of `structEtaCert`. -/
 def structEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     CheckIM Bool := do
-  let tb ← r.infer depth b
+  let tb ← r.inferIO depth b
   let wtb ← r.whnf depth tb
   structEtaCertWithI mode r fe depth a b wtb
 
 /-- Twin of `structUnitCert`. -/
 def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     CheckIM Bool := do
-  let ta ← r.infer depth a
+  let ta ← r.inferIO depth a
   let wta ← r.whnf depth ta
   match ← withStore (fun st => st.getNode (st.getAppFnI wta)) with
   | some (.const T us') => do
@@ -1191,7 +1210,7 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
           targs.length = caps.unitParams ∧
           us'.length = cvT.levelParams.length ∧
           (cvT.type.stripPis caps.unitParams).isSome = true then do
-        let tb ← r.infer depth b
+        let tb ← r.inferIO depth b
         let wtb ← r.whnf depth tb
         if ← r.defeq depth wta wtb then do
           let tyT ← constTyAtM fe T Tn us'
@@ -1206,7 +1225,7 @@ spec). -/
 def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
     (n₁ : NIdx) (ty₁ body₁ : EIdx) (m₁ : IBinderMeta) (b : EIdx) :
     CheckIM Bool := do
-  let tb ← r.infer depth b
+  let tb ← r.inferIO depth b
   let wtb ← r.whnf depth tb
   match ← viewI wtb with
   | some (.forallE _ ty₂ _ m₂) => do
@@ -1246,7 +1265,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         match fe.find? T with
         | some (.indInfo cvT caps) =>
           if caps.ruleK = true ∧ cnF = 0 then do
-            let tmaj₀ ← r.infer depth major
+            let tmaj₀ ← r.inferIO depth major
             let tmaj ← r.whnf depth tmaj₀
             match ← withStore (fun st => st.getNode (st.getAppFnI tmaj)) with
             | some (.const T' ust) =>
@@ -1273,7 +1292,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       -- #49/#71; arena bad/098_ruleKbad);
                       -- `proofIrrelI` stays as the soundness
                       -- certificate
-                      let tfab ← r.infer depth fab
+                      let tfab ← r.inferIO depth fab
                       if ← r.defeq depth tmaj tfab then
                         if ← proofIrrelI r fe depth fab major then
                           pure fab
@@ -1286,7 +1305,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             | _ => pure major
           else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
               Name.isProjFnShape recName = false then do
-            let tmaj₀ ← r.infer depth major
+            let tmaj₀ ← r.inferIO depth major
             let tmaj ← r.whnf depth tmaj₀
             match ← withStore (fun st => st.getNode (st.getAppFnI tmaj)) with
             | some (.const T' ust) => do
@@ -1461,8 +1480,8 @@ def projCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
   let bvar0 ← internI (.bvar 0)
   let args ← withStore (·.getAppArgsI e₂)
   let arg := args.getD (nP + i) bvar0
-  let _ta ← r.infer depth arg
-  let _te ← r.infer depth e₂
+  let _ta ← r.inferIO depth arg
+  let _te ← r.inferIO depth e₂
   pure true
 
 mutual
@@ -1489,7 +1508,8 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         if betaGateFires mode mb.pw then
           betaPeelI r fe depth k body [a] rest
         else do
-          let ta ← r.infer depth a
+          -- task #172 B4: the β certificate's inference at the io grade
+          let ta ← r.inferIO depth a
           if ← r.defeq depth ta ty then
             betaPeelI r fe depth k body [a] rest
           else do
@@ -1528,7 +1548,8 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           betaPeelI r fe depth k body (a :: acc) rest
         else do
           let ty' ← instListM ty acc
-          let ta ← r.infer depth a
+          -- task #172 B4: the io grade (see `whnfAppI`)
+          let ta ← r.inferIO depth a
           if ← r.defeq depth ta ty' then
             betaPeelI r fe depth k body (a :: acc) rest
           else do
@@ -1735,7 +1756,7 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
   | some (.lam ..) => pure ()
   | _ =>
     if mode.verified then
-      let btt ← r.infer (d + k) bt
+      let btt ← r.inferIO (d + k) bt
       let wbtt ← r.whnf (d + k) btt
       match ← viewI wbtt with
       | some (.sort vb) =>
@@ -2110,7 +2131,7 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bo
 def isPropTypeI (r : CoreFnsI) (_fe : FEnv) (depth : Nat) (ty : EIdx) :
     CheckIM Bool := do
   let ty' ← r.annotate depth ty
-  let tty ← r.infer depth ty'
+  let tty ← r.inferIO depth ty'
   let s ← ensureSortI r depth tty
   let z ← internLM .zero
   liftFueled "level comparison" (← isEquivLM s z)
@@ -2158,7 +2179,7 @@ def annotateProjRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         match ← pisToLamsM cnF tel fieldBvar with
         | some minor => do
           let fi' ← r.annotate depth fi
-          let tfi ← r.infer depth fi'
+          let tfi ← r.inferIO depth fi'
           let sfi ← ensureSortI r depth tfi
           if structProp then do
             let z ← internLM .zero
@@ -2266,7 +2287,7 @@ def annotPwPiI (r : CoreFnsI) (depth : Nat) (body' : EIdx) :
   match ← viewI body' with
   | some (.forallE _ _ _ mbT) => pure mbT.pw
   | _ => do
-    let bt ← r.infer depth body'
+    let bt ← r.inferIO depth body'
     let v ← ensureSortI r depth bt
     withStore fun st => (st.zeronessOfLIGo {} v).1
 
@@ -2315,8 +2336,8 @@ def annotPwLamI (r : CoreFnsI) (depth : Nat) (body' : EIdx) :
   match ← viewI body' with
   | some (.lam _ _ _ mbT) => pure mbT.pw
   | _ => do
-    let bt ← r.infer depth body'
-    let btt ← r.infer depth bt
+    let bt ← r.inferIO depth body'
+    let btt ← r.inferIO depth bt
     let vb ← ensureSortI r depth btt
     withStore fun st => (st.zeronessOfLIGo {} vb).1
 
@@ -2417,7 +2438,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       r.annotate depth ob
     | some (.proj sn i pe) => do
       let e' ← r.annotate depth pe
-      let tpe ← r.infer depth e'
+      let tpe ← r.inferIO depth e'
       let te ← r.whnf depth tpe
       match ← withStore (fun st => st.getNode (st.getAppFnI te)) with
       | some (.const T _) => do
@@ -2474,7 +2495,8 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
       infer := fun _ _ => throw (.internal "fuel exhausted: infer")
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
+      annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+      inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   | fuel + 1 =>
     -- perf-eng E7: the previous fuel level is built at most once per
     -- record (Thunk-cached) instead of once per cache-missing call —
@@ -2491,7 +2513,17 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       defeq := memoBI
         (fun d a b => defeqBodyI mode prev.get fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI mode prev.get fe d e) }
+        (fun d e => annotateBodyI mode prev.get fe d e)
+      -- **The io slot, interned tier** (task #172 B4): bound to the
+      -- full inference closure at EVERY mode — this retiring core
+      -- deliberately does not take the io skips (the shipped P core is
+      -- the cached-parsed one; DESIGN.md B4 seal, "the interned
+      -- short-bridge").  Internal call sites therefore run full
+      -- inference here: strictly more checking than the io grade, and
+      -- the simulation clause is the io weakening
+      -- (`inferTypeCoreIO_of_full`).
+      inferIO := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
+          (fun d e => inferBodyI mode prev.get fe d e) }
 
 /-! ## Entry runners
 

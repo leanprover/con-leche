@@ -109,6 +109,79 @@ theorem inferTypeCoreIO_zero (env : Env) (d : Nat) (e : Expr) :
     inferTypeCoreIO mode env 0 d e =
       throw (.internal "fuel exhausted: infer") := rfl
 
+/-! ## The io slot (task #172 B4)
+
+The executable knot's `inferIO` slot, related to the two named lanes:
+at a gate-off mode it **is** `inferTypeCore` (`inferTypeIO_off` — the
+task-#170 R clause, "infer_only is just equivalent to infer"), and at
+the gated mode it **is** the leaf-lane `inferTypeCoreIO` the io claims
+are stated at (`inferTypeIO_on`).  Between them every internal-infer
+inversion below can expose `inferTypeIO` runs and let each tower
+collapse them to its own lane. -/
+
+@[simp] theorem pureFns_inferIO (env : Env) (f d : Nat) (e : Expr) :
+    (pureFns mode env (f + 1)).inferIO d e =
+      if mode.betaGate then
+        inferBodyIO mode (CoreFns.ioView (pureFns mode env f)) env d e
+      else inferBody mode (pureFns mode env f) env d e := rfl
+
+theorem inferTypeIO_succ (env : Env) (f d : Nat) (e : Expr) :
+    inferTypeIO mode env (f + 1) d e =
+      if mode.betaGate then
+        inferBodyIO mode (CoreFns.ioView (pureFns mode env f)) env d e
+      else inferBody mode (pureFns mode env f) env d e := rfl
+
+theorem inferTypeIO_def (env : Env) (f d : Nat) (e : Expr) :
+    (pureFns mode env f).inferIO d e = inferTypeIO mode env f d e := rfl
+
+theorem inferTypeIO_zero (env : Env) (d : Nat) (e : Expr) :
+    inferTypeIO mode env 0 d e =
+      throw (.internal "fuel exhausted: infer") := rfl
+
+/-- **The gate-off collapse**: at a mode whose β/io gate bit is off the
+io slot is full inference, definitionally after one rewrite — the
+task-#170 R clause as a theorem.  This is what keeps every R-tower
+statement verbatim: an inversion exposing an `inferTypeIO` run hands
+the R side an `inferTypeCore` run through this equation. -/
+theorem inferTypeIO_off (hg : mode.betaGate = false) (env : Env)
+    (f d : Nat) (e : Expr) :
+    inferTypeIO mode env f d e = inferTypeCore mode env f d e := by
+  cases f with
+  | zero => rfl
+  | succ f => rw [inferTypeIO_succ, hg]; rfl
+
+/-- `inferBodyIO` reads exactly three fields of its record (`whnf`,
+`infer`, `defeq`); two records agreeing there run it identically. -/
+theorem inferBodyIO_congr {r₁ r₂ : CoreFns CheckM} {env : Env}
+    (hw : r₁.whnf = r₂.whnf) (hi : r₁.infer = r₂.infer)
+    (hd : r₁.defeq = r₂.defeq) (d : Nat) (e : Expr) :
+    inferBodyIO mode r₁ env d e = inferBodyIO mode r₂ env d e := by
+  cases r₁; cases r₂
+  dsimp only at hw hi hd
+  subst hw; subst hi; subst hd
+  rfl
+
+/-- **The gated-mode identification**: at the gated mode the executable
+io slot runs the leaf-lane `inferTypeCoreIO` — the io claims' stated
+subject — level for level.  (The two ties differ only in which record
+carries the io recursion: `CoreFns.ioView` of the knot versus the leaf
+knot; `inferBodyIO_congr` plus this induction identifies them.) -/
+theorem inferTypeIO_on (hg : mode.betaGate = true) (env : Env) :
+    ∀ (f d : Nat) (e : Expr),
+      inferTypeIO mode env f d e = inferTypeCoreIO mode env f d e
+  | 0, _, _ => rfl
+  | f + 1, d, e => by
+    rw [inferTypeIO_succ, hg, if_pos rfl, inferTypeCoreIO_succ]
+    exact inferBodyIO_congr (mode := mode)
+      (r₁ := (pureFns mode env f).ioView) (r₂ := pureFnsIO mode env f)
+      (funext fun d' => funext fun e' => (pureFnsIO_whnf env f d' e').symm)
+      (funext fun d' => funext fun e' => by
+        show inferTypeIO mode env f d' e' = (pureFnsIO mode env f).infer d' e'
+        rw [inferTypeIO_on hg env f d' e']
+        exact (inferIO_def (mode := mode) env f d' e').symm)
+      (funext fun d' => funext fun a => funext fun b =>
+        (pureFnsIO_defeq env f d' a b).symm) d e
+
 theorem whnfCore_def (env : Env) (f d : Nat) (e : Expr) :
     (pureFns mode env f).whnfCore d e = whnfCore mode env f d e := rfl
 

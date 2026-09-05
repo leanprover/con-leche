@@ -222,7 +222,7 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
           dsimp only
           exact inferLamsOutC_sim hs₅ hstk hQcur
     simp only [cfgOf_verified, hv, ↓reduceIte]
-    refine SimC.bind (ih.infer hs₂ hbtd hwbt)
+    refine SimC.bind (ih.inferIO hs₂ hbtd hwbt)
       (fun s₃ btt bttx hs₃ hPbtt => ?_)
     obtain ⟨hbttd, hwbtt⟩ := hPbtt
     refine SimC.bind (ih.whnf hs₃ hbttd hwbtt)
@@ -560,7 +560,7 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-chain)")
         | none => do
-          let btt ← (fueledFns mode env).infer (d + 1) bt
+          let btt ← (fueledFns mode env).inferIO (d + 1) bt
           let vb ← ensureSort (fueledFns mode env) env (d + 1) btt
           unless (Level.zeronessOf vb).equiv mbx.pw do
             throw (.notImplemented
@@ -575,7 +575,7 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
                 throw (.notImplemented
                   "sort-annotation mismatch (lam-cod-chain)")
             | none => do
-              let btt ← inferTypeCore mode env F (d + 1) bt
+              let btt ← inferTypeIO mode env F (d + 1) bt
               let vb ← ensureSortCore mode env F (d + 1) btt
               unless (Level.zeronessOf vb).equiv mbx.pw do
                 throw (.notImplemented
@@ -629,7 +629,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
               throw (.notImplemented
                 "sort-annotation mismatch (lam-cod-chain)")
           | none => do
-            let btt ← (fueledFns mode env).infer (d + 1) bt
+            let btt ← (fueledFns mode env).inferIO (d + 1) bt
             let vb ← ensureSort (fueledFns mode env) env (d + 1) btt
             unless (Level.zeronessOf vb).equiv
                 (⟨mbbi, mbpw⟩ : BinderMeta).pw do
@@ -706,7 +706,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
         rw [if_neg (by simp [hv])] at htail
         exact htail
       rw [if_pos hv] at htail ⊢
-      rw [infer_def] at htail
+      rw [inferTypeIO_def] at htail
       obtain ⟨btt, hbtt, htail⟩ := bind_okB htail
       rw [hbtt, okB_bind]
       rw [ensureSort_def] at htail
@@ -991,7 +991,7 @@ theorem annotPwPiC_sim (ih : SSimC mode env f) {d : Nat}
     exact SimC.pure hs rfl
   all_goals
     dsimp only [ExprC.view, Expr.forallPw]
-    refine SimC.bind (ih.infer hs hl' hw)
+    refine SimC.bind (ih.inferIO hs hl' hw)
       (fun s₂ bt btx hs₂ hPbt => ?_)
     obtain ⟨hbtd, hwbt⟩ := hPbt
     refine SimC.bind (ensureSortC_sim ih hs₂ hbtd hwbt)
@@ -1021,10 +1021,10 @@ theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
     exact SimC.pure hs rfl
   all_goals
     dsimp only [ExprC.view, Expr.lamPw]
-    refine SimC.bind (ih.infer hs hl' hw)
+    refine SimC.bind (ih.inferIO hs hl' hw)
       (fun s₂ bt btx hs₂ hPbt => ?_)
     obtain ⟨hbtd, hwbt⟩ := hPbt
-    refine SimC.bind (ih.infer hs₂ hbtd hwbt)
+    refine SimC.bind (ih.inferIO hs₂ hbtd hwbt)
       (fun s₃ btt bttx hs₃ hPbtt => ?_)
     obtain ⟨hbttd, hwbtt⟩ := hPbtt
     refine SimC.bind (ensureSortC_sim ih hs₃ hbttd hwbtt)
