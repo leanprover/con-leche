@@ -1,4 +1,4 @@
-import Setlec.SetBase.Decl
+import Setlec.SetBase.DeclIndRun
 
 /-!
 # `DeclDirectR`: the direct-structure declaration relation (task #175 wiring, W4)
@@ -115,5 +115,30 @@ theorem declDirectR_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
         exact ⟨env₄, hstep, ih env₄ h⟩
   · intro h
     simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-! ## The run-level dispatch
+
+`checkDeclRun_ofEnvRE`'s `Ind` slot, post-#175: the direct arm is
+already a run relation, so the dispatch pairs it with `DeclIndRunR`. -/
+
+/-- The `.indDecl` dispatch at the run level. -/
+def DeclIndRunDispatchR (μ : CheckMode) (F : Nat) (env : Env)
+    (block : List ConstantInfo) (env₂ : Env) : Prop :=
+  match Setlec.directParts? env block with
+  | some p => DeclDirectR μ F env p env₂
+  | none => DeclIndRunR μ F env block env₂
+
+/-- Pre-flip the run dispatch **is** the modeled run record. -/
+theorem declIndRunDispatchR_eq_ind {μ : CheckMode} {F : Nat}
+    {env : Env} {block : List ConstantInfo} {env₂ : Env} :
+    DeclIndRunDispatchR μ F env block env₂
+      ↔ DeclIndRunR μ F env block env₂ := by
+  rw [DeclIndRunDispatchR]
+  have hnone : Setlec.directParts? env block = none := by
+    unfold Setlec.directParts?
+    cases Setlec.directPartsCore? block with
+    | none => rfl
+    | some p => simp [Setlec.directStructsEnabled]
+  rw [hnone]
 
 end Setlec.SetR
