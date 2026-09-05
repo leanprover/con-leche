@@ -1457,7 +1457,7 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
     rw [instLevelParamsGo.eq_def]
     split
     · rename_i hcut
-      exact ⟨hm, (hasLP_false (by simpa using hcut)).symm⟩
+      exact ⟨hm, (hasLP_false (by simp)).symm⟩
     · split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ hhit)⟩
@@ -1467,7 +1467,7 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
     rw [instLevelParamsGo.eq_def]
     split
     · rename_i hcut
-      exact ⟨hm, (hasLP_false (by simpa using hcut)).symm⟩
+      exact ⟨hm, (hasLP_false (by simp)).symm⟩
     · split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ hhit)⟩

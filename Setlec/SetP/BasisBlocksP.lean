@@ -875,6 +875,7 @@ theorem extendNatP (mp : EnvS2PM V μ env)
     rw [hguard] at hg
     exact nomatch hg
   · exact fun m₂ hac φ => recRulesP_cons_fresh mp (c₀ := natA) hfresh
+      (fun _ h => nomatch h)
       (fun _ _ _ _ h => nomatch h) m₂ hac φ
 
 /-- **`Nat.zero`, installed at the P tier.** -/
@@ -913,6 +914,7 @@ theorem extendNatZeroP (mp : EnvS2PM V μ env)
     rw [hguard] at hg
     exact nomatch hg
   · exact fun m₂ hac φ => recRulesP_cons_fresh mp (c₀ := natZeroA)
+      (hntc := fun _ h => nomatch h)
       hfresh (fun _ _ _ _ h => nomatch h) m₂ hac φ
 
 /-- **`Nat.succ`, installed at the P tier** — the cons where the
@@ -973,6 +975,7 @@ theorem extendNatSuccP (mp : EnvS2PM V μ env)
         (natzero_mem : (natzero : V) ∈ˢ omega),
       by simpa [interp2_const, bval2] using natSuccV2_mem V⟩
   · exact fun m₂ hac φ => recRulesP_cons_fresh mp (c₀ := natSuccA)
+      (hntc := fun _ h => nomatch h)
       hfresh (fun _ _ _ _ h => nomatch h) m₂ hac φ
 
 /-! ### The two firing rules

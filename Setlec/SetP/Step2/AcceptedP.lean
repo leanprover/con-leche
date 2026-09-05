@@ -199,7 +199,10 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       obtain ⟨-, -, hi2, -⟩ := projPinsP m.proj_ok hfe hnat
       obtain ⟨pa, hpa⟩ := ih htpe hws hb (fun l hl =>
         hL l (by simpa [Expr.fvarLeaves] using hl))
-      exact ⟨_, by rw [denoteP_proj, hpa]; exact if_pos hi2⟩
+      exact ⟨_, by
+        rw [denoteP_proj_pair m.acval (env := env) (φ := φ) _ _ _ _
+          (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf'), hpa]
+        exact if_pos hi2⟩
     | .letE n ty val body =>
       obtain ⟨tty, s, tv, htty, -, htv, -, hbody⟩ :=
         Setlec.inferTypeCore_letE_inv h

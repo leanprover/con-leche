@@ -59,6 +59,7 @@ def MemberEtaLawP (V : Type w) [SetTheory V] : Prop :=
     BlockInstalledTT blockNames env mp.base2.cvalE →
     BlockAcvalInstalled blockNames env mp.base2.acval →
     c₀.toConstantVal = cvA → c₀.name = cvA.name →
+    (∀ entry, c₀ = .projInfo entry → entry.tower = false) →
     ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
       caps.eta = true → Setlec.reservedBasisNames.contains T = false →
@@ -175,10 +176,17 @@ theorem memberInstallPM (hetaP : MemberEtaLawP V)
     indMemberP mp hkind hfreshA hnresA hmE hmlps
       (by rw [htypeA]; exact htr) hwf₁
       (memberKeyP mp hmv hI hIA)
-      (fun m₂ hac => capsOkP_cons_member mp hfresh0 hc₀cv hc₀name
+      (fun m₂ hac => capsOkP_cons_member mp hfresh0
+        (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+              intro _ h <;> exact nomatch h)
+        hc₀cv hc₀name
         hpshape0 hbn hpinsA hEC hBP
         (fun T cvT caps hfT hcape hresT hp h0 hbT hbC hfamT m₃ hac₃ φ' =>
-          hetaP mp hmv hI hIA hc₀cv hc₀name T cvT caps hfT hcape hresT
+          hetaP mp hmv hI hIA hc₀cv hc₀name
+            (by rcases hkind with ⟨caps2, rfl⟩ | ⟨nP2, nF2, rfl⟩
+                  | ⟨mI2, rP2, rfl⟩ <;>
+                intro _ h <;> exact nomatch h)
+            T cvT caps hfT hcape hresT
             hp h0 hbT hbC hfamT m₃ hac₃ φ')
         (fun cvT caps hceq hcapu hresT hpT m₃ hac₃ φ' =>
           hunitP mp hmv hI hIA hc₀cv hc₀name cvT caps hceq hcapu hresT

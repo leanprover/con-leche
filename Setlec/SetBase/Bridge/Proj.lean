@@ -148,8 +148,10 @@ theorem denote_entryTyR {env : Env} (m : EnvR env) (φ : Name → Nat)
       (denote_pairFstTy_eq (cval := m.cval) (φ := φ) hpsig l0 l1)
     exact ⟨_, denote_pairFstTy_eq hpsig l0 l1, hc, hd⟩
   · obtain ⟨hc, hd⟩ := denote_closedExprR hcl hnf hbd
-      (denote_pairSndTy_eq (cval := m.cval) (φ := φ) hpsig l0 l1)
-    exact ⟨_, denote_pairSndTy_eq hpsig l0 l1, hc, hd⟩
+      (denote_pairSndTy_eq (cval := m.cval) (φ := φ) hpsig
+        (fun e he => m.proj_ok.towerFree _ _ _ he) l0 l1)
+    exact ⟨_, denote_pairSndTy_eq hpsig
+      (fun e he => m.proj_ok.towerFree _ _ _ he) l0 l1, hc, hd⟩
 
 /-- **`InferProjStepR`, proved** (I9).  Head-match only — task #129's
 `projParamCert` was TT-lane-only and is deleted (task #161, item A). -/
@@ -225,7 +227,8 @@ theorem inferProj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     refine ⟨.proj i vp, RV, ?_, hRV, RV,
       Infer.proj hfe hnat (by rw [hspt.length, hlenArgs]) hlenUs hpsig
         (by rw [← hlenT]) hTP0 hTPc hpres hpI hpD, DefEq.refl⟩
-    rw [denote_proj, hvp]
+    rw [denote_proj_pair m.cval env φ d sn i pe
+      (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf'), hvp]
     dsimp only
     rw [if_pos hi2]
   · exact nomatch hvT

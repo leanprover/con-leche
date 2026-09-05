@@ -151,7 +151,8 @@ non-`ind` kinds have run-only bridges (`checkDeclRun_of`,
 reads, and no step below changed a line. -/
 theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvS2PM V μ env) (hE : EtaFamiliesClosed env)
-    (hrun : DeclRunR μ F (DeclIndRunR μ F env) env d env₂) :
+    (hrun : DeclRunR μ F (Setlec.SetR.DeclIndRunDispatchR μ F env)
+      env d env₂) :
     EnvSPOk V μ env₂ := by
   -- the η half: `declEtaStepRun` (task #161 S3, the census's C4), now
   -- MODEL-FREE at every kind.  S3's stop-and-name left `indDecl`'s
@@ -159,7 +160,8 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
   -- (`SetBase/IndBlockR.lean`) proves it from `DeclIndR` alone, so the
   -- fold consults no install obligation for its η half at all.
   refine ⟨?_, Setlec.SetR.declEtaStepRun
-    (fun h' => Setlec.SetR.declIndEtaClosedRun hE h') hE hrun⟩
+    (fun h' => Setlec.SetR.declIndEtaClosedRun hE
+      (Setlec.SetR.declIndRunDispatchR_eq_ind.mp h')) hE hrun⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := hrun
@@ -180,7 +182,9 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
     exact harvestOpaqueP hμ mp hrun
   | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
   | basisDecl kind => exact basisStepPB_of mp hrun
-  | indDecl block => exact indStepPB_of hμ mp hE hrun
+  | indDecl block =>
+    exact indStepPB_of hμ mp hE
+      (Setlec.SetR.declIndRunDispatchR_eq_ind.mp hrun)
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verified = true) {F : Nat} :

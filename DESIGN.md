@@ -38207,7 +38207,10 @@ accepted terms, so the branch is verdict-dead there).
 | W2a | `ProjEntry.tower` field | LANDED (zero proof changes) |
 | W2b | generator + `checkDirectProj` entry install + twins + bridge re-proofs | LANDED |
 | W2c | infer tower branch (4 twins) + clause-proof adaptation | LANDED |
-| W3 | `denoteP`/`denote` reading branch + erasure law | frozen (§1) + route notes below |
+| W3 | `denoteP`/`denote` reading branch + erasure law | LANDED (stop-finding resolved; see the W3 record below) |
+| W4a | syntactic leaf battery (item 1) | LANDED (`SetBase/TowerWire.lean`) |
+| W4b | `DeclDirectR` + dispatch + bridge inversion + flag-agnostic R/P decl bridges | LANDED (`SetBase/DeclDirect.lean`; see the W4 state record below) |
+| W4c | premise discharge (item 2) + WF-hypothesis discharge + cached sims | pending (frontier enumerated below) |
 | W4 | install soundness (checklist items 1–2) | pending |
 | W5 | rewrite removal (P/parity), flip, battery | pending |
 | W6 | PSigma' retirement (gated) | pending |
@@ -38290,6 +38293,676 @@ first hour):
 * pre-flip the new branches are dead (no tower entries), so W3 lands
   behavior-neutral exactly like W2b/W2c.
 
+**W3 STOP-FINDING (2026-09-05, the flag rule): the invariance ride
+the reading-level trick does not kill.**  The clause changes and the
+per-walk adaptations went through as priced — the parked WIP branch
+(`agent/wiring-w3-wip`, does not build) carries the three readings
+branched with clause lemmas, pair variants and three-way inversions,
+plus green-shaped fixes for EnvExt (with `SwapCongr.projEq`), Levels
+×2, Shift ×2 (`liftN_projNV`, `projNV_bvarsBelow`), Install ×3
+(`denote_mono`'s `hproj`, `denote_env_shrink`'s `hntc`, the
+`Installs.ntc` field, `findProj?_cons_of_base_none`,
+`EnvExtends.findProj?_mono`), Inst (`inst_projNV`),
+BitReads/BitShift/BitLemmas/Canon/ProjPins.  The wall is the
+**rename walks** (`Denote/Rename.lean`): `renameConsts` renames the
+`.proj` node's struct name, so the branched reading consults
+`findProj?` at BOTH the source and the image name, and the walk's
+invariance needs `towerAt env (f sn) i = towerAt env sn i` for all
+names — a fact the rename builders' local invariants
+(`ProjPhaseInvS`, `BlockInstalledTT`) cannot supply: nothing they
+carry says anything about entries at `projFnName`-composites of
+model-side names, and the pre-block environment is
+carrier-quantified.  The TRUE fact is global: pre-flip every stored
+entry has `tower = false` (`TowerFree`, a `NativeProjPinned` sibling
+provable by the same closed induction in `ProjPinInv`), post-flip the
+per-block coverage disjunction — and its consumers are the R/P
+**environment records**, i.e. a new carrier field threaded through
+every construction site.  That is the caveat-(i) "mechanical but
+broad ride" RELOCATED from the syntax layer to the invariance layer;
+the freeze's §1 claim ("the ride does not exist") is CORRECTED to
+"the substitution-metatheory ride does not exist; the
+environment-invariance ride does".
+
+**The W3 completion route, priced for the successor** (resume from
+the WIP branch):
+1. `TowerFree env` (`∀ e, .projInfo e ∈ consts → e.tower = false`) +
+   its checker-run preservation in `ProjPinInv` (the existing walk
+   skeleton; the direct arm by `directParts?_none`);
+2. the carrier field (`EnvR`/`EnvS`/`EnvS2Core` + the fuel/cached
+   twins' records as applicable) with per-site discharges — the
+   broad-but-mechanical part;
+3. `RenameOkT` gains the `towerAt`-agreement conjunct, discharged
+   from `TowerFree` (both sides `false`); the two builders
+   (`projFwd_renameOkT`, `BlockInstalledTT.renameOkT`) and their
+   callers thread it;
+4. the remaining wave (Sound/Proj, BitInst, BitExtend, DefEqP,
+   Bridge/Stuck, then AcceptedP's `i < 2`/`projPinsP` gates) —
+   pin-kill or TowerFree per site;
+5. at W5 the invariant weakens to the disjunction in the SAME commit
+   as `NativeProjPinned`'s.
+
+**W3 LANDED (2026-09-05, the completion route executed with one
+route amendment).**  The route's steps 1–2 were folded into ONE seam:
+instead of a new carrier field, `TowerFree` rides `ProjOkT` as a
+**third conjunct** (`∀ n entry, find? n = some (.projInfo entry) →
+entry.tower = false`) — `ProjOkT` is already a field of every
+consumer record (`EnvR`, `EnvS`, `EnvS2Core`, `EnvSHyp`,
+`Sound/Motives`), so the fact arrives everywhere with zero new
+threading; `ProjOkT.towerFree` packages the `findProj?`-level reading
+the walks consume.  Amendment judged faithful to the route's
+substance (the consumers ARE the environment records; the field
+already existed).  Discharges: the three `ConsHeadP` heads gain
+`projTower`; `Installs` gains the `ntc` field (the WIP's own freeze);
+`TemplatesR` gains `entry.tower = false` (bridge cost: one `rfl` —
+`installProjTemplate`'s literal); `EnvS.cons`/`extendBasisS`/
+`Installs.of_fresh` and their ~40 call sites discharge by kind
+(`noConfusion`/`nomatch`), by pin (`rfl` at the pair entries), or by
+`ConsHeadP.projTower`; the swap walks by `hsame`.  Step 3 as priced:
+`RenameOkT`/`RenameOkP` gain the tower-free fourth conjunct, the
+four builders (`projFwd_renameOkT/P`, `blockRenameOkT/P`,
+`BlockInstalledTT.renameOkT`) take it as a hypothesis discharged
+from `m.proj_ok.towerFree` at every caller; the `_resolve` variants
+take it as a separate premise.  Step 4's wave: `denote_env_ext` +
+`denoteP_env_ext`/`denoteP_swap` consume `SwapCongr.projEq`; the
+extension walks (`denote_mono`, `denoteP_envExtend`/`_mono`,
+`denote2_envExtend`) take the none→some hproj premise, discharged at
+cons sites by `findProj?_cons_of_base_none` off the head's `ntc`;
+`denote2` (`SetBase/Canon`) carries the same reading branch with
+`denote2_proj_pair` and the pin-killed inversion; the pin-kill sites
+(Sound/Proj, Bridge/{Proj,ProjRed,Stuck,EtaCerts}, DefEqP, ReadsP,
+ReadsIOP, ProjRowsP, CapsRowsP, AcceptedP, DefEqRun ×8) use
+`denote(P)_proj_pair`/`_inv_pair` off `proj_ok.towerFree`.
+Receipts: 521 jobs green and warning-free, `lake test` green,
+layering 0 edges, proofdeps 96 rows as pinned (doors 0), axioms on
+`no_proof_of_Empty_{R, P, SPCD_P}` exactly the standard three;
+behavior byte-identical (no kernel-side diffs in this stage; the new
+branches are dead pre-flip — no tower entries exist).  At W5 the
+`ProjOkT` third conjunct and `RenameOkT/P`'s fourth weaken to the
+per-block coverage disjunction in the SAME commit as
+`NativeProjPinned`'s.
+
+**W4 route freeze (2026-09-05, at the W4a seam).**  W4a (checklist
+item 1) is LANDED: `SetBase/TowerWire.lean` — the leaves' `hAclosed`
+rows via erasure bounds (`directTyAV/directMkAV/directRecAV_below`,
+`stripPisAV_below` as the frame source, `liftN_eq_self_of_closed` as
+the package); `hAparams` needs no leaf lemma (leaves are plain
+functions of their computed inputs).  The rest of W4, frozen:
+
+* **The relation** (`SetBase/Decl.lean`): `DeclDirectR μ F env cval p
+  env₂` records `checkDirectStruct`'s run — the three annotated
+  `ConstantVal`s with their `ConstantValR`-shape rows, the
+  `directShape` pin, the opened frames with the `checkDirectDomsAt`
+  rows as `isDefEqCore … = ok true` facts at their own frames
+  (`off + j`), the `checkDirectFieldUniv` rows as
+  `inferType`/`ensureSort` runs plus `Level.leq u resSort = true`,
+  the rule's stripped shape (`directRuleBody`) and λ-frame
+  `checkDefEqList` rows, and the install spine (T, C, the REAL
+  `T.rec` with its one rule, then the `nF` tower `projInfo` entries
+  behind the O4 branch).  `DeclR`'s `.indDecl` row becomes the
+  `directParts?`-guarded match (modeled arm byte-unchanged).
+* **The bridge inversion**: `checkDirectStruct` run → `DeclDirectR`,
+  per stage function, syntactic — `BridgeDecl`'s existing per-stage
+  style; the W1-frozen kernel deltas already shaped the stages for
+  it.
+* **The premise discharge** (item 2): the `DefEqClaims2P`/
+  `InferClaims2P` interface (`SetP/Claims2P.lean`) turns the recorded
+  runs into `interp2` equations — `checkDirectDomsAt` rows into the
+  O3 pins (`RecBase`'s three equations, C's parameter domains ≐ T's),
+  `checkDirectFieldUniv` rows into `FieldsGraded` (→
+  `fieldsBound_of_graded`, O5) — over the opened telescopes' contexts
+  (`CtxOkP` at the frame readings, peeled by `stripPisAV_eq_mkPis`).
+* **THE INTERLOCK FINDING** (recorded so W5 does not trip on it):
+  the install-step rows CANNOT land against the current invariants —
+  a direct install stores a `tower := true` entry, refuting
+  `ProjOkT`'s third conjunct and, through it, `RenameOkT/P`'s fourth.
+  The weakening is not a drop-in: post-flip the rename walks need
+  **`towerAt` agreement along the rename map** (`∀ sn i,
+  towerAt env (f sn) i = towerAt env sn i`), not global
+  tower-freeness — dischargeable at the builders because the maps
+  move only modeled block names and their `_model` composites, whose
+  `projFnName` slots are never tower entries (a direct former is
+  `directNoModel`, so it is never in a modeled `blockNames`).  So the
+  W5 opening seam is: weaken `ProjOkT`'s third conjunct and
+  `NativeProjPinned` to the coverage disjunction, restate
+  `RenameOkT/P`'s fourth conjunct as f-relative agreement, re-derive
+  the pin-kill sites (they hold per-entry facts and survive), THEN
+  flip.  The install rows (`declStepPM_of_cons` with the bespoke
+  `caps_ok`/`rec_rules` discharges; the tier's
+  `towerSet_elim_teleOfFields` for eta, `recBodyAV_fold_mk` for the
+  rule fold) land on top of the weakened invariant.
+
+**W4 state record (2026-09-05, session seal).**  Landed beyond the
+freeze: `DeclR`'s `.indDecl` row is the `directParts?` dispatch
+(`DeclIndDispatchR`; run level `DeclIndRunDispatchR`), the
+`checkDirectStruct` inversion `declDirectR_of` is proved, and the TWO
+decl bridges the capstones ride — `checkDeclR_ofEnvR` (R) and
+`checkDeclRun_ofEnvRE` (the P fold's whole route into the relation
+tier) — are **flag-agnostic**: they case on the kernel's own
+dispatch and hold as they stand at the flip.  Pre-flip the dispatch
+reduces by `declIndDispatchR_eq_ind`/`declIndRunDispatchR_eq_ind`,
+consumed at exactly: `declEtaStep` (DeclEta), `DeclR.toRun`
+(DeclRun), `declStepS` (Install/Step), `Main2` ×3, `foldPM`'s
+`declStepPM` (FoldP) — **these call sites are the flip's semantic
+frontier on the install side**: each needs the direct arm's real
+content when the eq lemmas die with the flag.
+
+**The full flip frontier, enumerated** (every proof site that reads
+the flag, from the probe + the grep — the W5 work order):
+1. the two eq lemmas' seven call sites above → R/P install soundness
+   for direct blocks (the freeze's claims-interface discharge + the
+   install rows on the weakened invariant);
+2. `BridgeWFDecl:889` (ind case) → flag-agnostic via the ALREADY
+   LANDED `checkDirectStruct_wfimp` (BridgeWfImp:3239) once its three
+   `EnvWF`-preservation hypotheses (`hwf₁..₃`, the intermediate
+   installs) are discharged from the stage inversions;
+3. `ProjPinInv:470` + its local `directParts?_none` → the invariant
+   weakening (the W5 opening seam per the freeze's interlock);
+4. `Cached/AgreeFloor:811,1095` (`directPartsF?_eq_none`) → the
+   plain-vs-indexed agreement for the direct path (the F twins landed
+   at W2b);
+5. `Cached/BridgeCSDecl:424` → the cached-sim for `checkDirectStruct`
+   (`CheckerC`'s direct twins landed at W2b);
+6. the three `*_none` lemma bodies themselves (deleted at the flip).
+## THE SetR TIER, REMOVED — STAGE A (2026-09-05, `agent/setr-removal`;
+the user's ruling *"do remove the SetR tier, for more focus"*)
+
+### 0. WHAT LANDED
+
+The collapsed-model consistency proof is gone: **113 modules, 77 175
+lines** deleted outright, 120 files changed, **166 insertions against
+77 556 deletions**.  Stage A is a *proof-tier* deletion only — not one
+byte of the implementation changed, and the binary's behaviour is
+byte-identical on all 225 battery fixtures.  The R **core** retires
+separately (Stage B, held for the wiring batch's W5).
+
+| | before (`a9399a80`) | after |
+|---|---|---|
+| capstone letters | 14 | **3** |
+| `tests/proofdeps.sh` rows | 96 (11 targets) | **88** (10 targets) |
+| layering census | base 246 / R 105 / P 120 / neutral 3 | **base 242 / P 120 / caps 2 / umbrella 1** |
+| lean libs | 5 (`SetlecBase`, `SetlecR`, `SetlecP`, `SetlecCaps`, tests) | **4** |
+| delete-set CPU | 194.6 s of 841.1 s (**23.1 %**) | — |
+| clean-build critical path | 217.6 s (observed wall 220.8 s) | **unchanged — the chain is P-lane, end to end** |
+
+### 1. THE NAME-LEVEL CENSUS, FIRST (the interned batch's rule, applied)
+
+The rule from the interned removal — *"before executing a deletion,
+verify that the delete set has no surviving consumer, at the level of
+names, not imports"* — is what this batch ran before touching a file,
+and this time it came back **almost empty**, which is itself the
+finding:
+
+* **`Setlec/SetR/*` has exactly TWO non-`SetR` importers in the whole
+  tree**: `Verify/Cached/MainC` (the two-lane capstone assembly) and
+  `tests/ProofDeps`.  109 modules, 74 864 lines, and two edges out.
+* **Zero `SetBase` modules are R-only.**  Every one of the 48
+  `Setlec/SetBase/*` modules has a live non-umbrella consumer in the P
+  lane or the base.  The re-basing campaign (task #161, S1–S8) had
+  already moved everything shared *out* of the R directory, so the
+  directory that was left really was the lane and nothing else.
+* **Four `Verify` modules were R-only** and go with it:
+  `LeavesPres` (291), `LevelPres` (930), `BridgeWFDecl` (892),
+  `DeclStores` (198) — 2 311 lines.  The last two are the interesting
+  pair: they are umbrella-imported by `Setlec.lean`, so an
+  import-graph reading calls them "base"; the name-level census shows
+  their only real consumers were `SetR/Main` (and, for
+  `BridgeWFDecl`, `DeclStores` itself).  `Verify/Cached/BridgeCS4`
+  appears to use four `BridgeWFDecl` names (`constWF_intro`,
+  `constWF_le`, `cvA_type_facts`, `checkIndRecs_wfimp`) — it does not:
+  those are its own **primed** twins (`constWF_intro'`, …) plus one
+  prose citation, and `grep -w` cannot tell a prime from a word
+  boundary.  Checked by hand, not by grep.
+
+**The ledger row this adds**, and it is the mirror image of the
+interned batch's:
+
+> *A separation campaign that reaches zero cross-edges has already paid
+> for the deletion of either side.*  The interned removal was a
+> re-statement wearing a deletion's charter because the representation
+> was load-bearing for the survivor; this one is a deletion in the
+> plainest sense, and the difference is entirely the S1–S8 work that
+> made the two trees disjoint.  **Disjointness is not only a trust
+> property; it is an option to delete, priced in advance.**
+
+`Verify/DeclStores` is worth naming twice.  The interned batch
+explicitly *saved* it — "a module that sits beside a tower is not part
+of it" — because `input_R` and the SPCD letters used it.  The SPCD
+letters that used it were the **R** ones; when they go, the module has
+one consumer left (`SetR/Main`) and dies with it.  The correction is
+not that the earlier reading was wrong: it is that *a module's lane can
+change without the module changing*, exactly as a capstone's subject
+can go stale without the letter changing.
+
+### 2. THE ELEVEN LETTERS, RETIRED WITH THEIR SUBJECTS
+
+| file | letters retired | subject that no longer exists |
+|---|---|---|
+| `SetR/Main.lean` | `no_proof_of_Empty_R`, `_input_R` | `EnvS` |
+| `SetR/Main2.lean` | `_R2`, `_input_R2`, `_R2M`, `_input_R2M`, `_R2M_of_installs`, `_R2M_of_installsR` | `EnvS2U`, `EnvS2UM` |
+| `Verify/Cached/MainC.lean` | `no_proof_of_Empty_SPCD_R`, `_SPCD_R2`, `_SPCD_R2M` | `EnvS`, `EnvS2U`, `EnvS2UM` |
+
+With them: the acceptance corollaries
+`checkDeclsSPCachedD_sound_{R,R2,R2M}` and the folds
+`foldSPC_{R,R2,R2M}` (`MainC` 327 → 177 lines).
+
+**Surviving THREE**, and every one is about the graded lane:
+`no_proof_of_Empty_P_of` and `no_proof_of_Empty_P` (`SetP/FoldP.lean`,
+the pure fueled checker the tower is stated about) and
+`no_proof_of_Empty_SPCD_P` (`Verify/Cached/MainC.lean`) — **the shipped
+driver**, `checkDeclsSPCachedD`.  `#print axioms` on all three, and on
+`checkDeclsSPCachedD_sound_P` and `foldSPC_PM`:
+`[propext, Classical.choice, Quot.sound]`, the three standard ones,
+unchanged.
+
+**A scheduling correction, recorded.**  The batch's charter put
+`MainC`'s `SPCD_{R,R2,R2M}` in Stage B (the *core* retirement).  They
+could not wait: their subjects are the `EnvS`/`EnvS2U`/`EnvS2UM`
+carriers, which are `Setlec/SetR/*` files, so they retire in the stage
+that deletes the carriers, not in the stage that deletes the core.
+Stage B's `MainC` work is therefore already done, and what remains
+there is the *implementation* surface (`cfgR`, the `*RC` cores,
+`--set-model=r`, `CheckMode.setModel(R)`) plus the tests' mode-flag
+expectations.
+
+### 3. THE PROOFDEPS GATE — ONE TARGET, NOT ELEVEN
+
+`Setlec.SetR.EnvS` is deleted, so its **eight rows** (one per root)
+retire with their subject: 96 → **88**, and the target list goes 11 →
+10.  *Nothing else moved*, and that is the measurement worth recording:
+
+> The other ten targets — `Red`, `Red.beta`, `Infer`, `Infer.app`,
+> `DefEq`, `DefEq.trans`, `checkDeclR_ofEnvRE`, `DeclR`, `declIndRR`,
+> `DeclIndR` — all live in `Setlec/SetBase/*` under the **unchanged
+> namespace `Setlec.SetR`**.  The shared relation tier the graded proof
+> must not touch was never in the deleted directory.  So the gate's
+> criterion survives the removal *intact* rather than being weakened by
+> it: the campaign's question ("does the graded consistency proof's
+> proof term mention the collapsed model?") is still measured, at the
+> same granularities, against the same ten names.
+
+The ratchet is respected: a row whose subject no longer exists is not a
+loosening, and the pin file says so at the block.
+
+### 4. THE LAYERING GATE, RE-CUT
+
+With one model lane there is no cross-lane edge to gate, so the P→R
+whitelist, the R→P clause, the `ROOTS_R` closure and the `neutral`
+class (a `Setlec/SetR/` module no R capstone reached) all retire with
+their subject.  What survives is the half that was never about the R/P
+split and was always the load-bearing one:
+
+* **base purity** — nothing under `Setlec/{Kernel,Verify,SetTheory,TT,
+  SetBase}/*` may import `Setlec/SetP/*`;
+* **implementation → theory** — the CLAUDE.md rule.
+
+`layering: base 242 / P 120 / caps 2 / umbrella 1 modules; 0
+base->lane edges, 0 impl->theory`.  S9's finding is what licenses the
+narrowing: an import gate measures where code *sits*, and only
+`tests/proofdeps.sh` certifies a proof-path property — that gate is
+untouched.
+
+### 5. THE B3c RESIDUE — 45 OF 51 CARRIERS DIE WITH THE TIER
+
+B3 flagged 51 mode-parameterized carrier declarations as the deferred
+**B3c** batch, sized at ~20× B3's own delivered rate and explicitly not
+attempted.  The removal collects the bill without paying it:
+
+| module | carriers | fate |
+|---|---|---|
+| `SetR/Interp2/Step2/Whnf` | 13 | **deleted** |
+| `SetR/Interp2/Step2/DefEqRun` | 11 | **deleted** |
+| `SetR/Annot/SortCoh/{LoopLock,Align,CoreLock,Discharge,SubstSim}` | 15 | **deleted** |
+| `SetR/Interp2/Capstone{,2C,2D,2E}` | 6 | **deleted** |
+| `SetBase/Bridge/{Main,WhnfCore}` | 4 | survive — still consumed generically, now by the P lane alone |
+| `Verify/{BetaGate,InferLemmas}` | 2 | survive — shared-base genericity, ruled STAY at B3 |
+
+**45 of 51 carriers, all 277 mode-parameterized predicate/structure
+definitions, and all 6 436 `μ` occurrences under `Setlec/SetR/` are
+gone.**  What is left of B3c is six carriers in three modules whose
+genericity B3 had already ruled correct on its own terms, so **B3c is
+closed, not deferred**: the escalation it flagged was a bill for
+instantiating a parameter in a tier that no longer exists.
+
+### 6. THE BUILD-TIME NUMBER, AND WHY IT IS NOT A WIN
+
+Measured on the baseline log (`_tmp/setr-baseline-build.log`, 521 jobs,
+220.8 s wall, warning-free): the delete set is **194.6 s of 841.1 s
+total module CPU — 23.1 %** — and **none of it is on the critical
+path**.  The chain that decides the wall is
+
+    IndOpenRevP → IndPinGradeP → IndBottomPlainP → IndBottomNestedP →
+    IotaRuleNestedP → SwapP → IndRecsP → ProjRenameP → ProjConsP →
+    ProjInstallP → DeclIndP → FoldP → MainC → Verify.Cached
+
+— **P-lane, end to end**, modelled at 217.6 s against an observed
+220.8 s (1.5 %).  Removing `Setlec/SetR/*` removes 0 s from it.  The
+honest statement is therefore *"−23 % of build CPU, ≈ 0 s of wall"*;
+the wall samples taken after the deletion (238 s, 260 s) differ from
+the baseline by more than any real effect, because two P-lane modules
+on the chain (`IndBottomNestedP` 29→37 s, `IndBottomPlainP` 12→16 s)
+moved that much between runs on their own.
+
+This is the interned batch's arithmetic run in the other direction and
+it deserves its own row:
+
+> *A deletion's build-time value is its intersection with the critical
+> path, not its size.*  The interned removal deleted 46 kline for
+> −34 s of wall because 33 s of it sat in series; this one deletes
+> 77 kline for ~0 s because none of it does.  Both numbers were
+> readable from per-module timings plus the import graph **before**
+> either batch ran, and the next candidate should be priced the same
+> way: the current chain is entirely `SetP/Ind*`, so that is where
+> build time is bought.
+
+### 7. RECEIPTS
+
+* `lake build` green and **warning-free** (521 → **407** jobs);
+  `lake test` silent;
+* `tests/arena.sh` full, **byte-identical to the baseline run** on
+  everything the binary does: arena tutorial **90/92**, e2e **73/73**,
+  annot **14/14**, retired flags **8/8**, mode flags **11/11**,
+  no-model sweep **138 arena + 73 e2e + 14 annot as expected (3
+  recorded divergences)**;
+* `tests/layering.sh`: base 242 / P 120 / caps 2 / umbrella 1, **0
+  base→lane, 0 impl→theory**;
+* `tests/proofdeps.sh`: **88 rows as pinned**, doors 0;
+* axiom audit (`_tmp/setr-audit/Audit.lean`): the three surviving
+  letters and the two P assembly theorems at exactly
+  `[propext, Classical.choice, Quot.sound]`;
+* no `sorry`, no new axiom, no statement left conditional.
+
+### 8. WHAT STAGE A DELIBERATELY DID NOT DO
+
+* **`Setlec/SetR/DESIGN.md` is KEPT** (18 524 lines), with a preamble
+  saying the tier is gone.  It is not an archive: six live
+  `Setlec/SetBase/*` modules — `Rel`, `Ok2`, `Syntax`, `Kit` among them
+  — cite it **by path** for the deviations from the official kernel
+  that their own statements encode, and its promoted practices (P1–P6)
+  were never R-specific.  Moving it would have edited docstrings inside
+  the concurrent wiring batch's file set for no gain; the path is
+  load-bearing prose.
+* **The R core is untouched.**  `cfgR`, the `*RC` named cores,
+  `--set-model=r`, `CheckMode`'s `setModel(R)` and the mode-flag test
+  cases all still work exactly as before — Stage A removes the R core's
+  *verification*, and the core's retirement is Stage B.  This is why
+  the whole runtime battery is byte-identical.
+* **`CLAUDE.md` still names `Setlec/SetR/*`** as the home of the
+  set-theoretic model and consistency.  It is now `Setlec/SetP/*` (with
+  the shared semantic tier in `Setlec/SetBase/*`); flagged for the
+  user, not edited by the agent.
+
+### 9. POST-MERGE REVALIDATION (2026-09-05, master `7d3d4dbf`)
+
+Merged `--no-ff` on the coordinator's grant and re-run on master with a
+cold `.lake` for the deleted modules' oleans:
+
+* `lake build` exit 0, **warning-free**; `lake test` exit 0;
+* `tests/arena.sh` exit 0 — layering `base 242 / P 120 / caps 2 /
+  umbrella 1; 0 base->lane, 0 impl->theory`; proofdeps **88 rows as
+  pinned, doors 0**; arena tutorial **90/92**, e2e **73/73**, annot
+  **14/14**, retired flags **8/8**, mode flags **11/11**, no-model
+  sweep **138 + 73 + 14 as expected (3 recorded divergences)**.
+
+**STAGE B, AS AMENDED AT THE GRANT.**  Its scope shrinks to the
+*implementation* surface, `MainC`'s letters having gone with their
+carriers in Stage A: `cfgR` and the `*RC` named cores; the
+`--set-model=r` spelling (with `--set-model` becoming the P core);
+`CheckMode`'s `setModel(R)` value and its impl-tier reads; the R lane's
+config-differentiated `.proj`-rewrite path; the tests' mode-flag
+expectations (`tests/arena.sh`, 11/11 → the R case retires); and — the
+coordinator's addition — `scripts/perf-tables.sh`, which has **no
+data-driven probe for the R column**: its `CONFIG_IDS=(official parity
+R P)` (line 96) and the `R) CMD=("$BIN" --set-model=r …)` arm (line
+108) are two literal lines that must drop together, so the
+regeneration never invokes a retired flag.  Held for the signal after
+the wiring batch's W5.
+
+## TASK #167 — THE PACKED NODE WORD (2026-09-05, `agent/packing`;
+LANDS CODE — the user's saturating ruling, executed)
+
+### 0. WHAT LANDED, IN ONE LINE
+
+`Setlec.Expr`'s **four** `@[computed_field]`s are **one**: a packed
+`UInt64` laid out as `Lean.Expr.Data` is — and `Expr.bvarB`,
+`Expr.fvarB`, `Expr.hasLP`, `Expr.hash` are still the same functions,
+so **not one statement below `Kernel/Expr.lean` moved**.
+
+### 1. THE LAYOUT, AND THE WIDTH DECISION
+
+| bits | field | width |
+|---|---|---|
+| 63…32 | `hash` | 32 |
+| 31 | *reserved* | 1 |
+| 30…16 | `bvarB` (saturating) | 15 |
+| 15…1 | `fvarB` (saturating) | 15 |
+| 0 | `hasLP` | 1 |
+
+`Lean.Expr.Data`'s own proportions are hash 32 + `looseBVarRange` 20 +
+flags; setlec needs **two** ranges (Lean carries only a `hasFVar`
+bool), so the 31 bits below the hash split 15/15/1 with one spare.
+The hash stays wide at 32 — the coordinator's constraint — and is the
+one *value* the packing changes (it was 64 bits; `beqFast`'s
+false-agree probability goes from `2^-64` to `2^-32`, which is
+`Lean.Expr`'s own bargain).
+
+**The measured maxima** — a temporary fifth computed field `mxB`
+(the max over a subtree of `max bvarB fvarB`) read at `internI`, at
+the seven `ExprOpsC` build sites and at the parser's `ie` node, so
+every node the checker ever builds was observed:
+
+| stream | max `max bvarB fvarB` | headroom to 32767 |
+|---|---|---|
+| `init-full` (61 048 decls) | **213** | 154× |
+| `grind-ring-5` | **488** | 67× |
+| `app-lam` (the deepest artificial workload) | **4000** | 8.2× |
+
+The parser's own site never exceeded the probe's 48-node threshold on
+`init-full`: input terms are shallow, and what grows the bound is the
+checker's own binder cursors.
+
+**The fvar-allocation finding, asked for by the charter**: fvar
+indices are **de Bruijn levels**, not a global counter.  Every
+`internI (.fvar depth …)` in `Cached/CoreC.lean` and `CoreNC.lean`
+takes the `depth` parameter threaded through the core (or `d + k`
+inside a telescope loop), so `fvarB` is bounded by the local-context
+depth exactly as `bvarB` is bounded by the binder nesting.  **A
+global counter would have forced a wide field or a different
+treatment; a level does not.**  15 bits serve both.
+
+### 2. THE OVERFLOW CONVENTION — SATURATE, AND STAY EXACT ANYWAY
+
+The charter opened with *decline on overflow* (exit 2, with a width
+invariant maintained at the entry points).  The user withdrew that
+mid-batch — *"I have qualms about introducing a WFe invariant for the
+packed bvar field.  Maybe saturating is easier, with degraded
+performance once saturated?"* — and the batch executed the second
+design.
+
+The coordinator's proposed proof shape for saturation was
+*exact-below-saturation*: weaken `bvarB_eq` to a one-directional
+lemma and let the `≤`-comparison consumers ride free.  **That shape
+was checked and rejected on a finding**, which is worth recording
+because it is not obvious:
+
+> `bvarB_le : e.bvarB ≤ d → looseBVarsBounded d e` is **not** free
+> under a saturating field.  It fails exactly when `d ≥ satRange`,
+> and `d` is a traversal cursor — a variable at every one of the ~90
+> call sites, with no statically provable bound.  Making the skip
+> tests carry the guard (`e.bvarB ≤ min d satMax`) works, but it
+> weakens `looseBVarsBounded_spec` (a *both-directions* equation
+> consumed by `rw` at 8 sites, and by four **parse-time accept
+> guards** — a false reject is a wrong verdict, not a slow one) and
+> it restates `bvarBoundM_eff`.  Priced at ~60 hand edits in
+> `Verify/Cached/{OpsC,GuardsC,SimCEff}.lean` **plus two statement
+> moves**.
+
+So the batch saturates the **storage** and keeps the **accessor**
+exact:
+
+```
+def bvarB (e : Expr) : Nat :=
+  let r := e.bvarBRaw                     -- the packed 15-bit field
+  if r == satRange then bvarBoundMemo e else r
+```
+
+`bvarBoundMemo` is the *same recurrence*, memoized (`Std.HashMap`
+keyed by the node) so the fallback is `O(DAG)` — the standing
+no-unmemoized-traversals rule holds on the saturated branch too.
+This is the user's sentence taken literally: **saturation costs time,
+and only on terms that saturate**; it costs no truth anywhere.
+
+Proof shape, three lemmas where there was one, landing on the old one:
+
+1. `bvarBRaw_exact : e.bvarBRaw < satRange → e.bvarBRaw =
+   Expr.bvarBound e` — induction on the packed word's per-constructor
+   equations.  The binder arm is the only interesting one: the
+   *saturating predecessor* `satPred` maps `satRange` to itself
+   rather than to `satRange - 1`, which is what keeps "stored value
+   `satRange` means *at least* `satRange`" true through a binder;
+2. `bvarBoundMemo_eq : Expr.bvarBoundMemo e = Expr.bvarBound e` —
+   the `MemoBInv` pattern, cloned from `wscopedBGo_spec`;
+3. `bvarB_eq : e.bvarB = Expr.bvarBound e` — **verbatim the old
+   statement**, by a two-way split on the saturation test.
+
+Same three for `fvarB`.  `hasLP` is one bit, hence exact with no
+fallback; `hash` has no exactness lemma to keep.
+
+### 3. THE CHURN, AND WHY IT IS FOUR LINES
+
+Files touched: `Kernel/Expr.lean` (the word, the roundtrip family, the
+per-constructor equations), `Kernel/ExprOps.lean` (the two memoized
+walks and the two accessors), `Verify/Cached/Erase.lean` (the six new
+lemmas landing on the two old ones).
+
+**Everything else: four lines** — `simpa using hcut` → `simp` at the
+`bvar` and `lit` arms of `instLevelParamsGo_spec`
+(`Verify/Cached/OpsC.lean`) and `allLevelParamsDefinedGo_spec`
+(`Verify/Cached/GuardsC.lean`), where `hasLP` is now a `@[simp]`
+equation and the hypothesis became redundant.  Every one of the ~70
+`bvarB_le` / `fvarB_le` / `hasLP_false` consumers B3a counted, and
+every executable skip site in `Cached/ExprOpsC.lean` and
+`Cached/StateC.lean`, compiled **untouched**.
+
+That is the batch's reusable lesson, and it is B3a's §3 answered:
+*the exactness→saturation cascade B3a priced is avoidable — pay for a
+slow exact branch instead of a weak lemma, and the representation
+change stays a representation change.*
+
+### 4. THE PROOF TECHNIQUE WORTH KEEPING
+
+The packing is written with **arithmetic**, not bitwise, operators:
+
+```
+packData h b f lp = h * 4294967296 + b * 65536 + f * 2 + (if lp then 1 else 0)
+bvarOfData w      = w / 65536 % 32768
+```
+
+Disjoint fields make `+` the bitwise join and `/`,`%` by powers of two
+the shift-and-mask — LLVM emits the same instructions — and every
+roundtrip lemma is then `UInt64.toNat_inj` + `simp [UInt64.toNat_*]` +
+**`omega`**.  No `bv_decide`, no `BitVec` bridging, no `Nat.land`
+lemma hunting.  The whole family (`bvarOfData_pack`, `fvarOfData_pack`,
+`lpOfData_pack`, `hashOfData_pack` and their range companions) is 40
+lines.
+
+The one trap: `omega` needs the *outer* `% 2^64` discharged, so each
+lemma carries the componentwise range hypotheses and `cases lp` first
+(otherwise `(if lp then 1 else 0).toNat` blocks it).
+
+### 5. THE A/B — INSTRUCTIONS FLAT, MEMORY HALVED
+
+The shipped lane (`--set-model`), `instructions:u` and peak RSS,
+median of 3, against the baseline binary snapshotted at `a9399a80`
+**before** the batch opened.  Baseline stamp `raw/vs-official-raw`
+except the last row.
+
+| stream | instr base → pack | Δ | peak RSS base → pack | Δ |
+|---|---|---|---|---|
+| `init-full` (61 048 decls) | 2929.44 → 2931.91 G | **+0.08 %** | 1744.6 → 931.0 MB | **−46.6 %** |
+| `grind-ring-5` | 98.00 → 97.65 G | **−0.35 %** | 489.6 → 349.4 MB | **−28.6 %** |
+| `app-lam` (the DAG/RSS stress) | 291.12 → 282.72 G | **−2.88 %** | 5248.0 → 2788.4 MB | **−46.9 %** |
+| `init-full.pre` (`--pre`; stamp `pre/vs-official-pre`) | 2749.54 → 2751.89 G | **+0.09 %** | 1746.3 → 926.8 MB | **−46.9 %** |
+
+Read it as the promise kept and the worry answered:
+
+* **the promise was memory, and it is halved** — 5.25 GB → 2.79 GB on
+  `app-lam`, 1.74 GB → 0.93 GB on `init-full`.  That is *more* than
+  B3a's synthetic accessor bench predicted (−38.8 %), because the
+  bench measured a node array while the real streams pay the same
+  saving on every live node of a 24 k-node DAG plus every rebuilt
+  intermediate;
+* **the worry was the accessor, and it costs nothing** — +0.08 % on
+  `init-full` is inside run-to-run noise, and `app-lam` is **−2.88 %**:
+  on DAG-shared reduction traffic the smaller node pays for its own
+  extraction through the cache.  B3a's `PackB` bench said bit
+  extraction is cheaper than four tagged reads; at scale it is
+  cache behaviour, not instruction count, that decides, and both
+  point the same way.
+
+`app-lam`'s baseline row (291.12 G) reproduces B3a's own pre-migration
+measurement of the same stream (291.16 G) to 0.01 %, which is the
+harness's own control.
+
+### 6. RECEIPTS
+
+`lake build` green and **warning-free**, 407 jobs (521 before the
+merges with master's SetR deletion and the wiring W3+W4 seams);
+`lake test` green; layering base 244 / P 120 / caps 2 / umbrella 1,
+**0 base→lane, 0 impl→theory**; proofdeps **88 rows as pinned**,
+doors 0; arena tutorial **90/92**,
+e2e **73/73**, annot **14/14**, retired flags 8/8, mode flags 11/11,
+**no-model sweep 138 arena + 73 e2e + 14 annot as expected (its 3
+recorded divergences)**; `init-full` **accepted 61 048 declarations
+under all three modes** (`--set-model`, `--set-model=p`,
+`--no-model`), baseline and packed alike — verdict identity
+everywhere, and **no stream reached the saturated branch**; axioms of `bvarB_eq`,
+`fvarB_eq`, `hasLP_eq`, `bvarBoundMemo_eq`, `fvarRangeMemo_eq` and
+both shipped cached capstones (`checkDeclsSPCachedD_sound_P`,
+`no_proof_of_Empty_SPCD_P`) exactly the standard three; **zero**
+`sorry`, no new axiom, no statement left conditional.
+
+### 7. LEDGER ENTRY (coordinator-ratified at the merge grant): a
+proposed PROOF SHAPE is a claim
+
+The discipline ledger's family — *a ratified license is a claim*
+(#161 endgame E), *a recorded freedom is a claim* (F), *a recorded
+wall is a claim* (D), *a freeze is a claim* (the B1 contact-check) —
+gains its fourth member, and this batch is the instance:
+
+> **The charter's proposed proof shape was a claim, and it was
+> false.**  *"The exactness family becomes exact-below-saturation;
+> the `≤`-comparison consumers are free"* reads as arithmetic — a
+> bound below the saturation point is the true bound, so a
+> comparison against it decides — and it is wrong for one reason
+> that the sentence hides: **the thing compared against is a
+> variable.**  `bvarB_le : e.bvarB ≤ d → looseBVarsBounded d e` is
+> sound only for `d < satRange`, and `d` is a traversal cursor —
+> universally quantified at all ~90 sites, with no statically
+> provable bound anywhere.
+
+What makes it a ledger entry rather than a footnote is **where** the
+falsification bit.  Guarding the skip tests would have been merely
+tedious; what it actually costs is `looseBVarsBounded_spec`, a
+*both-directions* equation, and four of its consumers are **parse-time
+accept guards** (`Cached/ParsedC.lean`, `ParsedNC.lean`:
+`unless ExprC.looseBVarsBounded 0 …`).  A saturating field weakened
+there turns a *false reject* into a shipped verdict — the one failure
+class the arena convention treats as worse than a crash.  The wrong
+shape would not have shown up as a broken proof; it would have shown
+up as a wrong answer on a stream nobody runs.
+
+The corollary, and it is the reusable half: **when a representation
+change proposes to weaken a lemma, enumerate the lemma's consumers by
+DIRECTION before pricing the churn.**  A one-directional consumer (a
+skip) tolerates a weaker lemma at the cost of a guard; a
+both-directions consumer (a guard, a spec equation, an `rw` site) does
+not tolerate it at any price.  B3a priced this batch at "~70
+consumers" and got the count right; the count was never the question.
+
+And the answer that dissolved it is worth keeping in the same breath:
+**pay for a slow exact branch instead of a weak lemma.**  Saturation
+is then a storage decision that no statement can see — which is what
+"representation change" is supposed to mean.
 ## THE ι AUDIT: what the iota path spends per redex, and what could be
 ## dropped, moved to install, or licensed (2026-09-05, `agent/iota-audit`)
 
@@ -38313,26 +38986,32 @@ The ι cone reads no mode but the statically-false `ttChecks`
 ### 1. The organising fact: every fire-time check but two is a
 ### hypothesis of the stored equation
 
-`RecRuleLawV` (`SetR/Sound/Motives.lean:146-201`) and its graded twin
-`RecRuleLawP` (`SetP/Annot/EnvS2P.lean:431-521`) are the
-install-verified ι equation
+`RecRuleLawP` (`SetP/Annot/EnvS2P.lean:431-521`) — the surviving
+statement of the install-verified ι equation; its collapsed-lane
+original `RecRuleLawV` went with the `Setlec/SetR/*` tier on
+2026-09-05 — reads
 
     rec p⃗ M m⃗ i⃗ (ctor p⃗ x⃗)  =  rhs p⃗ x⃗
 
 and the law's own hypotheses are, in order: the level linkage
 (`Level.substFn φ cvj.levelParams usj = (recFireComparands …).1`), the
 `.plain` parameter agreement, the `.nested` pin equations,
-`IotaIndexPinV`/`P`, and the two `TeleFitV`/`TeleFitPA` telescope
+`IotaIndexPinP` (`EnvS2P.lean:419`), and the two `TeleFitPA` telescope
 fits.  **Firing is reflecting that equation, and the per-redex work is
 — with two exceptions — the discharge of its applicability conditions
-at the redex.**  `sndRedIota` (`SetR/Sound/Iota.lean:100-200`) consumes
-them one by one (`h12`, `ih19`, `ih20`, `ih25`, `ih21`, `ih22`).
+at the redex.**  `iotaStepP_of` (`SetP/Step2/IotaRowsP.lean:506`)
+feeds them to the law one by one, and the deleted collapsed lane's
+`sndRedIota` did the same (`h12`, `ih19`, `ih20`, `ih25`, `ih21`,
+`ih22`) before it went.
 
-The two exceptions are the `stripPis` arity pins.  `sndRedIota` binds
-them as anonymous `_` (`:116-117`); `iotaStepP_of` and `iotaReadsP_of`
-(`SetP/Step2/IotaRowsP.lean:364,521`) bind `hstripR`/`hstripC` and
-never mention them again.  They are *shape* facts, and the install path
-already establishes both:
+The two exceptions are the `stripPis` arity pins.  `iotaStepP_of` and
+`iotaReadsP_of` (`SetP/Step2/IotaRowsP.lean:364,521`) bind
+`hstripR`/`hstripC` and never mention them again; `sndRedIota` bound
+them as anonymous `_`.  Their one surviving mention anywhere is
+`Red.iota`'s two premise slots (`SetBase/Rel.lean:304-305`), supplied
+by `iota_stepR` (`SetBase/Bridge/Iota.lean:183`) to a relation whose
+soundness interpretation was deleted with the SetR tier.  They are
+*shape* facts, and the install path already establishes both:
 
 * plain rules — `Expr.recRulePlain tyA mI rP cnP` (`ExprOps.lean:490`)
   is `cnP ≤ rP ∧ rP ≤ mI ∧ recTy.stripPis mI = some (_, .forallE …)`,
@@ -38420,7 +39099,7 @@ against 119's 11.54 %).
 need it.**  Exactly one entry: **the two `stripPis` arity pins**
 (`CoreC.lean:652-654`).  Official has no counterpart (F5); the P lane
 binds and discards them; the R lane carries them only as `Red.iota`
-premise slots (`SetBase/Rel.lean:304-305`) that `sndRedIota` ignores.
+premise slots (`SetBase/Rel.lean:304-305`) that no surviving theorem interprets.
 Cost −0.457 % init-full / −0.773 % grind-ring-5.  Nothing else in the
 fire path is droppable: §1 shows the rest are the stored equation's own
 hypotheses, and `CoreNC`'s evidence that the battery still passes
@@ -38440,9 +39119,8 @@ per redex.**
    BinderMeta)` of length `k` per fire (≈ 26 M triples per init-full
    run) only to ask whether it exists.  An allocation-free
    `piArityGE` recovers 94 % of the drop (−0.431 % vs −0.457 %).
-2. **The canonical-index block at `mI = rP`.**  `IotaIndexPinV`
-   (`Sound/Motives.lean:131`) and `IotaIndexPinP`
-   (`EnvS2P.lean:419`) are `∃ H cargs, restC = mkAppN H cargs ∧
+2. **The canonical-index block at `mI = rP`.**  `IotaIndexPinP`
+   (`EnvS2P.lean:419`) is `∃ H cargs, restC = mkAppN H cargs ∧
    (mI = rP ∨ …) ∧ ∀ i < mI − rP, …`; at `mI = rP` both are discharged
    by `⟨restC, [], rfl, Or.inl rfl, fun i hi => absurd hi (by omega)⟩`
    — no residual, no head test, no comparison.  `mI = rP` is a stored
@@ -38502,7 +39180,7 @@ side condition of the stored equation, and each measures under 0.5 %.
 |---|---|---|---|---|
 | 1 | skip the `iotaCerts` slot at a `.never` telescope binder | **licence** (β-shaped) | **−8.66 %** init-full | one licence theorem, the β gate's analogue at `TeleFitPA.cons`; `cfg` already carries the datum |
 | 2 | short-circuit the canonical-index block at `mI = rP` | **install-validate** | −0.87 % | one line on each side (`Or.inl rfl`), plus dropping four conjuncts from `iotaRec_inv` |
-| 3 | delete the two `stripPis` pins (or carry them in `RecRuleLawP`) | **drop** / install-validate | −0.46 % | zero in P (bound, never used); in R only `Red.iota`'s two premise slots, which `sndRedIota` ignores |
+| 3 | delete the two `stripPis` pins (or carry them in `RecRuleLawP`) | **drop** / install-validate | −0.46 % | zero in P (bound, never used); elsewhere only `Red.iota`'s two premise slots, uninterpreted since the SetR removal |
 | 3′ | *or*, with no proof motion at all: keep the pins, compute them allocation-free | local | −0.43 % | a `stripPis_isSome_iff` lemma for `iotaRec_inv` |
 | 4 | precompute the `.plain` level-linkage index map at install | install-validate | ≤ −0.28 % | `recFireComparands`' `.plain` branch changes shape; `recFireComparands_fst_nil` and the law's linkage hypothesis follow |
 | 5 | look the recursor up once per spine instead of once per prefix | drop duplicated work | −0.20 % (est. from +0.26 % per extra prologue × 74 % wasted attempts) | `whnfApp`'s clause shape changes → the `whnfApp` rows in both towers |
@@ -38539,20 +39217,24 @@ Items 2+3′ together are the *no-proof-change package*: measured
   own check and arena `bad/098_ruleKbad` fires on it, and it costs
   nothing (5 358 K-branch entries per init-full run).
 
-### 7. Interaction with the pending SetR removal
+### 7. Interaction with the SetR removal (landed 2026-09-05)
 
-Stage A of the SetR removal (`agent/setr-removal` @ `1a415be5`)
-deleted `Setlec/SetR/*` but left `SetBase/Rel.lean` and
-`SetBase/Bridge/*` standing; on that branch their only importers are
-other `SetBase` modules and the umbrella, so `Red.iota`, `iota_stepR`
-and `Bridge/Main`'s R claims are an orphaned cluster.  **That is where
-the `stripPis` pins' last consumer lives.**  Once the cluster goes,
-proposal 3 is a pure deletion: the P lane binds the two conjuncts and
-uses neither, so removing the runtime tests changes `iotaRec_inv`'s
-shape and nothing else.  The same is true, more weakly, of proposal 2:
-`IotaIndexPinP` survives (it is a `RecRuleLawP` hypothesis), but the
-`mI = rP` discharge is one term.  Proposal 1 is unaffected — the
-licence is a P-lane statement from the start.
+The removal deleted every `Setlec/SetR/*.lean`, and with them
+`RecRuleLawV`, `IotaIndexPinV` and `sndRedIota` — the only theorems
+that ever *interpreted* `Red.iota`.  What survives is the syntactic
+relation itself (`SetBase/Rel.lean`) and its bridge
+(`SetBase/Bridge/Iota.lean`, `Bridge/Main.lean`), whose importers on
+master are other `SetBase` modules and the umbrella.
+
+**That is where the `stripPis` pins' last mention lives.**  Proposal 3
+is therefore now a pure deletion: the P lane binds the two conjuncts
+and uses neither, so removing the runtime tests changes
+`iotaRec_inv`'s shape, `Red.iota`'s premise list, and nothing else —
+and if the orphaned `Red`/bridge cluster is retired in a later stage,
+it changes `iotaRec_inv` alone.  Proposal 2 is only mildly affected:
+`IotaIndexPinP` survives as a `RecRuleLawP` hypothesis, but its
+`mI = rP` discharge is a single term.  Proposal 1 (the licence) is
+unaffected — it was always a P-lane statement.
 
 ### 8. Instruments
 

@@ -48,7 +48,9 @@ theorem denoteP_env_ext {acval : Name → (Name → Nat) → AVExpr}
       (env₁.find? n).map (fun ci => ci.toConstantVal.levelParams) =
       (env₂.find? n).map (fun ci => ci.toConstantVal.levelParams))
     (hnat : Setlec.natLitSupported env₁ = Setlec.natLitSupported env₂)
-    (hstr : Setlec.strLitSupported env₁ = Setlec.strLitSupported env₂) :
+    (hstr : Setlec.strLitSupported env₁ = Setlec.strLitSupported env₂)
+    (hproj : ∀ (sn : Name) (i : Nat),
+      env₁.findProj? sn i = env₂.findProj? sn i) :
     ∀ (d : Nat) (e : Expr),
       denoteP acval env₁ φ d e = denoteP acval env₂ φ d e := by
   intro d e
@@ -90,7 +92,8 @@ theorem denoteP_env_ext {acval : Name → (Name → Nat) → AVExpr}
   | case8 d f a ihf iha => rw [denoteP, denoteP, ihf, iha]
   | case9 d n ty val body ihty ihval ihbody =>
     rw [denoteP, denoteP, ihty, ihval, ihbody]
-  | case10 d sn i e ihe => rw [denoteP, denoteP, ihe]
+  | case10 d sn i e ihe =>
+    rw [denoteP, denoteP, ihe, hproj sn i]
   | case11 d n hsup =>
     rw [denoteP, if_pos hsup, denoteP, if_pos (hnat ▸ hsup)]
   | case12 d n hsup =>
@@ -124,7 +127,7 @@ theorem denoteP_swap {acval : Name → (Name → Nat) → AVExpr}
     {env₀ env₃ : Env} (hcg : Setlec.SwapCongr env₀ env₃)
     (φ : Name → Nat) (d : Nat) (e : Expr) :
     denoteP acval env₀ φ d e = denoteP acval env₃ φ d e :=
-  denoteP_env_ext hcg.levelsEq hcg.natEq hcg.strEq d e
+  denoteP_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq d e
 
 /-! ## The fired modeled-iota contract across the swap -/
 

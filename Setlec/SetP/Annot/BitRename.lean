@@ -118,7 +118,9 @@ theorem denoteP_renameConsts_resolve {f : Name → Name}
       ∃ ci', env.find? (f n) = some ci' ∧
         ci'.toConstantVal.levelParams = ci.toConstantVal.levelParams)
     (hval : ∀ (n : Name) (ci : ConstantInfo), env.find? n = some ci →
-      ∀ ψ : Name → Nat, acval (f n) ψ = acval n ψ) :
+      ∀ ψ : Name → Nat, acval (f n) ψ = acval n ψ)
+    (htf : ∀ (sn : Name) (i : Nat) (entry : Setlec.ProjEntry),
+      env.findProj? sn i = some entry → entry.tower = false) :
     ∀ (e : Expr) (d : Nat), e.constsResolve env = true →
       denoteP acval env φ d (e.renameConsts f)
         = denoteP acval env φ d e
@@ -144,26 +146,30 @@ theorem denoteP_renameConsts_resolve {f : Name → Name}
   | .app g a, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denoteP_app,
-      denoteP_renameConsts_resolve hup hval g d hr.1,
-      denoteP_renameConsts_resolve hup hval a d hr.2]
+      denoteP_renameConsts_resolve hup hval htf g d hr.1,
+      denoteP_renameConsts_resolve hup hval htf a d hr.2]
   | .proj s i e, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
-    simp only [Expr.renameConsts, denoteP_proj,
-      denoteP_renameConsts_resolve hup hval e d hr.2]
+    simp only [Expr.renameConsts]
+    rw [denoteP_proj_pair acval (env := env) (φ := φ) d (f s) i
+        (e.renameConsts f) (fun entry hf => htf (f s) i entry hf),
+      denoteP_proj_pair acval (env := env) (φ := φ) d s i e
+        (fun entry hf => htf s i entry hf),
+      denoteP_renameConsts_resolve hup hval htf e d hr.2]
   | .forallE n ty body m, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denoteP_forallE]
     rw [← Expr.renameConsts_instantiate1]
-    rw [denoteP_renameConsts_resolve hup hval ty d hr.1,
-      denoteP_renameConsts_resolve hup hval
+    rw [denoteP_renameConsts_resolve hup hval htf ty d hr.1,
+      denoteP_renameConsts_resolve hup hval htf
         (body.instantiate1 (.fvar d n ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1 0 hr.2)]
   | .lam n ty body m, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denoteP_lam]
     rw [← Expr.renameConsts_instantiate1]
-    rw [denoteP_renameConsts_resolve hup hval ty d hr.1,
-      denoteP_renameConsts_resolve hup hval
+    rw [denoteP_renameConsts_resolve hup hval htf ty d hr.1,
+      denoteP_renameConsts_resolve hup hval htf
         (body.instantiate1 (.fvar d n ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1 0 hr.2)]
   | .letE n ty val body, d, hr => by
@@ -171,9 +177,9 @@ theorem denoteP_renameConsts_resolve {f : Name → Name}
     simp only [Expr.renameConsts]
     rw [denoteP, denoteP]
     rw [← Expr.renameConsts_instantiate1]
-    rw [denoteP_renameConsts_resolve hup hval ty d hr.1.1,
-      denoteP_renameConsts_resolve hup hval val d hr.1.2,
-      denoteP_renameConsts_resolve hup hval
+    rw [denoteP_renameConsts_resolve hup hval htf ty d hr.1.1,
+      denoteP_renameConsts_resolve hup hval htf val d hr.1.2,
+      denoteP_renameConsts_resolve hup hval htf
         (body.instantiate1 (.fvar d n ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1.1 0 hr.2)]
   termination_by e => e.sizeB

@@ -1,4 +1,5 @@
 import Setlec.SetBase.Bridge.DeclInd
+import Setlec.SetBase.DeclDirect
 import Setlec.SetBase.Bridge.DeclRun
 import Setlec.SetBase.Bridge.DeclIndRun
 
@@ -79,11 +80,22 @@ theorem checkDeclR_ofEnvR
     (fun hh => declOpaqueR mR hh)
     (fun hh => declAxiomR mR hh)
     (fun hh => declBasisR hh)
-    -- the direct-structure path is compile-time disabled
-    -- (`directStructsEnabled = false`), so `checkDecl`'s `indDecl`
-    -- clause *is* `checkIndDecl`.  The `DeclR` relation records the
-    -- modeled path only, and this is where that is discharged.
-    (fun hh => hind (by simpa [checkDecl, directParts?_none] using hh)) h
+    -- FLAG-AGNOSTIC (task #175 wiring W4): the `.indDecl` clause is
+    -- the `directParts?` dispatch; the direct arm inverts by
+    -- `declDirectR_of`, the modeled arm by the premise.  Pre-flip
+    -- the direct arm is dead (`directStructsEnabled = false`), but
+    -- the proof no longer reads the flag.
+    (fun {block} hh => by
+      rw [checkDecl] at hh
+      rw [DeclIndDispatchR]
+      revert hh
+      cases hdp : directParts? env block with
+      | some p =>
+        intro hh
+        exact declDirectR_of hh
+      | none =>
+        intro hh
+        exact hind hh) h
 
 /-- **The bridge, whole, from an `EnvR`** (task #161 S7): the ind
 kind's premise of `checkDeclR_ofEnvR` is discharged by `declIndRR`,
@@ -131,12 +143,21 @@ theorem checkDeclRun_ofEnvRE
     {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
-    DeclRunR μ F (DeclIndRunR μ F env) env d env₂ :=
+    DeclRunR μ F (DeclIndRunDispatchR μ F env) env d env₂ :=
   checkDeclRun_of
-    -- the direct-structure path is compile-time disabled
-    -- (`directStructsEnabled = false`), so `checkDecl`'s `indDecl`
-    -- clause *is* `checkIndDecl` — `directParts?_none` again.
-    (fun hh => declIndRunRR
-      (by simpa [checkDecl, directParts?_none] using hh)) h
+    -- FLAG-AGNOSTIC (task #175 wiring W4): case on the `.indDecl`
+    -- clause's own `directParts?` dispatch — `declDirectR_of` on the
+    -- direct arm, `declIndRunRR` on the modeled one.
+    (fun {block} hh => by
+      rw [checkDecl] at hh
+      rw [DeclIndRunDispatchR]
+      revert hh
+      cases hdp : directParts? env block with
+      | some p =>
+        intro hh
+        exact declDirectR_of hh
+      | none =>
+        intro hh
+        exact declIndRunRR hh) h
 
 end Setlec.SetR

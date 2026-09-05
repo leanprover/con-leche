@@ -126,7 +126,7 @@ theorem declStepPM_of_basis_cons (mp : EnvS2PM V μ env)
     exact fun φ => natHeadsP_cons_offNat mp hnN hnZ hnS _ rfl φ
   · -- `nat_ops`
     exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ) hfresh
-      (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
+      (hntc := hh.projTower) (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
   · -- `div_mod`
     exact fun φ => divModP_cons_fresh (mp.div_mod φ) hfresh
       (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
@@ -134,11 +134,11 @@ theorem declStepPM_of_basis_cons (mp : EnvS2PM V μ env)
     exact eqLawP_cons_fresh mp.eq_lawP hnEq _ rfl
   · -- `caps_ok`: reserved name, or a kind no family mentions
     rcases hcaps with hres | ⟨h1, h2, h3⟩
-    · exact capsOkP_cons_basis mp mp.caps_ok hfresh hres _ rfl
-    · exact capsOkP_cons_fresh mp mp.caps_ok hfresh h1 h2 h3 _ rfl
+    · exact capsOkP_cons_basis mp mp.caps_ok hfresh hh.projTower hres _ rfl
+    · exact capsOkP_cons_fresh mp mp.caps_ok hfresh hh.projTower h1 h2 h3 _ rfl
   · -- `rec_rules`: `EnvS.rec_ctors` supplies the constructor
     -- disequality, so freshness is enough (ENDGAME D §3a)
-    exact fun φ => recRulesP_cons_fresh mp hfresh hnotrec _ rfl φ
+    exact fun φ => recRulesP_cons_fresh mp hfresh hh.projTower hnotrec _ rfl φ
   · -- `reduce_ops`
     exact reduceOpsP_cons_fresh mp.reduce_ops hfresh hred _ rfl
 
@@ -196,11 +196,11 @@ theorem declStepPM_of_basis_rec_cons (mp : EnvS2PM V μ env)
     · exact absurd hdt.symm (hnotthm cv2 value2)
   · exact fun φ => natHeadsP_cons_offNat mp hnN hnZ hnS _ rfl φ
   · exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ) hfresh
-      (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
+      (hntc := hh.projTower) (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
   · exact fun φ => divModP_cons_fresh (mp.div_mod φ) hfresh
       (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
   · exact eqLawP_cons_fresh mp.eq_lawP hnEq _ rfl
-  · exact capsOkP_cons_basis mp mp.caps_ok hfresh hres _ rfl
+  · exact capsOkP_cons_basis mp mp.caps_ok hfresh hh.projTower hres _ rfl
   · exact fun φ => hrec _ rfl φ
   · exact reduceOpsP_cons_fresh mp.reduce_ops hfresh hred _ rfl
 
@@ -254,12 +254,12 @@ theorem declStepPM_of_basis_cons_eqrow (mp : EnvS2PM V μ env)
     · exact absurd hdt.symm (hnotthm cv2 value2)
   · exact fun φ => natHeadsP_cons_offNat mp hnN hnZ hnS _ rfl φ
   · exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ) hfresh
-      (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
+      (hntc := hh.projTower) (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
   · exact fun φ => divModP_cons_fresh (mp.div_mod φ) hfresh
       (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
   · exact heq _ rfl
-  · exact capsOkP_cons_basis mp mp.caps_ok hfresh hres _ rfl
-  · exact fun φ => recRulesP_cons_fresh mp hfresh hnotrec _ rfl φ
+  · exact capsOkP_cons_basis mp mp.caps_ok hfresh hh.projTower hres _ rfl
+  · exact fun φ => recRulesP_cons_fresh mp hfresh hh.projTower hnotrec _ rfl φ
   · exact reduceOpsP_cons_fresh mp.reduce_ops hfresh hred _ rfl
 
 /-- **The P step at a basis cons, both varying rows open.**  The `Nat`
@@ -312,11 +312,11 @@ theorem declStepPM_of_basis_cons_gen (mp : EnvS2PM V μ env)
     · exact absurd hdt.symm (hnotthm cv2 value2)
   · exact fun φ => hnh _ rfl φ
   · exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ) hfresh
-      (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
+      (hntc := hh.projTower) (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
   · exact fun φ => divModP_cons_fresh (mp.div_mod φ) hfresh
       (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
   · exact eqLawP_cons_fresh mp.eq_lawP hnEq _ rfl
-  · exact capsOkP_cons_basis mp mp.caps_ok hfresh hres _ rfl
+  · exact capsOkP_cons_basis mp mp.caps_ok hfresh hh.projTower hres _ rfl
   · exact fun φ => hrec _ rfl φ
   · exact reduceOpsP_cons_fresh mp.reduce_ops hfresh hred _ rfl
 

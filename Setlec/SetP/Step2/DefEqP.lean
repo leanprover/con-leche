@@ -1119,8 +1119,10 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       cases r with
       | false => exact hfall h
       | true =>
-        obtain ⟨ia₁, he₁, -, rfl⟩ := denoteP_proj_inv hda
-        obtain ⟨ia₂, he₂, -, rfl⟩ := denoteP_proj_inv hdb
+        obtain ⟨ia₁, he₁, -, rfl⟩ := denoteP_proj_inv_pair
+          (fun entry hf => m.proj_ok.towerFree _ _ _ hf) hda
+        obtain ⟨ia₂, he₂, -, rfl⟩ := denoteP_proj_inv_pair
+          (fun entry hf => m.proj_ok.towerFree _ _ _ hf) hdb
         simp only [Expr.WScoped] at hwa hwb
         simp only [Expr.looseBVarsBounded] at hba hbb
         exact deqStep2_projCong (ihd hde hwa hba

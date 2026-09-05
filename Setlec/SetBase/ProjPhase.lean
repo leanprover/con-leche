@@ -51,7 +51,9 @@ def ProjPhaseInvS (T ctorName : Name) (nF : Nat) (env' : Env)
 the phase invariant.  Its three cases *are* the invariant's three
 conjuncts. -/
 theorem projFwd_renameOkT {T ctorName : Name} {nF : Nat} {env' : Env}
-    {cval : TConstVal} (hinv : ProjPhaseInvS T ctorName nF env' cval) :
+    {cval : TConstVal} (hinv : ProjPhaseInvS T ctorName nF env' cval)
+    (htf : ∀ (sn : Name) (i : Nat) (entry : ProjEntry),
+      env'.findProj? sn i = some entry → entry.tower = false) :
     RenameOkT cval env' (fun n => if (env'.find? n).isSome = true then
       projFwd T ctorName nF n else n) := by
   have hfound : ∀ n ci₂, env'.find? n = some ci₂ →
@@ -87,7 +89,7 @@ theorem projFwd_renameOkT {T ctorName : Name} {nF : Nat} {env' : Env}
       obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ :=
         hinv.2.2 j hjlt ci₂ hf₂
       exact ⟨⟨_, hfm₂, hlps₂⟩, fun ψ => (hv₂ ψ).symm⟩
-  refine ⟨?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, htf⟩
   · intro n ci₂ hf₂
     dsimp only
     rw [if_pos (show (env'.find? n).isSome = true by rw [hf₂]; rfl)]

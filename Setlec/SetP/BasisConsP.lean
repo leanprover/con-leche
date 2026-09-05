@@ -223,6 +223,7 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
     (hprev : CapsOkP mp.base2)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hres₀ : Setlec.reservedBasisNames.contains c₀.name = true)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A) :
@@ -236,7 +237,7 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
       hprev.1 T cvT caps hfE hcape hres hfam₀ φ' us hlen
     refine ⟨TVa, ?_, hokTVa, ?_⟩
     · rw [hac]
-      exact denoteP_cons_fresh_mono hfresh _ 0 _
+      exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
         (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x hlents hfit hmem
@@ -267,7 +268,7 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
       hprev.2 T cvT caps hfE hcapu hres φ' us hlen
     refine ⟨TVa, ?_, hokTVa, ?_⟩
     · rw [hac]
-      exact denoteP_cons_fresh_mono hfresh _ 0 _
+      exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
         (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x y hlents hfit hx hy

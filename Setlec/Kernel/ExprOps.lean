@@ -624,6 +624,104 @@ theorem fvarRange_bne_zero {x : Expr} : (x.fvarRange != 0) = x.hasFvar := by
       cases hh
     simpa using hne
 
+/-! ## The saturated branch of the packed range fields (task #167)
+
+`Expr.bvarBRaw`/`Expr.fvarBRaw` (`Kernel/Expr.lean`) are the packed
+word's 15-bit range fields; they *saturate* at `satRange`.  The
+accessors the checker reads — `Expr.bvarB`, `Expr.fvarB` — stay
+**exact**: below saturation they are the field, and at saturation they
+fall back to a memoized recomputation of the very same recurrence.
+
+Two consequences, and they are the point of the design:
+
+* **no lemma weakens** — `bvarB_eq`/`fvarB_eq`
+  (`Verify/Cached/Erase.lean`) are still plain equations with the spec
+  functions, so no skip site grows a guard and no invariant is
+  threaded anywhere;
+* **what saturation costs is time, not truth** — the `O(1)` field read
+  becomes an `O(DAG)` walk, and only on a term with `satRange` loose
+  bvars (or fvar levels).  The measured maxima on the real streams are
+  213 (`init-full`), 488 (`grind-ring-5`) and 4000 (`app-lam`, the
+  deepest artificial workload) against `satRange = 32767`.
+
+The walks are **memoized** (an `Std.HashMap` keyed by the node) so
+that even the fallback stays linear in the DAG rather than the
+unfolded tree — the standing "no unmemoized traversals in executable
+paths" rule applies to the saturated branch too. -/
+
+/-- Memoized `bvarBound` (the saturated branch's exact recomputation). -/
+def bvarBoundGo (memo : Std.HashMap Expr Nat) (e : Expr) :
+    Nat × Std.HashMap Expr Nat :=
+  match memo[e]? with
+  | some r => (r, memo)
+  | none =>
+    let (r, memo) : Nat × Std.HashMap Expr Nat :=
+      match e with
+      | .bvar i => (i + 1, memo)
+      | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => (0, memo)
+      | .app f a =>
+        let (rf, memo) := bvarBoundGo memo f
+        let (ra, memo) := bvarBoundGo memo a
+        (max rf ra, memo)
+      | .lam _ ty body _ | .forallE _ ty body _ =>
+        let (rt, memo) := bvarBoundGo memo ty
+        let (rb, memo) := bvarBoundGo memo body
+        (max rt (rb - 1), memo)
+      | .letE _ ty val body =>
+        let (rt, memo) := bvarBoundGo memo ty
+        let (rv, memo) := bvarBoundGo memo val
+        let (rb, memo) := bvarBoundGo memo body
+        (max (max rt rv) (rb - 1), memo)
+      | .proj _ _ sub => bvarBoundGo memo sub
+    (r, memo.insert e r)
+
+@[inherit_doc bvarBoundGo]
+def bvarBoundMemo (e : Expr) : Nat := (bvarBoundGo {} e).1
+
+/-- Memoized `fvarRange` (the saturated branch's exact
+recomputation). -/
+def fvarRangeGo (memo : Std.HashMap Expr Nat) (e : Expr) :
+    Nat × Std.HashMap Expr Nat :=
+  match memo[e]? with
+  | some r => (r, memo)
+  | none =>
+    let (r, memo) : Nat × Std.HashMap Expr Nat :=
+      match e with
+      | .fvar idx _ _ => (idx + 1, memo)
+      | .bvar _ | .sort _ | .const _ _ | .lit _ => (0, memo)
+      | .app f a =>
+        let (rf, memo) := fvarRangeGo memo f
+        let (ra, memo) := fvarRangeGo memo a
+        (max rf ra, memo)
+      | .lam _ ty body _ | .forallE _ ty body _ =>
+        let (rt, memo) := fvarRangeGo memo ty
+        let (rb, memo) := fvarRangeGo memo body
+        (max rt rb, memo)
+      | .letE _ ty val body =>
+        let (rt, memo) := fvarRangeGo memo ty
+        let (rv, memo) := fvarRangeGo memo val
+        let (rb, memo) := fvarRangeGo memo body
+        (max (max rt rv) rb, memo)
+      | .proj _ _ sub => fvarRangeGo memo sub
+    (r, memo.insert e r)
+
+@[inherit_doc fvarRangeGo]
+def fvarRangeMemo (e : Expr) : Nat := (fvarRangeGo {} e).1
+
+/-- **The loose-bvar bound the checker reads**: the packed field, or —
+on the saturated branch alone — the exact memoized recomputation.
+Equal to `Expr.bvarBound` unconditionally (`bvarB_eq`). -/
+@[inline] def bvarB (e : Expr) : Nat :=
+  let r := e.bvarBRaw
+  if r == satRange then bvarBoundMemo e else r
+
+/-- **The fvar range the checker reads**: the packed field, or — on the
+saturated branch alone — the exact memoized recomputation.  Equal to
+`Expr.fvarRange` unconditionally (`fvarB_eq`). -/
+@[inline] def fvarB (e : Expr) : Nat :=
+  let r := e.fvarBRaw
+  if r == satRange then fvarRangeMemo e else r
+
 
 /-! ## Pointer-equality shortcut -/
 

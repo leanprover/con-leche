@@ -102,7 +102,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
     split
     · rename_i hcut
       exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-        (by rw [← hasLP_eq _]; simpa using hcut)).symm, hm⟩
+        (by rw [← hasLP_eq _]; simp)).symm, hm⟩
     · split
       · rename_i r hhit
         exact ⟨hm _ _ hhit, hm⟩
@@ -113,7 +113,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
     split
     · rename_i hcut
       exact ⟨(Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-        (by rw [← hasLP_eq _]; simpa using hcut)).symm, hm⟩
+        (by rw [← hasLP_eq _]; simp)).symm, hm⟩
     · split
       · rename_i r hhit
         exact ⟨hm _ _ hhit, hm⟩

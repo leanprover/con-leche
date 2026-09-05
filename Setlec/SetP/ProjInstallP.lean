@@ -98,8 +98,10 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     rw [hh, hctor] at hfm
     exact nomatch (Option.some.inj hfm)
   -- the pruned projection renaming, at both tiers
-  have hro := projFwd_renameOkT hinv
-  have hroP := projFwd_renameOkP hinv hinvA
+  have htf := fun sn2 i2 entry2 hf2 =>
+    mp.base2.proj_ok.towerFree sn2 i2 entry2 hf2
+  have hro := projFwd_renameOkT hinv htf
+  have hroP := projFwd_renameOkP hinv hinvA htf
   have hfRn : (if (env'.find? (projModelName T i)).isSome = true then
       projFwd T ctorName nF (projModelName T i)
       else projModelName T i) = projModelName T i := by
@@ -322,7 +324,8 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     obtain ⟨Ra, hRaden, hokRa, hRalaw⟩ := hbot φ us hus
     refine ⟨Ra, ?_, hokRa, ?_, ?_⟩
     · rw [hac]
-      exact denoteP_cons_fresh_mono hfreshC φ 0 _ (hcbRhs us) hRaden
+      exact denoteP_cons_fresh_mono hfreshC
+        (fun _ h => ConstantInfo.noConfusion h) φ 0 _ (hcbRhs us) hRaden
     · -- the `.nested` pin conjunct: the rule is `.plain`
       intro lvls pins hn
       rw [hplainFire] at hn
@@ -351,14 +354,16 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     obtain rfl : TVa' = TVa := by
       refine Option.some.inj (Eq.trans ?_ hTVa)
       rw [hac]
-      exact (denoteP_cons_fresh_mono hfreshC φ 0 _ (hcbPty us)
+      exact (denoteP_cons_fresh_mono hfreshC
+        (fun _ h => ConstantInfo.noConfusion h) φ 0 _ (hcbPty us)
         hTVa').symm
     obtain ⟨TVja', hTVja', -, -⟩ :=
       mp.constTypeP 0 ctorName _ usj hctor (by exact husjlen)
     obtain rfl : TVja' = TVja := by
       refine Option.some.inj (Eq.trans ?_ hTVja)
       rw [hac]
-      exact (denoteP_cons_fresh_mono hfreshC φ 0 _
+      exact (denoteP_cons_fresh_mono hfreshC
+        (fun _ h => ConstantInfo.noConfusion h) φ 0 _
         (constsBound_instType mp.base2.wf
           (Env.find?_mem hctor) usj) hTVja').symm
     -- the two leaves the conclusion mentions
@@ -484,6 +489,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
     {T : Name} {lps : List Name} {i : Nat} {entry : ProjEntry}
     (hstruct : entry.structName = T) (hidx : entry.idx = i)
     (hnat : entry.native = false)
+    (htower : entry.tower = false)
     (hlps : entry.levelParams = lps)
     (hty : entry.ty = .sort .zero)
     (hpnone : (env'.find? (projFnName T i)).isNone = true)
@@ -533,6 +539,9 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
           exact (Name.str.inj (Name.num.inj hh).1).1
         rw [hTps] at hTnres
         exact absurd hTnres (by decide)),
+      (fun e2 heq => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact htower),
       (fun _ _ _ _ heq => nomatch heq)⟩
     refine Setlec.EnvWF.cons mp.base2.wf ⟨?_, ?_, ?_, ?_,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq),
@@ -604,11 +613,11 @@ theorem templatesP {T ctorName : Name} {lps : List Name} {nP nF : Nat}
   | cons i rest ih =>
     intro env' mp env₂ h
     obtain ⟨env'', hstep, hrec⟩ := h
-    rcases hstep with rfl | ⟨entry, hstruct, hidx, hnat, hlps,
+    rcases hstep with rfl | ⟨entry, hstruct, hidx, hnat, htower, hlps,
       hty, hpnone, rfl⟩
     · exact ih mp hrec
     · obtain ⟨mp', hcval'⟩ :=
-        templateConsP mp hstruct hidx hnat hlps hty hpnone hTnres
+        templateConsP mp hstruct hidx hnat htower hlps hty hpnone hTnres
       exact ih mp' hrec
 
 end Setlec.SetR.Interp2

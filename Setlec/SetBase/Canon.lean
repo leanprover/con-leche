@@ -1,4 +1,5 @@
 import Setlec.SetBase.Syntax
+import Setlec.SetBase.TowerLeaf
 import Setlec.Verify.Denote
 import Setlec.Verify.Knot
 
@@ -73,6 +74,13 @@ def charListT2 (nilA consA ofNatA za sa : AVExpr) :
     .app (.app consA (.app ofNatA (natLitT2 za sa c.toNat)))
       (charListT2 nilA consA ofNatA za sa cs)
 
+/-- The uniform projection spellings erase onto each other:
+`projAV`'s image is `projNV` (task #175 wiring W3). -/
+theorem erase_projAV : ∀ (i : Nat) (ea : AVExpr),
+    (projAV i ea).erase = Setlec.TTVerify.projNV i ea.erase
+  | 0, _ => rfl
+  | i + 1, ea => erase_projAV i (.proj 1 ea)
+
 /-- The canonical annotation pass: `denote` with every binder numeral
 computed by the checker's own functions and every constant leaf drawn
 from the canonical annotated valuation.  Clause for clause the
@@ -115,9 +123,15 @@ def denote2 (mode : CheckMode) (acval : Name → (Name → Nat) → AVExpr)
     let ba ← denote2 mode acval env φ fuel (d + 1)
       (body.instantiate1 (.fvar d n ty))
     some (.letE ta va ba)
-  | d, .proj _ i e => do
+  | d, .proj sn i e => do
     let ea ← denote2 mode acval env φ fuel d e
-    if i < 2 then some (.proj i ea) else none
+    -- the entry-kind branch (task #175 wiring W3), clause-parallel
+    -- with `denote` and `denoteP`
+    match env.findProj? sn i with
+    | some entry =>
+      if entry.tower then some (projAV i ea)
+      else if i < 2 then some (.proj i ea) else none
+    | none => if i < 2 then some (.proj i ea) else none
   | _, .lit (.natVal n) =>
     if natLitSupported env then
       some (natLitT2 (acval natZeroName (Level.substFn φ [] []))
@@ -288,17 +302,39 @@ theorem denote2_erase {mode : CheckMode}
     rcases hea : denote2 mode acval env φ fuel d e with _ | ea'
     · rw [hea] at h; exact nomatch h
     rw [hea] at h
-    replace h : (if i < 2 then some (AVExpr.proj i ea') else none)
-        = some ea := h
-    by_cases hi : i < 2
-    · rw [if_pos hi] at h
-      obtain rfl := Option.some.inj h
-      rw [denote_proj, ihe hea]
-      dsimp only
-      rw [if_pos hi]
-      rfl
-    · rw [if_neg hi] at h
-      exact nomatch h
+    replace h : (match env.findProj? sn i with
+        | some entry => if entry.tower = true then some (projAV i ea')
+            else if i < 2 then some (AVExpr.proj i ea') else none
+        | none => if i < 2 then some (AVExpr.proj i ea') else none)
+          = some ea := h
+    rw [denote_proj, ihe hea]
+    dsimp only
+    cases hfp : env.findProj? sn i with
+    | some entry =>
+      rw [hfp] at h
+      dsimp only at h ⊢
+      by_cases htw : entry.tower = true
+      · rw [if_pos htw] at h
+        obtain rfl := Option.some.inj h
+        rw [if_pos htw, erase_projAV]
+      · rw [if_neg htw] at h ⊢
+        by_cases hi : i < 2
+        · rw [if_pos hi] at h
+          obtain rfl := Option.some.inj h
+          rw [if_pos hi]
+          rfl
+        · rw [if_neg hi] at h
+          exact nomatch h
+    | none =>
+      rw [hfp] at h
+      dsimp only at h ⊢
+      by_cases hi : i < 2
+      · rw [if_pos hi] at h
+        obtain rfl := Option.some.inj h
+        rw [if_pos hi]
+        rfl
+      · rw [if_neg hi] at h
+        exact nomatch h
   | case11 d n hsup =>
     intro ea h
     rw [denote2, if_pos hsup] at h

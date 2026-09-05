@@ -120,7 +120,9 @@ theorem memberKeyP (mp : EnvS2PM V μ env) {blockNames : List Name}
   show denoteP mp.base2.acval env ψ 0 type'
     = denoteP mp.base2.acval env ψ 0 cvm.type
   rw [← denoteP_erasedEq (Expr.ErasedEq.of_eqUpToNames hren) 0]
-  exact (denoteP_renameConsts_resolve hup hval type' 0 htr).symm
+  exact (denoteP_renameConsts_resolve hup hval
+    (fun sn i entry hf => mp.base2.proj_ok.towerFree sn i entry hf)
+    type' 0 htr).symm
 
 /-! ## The member install -/
 
@@ -198,7 +200,10 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
         ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta := by
     intro ψ ta h
     rw [hcvA]
-    exact denoteP_cons_fresh_mono hfresh' ψ 0 cvA.type hcb h
+    exact denoteP_cons_fresh_mono hfresh'
+      (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+        intro _ h <;> exact nomatch h)
+      ψ 0 cvA.type hcb h
   have hgoal := declStepPM_of_ind_cons mp (c₀ := c₀)
     (A := fun ψ => mp.base2.acval (cvA.name.str "_model") ψ)
     hfresh' hnres'
@@ -214,6 +219,8 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
             intro _ h <;> exact nomatch h)
       (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
             intro _ _ h <;> exact nomatch h)
+      (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+            intro _ h <;> exact nomatch h)
       (fun cv2 mI2 rP2 rules2 heq r hr => by
         rw [hnorules cv2 mI2 rP2 rules2 heq] at hr
         exact nomatch hr))
@@ -240,7 +247,10 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
       obtain rfl : ta₀ = ta := Option.some.inj ((hcross ψ hta₀).symm.trans hta)
       exact hmem ρ)
     (fun m₂ hac => hcaps m₂ (by rw [hac, hname]))
-    (fun m₂ hac φ => recRulesP_cons_fresh mp hfresh' hnorules m₂ hac φ)
+    (fun m₂ hac φ => recRulesP_cons_fresh mp hfresh'
+      (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+        intro _ h <;> exact nomatch h)
+      hnorules m₂ hac φ)
   rw [hname] at hgoal
   exact hgoal
 

@@ -11,11 +11,14 @@ iteration protocol. Keep it up to date when decisions change.
   verification and regression tests. Commit often.
 * No `sorry`s on master; no new axioms. Consistency proofs stay parametric in
   the `SetTheory` interface.
-* Layering: implementation (`Setlec/Kernel/*`, `Main.lean`) must never import
-  theory/verification modules (`Setlec/SetTheory/*`, `Setlec/SetR/*`,
+* Layering: implementation (`Setlec/Kernel/*`, `Setlec/Cached/*`,
+  `Main.lean`) must never import theory/verification modules
+  (`Setlec/SetTheory/*`, `Setlec/SetBase/*`, `Setlec/SetP/*`,
   `Setlec/Verify/*`). Proofs about kernel functions go in `Setlec/Verify/*`;
-  the set-theoretic model and consistency in `Setlec/SetR/*` (the
-  direct `Setlec/Model/*` tier was retired at task #148 T7).
+  the shared semantic tier (set constructions, denotation) in
+  `Setlec/SetBase/*`; the graded set model and the consistency proofs in
+  `Setlec/SetP/*` (the direct `Setlec/Model/*` tier was retired at task
+  #148 T7; the collapsed-model `Setlec/SetR/*` tier was deleted 2026-09-05).
   Exception (2026-08-24): a *self-contained* verification of a data
   structure (e.g. the arena's WF — invariants + preservation proofs
   importing no other Model/Verify modules) may live with, and be
