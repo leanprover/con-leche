@@ -19,13 +19,20 @@ is silently vacuous if a flag it assumes is compiled the other way;
 these guards pin the actual values.  One `#guard` per pinned value,
 each naming the theorem family that depends on it. -/
 
--- The default mode is `--set-model`: `CheckMode`'s `Inhabited` default
--- (which Main's `Args.mode := .setModel` and the driver dispatch pin
--- operationally — tests/arena.sh's mode_case exercises the flag).  The
--- set-lane consistency theorems (`checkDeclsSP_sound` /
--- `no_proof_of_Empty*` families) are consumed at this mode by the
--- #148 bridge.
+-- `CheckMode`'s `Inhabited` default is the FIRST constructor,
+-- `.setModel`.  **It is no longer the checker's default mode.**  The
+-- R core retired 2026-09-05 and no flag produces `.setModel` any more
+-- (`--set-model=r` is a hard error); `Main.lean` sets
+-- `Args.mode := .setModelP` explicitly and never reads this default.
+-- What `.setModel` still is: the concrete verified, UNGATED mode the
+-- shared declaration bridge (`SetBase/Bridge/*`, premised on
+-- `mode.betaGate = false`) is stated at, as `Setlec.modeR` — so the
+-- reference-semantics guards below stay at it deliberately, and the
+-- SHIPPED-driver guards moved to `.setModelP`.
 #guard (default : CheckMode) == .setModel
+#guard CheckMode.betaGate .setModel == false
+#guard CheckMode.betaGate .setModelP == true
+#guard Setlec.modeR == CheckMode.setModel
 
 -- The seven-check gate is OFF at every mode since task #148 T7b: the
 -- declarative lane that turned it on (and its `.ttModel` value) was
@@ -33,16 +40,18 @@ each naming the theorem family that depends on it. -/
 -- unreachable; these guards are what would notice a mode being added
 -- back without the lane that justifies it.
 #guard CheckMode.ttChecks .setModel == false
+#guard CheckMode.ttChecks .setModelP == false
 #guard CheckMode.ttChecks .noModel == false
 
 -- The λ-codomain-sort gate (task #152, `inferBody`'s `.lam` clause):
 -- ON in the verified lane — the set lane's annotation pass reads the
 -- fact off `inferTypeCore_lam_inv`'s `mode.verified = true → …`
--- conjunct, so compiling this `false` at `.setModel` would make that
--- conjunct vacuous — and OFF at `.noModel`, which is the
+-- conjunct, so compiling this `false` at a verified mode would make
+-- that conjunct vacuous — and OFF at `.noModel`, which is the
 -- official-parity lane (the reference kernel's `infer_lambda` does not
 -- sort-check the body's type).
 #guard CheckMode.verified .setModel == true
+#guard CheckMode.verified .setModelP == true
 #guard CheckMode.verified .noModel == false
 
 -- The direct simple-structure master switch ships OFF since task #148
@@ -294,7 +303,7 @@ private def emptyModelAuxName : Name :=
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
   | .ok ⟨ds, _⟩ =>
-    (Setlec.Cached.checkDeclsSPCachedD .setModel ds.toList).toBool
+    (Setlec.Cached.checkDeclsSPCachedD .setModelP ds.toList).toBool
   | .error _ => false
 
 /-! ## Frontend: taint skip-and-continue
@@ -345,7 +354,7 @@ private def taintSkipExport : String := String.intercalate "\n" [
 -- reach install: it is absent from the declarations).
 #guard match Frontend.parseExportD taintSkipExport with
   | .ok ⟨ds, _⟩ =>
-    (Setlec.Cached.checkDeclsSPCachedD .setModel ds.toList).toBool
+    (Setlec.Cached.checkDeclsSPCachedD .setModelP ds.toList).toBool
   | .error _ => false
 
 -- A stream without tolerated-axiom uses records no skips.

@@ -279,11 +279,14 @@ split_case 3 --core=cached-parsed "$SPLIT_GOOD"   # …including the one that wo
 split_case 3 --core production "$SPLIT_GOOD"      # …in the two-token spelling
 echo "retired flags: $split_ok/$split_total as expected"
 
-# The mode flags (task #147): the non-default modes parse and judge the
-# smoke fixtures like the default — the graded lane (`--set-model=p`)
-# and the collapsed one (`--set-model=r`) beside them — and the RETIRED
-# flags/environment variables error out with a pointer to the new modes
-# rather than being silently ignored.
+# The mode flags (task #147): the modes parse and judge the smoke
+# fixtures alike — the verified graded lane (`--set-model`, spelled
+# `--set-model=p` too) and the parity lane (`--no-model`) — and the
+# RETIRED flags/environment variables error out with a pointer to the
+# new modes rather than being silently ignored.  `--set-model=r` joined
+# them 2026-09-05: the R core and the collapsed-model consistency proof
+# it was the subject of were deleted, and the spelling must not
+# silently alias onto a different core.
 mode_ok=0
 mode_total=0
 mode_case() {
@@ -302,8 +305,11 @@ mode_case 3 --tt-model "$SPLIT_GOOD"               # retired flag: hard error
 mode_case 0 --no-model "$SPLIT_GOOD"               # unverified lane: accepts
 mode_case 1 --no-model "$SPLIT_BAD"                # front door still rejects
 mode_case 3 --no-model --install-only "$SPLIT_GOOD" # retired flag: hard error
-mode_case 0 --set-model=r "$SPLIT_GOOD"            # the R lane, spelled out
-mode_case 0 --set-model=p "$SPLIT_GOOD"            # the P lane
+mode_case 3 --set-model=r "$SPLIT_GOOD"            # RETIRED R lane: hard error
+mode_case 3 --set-model=r "$SPLIT_BAD"             # …on a bad stream too
+mode_case 0 --set-model=p "$SPLIT_GOOD"            # the P lane, spelled out
+mode_case 1 --set-model=p "$SPLIT_BAD"             # …and it still rejects
+mode_case 1 --set-model "$SPLIT_BAD"               # the default rejects
 mode_case 3 --yolo "$SPLIT_GOOD"                   # retired flag: hard error
 mode_case 3 --infer-only "$SPLIT_GOOD"             # retired flag: hard error
 mode_total=$((mode_total+1))
