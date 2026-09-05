@@ -38377,3 +38377,53 @@ branches are dead pre-flip — no tower entries exist).  At W5 the
 `ProjOkT` third conjunct and `RenameOkT/P`'s fourth weaken to the
 per-block coverage disjunction in the SAME commit as
 `NativeProjPinned`'s.
+
+**W4 route freeze (2026-09-05, at the W4a seam).**  W4a (checklist
+item 1) is LANDED: `SetBase/TowerWire.lean` — the leaves' `hAclosed`
+rows via erasure bounds (`directTyAV/directMkAV/directRecAV_below`,
+`stripPisAV_below` as the frame source, `liftN_eq_self_of_closed` as
+the package); `hAparams` needs no leaf lemma (leaves are plain
+functions of their computed inputs).  The rest of W4, frozen:
+
+* **The relation** (`SetBase/Decl.lean`): `DeclDirectR μ F env cval p
+  env₂` records `checkDirectStruct`'s run — the three annotated
+  `ConstantVal`s with their `ConstantValR`-shape rows, the
+  `directShape` pin, the opened frames with the `checkDirectDomsAt`
+  rows as `isDefEqCore … = ok true` facts at their own frames
+  (`off + j`), the `checkDirectFieldUniv` rows as
+  `inferType`/`ensureSort` runs plus `Level.leq u resSort = true`,
+  the rule's stripped shape (`directRuleBody`) and λ-frame
+  `checkDefEqList` rows, and the install spine (T, C, the REAL
+  `T.rec` with its one rule, then the `nF` tower `projInfo` entries
+  behind the O4 branch).  `DeclR`'s `.indDecl` row becomes the
+  `directParts?`-guarded match (modeled arm byte-unchanged).
+* **The bridge inversion**: `checkDirectStruct` run → `DeclDirectR`,
+  per stage function, syntactic — `BridgeDecl`'s existing per-stage
+  style; the W1-frozen kernel deltas already shaped the stages for
+  it.
+* **The premise discharge** (item 2): the `DefEqClaims2P`/
+  `InferClaims2P` interface (`SetP/Claims2P.lean`) turns the recorded
+  runs into `interp2` equations — `checkDirectDomsAt` rows into the
+  O3 pins (`RecBase`'s three equations, C's parameter domains ≐ T's),
+  `checkDirectFieldUniv` rows into `FieldsGraded` (→
+  `fieldsBound_of_graded`, O5) — over the opened telescopes' contexts
+  (`CtxOkP` at the frame readings, peeled by `stripPisAV_eq_mkPis`).
+* **THE INTERLOCK FINDING** (recorded so W5 does not trip on it):
+  the install-step rows CANNOT land against the current invariants —
+  a direct install stores a `tower := true` entry, refuting
+  `ProjOkT`'s third conjunct and, through it, `RenameOkT/P`'s fourth.
+  The weakening is not a drop-in: post-flip the rename walks need
+  **`towerAt` agreement along the rename map** (`∀ sn i,
+  towerAt env (f sn) i = towerAt env sn i`), not global
+  tower-freeness — dischargeable at the builders because the maps
+  move only modeled block names and their `_model` composites, whose
+  `projFnName` slots are never tower entries (a direct former is
+  `directNoModel`, so it is never in a modeled `blockNames`).  So the
+  W5 opening seam is: weaken `ProjOkT`'s third conjunct and
+  `NativeProjPinned` to the coverage disjunction, restate
+  `RenameOkT/P`'s fourth conjunct as f-relative agreement, re-derive
+  the pin-kill sites (they hold per-entry facts and survive), THEN
+  flip.  The install rows (`declStepPM_of_cons` with the bespoke
+  `caps_ok`/`rec_rules` discharges; the tier's
+  `towerSet_elim_teleOfFields` for eta, `recBodyAV_fold_mk` for the
+  rule fold) land on top of the weakened invariant.
