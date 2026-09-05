@@ -131,78 +131,12 @@ def structUnitCertNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     | _ => pure false
   | _ => pure false
 
-/-- Cert-skipping twin of `pairEtaCertI` (port of
-`Setlec/Kernel/CoreNC.lean`'s `pairEtaCertNC`): keeps the constructor
-and type-head guards, the level comparison, the two parameter
-comparisons and the two field defeqs against the projections (all of
-which the references' `tryEtaStructCore` performs, the parameter
-comparisons as part of its `isDefEq (inferType t) (inferType s)`);
-skips the projection-entry parameter telescope certification
-`projParamCertI` (task #130). -/
-def pairEtaCertNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
-    CheckCM Bool := do
-  match ← viewI a with
-  | some (.app f₄ s₂) =>
-    match ← viewI f₄ with
-    | some (.app f₃ s₁) =>
-      match ← viewI f₃ with
-      | some (.app f₂ pβ) =>
-        match ← viewI f₂ with
-        | some (.app f₁ pα) =>
-          match ← viewI f₁ with
-          | some (.const c us) => do
-            let cn ← readbackNM c
-            match fe.find? cn with
-            | some (.ctorInfo _cvm 2 2) => do
-              let tb ← r.infer depth b
-              let wtb ← r.whnf depth tb
-              match ← viewI wtb with
-              | some (.app g₂ B) =>
-                match ← viewI g₂ with
-                | some (.app g₁ A) =>
-                  match ← viewI g₁ with
-                  | some (.const c' us') => do
-                    let c'n ← readbackNM c'
-                    match fe.find? c'n with
-                    | some (.indInfo _ _) =>
-                      match fe.find? (c'n.str "rec") with
-                      | some (.recInfo _ mI rP [rr]) =>
-                        if rr.ctor = cn ∧ rr.nfields = 2 ∧ mI = rP ∧
-                            reservedBasisNames.contains (c'n.str "rec")
-                              = true then do
-                          if ← liftFueled "level comparison"
-                              (← isEquivListLM us us') then do
-                            if ← r.defeq depth pα A then do
-                              if ← r.defeq depth pβ B then do
-                                let p₀ ← internI (.proj c' 0 b)
-                                if ← r.defeq depth s₁ p₀ then do
-                                  let p₁ ← internI (.proj c' 1 b)
-                                  r.defeq depth s₂ p₁
-                                else pure false
-                              else pure false
-                            else pure false
-                          else pure false
-                        else pure false
-                      | _ => pure false
-                    | _ => pure false
-                  | _ => pure false
-                | _ => pure false
-              | _ => pure false
-            | _ => pure false
-          | _ => pure false
-        | _ => pure false
-      | _ => pure false
-    | _ => pure false
-  | _ => pure false
-
 /-- Cert-skipping twin of `stuckIrrelI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `stuckIrrelNC`; `proofIrrelI` does no
 proof-only work and is reused). -/
 def stuckIrrelNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
-  if ← pairEtaCertNC r fe depth a b then pure true
-  else if ← pairEtaCertNC r fe depth b a then pure true
-  else if ← structEtaCertNC r fe depth a b then pure true
+  if ← structEtaCertNC r fe depth a b then pure true
   else if ← structEtaCertNC r fe depth b a then pure true
   else if ← structUnitCertNC r fe depth a b then pure true
   else proofIrrelI r fe depth a b
@@ -540,35 +474,23 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
           let targs ← withStore (·.getAppArgsI te)
           if entry.native ∧ T = sn ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            if entry.tower then
-              -- the official `infer_proj` restriction (task #175
-              -- W4c/O4), as in the spec body
-              if Level.isEquiv entry.structSort .zero == some true then
-                unless Level.isEquiv
-                    (Level.subst entry.levelParams us entry.fieldSort) .zero
-                    == some true do
-                  throw (.invalid
-                    "projection from a propositional structure must be a proposition")
-              -- task #175 wiring W2c: the tower-backed residual, as in
-              -- the spec body — since B3a `ExprC = Expr` and the store
-              -- is a unit, so the level-instantiated peel runs
-              -- directly on the entry type and the interned spine.
-              let tyI := entry.ty.instantiateLevelParams
-                entry.levelParams us
-              match Expr.instPisAt (targs ++ [pe]) tyI with
-              | some (_, resid) => internExprM resid
-              | none => throw (.internal "malformed projection entry")
-            else
-            -- Task #172 batch B1b (E2): the same pair clause as
-            -- `inferBodyI`'s — the residual computed from the pinned
-            -- two-parameter basis shape (`NativeProjPinned.spineShape`
-            -- + `piResidual_of_invariant`), licence-free.
-            match targs, i with
-            | [A, _], 0 => pure A
-            | [_, B], 1 => do
-              let p₀ ← internI (.proj T 0 pe)
-              internI (.app B p₀)
-            | _, _ => throw (.internal "malformed projection entry")
+            -- the official `infer_proj` restriction (task #175
+            -- W4c/O4), as in the spec body
+            if Level.isEquiv entry.structSort .zero == some true then
+              unless Level.isEquiv
+                  (Level.subst entry.levelParams us entry.fieldSort) .zero
+                  == some true do
+                throw (.invalid
+                  "projection from a propositional structure must be a proposition")
+            -- task #175 wiring W2c: the tower-backed residual, as in
+            -- the spec body — since B3a `ExprC = Expr` and the store
+            -- is a unit, so the level-instantiated peel runs
+            -- directly on the entry type and the interned spine.
+            let tyI := entry.ty.instantiateLevelParams
+              entry.levelParams us
+            match Expr.instPisAt (targs ++ [pe]) tyI with
+            | some (_, resid) => internExprM resid
+            | none => throw (.internal "malformed projection entry")
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
