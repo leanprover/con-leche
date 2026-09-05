@@ -337,6 +337,8 @@ theorem propIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   unfold propIrrel
   split
   · exact DiscV.pure trivial
+  split
+  · exact DiscV.pure trivial
   refine DiscV.bind (ih.site_inferIO henv hwa) (fun ta hta => ?_)
   refine DiscV.bind (ih.site_inferIO henv hta) (fun tta htta => ?_)
   refine DiscV.bind (ih.site_whnf henv htta) (fun w _ => ?_)

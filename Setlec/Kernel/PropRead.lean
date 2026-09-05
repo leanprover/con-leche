@@ -38,12 +38,18 @@ namespace Setlec
 
 namespace Expr
 
-/-- The residual after peeling `k` *syntactic* ∀ binders (no
-substitution — the residual may mention the peeled binders; the readers
-only look at its head shape). -/
-def peelPis : Nat → Expr → Option Expr
+/-- The residual after peeling `k` *syntactic* ∀ binders whose data
+are all `.never` (no substitution — the residual may mention the
+peeled binders; the readers only look at its head shape).  The
+`.never` requirement costs no coverage on validated types — the
+binders of a type former `∀ p⃗, Sort u` all carry the datum of a
+`succ` codomain sort — and it is what licenses the "yes" arm's
+telescope walk without a certificate (`neverChainP_of_peel`,
+`Setlec/SetP/Step2/IrrelFastP.lean`: every slot is in the graph
+regime, `io_domain_transfer`). -/
+def peelNeverPis : Nat → Expr → Option Expr
   | 0, e => some e
-  | k + 1, .forallE _ _ b _ => peelPis k b
+  | k + 1, .forallE _ _ b m => if m.pw.isNever then peelNeverPis k b else none
   | _ + 1, _ => none
 
 /-- The number of arguments of an application spine. -/
@@ -54,11 +60,11 @@ def numArgs : Expr → Nat
 end Expr
 
 /-- The zero-ness datum of the sort of a *residual type*: a `Sort u`
-residual says the type inhabits `Sort u`; a ∀ residual carries its
-codomain sort's datum on the binder. -/
+residual says the type inhabits `Sort u`.  (A ∀ residual would mean
+the applied head is a function, not a type — unreachable on
+well-typed input, and unknown here.) -/
 def residualPW : Option Expr → Option PropWhen
   | some (.sort u) => some (Level.zeronessOf u)
-  | some (.forallE _ _ _ m) => some m.pw
   | _ => none
 
 /-- The datum of a type-former application's *head* at `n` arguments:
@@ -73,10 +79,11 @@ def headTypePW (find? : Name → Option ConstantInfo) : Expr → Nat →
       if ci.isTowerEntry then none else
       let cv := ci.toConstantVal
       if us.length = cv.levelParams.length then
-        (residualPW (cv.type.peelPis n)).map (Level.substPW cv.levelParams us)
+        (residualPW (cv.type.peelNeverPis n)).map
+          (Level.substPW cv.levelParams us)
       else none
     | none => none
-  | .fvar _ _ ty, n => residualPW (ty.peelPis n)
+  | .fvar _ _ ty, n => residualPW (ty.peelNeverPis n)
   | _, _ => none
 
 /-- The zero-ness datum of the sort of the *type* `T` ("is `T` a

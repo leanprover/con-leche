@@ -276,6 +276,9 @@ def propIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
   if cfg.verified &&
       (notProofFast fe.find? a || notProofFast fe.find? b) then
     pure false
+  else if cfg.verified && cfg.betaGate &&
+      isProofFast fe.find? a && isProofFast fe.find? b then
+    pure true
   else
   let ta ← r.inferIO depth a
   let tta ← r.inferIO depth ta

@@ -1586,10 +1586,14 @@ theorem isUnitLikeTy_inv {env : Env} {e : Expr}
     | _ :: _ :: _, h2 => exact nomatch h2
 
 /-- Inversion of a successful hoisted `Prop`-branch certification
-(task #168): both types' sorts are `Prop`.  The fast "not a proof" arm
-only ever answers `false`, so it contributes nothing here. -/
+(task #168): either the fast "yes" arm fired — at a verified, gated
+mode both sides' head-symbol readers say "proof" — or both types'
+sorts are `Prop` by the slow branch.  The fast "not a proof" arm only
+ever answers `false`, so it contributes nothing here. -/
 theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : propIrrelP mode env fuel d a b = .ok true) :
+    (mode.verified = true ∧ mode.betaGate = true ∧
+      isProofFast env.find? a = true ∧ isProofFast env.find? b = true) ∨
     ∃ ta sta uT tb stb vT,
       inferTypeIO mode env fuel d a = .ok ta ∧
       inferTypeIO mode env fuel d ta = .ok sta ∧
@@ -1604,6 +1608,11 @@ theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
   simp only [inferTypeIO_def, whnf_def] at h
   split at h
   · simp [pure, Except.pure] at h
+  split at h
+  · next hc =>
+    simp only [Bool.and_eq_true] at hc
+    exact Or.inl ⟨hc.1.1.1, hc.1.1.2, hc.1.2, hc.2⟩
+  refine Or.inr ?_
   cases hta : inferTypeIO mode env fuel d a with
   | error err => rw [hta] at h; exact nomatch h
   | ok ta =>

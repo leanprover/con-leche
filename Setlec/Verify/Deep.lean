@@ -1140,7 +1140,8 @@ private theorem propIrrel_shift (henv : EnvWF env)
     propIrrel mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
       propIrrel mode (pureFns mode env fuel) env d a b := by
-  simp only [propIrrel, notProofFast_shiftFrom]
+  simp only [propIrrel, notProofFast_shiftFrom, isProofFast_shiftFrom]
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   refine bind_congr _ (ih.inferIO hpd hwa) ?_
   intro ta hta

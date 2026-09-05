@@ -109,8 +109,10 @@ theorem propIrrel_stepR {env : Env} (hg : mode.betaGate = false)
     (ihi : InferClaimsR mode m φ fuel) :
     PropIrrelStepR (mode := mode) m φ fuel := by
   intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
-  obtain ⟨ta, sta, uT, tb, stb, vT, hta, hsta, hwsta, hequ, htb, hstb,
-    hwstb, heqv⟩ := propIrrel_inv h
+  rcases propIrrel_inv h with ⟨-, hbg, -, -⟩ |
+    ⟨ta, sta, uT, tb, stb, vT, hta, hsta, hwsta, hequ, htb, hstb,
+      hwstb, heqv⟩
+  · exact absurd hbg (by simp [hg])
   rw [Setlec.inferTypeIO_off hg] at hta hsta htb hstb
   have hu0 : Level.eval φ uT = 0 := by
     have := Level.isEquiv_sound hequ φ

@@ -885,6 +885,12 @@ def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   if mode.verified &&
       (notProofFast env.find? a || notProofFast env.find? b) then
     pure false
+  else if mode.verified && mode.betaGate &&
+      isProofFast env.find? a && isProofFast env.find? b then
+    -- the yes arm (task #168 stage 3): both heads' validated data say
+    -- "a proposition at every valuation" — the squash-regime licence
+    -- (`prf_of_isProofFast`, `Setlec/SetP/Step2/IrrelFastP.lean`)
+    pure true
   else
   -- task #172 B4: every inference here is at the io grade
   let ta ← r.inferIO depth a

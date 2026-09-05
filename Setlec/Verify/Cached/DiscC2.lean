@@ -47,7 +47,10 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
   show SimC mode env s₀ RelVC
     (if mode.verified &&
         (notProofFast (mkFEnv env).find? a || notProofFast (mkFEnv env).find? b)
-      then pure false else
+      then pure false
+      else if mode.verified && mode.betaGate &&
+        isProofFast (mkFEnv env).find? a && isProofFast (mkFEnv env).find? b
+      then pure true else
       (coreKnotI mode (mkFEnv env) f).inferIO d a >>= fun ta =>
       (coreKnotI mode (mkFEnv env) f).inferIO d ta >>= fun tta =>
       (coreKnotI mode (mkFEnv env) f).whnf d tta >>= fun wtta =>
@@ -77,6 +80,11 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
   · rw [if_pos hc, if_pos hc]
     exact SimC.pure hs rfl
   · rw [if_neg hc, if_neg hc]
+    by_cases hy : (mode.verified && mode.betaGate &&
+        isProofFast env.find? a && isProofFast env.find? b) = true
+    · rw [if_pos hy, if_pos hy]
+      exact SimC.pure hs rfl
+    rw [if_neg hy, if_neg hy]
     refine SimC.bind (ih.inferIO hs rfl hwa) (fun s₁ ta tax hs₁ hP => ?_)
     obtain ⟨htad, hwta⟩ := hP
     refine SimC.bind (ih.inferIO hs₁ htad hwta) (fun s₃ tta ttax hs₃ hP₃ => ?_)
