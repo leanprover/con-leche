@@ -38716,3 +38716,250 @@ R P)` (line 96) and the `R) CMD=("$BIN" --set-model=r …)` arm (line
 108) are two literal lines that must drop together, so the
 regeneration never invokes a retired flag.  Held for the signal after
 the wiring batch's W5.
+
+## TASK #167 — THE PACKED NODE WORD (2026-09-05, `agent/packing`;
+LANDS CODE — the user's saturating ruling, executed)
+
+### 0. WHAT LANDED, IN ONE LINE
+
+`Setlec.Expr`'s **four** `@[computed_field]`s are **one**: a packed
+`UInt64` laid out as `Lean.Expr.Data` is — and `Expr.bvarB`,
+`Expr.fvarB`, `Expr.hasLP`, `Expr.hash` are still the same functions,
+so **not one statement below `Kernel/Expr.lean` moved**.
+
+### 1. THE LAYOUT, AND THE WIDTH DECISION
+
+| bits | field | width |
+|---|---|---|
+| 63…32 | `hash` | 32 |
+| 31 | *reserved* | 1 |
+| 30…16 | `bvarB` (saturating) | 15 |
+| 15…1 | `fvarB` (saturating) | 15 |
+| 0 | `hasLP` | 1 |
+
+`Lean.Expr.Data`'s own proportions are hash 32 + `looseBVarRange` 20 +
+flags; setlec needs **two** ranges (Lean carries only a `hasFVar`
+bool), so the 31 bits below the hash split 15/15/1 with one spare.
+The hash stays wide at 32 — the coordinator's constraint — and is the
+one *value* the packing changes (it was 64 bits; `beqFast`'s
+false-agree probability goes from `2^-64` to `2^-32`, which is
+`Lean.Expr`'s own bargain).
+
+**The measured maxima** — a temporary fifth computed field `mxB`
+(the max over a subtree of `max bvarB fvarB`) read at `internI`, at
+the seven `ExprOpsC` build sites and at the parser's `ie` node, so
+every node the checker ever builds was observed:
+
+| stream | max `max bvarB fvarB` | headroom to 32767 |
+|---|---|---|
+| `init-full` (61 048 decls) | **213** | 154× |
+| `grind-ring-5` | **488** | 67× |
+| `app-lam` (the deepest artificial workload) | **4000** | 8.2× |
+
+The parser's own site never exceeded the probe's 48-node threshold on
+`init-full`: input terms are shallow, and what grows the bound is the
+checker's own binder cursors.
+
+**The fvar-allocation finding, asked for by the charter**: fvar
+indices are **de Bruijn levels**, not a global counter.  Every
+`internI (.fvar depth …)` in `Cached/CoreC.lean` and `CoreNC.lean`
+takes the `depth` parameter threaded through the core (or `d + k`
+inside a telescope loop), so `fvarB` is bounded by the local-context
+depth exactly as `bvarB` is bounded by the binder nesting.  **A
+global counter would have forced a wide field or a different
+treatment; a level does not.**  15 bits serve both.
+
+### 2. THE OVERFLOW CONVENTION — SATURATE, AND STAY EXACT ANYWAY
+
+The charter opened with *decline on overflow* (exit 2, with a width
+invariant maintained at the entry points).  The user withdrew that
+mid-batch — *"I have qualms about introducing a WFe invariant for the
+packed bvar field.  Maybe saturating is easier, with degraded
+performance once saturated?"* — and the batch executed the second
+design.
+
+The coordinator's proposed proof shape for saturation was
+*exact-below-saturation*: weaken `bvarB_eq` to a one-directional
+lemma and let the `≤`-comparison consumers ride free.  **That shape
+was checked and rejected on a finding**, which is worth recording
+because it is not obvious:
+
+> `bvarB_le : e.bvarB ≤ d → looseBVarsBounded d e` is **not** free
+> under a saturating field.  It fails exactly when `d ≥ satRange`,
+> and `d` is a traversal cursor — a variable at every one of the ~90
+> call sites, with no statically provable bound.  Making the skip
+> tests carry the guard (`e.bvarB ≤ min d satMax`) works, but it
+> weakens `looseBVarsBounded_spec` (a *both-directions* equation
+> consumed by `rw` at 8 sites, and by four **parse-time accept
+> guards** — a false reject is a wrong verdict, not a slow one) and
+> it restates `bvarBoundM_eff`.  Priced at ~60 hand edits in
+> `Verify/Cached/{OpsC,GuardsC,SimCEff}.lean` **plus two statement
+> moves**.
+
+So the batch saturates the **storage** and keeps the **accessor**
+exact:
+
+```
+def bvarB (e : Expr) : Nat :=
+  let r := e.bvarBRaw                     -- the packed 15-bit field
+  if r == satRange then bvarBoundMemo e else r
+```
+
+`bvarBoundMemo` is the *same recurrence*, memoized (`Std.HashMap`
+keyed by the node) so the fallback is `O(DAG)` — the standing
+no-unmemoized-traversals rule holds on the saturated branch too.
+This is the user's sentence taken literally: **saturation costs time,
+and only on terms that saturate**; it costs no truth anywhere.
+
+Proof shape, three lemmas where there was one, landing on the old one:
+
+1. `bvarBRaw_exact : e.bvarBRaw < satRange → e.bvarBRaw =
+   Expr.bvarBound e` — induction on the packed word's per-constructor
+   equations.  The binder arm is the only interesting one: the
+   *saturating predecessor* `satPred` maps `satRange` to itself
+   rather than to `satRange - 1`, which is what keeps "stored value
+   `satRange` means *at least* `satRange`" true through a binder;
+2. `bvarBoundMemo_eq : Expr.bvarBoundMemo e = Expr.bvarBound e` —
+   the `MemoBInv` pattern, cloned from `wscopedBGo_spec`;
+3. `bvarB_eq : e.bvarB = Expr.bvarBound e` — **verbatim the old
+   statement**, by a two-way split on the saturation test.
+
+Same three for `fvarB`.  `hasLP` is one bit, hence exact with no
+fallback; `hash` has no exactness lemma to keep.
+
+### 3. THE CHURN, AND WHY IT IS FOUR LINES
+
+Files touched: `Kernel/Expr.lean` (the word, the roundtrip family, the
+per-constructor equations), `Kernel/ExprOps.lean` (the two memoized
+walks and the two accessors), `Verify/Cached/Erase.lean` (the six new
+lemmas landing on the two old ones).
+
+**Everything else: four lines** — `simpa using hcut` → `simp` at the
+`bvar` and `lit` arms of `instLevelParamsGo_spec`
+(`Verify/Cached/OpsC.lean`) and `allLevelParamsDefinedGo_spec`
+(`Verify/Cached/GuardsC.lean`), where `hasLP` is now a `@[simp]`
+equation and the hypothesis became redundant.  Every one of the ~70
+`bvarB_le` / `fvarB_le` / `hasLP_false` consumers B3a counted, and
+every executable skip site in `Cached/ExprOpsC.lean` and
+`Cached/StateC.lean`, compiled **untouched**.
+
+That is the batch's reusable lesson, and it is B3a's §3 answered:
+*the exactness→saturation cascade B3a priced is avoidable — pay for a
+slow exact branch instead of a weak lemma, and the representation
+change stays a representation change.*
+
+### 4. THE PROOF TECHNIQUE WORTH KEEPING
+
+The packing is written with **arithmetic**, not bitwise, operators:
+
+```
+packData h b f lp = h * 4294967296 + b * 65536 + f * 2 + (if lp then 1 else 0)
+bvarOfData w      = w / 65536 % 32768
+```
+
+Disjoint fields make `+` the bitwise join and `/`,`%` by powers of two
+the shift-and-mask — LLVM emits the same instructions — and every
+roundtrip lemma is then `UInt64.toNat_inj` + `simp [UInt64.toNat_*]` +
+**`omega`**.  No `bv_decide`, no `BitVec` bridging, no `Nat.land`
+lemma hunting.  The whole family (`bvarOfData_pack`, `fvarOfData_pack`,
+`lpOfData_pack`, `hashOfData_pack` and their range companions) is 40
+lines.
+
+The one trap: `omega` needs the *outer* `% 2^64` discharged, so each
+lemma carries the componentwise range hypotheses and `cases lp` first
+(otherwise `(if lp then 1 else 0).toNat` blocks it).
+
+### 5. THE A/B — INSTRUCTIONS FLAT, MEMORY HALVED
+
+The shipped lane (`--set-model`), `instructions:u` and peak RSS,
+median of 3, against the baseline binary snapshotted at `a9399a80`
+**before** the batch opened.  Baseline stamp `raw/vs-official-raw`
+except the last row.
+
+| stream | instr base → pack | Δ | peak RSS base → pack | Δ |
+|---|---|---|---|---|
+| `init-full` (61 048 decls) | 2929.44 → 2931.91 G | **+0.08 %** | 1744.6 → 931.0 MB | **−46.6 %** |
+| `grind-ring-5` | 98.00 → 97.65 G | **−0.35 %** | 489.6 → 349.4 MB | **−28.6 %** |
+| `app-lam` (the DAG/RSS stress) | 291.12 → 282.72 G | **−2.88 %** | 5248.0 → 2788.4 MB | **−46.9 %** |
+| `init-full.pre` (`--pre`; stamp `pre/vs-official-pre`) | 2749.54 → 2751.89 G | **+0.09 %** | 1746.3 → 926.8 MB | **−46.9 %** |
+
+Read it as the promise kept and the worry answered:
+
+* **the promise was memory, and it is halved** — 5.25 GB → 2.79 GB on
+  `app-lam`, 1.74 GB → 0.93 GB on `init-full`.  That is *more* than
+  B3a's synthetic accessor bench predicted (−38.8 %), because the
+  bench measured a node array while the real streams pay the same
+  saving on every live node of a 24 k-node DAG plus every rebuilt
+  intermediate;
+* **the worry was the accessor, and it costs nothing** — +0.08 % on
+  `init-full` is inside run-to-run noise, and `app-lam` is **−2.88 %**:
+  on DAG-shared reduction traffic the smaller node pays for its own
+  extraction through the cache.  B3a's `PackB` bench said bit
+  extraction is cheaper than four tagged reads; at scale it is
+  cache behaviour, not instruction count, that decides, and both
+  point the same way.
+
+`app-lam`'s baseline row (291.12 G) reproduces B3a's own pre-migration
+measurement of the same stream (291.16 G) to 0.01 %, which is the
+harness's own control.
+
+### 6. RECEIPTS
+
+`lake build` green and **warning-free**, 407 jobs (521 before the
+merges with master's SetR deletion and the wiring W3+W4 seams);
+`lake test` green; layering base 244 / P 120 / caps 2 / umbrella 1,
+**0 base→lane, 0 impl→theory**; proofdeps **88 rows as pinned**,
+doors 0; arena tutorial **90/92**,
+e2e **73/73**, annot **14/14**, retired flags 8/8, mode flags 11/11,
+**no-model sweep 138 arena + 73 e2e + 14 annot as expected (its 3
+recorded divergences)**; `init-full` **accepted 61 048 declarations
+under all three modes** (`--set-model`, `--set-model=p`,
+`--no-model`), baseline and packed alike — verdict identity
+everywhere, and **no stream reached the saturated branch**; axioms of `bvarB_eq`,
+`fvarB_eq`, `hasLP_eq`, `bvarBoundMemo_eq`, `fvarRangeMemo_eq` and
+both shipped cached capstones (`checkDeclsSPCachedD_sound_P`,
+`no_proof_of_Empty_SPCD_P`) exactly the standard three; **zero**
+`sorry`, no new axiom, no statement left conditional.
+
+### 7. LEDGER ENTRY (coordinator-ratified at the merge grant): a
+proposed PROOF SHAPE is a claim
+
+The discipline ledger's family — *a ratified license is a claim*
+(#161 endgame E), *a recorded freedom is a claim* (F), *a recorded
+wall is a claim* (D), *a freeze is a claim* (the B1 contact-check) —
+gains its fourth member, and this batch is the instance:
+
+> **The charter's proposed proof shape was a claim, and it was
+> false.**  *"The exactness family becomes exact-below-saturation;
+> the `≤`-comparison consumers are free"* reads as arithmetic — a
+> bound below the saturation point is the true bound, so a
+> comparison against it decides — and it is wrong for one reason
+> that the sentence hides: **the thing compared against is a
+> variable.**  `bvarB_le : e.bvarB ≤ d → looseBVarsBounded d e` is
+> sound only for `d < satRange`, and `d` is a traversal cursor —
+> universally quantified at all ~90 sites, with no statically
+> provable bound anywhere.
+
+What makes it a ledger entry rather than a footnote is **where** the
+falsification bit.  Guarding the skip tests would have been merely
+tedious; what it actually costs is `looseBVarsBounded_spec`, a
+*both-directions* equation, and four of its consumers are **parse-time
+accept guards** (`Cached/ParsedC.lean`, `ParsedNC.lean`:
+`unless ExprC.looseBVarsBounded 0 …`).  A saturating field weakened
+there turns a *false reject* into a shipped verdict — the one failure
+class the arena convention treats as worse than a crash.  The wrong
+shape would not have shown up as a broken proof; it would have shown
+up as a wrong answer on a stream nobody runs.
+
+The corollary, and it is the reusable half: **when a representation
+change proposes to weaken a lemma, enumerate the lemma's consumers by
+DIRECTION before pricing the churn.**  A one-directional consumer (a
+skip) tolerates a weaker lemma at the cost of a guard; a
+both-directions consumer (a guard, a spec equation, an `rw` site) does
+not tolerate it at any price.  B3a priced this batch at "~70
+consumers" and got the count right; the count was never the question.
+
+And the answer that dissolved it is worth keeping in the same breath:
+**pay for a slow exact branch instead of a weak lemma.**  Saturation
+is then a storage decision that no statement can see — which is what
+"representation change" is supposed to mean.

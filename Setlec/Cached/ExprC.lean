@@ -53,11 +53,11 @@ enumerated here by hand and this list is the pin.
    equality; address-keyed memo entries stay valid for one
    comparison's lifetime.
 2. **The `@[computed_field]` machinery** (NEW).  The per-node derived
-   data (`hash`, `bvarB`, `fvarB`, `hasLP`) is declared in the
-   inductive's `with` block; logically each is an ordinary recursive
-   function, and the *agreement between the stored word and that
-   function is the code generator's*, not a theorem of this
-   repository.  `Lean/Elab/ComputedFields.lean:33`, verbatim: *"This
+   data (`hash`, `bvarB`, `fvarB`, `hasLP` — since task #167 one
+   packed `UInt64`, `Expr.data`) is declared in the inductive's `with`
+   block; logically it is an ordinary recursive function, and the
+   *agreement between the stored word and that function is the code
+   generator's*, not a theorem of this repository.  `Lean/Elab/ComputedFields.lean:33`, verbatim: *"This
    file implements the computed fields feature by simulating it via
    `implemented_by`."*  Hence it is an escape of exactly the class of
    row 1, and it is likewise invisible to `#print axioms` and to
@@ -91,10 +91,12 @@ namespace Setlec.Cached
 open Setlec
 
 /-- The cached engine's expression type **is** `Setlec.Expr` (task
-#172 B3a).  The four per-node derived data are that type's
-`@[computed_field]`s, so `e.hash`, `e.bvarB`, `e.fvarB` and `e.hasLP`
-resolve here through this namespace to `Setlec.Expr`'s field
-functions — `O(1)` reads, and definitional on constructors. -/
+#172 B3a).  The four per-node derived data live in that type's single
+packed `@[computed_field]` (task #167), so `e.hash`, `e.bvarB`,
+`e.fvarB` and `e.hasLP` resolve here through this namespace to
+`Setlec.Expr`'s accessors — `O(1)` bit reads, exact, with `bvarB` and
+`fvarB` falling back to a memoized exact walk on the saturated branch
+alone. -/
 abbrev ExprC := Setlec.Expr
 
 namespace ExprC
