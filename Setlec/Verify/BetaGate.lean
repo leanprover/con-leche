@@ -4,9 +4,9 @@ import Setlec.Kernel.Core
 # The β gate's dead-branch collapse (task #161, S13a)
 
 `betaGateFires` (`Setlec/Kernel/Core.lean`) is the *one* β-certificate
-gate predicate, shared by all four β-cert lanes (the pure body, the
-interned `whnfAppI`/`betaPeelI`, their cached twins, and the pure
-mirror in `Verify/BetaSpine.lean`).  This module is its whole proof
+gate predicate, shared by every β-cert lane (the pure body, the cached
+`whnfAppI`/`betaPeelI` twins, and the pure mirror in
+`Verify/BetaSpine.lean`).  This module is its whole proof
 interface, and it is deliberately small:
 
 * **`betaGateFires_off` — THE DEAD-BRANCH COLLAPSE.**  At a mode whose
@@ -26,8 +26,7 @@ interface, and it is deliberately small:
   it is what lets the P capstone's existing `μ.verified = true` letter
   cover the gated mode with no new hypothesis.
 
-The module imports `Kernel.Core` and nothing else: it is base-tier,
-consumed by the R lane and the P lane alike.
+The module imports `Kernel.Core` and nothing else: it is base-tier.
 -/
 
 namespace Setlec
@@ -62,16 +61,21 @@ theorem CheckMode.verified_of_betaGate (h : mode.betaGate = true) :
   cases mode <;> simp_all [CheckMode.betaGate, CheckMode.verified]
 
 /-- **THE COVERAGE CERTIFICATE** (task #161, S13a).  Every mode is
-either **ungated** — so the R lane's capstones, which now carry
-`betaGate = false`, cover it — or **verified** — so the P lane's
-capstones, which already carry `verified = true`, cover it.  Adding a
-gated mode therefore widens no claim and drops none: the union of the
-two capstone families still covers `CheckMode` exhaustively, which is
-exactly what the R letters' new hypothesis has to be weighed against.
+either **ungated** or **verified**, so the P lane's capstones — which
+carry `verified = true` — cover every *verified* mode, and no gated
+mode escapes them.
 
-(At `.setModel` both disjuncts hold, which is the pre-existing
-situation; at `.noModel` only the first; at `.setModelP` only the
-second.) -/
+(At `.setModel` both disjuncts hold; at `.noModel` only the first; at
+`.setModelP` only the second.)
+
+**RE-READ AT THE SetR REMOVAL** (2026-09-05).  The certificate was
+written as a *partition of the capstone families*: ungated modes were
+the R letters', verified modes the P letters'.  The R family is gone,
+so the reading is now one-sided — it says the gated mode is a verified
+mode, which is the asymmetry fence, and the shipped verified core
+(`.setModelP`) is on the P side of it.  `.noModel` is covered by
+nothing, by design: the parity lane is unverified by the user's own
+order. -/
 theorem CheckMode.betaGate_off_or_verified (mode : CheckMode) :
     mode.betaGate = false ∨ mode.verified = true := by
   cases mode <;> simp [CheckMode.betaGate, CheckMode.verified]
@@ -108,12 +112,6 @@ without disturbing a landed statement. -/
 
 /-- The transitional ι-cone field at `cfgOf mode` **is** the mode. -/
 @[simp] theorem cfgOf_iotaMode : (cfgOf mode).iotaMode = mode := rfl
-
-/-- **The R core's β branch is gone, not collapsed**: at `cfgR` the
-skip predicate is `false` by `rfl`, so the gated `if` *is* its `else`
-arm — the unconditional per-redex argument certificate. -/
-theorem cfgR_betaSkip_eq_setModel (pw : PropWhen) :
-    cfgR.betaSkip pw = betaGateFires .setModel pw := rfl
 
 /-- **The P core's β branch reads the datum, not a flag**: at `cfgP`
 the skip predicate is the redex's own validated annotation. -/

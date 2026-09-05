@@ -105,14 +105,15 @@ the three-mode setting (task #147), validated once by the caller and
 consumed here as configuration; `pre` asserts the input is already
 preprocessed (`--pre`), skipping preprocessor detection and spawn.
 
-**One core, one parse (task #172).**  The interned representation and
-every driver over it retired with the arena, so there is no core
-selector left: the stream is parsed directly to `ExprC`
-(`Frontend.parseExportStreamD`, task #171) and checked by the cached
-driver — the certified fold at `--set-model[=r|=p]`, its parity twin
-at `--no-model`.  Both are covered by the capstone letters over
-`checkDeclsSPCachedD` (`Setlec/Verify/Cached/MainC.lean`:
-`no_proof_of_Empty_SPCD_{R,R2,R2M}` and `no_proof_of_Empty_SPCD_P`). -/
+**Two cores, one parse.**  The interned representation and every
+driver over it retired with the arena (task #172), and the R core
+retired with the collapsed model (2026-09-05), so the stream is parsed
+directly to `ExprC` (`Frontend.parseExportStreamD`, task #171) and
+checked by the cached driver — the certified graded fold at
+`--set-model` (= `--set-model=p`), its parity twin at `--no-model`.
+The certified one is covered by `no_proof_of_Empty_SPCD_P` over
+`checkDeclsSPCachedD` (`Setlec/Verify/Cached/MainC.lean`); the parity
+one is unverified by design. -/
 def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be
@@ -179,22 +180,20 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
 
 
 def usage : String := String.intercalate "\n" [
-  "usage: setlec [--set-model[=r|=p]|--no-model] [--pre] FILE.ndjson",
+  "usage: setlec [--set-model[=p]|--no-model] [--pre] FILE.ndjson",
   "",
   "  --set-model,",
-  "  --set-model=r     the default: verified (collapsed model, full",
-  "                    certificates).  The surface the set-theoretic",
-  "                    consistency proofs are about.  The seven",
-  "                    TT-lane checks (tasks #126/#129/#130/#135/",
-  "                    #136/#137/#146) are off; every always-on",
-  "                    certificate family runs",
-  "  --set-model=p     verified (graded model, annotation-gated",
-  "                    checks): the validated-annotation beta gate",
-  "                    skips per-redex argument certificates at",
-  "                    provably non-Prop binders.  Covered by",
-  "                    no_proof_of_Empty_SPCD_P at the gated mode",
-  "                    (Setlec/SetP; the coverage certificate",
-  "                    betaGate_off_or_verified partitions the modes)",
+  "  --set-model=p     the default: verified (graded model,",
+  "                    annotation-gated checks).  The validated-",
+  "                    annotation beta gate skips per-redex argument",
+  "                    certificates at provably non-Prop binders, and",
+  "                    the io-graded knot skips the per-argument",
+  "                    application certificate under the same licence.",
+  "                    The seven TT-lane checks (tasks #126/#129/#130/",
+  "                    #135/#136/#137/#146) are off; every other",
+  "                    certificate family runs.  Covered by",
+  "                    no_proof_of_Empty_SPCD_P over the driver this",
+  "                    binary runs (Setlec/Verify/Cached/MainC.lean)",
   "  --no-model        the unverified lane: full checking-mode front",
   "                    door per declaration (official-kernel parity),",
   "                    infer-only internal re-derivations, and no",
@@ -207,28 +206,39 @@ def usage : String := String.intercalate "\n" [
   "                    lean-inductive-models: skip the preprocessor",
   "                    detection scan and spawn entirely",
   "",
-  "There is one core and one parse (task #172): the stream is read",
-  "directly to the cached representation and checked by the driver the",
-  "capstone letters are about (no_proof_of_Empty_SPCD_* in",
-  "Setlec/Verify/Cached/MainC.lean).  The retired --core selector, the",
-  "interned arena, and the --install-only/--check-range split driver",
-  "went with the second representation."]
+  "There are TWO cores and one parse: the verified graded core",
+  "(--set-model, the default) and the unverified parity core",
+  "(--no-model).  The stream is read directly to the cached",
+  "representation and checked by the driver the capstone letter is",
+  "about (no_proof_of_Empty_SPCD_P in",
+  "Setlec/Verify/Cached/MainC.lean).  Retired: the --core selector,",
+  "the interned arena and the --install-only/--check-range split",
+  "driver (task #172), and the R core with --set-model=r (2026-09-05,",
+  "with the collapsed-model consistency proof it was the subject of)."]
 
 structure Args where
-  mode : Setlec.CheckMode := .setModel
+  mode : Setlec.CheckMode := .setModelP
   pre : Bool := false
   files : Array String := #[]
   bad : Option String := none
 
 def parseArgs : List String → Args → Args
   | [], a => a
-  | "--set-model" :: rest, a => parseArgs rest { a with mode := .setModel }
-  | "--set-model=r" :: rest, a => parseArgs rest { a with mode := .setModel }
-  -- Task #161: the β-certificate gate, a *mode value* on the one
-  -- executable (`CheckMode.betaGate`), not a second knot.  Deliberately
-  -- absent from `usage` until the gated mode's soundness theorem
-  -- lands: reachable for measurement, not advertised.
+  -- The verified lane is the GRADED core since the R core's retirement
+  -- (2026-09-05): `--set-model` and `--set-model=p` are the same
+  -- selection, and `no_proof_of_Empty_SPCD_P` is its letter.
+  | "--set-model" :: rest, a => parseArgs rest { a with mode := .setModelP }
   | "--set-model=p" :: rest, a => parseArgs rest { a with mode := .setModelP }
+  -- The retired-spelling discipline (task #172): a verdict's
+  -- provenance must be readable off the invocation, so the R lane's
+  -- spelling is a hard error naming what replaced it — never a silent
+  -- alias onto a different core.
+  | "--set-model=r" :: _, a =>
+    { a with bad := some "--set-model=r is retired; the R core (all \
+        certificates unconditional) and the collapsed-model consistency \
+        proof it was the subject of were deleted 2026-09-05 after the \
+        acceptance delta against the graded core measured ZERO. The \
+        verified lane is --set-model (= --set-model=p)" }
   | "--tt-model" :: _, a =>
     { a with bad := some "--tt-model is retired; the declarative \
         verification lane it selected was deleted with the mode, and \
@@ -275,8 +285,13 @@ def parseArgs : List String → Args → Args
 def childArgs (a : Args) (file : String) : Array String :=
   #[file]
     ++ (match a.mode with
-        | .setModel => #[]
-        | .setModelP => #["--set-model=p"]
+        -- `.setModel` is the R mode: no flag produces it any more
+        -- (`--set-model=r` is a hard error), so this arm is dead.  It
+        -- re-emits the retired spelling on purpose — if it ever became
+        -- reachable the child would fail loudly rather than silently
+        -- run a different core.
+        | .setModel => #["--set-model=r"]
+        | .setModelP => #[]
         | .noModel => #["--no-model"])
     ++ (if a.pre then #["--pre"] else #[])
 
@@ -284,9 +299,10 @@ def main (args : List String) : IO UInt32 := do
   if args.contains "--help" then
     IO.println usage
     return 0
-  -- `--set-model`/`--no-model`: the mode setting (task #147; two
-  -- modes since #148 T7b), validated here once and threaded as
-  -- configuration.
+  -- `--set-model`/`--no-model`: the mode setting (task #147), validated
+  -- here once and threaded as configuration.  Two cores since the R
+  -- core's retirement (2026-09-05): the graded verified one and the
+  -- unverified parity one.
   -- `--pre`: the input is already-preprocessed lean-inductive-models
   -- output (explicit user assertion — the checker never sniffs input
   -- content for it); skips the `needsPreprocess` scan and the
