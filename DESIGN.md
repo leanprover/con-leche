@@ -36823,3 +36823,207 @@ different quantities — before pricing a hypothesis sweep as a line
 deletion, check whether the hypothesis has a line to itself.*  The
 acceptance check still passes (net negative in both waves); the
 headline number is the declaration count, not the line count.
+
+## TASK #172 — BATCH B4: THE P CORE BAKE — `infer_only` LIVE ON EVERY TIER
+(2026-09-05, `agent/tricore-b4`)
+
+### 0. THE ANSWER, FIRST
+
+**The io grade is implemented, live, and verified on every tier; the
+front door is the only full-inference site left in the checker.**
+
+* the conversion criterion executed is the user's sharpening, verbatim:
+  *"There is no reason to use `infer` anywhere except the front door.
+  Everywhere where we will, in the proof, have `AnnotOk2` around we
+  should be calling `infer_only` instead of `infer`."*  Every internal
+  inference call site — official's positions, our certificate bodies
+  (which official does not have), and the annotate pass's own
+  inferences — now takes the io grade; the census is §6;
+* the P tower is re-pointed at the io content through **premise-form
+  slot claims** (`InferClaimsIOS2P` and friends): `AnnotOkP` of the
+  subject moved from conclusion to premise at every converted row, and
+  every consumer already held it — with two exceptions that are this
+  batch's genuine mathematics (§3, §4);
+* the two owed rows landed (`InferProjStepIOP`; the install-tier
+  five-way `checkSoundAtP5`), and the capstone family now includes
+  **`no_proof_of_Empty_SPCD_P`** — the P letter over
+  `checkDeclsSPCachedD`, the function `Main.lean` actually runs,
+  closing the gap open since the #163 flip.  Axioms: exactly
+  `[propext, Classical.choice, Quot.sound]` on all four shipped P
+  capstones (printed);
+* zero sorries, zero conditional forms; full battery green (§7);
+  measurement **deferred** by coordinator ruling — the plan is §8.
+
+### 1. IMPLEMENTATION SHAPE
+
+`CoreFns` gains an `inferIO` slot; `CoreFns.ioView r := { r with
+infer := r.inferIO }` is how the grade propagates *down* a run —
+official's `infer_only` flag as record plumbing, no second knot.  The
+executable knot's io slot is `if mode.betaGate then inferBodyIO
+(ioView (knot fuel)) else inferBody (knot fuel)`: at gate-off modes
+the io slot **is** full inference (`inferTypeIO_off`, definitional
+after one rewrite), which is what keeps every R statement collapsible.
+
+* **Two memos** (official's own two-cache layout): `CState.inferIOC` /
+  `IState.inferIOC` / `KCache.inferIO`, flushed per declaration;
+  gate-off configs share the full memo (the grades are one function
+  there).  `CSOK.inferIOC` carries the weaker invariant (entries
+  backed by `inferTypeIO` runs).  Cross-memo peeks: NOT built — user
+  ruling ("a perf optimization idea for later"); on the later-options
+  list.
+* **The io site** (`inferBodyIO`'s app clause): `unless mode.verified
+  && mt.pw.isNever do (infer arg; defeq)` — the skip fires exactly at
+  a `never`-validated binder in a verified mode, the graph regime
+  where the membership is semantically recoverable (§3).
+* **Interned core short bridge**: `CoreI`'s io slot is the full-infer
+  closure (strictly more checking, sound; the core is scheduled for
+  removal).  `SSimI.inferIO` goes through `inferTypeIO_of_full` — the
+  full⟹io weakening proved as a theorem.
+* **Cached io binder clauses are CHAINED** (the pure spec's own
+  shape), not looped — this avoided cloning the `BinderLoop` walk
+  families (~2 000 lines); recorded as a measured-need perf follow-up
+  (a loop version pays only if profiles say so).
+* **Annotate** (S4): six per-tower sites (`isPropType`,
+  `annotateProjRec`'s field-sort check, `annotPwPi`, `annotPwLam` ×2,
+  `annotateBody`'s proj scrutinee) with the bottom-up circularity
+  guard stated at the pass: annotation of a node consults `inferIO`
+  only on subterms whose annotation is complete.
+
+### 2. THE P TOWER — PREMISE FORM, EXECUTED
+
+The five-way joint induction `checkSoundAtP5` (whnfCore / whnf /
+defeq / infer / inferIO) is the assembly; the slot families
+(`InferClaimsIOS2P`, `SortSemAtIOSP`, `InferReadsIOSP`,
+`InferExistsIOSP`) each derive by one `Bool` case on `μ.betaGate`
+from the two lanes.  Row conversions all follow one template: the
+inversion's run flips to `inferTypeIO`, the establishment-form `ihi`
+becomes the premise-form `ihis` fed by the `AnnotOkP` the row already
+held, and the io leaf shims (`inferTypeIO_WScoped` etc.) replace the
+full-lane ones.  The telescope walks (`certs_teleP`/`certs_telePA`)
+take the spine's per-argument gradings as a **premise** now — supplied
+at every call site by `hoistP_spine` on a grading the caller held
+(the subject's, the reduced type's, or the per-projection
+certificates' fits in `MajorP`'s fabrication).
+
+New kit this needed: **io leaf-lane fuel monotonicity**
+(`pureFnsIO_mono` / `inferTypeCoreIO_mono`, closing over
+`inferBodyIO_mono` at the leaf knot) and the re-levelled io
+inversions (`inferTypeCoreIO_app_inv'`, `_const_inv`).
+
+### 3. THE PINNED-PAIR PROJ ROW — THE SKIP'S SEMANTIC LICENSE, CONCRETE
+
+`psigmaMkSpineP` (the four typing memberships of the pinned
+constructor spine) is where a *skipped* certificate had to be paid
+semantically, and the payment is the io design's own two-regime split:
+
+* **squash** (joint level 0): every skip test is *refuted* —
+  `psigmaMkTyShape` now carries each binder's `pw` as data
+  (`substPW (ifAllZero [u,v])`), `isNever` denies `holds`, and the
+  all-zero levels witness `holds`; so every certificate ran and the
+  certified walk proceeds verbatim (io-graded `spineStepP`);
+* **graph** (joint level ≠ 0): no run is consulted at all — the
+  subject's own hereditary application slots (`AnnotOk2_spine_slots`,
+  the task-#151 `SlotChain` kit) pin all four domains by graph
+  rigidity: `psigmaMkV2_teleFit` walks `piR_dom_unique` down the
+  pinned tower (`lamR_mem` ×4 + `spair_mem`).
+
+`Spine2.lean` moved to `SetBase/` for this (lane-neutral, imports only
+`Ok2`; namespace unchanged; the P→R whitelist stays EMPTY).
+
+### 4. THE READS SURGERY — THE ONE STRUCTURAL BILL (FINDING)
+
+**"io-accepted reads" is FALSE.**  A skipped argument position is
+never traversed by the io lane, so a run on an application guarantees
+nothing about the argument's readability (garbage constant under a
+`never` binder: run succeeds, `denoteP` fails).  This killed the old
+`IotaReadsP` route, which extracted per-argument readability from the
+certificate's (previously full) runs via `accepted_reads`.  The
+repair is structural and principled (batch 8's own design, extended):
+
+* `WhnfCoreReadsP` / `WhnfReadsP` / `IotaReadsP` / `ReduceNatReadsP`
+  carry a **`LeafReadsP` premise** (and `IotaReadsP` returns it for
+  its reduct), threaded through the walk exactly as `InferReadsP`
+  already carried it;
+* the ι row derives the fired rule's spine readability
+  **semantically**: the subject's reading decomposes
+  (`denoteP` is compositional), the whnf/litToCtor steps transport it,
+  and the rescue's fabrication reads because the major's io-inferred
+  *type* does (`majorToCtorP_reads` — `InferReadsIOP` + `WhnfReadsP`
+  + the stored projection constants);
+* the walk is now a **joint 4-way fuel induction with the io lane**
+  (`ReadsAll4P`, `Step2/ReadsIOP.lean`): the ι row consumes same-fuel
+  `WhnfReadsP` and `InferReadsIOP`, well-founded because `whnfCore`
+  at `fuel + 1` fires `iotaRec` at `fuel`.  `ReadsInputsP.iota` became
+  conditional on those two; **`accepted_reads` is no longer an input**
+  (`TierInputsAtP.ofEnvS2PM` dropped the `hacc` premise).
+
+### 5. THE R SIDE — GATE-OFF COLLAPSES
+
+R consumers of converted inversions gained `(hg : μ.betaGate =
+false)` and collapse the io run with `inferTypeIO_off` — statements
+restored verbatim (`certs_teleR` and its cone: Iota / EtaCerts /
+StuckIrrel / Major / ProjRed / Stuck / Eta / DefEqClosed /
+`checkStepR`).  SortCoh (the parked Θ instrument): the terminal
+vacuity/absurdity walks in `Discharge.lean` and the mono/sub walks
+took the same hg thread; no frozen summit statement changed shape.
+
+### 6. THE SITE CENSUS (deliverable)
+
+Full-inference sites remaining: **the front door only** — `checkDecl`'s
+type/value checks, the annotate pass's *entry*, and the pin-cert
+install checks.  `inferBody`'s structural recursion is grade-faithful
+(a full run recurses full, an io run recurses io — the record is the
+flag), matching official's threading.
+
+io sites (per tower; pure/interned/cached agree):
+
+| class | sites | official counterpart |
+| --- | --- | --- |
+| β certificate (whnfCore app) | 1 | none (cert is ours) |
+| `iotaCerts` argument | 1 | none |
+| `proofIrrel` / unit variant | 5 | none |
+| `etaCert` | 1 | none |
+| `structUnitCert` | 2 | none |
+| `structEtaCert` (+With) | 1 | none |
+| `pairEtaCert` | 1 | none |
+| `majorToCtor` (K/η rescue) | 3 | `to_cnstr_when_*` runs `infer` with inferOnly in official |
+| `projCert` | 2 | none |
+| `inferBody` λ-leaf `btt` | 1 | official's `infer_type` of the body type (inferOnly) |
+| annotate internals | 6 | none (the pass is ours) |
+
+Official's skeleton has io "positions" only in the sense that
+everything below its top-level `check` runs `infer_type`; we match
+that (front door full, recursion grade-faithful) and *extend* it to
+the certificate bodies official does not have — exactly the
+criterion's prediction ("it could be the same positions in the end" —
+it is those, plus ours).
+
+### 7. RECEIPTS
+
+* full tree green; `lake test` green; **zero sorries, zero
+  conditional forms** on deliverables;
+* layering: base 276 / R 105 / P 120 / neutral 3; **0 P→R edges,
+  whitelist EMPTY**; proofdeps: 120 rows as pinned, forbidden
+  constants absent 20/20 and 24/24, doors 0;
+* battery: arena 90/92 good accepted (the pinned expectations), e2e
+  73/73, annot 14/14, split 11/11, mode flags 9/9; no-model sweep
+  138 + 73 + 14 as expected (3 recorded divergences, all pre-existing);
+* axiom audit: `no_proof_of_Empty_SPCD_P`, `_SPCD_R`, `_SP_P`, `_P`
+  all exactly `[propext, Classical.choice, Quot.sound]`;
+* P-vs-R acceptance delta: see the line appended below (run over
+  every arena/e2e/annot fixture and init-full at `--set-model` vs
+  `--set-model=p`).
+
+### 8. MEASUREMENT — DEFERRED (coordinator ruling)
+
+Land-when-green ruling executed; measurement runs **after the
+interned-core removal** lands.  The plan, frozen here: init-full
+(`--pre`, init-full-pre2.ndjson) is THE decisive row — R mode vs P
+mode, retired instructions (`perf stat -e instructions:u`) and peak
+RSS, against the snapshotted baseline binary
+`_tmp/tricore-b4/baseline/setlec-788e6511` (md5 d6a7bd2d, byte-equal
+to B3's landed binary); init-prelude and grind-ring-5 as
+quick-iteration signal; ladders as asymptotic controls only.  The
+open perf follow-ups on record: chained io binder clauses (loop them
+only on profile evidence), cross-memo peek (user's later-options
+list).
