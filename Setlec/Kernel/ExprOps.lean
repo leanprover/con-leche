@@ -357,7 +357,17 @@ def renameConsts (f : Name → Name) : Expr → Expr
   | .letE n ty v body =>
     .letE n (renameConsts f ty) (renameConsts f v) (renameConsts f body)
   | .lit l => .lit l
-  | .proj s i e => .proj (f s) i (renameConsts f e)
+  -- Task #175 wiring W5: a `.proj` node's struct name is NOT renamed.
+  -- The renaming exists for the modeled-block contract (a public
+  -- block's types against its `_model` artifacts, `eqUpToNames` and
+  -- the fire comparands); a block's own projections can never be
+  -- spelled inside its types (their entries do not exist when the
+  -- types are annotated), and a `.proj` on any *other* structure names
+  -- it the same on both sides — so the rename never had a matching
+  -- case here.  Fixing the name keeps the entry-kind readings
+  -- (`denote`/`denoteP`, which consult the table at the struct name)
+  -- rename-invariant by construction (DESIGN, "W5 opening seam").
+  | .proj s i e => .proj s i (renameConsts f e)
 
 /-- Strip `k` leading lambdas: the binder list (outermost first) and
 the body. -/

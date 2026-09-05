@@ -38716,3 +38716,72 @@ R P)` (line 96) and the `R) CMD=("$BIN" --set-model=r …)` arm (line
 108) are two literal lines that must drop together, so the
 regeneration never invokes a retired flag.  Held for the signal after
 the wiring batch's W5.
+
+## TASK #175 WIRING — W5, the flip batch (2026-09-05, `agent/wiring2`)
+
+### S1 — THE OPENING SEAM, AMENDED: `renameConsts` fixes `.proj` names; the
+### fourth conjunct is DELETED, not weakened
+
+**The interlock finding, re-examined before executing it.**  The W4
+route froze the W5 opening as "restate `RenameOkT/P`'s fourth conjunct
+as `towerAt`-agreement along the rename map, dischargeable at the
+builders because the maps move only modeled names and a direct former
+is `directNoModel`".  That discharge is a **history** fact, not an
+environment invariant, and no environment record can carry it:
+
+* `directNoModel` is *not preserved* — nothing stops a later
+  declaration named `T._model` (the `_model` names are not special,
+  by ruling), so "a tower entry's former has no `_model`" fails as an
+  invariant one declaration later;
+* no stored datum distinguishes a modeled former from a direct one:
+  both are `.indInfo` with a capability record of the same shape
+  (`indBlockCaps` at a block with neither capability is literally
+  `directCaps`'s record), the same recursor arity, the same ctor.
+  Making the distinction syntactic would need a new `IndCaps` marker
+  *and* a fold invariant ("no block name has a tower entry") threaded
+  through the 56 builder call sites — the caveat-(i) ride a third
+  time.
+
+**The problem is upstream of the invariant.**  The rename walks need
+`towerAt env (f s) i = towerAt env s i` only because
+`Expr.renameConsts` renames the `.proj` node's struct name.  That
+renaming never has a matching case on an accepted stream: the
+modeled-block contract compares a public block's types against its
+`_model` artifacts (`eqUpToNames`, the two fire comparands in
+`DeclCheck.lean:342/384/393`), and a block's *own* projections cannot
+be spelled inside its types — the entries do not exist when those
+types are annotated (`annotateProjElim` throws at an absent
+`projFnName` slot; an adversarially pre-stored slot cannot type the
+subject, whose type former is fresh) — while a `.proj` on any other
+structure names it the same on both sides.  So the seam is:
+
+> **`Expr.renameConsts` leaves `.proj s` fixed**
+> (`Kernel/ExprOps.lean`).  `RenameOkT` and `RenameOkP` lose the
+> fourth conjunct outright; the four walks' proj clauses become
+> `simp only [renameConsts, denote(P)_proj, IH]` (both readings consult
+> the same entry); the four builders (`projFwd_renameOkT/P`,
+> `blockRenameOkT/P`, `BlockInstalledTT.renameOkT`) and the two
+> `_resolve` variants drop the hypothesis, and every caller drops the
+> argument (`IndMemberP`, `IndUnitLawP`, `ProjConsP`, `ProjFnRR`,
+> `Bridge/DeclInd`, `IndRecsP`, `ProjInstallP`; the `.2.2.1`
+> projections in `IndPointP`/`IndBottom{Plain,Nested,Proj}P` shift to
+> `.2.2`).
+
+Verdict impact: **none, measured** — the fixture battery is
+byte-identical (arena 90/92, e2e 73/73, annot 14/14, retired 8/8,
+mode 11/11, no-model sweep 138 + 73 + 14 with the same 3 recorded
+divergences) and init-full (`init-full-pre2`, `--pre`) accepts
+**61 048 declarations, exit 0, in both `--set-model=p` (266 s) and
+`--no-model` (171 s)**.  Where the old renaming *would* have differed
+(a `.proj T j` inside T's own block types, with a hand-written
+`T._model` artifact spelling `.proj T._model j`), both sides were
+already declined at annotation, so the change is a restriction of the
+preprocessor contract that no stream can observe.  Build 409 jobs
+warning-free, `lake test` green, layering `base 244 / P 120 / caps 2 /
+umbrella 1; 0/0`, proofdeps 88 rows as pinned (doors 0).
+
+What this buys W5: the rename half of the interlock is *gone*
+(nothing about tower entries is threaded through the rename builders
+any more), leaving `ProjOkT`'s third conjunct as the single remaining
+pin — whose consumers are exactly the P `.proj` rows that the tower
+law must replace (S2/S3 below).
