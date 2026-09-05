@@ -88,7 +88,7 @@ premise is `rules = []` rather than "not a recursor". -/
 theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (hntc : ConsCrossEnv env c₀)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) {n : Name} {cv : ConstantVal} {mI rP : Nat}
@@ -105,7 +105,9 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
   obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP rules rfl rl hmem
   refine ⟨Ra, ?_, hokRa, ?_, ?_⟩
   · rw [hac]
-    exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
+    exact denoteP_cons_mono hfresh
+      ((hntc.ruleRhs (Setlec.SetR.Env.find?_mem hfE) hmem).instantiateLevelParams
+        _ _) _ 0
       (constsBound_of_constsResolve _ (by
         rw [Setlec.Expr.constsResolve_instantiateLevelParams]
         exact hRres)) hRa0
@@ -124,7 +126,9 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
         rfl
     refine ⟨vpa, ?_, ?_⟩
     · rw [hac]
-      exact denoteP_cons_fresh_mono hfresh hntc _ rP _
+      exact denoteP_cons_mono hfresh
+        (((hntc.rulePinD (Setlec.SetR.Env.find?_mem hfE) hmem hn
+          i).instantiateLevelParams _ _).openRev 0 rP) _ rP
         (constsBound_openRev (constsBound_of_constsResolve _ (by
           rw [Setlec.Expr.constsResolve_instantiateLevelParams]
           exact hpinCR)) 0 rP) hvpa
@@ -137,7 +141,8 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
       obtain rfl : TVa' = TVa := by
         refine Option.some.inj (Eq.trans ?_ hTVa)
         rw [hac]
-        exact (denoteP_cons_fresh_mono hfresh hntc _ 0 _
+        exact (denoteP_cons_mono hfresh
+          ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
           (constsBound_instType mp.base2.wf
             (Setlec.SetR.Env.find?_mem hfE) us) hTVa').symm
       exact hok ρ zs TVa' restR hzl hzok hTVa' hfit
@@ -162,7 +167,8 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     obtain rfl : TVa' = TVa := by
       refine Option.some.inj (Eq.trans ?_ hTVa)
       rw [hac]
-      exact (denoteP_cons_fresh_mono hfresh hntc _ 0 _
+      exact (denoteP_cons_mono hfresh
+        ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfE) us) hTVa').symm
     obtain ⟨TVja', hTVja', -, -⟩ :=
@@ -170,7 +176,8 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     obtain rfl : TVja' = TVja := by
       refine Option.some.inj (Eq.trans ?_ hTVja)
       rw [hac]
-      exact (denoteP_cons_fresh_mono hfresh hntc _ 0 _
+      exact (denoteP_cons_mono hfresh
+        ((hntc.typeOf hfcjE).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfcjE) usj) hTVja').symm
     -- the `.nested` premise, contravariantly: a prefix pin reading is
@@ -194,7 +201,9 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
         · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
           rfl
       rw [hac]
-      exact denoteP_cons_fresh_mono hfresh hntc _ rP _
+      exact denoteP_cons_mono hfresh
+        (((hntc.rulePinD (Setlec.SetR.Env.find?_mem hfE) hmem hn
+          i).instantiateLevelParams _ _).openRev 0 rP) _ rP
         (constsBound_openRev (constsBound_of_constsResolve _ (by
           rw [Setlec.Expr.constsResolve_instantiateLevelParams]
           exact hpinCR)) 0 rP) hvpa
@@ -210,7 +219,7 @@ row, the freshness supplying the disequality. -/
 theorem recRulesP_cons_fresh (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (hntc : ConsCrossEnv env c₀)
     (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
       rules = [])
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
@@ -283,6 +292,7 @@ bespoke (`SetP/DirectInstallP`, W4c). -/
 theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
+    (hcross : ConsCrossEnv env c₀)
     (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
@@ -316,7 +326,8 @@ theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
   · obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
     refine ⟨⟨Ta, ?_, ?_⟩, ?_⟩
     · rw [hac]
-      exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
+      exact denoteP_cons_mono hfresh
+        ((hcross.typeOf hfP0).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfP0) us) hTa
     · intro hg ρ vs x rest hlen hokT hokx hmem hpeel
@@ -335,7 +346,8 @@ theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
     obtain ⟨TVa, hTVa, hok, hlaw'⟩ := hetaL cvT' capsT' hfT'' us hus
     refine ⟨TVa, ?_, hok, ?_⟩
     · rw [hac]
-      exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
+      exact denoteP_cons_mono hfresh
+        ((hcross.typeOf hfT'').instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfT'') us) hTVa
     · intro ρ ts rest x hlen hfit hmem

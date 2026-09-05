@@ -677,6 +677,8 @@ theorem extendPairFstP (mp : EnvS2PM V μ env)
     denoteP_pairFstA_type (m := mp.base2) (A := pairProjValT2 0) ψ hP
   refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := pairProjValT2 0) hfresh
+    (hntc := fun entry heq => by
+      obtain rfl := ConstantInfo.projInfo.inj heq; rfl)
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
@@ -694,9 +696,12 @@ theorem extendPairFstP (mp : EnvS2PM V μ env)
       (fun _ entry heq _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rfl),
-      (fun entry heq => by
+      (ConsCrossEnv.ofNtc fun entry heq => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rfl),
+      (fun entry heq htw => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact absurd htw (by decide)),
       (fun _ _ _ _ h => nomatch h)⟩)
     (fun ψ k => AVExpr.liftN_eq_self _
       (VExpr.bvarsBelow.mono (Nat.zero_le k)
@@ -731,6 +736,8 @@ theorem extendPairSndP (mp : EnvS2PM V μ env)
     denoteP_pairSndA_type (m := mp.base2) (A := pairProjValT2 1) ψ hP
   refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := pairProjValT2 1) hfresh
+    (hntc := fun entry heq => by
+      obtain rfl := ConstantInfo.projInfo.inj heq; rfl)
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
@@ -748,9 +755,12 @@ theorem extendPairSndP (mp : EnvS2PM V μ env)
       (fun _ entry heq _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rfl),
-      (fun entry heq => by
+      (ConsCrossEnv.ofNtc fun entry heq => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rfl),
+      (fun entry heq htw => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact absurd htw (by decide)),
       (fun _ _ _ _ h => nomatch h)⟩)
     (fun ψ k => AVExpr.liftN_eq_self _
       (VExpr.bvarsBelow.mono (Nat.zero_le k)

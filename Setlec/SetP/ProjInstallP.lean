@@ -537,9 +537,12 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
           exact (Name.str.inj (Name.num.inj hh).1).1
         rw [hTps] at hTnres
         exact absurd hTnres (by decide)),
-      (fun e2 heq => by
+      (ConsCrossEnv.ofNtc fun e2 heq => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact htower),
+      (fun e2 heq htw => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact absurd (htower.symm.trans htw) (by decide)),
       (fun _ _ _ _ heq => nomatch heq)⟩
     refine Setlec.EnvWF.cons mp.base2.wf ⟨?_, ?_, ?_, ?_,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq),
@@ -581,7 +584,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
         show AnnotValidV V ρ (AVExpr.eqE (.sort 0) .prf .prf)
         rw [AnnotValidV_eqE]
         exact ⟨trivial, trivial⟩)
-      (fun ψ => ⟨_, htyRead ψ⟩) htyOkH hmemH
+      (fun ψ => ⟨_, htyRead ψ⟩) htyOkH hmemH htower
   refine ⟨mp', ?_⟩
   funext n ψ
   rw [← mp'.base2.acval_erase n ψ, hmp']

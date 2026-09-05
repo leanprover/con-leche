@@ -112,7 +112,11 @@ theorem declStepPM_of_basis_cons (mp : EnvS2PM V μ env)
     (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
-      ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta) :
+      ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
+      first
+        | (intro _ h; exact nomatch h)
+        | (intro _ h; cases h; rfl)) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
@@ -142,7 +146,7 @@ theorem declStepPM_of_basis_cons (mp : EnvS2PM V μ env)
   · -- `reduce_ops`
     exact reduceOpsP_cons_fresh mp.reduce_ops hfresh hred _ rfl
   · -- `tower_ok` (task #175 wiring W5): no tower entry is a basis cons
-    exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower _ rfl φ
+    exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower hntc _ rfl φ
 
 /-- **The P step at a basis *recursor* cons** — `declStepPM_of_basis_cons`
 with its `hnotrec` premise traded for the row itself.  Six of the seven
@@ -187,7 +191,11 @@ theorem declStepPM_of_basis_rec_cons (mp : EnvS2PM V μ env)
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
     (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
-      ∀ φ : Name → Nat, RecRulesP m₂ φ) :
+      ∀ φ : Name → Nat, RecRulesP m₂ φ)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
+      first
+        | (intro _ h; exact nomatch h)
+        | (intro _ h; cases h; rfl)) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
@@ -206,7 +214,7 @@ theorem declStepPM_of_basis_rec_cons (mp : EnvS2PM V μ env)
   · exact fun φ => hrec _ rfl φ
   · exact reduceOpsP_cons_fresh mp.reduce_ops hfresh hred _ rfl
   · -- `tower_ok` (task #175 wiring W5): no tower entry is a basis cons
-    exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower _ rfl φ
+    exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower hntc _ rfl φ
 
 /-- **The P step at the `Eq` cons** — `declStepPM_of_basis_cons` with
 its `eq_lawP` row traded for the row itself.  `eqLawP_cons_fresh`'s
@@ -247,7 +255,11 @@ theorem declStepPM_of_basis_cons_eqrow (mp : EnvS2PM V μ env)
           ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
     (heq : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
-      m₂.acval = acvalWith mp.base2.acval c₀.name A → EqLawP m₂) :
+      m₂.acval = acvalWith mp.base2.acval c₀.name A → EqLawP m₂)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
+      first
+        | (intro _ h; exact nomatch h)
+        | (intro _ h; cases h; rfl)) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
@@ -266,7 +278,7 @@ theorem declStepPM_of_basis_cons_eqrow (mp : EnvS2PM V μ env)
   · exact fun φ => recRulesP_cons_fresh mp hfresh hh.projTower hnotrec _ rfl φ
   · exact reduceOpsP_cons_fresh mp.reduce_ops hfresh hred _ rfl
   · -- `tower_ok` (task #175 wiring W5): no tower entry is a basis cons
-    exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower _ rfl φ
+    exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower hntc _ rfl φ
 
 /-- **The P step at a basis cons, both varying rows open.**  The `Nat`
 block needs this: its first three conses *are* the three names
@@ -307,7 +319,11 @@ theorem declStepPM_of_basis_cons_gen (mp : EnvS2PM V μ env)
       ∀ φ : Name → Nat, NatHeadsP m₂ φ)
     (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
-      ∀ φ : Name → Nat, RecRulesP m₂ φ) :
+      ∀ φ : Name → Nat, RecRulesP m₂ φ)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
+      first
+        | (intro _ h; exact nomatch h)
+        | (intro _ h; cases h; rfl)) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
@@ -326,6 +342,6 @@ theorem declStepPM_of_basis_cons_gen (mp : EnvS2PM V μ env)
   · exact fun φ => hrec _ rfl φ
   · exact reduceOpsP_cons_fresh mp.reduce_ops hfresh hred _ rfl
   · -- `tower_ok` (task #175 wiring W5): no tower entry is a basis cons
-    exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower _ rfl φ
+    exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower hntc _ rfl φ
 
 end Setlec.SetR.Interp2

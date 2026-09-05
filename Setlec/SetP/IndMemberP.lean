@@ -249,6 +249,8 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
       (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
         intro _ h <;> exact nomatch h)
       hnorules m₂ hac φ)
+    (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+      intro _ h <;> exact nomatch h)
   rw [hname] at hgoal
   exact hgoal
 
