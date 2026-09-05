@@ -272,17 +272,6 @@ abbrev projCertP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → 
 abbrev isPropTypeP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → CheckM Bool :=
   isPropType (pureFns mode env fuel) env
 
-abbrev projFieldDomP (mode : CheckMode) (env : Env) (fuel : Nat) (d : Nat) (structProp : Bool)
-    (sn : Name) (e₂ : Expr) : Nat → Nat → Expr → CheckM Expr :=
-  projFieldDom (pureFns mode env fuel) env d structProp sn e₂
-
-abbrev annotateProjRecP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → ProjEntry →
-    Nat → Expr → Expr → List Level → CheckM Expr :=
-  annotateProjRec (pureFns mode env fuel) env
-
-abbrev annotateProjElimP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Name → Nat →
-    Expr → Expr → CheckM Expr := annotateProjElim (pureFns mode env fuel) env
-
 abbrev reduceNatP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr →
     CheckM (Option Expr) := reduceNat (pureFns mode env fuel) env
 
@@ -324,9 +313,6 @@ theorem projLitToCtor_fold (env : Env) (fuel : Nat) :
     projLitToCtor (pureFns mode env fuel) env = projLitToCtorP mode env fuel := rfl
 theorem projCert_fold (env : Env) (fuel : Nat) :
     projCert (pureFns mode env fuel) env = projCertP mode env fuel := rfl
-theorem annotateProjElim_fold (env : Env) (fuel : Nat) :
-    annotateProjElim (pureFns mode env fuel) env =
-      annotateProjElimP mode env fuel := rfl
 theorem reduceNat_fold (env : Env) (fuel : Nat) :
     reduceNat (pureFns mode env fuel) env = reduceNatP mode env fuel := rfl
 theorem defeqSpine_fold (env : Env) (fuel : Nat) :

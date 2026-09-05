@@ -229,7 +229,7 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
       ∀ ρ : Nat → V, (∃ pv : V, pv ∈ˢ interp2 V ρ ta) ∧
         AnnotOkP V ρ ta := by
     intro ψ
-    obtain ⟨ta, hta, hok, hmem⟩ := mp.acval_memTypeP hthmE ψ
+    obtain ⟨ta, hta, hok, hmem⟩ := mp.acval_memTypeP hthmE rfl ψ
     exact ⟨ta, hta, fun ρ => ⟨⟨_, hmem ρ⟩, hok ρ⟩⟩
   -- **the bottom fires, at the base environment**
   have hbot := indBottomProjP (V := V) (Rn := projModelName T i)
@@ -285,7 +285,7 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
   have hptyReadPre : ∀ (ψ : Name → Nat), ∃ ta : AVExpr,
       denoteP mp.base2.acval env' ψ 0 pty = some ta := by
     intro ψ
-    obtain ⟨ta, hta, -, -⟩ := mp.acval_memTypeP hfm ψ
+    obtain ⟨ta, hta, -, -⟩ := mp.acval_memTypeP hfm rfl ψ
     refine ⟨ta, ?_⟩
     rw [← denoteP_renameConsts hroP pty 0,
       Expr.renameConsts_congr_resolve (g := projFwd T ctorName nF)
@@ -356,7 +356,7 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
         (fun _ h => ConstantInfo.noConfusion h) φ 0 _ (hcbPty us)
         hTVa').symm
     obtain ⟨TVja', hTVja', -, -⟩ :=
-      mp.constTypeP 0 ctorName _ usj hctor (by exact husjlen)
+      mp.constTypeP 0 ctorName _ usj hctor rfl (by exact husjlen)
     obtain rfl : TVja' = TVja := by
       refine Option.some.inj (Eq.trans ?_ hTVja)
       rw [hac]
@@ -523,7 +523,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
   have hheadP : ConsHeadP env' (.projInfo entry) templateValP := by
     refine ⟨?_, (fun _ => ⟨trivial, trivial, trivial⟩),
       (fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h)),
-      (fun e2 heq hnat2 => by
+      (fun e2 heq hnat2 _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rw [hnat] at hnat2
         exact nomatch hnat2),
@@ -537,9 +537,12 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
           exact (Name.str.inj (Name.num.inj hh).1).1
         rw [hTps] at hTnres
         exact absurd hTnres (by decide)),
-      (fun e2 heq => by
+      (ConsCrossEnv.ofNtc fun e2 heq => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact htower),
+      (fun e2 heq htw => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact absurd (htower.symm.trans htw) (by decide)),
       (fun _ _ _ _ heq => nomatch heq)⟩
     refine Setlec.EnvWF.cons mp.base2.wf ⟨?_, ?_, ?_, ?_,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq),
@@ -581,7 +584,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
         show AnnotValidV V ρ (AVExpr.eqE (.sort 0) .prf .prf)
         rw [AnnotValidV_eqE]
         exact ⟨trivial, trivial⟩)
-      (fun ψ => ⟨_, htyRead ψ⟩) htyOkH hmemH
+      (fun ψ => ⟨_, htyRead ψ⟩) htyOkH hmemH htower
   refine ⟨mp', ?_⟩
   funext n ψ
   rw [← mp'.base2.acval_erase n ψ, hmp']

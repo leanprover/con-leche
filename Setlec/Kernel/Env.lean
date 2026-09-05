@@ -214,11 +214,12 @@ structName idx`; see `Env.findProj?`).
   structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i`, guarded at possibly-Prop
   instances by the stored `fieldSort`/`structSort` levels.  Installed
   by the pinned `PSigma'` basis block.
-* `native = false`: the Prop-structure elimination-template entry —
-  per-declaration shape facts for the permanent recursor-inlining
-  fallback (`annotateProjRec`), whose per-instantiation typing check
-  remains at use; `ty` is the closed junk `Prop` and
-  `fieldSort`/`structSort` are unused. -/
+* `native = false`: an inert entry — the modeled path's
+  elimination-template entry (`ty` the closed junk `Prop`) or the
+  direct path's `directInertEntry` at an unadmitted slot (`ty` is
+  `Sort 1`; task #175 W4c P3 module 7).  It types no node and fires no
+  reduction; a `.proj` use on the slot is a verdict at its own site
+  (task #175 wiring W5: the recursor-inlining fallback is gone). -/
 structure ProjEntry where
   structName : Name
   idx : Nat
@@ -232,7 +233,14 @@ structure ProjEntry where
   numFields : Nat
   /-- the projection's level-parametric type (native entries only) -/
   ty : Expr
-  /-- the projected field's sort (native entries only) -/
+  /-- **the projection's `Prop` guard level** (native entries only):
+  the projected field's sort joined with the sorts of the earlier
+  fields that a later field's type uses — exactly the sorts the
+  official `infer_proj` requires to be `Prop` when projecting from a
+  propositional structure (task #175 W4c/O4, `directProjGuards`); the
+  tower infer branch checks it at every use of a `Prop`-declared
+  structure.  For the pinned pair entries it is the field's own
+  sort. -/
   fieldSort : Level
   /-- the parent's result sort (native entries only) -/
   structSort : Level
@@ -318,6 +326,13 @@ def toConstantVal : ConstantInfo → ConstantVal
   | .projInfo e => ⟨projFnName e.structName e.idx, e.levelParams, e.ty⟩
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
+
+/-- A tower-backed projection-table entry (task #175 W4c): a table
+entry, not a term — no `.const` node names it (`inferTypeCore`
+rejects one), so the model owes it no leaf. -/
+def isTowerEntry : ConstantInfo → Bool
+  | .projInfo e => e.tower
+  | _ => false
 
 /-- The index count of a recursor (majorIdx − rulePrefix; junk
 elsewhere). -/

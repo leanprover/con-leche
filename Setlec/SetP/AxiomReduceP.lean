@@ -293,7 +293,7 @@ theorem ofReduce_memP (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   have hEmem : interp2 V ρ (mp.base2.acval
       (Setlec.reduceElemName (Setlec.ofReduceOp cvA.name)) ψ)
       ∈ˢ (univ 1 : V) := by
-    have h := mp.mem_typeP ciE (Setlec.SetR.Env.find?_mem hfE) ψ
+    have h := mp.mem_typeP ciE (Setlec.SetR.Env.find?_mem hfE) (mp.notTower_of_atom (Setlec.SetR.Env.find?_mem hfE) (by rw [htyE]; rfl)) ψ
       (.sort 1) (by rw [htyE, denoteP_sort]; rfl) ρ
     rwa [Setlec.SetR.Env.find?_name hfE, interp2_sort] at h
   -- three `Prop`-level products, all `pt`-inhabited

@@ -2,12 +2,10 @@
 # tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).  Line format:
 # "<expectation> <fixture> [mode]", mode ∈ {raw, pre}.
 #
-# An expectation is a single exit code.  (Until task #148 T0b it could
-# also be a pair "<on>|<off>" for the fixtures whose verdict depended
-# on the direct simple-structure master switch
-# `Setlec.directStructsEnabled`; the switch now ships `false` and the
-# second-binary harness is gone — see tests/arena-expected.txt's
-# header and `Setlec/Kernel/Direct.lean`.)
+# An expectation is a single exit code.  (The direct simple-structure
+# route is the priority route for every recognised block since task
+# #175 W4c — no master switch, no artifact-absence gate; see
+# tests/arena-expected.txt's header and `Setlec/Kernel/Direct.lean`.)
 0 indexed_vec.ndjson
 0 std_axioms.ndjson
 0 prop_proj.ndjson
@@ -251,24 +249,18 @@
 # fixture, run with the preprocessor made unavailable, so the stream
 # carries no `_model` declaration at all — the artifact-free route
 # `directParts?` recognises, installed and modelled from the reference
-# checks alone.  Accepted from task #82 until task #148 T0b, which
-# switched `directStructsEnabled` off (user ruling: direct-install
-# structures are optional/removable, and no verified lane covers them).
-# Both its `raw` and its `pre` line therefore now **decline** (2;
-# pre-flip code: 0): the fixture deliberately bypasses generating a
-# `_model` fallback, so with the route off the modeled path it falls
-# through to has nothing to install from and declines positively
-# ("missing _model artifacts" — the modeled path's own message, no
-# decline is invented for the switch).  The fixture is kept, not
-# deleted: it is the live witness of what the route bought, and the
-# expectation flips straight back if the constant is flipped back.
+# checks alone.  Accepted from task #82 until task #148 T0b (which
+# switched the route off: both lines declined, 2, the modeled fallback
+# having nothing to install from), and accepted again since task #175
+# W4c made the direct route the priority route with a verified P
+# install: the live witness of what the route buys.
 # the model-family guard is keyed on the environment invariant's
 # linkage clauses and nothing wider: a plain `def Foo` followed by a
 # plain `def Foo._model` is an ordinary stream and stays accepted
 # (`_model` names are not special).  Rejected (exit 1) by a blanket
 # suffix reservation - which is exactly what this pins.
 0 model_name_plain.ndjson raw
-2 direct_struct_raw.ndjson raw
+0 direct_struct_raw.ndjson raw
 0 direct_nested_dep.ndjson
 1 direct_nested_dep_broken.ndjson raw
 # malformed_midstream.ndjson: a truncated JSON record after valid
@@ -289,16 +281,14 @@
 # --pre flag (explicit "already preprocessed" assertion): the
 # detection scan and the preprocessor spawn are skipped entirely,
 # even with the preprocessor available.  std_axioms is a raw export
-# whose `Iff` block then has no `_model` family — the decline (vs 0
-# on its plain line) proves the spawn really was skipped.
-# direct_struct_raw reaches the same verdict as its `raw` line (see
-# there for the task #148 T0b flip, 0 → 2), and since that flip it is
-# a *sharper* --pre probe than before: an ignored flag would spawn the
-# preprocessor, which would supply the `_model` companions the direct
-# route deliberately does without, and the fixture would accept (0)
-# instead of declining.
-2 std_axioms.ndjson pre
-2 direct_struct_raw.ndjson pre
+# whose `Iff` block then has no `_model` family; until task #175 W4c
+# that made it decline (vs 0 on its plain line), which proved the
+# spawn was skipped.  Since W4c the block installs directly whether or
+# not the artifacts exist (the priority gate), so both lines accept and
+# the spawn-skip is no longer observable through a verdict here — the
+# `raw`/`pre` lines' byte-identity is what the pass now pins.
+0 std_axioms.ndjson pre
+0 direct_struct_raw.ndjson pre
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the

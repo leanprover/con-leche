@@ -30,9 +30,10 @@ Differences from `Setlec.Expr`, each deliberate:
   the value (see `Setlec/TT/Judgment.lean`); zeta is an `Eq` rule.
 * **`proj` is a former, and its type arguments live in the premise.**
   A projection on a *modeled* structure never reaches this layer: the
-  checker rewrites the node into a projection-function application at
-  annotation time (`annotateProjElim`/`annotateProjRec`).  A projection
-  on the **pinned pair** does: `ProjEntry.native` nodes are first-class
+  checker accepts no `.proj` node without a native table entry (task
+  #175 wiring W5 — the annotation-time rewrites into eliminations are
+  gone).  A projection on the **pinned pair** or on a direct
+  structure's tower entry does: `ProjEntry.native` nodes are first-class
   by design and survive into stored terms — carrying the structure's
   name and the field index, and *not* the pair's type arguments, which
   the checker recovers at use time from the subject's inferred type.

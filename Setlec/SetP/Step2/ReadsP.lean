@@ -294,7 +294,7 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
         fun l hl => hLc l (Setlec.whnf_fvarLeaves m.wf fuel hred l hl),
         hlrc.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hred)⟩
   rcases hcase with rfl | ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU,
-    hwcf, -⟩
+    -, hwcf, -⟩
   · -- stuck: the projection of the reduced scrutinee, at whichever
     -- entry kind the node's name carries (task #175 wiring W5)
     rcases hrd with ⟨entry, hfe, htw, -⟩ | ⟨hnt, hi2, -⟩
@@ -333,7 +333,7 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
     InferProjReadsP μ m φ fuel := by
   intro d i sn pe t ea h hws hb hLb hlr hea
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, hpair, htow, hsn⟩ := Setlec.inferTypeCore_proj_inv h
+    hlenUs, hguard, hpair, htow, hsn⟩ := Setlec.inferTypeCore_proj_inv h
   subst hsn
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
@@ -363,7 +363,7 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
   by_cases htw : entry.tower = true
   · -- tower-backed: the residual is the peel of the entry type, read
     obtain ⟨ds, hpi⟩ := htow htw
-    obtain ⟨-, -, -, -, -, -, -, -, hlaw⟩ := htower T i entry hfe htw
+    obtain ⟨-, -, -, -, -, -, -, -, -, hlaw, -⟩ := htower T i entry hfe htw
     obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
     obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
     have hframes : ∀ x ∈ te.getAppArgs ++ [pe],
@@ -715,12 +715,12 @@ theorem inferReads_const {m : EnvS2Core V env}
     (h : inferTypeCore μ env (fuel + 1) d (.const n us) = .ok t)
     (hea : denoteP m.acval env φ d (.const n us) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
-  obtain ⟨ci, hf, rfl⟩ := Setlec.inferTypeCore_const_inv h
+  obtain ⟨ci, hf, hnt, rfl⟩ := Setlec.inferTypeCore_const_inv h
   rw [denoteP, hf] at hea
   dsimp only at hea
   split at hea
   · next hlen =>
-    obtain ⟨ta, hta, -, -⟩ := hct d n ci us hf hlen
+    obtain ⟨ta, hta, -, -⟩ := hct d n ci us hf hnt hlen
     exact ⟨ta, hta⟩
   · exact nomatch hea
 

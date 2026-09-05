@@ -588,7 +588,7 @@ theorem natBinHeadP_of_stored (mp : EnvS2PM V μ env) {ψ : Name → Nat}
       ho).toConstantVal.levelParams = [] from hlp))
     (fun ρ => ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩)
     (fun ρ => ?_) (fun ρ => mp.type_okP _ hmemE ψ _ hta ρ)
-  have h := mp.mem_typeP _ hmemE ψ _ hta ρ
+  have h := mp.mem_typeP _ hmemE (by rfl) ψ _ hta ρ
   rwa [show (ConstantInfo.defnInfo cvo vo ho).name = o from hnm] at h
 
 /-- **A stored pinned unary head.** -/
@@ -619,7 +619,7 @@ theorem natUnHeadP_of_stored (mp : EnvS2PM V μ env) {ψ : Name → Nat}
       ho).toConstantVal.levelParams = [] from hlp))
     (fun ρ => ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩)
     (fun ρ => ?_) (fun ρ => mp.type_okP _ hmemE ψ _ hta ρ)
-  have h := mp.mem_typeP _ hmemE ψ _ hta ρ
+  have h := mp.mem_typeP _ hmemE (by rfl) ψ _ hta ρ
   rwa [show (ConstantInfo.defnInfo cvo vo ho).name = o from hnm] at h
 
 /-! ## The two-variable context discipline, and the conversion -/
@@ -910,13 +910,33 @@ theorem natOpEquations_frag_of_guard {c : Name}
       rcases hc with rfl | rfl <;> simp)).1)
     (fun hc => (hbool (by rcases hc with rfl | rfl <;> simp)).2)
 
+/-- A `Nat`-operation fragment has no `.proj` node at all. -/
+theorem consCrossAt_of_natFragOk {c : Name} {c₀ : ConstantInfo} :
+    ∀ {e : Expr}, Setlec.TTVerify.natFragOk env c e = true →
+      ConsCrossAt c₀ e := by
+  intro e
+  induction e with
+  | sort _ => intro _ _ _ _; simp
+  | fvar i n ty =>
+    intro h entry heq htw
+    simp only [Setlec.TTVerify.natFragOk, Bool.and_eq_true, beq_iff_eq] at h
+    simp [h.2]
+  | const _ _ => intro _ _ _ _; simp
+  | app f a ihf iha =>
+    intro h entry heq htw
+    simp only [Setlec.TTVerify.natFragOk, Bool.and_eq_true] at h
+    simp only [Expr.NoProjAt]
+    exact ⟨ihf h.1 entry heq htw, iha h.2 entry heq htw⟩
+  | bvar _ | lam _ _ _ _ | forallE _ _ _ _ | letE _ _ _ _ | lit _ | proj _ _ _ =>
+    intro h; simp [Setlec.TTVerify.natFragOk] at h
+
 /-- **The per-operation crossing at a fresh cons**: an operation
 stored in the prefix keeps its `NatOpsP` entry at the extension. -/
 theorem natOpsP_entry_cons (mp : EnvS2PM V μ env) {φ : Name → Nat}
     (hprev : NatOpsP mp.base2 φ)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (hntc : ConsCrossEnv env c₀)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     {c : Name} (hcN : c ∈ Setlec.natOpNames) (hne : c ≠ c₀.name)
@@ -932,6 +952,7 @@ theorem natOpsP_entry_cons (mp : EnvS2PM V μ env) {φ : Name → Nat}
         y ∈ˢ interp2 V ρ (m₂.acval Setlec.natName φ) →
         interp2 V (cons y (cons x ρ)) L
           = interp2 V (cons y (cons x ρ)) R := by
+  have _ := hntc
   have hfE : env.find? c = some (.defnInfo cv' v' hint') := by
     rw [Setlec.Env.find?_cons] at hf₂
     split at hf₂
@@ -952,11 +973,14 @@ theorem natOpsP_entry_cons (mp : EnvS2PM V μ env) {φ : Name → Nat}
       constsBound_of_natFragOk (by simp [hfE]) (by simp [hfN]) h2⟩
   refine ⟨Setlec.TTVerify.natOpGuard_cons hfresh hg, fun eq hq => ?_⟩
   obtain ⟨L, R, hL, hR, hlaw⟩ := hlaws eq hq
+  have hfrag := natOpEquations_frag_of_guard hg eq hq
   refine ⟨L, R, ?_, ?_, ?_⟩
   · rw [hac]
-    exact denoteP_cons_fresh_mono hfresh hntc φ 2 eq.1 (hcb eq hq).1 hL
+    exact denoteP_cons_mono hfresh (consCrossAt_of_natFragOk hfrag.1) φ 2
+      (hcb eq hq).1 hL
   · rw [hac]
-    exact denoteP_cons_fresh_mono hfresh hntc φ 2 eq.2 (hcb eq hq).2 hR
+    exact denoteP_cons_mono hfresh (consCrossAt_of_natFragOk hfrag.2) φ 2
+      (hcb eq hq).2 hR
   · intro ρ x y hx hy
     rw [hac, show acvalWith mp.base2.acval c₀.name A Setlec.natName
         = mp.base2.acval Setlec.natName from acvalWith_ne hnatne]
@@ -971,7 +995,7 @@ theorem natOpsP_cons_fresh (mp : EnvS2PM V μ env) {φ : Name → Nat}
     (hprev : NatOpsP mp.base2 φ)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (hntc : ConsCrossEnv env c₀)
     (hnothead : (∀ cv v hint, c₀ ≠ .defnInfo cv v hint) ∨
       c₀.name ∉ Setlec.natOpNames)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)

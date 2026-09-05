@@ -365,7 +365,7 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         exact ⟨_, rfl, Red.projArg hR₃⟩
       · rw [if_neg hi2] at hv; exact nomatch hv
   rcases hcase with rfl |
-    ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert⟩
+    ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hfire, hwcf, hcert⟩
   · -- stuck: the reduced scrutinee under the projection
     refine hstuck v rfl ?_ ?_
     · intro entry hfp htwe
@@ -416,7 +416,7 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         e₃.getAppArgs.reverse (by
           rw [List.reverse_reverse, hE₃]
           exact hite)
-    obtain ⟨ciMk, hfMk, rfl⟩ := inferTypeCore_const_inv hf₀
+    obtain ⟨ciMk, hfMk, -, rfl⟩ := inferTypeCore_const_inv hf₀
     -- the two certificate chains, shared by both entry kinds
     obtain ⟨fv, vta, hfv, hvta, T₁, hI₁, hD₁⟩ := ihi hita hwF hbF hLF hCF
     obtain rfl : fv = vs.getD (entry.numParams + i) default := by
@@ -429,7 +429,7 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     · -- TOWER-BACKED (task #175 wiring W5): R6′ at the stored constructor
       rw [if_pos htw] at hv
       obtain rfl : v = projNV i vp := (Option.some.inj hv).symm
-      obtain ⟨-, -, -, -, -, -, cvC, hfC, hlpsC, hstrip⟩ :=
+      obtain ⟨-, -, -, -, -, -, ⟨cvC, hfC, hlpsC, hstrip⟩, -⟩ :=
         m.proj_ok.towerHead hfe htw
       obtain rfl : ciMk = .ctorInfo cvC entry.numParams entry.numFields :=
         Option.some.inj (hfMk.symm.trans hfC)
@@ -489,7 +489,7 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         exact Option.some.inj hv₃
       refine ⟨w, hw, Red.trans ?_ hRw⟩
       refine Red.projRedTower hfe hnat htw hilt (by rw [hspa.length, hlenA])
-        hlenU hfC hlenC rfl ?_ hTC0 hTCc hR₃ htele hI₁ hD₁ hJ₁ hE₁
+        hlenU hfire hfC hlenC rfl ?_ hTC0 hTCc hR₃ htele hI₁ hD₁ hJ₁ hE₁
       simp only [List.getD, List.getElem?_eq_getElem hidx']
       rfl
     · -- PAIR-BACKED: the pinned constructor, as before

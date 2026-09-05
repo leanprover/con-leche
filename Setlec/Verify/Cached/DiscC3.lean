@@ -77,21 +77,16 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                         (caps.etaParams + caps.etaFields)).isSome
                         = true then
                     let fab := Expr.mkAppN (.const caps.etaCtor ust)
-                      (tmaj.getAppArgs ++
-                        (List.range caps.etaFields).map fun j =>
-                          Expr.mkAppN (.const (projFnName T j) ust)
-                            (tmaj.getAppArgs ++ [major]))
+                      (etaFabArgsE env T ust tmaj.getAppArgs major
+                        caps.etaFields)
                     if fab.wscopedB d && fab.looseBVarsBounded 0 &&
                         fab.fvarLeaves.all
                           (fun l => major.fvarLeaves.contains l) then
                       iotaCerts (fueledFns mode env) env d
                           (cvj.type.instantiateLevelParams
                             cvj.levelParams ust)
-                          (tmaj.getAppArgs ++
-                            (List.range caps.etaFields).map fun j =>
-                              Expr.mkAppN (.const (projFnName T j) ust)
-                                (tmaj.getAppArgs ++ [major])) >>=
-                        fun rc =>
+                          (etaFabArgsE env T ust tmaj.getAppArgs major
+                            caps.etaFields) >>= fun rc =>
                       if rc then
                         structEtaCertWith mode (fueledFns mode env) env d fab major
                             tmaj >>= fun r =>
@@ -195,8 +190,8 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                           (caps.etaParams + caps.etaFields)).isSome
                           = true then
                       internNameM T >>= fun TI =>
-                      projAppsI TI ust margs i
-                          (List.range caps.etaFields) >>= fun projs =>
+                      projAppsI (mkFEnv env) T TI ust margs i
+                          caps.etaFields >>= fun projs =>
                       internNameM caps.etaCtor >>= fun ctorI =>
                       internI (.const ctorI ust) >>= fun h =>
                       mkAppNM h (margs ++ projs) >>= fun fab =>
@@ -442,7 +437,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                           (fun s₂t TI hs₂r hQTI => ?_)
                         subst TI
                         refine SimC.bind_left (projAppsC_eff T ust
-                          (List.range caps.etaFields) hs₂r hmargs hden)
+                          caps.etaFields hs₂r hmargs hden)
                           (fun s₃ projs hs₃ hQp => ?_)
                         refine SimC.bind_left (internNameM_eff hs₃
                           caps.etaCtor)
@@ -456,11 +451,8 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                           (fun s₅ fab hs₅ hQfab => ?_)
                         have hQfab' : RelC fab
                             (Expr.mkAppN (.const caps.etaCtor ust)
-                              ((Expr.getAppArgs tmaj) ++
-                                (List.range caps.etaFields).map fun j =>
-                                  Expr.mkAppN (.const (projFnName T j) ust)
-                                    ((Expr.getAppArgs tmaj) ++
-                                      [i]))) := hQfab
+                              (etaFabArgsE env T ust (Expr.getAppArgs tmaj) i
+                                caps.etaFields)) := hQfab
                         refine SimC.withStore ?_
                         rw [wscopedBI_spec hQfab',
                           looseBVarsBoundedI_spec hQfab',
@@ -485,14 +477,18 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                             (fun s₅d rc rc' hs₅d hPrc => ?_)
                           · rcases List.mem_append.mp hx with hx | hx
                             · exact hwtmaj.getAppArgs x hx
-                            · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
-                              refine Expr.WScoped.mkAppN
-                                (by simp [Expr.WScoped]) ?_
-                              intro y hy
-                              rcases List.mem_append.mp hy with hy | hy
-                              · exact hwtmaj.getAppArgs y hy
-                              · rw [List.mem_singleton.mp hy]
-                                exact hmaj
+                            · unfold etaProjs at hx
+                              split at hx
+                              · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
+                                simpa [Expr.WScoped] using hmaj
+                              · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
+                                refine Expr.WScoped.mkAppN
+                                  (by simp [Expr.WScoped]) ?_
+                                intro y hy
+                                rcases List.mem_append.mp hy with hy | hy
+                                · exact hwtmaj.getAppArgs y hy
+                                · rw [List.mem_singleton.mp hy]
+                                  exact hmaj
                           obtain rfl : rc = rc' := hPrc
                           cases rc with
                           | false =>

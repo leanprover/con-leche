@@ -23,9 +23,11 @@ nothing a core computes — and the names corollary falls out.
 
 Two facts close the remaining branches without core reasoning:
 
-* `directStructsEnabled = false` (`Kernel/Direct.lean`), so
-  `directPartsF?` is constantly `none` and the direct simple-structure
-  clause is unreachable in **both** drivers (`directPartsF?_eq_none`);
+* the direct simple-structure clause (task #175 W4c, the priority
+  route) installs under guards that are the block's own
+  (`directProjSlots`) or freshness checks, and its dispatch
+  (`directPartsF?`) reads the index only through name lookups
+  (`directNonRecF_skel`), so it runs on the skeleton too;
 * at `.axiomDecl` the push-or-not decision is a function of the header
   name alone — `toleratedAxiomNames = [sorryAx]` installs nothing in
   both drivers, and `stdAxiomOkF` is `false` off `propext`/`choice`, so
@@ -349,8 +351,8 @@ def isNonRecCI : ConstantInfo → Bool
   | .recInfo _ _ _ _ => false
   | _ => true
 
-/-- The inductive-block clause's specification. -/
-def indDeclSkels (block : List ConstantInfo) (sk : List InstallSkel) :
+/-- The modeled inductive-block clause's specification. -/
+def indDeclSkelsModeled (block : List ConstantInfo) (sk : List InstallSkel) :
     List InstallSkel :=
   let base := (block.filter isRecCI).foldl recMemberSkels
     ((block.filter isNonRecCI).foldl indMemberSkels sk)
@@ -359,6 +361,100 @@ def indDeclSkels (block : List ConstantInfo) (sk : List InstallSkel) :
     (List.range nF).foldl (projTemplateStepSkels cvT.name cvC.name nP nF)
       ((List.range nF).foldl (projFnStepSkels cvT.name cvC.name nP) base)
   | _, _ => base
+
+/-! ### The direct simple-structure clause (task #175 W4c)
+
+The priority gate `directPartsF?` reads the block (`directPartsCore?`,
+pure) and the index only through `constsResolveF` on the raw
+constructor domains — skeleton-level lookups — so the dispatch is a
+function of the skeleton; the direct install's own install decisions
+are `directProjSlots p`, a function of the block's raw types, plus
+freshness checks.  Nothing a core computes enters. -/
+
+/-- `Expr.constsResolve` at the skeleton level (lookups through
+`skFind?`). -/
+def constsResolveSk (sk : List InstallSkel) : Expr → Bool
+  | .bvar _ => true
+  | .sort _ => true
+  | .lit (.natVal _) =>
+    (skFind? sk natName).isSome && (skFind? sk natZeroName).isSome &&
+      (skFind? sk natSuccName).isSome
+  | .lit (.strVal _) =>
+    (skFind? sk natName).isSome && (skFind? sk natZeroName).isSome &&
+      (skFind? sk natSuccName).isSome && (skFind? sk stringName).isSome &&
+      (skFind? sk stringOfListName).isSome && (skFind? sk listName).isSome &&
+      (skFind? sk listNilName).isSome && (skFind? sk listConsName).isSome &&
+      (skFind? sk charName).isSome && (skFind? sk charOfNatName).isSome
+  | .const n _ => (skFind? sk n).isSome
+  | .fvar _ _ ty => constsResolveSk sk ty
+  | .app f a => constsResolveSk sk f && constsResolveSk sk a
+  | .lam _ ty body _ => constsResolveSk sk ty && constsResolveSk sk body
+  | .forallE _ ty body _ => constsResolveSk sk ty && constsResolveSk sk body
+  | .letE _ ty val body =>
+    constsResolveSk sk ty && constsResolveSk sk val && constsResolveSk sk body
+  | .proj s _ e => (skFind? sk s).isSome && constsResolveSk sk e
+
+theorem SkelIs.isSome' {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
+    (n : Name) : (fe.find? n).isSome = (skFind? sk n).isSome := by
+  rw [← h.find? n, Option.isSome_map]
+
+theorem constsResolveF_skel {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) : ∀ e : Expr, Expr.constsResolveF fe e = constsResolveSk sk e := by
+  intro e
+  induction e with
+  | bvar _ => rfl
+  | sort _ => rfl
+  | lit l =>
+    cases l <;> simp only [Expr.constsResolveF, constsResolveSk, h.isSome']
+  | const n us => simp only [Expr.constsResolveF, constsResolveSk, h.isSome']
+  | fvar _ _ ty ih => simp only [Expr.constsResolveF, constsResolveSk, ih]
+  | app f a ihf iha =>
+    simp only [Expr.constsResolveF, constsResolveSk, ihf, iha]
+  | lam _ ty b _ ihty ihb =>
+    simp only [Expr.constsResolveF, constsResolveSk, ihty, ihb]
+  | forallE _ ty b _ ihty ihb =>
+    simp only [Expr.constsResolveF, constsResolveSk, ihty, ihb]
+  | letE _ t v b iht ihv ihb =>
+    simp only [Expr.constsResolveF, constsResolveSk, iht, ihv, ihb]
+  | proj s _ e ihe =>
+    simp only [Expr.constsResolveF, constsResolveSk, h.isSome', ihe]
+
+/-- `directNonRecF` at the skeleton level. -/
+def directNonRecSk (sk : List InstallSkel) (p : DirectParts) : Bool :=
+  match p.cvC.type.stripPis (p.nP + p.nF) with
+  | some (cbs, _) => cbs.all fun b => constsResolveSk sk b.2.1
+  | none => false
+
+theorem directNonRecF_skel {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (p : DirectParts) :
+    directNonRecF fe p = directNonRecSk sk p := by
+  unfold directNonRecF directNonRecSk
+  cases p.cvC.type.stripPis (p.nP + p.nF) with
+  | none => rfl
+  | some q => simp only [constsResolveF_skel h]
+
+/-- The direct install's projection-slot step: the slot decision is
+the block's own (`directProjSlots`). -/
+def directProjStepSkels (T : Name) (slots : List Bool)
+    (sk : List InstallSkel) (i : Nat) : List InstallSkel :=
+  if slots.getD i false then .proj (projFnName T i) :: sk else sk
+
+/-- The direct install's skeleton: the former, the constructor, the
+recursor, then the slots. -/
+def directSkels (p : DirectParts) (sk : List InstallSkel) : List InstallSkel :=
+  (List.range p.nF).foldl (directProjStepSkels p.cvT.name (directProjSlots p))
+    (.recr p.cvR.name (p.nP + 2) (p.nP + 2) [p.cvC.name] ::
+      .ctor p.cvC.name p.nP p.nF :: .ind p.cvT.name :: sk)
+
+/-- The inductive-block clause's specification: the priority dispatch
+(`directPartsF?`, read at the skeleton) into the direct or the modeled
+skeleton. -/
+def indDeclSkels (block : List ConstantInfo) (sk : List InstallSkel) :
+    List InstallSkel :=
+  match directPartsCore? block with
+  | some p =>
+    if directNonRecSk sk p then directSkels p sk else indDeclSkelsModeled block sk
+  | none => indDeclSkelsModeled block sk
 
 /-- The skeletons one declaration installs. -/
 def declCSkels : DeclC → List InstallSkel → List InstallSkel
@@ -374,17 +470,6 @@ def declCSkels : DeclC → List InstallSkel → List InstallSkel
 
 
 
-
-/-! ## The unreachable direct clause
-
-`directStructsEnabled` is a compile-time `false`, so the direct
-simple-structure recogniser never fires — in **either** driver.  The
-floor proves this rather than assuming it. -/
-
-theorem directPartsF?_eq_none (fe : FEnv) (block : List ConstantInfo) :
-    directPartsF? fe block = none := by
-  unfold directPartsF?
-  cases directPartsCore? block <;> simp [directStructsEnabled]
 
 /-! ## The shared install stages
 
@@ -648,6 +733,172 @@ theorem installProjTemplateStepS_skels {fe : FEnv} {sk : List InstallSkel}
       | _ => exact Yields.pure h
   · exact Yields.pure h
 
+/-! ## The direct simple-structure install's skeleton (task #175 W4c)
+
+Every stage's install decision is the block's own or a freshness
+check; the stored constants' names are the block's (`checkConstantValF`
+keeps the name). -/
+
+theorem checkDirectIndF_skels {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (ops : CheckerOps CheckCM) (p : DirectParts) :
+    Yields (checkDirectIndF ops fe p)
+      (fun r => SkelIs r.1 (.ind p.cvT.name :: sk)) := by
+  unfold checkDirectIndF
+  refine Yields.bind' (checkConstantValF_name ops fe p.cvT) fun cvTa hn => ?_
+  yields
+  all_goals
+    (refine Yields.pure ?_
+     have := h.push (.indInfo cvTa (directCaps p))
+     simpa [ciSkel, hn] using this)
+
+theorem checkDirectCtorF_skels {fe₀ fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (ops : CheckerOps CheckCM) (p : DirectParts)
+    (cvTa : ConstantVal) :
+    Yields (checkDirectCtorF ops fe₀ fe p cvTa)
+      (fun r => SkelIs r.1 (.ctor p.cvC.name p.nP p.nF :: sk)) := by
+  unfold checkDirectCtorF
+  refine Yields.bind' (checkConstantValF_name ops fe p.cvC) fun cvCa hn => ?_
+  yields
+  all_goals
+    (refine Yields.pure ?_
+     have := h.push (.ctorInfo cvCa p.nP p.nF)
+     simpa [ciSkel, hn] using this)
+
+theorem checkDirectProjF_skels {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (ops : CheckerOps CheckCM) (T C : Name)
+    (lps : List Name) (nP nF : Nat) (resSort : Level) (slots : List Bool)
+    (guards : List Level) (cvTa cvCa : ConstantVal) (rt? : Option Expr)
+    (i : Nat) :
+    Yields (checkDirectProjF ops T C lps nP nF resSort slots guards cvTa cvCa
+        rt? fe i)
+      (fun fe' => SkelIs fe' (directProjStepSkels T slots sk i)) := by
+  unfold checkDirectProjF directProjStepSkels
+  split
+  · unfold checkDirectProjEntryF
+    yields
+    all_goals (refine Yields.pure ?_; exact h.push _)
+  · exact Yields.pure h
+
+theorem checkDirectProjsS_skels (mode : CheckMode) (T C : Name)
+    (lps : List Name) (nP nF : Nat) (resSort : Level) (slots : List Bool)
+    (guards : List Level) (cvTa cvCa : ConstantVal) :
+    ∀ (todo i : Nat) (rt? : Option Expr) {fe : FEnv} {sk : List InstallSkel},
+      SkelIs fe sk →
+      Yields (checkDirectProjsS mode T C lps nP nF resSort slots guards cvTa
+          cvCa todo i rt? fe)
+        (fun fe' => SkelIs fe'
+          ((List.range' i todo).foldl (directProjStepSkels T slots) sk))
+  | 0, i, rt?, fe, sk, h => by
+    unfold checkDirectProjsS
+    simp only [List.range'_zero, List.foldl_nil]
+    exact Yields.pure h
+  | todo + 1, i, rt?, fe, sk, h => by
+    unfold checkDirectProjsS
+    ybind
+    refine Yields.bind'
+      (checkDirectProjF_skels h _ T C lps nP nF resSort slots guards cvTa
+        cvCa rt? i) fun fe' h' => ?_
+    rw [List.range'_succ, List.foldl_cons]
+    exact checkDirectProjsS_skels mode T C lps nP nF resSort slots guards cvTa
+      cvCa todo (i + 1) _ h'
+
+theorem checkDirectStructS_skels (mode : CheckMode) {fe : FEnv}
+    {sk : List InstallSkel} (h : SkelIs fe sk) (p : DirectParts) :
+    Yields (checkDirectStructS mode fe p)
+      (fun fe' => SkelIs fe' (directSkels p sk)) := by
+  unfold checkDirectStructS
+  ybind
+  refine Yields.bind' (checkDirectIndF_skels h _ p) fun r₁ h₁ => ?_
+  obtain ⟨fe₁, cvTa⟩ := r₁
+  simp only []
+  ybind
+  refine Yields.bind' (checkDirectCtorF_skels h₁ _ p cvTa) fun r₂ h₂ => ?_
+  obtain ⟨fe₂, cvCa, sorts⟩ := r₂
+  simp only []
+  ybind
+  refine Yields.bind' (checkConstantValF_name _ fe₂ p.cvR) fun cvRa hnR => ?_
+  ybind
+  with_reducible apply Yields.bind
+  intro rhsA
+  try simp only []
+  generalize (if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
+      RecRuleFire.plain else RecRuleFire.inert) = fire
+  have h₃ : SkelIs (fe₂.push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩]))
+      (.recr p.cvR.name (p.nP + 2) (p.nP + 2) [p.cvC.name] ::
+        .ctor p.cvC.name p.nP p.nF :: .ind p.cvT.name :: sk) := by
+    have := h₂.push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩])
+    simpa [ciSkel, hnR] using this
+  split
+  · refine Yields.mono
+      (checkDirectProjsS_skels mode p.cvT.name p.cvC.name p.cvT.levelParams
+        p.nP p.nF p.resSort (directProjSlots p)
+        (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa p.nF 0 _ h₃)
+      fun fe' hfe' => ?_
+    simpa [directSkels, List.range_eq_range'] using hfe'
+  · exact Yields.ofThrow
+
+theorem checkDirectProjsNC_skels (T C : Name)
+    (lps : List Name) (nP nF : Nat) (resSort : Level) (slots : List Bool)
+    (guards : List Level) (cvTa cvCa : ConstantVal) :
+    ∀ (todo i : Nat) (rt? : Option Expr) {fe : FEnv} {sk : List InstallSkel},
+      SkelIs fe sk →
+      Yields (checkDirectProjsNC T C lps nP nF resSort slots guards cvTa
+          cvCa todo i rt? fe)
+        (fun fe' => SkelIs fe'
+          ((List.range' i todo).foldl (directProjStepSkels T slots) sk))
+  | 0, i, rt?, fe, sk, h => by
+    unfold checkDirectProjsNC
+    simp only [List.range'_zero, List.foldl_nil]
+    exact Yields.pure h
+  | todo + 1, i, rt?, fe, sk, h => by
+    unfold checkDirectProjsNC
+    ybind
+    refine Yields.bind'
+      (checkDirectProjF_skels h _ T C lps nP nF resSort slots guards cvTa
+        cvCa rt? i) fun fe' h' => ?_
+    rw [List.range'_succ, List.foldl_cons]
+    exact checkDirectProjsNC_skels T C lps nP nF resSort slots guards cvTa
+      cvCa todo (i + 1) _ h'
+
+theorem checkDirectStructNC_skels {fe : FEnv}
+    {sk : List InstallSkel} (h : SkelIs fe sk) (p : DirectParts) :
+    Yields (checkDirectStructNC fe p)
+      (fun fe' => SkelIs fe' (directSkels p sk)) := by
+  unfold checkDirectStructNC
+  ybind
+  refine Yields.bind' (checkDirectIndF_skels h _ p) fun r₁ h₁ => ?_
+  obtain ⟨fe₁, cvTa⟩ := r₁
+  simp only []
+  ybind
+  refine Yields.bind' (checkDirectCtorF_skels h₁ _ p cvTa) fun r₂ h₂ => ?_
+  obtain ⟨fe₂, cvCa, sorts⟩ := r₂
+  simp only []
+  ybind
+  refine Yields.bind' (checkConstantValF_name _ fe₂ p.cvR) fun cvRa hnR => ?_
+  ybind
+  with_reducible apply Yields.bind
+  intro rhsA
+  try simp only []
+  generalize (if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
+      RecRuleFire.plain else RecRuleFire.inert) = fire
+  have h₃ : SkelIs (fe₂.push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩]))
+      (.recr p.cvR.name (p.nP + 2) (p.nP + 2) [p.cvC.name] ::
+        .ctor p.cvC.name p.nP p.nF :: .ind p.cvT.name :: sk) := by
+    have := h₂.push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩])
+    simpa [ciSkel, hnR] using this
+  split
+  · refine Yields.mono
+      (checkDirectProjsNC_skels p.cvT.name p.cvC.name p.cvT.levelParams
+        p.nP p.nF p.resSort (directProjSlots p)
+        (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa p.nF 0 _ h₃)
+      fun fe' hfe' => ?_
+    simpa [directSkels, List.range_eq_range'] using hfe'
+  · exact Yields.ofThrow
+
 /-- The members-then-recursors phase, shared by both arms of
 `checkIndDeclSF`'s block match. -/
 theorem indBase_skels (mode : CheckMode) (blockNames : List Name)
@@ -667,8 +918,8 @@ theorem indBase_skels (mode : CheckMode) (blockNames : List Name)
 theorem checkIndDeclSF_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (block : List ConstantInfo) :
     Yields (checkIndDeclSF mode fe block)
-      (fun fe' => SkelIs fe' (indDeclSkels block sk)) := by
-  unfold checkIndDeclSF indDeclSkels
+      (fun fe' => SkelIs fe' (indDeclSkelsModeled block sk)) := by
+  unfold checkIndDeclSF indDeclSkelsModeled
   simp only []
   split
   case isFalse => exact Yields.ofThrowBind
@@ -808,8 +1059,17 @@ theorem checkDeclSPC_skels (mode : CheckMode) {fe : FEnv}
     all_goals exact hfold fe sk h
   | indDecl block =>
     simp only []
-    rw [directPartsF?_eq_none]
-    exact checkIndDeclSF_skels mode h block
+    unfold directPartsF? indDeclSkels
+    cases directPartsCore? block with
+    | none => exact checkIndDeclSF_skels mode h block
+    | some p =>
+      simp only []
+      rw [directNonRecF_skel h]
+      by_cases hnr : directNonRecSk sk p = true
+      · simp only [if_pos hnr]
+        exact checkDirectStructS_skels mode h p
+      · simp only [if_neg hnr]
+        exact checkIndDeclSF_skels mode h block
 
 theorem checkDeclSPStepC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : DeclC) :
@@ -982,8 +1242,8 @@ theorem indBaseNC_skels (blockNames : List Name) (caps : IndCaps)
 theorem checkIndDeclNC_skels {fe : FEnv} {sk : List InstallSkel}
     (h : SkelIs fe sk) (block : List ConstantInfo) :
     Yields (checkIndDeclNC fe block)
-      (fun fe' => SkelIs fe' (indDeclSkels block sk)) := by
-  unfold checkIndDeclNC indDeclSkels
+      (fun fe' => SkelIs fe' (indDeclSkelsModeled block sk)) := by
+  unfold checkIndDeclNC indDeclSkelsModeled
   simp only []
   split
   case isFalse => exact Yields.ofThrowBind
@@ -1092,8 +1352,17 @@ theorem checkDeclSPCNC_skels {fe : FEnv} {sk : List InstallSkel}
     all_goals exact hfold fe sk h
   | indDecl block =>
     simp only []
-    rw [directPartsF?_eq_none]
-    exact checkIndDeclNC_skels h block
+    unfold directPartsF? indDeclSkels
+    cases directPartsCore? block with
+    | none => exact checkIndDeclNC_skels h block
+    | some p =>
+      simp only []
+      rw [directNonRecF_skel h]
+      by_cases hnr : directNonRecSk sk p = true
+      · simp only [if_pos hnr]
+        exact checkDirectStructNC_skels h p
+      · simp only [if_neg hnr]
+        exact checkIndDeclNC_skels h block
 
 theorem checkDeclSPStepCNC_skels {fe : FEnv} {sk : List InstallSkel}
     (h : SkelIs fe sk) (pd : DeclC) :

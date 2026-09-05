@@ -190,7 +190,7 @@ theorem piResidual_frameP {m : EnvS2Core V env} {d : Nat}
 graded, inhabited, and framed (closed, so the frames are free). -/
 theorem constTypeP_pkg {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci)
-    {us : List Level}
+    (hnt : ci.isTowerEntry = false) {us : List Level}
     (hlen : us.length = ci.toConstantVal.levelParams.length) :
     ∃ ta : AVExpr,
       (∀ d : Nat, denoteP m.acval env φ d
@@ -204,7 +204,7 @@ theorem constTypeP_pkg {m : EnvS2Core V env} (hct : ConstTypeP m φ)
         ci.toConstantVal.levelParams us).hasFvar = false ∧
       (ci.toConstantVal.type.instantiateLevelParams
         ci.toConstantVal.levelParams us).looseBVarsBounded 0 = true := by
-  obtain ⟨ta, hta, hok, hmem⟩ := hct 0 n ci us hf hlen
+  obtain ⟨ta, hta, hok, hmem⟩ := hct 0 n ci us hf hnt hlen
   have hwf := m.wf _ (Setlec.SetR.Env.find?_mem hf)
   have hnf : (ci.toConstantVal.type.instantiateLevelParams
       ci.toConstantVal.levelParams us).hasFvar = false := by
@@ -506,7 +506,7 @@ the wall stood for one worker-session. -/
 /-- **`IotaStepP`, discharged** (`iota_stepR`'s mirror; the wall above
 is its one flagged premise). -/
 theorem iotaStepP_of {m : EnvS2Core V env}
-    (hrec : RecRulesP m φ) (hcaps : CapsOkP m) (hct : ConstTypeP m φ)
+    (hrec : RecRulesP m φ) (hcaps : CapsOkP m) (htower : TowerOkP m φ) (hct : ConstTypeP m φ)
     (hav : AcvalValidP m)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
     (ihis : InferClaimsIOS2P μ m φ fuel)
@@ -555,7 +555,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
       (hCM.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwmaj))
       hmj0a hokMj0
   obtain ⟨vmaj, hvmajSave, hokMj, heqMj, hwmj, hbmj, hLmj, hCmj⟩ :=
-    majorToCtorP_stepP hcaps hct hav ihw ihd ihis hsss hexi hreads_ios
+    majorToCtorP_stepP hcaps htower hct hav ihw ihd ihis hsss hexi hreads_ios
       hwreads hmajc
       hw1 hb1 hL1 hC1 hmj1a hokMj1
   have heqAll : ∀ ρ : Nat → V, Sat2 V Δa ρ →
@@ -575,8 +575,8 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   obtain ⟨-, hoY⟩ := hoistP_spine ys hokMj
   -- the two stored types
   obtain ⟨TVa, hTVaD, hokTVa, -, hnfR, hbdR⟩ :=
-    constTypeP_pkg hct hfrec (show us.length = _ from hlenU)
-  obtain ⟨TVja, hTVjaD, hokTVja, -, hnfJ, hbdJ⟩ := constTypeP_pkg hct hfcj hlenUj
+    constTypeP_pkg hct hfrec rfl (show us.length = _ from hlenU)
+  obtain ⟨TVja, hTVjaD, hokTVja, -, hnfJ, hbdJ⟩ := constTypeP_pkg hct hfcj rfl hlenUj
   dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVaD hnfR hbdR
   dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVjaD hnfJ hbdJ
   have hCR : CtxOkP m φ d Δa (cv.type.instantiateLevelParams cv.levelParams us) :=

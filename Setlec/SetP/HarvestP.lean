@@ -506,7 +506,8 @@ theorem harvestDefnP (hμ : μ.verified = true)
     -- tower entry
     exact fun φ => towerOkP_cons_fresh mp
       (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
+      (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 
 /-! ## The `thm` mirror (batch H2, T1)
 
@@ -777,7 +778,8 @@ theorem harvestThmP (hμ : μ.verified = true)
     -- tower entry
     exact fun φ => towerOkP_cons_fresh mp
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
-      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
+      (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 
 /-! ## The `opaque` kind: the H2 SKIP, since unlocked
 
@@ -1030,7 +1032,8 @@ theorem harvestAxiomP (hμ : μ.verified = true)
     -- tower entry
     exact fun φ => towerOkP_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
+      (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 
 
 /-! ## The `opaque` kind, unlocked (the exposed leaf equation)
@@ -1288,6 +1291,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
     -- tower entry
     exact fun φ => towerOkP_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
+      (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 
 end Setlec.SetR.Interp2

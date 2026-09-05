@@ -338,7 +338,7 @@ full lane's verbatim. -/
 theorem inferTypeCoreIO_const_inv {env : Env} {fuel d : Nat}
     {n : Name} {us : List Level} {t : Expr}
     (h : inferTypeCoreIO mode env fuel d (.const n us) = .ok t) :
-    ∃ ci, env.find? n = some ci ∧
+    ∃ ci, env.find? n = some ci ∧ ci.isTowerEntry = false ∧
       t = ci.toConstantVal.type.instantiateLevelParams
         ci.toConstantVal.levelParams us := by
   match fuel, h with
@@ -357,9 +357,15 @@ theorem inferTypeCoreIO_const_inv {env : Env} {fuel d : Nat}
       dsimp only at h
       revert h
       split
-      · intro h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        exact ⟨ci, rfl, h.symm⟩
+      · next htw =>
+        intro h
+        revert h
+        split
+        · intro h
+          simp only [pure, Except.pure, Except.ok.injEq] at h
+          exact ⟨ci, rfl, by simpa using htw, h.symm⟩
+        · intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
       · intro h
         simp [throw, throwThe, MonadExceptOf.throw] at h
 
@@ -418,6 +424,12 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
       env.findProj? T i = some entry ∧ entry.native = true ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
+      -- the official `infer_proj` restriction (task #175 W4c/O4), as in
+      -- `inferTypeCore_proj_inv`
+      (entry.tower = true →
+        (Level.isEquiv entry.structSort .zero == some true) = true →
+        (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
+          == some true) = true) ∧
       ((entry.tower = false →
         ∃ A B, te.getAppArgs = [A, B] ∧
           ((i = 0 ∧ t = A) ∨ (i = 1 ∧ t = .app B (.proj T 0 e)))) ∧
@@ -466,8 +478,33 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
   case isTrue hcond =>
     obtain ⟨hnat, hsn, hlen, hus⟩ := hcond
     by_cases htw : entry.tower = true
-    · rw [if_pos htw] at h
-      revert h
+    · -- the tower branch: the Prop guard (task #175 W4c/O4), then the
+      -- residual walk's result
+      rw [if_pos htw] at h
+      have hg : (Level.isEquiv entry.structSort .zero == some true) = true →
+          (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
+            == some true) = true := by
+        intro hp
+        rw [if_pos hp] at h
+        by_cases hf : (Level.isEquiv
+            (Level.subst entry.levelParams us entry.fieldSort) .zero
+            == some true) = true
+        · exact hf
+        · rw [if_neg hf] at h
+          exact absurd h (by
+            simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind])
+      have h' : (match Expr.instPisAt (te.getAppArgs ++ [e])
+            (entry.ty.instantiateLevelParams entry.levelParams us) with
+          | some (_, resid) => (pure resid : Except CheckError Expr)
+          | none => (throw (CheckError.internal "malformed projection entry") :
+              Except CheckError Expr)) = .ok t := by
+        by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
+        · rw [if_pos hp, if_pos (hg hp)] at h
+          exact h
+        · rw [if_neg hp] at h
+          exact h
+      clear h
+      revert h'
       cases hpi : Expr.instPisAt (te.getAppArgs ++ [e])
           (entry.ty.instantiateLevelParams entry.levelParams us) with
       | none => intro h; exact nomatch h
@@ -477,7 +514,8 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h
         exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-          fun hf => absurd htw (by simp [hf]), fun _ => ⟨ds, hpi⟩, hsn⟩
+          fun _ => hg, fun hf => absurd htw (by simp [hf]), fun _ => ⟨ds, hpi⟩,
+          hsn⟩
     · rw [if_neg htw] at h
       have htw' : entry.tower = false := by
         cases hv : entry.tower
@@ -495,12 +533,14 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h
         exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+          fun ht => absurd ht (by simp [htw']),
           fun _ => ⟨A, B, hargs, Or.inl ⟨rfl, rfl⟩⟩,
           fun ht => absurd ht (by simp [htw']), hsn⟩
       · intro h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h
         exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+          fun ht => absurd ht (by simp [htw']),
           fun _ => ⟨A, B, hargs, Or.inr ⟨rfl, rfl⟩⟩,
           fun ht => absurd ht (by simp [htw']), hsn⟩
 
@@ -684,7 +724,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       exact inferTypeCoreIO_of_full htail
     | .proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat,
-        hlenArgs, hlenUs, hpair, htow, hsn⟩ :=
+        hlenArgs, hlenUs, hguard, hpair, htow, hsn⟩ :=
         Setlec.inferTypeCore_proj_inv h
       rw [inferTypeCoreIO_succ]
       simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
@@ -706,7 +746,10 @@ theorem inferTypeCoreIO_of_full {env : Env} :
         rcases hcase with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> rfl
       | true =>
         obtain ⟨ds, hpi⟩ := htow htw
-        rw [if_pos rfl, hpi]
+        rw [if_pos rfl]
+        by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
+        · rw [if_pos hp, if_pos (hguard htw hp), hpi]
+        · rw [if_neg hp, hpi]
 
 /-- The weakening at the knot's io slot: at any mode, a full-grade
 success is an io-slot success with the same value (gate-off: the slot

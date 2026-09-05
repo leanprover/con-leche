@@ -426,23 +426,13 @@ theorem annotateCore_leaves_sub {env : Env} :
   | fuel + 1, .proj sn i e, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded] at hb
-    obtain ⟨e₂, tt, te, he, -, -, hres⟩ := annotateCore_proj_inv h
+    obtain ⟨e₂, tt, te, he, -, -, us, A, B, cv2, caps2, -, -, -, rfl⟩ :=
+      annotateCore_proj_inv h
     have hsub₂ : ∀ l ∈ e₂.fvarLeaves, l ∈ e.fvarLeaves :=
       annotateCore_leaves_sub fuel e he hw hb
-    rcases hres with ⟨us, A, B, cv2, caps2, -, -, -, rfl⟩ | hel
-    · intro l hl
-      simp only [fvarLeaves] at hl ⊢
-      exact hsub₂ l hl
-    · obtain ⟨raw, hwsb, hrb, hall, hann⟩ := annotateProjElim_inv hel
-      have hsubR : ∀ l ∈ raw.fvarLeaves, l ∈ e₂.fvarLeaves := by
-        intro l hl
-        have := List.all_eq_true.mp hall l hl
-        simpa using this
-      intro l hl
-      simp only [fvarLeaves]
-      exact hsub₂ _ (hsubR _
-        (annotateCore_leaves_sub fuel _ hann
-          (WScoped.of_wscopedB hwsb) hrb l hl))
+    intro l hl
+    simp only [fvarLeaves] at hl ⊢
+    exact hsub₂ l hl
   | fuel + 1, .forallE n ty body m, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb

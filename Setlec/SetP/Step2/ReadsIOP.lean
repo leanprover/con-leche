@@ -263,7 +263,7 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
     (hea : denoteP m.acval env φ d (.proj sn i pe) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, hpair, htow, hsn⟩ := Setlec.inferTypeCoreIO_proj_inv h
+    hlenUs, -, hpair, htow, hsn⟩ := Setlec.inferTypeCoreIO_proj_inv h
   subst hsn
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
@@ -290,7 +290,7 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
   obtain ⟨-, vs, -, hspt, -⟩ := denoteP_mkAppN_inv htea
   by_cases htw : entry.tower = true
   · obtain ⟨ds, hpi⟩ := htow htw
-    obtain ⟨-, -, -, -, -, -, -, -, hlaw⟩ := htower T i entry hfe htw
+    obtain ⟨-, -, -, -, -, -, -, -, -, hlaw, -⟩ := htower T i entry hfe htw
     obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
     obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
     have hframes : ∀ x ∈ te.getAppArgs ++ [pe],

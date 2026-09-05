@@ -1,6 +1,7 @@
 import Setlec.SetP.AxiomReduceP
 import Setlec.SetP.BasisPSigmaP
 import Setlec.SetP.DeclIndP
+import Setlec.SetP.DeclDirectP
 import Setlec.SetBase.IndBlockR
 import Setlec.SetBase.Bridge.Sound
 import Setlec.SetBase.DeclDirectEta
@@ -185,8 +186,18 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
   | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
   | basisDecl kind => exact basisStepPB_of mp hrun
   | indDecl block =>
-    exact indStepPB_of hμ mp hE
-      (Setlec.SetR.declIndRunDispatchR_eq_ind.mp hrun)
+    -- the `.indDecl` dispatch: the recognised direct class installs
+    -- directly (task #175 W4c), everything else through the modeled
+    -- path — the kernel's own `directParts?` case split
+    have hrun' : Setlec.SetR.DeclIndRunDispatchR μ F env block env₂ := hrun
+    unfold Setlec.SetR.DeclIndRunDispatchR at hrun'
+    cases hdp : Setlec.directParts? env block with
+    | some p =>
+      rw [hdp] at hrun'
+      exact declDirectP hμ mp hE hdp hrun'
+    | none =>
+      rw [hdp] at hrun'
+      exact indStepPB_of hμ mp hE hrun'
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verified = true) {F : Nat} :

@@ -166,15 +166,16 @@ step consumes the residual for `i` and extends it by a **single**
 redone, which is what keeps wide structures out of the cubic
 regime. -/
 def checkDirectProjsS (T C : Name) (lps : List Name) (nP nF : Nat)
-    (resSort : Level) (cvTa cvCa : ConstantVal) :
+    (resSort : Level) (slots : List Bool) (guards : List Level)
+    (cvTa cvCa : ConstantVal) :
     (todo i : Nat) → Option Expr → FEnv → CheckCM FEnv
   | 0, _, _, fe => pure fe
   | todo + 1, i, rt?, fe => do
     flushC
-    let fe' ← checkDirectProjF (sharedOpsC mode fe) T C lps nP nF resSort cvTa
-      cvCa rt? fe i
-    checkDirectProjsS T C lps nP nF resSort cvTa cvCa todo (i + 1)
-      (rt?.bind (Expr.instPisAtLift [directProjArgP T i])) fe'
+    let fe' ← checkDirectProjF (sharedOpsC mode fe) T C lps nP nF resSort
+      slots guards cvTa cvCa rt? fe i
+    checkDirectProjsS T C lps nP nF resSort slots guards cvTa cvCa todo
+      (i + 1) (rt?.bind (Expr.instPisAtLift [directProjArgP T i])) fe'
 
 /-- `checkDirectStruct` through the index. -/
 def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
@@ -185,7 +186,7 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
   flushC
   let (fe₁, cvTa) ← checkDirectIndF (sharedOpsC mode fe) fe p
   flushC
-  let (fe₂, cvCa) ← checkDirectCtorF (sharedOpsC mode fe₁) fe fe₁ p cvTa
+  let (fe₂, cvCa, sorts) ← checkDirectCtorF (sharedOpsC mode fe₁) fe fe₁ p cvTa
   flushC
   let cvRa ← checkConstantValF (sharedOpsC mode fe₂) fe₂ p.cvR
   checkDirectRecTyF (sharedOpsC mode fe₂) fe₂ p cvTa cvCa cvRa
@@ -199,7 +200,8 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
       (fun j => (fe₃.find? (projFnName p.cvT.name j)).isNone) do
     throw (.invalid "projection name family taken")
   checkDirectProjsS mode p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
-    p.resSort cvTa cvCa p.nF 0
+    p.resSort (directProjSlots p) (directProjGuards cvCa.type p.nP p.nF sorts)
+    cvTa cvCa p.nF 0
     (Expr.instPisAtLift (directProjPs p.nP) cvCa.type) fe₃
 
 /-- The modeled inductive block (mirrors `checkIndDecl`), returning

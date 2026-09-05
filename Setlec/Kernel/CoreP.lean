@@ -92,7 +92,8 @@ def whnfCoreBodyP (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           let args := e'.getAppArgs
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
-              us.length = entry.levelParams.length then
+              us.length = entry.levelParams.length ∧
+              entry.fireOk us = true then
             let arg := args.getD (entry.numParams + i) (.bvar 0)
             -- the projection certificate is NOT gated: the asymmetry
             -- fence keeps every zero-kind certificate, and the

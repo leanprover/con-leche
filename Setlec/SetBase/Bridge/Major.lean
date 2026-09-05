@@ -171,13 +171,13 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         · -- R13
           obtain ⟨c', us'', cvc', cnP', cnF', T', us''', cvT', caps', hfna',
             hfc', hlena', hfnb', hfT', -, -, -, hefld', -, -, -, -, hlpc', -,
-            -, -, hprojs, -, -, -⟩ := structEtaCertWith_inv hcw
+            hslots', -, -, hprojs, -, -, -⟩ := structEtaCertWith_inv hcw
           have hTeq : T' = T := by
             rw [hfnT] at hfnb'; exact (Expr.const.inj hfnb').1.symm
           have hUeq : us''' = ust := by
             rw [hfnT] at hfnb'; exact (Expr.const.inj hfnb').2.symm
           rw [hTeq, hUeq] at hprojs
-          rw [hTeq] at hfT'
+          rw [hTeq] at hfT' hslots'
           have hcapseq : caps' = caps := by
             rw [hfT] at hfT'
             exact ((ConstantInfo.indInfo.inj (Option.some.inj hfT')).2).symm
@@ -185,28 +185,51 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
             rw [hfT] at hfT'
             exact ((ConstantInfo.indInfo.inj (Option.some.inj hfT')).1).symm
           rw [hcvTeq] at hprojs
-          have hpfacts : ∀ j, j < caps.etaFields →
-              ∃ ci, env.find? (projFnName T j) = some ci ∧
-                ci.toConstantVal.levelParams = cvT.levelParams := by
-            intro j hj
-            obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpj'', -, -⟩ :=
-              structEtaProjCerts_inv _ hprojs j (by
-                rw [List.mem_range, ← hefld', hcapseq]
-                exact hj)
-            exact ⟨_, hfp, hlpj''⟩
+          rw [← hefld', hcapseq] at hslots'
+          -- the fabricated projections, denoted by entry kind (task #175
+          -- W4c: `.proj T j major` at an all-tower slot family, the
+          -- projection functions' applications otherwise)
+          have hspP : DenoteSpine m.cval env φ d
+              (etaProjs env T ust tmaj.getAppArgs major caps.etaFields)
+              (if towerSlotsAll env T caps.etaFields then
+                (List.range caps.etaFields).map fun j => projNV j vm
+              else projSpinesV m.cval T (Level.substFn φ cvT.levelParams ust)
+                ts vm caps.etaFields) := by
+            unfold etaProjs
+            by_cases htow : towerSlotsAll env T caps.etaFields = true
+            · rw [if_pos htow, if_pos htow]
+              refine DenoteSpine.map_list _ (fun j hj => ?_)
+              obtain ⟨e, hfe, hetw⟩ :=
+                towerSlotsAll_slot htow j (by simpa using List.mem_range.mp hj)
+              rw [denote_proj, hvm, hfe]
+              dsimp only
+              rw [if_pos hetw]
+            · rw [if_neg htow, if_neg htow]
+              have hrec : recSlotsAll env T caps.etaFields = true := by
+                simpa [htow] using hslots'
+              refine DenoteSpine.map_list _ (fun j hj => ?_)
+              have hj' : j < caps.etaFields := by simpa using List.mem_range.mp hj
+              rcases structEtaProjCerts_inv _ hprojs j (by
+                  rw [List.mem_range, ← hefld', hcapseq]; exact hj') with
+                ⟨cvp, mIp, rPp, rulesp, hfp, hlpj'', -, -⟩ |
+                ⟨entry, hfp, -, -, -, -⟩
+              · exact hdenProj j ⟨_, hfp, hlpj''⟩
+              · exfalso
+                obtain ⟨cv', mI', rP', rules', hfr⟩ := recSlotsAll_slot hrec j hj'
+                rw [hfp] at hfr
+                exact nomatch hfr
           have hspF : DenoteSpine m.cval env φ d
-              (etaFabArgs T ust tmaj.getAppArgs major caps.etaFields)
-              (etaFabArgsV m.cval T (Level.substFn φ cvT.levelParams ust) ts vm
-                caps.etaFields) := by
-            refine hspt.append (DenoteSpine.map_list _ (fun j hj => ?_))
-            exact hdenProj j (hpfacts j (by simpa using List.mem_range.mp hj))
+              (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
+              (etaFabArgsVE m.cval env T (Level.substFn φ cvT.levelParams ust)
+                ts vm caps.etaFields) :=
+            hspt.append hspP
           have hdF : denote m.cval env φ d
               (Expr.mkAppN (.const caps.etaCtor ust)
-                (etaFabArgs T ust tmaj.getAppArgs major caps.etaFields))
+                (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields))
               = some (VExpr.mkAppN (m.cval caps.etaCtor
                 (Level.substFn φ cvj.levelParams ust))
-                (etaFabArgsV m.cval T (Level.substFn φ cvT.levelParams ust) ts
-                  vm caps.etaFields)) := by
+                (etaFabArgsVE m.cval env T (Level.substFn φ cvT.levelParams ust)
+                  ts vm caps.etaFields)) := by
             refine denote_mkAppN hspF ?_
             rw [← hectr, denote_const, hfcj]
             dsimp only
@@ -214,28 +237,35 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
               = (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams.length
               from hlpj.symm)]
             rfl
-          have hfrF : ∀ x ∈ etaFabArgs T ust tmaj.getAppArgs major
+          have hfrF : ∀ x ∈ etaFabArgsE env T ust tmaj.getAppArgs major
               caps.etaFields,
               Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
                 Expr.LeavesBounded x ∧ CtxOkR mode m.cval env φ d Δ x := by
             intro x hx
             rcases List.mem_append.mp hx with hx' | hx'
             · exact hfrT x hx'
-            · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx'
-              refine ⟨Expr.WScoped.mkAppN (Expr.WScoped.of_not_hasFvar rfl)
-                  (fun y hy => (hfrM y hy).1),
-                looseBVarsBounded_mkAppN rfl (fun y hy => (hfrM y hy).2.1),
-                fun l hl => ?_, ⟨hC.1, fun l hl => ?_⟩⟩ <;>
-              · rcases fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
-                · exact absurd hl' (by simp [Expr.fvarLeaves])
-                · first
-                  | exact (hfrM y hy).2.2.1 l hly
-                  | exact (hfrM y hy).2.2.2.2 l hly
+            · unfold etaProjs at hx'
+              split at hx'
+              · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx'
+                exact ⟨by simpa [Expr.WScoped] using hws,
+                  by simpa [Expr.looseBVarsBounded] using hb,
+                  fun l hl => hLb l (by simpa [Expr.fvarLeaves] using hl),
+                  ⟨hC.1, fun l hl => hC.2 l (by simpa [Expr.fvarLeaves] using hl)⟩⟩
+              · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx'
+                refine ⟨Expr.WScoped.mkAppN (Expr.WScoped.of_not_hasFvar rfl)
+                    (fun y hy => (hfrM y hy).1),
+                  looseBVarsBounded_mkAppN rfl (fun y hy => (hfrM y hy).2.1),
+                  fun l hl => ?_, ⟨hC.1, fun l hl => ?_⟩⟩ <;>
+                · rcases fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+                  · exact absurd hl' (by simp [Expr.fvarLeaves])
+                  · first
+                    | exact (hfrM y hy).2.2.1 l hly
+                    | exact (hfrM y hy).2.2.2.2 l hly
           obtain ⟨vs', rest, hsp', htele⟩ :=
             certs_teleR m φ hg hcl ihd ihi _
-              (etaFabArgs T ust tmaj.getAppArgs major caps.etaFields) TVj
+              (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields) TVj
               hcerts hVw hVb hVL hVC hTVjd hfrF
-          obtain rfl : vs' = etaFabArgsV m.cval T
+          obtain rfl : vs' = etaFabArgsVE m.cval env T
               (Level.substFn φ cvT.levelParams ust) ts vm caps.etaFields :=
             DenoteSpine.det hsp' hspF
           refine ⟨_, hdF, Red.rescueEta (hrules ▸ hfrec) hfcj hpres hfT heta
@@ -244,18 +274,13 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
           exact structEtaCertWith_stepR m φ hg hcl ihw ihd ihi hcw hwF hbB hLF hCF
             hws hb hLb hC hwr hbr hLr hCr hdF hvm hWsave hmI hmD
         · -- R14: the 0-field fallthrough
-          have hEmpty : etaFabArgs T ust tmaj.getAppArgs major caps.etaFields
+          have hEmpty : etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields
               = tmaj.getAppArgs := by
-            rw [etaFabArgs, hnF0]
-            simp
-          have hEmptyV : etaFabArgsV m.cval T
-              (Level.substFn φ cvT.levelParams ust) ts vm caps.etaFields
-              = ts := by
-            rw [etaFabArgsV, projSpinesV, hnF0]
+            rw [etaFabArgsE, etaProjs, hnF0]
             simp
           have hdF : denote m.cval env φ d
               (Expr.mkAppN (.const caps.etaCtor ust)
-                (etaFabArgs T ust tmaj.getAppArgs major caps.etaFields))
+                (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields))
               = some (VExpr.mkAppN (m.cval caps.etaCtor
                 (Level.substFn φ cvj.levelParams ust)) ts) := by
             rw [hEmpty]
@@ -268,7 +293,7 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
             rfl
           obtain ⟨vs', rest, hsp', htele⟩ :=
             certs_teleR m φ hg hcl ihd ihi _
-              (etaFabArgs T ust tmaj.getAppArgs major caps.etaFields) TVj
+              (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields) TVj
               hcerts hVw hVb hVL hVC hTVjd (by
                 rw [hEmpty]; exact hfrT)
           rw [hEmpty] at hsp'

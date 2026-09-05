@@ -677,6 +677,8 @@ theorem extendPairFstP (mp : EnvS2PM V μ env)
     denoteP_pairFstA_type (m := mp.base2) (A := pairProjValT2 0) ψ hP
   refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := pairProjValT2 0) hfresh
+    (hntc := fun entry heq => by
+      obtain rfl := ConstantInfo.projInfo.inj heq; rfl)
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
@@ -688,15 +690,18 @@ theorem extendPairFstP (mp : EnvS2PM V μ env)
       (fun ψ => by
         rw [pairProjValT2_erase 0 ψ]; exact pairProjValT_closed 0 ψ),
       (fun hres => absurd hres (by decide)),
-      (fun entry heq _ => by
+      (fun entry heq _ _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact ⟨Or.inl rfl, hP, hM⟩),
       (fun _ entry heq _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rfl),
-      (fun entry heq => by
+      (ConsCrossEnv.ofNtc fun entry heq => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rfl),
+      (fun entry heq htw => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact absurd htw (by decide)),
       (fun _ _ _ _ h => nomatch h)⟩)
     (fun ψ k => AVExpr.liftN_eq_self _
       (VExpr.bvarsBelow.mono (Nat.zero_le k)
@@ -731,6 +736,8 @@ theorem extendPairSndP (mp : EnvS2PM V μ env)
     denoteP_pairSndA_type (m := mp.base2) (A := pairProjValT2 1) ψ hP
   refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := pairProjValT2 1) hfresh
+    (hntc := fun entry heq => by
+      obtain rfl := ConstantInfo.projInfo.inj heq; rfl)
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
@@ -742,15 +749,18 @@ theorem extendPairSndP (mp : EnvS2PM V μ env)
       (fun ψ => by
         rw [pairProjValT2_erase 1 ψ]; exact pairProjValT_closed 1 ψ),
       (fun hres => absurd hres (by decide)),
-      (fun entry heq _ => by
+      (fun entry heq _ _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact ⟨Or.inr rfl, hP, hM⟩),
       (fun _ entry heq _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rfl),
-      (fun entry heq => by
+      (ConsCrossEnv.ofNtc fun entry heq => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rfl),
+      (fun entry heq htw => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact absurd htw (by decide)),
       (fun _ _ _ _ h => nomatch h)⟩)
     (fun ψ k => AVExpr.liftN_eq_self _
       (VExpr.bvarsBelow.mono (Nat.zero_le k)

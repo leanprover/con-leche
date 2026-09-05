@@ -25,12 +25,13 @@ official `src/kernel/inductive/inductive.cpp`; nanoda
   binders ending in a `Sort` — `checkInductiveTypes` (`Add.lean:60-116`,
   nanoda `check_inductive_spec_0th`, `inductive.rs:375`); *index-free* means the
   telescope ends there.
-* the result level is `isNeverZero` (`Add.lean:101`); we **require** it
-  (see `DESIGN.md`, "Direct install of simple structures": the class is
-  narrowed to non-`Prop` structures so that `sigmaSet`'s `Prop`
-  collapse — which breaks `proj_i (mk f⃗) = f_i` for a `Prop` structure
-  with data fields — never arises).  A `Prop` structure simply stays on
-  the modeled path.
+* the result level may be anything (task #175 W4c/O4, the user's
+  ruling that every supported `.proj` is served directly): a provably
+  `Prop` result (`isProp`) selects the squash-regime install — the
+  official kernel's `Prop` escape hatch on the field-universe bound
+  (`Add.lean:225`), projection entries only for the `Prop`-prefix of
+  the fields (a data field of a `Prop` structure is not projectable,
+  `infer_proj`'s restriction), K for the fieldless case.
 * the constructor's type is a `∀`-telescope whose first `numParams`
   binder domains are the type former's, ending in the type former
   applied to **exactly** those parameters at the declaration's own
@@ -47,9 +48,12 @@ official `src/kernel/inductive/inductive.cpp`; nanoda
   major → `motive t`, with the motive dependent
   (`∀ (t : T p⃗), Sort ℓ`, `Add.lean:326`), the minor the constructor's
   field telescope ending in `motive (C p⃗ f⃗)` (`Add.lean:384-388`), and
-  a fresh elimination level parameter in front (`getRecLevelParams`,
-  `Add.lean:416-417`) — the large eliminator every nonzero-sorted
-  structure has (`isLargeEliminator`, `Add.lean:257-259`).
+  either a fresh elimination level parameter in front
+  (`getRecLevelParams`, `Add.lean:416-417`) — the large eliminator
+  (`isLargeEliminator`, `Add.lean:257-259`) — or, for a propositional
+  structure with a non-`Prop` field, the small eliminator (motive into
+  `Prop`, the block's own level parameters).  Both shapes are
+  recognised (`DirectParts.large`).
 * the single rule's right-hand side is
   `λ p⃗ motive minor f⃗, minor f⃗` (`mkRecRules`, `Add.lean:441-447`).
 
@@ -59,22 +63,13 @@ recursor's binder domains against the constructor's need inference and
 `isDefEq`, so they live in the monadic `checkDirectStruct`
 (`Setlec/Kernel/Checker.lean`).
 
-The direct path **does** install real projection *functions* — a
-degenerate recursor per field, stored under `projFnName T i`, the same
-slot family and same consumer as the modeled path's `checkProjFn`, so
-`.proj` nodes annotate through `annotateProjElim` exactly as on a
-modeled structure.  The recursor-elimination *template* fallback
-cannot serve this class at all: its motive is constant in the
-eliminated variable, so a dependent field's projection does not
-typecheck through it (DESIGN.md, "Projections compose with the existing
-table").
-
-The `k` flag is `false` for this class by construction (`isKTarget`
-requires a `Prop` result, `Add.lean:289-296`).  Structure eta and the
-unit-like law are *not* claimed either, for a reason that has nothing
-to do with the projections: both are frame-relative laws that the
-constructed values cannot discharge without a fit-relocation lemma that
-does not exist yet (DESIGN.md, "The two frame-relative capabilities").
+The direct path installs **native tower-backed projection entries**
+(`checkDirectProj`, task #175 wiring): `.proj T i` nodes are typed by
+the entry's stored type and reduced by the structural rule, and the
+model reads them by the uniform tower projection.  The capability
+record (`directCaps`) claims structure eta (the tower's own law),
+unit-likeness for the fieldless case, and K for the fieldless
+propositional case.
 -/
 
 namespace Setlec
@@ -110,12 +105,25 @@ structure DirectParts where
   nF : Nat
   /-- the recursor -/
   cvR : ConstantVal
-  /-- the recursor's fresh elimination level parameter -/
+  /-- the recursor's fresh elimination level parameter (`large` only;
+  `.anonymous` for a small eliminator) -/
   elim : Name
   /-- the structure's result sort -/
   resSort : Level
   /-- the single rule's right-hand side (as exported) -/
   rhs : Expr
+  /-- **large eliminator** (task #175 W4c/O4): the recursor carries a
+  fresh elimination level parameter in front and its motive lands in
+  `Sort elim`; `false` is the small eliminator (`motive : T p⃗ → Prop`,
+  the recursor's level parameters are the block's own) that Lean
+  generates for a propositional structure with a non-`Prop` field. -/
+  large : Bool
+  /-- **propositional result** (task #175 W4c/O4): the result sort is
+  provably `Prop` (`Level.isEquiv resSort .zero`).  Selects the
+  squash-regime install: no field-universe bound (the official
+  kernel's `Prop` escape hatch), entries only for the `Prop`-prefix of
+  the fields, K for the fieldless case. -/
+  isProp : Bool
   deriving Repr
 
 /-- The *shape* facts the model reads off the stored (annotated)
@@ -128,15 +136,18 @@ type former's by `isDefEq` (`Add.lean:220-222`) and build the
 recursor's telescope from `whnf`-peeled domains (`Add.lean:79-95`), so
 a syntactic pin would wrongly reject; `checkDirectStruct` pins them
 definitionally over the opened telescopes instead. -/
-def directShape (T C : Name) (lps : List Name) (elim : Name)
+def directShape (T C : Name) (lps : List Name) (elim : Name) (large : Bool)
     (nP nF : Nat) (tty cty rty : Expr) : Bool :=
   match tty.stripPis nP, cty.stripPis (nP + nF), rty.stripPis (nP + 3) with
-  | some (_, .sort s), some (_, cbody), some (rbs, rbody) =>
-    s.isNonZero && cbody == directFam T lps nP nF &&
+  | some (_, .sort _), some (_, cbody), some (rbs, rbody) =>
+    cbody == directFam T lps nP nF &&
     rbody == Expr.app (.bvar 2) (.bvar 0) &&
     (match rbs[nP]? with
-     | some (_, .forallE _ mmaj (.sort (.param e')) _, _) =>
-       e' == elim && mmaj == directFam T lps nP 0
+     | some (_, .forallE _ mmaj (.sort s') _, _) =>
+       -- the motive's codomain: `Sort elim` for the large eliminator,
+       -- `Prop` for the small one (task #175 W4c/O4)
+       (if large then s' == .param elim else s' == .zero) &&
+         mmaj == directFam T lps nP 0
      | _ => false) &&
     (match rbs[nP + 1]? with
      | some (_, mindom, _) =>
@@ -159,25 +170,43 @@ def directPartsCore? (block : List ConstantInfo) : Option DirectParts :=
     let T := cvT.name
     let C := cvC.name
     let lps := cvT.levelParams
-    match cvR.levelParams with
-    | elim :: relps =>
-      if cvR.name == T.str "rec" && relps == lps && !lps.contains elim &&
-          cvC.levelParams == lps &&
-          reservedBasisNames.contains T == false &&
-          reservedBasisNames.contains C == false &&
-          reservedBasisNames.contains cvR.name == false &&
-          mI == nP + 2 && rP == nP + 2 &&
-          rule.ctor == C && rule.nfields == nF &&
-          directShape T C lps elim nP nF cvT.type cvC.type cvR.type &&
-          (match rule.rhs.stripLams (nP + 2 + nF) with
-           | some (_, rbody) => rbody == directRuleBody nF
-           | none => false) then
-        match cvT.type.stripPis nP with
-        | some (_, .sort s) =>
-          some ⟨cvT, cvC, nP, nF, cvR, elim, s, rule.rhs⟩
-        | _ => none
-      else none
-    | [] => none
+    -- the shape facts common to both eliminator shapes
+    if cvR.name == T.str "rec" && cvC.levelParams == lps &&
+        reservedBasisNames.contains T == false &&
+        reservedBasisNames.contains C == false &&
+        reservedBasisNames.contains cvR.name == false &&
+        mI == nP + 2 && rP == nP + 2 &&
+        rule.ctor == C && rule.nfields == nF &&
+        (match rule.rhs.stripLams (nP + 2 + nF) with
+         | some (_, rbody) => rbody == directRuleBody nF
+         | none => false) then
+      match cvT.type.stripPis nP with
+      | some (_, .sort s) =>
+        let isProp := Level.isEquiv s .zero == some true
+        -- the large eliminator: a fresh elimination level parameter in
+        -- front of the block's own; else the small eliminator at the
+        -- block's own level parameters (task #175 W4c/O4)
+        let large? : Option Name :=
+          match cvR.levelParams with
+          | elim :: relps =>
+            if relps == lps && !lps.contains elim &&
+                directShape T C lps elim true nP nF cvT.type cvC.type
+                  cvR.type then
+              some elim
+            else none
+          | [] => none
+        match large? with
+        | some elim =>
+          some ⟨cvT, cvC, nP, nF, cvR, elim, s, rule.rhs, true, isProp⟩
+        | none =>
+          if cvR.levelParams == lps &&
+              directShape T C lps .anonymous false nP nF cvT.type cvC.type
+                cvR.type then
+            some ⟨cvT, cvC, nP, nF, cvR, .anonymous, s, rule.rhs, false,
+              isProp⟩
+          else none
+      | _ => none
+    else none
   | _ => none
 
 /-- The parameter spine of the generated projection types, spelled at
@@ -257,6 +286,128 @@ def directProjTyP (T : Name) (lps : List Name) (nP nF i : Nat)
   let args := directProjPs nP ++ (List.range i).map (directProjArgP T)
   directProjTyR T lps nP nF i tty (Expr.instPisAtLift args cty)
 
+/-- Every `.proj s j` node of `e` satisfies `P s j` (not through fvar
+type annotations). -/
+def Expr.projNodesOk (P : Name → Nat → Bool) : Expr → Bool
+  | .proj s j e => P s j && projNodesOk P e
+  | .app f a => projNodesOk P f && projNodesOk P a
+  | .lam _ ty b _ => projNodesOk P ty && projNodesOk P b
+  | .forallE _ ty b _ => projNodesOk P ty && projNodesOk P b
+  | .letE _ t v b => projNodesOk P t && projNodesOk P v && projNodesOk P b
+  | _ => true
+
+/-- Does `bvar i` occur loose in `e`?  (Not through fvar type
+annotations — the generated telescopes are fvar-free.) -/
+def Expr.hasLooseBVar : Nat → Expr → Bool
+  | i, .bvar j => i == j
+  | _, .fvar .. => false
+  | _, .sort _ => false
+  | _, .const .. => false
+  | _, .lit _ => false
+  | i, .app f a => hasLooseBVar i f || hasLooseBVar i a
+  | i, .lam _ ty b _ => hasLooseBVar i ty || hasLooseBVar (i + 1) b
+  | i, .forallE _ ty b _ => hasLooseBVar i ty || hasLooseBVar (i + 1) b
+  | i, .letE _ t v b =>
+    hasLooseBVar i t || hasLooseBVar i v || hasLooseBVar (i + 1) b
+  | i, .proj _ _ e => hasLooseBVar i e
+
+/-- **Field `j` is used by a later field** — the official
+`infer_proj`'s `has_loose_bvars(binding_body(r))` at step `j`: the
+field's variable occurs in the constructor telescope's remainder after
+binder `j` (a later field's domain; the result never mentions a
+field). -/
+def directUsedLater (cty : Expr) (nP j : Nat) : Bool :=
+  match cty.stripPis (nP + j + 1) with
+  | some (_, rest) => rest.hasLooseBVar 0
+  | none => false
+
+/-- **The projection guard levels** (task #175 W4c/O4): for field `i`,
+its own sort joined with the sorts of the earlier fields that a later
+field uses — the level a `.proj T i` use on a `Prop`-declared
+structure must instantiate to `Prop` (the official `infer_proj`
+restriction, both of its clauses, as one level).  `sorts` are the
+fields' sorts in order (`checkDirectFieldSorts`). -/
+def directProjGuards (cty : Expr) (nP nF : Nat) (sorts : List Level) :
+    List Level :=
+  (List.range nF).map fun i =>
+    (List.range i).foldl
+      (fun acc j =>
+        if directUsedLater cty nP j then .max acc (sorts.getD j .zero)
+        else acc)
+      (sorts.getD i .zero)
+
+/-- **The guard's zeroing instantiation** (task #175 W4c P3 module 7,
+"σ"): at a `Prop`-declared structure, the instantiation of the block's
+level parameters that zeroes exactly the parameters the slot's guard
+level forces to zero (`Level.zeronessOf`, exact — `Verify.PropWhen`);
+the identity elsewhere.  A tower entry of a propositional structure is
+usable only where its guard is `Prop` (the official `infer_proj`
+restriction, checked at every use), and there these parameters *are*
+zero — so its stored type is annotated and inferred at this
+instantiation, where the earlier projections it mentions pass their
+own guards.  A `.never` guard (a field of a `Type`-sorted domain) has
+no such instantiation; its slot is admitted only if it mentions no
+guarded earlier projection (`directSlotAdmitAt`). -/
+def directGuardSigma (resSort : Level) (lps : List Name) (guard : Level) :
+    List Level :=
+  if Level.isEquiv resSort .zero == some true then
+    match guard.zeronessOf with
+    | .ifAllZero ps => lps.map fun p => if ps.contains p then .zero else .param p
+    | .never => lps.map .param
+  else lps.map .param
+
+/-- **Slot admission** (task #175 W4c P3 module 7): at a
+`Prop`-declared structure, every earlier field a later field uses has
+a guard that is `Prop` at the slot's zeroing instantiation — exactly
+the checks the entry install's inference of the generated type runs
+at the earlier projections' nodes.  (Vacuous at a non-`Prop`
+structure: the tower infer branch's guard check fires only at
+`Prop`-declared ones.) -/
+def directSlotAdmitAt (resSort : Level) (lps : List Name) (cty : Expr) (nP : Nat)
+    (guards : List Level) (i : Nat) : Bool :=
+  !(Level.isEquiv resSort .zero == some true) ||
+  (List.range i).all fun j =>
+    !directUsedLater cty nP j ||
+    (Level.isEquiv
+      (Level.subst lps (directGuardSigma resSort lps (guards.getD i .zero))
+        (guards.getD j .zero)) .zero == some true)
+
+/-- Admission, cumulatively: the slot and every earlier one — so the
+admitted slots are a prefix of the field list (an unadmitted slot's
+data field poisons every later slot that could mention it, and the
+earlier projections a stored entry's type mentions are all real
+entries). -/
+def directSlotAdmit (resSort : Level) (lps : List Name) (cty : Expr) (nP : Nat)
+    (guards : List Level) (i : Nat) : Bool :=
+  (List.range (i + 1)).all (directSlotAdmitAt resSort lps cty nP guards)
+
+/-- **The inert entry** at an unadmitted slot (task #175 W4c P3 module
+7): a non-native, non-tower table entry holding the slot (the
+agreement floor's skeleton is the block's raw data), typing no node
+(the tower infer branch keys on `native`), firing no reduction
+(`fireOk` keys on `tower`), of type `Sort 1`.  A `.proj` use of the
+field falls through to the dispatch's decline; officially such a use
+is invalid at every level instantiation (a used-later field of a
+propositional structure whose sort is never `Prop`). -/
+def directInertEntry (T : Name) (i : Nat) (lps : List Name) (nP : Nat) (C : Name)
+    (nF : Nat) (guard resSort : Level) : ProjEntry :=
+  ⟨T, i, lps, nP, C, nF, .sort (.succ .zero), guard, resSort, false, false, false⟩
+
+/-- **The entry decisions of a recognised block**, one per field: the
+generated projection type exists (on the block's raw types — the
+agreement floor's currency, input data alone).  Every field of every
+recognised block gets an entry (task #175 W4c P3 module 7); the
+official `infer_proj` restriction at a `Prop`-declared structure is
+the entry's *guard level* (`directProjGuards`), checked at every
+use.  The entry's constant is a table entry no term names
+(`ConstantInfo.isTowerEntry`), so an entry whose type is uninhabited
+at some level instantiation (a field depending on a data field of a
+propositional structure) is no burden on the model. -/
+def directProjSlots (p : DirectParts) : List Bool :=
+  (List.range p.nF).map fun i =>
+    (directProjTyP p.cvT.name p.cvT.levelParams p.nP p.nF i p.cvT.type
+      p.cvC.type).isSome
+
 /-- **Non-recursive**: every binder domain of the constructor already
 resolves in the *pre-block* environment.  This subsumes the reference
 positivity check (`checkPositivity`/`hasIndOcc`, lean4lean
@@ -269,88 +420,20 @@ def directNonRec (env : Env) (p : DirectParts) : Bool :=
   | some (cbs, _) => cbs.all fun b => b.2.1.constsResolve env
   | none => false
 
-/-- **No usable artifact**: none of the block's `_model` companions is
-stored.  See DESIGN.md, "Direct install of simple structures": the
-direct path is the *artifact-free* route, and it defers to the modeled
-path whenever the preprocessor's model is available, so that streams
-carrying artifacts keep every capability (notably structure eta, whose
-environment invariant is spelled in `_model` names) and every verdict
-they have today. -/
-def directNoModel (env : Env) (p : DirectParts) : Bool :=
-  (env.find? (p.cvT.name.str "_model")).isNone &&
-  (env.find? (p.cvC.name.str "_model")).isNone &&
-  (env.find? (p.cvR.name.str "_model")).isNone &&
-  (List.range p.nF).all fun j =>
-    (env.find? (projModelName p.cvT.name j)).isNone
-
-/-- **The direct-install master switch** (task #119).
-
-`false` routes *every* inductive block through the ordinary modeled
-install path (`checkIndDecl`), exactly as if recognition had failed.
-This is a plain **fall-through**, not a new decline: the direct path is
-an alternative route for artifact-free blocks (this module's header),
-so switching it off costs nothing but the route — a block that carries
-no `_model` companions then declines for the modeled path's own reason,
-with the modeled path's own message, and no error or decline message is
-invented for the switch itself.
-
-The switch exists because a verification lane denotes a stored
-inductive through its checked `_model` artifacts, of which a directly
-installed structure has none; the TTVerify bridge's theorems are stated
-for the switched-off configuration (`CertifiedConfigTT`), and the
-set-lane relation family of task #148 will be too.  At the time of the flip nothing
-about the direct path was deleted; **its set-theoretic model went with
-`Setlec/Model/*` at task #148 T7**, so the recognition layer and the
-install (`Setlec/Kernel/Checker.lean`) are now unmodeled code behind a
-`false` switch, pending their own deletion.
-
-**Ships `false` since task #148 T0b (2026-08-27), by user ruling that
-direct-install structures are optional/removable.**  Both verified
-lanes then reason about the shipped configuration — no gap left for a
-bridge to state — and the direct path becomes unreachable at runtime,
-pending its deletion (task #148 T7).
-
-The price, re-measured at the flip and unchanged from the 2026-08-26
-measurement, is five expectations, all of them losses:
-`tests/e2e/direct_struct_raw.ndjson` (both its `raw` and its `pre`
-line) goes `0 → 2`, since with no `_model` companion in the stream the
-modeled path has nothing to check against, and the arena
-duplicate-declaration fixtures `bad/tutorial/13{3,4,7}` go `1 → 2`,
-giving up the reference-correct *reject* for a decline.  Preprocessed
-production streams always carry `_model` artifacts, so `directNoModel`
-is false on them and the route was already dead there: init-prelude is
-byte-identical across the flip in all three modes.
-
-To exercise the direct path while it still exists, flip this constant
-to `true` and restore the five expectations (they are recorded, with
-their pre-flip values, in the two expectation files' headers).
-
-**Deliberately not mode-indexed.**  `--tt-model` needs it `false`
-(`CertifiedConfigTT`) and `--set-model` needs it `false` from T0b on,
-so the only mode that could still carry the route is `--no-model` —
-the unverified lane, where the route buys nothing but a second install
-implementation to keep alive.  Threading `CheckMode` into
-`directParts?`/`directPartsF?` (and hence into the three knots and
-every bridge that mentions them) to preserve it there would be
-strictly more machinery than the constant it replaces, so the switch
-stays a plain compile-time constant and all three modes read the same
-value.
-
-Read by `directParts?` (and its indexed twin `directPartsF?`), so the
-pure knot, the shared knot and the cert-skipping knot are switched
-together and their bridges are unaffected. -/
-def directStructsEnabled : Bool := false
-
-/-- Recognise a direct simple-structure block against an environment
-(`directPartsCore?`, non-recursiveness, and artifact absence), subject
-to the master switch `directStructsEnabled`. -/
+/-- Recognise a direct simple-structure block against an environment:
+`directPartsCore?` and non-recursiveness.  **Priority gate** (task
+#175 W4c, the user's ruling that every supported `.proj` is served by
+a direct-installed model): every recognised block installs directly,
+whether or not the stream carries `_model` artifacts for it — those
+artifacts are then ordinary, unconsumed declarations.  The modeled
+path keeps the blocks recognition rejects (recursive, indexed,
+mutual, multi-constructor) and carries no projection machinery for
+them.  (The former master switch `directStructsEnabled` and the
+artifact-absence conjunct `directNoModel` are gone with the flip.) -/
 def directParts? (env : Env) (block : List ConstantInfo) :
     Option DirectParts :=
   match directPartsCore? block with
-  | some p =>
-    if directStructsEnabled && directNonRec env p && directNoModel env p then
-      some p
-    else none
+  | some p => if directNonRec env p then some p else none
   | none => none
 
 end Setlec

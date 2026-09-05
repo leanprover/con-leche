@@ -78,7 +78,7 @@ theorem structEtaCertWith_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     DefEq mode env m.cval φ Δ va vb := by
   obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps, hfna, hfc, hlena, hfnb,
     hfT, heta, hectr, hepar, hefld, hresT, hresc, hlenb, hlenus, hlpc,
-    hstrip, hlev, hcertT, hprojs, hdefL1, -, hdefL2⟩ :=
+    hstrip, hslots, hlev, hcertT, hprojs, hdefL1, -, hdefL2⟩ :=
     structEtaCertWith_inv hcw
   -- the constructor spine, denoted
   rw [show a = Expr.mkAppN a.getAppFn a.getAppArgs from (Expr.mkAppN_getApp a).symm,
@@ -123,83 +123,185 @@ theorem structEtaCertWith_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
           exact ⟨hwb, hbb, hLb, hCb⟩
       have hspTb : DenoteSpine m.cval env φ d (wtb.getAppArgs ++ [b]) (ts ++ [vb]) :=
         hspt.append (DenoteSpine.cons hvb DenoteSpine.nil)
-      have hpf : ∀ j, ∃ z : ConstantVal × Nat × Nat × List RecRule × VExpr × VExpr,
-          j < cnF →
-            env.find? (projFnName T j)
-              = some (.recInfo z.1 z.2.1 z.2.2.1 z.2.2.2.1) ∧
-            z.1.levelParams = cvT.levelParams ∧
-            (z.1.type.stripPis (cnP + 1)).isSome = true ∧
-            denoteClosed m.cval env φ
-              (z.1.type.instantiateLevelParams z.1.levelParams us')
-              = some z.2.2.2.2.1 ∧
-            VExpr.Closed z.2.2.2.2.1 ∧
-            Tele mode env m.cval φ Δ z.2.2.2.2.1 (ts ++ [vb]) z.2.2.2.2.2 := by
-        intro j
-        by_cases hj : j < cnF
-        · obtain ⟨cvpj, mIpj, rPpj, rulespj, hfp, hlpj, hstrpj, hic⟩ :=
-            structEtaProjCerts_inv _ hprojs j (by simpa using hj)
-          obtain ⟨TPj, hTP0, hTPc, hTPd⟩ := denote_declTypeR m φ hcl hfp us' d
-          obtain ⟨hPw, hPb, hPL, hPC⟩ :=
-            frame_declTypeR (cval := m.cval) (φ := φ) (mode := mode) m.wf hfp us' d
-              hCa.1
-          obtain ⟨vsj, restj, hspj, htelej⟩ :=
-            certs_teleR m φ hg hcl ihd ihi _ (wtb.getAppArgs ++ [b]) TPj hic hPw hPb
-              hPL hPC hTPd hframeTb
-          obtain rfl : vsj = ts ++ [vb] := DenoteSpine.det hspj hspTb
-          exact ⟨⟨cvpj, mIpj, rPpj, rulespj, TPj, restj⟩, fun _ =>
-            ⟨hfp, hlpj, by rw [← hlenb]; exact hstrpj, hTP0, hTPc, htelej⟩⟩
-        · exact ⟨⟨default, 0, 0, [], default, default⟩, fun hj' => absurd hj' hj⟩
-      obtain ⟨F, hF⟩ := choose_fun hpf
-      -- the projection spine's denotation
-      have hprojden : ∀ j, j < cnF →
-          denote m.cval env φ d
-              (Expr.mkAppN (.const (projFnName T j) us') (wtb.getAppArgs ++ [b]))
-            = some (VExpr.mkAppN
-                (m.cval (projFnName T j) (Level.substFn φ cvT.levelParams us'))
-                (ts ++ [vb])) := by
-        intro j hj
-        obtain ⟨hfp, hlpj, -, -, -, -⟩ := hF j hj
-        refine denote_mkAppN hspTb ?_
-        rw [denote_const, hfp]
-        dsimp only
-        rw [if_pos (show us'.length = (ConstantInfo.recInfo (F j).1 (F j).2.1
-            (F j).2.2.1 (F j).2.2.2.1).toConstantVal.levelParams.length by
-          show us'.length = (F j).1.levelParams.length
-          rw [hlpj]; exact hlenus)]
-        show some (m.cval (projFnName T j)
-          (Level.substFn φ (F j).1.levelParams us')) = _
-        rw [hlpj]
-      have hprojframe : ∀ x ∈ (List.range cnF).map (fun i =>
-            Expr.mkAppN (.const (projFnName T i) us') (wtb.getAppArgs ++ [b])),
-          Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
-            Expr.LeavesBounded x ∧ CtxOkR mode m.cval env φ d Δ x := by
-        intro x hx
-        obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
-        refine ⟨Expr.WScoped.mkAppN (Expr.WScoped.of_not_hasFvar rfl)
-            (fun y hy => (hframeTb y hy).1),
-          looseBVarsBounded_mkAppN rfl (fun y hy => (hframeTb y hy).2.1),
-          fun l hl => ?_, ⟨hCa.1, fun l hl => ?_⟩⟩ <;>
-        · rcases fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
-          · exact absurd hl' (by simp [Expr.fvarLeaves])
-          · first
-            | exact (hframeTb y hy).2.2.1 l hly
-            | exact (hframeTb y hy).2.2.2.2 l hly
-      exact DefEq.structEta (cvp := fun j => (F j).1)
-        (mIp := fun j => (F j).2.1) (rPp := fun j => (F j).2.2.1)
-        (rulesP := fun j => (F j).2.2.2.1) (TPv := fun j => (F j).2.2.2.2.1)
-        (restP := fun j => (F j).2.2.2.2.2)
-        hfc (by rw [hspa.length, hlena]) hfT heta hectr
-        hepar hefld hresT hresc hlenTs hlenus hlpc hstrip hlev hTF0 hTFc
-        (fun j hj => (hF j hj).1) (fun j hj => (hF j hj).2.1)
-        (fun j hj => (hF j hj).2.2.1)
-        (fun j hj => (hF j hj).2.2.2.1)
-        (fun j hj => (hF j hj).2.2.2.2.1)
-        hbI hbD hteleT (fun j hj => (hF j hj).2.2.2.2.2)
-        (defEqL_of_defEqListR m φ ihd hdefL1
-          (fun x hx => hfrA x (List.mem_of_mem_take hx)) hfrT (hspa.take cnP) hspt)
-        (defEqL_of_defEqListR m φ ihd hdefL2
-          (fun x hx => hfrA x (List.mem_of_mem_drop hx)) hprojframe
-          (hspa.drop cnP) (DenoteSpine.map_list _ (fun j hj => hprojden j (by simpa using hj))))
+      -- the slot discipline (task #175 W4c): every slot is a tower entry
+      -- or every slot is a projection function
+      by_cases htow : towerSlotsAll env T cnF = true
+      · -- TOWER-BACKED SLOTS: the fabricated projections are `.proj T j b`
+        -- nodes reading to `projNV j`, the certificates are the entries'
+        -- stored types
+        have hprojsT : ∀ j, j < cnF → ∃ entry : ProjEntry,
+            env.find? (projFnName T j) = some (.projInfo entry) ∧
+            entry.tower = true ∧ entry.levelParams = cvT.levelParams ∧
+            (entry.ty.stripPis (wtb.getAppArgs.length + 1)).isSome = true ∧
+            iotaCertsP mode env fuel d
+              (entry.ty.instantiateLevelParams entry.levelParams us')
+              (wtb.getAppArgs ++ [b]) = .ok true := by
+          intro j hj
+          rcases structEtaProjCerts_inv _ hprojs j (by simpa using hj) with
+            ⟨cvp, mIp, rPp, rulesp, hfp, -, -, -⟩ | h
+          · exfalso
+            obtain ⟨e, hfe, -⟩ := towerSlotsAll_slot htow j hj
+            have := Env.findProj?_some hfe
+            rw [hfp] at this
+            exact nomatch this
+          · exact h
+        have hpf : ∀ j, ∃ z : ProjEntry × VExpr × VExpr,
+            j < cnF →
+              env.find? (projFnName T j) = some (.projInfo z.1) ∧
+              z.1.tower = true ∧
+              z.1.levelParams = cvT.levelParams ∧
+              (z.1.ty.stripPis (cnP + 1)).isSome = true ∧
+              denoteClosed m.cval env φ
+                (z.1.ty.instantiateLevelParams z.1.levelParams us')
+                = some z.2.1 ∧
+              VExpr.Closed z.2.1 ∧
+              Tele mode env m.cval φ Δ z.2.1 (ts ++ [vb]) z.2.2 := by
+          intro j
+          by_cases hj : j < cnF
+          · obtain ⟨entry, hfp, htw, hlpj, hstrpj, hic⟩ := hprojsT j hj
+            obtain ⟨TPj, hTP0, hTPc, hTPd⟩ := denote_declTypeR m φ hcl hfp us' d
+            obtain ⟨hPw, hPb, hPL, hPC⟩ :=
+              frame_declTypeR (cval := m.cval) (φ := φ) (mode := mode) m.wf hfp
+                us' d hCa.1
+            obtain ⟨vsj, restj, hspj, htelej⟩ :=
+              certs_teleR m φ hg hcl ihd ihi _ (wtb.getAppArgs ++ [b]) TPj hic hPw
+                hPb hPL hPC hTPd hframeTb
+            obtain rfl : vsj = ts ++ [vb] := DenoteSpine.det hspj hspTb
+            exact ⟨⟨entry, TPj, restj⟩, fun _ =>
+              ⟨hfp, htw, hlpj, by rw [← hlenb]; exact hstrpj, hTP0, hTPc, htelej⟩⟩
+          · exact ⟨⟨default, default, default⟩, fun hj' => absurd hj' hj⟩
+        obtain ⟨F, hF⟩ := choose_fun hpf
+        have hprojden : ∀ j, j < cnF →
+            denote m.cval env φ d (.proj T j b) = some (projNV j vb) := by
+          intro j hj
+          obtain ⟨hfp, htw, -, -, -, -, -⟩ := hF j hj
+          have hfe : env.findProj? T j = some (F j).1 := by
+            unfold Env.findProj?
+            rw [hfp]
+          rw [denote_proj, hvb, hfe]
+          dsimp only
+          rw [if_pos htw]
+        have hprojframe : ∀ x ∈ (List.range cnF).map (fun j => Expr.proj T j b),
+            Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+              Expr.LeavesBounded x ∧ CtxOkR mode m.cval env φ d Δ x := by
+          intro x hx
+          obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
+          exact ⟨by simpa [Expr.WScoped] using hwb,
+            by simpa [Expr.looseBVarsBounded] using hbb,
+            fun l hl => hLb l (by simpa [Expr.fvarLeaves] using hl),
+            ⟨hCb.1, fun l hl => hCb.2 l (by simpa [Expr.fvarLeaves] using hl)⟩⟩
+        rw [etaProjs, if_pos htow] at hdefL2
+        exact DefEq.structEtaTower (ent := fun j => (F j).1)
+          (TPv := fun j => (F j).2.1) (restP := fun j => (F j).2.2)
+          hfc (by rw [hspa.length, hlena]) hfT heta hectr
+          hepar hefld hresT hresc hlenTs hlenus hlpc hstrip hlev hTF0 hTFc
+          (fun j hj => (hF j hj).1) (fun j hj => (hF j hj).2.1)
+          (fun j hj => (hF j hj).2.2.1) (fun j hj => (hF j hj).2.2.2.1)
+          (fun j hj => (hF j hj).2.2.2.2.1)
+          (fun j hj => (hF j hj).2.2.2.2.2.1)
+          hbI hbD hteleT (fun j hj => (hF j hj).2.2.2.2.2.2)
+          (defEqL_of_defEqListR m φ ihd hdefL1
+            (fun x hx => hfrA x (List.mem_of_mem_take hx)) hfrT (hspa.take cnP)
+            hspt)
+          (defEqL_of_defEqListR m φ ihd hdefL2
+            (fun x hx => hfrA x (List.mem_of_mem_drop hx)) hprojframe
+            (hspa.drop cnP)
+            (DenoteSpine.map_list _ (fun j hj => hprojden j (by simpa using hj))))
+      · -- PROJECTION-FUNCTION SLOTS: the modeled path's, as before
+        have hrec : recSlotsAll env T cnF = true := by
+          simpa [htow] using hslots
+        rw [etaProjs, if_neg htow] at hdefL2
+        have hpf : ∀ j, ∃ z : ConstantVal × Nat × Nat × List RecRule × VExpr × VExpr,
+            j < cnF →
+              env.find? (projFnName T j)
+                = some (.recInfo z.1 z.2.1 z.2.2.1 z.2.2.2.1) ∧
+              z.1.levelParams = cvT.levelParams ∧
+              (z.1.type.stripPis (cnP + 1)).isSome = true ∧
+              denoteClosed m.cval env φ
+                (z.1.type.instantiateLevelParams z.1.levelParams us')
+                = some z.2.2.2.2.1 ∧
+              VExpr.Closed z.2.2.2.2.1 ∧
+              Tele mode env m.cval φ Δ z.2.2.2.2.1 (ts ++ [vb]) z.2.2.2.2.2 := by
+          intro j
+          by_cases hj : j < cnF
+          · obtain ⟨cvpj, mIpj, rPpj, rulespj, hfp, hlpj, hstrpj, hic⟩ :
+                ∃ cvpj mIpj rPpj rulespj,
+                  env.find? (projFnName T j)
+                    = some (.recInfo cvpj mIpj rPpj rulespj) ∧
+                  cvpj.levelParams = cvT.levelParams ∧
+                  (cvpj.type.stripPis (wtb.getAppArgs.length + 1)).isSome = true ∧
+                  iotaCertsP mode env fuel d
+                    (cvpj.type.instantiateLevelParams cvpj.levelParams us')
+                    (wtb.getAppArgs ++ [b]) = .ok true := by
+              rcases structEtaProjCerts_inv _ hprojs j (by simpa using hj) with
+                h | ⟨entry, hfp, -, -, -, -⟩
+              · exact h
+              · exfalso
+                obtain ⟨cv, mI, rP, rules, hfr⟩ := recSlotsAll_slot hrec j hj
+                rw [hfr] at hfp
+                exact nomatch hfp
+            obtain ⟨TPj, hTP0, hTPc, hTPd⟩ := denote_declTypeR m φ hcl hfp us' d
+            obtain ⟨hPw, hPb, hPL, hPC⟩ :=
+              frame_declTypeR (cval := m.cval) (φ := φ) (mode := mode) m.wf hfp us' d
+                hCa.1
+            obtain ⟨vsj, restj, hspj, htelej⟩ :=
+              certs_teleR m φ hg hcl ihd ihi _ (wtb.getAppArgs ++ [b]) TPj hic hPw hPb
+                hPL hPC hTPd hframeTb
+            obtain rfl : vsj = ts ++ [vb] := DenoteSpine.det hspj hspTb
+            exact ⟨⟨cvpj, mIpj, rPpj, rulespj, TPj, restj⟩, fun _ =>
+              ⟨hfp, hlpj, by rw [← hlenb]; exact hstrpj, hTP0, hTPc, htelej⟩⟩
+          · exact ⟨⟨default, 0, 0, [], default, default⟩, fun hj' => absurd hj' hj⟩
+        obtain ⟨F, hF⟩ := choose_fun hpf
+        -- the projection spine's denotation
+        have hprojden : ∀ j, j < cnF →
+            denote m.cval env φ d
+                (Expr.mkAppN (.const (projFnName T j) us') (wtb.getAppArgs ++ [b]))
+              = some (VExpr.mkAppN
+                  (m.cval (projFnName T j) (Level.substFn φ cvT.levelParams us'))
+                  (ts ++ [vb])) := by
+          intro j hj
+          obtain ⟨hfp, hlpj, -, -, -, -⟩ := hF j hj
+          refine denote_mkAppN hspTb ?_
+          rw [denote_const, hfp]
+          dsimp only
+          rw [if_pos (show us'.length = (ConstantInfo.recInfo (F j).1 (F j).2.1
+              (F j).2.2.1 (F j).2.2.2.1).toConstantVal.levelParams.length by
+            show us'.length = (F j).1.levelParams.length
+            rw [hlpj]; exact hlenus)]
+          show some (m.cval (projFnName T j)
+            (Level.substFn φ (F j).1.levelParams us')) = _
+          rw [hlpj]
+        have hprojframe : ∀ x ∈ (List.range cnF).map (fun i =>
+              Expr.mkAppN (.const (projFnName T i) us') (wtb.getAppArgs ++ [b])),
+            Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+              Expr.LeavesBounded x ∧ CtxOkR mode m.cval env φ d Δ x := by
+          intro x hx
+          obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
+          refine ⟨Expr.WScoped.mkAppN (Expr.WScoped.of_not_hasFvar rfl)
+              (fun y hy => (hframeTb y hy).1),
+            looseBVarsBounded_mkAppN rfl (fun y hy => (hframeTb y hy).2.1),
+            fun l hl => ?_, ⟨hCa.1, fun l hl => ?_⟩⟩ <;>
+          · rcases fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+            · exact absurd hl' (by simp [Expr.fvarLeaves])
+            · first
+              | exact (hframeTb y hy).2.2.1 l hly
+              | exact (hframeTb y hy).2.2.2.2 l hly
+        exact DefEq.structEta (cvp := fun j => (F j).1)
+          (mIp := fun j => (F j).2.1) (rPp := fun j => (F j).2.2.1)
+          (rulesP := fun j => (F j).2.2.2.1) (TPv := fun j => (F j).2.2.2.2.1)
+          (restP := fun j => (F j).2.2.2.2.2)
+          hfc (by rw [hspa.length, hlena]) hfT heta hectr
+          hepar hefld hresT hresc hlenTs hlenus hlpc hstrip hlev hTF0 hTFc
+          (fun j hj => (hF j hj).1) (fun j hj => (hF j hj).2.1)
+          (fun j hj => (hF j hj).2.2.1)
+          (fun j hj => (hF j hj).2.2.2.1)
+          (fun j hj => (hF j hj).2.2.2.2.1)
+          hbI hbD hteleT (fun j hj => (hF j hj).2.2.2.2.2)
+          (defEqL_of_defEqListR m φ ihd hdefL1
+            (fun x hx => hfrA x (List.mem_of_mem_take hx)) hfrT (hspa.take cnP) hspt)
+          (defEqL_of_defEqListR m φ ihd hdefL2
+            (fun x hx => hfrA x (List.mem_of_mem_drop hx)) hprojframe
+            (hspa.drop cnP) (DenoteSpine.map_list _ (fun j hj => hprojden j (by simpa using hj))))
     · exact nomatch hvT
   · exact nomatch hvf
 

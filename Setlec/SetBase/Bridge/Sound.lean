@@ -29,17 +29,6 @@ namespace Setlec.SetR
 open Setlec.TT Setlec.TTVerify SetTheory
 universe w
 
-/-- **The direct-structure path is compile-time disabled**
-(`directStructsEnabled = false`), so `checkDecl`'s `indDecl` clause
-*is* `checkIndDecl`.  `DeclR` records the modeled path only, and this
-is the single place that dependence is discharged — worth its own
-name so the audit can find it. -/
-theorem directParts?_none (env : Env) (block : List ConstantInfo) :
-    directParts? env block = none := by
-  unfold directParts?
-  cases directPartsCore? block with
-  | none => rfl
-  | some p => simp [directStructsEnabled]
 
 /-- **The bridge's `m`-dropped skeleton — D6's S5 item.**
 

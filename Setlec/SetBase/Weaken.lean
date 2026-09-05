@@ -164,6 +164,17 @@ theorem etaFabArgsV_liftN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
           nF := by
   simp only [etaFabArgsV, List.map_append, projSpinesV_liftN hcl]
 
+theorem etaFabArgsVE_liftN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    (env : Env) (T : Name) (ψt : Name → Nat) (ts : List VExpr)
+    (major : VExpr) (nF : Nat) (n k : Nat) :
+    (etaFabArgsVE cval env T ψt ts major nF).map (·.liftN n k)
+      = etaFabArgsVE cval env T ψt (ts.map (·.liftN n k)) (major.liftN n k)
+          nF := by
+  unfold etaFabArgsVE
+  split
+  · simp only [List.map_append, List.map_map, Function.comp_def, liftN_projNV]
+  · simp only [List.map_append, projSpinesV_liftN hcl]
+
 end Closed
 
 /-! ## The weakened forms (the five motives) -/
@@ -297,6 +308,7 @@ private theorem wkRedProjRedTower (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h3 : i < entry.numFields)
     (h4 : vs.length = entry.numParams + entry.numFields)
     (h5 : us.length = entry.levelParams.length)
+    (h5f : entry.fireOk us = true)
     (h6 : env.find? entry.ctor = some ci)
     (h7 : us.length = ci.toConstantVal.levelParams.length)
     (h8 : P = VExpr.mkAppN
@@ -324,7 +336,7 @@ private theorem wkRedProjRedTower (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
   rw [liftN_projNV]
   refine Red.projRedTower (vs := vs.map (·.liftN n k))
     (restC := restC.liftN n k) h1 h2 h2t h3
-    (by simpa using h4) h5 h6 h7 ?_ ?_ hTC hTCc (ihp H) ?_ (ihfv H)
+    (by simpa using h4) h5 h5f h6 h7 ?_ ?_ hTC hTCc (ihp H) ?_ (ihfv H)
     (ihlta H) (ihP H) (ihlte H)
   · rw [h8, liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _)]
   · rw [List.getElem?_map, h9]
@@ -582,45 +594,45 @@ private theorem wkRedRescueEta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h14c : TVj.Closed)
     (_ : Infer μ env cval φ Δ m₀ tm) (_ : DefEq μ env cval φ Δ tm TM)
     (_ : Tele μ env cval φ Δ TVj
-      (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+      (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
         caps.etaFields) rest)
     (_ : DefEq μ env cval φ Δ
       (VExpr.mkAppN
         (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-        (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+        (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
           caps.etaFields)) m₀)
     (ih15 : InfW μ env cval φ Δ m₀ tm) (ih16 : DeqW μ env cval φ Δ tm TM)
     (ih17 : TeleW μ env cval φ Δ TVj
-      (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+      (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
         caps.etaFields) rest)
     (ih18 : DeqW μ env cval φ Δ
       (VExpr.mkAppN
         (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-        (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+        (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
           caps.etaFields)) m₀) :
     RedW μ env cval φ Δ m₀
       (VExpr.mkAppN
         (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-        (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+        (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
           caps.etaFields)) := by
   intro nn kk Δ' HH
   have hfab : (VExpr.mkAppN
       (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-      (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+      (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
         caps.etaFields)).liftN nn kk
     = VExpr.mkAppN
         (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-        (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust)
+        (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust)
           (ts.map (·.liftN nn kk)) (m₀.liftN nn kk) caps.etaFields) := by
     rw [liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _),
-      etaFabArgsV_liftN hcl]
+      etaFabArgsVE_liftN hcl]
   rw [hfab]
   refine Red.rescueEta (ts := ts.map (·.liftN nn kk))
     (rest := rest.liftN nn kk) h1 h2 h3 h4 h5 h6
     h7 (by simpa using h8) h9 h10 h11 h12 ?_ h14 h14c (ih15 HH)
     (ih16 HH) ?_ ?_
   · rw [h13, liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _)]
-  · simpa [liftN_eq_self_of_closed h14c, etaFabArgsV_liftN hcl]
+  · simpa [liftN_eq_self_of_closed h14c, etaFabArgsVE_liftN hcl]
       using ih17 HH
   · simpa [← hfab] using ih18 HH
 
@@ -1058,6 +1070,76 @@ private theorem wkDeqStructEta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     rw [projSpinesV_liftN hcl] at this
     simpa [← List.map_drop] using this
 
+private theorem wkDeqStructEtaTower (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    {Δ : List VExpr} {b tb TFv restT : VExpr} {c T : Name}
+    {cvc cvT : ConstantVal} {caps : IndCaps} {cnP cnF : Nat}
+    {us us' : List Level} {as ts : List VExpr}
+    {ent : Nat → ProjEntry} {TPv restP : Nat → VExpr}
+    (h1 : env.find? c = some (.ctorInfo cvc cnP cnF))
+    (h2 : as.length = cnP + cnF)
+    (h3 : env.find? T = some (.indInfo cvT caps))
+    (h4 : caps.eta = true) (h5 : caps.etaCtor = c)
+    (h6 : caps.etaParams = cnP) (h7 : caps.etaFields = cnF)
+    (h8 : reservedBasisNames.contains T = false)
+    (h9 : reservedBasisNames.contains c = false)
+    (h10 : ts.length = cnP)
+    (h11 : us'.length = cvT.levelParams.length)
+    (h12 : cvc.levelParams = cvT.levelParams)
+    (h13 : (cvT.type.stripPis cnP).isSome = true)
+    (h14 : Level.isEquivList us us' = some true)
+    (h15 : denoteClosed cval env φ
+      (cvT.type.instantiateLevelParams cvT.levelParams us') = some TFv)
+    (h15c : TFv.Closed)
+    (h16 : ∀ j, j < cnF →
+      env.find? (projFnName T j) = some (.projInfo (ent j)))
+    (h16t : ∀ j, j < cnF → (ent j).tower = true)
+    (h17 : ∀ j, j < cnF → (ent j).levelParams = cvT.levelParams)
+    (h18 : ∀ j, j < cnF → ((ent j).ty.stripPis (cnP + 1)).isSome = true)
+    (h19 : ∀ j, j < cnF →
+      denoteClosed cval env φ
+        ((ent j).ty.instantiateLevelParams (ent j).levelParams us')
+        = some (TPv j))
+    (h19c : ∀ j, j < cnF → (TPv j).Closed)
+    (_ : Infer μ env cval φ Δ b tb)
+    (_ : DefEq μ env cval φ Δ tb
+      (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us')) ts))
+    (_ : Tele μ env cval φ Δ TFv ts restT)
+    (_ : ∀ j, j < cnF →
+      Tele μ env cval φ Δ (TPv j) (ts ++ [b]) (restP j))
+    (_ : DefEqL μ env cval φ Δ (as.take cnP) ts)
+    (_ : DefEqL μ env cval φ Δ (as.drop cnP)
+      ((List.range cnF).map fun j => projNV j b))
+    (ih20 : InfW μ env cval φ Δ b tb)
+    (ih21 : DeqW μ env cval φ Δ tb
+      (VExpr.mkAppN (cval T (Level.substFn φ cvT.levelParams us')) ts))
+    (ih22 : TeleW μ env cval φ Δ TFv ts restT)
+    (ih23 : ∀ j (_ : j < cnF),
+      TeleW μ env cval φ Δ (TPv j) (ts ++ [b]) (restP j))
+    (ih24 : DeqLW μ env cval φ Δ (as.take cnP) ts)
+    (ih25 : DeqLW μ env cval φ Δ (as.drop cnP)
+      ((List.range cnF).map fun j => projNV j b)) :
+    DeqW μ env cval φ Δ
+      (VExpr.mkAppN (cval c (Level.substFn φ cvc.levelParams us)) as)
+      b := by
+  intro nn kk Δ' HH
+  rw [liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _)]
+  refine DefEq.structEtaTower (ts := ts.map (·.liftN nn kk)) (ent := ent)
+    (TPv := TPv)
+    (restP := fun j => (restP j).liftN nn kk)
+    (restT := restT.liftN nn kk)
+    h1 (by simpa using h2) h3 h4 h5 h6 h7 h8 h9 (by simpa using h10)
+    h11 h12 h13 h14 h15 h15c h16 h16t h17 h18 h19 h19c (ih20 HH) ?_ ?_ ?_ ?_ ?_
+  · simpa [liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _)] using ih21 HH
+  · simpa [liftN_eq_self_of_closed h15c] using ih22 HH
+  · intro j hj
+    have := ih23 j hj HH
+    rw [liftN_eq_self_of_closed (h19c j hj), List.map_append] at this
+    simpa using this
+  · simpa [← List.map_take] using ih24 HH
+  · have := ih25 HH
+    rw [List.map_map] at this
+    simpa [← List.map_drop, Function.comp_def, liftN_projNV] using this
+
 private theorem wkDeqStructUnit (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     {Δ : List VExpr} {a b ta tb TB TFv rest : VExpr} {T : Name}
     {cvT : ConstantVal} {caps : IndCaps} {us' : List Level}
@@ -1237,7 +1319,8 @@ theorem Red.weakenN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (wkInfProjTower hcl) wkInfLetE
     wkDeqRefl wkDeqSymm wkDeqTrans wkDeqOfRed wkDeqPiCong wkDeqLamCong
     wkDeqAppCong wkDeqIrrelProp (wkDeqIrrelUnit hcl)
-    (wkDeqStructEta hcl) (wkDeqStructUnit hcl) (wkDeqPairEta hcl)
+    (wkDeqStructEta hcl) (wkDeqStructEtaTower hcl) (wkDeqStructUnit hcl)
+    (wkDeqPairEta hcl)
     wkDeqEta (wkDeqLitSuccApp hcl) wkDeqProjCong
     wkTeleNil wkTeleCons wkDeqLNil wkDeqLCons
     h
@@ -1263,7 +1346,8 @@ theorem Infer.weakenN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (wkInfProjTower hcl) wkInfLetE
     wkDeqRefl wkDeqSymm wkDeqTrans wkDeqOfRed wkDeqPiCong wkDeqLamCong
     wkDeqAppCong wkDeqIrrelProp (wkDeqIrrelUnit hcl)
-    (wkDeqStructEta hcl) (wkDeqStructUnit hcl) (wkDeqPairEta hcl)
+    (wkDeqStructEta hcl) (wkDeqStructEtaTower hcl) (wkDeqStructUnit hcl)
+    (wkDeqPairEta hcl)
     wkDeqEta (wkDeqLitSuccApp hcl) wkDeqProjCong
     wkTeleNil wkTeleCons wkDeqLNil wkDeqLCons
     h
@@ -1289,7 +1373,8 @@ theorem DefEq.weakenN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (wkInfProjTower hcl) wkInfLetE
     wkDeqRefl wkDeqSymm wkDeqTrans wkDeqOfRed wkDeqPiCong wkDeqLamCong
     wkDeqAppCong wkDeqIrrelProp (wkDeqIrrelUnit hcl)
-    (wkDeqStructEta hcl) (wkDeqStructUnit hcl) (wkDeqPairEta hcl)
+    (wkDeqStructEta hcl) (wkDeqStructEtaTower hcl) (wkDeqStructUnit hcl)
+    (wkDeqPairEta hcl)
     wkDeqEta (wkDeqLitSuccApp hcl) wkDeqProjCong
     wkTeleNil wkTeleCons wkDeqLNil wkDeqLCons
     h
@@ -1316,7 +1401,8 @@ theorem Tele.weakenN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (wkInfProjTower hcl) wkInfLetE
     wkDeqRefl wkDeqSymm wkDeqTrans wkDeqOfRed wkDeqPiCong wkDeqLamCong
     wkDeqAppCong wkDeqIrrelProp (wkDeqIrrelUnit hcl)
-    (wkDeqStructEta hcl) (wkDeqStructUnit hcl) (wkDeqPairEta hcl)
+    (wkDeqStructEta hcl) (wkDeqStructEtaTower hcl) (wkDeqStructUnit hcl)
+    (wkDeqPairEta hcl)
     wkDeqEta (wkDeqLitSuccApp hcl) wkDeqProjCong
     wkTeleNil wkTeleCons wkDeqLNil wkDeqLCons
     h
@@ -1343,7 +1429,8 @@ theorem DefEqL.weakenN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (wkInfProjTower hcl) wkInfLetE
     wkDeqRefl wkDeqSymm wkDeqTrans wkDeqOfRed wkDeqPiCong wkDeqLamCong
     wkDeqAppCong wkDeqIrrelProp (wkDeqIrrelUnit hcl)
-    (wkDeqStructEta hcl) (wkDeqStructUnit hcl) (wkDeqPairEta hcl)
+    (wkDeqStructEta hcl) (wkDeqStructEtaTower hcl) (wkDeqStructUnit hcl)
+    (wkDeqPairEta hcl)
     wkDeqEta (wkDeqLitSuccApp hcl) wkDeqProjCong
     wkTeleNil wkTeleCons wkDeqLNil wkDeqLCons
     h

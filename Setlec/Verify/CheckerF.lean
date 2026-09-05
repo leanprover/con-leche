@@ -161,16 +161,11 @@ theorem directNonRecF_eq (env : Env) (p : DirectParts) :
     directNonRecF (mkFEnv env) p = directNonRec env p := by
   simp only [directNonRecF, directNonRec, constsResolveF_eq] <;> rfl
 
-theorem directNoModelF_eq (env : Env) (p : DirectParts) :
-    directNoModelF (mkFEnv env) p = directNoModel env p := by
-  simp only [directNoModelF, directNoModel, mkFEnv_find?] <;> rfl
-
 /-- The direct-structure recognition through the index is the pure
-one (task #82). -/
+one (task #82; the priority gate since task #175 W4c). -/
 theorem directPartsF?_eq (env : Env) (block : List ConstantInfo) :
     directPartsF? (mkFEnv env) block = directParts? env block := by
-  simp only [directPartsF?, directParts?, directNonRecF_eq,
-    directNoModelF_eq] <;> rfl
+  simp only [directPartsF?, directParts?, directNonRecF_eq] <;> rfl
 
 /-! ## Monadic mirrors (non-extending: plain program equalities) -/
 
@@ -264,15 +259,15 @@ theorem checkProjIotaF_eq (ops : CheckerOps m) (env : Env)
 
 /-! ### The direct simple-structure path (task #82) -/
 
-theorem checkDirectFieldUnivF_eq (ops : CheckerOps m) (env : Env)
-    (s : Level) (nP : Nat) (fvs : List Expr) :
+theorem checkDirectFieldSortsF_eq (ops : CheckerOps m) (env : Env)
+    (isProp large : Bool) (s : Level) (nP : Nat) (fvs : List Expr) :
     ∀ (j : Nat),
-      checkDirectFieldUnivF ops (mkFEnv env) s nP fvs j
-        = checkDirectFieldUniv ops env s nP fvs j
+      checkDirectFieldSortsF ops (mkFEnv env) isProp large s nP fvs j
+        = checkDirectFieldSorts ops env isProp large s nP fvs j
   | 0 => rfl
   | j + 1 => by
-    simp only [checkDirectFieldUnivF, checkDirectFieldUniv, mkFEnv_env,
-      checkDirectFieldUnivF_eq ops env s nP fvs j]
+    simp only [checkDirectFieldSortsF, checkDirectFieldSorts, mkFEnv_env,
+      checkDirectFieldSortsF_eq ops env isProp large s nP fvs j]
 
 theorem checkDirectDomsAtF_eq (ops : CheckerOps m) (env : Env)
     (off : Nat) (fvs doms : List Expr) :

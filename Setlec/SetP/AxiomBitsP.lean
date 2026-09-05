@@ -132,7 +132,7 @@ theorem inferTypeCore_eqSpineS {fuel d : Nat} {X Y Z bt : Expr}
     Setlec.inferTypeCore_app_inv' h1
   obtain ⟨tf3, n3, ty3, b3, m3, h3, hw3, hb2, -⟩ :=
     Setlec.inferTypeCore_app_inv' h2
-  obtain ⟨ci, hci, hb3⟩ := Setlec.inferTypeCore_const_inv h3
+  obtain ⟨ci, hci, -, hb3⟩ := Setlec.inferTypeCore_const_inv h3
   rw [hEq] at hci
   obtain rfl := Option.some.inj hci
   subst hb3

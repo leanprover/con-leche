@@ -118,6 +118,17 @@ def etaFabArgsV (cval : TConstVal) (T : Name) (ψt : Name → Nat)
     (ts : List VExpr) (major : VExpr) (nF : Nat) : List VExpr :=
   ts ++ projSpinesV cval T ψt ts major nF
 
+/-- The eta-rescue fabrication's spine at the entry kind (task #175
+W4c): the tower spelling's readings (`projNV`) at an all-tower slot
+family, the projection functions' applications otherwise — the
+transpose of `etaFabArgsE` (`Core.lean`), `env`-dependent exactly as
+that is. -/
+def etaFabArgsVE (cval : TConstVal) (env : Env) (T : Name) (ψt : Name → Nat)
+    (ts : List VExpr) (major : VExpr) (nF : Nat) : List VExpr :=
+  ts ++ (if towerSlotsAll env T nF then
+    (List.range nF).map fun j => projNV j major
+  else projSpinesV cval T ψt ts major nF)
+
 /-- `VExpr`-level residual of a `pi`-telescope along an argument list —
 the transpose of `piResidual` (`Core.lean:747-750`), used by the
 `.proj` inference rule to spell its conclusion type without mentioning
@@ -237,6 +248,9 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       i < entry.numFields →
       vs.length = entry.numParams + entry.numFields →
       us.length = entry.levelParams.length →
+      -- the tower-fire guard (task #175 W4c/O4): the clause fires only
+      -- under the `Prop` guard at the constructor's instantiation
+      entry.fireOk us = true →
       env.find? entry.ctor = some ci →
       us.length = ci.toConstantVal.levelParams.length →
       P = VExpr.mkAppN
@@ -472,18 +486,18 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       -- the synthetic-spine certificate at the fabricated spine
       -- (task #71, `Core.lean:1166-1170` — always on)
       Tele μ env cval φ Δ TVj
-        (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+        (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
           caps.etaFields) rest →
       -- the `structEtaCertWith` pack (D10, with `wtb := TM`)
       DefEq μ env cval φ Δ
         (VExpr.mkAppN
           (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-          (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+          (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
             caps.etaFields)) m₀ →
       Red μ env cval φ Δ m₀
         (VExpr.mkAppN
           (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-          (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+          (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
             caps.etaFields))
   /-- R14: the 0-field fallthrough of the eta rescue
   (`Core.lean:1184-1188`): the fabrication is the bare constructor at
@@ -809,6 +823,52 @@ inductive DefEq (μ : CheckMode) (env : Env) (cval : TConstVal)
       DefEqL μ env cval φ Δ (as.drop cnP)
         (projSpinesV cval T (Level.substFn φ cvT.levelParams us') ts b
           cnF) →
+      DefEq μ env cval φ Δ
+        (VExpr.mkAppN (cval c (Level.substFn φ cvc.levelParams us)) as) b
+  /-- D10 at **tower-backed** slots (task #175 W4c): `structEta`'s
+  twin for a family whose projection slots are the direct install's
+  native tower entries — the per-field certificates are the entries'
+  stored types, and the fabricated projections are `.proj T j b`
+  nodes, whose tower reading is `projNV j`. -/
+  | structEtaTower {Δ : List VExpr} {b tb TFv restT : VExpr}
+      {c T : Name} {cvc cvT : ConstantVal} {caps : IndCaps}
+      {cnP cnF : Nat} {us us' : List Level} {as ts : List VExpr}
+      {ent : Nat → ProjEntry} {TPv restP : Nat → VExpr} :
+      env.find? c = some (.ctorInfo cvc cnP cnF) →
+      as.length = cnP + cnF →
+      env.find? T = some (.indInfo cvT caps) →
+      caps.eta = true → caps.etaCtor = c →
+      caps.etaParams = cnP → caps.etaFields = cnF →
+      reservedBasisNames.contains T = false →
+      reservedBasisNames.contains c = false →
+      ts.length = cnP →
+      us'.length = cvT.levelParams.length →
+      cvc.levelParams = cvT.levelParams →
+      (cvT.type.stripPis cnP).isSome = true →
+      Level.isEquivList us us' = some true →
+      denoteClosed cval env φ
+        (cvT.type.instantiateLevelParams cvT.levelParams us') = some TFv →
+      VExpr.Closed TFv →
+      (∀ j, j < cnF →
+        env.find? (projFnName T j) = some (.projInfo (ent j))) →
+      (∀ j, j < cnF → (ent j).tower = true) →
+      (∀ j, j < cnF → (ent j).levelParams = cvT.levelParams) →
+      (∀ j, j < cnF → ((ent j).ty.stripPis (cnP + 1)).isSome = true) →
+      (∀ j, j < cnF →
+        denoteClosed cval env φ
+          ((ent j).ty.instantiateLevelParams (ent j).levelParams us')
+          = some (TPv j)) →
+      (∀ j, j < cnF → VExpr.Closed (TPv j)) →
+      Infer μ env cval φ Δ b tb →
+      DefEq μ env cval φ Δ tb
+        (VExpr.mkAppN
+          (cval T (Level.substFn φ cvT.levelParams us')) ts) →
+      Tele μ env cval φ Δ TFv ts restT →
+      (∀ j, j < cnF →
+        Tele μ env cval φ Δ (TPv j) (ts ++ [b]) (restP j)) →
+      DefEqL μ env cval φ Δ (as.take cnP) ts →
+      DefEqL μ env cval φ Δ (as.drop cnP)
+        ((List.range cnF).map fun j => projNV j b) →
       DefEq μ env cval φ Δ
         (VExpr.mkAppN (cval c (Level.substFn φ cvc.levelParams us)) as) b
   /-- D11: unit-likeness for a stored unit-like family

@@ -125,43 +125,46 @@ theorem infer_const_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
     rw [hf] at h
     dsimp only at h
     split at h
-    · next hlen =>
-      simp only [Except.ok.injEq] at h
-      subst h
-      obtain rfl : ci.name = n := by
-        rw [Env.find?] at hf
-        have := List.find?_some hf
-        simpa using this
-      obtain ⟨tv0, htv0⟩ :=
-        m.ty_denotes ci (find?_mem hf)
-          (Level.substFn φ ci.toConstantVal.levelParams us)
-      obtain ⟨hnf, -, -, hbd, -⟩ := m.wf ci (find?_mem hf)
-      have hcls : VExpr.Closed tv0 := denote_closed hcl hnf hbd htv0
-      -- the rule's own spelling: level instantiation composes the
-      -- assignment (`denote_instLevels`), so the stored type denotes at
-      -- `φ` after instantiation exactly as it does at the substituted
-      -- assignment before it
-      have htv0' : denoteClosed m.cval env φ
-          (ci.toConstantVal.type.instantiateLevelParams
-            ci.toConstantVal.levelParams us) = some tv0 := by
-        rw [denoteClosed, denote_instLevels m.val_params]
-        exact htv0
-      -- the stored type, instantiated and denoted at the ambient depth
-      have hdt : denote m.cval env φ d
-          (ci.toConstantVal.type.instantiateLevelParams
-            ci.toConstantVal.levelParams us) = some tv0 := by
-        rw [denote_instLevels m.val_params,
-          denote_lift hcl
-            (Expr.WScoped.of_not_hasFvar hnf).fvarsBelow d (Nat.zero_le d)]
-        rw [denoteClosed] at htv0
-        rw [htv0]
-        simp only [Option.map_some, Nat.sub_zero,
-          VExpr.liftN_eq_self_of_closed hcls]
-      refine ⟨m.cval ci.name
-        (Level.substFn φ ci.toConstantVal.levelParams us), tv0, ?_, hdt,
-        tv0, Infer.const hf hlen htv0' hcls, DefEq.refl⟩
-      rw [denote_const, hf]
-      exact if_pos hlen
+    · next htw =>
+      split at h
+      · next hlen =>
+        simp only [Except.ok.injEq] at h
+        subst h
+        obtain rfl : ci.name = n := by
+          rw [Env.find?] at hf
+          have := List.find?_some hf
+          simpa using this
+        obtain ⟨tv0, htv0⟩ :=
+          m.ty_denotes ci (find?_mem hf)
+            (Level.substFn φ ci.toConstantVal.levelParams us)
+        obtain ⟨hnf, -, -, hbd, -⟩ := m.wf ci (find?_mem hf)
+        have hcls : VExpr.Closed tv0 := denote_closed hcl hnf hbd htv0
+        -- the rule's own spelling: level instantiation composes the
+        -- assignment (`denote_instLevels`), so the stored type denotes at
+        -- `φ` after instantiation exactly as it does at the substituted
+        -- assignment before it
+        have htv0' : denoteClosed m.cval env φ
+            (ci.toConstantVal.type.instantiateLevelParams
+              ci.toConstantVal.levelParams us) = some tv0 := by
+          rw [denoteClosed, denote_instLevels m.val_params]
+          exact htv0
+        -- the stored type, instantiated and denoted at the ambient depth
+        have hdt : denote m.cval env φ d
+            (ci.toConstantVal.type.instantiateLevelParams
+              ci.toConstantVal.levelParams us) = some tv0 := by
+          rw [denote_instLevels m.val_params,
+            denote_lift hcl
+              (Expr.WScoped.of_not_hasFvar hnf).fvarsBelow d (Nat.zero_le d)]
+          rw [denoteClosed] at htv0
+          rw [htv0]
+          simp only [Option.map_some, Nat.sub_zero,
+            VExpr.liftN_eq_self_of_closed hcls]
+        refine ⟨m.cval ci.name
+          (Level.substFn φ ci.toConstantVal.levelParams us), tv0, ?_, hdt,
+          tv0, Infer.const hf hlen htv0' hcls, DefEq.refl⟩
+        rw [denote_const, hf]
+        exact if_pos hlen
+      · simp [throw, throwThe, MonadExceptOf.throw] at h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-! ### The literal clauses

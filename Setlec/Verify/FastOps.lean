@@ -113,14 +113,15 @@ theorem domsMatchAuxA_eq (g : Nat → Expr → Expr)
 section
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
-theorem checkDirectFieldUnivFA_eq (ops : CheckerOps m) (fe : FEnv)
-    (s : Level) (nP : Nat) (fvs : List Expr) :
-    ∀ j, checkDirectFieldUnivFA ops fe s nP fvs.toArray j
-      = checkDirectFieldUnivF ops fe s nP fvs j
+theorem checkDirectFieldSortsFA_eq (ops : CheckerOps m) (fe : FEnv)
+    (isProp large : Bool) (s : Level) (nP : Nat) (fvs : List Expr) :
+    ∀ j, checkDirectFieldSortsFA ops fe isProp large s nP fvs.toArray j
+      = checkDirectFieldSortsF ops fe isProp large s nP fvs j
   | 0 => rfl
   | j + 1 => by
-    simp only [checkDirectFieldUnivFA, checkDirectFieldUnivF,
-      List.getElem?_toArray, checkDirectFieldUnivFA_eq ops fe s nP fvs j]
+    simp only [checkDirectFieldSortsFA, checkDirectFieldSortsF,
+      List.getElem?_toArray,
+      checkDirectFieldSortsFA_eq ops fe isProp large s nP fvs j]
 
 theorem checkDirectDomsAtFA_eq (ops : CheckerOps m) (fe : FEnv)
     (off : Nat) (fvs doms : List Expr) :

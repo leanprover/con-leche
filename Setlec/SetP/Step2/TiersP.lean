@@ -138,7 +138,7 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
     · -- the head-normalisation quarter
       exact whnfCore_claimsP m hex
         (betaCertP_of_claims m hexis ihd ihis)
-        (iotaStepP_of h.rec_rules h.caps_ok h.reads.const_ty
+        (iotaStepP_of h.rec_rules h.caps_ok h.reads.tower_ok h.reads.const_ty
           h.acval_valid ihw ihd ihis hsss hexis hreads_ios hwreads)
         (projStepP_of_claims h.reads.tower_ok ihwc ihw ihd ihio hreads_io
           hwreads) ihwc
@@ -150,7 +150,7 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
         stuckIrrelP_of_claims ihis hsss hreads_ios
           (unitIrrelPQ_of_claims ihw ihis hreads_ios hwreads)
           (pairEtaIrrelP_of_claims ihw ihd ihis hexis hwreads)
-          (structEtaIrrelP_of_claims h.caps_ok h.reads.const_ty
+          (structEtaIrrelP_of_claims h.caps_ok h.reads.tower_ok h.reads.const_ty
             h.acval_valid ihw ihd ihis hexis hwreads)
           (structUnitIrrelP_of_claims h.caps_ok ihw ihd ihis hexis
             hwreads)

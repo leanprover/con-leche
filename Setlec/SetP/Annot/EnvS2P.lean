@@ -581,10 +581,97 @@ theorem TeleFitPA.peelPis {V : Type w} [SetTheory V] {ρ : Nat → V} :
   | nil => rfl
   | cons _ _ ih => exact ih
 
+/-- **The structural-η law of a tower-backed family** (task #175 W4c;
+`EtaLawP`'s twin at the tower kind, keyed on the entry): a member of
+the family instance is the constructor at the parameters and the tower
+readings (`projS`) of its own projections — the value-level content of
+the η certificate's `.proj T j b` fabrication (`etaProjs`).  Keyed on
+the entry so that the direct install alone answers it (the modeled
+route stores no tower entries); the η row reads it through slot `0` of
+an all-tower family. -/
+def TowerEtaLawP {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS2Core V env) (φ : Name → Nat) (T : Name)
+    (entry : ProjEntry) : Prop :=
+  ∀ (cvT : ConstantVal) (capsT : IndCaps),
+    env.find? T = some (.indInfo cvT capsT) →
+    ∀ us : List Level, us.length = entry.levelParams.length →
+    ∃ TVa : AVExpr,
+      denoteP m.acval env φ 0
+        (cvT.type.instantiateLevelParams cvT.levelParams us) = some TVa ∧
+      (∀ ρ : Nat → V, AnnotOkP V ρ TVa) ∧
+      ∀ (ρ : Nat → V) (ts : List V) (rest : V) (x : V),
+        ts.length = entry.numParams →
+        TeleFitP V ρ TVa ts rest →
+        x ∈ˢ ts.foldl SetTheory.app
+          (interp2 V ρ (m.acval T (Level.substFn φ entry.levelParams us))) →
+        x = (ts ++ (List.range entry.numFields).map fun j =>
+              Setlec.SetTheory.Tower.projS j x).foldl SetTheory.app
+            (interp2 V ρ
+              (m.acval entry.ctor (Level.substFn φ entry.levelParams us)))
+
+/-- **The `Prop` guard at a use's valuation** (task #175 W4c/O4): if
+the structure is a proposition there, so is the field's guard level.
+The typing and iota laws of a tower entry hold under it — a data
+field of a `Prop`-declared structure has no projection law (its value
+is not the point).  Consumers discharge it from the kernel's syntactic
+guard (`inferTypeCore`'s tower branch, `ProjEntry.fireOk`) through
+`towerGuardAt_of`. -/
+def TowerGuardAt (φ : Name → Nat) (entry : ProjEntry) (us : List Level) :
+    Prop :=
+  Level.eval (Level.substFn φ entry.levelParams us) entry.structSort = 0 →
+    Level.eval (Level.substFn φ entry.levelParams us) entry.fieldSort = 0
+
+/-- **The O5 conjunct**: a non-`Prop` family's guard level is bounded
+by its result sort at every valuation (the field sorts are checked
+`≤` the result sort, `checkDirectFieldSorts`), so the guard holds
+wherever the structure happens to be a proposition. -/
+def TowerO5 (entry : ProjEntry) : Prop :=
+  (Level.isEquiv entry.structSort .zero == some true) = false →
+    ∀ ψ : Name → Nat,
+      Level.eval ψ entry.structSort = 0 → Level.eval ψ entry.fieldSort = 0
+
+/-- The guard at a valuation, from the kernel's syntactic guard and O5. -/
+theorem towerGuardAt_of {entry : ProjEntry} {us : List Level} {φ : Name → Nat}
+    (hO5 : TowerO5 entry)
+    (hg : (Level.isEquiv entry.structSort .zero == some true) = true →
+      (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
+        == some true) = true) :
+    TowerGuardAt φ entry us := by
+  intro hs
+  by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
+  · have h1 := Level.isEquiv_sound (beq_iff_eq.mp (hg hp)) φ
+    rw [Level.eval_subst] at h1
+    simpa [Level.eval] using h1
+  · exact hO5 (by simpa using hp) _ hs
+
+/-- **The graph-regime premise of the iota law** (task #175 W4c/O4): the
+structure's sort is nonzero at the use's valuation — `whnfCore`'s
+tower fire (`ProjEntry.fireOk`) checks it syntactically
+(`Level.isNonZero` of the instantiated sort).  At a squash instance
+the constructor application reads as the point and a constructor
+argument's value is pinned by nothing, so the law is stated only
+here. -/
+def TowerStructPos (φ : Name → Nat) (entry : ProjEntry) (us : List Level) :
+    Prop :=
+  Level.eval (Level.substFn φ entry.levelParams us) entry.structSort ≠ 0
+
+/-- The graph-regime premise from the fire guard. -/
+theorem towerStructPos_of_fireOk {entry : ProjEntry} {us : List Level}
+    {φ : Name → Nat} (htw : entry.tower = true)
+    (hfire : entry.fireOk us = true) : TowerStructPos φ entry us := by
+  unfold ProjEntry.fireOk at hfire
+  rw [htw] at hfire
+  have h := Level.isNonZero_sound (by simpa using hfire) φ
+  rw [Level.eval_subst] at h
+  exact h
+
 /-- **One tower-backed entry's projection law** (see the section
 docstring): the entry's stored data agrees with the stored former and
-constructor, and at every level instantiation the typing law and the
-iota law hold at the entry's own type reading and the constructor's. -/
+constructor (whose η capability is the entry's at a non-`Prop` family
+— task #175 W4c/O4), the O5 bound, and at every level instantiation
+the typing law and the iota law hold under the `Prop` guard at the
+entry's own type reading and the constructor's, and the family's
+structural-η law holds (clause (C), `TowerEtaLawP`). -/
 def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
     (m : EnvS2Core V env) (φ : Name → Nat)
     (T : Name) (i : Nat) (entry : ProjEntry) : Prop :=
@@ -592,16 +679,22 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
   i < entry.numFields ∧
   (∃ (cvT : ConstantVal) (capsT : IndCaps),
     env.find? T = some (.indInfo cvT capsT) ∧
-    cvT.levelParams = entry.levelParams) ∧
+    cvT.levelParams = entry.levelParams ∧
+    capsT.eta = !(Level.isEquiv entry.structSort .zero == some true) ∧
+    capsT.etaCtor = entry.ctor ∧
+    capsT.etaParams = entry.numParams ∧
+    capsT.etaFields = entry.numFields) ∧
+  TowerO5 entry ∧
   ∃ cvC : ConstantVal,
     env.find? entry.ctor
       = some (.ctorInfo cvC entry.numParams entry.numFields) ∧
     cvC.levelParams = entry.levelParams ∧
-    ∀ us : List Level, us.length = entry.levelParams.length →
+    (∀ us : List Level, us.length = entry.levelParams.length →
       -- (A) the typing law
       (∃ Ta : AVExpr,
         denoteP m.acval env φ 0
           (entry.ty.instantiateLevelParams entry.levelParams us) = some Ta ∧
+        (TowerGuardAt φ entry us →
         ∀ (ρ : Nat → V) (vs : List AVExpr) (x rest : AVExpr),
           vs.length = entry.numParams →
           AnnotOkP V ρ (AVExpr.mkAppN
@@ -611,22 +704,24 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
             (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
           Setlec.SetR.AVExpr.peelPis Ta (vs ++ [x]) = some rest →
           AnnotOkP V ρ (projAV i x) ∧ AnnotOkP V ρ rest ∧
-            interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest) ∧
+            interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest)) ∧
       -- (B) the iota law: the projection of a *graded* constructor
       -- application is the selected field.  The premise is the
-      -- application's grading alone (its slot chain): in today's
-      -- recognised class the result sort is `isNonZero`, so every
-      -- constructor binder is graph-regime and graph rigidity pins the
-      -- memberships without a certificate — which is what the
-      -- `whnfCore` row holds under the io skip.  (A Prop-widened
-      -- class would add the certified-fit alternative here.)
-      (∀ (ρ : Nat → V) (ys : List AVExpr),
+      -- application's grading alone (its slot chain) — which is what
+      -- the `whnfCore` row holds under the io skip — and the graph
+      -- regime (`TowerStructPos`, the fire guard's content): there
+      -- every constructor binder is graph-regime and graph rigidity
+      -- pins the memberships without a certificate.
+      (TowerStructPos φ entry us →
+        ∀ (ρ : Nat → V) (ys : List AVExpr),
         ys.length = entry.numParams + entry.numFields →
         AnnotOkP V ρ (AVExpr.mkAppN
           (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys) →
         interp2 V ρ (projAV i (AVExpr.mkAppN
             (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys))
-          = interp2 V ρ (ys.getD (entry.numParams + i) default))
+          = interp2 V ρ (ys.getD (entry.numParams + i) default))) ∧
+    -- (C) the structural-η law (task #175 W4c)
+    TowerEtaLawP m φ T entry
 
 /-- **The tower projection law, keyed on every stored tower-backed
 entry** (`RecRulesP`'s sibling). -/
@@ -655,11 +750,22 @@ structure EnvS2PM (μ : CheckMode) (env : Env) where
   type_okP : ∀ c ∈ env.consts, ∀ (ψ : Name → Nat) (ta : AVExpr),
     denoteP base2.acval env ψ 0 c.toConstantVal.type = some ta →
     ∀ ρ : Nat → V, AnnotOkP V ρ ta
-  /-- stored constants inhabit their types' readings -/
-  mem_typeP : ∀ c ∈ env.consts, ∀ (ψ : Name → Nat) (ta : AVExpr),
+  /-- stored constants inhabit their types' readings — except the
+  tower-backed projection-table entries (task #175 W4c P3 module 7):
+  a table entry is not a term (`inferTypeCore` rejects a `.const`
+  naming one), and its type may be uninhabited at a level
+  instantiation where the structure is a proposition with a data
+  field a later field depends on -/
+  mem_typeP : ∀ c ∈ env.consts, c.isTowerEntry = false →
+    ∀ (ψ : Name → Nat) (ta : AVExpr),
     denoteP base2.acval env ψ 0 c.toConstantVal.type = some ta →
     ∀ ρ : Nat → V,
       interp2 V ρ (base2.acval c.name ψ) ∈ˢ interp2 V ρ ta
+  /-- a stored tower entry's type is a telescope over its parameters
+  and the subject (the capstone reads it: a table entry never has
+  type `Empty`) -/
+  tower_ty : ∀ c ∈ env.consts, ∀ e : ProjEntry, c = .projInfo e → e.tower = true →
+    (e.ty.stripPis (e.numParams + 1)).isSome = true
   /-- stored definition and theorem values read, to the constant's own
   leaf (existence — the fuel-free upgrade of `acval_defn`) -/
   defn_reads : AcvalDefnInstP base2
@@ -720,7 +826,7 @@ bundle-supplying layer.**  The three type fields at the composed
 assignment `Level.substFn φ ks us`, carried to the instantiated form
 by `denotePInstLevels` (an equality: no arity premise, no fuel). -/
 theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
-  intro d n ci us hf hlen
+  intro d n ci us hf hnt hlen
   have hmem := Setlec.SetR.Env.find?_mem hf
   have hname := Setlec.SetR.Env.find?_name hf
   obtain ⟨ta, hta⟩ :=
@@ -747,8 +853,26 @@ theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
       ci.toConstantVal.type
   refine ⟨ta, ?_, m.type_okP ci hmem _ ta hta, ?_⟩
   · rw [hcross]; exact hdepth
-  · have := m.mem_typeP ci hmem _ ta hta
+  · have := m.mem_typeP ci hmem hnt _ ta hta
     rwa [hname] at this
+
+/-- A stored constant whose type is not a `∀` is not a tower entry
+(a tower entry's type is a telescope over its parameters and the
+subject). -/
+theorem notTower_of_atom (m : EnvS2PM V μ env) {c : ConstantInfo}
+    (hc : c ∈ env.consts) (hatom : c.toConstantVal.type.stripPis 1 = none) :
+    c.isTowerEntry = false := by
+  cases c with
+  | projInfo e =>
+    cases htw : e.tower
+    · simp [ConstantInfo.isTowerEntry, htw]
+    · exfalso
+      have hstrip := m.tower_ty _ hc e rfl htw
+      simp only [ConstantInfo.toConstantVal] at hatom
+      revert hatom hstrip
+      generalize e.ty = t
+      cases t <;> intro hstrip hatom <;> simp [Expr.stripPis] at hstrip hatom
+  | _ => rfl
 
 /-- **The bridge invariant, from the P invariant** (task #161 S7,
 Wall C step (e)) — `EnvS.toEnvR`'s P-side twin, and the last thing
@@ -817,6 +941,7 @@ noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
   type_reads := fun c hc => nomatch hc
   type_okP := fun c hc => nomatch hc
   mem_typeP := fun c hc => nomatch hc
+  tower_ty := fun c hc => nomatch hc
   defn_reads := fun ψ cv value hmem => by
     rcases hmem with ⟨hint, hdt⟩ | hdt
     · exact nomatch hdt

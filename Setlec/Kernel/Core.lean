@@ -943,7 +943,47 @@ def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
           structEtaProjCerts r env depth T us' targs b lpsT rest
         else pure false
       else pure false
+    | some (.projInfo entry) =>
+      -- a tower-backed entry (task #175 W4c): its stored type is the
+      -- same `∀ p⃗ (t : T p⃗), F_i` telescope, certified the same way
+      if entry.tower = true ∧ entry.levelParams = lpsT ∧
+          (entry.ty.stripPis (targs.length + 1)).isSome = true then
+        if ← iotaCerts r env depth
+            (entry.ty.instantiateLevelParams entry.levelParams us')
+            (targs ++ [b]) then
+          structEtaProjCerts r env depth T us' targs b lpsT rest
+        else pure false
+      else pure false
     | _ => pure false
+
+/-- Are all `nF` projection slots of `T` tower-backed entries? -/
+def towerSlotsAll (env : Env) (T : Name) (nF : Nat) : Bool :=
+  (List.range nF).all fun j =>
+    match env.findProj? T j with
+    | some e => e.tower
+    | none => false
+
+/-- Are all `nF` projection slots of `T` recursor-backed projection
+functions (the modeled path's)?  With `towerSlotsAll` the eta
+certificate's slot discipline: a family's slots are all of one kind,
+so the fabricated spine and the per-slot certificates agree. -/
+def recSlotsAll (env : Env) (T : Name) (nF : Nat) : Bool :=
+  (List.range nF).all fun j =>
+    match env.find? (projFnName T j) with
+    | some (.recInfo _ _ _ _) => true
+    | _ => false
+
+/-- The fabricated projections of a structure-eta spine (task #175
+W4c): `.proj T j b` nodes when every slot is a tower-backed entry (the
+direct install's structures — the node is what the table types and
+reduces), else the modeled path's projection-function applications. -/
+def etaProjs (env : Env) (T : Name) (us : List Level) (targs : List Expr)
+    (b : Expr) (nF : Nat) : List Expr :=
+  if towerSlotsAll env T nF then
+    (List.range nF).map fun j => Expr.proj T j b
+  else
+    (List.range nF).map fun j =>
+      Expr.mkAppN (.const (projFnName T j) us) (targs ++ [b])
 
 /-- The structure-eta certificate against a *given* weak-head-normal
 type of the stuck side (callers that already reduced it — the
@@ -967,7 +1007,9 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                 wtb.getAppArgs.length = cnP ∧
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
-                (cvT.type.stripPis cnP).isSome = true then
+                (cvT.type.stripPis cnP).isSome = true ∧
+                -- the slot discipline (task #175 W4c): one entry kind
+                (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true then
               if ← liftFueled "level comparison"
                   (Level.isEquivList us us') then
                 if ← iotaCerts r env depth
@@ -991,14 +1033,10 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                             (cvc.type.instantiateLevelParams
                               cvc.levelParams us)
                             (wtb.getAppArgs ++
-                              (List.range cnF).map fun i =>
-                                Expr.mkAppN (.const (projFnName T i) us')
-                                  (wtb.getAppArgs ++ [b]))
+                              etaProjs env T us' wtb.getAppArgs b cnF)
                         else pure true) then
                         defEqList r env depth (a.getAppArgs.drop cnP)
-                          ((List.range cnF).map fun i =>
-                            Expr.mkAppN (.const (projFnName T i) us')
-                              (wtb.getAppArgs ++ [b]))
+                          (etaProjs env T us' wtb.getAppArgs b cnF)
                       else pure false
                     else pure false
                   else pure false
@@ -1103,6 +1141,13 @@ def etaFabArgs (T : Name) (ust : List Level) (targs : List Expr)
   targs ++ (List.range nF).map fun j =>
     Expr.mkAppN (.const (projFnName T j) ust) (targs ++ [major])
 
+/-- `etaFabArgs` at the entry kind (task #175 W4c): the projections
+are `etaProjs`' — `.proj` nodes at an all-tower slot family, the
+modeled spelling otherwise. -/
+def etaFabArgsE (env : Env) (T : Name) (ust : List Level)
+    (targs : List Expr) (major : Expr) (nF : Nat) : List Expr :=
+  targs ++ etaProjs env T ust targs major nF
+
 /-- Stuck-major rescue (`to_cnstr_when_K` and `to_cnstr_when_structure`
 in the official kernel): a recursor's major premise that does not whnf
 to a constructor application may still be *replaced* by one.  For a
@@ -1199,7 +1244,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                       (caps.etaParams + caps.etaFields)).isSome
                       = true then
                   let fab := Expr.mkAppN (.const caps.etaCtor ust)
-                    (etaFabArgs T ust tmaj.getAppArgs major
+                    (etaFabArgsE env T ust tmaj.getAppArgs major
                       caps.etaFields)
                   -- scope guard, as in the K branch
                   if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
@@ -1210,7 +1255,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                     if ← iotaCerts r env depth
                         (cvj.type.instantiateLevelParams
                           cvj.levelParams ust)
-                        (etaFabArgs T ust tmaj.getAppArgs major
+                        (etaFabArgsE env T ust tmaj.getAppArgs major
                           caps.etaFields) then
                       if ← structEtaCertWith mode r env depth fab major
                           tmaj then
@@ -1407,6 +1452,24 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     | _ => pure none
   | _ => pure none
 
+/-- **The tower-fire guard** (task #175 W4c/O4): `whnfCore` fires the
+structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i` at a tower-backed entry only
+when the structure's sort is provably nonzero at the constructor's
+own level instantiation (`Level.isNonZero`).  At a `Prop` instance
+the constructor application is a proof: in a proof-irrelevant model
+its value is the point, and nothing pins the field argument's value
+to the field — a `whnfCore` step certifies no typing — so the rule
+would be unsound-to-model there; and it is never *needed* there
+either, since two proofs of one proposition are already definitionally
+equal (proof irrelevance), and a `Prop`-structure field is a proof.
+Every `structure` command's result sort is `max 1 …` (nonzero at every
+instantiation); the guard bites only at `Prop`-declared blocks and at
+a single-constructor `Sort u` inductive instantiated at a possibly-zero
+level.  The pair entries are ungated. -/
+def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
+  !entry.tower ||
+    (Level.subst entry.levelParams us entry.structSort).isNonZero
+
 /-- Certification for a possibly-Prop structural projection
 `proj_i (ctor p⃗ x⃗)` (the subject `e₂` is the whnf'd constructor
 application): the projected argument and the subject are both typed.
@@ -1531,7 +1594,8 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           let args := e'.getAppArgs
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
-              us.length = entry.levelParams.length then
+              us.length = entry.levelParams.length ∧
+              entry.fireOk us = true then
             let arg := args.getD (entry.numParams + i) (.bvar 0)
             -- Certify the reduction: at Prop instances both the
             -- projected argument and the subject collapse to the
@@ -1635,6 +1699,10 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       match env.find? n with
       | none => throw (.invalid s!"unknown constant {n}")
       | some ci =>
+        -- a tower-backed projection-table entry is not a term (task
+        -- #175 W4c): `.proj` nodes read it, no constant names it
+        unless !ci.isTowerEntry do
+          throw (.invalid s!"projection table entry used as a constant {n}")
         let cv := ci.toConstantVal
         unless us.length = cv.levelParams.length do
           throw (.invalid s!"incorrect number of universe levels for {n}")
@@ -1747,6 +1815,17 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           if entry.native ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             if entry.tower then
+              -- the official `infer_proj` restriction (task #175
+              -- W4c/O4): at a `Prop`-declared structure the field —
+              -- and every earlier field a later field uses — must be
+              -- a proposition at this instantiation; the entry's
+              -- guard level joins exactly those sorts
+              if Level.isEquiv entry.structSort .zero == some true then
+                unless Level.isEquiv
+                    (Level.subst entry.levelParams us entry.fieldSort) .zero
+                    == some true do
+                  throw (.invalid
+                    "projection from a propositional structure must be a proposition")
               -- task #175 wiring W2c: the generic residual for a
               -- tower-backed entry — the stored `ty`
               -- (`∀ p⃗ (t : T p⃗), F_i`, `.proj`-node spelling) is
@@ -1817,6 +1896,10 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       match env.find? n with
       | none => throw (.invalid s!"unknown constant {n}")
       | some ci =>
+        -- a tower-backed projection-table entry is not a term (task
+        -- #175 W4c): `.proj` nodes read it, no constant names it
+        unless !ci.isTowerEntry do
+          throw (.invalid s!"projection table entry used as a constant {n}")
         let cv := ci.toConstantVal
         unless us.length = cv.levelParams.length do
           throw (.invalid s!"incorrect number of universe levels for {n}")
@@ -1890,6 +1973,14 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           if entry.native ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             if entry.tower then
+              -- the official `infer_proj` restriction (task #175
+              -- W4c/O4), as in `inferBody`
+              if Level.isEquiv entry.structSort .zero == some true then
+                unless Level.isEquiv
+                    (Level.subst entry.levelParams us entry.fieldSort) .zero
+                    == some true do
+                  throw (.invalid
+                    "projection from a propositional structure must be a proposition")
               -- task #175 wiring W2c: the generic residual for a
               -- tower-backed entry — the stored `ty`
               -- (`∀ p⃗ (t : T p⃗), F_i`, `.proj`-node spelling) is
@@ -2204,120 +2295,6 @@ def isPropType (r : CoreFns m) (env : Env) (depth : Nat) (ty : Expr) :
   let s ← ensureSort r env depth (← r.inferIO depth ty')
   liftFueled "level comparison" (Level.isEquiv s Level.zero)
 
-/-- Walk a field telescope to the `i`-th binder and return its domain,
-earlier binders instantiated with projections of `e'`, mirroring the
-official kernel's projection rule: for a `Prop` structure every
-*depended-on* skipped field must itself be a `Prop`. -/
-def projFieldDom (r : CoreFns m) (env : Env) (depth : Nat)
-    (structProp : Bool) (sn : Name) (e' : Expr) :
-    Nat → Nat → Expr → m Expr
-  | _, 0, .forallE _ dom _ _ => pure dom
-  | j, k + 1, .forallE _ dom rest _ => do
-    if rest.looseBVarsBounded 0 then
-      projFieldDom r env depth structProp sn e' (j + 1) k rest
-    else
-      if structProp then
-        unless ← isPropType r env depth dom do
-          throw (.invalid
-            "projection through a non-Prop field of a Prop structure")
-      projFieldDom r env depth structProp sn e' (j + 1) k
-        (rest.instantiate1 (.proj sn j e'))
-  | _, _, _ => throw (.invalid "projection index out of range")
-
-/-- Fallback for structures without an installed projection function
-(Prop-valued structures whose projections only exist at certain level
-instantiations, so per-declaration artifacts cannot cover them):
-inline the recursor elimination `S.rec params motive minor e'`, with a
-constant motive — the projected field's type, earlier fields replaced
-by projections of `e'` — and the minor the constructor's field
-telescope as `λ`s returning field `i`.  The parent's elimination
-*shape* was checked once, at install, and stored as a template-kind
-projection-table entry (`entry.native = false`); only the
-per-instantiation pieces are (re)built here.  The rewrite is
-annotated, so the ordinary rules re-check it; in particular the
-kernel's Prop restriction (projections from a `Prop` structure must
-land in `Prop`) surfaces as a type error when the stored recursor's
-fixed motive sort cannot reach the field's. -/
-def annotateProjRec (r : CoreFns m) (env : Env) (depth : Nat)
-    (entry : ProjEntry) (i : Nat) (te e' : Expr) (us : List Level) :
-    m Expr := do
-  match env.find? entry.ctor with
-  | some (.ctorInfo cvC _ cnF) =>
-    let params := te.getAppArgs
-    if params.length = entry.numParams then
-      let ctorTy := cvC.type.instantiateLevelParams cvC.levelParams us
-      match ctorTy.instPis params with
-      | some tel =>
-        let structProp ← isPropType r env depth te
-        let fi ← projFieldDom r env depth structProp entry.structName e'
-          0 i tel
-        match Expr.pisToLams cnF tel (.bvar (cnF - 1 - i)) with
-        | some minor =>
-          -- the projected field's sort: the official Prop
-          -- restriction, and the motive level for subsingleton
-          -- eliminators
-          let fi' ← r.annotate depth fi
-          let sfi ← ensureSort r env depth (← r.inferIO depth fi')
-          if structProp then
-            unless ← liftFueled "level comparison"
-                (Level.isEquiv sfi Level.zero) do
-              throw (.invalid "non-Prop projection from a Prop structure")
-          let uf := if entry.recExtraLevel then [sfi] else []
-          let raw := Expr.mkAppN
-            (.const (entry.structName.str "rec") (uf ++ us))
-            (params ++ [.lam (.str .anonymous "t") te fi ⟨.default, .never⟩,
-              minor, e'])
-          if raw.wscopedB depth && raw.looseBVarsBounded 0 &&
-              raw.fvarLeaves.all (fun l => e'.fvarLeaves.contains l) then
-            r.annotate depth raw
-          else throw (.notImplemented "projection elimination scoping")
-        | none => throw (.invalid "projection index out of range")
-      | none => throw (.invalid "projection index out of range")
-    else throw (.notImplemented "projection parameter mismatch")
-  | _ => throw (.notImplemented
-      "projection constructor not stored")
-
-/-- Rewrite a projection on a stored non-basis structure into its
-installed projection function (a rules-carrying constant checked
-against the structure's `_model.proj_i` at install) and annotate the
-rewrite: the recursive annotation re-checks every node with the
-ordinary rules, and the scope guard keeps the scaffolding inside the
-annotated struct's free-variable leaves.  Structures without an
-installed projection function fall back to `annotateProjRec`. -/
-def annotateProjElim (r : CoreFns m) (env : Env) (depth : Nat) (sn : Name)
-    (i : Nat) (te e' : Expr) : m Expr := do
-  match te.getAppFn with
-  | .const T us =>
-    if T = sn then
-      match env.find? (projFnName T i) with
-      | some (.recInfo _ _ rP _) =>
-        -- a projection function is a degenerate recursor: no motive,
-        -- no minors, no indices, so its rule prefix is exactly the
-        -- parameter count
-        if te.getAppArgs.length = rP then
-          let raw := Expr.mkAppN (.const (projFnName T i) us)
-            (te.getAppArgs ++ [e'])
-          if raw.wscopedB depth && raw.looseBVarsBounded 0 &&
-              raw.fvarLeaves.all (fun l => e'.fvarLeaves.contains l) then
-            r.annotate depth raw
-          else throw (.notImplemented "projection elimination scoping")
-        else throw (.notImplemented "projection parameter mismatch")
-      | some (.projInfo entry) =>
-        -- only template entries reach the fallback (native entries
-        -- were dispatched by the annotate rule itself)
-        if entry.native then
-          throw (.internal "native projection entry reached the fallback")
-        else annotateProjRec r env depth entry i te e' us
-      | _ =>
-        -- distinguish an out-of-range index on a projectable
-        -- structure (its field 0 has an entry) from a shape without
-        -- any projection support
-        throw (if (env.find? (projFnName T 0)).isSome then
-            CheckError.invalid "projection index out of range"
-          else .notImplemented "projection on a non-structure-like type")
-    else throw (.invalid "projection structure mismatch")
-  | _ => throw (.notImplemented "projection on a non-structure type")
-
 /-! ### The untrusted annotation writes (task #161 P5)
 
 The pass is the existing normalizer: at the verified modes its ∀/λ
@@ -2462,7 +2439,7 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       let _ ← r.annotate depth ty
       let _ ← r.annotate depth v
       r.annotate depth (b.instantiate1 v)
-    | .proj sn i pe => do
+    | .proj _sn i pe => do
       let e' ← r.annotate depth pe
       -- Run the projection rule (the one place it is checked; this
       -- establishes the semantic proj clause of `AnnotOk`).  A
@@ -2479,9 +2456,25 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             unless te.getAppArgs.length = entry.numParams do
               throw (.invalid "projection parameter mismatch")
             pure (.proj T i e')
-          else annotateProjElim r env depth sn i te e'
-        | none => annotateProjElim r env depth sn i te e'
-      | _ => annotateProjElim r env depth sn i te e'
+          else
+            -- the inert entry of an unadmitted slot (task #175 W4c P3
+            -- module 7, `directInertEntry`): a used-later earlier
+            -- field of this propositional structure has a sort that
+            -- is never `Prop`, so the official `infer_proj`
+            -- restriction rejects the projection at every level
+            -- instantiation
+            throw (.invalid
+              "projection from a propositional structure must be a proposition")
+        | none =>
+          -- task #175 wiring W5: the elimination fallbacks are gone —
+          -- every supported projection is a native table entry.
+          -- An out-of-range index on a projectable structure (its
+          -- field 0 has an entry) is invalid; a shape without any
+          -- projection support declines
+          throw (if (env.findProj? T 0).isSome then
+              CheckError.invalid "projection index out of range"
+            else .notImplemented "projection on a non-structure-like type")
+      | _ => throw (.notImplemented "projection on a non-structure type")
 
 end Bodies
 

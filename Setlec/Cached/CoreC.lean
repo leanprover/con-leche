@@ -332,15 +332,34 @@ def pairEtaCertI (_cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 /-- The interned projection-application spine
 `[proj_0 targs b, …]` (structural recursion; the spec side is a pure
 `List.map`). -/
-def projAppsI (T : Name) (us' : List Level) (targs : List ExprC)
+def projAppsFnI (T : Name) (us' : List Level) (targs : List ExprC)
     (b : ExprC) : List Nat → CheckCM (List ExprC)
   | [] => pure []
   | i :: rest => do
     let pf ← projFnIdxM T i
     let h ← internI (.const pf us')
     let r ← mkAppNM h (targs ++ [b])
-    let rs ← projAppsI T us' targs b rest
+    let rs ← projAppsFnI T us' targs b rest
     pure (r :: rs)
+
+/-- The interned `.proj T i b` spine (the tower spelling, task #175
+W4c). -/
+def projNodesI (T : Name) (b : ExprC) : List Nat → CheckCM (List ExprC)
+  | [] => pure []
+  | i :: rest => do
+    let r ← internI (.proj T i b)
+    let rs ← projNodesI T b rest
+    pure (r :: rs)
+
+/-- Twin of `etaProjs`: the tower spelling at an all-tower slot family
+(`towerSlotsAll` through the index), the projection-function spelling
+otherwise.  `Tn` is the readback name, `T` the interned one. -/
+def projAppsI (fe : FEnv) (Tn T : Name) (us' : List Level)
+    (targs : List ExprC) (b : ExprC) (nF : Nat) :
+    CheckCM (List ExprC) :=
+  if fe.towerSlotsAllF Tn nF then
+    projNodesI T b (List.range nF)
+  else projAppsFnI T us' targs b (List.range nF)
 
 /-- Twin of `structEtaProjCerts`. -/
 def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
@@ -353,6 +372,16 @@ def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.recInfo cvp _ _ _) =>
       if cvp.levelParams = lpsT ∧
           (cvp.type.stripPis (targs.length + 1)).isSome = true then do
+        let pf ← projFnIdxM TI i
+        let pty ← constTyAtM fe pf (projFnName T i) us'
+        if ← iotaCertsI r fe depth pty (targs ++ [b]) then
+          structEtaProjCertsI r fe depth TI T us' targs b lpsT rest
+        else pure false
+      else pure false
+    | some (.projInfo entry) =>
+      -- a tower-backed entry (task #175 W4c), as in the spec body
+      if entry.tower = true ∧ entry.levelParams = lpsT ∧
+          (entry.ty.stripPis (targs.length + 1)).isSome = true then do
         let pf ← projFnIdxM TI i
         let pty ← constTyAtM fe pf (projFnName T i) us'
         if ← iotaCertsI r fe depth pty (targs ++ [b]) then
@@ -384,7 +413,8 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 targs.length = cnP ∧
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
-                (cvT.type.stripPis cnP).isSome = true then do
+                (cvT.type.stripPis cnP).isSome = true ∧
+                (fe.towerSlotsAllF Tn cnF || fe.recSlotsAllF Tn cnF) = true then do
               if ← liftFueled "level comparison"
                   (← isEquivListLM us us') then do
                 let tyT ← constTyAtM fe T Tn us'
@@ -392,7 +422,7 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   if ← structEtaProjCertsI r fe depth T Tn us'
                       targs b cvT.levelParams (List.range cnF) then do
                     if ← defEqListI r fe depth (aargs.take cnP) targs then do
-                      let projs ← projAppsI T us' targs b (List.range cnF)
+                      let projs ← projAppsI fe Tn T us' targs b cnF
                       -- synthetic-spine certification (task #137): the
                       -- fabricated constructor application
                       -- `c targs (proj_i … b)` is certified against the
@@ -553,8 +583,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       (caps.etaParams + caps.etaFields)).isSome
                       = true then do
                   let TI ← internNameM T
-                  let projs ← projAppsI TI ust margs major
-                    (List.range caps.etaFields)
+                  let projs ← projAppsI fe T TI ust margs major caps.etaFields
                   let ctorI ← internNameM caps.etaCtor
                   let h ← internI (.const ctorI ust)
                   let fab ← mkAppNM h (margs ++ projs)
@@ -832,7 +861,8 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           let args ← withStore (·.getAppArgsI e')
           if entry.native ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
-              us.length = entry.levelParams.length then do
+              us.length = entry.levelParams.length ∧
+              entry.fireOk us = true then do
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
             -- task #100 de-gating: the certificate runs
@@ -1140,6 +1170,8 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       match fe.find? nm with
       | none => throw (.invalid s!"unknown constant {nm}")
       | some ci =>
+        unless !ci.isTowerEntry do
+          throw (.invalid s!"projection table entry used as a constant {nm}")
         let cv := ci.toConstantVal
         unless us.length = cv.levelParams.length do
           throw (.invalid s!"incorrect number of universe levels for {nm}")
@@ -1197,6 +1229,14 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
           if entry.native ∧ T = sn ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             if entry.tower then
+              -- the official `infer_proj` restriction (task #175
+              -- W4c/O4), as in the spec body
+              if Level.isEquiv entry.structSort .zero == some true then
+                unless Level.isEquiv
+                    (Level.subst entry.levelParams us entry.fieldSort) .zero
+                    == some true do
+                  throw (.invalid
+                    "projection from a propositional structure must be a proposition")
               -- task #175 wiring W2c: the tower-backed residual, as in
               -- the spec body — since B3a `ExprC = Expr` and the store
               -- is a unit, so the level-instantiated peel runs
@@ -1473,105 +1513,6 @@ def isPropTypeI (r : CoreFnsI) (_fe : FEnv) (depth : Nat) (ty : ExprC) :
   let z ← internLM .zero
   liftFueled "level comparison" (← isEquivLM s z)
 
-/-- Twin of `projFieldDom`. -/
-def projFieldDomI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (structProp : Bool) (sn : Name) (e' : ExprC) :
-    Nat → Nat → ExprC → CheckCM ExprC
-  | _j, 0, tel => do
-    match ← viewI tel with
-    | some (.forallE _ dom _ _) => pure dom
-    | _ => throw (.invalid "projection index out of range")
-  | j, k + 1, tel => do
-    match ← viewI tel with
-    | some (.forallE _ dom rest _) => do
-      if ← withStore (fun st => st.looseBVarsBoundedI 0 rest) then
-        projFieldDomI r fe depth structProp sn e' (j + 1) k rest
-      else do
-        if structProp then do
-          unless ← isPropTypeI r fe depth dom do
-            throw (.invalid
-              "projection through a non-Prop field of a Prop structure")
-        let pj ← internI (.proj sn j e')
-        let rest' ← inst1M rest pj
-        projFieldDomI r fe depth structProp sn e' (j + 1) k rest'
-    | _ => throw (.invalid "projection index out of range")
-
-/-- Twin of `annotateProjRec`. -/
-def annotateProjRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (entry : ProjEntry) (i : Nat) (te e' : ExprC) (us : List Level) :
-    CheckCM ExprC := do
-  match fe.find? entry.ctor with
-  | some (.ctorInfo _cvC _ cnF) => do
-    let params ← withStore (·.getAppArgsI te)
-    if params.length = entry.numParams then do
-      let ctorI ← internNameM entry.ctor
-      let ctorTy ← constTyAtM fe ctorI entry.ctor us
-      match ← piResidualM ctorTy params with
-      | some tel => do
-        let structProp ← isPropTypeI r fe depth te
-        let snI ← internNameM entry.structName
-        let fi ← projFieldDomI r fe depth structProp snI e'
-          0 i tel
-        let fieldBvar ← internI (.bvar (cnF - 1 - i))
-        match ← pisToLamsM cnF tel fieldBvar with
-        | some minor => do
-          let fi' ← r.annotate depth fi
-          let tfi ← r.inferIO depth fi'
-          let sfi ← ensureSortI r depth tfi
-          if structProp then do
-            let z ← internLM .zero
-            unless ← liftFueled "level comparison"
-                (← isEquivLM sfi z) do
-              throw (.invalid "non-Prop projection from a Prop structure")
-          let uf := if entry.recExtraLevel then [sfi] else []
-          let recI ← internNameM (entry.structName.str "rec")
-          let recC ← internI (.const recI (uf ++ us))
-          let tI ← internNameM (.str .anonymous "t")
-          let motive ← internI
-            (.lam tI te fi ⟨.default, .never⟩)
-          let raw ← mkAppNM recC (params ++ [motive, minor, e'])
-          if ← withStore (fun st => st.wscopedBI depth raw &&
-              st.looseBVarsBoundedI 0 raw &&
-              st.leafGuardI raw e') then
-            r.annotate depth raw
-          else throw (.notImplemented "projection elimination scoping")
-        | none => throw (.invalid "projection index out of range")
-      | none => throw (.invalid "projection index out of range")
-    else throw (.notImplemented "projection parameter mismatch")
-  | _ => throw (.notImplemented
-      "projection constructor not stored")
-
-/-- Twin of `annotateProjElim`. -/
-def annotateProjElimI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (sn : Name)
-    (i : Nat) (te e' : ExprC) : CheckCM ExprC := do
-  match ← withStore (fun st => st.getNode (st.getAppFnI te)) with
-  | some (.const T us) => do
-    let Tn ← readbackNM T
-    if T = sn then
-      match fe.find? (projFnName Tn i) with
-      | some (.recInfo _ _ rP _) => do
-        let targs ← withStore (·.getAppArgsI te)
-        if targs.length = rP then do
-          let pf ← projFnIdxM T i
-          let h ← internI (.const pf us)
-          let raw ← mkAppNM h (targs ++ [e'])
-          if ← withStore (fun st => st.wscopedBI depth raw &&
-              st.looseBVarsBoundedI 0 raw &&
-              st.leafGuardI raw e') then
-            r.annotate depth raw
-          else throw (.notImplemented "projection elimination scoping")
-        else throw (.notImplemented "projection parameter mismatch")
-      | some (.projInfo entry) =>
-        if entry.native then
-          throw (.internal "native projection entry reached the fallback")
-        else annotateProjRecI r fe depth entry i te e' us
-      | _ =>
-        throw (if (fe.find? (projFnName Tn 0)).isSome then
-            CheckError.invalid "projection index out of range"
-          else .notImplemented "projection on a non-structure-like type")
-    else throw (.invalid "projection structure mismatch")
-  | _ => throw (.notImplemented "projection on a non-structure type")
-
 /-! ### Annotation binder-telescope loops (task #72; see the
 `inferLamsI` block comment) -/
 
@@ -1773,7 +1714,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
       let _ ← r.annotate depth v
       let ob ← inst1M b v
       r.annotate depth ob
-    | some (.proj sn i pe) => do
+    | some (.proj _sn i pe) => do
       let e' ← r.annotate depth pe
       let tpe ← r.inferIO depth e'
       let te ← r.whnf depth tpe
@@ -1787,9 +1728,14 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
             unless targs.length = entry.numParams do
               throw (.invalid "projection parameter mismatch")
             internI (.proj T i e')
-          else annotateProjElimI r fe depth sn i te e'
-        | none => annotateProjElimI r fe depth sn i te e'
-      | _ => annotateProjElimI r fe depth sn i te e'
+          else
+            throw (.invalid
+              "projection from a propositional structure must be a proposition")
+        | none =>
+          throw (if (fe.findProj? Tn 0).isSome then
+              CheckError.invalid "projection index out of range"
+            else .notImplemented "projection on a non-structure-like type")
+      | _ => throw (.notImplemented "projection on a non-structure type")
     | none => throw (.internal "interned node missing")
 
 /-! ## The interned memoized knot -/

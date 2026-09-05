@@ -37,20 +37,47 @@ def FieldsValid (ρ : Nat → V) : List AVExpr → Prop
   | F :: Fs => AnnotValidV V ρ F ∧
       ∀ a, a ∈ˢ interp2 V ρ F → FieldsValid (cons a ρ) Fs
 
-/-- The carrier body is bit-valid (no `pi` nodes; hereditary). -/
-theorem towerBodyAV_validV {w : Nat} :
+/-- The carrier body (graph regime) is bit-valid (no `pi` nodes;
+hereditary). -/
+theorem towerBodyAVPos_validV {w : Nat} :
     ∀ {Fs : List AVExpr} {ρ : Nat → V}, FieldsValid ρ Fs →
-      AnnotValidV V ρ (towerBodyAV w Fs)
+      AnnotValidV V ρ (towerBodyAVPos w Fs)
   | [], _, _ => trivial
   | F :: Fs, ρ, hv => by
     show AnnotValidV V ρ (.app (.app (.const .psigma [w, w]) F)
-      (.lam (w + 1) F (towerBodyAV w Fs)))
+      (.lam (w + 1) F (towerBodyAVPos w Fs)))
     rw [AnnotValidV_app]
     refine ⟨?_, ?_⟩
     · rw [AnnotValidV_app]
       exact ⟨trivial, hv.1⟩
     · rw [AnnotValidV_lam]
-      exact ⟨hv.1, fun a ha => towerBodyAV_validV (hv.2 a ha)⟩
+      exact ⟨hv.1, fun a ha => towerBodyAVPos_validV (hv.2 a ha)⟩
+
+/-- The carrier body (squash regime) is bit-valid: every `pi` node
+carries bit `0` over a truth-value codomain (`piR 0`, or `Empty`). -/
+theorem sqBodyAV_validV :
+    ∀ {Fs : List AVExpr} {ρ : Nat → V}, FieldsValid ρ Fs →
+      AnnotValidV V ρ (sqBodyAV Fs)
+  | [], _, _ => trivial
+  | F :: Fs, ρ, hv => by
+    show AnnotValidV V ρ (negAV (.pi 0 0 F (negAV (sqBodyAV Fs))))
+    unfold negAV
+    rw [AnnotValidV_pi]
+    refine ⟨?_, fun _ _ => by simp, fun _ _ _ => ?_⟩
+    · rw [AnnotValidV_pi]
+      refine ⟨hv.1, fun x hx => ?_, fun _ x _ => ?_⟩
+      · rw [AnnotValidV_pi]
+        exact ⟨sqBodyAV_validV (hv.2 x hx), fun _ _ => by simp,
+          fun _ _ _ => by rw [← univ_zero]; exact empty_mem_univ 0⟩
+      · exact piR_zero_mem_univZero
+    · rw [← univ_zero]; exact empty_mem_univ 0
+
+/-- The carrier body is bit-valid, both regimes. -/
+theorem towerBodyAV_validV {w : Nat} {Fs : List AVExpr} {ρ : Nat → V}
+    (hv : FieldsValid ρ Fs) : AnnotValidV V ρ (towerBodyAV w Fs) := by
+  by_cases hw : w = 0
+  · subst hw; rw [towerBodyAV_zero]; exact sqBodyAV_validV hv
+  · rw [towerBodyAV_pos hw]; exact towerBodyAVPos_validV hv
 
 /-- The uniform projection spelling is bit-valid whenever its subject
 is (`.proj`'s validity clause is hereditary). -/
@@ -88,10 +115,10 @@ theorem recBodyAV_validV (n : Nat) (σ : Nat → V) :
 /-- The constructor tupler is bit-valid at a fitting frame — the one
 walk that crosses the λ-frame lifts (`AnnotValidV_liftN` +
 `shiftE_consList`). -/
-theorem mkTowerGo_validV {w : Nat} :
+theorem mkTowerGoPos_validV {w : Nat} (hw : w ≠ 0) :
     ∀ {Fs : List AVExpr} {ρp : Nat → V} {bs : List V},
       FieldsValid ρp Fs → FieldsBound w ρp Fs → SpineFit ρp Fs bs →
-      AnnotValidV V (consList bs ρp) (mkTowerGo w Fs)
+      AnnotValidV V (consList bs ρp) (mkTowerGoPos w Fs)
   | [], _, [], _, _, _ => trivial
   | [], _, _ :: _, _, _, hsp => hsp.elim
   | _ :: _, _, [], _, _, hsp => hsp.elim
@@ -111,9 +138,9 @@ theorem mkTowerGo_validV {w : Nat} :
           (.lam (w + 1) (F.liftN (Fs.length + 1))
             ((towerBodyAV w Fs).liftN (Fs.length + 1) 1)))
           (.bvar Fs.length))
-        (mkTowerGo w Fs))
+        (mkTowerGoPos w Fs))
     rw [AnnotValidV_app]
-    refine ⟨?_, mkTowerGo_validV (hv.2 b hsp.1) (hb.2 b hsp.1) hsp.2⟩
+    refine ⟨?_, mkTowerGoPos_validV hw (hv.2 b hsp.1) (hb.2 b hsp.1) hsp.2⟩
     rw [AnnotValidV_app]
     refine ⟨?_, by rw [AnnotValidV_bvar]; trivial⟩
     rw [AnnotValidV_app]
@@ -128,6 +155,16 @@ theorem mkTowerGo_validV {w : Nat} :
       rw [hA] at hx
       rw [AnnotValidV_liftN, ← cons_shiftE, hshift]
       exact towerBodyAV_validV (hv.2 x hx)
+
+/-- The constructor tupler is bit-valid at a fitting frame, both
+regimes. -/
+theorem mkTowerGo_validV {w : Nat} {Fs : List AVExpr} {ρp : Nat → V}
+    {bs : List V} (hv : FieldsValid ρp Fs)
+    (hb : w ≠ 0 → FieldsBound w ρp Fs) (hsp : SpineFit ρp Fs bs) :
+    AnnotValidV V (consList bs ρp) (mkTowerGo w Fs) := by
+  by_cases hw : w = 0
+  · subst hw; rw [mkTowerGo_zero]; trivial
+  · rw [mkTowerGo_pos hw]; exact mkTowerGoPos_validV hw hv (hb hw) hsp
 
 /-- The single hereditary validity premise of a `mkLamsC` leaf. -/
 def UnderTowerValid (ρ : Nat → V) (b : AVExpr) :

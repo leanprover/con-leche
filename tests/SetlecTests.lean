@@ -53,8 +53,6 @@ each naming the theorem family that depends on it. -/
 -- VACUOUS-BY-FALSE-HYPOTHESIS (risk R4) if this were compiled `true`.
 -- Flipping it back is therefore a verification-scope change, not a
 -- configuration tweak — this guard makes the flip fail `lake test`.
-#guard directStructsEnabled == false
-
 def dummyAxiom : Declaration :=
   .axiomDecl { name := .str .anonymous "foo", levelParams := [], type := .sort .zero }
 

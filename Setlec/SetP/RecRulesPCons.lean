@@ -88,7 +88,7 @@ premise is `rules = []` rather than "not a recursor". -/
 theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (hntc : ConsCrossEnv env c₀)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) {n : Name} {cv : ConstantVal} {mI rP : Nat}
@@ -105,7 +105,9 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
   obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP rules rfl rl hmem
   refine ⟨Ra, ?_, hokRa, ?_, ?_⟩
   · rw [hac]
-    exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
+    exact denoteP_cons_mono hfresh
+      ((hntc.ruleRhs (Setlec.SetR.Env.find?_mem hfE) hmem).instantiateLevelParams
+        _ _) _ 0
       (constsBound_of_constsResolve _ (by
         rw [Setlec.Expr.constsResolve_instantiateLevelParams]
         exact hRres)) hRa0
@@ -124,7 +126,9 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
         rfl
     refine ⟨vpa, ?_, ?_⟩
     · rw [hac]
-      exact denoteP_cons_fresh_mono hfresh hntc _ rP _
+      exact denoteP_cons_mono hfresh
+        (((hntc.rulePinD (Setlec.SetR.Env.find?_mem hfE) hmem hn
+          i).instantiateLevelParams _ _).openRev 0 rP) _ rP
         (constsBound_openRev (constsBound_of_constsResolve _ (by
           rw [Setlec.Expr.constsResolve_instantiateLevelParams]
           exact hpinCR)) 0 rP) hvpa
@@ -133,11 +137,12 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
       -- as the inner block's `TVa` does below
       intro ρ zs TVa restR hzl hzok hTVa hfit
       obtain ⟨TVa', hTVa', -, -⟩ :=
-        mp.constTypeP 0 n _ us hfE (by exact hlen)
+        mp.constTypeP 0 n _ us hfE rfl (by exact hlen)
       obtain rfl : TVa' = TVa := by
         refine Option.some.inj (Eq.trans ?_ hTVa)
         rw [hac]
-        exact (denoteP_cons_fresh_mono hfresh hntc _ 0 _
+        exact (denoteP_cons_mono hfresh
+          ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
           (constsBound_instType mp.base2.wf
             (Setlec.SetR.Env.find?_mem hfE) us) hTVa').symm
       exact hok ρ zs TVa' restR hzl hzok hTVa' hfit
@@ -158,19 +163,21 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     -- the two stored types: produced at the prefix, moved forward,
     -- identified with the given extension readings by determinism
     obtain ⟨TVa', hTVa', -, -⟩ :=
-      mp.constTypeP 0 n _ us hfE (by exact hlen)
+      mp.constTypeP 0 n _ us hfE rfl (by exact hlen)
     obtain rfl : TVa' = TVa := by
       refine Option.some.inj (Eq.trans ?_ hTVa)
       rw [hac]
-      exact (denoteP_cons_fresh_mono hfresh hntc _ 0 _
+      exact (denoteP_cons_mono hfresh
+        ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfE) us) hTVa').symm
     obtain ⟨TVja', hTVja', -, -⟩ :=
-      mp.constTypeP 0 (RecRule.ctor rl) _ usj hfcjE (by exact hujl)
+      mp.constTypeP 0 (RecRule.ctor rl) _ usj hfcjE rfl (by exact hujl)
     obtain rfl : TVja' = TVja := by
       refine Option.some.inj (Eq.trans ?_ hTVja)
       rw [hac]
-      exact (denoteP_cons_fresh_mono hfresh hntc _ 0 _
+      exact (denoteP_cons_mono hfresh
+        ((hntc.typeOf hfcjE).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfcjE) usj) hTVja').symm
     -- the `.nested` premise, contravariantly: a prefix pin reading is
@@ -194,7 +201,9 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
         · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
           rfl
       rw [hac]
-      exact denoteP_cons_fresh_mono hfresh hntc _ rP _
+      exact denoteP_cons_mono hfresh
+        (((hntc.rulePinD (Setlec.SetR.Env.find?_mem hfE) hmem hn
+          i).instantiateLevelParams _ _).openRev 0 rP) _ rP
         (constsBound_openRev (constsBound_of_constsResolve _ (by
           rw [Setlec.Expr.constsResolve_instantiateLevelParams]
           exact hpinCR)) 0 rP) hvpa
@@ -210,7 +219,7 @@ row, the freshness supplying the disequality. -/
 theorem recRulesP_cons_fresh (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (hntc : ConsCrossEnv env c₀)
     (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
       rules = [])
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
@@ -277,12 +286,75 @@ mentions (`acval T`, `acval entry.ctor`) are the prefix's by
 `acvalWith_ne` — both names are stored, so neither is the fresh one.
 The semantic clauses are then the prefix's verbatim. -/
 
-/-- **The tower projection law survives a fresh cons that is not a
-tower entry.**  The direct install's own entries establish theirs
-bespoke (`SetP/DirectInstallP`, W4c). -/
+/-- **A prefix tower entry's law crosses a cons**: the entry, its
+former and its constructor are prefix lookups, their type readings
+cross (the head's slot mentions none of them), and the two leaves the
+laws read are the prefix's. -/
+theorem towerEntryLawP_cons_prefix (mp : EnvS2PM V μ env)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hcross : ConsCrossEnv env c₀)
+    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
+    (φ : Name → Nat) {T : Name} {i : Nat} {entry : ProjEntry}
+    (hfP0 : env.find? (Setlec.projFnName T i) = some (.projInfo entry))
+    (htw : entry.tower = true) :
+    TowerEntryLawP m₂ φ T i entry := by
+  have hfP : env.findProj? T i = some entry := by
+    unfold Setlec.Env.findProj?
+    rw [hfP0]
+  obtain ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, hO5, cvC, hfC, hlpsC,
+    hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP htw
+  -- the two stored names are not the fresh one
+  have hne : ∀ {n : Name} {ci : ConstantInfo}, env.find? n = some ci →
+      n ≠ c₀.name := by
+    intro n ci hn hh
+    rw [hh, hfresh] at hn
+    exact nomatch hn
+  have hnT : T ≠ c₀.name := hne hfT
+  have hnC : entry.ctor ≠ c₀.name := hne hfC
+  refine ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, ?_, hlpsT⟩, hO5, cvC, ?_, hlpsC,
+    fun us hus => ?_, ?_⟩
+  · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfT]; rfl)]; exact hfT
+  · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]; exact hfC
+  · obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
+    refine ⟨⟨Ta, ?_, ?_⟩, ?_⟩
+    · rw [hac]
+      exact denoteP_cons_mono hfresh
+        ((hcross.typeOf hfP0).instantiateLevelParams _ _) _ 0
+        (constsBound_instType mp.base2.wf
+          (Setlec.SetR.Env.find?_mem hfP0) us) hTa
+    · intro hg ρ vs x rest hlen hokT hokx hmem hpeel
+      rw [hac, acvalWith_ne hnT] at hokT hmem
+      exact hA hg ρ vs x rest hlen hokT hokx hmem hpeel
+    · intro hg ρ ys hlen hok
+      rw [hac, acvalWith_ne hnC] at hok ⊢
+      exact hB hg ρ ys hlen hok
+  · -- (C) the η law crosses (task #175 W4c): the former's lookup is a
+    -- prefix lookup, its type reading is closed, the leaves are prefix
+    -- leaves
+    intro cvT' capsT' hfT' us hus
+    have hfT'' : env.find? T = some (.indInfo cvT' capsT') := by
+      rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfT]; rfl)] at hfT'
+      exact hfT'
+    obtain ⟨TVa, hTVa, hok, hlaw'⟩ := hetaL cvT' capsT' hfT'' us hus
+    refine ⟨TVa, ?_, hok, ?_⟩
+    · rw [hac]
+      exact denoteP_cons_mono hfresh
+        ((hcross.typeOf hfT'').instantiateLevelParams _ _) _ 0
+        (constsBound_instType mp.base2.wf
+          (Setlec.SetR.Env.find?_mem hfT'') us) hTVa
+    · intro ρ ts rest x hlen hfit hmem
+      rw [hac, acvalWith_ne hnT] at hmem
+      rw [hac, acvalWith_ne hnC]
+      exact hlaw' ρ ts rest x hlen hfit hmem
+
+/-- **`TowerOkP` at a fresh non-tower cons**: every stored tower entry
+is a prefix entry, and its law crosses. -/
 theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
+    (hcross : ConsCrossEnv env c₀)
     (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
@@ -296,34 +368,33 @@ theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
     · exact absurd htw (by
         rw [hntc entry (Option.some.inj hf3)]; exact Bool.false_ne_true)
     · exact hf3
-  have hfP : env.findProj? T i = some entry := by
-    unfold Setlec.Env.findProj?
-    rw [hfP0]
-  obtain ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
-    hlaw⟩ := mp.tower_ok φ T i entry hfP htw
-  -- the two stored names are not the fresh one
-  have hne : ∀ {n : Name} {ci : ConstantInfo}, env.find? n = some ci →
-      n ≠ c₀.name := by
-    intro n ci hn hh
-    rw [hh, hfresh] at hn
-    exact nomatch hn
-  have hnT : T ≠ c₀.name := hne hfT
-  have hnC : entry.ctor ≠ c₀.name := hne hfC
-  refine ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, ?_, hlpsT⟩, cvC, ?_, hlpsC,
-    fun us hus => ?_⟩
-  · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfT]; rfl)]; exact hfT
-  · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]; exact hfC
-  obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
-  refine ⟨⟨Ta, ?_, ?_⟩, ?_⟩
-  · rw [hac]
-    exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
-      (constsBound_instType mp.base2.wf
-        (Setlec.SetR.Env.find?_mem hfP0) us) hTa
-  · intro ρ vs x rest hlen hokT hokx hmem hpeel
-    rw [hac, acvalWith_ne hnT] at hokT hmem
-    exact hA ρ vs x rest hlen hokT hokx hmem hpeel
-  · intro ρ ys hlen hok
-    rw [hac, acvalWith_ne hnC] at hok ⊢
-    exact hB ρ ys hlen hok
+  exact towerEntryLawP_cons_prefix mp hfresh hcross m₂ hac φ hfP0 htw
+
+/-- **`TowerOkP` at a tower-entry cons** (task #175 W4c, module 4):
+the prefix entries' laws cross, and the head's law is the install's
+own. -/
+theorem towerOkP_cons_tower (mp : EnvS2PM V μ env)
+    {entry₀ : ProjEntry} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? (ConstantInfo.projInfo entry₀).name = none)
+    (hcross : ConsCrossEnv env (.projInfo entry₀))
+    (m₂ : EnvS2Core V ⟨.projInfo entry₀ :: env.consts⟩)
+    (hac : m₂.acval = acvalWith mp.base2.acval
+      (ConstantInfo.projInfo entry₀).name A)
+    (hlaw : ∀ φ : Name → Nat,
+      TowerEntryLawP m₂ φ entry₀.structName entry₀.idx entry₀)
+    (φ : Name → Nat) : TowerOkP m₂ φ := by
+  intro T i entry hf htw
+  have hf3 := Setlec.Env.findProj?_some hf
+  rw [Setlec.Env.find?_cons] at hf3
+  split at hf3
+  · next hn =>
+    obtain rfl : entry₀ = entry :=
+      ConstantInfo.projInfo.inj (Option.some.inj hf3)
+    have hn' : Setlec.projFnName entry₀.structName entry₀.idx
+        = Setlec.projFnName T i := hn
+    obtain ⟨h1, h2⟩ := Setlec.projFnName_inj hn'
+    subst h1 h2
+    exact hlaw φ
+  · exact towerEntryLawP_cons_prefix mp hfresh hcross m₂ hac φ hf3 htw
 
 end Setlec.SetR.Interp2

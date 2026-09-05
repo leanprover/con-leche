@@ -236,6 +236,7 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
             type_reads := ?_
             type_okP := ?_
             mem_typeP := ?_
+            tower_ty := ?_
             defn_reads := ?_
             nat_heads := ?_
             nat_ops := ?_
@@ -256,13 +257,29 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     obtain ⟨c₀, hc₀, hcv, -⟩ := hmemcorr c hc
     rw [← hde, ← hcv] at hta
     exact mp.type_okP c₀ hc₀ ψ ta hta ρ
-  · -- `mem_typeP`
-    intro c hc ψ ta hta ρ
-    obtain ⟨c₀, hc₀, hcv, hname⟩ := hmemcorr c hc
+  · -- `mem_typeP`: the swap touches recursors only, so the tower
+    -- exclusion carries over
+    intro c hc hnt ψ ta hta ρ
+    obtain ⟨c₀, hc₀, hpair⟩ := Setlec.swapSh_mem_corr hsw c hc
+    have hcv : c₀.toConstantVal = c.toConstantVal := by
+      rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩ <;> rfl
+    have hname : c₀.name = c.name := by
+      rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩ <;> rfl
+    have hnt₀ : c₀.isTowerEntry = false := by
+      rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩
+      · exact hnt
+      · rfl
     rw [← hde, ← hcv] at hta
-    have := mp.mem_typeP c₀ hc₀ ψ ta hta ρ
+    have := mp.mem_typeP c₀ hc₀ hnt₀ ψ ta hta ρ
     rw [hname] at this
     exact this
+  · -- `tower_ty`: the swap touches recursors only
+    intro c hc e hce htw
+    obtain ⟨c₀, hc₀, hpair⟩ := Setlec.swapSh_mem_corr hsw c hc
+    rcases hpair with rfl | ⟨cv, mI, rP, rules, -, hc3⟩
+    · exact mp.tower_ty c₀ hc₀ e hce htw
+    · rw [hc3] at hce
+      exact nomatch hce
   · -- `defn_reads`
     intro ψ cv value hmem
     have hmem₀ : (∃ hint : Setlec.ReducibilityHint,
@@ -345,14 +362,20 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp h3
       unfold Setlec.Env.findProj?
       rw [h0]
-    obtain ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
-      hlaw⟩ := mp.tower_ok φ T i entry hfP htw
+    obtain ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, hO5, cvC, hfC, hlpsC,
+      hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP htw
     refine ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
-      cvC, (hsame _ _
+      hO5, cvC, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
-      fun us hus => ?_⟩
-    obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
-    exact ⟨⟨Ta, by rw [← hde]; exact hTa, hA⟩, hB⟩
+      fun us hus => ?_, ?_⟩
+    · obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
+      exact ⟨⟨Ta, by rw [← hde]; exact hTa, hA⟩, hB⟩
+    · -- (C) the η law (task #175 W4c): the former's lookup is unchanged
+      -- by the swap, and the reading is `hde`
+      intro cvT' capsT' hfT' us hus
+      obtain ⟨TVa, hTVa, hok, hlaw'⟩ := hetaL cvT' capsT' ((hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hfT') us hus
+      exact ⟨TVa, by rw [← hde]; exact hTVa, hok, hlaw'⟩
 
 end Setlec.SetR.Interp2

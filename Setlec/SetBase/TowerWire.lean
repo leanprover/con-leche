@@ -132,13 +132,31 @@ end VExprAux
 
 /-! ## The leaf constructors' bounds -/
 
-/-- The carrier body: bounded from the field chain's own bounds. -/
-theorem towerBodyAV_below {w : Nat} :
+/-- The carrier body (graph regime): bounded from the field chain's
+own bounds. -/
+theorem towerBodyAVPos_below {w : Nat} :
     ∀ {Fs : List AVExpr} {k : Nat}, FieldsBelow k Fs →
-      VExpr.bvarsBelow k (towerBodyAV w Fs).erase
+      VExpr.bvarsBelow k (towerBodyAVPos w Fs).erase
   | [], _, _ => trivial
   | _ :: _, _, h =>
-    ⟨⟨trivial, h.1⟩, h.1, towerBodyAV_below h.2⟩
+    ⟨⟨trivial, h.1⟩, h.1, towerBodyAVPos_below h.2⟩
+
+/-- The carrier body (squash regime): bounded from the field chain's
+own bounds. -/
+theorem sqBodyAV_below :
+    ∀ {Fs : List AVExpr} {k : Nat}, FieldsBelow k Fs →
+      VExpr.bvarsBelow k (sqBodyAV Fs).erase
+  | [], _, _ => trivial
+  | _ :: _, _, h =>
+    ⟨⟨h.1, sqBodyAV_below h.2, trivial⟩, trivial⟩
+
+/-- The carrier body, both regimes. -/
+theorem towerBodyAV_below {w : Nat} {Fs : List AVExpr} {k : Nat}
+    (h : FieldsBelow k Fs) :
+    VExpr.bvarsBelow k (towerBodyAV w Fs).erase := by
+  by_cases hw : w = 0
+  · subst hw; rw [towerBodyAV_zero]; exact sqBodyAV_below h
+  · rw [towerBodyAV_pos hw]; exact towerBodyAVPos_below h
 
 /-- The uniform projection spelling adds no variables. -/
 theorem projAV_below :
@@ -158,10 +176,10 @@ theorem recBodyAV_below {nF k : Nat} (h2 : 2 ≤ k) :
   obtain ⟨i, -, rfl⟩ := List.mem_map.mp hea
   exact projAV_below (show (0 : Nat) < k by omega)
 
-/-- The tupler: bounded at the full field frame. -/
-theorem mkTowerGo_below {w : Nat} :
+/-- The tupler (graph regime): bounded at the full field frame. -/
+theorem mkTowerGoPos_below {w : Nat} :
     ∀ {Fs : List AVExpr} {k : Nat}, FieldsBelow k Fs →
-      VExpr.bvarsBelow (k + Fs.length) (mkTowerGo w Fs).erase
+      VExpr.bvarsBelow (k + Fs.length) (mkTowerGoPos w Fs).erase
   | [], _, _ => trivial
   | F :: Fs, k, h => by
     have hF : VExpr.bvarsBelow (k + (Fs.length + 1))
@@ -178,12 +196,20 @@ theorem mkTowerGo_below {w : Nat} :
         by omega] at this
       exact this
     have hrec : VExpr.bvarsBelow (k + (Fs.length + 1))
-        (mkTowerGo w Fs).erase := by
-      have := mkTowerGo_below (w := w) (Fs := Fs) (k := k + 1) h.2
+        (mkTowerGoPos w Fs).erase := by
+      have := mkTowerGoPos_below (w := w) (Fs := Fs) (k := k + 1) h.2
       rw [show k + 1 + Fs.length = k + (Fs.length + 1) by omega] at this
       exact this
     exact ⟨⟨⟨⟨trivial, hF⟩, hF, hbody⟩,
       show Fs.length < k + (Fs.length + 1) by omega⟩, hrec⟩
+
+/-- The tupler, both regimes. -/
+theorem mkTowerGo_below {w : Nat} {Fs : List AVExpr} {k : Nat}
+    (h : FieldsBelow k Fs) :
+    VExpr.bvarsBelow (k + Fs.length) (mkTowerGo w Fs).erase := by
+  by_cases hw : w = 0
+  · subst hw; rw [mkTowerGo_zero]; trivial
+  · rw [mkTowerGo_pos hw]; exact mkTowerGoPos_below h
 
 /-- The λ-tower former: bounded from the frame's own bounds and the
 body's at the full depth. -/

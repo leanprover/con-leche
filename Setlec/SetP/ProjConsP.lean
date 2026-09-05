@@ -144,7 +144,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
       (∀ ρ : Nat → V, AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta := by
     intro ψ
-    obtain ⟨ta, hta, hok, hmem⟩ := mp.acval_memTypeP hfm ψ
+    obtain ⟨ta, hta, hok, hmem⟩ := mp.acval_memTypeP hfm rfl ψ
     refine ⟨ta, ?_, hok, ?_⟩
     · rw [← denoteP_renameConsts hroP pty 0, hrenP]
       exact hta

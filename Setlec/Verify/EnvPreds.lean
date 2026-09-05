@@ -107,10 +107,14 @@ def TowerHead (env : Env) (entry : ProjEntry) : Prop :=
   (∃ (cvT : ConstantVal) (caps : IndCaps),
     env.find? entry.structName = some (.indInfo cvT caps) ∧
     cvT.levelParams = entry.levelParams) ∧
-  ∃ cvC : ConstantVal,
+  (∃ cvC : ConstantVal,
     env.find? entry.ctor = some (.ctorInfo cvC entry.numParams entry.numFields) ∧
     cvC.levelParams = entry.levelParams ∧
-    (cvC.type.stripPis (entry.numParams + entry.numFields)).isSome = true
+    (cvC.type.stripPis (entry.numParams + entry.numFields)).isSome = true) ∧
+  -- the entry type is a telescope over the parameters and the subject
+  -- (task #175 W4c P3 module 7: the capstone reads it — a table entry
+  -- never has type `Empty`)
+  (entry.ty.stripPis (entry.numParams + 1)).isSome = true
 
 /-- The head data survives any extension that keeps the two lookups. -/
 theorem TowerHead.mono {env env' : Env} {entry : ProjEntry}
@@ -118,10 +122,10 @@ theorem TowerHead.mono {env env' : Env} {entry : ProjEntry}
       (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
       env.find? n = some ci → env'.find? n = some ci)
     (h : TowerHead env entry) : TowerHead env' entry := by
-  obtain ⟨h1, h2, h3, h4, h5, ⟨cvT, caps, hT, hlT⟩, cvC, hC, hlC, hstrip⟩ := h
+  obtain ⟨h1, h2, h3, h4, h5, ⟨cvT, caps, hT, hlT⟩, ⟨cvC, hC, hlC, hstrip⟩, hty⟩ := h
   exact ⟨h1, h2, h3, h4, h5,
     ⟨cvT, caps, hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) hT, hlT⟩,
-    cvC, hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) hC, hlC, hstrip⟩
+    ⟨cvC, hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) hC, hlC, hstrip⟩, hty⟩
 
 /-- Every stored *native* projection-table entry is one of the two
 pinned pair entries, with the pair block stored alongside.
@@ -168,6 +172,22 @@ theorem Env.findProj?_names {env : Env} {sn : Name} {i : Nat}
     eq_of_beq (by simpa using h1)
   simp only [ConstantInfo.name, ConstantInfo.toConstantVal] at h2
   exact projFnName_inj h2
+
+/-- A constant stored under a name that is not a `num` name is not a
+tower entry (those live under `projFnName`, a `num` name). -/
+theorem isTowerEntry_false_of_find? {env : Env} {n : Name} {c : ConstantInfo}
+    (hf : env.find? n = some c) (hn : ∀ p k, n ≠ Name.num p k) :
+    c.isTowerEntry = false := by
+  cases c with
+  | projInfo e =>
+    cases htw : e.tower
+    · simp [ConstantInfo.isTowerEntry, htw]
+    · exfalso
+      have h1 := List.find?_some hf
+      have hname : (ConstantInfo.projInfo e).name = n := eq_of_beq (by simpa using h1)
+      simp only [ConstantInfo.name, ConstantInfo.toConstantVal, projFnName] at hname
+      exact hn _ _ hname.symm
+  | _ => rfl
 
 /-- The third conjunct at a lookup. -/
 theorem ProjOkT.towerHead {env : Env} (h : ProjOkT env)

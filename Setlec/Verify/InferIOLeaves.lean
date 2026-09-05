@@ -61,11 +61,15 @@ theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
         revert h
         split
         · intro h
-          simp only [Except.ok.injEq] at h
-          subst h
-          obtain ⟨htc, -, -, -, -⟩ := henv _ (find?_mem hf)
-          exact WScoped.of_not_hasFvar
-            (by rw [hasFvar_instantiateLevelParams]; exact htc)
+          revert h
+          split
+          · intro h
+            simp only [Except.ok.injEq] at h
+            subst h
+            obtain ⟨htc, -, -, -, -⟩ := henv _ (find?_mem hf)
+            exact WScoped.of_not_hasFvar
+              (by rw [hasFvar_instantiateLevelParams]; exact htc)
+          · intro h; exact nomatch h
         · intro h; exact nomatch h
     | lit l0 =>
       rw [inferTypeCoreIO_succ] at h
@@ -119,7 +123,7 @@ theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
       exact WScoped.instantiate1_gen hw.2 0 hwPi.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, hpair, htow, -⟩ := inferTypeCoreIO_proj_inv h
+        hus, -, hpair, htow, -⟩ := inferTypeCoreIO_proj_inv h
       simp only [WScoped] at hw
       have hwte := inferTypeCoreIO_WScoped henv fuel hte hw
       have hwPi := whnf_WScoped henv fuel hwt hwte
@@ -189,13 +193,17 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
         revert h
         split
         · intro h
-          simp only [Except.ok.injEq] at h
-          subst h
-          obtain ⟨htc, -, -, -, -⟩ := henv _ (find?_mem hf)
-          intro l hl
-          rw [fvarLeaves_eq_nil_of_not_hasFvar
-            (by rw [hasFvar_instantiateLevelParams]; exact htc)] at hl
-          cases hl
+          revert h
+          split
+          · intro h
+            simp only [Except.ok.injEq] at h
+            subst h
+            obtain ⟨htc, -, -, -, -⟩ := henv _ (find?_mem hf)
+            intro l hl
+            rw [fvarLeaves_eq_nil_of_not_hasFvar
+              (by rw [hasFvar_instantiateLevelParams]; exact htc)] at hl
+            cases hl
+          · intro h; exact nomatch h
         · intro h; exact nomatch h
     | lit l0 =>
       rw [inferTypeCoreIO_succ] at h
@@ -263,7 +271,7 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
       · exact Or.inr hb
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, hpair, htow, -⟩ := inferTypeCoreIO_proj_inv h
+        hus, -, hpair, htow, -⟩ := inferTypeCoreIO_proj_inv h
       simp only [WScoped] at hw
       intro l hl
       simp only [fvarLeaves]
@@ -343,11 +351,15 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
         revert h
         split
         · intro h
-          simp only [Except.ok.injEq] at h
-          subst h
-          obtain ⟨-, -, -, htb, -⟩ := henv _ (find?_mem hf)
-          rw [looseBVarsBounded_instantiateLevelParams]
-          exact htb
+          revert h
+          split
+          · intro h
+            simp only [Except.ok.injEq] at h
+            subst h
+            obtain ⟨-, -, -, htb, -⟩ := henv _ (find?_mem hf)
+            rw [looseBVarsBounded_instantiateLevelParams]
+            exact htb
+          · intro h; exact nomatch h
         · intro h; exact nomatch h
     | lit l0 =>
       rw [inferTypeCoreIO_succ] at h
@@ -415,7 +427,7 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
       exact looseBVarsBounded_instantiate1_gen hb.2 hbPi.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, hpair, htow, -⟩ := inferTypeCoreIO_proj_inv h
+        hus, -, hpair, htow, -⟩ := inferTypeCoreIO_proj_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded] at hb
       have hLbe : Expr.LeavesBounded pe := fun l hl => hLb l (by

@@ -87,6 +87,9 @@ theorem reserved_natSuccName :
 theorem reserved_eqName : Setlec.reservedBasisNames.contains eqName = true := by
   decide
 
+theorem reserved_psigmaName :
+    Setlec.reservedBasisNames.contains Setlec.psigmaName = true := by decide
+
 /-- **The P step at an inductive-tier cons.**  Six of
 `declStepPM_of_cons`'s eight collapsible rows are discharged here from
 the *name* (non-reserved) and the *kind* (never a value kind, never an
@@ -130,7 +133,10 @@ theorem declStepPM_of_ind_cons (mp : EnvS2PM V μ env)
       m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOkP m₂)
     (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
-      ∀ φ : Name → Nat, RecRulesP m₂ φ) :
+      ∀ φ : Name → Nat, RecRulesP m₂ φ)
+    -- the head is not a tower entry (task #175 W4c: those get their
+    -- own kit, `DeclDirectP`)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh
@@ -159,7 +165,7 @@ theorem declStepPM_of_ind_cons (mp : EnvS2PM V μ env)
       (Or.inl hnotax) _ rfl
   · -- `tower_ok` (task #175 wiring W5): an ind-tier cons is never a
     -- tower entry (`hh.projTower`)
-    exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower _ rfl φ
+    exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower hntc _ rfl φ
 
 /-- **The P step at a block *member* cons** — `declStepPM_of_ind_cons`
 with `rec_rules` discharged too.  A member is an `indInfo` or a
@@ -199,7 +205,7 @@ theorem declStepPM_of_ind_member_cons (mp : EnvS2PM V μ env)
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_ind_cons mp hfresh hnres ?_ ?_ ?_ hh
     hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
-    hcaps ?_
+    hcaps ?_ ?_
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
       intro _ _ _ h <;> exact nomatch h
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
@@ -209,6 +215,8 @@ theorem declStepPM_of_ind_member_cons (mp : EnvS2PM V μ env)
   · refine fun m₂ hac φ => recRulesP_cons_fresh mp hfresh hh.projTower ?_ m₂ hac φ
     rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
       intro _ _ _ _ h <;> exact nomatch h
+  · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
+      intro _ h <;> exact nomatch h
 
 /-- **The P step at a *recursor* cons** — the block's recursors and the
 projection functions, both stored as `recInfo`.  Only `caps_ok` and
@@ -249,7 +257,7 @@ theorem declStepPM_of_ind_rec_cons (mp : EnvS2PM V μ env)
   exact declStepPM_of_ind_cons mp hfresh hnres
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (fun _ h => nomatch h) hh hAclosed hAparams hAok
-    hAvalid htyReads htyOk hmemNew hcaps hrec
+    hAvalid htyReads htyOk hmemNew hcaps hrec (fun _ h => nomatch h)
 
 /-- **The P step at an elimination-*template* cons** (`TemplatesR`'s
 `projInfo`): the one ind-tier cons with **no** open row at all.  A
@@ -288,7 +296,8 @@ theorem declStepPM_of_projTemplate_cons (mp : EnvS2PM V μ env)
             (ConstantInfo.projInfo entry).name A)
           ⟨.projInfo entry :: env.consts⟩ ψ 0
           (ConstantInfo.projInfo entry).toConstantVal.type = some ta →
-      ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta) :
+      ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
+    (hntc : entry.tower = false) :
     ∃ mp' : EnvS2PM V μ ⟨.projInfo entry :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval
         (ConstantInfo.projInfo entry).name A := by
@@ -296,6 +305,7 @@ theorem declStepPM_of_projTemplate_cons (mp : EnvS2PM V μ env)
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (fun _ h => nomatch h) hh hAclosed hAparams hAok
     hAvalid htyReads htyOk hmemNew ?_ ?_
+    (fun e' h => by cases h; exact hntc)
   · exact fun m₂ hac => capsOkP_cons_fresh mp mp.caps_ok hfresh
       hh.projTower
       (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h)

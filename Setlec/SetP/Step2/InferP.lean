@@ -120,7 +120,7 @@ transposed: no fuel, `AnnotOkP` conclusion). -/
 def ConstTypeP {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) : Prop :=
   ∀ (d : Nat) (n : Name) (ci : Setlec.ConstantInfo) (us : List Level),
-    env.find? n = some ci →
+    env.find? n = some ci → ci.isTowerEntry = false →
     us.length = ci.toConstantVal.levelParams.length →
     ∃ ta,
       denoteP m.acval env φ d
@@ -156,20 +156,23 @@ theorem infer_const_claimP (m : EnvS2Core V env)
     rw [hf] at h
     dsimp only at h
     split at h
-    · next hlen =>
-      simp only [Except.ok.injEq] at h
-      subst h
-      rw [denoteP, hf] at hea
-      dsimp only at hea
-      rw [if_pos hlen] at hea
-      obtain rfl : ea = m.acval n
-          (Level.substFn φ ci.toConstantVal.levelParams us) :=
-        (Option.some.inj hea).symm
-      obtain ⟨ta', hta', hok, hmem⟩ := hct d n ci us hf hlen
-      rw [hta'] at hta
-      obtain rfl : ta = ta' := (Option.some.inj hta).symm
-      exact ⟨fun ρ _ => ⟨m.acval_ok2 n _ ρ, hval n _ ρ⟩,
-        fun ρ _ => hok ρ, fun ρ _ => hmem ρ⟩
+    · next htw =>
+      split at h
+      · next hlen =>
+        simp only [Except.ok.injEq] at h
+        subst h
+        rw [denoteP, hf] at hea
+        dsimp only at hea
+        rw [if_pos hlen] at hea
+        obtain rfl : ea = m.acval n
+            (Level.substFn φ ci.toConstantVal.levelParams us) :=
+          (Option.some.inj hea).symm
+        obtain ⟨ta', hta', hok, hmem⟩ := hct d n ci us hf (by simpa using htw) hlen
+        rw [hta'] at hta
+        obtain rfl : ta = ta' := (Option.some.inj hta).symm
+        exact ⟨fun ρ _ => ⟨m.acval_ok2 n _ ρ, hval n _ ρ⟩,
+          fun ρ _ => hok ρ, fun ρ _ => hmem ρ⟩
+      · simp [throw, throwThe, MonadExceptOf.throw] at h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- `.sort`, P currency: both readings are sort nodes, gradings are
