@@ -146,7 +146,7 @@ def installProjTemplateS (fe : FEnv) (T ctorName : Name) (lps : List Name)
         mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧ i < nF then
       pure (fe.push (.projInfo ⟨T, i, lps, nP, ctorName, nF, .sort .zero,
         .zero, .zero, false,
-        cvR.levelParams.length = lps.length + 1⟩))
+        cvR.levelParams.length = lps.length + 1, false⟩))
     else pure fe
   | _ => pure fe
 
@@ -166,15 +166,15 @@ step consumes the residual for `i` and extends it by a **single**
 redone, which is what keeps wide structures out of the cubic
 regime. -/
 def checkDirectProjsS (T C : Name) (lps : List Name) (nP nF : Nat)
-    (cvTa cvCa : ConstantVal) :
+    (resSort : Level) (cvTa cvCa : ConstantVal) :
     (todo i : Nat) → Option Expr → FEnv → CheckCM FEnv
   | 0, _, _, fe => pure fe
   | todo + 1, i, rt?, fe => do
     flushC
-    let fe' ← checkDirectProjF (sharedOpsC mode fe) T C lps nP nF cvTa cvCa
-      rt? fe i
-    checkDirectProjsS T C lps nP nF cvTa cvCa todo (i + 1)
-      (rt?.bind (Expr.instPisAtLift [directProjArg T lps nP i])) fe'
+    let fe' ← checkDirectProjF (sharedOpsC mode fe) T C lps nP nF resSort cvTa
+      cvCa rt? fe i
+    checkDirectProjsS T C lps nP nF resSort cvTa cvCa todo (i + 1)
+      (rt?.bind (Expr.instPisAtLift [directProjArgP T i])) fe'
 
 /-- `checkDirectStruct` through the index. -/
 def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
@@ -199,7 +199,7 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
       (fun j => (fe₃.find? (projFnName p.cvT.name j)).isNone) do
     throw (.invalid "projection name family taken")
   checkDirectProjsS mode p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
-    cvTa cvCa p.nF 0
+    p.resSort cvTa cvCa p.nF 0
     (Expr.instPisAtLift (directProjPs p.nP) cvCa.type) fe₃
 
 /-- The modeled inductive block (mirrors `checkIndDecl`), returning

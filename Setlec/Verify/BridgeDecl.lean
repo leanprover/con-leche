@@ -974,40 +974,48 @@ theorem checkDirectRule_snd_dproj (env : Env) (p : DirectParts)
     unwrapOr_snd_dproj, checkDefEqList_snd_dproj]
 
 theorem checkDirectProj_fst_dproj (T C : Name) (lps : List Name)
-    (nP nF : Nat) (cvTa cvCa : ConstantVal) (env : Env) (i : Nat) :
-    (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF cvTa cvCa env i).val.1 =
-      checkDirectProj o₁ T C lps nP nF cvTa cvCa env i := by
+    (nP nF : Nat) (rs : Level) (cvTa cvCa : ConstantVal) (env : Env)
+    (i : Nat) :
+    (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF rs cvTa cvCa
+        env i).val.1 =
+      checkDirectProj o₁ T C lps nP nF rs cvTa cvCa env i := by
   unfold checkDirectProj
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, pairOps_annotate_fst, pairOps_inferType_fst,
     pairOps_ensureSort_fst, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
-    checkProjShape_fst_dproj, checkProjRule_fst_dproj]
+    liftFueled_fst_proj, checkProjShape_fst_dproj]
 
 theorem checkDirectProj_snd_dproj (T C : Name) (lps : List Name)
-    (nP nF : Nat) (cvTa cvCa : ConstantVal) (env : Env) (i : Nat) :
-    (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF cvTa cvCa env i).val.2 =
-      checkDirectProj o₂ T C lps nP nF cvTa cvCa env i := by
+    (nP nF : Nat) (rs : Level) (cvTa cvCa : ConstantVal) (env : Env)
+    (i : Nat) :
+    (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF rs cvTa cvCa
+        env i).val.2 =
+      checkDirectProj o₂ T C lps nP nF rs cvTa cvCa env i := by
   unfold checkDirectProj
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, pairOps_annotate_snd, pairOps_inferType_snd,
     pairOps_ensureSort_snd, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
-    checkProjShape_snd_dproj, checkProjRule_snd_dproj]
+    liftFueled_snd_proj, checkProjShape_snd_dproj]
 
 theorem checkDirectProj_fst_fun (T C : Name) (lps : List Name)
-    (nP nF : Nat) (cvTa cvCa : ConstantVal) :
+    (nP nF : Nat) (rs : Level) (cvTa cvCa : ConstantVal) :
     (fun (e : Env) (i : Nat) =>
-      (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF cvTa cvCa e i).val.1) =
-    (checkDirectProj o₁ T C lps nP nF cvTa cvCa : Env → Nat → M₁ Env) :=
+      (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF rs cvTa cvCa
+        e i).val.1) =
+    (checkDirectProj o₁ T C lps nP nF rs cvTa cvCa :
+      Env → Nat → M₁ Env) :=
   funext fun e => funext fun i =>
-    checkDirectProj_fst_dproj T C lps nP nF cvTa cvCa e i
+    checkDirectProj_fst_dproj T C lps nP nF rs cvTa cvCa e i
 
 theorem checkDirectProj_snd_fun (T C : Name) (lps : List Name)
-    (nP nF : Nat) (cvTa cvCa : ConstantVal) :
+    (nP nF : Nat) (rs : Level) (cvTa cvCa : ConstantVal) :
     (fun (e : Env) (i : Nat) =>
-      (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF cvTa cvCa e i).val.2) =
-    (checkDirectProj o₂ T C lps nP nF cvTa cvCa : Env → Nat → M₂ Env) :=
+      (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF rs cvTa cvCa
+        e i).val.2) =
+    (checkDirectProj o₂ T C lps nP nF rs cvTa cvCa :
+      Env → Nat → M₂ Env) :=
   funext fun e => funext fun i =>
-    checkDirectProj_snd_dproj T C lps nP nF cvTa cvCa e i
+    checkDirectProj_snd_dproj T C lps nP nF rs cvTa cvCa e i
 
 theorem checkDirectStruct_fst_dproj (env : Env) (p : DirectParts) :
     (checkDirectStruct (pairOps o₁ o₂ h) env p).val.1 =
@@ -1900,23 +1908,27 @@ theorem checkDirectRule_datF (env : Env) (p : DirectParts)
     unwrapOr_atF, checkDefEqList_datF]
 
 theorem checkDirectProj_datF (T C : Name) (lps : List Name)
-    (nP nF : Nat) (cvTa cvCa : ConstantVal) (env : Env) (i F : Nat) :
-    (checkDirectProj (fueledOpsM mode) T C lps nP nF cvTa cvCa env i).val F =
-      checkDirectProj (fueledOps mode F) T C lps nP nF cvTa cvCa env i := by
+    (nP nF : Nat) (rs : Level) (cvTa cvCa : ConstantVal) (env : Env)
+    (i F : Nat) :
+    (checkDirectProj (fueledOpsM mode) T C lps nP nF rs cvTa cvCa
+        env i).val F =
+      checkDirectProj (fueledOps mode F) T C lps nP nF rs cvTa cvCa
+        env i := by
   unfold checkDirectProj
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, fueledOpsM_annotate_atF, fueledOpsM_inferType_atF,
     fueledOpsM_ensureSort_atF, fueledOpsM_isDefEq_atF, unwrapOr_atF,
-    checkProjShape_datF, checkProjRule_datF]
+    liftFueled_atF, checkProjShape_datF]
 
 theorem checkDirectProj_datF_fun (T C : Name) (lps : List Name)
-    (nP nF : Nat) (cvTa cvCa : ConstantVal) (F : Nat) :
+    (nP nF : Nat) (rs : Level) (cvTa cvCa : ConstantVal) (F : Nat) :
     (fun (e : Env) (i : Nat) =>
-      (checkDirectProj (fueledOpsM mode) T C lps nP nF cvTa cvCa e i).val F) =
-    (checkDirectProj (fueledOps mode F) T C lps nP nF cvTa cvCa :
+      (checkDirectProj (fueledOpsM mode) T C lps nP nF rs cvTa cvCa
+        e i).val F) =
+    (checkDirectProj (fueledOps mode F) T C lps nP nF rs cvTa cvCa :
       Env → Nat → CheckM Env) :=
   funext fun e => funext fun i =>
-    checkDirectProj_datF T C lps nP nF cvTa cvCa e i F
+    checkDirectProj_datF T C lps nP nF rs cvTa cvCa e i F
 
 theorem checkDirectStruct_datF (env : Env) (p : DirectParts) (F : Nat) :
     (checkDirectStruct (fueledOpsM mode) env p).val F =

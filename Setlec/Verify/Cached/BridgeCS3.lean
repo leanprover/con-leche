@@ -446,11 +446,14 @@ theorem checkDirectRuleS_sim (henv : EnvWF env) {p : DirectParts}
 /-- The projection-function install of the direct path at the shared
 operations. -/
 theorem checkDirectProjS_sim (henv : EnvWF env) {T C : Name}
-    {lps : List Name} {nP nF i : Nat} {cvTa cvCa : ConstantVal}
+    {lps : List Name} {nP nF i : Nat} {rs : Level}
+    {cvTa cvCa : ConstantVal}
     (hCf : cvCa.type.hasFvar = false) (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkDirectProj (sharedOpsC mode (mkFEnv env)) T C lps nP nF cvTa cvCa env i)
-      (checkDirectProj (fueledOpsM mode) T C lps nP nF cvTa cvCa env i) := by
+      (checkDirectProj (sharedOpsC mode (mkFEnv env)) T C lps nP nF rs
+        cvTa cvCa env i)
+      (checkDirectProj (fueledOpsM mode) T C lps nP nF rs cvTa cvCa
+        env i) := by
   unfold checkDirectProj
   dsimp only [sharedOpsC]
   refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ pty pty' hs₁ hP => ?_)
@@ -520,18 +523,13 @@ theorem checkDirectProjS_sim (henv : EnvWF env) {T C : Name}
     (fun s₁₁ tfv tfv' hs₁₁ hTf => ?_)
   obtain ⟨rfl, htf⟩ := hTf
   have htfvW : WScoped (nP + 1) tfv := htfW tfv (List.mem_of_getElem? htf)
-  have hargsW : ∀ x ∈ fvsP ++ (List.range i).map (fun j =>
-      Expr.mkAppN (.const (projFnName T j) (lps.map .param))
-        (fvsP ++ [tfv])), WScoped (nP + 1) x := by
+  have hargsW : ∀ x ∈ fvsP ++ (List.range i).map
+      (fun j => Expr.proj T j tfv), WScoped (nP + 1) x := by
     intro x hx
     rcases List.mem_append.mp hx with hx | hx
     · exact (hfvsW x hx).mono (by omega)
     · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
-      refine Expr.WScoped.mkAppN (by simp [WScoped]) (fun y hy => ?_)
-      rcases List.mem_append.mp hy with hy | hy
-      · exact (hfvsW y hy).mono (by omega)
-      · rcases List.mem_singleton.mp hy with rfl
-        exact htfvW
+      simpa only [WScoped] using htfvW
   refine SimC.bind (SimC.unwrapOr' hs₁₁) (fun s₁₂ q4 q4' hs₁₂ hC => ?_)
   obtain ⟨rfl, hci⟩ := hC
   obtain ⟨cdoms, cresid⟩ := q4
@@ -562,10 +560,20 @@ theorem checkDirectProjS_sim (henv : EnvWF env) {T C : Name}
     exact SimC.throw_bind
   | true =>
   simp only [↓reduceIte]
-  refine SimC.bind (checkProjRuleS_sim henv hAf hCf hs₁₄)
-    (fun s₁₅ rhsA rhsA' hs₁₅ hRu => ?_)
-  obtain rfl : rhsA = rhsA' := hRu
-  exact SimC.pure hs₁₅ rfl
+  refine SimC.bind (opE_infer_sim henv hs₁₄ hresidW)
+    (fun s₁₅ fSty fSty' hs₁₅ hFs => ?_)
+  obtain ⟨rfl, hfstyW⟩ := hFs
+  refine SimC.bind (opS_sim henv hs₁₅ hfstyW)
+    (fun s₁₆ fu fu' hs₁₆ hFu => ?_)
+  obtain rfl : fu = fu' := hFu
+  refine SimC.bind (SimC.liftFueled _ _ hs₁₆)
+    (fun s₁₇ le le' hs₁₇ hLe => ?_)
+  obtain rfl : le = le' := hLe
+  by_cases h4 : (rs.isNonZero || le) = true
+  · simp only [if_pos h4]
+    exact SimC.pure hs₁₇ rfl
+  · simp only [if_neg h4]
+    exact SimC.pure hs₁₇ rfl
 
 end Walks3
 

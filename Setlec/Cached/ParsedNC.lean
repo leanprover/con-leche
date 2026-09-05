@@ -124,15 +124,15 @@ def installProjFnStepNC (T ctorName : Name) (lps : List Name)
 
 /-- `checkDirectProjsS` at the cert-skipping ops. -/
 def checkDirectProjsNC (T C : Name) (lps : List Name) (nP nF : Nat)
-    (cvTa cvCa : ConstantVal) :
+    (resSort : Level) (cvTa cvCa : ConstantVal) :
     (todo i : Nat) → Option Expr → FEnv → CheckCM FEnv
   | 0, _, _, fe => pure fe
   | todo + 1, i, rt?, fe => do
     flushC
-    let fe' ← checkDirectProjF (sharedOpsCNC fe) T C lps nP nF cvTa cvCa
-      rt? fe i
-    checkDirectProjsNC T C lps nP nF cvTa cvCa todo (i + 1)
-      (rt?.bind (Expr.instPisAtLift [directProjArg T lps nP i])) fe'
+    let fe' ← checkDirectProjF (sharedOpsCNC fe) T C lps nP nF resSort cvTa
+      cvCa rt? fe i
+    checkDirectProjsNC T C lps nP nF resSort cvTa cvCa todo (i + 1)
+      (rt?.bind (Expr.instPisAtLift [directProjArgP T i])) fe'
 
 /-- `checkDirectStructS` at the cert-skipping ops. -/
 def checkDirectStructNC (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
@@ -153,7 +153,7 @@ def checkDirectStructNC (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
       (fun j => (fe₃.find? (projFnName p.cvT.name j)).isNone) do
     throw (.invalid "projection name family taken")
   checkDirectProjsNC p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
-    cvTa cvCa p.nF 0
+    p.resSort cvTa cvCa p.nF 0
     (Expr.instPisAtLift (directProjPs p.nP) cvCa.type) fe₃
 
 /-- `checkIndDeclSF` at the cert-skipping ops. -/

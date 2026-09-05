@@ -3038,13 +3038,14 @@ pure run.  The generated projection type is checked closed by the
 checker's own guard before it is annotated, and the annotated type's
 own guard supplies what `checkProjRule` needs. -/
 theorem checkDirectProj_wfimp {env : Env} (henv : EnvWF env)
-    {T C : Name} {lps : List Name} {nP nF i F : Nat}
+    {T C : Name} {lps : List Name} {nP nF i F : Nat} {rs : Level}
     {cvTa cvCa : ConstantVal} {v : Env}
     (hCf : cvCa.type.hasFvar = false)
-    (hCb : cvCa.type.looseBVarsBounded 0 = true)
-    (h : (checkDirectProj (wfOpsM mode) T C lps nP nF cvTa cvCa env i).val F =
-      .ok v) :
-    checkDirectProj (fueledOps mode F) T C lps nP nF cvTa cvCa env i = .ok v := by
+    (_hCb : cvCa.type.looseBVarsBounded 0 = true)
+    (h : (checkDirectProj (wfOpsM mode) T C lps nP nF rs cvTa cvCa
+        env i).val F = .ok v) :
+    checkDirectProj (fueledOps mode F) T C lps nP nF rs cvTa cvCa env i
+      = .ok v := by
   unfold checkDirectProj at h ⊢
   obtain ⟨pty, hpt, h⟩ := atF_bind_ok h
   have hpt' := unwrapOr_atF_ok hpt
@@ -3151,18 +3152,13 @@ theorem checkDirectProj_wfimp {env : Env} (henv : EnvWF env)
   rw [htf']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   have htfvW : WScoped (nP + 1) tfv := htfW tfv (List.mem_of_getElem? htf')
-  have hargsW : ∀ x ∈ fvsP ++ (List.range i).map (fun j =>
-      Expr.mkAppN (.const (projFnName T j) (lps.map .param))
-        (fvsP ++ [tfv])), WScoped (nP + 1) x := by
+  have hargsW : ∀ x ∈ fvsP ++ (List.range i).map
+      (fun j => Expr.proj T j tfv), WScoped (nP + 1) x := by
     intro x hx
     rcases List.mem_append.mp hx with hx | hx
     · exact (hfvsW x hx).mono (by omega)
     · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
-      refine Expr.WScoped.mkAppN (by simp [WScoped]) (fun y hy => ?_)
-      rcases List.mem_append.mp hy with hy | hy
-      · exact (hfvsW y hy).mono (by omega)
-      · rcases List.mem_singleton.mp hy with rfl
-        exact htfvW
+      simpa only [WScoped] using htfvW
   obtain ⟨q4, hci, h⟩ := atF_bind_ok h
   obtain ⟨cdoms, cresid⟩ := q4
   dsimp only [] at h
@@ -3206,11 +3202,28 @@ theorem checkDirectProj_wfimp {env : Env} (henv : EnvWF env)
     · rfl
   subst hb2t
   rw [if_pos rfl] at h ⊢
-  obtain ⟨rhsA, hrule, h⟩ := atF_bind_ok h
-  have hrule' := checkProjRule_wfimp henv hAf hAb hCf hCb hrule
-  rw [hrule']
+  rw [wfOpsM_inferType henv hresidW.to_wscopedB] at h
+  obtain ⟨fSty, hfsty, h⟩ := atF_bind_ok h
+  have hfsty' : (fueledOps mode F).inferType env (nP + 1) resid
+      = .ok fSty := hfsty
+  rw [hfsty']
   simp only [Bind.bind, Except.bind]
-  exact h
+  have hfstyW : WScoped (nP + 1) fSty :=
+    inferTypeCore_WScoped henv F hfsty hresidW
+  rw [wfOpsM_ensureSort henv hfstyW.to_wscopedB] at h
+  obtain ⟨fu, hfu, h⟩ := atF_bind_ok h
+  have hfu' : (fueledOps mode F).ensureSort env (nP + 1) fSty = .ok fu := hfu
+  rw [hfu']
+  simp only [Bind.bind, Except.bind]
+  obtain ⟨le, hle, h⟩ := atF_bind_ok h
+  rw [liftFueled_atF] at hle
+  rw [hle]
+  simp only [Bind.bind, Except.bind]
+  by_cases h4 : (rs.isNonZero || le) = true
+  · rw [if_pos h4] at h ⊢
+    exact h
+  · rw [if_neg h4] at h ⊢
+    exact h
 
 /-- The projection-install fold of the direct path, `wfOpsM mode` run to
 pure run.  The accumulators' well-formedness is a *run-tied*
@@ -3218,41 +3231,41 @@ hypothesis: `checkDirectProj` stores a constant whose `ConstWF` needs
 the declaration inversions, which live with the model
 (`Setlec/Model/`), exactly as `installProjFnStep`'s does. -/
 theorem foldDirectProj_wfimp {T C : Name} {lps : List Name}
-    {nP nF F : Nat} {cvTa cvCa : ConstantVal}
+    {nP nF F : Nat} {rs : Level} {cvTa cvCa : ConstantVal}
     (hCf : cvCa.type.hasFvar = false)
     (hCb : cvCa.type.looseBVarsBounded 0 = true)
     (hstep : ∀ (e e' : Env) (i : Nat), EnvWF e →
-      checkDirectProj (fueledOps mode F) T C lps nP nF cvTa cvCa e i = .ok e' →
+      checkDirectProj (fueledOps mode F) T C lps nP nF rs cvTa cvCa e i = .ok e' →
       EnvWF e') :
     ∀ (idxs : List Nat) (e : Env) {e₂ : Env}, EnvWF e →
-      (idxs.foldlM (checkDirectProj (wfOpsM mode) T C lps nP nF cvTa cvCa)
+      (idxs.foldlM (checkDirectProj (wfOpsM mode) T C lps nP nF rs cvTa cvCa)
         e).val F = .ok e₂ →
-      idxs.foldlM (checkDirectProj (fueledOps mode F) T C lps nP nF cvTa cvCa)
+      idxs.foldlM (checkDirectProj (fueledOps mode F) T C lps nP nF rs cvTa cvCa)
         e = .ok e₂
   | [], e, e₂, _, h => by
     have h' : (Except.ok e : CheckM Env) = Except.ok e₂ := h
     cases h'
     rfl
   | i :: idxs, e, e₂, he, h => by
-    have h' : ((checkDirectProj (wfOpsM mode) T C lps nP nF cvTa cvCa e i >>=
+    have h' : ((checkDirectProj (wfOpsM mode) T C lps nP nF rs cvTa cvCa e i >>=
         fun e₁ => idxs.foldlM
-          (checkDirectProj (wfOpsM mode) T C lps nP nF cvTa cvCa) e₁ :
+          (checkDirectProj (wfOpsM mode) T C lps nP nF rs cvTa cvCa) e₁ :
         FueledM Env)).val F = .ok e₂ := h
     rw [FueledM.atF_bind] at h'
-    cases hm : (checkDirectProj (wfOpsM mode) T C lps nP nF cvTa cvCa e i).val F
+    cases hm : (checkDirectProj (wfOpsM mode) T C lps nP nF rs cvTa cvCa e i).val F
       with
     | error err => rw [hm] at h'; exact nomatch h'
     | ok e₁ =>
       rw [hm] at h'
       have h'' : (idxs.foldlM
-        (checkDirectProj (wfOpsM mode) T C lps nP nF cvTa cvCa) e₁).val F =
+        (checkDirectProj (wfOpsM mode) T C lps nP nF rs cvTa cvCa) e₁).val F =
           .ok e₂ := h'
       have hp := checkDirectProj_wfimp he hCf hCb hm
       have hrest := foldDirectProj_wfimp hCf hCb hstep idxs e₁
         (hstep e e₁ i he hp) h''
-      show (checkDirectProj (fueledOps mode F) T C lps nP nF cvTa cvCa e i >>=
+      show (checkDirectProj (fueledOps mode F) T C lps nP nF rs cvTa cvCa e i >>=
         fun e₁ => idxs.foldlM
-          (checkDirectProj (fueledOps mode F) T C lps nP nF cvTa cvCa) e₁) =
+          (checkDirectProj (fueledOps mode F) T C lps nP nF rs cvTa cvCa) e₁) =
         .ok e₂
       rw [hp]
       exact hrest
@@ -3288,7 +3301,7 @@ theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
             .plain else .inert, rhsA⟩] :: e₂.consts⟩)
     (hstep : ∀ (cvTa cvCa : ConstantVal) (e e' : Env) (i : Nat), EnvWF e →
       checkDirectProj (fueledOps mode F) p.cvT.name p.cvC.name p.cvT.levelParams
-        p.nP p.nF cvTa cvCa e i = .ok e' → EnvWF e')
+        p.nP p.nF p.resSort cvTa cvCa e i = .ok e' → EnvWF e')
     (h : (checkDirectStruct (wfOpsM mode) env p).val F = .ok v) :
     checkDirectStruct (fueledOps mode F) env p = .ok v := by
   unfold checkDirectStruct at h ⊢

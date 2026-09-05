@@ -312,7 +312,7 @@ def pairFstEntry : ProjEntry :=
     2, psigmaMkName, 2, pairFstTyA,
     .param (anonymous |>.str "u"),
     .max (.param (anonymous |>.str "u")) (.param (anonymous |>.str "v")),
-    true, false⟩
+    true, false, false⟩
 
 /-- The pinned second-projection entry of the basis pair. -/
 def pairSndEntry : ProjEntry :=
@@ -320,7 +320,7 @@ def pairSndEntry : ProjEntry :=
     2, psigmaMkName, 2, pairSndTyA,
     .param (anonymous |>.str "v"),
     .max (.param (anonymous |>.str "u")) (.param (anonymous |>.str "v")),
-    true, false⟩
+    true, false, false⟩
 
 /-- The pinned pair projection-table constants. -/
 def pairFstA : ConstantInfo := .projInfo pairFstEntry

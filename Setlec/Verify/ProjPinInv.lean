@@ -176,12 +176,6 @@ theorem checkDirectCtor_consed {env₀ : Env} {p : DirectParts}
     ConsedNonProj env env' := by
   unfold checkDirectCtor at h; install_shape h
 
-theorem checkDirectProj_consed {T C : Name} {lps : List Name} {nP nF i : Nat}
-    {cvTa cvCa : ConstantVal}
-    (h : checkDirectProj (m := CheckM) ops T C lps nP nF cvTa cvCa env i
-      = .ok env') : ConsedNonProj env env' := by
-  unfold checkDirectProj at h; install_shape h
-
 theorem checkIndMember_consed {blockNames : List Name} {caps : IndCaps}
     {ci : ConstantInfo}
     (h : checkIndMember (m := CheckM) ops blockNames caps env ci = .ok env') :
@@ -375,36 +369,23 @@ theorem checkIndDecl_preserves {block : List ConstantInfo}
        exact checkIndRecs_preserves (indMembers_preserves hI hM) h)
     | exact absurd h (by simp)
 
-/-! ### The direct structure (compile-time disabled, covered anyway)
+/-! ### The direct structure (task #175 wiring: unreachable pre-flip)
 
-`directStructsEnabled = false` makes this arm unreachable from
-`checkDecl` today (`directParts?` always returns `none`), so the
-invariant does not *need* it.  It is proved regardless: the arm installs
-a type former, a constructor, a recursor and `nF` degenerate projection
-recursors, and nothing about the pin should depend on a feature flag. -/
+`checkDirectProj` now installs **native tower-backed** projection
+entries (`tower := true`), which the pin as stated excludes — the
+post-flip invariant is the frozen disjunction (DESIGN, task #175
+wiring, §2: `native → pair ∨ tower`), landing together with the infer
+clause's `¬ tower` guard at the flip stage.  Pre-flip the arm is
+unreachable — `directStructsEnabled = false` makes `directParts?`
+return `none` on every input — and the walk discharges it by
+computation, not by a preserved shape. -/
 
-theorem checkDirectStruct_preserves {p : DirectParts}
-    (hI : NativeProjPinned env)
-    (h : checkDirectStruct (m := CheckM) ops env p = .ok env') :
-    NativeProjPinned env' := by
-  unfold checkDirectStruct at h
-  obtain ⟨(q₁ : Env × ConstantVal), h₁, h⟩ := exceptBind_ok h
-  obtain ⟨(q₂ : Env × ConstantVal), h₂, h⟩ := exceptBind_ok h
-  obtain ⟨e₁, cvTa⟩ := q₁
-  obtain ⟨e₂, cvCa⟩ := q₂
-  have hI₂ : NativeProjPinned e₂ :=
-    (hI.consed (checkDirectInd_consed h₁)).consed (checkDirectCtor_consed h₂)
-  repeat' first
-    | (obtain ⟨(_ : ConstantVal), -, h⟩ := exceptBind_ok h)
-    | (obtain ⟨(_ : Unit), -, h⟩ := exceptBind_ok h)
-    | (obtain ⟨(_ : Expr), -, h⟩ := exceptBind_ok h)
-    | (dsimp only at h)
-    | split at h
-  all_goals first
-    | (refine foldlM_preserves ?_ (hI₂.consed ⟨_, (fun e => by simp), rfl⟩) h
-       intro e e' a hIe hs
-       exact hIe.consed (checkDirectProj_consed hs))
-    | exact absurd h (by simp)
+private theorem directParts?_none (env : Env) (block : List ConstantInfo) :
+    directParts? env block = none := by
+  unfold directParts?
+  split
+  · simp [directStructsEnabled]
+  · rfl
 
 /-! ### The declaration, and the stream -/
 
@@ -486,9 +467,8 @@ theorem checkDecl_preserves {d : Declaration} (hI : NativeProjPinned env)
       | exact absurd h (by simp)
   | indDecl block =>
     dsimp only at h
-    split at h
-    · exact checkDirectStruct_preserves hI h
-    · exact checkIndDecl_preserves hI h
+    rw [directParts?_none] at h
+    exact checkIndDecl_preserves hI h
 
 /-- **The stream preserves the pin**, from the empty environment. -/
 theorem checkDecls_nativeProjPinned {ds : List Declaration}
