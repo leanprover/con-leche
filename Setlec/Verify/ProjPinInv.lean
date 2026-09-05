@@ -520,6 +520,15 @@ theorem NativeProjPinned.pinned (hI : NativeProjPinned env)
   let hpin := hI entry (List.mem_of_find?_eq_some (Env.findProj?_some hf)) hnat
   ⟨hpin, projEntry_names hf hpin⟩
 
+/-- A pinned (pair-backed) entry is not tower-backed — what the
+task-#175 tower branches guard on. -/
+theorem NativeProjPinned.not_tower (hI : NativeProjPinned env)
+    {sn : Name} {i : Nat} {entry : ProjEntry}
+    (hf : env.findProj? sn i = some entry) (hnat : entry.native = true) :
+    entry.tower = false := by
+  obtain ⟨hpin, -, -⟩ := hI.pinned hf hnat
+  rcases hpin with rfl | rfl <;> rfl
+
 /-- The clause-level consequence, spelled out: at a `native` entry the
 parameter spine has exactly two members and the index is `0` or `1`, so
 the `.proj` inference clause's `.internal "malformed projection entry"`

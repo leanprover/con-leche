@@ -328,7 +328,9 @@ theorem inferProjReadsP_of {m : EnvS2Core V env}
   -- it over directly — `projResidualP`'s derivation from a
   -- `piResidual` premise is retired with the walk.
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, A, B, hAB, hcase⟩ := Setlec.inferTypeCore_proj_inv h
+    hlenUs, hpair, -⟩ := Setlec.inferTypeCore_proj_inv h
+  obtain ⟨A, B, hAB, hcase⟩ :=
+    hpair (projEntry_not_tower m.proj_ok hfe hnat)
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
   have hLpe : Expr.LeavesBounded pe := fun l hl =>

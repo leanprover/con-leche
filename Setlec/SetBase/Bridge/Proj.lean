@@ -159,7 +159,9 @@ theorem inferProj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     InferProjStepR (mode := mode) m φ fuel := by
   intro d Δ sn i pe t h hws hb hLb hC
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, A₀, B₀, hargs₀, hcomp⟩ := inferTypeCore_proj_inv h
+    hlenUs, hpair, -⟩ := inferTypeCore_proj_inv h
+  obtain ⟨A₀, B₀, hargs₀, hcomp⟩ :=
+    hpair (projEntry_not_tower m.proj_ok hfe hnat)
   obtain ⟨hpin, rfl, hidx, hpsig, hpsigMk⟩ := projEntry_pins m.proj_ok hfe hnat
   -- the subject's frames, and its type reduced to the family application
   simp only [Expr.WScoped] at hws

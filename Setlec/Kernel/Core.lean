@@ -1742,18 +1742,28 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         | some entry =>
           if entry.native ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
+            if entry.tower then
+              -- task #175 wiring W2c: the generic residual for a
+              -- tower-backed entry — the stored `ty`
+              -- (`∀ p⃗ (t : T p⃗), F_i`, `.proj`-node spelling) is
+              -- level-instantiated at the subject type's levels and
+              -- peeled along the parameters and the subject (the
+              -- pre-B2 walk shape, tower-only; the pair fast path
+              -- below is untouched).
+              let tyI := entry.ty.instantiateLevelParams
+                entry.levelParams us
+              match Expr.instPisAt (te.getAppArgs ++ [pe]) tyI with
+              | some (_, resid) => pure resid
+              | none => throw (.internal "malformed projection entry")
+            else
             -- Task #161 de-gating round A+B+C, item B2 (harvest site
-            -- 21, list entry P10): the residual is **computed**, not
-            -- walked.  `projEntry_pins` (`SetR/ProjPins.lean`) pins a
-            -- `native` entry to one of the two basis pair entries, so
-            -- the parameter spine has exactly two members and the
-            -- entry type's residual at `[A, B, pe]` is `A` (first
-            -- projection) or `B (pe.1)` (second) — which is precisely
-            -- what `projResidualP`
-            -- (`SetR/Interp2/Step2/ProjPinsP.lean`) proves the walk
-            -- collapses to.  The `Expr` walk peeled three binders with
-            -- three `instantiate1`s per `.proj` inference; the branch
-            -- below is a list match.
+            -- 21, list entry P10): at a pair-backed entry the residual
+            -- is **computed**, not walked.  `projEntry_pins`
+            -- (`SetBase/ProjPins.lean`) pins a `native ¬tower` entry
+            -- to one of the two basis pair entries, so the parameter
+            -- spine has exactly two members and the entry type's
+            -- residual at `[A, B, pe]` is `A` (first projection) or
+            -- `B (pe.1)` (second).
             match te.getAppArgs, i with
             | [A, _], 0 => pure A
             | [_, B], 1 => pure (.app B (.proj T 0 pe))
@@ -1871,6 +1881,20 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         | some entry =>
           if entry.native ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
+            if entry.tower then
+              -- task #175 wiring W2c: the generic residual for a
+              -- tower-backed entry — the stored `ty`
+              -- (`∀ p⃗ (t : T p⃗), F_i`, `.proj`-node spelling) is
+              -- level-instantiated at the subject type's levels and
+              -- peeled along the parameters and the subject (the
+              -- pre-B2 walk shape, tower-only; the pair fast path
+              -- below is untouched).
+              let tyI := entry.ty.instantiateLevelParams
+                entry.levelParams us
+              match Expr.instPisAt (te.getAppArgs ++ [pe]) tyI with
+              | some (_, resid) => pure resid
+              | none => throw (.internal "malformed projection entry")
+            else
             match te.getAppArgs, i with
             | [A, _], 0 => pure A
             | [_, B], 1 => pure (.app B (.proj T 0 pe))

@@ -460,7 +460,9 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     InferProjStepP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, A, B, hAB, hcase⟩ := Setlec.inferTypeCore_proj_inv h
+    hlenUs, hpair, -⟩ := Setlec.inferTypeCore_proj_inv h
+  obtain ⟨A, B, hAB, hcase⟩ :=
+    hpair (projEntry_not_tower m.proj_ok hfe hnat)
   -- the subject's frames
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
@@ -587,7 +589,9 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
     InferProjStepIOP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta hok
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, A, B, hAB, hcase⟩ := Setlec.inferTypeCoreIO_proj_inv h
+    hlenUs, hpair, -⟩ := Setlec.inferTypeCoreIO_proj_inv h
+  obtain ⟨A, B, hAB, hcase⟩ :=
+    hpair (projEntry_not_tower m.proj_ok hfe hnat)
   -- the subject's frames
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb

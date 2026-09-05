@@ -36,6 +36,15 @@ variable {env : Env} {cval : TConstVal} {φ : Name → Nat}
 
 /-! ### Entry identification -/
 
+/-- A `ProjOkT`-pinned entry is not tower-backed (task #175 wiring):
+the fact the P rows use to kill the inversion's tower side. -/
+theorem projEntry_not_tower (hpo : ProjOkT env) {sn : Name} {i : Nat}
+    {entry : ProjEntry}
+    (hf : env.findProj? sn i = some entry) (hnat : entry.native = true) :
+    entry.tower = false := by
+  obtain ⟨hpin, -, -⟩ := hpo.1 _ _ (Env.findProj?_some hf) hnat
+  rcases hpin with rfl | rfl <;> rfl
+
 /-- A native table entry is one of the two pinned pair entries, its
 stored name pins the struct name and index, and the pair block is
 stored.  (`Model/Core/Whnf.lean:317-326`'s moves, packaged.)

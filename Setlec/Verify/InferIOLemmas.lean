@@ -418,8 +418,13 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
       env.findProj? T i = some entry ∧ entry.native = true ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
-      (∃ A B, te.getAppArgs = [A, B] ∧
-        ((i = 0 ∧ t = A) ∨ (i = 1 ∧ t = .app B (.proj T 0 e)))) := by
+      ((entry.tower = false →
+        ∃ A B, te.getAppArgs = [A, B] ∧
+          ((i = 0 ∧ t = A) ∨ (i = 1 ∧ t = .app B (.proj T 0 e)))) ∧
+       (entry.tower = true →
+        ∃ ds, Expr.instPisAt (te.getAppArgs ++ [e])
+            (entry.ty.instantiateLevelParams entry.levelParams us)
+          = some (ds, t))) := by
   rw [inferTypeCoreIO_succ] at h
   simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure, Bind.bind,
     Except.bind] at h
@@ -458,24 +463,44 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
   case isFalse => exact nomatch h
   case isTrue hcond =>
     obtain ⟨hnat, hlen, hus⟩ := hcond
-    revert h
-    match hargs : te.getAppArgs, i with
-    | [A, B], 0 => ?_
-    | [A, B], 1 => ?_
-    | [], _ => intro h; exact nomatch h
-    | [_], _ => intro h; exact nomatch h
-    | _ :: _ :: _ :: _, _ => intro h; exact nomatch h
-    | [_, _], _ + 2 => intro h; exact nomatch h
-    · intro h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-        A, B, hargs, Or.inl ⟨rfl, rfl⟩⟩
-    · intro h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-        A, B, hargs, Or.inr ⟨rfl, rfl⟩⟩
+    by_cases htw : entry.tower = true
+    · rw [if_pos htw] at h
+      revert h
+      cases hpi : Expr.instPisAt (te.getAppArgs ++ [e])
+          (entry.ty.instantiateLevelParams entry.levelParams us) with
+      | none => intro h; exact nomatch h
+      | some q =>
+        obtain ⟨ds, resid⟩ := q
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+          fun hf => absurd htw (by simp [hf]), fun _ => ⟨ds, hpi⟩⟩
+    · rw [if_neg htw] at h
+      have htw' : entry.tower = false := by
+        cases hv : entry.tower
+        · rfl
+        · exact absurd hv htw
+      revert h
+      match hargs : te.getAppArgs, i with
+      | [A, B], 0 => ?_
+      | [A, B], 1 => ?_
+      | [], _ => intro h; exact nomatch h
+      | [_], _ => intro h; exact nomatch h
+      | _ :: _ :: _ :: _, _ => intro h; exact nomatch h
+      | [_, _], _ + 2 => intro h; exact nomatch h
+      · intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+          fun _ => ⟨A, B, hargs, Or.inl ⟨rfl, rfl⟩⟩,
+          fun ht => absurd ht (by simp [htw'])⟩
+      · intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+          fun _ => ⟨A, B, hargs, Or.inr ⟨rfl, rfl⟩⟩,
+          fun ht => absurd ht (by simp [htw'])⟩
 
 /-- **The literal clauses are lane-independent**: neither recurses, so
 the io run *is* the full run — the io twins of the two literal claims
@@ -657,7 +682,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       exact inferTypeCoreIO_of_full htail
     | .proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat,
-        hlenArgs, hlenUs, A, B, hAB, hcase⟩ :=
+        hlenArgs, hlenUs, hpair, htow⟩ :=
         Setlec.inferTypeCore_proj_inv h
       rw [inferTypeCoreIO_succ]
       simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
@@ -671,8 +696,15 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       dsimp only
       rw [hfe]
       dsimp only
-      rw [if_pos ⟨hnat, hlenArgs, hlenUs⟩, hAB]
-      rcases hcase with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> rfl
+      rw [if_pos ⟨hnat, hlenArgs, hlenUs⟩]
+      cases htw : entry.tower with
+      | false =>
+        obtain ⟨A, B, hAB, hcase⟩ := hpair htw
+        rw [if_neg (by simp [htw]), hAB]
+        rcases hcase with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> rfl
+      | true =>
+        obtain ⟨ds, hpi⟩ := htow htw
+        rw [if_pos rfl, hpi]
 
 /-- The weakening at the knot's io slot: at any mode, a full-grade
 success is an io-slot success with the same value (gate-off: the slot
