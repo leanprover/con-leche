@@ -37027,3 +37027,19 @@ quick-iteration signal; ladders as asymptotic controls only.  The
 open perf follow-ups on record: chained io binder clauses (loop them
 only on profile evidence), cross-memo peek (user's later-options
 list).
+
+### 9. THE ACCEPTANCE DELTA (deliverable — the headline holds)
+
+**ZERO.**  `--set-model` (R) vs `--set-model=p` (P), same binary:
+
+* every suite fixture — arena (138) + e2e (73, incl. raw/pre modes) +
+  annot (14), 225 runs per mode: **0 exit-code divergences**;
+* **init-full** (init-full-pre2, `--pre`, under `ulimit -v` 16 000 000
+  KB): both modes **exit 0, 61 048 declarations accepted, output
+  byte-identical** (R ≈ 6 min wall, single run, verdict-only — the
+  instruction-count comparison is §8's deferred measurement).
+
+So the io-graded, skip-live P core accepts *exactly* the streams the
+full R core accepts on everything we can run — the skips discard
+re-checks, not checks: the design's claim, now measured as a verdict
+identity and proved as `no_proof_of_Empty_SPCD_P`.
