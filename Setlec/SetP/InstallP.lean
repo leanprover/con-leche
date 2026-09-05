@@ -294,7 +294,9 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     (hrec_rules : ∀ φ : Name → Nat,
       RecRulesP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ)
     (hreduce_ops : ReduceOpsP (V := V)
-        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _)) :
+        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _))
+    (htower_ok : ∀ φ : Name → Nat,
+      TowerOkP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   have hbound := envWF_constsBound mp.base2.wf
@@ -398,6 +400,7 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     eq_lawP := heq_law
     caps_ok := hcaps_ok
     rec_rules := hrec_rules
-    reduce_ops := hreduce_ops }, rfl⟩
+    reduce_ops := hreduce_ops
+    tower_ok := htower_ok }, rfl⟩
 
 end Setlec.SetR.Interp2

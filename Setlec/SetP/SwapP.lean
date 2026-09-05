@@ -243,7 +243,8 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
             eq_lawP := ?_
             caps_ok := ?_
             rec_rules := hrecP _ rfl
-            reduce_ops := ?_ },
+            reduce_ops := ?_
+            tower_ok := ?_ },
           rfl, rfl⟩
   · -- `type_reads`
     intro c hc ψ
@@ -334,5 +335,25 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
       ((hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
       hpin
     exact ⟨by rw [← hcg.isSomeEq]; exact hs, hlaw⟩
+  · -- `tower_ok` (task #175 wiring W5): a table entry, a former and a
+    -- constructor are never recursors, so every lookup the law reads
+    -- is unchanged by the swap, and the readings are `hde`
+    intro φ T i entry hf htw
+    have hfP : env₀.findProj? T i = some entry := by
+      have h3 := Setlec.Env.findProj?_some hf
+      have h0 := (hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp h3
+      unfold Setlec.Env.findProj?
+      rw [h0]
+    obtain ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
+      hlaw⟩ := mp.tower_ok φ T i entry hfP htw
+    refine ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
+      cvC, (hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
+      fun us hus => ?_⟩
+    obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
+    exact ⟨⟨Ta, by rw [← hde]; exact hTa, hA⟩,
+      ⟨TCa, by rw [← hde]; exact hTCa, hB⟩⟩
 
 end Setlec.SetR.Interp2
