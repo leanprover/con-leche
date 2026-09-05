@@ -87,6 +87,19 @@ so its "exactly two" was stale by one row when B3a opened.  The
 corrected count with the computed-fields row is therefore **two, with
 a different second member**, not three; the escape *class* is what B2
 flagged for ruling, and it is the row above.
+
+**Task #176 added no row, and it is worth saying why.**  The
+pointer-and-hash-first `Name.beqPtr`/`Level.beqPtr`
+(`Setlec/Kernel/Expr.lean`) replace `Name.beq`/`Level.beq` in compiled
+code through **`@[csimp]`**, i.e. on the strength of a *kernel-checked
+equality* (`Name.beq_eq_beqPtr`, `Level.beq_eq_beqPtr`) — **USER
+RULING, 2026-09-05, verbatim:** *"do *not* use `implemented_by`.  If
+you can prove them equal, use `csimp`."*  A `csimp` substitution is
+not an escape at all: the compiler is licensed by a theorem this
+repository proves, not by an unchecked attribute.  So `beqFast`
+(row 1) remains this tree's **only** `implemented_by`-class escape,
+and it stands alone; the computed-fields row (row 2) merely gained two
+users.
 -/
 
 namespace Setlec.Cached

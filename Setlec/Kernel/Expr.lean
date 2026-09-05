@@ -75,13 +75,21 @@ theorem Name.beqPtr_eq (a b : Name) : Name.beqPtr a b = decide (a = b) := by
 
 /-- The executed name equality.  Definitionally `decide (a = b)` — so
 the kernel, `by decide` and `#guard` still see plain structural
-equality — with `beqPtr` substituted by the *compiler*.  Unlike
-`Expr.beqFast` this `implemented_by` is **not** a trust escape: the
-two functions are proved equal (`Name.beqPtr_eq`), and `withPtrEq`'s
-own obligation is discharged above; nothing is taken on faith about
-the runtime. -/
-@[implemented_by Name.beqPtr]
+equality — with `beqPtr` substituted by the compiler on the strength
+of the `@[csimp]` equation below. -/
 def Name.beq (a b : Name) : Bool := decide (a = b)
+
+/-- **The compiler substitution, on a kernel-checked equality.**
+`@[csimp]` (not `@[implemented_by]`) is what replaces `Name.beq` by
+`Name.beqPtr` in compiled code — *"do not use `implemented_by`.  If
+you can prove them equal, use `csimp`"* (user ruling, 2026-09-05).
+Nothing here is taken on faith: `withPtrEq a b k h` is *defined* as
+`k ()` and its obligation is discharged at `beqPtr`, and `hashData` is
+a function of the value, so the hash guard cannot reject an equal
+pair.  This is therefore **not** an escape of `Expr.beqFast`'s class
+and adds no census row. -/
+@[csimp] theorem Name.beq_eq_beqPtr : @Name.beq = @Name.beqPtr := by
+  funext a b; exact (Name.beqPtr_eq a b).symm
 
 instance : BEq Name := ⟨Name.beq⟩
 
@@ -151,10 +159,14 @@ theorem Level.beqPtr_eq (a b : Level) : Level.beqPtr a b = decide (a = b) := by
   · simp [h]
 
 /-- The executed level equality: definitionally `decide (a = b)`, with
-`beqPtr` substituted by the compiler (proved equal, so no trust
-escape — see `Name.beq`). -/
-@[implemented_by Level.beqPtr]
+`beqPtr` substituted by the compiler on the `@[csimp]` equation below
+(see `Name.beq_eq_beqPtr` for why this is not an escape). -/
 def Level.beq (a b : Level) : Bool := decide (a = b)
+
+/-- The `Level` twin of `Name.beq_eq_beqPtr`: `@[csimp]`, not
+`@[implemented_by]`, on a kernel-checked equality. -/
+@[csimp] theorem Level.beq_eq_beqPtr : @Level.beq = @Level.beqPtr := by
+  funext a b; exact (Level.beqPtr_eq a b).symm
 
 instance : BEq Level := ⟨Level.beq⟩
 
