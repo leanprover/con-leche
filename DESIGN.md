@@ -41128,7 +41128,7 @@ main finding.
 | the nat/literal guards (all four) | −0.050 % | −0.105 % | 2× |
 | … of which the `reduceNat` name dispatch | −0.043 % | −0.094 % | 2× |
 | … of which `natLitSupported`'s env scan | −0.040 % | −0.140 % | 3.5× |
-| **the whole η/unit/K certificate content** | **−0.023 %** | **−0.017 %** | 1× |
+| **the whole η/unit/K certificate content** | **−0.023 %** | **−0.017 %** | 0.7× |
 | **all of the above at once** | **−0.169 %** | **−1.221 %** | 7× |
 
 On a general-purpose stream the four classes are *comparable* — each
