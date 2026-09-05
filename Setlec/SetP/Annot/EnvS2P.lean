@@ -609,10 +609,56 @@ def TowerEtaLawP {V : Type w} [SetTheory V] {env : Env}
             (interp2 V ρ
               (m.acval entry.ctor (Level.substFn φ entry.levelParams us)))
 
+/-- **The `Prop` guard at a use's valuation** (task #175 W4c/O4): if
+the structure is a proposition there, so is the field's guard level.
+The typing and iota laws of a tower entry hold under it — a data
+field of a `Prop`-declared structure has no projection law (its value
+is not the point).  Consumers discharge it from the kernel's syntactic
+guard (`inferTypeCore`'s tower branch, `ProjEntry.fireOk`) through
+`towerGuardAt_of`. -/
+def TowerGuardAt (φ : Name → Nat) (entry : ProjEntry) (us : List Level) :
+    Prop :=
+  Level.eval (Level.substFn φ entry.levelParams us) entry.structSort = 0 →
+    Level.eval (Level.substFn φ entry.levelParams us) entry.fieldSort = 0
+
+/-- **The O5 conjunct**: a non-`Prop` family's guard level is bounded
+by its result sort at every valuation (the field sorts are checked
+`≤` the result sort, `checkDirectFieldSorts`), so the guard holds
+wherever the structure happens to be a proposition. -/
+def TowerO5 (entry : ProjEntry) : Prop :=
+  (Level.isEquiv entry.structSort .zero == some true) = false →
+    ∀ ψ : Name → Nat,
+      Level.eval ψ entry.structSort = 0 → Level.eval ψ entry.fieldSort = 0
+
+/-- The guard at a valuation, from the kernel's syntactic guard and O5. -/
+theorem towerGuardAt_of {entry : ProjEntry} {us : List Level} {φ : Name → Nat}
+    (hO5 : TowerO5 entry)
+    (hg : (Level.isEquiv entry.structSort .zero == some true) = true →
+      (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
+        == some true) = true) :
+    TowerGuardAt φ entry us := by
+  intro hs
+  by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
+  · have h1 := Level.isEquiv_sound (beq_iff_eq.mp (hg hp)) φ
+    rw [Level.eval_subst] at h1
+    simpa [Level.eval] using h1
+  · exact hO5 (by simpa using hp) _ hs
+
+/-- The guard from the fire guard (`whnfCore`'s tower fire). -/
+theorem towerGuardAt_of_fireOk {entry : ProjEntry} {us : List Level}
+    {φ : Name → Nat} (hO5 : TowerO5 entry) (htw : entry.tower = true)
+    (hfire : entry.fireOk us = true) : TowerGuardAt φ entry us := by
+  refine towerGuardAt_of hO5 ?_
+  intro hp
+  unfold ProjEntry.fireOk at hfire
+  rw [htw] at hfire
+  simpa [hp] using hfire
+
 /-- **One tower-backed entry's projection law** (see the section
 docstring): the entry's stored data agrees with the stored former and
-constructor (whose η capability is the entry's — task #175 W4c), at
-every level instantiation the typing law and the iota law hold at the
+constructor (whose η capability is the entry's at a non-`Prop` family
+— task #175 W4c/O4), the O5 bound, and at every level instantiation
+the typing law and the iota law hold under the `Prop` guard at the
 entry's own type reading and the constructor's, and the family's
 structural-η law holds (clause (C), `TowerEtaLawP`). -/
 def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
@@ -623,9 +669,11 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
   (∃ (cvT : ConstantVal) (capsT : IndCaps),
     env.find? T = some (.indInfo cvT capsT) ∧
     cvT.levelParams = entry.levelParams ∧
-    capsT.eta = true ∧ capsT.etaCtor = entry.ctor ∧
+    capsT.eta = !(Level.isEquiv entry.structSort .zero == some true) ∧
+    capsT.etaCtor = entry.ctor ∧
     capsT.etaParams = entry.numParams ∧
     capsT.etaFields = entry.numFields) ∧
+  TowerO5 entry ∧
   ∃ cvC : ConstantVal,
     env.find? entry.ctor
       = some (.ctorInfo cvC entry.numParams entry.numFields) ∧
@@ -635,6 +683,7 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
       (∃ Ta : AVExpr,
         denoteP m.acval env φ 0
           (entry.ty.instantiateLevelParams entry.levelParams us) = some Ta ∧
+        (TowerGuardAt φ entry us →
         ∀ (ρ : Nat → V) (vs : List AVExpr) (x rest : AVExpr),
           vs.length = entry.numParams →
           AnnotOkP V ρ (AVExpr.mkAppN
@@ -644,7 +693,7 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
             (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
           Setlec.SetR.AVExpr.peelPis Ta (vs ++ [x]) = some rest →
           AnnotOkP V ρ (projAV i x) ∧ AnnotOkP V ρ rest ∧
-            interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest) ∧
+            interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest)) ∧
       -- (B) the iota law: the projection of a *graded* constructor
       -- application is the selected field.  The premise is the
       -- application's grading alone (its slot chain): in today's
@@ -653,7 +702,8 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
       -- memberships without a certificate — which is what the
       -- `whnfCore` row holds under the io skip.  (A Prop-widened
       -- class would add the certified-fit alternative here.)
-      (∀ (ρ : Nat → V) (ys : List AVExpr),
+      (TowerGuardAt φ entry us →
+        ∀ (ρ : Nat → V) (ys : List AVExpr),
         ys.length = entry.numParams + entry.numFields →
         AnnotOkP V ρ (AVExpr.mkAppN
           (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys) →

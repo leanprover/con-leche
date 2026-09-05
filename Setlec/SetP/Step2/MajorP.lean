@@ -525,12 +525,15 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
             intro j hj ρ hρ
             obtain ⟨entry, hfe, htw, hlpe, hstrpe⟩ :=
               hslotE j (List.mem_range.mp hj)
-            obtain ⟨-, -, -, -, ⟨cvTj, capsTj, hfTj, -, -, -, hparj, -⟩, -, -, -,
-              hlawj, -⟩ := htower T j entry hfe htw
+            obtain ⟨-, -, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j,
+              -, -, -, hlawj, -⟩ := htower T j entry hfe htw
             have hcapsTj : capsTj = caps := by
               rw [hfT] at hfTj
               exact (ConstantInfo.indInfo.inj (Option.some.inj hfTj)).2.symm
-            rw [hcapsTj] at hparj
+            rw [hcapsTj] at hparj hetaj
+            have hgj : TowerGuardAt φ entry ust :=
+              towerGuardAt_of hO5j
+                (fun hp => by rw [heta, hp] at hetaj; exact nomatch hetaj)
             obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj ust (by rw [hlpe]; exact hlenus2)
             obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
             -- the entry type's reading is a ∀-chain of the subject
@@ -544,7 +547,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
             have hlenVs : tsa.length = entry.numParams := by
               rw [← hspt.length, hlenP, hparj]
             rw [hlpe, ← hvT'] at hA
-            exact (hA ρ tsa vm restj hlenVs (hokTm ρ hρ) (hokm ρ hρ)
+            exact (hA hgj ρ tsa vm restj hlenVs (hokTm ρ hρ) (hokm ρ hρ)
               (hmemMW ρ hρ) hpeel).1
           have hspF : DenoteSpineP m.acval env φ d
               (Setlec.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)

@@ -290,7 +290,7 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
   obtain ⟨-, vs, -, hspt, -⟩ := denoteP_mkAppN_inv htea
   by_cases htw : entry.tower = true
   · obtain ⟨ds, hpi⟩ := htow htw
-    obtain ⟨-, -, -, -, -, -, -, -, hlaw, -⟩ := htower T i entry hfe htw
+    obtain ⟨-, -, -, -, -, -, -, -, -, hlaw, -⟩ := htower T i entry hfe htw
     obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
     obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
     have hframes : ∀ x ∈ te.getAppArgs ++ [pe],

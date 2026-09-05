@@ -502,7 +502,7 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
   by_cases htw : entry.tower = true
   · -- TOWER-BACKED (task #175 wiring W5): the tower law's typing clause
     obtain ⟨ds, hpi⟩ := htow htw
-    obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, -, -, -, hlaw, -⟩ :=
+    obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, -, -, -, hlaw, -⟩ :=
       htower T i entry hfe htw
     obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hlenUs
     obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
@@ -540,8 +540,8 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     have hlaw' : ∀ σ : Nat → V, Sat2 V Δa σ →
         AnnotOkP V σ (projAV i vp) ∧ AnnotOkP V σ ta ∧
           interp2 V σ (projAV i vp) ∈ˢ interp2 V σ ta := fun σ hσ =>
-      hA σ vs vp ta hlenVs (hokTe σ hσ) (hokPe σ hσ)
-        ((heqTe σ hσ) ▸ hmemPe σ hσ) hpeel
+      hA (towerGuardAt_of hO5 (hguard htw)) σ vs vp ta hlenVs (hokTe σ hσ)
+        (hokPe σ hσ) ((heqTe σ hσ) ▸ hmemPe σ hσ) hpeel
     exact ⟨fun σ hσ => (hlaw' σ hσ).1, fun σ hσ => (hlaw' σ hσ).2.1,
       fun σ hσ => (hlaw' σ hσ).2.2⟩
   · -- PAIR-BACKED: the pinned pair's two computed residuals
@@ -657,7 +657,7 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
     InferProjStepIOP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta hok
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, -, hpair, htow, hsn⟩ := Setlec.inferTypeCoreIO_proj_inv h
+    hlenUs, hguard, hpair, htow, hsn⟩ := Setlec.inferTypeCoreIO_proj_inv h
   subst hsn
   -- the subject's frames
   simp only [Expr.WScoped] at hws
@@ -699,7 +699,7 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
   by_cases htw : entry.tower = true
   · -- TOWER-BACKED (task #175 wiring W5): the tower law's typing clause
     obtain ⟨ds, hpi⟩ := htow htw
-    obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, -, -, -, hlaw, -⟩ :=
+    obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, -, -, -, hlaw, -⟩ :=
       htower T i entry hfe htw
     obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hlenUs
     obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
@@ -735,8 +735,8 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
     have hlaw' : ∀ σ : Nat → V, Sat2 V Δa σ →
         AnnotOkP V σ (projAV i vp) ∧ AnnotOkP V σ ta ∧
           interp2 V σ (projAV i vp) ∈ˢ interp2 V σ ta := fun σ hσ =>
-      hA σ vs vp ta hlenVs (hokTe σ hσ) (hokPe σ hσ)
-        ((heqTe σ hσ) ▸ hmemPe σ hσ) hpeel
+      hA (towerGuardAt_of hO5 (hguard htw)) σ vs vp ta hlenVs (hokTe σ hσ)
+        (hokPe σ hσ) ((heqTe σ hσ) ▸ hmemPe σ hσ) hpeel
     exact ⟨fun σ hσ => (hlaw' σ hσ).2.1, fun σ hσ => (hlaw' σ hσ).2.2⟩
   · -- PAIR-BACKED
     have htw' : entry.tower = false := by
@@ -939,7 +939,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
     · -- TOWER-BACKED (task #175 wiring W5): the tower law's iota clause
       obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe htw hea
       obtain rfl : vp = vp' := Option.some.inj (hvp.symm.trans hvp')
-      obtain ⟨-, -, -, -, -, cvC, hfC, hlpsC, hlaw, -⟩ := htower sn i entry hfe htw
+      obtain ⟨-, -, -, -, -, hO5, cvC, hfC, hlpsC, hlaw, -⟩ := htower sn i entry hfe htw
       obtain ⟨-, hB⟩ := hlaw us hlenU
       -- the constructor spine, read at the constructor's leaf
       have he₃ : e₃ = Expr.mkAppN (.const entry.ctor us) e₃.getAppArgs := by
@@ -978,7 +978,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
       obtain ⟨hokE, heqE⟩ := ihwc hwcf hwF hbF hLF hCF hfvd hea' hokArg
       refine ⟨hokE, fun σ hσ => ?_⟩
       rw [interp2_projAV_congr (heq₃ σ hσ), hveq,
-        hB σ vs hlenVs (hok₃' σ hσ)]
+        hB (towerGuardAt_of_fireOk hO5 htw hfire) σ vs hlenVs (hok₃' σ hσ)]
       exact heqE σ hσ
     · -- PAIR-BACKED
       obtain ⟨hi2, rfl⟩ : i < 2 ∧ ea = .proj i vp := by

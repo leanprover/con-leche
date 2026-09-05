@@ -345,11 +345,11 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp h3
       unfold Setlec.Env.findProj?
       rw [h0]
-    obtain ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
+    obtain ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, hO5, cvC, hfC, hlpsC,
       hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP htw
     refine ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
-      cvC, (hsame _ _
+      hO5, cvC, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
       fun us hus => ?_, ?_⟩
     · obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus

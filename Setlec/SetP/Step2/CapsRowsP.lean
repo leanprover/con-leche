@@ -663,7 +663,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
       · exact ⟨entry, by unfold Setlec.Env.findProj?; rw [hfp], htw, hlpe, hstrpe⟩
     obtain ⟨e0, hfe0, htw0⟩ := Setlec.towerSlotsAll_slot htow 0 h0
     obtain ⟨-, -, -, -, ⟨cvT', capsT', hfT', hlpsT', -, hctr', hpar', hfld'⟩,
-      -, -, -, -, hetaL⟩ := htower T 0 e0 hfe0 htw0
+      -, -, -, -, -, hetaL⟩ := htower T 0 e0 hfe0 htw0
     have hcvT' : cvT' = cvT := by
       rw [hfT] at hfT'
       exact (ConstantInfo.indInfo.inj (Option.some.inj hfT')).1.symm
@@ -687,12 +687,16 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
       intro x hx σ hσ
       obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
       obtain ⟨entry, hfe, htw, hlpe, hstrpe⟩ := hslotE j (List.mem_range.mp hj)
-      obtain ⟨-, -, -, -, ⟨cvTj, capsTj, hfTj, -, -, -, hparj, -⟩, -, -, -,
-        hlawj, -⟩ := htower T j entry hfe htw
+      obtain ⟨-, -, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j, -,
+        -, -, hlawj, -⟩ := htower T j entry hfe htw
       have hcapsTj : capsTj = caps := by
         rw [hfT] at hfTj
         exact (ConstantInfo.indInfo.inj (Option.some.inj hfTj)).2.symm
-      rw [hcapsTj] at hparj
+      rw [hcapsTj] at hparj hetaj
+      -- the family is not a proposition (it claims η), so the guard
+      -- holds at every valuation by O5
+      have hgj : TowerGuardAt φ entry us' :=
+        towerGuardAt_of hO5j (fun hp => by rw [heta, hp] at hetaj; exact nomatch hetaj)
       obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj us' (by rw [hlpe]; exact hlenus)
       obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
       -- the entry type's reading is a ∀-chain of the subject list's
@@ -706,7 +710,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
       have hlenVs : tsa.length = entry.numParams := by
         rw [← hspt.length, hlenb, ← hepar, hparj]
       rw [hlpe] at hA
-      exact (hA σ tsa ba restj hlenVs (hokW σ hσ) (hokB σ hσ) (hmemB σ hσ)
+      exact (hA hgj σ tsa ba restj hlenVs (hokW σ hσ) (hokB σ hσ) (hmemB σ hσ)
         hpeel).1
     have hframeProj : ∀ x ∈ (List.range cnF).map (fun j => Expr.proj T j b),
         Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
