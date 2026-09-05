@@ -129,20 +129,11 @@ def EnvR.swap {env₀ env₃ : Env} (m₀ : EnvR env₀)
       exact m₀.defn_eq cv value hint hc₀ ψ
     · exact nomatch heq
   · -- proj_ok: projection entries and their blocks are untouched
-    obtain ⟨hp1, hp2, hp3⟩ := m₀.proj_ok
-    refine ⟨?_, ?_, ?_⟩
-    · intro n entry hf hnat htw
-      obtain ⟨he, hps, hpm⟩ :=
-        hp1 n entry ((hsame n _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hnat htw
-      refine ⟨he, ?_, ?_⟩
-      · exact (hsame _ _
-          (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hps
-      · exact (hsame _ _
-          (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hpm
-    · intro i entry hf
-      exact hp2 i entry ((hsame _ _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+    obtain ⟨hp1, hp3⟩ := m₀.proj_ok
+    refine ⟨?_, ?_⟩
+    · intro n entry hf hnat
+      exact hp1 n entry ((hsame n _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hnat
     · intro n entry hf htw
       exact TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
         (hp3 n entry ((hsame _ _
@@ -288,18 +279,11 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
           exact nomatch hres
     exact hbpS n ci hf₀ hres
   · -- `ProjOkT`: projection entries are untouched
-    obtain ⟨hp1, hp2, hp3⟩ := hprojS
-    refine ⟨?_, ?_, ?_⟩
-    · intro n entry hf hnat htw
-      obtain ⟨he, hps, hpm⟩ :=
-        hp1 n entry ((hsame n _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hnat htw
-      exact ⟨he,
-        (hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hps,
-        (hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hpm⟩
-    · intro i entry hf
-      exact hp2 i entry ((hsame _ _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+    obtain ⟨hp1, hp3⟩ := hprojS
+    refine ⟨?_, ?_⟩
+    · intro n entry hf hnat
+      exact hp1 n entry ((hsame n _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hnat
     · intro n entry hf htw
       exact TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
         (hp3 n entry ((hsame _ _

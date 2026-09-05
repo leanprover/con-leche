@@ -25,7 +25,6 @@ import Setlec.SetBase.BasisOk
 import Setlec.SetBase.Skeleton
 import Setlec.SetBase.Hoist
 import Setlec.SetBase.SpineV
-import Setlec.SetBase.ProjPins
 import Setlec.SetBase.Decl
 import Setlec.SetBase.DeclEta
 import Setlec.SetBase.DeclRun
@@ -37,7 +36,6 @@ import Setlec.SetBase.EnvR
 import Setlec.SetBase.EnvRCons
 import Setlec.SetBase.IndRecsCoreR
 import Setlec.SetBase.BasisRules
-import Setlec.SetBase.PSigmaTower
 import Setlec.SetBase.TupleTower
 import Setlec.SetBase.TowerIntro
 import Setlec.SetBase.TowerLeaf

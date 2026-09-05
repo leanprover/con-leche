@@ -1,5 +1,6 @@
 import Setlec.SetP.Step2.IotaKitP
-import Setlec.SetP.Step2.ProjPinsP
+import Setlec.SetP.Step2.StuckP
+import Setlec.SetBase.SpineV
 
 /-!
 # The stuck-major rescues, P currency (task #161, iota tier)

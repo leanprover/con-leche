@@ -52,10 +52,6 @@ def BasisBlocks (env : Env) : Prop :=
     env.find? natName = some natA ∧ env.find? natZeroName = some natZeroA ∧
     env.find? natSuccName = some natSuccA) ∧
   (∀ cv mI rP rules,
-    env.find? (psigmaName.str "rec") = some (.recInfo cv mI rP rules) →
-    env.find? psigmaName = some psigmaA ∧
-    env.find? psigmaMkName = some psigmaMkA) ∧
-  (∀ cv mI rP rules,
     env.find? (punitName.str "rec") = some (.recInfo cv mI rP rules) →
     env.find? punitName = some punitA ∧
     env.find? punitUnitName = some punitUnitA)
@@ -72,30 +68,13 @@ theorem RecCtorsStored.empty : RecCtorsStored Env.empty := by
   intro n cv mI rP rules h
   simp [Env.find?, Env.empty] at h
 
-/-- Every stored *native* projection-table entry is one of the two
-pinned pair entries, with the pair block's members stored pinned
-alongside (native entries install only with the pinned `PSigma'`
-block; the proj rules' soundness identifies the pair through this
-clause instead of by name).  Template entries carry no obligation
-here: the fallback's output is re-checked at every use. -/
-def ProjOk (env : Env) : Prop :=
-  ∀ n entry, env.find? n = some (.projInfo entry) →
-    entry.native = true →
-    (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
-    env.find? psigmaName = some psigmaA ∧
-    env.find? psigmaMkName = some psigmaMkA
-
-theorem ProjOk.empty : ProjOk Env.empty := by
-  intro n entry h
-  simp [Env.find?, Env.empty] at h
-
 /-- **A tower-backed entry's syntactic head data** (task #175 wiring
 W5): the facts the direct install establishes syntactically for every
 entry it stores, and which the readings' consumers need with no
 environment record beyond `ProjOkT` — native; the former, its
 recursor and the constructor are unreserved names (the recogniser's
-own guards, so a tower entry never sits at a pinned basis family, in
-particular never at `PSigma'`); the index is in range; the former is
+own guards, so a tower entry never sits at a pinned basis family);
+the index is in range; the former is
 stored as an inductive and the constructor as a constructor at the
 entry's own arities and level parameters. -/
 def TowerHead (env : Env) (entry : ProjEntry) : Prop :=
@@ -127,39 +106,31 @@ theorem TowerHead.mono {env env' : Env} {entry : ProjEntry}
     ⟨cvT, caps, hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) hT, hlT⟩,
     ⟨cvC, hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) hC, hlC, hstrip⟩, hty⟩
 
-/-- Every stored *native* projection-table entry is one of the two
-pinned pair entries, with the pair block stored alongside.
+/-- **The projection-table discipline**: every stored *native* entry is
+tower-backed, and every tower-backed entry carries its syntactic head
+data (`TowerHead`).
 
 **Purely syntactic, so it transposes verbatim** — it mentions no
-values, no interpretation and no derivations, and the `V` of
-`EnvModel`'s `ProjOk` never appears in it.  That is worth noticing
-rather than glossing: a clause that survives the transposition
-*unchanged* is one that was never about the model in the first place,
-and it is the cheapest kind of field to carry.
-
-**Not** the same predicate as `ProjOk` above, which is its first
-conjunct: this one additionally pins the pair block's own projection
-names to native entries.  Relocated here verbatim (task #148, T1) from
-`Setlec/TTVerify/EnvTT.lean`, so that both verification lanes can
-import it. -/
+values, no interpretation and no derivations.  Relocated here (task
+#148, T1) from `Setlec/TTVerify/EnvTT.lean`, so that both verification
+lanes can import it.  Until task #175 W6 the first conjunct instead
+pinned every native non-tower entry to one of the two `PSigma'` pair
+entries (with the pair block stored alongside) and a second conjunct
+pinned the pair family's own slots to native entries; the pin is
+retired with the pinned pair — a direct install is the only source of
+native entries, and it stores `tower := true`. -/
 def ProjOkT (env : Env) : Prop :=
-  -- a native entry that is NOT tower-backed is one of the two pinned
-  -- pair entries, with the pair block stored (task #175 wiring W5:
-  -- the pin is now conditional on the entry kind)
+  -- task #175 W6: native ⇒ tower-backed (the pinned pair entries, the
+  -- last `native ∧ ¬tower` kind, are gone)
   (∀ n entry, env.find? n = some (.projInfo entry) →
-    entry.native = true → entry.tower = false →
-    (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
-    env.find? psigmaName = some psigmaA ∧
-    env.find? psigmaMkName = some psigmaMkA) ∧
-  (∀ i entry, env.find? (projFnName psigmaName i) = some (.projInfo entry) →
-    entry.native = true) ∧
+    entry.native = true → entry.tower = true) ∧
   -- task #175 wiring W5 (was W3's blanket tower-freeness): a
   -- tower-backed entry carries its syntactic head data
   (∀ n entry, env.find? n = some (.projInfo entry) →
     entry.tower = true → TowerHead env entry)
 
 theorem ProjOkT.empty : ProjOkT Env.empty := by
-  refine ⟨?_, ?_, ?_⟩ <;> (intro n entry h; simp [Env.find?, Env.empty] at h)
+  refine ⟨?_, ?_⟩ <;> (intro n entry h; simp [Env.find?, Env.empty] at h)
 
 /-- A successful table lookup fixes the entry's struct name and index
 — the store keys an entry under `projFnName entry.structName
@@ -189,27 +160,29 @@ theorem isTowerEntry_false_of_find? {env : Env} {n : Name} {c : ConstantInfo}
       exact hn _ _ hname.symm
   | _ => rfl
 
-/-- The third conjunct at a lookup. -/
+/-- The second conjunct at a lookup. -/
 theorem ProjOkT.towerHead {env : Env} (h : ProjOkT env)
     {sn : Name} {i : Nat} {entry : ProjEntry}
     (hf : env.findProj? sn i = some entry) (htw : entry.tower = true) :
     TowerHead env entry :=
-  h.2.2 _ _ (Env.findProj?_some hf) htw
+  h.2 _ _ (Env.findProj?_some hf) htw
 
-/-- **An entry at the pinned pair family is never tower-backed**: a
-tower entry's former is unreserved, and `PSigma'` is reserved. -/
-theorem ProjOkT.psigma_not_tower {env : Env} (h : ProjOkT env)
-    {i : Nat} {entry : ProjEntry}
-    (hf : env.findProj? psigmaName i = some entry) : entry.tower = false := by
-  cases htw : entry.tower
-  · rfl
-  · exfalso
-    obtain ⟨-, hres, -⟩ := h.towerHead hf htw
-    rw [(Env.findProj?_names hf).1] at hres
-    exact absurd hres (by decide)
+/-- The first conjunct at a lookup: a native entry is tower-backed. -/
+theorem ProjOkT.tower_of_native {env : Env} (h : ProjOkT env)
+    {sn : Name} {i : Nat} {entry : ProjEntry}
+    (hf : env.findProj? sn i = some entry) (hnat : entry.native = true) :
+    entry.tower = true :=
+  h.1 _ _ (Env.findProj?_some hf) hnat
+
+/-- Both at once: a native entry's head data. -/
+theorem ProjOkT.towerHead_of_native {env : Env} (h : ProjOkT env)
+    {sn : Name} {i : Nat} {entry : ProjEntry}
+    (hf : env.findProj? sn i = some entry) (hnat : entry.native = true) :
+    TowerHead env entry :=
+  h.towerHead hf (h.tower_of_native hf hnat)
 
 theorem BasisBlocks.empty : BasisBlocks Env.empty := by
-  refine ⟨?_, ?_, ?_, ?_⟩ <;>
+  refine ⟨?_, ?_, ?_⟩ <;>
     (intro cv mI rP rules h; simp [Env.find?, Env.empty] at h)
 
 /-- The pinned (annotated) declaration of one basis constant. -/
@@ -221,9 +194,6 @@ def pinnedInfo (n : Name) : ConstantInfo :=
   else if n = natZeroName then natZeroA
   else if n = natSuccName then natSuccA
   else if n = natName.str "rec" then natRecA
-  else if n = psigmaName then psigmaA
-  else if n = psigmaMkName then psigmaMkA
-  else if n = psigmaName.str "rec" then psigmaRecA
   else if n = punitName then punitA
   else if n = punitUnitName then punitUnitA
   else if n = punitName.str "rec" then punitRecA
@@ -240,7 +210,7 @@ def pinnedInfo (n : Name) : ConstantInfo :=
 theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
     (h : pinnedInfo n = .ctorInfo cv nP nF) :
     n = eqReflName ∨ n = natZeroName ∨ n = natSuccName ∨
-    n = psigmaMkName ∨ n = punitUnitName ∨ n = quotMkName := by
+    n = punitUnitName ∨ n = quotMkName := by
   delta pinnedInfo at h
   by_cases h1 : n = eqName
   · rw [if_pos h1] at h; exact nomatch h
@@ -263,20 +233,11 @@ theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
   by_cases h7 : n = natName.str "rec"
   · rw [if_pos h7] at h; exact nomatch h
   rw [if_neg h7] at h
-  by_cases h8 : n = psigmaName
-  · rw [if_pos h8] at h; exact nomatch h
-  rw [if_neg h8] at h
-  by_cases h9 : n = psigmaMkName
-  · exact Or.inr (Or.inr (Or.inr (Or.inl h9)))
-  rw [if_neg h9] at h
-  by_cases h10 : n = psigmaName.str "rec"
-  · rw [if_pos h10] at h; exact nomatch h
-  rw [if_neg h10] at h
   by_cases h11 : n = punitName
   · rw [if_pos h11] at h; exact nomatch h
   rw [if_neg h11] at h
   by_cases h12 : n = punitUnitName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h12))))
+  · exact Or.inr (Or.inr (Or.inr (Or.inl h12)))
   rw [if_neg h12] at h
   by_cases h13 : n = punitName.str "rec"
   · rw [if_pos h13] at h; exact nomatch h
@@ -291,7 +252,7 @@ theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
   · rw [if_pos h16] at h; exact nomatch h
   rw [if_neg h16] at h
   by_cases h17 : n = quotMkName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h17))))
+  · exact Or.inr (Or.inr (Or.inr (Or.inr h17)))
   rw [if_neg h17] at h
   by_cases h18 : n = quotLiftName
   · rw [if_pos h18] at h; exact nomatch h
@@ -309,7 +270,7 @@ theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
     {mI rP : Nat} {rules : List RecRule}
     (h : pinnedInfo n = .recInfo cv mI rP rules) :
     n = eqName.str "rec" ∨ n = natName.str "rec" ∨
-    n = psigmaName.str "rec" ∨ n = punitName.str "rec" ∨
+    n = punitName.str "rec" ∨
     n = emptyName.str "rec" ∨ n = quotLiftName ∨ n = quotIndName := by
   delta pinnedInfo at h
   by_cases h1 : n = eqName
@@ -333,15 +294,6 @@ theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
   by_cases h7 : n = natName.str "rec"
   · exact Or.inr (Or.inl h7)
   rw [if_neg h7] at h
-  by_cases h8 : n = psigmaName
-  · rw [if_pos h8] at h; exact nomatch h
-  rw [if_neg h8] at h
-  by_cases h9 : n = psigmaMkName
-  · rw [if_pos h9] at h; exact nomatch h
-  rw [if_neg h9] at h
-  by_cases h10 : n = psigmaName.str "rec"
-  · exact Or.inr (Or.inr (Or.inl h10))
-  rw [if_neg h10] at h
   by_cases h11 : n = punitName
   · rw [if_pos h11] at h; exact nomatch h
   rw [if_neg h11] at h
@@ -349,13 +301,13 @@ theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
   · rw [if_pos h12] at h; exact nomatch h
   rw [if_neg h12] at h
   by_cases h13 : n = punitName.str "rec"
-  · exact Or.inr (Or.inr (Or.inr (Or.inl h13)))
+  · exact Or.inr (Or.inr (Or.inl h13))
   rw [if_neg h13] at h
   by_cases h14 : n = emptyName
   · rw [if_pos h14] at h; exact nomatch h
   rw [if_neg h14] at h
   by_cases h15 : n = emptyName.str "rec"
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h15))))
+  · exact Or.inr (Or.inr (Or.inr (Or.inl h15)))
   rw [if_neg h15] at h
   by_cases h16 : n = quotName
   · rw [if_pos h16] at h; exact nomatch h
@@ -364,10 +316,10 @@ theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
   · rw [if_pos h17] at h; exact nomatch h
   rw [if_neg h17] at h
   by_cases h18 : n = quotLiftName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h18)))))
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h18))))
   rw [if_neg h18] at h
   by_cases h19 : n = quotIndName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h19)))))
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h19))))
   rw [if_neg h19] at h
   by_cases h20 : n = quotSoundName
   · rw [if_pos h20] at h; exact nomatch h

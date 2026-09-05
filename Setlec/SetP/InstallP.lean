@@ -196,17 +196,10 @@ structure ConsHeadP (env : Env) (c₀ : ConstantInfo)
     (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
     ∀ (ψ : Name → Nat) (t : VExpr),
       pinnedDirectT c₀.name ψ = some t → (A ψ).erase = t
-  /-- a native head projection entry is a pinned pair entry with its
-  block stored (`ProjOkT`'s head) -/
+  /-- a native head projection entry is tower-backed (`ProjOkT`'s
+  head; task #175 W6) -/
   projHead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
-    entry.tower = false →
-    (entry = Setlec.pairFstEntry ∨ entry = Setlec.pairSndEntry) ∧
-    env.find? Setlec.psigmaName = some Setlec.psigmaA ∧
-    env.find? Setlec.psigmaMkName = some Setlec.psigmaMkA
-  /-- …and the pair block's own projection names carry native ones -/
-  projPair : ∀ (i : Nat) entry, c₀ = .projInfo entry →
-    c₀.name = Setlec.projFnName Setlec.psigmaName i →
-    entry.native = true
+    entry.tower = true
   /-- a head tower entry's slot is mentioned by no stored piece, so the
   store's readings survive the cons (task #175 W4c, module 4; vacuous
   at every other head — `ConsCrossEnv.ofNtc`) -/
@@ -239,7 +232,6 @@ theorem ConsHeadP.ofBasis {c₀ : ConstantInfo}
     ConsHeadP env c₀ A :=
   ⟨hwf, hvclosed, fun _ => ⟨hpinned, hleaf⟩,
     fun entry heq => absurd heq (hnotproj entry),
-    fun _ entry heq => absurd heq (hnotproj entry),
     fun entry heq => absurd heq (hnotproj entry),
     fun entry heq => absurd heq (hnotproj entry), hctors⟩
 
@@ -251,13 +243,7 @@ theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
     (hvclosed : ∀ ψ : Name → Nat, VExpr.Closed ((A ψ).erase))
     (hnres : Setlec.reservedBasisNames.contains c₀.name = false)
     (hprojHead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
-      entry.tower = false →
-      (entry = Setlec.pairFstEntry ∨ entry = Setlec.pairSndEntry) ∧
-      env.find? Setlec.psigmaName = some Setlec.psigmaA ∧
-      env.find? Setlec.psigmaMkName = some Setlec.psigmaMkA)
-    (hprojPair : ∀ (i : Nat) entry, c₀ = .projInfo entry →
-      c₀.name = Setlec.projFnName Setlec.psigmaName i →
-      entry.native = true)
+      entry.tower = true)
     (hprojTower : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
@@ -266,7 +252,7 @@ theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
     ConsHeadP env c₀ A :=
   ⟨hwf, hvclosed,
     fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),
-    hprojHead, hprojPair, ConsCrossEnv.ofNtc hprojTower,
+    hprojHead, ConsCrossEnv.ofNtc hprojTower,
     fun entry heq htw => absurd ((hprojTower entry heq).symm.trans htw)
       (by decide),
     hctors⟩
@@ -304,7 +290,7 @@ def coreCons (m : EnvS2Core V env) {c₀ : ConstantInfo}
           acvalWith_self]
         exact (hh.pin hres).2 ψ t hp⟩)
   proj_ok := ProjOkT.cons m.proj_ok hfresh
-    hh.projHead hh.projPair
+    hh.projHead
     hh.projTowerHead
   rec_ctors := Setlec.RecCtorsStored.cons m.rec_ctors hfresh hh.ctorsHead
   acval_closed := acvalWith_closed m.acval_closed hAclosed

@@ -216,7 +216,6 @@ theorem EnvR.consProjFn {env' : Env} (m : EnvR env')
   · -- the projection table: the head is a recursor, not an entry
     exact ProjOkT.cons m.proj_ok hfresh0
       (fun entry heq => ConstantInfo.noConfusion heq)
-      (fun _ entry heq => ConstantInfo.noConfusion heq)
       (fun entry heq => ConstantInfo.noConfusion heq)
   · -- theorem unfoldings: vacuous at the head
     intro cv value hmem ψ

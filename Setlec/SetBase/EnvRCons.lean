@@ -200,7 +200,6 @@ theorem EnvR.consBlockMember {env : Env} (m : EnvR env)
   · -- the projection table: the head is no entry
     exact ProjOkT.cons m.proj_ok hfresh'
       (fun entry heq => absurd heq (hnproj entry))
-      (fun _ entry heq => absurd heq (hnproj entry))
       (fun entry heq => absurd heq (hnproj entry))
   · -- the theorem unfoldings: vacuous at the head
     intro cv value hmem ψ

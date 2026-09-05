@@ -1,5 +1,5 @@
 import Setlec.SetP.Step2.CapsRowsP
-import Setlec.SetP.Step2.ProjPinsP
+import Setlec.SetP.Step2.StuckP
 import Setlec.SetP.Step2.InferIOP
 import Setlec.SetBase.Spine2
 import Setlec.SetP.Step2.TowerKitP

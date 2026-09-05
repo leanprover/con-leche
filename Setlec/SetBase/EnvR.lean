@@ -1,6 +1,9 @@
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InferLeaves
-import Setlec.SetBase.ProjPins
+import Setlec.Verify.Denote.SubstAlgebra
+import Setlec.Verify.Denote.Levels
+import Setlec.Verify.EnvPreds
+import Setlec.SetBase.SpineV
 
 /-!
 # `EnvR`: the environment facts the bridge consumes (task #148, T3)
