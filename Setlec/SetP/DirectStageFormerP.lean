@@ -80,7 +80,7 @@ theorem formerWalks {m : EnvS2Core V env} {cvT : ConstantVal} {nP : Nat}
 /-! ## The cons -/
 
 /-- **The P step at the former's cons**, for a given field chain. -/
-theorem stageFormer (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+theorem stageFormer (mp : EnvS2PM V μ env)
     (hE₀ : Setlec.EtaFamiliesClosed env)
     {F : Nat} {p : DirectParts} {envI : Env} {cvTa : ConstantVal}
     (hind : Setlec.checkDirectInd (Setlec.fueledOps μ F) env p = .ok (envI, cvTa))
