@@ -40588,3 +40588,76 @@ P3 (cached hashes), P1 (`Name`), P2 (`Level` + the disjunct).
 Measurement artifacts: `_tmp/ptreq-land/` — `baseline/setlec` (the
 snapshot), `p3/setlec`, `p3p1-setlec`, `p3p1p2-setlec`, `one.sh`,
 `rows/*.tsv`.
+
+## TASK #175 W4c — P2 SEAL AND THE P3 PLAN (2026-09-05, `agent/wiring3`)
+
+### 0. State at the P2 seal
+
+The kernel widening (O4 recognition, Prop guard level, tower eta in
+`structEtaCertWith`/`majorToCtor`, `directProjSlots`/`directProjGuards`,
+`checkDirectFieldSorts`, `checkDirectProjEntry`) and its proof fallout are
+landed: **every module builds except `SetP/FoldP.lean:189`** — the P
+install half, `DeclDirectR → EnvS2PM`.  Landed in P2 (commits P2a/P2b):
+
+* the R rescue rule's fabricated spine is env-dependent
+  (`etaFabArgsVE`, `SetBase/Rel.lean`); the R eta bridge and the major
+  bridge split by slot kind (`towerSlotsAll` vs `recSlotsAll`);
+* **`TowerEntryLawP` gained clause (C), `TowerEtaLawP`** (the structural
+  η law at `projS` readings) and pins the family's `directCaps` to the
+  entry (`eta`, `etaCtor`, `etaParams`, `etaFields`); the P η row
+  (`CapsRowsP`), the major rescue (`MajorP`) and the reads rows consume
+  it through slot `0` of an all-tower family; the two transports
+  (`towerOkP_cons_fresh`, the swap) carry it.  Keyed on the entry so the
+  modeled route owes nothing;
+* `Verify/DirectWF.lean` (ported from the retired `Model/DirectWF`):
+  `EnvWF` across the direct install's stages at the fueled run;
+  `BridgeCSDecl` regained the cached driver's direct arm
+  (`checkDirectStructS_run`, the `_pushC` equations, `directProjTyR_residP`
+  identifying the incremental residual with the generator).
+
+### 1. The P3 plan (the P install half), module by module
+
+`declDirectP : EnvS2PM env → EtaFamiliesClosed env → DeclDirectR μ F env p env₂
+→ Nonempty (EnvS2PM env₂)`, four cons stages through `declStepPM_of_cons`
+(`InstallP`) with the tower leaves of `SetBase/Tower{Leaf,Mk,Rec}.lean`:
+
+1. **`DirectBitsP`** — the annotated Π-types' codomain bits are EXACT:
+   `inferTypeCore`'s `.forallE` clause validates `equiv (zeronessOf v)
+   mb.pw` in verified mode, so `checkConstantVal`'s own inference run on
+   the annotated type yields `pwBit φ pw = 0 ↔ v.eval φ = 0`
+   (`holds_of_equiv_zeronessOf`) at every binder.  Needed because the
+   leaves' folds require nonzero λ bits (the former: `∀ q⃗, Sort w` has
+   sort `imax … (w+1)`, never zero; the constructor/recursor: bit `= 0 ↔
+   w = 0` / `↔ ℓ = 0`).  Validity alone (`AnnotValidV`) is one-directional
+   and admits a bit-0 annotation at an empty-domain codomain, where the
+   fold fails — the syntactic exactness is the content.
+2. **`DirectReadP`** — the readings: `denoteP` of the four stored types
+   at the stage environments, peeled by `stripPisAV_eq_mkPis`; the
+   leaves as ψ-functions (`directTyAV w pps Fs` etc., `Fs` read off the
+   constructor's field domains in the pre-block environment, which is
+   what `directNonRec`/the `constsResolve env₀` guard license);
+   `hAclosed` (`TowerWire`), `hAparams` (reading congruence), `hAvalid`
+   (`DirectIntroP`).
+3. **`DirectFrameP`** — `ParamsOkT`/`MkPre`/`RecPre` from the checker's
+   pins: `checkDirectDomsAt` and the motive/major/residual `isDefEq`
+   runs into `DefEqClaims2P` at the opened frames (`ctxOkP_of_openers`,
+   `IndFrameP`); O5 (`checkDirectFieldSorts`) into `FieldsGraded` →
+   `FieldsOkB`.
+4. **`TowerConsP`** — the install kit at a tower head: `ConsHeadP`'s
+   `projTower` refutes a tower entry, so a `coreConsTower`/
+   `declStepPM_of_tower_cons` variant with the refined crossing
+   `denoteP_envExtend_mono_at` (`Annot/BitExtendTower`); every
+   `_cons_fresh` transport re-proved for a tower head with the subject
+   `NoProjAt (T, i)` (stored constants resolve in the prefix; the block's
+   own types mention `.proj T j` only for already-stored `j`).
+5. **`DirectLawsP`** — `CapsOkP` at `directCaps` (η/unit at `nF = 0` via
+   `tower_nil_unitlike`; vacuous otherwise, `EtaFamilyStored` needing
+   recursor slots); `RecRuleLawP` for the direct rule
+   (`recBodyAV_fold_mk`); `TowerEntryLawP` (A)/(B)/(C) per entry —
+   (C) from `towerSet_elim`/`projS_mkTower` at bits `w ≠ 0` and the
+   subsingleton argument at `w = 0`.
+6. **`DeclDirectP`** — the assembly and `FoldP`'s dispatch.
+
+Engineering notes carried forward: `split at h` on a do-block with join
+points needs `rw [if_pos …]` (BridgeWfImp's idiom) or a `letFun` unfold
+first; stage inversions use the run existential + `assumption`.

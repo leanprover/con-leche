@@ -151,10 +151,10 @@ theorem checkDirectRule_facts {env : Env} {p : DirectParts}
     rhsA.looseBVarsBounded 0 = true := by
   unfold checkDirectRule at h
   split at h
-  · try simp only [letFun] at h
+  · try simp only at h
     obtain ⟨rhsA', -, h⟩ := exceptBind_ok h
     split at h
-    · try simp only [letFun] at h
+    · try simp only at h
       have hg : (Expr.allLevelParamsDefined cvRa.levelParams rhsA' &&
           Expr.constsResolve env rhsA' && Expr.looseBVarsBounded 0 rhsA' &&
           !rhsA'.hasFvar) = true := by assumption
