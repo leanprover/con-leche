@@ -1,5 +1,5 @@
+import Setlec.Kernel.DeclCheck
 import Setlec.Cached.CoreC
-import Setlec.Kernel.CheckerS
 
 /-!
 # The cached-clone declaration driver
@@ -11,11 +11,11 @@ What is cloned here is exactly the thin `CheckIM`-pinned layer of
 drivers) at the clone's monad, plus the entry-point record over the
 cached core.
 
-That makes the comparison controlled: the clone and the interned
-checker run the *same* `FEnv`-indexed declaration checker, with the
-same flush discipline and the same per-declaration state lifetime; the
-only difference between them is the representation the core computes
-on.
+Task #172: the interned checker this was cloned from is gone, and with
+it the `Expr`-typed shared fold (`checkDeclsShared`) that existed only
+to make the two comparable.  What is left is the per-declaration phase
+driver the parsed-declaration drivers
+(`Setlec/Cached/Parsed{C,NC}.lean`) and their bridges consume.
 -/
 
 namespace Setlec.Cached
@@ -312,10 +312,5 @@ accepted constant is one `FEnv.push`), the interned state lives for
 exactly one declaration. -/
 def checkDeclSharedF (fe : FEnv) (d : Declaration) : CheckM FEnv :=
   (checkDeclSF mode fe d).run' {}
-
-/-- The declaration fold of the shared-state checker. -/
-def checkDeclsShared (ds : List Declaration) : CheckM Env := do
-  let fe ← ds.foldlM (checkDeclSharedF mode) (mkFEnv Env.empty)
-  pure fe.env
 
 end Setlec.Cached

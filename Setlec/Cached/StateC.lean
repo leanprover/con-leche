@@ -1,5 +1,5 @@
+import Setlec.Kernel.FEnv
 import Setlec.Cached.ExprOpsC
-import Setlec.Kernel.CoreI
 
 /-!
 # The cached-clone checker state and its operation wrappers

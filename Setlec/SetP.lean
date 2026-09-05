@@ -95,7 +95,6 @@ import Setlec.SetP.IndPinProbeP
 import Setlec.SetP.AxiomPinP
 import Setlec.SetP.HarvestP
 import Setlec.SetP.FoldP
-import Setlec.SetP.MainP
 import Setlec.SetP.Annot.Bit
 import Setlec.SetP.Annot.BitLemmas
 import Setlec.SetP.Annot.BitShift
@@ -129,10 +128,13 @@ model (`EnvS`, `Sound/*`, `Install/*`, the 2U/`denote2` tier, the
 `R`/`R2` capstones); **this** tree is the graded model — the `AnnotOk2`
 bit carriers (`Annot/Bit*`, `Annot/ValidV*`), `EnvS2Core`/`EnvS2P`, the
 per-rule `…P` quarters and rows, the basis/inductive/projection install
-`…P` families, the fold `FoldP`, the capstone `CapstoneP` and — since
-S8 — `MainP`, the shipped drivers' capstone family
-(`no_proof_of_Empty_SP_P` and its cached/shared siblings).  Both stand
-on `Setlec.SetBase.*` and neither may import the other.
+`…P` families, the fold `FoldP` and the capstone `CapstoneP`.  Both
+stand on `Setlec.SetBase.*` and neither may import the other.
+
+The shipped driver's P letter lives with the driver it is about
+(`no_proof_of_Empty_SPCD_P`, `Setlec/Verify/Cached/MainC.lean`); `MainP`
+— the interned drivers' P capstone family — went with those drivers at
+task #172.
 
 **Only the file paths and module names moved** (`Setlec.SetR.Interp2.X`
 → `Setlec.SetP.X`, `Setlec.SetR.Annot.X` → `Setlec.SetP.Annot.X`).  The

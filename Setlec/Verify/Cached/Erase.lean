@@ -1,5 +1,4 @@
 import Setlec.Cached.ExprC
-import Setlec.Kernel.ArenaWF
 import Setlec.Verify.Shift
 
 /-!

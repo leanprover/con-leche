@@ -1,40 +1,19 @@
 import Setlec.Cached.CheckerC
 
 /-!
-# The cached clone's parsed-declaration driver
+# The parsed-declaration driver on the cached representation
 
-The `Expr`-typed shared-state driver (`Setlec/Cached/CheckerC.lean`) is
-the *controlled* comparand — it isolates the core.  It is not, however,
-the shipped architecture: the production driver
-(`Setlec.checkDeclsSP`, task #78) parses **directly into the arena**,
-keeps declarations as indices, and runs the per-declaration syntactic
-guards as DAG-memoized walks.  On declarations whose term is an
-exponentially shared DAG that difference is not a constant factor —
-the `Expr`-typed driver cannot check `good/perf/app-lam` at all, with
-either core, because `Expr.constsResolveF` and friends are tree walks.
+The counterpart of the retired interned `checkDeclsSP`: one `CState`
+for the whole stream, the environment-dependent caches flushed per
+declaration, declarations consumed as `DeclC` records straight from
+the direct parse (`Setlec/Frontend/ExportC.lean`, task #171 — no
+arena, no conversion detour).
 
-This module gives the clone the same shape, so the architecture
-question ("could a computed-field checker replace the arena?") can be
-asked against the configuration that actually ships:
-
-* the parse arena is converted **once**, under an index-keyed memo, to
-  an `ExprC` DAG (`ofStore`) — the conversion is the clone's
-  counterpart of the parse arena itself, and it preserves sharing
-  exactly;
-* declarations become `DeclC` (`ExprC` in place of `EIdx`);
-* `checkDeclSPPlainC` mirrors `checkDeclSPPlain` clause by clause, with
-  the guards as the memoized `ExprC` walks and the entry points on
-  `ExprC` values — no per-call conversion at the `CheckerOps` seam at
-  all for the def/thm/opaque/axiom pipeline.
-
-What is **not** cloned: the task-#64 tier-two snapshot bracket.  It is
-an arena mechanism (fork the node table, truncate, promote the stored
-output) with no counterpart in a representation that has no node
-table; the clone's equivalent is simply that unreferenced intermediate
-nodes are collected.  The clone therefore mirrors `checkDeclSPPlain`,
-the unbracketed path, which is also the path production takes for the
-install-only kinds.  Inductive and basis blocks reuse the `Expr`-level
-drivers, exactly as production does.
+`checkDeclsSPCachedD` is what the binary runs at `--set-model[=r|=p]`;
+its parity twin at `--no-model` is `checkDeclsSPCachedDNM`
+(`Setlec/Cached/ParsedNC.lean`).  Acceptance is covered by
+`no_proof_of_Empty_SPCD_{R,R2,R2M}` and `no_proof_of_Empty_SPCD_P`
+(`Setlec/Verify/Cached/MainC.lean`).
 -/
 
 namespace Setlec.Cached
@@ -57,183 +36,6 @@ inductive DeclC where
   | opaqueDecl (val : ConstantValC) (value : ExprC)
   | basisDecl (kind : BasisKind)
   | indDecl (block : List ConstantInfo)
-
-/-! ## Converting the parse arena
-
-One index-keyed memo for the whole stream: every shared sub-DAG of the
-parse store becomes one `ExprC` object, so the sharing the parser
-established survives into the clone's representation.  This is the
-clone's counterpart of "the parse arena seeds the run's `IState`". -/
-
-/-- Core of `ofStore` (memoized on the arena index; the level memo is
-shared across the traversal).
-
-Non-`partial`: termination is the arena readback's own, copied verbatim
-from `EStore.readbackGo` (`Setlec/Kernel/IExpr.lean`) — the traversal
-order `(etier e, epos e)` with an `emlt` guard on every child index.
-The guards are exactly the ones the interned readback performs, so on a
-well-formed parse arena (children are `emlt`-below their parent) no
-guard ever fires and the conversion is unchanged; on an ill-formed one
-the clause returns `none`, which is what `readbackGo` does too. -/
-def ofStoreGo (st : EStore) (memo : Std.HashMap EIdx ExprC)
-    (lmemo : Std.HashMap LIdx Level) (e : EIdx) :
-    Option ExprC × Std.HashMap EIdx ExprC × Std.HashMap LIdx Level :=
-  match memo[e]? with
-  | some x => (some x, memo, lmemo)
-  | none =>
-    match st.getNode e with
-    | none => (none, memo, lmemo)
-    | some n =>
-      let (r, memo, lmemo) :
-          Option ExprC × Std.HashMap EIdx ExprC × Std.HashMap LIdx Level :=
-        match n with
-        | .bvar i => (some (ExprC.mkBVar i), memo, lmemo)
-        | .fvar idx nm ty =>
-          if _h : emlt ty e then
-            match ofStoreGo st memo lmemo ty with
-            | (some t, memo, lmemo) =>
-              match st.readbackN nm with
-              | some n' => (some (ExprC.mkFVar idx n' t), memo, lmemo)
-              | none => (none, memo, lmemo)
-            | (none, memo, lmemo) => (none, memo, lmemo)
-          else (none, memo, lmemo)
-        | .sort u =>
-          match EStore.readbackLGo st lmemo u with
-          | (some l, lmemo) => (some (ExprC.mkSort l), memo, lmemo)
-          | (none, lmemo) => (none, memo, lmemo)
-        | .const nm us =>
-          match EStore.readbackLList st lmemo us with
-          | (some ls, lmemo) =>
-            match st.readbackN nm with
-            | some n' => (some (ExprC.mkConst n' ls), memo, lmemo)
-            | none => (none, memo, lmemo)
-          | (none, lmemo) => (none, memo, lmemo)
-        | .app f a =>
-          if _h : emlt f e ∧ emlt a e then
-            match ofStoreGo st memo lmemo f with
-            | (some xf, memo, lmemo) =>
-              match ofStoreGo st memo lmemo a with
-              | (some xa, memo, lmemo) =>
-                (some (ExprC.mkApp xf xa), memo, lmemo)
-              | (none, memo, lmemo) => (none, memo, lmemo)
-            | (none, memo, lmemo) => (none, memo, lmemo)
-          else (none, memo, lmemo)
-        | .lam nm ty body mb =>
-          if _h : emlt ty e ∧ emlt body e then
-            match ofStoreGo st memo lmemo ty with
-            | (some xt, memo, lmemo) =>
-              match ofStoreGo st memo lmemo body with
-              | (some xb, memo, lmemo) =>
-                match st.readbackN nm with
-                | some n' =>
-                  (some (ExprC.mkLam n' xt xb ⟨mb.bi, mb.pw⟩), memo, lmemo)
-                | none => (none, memo, lmemo)
-              | (none, memo, lmemo) => (none, memo, lmemo)
-            | (none, memo, lmemo) => (none, memo, lmemo)
-          else (none, memo, lmemo)
-        | .forallE nm ty body mb =>
-          if _h : emlt ty e ∧ emlt body e then
-            match ofStoreGo st memo lmemo ty with
-            | (some xt, memo, lmemo) =>
-              match ofStoreGo st memo lmemo body with
-              | (some xb, memo, lmemo) =>
-                match st.readbackN nm with
-                | some n' =>
-                  (some (ExprC.mkForallE n' xt xb ⟨mb.bi, mb.pw⟩), memo, lmemo)
-                | none => (none, memo, lmemo)
-              | (none, memo, lmemo) => (none, memo, lmemo)
-            | (none, memo, lmemo) => (none, memo, lmemo)
-          else (none, memo, lmemo)
-        | .letE nm ty val body =>
-          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
-            match ofStoreGo st memo lmemo ty with
-            | (some xt, memo, lmemo) =>
-              match ofStoreGo st memo lmemo val with
-              | (some xv, memo, lmemo) =>
-                match ofStoreGo st memo lmemo body with
-                | (some xb, memo, lmemo) =>
-                  match st.readbackN nm with
-                  | some n' =>
-                    (some (ExprC.mkLetE n' xt xv xb), memo, lmemo)
-                  | none => (none, memo, lmemo)
-                | (none, memo, lmemo) => (none, memo, lmemo)
-              | (none, memo, lmemo) => (none, memo, lmemo)
-            | (none, memo, lmemo) => (none, memo, lmemo)
-          else (none, memo, lmemo)
-        | .lit l => (some (ExprC.mkLit l), memo, lmemo)
-        | .proj s i sub =>
-          if _h : emlt sub e then
-            match ofStoreGo st memo lmemo sub with
-            | (some xs, memo, lmemo) =>
-              match st.readbackN s with
-              | some sn => (some (ExprC.mkProj sn i xs), memo, lmemo)
-              | none => (none, memo, lmemo)
-            | (none, memo, lmemo) => (none, memo, lmemo)
-          else (none, memo, lmemo)
-      match r with
-      | some x => (some x, memo.insert e x, lmemo)
-      | none => (none, memo, lmemo)
-termination_by (etier e, epos e)
-decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
-
-/-- The conversion state threaded across the whole declaration list. -/
-structure OfStoreS where
-  memo : Std.HashMap EIdx ExprC := {}
-  lmemo : Std.HashMap LIdx Level := {}
-
-/-- Convert one index, threading the shared memos. -/
-def ofStore (st : EStore) (s : OfStoreS) (e : EIdx) :
-    Option ExprC × OfStoreS :=
-  let (r, memo, lmemo) := ofStoreGo st s.memo s.lmemo e
-  (r, ⟨memo, lmemo⟩)
-
-/-- Convert a parsed constant value. -/
-def cvCOfP (st : EStore) (s : OfStoreS) (cv : ConstantValP) :
-    Option ConstantValC × OfStoreS :=
-  match ofStore st s cv.type with
-  | (some t, s) => (some ⟨cv.name, cv.levelParams, t⟩, s)
-  | (none, s) => (none, s)
-
-/-- Convert a parsed declaration. -/
-def declCOfP (st : EStore) (s : OfStoreS) : DeclP → Option DeclC × OfStoreS
-  | .axiomDecl v =>
-    match cvCOfP st s v with
-    | (some cv, s) => (some (.axiomDecl cv), s)
-    | (none, s) => (none, s)
-  | .defnDecl v value hint =>
-    match cvCOfP st s v with
-    | (some cv, s) =>
-      match ofStore st s value with
-      | (some x, s) => (some (.defnDecl cv x hint), s)
-      | (none, s) => (none, s)
-    | (none, s) => (none, s)
-  | .thmDecl v value =>
-    match cvCOfP st s v with
-    | (some cv, s) =>
-      match ofStore st s value with
-      | (some x, s) => (some (.thmDecl cv x), s)
-      | (none, s) => (none, s)
-    | (none, s) => (none, s)
-  | .opaqueDecl v value =>
-    match cvCOfP st s v with
-    | (some cv, s) =>
-      match ofStore st s value with
-      | (some x, s) => (some (.opaqueDecl cv x), s)
-      | (none, s) => (none, s)
-    | (none, s) => (none, s)
-  | .basisDecl kind => (some (.basisDecl kind), s)
-  | .indDecl block => (some (.indDecl block), s)
-
-/-- Convert the whole declaration list under one shared memo. -/
-def declsCOfP (st : EStore) : OfStoreS → List DeclP →
-    CheckM (List DeclC)
-  | _, [] => pure []
-  | s, pd :: rest =>
-    match declCOfP st s pd with
-    | (some d, s) => do
-      let ds ← declsCOfP st s rest
-      pure (d :: ds)
-    | (none, _) => throw (.internal "parse-arena conversion failed")
 
 /-! ## The parsed-declaration checker -/
 
@@ -420,15 +222,6 @@ the receipt carried no information; the subtype, its predicate
 letters below this driver are restated over `List DeclC` — strictly
 stronger, by the coordinator's ratification. -/
 def checkDeclsSPCachedD (mode : CheckMode) (ds : List DeclC) : CheckM Env := do
-  let fe ← (ds.foldlM (checkDeclSPStepC mode) (mkFEnv Env.empty)).run' {}
-  pure fe.env
-
-/-- The converted-declaration checker: the parse arena is converted
-once (sharing preserved), then the whole fold runs in one `CState`
-with the environment-dependent caches flushed per declaration. -/
-def checkDeclsSPCached (mode : CheckMode) (st : WFStore)
-    (pds : List DeclP) : CheckM Env := do
-  let ds ← declsCOfP st.raw {} pds
   let fe ← (ds.foldlM (checkDeclSPStepC mode) (mkFEnv Env.empty)).run' {}
   pure fe.env
 

@@ -74,7 +74,19 @@ MEASURED = os.environ['SETLEC_PROOFDEPS_MEASURED']
 #     `DeclR`; S11b buys the rest — `declIndRR`, `DeclIndR` and the six
 #     relation names — by giving the `ind` kind a run-only bridge
 #     (`declIndRunRR`) and re-pointing the graded fold's `Ind` slot at
-#     `DeclIndRunR`.  **Block (B) is retired**: it pinned a CUT at
+#     `DeclIndRunR`.
+#
+#     **TASK #172 — THE FAMILY IS TWO ROOTS, NOT FOUR.**  `SP_P`, `C_P`
+#     and `S_P` were the interned drivers' P letters (`checkDeclsSP`,
+#     `cachedOps`, `checkDeclsShared`); the interned representation and
+#     every driver over it were deleted, so those three letters retired
+#     WITH THEIR SUBJECTS and their 36 rows went with them.  `SPCD_P`
+#     (`no_proof_of_Empty_SPCD_P` over `checkDeclsSPCachedD`) is the
+#     letter over the driver the binary now runs, and it measures the
+#     same way: every R target absent.  The pin only ever tightens, and
+#     a row whose subject no longer exists is not a loosening.
+#
+#     **Block (B) is retired**: it pinned a CUT at
 #     `declIndRR`, and a cut at a constant that is not in the closure
 #     measures the uncut reading (S11a finding 1: an inert cut row is
 #     rot-shaped).  The door is now pinned directly, as a target.
@@ -93,42 +105,19 @@ MEASURED = os.environ['SETLEC_PROOFDEPS_MEASURED']
 #     an absence in someone else's closure.
 PIN = """
 # (A) the shipped P capstone family — EVERY R target absent
-PRESENT SP_P :: Setlec.Expr
-absent  SP_P :: Setlec.SetR.Red
-absent  SP_P :: Setlec.SetR.Red.beta
-absent  SP_P :: Setlec.SetR.Infer
-absent  SP_P :: Setlec.SetR.Infer.app
-absent  SP_P :: Setlec.SetR.DefEq
-absent  SP_P :: Setlec.SetR.DefEq.trans
-absent  SP_P :: Setlec.SetR.EnvS
-absent  SP_P :: Setlec.SetR.checkDeclR_ofEnvRE
-absent  SP_P :: Setlec.SetR.DeclR
-absent  SP_P :: Setlec.SetR.declIndRR
-absent  SP_P :: Setlec.SetR.DeclIndR
-PRESENT C_P :: Setlec.Expr
-absent  C_P :: Setlec.SetR.Red
-absent  C_P :: Setlec.SetR.Red.beta
-absent  C_P :: Setlec.SetR.Infer
-absent  C_P :: Setlec.SetR.Infer.app
-absent  C_P :: Setlec.SetR.DefEq
-absent  C_P :: Setlec.SetR.DefEq.trans
-absent  C_P :: Setlec.SetR.EnvS
-absent  C_P :: Setlec.SetR.checkDeclR_ofEnvRE
-absent  C_P :: Setlec.SetR.DeclR
-absent  C_P :: Setlec.SetR.declIndRR
-absent  C_P :: Setlec.SetR.DeclIndR
-PRESENT S_P :: Setlec.Expr
-absent  S_P :: Setlec.SetR.Red
-absent  S_P :: Setlec.SetR.Red.beta
-absent  S_P :: Setlec.SetR.Infer
-absent  S_P :: Setlec.SetR.Infer.app
-absent  S_P :: Setlec.SetR.DefEq
-absent  S_P :: Setlec.SetR.DefEq.trans
-absent  S_P :: Setlec.SetR.EnvS
-absent  S_P :: Setlec.SetR.checkDeclR_ofEnvRE
-absent  S_P :: Setlec.SetR.DeclR
-absent  S_P :: Setlec.SetR.declIndRR
-absent  S_P :: Setlec.SetR.DeclIndR
+# (two roots since task #172: the shipped driver's letter, and the pure one)
+PRESENT SPCD_P :: Setlec.Expr
+absent  SPCD_P :: Setlec.SetR.Red
+absent  SPCD_P :: Setlec.SetR.Red.beta
+absent  SPCD_P :: Setlec.SetR.Infer
+absent  SPCD_P :: Setlec.SetR.Infer.app
+absent  SPCD_P :: Setlec.SetR.DefEq
+absent  SPCD_P :: Setlec.SetR.DefEq.trans
+absent  SPCD_P :: Setlec.SetR.EnvS
+absent  SPCD_P :: Setlec.SetR.checkDeclR_ofEnvRE
+absent  SPCD_P :: Setlec.SetR.DeclR
+absent  SPCD_P :: Setlec.SetR.declIndRR
+absent  SPCD_P :: Setlec.SetR.DeclIndR
 PRESENT P :: Setlec.Expr
 absent  P :: Setlec.SetR.Red
 absent  P :: Setlec.SetR.Red.beta
@@ -282,7 +271,7 @@ if stale:
     print('    delete the line in the batch that removed the measurement.')
 
 if not fail:
-    caps = ['SP_P', 'C_P', 'S_P', 'P']
+    caps = ['SPCD_P', 'P']
     tgts = ['EnvS', 'checkDeclR_ofEnvRE', 'DeclR', 'DeclIndR', 'declIndRR']
     rel = ['Red', 'Red.beta', 'Infer', 'Infer.app', 'DefEq', 'DefEq.trans']
     recs = sum(1 for c in caps for t in tgts
@@ -294,7 +283,7 @@ if not fail:
     print('proofdeps: %d rows as pinned; EnvS/checkDeclR_ofEnvRE/DeclR/'
           'DeclIndR/declIndRR absent %d/%d and the derivation tier '
           '(Red, Red.beta, Infer, Infer.app, DefEq, DefEq.trans) absent '
-          '%d/%d across the 4 shipped P capstones (doors: %d)'
+          '%d/%d across the 2 shipped P capstones (doors: %d)'
           % (len(gorder), recs, len(caps) * len(tgts), beta,
              len(caps) * len(rel), doors))
 sys.exit(fail)

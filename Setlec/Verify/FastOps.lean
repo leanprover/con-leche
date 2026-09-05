@@ -1,4 +1,4 @@
-import Setlec.Kernel.CheckerS
+import Setlec.Kernel.DeclCheck
 import Setlec.Verify.InstList
 
 /-!

@@ -247,23 +247,13 @@ annot_half
 echo "annot suite: $annot_ok/$annot_total as expected"
 
 
-# Split install/check driver (task #108): --install-only and
-# --check-range.  Two properties are pinned here.
-#  (a) Honesty: a run that checked less than the whole stream never
-#      accepts (exit 0 is reserved for "everything was checked and
-#      accepted" by the verified interleaved driver), and never
-#      pronounces a stream invalid either — a skipped check might have
-#      declined first, so a partial run downgrades `invalid` to a
-#      decline.  Only exit 3 (usage/internal) is unconditional.
-#  (b) Selectivity: a range that excludes a bad declaration must not
-#      trip over it, while a range containing just that declaration
-#      must find it — the whole point of the mode.
-# Fixtures are committed annotated streams: annot_split_good accepts,
-# and annot_split_bad has its type mismatch at declaration index 2
-# (def badDecl), past the prefix its check needs.
-# (task #161: the smoke fixtures are annotated streams while the
-# certified sweep is suspended for unannotated input — same properties,
-# badDecl's type mismatch sits at declaration index 2.)
+# Retired flag surface (task #172): the `--core` selector and the split
+# install/check driver (`--install-only` / `--check-range`) were arena
+# machinery and went with the interned representation.  They are HARD
+# ERRORS, not silently ignored — the same rule the retired mode
+# environment variables follow: a verdict's provenance must be readable
+# off the invocation.  The fixtures below are the streams the mode
+# section reuses.
 SPLIT_GOOD=tests/annot/annot_split_good.ndjson
 SPLIT_BAD=tests/annot/annot_split_bad.ndjson
 split_ok=0
@@ -274,36 +264,26 @@ split_case() {
   timeout 120 "$BIN" "$@" >/dev/null 2>&1
   got=$?
   if [ "$got" != "$want" ]; then
-    echo "SPLIT FAIL ($*): expected exit $want, got $got"; fail=1
+    echo "RETIRED-FLAG FAIL ($*): expected exit $want, got $got"; fail=1
   else
     split_ok=$((split_ok+1))
   fi
 }
-split_case 0 "$SPLIT_GOOD"                       # verified driver: accept
-split_case 2 --install-only "$SPLIT_GOOD"        # installed, nothing checked
-split_case 2 --check-range 0:2 "$SPLIT_GOOD"     # a subrange
-split_case 2 --check-range 0: "$SPLIT_GOOD"      # all of it, but split driver
-split_case 1 --check-range 0: "$SPLIT_BAD"       # full range finds the bad one
-split_case 2 --check-range 2:3 "$SPLIT_BAD"      # just the bad one: reported…
-split_case 2 --check-range 0:1 "$SPLIT_BAD"      # …excluded: not tripped over
-split_case 2 --install-only "$SPLIT_BAD"         # nor installed into a reject
-split_case 3 --check-range bogus "$SPLIT_GOOD"   # malformed range spec
-split_case 3 --no-model --install-only "$SPLIT_GOOD" # unverified stack + split
-# selectivity, positively: checking *only* declaration 2 must actually
-# report that declaration's failure
-split_total=$((split_total+1))
-if timeout 120 "$BIN" --check-range 2:3 "$SPLIT_BAD" 2>&1 |
-    grep -q "type mismatch in badDecl"; then
-  split_ok=$((split_ok+1))
-else
-  echo "SPLIT FAIL: --check-range 2:3 did not report badDecl"; fail=1
-fi
-echo "split driver: $split_ok/$split_total as expected"
+split_case 0 "$SPLIT_GOOD"                        # the one driver: accept
+split_case 1 "$SPLIT_BAD"                         # …and it still rejects
+split_case 3 --install-only "$SPLIT_GOOD"         # retired: hard error
+split_case 3 --check-range 0:2 "$SPLIT_GOOD"      # retired: hard error
+split_case 3 --check-range=0:2 "$SPLIT_GOOD"      # …in the `=` spelling too
+split_case 3 --core=production "$SPLIT_GOOD"      # retired core selector
+split_case 3 --core=cached-parsed "$SPLIT_GOOD"   # …including the one that won
+split_case 3 --core production "$SPLIT_GOOD"      # …in the two-token spelling
+echo "retired flags: $split_ok/$split_total as expected"
 
-# The three-mode flags (task #147): the two non-default modes parse and
-# judge the smoke fixtures like the default; `--no-model` refuses the
-# split driver; and the RETIRED flags/environment variables error out
-# with a pointer to the new modes rather than being silently ignored.
+# The mode flags (task #147): the non-default modes parse and judge the
+# smoke fixtures like the default — the graded lane (`--set-model=p`)
+# and the collapsed one (`--set-model=r`) beside them — and the RETIRED
+# flags/environment variables error out with a pointer to the new modes
+# rather than being silently ignored.
 mode_ok=0
 mode_total=0
 mode_case() {
@@ -321,7 +301,9 @@ mode_case 0 --set-model "$SPLIT_GOOD"              # the default, spelled out
 mode_case 3 --tt-model "$SPLIT_GOOD"               # retired flag: hard error
 mode_case 0 --no-model "$SPLIT_GOOD"               # unverified lane: accepts
 mode_case 1 --no-model "$SPLIT_BAD"                # front door still rejects
-mode_case 3 --no-model --install-only "$SPLIT_GOOD" # + split driver: refused
+mode_case 3 --no-model --install-only "$SPLIT_GOOD" # retired flag: hard error
+mode_case 0 --set-model=r "$SPLIT_GOOD"            # the R lane, spelled out
+mode_case 0 --set-model=p "$SPLIT_GOOD"            # the P lane
 mode_case 3 --yolo "$SPLIT_GOOD"                   # retired flag: hard error
 mode_case 3 --infer-only "$SPLIT_GOOD"             # retired flag: hard error
 mode_total=$((mode_total+1))

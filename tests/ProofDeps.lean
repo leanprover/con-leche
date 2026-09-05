@@ -1,5 +1,6 @@
 import Setlec.SetR
 import Setlec.SetP
+import Setlec.Verify.Cached
 
 /-!
 # The proof-term dependency gate's instrument (task #161, S10)
@@ -132,10 +133,12 @@ private def emit (env : Environment) (label : String) (root : Name)
 in `tests/proofdeps.sh`. -/
 def setlecProofDeps : CoreM Unit := do
   let env ← getEnv
-  -- (A) the shipped P capstone family: what the user's question is about
-  emit env "SP_P" `Setlec.SetR.Interp2.no_proof_of_Empty_SP_P []
-  emit env "C_P" `Setlec.SetR.Interp2.no_proof_of_Empty_C_P []
-  emit env "S_P" `Setlec.SetR.Interp2.no_proof_of_Empty_S_P []
+  -- (A) the shipped P capstone family: what the user's question is
+  -- about.  Task #172 retired the three interned drivers and their
+  -- letters with them; `SPCD_P` is the letter over the driver the
+  -- binary now runs (`checkDeclsSPCachedD`), and `P` is the pure
+  -- fueled checker the whole tower is stated about.
+  emit env "SPCD_P" `Setlec.Cached.no_proof_of_Empty_SPCD_P []
   emit env "P" `Setlec.SetR.Interp2.no_proof_of_Empty_P []
   -- (B) THE DOOR IS GONE (task #161 S11b).  S9 found one door at
   -- `checkDeclR_ofEnvRE`; S11a moved it to `declIndRR`; S11b's ind run

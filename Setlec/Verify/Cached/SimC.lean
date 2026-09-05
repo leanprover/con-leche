@@ -1,7 +1,6 @@
 import Setlec.Cached.StateC
 import Setlec.Verify.Cached.OpsC
 import Setlec.Verify.Fueled
-import Setlec.Verify.ILevel
 
 /-!
 # The cached-core faithfulness kit (task #163, batch 5)
