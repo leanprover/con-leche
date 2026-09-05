@@ -703,7 +703,8 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
           (Γlam.getD (cnP + cnF - 1 - k) default) := by
     intro k hk
     rw [hΓlamJ, ← hΓsJ, show cnP + cnF - 1 - k = rP + cnF - 1 - k from
-      by omega]
+      -- task #77: `rw [hcnPrP]`, not `by omega` (seconds in this context)
+      by rw [hcnPrP]]
     exact hallK k (by omega)
   obtain ⟨L', htele', hval', hokL', hokApp'⟩ :=
     lamTowerStepP (V := V) (C := C) (cnP + cnF) (Nat.le_refl _)
@@ -725,7 +726,8 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
   refine ⟨heqL.symm.trans (heqLR.trans ?_), ?_⟩
   · rw [hval', hvRval, hCval,
       show cnP + cnF - 1 - (cnP + i) = rP + cnF - 1 - (rP + i) from
-        by omega]
+        -- task #77: `rw [hcnPrP]`, not `by omega` (seconds in this context)
+        by rw [hcnPrP]]
   · -- the truthfulness transport, from the same descent
     intro hxsA hysA
     refine hokApp' (fun w hw => ?_)

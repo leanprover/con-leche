@@ -455,7 +455,8 @@ theorem indBottomProjS : IndBottomProjS V := by
           (Γlam.getD (cnP + cnF - 1 - k) default) := by
     intro k hk
     rw [hΓlamJ, ← hΓsJ, show cnP + cnF - 1 - k = rP + cnF - 1 - k from
-      by omega]
+      -- task #77: `rw [hcnPrP]`, not `by omega` (15.2 s in this context)
+      by rw [hcnPrP]]
     exact hallK k (by omega)
   have hstep := lamTowerStepS (V := V) (C := C) (cnP + cnF)
     (Nat.le_refl _) hΓlamlen (by rw [hzslen]; omega) hmemLam
@@ -470,7 +471,8 @@ theorem indBottomProjS : IndBottomProjS V := by
       exact hvR
     rw [hstep.1, hvRval, hCval,
       show cnP + cnF - 1 - (cnP + i) = rP + cnF - 1 - (rP + i) from
-        by omega, Nat.sub_self, List.take_zero]
+        -- task #77: `rw [hcnPrP]`, not `by omega` (15.2 s in this context)
+        by rw [hcnPrP], Nat.sub_self, List.take_zero]
     rfl
   · -- the truthfulness transport, from the same descent
     intro hxsA hysA

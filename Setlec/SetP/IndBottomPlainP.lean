@@ -1107,16 +1107,22 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
       · exact denoteP_fvar mp.base2.acval (env := env)
           (φ := Level.substFn φ lps us) (rP + cnF) (rP + (q - cnP)) nm ty
       · intro dw hdw
-        have hfld := hfldK (rP + (q - cnP)) (by omega) (by omega)
-          (by omega) σ (hsatId σ hσ) dw (by
-            rw [show cnP + (rP + (q - cnP) - rP) = q from by omega]
+        -- task #77: `grind`, not `omega`, on the three position side
+        -- conditions (seconds of `omega` in this ambient context).
+        have hfld := hfldK (rP + (q - cnP)) (by grind) (by grind)
+          (by grind) σ (hsatId σ hσ) dw (by
+            -- task #77: the two cancellations by name, not one `omega`.
+            rw [Nat.add_sub_cancel_left, Nat.add_sub_cancel' hqc]
             exact hdw)
         have hslot := hσ (rP + cnF - 1 - (rP + (q - cnP)))
           (Γs.getD (rP + cnF - 1 - (rP + (q - cnP))) default)
           (hΔaent (rP + (q - cnP)) (by omega))
+        -- task #77: `grind`, not `omega` — the ambient ~100-hypothesis
+        -- context makes `omega`'s split on the nested truncated
+        -- subtractions exponential (seconds); `grind` closes it flat.
         rw [show (fun j => σ (j + (rP + cnF - 1 - (rP + (q - cnP))) + 1))
             = (fun j => σ (j + (rP + cnF - (rP + (q - cnP))))) from by
-          funext j; congr 1; omega] at hslot
+          funext j; congr 1; grind] at hslot
         rw [hfld.2] at hslot
         rw [interp2_bvar]
         exact hslot
