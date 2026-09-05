@@ -336,20 +336,20 @@ def directProjGuards (cty : Expr) (nP nF : Nat) (sorts : List Level) :
         else acc)
       (sorts.getD i .zero)
 
-/-- **The dependency pre-check of a projection slot**: every
-`.proj T j` node of the generated type (the earlier fields the field's
-type mentions) sits at a stored entry which, at a `Prop`-declared
-structure, is guarded `Prop` — exactly what the entry type's own
-inference will re-check at those nodes, decided syntactically first
-so that a field whose type depends on a data field of a propositional
-structure gets no entry (a fall-through, never a verdict). -/
-def directProjDepsOk (env : Env) (T : Name) (isProp : Bool) (pty : Expr) :
-    Bool :=
-  pty.projNodesOk fun s j =>
-    s != T ||
-    (match env.findProj? T j with
-     | some e => !isProp || (Level.isEquiv e.fieldSort .zero == some true)
-     | none => false)
+/-- **The entry decision of a projection slot** (task #175 W4c/O4), a
+function of the block's input data alone (the agreement floor reads
+nothing a core computes): every field of a non-propositional
+structure, and of a propositional structure with the large eliminator
+— Lean generates it exactly when every field is a proposition, which
+`checkDirectFieldSorts` re-checks; at a propositional structure with
+the small eliminator (some field is data) exactly the fields whose
+generated type mentions no earlier field (no `.proj T j` node) — the
+squash model reads a data field's projection as the point and cannot
+type a dependent field through it, and the official `infer_proj` bars
+those uses anyway when the earlier field is data.  A skipped slot is a
+fall-through, never a verdict. -/
+def directProjSlotOk (T : Name) (isProp large : Bool) (pty : Expr) : Bool :=
+  !isProp || large || pty.projNodesOk (fun s _ => s != T)
 
 /-- **Non-recursive**: every binder domain of the constructor already
 resolves in the *pre-block* environment.  This subsumes the reference

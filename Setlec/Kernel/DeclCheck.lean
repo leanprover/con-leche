@@ -812,7 +812,7 @@ def directPartsF? (fe : FEnv) (block : List ConstantInfo) :
   | none => none
 
 /-- `checkDirectFieldSorts` through the index. -/
-def checkDirectFieldSortsF (ops : CheckerOps m) (fe : FEnv) (isProp : Bool)
+def checkDirectFieldSortsF (ops : CheckerOps m) (fe : FEnv) (isProp large : Bool)
     (s : Level) (nP : Nat) (fvs : List Expr) : Nat → m (List Level)
   | 0 => pure []
   | j + 1 => do
@@ -822,13 +822,17 @@ def checkDirectFieldSortsF (ops : CheckerOps m) (fe : FEnv) (isProp : Bool)
     if !isProp then
       unless ← liftFueled "level comparison" (Level.leq u s) do
         throw (.invalid "direct structure: field universe too large")
-    let rest ← checkDirectFieldSortsF ops fe isProp s nP fvs j
+    else if large then
+      unless Level.isEquiv u .zero == some true do
+        throw (.notImplemented
+          "direct structure: large eliminator with a non-propositional field")
+    let rest ← checkDirectFieldSortsF ops fe isProp large s nP fvs j
     pure (rest ++ [u])
 
 /-- `checkDirectFieldSortsF` over an array (positional list indexing is
 linear per access; the callers convert once).  Equal to it at
 `List.toArray`: `checkDirectFieldSortsFA_eq`. -/
-def checkDirectFieldSortsFA (ops : CheckerOps m) (fe : FEnv) (isProp : Bool)
+def checkDirectFieldSortsFA (ops : CheckerOps m) (fe : FEnv) (isProp large : Bool)
     (s : Level) (nP : Nat) (fvs : Array Expr) : Nat → m (List Level)
   | 0 => pure []
   | j + 1 => do
@@ -838,7 +842,11 @@ def checkDirectFieldSortsFA (ops : CheckerOps m) (fe : FEnv) (isProp : Bool)
     if !isProp then
       unless ← liftFueled "level comparison" (Level.leq u s) do
         throw (.invalid "direct structure: field universe too large")
-    let rest ← checkDirectFieldSortsFA ops fe isProp s nP fvs j
+    else if large then
+      unless Level.isEquiv u .zero == some true do
+        throw (.notImplemented
+          "direct structure: large eliminator with a non-propositional field")
+    let rest ← checkDirectFieldSortsFA ops fe isProp large s nP fvs j
     pure (rest ++ [u])
 
 /-- `checkDirectDomsAt` through the index. -/
@@ -895,7 +903,7 @@ def checkDirectCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : DirectParts)
     throw (.notImplemented "direct structure: opened constructor residual")
   unless xq.1.all fun x => x.fvarTypeD.constsResolveF fe₀ do
     throw (.notImplemented "direct structure: field domain after the block")
-  let sorts ← checkDirectFieldSortsFA ops fe p.isProp p.resSort p.nP
+  let sorts ← checkDirectFieldSortsFA ops fe p.isProp p.large p.resSort p.nP
     xq.1.toArray p.nF
   pure (fe.push (.ctorInfo cvCa p.nP p.nF), cvCa, sorts)
 
@@ -1020,24 +1028,15 @@ def checkDirectProjEntryF (ops : CheckerOps m) (T C : Name) (lps : List Name)
   pure (fe.push (.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, resSort,
     true, false, true⟩))
 
-/-- `directProjDepsOk` through the index. -/
-def directProjDepsOkF (fe : FEnv) (T : Name) (isProp : Bool) (pty : Expr) :
-    Bool :=
-  pty.projNodesOk fun s j =>
-    s != T ||
-    (match fe.findProj? T j with
-     | some e => !isProp || (Level.isEquiv e.fieldSort .zero == some true)
-     | none => false)
-
-/-- `checkDirectProj` through the index (the dependency pre-check, the
+/-- `checkDirectProj` through the index (the entry decision, the
 guard level). -/
 def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
-    (nP nF : Nat) (resSort : Level) (cvTa cvCa : ConstantVal)
-    (guards : List Level) (rt? : Option Expr) (fe : FEnv) (i : Nat) :
-    m FEnv := do
+    (nP nF : Nat) (resSort : Level) (isProp large : Bool)
+    (cvTa cvCa : ConstantVal) (guards : List Level) (rt? : Option Expr)
+    (fe : FEnv) (i : Nat) : m FEnv := do
   let pty ← unwrapOr (directProjTyR T lps nP nF i cvTa.type rt?)
     (.notImplemented "direct structure: projection type")
-  if directProjDepsOkF fe T (Level.isEquiv resSort .zero == some true) pty then
+  if directProjSlotOk T isProp large pty then
     checkDirectProjEntryF ops T C lps nP nF resSort (guards.getD i .zero)
       cvCa pty fe i
   else pure fe

@@ -172,8 +172,9 @@ theorem checkDirectInd_consed {p : DirectParts} {cvTa : ConstantVal}
   unfold checkDirectInd at h; install_shape h
 
 theorem checkDirectCtor_consed {env₀ : Env} {p : DirectParts}
-    {cvTa cvCa : ConstantVal}
-    (h : checkDirectCtor (m := CheckM) ops env₀ env p cvTa = .ok (env', cvCa)) :
+    {cvTa cvCa : ConstantVal} {sorts : List Level}
+    (h : checkDirectCtor (m := CheckM) ops env₀ env p cvTa
+      = .ok (env', cvCa, sorts)) :
     ConsedNonProj env env' := by
   unfold checkDirectCtor at h; install_shape h
 

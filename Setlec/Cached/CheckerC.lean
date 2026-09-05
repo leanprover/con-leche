@@ -166,15 +166,16 @@ step consumes the residual for `i` and extends it by a **single**
 redone, which is what keeps wide structures out of the cubic
 regime. -/
 def checkDirectProjsS (T C : Name) (lps : List Name) (nP nF : Nat)
-    (resSort : Level) (cvTa cvCa : ConstantVal) (guards : List Level) :
+    (resSort : Level) (isProp large : Bool) (cvTa cvCa : ConstantVal)
+    (guards : List Level) :
     (todo i : Nat) → Option Expr → FEnv → CheckCM FEnv
   | 0, _, _, fe => pure fe
   | todo + 1, i, rt?, fe => do
     flushC
-    let fe' ← checkDirectProjF (sharedOpsC mode fe) T C lps nP nF resSort cvTa
-      cvCa guards rt? fe i
-    checkDirectProjsS T C lps nP nF resSort cvTa cvCa guards todo (i + 1)
-      (rt?.bind (Expr.instPisAtLift [directProjArgP T i])) fe'
+    let fe' ← checkDirectProjF (sharedOpsC mode fe) T C lps nP nF resSort
+      isProp large cvTa cvCa guards rt? fe i
+    checkDirectProjsS T C lps nP nF resSort isProp large cvTa cvCa guards todo
+      (i + 1) (rt?.bind (Expr.instPisAtLift [directProjArgP T i])) fe'
 
 /-- `checkDirectStruct` through the index. -/
 def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
@@ -199,7 +200,8 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
       (fun j => (fe₃.find? (projFnName p.cvT.name j)).isNone) do
     throw (.invalid "projection name family taken")
   checkDirectProjsS mode p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
-    p.resSort cvTa cvCa (directProjGuards cvCa.type p.nP p.nF sorts) p.nF 0
+    p.resSort p.isProp p.large cvTa cvCa
+    (directProjGuards cvCa.type p.nP p.nF sorts) p.nF 0
     (Expr.instPisAtLift (directProjPs p.nP) cvCa.type) fe₃
 
 /-- The modeled inductive block (mirrors `checkIndDecl`), returning

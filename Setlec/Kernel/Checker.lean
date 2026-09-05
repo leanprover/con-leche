@@ -60,7 +60,7 @@ sort (lean4lean `Inductive/Add.lean:225-228`, nanoda `check_ctor`,
 task #175 W4c/O4).  Walks the fields from the last to the first and
 returns the sorts in field order — the projection guards'
 (`directProjGuards`) input. -/
-def checkDirectFieldSorts (ops : CheckerOps m) (env : Env) (isProp : Bool)
+def checkDirectFieldSorts (ops : CheckerOps m) (env : Env) (isProp large : Bool)
     (s : Level) (nP : Nat) (fvs : List Expr) : Nat → m (List Level)
   | 0 => pure []
   | j + 1 => do
@@ -73,7 +73,15 @@ def checkDirectFieldSorts (ops : CheckerOps m) (env : Env) (isProp : Bool)
     if !isProp then
       unless ← liftFueled "level comparison" (Level.leq u s) do
         throw (.invalid "direct structure: field universe too large")
-    let rest ← checkDirectFieldSorts ops env isProp s nP fvs j
+    else if large then
+      -- a propositional structure's large eliminator exists only when
+      -- every field is a proposition (lean4lean `Add.lean:257-259`);
+      -- the squash model reads that as `FieldsBound 0`, so it is
+      -- re-checked here on the annotated constants
+      unless Level.isEquiv u .zero == some true do
+        throw (.notImplemented
+          "direct structure: large eliminator with a non-propositional field")
+    let rest ← checkDirectFieldSorts ops env isProp large s nP fvs j
     pure (rest ++ [u])
 
 /-- The reference kernels' binder-domain comparisons, run binder by
@@ -151,7 +159,8 @@ def checkDirectCtor (ops : CheckerOps m) (env₀ env : Env) (p : DirectParts)
   -- the fields' sorts, with the official `Prop` escape hatch on the
   -- universe bound (lean4lean `Add.lean:225`; task #175 W4c/O4 — a
   -- propositional structure's model is the squash, which needs none)
-  let sorts ← checkDirectFieldSorts ops env p.isProp p.resSort p.nP xq.1 p.nF
+  let sorts ← checkDirectFieldSorts ops env p.isProp p.large p.resSort p.nP
+    xq.1 p.nF
   pure (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa, sorts)
 
 /-- Stage 3: the recursor's type is the generated shape.  The skeleton
@@ -322,20 +331,19 @@ def checkDirectProjEntry (ops : CheckerOps m) (T C : Name) (lps : List Name)
   pure ⟨.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, resSort,
     true, false, true⟩ :: env.consts⟩
 
-/-- The projection slot for field `i` (task #175 W4c/O4): the
-generated type's dependency pre-check (`directProjDepsOk`) decides
-whether an entry installs at all — a field whose type mentions a
-data field of a propositional structure (through the earlier fields'
-`.proj T j` nodes) is not projectable, and its slot stays empty as a
-plain fall-through, never a verdict (the block installs; a `.proj` use
-of the field declines at its own site).  Otherwise the entry is
-installed with its guard level. -/
+/-- The projection slot for field `i` (task #175 W4c/O4): the entry
+decision `directProjSlotOk` — a function of the block's input data —
+says whether an entry installs at all; a skipped slot is a plain
+fall-through, never a verdict (the block installs; a `.proj` use of
+the field declines at its own site).  Otherwise the entry is installed
+with its guard level. -/
 def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
-    (nP nF : Nat) (resSort : Level) (cvTa cvCa : ConstantVal)
-    (guards : List Level) (env : Env) (i : Nat) : m Env := do
+    (nP nF : Nat) (resSort : Level) (isProp large : Bool)
+    (cvTa cvCa : ConstantVal) (guards : List Level) (env : Env) (i : Nat) :
+    m Env := do
   let pty ← unwrapOr (directProjTyP T lps nP nF i cvTa.type cvCa.type)
     (.notImplemented "direct structure: projection type")
-  if directProjDepsOk env T (Level.isEquiv resSort .zero == some true) pty then
+  if directProjSlotOk T isProp large pty then
     checkDirectProjEntry ops T C lps nP nF resSort (guards.getD i .zero)
       cvCa pty env i
   else pure env
@@ -369,7 +377,7 @@ def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     throw (.invalid "projection name family taken")
   (List.range p.nF).foldlM
     (checkDirectProj ops p.cvT.name p.cvC.name p.cvT.levelParams
-      p.nP p.nF p.resSort cvTa cvCa
+      p.nP p.nF p.resSort p.isProp p.large cvTa cvCa
       (directProjGuards cvCa.type p.nP p.nF sorts)) env₃
 
 /-- Install one pinned basis declaration (duplicate-checked). -/
