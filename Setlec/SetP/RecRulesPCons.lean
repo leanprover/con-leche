@@ -286,26 +286,20 @@ mentions (`acval T`, `acval entry.ctor`) are the prefix's by
 `acvalWith_ne` — both names are stored, so neither is the fresh one.
 The semantic clauses are then the prefix's verbatim. -/
 
-/-- **The tower projection law survives a fresh cons that is not a
-tower entry.**  The direct install's own entries establish theirs
-bespoke (`SetP/DirectInstallP`, W4c). -/
-theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
+/-- **A prefix tower entry's law crosses a cons**: the entry, its
+former and its constructor are prefix lookups, their type readings
+cross (the head's slot mentions none of them), and the two leaves the
+laws read are the prefix's. -/
+theorem towerEntryLawP_cons_prefix (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
     (hcross : ConsCrossEnv env c₀)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
-    (φ : Name → Nat) : TowerOkP m₂ φ := by
-  intro T i entry hf htw
-  -- the entry is a prefix entry: the head is not a tower entry
-  have hf3 := Setlec.Env.findProj?_some hf
-  have hfP0 : env.find? (Setlec.projFnName T i) = some (.projInfo entry) := by
-    rw [Setlec.Env.find?_cons] at hf3
-    split at hf3
-    · exact absurd htw (by
-        rw [hntc entry (Option.some.inj hf3)]; exact Bool.false_ne_true)
-    · exact hf3
+    (φ : Name → Nat) {T : Name} {i : Nat} {entry : ProjEntry}
+    (hfP0 : env.find? (Setlec.projFnName T i) = some (.projInfo entry))
+    (htw : entry.tower = true) :
+    TowerEntryLawP m₂ φ T i entry := by
   have hfP : env.findProj? T i = some entry := by
     unfold Setlec.Env.findProj?
     rw [hfP0]
@@ -354,5 +348,53 @@ theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
       rw [hac, acvalWith_ne hnT] at hmem
       rw [hac, acvalWith_ne hnC]
       exact hlaw' ρ ts rest x hlen hfit hmem
+
+/-- **`TowerOkP` at a fresh non-tower cons**: every stored tower entry
+is a prefix entry, and its law crosses. -/
+theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hcross : ConsCrossEnv env c₀)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
+    (φ : Name → Nat) : TowerOkP m₂ φ := by
+  intro T i entry hf htw
+  -- the entry is a prefix entry: the head is not a tower entry
+  have hf3 := Setlec.Env.findProj?_some hf
+  have hfP0 : env.find? (Setlec.projFnName T i) = some (.projInfo entry) := by
+    rw [Setlec.Env.find?_cons] at hf3
+    split at hf3
+    · exact absurd htw (by
+        rw [hntc entry (Option.some.inj hf3)]; exact Bool.false_ne_true)
+    · exact hf3
+  exact towerEntryLawP_cons_prefix mp hfresh hcross m₂ hac φ hfP0 htw
+
+/-- **`TowerOkP` at a tower-entry cons** (task #175 W4c, module 4):
+the prefix entries' laws cross, and the head's law is the install's
+own. -/
+theorem towerOkP_cons_tower (mp : EnvS2PM V μ env)
+    {entry₀ : ProjEntry} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? (ConstantInfo.projInfo entry₀).name = none)
+    (hcross : ConsCrossEnv env (.projInfo entry₀))
+    (m₂ : EnvS2Core V ⟨.projInfo entry₀ :: env.consts⟩)
+    (hac : m₂.acval = acvalWith mp.base2.acval
+      (ConstantInfo.projInfo entry₀).name A)
+    (hlaw : ∀ φ : Name → Nat,
+      TowerEntryLawP m₂ φ entry₀.structName entry₀.idx entry₀)
+    (φ : Name → Nat) : TowerOkP m₂ φ := by
+  intro T i entry hf htw
+  have hf3 := Setlec.Env.findProj?_some hf
+  rw [Setlec.Env.find?_cons] at hf3
+  split at hf3
+  · next hn =>
+    obtain rfl : entry₀ = entry :=
+      ConstantInfo.projInfo.inj (Option.some.inj hf3)
+    have hn' : Setlec.projFnName entry₀.structName entry₀.idx
+        = Setlec.projFnName T i := hn
+    obtain ⟨h1, h2⟩ := Setlec.projFnName_inj hn'
+    subst h1 h2
+    exact hlaw φ
+  · exact towerEntryLawP_cons_prefix mp hfresh hcross m₂ hac φ hf3 htw
 
 end Setlec.SetR.Interp2

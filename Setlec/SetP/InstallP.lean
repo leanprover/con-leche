@@ -199,6 +199,7 @@ structure ConsHeadP (env : Env) (c₀ : ConstantInfo)
   /-- a native head projection entry is a pinned pair entry with its
   block stored (`ProjOkT`'s head) -/
   projHead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
+    entry.tower = false →
     (entry = Setlec.pairFstEntry ∨ entry = Setlec.pairSndEntry) ∧
     env.find? Setlec.psigmaName = some Setlec.psigmaA ∧
     env.find? Setlec.psigmaMkName = some Setlec.psigmaMkA
@@ -250,6 +251,7 @@ theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
     (hvclosed : ∀ ψ : Name → Nat, VExpr.Closed ((A ψ).erase))
     (hnres : Setlec.reservedBasisNames.contains c₀.name = false)
     (hprojHead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
+      entry.tower = false →
       (entry = Setlec.pairFstEntry ∨ entry = Setlec.pairSndEntry) ∧
       env.find? Setlec.psigmaName = some Setlec.psigmaA ∧
       env.find? Setlec.psigmaMkName = some Setlec.psigmaMkA)
@@ -302,7 +304,7 @@ def coreCons (m : EnvS2Core V env) {c₀ : ConstantInfo}
           acvalWith_self]
         exact (hh.pin hres).2 ψ t hp⟩)
   proj_ok := ProjOkT.cons m.proj_ok hfresh
-    (fun entry heq hnat _ => hh.projHead entry heq hnat) hh.projPair
+    hh.projHead hh.projPair
     hh.projTowerHead
   rec_ctors := Setlec.RecCtorsStored.cons m.rec_ctors hfresh hh.ctorsHead
   acval_closed := acvalWith_closed m.acval_closed hAclosed

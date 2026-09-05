@@ -523,7 +523,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
   have hheadP : ConsHeadP env' (.projInfo entry) templateValP := by
     refine ⟨?_, (fun _ => ⟨trivial, trivial, trivial⟩),
       (fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h)),
-      (fun e2 heq hnat2 => by
+      (fun e2 heq hnat2 _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rw [hnat] at hnat2
         exact nomatch hnat2),

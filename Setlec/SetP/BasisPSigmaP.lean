@@ -690,7 +690,7 @@ theorem extendPairFstP (mp : EnvS2PM V μ env)
       (fun ψ => by
         rw [pairProjValT2_erase 0 ψ]; exact pairProjValT_closed 0 ψ),
       (fun hres => absurd hres (by decide)),
-      (fun entry heq _ => by
+      (fun entry heq _ _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact ⟨Or.inl rfl, hP, hM⟩),
       (fun _ entry heq _ => by
@@ -749,7 +749,7 @@ theorem extendPairSndP (mp : EnvS2PM V μ env)
       (fun ψ => by
         rw [pairProjValT2_erase 1 ψ]; exact pairProjValT_closed 1 ψ),
       (fun hres => absurd hres (by decide)),
-      (fun entry heq _ => by
+      (fun entry heq _ _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact ⟨Or.inr rfl, hP, hM⟩),
       (fun _ entry heq _ => by
