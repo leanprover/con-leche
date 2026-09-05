@@ -41817,3 +41817,18 @@ there by construction.
   `installProjFnStep`, 27 files) — kept: the template entries are
   inert, the projection functions still serve the modeled eta spine
   (`recSlotsAll`), and the census shows no `.proj` use reaches them.
+
+### 3. Receipts at the merged tip (coordinator's merge-grant conditions)
+
+Binary at `agent/wiring3` with master (`1335d200`) merged; init-full-pre2,
+`--pre`, `ulimit -v 16G`, `perf stat -e instructions:u` single run:
+
+| mode | verdict | instructions | pre-flip baseline (task #172 B4) | Δ |
+|---|---|---|---|---|
+| P (`--set-model=p`) | exit 0, accepted 61048 | **1579.71 G** | 1911.71 G | −17.4% |
+| parity (`--no-model`) | exit 0, accepted 61048 | **1061.49 G** | 1219.18 G | −12.9% |
+
+Verdict summaries identical to the pre-flip runs (61048 in both modes).
+The drop is the fallback's absence plus the direct install's tower
+entries typing every `.proj` node by the stored telescope (no rewrite,
+no re-annotation).
