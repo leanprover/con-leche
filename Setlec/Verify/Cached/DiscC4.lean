@@ -2145,20 +2145,35 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             -- once `RelCL` rewrites the spine
             simp only [↓reduceIte]
             rw [htargs]
-            cases hpi : Expr.instPisAt (Expr.getAppArgs te ++ [pe])
-                (entry.ty.instantiateLevelParams entry.levelParams
-                  us) with
-            | none => exact SimC.throw
-            | some q =>
-              obtain ⟨ds, resid⟩ := q
-              refine SimC.pure hs₂ ⟨rfl, ?_⟩
-              refine (instPisAt_WScoped _ _ hpi
-                (projEntry_ty_WScoped henv hfp us) ?_).2
-              intro a ha
-              rcases List.mem_append.mp ha with ha | ha
-              · exact hwte.getAppArgs a ha
-              · rcases List.mem_singleton.mp ha with rfl
-                exact hwpe
+            have hres : SimC mode env s₂' (RelEC d)
+                (match Expr.instPisAt (Expr.getAppArgs te ++ [pe])
+                    (entry.ty.instantiateLevelParams entry.levelParams us) with
+                  | some (_, resid) => internExprM resid
+                  | none => throw (CheckError.internal "malformed projection entry"))
+                (match Expr.instPisAt (Expr.getAppArgs te ++ [pe])
+                    (entry.ty.instantiateLevelParams entry.levelParams us) with
+                  | some (_, resid) => (pure resid : FueledM Expr)
+                  | none => throw (CheckError.internal "malformed projection entry")) := by
+              cases hpi : Expr.instPisAt (Expr.getAppArgs te ++ [pe])
+                  (entry.ty.instantiateLevelParams entry.levelParams
+                    us) with
+              | none => exact SimC.throw
+              | some q =>
+                obtain ⟨ds, resid⟩ := q
+                refine SimC.pure hs₂ ⟨rfl, ?_⟩
+                refine (instPisAt_WScoped _ _ hpi
+                  (projEntry_ty_WScoped henv hfp us) ?_).2
+                intro a ha
+                rcases List.mem_append.mp ha with ha | ha
+                · exact hwte.getAppArgs a ha
+                · rcases List.mem_singleton.mp ha with rfl
+                  exact hwpe
+            -- the Prop guard (task #175 W4c) runs no walk of its own
+            split
+            · split
+              · exact hres
+              · exact SimC.throw
+            · exact hres
           | false =>
            simp only [Bool.false_eq_true, ↓reduceIte]
            -- task #161 item B2 (harvest site 21 / P10): the residual is
@@ -2566,20 +2581,35 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
             -- `inferBodyC_sim`
             simp only [↓reduceIte]
             rw [htargs]
-            cases hpi : Expr.instPisAt (Expr.getAppArgs te ++ [pe])
-                (entry.ty.instantiateLevelParams entry.levelParams
-                  us) with
-            | none => exact SimC.throw
-            | some q =>
-              obtain ⟨ds, resid⟩ := q
-              refine SimC.pure hs₂ ⟨rfl, ?_⟩
-              refine (instPisAt_WScoped _ _ hpi
-                (projEntry_ty_WScoped henv hfp us) ?_).2
-              intro a ha
-              rcases List.mem_append.mp ha with ha | ha
-              · exact hwte.getAppArgs a ha
-              · rcases List.mem_singleton.mp ha with rfl
-                exact hwpe
+            have hres : SimC mode env s₂' (RelEC d)
+                (match Expr.instPisAt (Expr.getAppArgs te ++ [pe])
+                    (entry.ty.instantiateLevelParams entry.levelParams us) with
+                  | some (_, resid) => internExprM resid
+                  | none => throw (CheckError.internal "malformed projection entry"))
+                (match Expr.instPisAt (Expr.getAppArgs te ++ [pe])
+                    (entry.ty.instantiateLevelParams entry.levelParams us) with
+                  | some (_, resid) => (pure resid : FueledM Expr)
+                  | none => throw (CheckError.internal "malformed projection entry")) := by
+              cases hpi : Expr.instPisAt (Expr.getAppArgs te ++ [pe])
+                  (entry.ty.instantiateLevelParams entry.levelParams
+                    us) with
+              | none => exact SimC.throw
+              | some q =>
+                obtain ⟨ds, resid⟩ := q
+                refine SimC.pure hs₂ ⟨rfl, ?_⟩
+                refine (instPisAt_WScoped _ _ hpi
+                  (projEntry_ty_WScoped henv hfp us) ?_).2
+                intro a ha
+                rcases List.mem_append.mp ha with ha | ha
+                · exact hwte.getAppArgs a ha
+                · rcases List.mem_singleton.mp ha with rfl
+                  exact hwpe
+            -- the Prop guard (task #175 W4c) runs no walk of its own
+            split
+            · split
+              · exact hres
+              · exact SimC.throw
+            · exact hres
           | false =>
            simp only [Bool.false_eq_true, ↓reduceIte]
            -- task #161 item B2 (harvest site 21 / P10): the residual is

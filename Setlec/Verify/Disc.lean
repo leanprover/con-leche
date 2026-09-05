@@ -397,29 +397,7 @@ theorem structEtaProjCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   induction idxs with
   | nil => exact DiscV.pure trivial
   | cons i rest ihrest =>
-    show DiscV mode env _
-      (match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _) =>
-          if cvp.levelParams = lpsT ∧
-              (cvp.type.stripPis (targs.length + 1)).isSome = true then
-            iotaCerts C env d
-                (cvp.type.instantiateLevelParams cvp.levelParams us')
-                (targs ++ [b]) >>= fun r =>
-              if r then structEtaProjCerts C env d T us' targs b lpsT rest
-              else pure false
-          else pure false
-        | _ => pure false)
-      (match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _) =>
-          if cvp.levelParams = lpsT ∧
-              (cvp.type.stripPis (targs.length + 1)).isSome = true then
-            iotaCerts G env d
-                (cvp.type.instantiateLevelParams cvp.levelParams us')
-                (targs ++ [b]) >>= fun r =>
-              if r then structEtaProjCerts G env d T us' targs b lpsT rest
-              else pure false
-          else pure false
-        | _ => pure false)
+    simp only [structEtaProjCerts]
     cases hf : env.find? (projFnName T i) with
     | none => exact DiscV.pure trivial
     | some ci =>
@@ -445,8 +423,29 @@ theorem structEtaProjCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
             exact ihrest
           | false => exact DiscV.pure trivial
         · exact DiscV.pure trivial
+      | projInfo entry =>
+        -- the tower-backed slot (task #175 W4c): the entry's stored
+        -- type is closed, so its certificate walks like the recursor's
+        dsimp only
+        split
+        · have htyw : WScoped d
+              (entry.ty.instantiateLevelParams entry.levelParams us') :=
+            projEntry_ty_WScoped henv (by unfold Env.findProj?; rw [hf]) us'
+          have hargs : ∀ x ∈ targs ++ [b], WScoped d x := by
+            intro x hx
+            rcases List.mem_append.mp hx with hx | hx
+            · exact hwt x hx
+            · rcases List.mem_singleton.mp hx with rfl
+              exact hwb
+          refine DiscV.bind (iotaCerts_disc ih henv htyw hargs)
+            (fun r _ => ?_)
+          cases r with
+          | true =>
+            simp only [↓reduceIte]
+            exact ihrest
+          | false => exact DiscV.pure trivial
+        · exact DiscV.pure trivial
       | axiomInfo cv => exact DiscV.pure trivial
-      | projInfo _ => exact DiscV.pure trivial
       | defnInfo cv value hint => exact DiscV.pure trivial
       | thmInfo cv value => exact DiscV.pure trivial
       | indInfo cv caps => exact DiscV.pure trivial
@@ -485,17 +484,20 @@ theorem structEtaCertWith_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     (fun x hx => hwa.getAppArgs x (List.mem_of_mem_take hx))
     hwwtb.getAppArgs) (fun r₃ _ => ?_)
   split <;> try exact DiscV.pure trivial
-  have hwprojs : ∀ x ∈ (List.range cnF).map (fun i =>
-      Expr.mkAppN (.const (projFnName T i) us')
-        (wtb.getAppArgs ++ [b])), WScoped d x := by
+  have hwprojs : ∀ x ∈ etaProjs env T us' wtb.getAppArgs b cnF,
+      WScoped d x := by
     intro x hx
-    obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
-    refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
-    intro y hy
-    rcases List.mem_append.mp hy with hy | hy
-    · exact hwwtb.getAppArgs y hy
-    · rcases List.mem_singleton.mp hy with rfl
-      exact hwb
+    unfold etaProjs at hx
+    split at hx
+    · obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
+      simpa [WScoped] using hwb
+    · obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
+      refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
+      intro y hy
+      rcases List.mem_append.mp hy with hy | hy
+      · exact hwwtb.getAppArgs y hy
+      · rcases List.mem_singleton.mp hy with rfl
+        exact hwb
   -- task #137: the constructor-telescope certificate
   have htycw : WScoped d
       (cvc.type.instantiateLevelParams cvc.levelParams us) := by
@@ -682,15 +684,19 @@ theorem majorToCtor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         refine DiscV.bind (iotaCerts_disc ih henv
           (wscoped_instLevels_of_not_hasFvar htfC _ _)
           (fun x hx => ?_)) (fun rc _ => ?_)
-        · unfold etaFabArgs at hx
+        · unfold etaFabArgsE at hx
           rcases List.mem_append.mp hx with hx | hx
           · exact htmaj.getAppArgs x hx
-          · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
-            refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
-            intro y hy
-            rcases List.mem_append.mp hy with hy | hy
-            · exact htmaj.getAppArgs y hy
-            · rw [List.mem_singleton.mp hy]; exact hmaj
+          · unfold etaProjs at hx
+            split at hx
+            · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
+              simpa [WScoped] using hmaj
+            · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
+              refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
+              intro y hy
+              rcases List.mem_append.mp hy with hy | hy
+              · exact htmaj.getAppArgs y hy
+              · rw [List.mem_singleton.mp hy]; exact hmaj
         split
         · refine DiscV.bind
             (structEtaCertWith_disc ih henv hwfab hmaj htmaj)
@@ -1421,17 +1427,33 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split
     · -- task #175 wiring W2c: the tower residual — scoped because the
       -- stored entry type is closed and the spine and subject are
+      have hres : DiscV mode env (WScoped d)
+          (match Expr.instPisAt (w.getAppArgs ++ [pe])
+              (entry.ty.instantiateLevelParams entry.levelParams usw) with
+            | some (_, resid) => (pure resid : CheckSM Expr)
+            | none => throw (CheckError.internal "malformed projection entry"))
+          (match Expr.instPisAt (w.getAppArgs ++ [pe])
+              (entry.ty.instantiateLevelParams entry.levelParams usw) with
+            | some (_, resid) => (pure resid : CheckSM Expr)
+            | none => throw (CheckError.internal "malformed projection entry")) := by
+        split
+        · rename_i fst resid heq
+          refine DiscV.pure ?_
+          refine (instPisAt_WScoped _ _ heq
+            (projEntry_ty_WScoped henv hfpw usw) ?_).2
+          intro a ha
+          rcases List.mem_append.mp ha with ha | ha
+          · exact hww.getAppArgs a ha
+          · rcases List.mem_singleton.mp ha with rfl
+            exact hwpe
+        · exact DiscV.throw _
+      -- the Prop guard (task #175 W4c) runs no walk of its own
       split
-      · rename_i fst resid heq
-        refine DiscV.pure ?_
-        refine (instPisAt_WScoped _ _ heq
-          (projEntry_ty_WScoped henv hfpw usw) ?_).2
-        intro a ha
-        rcases List.mem_append.mp ha with ha | ha
-        · exact hww.getAppArgs a ha
-        · rcases List.mem_singleton.mp ha with rfl
-          exact hwpe
-      · exact DiscV.throw _
+      · split
+        · exact hres
+        · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+            (fun _ h => h.elim)
+      · exact hres
     · -- task #161 item B2: the computed two-way residual
       split
       · rename_i A _ heq
@@ -1604,17 +1626,33 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split
     · -- task #175 wiring W2c: the tower residual (as in
       -- `inferBody_disc`)
+      have hres : DiscV mode env (WScoped d)
+          (match Expr.instPisAt (w.getAppArgs ++ [pe])
+              (entry.ty.instantiateLevelParams entry.levelParams usw) with
+            | some (_, resid) => (pure resid : CheckSM Expr)
+            | none => throw (CheckError.internal "malformed projection entry"))
+          (match Expr.instPisAt (w.getAppArgs ++ [pe])
+              (entry.ty.instantiateLevelParams entry.levelParams usw) with
+            | some (_, resid) => (pure resid : CheckSM Expr)
+            | none => throw (CheckError.internal "malformed projection entry")) := by
+        split
+        · rename_i fst resid heq
+          refine DiscV.pure ?_
+          refine (instPisAt_WScoped _ _ heq
+            (projEntry_ty_WScoped henv hfpw usw) ?_).2
+          intro a ha
+          rcases List.mem_append.mp ha with ha | ha
+          · exact hww.getAppArgs a ha
+          · rcases List.mem_singleton.mp ha with rfl
+            exact hwpe
+        · exact DiscV.throw _
+      -- the Prop guard (task #175 W4c) runs no walk of its own
       split
-      · rename_i fst resid heq
-        refine DiscV.pure ?_
-        refine (instPisAt_WScoped _ _ heq
-          (projEntry_ty_WScoped henv hfpw usw) ?_).2
-        intro a ha
-        rcases List.mem_append.mp ha with ha | ha
-        · exact hww.getAppArgs a ha
-        · rcases List.mem_singleton.mp ha with rfl
-          exact hwpe
-      · exact DiscV.throw _
+      · split
+        · exact hres
+        · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+            (fun _ h => h.elim)
+      · exact hres
     · split
       · rename_i A _ heq
         exact DiscV.pure (hww.getAppArgs A (by rw [heq]; simp))

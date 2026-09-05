@@ -152,31 +152,7 @@ theorem structEtaProjCerts_atF (d : Nat) (F : Nat) (T : Name)
       structEtaProjCerts (pureFns mode env F) env d T us' targs b lpsT idxs
   | [] => rfl
   | i :: rest => by
-    show ((do
-        match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _) =>
-          if cvp.levelParams = lpsT ∧
-              (cvp.type.stripPis (targs.length + 1)).isSome = true then
-            if ← iotaCerts (fueledFns mode env) env d
-                (cvp.type.instantiateLevelParams cvp.levelParams us')
-                (targs ++ [b]) then
-              structEtaProjCerts (fueledFns mode env) env d T us' targs b
-                lpsT rest
-            else pure false
-          else pure false
-        | _ => pure false : FueledM Bool)).val F = (do
-        match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _) =>
-          if cvp.levelParams = lpsT ∧
-              (cvp.type.stripPis (targs.length + 1)).isSome = true then
-            if ← iotaCerts (pureFns mode env F) env d
-                (cvp.type.instantiateLevelParams cvp.levelParams us')
-                (targs ++ [b]) then
-              structEtaProjCerts (pureFns mode env F) env d T us' targs b lpsT
-                rest
-            else pure false
-          else pure false
-        | _ => pure false)
+    simp only [structEtaProjCerts]
     cases hf : env.find? (projFnName T i) with
     | none => rfl
     | some ci =>
@@ -193,8 +169,20 @@ theorem structEtaProjCerts_atF (d : Nat) (F : Nat) (T : Name)
             exact structEtaProjCerts_atF d F T us' targs b lpsT rest
           | false => rfl
         · rfl
+      | projInfo entry =>
+        -- the tower-backed slot (task #175 W4c)
+        dsimp only
+        split
+        · rw [FueledM.atF_bind, iotaCerts_atF]
+          congr 1
+          funext r
+          cases r with
+          | true =>
+            simp only [↓reduceIte]
+            exact structEtaProjCerts_atF d F T us' targs b lpsT rest
+          | false => rfl
+        · rfl
       | axiomInfo cv => rfl
-      | projInfo _ => rfl
       | defnInfo cv value => rfl
       | thmInfo cv value => rfl
       | indInfo cv caps => rfl

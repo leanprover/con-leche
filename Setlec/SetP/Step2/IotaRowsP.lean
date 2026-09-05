@@ -506,7 +506,7 @@ the wall stood for one worker-session. -/
 /-- **`IotaStepP`, discharged** (`iota_stepR`'s mirror; the wall above
 is its one flagged premise). -/
 theorem iotaStepP_of {m : EnvS2Core V env}
-    (hrec : RecRulesP m φ) (hcaps : CapsOkP m) (hct : ConstTypeP m φ)
+    (hrec : RecRulesP m φ) (hcaps : CapsOkP m) (htower : TowerOkP m φ) (hct : ConstTypeP m φ)
     (hav : AcvalValidP m)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
     (ihis : InferClaimsIOS2P μ m φ fuel)
@@ -555,7 +555,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
       (hCM.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwmaj))
       hmj0a hokMj0
   obtain ⟨vmaj, hvmajSave, hokMj, heqMj, hwmj, hbmj, hLmj, hCmj⟩ :=
-    majorToCtorP_stepP hcaps hct hav ihw ihd ihis hsss hexi hreads_ios
+    majorToCtorP_stepP hcaps htower hct hav ihw ihd ihis hsss hexi hreads_ios
       hwreads hmajc
       hw1 hb1 hL1 hC1 hmj1a hokMj1
   have heqAll : ∀ ρ : Nat → V, Sat2 V Δa ρ →

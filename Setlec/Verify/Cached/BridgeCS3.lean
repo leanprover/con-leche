@@ -5,7 +5,7 @@ import Setlec.Verify.Cached.BridgeCS2
 
 Port of `Setlec/Verify/BridgeS3.lean` for the cached tier.  The
 single-environment functions of the direct-install path
-(`checkDirectFieldUniv`, `checkDirectDomsAt`, `checkDirectInd`,
+(`checkDirectFieldSorts`, `checkDirectDomsAt`, `checkDirectInd`,
 `checkDirectCtor`, `checkDirectRecTy`, `checkDirectRule`,
 `checkDirectProj`), as `SimC`s between the `sharedOpsC` and
 `(fueledOpsM mode)` instantiations.  The per-site scoping facts mirror
@@ -63,18 +63,20 @@ theorem checkDirectDomsAtS_sim (henv : EnvWF env) {off : Nat}
       simp only [↓reduceIte]
       exact checkDirectDomsAtS_sim henv hc ht hs₃
 
-/-- The per-field universe bound at the shared operations. -/
-theorem checkDirectFieldUnivS_sim (henv : EnvWF env) {s : Level} {nP : Nat}
-    {fvs : List Expr}
+/-- The per-field sort walk at the shared operations (task #175
+W4c/O4: the universe bound has the official `Prop` escape hatch). -/
+theorem checkDirectFieldSortsS_sim (henv : EnvWF env) {isProp large : Bool}
+    {s : Level} {nP : Nat} {fvs : List Expr}
     (hfvs : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       WScoped (nP + i) (Expr.fvarTypeD x)) :
     ∀ {j : Nat} {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
-        (checkDirectFieldUniv (sharedOpsC mode (mkFEnv env)) env s nP fvs j)
-        (checkDirectFieldUniv (fueledOpsM mode) env s nP fvs j)
+        (checkDirectFieldSorts (sharedOpsC mode (mkFEnv env)) env isProp large
+          s nP fvs j)
+        (checkDirectFieldSorts (fueledOpsM mode) env isProp large s nP fvs j)
   | 0, s₀, hs => SimC.pure hs rfl
   | j + 1, s₀, hs => by
-    unfold checkDirectFieldUniv
+    unfold checkDirectFieldSorts
     dsimp only [sharedOpsC]
     refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ fv fv' hs₁ hP => ?_)
     obtain ⟨rfl, hfe⟩ := hP
@@ -84,16 +86,37 @@ theorem checkDirectFieldUnivS_sim (henv : EnvWF env) {s : Level} {nP : Nat}
     refine SimC.bind (opS_sim henv hs₂ htyW)
       (fun s₃ u u' hs₃ hP₃ => ?_)
     obtain rfl : u = u' := hP₃
-    refine SimC.bind (SimC.liftFueled _ _ hs₃)
-      (fun s₄ c c' hs₄ hC => ?_)
-    obtain rfl : c = c' := hC
-    cases c with
-    | false =>
-      simp only [Bool.false_eq_true, ↓reduceIte]
-      exact SimC.throw_bind
-    | true =>
-      simp only [↓reduceIte]
-      exact checkDirectFieldUnivS_sim henv hfvs hs₄
+    by_cases hnp : (!isProp) = true
+    · simp only [if_pos hnp]
+      refine SimC.bind (SimC.liftFueled _ _ hs₃)
+        (fun s₃ c c' hs₃ hC => ?_)
+      obtain rfl : c = c' := hC
+      cases c with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        exact SimC.throw_bind
+      | true =>
+        simp only [↓reduceIte]
+        refine SimC.bind (checkDirectFieldSortsS_sim henv hfvs hs₃)
+          (fun s₄ rest rest' hs₄ hR => ?_)
+        obtain rfl : rest = rest' := hR
+        exact SimC.pure hs₄ rfl
+    · simp only [if_neg hnp]
+      by_cases hl : large = true
+      · simp only [if_pos hl]
+        by_cases hz : (Level.isEquiv u .zero == some true) = true
+        · simp only [if_pos hz]
+          refine SimC.bind (checkDirectFieldSortsS_sim henv hfvs hs₃)
+            (fun s₄ rest rest' hs₄ hR => ?_)
+          obtain rfl : rest = rest' := hR
+          exact SimC.pure hs₄ rfl
+        · simp only [if_neg hz]
+          exact SimC.throw_bind
+      · simp only [if_neg hl]
+        refine SimC.bind (checkDirectFieldSortsS_sim henv hfvs hs₃)
+          (fun s₄ rest rest' hs₄ hR => ?_)
+        obtain rfl : rest = rest' := hR
+        exact SimC.pure hs₄ rfl
 
 /-- Stage 1 (the type former) at the shared operations. -/
 theorem checkDirectIndS_sim (henv : EnvWF env) {p : DirectParts}
@@ -119,7 +142,7 @@ theorem checkDirectIndS_sim (henv : EnvWF env) {p : DirectParts}
 theorem checkDirectCtorS_sim (henv : EnvWF env) {env₀ : Env}
     {p : DirectParts} {cvTa : ConstantVal}
     (hTf : cvTa.type.hasFvar = false) (hs : CSOK mode env s₀) :
-    SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 (Prod.snd v).type)
+    SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 (Prod.snd v).1.type)
       (checkDirectCtor (sharedOpsC mode (mkFEnv env)) env₀ env p cvTa)
       (checkDirectCtor (fueledOpsM mode) env₀ env p cvTa) := by
   unfold checkDirectCtor
@@ -183,8 +206,9 @@ theorem checkDirectCtorS_sim (henv : EnvWF env) {env₀ : Env}
   by_cases h3 : (xFvs.all fun x => Expr.constsResolve env₀ x.fvarTypeD) = true
   case neg => simp only [if_neg h3]; exact SimC.throw_bind
   simp only [if_pos h3]
-  refine SimC.bind (checkDirectFieldUnivS_sim henv hxPos hs₆)
-    (fun s₇ u0 u0' hs₇ hU0 => ?_)
+  refine SimC.bind (checkDirectFieldSortsS_sim henv hxPos hs₆)
+    (fun s₇ sorts sorts' hs₇ hS => ?_)
+  obtain rfl : sorts = sorts' := hS
   exact SimC.pure hs₇ ⟨rfl, hCw⟩
 
 /-- Stage 3 (the recursor's type) at the shared operations. -/
@@ -198,7 +222,7 @@ theorem checkDirectRecTyS_sim (henv : EnvWF env) {p : DirectParts}
   unfold checkDirectRecTy
   dsimp only [sharedOpsC]
   by_cases h0 : directShape p.cvT.name p.cvC.name p.cvT.levelParams p.elim
-      p.nP p.nF cvTa.type cvCa.type cvRa.type = true
+      p.large p.nP p.nF cvTa.type cvCa.type cvRa.type = true
   case neg => simp only [if_neg h0]; exact SimC.throw_bind
   simp only [if_pos h0]
   refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ q q' hs₁ hP => ?_)
@@ -292,7 +316,7 @@ theorem checkDirectRecTyS_sim (henv : EnvWF env) {p : DirectParts}
     exact SimC.throw_bind
   | true =>
   simp only [↓reduceIte]
-  by_cases h2 : (mbody == Expr.sort (.param p.elim)) = true
+  by_cases h2 : (mbody == Expr.sort (if p.large then .param p.elim else .zero)) = true
   case neg => simp only [if_neg h2]; exact SimC.throw_bind
   simp only [if_pos h2]
   refine SimC.bind (SimC.unwrapOr' hs₇) (fun s₈ minfv mi' hs₈ hI => ?_)
@@ -443,21 +467,20 @@ theorem checkDirectRuleS_sim (henv : EnvWF env) {p : DirectParts}
     (fun s₈ rhsTy rhsTy' hs₈ hI => ?_)
   exact SimC.pure hs₈ rfl
 
-/-- The projection-function install of the direct path at the shared
+/-- The projection-entry install of the direct path at the shared
 operations. -/
-theorem checkDirectProjS_sim (henv : EnvWF env) {T C : Name}
-    {lps : List Name} {nP nF i : Nat} {rs : Level}
-    {cvTa cvCa : ConstantVal}
+theorem checkDirectProjEntryS_sim (henv : EnvWF env) {T C : Name}
+    {lps : List Name} {nP nF i : Nat} {rs guard : Level}
+    {cvCa : ConstantVal} {pty : Expr}
     (hCf : cvCa.type.hasFvar = false) (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkDirectProj (sharedOpsC mode (mkFEnv env)) T C lps nP nF rs
-        cvTa cvCa env i)
-      (checkDirectProj (fueledOpsM mode) T C lps nP nF rs cvTa cvCa
+      (checkDirectProjEntry (sharedOpsC mode (mkFEnv env)) T C lps nP nF rs
+        guard cvCa pty env i)
+      (checkDirectProjEntry (fueledOpsM mode) T C lps nP nF rs guard cvCa pty
         env i) := by
-  unfold checkDirectProj
+  unfold checkDirectProjEntry
   dsimp only [sharedOpsC]
-  refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ pty pty' hs₁ hP => ?_)
-  obtain ⟨rfl, -⟩ := hP
+  have hs₁ := hs
   by_cases h0 : (!pty.hasFvar && Expr.looseBVarsBounded 0 pty) = true
   case neg => simp only [if_neg h0]; exact SimC.throw_bind
   simp only [if_pos h0]
@@ -560,20 +583,28 @@ theorem checkDirectProjS_sim (henv : EnvWF env) {T C : Name}
     exact SimC.throw_bind
   | true =>
   simp only [↓reduceIte]
-  refine SimC.bind (opE_infer_sim henv hs₁₄ hresidW)
-    (fun s₁₅ fSty fSty' hs₁₅ hFs => ?_)
-  obtain ⟨rfl, hfstyW⟩ := hFs
-  refine SimC.bind (opS_sim henv hs₁₅ hfstyW)
-    (fun s₁₆ fu fu' hs₁₆ hFu => ?_)
-  obtain rfl : fu = fu' := hFu
-  refine SimC.bind (SimC.liftFueled _ _ hs₁₆)
-    (fun s₁₇ le le' hs₁₇ hLe => ?_)
-  obtain rfl : le = le' := hLe
-  by_cases h4 : (rs.isNonZero || le) = true
-  · simp only [if_pos h4]
-    exact SimC.pure hs₁₇ rfl
-  · simp only [if_neg h4]
-    exact SimC.pure hs₁₇ rfl
+  exact SimC.pure hs₁₄ rfl
+
+/-- The projection slot of the direct path at the shared operations: a
+skipped slot is the identity, an installed one is the entry install at
+the generated type. -/
+theorem checkDirectProjS_sim (henv : EnvWF env) {T C : Name}
+    {lps : List Name} {nP nF i : Nat} {rs : Level} {slots : List Bool}
+    {guards : List Level} {cvTa cvCa : ConstantVal}
+    (hCf : cvCa.type.hasFvar = false) (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC
+      (checkDirectProj (sharedOpsC mode (mkFEnv env)) T C lps nP nF rs slots
+        guards cvTa cvCa env i)
+      (checkDirectProj (fueledOpsM mode) T C lps nP nF rs slots guards cvTa
+        cvCa env i) := by
+  unfold checkDirectProj
+  by_cases hsl : slots.getD i false = true
+  · simp only [if_pos hsl]
+    refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ pty pty' hs₁ hP => ?_)
+    obtain ⟨rfl, -⟩ := hP
+    exact checkDirectProjEntryS_sim henv hCf hs₁
+  · simp only [if_neg hsl]
+    exact SimC.pure hs rfl
 
 end Walks3
 

@@ -164,6 +164,17 @@ theorem etaFabArgsV_liftN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
           nF := by
   simp only [etaFabArgsV, List.map_append, projSpinesV_liftN hcl]
 
+theorem etaFabArgsVE_liftN (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    (env : Env) (T : Name) (ψt : Name → Nat) (ts : List VExpr)
+    (major : VExpr) (nF : Nat) (n k : Nat) :
+    (etaFabArgsVE cval env T ψt ts major nF).map (·.liftN n k)
+      = etaFabArgsVE cval env T ψt (ts.map (·.liftN n k)) (major.liftN n k)
+          nF := by
+  unfold etaFabArgsVE
+  split
+  · simp only [List.map_append, List.map_map, Function.comp_def, liftN_projNV]
+  · simp only [List.map_append, projSpinesV_liftN hcl]
+
 end Closed
 
 /-! ## The weakened forms (the five motives) -/
@@ -582,45 +593,45 @@ private theorem wkRedRescueEta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h14c : TVj.Closed)
     (_ : Infer μ env cval φ Δ m₀ tm) (_ : DefEq μ env cval φ Δ tm TM)
     (_ : Tele μ env cval φ Δ TVj
-      (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+      (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
         caps.etaFields) rest)
     (_ : DefEq μ env cval φ Δ
       (VExpr.mkAppN
         (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-        (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+        (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
           caps.etaFields)) m₀)
     (ih15 : InfW μ env cval φ Δ m₀ tm) (ih16 : DeqW μ env cval φ Δ tm TM)
     (ih17 : TeleW μ env cval φ Δ TVj
-      (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+      (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
         caps.etaFields) rest)
     (ih18 : DeqW μ env cval φ Δ
       (VExpr.mkAppN
         (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-        (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+        (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
           caps.etaFields)) m₀) :
     RedW μ env cval φ Δ m₀
       (VExpr.mkAppN
         (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-        (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+        (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
           caps.etaFields)) := by
   intro nn kk Δ' HH
   have hfab : (VExpr.mkAppN
       (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-      (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+      (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
         caps.etaFields)).liftN nn kk
     = VExpr.mkAppN
         (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-        (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust)
+        (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust)
           (ts.map (·.liftN nn kk)) (m₀.liftN nn kk) caps.etaFields) := by
     rw [liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _),
-      etaFabArgsV_liftN hcl]
+      etaFabArgsVE_liftN hcl]
   rw [hfab]
   refine Red.rescueEta (ts := ts.map (·.liftN nn kk))
     (rest := rest.liftN nn kk) h1 h2 h3 h4 h5 h6
     h7 (by simpa using h8) h9 h10 h11 h12 ?_ h14 h14c (ih15 HH)
     (ih16 HH) ?_ ?_
   · rw [h13, liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _)]
-  · simpa [liftN_eq_self_of_closed h14c, etaFabArgsV_liftN hcl]
+  · simpa [liftN_eq_self_of_closed h14c, etaFabArgsVE_liftN hcl]
       using ih17 HH
   · simpa [← hfab] using ih18 HH
 

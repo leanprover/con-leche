@@ -1,4 +1,6 @@
 import Setlec.Verify.Cached.BridgeCS4
+import Setlec.Verify.DirectWF
+import Setlec.Verify.DirectResid
 
 /-!
 # Cached shared-state checker: the inductive block and the per-declaration bridge
@@ -97,6 +99,55 @@ theorem installBasisFoldF_pushC :
       bind_assoc, bind_assoc]
     refine bindC_congr fun e => ?_
     rw [pure_bind, installBasisFoldF_pushC l e]
+
+/-! ### The direct simple-structure path's extending stages (task #175
+W4c: the cached run bridge restored) -/
+
+theorem checkDirectIndF_pushC (ops : CheckerOps CheckCM) (env : Env)
+    (p : DirectParts) :
+    checkDirectIndF ops (mkFEnv env) p
+      = checkDirectInd ops env p
+          >>= fun q => pure (mkFEnv q.1, q.2) := by
+  unfold checkDirectIndF checkDirectInd
+  simp only [checkConstantValF_eq, push_mkFEnv, bind_assoc,
+    pure_bind, ite_bindC, throwC_bind_eq] <;> rfl
+
+theorem checkDirectCtorF_pushC (ops : CheckerOps CheckCM) (env₀ env : Env)
+    (p : DirectParts) (cvTa : ConstantVal) :
+    checkDirectCtorF ops (mkFEnv env₀) (mkFEnv env) p cvTa
+      = checkDirectCtor ops env₀ env p cvTa
+          >>= fun q => pure (mkFEnv q.1, q.2) := by
+  unfold checkDirectCtorF checkDirectCtor
+  simp only [checkConstantValF_eq, checkDirectDomsAtFA_eq,
+    checkDirectDomsAtF_eq, openPisAtFvarsF_eq, checkDirectFieldSortsFA_eq,
+    checkDirectFieldSortsF_eq, constsResolveF_eq, mkFEnv_env, push_mkFEnv,
+    bind_assoc, pure_bind, ite_bindC, throwC_bind_eq] <;> rfl
+
+theorem checkDirectProjEntryF_pushC (ops : CheckerOps CheckCM) (T C : Name)
+    (lps : List Name) (nP nF : Nat) (rs guard : Level) (cvCa : ConstantVal)
+    (pty : Expr) (env : Env) (i : Nat) :
+    checkDirectProjEntryF ops T C lps nP nF rs guard cvCa pty (mkFEnv env) i
+      = checkDirectProjEntry ops T C lps nP nF rs guard cvCa pty env i
+          >>= fun e => pure (mkFEnv e) := by
+  unfold checkDirectProjEntryF checkDirectProjEntry
+  simp only [constsResolveF_eq, mkFEnv_find?, mkFEnv_env, openPisAtFvarsF_eq,
+    instPisAtF_eq, push_mkFEnv, bind_assoc, pure_bind, ite_bindC,
+    throwC_bind_eq] <;> rfl
+
+/-- The projection slot through the index, at the incremental residual
+(`directProjTyR_residP` identifies the slot type with the generator's). -/
+theorem checkDirectProjF_pushC (ops : CheckerOps CheckCM) (T C : Name)
+    (lps : List Name) (nP nF : Nat) (rs : Level) (slots : List Bool)
+    (guards : List Level) (cvTa cvCa : ConstantVal) (env : Env) (i : Nat) :
+    checkDirectProjF ops T C lps nP nF rs slots guards cvTa cvCa
+        (directProjResidP T nP cvCa.type i) (mkFEnv env) i
+      = checkDirectProj ops T C lps nP nF rs slots guards cvTa cvCa env i
+          >>= fun e => pure (mkFEnv e) := by
+  unfold checkDirectProjF checkDirectProj
+  rw [directProjTyR_residP]
+  split
+  · simp only [checkDirectProjEntryF_pushC, bind_assoc]
+  · simp only [pure_bind]
 
 /-- The non-inductive branches of the cached `checkDeclSF` are the
 generic `checkDecl` (at the cached shared operations) followed by
@@ -236,11 +287,184 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
 
 /-! ## `checkIndDecl` and the final bridge -/
 
-/-! The direct-structure run's cached bridge (`checkDirectProjsS_run`,
-`checkDirectStructS_run`) is **deleted** for the same reason as in the
-interned original: `directStructsEnabled = false` makes the arm that
-called it unreachable, and `directParts?_none` collapses that arm at
-one `rw`. -/
+/-! ## The direct simple-structure install (task #82; the cached run
+bridge restored at task #175 W4c, the direct install being the only
+projection route) -/
+
+/-- The projection-install fold of the cached driver, run-level (one
+flush per field; the residual accumulator is the incremental
+constructor-telescope peel, which reads each slot's type as the
+generator does — `directProjTyR_residP`). -/
+theorem checkDirectProjsS_run {T C : Name} {lps : List Name} {nP nF : Nat}
+    {rs : Level} {slots : List Bool} {guards : List Level}
+    {cvTa cvCa : ConstantVal} (hCf : cvCa.type.hasFvar = false) :
+    ∀ (todo i : Nat) (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState},
+      EnvWF env → CSOKF s₀ →
+      checkDirectProjsS mode T C lps nP nF rs slots guards cvTa cvCa todo i
+        (directProjResidP T nP cvCa.type i) (mkFEnv env) s₀ = .ok (fe', s') →
+      CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+      ∃ F, ((List.range' i todo).foldlM
+        (checkDirectProj (fueledOpsM mode) T C lps nP nF rs slots guards
+          cvTa cvCa) env).val F = .ok fe'.env
+  | 0, i, env, s₀, fe', s', henv, hwf, h => by
+    obtain ⟨hfe, rfl⟩ := pureC_ok h
+    subst hfe
+    exact ⟨hwf, rfl, henv, 0, rfl⟩
+  | todo + 1, i, env, s₀, fe', s', henv, hwf, h => by
+    unfold checkDirectProjsS at h
+    obtain ⟨u, sf, hflush, h⟩ := bindC_ok h
+    rw [flushC_run] at hflush
+    injection hflush with hflush
+    obtain rfl : s₀.flushed = sf := congrArg Prod.snd hflush
+    rw [checkDirectProjF_pushC] at h
+    obtain ⟨fe₁, s₁, hstep, h⟩ := bindC_ok h
+    obtain ⟨e₁, s₂, hpj, hstep⟩ := bindC_ok hstep
+    obtain ⟨hs₂, e₁', hP, F₁, hF₁⟩ :=
+      (checkDirectProjS_sim henv hCf (flushC_csok hwf)) e₁ s₂ hpj
+    obtain rfl : e₁ = e₁' := hP
+    obtain ⟨hfe₁, rfl⟩ := pureC_ok hstep
+    subst hfe₁
+    have hF₁p : checkDirectProj (fueledOps mode F₁) T C lps nP nF rs slots
+        guards cvTa cvCa env i = .ok e₁ := by
+      rw [← checkDirectProj_datF]; exact hF₁
+    obtain ⟨hwf', hfe', henv', F₂, hF₂⟩ :=
+      checkDirectProjsS_run hCf todo (i + 1) e₁ (direct_proj_wf henv hF₁p)
+        hs₂.residue h
+    refine ⟨hwf', hfe', henv', max F₁ F₂, ?_⟩
+    rw [List.range'_succ, List.foldlM_cons]
+    exact atF_bind_intro hF₁ hF₂
+
+set_option maxHeartbeats 1600000 in
+/-- The direct simple-structure install at the cached driver is
+reproduced by the pure fueled `checkDirectStruct`. -/
+theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
+    {p : DirectParts} {s₀ : CState} (hwf : CSOKF s₀)
+    {feOut : FEnv} {s' : CState}
+    (h : checkDirectStructS mode (mkFEnv env) p s₀ = .ok (feOut, s')) :
+    CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
+    ∃ F, checkDirectStruct (fueledOps mode F) env p = .ok feOut.env := by
+  unfold checkDirectStructS at h
+  -- stage 1: the type former
+  obtain ⟨u0, sA, hfl0, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl0
+  injection hfl0 with hfl0
+  obtain rfl : s₀.flushed = sA := congrArg Prod.snd hfl0
+  rw [checkDirectIndF_pushC] at h
+  simp only [bind_assoc, pure_bind] at h
+  obtain ⟨q1, s₁, hind, h⟩ := bindC_ok h
+  obtain ⟨hs₁, q1', hP1, F₁, hF₁⟩ :=
+    (checkDirectIndS_sim henv (flushC_csok hwf)) q1 s₁ hind
+  obtain ⟨rfl, -⟩ := hP1
+  obtain ⟨env₁, cvTa⟩ := q1
+  have hF₁p : checkDirectInd (fueledOps mode F₁) env p = .ok (env₁, cvTa) := by
+    rw [← checkDirectInd_datF]; exact hF₁
+  obtain ⟨henv₁, hTf⟩ := direct_ind_wf henv hF₁p
+  -- stage 2: the constructor
+  obtain ⟨u1, sB, hfl1, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl1
+  injection hfl1 with hfl1
+  obtain rfl : s₁.flushed = sB := congrArg Prod.snd hfl1
+  rw [checkDirectCtorF_pushC] at h
+  simp only [bind_assoc, pure_bind] at h
+  obtain ⟨q2, s₂, hct, h⟩ := bindC_ok h
+  obtain ⟨hs₂, q2', hP2, F₂, hF₂⟩ :=
+    (checkDirectCtorS_sim henv₁ hTf (flushC_csok hs₁.residue)) q2 s₂ hct
+  obtain ⟨rfl, -⟩ := hP2
+  obtain ⟨env₂, cvCa, sorts⟩ := q2
+  have hF₂p : checkDirectCtor (fueledOps mode F₂) env env₁ p cvTa
+      = .ok (env₂, cvCa, sorts) := by
+    rw [← checkDirectCtor_datF]; exact hF₂
+  obtain ⟨henv₂, hCf, -⟩ := direct_ctor_wf henv₁ hF₂p
+  -- stage 3: the recursor's constant and type
+  obtain ⟨u2, sC, hfl2, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl2
+  injection hfl2 with hfl2
+  obtain rfl : s₂.flushed = sC := congrArg Prod.snd hfl2
+  rw [checkConstantValF_eq] at h
+  obtain ⟨cvRa, s₃, hcv, h⟩ := bindC_ok h
+  obtain ⟨hs₃, cvRa', hP3, F₃, hF₃⟩ :=
+    (checkConstantValS_sim henv₂ (flushC_csok hs₂.residue)) cvRa s₃ hcv
+  obtain ⟨rfl, -⟩ := hP3
+  have hF₃p : checkConstantVal (fueledOps mode F₃) env₂ p.cvR = .ok cvRa := by
+    rw [← checkConstantVal_datF]; exact hF₃
+  obtain ⟨hRf, -, -, -⟩ := checkConstantVal_typeWF hF₃p
+  rw [checkDirectRecTyF_eq] at h
+  obtain ⟨u3, s₄, hrt, h⟩ := bindC_ok h
+  obtain ⟨hs₄, u3', hP4, F₄, hF₄⟩ :=
+    (checkDirectRecTyS_sim henv₂ hCf hRf hs₃) u3 s₄ hrt
+  have hF₄p : checkDirectRecTy (fueledOps mode F₄) env₂ p cvTa cvCa cvRa
+      = .ok u3' := by
+    rw [← checkDirectRecTy_datF]; exact hF₄
+  -- stage 4: the rule
+  rw [checkDirectRuleF_eq] at h
+  obtain ⟨rhsA, s₅, hru, h⟩ := bindC_ok h
+  obtain ⟨hs₅, rhsA', hP5, F₅, hF₅⟩ :=
+    (checkDirectRuleS_sim henv₂ hCf hRf hs₄) rhsA s₅ hru
+  obtain rfl : rhsA = rhsA' := hP5
+  have hF₅p : checkDirectRule (fueledOps mode F₅) env₂ p cvCa cvRa
+      = .ok rhsA := by
+    rw [← checkDirectRule_datF]; exact hF₅
+  have henv₃ := direct_rec_wf henv₂ hF₃p hF₅p
+  -- the projection phase
+  rw [push_mkFEnv] at h
+  simp only [mkFEnv_find?] at h
+  by_cases hguard : (List.range p.nF).all (fun j =>
+      (Env.find? ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+        [⟨p.cvC.name, p.nF, p.nP,
+          if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
+            .plain else .inert, rhsA⟩] :: env₂.consts⟩
+        (projFnName p.cvT.name j)).isNone) = true
+  case neg =>
+    rw [if_neg hguard] at h
+    exact absurd h throwC_bind_ok
+  rw [if_pos hguard] at h
+  obtain ⟨hwfO, hfeO, henvO, F₆, hF₆⟩ :=
+    checkDirectProjsS_run (T := p.cvT.name) (C := p.cvC.name)
+      (lps := p.cvT.levelParams) (nP := p.nP) (nF := p.nF) (rs := p.resSort)
+      (slots := directProjSlots p)
+      (guards := directProjGuards cvCa.type p.nP p.nF sorts)
+      (cvTa := cvTa) (cvCa := cvCa) hCf p.nF 0 _ henv₃ hs₅.residue h
+  obtain ⟨G, hle₁, hle₂, hle₃, hle₄, hle₅, hle₆⟩ :
+      ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G ∧ F₅ ≤ G ∧ F₆ ≤ G :=
+    ⟨max F₁ (max F₂ (max F₃ (max F₄ (max F₅ F₆)))),
+      by omega, by omega, by omega, by omega, by omega, by omega⟩
+  refine ⟨hwfO, hfeO, G, ?_⟩
+  have g₁ : checkDirectInd (fueledOps mode G) env p = .ok (env₁, cvTa) := by
+    rw [← checkDirectInd_datF]; exact FueledM.up hle₁ hF₁
+  have g₂ : checkDirectCtor (fueledOps mode G) env env₁ p cvTa
+      = .ok (env₂, cvCa, sorts) := by
+    rw [← checkDirectCtor_datF]; exact FueledM.up hle₂ hF₂
+  have g₃ : checkConstantVal (fueledOps mode G) env₂ p.cvR = .ok cvRa := by
+    rw [← checkConstantVal_datF]; exact FueledM.up hle₃ hF₃
+  have g₄ : checkDirectRecTy (fueledOps mode G) env₂ p cvTa cvCa cvRa
+      = .ok u3' := by
+    rw [← checkDirectRecTy_datF]; exact FueledM.up hle₄ hF₄
+  have g₅ : checkDirectRule (fueledOps mode G) env₂ p cvCa cvRa = .ok rhsA := by
+    rw [← checkDirectRule_datF]; exact FueledM.up hle₅ hF₅
+  have g₆ : (List.range p.nF).foldlM
+      (checkDirectProj (fueledOps mode G) p.cvT.name p.cvC.name
+        p.cvT.levelParams p.nP p.nF p.resSort (directProjSlots p)
+        (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa)
+      ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+        [⟨p.cvC.name, p.nF, p.nP,
+          if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
+            .plain else .inert, rhsA⟩] :: env₂.consts⟩ = .ok feOut.env := by
+    have := FueledM.up hle₆ hF₆
+    rw [foldlM_atF, ← List.range_eq_range'] at this
+    simpa only [checkDirectProj_datF] using this
+  simp only [checkDirectStruct, Bind.bind, Except.bind, pure, Except.pure]
+  rw [g₁]
+  simp only [Except.bind]
+  rw [g₂]
+  simp only [Except.bind]
+  rw [g₃]
+  simp only [Except.bind]
+  rw [g₄]
+  simp only [Except.bind]
+  rw [g₅]
+  simp only [Except.bind]
+  rw [if_pos hguard]
+  exact g₆
 
 /-- The inductive block at the cached driver is reproduced by the
 pure fueled `checkIndDecl`. -/
@@ -420,10 +644,15 @@ theorem checkIndOrDirectSF_run {env : Env} (henv : EnvWF env)
     ∃ F, (match directParts? env block with
       | some p => checkDirectStruct (fueledOps mode F) env p
       | none => checkIndDecl mode (fueledOps mode F) env block) = .ok feOut.env
-  -- the direct arm is unreachable (`directStructsEnabled = false`)
-  rw [directParts?_none] at h ⊢
-  obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run henv hwf h
-  exact ⟨hres, hfe, F, hF⟩
+  cases hdp : directParts? env block with
+  | some p =>
+    rw [hdp] at h
+    obtain ⟨hres, hfe, F, hF⟩ := checkDirectStructS_run henv hwf h
+    exact ⟨hres, hfe, F, hF⟩
+  | none =>
+    rw [hdp] at h
+    obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run henv hwf h
+    exact ⟨hres, hfe, F, hF⟩
 
 /-- The per-declaration bridge: a successful cached shared-state run
 over a well-formed environment is reproduced by the pure fueled

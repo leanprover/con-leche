@@ -355,13 +355,11 @@ def projNodesI (T : Name) (b : ExprC) : List Nat → CheckCM (List ExprC)
 (`towerSlotsAll` through the index), the projection-function spelling
 otherwise.  `Tn` is the readback name, `T` the interned one. -/
 def projAppsI (fe : FEnv) (Tn T : Name) (us' : List Level)
-    (targs : List ExprC) (b : ExprC) (idxs : List Nat) :
+    (targs : List ExprC) (b : ExprC) (nF : Nat) :
     CheckCM (List ExprC) :=
-  if idxs.all (fun j => match fe.findProj? Tn j with
-      | some e => e.tower
-      | none => false) then
-    projNodesI T b idxs
-  else projAppsFnI T us' targs b idxs
+  if fe.towerSlotsAllF Tn nF then
+    projNodesI T b (List.range nF)
+  else projAppsFnI T us' targs b (List.range nF)
 
 /-- Twin of `structEtaProjCerts`. -/
 def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
@@ -416,7 +414,7 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
                 (cvT.type.stripPis cnP).isSome = true ∧
-                (towerSlotsAllF fe Tn cnF || recSlotsAllF fe Tn cnF) = true then do
+                (fe.towerSlotsAllF Tn cnF || fe.recSlotsAllF Tn cnF) = true then do
               if ← liftFueled "level comparison"
                   (← isEquivListLM us us') then do
                 let tyT ← constTyAtM fe T Tn us'
@@ -424,7 +422,7 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   if ← structEtaProjCertsI r fe depth T Tn us'
                       targs b cvT.levelParams (List.range cnF) then do
                     if ← defEqListI r fe depth (aargs.take cnP) targs then do
-                      let projs ← projAppsI fe Tn T us' targs b (List.range cnF)
+                      let projs ← projAppsI fe Tn T us' targs b cnF
                       -- synthetic-spine certification (task #137): the
                       -- fabricated constructor application
                       -- `c targs (proj_i … b)` is certified against the
@@ -585,8 +583,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       (caps.etaParams + caps.etaFields)).isSome
                       = true then do
                   let TI ← internNameM T
-                  let projs ← projAppsI fe T TI ust margs major
-                    (List.range caps.etaFields)
+                  let projs ← projAppsI fe T TI ust margs major caps.etaFields
                   let ctorI ← internNameM caps.etaCtor
                   let h ← internI (.const ctorI ust)
                   let fab ← mkAppNM h (margs ++ projs)

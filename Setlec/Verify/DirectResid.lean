@@ -1,4 +1,5 @@
 import Setlec.Kernel.Direct
+import Setlec.Verify.FastOps
 
 /-!
 # The incremental projection residual agrees with the generator (task #175 W4c)
@@ -11,14 +12,6 @@ is the whole-spine `instPisAtLift`.
 -/
 
 namespace Setlec
-
-theorem instPisAtLift_append :
-    ∀ (as bs : List Expr) (e : Expr),
-      Expr.instPisAtLift (as ++ bs) e
-        = (Expr.instPisAtLift as e).bind (Expr.instPisAtLift bs)
-  | [], bs, e => by simp [Expr.instPisAtLift]
-  | a :: as, bs, e => by
-    cases e <;> simp [Expr.instPisAtLift, instPisAtLift_append as bs]
 
 theorem directProjResidP_eq (T : Name) (nP : Nat) (cty : Expr) :
     ∀ i, directProjResidP T nP cty i

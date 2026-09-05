@@ -300,7 +300,7 @@ theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
     unfold Setlec.Env.findProj?
     rw [hfP0]
   obtain ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
-    hlaw⟩ := mp.tower_ok φ T i entry hfP htw
+    hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP htw
   -- the two stored names are not the fresh one
   have hne : ∀ {n : Name} {ci : ConstantInfo}, env.find? n = some ci →
       n ≠ c₀.name := by
@@ -310,20 +310,37 @@ theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
   have hnT : T ≠ c₀.name := hne hfT
   have hnC : entry.ctor ≠ c₀.name := hne hfC
   refine ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, ?_, hlpsT⟩, cvC, ?_, hlpsC,
-    fun us hus => ?_⟩
+    fun us hus => ?_, ?_⟩
   · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfT]; rfl)]; exact hfT
   · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]; exact hfC
-  obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
-  refine ⟨⟨Ta, ?_, ?_⟩, ?_⟩
-  · rw [hac]
-    exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
-      (constsBound_instType mp.base2.wf
-        (Setlec.SetR.Env.find?_mem hfP0) us) hTa
-  · intro ρ vs x rest hlen hokT hokx hmem hpeel
-    rw [hac, acvalWith_ne hnT] at hokT hmem
-    exact hA ρ vs x rest hlen hokT hokx hmem hpeel
-  · intro ρ ys hlen hok
-    rw [hac, acvalWith_ne hnC] at hok ⊢
-    exact hB ρ ys hlen hok
+  · obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
+    refine ⟨⟨Ta, ?_, ?_⟩, ?_⟩
+    · rw [hac]
+      exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
+        (constsBound_instType mp.base2.wf
+          (Setlec.SetR.Env.find?_mem hfP0) us) hTa
+    · intro ρ vs x rest hlen hokT hokx hmem hpeel
+      rw [hac, acvalWith_ne hnT] at hokT hmem
+      exact hA ρ vs x rest hlen hokT hokx hmem hpeel
+    · intro ρ ys hlen hok
+      rw [hac, acvalWith_ne hnC] at hok ⊢
+      exact hB ρ ys hlen hok
+  · -- (C) the η law crosses (task #175 W4c): the former's lookup is a
+    -- prefix lookup, its type reading is closed, the leaves are prefix
+    -- leaves
+    intro cvT' capsT' hfT' us hus
+    have hfT'' : env.find? T = some (.indInfo cvT' capsT') := by
+      rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfT]; rfl)] at hfT'
+      exact hfT'
+    obtain ⟨TVa, hTVa, hok, hlaw'⟩ := hetaL cvT' capsT' hfT'' us hus
+    refine ⟨TVa, ?_, hok, ?_⟩
+    · rw [hac]
+      exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
+        (constsBound_instType mp.base2.wf
+          (Setlec.SetR.Env.find?_mem hfT'') us) hTVa
+    · intro ρ ts rest x hlen hfit hmem
+      rw [hac, acvalWith_ne hnT] at hmem
+      rw [hac, acvalWith_ne hnC]
+      exact hlaw' ρ ts rest x hlen hfit hmem
 
 end Setlec.SetR.Interp2

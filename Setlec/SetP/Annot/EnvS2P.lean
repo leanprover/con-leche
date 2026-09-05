@@ -581,10 +581,40 @@ theorem TeleFitPA.peelPis {V : Type w} [SetTheory V] {ρ : Nat → V} :
   | nil => rfl
   | cons _ _ ih => exact ih
 
+/-- **The structural-η law of a tower-backed family** (task #175 W4c;
+`EtaLawP`'s twin at the tower kind, keyed on the entry): a member of
+the family instance is the constructor at the parameters and the tower
+readings (`projS`) of its own projections — the value-level content of
+the η certificate's `.proj T j b` fabrication (`etaProjs`).  Keyed on
+the entry so that the direct install alone answers it (the modeled
+route stores no tower entries); the η row reads it through slot `0` of
+an all-tower family. -/
+def TowerEtaLawP {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS2Core V env) (φ : Name → Nat) (T : Name)
+    (entry : ProjEntry) : Prop :=
+  ∀ (cvT : ConstantVal) (capsT : IndCaps),
+    env.find? T = some (.indInfo cvT capsT) →
+    ∀ us : List Level, us.length = entry.levelParams.length →
+    ∃ TVa : AVExpr,
+      denoteP m.acval env φ 0
+        (cvT.type.instantiateLevelParams cvT.levelParams us) = some TVa ∧
+      (∀ ρ : Nat → V, AnnotOkP V ρ TVa) ∧
+      ∀ (ρ : Nat → V) (ts : List V) (rest : V) (x : V),
+        ts.length = entry.numParams →
+        TeleFitP V ρ TVa ts rest →
+        x ∈ˢ ts.foldl SetTheory.app
+          (interp2 V ρ (m.acval T (Level.substFn φ entry.levelParams us))) →
+        x = (ts ++ (List.range entry.numFields).map fun j =>
+              Setlec.SetTheory.Tower.projS j x).foldl SetTheory.app
+            (interp2 V ρ
+              (m.acval entry.ctor (Level.substFn φ entry.levelParams us)))
+
 /-- **One tower-backed entry's projection law** (see the section
 docstring): the entry's stored data agrees with the stored former and
-constructor, and at every level instantiation the typing law and the
-iota law hold at the entry's own type reading and the constructor's. -/
+constructor (whose η capability is the entry's — task #175 W4c), at
+every level instantiation the typing law and the iota law hold at the
+entry's own type reading and the constructor's, and the family's
+structural-η law holds (clause (C), `TowerEtaLawP`). -/
 def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
     (m : EnvS2Core V env) (φ : Name → Nat)
     (T : Name) (i : Nat) (entry : ProjEntry) : Prop :=
@@ -592,12 +622,15 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
   i < entry.numFields ∧
   (∃ (cvT : ConstantVal) (capsT : IndCaps),
     env.find? T = some (.indInfo cvT capsT) ∧
-    cvT.levelParams = entry.levelParams) ∧
+    cvT.levelParams = entry.levelParams ∧
+    capsT.eta = true ∧ capsT.etaCtor = entry.ctor ∧
+    capsT.etaParams = entry.numParams ∧
+    capsT.etaFields = entry.numFields) ∧
   ∃ cvC : ConstantVal,
     env.find? entry.ctor
       = some (.ctorInfo cvC entry.numParams entry.numFields) ∧
     cvC.levelParams = entry.levelParams ∧
-    ∀ us : List Level, us.length = entry.levelParams.length →
+    (∀ us : List Level, us.length = entry.levelParams.length →
       -- (A) the typing law
       (∃ Ta : AVExpr,
         denoteP m.acval env φ 0
@@ -626,7 +659,9 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
           (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys) →
         interp2 V ρ (projAV i (AVExpr.mkAppN
             (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys))
-          = interp2 V ρ (ys.getD (entry.numParams + i) default))
+          = interp2 V ρ (ys.getD (entry.numParams + i) default))) ∧
+    -- (C) the structural-η law (task #175 W4c)
+    TowerEtaLawP m φ T entry
 
 /-- **The tower projection law, keyed on every stored tower-backed
 entry** (`RecRulesP`'s sibling). -/

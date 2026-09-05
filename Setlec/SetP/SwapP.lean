@@ -346,13 +346,19 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
       unfold Setlec.Env.findProj?
       rw [h0]
     obtain ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
-      hlaw⟩ := mp.tower_ok φ T i entry hfP htw
+      hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP htw
     refine ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
       cvC, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
-      fun us hus => ?_⟩
-    obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
-    exact ⟨⟨Ta, by rw [← hde]; exact hTa, hA⟩, hB⟩
+      fun us hus => ?_, ?_⟩
+    · obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
+      exact ⟨⟨Ta, by rw [← hde]; exact hTa, hA⟩, hB⟩
+    · -- (C) the η law (task #175 W4c): the former's lookup is unchanged
+      -- by the swap, and the reading is `hde`
+      intro cvT' capsT' hfT' us hus
+      obtain ⟨TVa, hTVa, hok, hlaw'⟩ := hetaL cvT' capsT' ((hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hfT') us hus
+      exact ⟨TVa, by rw [← hde]; exact hTVa, hok, hlaw'⟩
 
 end Setlec.SetR.Interp2

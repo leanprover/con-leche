@@ -81,11 +81,11 @@ def structEtaCertWithNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
                 (cvT.type.stripPis cnP).isSome = true ∧
-                (towerSlotsAllF fe Tn cnF || recSlotsAllF fe Tn cnF) = true then do
+                (fe.towerSlotsAllF Tn cnF || fe.recSlotsAllF Tn cnF) = true then do
               if ← liftFueled "level comparison"
                   (← isEquivListLM us us') then do
                 if ← defEqListI r fe depth (aargs.take cnP) targs then do
-                  let projs ← projAppsI fe Tn T us' targs b (List.range cnF)
+                  let projs ← projAppsI fe Tn T us' targs b cnF
                   defEqListI r fe depth (aargs.drop cnP) projs
                 else pure false
               else pure false
@@ -260,8 +260,7 @@ def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   ust.length = cvT.levelParams.length ∧
                   piResultNeverZero cvT.levelParams ustL cvT.type = true then do
                 let TI ← internNameM T
-                let projs ← projAppsI fe T TI ust margs major
-                  (List.range caps.etaFields)
+                let projs ← projAppsI fe T TI ust margs major caps.etaFields
                 let ctorI ← internNameM caps.etaCtor
                 let h ← internI (.const ctorI ust)
                 let fab ← mkAppNM h (margs ++ projs)

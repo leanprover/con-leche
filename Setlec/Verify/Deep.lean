@@ -635,16 +635,28 @@ private theorem iotaCerts_shift (henv : EnvWF env)
     | .lit l => rfl
     | .proj sp i' e' => rfl
 
-private theorem etaFabArgs_shift (p : Nat) (T : Name) (ust : List Level)
-    (targs : List Expr) (major : Expr) (nF : Nat) :
-    etaFabArgs T ust (List.map (shiftFrom p) targs) (shiftFrom p major)
-      nF = List.map (shiftFrom p) (etaFabArgs T ust targs major nF) := by
-  unfold etaFabArgs
-  rw [List.map_append, List.map_map]
-  congr 1
-  refine List.map_congr_left fun j _ => ?_
-  rw [Function.comp_apply, shiftFrom_mkAppN, List.map_append]
-  rfl
+/-- The fabricated projections commute with the shift (task #175 W4c:
+both entry kinds — the `.proj` nodes by `shiftFrom`'s own clause, the
+projection-function applications by `shiftFrom_mkAppN`). -/
+private theorem etaProjs_shift (p : Nat) (env : Env) (T : Name)
+    (us : List Level) (targs : List Expr) (b : Expr) (nF : Nat) :
+    etaProjs env T us (List.map (shiftFrom p) targs) (shiftFrom p b) nF
+      = List.map (shiftFrom p) (etaProjs env T us targs b nF) := by
+  unfold etaProjs
+  split
+  · rw [List.map_map]
+    rfl
+  · rw [List.map_map]
+    refine List.map_congr_left fun j _ => ?_
+    rw [Function.comp_apply, shiftFrom_mkAppN, List.map_append]
+    rfl
+
+private theorem etaFabArgsE_shift (p : Nat) (env : Env) (T : Name)
+    (ust : List Level) (targs : List Expr) (major : Expr) (nF : Nat) :
+    etaFabArgsE env T ust (List.map (shiftFrom p) targs) (shiftFrom p major)
+      nF = List.map (shiftFrom p) (etaFabArgsE env T ust targs major nF) := by
+  unfold etaFabArgsE
+  rw [List.map_append, etaProjs_shift]
 
 private theorem defEqList_shift (_henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) :
@@ -849,35 +861,31 @@ private theorem structEtaProjCerts_shift (henv : EnvWF env)
   | nil => intro _ _; rfl
   | cons i rest ihrest =>
     intro hwtargs hwb
-    show ((match env.find? (projFnName T i) with
-      | some (.recInfo cvp _ _ _) =>
-        if cvp.levelParams = lpsT ∧
-            (cvp.type.stripPis ((targs.map (shiftFrom p)).length + 1)).isSome
-              = true then do
-          if ← iotaCerts (pureFns mode env fuel) env (d + 1)
-              (cvp.type.instantiateLevelParams cvp.levelParams us')
-              (targs.map (shiftFrom p) ++ [shiftFrom p b]) then
-            structEtaProjCerts (pureFns mode env fuel) env (d + 1) T us'
-              (targs.map (shiftFrom p)) (shiftFrom p b) lpsT rest
-          else pure false
-        else pure false
-      | _ => pure false : CheckM Bool)) =
-      ((match env.find? (projFnName T i) with
-      | some (.recInfo cvp _ _ _) =>
-        if cvp.levelParams = lpsT ∧
-            (cvp.type.stripPis (targs.length + 1)).isSome = true then do
-          if ← iotaCerts (pureFns mode env fuel) env d
-              (cvp.type.instantiateLevelParams cvp.levelParams us')
-              (targs ++ [b]) then
-            structEtaProjCerts (pureFns mode env fuel) env d T us' targs b
-              lpsT rest
-          else pure false
-        else pure false
-      | _ => pure false : CheckM Bool))
+    simp only [structEtaProjCerts]
     cases hf : env.find? (projFnName T i) with
     | none => rfl
     | some ci =>
       cases ci <;> try rfl
+      -- the tower-backed slot (task #175 W4c): the entry's stored type
+      -- is closed, so the certificate shifts like the recursor's
+      case projInfo entry =>
+        rw [List.length_map]
+        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
+        have htel : (entry.ty.instantiateLevelParams entry.levelParams
+            us').hasFvar = false :=
+          projEntry_ty_hasFvar henv (by unfold Env.findProj?; rw [hf]) us'
+        have h := iotaCerts_shift henv ih hpd
+          (ty := entry.ty.instantiateLevelParams entry.levelParams us')
+          (WScoped.of_not_hasFvar htel) (args := targs ++ [b]) (fun x hx => by
+            rcases List.mem_append.mp hx with hx | hx
+            · exact hwtargs x hx
+            · rw [List.mem_singleton.mp hx]; exact hwb)
+        rw [shiftFrom_eq_self_of_not_hasFvar htel, List.map_append] at h
+        simp only [List.map] at h
+        refine bind_congr_eq h ?_
+        intro bb _
+        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
+        exact ihrest hwtargs hwb
       case recInfo cvp mI rP rules =>
       rw [List.length_map]
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
@@ -957,26 +965,20 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
       refine bind_congr_eq h2 ?_
       intro b₃ _
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-      have hlist : (List.range cnF).map (fun i =>
-          Expr.mkAppN (.const (projFnName T i) us')
-            (List.map (shiftFrom p) wtb.getAppArgs ++ [shiftFrom p b])) =
-          List.map (shiftFrom p) ((List.range cnF).map (fun i =>
-            Expr.mkAppN (.const (projFnName T i) us')
-              (wtb.getAppArgs ++ [b]))) := by
-        rw [List.map_map]
-        refine List.map_congr_left fun i _ => ?_
-        rw [Function.comp_apply, shiftFrom_mkAppN, List.map_append]
-        rfl
-      have hwprojs : ∀ x ∈ (List.range cnF).map (fun i =>
-          Expr.mkAppN (.const (projFnName T i) us')
-            (wtb.getAppArgs ++ [b])), WScoped d x := by
+      have hlist := etaProjs_shift p env T us' wtb.getAppArgs b cnF
+      have hwprojs : ∀ x ∈ etaProjs env T us' wtb.getAppArgs b cnF,
+          WScoped d x := by
         intro x hx
-        obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
-        refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
-        intro y hy
-        rcases List.mem_append.mp hy with hy | hy
-        · exact hwwtb.getAppArgs y hy
-        · rw [List.mem_singleton.mp hy]; exact hwb
+        unfold etaProjs at hx
+        split at hx
+        · obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
+          simpa [WScoped] using hwb
+        · obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
+          refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
+          intro y hy
+          rcases List.mem_append.mp hy with hy | hy
+          · exact hwwtb.getAppArgs y hy
+          · rw [List.mem_singleton.mp hy]; exact hwb
       -- task #137: the constructor-telescope certificate
       have htelc : (cvc.type.instantiateLevelParams cvc.levelParams
           us).hasFvar = false := by
@@ -985,9 +987,7 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
       have h4 := iotaCerts_shift henv ih hpd
         (ty := cvc.type.instantiateLevelParams cvc.levelParams us)
         (WScoped.of_not_hasFvar htelc)
-        (args := wtb.getAppArgs ++ (List.range cnF).map (fun i =>
-          Expr.mkAppN (.const (projFnName T i) us')
-            (wtb.getAppArgs ++ [b])))
+        (args := wtb.getAppArgs ++ etaProjs env T us' wtb.getAppArgs b cnF)
         (fun x hx => by
           rcases List.mem_append.mp hx with hx | hx
           · exact hwwtb.getAppArgs x hx
@@ -1003,8 +1003,7 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
       intro b₄ _
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
       have h3 := defEqList_shift henv ih hpd (as := a.getAppArgs.drop cnP)
-        (bs := (List.range cnF).map (fun i =>
-          Expr.mkAppN (.const (projFnName T i) us') (wtb.getAppArgs ++ [b])))
+        (bs := etaProjs env T us' wtb.getAppArgs b cnF)
         (fun x hx => hwa.getAppArgs x (List.mem_of_mem_drop hx))
         hwprojs
       rw [List.map_drop, ← hlist] at h3
@@ -1253,31 +1252,35 @@ private theorem majorToCtor_shift (henv : EnvWF env)
             rw [getAppArgs_shiftFrom, List.length_map]
             refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
             refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-            rw [etaFabArgs_shift]
+            rw [etaFabArgsE_shift]
             have hfab : Expr.mkAppN (Expr.const caps.etaCtor ust)
                 (List.map (shiftFrom p)
-                  (etaFabArgs T ust tmaj.getAppArgs major
+                  (etaFabArgsE env T ust tmaj.getAppArgs major
                     caps.etaFields)) =
                 shiftFrom p (Expr.mkAppN (.const caps.etaCtor ust)
-                  (etaFabArgs T ust tmaj.getAppArgs major
+                  (etaFabArgsE env T ust tmaj.getAppArgs major
                     caps.etaFields)) := by
               rw [shiftFrom_mkAppN]
               rfl
             rw [hfab]
-            have hwfabArgs : ∀ x ∈ etaFabArgs T ust tmaj.getAppArgs
+            have hwfabArgs : ∀ x ∈ etaFabArgsE env T ust tmaj.getAppArgs
                 major caps.etaFields, WScoped d x := by
               intro x hx
-              unfold etaFabArgs at hx
+              unfold etaFabArgsE at hx
               rcases List.mem_append.mp hx with hx | hx
               · exact hwtmaj.getAppArgs x hx
-              · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
-                refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
-                intro y hy
-                rcases List.mem_append.mp hy with hy | hy
-                · exact hwtmaj.getAppArgs y hy
-                · rw [List.mem_singleton.mp hy]; exact hwmaj
+              · unfold etaProjs at hx
+                split at hx
+                · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
+                  simpa [WScoped] using hwmaj
+                · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
+                  refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
+                  intro y hy
+                  rcases List.mem_append.mp hy with hy | hy
+                  · exact hwtmaj.getAppArgs y hy
+                  · rw [List.mem_singleton.mp hy]; exact hwmaj
             have hwfab : WScoped d (Expr.mkAppN (.const caps.etaCtor ust)
-                (etaFabArgs T ust tmaj.getAppArgs major
+                (etaFabArgsE env T ust tmaj.getAppArgs major
                   caps.etaFields)) :=
               Expr.WScoped.mkAppN (by simp [WScoped]) hwfabArgs
             rw [wscopedB_shiftFrom _ hpd, looseBVarsBounded_shiftFrom,
@@ -1291,7 +1294,7 @@ private theorem majorToCtor_shift (henv : EnvWF env)
             have hcert := iotaCerts_shift henv ih hpd
               (ty := cvj.type.instantiateLevelParams cvj.levelParams ust)
               (WScoped.of_not_hasFvar htelC)
-              (args := etaFabArgs T ust tmaj.getAppArgs major
+              (args := etaFabArgsE env T ust tmaj.getAppArgs major
                 caps.etaFields)
               hwfabArgs
             rw [shiftFrom_eq_self_of_not_hasFvar htelC] at hcert
@@ -2307,8 +2310,20 @@ private theorem infer_step (henv : EnvWF env)
               [Expr.shiftFrom p pe]
             = (w.getAppArgs ++ [pe]).map (Expr.shiftFrom p) by
           simp, hmain]
-        cases Expr.instPisAt (w.getAppArgs ++ [pe])
-          (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
+        -- the Prop guard (task #175 W4c) is shift-independent: split it
+        -- on both sides, then the residual match
+        by_cases hs : (entry.structSort.isEquiv Level.zero == some true) = true
+        · rw [if_pos hs, if_pos hs]
+          by_cases hfs : ((Level.subst entry.levelParams us₂
+              entry.fieldSort).isEquiv Level.zero == some true) = true
+          · rw [if_pos hfs, if_pos hfs]
+            cases Expr.instPisAt (w.getAppArgs ++ [pe])
+              (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
+          · rw [if_neg hfs, if_neg hfs]
+            rfl
+        · rw [if_neg hs, if_neg hs]
+          cases Expr.instPisAt (w.getAppArgs ++ [pe])
+            (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
       | false =>
         simp only [Bool.false_eq_true, ↓reduceIte]
         -- task #161 item B2: the computed residual commutes with the
@@ -2565,8 +2580,20 @@ private theorem inferIOCore_step (henv : EnvWF env)
               [Expr.shiftFrom p pe]
             = (w.getAppArgs ++ [pe]).map (Expr.shiftFrom p) by
           simp, hmain]
-        cases Expr.instPisAt (w.getAppArgs ++ [pe])
-          (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
+        -- the Prop guard (task #175 W4c) is shift-independent: split it
+        -- on both sides, then the residual match
+        by_cases hs : (entry.structSort.isEquiv Level.zero == some true) = true
+        · rw [if_pos hs, if_pos hs]
+          by_cases hfs : ((Level.subst entry.levelParams us₂
+              entry.fieldSort).isEquiv Level.zero == some true) = true
+          · rw [if_pos hfs, if_pos hfs]
+            cases Expr.instPisAt (w.getAppArgs ++ [pe])
+              (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
+          · rw [if_neg hfs, if_neg hfs]
+            rfl
+        · rw [if_neg hs, if_neg hs]
+          cases Expr.instPisAt (w.getAppArgs ++ [pe])
+            (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
       | false =>
         simp only [Bool.false_eq_true, ↓reduceIte]
         -- task #161 item B2: the computed residual commutes with the

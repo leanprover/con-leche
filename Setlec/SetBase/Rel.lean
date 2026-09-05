@@ -118,6 +118,17 @@ def etaFabArgsV (cval : TConstVal) (T : Name) (ψt : Name → Nat)
     (ts : List VExpr) (major : VExpr) (nF : Nat) : List VExpr :=
   ts ++ projSpinesV cval T ψt ts major nF
 
+/-- The eta-rescue fabrication's spine at the entry kind (task #175
+W4c): the tower spelling's readings (`projNV`) at an all-tower slot
+family, the projection functions' applications otherwise — the
+transpose of `etaFabArgsE` (`Core.lean`), `env`-dependent exactly as
+that is. -/
+def etaFabArgsVE (cval : TConstVal) (env : Env) (T : Name) (ψt : Name → Nat)
+    (ts : List VExpr) (major : VExpr) (nF : Nat) : List VExpr :=
+  ts ++ (if towerSlotsAll env T nF then
+    (List.range nF).map fun j => projNV j major
+  else projSpinesV cval T ψt ts major nF)
+
 /-- `VExpr`-level residual of a `pi`-telescope along an argument list —
 the transpose of `piResidual` (`Core.lean:747-750`), used by the
 `.proj` inference rule to spell its conclusion type without mentioning
@@ -472,18 +483,18 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       -- the synthetic-spine certificate at the fabricated spine
       -- (task #71, `Core.lean:1166-1170` — always on)
       Tele μ env cval φ Δ TVj
-        (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+        (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
           caps.etaFields) rest →
       -- the `structEtaCertWith` pack (D10, with `wtb := TM`)
       DefEq μ env cval φ Δ
         (VExpr.mkAppN
           (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-          (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+          (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
             caps.etaFields)) m₀ →
       Red μ env cval φ Δ m₀
         (VExpr.mkAppN
           (cval caps.etaCtor (Level.substFn φ cvj.levelParams ust))
-          (etaFabArgsV cval T (Level.substFn φ cvT.levelParams ust) ts m₀
+          (etaFabArgsVE cval env T (Level.substFn φ cvT.levelParams ust) ts m₀
             caps.etaFields))
   /-- R14: the 0-field fallthrough of the eta rescue
   (`Core.lean:1184-1188`): the fabrication is the bare constructor at
