@@ -84,7 +84,7 @@ def structEtaCertWithNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               if ← liftFueled "level comparison"
                   (← isEquivListLM us us') then do
                 if ← defEqListI r fe depth (aargs.take cnP) targs then do
-                  let projs ← projAppsI T us' targs b (List.range cnF)
+                  let projs ← projAppsI fe Tn T us' targs b (List.range cnF)
                   defEqListI r fe depth (aargs.drop cnP) projs
                 else pure false
               else pure false
@@ -259,7 +259,7 @@ def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   ust.length = cvT.levelParams.length ∧
                   piResultNeverZero cvT.levelParams ustL cvT.type = true then do
                 let TI ← internNameM T
-                let projs ← projAppsI TI ust margs major
+                let projs ← projAppsI fe T TI ust margs major
                   (List.range caps.etaFields)
                 let ctorI ← internNameM caps.etaCtor
                 let h ← internI (.const ctorI ust)
@@ -540,6 +540,14 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
           if entry.native ∧ T = sn ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             if entry.tower then
+              -- the official `infer_proj` restriction (task #175
+              -- W4c/O4), as in the spec body
+              if Level.isEquiv entry.structSort .zero == some true then
+                unless Level.isEquiv
+                    (Level.subst entry.levelParams us entry.fieldSort) .zero
+                    == some true do
+                  throw (.invalid
+                    "projection from a propositional structure must be a proposition")
               -- task #175 wiring W2c: the tower-backed residual, as in
               -- the spec body — since B3a `ExprC = Expr` and the store
               -- is a unit, so the level-instantiated peel runs

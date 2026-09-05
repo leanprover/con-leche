@@ -943,7 +943,37 @@ def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
           structEtaProjCerts r env depth T us' targs b lpsT rest
         else pure false
       else pure false
+    | some (.projInfo entry) =>
+      -- a tower-backed entry (task #175 W4c): its stored type is the
+      -- same `∀ p⃗ (t : T p⃗), F_i` telescope, certified the same way
+      if entry.tower = true ∧ entry.levelParams = lpsT ∧
+          (entry.ty.stripPis (targs.length + 1)).isSome = true then
+        if ← iotaCerts r env depth
+            (entry.ty.instantiateLevelParams entry.levelParams us')
+            (targs ++ [b]) then
+          structEtaProjCerts r env depth T us' targs b lpsT rest
+        else pure false
+      else pure false
     | _ => pure false
+
+/-- Are all `nF` projection slots of `T` tower-backed entries? -/
+def towerSlotsAll (env : Env) (T : Name) (nF : Nat) : Bool :=
+  (List.range nF).all fun j =>
+    match env.findProj? T j with
+    | some e => e.tower
+    | none => false
+
+/-- The fabricated projections of a structure-eta spine (task #175
+W4c): `.proj T j b` nodes when every slot is a tower-backed entry (the
+direct install's structures — the node is what the table types and
+reduces), else the modeled path's projection-function applications. -/
+def etaProjs (env : Env) (T : Name) (us : List Level) (targs : List Expr)
+    (b : Expr) (nF : Nat) : List Expr :=
+  if towerSlotsAll env T nF then
+    (List.range nF).map fun j => Expr.proj T j b
+  else
+    (List.range nF).map fun j =>
+      Expr.mkAppN (.const (projFnName T j) us) (targs ++ [b])
 
 /-- The structure-eta certificate against a *given* weak-head-normal
 type of the stuck side (callers that already reduced it — the
@@ -991,14 +1021,10 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                             (cvc.type.instantiateLevelParams
                               cvc.levelParams us)
                             (wtb.getAppArgs ++
-                              (List.range cnF).map fun i =>
-                                Expr.mkAppN (.const (projFnName T i) us')
-                                  (wtb.getAppArgs ++ [b]))
+                              etaProjs env T us' wtb.getAppArgs b cnF)
                         else pure true) then
                         defEqList r env depth (a.getAppArgs.drop cnP)
-                          ((List.range cnF).map fun i =>
-                            Expr.mkAppN (.const (projFnName T i) us')
-                              (wtb.getAppArgs ++ [b]))
+                          (etaProjs env T us' wtb.getAppArgs b cnF)
                       else pure false
                     else pure false
                   else pure false
@@ -1103,6 +1129,13 @@ def etaFabArgs (T : Name) (ust : List Level) (targs : List Expr)
   targs ++ (List.range nF).map fun j =>
     Expr.mkAppN (.const (projFnName T j) ust) (targs ++ [major])
 
+/-- `etaFabArgs` at the entry kind (task #175 W4c): the projections
+are `etaProjs`' — `.proj` nodes at an all-tower slot family, the
+modeled spelling otherwise. -/
+def etaFabArgsE (env : Env) (T : Name) (ust : List Level)
+    (targs : List Expr) (major : Expr) (nF : Nat) : List Expr :=
+  targs ++ etaProjs env T ust targs major nF
+
 /-- Stuck-major rescue (`to_cnstr_when_K` and `to_cnstr_when_structure`
 in the official kernel): a recursor's major premise that does not whnf
 to a constructor application may still be *replaced* by one.  For a
@@ -1199,7 +1232,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                       (caps.etaParams + caps.etaFields)).isSome
                       = true then
                   let fab := Expr.mkAppN (.const caps.etaCtor ust)
-                    (etaFabArgs T ust tmaj.getAppArgs major
+                    (etaFabArgsE env T ust tmaj.getAppArgs major
                       caps.etaFields)
                   -- scope guard, as in the K branch
                   if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
@@ -1210,7 +1243,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                     if ← iotaCerts r env depth
                         (cvj.type.instantiateLevelParams
                           cvj.levelParams ust)
-                        (etaFabArgs T ust tmaj.getAppArgs major
+                        (etaFabArgsE env T ust tmaj.getAppArgs major
                           caps.etaFields) then
                       if ← structEtaCertWith mode r env depth fab major
                           tmaj then
@@ -1747,6 +1780,17 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           if entry.native ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             if entry.tower then
+              -- the official `infer_proj` restriction (task #175
+              -- W4c/O4): at a `Prop`-declared structure the field —
+              -- and every earlier field a later field uses — must be
+              -- a proposition at this instantiation; the entry's
+              -- guard level joins exactly those sorts
+              if Level.isEquiv entry.structSort .zero == some true then
+                unless Level.isEquiv
+                    (Level.subst entry.levelParams us entry.fieldSort) .zero
+                    == some true do
+                  throw (.invalid
+                    "projection from a propositional structure must be a proposition")
               -- task #175 wiring W2c: the generic residual for a
               -- tower-backed entry — the stored `ty`
               -- (`∀ p⃗ (t : T p⃗), F_i`, `.proj`-node spelling) is
@@ -1890,6 +1934,14 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           if entry.native ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             if entry.tower then
+              -- the official `infer_proj` restriction (task #175
+              -- W4c/O4), as in `inferBody`
+              if Level.isEquiv entry.structSort .zero == some true then
+                unless Level.isEquiv
+                    (Level.subst entry.levelParams us entry.fieldSort) .zero
+                    == some true do
+                  throw (.invalid
+                    "projection from a propositional structure must be a proposition")
               -- task #175 wiring W2c: the generic residual for a
               -- tower-backed entry — the stored `ty`
               -- (`∀ p⃗ (t : T p⃗), F_i`, `.proj`-node spelling) is

@@ -332,15 +332,36 @@ def pairEtaCertI (_cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 /-- The interned projection-application spine
 `[proj_0 targs b, …]` (structural recursion; the spec side is a pure
 `List.map`). -/
-def projAppsI (T : Name) (us' : List Level) (targs : List ExprC)
+def projAppsFnI (T : Name) (us' : List Level) (targs : List ExprC)
     (b : ExprC) : List Nat → CheckCM (List ExprC)
   | [] => pure []
   | i :: rest => do
     let pf ← projFnIdxM T i
     let h ← internI (.const pf us')
     let r ← mkAppNM h (targs ++ [b])
-    let rs ← projAppsI T us' targs b rest
+    let rs ← projAppsFnI T us' targs b rest
     pure (r :: rs)
+
+/-- The interned `.proj T i b` spine (the tower spelling, task #175
+W4c). -/
+def projNodesI (T : Name) (b : ExprC) : List Nat → CheckCM (List ExprC)
+  | [] => pure []
+  | i :: rest => do
+    let r ← internI (.proj T i b)
+    let rs ← projNodesI T b rest
+    pure (r :: rs)
+
+/-- Twin of `etaProjs`: the tower spelling at an all-tower slot family
+(`towerSlotsAll` through the index), the projection-function spelling
+otherwise.  `Tn` is the readback name, `T` the interned one. -/
+def projAppsI (fe : FEnv) (Tn T : Name) (us' : List Level)
+    (targs : List ExprC) (b : ExprC) (idxs : List Nat) :
+    CheckCM (List ExprC) :=
+  if idxs.all (fun j => match fe.findProj? Tn j with
+      | some e => e.tower
+      | none => false) then
+    projNodesI T b idxs
+  else projAppsFnI T us' targs b idxs
 
 /-- Twin of `structEtaProjCerts`. -/
 def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
@@ -353,6 +374,16 @@ def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.recInfo cvp _ _ _) =>
       if cvp.levelParams = lpsT ∧
           (cvp.type.stripPis (targs.length + 1)).isSome = true then do
+        let pf ← projFnIdxM TI i
+        let pty ← constTyAtM fe pf (projFnName T i) us'
+        if ← iotaCertsI r fe depth pty (targs ++ [b]) then
+          structEtaProjCertsI r fe depth TI T us' targs b lpsT rest
+        else pure false
+      else pure false
+    | some (.projInfo entry) =>
+      -- a tower-backed entry (task #175 W4c), as in the spec body
+      if entry.tower = true ∧ entry.levelParams = lpsT ∧
+          (entry.ty.stripPis (targs.length + 1)).isSome = true then do
         let pf ← projFnIdxM TI i
         let pty ← constTyAtM fe pf (projFnName T i) us'
         if ← iotaCertsI r fe depth pty (targs ++ [b]) then
@@ -392,7 +423,7 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   if ← structEtaProjCertsI r fe depth T Tn us'
                       targs b cvT.levelParams (List.range cnF) then do
                     if ← defEqListI r fe depth (aargs.take cnP) targs then do
-                      let projs ← projAppsI T us' targs b (List.range cnF)
+                      let projs ← projAppsI fe Tn T us' targs b (List.range cnF)
                       -- synthetic-spine certification (task #137): the
                       -- fabricated constructor application
                       -- `c targs (proj_i … b)` is certified against the
@@ -553,7 +584,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       (caps.etaParams + caps.etaFields)).isSome
                       = true then do
                   let TI ← internNameM T
-                  let projs ← projAppsI TI ust margs major
+                  let projs ← projAppsI fe T TI ust margs major
                     (List.range caps.etaFields)
                   let ctorI ← internNameM caps.etaCtor
                   let h ← internI (.const ctorI ust)
@@ -1197,6 +1228,14 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
           if entry.native ∧ T = sn ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             if entry.tower then
+              -- the official `infer_proj` restriction (task #175
+              -- W4c/O4), as in the spec body
+              if Level.isEquiv entry.structSort .zero == some true then
+                unless Level.isEquiv
+                    (Level.subst entry.levelParams us entry.fieldSort) .zero
+                    == some true do
+                  throw (.invalid
+                    "projection from a propositional structure must be a proposition")
               -- task #175 wiring W2c: the tower-backed residual, as in
               -- the spec body — since B3a `ExprC = Expr` and the store
               -- is a unit, so the level-instantiated peel runs

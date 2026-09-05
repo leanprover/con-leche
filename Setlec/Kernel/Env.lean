@@ -232,7 +232,14 @@ structure ProjEntry where
   numFields : Nat
   /-- the projection's level-parametric type (native entries only) -/
   ty : Expr
-  /-- the projected field's sort (native entries only) -/
+  /-- **the projection's `Prop` guard level** (native entries only):
+  the projected field's sort joined with the sorts of the earlier
+  fields that a later field's type uses — exactly the sorts the
+  official `infer_proj` requires to be `Prop` when projecting from a
+  propositional structure (task #175 W4c/O4, `directProjGuards`); the
+  tower infer branch checks it at every use of a `Prop`-declared
+  structure.  For the pinned pair entries it is the field's own
+  sort. -/
   fieldSort : Level
   /-- the parent's result sort (native entries only) -/
   structSort : Level

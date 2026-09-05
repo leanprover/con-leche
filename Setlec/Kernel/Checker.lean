@@ -31,39 +31,38 @@ per-field universe bound and the definitional pins of the recursor's
 binder domains against the constructor's.
 -/
 
-/-- The capabilities a direct simple structure earns.  `ruleK` is
-`false` by construction (`isKTarget` needs a `Prop` result, lean4lean
-`Inductive/Add.lean:289-296`, and the class requires a provably nonzero
-sort).
+/-- The capabilities a direct simple structure earns (task #175 W4c,
+the user's ruling that the direct route carries every feature).
 
-Neither `eta` nor `unitlike` is claimed.  Both are *frame-relative*
-laws — they quantify over a parameter-telescope fit at an **arbitrary**
-frame, while the constructed values are λ-towers over the frame-0
-opening of the stored type, so discharging them needs a relocation of a
-closed telescope's fit onto the canonical frame-0 opening that the
-value construction does not supply (see DESIGN.md, "The two
-frame-relative capabilities").  Claiming fewer capabilities only ever
-removes reductions, so this is safe; it costs nothing today because the
-direct path is artifact-*absence* gated and every structure carrying an
-artifact keeps the modeled route and its capabilities. -/
+* `eta`: the tower's own elimination law (`towerSet_elim`) — the
+  kernel's eta arms fabricate the projections as `.proj T j` nodes
+  when every slot holds a tower entry (`etaProjs`), and the P tier's
+  eta law is discharged from the tower at the install;
+* `unitlike`: the fieldless tower is a singleton;
+* `ruleK`: exactly the official `isKTarget` (a `Prop` result, a single
+  constructor taking only the parameters; lean4lean
+  `Inductive/Add.lean:289-296`) — the reduction site carries the
+  semantic load (proof irrelevance), as on the modeled path. -/
 def directCaps (p : DirectParts) : IndCaps where
-  eta := false
+  eta := true
   etaCtor := p.cvC.name
   etaParams := p.nP
   etaFields := p.nF
-  unitlike := false
+  unitlike := p.nF == 0
   unitParams := p.nP
-  ruleK := false
+  ruleK := p.nF == 0 && p.isProp
 
-/-- The official per-field universe bound, over the opened constructor
-telescope: every field's sort must be `≤` the structure's result sort
-(lean4lean `Inductive/Add.lean:225-228`, nanoda `check_ctor`,
-`checker/src/inductive.rs:809`; the `Prop` escape hatch there does not apply —
-the class requires a nonzero result sort).  Walks the fields from the
-last to the first. -/
-def checkDirectFieldUniv (ops : CheckerOps m) (env : Env) (s : Level)
-    (nP : Nat) (fvs : List Expr) : Nat → m Unit
-  | 0 => pure ()
+/-- The fields' sorts over the opened constructor telescope, with the
+official per-field universe bound unless the structure is
+propositional: every field's sort must be `≤` the structure's result
+sort (lean4lean `Inductive/Add.lean:225-228`, nanoda `check_ctor`,
+`checker/src/inductive.rs:809`; the `Prop` escape hatch is `isProp`,
+task #175 W4c/O4).  Walks the fields from the last to the first and
+returns the sorts in field order — the projection guards'
+(`directProjGuards`) input. -/
+def checkDirectFieldSorts (ops : CheckerOps m) (env : Env) (isProp : Bool)
+    (s : Level) (nP : Nat) (fvs : List Expr) : Nat → m (List Level)
+  | 0 => pure []
   | j + 1 => do
     let fv ← unwrapOr fvs[j]? (.internal "direct structure: field index")
     -- each field's domain is inferred at *its own* frame: the variable
@@ -71,9 +70,11 @@ def checkDirectFieldUniv (ops : CheckerOps m) (env : Env) (s : Level)
     -- scope and nothing above is
     let ty ← ops.inferType env (nP + j) fv.fvarTypeD
     let u ← ops.ensureSort env (nP + j) ty
-    unless ← liftFueled "level comparison" (Level.leq u s) do
-      throw (.invalid "direct structure: field universe too large")
-    checkDirectFieldUniv ops env s nP fvs j
+    if !isProp then
+      unless ← liftFueled "level comparison" (Level.leq u s) do
+        throw (.invalid "direct structure: field universe too large")
+    let rest ← checkDirectFieldSorts ops env isProp s nP fvs j
+    pure (rest ++ [u])
 
 /-- The reference kernels' binder-domain comparisons, run binder by
 binder **at its own frame**: the `j`-th opened variable's annotation
@@ -121,7 +122,7 @@ in `env₀`.  Same discipline as `directShape`: a skeleton fact checked
 on the raw block for recognition and re-checked on the annotated
 constants at install. -/
 def checkDirectCtor (ops : CheckerOps m) (env₀ env : Env) (p : DirectParts)
-    (cvTa : ConstantVal) : m (Env × ConstantVal) := do
+    (cvTa : ConstantVal) : m (Env × ConstantVal × List Level) := do
   let cvCa ← checkConstantVal ops env p.cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (p.nP + p.nF))
     (.notImplemented "direct structure: constructor telescope")
@@ -147,8 +148,11 @@ def checkDirectCtor (ops : CheckerOps m) (env₀ env : Env) (p : DirectParts)
     throw (.notImplemented "direct structure: opened constructor residual")
   unless xq.1.all fun x => x.fvarTypeD.constsResolve env₀ do
     throw (.notImplemented "direct structure: field domain after the block")
-  checkDirectFieldUniv ops env p.resSort p.nP xq.1 p.nF
-  pure (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa)
+  -- the fields' sorts, with the official `Prop` escape hatch on the
+  -- universe bound (lean4lean `Add.lean:225`; task #175 W4c/O4 — a
+  -- propositional structure's model is the squash, which needs none)
+  let sorts ← checkDirectFieldSorts ops env p.isProp p.resSort p.nP xq.1 p.nF
+  pure (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa, sorts)
 
 /-- Stage 3: the recursor's type is the generated shape.  The skeleton
 (motive dependent over the family, one minor over the constructor's
@@ -161,7 +165,7 @@ def checkDirectRecTy (ops : CheckerOps m) (env : Env) (p : DirectParts)
     (cvTa cvCa cvRa : ConstantVal) : m Unit := do
   let T := p.cvT.name
   let lps := p.cvT.levelParams
-  unless directShape T p.cvC.name lps p.elim p.nP p.nF
+  unless directShape T p.cvC.name lps p.elim p.large p.nP p.nF
       cvTa.type cvCa.type cvRa.type do
     throw (.notImplemented "direct structure: annotated recursor shape")
   let (fvsP, rest) ← unwrapOr (openPisAtFvars (p.nP + 2) cvRa.type 0)
@@ -182,7 +186,7 @@ def checkDirectRecTy (ops : CheckerOps m) (env : Env) (p : DirectParts)
     (.notImplemented "direct structure: motive telescope")
   unless ← ops.isDefEq env p.nP mdom famApp do
     throw (.notImplemented "direct structure: motive domain")
-  unless mbody == Expr.sort (.param p.elim) do
+  unless mbody == Expr.sort (if p.large then .param p.elim else .zero) do
     throw (.notImplemented "direct structure: motive codomain")
   -- the minor premise: the constructor's field telescope, ending in
   -- the motive applied to the canonical constructor spine
@@ -261,11 +265,9 @@ per-field branch**: the entry is installed iff the levelwise bound
 gets NO entry and its `.proj` uses stay per-use checked.  Fields are
 installed in order: field `i`'s type spells the earlier projections as
 `.proj` nodes, whose annotation reads the earlier entries. -/
-def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
-    (nP nF : Nat) (resSort : Level) (cvTa cvCa : ConstantVal) (env : Env)
-    (i : Nat) : m Env := do
-  let pty ← unwrapOr (directProjTyP T lps nP nF i cvTa.type cvCa.type)
-    (.notImplemented "direct structure: projection type")
+def checkDirectProjEntry (ops : CheckerOps m) (T C : Name) (lps : List Name)
+    (nP nF : Nat) (resSort guard : Level) (cvCa : ConstantVal)
+    (pty : Expr) (env : Env) (i : Nat) : m Env := do
   unless !pty.hasFvar && pty.looseBVarsBounded 0 do
     throw (.notImplemented "direct structure: projection type scoping")
   let ptyA ← ops.annotate env 0 pty
@@ -314,16 +316,29 @@ def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
     (.notImplemented "direct structure: projection field telescope")
   unless ← ops.isDefEq env (nP + 1) resid fdom do
     throw (.notImplemented "direct structure: projection residual")
-  -- the projected field's sort at the opened frame — the entry's
-  -- possibly-Prop guard datum and O4's comparand
-  let fSty ← ops.inferType env (nP + 1) resid
-  let fieldSort ← ops.ensureSort env (nP + 1) fSty
-  let le ← liftFueled "level comparison" (Level.leq fieldSort resSort)
-  if resSort.isNonZero || le then
-    pure ⟨.projInfo ⟨T, i, lps, nP, C, nF, ptyA, fieldSort, resSort,
-      true, false, true⟩ :: env.consts⟩
-  else
-    pure env
+  -- the entry's `fieldSort` slot carries the projection's `Prop`
+  -- guard level (`directProjGuards`), the datum the tower infer
+  -- branch checks at every use of a `Prop`-declared structure
+  pure ⟨.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, resSort,
+    true, false, true⟩ :: env.consts⟩
+
+/-- The projection slot for field `i` (task #175 W4c/O4): the
+generated type's dependency pre-check (`directProjDepsOk`) decides
+whether an entry installs at all — a field whose type mentions a
+data field of a propositional structure (through the earlier fields'
+`.proj T j` nodes) is not projectable, and its slot stays empty as a
+plain fall-through, never a verdict (the block installs; a `.proj` use
+of the field declines at its own site).  Otherwise the entry is
+installed with its guard level. -/
+def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
+    (nP nF : Nat) (resSort : Level) (cvTa cvCa : ConstantVal)
+    (guards : List Level) (env : Env) (i : Nat) : m Env := do
+  let pty ← unwrapOr (directProjTyP T lps nP nF i cvTa.type cvCa.type)
+    (.notImplemented "direct structure: projection type")
+  if directProjDepsOk env T (Level.isEquiv resSort .zero == some true) pty then
+    checkDirectProjEntry ops T C lps nP nF resSort (guards.getD i .zero)
+      cvCa pty env i
+  else pure env
 
 /-- Check and install a **direct simple structure** (task #82): the
 type former, the constructor, the recursor with its single rule, and
@@ -339,7 +354,7 @@ declaration, so a failure is a verdict, not a fall-through. -/
 def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     m Env := do
   let (env₁, cvTa) ← checkDirectInd ops env p
-  let (env₂, cvCa) ← checkDirectCtor ops env env₁ p cvTa
+  let (env₂, cvCa, sorts) ← checkDirectCtor ops env env₁ p cvTa
   let cvRa ← checkConstantVal ops env₂ p.cvR
   checkDirectRecTy ops env₂ p cvTa cvCa cvRa
   let rhsA ← checkDirectRule ops env₂ p cvCa cvRa
@@ -354,7 +369,8 @@ def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     throw (.invalid "projection name family taken")
   (List.range p.nF).foldlM
     (checkDirectProj ops p.cvT.name p.cvC.name p.cvT.levelParams
-      p.nP p.nF p.resSort cvTa cvCa) env₃
+      p.nP p.nF p.resSort cvTa cvCa
+      (directProjGuards cvCa.type p.nP p.nF sorts)) env₃
 
 /-- Install one pinned basis declaration (duplicate-checked). -/
 def installBasisDecl (env : Env) (ci : ConstantInfo) : m Env := do
