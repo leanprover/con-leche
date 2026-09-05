@@ -38208,6 +38208,9 @@ accepted terms, so the branch is verdict-dead there).
 | W2b | generator + `checkDirectProj` entry install + twins + bridge re-proofs | LANDED |
 | W2c | infer tower branch (4 twins) + clause-proof adaptation | LANDED |
 | W3 | `denoteP`/`denote` reading branch + erasure law | LANDED (stop-finding resolved; see the W3 record below) |
+| W4a | syntactic leaf battery (item 1) | LANDED (`SetBase/TowerWire.lean`) |
+| W4b | `DeclDirectR` + dispatch + bridge inversion + flag-agnostic R/P decl bridges | LANDED (`SetBase/DeclDirect.lean`; see the W4 state record below) |
+| W4c | premise discharge (item 2) + WF-hypothesis discharge + cached sims | pending (frontier enumerated below) |
 | W4 | install soundness (checklist items 1–2) | pending |
 | W5 | rewrite removal (P/parity), flip, battery | pending |
 | W6 | PSigma' retirement (gated) | pending |
@@ -38427,3 +38430,36 @@ functions of their computed inputs).  The rest of W4, frozen:
   `caps_ok`/`rec_rules` discharges; the tier's
   `towerSet_elim_teleOfFields` for eta, `recBodyAV_fold_mk` for the
   rule fold) land on top of the weakened invariant.
+
+**W4 state record (2026-09-05, session seal).**  Landed beyond the
+freeze: `DeclR`'s `.indDecl` row is the `directParts?` dispatch
+(`DeclIndDispatchR`; run level `DeclIndRunDispatchR`), the
+`checkDirectStruct` inversion `declDirectR_of` is proved, and the TWO
+decl bridges the capstones ride — `checkDeclR_ofEnvR` (R) and
+`checkDeclRun_ofEnvRE` (the P fold's whole route into the relation
+tier) — are **flag-agnostic**: they case on the kernel's own
+dispatch and hold as they stand at the flip.  Pre-flip the dispatch
+reduces by `declIndDispatchR_eq_ind`/`declIndRunDispatchR_eq_ind`,
+consumed at exactly: `declEtaStep` (DeclEta), `DeclR.toRun`
+(DeclRun), `declStepS` (Install/Step), `Main2` ×3, `foldPM`'s
+`declStepPM` (FoldP) — **these call sites are the flip's semantic
+frontier on the install side**: each needs the direct arm's real
+content when the eq lemmas die with the flag.
+
+**The full flip frontier, enumerated** (every proof site that reads
+the flag, from the probe + the grep — the W5 work order):
+1. the two eq lemmas' seven call sites above → R/P install soundness
+   for direct blocks (the freeze's claims-interface discharge + the
+   install rows on the weakened invariant);
+2. `BridgeWFDecl:889` (ind case) → flag-agnostic via the ALREADY
+   LANDED `checkDirectStruct_wfimp` (BridgeWfImp:3239) once its three
+   `EnvWF`-preservation hypotheses (`hwf₁..₃`, the intermediate
+   installs) are discharged from the stage inversions;
+3. `ProjPinInv:470` + its local `directParts?_none` → the invariant
+   weakening (the W5 opening seam per the freeze's interlock);
+4. `Cached/AgreeFloor:811,1095` (`directPartsF?_eq_none`) → the
+   plain-vs-indexed agreement for the direct path (the F twins landed
+   at W2b);
+5. `Cached/BridgeCSDecl:424` → the cached-sim for `checkDirectStruct`
+   (`CheckerC`'s direct twins landed at W2b);
+6. the three `*_none` lemma bodies themselves (deleted at the flip).
