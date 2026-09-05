@@ -158,7 +158,7 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
     {nmm : Name} {tym : Expr} (hmin : fvsR[nP + 1]? = some (.fvar (nP + 1) nmm tym))
     {xFvs : List Expr} {minBody : Expr} {Γm : List AVExpr} {Rm : AVExpr}
     (comp : CompOpenedP m φ nP nF fvsR xFvs minBody Γr Γm Rm)
-    {ℓ : Nat} (hPiBits : PiBitsOpen φ (ℓ = 0) nF (nP + 1) tym)
+    {ℓ : Nat} (hPiBits : PiBitsOpen φ (ℓ = 0) nF (nP + 2) tym)
     {ds : List (Nat × Nat × AVExpr)} {bodyC : AVExpr} (hlenDs : ds.length = nP + nF)
     (hCok : ∀ ρ : Nat → V, AnnotOkP V ρ (mkPisAV ds bodyC))
     {C : Name} {lps : List Name} {cvCa : ConstantVal}
@@ -471,17 +471,19 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
   -- the minor type's peel and its bits
   obtain ⟨gds, hst, hΓm⟩ := stripPisAV_of_piTeleP comp.tele
   obtain ⟨hTeq, hlenG⟩ := stripPisAV_eq_mkPis hst
-  obtain ⟨gds₀, R₀, hst₀, rfl, -⟩ := stripPisAV_liftN_inv 1 0 nF hst
+  obtain ⟨-, hw1, -, -, -⟩ := hR.var (nP + 1) _ hmin
+  simp only [Expr.fvarTypeD] at hw1
   have hread1 : denoteP m.acval env φ (nP + 1) tym = some (Γr.getD 1 default) := by
     have := hR.doms (nP + 1) _ hmin
     simp only [Expr.fvarTypeD] at this
     rwa [show nP + 3 - 1 - (nP + 1) = 1 from by omega] at this
-  have hbits0 := stripPisAV_bits nF hPiBits hread1 hst₀
-  have hbits : ∀ d ∈ liftDoms 1 0 gds₀, (ℓ = 0 ↔ d.2.1 = 0) := by
-    intro d hd
-    obtain ⟨d', hd', -, h2⟩ := liftDoms_mem 1 hd
-    rw [h2]
-    exact (hbits0 d' hd').symm
+  have hread2 : denoteP m.acval env φ (nP + 2) tym
+      = some ((Γr.getD 1 default).liftN 1 0) := by
+    rw [denoteP_lift m.acval_closed hw1 (nP + 2) (by omega), hread1,
+      show nP + 2 - (nP + 1) = 1 from by omega]
+    rfl
+  have hbits : ∀ d ∈ gds, (ℓ = 0 ↔ d.2.1 = 0) := fun d hd =>
+    (stripPisAV_bits nF hPiBits hread2 hst d hd).symm
   -- the minor's reading, one deeper
   have hlift : interp2 V (cons M ρp) (Γr.getD 1 default)
       = interp2 V (cons unitSet (cons M ρp)) ((Γr.getD 1 default).liftN 1 0) := by
@@ -500,8 +502,8 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
       exact hsp
     have hsatComp := (hequiv' j (Nat.le_of_lt hj) _).mpr hsatL
     have hag := hagree j hj (hequiv' j (Nat.le_of_lt hj)) _ hsatComp
-    have hent : ((liftDoms 1 0 gds₀).getD j default).2.2 = Γm.getD (nF - 1 - j) default := by
-      obtain ⟨q, hq⟩ : ∃ q, (liftDoms 1 0 gds₀)[j]? = some q :=
+    have hent : (gds.getD j default).2.2 = Γm.getD (nF - 1 - j) default := by
+      obtain ⟨q, hq⟩ : ∃ q, gds[j]? = some q :=
         ⟨_, List.getElem?_eq_getElem (by rw [hlenG]; exact hj)⟩
       rw [← hΓm, getD_reverse_of_peel hlenG hj hq, List.getD_eq_getElem?_getD, hq]
       rfl
