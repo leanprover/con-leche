@@ -42429,3 +42429,157 @@ only content conflict was this file's tail (both records kept).
   run each): P (`--set-model=p`) **1265.19 G**, parity (`--no-model`)
   **1056.83 G**; exit 0, accepted 61 048 in both.  Against the
   pre-batch master receipt (1579.71 G / 1061.49 G): **−19.9 % / −0.44 %**.
+
+## TASK #168 LANDING — FAST `isProp`/`isProof` OFF THE HEAD SYMBOL, stages 1–3
+## (2026-09-05, `agent/isproof-land`; the design record above is the plan)
+
+**What landed.**  The three stages of the design record's §7, each with
+its proof adaptation; stage 4 (the stored per-constant datum) was not
+granted and is not here.  Axioms of every new theorem and of the
+shipped capstones: exactly `[propext, Classical.choice, Quot.sound]`.
+
+### Stage 1 — the no arm at the hoist, Option U (commit "stage 1")
+
+* `Kernel/PropRead.lean`: the readers.  `typeSortPW find? T` (the
+  zero-ness datum of the sort of a *type*: a ∀'s binder datum, `.never`
+  for a sort, the head's stored/declared type peeled by the arity for a
+  type-former application) and `proofPW find? a` (the datum of the sort
+  of the *type* of `a`, off `a.getAppFn` at any arity — prop-ness is
+  invariant under application, so one `PropWhen` per constant,
+  `substPW`'d at the use's levels, decides; an unapplied λ answers from
+  its own datum; sorts, ∀s, literals are never proofs).  Parametric in
+  the lookup (`env.find?` in the spec, `fe.find?` in the cached core —
+  the sim rewrites `mkFEnv_find?`).  `notProofFast` / `isProofFast`
+  are the two verdicts (`PropWhen.isProp := equiv (.ifAllZero [])`).
+* **Option U, taken.**  The hoist of `defeqStep` runs `propIrrel` — the
+  `Prop` branch of `proofIrrel` alone, with the fast arms in front; the
+  unit-like test stays with `stuckIrrel`'s `proofIrrel` (official's
+  `is_def_eq_unit_like` placement), which is byte-identical to before
+  and still serves the K/η rescue sites — so `proofIrrel_inv` and the
+  stuck/major P rows are untouched.  The no arm tests **both sides**
+  (`notProofFast a || notProofFast b`, a superset of the design's
+  a-then-b: refusing is sound and the b-side read is as cheap), gated
+  on `mode.verified` / `cfg.verified` (law 1's mode conjunct: the
+  parity core validates no annotation, so it reads none — `cfgNC`
+  takes the slow path).
+* Proof side: `propIrrel_inv` (`Verify/InferLemmas.lean`); the
+  sim/disc/shift/atF/proj twins (`DiscC2.propIrrelC_sim`,
+  `Disc.propIrrel_disc`, `Deep.propIrrel_shift`, `Fueled.propIrrel_atF`,
+  `PairM.propIrrel_{fst,snd}_proj` + the macro lists, `Knot.propIrrelP`);
+  the readers commute with `shiftFrom` (`Verify/PropRead.lean`, keyed
+  on `lamPw`/`getAppFn`/`numArgs`).  P: `PropIrrelPQ` (the hoist's
+  residue, `DefEqP.lean`) beside the kept `ProofIrrelPQ`;
+  `DefEqStuckP` and `DefEqInputsP.hpi` retyped; the R bridge got a
+  minimal `PropIrrelStepR`/`propIrrel_stepR` twin, deleted again with
+  Stage B at the merge.
+* Receipts (`init-full-pre2`, `--pre`, `ulimit -v 16G`,
+  `instructions:u`, one run each, master `3ce7622b` = 1579.71 G /
+  1061.49 G): **P 1412.32 G (−10.6 %)**, parity 1051.46 G (−0.9 %:
+  the hoist's unit-test `whnf ta` is gone from the slow path too).
+  Census (a temporary `dbg_trace` twin, never committed, both arms
+  computed and compared against the slow verdict): init-full
+  7 560 460 calls, no arm fired on 7 477 515 (a) / 7 468 921 (b) sides,
+  yes arm on 25 904 pairs against 28 363 slow-`true`, **0
+  disagreements either way**; arena 80 730 calls, 0.
+
+### Stage 2 — the annotate leaves and the io-λ domain check (commit "stage 2")
+
+* `annotPwPi` / `annotPwLam` (spec + `annotPwPiI`/`annotPwLamI`, which
+  now take the `FEnv` — threaded through the two cached telescope
+  loops and their `BinderLoopC`/`AgreeAnnot` lemma statements) consult
+  `typeSortPW` / `proofPW` first; the readers *subsume* the chain reads
+  (`forallPw`/`lamPw`), so the clause is one `match`.  The pass is
+  untrusted — `infer` validates every datum it writes — so no licence;
+  the datum's agreement is the census: init-full ∀ leaves 176 169
+  (174 933 decided fast, 99.3 %), λ leaves 272 653 (268 350, 98.4 %),
+  **0 non-equivalent data**; arena 13 577/13 522 and 12 401/12 020, 0.
+* `inferBodyIO`'s λ clause loses its domain-sort run (official's
+  `infer_lambda` skips it at `infer_only`; the P row
+  `infer_lam_claimIOP` never consumed it): `inferTypeCoreIO_lam_inv`
+  loses two conjuncts, its six consumers drop the binders; the io walks
+  (`Disc`, `Deep`, `DiscC4`) and the annotate walks (`BinderLoop`,
+  `BinderLoopC`) follow the clause change mechanically.
+* Receipts: **P 1266.20 G (−19.8 % vs master, −10.3 % vs stage 1)**,
+  parity 1051.35 G (unchanged: the parity lane writes no data and its
+  io slot is the full `infer`); 61 048 accepted in both modes.
+
+### Stage 3 — the yes arm and its licence (commit "stage 3")
+
+* `propIrrel` answers `true` without inference when
+  `isProofFast a && isProofFast b`, gated on the P flag
+  (`mode.verified && mode.betaGate`; `cfg.betaGate` in the twin —
+  `cfgOf` maps both by `rfl`).  `propIrrel_inv` gains the fast
+  disjunct.
+* **The readers were tightened for the licence at no coverage cost**:
+  `peelNeverPis` requires every peeled binder's datum to be `.never`
+  (a validated type former `∀ p⃗, Sort u` has none other — the codomain
+  sort is a `succ`), and `residualPW` reads `Sort` residuals only (a ∀
+  residual would make the applied head a function, not a type —
+  unreachable on well-typed input).  Both arms use the tightened
+  readers; the stage-3 census below is the receipt.
+* `SetP/Step2/IrrelFastP.lean` — the squash-regime licence, the io
+  licence's dual: `pwBit_eq_zero_of_isProp` and the exactness
+  `alwaysZero_iff_forall_pwBit_eq_zero`; the fence `irrel_fast_fence`
+  (at a nonzero bit the product has two distinct members);
+  `NeverChainP` + `neverChainP_of_peel` (a `.never`-peeled telescope
+  reads to a `.pi` chain at nonzero bits, `inst`-stable);
+  `spine_mem_univ_of_neverChain` — the ι licence's mixed walk with
+  every slot on the licensed side (`io_domain_transfer` from the type
+  reading's own hereditary app slot, `app_mem_piR_pos`,
+  `AnnotOkP_inst0`); `typeFormer_mem_univ_zero` (`ConstTypeP` for the
+  type former's head, `denotePInstLevels` for the composed valuation);
+  and the kernel-shaped `prf_of_isProofFast`: the reader inversions
+  (`Verify/PropRead.lean`: `isProofFast_inv`, `proofPW_some_inv`,
+  `headProofPW_some_inv`, `typeSortPW_some_inv`) split the subject into
+  a λ (`lamR_zero`), a ∀-typed constant or fvar (the squash product,
+  `eq_pt_of_mem_piR_zero`), a type-former-typed constant (the walk at
+  the stored type, with `substPW_comp` — premised on `ConstWF`'s
+  `allLevelParamsDefined` through `stripPis_of_peelNeverPis` — for the
+  two-level composition), a type-former-typed fvar (the walk at the
+  context's reading, `CtxOkP` + `Sat2`), an fvar whose type is an
+  fvar-headed former (`h : motive n` — the head's own leaf is in
+  `fvarLeaves` too, so `CtxOkP` supplies it: Sat2 twice), and the
+  refuted shapes (`Sort`-typed heads, fvar-headed stored types — closed
+  by `ConstWF`).  `propIrrelPQ_of_claims` wires both arms into the
+  hoist's row (it now takes `ConstTypeP`, supplied at `TiersP` by
+  `h.reads.const_ty`).
+* Receipts: **P 1260.96 G (−0.4 % vs stage 2; −20.2 % vs master)**,
+  parity 1051.41 G.  Census with the landed readers, both arms:
+  init-full 7 553 298 calls, no arm on 7 470 710 / 7 462 060 sides,
+  yes arm on 25 785 pairs against 28 244 slow-`true`, undecided 40 054;
+  **0 disagreements either way**; arena 80 111 calls, 0.
+
+### The merged tip (master `98d4e2f8` = Stage B + the ι batch)
+
+Conflicts: the four R bridges I had twinned (`SetBase/Bridge/DefEq`,
+`DefEqClosed`, `Irrel`, `Stuck`) were deleted by Stage B — resolved by
+deletion; the ι batch's `annotOkP_mkAppN_head` (`IotaGateP`) is reused.
+Gates at the tip: `lake build` warning-free; `lake test`;
+`tests/arena.sh` 0 FAIL (arena 90/92, e2e 73/73, annot 14/14, mode
+flags 14/14, bad-test expectations unchanged); `tests/proofdeps.sh`
+**regenerated: +12 rows** — `Kernel.PropRead`, `Verify.PropRead` and
+`SetP.Step2.IrrelFastP` enter all four capstones' closures, the
+justified door (the readers are checker code the shipped core calls,
+the inversions and the licence are their theorem; nothing else moved).
+init-full-pre2: **P 999.49 G** against the master tip's 1265.19 G
+(**−21.0 %**; the two licences compose: −36.7 % against the pre-batch
+1579.71 G), parity 1046.61 G against 1056.83 G (−1.0 %); 61 048
+accepted in both modes; `no_constant_of_Empty_P`,
+`prf_of_isProofFast`, `propIrrelPQ_of_claims` depend on exactly the
+three standard axioms.
+
+### Decisions and findings
+
+* **Conformance (restrictions are findings).**  (i) Option U is
+  official's shape (`is_def_eq_proof_irrel` has no unit branch).  (ii)
+  The yes arm is an accept-superset of the slow path at `PUnit.{0}`
+  (a proof and unit-like; the slow path's unit-first order answers the
+  b-unit question, the fast path the b-proof one) — the conformance
+  ruling's class; the census never saw it.  (iii) The parity core's
+  −0.9 % is the hoist's dropped `whnf ta` (the unit test's), not a fast
+  arm: `cfgNC.verified = false` keeps every reader off.
+* The b-side no-arm read (beyond the design's a-only stage 1) is
+  free and sound; the census counts it.
+* Not done: stage 4 (not granted).  The design's "residual reader"
+  (`residualClass`, the per-call `PUnit` question) is not needed under
+  Option U and was not landed.

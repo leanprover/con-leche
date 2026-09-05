@@ -1584,6 +1584,104 @@ theorem isUnitLikeTy_inv {env : Env} {e : Expr}
     | [], h2 => exact nomatch h2
     | _ :: _ :: _, h2 => exact nomatch h2
 
+/-- Inversion of a successful hoisted `Prop`-branch certification
+(task #168): either the fast "yes" arm fired — at a verified, gated
+mode both sides' head-symbol readers say "proof" — or both types'
+sorts are `Prop` by the slow branch.  The fast "not a proof" arm only
+ever answers `false`, so it contributes nothing here. -/
+theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
+    (h : propIrrelP mode env fuel d a b = .ok true) :
+    (mode.verified = true ∧ mode.betaGate = true ∧
+      isProofFast env.find? a = true ∧ isProofFast env.find? b = true) ∨
+    ∃ ta sta uT tb stb vT,
+      inferTypeIO mode env fuel d a = .ok ta ∧
+      inferTypeIO mode env fuel d ta = .ok sta ∧
+      whnf mode env fuel d sta = .ok (.sort uT) ∧
+      Level.isEquiv uT .zero = some true ∧
+      inferTypeIO mode env fuel d b = .ok tb ∧
+      inferTypeIO mode env fuel d tb = .ok stb ∧
+      whnf mode env fuel d stb = .ok (.sort vT) ∧
+      Level.isEquiv vT .zero = some true := by
+  dsimp only [propIrrelP] at h
+  simp only [propIrrel, Bind.bind, Except.bind] at h
+  simp only [inferTypeIO_def, whnf_def] at h
+  split at h
+  · simp [pure, Except.pure] at h
+  split at h
+  · next hc =>
+    simp only [Bool.and_eq_true] at hc
+    exact Or.inl ⟨hc.1.1.1, hc.1.1.2, hc.1.2, hc.2⟩
+  refine Or.inr ?_
+  cases hta : inferTypeIO mode env fuel d a with
+  | error err => rw [hta] at h; exact nomatch h
+  | ok ta =>
+  rw [hta] at h
+  dsimp only at h
+  cases hsta : inferTypeIO mode env fuel d ta with
+  | error err => rw [hsta] at h; exact nomatch h
+  | ok sta =>
+  rw [hsta] at h
+  dsimp only at h
+  cases hwta : whnf mode env fuel d sta with
+  | error err => rw [hwta] at h; exact nomatch h
+  | ok wta =>
+  rw [hwta] at h
+  match wta, h with
+  | .sort uT, h => ?_
+  | .bvar i2, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .app f2 a2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .forallE n2 t2 b2 m2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e3, h => exact nomatch h
+  dsimp only at h
+  cases heq1 : Level.isEquiv uT .zero with
+  | none => rw [heq1] at h; simp [liftFueled] at h
+  | some okA =>
+  rw [heq1] at h
+  try dsimp only [liftFueled] at h
+  try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  cases htb : inferTypeIO mode env fuel d b with
+  | error err => rw [htb] at h; exact nomatch h
+  | ok tb =>
+  rw [htb] at h
+  dsimp only at h
+  cases hstb : inferTypeIO mode env fuel d tb with
+  | error err => rw [hstb] at h; exact nomatch h
+  | ok stb =>
+  rw [hstb] at h
+  dsimp only at h
+  cases hwtb : whnf mode env fuel d stb with
+  | error err => rw [hwtb] at h; exact nomatch h
+  | ok wtb =>
+  rw [hwtb] at h
+  match wtb, h with
+  | .sort vT, h => ?_
+  | .bvar i2, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .app f2 a2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .forallE n2 t2 b2 m2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e3, h => exact nomatch h
+  dsimp only at h
+  cases heq2 : Level.isEquiv vT .zero with
+  | none => rw [heq2] at h; simp [liftFueled] at h
+  | some okB =>
+  rw [heq2] at h
+  try dsimp only [liftFueled] at h
+  try simp only [pure, Except.pure, Except.ok.injEq] at h
+  obtain ⟨rfl, rfl⟩ : okA = true ∧ okB = true := by
+    have := h
+    cases okA <;> cases okB <;> simp_all
+  exact ⟨ta, sta, uT, tb, stb, vT, rfl, hsta, hwta, heq1, rfl, hstb, hwtb, heq2⟩
+
 /-- Inversion of a successful proof-irrelevance certification: either
 both sides' types whnf to the basis unit type, or both types' sorts are
 `Prop`. -/

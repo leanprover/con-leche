@@ -1,5 +1,6 @@
 import Setlec.Kernel.CoreCfg
 import Setlec.Kernel.Env
+import Setlec.Kernel.PropRead
 import Setlec.Kernel.Level
 import Setlec.Kernel.ExprOps
 import Setlec.Kernel.Basis
@@ -898,6 +899,48 @@ def proofIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
         pure (okA && okB)
       | _ => pure false
     | _ => pure false
+
+/-- **The hoisted proof-irrelevance test** (task #168, Option U): the
+`Prop` branch of `proofIrrel` alone — official's
+`is_def_eq_proof_irrel` has no unit-like branch; that test lives in
+`stuckIrrel` (official's `is_def_eq_unit_like`, the last test of
+`is_def_eq_core`), which `proofIrrel` still serves.
+
+Before the io inferences, the head-symbol readers decide the **"not a
+proof" arm** at the verified modes: a side whose validated datum says
+"not a proposition" refuses the shortcut outright (`notProofFast`,
+`Setlec/Kernel/PropRead.lean`).  Refusing is always sound — the P row
+is stated at `.ok true` — and the arm's obligation is *agreement* with
+the slow path on validated data, recorded by the landing census
+(DESIGN.md, task #168: 0 disagreements).  The gate is `mode.verified`:
+the parity core validates no annotation, so it reads none.  The
+**"yes" arm** (`isProofFast` on both sides → `true`) is the
+squash-regime licence, stage 3 of the same design; it is gated on the
+P flag (`mode.betaGate`) like every licensed skip. -/
+def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+    m Bool := do
+  if mode.verified &&
+      (notProofFast env.find? a || notProofFast env.find? b) then
+    pure false
+  else if mode.verified && mode.betaGate &&
+      isProofFast env.find? a && isProofFast env.find? b then
+    -- the yes arm (task #168 stage 3): both heads' validated data say
+    -- "a proposition at every valuation" — the squash-regime licence
+    -- (`prf_of_isProofFast`, `Setlec/SetP/Step2/IrrelFastP.lean`)
+    pure true
+  else
+  -- task #172 B4: every inference here is at the io grade
+  let ta ← r.inferIO depth a
+  match ← r.whnf depth (← r.inferIO depth ta) with
+  | .sort uT =>
+    let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
+    let tb ← r.inferIO depth b
+    match ← r.whnf depth (← r.inferIO depth tb) with
+    | .sort vT =>
+      let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
+      pure (okA && okB)
+    | _ => pure false
+  | _ => pure false
 
 /-- Pair eta certification: `a` is a fully applied structure
 constructor (a stored constructor that is the single rule of an
@@ -1955,24 +1998,27 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         pure (.sort (.imax u v))
       | _ => throw (.invalid "expected a sort")
     | .lam n ty body mb => do
-      match ← r.whnf depth (← r.infer depth ty) with
-      | .sort _ => do
-        let bt ← r.infer (depth + 1)
-          (body.instantiate1 (.fvar depth n ty))
-        if mode.verified then
-          match body.lamPw with
-          | some pwI =>
-            unless mb.pw.equiv pwI do
-              throw (.notImplemented
-                "sort-annotation mismatch (lam-cod-chain)")
-          | none =>
-            let btt ← r.infer (depth + 1) bt
-            let vb ← ensureSort r env (depth + 1) btt
-            unless (Level.zeronessOf vb).equiv mb.pw do
-              throw (.notImplemented
-                "sort-annotation mismatch (lam-cod-leaf)")
-        pure (.forallE n ty (bt.abstract1 depth) mb)
-      | _ => throw (.invalid "expected a sort")
+      -- Task #168 stage 2: no domain-sort run at the io grade —
+      -- official's `infer_lambda` skips it at `infer_only`
+      -- (`type_checker.cpp:131`), and the P row (`infer_lam_claimIOP`)
+      -- never consumed it: the domain's grading comes from the
+      -- premise (`AnnotOkP.hoist_lam`).  The codomain validation stays
+      -- — it is what makes the λ datum trustworthy.
+      let bt ← r.infer (depth + 1)
+        (body.instantiate1 (.fvar depth n ty))
+      if mode.verified then
+        match body.lamPw with
+        | some pwI =>
+          unless mb.pw.equiv pwI do
+            throw (.notImplemented
+              "sort-annotation mismatch (lam-cod-chain)")
+        | none =>
+          let btt ← r.infer (depth + 1) bt
+          let vb ← ensureSort r env (depth + 1) btt
+          unless (Level.zeronessOf vb).equiv mb.pw do
+            throw (.notImplemented
+              "sort-annotation mismatch (lam-cod-leaf)")
+      pure (.forallE n ty (bt.abstract1 depth) mb)
     | .app f a => do
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
@@ -2098,7 +2144,10 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     -- would grind through proof bodies first (init-prelude probe:
     -- 227 G → recovered by the hoist).  The fallback's copy stays
     -- (memoized; reachable when a reduction step rewrites a side).
-    if ← proofIrrel r env depth a' b' then pure true else
+    -- Task #168 (Option U): the hoist is the `Prop` branch only, with
+    -- the head-symbol fast arms; the unit-like test is `stuckIrrel`'s
+    -- (every structural-failure exit below reaches it).
+    if ← propIrrel mode r env depth a' b' then pure true else
     -- Literal acceleration is guarded on *both* sides being free of
     -- free variables, mirroring the official kernel
     -- (`type_checker.cpp`, `lazy_delta_reduction`:
@@ -2376,8 +2425,13 @@ environment: `annotate` never looks a constant up, but inferring the
 inner ∀ node does.  See DESIGN.md, task #161 P5 proof-lane finding. -/
 def annotPwPi (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
     m PropWhen := do
-  match body'.forallPw with
-  | some pwI => pure pwI
+  -- Task #168 stage 2: the head-symbol reader first.  It subsumes the
+  -- chain read (`typeSortPW` of a ∀ IS its `forallPw`) and answers
+  -- most leaves without inference; the pass is untrusted — `infer`
+  -- validates every datum it writes — so the reader owes no licence
+  -- here, only the datum's agreement (census: 0 non-equivalent data).
+  match typeSortPW env.find? body' with
+  | some pw => pure pw
   | none => do
     -- io grade: `body'` is already annotated (bottom-up)
     let v ← ensureSort r env depth (← r.inferIO depth body')
@@ -2389,8 +2443,10 @@ neighbour's datum (the chain rule, no inference), any other body pays
 one leaf computation (`(lam-cod-leaf)`). -/
 def annotPwLam (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
     m PropWhen := do
-  match body'.lamPw with
-  | some pwI => pure pwI
+  -- task #168 stage 2: the reader first (it subsumes the `lamPw`
+  -- chain read), as in `annotPwPi`
+  match proofPW env.find? body' with
+  | some pw => pure pw
   | none => do
     -- io grade: `body'` is already annotated (bottom-up)
     let bt ← r.inferIO depth body'

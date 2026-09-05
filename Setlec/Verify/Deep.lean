@@ -1,5 +1,6 @@
 import Setlec.Kernel.TypeChecker
 import Setlec.Verify.Shift
+import Setlec.Verify.PropRead
 import Setlec.Verify.EnvWF
 import Setlec.Verify.InstLevels
 import Setlec.Verify.InferIOLeaves
@@ -425,8 +426,8 @@ private theorem annotPwPi_shift (henv : EnvWF env)
     (hw : WScoped d e) :
     annotPwPi (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
       annotPwPi (pureFns mode env fuel) env d e := by
-  simp only [annotPwPi, forallPw_shiftFrom]
-  cases e.forallPw with
+  simp only [annotPwPi, typeSortPW_shiftFrom]
+  cases typeSortPW env.find? e with
   | some pwI => rfl
   | none =>
     dsimp only
@@ -445,8 +446,8 @@ private theorem annotPwLam_shift (henv : EnvWF env)
     (hw : WScoped d e) :
     annotPwLam (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
       annotPwLam (pureFns mode env fuel) env d e := by
-  simp only [annotPwLam, lamPw_shiftFrom]
-  cases e.lamPw with
+  simp only [annotPwLam, proofPW_shiftFrom]
+  cases proofPW env.find? e with
   | some pwI => rfl
   | none =>
     dsimp only
@@ -1145,6 +1146,42 @@ private theorem stuckIrrel_shift (henv : EnvWF env)
   intro b₅ _
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   exact proofIrrel_shift henv ih hpd hwa hwb
+
+/-- The hoisted `Prop`-branch test (task #168): the fast arm reads
+head symbols only, which the shift preserves (`notProofFast_shiftFrom`);
+the slow branch is `proofIrrel_shift`'s `Prop` branch. -/
+private theorem propIrrel_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (hwa : WScoped d a) (hwb : WScoped d b) :
+    propIrrel mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+        (shiftFrom p b) =
+      propIrrel mode (pureFns mode env fuel) env d a b := by
+  simp only [propIrrel, notProofFast_shiftFrom, isProofFast_shiftFrom]
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  refine bind_congr _ (ih.inferIO hpd hwa) ?_
+  intro ta hta
+  have hwta : WScoped d ta := inferTypeIO_WScoped henv fuel hta hwa
+  refine bind_congr _ (ih.inferIO hpd hwta) ?_
+  intro tta htta
+  have hwtta : WScoped d tta := inferTypeIO_WScoped henv fuel htta hwta
+  refine bind_congr _ (ih.whnf hpd hwtta) ?_
+  intro w _
+  cases w <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
+  case sort u =>
+  refine bind_congr_eq rfl ?_
+  intro okA _
+  refine bind_congr _ (ih.inferIO hpd hwb) ?_
+  intro tb htb
+  have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
+  refine bind_congr _ (ih.inferIO hpd hwtb) ?_
+  intro ttb httb
+  have hwttb : WScoped d ttb := inferTypeIO_WScoped henv fuel httb hwtb
+  refine bind_congr _ (ih.whnf hpd hwttb) ?_
+  intro w' _
+  cases w' <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
 
 private theorem projCert_shift (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e₂ : Expr}
     (hwe₂ : WScoped d e₂) (i : Nat) (nP : Nat) :
@@ -2252,14 +2289,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
         (shiftFrom p)
     simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
       pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
-    refine bind_rel _ _ (ihio hpd hw.1) ?_
-    intro tty htty
-    refine bind_rel _ _
-      (ih.whnf hpd (inferTypeCoreIO_WScoped henv fuel htty hw.1)) ?_
-    intro w _
-    cases w <;> try rfl
-    case fvar => rw [shiftFrom_fvar]; rfl
-    case sort u =>
+    -- task #168 stage 2: no domain-sort run at the io λ clause
     have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
       WScoped.instantiate1 (n := n) hw.1 0 hw.2
     have hbody := ihio (p := p) (d := d + 1) (by omega) hwo
@@ -2445,8 +2475,8 @@ private theorem defeqLoop_shift (henv : EnvWF env)
   have hwwb : WScoped d wb := whnfCore_WScoped henv fuel hwb' hwb
   rw [shiftFrom_beq]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
-  -- hoisted proof irrelevance
-  refine bind_congr_eq (proofIrrel_shift henv ih hpd hwwa hwwb) ?_
+  -- hoisted proof irrelevance (the `Prop` branch, task #168)
+  refine bind_congr_eq (propIrrel_shift henv ih hpd hwwa hwwb) ?_
   rintro rpi -
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   -- literal acceleration branches (guarded on fvar-free sides; the

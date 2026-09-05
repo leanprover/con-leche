@@ -101,9 +101,7 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCoreIO mode env (fuel + 1) d (.lam n ty body m)
       = .ok t) :
-    ∃ tty u bt,
-      inferTypeCoreIO mode env fuel d ty = .ok tty ∧
-      whnf mode env fuel d tty = .ok (.sort u) ∧
+    ∃ bt,
       inferTypeCoreIO mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
       (mode.verified = true → body.isLam = false → ∃ btt v,
@@ -117,24 +115,6 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
   simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure, Bind.bind,
     Except.bind] at h
   simp only [inferIO_def, pureFnsIO_whnf, ensureSortIO_def] at h
-  cases htty : inferTypeCoreIO mode env fuel d ty with
-  | error err => rw [htty] at h; exact nomatch h
-  | ok tty =>
-  rw [htty] at h
-  dsimp only at h
-  cases hwtty : whnf mode env fuel d tty with
-  | error err => rw [hwtty] at h; exact nomatch h
-  | ok wtty =>
-  rw [hwtty] at h
-  dsimp only at h
-  revert h
-  match wtty with
-  | .sort u => ?_
-  | .bvar _ | .fvar _ _ _ | .const _ _ | .app _ _ | .lam _ _ _ _
-  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
-    intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
-  intro h
-  dsimp only at h
   cases hbt : inferTypeCoreIO mode env fuel (d + 1)
       (body.instantiate1 (.fvar d n ty)) with
   | error err => rw [hbt] at h; exact nomatch h
@@ -145,7 +125,7 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
   case neg =>
     rw [if_neg hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨tty, u, bt, rfl, hwtty, rfl,
+    exact ⟨bt, rfl,
       fun hv' _ => absurd hv' hv,
       fun hv' _ _ => absurd hv' hv, h.symm⟩
   rw [if_pos hv] at h
@@ -157,7 +137,7 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     by_cases hpw : m.pw.equiv mbI.pw = true
     · rw [if_pos hpw] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
-      refine ⟨tty, u, bt, rfl, hwtty, rfl, ?_, ?_, h.symm⟩
+      refine ⟨bt, rfl, ?_, ?_, h.symm⟩
       · intro _ hlam; simp [Expr.isLam] at hlam
       · intro _ pwI heq
         try simp only [Expr.lamPw, Option.some.injEq] at heq
@@ -184,7 +164,7 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     by_cases hz : (Level.zeronessOf v).equiv m.pw = true
     · rw [if_pos hz] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
-      refine ⟨tty, u, bt, rfl, hwtty, rfl,
+      refine ⟨bt, rfl,
         fun _ _ => ⟨btt, v, hbtt, hes, hz⟩, ?_, h.symm⟩
       intro _ pwI heq
       first
@@ -201,7 +181,7 @@ theorem inferIO_lam_meta_copy {env : Env} {fuel d : Nat} {n : Name}
     (h : inferTypeCoreIO mode env (fuel + 1) d (.lam n ty body m)
       = .ok t) :
     ∃ bt, t = .forallE n ty bt m := by
-  obtain ⟨tty, u, bt, -, -, -, -, -, ht⟩ := inferTypeCoreIO_lam_inv h
+  obtain ⟨bt, -, -, -, ht⟩ := inferTypeCoreIO_lam_inv h
   exact ⟨bt.abstract1 d, ht⟩
 
 /-- **Inversion for the application rule of the io lane** — the frozen
@@ -644,10 +624,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
         Bind.bind, Except.bind]
       simp only [inferIO_def, pureFnsIO_whnf, ensureSortIO_def]
-      rw [inferTypeCoreIO_of_full hty]
-      dsimp only
-      rw [hwt]
-      dsimp only
+      -- task #168 stage 2: the io λ clause has no domain-sort run
       rw [inferTypeCoreIO_of_full hbt]
       dsimp only
       cases hv : mode.verified with

@@ -231,6 +231,26 @@ def ProofIrrelPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ba) →
       ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ aa = interp2 V ρ ba
 
+/-- **Residue 3′ — the hoisted `Prop`-branch test** (task #168, Option
+U), P currency: `defeqStep`'s hoist runs `propIrrel` — the `Prop`
+branch with the head-symbol fast arms; the unit-like branch stays with
+`stuckIrrel`'s `proofIrrel`. -/
+def PropIrrelPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
+    (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
+    Setlec.propIrrelP μ env fuel d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    ∀ {aa ba : AVExpr},
+      CtxOkP m φ d Δa a → CtxOkP m φ d Δa b →
+      denoteP m.acval env φ d a = some aa →
+      denoteP m.acval env φ d b = some ba →
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ aa) →
+      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ba) →
+      ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ aa = interp2 V ρ ba
+
 /-- **Residue 4 — the literal acceleration**, P currency.  The
 existential is over the reduct's *reading* alone: there is no fuel to
 raise. -/
@@ -280,7 +300,7 @@ def DefEqStuckP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     whnfCore μ env fuel d a = .ok a' →
     whnfCore μ env fuel d b = .ok b' →
     (a' == b') = false →
-    Setlec.proofIrrelP μ env fuel d a' b' = .ok false →
+    Setlec.propIrrelP μ env fuel d a' b' = .ok false →
     (if !a'.hasFvar && !b'.hasFvar then
       Setlec.reduceNatP μ env fuel d a' else pure none) = .ok none →
     (if !a'.hasFvar && !b'.hasFvar then
@@ -481,7 +501,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
     (hex : WhnfCoreReductExistsP μ m φ fuel)
     (ihwc : WhnfCoreClaims2P μ m φ fuel)
     (hdel : DenotePDeltaP m φ)
-    (hnat : ReduceNatStepPQ μ m φ fuel) (hpi : ProofIrrelPQ μ m φ fuel)
+    (hnat : ReduceNatStepPQ μ m φ fuel) (hpi : PropIrrelPQ μ m φ fuel)
     (hstk : DefEqStuckP μ m φ fuel)
     (hspine : DefEqSpineP μ m φ fuel) :
     DefEqStepAtP μ m φ fuel := by
@@ -489,7 +509,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
     hda hdb hokA hokB ρ hρ
   have h0 := h
   simp only [defeqStep, Bind.bind, Except.bind, Setlec.whnfCore_def,
-    Setlec.proofIrrel_fold, Setlec.reduceNat_fold,
+    Setlec.propIrrel_fold, Setlec.reduceNat_fold,
     Setlec.defeqSpine_fold, Setlec.stuckIrrel_fold,
     Setlec.defeq_def] at h
   split at h
@@ -525,7 +545,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
       obtain rfl : aa' = ba' := by
         rw [hda'] at hdb'; exact Option.some.inj hdb'
       rfl
-    · cases hir : Setlec.proofIrrelP μ env fuel d a' b' with
+    · cases hir : Setlec.propIrrelP μ env fuel d a' b' with
       | error err => rw [hir] at h; exact nomatch h
       | ok r =>
       rw [hir] at h
@@ -796,7 +816,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
   intro d Δa _k a b a' b' h hab hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb aa' ba' hCa hCb hda hdb hokA hokB ρ hρ
   simp only [defeqStep, Bind.bind, Except.bind, Setlec.whnfCore_def,
-    Setlec.proofIrrel_fold, Setlec.reduceNat_fold,
+    Setlec.propIrrel_fold, Setlec.reduceNat_fold,
     Setlec.defeqSpine_fold, Setlec.stuckIrrel_fold, Setlec.defeq_def,
     Setlec.defEqList_fold, Setlec.etaCert_fold] at h
   rw [if_neg (by simpa using hab), hwca] at h
@@ -1214,9 +1234,10 @@ structure DefEqInputsP (μ : CheckMode) (V : Type w) [SetTheory V] :
   /-- Residue 4 — the literal acceleration. -/
   hnat : ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), ReduceNatStepPQ μ m φ fuel
-  /-- Residue 3 — proof irrelevance. -/
+  /-- Residue 3 — proof irrelevance at the hoist: the `Prop` branch
+  (task #168, Option U). -/
   hpi : ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat)
-    (fuel : Nat), ProofIrrelPQ μ m φ fuel
+    (fuel : Nat), PropIrrelPQ μ m φ fuel
   /-- Residue 5 — the same-head spine short-circuit. -/
   hspine : ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat)
     (fuel : Nat), DefEqSpineP μ m φ fuel

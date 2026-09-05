@@ -338,6 +338,31 @@ theorem proofIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okB _ => ?_)
         exact DiscV.pure trivial
 
+/-- The hoisted `Prop`-branch test (task #168): the fast arm is a pure
+read on both sides. -/
+theorem propIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
+    DiscV mode env (fun _ => True) (propIrrel mode C env d a b)
+      (propIrrel mode G env d a b) := by
+  unfold propIrrel
+  split
+  · exact DiscV.pure trivial
+  split
+  · exact DiscV.pure trivial
+  refine DiscV.bind (ih.site_inferIO henv hwa) (fun ta hta => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hta) (fun tta htta => ?_)
+  refine DiscV.bind (ih.site_whnf henv htta) (fun w _ => ?_)
+  cases w <;> try exact DiscV.pure trivial
+  case sort uT =>
+    refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okA _ => ?_)
+    refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
+    refine DiscV.bind (ih.site_inferIO henv htb) (fun ttb httb => ?_)
+    refine DiscV.bind (ih.site_whnf henv httb) (fun w' _ => ?_)
+    cases w' <;> try exact DiscV.pure trivial
+    case sort vT =>
+      refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okB _ => ?_)
+      exact DiscV.pure trivial
+
 theorem pairEtaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
     DiscV mode env (fun _ => True) (pairEtaCert mode C env d a b)
@@ -1486,9 +1511,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     unfold inferBodyIO
     dsimp only [viewM, Expr.view]
     simp only [pure_bind]
-    refine DiscV.bind (ih.site_inferIO henv hwtb.1) (fun tty htty => ?_)
-    refine DiscV.bind (ih.site_whnf henv htty) (fun w hww => ?_)
-    split <;> try exact DiscV.throw _
+    -- task #168 stage 2: no domain-sort run at the io λ clause
     refine DiscV.bind (ih.site_inferIO henv
       (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
     have hpure : DiscV mode env
@@ -1605,7 +1628,7 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   refine DiscV.bind (ih.site_whnfCore henv hwb) (fun b' hb' => ?_)
   split
   · exact DiscV.pure trivial
-  refine DiscV.bind (proofIrrel_disc ih henv ha' hb') (fun rpi _ => ?_)
+  refine DiscV.bind (propIrrel_disc ih henv ha' hb') (fun rpi _ => ?_)
   split
   · exact DiscV.pure trivial
   refine DiscV.bind (reduceNatIf_disc ih henv ha' _) (fun o₁ ho₁ => ?_)

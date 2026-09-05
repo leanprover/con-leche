@@ -62,7 +62,7 @@ def UnitIrrelPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 
 /-- One side of the `Prop` branch: a term whose type's sort is a
 zero-equivalent level interprets to `pt`. -/
-private theorem prop_side_pt {m : EnvS2Core V env}
+theorem prop_side_pt {m : EnvS2Core V env}
     (ihis : InferClaimsIOS2P μ m φ fuel)
     (hsss : SortSemAtIOSP m μ φ fuel)
     (hreads : InferReadsIOSP m μ φ fuel)

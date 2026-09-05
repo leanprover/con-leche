@@ -268,6 +268,12 @@ theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
   unfold proofIrrel
   atF_tac
 
+theorem propIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (propIrrel mi (fueledFns mode env) env d a b).val F =
+      propIrrel mi (pureFns mode env F) env d a b := by
+  unfold propIrrel
+  atF_tac
+
 theorem pairEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
     (pairEtaCert mi (fueledFns mode env) env d a b).val F =
       pairEtaCert mi (pureFns mode env F) env d a b := by
@@ -309,6 +315,7 @@ macro "atF_step2" : tactic =>
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
     | (rw [proofIrrel_atF])
+    | (rw [propIrrel_atF])
     | (rw [pairEtaCert_atF])
     | (rw [structEtaCertWith_atF])
     | (rw [structUnitCert_atF])
@@ -398,6 +405,7 @@ macro "atF_step3" : tactic =>
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
     | (rw [proofIrrel_atF])
+    | (rw [propIrrel_atF])
     | (rw [pairEtaCert_atF])
     | (rw [structEtaCertWith_atF])
     | (rw [structUnitCert_atF])
@@ -443,6 +451,7 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
     | (rw [proofIrrel_atF])
+    | (rw [propIrrel_atF])
     | (rw [pairEtaCert_atF])
     | (rw [structEtaCertWith_atF])
     | (rw [structUnitCert_atF])
