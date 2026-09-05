@@ -31,6 +31,13 @@ def fvarsBelow (d : Nat) : Expr → Prop
   | .letE _ ty val body => fvarsBelow d ty ∧ fvarsBelow d val ∧ fvarsBelow d body
   | .proj _ _ e => fvarsBelow d e
 
+/-- `fvarRange` is exact for `fvarsBelow`. -/
+theorem fvarsBelow_iff {x : Expr} {d : Nat} :
+    x.fvarsBelow d ↔ x.fvarRange ≤ d := by
+  induction x <;>
+    (try simp [Expr.fvarsBelow, Expr.fvarRange, Nat.max_le, *]) <;>
+    omega
+
 theorem fvarsBelow_mono {d d' : Nat} (h : d ≤ d') :
     ∀ {e : Expr}, fvarsBelow d e → fvarsBelow d' e := by
   intro e

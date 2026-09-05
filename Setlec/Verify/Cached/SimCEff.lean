@@ -1,3 +1,4 @@
+import Setlec.Verify.EnvBound
 import Setlec.Verify.Cached.SimC
 
 /-!
@@ -743,7 +744,7 @@ theorem storedTyIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
       let ent? : Option CConstE ← modifyGet fun s => (s.ienv[n]?, s)
       match ent? with
       | some ent =>
-        if EStore.exprPtrBEq ent.tyE x then pure ent.ty
+        if Expr.exprPtrBEq ent.tyE x then pure ent.ty
         else internExprM x
       | none => internExprM x : CheckCM ExprC) from rfl] at hr
   simp only [Bind.bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
@@ -752,7 +753,7 @@ theorem storedTyIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
   | some ent =>
     rw [hl] at hr
     dsimp only at hr
-    by_cases hgate : EStore.exprPtrBEq ent.tyE x
+    by_cases hgate : Expr.exprPtrBEq ent.tyE x
     · rw [if_pos hgate] at hr
       have hEq : ent.tyE = x := by
         have : (ent.tyE == x) = true := hgate
@@ -775,7 +776,7 @@ theorem storedValIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
       let ent? : Option CConstE ← modifyGet fun s => (s.ienv[n]?, s)
       match ent? with
       | some ⟨_, _, some (vE, vi)⟩ =>
-        if EStore.exprPtrBEq vE x then pure vi
+        if Expr.exprPtrBEq vE x then pure vi
         else internExprM x
       | _ => internExprM x : CheckCM ExprC) from rfl] at hr
   simp only [Bind.bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
@@ -789,7 +790,7 @@ theorem storedValIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
       obtain ⟨vE, vi⟩ := p
       subst hval
       dsimp only at hr
-      by_cases hgate : EStore.exprPtrBEq vE x
+      by_cases hgate : Expr.exprPtrBEq vE x
       · rw [if_pos hgate] at hr
         have hEq : vE = x := by
           have : (vE == x) = true := hgate

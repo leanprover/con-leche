@@ -10,7 +10,7 @@ monotone fueled families to plain executable computations
 fueled/cached operation records are related by part B's entry-point
 bridges, and the projection batteries push the pairing through every
 declaration-checker function.  The punchline: a successful
-`checkDecls mode (cachedOps mode)` run is reproduced by `checkDecls mode (fueledOps mode F)`
+`checkDecls mode (wfOpsM mode)` run is reproduced by `checkDecls mode (fueledOps mode F)`
 for some fuel `F`.
 -/
 
@@ -102,31 +102,41 @@ open Classical in
 /-- The fueled families over well-formed environments *and* well-scoped
 arguments (both are hypotheses of part B's entry-point bridges — the
 executable's memo operations carry no runtime check for either); the
-cached runs themselves (as constant, trivially monotone families)
-otherwise. -/
+constant `.internal` error (a trivially monotone family) otherwise.
+
+Task #172: the `otherwise` branch used to be the interned executable's
+own run, which is what made the entry-point bridges unconditional in
+the environment.  With that executable deleted the branch has no
+consumer — every surviving use of `wfOpsM` goes through the `if_pos`
+equations below — so it is a constant. -/
 noncomputable def wfOpsM (mode : CheckMode) : CheckerOps FueledM where
   annotate env d e :=
     if EnvWF env ∧ e.wscopedB d = true then
       ⟨fun F => annotateCore mode env F d e, fun hle h => annotateCore_mono hle h⟩
-    else ⟨fun _ => (cachedOps mode).annotate env d e, fun _ h => h⟩
+    else ⟨fun _ => throw (.internal "wfOpsM: precondition failed"),
+      fun _ h => h⟩
   inferType env d e :=
     if EnvWF env ∧ e.wscopedB d = true then
       ⟨fun F => inferTypeCore mode env F d e,
         fun hle h => inferTypeCore_mono hle h⟩
-    else ⟨fun _ => (cachedOps mode).inferType env d e, fun _ h => h⟩
+    else ⟨fun _ => throw (.internal "wfOpsM: precondition failed"),
+      fun _ h => h⟩
   isDefEq env d a b :=
     if EnvWF env ∧ a.wscopedB d = true ∧ b.wscopedB d = true then
       ⟨fun F => isDefEqCore mode env F d a b, fun hle h => isDefEqCore_mono hle h⟩
-    else ⟨fun _ => (cachedOps mode).isDefEq env d a b, fun _ h => h⟩
+    else ⟨fun _ => throw (.internal "wfOpsM: precondition failed"),
+      fun _ h => h⟩
   ensureSort env d e :=
     if EnvWF env ∧ e.wscopedB d = true then
       ⟨fun F => ensureSortCore mode env F d e,
         fun hle h => ensureSortCore_mono hle h⟩
-    else ⟨fun _ => (cachedOps mode).ensureSort env d e, fun _ h => h⟩
+    else ⟨fun _ => throw (.internal "wfOpsM: precondition failed"),
+      fun _ h => h⟩
   whnf env d e :=
     if EnvWF env ∧ e.wscopedB d = true then
       ⟨fun F => whnf mode env F d e, fun hle h => whnf_mono hle h⟩
-    else ⟨fun _ => (cachedOps mode).whnf env d e, fun _ h => h⟩
+    else ⟨fun _ => throw (.internal "wfOpsM: precondition failed"),
+      fun _ h => h⟩
 
 /-- Over a well-formed environment and a well-scoped argument `wfOpsM mode`
 *is* the fueled record. -/
@@ -159,53 +169,6 @@ theorem wfOpsM_whnf {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
     (wfOpsM mode).whnf env d e = (fueledOpsM mode).whnf env d e := by
   dsimp only [wfOpsM, fueledOpsM]
   exact if_pos ⟨henv, hg⟩
-
-/-- Part B's entry-point bridges, packaged against the conditional
-comparand — unconditional in the environment and the arguments. -/
-theorem wfOpsM_cachedOps_rel :
-    OpsRel bridgeRel (wfOpsM mode) (cachedOps mode) := by
-  refine ⟨fun env d e => ?_, fun env d e => ?_, fun env d a b => ?_,
-    fun env d e => ?_, fun env d e => ?_⟩ <;> intro v h
-  · by_cases hc : EnvWF env ∧ e.wscopedB d = true
-    · rw [wfOpsM_annotate hc.1 hc.2]
-      exact cachedOps_annotate_bridge hc.1 hc.2 h
-    · refine ⟨0, ?_⟩
-      have he : (wfOpsM mode).annotate env d e =
-          ⟨fun _ => (cachedOps mode).annotate env d e, fun _ h => h⟩ := by
-        dsimp only [wfOpsM]; exact if_neg hc
-      rw [he]; exact h
-  · by_cases hc : EnvWF env ∧ e.wscopedB d = true
-    · rw [wfOpsM_inferType hc.1 hc.2]
-      exact cachedOps_inferType_bridge hc.1 hc.2 h
-    · refine ⟨0, ?_⟩
-      have he : (wfOpsM mode).inferType env d e =
-          ⟨fun _ => (cachedOps mode).inferType env d e, fun _ h => h⟩ := by
-        dsimp only [wfOpsM]; exact if_neg hc
-      rw [he]; exact h
-  · by_cases hc : EnvWF env ∧ a.wscopedB d = true ∧ b.wscopedB d = true
-    · rw [wfOpsM_isDefEq hc.1 hc.2.1 hc.2.2]
-      exact cachedOps_isDefEq_bridge hc.1 hc.2.1 hc.2.2 h
-    · refine ⟨0, ?_⟩
-      have he : (wfOpsM mode).isDefEq env d a b =
-          ⟨fun _ => (cachedOps mode).isDefEq env d a b, fun _ h => h⟩ := by
-        dsimp only [wfOpsM]; exact if_neg hc
-      rw [he]; exact h
-  · by_cases hc : EnvWF env ∧ e.wscopedB d = true
-    · rw [wfOpsM_ensureSort hc.1 hc.2]
-      exact cachedOps_ensureSort_bridge hc.1 hc.2 h
-    · refine ⟨0, ?_⟩
-      have he : (wfOpsM mode).ensureSort env d e =
-          ⟨fun _ => (cachedOps mode).ensureSort env d e, fun _ h => h⟩ := by
-        dsimp only [wfOpsM]; exact if_neg hc
-      rw [he]; exact h
-  · by_cases hc : EnvWF env ∧ e.wscopedB d = true
-    · rw [wfOpsM_whnf hc.1 hc.2]
-      exact cachedOps_whnf_bridge hc.1 hc.2 h
-    · refine ⟨0, ?_⟩
-      have he : (wfOpsM mode).whnf env d e =
-          ⟨fun _ => (cachedOps mode).whnf env d e, fun _ h => h⟩ := by
-        dsimp only [wfOpsM]; exact if_neg hc
-      rw [he]; exact h
 
 section DeclBattery
 
@@ -2196,26 +2159,6 @@ theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
   unfold checkDecls
   rw [foldlM_atF]
   simp only [checkDecl_datF]
-
-/-! ## The punchline (part one)
-
-A successful cached `checkDecl` run is reproduced by the `wfOpsM mode`
-instantiation at some fuel — unconditionally in the environment (the
-conditional comparand absorbs ill-formed ones).  Turning this into a
-pure `fueledOps` run is `Setlec/Model/BridgeWF.lean`'s
-`checkDecl_bridge`, which threads `EnvWF` from the environment
-model. -/
-
-/-- A successful cached `checkDecl` run is reproduced by the `wfOpsM mode`
-instantiation at the same declaration and some fuel. -/
-theorem checkDecl_wfOpsM_bridge {env env₂ : Env} {d : Declaration}
-    (h : checkDecl mode (cachedOps mode) env d = .ok env₂) :
-    ∃ F, (checkDecl mode (wfOpsM mode) env d).val F = .ok env₂ := by
-  have hp := (checkDecl mode
-    (pairOps (wfOpsM mode) (cachedOps mode) wfOpsM_cachedOps_rel)
-    env d).property
-  rw [checkDecl_fst_dproj, checkDecl_snd_dproj] at hp
-  exact hp env₂ h
 
 end DeclBattery
 

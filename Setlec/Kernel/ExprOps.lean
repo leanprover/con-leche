@@ -1,4 +1,5 @@
 import Setlec.Kernel.Expr
+import Setlec.Kernel.Level
 
 /-!
 # Expression operations
@@ -559,5 +560,222 @@ def eqUpToNames : Expr → Expr → Bool
   | .lit l, .lit l' => l == l'
   | .proj s i e, .proj s' i' e' => s == s' && i == i' && eqUpToNames e e'
   | _, _ => false
+
+/-! ## Derived-field spec functions, and their exactness
+
+The four `@[computed_field]`s of `Expr` (`Setlec/Kernel/Expr.lean`) are
+declared by their recurrences; these are the same recurrences written
+as ordinary definitions, together with the equivalences that make a
+field read license the traversal cutoff it guards.  Self-contained:
+they mention nothing but `Expr`.
+
+They lived in `Setlec/Kernel/ArenaWF.lean` (the parallel-array
+exactness proofs) and `Setlec/Verify/IExpr.lean` until task #172's
+interned removal; the cached engine's field facts
+(`Setlec/Verify/Cached/Erase.lean`) are stated against them. -/
+
+/-- The least `k` with `looseBVarsBounded k` (the spec function of the
+eager `bvarBs` entries). -/
+def _root_.Setlec.Expr.bvarBound : Expr → Nat
+  | .bvar i => i + 1
+  | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => 0
+  | .app f a => max f.bvarBound a.bvarBound
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    max ty.bvarBound (body.bvarBound - 1)
+  | .letE _ ty val body =>
+    max (max ty.bvarBound val.bvarBound) (body.bvarBound - 1)
+  | .proj _ _ e => e.bvarBound
+
+/-- `bvarBound` is exact for `looseBVarsBounded`. -/
+theorem looseBVarsBounded_iff {x : Expr} :
+    ∀ {k : Nat}, x.looseBVarsBounded k = true ↔ x.bvarBound ≤ k := by
+  induction x <;> intro k <;>
+    (try simp [Expr.looseBVarsBounded, Expr.bvarBound, Nat.max_le, *]) <;>
+    omega
+
+/-- The least `d` with `fvarsBelow d` (the spec function of the eager
+`fvarBs` entries; `fvar` type annotations are not descended, matching
+`fvarsBelow` and the abstraction traversals). -/
+def _root_.Setlec.Expr.fvarRange : Expr → Nat
+  | .fvar idx _ _ => idx + 1
+  | .bvar _ | .sort _ | .const _ _ | .lit _ => 0
+  | .app f a => max f.fvarRange a.fvarRange
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    max ty.fvarRange body.fvarRange
+  | .letE _ ty val body =>
+    max (max ty.fvarRange val.fvarRange) body.fvarRange
+  | .proj _ _ e => e.fvarRange
+
+/-- A term is fvar-free iff its range is zero. -/
+theorem hasFvar_eq_false_iff {x : Expr} :
+    x.hasFvar = false ↔ x.fvarRange = 0 := by
+  induction x <;>
+    simp_all [Expr.hasFvar, Expr.fvarRange, Nat.max_eq_zero_iff,
+      and_assoc]
+
+/-- A term has a reachable fvar leaf iff its range is nonzero. -/
+theorem fvarRange_bne_zero {x : Expr} : (x.fvarRange != 0) = x.hasFvar := by
+  cases hh : x.hasFvar with
+  | false => simp [hasFvar_eq_false_iff.mp hh]
+  | true =>
+    have hne : x.fvarRange ≠ 0 := by
+      intro h0
+      rw [hasFvar_eq_false_iff.mpr h0] at hh
+      cases hh
+    simpa using hne
+
+
+/-! ## Pointer-equality shortcut -/
+
+/-- Structural expression equality with a physical-equality shortcut
+(definitionally `a == b`).  Used to validate interned-environment
+entries against the stored constant they cache: the entry was created
+from the very object stored in the environment, so the pointer test
+succeeds without walking either expression. -/
+@[inline] def exprPtrBEq (a b : Expr) : Bool :=
+  withPtrEq a b (fun _ => a == b) (fun h => by subst h; simp)
+
+/-! ## Level-parameter occurrence, and the substitution shortcuts
+
+`Level.hasParam` / `Expr.hasLevelParam` are the spec functions of the
+`hasLP` computed field (`Setlec/Kernel/Expr.lean`); the lemmas below
+are the shortcuts a `false` reading licenses.  Self-contained, and the
+cached engine's field facts (`Setlec/Verify/Cached/Erase.lean`) are
+stated against them.  They lived in `Setlec/Kernel/ArenaWF.lean` until
+task #172. -/
+
+/-- Whether a level mentions any parameter (the spec function of the
+eager `lparamBs` entries; official kernel `level.cpp` `has_param`,
+task #87). -/
+def _root_.Setlec.Level.hasParam : Level → Bool
+  | .param _ => true
+  | .zero => false
+  | .succ u => u.hasParam
+  | .max u v | .imax u v => u.hasParam || v.hasParam
+
+/-- Substitution is the identity on param-free levels. -/
+theorem _root_.Setlec.Level.subst_eq_self {ks : List Name}
+    {vs : List Level} {l : Level} (h : l.hasParam = false) :
+    l.subst ks vs = l := by
+  induction l <;> simp_all [Level.hasParam, Level.subst]
+
+/-- Parameter definedness is trivial on param-free levels. -/
+theorem _root_.Setlec.Level.allParamsDefined_of_not_hasParam
+    {params : List Name} {l : Level} (h : l.hasParam = false) :
+    l.allParamsDefined params = true := by
+  induction l <;> simp_all [Level.hasParam, Level.allParamsDefined]
+
+/-- Whether an expression mentions any level parameter (the spec
+function of the eager `eparamBs` entries; `fvar` type annotations
+included, matching `Expr.instantiateLevelParams`; binder prop-ness
+data included since task #161 — `instantiateLevelParams` substitutes
+into them, so the shortcut must see their parameters). -/
+def _root_.Setlec.Expr.hasLevelParam : Expr → Bool
+  | .bvar _ | .lit _ => false
+  | .sort u => u.hasParam
+  | .const _ us => us.any Level.hasParam
+  | .fvar _ _ ty => ty.hasLevelParam
+  | .app f a => f.hasLevelParam || a.hasLevelParam
+  | .lam _ ty body m | .forallE _ ty body m =>
+    ty.hasLevelParam || body.hasLevelParam || m.pw.hasParams
+  | .letE _ ty val body =>
+    ty.hasLevelParam || val.hasLevelParam || body.hasLevelParam
+  | .proj _ _ e => e.hasLevelParam
+
+/-- `substPW` is the identity on parameter-free data (`never` and
+`ifAllZero []`) — the meta half of the has-param shortcut's
+soundness. -/
+theorem _root_.Setlec.Level.substPW_eq_self {ks : List Name}
+    {us : List Level} {pw : PropWhen} (h : pw.hasParams = false) :
+    Level.substPW ks us pw = pw := by
+  cases pw with
+  | never => rfl
+  | ifAllZero ps =>
+    cases ps with
+    | nil => rfl
+    | cons p ps => simp [PropWhen.hasParams] at h
+
+/-- Parameter-free data are defined under any parameter list. -/
+theorem _root_.Setlec.PropWhen.paramsDefined_of_not_hasParams
+    {params : List Name} {pw : PropWhen} (h : pw.hasParams = false) :
+    pw.paramsDefined params = true := by
+  cases pw with
+  | never => rfl
+  | ifAllZero ps =>
+    cases ps with
+    | nil => rfl
+    | cons p ps => simp [PropWhen.hasParams] at h
+
+/-- Level-parameter instantiation is the identity on level-param-free
+expressions. -/
+theorem _root_.Setlec.Expr.instantiateLevelParams_eq_self
+    {ks : List Name} {us : List Level} {x : Expr}
+    (h : x.hasLevelParam = false) :
+    x.instantiateLevelParams ks us = x := by
+  induction x with
+  | bvar i => rfl
+  | lit l => rfl
+  | sort u =>
+    simp only [Expr.hasLevelParam] at h
+    simp [Expr.instantiateLevelParams, Level.subst_eq_self h]
+  | const nm vs =>
+    simp only [Expr.hasLevelParam, List.any_eq_false] at h
+    have hmap : vs.map (Level.subst ks us) = vs := by
+      induction vs with
+      | nil => rfl
+      | cons v t iht =>
+        simp only [List.map_cons]
+        rw [Level.subst_eq_self (by simpa using h v (by simp)),
+          iht fun w hw => h w (by simp [hw])]
+    simp [Expr.instantiateLevelParams, hmap]
+  | fvar idx nm ty ih =>
+    simp only [Expr.hasLevelParam] at h
+    simp [Expr.instantiateLevelParams, ih h]
+  | app f a ihf iha =>
+    simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
+    simp [Expr.instantiateLevelParams, ihf h.1, iha h.2]
+  | lam nm ty body m iht ihb =>
+    simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
+    obtain ⟨⟨ht, hb⟩, hm⟩ := h
+    simp [Expr.instantiateLevelParams, iht ht, ihb hb,
+      Level.substPW_eq_self hm]
+  | forallE nm ty body m iht ihb =>
+    simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
+    obtain ⟨⟨ht, hb⟩, hm⟩ := h
+    simp [Expr.instantiateLevelParams, iht ht, ihb hb,
+      Level.substPW_eq_self hm]
+  | letE nm ty val body iht ihv ihb =>
+    simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
+    simp [Expr.instantiateLevelParams, iht h.1.1, ihv h.1.2, ihb h.2]
+  | proj sp j e ihe =>
+    simp only [Expr.hasLevelParam] at h
+    simp [Expr.instantiateLevelParams, ihe h]
+
+/-- Level-parameter definedness is trivial on level-param-free
+expressions. -/
+theorem _root_.Setlec.Expr.allLevelParamsDefined_of_not_hasLevelParam
+    {params : List Name} {x : Expr} (h : x.hasLevelParam = false) :
+    x.allLevelParamsDefined params = true := by
+  induction x with
+  | lam nm ty body m iht ihb =>
+    simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
+    obtain ⟨⟨ht, hb⟩, hm⟩ := h
+    simp [Expr.allLevelParamsDefined, iht ht, ihb hb,
+      PropWhen.paramsDefined_of_not_hasParams hm]
+  | forallE nm ty body m iht ihb =>
+    simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
+    obtain ⟨⟨ht, hb⟩, hm⟩ := h
+    simp [Expr.allLevelParamsDefined, iht ht, ihb hb,
+      PropWhen.paramsDefined_of_not_hasParams hm]
+  | const nm vs =>
+    simp only [Expr.hasLevelParam, List.any_eq_false] at h
+    simp only [Expr.allLevelParamsDefined, List.all_eq_true]
+    exact fun v hv =>
+      Level.allParamsDefined_of_not_hasParam (by simpa using h v hv)
+  | sort u =>
+    simp only [Expr.hasLevelParam] at h
+    exact Level.allParamsDefined_of_not_hasParam h
+  | _ =>
+    simp_all [Expr.hasLevelParam, Expr.allLevelParamsDefined]
 
 end Setlec.Expr

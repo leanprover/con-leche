@@ -1,5 +1,4 @@
 import Setlec.Verify.Disc
-import Setlec.Verify.BridgeI
 import Setlec.Kernel.Checker
 
 /-!
@@ -22,7 +21,8 @@ ill-scoped argument — a disciplined body run is verbatim a run at the
 guarded record `gFns`, to which the pair battery applies.  The knot
 induction below ties the two: at each fuel level, the entry points
 simulate the pure fueled families on well-scoped arguments
-(`scopedSim`), and the entry-point bridges (`cachedOps_*_bridge`)
+(`scopedSim`).  The interned entry-point bridges
+(`cachedOps_*_bridge`) went with the arena (task #172)
 carry `EnvWF env` plus the argument's well-scopedness as hypotheses —
 discharged at the consistency layer from the environment model and the
 declaration checker's own input validation (raw declarations are
@@ -496,57 +496,5 @@ theorem scopedSim (env : Env) (henv : EnvWF env) :
         cached_annotate_sim env henv f (scopedSim env henv f) hg
       inferIO := fun hg =>
         cached_inferIO_sim env henv f (scopedSim env henv f) hg }
-
-/-! ## From the executable entry points to pure runs at some fuel
-
-The entry-point bridges carry `EnvWF env` and the arguments'
-well-scopedness at the call depth: the executable always runs the
-memoized knot; the invariants are threaded down from the model
-(`EnvModel.wf`) and the declaration checker's input validation at the
-consistency layer's call sites. -/
-
-theorem cachedOps_whnf_bridge {env : Env} (henv : EnvWF env)
-    {d : Nat} {e v : Expr} (hg : e.wscopedB d = true)
-    (h : (cachedOps mode).whnf env d e = .ok v) :
-    ∃ F, whnf mode env F d e = .ok v :=
-  runEntryE_bridge (pf := (fueledFns mode env).whnf d e)
-    (fun hs hden => (ssimI env henv checkFuel).whnf hs hden
-      (WScoped.of_wscopedB hg)) h
-
-theorem cachedOps_inferType_bridge {env : Env} (henv : EnvWF env)
-    {d : Nat} {e v : Expr} (hg : e.wscopedB d = true)
-    (h : (cachedOps mode).inferType env d e = .ok v) :
-    ∃ F, inferTypeCore mode env F d e = .ok v :=
-  runEntryE_bridge (pf := (fueledFns mode env).infer d e)
-    (fun hs hden => (ssimI env henv checkFuel).infer hs hden
-      (WScoped.of_wscopedB hg)) h
-
-theorem cachedOps_isDefEq_bridge {env : Env} (henv : EnvWF env)
-    {d : Nat} {a b : Expr} {v : Bool} (hga : a.wscopedB d = true)
-    (hgb : b.wscopedB d = true)
-    (h : (cachedOps mode).isDefEq env d a b = .ok v) :
-    ∃ F, isDefEqCore mode env F d a b = .ok v :=
-  runEntryB_bridge (pf := (fueledFns mode env).defeq d a b)
-    (fun hs hdena hdenb => (ssimI env henv checkFuel).defeq hs hdena
-      hdenb (WScoped.of_wscopedB hga) (WScoped.of_wscopedB hgb)) h
-
-theorem cachedOps_annotate_bridge {env : Env} (henv : EnvWF env)
-    {d : Nat} {e v : Expr} (hg : e.wscopedB d = true)
-    (h : (cachedOps mode).annotate env d e = .ok v) :
-    ∃ F, annotateCore mode env F d e = .ok v :=
-  runEntryE_bridge (pf := (fueledFns mode env).annotate d e)
-    (fun hs hden => (ssimI env henv checkFuel).annotate hs hden
-      (WScoped.of_wscopedB hg)) h
-
-theorem cachedOps_ensureSort_bridge {env : Env} (henv : EnvWF env)
-    {d : Nat} {e : Expr} {u : Level} (hg : e.wscopedB d = true)
-    (h : (cachedOps mode).ensureSort env d e = .ok u) :
-    ∃ F, ensureSortCore mode env F d e = .ok u := by
-  obtain ⟨F, hF⟩ := runEntryS_bridge
-    (pf := ensureSort (fueledFns mode env) env d e)
-    (fun hs hden => ensureSortI_sim (ssimI env henv checkFuel) hs hden
-      (WScoped.of_wscopedB hg)) h
-  rw [ensureSort_atF, ensureSort_def] at hF
-  exact ⟨F, hF⟩
 
 end Setlec

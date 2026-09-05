@@ -37904,3 +37904,194 @@ keeping:
 > name-level census said the genuine cross-edges were seven, four of
 > them prose.  Neither number is the batch's size, and only the second
 > one tells you whether it is a deletion at all.
+
+## TASK #172 — THE INTERNED WORLD, DELETED (2026-09-05,
+agent/interned-removal; stages 3 and 4 of the adopted sequencing)
+
+### 0. WHAT LANDED
+
+The interned expression representation and everything stated about it
+are gone: **37 modules, 46 655 lines deleted, 411 added** across 65
+files, in two commits — the residue extraction (pure moves) and the
+removal proper.  The binary has **one expression type, one core, one
+parse and one declaration driver**; the flag surface that selected
+among the old ones is a set of hard errors.
+
+Measured, on a quiet machine:
+
+| | before (`9cf3ef5f`) | after |
+|---|---|---|
+| clean `lake build` | **248 s / 565 jobs** | **214 s / 521 jobs** |
+| capstone letters | 41 | **14** |
+| `tests/proofdeps.sh` rows | 120 (4 P roots) | **96 (2 P roots)** |
+| layering census | base 282 / R 105 / P 121 | base 246 / R 105 / P 120 |
+
+**−34 s, −13.7 %** on the clean build.  Task #77's audit predicted
+≈ 210 s for exactly this removal (it had measured the interned segment
+of the critical path at 33.1 s of 242.9 s); the measurement is 214 s.
+That is the prediction confirmed to 2 %, and it is worth recording as
+such: *a critical-path attribution made from per-module timings and the
+import graph priced a 46 kline deletion to within four seconds.*
+
+### 1. STAGE 3 — THE RESIDUE EXTRACTION (pure moves)
+
+The stop-finding's second fact was that the representation-free residue
+*lived inside* the interned modules.  Stage 3 moved it out, changing no
+statement; the only name changes are namespace prefixes forced by the
+moves.
+
+| moved | from | to |
+|---|---|---|
+| `FEnv`, `mkFEnv(Go)`, `find?`/`restrictTo`/`push`/`findProj?`, `natLitSupportedF`, `strLitSupportedF`, `natOpGuardF`, `natOpStoredF` | `Kernel/CoreI.lean` | **new** `Kernel/FEnv.lean` (133) |
+| the `Mirrors` block and the `FEnv`-indexed guard twins — 30-odd `*F` declaration-level checkers, `Expr`-typed and polymorphic over `CheckerOps m` | `Kernel/CheckerS.lean` (1 795 → 792) | **new** `Kernel/DeclCheck.lean` (1 035) |
+| `Expr.bvarBound`, `Expr.fvarRange`, `looseBVarsBounded_iff`, `hasFvar_eq_false_iff`, `fvarRange_bne_zero`, `Level.hasParam`, `Expr.hasLevelParam` + their four substitution shortcuts, `exprPtrBEq` | `Kernel/ArenaWF.lean`, `Kernel/IExpr.lean` | `Kernel/ExprOps.lean` |
+| `fvarsBelow_iff` | `Verify/IExpr.lean` | `Verify/Shift.lean` |
+| `mkFEnv_findProj?`, `natLitSupportedF_eq`, `strLitSupportedF_eq`, `natOpStoredF_eq`, `natOpGuardF_eq`, `instPis_eq_piResidual` | `Verify/IExprOps.lean` | `Verify/EnvBound.lean` |
+
+**One placement is a layering fact, not a taste call.**  `fvarsBelow_iff`
+could not follow its siblings into `Kernel/ExprOps.lean`, because
+`Expr.fvarsBelow` is defined in `Verify/Shift.lean` and `Kernel/*` may
+not import `Verify/*`.  Its siblings could, and did: `Expr.bvarBound`
+and `Expr.hasLevelParam` are `Expr`-only, so the self-contained-
+verification exception (the `ArenaWF` precedent) covers them.  The rule
+this yields: *a spec function's home is decided by what its statement
+mentions, not by what it is a spec function OF.*
+
+After stage 3 the name-level census showed every remaining edge from a
+surviving module into an interned one landing on a declaration that
+stage 4 deletes with its subject.  That is the check that made stage 4
+a deletion rather than a discovery.
+
+### 2. STAGE 4 — WHAT WENT
+
+**Implementation (11 modules, ~14 100 lines).**  `Kernel/IExpr` (the
+arena), `Kernel/ArenaWF` (5 742, the largest file in the tree),
+`Kernel/WFStore`, `Kernel/Promote`, `Kernel/DeclI`, `Kernel/CoreI`,
+`Kernel/CoreNC`, `Kernel/CheckerS`, `Kernel/CheckerNC`, `Kernel/Split`,
+`Cached/Driver`.  In place: `Kernel/CheckerBase` loses `cachedOps` (the
+interned entry-point record), `Frontend/Export` loses its arena parse
+(1 098 → 431 — the shared scaffolding stays, and `Frontend/ExportC`'s
+direct parse is the only parse), `Cached/Parsed{C,NC}` lose their
+arena-fed entries, `Cached/CheckerC` loses the dead `checkDeclsShared`.
+
+**Verification (25 modules, ~28 500 lines).**  `Verify/{IExpr,
+IExprOps, ILevel, BinderLoopI, SimI, SimIKnot, BridgeI, ParseP,
+Promote, BracketB4, SimS, DiscI1–6, BridgeS1–4, BridgeSDecl, BridgeP,
+BridgePDecl}` and `Verify/Cached/OfStoreC`.  In place: `Verify/Bridge`
+loses the five `cachedOps_*_bridge` theorems; `Verify/BridgeDecl` loses
+`wfOpsM_cachedOps_rel` and `checkDecl_wfOpsM_bridge`, and `wfOpsM`'s
+out-of-precondition branch becomes a constant `.internal` error (it
+used to be the interned executable's own run — with that executable
+gone the branch has no consumer, every surviving use going through the
+`if_pos` equations); `Verify/BridgeWFDecl` loses `checkDecl_bridge`;
+`Verify/CheckerF` loses its `CheckIM` push-form section (the executing
+monad's copies live in `Verify/Cached/BridgeCSDecl`), keeping
+`push_mkFEnv` and the whole `_eq` battery.
+
+**`Verify/DeclStores` SURVIVES**, against the stop-finding's inventory.
+It is stated about `checkDecl mode (fueledOps mode F)` — `V`-free and
+representation-free — and both `input_R` and the SPCD letters use it.
+A module that *sits* beside a tower is not part of it; that was the
+stop-finding's own rule, applied to itself.
+
+### 3. THE 27 LETTERS, AND THE TWO THAT REPLACED FOUR
+
+Retired **with their subjects**: `{C,S,SP}_R`, `input_{C,S,SP}_R`
+(`SetR/Main.lean`, 556 → 138); `{C,S,SP}_{R2,R2M}` and their `input_`
+mirrors (`SetR/Main2.lean`, 1 598 → 825); `C_P`, `S_P`, `SP_P` (the
+whole of `SetP/MainP.lean`); `SPC_{R,R2,R2M}` and
+`input_SPC_{R,R2,R2M}` — the **arena-fed** cached entries, which died
+with `WFStore`/`DeclP` (`Verify/Cached/MainC.lean`, 778 → 353).
+
+**Surviving 14**, and they are the ones about something that runs:
+`R`/`input_R`, `R2`/`input_R2`, `R2M`/`input_R2M`,
+`R2M_of_installs(R)`, `P_of`/`P` (the pure fueled checker the tower is
+stated about), and `SPCD_{R,R2,R2M}` + `SPCD_P` — **the shipped
+driver**, `checkDeclsSPCachedD`.  `#print axioms` on all four SPCD
+letters, on `P` and on `R`: `[propext, Classical.choice, Quot.sound]`,
+the three standard ones, unchanged.
+
+**The proofdeps gate re-pins from four P roots to two.**  `SP_P`, `C_P`
+and `S_P` were the interned drivers' letters; their 36 rows went with
+their subjects, and `SPCD_P` came in with 12.  120 → **96**, and the
+new root measures the same way the old ones did — every R target absent
+(`EnvS`, `checkDeclR_ofEnvRE`, `DeclR`, `DeclIndR`, `declIndRR` absent
+10/10; the derivation tier absent 12/12; doors 0).  The ratchet is
+respected: *a row whose subject no longer exists is not a loosening,*
+and the pin file says so at the row.
+
+### 4. THE FLAG SURFACE
+
+`--core` (all four variants, both spellings), `--install-only` and
+`--check-range` are **hard errors** naming what replaced them — the
+rule the retired mode environment variables already followed: a
+verdict's provenance must be readable off the invocation.  With them
+went `Main.lean`'s two-axis dispatch, `progressLoop`, `installLoop`,
+`recheckLoop`, `diagLoop`, `ienvReachStats` and the arena parse arm:
+**667 → 329 lines**.  `--set-model[=r|=p]` and `--no-model` are the
+whole surface, and `--no-model` now resolves — as ruled — to the cached
+parity engine (`checkDeclsSPCachedDNM`) through the direct parse.
+
+`scripts/perf-tables.sh` flips itself: its probe (`Kernel/CoreI.lean`
+present **and** `"production"` in `Main.lean`) now reads `INTERNED=no`,
+so the matrix is `official | parity | R | P`.  The stop-finding flagged
+that this needs `--set-model=r|=p` to exist; **it already did** (they
+are in the parser at `9cf3ef5f`), so the flip is clean and no PERF.md
+prose was touched.
+
+### 5. THE BATTERY, AND EVERY EXPECTATION THAT MOVED
+
+Green: build 521 jobs warning-free, `lake test` silent, arena tutorial
+**90/92** good accepted, e2e **73/73**, annot **14/14**, no-model sweep
+**138 arena + 73 e2e + 14 annot** as expected with the same **3**
+recorded divergences, proofdeps **96/96**, layering **0 P→R, 0 R→P,
+whitelist empty**.
+
+Four expectation changes, each with its reason:
+
+1. **`tests/arena.sh`: "split driver: 11/11" → "retired flags: 8/8".**
+   The 11 cases pinned the split driver's honesty and selectivity;
+   the driver was arena machinery.  The 8 replacements pin that every
+   retired spelling is a hard error (exit 3) and that the one
+   surviving driver still accepts the good fixture and rejects the bad
+   one.
+2. **`tests/arena.sh`: "mode flags: 9/9" → "11/11".**  `--set-model=r`
+   and `--set-model=p` gained pinned cases — they are the post-removal
+   matrix's own configurations and were previously unpinned.
+3. **`tests/proofdeps.sh`: 120 rows → 96.**  §3.
+4. **`tests/SetlecTests.lean`: the arena-bundle and two-tier sections
+   (~110 lines of `#guard`) deleted; the four frontend fixtures
+   restated against `Frontend.parseExportD` and
+   `checkDeclsSPCachedD`.**  Same three properties (`_model`
+   companions are ordinary declarations; taint skip-and-continue drops
+   the tainted records and keeps the rest; a clean stream records no
+   skips) — at the parse and the driver that exist.
+
+**The number that did NOT move is the interesting one.**  The no-model
+sweep's three recorded divergences are unchanged, and the arena
+tutorial's 90/92 is unchanged, with the parity engine swapped
+underneath: the cached parity lane is verdict-identical to the interned
+one on all 225 fixtures.  That is the B1 finding ("byte-faithful")
+holding through the deletion, and it is why the parity CLI could
+collapse to one core without a single expectation override.
+
+### 6. WHAT THIS BATCH ADDS TO THE LEDGER
+
+> *Before executing a deletion, verify that the delete set has no
+> surviving consumer — at the level of names, not imports.*  Restated
+> from the stop-finding because stage 3 is what made it operational:
+> the census was re-run after every move, and stage 4 began only when
+> it came back empty.
+
+> *A spec function's home is decided by what its statement mentions.*
+> Five of the six moved `Expr` facts went to `Kernel/ExprOps.lean`; the
+> sixth could not, because its statement mentions a `Verify`
+> definition.  Grouping them "because they are all field-exactness
+> lemmas" would have been a layering violation with a plausible story.
+
+> *A critical-path attribution is a prediction, and can be checked.*
+> #77 said ≈ 210 s; the deletion measured 214 s.  Per-module timings
+> plus the import graph are enough to price a five-figure-line
+> deletion before doing it — and the same arithmetic says which
+> deletions are NOT worth doing for build time (the 78.7 s of delete-set
+> CPU bought only the 34 s that sat in series).

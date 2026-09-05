@@ -2,7 +2,6 @@ import Setlec.Kernel.Env
 import Setlec.Kernel.StdAxioms
 import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.TypeCheckerC
-import Setlec.Kernel.CoreI
 import Setlec.Kernel.NatOpPins
 import Setlec.Kernel.Direct
 
@@ -24,8 +23,8 @@ namespace Setlec
 /-- The core entry points the declaration checker runs on: the checker
 is written once against this record, monad-polymorphically, and
 instantiated with the pure knot (`fueledOps`/`pureOps`, the
-verification's subject) and with the memoized knot (`cachedOps`, what
-the binary executes). -/
+verification's subject) and, in `Setlec/Cached/CheckerC.lean`, with the
+memoized cached knot the binary executes. -/
 structure CheckerOps (m : Type → Type) where
   annotate : Env → Nat → Expr → m Expr
   inferType : Env → Nat → Expr → m Expr
@@ -45,21 +44,6 @@ def fueledOps (F : Nat) : CheckerOps CheckM where
 
 /-- The pure instantiation, at the standard fuel. -/
 def pureOps : CheckerOps CheckM := fueledOps mode checkFuel
-
-/-- The *interned* executable instantiation, at the standard fuel; each
-entry call interns its argument into a fresh arena, runs the id-keyed
-memoized interned knot (`Setlec/Kernel/CoreI.lean`), and reads the
-result back — cache lifetime is exactly the old `KCache`'s (one entry
-call, fixed environment).  Faithfulness: `Setlec/Verify/BridgeI.lean`,
-consumed by the `cachedOps_*_bridge` lemmas in
-`Setlec/Verify/Bridge.lean` — everything above them (the declaration
-checker bridge and the consistency layer) is untouched. -/
-def cachedOps : CheckerOps CheckM where
-  annotate env d e := runEntryE mode env (fun r => r.annotate) d e
-  inferType env d e := runEntryE mode env (fun r => r.infer) d e
-  isDefEq env d a b := runEntryB mode env d a b
-  ensureSort env d e := runEntryS mode env d e
-  whnf env d e := runEntryE mode env (fun r => r.whnf) d e
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 

@@ -1,6 +1,5 @@
 import Setlec.Cached.ExprC
-import Setlec.Kernel.ArenaWF
-import Setlec.Verify.IExpr
+import Setlec.Verify.Shift
 
 /-!
 # The cached representation's field facts (task #163; rewritten at #172
@@ -62,7 +61,7 @@ theorem bvarB_eq : ∀ e : ExprC, e.bvarB = Expr.bvarBound e := by
 `looseBVarsBounded` (the transposition of `TWF.bvarBoundD_le2`). -/
 theorem bvarB_le {e : ExprC} {d : Nat} (hle : e.bvarB ≤ d) :
     Expr.looseBVarsBounded d e = true :=
-  EStore.looseBVarsBounded_iff.mpr (bvarB_eq e ▸ hle)
+  Expr.looseBVarsBounded_iff.mpr (bvarB_eq e ▸ hle)
 
 /-- The `fvarB` field is `Expr.fvarRange`. -/
 theorem fvarB_eq : ∀ e : ExprC, e.fvarB = Expr.fvarRange e := by
@@ -74,7 +73,7 @@ theorem fvarB_eq : ∀ e : ExprC, e.fvarB = Expr.fvarRange e := by
 (`abstractRange_eq_self`); the transposition of `TWF.fvarRangeD_le`. -/
 theorem fvarB_le {e : ExprC} {d : Nat} (hle : e.fvarB ≤ d) :
     Expr.fvarsBelow d e :=
-  EStore.fvarsBelow_iff.mpr (fvarB_eq e ▸ hle)
+  Expr.fvarsBelow_iff.mpr (fvarB_eq e ▸ hle)
 
 /-! ### Has-level-param -/
 

@@ -729,7 +729,7 @@ theorem iotaRec_lvlParams {env : Env} (henv : EnvWF env)
     (hwF : ∀ {d : Nat} {a b : Expr}, whnf mode env F d a = .ok b →
       a.allLevelParamsDefined ps = true →
       b.allLevelParamsDefined ps = true)
-    (hiF : ∀ {d : Nat} {a b : Expr},
+    (_hiF : ∀ {d : Nat} {a b : Expr},
       inferTypeCore mode env F d a = .ok b →
       a.allLevelParamsDefined ps = true →
       b.allLevelParamsDefined ps = true)

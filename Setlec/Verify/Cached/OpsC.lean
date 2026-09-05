@@ -219,11 +219,11 @@ theorem looseBVarsBounded_spec {k : Nat} (e : ExprC) :
   cases hb : (Expr.looseBVarsBounded k e) with
   | true =>
     simp only [decide_eq_true_eq]
-    exact EStore.looseBVarsBounded_iff.mp hb
+    exact Expr.looseBVarsBounded_iff.mp hb
   | false =>
     simp only [decide_eq_false_iff_not]
     intro hle
-    rw [EStore.looseBVarsBounded_iff.mpr hle] at hb
+    rw [Expr.looseBVarsBounded_iff.mpr hle] at hb
     exact Bool.noConfusion hb
 
 /-! ## Instantiation of one bound variable

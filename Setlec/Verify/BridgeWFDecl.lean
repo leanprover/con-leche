@@ -889,15 +889,4 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     rw [directParts?_none] at h ⊢
     exact checkIndDecl_wfimp henv h
 
-/-! ## The punchline (part two) -/
-
-/-- Under `EnvWF env` — supplied by the environment model at the
-consistency layer — a successful cached `checkDecl` run is reproduced
-by the pure fueled checker at some fuel. -/
-theorem checkDecl_bridge {env env₂ : Env} {d : Declaration}
-    (henv : EnvWF env) (h : checkDecl mode (cachedOps mode) env d = .ok env₂) :
-    ∃ F, checkDecl mode (fueledOps mode F) env d = .ok env₂ := by
-  obtain ⟨F, hF⟩ := checkDecl_wfOpsM_bridge h
-  exact ⟨F, checkDecl_wfimp henv hF⟩
-
 end Setlec

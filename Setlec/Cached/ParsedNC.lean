@@ -362,18 +362,10 @@ def checkDeclSPStepCNC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do
   flushInferFC
   checkDeclSPCNC fe pd
 
-/-- The `--no-model` cached converted-declaration checker (UNVERIFIED
-— reference-kernel parity is the claim, stated as parity): the parse
-arena is converted once (sharing preserved), then the whole fold runs
-in one `CState` with the environment-dependent caches flushed per
-declaration. -/
-def checkDeclsSPCachedNM (st : WFStore) (pds : List DeclP) : CheckM Env := do
-  let ds ← declsCOfP st.raw {} pds
-  let fe ← (ds.foldlM checkDeclSPStepCNC (mkFEnv Env.empty)).run' {}
-  pure fe.env
-
-/-- Task #171: the direct-parse `--no-model` driver (see
-`checkDeclsSPCachedD`). -/
+/-- The `--no-model` direct-parse driver (UNVERIFIED — reference-kernel
+parity is the claim, stated as parity; the certified counterpart is
+`checkDeclsSPCachedD`).  The whole fold runs in one `CState` with the
+environment-dependent caches flushed per declaration. -/
 def checkDeclsSPCachedDNM (ds : List DeclC) : CheckM Env := do
   let fe ← (ds.foldlM checkDeclSPStepCNC (mkFEnv Env.empty)).run' {}
   pure fe.env
