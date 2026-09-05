@@ -38202,6 +38202,7 @@ accepted terms, so the branch is verdict-dead there).
 
 | stage | content | state |
 |---|---|---|
+| F0 | FINDING: the entry key lives in the READING, not the syntax — `denoteP` branches on the entry kind and emits the already-proved `projAV` spelling; caveat (i)'s syntax ride does not exist (§1) | ratified at the W2b grant |
 | W1 | this freeze + sizing flag | LANDED |
 | W2a | `ProjEntry.tower` field | LANDED (zero proof changes) |
 | W2b | generator + `checkDirectProj` entry install + twins + bridge re-proofs | LANDED |
