@@ -342,14 +342,16 @@ nothing a core computes): every field of a non-propositional
 structure, and of a propositional structure with the large eliminator
 — Lean generates it exactly when every field is a proposition, which
 `checkDirectFieldSorts` re-checks; at a propositional structure with
-the small eliminator (some field is data) exactly the fields whose
-generated type mentions no earlier field (no `.proj T j` node) — the
-squash model reads a data field's projection as the point and cannot
-type a dependent field through it, and the official `infer_proj` bars
-those uses anyway when the earlier field is data.  A skipped slot is a
-fall-through, never a verdict. -/
-def directProjSlotOk (T : Name) (isProp large : Bool) (pty : Expr) : Bool :=
-  !isProp || large || pty.projNodesOk (fun s _ => s != T)
+the small eliminator (some field is data) the **first field only**:
+the squash model reads the structure's members as the point, so a
+field's projection law needs the field's type not to depend on the
+earlier fields' values, which the first field's cannot (P3 module 5
+records the restriction; widening to every field whose type mentions
+no earlier field needs the annotation pass's variable-preservation
+lemma, not yet in the battery).  A skipped slot is a fall-through,
+never a verdict. -/
+def directProjSlotOk (isProp large : Bool) (i : Nat) : Bool :=
+  !isProp || large || i == 0
 
 /-- **The entry decisions of a recognised block**, one per field,
 computed on the block's RAW types (the agreement floor's currency:
@@ -362,7 +364,7 @@ def directProjSlots (p : DirectParts) : List Bool :=
   (List.range p.nF).map fun i =>
     match directProjTyP p.cvT.name p.cvT.levelParams p.nP p.nF i p.cvT.type
         p.cvC.type with
-    | some pty => directProjSlotOk p.cvT.name p.isProp p.large pty
+    | some _ => directProjSlotOk p.isProp p.large i
     | none => false
 
 /-- **Non-recursive**: every binder domain of the constructor already

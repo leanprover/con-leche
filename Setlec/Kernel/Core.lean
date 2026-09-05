@@ -1454,18 +1454,21 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
 
 /-- **The tower-fire guard** (task #175 W4c/O4): `whnfCore` fires the
 structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i` at a tower-backed entry only
-under the same `Prop` guard `inferTypeCore` checks at a `.proj` use —
-at a `Prop`-declared structure the field's guard level must be `Prop`
-at the constructor's own level instantiation.  A data field of a
-`Prop` structure has no reduction (its uses are never typed either):
-in a proof-irrelevant model the constructor application is the point
-and the field's value is not, so the unguarded rule would be
-unsound-to-model.  The pair entries are ungated; a non-`Prop` family
-passes because its field sorts are bounded by its result sort (O5). -/
+when the structure's sort is provably nonzero at the constructor's
+own level instantiation (`Level.isNonZero`).  At a `Prop` instance
+the constructor application is a proof: in a proof-irrelevant model
+its value is the point, and nothing pins the field argument's value
+to the field — a `whnfCore` step certifies no typing — so the rule
+would be unsound-to-model there; and it is never *needed* there
+either, since two proofs of one proposition are already definitionally
+equal (proof irrelevance), and a `Prop`-structure field is a proof.
+Every `structure` command's result sort is `max 1 …` (nonzero at every
+instantiation); the guard bites only at `Prop`-declared blocks and at
+a single-constructor `Sort u` inductive instantiated at a possibly-zero
+level.  The pair entries are ungated. -/
 def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
-  !entry.tower || !(Level.isEquiv entry.structSort .zero == some true) ||
-    (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-      == some true)
+  !entry.tower ||
+    (Level.subst entry.levelParams us entry.structSort).isNonZero
 
 /-- Certification for a possibly-Prop structural projection
 `proj_i (ctor p⃗ x⃗)` (the subject `e₂` is the whnf'd constructor

@@ -978,7 +978,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
       obtain ⟨hokE, heqE⟩ := ihwc hwcf hwF hbF hLF hCF hfvd hea' hokArg
       refine ⟨hokE, fun σ hσ => ?_⟩
       rw [interp2_projAV_congr (heq₃ σ hσ), hveq,
-        hB (towerGuardAt_of_fireOk hO5 htw hfire) σ vs hlenVs (hok₃' σ hσ)]
+        hB (towerStructPos_of_fireOk htw hfire) σ vs hlenVs (hok₃' σ hσ)]
       exact heqE σ hσ
     · -- PAIR-BACKED
       obtain ⟨hi2, rfl⟩ : i < 2 ∧ ea = .proj i vp := by
