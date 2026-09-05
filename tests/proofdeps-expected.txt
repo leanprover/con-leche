@@ -224,6 +224,7 @@ SPCD_P :: Setlec.SetP.Step2.CapsRowsP
 SPCD_P :: Setlec.SetP.Step2.DefEqP
 SPCD_P :: Setlec.SetP.Step2.InferIOP
 SPCD_P :: Setlec.SetP.Step2.InferP
+SPCD_P :: Setlec.SetP.Step2.IotaGateP
 SPCD_P :: Setlec.SetP.Step2.IotaKitP
 SPCD_P :: Setlec.SetP.Step2.IotaRowsP
 SPCD_P :: Setlec.SetP.Step2.IrrelP
@@ -575,6 +576,7 @@ sound_P :: Setlec.SetP.Step2.CapsRowsP
 sound_P :: Setlec.SetP.Step2.DefEqP
 sound_P :: Setlec.SetP.Step2.InferIOP
 sound_P :: Setlec.SetP.Step2.InferP
+sound_P :: Setlec.SetP.Step2.IotaGateP
 sound_P :: Setlec.SetP.Step2.IotaKitP
 sound_P :: Setlec.SetP.Step2.IotaRowsP
 sound_P :: Setlec.SetP.Step2.IrrelP
@@ -926,6 +928,7 @@ foldSPC_PM :: Setlec.SetP.Step2.CapsRowsP
 foldSPC_PM :: Setlec.SetP.Step2.DefEqP
 foldSPC_PM :: Setlec.SetP.Step2.InferIOP
 foldSPC_PM :: Setlec.SetP.Step2.InferP
+foldSPC_PM :: Setlec.SetP.Step2.IotaGateP
 foldSPC_PM :: Setlec.SetP.Step2.IotaKitP
 foldSPC_PM :: Setlec.SetP.Step2.IotaRowsP
 foldSPC_PM :: Setlec.SetP.Step2.IrrelP
@@ -1268,6 +1271,7 @@ P :: Setlec.SetP.Step2.CapsRowsP
 P :: Setlec.SetP.Step2.DefEqP
 P :: Setlec.SetP.Step2.InferIOP
 P :: Setlec.SetP.Step2.InferP
+P :: Setlec.SetP.Step2.IotaGateP
 P :: Setlec.SetP.Step2.IotaKitP
 P :: Setlec.SetP.Step2.IotaRowsP
 P :: Setlec.SetP.Step2.IrrelP

@@ -42395,3 +42395,37 @@ More than a session by a wide margin; recorded, not attempted.
 * `iotaIndexOk` is the audit's (B)/(A) hybrid: the comparison stays
   where indices exist because `IotaIndexPinP` is a law hypothesis
   there; nothing was moved to install.
+
+### 7. Post-Stage-C receipts (the merge-grant conditions, 2026-09-05)
+
+Master moved to `621416c7` (SetR Stage C: `SetBase/Bridge/*`,
+`SetBase/{Rel,Weaken,CtxOkR}` and the derivation tier deleted;
+`CheckMode` collapsed to `{setModel, noModel}`).  Merged as `6b3646b5`:
+the batch's five R-cluster edits (§3) resolved **by deletion**, the
+only content conflict was this file's tail (both records kept).
+
+* **The licence's mode read survives the enum collapse unchanged.**
+  `CheckMode.betaGate` is `.setModel → true | _ → false` and
+  `CheckMode.verified` is `.noModel → false | _ → true` — the two
+  accessors now coincide on every constructor, so `iotaCerts … lic :=
+  mode.betaGate` keeps both its meaning ("a certificate-skip may read
+  the validated datum") and its value at the shipped modes.  Not
+  re-keyed on the constructor.
+* **`tests/proofdeps.sh`** (now the frozen per-capstone module pin):
+  ONE module entered all four capstone closures —
+  `Setlec.SetP.Step2.IotaGateP`, the licence module, which is on the ι
+  row's proof path by construction (`iotaStepP_of` → `certs_teleLicP`
+  → `iota_slot_transfer`/`io_domain_transfer`).  That is the batch's
+  own door, explained here; no module left.  The pin was regenerated
+  (`tests/proofdeps.sh --list`), 1365 → 1369 rows.
+* **Gates at `6b3646b5` (+ the pin)**: `lake build` warning-free (436
+  jobs), `lake test`, `tests/layering.sh` (base 228 / P 164 / caps 2;
+  0 base→lane, 0 impl→theory), `tests/proofdeps.sh` 1369 rows, doors 0,
+  `tests/arena.sh` 0 FAIL (arena 90/92, e2e 73/73, annot 14/14, mode
+  flags 14/14, bad-test expectations unchanged); the capstone
+  `no_proof_of_Empty_SPCD_P`, `certs_teleLicP` and `iota_slot_fence`
+  depend on exactly `[propext, Classical.choice, Quot.sound]`.
+* **init-full-pre2** (`--pre`, `ulimit -v 16G`, `instructions:u`, one
+  run each): P (`--set-model=p`) **1265.19 G**, parity (`--no-model`)
+  **1056.83 G**; exit 0, accepted 61 048 in both.  Against the
+  pre-batch master receipt (1579.71 G / 1061.49 G): **−19.9 % / −0.44 %**.
