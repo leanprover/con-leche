@@ -51,7 +51,7 @@ import Setlec.SetBase.Univ
 import Setlec.SetR.Interp2.TierA
 import Setlec.SetR.Interp2.Graded
 import Setlec.SetR.Interp2.Pilot
-import Setlec.SetR.Annot.Spine2
+import Setlec.SetBase.Spine2
 import Setlec.SetR.Annot.EnvS2
 import Setlec.SetBase.BasisType
 import Setlec.SetBase.BasisOk

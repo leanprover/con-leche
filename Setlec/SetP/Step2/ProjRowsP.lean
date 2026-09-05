@@ -1,7 +1,7 @@
 import Setlec.SetP.Step2.CapsRowsP
 import Setlec.SetP.Step2.ProjPinsP
 import Setlec.SetP.Step2.InferIOP
-import Setlec.SetR.Annot.Spine2
+import Setlec.SetBase.Spine2
 
 /-!
 # The two semantic projection rows (task #161, PROJ/STR install tier)

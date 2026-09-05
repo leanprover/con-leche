@@ -3,6 +3,11 @@ import Setlec.SetBase.Ok2
 /-!
 # The spine chain and the pinning fold (task #151 tier C, seal 2)
 
+(Task #172 B4: moved from `SetR/Annot/` — the module is lane-neutral,
+`V`-generic over `SetTheory` and imports only `SetBase/Ok2`, and the
+io skip's semantic license consumes it from the P lane too.  The
+namespace is unchanged.)
+
 The family-0/1 (iota telescope) core theorem set: what replaces the
 per-fire `iotaCertsI` walk at a positive-kind telescope.
 
