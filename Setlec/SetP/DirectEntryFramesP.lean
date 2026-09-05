@@ -41,8 +41,8 @@ theorem DomsBelow.getD_below {k : Nat} :
 
 /-- **The entry's frames.** -/
 theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
-    {F nP nF i : Nat} {T C : Name} {lps : List Name} {resSort vb : Level}
-    {cvTa cvCa : ConstantVal} {caps : IndCaps}
+    {F nP nF i : Nat} {T : Name} {lps : List Name} {resSort vb : Level}
+    {cvTa cvCa : ConstantVal} {caps : IndCaps} {cty : Expr} {us : List Level}
     {ptyA prest resid sdom tfv : Expr} {fvsP tFvs : List Expr}
     {sbs : List (Name × Expr × BinderMeta)} {sbody : Expr}
     {cdomsP : List Expr} {crestP : Expr} {cds : List Expr}
@@ -51,16 +51,17 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
     (hsb : prest.stripPis 1 = some (sbs, sbody))
     (hsd : (sbs[0]?).map (·.2.1) = some sdom)
     (hsdeq : Setlec.isDefEqCore μ env F nP sdom
-      (Expr.mkAppN (.const T (lps.map .param)) fvsP) = .ok true)
+      (Expr.mkAppN (.const T us) fvsP) = .ok true)
+    (hlus : us.length = lps.length)
     (hopT : openPisAtFvars 1 prest nP = some (tFvs, resid))
     (htfv : tFvs[0]? = some tfv)
-    (hci : Expr.instPisAt fvsP cvCa.type = some (cdomsP, crestP))
+    (hci : Expr.instPisAt fvsP cty = some (cdomsP, crestP))
     (hdoms : Setlec.checkDirectDomsAt (Setlec.fueledOps μ F) env 0 fvsP cdomsP nP = .ok ())
-    (hcf : Expr.instPisAt (fvsP ++ (List.range i).map fun j => Expr.proj T j tfv) cvCa.type
+    (hcf : Expr.instPisAt (fvsP ++ (List.range i).map fun j => Expr.proj T j tfv) cty
       = some (cds, .forallE nmC fdom bodyC mbC))
     (hrdeq : Setlec.isDefEqCore μ env F (nP + 1) resid fdom = .ok true)
+    (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
     (hfT : env.find? T = some (.indInfo cvTa caps)) (hlpsT : cvTa.levelParams = lps)
-    (hfC : env.find? C = some (.ctorInfo cvCa nP nF))
     (hprev : ∀ j, j < i → ∃ entry, env.findProj? T j = some entry ∧ entry.tower = true)
     (hi : i < nF)
     {eds : (Name → Nat) → List (Nat × Nat × AVExpr)} {R : (Name → Nat) → AVExpr}
@@ -87,6 +88,8 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
           interp2 V (consList as ρ) ((((ds ψ).drop nP).map (·.2.2)).getD j default)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) :
     ∀ ψ : Name → Nat,
+      Level.substFn ψ lps us = ψ →
+      denoteP mp.base2.acval env ψ 0 cty = some (mkPisAV (ds ψ) (ctorBodyAV mp.base2 T nP nF ψ)) →
       (∀ i', i' ≤ nP → ∀ ρ : Nat → V,
         Sat2 V ((((eds ψ).map (·.2.2)).reverse).drop (nP + 1 - i')) ρ ↔
         Sat2 V (((((ds ψ).take nP).map (·.2.2)).reverse).drop (nP - i')) ρ) ∧
@@ -102,10 +105,7 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
           interp2 V ρ (R ψ)
             = interp2 V (consList (projList i (ρ 0)) (fun j => ρ (j + 1)))
                 ((((ds ψ).drop nP).map (·.2.2)).getD i default)) := by
-  intro ψ
-  -- the constants' facts
-  obtain ⟨hCf, -, -, hCb, -⟩ := mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfC)
-  simp only [ConstantInfo.toConstantVal] at hCf hCb
+  intro ψ hus hctyRead0
   -- the opening
   have hopAll : openPisAtFvars (nP + 1) ptyA 0 = some (fvsP ++ tFvs, resid) :=
     openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopT)
@@ -134,7 +134,7 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   -- (1) the parameter frame is the constructor's
   have hpins := Setlec.checkDirectDomsAt_inv hdoms
   obtain ⟨hiffP, -, -, -, -⟩ := recParamIdent (k := 1) hc hR hidxE hlenE (hCD.len ψ)
-    (hCD.read ψ) (hCD.okTy ψ) hCf hCb (by rw [htakeP]; exact hci)
+    hctyRead0 (hCD.okTy ψ) hCf hCb (by rw [htakeP]; exact hci)
     (by rw [htakeP]; exact hpins)
   -- the former's walks
   have hFsOk : ∀ (ψ' : Name → Nat) (ρ : Nat → V),
@@ -155,7 +155,7 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       interp2 V ρ ((((eds ψ).map (·.2.2)).reverse).getD 0 default)
         = towerSet (resSort.eval ψ) (teleOfFields ρ (((ds ψ).drop nP).map (·.2.2))) := by
     obtain ⟨hws, hbd, hLB, hCbF, hread, hrow⟩ :=
-      famSpineRow (k := 1) hR hidxE hlenE hfT hlpsT (hleafT ψ) (hFD.bits ψ) (hFD.below ψ)
+      famSpineRow (k := 1) hR hidxE hlenE hfT hlpsT hus hlus (hleafT ψ) (hFD.bits ψ) (hFD.below ψ)
         (hFD.len ψ) (fun ρ => (hwalks ρ).1) (fun ρ => (hwalks ρ).2) hsatP 0 (Nat.zero_le _)
     simp only [Nat.add_zero, Nat.sub_zero, htakeP] at hws hbd hLB hCbF hread hrow
     have hsfv : (fvsP ++ [Expr.fvar nP nmT dom])[nP]? = some (.fvar nP nmT dom) := by
@@ -203,11 +203,11 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
     rw [← hsubj _ ht]
     exact hx
   -- the constructor type's reading at the entry's depth
-  have hctyRead : denoteP mp.base2.acval env ψ (nP + 1) cvCa.type
+  have hctyRead : denoteP mp.base2.acval env ψ (nP + 1) cty
       = some (mkPisAV (ds ψ) (ctorBodyAV mp.base2 T nP nF ψ)) :=
     denoteP_depth_of_closed mp.base2.acval_closed hCf
-      (fun k => denoteP_closed mp.base2.acval_erase mp.base2.cval_closed hCf hCb (hCD.read ψ) 1 k)
-      (hCD.read ψ) (nP + 1)
+      (fun k => denoteP_closed mp.base2.acval_erase mp.base2.cval_closed hCf hCb hctyRead0 1 k)
+      hctyRead0 (nP + 1)
   -- the arguments' scoping
   have hfvsPidx : ∀ (k : Nat) (x : Expr), fvsP[k]? = some x →
       ∃ nm ty, x = Expr.fvar k nm ty := by
@@ -268,8 +268,8 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       rw [show (Expr.proj T j (Expr.fvar nP nmT dom)).fvarLeaves
           = (Expr.fvar nP nmT dom).fvarLeaves from by simp [Expr.fvarLeaves]] at hl
       exact (hvarE _ htfvE).2.2.1 l hl
-  have hctyW : Expr.WScoped (nP + 1) cvCa.type := Expr.WScoped.of_not_hasFvar hCf
-  have hctyNil : cvCa.type.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hCf
+  have hctyW : Expr.WScoped (nP + 1) cty := Expr.WScoped.of_not_hasFvar hCf
+  have hctyNil : cty.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hCf
   -- `fdom`'s scoping and leaves
   obtain ⟨-, hresW⟩ := instPisAt_WScoped (d := nP + 1) _ _ hcf hctyW (fun a ha => (hargs a ha).1)
   have hfdW : Expr.WScoped (nP + 1) fdom := by

@@ -3040,12 +3040,20 @@ theorem checkDirectProjEntry_wfimp {env : Env} (henv : EnvWF env)
   by_cases h0 : (!pty.hasFvar && Expr.looseBVarsBounded 0 pty) = true
   case neg => rw [if_neg h0] at h; exact absurd h atF_throw_bind
   rw [if_pos h0] at h ⊢
+  dsimp only at h ⊢
   have hptyf : pty.hasFvar = false := by
     simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h0
     exact h0.1
-  rw [wfOpsM_annotate henv (wscopedB_of_not_hasFvar hptyf)] at h
+  have hptyσf : (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)).hasFvar
+      = false := by
+    rw [hasFvar_instantiateLevelParams]; exact hptyf
+  have hCfσ : ((cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard))).hasFvar
+      = false := by
+    rw [hasFvar_instantiateLevelParams]; exact hCf
+  rw [wfOpsM_annotate henv (wscopedB_of_not_hasFvar hptyσf)] at h
   obtain ⟨ptyA, hann, h⟩ := atF_bind_ok h
-  have hann' : (fueledOps mode F).annotate env 0 pty = .ok ptyA := hann
+  have hann' : (fueledOps mode F).annotate env 0
+      (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)) = .ok ptyA := hann
   rw [hann']
   simp only [Bind.bind, Except.bind]
   by_cases h1 : (Expr.allLevelParamsDefined lps ptyA &&
@@ -3093,7 +3101,7 @@ theorem checkDirectProjEntry_wfimp {env : Env} (henv : EnvWF env)
   obtain ⟨hfvsW, hprestW⟩ :=
     openPisAtFvars_WScoped nP ptyA 0 hop' (WScoped.of_not_hasFvar hAf)
   rw [Nat.zero_add] at hfvsW hprestW
-  have hfamW : WScoped nP (Expr.mkAppN (.const T (lps.map .param)) fvsP) :=
+  have hfamW : WScoped nP (Expr.mkAppN (.const T (directGuardSigma rs lps guard)) fvsP) :=
     Expr.WScoped.mkAppN (by simp [WScoped]) hfvsW
   obtain ⟨q2, hsb, h⟩ := atF_bind_ok h
   obtain ⟨sbs, sbody⟩ := q2
@@ -3112,7 +3120,7 @@ theorem checkDirectProjEntry_wfimp {env : Env} (henv : EnvWF env)
   rw [wfOpsM_isDefEq henv hsdW.to_wscopedB hfamW.to_wscopedB] at h
   obtain ⟨b1, hb1, h⟩ := atF_bind_ok h
   have hb1' : isDefEqCore mode env F nP sdom
-      (Expr.mkAppN (.const T (lps.map .param)) fvsP) = .ok b1 := hb1
+      (Expr.mkAppN (.const T (directGuardSigma rs lps guard)) fvsP) = .ok b1 := hb1
   show (isDefEqCore mode env F nP sdom _ >>= _) = _
   rw [hb1']
   simp only [Bind.bind, Except.bind]
@@ -3149,7 +3157,7 @@ theorem checkDirectProjEntry_wfimp {env : Env} (henv : EnvWF env)
   obtain ⟨cdomsP, crestP⟩ := q5
   dsimp only [] at h
   have hcp' := unwrapOr_atF_ok hcp
-  show ((unwrapOr (Expr.instPisAt fvsP cvCa.type) _ : CheckM _) >>= _) = _
+  show ((unwrapOr (Expr.instPisAt fvsP (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard))) _ : CheckM _) >>= _) = _
   rw [hcp']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
@@ -3157,7 +3165,7 @@ theorem checkDirectProjEntry_wfimp {env : Env} (henv : EnvWF env)
       WScoped (0 + k) x := by
     intro k x hx
     refine instPisAt_index_WScoped fvsP (d := 0) hcp'
-      (WScoped.of_not_hasFvar hCf) ?_ k x hx
+      (WScoped.of_not_hasFvar hCfσ) ?_ k x hx
     intro k' a hk
     obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index nP ptyA 0 hop' k' a hk
     have hw := hfvsW _ (List.mem_of_getElem? hk)
@@ -3180,13 +3188,13 @@ theorem checkDirectProjEntry_wfimp {env : Env} (henv : EnvWF env)
   obtain ⟨cdoms, cresid⟩ := q4
   dsimp only [] at h
   have hci' := unwrapOr_atF_ok hci
-  show ((unwrapOr (Expr.instPisAt (fvsP ++ _) cvCa.type) _ : CheckM _)
+  show ((unwrapOr (Expr.instPisAt (fvsP ++ _) (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard))) _ : CheckM _)
     >>= _) = _
   rw [hci']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
   obtain ⟨-, hcresW⟩ := instPisAt_WScoped (d := nP + 1) _ _ hci'
-    (WScoped.of_not_hasFvar hCf) hargsW
+    (WScoped.of_not_hasFvar hCfσ) hargsW
   obtain ⟨fdom, hfd, h⟩ := atF_bind_ok h
   have hfd' := unwrapOr_atF_ok hfd
   obtain ⟨nmC, bodyC, mbC, hcres⟩ :
@@ -3242,7 +3250,16 @@ theorem checkDirectProj_wfimp {env : Env} (henv : EnvWF env)
     rw [hpt']
     simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
     try dsimp only [] at h ⊢
-    exact checkDirectProjEntry_wfimp henv hCf hCb h
+    by_cases hadm : directSlotAdmit rs lps cvCa.type nP guards i = true
+    · rw [if_pos hadm] at h ⊢
+      exact checkDirectProjEntry_wfimp henv hCf hCb h
+    · rw [if_neg hadm] at h ⊢
+      by_cases hn : (env.find? (projFnName T i)).isNone = true
+      · rw [if_pos hn] at h ⊢
+        simp only [FueledM.atF_pure, pure, Except.pure, Except.ok.injEq] at h
+        rw [h]
+      · rw [if_neg hn] at h
+        exact absurd h atF_throw_bind
   · rw [if_neg hs] at h ⊢
     exact h
 

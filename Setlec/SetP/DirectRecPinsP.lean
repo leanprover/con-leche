@@ -71,6 +71,7 @@ theorem famSpineRow {m : EnvS2Core V env} {nP k : Nat} {tyR : Expr}
     (hlenF : fvsR.length = nP + k)
     {T : Name} {lps : List Name} {ci : ConstantInfo} (hfT : env.find? T = some ci)
     (hlps : ci.toConstantVal.levelParams = lps)
+    {us : List Level} (hus : Level.substFn φ lps us = φ) (hlus : us.length = lps.length)
     {w : Nat} {Fs : List AVExpr} {pps : List (Nat × Nat × AVExpr)}
     (hleafT : m.acval T φ = directTyAV w pps Fs)
     (hbits : ∀ d ∈ pps, d.2.1 ≠ 0) (hbelow : DomsBelow 0 pps) (hlen : pps.length = nP)
@@ -78,12 +79,12 @@ theorem famSpineRow {m : EnvS2Core V env} {nP k : Nat} {tyR : Expr}
     (hval : ∀ ρ : Nat → V, UnderTowerValid ρ (towerBodyAV w Fs) pps)
     (hsatP : ∀ ρ : Nat → V, Sat2 V (Γr.drop k) ρ → Sat2 V ((pps.map (·.2.2)).reverse) ρ)
     (e : Nat) (he : e ≤ k) :
-    Expr.WScoped (nP + e) (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP)) ∧
-    (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP)).looseBVarsBounded 0 = true ∧
-    Expr.LeavesBounded (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP)) ∧
+    Expr.WScoped (nP + e) (Expr.mkAppN (.const T us) (fvsR.take nP)) ∧
+    (Expr.mkAppN (.const T us) (fvsR.take nP)).looseBVarsBounded 0 = true ∧
+    Expr.LeavesBounded (Expr.mkAppN (.const T us) (fvsR.take nP)) ∧
     CtxOkP m φ (nP + e) (Γr.drop (k - e))
-      (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP)) ∧
-    denoteP m.acval env φ (nP + e) (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP))
+      (Expr.mkAppN (.const T us) (fvsR.take nP)) ∧
+    denoteP m.acval env φ (nP + e) (Expr.mkAppN (.const T us) (fvsR.take nP))
       = some (AVExpr.mkAppN (directTyAV w pps Fs) (paramBvarsAt nP (nP + e))) ∧
     ∀ ρ : Nat → V, Sat2 V (Γr.drop (k - e)) ρ →
       AnnotOkP V ρ (AVExpr.mkAppN (directTyAV w pps Fs) (paramBvarsAt nP (nP + e))) ∧
@@ -113,13 +114,13 @@ theorem famSpineRow {m : EnvS2Core V env} {nP k : Nat} {tyR : Expr}
     obtain ⟨-, hw, -, -, -⟩ := hR.var q _ hq
     simp only [Expr.fvarTypeD] at hw
     exact ⟨by simp only [Expr.WScoped]; exact ⟨hq', hw⟩, rfl⟩
-  have hws : Expr.WScoped (nP + e) (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP)) :=
+  have hws : Expr.WScoped (nP + e) (Expr.mkAppN (.const T us) (fvsR.take nP)) :=
     WScoped_mkAppN (by simp [Expr.WScoped]) fun a ha =>
       Expr.WScoped.mono (by omega) (hvars a ha).1
-  have hbd : (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP)).looseBVarsBounded 0
+  have hbd : (Expr.mkAppN (.const T us) (fvsR.take nP)).looseBVarsBounded 0
       = true :=
     Setlec.looseBVarsBounded_mkAppN rfl fun a ha => (hvars a ha).2
-  have hleaves : ∀ l ∈ (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP)).fvarLeaves,
+  have hleaves : ∀ l ∈ (Expr.mkAppN (.const T us) (fvsR.take nP)).fvarLeaves,
       Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsR.take nP ∧ l.2.2.looseBVarsBounded 0 = true := by
     intro l hl
     rcases Setlec.fvarLeaves_mkAppN hl with h | h
@@ -130,7 +131,7 @@ theorem famSpineRow {m : EnvS2Core V env} {nP k : Nat} {tyR : Expr}
       (fun l hl => List.mem_of_mem_take (hleaves l hl).1)
     rw [show nP + k - (nP + e) = k - e from by omega] at this
     exact this
-  · rw [famSpine_read hfT hlps hlenT hidxT (nP + e) φ, hleafT]
+  · rw [famSpine_read_at hfT hlps hus hlus hlenT hidxT (nP + e), hleafT]
   · intro ρ hρ
     have hρ3 : Sat2 V (Γr.drop k) (fun j => ρ (j + e)) := by
       have := Sat2_drop hρ e
@@ -292,7 +293,8 @@ theorem recMotive {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
         = piR (elimL.eval φ + 1) (towerSet w (teleOfFields ρ Fs))
             (fun _ => (univ (elimL.eval φ) : V)) := by
   obtain ⟨hws, hbd, hLB, hCb, hread, hrow⟩ :=
-    famSpineRow hR hidxR hlenF hfT hlps hleafT hbits hbelow hlen hok hval hsatP 0 (by omega)
+    famSpineRow hR hidxR hlenF hfT hlps (Level.substFn_param_self φ lps) (by simp) hleafT
+      hbits hbelow hlen hok hval hsatP 0 (by omega)
   simp only [Nat.add_zero, Nat.sub_zero] at hws hbd hLB hCb hread hrow
   -- the motive type's reading
   obtain ⟨-, hwM, hbM, hLM, hleafM⟩ := hR.var nP _ hmfv
@@ -351,7 +353,8 @@ theorem recMajor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
     ∀ ρ : Nat → V, Sat2 V (Γr.drop 1) ρ →
       interp2 V ρ (Γr.getD 0 default) = towerSet w (teleOfFields (fun j => ρ (j + 2)) Fs) := by
   obtain ⟨hws, hbd, hLB, hCb, hread, hrow⟩ :=
-    famSpineRow hR hidxR hlenF hfT hlps hleafT hbits hbelow hlen hok hval hsatP 2 (by omega)
+    famSpineRow hR hidxR hlenF hfT hlps (Level.substFn_param_self φ lps) (by simp) hleafT
+      hbits hbelow hlen hok hval hsatP 2 (by omega)
   simp only [show 3 - 2 = 1 from rfl] at hCb hrow
   obtain ⟨-, hwJ, hbJ, hLJ, hleafJ⟩ := hR.var (nP + 2) _ hjfv
   simp only [Expr.fvarTypeD] at hwJ hbJ hLJ hleafJ

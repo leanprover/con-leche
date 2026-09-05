@@ -179,4 +179,83 @@ theorem declStepPM_of_tower_cons (mp : EnvS2PM V μ env)
   · exact fun φ => towerOkP_cons_tower mp hfresh hh.projTower _ rfl
       (hlaw _ rfl) φ
 
+/-- **The P step at an inert projection-table entry** (task #175 W4c
+P3 module 7, `directInertEntry`): a non-native, non-tower entry of
+type `Sort 1` holding an unadmitted slot.  Its leaf is `Sort 0` (a
+member of its type's reading); it types no node and fires no
+reduction, so no law is owed — every environment law crosses the
+fresh cons as at any inert constant. -/
+theorem declStepPM_of_inert_cons (mp : EnvS2PM V μ env)
+    {entry : ProjEntry}
+    (hfresh : env.find? (ConstantInfo.projInfo entry).name = none)
+    (hnres : Setlec.reservedBasisNames.contains
+      (ConstantInfo.projInfo entry).name = false)
+    (hTres : Setlec.reservedBasisNames.contains entry.structName = false)
+    (htw : entry.tower = false) (hnat : entry.native = false)
+    (hty : entry.ty = .sort (.succ .zero))
+    (hwf : Setlec.EnvWF ⟨.projInfo entry :: env.consts⟩) :
+    ∃ mp' : EnvS2PM V μ ⟨.projInfo entry :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval
+        (ConstantInfo.projInfo entry).name (fun _ => .sort 0) := by
+  have hh : ConsHeadP env (.projInfo entry) (fun _ => .sort 0) :=
+    ⟨hwf, fun _ => trivial,
+      fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),
+      fun e2 heq hn _ => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact absurd (hn.symm.trans hnat) (by decide),
+      fun i e2 heq hname => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exfalso
+        have h1 : projFnName entry.structName entry.idx = projFnName Setlec.psigmaName i :=
+          hname
+        have h2 := (Setlec.projFnName_inj h1).1
+        exact ne_of_notReserved hTres reserved_psigmaName h2,
+      ConsCrossEnv.ofNtc (fun e2 heq => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact htw),
+      fun e2 heq htw' => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact absurd (htw.symm.trans htw') (by decide),
+      fun _ _ _ _ heq => nomatch heq⟩
+  have hreads : ∀ ψ : Name → Nat,
+      denoteP (acvalWith mp.base2.acval (ConstantInfo.projInfo entry).name (fun _ => .sort 0))
+        ⟨.projInfo entry :: env.consts⟩ ψ 0 (ConstantInfo.projInfo entry).toConstantVal.type
+        = some (.sort 1) := by
+    intro ψ
+    show denoteP _ _ ψ 0 entry.ty = _
+    rw [hty, denoteP_sort]
+    rfl
+  refine declStepPM_of_cons_guarded mp (c₀ := .projInfo entry) (A := fun _ => .sort 0) hfresh hh
+    (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ => by rw [AnnotOk2_sort]; trivial)
+    (fun _ _ => by rw [AnnotValidV_sort]; trivial)
+    (fun ψ => ⟨_, hreads ψ⟩)
+    (fun ψ ta hta ρ => by
+      obtain rfl := Option.some.inj ((hreads ψ).symm.trans hta)
+      exact ⟨by rw [AnnotOk2_sort]; trivial, by rw [AnnotValidV_sort]; trivial⟩)
+    (fun _ ψ ta hta ρ => by
+      obtain rfl := Option.some.inj ((hreads ψ).symm.trans hta)
+      exact interp2_sort_mem V ρ 0)
+    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+  · intro _ψ cv2 value2 hmem
+    rcases hmem with ⟨hint2, hdt⟩ | hdt <;> exact nomatch hdt
+  · exact fun φ => natHeadsP_cons_offNat mp
+      (ne_of_notReserved hnres reserved_natName)
+      (ne_of_notReserved hnres reserved_natZeroName)
+      (ne_of_notReserved hnres reserved_natSuccName) _ rfl φ
+  · exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ) hfresh
+      (hntc := hh.projTower) (Or.inl fun _ _ _ h => nomatch h) _ rfl
+  · exact fun φ => divModP_cons_fresh (mp.div_mod φ) hfresh
+      (Or.inl fun _ _ _ h => nomatch h) _ rfl
+  · exact eqLawP_cons_fresh mp.eq_lawP
+      (fun h => ne_of_notReserved hnres reserved_eqName h.symm) _ rfl
+  · exact capsOkP_cons_fresh mp mp.caps_ok hfresh hh.projTower
+      (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h)
+      (fun _ _ _ _ h => nomatch h) _ rfl
+  · exact fun φ => recRulesP_cons_fresh mp hfresh hh.projTower
+      (fun _ _ _ _ h => nomatch h) _ rfl φ
+  · exact reduceOpsP_cons_fresh mp.reduce_ops hfresh
+      (Or.inl fun _ h => nomatch h) _ rfl
+  · exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower
+      (fun e2 heq => by obtain rfl := ConstantInfo.projInfo.inj heq; exact htw) _ rfl φ
+
 end Setlec.SetR.Interp2

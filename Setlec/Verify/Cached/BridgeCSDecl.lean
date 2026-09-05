@@ -146,7 +146,8 @@ theorem checkDirectProjF_pushC (ops : CheckerOps CheckCM) (T C : Name)
   unfold checkDirectProjF checkDirectProj
   rw [directProjTyR_residP]
   split
-  · simp only [checkDirectProjEntryF_pushC, bind_assoc]
+  · simp only [checkDirectProjEntryF_pushC, bind_assoc, ite_bindC, mkFEnv_find?,
+      push_mkFEnv, pure_bind, throwC_bind_eq]
   · simp only [pure_bind]
 
 /-- The non-inductive branches of the cached `checkDeclSF` are the

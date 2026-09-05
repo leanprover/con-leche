@@ -401,12 +401,23 @@ theorem checkDirectProj_preserves {T C : Name} {lps : List Name}
   unfold checkDirectProj at h
   split at h
   · obtain ⟨pty, -, h⟩ := exceptBind_ok h
-    obtain ⟨entry, htw, rfl⟩ := checkDirectProjEntry_tower h
-    intro e hmem hnat htw'
-    rcases List.mem_cons.mp hmem with heq | hmem'
-    · cases ConstantInfo.projInfo.inj heq.symm
-      exact absurd (htw.symm.trans htw') (by decide)
-    · exact hI e hmem' hnat htw'
+    split at h
+    · obtain ⟨entry, htw, rfl⟩ := checkDirectProjEntry_tower h
+      intro e hmem hnat htw'
+      rcases List.mem_cons.mp hmem with heq | hmem'
+      · cases ConstantInfo.projInfo.inj heq.symm
+        exact absurd (htw.symm.trans htw') (by decide)
+      · exact hI e hmem' hnat htw'
+    · -- the inert entry is not native
+      split at h
+      · simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        intro e hmem hnat htw'
+        rcases List.mem_cons.mp hmem with heq | hmem'
+        · cases ConstantInfo.projInfo.inj heq.symm
+          exact absurd hnat (by simp [directInertEntry])
+        · exact hI e hmem' hnat htw'
+      · exact absurd h (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw])
   · exact (Except.ok.inj h) ▸ hI
 
 theorem checkDirectStruct_preserves {p : DirectParts} (hI : NativeProjPinned env)

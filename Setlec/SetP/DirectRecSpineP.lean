@@ -292,6 +292,25 @@ theorem famSpine_read {m : EnvS2Core V env} {T : Name} {lps : List Name}
   refine denoteP_mkAppN hsp ?_
   rw [denoteP_const hfT (by rw [hlps]; simp), hlps, Level.substFn_param_self]
 
+/-- `famSpine_read` at any level instantiation fixed by the valuation
+(task #175 W4c P3 module 7: the entry install's family spine is at
+the guard's zeroing instantiation, `directGuardSigma`). -/
+theorem famSpine_read_at {m : EnvS2Core V env} {T : Name} {lps : List Name}
+    {ci : ConstantInfo} (hfT : env.find? T = some ci)
+    (hlps : ci.toConstantVal.levelParams = lps)
+    {us : List Level} {ψ : Name → Nat}
+    (hus : Level.substFn ψ lps us = ψ) (hlus : us.length = lps.length)
+    {fvs : List Expr} {nP : Nat} (hlen : fvs.length = nP)
+    (hidx : ∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ nm ty, x = Expr.fvar k nm ty)
+    (D : Nat) :
+    denoteP m.acval env ψ D (Expr.mkAppN (.const T us) fvs)
+      = some (AVExpr.mkAppN (m.acval T ψ) (paramBvarsAt nP D)) := by
+  have hsp := denoteSpineP_fvars (acval := m.acval) (env := env) (φ := ψ) D fvs 0
+    (fun k x hx => by obtain ⟨nm, ty, h⟩ := hidx k x hx; exact ⟨nm, ty, by rw [h, Nat.zero_add]⟩)
+  simp only [Nat.zero_add, hlen] at hsp
+  refine denoteP_mkAppN hsp ?_
+  rw [denoteP_const hfT (by rw [hlps]; exact hlus), hlps, hus]
+
 theorem map_paramBvarsAt_interp {nP e : Nat} {ρp σ : Nat → V}
     (hσ : ∀ j, σ (j + e) = ρp j) :
     (paramBvarsAt nP (nP + e)).map (interp2 V σ) = (List.range nP).reverse.map ρp := by

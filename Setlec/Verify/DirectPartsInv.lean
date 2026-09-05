@@ -107,17 +107,42 @@ theorem checkDirectProj_run {μ : CheckMode} {F : Nat} {T C : Name}
       resSort slots guards cvTa cvCa env i = .ok env') :
     (slots.getD i false = false ∧ env' = env) ∨
     (slots.getD i false = true ∧
+      directSlotAdmit resSort lps cvCa.type nP guards i = true ∧
       ∃ pty, directProjTyP T lps nP nF i cvTa.type cvCa.type = some pty ∧
         checkDirectProjEntry (m := CheckM) (fueledOps μ F) T C lps nP nF resSort
-          (guards.getD i .zero) cvCa pty env i = .ok env') := by
+          (guards.getD i .zero) cvCa pty env i = .ok env') ∨
+    -- the inert entry at an unadmitted slot (task #175 W4c P3 module 7)
+    (slots.getD i false = true ∧
+      directSlotAdmit resSort lps cvCa.type nP guards i = false ∧
+      env.find? (projFnName T i) = none ∧
+      env' = ⟨.projInfo (directInertEntry T i lps nP C nF (guards.getD i .zero) resSort)
+        :: env.consts⟩) := by
   unfold checkDirectProj at h
   split at h
   · next hs =>
     obtain ⟨pty, hpty, h⟩ := exceptBind_ok h
-    exact Or.inr ⟨hs, pty, unwrapOr_ok hpty, h⟩
+    split at h
+    · next hadm => exact Or.inr (Or.inl ⟨hs, hadm, pty, unwrapOr_ok hpty, h⟩)
+    · next hadm =>
+      split at h
+      · next hn =>
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact Or.inr (Or.inr ⟨hs, by simpa using hadm, Option.isNone_iff_eq_none.mp hn, h.symm⟩)
+      · exact absurd h (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw])
   · next hs =>
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl ⟨by simpa using hs, h.symm⟩
+
+/-! ## Admission is a prefix -/
+
+theorem directSlotAdmit_prefix {resSort : Level} {lps : List Name} {cty : Expr} {nP : Nat}
+    {guards : List Level} {i j : Nat} (hj : j ≤ i)
+    (h : directSlotAdmit resSort lps cty nP guards i = true) :
+    directSlotAdmit resSort lps cty nP guards j = true := by
+  unfold directSlotAdmit at h ⊢
+  rw [List.all_eq_true] at h ⊢
+  intro x hx
+  exact h x (List.mem_range.mpr (by have := List.mem_range.mp hx; omega))
 
 /-! ## The slots are a prefix -/
 

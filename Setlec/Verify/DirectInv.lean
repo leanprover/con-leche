@@ -311,7 +311,8 @@ theorem checkDirectProjEntry_shape {env envOut : Env} {T C : Name}
       pty env i = .ok envOut) :
     pty.hasFvar = false ∧ pty.looseBVarsBounded 0 = true ∧
     ∃ ptyA : Expr,
-      annotateCore mode env F 0 pty = .ok ptyA ∧
+      annotateCore mode env F 0
+        (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)) = .ok ptyA ∧
       ptyA.allLevelParamsDefined lps = true ∧
       ptyA.constsResolve env = true ∧
       ptyA.looseBVarsBounded 0 = true ∧
@@ -329,13 +330,13 @@ theorem checkDirectProjEntry_shape {env envOut : Env} {T C : Name}
         prest.stripPis 1 = some (sbs, sbody) ∧
         (sbs[0]?).map (·.2.1) = some sdom ∧
         isDefEqCore mode env F nP sdom
-          (Expr.mkAppN (.const T (lps.map .param)) fvsP) = .ok true ∧
+          (Expr.mkAppN (.const T (directGuardSigma rs lps guard)) fvsP) = .ok true ∧
         openPisAtFvars 1 prest nP = some (tFvs, resid) ∧
         tFvs[0]? = some tfv ∧
-        Expr.instPisAt fvsP cvCa.type = some (cdomsP, crestP) ∧
+        Expr.instPisAt fvsP (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)) = some (cdomsP, crestP) ∧
         checkDirectDomsAt (fueledOps mode F) env 0 fvsP cdomsP nP = .ok () ∧
         Expr.instPisAt (fvsP ++ (List.range i).map fun j => Expr.proj T j tfv)
-          cvCa.type = some (cds, .forallE nmC fdom bodyC mbC) ∧
+          (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)) = some (cds, .forallE nmC fdom bodyC mbC) ∧
         isDefEqCore mode env F (nP + 1) resid fdom = .ok true) ∧
       envOut = ⟨.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, rs,
         true, false, true⟩ :: env.consts⟩ := by
@@ -344,6 +345,7 @@ theorem checkDirectProjEntry_shape {env envOut : Env} {T C : Name}
   by_cases h0 : (!pty.hasFvar && Expr.looseBVarsBounded 0 pty) = true
   case neg => rw [if_neg h0] at h; close_throw
   rw [if_pos h0] at h
+  try dsimp only at h
   obtain ⟨ptyA, hann, h⟩ := exceptBind_ok h
   try simp only at h
   by_cases h1 : (Expr.allLevelParamsDefined lps ptyA &&

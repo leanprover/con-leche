@@ -484,10 +484,17 @@ theorem checkDirectProjEntryS_sim (henv : EnvWF env) {T C : Name}
   by_cases h0 : (!pty.hasFvar && Expr.looseBVarsBounded 0 pty) = true
   case neg => simp only [if_neg h0]; exact SimC.throw_bind
   simp only [if_pos h0]
+  try dsimp only
   have hptyf : pty.hasFvar = false := by
     simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h0
     exact h0.1
-  refine SimC.bind (opE_annotate_sim henv hs₁ (WScoped.of_not_hasFvar hptyf))
+  have hptyσf : (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)).hasFvar
+      = false := by
+    rw [hasFvar_instantiateLevelParams]; exact hptyf
+  have hCfσ : (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)).hasFvar
+      = false := by
+    rw [hasFvar_instantiateLevelParams]; exact hCf
+  refine SimC.bind (opE_annotate_sim henv hs₁ (WScoped.of_not_hasFvar hptyσf))
     (fun s₂ ptyA ptyA' hs₂ hA => ?_)
   obtain ⟨rfl, -⟩ := hA
   by_cases h1 : (Expr.allLevelParamsDefined lps ptyA &&
@@ -519,7 +526,7 @@ theorem checkDirectProjEntryS_sim (henv : EnvWF env) {T C : Name}
   obtain ⟨hfvsW, hprestW⟩ :=
     openPisAtFvars_WScoped nP ptyA 0 hop (WScoped.of_not_hasFvar hAf)
   rw [Nat.zero_add] at hfvsW hprestW
-  have hfamW : WScoped nP (Expr.mkAppN (.const T (lps.map .param)) fvsP) :=
+  have hfamW : WScoped nP (Expr.mkAppN (.const T (directGuardSigma rs lps guard)) fvsP) :=
     Expr.WScoped.mkAppN (by simp [WScoped]) hfvsW
   refine SimC.bind (SimC.unwrapOr' hs₆) (fun s₇ q2 q2' hs₇ hR => ?_)
   obtain ⟨rfl, hsb⟩ := hR
@@ -561,7 +568,7 @@ theorem checkDirectProjEntryS_sim (henv : EnvWF env) {T C : Name}
       WScoped (0 + k) x := by
     intro k x hx
     refine instPisAt_index_WScoped fvsP (d := 0) hcp
-      (WScoped.of_not_hasFvar hCf) ?_ k x hx
+      (WScoped.of_not_hasFvar hCfσ) ?_ k x hx
     intro k' a hk
     obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index nP ptyA 0 hop k' a hk
     have hw := hfvsW _ (List.mem_of_getElem? hk)
@@ -582,7 +589,7 @@ theorem checkDirectProjEntryS_sim (henv : EnvWF env) {T C : Name}
   obtain ⟨cdoms, cresid⟩ := q4
   dsimp only
   obtain ⟨-, hcresW⟩ := instPisAt_WScoped (d := nP + 1) _ _ hci
-    (WScoped.of_not_hasFvar hCf) hargsW
+    (WScoped.of_not_hasFvar hCfσ) hargsW
   refine SimC.bind (SimC.unwrapOr' hs₁₂) (fun s₁₃ fdom fdom' hs₁₃ hFd => ?_)
   obtain ⟨rfl, hfd⟩ := hFd
   obtain ⟨nmC, bodyC, mbC, hcres⟩ :
@@ -626,7 +633,15 @@ theorem checkDirectProjS_sim (henv : EnvWF env) {T C : Name}
   · simp only [if_pos hsl]
     refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ pty pty' hs₁ hP => ?_)
     obtain ⟨rfl, -⟩ := hP
-    exact checkDirectProjEntryS_sim henv hCf hs₁
+    by_cases hadm : directSlotAdmit rs lps cvCa.type nP guards i = true
+    · simp only [if_pos hadm]
+      exact checkDirectProjEntryS_sim henv hCf hs₁
+    · simp only [if_neg hadm]
+      by_cases hn : (env.find? (projFnName T i)).isNone = true
+      · simp only [if_pos hn]
+        exact SimC.pure hs₁ rfl
+      · simp only [if_neg hn]
+        exact SimC.throw_bind
   · simp only [if_neg hsl]
     exact SimC.pure hs rfl
 

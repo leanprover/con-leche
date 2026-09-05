@@ -96,28 +96,40 @@ theorem checkDirectProj_inv {μ : CheckMode} {F : Nat} {T C : Name}
     (h : checkDirectProj (m := Setlec.CheckM) (fueledOps μ F) T C lps nP nF
       resSort slots guards cvTa cvCa env i = .ok env') :
     env' = env ∨
-      ∃ entry : ProjEntry, env.find? (projFnName T i) = none ∧
+      (∃ entry : ProjEntry, env.find? (projFnName T i) = none ∧
         entry.tower = true ∧ entry.native = true ∧
         entry.structName = T ∧ entry.idx = i ∧ entry.ctor = C ∧
         entry.numParams = nP ∧ entry.numFields = nF ∧
         entry.levelParams = lps ∧
         entry.fieldSort = guards.getD i .zero ∧ entry.structSort = resSort ∧
-        env' = ⟨.projInfo entry :: env.consts⟩ := by
+        env' = ⟨.projInfo entry :: env.consts⟩) ∨
+      -- the inert entry at an unadmitted slot (task #175 W4c P3 module 7)
+      (∃ entry : ProjEntry, env.find? (projFnName T i) = none ∧
+        entry.tower = false ∧ entry.native = false ∧
+        entry.structName = T ∧ entry.idx = i ∧
+        env' = ⟨.projInfo entry :: env.consts⟩) := by
   unfold checkDirectProj at h
   split at h
-  · unfold checkDirectProjEntry at h
-    repeat' first
-      | (obtain ⟨_, _, h⟩ := Setlec.exceptBind_ok h)
-      | split at h
-    all_goals first
-      | (try dsimp only at h
-         simp only [pure, Except.pure, Except.ok.injEq] at h
-         refine Or.inr ⟨_, ?_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl,
-           h.symm⟩
-         first
-           | assumption
-           | exact Option.isNone_iff_eq_none.mp (by assumption))
-      | close_throw
+  · obtain ⟨pty, -, h⟩ := Setlec.exceptBind_ok h
+    split at h
+    · unfold checkDirectProjEntry at h
+      repeat' first
+        | (obtain ⟨_, _, h⟩ := Setlec.exceptBind_ok h)
+        | split at h
+      all_goals first
+        | (try dsimp only at h
+           simp only [pure, Except.pure, Except.ok.injEq] at h
+           refine Or.inr (Or.inl ⟨_, ?_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl,
+             h.symm⟩)
+           first
+             | assumption
+             | exact Option.isNone_iff_eq_none.mp (by assumption))
+        | close_throw
+    · split at h
+      · simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact Or.inr (Or.inr ⟨_, Option.isNone_iff_eq_none.mp (by assumption),
+          rfl, rfl, rfl, rfl, h.symm⟩)
+      · close_throw
   · simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
 
@@ -137,8 +149,14 @@ theorem directProjFoldR_etaClosed {μ : CheckMode} {F : Nat} {T C : Name}
     obtain ⟨env'', hstep, hrest⟩ := h
     refine directProjFoldR_etaClosed rest hrest ?_
     rcases checkDirectProj_inv hstep with rfl |
-      ⟨entry, hfresh, -, -, hsn, hidx, -, -, -, -, -, -, rfl⟩
+      ⟨entry, hfresh, -, -, hsn, hidx, -, -, -, -, -, -, rfl⟩ |
+      ⟨entry, hfresh, -, -, hsn, hidx, rfl⟩
     · exact hE
+    · refine EtaFamiliesClosed.cons_nonind hE ?_ (fun _ _ heq => nomatch heq)
+      have hname : (ConstantInfo.projInfo entry).name = projFnName T i := by
+        show projFnName entry.structName entry.idx = projFnName T i
+        rw [hsn, hidx]
+      rw [hname]; exact hfresh
     · refine EtaFamiliesClosed.cons_nonind hE ?_ (fun _ _ heq => nomatch heq)
       have hname : (ConstantInfo.projInfo entry).name = projFnName T i := by
         show projFnName entry.structName entry.idx = projFnName T i

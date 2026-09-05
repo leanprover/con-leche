@@ -992,7 +992,10 @@ def checkDirectProjEntryF (ops : CheckerOps m) (T C : Name) (lps : List Name)
     (pty : Expr) (fe : FEnv) (i : Nat) : m FEnv := do
   unless !pty.hasFvar && pty.looseBVarsBounded 0 do
     throw (.notImplemented "direct structure: projection type scoping")
-  let ptyA ← ops.annotate fe.env 0 pty
+  let σ := directGuardSigma resSort lps guard
+  let ptyσ := pty.instantiateLevelParams lps σ
+  let ctyσ := cvCa.type.instantiateLevelParams lps σ
+  let ptyA ← ops.annotate fe.env 0 ptyσ
   unless ptyA.allLevelParamsDefined lps && ptyA.constsResolveF fe &&
       ptyA.looseBVarsBounded 0 && !ptyA.hasFvar do
     throw (.notImplemented "direct structure: projection type wellformedness")
@@ -1002,10 +1005,10 @@ def checkDirectProjEntryF (ops : CheckerOps m) (T C : Name) (lps : List Name)
   let _u ← ops.ensureSort fe.env 0 sty
   unless (fe.find? (projFnName T i)).isNone do
     throw (.invalid "projection name taken")
-  checkProjShape (m := m) ptyA cvCa.type nP nF
+  checkProjShape (m := m) ptyA ctyσ nP nF
   let (fvsP, prest) ← unwrapOr (openPisAtFvarsF nP ptyA 0)
     (.notImplemented "direct structure: projection type telescope")
-  let famApp := Expr.mkAppN (.const T (lps.map .param)) fvsP
+  let famApp := Expr.mkAppN (.const T σ) fvsP
   let (sbs, _) ← unwrapOr (prest.stripPis 1)
     (.notImplemented "direct structure: projection subject telescope")
   let sdom ← unwrapOr ((sbs[0]?).map (·.2.1))
@@ -1016,11 +1019,11 @@ def checkDirectProjEntryF (ops : CheckerOps m) (T C : Name) (lps : List Name)
     (.notImplemented "direct structure: projection subject telescope")
   let tfv ← unwrapOr tFvs[0]?
     (.internal "direct structure: projection subject index")
-  let (cdomsP, _) ← unwrapOr (Expr.instPisAtF fvsP cvCa.type)
+  let (cdomsP, _) ← unwrapOr (Expr.instPisAtF fvsP ctyσ)
     (.notImplemented "direct structure: projection parameter telescope")
   checkDirectDomsAtF ops fe 0 fvsP cdomsP nP
   let projArgs := (List.range i).map fun j => Expr.proj T j tfv
-  let (_, cresid) ← unwrapOr (Expr.instPisAtF (fvsP ++ projArgs) cvCa.type)
+  let (_, cresid) ← unwrapOr (Expr.instPisAtF (fvsP ++ projArgs) ctyσ)
     (.notImplemented "direct structure: projection field telescope")
   let fdom ← unwrapOr (match cresid with
       | .forallE _ d _ _ => some d
@@ -1040,8 +1043,14 @@ def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
   if slots.getD i false then do
     let pty ← unwrapOr (directProjTyR T lps nP nF i cvTa.type rt?)
       (.notImplemented "direct structure: projection type")
-    checkDirectProjEntryF ops T C lps nP nF resSort (guards.getD i .zero)
-      cvCa pty fe i
+    if directSlotAdmit resSort lps cvCa.type nP guards i then
+      checkDirectProjEntryF ops T C lps nP nF resSort (guards.getD i .zero)
+        cvCa pty fe i
+    else do
+      unless (fe.find? (projFnName T i)).isNone do
+        throw (.invalid "projection name taken")
+      pure (fe.push (.projInfo
+        (directInertEntry T i lps nP C nF (guards.getD i .zero) resSort)))
   else pure fe
 
 end Mirrors

@@ -309,12 +309,12 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
       refine ⟨Setlec.annotateCore_noProjAt μ hannRhs hnfRhs (hfreshC j hj), ?_⟩
       intro lvls pins hfire
       split at hfire <;> exact nomatch hfire
-  have hinv : FoldInvP V μ p cvTa cvCa pps ds 0 ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+  have hinv : FoldInvP V μ p cvTa cvCa sorts pps ds 0 ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
         rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
           env.consts⟩ : Env).consts⟩ : Env).consts⟩ := by
-    refine ⟨⟨mp₃, ?_, ?_, ?_, ?_⟩, ?_, ?_, fun j hj _ => absurd hj (Nat.not_lt_zero _),
+    refine ⟨⟨mp₃, ?_, ?_, ?_, ?_⟩, ?_, ?_, fun j hj _ _ => absurd hj (Nat.not_lt_zero _),
       fun j _ hj => hslotsF j hj, fun j _ hj => hnp₃ j hj,
       Setlec.direct_rec_wf mpC.base2.wf hccvR hRule⟩
     · exact hFD_C.cross (c₀ := .recInfo cvRa (p.nP + 2) (p.nP + 2)

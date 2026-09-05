@@ -283,7 +283,12 @@ def checkDirectProjEntry (ops : CheckerOps m) (T C : Name) (lps : List Name)
     (pty : Expr) (env : Env) (i : Nat) : m Env := do
   unless !pty.hasFvar && pty.looseBVarsBounded 0 do
     throw (.notImplemented "direct structure: projection type scoping")
-  let ptyA ← ops.annotate env 0 pty
+  -- the guard's zeroing instantiation (`directGuardSigma`): the
+  -- entry's type is validated where the entry is usable
+  let σ := directGuardSigma resSort lps guard
+  let ptyσ := pty.instantiateLevelParams lps σ
+  let ctyσ := cvCa.type.instantiateLevelParams lps σ
+  let ptyA ← ops.annotate env 0 ptyσ
   unless ptyA.allLevelParamsDefined lps && ptyA.constsResolve env &&
       ptyA.looseBVarsBounded 0 && !ptyA.hasFvar do
     throw (.notImplemented "direct structure: projection type wellformedness")
@@ -293,7 +298,7 @@ def checkDirectProjEntry (ops : CheckerOps m) (T C : Name) (lps : List Name)
   let _u ← ops.ensureSort env 0 sty
   unless (env.find? (projFnName T i)).isNone do
     throw (.invalid "projection name taken")
-  checkProjShape ptyA cvCa.type nP nF
+  checkProjShape ptyA ctyσ nP nF
   -- The **annotated** projection type's own frame walk.  The model
   -- reads the stored (annotated) type, and annotation is not
   -- interpretation-preserving — the raw `directProjTy` output is not
@@ -309,7 +314,7 @@ def checkDirectProjEntry (ops : CheckerOps m) (T C : Name) (lps : List Name)
   -- a generator bug, and declining is the right verdict.
   let (fvsP, prest) ← unwrapOr (openPisAtFvars nP ptyA 0)
     (.notImplemented "direct structure: projection type telescope")
-  let famApp := Expr.mkAppN (.const T (lps.map .param)) fvsP
+  let famApp := Expr.mkAppN (.const T σ) fvsP
   let (sbs, _) ← unwrapOr (prest.stripPis 1)
     (.notImplemented "direct structure: projection subject telescope")
   let sdom ← unwrapOr ((sbs[0]?).map (·.2.1))
@@ -324,11 +329,11 @@ def checkDirectProjEntry (ops : CheckerOps m) (T C : Name) (lps : List Name)
   -- parameters (task #175 W4c, P3 module 7): the model identifies the
   -- entry's parameter frame with the block's through this pin, exactly
   -- as `checkDirectCtor` pins the constructor's to the former's
-  let (cdomsP, _) ← unwrapOr (Expr.instPisAt fvsP cvCa.type)
+  let (cdomsP, _) ← unwrapOr (Expr.instPisAt fvsP ctyσ)
     (.notImplemented "direct structure: projection parameter telescope")
   checkDirectDomsAt ops env 0 fvsP cdomsP nP
   let projArgs := (List.range i).map fun j => Expr.proj T j tfv
-  let (_, cresid) ← unwrapOr (Expr.instPisAt (fvsP ++ projArgs) cvCa.type)
+  let (_, cresid) ← unwrapOr (Expr.instPisAt (fvsP ++ projArgs) ctyσ)
     (.notImplemented "direct structure: projection field telescope")
   let fdom ← unwrapOr (match cresid with
       | .forallE _ d _ _ => some d
@@ -355,8 +360,16 @@ def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
   if slots.getD i false then do
     let pty ← unwrapOr (directProjTyP T lps nP nF i cvTa.type cvCa.type)
       (.notImplemented "direct structure: projection type")
-    checkDirectProjEntry ops T C lps nP nF resSort (guards.getD i .zero)
-      cvCa pty env i
+    if directSlotAdmit resSort lps cvCa.type nP guards i then
+      checkDirectProjEntry ops T C lps nP nF resSort (guards.getD i .zero)
+        cvCa pty env i
+    else do
+      -- the inert entry (`directInertEntry`): the slot is held, the
+      -- field's projections decline at their own sites
+      unless (env.find? (projFnName T i)).isNone do
+        throw (.invalid "projection name taken")
+      pure ⟨.projInfo (directInertEntry T i lps nP C nF (guards.getD i .zero) resSort)
+        :: env.consts⟩
   else pure env
 
 /-- Check and install a **direct simple structure** (task #82): the

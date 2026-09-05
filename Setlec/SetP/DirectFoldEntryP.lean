@@ -31,7 +31,8 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- The fold invariant at slot `k`. -/
 structure FoldInvP (V : Type w) [SetTheory V] (μ : CheckMode) (p : DirectParts)
-    (cvTa cvCa : ConstantVal) (pps ds : (Name → Nat) → List (Nat × Nat × AVExpr))
+    (cvTa cvCa : ConstantVal) (sorts : List Level)
+    (pps ds : (Name → Nat) → List (Nat × Nat × AVExpr))
     (k : Nat) (env : Env) : Prop where
   carrier : ∃ mp : EnvS2PM V μ env,
     FormerData mp.base2 cvTa p.nP p.resSort pps ∧
@@ -42,7 +43,12 @@ structure FoldInvP (V : Type w) [SetTheory V] (μ : CheckMode) (p : DirectParts)
       = directMkAV (p.resSort.eval ψ) (ds ψ) (((ds ψ).drop p.nP).map (·.2.2)))
   findT : env.find? p.cvT.name = some (.indInfo cvTa (Setlec.directCaps p))
   findC : env.find? p.cvC.name = some (.ctorInfo cvCa p.nP p.nF)
+  /-- an earlier admitted slot holds a tower entry (an unadmitted one
+  holds the inert entry, which nothing reads — task #175 W4c P3
+  module 7) -/
   prev : ∀ j, j < k → (Setlec.directProjSlots p).getD j false = true →
+    Setlec.directSlotAdmit p.resSort p.cvT.levelParams cvCa.type p.nP
+      (Setlec.directProjGuards cvCa.type p.nP p.nF sorts) j = true →
     ∃ entry, env.findProj? p.cvT.name j = some entry ∧ entry.tower = true
   fresh : ∀ j, k ≤ j → j < p.nF → env.find? (projFnName p.cvT.name j) = none
   noProj : ∀ j, k ≤ j → j < p.nF → NoProjEnv env p.cvT.name j
@@ -83,17 +89,18 @@ theorem foldStepP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
       p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF p.resSort
       (Setlec.directProjSlots p) (Setlec.directProjGuards cvCa.type p.nP p.nF sorts)
       cvTa cvCa env k = .ok env')
-    (hinv : FoldInvP V μ p cvTa cvCa pps ds k env) :
-    FoldInvP V μ p cvTa cvCa pps ds (k + 1) env' := by
+    (hinv : FoldInvP V μ p cvTa cvCa sorts pps ds k env) :
+    FoldInvP V μ p cvTa cvCa sorts pps ds (k + 1) env' := by
   obtain ⟨hlenS, hsortsAll⟩ := Setlec.checkDirectFieldSorts_inv hsorts
   have hwf' : Setlec.EnvWF env' := Setlec.direct_proj_wf hinv.wf hstep
-  rcases Setlec.checkDirectProj_run hstep with ⟨hoff, rfl⟩ | ⟨hon, pty, -, hEntry⟩
+  rcases Setlec.checkDirectProj_run hstep with ⟨hoff, rfl⟩ | ⟨hon, hadm, pty, -, hEntry⟩ |
+    ⟨hon, hadm, hfreshI, rfl⟩
   · -- a skipped slot
     refine ⟨hinv.carrier, hinv.findT, hinv.findC, ?_, fun j hj hjF => hinv.fresh j (by omega) hjF,
       fun j hj hjF => hinv.noProj j (by omega) hjF, hinv.wf⟩
-    intro j hj hon
+    intro j hj hon hadm
     rcases Nat.lt_or_ge j k with hjk | hjk
-    · exact hinv.prev j hjk hon
+    · exact hinv.prev j hjk hon hadm
     · obtain rfl : j = k := by omega
       rw [hoff] at hon
       exact nomatch hon
@@ -185,6 +192,7 @@ theorem foldStepP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
     have hprev : ∀ j, j < k →
         ∃ entry, env.findProj? p.cvT.name j = some entry ∧ entry.tower = true :=
       fun j hj => hinv.prev j hj (Setlec.directProjSlots_prefix hj hk hon)
+        (Setlec.directSlotAdmit_prefix (Nat.le_of_lt hj) hadm)
     have hfreshK := hinv.fresh k (Nat.le_refl _) hk
     -- the entry's shape, for the extension's bookkeeping
     obtain ⟨hnf, -, ptyA, hann, -, hcr, -, -, -, -, -, -, henv'⟩ :=
@@ -238,9 +246,9 @@ theorem foldStepP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
       exact hinv.findT
     · rw [Setlec.Env.find?_cons, if_neg (fun h => hneC h.symm)]
       exact hinv.findC
-    · intro j hj hon'
+    · intro j hj hon' hadm'
       rcases Nat.lt_or_ge j k with hjk | hjk
-      · obtain ⟨entry, hfe, htw⟩ := hinv.prev j hjk hon'
+      · obtain ⟨entry, hfe, htw⟩ := hinv.prev j hjk hon' hadm'
         refine ⟨entry, ?_, htw⟩
         unfold Setlec.Env.findProj? at hfe ⊢
         rw [Setlec.Env.find?_cons, if_neg (fun h => by
@@ -260,7 +268,82 @@ theorem foldStepP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
       refine NoProjHead.ofType ?_ (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
         (fun _ _ _ _ h => nomatch h)
       show Expr.NoProjAt p.cvT.name j ptyA
-      exact Setlec.annotateCore_noProjAt μ hann hnf (hinv.fresh j (by omega) hjF)
+      exact Setlec.annotateCore_noProjAt μ hann
+        (by rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hnf)
+        (hinv.fresh j (by omega) hjF)
+  · -- an unadmitted slot: the inert entry (task #175 W4c P3 module 7)
+    obtain ⟨mp, hFD, hCD, hleafT, hleafC⟩ := hinv.carrier
+    let entry : ProjEntry := Setlec.directInertEntry p.cvT.name k p.cvT.levelParams p.nP
+      p.cvC.name p.nF ((Setlec.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero) p.resSort
+    have hneT : p.cvT.name ≠ projFnName p.cvT.name k := by
+      intro h
+      have := projFnName_isProjFnShape p.cvT.name k
+      rw [← h, hTshape] at this
+      exact nomatch this
+    have hneC : p.cvC.name ≠ projFnName p.cvT.name k := by
+      intro h
+      have := projFnName_isProjFnShape p.cvT.name k
+      rw [← h, hCshape] at this
+      exact nomatch this
+    have hnres : Setlec.reservedBasisNames.contains (projFnName p.cvT.name k) = false := by
+      cases h : Setlec.reservedBasisNames.contains (projFnName p.cvT.name k)
+      · rfl
+      · exact absurd rfl (Setlec.projFnName_ne_reserved h)
+    have hnpK := hinv.noProj k (Nat.le_refl _) hk
+    have hcrossT : ConsCrossAt (.projInfo entry) cvTa.type := by
+      intro e' he' _
+      cases he'
+      exact hnpK.type _ (Setlec.SetR.Env.find?_mem hinv.findT)
+    have hcrossC : ConsCrossAt (.projInfo entry) cvCa.type := by
+      intro e' he' _
+      cases he'
+      exact hnpK.type _ (Setlec.SetR.Env.find?_mem hinv.findC)
+    have hcbT : ConstsBound env cvTa.type :=
+      constsBound_of_constsResolve _ (hinv.wf _ (Setlec.SetR.Env.find?_mem hinv.findT)).2.2.1
+    have hcbC : ConstsBound env cvCa.type :=
+      constsBound_of_constsResolve _ (hinv.wf _ (Setlec.SetR.Env.find?_mem hinv.findC)).2.2.1
+    have hfreshE : env.find? (ConstantInfo.projInfo entry).name = none := hfreshI
+    obtain ⟨mp', hac⟩ := declStepPM_of_inert_cons mp (entry := entry) hfreshE hnres hresT rfl rfl
+      rfl hwf'
+    refine ⟨⟨mp', hFD.cross (c₀ := .projInfo entry) hfreshE hcrossT hcbT mp'.base2 hac,
+      hCD.cross (c₀ := .projInfo entry) hfreshE hneT hcrossC hcbC mp'.base2 hac, ?_, ?_⟩,
+      ?_, ?_, ?_, ?_, ?_, hwf'⟩
+    · intro ψ
+      rw [hac]
+      show acvalWith mp.base2.acval (projFnName p.cvT.name k) _ p.cvT.name ψ = _
+      rw [acvalWith_ne hneT]
+      exact hleafT ψ
+    · intro ψ
+      rw [hac]
+      show acvalWith mp.base2.acval (projFnName p.cvT.name k) _ p.cvC.name ψ = _
+      rw [acvalWith_ne hneC]
+      exact hleafC ψ
+    · rw [Setlec.Env.find?_cons, if_neg (fun h => hneT h.symm)]
+      exact hinv.findT
+    · rw [Setlec.Env.find?_cons, if_neg (fun h => hneC h.symm)]
+      exact hinv.findC
+    · intro j hj hon' hadm'
+      rcases Nat.lt_or_ge j k with hjk | hjk
+      · obtain ⟨entry, hfe, htw⟩ := hinv.prev j hjk hon' hadm'
+        refine ⟨entry, ?_, htw⟩
+        unfold Setlec.Env.findProj? at hfe ⊢
+        rw [Setlec.Env.find?_cons, if_neg (fun h => by
+          have := (Setlec.projFnName_inj h).2; simp only [Setlec.directInertEntry] at this; omega)]
+        exact hfe
+      · obtain rfl : j = k := by omega
+        rw [hadm] at hadm'
+        exact nomatch hadm'
+    · intro j hj hjF
+      rw [Setlec.Env.find?_cons, if_neg (fun h => by
+        have := (Setlec.projFnName_inj h).2; simp only [Setlec.directInertEntry] at this; omega)]
+      exact hinv.fresh j (by omega) hjF
+    · intro j hj hjF
+      refine NoProjEnv.cons (hinv.noProj j (by omega) hjF) ?_
+      refine NoProjHead.ofType ?_ (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
+        (fun _ _ _ _ h => nomatch h)
+      show Expr.NoProjAt p.cvT.name j (.sort (.succ .zero))
+      unfold Expr.NoProjAt
+      trivial
 
 /-- **The fold**: from the invariant at slot `k`, the run over the
 remaining slots lands a carrier. -/
@@ -298,7 +381,7 @@ theorem foldEntriesP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
       Setlec.SetR.DirectProjFoldR μ F p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
         p.resSort (Setlec.directProjSlots p)
         (Setlec.directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa env l env₂ →
-      FoldInvP V μ p cvTa cvCa pps ds k env →
+      FoldInvP V μ p cvTa cvCa sorts pps ds k env →
       Nonempty (EnvS2PM V μ env₂)
   | [], _, _, env, env₂, hfold, hinv => by
     obtain rfl : env₂ = env := hfold

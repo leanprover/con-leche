@@ -1,4 +1,5 @@
 import Setlec.SetP.DirectEntryLawP
+import Setlec.SetP.DirectSigmaP
 
 /-!
 # The projection entry's cons (task #175 W4c, P3 module 7, part 6)
@@ -236,8 +237,29 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
         interp2 V (consList as ρ) ((((ds ψ).drop p.nP).map (·.2.2)).getD j default)
           ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V) :=
     fun ψ ρ h => (hfields ψ ρ h).2.2.2.2
-  have hframes := entryFrames hμ mp hopP hsb hsd hsdeq hopT htfv hci hdoms hcf hrdeq hfT hlpsT
-    hfC hprev hi hED hFD hCD hleafT hiff hokB hbound hsorts
+  -- the constructor type at the guard's zeroing instantiation
+  -- (`directGuardSigma`): the frames are stated at the valuations it
+  -- fixes, which are all the valuations the entry's law is owed at
+  obtain ⟨hCf0, -, -, hCb0, -⟩ := mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfC)
+  simp only [ConstantInfo.toConstantVal] at hCf0 hCb0
+  have hCfσ : (cvCa.type.instantiateLevelParams p.cvT.levelParams
+      (Setlec.directGuardSigma p.resSort p.cvT.levelParams guard)).hasFvar = false := by
+    rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hCf0
+  have hCbσ : (cvCa.type.instantiateLevelParams p.cvT.levelParams
+      (Setlec.directGuardSigma p.resSort p.cvT.levelParams guard)).looseBVarsBounded 0 = true := by
+    rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]; exact hCb0
+  have hreadσ : ∀ ψ : Name → Nat,
+      Level.substFn ψ p.cvT.levelParams (Setlec.directGuardSigma p.resSort p.cvT.levelParams guard)
+        = ψ →
+      denoteP mp.base2.acval env ψ 0 (cvCa.type.instantiateLevelParams p.cvT.levelParams
+        (Setlec.directGuardSigma p.resSort p.cvT.levelParams guard))
+        = some (mkPisAV (ds ψ) (ctorBodyAV mp.base2 p.cvT.name p.nP p.nF ψ)) := by
+    intro ψ hτ
+    rw [denotePInstLevels mp.base2 ψ _ _ 0 cvCa.type, hτ]
+    exact hCD.read ψ
+  have hframes := entryFrames hμ mp hopP hsb hsd hsdeq
+    (Setlec.directGuardSigma_length p.resSort p.cvT.levelParams guard) hopT htfv hci hdoms hcf
+    hrdeq hCfσ hCbσ hfT hlpsT hprev hi hED hFD hCD hleafT hiff hokB hbound hsorts
   have hpok : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       ParamsOkT (p.resSort.eval ψ) ρ (((ds ψ).drop p.nP).map (·.2.2)) (pps ψ) :=
     fun ψ ρ => (formerWalks hFD (fun ψ' ρ' h => hokB ψ' ρ' ((hiff ψ' ρ').mp h)) ψ ρ).1
@@ -268,7 +290,8 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   have hcrossE : ConsCrossAt (.projInfo entry) ptyA := by
     intro e' he' _
     cases he'
-    exact Setlec.annotateCore_noProjAt μ hann hnf hfresh
+    exact Setlec.annotateCore_noProjAt μ hann
+      (by rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hnf) hfresh
   have hcbT : ConstsBound env cvTa.type :=
     constsBound_of_constsResolve _ (mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfT)).2.2.1
   have hcbC : ConstsBound env cvCa.type :=
@@ -337,7 +360,15 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
             ∀ j, j < i → Setlec.directUsedLater cvCa.type p.nP j = true →
               (sorts.getD j .zero).eval (Level.substFn φ p.cvT.levelParams us) = 0 :=
           fun h0 => hguardSem _ (hguardAt h0)
-        obtain ⟨hiffP, hsubj, hres⟩ := hframes (Level.substFn φ p.cvT.levelParams us)
+        -- the zeroing instantiation fixes the use's valuation: the
+        -- structure is a proposition there only under the guard
+        have hτ : Level.substFn (Level.substFn φ p.cvT.levelParams us) p.cvT.levelParams
+            (Setlec.directGuardSigma p.resSort p.cvT.levelParams guard)
+            = Level.substFn φ p.cvT.levelParams us :=
+          Setlec.substFn_directGuardSigma _ _ _ _ fun hp =>
+            hguardAt (Level.isEquiv_sound (beq_iff_eq.mp hp) _)
+        obtain ⟨hiffP, hsubj, hres⟩ := hframes (Level.substFn φ p.cvT.levelParams us) hτ
+          (hreadσ _ hτ)
         have hacT' : m₂.acval p.cvT.name (Level.substFn φ p.cvT.levelParams us)
             = directTyAV (p.resSort.eval (Level.substFn φ p.cvT.levelParams us))
               (pps (Level.substFn φ p.cvT.levelParams us))

@@ -87,6 +87,9 @@ theorem reserved_natSuccName :
 theorem reserved_eqName : Setlec.reservedBasisNames.contains eqName = true := by
   decide
 
+theorem reserved_psigmaName :
+    Setlec.reservedBasisNames.contains Setlec.psigmaName = true := by decide
+
 /-- **The P step at an inductive-tier cons.**  Six of
 `declStepPM_of_cons`'s eight collapsible rows are discharged here from
 the *name* (non-reserved) and the *kind* (never a value kind, never an

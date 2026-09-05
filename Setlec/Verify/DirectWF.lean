@@ -246,11 +246,20 @@ theorem direct_proj_wf {env envOut : Env} (henv : EnvWF env)
   unfold checkDirectProj at h
   split at h
   · obtain ⟨pty, -, h⟩ := exceptBind_ok h
-    obtain ⟨ptyA, rfl, hfv, hlp, hres, hbv⟩ := checkDirectProjEntry_facts h
-    exact EnvWF.cons henv (directConstWF hfv hlp
-      (Expr.constsResolve_mono hres) hbv
-      (fun _ _ _ heq => nomatch heq)
-      (fun _ _ _ _ heq => nomatch heq))
+    split at h
+    · obtain ⟨ptyA, rfl, hfv, hlp, hres, hbv⟩ := checkDirectProjEntry_facts h
+      exact EnvWF.cons henv (directConstWF hfv hlp
+        (Expr.constsResolve_mono hres) hbv
+        (fun _ _ _ heq => nomatch heq)
+        (fun _ _ _ _ heq => nomatch heq))
+    · -- the inert entry: a closed `Sort 1`
+      split at h
+      · simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        exact EnvWF.cons henv (directConstWF rfl rfl rfl rfl
+          (fun _ _ _ heq => nomatch heq)
+          (fun _ _ _ _ heq => nomatch heq))
+      · close_throw
   · simp only [pure, Except.pure, Except.ok.injEq] at h
     exact h ▸ henv
 
