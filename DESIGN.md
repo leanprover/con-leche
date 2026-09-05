@@ -40423,8 +40423,10 @@ So the landed shape is the **two-function** one:
     theorem Name.beqPtr_eq (a b : Name) :
         Name.beqPtr a b = decide (a = b) := …
 
-    @[implemented_by Name.beqPtr]
     def Name.beq (a b : Name) : Bool := decide (a = b)
+
+    @[csimp] theorem Name.beq_eq_beqPtr : @Name.beq = @Name.beqPtr := by
+      funext a b; exact (Name.beqPtr_eq a b).symm
 
 and identically for `Level`.  The *pure* side is plain decidable
 equality, so the kernel, `decide` and `#guard` see exactly what they saw
@@ -40432,17 +40434,53 @@ before; the *compiled* side is `lean_ptr_addr` → cached hash → derived
 `decEq`, i.e. `lean_name_eq`'s own order (`object.cpp:2762`) and
 `level.cpp:125`'s.
 
-**This `implemented_by` is not a trust escape.**  It is the `Expr.beq`
-/ `beqFast` *shape* without `Expr.beqFast`'s *content*: there the
-substitute is `unsafe` and the census (`Setlec/Cached/ExprC.lean`,
-row 1) carries "pointer equality implies structural equality" as a
-trusted fact; here `Name.beqPtr` is a **safe** definition **proved
-equal** to what it replaces (`Name.beqPtr_eq`, `Level.beqPtr_eq`),
-because `withPtrEq`'s obligation `a = b → k () = true` is discharged
-and the hash guard is sound outright (`hashData` is a function of the
+**The substitution mechanism is `@[csimp]`, not `@[implemented_by]` —
+USER RULING, 2026-09-05, verbatim:** *"do *not* use `implemented_by`.
+If you can prove them equal, use `csimp`."*  The batch first landed
+with `@[implemented_by Name.beqPtr]` and was converted on the ruling
+(`agent/ptreq-csimp`).  The ruling is the right line and the
+distinction is real: `implemented_by` is an *unchecked* attribute — a
+promise the compiler takes on faith and `#print axioms` cannot see —
+whereas `csimp` substitutes on an equality this repository **proves**
+and the kernel checks.  Everything the pointer-first path needs is
+already a theorem here: `withPtrEq a b k h` is *defined* as `k ()` and
+its obligation `a = b → k () = true` is discharged at `beqPtr`, and
+the hash guard is sound outright (`hashData` is a function of the
 value, so a hash mismatch *is* an inequality — the task-#172 B3a
-argument).  The census gained **users of the `@[computed_field]` row**
-(P3) and **no new row**.
+argument).  So there was never anything to promise.
+
+**Consequently task #176 adds no census row at all**, and the wording
+matters: the census (`Setlec/Cached/ExprC.lean`) enumerates
+`implemented_by`-class escapes because they are invisible to
+`#print axioms`; a `csimp` rewrite is not of that class.
+`ExprC.beqFast` (row 1) therefore remains this tree's **only** such
+escape and now stands alone; the `@[computed_field]` row (row 2)
+gained two users (`Name.hashData`, `Level.hashData`, P3).
+
+**The conversion was verified in the generated C, not assumed.**
+Diffing `.lake/build/ir/Setlec/Kernel/Expr.c` between the
+`implemented_by` build and the `csimp` build: *every call site is
+byte-identical*; the only difference is that `csimp` additionally
+emits the now-dead `Name.beq`/`Level.beq` bodies (`implemented_by`
+suppressed them).  `instBEqName`'s closure still points at
+`Name_beqPtr___boxed`, and `beqB` still opens each of its five name
+comparisons with `lean_ptr_addr` + `Name_hashData`.
+
+And measured, so the C-level reading is not the only evidence.  The
+decisive A/B row re-run on the `csimp` binary (same harness, same
+median-of-3):
+
+| variant | `init-full` G instr | Δ vs base | Δ vs the `implemented_by` build |
+|---|---|---|---|
+| base | 2931.77 | — | — |
+| `implemented_by` | 2764.32 | −5.71 % | — |
+| **`csimp`** | **2764.53** | **−5.70 %** | **+0.008 %** |
+
+i.e. the two builds are the same binary to within 213 M instructions
+out of 2.76 T — the win is entirely intact, and the ruling costs
+nothing but a better-founded attribute.  Peak RSS 928.2 MB (the
+`implemented_by` build's 931.5, within run-to-run variation); exit 0,
+61 048 declarations accepted.
 
 Verified in the compiled IR (`.lake/build/ir/Setlec/Kernel/Expr.c`):
 `beqB`'s five per-node `Name` comparisons are each now
@@ -40546,12 +40584,13 @@ proofs that unfolded `isEquiv` (`isEquiv_sound'`, `isEquiv_cascade`,
 (`isEquivLM_run_ptr`).
 
 **(ii) The module system hides `withPtrEq` from the kernel** — §1 item
-2.  Recorded because it constrains every future pointer-first site in
-this tree: the pure body of anything the kernel may have to *reduce*
-must stay `withPtrEq`-free, and the pointer test goes in an
-`@[implemented_by]` twin proved equal to it.  This is a strictly better
-discipline than `Expr.beqFast`'s and is the recommended pattern for the
-remaining sites.
+2.  Recorded because it fixes the pattern for every future
+pointer-first site in this tree: the pure body of anything the kernel
+may have to *reduce* must stay `withPtrEq`-free, and the pointer test
+goes in a **`@[csimp]`** twin proved equal to it — never an
+`@[implemented_by]` one (user ruling, §1).  That pattern is strictly
+better than `Expr.beqFast`'s, which is an unchecked promise, and it is
+what P1b and any successor should use.
 
 ### 4. WHAT IS LEFT
 
@@ -40584,7 +40623,10 @@ pinned.  `#print axioms` on
 `[propext, Classical.choice, Quot.sound]` for all three, unchanged.
 
 Three commits, one per item, so the attribution above is reproducible:
-P3 (cached hashes), P1 (`Name`), P2 (`Level` + the disjunct).
+P3 (cached hashes), P1 (`Name`), P2 (`Level` + the disjunct); plus the
+`csimp` conversion on `agent/ptreq-csimp`, whose own receipts are the
+same battery, the generated-C diff quoted in §1, and a re-run of the
+decisive A/B row to confirm the win survived the attribute change.
 Measurement artifacts: `_tmp/ptreq-land/` — `baseline/setlec` (the
 snapshot), `p3/setlec`, `p3p1-setlec`, `p3p1p2-setlec`, `one.sh`,
 `rows/*.tsv`.
