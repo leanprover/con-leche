@@ -40482,19 +40482,37 @@ Per-item, on the decisive stream: **P3 −2.68 %, P1 −3.06 %, P2
 is the conformance row in §3, and the user's grant said so ("even if
 the effect is small").
 
-**The size cost the user was wary about.**  One `UInt64` per distinct
-`Name` and `Level` object.  Nullary constructors (`Name.anonymous`,
-`Level.zero`) do not pay it per occurrence — Lean allocates a shared
-singleton for a computed-field inductive's nullary constructors.  The
-measured cost is **+0.9 % peak RSS on `init-full`** (+8 MB on 924 MB),
-the name-heaviest stream in the suite (61 048 declarations, so the
-largest name and level tables); on the two DAG-stress streams it is
-**flat within ±0.1 %**, because their memory is `Expr` nodes and memo
-tables, not names.  The reference is the task-#167 packing batch's
-figures on the same streams (`init-full` 931 MB, `app-lam` 2788 MB) —
-the deltas here are one to two orders of magnitude smaller than that
-batch's **−47 %**, so P3 gives back about 2 % of what #167 won on
-`init-full` and nothing at all on `app-lam`.
+**The size cost the user was wary about — measured twice, and the
+second measurement is the honest one.**  The cost in principle is one
+`UInt64` per distinct `Name` and `Level` object.  Nullary constructors
+(`Name.anonymous`, `Level.zero`) do not pay it per occurrence — Lean
+allocates a shared singleton for a computed-field inductive's nullary
+constructors.
+
+The table above measures the **whole pipeline**, i.e. `time -v`'s
+maximum over the checker *and* the `lean-inductive-models` preprocessor
+child it spawns.  Repeating `init-full` in the **`--pre` lane**, where
+there is no child and the number is the checker's own heap:
+
+| variant | G instr | Δ | peak RSS (MB) | Δ |
+|---|---|---|---|---|
+| base | 2751.97 | — | 922.8 | — |
+| +P3 | 2673.55 | **−2.85 %** | 915.0 | **−0.85 %** |
+| +P3+P1+P2 | 2584.28 | **−6.09 %** | 915.5 | **−0.80 %** |
+
+**The checker's own peak RSS does not grow — it falls by 0.8 %.**  The
++0.9 % in the raw lane is the two-process maximum moving to the
+preprocessor child's peak (an untouched separate program) once the
+checker's own peak dropped below it; it is not extra bytes in the
+checker's heap.  On the two DAG-stress streams the whole-pipeline
+figure is flat within ±0.1 % anyway, because their memory is `Expr`
+nodes and memo tables, not names.  Reference point: the task-#167
+packing batch's figures on the same streams (`init-full` 931 MB,
+`app-lam` 2788 MB) and its **−47 %** on `app-lam` — nothing here gives
+any of that back.
+
+The `--pre` lane also shows the instruction win undiluted by the
+child's work: **−6.1 %** of what the checker itself executes.
 
 ### 3. FINDINGS (restrictions-are-findings)
 
@@ -40559,3 +40577,6 @@ pinned.  `#print axioms` on
 
 Three commits, one per item, so the attribution above is reproducible:
 P3 (cached hashes), P1 (`Name`), P2 (`Level` + the disjunct).
+Measurement artifacts: `_tmp/ptreq-land/` — `baseline/setlec` (the
+snapshot), `p3/setlec`, `p3p1-setlec`, `p3p1p2-setlec`, `one.sh`,
+`rows/*.tsv`.
