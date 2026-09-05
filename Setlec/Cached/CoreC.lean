@@ -1170,6 +1170,8 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       match fe.find? nm with
       | none => throw (.invalid s!"unknown constant {nm}")
       | some ci =>
+        unless !ci.isTowerEntry do
+          throw (.invalid s!"projection table entry used as a constant {nm}")
         let cv := ci.toConstantVal
         unless us.length = cv.levelParams.length do
           throw (.invalid s!"incorrect number of universe levels for {nm}")

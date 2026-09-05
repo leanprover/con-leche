@@ -137,7 +137,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
       -- as the inner block's `TVa` does below
       intro ρ zs TVa restR hzl hzok hTVa hfit
       obtain ⟨TVa', hTVa', -, -⟩ :=
-        mp.constTypeP 0 n _ us hfE (by exact hlen)
+        mp.constTypeP 0 n _ us hfE rfl (by exact hlen)
       obtain rfl : TVa' = TVa := by
         refine Option.some.inj (Eq.trans ?_ hTVa)
         rw [hac]
@@ -163,7 +163,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     -- the two stored types: produced at the prefix, moved forward,
     -- identified with the given extension readings by determinism
     obtain ⟨TVa', hTVa', -, -⟩ :=
-      mp.constTypeP 0 n _ us hfE (by exact hlen)
+      mp.constTypeP 0 n _ us hfE rfl (by exact hlen)
     obtain rfl : TVa' = TVa := by
       refine Option.some.inj (Eq.trans ?_ hTVa)
       rw [hac]
@@ -172,7 +172,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
         (constsBound_instType mp.base2.wf
           (Setlec.SetR.Env.find?_mem hfE) us) hTVa').symm
     obtain ⟨TVja', hTVja', -, -⟩ :=
-      mp.constTypeP 0 (RecRule.ctor rl) _ usj hfcjE (by exact hujl)
+      mp.constTypeP 0 (RecRule.ctor rl) _ usj hfcjE rfl (by exact hujl)
     obtain rfl : TVja' = TVja := by
       refine Option.some.inj (Eq.trans ?_ hTVja)
       rw [hac]

@@ -1,4 +1,6 @@
 import Setlec.SetP.DirectStageEntryP
+import Setlec.SetP.DirectEntryFreeP
+import Setlec.SetBase.Bridge.ProjRed
 import Setlec.Verify.DirectPartsInv
 
 /-!
@@ -97,50 +99,89 @@ theorem foldStepP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
       exact nomatch hon
   · -- an installed slot
     obtain ⟨mp, hFD, hCD, hleafT, hleafC⟩ := hinv.carrier
-    -- the guard's content
+    -- the guard's content: the official join over the used earlier slots
     have hguardEq : (Setlec.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero
-        = (List.range k).foldl (fun acc j => Level.max acc (sorts.getD j .zero))
+        = (List.range k).foldl
+            (fun acc j => if Setlec.directUsedLater cvCa.type p.nP j then
+              Level.max acc (sorts.getD j .zero) else acc)
             (sorts.getD k .zero) := Setlec.directProjGuards_getD _ _ _ _ hk
     have hguardSem : ∀ ψ : Name → Nat,
         ((Setlec.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero).eval ψ = 0 →
-        ∀ j, j ≤ k → (sorts.getD j .zero).eval ψ = 0 := by
-      intro ψ h0 j hj
-      rw [hguardEq, eval_foldl_max_zero_iff ψ (fun j => sorts.getD j .zero)] at h0
-      rcases Nat.lt_or_eq_of_le hj with hlt | rfl
-      · exact h0.2 j (List.mem_range.mpr hlt)
-      · exact h0.1
+        (sorts.getD k .zero).eval ψ = 0 ∧
+        ∀ j, j < k → Setlec.directUsedLater cvCa.type p.nP j = true →
+          (sorts.getD j .zero).eval ψ = 0 := by
+      intro ψ h0
+      rw [hguardEq, eval_foldl_max_if_zero_iff ψ (Setlec.directUsedLater cvCa.type p.nP)
+        (fun j => sorts.getD j .zero)] at h0
+      exact ⟨h0.1, fun j hj hu => h0.2 j (List.mem_range.mpr hj) hu⟩
     have hguardOf : ∀ ψ : Name → Nat, (∀ j, j ≤ k → (sorts.getD j .zero).eval ψ = 0) →
         ((Setlec.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero).eval ψ = 0 := by
       intro ψ hall
-      rw [hguardEq, eval_foldl_max_zero_iff ψ (fun j => sorts.getD j .zero)]
-      exact ⟨hall k (Nat.le_refl _), fun j hj => hall j (Nat.le_of_lt (List.mem_range.mp hj))⟩
+      rw [hguardEq, eval_foldl_max_if_zero_iff ψ (Setlec.directUsedLater cvCa.type p.nP)
+        (fun j => sorts.getD j .zero)]
+      exact ⟨hall k (Nat.le_refl _), fun j hj _ => hall j (Nat.le_of_lt (List.mem_range.mp hj))⟩
     have hsortD : ∀ j, j < p.nF → ∃ u, sorts.getD j .zero = u ∧
-        (p.isProp = false → Level.leq u p.resSort = some true) ∧
-        (p.isProp = true → p.large = true → (Level.isEquiv u .zero == some true) = true) := by
+        (p.isProp = false → Level.leq u p.resSort = some true) := by
       intro j hj
-      obtain ⟨-, -, u, -, hu, -, -, hleq, hz⟩ := hsortsAll j hj
-      exact ⟨u, by rw [List.getD_eq_getElem?_getD, hu]; rfl, hleq, hz⟩
+      obtain ⟨-, -, u, -, hu, -, -, hleq, -⟩ := hsortsAll j hj
+      exact ⟨u, by rw [List.getD_eq_getElem?_getD, hu]; rfl, hleq⟩
     have hO5 : (Level.isEquiv p.resSort .zero == some true) = false →
         ∀ ψ : Name → Nat, p.resSort.eval ψ = 0 →
         ((Setlec.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero).eval ψ = 0 := by
       intro hne ψ h0
       refine hguardOf ψ fun j hj => ?_
-      obtain ⟨u, hu, hleq, -⟩ := hsortD j (by omega)
+      obtain ⟨u, hu, hleq⟩ := hsortD j (by omega)
       rw [hu]
       have := Level.leq_sound (hleq (by rw [hProp]; exact hne)) ψ
       omega
-    have hguardOrFirst : ∀ ψ : Name → Nat, p.resSort.eval ψ = 0 →
-        ((Setlec.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero).eval ψ = 0 ∨ k = 0 := by
-      intro ψ h0
-      rcases Setlec.directProjSlots_first hk hon with hp | hl | hk0
-      · exact Or.inl (hO5 (by rw [← hProp]; exact hp) ψ h0)
-      · cases hp : p.isProp
-        · exact Or.inl (hO5 (by rw [← hProp]; exact hp) ψ h0)
-        · refine Or.inl (hguardOf ψ fun j hj => ?_)
-          obtain ⟨u, hu, -, hz⟩ := hsortD j (by omega)
-          rw [hu]
-          exact Level.isEquiv_sound (beq_iff_eq.mp (hz hp hl)) ψ
-      · exact Or.inr hk0
+    -- the unused earlier fields are free in the projected field's type
+    have hCf : cvCa.type.hasFvar = false := (hinv.wf _ (Setlec.SetR.Env.find?_mem hinv.findC)).1
+    obtain ⟨fvsA, oA, hopAll⟩ := openPisAtFvars_of_stripPis_isSome (p.nP + p.nF) 0 hstripC
+    have hlenA : fvsA.length = p.nP + p.nF := openPisAtFvars_length _ hopAll
+    have hfree : ∀ (ψ : Name → Nat) (j : Nat), j < k →
+        Setlec.directUsedLater cvCa.type p.nP j = false →
+        ∃ X : AVExpr, (((ds ψ).drop p.nP).map (·.2.2)).getD k default = X.liftN 1 (k - 1 - j) := by
+      intro ψ j hj hun
+      have hsome : (cvCa.type.stripPis (p.nP + j + 1)).isSome = true :=
+        Setlec.SetR.stripPis_le (by omega) hstripC
+      obtain ⟨⟨bs, rest⟩, hst⟩ := Option.isSome_iff_exists.mp hsome
+      have hrest : rest.hasLooseBVar 0 = false := by
+        unfold Setlec.directUsedLater at hun
+        rw [hst] at hun
+        exact hun
+      obtain ⟨hleavesK, -⟩ := openPisAtFvars_leaf_free (p.nP + p.nF) (p.nP + j) hopAll (by omega)
+        hst hrest (by
+          intro l hl
+          rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hCf] at hl
+          exact absurd hl List.not_mem_nil)
+      obtain ⟨pps, b, hstA, -, -, hbind⟩ := denoteP_openPis (p.nP + p.nF) hopAll (hCD.read ψ)
+      have hppsEq : pps = ds ψ := by
+        have h2 := stripPisAV_mkPisAV (ds ψ) (ctorBodyAV mp.base2 p.cvT.name p.nP p.nF ψ)
+        rw [hCD.len ψ] at h2
+        exact (Prod.mk.inj (Option.some.inj (hstA.symm.trans h2))).1
+      obtain ⟨x, hx⟩ : ∃ x, fvsA[p.nP + k]? = some x :=
+        ⟨fvsA[p.nP + k]'(by rw [hlenA]; omega), List.getElem?_eq_getElem (by rw [hlenA]; omega)⟩
+      obtain ⟨q, hq, -, hqread⟩ := hbind (p.nP + k) x hx
+      rw [hppsEq] at hq
+      have hW : Expr.WScoped (0 + (p.nP + k)) (Expr.fvarTypeD x) :=
+        openPisAtFvars_typeWScoped (p.nP + p.nF) hopAll (Expr.WScoped.of_not_hasFvar hCf) _ x hx
+      have hleaf : ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, l.1 ≠ p.nP + j := by
+        intro l hl
+        have hsub : l ∈ x.fvarLeaves := by
+          cases x with
+          | fvar idx nm ty =>
+            simp only [Expr.fvarLeaves, Expr.fvarTypeD] at hl ⊢
+            exact List.mem_cons_of_mem _ hl
+          | _ => exact hl
+        have := hleavesK (p.nP + k) (by omega) x hx l hsub
+        simpa using this
+      obtain ⟨X, hX⟩ := denoteP_liftN_of_leaf_free mp.base2 (0 + (p.nP + k)) (Expr.fvarTypeD x) hW
+        (q := p.nP + j) (by omega) (by intro l hl; exact hleaf l hl) hqread
+      refine ⟨X, ?_⟩
+      have hFk : (((ds ψ).drop p.nP).map (·.2.2)).getD k default = q.2.2 := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_drop, hq]
+        rfl
+      rw [hFk, hX, show 0 + (p.nP + k) - 1 - (p.nP + j) = k - 1 - j from by omega]
     have hprev : ∀ j, j < k →
         ∃ entry, env.findProj? p.cvT.name j = some entry ∧ entry.tower = true :=
       fun j hj => hinv.prev j hj (Setlec.directProjSlots_prefix hj hk hon)
@@ -149,8 +190,8 @@ theorem foldStepP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
     obtain ⟨hnf, -, ptyA, hann, -, hcr, -, -, -, -, -, -, henv'⟩ :=
       Setlec.checkDirectProjEntry_shape hEntry
     obtain ⟨A, mp', hac⟩ := stageEntry hμ mp hEntry hwf' hinv.findT hlpsT hinv.findC hlpsC hstripC
-      hProp hTshape hCshape hresT hresR hresC hk hguardSem hO5 hguardOrFirst
-      (hinv.noProj k (Nat.le_refl _) hk) hprev hFD hCD hleafT hleafC hiff hfields
+      hProp hTshape hCshape hresT hresR hresC hk hguardSem hO5
+      (hinv.noProj k (Nat.le_refl _) hk) hprev hfree hFD hCD hleafT hleafC hiff hfields
     subst henv'
     let entry : ProjEntry := ⟨p.cvT.name, k, p.cvT.levelParams, p.nP, p.cvC.name,
       p.nF, ptyA, (Setlec.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero, p.resSort,

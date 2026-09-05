@@ -2164,6 +2164,7 @@ private theorem infer_step (henv : EnvWF env)
     | some ci =>
       dsimp only
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       have hty : (ci.toConstantVal.type.instantiateLevelParams
           ci.toConstantVal.levelParams us).hasFvar = false := by
         rw [hasFvar_instantiateLevelParams]
@@ -2421,6 +2422,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
     | none => rfl
     | some ci =>
       dsimp only
+      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       have hty : (ci.toConstantVal.type.instantiateLevelParams
           ci.toConstantVal.levelParams us).hasFvar = false := by

@@ -145,7 +145,13 @@ theorem squash_pt_mem {nP nF i : Nat} {ds : List (Nat × Nat × AVExpr)} {sorts 
 
 /-! ## The cons -/
 
-/-- **The P step at a tower entry's cons.** -/
+/-- **The P step at a tower entry's cons.**  The entry's leaf is the
+point: a table entry is not a term (`inferTypeCore` rejects a `.const`
+naming it), so the carrier owes it no membership
+(`EnvS2PM.mem_typeP`'s guard) — its type is read and graded, and its
+law is the three clauses over the frames (`entryTypingCore`,
+`entryIotaCore`, `entryEtaCore`).  The typing law's squash case rides
+the official guard and the unused fields' invariance (`hfree`). -/
 theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
     {F i : Nat} {p : DirectParts} {cvTa cvCa : ConstantVal} {sorts : List Level}
     {guard : Level} {pty : Expr} {envOut : Env}
@@ -165,13 +171,17 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
     (hresC : Setlec.reservedBasisNames.contains p.cvC.name = false)
     (hi : i < p.nF)
     (hguardSem : ∀ ψ : Name → Nat, guard.eval ψ = 0 →
-      ∀ j, j ≤ i → (sorts.getD j .zero).eval ψ = 0)
+      (sorts.getD i .zero).eval ψ = 0 ∧
+      ∀ j, j < i → Setlec.directUsedLater cvCa.type p.nP j = true →
+        (sorts.getD j .zero).eval ψ = 0)
     (hO5 : (Level.isEquiv p.resSort .zero == some true) = false →
       ∀ ψ : Name → Nat, p.resSort.eval ψ = 0 → guard.eval ψ = 0)
-    (hguardOrFirst : ∀ ψ : Name → Nat, p.resSort.eval ψ = 0 → guard.eval ψ = 0 ∨ i = 0)
     (hnp : NoProjEnv env p.cvT.name i)
     (hprev : ∀ j, j < i → ∃ entry, env.findProj? p.cvT.name j = some entry ∧ entry.tower = true)
     {pps ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
+    (hfree : ∀ (ψ : Name → Nat) (j : Nat), j < i →
+      Setlec.directUsedLater cvCa.type p.nP j = false →
+      ∃ X : AVExpr, (((ds ψ).drop p.nP).map (·.2.2)).getD i default = X.liftN 1 (i - 1 - j))
     (hFD : FormerData mp.base2 cvTa p.nP p.resSort pps)
     (hCD : CtorData mp.base2 p.cvT.name cvCa p.nP p.nF p.resSort ds)
     (hleafT : ∀ ψ, mp.base2.acval p.cvT.name ψ
@@ -196,7 +206,7 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
     ∃ (A : (Name → Nat) → AVExpr) (mp' : EnvS2PM V μ envOut),
       mp'.base2.acval = acvalWith mp.base2.acval (projFnName p.cvT.name i) A := by
   -- the stage's shape
-  obtain ⟨hnf, -, ptyA, hann, hlpd, hcr, hb, hnfA, -, ⟨sty, u, hinf, hens⟩, hfresh,
+  obtain ⟨hnf, -, ptyA, hann, hlpd, hcr, hb, hnfA, hstripE, ⟨sty, u, hinf, hens⟩, hfresh,
     ⟨fvsP, prest, sbs, sbody, sdom, tFvs, resid, tfv, cdomsP, crestP, cds, nmC, fdom, bodyC, mbC,
       hopP, hsb, hsd, hsdeq, hopT, htfv, hci, hdoms, hcf, hrdeq⟩, rfl⟩ :=
     Setlec.checkDirectProjEntry_shape hEntry
@@ -264,109 +274,8 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   have hcbC : ConstsBound env cvCa.type :=
     constsBound_of_constsResolve _ (mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfC)).2.2.1
   have hcbE : ConstsBound env ptyA := constsBound_of_constsResolve _ hcr
-  -- the leaf
-  let Γe : (Name → Nat) → List AVExpr := fun ψ => ((eds ψ).map (·.2.2)).reverse
-  let m : (Name → Nat) → Nat := fun ψ => ((eds ψ).getD 0 default).2.1
-  let body : (Name → Nat) → AVExpr := fun ψ => entryBody (resLevel V (Γe ψ) (R ψ)) (R ψ)
-  let A : (Name → Nat) → AVExpr := fun ψ => mkLamsC (m ψ) (eds ψ) (body ψ)
-  have hlenFs : ∀ ψ, ((((ds ψ).drop p.nP).map (·.2.2))).length = p.nF := by
-    intro ψ; simp [hCD.len ψ]
-  have hlenΓ : ∀ ψ, (Γe ψ).length = p.nP + 1 := by intro ψ; simp [Γe, hED.len ψ]
-  have hz : ∀ ψ, ∀ d ∈ eds ψ, (m ψ = 0 ↔ d.2.1 = 0) := by
-    intro ψ d hd
-    have h0 : (eds ψ).getD 0 default ∈ eds ψ :=
-      Setlec.getD_mem (by rw [hED.len ψ]; omega)
-    show ((eds ψ).getD 0 default).2.1 = 0 ↔ d.2.1 = 0
-    rw [hED.bits ψ _ h0, hED.bits ψ d hd]
-  -- the residual is inhabited at every satisfying frame
-  have hne : ∀ (ψ : Name → Nat) (ρ : Nat → V), Sat2 V (Γe ψ) ρ →
-      ∃ y, y ∈ˢ interp2 V ρ (R ψ) := by
-    intro ψ ρ hρ
-    obtain ⟨hiffP, hsubj, hres⟩ := hframes ψ
-    have hsplit : Γe ψ = (Γe ψ).getD 0 default :: (Γe ψ).drop 1 := by
-      have := drop_succ_eq_getD_cons (Γ := Γe ψ) (n := p.nP + 1) (i := p.nP) (hlenΓ ψ)
-        (by omega)
-      rwa [Nat.sub_self, List.drop_zero, show p.nP + 1 - 1 - p.nP = 0 from by omega,
-        show p.nP + 1 - p.nP = 1 from by omega] at this
-    have hρ' := hρ
-    rw [hsplit] at hρ'
-    obtain ⟨hx, ht⟩ := Sat2_cons_inv hρ'
-    have hsat := (hiffP p.nP (Nat.le_refl _) _).mp (by
-      rw [show p.nP + 1 - p.nP = 1 from by omega]; exact ht)
-    rw [Nat.sub_self, List.drop_zero] at hsat
-    rw [hsubj _ ht] at hx
-    have hguard' : p.resSort.eval ψ = 0 → ∀ j, j < i → (sorts.getD j .zero).eval ψ = 0 := by
-      intro h0 j hj
-      rcases hguardOrFirst ψ h0 with hg | hi0
-      · exact hguardSem ψ hg j (Nat.le_of_lt hj)
-      · omega
-    rw [hres hguard' ρ hρ]
-    by_cases hw : p.resSort.eval ψ = 0
-    · rw [hw] at hx
-      obtain ⟨hpt, as', hfits⟩ := towerSet_zero_elim _ hx
-      have hspAs := fitsS_teleOfFields.mp hfits
-      rcases hguardOrFirst ψ hw with hg | hi0
-      · refine ⟨pt, ?_⟩
-        rw [hpt, projList_pt]
-        exact squash_pt_mem (hCD.len ψ) hi (hsorts ψ _ hsat) (hguardSem ψ hg) hspAs
-      · subst hi0
-        refine ⟨as'.getD 0 pt, ?_⟩
-        rw [hpt, projList_pt]
-        have := (spineFit_prefix_next hspAs (by rw [hlenFs]; exact hi)).2
-        simpa using this
-    · refine ⟨projS i (ρ 0), ?_⟩
-      have h := projS_mem_teleOfFields (fun h0 => absurd h0 hw) hx (i := i) (by rw [hlenFs]; exact hi)
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenFs]; exact hi)]
-      exact h
-  have hlev : ∀ (ψ : Name → Nat) (ρ : Nat → V), Sat2 V (Γe ψ) ρ →
-      interp2 V ρ (R ψ) ∈ˢ (univ (resLevel V (Γe ψ) (R ψ)) : V) :=
-    fun ψ => resLevel_spec ⟨vb.eval ψ, hED.resSort ψ⟩
-  have hbase : ∀ (ψ : Name → Nat) (ρ : Nat → V), Sat2 V (Γe ψ) ρ →
-      UnderTowerOk (m ψ) ρ (body ψ) (R ψ) [] ∧ UnderTowerValid ρ (body ψ) [] := by
-    intro ψ ρ hρ
-    obtain ⟨h1, h2, h3⟩ := entryBody_ok ((hED.opened ψ).okR ρ hρ) (hlev ψ ρ hρ) (hne ψ ρ hρ)
-    refine ⟨⟨h1, h3, fun h0 => ?_⟩, h2⟩
-    have hm : ((eds ψ).getD 0 default).2.1 = 0 := h0
-    rw [hED.bits ψ _ (Setlec.getD_mem (by rw [hED.len ψ]; omega))] at hm
-    have := hED.resSort ψ ρ hρ
-    rw [hm] at this
-    rwa [← univ_zero]
-  -- the walks
-  have hwalks : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      UnderTowerOk (m ψ) ρ (body ψ) (R ψ) (eds ψ) ∧ UnderTowerValid ρ (body ψ) (eds ψ) := by
-    intro ψ ρ
-    have hR := hED.opened ψ
-    have hent : ∀ i', i' < p.nP + 1 → ∃ q, (eds ψ)[i']? = some q ∧
-        q.2.2 = (Γe ψ).getD (p.nP + 1 - 1 - i') default := by
-      intro i' hi'
-      have hil : i' < (eds ψ).length := by rw [hED.len ψ]; exact hi'
-      exact ⟨_, List.getElem?_eq_getElem hil,
-        by rw [getD_reverse_of_peel (hED.len ψ) hi' (List.getElem?_eq_getElem hil)]⟩
-    have hnil : Sat2 V ((Γe ψ).drop (p.nP + 1 - 0)) ρ := by
-      rw [Nat.sub_zero, List.drop_eq_nil_of_le (by rw [hlenΓ ψ]; exact Nat.le_refl _)]
-      exact Sat2_nil V ρ
-    constructor
-    · have hw := hereditaryWalk (V := V)
-        (Q := fun ρ ds' => UnderTowerOk (m ψ) ρ (body ψ) (R ψ) ds')
-        (hlenΓ ψ) (hED.len ψ) hent hR.okΓ (fun ρ hρ => (hbase ψ ρ hρ).1)
-        (fun ρ d ds' _ hok hrec => ⟨hok.1, hrec⟩) 0 (Nat.zero_le _) ρ hnil
-      rw [List.drop_zero] at hw
-      exact hw
-    · have hw := hereditaryWalk (V := V)
-        (Q := fun ρ ds' => UnderTowerValid ρ (body ψ) ds')
-        (hlenΓ ψ) (hED.len ψ) hent hR.okΓ (fun ρ hρ => (hbase ψ ρ hρ).2)
-        (fun ρ d ds' _ hok hrec => ⟨hok.2, hrec⟩) 0 (Nat.zero_le _) ρ hnil
-      rw [List.drop_zero] at hw
-      exact hw
-  have hleaf : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      AnnotOkP V ρ (A ψ) ∧ interp2 V ρ (A ψ) ∈ˢ interp2 V ρ (mkPisAV (eds ψ) (R ψ)) :=
-    fun ψ ρ => ⟨⟨mkLamsC_ok2 (hz ψ) (hwalks ψ ρ).1, mkLamsC_validV (hwalks ψ ρ).2⟩,
-      mkLamsC_mem (hz ψ) (hwalks ψ ρ).1⟩
-  have hAbelow : ∀ ψ, VExpr.bvarsBelow 0 (A ψ).erase := fun ψ =>
-    mkLamsC_below (hED.below ψ) (by
-      rw [Nat.zero_add, hED.len ψ]
-      exact entryBody_below (bvarsBelow_of_reading (hED.opened ψ).bodyScoped.1
-        (hED.opened ψ).bodyScoped.2.1 (hED.opened ψ).body))
+  -- the leaf: the point
+  let A : (Name → Nat) → AVExpr := fun _ => .prf
   -- the reading at the extension
   have hreadE : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval (ConstantInfo.projInfo entry).name A)
@@ -381,27 +290,15 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
     rw [Setlec.Env.find?_cons, if_neg (fun h => hneC h.symm)]
     exact hfC
   refine ⟨A, ?_⟩
-  refine declStepPM_of_tower_cons mp (entry := entry) (A := A) hfresh hnres rfl hwf hAbelow hnp
+  refine declStepPM_of_tower_cons mp (entry := entry) (A := A) hfresh hnres rfl hwf
+    (fun _ => trivial) hnp
     ⟨rfl, hresT, hresR, hresC, hi, ⟨cvTa, Setlec.directCaps p, hfT₂, hlpsT⟩,
-      cvCa, hfC₂, hlpsC, hstripC⟩
-    (fun ψ k => AVExpr.liftN_eq_self _
-      (VExpr.bvarsBelow.mono (Nat.zero_le k) (hAbelow ψ)) 1)
-    ?_ (fun ψ ρ => (hleaf ψ ρ).1.1) (fun ψ ρ => (hleaf ψ ρ).1.2)
-    (fun ψ => ⟨_, hreadE ψ⟩) ?_ ?_ ?_
-  · -- level dependence
-    intro ψ₁ ψ₂ hφ
-    obtain ⟨h1, h2⟩ := hED.params ψ₁ ψ₂ hφ
-    show mkLamsC (((eds ψ₁).getD 0 default).2.1) (eds ψ₁)
-        (entryBody (resLevel V (((eds ψ₁).map (·.2.2)).reverse) (R ψ₁)) (R ψ₁))
-      = mkLamsC (((eds ψ₂).getD 0 default).2.1) (eds ψ₂)
-        (entryBody (resLevel V (((eds ψ₂).map (·.2.2)).reverse) (R ψ₂)) (R ψ₂))
-    rw [h1, h2]
+      ⟨cvCa, hfC₂, hlpsC, hstripC⟩, hstripE⟩
+    (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ => trivial) (fun _ _ => trivial)
+    (fun ψ => ⟨_, hreadE ψ⟩) ?_ ?_
   · intro ψ ta hta ρ
     obtain rfl := Option.some.inj ((hreadE ψ).symm.trans hta)
     exact hED.okTy ψ ρ
-  · intro ψ ta hta ρ
-    obtain rfl := Option.some.inj ((hreadE ψ).symm.trans hta)
-    exact (hleaf ψ ρ).2
   · -- the entry's law
     intro m₂ hac φ
     have hacT : ∀ ψ, m₂.acval p.cvT.name ψ = mp.base2.acval p.cvT.name ψ := by
@@ -436,7 +333,9 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       · -- (A)
         intro hguardAt ρ vs x rest hlenVs hokApp hokx hmem hpeel
         have hguard' : p.resSort.eval (Level.substFn φ p.cvT.levelParams us) = 0 →
-            ∀ j, j ≤ i → (sorts.getD j .zero).eval (Level.substFn φ p.cvT.levelParams us) = 0 :=
+            (sorts.getD i .zero).eval (Level.substFn φ p.cvT.levelParams us) = 0 ∧
+            ∀ j, j < i → Setlec.directUsedLater cvCa.type p.nP j = true →
+              (sorts.getD j .zero).eval (Level.substFn φ p.cvT.levelParams us) = 0 :=
           fun h0 => hguardSem _ (hguardAt h0)
         obtain ⟨hiffP, hsubj, hres⟩ := hframes (Level.substFn φ p.cvT.levelParams us)
         have hacT' : m₂.acval p.cvT.name (Level.substFn φ p.cvT.levelParams us)
@@ -446,9 +345,10 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
           rw [hacT, hleafT]
         rw [hacT'] at hokApp hmem
         exact entryTypingCore (hCD.len _) (hFD.len _) (hED.len _) (hpok _) (hiff _) (hbound _)
-          (hsorts _) hguard' hi hiffP hsubj
-          (hres fun h0 j hj => hguard' h0 j (Nat.le_of_lt hj)) (hED.opened _).okR
-          ρ vs x rest hlenVs hokApp hokx hmem hpeel
+          (hsorts _) (used := Setlec.directUsedLater cvCa.type p.nP) hguard' (hfree _) hi
+          hiffP hsubj
+          (hres (Setlec.directUsedLater cvCa.type p.nP) (fun h0 => (hguard' h0).2) (hfree _))
+          (hED.opened _).okR ρ vs x rest hlenVs hokApp hokx hmem hpeel
       · -- (B)
         intro hpos ρ ys hlen hok
         have hw : p.resSort.eval (Level.substFn φ p.cvT.levelParams us) ≠ 0 := hpos

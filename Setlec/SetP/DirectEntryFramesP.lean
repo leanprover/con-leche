@@ -1,4 +1,4 @@
-import Setlec.SetP.DirectEntryKit2P
+import Setlec.SetP.DirectEntryFreeP
 
 /-!
 # The projection entry's frames (task #175 W4c, P3 module 7, part 4)
@@ -93,7 +93,11 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       (∀ ρ : Nat → V, Sat2 V ((((eds ψ).map (·.2.2)).reverse).drop 1) ρ →
         interp2 V ρ ((((eds ψ).map (·.2.2)).reverse).getD 0 default)
           = towerSet (resSort.eval ψ) (teleOfFields ρ (((ds ψ).drop nP).map (·.2.2)))) ∧
-      ((resSort.eval ψ = 0 → ∀ j, j < i → (sorts.getD j .zero).eval ψ = 0) →
+      (∀ used : Nat → Bool,
+        (resSort.eval ψ = 0 → ∀ j, j < i → used j = true →
+          (sorts.getD j .zero).eval ψ = 0) →
+        (∀ j, j < i → used j = false →
+          ∃ X : AVExpr, (((ds ψ).drop nP).map (·.2.2)).getD i default = X.liftN 1 (i - 1 - j)) →
         ∀ ρ : Nat → V, Sat2 V (((eds ψ).map (·.2.2)).reverse) ρ →
           interp2 V ρ (R ψ)
             = interp2 V (consList (projList i (ρ 0)) (fun j => ρ (j + 1)))
@@ -174,7 +178,7 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
     rw [heq ρ hρ, (hrow ρ hρ).2]
   refine ⟨hiffP, hsubj, ?_⟩
   -- (3) the residual
-  intro hguard
+  intro used hguard hfree
   -- the frame's split
   have hsplitΓ : ((eds ψ).map (·.2.2)).reverse
       = (((eds ψ).map (·.2.2)).reverse).getD 0 default
@@ -333,37 +337,32 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
     have := DomsBelow.getD_below (nP + i) (hCD.below ψ) (by omega)
     rwa [Nat.zero_add] at this
   have hlenFs : (((ds ψ).drop nP).map (·.2.2)).length = nF := by simp [hlenDs]
-  -- the projection spine fits the earlier fields at every satisfying frame
-  have hfit : ∀ ρ : Nat → V, Sat2 V (((eds ψ).map (·.2.2)).reverse) ρ →
-      SpineFit (fun j => ρ (j + 1)) ((((ds ψ).drop nP).map (·.2.2)).take i)
-        (projList i (ρ 0)) := by
+  -- the field's grading at the subject's projection spine, at every
+  -- satisfying frame: in the graph regime the projections fit; at a
+  -- squash instance they are the point spine, which differs from a
+  -- fitting prefix only at unused slots, where the field is a lift
+  have hokPre : ∀ ρ : Nat → V, Sat2 V (((eds ψ).map (·.2.2)).reverse) ρ →
+      AnnotOkP V (consList (projList i (ρ 0)) (fun j => ρ (j + 1)))
+        ((((ds ψ).drop nP).map (·.2.2)).getD i default) := by
     intro ρ hρ
     obtain ⟨hx, hsat⟩ := hframe ρ hρ
     by_cases hw : resSort.eval ψ = 0
-    · -- squash: the point spine, fitting the proof fields
-      rw [hw] at hx
-      obtain ⟨hpt, as, hfits⟩ := towerSet_zero_elim _ hx
+    · rw [hw] at hx
+      obtain ⟨hpt, as', hfits⟩ := towerSet_zero_elim _ hx
       have hspAs := fitsS_teleOfFields.mp hfits
       obtain ⟨hpre, -⟩ := spineFit_prefix_next hspAs (by rw [hlenFs]; exact hi)
-      have hrep : as.take i = List.replicate i pt := by
-        have := spineFit_eq_replicate_pt hpre ?_
-        · rwa [List.length_take, hlenFs, show min i nF = i from by omega] at this
-        intro j hj bs hbs
-        rw [List.length_take, hlenFs] at hj
-        rw [List.take_take, show min j i = j from by omega] at hbs
-        have hjF : j < nF := by omega
-        have := hsorts ψ _ hsat j hjF bs hbs
-        rw [hguard hw j (by omega)] at this
-        rw [List.getD_eq_getElem?_getD, List.getElem?_take_of_lt (by omega),
-          ← List.getD_eq_getElem?_getD]
-        exact this
-      rw [hpt, projList_pt, ← hrep]
-      exact hpre
-    · -- graph: the projections fit
-      obtain ⟨hspAll, -⟩ := towerSet_elim_teleOfFields hw hx
+      rw [hpt, projList_pt]
+      have hlenTake : (as'.take i).length = i := spineFit_take_length hspAs (by rw [hlenFs]; omega)
+      rw [annotOkP_congr_lifts i
+        (free_of_diff (hCD.len ψ) hi (hsorts ψ _ hsat) (hguard hw) hfree hspAs)
+        (consList_prefix_agree hlenTake _).2]
+      exact ⟨fieldsOkB_getD (hokB ψ _ hsat).1 (by rw [hlenFs]; exact hi) hpre,
+        fieldsValid_getD (hokB ψ _ hsat).2 (by rw [hlenFs]; exact hi) hpre⟩
+    · obtain ⟨hspAll, -⟩ := towerSet_elim_teleOfFields hw hx
       obtain ⟨hpre, -⟩ := spineFit_prefix_next hspAll (by rw [hlenFs]; exact hi)
       rw [hlenFs, projList_take nF i _ (Nat.le_of_lt hi)] at hpre
-      exact hpre
+      exact ⟨fieldsOkB_getD (hokB ψ _ hsat).1 (by rw [hlenFs]; exact hi) hpre,
+        fieldsValid_getD (hokB ψ _ hsat).2 (by rw [hlenFs]; exact hi) hpre⟩
   -- the readings' gradings at a satisfying frame
   have hokArgs : ∀ ρ : Nat → V, Sat2 V (((eds ψ).map (·.2.2)).reverse) ρ →
       ∀ w ∈ entryParamBvars nP ++ entryProjAVs i, AnnotOkP V ρ w := by
@@ -383,7 +382,6 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
           (by rw [hlenFs]; omega)
   have hokFd : ∀ ρ : Nat → V, Sat2 V (((eds ψ).map (·.2.2)).reverse) ρ → AnnotOkP V ρ fdomA := by
     intro ρ hρ
-    obtain ⟨-, hsat⟩ := hframe ρ hρ
     rw [hfdomA]
     have hlen' : (entryParamBvars nP ++ entryProjAVs i).length - 1 = nP + i - 1 := by
       rw [hlenVs]
@@ -391,8 +389,7 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
     refine annotOkP_instSeq _ (hokArgs ρ hρ) ?_
     rw [(AnnotOkP_congr_below _ (nP + i) _ _ hFiBelow (chainP_entry_agree nP i ρ))]
     rw [← hFi]
-    exact ⟨fieldsOkB_getD (hokB ψ _ hsat).1 (by rw [hlenFs]; exact hi) (hfit ρ hρ),
-      fieldsValid_getD (hokB ψ _ hsat).2 (by rw [hlenFs]; exact hi) (hfit ρ hρ)⟩
+    exact hokPre ρ hρ
   -- the residual pin, at the claims
   have hCres := hR.ctx (i := nP + 1) (Nat.le_refl _) hR.bodyScoped.1 hR.bodyScoped.2.2.2
   rw [Nat.sub_self, List.drop_zero] at hCres

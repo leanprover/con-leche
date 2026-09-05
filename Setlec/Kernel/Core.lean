@@ -1699,6 +1699,10 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       match env.find? n with
       | none => throw (.invalid s!"unknown constant {n}")
       | some ci =>
+        -- a tower-backed projection-table entry is not a term (task
+        -- #175 W4c): `.proj` nodes read it, no constant names it
+        unless !ci.isTowerEntry do
+          throw (.invalid s!"projection table entry used as a constant {n}")
         let cv := ci.toConstantVal
         unless us.length = cv.levelParams.length do
           throw (.invalid s!"incorrect number of universe levels for {n}")
@@ -1892,6 +1896,10 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       match env.find? n with
       | none => throw (.invalid s!"unknown constant {n}")
       | some ci =>
+        -- a tower-backed projection-table entry is not a term (task
+        -- #175 W4c): `.proj` nodes read it, no constant names it
+        unless !ci.isTowerEntry do
+          throw (.invalid s!"projection table entry used as a constant {n}")
         let cv := ci.toConstantVal
         unless us.length = cv.levelParams.length do
           throw (.invalid s!"incorrect number of universe levels for {n}")

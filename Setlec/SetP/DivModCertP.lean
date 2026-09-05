@@ -216,7 +216,7 @@ theorem dmUnV_of_parts (m : EnvS2Core V env) {ψ : Name → Nat}
 /-- **A stored pinned binary head, at the value level.** -/
 theorem dmBinV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     {o : Name} {cio : ConstantInfo}
-    (hf : env.find? o = some cio)
+    (hf : env.find? o = some cio) (hnt : cio.isTowerEntry = false)
     {n₁ n₂ : Name} {mb₁ mb₂ : Setlec.BinderMeta} {codN : Name}
     (hty : cio.toConstantVal.type
       = .forallE n₁ (.const Setlec.natName [])
@@ -239,14 +239,14 @@ theorem dmBinV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
             (mp.base2.acval codN ψ))) := by
     rw [hty]
     exact denoteP_pinnedBinTy mp.base2 ψ hfN hlpN hcodF hcodLp
-  have hmem := mp.mem_typeP _ hmemE ψ _ hta ρ
+  have hmem := mp.mem_typeP _ hmemE hnt ψ _ hta ρ
   rw [hnm] at hmem
   exact dmBinV_of_parts mp.base2 hmem (mp.type_okP _ hmemE ψ _ hta ρ)
 
 /-- **A stored pinned unary head, at the value level.** -/
 theorem dmUnV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     {o : Name} {cio : ConstantInfo}
-    (hf : env.find? o = some cio)
+    (hf : env.find? o = some cio) (hnt : cio.isTowerEntry = false)
     {n₁ : Name} {mb₁ : Setlec.BinderMeta} {codN : Name}
     (hty : cio.toConstantVal.type
       = .forallE n₁ (.const Setlec.natName []) (.const codN []) mb₁)
@@ -271,7 +271,7 @@ theorem dmUnV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
         (by simp [Setlec.Expr.looseBVarsBounded])]
     rw [denoteP_levelless_const hcodF hcodLp]
     rfl
-  have hmem := mp.mem_typeP _ hmemE ψ _ hta ρ
+  have hmem := mp.mem_typeP _ hmemE hnt ψ _ hta ρ
   rw [hnm] at hmem
   exact dmUnV_of_parts mp.base2 hmem (mp.type_okP _ hmemE ψ _ hta ρ)
 
@@ -1867,7 +1867,8 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         = some (.sort 1) := by
       rw [hty]
       exact denoteP_sort _ _ _
-    have h := mp.mem_typeP ci (Setlec.SetR.Env.find?_mem hf) ψ _ hta ρ
+    have h := mp.mem_typeP ci (Setlec.SetR.Env.find?_mem hf)
+      (mp.notTower_of_atom (Setlec.SetR.Env.find?_mem hf) (by rw [hty]; rfl)) ψ _ hta ρ
     rw [show ci.name = n from Setlec.SetR.Env.find?_name hf,
       interp2_sort] at h
     exact h
@@ -1883,7 +1884,8 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         = some (mp.base2.acval t ψ) := by
       rw [hty]
       exact denoteP_levelless_const hft hlpt
-    have h := mp.mem_typeP ci (Setlec.SetR.Env.find?_mem hf) ψ _ hta ρ
+    have h := mp.mem_typeP ci (Setlec.SetR.Env.find?_mem hf)
+      (mp.notTower_of_atom (Setlec.SetR.Env.find?_mem hf) (by rw [hty]; rfl)) ψ _ hta ρ
     rwa [show ci.name = n from Setlec.SetR.Env.find?_name hf] at h
   refine
     { eqStored := hdown _ _ hnE hEq2
@@ -1939,7 +1941,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     intro ρ
     rw [dmLeaf, show acvalWith mp.base2.acval c A Setlec.natBleName
       = mp.base2.acval Setlec.natBleName from acvalWith_ne hbleNe]
-    exact dmBinV_of_stored mp ψ hfble htyb hfN hlpN hfB hlpB ρ
+    exact dmBinV_of_stored mp ψ hfble rfl htyb hfN hlpN hfB hlpB ρ
   case binHead =>
     intro n hn ρ
     obtain ⟨hnd, hfilt⟩ := List.mem_filter.mp hn
@@ -1996,7 +1998,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
       subst hcodN
       rw [dmLeaf, show acvalWith mp.base2.acval c A n
         = mp.base2.acval n from acvalWith_ne hnc]
-      exact dmBinV_of_stored mp ψ hfn htyn hfN hlpN hfN hlpN ρ
+      exact dmBinV_of_stored mp ψ hfn rfl htyn hfN hlpN hfN hlpN ρ
   case unHead =>
     intro n hn ρ
     have hsuccCase : n = Setlec.natSuccName →
@@ -2006,7 +2008,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
       rintro rfl
       rw [dmLeaf, show acvalWith mp.base2.acval c A Setlec.natSuccName
         = mp.base2.acval Setlec.natSuccName from acvalWith_ne hnS]
-      exact dmUnV_of_stored mp ψ hfS htyS hfN hlpN hfN hlpN ρ
+      exact dmUnV_of_stored mp ψ hfS rfl htyS hfN hlpN hfN hlpN ρ
     unfold dmUnNames at hn
     split at hn
     · next hlog =>

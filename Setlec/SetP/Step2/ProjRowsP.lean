@@ -283,7 +283,7 @@ theorem psigmaMkSpineP {m : EnvS2Core V env}
     Setlec.inferTypeCoreIO_app_inv' htf2
   obtain ⟨tf0, n0, ty0, body0, mb0, htf0, hwq0, rfl, hd0⟩ :=
     Setlec.inferTypeCoreIO_app_inv' htf1
-  obtain ⟨ciMk, hfMk', rfl⟩ := Setlec.inferTypeCoreIO_const_inv htf0
+  obtain ⟨ciMk, hfMk', -, rfl⟩ := Setlec.inferTypeCoreIO_const_inv htf0
   obtain rfl : ciMk = Setlec.psigmaMkA :=
     Option.some.inj (hfMk'.symm.trans hfmk)
   obtain ⟨nα, nβ, nx, nf, ns, mbα, mbβ, mbf, mbs, mbx, hmbx,

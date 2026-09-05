@@ -200,7 +200,7 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     ⟨m.acval_ok2 _ _ σ, hval _ _ σ⟩
   -- the stored types' rows, from the `const` residue
   have head : ∀ (n : Name) (ci : ConstantInfo) (us : List Level)
-      (ta : AVExpr), env.find? n = some ci →
+      (ta : AVExpr), env.find? n = some ci → ci.isTowerEntry = false →
       us.length = ci.toConstantVal.levelParams.length →
       denoteP m.acval env φ 0
         (ci.toConstantVal.type.instantiateLevelParams
@@ -210,8 +210,8 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
           interp2 V σ (m.acval n
               (Level.substFn φ ci.toConstantVal.levelParams us))
             ∈ˢ interp2 V σ ta := by
-    intro n ci us ta hf hlen hta
-    obtain ⟨ta', hta', hok, hmem⟩ := hct 0 n ci us hf hlen
+    intro n ci us ta hf hnt hlen hta
+    obtain ⟨ta', hta', hok, hmem⟩ := hct 0 n ci us hf hnt hlen
     obtain rfl : ta = ta' := Option.some.inj (hta.symm.trans hta')
     exact ⟨hok, hmem⟩
   -- the shared `.const` readings
@@ -251,7 +251,7 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
           ciH.toConstantVal.levelParams []) = some ((.sort 1) : AVExpr) := by
       rw [hIH, denoteP_sort]
       rfl
-    have h := (head _ _ _ _ hfH (by simp [hlpH]) hR).2 ρ
+    have h := (head _ _ _ _ hfH (Setlec.isTowerEntry_false_of_find? hfH (fun _ _ h => by simp [Setlec.charName] at h)) (by simp [hlpH]) hR).2 ρ
     rw [hlpH, interp2_sort] at h
     exact h
   -- `List.nil`
@@ -277,7 +277,7 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
             (.fvar 0 nmN (Expr.sort (Level.succ Level.zero))) from rfl,
       denoteP_app, hKL, denoteP_fvar]
     rfl
-  obtain ⟨hokRN, hmemRN⟩ := head _ _ _ _ hfN (by simp [hlpN]) hRN
+  obtain ⟨hokRN, hmemRN⟩ := head _ _ _ _ hfN (Setlec.isTowerEntry_false_of_find? hfN (fun _ _ h => by simp [Setlec.listNilName] at h)) (by simp [hlpN]) hRN
   -- `List.cons`
   have hIC : ciC.toConstantVal.type.instantiateLevelParams
       ciC.toConstantVal.levelParams [Level.zero]
@@ -342,7 +342,7 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
             (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))) from rfl,
       denoteP_app, hKL, denoteP_fvar]
     rfl
-  obtain ⟨hokRC, hmemRC⟩ := head _ _ _ _ hfC (by simp [hlpC]) hRC
+  obtain ⟨hokRC, hmemRC⟩ := head _ _ _ _ hfC (Setlec.isTowerEntry_false_of_find? hfC (fun _ _ h => by simp [Setlec.listConsName] at h)) (by simp [hlpC]) hRC
   -- `Char.ofNat`
   have hIF : ciF.toConstantVal.type.instantiateLevelParams
       ciF.toConstantVal.levelParams []
@@ -361,7 +361,7 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
           (.fvar 0 nmF (Expr.const Setlec.natName []))
         = Expr.const Setlec.charName [] from rfl, hKH]
     rfl
-  obtain ⟨hokRF, hmemRF⟩ := head _ _ _ _ hfF (by simp [hlpF]) hRF
+  obtain ⟨hokRF, hmemRF⟩ := head _ _ _ _ hfF (Setlec.isTowerEntry_false_of_find? hfF (fun _ _ h => by simp [Setlec.charOfNatName] at h)) (by simp [hlpF]) hRF
   -- `String.ofList`
   have hIO : ciO.toConstantVal.type.instantiateLevelParams
       ciO.toConstantVal.levelParams []
@@ -387,7 +387,7 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
             (.const Setlec.charName [])))
         = Expr.const Setlec.stringName [] from rfl, hKS]
     rfl
-  obtain ⟨hokRO, hmemRO⟩ := head _ _ _ _ hfO (by simp [hlpO]) hRO
+  obtain ⟨hokRO, hmemRO⟩ := head _ _ _ _ hfO (Setlec.isTowerEntry_false_of_find? hfO (fun _ _ h => by simp [Setlec.stringOfListName] at h)) (by simp [hlpO]) hRO
   -- the numeral heads
   obtain ⟨hz, hsucc⟩ := hnh hs ρ
   -- the chain

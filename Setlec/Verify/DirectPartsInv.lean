@@ -189,42 +189,16 @@ theorem directProjSlots_prefix {p : DirectParts} {i j : Nat} (hj : j < i)
   rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi] at h
   rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range (by omega)]
   simp only [Option.map_some, Option.getD_some] at h ⊢
-  split at h
-  · next hty =>
-    have hsome := directProjTyP_prefix hj hi (by rw [hty]; rfl)
-    split
-    · unfold directProjSlotOk at h ⊢
-      simp only [Bool.or_eq_true, beq_iff_eq] at h ⊢
-      rcases h with (h | h) | h
-      · exact Or.inl (Or.inl h)
-      · exact Or.inl (Or.inr h)
-      · omega
-    · next hnone => rw [hnone] at hsome; exact nomatch hsome
-  · exact nomatch h
-
-/-- An installed slot of a propositional structure with the small
-eliminator is the first. -/
-theorem directProjSlots_first {p : DirectParts} {i : Nat} (hi : i < p.nF)
-    (h : (directProjSlots p).getD i false = true) :
-    p.isProp = false ∨ p.large = true ∨ i = 0 := by
-  unfold directProjSlots at h
-  rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi] at h
-  simp only [Option.map_some, Option.getD_some] at h
-  split at h
-  · unfold directProjSlotOk at h
-    simp only [Bool.or_eq_true, beq_iff_eq, Bool.not_eq_eq_eq_not, Bool.not_true] at h
-    rcases h with (h | h) | h
-    · exact Or.inl h
-    · exact Or.inr (Or.inl h)
-    · exact Or.inr (Or.inr h)
-  · exact nomatch h
+  exact directProjTyP_prefix hj hi h
 
 /-! ## The guard's spelling -/
 
 theorem directProjGuards_getD (cty : Expr) (nP nF : Nat) (sorts : List Level) {i : Nat}
     (hi : i < nF) :
     (directProjGuards cty nP nF sorts).getD i .zero
-      = (List.range i).foldl (fun acc j => Level.max acc (sorts.getD j .zero))
+      = (List.range i).foldl
+          (fun acc j => if directUsedLater cty nP j then Level.max acc (sorts.getD j .zero)
+            else acc)
           (sorts.getD i .zero) := by
   unfold directProjGuards
   rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi]

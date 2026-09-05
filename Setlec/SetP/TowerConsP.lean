@@ -127,12 +127,6 @@ theorem declStepPM_of_tower_cons (mp : EnvS2PM V μ env)
           ⟨.projInfo entry :: env.consts⟩ ψ 0
           (ConstantInfo.projInfo entry).toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
-    (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
-      denoteP (acvalWith mp.base2.acval
-            (ConstantInfo.projInfo entry).name A)
-          ⟨.projInfo entry :: env.consts⟩ ψ 0
-          (ConstantInfo.projInfo entry).toConstantVal.type = some ta →
-      ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
     (hlaw : ∀ m₂ : EnvS2Core V ⟨.projInfo entry :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval
         (ConstantInfo.projInfo entry).name A →
@@ -157,8 +151,9 @@ theorem declStepPM_of_tower_cons (mp : EnvS2PM V μ env)
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact hhead,
       fun _ _ _ _ heq => nomatch heq⟩
-  refine declStepPM_of_cons mp (c₀ := .projInfo entry) (A := A) hfresh hh
-    hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
+  refine declStepPM_of_cons_guarded mp (c₀ := .projInfo entry) (A := A) hfresh hh
+    hAclosed hAparams hAok hAvalid htyReads htyOk
+    (fun hnt => by simp [ConstantInfo.isTowerEntry, htw] at hnt)
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hvalReads`: an entry is neither a definition nor a theorem
     intro _ψ cv2 value2 hmem

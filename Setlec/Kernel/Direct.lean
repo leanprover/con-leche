@@ -296,62 +296,60 @@ def Expr.projNodesOk (P : Name → Nat → Bool) : Expr → Bool
   | .letE _ t v b => projNodesOk P t && projNodesOk P v && projNodesOk P b
   | _ => true
 
-/-- **The projection guard levels** (task #175 W4c/O4): for field `i`,
-its own sort joined with the sorts of **every** earlier field — the
-level a `.proj T i` use on a `Prop`-declared structure must
-instantiate to `Prop`.  `sorts` are the fields' sorts in order
-(`checkDirectFieldSorts`).
+/-- Does `bvar i` occur loose in `e`?  (Not through fvar type
+annotations — the generated telescopes are fvar-free.) -/
+def Expr.hasLooseBVar : Nat → Expr → Bool
+  | i, .bvar j => i == j
+  | _, .fvar .. => false
+  | _, .sort _ => false
+  | _, .const .. => false
+  | _, .lit _ => false
+  | i, .app f a => hasLooseBVar i f || hasLooseBVar i a
+  | i, .lam _ ty b _ => hasLooseBVar i ty || hasLooseBVar (i + 1) b
+  | i, .forallE _ ty b _ => hasLooseBVar i ty || hasLooseBVar (i + 1) b
+  | i, .letE _ t v b =>
+    hasLooseBVar i t || hasLooseBVar i v || hasLooseBVar (i + 1) b
+  | i, .proj _ _ e => hasLooseBVar i e
 
-The official `infer_proj` joins only the earlier fields *used by a
-later field* (`has_loose_bvars(binding_body(r))`).  The join over all
-earlier fields is a strict restriction (a recorded finding, task #175
-W4c P3 module 7): at a squash instance the structure's members are
-one point, so a field's projection law needs its type at the
-all-point prefix to be inhabited, which the coarse guard gives by
-proof irrelevance of every earlier field, while the official guard
-additionally needs the type's *invariance* in the unused earlier
-slots — a syntactic-to-semantic transport (`Expr.hasLooseBVar`
-against the reading's environment) the battery does not carry.  The
-two guards differ only on a `Prop`-declared structure with a data
-field that no later field mentions, projected at a later `Prop`
-field; the init-full census records no such use. -/
-def directProjGuards (_cty : Expr) (_nP nF : Nat) (sorts : List Level) :
+/-- **Field `j` is used by a later field** — the official
+`infer_proj`'s `has_loose_bvars(binding_body(r))` at step `j`: the
+field's variable occurs in the constructor telescope's remainder after
+binder `j` (a later field's domain; the result never mentions a
+field). -/
+def directUsedLater (cty : Expr) (nP j : Nat) : Bool :=
+  match cty.stripPis (nP + j + 1) with
+  | some (_, rest) => rest.hasLooseBVar 0
+  | none => false
+
+/-- **The projection guard levels** (task #175 W4c/O4): for field `i`,
+its own sort joined with the sorts of the earlier fields that a later
+field uses — the level a `.proj T i` use on a `Prop`-declared
+structure must instantiate to `Prop` (the official `infer_proj`
+restriction, both of its clauses, as one level).  `sorts` are the
+fields' sorts in order (`checkDirectFieldSorts`). -/
+def directProjGuards (cty : Expr) (nP nF : Nat) (sorts : List Level) :
     List Level :=
   (List.range nF).map fun i =>
     (List.range i).foldl
-      (fun acc j => .max acc (sorts.getD j .zero))
+      (fun acc j =>
+        if directUsedLater cty nP j then .max acc (sorts.getD j .zero)
+        else acc)
       (sorts.getD i .zero)
 
-/-- **The entry decision of a projection slot** (task #175 W4c/O4), a
-function of the block's input data alone (the agreement floor reads
-nothing a core computes): every field of a non-propositional
-structure, and of a propositional structure with the large eliminator
-— Lean generates it exactly when every field is a proposition, which
-`checkDirectFieldSorts` re-checks; at a propositional structure with
-the small eliminator (some field is data) the **first field only**:
-the squash model reads the structure's members as the point, so a
-field's projection law needs the field's type not to depend on the
-earlier fields' values, which the first field's cannot (P3 module 5
-records the restriction; widening to every field whose type mentions
-no earlier field needs the annotation pass's variable-preservation
-lemma, not yet in the battery).  A skipped slot is a fall-through,
-never a verdict. -/
-def directProjSlotOk (isProp large : Bool) (i : Nat) : Bool :=
-  !isProp || large || i == 0
-
-/-- **The entry decisions of a recognised block**, one per field,
-computed on the block's RAW types (the agreement floor's currency:
-input data, nothing a core computed) — the annotated types' generated
-projection type can only mention *fewer* earlier fields (annotation
-zeta-reduces `let`s and adds no field variable), and an annotated
-entry type that still mentions a data field of a propositional
-structure fails its own inference, which declines the block. -/
+/-- **The entry decisions of a recognised block**, one per field: the
+generated projection type exists (on the block's raw types — the
+agreement floor's currency, input data alone).  Every field of every
+recognised block gets an entry (task #175 W4c P3 module 7); the
+official `infer_proj` restriction at a `Prop`-declared structure is
+the entry's *guard level* (`directProjGuards`), checked at every
+use.  The entry's constant is a table entry no term names
+(`ConstantInfo.isTowerEntry`), so an entry whose type is uninhabited
+at some level instantiation (a field depending on a data field of a
+propositional structure) is no burden on the model. -/
 def directProjSlots (p : DirectParts) : List Bool :=
   (List.range p.nF).map fun i =>
-    match directProjTyP p.cvT.name p.cvT.levelParams p.nP p.nF i p.cvT.type
-        p.cvC.type with
-    | some _ => directProjSlotOk p.isProp p.large i
-    | none => false
+    (directProjTyP p.cvT.name p.cvT.levelParams p.nP p.nF i p.cvT.type
+      p.cvC.type).isSome
 
 /-- **Non-recursive**: every binder domain of the constructor already
 resolves in the *pre-block* environment.  This subsumes the reference

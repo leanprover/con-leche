@@ -805,7 +805,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
       have hlenp : us'.length = cvp.levelParams.length := by
         rw [hlpj]; exact hlenus
       obtain ⟨tpa, htpa, hoktpa, hmemp⟩ :=
-        hct d (projFnName T j) _ us' hfp hlenp
+        hct d (projFnName T j) _ us' hfp rfl hlenp
       -- the projection type's frames
       have hwfp := m.wf _ (Setlec.SetR.Env.find?_mem hfp)
       have hnfp : (cvp.type.instantiateLevelParams cvp.levelParams

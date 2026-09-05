@@ -242,7 +242,7 @@ theorem axiomTrustCompilerP (hμ : μ.verified = true)
     rw [htyA, denoteP_levelless_const hfT hlpT] at hta
     obtain rfl : ta = mp.base2.acval Setlec.trueName ψ :=
       (Option.some.inj hta).symm
-    have hmem := mp.mem_typeP ciTi (Env.find?_mem hfTi) ψ
+    have hmem := mp.mem_typeP ciTi (Env.find?_mem hfTi) (Setlec.isTowerEntry_false_of_find? hfTi (fun _ _ h => Name.noConfusion h)) ψ
       (mp.base2.acval Setlec.trueName ψ)
       (by rw [htyTi]; exact denoteP_levelless_const hfT hlpT) ρ
     rwa [hnameTi] at hmem

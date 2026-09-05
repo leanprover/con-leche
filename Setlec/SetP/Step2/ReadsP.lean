@@ -715,12 +715,12 @@ theorem inferReads_const {m : EnvS2Core V env}
     (h : inferTypeCore μ env (fuel + 1) d (.const n us) = .ok t)
     (hea : denoteP m.acval env φ d (.const n us) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
-  obtain ⟨ci, hf, rfl⟩ := Setlec.inferTypeCore_const_inv h
+  obtain ⟨ci, hf, hnt, rfl⟩ := Setlec.inferTypeCore_const_inv h
   rw [denoteP, hf] at hea
   dsimp only at hea
   split at hea
   · next hlen =>
-    obtain ⟨ta, hta, -, -⟩ := hct d n ci us hf hlen
+    obtain ⟨ta, hta, -, -⟩ := hct d n ci us hf hnt hlen
     exact ⟨ta, hta⟩
   · exact nomatch hea
 

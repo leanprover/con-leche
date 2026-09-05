@@ -1999,13 +1999,17 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     | none => exact SimC.throw
     | some ci =>
       dsimp only
-      by_cases hlen : us.length = ci.toConstantVal.levelParams.length
-      · rw [if_pos hlen, if_pos hlen]
-        refine SimC.of_eff (constTyAtM_eff hs hfn) _ (fun r hQ => ?_)
-        refine ⟨hQ, ?_⟩
-        obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
-        exact wscoped_instLevels_of_not_hasFvar htf _ _
-      · rw [if_neg hlen, if_neg hlen]
+      by_cases htw : (!ci.isTowerEntry) = true
+      · rw [if_pos htw, if_pos htw]
+        by_cases hlen : us.length = ci.toConstantVal.levelParams.length
+        · rw [if_pos hlen, if_pos hlen]
+          refine SimC.of_eff (constTyAtM_eff hs hfn) _ (fun r hQ => ?_)
+          refine ⟨hQ, ?_⟩
+          obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
+          exact wscoped_instLevels_of_not_hasFvar htf _ _
+        · rw [if_neg hlen, if_neg hlen]
+          exact SimC.throw_bind
+      · rw [if_neg htw, if_neg htw]
         exact SimC.throw_bind
   | forallE nm t b m =>
     dsimp only [ExprC.view]
@@ -2358,13 +2362,17 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
     | none => exact SimC.throw
     | some ci =>
       dsimp only
-      by_cases hlen : us.length = ci.toConstantVal.levelParams.length
-      · rw [if_pos hlen, if_pos hlen]
-        refine SimC.of_eff (constTyAtM_eff hs hfn) _ (fun r hQ => ?_)
-        refine ⟨hQ, ?_⟩
-        obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
-        exact wscoped_instLevels_of_not_hasFvar htf _ _
-      · rw [if_neg hlen, if_neg hlen]
+      by_cases htw : (!ci.isTowerEntry) = true
+      · rw [if_pos htw, if_pos htw]
+        by_cases hlen : us.length = ci.toConstantVal.levelParams.length
+        · rw [if_pos hlen, if_pos hlen]
+          refine SimC.of_eff (constTyAtM_eff hs hfn) _ (fun r hQ => ?_)
+          refine ⟨hQ, ?_⟩
+          obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
+          exact wscoped_instLevels_of_not_hasFvar htf _ _
+        · rw [if_neg hlen, if_neg hlen]
+          exact SimC.throw_bind
+      · rw [if_neg htw, if_neg htw]
         exact SimC.throw_bind
   | forallE nm t b m =>
     dsimp only [ExprC.view]

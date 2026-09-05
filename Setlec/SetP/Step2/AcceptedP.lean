@@ -85,8 +85,9 @@ theorem inferTypeCore_const_inv_len {fuel d : Nat}
       dsimp only at h
       by_cases hlen : us.length = ci.toConstantVal.levelParams.length
       · exact ⟨ci, rfl, hlen⟩
-      · rw [if_neg hlen] at h
-        simp [throw, throwThe, MonadExceptOf.throw] at h
+      · split at h
+        · simp [throw, throwThe, MonadExceptOf.throw] at h
+        · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **The `Nat`-literal clause's guard, recorded** — `denoteP`'s own
 literal guard, verbatim. -/

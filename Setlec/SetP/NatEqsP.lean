@@ -588,7 +588,7 @@ theorem natBinHeadP_of_stored (mp : EnvS2PM V μ env) {ψ : Name → Nat}
       ho).toConstantVal.levelParams = [] from hlp))
     (fun ρ => ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩)
     (fun ρ => ?_) (fun ρ => mp.type_okP _ hmemE ψ _ hta ρ)
-  have h := mp.mem_typeP _ hmemE ψ _ hta ρ
+  have h := mp.mem_typeP _ hmemE (by rfl) ψ _ hta ρ
   rwa [show (ConstantInfo.defnInfo cvo vo ho).name = o from hnm] at h
 
 /-- **A stored pinned unary head.** -/
@@ -619,7 +619,7 @@ theorem natUnHeadP_of_stored (mp : EnvS2PM V μ env) {ψ : Name → Nat}
       ho).toConstantVal.levelParams = [] from hlp))
     (fun ρ => ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩)
     (fun ρ => ?_) (fun ρ => mp.type_okP _ hmemE ψ _ hta ρ)
-  have h := mp.mem_typeP _ hmemE ψ _ hta ρ
+  have h := mp.mem_typeP _ hmemE (by rfl) ψ _ hta ρ
   rwa [show (ConstantInfo.defnInfo cvo vo ho).name = o from hnm] at h
 
 /-! ## The two-variable context discipline, and the conversion -/

@@ -236,6 +236,7 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
             type_reads := ?_
             type_okP := ?_
             mem_typeP := ?_
+            tower_ty := ?_
             defn_reads := ?_
             nat_heads := ?_
             nat_ops := ?_
@@ -256,13 +257,29 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     obtain ⟨c₀, hc₀, hcv, -⟩ := hmemcorr c hc
     rw [← hde, ← hcv] at hta
     exact mp.type_okP c₀ hc₀ ψ ta hta ρ
-  · -- `mem_typeP`
-    intro c hc ψ ta hta ρ
-    obtain ⟨c₀, hc₀, hcv, hname⟩ := hmemcorr c hc
+  · -- `mem_typeP`: the swap touches recursors only, so the tower
+    -- exclusion carries over
+    intro c hc hnt ψ ta hta ρ
+    obtain ⟨c₀, hc₀, hpair⟩ := Setlec.swapSh_mem_corr hsw c hc
+    have hcv : c₀.toConstantVal = c.toConstantVal := by
+      rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩ <;> rfl
+    have hname : c₀.name = c.name := by
+      rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩ <;> rfl
+    have hnt₀ : c₀.isTowerEntry = false := by
+      rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩
+      · exact hnt
+      · rfl
     rw [← hde, ← hcv] at hta
-    have := mp.mem_typeP c₀ hc₀ ψ ta hta ρ
+    have := mp.mem_typeP c₀ hc₀ hnt₀ ψ ta hta ρ
     rw [hname] at this
     exact this
+  · -- `tower_ty`: the swap touches recursors only
+    intro c hc e hce htw
+    obtain ⟨c₀, hc₀, hpair⟩ := Setlec.swapSh_mem_corr hsw c hc
+    rcases hpair with rfl | ⟨cv, mI, rP, rules, -, hc3⟩
+    · exact mp.tower_ty c₀ hc₀ e hce htw
+    · rw [hc3] at hce
+      exact nomatch hce
   · -- `defn_reads`
     intro ψ cv value hmem
     have hmem₀ : (∃ hint : Setlec.ReducibilityHint,

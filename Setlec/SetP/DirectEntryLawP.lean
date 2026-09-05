@@ -48,7 +48,11 @@ theorem entryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AVEx
         SpineFit ρ (((ds.drop nP).map (·.2.2)).take j) as →
         interp2 V (consList as ρ) (((ds.drop nP).map (·.2.2)).getD j default)
           ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V))
-    (hguard : w = 0 → ∀ j, j ≤ i → (sorts.getD j .zero).eval ψ = 0)
+    {used : Nat → Bool}
+    (hguard : w = 0 → (sorts.getD i .zero).eval ψ = 0 ∧
+      ∀ j, j < i → used j = true → (sorts.getD j .zero).eval ψ = 0)
+    (hfree : ∀ j, j < i → used j = false →
+      ∃ X : AVExpr, ((ds.drop nP).map (·.2.2)).getD i default = X.liftN 1 (i - 1 - j))
     (hi : i < nF)
     (hiffP : ∀ i', i' ≤ nP → ∀ ρ : Nat → V,
       Sat2 V (((eds.map (·.2.2)).reverse).drop (nP + 1 - i')) ρ ↔
@@ -142,27 +146,21 @@ theorem entryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AVEx
   · -- the membership
     rw [hinterpRest, projAV_interp]
     by_cases hw : w = 0
-    · -- squash: the point in the proof field at the point prefix
+    · -- squash: the point in the proof field at the point prefix,
+      -- which agrees with a fitting prefix at every used slot
       subst hw
       obtain ⟨hpt, as', hfits⟩ := towerSet_zero_elim _ hx
       have hspAs := fitsS_teleOfFields.mp hfits
       obtain ⟨hpre, hnext⟩ := spineFit_prefix_next hspAs (by rw [hlenFs]; exact hi)
-      have hrep : as'.take i = List.replicate i pt := by
-        have := spineFit_eq_replicate_pt hpre ?_
-        · rwa [List.length_take, hlenFs, show min i nF = i from by omega] at this
-        intro j hj bs hbs
-        rw [List.length_take, hlenFs] at hj
-        rw [List.take_take, show min j i = j from by omega] at hbs
-        have := hsorts _ hsatC j (by omega) bs hbs
-        rw [hguard rfl j (by omega)] at this
-        rw [List.getD_eq_getElem?_getD, List.getElem?_take_of_lt (by omega),
-          ← List.getD_eq_getElem?_getD]
-        exact this
       have hz := hsorts _ hsatC i hi _ hpre
-      rw [hguard rfl i (Nat.le_refl _)] at hz
+      rw [(hguard rfl).1] at hz
       have hval := mem_univ_zero hz hnext
-      rw [hval, hrep] at hnext
+      rw [hval] at hnext
       rw [hpt, projS_pt, projList_pt]
+      have hlenTake : (as'.take i).length = i := spineFit_take_length hspAs (by rw [hlenFs]; omega)
+      rw [interp2_congr_lifts i
+        (free_of_diff hlenDs hi (hsorts _ hsatC) (hguard rfl).2 hfree hspAs)
+        (consList_prefix_agree hlenTake _).2]
       exact hnext
     · -- graph: the tower's projection membership
       have h := projS_mem_teleOfFields (fun h0 => absurd h0 hw) hx (i := i) (by rw [hlenFs]; exact hi)

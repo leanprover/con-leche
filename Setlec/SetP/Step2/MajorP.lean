@@ -390,7 +390,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
       · exact hlpj.symm
       · exact hlpj.symm
     obtain ⟨TVja, hTVja, hokTVja, hmemCj⟩ :=
-      hct d rl.ctor _ ust hfcj (by exact hlenCj)
+      hct d rl.ctor _ ust hfcj rfl (by exact hlenCj)
     dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVja hmemCj
     have hwfj := m.wf _ (Setlec.SetR.Env.find?_mem hfcj)
     have hnfj : (cvj.type.instantiateLevelParams cvj.levelParams
@@ -631,7 +631,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
             have hlenp : ust.length = cvp.levelParams.length := by
               rw [hlpp]; exact hlenus2
             obtain ⟨tpa, htpa, hoktpa, hmemp⟩ :=
-              hct d (projFnName T j) _ ust hfp hlenp
+              hct d (projFnName T j) _ ust hfp rfl hlenp
             have hwfp := m.wf _ (Setlec.SetR.Env.find?_mem hfp)
             have hnfp : (cvp.type.instantiateLevelParams cvp.levelParams
                 ust).hasFvar = false := by

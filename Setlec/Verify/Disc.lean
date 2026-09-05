@@ -1332,9 +1332,12 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split <;> try exact DiscV.throw _
     rename_i ci hfn
     split
-    · refine DiscV.pure ?_
-      obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
-      exact wscoped_instLevels_of_not_hasFvar htf _ _
+    · split
+      · refine DiscV.pure ?_
+        obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
+        exact wscoped_instLevels_of_not_hasFvar htf _ _
+      · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+          (fun _ h => h.elim)
     · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
         (fun _ h => h.elim)
   | .forallE n ty body mb =>
@@ -1531,9 +1534,12 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split <;> try exact DiscV.throw _
     rename_i ci hfn
     split
-    · refine DiscV.pure ?_
-      obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
-      exact wscoped_instLevels_of_not_hasFvar htf _ _
+    · split
+      · refine DiscV.pure ?_
+        obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
+        exact wscoped_instLevels_of_not_hasFvar htf _ _
+      · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+          (fun _ h => h.elim)
     · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
         (fun _ h => h.elim)
   | .forallE n ty body mb =>

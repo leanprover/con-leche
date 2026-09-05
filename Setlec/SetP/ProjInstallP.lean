@@ -229,7 +229,7 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
       ∀ ρ : Nat → V, (∃ pv : V, pv ∈ˢ interp2 V ρ ta) ∧
         AnnotOkP V ρ ta := by
     intro ψ
-    obtain ⟨ta, hta, hok, hmem⟩ := mp.acval_memTypeP hthmE ψ
+    obtain ⟨ta, hta, hok, hmem⟩ := mp.acval_memTypeP hthmE rfl ψ
     exact ⟨ta, hta, fun ρ => ⟨⟨_, hmem ρ⟩, hok ρ⟩⟩
   -- **the bottom fires, at the base environment**
   have hbot := indBottomProjP (V := V) (Rn := projModelName T i)
@@ -285,7 +285,7 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
   have hptyReadPre : ∀ (ψ : Name → Nat), ∃ ta : AVExpr,
       denoteP mp.base2.acval env' ψ 0 pty = some ta := by
     intro ψ
-    obtain ⟨ta, hta, -, -⟩ := mp.acval_memTypeP hfm ψ
+    obtain ⟨ta, hta, -, -⟩ := mp.acval_memTypeP hfm rfl ψ
     refine ⟨ta, ?_⟩
     rw [← denoteP_renameConsts hroP pty 0,
       Expr.renameConsts_congr_resolve (g := projFwd T ctorName nF)
@@ -356,7 +356,7 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
         (fun _ h => ConstantInfo.noConfusion h) φ 0 _ (hcbPty us)
         hTVa').symm
     obtain ⟨TVja', hTVja', -, -⟩ :=
-      mp.constTypeP 0 ctorName _ usj hctor (by exact husjlen)
+      mp.constTypeP 0 ctorName _ usj hctor rfl (by exact husjlen)
     obtain rfl : TVja' = TVja := by
       refine Option.some.inj (Eq.trans ?_ hTVja)
       rw [hac]

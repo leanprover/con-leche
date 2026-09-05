@@ -326,6 +326,13 @@ def toConstantVal : ConstantInfo → ConstantVal
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
 
+/-- A tower-backed projection-table entry (task #175 W4c): a table
+entry, not a term — no `.const` node names it (`inferTypeCore`
+rejects one), so the model owes it no leaf. -/
+def isTowerEntry : ConstantInfo → Bool
+  | .projInfo e => e.tower
+  | _ => false
+
 /-- The index count of a recursor (majorIdx − rulePrefix; junk
 elsewhere). -/
 def recNi : ConstantInfo → Nat

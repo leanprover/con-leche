@@ -313,7 +313,7 @@ def coreCons (m : EnvS2Core V env) {c₀ : ConstantInfo}
 
 /-- **The P declaration step, cons shape** (see the module
 docstring). -/
-theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
+theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
     (hh : ConsHeadP env c₀ A)
@@ -332,7 +332,7 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
       denoteP (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
-    (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
+    (hmemNew : c₀.isTowerEntry = false → ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
@@ -400,18 +400,18 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
           ((hcompM ψ _ (hbound _ h).1 (hh.projTower.type h) hta').symm.trans
             hta)
       exact mp.type_okP c h ψ ta' hta' ρ
-  have hmt : ∀ c ∈ (⟨c₀ :: env.consts⟩ : Env).consts,
+  have hmt : ∀ c ∈ (⟨c₀ :: env.consts⟩ : Env).consts, c.isTowerEntry = false →
       ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 c.toConstantVal.type = some ta →
       ∀ ρ : Nat → V,
         interp2 V ρ (acvalWith mp.base2.acval c₀.name A c.name ψ)
           ∈ˢ interp2 V ρ ta := by
-    intro c hc ψ ta hta ρ
+    intro c hc hnt ψ ta hta ρ
     rcases List.mem_cons.mp hc with rfl | h
     · rw [show acvalWith mp.base2.acval c.name A c.name = A from
         acvalWith_self]
-      exact hmemNew ψ ta hta ρ
+      exact hmemNew hnt ψ ta hta ρ
     · obtain ⟨ta', hta'⟩ := mp.type_reads c h ψ
       obtain rfl : ta' = ta :=
         Option.some.inj
@@ -419,7 +419,7 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
             hta)
       rw [show acvalWith mp.base2.acval c₀.name A c.name
             = mp.base2.acval c.name from acvalWith_ne (hne _ h)]
-      exact mp.mem_typeP c h ψ ta' hta' ρ
+      exact mp.mem_typeP c h hnt ψ ta' hta' ρ
   have hdr : ∀ (ψ : Name → Nat) (cv : ConstantVal) (value : Expr),
       ((∃ hint : ReducibilityHint,
           ConstantInfo.defnInfo cv value hint
@@ -462,6 +462,11 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     type_reads := htr
     type_okP := hto
     mem_typeP := hmt
+    tower_ty := by
+      intro c hc e hce htw
+      rcases List.mem_cons.mp hc with rfl | h
+      · exact (hh.projTowerHead e hce htw).2.2.2.2.2.2.2
+      · exact mp.tower_ty c h e hce htw
     defn_reads := hdr
     nat_heads := hnh
     nat_ops := hnat_ops
@@ -471,5 +476,62 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     rec_rules := hrec_rules
     reduce_ops := hreduce_ops
     tower_ok := htower_ok }, rfl⟩
+
+
+/-- **The P step at a cons, at an unconditional membership premise**
+(every caller but the tower-entry kit: a table entry's leaf owes no
+membership, `EnvS2PM.mem_typeP`'s guard). -/
+theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hh : ConsHeadP env c₀ A)
+    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
+    (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
+      A ψ₁ = A ψ₂)
+    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ))
+    (hAvalid : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      AnnotValidV V ρ (A ψ))
+    (htyReads : ∀ ψ : Name → Nat,
+      ∃ ta : AVExpr,
+        denoteP (acvalWith mp.base2.acval c₀.name A)
+          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta)
+    (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
+      denoteP (acvalWith mp.base2.acval c₀.name A)
+          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+      ∀ ρ : Nat → V, AnnotOkP V ρ ta)
+    (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
+      denoteP (acvalWith mp.base2.acval c₀.name A)
+          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+      ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
+    (hvalReads : ∀ (ψ : Name → Nat) (cv : ConstantVal)
+      (value : Expr),
+      ((∃ hint : ReducibilityHint,
+          ConstantInfo.defnInfo cv value hint = c₀) ∨
+        ConstantInfo.thmInfo cv value = c₀) →
+      denoteP (acvalWith mp.base2.acval c₀.name A)
+          ⟨c₀ :: env.consts⟩ ψ 0 value = some (A ψ))
+    (hnh : ∀ φ : Name → Nat,
+      NatHeadsP (V := V)
+        (coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) φ)
+    (hnat_ops : ∀ φ : Name → Nat,
+      NatOpsP (V := V)
+        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ)
+    (hdiv_mod : ∀ φ : Name → Nat,
+      DivModP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ)
+    (heq_law : EqLawP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _))
+    (hcaps_ok : CapsOkP (V := V)
+        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _))
+    (hrec_rules : ∀ φ : Name → Nat,
+      RecRulesP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ)
+    (hreduce_ops : ReduceOpsP (V := V)
+        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _))
+    (htower_ok : ∀ φ : Name → Nat,
+      TowerOkP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ) :
+    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A :=
+  declStepPM_of_cons_guarded mp hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk
+    (fun _ => hmemNew) hvalReads hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops
+    htower_ok
 
 end Setlec.SetR.Interp2

@@ -338,7 +338,7 @@ full lane's verbatim. -/
 theorem inferTypeCoreIO_const_inv {env : Env} {fuel d : Nat}
     {n : Name} {us : List Level} {t : Expr}
     (h : inferTypeCoreIO mode env fuel d (.const n us) = .ok t) :
-    ∃ ci, env.find? n = some ci ∧
+    ∃ ci, env.find? n = some ci ∧ ci.isTowerEntry = false ∧
       t = ci.toConstantVal.type.instantiateLevelParams
         ci.toConstantVal.levelParams us := by
   match fuel, h with
@@ -357,9 +357,15 @@ theorem inferTypeCoreIO_const_inv {env : Env} {fuel d : Nat}
       dsimp only at h
       revert h
       split
-      · intro h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        exact ⟨ci, rfl, h.symm⟩
+      · next htw =>
+        intro h
+        revert h
+        split
+        · intro h
+          simp only [pure, Except.pure, Except.ok.injEq] at h
+          exact ⟨ci, rfl, by simpa using htw, h.symm⟩
+        · intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
       · intro h
         simp [throw, throwThe, MonadExceptOf.throw] at h
 

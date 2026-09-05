@@ -140,7 +140,7 @@ theorem ctorData_of (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
     piBits_of_infer hμ (p.nP + p.nF) hopAll hst hens
   rw [Nat.zero_add] at hib hensb
   obtain ⟨tf, htf⟩ := inferTypeCore_mkAppN_fn_inv fvsP hib
-  obtain ⟨ci, hfci, rfl⟩ := Setlec.inferTypeCore_const_inv htf
+  obtain ⟨ci, hfci, -, rfl⟩ := Setlec.inferTypeCore_const_inv htf
   obtain rfl : ci = .indInfo cvTa caps := Option.some.inj (hfci.symm.trans hfT)
   have htfT : Setlec.inferTypeCore μ env F' (p.nP + p.nF)
       (.const p.cvT.name (p.cvT.levelParams.map .param)) = .ok cvTa.type := by
