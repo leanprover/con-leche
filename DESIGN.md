@@ -38207,7 +38207,7 @@ accepted terms, so the branch is verdict-dead there).
 | W2a | `ProjEntry.tower` field | LANDED (zero proof changes) |
 | W2b | generator + `checkDirectProj` entry install + twins + bridge re-proofs | LANDED |
 | W2c | infer tower branch (4 twins) + clause-proof adaptation | LANDED |
-| W3 | `denoteP`/`denote` reading branch + erasure law | frozen (§1) + route notes below |
+| W3 | `denoteP`/`denote` reading branch + erasure law | STOP-FINDING (below); WIP parked at `agent/wiring-w3-wip` |
 | W4 | install soundness (checklist items 1–2) | pending |
 | W5 | rewrite removal (P/parity), flip, battery | pending |
 | W6 | PSigma' retirement (gated) | pending |
@@ -38289,3 +38289,51 @@ first hour):
   post-flip — same pin-kill discipline as W2c);
 * pre-flip the new branches are dead (no tower entries), so W3 lands
   behavior-neutral exactly like W2b/W2c.
+
+**W3 STOP-FINDING (2026-09-05, the flag rule): the invariance ride
+the reading-level trick does not kill.**  The clause changes and the
+per-walk adaptations went through as priced — the parked WIP branch
+(`agent/wiring-w3-wip`, does not build) carries the three readings
+branched with clause lemmas, pair variants and three-way inversions,
+plus green-shaped fixes for EnvExt (with `SwapCongr.projEq`), Levels
+×2, Shift ×2 (`liftN_projNV`, `projNV_bvarsBelow`), Install ×3
+(`denote_mono`'s `hproj`, `denote_env_shrink`'s `hntc`, the
+`Installs.ntc` field, `findProj?_cons_of_base_none`,
+`EnvExtends.findProj?_mono`), Inst (`inst_projNV`),
+BitReads/BitShift/BitLemmas/Canon/ProjPins.  The wall is the
+**rename walks** (`Denote/Rename.lean`): `renameConsts` renames the
+`.proj` node's struct name, so the branched reading consults
+`findProj?` at BOTH the source and the image name, and the walk's
+invariance needs `towerAt env (f sn) i = towerAt env sn i` for all
+names — a fact the rename builders' local invariants
+(`ProjPhaseInvS`, `BlockInstalledTT`) cannot supply: nothing they
+carry says anything about entries at `projFnName`-composites of
+model-side names, and the pre-block environment is
+carrier-quantified.  The TRUE fact is global: pre-flip every stored
+entry has `tower = false` (`TowerFree`, a `NativeProjPinned` sibling
+provable by the same closed induction in `ProjPinInv`), post-flip the
+per-block coverage disjunction — and its consumers are the R/P
+**environment records**, i.e. a new carrier field threaded through
+every construction site.  That is the caveat-(i) "mechanical but
+broad ride" RELOCATED from the syntax layer to the invariance layer;
+the freeze's §1 claim ("the ride does not exist") is CORRECTED to
+"the substitution-metatheory ride does not exist; the
+environment-invariance ride does".
+
+**The W3 completion route, priced for the successor** (resume from
+the WIP branch):
+1. `TowerFree env` (`∀ e, .projInfo e ∈ consts → e.tower = false`) +
+   its checker-run preservation in `ProjPinInv` (the existing walk
+   skeleton; the direct arm by `directParts?_none`);
+2. the carrier field (`EnvR`/`EnvS`/`EnvS2Core` + the fuel/cached
+   twins' records as applicable) with per-site discharges — the
+   broad-but-mechanical part;
+3. `RenameOkT` gains the `towerAt`-agreement conjunct, discharged
+   from `TowerFree` (both sides `false`); the two builders
+   (`projFwd_renameOkT`, `BlockInstalledTT.renameOkT`) and their
+   callers thread it;
+4. the remaining wave (Sound/Proj, BitInst, BitExtend, DefEqP,
+   Bridge/Stuck, then AcceptedP's `i < 2`/`projPinsP` gates) —
+   pin-kill or TowerFree per site;
+5. at W5 the invariant weakens to the disjunction in the SAME commit
+   as `NativeProjPinned`'s.
