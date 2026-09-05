@@ -1,6 +1,10 @@
 module
 
 public import Std.Data.HashMap
+-- `PropWhen.equiv`'s pointer-identity shortcut is `withPtrEq`, whose body
+-- (`k ()`) core does not `@[expose]`; `import all` makes it available for the
+-- one private `rfl` that bridges `equiv` to `equivCore`.
+import all Init.Util
 
 /-!
 # Kernel expressions
@@ -163,13 +167,54 @@ where
 /-- Decidable zero-ness agreement at *every* valuation: mutual
 containment of the parameter sets (`never` only agrees with `never` —
 `ifAllZero` data hold at the all-zero valuation, `never` nowhere).
-Sound and complete (`Verify.PropWhen`); this is the comparison every
-validation and defeq site uses. -/
-def equiv : PropWhen → PropWhen → Bool
+Sound and complete (`Verify.PropWhen`).
+
+This is the *structural* test; the comparison every validation and
+defeq site uses is `equiv`, which is this one behind a pointer-identity
+shortcut (definitionally equal to it — `equiv_eq_equivCore`). -/
+def equivCore : PropWhen → PropWhen → Bool
   | .never, .never => true
   | .ifAllZero ps, .ifAllZero qs =>
     ps.all qs.contains && qs.all ps.contains
   | _, _ => false
+
+/-- Reflexivity of the structural test — the proof obligation of the
+pointer-identity shortcut in `equiv`.  (`Verify.PropWhen.equiv_refl`
+proves the same fact semantically; this one is elementary so that the
+kernel tier stays self-contained.) -/
+theorem equivCore_refl (p : PropWhen) : equivCore p p = true := by
+  cases p with
+  | never => rfl
+  | ifAllZero ps =>
+    simp only [equivCore, Bool.and_self, List.all_eq_true]
+    intro n hn
+    simpa [List.contains_iff_mem] using hn
+
+/-- Decidable zero-ness agreement at *every* valuation (`equivCore`),
+behind a **pointer-identity shortcut**: the telescope chain rule shares
+one datum object per telescope, and the nullary `.never` is a scalar,
+so a large majority of the checker's comparisons are between physically
+identical operands and never walk the parameter lists.  `withPtrEq`
+adds no trust point — its proof obligation is exactly `equivCore_refl`,
+and the function is *definitionally* `equivCore` (`equiv_eq_equivCore`).
+
+This is the comparison every validation and defeq site uses. -/
+@[inline] def equiv (p q : PropWhen) : Bool :=
+  withPtrEq p q (fun _ => equivCore p q) (fun h => by subst h; exact equivCore_refl p)
+
+/-- The shortcut is invisible to the theory: `equiv` *is* `equivCore`
+(`withPtrEq a b k h` is by definition `k ()`).
+
+Two-step because of the module system: core's `withPtrEq` is public but
+not `@[expose]`, so its body is available here only through the
+`import all Init.Util` above, and a theorem that *exports* may not rest
+on an unexposed unfolding.  The `rfl` is therefore done privately and
+relayed; the relay needs no unfolding at all. -/
+private theorem equiv_eq_equivCore' (p q : PropWhen) :
+    equiv p q = equivCore p q := rfl
+
+theorem equiv_eq_equivCore (p q : PropWhen) : equiv p q = equivCore p q :=
+  equiv_eq_equivCore' p q
 
 end PropWhen
 

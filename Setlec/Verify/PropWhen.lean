@@ -114,16 +114,19 @@ all-zero valuation separates `never` from every `ifAllZero`, and
 `φ n := 1, else 0` separates parameter sets that disagree on `n`. -/
 theorem equiv_iff_holds (p q : PropWhen) :
     equiv p q = true ↔ ∀ φ, p.holds φ = q.holds φ := by
+  -- `equiv` is the structural test behind a pointer-identity shortcut;
+  -- the theory only ever sees `equivCore` (`equiv_eq_equivCore`).
+  rw [equiv_eq_equivCore]
   constructor
   · intro h φ
     cases p with
     | never => cases q with
       | never => rfl
-      | ifAllZero qs => simp [equiv] at h
+      | ifAllZero qs => simp [equivCore] at h
     | ifAllZero ps => cases q with
-      | never => simp [equiv] at h
+      | never => simp [equivCore] at h
       | ifAllZero qs =>
-        simp only [equiv, Bool.and_eq_true, List.all_eq_true] at h
+        simp only [equivCore, Bool.and_eq_true, List.all_eq_true] at h
         obtain ⟨hpq, hqp⟩ := h
         show ps.all _ = qs.all _
         exact all_eq_of_mem_iff
