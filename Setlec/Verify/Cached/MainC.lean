@@ -1,6 +1,7 @@
 import Setlec.Verify.Cached.OfStoreC
 import Setlec.SetR.Main
 import Setlec.SetR.Main2
+import Setlec.SetP.MainP
 
 /-!
 # The cached checker variant's consistency corollaries (task #163)
@@ -696,5 +697,82 @@ theorem no_proof_of_Empty_SPCD_R2M (V : Type w) [SetTheory V]
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
   obtain ⟨m⟩ := checkDeclsSPCachedD_sound_R2M (V := V) hstep h
   exact no_constant_of_Empty_R2M m c hc hty
+
+/-! ## The P letter for the SHIPPED direct-parse driver (task #172 B4)
+
+Task #163 flipped the shipped path to `checkDeclsSPCachedD`; the P
+capstone family predates the flip, so the P mode had no statement
+about the function `Main.lean` actually runs — the same species of
+gap the S8 batch closed for `checkDeclsSP` (`SetP/MainP.lean`).  The
+closure is the `SPCD_R` recipe at the P invariant: the cached
+per-declaration bridge already lands at the pure `checkDecl` run,
+`checkDeclRun_ofEnvRE` lifts it to the run record, and `declStepPM` —
+the S11a P step, unchanged — walks the `EnvS2PM` carrier.  Nothing
+semantic is added; the io-graded P core's soundness (B4's premise-form
+slot claims) arrives through `declStepPM`'s dependency cone.
+
+The interned cached driver `checkDeclsSPCached` gets **no** P letter:
+the interned core is scheduled for removal, and its io slot is the
+full-infer closure anyway (`Kernel/CoreI.lean`, the short bridge). -/
+
+section PLetters
+
+open Setlec.SetR.Interp2 (EnvSPOk EnvS2PM declStepPM
+  no_constant_of_Empty_P)
+
+variable {V : Type w} [SetTheory V] {μ : CheckMode}
+
+/-- The direct-parse cached fold preserves the P invariant
+(`foldSPC_R2M`'s recipe at `EnvSPOk`; the step is `declStepPM`,
+verbatim). -/
+theorem foldSPC_PM (hμ : μ.verified = true) :
+    ∀ (ds : List DeclC) (fe : FEnv) {fe' : FEnv} {s₀ s' : CState},
+      fe = mkFEnv fe.env →
+      EnvSPOk V μ fe.env →
+      CSOKF s₀ →
+      (∀ pc ∈ ds, ∃ d, DeclCRel pc d) →
+      (ds.foldlM (checkDeclSPStepC μ) fe) s₀ = .ok (fe', s') →
+      EnvSPOk V μ fe'.env
+  | [], fe, fe', s₀, s', _, hm, _, _, h => by
+    obtain ⟨hfe, rfl⟩ := pureC_ok h
+    subst hfe
+    exact hm
+  | pc :: ds, fe, fe', s₀, s', hfe, hm, hres, hrel, h => by
+    rw [List.foldlM_cons] at h
+    obtain ⟨fe₁, s₁, hstepC, h⟩ := bindC_ok h
+    obtain ⟨⟨mp⟩, hE⟩ := hm
+    obtain ⟨d, hd⟩ := hrel pc List.mem_cons_self
+    rw [hfe] at hstepC
+    obtain ⟨hres₁, hfe₁, F, hF⟩ :=
+      checkDeclSPStepC_run mp.toEnvR.wf hres hd hstepC
+    exact foldSPC_PM hμ ds fe₁ hfe₁
+      (declStepPM hμ mp hE (Setlec.SetR.checkDeclRun_ofEnvRE hF))
+      hres₁ (fun p hp => hrel p (List.mem_cons_of_mem _ hp)) h
+
+/-- **Acceptance, shipped direct-parse driver, P route.** -/
+theorem checkDeclsSPCachedD_sound_P (hμ : μ.verified = true)
+    {ds : List DeclC} {env' : Env}
+    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    Nonempty (EnvS2PM V μ env') := by
+  obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
+  exact (foldSPC_PM hμ ds (mkFEnv Env.empty) rfl
+    ⟨⟨Setlec.SetR.Interp2.EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩
+    CSOKF.empty wdecl_rel hrun).1
+
+/-- **THE CAPSTONE FOR THE SHIPPED DRIVER, P mode** (task #172 B4):
+the checker, running a validating mode over the direct-parse cached
+core it ships with — io-graded skips live — never accepts a stream in
+which some stored constant has type `Empty`.  Hypotheses are
+input-level only. -/
+theorem no_proof_of_Empty_SPCD_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verified = true)
+    {ds : List DeclC} {env' : Env}
+    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    ∀ c ∈ env'.consts,
+      c.toConstantVal.type = .const emptyName [] → False := by
+  obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
+  exact fun c hc hty => no_constant_of_Empty_P mp c hc hty
+
+end PLetters
 
 end Setlec.Cached
