@@ -39248,3 +39248,350 @@ counter bump is **not** usable for this: LCNF drops an `if c then pure
 () else pure ()` whose branches agree, and drops an unused pure `let`;
 the census therefore goes through `dbg_trace` (`never_extract`) and the
 duplication probes fold their result into both sides of an arity test.
+
+### 9. SECOND LOOK (2026-09-05, `agent/iota-second`, read-only)
+
+Per the user's ruling ("let the opus agent finish and then let a fable
+agent have a second look"): verify or refute, sharpen, and rank.  The
+audit's numbers are not re-measured; every claim below is checked
+against the shipping code and the P lane's proofs, and the licence is
+mechanized over the `SetTheory` interface in
+`_tmp/iota-second/IotaLicence.lean` (compiles against master, axioms
+exactly `propext`/`Classical.choice`/`Quot.sound`); the basis pins are
+decided in `_tmp/iota-second/BasisPins.lean`.  Neither lands.
+
+| # | proposal | verdict |
+|---|---|---|
+| 1 | skip the `iotaCerts` slot at a `.never` binder | **CONFIRMED, SHARPENED** — the licence is `io_domain_transfer` verbatim (an io-gate analogue, not a β-gate one); the datum question is answered positively; the fence is `io_squash_no_transfer`'s witness; a **scoping correction** (§9.1.4) is binding; the proof-side cost is *smaller* than priced |
+| 2 | short-circuit the index block at `mI = rP` | **SHARPENED** — it is an (A) drop, not (B) install-validate: the P lane consumes nothing from the block at `mI = rP`, and the head-const test is unconsumed at *every* `mI` |
+| 3 | delete the two `stripPis` pins | **CONFIRMED** (all four routes + the pinned literals, decided); the "orphaned `Red.iota` cluster is deletable outright" reading is **REFUTED** — the cluster is a build dependency of the P assembly (§9.3) |
+| 3′ | pins kept, allocation-free | CONFIRMED (dominated by 3) |
+| 4 | precompute the `.plain` level-linkage map | CONFIRMED, with one semantic caveat (§9.3) |
+| 5 | ι once per spine, not per prefix | **CONFIRMED** reading of both references; verdict-neutral by construction; the saving is a *lower* bound (§9.4) |
+| — | rescue family, `.nested` machinery | CONFIRMED no-action; one duplicate-walk note (§9.5) |
+
+#### 9.1 Proposal 1 — the licence, stated and fenced
+
+**9.1.1 The mechanism.**  `TeleFitPA.cons` (`SetP/Annot/EnvS2P.lean:378`)
+needs `interp2 ρ a ∈ˢ interp2 ρ A` for the telescope binder's domain
+`A`.  The redex `rec p⃗ M m⃗ i⃗ major` is an application spine, and the
+P claims carry `AnnotOkP` of it (`hok` in `iotaStepP_of`,
+`Step2/IotaRowsP.lean:518`); `AnnotOk2`'s app clause
+(`SetBase/Ok2.lean:87-91`) therefore supplies, at *every* prefix
+`f_i := rec p⃗ … a_{i-1}`, the slot `∃ v' A' B', ⟦f_i⟧ ∈ piR v' A' B' ∧
+⟦a_i⟧ ∈ A'`.  That is what plays the role of the app node's `AnnotOk2`
+slot at the ι site — not `hoistP_spine` (which extracts the *gradings*
+of head and arguments, dropping the slots) but the app clause itself,
+read at each prefix (`annotOkP_mkAppN_head` in the probe;
+`AnnotOk2_spine_slots` in `SetBase/Spine2.lean:111` is the same
+extraction at the value level).  The head's own membership in the
+telescope reading, `⟦acval rec⟧ ∈ ⟦TVa⟧`, is `mem_typeP`
+(`EnvS2P.lean:553`, delivered to the row by `constTypeP_pkg`'s third
+conjunct, `IotaRowsP.lean:191`), and the prefix's membership in the
+*peeled* reading follows from the prefix's fit by
+`annotOkP_mkAppN_of_fitA` (`Step2/IotaKitP.lean:365`).  So at slot `i`
+one holds `⟦f_i⟧ ∈ piR v_i ⟦A_i⟧ B_i` — `v_i` the binder's bit — and the
+slot; at `v_i ≠ 0` graph rigidity pins `A' = ⟦A_i⟧` and the argument
+lands in the telescope's domain.  **The licence theorem is**
+
+    theorem iota_slot_transfer {v v' : Nat} {A A' f a : V} {B B' : V → V}
+        (hv : v ≠ 0)                       -- the binder's bit (`.never`)
+        (hf : f ∈ˢ piR v A B)              -- head-prefix in the telescope's product reading
+        (hslot : f ∈ˢ piR v' A' B')        -- the redex's own app slot …
+        (ha : a ∈ˢ A') :                   -- … and its argument membership
+        a ∈ˢ A :=
+      io_domain_transfer hv hslot ha hf
+
+i.e. **`io_domain_transfer` (`SetP/IOLicenseP.lean:71`) with its
+arguments renamed** — no new semantic theorem exists to be proved.
+The gate form `iota_slot_transfer_gate` takes the kernel's own
+condition `(mode.verified && mb.pw.isNever) = true` and reads the bit
+through `gate_pwBit_ne_zero` (`Step2/GateP.lean:59`), exactly as the
+β licence does.  This is **not** the β gate's analogue: the β gate
+reads a λ-binder's datum and gets the head's own product from the λ
+clause's fibre package (`AnnotOk2_beta_pos`, `Ok2.lean:281`); the io
+gate reads the ∀-binder's datum of a *computed* function type and gets
+the head's product from the io run (`InferIOP.lean:775-788`); the ι
+slot reads the ∀-binder's datum of a *stored* type and gets the head's
+product from `mem_typeP` + the prefix fit.  All three are
+`piR_dom_unique` with a different supplier of the head's membership;
+the ι site is io-shaped.
+
+**9.1.2 The datum question, answered.**  The audit asked whether "the
+∀-binder's `pw` claims the codomain sort's prop-ness" is the right
+premise.  It is the *only* right premise, by definition of the model:
+`piR v A B` (`SetBase/Ops.lean:52`) dispatches on the **product's**
+regime numeral, and `denoteP`'s `.forallE` clause
+(`SetP/Annot/Bit.lean:161-165`) sets that numeral to `pwBit φ m.pw` of
+exactly the node being peeled — the codomain sort's zeroness *is* the
+product's regime (the `imax` rule; the annotator's chain rule,
+`annotPwPi`, `Core.lean:2355` and its docstring, makes every telescope
+node carry the leaf codomain's).  The domain's own kind plays no role:
+`iota_slot_transfer` has no hypothesis on `A` whatsoever (a `Prop`-typed
+minor-premise slot such as `h : p` in `And.rec.{1}` is licensed like
+any other; `Spine2.lean`'s docstring says the same).  **The datum read
+is the right binder's**: `iotaCertsIAux` (`Cached/CoreC.lean:175`)
+reads `mb` off `viewI ty`, the ∀ node it is about to peel, the spec
+`iotaCerts` (`Core.lean:806`) matches the same node, `iotaCerts_step_inv`
++ `denoteP_forallE_inv` in `certs_telePA` (`IotaKitP.lean:277-291`)
+produce the `.pi 0 (pwBit φ mb.pw) doma bodya` whose `v` the fit's
+`.cons` is at — one node, one datum.  Two things the audit left
+implicit and which close the wrong-datum worry:
+
+* the `.bvar` re-entry of `iotaCertsIAux` (`:181-186`) never fires on
+  either ι telescope — the pins guarantee at least `mI+1` /
+  `cnP+cnF` binders and the walks are handed exactly that many
+  arguments — so no datum is ever read off a *substituted* node;
+* the datum read at fire time is the **level-instantiated** one:
+  `Expr.instantiateLevelParams` maps binder data through
+  `Level.substPW` (`Kernel/Level.lean:220-225`), so `Nat.rec.{u}`'s
+  stored `.ifAllZero [u]` (`Basis/Nat.lean:99-107`) is `.never` at
+  `us = [succ _]`.  **That is where the census's 99.77 % comes from** —
+  not from stored `.never` data (which are few), and it is exactly the
+  expression `constTypeP_pkg` denotes, so the row's `TVa` carries that
+  bit.  The audit's "`.never` is instantiation-stable" is true but is
+  the minor direction.
+
+**9.1.3 The mixed walk and the fence.**  Telescopes mix — at a generic
+`u` the major binder of `Nat.rec.{u}` is `.ifAllZero [u]` while
+`motive`'s type-binder is `.never` — so the kernel-shaped statement is
+per slot.  `TeleFitMix` (the probe) is `TeleFitPA` with the `.cons`
+premise weakened to `v ≠ 0 ∨ ⟦a⟧ ∈ ⟦A⟧` (gate fired ∨ certificate
+ran), and
+
+    theorem teleFitPA_of_mix : TeleFitMix V ρ T as rest → AnnotOkP V ρ T →
+        AnnotOkP V ρ (AVExpr.mkAppN f as) → interp2 V ρ f ∈ˢ interp2 V ρ T →
+        TeleFitPA V ρ T as rest
+
+recovers the P lane's own fit with no certificate at a licensed slot
+(≈ 40 lines; the certified arm is `certs_telePA`'s step verbatim).
+**The audit missed that the whole-telescope case is already on
+master**: `slotChain_fits` / `AnnotOk2_redex_fits`
+(`SetBase/Spine2.lean:81,142`, tier C seal 2 — "what replaces the
+per-fire `iotaCertsI` walk at a positive-kind telescope") prove it at
+the value level for `PosShape` (every binder positive) and have **no
+consumer** outside docstrings.  Proposal 1 is that design's resumption
+at per-slot granularity and at `AVExpr`.
+
+The fence is `iota_slot_fence` — `io_squash_no_transfer`'s witness
+with the roles renamed: at `v = 0` the head-prefix inhabits the
+telescope's product vacuously (`pt ∈ piR 0 ∅ B`), the redex's slot
+holds (`pt ∈ piR 0 (truthVal True) B'`, `pt ∈ truthVal True`), and
+`pt ∉ ∅` — the `TeleFitPA.cons` premise is **false** with every
+licence premise true, model-class-wide.  With
+`isNever_iff_forall_pwBit_ne_zero` (completeness half) the licensed
+fragment is exactly `.never`, as for β and io; the census's 60 120
+non-`.never` slots must keep running.
+
+**9.1.4 The scoping correction (binding).**  The audit's route —
+"`cfg.betaSkip mb.pw` moved to `iotaCertsIAux`'s ∀ binder
+(`CoreC.lean:175`)" — gates **every** caller of `iotaCertsIAux`, and
+two of them are unlicensed: the rescue's synthetic-spine
+certifications in `majorToCtorI` (`:519` K branch, `:567` η branch).
+A fabricated `ctor p⃗ (proj_i major)` is not a subterm of the subject,
+so it carries no `AnnotOk2` slot; in the P lane its grading `hokMj`
+is *produced from* that certificate (`Step2/MajorP.lean:407-411,
+509-518`: `certs_telePA` then `annotOkP_mkAppN_of_fitA`).  Gating
+there would have the licence consume the slots the certificate is
+there to create — circular.  The gate must live at `iotaRecI`'s two
+calls (`:673`, `:676`) only, e.g. a `licensed : Bool` parameter of
+`iotaCertsIAux` that only `iotaRecI` sets.  (Round 2's bit 13 gated
+globally; the rescue's share is 6 253 fabrications per init-full run,
+so the −8.658 % stands.)  Note also that for a *rescued* major the
+constructor-telescope slots do exist (the rescue's certificate
+established `hokMj`), so `iotaRecI:676` is licensed on rescued majors
+too.
+
+**9.1.5 Proof-side cost, re-priced.**  Zero new semantic theorems
+(`io_domain_transfer` is landed).  The work: the spec `iotaCerts` gains
+the gate in `whnfCoreBody`'s β-gate shape; `iotaCerts_step_inv`
+gains the disjunct; `certs_telePA` becomes the mixed walk with two
+extra inputs (the spine's `AnnotOkP` — for the recursor telescope's
+major slot through `heqAll`, `IotaRowsP.lean:561`, since the slot is
+about `xs[mI]` and the walk is handed the rescued major — and the
+head's `mem_typeP` membership); `iotaStepP_of` feeds them; the six
+cached-simulation sites of `iotaCertsI` (`Verify/Cached/DiscC2.lean:354,
+375, 432, 920, 932, 962`) gain a case.  `iotaRec_inv` keeps its shape.
+`iotaReadsP_of` is untouched (B4 already made reads independent of the
+certificate, `IotaRowsP.lean:385-388`).
+
+#### 9.2 The reflection lens — decision
+
+**The per-check accounting stays; a generic "fire a stored equation
+whose applicability conditions hold" lemma would absorb no conjunct.**
+Reason: `RecRuleLawP`'s hypotheses (`EnvS2P.lean:474-508`) are already
+exactly the redex-dependent facts — the two fits, the index pin, the
+level linkage, the parameter/pin agreements — and the two
+install-invariant tests the audit found (the `stripPis` pins) are
+**not hypotheses of the law at all**; they are `Red.iota` premise
+slots (`SetBase/Rel.lean:304-305`) bound and discarded by the P row.
+There is nothing to move into an "environment-invariant conjunct":
+the only place such a conjunct could live, the law's leading
+`rP ≤ mI`, is where the pins would go *if anyone consumed them*, and
+no one does — so deletion, not relocation, is the honest shape.  The
+`mI = rP` short-circuit likewise needs no law change (`IotaIndexPinP`
+is discharged by `Or.inl rfl`); it is a row-side one-liner plus a
+kernel-side drop.  A `FireOk` predicate bundling `iotaRec_inv`'s
+twenty-odd conjuncts would be a readability refactor with no
+proof-cost change and is not proposed.  What the lens *does* buy is
+§9.3's finding: every fire-path test that is **not** a law hypothesis
+(`hstripR`, `hstripC`, `hstripEq`, `hcbody`) is R-lane residue, and
+each is a deletion.
+
+#### 9.3 Proposals 2–5 and the no-action rows
+
+**Proposal 2, sharpened to an (A) drop.**  In `iotaStepP_of` the block's
+four conjuncts are consumed as follows: `hstripEq` (`stripPisBody`) —
+**never**; `hcbody` (residual head is a `.const`) — **never** (the
+row's `denoteP_mkAppN_inv hresC` accepts any head, `IotaRowsP.lean:650`);
+`hpres` (`piResidual`) — only to name the residual the index comparison
+reads (`:630,645`); `hdefI` — only through `hmapI`'s *length* at
+`mI = rP` (`:666-671`), where `IotaIndexPinP` is `Or.inl rfl` anyway.
+So at `mI = rP` the P lane consumes **nothing** from the block; the
+head-const test is unconsumed at every `mI`; and official has no
+counterpart to any of it (F5).  No install check needs adding —
+dropping the tests can only enlarge the accept set (a redex the
+residual-shape tests would leave stuck now fires) under a soundness
+proof that never read them, which is the accept-superset licence of
+the proofIrrel ruling.  (The install-side twin of the head-const test,
+`ctorResidualOk`, `Modeled.lean:751`, is `ttChecks`-gated and
+statically dead; the audit's "install-validated" framing would have
+had to revive it.)  Shape change: `iotaRec_inv` loses `hstripEq`,
+`hcbody` and the binders `cbinders cbody cr usr` outright, and
+`hpres`/`hdefI` become conditional on `rP < mI`.
+
+**Proposal 3, confirmed; the "deletable outright" reading refuted.**
+The pins hold on every route — modeled plain (`recRulePlain`,
+`ExprOps.lean:490`) and nested (`nestedRuleShapeF`, `DeclCheck.lean:418`;
+`stripPis mI = some (_, .forallE …)` is `stripPis (mI+1)` by
+`stripPis`'s clause, `ExprOps.lean:374`); projection-function
+recursors (`Modeled.lean:572`: `mI = rP = nP`, `checkProjTyF`
+`:598`, `checkProjRuleF` `:617`); the direct structure route
+(`Checker.lean:347`: `mI = rP = nP+2`, the rule `.plain` only under
+`recRulePlain`, `checkDirectRecTy`'s `stripPis (nP+nF)` at
+`DeclCheck.lean:887`); and the pinned literals, **decided** in
+`_tmp/iota-second/BasisPins.lean` for all eight
+(`Eq/Nat/PSigma'/PUnit/Empty.rec`, `Quot.lift/ind`, plus the
+shape-pinned `Iff.rec`/`Nonempty.rec`, whose rule lists arrive by
+`checkIotaRulesF`).  The `mI − rP` census of the pinned recursors is
+`0` everywhere except `Eq.rec` (`5, 4`), which is why the audit's 1 881
+index elements exist at all.  But the `Red`/bridge cluster is **not
+orphaned as a module set**: `SetP/FoldP.lean` imports
+`SetBase/Bridge/Sound.lean` (task #148 T6's model-free assembly half,
+`checkDecls_sound_P_of` at `FoldP.lean:219`) whose chain
+`Bridge/DeclInd → Bridge/Decl → Bridge/Main` reaches
+`Bridge/Iota.lean`; and `SetP/Annot/EnvS2P.lean` imports
+`SetBase/EnvR` → `CtxOkR` → `Weaken` → `Rel`.  What is orphaned is
+the *interpretation* (gone with SetR); the syntactic relations are
+still derived by the P assembly's build.  The pins' two premise slots
+can be dropped locally in three modules — `Rel.lean` (`Red.iota`),
+`Bridge/Iota.lean` (`iota_stepR`), `Weaken.lean:431` (`Red.weakenN`'s
+ι case; the only other eliminator of `Red.iota`) — but retiring the
+cluster is a separate stage that re-founds `Bridge/Sound` and `EnvR`
+on `Verify/*` directly.
+
+**Proposal 4, confirmed with a caveat.**  At `.plain` the comparand is
+`cvj.levelParams.map (Level.subst cv.levelParams us ∘ .param)`
+(`CoreC.lean:661-662`); a stored position map is install-invariant
+*provided* it reproduces `Level.subst`'s miss semantics — a
+constructor parameter absent from the recursor's list is kept as
+`.param n`, not dropped — or install rejects unlinked parameters (an
+invariant `checkIotaRuleF` does not currently check).  The P side
+(`recFireComparands_fst_nil`, `IotaRowsP.lean:626`) follows once a
+one-line install lemma equates the select with the map.
+
+**Proposal 3′**: confirmed, dominated by 3.
+
+**No-action rows**: confirmed.  The K fabrication is licensed by the
+stored `ruleK` capability with its per-fire hypotheses discharged at
+the fire (`caps.ruleK`, `CoreC.lean:499`; `CapsOkP` in the row); the
+η fabrication likewise by `caps.eta`/`etaCtor`/`etaParams`/`etaFields`
+(`EtaLaw` premised on `EtaFamilyStored`).  Neither re-derives a law;
+both discharge redex-dependent hypotheses, which is §1's organising
+fact again.  The `.nested` machinery (50 fires) needs no motion.
+
+#### 9.4 Conformance: ι once per spine
+
+**Reading confirmed.**  `type_checker.cpp:511-535` (`whnf_core`,
+`expr_kind::App`): `f = whnf_core(f0)`; a λ head takes the β branch;
+`else if (f == f0)` (`:525`) calls `reduce_recursor(e)` **once on the
+whole application** and returns `whnf_core(*r)` (`:533`); otherwise it re-whnfs
+`mk_rev_app(f, args)`, which re-enters the same case with `f == f0`
+— one attempt per application.  lean4lean `TypeChecker.lean:397-405`
+is the same shape (its own comment at `:404-405`: "the recursive call
+re-decomposes `r` and reaches the `f == f0` branch above"), and
+`inductiveReduceRec` (`Inductive/Reduce.lean:87,105-106`) indexes the
+major by `recArgs[majorIdx]?` and re-applies `recArgs[majorIdx+1..]`.
+Setlec's `whnfAppI` (`CoreC.lean:750-756`) calls `iotaRecI` on every
+accumulated `.app v a`, and `iotaRecI` bails at
+`args.length = mI + 1` (`:634`) after the prologue
+(`getAppFn`/`getNode`/`readbackNM`/`fe.find?`/`getAppArgsI`).
+
+**Verdict-neutral by construction.**  `iotaRecI` at a prefix of the
+wrong length returns `none` by its first test, so a `whnfAppI` that
+reads `mI` once at the head and calls `iotaRecI` only at the prefix of
+length `mI + 1` computes the same function: the skipped calls are
+exactly calls that return `none`, and the fired reduct is then
+re-applied to `rest` as today (`:754-755`).  The identification needs
+one lemma, `iotaRec` returns `none` unless `args.length = mI + 1`
+(the definition's `if`, the direction `iotaRec_inv`'s `hlenA` already
+records for the `some` case).  **Rows touched**: the twin ↔ spec
+identification in `Verify/BetaSpine.lean` (`whnfApp_ne_lam :174`,
+`whnfApp_atF :302`, `whnfApp_snoc :584`, `whnfApp_sound :918`,
+`whnfApp_ksound :945`), the cached simulation `Verify/Cached/DiscC4.lean`
+(`whnfAppC_sim :119`, `whnfAppIotaC_sim :260`), and `CoreNC`'s twin;
+the spec `whnfCoreBody` (`Core.lean:1514`) and the P/R claim rows are
+untouched — the spec keeps its per-node shape and the twin merely
+skips calls the spec makes and that return `none`.
+
+**The saving is a lower bound.**  The census counter 0 ticks only after
+`fe.find?` returns a `recInfo` ("reaches a stored recursor"), so the
+17.62 M attempts and the +0.263 %-per-prologue price cover
+recursor-headed spines only.  Every application spine whose head is
+any other stored constant (a definition, a constructor, an axiom)
+pays the same prologue up to `find?` at **every** prefix and was never
+counted.  The once-per-spine shape removes those too; one `dbg_trace`
+before `find?` prices them.  −0.20 % is therefore the floor, and
+proposal 5 may deserve a higher rank than the audit gave it once that
+number exists.
+
+#### 9.5 What the audit did not mention
+
+* **Duplicate walk on rescued majors.**  For a K- or η-rescued major
+  the constructor-telescope certificate runs twice on the same spine
+  and the same `tyCtor`: once inside the rescue (`majorToCtorI:519`
+  / `:567`) and again at `iotaRecI:676`.  6 253 fabrications per
+  init-full run — free, but a shape fact worth recording when the
+  licence lands (the second run is the licensed one; the first is
+  not, §9.1.4).
+* **The literal conversion** (`litMajorToCtorI`, `CoreC.lean:590`;
+  `natLitToConstructor`, `Core.lean:270`) is one node per fire
+  (`Nat.succ (lit (k))`) and identical to official; inherent.
+* **`cfg.iotaMode`** is the section variable `mode` threaded
+  `iotaRecI → majorToCtorI → structEtaCertWithI`, whose one read is the
+  `ttChecks` branch at `CoreC.lean:405` — statically dead; retires with
+  the `ttChecks` row as `CoreCfg.lean:41-55` already says.  Nothing
+  ι-specific to do.
+* **`AnnotValidV` is one-directional** (`SetP/Annot/ValidV.lean:55-59`:
+  `v = 0 → fibres in univZero`), so the licence needs no validity
+  fact at all — it reads `v ≠ 0` and the head's membership.  This is
+  also why the licence is immune to the basis literals' provenance
+  (they are generated by the same annotator, `AnnotateBasis.lean`, and
+  `natRecA` does carry `.ifAllZero [u]` on the `u`-graded binders).
+
+#### 9.6 Prioritised list for the grant
+
+| rank | item | route | measured | proof-side cost, re-priced |
+|---|---|---|---|---|
+| 1 | licence at `.never`, **scoped to `iotaRecI`'s two calls** | licence (io-shaped) | −8.66 % init-full | no new theorem; mixed `certs_telePA` + gate in spec/twin + 6 sim sites |
+| 2 | drop `stripPisBody` + head-const at every `mI`; drop `piResidual` + `defEqList` at `mI = rP` | **drop** (A) | −0.87 % | `iotaRec_inv` shrinks; row: `Or.inl rfl` |
+| 3 | delete the two `stripPis` pins | drop (A) | −0.46 % | `iotaRec_inv`; `Red.iota`/`iota_stepR`/`Red.weakenN` lose two slots |
+| 4 | ι once per spine | drop duplicated work | ≥ −0.20 % (floor; price the non-recursor prologues first) | BetaSpine + DiscC4 rows, one `none`-lemma |
+| 5 | `.plain` level-linkage select | install-validate | ≤ −0.28 % | one install lemma; miss-semantics caveat |
+| — | rescue family, `.nested`, `iotaMode` | no action | — | — |
+
+Items 2+3 are the enlarged no-proof-change-in-P package (the audit's
+2+3′ measured −1.717 % on grind-ring-5; 2+3 as drops should not be
+smaller).  Item 1 is the only large item and is ready: the licence is
+a landed theorem, the walk is mechanized in the probe, and the one
+hazard (§9.1.4) is named.
