@@ -1,6 +1,13 @@
 module
 
 public import Std.Data.HashMap
+/- `withPtrEq` is `public` but not `@[expose]`, and its whole point here
+is that it is *definitionally* `k ()` — which is what
+`Name.beqPtr_eq` proves.  `import all` makes that body visible **in
+this module only**; that theorem is the public relay, so no importer
+needs it, and the executed `Name.beq` is the plain `decide (· = ·)`
+that the kernel can still reduce. -/
+import all Init.Util
 
 /-!
 # Kernel expressions
@@ -46,6 +53,42 @@ deriving DecidableEq, Repr, Inhabited
 /-- Hashing a name is an `O(1)` field read, not a structural walk with
 a byte-wise `String` hash per limb. -/
 instance : Hashable Name := ⟨Name.hashData⟩
+
+/-- Name equality in the official kernel's shape (task #176 P1):
+**pointer** (`lean_name_eq`'s `if (n1 == n2) return true`), then the
+**cached hash** (`lean_name_hash_ptr`), then the structural walk —
+`_tmp/lean4-master-kernel/lean4_object.cpp:2762`.  This is the
+*implementation* of `Name.beq`; `Name.beqPtr_eq` proves the two guards
+redundant. -/
+@[inline] def Name.beqPtr (a b : Name) : Bool :=
+  withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
+    (fun h => by subst h; simp)
+
+/-- Both guards are redundant: `withPtrEq a b k h` is *defined* as
+`k ()`, and `hashData` is a function of the value, so a hash mismatch
+**is** an inequality. -/
+theorem Name.beqPtr_eq (a b : Name) : Name.beqPtr a b = decide (a = b) := by
+  show (a.hashData == b.hashData && decide (a = b)) = decide (a = b)
+  by_cases h : a = b
+  · subst h; simp
+  · simp [h]
+
+/-- The executed name equality.  Definitionally `decide (a = b)` — so
+the kernel, `by decide` and `#guard` still see plain structural
+equality — with `beqPtr` substituted by the *compiler*.  Unlike
+`Expr.beqFast` this `implemented_by` is **not** a trust escape: the
+two functions are proved equal (`Name.beqPtr_eq`), and `withPtrEq`'s
+own obligation is discharged above; nothing is taken on faith about
+the runtime. -/
+@[implemented_by Name.beqPtr]
+def Name.beq (a b : Name) : Bool := decide (a = b)
+
+instance : BEq Name := ⟨Name.beq⟩
+
+/-- `Name.beq` is lawful — it *is* `decide (· = ·)`. -/
+instance : LawfulBEq Name where
+  eq_of_beq h := of_decide_eq_true h
+  rfl := by simp [BEq.beq, Name.beq]
 
 namespace Name
 
