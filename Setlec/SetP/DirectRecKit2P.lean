@@ -243,8 +243,9 @@ theorem Sat2_cons_of_tail {Δ : List AVExpr} {A : AVExpr} {ρ : Nat → V}
 both have the same satisfying valuations**, at every depth. -/
 theorem frameIdent {Γ₁ Γ₂ : List AVExpr} {n : Nat} (h1 : Γ₁.length = n)
     (h2 : Γ₂.length = n)
-    (hent : ∀ i, i < n → ∀ ρ : Nat → V, Sat2 V (Γ₁.drop (n - i)) ρ →
-      Sat2 V (Γ₂.drop (n - i)) ρ →
+    (hent : ∀ i, i < n →
+      (∀ ρ : Nat → V, Sat2 V (Γ₁.drop (n - i)) ρ ↔ Sat2 V (Γ₂.drop (n - i)) ρ) →
+      ∀ ρ : Nat → V, Sat2 V (Γ₁.drop (n - i)) ρ →
       interp2 V ρ (Γ₁.getD (n - 1 - i) default) = interp2 V ρ (Γ₂.getD (n - 1 - i) default)) :
     ∀ i, i ≤ n → ∀ ρ : Nat → V, Sat2 V (Γ₁.drop (n - i)) ρ ↔ Sat2 V (Γ₂.drop (n - i)) ρ := by
   intro i
@@ -254,19 +255,20 @@ theorem frameIdent {Γ₁ Γ₂ : List AVExpr} {n : Nat} (h1 : Γ₁.length = n)
     rw [Nat.sub_zero, List.drop_eq_nil_of_le (by omega), List.drop_eq_nil_of_le (by omega)]
   | succ i ih =>
     intro hi ρ
+    have hiff := ih (by omega)
     rw [drop_succ_eq_getD_cons h1 (by omega), drop_succ_eq_getD_cons h2 (by omega)]
     constructor
     · intro h
       obtain ⟨hx, ht⟩ := Sat2_cons_inv h
-      have ht' := (ih (by omega) _).mp ht
+      have ht' := (hiff _).mp ht
       refine Sat2_cons_of_tail ht' ?_
-      rw [← hent i (by omega) _ ht ht']
+      rw [← hent i (by omega) hiff _ ht]
       exact hx
     · intro h
       obtain ⟨hx, ht⟩ := Sat2_cons_inv h
-      have ht' := (ih (by omega) _).mpr ht
+      have ht' := (hiff _).mpr ht
       refine Sat2_cons_of_tail ht' ?_
-      rw [hent i (by omega) _ ht' ht]
+      rw [hent i (by omega) hiff _ ht']
       exact hx
 
 /-! ## The minor space as a Π-tower reading -/
