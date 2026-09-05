@@ -216,7 +216,8 @@ theorem declStep2_defn (hdm : DivModPinS V) {F : Nat}
         env.consts⟩) := by
   obtain ⟨hbase, hag⟩ := declDefnS hdm m.base h
   exact declStep2_of_valueResidues m
-    (Option.isNone_iff_eq_none.mp hcvR.1) hvf hrun hbase hag
+    (Option.isNone_iff_eq_none.mp hcvR.1)
+    (fun _ heq => nomatch heq) hvf hrun hbase hag
     (leafEq_defn hbase)
     (fun cv2 v2 h2 heq => by
       simp only [ConstantInfo.defnInfo.injEq] at heq
@@ -430,7 +431,8 @@ theorem declStep2M_defn (hdm : DivModPinS V) {F : Nat}
         env.consts⟩) := by
   obtain ⟨hbase, hag⟩ := declDefnS hdm m.base h
   exact declStep2M_of_valueResidues m
-    (Option.isNone_iff_eq_none.mp hcvR.1) hvf hrun hbase hag
+    (Option.isNone_iff_eq_none.mp hcvR.1)
+    (fun _ heq => nomatch heq) hvf hrun hbase hag
     (leafEq_defn hbase)
     (fun cv2 v2 h2 heq => by
       simp only [ConstantInfo.defnInfo.injEq] at heq

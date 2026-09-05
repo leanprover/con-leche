@@ -120,7 +120,8 @@ theorem projConsS {μ : CheckMode} {env' : Env} (m : EnvS V env')
     rw [hcval₀, cvalWith_ne hn]
   have hi : Installs env' m.cval cval₀
       (projEntry T lps pty nP i rules) :=
-    Installs.of_fresh hfresh hag
+    Installs.of_fresh hfresh
+      (fun _ heq => ConstantInfo.noConfusion heq) hag
   have hself : cval₀ (projFnName T i)
       = fun ψ => m.cval (projModelName T i) ψ := by
     rw [hcval₀]; exact cvalWith_self
@@ -203,7 +204,8 @@ theorem projConsS {μ : CheckMode} {env' : Env} (m : EnvS V env')
           (g := projFwd T ctorName nF)
           (fun n hn => by simp only [hn, if_true]) _ hptyres]
         exact eq_of_beq hround
-      rw [← denote_renameConsts (projFwd_renameOkT hinv) pty 0, hrenP]
+      rw [← denote_renameConsts (projFwd_renameOkT hinv
+        (fun sn2 i2 entry2 hf2 => m.proj_ok.towerFree sn2 i2 entry2 hf2)) pty 0, hrenP]
       exact ht
     · intro ρ
       show interp V ρ (cval₀ (projFnName T i) φ) ∈ˢ interp V ρ t ∧
@@ -325,7 +327,8 @@ theorem projConsS {μ : CheckMode} {env' : Env} (m : EnvS V env')
         if (env'.find? n).isSome = true then
           (if blockNames.contains n then n.str "_model" else n)
         else n) :=
-      renameOkT_cvalStep hi (fun n hn => by simp [hn]) hIB.renameOkT
+      renameOkT_cvalStep hi (fun n hn => by simp [hn])
+        (hIB.renameOkT (fun sn2 i2 entry2 hf2 => m.proj_ok.towerFree sn2 i2 entry2 hf2))
     have hrenTA : RenEqT (fun n =>
         if (env'.find? n).isSome = true then
           (if blockNames.contains n then n.str "_model" else n)
@@ -387,6 +390,7 @@ theorem projFnS {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     exact nomatch (Option.some.inj hfm)
   -- the pruned projection renaming, and its fixed point at `Rn`
   have hro := projFwd_renameOkT hinv
+    (fun sn2 i2 entry2 hf2 => m.proj_ok.towerFree sn2 i2 entry2 hf2)
   have hfRn : (if (env'.find? (projModelName T i)).isSome = true then
       projFwd T ctorName nF (projModelName T i)
       else projModelName T i) = projModelName T i := by
@@ -523,7 +527,8 @@ theorem projFnS {μ : CheckMode} {F : Nat} {env' env₁ : Env}
         [⟨ctorName, nF, nP,
           if Expr.recRulePlain pty nP nP nP then .plain else .inert,
           rhsA⟩]) :=
-    Installs.of_fresh hfresh hag
+    Installs.of_fresh hfresh
+      (fun _ heq => ConstantInfo.noConfusion heq) hag
   have hCne : ctorName ≠ projFnName T i := by
     intro hh
     rw [hh, hfresh] at hctor
@@ -734,7 +739,10 @@ theorem templateConsS {env' : Env} (m : EnvS V env')
     intro n hn
     rw [hcval₀, cvalWith_ne (by rw [← hname]; exact hn)]
   have hi : Installs env' m.cval cval₀ (.projInfo entry) :=
-    Installs.of_fresh hfresh hag
+    Installs.of_fresh hfresh
+      (fun e2 heq => by
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact htower) hag
   have hselfA : ∀ ψ : Name → Nat,
       cval₀ (ConstantInfo.projInfo entry).name ψ
         = VExpr.eqE (.sort 0) .prf .prf := by

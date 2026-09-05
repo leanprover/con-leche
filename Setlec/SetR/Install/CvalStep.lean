@@ -112,14 +112,14 @@ theorem renameOkT_cvalStep {env : Env} {cval cval' : TConstVal}
     (hi : Installs env cval cval' c₀)
     (hprune : ∀ n : Name, (env.find? n).isSome = false → f n = n)
     (h : RenameOkT cval env f) : RenameOkT cval' env f := by
-  refine ⟨h.1, h.2.1, ?_⟩
+  refine ⟨h.1, h.2.1, ?_, h.2.2.2⟩
   intro n ψ
   rcases hf : env.find? n with _ | ci
   · rw [hprune n (by rw [hf]; rfl)]
   · obtain ⟨ci', hf', -⟩ := h.1 n ci hf
     rw [← hi.agree (n := f n) (by rw [hf']; rfl),
       ← hi.agree (n := n) (by rw [hf]; rfl)]
-    exact h.2.2 n ψ
+    exact h.2.2.1 n ψ
 
 /-- The eta law crosses one install: it reads the environment through
 the former's denoted type alone. -/

@@ -230,7 +230,10 @@ that seal priced it. -/
 theorem denote2_envExtend {μ : CheckMode} {env₀ env : Env}
     {acval : Name → (Name → Nat) → AVExpr} {φ : Name → Nat}
     (hF : FindPreserved env₀ env) (hG : LitGuardsAgree env₀ env)
-    (hS : SortAgree μ env₀ env φ) :
+    (hS : SortAgree μ env₀ env φ)
+    (hproj : ∀ (sn : Name) (i : Nat) (entry : Setlec.ProjEntry),
+      env₀.findProj? sn i = none → env.findProj? sn i = some entry →
+      entry.tower = false) :
     Denote2EnvExtend μ env₀ env acval φ := by
   intro F d e
   induction d, e using denote2.induct (env := env₀) with
@@ -274,7 +277,38 @@ theorem denote2_envExtend {μ : CheckMode} {env₀ env : Env}
   | case10 d sn i e ihe =>
     intro hc
     rw [constsBound_proj] at hc
+    have hmono : ∀ (entry : Setlec.ProjEntry),
+        env₀.findProj? sn i = some entry →
+        env.findProj? sn i = some entry := by
+      intro entry h
+      unfold Setlec.Env.findProj? at h ⊢
+      cases hf0 : env₀.find? (Setlec.projFnName sn i) with
+      | none => rw [hf0] at h; exact nomatch h
+      | some ci =>
+        rw [hf0] at h
+        rw [hF hf0]
+        exact h
     rw [denote2, denote2, ihe hc]
+    cases denote2 μ acval env φ F d e with
+    | none => rfl
+    | some ea =>
+      show (match env₀.findProj? sn i with
+          | some entry => if entry.tower = true then some (projAV i ea)
+              else if i < 2 then some (AVExpr.proj i ea) else none
+          | none => if i < 2 then some (AVExpr.proj i ea) else none)
+        = (match env.findProj? sn i with
+          | some entry => if entry.tower = true then some (projAV i ea)
+              else if i < 2 then some (AVExpr.proj i ea) else none
+          | none => if i < 2 then some (AVExpr.proj i ea) else none)
+      cases hfp0 : env₀.findProj? sn i with
+      | some entry => rw [hmono entry hfp0]
+      | none =>
+        cases hfp : env.findProj? sn i with
+        | none => rfl
+        | some entry =>
+          dsimp only
+          rw [if_neg (show ¬ entry.tower = true by
+            simp [hproj sn i entry hfp0 hfp])]
   | case11 d n hsup =>
     intro _
     rw [denote2, if_pos hsup, denote2, if_pos (hG.1 ▸ hsup)]

@@ -91,7 +91,10 @@ theorem indMemberS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
   have hlpsA : c₀.toConstantVal.levelParams = cvA.levelParams := by
     rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;> rfl
   have hi : Installs env m.cval (cvalModeled m.cval cvA.name) c₀ :=
-    Installs.of_fresh hfresh' (fun n hn => by
+    Installs.of_fresh hfresh'
+      (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+            intro _ h <;> exact nomatch h)
+      (fun n hn => by
       rw [hc₀name] at hn
       exact (cvalWith_ne hn).symm)
   refine ⟨EnvS.cons m hi hwf ?_ ?_ ?_ ?_

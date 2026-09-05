@@ -90,7 +90,8 @@ theorem memberUnitS : MemberUnitS V := by
   -- the install this member is
   have hi : Installs env m.cval (cvalModeled m.cval cvA.name)
       (.indInfo cvA caps) :=
-    Installs.of_fresh hfreshA (fun n hn => by
+    Installs.of_fresh hfreshA (fun _ heq => nomatch heq)
+      (fun n hn => by
       rw [cvalModeled, cvalWith_ne (show n ≠ cvA.name from hn)])
   have hcl : ∀ (n : Name) (ψ : Name → Nat),
       VExpr.Closed (cvalModeled m.cval cvA.name n ψ) := by
@@ -116,7 +117,9 @@ theorem memberUnitS : MemberUnitS V := by
       cvalWith_self]
   -- the block renaming, on the installed valuation
   have hroB := renameOkT_cvalStep hi
-    (fun n hn => by simp only [hn]; rfl) hI.renameOkT
+    (fun n hn => by simp only [hn]; rfl)
+    (hI.renameOkT (fun sn i entry hf =>
+      m.proj_ok.towerFree sn i entry hf))
   have hrenT : RenEqT (fun n => if (env.find? n).isSome = true then
       (if blockNames.contains n then n.str "_model" else n) else n)
       cvA.type cvm.type := by
@@ -166,6 +169,7 @@ theorem memberEtaS {μ : CheckMode} {F : Nat} {blockNames : List Name}
     (hI : BlockInstalledTT blockNames env m.cval)
     (hbn : blockNames.contains cvA.name = true)
     (hc₀cv : c₀.toConstantVal = cvA) (hc₀name : c₀.name = cvA.name)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hpins : ∀ caps, c₀ = .indInfo cvA caps →
       EtaPins μ env cvA.name cvA.levelParams caps ∧
         (caps.eta = true → blockNames.contains caps.etaCtor = true) ∧
@@ -239,7 +243,7 @@ theorem memberEtaS {μ : CheckMode} {F : Nat} {blockNames : List Name}
       exact nomatch hfp
   -- the install, and the valuation's basic facts
   have hi : Installs env m.cval (cvalModeled m.cval cvA.name) c₀ :=
-    Installs.of_fresh hfresh0 (fun n hn => by
+    Installs.of_fresh hfresh0 hntc (fun n hn => by
       rw [cvalModeled, cvalWith_ne (show n ≠ cvA.name from
         fun he => hn (by rw [he, hc₀name]))])
   have hcl : ∀ (n : Name) (ψ : Name → Nat),
@@ -310,7 +314,9 @@ theorem memberEtaS {μ : CheckMode} {F : Nat} {blockNames : List Name}
     exact hresTy
   -- the block renaming, on the installed valuation
   have hroB := renameOkT_cvalStep hi
-    (fun n hn => by simp only [hn]; rfl) hI.renameOkT
+    (fun n hn => by simp only [hn]; rfl)
+    (hI.renameOkT (fun sn i entry hf =>
+      m.proj_ok.towerFree sn i entry hf))
   have hrenT : RenEqT (fun n => if (env.find? n).isSome = true then
       (if blockNames.contains n then n.str "_model" else n) else n)
       cvT.type cvmT'.type := by
@@ -392,7 +398,11 @@ theorem memberInstallS (hkey : MemberKeyS V)
       by rw [hnameA]; exact (hpins caps2 hceq).2.2⟩
   obtain ⟨m₁, hm₁⟩ := indMemberS m hc₀name hkind hfreshA hwf hnresA
     hmE hmlps (hkey m hmv hI)
-    (memberEtaS m hmv hI hbn hc₀cv hc₀name hpinsA hEC hBP)
+    (memberEtaS m hmv hI hbn hc₀cv hc₀name
+      (by rcases hkind with ⟨caps2, rfl⟩ | ⟨nP2, nF2, rfl⟩
+            | ⟨mI2, rP2, rfl⟩ <;>
+          intro _ h <;> exact nomatch h)
+      hpinsA hEC hBP)
     (fun cv2 caps2 hceq hcapu2 _ => by
       have hcv2 : cv2 = cvA := by rw [← hc₀cv, hceq]; rfl
       subst hcv2
@@ -564,7 +574,8 @@ theorem memberKeyS : MemberKeyS V := by
   rw [← ht]
   show denote m.cval env ψ 0 type' = denote m.cval env ψ 0 cvm.type
   rw [← denote_erasedEq (Expr.ErasedEq.of_eqUpToNames hren) 0]
-  exact (denote_renameConsts_resolve (φ := ψ) hup hval type' 0
+  exact (denote_renameConsts_resolve (φ := ψ) hup hval
+    (fun sn i entry hf => m.proj_ok.towerFree sn i entry hf) type' 0
     htr).symm
 
 end Setlec.SetR

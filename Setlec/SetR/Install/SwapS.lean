@@ -60,7 +60,7 @@ def EnvS.swap {env₀ env₃ : Env} (m₀ : EnvS V env₀)
   have hcg : SwapCongr env₀ env₃ := SwapShList.congr hsw
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote m₀.cval env₀ φ d e = denote m₀.cval env₃ φ d e :=
-    fun _ => denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq
+    fun _ => denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq
   have hdeC : ∀ (φ : Name → Nat) (e : Expr),
       denoteClosed m₀.cval env₀ φ e = denoteClosed m₀.cval env₃ φ e :=
     fun φ e => hde φ 0 e

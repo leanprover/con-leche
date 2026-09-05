@@ -164,7 +164,8 @@ theorem sndInfProj (henv : EnvSHyp V env cval φ)
       exact sfst_mem V hXu hsig
   · -- second projection
     obtain rfl : i = 1 := hidx.symm
-    rw [denote_pairSndTy_eq hpsig] at h7
+    rw [denote_pairSndTy_eq hpsig
+      (fun e he => henv.proj_ok.towerFree _ _ _ he)] at h7
     obtain rfl := (Option.some.inj h7).symm
     rw [show ([X, Y] ++ [p]) = [X, Y, p] from rfl,
       piResidualV_pairSnd (henv.cval_closed _ _)] at h8

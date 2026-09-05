@@ -93,7 +93,8 @@ theorem EnvR.consProjFn {env' : Env} (m : EnvR env')
     intro n hn
     rw [hcval₀, cvalWith_ne hn]
   have hi : Installs env' m.cval cval₀ (projEntry T lps pty nP i rules) :=
-    Installs.of_fresh hfresh0 hag
+    Installs.of_fresh hfresh0
+      (fun _ heq => ConstantInfo.noConfusion heq) hag
   have hselfA : ∀ ψ : Name → Nat,
       cval₀ (projFnName T i) ψ = m.cval (projModelName T i) ψ := by
     intro ψ
@@ -104,6 +105,7 @@ theorem EnvR.consProjFn {env' : Env} (m : EnvR env')
       ∃ t, denoteClosed m.cval env' ψ pty = some t := by
     intro ψ
     have hro := projFwd_renameOkT hinv
+      (fun sn i entry hf => m.proj_ok.towerFree sn i entry hf)
     have hcong : pty.renameConsts (fun n =>
         if (env'.find? n).isSome = true then
           projFwd T ctorName nF n else n)

@@ -132,6 +132,8 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     fun ψ => by rw [hA]
   -- the pruned renaming, and the type's reading at the prefix
   have hroP := projFwd_renameOkP hinv hinvA
+    (fun sn2 i2 entry2 hf2 =>
+      mp.base2.proj_ok.towerFree sn2 i2 entry2 hf2)
   have hrenP : pty.renameConsts (fun n =>
       if (env'.find? n).isSome = true then
         projFwd T ctorName nF n else n) = mcv.type := by
@@ -160,7 +162,9 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     obtain ⟨ta, hta, hok, hmem⟩ := htyPre ψ
     refine ⟨ta, ?_, hok, hmem⟩
     rw [hcvA]
-    exact denoteP_cons_fresh_mono hfresh ψ 0 pty hcbPty hta
+    exact denoteP_cons_fresh_mono hfresh
+      (fun _ h => by rw [hc₀] at h; exact nomatch h)
+      ψ 0 pty hcbPty hta
   -- the eight mechanical rows
   have hAclosedH : ∀ (ψ : Name → Nat) (k : Nat),
       (A ψ).liftN 1 k = A ψ := by

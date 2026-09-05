@@ -147,7 +147,7 @@ theorem declStepPM_of_ind_cons (mp : EnvS2PM V μ env)
       (ne_of_notReserved hnres reserved_natZeroName)
       (ne_of_notReserved hnres reserved_natSuccName) _ rfl φ
   · exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ) hfresh
-      (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
+      (hntc := hh.projTower) (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
   · exact fun φ => divModP_cons_fresh (mp.div_mod φ) hfresh
       (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
   · -- `eq_lawP`: `Eq` is reserved, so it is not this cons
@@ -203,7 +203,7 @@ theorem declStepPM_of_ind_member_cons (mp : EnvS2PM V μ env)
       intro _ _ h <;> exact nomatch h
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
       intro _ h <;> exact nomatch h
-  · refine fun m₂ hac φ => recRulesP_cons_fresh mp hfresh ?_ m₂ hac φ
+  · refine fun m₂ hac φ => recRulesP_cons_fresh mp hfresh hh.projTower ?_ m₂ hac φ
     rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
       intro _ _ _ _ h <;> exact nomatch h
 
@@ -294,10 +294,12 @@ theorem declStepPM_of_projTemplate_cons (mp : EnvS2PM V μ env)
     (fun _ h => nomatch h) hh hAclosed hAparams hAok
     hAvalid htyReads htyOk hmemNew ?_ ?_
   · exact fun m₂ hac => capsOkP_cons_fresh mp mp.caps_ok hfresh
+      hh.projTower
       (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h)
       (fun _ _ _ _ h => nomatch h) m₂ hac
   · exact fun m₂ hac φ =>
-      recRulesP_cons_fresh mp hfresh (fun _ _ _ _ h => nomatch h) m₂
+      recRulesP_cons_fresh mp hfresh hh.projTower
+        (fun _ _ _ _ h => nomatch h) m₂
         hac φ
 
 end Setlec.SetR.Interp2

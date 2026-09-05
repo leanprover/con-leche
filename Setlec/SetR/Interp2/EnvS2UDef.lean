@@ -124,7 +124,7 @@ conjunct — carry content here. -/
 def defProbeEnvS : EnvS V defProbeEnv := by
   refine EnvS.cons (V := V) (env := Env.empty) (EnvS.empty V)
     (c₀ := defProbeCi) (cval' := defProbeCval)
-    (Installs.of_fresh rfl ?_)
+    (Installs.of_fresh rfl (fun _ heq => nomatch heq) ?_)
     (hwf := ?_)
     (hclosed := fun ψ => by rw [defProbeCval_head]; trivial)
     (hparams := fun _ _ _ => rfl)
@@ -671,7 +671,7 @@ theorem lamDef_annotates_lam (μ : CheckMode) (φ : Name → Nat)
 def lamDefEnvS : EnvS V lamDefEnv := by
   refine EnvS.cons (V := V) (env := Env.empty) (EnvS.empty V)
     (c₀ := lamDefCi) (cval' := lamDefCval)
-    (Installs.of_fresh rfl ?_)
+    (Installs.of_fresh rfl (fun _ heq => nomatch heq) ?_)
     (hwf := ?_)
     (hclosed := fun ψ => by
       rw [lamDefCval_head]

@@ -419,7 +419,7 @@ theorem indBottomProjS : IndBottomProjS V := by
           (cvj.levelParams.map .param)
         = Level.substFn φ lps us from
         funext fun _ => Level.substFn_map_param,
-      hro.2.2, hctorLev]
+      hro.2.2.1, hctorLev]
   have hdeIdxNil : DefEqListW μ envS mS.cval
       (Level.substFn φ lps us) (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))

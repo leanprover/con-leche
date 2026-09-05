@@ -38207,7 +38207,7 @@ accepted terms, so the branch is verdict-dead there).
 | W2a | `ProjEntry.tower` field | LANDED (zero proof changes) |
 | W2b | generator + `checkDirectProj` entry install + twins + bridge re-proofs | LANDED |
 | W2c | infer tower branch (4 twins) + clause-proof adaptation | LANDED |
-| W3 | `denoteP`/`denote` reading branch + erasure law | STOP-FINDING (below); WIP parked at `agent/wiring-w3-wip` |
+| W3 | `denoteP`/`denote` reading branch + erasure law | LANDED (stop-finding resolved; see the W3 record below) |
 | W4 | install soundness (checklist items 1–2) | pending |
 | W5 | rewrite removal (P/parity), flip, battery | pending |
 | W6 | PSigma' retirement (gated) | pending |
@@ -38337,3 +38337,43 @@ the WIP branch):
    pin-kill or TowerFree per site;
 5. at W5 the invariant weakens to the disjunction in the SAME commit
    as `NativeProjPinned`'s.
+
+**W3 LANDED (2026-09-05, the completion route executed with one
+route amendment).**  The route's steps 1–2 were folded into ONE seam:
+instead of a new carrier field, `TowerFree` rides `ProjOkT` as a
+**third conjunct** (`∀ n entry, find? n = some (.projInfo entry) →
+entry.tower = false`) — `ProjOkT` is already a field of every
+consumer record (`EnvR`, `EnvS`, `EnvS2Core`, `EnvSHyp`,
+`Sound/Motives`), so the fact arrives everywhere with zero new
+threading; `ProjOkT.towerFree` packages the `findProj?`-level reading
+the walks consume.  Amendment judged faithful to the route's
+substance (the consumers ARE the environment records; the field
+already existed).  Discharges: the three `ConsHeadP` heads gain
+`projTower`; `Installs` gains the `ntc` field (the WIP's own freeze);
+`TemplatesR` gains `entry.tower = false` (bridge cost: one `rfl` —
+`installProjTemplate`'s literal); `EnvS.cons`/`extendBasisS`/
+`Installs.of_fresh` and their ~40 call sites discharge by kind
+(`noConfusion`/`nomatch`), by pin (`rfl` at the pair entries), or by
+`ConsHeadP.projTower`; the swap walks by `hsame`.  Step 3 as priced:
+`RenameOkT`/`RenameOkP` gain the tower-free fourth conjunct, the
+four builders (`projFwd_renameOkT/P`, `blockRenameOkT/P`,
+`BlockInstalledTT.renameOkT`) take it as a hypothesis discharged
+from `m.proj_ok.towerFree` at every caller; the `_resolve` variants
+take it as a separate premise.  Step 4's wave: `denote_env_ext` +
+`denoteP_env_ext`/`denoteP_swap` consume `SwapCongr.projEq`; the
+extension walks (`denote_mono`, `denoteP_envExtend`/`_mono`,
+`denote2_envExtend`) take the none→some hproj premise, discharged at
+cons sites by `findProj?_cons_of_base_none` off the head's `ntc`;
+`denote2` (`SetBase/Canon`) carries the same reading branch with
+`denote2_proj_pair` and the pin-killed inversion; the pin-kill sites
+(Sound/Proj, Bridge/{Proj,ProjRed,Stuck,EtaCerts}, DefEqP, ReadsP,
+ReadsIOP, ProjRowsP, CapsRowsP, AcceptedP, DefEqRun ×8) use
+`denote(P)_proj_pair`/`_inv_pair` off `proj_ok.towerFree`.
+Receipts: 521 jobs green and warning-free, `lake test` green,
+layering 0 edges, proofdeps 96 rows as pinned (doors 0), axioms on
+`no_proof_of_Empty_{R, P, SPCD_P}` exactly the standard three;
+behavior byte-identical (no kernel-side diffs in this stage; the new
+branches are dead pre-flip — no tower entries exist).  At W5 the
+`ProjOkT` third conjunct and `RenameOkT/P`'s fourth weaken to the
+per-block coverage disjunction in the SAME commit as
+`NativeProjPinned`'s.

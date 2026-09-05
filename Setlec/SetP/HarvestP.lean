@@ -302,7 +302,8 @@ theorem harvestDefnP (hμ : μ.verified = true)
       denoteP_cons_fresh_mono
         (acval := mp.base2.acval)
         (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-        (A := A) hfresh ψ 0 e hcb h
+        (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
+        ψ 0 e hcb h
   -- assemble
   refine ⟨(declStepPM_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
@@ -454,7 +455,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
         hSelfBin hSelfUn _ rfl
     · exact natOpsP_cons_fresh mp (mp.nat_ops φ)
         (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-        (A := A) hfresh
+        (A := A) hfresh (hntc := fun _ h => ConstantInfo.noConfusion h)
         (Or.inr (fun hm => hno (List.contains_iff_mem.mpr hm))) _ rfl
   · -- `div_mod` at the extension: a WF operation's own install goes
     -- through the certificate conversion; any other definition
@@ -485,14 +486,15 @@ theorem harvestDefnP (hμ : μ.verified = true)
     -- so no stored family can be completed here
     exact capsOkP_cons_fresh mp mp.caps_ok
       (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-      (A := A) hfresh (fun _ _ h => ConstantInfo.noConfusion h)
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
+      (fun _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl
   · -- `rec_rules` at the extension: a value-kind cons is neither a
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRulesP_cons_fresh mp
       (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-      (A := A) hfresh
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: a definition is not an
     -- `axiomInfo`, so no reduce operation can be this cons
@@ -670,7 +672,8 @@ theorem harvestThmP (hμ : μ.verified = true)
       denoteP_cons_fresh_mono
         (acval := mp.base2.acval)
         (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
-        (A := A) hfresh ψ 0 e hcb h
+        (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
+        ψ 0 e hcb h
   -- assemble
   refine ⟨(declStepPM_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
@@ -734,7 +737,8 @@ theorem harvestThmP (hμ : μ.verified = true)
   · -- `nat_ops` at the extension: a theorem is not a definition
     exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ)
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value') (A := A)
-      hfresh (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
+      hfresh (hntc := fun _ h => ConstantInfo.noConfusion h)
+      (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
   · -- `div_mod`/`eq_lawP` at the extension: a theorem is neither a
     -- definition nor an inductive
     exact fun φ => divModP_cons_fresh (mp.div_mod φ)
@@ -749,14 +753,15 @@ theorem harvestThmP (hμ : μ.verified = true)
     -- so no stored family can be completed here
     exact capsOkP_cons_fresh mp mp.caps_ok
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
-      (A := A) hfresh (fun _ _ h => ConstantInfo.noConfusion h)
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
+      (fun _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl
   · -- `rec_rules` at the extension: a value-kind cons is neither a
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRulesP_cons_fresh mp
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
-      (A := A) hfresh
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: a theorem is not an `axiomInfo`
     exact reduceOpsP_cons_fresh mp.reduce_ops
@@ -924,7 +929,8 @@ theorem harvestAxiomP (hμ : μ.verified = true)
       denoteP_cons_fresh_mono
         (acval := mp.base2.acval)
         (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-        (A := A) hfresh ψ 0 e hcb h
+        (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
+        ψ 0 e hcb h
   -- assemble
   refine ⟨(declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
@@ -979,7 +985,8 @@ theorem harvestAxiomP (hμ : μ.verified = true)
   · -- `nat_ops` at the extension: an axiom is not a definition
     exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ)
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
-      hfresh (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
+      hfresh (hntc := fun _ h => ConstantInfo.noConfusion h)
+      (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
   · -- `div_mod`/`eq_lawP` at the extension: an axiom is neither
     exact fun φ => divModP_cons_fresh (mp.div_mod φ)
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
@@ -993,14 +1000,15 @@ theorem harvestAxiomP (hμ : μ.verified = true)
     -- so no stored family can be completed here
     exact capsOkP_cons_fresh mp mp.caps_ok
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-      (A := A) hfresh (fun _ _ h => ConstantInfo.noConfusion h)
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
+      (fun _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl
   · -- `rec_rules` at the extension: a value-kind cons is neither a
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRulesP_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-      (A := A) hfresh
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: the cons *is* an `axiomInfo`, so
     -- the preservation goes through the pinned name (the branch's
@@ -1166,7 +1174,8 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
       denoteP_cons_fresh_mono
         (acval := mp.base2.acval)
         (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-        (A := A) hfresh ψ 0 e hcb h
+        (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
+        ψ 0 e hcb h
   -- assemble
   refine ⟨(declStepPM_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
@@ -1223,7 +1232,8 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   · -- `nat_ops` at the extension: an opaque stores an axiom entry
     exact fun φ => natOpsP_cons_fresh mp (mp.nat_ops φ)
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
-      hfresh (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
+      hfresh (hntc := fun _ h => ConstantInfo.noConfusion h)
+      (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
   · -- `div_mod`/`eq_lawP` at the extension: an opaque stores an axiom
     -- entry, which is neither a definition nor an inductive
     exact fun φ => divModP_cons_fresh (mp.div_mod φ)
@@ -1238,14 +1248,15 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
     -- so no stored family can be completed here
     exact capsOkP_cons_fresh mp mp.caps_ok
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-      (A := A) hfresh (fun _ _ h => ConstantInfo.noConfusion h)
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
+      (fun _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl
   · -- `rec_rules` at the extension: a value-kind cons is neither a
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRulesP_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-      (A := A) hfresh
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: **this is the establishment**.
     -- An `opaque` cons is the only place a compiler-trust operation is

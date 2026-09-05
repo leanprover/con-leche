@@ -25,7 +25,7 @@ other half — the group's `EnvR` core, in three pieces:
   smaller** than the `EnvS` swap: no `RecCtorsStored`, no
   `SwapNResS`, no `RecRulesV` — an `EnvR` has no `rec_ctors`, no
   `basis_pinned` and no law field, so the transport is
-  `denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq` plus the two rule
+  `denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq` plus the two rule
   facts, taken as hypotheses exactly as `EnvS.swap` takes its law;
 * `indRecsCoreR` — `indRecsS`'s tail (`hwf₃`, the block invariant's
   survival, the three preservation facts), whose every ingredient is
@@ -124,7 +124,7 @@ def EnvR.swap {env₀ env₃ : Env} (m₀ : EnvR env₀)
   have hcg : SwapCongr env₀ env₃ := SwapShList.congr hsw
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote m₀.cval env₀ φ d e = denote m₀.cval env₃ φ d e :=
-    fun _ => denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq
+    fun _ => denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq
   have hdeC : ∀ (φ : Name → Nat) (e : Expr),
       denoteClosed m₀.cval env₀ φ e = denoteClosed m₀.cval env₃ φ e :=
     fun φ e => hde φ 0 e
@@ -392,7 +392,7 @@ theorem indRecsCoreR {μ : CheckMode} {F : Nat}
   have hcg : SwapCongr envSelf env₃ := SwapShList.congr hswR
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote mS.cval envSelf φ d e = denote mS.cval env₃ φ d e :=
-    fun _ => denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq
+    fun _ => denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq
   -- the swapped environment's syntactic facts
   have hres₃ : ∀ e : Expr, e.constsResolve envSelf = true →
       e.constsResolve env₃ = true := by

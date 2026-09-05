@@ -279,7 +279,8 @@ theorem extendBasisS {env : Env} (m : EnvS V env) {ci : ConstantInfo}
     ∃ m' : EnvS V ⟨ci :: env.consts⟩,
       m'.cval = cvalWith m.cval ci.name val := by
   have hi : Installs env m.cval (cvalWith m.cval ci.name val) ci :=
-    Installs.of_fresh hfresh (fun n hn => (cvalWith_ne hn).symm)
+    Installs.of_fresh hfresh hheadProjTower
+      (fun n hn => (cvalWith_ne hn).symm)
   have hself : cvalWith m.cval ci.name val ci.name = val :=
     cvalWith_self
   refine ⟨EnvS.cons m hi hwf ?_ ?_ ?_ ?_
@@ -4417,8 +4418,28 @@ theorem extendPairSndS {env : Env} (m : EnvS V env)
             { bi := .default, pw := .never })
           { bi := .implicit, pw := .never })
         { bi := .implicit, pw := .never } from rfl]
+  have hnt : ∀ e, Env.findProj? ⟨pairSndA :: env.consts⟩
+      psigmaName 0 = some e → e.tower = false := by
+    intro e he
+    refine m.proj_ok.towerFree psigmaName 0 e ?_
+    unfold Env.findProj? at he ⊢
+    rwa [Env.find?_cons, if_neg (show ¬ pairSndA.name
+      = projFnName psigmaName 0 by decide)] at he
+  have hpp : ∀ (D : Nat) (e0 : Expr),
+      denote (cvalWith m.cval pairSndA.name (pairProjValT 1))
+        ⟨pairSndA :: env.consts⟩ φ D (.proj psigmaName 0 e0)
+        = match denote (cvalWith m.cval pairSndA.name (pairProjValT 1))
+            ⟨pairSndA :: env.consts⟩ φ D e0 with
+          | none => none
+          | some ve => some (.proj 0 ve) := by
+    intro D e0
+    rw [denote_proj_pair _ _ _ _ _ _ _ hnt]
+    cases denote (cvalWith m.cval pairSndA.name (pairProjValT 1))
+        ⟨pairSndA :: env.consts⟩ φ D e0 with
+    | none => rfl
+    | some ve => simp
   simp [denote_forallE, denote_sort, denote_app, denote_fvar,
-    denote_proj,
+    hpp,
     Expr.instantiate1, Level.eval, hPc, VExpr.mkAppN, pairSndTyV]
 
 /-- `PSigma'.rec`'s denoted type. -/

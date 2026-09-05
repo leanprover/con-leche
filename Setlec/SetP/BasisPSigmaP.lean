@@ -640,8 +640,28 @@ theorem denoteP_pairSndA_type (ψ : Name → Nat)
             { bi := .default, pw := .never })
           { bi := .implicit, pw := .never })
         { bi := .implicit, pw := .never } from rfl]
+  have hnt : ∀ e, Env.findProj? ⟨pairSndA :: env.consts⟩
+      psigmaName 0 = some e → e.tower = false := by
+    intro e he
+    refine m.proj_ok.towerFree psigmaName 0 e ?_
+    unfold Setlec.Env.findProj? at he ⊢
+    rwa [Setlec.Env.find?_cons, if_neg (show ¬ pairSndA.name
+      = Setlec.projFnName psigmaName 0 by decide)] at he
+  have hpp : ∀ (D : Nat) (e0 : Expr),
+      denoteP (acvalWith m.acval pairSndA.name A)
+        ⟨pairSndA :: env.consts⟩ ψ D (.proj psigmaName 0 e0)
+        = (do
+          let ea ← denoteP (acvalWith m.acval pairSndA.name A)
+            ⟨pairSndA :: env.consts⟩ ψ D e0
+          some (.proj 0 ea)) := by
+    intro D e0
+    rw [denoteP_proj_pair _ _ _ _ _ hnt]
+    cases denoteP (acvalWith m.acval pairSndA.name A)
+        ⟨pairSndA :: env.consts⟩ ψ D e0 with
+    | none => rfl
+    | some ea => simp
   simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
-    denoteP_proj, Expr.instantiate1, pairProjTyP, psigmaFibreTyP,
+    hpp, Expr.instantiate1, pairProjTyP, psigmaFibreTyP,
     psigmaAppP, pwBit_never, hPc, Level.eval]
 
 /-- **`PSigma'.fst`, installed at the P tier** — a `projInfo` cons, so

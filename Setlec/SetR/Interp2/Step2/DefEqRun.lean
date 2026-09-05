@@ -113,8 +113,38 @@ theorem denote2_proj (acval : Name → (Name → Nat) → AVExpr)
     denote2 μ acval env φ fuel d (.proj s i e)
       = (do
         let ea ← denote2 μ acval env φ fuel d e
-        if i < 2 then some (.proj i ea) else none) := by
+        match env.findProj? s i with
+        | some entry =>
+          if entry.tower then some (projAV i ea)
+          else if i < 2 then some (.proj i ea) else none
+        | none => if i < 2 then some (.proj i ea) else none) := by
   rw [denote2]
+  rfl
+
+/-- The clause at a pair-backed (or absent) entry — the pre-W3 shape,
+for consumers holding a pin (task #175 wiring W3). -/
+theorem denote2_proj_pair (acval : Name → (Name → Nat) → AVExpr)
+    (fuel d : Nat) (s : Name) (i : Nat) (e : Expr)
+    (hnt : ∀ entry, env.findProj? s i = some entry →
+      entry.tower = false) :
+    denote2 μ acval env φ fuel d (.proj s i e)
+      = (do
+        let ea ← denote2 μ acval env φ fuel d e
+        if i < 2 then some (.proj i ea) else none) := by
+  rw [denote2_proj]
+  cases he : denote2 μ acval env φ fuel d e with
+  | none => rfl
+  | some ea =>
+    show (match env.findProj? s i with
+      | some entry => if entry.tower = true then some (projAV i ea)
+          else if i < 2 then some (AVExpr.proj i ea) else none
+      | none => if i < 2 then some (AVExpr.proj i ea) else none)
+        = if i < 2 then some (AVExpr.proj i ea) else none
+    cases hfp : env.findProj? s i with
+    | none => rfl
+    | some entry =>
+      dsimp only
+      rw [if_neg (by simp [hnt entry hfp])]
 
 theorem denote2_forallE (acval : Name → (Name → Nat) → AVExpr)
     (fuel d : Nat) (n : Name) (ty body : Expr)
@@ -184,10 +214,12 @@ theorem denote2_app_inv {acval : Name → (Name → Nat) → AVExpr}
 
 theorem denote2_proj_inv {acval : Name → (Name → Nat) → AVExpr}
     {fuel d : Nat} {s : Name} {i : Nat} {e : Expr} {ea : AVExpr}
+    (hnt : ∀ entry, env.findProj? s i = some entry →
+      entry.tower = false)
     (h : denote2 μ acval env φ fuel d (.proj s i e) = some ea) :
     ∃ ia, denote2 μ acval env φ fuel d e = some ia ∧ i < 2 ∧
       ea = .proj i ia := by
-  rw [denote2] at h
+  rw [denote2_proj_pair acval fuel d s i e hnt] at h
   cases he : denote2 μ acval env φ fuel d e with
   | none => rw [he] at h; exact nomatch h
   | some ia =>
@@ -1297,8 +1329,10 @@ theorem defeqStuck_claim2 (hgOff : μ.betaGate = false) {m : EnvS2UM V μ env} {
       cases r with
       | false => exact hfall h
       | true =>
-        obtain ⟨ia₁, he₁, -, rfl⟩ := denote2_proj_inv hda
-        obtain ⟨ia₂, he₂, -, rfl⟩ := denote2_proj_inv hdb
+        obtain ⟨ia₁, he₁, -, rfl⟩ := denote2_proj_inv
+          (fun entry' hf' => m.base.proj_ok.towerFree _ _ _ hf') hda
+        obtain ⟨ia₂, he₂, -, rfl⟩ := denote2_proj_inv
+          (fun entry' hf' => m.base.proj_ok.towerFree _ _ _ hf') hdb
         simp only [Expr.WScoped] at hwa hwb
         simp only [Expr.looseBVarsBounded] at hba hbb
         exact deqStep2_projCong (ihd hde hwa hba
@@ -2394,8 +2428,10 @@ theorem defeqStuck_claim2A (hgOff : μ.betaGate = false) {m : EnvS2UM V μ env} 
       cases r with
       | false => exact hfall h
       | true =>
-        obtain ⟨ia₁, he₁, -, rfl⟩ := denote2_proj_inv hda
-        obtain ⟨ia₂, he₂, -, rfl⟩ := denote2_proj_inv hdb
+        obtain ⟨ia₁, he₁, -, rfl⟩ := denote2_proj_inv
+          (fun entry' hf' => m.base.proj_ok.towerFree _ _ _ hf') hda
+        obtain ⟨ia₂, he₂, -, rfl⟩ := denote2_proj_inv
+          (fun entry' hf' => m.base.proj_ok.towerFree _ _ _ hf') hdb
         simp only [Expr.WScoped] at hwa hwb
         simp only [Expr.looseBVarsBounded] at hba hbb
         rw [AnnotOk2_proj] at hokA hokB
@@ -3513,8 +3549,10 @@ theorem defeqStuck_claim2C (hgOff : μ.betaGate = false) {m : EnvS2UM V μ env} 
       cases r with
       | false => exact hfall h
       | true =>
-        obtain ⟨ia₁, he₁, -, rfl⟩ := denote2_proj_inv hda
-        obtain ⟨ia₂, he₂, -, rfl⟩ := denote2_proj_inv hdb
+        obtain ⟨ia₁, he₁, -, rfl⟩ := denote2_proj_inv
+          (fun entry' hf' => m.base.proj_ok.towerFree _ _ _ hf') hda
+        obtain ⟨ia₂, he₂, -, rfl⟩ := denote2_proj_inv
+          (fun entry' hf' => m.base.proj_ok.towerFree _ _ _ hf') hdb
         simp only [Expr.WScoped] at hwa hwb
         simp only [Expr.looseBVarsBounded] at hba hbb
         exact deqStep2_projCong (ihd hde hwa hba
@@ -4604,8 +4642,10 @@ theorem defeqStuck_claim2D {m : EnvS2UM V μ env} {fuel F : Nat}
       cases r with
       | false => exact hfall h
       | true =>
-        obtain ⟨ia₁, he₁, -, rfl⟩ := denote2_proj_inv hda
-        obtain ⟨ia₂, he₂, -, rfl⟩ := denote2_proj_inv hdb
+        obtain ⟨ia₁, he₁, -, rfl⟩ := denote2_proj_inv
+          (fun entry' hf' => m.base.proj_ok.towerFree _ _ _ hf') hda
+        obtain ⟨ia₂, he₂, -, rfl⟩ := denote2_proj_inv
+          (fun entry' hf' => m.base.proj_ok.towerFree _ _ _ hf') hdb
         simp only [Expr.WScoped] at hwa hwb
         simp only [Expr.looseBVarsBounded] at hba hbb
         exact deqStep2_projCong (ihd hde hwa hba

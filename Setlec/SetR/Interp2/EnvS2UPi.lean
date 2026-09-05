@@ -307,7 +307,7 @@ valuation that moves at the installed name. -/
 def piProbeEnvS : EnvS V piProbeEnv := by
   refine EnvS.cons (V := V) (env := Env.empty) (EnvS.empty V)
     (c₀ := piProbeCi) (cval' := piProbeCval)
-    (Installs.of_fresh rfl ?_)
+    (Installs.of_fresh rfl (fun _ heq => nomatch heq) ?_)
     (hwf := ?_)
     (hclosed := fun ψ => by
       rw [piProbeCval_head]

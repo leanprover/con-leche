@@ -150,7 +150,8 @@ theorem extendAxiomS {env : Env} (m : EnvS V env) {cv : ConstantVal}
       ∀ ψ : Name → Nat, m'.cval cv.name ψ = Vf ψ := by
   have hi : Installs env m.cval (cvalWith m.cval cv.name Vf)
       (.axiomInfo cv) :=
-    Installs.of_fresh hfresh (fun n hn => (cvalWith_ne hn).symm)
+    Installs.of_fresh hfresh (fun _ heq => nomatch heq)
+      (fun n hn => (cvalWith_ne hn).symm)
   refine ⟨EnvS.cons m hi hwf ?_ ?_ ?_ ?_ (fun _ _ _ heq => nomatch heq)
     (fun _ _ heq => nomatch heq) ?_
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)

@@ -1618,7 +1618,7 @@ theorem pointS {μ : CheckMode} {env : Env} {cval : TConstVal}
         funext fun _ => Level.substFn_map_param]
   have hvLfEq : vLf = cval Rn ψ' := by
     rw [hconstDen (f Rn) ciRm lps hfRnE hRmlps] at hvLf
-    rw [hro.2.2] at hvLf
+    rw [hro.2.2.1] at hvLf
     exact (Option.some.inj hvLf).symm
   -- reduce to the mapped spine equality
   rw [hvLfEq, interp_mkAppN_map, interp_mkAppN_map,

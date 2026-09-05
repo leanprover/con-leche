@@ -162,7 +162,9 @@ theorem extendValueS {env : Env} (m : EnvS V env) {c₀ : ConstantInfo}
         denoteClosed m.cval env ψ value = some (m'.cval name ψ) := by
   have hfresh' : env.find? c₀.name = none := by rw [hc₀name]; exact hfresh
   have hi : Installs env m.cval (cvalAt m.cval env name value) c₀ :=
-    Installs.of_fresh hfresh' (fun n hn => by
+    Installs.of_fresh hfresh'
+      (fun entry heq => absurd heq (hc₀nproj entry))
+      (fun n hn => by
       rw [hc₀name] at hn; exact (cvalAt_ne hn).symm)
   refine ⟨EnvS.cons m hi hwf ?_ ?_ ?_ ?_ ?_ ?_ ?_
     (fun cv2 mI rP rules heq => absurd heq (hc₀nrec cv2 mI rP rules))

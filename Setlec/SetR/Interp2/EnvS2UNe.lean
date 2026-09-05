@@ -83,7 +83,7 @@ empty type at every name, and so is the probe's, which is what makes
 def probeEnvS : EnvS V probeEnv := by
   refine EnvS.cons (V := V) (env := Env.empty) (EnvS.empty V)
     (c₀ := probeCi) (cval' := fun _ _ => emptyT 0)
-    (Installs.of_fresh rfl (fun _ _ => rfl))
+    (Installs.of_fresh rfl (fun _ heq => nomatch heq) (fun _ _ => rfl))
     (hwf := ?_)
     (hclosed := fun _ => trivial)
     (hparams := fun _ _ _ => rfl)

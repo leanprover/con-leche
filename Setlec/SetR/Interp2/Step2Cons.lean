@@ -233,6 +233,7 @@ What is left is the fresh leaf's three own laws, the new constant's
 theorem declStep2_of_value (m : EnvS2U V env) {c₀ : ConstantInfo}
     {value' : Expr} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hcb : ConstsBound env value')
     (hA : ∀ ψ : Name → Nat, ∃ F : Nat,
       denote2 μ m.acval env ψ F 0 value' = some (A ψ))
@@ -272,7 +273,7 @@ theorem declStep2_of_value (m : EnvS2U V env) {c₀ : ConstantInfo}
   · -- `hAerase`
     intro ψ
     obtain ⟨F, hF⟩ := hA ψ
-    have hup := (Installs.of_fresh hfresh hag).denoteUp
+    have hup := (Installs.of_fresh hfresh hntc hag).denoteUp
       (denote2_erase m.acval_erase 0 value' hF)
     exact Option.some.inj (hup.symm.trans (hleaf ψ))
   · -- `hdefnA`
@@ -411,6 +412,7 @@ theorem declStep2_of_valueResidues (m : EnvS2U V env)
     {c₀ : ConstantInfo} {F : Nat} {cv : ConstantVal}
     {value type' value' : Expr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hvf : ValueFrontR μ F env m.base.cval cv value type' value')
     (hrun : ∀ ψ : Name → Nat, Denote2BodyOfRun μ env m.acval ψ)
     (hbase : EnvS V ⟨c₀ :: env.consts⟩)
@@ -429,7 +431,7 @@ theorem declStep2_of_valueResidues (m : EnvS2U V env)
     DeclStep2 V ⟨c₀ :: env.consts⟩ := by
   obtain ⟨A, hA⟩ := exists_leaf_of_valueFrontR hrun hvf
   obtain ⟨hcl, hpa, hok, hex, hme, hmo⟩ := hres A hA
-  exact declStep2_of_value m hfresh (constsBound_of_valueFrontR hvf)
+  exact declStep2_of_value m hfresh hntc (constsBound_of_valueFrontR hvf)
     hA hbase hag hleaf hcl hpa hok hex hme hmo hdb htb
 
 /-! ## The six kinds' obligations, and the dispatch
@@ -646,6 +648,7 @@ it — this one identifies two runs *in the same mode*, which is
 theorem declStep2M_of_value (m : EnvS2UM V μ env) {c₀ : ConstantInfo}
     {value' : Expr} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hcb : ConstsBound env value')
     (hA : ∀ ψ : Name → Nat, ∃ F : Nat,
       denote2 μ m.acval env ψ F 0 value' = some (A ψ))
@@ -683,7 +686,7 @@ theorem declStep2M_of_value (m : EnvS2UM V μ env) {c₀ : ConstantInfo}
   · -- `hAerase`
     intro ψ
     obtain ⟨F, hF⟩ := hA ψ
-    have hup := (Installs.of_fresh hfresh hag).denoteUp
+    have hup := (Installs.of_fresh hfresh hntc hag).denoteUp
       (denote2_erase m.acval_erase 0 value' hF)
     exact Option.some.inj (hup.symm.trans (hleaf ψ))
   · -- `hdefnA`
@@ -761,6 +764,7 @@ theorem declStep2M_of_valueResidues (m : EnvS2UM V μ env)
     {c₀ : ConstantInfo} {F : Nat} {cv : ConstantVal}
     {value type' value' : Expr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hvf : ValueFrontR μ F env m.base.cval cv value type' value')
     (hrun : ∀ ψ : Name → Nat, Denote2BodyOfRun μ env m.acval ψ)
     (hbase : EnvS V ⟨c₀ :: env.consts⟩)
@@ -779,7 +783,7 @@ theorem declStep2M_of_valueResidues (m : EnvS2UM V μ env)
     DeclStep2M V μ ⟨c₀ :: env.consts⟩ := by
   obtain ⟨A, hA⟩ := exists_leaf_of_valueFrontR hrun hvf
   obtain ⟨hpa, hok, hex, hme⟩ := hres A hA
-  exact declStep2M_of_value m hfresh (constsBound_of_valueFrontR hvf)
+  exact declStep2M_of_value m hfresh hntc (constsBound_of_valueFrontR hvf)
     hA hbase hag hleaf (valueLeaf_closed m hvf hA) hpa hok hex hme
     hdb htb
 

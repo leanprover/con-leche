@@ -176,7 +176,7 @@ theorem RecRuleLawV.swapS {env₀ env₃ : Env} (hcg : SwapCongr env₀ env₃)
     RecRuleLawV V env₃ cval φ n cv mI rP rl := by
   have hde : ∀ (d : Nat) (e : Expr),
       denote cval env₀ φ d e = denote cval env₃ φ d e :=
-    denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq
+    denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq
   have hdeC : ∀ e : Expr,
       denoteClosed cval env₀ φ e = denoteClosed cval env₃ φ e :=
     fun e => hde 0 e
@@ -239,6 +239,7 @@ theorem indRecsS (hkey : MemberKeyS V)
     · exact provisionRecsS_stored recs hprov ci hci
   -- the block renaming is sound at the provisional environment
   have hro := blockRenameOkT hIS hnames
+    (fun sn i entry hf => mS.proj_ok.towerFree sn i entry hf)
   -- run the two folds in step
   obtain ⟨hswR, hnresR, rfl, hentR, hentF⟩ :=
     indRecsFoldS mS hIS hro

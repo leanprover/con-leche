@@ -802,8 +802,13 @@ theorem denote2_shiftFrom (henv : Setlec.EnvWF env)
     | some ea =>
       simp only [Option.map_some]
       split
-      · rfl
-      · rfl
+      · next entry _ =>
+        by_cases htw : entry.tower = true
+        · simp only [if_pos htw]
+          exact congrArg some (projAV_liftN i ea 1 (d - p)).symm
+        · simp only [if_neg htw]
+          split <;> rfl
+      · split <;> rfl
   | .lit (.natVal k), d, _, _ => by
     simp only [Setlec.Expr.shiftFrom, denote2]
     split

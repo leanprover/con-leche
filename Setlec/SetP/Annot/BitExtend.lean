@@ -52,8 +52,23 @@ def DenotePEnvExtend (env₀ env : Env)
 `SortAgree`. -/
 theorem denoteP_envExtend {env₀ env : Env}
     {acval : Name → (Name → Nat) → AVExpr} {φ : Name → Nat}
-    (hF : FindPreserved env₀ env) (hG : LitGuardsAgree env₀ env) :
+    (hF : FindPreserved env₀ env) (hG : LitGuardsAgree env₀ env)
+    (hproj : ∀ (sn : Name) (i : Nat) (entry : Setlec.ProjEntry),
+      env₀.findProj? sn i = none → env.findProj? sn i = some entry →
+      entry.tower = false) :
     DenotePEnvExtend env₀ env acval φ := by
+  -- a preserved lookup carries its entry across unchanged
+  have hmono : ∀ (sn : Name) (i : Nat) (entry : Setlec.ProjEntry),
+      env₀.findProj? sn i = some entry →
+      env.findProj? sn i = some entry := by
+    intro sn i entry h
+    unfold Setlec.Env.findProj? at h ⊢
+    cases hf0 : env₀.find? (Setlec.projFnName sn i) with
+    | none => rw [hf0] at h; exact nomatch h
+    | some ci =>
+      rw [hf0] at h
+      rw [hF hf0]
+      exact h
   intro d e
   induction d, e using denoteP.induct (env := env₀) with
   | case1 d u => intro _; rw [denoteP, denoteP]
@@ -97,6 +112,26 @@ theorem denoteP_envExtend {env₀ env : Env}
     intro hc
     rw [constsBound_proj] at hc
     rw [denoteP, denoteP, ihe hc]
+    cases denoteP acval env φ d e with
+    | none => rfl
+    | some ea =>
+      show (match env₀.findProj? sn i with
+          | some entry => if entry.tower = true then some (projAV i ea)
+              else if i < 2 then some (AVExpr.proj i ea) else none
+          | none => if i < 2 then some (AVExpr.proj i ea) else none)
+        = (match env.findProj? sn i with
+          | some entry => if entry.tower = true then some (projAV i ea)
+              else if i < 2 then some (AVExpr.proj i ea) else none
+          | none => if i < 2 then some (AVExpr.proj i ea) else none)
+      cases hfp0 : env₀.findProj? sn i with
+      | some entry => rw [hmono sn i entry hfp0]
+      | none =>
+        cases hfp : env.findProj? sn i with
+        | none => rfl
+        | some entry =>
+          dsimp only
+          rw [if_neg (show ¬ entry.tower = true by
+            simp [hproj sn i entry hfp0 hfp])]
   | case11 d n hsup =>
     intro _
     rw [denoteP, if_pos hsup, denoteP, if_pos (hG.1 ▸ hsup)]
@@ -156,10 +191,24 @@ theorem litGuardsMono_cons {env : Env} {c₀ : Setlec.ConstantInfo}
 reproduced verbatim at the extension. -/
 theorem denoteP_envExtend_mono {env₀ env : Env}
     {acval : Name → (Name → Nat) → AVExpr} {φ : Name → Nat}
-    (hF : FindPreserved env₀ env) (hG : LitGuardsMono env₀ env) :
+    (hF : FindPreserved env₀ env) (hG : LitGuardsMono env₀ env)
+    (hproj : ∀ (sn : Name) (i : Nat) (entry : Setlec.ProjEntry),
+      env₀.findProj? sn i = none → env.findProj? sn i = some entry →
+      entry.tower = false) :
     ∀ (d : Nat) (e : Expr), ConstsBound env₀ e →
       ∀ {ea : AVExpr}, denoteP acval env₀ φ d e = some ea →
         denoteP acval env φ d e = some ea := by
+  have hmono : ∀ (sn : Name) (i : Nat) (entry : Setlec.ProjEntry),
+      env₀.findProj? sn i = some entry →
+      env.findProj? sn i = some entry := by
+    intro sn i entry h
+    unfold Setlec.Env.findProj? at h ⊢
+    cases hf0 : env₀.find? (Setlec.projFnName sn i) with
+    | none => rw [hf0] at h; exact nomatch h
+    | some ci =>
+      rw [hf0] at h
+      rw [hF hf0]
+      exact h
   intro d e
   induction d, e using denoteP.induct (env := env₀) with
   | case1 d u => intro _ ea h; rw [denoteP] at h ⊢; exact h
@@ -225,9 +274,34 @@ theorem denoteP_envExtend_mono {env₀ env : Env}
   | case10 d sn i e ihe =>
     intro hc ea h
     rw [constsBound_proj] at hc
-    obtain ⟨ea', hea', hi, rfl⟩ := denoteP_proj_inv h
-    rw [denoteP, ihe hc hea']
-    simp [hi]
+    obtain ⟨ea', hea', hcase⟩ := denoteP_proj_inv h
+    rcases hcase with ⟨entry, hfp0, htw, rfl⟩ | ⟨hnt0, hi, rfl⟩
+    · -- a tower entry at the prefix persists unchanged
+      rw [denoteP, ihe hc hea', hmono sn i entry hfp0]
+      show (if entry.tower = true then some (projAV i ea')
+          else if i < 2 then some (AVExpr.proj i ea') else none)
+        = some (projAV i ea')
+      rw [if_pos htw]
+    · -- the pair path: any extension-side entry is still tower-free
+      rw [denoteP, ihe hc hea']
+      cases hfp : env.findProj? sn i with
+      | none =>
+        show (if i < 2 then some (AVExpr.proj i ea') else none)
+          = some (AVExpr.proj i ea')
+        rw [if_pos hi]
+      | some entry =>
+        have hntw : entry.tower = false := by
+          cases hfp0 : env₀.findProj? sn i with
+          | some entry0 =>
+            have hsame := hmono sn i entry0 hfp0
+            rw [hfp] at hsame
+            obtain rfl := Option.some.inj hsame
+            exact hnt0 _ hfp0
+          | none => exact hproj sn i entry hfp0 hfp
+        show (if entry.tower = true then some (projAV i ea')
+            else if i < 2 then some (AVExpr.proj i ea') else none)
+          = some (AVExpr.proj i ea')
+        rw [if_neg (by simp [hntw]), if_pos hi]
   | case11 d n hsup =>
     intro _ ea h
     rw [denoteP, if_pos hsup] at h

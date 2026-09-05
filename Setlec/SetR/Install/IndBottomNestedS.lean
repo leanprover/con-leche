@@ -672,7 +672,7 @@ theorem indBottomNestedS : IndBottomNestedS V := by
       = some (mS.cval ctor (Level.substFn φ cvj.levelParams usj)) := by
     rw [denote_const, hfCmE]
     dsimp only
-    rw [if_pos (by rw [hCmlps]; exact hlvlsLen), hCmlps, hro.2.2]
+    rw [if_pos (by rw [hCmlps]; exact hlvlsLen), hCmlps, hro.2.2.1]
     exact congrArg some
       (mS.val_params ctor _ hctorE _ _ (fun p hp => (hagree p hp).symm))
   have heqL := pointS (V := V) rfl henv hro rfl hrPmI
