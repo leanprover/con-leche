@@ -53,7 +53,7 @@ theorem certs_teleR {env : Env} (m : EnvR env) (φ : Name → Nat)
     (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihd : DefEqClaimsR mode m φ fuel) (ihi : InferClaimsR mode m φ fuel) :
     ∀ {d : Nat} {Δ : List VExpr} (ty : Expr) (args : List Expr) (T : VExpr),
-      iotaCertsP mode env fuel d ty args = .ok true →
+      iotaCertsP mode env fuel d false ty args = .ok true →
       Expr.WScoped d ty → ty.looseBVarsBounded 0 = true →
       Expr.LeavesBounded ty →
       CtxOkR mode m.cval env φ d Δ ty →

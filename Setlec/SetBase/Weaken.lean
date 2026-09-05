@@ -423,8 +423,6 @@ private theorem wkRedIota (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h7 : ys.length = rl.ctorParams + rl.nfields)
     (h8 : us.length = cv.levelParams.length)
     (h9 : usj.length = cvj.levelParams.length)
-    (h10 : (cv.type.stripPis (mI + 1)).isSome = true)
-    (h11 : (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome = true)
     (h12 : Level.isEquivList usj
       (recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1
       = some true)
@@ -486,7 +484,7 @@ private theorem wkRedIota (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
   refine Red.iota (m₀ := m₀.liftN nn kk) (m := m.liftN nn kk)
     (restR := restR.liftN nn kk) (restC := restC.liftN nn kk)
     (H := H'.liftN nn kk) (cargs := cargs.map (·.liftN nn kk))
-    h1 h2 h3 h4 h5 (by simpa using h6) (by simpa using h7) h8 h9 h10 h11
+    h1 h2 h3 h4 h5 (by simpa using h6) (by simpa using h7) h8 h9
     h12 h13 h13c h14 h14c h15 h15c ?_ ?_ (ih18 HH) ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · rw [h16, liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _)]
   · rw [getD_map_of_lt _ hxs default]

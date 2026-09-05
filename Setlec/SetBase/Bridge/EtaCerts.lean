@@ -133,7 +133,7 @@ theorem structEtaCertWith_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
             env.find? (projFnName T j) = some (.projInfo entry) ∧
             entry.tower = true ∧ entry.levelParams = cvT.levelParams ∧
             (entry.ty.stripPis (wtb.getAppArgs.length + 1)).isSome = true ∧
-            iotaCertsP mode env fuel d
+            iotaCertsP mode env fuel d false
               (entry.ty.instantiateLevelParams entry.levelParams us')
               (wtb.getAppArgs ++ [b]) = .ok true := by
           intro j hj
@@ -230,7 +230,7 @@ theorem structEtaCertWith_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
                     = some (.recInfo cvpj mIpj rPpj rulespj) ∧
                   cvpj.levelParams = cvT.levelParams ∧
                   (cvpj.type.stripPis (wtb.getAppArgs.length + 1)).isSome = true ∧
-                  iotaCertsP mode env fuel d
+                  iotaCertsP mode env fuel d false
                     (cvpj.type.instantiateLevelParams cvpj.levelParams us')
                     (wtb.getAppArgs ++ [b]) = .ok true := by
               rcases structEtaProjCerts_inv _ hprojs j (by simpa using hj) with

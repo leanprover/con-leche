@@ -344,8 +344,9 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       ys.length = rl.ctorParams + rl.nfields →
       us.length = cv.levelParams.length →
       usj.length = cvj.levelParams.length →
-      (cv.type.stripPis (mI + 1)).isSome = true →
-      (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome = true →
+      -- (the ι batch, 2026-09-05: the two `stripPis` arity pins that
+      -- stood here left with the checker's tests; nothing interpreted
+      -- them since the SetR removal)
       -- the fire site's level guard (`Core.lean:1310-1312`; the level
       -- comparand ignores the argument spine)
       Level.isEquivList usj

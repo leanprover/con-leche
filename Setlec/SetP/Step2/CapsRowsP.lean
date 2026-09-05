@@ -201,7 +201,7 @@ theorem certs_teleP {m : EnvS2Core V env}
     (hexi : InferExistsIOSP μ m φ fuel) :
     ∀ {d : Nat} {Δa : List AVExpr} (ty : Expr) (args : List Expr)
       (vs : List AVExpr) (Ta : AVExpr),
-      Setlec.iotaCertsP μ env fuel d ty args = .ok true →
+      Setlec.iotaCertsP μ env fuel d false ty args = .ok true →
       PiChainP args.length Ta →
       Expr.WScoped d ty → ty.looseBVarsBounded 0 = true →
       Expr.LeavesBounded ty → CtxOkP m φ d Δa ty →
@@ -767,7 +767,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
         env.find? (projFnName T j) = some (.recInfo cvp mIp rPp rulesp) ∧
         cvp.levelParams = cvT.levelParams ∧
         (cvp.type.stripPis (wtb.getAppArgs.length + 1)).isSome = true ∧
-        Setlec.iotaCertsP μ env fuel d
+        Setlec.iotaCertsP μ env fuel d false
           (cvp.type.instantiateLevelParams cvp.levelParams us')
           (wtb.getAppArgs ++ [b]) = .ok true := by
       intro j hj

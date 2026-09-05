@@ -188,10 +188,13 @@ theorem iota_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     IotaStepR (mode := mode) m φ fuel := by
   intro d Δ e e'' v h hws hb hLb hC hv
   obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
-    cnF, r, cbinders, cbody, residual, cr, usr, hfn, hfrec, hlenA, -, hwmaj,
-    hlitmaj, hmajc, hfnmaj, hfcj, hrfind, hlenM, hstripR, hstripC, hfire,
-    hlev, hdefP, hcertR, hcertC, hstripEq, hpres, hcbody, hdefI, rfl⟩ :=
+    cnF, r, hfn, hfrec, hlenA, -, hwmaj,
+    hlitmaj, hmajc, hfnmaj, hfcj, hrfind, hlenM, hfire,
+    hlev, hdefP, hcertR, hcertC, hidx, rfl⟩ :=
     iotaRec_inv h
+  -- the ι-slot licence is off at this lane's mode (`hg`): both
+  -- telescope runs certified every slot
+  rw [hg] at hcertR hcertC
   -- the recursor spine, denoted
   rw [show e = Expr.mkAppN e.getAppFn e.getAppArgs from
     (Expr.mkAppN_getApp e).symm, hfn] at hv
@@ -295,37 +298,52 @@ theorem iota_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         certs_teleR m φ hg hcl ihd ihi _ major.getAppArgs TVj hcertC hJw hJb hJL
           hJC hTVjd hfrM
       rw [DenoteSpine.det hspC' hspy] at hteleC
-      -- the index decomposition
-      obtain ⟨RV, hRVd, hRVp⟩ :=
-        denote_piResidualR hcl hpres hTVjd hspy hJw hJb
-          (fun x hx => ⟨(hfrM x hx).1, (hfrM x hx).2.1⟩)
-      obtain rfl : RV = restC := by
-        rw [Tele.residual hteleC] at hRVp; exact (Option.some.inj hRVp).symm
-      rw [show residual = Expr.mkAppN residual.getAppFn residual.getAppArgs from
-        (Expr.mkAppN_getApp residual).symm] at hRVd
-      obtain ⟨H, cargs, hH, hspRes, rfl⟩ := denote_mkAppN_inv hRVd
-      -- the residual's frames (a `piResidual` of a closed type at scoped
-      -- arguments)
-      obtain ⟨hwRes, hbRes, hLRes, hCRes⟩ :=
-        piResidual_frameR hpres hJw hJb hJL hJC hfrM
-      have hfrRes := frame_spineR (a := residual) hwRes hbRes hLRes hCRes
-      have hspIdx : DenoteSpine m.cval env φ d
-          ((e.getAppArgs.take mI).drop rP) ((xs.take mI).drop rP) :=
-        (hspx.take mI).drop rP
-      have hDefI : DefEqL mode env m.cval φ Δ (cargs.drop r.ctorParams)
-          ((xs.take mI).drop rP) :=
-        defEqL_of_defEqListR m φ ihd hdefI
-          (fun x hx => hfrRes x (List.mem_of_mem_drop hx))
-          (fun x hx => hfrE x (List.mem_of_mem_take (List.mem_of_mem_drop hx)))
-          (hspRes.drop r.ctorParams) hspIdx
-      -- the length disjunct
-      have hlenDisj : mI = rP ∨ cargs.length = r.ctorParams + (mI - rP) := by
-        have hle := m.rec_params_le _ _ _ _ _ hfrec r
-          (List.mem_of_find?_eq_some hrfind) hfire
-        have hlen := hDefI.length_eq
-        rw [List.length_drop, List.length_drop, List.length_take,
-          hspx.length, hlenA] at hlen
-        omega
+      -- the index decomposition, only where the recursor has indices
+      -- (the ι batch: at `mI = rP` the checker compares nothing and
+      -- the residual is its own trivial spine)
+      obtain ⟨H, cargs, hHeq, hlenDisj, hDefI⟩ :
+          ∃ (H : VExpr) (cargs : List VExpr),
+            restC = VExpr.mkAppN H cargs ∧
+            (mI = rP ∨ cargs.length = r.ctorParams + (mI - rP)) ∧
+            DefEqL mode env m.cval φ Δ (cargs.drop r.ctorParams)
+              ((xs.take mI).drop rP) := by
+        by_cases hmr : mI = rP
+        · refine ⟨restC, [], rfl, Or.inl hmr, ?_⟩
+          rw [List.drop_nil, List.drop_eq_nil_of_le (by
+            rw [List.length_take, hspx.length, hlenA]; omega)]
+          exact DefEqL.nil
+        obtain ⟨residual, hpres, hdefI⟩ := iotaIndexOk_inv hidx hmr
+        obtain ⟨RV, hRVd, hRVp⟩ :=
+          denote_piResidualR hcl hpres hTVjd hspy hJw hJb
+            (fun x hx => ⟨(hfrM x hx).1, (hfrM x hx).2.1⟩)
+        obtain rfl : RV = restC := by
+          rw [Tele.residual hteleC] at hRVp; exact (Option.some.inj hRVp).symm
+        rw [show residual = Expr.mkAppN residual.getAppFn residual.getAppArgs from
+          (Expr.mkAppN_getApp residual).symm] at hRVd
+        obtain ⟨H, cargs, hH, hspRes, hres_eq⟩ := denote_mkAppN_inv hRVd
+        -- the residual's frames (a `piResidual` of a closed type at scoped
+        -- arguments)
+        obtain ⟨hwRes, hbRes, hLRes, hCRes⟩ :=
+          piResidual_frameR hpres hJw hJb hJL hJC hfrM
+        have hfrRes := frame_spineR (a := residual) hwRes hbRes hLRes hCRes
+        have hspIdx : DenoteSpine m.cval env φ d
+            ((e.getAppArgs.take mI).drop rP) ((xs.take mI).drop rP) :=
+          (hspx.take mI).drop rP
+        have hDefI : DefEqL mode env m.cval φ Δ (cargs.drop r.ctorParams)
+            ((xs.take mI).drop rP) :=
+          defEqL_of_defEqListR m φ ihd hdefI
+            (fun x hx => hfrRes x (List.mem_of_mem_drop hx))
+            (fun x hx => hfrE x (List.mem_of_mem_take (List.mem_of_mem_drop hx)))
+            (hspRes.drop r.ctorParams) hspIdx
+        -- the length disjunct
+        have hlenDisj : mI = rP ∨ cargs.length = r.ctorParams + (mI - rP) := by
+          have hle := m.rec_params_le _ _ _ _ _ hfrec r
+            (List.mem_of_find?_eq_some hrfind) hfire
+          have hlen := hDefI.length_eq
+          rw [List.length_drop, List.length_drop, List.length_take,
+            hspx.length, hlenA] at hlen
+          omega
+        exact ⟨H, cargs, hres_eq, hlenDisj, hDefI⟩
       -- the reduct
       have hspOut : DenoteSpine m.cval env φ d
           (e.getAppArgs.take rP ++ major.getAppArgs.drop r.ctorParams)
@@ -340,9 +358,9 @@ theorem iota_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
           = false := by rw [Expr.hasFvar_instantiateLevelParams]; exact hRnf
       refine ⟨_, hdOut, ?_, ?_, ?_, ?_, ?_⟩
       · refine Red.iota hfrec hrfind hfire hfcj ?_ (by rw [hspx.length, hlenA])
-          (by rw [hspy.length, hlenM]) hlenU hlenUj hstripR hstripC ?_
+          (by rw [hspy.length, hlenM]) hlenU hlenUj ?_
           hTV0 hTVc hTVj0 hTVjc hR0 hRc rfl
-          (hR₀.trans hR₁) hRm ?_ ?_ hteleR hteleC rfl hlenDisj hDefI
+          (hR₀.trans hR₁) hRm ?_ ?_ hteleR hteleC hHeq hlenDisj hDefI
         · exact fun lvls pins hn => m.rec_params_le _ _ _ _ _ hfrec r
             (List.mem_of_find?_eq_some hrfind) hfire
         · rw [recFireComparands_fst_nil] at hlev; exact hlev

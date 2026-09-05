@@ -224,8 +224,11 @@ inversions at the same fuel as the entry-point facts. -/
 abbrev iotaRecP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr →
     CheckM (Option Expr) := iotaRec mode (pureFns mode env fuel) env
 
-abbrev iotaCertsP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → List Expr →
-    CheckM Bool := iotaCerts (pureFns mode env fuel) env
+abbrev iotaCertsP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Bool → Expr →
+    List Expr → CheckM Bool := iotaCerts (pureFns mode env fuel) env
+
+abbrev iotaIndexOkP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Nat → Nat → Nat →
+    Expr → List Expr → List Expr → CheckM Bool := iotaIndexOk (pureFns mode env fuel) env
 
 abbrev defEqListP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → List Expr →
     List Expr → CheckM Bool := defEqList (pureFns mode env fuel) env
@@ -285,6 +288,8 @@ theorem iotaRec_fold (env : Env) (fuel : Nat) :
     iotaRec mode (pureFns mode env fuel) env = iotaRecP mode env fuel := rfl
 theorem iotaCerts_fold (env : Env) (fuel : Nat) :
     iotaCerts (pureFns mode env fuel) env = iotaCertsP mode env fuel := rfl
+theorem iotaIndexOk_fold (env : Env) (fuel : Nat) :
+    iotaIndexOk (pureFns mode env fuel) env = iotaIndexOkP mode env fuel := rfl
 theorem defEqList_fold (env : Env) (fuel : Nat) :
     defEqList (pureFns mode env fuel) env = defEqListP mode env fuel := rfl
 theorem proofIrrel_fold (env : Env) (fuel : Nat) :

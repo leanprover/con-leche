@@ -90,32 +90,40 @@ theorem liftFueled_atF {α : Type} (what : String) (o : Option α) (F : Nat) :
     (liftFueled what o : FueledM α).val F = liftFueled what o := by
   cases o <;> rfl
 
-theorem iotaCerts_atF (d : Nat) (F : Nat) :
+theorem iotaCerts_atF (d : Nat) (lic : Bool) (F : Nat) :
     ∀ (ty : Expr) (args : List Expr),
-      (iotaCerts (fueledFns mode env) env d ty args).val F =
-        iotaCerts (pureFns mode env F) env d ty args
+      (iotaCerts (fueledFns mode env) env d lic ty args).val F =
+        iotaCerts (pureFns mode env F) env d lic ty args
   | _, [] => rfl
   | .forallE n ty body mb, arg :: rest => by
-    show ((do
+    show (if lic && mb.pw.isNever then
+        iotaCerts (fueledFns mode env) env d lic (body.instantiate1 arg) rest
+      else (do
         let ta ← (fueledFns mode env).inferIO d arg
         if ← (fueledFns mode env).defeq d ta ty then
-          iotaCerts (fueledFns mode env) env d (body.instantiate1 arg) rest
-        else pure false : FueledM Bool)).val F = (do
+          iotaCerts (fueledFns mode env) env d lic (body.instantiate1 arg) rest
+        else pure false : FueledM Bool)).val F = (if lic && mb.pw.isNever then
+        iotaCerts (pureFns mode env F) env d lic (body.instantiate1 arg) rest
+      else do
         let ta ← (pureFns mode env F).inferIO d arg
         if ← (pureFns mode env F).defeq d ta ty then
-          iotaCerts (pureFns mode env F) env d (body.instantiate1 arg) rest
+          iotaCerts (pureFns mode env F) env d lic (body.instantiate1 arg) rest
         else pure false)
-    rw [FueledM.atF_bind]
-    congr 1
-    funext ta
-    rw [FueledM.atF_bind]
-    congr 1
-    funext b
-    cases b with
-    | true =>
-      simp only [↓reduceIte]
-      exact iotaCerts_atF d F (body.instantiate1 arg) rest
-    | false => rfl
+    by_cases hg : (lic && mb.pw.isNever) = true
+    · rw [if_pos hg, if_pos hg]
+      exact iotaCerts_atF d lic F (body.instantiate1 arg) rest
+    · rw [if_neg hg, if_neg hg]
+      rw [FueledM.atF_bind]
+      congr 1
+      funext ta
+      rw [FueledM.atF_bind]
+      congr 1
+      funext b
+      cases b with
+      | true =>
+        simp only [↓reduceIte]
+        exact iotaCerts_atF d lic F (body.instantiate1 arg) rest
+      | false => rfl
   | .bvar _, _ :: _ | .fvar _ _ _, _ :: _ | .sort _, _ :: _
   | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
   | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
@@ -199,11 +207,23 @@ theorem defeqSpine_atF (d : Nat) (a b : Expr) (F : Nat) :
     | (dsimp only [])
     | split)
 
+theorem iotaIndexOk_atF (d : Nat) (F : Nat) (mI rP cnP : Nat) (tyCtor : Expr)
+    (margs idx : List Expr) :
+    (iotaIndexOk (fueledFns mode env) env d mI rP cnP tyCtor margs idx).val F =
+      iotaIndexOk (pureFns mode env F) env d mI rP cnP tyCtor margs idx := by
+  by_cases hmr : mI = rP
+  · simp only [iotaIndexOk, if_pos hmr]; rfl
+  · simp only [iotaIndexOk, if_neg hmr]
+    cases piResidual tyCtor margs with
+    | none => rfl
+    | some residual => exact defEqList_atF d F _ _
+
 macro "atF_step" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
+    | (rw [iotaIndexOk_atF])
     | (rw [defEqList_atF])
     | (rw [structEtaProjCerts_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -283,6 +303,7 @@ macro "atF_step2" : tactic =>
     | rfl
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
+    | (rw [iotaIndexOk_atF])
     | (rw [defEqList_atF])
     | (rw [structEtaProjCerts_atF])
     | (rw [reduceNat_atF])
@@ -371,6 +392,7 @@ macro "atF_step3" : tactic =>
     | rfl
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
+    | (rw [iotaIndexOk_atF])
     | (rw [defEqList_atF])
     | (rw [structEtaProjCerts_atF])
     | (rw [reduceNat_atF])
@@ -415,6 +437,7 @@ macro "atF_core4" x:tactic : tactic =>
     | $x:tactic
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
+    | (rw [iotaIndexOk_atF])
     | (rw [defEqList_atF])
     | (rw [structEtaProjCerts_atF])
     | (rw [reduceNat_atF])
