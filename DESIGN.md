@@ -39898,3 +39898,224 @@ behind a ruling on (a) above, and leave the census out.  The probe
 branch stays where it is as the reference (`agent/pw-bitmask` @
 `17e6be5d`; measurement harness and results in `_tmp/pw-bitmask/`:
 `run.py`, `results.tsv`, `lawtest.lean`).
+
+## POINTER-FIRST EQUALITY: the core-data-structure audit (2026-09-05, `agent/ptreq-audit`)
+
+**User question (2026-09-05, verbatim):** *"are there more core data
+structures that should compare ptrs during eq checking? Name maybe?
+what does the official kernel do?"*
+
+Answer, short: **yes — `Name` and `Level`.**  `Expr` is already
+pointer-first (`Expr.beqFast`) and is what fires at every `Expr`-keyed
+memo probe (verified below).  `Name` and `Level` are plain derived
+`DecidableEq`/`Hashable`, i.e. a full structural walk *both* for the
+comparison *and* for the hash, at every const lookup, every level memo
+probe, and — five times per node — inside `Expr.beqB`, the single
+largest symbol in the checker after the RC decrementer.  Official is
+pointer-first (and cached-hash-first) at every one of those places.
+Measured ceiling on init-full: **≈ 2.9 %** of instructions, of which
+≈ 2 % is realistically recoverable.  This section is the record; no
+implementation lands on this branch (drafts in `_tmp/ptreq-audit/`).
+
+### 1. What the official kernel does
+
+Sources: `_tmp/lean4-master-kernel/` (fetched from `leanprover/lean4`
+master: `expr.h`, `expr.cpp`, `expr_eq_fn.cpp`, `level.h`, `level.cpp`,
+`name.h`, `name.cpp`, `type_checker.cpp`, `declaration.h`, plus
+`lean4_lean.h` = `src/include/lean/lean.h` and `lean4_object.cpp` =
+`src/runtime/object.cpp`) and the Lean-side sources shipped with the
+toolchain (`~/.elan/toolchains/leanprover--lean4---v4.33.1/src/lean/`).
+
+| structure | executed entry point | fast path, in order | mechanism | citation |
+|---|---|---|---|---|
+| `expr` | `is_equal` = `expr_eq_fn<false>`; Lean side `Expr.eqv`, `@[extern "lean_expr_eqv"]` | **`is_eqp` (raw pointer)** → 64-bit cached `hash` → `kind` → structural, with an address-pair memo on *shared* subterms only | `is_eqp(e1,e2) { return e1.raw() == e2.raw(); }` | `expr_eq_fn.cpp:45-47`, `expr.h:112`, `Lean/Expr.lean:808` |
+| `expr`, defeq entry | `type_checker::quick_is_def_eq` | `t == s` (hence `is_eqp` first) before anything else | ” | `type_checker.cpp:838` |
+| `expr`, delta step | `lazy_delta_reduction` | `is_eqp(*d_t, *d_s)` on the two `constant_info` **objects** — same-definition heads skip unfolding | `is_eqp(constant_info,…)` = `raw() == raw()` | `type_checker.cpp:1032`, `declaration.h:449` |
+| `expr`, whnf idempotence | `is_def_eq_core` | `is_eqp(t_n, t)` — "did `whnf_core` change anything" is a *pointer* test, not a comparison | ” | `type_checker.cpp:1197, 1226` |
+| `expr`, rebuild | `Expr.updateApp!`, `updateForall!`, … | `ptrEq` on each child → return the original node | `Init/Util.lean:111` | `Lean/Expr.lean:1846-1947` |
+| `level` | `operator==`; Lean side `Level.beq`, `@[extern "lean_level_eq"]` | `kind` → **cached `hash`** → **`is_eqp`** → `depth` → structural | hash read from the level's data word (`level::hash()`) | `level.cpp:125-149`, `level.h:55`, `Lean/Level.lean:255` |
+| `level`, semantic | `is_equivalent`; Lean side `Level.isEquiv` | **`lhs == rhs` BEFORE normalising**, then `normalize lhs == normalize rhs` | ” | `level.cpp:518`, `Lean/Level.lean:410` |
+| `level`, rebuild | `update_succ` / `update_max`; Lean `updateSucc!` &c. | `is_eqp` on children → return the original level | ” | `level.cpp:301-315`, `Lean/Level.lean:566, 577, 588` |
+| `level`, instantiate | `level instantiate` | `if (!has_param(l))` cutoff (flag in the data word) before descending | ” | `level.cpp:385-390` |
+| `name` | `name::operator==` → `lean_name_eq` | **pointer (`n1 == n2`)** → scalar-ness → **cached hash (`lean_name_hash_ptr`)** → limb-by-limb, each limb's string compared by `lean_string_eq` (itself pointer-first), with a *second* pointer test on each prefix step | hash stored in the object at `sizeof(void*)*2`; Lean side `@[extern "lean_name_eq"] Name.beq` | `lean4_object.cpp:2762-2791`, `lean4_lean.h:3124-3136`, `name.h:55, 108`, `Init/Prelude.lean:4814` |
+| `string` | `lean_string_eq` | **`s1 == s2`** → size → `memcmp` | inline in the runtime header | `lean4_lean.h:1383` |
+| the primitive | `withPtrEq a b k h` | `ptrEq a b` then `k ()`; the *pure* definition is `k ()` | `@[implemented_by withPtrEqUnsafe]`; obligation `h : a = b → k () = true` | `Init/Util.lean:126-140` |
+
+Two remarks that matter downstream.
+
+* **`lean_is_exclusive` is not an equality device.**  It is the RC
+  linearity test used for destructive update (`lean4_lean.h:704`); the
+  kernel's only equality-adjacent use of the RC is the *dual* — 
+  `expr_eq_fn::check_cache` memoizes an address pair only
+  `if (is_shared(a) && is_shared(b))`, because an unshared subterm can
+  never be met twice (`expr_eq_fn.cpp:33-43`).  Setlec's `beqGo` memo
+  has no such guard; the `beqB` fuel budget plays the same role.
+* **Official's kernel equality compares *less* than ours.**
+  `is_equal` is `expr_eq_fn<false>`, which skips binder names and
+  binder info entirely (`expr_eq_fn.cpp:102-103, 110`); `is_bi_equal`
+  (`<true>`) is the elaborator's.  `Setlec.Expr.beq` is
+  `decide (a = b)` on a type that *carries* the binder name and the
+  `BinderMeta`, so `beqB` compares a `Name` and a `BinderMeta` at every
+  binder node where official compares nothing.  This is a deliberate
+  consequence of "one `Expr`, decidable equality, `LawfulBEq`" and is
+  not proposed for change — but it is precisely why a pointer-first
+  `Name` pays off more here than it would in the C++ kernel.
+
+### 2. What Setlec does — every equality entry point on the core data
+
+Measurement: one `perf record -F 499 -e instructions:u` run of the
+master binary (`_tmp/ptreq-base-setlec`, master @ `564e6a3a`) on
+`init-full` (`--set-model=p --pre`, 61 048 declarations accepted,
+exit 0, 141 582 samples, `ulimit -v 16000000`).  Shares are
+`--percentage absolute`, i.e. of the whole process.  Raw:
+`_tmp/ptreq-audit/initfull.data`, symbol table `syms.txt`.
+Calibration: the sibling batch's independently measured A/B for
+`PropWhen.equiv` (init-full −0.005 %) matches this profile's
+`PropWhen_equiv` symbol share (0.01 %) — so a symbol's share is a
+sound *ceiling* on what removing its work can save.
+
+| structure | entry point that executes | instance that actually fires | ptr-first? | measured init-full share |
+|---|---|---|---|---|
+| `Expr` | `Expr.beq`, `@[implemented_by Expr.beqFast]` | `beqFast` → `beqB` (budgeted) → `beqGo` (memoized) | **yes** — `ptrAddrUnsafe` then the 32-bit packed hash | `beqB` **10.05 %**, `beqFast` 1.01 %, `beqGo` 0.25 % |
+| `Expr` as memo key | `Std.HashMap Expr _` (`whnfCoreC`, `whnfC`, `inferC`, `inferFC`, `inferIOC`, `annotC`, `instC`, `defeqC`, `instantiate*Go`, `bvarBoundGo`) | key `BEq` = `Expr.beq` → `beqFast`; `Hashable Expr` = `Expr.hash`, an `O(1)` field read | **yes** | `instDecidableEqExpr_decEq` **0.00 %** — confirmation that the derived instance never fires |
+| `Name` | derived `DecidableEq`, via `instBEqOfDecidableEq` | `instDecidableEqName_decEq`, full structural walk; strings by `lean_string_eq` (ptr-first, so *that* half is fine) | **no** | **1.19 %** (+ `memcmp` 0.08 %, `lean_string_eq_cold` 0.01 %) |
+| `Name` as hash-map key | derived `Hashable` | `instHashableName_hash`, full structural walk, `lean_string_hash` per limb (uncached, byte-wise: `lean4_object.cpp:2488`) | n/a — **no cached hash** | **0.65 %** + `hash_str` 0.28 % + `lean_string_hash` 0.03 % |
+| `Name`-keyed maps | `FEnv.idx` (`FEnv.find?`), `CState.ienv`, `constTyAt`/`constValAt` (`Name × List Level`), `ruleRhsAt` (`Name × Name × List Level`) | `Std.HashMap`; bucket walk calls the two rows above | **no** | probe machinery: `FEnv.find?` **1.29 % + 0.35 %**; `constTyAtM`/`constValAtM`/`ruleRhsAtM` ≈ 0.50 % |
+| `Level` | derived `DecidableEq` | `instDecidableEqLevel_decEq` | **no** | **0.62 %** |
+| `Level` as hash-map key | derived `Hashable` (`lsimpC`, `lnzC`, `eqvC`, and inside the `Name × List Level` keys) | `instHashableLevel_hash`, structural walk | n/a — **no cached hash** | **0.29 %** |
+| `Level`, semantic | `Cached.isEquivLM` → `eqvC[(l,r)]?` → `Level.simplify`/`leqCore` | no `l == r` disjunct at all (see §3, P2) | **no** | `isEquivLM` 0.11 % + its probe 0.08 % |
+| `Level`, substitution | `Level.subst` / `subst.go`, `allParamsDefined` | `if k = n` — derived `Name` decEq per parameter; no `hasParam` cutoff inside the level tree (official has one) | **no** | `Level_subst` + `subst_go` 0.09 % |
+| `PropWhen` | `PropWhen.equiv` (containment) — the *sibling* batch's site | structural containment | not yet (sibling's patch) | 0.01 % |
+| `BinderMeta` | derived `DecidableEq`, called by `beqB`/`beqGo` per binder node | `instDecidableEqBinderMeta_decEq` | no | 0.00 % |
+| `Literal` | derived `DecidableEq`, `.lit` case of `beqB` | `instDecidableEqLiteral_decEq` | no | absent from the profile (below the sampling floor) |
+
+**Which instance fires — verified in the compiled IR**, not inferred:
+`.lake/build/ir/Setlec/Kernel/Expr.c` (same build as the profiled
+binary — the `.c` and its `.lean` carry the same mtime; the `ir/`
+directory also holds orphan `.c` files of modules deleted at task
+#172, which lake does not sweep, so check mtimes before reading it),
+the body of
+`lp_setlec_Setlec_Expr_beqB`, calls
+`lp_setlec_Setlec_instDecidableEqName_decEq` **five times** (fvar name,
+const name, binder name on `lam` and on `forallE`, `letE` name, `proj`
+struct name — counted by brace-matching the whole 840-line function),
+`lp_setlec_Setlec_instDecidableEqLevel_decEq` once (`.sort`),
+`instDecidableEqBinderMeta_decEq` and `instDecidableEqLiteral_decEq`
+once each, and `List_beq…beqGo_spec__2` for a `.const`'s level list —
+while the
+`Expr` recursion itself is guarded by two `lean_ptr_addr` calls.  So
+**`beqB`, at 10.05 % the checker's second-largest symbol, is the single
+biggest consumer of the structural `Name`/`Level` comparisons**, and
+every `Name` it meets is a parser-table object (§3) that a pointer
+test would settle in one instruction.
+
+**Are `Name`/`Level` objects actually shared?**  Yes, by construction:
+the export parser keeps `names : Std.HashMap Nat Name` and
+`levels : Std.HashMap Nat Level` index tables
+(`Setlec/Frontend/ExportC.lean:48-49`) and hands the *same object* to
+every occurrence of a stream index — so a `.const n us` node's `n`, the
+`ConstantInfo.name` it resolves to, and the `levelParams` a
+`Level.subst` walks are one object each.  Independently confirmed by
+the task-#167/pw census (this file, "THE PACKED `pw` DATUM"): *"35
+distinct `Name` objects at list heads — all 35 pointer-shared with the
+term's own level params (verified: the parser interns names)"*.
+
+**Item (iii): the 32-bit hash narrowing.**  `Hashable Expr` is
+`Expr.hash`, the packed word's top 32 bits (`Kernel/Expr.lean:500,
+518`) — an `O(1)` field read, and `beqFast`'s second test.  A
+hash-equal-but-unequal key therefore descends into `beqB`.  The
+exposure is bounded: `Std.DHashMap` stores no per-entry hash, so a
+probe compares every key in its bucket, but each of those comparisons
+exits at `a.hash != b.hash` unless the 32-bit hashes collide.  With
+`M` distinct keys in a memo the expected number of colliding *pairs*
+is `M²/2^33`; the memos are per-declaration (`CState` flush) and hold
+`O(10^5…10^6)` entries, so ≤ ~10² colliding pairs per declaration,
+each costing one descent bounded by `beqBudget = 4096` nodes.  Against
+`beqB`'s 10.05 % this is noise: **the descent cost is genuine
+structural work on equal-but-unshared DAGs** (the cached tier rebuilds
+terms the retired arena would have hash-consed), not collision
+fallout.  No action proposed on the hash width.
+
+### 3. Proposals, prioritized by measured ceiling
+
+All three are `withPtrEq`/`@[computed_field]` shaped, all three have
+**zero statement impact** (`withPtrEq a b k h` is *definitionally*
+`k ()`; the drafts below carry the `rfl` proofs), and all three
+typecheck as written — `_tmp/ptreq-audit/proto.lean`,
+`proto2.lean` (both green under the project toolchain).
+
+| # | site | what official does | ceiling (init-full) | proof obligation |
+|---|---|---|---|---|
+| **P1** | `Name` equality — the derived `DecidableEq Name` | `lean_name_eq` is ptr-first | **1.19 %** (+0.09 % string tail) | `a = b → (a == b) = true`, i.e. `by subst h; simp` |
+| **P2** | `Level` equality + the missing `l == r` disjunct in `isEquiv`/`isEquivLM` | `operator==` is hash+`is_eqp`-first; `is_equivalent` tries `lhs == rhs` **before** normalising | **0.62 %** eq + 0.19 % memo | same, plus `Level.isEquiv l l = some true` (immediate: `simplify l = simplify l`) |
+| **P3** | cached hash as a `@[computed_field]` on `Name` and `Level`, and the `Expr.beqFast`-shaped `beqFast` it enables | the hash is in the object header (`lean_name_hash_ptr`, `level::hash()`) | **0.65 + 0.29 + 0.28 = 1.22 %** | none new: the field is a function of the value, so a hash mismatch *is* an inequality (`Name.ne_of_hash_ne`) — the same argument task #172 B3a used for `Expr` |
+| P4 | `Level.subst` / `Level.simplify` returning the *original* object when nothing changed (official `update_succ`/`update_max`, and the `has_param` cutoff) | ditto | 0.09 % + downstream allocator/RC relief | `update`-lemmas of the form `subst ks us l = l` under `¬ hasParam` |
+| — | `PropWhen.equiv` | (no counterpart) | 0.01 % | sibling batch `agent/ptreq`; measured A/B −0.005 % on init-full — **immaterial**, and this profile says so independently |
+
+**P1 — pointer-first `Name`** (`_tmp/ptreq-audit/P1-name-ptreq.lean`).
+Two variants.  *Site-local*: a `namePtrBEq` next to `Expr.exprPtrBEq`
+(`Kernel/ExprOps.lean:733`, the existing precedent) used at
+`Cached/CoreC.lean:218` and `:1403` (delta same-head and const/const
+defeq — official's `const_name(a) == const_name(b)`),
+`Kernel/Level.lean:33` (`subst.go`) and `:90` (`rest`'s `.param`
+case).  *Global*: drop `DecidableEq` from `Name`'s `deriving` clause
+and define
+
+    instance : DecidableEq Name := fun a b =>
+      withPtrEqDecEq a b (fun _ => Name.decEqCore a b)
+
+which makes **every** `==`, `if a = b` and hash-map key comparison
+pointer-first at once — including the four calls per node inside
+`beqB` and the `FEnv.find?` bucket walk, which is where the 1.19 %
+actually is.  `Decidable (a = b)` is a subsingleton, so `decide` is
+unchanged as a `Bool`; the proof bill is a `Subsingleton.elim` bridge
+wherever a proof names the derived instance (`grep -rn
+instDecidableEqName Setlec/Verify Setlec/SetR`).  The global variant
+is the one worth doing; the site-local one is the fallback if that
+grep is ugly.
+
+**P2 — pointer-first `Level`, and the official disjunct**
+(`_tmp/ptreq-audit/P2-level-ptreq.lean`).  This is also a
+**restrictions-are-findings** item: `Level.isEquiv`
+(`Kernel/Level.lean:141`) simplifies *both* sides unconditionally,
+where official (`level.cpp:518`) tries `lhs == rhs` first; and the
+executed `isEquivLM` (`Cached/StateC.lean:390`) goes straight to a
+`(Level × Level)`-keyed memo probe that structurally hashes both
+levels before it can discover they are the same object.  Add the
+disjunct to the pure spec (redundant, hence provably equal to the old
+definition) and a `levelPtrBEq` guard at the head of `isEquivLM`.
+
+**P3 — cached hashes** (`_tmp/ptreq-audit/P3-cached-hash.lean`).  This
+is the item with no analogue in the current tree and the largest
+single ceiling: `Name` and `Level` gain
+
+    with @[computed_field] hashData : Name → UInt64 | …
+
+and their `Hashable` instances read the field.  `@[computed_field]` is
+an **already-enumerated** trust escape (the census in
+`Setlec/Cached/ExprC.lean`'s module docstring, task #172 B3a) — this
+adds users, not a class.  It turns every `HashMap Name _` /
+`HashMap Level _` probe's hash from `O(|name| + bytes)` into one field
+read, and it supplies the hash test that makes a ptr-first
+`Name.beqFast`/`Level.beqFast` exactly `lean_name_eq`'s and
+`operator==`'s shape.  Caveat to check before landing: the numeric
+value of `Expr.data`'s hash field changes (it folds
+`Hashable.hash n`), so re-run any `#guard` over a concrete hash; no
+*statement* mentions a hash value.  Memory: one `UInt64` per distinct
+`Name`/`Level` object, and the parser builds each exactly once.
+
+**Combined ceiling: 2.24 % (`Name` eq+hash) + 0.96 % (`Level` eq+hash)
+≈ 2.9 % of init-full**, of which the pointer tests recover the part
+where the operands are shared — by §2's sharing argument, most of it.
+Realistic expectation ≈ 2 %, i.e. the size of one of the perf/R1
+campaign's E-steps, for a few dozen lines and no new trust class.
+
+**Sequencing.**  P3 first (it is the only one that needs a type-level
+edit and a rebuild of everything downstream of `Kernel/Expr.lean`),
+then P1's global variant, then P2, then P4 if the allocator share still
+justifies it.  Each is independently A/B-able with
+`_tmp/perf-eng/ab.sh` on `init-prelude` + `grind-ring-5` + `init-full`.
+Instruments and drafts: `_tmp/ptreq-audit/` (`initfull.data`,
+`syms.txt`, `grind.data`, `proto.lean`, `proto2.lean`,
+`P1-name-ptreq.lean`, `P2-level-ptreq.lean`, `P3-cached-hash.lean`);
+fetched official sources in `_tmp/lean4-master-kernel/`.
