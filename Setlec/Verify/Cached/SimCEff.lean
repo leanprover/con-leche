@@ -379,7 +379,14 @@ private theorem simplifyMemo_spec {mp : Std.HashMap Level Level}
   | some x => exact ⟨hmp u x hc, hmp⟩
   | none => exact ⟨rfl, lsimpInv_insert hmp u⟩
 
-private theorem isEquivLM_run (l r : Level) (s : CState) :
+/-- The task-#176 P2 head test: syntactically equal levels answer
+without touching the state or the cache. -/
+private theorem isEquivLM_run_ptr {l r : Level} (h : (l == r) = true)
+    (s : CState) : isEquivLM l r s = .ok (some true, s) := by
+  unfold isEquivLM; rw [if_pos h]; rfl
+
+private theorem isEquivLM_run {l r : Level} (h : ¬ (l == r) = true)
+    (s : CState) :
     isEquivLM l r s = .ok
       (match s.eqvC[(l, r)]? with
        | some b => (some b, s)
@@ -400,7 +407,8 @@ private theorem isEquivLM_run (l r : Level) (s : CState) :
                (some b,
                  { s with lsimpC := mp, eqvC := s.eqvC.insert (l, r) b })
              | none => (none, { s with lsimpC := mp })
-           | none => (none, { s with lsimpC := mp })) := rfl
+           | none => (none, { s with lsimpC := mp })) := by
+  unfold isEquivLM; rw [if_neg h]; rfl
 
 /-- `Level.isEquiv` in the shape the cascade decides it: the
 simplified-form test, then the two `leqCore` runs. -/
@@ -416,7 +424,7 @@ private theorem isEquiv_cascade (l r : Level)
             (Level.simplify l) 0 with
         | none => none
         | some b2 => some b2 := by
-  rw [Level.isEquiv, if_neg hne]
+  rw [Level.isEquiv_eq_withoutPtr, if_neg hne]
   simp only [Level.leq, Bind.bind, Option.bind]
   cases Level.leqCore Level.defaultFuel (Level.simplify l) (Level.simplify r) 0
     with
@@ -439,7 +447,13 @@ are `LawfulBEq`, so `ls == rs` *is* `ls = rs`. -/
 theorem isEquivLM_eff (hs : CSOK mode env s₀) (l r : Level) :
     CEff mode env s₀ (fun ob => ob = Level.isEquiv l r) (isEquivLM l r) := by
   intro v' s' hrun
-  rw [isEquivLM_run] at hrun
+  by_cases hlr : (l == r) = true
+  · -- the task-#176 P2 head test: no cache touch, no state change
+    rw [isEquivLM_run_ptr hlr] at hrun
+    injection hrun with h1
+    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+    exact ⟨hs, (Level.isEquiv_of_beq hlr).symm⟩
+  rw [isEquivLM_run hlr] at hrun
   cases hc : s₀.eqvC[(l, r)]? with
   | some b =>
     rw [hc] at hrun
@@ -466,7 +480,7 @@ theorem isEquivLM_eff (hs : CSOK mode env s₀) (l r : Level) :
       have hss : Level.simplify l = Level.simplify r := by
         rw [← hls, ← hrs, eq_of_beq hbeq]
       have hob : (some true : Option Bool) = Level.isEquiv l r := by
-        rw [Level.isEquiv, if_pos hss]; rfl
+        rw [Level.isEquiv_eq_withoutPtr, if_pos hss]; rfl
       exact ⟨hs.withLsimpEqv hmp2 (eqvInv_insert hs.eqv hob.symm), hob⟩
     | false =>
       rw [hbeq] at hrun

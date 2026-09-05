@@ -3,10 +3,10 @@ module
 public import Std.Data.HashMap
 /- `withPtrEq` is `public` but not `@[expose]`, and its whole point here
 is that it is *definitionally* `k ()` — which is what
-`Name.beqPtr_eq` proves.  `import all` makes that body visible **in
-this module only**; that theorem is the public relay, so no importer
-needs it, and the executed `Name.beq` is the plain `decide (· = ·)`
-that the kernel can still reduce. -/
+`Name.beqPtr_eq` (and, at P2, `Level.beqPtr_eq`) proves.  `import all`
+makes that body visible **in this module only**; those theorems are the
+public relay, so no importer needs it, and the executed `Name.beq` is
+the plain `decide (· = ·)` that the kernel can still reduce. -/
 import all Init.Util
 
 /-!
@@ -133,6 +133,35 @@ deriving DecidableEq, Repr, Inhabited
 /-- Hashing a level is an `O(1)` field read (the memo maps keyed by
 `Level` — `lsimpC`, `lnzC`, `eqvC` — probe with this). -/
 instance : Hashable Level := ⟨Level.hashData⟩
+
+/-- Level equality in the official kernel's shape (task #176 P2):
+the cached **hash** and the **pointer** before the structural walk —
+`level.cpp:125` is `kind` → `hash` → `is_eqp` → structural.  The
+implementation of `Level.beq`; `Level.beqPtr_eq` proves both guards
+redundant. -/
+@[inline] def Level.beqPtr (a b : Level) : Bool :=
+  withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
+    (fun h => by subst h; simp)
+
+/-- Both guards are redundant (see `Name.beqPtr_eq`). -/
+theorem Level.beqPtr_eq (a b : Level) : Level.beqPtr a b = decide (a = b) := by
+  show (a.hashData == b.hashData && decide (a = b)) = decide (a = b)
+  by_cases h : a = b
+  · subst h; simp
+  · simp [h]
+
+/-- The executed level equality: definitionally `decide (a = b)`, with
+`beqPtr` substituted by the compiler (proved equal, so no trust
+escape — see `Name.beq`). -/
+@[implemented_by Level.beqPtr]
+def Level.beq (a b : Level) : Bool := decide (a = b)
+
+instance : BEq Level := ⟨Level.beq⟩
+
+/-- `Level.beq` is lawful — it *is* `decide (· = ·)`. -/
+instance : LawfulBEq Level where
+  eq_of_beq h := of_decide_eq_true h
+  rfl := by simp [BEq.beq, Level.beq]
 
 /-- Binder annotations. Irrelevant to checking; kept for round-tripping and
 error messages. -/

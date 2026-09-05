@@ -173,13 +173,34 @@ theorem leq_sound {l r : Level} (h : leq l r = some true) :
   rw [eval_simplify, eval_simplify] at this
   omega
 
+/-- **Conformance, task #176 P2 (restrictions-are-findings).**  The
+`l == r` disjunct `isEquiv` gained — official's
+`is_equivalent(lhs, rhs) = lhs == rhs || normalize lhs == normalize rhs`
+(`level.cpp:518`) — is *redundant*: `isEquiv` is equal to the
+definition without it, because `l = r` implies
+`simplify l = simplify r`, which already returned `some true`.  So the
+alignment is verdict-neutral in **both** directions, not merely an
+accept-superset. -/
+theorem isEquiv_eq_withoutPtr (l r : Level) :
+    isEquiv l r
+      = (if simplify l = simplify r then pure true
+         else do if ← leq l r then leq r l else pure false) := by
+  rw [isEquiv]
+  by_cases h : (l == r) = true
+  · rw [if_pos h, if_pos (congrArg simplify (eq_of_beq h))]
+  · rw [if_neg h]
+
+/-- The disjunct, read off: syntactically equal levels are equivalent. -/
+theorem isEquiv_of_beq {l r : Level} (h : (l == r) = true) :
+    isEquiv l r = some true := by rw [isEquiv, if_pos h]; rfl
+
 theorem isEquiv_sound' {l r : Level} (h : isEquiv l r = some true) :
     ∀ φ, eval φ l = eval φ r := by
   intro φ
   by_cases hss : simplify l = simplify r
   · have := congrArg (eval φ) hss
     rwa [eval_simplify, eval_simplify] at this
-  · rw [isEquiv, if_neg hss] at h
+  · rw [isEquiv_eq_withoutPtr, if_neg hss] at h
     obtain ⟨h1, h2⟩ := bind_and_some_true h
     exact Nat.le_antisymm (leq_sound h1 φ) (leq_sound h2 φ)
 
