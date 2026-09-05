@@ -1488,9 +1488,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     unfold inferBodyIO
     dsimp only [viewM, Expr.view]
     simp only [pure_bind]
-    refine DiscV.bind (ih.site_inferIO henv hwtb.1) (fun tty htty => ?_)
-    refine DiscV.bind (ih.site_whnf henv htty) (fun w hww => ?_)
-    split <;> try exact DiscV.throw _
+    -- task #168 stage 2: no domain-sort run at the io λ clause
     refine DiscV.bind (ih.site_inferIO henv
       (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
     have hpure : DiscV mode env

@@ -426,8 +426,8 @@ private theorem annotPwPi_shift (henv : EnvWF env)
     (hw : WScoped d e) :
     annotPwPi (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
       annotPwPi (pureFns mode env fuel) env d e := by
-  simp only [annotPwPi, forallPw_shiftFrom]
-  cases e.forallPw with
+  simp only [annotPwPi, typeSortPW_shiftFrom]
+  cases typeSortPW env.find? e with
   | some pwI => rfl
   | none =>
     dsimp only
@@ -446,8 +446,8 @@ private theorem annotPwLam_shift (henv : EnvWF env)
     (hw : WScoped d e) :
     annotPwLam (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
       annotPwLam (pureFns mode env fuel) env d e := by
-  simp only [annotPwLam, lamPw_shiftFrom]
-  cases e.lamPw with
+  simp only [annotPwLam, proofPW_shiftFrom]
+  cases proofPW env.find? e with
   | some pwI => rfl
   | none =>
     dsimp only
@@ -2267,14 +2267,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
         (shiftFrom p)
     simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
       pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
-    refine bind_rel _ _ (ihio hpd hw.1) ?_
-    intro tty htty
-    refine bind_rel _ _
-      (ih.whnf hpd (inferTypeCoreIO_WScoped henv fuel htty hw.1)) ?_
-    intro w _
-    cases w <;> try rfl
-    case fvar => rw [shiftFrom_fvar]; rfl
-    case sort u =>
+    -- task #168 stage 2: no domain-sort run at the io λ clause
     have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
       WScoped.instantiate1 (n := n) hw.1 0 hw.2
     have hbody := ihio (p := p) (d := d + 1) (by omega) hwo

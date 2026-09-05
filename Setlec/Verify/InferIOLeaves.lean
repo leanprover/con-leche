@@ -105,7 +105,7 @@ theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
         inferTypeCoreIO_forall_inv h
       simp [WScoped]
     | lam n ty body m =>
-      obtain ⟨tty, u, bt, -, -, hbt, -, -, rfl⟩ :=
+      obtain ⟨bt, hbt, -, -, rfl⟩ :=
         inferTypeCoreIO_lam_inv h
       simp only [WScoped] at hw
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
@@ -240,7 +240,7 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
       intro l hl
       simp [fvarLeaves] at hl
     | lam n ty body m =>
-      obtain ⟨tty, u, bt, -, -, hbt, -, -, rfl⟩ :=
+      obtain ⟨bt, hbt, -, -, rfl⟩ :=
         inferTypeCoreIO_lam_inv h
       simp only [WScoped] at hw
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
@@ -395,7 +395,7 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
         inferTypeCoreIO_forall_inv h
       simp [looseBVarsBounded]
     | lam n ty body m =>
-      obtain ⟨tty, u, bt, -, -, hbt, -, -, rfl⟩ :=
+      obtain ⟨bt, hbt, -, -, rfl⟩ :=
         inferTypeCoreIO_lam_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb

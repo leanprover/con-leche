@@ -1959,24 +1959,27 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         pure (.sort (.imax u v))
       | _ => throw (.invalid "expected a sort")
     | .lam n ty body mb => do
-      match ← r.whnf depth (← r.infer depth ty) with
-      | .sort _ => do
-        let bt ← r.infer (depth + 1)
-          (body.instantiate1 (.fvar depth n ty))
-        if mode.verified then
-          match body.lamPw with
-          | some pwI =>
-            unless mb.pw.equiv pwI do
-              throw (.notImplemented
-                "sort-annotation mismatch (lam-cod-chain)")
-          | none =>
-            let btt ← r.infer (depth + 1) bt
-            let vb ← ensureSort r env (depth + 1) btt
-            unless (Level.zeronessOf vb).equiv mb.pw do
-              throw (.notImplemented
-                "sort-annotation mismatch (lam-cod-leaf)")
-        pure (.forallE n ty (bt.abstract1 depth) mb)
-      | _ => throw (.invalid "expected a sort")
+      -- Task #168 stage 2: no domain-sort run at the io grade —
+      -- official's `infer_lambda` skips it at `infer_only`
+      -- (`type_checker.cpp:131`), and the P row (`infer_lam_claimIOP`)
+      -- never consumed it: the domain's grading comes from the
+      -- premise (`AnnotOkP.hoist_lam`).  The codomain validation stays
+      -- — it is what makes the λ datum trustworthy.
+      let bt ← r.infer (depth + 1)
+        (body.instantiate1 (.fvar depth n ty))
+      if mode.verified then
+        match body.lamPw with
+        | some pwI =>
+          unless mb.pw.equiv pwI do
+            throw (.notImplemented
+              "sort-annotation mismatch (lam-cod-chain)")
+        | none =>
+          let btt ← r.infer (depth + 1) bt
+          let vb ← ensureSort r env (depth + 1) btt
+          unless (Level.zeronessOf vb).equiv mb.pw do
+            throw (.notImplemented
+              "sort-annotation mismatch (lam-cod-leaf)")
+      pure (.forallE n ty (bt.abstract1 depth) mb)
     | .app f a => do
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
@@ -2383,8 +2386,13 @@ environment: `annotate` never looks a constant up, but inferring the
 inner ∀ node does.  See DESIGN.md, task #161 P5 proof-lane finding. -/
 def annotPwPi (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
     m PropWhen := do
-  match body'.forallPw with
-  | some pwI => pure pwI
+  -- Task #168 stage 2: the head-symbol reader first.  It subsumes the
+  -- chain read (`typeSortPW` of a ∀ IS its `forallPw`) and answers
+  -- most leaves without inference; the pass is untrusted — `infer`
+  -- validates every datum it writes — so the reader owes no licence
+  -- here, only the datum's agreement (census: 0 non-equivalent data).
+  match typeSortPW env.find? body' with
+  | some pw => pure pw
   | none => do
     -- io grade: `body'` is already annotated (bottom-up)
     let v ← ensureSort r env depth (← r.inferIO depth body')
@@ -2396,8 +2404,10 @@ neighbour's datum (the chain rule, no inference), any other body pays
 one leaf computation (`(lam-cod-leaf)`). -/
 def annotPwLam (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
     m PropWhen := do
-  match body'.lamPw with
-  | some pwI => pure pwI
+  -- task #168 stage 2: the reader first (it subsumes the `lamPw`
+  -- chain read), as in `annotPwPi`
+  match proofPW env.find? body' with
+  | some pw => pure pw
   | none => do
     -- io grade: `body'` is already annotated (bottom-up)
     let bt ← r.inferIO depth body'
