@@ -54,7 +54,10 @@ enumerated here by hand and this list is the pin.
    comparison's lifetime.
 2. **The `@[computed_field]` machinery** (NEW).  The per-node derived
    data (`hash`, `bvarB`, `fvarB`, `hasLP` — since task #167 one
-   packed `UInt64`, `Expr.data`) is declared in the inductive's `with`
+   packed `UInt64`, `Expr.data`; since task #176 P3 also
+   `Name.hashData` and `Level.hashData`, the cached hashes
+   `Lean.Name`/`Lean.Level` and the C++ kernel keep too) is declared
+   in the inductive's `with`
    block; logically it is an ordinary recursive function, and the
    *agreement between the stored word and that function is the code
    generator's*, not a theorem of this repository.  `Lean/Elab/ComputedFields.lean:33`, verbatim: *"This

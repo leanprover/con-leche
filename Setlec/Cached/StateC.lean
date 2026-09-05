@@ -386,8 +386,16 @@ def isNonZeroLM (u : Level) : CheckCM Bool :=
 
 /-- Level equivalence with a persistent result cache (the interned
 `isEquivLM`, same shape: simplify both sides, compare, then the
-`leqCore` cascade both ways). -/
+`leqCore` cascade both ways).
+
+The `l == r` head test is official's `is_equivalent` disjunct
+(`level.cpp:518`, task #176 P2) and is what makes the *shared* case —
+the overwhelming majority: the parser hands one object per stream
+level index — cost one pointer compare instead of a
+`(Level × Level)`-keyed memo probe.  It writes no cache entry, so the
+`CSOK.eqv` invariant is untouched. -/
 def isEquivLM (l r : Level) : CheckCM (Option Bool) :=
+  if l == r then pure (some true) else
   modifyGet fun s =>
     match s.eqvC[(l, r)]? with
     | some b => (some b, s)
