@@ -40630,3 +40630,537 @@ decisive A/B row to confirm the win survived the attribute change.
 Measurement artifacts: `_tmp/ptreq-land/` — `baseline/setlec` (the
 snapshot), `p3/setlec`, `p3p1-setlec`, `p3p1p2-setlec`, `one.sh`,
 `rows/*.tsv`.
+
+## THE LADDER AUDIT: the η/unit-like/K family, the nat-op and literal
+## guards, the normalization pass and `projCert` — what each certifies,
+## what it costs, and what is left after the β/io/ι rounds
+## (2026-09-05, `agent/ladder-audit`)
+
+**Read-only.**  Nothing under `Setlec/**` changed on this branch; the
+instruments are a throwaway measurement copy (`_tmp/ladder-meas`: a
+`dbg_trace` census and an `IMASK` leave-one-out mask over
+`Setlec/Cached/CoreC.lean`, applied by `instr.py`), never landed.  The
+method is the ι audit's verbatim (DESIGN.md, "THE ι AUDIT" + its
+second look): classify every reduction-/check-time step as
+**(A) DROPPABLE**, **(B) MOVABLE TO INSTALL**, **(C) LICENSABLE** or
+**(D) INHERENT**; measure by leave-one-out on init-full (decisive) and
+grind-ring-5 (bug-finder); every masked run must still accept the
+pinned counts.  Scope: the certificate classes the β, io and ι rounds
+left — the η/unit-like/K family, the nat-op and literal guards, the
+annotate pass's surviving jobs, and `projCert`.  The `proofIrrel`
+arms, the sort tests and the K/η prop tests belong to
+`agent/isproof-design` and appear here only as cross-references.
+
+**Relation to task #161's certificate-tax audit.**  Most of this scope
+was *ruled* there and is not re-litigated: the P11 family (pair-η,
+struct-η, struct-unit, the K/η rescue) is **SUPPLIERS, measured below
+noise**; `projCert`'s infer run is a **RECORDED NON-CANDIDATE**
+(ratified squash countermodel); P9 (its four sort legs) and P7
+(`natOpGuard` → one `find?`) **landed**; P6 (`strLitSupported` → a
+cached flag) was **DROPPED** with a measured pessimization argument.
+This audit re-measures that scope on a *reduction-heavy* fixture and a
+post-#176 tree, and it contributes four things the earlier round does
+not have: **a price tag for `projCert`** (its row's measure column
+reads "—"), **the separation of `natLitSupported` from
+`strLitSupported`** (whose ruling was written about the latter and
+inverts for the former), **the `reduceNat` name-dispatch finding**
+(the ptreq record's P1b, extended), and **the η family priced as it
+will be after the task-#175 wiring batch**.
+
+### 1. THE HEADLINE
+
+**Everything in this scope, masked off at once, is −0.169 % of
+init-full and −1.221 % of grind-ring-5.**  The two streams disagree
+about *how* that total is split, and the disagreement is the report's
+main finding.
+
+| item | init-full | grind-ring-5 | ratio |
+|---|---|---|---|
+| `projCert`'s two `inferIO` runs | −0.048 % | **−0.865 %** | 18× |
+| `annotateBody`'s `.letE` + `.lit` work | −0.048 % | −0.241 % | 5× |
+| the nat/literal guards (all four) | −0.050 % | −0.105 % | 2× |
+| … of which the `reduceNat` name dispatch | −0.043 % | −0.094 % | 2× |
+| … of which `natLitSupported`'s env scan | −0.040 % | −0.140 % | 3.5× |
+| **the whole η/unit/K certificate content** | **−0.023 %** | **−0.017 %** | 1× |
+| **all of the above at once** | **−0.169 %** | **−1.221 %** | 7× |
+
+On a general-purpose stream the four classes are *comparable* — each
+lands in a narrow 0.02–0.05 % band, with the η family the smallest.
+On a projection- and structure-heavy stream one of them, `projCert`,
+takes 71 % of the total on its own.  **That is the workload the
+task-#175 direct-structure flip creates** (§6: post-flip η compares
+`.proj` nodes, routing more traffic through exactly that site), so the
+grind-ring-5 column is the forward-looking one and the init-full
+column is today's.
+
+**Precision note.**  The sweep's two init-full baselines agree to
+0.002 %, but the nat package is sub-additive by ≈ 0.04 % against its
+parts, so single-run init-full resolution is realistically 0.02–0.04 %
+— enough for the total and for the coarse ordering, not enough to
+separate the 0.04 % rows from each other.  grind-ring-5 (median of
+three, two baselines agreeing to 0.002 %) is what ranks the sites.
+
+Three further results decide individual rows:
+
+* **The η/unit-like/K family is attempted ≈ 69 700 times per init-full
+  run and runs ≈ 27 500 certificates** — against 4.17 M ι fires,
+  12.46 M `proofIrrel` entries, 23.52 M `reduceNat` entries and
+  9.51 M annotate node visits.  #161's P11 verdict (SUPPLIERS, below
+  noise) is confirmed at a second fixture and on a tree 18 % faster
+  than the one it measured: **the η family is not where the money
+  is**, on either stream.
+* **`structUnitCert` succeeds 3 times in 61 048 declarations — and
+  those 3 decide the verdict**: masking it off keeps grind-ring-5
+  green but **rejects init-full** (`invalid: application type mismatch
+  [at theorem Std.Rii.forIn'_congr]`).  A certificate that costs
+  +0.002 % and is load-bearing, sitting behind a named P-lane wall
+  (§6).
+* **`reduceNat`'s name dispatch never got task #176's pointer-first
+  equality**: 14 *structural* `DecidableEq` `Name` comparisons at
+  every 2-argument const-headed application the checker
+  weak-head-normalizes (1 277 412 per init-full run), 3 at every
+  1-argument one (2 357 386) — the ptreq record's own "P1b" gap, at a
+  third and much larger site family than the two it names (§5).  At
+  −0.043 % init-full it is, on today's decisive stream, **the largest
+  actionable item in the audit and by far the cheapest fix**.
+
+### 2. The census (`--set-model`, one instrumented run per stream)
+
+| counter | init-full | grind-ring-5 |
+|---|---|---|
+| `stuckIrrel` entries | 12 571 | 1 197 |
+| `pairEtaCert` attempts (both orders) | 23 095 | 1 807 |
+| … shape gate passed (`ctorInfo _ 2 2`) | 4 193 | 840 |
+| … succeeded | 2 431 | 709 |
+| `structEtaCertWith` attempts | 24 775 | 992 |
+| … capability gate passed | 8 589 | 247 |
+| … succeeded | 8 366 | 238 |
+| `structUnitCert` attempts | 7 899 | 369 |
+| … gate passed / succeeded | **3 / 3** | **0 / 0** |
+| `etaCert` (λ-η) attempts / successes | 1 402 / 1 366 | 61 / 59 |
+| `structEtaProjCerts` per-field `iotaCerts` runs | 15 975 | 487 |
+| K-branch synthetic `iotaCerts` | 5 358 | 677 |
+| η-branch synthetic `iotaCerts` | 6 126 | 119 |
+| the family's `stripPis` arity pins | 36 051 | 1 530 |
+| `proofIrrel` entries *(cross-ref)* | 12 457 378 | 298 597 |
+| `reduceNat` entries | **23 519 416** | 630 714 |
+| … reaching a 1-arg `const` head, `us = []` | 2 357 386 | 32 408 |
+| … reaching a 2-arg `const` head, `us = []` | **1 277 412** | 103 932 |
+| … firing (`Nat.succ` literal packing) | 35 628 | 1 552 |
+| `natLitSupportedF` evaluations | **454 613** | 48 260 |
+| `strLitSupportedF` evaluations | 16 749 | 211 |
+| `natOpStoredF` evaluations | 222 457 | 20 539 |
+| `annotateBody` node visits | 9 510 284 | 384 077 |
+| … `.lit` natVal / strVal | 42 111 / 8 320 | 1 625 / 104 |
+| … `.letE` | 11 776 | 835 |
+| … `.proj` (native fast path / elim rewrite) | 10 224 (1 156 / 9 068) | 1 197 (441 / 756) |
+| `projCert` entries | 6 459 | 2 097 |
+| `whnfCoreStep` `.proj` entries | 16 575 | 5 167 |
+| `unfoldDefinition` entries | 13 969 707 | 467 888 |
+
+`structEtaCertWith`'s 24 775 attempts are 18 649 from `defeq`'s
+`structEtaCert` plus 6 126 from `majorToCtor`'s η rescue; the two
+counters add exactly.  The K/η fabrication counts (5 358 / 6 126)
+reproduce the ι census's, which is the instruments' cross-check.
+
+### 3. The measured cost (leave-one-out, `instructions:u`)
+
+grind-ring-5: median of three, baselines 83.9209 G / 83.9194 G /
+83.9196 G across the sweep — they agree to **0.002 %**, this fixture's
+noise floor.  init-full: one run per cell, baseline 2596.79 G (mean of the two baseline runs).
+`ulimit -v 16000000`.  Two other agents ran init-full on the same
+machine throughout, so **only instruction counts are reported** (wall
+times were contended).  **Every accepting masked run accepted 61 048 /
+3 946 declarations**; the five rejecting masks are findings, not
+failures.
+
+**Read the init-full column at 0.02–0.04 % resolution.**  The two
+baseline runs agree to 0.002 %, but the nat package (mask 525824)
+comes out −0.050 % against its parts' 0.089 %, so single-run scatter
+is larger than the baseline pair suggests.  The totals and the coarse
+ordering hold; the 0.04 % rows are not separable from each other.  The
+grind-ring-5 column (median of three, floor 0.002 %) is what ranks
+the sites.
+
+| masked-off site | grind-ring-5 | init-full |
+|---|---|---|
+| `structEtaCertWith`'s structure-telescope `iotaCerts` | −0.002 % | — |
+| `structEtaProjCerts`' per-field `iotaCerts` | −0.008 % | — |
+| `structUnitCert`'s `iotaCerts` | +0.002 % | — |
+| K-branch synthetic `iotaCerts` | −0.006 % | — |
+| η-branch synthetic `iotaCerts` | −0.002 % | — |
+| the family's `stripPis` pins computed allocation-free | −0.002 % | — |
+| **all six of the above at once** | **−0.017 %** | −0.023 % |
+| the K fabrication type check (`defeq tmaj tfab`) | +0.061 % *(noise)* | — |
+| `structUnitCert` off entirely | −0.001 %, **accepts** | **REJECT** `Std.Rii.forIn'_congr` |
+| `pairEtaCert` off entirely | **REJECT** `PSigma'.rec'` | — |
+| `structEtaCert` off entirely | **REJECT** `PProd.rec._model` | — |
+| the whole η/unit cascade in `stuckIrrel` off | **REJECT** `PSigma'.rec'` | — |
+| `etaCert` (λ-η) off | **REJECT** `List.rec._model` | — |
+| `natLitSupportedF` → `true` | **−0.140 %** | −0.040 % |
+| `strLitSupportedF` → `true` | −0.002 % | — |
+| `natOpStoredF` → `true` | −0.008 % | −0.004 % |
+| the `reduceNat` name chain via `==` (`Name.beq`) | **−0.094 %** | −0.043 % |
+| all four nat/literal guard items | −0.105 % | −0.050 % |
+| `annotateBody`'s `.letE` type/value walks | **−0.234 %** | −0.040 % |
+| `annotateBody`'s `.lit` guards | −0.007 % | — |
+| both annotate items | −0.241 % | −0.048 % |
+| **`projCert`'s two `inferIO` runs** | **−0.865 %** | −0.048 % |
+| **every accepting item above, at once** | **−1.221 %** | −0.168 % |
+
+The costs are additive to within the noise floor on grind-ring-5: the
+four package components sum to 1.228 % against the combined mask's
+1.221 %.
+
+Two masks are **ceilings, not savings**: `natLitSupportedF` →`true`
+and `strLitSupportedF` → `true` delete the guard outright, whereas the
+proposed cached form still pays an `Option Nat` field read and a `<`
+comparison per use.  The `reduceNat`-name-chain mask, by contrast, *is*
+the proposed change (a `||`-chain of `==` in place of the `∨`-chain of
+`decide (· = ·)`), so its −0.094 % is a saving.
+
+### 4. The classification
+
+**(A) DROPPABLE — official does not do it and the P model does not
+need it.**  *Nothing in this scope.*  Unlike the ι path (whose two
+`stripPis` pins were bound and discarded), every fire-time test in the
+η family is either a hypothesis of `EtaLawP`/`UnitLawP` or a datum the
+row's inversion consumes — the arity pins included: `hstrip`
+(bound at `Step2/CapsRowsP.lean:507`, consumed at `:577`; the unit
+twin at `:1004`/`:1094`) and `hstrpj` (`:640`, consumed at `:659`)
+all feed `piChainP_of_stripPis` (`:433`).  The one item that *behaves*
+like a
+drop — `structUnitCert`, which succeeds **3 times in 61 048
+declarations** and never on grind-ring-5 — is not one: masking it off
+keeps grind-ring-5 green but **rejects init-full** (`invalid:
+application type mismatch [at theorem Std.Rii.forIn'_congr]`).  Three
+certificate successes in a 61 048-declaration stream decide that
+stream's verdict.  It is also official's own `is_def_eq_unit_like`
+(`type_checker.cpp:1159`).  **(D)**, at +0.000 %.
+
+**(B) MOVABLE TO INSTALL — a property of the stored entry or of the
+environment, re-checked per use.**
+
+1. **`natLitSupportedF` as an `FEnv` completion counter** — the
+   largest (B) item, and a row #161's P6 ruling never separated out.
+   The guard is three `Env.find?`s plus three structural shape
+   re-checks (`Nat : Sort 1`, `Nat.zero : Nat`,
+   `Nat.succ : Nat → Nat`; `Kernel/Core.lean:276-296`), evaluated
+   **454 613 times per init-full run** — at `reduceNat`'s `Nat.succ`
+   fast path, at `litToCtorIfNat`, and at the `.lit` clause of both
+   the annotate pass and `infer`.  §5 gives the form and answers P6's
+   pessimization argument (which is *correct for `strLitSupported`*
+   and inverts for `natLitSupported`).  Cost −0.140 %.
+2. **The η family's slot-kind gate** (new on `agent/wiring3`, task
+   #175 W4c): `structEtaCertWith` gained
+   `towerSlotsAllF fe Tn cnF || recSlotsAllF fe Tn cnF`, i.e. up to
+   2·cnF `Env.find?`s per η attempt, testing a property of the
+   *stored* family that cannot change after install — and duplicating
+   the very lookups `structEtaProjCerts` then repeats per field.  It
+   belongs on `IndCaps` (one `slotKind` field written by
+   `indBlockCaps`/`directCaps`), not in the certificate.  Not on
+   master, so unmeasured; bounded above by the family's total
+   (≤ 0.02 %).  Recorded for the wiring batch, not proposed as work.
+3. **`structEtaProjCerts`' shared prefix.**  The per-field certificate
+   runs `iotaCerts` on `∀ p⃗ (t : T p⃗), F_j` against `targs ++ [b]`
+   once **per field**, and every run re-certifies the *same* `targs`
+   against the same parameter telescope and the same `b` against the
+   same `T targs`; the only per-field difference is the codomain,
+   which `iotaCerts` never reads.  cnF runs collapse to one plus cnF
+   `PiChainP` witnesses.  −0.008 %; §6 says why this is the right
+   shape *post-flip*, where the shared prefix is `directProjTyP`'s own
+   install-time identity rather than a coincidence.
+
+**(C) LICENSABLE — needs the redex, but only at the squash regime.**
+**The η family's three `iotaCerts` runs** (structure telescope,
+per-field projection telescope, synthetic constructor spine) are
+semantically identical to the ι audit's proposal 1 — `TeleFitP` from
+`iotaCerts`, licensed at a `.never` ∀-binder by `io_domain_transfer` —
+and #161 already classified them SUPPLIERS.  Total ≤ 0.02 %.
+**Licence them for uniformity when the ι licence lands, never for the
+number.**  The ι second look's exception stands: the K/η rescue's
+synthetic certificates (`CoreC.lean:519,567`) **cannot** be licensed,
+because in the P lane they *produce* the grading `hokMj` a licence
+would consume (`Step2/MajorP.lean`).
+
+**(D) INHERENT — genuinely per-redex.**
+
+* The η/unit cascade and each certificate's `defEqList` runs:
+  measured load-bearing (four rejecting masks, §3) and they are
+  `EtaLawP`'s own premises.  `defEqList (aargs.drop cnP) projs` is
+  official's per-field `is_def_eq` (`try_eta_struct_core`,
+  `type_checker.cpp:900-903`), and #161 row 26 already measured it as
+  the family's only expensive keeper.
+* The family's `stripPis` arity pins — **unlike ι's**, consumed.  Only
+  the allocation-free rewrite applies (−0.002 %).
+* **`projCert`'s two `inferIO` runs** — a *ratified* non-candidate
+  (squash countermodel; `projCert_inv`, `Verify/InferLemmas.lean:774`,
+  hands `projStepP_of_claims` the two typings out of which it walks
+  the spine's four).  Not re-litigated.  §7 gives its price and the
+  reason it matters more after the wiring batch, not less.
+* `natOpStoredF` at `reduceNat`'s op branches: one `Env.find?`, and it
+  is **exactly** the hypothesis of `NatOpGuardLawP`
+  (`SetP/Step2/NatP.lean:157`) — §5.  −0.008 %.
+* `annotateBody`'s structural rebuild, its `pw` writes and its `.letE`
+  walks (§8).
+
+### 5. Scope 2 in full: the nat-op guard measured against the bar
+
+The bar (coordinator, from the user): *the install invariant already
+says "if a pinned op name exists in the environment it is the
+certified one", so the fire-time guard should be exactly a name
+comparison plus the literal-argument test.*  `reduceNat` runs at every
+`whnfStep` and on both sides of every fvar-free stuck `defeqStep` —
+**23 519 416 entries per init-full run**, of which 2 357 386 reach a
+1-argument `const` head with `us = []` and 1 277 412 a 2-argument one.
+Row by row:
+
+| fire-time step | what it does | verdict |
+|---|---|---|
+| the op-name test | **14** `decide (cn = X)` at a 2-arg head, 3 at a 1-arg head, through the **derived structural `DecidableEq`** — *not* `Name.beq`/`beqPtr`, so task #176's pointer-and-hash-first equality does not reach it | at the bar in content, off it in implementation: **−0.094 %** for the one-word `=` → `==` swap |
+| `natOpStoredF fe cn` | one `Env.find?`, asking only "stored as a `defnInfo`" | **at the bar.** It is verbatim the hypothesis of `NatOpGuardLawP` — *"stored as a `defnInfo` → the full `natOpGuard`"* — which `EnvS2PM.nat_ops`/`.div_mod` supply. #161 P7 already made this move (it used to re-derive `natOpGuard` per hit). **(D)**, −0.008 % |
+| the literal test | `r.whnf` on each argument, then `rawNatLit?`; runs only after the name test passes | at the bar, **(D)** |
+| `natOpGuardF` | **not a fire-time guard at all**: install-only (`CheckerC.lean:250`, `ParsedC.lean:144`, `ParsedNC.lean:294`; `divModEnvGuardF` for the GMP family) | at the bar |
+| `natLitSupportedF` | 3 `Env.find?`s + 3 structural type re-checks, per literal fire *and* per `.lit` node of the annotate and infer passes, 454 613×/run | **off the bar — (B)** |
+| `strLitSupportedF` | 8 `Env.find?`s + 8 shape re-checks, 16 749×/run | off the bar, but **P6's ruling stands** (below) |
+
+**Short answer to the bar: the op guard *is* a name test plus one
+`Env.find?`, and that `find?` is the P lane's own premise — cost
+0.008 %.**  What is not at the bar is (a) the name test's
+implementation and (b) the *literal-basis* guard, which is a different
+invariant (the `Nat` block is installed) with no install record behind
+it at all.
+
+**Why `natLitSupported` is a live (B) row where `strLitSupported` is
+not.**  #161's B4/P6 finding dropped the "cached per-environment flag"
+for `strLitSupported` on two measured grounds: the guard barely runs
+(25 `strVal` records on init-prelude, 1 702 on init-full), and a flag
+maintained at `mkFEnv`/`push`/`restrictTo` would be *evaluated* 30–130×
+more often than the guard it replaces.  Both grounds invert here:
+
+* **Volume.**  `natLitSupportedF` is evaluated **454 613** times per
+  init-full run against **61 048** installed constants — 7.4× more
+  evaluations than pushes, where `strLitSupportedF`'s 16 749 is 3.6×
+  *fewer*.
+* **Form.**  The pessimization argument is about a maintained `Bool`.
+  The honest form is a **completion counter**, `natLitAt : Option Nat`
+  on `FEnv`: the guard becomes `match fe.natLitAt with | some k => k <
+  fe.visibleBelow | none => false`.  Then `restrictTo` needs **no**
+  maintenance at all (it only lowers `visibleBelow`, and the
+  comparison already reads it — this is exactly the objection the flag
+  form could not answer), and `push` does nothing once the counter is
+  set, i.e. nothing for ~61 000 of the 61 048 pushes of a real stream.
+  Correctness is exact because duplicate declarations are rejected at
+  install (`DeclCheck.lean:309,734`), so a visible name's entry never
+  changes: `natLitAt = some k` iff all three names are stored with the
+  pinned shapes and `k` is the largest of their installation counters.
+* **The B3 objection does not apply either.**  P6 noted that
+  `strLitSupported` has no install-time enforcement and no `EnvS` law,
+  so there is no cheaper *equivalent test*.  The counter is not an
+  equivalent test — it is the same test, computed once.  The proof
+  side is one `FEnv` field and its three lemmas in
+  `Verify/EnvBound.lean` (`mkFEnv`, `push`, `restrictTo`); the `Env`
+  twin `natLitSupported` and every statement about it are untouched.
+
+**The `=` versus `==` finding, generalised.**  The ptreq record's
+"WHAT IS LEFT / P1b" names two `if n = n'` sites in
+`Cached/CoreC.lean` (`:218` delta same-head, `:1403` const/const
+defeq) that the landed `BEq Name` does not reach.  `reduceNat`'s
+dispatch is a **third and much larger one**: 14 structural `Name`
+comparisons at every 2-argument const-headed application the checker
+weak-head-normalizes (1 277 412 per init-full run) and 3 at every
+1-argument one (2 357 386) — *whether or not the head is a `Nat`
+operation*.  Same one-word fix, same zero proof motion (`LawfulBEq
+Name` closes `(a == b) = true ↔ a = b`), measured at **−0.094 %** on
+grind-ring-5 alone.  Recommendation: fold it into the P1b follow-up
+the coordinator already docketed for when the wiring batch releases
+`Cached/CoreC.lean`.
+
+### 6. Scope 1 in full: the η family as it will be after the wiring
+### batch
+
+Priced as it will be, not only as it is (`agent/wiring3`, task #175
+W4c K1, plus the W5/W6 stages the freeze schedules):
+
+* **The fabricated spine gets cheaper.**  `etaProjs`/`projAppsI` emit
+  `.proj T j b` nodes when every slot is tower-backed, instead of
+  `mkAppN (.const (projFnName T j) us) (targs ++ [b])` — no `mkAppN`,
+  no `constTyAt` for a projection function, no `projFnIdx`.
+* **The per-field certificate does not go away**: `structEtaProjCerts`
+  gains a `.projInfo` arm that reads the *entry's* stored type instead
+  of the projection function's — same telescope, same `iotaCerts`,
+  same arity pin.  §4(B)3's collapse is therefore the right shape for
+  it and is *more* attractive post-flip, because the entry's type is
+  **generated** from the structure's own type by `directProjTyP`, so
+  the shared `∀ p⃗ (t : T p⃗)` prefix is an install-time identity.
+* **The `_model` η artifacts become unconsumed.**  On the direct path
+  there is no `projFnName T j` recursor and no degenerate recursor
+  (W2b removed both from `checkDirectProj`), so `EtaFamilyStored` and
+  `structEtaProjCerts_inv` change shape — the wiring batch's own bill,
+  recorded here as the dependency of §4(B)3.
+* **The family's per-field cost migrates into `projCert`.**  The final
+  `defEqList (aargs.drop cnP) projs` now compares `.proj` nodes, and
+  every `.proj` comparison enters `whnfCoreStep`'s `.proj` clause and
+  hence `projCert`.  **The audit's largest item gets more traffic
+  after the flip, not less** — which raises the value of pricing it
+  and of P9-style economies around it.
+* **`pairEtaCert` becomes dead at W6.**  It is keyed on
+  `reservedBasisNames` (the pinned `PSigma'` block), which W6 retires;
+  `structEtaCert` covers pairs once the pair type is an ordinary
+  direct structure.  **Today it is load-bearing** — masking it off
+  rejects `PSigma'.rec'` — so it is a *scheduled* deletion, not a
+  proposal.  #161's P11a (its two type-argument runs → a shape test,
+  0.01 %) is superseded by that schedule: do not spend proof effort on
+  a certificate the wiring batch deletes.
+* **The unit-like half is blocked by a named wall regardless of
+  cost.**  `SetP/CapsP.lean:110-185`: `CapsOkP`'s unit half carries an
+  `EtaFamilyStored` premise its own consumer cannot supply, mechanized
+  as `etaFamilyStored_not_derivable`.  The certificate costs nothing
+  (+0.000 %) and fires 3 times on all of init-full — but those 3 fires
+  decide init-full's verdict (§4(A)), so the wall is a *soundness*
+  obligation on a live path, not a dead-code question; the fix stays
+  the one-line premise deletion the wall records.
+
+### 7. `projCert`, priced
+
+`projCertI` (`CoreC.lean:710-717`) infers the projected field's
+argument and the whole constructor spine and then returns `true`
+**unconditionally**: after #161's P9 landed (the four sort legs are
+gone), the run has no verdict content at all — `projCert_inv`
+(`Verify/InferLemmas.lean:774-780`) yields exactly two facts, that
+both inferences succeed, and `projStepP_of_claims`
+(`Step2/ProjRowsP.lean:857`) walks the spine's typings out of them.
+Official's `whnf_core` projection case does **no** inference
+(`reduce_proj`/`reduce_proj_core`, `type_checker.cpp:419-454`); its
+own comment says why it does not need to — *"`infer_proj` rejects a
+`sname` that disagrees with the projected expression's type"*.  This is
+conformance residue **F4**, whose row in the certificate-tax table has
+carried an empty measure column since the round closed.
+
+**The number: −0.865 % on grind-ring-5 and −0.048 % on init-full**, at
+6 459 `projCert` entries and 16 575 `whnfCore` `.proj` entries per
+init-full run.  The 17× spread is the fixture, and it reconciles the
+row with #161's init-prelude figure (0.06 % / 0.17 %): on a
+general-purpose stream the site is invisible, on a projection-heavy
+one it is the biggest thing in this audit.  **The verdict is not
+re-opened** — the squash countermodel stands and the row stays a
+non-candidate; what is new is the number and its workload dependence.
+The consequence for the wiring batch is in §6: post-flip η compares
+`.proj` nodes, so the *share* of streams that look like grind-ring-5
+grows.  If any engineering is ever spent here it should be P9-shaped
+(a cheaper equivalent computation of the same two typings), never a
+removal.
+
+### 8. Scope 3: what the normalization pass still does
+
+`annotateBody` visits 9 510 284 nodes per init-full run.  Excluding
+the `.proj` elimination rewrite (deleted by the wiring batch's W5),
+the surviving jobs are:
+
+1. **the `pw` writes** on ∀/λ telescopes — the pass's purpose (#161
+   P5), one `infer`+`whnf` per *telescope*, memo-shared with the
+   front-door sweep.  **(D)**; #161 measured the write half at 1.80 %
+   / 1.90 % and it is not a certificate.
+2. **the `.lit` guards** — 42 111 natVal + 8 320 strVal nodes; the
+   cost is §5's and the fix is §4(B)1's.  −0.007 %.
+3. **the `.letE` value-transparency walks** — 11 776 let nodes;
+   `annotate ty` and `annotate v`, **both results discarded**, before
+   `inst1M b v` and the reduct's own walk.  Measured **−0.234 %** (grind-ring-5).
+   Note this is *not* #161's row 6 (the redundant `infer_let` triple,
+   since deleted): these two calls survive it.  They are pure *checks*
+   (fvar scope, literal support) on subterms the reduct need not
+   contain — `ty` never does, `v` only if the body uses the binder —
+   so they are the pass's coverage, not redundancy: **(D)**, now with
+   a number.  Dropping them would let a `let` whose value is unused
+   carry an out-of-scope fvar or an unsupported literal past the
+   pass, to be caught (or not) downstream; that is a real narrowing
+   and is not proposed.
+4. **the structural rebuild** of `.app` and the binder telescopes.
+   **(D)**.
+5. **the `.proj` clause** — 10 224 nodes, 1 156 native fast path,
+   9 068 rewrite.  Post-W5 the clause degenerates to *renaming* the
+   node's `sn` to the head of `whnf (infer pe)`, at the price of one
+   `inferIO` + one `whnf` + one `findProj?` per `.proj` node.
+   **Conformance finding (restrictions are findings):** official's
+   `infer_proj` **rejects** a node whose `proj_sname` is not the
+   inferred head (`type_checker.cpp:257`, `I_name != proj_sname(e)` →
+   `invalid_proj_exception`) and never rewrites; setlec's rename is an
+   accept-superset deviation, and `reduce_proj_core`'s comment shows
+   official *relies* on that rejection.  Post-W5 the clause can
+   therefore become structural (`intern (.proj sn i e')`), letting
+   `infer`'s own `T = sn` test decide exactly as official does — which
+   removes the annotate pass's last call into the core **and** tightens
+   conformance.  Estimated ≤ 0.05 % from the node count; the argument
+   is conformance, not cost.
+
+### 9. Prioritised proposal list
+
+**Standing caveat: the whole list is worth −0.169 % of init-full and
+−1.221 % of grind-ring-5** (§1), so no row is a performance argument
+on its own.  The ordering below is grind-ring-5's, i.e. an ordering of
+*where a projection- and structure-heavy workload spends* — the
+workload the direct-structure flip creates.  On today's decisive
+stream the ordering is flatter and row 2 (the `Name` dispatch) is the
+largest actionable item.  Rows 1–3 are worth taking because each is
+*also* a simplification or a conformance repair, not for its
+number.
+
+| # | proposal | route | measured | proof-side cost |
+|---|---|---|---|---|
+| 1 | `natLitSupportedF` as an `FEnv` completion counter (`natLitAt`) | **install-validate** | **−0.140 %** g5 / −0.040 % IF | one `FEnv` field + three lemmas in `Verify/EnvBound.lean`; the `Env` twin and every statement about it untouched; answers P6's pessimization argument (§5) |
+| 2 | `reduceNat`'s name dispatch via `==` (`Name.beq` → `beqPtr`) | **local** (ptreq P1b, extended) | **−0.094 %** g5 / **−0.043 %** IF | zero: `LawfulBEq Name`, one `beq_iff_eq` per inversion |
+| 3 | post-W5: make annotate's `.proj` clause structural | **drop** + conformance repair | ≤ −0.05 % (est.) | the annotate `.proj` rows lose their core calls; `infer`'s `T = sn` test already exists |
+| 4 | collapse `structEtaProjCerts`' cnF identical prefix runs to one | **install-validate** | −0.008 % | `structEtaProjCerts_inv` gains a shared-prefix form; post-flip the prefix is `directProjTyP`'s identity |
+| 5 | the η family's three `iotaCerts` runs, `.never`-licensed | **licence** (with ι's) | ≤ −0.02 % | none of its own once the ι licence lands |
+| 6 | the wiring batch's `towerSlotsAll‖recSlotsAll` gate → an `IndCaps` field | **install-validate** | unmeasured, ≤ 0.02 % | one field, written by `indBlockCaps`/`directCaps`; a note for the wiring batch |
+| 7 | the η family's `stripPis` pins computed allocation-free | local | −0.002 % | a `stripPis_isSome_iff` lemma, as ι's 3′ |
+| — | **`projCert`'s infer run** | **no action — ratified non-candidate** | **−0.865 %** g5 / −0.048 % IF, priced here | the number belongs in F4's row, not in a proposal |
+| — | `annotateBody`'s `.letE` walks | **no action** — the pass's coverage | −0.234 % g5 / −0.040 % IF | — |
+| — | `natOpStoredF`, the K fabrication type check, `structUnitCert`, the rescue's scope guards, `pairEtaCert` | **no action** | ≤ 0.01 % each | `pairEtaCert` is a *scheduled* W6 deletion, not a candidate |
+
+### 10. Conformance notes (restrictions are findings)
+
+* **F4 is now priced.**  `projCert`'s two inference runs, which
+  official's `reduce_proj` does not perform, cost **−0.865 %** on
+  grind-ring-5 (−0.048 % on init-full) — the largest conformance
+  residue in this scope by an order of magnitude, and 5–15× the
+  init-prelude estimate the certificate-tax table records.
+* **New: the annotate pass's `.proj` rename is an accept-superset
+  deviation.**  Official rejects `proj_sname(e) ≠ I_name`
+  (`type_checker.cpp:257`) and its `reduce_proj_core` comment relies on
+  that rejection; setlec rewrites the node to the inferred head.
+  §8 item 5.
+* **The η certificate's setlec-only content, priced.**  Against
+  `try_eta_struct_core` (`type_checker.cpp:889-905`) setlec adds a
+  level-list comparison, the structure-telescope `iotaCerts`, the
+  per-field projection `iotaCerts` and the arity pins, and replaces
+  official's `is_def_eq(infer_type t, infer_type s)` by the capability
+  gate plus `defEqList (aargs.take cnP) targs`.  Total setlec-only
+  cost **≤ 0.02 %**.  Not a cost question.
+* **The `stuckIrrel` cascade runs `proofIrrel` twice.**  Official's
+  order after `is_def_eq_app` is `try_eta_expansion`,
+  `try_eta_struct`, `try_string_lit_expansion`,
+  `is_def_eq_unit_like`, with proof irrelevance hoisted before lazy
+  delta (`type_checker.cpp:1202,1233-1242`).  Setlec hoists it the
+  same way (`defeqStep`, `CoreC.lean:1310`) **and** runs it again as
+  `stuckIrrel`'s last arm — 12.46 M entries per init-full run, the
+  second run memo-served.  Cross-reference to `agent/isproof-design`;
+  not priced here.
+* **The rescue's fabrication scope guards** (`wscopedB`,
+  `looseBVarsBounded`, `leafGuard`) have no official counterpart, and
+  `leafGuard fab base` rebuilds `fvarLeaves base` with a **fresh**
+  memo per call — 11 484 fabrications per init-full run, inside the
+  rescue family's ι-measured −0.005 %.  No action; recorded.
+
+### 11. Instruments
+
+`_tmp/ladder-meas` (throwaway, never landed): `instr.py` (the
+instrumentation patch over a pristine `Setlec/Cached/CoreC.lean` —
+36 census counters and 20 `IMASK` skip bits), `Setlec/Cached/Diag.lean`
+(inherited from the ι audit: `envNat`, `iskip`, the `dbg_trace` census
+switch, `piArityGE`), `run.sh` (the leave-one-out harness), `g5.sh` /
+`full.sh` / `full2.sh` (the sweeps), `apply.py` (the record's number
+substitution), `g5.tsv`, `full.tsv`, `full2.tsv`, `census-g5.txt`,
+`census-full.txt`.  As in the ι audit a pure counter bump is unusable
+(LCNF drops it), so the census goes through `dbg_trace`
+(`never_extract`).
