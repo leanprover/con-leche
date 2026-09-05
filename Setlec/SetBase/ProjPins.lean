@@ -229,7 +229,9 @@ theorem denote_pairFstTy_eq
 /-- The instantiated second-projection entry type denotes to its
 concrete `VExpr`. -/
 theorem denote_pairSndTy_eq
-    (hpsig : env.find? psigmaName = some psigmaA) (l0 l1 : Level) :
+    (hpsig : env.find? psigmaName = some psigmaA)
+    (hnt : ∀ e, env.findProj? psigmaName 0 = some e →
+      e.tower = false) (l0 l1 : Level) :
     denoteClosed cval env φ
       (pairSndEntry.ty.instantiateLevelParams pairSndEntry.levelParams
         [l0, l1])
@@ -249,9 +251,20 @@ theorem denote_pairSndTy_eq
     simp only [psigmaA, ConstantInfo.toConstantVal, List.length_cons,
       List.length_nil, if_true]
   simp only [psigmaName] at hpsigC
+  have hpp : ∀ (D : Nat) (e0 : Expr),
+      denote cval env φ D (.proj psigmaName 0 e0)
+        = match denote cval env φ D e0 with
+          | none => none
+          | some ve => some (.proj 0 ve) := by
+    intro D e0
+    rw [denote_proj_pair cval env φ D psigmaName 0 e0 hnt]
+    cases denote cval env φ D e0 with
+    | none => rfl
+    | some ve => simp
+  simp only [psigmaName] at hpp
   simp +decide only [denoteClosed, pairSndEntry, pairSndTyA,
     Expr.instantiateLevelParams, Level.subst, Level.subst.go, psigmaName,
-    denote_forallE, denote_sort, denote_fvar, denote_app, denote_proj,
+    denote_forallE, denote_sort, denote_fvar, denote_app, hpp,
     hpsigC, Expr.instantiate1, Nat.reduceSub, reduceIte,
     List.map_cons, List.map_nil]
 
