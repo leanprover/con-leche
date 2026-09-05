@@ -41832,3 +41832,191 @@ Verdict summaries identical to the pre-flip runs (61048 in both modes).
 The drop is the fallback's absence plus the direct install's tower
 entries typing every `.proj` node by the stored telescope (no rewrite,
 no re-annotation).
+
+## THE SetR TIER, REMOVED — STAGE B: THE R CORE (2026-09-05,
+`agent/setr-removal`, off the W4c+W5 flip at `3ce7622b`)
+
+### 0. WHAT LANDED, AND THE ONE THING THAT DID NOT
+
+The checker has **two cores**: the verified graded one (`--set-model`,
+spelled `--set-model=p` too) and the unverified parity one
+(`--no-model`).  The R core — every certificate unconditional — is
+gone: `cfgR`, the four `…RC` bodies, its simulation letter and the
+`cfgR_*` identity table, fifteen declarations in all, and the flag
+that selected it is a hard error.
+
+**What did not land, and it is the batch's finding: the `CheckMode`
+constructor `.setModel` cannot be deleted yet.**  It is `Setlec.modeR`,
+and `modeR` is the mode the **shared declaration bridge**
+(`SetBase/Bridge/{Main,Decl,DeclInd}`) is stated at — `checkBridge` is
+premised on `mode.betaGate = false`, which `.setModelP` does not
+satisfy, so the tier cannot be re-pointed; it can only be deleted.
+Whether it should be is §4, and it is a coordinator/user question, not
+this batch's.
+
+| | before (`3ce7622b`) | after |
+|---|---|---|
+| verified cores selectable from the CLI | 2 (`=r`, `=p`) | **1** (`--set-model` = `=p`) |
+| named concrete cores | 8 (`…RC` ×4, `…PC` ×4) | **4** (`…PC`) |
+| `CoreCfg` configs | 3 (`cfgR`, `cfgP`, `cfgNC`) | **2** (`cfgP`, `cfgNC`) |
+| `tests/arena.sh` mode flags | 11/11 | **14/14** |
+| `scripts/perf-tables.sh` columns | official·parity·R·P | **official·parity·P** |
+
+### 1. THE FLAG SURFACE — THE SIMPLEST HONEST ONE
+
+The charter asked for the simplest surface and for a report on whether
+`--set-model=p` should be kept or retired.  As landed:
+
+* **`--set-model`** — the default, and now the **graded** core.  The
+  spelling did not change meaning by accident: it changed because the
+  thing it named was deleted, and the surviving verified core is the
+  one the shipped letter (`no_proof_of_Empty_SPCD_P`) is about.
+* **`--set-model=p`** — **kept**, as the explicit spelling of the same
+  selection.  Retiring it would break every measurement script and
+  every recorded cell in this file for no gain, and it is not an
+  alias onto a *different* core — it is the same one, named.
+* **`--set-model=r`** — a **hard error** (exit 3) naming what replaced
+  it, per the retired-spelling discipline (task #172): *a verdict's
+  provenance must be readable off the invocation.*  Aliasing it onto
+  the graded core would have been the one genuinely unsafe choice —
+  a script that asked for unconditional certificates would silently
+  get licensed skips.
+
+`Main.childArgs`' `.setModel` arm is dead (no flag produces the mode)
+and deliberately re-emits `--set-model=r`, so that if it ever became
+reachable the supervised child would fail loudly instead of quietly
+running a different core.
+
+### 2. `annotate-basis` MOVED, AND THE MOVE IS RECEIPTED
+
+`AnnotateBasis.lean` was the last **implementation-tier** reader of
+`.setModel`: six `annotateCore .setModel` calls generating the basis
+annotations.  Leaving it there would have made the generator run a
+configuration no shipped checker runs — so it moved to `.setModelP`,
+and the move was checked rather than argued:
+
+> `annotate-basis` at `.setModel` and at `.setModelP` produce
+> **byte-identical output** (1 415 lines, `diff -q` clean;
+> `_tmp/setr-b/annot-basis-{setModel,setModelP}.txt`).
+
+That is the expected result — `annotateBodyI` reads only
+`cfg.verified`, `true` at both — but "expected" is not a receipt, and
+a generator whose output is committed to the tree does not get changed
+on an argument.  **After this, no implementation-tier declaration
+reads `.setModel`.**
+
+### 3. THE BATTERY, AND WHAT MOVED IN IT
+
+Green, on the branch tip with master merged: build warning-free,
+`lake test` silent, `tests/arena.sh` **0 FAIL** — arena tutorial
+**90/92**, e2e **73/73**, annot **14/14**, retired flags **8/8**,
+no-model sweep **138 + 73 + 14 as expected (3 recorded divergences)**,
+proofdeps **88 rows as pinned, doors 0**, layering
+`base 250 / P 163 / caps 2 / umbrella 1; 0 base->lane, 0 impl->theory`.
+
+init-full (`init-full-pre2.ndjson`, `ulimit -v 16G`, `timeout 1800`):
+**61 048 declarations accepted** under `--set-model=p`, under
+`--set-model` and under `--no-model` alike — the same count as the W5
+merged-tip baselines, byte-for-byte on the output line.
+`--set-model=r` exits **3** with the retirement message.
+
+Two expectation changes:
+
+1. **`tests/arena.sh` mode flags 11/11 → 14/14.**  The `--set-model=r`
+   accept case becomes two hard-error cases (good stream and bad — a
+   retired flag must error *before* the verdict, not instead of it),
+   and `--set-model=p` and the bare default gain reject cases they
+   never had.  Net +3.
+2. **`tests/SetlecTests.lean`.**  The two SHIPPED-driver guards move to
+   `.setModelP` (they pin `checkDeclsSPCachedD`, which is what runs);
+   the reference-semantics guards stay at `.setModel` **deliberately**,
+   because that is the ungated verified mode the bridge tier is stated
+   at, and moving them would have silently changed what they pin (the
+   "ungated knot is stuck at both data" guards would flip at
+   `.setModelP` — the gate is the point). Three accessor rows added at
+   `.setModelP`, and `#guard Setlec.modeR == CheckMode.setModel` pins
+   the identity the next batch will have to break.
+
+### 4. THE FINDING — THE R **BRIDGE** IS DEAD WEIGHT, AND DELETING IT
+### RETIRES THE CAMPAIGN'S OWN INSTRUMENT
+
+Measured with a proof-term probe (`_tmp/setr-b/Probe.lean`, the
+`tests/ProofDeps.lean` walk at four roots):
+
+| target | `SPCD_P` | `P` | `checkDeclRun_ofEnvRE` | `declIndRunRR` |
+|---|---|---|---|---|
+| `modeR` | absent | absent | absent | absent |
+| `cfgR` | absent | absent | absent | absent |
+| `checkBridge` | absent | absent | absent | absent |
+| `declDefnR` | absent | absent | absent | absent |
+| `declIndRR` | absent | absent | absent | absent |
+| `checkDeclR_ofEnvRE` | absent | absent | absent | absent |
+| `checkDeclRun_ofEnvRE` | PRESENT | PRESENT | — | absent |
+| `checkDeclRun_of` | PRESENT | PRESENT | PRESENT | absent |
+| `declIndRunRR` | PRESENT | PRESENT | PRESENT | — |
+
+So the **derivation** bridge — `checkBridge`, the six `decl*R` kind
+bridges, `checkDeclR_ofEnvR(E)`, the whole `modeR`-instantiated tier —
+is off the shipped path entirely; what the graded fold calls is the
+**run** bridge, which is generic in `μ`.  S11a's design (*"the run
+route builds no derivation"*) is what makes the R tier droppable, and
+it is confirmed here at the proof-term criterion, not the import one.
+
+**And that is exactly why it is not this batch's deletion.**  Four of
+`tests/proofdeps.sh`'s ten targets are declarations in that tier
+(`checkDeclR_ofEnvRE`, `DeclR`, `DeclIndR`, `declIndRR`), and the other
+six are the relation tier those bridges build (`Red`, `Infer`, `DefEq`
+and their constructors).  Deleting the tier does not tighten the gate;
+it **empties** it — the campaign's question ("does the graded proof's
+proof term mention the collapsed model?") becomes true because there
+is nothing left to mention.  The trade is real in both directions:
+
+* *for deleting*: several thousand lines of `SetBase/Bridge/*` and
+  `SetBase/{Rel,Weaken,CtxOkR,Decl}` that nothing shipped depends on,
+  plus the `.setModel` constructor, plus B3c's last four carriers;
+* *against*: the tree loses its only mechanized statement of the
+  separation property, and `.setModel` is currently the only ungated
+  verified mode — the `betaGate_off_or_verified` partition would
+  become one-sided in fact as well as in reading.
+
+**Flagged, not taken**, per the escalation rule.  It is a coherent
+Stage C with a coordinator ruling attached: *what should the proofdeps
+gate measure once there is one lane?*
+
+### 5. WHAT `modeR` MEANS NOW
+
+`Setlec.modeR` survives with its name and a rewritten docstring: it is
+no longer "the R core at the pure tier" but **the concrete verified,
+ungated mode the shared declaration bridge is stated at**.  The rename
+was not done, on purpose — `modeR` occurs ~200 times in three
+`SetBase/Bridge` modules whose statements are frozen, and renaming a
+constant to describe a residue we may delete outright next batch is
+churn that would have to be undone.  The docstring carries the
+correction; §4 carries the decision.
+
+Ledger row:
+
+> *A name can outlive the thing it was named for, and the honest
+> repair is the docstring, not the identifier* — when the identifier's
+> whole future is a pending deletion.  Renaming would have made three
+> frozen modules noisy for one batch's readability.
+
+### 6. RECEIPTS
+
+* `lake build` warning-free; `lake test` exit 0;
+* `tests/arena.sh` exit 0, every line as in §3;
+* init-full 61 048 accepted at `--set-model=p`, `--set-model`,
+  `--no-model` (`_tmp/setr-b/initfull-{p,default,nm}.out`);
+  `--set-model=r` exit 3;
+* `annotate-basis` output byte-identical across the mode move;
+* axiom audit: `no_proof_of_Empty_SPCD_P`,
+  `checkDeclsSPCachedD_sound_P`, `foldSPC_PM`,
+  `no_proof_of_Empty_P`, `no_proof_of_Empty_P_of` all at exactly
+  `[propext, Classical.choice, Quot.sound]`;
+* no `sorry`, no new axiom, no statement left conditional.
+
+### 7. NOT TOUCHED (concurrency)
+
+`agent/wiring-w6` holds the `PSigma'` pin retirement in the SetP pin
+modules and the pair-entry kernel install path; nothing in this batch
+reaches them, and no deletion here needed a change there.
