@@ -1016,6 +1016,9 @@ def checkDirectProjEntryF (ops : CheckerOps m) (T C : Name) (lps : List Name)
     (.notImplemented "direct structure: projection subject telescope")
   let tfv ← unwrapOr tFvs[0]?
     (.internal "direct structure: projection subject index")
+  let (cdomsP, _) ← unwrapOr (Expr.instPisAtF fvsP cvCa.type)
+    (.notImplemented "direct structure: projection parameter telescope")
+  checkDirectDomsAtF ops fe 0 fvsP cdomsP nP
   let projArgs := (List.range i).map fun j => Expr.proj T j tfv
   let (_, cresid) ← unwrapOr (Expr.instPisAtF (fvsP ++ projArgs) cvCa.type)
     (.notImplemented "direct structure: projection field telescope")

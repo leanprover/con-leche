@@ -985,7 +985,7 @@ theorem checkDirectProjEntry_fst_dproj (T C : Name) (lps : List Name)
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, pairOps_annotate_fst, pairOps_inferType_fst,
     pairOps_ensureSort_fst, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
-    liftFueled_fst_proj, checkProjShape_fst_dproj]
+    liftFueled_fst_proj, checkProjShape_fst_dproj, checkDirectDomsAt_fst_dproj]
 
 theorem checkDirectProjEntry_snd_dproj (T C : Name) (lps : List Name)
     (nP nF : Nat) (rs guard : Level) (cvCa : ConstantVal) (pty : Expr)
@@ -997,7 +997,7 @@ theorem checkDirectProjEntry_snd_dproj (T C : Name) (lps : List Name)
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, pairOps_annotate_snd, pairOps_inferType_snd,
     pairOps_ensureSort_snd, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
-    liftFueled_snd_proj, checkProjShape_snd_dproj]
+    liftFueled_snd_proj, checkProjShape_snd_dproj, checkDirectDomsAt_snd_dproj]
 
 theorem checkDirectProj_fst_dproj (T C : Name) (lps : List Name)
     (nP nF : Nat) (rs : Level) (slots : List Bool) (guards : List Level)
@@ -1943,7 +1943,7 @@ theorem checkDirectProjEntry_datF (T C : Name) (lps : List Name)
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, fueledOpsM_annotate_atF, fueledOpsM_inferType_atF,
     fueledOpsM_ensureSort_atF, fueledOpsM_isDefEq_atF, unwrapOr_atF,
-    liftFueled_atF, checkProjShape_datF]
+    liftFueled_atF, checkProjShape_datF, checkDirectDomsAt_datF]
 
 theorem checkDirectProj_datF (T C : Name) (lps : List Name)
     (nP nF : Nat) (rs : Level) (slots : List Bool) (guards : List Level)

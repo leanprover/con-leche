@@ -322,7 +322,8 @@ theorem checkDirectProjEntry_shape {env envOut : Env} {T C : Name}
       env.find? (projFnName T i) = none ∧
       (∃ (fvsP : List Expr) (prest : Expr)
         (sbs : List (Name × Expr × BinderMeta)) (sbody sdom : Expr)
-        (tFvs : List Expr) (resid tfv : Expr) (cds : List Expr)
+        (tFvs : List Expr) (resid tfv : Expr) (cdomsP : List Expr) (crestP : Expr)
+        (cds : List Expr)
         (nmC : Name) (fdom bodyC : Expr) (mbC : BinderMeta),
         openPisAtFvars nP ptyA 0 = some (fvsP, prest) ∧
         prest.stripPis 1 = some (sbs, sbody) ∧
@@ -331,6 +332,8 @@ theorem checkDirectProjEntry_shape {env envOut : Env} {T C : Name}
           (Expr.mkAppN (.const T (lps.map .param)) fvsP) = .ok true ∧
         openPisAtFvars 1 prest nP = some (tFvs, resid) ∧
         tFvs[0]? = some tfv ∧
+        Expr.instPisAt fvsP cvCa.type = some (cdomsP, crestP) ∧
+        checkDirectDomsAt (fueledOps mode F) env 0 fvsP cdomsP nP = .ok () ∧
         Expr.instPisAt (fvsP ++ (List.range i).map fun j => Expr.proj T j tfv)
           cvCa.type = some (cds, .forallE nmC fdom bodyC mbC) ∧
         isDefEqCore mode env F (nP + 1) resid fdom = .ok true) ∧
@@ -383,6 +386,12 @@ theorem checkDirectProjEntry_shape {env envOut : Env} {T C : Name}
   obtain ⟨tfv, htf, h⟩ := exceptBind_ok h
   have htf' := unwrapOr_ok htf
   try simp only at h
+  obtain ⟨q5, hcp, h⟩ := exceptBind_ok h
+  obtain ⟨cdomsP, crestP⟩ := q5
+  have hcp' := unwrapOr_ok hcp
+  try simp only at h
+  obtain ⟨u1, hd1, h⟩ := exceptBind_ok h
+  try simp only at h
   obtain ⟨q4, hci, h⟩ := exceptBind_ok h
   obtain ⟨cds, cresid⟩ := q4
   have hci' := unwrapOr_ok hci
@@ -409,8 +418,9 @@ theorem checkDirectProjEntry_shape {env envOut : Env} {T C : Name}
   simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h0 h1
   refine ⟨h0.1, h0.2, ptyA, hann, h1.1.1.1, h1.1.1.2, h1.1.2, h1.2, h2,
     ⟨sty, u, hsty, hu⟩, Option.isNone_iff_eq_none.mp h3,
-    ⟨fvsP, prest, sbs, sbody, sdom, tFvs, resid, tfv, cds, nmC, fdom, bodyC,
-      mbC, hop', hsb', hsd', hb1, hot', htf', by rw [hci', hcres], hb2⟩,
+    ⟨fvsP, prest, sbs, sbody, sdom, tFvs, resid, tfv, cdomsP, crestP, cds, nmC, fdom, bodyC,
+      mbC, hop', hsb', hsd', hb1, hot', htf', hcp', by cases u1; exact hd1,
+      by rw [hci', hcres], hb2⟩,
     h.symm⟩
 
 /-! ## The frame walks: binder-domain pins and field sorts -/

@@ -3137,6 +3137,38 @@ theorem checkDirectProjEntry_wfimp {env : Env} (henv : EnvWF env)
   rw [htf']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   have htfvW : WScoped (nP + 1) tfv := htfW tfv (List.mem_of_getElem? htf')
+  -- the parameter pin (task #175 W4c, P3 module 7)
+  have hpsIdx : ∀ (k : Nat) (x : Expr), fvsP[k]? = some x →
+      WScoped (0 + k) (Expr.fvarTypeD x) := by
+    intro k x hx
+    obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index nP ptyA 0 hop' k x hx
+    have hw := hfvsW _ (List.mem_of_getElem? hx)
+    simp only [WScoped] at hw
+    exact hw.2
+  obtain ⟨q5, hcp, h⟩ := atF_bind_ok h
+  obtain ⟨cdomsP, crestP⟩ := q5
+  dsimp only [] at h
+  have hcp' := unwrapOr_atF_ok hcp
+  show ((unwrapOr (Expr.instPisAt fvsP cvCa.type) _ : CheckM _) >>= _) = _
+  rw [hcp']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only []
+  have hcdIdx : ∀ (k : Nat) (x : Expr), cdomsP[k]? = some x →
+      WScoped (0 + k) x := by
+    intro k x hx
+    refine instPisAt_index_WScoped fvsP (d := 0) hcp'
+      (WScoped.of_not_hasFvar hCf) ?_ k x hx
+    intro k' a hk
+    obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index nP ptyA 0 hop' k' a hk
+    have hw := hfvsW _ (List.mem_of_getElem? hk)
+    simp only [WScoped] at hw
+    simp only [WScoped]
+    exact ⟨by omega, hw.2⟩
+  obtain ⟨u1, hd1, h⟩ := atF_bind_ok h
+  have hd1' := checkDirectDomsAt_wfimp (off := 0) henv hpsIdx hcdIdx hd1
+  show (checkDirectDomsAt (fueledOps mode F) env 0 fvsP cdomsP nP >>= _) = _
+  rw [hd1']
+  simp only [Bind.bind, Except.bind]
   have hargsW : ∀ x ∈ fvsP ++ (List.range i).map
       (fun j => Expr.proj T j tfv), WScoped (nP + 1) x := by
     intro x hx

@@ -320,6 +320,13 @@ def checkDirectProjEntry (ops : CheckerOps m) (T C : Name) (lps : List Name)
     (.notImplemented "direct structure: projection subject telescope")
   let tfv ← unwrapOr tFvs[0]?
     (.internal "direct structure: projection subject index")
+  -- the entry's parameter domains are the constructor's at the opened
+  -- parameters (task #175 W4c, P3 module 7): the model identifies the
+  -- entry's parameter frame with the block's through this pin, exactly
+  -- as `checkDirectCtor` pins the constructor's to the former's
+  let (cdomsP, _) ← unwrapOr (Expr.instPisAt fvsP cvCa.type)
+    (.notImplemented "direct structure: projection parameter telescope")
+  checkDirectDomsAt ops env 0 fvsP cdomsP nP
   let projArgs := (List.range i).map fun j => Expr.proj T j tfv
   let (_, cresid) ← unwrapOr (Expr.instPisAt (fvsP ++ projArgs) cvCa.type)
     (.notImplemented "direct structure: projection field telescope")

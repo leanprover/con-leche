@@ -546,6 +546,30 @@ theorem checkDirectProjEntryS_sim (henv : EnvWF env) {T C : Name}
     (fun s₁₁ tfv tfv' hs₁₁ hTf => ?_)
   obtain ⟨rfl, htf⟩ := hTf
   have htfvW : WScoped (nP + 1) tfv := htfW tfv (List.mem_of_getElem? htf)
+  -- the parameter pin (task #175 W4c, P3 module 7)
+  have hpsIdx : ∀ (k : Nat) (x : Expr), fvsP[k]? = some x →
+      WScoped (0 + k) (Expr.fvarTypeD x) := by
+    intro k x hx
+    obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index nP ptyA 0 hop k x hx
+    have hw := hfvsW _ (List.mem_of_getElem? hx)
+    simp only [WScoped] at hw
+    exact hw.2
+  refine SimC.bind (SimC.unwrapOr' hs₁₁) (fun s₁₁a q5 q5' hs₁₁a hCp => ?_)
+  obtain ⟨rfl, hcp⟩ := hCp
+  obtain ⟨cdomsP, crestP⟩ := q5
+  have hcdIdx : ∀ (k : Nat) (x : Expr), cdomsP[k]? = some x →
+      WScoped (0 + k) x := by
+    intro k x hx
+    refine instPisAt_index_WScoped fvsP (d := 0) hcp
+      (WScoped.of_not_hasFvar hCf) ?_ k x hx
+    intro k' a hk
+    obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index nP ptyA 0 hop k' a hk
+    have hw := hfvsW _ (List.mem_of_getElem? hk)
+    simp only [WScoped] at hw
+    simp only [WScoped]
+    exact ⟨by omega, hw.2⟩
+  refine SimC.bind (checkDirectDomsAtS_sim (off := 0) henv hpsIdx hcdIdx hs₁₁a)
+    (fun s₁₁b u1 u1' hs₁₁b hU1 => ?_)
   have hargsW : ∀ x ∈ fvsP ++ (List.range i).map
       (fun j => Expr.proj T j tfv), WScoped (nP + 1) x := by
     intro x hx
@@ -553,7 +577,7 @@ theorem checkDirectProjEntryS_sim (henv : EnvWF env) {T C : Name}
     · exact (hfvsW x hx).mono (by omega)
     · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
       simpa only [WScoped] using htfvW
-  refine SimC.bind (SimC.unwrapOr' hs₁₁) (fun s₁₂ q4 q4' hs₁₂ hC => ?_)
+  refine SimC.bind (SimC.unwrapOr' hs₁₁b) (fun s₁₂ q4 q4' hs₁₂ hC => ?_)
   obtain ⟨rfl, hci⟩ := hC
   obtain ⟨cdoms, cresid⟩ := q4
   dsimp only

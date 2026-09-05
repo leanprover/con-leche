@@ -131,7 +131,7 @@ theorem checkDirectProjEntryF_pushC (ops : CheckerOps CheckCM) (T C : Name)
           >>= fun e => pure (mkFEnv e) := by
   unfold checkDirectProjEntryF checkDirectProjEntry
   simp only [constsResolveF_eq, mkFEnv_find?, mkFEnv_env, openPisAtFvarsF_eq,
-    instPisAtF_eq, push_mkFEnv, bind_assoc, pure_bind, ite_bindC,
+    instPisAtF_eq, checkDirectDomsAtF_eq, push_mkFEnv, bind_assoc, pure_bind, ite_bindC,
     throwC_bind_eq] <;> rfl
 
 /-- The projection slot through the index, at the incremental residual
