@@ -95,13 +95,13 @@ theorem compCtx_getElem?_field {Γm Γr : List AVExpr} {nF : Nat} (hm : Γm.leng
 
 /-- **The composite frame.** -/
 structure CompOpenedP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
-    (nP nF : Nat) (fvsR xFvs : List Expr) (minBody : Expr)
+    (nP nF : Nat) (fvsR xFvs : List Expr) (minBody : Expr) (T2 : AVExpr)
     (Γr Γm : List AVExpr) (Rm : AVExpr) : Prop where
   lenR : Γr.length = nP + 3
   lenX : xFvs.length = nF
   lenM : Γm.length = nF
-  /-- the minor type's reading, one deeper, peels along the fields -/
-  tele : PiTeleP nF ((Γr.getD 1 default).liftN 1 0) Γm Rm
+  /-- the opened tower's reading at depth `nP + 2` peels along the fields -/
+  tele : PiTeleP nF T2 Γm Rm
   /-- the minor's body reads to the core at the full depth -/
   body : denoteP m.acval env φ (nP + 2 + nF) minBody = some Rm
   /-- each field variable's annotation reads to its entry at its depth -/
@@ -150,33 +150,26 @@ theorem fvs_getElem?_of_mem {fvs : List Expr} {d : Nat}
   rw [show l.1 - d = p from by omega]
   exact hp
 
-/-- **The composite frame, from the recursor's opening and the minor's.** -/
-theorem compOpenedP_of {m : EnvS2Core V env} {nP nF : Nat} {tyR : Expr}
+/-- **The composite frame, from the recursor's opening and a tower over
+its first `nP + 1` variables opened at depth `nP + 2`** (the minor's
+type, or the constructor's residual at the recursor's parameters). -/
+theorem compOpenedP_ofTy {m : EnvS2Core V env} {nP nF : Nat} {tyR : Expr}
     {fvsR : List Expr} {oR : Expr} {Γr : List AVExpr} {Rr : AVExpr}
     (hR : OpenedP m φ (nP + 3) tyR fvsR oR Γr Rr)
     (hidxR : ∀ (i : Nat) (x : Expr), fvsR[i]? = some x → ∃ nm ty, x = Expr.fvar i nm ty)
-    {nmm : Name} {tym : Expr} (hmin : fvsR[nP + 1]? = some (.fvar (nP + 1) nmm tym))
+    {tym : Expr} (hw1 : Expr.WScoped (nP + 1) tym) (hb1 : tym.looseBVarsBounded 0 = true)
+    (hleafM : ∀ l ∈ tym.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsR.take (nP + 1))
+    {T2 : AVExpr} (hread2 : denoteP m.acval env φ (nP + 2) tym = some T2)
+    (hokT2 : ∀ (E : AVExpr) (ρ : Nat → V), Sat2 V (E :: Γr.drop 2) ρ → AnnotOkP V ρ T2)
     {xFvs : List Expr} {minBody : Expr}
     (hopX : openPisAtFvars nF tym (nP + 2) = some (xFvs, minBody)) :
     ∃ (Γm : List AVExpr) (Rm : AVExpr),
-      CompOpenedP m φ nP nF fvsR xFvs minBody Γr Γm Rm := by
+      CompOpenedP m φ nP nF fvsR xFvs minBody T2 Γr Γm Rm := by
   have hlenR : Γr.length = nP + 3 := hR.len
   have hidxR0 : ∀ (i : Nat) (x : Expr), fvsR[i]? = some x →
       ∃ nm ty, x = Expr.fvar (0 + i) nm ty := fun i x hx => by
     obtain ⟨nm, ty, h⟩ := hidxR i x hx
     exact ⟨nm, ty, by rw [h, Nat.zero_add]⟩
-  obtain ⟨-, hw1, hb1, hL1, hleaf1⟩ := hR.var (nP + 1) _ hmin
-  simp only [Expr.fvarTypeD] at hw1 hb1 hL1 hleaf1
-  have hread1 : denoteP m.acval env φ (nP + 1) tym = some (Γr.getD 1 default) := by
-    have := hR.doms (nP + 1) _ hmin
-    simp only [Expr.fvarTypeD] at this
-    rw [show nP + 3 - 1 - (nP + 1) = 1 from by omega] at this
-    exact this
-  have hread2 : denoteP m.acval env φ (nP + 2) tym
-      = some ((Γr.getD 1 default).liftN 1 0) := by
-    rw [denoteP_lift m.acval_closed hw1 (nP + 2) (by omega), hread1,
-      show nP + 2 - (nP + 1) = 1 from by omega]
-    rfl
   obtain ⟨Γm, Rm, htele, hbody, hdoms⟩ := openPisAtFvars_denotePTele nF hopX hread2
   have hlenX : xFvs.length = nF := openPisAtFvars_length nF hopX
   have hlenM : Γm.length = nF := htele.length
@@ -202,12 +195,6 @@ theorem compOpenedP_of {m : EnvS2Core V env} {nP nF : Nat} {tyR : Expr}
       l.2.2.looseBVarsBounded 0 = true := fun l hl => by
     have := hbX _ hl
     simpa [Expr.fvarTypeD] using this
-  -- a leaf of the minor type sits among the recursor's first `nP + 1`
-  -- variables
-  have hleafM : ∀ l ∈ tym.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsR.take (nP + 1) := by
-    intro l hl
-    have hlt := Expr.fvarLeaves_lt_of_wscoped hw1 l hl
-    exact List.mem_of_getElem? (by rw [List.getElem?_take_of_lt hlt]; exact hposR l (hleaf1 l hl))
   -- a leaf reachable from the minor's opening is a recursor variable
   -- below the minor or a field variable
   have hopener : ∀ l, (l ∈ minBody.fvarLeaves ∨ ∃ x ∈ xFvs, l ∈ x.fvarLeaves) →
@@ -245,15 +232,7 @@ theorem compOpenedP_of {m : EnvS2Core V env} {nP nF : Nat} {tyR : Expr}
   have hokΓm : ∀ (E : AVExpr) (i : Nat), i < nF → ∀ ρ : Nat → V,
       Sat2 V (compCtx Γm Γr nF E i) ρ → AnnotOkP V ρ (Γm.getD (nF - 1 - i) default) := by
     intro E
-    refine (piTeleP_graded (V := V) htele (Δ₀ := E :: Γr.drop 2) ?_).1
-    intro ρ hρ
-    have ht := Sat2_tail hρ
-    have hok := hR.okΓ (nP + 1) (by omega) _
-      (by rw [show nP + 3 - (nP + 1) = 2 from by omega]; exact ht)
-    rw [show nP + 3 - 1 - (nP + 1) = 1 from by omega] at hok
-    refine (AnnotOkP_liftN V 1 _ 0 ρ).mpr ?_
-    rw [shiftE_zero]
-    exact hok
+    exact (piTeleP_graded (V := V) htele (Δ₀ := E :: Γr.drop 2) (hokT2 E)).1
   refine ⟨Γm, Rm, hlenR, hlenX, hlenM, htele, hbody, hdoms, ?_, hokΓm, ?_, ?_⟩
   · -- the field variables
     intro i x hx
@@ -346,5 +325,48 @@ theorem compOpenedP_of {m : EnvS2Core V env} {nP nF : Nat} {tyR : Expr}
     rcases hopener l (Or.inl hl) with h | h
     · exact Or.inl (htakeUp l h)
     · exact Or.inr h
+
+/-- **The composite frame from the minor's type**, its reading one deeper
+being the minor entry lifted. -/
+theorem compOpenedP_of {m : EnvS2Core V env} {nP nF : Nat} {tyR : Expr}
+    {fvsR : List Expr} {oR : Expr} {Γr : List AVExpr} {Rr : AVExpr}
+    (hR : OpenedP m φ (nP + 3) tyR fvsR oR Γr Rr)
+    (hidxR : ∀ (i : Nat) (x : Expr), fvsR[i]? = some x → ∃ nm ty, x = Expr.fvar i nm ty)
+    {nmm : Name} {tym : Expr} (hmin : fvsR[nP + 1]? = some (.fvar (nP + 1) nmm tym))
+    {xFvs : List Expr} {minBody : Expr}
+    (hopX : openPisAtFvars nF tym (nP + 2) = some (xFvs, minBody)) :
+    ∃ (Γm : List AVExpr) (Rm : AVExpr),
+      CompOpenedP m φ nP nF fvsR xFvs minBody ((Γr.getD 1 default).liftN 1 0) Γr Γm Rm := by
+  have hidxR0 : ∀ (i : Nat) (x : Expr), fvsR[i]? = some x →
+      ∃ nm ty, x = Expr.fvar (0 + i) nm ty := fun i x hx => by
+    obtain ⟨nm, ty, h⟩ := hidxR i x hx
+    exact ⟨nm, ty, by rw [h, Nat.zero_add]⟩
+  obtain ⟨-, hw1, hb1, -, hleaf1⟩ := hR.var (nP + 1) _ hmin
+  simp only [Expr.fvarTypeD] at hw1 hb1 hleaf1
+  have hread1 : denoteP m.acval env φ (nP + 1) tym = some (Γr.getD 1 default) := by
+    have := hR.doms (nP + 1) _ hmin
+    simp only [Expr.fvarTypeD] at this
+    rw [show nP + 3 - 1 - (nP + 1) = 1 from by omega] at this
+    exact this
+  have hread2 : denoteP m.acval env φ (nP + 2) tym
+      = some ((Γr.getD 1 default).liftN 1 0) := by
+    rw [denoteP_lift m.acval_closed hw1 (nP + 2) (by omega), hread1,
+      show nP + 2 - (nP + 1) = 1 from by omega]
+    rfl
+  have hleafM : ∀ l ∈ tym.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsR.take (nP + 1) := by
+    intro l hl
+    have hlt := Expr.fvarLeaves_lt_of_wscoped hw1 l hl
+    have := (fvs_getElem?_of_mem hidxR0 (hleaf1 l hl)).2
+    rw [Nat.sub_zero] at this
+    exact List.mem_of_getElem? (by rw [List.getElem?_take_of_lt hlt]; exact this)
+  refine compOpenedP_ofTy hR hidxR hw1 hb1 hleafM hread2 ?_ hopX
+  intro E ρ hρ
+  have ht := Sat2_tail hρ
+  have hok := hR.okΓ (nP + 1) (by omega) _
+    (by rw [show nP + 3 - (nP + 1) = 2 from by omega]; exact ht)
+  rw [show nP + 3 - 1 - (nP + 1) = 1 from by omega] at hok
+  refine (AnnotOkP_liftN V 1 _ 0 ρ).mpr ?_
+  rw [shiftE_zero]
+  exact hok
 
 end Setlec.SetR.Interp2

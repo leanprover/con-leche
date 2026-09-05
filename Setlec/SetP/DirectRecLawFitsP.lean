@@ -104,8 +104,8 @@ theorem recLawFits {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
     (hR : OpenedP m φ (nP + 3) tyR fvsR oR Γr Rr)
     (hidxR : ∀ (i : Nat) (x : Expr), fvsR[i]? = some x → ∃ nm ty, x = Expr.fvar i nm ty)
     (hlenF : fvsR.length = nP + 3)
-    {xFvs : List Expr} {minBody : Expr} {Γm : List AVExpr} {Rm : AVExpr}
-    (comp : CompOpenedP m φ nP nF fvsR xFvs minBody Γr Γm Rm)
+    {xFvs : List Expr} {minBody : Expr} {T2 : AVExpr} {Γm : List AVExpr} {Rm : AVExpr}
+    (comp : CompOpenedP m φ nP nF fvsR xFvs minBody T2 Γr Γm Rm)
     {rhsA : Expr} (hrhsF : rhsA.hasFvar = false) (hrhsB : rhsA.looseBVarsBounded 0 = true)
     {Ra : AVExpr} (hread : denoteP m.acval env φ 0 rhsA = some Ra)
     (hokRa : ∀ ρ : Nat → V, AnnotOkP V ρ Ra)

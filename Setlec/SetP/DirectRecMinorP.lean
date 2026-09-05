@@ -159,7 +159,7 @@ theorem minorFieldsIdent {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ
     (hidxR : ∀ (i : Nat) (x : Expr), fvsR[i]? = some x → ∃ nm ty, x = Expr.fvar i nm ty)
     (hlenF : fvsR.length = nP + 3)
     {xFvs : List Expr} {minBody : Expr} {Γm : List AVExpr} {Rm : AVExpr}
-    (comp : CompOpenedP m φ nP nF fvsR xFvs minBody Γr Γm Rm)
+    (comp : CompOpenedP m φ nP nF fvsR xFvs minBody ((Γr.getD 1 default).liftN 1 0) Γr Γm Rm)
     {ds : List (Nat × Nat × AVExpr)} {bodyC : AVExpr} (hlenDs : ds.length = nP + nF)
     (hCok : ∀ ρ : Nat → V, AnnotOkP V ρ (mkPisAV ds bodyC))
     {crest : Expr} (hres : denoteP m.acval env φ nP crest = some (mkPisAV (ds.drop nP) bodyC))
@@ -469,7 +469,7 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
     {nmM : Name} {tyM : Expr}
     {nmm : Name} {tym : Expr} (hmin : fvsR[nP + 1]? = some (.fvar (nP + 1) nmm tym))
     {xFvs : List Expr} {minBody : Expr} {Γm : List AVExpr} {Rm : AVExpr}
-    (comp : CompOpenedP m φ nP nF fvsR xFvs minBody Γr Γm Rm)
+    (comp : CompOpenedP m φ nP nF fvsR xFvs minBody ((Γr.getD 1 default).liftN 1 0) Γr Γm Rm)
     {ℓ : Nat} (hPiBits : PiBitsOpen φ (ℓ = 0) nF (nP + 2) tym)
     {ds : List (Nat × Nat × AVExpr)} {bodyC : AVExpr} (hlenDs : ds.length = nP + nF)
     (hCok : ∀ ρ : Nat → V, AnnotOkP V ρ (mkPisAV ds bodyC))
