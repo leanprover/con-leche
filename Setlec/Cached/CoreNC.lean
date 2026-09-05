@@ -317,10 +317,9 @@ def iotaRecNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                if rl.fire = .inert then
                  throw (.notImplemented
                    "iota reduction over a nested auxiliary recursor rule")
-               else
-               if (cv.type.stripPis (mI + 1)).isSome ∧
-                  (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome
-                  then do
+               else do
+                -- (the ι batch: the two `stripPis` pins are gone — see
+                -- the spec's `iotaRec`)
                 let cmpLvls : List Level ←
                   match rl.fire with
                   | .nested lvls _ => substLevelTreesM cv.levelParams us lvls
@@ -346,7 +345,6 @@ def iotaRecNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                   pure (some red)
                  else pure none
                 else pure none
-               else pure none
               else pure none
             | none => pure none
           | _ => pure none

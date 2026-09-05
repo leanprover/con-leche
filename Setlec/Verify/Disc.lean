@@ -199,11 +199,11 @@ theorem reduceNatIf_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   · exact reduceNat_disc ih henv hw
 
 theorem iotaCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
-    {d : Nat} :
+    {d : Nat} {lic : Bool} :
     ∀ {args : List Expr} {ty : Expr}, WScoped d ty →
       (∀ x ∈ args, WScoped d x) →
-      DiscV mode env (fun _ => True) (iotaCerts C env d ty args)
-        (iotaCerts G env d ty args) := by
+      DiscV mode env (fun _ => True) (iotaCerts C env d lic ty args)
+        (iotaCerts G env d lic ty args) := by
   intro args
   induction args with
   | nil => intro ty _ _; exact DiscV.pure trivial
@@ -217,21 +217,31 @@ theorem iotaCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       have hwtb : WScoped d ty ∧ WScoped d body := by
         simpa only [WScoped] using hwty
       show DiscV mode env _
-        ((C : CoreFns CheckSM).inferIO d arg >>= fun ta =>
+        (if lic && mb.pw.isNever then
+          iotaCerts C env d lic (body.instantiate1 arg) rest
+        else
+          (C : CoreFns CheckSM).inferIO d arg >>= fun ta =>
           (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
-          if b then iotaCerts C env d (body.instantiate1 arg) rest
+          if b then iotaCerts C env d lic (body.instantiate1 arg) rest
           else pure false)
-        ((G : CoreFns CheckSM).inferIO d arg >>= fun ta =>
+        (if lic && mb.pw.isNever then
+          iotaCerts G env d lic (body.instantiate1 arg) rest
+        else
+          (G : CoreFns CheckSM).inferIO d arg >>= fun ta =>
           (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
-          if b then iotaCerts G env d (body.instantiate1 arg) rest
+          if b then iotaCerts G env d lic (body.instantiate1 arg) rest
           else pure false)
-      refine DiscV.bind (ih.site_inferIO henv hwarg) (fun ta hta => ?_)
-      refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
-      cases b with
-      | true =>
-        simp only [↓reduceIte]
+      by_cases hg : (lic && mb.pw.isNever) = true
+      · rw [if_pos hg, if_pos hg]
         exact ihrest (WScoped.instantiate1_gen hwarg 0 hwtb.2) hwrest
-      | false => exact DiscV.pure trivial
+      · rw [if_neg hg, if_neg hg]
+        refine DiscV.bind (ih.site_inferIO henv hwarg) (fun ta hta => ?_)
+        refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
+        cases b with
+        | true =>
+          simp only [↓reduceIte]
+          exact ihrest (WScoped.instantiate1_gen hwarg 0 hwtb.2) hwrest
+        | false => exact DiscV.pure trivial
     | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
     | letE _ _ _ _ | lit _ | proj _ _ _ => exact DiscV.pure trivial
 
@@ -746,6 +756,23 @@ theorem projLitToCtor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     · exact DiscV.pure hw
   · exact DiscV.pure hw
 
+theorem iotaIndexOk_disc (ih : ScopedSim mode env f) {d : Nat}
+    {mI rP cnP : Nat} {tyCtor : Expr} {margs idx : List Expr}
+    (hwty : WScoped d tyCtor) (hwm : ∀ x ∈ margs, WScoped d x)
+    (hwi : ∀ x ∈ idx, WScoped d x) :
+    DiscV mode env (fun _ => True)
+      (iotaIndexOk C env d mI rP cnP tyCtor margs idx)
+      (iotaIndexOk G env d mI rP cnP tyCtor margs idx) := by
+  by_cases hmr : mI = rP
+  · simp only [iotaIndexOk, if_pos hmr]; exact DiscV.pure trivial
+  · simp only [iotaIndexOk, if_neg hmr]
+    cases hres : piResidual tyCtor margs with
+    | none => exact DiscV.pure trivial
+    | some residual =>
+      exact defEqList_disc ih
+        (fun x hx => (piResidual_WScoped hres hwty hwm).getAppArgs x
+          (List.mem_of_mem_drop hx)) hwi
+
 theorem iotaRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
     DiscV mode env (WScopedO d) (iotaRec mode C env d e)
@@ -774,7 +801,6 @@ theorem iotaRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   split <;> try exact DiscV.pure WScopedO.none
   split
   · exact DiscV.throw _
-  split <;> try exact DiscV.pure WScopedO.none
   refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okl _ => ?_)
   split <;> try exact DiscV.pure WScopedO.none
   refine DiscV.bind (defEqList_disc ih
@@ -807,12 +833,7 @@ theorem iotaRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   refine DiscV.bind (iotaCerts_disc ih henv hwctorty hmaj.getAppArgs)
     (fun r₃ _ => ?_)
   split <;> try exact DiscV.pure WScopedO.none
-  split <;> try exact DiscV.pure WScopedO.none
-  rename_i hstrip hresid
-  split <;> try exact DiscV.pure WScopedO.none
-  refine DiscV.bind (defEqList_disc ih
-    (fun x hx => (piResidual_WScoped hresid hwctorty
-      hmaj.getAppArgs).getAppArgs x (List.mem_of_mem_drop hx))
+  refine DiscV.bind (iotaIndexOk_disc ih hwctorty hmaj.getAppArgs
     (fun x hx => hw.getAppArgs x
       (List.mem_of_mem_take (List.mem_of_mem_drop hx))))
     (fun r₄ _ => ?_)

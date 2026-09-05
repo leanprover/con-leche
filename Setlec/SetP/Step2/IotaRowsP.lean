@@ -1,4 +1,5 @@
 import Setlec.SetP.Step2.MajorP
+import Setlec.SetP.Step2.IotaGateP
 import Setlec.SetP.Step2.ReadsP
 import Setlec.SetBase.DefEqList
 
@@ -32,8 +33,11 @@ and the supplier is already in the census: the fired reduct's
 major-side arguments are each certified by the clause's own
 `iotaCerts` run, so each of them was *inferred* — and
 `SemTierInputsP.accepted_reads` says exactly that whatever inference
-accepts, reads.  `iotaCertsP_infers` extracts the runs;
-`accepted_reads` turns them into readings.  So `iota_reads` leaves the
+accepts, reads.  (`iotaCertsP_infers` extracted the runs until the ι
+batch, 2026-09-05, licensed the fire-time walks: a licensed slot runs
+no inference, so the extraction is gone; B4 had already made the reads
+row independent of the certificate.)  `accepted_reads` turns runs into
+readings.  So `iota_reads` leaves the
 census as the freeze intended, with `accepted_reads` (which stays
 regardless) as its supplier rather than the reads walk.
 
@@ -233,34 +237,7 @@ theorem denoteP_const_arity {acval : Name → (Name → Nat) → AVExpr}
   · next hlen => exact ⟨hlen, (Option.some.inj h).symm⟩
   · exact nomatch h
 
-/-! ## Two extraction lemmas -/
-
-/-- **A certified spine was inferred**, argument by argument — the
-form `accepted_reads` consumes. -/
-theorem iotaCertsP_infers {d : Nat} :
-    ∀ (ty : Expr) (args : List Expr),
-      Setlec.iotaCertsP μ env fuel d ty args = .ok true →
-      ∀ a ∈ args, ∃ ta, Setlec.inferTypeIO μ env fuel d a = .ok ta := by
-  intro ty args
-  induction args generalizing ty with
-  | nil => intro _ a ha; exact nomatch ha
-  | cons x xs ih =>
-    intro hc a ha
-    match ty, hc with
-    | .bvar _, hc => exact nomatch hc
-    | .fvar _ _ _, hc => exact nomatch hc
-    | .sort _, hc => exact nomatch hc
-    | .const _ _, hc => exact nomatch hc
-    | .app _ _, hc => exact nomatch hc
-    | .lam _ _ _ _, hc => exact nomatch hc
-    | .letE _ _ _ _, hc => exact nomatch hc
-    | .lit _, hc => exact nomatch hc
-    | .proj _ _ _, hc => exact nomatch hc
-    | .forallE n dom body mb, hc =>
-      obtain ⟨ta, hta, -, hrest⟩ := Setlec.iotaCerts_step_inv hc
-      rcases List.mem_cons.mp ha with rfl | ha'
-      · exact ⟨ta, hta⟩
-      · exact ih _ hrest a ha'
+/-! ## The major chain's frames -/
 
 /-- The frame conditions of the whole major chain — `whnf`, then the
 literal conversion, then the rescue.  Readings play no part: every
@@ -360,9 +337,9 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
     IotaReadsP μ m φ fuel := by
   intro d e e'' ea h hws hb hLb hlr hea
   obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
-    cnF, r, cbinders, cbody, residual, cr, usr, hfn, hfrec, hlenA, hlenU,
-    hwmaj, hlitmaj, hmajc, hfnmaj, hfcj, hrfind, hlenM, hstripR, hstripC,
-    hfire, hlev, hdefP, hcertR, hcertC, hstripEq, hpres, hcbody, hdefI,
+    cnF, r, hfn, hfrec, hlenA, hlenU,
+    hwmaj, hlitmaj, hmajc, hfnmaj, hfcj, hrfind, hlenM,
+    hfire, hlev, hdefP, hcertR, hcertC, hidx,
     rfl⟩ := Setlec.iotaRec_inv h
   -- the subject's own spine
   have hfrE : ∀ x ∈ e.getAppArgs, Expr.WScoped d x ∧
@@ -517,9 +494,9 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     IotaStepP μ m φ fuel := by
   intro d e e'' Δa h hws hb hLb ea hC hea hok
   obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
-    cnF, r, cbinders, cbody, residual, cr, usr, hfn, hfrec, hlenA, hlenU,
-    hwmaj, hlitmaj, hmajc, hfnmaj, hfcj, hrfind, hlenM, hstripR, hstripC,
-    hfire, hlev, hdefP, hcertR, hcertC, hstripEq, hpres, hcbody, hdefI,
+    cnF, r, hfn, hfrec, hlenA, hlenU,
+    hwmaj, hlitmaj, hmajc, hfnmaj, hfcj, hrfind, hlenM,
+    hfire, hlev, hdefP, hcertR, hcertC, hidx,
     rfl⟩ := Setlec.iotaRec_inv h
   have hrmem : r ∈ rules := List.mem_of_find?_eq_some hrfind
   -- the law, and the right-hand side's reading at the ambient depth
@@ -574,11 +551,12 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   have hfrC := frame_spineP hwmj hbmj hLmj hCmj
   obtain ⟨-, hoY⟩ := hoistP_spine ys hokMj
   -- the two stored types
-  obtain ⟨TVa, hTVaD, hokTVa, -, hnfR, hbdR⟩ :=
+  obtain ⟨TVa, hTVaD, hokTVa, hmemR, hnfR, hbdR⟩ :=
     constTypeP_pkg hct hfrec rfl (show us.length = _ from hlenU)
-  obtain ⟨TVja, hTVjaD, hokTVja, -, hnfJ, hbdJ⟩ := constTypeP_pkg hct hfcj rfl hlenUj
-  dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVaD hnfR hbdR
-  dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVjaD hnfJ hbdJ
+  obtain ⟨TVja, hTVjaD, hokTVja, hmemJ, hnfJ, hbdJ⟩ :=
+    constTypeP_pkg hct hfcj rfl hlenUj
+  dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVaD hnfR hbdR hmemR
+  dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVjaD hnfJ hbdJ hmemJ
   have hCR : CtxOkP m φ d Δa (cv.type.instantiateLevelParams cv.levelParams us) :=
     ⟨hC.1, fun l hl => by
       rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfR] at hl
@@ -608,16 +586,28 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     rcases List.mem_append.mp hx with hx' | hx'
     · exact hoX x (List.mem_of_mem_take hx')
     · rcases List.mem_singleton.mp hx' with rfl; exact hokMj
+  -- **the redex's own slots** (the ι-slot licence, `IotaGateP`): the
+  -- subject's grading at the recursor spine with the rescued major in
+  -- the major slot (`heqAll` exchanges the argument), and the rescued
+  -- major's grading as the constructor spine's
+  have hokSR : ∀ ρ : Nat → V, Sat2 V Δa ρ →
+      AnnotOkP V ρ (AVExpr.mkAppN (m.acval c (Level.substFn φ cv.levelParams us))
+        (xs.take mI ++ [AVExpr.mkAppN
+          (m.acval r.ctor (Level.substFn φ cvj.levelParams usj)) ys])) := by
+    intro ρ hρ
+    have h := hok ρ hρ
+    rw [take_getD_splitA hxsLen] at h
+    exact annotOkP_mkAppN_snoc_congr h (hokMj ρ hρ) (heqAll ρ hρ)
   obtain ⟨restR, hfitR, -, -⟩ :=
-    certs_telePA ihd ihis hexi _ (e.getAppArgs.take mI ++ [major]) _ TVa
+    certs_teleLicP ihd ihis hexi _ (e.getAppArgs.take mI ++ [major]) _ TVa _
       hcertR (Setlec.Expr.WScoped.of_not_hasFvar hnfR) hbdR
       (Setlec.Expr.LeavesBounded.of_not_hasFvar hnfR) hCR (hTVaD d)
-      (fun σ _ => hokTVa σ) hframesR hspR hoksR
+      (fun σ _ => hokTVa σ) hframesR hspR hoksR hokSR (fun σ _ => hmemR σ)
   obtain ⟨restC, hfitC, hokRestC, -⟩ :=
-    certs_telePA ihd ihis hexi _ major.getAppArgs ys TVja hcertC
+    certs_teleLicP ihd ihis hexi _ major.getAppArgs ys TVja _ hcertC
       (Setlec.Expr.WScoped.of_not_hasFvar hnfJ) hbdJ
       (Setlec.Expr.LeavesBounded.of_not_hasFvar hnfJ) hCJ (hTVjaD d)
-      (fun σ _ => hokTVja σ) hfrC hspy hoY
+      (fun σ _ => hokTVja σ) hfrC hspy hoY hokMj (fun σ _ => hmemJ σ)
   -- the level congruence (currency-free: the comparand reads no arguments)
   have hψ : Level.substFn φ cvj.levelParams usj
       = Level.substFn φ cvj.levelParams
@@ -625,11 +615,6 @@ theorem iotaStepP_of {m : EnvS2Core V env}
             [] rP).1 := by
     rw [recFireComparands_fst_nil] at hlev
     exact Setlec.Level.substFn_congr (Setlec.Level.isEquivList_sound hlev φ)
-  -- the residual's frames
-  obtain ⟨hwRes, hbRes, hLRes, hCRes⟩ :=
-    piResidual_frameP hpres (Setlec.Expr.WScoped.of_not_hasFvar hnfJ) hbdJ
-      (Setlec.Expr.LeavesBounded.of_not_hasFvar hnfJ) hCJ hfrC
-  have hfrRes := frame_spineP hwRes hbRes hLRes hCRes
   -- the fired equation and the transported grading, at each valuation
   have hmain : ∀ ρ : Nat → V, Sat2 V Δa ρ →
       interp2 V ρ (AVExpr.mkAppN
@@ -639,38 +624,48 @@ theorem iotaStepP_of {m : EnvS2Core V env}
         AnnotOkP V ρ (AVExpr.mkAppN Ra
           (xs.take rP ++ ys.drop (RecRule.ctorParams r))) := by
     intro ρ hρ
-    -- the constructor telescope's residual, decomposed
-    have hresC : denoteP m.acval env φ d residual = some restC :=
-      teleFitPA_residual m.acval_closed (acval_inst_self m) major.getAppArgs
-        hpres (Setlec.Expr.WScoped.of_not_hasFvar hnfJ)
-        (fun x hx => ⟨(hfrC x hx).1, (hfrC x hx).2.1⟩) (hTVjaD d) hspy
-        (hfitC ρ hρ)
-    rw [show residual = Expr.mkAppN residual.getAppFn residual.getAppArgs from
-      (Setlec.Expr.mkAppN_getApp residual).symm] at hresC
-    obtain ⟨Ha, cargsa, -, hspRes, hCeq⟩ := denoteP_mkAppN_inv hresC
-    obtain ⟨-, hoCargs⟩ :=
-      hoistP_spine cargsa (fun σ hσ => hCeq ▸ hokRestC σ hσ)
-    -- the index comparands
-    have hspIdx : DenoteSpineP m.acval env φ d
-        ((e.getAppArgs.take mI).drop rP) ((xs.take mI).drop rP) :=
-      (hspx.take mI).drop rP
-    have hmapI : (cargsa.drop (RecRule.ctorParams r)).map (interp2 V ρ)
-        = ((xs.take mI).drop rP).map (interp2 V ρ) :=
-      map_interp2_of_defEqListP ihd hdefI
-        (fun x hx => hfrRes x (List.mem_of_mem_drop hx))
-        (fun x hx => hfrE x (List.mem_of_mem_take (List.mem_of_mem_drop hx)))
-        (hspRes.drop _) hspIdx
-        (fun x hx => hoCargs x (List.mem_of_mem_drop hx))
-        (fun x hx => hoX x (List.mem_of_mem_take (List.mem_of_mem_drop hx)))
-        ρ hρ
-    have hlenDisj : mI = rP ∨
-        cargsa.length = RecRule.ctorParams r + (mI - rP) := by
-      have hlen := congrArg List.length hmapI
-      simp only [List.length_map, List.length_drop, List.length_take] at hlen
-      rw [hxsLen] at hlen
-      omega
+    -- **the index pin**: trivial where the recursor has no indices
+    -- (the ι batch: the checker compares nothing at `mI = rP`), else
+    -- the constructor telescope's residual, decomposed, and the
+    -- index comparands
     have hpinI : IotaIndexPinP (V := V) ρ restC (RecRule.ctorParams r) mI rP
         (xs.take mI) := by
+      by_cases hmr : mI = rP
+      · exact ⟨restC, [], rfl, Or.inl hmr, fun i hi => absurd hi (by omega)⟩
+      obtain ⟨residual, hpres, hdefI⟩ := Setlec.iotaIndexOk_inv hidx hmr
+      -- the residual's frames
+      obtain ⟨hwRes, hbRes, hLRes, hCRes⟩ :=
+        piResidual_frameP hpres (Setlec.Expr.WScoped.of_not_hasFvar hnfJ) hbdJ
+          (Setlec.Expr.LeavesBounded.of_not_hasFvar hnfJ) hCJ hfrC
+      have hfrRes := frame_spineP hwRes hbRes hLRes hCRes
+      have hresC : denoteP m.acval env φ d residual = some restC :=
+        teleFitPA_residual m.acval_closed (acval_inst_self m) major.getAppArgs
+          hpres (Setlec.Expr.WScoped.of_not_hasFvar hnfJ)
+          (fun x hx => ⟨(hfrC x hx).1, (hfrC x hx).2.1⟩) (hTVjaD d) hspy
+          (hfitC ρ hρ)
+      rw [show residual = Expr.mkAppN residual.getAppFn residual.getAppArgs from
+        (Setlec.Expr.mkAppN_getApp residual).symm] at hresC
+      obtain ⟨Ha, cargsa, -, hspRes, hCeq⟩ := denoteP_mkAppN_inv hresC
+      obtain ⟨-, hoCargs⟩ :=
+        hoistP_spine cargsa (fun σ hσ => hCeq ▸ hokRestC σ hσ)
+      have hspIdx : DenoteSpineP m.acval env φ d
+          ((e.getAppArgs.take mI).drop rP) ((xs.take mI).drop rP) :=
+        (hspx.take mI).drop rP
+      have hmapI : (cargsa.drop (RecRule.ctorParams r)).map (interp2 V ρ)
+          = ((xs.take mI).drop rP).map (interp2 V ρ) :=
+        map_interp2_of_defEqListP ihd hdefI
+          (fun x hx => hfrRes x (List.mem_of_mem_drop hx))
+          (fun x hx => hfrE x (List.mem_of_mem_take (List.mem_of_mem_drop hx)))
+          (hspRes.drop _) hspIdx
+          (fun x hx => hoCargs x (List.mem_of_mem_drop hx))
+          (fun x hx => hoX x (List.mem_of_mem_take (List.mem_of_mem_drop hx)))
+          ρ hρ
+      have hlenDisj : mI = rP ∨
+          cargsa.length = RecRule.ctorParams r + (mI - rP) := by
+        have hlen := congrArg List.length hmapI
+        simp only [List.length_map, List.length_drop, List.length_take] at hlen
+        rw [hxsLen] at hlen
+        omega
       refine ⟨Ha, cargsa, hCeq, hlenDisj, fun i hi => ?_⟩
       have hlt : i < (cargsa.drop (RecRule.ctorParams r)).length := by
         rw [List.length_drop]

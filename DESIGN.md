@@ -42204,3 +42204,228 @@ as 37 new rows.
 > batch, and the graded lane took the name.  The intermediate state —
 > a mode no flag could produce — was correct for exactly one batch and
 > was never going to be a resting place.
+
+## THE ι BATCH, LANDED (2026-09-05, `agent/iota-batch`)
+
+The three granted items of the ι audit + second look (above: "THE ι
+AUDIT", §5 and §9.6), landed together with their proof adaptations on
+master `3ce7622b` (the direct-structure flip).  Sites: the spec
+`Kernel/Core.lean` (`iotaCerts`, `iotaIndexOk`, `iotaRec`), the cached
+twins `Cached/CoreC.lean` (`iotaCertsIAux`/`iotaCertsI`, `iotaIndexOkI`,
+`iotaRecI`) and the parity core `Cached/CoreNC.lean` (`iotaRecNC`, pins
+only); the P lane `SetP/Step2/IotaGateP.lean` (new) and
+`Step2/IotaRowsP.lean`; the Verify family (`InferLemmas`, `Fueled`,
+`PairM`, `Disc`, `Deep`, `Knot`) and the cached simulations
+(`Verify/Cached/DiscC1..3`).
+
+### 1. Item 1 — the ι-slot licence, as landed
+
+* **The kernel shape.**  `iotaCerts r env depth (lic : Bool)`: at
+  `lic = true` a `∀`-binder whose datum is `.never` is skipped — no
+  domain instantiation, no `inferIO`, no `defeq` — and the walk goes
+  on with the argument as if certified.  The cached
+  `iotaCertsIAux … lic` is the same with the accumulator discipline
+  (the licensed slot pushes the argument onto `acc` and never touches
+  the store).  **Scoping is the second look's (§9.1.4), binding**:
+  `iotaRec`'s two telescope runs pass `lic := mode.betaGate`; every
+  other caller — `structEtaProjCerts`, `structEtaCert`,
+  `structUnitCert`, `etaCert`'s slot, `majorToCtor`'s K and η
+  fabrications, and their cached twins — passes `false`.
+* **The mode read is `CheckMode.betaGate`, not `verified`.**  The
+  theorem is io-shaped (§9.1.1: `io_domain_transfer` verbatim), but
+  the *accessor* a certificate-skip may read is the β gate's:
+  `CheckMode.betaGate`'s docstring names it "the only place `.setModelP`
+  differs from `.setModel`" and the fence discipline ("wraps the test
+  only") rides on it.  Concretely this kept the R bridge
+  (`SetBase/Bridge/Iota.lean`'s `iota_stepR`, invoked at `modeR` where
+  `verified = true` but `betaGate = false`) provable with one
+  `rw [hg] at hcertR hcertC`; a `verified`-keyed licence would have
+  fired at `modeR`, where the relation tier has no slot to license
+  from.  With the SetR Stage B removal the two accessors coincide on
+  the surviving modes (`.setModelP`: both `true`; `.noModel`: both
+  `false`), so nothing observable hangs on the choice; it is recorded
+  because the P proof reads only `isNever` (`pwBit_ne_zero_of_isNever`)
+  and the capstone's hypothesis stays `μ.verified = true`, i.e. the
+  licence theorem is mode-free and the mode read is pure kernel policy.
+* **The P side** (`IotaGateP.lean`): `iota_slot_transfer` (=
+  `io_domain_transfer`, arguments renamed), `annotOkP_mkAppN_head`,
+  `annotOkP_app_congr_arg` / `annotOkP_mkAppN_snoc_congr` (exchange an
+  app's argument for an interpretation-equal graded one — how the
+  subject's grading, stated at the *original* major, supplies the slot
+  at the *rescued* major through `heqAll`), `certs_teleLicP` (the
+  licensed twin of `certs_telePA`: inputs `AnnotOkP (mkAppN fa vs)` and
+  `⟦fa⟧ ∈ ⟦Ta⟧`, the head-prefix's membership carried down the
+  telescope by `annotOkP_mkAppN_of_fitA` at `[aa]`; at a licensed slot
+  the membership is the transfer, at a certified slot it is the run's
+  — `certs_telePA`'s step verbatim), `iota_slot_fence`
+  (`io_squash_no_transfer`, roles renamed) and `iota_gate_exact`.  The
+  probe's `TeleFitMix` intermediate was not needed: the syntactic walk
+  produces `TeleFitPA` directly, because the *next* slot's telescope
+  grading (`hokBody'`) needs this slot's membership either way, so the
+  mixed walk cannot be separated from the licence.  `iotaStepP_of`
+  feeds `hok` (the subject's spine grading, major slot exchanged) and
+  `hokMj` (the rescued major's) plus `constTypeP_pkg`'s third conjunct
+  (`mem_typeP`), previously discarded.  `certs_telePA` stays, at
+  `lic = false`, for the rescue rows (`MajorP`, `CapsRowsP`).
+* **Verify.**  `iotaCerts_step_inv_gate` is the disjunction (gate fired
+  ∧ tail | run ∧ tail); `iotaCerts_step_inv` keeps its statement at
+  `lic = false` (all four consumers are rescue rows).  `iotaCerts_atF`,
+  `_fst`/`_snd`, `_disc`, `_shift` are parametric in `lic` with one
+  `by_cases` on the gate.  `iotaCertsP_infers` (IotaRowsP) is deleted:
+  a licensed slot runs no inference, and B4 had already made the reads
+  row independent of the certificate (its docstring is updated).
+* **Cached.**  `iotaCertsCAux_sim` gains the licensed arm (both sides
+  skip; the tail is the same recursive call).  `iotaRecC_sim` now takes
+  the ι mode `mi` separately from the knot's `mode`: the walks
+  (`DiscC4`) apply it at `cfg.iotaMode`, and before this batch the two
+  were identified by unification *unfolding `iotaRecI` down to the
+  statically-false `ttChecks` read* — with `mi.betaGate` in the body
+  that collapse is gone and the unifier timed out.  The split is the
+  honest statement anyway (the sim holds at any ι mode, both sides
+  reading the same `mi.betaGate`).
+
+### 2. Item 2 — the index block, as landed
+
+`iotaIndexOk r env depth mI rP cnP tyCtor margs idx` (twin
+`iotaIndexOkI`): `if mI = rP then pure true else match piResidual
+tyCtor margs with | some residual => defEqList … (residual.getAppArgs.
+drop cnP) idx | none => pure false`.  The `stripPisBody` + head-const
+test is gone at every `mI` (consumed by nothing, §9.3).  A finding
+worth its own line: writing the block inline as `let idxOk ← if … then
+… else match …` made the do-elaborator **duplicate the continuation
+into all three branches**, which is unprovable-shaped for the
+`bind_rel`/`SimC.bind` cascades; the helper restores one bind.
+`iotaRec_inv` loses the binders `cbinders cbody residual cr usr` and
+four conjuncts, gaining one (`iotaIndexOkP … = .ok true`);
+`iotaIndexOk_inv` (at `mI ≠ rP`) returns the residual and the
+comparison.  The P row discharges `IotaIndexPinP` at `mI = rP` by
+`⟨restC, [], rfl, Or.inl rfl, fun i hi => absurd hi (by omega)⟩` and
+otherwise runs the old decomposition inside the `by_cases` (the
+residual's frames moved with it).
+
+### 3. Item 3 — the pins, as landed
+
+Deleted from `iotaRec`, `iotaRecI` and the parity `iotaRecNC` (the
+parity lane's only change); `iotaRec_inv` drops `har1 har2`; the R
+cluster's two premise slots (`Red.iota` h10/h11, `wkRedIota`) dropped.
+The R-cluster edits (`Rel.lean`, `Weaken.lean`, `Bridge/Iota.lean`,
+`Bridge/Certs.lean`, `Bridge/EtaCerts.lean`) were made minimal and
+build-green on `3ce7622b`.  SetR Stage B (merged to master as
+`9f44b2c8`) turned out to remove the R *core*, flag and letters only —
+`SetBase/Rel.lean` and `SetBase/Bridge/*` survive as the P assembly's
+build dependency (§9.3 of the second look) — so these edits stand
+after the master merge (`819e5c6d`; the only conflict was this
+file's tail).  What they do: `Red.iota` and `wkRedIota` lose the two
+pin slots; `iota_stepR` rewrites the licence off (`rw [hg]`, the lane
+is at `betaGate = false`), destructures the new `iotaRec_inv`, and
+builds the index premises by the same `mI = rP` split as the P row;
+`certs_teleR` and the two `EtaCerts` spellings are at `lic = false`.
+
+### 4. Measurements (init-full-pre2, `--pre`, `ulimit -v 16G`, `perf stat -e instructions:u`, single runs, one session)
+
+Leave-one-out at the kernel (exe rebuilt from the batch with the item's
+cached-core code restored; proofs untouched — the variants are
+measurement copies, never committed):
+
+| binary | P (`--set-model=p`) | Δ vs next | item |
+|---|---|---|---|
+| C: batch with items 1–3 all restored (= master's ι code) | **1579.94 G** | — | (reproduces the master receipt 1579.71 G) |
+| B: C minus the pins | 1574.94 G | −5.00 G (−0.32 %) | 3 |
+| A: B minus the index block | 1570.06 G | −4.88 G (−0.31 %) | 2 |
+| the batch (A minus the licence) | **1265.20 G** | **−304.86 G (−19.3 %)** | 1 |
+| parity (`--no-model`), the batch | **1056.85 G** vs 1061.49 G | −4.64 G (−0.44 %) | 3 (parity has no certificates or index block) |
+
+Every run: exit 0, accepted 61 048.  Total P: **−314.7 G, −19.9 %**
+against master; the licence alone is 97 % of it.  The audit priced the
+licence at −8.66 % of a 2 754 G pre-flip instrumented baseline
+(≈ 238 G) and items 2+3 at ≈ 37 G; on the post-flip tree (task #175 W5,
+#176 pointer-first equality, #167 packing — every one of which cut the
+*other* costs) the certificates are a larger share and the residual
+walk a smaller one, and the arena-era `stripPis` allocation the audit
+priced is gone with the interned world.  The absolute licence saving
+(305 G) exceeds the audit's whole "both `iotaCerts` runs" cell (250 G)
+because the per-slot `inferIO` runs got relatively costlier as the
+rest got cheaper; the shape is as predicted (99.77 % of slots
+licensed).
+
+**Merged-tip receipts** (`819e5c6d` = the batch with master `9f44b2c8`
+merged; same harness, single runs): P **1265.25 G**, parity
+**1056.74 G**, exit 0 / accepted 61 048 in both — identical to the
+pre-merge numbers to 0.01 %.  Gates at the tip: `lake build`
+warning-free, `lake test`, `tests/layering.sh`, `tests/proofdeps.sh`
+(88 rows as pinned), `tests/arena.sh` 0 FAIL with the bad-test
+expectations unchanged; the capstone
+`no_proof_of_Empty_SPCD_P`, `certs_teleLicP` and `iota_slot_fence` depend
+on exactly `[propext, Classical.choice, Quot.sound]`.
+
+### 5. Item 4 (RHS stored as the peeled body) — skipped, estimate
+
+Not measured, by the cost rule.  Kernel side it is small (`ruleRhsAtM`
+stores the peeled body at the level-instantiated cache; the fire does
+one `instantiateRev` instead of `mkAppNM` + the `whnfAppI` β peel).
+The payoff bound from the census: 4.17 M fires × (`rP` + `nfields`)
+interned app nodes (≈ 20 M internings) plus the β gate's per-binder
+reads, and the certificates at the RHS's non-`.never` λ binders —
+likely 1–3 % of P, unmeasured.  The proof side is the blocker:
+`RecRuleLawP`'s conclusion `rec p⃗ M m⃗ i⃗ (ctor p⃗ x⃗) = rhs p⃗ x⃗` is
+stated at the λ-form reading `Ra` and *fed* by twenty-odd suppliers —
+`IotaRulePlainP`, `IotaRuleNestedP`, `RecRulesPCons`, the direct-rec
+law family (`DirectRecLaw*P`), `IndRecsP`/`IndFireP`/`IndBottom*P`, and
+the five basis blocks (`BasisEqP`, `BasisPSigmaP`, `BasisBlocksP`,
+`BasisQuotP`, `BasisEmptyP`) whose laws compute at literal λ-terms.
+Restating over the body form (`= body[x⃗/bvars]`, i.e. `instRevChain`
+of the body's reading) moves every one of those to the substituted
+reading and additionally has to absorb what the β steps of the reduct
+currently do at squash-regime binders (`AnnotOkP_beta_zero`'s
+membership comes from the β certificate, which the body form skips).
+More than a session by a wide margin; recorded, not attempted.
+
+### 6. Findings and conformance
+
+* The licence changes no verdict (arena 0 FAIL, bad-test expectations
+  unchanged, init-full 61 048 in both modes) and is a strict
+  accept-superset only in the sense every certificate-skip is: a slot
+  that would have *failed* certification at a `.never` binder is now
+  not tested — but such a slot cannot exist under a validated
+  annotation (the transfer theorem), so the set of accepted streams is
+  unchanged for annotated inputs.
+* Official/lean4lean run no telescope certificates at all
+  (`inductiveReduceRec`), so items 1–3 all move toward reference
+  conformance (F5 rows priced in the audit §6).
+* `iotaIndexOk` is the audit's (B)/(A) hybrid: the comparison stays
+  where indices exist because `IotaIndexPinP` is a law hypothesis
+  there; nothing was moved to install.
+
+### 7. Post-Stage-C receipts (the merge-grant conditions, 2026-09-05)
+
+Master moved to `621416c7` (SetR Stage C: `SetBase/Bridge/*`,
+`SetBase/{Rel,Weaken,CtxOkR}` and the derivation tier deleted;
+`CheckMode` collapsed to `{setModel, noModel}`).  Merged as `6b3646b5`:
+the batch's five R-cluster edits (§3) resolved **by deletion**, the
+only content conflict was this file's tail (both records kept).
+
+* **The licence's mode read survives the enum collapse unchanged.**
+  `CheckMode.betaGate` is `.setModel → true | _ → false` and
+  `CheckMode.verified` is `.noModel → false | _ → true` — the two
+  accessors now coincide on every constructor, so `iotaCerts … lic :=
+  mode.betaGate` keeps both its meaning ("a certificate-skip may read
+  the validated datum") and its value at the shipped modes.  Not
+  re-keyed on the constructor.
+* **`tests/proofdeps.sh`** (now the frozen per-capstone module pin):
+  ONE module entered all four capstone closures —
+  `Setlec.SetP.Step2.IotaGateP`, the licence module, which is on the ι
+  row's proof path by construction (`iotaStepP_of` → `certs_teleLicP`
+  → `iota_slot_transfer`/`io_domain_transfer`).  That is the batch's
+  own door, explained here; no module left.  The pin was regenerated
+  (`tests/proofdeps.sh --list`), 1365 → 1369 rows.
+* **Gates at `6b3646b5` (+ the pin)**: `lake build` warning-free (436
+  jobs), `lake test`, `tests/layering.sh` (base 228 / P 164 / caps 2;
+  0 base→lane, 0 impl→theory), `tests/proofdeps.sh` 1369 rows, doors 0,
+  `tests/arena.sh` 0 FAIL (arena 90/92, e2e 73/73, annot 14/14, mode
+  flags 14/14, bad-test expectations unchanged); the capstone
+  `no_proof_of_Empty_SPCD_P`, `certs_teleLicP` and `iota_slot_fence`
+  depend on exactly `[propext, Classical.choice, Quot.sound]`.
+* **init-full-pre2** (`--pre`, `ulimit -v 16G`, `instructions:u`, one
+  run each): P (`--set-model=p`) **1265.19 G**, parity (`--no-model`)
+  **1056.83 G**; exit 0, accepted 61 048 in both.  Against the
+  pre-batch master receipt (1579.71 G / 1061.49 G): **−19.9 % / −0.44 %**.

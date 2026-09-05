@@ -166,35 +166,47 @@ while accumulating the certified arguments, substituting only each
 binder's *domain* (small) instead of copying the whole residual
 telescope per argument.  A raw `bvar` body (whose substitution could
 expose further `∀`-binders — the fold semantics) substitutes the
-accumulator and re-enters. -/
-def iotaCertsIAux (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+accumulator and re-enters.
+
+`lic` is the ι-slot licence (the spec's docstring): at a licensed walk
+a `.never` binder's slot is skipped outright — no domain instantiation,
+no inference, no defeq — and the binder's argument joins the
+accumulator as if certified.  The datum read is the level-instantiated
+one (the telescope was instantiated at the recursor's levels by
+`constTyAtM`), which is where `Nat.rec.{u}`'s `.ifAllZero [u]` major
+binder becomes `.never` at `u := succ _`. -/
+def iotaCertsIAux (r : CoreFnsI) (fe : FEnv) (depth : Nat) (lic : Bool) :
     ExprC → List ExprC → List ExprC → CheckCM Bool
   | _, _, [] => pure true
   | ty, acc, arg :: rest => do
     match ← viewI ty with
-    | some (.forallE _ dom body _) => do
-      let dom' ← instListM dom acc
-      let ta ← r.inferIO depth arg
-      if ← r.defeq depth ta dom' then
-        iotaCertsIAux r fe depth body (arg :: acc) rest
-      else pure false
+    | some (.forallE _ dom body mb) =>
+      if lic && mb.pw.isNever then
+        iotaCertsIAux r fe depth lic body (arg :: acc) rest
+      else do
+        let dom' ← instListM dom acc
+        let ta ← r.inferIO depth arg
+        if ← r.defeq depth ta dom' then
+          iotaCertsIAux r fe depth lic body (arg :: acc) rest
+        else pure false
     | some (.bvar _) =>
       match acc with
       | [] => pure false
       | _ :: _ => do
         let ty' ← instListM ty acc
-        iotaCertsIAux r fe depth ty' [] (arg :: rest)
+        iotaCertsIAux r fe depth lic ty' [] (arg :: rest)
     | _ => pure false
 termination_by _ acc args => (args.length, acc.length)
 decreasing_by
+  · apply Prod.Lex.left; simp
   · apply Prod.Lex.left; simp
   · apply Prod.Lex.right' <;> simp
 
 /-- Twin of `iotaCerts` (certify a spine against a recursor telescope);
 the bulk-instantiating accumulator loop at the empty accumulator. -/
-def iotaCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+def iotaCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (lic : Bool)
     (ty : ExprC) (args : List ExprC) : CheckCM Bool :=
-  iotaCertsIAux r fe depth ty [] args
+  iotaCertsIAux r fe depth lic ty [] args
 
 /-- Twin of `defEqList`. -/
 def defEqListI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
@@ -205,6 +217,18 @@ def defEqListI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       defEqListI r fe depth as bs
     else pure false
   | _, _ => pure false
+
+/-- Twin of `iotaIndexOk` (the canonical-index comparison, only where
+the recursor has indices). -/
+def iotaIndexOkI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (mI rP cnP : Nat)
+    (tyCtor : ExprC) (margs idx : List ExprC) : CheckCM Bool :=
+  if mI = rP then pure true
+  else do
+    match ← piResidualM tyCtor margs with
+    | some residual => do
+      let resArgs ← withStore (·.getAppArgsI residual)
+      defEqListI r fe depth (resArgs.drop cnP) idx
+    | none => pure false
 
 /-- Twin of `defeqSpine`. -/
 def defeqSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
@@ -374,7 +398,7 @@ def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           (cvp.type.stripPis (targs.length + 1)).isSome = true then do
         let pf ← projFnIdxM TI i
         let pty ← constTyAtM fe pf (projFnName T i) us'
-        if ← iotaCertsI r fe depth pty (targs ++ [b]) then
+        if ← iotaCertsI r fe depth false pty (targs ++ [b]) then
           structEtaProjCertsI r fe depth TI T us' targs b lpsT rest
         else pure false
       else pure false
@@ -384,7 +408,7 @@ def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           (entry.ty.stripPis (targs.length + 1)).isSome = true then do
         let pf ← projFnIdxM TI i
         let pty ← constTyAtM fe pf (projFnName T i) us'
-        if ← iotaCertsI r fe depth pty (targs ++ [b]) then
+        if ← iotaCertsI r fe depth false pty (targs ++ [b]) then
           structEtaProjCertsI r fe depth TI T us' targs b lpsT rest
         else pure false
       else pure false
@@ -418,7 +442,7 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               if ← liftFueled "level comparison"
                   (← isEquivListLM us us') then do
                 let tyT ← constTyAtM fe T Tn us'
-                if ← iotaCertsI r fe depth tyT targs then do
+                if ← iotaCertsI r fe depth false tyT targs then do
                   if ← structEtaProjCertsI r fe depth T Tn us'
                       targs b cvT.levelParams (List.range cnF) then do
                     if ← defEqListI r fe depth (aargs.take cnP) targs then do
@@ -434,7 +458,7 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       -- `mode.ttChecks`.
                       if ← (if mode.ttChecks then do
                           let tyCtor ← constTyAtM fe c cn us
-                          iotaCertsI r fe depth tyCtor (targs ++ projs)
+                          iotaCertsI r fe depth false tyCtor (targs ++ projs)
                         else pure true) then
                         defEqListI r fe depth (aargs.drop cnP) projs
                       else pure false
@@ -476,7 +500,7 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
         let wtb ← r.whnf depth tb
         if ← r.defeq depth wta wtb then do
           let tyT ← constTyAtM fe T Tn us'
-          iotaCertsI r fe depth tyT targs
+          iotaCertsI r fe depth false tyT targs
         else pure false
       else pure false
     | _ => pure false
@@ -546,7 +570,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     -- telescope certificate, relocated here from the
                     -- fire path
                     let tyCtor ← constTyAtM fe ctorI rl.ctor ust
-                    if ← iotaCertsI r fe depth tyCtor
+                    if ← iotaCertsI r fe depth false tyCtor
                         (margs.take cnP) then do
                       -- official `to_cnstr_when_K` fabrication type
                       -- check (load-bearing with the major-slot
@@ -593,7 +617,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     -- synthetic-spine certification, as in the K
                     -- branch (task #71)
                     let tyCtor ← constTyAtM fe ctorI rl.ctor ust
-                    if ← iotaCertsI r fe depth tyCtor
+                    if ← iotaCertsI r fe depth false tyCtor
                         (margs ++ projs) then do
                       if ← structEtaCertWithI mode r fe depth fab major
                           tmaj then
@@ -677,10 +701,9 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                if rl.fire = .inert then
                  throw (.notImplemented
                    "iota reduction over a nested auxiliary recursor rule")
-               else
-               if (cv.type.stripPis (mI + 1)).isSome ∧
-                  (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome
-                  then do
+               else do
+                -- (the ι batch: the two `stripPis` pins are gone — see
+                -- the spec's `iotaRec`)
                 -- the comparands (canonical: recursor's levels/args;
                 -- nested: the stored major-domain instantiations)
                 let cmpLvls : List Level ←
@@ -699,34 +722,25 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                  if ← defEqListI r fe depth (margs.take rl.ctorParams)
                     cmpArgs then do
                   let tyRec ← constTyAtM fe c cn us
-                  if ← iotaCertsI r fe depth tyRec
+                  -- the two telescope runs, licensed (`iotaCertsIAux`)
+                  if ← iotaCertsI r fe depth mode.betaGate tyRec
                      (args.take mI ++ [major]) then do
                    let tyCtor ← constTyAtM fe cj cjn usj
-                   if ← iotaCertsI r fe depth tyCtor margs then do
-                    match ← withStore (fun st =>
-                          st.stripPisBodyI (rl.ctorParams + rl.nfields)
-                            tyCtor),
-                        ← piResidualM tyCtor margs with
-                    | some cbody, some residual =>
-                      match ← withStore (fun st =>
-                          st.getNode (st.getAppFnI cbody)) with
-                      | some (.const _ _) => do
-                        let resArgs ← withStore (·.getAppArgsI residual)
-                        if ← defEqListI r fe depth
-                            (resArgs.drop rl.ctorParams)
-                            ((args.take mI).drop rP) then do
-                          let rhs ← ruleRhsAtM fe c cj cn cjn us
-                          let red ← mkAppNM rhs
-                            (args.take rP ++ margs.drop rl.ctorParams)
-                          pure (some red)
-                        else pure none
-                      | _ => pure none
-                    | _, _ => pure none
+                   if ← iotaCertsI r fe depth mode.betaGate tyCtor margs
+                       then do
+                    -- the canonical-index comparison, only where
+                    -- indices exist (the spec's `iotaRec`)
+                    if ← iotaIndexOkI r fe depth mI rP rl.ctorParams tyCtor
+                        margs ((args.take mI).drop rP) then do
+                      let rhs ← ruleRhsAtM fe c cj cn cjn us
+                      let red ← mkAppNM rhs
+                        (args.take rP ++ margs.drop rl.ctorParams)
+                      pure (some red)
+                    else pure none
                    else pure none
                   else pure none
                  else pure none
                 else pure none
-               else pure none
               else pure none
             | none => pure none
           | _ => pure none

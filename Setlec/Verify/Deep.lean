@@ -591,12 +591,12 @@ private theorem reduceNatIf_some {g : Bool} {x : CheckM (Option Expr)}
   · exact h
 
 private theorem iotaCerts_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) :
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (lic : Bool) :
     ∀ {args : List Expr} {ty : Expr}, WScoped d ty →
       (∀ x ∈ args, WScoped d x) →
-      iotaCerts (pureFns mode env fuel) env (d + 1) (shiftFrom p ty)
+      iotaCerts (pureFns mode env fuel) env (d + 1) lic (shiftFrom p ty)
           (args.map (shiftFrom p)) =
-        iotaCerts (pureFns mode env fuel) env d ty args := by
+        iotaCerts (pureFns mode env fuel) env d lic ty args := by
   intro args
   induction args with
   | nil => intro ty _ _; rfl
@@ -609,22 +609,38 @@ private theorem iotaCerts_shift (henv : EnvWF env)
     | .forallE n ty' body mb =>
       have hwty' : WScoped d ty' ∧ WScoped d body := by
         simpa only [WScoped] using hwty
-      show ((do
+      show (if lic && mb.pw.isNever then
+          iotaCerts (pureFns mode env fuel) env (d + 1) lic
+            ((shiftFrom p body).instantiate1 (shiftFrom p arg))
+            (rest.map (shiftFrom p))
+        else (do
           let ta ← (pureFns mode env fuel).inferIO (d + 1) (shiftFrom p arg)
           if ← (pureFns mode env fuel).defeq (d + 1) ta (shiftFrom p ty') then
-            iotaCerts (pureFns mode env fuel) env (d + 1)
+            iotaCerts (pureFns mode env fuel) env (d + 1) lic
               ((shiftFrom p body).instantiate1 (shiftFrom p arg))
               (rest.map (shiftFrom p))
-          else pure false : CheckM Bool)) = _
-      refine bind_congr _ (ih.inferIO hpd hwarg) ?_
-      intro ta hta
-      refine bind_congr_eq
-        (ih.defeq hpd (inferTypeIO_WScoped henv fuel hta hwarg)
-          hwty'.1) ?_
-      intro bb _
-      refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-      have h := ihrest (WScoped.instantiate1_gen hwarg 0 hwty'.2) hwrest
-      rwa [shiftFrom_instantiate1_gen] at h
+          else pure false : CheckM Bool)) =
+        (if lic && mb.pw.isNever then
+          iotaCerts (pureFns mode env fuel) env d lic (body.instantiate1 arg) rest
+        else (do
+          let ta ← (pureFns mode env fuel).inferIO d arg
+          if ← (pureFns mode env fuel).defeq d ta ty' then
+            iotaCerts (pureFns mode env fuel) env d lic (body.instantiate1 arg) rest
+          else pure false : CheckM Bool))
+      have hrest := ihrest (WScoped.instantiate1_gen hwarg 0 hwty'.2) hwrest
+      rw [shiftFrom_instantiate1_gen] at hrest
+      by_cases hg : (lic && mb.pw.isNever) = true
+      · rw [if_pos hg, if_pos hg]
+        exact hrest
+      · rw [if_neg hg, if_neg hg]
+        refine bind_congr _ (ih.inferIO hpd hwarg) ?_
+        intro ta hta
+        refine bind_congr_eq
+          (ih.defeq hpd (inferTypeIO_WScoped henv fuel hta hwarg)
+            hwty'.1) ?_
+        intro bb _
+        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
+        exact hrest
     | .bvar i => rfl
     | .fvar idx n' ty'' => rw [shiftFrom_fvar]; rfl
     | .sort u => rfl
@@ -874,7 +890,7 @@ private theorem structEtaProjCerts_shift (henv : EnvWF env)
         have htel : (entry.ty.instantiateLevelParams entry.levelParams
             us').hasFvar = false :=
           projEntry_ty_hasFvar henv (by unfold Env.findProj?; rw [hf]) us'
-        have h := iotaCerts_shift henv ih hpd
+        have h := iotaCerts_shift henv ih hpd false
           (ty := entry.ty.instantiateLevelParams entry.levelParams us')
           (WScoped.of_not_hasFvar htel) (args := targs ++ [b]) (fun x hx => by
             rcases List.mem_append.mp hx with hx | hx
@@ -893,7 +909,7 @@ private theorem structEtaProjCerts_shift (henv : EnvWF env)
           us').hasFvar = false := by
         rw [hasFvar_instantiateLevelParams]
         exact (henv _ (find?_mem hf)).1
-      have h := iotaCerts_shift henv ih hpd
+      have h := iotaCerts_shift henv ih hpd false
         (ty := cvp.type.instantiateLevelParams cvp.levelParams us')
         (WScoped.of_not_hasFvar htel) (args := targs ++ [b]) (fun x hx => by
           rcases List.mem_append.mp hx with hx | hx
@@ -943,7 +959,7 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
           us').hasFvar = false := by
         rw [hasFvar_instantiateLevelParams]
         exact (henv _ (find?_mem hfT)).1
-      have h1 := iotaCerts_shift henv ih hpd
+      have h1 := iotaCerts_shift henv ih hpd false
         (ty := cvT.type.instantiateLevelParams cvT.levelParams us')
         (WScoped.of_not_hasFvar htel)
         (args := wtb.getAppArgs) (fun x hx => hwwtb.getAppArgs x hx)
@@ -984,7 +1000,7 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
           us).hasFvar = false := by
         rw [hasFvar_instantiateLevelParams]
         exact (henv _ (find?_mem hfc)).1
-      have h4 := iotaCerts_shift henv ih hpd
+      have h4 := iotaCerts_shift henv ih hpd false
         (ty := cvc.type.instantiateLevelParams cvc.levelParams us)
         (WScoped.of_not_hasFvar htelc)
         (args := wtb.getAppArgs ++ etaProjs env T us' wtb.getAppArgs b cnF)
@@ -1058,7 +1074,7 @@ private theorem structUnitCert_shift (henv : EnvWF env)
       (ih.defeq hpd hwwta (whnf_WScoped henv fuel hwtb' hwtb)) ?_
     intro bb _
     refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-    have h := iotaCerts_shift henv ih hpd
+    have h := iotaCerts_shift henv ih hpd false
       (ty := cvT.type.instantiateLevelParams cvT.levelParams us')
       (WScoped.of_not_hasFvar (by
         rw [hasFvar_instantiateLevelParams]
@@ -1214,7 +1230,7 @@ private theorem majorToCtor_shift (henv : EnvWF env)
                 ust).hasFvar = false := by
               rw [hasFvar_instantiateLevelParams]
               exact (henv _ (find?_mem hfr)).1
-            have hcert := iotaCerts_shift henv ih hpd
+            have hcert := iotaCerts_shift henv ih hpd false
               (ty := cvj.type.instantiateLevelParams cvj.levelParams ust)
               (WScoped.of_not_hasFvar htelC)
               (args := tmaj.getAppArgs.take cnP)
@@ -1291,7 +1307,7 @@ private theorem majorToCtor_shift (henv : EnvWF env)
                 ust).hasFvar = false := by
               rw [hasFvar_instantiateLevelParams]
               exact (henv _ (find?_mem hfr)).1
-            have hcert := iotaCerts_shift henv ih hpd
+            have hcert := iotaCerts_shift henv ih hpd false
               (ty := cvj.type.instantiateLevelParams cvj.levelParams ust)
               (WScoped.of_not_hasFvar htelC)
               (args := etaFabArgsE env T ust tmaj.getAppArgs major
@@ -1325,10 +1341,10 @@ theorem iotaRec_WScoped (henv : EnvWF env)
     (h : iotaRec mode (pureFns mode env fuel) env d e = .ok (some e''))
     (hw : WScoped d e) : WScoped d e'' := by
   obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
-    cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, -, hmaj, hlit, hsub,
+    cvj, cnP, cnF, r, hfn, hfc, hlen, -, hmaj, hlit, hsub,
     hmfn, hfj,
     hrule,
-    hml, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
+    hml, -, hlev, hpeq, hcerts, hmcerts, -, rfl⟩ :=
     iotaRec_inv h
   have hargs : ∀ x, x ∈ e.getAppArgs → WScoped d x :=
     fun x hx => hw.getAppArgs x hx
@@ -1450,6 +1466,33 @@ private theorem projLitToCtor_shift (_henv : EnvWF env)
   | .letE n ty v body, _ => rfl
   | .proj sn i pe, _ => rfl
 
+private theorem iotaIndexOk_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d)
+    {mI rP cnP : Nat} {tyCtor : Expr} (htel : tyCtor.hasFvar = false)
+    {margs idx : List Expr} (hwm : ∀ x ∈ margs, WScoped d x)
+    (hwi : ∀ x ∈ idx, WScoped d x) :
+    iotaIndexOk (pureFns mode env fuel) env (d + 1) mI rP cnP tyCtor
+        (margs.map (shiftFrom p)) (idx.map (shiftFrom p)) =
+      iotaIndexOk (pureFns mode env fuel) env d mI rP cnP tyCtor margs idx := by
+  by_cases hmr : mI = rP
+  · simp only [iotaIndexOk, if_pos hmr]
+  · simp only [iotaIndexOk, if_neg hmr]
+    have hres := piResidual_shiftFrom (p := p) margs tyCtor
+    rw [shiftFrom_eq_self_of_not_hasFvar htel] at hres
+    rw [hres]
+    cases hresid : piResidual tyCtor margs with
+    | none => rfl
+    | some residual =>
+      simp only [Option.map_some]
+      have hwres : WScoped d residual :=
+        piResidual_WScoped hresid (WScoped.of_not_hasFvar htel) hwm
+      have h4 := defEqList_shift henv ih hpd
+        (as := residual.getAppArgs.drop cnP) (bs := idx)
+        (fun x hx => hwres.getAppArgs x (List.mem_of_mem_drop hx)) hwi
+      simp only [List.map_drop] at h4
+      rw [← getAppArgs_shiftFrom] at h4
+      exact h4
+
 private theorem iotaRec_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
     (hwe : WScoped d e) :
@@ -1507,7 +1550,6 @@ private theorem iotaRec_shift (henv : EnvWF env)
         simp only [getAppArgs_shiftFrom, List.length_map]
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
         refine ite_rel _ (fun _ => rfl) (fun _ => ?_)
-        refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
         -- the level comparand does not read the argument spine
         refine bind_rel_eq _
           (by rw [recFireComparands_fst_congr rl cv.levelParams us
@@ -1542,7 +1584,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
             us).hasFvar = false := by
           rw [hasFvar_instantiateLevelParams]
           exact (henv _ (find?_mem hfc)).1
-        have h2 := iotaCerts_shift henv ih hpd
+        have h2 := iotaCerts_shift henv ih hpd mode.betaGate
           (ty := cv.type.instantiateLevelParams cv.levelParams us)
           (WScoped.of_not_hasFvar htel₁)
           (args := e.getAppArgs.take mI ++ [major])
@@ -1559,7 +1601,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
             usj).hasFvar = false := by
           rw [hasFvar_instantiateLevelParams]
           exact (henv _ (find?_mem hfj)).1
-        have h3 := iotaCerts_shift henv ih hpd
+        have h3 := iotaCerts_shift henv ih hpd mode.betaGate
           (ty := cvj.type.instantiateLevelParams cvj.levelParams usj)
           (WScoped.of_not_hasFvar htel₂)
           (args := major.getAppArgs)
@@ -1568,59 +1610,38 @@ private theorem iotaRec_shift (henv : EnvWF env)
         refine bind_rel_eq _ h3 ?_
         intro b₃ _
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-        -- index-tuple check: closed telescope peeled along shifted spines
-        have hres := piResidual_shiftFrom (p := p) major.getAppArgs
-          (cvj.type.instantiateLevelParams cvj.levelParams usj)
-        rw [shiftFrom_eq_self_of_not_hasFvar htel₂] at hres
-        rw [hres]
-        cases hstrip : (cvj.type.instantiateLevelParams cvj.levelParams
-            usj).stripPis (rl.ctorParams + rl.nfields) with
-        | none =>
-          cases hresid : piResidual (cvj.type.instantiateLevelParams
-              cvj.levelParams usj) major.getAppArgs <;> rfl
-        | some sb =>
-          obtain ⟨sbs, sbody⟩ := sb
-          cases hresid : piResidual (cvj.type.instantiateLevelParams
-              cvj.levelParams usj) major.getAppArgs with
-          | none => rfl
-          | some residual =>
-            simp only [Option.map_some]
-            cases hcb : sbody.getAppFn <;> try rfl
-            case const c₀ us₀ =>
-            have hwres : WScoped d residual :=
-              piResidual_WScoped hresid (WScoped.of_not_hasFvar htel₂)
-                (fun x hx => hwmaj.getAppArgs x hx)
-            have h4 := defEqList_shift henv ih hpd
-              (as := residual.getAppArgs.drop rl.ctorParams)
-              (bs := (e.getAppArgs.take mI).drop rP)
-              (fun x hx => hwres.getAppArgs x (List.mem_of_mem_drop hx))
-              (fun x hx => hwe.getAppArgs x
-                (List.mem_of_mem_take (List.mem_of_mem_drop hx)))
-            simp only [List.map_drop, List.map_take] at h4
-            rw [← getAppArgs_shiftFrom] at h4
-            refine bind_rel_eq _ h4 ?_
-            intro b₄ _
-            refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-            have hrhs : (rl.rhs.instantiateLevelParams cv.levelParams
-                us).hasFvar = false := by
-              obtain ⟨-, -, -, -, -, hrules, -⟩ := henv _ (find?_mem hfc)
-              obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules rfl rl
-                (List.mem_of_find?_eq_some hrule)
-              rw [hasFvar_instantiateLevelParams]
-              exact hrf
-            have hout : Expr.mkAppN
-                (rl.rhs.instantiateLevelParams cv.levelParams us)
-                ((List.map (shiftFrom p) e.getAppArgs).take rP ++
-                  (List.map (shiftFrom p) major.getAppArgs).drop rl.ctorParams) =
-                shiftFrom p (Expr.mkAppN
-                  (rl.rhs.instantiateLevelParams cv.levelParams us)
-                  (e.getAppArgs.take rP ++
-                    major.getAppArgs.drop rl.ctorParams)) := by
-              rw [shiftFrom_mkAppN,
-                shiftFrom_eq_self_of_not_hasFvar hrhs, List.map_append,
-                List.map_take, List.map_drop]
-            rw [hout]
-            rfl
+        -- the index comparison (only where indices exist): the closed
+        -- telescope peeled along the shifted spines
+        have hidx := iotaIndexOk_shift henv ih hpd htel₂
+          (mI := mI) (rP := rP) (cnP := rl.ctorParams)
+          (margs := major.getAppArgs) (idx := (e.getAppArgs.take mI).drop rP)
+          (fun x hx => hwmaj.getAppArgs x hx)
+          (fun x hx => hwe.getAppArgs x
+            (List.mem_of_mem_take (List.mem_of_mem_drop hx)))
+        simp only [List.map_drop, List.map_take] at hidx
+        refine bind_rel_eq _ hidx ?_
+        intro b₄ _
+        refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+        have hrhs : (rl.rhs.instantiateLevelParams cv.levelParams
+            us).hasFvar = false := by
+          obtain ⟨-, -, -, -, -, hrules, -⟩ := henv _ (find?_mem hfc)
+          obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules rfl rl
+            (List.mem_of_find?_eq_some hrule)
+          rw [hasFvar_instantiateLevelParams]
+          exact hrf
+        have hout : Expr.mkAppN
+            (rl.rhs.instantiateLevelParams cv.levelParams us)
+            ((List.map (shiftFrom p) e.getAppArgs).take rP ++
+              (List.map (shiftFrom p) major.getAppArgs).drop rl.ctorParams) =
+            shiftFrom p (Expr.mkAppN
+              (rl.rhs.instantiateLevelParams cv.levelParams us)
+              (e.getAppArgs.take rP ++
+                major.getAppArgs.drop rl.ctorParams)) := by
+          rw [shiftFrom_mkAppN,
+            shiftFrom_eq_self_of_not_hasFvar hrhs, List.map_append,
+            List.map_take, List.map_drop]
+        rw [hout]
+        rfl
 
 private theorem isPropType_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {ty : Expr}
