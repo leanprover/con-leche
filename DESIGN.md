@@ -38289,3 +38289,231 @@ first hour):
   post-flip — same pin-kill discipline as W2c);
 * pre-flip the new branches are dead (no tower entries), so W3 lands
   behavior-neutral exactly like W2b/W2c.
+
+## THE SetR TIER, REMOVED — STAGE A (2026-09-05, `agent/setr-removal`;
+the user's ruling *"do remove the SetR tier, for more focus"*)
+
+### 0. WHAT LANDED
+
+The collapsed-model consistency proof is gone: **113 modules, 77 175
+lines** deleted outright, 120 files changed, **166 insertions against
+77 556 deletions**.  Stage A is a *proof-tier* deletion only — not one
+byte of the implementation changed, and the binary's behaviour is
+byte-identical on all 225 battery fixtures.  The R **core** retires
+separately (Stage B, held for the wiring batch's W5).
+
+| | before (`a9399a80`) | after |
+|---|---|---|
+| capstone letters | 14 | **3** |
+| `tests/proofdeps.sh` rows | 96 (11 targets) | **88** (10 targets) |
+| layering census | base 246 / R 105 / P 120 / neutral 3 | **base 242 / P 120 / caps 2 / umbrella 1** |
+| lean libs | 5 (`SetlecBase`, `SetlecR`, `SetlecP`, `SetlecCaps`, tests) | **4** |
+| delete-set CPU | 194.6 s of 841.1 s (**23.1 %**) | — |
+| clean-build critical path | 217.6 s (observed wall 220.8 s) | **unchanged — the chain is P-lane, end to end** |
+
+### 1. THE NAME-LEVEL CENSUS, FIRST (the interned batch's rule, applied)
+
+The rule from the interned removal — *"before executing a deletion,
+verify that the delete set has no surviving consumer, at the level of
+names, not imports"* — is what this batch ran before touching a file,
+and this time it came back **almost empty**, which is itself the
+finding:
+
+* **`Setlec/SetR/*` has exactly TWO non-`SetR` importers in the whole
+  tree**: `Verify/Cached/MainC` (the two-lane capstone assembly) and
+  `tests/ProofDeps`.  109 modules, 74 864 lines, and two edges out.
+* **Zero `SetBase` modules are R-only.**  Every one of the 48
+  `Setlec/SetBase/*` modules has a live non-umbrella consumer in the P
+  lane or the base.  The re-basing campaign (task #161, S1–S8) had
+  already moved everything shared *out* of the R directory, so the
+  directory that was left really was the lane and nothing else.
+* **Four `Verify` modules were R-only** and go with it:
+  `LeavesPres` (291), `LevelPres` (930), `BridgeWFDecl` (892),
+  `DeclStores` (198) — 2 311 lines.  The last two are the interesting
+  pair: they are umbrella-imported by `Setlec.lean`, so an
+  import-graph reading calls them "base"; the name-level census shows
+  their only real consumers were `SetR/Main` (and, for
+  `BridgeWFDecl`, `DeclStores` itself).  `Verify/Cached/BridgeCS4`
+  appears to use four `BridgeWFDecl` names (`constWF_intro`,
+  `constWF_le`, `cvA_type_facts`, `checkIndRecs_wfimp`) — it does not:
+  those are its own **primed** twins (`constWF_intro'`, …) plus one
+  prose citation, and `grep -w` cannot tell a prime from a word
+  boundary.  Checked by hand, not by grep.
+
+**The ledger row this adds**, and it is the mirror image of the
+interned batch's:
+
+> *A separation campaign that reaches zero cross-edges has already paid
+> for the deletion of either side.*  The interned removal was a
+> re-statement wearing a deletion's charter because the representation
+> was load-bearing for the survivor; this one is a deletion in the
+> plainest sense, and the difference is entirely the S1–S8 work that
+> made the two trees disjoint.  **Disjointness is not only a trust
+> property; it is an option to delete, priced in advance.**
+
+`Verify/DeclStores` is worth naming twice.  The interned batch
+explicitly *saved* it — "a module that sits beside a tower is not part
+of it" — because `input_R` and the SPCD letters used it.  The SPCD
+letters that used it were the **R** ones; when they go, the module has
+one consumer left (`SetR/Main`) and dies with it.  The correction is
+not that the earlier reading was wrong: it is that *a module's lane can
+change without the module changing*, exactly as a capstone's subject
+can go stale without the letter changing.
+
+### 2. THE ELEVEN LETTERS, RETIRED WITH THEIR SUBJECTS
+
+| file | letters retired | subject that no longer exists |
+|---|---|---|
+| `SetR/Main.lean` | `no_proof_of_Empty_R`, `_input_R` | `EnvS` |
+| `SetR/Main2.lean` | `_R2`, `_input_R2`, `_R2M`, `_input_R2M`, `_R2M_of_installs`, `_R2M_of_installsR` | `EnvS2U`, `EnvS2UM` |
+| `Verify/Cached/MainC.lean` | `no_proof_of_Empty_SPCD_R`, `_SPCD_R2`, `_SPCD_R2M` | `EnvS`, `EnvS2U`, `EnvS2UM` |
+
+With them: the acceptance corollaries
+`checkDeclsSPCachedD_sound_{R,R2,R2M}` and the folds
+`foldSPC_{R,R2,R2M}` (`MainC` 327 → 177 lines).
+
+**Surviving THREE**, and every one is about the graded lane:
+`no_proof_of_Empty_P_of` and `no_proof_of_Empty_P` (`SetP/FoldP.lean`,
+the pure fueled checker the tower is stated about) and
+`no_proof_of_Empty_SPCD_P` (`Verify/Cached/MainC.lean`) — **the shipped
+driver**, `checkDeclsSPCachedD`.  `#print axioms` on all three, and on
+`checkDeclsSPCachedD_sound_P` and `foldSPC_PM`:
+`[propext, Classical.choice, Quot.sound]`, the three standard ones,
+unchanged.
+
+**A scheduling correction, recorded.**  The batch's charter put
+`MainC`'s `SPCD_{R,R2,R2M}` in Stage B (the *core* retirement).  They
+could not wait: their subjects are the `EnvS`/`EnvS2U`/`EnvS2UM`
+carriers, which are `Setlec/SetR/*` files, so they retire in the stage
+that deletes the carriers, not in the stage that deletes the core.
+Stage B's `MainC` work is therefore already done, and what remains
+there is the *implementation* surface (`cfgR`, the `*RC` cores,
+`--set-model=r`, `CheckMode.setModel(R)`) plus the tests' mode-flag
+expectations.
+
+### 3. THE PROOFDEPS GATE — ONE TARGET, NOT ELEVEN
+
+`Setlec.SetR.EnvS` is deleted, so its **eight rows** (one per root)
+retire with their subject: 96 → **88**, and the target list goes 11 →
+10.  *Nothing else moved*, and that is the measurement worth recording:
+
+> The other ten targets — `Red`, `Red.beta`, `Infer`, `Infer.app`,
+> `DefEq`, `DefEq.trans`, `checkDeclR_ofEnvRE`, `DeclR`, `declIndRR`,
+> `DeclIndR` — all live in `Setlec/SetBase/*` under the **unchanged
+> namespace `Setlec.SetR`**.  The shared relation tier the graded proof
+> must not touch was never in the deleted directory.  So the gate's
+> criterion survives the removal *intact* rather than being weakened by
+> it: the campaign's question ("does the graded consistency proof's
+> proof term mention the collapsed model?") is still measured, at the
+> same granularities, against the same ten names.
+
+The ratchet is respected: a row whose subject no longer exists is not a
+loosening, and the pin file says so at the block.
+
+### 4. THE LAYERING GATE, RE-CUT
+
+With one model lane there is no cross-lane edge to gate, so the P→R
+whitelist, the R→P clause, the `ROOTS_R` closure and the `neutral`
+class (a `Setlec/SetR/` module no R capstone reached) all retire with
+their subject.  What survives is the half that was never about the R/P
+split and was always the load-bearing one:
+
+* **base purity** — nothing under `Setlec/{Kernel,Verify,SetTheory,TT,
+  SetBase}/*` may import `Setlec/SetP/*`;
+* **implementation → theory** — the CLAUDE.md rule.
+
+`layering: base 242 / P 120 / caps 2 / umbrella 1 modules; 0
+base->lane edges, 0 impl->theory`.  S9's finding is what licenses the
+narrowing: an import gate measures where code *sits*, and only
+`tests/proofdeps.sh` certifies a proof-path property — that gate is
+untouched.
+
+### 5. THE B3c RESIDUE — 45 OF 51 CARRIERS DIE WITH THE TIER
+
+B3 flagged 51 mode-parameterized carrier declarations as the deferred
+**B3c** batch, sized at ~20× B3's own delivered rate and explicitly not
+attempted.  The removal collects the bill without paying it:
+
+| module | carriers | fate |
+|---|---|---|
+| `SetR/Interp2/Step2/Whnf` | 13 | **deleted** |
+| `SetR/Interp2/Step2/DefEqRun` | 11 | **deleted** |
+| `SetR/Annot/SortCoh/{LoopLock,Align,CoreLock,Discharge,SubstSim}` | 15 | **deleted** |
+| `SetR/Interp2/Capstone{,2C,2D,2E}` | 6 | **deleted** |
+| `SetBase/Bridge/{Main,WhnfCore}` | 4 | survive — still consumed generically, now by the P lane alone |
+| `Verify/{BetaGate,InferLemmas}` | 2 | survive — shared-base genericity, ruled STAY at B3 |
+
+**45 of 51 carriers, all 277 mode-parameterized predicate/structure
+definitions, and all 6 436 `μ` occurrences under `Setlec/SetR/` are
+gone.**  What is left of B3c is six carriers in three modules whose
+genericity B3 had already ruled correct on its own terms, so **B3c is
+closed, not deferred**: the escalation it flagged was a bill for
+instantiating a parameter in a tier that no longer exists.
+
+### 6. THE BUILD-TIME NUMBER, AND WHY IT IS NOT A WIN
+
+Measured on the baseline log (`_tmp/setr-baseline-build.log`, 521 jobs,
+220.8 s wall, warning-free): the delete set is **194.6 s of 841.1 s
+total module CPU — 23.1 %** — and **none of it is on the critical
+path**.  The chain that decides the wall is
+
+    IndOpenRevP → IndPinGradeP → IndBottomPlainP → IndBottomNestedP →
+    IotaRuleNestedP → SwapP → IndRecsP → ProjRenameP → ProjConsP →
+    ProjInstallP → DeclIndP → FoldP → MainC → Verify.Cached
+
+— **P-lane, end to end**, modelled at 217.6 s against an observed
+220.8 s (1.5 %).  Removing `Setlec/SetR/*` removes 0 s from it.  The
+honest statement is therefore *"−23 % of build CPU, ≈ 0 s of wall"*;
+the wall samples taken after the deletion (238 s, 260 s) differ from
+the baseline by more than any real effect, because two P-lane modules
+on the chain (`IndBottomNestedP` 29→37 s, `IndBottomPlainP` 12→16 s)
+moved that much between runs on their own.
+
+This is the interned batch's arithmetic run in the other direction and
+it deserves its own row:
+
+> *A deletion's build-time value is its intersection with the critical
+> path, not its size.*  The interned removal deleted 46 kline for
+> −34 s of wall because 33 s of it sat in series; this one deletes
+> 77 kline for ~0 s because none of it does.  Both numbers were
+> readable from per-module timings plus the import graph **before**
+> either batch ran, and the next candidate should be priced the same
+> way: the current chain is entirely `SetP/Ind*`, so that is where
+> build time is bought.
+
+### 7. RECEIPTS
+
+* `lake build` green and **warning-free** (521 → **407** jobs);
+  `lake test` silent;
+* `tests/arena.sh` full, **byte-identical to the baseline run** on
+  everything the binary does: arena tutorial **90/92**, e2e **73/73**,
+  annot **14/14**, retired flags **8/8**, mode flags **11/11**,
+  no-model sweep **138 arena + 73 e2e + 14 annot as expected (3
+  recorded divergences)**;
+* `tests/layering.sh`: base 242 / P 120 / caps 2 / umbrella 1, **0
+  base→lane, 0 impl→theory**;
+* `tests/proofdeps.sh`: **88 rows as pinned**, doors 0;
+* axiom audit (`_tmp/setr-audit/Audit.lean`): the three surviving
+  letters and the two P assembly theorems at exactly
+  `[propext, Classical.choice, Quot.sound]`;
+* no `sorry`, no new axiom, no statement left conditional.
+
+### 8. WHAT STAGE A DELIBERATELY DID NOT DO
+
+* **`Setlec/SetR/DESIGN.md` is KEPT** (18 524 lines), with a preamble
+  saying the tier is gone.  It is not an archive: six live
+  `Setlec/SetBase/*` modules — `Rel`, `Ok2`, `Syntax`, `Kit` among them
+  — cite it **by path** for the deviations from the official kernel
+  that their own statements encode, and its promoted practices (P1–P6)
+  were never R-specific.  Moving it would have edited docstrings inside
+  the concurrent wiring batch's file set for no gain; the path is
+  load-bearing prose.
+* **The R core is untouched.**  `cfgR`, the `*RC` named cores,
+  `--set-model=r`, `CheckMode`'s `setModel(R)` and the mode-flag test
+  cases all still work exactly as before — Stage A removes the R core's
+  *verification*, and the core's retirement is Stage B.  This is why
+  the whole runtime battery is byte-identical.
+* **`CLAUDE.md` still names `Setlec/SetR/*`** as the home of the
+  set-theoretic model and consistency.  It is now `Setlec/SetP/*` (with
+  the shared semantic tier in `Setlec/SetBase/*`); flagged for the
+  user, not edited by the agent.

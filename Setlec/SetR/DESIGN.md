@@ -1,3 +1,27 @@
+> **THE TIER THIS FILE DESCRIBES WAS REMOVED (2026-09-05).**  The user
+> ruled *"do remove the SetR tier, for more focus"*: the collapsed-model
+> consistency proof for the R core — `EnvS`, `Sound/*`, `Install/*`,
+> `Interp2/*`, `Annot/*`, `Bridge/*` and the `R`/`R2`/`R2M` capstones —
+> is gone, together with the R core itself.  The B4 measurement had
+> shown a **zero acceptance delta** between the two verified
+> configurations (225 fixtures plus init-full, byte-identical), so the
+> graded (P) lane's `no_proof_of_Empty_SPCD_P` covers the shipped path
+> alone.
+>
+> **The file is kept, and not as an archive.**  What the campaign built
+> that outlived it — the mode-indexed relation family `Red`/`Infer`/
+> `DefEq`, the declaration records `DeclR`/`DeclIndR`, the run bridges,
+> the annotated syntax and the membership kit — was re-based to
+> `Setlec/SetBase/*` by task #161 with its Lean namespaces unchanged
+> (`Setlec.SetR.…`), and those live modules cite this file **by path**
+> for the deviations from the official kernel that their statements
+> encode (`SetBase/{Rel,Ok2,Syntax,Kit}.lean`).  The path is therefore
+> load-bearing prose, not history; the promoted practices (P1–P6 below)
+> are house rules that were never R-specific.
+>
+> Read everything below in the past tense wherever it names a deleted
+> module, and in the present tense wherever it names a `SetBase` one.
+
 # Setlec/SetR — the mode-indexed algorithmic relation family (task #148)
 
 This is the campaign's §-file for the `Setlec/SetR/*` tier.  The
