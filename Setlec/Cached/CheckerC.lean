@@ -146,7 +146,7 @@ def installProjTemplateS (fe : FEnv) (T ctorName : Name) (lps : List Name)
         mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧ i < nF then
       pure (fe.push (.projInfo ⟨T, i, lps, nP, ctorName, nF, .sort .zero,
         .zero, .zero, false,
-        cvR.levelParams.length = lps.length + 1⟩))
+        cvR.levelParams.length = lps.length + 1, false⟩))
     else pure fe
   | _ => pure fe
 

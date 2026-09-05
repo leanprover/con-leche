@@ -240,6 +240,15 @@ structure ProjEntry where
   /-- the parent's recursor carries a motive-sort level parameter in
   front of the parent's own (template entries only) -/
   recExtraLevel : Bool
+  /-- **the entry-kind discriminator** (task #175 wiring): `true` for
+  a tower-backed entry installed by the direct-structure path (the
+  carrier is the unit-terminated pair tower, `.proj i` reads field
+  `i` via `projS i = sfst ∘ ssnd^i`, and inference walks the stored
+  `ty` generically); `false` for the pinned pair entries (bare
+  `sfst`/`ssnd`, the two-entry residual fast path) and for
+  elimination-template entries.  Defaults `false`, so the pinned
+  literals and `NativeProjPinned` are untouched pre-flip. -/
+  tower : Bool := false
   deriving DecidableEq, Repr, Inhabited
 
 /-- Information stored about an accepted constant. -/

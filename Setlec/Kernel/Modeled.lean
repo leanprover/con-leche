@@ -688,7 +688,7 @@ def installProjTemplate (env : Env) (T ctorName : Name) (lps : List Name)
         mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧ i < nF then
       pure ⟨.projInfo ⟨T, i, lps, nP, ctorName, nF, .sort .zero,
         .zero, .zero, false,
-        cvR.levelParams.length = lps.length + 1⟩ :: env.consts⟩
+        cvR.levelParams.length = lps.length + 1, false⟩ :: env.consts⟩
     else pure env
   | _ => pure env
 
