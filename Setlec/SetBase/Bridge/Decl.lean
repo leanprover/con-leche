@@ -2599,7 +2599,8 @@ theorem templatesR_of {T ctorName : Name} {lps : List Name}
                   i < nF
             · rw [if_pos hcond] at hstep
               simp only [pure, Except.pure, Except.ok.injEq] at hstep
-              exact Or.inr ⟨_, rfl, rfl, rfl, rfl, rfl, hfr, hstep.symm⟩
+              exact Or.inr ⟨_, rfl, rfl, rfl, rfl, rfl, rfl, hfr,
+                hstep.symm⟩
             · rw [if_neg hcond] at hstep
               simp only [pure, Except.pure, Except.ok.injEq] at hstep
               exact Or.inl hstep.symm

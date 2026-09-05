@@ -25,7 +25,7 @@ other half — the group's `EnvR` core, in three pieces:
   smaller** than the `EnvS` swap: no `RecCtorsStored`, no
   `SwapNResS`, no `RecRulesV` — an `EnvR` has no `rec_ctors`, no
   `basis_pinned` and no law field, so the transport is
-  `denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq` plus the two rule
+  `denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq` plus the two rule
   facts, taken as hypotheses exactly as `EnvS.swap` takes its law;
 * `indRecsCoreR` — `indRecsS`'s tail (`hwf₃`, the block invariant's
   survival, the three preservation facts), whose every ingredient is
@@ -124,7 +124,7 @@ def EnvR.swap {env₀ env₃ : Env} (m₀ : EnvR env₀)
   have hcg : SwapCongr env₀ env₃ := SwapShList.congr hsw
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote m₀.cval env₀ φ d e = denote m₀.cval env₃ φ d e :=
-    fun _ => denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq
+    fun _ => denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq
   have hdeC : ∀ (φ : Name → Nat) (e : Expr),
       denoteClosed m₀.cval env₀ φ e = denoteClosed m₀.cval env₃ φ e :=
     fun φ e => hde φ 0 e
@@ -167,8 +167,8 @@ def EnvR.swap {env₀ env₃ : Env} (m₀ : EnvR env₀)
       exact m₀.defn_eq cv value hint hc₀ ψ
     · exact nomatch heq
   · -- proj_ok: projection entries and their blocks are untouched
-    obtain ⟨hp1, hp2⟩ := m₀.proj_ok
-    refine ⟨?_, ?_⟩
+    obtain ⟨hp1, hp2, hp3⟩ := m₀.proj_ok
+    refine ⟨?_, ?_, ?_⟩
     · intro n entry hf hnat
       obtain ⟨he, hps, hpm⟩ :=
         hp1 n entry ((hsame n _
@@ -180,6 +180,9 @@ def EnvR.swap {env₀ env₃ : Env} (m₀ : EnvR env₀)
           (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hpm
     · intro i entry hf
       exact hp2 i entry ((hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+    · intro n entry hf
+      exact hp3 n entry ((hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
   · -- thm_ok: likewise a theorem is never a swap's right side
     intro cv value hmem ψ
@@ -322,8 +325,8 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
           exact nomatch hres
     exact hbpS n ci hf₀ hres
   · -- `ProjOkT`: projection entries are untouched
-    obtain ⟨hp1, hp2⟩ := hprojS
-    refine ⟨?_, ?_⟩
+    obtain ⟨hp1, hp2, hp3⟩ := hprojS
+    refine ⟨?_, ?_, ?_⟩
     · intro n entry hf hnat
       obtain ⟨he, hps, hpm⟩ :=
         hp1 n entry ((hsame n _
@@ -333,6 +336,9 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
         (hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hpm⟩
     · intro i entry hf
       exact hp2 i entry ((hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+    · intro n entry hf
+      exact hp3 n entry ((hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
 
 /-! ## The group phase, at the `EnvR` level -/
@@ -386,7 +392,7 @@ theorem indRecsCoreR {μ : CheckMode} {F : Nat}
   have hcg : SwapCongr envSelf env₃ := SwapShList.congr hswR
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote mS.cval envSelf φ d e = denote mS.cval env₃ φ d e :=
-    fun _ => denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq
+    fun _ => denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq
   -- the swapped environment's syntactic facts
   have hres₃ : ∀ e : Expr, e.constsResolve envSelf = true →
       e.constsResolve env₃ = true := by

@@ -146,7 +146,9 @@ theorem blockTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
     · rw [if_pos hb]; exact hIA n hb ci hfn ψ'
     · rw [if_neg hb]
   rw [← denoteP_erasedEq (Expr.ErasedEq.of_eqUpToNames hren) 0]
-  exact (denoteP_renameConsts_resolve hup hval ty 0 htr).symm
+  exact (denoteP_renameConsts_resolve hup hval
+    (fun sn i entry hf => mp.base2.proj_ok.towerFree sn i entry hf)
+    ty 0 htr).symm
 
 /-- The member cons's instance: `MemberValR` supplies both data. -/
 theorem memberTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
@@ -248,7 +250,9 @@ theorem memberUnitLawP : MemberUnitLawP V := by
   obtain ⟨ta, hta, hokta, -⟩ := memberKeyP mp hmv hIB hIA ψ
   refine ⟨ta, ?_, hokta, ?_⟩
   · rw [denotePInstLevels m₂ φ' cvA.levelParams us 0 cvA.type, ← hψ, hac]
-    exact denoteP_cons_fresh_mono hfresh0 ψ 0 cvA.type hcb hta
+    exact denoteP_cons_fresh_mono hfresh0
+      (fun _ h => by rw [hceq] at h; exact nomatch h)
+      ψ 0 cvA.type hcb hta
   intro ρ ts rest x y hlents hfit hmx hmy
   -- the family's leaf at the extension is the model's
   have hleaf : m₂.acval c₀.name ψ

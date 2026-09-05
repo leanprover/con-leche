@@ -79,11 +79,14 @@ every old-constant field. -/
 theorem denoteP_cons_fresh {acval : Name → (Name → Nat) → AVExpr}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hlga : LitGuardsAgree env ⟨c₀ :: env.consts⟩)
     (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound env e) :
     denoteP (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
       = denoteP acval env ψ d e := by
-  rw [← denoteP_envExtend (findPreserved_cons hfresh) hlga d e hcb,
+  rw [← denoteP_envExtend (findPreserved_cons hfresh) hlga
+      (Setlec.TTVerify.findProj?_cons_of_base_none hfresh hntc)
+      d e hcb,
     denoteP_acvalWith_fresh hfresh d e]
 
 /-- **The fresh-cons forward transfer** (the monotone form; the
@@ -95,12 +98,14 @@ prefix-supported literals. -/
 theorem denoteP_cons_fresh_mono {acval : Name → (Name → Nat) → AVExpr}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound env e)
     {ea : AVExpr} (h : denoteP acval env ψ d e = some ea) :
     denoteP (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
       = some ea :=
   denoteP_envExtend_mono (findPreserved_cons hfresh)
-    (litGuardsMono_cons hfresh) d e hcb
+    (litGuardsMono_cons hfresh)
+    (Setlec.TTVerify.findProj?_cons_of_base_none hfresh hntc) d e hcb
     (by rw [denoteP_acvalWith_fresh hfresh]; exact h)
 
 /-! ## The core at a fresh cons, model-free (task #161 S7, Wall C)
@@ -116,10 +121,11 @@ all model-free — which is what lets `EnvS2PM.base` go.
 spelling: the `Installs` context the three env-facts share. -/
 theorem installsE {acval : Name → (Name → Nat) → AVExpr}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
-    (hfresh : env.find? c₀.name = none) :
+    (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false) :
     Installs env (fun n ψ => (acval n ψ).erase)
       (fun n ψ => (acvalWith acval c₀.name A n ψ).erase) c₀ :=
-  Installs.of_fresh hfresh (fun n hn =>
+  Installs.of_fresh hfresh hntc (fun n hn =>
     funext fun ψ => by rw [acvalWith_ne hn])
 
 /-- **The head obligations of a fresh cons** (task #161 S7, Wall C
@@ -149,6 +155,9 @@ structure ConsHeadP (env : Env) (c₀ : ConstantInfo)
   projPair : ∀ (i : Nat) entry, c₀ = .projInfo entry →
     c₀.name = Setlec.projFnName Setlec.psigmaName i →
     entry.native = true
+  /-- a head entry is tower-free (task #175 wiring W3; weakens to the
+  coverage disjunction at the flip) -/
+  projTower : ∀ entry, c₀ = .projInfo entry → entry.tower = false
   /-- a head recursor's rules' constructors are stored
   (`RecCtorsStored`'s head) -/
   ctorsHead : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
@@ -174,7 +183,8 @@ theorem ConsHeadP.ofBasis {c₀ : ConstantInfo}
     ConsHeadP env c₀ A :=
   ⟨hwf, hvclosed, fun _ => ⟨hpinned, hleaf⟩,
     fun entry heq => absurd heq (hnotproj entry),
-    fun _ entry heq => absurd heq (hnotproj entry), hctors⟩
+    fun _ entry heq => absurd heq (hnotproj entry),
+    fun entry heq => absurd heq (hnotproj entry), hctors⟩
 
 /-- **The head obligations of an ordinary (non-reserved) cons**: the
 pin clause is vacuous. -/
@@ -190,6 +200,7 @@ theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
     (hprojPair : ∀ (i : Nat) entry, c₀ = .projInfo entry →
       c₀.name = Setlec.projFnName Setlec.psigmaName i →
       entry.native = true)
+    (hprojTower : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (Setlec.RecRule.ctor r)
@@ -197,7 +208,7 @@ theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
     ConsHeadP env c₀ A :=
   ⟨hwf, hvclosed,
     fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),
-    hprojHead, hprojPair, hctors⟩
+    hprojHead, hprojPair, hprojTower, hctors⟩
 
 /-- **The de-based core at a fresh cons** — `coreOfBase`'s successor
 (task #161 S7).  Every field is the prefix's own, stepped by the
@@ -224,13 +235,14 @@ def coreCons (m : EnvS2Core V env) {c₀ : ConstantInfo}
         acvalWith_ne hn]
       exact m.cval_closedL n ψ
   basis_pinnedL :=
-    BasisPinnedTT.cons m.basis_pinnedL (installsE hfresh)
+    BasisPinnedTT.cons m.basis_pinnedL (installsE hfresh hh.projTower)
       (fun hres => ⟨(hh.pin hres).1, fun ψ t hp => by
         show (acvalWith m.acval c₀.name A c₀.name ψ).erase = t
         rw [show acvalWith m.acval c₀.name A c₀.name = A from
           acvalWith_self]
         exact (hh.pin hres).2 ψ t hp⟩)
   proj_ok := ProjOkT.cons m.proj_ok hfresh hh.projHead hh.projPair
+    hh.projTower
   rec_ctors := Setlec.RecCtorsStored.cons m.rec_ctors hfresh hh.ctorsHead
   acval_closed := acvalWith_closed m.acval_closed hAclosed
   acval_params := acvalWith_params m.acval_params hAparams
@@ -296,7 +308,7 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
       ∀ {ea : AVExpr}, denoteP mp.base2.acval env ψ 0 e = some ea →
       denoteP (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 e = some ea :=
-    fun ψ e hcb {ea} h => denoteP_cons_fresh_mono hfresh ψ 0 e hcb h
+    fun ψ e hcb {ea} h => denoteP_cons_fresh_mono hfresh hh.projTower ψ 0 e hcb h
   -- the P fields, at the `acvalWith` spelling (defeq to the core's)
   have htr : ∀ c ∈ (⟨c₀ :: env.consts⟩ : Env).consts, ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,

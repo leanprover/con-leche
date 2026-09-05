@@ -38207,7 +38207,10 @@ accepted terms, so the branch is verdict-dead there).
 | W2a | `ProjEntry.tower` field | LANDED (zero proof changes) |
 | W2b | generator + `checkDirectProj` entry install + twins + bridge re-proofs | LANDED |
 | W2c | infer tower branch (4 twins) + clause-proof adaptation | LANDED |
-| W3 | `denoteP`/`denote` reading branch + erasure law | frozen (§1) + route notes below |
+| W3 | `denoteP`/`denote` reading branch + erasure law | LANDED (stop-finding resolved; see the W3 record below) |
+| W4a | syntactic leaf battery (item 1) | LANDED (`SetBase/TowerWire.lean`) |
+| W4b | `DeclDirectR` + dispatch + bridge inversion + flag-agnostic R/P decl bridges | LANDED (`SetBase/DeclDirect.lean`; see the W4 state record below) |
+| W4c | premise discharge (item 2) + WF-hypothesis discharge + cached sims | pending (frontier enumerated below) |
 | W4 | install soundness (checklist items 1–2) | pending |
 | W5 | rewrite removal (P/parity), flip, battery | pending |
 | W6 | PSigma' retirement (gated) | pending |
@@ -38290,6 +38293,176 @@ first hour):
 * pre-flip the new branches are dead (no tower entries), so W3 lands
   behavior-neutral exactly like W2b/W2c.
 
+**W3 STOP-FINDING (2026-09-05, the flag rule): the invariance ride
+the reading-level trick does not kill.**  The clause changes and the
+per-walk adaptations went through as priced — the parked WIP branch
+(`agent/wiring-w3-wip`, does not build) carries the three readings
+branched with clause lemmas, pair variants and three-way inversions,
+plus green-shaped fixes for EnvExt (with `SwapCongr.projEq`), Levels
+×2, Shift ×2 (`liftN_projNV`, `projNV_bvarsBelow`), Install ×3
+(`denote_mono`'s `hproj`, `denote_env_shrink`'s `hntc`, the
+`Installs.ntc` field, `findProj?_cons_of_base_none`,
+`EnvExtends.findProj?_mono`), Inst (`inst_projNV`),
+BitReads/BitShift/BitLemmas/Canon/ProjPins.  The wall is the
+**rename walks** (`Denote/Rename.lean`): `renameConsts` renames the
+`.proj` node's struct name, so the branched reading consults
+`findProj?` at BOTH the source and the image name, and the walk's
+invariance needs `towerAt env (f sn) i = towerAt env sn i` for all
+names — a fact the rename builders' local invariants
+(`ProjPhaseInvS`, `BlockInstalledTT`) cannot supply: nothing they
+carry says anything about entries at `projFnName`-composites of
+model-side names, and the pre-block environment is
+carrier-quantified.  The TRUE fact is global: pre-flip every stored
+entry has `tower = false` (`TowerFree`, a `NativeProjPinned` sibling
+provable by the same closed induction in `ProjPinInv`), post-flip the
+per-block coverage disjunction — and its consumers are the R/P
+**environment records**, i.e. a new carrier field threaded through
+every construction site.  That is the caveat-(i) "mechanical but
+broad ride" RELOCATED from the syntax layer to the invariance layer;
+the freeze's §1 claim ("the ride does not exist") is CORRECTED to
+"the substitution-metatheory ride does not exist; the
+environment-invariance ride does".
+
+**The W3 completion route, priced for the successor** (resume from
+the WIP branch):
+1. `TowerFree env` (`∀ e, .projInfo e ∈ consts → e.tower = false`) +
+   its checker-run preservation in `ProjPinInv` (the existing walk
+   skeleton; the direct arm by `directParts?_none`);
+2. the carrier field (`EnvR`/`EnvS`/`EnvS2Core` + the fuel/cached
+   twins' records as applicable) with per-site discharges — the
+   broad-but-mechanical part;
+3. `RenameOkT` gains the `towerAt`-agreement conjunct, discharged
+   from `TowerFree` (both sides `false`); the two builders
+   (`projFwd_renameOkT`, `BlockInstalledTT.renameOkT`) and their
+   callers thread it;
+4. the remaining wave (Sound/Proj, BitInst, BitExtend, DefEqP,
+   Bridge/Stuck, then AcceptedP's `i < 2`/`projPinsP` gates) —
+   pin-kill or TowerFree per site;
+5. at W5 the invariant weakens to the disjunction in the SAME commit
+   as `NativeProjPinned`'s.
+
+**W3 LANDED (2026-09-05, the completion route executed with one
+route amendment).**  The route's steps 1–2 were folded into ONE seam:
+instead of a new carrier field, `TowerFree` rides `ProjOkT` as a
+**third conjunct** (`∀ n entry, find? n = some (.projInfo entry) →
+entry.tower = false`) — `ProjOkT` is already a field of every
+consumer record (`EnvR`, `EnvS`, `EnvS2Core`, `EnvSHyp`,
+`Sound/Motives`), so the fact arrives everywhere with zero new
+threading; `ProjOkT.towerFree` packages the `findProj?`-level reading
+the walks consume.  Amendment judged faithful to the route's
+substance (the consumers ARE the environment records; the field
+already existed).  Discharges: the three `ConsHeadP` heads gain
+`projTower`; `Installs` gains the `ntc` field (the WIP's own freeze);
+`TemplatesR` gains `entry.tower = false` (bridge cost: one `rfl` —
+`installProjTemplate`'s literal); `EnvS.cons`/`extendBasisS`/
+`Installs.of_fresh` and their ~40 call sites discharge by kind
+(`noConfusion`/`nomatch`), by pin (`rfl` at the pair entries), or by
+`ConsHeadP.projTower`; the swap walks by `hsame`.  Step 3 as priced:
+`RenameOkT`/`RenameOkP` gain the tower-free fourth conjunct, the
+four builders (`projFwd_renameOkT/P`, `blockRenameOkT/P`,
+`BlockInstalledTT.renameOkT`) take it as a hypothesis discharged
+from `m.proj_ok.towerFree` at every caller; the `_resolve` variants
+take it as a separate premise.  Step 4's wave: `denote_env_ext` +
+`denoteP_env_ext`/`denoteP_swap` consume `SwapCongr.projEq`; the
+extension walks (`denote_mono`, `denoteP_envExtend`/`_mono`,
+`denote2_envExtend`) take the none→some hproj premise, discharged at
+cons sites by `findProj?_cons_of_base_none` off the head's `ntc`;
+`denote2` (`SetBase/Canon`) carries the same reading branch with
+`denote2_proj_pair` and the pin-killed inversion; the pin-kill sites
+(Sound/Proj, Bridge/{Proj,ProjRed,Stuck,EtaCerts}, DefEqP, ReadsP,
+ReadsIOP, ProjRowsP, CapsRowsP, AcceptedP, DefEqRun ×8) use
+`denote(P)_proj_pair`/`_inv_pair` off `proj_ok.towerFree`.
+Receipts: 521 jobs green and warning-free, `lake test` green,
+layering 0 edges, proofdeps 96 rows as pinned (doors 0), axioms on
+`no_proof_of_Empty_{R, P, SPCD_P}` exactly the standard three;
+behavior byte-identical (no kernel-side diffs in this stage; the new
+branches are dead pre-flip — no tower entries exist).  At W5 the
+`ProjOkT` third conjunct and `RenameOkT/P`'s fourth weaken to the
+per-block coverage disjunction in the SAME commit as
+`NativeProjPinned`'s.
+
+**W4 route freeze (2026-09-05, at the W4a seam).**  W4a (checklist
+item 1) is LANDED: `SetBase/TowerWire.lean` — the leaves' `hAclosed`
+rows via erasure bounds (`directTyAV/directMkAV/directRecAV_below`,
+`stripPisAV_below` as the frame source, `liftN_eq_self_of_closed` as
+the package); `hAparams` needs no leaf lemma (leaves are plain
+functions of their computed inputs).  The rest of W4, frozen:
+
+* **The relation** (`SetBase/Decl.lean`): `DeclDirectR μ F env cval p
+  env₂` records `checkDirectStruct`'s run — the three annotated
+  `ConstantVal`s with their `ConstantValR`-shape rows, the
+  `directShape` pin, the opened frames with the `checkDirectDomsAt`
+  rows as `isDefEqCore … = ok true` facts at their own frames
+  (`off + j`), the `checkDirectFieldUniv` rows as
+  `inferType`/`ensureSort` runs plus `Level.leq u resSort = true`,
+  the rule's stripped shape (`directRuleBody`) and λ-frame
+  `checkDefEqList` rows, and the install spine (T, C, the REAL
+  `T.rec` with its one rule, then the `nF` tower `projInfo` entries
+  behind the O4 branch).  `DeclR`'s `.indDecl` row becomes the
+  `directParts?`-guarded match (modeled arm byte-unchanged).
+* **The bridge inversion**: `checkDirectStruct` run → `DeclDirectR`,
+  per stage function, syntactic — `BridgeDecl`'s existing per-stage
+  style; the W1-frozen kernel deltas already shaped the stages for
+  it.
+* **The premise discharge** (item 2): the `DefEqClaims2P`/
+  `InferClaims2P` interface (`SetP/Claims2P.lean`) turns the recorded
+  runs into `interp2` equations — `checkDirectDomsAt` rows into the
+  O3 pins (`RecBase`'s three equations, C's parameter domains ≐ T's),
+  `checkDirectFieldUniv` rows into `FieldsGraded` (→
+  `fieldsBound_of_graded`, O5) — over the opened telescopes' contexts
+  (`CtxOkP` at the frame readings, peeled by `stripPisAV_eq_mkPis`).
+* **THE INTERLOCK FINDING** (recorded so W5 does not trip on it):
+  the install-step rows CANNOT land against the current invariants —
+  a direct install stores a `tower := true` entry, refuting
+  `ProjOkT`'s third conjunct and, through it, `RenameOkT/P`'s fourth.
+  The weakening is not a drop-in: post-flip the rename walks need
+  **`towerAt` agreement along the rename map** (`∀ sn i,
+  towerAt env (f sn) i = towerAt env sn i`), not global
+  tower-freeness — dischargeable at the builders because the maps
+  move only modeled block names and their `_model` composites, whose
+  `projFnName` slots are never tower entries (a direct former is
+  `directNoModel`, so it is never in a modeled `blockNames`).  So the
+  W5 opening seam is: weaken `ProjOkT`'s third conjunct and
+  `NativeProjPinned` to the coverage disjunction, restate
+  `RenameOkT/P`'s fourth conjunct as f-relative agreement, re-derive
+  the pin-kill sites (they hold per-entry facts and survive), THEN
+  flip.  The install rows (`declStepPM_of_cons` with the bespoke
+  `caps_ok`/`rec_rules` discharges; the tier's
+  `towerSet_elim_teleOfFields` for eta, `recBodyAV_fold_mk` for the
+  rule fold) land on top of the weakened invariant.
+
+**W4 state record (2026-09-05, session seal).**  Landed beyond the
+freeze: `DeclR`'s `.indDecl` row is the `directParts?` dispatch
+(`DeclIndDispatchR`; run level `DeclIndRunDispatchR`), the
+`checkDirectStruct` inversion `declDirectR_of` is proved, and the TWO
+decl bridges the capstones ride — `checkDeclR_ofEnvR` (R) and
+`checkDeclRun_ofEnvRE` (the P fold's whole route into the relation
+tier) — are **flag-agnostic**: they case on the kernel's own
+dispatch and hold as they stand at the flip.  Pre-flip the dispatch
+reduces by `declIndDispatchR_eq_ind`/`declIndRunDispatchR_eq_ind`,
+consumed at exactly: `declEtaStep` (DeclEta), `DeclR.toRun`
+(DeclRun), `declStepS` (Install/Step), `Main2` ×3, `foldPM`'s
+`declStepPM` (FoldP) — **these call sites are the flip's semantic
+frontier on the install side**: each needs the direct arm's real
+content when the eq lemmas die with the flag.
+
+**The full flip frontier, enumerated** (every proof site that reads
+the flag, from the probe + the grep — the W5 work order):
+1. the two eq lemmas' seven call sites above → R/P install soundness
+   for direct blocks (the freeze's claims-interface discharge + the
+   install rows on the weakened invariant);
+2. `BridgeWFDecl:889` (ind case) → flag-agnostic via the ALREADY
+   LANDED `checkDirectStruct_wfimp` (BridgeWfImp:3239) once its three
+   `EnvWF`-preservation hypotheses (`hwf₁..₃`, the intermediate
+   installs) are discharged from the stage inversions;
+3. `ProjPinInv:470` + its local `directParts?_none` → the invariant
+   weakening (the W5 opening seam per the freeze's interlock);
+4. `Cached/AgreeFloor:811,1095` (`directPartsF?_eq_none`) → the
+   plain-vs-indexed agreement for the direct path (the F twins landed
+   at W2b);
+5. `Cached/BridgeCSDecl:424` → the cached-sim for `checkDirectStruct`
+   (`CheckerC`'s direct twins landed at W2b);
+6. the three `*_none` lemma bodies themselves (deleted at the flip).
 ## THE SetR TIER, REMOVED — STAGE A (2026-09-05, `agent/setr-removal`;
 the user's ruling *"do remove the SetR tier, for more focus"*)
 

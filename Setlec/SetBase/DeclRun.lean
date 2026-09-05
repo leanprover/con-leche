@@ -293,7 +293,7 @@ so this is a genuine projection at all six kinds. -/
 theorem DeclR.toRun {μ : CheckMode} {F : Nat} {cval : TConstVal}
     {env : Env} {d : Declaration} {env₂ : Env}
     (h : DeclR μ F cval env d env₂) :
-    DeclRunR μ F (DeclIndR μ F env cval) env d env₂ := by
+    DeclRunR μ F (DeclIndDispatchR μ F env cval) env d env₂ := by
   cases d with
   | defnDecl cv value hint => exact DeclDefnR.toRun h
   | thmDecl cv value => exact DeclThmR.toRun h

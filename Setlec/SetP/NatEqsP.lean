@@ -916,6 +916,7 @@ theorem natOpsP_entry_cons (mp : EnvS2PM V μ env) {φ : Name → Nat}
     (hprev : NatOpsP mp.base2 φ)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     {c : Name} (hcN : c ∈ Setlec.natOpNames) (hne : c ≠ c₀.name)
@@ -953,9 +954,9 @@ theorem natOpsP_entry_cons (mp : EnvS2PM V μ env) {φ : Name → Nat}
   obtain ⟨L, R, hL, hR, hlaw⟩ := hlaws eq hq
   refine ⟨L, R, ?_, ?_, ?_⟩
   · rw [hac]
-    exact denoteP_cons_fresh_mono hfresh φ 2 eq.1 (hcb eq hq).1 hL
+    exact denoteP_cons_fresh_mono hfresh hntc φ 2 eq.1 (hcb eq hq).1 hL
   · rw [hac]
-    exact denoteP_cons_fresh_mono hfresh φ 2 eq.2 (hcb eq hq).2 hR
+    exact denoteP_cons_fresh_mono hfresh hntc φ 2 eq.2 (hcb eq hq).2 hR
   · intro ρ x y hx hy
     rw [hac, show acvalWith mp.base2.acval c₀.name A Setlec.natName
         = mp.base2.acval Setlec.natName from acvalWith_ne hnatne]
@@ -970,6 +971,7 @@ theorem natOpsP_cons_fresh (mp : EnvS2PM V μ env) {φ : Name → Nat}
     (hprev : NatOpsP mp.base2 φ)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
     (hnothead : (∀ cv v hint, c₀ ≠ .defnInfo cv v hint) ∨
       c₀.name ∉ Setlec.natOpNames)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
@@ -982,7 +984,7 @@ theorem natOpsP_cons_fresh (mp : EnvS2PM V μ env) {φ : Name → Nat}
     rcases hnothead with hnd | hnn
     · exact absurd (Option.some.inj hf₂) (hnd cv' v' hint')
     · exact absurd hcN hnn
-  · exact natOpsP_entry_cons mp hprev hfresh m₂ hac hcN hne hf₂
+  · exact natOpsP_entry_cons mp hprev hfresh hntc m₂ hac hcN hne hf₂
 
 /-- **The installing operation's own head packages**, from the
 harvest's facts: the annotated value's reading, grading and membership
@@ -1121,6 +1123,7 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
   case neg =>
     exact natOpsP_entry_cons mp hprev
       (c₀ := .defnInfo ⟨c, lps, type'⟩ value' hint)
+      (hntc := fun _ h => ConstantInfo.noConfusion h)
       (show env.find? (ConstantInfo.defnInfo ⟨c, lps, type'⟩ value'
         hint).name = none from hfresh) m₂
       (show m₂.acval = acvalWith mp.base2.acval

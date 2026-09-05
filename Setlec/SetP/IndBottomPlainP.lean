@@ -1074,7 +1074,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
       show Level.substFn (Level.substFn φ lps us) cvj.levelParams
           (cvj.levelParams.map .param)
         = Level.substFn φ lps us from
-        funext fun _ => Level.substFn_map_param, hroT.2.2, hctorLev]
+        funext fun _ => Level.substFn_map_param, hroT.2.2.1, hctorLev]
   have hspMem : ∀ σ : Nat → V, Sat2 V Γs σ →
       ∀ (q : Nat) (x : Expr),
         (fvs.take cnP ++ fvs.drop rP)[q]? = some x →

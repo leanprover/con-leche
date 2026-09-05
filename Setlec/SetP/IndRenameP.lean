@@ -48,7 +48,11 @@ def RenameOkP (acval : Name → (Name → Nat) → AVExpr) (env : Env)
   (∀ n ci, env.find? n = some ci → ∃ ci', env.find? (f n) = some ci' ∧
     ci'.toConstantVal.levelParams = ci.toConstantVal.levelParams) ∧
   (∀ n, env.find? n = none → env.find? (f n) = none) ∧
-  (∀ (n : Name) (ψ : Name → Nat), acval (f n) ψ = acval n ψ)
+  (∀ (n : Name) (ψ : Name → Nat), acval (f n) ψ = acval n ψ) ∧
+  -- task #175 wiring W3: the branched `.proj` reading consults the
+  -- table at both the source and the image name (see `RenameOkT`)
+  (∀ (sn : Name) (i : Nat) (entry : Setlec.ProjEntry),
+    env.findProj? sn i = some entry → entry.tower = false)
 
 /-- **Renaming is invisible to the reading** (`denote_renameConsts`).
 Clause for clause; the `fvar`, `lit` and `proj` clauses are the cheap
@@ -75,13 +79,19 @@ theorem denoteP_renameConsts {f : Name → Name}
       dsimp only
       rw [hlp]
       by_cases hal : ws.length = ci.toConstantVal.levelParams.length
-      · rw [if_pos hal, if_pos hal, hro.2.2]
+      · rw [if_pos hal, if_pos hal, hro.2.2.1]
       · rw [if_neg hal, if_neg hal]
   | .app g a, d => by
     simp only [Expr.renameConsts, denoteP_app,
       denoteP_renameConsts hro g d, denoteP_renameConsts hro a d]
   | .proj s i e, d => by
-    simp only [Expr.renameConsts, denoteP_proj,
+    -- both lookups (image and source name) are tower-free, so both
+    -- readings take the pair shape
+    simp only [Expr.renameConsts]
+    rw [denoteP_proj_pair acval (env := env) (φ := φ) d (f s) i
+        (e.renameConsts f) (fun entry hf => hro.2.2.2 (f s) i entry hf),
+      denoteP_proj_pair acval (env := env) (φ := φ) d s i e
+        (fun entry hf => hro.2.2.2 s i entry hf),
       denoteP_renameConsts hro e d]
   | .forallE n ty body m, d => by
     simp only [Expr.renameConsts, denoteP_forallE]
@@ -129,10 +139,12 @@ theorem blockRenameOkP {blockNames : List Name} {cval : TConstVal}
     (hIS : BlockInstalledTT blockNames env cval)
     (hIA : BlockAcvalInstalled blockNames env acval)
     (hnames : ∀ n, blockNames.contains n = true →
-      (env.find? n).isSome = true) :
+      (env.find? n).isSome = true)
+    (htf : ∀ (sn : Name) (i : Nat) (entry : Setlec.ProjEntry),
+      env.findProj? sn i = some entry → entry.tower = false) :
     RenameOkP acval env (fun n =>
       if blockNames.contains n then n.str "_model" else n) := by
-  refine ⟨?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, htf⟩
   · intro n ciS hfS
     dsimp only
     by_cases hc : blockNames.contains n = true

@@ -109,11 +109,39 @@ def ProjOkT (env : Env) : Prop :=
     (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
     env.find? psigmaName = some psigmaA ∧
     env.find? psigmaMkName = some psigmaMkA) ∧
-  ∀ i entry, env.find? (projFnName psigmaName i) = some (.projInfo entry) →
-    entry.native = true
+  (∀ i entry, env.find? (projFnName psigmaName i) = some (.projInfo entry) →
+    entry.native = true) ∧
+  -- task #175 wiring W3: pre-flip, EVERY stored table entry is
+  -- tower-free — what the branched readings' invariance lemmas
+  -- consume; at the flip this conjunct weakens to the per-block
+  -- coverage disjunction together with `NativeProjPinned`'s
+  (∀ n entry, env.find? n = some (.projInfo entry) →
+    entry.tower = false)
 
 theorem ProjOkT.empty : ProjOkT Env.empty := by
-  refine ⟨?_, ?_⟩ <;> (intro n entry h; simp [Env.find?, Env.empty] at h)
+  refine ⟨?_, ?_, ?_⟩ <;> (intro n entry h; simp [Env.find?, Env.empty] at h)
+
+/-- The third conjunct, as the readings' walks consume it: `towerAt`
+is `false` everywhere (task #175 wiring W3). -/
+theorem ProjOkT.towerFree {env : Env} (h : ProjOkT env) :
+    ∀ (sn : Name) (i : Nat) (entry : ProjEntry),
+      env.findProj? sn i = some entry → entry.tower = false := by
+  intro sn i entry hf
+  unfold Env.findProj? at hf
+  cases h0 : env.find? (projFnName sn i) with
+  | none => rw [h0] at hf; exact nomatch hf
+  | some ci =>
+    rw [h0] at hf
+    cases ci with
+    | projInfo e =>
+      obtain rfl := Option.some.inj hf
+      exact h.2.2 _ _ h0
+    | axiomInfo cv => exact nomatch hf
+    | defnInfo cv v hint => exact nomatch hf
+    | thmInfo cv v => exact nomatch hf
+    | indInfo cv caps => exact nomatch hf
+    | ctorInfo cv np nf => exact nomatch hf
+    | recInfo cv mI rP rules => exact nomatch hf
 
 theorem BasisBlocks.empty : BasisBlocks Env.empty := by
   refine ⟨?_, ?_, ?_, ?_⟩ <;>

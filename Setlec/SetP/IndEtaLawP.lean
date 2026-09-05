@@ -101,7 +101,7 @@ set_option maxHeartbeats 3200000 in
 the campaign's first `EtaLawP` producer. -/
 theorem memberEtaLawP : MemberEtaLawP V := by
   intro μ F blockNames env mp cv cvA c₀ hmv hIB hIA hc₀cv hc₀name
-    T cvT caps hfT hcape hnresT hp h0 hbT hbC hfam m₂ hac φ'
+    hntc T cvT caps hfT hcape hnresT hp h0 hbT hbC hfam m₂ hac φ'
   -- `MemberValR`'s data
   obtain ⟨type', hcv, hcvAeq, hms, cvm₀, mval₀, hint₀, hfm₀, hlpm₀,
     hren₀⟩ := id hmv
@@ -193,7 +193,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
     rw [hEqTy]; exact htaM'
   refine ⟨ta, ?_, hokta, ?_⟩
   · rw [denotePInstLevels m₂ φ' cvT.levelParams us 0 cvT.type, ← hψ, hac]
-    exact denoteP_cons_fresh_mono hfresh0 ψ 0 cvT.type hcbT hta
+    exact denoteP_cons_fresh_mono hfresh0 hntc ψ 0 cvT.type hcbT hta
   intro ρ ts rest x hlents hfit hmx
   rw [← hψ, hvT] at hmx
   rw [← hψ, h0, hvC,

@@ -312,8 +312,13 @@ theorem denoteP_substFvarAt
     | some ea =>
       simp only [Option.map_some]
       split
-      · rfl
-      · rfl
+      · next entry _ =>
+        by_cases htw : entry.tower = true
+        · simp only [if_pos htw]
+          exact congrArg some (projAV_inst i ea x (D - p)).symm
+        · simp only [if_neg htw]
+          split <;> rfl
+      · split <;> rfl
   | .lit (.natVal k), D, hpD, hfb => by
     simp only [Setlec.Expr.substFvarAt, denoteP]
     split

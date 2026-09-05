@@ -59,6 +59,52 @@ theorem EnvExtends.cons {env : Env} {c₀ : ConstantInfo}
     exact nomatch h
   · exact h
 
+/-- `findProj?` transports up an extension (a table entry is stored
+under a name; `hext` carries the lookup). -/
+theorem EnvExtends.findProj?_mono {env₁ env₂ : Env}
+    (hext : EnvExtends env₁ env₂) {sn : Name} {i : Nat}
+    {entry : ProjEntry} (h : env₁.findProj? sn i = some entry) :
+    env₂.findProj? sn i = some entry := by
+  unfold Env.findProj? at h ⊢
+  cases h0 : env₁.find? (projFnName sn i) with
+  | none => rw [h0] at h; exact nomatch h
+  | some ci =>
+    rw [h0] at h
+    rw [hext _ _ h0]
+    exact h
+
+/-- A fresh cons that is not a tower entry cannot create a
+tower-backed lookup where none existed. -/
+theorem findProj?_cons_of_base_none {env : Env} {c₀ : ConstantInfo}
+    (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ e', c₀ = .projInfo e' → e'.tower = false) :
+    ∀ (sn : Name) (i : Nat) (entry : ProjEntry),
+      env.findProj? sn i = none →
+      Env.findProj? ⟨c₀ :: env.consts⟩ sn i = some entry →
+      entry.tower = false := by
+  intro sn i entry h0 h1
+  unfold Env.findProj? at h0 h1
+  rw [show Env.find? ⟨c₀ :: env.consts⟩ (projFnName sn i)
+      = if c₀.name = projFnName sn i then some c₀
+        else env.find? (projFnName sn i) from Env.find?_cons] at h1
+  by_cases hn : c₀.name = projFnName sn i
+  · rw [if_pos hn] at h1
+    cases hc : c₀ with
+    | projInfo e' =>
+      rw [hc] at h1
+      dsimp only at h1
+      obtain rfl := Option.some.inj h1
+      exact hntc _ hc
+    | axiomInfo cv => rw [hc] at h1; exact nomatch h1
+    | defnInfo cv v hint => rw [hc] at h1; exact nomatch h1
+    | thmInfo cv v => rw [hc] at h1; exact nomatch h1
+    | indInfo cv caps => rw [hc] at h1; exact nomatch h1
+    | ctorInfo cv np nf => rw [hc] at h1; exact nomatch h1
+    | recInfo cv mI rP rules => rw [hc] at h1; exact nomatch h1
+  · rw [if_neg hn] at h1
+    rw [h0] at h1
+    exact nomatch h1
+
 /-- **Denotations survive extension.**
 
 The literal guards and the stored level-parameter lists are hypotheses
@@ -79,6 +125,9 @@ here rather than passed on; it is not done in this commit only because
 made on its own. -/
 theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     (hext : EnvExtends env₁ env₂)
+    (hproj : ∀ (sn : Name) (i : Nat) (entry : ProjEntry),
+      env₁.findProj? sn i = none → env₂.findProj? sn i = some entry →
+      entry.tower = false)
     (hnat : natLitSupported env₁ = true → natLitSupported env₂ = true)
     (hstr : strLitSupported env₁ = true → strLitSupported env₂ = true)
     (hlpNil : strLitSupported env₁ = true →
@@ -160,35 +209,57 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     intro v h
     rw [denote_proj, h1] at h
     exact nomatch h
-  | case18 d sn i e B h1 h2 ihe =>
+  | case18 d sn i e B h1 entry h2 h3 ihe =>
     intro v h
-    rw [denote_proj] at h ⊢
-    rw [h1] at h
-    rw [ihe h1]
+    rw [denote_proj, h1, h2] at h
+    rw [denote_proj, ihe h1, hext.findProj?_mono h2]
     exact h
-  | case19 d sn i e B h1 h2 ihe =>
+  | case19 d sn i e B h1 entry h2 h3 h4 ihe =>
     intro v h
-    simp only [denote_proj, h1, if_neg h2] at h
+    rw [denote_proj, h1, h2] at h
+    rw [denote_proj, ihe h1, hext.findProj?_mono h2]
+    exact h
+  | case20 d sn i e B h1 entry h2 h3 h4 ihe =>
+    intro v h
+    rw [denote_proj, h1, h2] at h
+    simp only [if_neg h3, if_neg h4] at h
     exact nomatch h
-  | case20 d n hg =>
+  | case21 d sn i e B h1 h2 h3 ihe =>
+    intro v h
+    rw [denote_proj, h1, h2] at h
+    rw [denote_proj, ihe h1]
+    cases hfp2 : env₂.findProj? sn i with
+    | none =>
+      dsimp only
+      exact h
+    | some entry₂ =>
+      dsimp only
+      rw [if_neg (by simp [hproj sn i entry₂ h2 hfp2])]
+      exact h
+  | case22 d sn i e B h1 h2 h3 ihe =>
+    intro v h
+    rw [denote_proj, h1, h2] at h
+    simp only [if_neg h3] at h
+    exact nomatch h
+  | case23 d n hg =>
     intro v h
     rw [denote_natLit, if_pos hg] at h
     rw [denote_natLit, if_pos (hnat hg)]
     exact h
-  | case21 d n hg =>
+  | case24 d n hg =>
     intro v h
     rw [denote_natLit, if_neg hg] at h
     exact nomatch h
-  | case22 d s hg =>
+  | case25 d s hg =>
     intro v h
     rw [denote_strLit, if_pos hg] at h
     rw [denote_strLit, if_pos (hstr hg), strLitT, hlpNil hg, hlpCons hg]
     exact h
-  | case23 d s hg =>
+  | case26 d s hg =>
     intro v h
     rw [denote_strLit, if_neg hg] at h
     exact nomatch h
-  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case27 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     intro v h
     match x with
     | .bvar i => rw [denote_bvar] at h; exact nomatch h
@@ -305,14 +376,22 @@ theorem denote_cval_congr {cval₁ cval₂ : TConstVal} {env : Env}
   | case16 d n ty val body hbad ihty ihval =>
     simp only [denote_letE, ← ihty, ← ihval]
   | case17 d sn i e h1 ihe => simp only [denote_proj, h1, ← ihe]
-  | case18 d sn i e B h1 h2 ihe => simp only [denote_proj, h1, ← ihe]
-  | case19 d sn i e B h1 h2 ihe => simp only [denote_proj, h1, ← ihe]
-  | case20 d n _ | case21 d n _ =>
+  | case18 d sn i e B h1 entry h2 h3 ihe =>
+    simp only [denote_proj, h1, ← ihe]
+  | case19 d sn i e B h1 entry h2 h3 h4 ihe =>
+    simp only [denote_proj, h1, ← ihe]
+  | case20 d sn i e B h1 entry h2 h3 h4 ihe =>
+    simp only [denote_proj, h1, ← ihe]
+  | case21 d sn i e B h1 h2 h3 ihe =>
+    simp only [denote_proj, h1, ← ihe]
+  | case22 d sn i e B h1 h2 h3 ihe =>
+    simp only [denote_proj, h1, ← ihe]
+  | case23 d n _ | case24 d n _ =>
     simp only [denote_natLit]
     by_cases hg2 : natLitSupported env = true
     · rw [if_pos hg2, if_pos hg2, hnat hg2, hsucc hg2]
     · simp [hg2]
-  | case22 d s _ | case23 d s _ =>
+  | case25 d s _ | case26 d s _ =>
     simp only [denote_strLit]
     by_cases hg2 : strLitSupported env = true
     · have hgN : natLitSupported env = true := by
@@ -321,7 +400,7 @@ theorem denote_cval_congr {cval₁ cval₂ : TConstVal} {env : Env}
       rw [if_pos hg2, if_pos hg2, strLitT, strLitT, hnat hgN, hsucc hgN,
         hsol hg2, hnil hg2, hcons hg2, hchar hg2, hofn hg2]
     · simp [hg2]
-  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case27 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     match x with
     | .bvar i => simp only [denote_bvar]
     | .sort u => exact (k1 u rfl).elim
@@ -480,9 +559,37 @@ theorem ne_of_isSome_fresh {env : Env} {c₀ : ConstantInfo} {n : Name}
 /-- Denotation is unchanged by a fresh install on expressions whose
 constants already resolve.  Transpose of `interp_mono`. -/
 theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
-    {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none) :
+    {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ e', c₀ = .projInfo e' → e'.tower = false) :
     ∀ (d : Nat) (e : Expr), e.constsResolve env = true →
       denote cval ⟨c₀ :: env.consts⟩ φ d e = denote cval env φ d e := by
+  have hbranch : ∀ (sn : Name) (i : Nat) (ve : VExpr),
+      (match Env.findProj? ⟨c₀ :: env.consts⟩ sn i with
+        | some entry => if entry.tower = true then some (projNV i ve)
+            else if i < 2 then some (.proj i ve) else none
+        | none => if i < 2 then some (.proj i ve) else none)
+      = (match env.findProj? sn i with
+        | some entry => if entry.tower = true then some (projNV i ve)
+            else if i < 2 then some (.proj i ve) else none
+        | none => if i < 2 then some (.proj i ve) else none) := by
+    intro sn i ve
+    unfold Env.findProj?
+    rw [show Env.find? ⟨c₀ :: env.consts⟩ (projFnName sn i)
+        = if c₀.name = projFnName sn i then some c₀
+          else env.find? (projFnName sn i) from Env.find?_cons]
+    by_cases hn : c₀.name = projFnName sn i
+    · rw [if_pos hn, ← hn, hfresh]
+      cases c₀ with
+      | projInfo e' =>
+        dsimp only
+        rw [if_neg (by simp [hntc e' rfl])]
+      | axiomInfo cv => rfl
+      | defnInfo cv v hint => rfl
+      | thmInfo cv v => rfl
+      | indInfo cv caps => rfl
+      | ctorInfo cv np nf => rfl
+      | recInfo cv mI rP rules => rfl
+    · rw [if_neg hn]
   intro d e
   induction d, e using denote.induct (cval := cval) (env := env) (φ := φ) with
   | case1 d u => intro _; rw [denote_sort, denote_sort]
@@ -556,29 +663,59 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
     intro hres
     rw [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_proj, denote_proj, ihe hres.2]
-  | case18 d sn i e B h1 h2 ihe =>
+    cases denote cval env φ d e with
+    | none => rfl
+    | some ve => exact hbranch sn i ve
+  | case18 d sn i e B h1 entry h2 h3 ihe =>
     intro hres
     rw [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_proj, denote_proj, ihe hres.2]
-  | case19 d sn i e B h1 h2 ihe =>
+    cases denote cval env φ d e with
+    | none => rfl
+    | some ve => exact hbranch sn i ve
+  | case19 d sn i e B h1 entry h2 h3 h4 ihe =>
     intro hres
     rw [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_proj, denote_proj, ihe hres.2]
-  | case20 d n hg =>
+    cases denote cval env φ d e with
+    | none => rfl
+    | some ve => exact hbranch sn i ve
+  | case20 d sn i e B h1 entry h2 h3 h4 ihe =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_proj, denote_proj, ihe hres.2]
+    cases denote cval env φ d e with
+    | none => rfl
+    | some ve => exact hbranch sn i ve
+  | case21 d sn i e B h1 h2 h3 ihe =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_proj, denote_proj, ihe hres.2]
+    cases denote cval env φ d e with
+    | none => rfl
+    | some ve => exact hbranch sn i ve
+  | case22 d sn i e B h1 h2 h3 ihe =>
+    intro hres
+    rw [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_proj, denote_proj, ihe hres.2]
+    cases denote cval env φ d e with
+    | none => rfl
+    | some ve => exact hbranch sn i ve
+  | case23 d n hg =>
     intro hres
     simp only [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_natLit, denote_natLit,
       natLitSupported_cons_of_ne (ne_of_isSome_fresh hfresh hres.1.1)
         (ne_of_isSome_fresh hfresh hres.1.2)
         (ne_of_isSome_fresh hfresh hres.2)]
-  | case21 d n hg =>
+  | case24 d n hg =>
     intro hres
     simp only [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_natLit, denote_natLit,
       natLitSupported_cons_of_ne (ne_of_isSome_fresh hfresh hres.1.1)
         (ne_of_isSome_fresh hfresh hres.1.2)
         (ne_of_isSome_fresh hfresh hres.2)]
-  | case22 d s hg =>
+  | case25 d s hg =>
     intro hres
     simp only [Expr.constsResolve, Bool.and_eq_true] at hres
     obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨k1, k2⟩, k3⟩, k4⟩, k5⟩, k6⟩, k7⟩, k8⟩, k9⟩, k10⟩ := hres
@@ -592,7 +729,7 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
       strLitT, strLitT,
       levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k7),
       levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k8)]
-  | case23 d s hg =>
+  | case26 d s hg =>
     intro hres
     simp only [Expr.constsResolve, Bool.and_eq_true] at hres
     obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨k1, k2⟩, k3⟩, k4⟩, k5⟩, k6⟩, k7⟩, k8⟩, k9⟩, k10⟩ := hres
@@ -606,7 +743,7 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
       strLitT, strLitT,
       levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k7),
       levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k8)]
-  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case27 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     intro _
     match x with
     | .bvar i => rw [denote_bvar, denote_bvar]
@@ -628,6 +765,7 @@ transport — `has_type_cons` above is this plus a valuation rewrite, and
 theorem denote_install {cval cval' : TConstVal} {env : Env} {φ : Name → Nat}
     {c₀ : ConstantInfo} {d : Nat} {e : Expr} {v : VExpr}
     (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ e', c₀ = .projInfo e' → e'.tower = false)
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
     (hlit : LitAgree env cval cval')
     (hguardN : natLitSupported env = true →
@@ -650,8 +788,9 @@ theorem denote_install {cval cval' : TConstVal} {env : Env} {φ : Name → Nat}
     exact nomatch hfind
   rw [denote_cval_congr hagE hlit.nat hlit.succ hlit.sol hlit.nil
     hlit.cons hlit.char hlit.ofn d _] at h
-  exact denote_mono (EnvExtends.cons hfresh) hguardN hguardS hlpNil hlpCons
-    d _ h
+  exact denote_mono (EnvExtends.cons hfresh)
+    (findProj?_cons_of_base_none hfresh hntc) hguardN hguardS hlpNil
+    hlpCons d _ h
 
 
 /-! ## The guards are monotone, not merely congruent
@@ -756,6 +895,10 @@ structure Installs (env : Env) (cval cval' : TConstVal)
     (c₀ : ConstantInfo) : Prop where
   /-- The installed name is not already stored. -/
   fresh : env.find? c₀.name = none
+  /-- The installed constant, if a table entry, is not tower-backed
+  (task #175 wiring W3; the tower installs get their own transports at
+  the flip stage). -/
+  ntc : ∀ e', c₀ = .projInfo e' → e'.tower = false
   /-- The valuation changes only at the installed name. -/
   ag : ∀ n, n ≠ c₀.name → cval n = cval' n
   /-- Literal support is valued the same on both sides. -/
@@ -783,12 +926,13 @@ even *true* in general: nothing in `checkConstantVal` forbids a `def`
 named `List.nil` (the string-support names are pinned, not reserved). -/
 theorem Installs.of_fresh {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ e', c₀ = .projInfo e' → e'.tower = false)
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n) :
     Installs env cval cval' c₀ := by
   have step : ∀ n : Name, (env.find? n).isSome = true →
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := fun n hn =>
     Env.find?_cons_of_isSome hfresh hn
-  refine ⟨hfresh, hag, LitAgree.of_fresh hfresh hag, fun hg => ?_,
+  refine ⟨hfresh, hntc, hag, LitAgree.of_fresh hfresh hag, fun hg => ?_,
     fun hg => ?_⟩
   · have hs : (env.find? listNilName).isSome = true := by
       simp only [strLitSupported, Bool.and_eq_true] at hg
@@ -807,7 +951,8 @@ theorem Installs.denoteUp {env : Env} {cval cval' : TConstVal}
     {φ : Name → Nat} {d : Nat} {e : Expr} {v : VExpr}
     (h : denote cval env φ d e = some v) :
     denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v :=
-  denote_install hi.fresh hi.ag hi.lit (natLitSupported_cons hi.fresh)
+  denote_install hi.fresh hi.ntc hi.ag hi.lit
+    (natLitSupported_cons hi.fresh)
     (strLitSupported_cons hi.fresh) hi.lpNil hi.lpCons h
 
 /-- A stored name is valued the same after an ordinary install. -/
@@ -832,7 +977,7 @@ theorem Installs.denoteDown {env : Env} {cval cval' : TConstVal}
     intro hh
     rw [hh, hi.fresh] at hf
     exact nomatch hf
-  rw [denote_env_shrink hi.fresh d e hres] at h
+  rw [denote_env_shrink hi.fresh hi.ntc d e hres] at h
   rwa [denote_cval_congr hagE hi.lit.nat hi.lit.succ hi.lit.sol hi.lit.nil
     hi.lit.cons hi.lit.char hi.lit.ofn d e]
 
@@ -880,7 +1025,9 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
       env.find? psigmaName = some psigmaA ∧
       env.find? psigmaMkName = some psigmaMkA)
     (hheadPair : ∀ i entry, c₀ = .projInfo entry →
-      c₀.name = projFnName psigmaName i → entry.native = true) :
+      c₀.name = projFnName psigmaName i → entry.native = true)
+    (hheadTower : ∀ entry, c₀ = .projInfo entry →
+      entry.tower = false) :
     ProjOkT ⟨c₀ :: env.consts⟩ := by
   have step : ∀ entry,
       ((entry = pairFstEntry ∨ entry = pairSndEntry) ∧
@@ -893,7 +1040,7 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
     refine ⟨h1, ?_, ?_⟩
     · rw [Env.find?_cons_of_isSome hfresh (by rw [h2]; rfl)]; exact h2
     · rw [Env.find?_cons_of_isSome hfresh (by rw [h3]; rfl)]; exact h3
-  refine ⟨?_, ?_⟩
+  refine ⟨?_, ?_, ?_⟩
   · intro n entry hf hnat
     by_cases hn : c₀.name = n
     · subst hn
@@ -906,7 +1053,14 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
     · rw [Env.find?_cons, if_pos hn] at hf
       exact hheadPair i entry (Option.some.inj hf) hn
     · rw [Env.find?_cons, if_neg hn] at hf
-      exact h.2 i entry hf
+      exact h.2.1 i entry hf
+  · intro n entry hf
+    by_cases hn : c₀.name = n
+    · subst hn
+      rw [Env.find?_cons, if_pos rfl] at hf
+      exact hheadTower entry (Option.some.inj hf)
+    · rw [Env.find?_cons, if_neg hn] at hf
+      exact h.2.2 n entry hf
 
 /-- Every name a clause set reads is valued the same after an install
 at a different name. -/

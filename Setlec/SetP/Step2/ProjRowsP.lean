@@ -470,7 +470,8 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     hLb l (by simpa [Expr.fvarLeaves] using hl)
   have hCpe : CtxOkP m φ d Δa pe :=
     hC.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)
-  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv hea
+  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv_pair
+    (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf') hea
   -- its inferred type: reading, grading, membership
   obtain ⟨tpea, htpea⟩ :=
     hreads htpe hws hb hLpe (LeafReadsP.of_ctxOkP hCpe) hvp
@@ -553,7 +554,9 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     have hcompute : denoteP m.acval env φ d
         (Expr.app B (.proj Setlec.psigmaName 0 pe))
         = some ((.app Ba (.proj 0 vp)) : AVExpr) := by
-      rw [denoteP_app, hBa, denoteP_proj, hvp]
+      rw [denoteP_app, hBa,
+        denoteP_proj_pair m.acval (env := env) (φ := φ) _ _ _ _
+          (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf'), hvp]
       rfl
     obtain rfl : ta = .app Ba (.proj 0 vp) :=
       Option.some.inj (hta.symm.trans hcompute)
@@ -599,7 +602,8 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
     hLb l (by simpa [Expr.fvarLeaves] using hl)
   have hCpe : CtxOkP m φ d Δa pe :=
     hC.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)
-  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv hea
+  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv_pair
+    (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf') hea
   -- the scrutinee's AnnotOkP, off the subject's own proj slot (premise
   -- form: the full lane established it; the io lane reads it)
   have hokPe : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ vp := fun ρ hρ =>
@@ -687,7 +691,9 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
     have hcompute : denoteP m.acval env φ d
         (Expr.app B (.proj Setlec.psigmaName 0 pe))
         = some ((.app Ba (.proj 0 vp)) : AVExpr) := by
-      rw [denoteP_app, hBa, denoteP_proj, hvp]
+      rw [denoteP_app, hBa,
+        denoteP_proj_pair m.acval (env := env) (φ := φ) _ _ _ _
+          (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf'), hvp]
       rfl
     obtain rfl : ta = .app Ba (.proj 0 vp) :=
       Option.some.inj (hta.symm.trans hcompute)
@@ -738,7 +744,8 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
     hLb l (by simpa [Expr.fvarLeaves] using hl)
   have hCpe : CtxOkP m φ d Δa pe :=
     hC.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)
-  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv hea
+  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv_pair
+    (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf') hea
   have hokVp : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ vp := by
     intro σ hσ
     refine ⟨?_, ?_⟩
@@ -780,7 +787,8 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
   rcases hcase with rfl |
     ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert⟩
   · -- stuck: the projection of the reduced scrutinee
-    obtain ⟨v₃', hv₃', -, rfl⟩ := denoteP_proj_inv hea'
+    obtain ⟨v₃', hv₃', -, rfl⟩ := denoteP_proj_inv_pair
+      (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf') hea'
     obtain rfl : v₃' = v₃ := Option.some.inj (hv₃'.symm.trans hv₃)
     refine ⟨fun σ hσ => ?_, fun σ hσ => ?_⟩
     · refine ⟨?_, ?_⟩

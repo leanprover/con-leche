@@ -148,6 +148,7 @@ theorem declEtaStep {μ : CheckMode} {F : Nat} {cval : TConstVal}
       DeclIndR μ F env cval block envI → EtaFamiliesClosed envI)
     (hE : EtaFamiliesClosed env)
     (h : DeclR μ F cval env d env₂) : EtaFamiliesClosed env₂ :=
-  declEtaStepRun hind hE (DeclR.toRun h)
+  declEtaStepRun (fun hb => hind (declIndDispatchR_eq_ind.mp hb)) hE
+    (DeclR.toRun h)
 
 end Setlec.SetR

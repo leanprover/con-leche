@@ -801,6 +801,57 @@ structure SwapCongr (env₀ env₃ : Env) : Prop where
     (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
     env₃.find? n = some ci
 
+/-- Projection-table lookups transport across the swap: a `projInfo`
+is never a recursor, so `findDown`/`findUp` move it both ways (task
+#175 wiring W3 — `denote`'s `.proj` clause now reads the entry
+kind). -/
+theorem SwapCongr.projEq {env₀ env₃ : Env} (hcg : SwapCongr env₀ env₃) :
+    ∀ (sn : Name) (i : Nat), env₀.findProj? sn i = env₃.findProj? sn i := by
+  intro sn i
+  unfold Env.findProj?
+  cases h0 : env₀.find? (projFnName sn i) with
+  | none =>
+    cases h3 : env₃.find? (projFnName sn i) with
+    | none => rfl
+    | some ci =>
+      have := hcg.isSomeEq (projFnName sn i)
+      rw [h0, h3] at this
+      exact nomatch this
+  | some ci =>
+    cases ci with
+    | projInfo e =>
+      rw [hcg.findUp _ _ h0 (fun _ _ _ _ h => nomatch h)]
+    | recInfo cv mI rP rules =>
+      cases h3 : env₃.find? (projFnName sn i) with
+      | none =>
+        first
+        | rfl
+        | (have hs := hcg.isSomeEq (projFnName sn i)
+           rw [h0, h3] at hs
+           exact nomatch hs)
+      | some ci₃ =>
+        cases ci₃ with
+        | projInfo e₃ =>
+          have := hcg.findDown _ _ h3 (fun _ _ _ _ h => nomatch h)
+          rw [h0] at this
+          exact nomatch this
+        | axiomInfo cv₃ => rfl
+        | defnInfo cv₃ v₃ h₃ => rfl
+        | thmInfo cv₃ v₃ => rfl
+        | indInfo cv₃ caps₃ => rfl
+        | ctorInfo cv₃ np₃ nf₃ => rfl
+        | recInfo cv₃ mI₃ rP₃ rules₃ => rfl
+    | axiomInfo cv =>
+      rw [hcg.findUp _ _ h0 (fun _ _ _ _ h => nomatch h)]
+    | defnInfo cv v hint =>
+      rw [hcg.findUp _ _ h0 (fun _ _ _ _ h => nomatch h)]
+    | thmInfo cv v =>
+      rw [hcg.findUp _ _ h0 (fun _ _ _ _ h => nomatch h)]
+    | indInfo cv caps =>
+      rw [hcg.findUp _ _ h0 (fun _ _ _ _ h => nomatch h)]
+    | ctorInfo cv np nf =>
+      rw [hcg.findUp _ _ h0 (fun _ _ _ _ h => nomatch h)]
+
 /-- A shape-level swap induces the congruences. -/
 theorem SwapShList.congr {consts₀ consts₃ : List ConstantInfo}
     (hsw : SwapShList consts₀ consts₃) :
