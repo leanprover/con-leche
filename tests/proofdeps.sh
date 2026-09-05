@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# tests/proofdeps.sh — THE SEPARATION's PROOF-TERM gate (task #161, S10).
+# tests/proofdeps.sh — THE PROOF-TERM gate (task #161 S10; redefined at
+# the SetR removal's Stage C, 2026-09-05).
 #
 # WHY THIS EXISTS.  `tests/layering.sh` is an *import* gate: it measures
-# where code SITS.  S9's payoff check found that this is not the
-# campaign's criterion.  The layering gate read
+# where code SITS.  S9's payoff check found that this is not a
+# proof-path criterion.  The layering gate read
 #
 #     base 260 / R 106 / P 117 / neutral 3 modules; 0 P->R edges
 #
@@ -18,25 +19,40 @@
 #     measures what a theorem USES.  A separation criterion stated over
 #     imports cannot certify a proof-path property.
 #
-# So this gate measures the proof term.  `tests/ProofDeps.lean` walks
-# the transitive constant closure of a declaration's type AND proof
-# term (with cut points) and prints one row per (root, target); the
-# table below pins every row.
+# WHAT IT MEASURED, AND WHY IT CHANGED.  Until 2026-09-05 it pinned
+# eleven named R targets — `Red`, `Red.beta`, `Infer`, `Infer.app`,
+# `DefEq`, `DefEq.trans`, `EnvS`, `checkDeclR_ofEnvRE`, `DeclR`,
+# `declIndRR`, `DeclIndR` — each `absent` from every capstone's constant
+# closure: the separation campaign's deliverable, mechanized, 88 rows.
+# The SetR removal deleted the collapsed model, the R core, and finally
+# the relation family and the derivation bridge above it.  **All eleven
+# targets are gone**, so the old rows are not weakened — they have no
+# subject.  A gate whose targets do not exist measures nothing.
 #
-# THE RATCHET.  Divergence FAILS IN EITHER DIRECTION:
-#   * a target that RE-ENTERS a closure is rot — the whole point of the
-#     gate;
-#   * a target that LEAVES a closure is progress that must be RECORDED:
-#     flip the row here, in the batch that earned it.  The pin may only
-#     ever tighten (`layering.sh`'s shrink-only whitelist discipline, at
-#     the proof-term criterion).
-# A `MISSING-ROOT`/`MISSING-TARGET` row also fails: a renamed constant
-# must not silently turn the walk vacuous.
+# WHAT IT MEASURES NOW: a FROZEN MODULE-LEVEL DEPENDENCY PIN.  For each
+# of the four surviving capstones, `tests/ProofDeps.lean` prints the
+# exact set of `Setlec.*` modules its type and proof term reach at the
+# constant level, sorted; `tests/proofdeps-expected.txt` is the frozen
+# expectation and this gate is a diff.  Drift shows up as a named module
+# appearing or disappearing.
 #
-# Usage: tests/proofdeps.sh [--list]   (--list prints the measured rows
-# in table syntax, for updating the pin after a batch).
+# THE RATCHET, unchanged in shape: divergence FAILS IN EITHER
+# DIRECTION.  A module that ENTERS a capstone's closure is a DOOR — the
+# regression class the gate was built for, a capstone silently acquiring
+# a dependency on machinery it should not need.  A module that LEAVES is
+# progress that must be RECORDED: regenerate the expectation in the
+# batch that earned it (`tests/proofdeps.sh --list > \
+# tests/proofdeps-expected.txt`) and say so in the seal.  A
+# `MISSING-ROOT` row also fails: a renamed capstone must not silently
+# turn the walk vacuous, and a root whose closure came back empty prints
+# no rows at all, which the diff reports as 351 missing lines.
+#
+# Usage: tests/proofdeps.sh [--list]   (--list prints the measured rows,
+# for regenerating the expectation after a batch).
 set -u
 cd "$(dirname "$0")/.."
+
+EXPECTED=tests/proofdeps-expected.txt
 
 MEASURED=$(lake env lean tests/ProofDeps.lean 2>&1) || {
   echo "PROOFDEPS FAIL — the instrument did not run:"
@@ -44,251 +60,42 @@ MEASURED=$(lake env lean tests/ProofDeps.lean 2>&1) || {
   exit 1
 }
 
-# (through the environment, not the heredoc: the table below is full of
-# backticked prose and the heredoc must therefore be quoted)
-export SETLEC_PROOFDEPS_MEASURED="$MEASURED"
+if [ "${1-}" = --list ]; then
+  printf '%s\n' "$MEASURED"
+  exit 0
+fi
 
-exec python3 - "$@" <<'PYEOF'
-import os, sys
+if printf '%s\n' "$MEASURED" | grep -q '^MISSING-ROOT'; then
+  echo 'PROOFDEPS FAIL — a capstone root does not exist:'
+  printf '%s\n' "$MEASURED" | grep '^MISSING-ROOT'
+  echo '    a renamed capstone must not silently turn the walk vacuous;'
+  echo '    fix the name in tests/ProofDeps.lean in the batch that renamed it.'
+  exit 1
+fi
 
-MEASURED = os.environ['SETLEC_PROOFDEPS_MEASURED']
+doors=$(comm -13 <(sort "$EXPECTED") <(printf '%s\n' "$MEASURED" | sort))
+left=$(comm -23 <(sort "$EXPECTED") <(printf '%s\n' "$MEASURED" | sort))
+rows=$(printf '%s\n' "$MEASURED" | grep -c ' :: ')
+ndoors=$(printf '%s' "$doors" | grep -c ' :: ' || true)
+nleft=$(printf '%s' "$left" | grep -c ' :: ' || true)
 
-# ------------------------------------------------------------------ the
-# PIN.  One line per measured row: "<PRESENT|absent> <label> :: <name>".
-#
-# **TASK #161 S11b — THE TABLE IS EMPTY.**  Every row below reads
-# `absent` except the vacuity sentinel (`Setlec.Expr`, one per root):
-# not one of the ten R targets is reachable from any of the eight
-# roots, two of which are the SHIPPED P CAPSTONES.  That is the
-# campaign's criterion, mechanized: the graded consistency proof's
-# proof term does not mention the declaration bridge
-# (`checkDeclR_ofEnvRE`), its records (`DeclR`, `DeclIndR`), the ind
-# bridge (`declIndRR`), or the derivation tier at either granularity —
-# the relation TYPES `Red`/`Infer`/`DefEq` and the constructors
-# `Red.beta`/`Infer.app`/`DefEq.trans` alike.
-#
-# Read it in three blocks.
-#
-# (A) THE SHIPPED P CAPSTONE FAMILY — the user's question, mechanized.
-#     S1-S8 bought `EnvS`; S11a bought `checkDeclR_ofEnvRE` and
-#     `DeclR`; S11b buys the rest — `declIndRR`, `DeclIndR` and the six
-#     relation names — by giving the `ind` kind a run-only bridge
-#     (`declIndRunRR`) and re-pointing the graded fold's `Ind` slot at
-#     `DeclIndRunR`.
-#
-#     **TASK #172 — THE FAMILY IS TWO ROOTS, NOT FOUR.**  `SP_P`, `C_P`
-#     and `S_P` were the interned drivers' P letters (`checkDeclsSP`,
-#     `cachedOps`, `checkDeclsShared`); the interned representation and
-#     every driver over it were deleted, so those three letters retired
-#     WITH THEIR SUBJECTS and their 36 rows went with them.  `SPCD_P`
-#     (`no_proof_of_Empty_SPCD_P` over `checkDeclsSPCachedD`) is the
-#     letter over the driver the binary now runs, and it measures the
-#     same way: every R target absent.  The pin only ever tightens, and
-#     a row whose subject no longer exists is not a loosening.
-#
-#     **THE SetR REMOVAL (2026-09-05) — THE ELEVENTH TARGET GOES.**
-#     `Setlec.SetR.EnvS`, the collapsed model's environment invariant
-#     and the campaign's first target, was deleted with the tier it
-#     lived in (`Setlec/SetR/*`, the R core's whole consistency proof).
-#     Its EIGHT rows — one per root — retire WITH THEIR SUBJECT: 96 →
-#     88.  Nothing else moved, and that is the measurement worth
-#     recording.  The other ten targets are all `Setlec/SetBase/*`
-#     declarations under the unchanged namespace `Setlec.SetR`: the
-#     shared relation tier the graded proof must not touch was never in
-#     the deleted directory, so the gate's criterion survives the
-#     removal intact rather than being weakened by it.
-#
-#     **Block (B) is retired**: it pinned a CUT at
-#     `declIndRR`, and a cut at a constant that is not in the closure
-#     measures the uncut reading (S11a finding 1: an inert cut row is
-#     rot-shaped).  The door is now pinned directly, as a target.
-#
-# (C) THE P TIER'S OWN MATHEMATICS.  The claims tower, the inductive
-#     tier's step and the value kinds' harvest reach none of the ten.
-#     `declIndP`'s two `PRESENT` rows (`Infer`/`DefEq`, through its
-#     `DeclIndR` premise's statement furniture — the S10 measurement)
-#     are gone with the premise.
-#
-# (D)/(E) THE RUN ROUTE, AT ITS OWN ROOTS.  `checkDeclRun_of` (the five
-#     non-`ind` kinds' dispatch, S11a), `declIndRunRR` (the `ind` run
-#     bridge, S11b) and `checkDeclRun_ofEnvRE` (the theorem the graded
-#     fold actually calls, all six kinds discharged) reach none of the
-#     ten.  This is the deliverable stated positively rather than as
-#     an absence in someone else's closure.
-PIN = """
-# (A) the shipped P capstone family — EVERY R target absent
-# (two roots since task #172: the shipped driver's letter, and the pure one)
-PRESENT SPCD_P :: Setlec.Expr
-absent  SPCD_P :: Setlec.SetR.Red
-absent  SPCD_P :: Setlec.SetR.Red.beta
-absent  SPCD_P :: Setlec.SetR.Infer
-absent  SPCD_P :: Setlec.SetR.Infer.app
-absent  SPCD_P :: Setlec.SetR.DefEq
-absent  SPCD_P :: Setlec.SetR.DefEq.trans
-absent  SPCD_P :: Setlec.SetR.checkDeclR_ofEnvRE
-absent  SPCD_P :: Setlec.SetR.DeclR
-absent  SPCD_P :: Setlec.SetR.declIndRR
-absent  SPCD_P :: Setlec.SetR.DeclIndR
-PRESENT P :: Setlec.Expr
-absent  P :: Setlec.SetR.Red
-absent  P :: Setlec.SetR.Red.beta
-absent  P :: Setlec.SetR.Infer
-absent  P :: Setlec.SetR.Infer.app
-absent  P :: Setlec.SetR.DefEq
-absent  P :: Setlec.SetR.DefEq.trans
-absent  P :: Setlec.SetR.checkDeclR_ofEnvRE
-absent  P :: Setlec.SetR.DeclR
-absent  P :: Setlec.SetR.declIndRR
-absent  P :: Setlec.SetR.DeclIndR
+fail=0
+if [ -n "$doors" ]; then
+  fail=1
+  echo "PROOFDEPS FAIL — modules ENTERED a capstone's proof-term closure ($ndoors):"
+  printf '%s\n' "$doors" | sed 's/^/    /'
+  echo '    a door: the capstone acquired a dependency it did not have.'
+  echo '    Justify it or remove it; do not regenerate the pin to hide it.'
+fi
+if [ -n "$left" ]; then
+  fail=1
+  echo "PROOFDEPS FAIL — modules LEFT a capstone's proof-term closure ($nleft):"
+  printf '%s\n' "$left" | sed 's/^/    /'
+  echo '    that is progress: regenerate with'
+  echo '      tests/proofdeps.sh --list > tests/proofdeps-expected.txt'
+  echo '    in the batch that earned it, and record it in the seal.'
+fi
+[ "$fail" = 0 ] || exit 1
 
-# (C) the P tier's own mathematics
-PRESENT claims :: Setlec.Expr
-absent  claims :: Setlec.SetR.Red
-absent  claims :: Setlec.SetR.Red.beta
-absent  claims :: Setlec.SetR.Infer
-absent  claims :: Setlec.SetR.Infer.app
-absent  claims :: Setlec.SetR.DefEq
-absent  claims :: Setlec.SetR.DefEq.trans
-absent  claims :: Setlec.SetR.checkDeclR_ofEnvRE
-absent  claims :: Setlec.SetR.DeclR
-absent  claims :: Setlec.SetR.declIndRR
-absent  claims :: Setlec.SetR.DeclIndR
-PRESENT declIndP :: Setlec.Expr
-absent  declIndP :: Setlec.SetR.Red
-absent  declIndP :: Setlec.SetR.Red.beta
-absent  declIndP :: Setlec.SetR.Infer
-absent  declIndP :: Setlec.SetR.Infer.app
-absent  declIndP :: Setlec.SetR.DefEq
-absent  declIndP :: Setlec.SetR.DefEq.trans
-absent  declIndP :: Setlec.SetR.checkDeclR_ofEnvRE
-absent  declIndP :: Setlec.SetR.DeclR
-absent  declIndP :: Setlec.SetR.declIndRR
-absent  declIndP :: Setlec.SetR.DeclIndR
-PRESENT harvestDefnP :: Setlec.Expr
-absent  harvestDefnP :: Setlec.SetR.Red
-absent  harvestDefnP :: Setlec.SetR.Red.beta
-absent  harvestDefnP :: Setlec.SetR.Infer
-absent  harvestDefnP :: Setlec.SetR.Infer.app
-absent  harvestDefnP :: Setlec.SetR.DefEq
-absent  harvestDefnP :: Setlec.SetR.DefEq.trans
-absent  harvestDefnP :: Setlec.SetR.checkDeclR_ofEnvRE
-absent  harvestDefnP :: Setlec.SetR.DeclR
-absent  harvestDefnP :: Setlec.SetR.declIndRR
-absent  harvestDefnP :: Setlec.SetR.DeclIndR
-
-# (D) the run route, and (E) the ind run bridge + the whole run dispatch
-PRESENT runroute :: Setlec.Expr
-absent  runroute :: Setlec.SetR.Red
-absent  runroute :: Setlec.SetR.Red.beta
-absent  runroute :: Setlec.SetR.Infer
-absent  runroute :: Setlec.SetR.Infer.app
-absent  runroute :: Setlec.SetR.DefEq
-absent  runroute :: Setlec.SetR.DefEq.trans
-absent  runroute :: Setlec.SetR.checkDeclR_ofEnvRE
-absent  runroute :: Setlec.SetR.DeclR
-absent  runroute :: Setlec.SetR.declIndRR
-absent  runroute :: Setlec.SetR.DeclIndR
-PRESENT indrunroute :: Setlec.Expr
-absent  indrunroute :: Setlec.SetR.Red
-absent  indrunroute :: Setlec.SetR.Red.beta
-absent  indrunroute :: Setlec.SetR.Infer
-absent  indrunroute :: Setlec.SetR.Infer.app
-absent  indrunroute :: Setlec.SetR.DefEq
-absent  indrunroute :: Setlec.SetR.DefEq.trans
-absent  indrunroute :: Setlec.SetR.checkDeclR_ofEnvRE
-absent  indrunroute :: Setlec.SetR.DeclR
-absent  indrunroute :: Setlec.SetR.declIndRR
-absent  indrunroute :: Setlec.SetR.DeclIndR
-PRESENT declrun :: Setlec.Expr
-absent  declrun :: Setlec.SetR.Red
-absent  declrun :: Setlec.SetR.Red.beta
-absent  declrun :: Setlec.SetR.Infer
-absent  declrun :: Setlec.SetR.Infer.app
-absent  declrun :: Setlec.SetR.DefEq
-absent  declrun :: Setlec.SetR.DefEq.trans
-absent  declrun :: Setlec.SetR.checkDeclR_ofEnvRE
-absent  declrun :: Setlec.SetR.DeclR
-absent  declrun :: Setlec.SetR.declIndRR
-absent  declrun :: Setlec.SetR.DeclIndR
-"""
-
-def parse(text):
-    rows, order = {}, []
-    for line in text.splitlines():
-        line = line.split('#')[0].strip()
-        if not line:
-            continue
-        state, rest = line.split(None, 1)
-        rows[rest.strip()] = state.strip()
-        order.append(rest.strip())
-    return rows, order
-
-if '--list' in sys.argv[1:]:
-    print(MEASURED)
-    sys.exit(0)
-
-pin, order = parse(PIN)
-got, gorder = parse(MEASURED)
-
-fail = 0
-
-missing = [k for k in gorder if got[k] in ('MISSING-ROOT', 'MISSING-TARGET')]
-if missing:
-    fail = 1
-    print('PROOFDEPS FAIL — the walk could not find a name (%d):' % len(missing))
-    for k in missing:
-        print('    %s  %s' % (got[k], k))
-    print('    a renamed constant makes this gate vacuous; fix the name in '
-          'tests/ProofDeps.lean and re-pin.')
-
-rot = [k for k in gorder if k in pin and pin[k] == 'absent' and got[k] == 'PRESENT']
-if rot:
-    fail = 1
-    print('PROOFDEPS FAIL — R content RE-ENTERED a proof-term closure (%d):' % len(rot))
-    for k in rot:
-        print('    %s' % k)
-    print('    the separation forbids it: this is exactly what the gate is for.')
-
-won = [k for k in gorder if k in pin and pin[k] == 'PRESENT' and got[k] == 'absent']
-if won:
-    fail = 1
-    print('PROOFDEPS FAIL — R content LEFT a proof-term closure (%d):' % len(won))
-    for k in won:
-        print('    %s' % k)
-    print('    that is progress: flip the row to "absent" in tests/proofdeps.sh '
-          '(the pin only tightens) and record it in the batch seal.')
-
-unpinned = [k for k in gorder if k not in pin]
-if unpinned:
-    fail = 1
-    print('PROOFDEPS FAIL — measured rows that are not pinned (%d):' % len(unpinned))
-    for k in unpinned:
-        print('    %s %s' % (got[k], k))
-    print('    add them to the PIN table (tests/proofdeps.sh --list prints them).')
-
-stale = [k for k in order if k not in got]
-if stale:
-    fail = 1
-    print('PROOFDEPS FAIL — pinned rows that are no longer measured (%d):' % len(stale))
-    for k in stale:
-        print('    %s' % k)
-    print('    delete the line in the batch that removed the measurement.')
-
-if not fail:
-    caps = ['SPCD_P', 'P']
-    tgts = ['checkDeclR_ofEnvRE', 'DeclR', 'DeclIndR', 'declIndRR']
-    rel = ['Red', 'Red.beta', 'Infer', 'Infer.app', 'DefEq', 'DefEq.trans']
-    recs = sum(1 for c in caps for t in tgts
-               if got['%s :: Setlec.SetR.%s' % (c, t)] == 'absent')
-    beta = sum(1 for c in caps for t in rel
-               if got['%s :: Setlec.SetR.%s' % (c, t)] == 'absent')
-    doors = sum(1 for c in caps for t in rel
-                if got['%s :: Setlec.SetR.%s' % (c, t)] == 'PRESENT')
-    print('proofdeps: %d rows as pinned; checkDeclR_ofEnvRE/DeclR/'
-          'DeclIndR/declIndRR absent %d/%d and the derivation tier '
-          '(Red, Red.beta, Infer, Infer.app, DefEq, DefEq.trans) absent '
-          '%d/%d across the 2 shipped P capstones (doors: %d)'
-          % (len(gorder), recs, len(caps) * len(tgts), beta,
-             len(caps) * len(rel), doors))
-sys.exit(fail)
-PYEOF
+caps=$(cut -d' ' -f1 "$EXPECTED" | sort -u | tr '\n' ' ')
+echo "proofdeps: $rows module rows as pinned across 4 capstones ($caps); doors: $ndoors"

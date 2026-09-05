@@ -42020,3 +42020,187 @@ Ledger row:
 `agent/wiring-w6` holds the `PSigma'` pin retirement in the SetP pin
 modules and the pair-entry kernel install path; nothing in this batch
 reaches them, and no deletion here needed a change there.
+
+## THE SetR TIER, REMOVED — STAGE C: THE RELATION FAMILY, THE MODE
+ENUM, AND A REDEFINED GATE (2026-09-05, `agent/setr-stage-c`)
+
+### 0. WHAT LANDED
+
+The last of the collapsed model is gone, and with it the last thing
+that made `CheckMode` a three-valued flag:
+
+| | before (`9f44b2c8`) | after |
+|---|---|---|
+| `CheckMode` constructors | 3 (`setModel`=R, `setModelP`, `noModel`) | **2** (`setModel` = the graded lane, `noModel`) |
+| `Setlec/SetBase/*` modules | 52 | **29** |
+| tree modules (layering census) | base 250 / P 163 | **base 228 / P 163** |
+| proofdeps | 88 target rows, 10 R targets | **1 365 module rows, 4 capstones, doors 0** |
+| deleted this stage | — | **~15 400 lines** |
+
+Two commits: the tier (C1) and the enum + gate (C2/C3).
+
+### 1. C1 — THE DERIVATION BRIDGE, AND WHY IT WAS A SPLIT
+
+24 whole modules — `SetBase/Bridge/{Main, Claims, WhnfCore, Infer,
+InferStruct, DefEq, DefEqClosed, Spine, Irrel, Stuck, StuckIrrel, Eta,
+EtaCerts, Certs, StrLitR, Proj, Major, Iota, ReduceNat, DeclInd}` and
+`SetBase/{Rel, Weaken, CtxOkR}` — plus the derivation halves of nine
+mixed ones.  The licence was the Stage B probe, re-run at four roots:
+`modeR`, `cfgR`, `checkBridge`, `declDefnR`, `declIndRR` and
+`checkDeclR_ofEnvRE` are absent from both capstones' closures **and**
+from `checkDeclRun_ofEnvRE`/`declIndRunRR`, the run route the graded
+fold actually calls.  S11a's design claim — *the run route builds no
+derivation* — is what made the tier droppable, and this is that claim
+cashed.
+
+**It was a split-and-delete, not a `git rm`**, for the interned
+batch's reason: the representation-free residue lived *inside* the
+delete set.
+
+* **`SetBase/SpineV.lean` is new.**  `projSpinesV`, `etaFabArgsV` and
+  `piResidualV` were written inside `Rel.lean` because the rules that
+  needed them were there; five live consumers reach them
+  (`SetP/Annot/EnvS2P`, `SetP/IndEtaLawP`, `SetP/Step2/Proj{Pins,Rows}P`,
+  `SetBase/ProjPins`).  Extracted verbatim, namespace unchanged, so no
+  consumer needed a rename — only an import line.
+* **`SetBase/WhnfCoreLeaf.lean` was deleted and put back.**  It sits
+  in `Setlec/SetBase`, carries the `Setlec.SetR` namespace and names
+  its lemmas `whnfCoreR_*`, and is none of those things: six `rfl`
+  facts about the **kernel's** `whnfCore`, with a live `SetP/Step2/WhnfP`
+  consumer.  It is the clearest instance in the tree of the rule the
+  batch ran on.
+* `SetBase/Decl.lean` 1 092 → 203 (the run records).  `DeclIndR` is
+  deleted but `DeclIndR.TemplatesR` survives it — the template pass
+  never took a valuation and never built a derivation, so it was
+  always a run record wearing a `where` clause.  It keeps its
+  qualified name in a `namespace DeclIndR` block, because five
+  consumers spell it that way and a rename would have edited four
+  modules to say the same thing.
+* `SetBase/Bridge/Decl.lean` 2 755 → 172 (four checker-to-run
+  inversions); `Bridge/Sound.lean` keeps `checkDeclRun_ofEnvRE` alone;
+  `Bridge/ProjRed.lean` 547 → 48 (two `stripPis` lemmas, pure `Expr`).
+* `DeclRun`/`DeclIndRun` lose the `*.toRun` projections.  They were
+  the compatibility shim across S11a's transition — *"one source of
+  truth: the R lane keeps proving `DeclR`, and these discard the
+  derivation halves"* — and they now have nothing to project **from**.
+
+**The method that made this tractable**: delete the modules first and
+let the *compiler* enumerate the residue.  What survives a tree without
+`Rel.lean` is, by construction, relation-free — a criterion no census
+can get wrong.  Seven build rounds, each naming exactly the next
+declaration to go.
+
+### 2. THE ONE CONSUMER OUTSIDE THE DELETE SET
+
+A dry run over every module mentioning the derivation records
+(`TypedListW`, `DefEqListW`, `OpenCtxR`, …) found **278 lines in three
+files**, of which exactly one was outside `SetBase`:
+`SetP/IotaRuleNestedP.lean`'s `typedListW_denote_getD`, a 21-line dead
+lemma about the deleted `TypedListW`.  Noted for the concurrent ι
+batch; nothing else in `SetP` moved.
+
+That number is the finding.  The tier looked entangled with the graded
+lane — ten `SetP` modules *mention* those records — and the entanglement
+was entirely in prose and in one dead lemma.  **A grep over names finds
+docstrings; only a parse that strips comments finds uses.**  The first
+run of the pruning tool dropped `DeclIndRunR` — the record the shipped
+capstone depends on — because its *docstring* mentions `IndMembersR`.
+
+### 3. C2 — THE MODE ENUM COLLAPSES TO TWO
+
+`CheckMode` is `| setModel | noModel`, where `setModel` **is** the old
+`setModelP`: the graded lane took the retired lane's name, because
+there is one verified mode and `--set-model=r` is a hard error rather
+than an alias.  `modeR` is deleted with its subject; `betaGate` is now
+`| .setModel => true | _ => false`, and the two accessors `betaGate`
+and `verified` separate the same two modes — which is what "two cores"
+means at the mode level.
+
+**The coverage certificates are deleted, not made one-sided**, per the
+user's ruling that *coverage certificates were the pathology*.
+`CheckMode.verified_of_betaGate` and
+`CheckMode.betaGate_off_or_verified` partitioned the mode set between
+the R capstone family and the P one; with one verified mode the
+partition is true and empty.  What the asymmetry fence actually needs
+is stated where it is consumed — `AnnotOkP_beta_gate`
+(`SetP/Step2/GateP.lean`), against the **datum**, not against the mode
+set.  `verified_isNever_of_betaGateFires` survives and now proves its
+own conjunct by `cases mode`.
+
+`AnnotateBasis` and `Main` follow the rename; `Main.childArgs`' dead R
+arm goes with the constructor, and the `Inhabited` default and
+`Args.mode` now agree **by construction** rather than by accident.
+
+### 4. C3 — WHAT THE PROOFDEPS GATE MEASURES NOW
+
+**What it measured.**  P-vs-R disjointness: eleven named R targets,
+each pinned `absent` from every capstone's constant closure — the
+separation campaign's deliverable, mechanized, 88 rows at Stage B.
+
+**Why it is vacuous.**  All eleven targets are deleted.  The rows are
+not weakened; they have no subject.  A gate whose targets do not exist
+either reports `MISSING-TARGET` or — if the names are quietly dropped —
+forty-four vacuous `absent`s, which is the worse failure: a green gate
+measuring the empty set.  *The separation is not weaker; there is no
+second lane to be separated from.*
+
+**What it measures now.**  A **frozen module-level dependency pin**:
+for each of the four surviving capstones (`SPCD_P`,
+`checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `P`), the exact set of
+`Setlec.*` modules its type and proof term reach at the constant level,
+sorted, frozen in `tests/proofdeps-expected.txt` (1 365 rows) and
+checked as a **diff**.  The ratchet keeps its shape and its
+vocabulary: a module that ENTERS a closure is a **door** — the
+regression class the gate was built for, a capstone silently acquiring
+a dependency on machinery it should not need — and a module that LEAVES
+is progress that must be regenerated and recorded in the batch that
+earned it.
+
+It is honestly a weaker claim: a pin is not a theorem, and "module X is
+on the path" is not "declaration Y is used".  It is also the strongest
+thing left to say about a tree with one lane, and the shape it pins is
+not trivial — `SPCD_P` reaches the whole `Cached` tier (351 modules)
+and `P`, the pure fueled checker, reaches none of it (314).  A change
+that made the pure capstone depend on the cached driver would show up
+as 37 new rows.
+
+### 5. RECEIPTS
+
+* `lake build` warning-free (435 jobs); `lake test` exit 0;
+* `tests/arena.sh` exit 0: arena tutorial **90/92**, e2e **73/73**,
+  annot **14/14**, retired flags **8/8**, mode flags **14/14**,
+  no-model sweep **138 + 73 + 14 as expected (3 recorded
+  divergences)**, proofdeps **1 365 rows as pinned, doors 0**,
+  layering `base 228 / P 163 / caps 2 / umbrella 1; 0 base->lane,
+  0 impl->theory`;
+* init-full (`ulimit -v 16G`, `timeout 1800`): **61 048 accepted**
+  under `--set-model` and under `--no-model` — the W5 baselines,
+  unmoved through a 15 400-line deletion and a mode-enum collapse;
+* `annotate-basis` output byte-identical across the rename;
+* axiom audit: `no_proof_of_Empty_SPCD_P`,
+  `checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `no_proof_of_Empty_P`,
+  `no_proof_of_Empty_P_of` all at exactly
+  `[propext, Classical.choice, Quot.sound]`;
+* no `sorry`, no new axiom, no statement left conditional.
+
+### 6. LEDGER
+
+> *A grep over names finds docstrings; only a parse that strips
+> comments finds uses.*  The pruning tool's first run deleted the
+> shipped capstone's own dependency because a docstring mentioned a
+> dying record.  Any automated deletion criterion has to read code, not
+> text — and the cheapest way to be sure is to delete the module and
+> let the compiler enumerate what breaks.
+
+> *When a gate's subject is deleted, the gate is not weakened — it is
+> vacuous, and that is worse.*  Retiring the rows and writing down what
+> replaced them is the only honest move; silently keeping eleven
+> `absent`s about names that no longer exist would have left a green
+> gate measuring nothing.
+
+> *A name can outlive its referent, but a mode value should not.*
+> Stage B kept `modeR` because deleting `CheckMode.setModel` needed the
+> bridge tier gone first; Stage C deleted the tier and the value in one
+> batch, and the graded lane took the name.  The intermediate state —
+> a mode no flag could produce — was correct for exactly one batch and
+> was never going to be a resting place.
