@@ -528,7 +528,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       let args ← withStore (·.getAppArgsI e)
       let tf ← r.infer depth h
       inferSpineNC r depth tf #[] args
-    | some (.proj _sn i pe) => do
+    | some (.proj sn i pe) => do
       let tpe ← r.infer depth pe
       let te ← r.whnf depth tpe
       match ← withStore (fun st => st.getNode (st.getAppFnI te)) with
@@ -537,7 +537,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         match fe.findProj? Tn i with
         | some entry => do
           let targs ← withStore (·.getAppArgsI te)
-          if entry.native ∧ targs.length = entry.numParams ∧
+          if entry.native ∧ T = sn ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             if entry.tower then
               -- task #175 wiring W2c: the tower-backed residual, as in
@@ -708,8 +708,8 @@ def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           else stuckIrrelNC r fe depth a' b'
         else stuckIrrelNC r fe depth a' b'
       else stuckIrrelNC r fe depth a' b'
-    | some (.proj _s₁ i₁ e₁), some (.proj _s₂ i₂ e₂) => do
-      if i₁ == i₂ then do
+    | some (.proj s₁ i₁ e₁), some (.proj s₂ i₂ e₂) => do
+      if s₁ == s₂ && i₁ == i₂ then do
         if ← r.defeq depth e₁ e₂ then pure true
         else stuckIrrelNC r fe depth a' b'
       else stuckIrrelNC r fe depth a' b'

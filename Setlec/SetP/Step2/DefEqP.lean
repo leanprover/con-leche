@@ -1110,7 +1110,8 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
   · rename_i s₁ i₁ e₁ s₂ i₂ e₂
     split at h
     · next hii =>
-      obtain rfl : i₁ = i₂ := eq_of_beq hii
+      simp only [Bool.and_eq_true, beq_iff_eq] at hii
+      obtain ⟨rfl, rfl⟩ := hii
       cases hde : isDefEqCore μ env fuel d e₁ e₂ with
       | error err => rw [hde] at h; exact nomatch h
       | ok r =>

@@ -424,7 +424,9 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
        (entry.tower = true →
         ∃ ds, Expr.instPisAt (te.getAppArgs ++ [e])
             (entry.ty.instantiateLevelParams entry.levelParams us)
-          = some (ds, t))) := by
+          = some (ds, t)) ∧
+       -- task #175 wiring W5: the node's struct name is the head's
+       T = sn) := by
   rw [inferTypeCoreIO_succ] at h
   simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure, Bind.bind,
     Except.bind] at h
@@ -462,7 +464,7 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
   split at h
   case isFalse => exact nomatch h
   case isTrue hcond =>
-    obtain ⟨hnat, hlen, hus⟩ := hcond
+    obtain ⟨hnat, hsn, hlen, hus⟩ := hcond
     by_cases htw : entry.tower = true
     · rw [if_pos htw] at h
       revert h
@@ -475,7 +477,7 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h
         exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-          fun hf => absurd htw (by simp [hf]), fun _ => ⟨ds, hpi⟩⟩
+          fun hf => absurd htw (by simp [hf]), fun _ => ⟨ds, hpi⟩, hsn⟩
     · rw [if_neg htw] at h
       have htw' : entry.tower = false := by
         cases hv : entry.tower
@@ -494,13 +496,13 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
         subst h
         exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
           fun _ => ⟨A, B, hargs, Or.inl ⟨rfl, rfl⟩⟩,
-          fun ht => absurd ht (by simp [htw'])⟩
+          fun ht => absurd ht (by simp [htw']), hsn⟩
       · intro h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h
         exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
           fun _ => ⟨A, B, hargs, Or.inr ⟨rfl, rfl⟩⟩,
-          fun ht => absurd ht (by simp [htw'])⟩
+          fun ht => absurd ht (by simp [htw']), hsn⟩
 
 /-- **The literal clauses are lane-independent**: neither recurses, so
 the io run *is* the full run — the io twins of the two literal claims
@@ -682,7 +684,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       exact inferTypeCoreIO_of_full htail
     | .proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat,
-        hlenArgs, hlenUs, hpair, htow⟩ :=
+        hlenArgs, hlenUs, hpair, htow, hsn⟩ :=
         Setlec.inferTypeCore_proj_inv h
       rw [inferTypeCoreIO_succ]
       simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
@@ -696,7 +698,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       dsimp only
       rw [hfe]
       dsimp only
-      rw [if_pos ⟨hnat, hlenArgs, hlenUs⟩]
+      rw [if_pos ⟨hnat, hsn, hlenArgs, hlenUs⟩]
       cases htw : entry.tower with
       | false =>
         obtain ⟨A, B, hAB, hcase⟩ := hpair htw
