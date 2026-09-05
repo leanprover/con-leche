@@ -1528,7 +1528,7 @@ theorem zipProjHeadCase_of {φ : Name → Nat}
     (ga + gb) (la + lb) (Nat.le_refl _) (Nat.le_refl _)
     hzS hIs hIt hp hQ ha hb
   cases hout with
-  | pack hz hI₁ hI₂ hp' hq' => exact certZip_sorts_eval hm hz
+  | pack hz hI₁ hI₂ hp' hq' => exact certZip_sorts_eval hgOff hm hz
   | seam h =>
     obtain ⟨w₁, w₂, c₁, c₂, lc₁, lc₂, hb₁, hb₂, hlb₁, hlb₂,
       hrn₁, hrn₂, ht₁, ht₂, hsm⟩ := h

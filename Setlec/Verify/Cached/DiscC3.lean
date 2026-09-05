@@ -33,7 +33,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
           match env.find? T with
           | some (.indInfo cvT caps) =>
             if caps.ruleK = true ∧ cnF = 0 then
-              (fueledFns mode env).infer d major >>= fun tm =>
+              (fueledFns mode env).inferIO d major >>= fun tm =>
               (fueledFns mode env).whnf d tm >>= fun tmaj =>
               match tmaj.getAppFn with
               | .const T' ust =>
@@ -50,7 +50,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                             cvj.levelParams ust)
                           (tmaj.getAppArgs.take cnP) >>= fun rc =>
                       if rc then
-                        (fueledFns mode env).infer d fab >>= fun tfab =>
+                        (fueledFns mode env).inferIO d fab >>= fun tfab =>
                         (fueledFns mode env).defeq d tmaj tfab >>= fun rd =>
                         if rd then
                           proofIrrel (fueledFns mode env) env d fab major >>=
@@ -65,7 +65,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
               | _ => pure major
             else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
                 Name.isProjFnShape recName = false then
-              (fueledFns mode env).infer d major >>= fun tm =>
+              (fueledFns mode env).inferIO d major >>= fun tm =>
               (fueledFns mode env).whnf d tm >>= fun tmaj =>
               match tmaj.getAppFn with
               | .const T' ust =>
@@ -136,7 +136,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             match (mkFEnv env).find? T with
             | some (.indInfo cvT caps) =>
               if caps.ruleK = true ∧ cnF = 0 then
-                (coreKnotI mode (mkFEnv env) f).infer d i >>= fun tm =>
+                (coreKnotI mode (mkFEnv env) f).inferIO d i >>= fun tm =>
                 (coreKnotI mode (mkFEnv env) f).whnf d tm >>= fun tmaj =>
                 Setlec.Cached.withStore
                     (fun st => st.getNode (st.getAppFnI tmaj)) >>= fun n =>
@@ -160,7 +160,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env)
                             d tyCtor (margs.take cnP) >>= fun rc =>
                         if rc then
-                          (coreKnotI mode (mkFEnv env) f).infer d fab >>=
+                          (coreKnotI mode (mkFEnv env) f).inferIO d fab >>=
                             fun tfab =>
                           (coreKnotI mode (mkFEnv env) f).defeq d tmaj
                               tfab >>= fun rd =>
@@ -177,7 +177,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                 | _ => pure i
               else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
                   Name.isProjFnShape recName = false then
-                (coreKnotI mode (mkFEnv env) f).infer d i >>= fun tm =>
+                (coreKnotI mode (mkFEnv env) f).inferIO d i >>= fun tm =>
                 (coreKnotI mode (mkFEnv env) f).whnf d tm >>= fun tmaj =>
                 Setlec.Cached.withStore
                     (fun st => st.getNode (st.getAppFnI tmaj)) >>= fun n =>
@@ -266,7 +266,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                 dsimp only
                 by_cases hK : caps.ruleK = true ∧ cnF = 0
                 · rw [if_pos hK, if_pos hK]
-                  refine SimC.bind (ih.infer hs hden hmaj)
+                  refine SimC.bind (ih.inferIO hs hden hmaj)
                     (fun s₁ tm tmx hs₁ hP => ?_)
                   obtain ⟨htmd, hwtm⟩ := hP
                   refine SimC.bind (ih.whnf hs₁ htmd hwtm)
@@ -338,7 +338,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         | true =>
                           simp only [↓reduceIte]
                           -- the official `to_cnstr_when_K` type check
-                          refine SimC.bind (ih.infer hs₄d hQfab' hwfab)
+                          refine SimC.bind (ih.inferIO hs₄d hQfab' hwfab)
                             (fun s₄e tfab tfabx hs₄e hPtf => ?_)
                           obtain ⟨htfd, hwtf⟩ := hPtf
                           refine SimC.bind (ih.defeq hs₄e rfl
@@ -407,7 +407,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       rl.ctor = caps.etaCtor ∧
                       Name.isProjFnShape recName = false
                   · rw [if_pos hEta, if_pos hEta]
-                    refine SimC.bind (ih.infer hs hden hmaj)
+                    refine SimC.bind (ih.inferIO hs hden hmaj)
                       (fun s₁ tm tmx hs₁ hP => ?_)
                     obtain ⟨htmd, hwtm⟩ := hP
                     refine SimC.bind (ih.whnf hs₁ htmd hwtm)

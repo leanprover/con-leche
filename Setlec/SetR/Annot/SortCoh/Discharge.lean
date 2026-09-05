@@ -119,6 +119,7 @@ theorem isUnitLikeTy_sort {ℓ : Level} :
 `whnf (infer a')` run lands at a `∀`, which the collision engine pins
 to the successor sort — shape clash. -/
 theorem etaSortVacuity_of (hm : KnotFuelMono μ env)
+    (hg : μ.betaGate = false)
     (hT : TypeTransportLoopF μ env)
     (hTD : TypeTransportDeltaF μ env) (hTN : TypeTransportNatF μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
@@ -127,10 +128,11 @@ theorem etaSortVacuity_of (hm : KnotFuelMono μ env)
   intro g g' l f d a a' n ty body m ℓ hI _hQv hwc hcert hloop
   unfold Setlec.etaCert at hcert
   simp only [Bind.bind, Except.bind] at hcert
-  cases hinf : (Setlec.pureFns μ env g).infer d a' with
+  cases hinf : (Setlec.pureFns μ env g).inferIO d a' with
   | error err => rw [hinf] at hcert; exact nomatch hcert
   | ok tb =>
   rw [hinf] at hcert
+  rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinf
   simp only [] at hcert
   cases hw : (Setlec.pureFns μ env g).whnf d tb with
   | error err => rw [hw] at hcert; exact nomatch hcert
@@ -155,6 +157,7 @@ whnf chain (entered through `InvPreserveInferF`) onto the successor
 sort, pinning `uT` to a double successor — refuting the cert's
 `isEquiv uT 0` through `Level.isEquiv_sound`. -/
 theorem proofIrrel_no_sort (hm : KnotFuelMono μ env)
+    (hg : μ.betaGate = false)
     (hT : TypeTransportLoopF μ env)
     (hTD : TypeTransportDeltaF μ env) (hTN : TypeTransportNatF μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
@@ -168,10 +171,11 @@ theorem proofIrrel_no_sort (hm : KnotFuelMono μ env)
       = .ok (.sort ℓ)) : False := by
   unfold Setlec.proofIrrel at hpi
   simp only [Bind.bind, Except.bind] at hpi
-  cases hinfa : (Setlec.pureFns μ env g).infer d a' with
+  cases hinfa : (Setlec.pureFns μ env g).inferIO d a' with
   | error err => rw [hinfa] at hpi; exact nomatch hpi
   | ok ta =>
   rw [hinfa] at hpi
+  rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinfa
   simp only [] at hpi
   cases hwta : (Setlec.pureFns μ env g).whnf d ta with
   | error err => rw [hwta] at hpi; exact nomatch hpi
@@ -185,10 +189,11 @@ theorem proofIrrel_no_sort (hm : KnotFuelMono μ env)
   obtain rfl : wta = .sort (.succ ℓ) :=
     typeWhnfLE_collide hm hT hTD hTN hIC hID hIN hI hwc hloop hW1
   rw [isUnitLikeTy_sort, if_neg Bool.false_ne_true] at hpi
-  cases hinfta : (Setlec.pureFns μ env g).infer d ta with
+  cases hinfta : (Setlec.pureFns μ env g).inferIO d ta with
   | error err => rw [hinfta] at hpi; exact nomatch hpi
   | ok sa =>
   rw [hinfta] at hpi
+  rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinfta
   simp only [] at hpi
   cases hwsa : (Setlec.pureFns μ env g).whnf d sa with
   | error err => rw [hwsa] at hpi; exact nomatch hpi
@@ -228,15 +233,17 @@ theorem proofIrrel_no_sort (hm : KnotFuelMono μ env)
         omega
       | false =>
         -- the b-side walk: every terminal returns `false` or throws
-        cases hinfb : (Setlec.pureFns μ env g).infer d b' with
+        cases hinfb : (Setlec.pureFns μ env g).inferIO d b' with
         | error err => rw [hinfb] at hpi; exact nomatch hpi
         | ok tb =>
         rw [hinfb] at hpi
+        rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinfb
         simp only [] at hpi
-        cases hinftb : (Setlec.pureFns μ env g).infer d tb with
+        cases hinftb : (Setlec.pureFns μ env g).inferIO d tb with
         | error err => rw [hinftb] at hpi; exact nomatch hpi
         | ok sb =>
         rw [hinftb] at hpi
+        rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinftb
         simp only [] at hpi
         cases hwsb : (Setlec.pureFns μ env g).whnf d sb with
         | error err => rw [hwsb] at hpi; exact nomatch hpi
@@ -259,6 +266,7 @@ ctor-headed — `ctorHead_no_sort`); the b-directed branches and the
 unit cert collide a const-app-headed `w` with the successor sort; the
 fallback is the probe (`proofIrrel_no_sort`). -/
 theorem rescueSortVacuity_of (hm : KnotFuelMono μ env)
+    (hg : μ.betaGate = false)
     (hT : TypeTransportLoopF μ env)
     (hTD : TypeTransportDeltaF μ env) (hTN : TypeTransportNatF μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
@@ -302,10 +310,11 @@ theorem rescueSortVacuity_of (hm : KnotFuelMono μ env)
     · next cB usB pαB pβB s₁B s₂B =>
       split at h2
       · next _cvmB hfindB =>
-        cases hinf2 : (Setlec.pureFns μ env g).infer d a' with
+        cases hinf2 : (Setlec.pureFns μ env g).inferIO d a' with
         | error err => rw [hinf2] at h2; exact nomatch h2
         | ok tb =>
         rw [hinf2] at h2
+        rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinf2
         simp only [] at h2
         cases hw2 : (Setlec.pureFns μ env g).whnf d tb with
         | error err => rw [hw2] at h2; exact nomatch h2
@@ -334,10 +343,11 @@ theorem rescueSortVacuity_of (hm : KnotFuelMono μ env)
   | true =>
     unfold Setlec.structEtaCert at h3
     simp only [Bind.bind, Except.bind] at h3
-    cases hinf3 : (Setlec.pureFns μ env g).infer d b' with
+    cases hinf3 : (Setlec.pureFns μ env g).inferIO d b' with
     | error err => rw [hinf3] at h3; exact nomatch h3
     | ok tb =>
     rw [hinf3] at h3
+    rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinf3
     simp only [] at h3
     cases hw3 : (Setlec.pureFns μ env g).whnf d tb with
     | error err => rw [hw3] at h3; exact nomatch h3
@@ -365,10 +375,11 @@ theorem rescueSortVacuity_of (hm : KnotFuelMono μ env)
   | true =>
     unfold Setlec.structEtaCert at h4
     simp only [Bind.bind, Except.bind] at h4
-    cases hinf4 : (Setlec.pureFns μ env g).infer d a' with
+    cases hinf4 : (Setlec.pureFns μ env g).inferIO d a' with
     | error err => rw [hinf4] at h4; exact nomatch h4
     | ok tb =>
     rw [hinf4] at h4
+    rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinf4
     simp only [] at h4
     cases hw4 : (Setlec.pureFns μ env g).whnf d tb with
     | error err => rw [hw4] at h4; exact nomatch h4
@@ -404,10 +415,11 @@ theorem rescueSortVacuity_of (hm : KnotFuelMono μ env)
   | true =>
     unfold Setlec.structUnitCert at h5
     simp only [Bind.bind, Except.bind] at h5
-    cases hinf5 : (Setlec.pureFns μ env g).infer d a' with
+    cases hinf5 : (Setlec.pureFns μ env g).inferIO d a' with
     | error err => rw [hinf5] at h5; exact nomatch h5
     | ok ta =>
     rw [hinf5] at h5
+    rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinf5
     simp only [] at h5
     cases hw5 : (Setlec.pureFns μ env g).whnf d ta with
     | error err => rw [hw5] at h5; exact nomatch h5
@@ -425,11 +437,12 @@ theorem rescueSortVacuity_of (hm : KnotFuelMono μ env)
   | false =>
   rw [if_neg Bool.false_ne_true] at hsi
   -- branch 6: the proofIrrel fallback = the probe
-  exact proofIrrel_no_sort hm hT hTD hTN hIC hID hIN hInf
+  exact proofIrrel_no_sort hm hg hT hTD hTN hIC hID hIN hInf
     hI hwc hsi hloop
 
 /-- The probe routing, packaged. -/
 theorem probeSortVacuity_of (hm : KnotFuelMono μ env)
+    (hg : μ.betaGate = false)
     (hT : TypeTransportLoopF μ env)
     (hTD : TypeTransportDeltaF μ env) (hTN : TypeTransportNatF μ env)
     (hIC : InvPreserveCoreF μ env) (hID : InvPreserveDeltaF env)
@@ -437,7 +450,7 @@ theorem probeSortVacuity_of (hm : KnotFuelMono μ env)
     {Q : Nat → Expr → Expr → Prop} :
     ProbeSortVacuity μ env Q := by
   intro g g' l f d a a' b' ℓ hI _hQv hwc hpi hloop
-  exact proofIrrel_no_sort hm hT hTD hTN hIC hID hIN hInf
+  exact proofIrrel_no_sort hm hg hT hTD hTN hIC hID hIN hInf
     hI hwc hpi hloop
 
 /-! ### The spine routing, reduced to its both-δ core
@@ -568,6 +581,7 @@ species, and the spine routing.  The PSS trio is discharged — the
 branch's remaining unknowns are (F)-species-shaped plus
 `SpineSortAgree`. -/
 theorem ensureSortAgreeR_of_species {φ : Name → Nat}
+    (hg : μ.betaGate = false)
     {Q : Nat → Expr → Expr → Prop}
     (hB : BoolCtorsInert env)
     (hTC : TypeTransportCoreF μ env) (hTD : TypeTransportDeltaF μ env)
@@ -586,16 +600,17 @@ theorem ensureSortAgreeR_of_species {φ : Name → Nat}
     typeTransportLoopF_of hTC hTD hTN hIC hID hIN
   ensureSortAgreeR_of_pss (Q := Q) hB hIC hID hIN hLC hLD hLN
     hQC hQD hQN hQs
-    (probeSortVacuity_of hm hT hTD hTN hIC hID hIN hInf)
-    (rescueSortVacuity_of hm hT hTD hTN hIC hID hIN hInf
+    (probeSortVacuity_of hm hg hT hTD hTN hIC hID hIN hInf)
+    (rescueSortVacuity_of hm hg hT hTD hTN hIC hID hIN hInf
       (natStepNoSort_of hB))
-    (etaSortVacuity_of hm hT hTD hTN hIC hID hIN) hS
+    (etaSortVacuity_of hm hg hT hTD hTN hIC hID hIN) hS
 
 /-- **The branch primitive at its irreducibles**: `EnsureSortAgreeR`
 from the env fact, the three transport step species, the four
 invariant preservers, and the both-δ spine core.  Everything else on
 the defeq branch is discharged. -/
 theorem ensureSortAgreeR_of_core {φ : Name → Nat}
+    (hg : μ.betaGate = false)
     {Q : Nat → Expr → Expr → Prop}
     (hB : BoolCtorsInert env)
     (hTC : TypeTransportCoreF μ env) (hTD : TypeTransportDeltaF μ env)
@@ -609,7 +624,7 @@ theorem ensureSortAgreeR_of_core {φ : Name → Nat}
     (hQs : ∀ {d : Nat} {a b : Expr}, Q d a b → Q d b a)
     (hD : DeltaSpineSortAgree μ env φ Q) :
     EnsureSortAgreeRQ μ env φ Q :=
-  ensureSortAgreeR_of_species (Q := Q) hB hTC hTD hTN hIC hID hIN
+  ensureSortAgreeR_of_species (Q := Q) hg hB hTC hTD hTN hIC hID hIN
     hInf hLC hLD hLN hQC hQD hQN hQs
     (spineSortAgree_of (Q := Q) (knotFuelMono μ env) hB hIC hLC hQC
       hQs hD)
@@ -1004,7 +1019,7 @@ theorem inferTypeCore_lam_out {μ : CheckMode} {env : Env} {f d : Nat}
         | none =>
           intro h
           dsimp only at h
-          cases h4 : (Setlec.pureFns μ env f).infer (d + 1) bt with
+          cases h4 : (Setlec.pureFns μ env f).inferIO (d + 1) bt with
           | error err => rw [h4] at h; exact nomatch h
           | ok btt =>
           rw [h4] at h
@@ -1077,16 +1092,18 @@ branch pins `uT` to the single successor through the second
 transport, and `Level.isEquiv_sound` refutes at the zero
 valuation. -/
 theorem probeTySortVacuity_of (hm : KnotFuelMono μ env)
+    (hg : μ.betaGate = false)
     (hT : TypeTransportLoopF μ env) (hInf : InvPreserveInferF μ env)
     {Q : Nat → Expr → Expr → Prop} :
     ProbeTySortVacuity μ env Q := by
   intro g d a' b' ℓ hIa' _hQv hpi hW
   unfold Setlec.proofIrrel at hpi
   simp only [Bind.bind, Except.bind] at hpi
-  cases hinfa : (Setlec.pureFns μ env g).infer d a' with
+  cases hinfa : (Setlec.pureFns μ env g).inferIO d a' with
   | error err => rw [hinfa] at hpi; exact nomatch hpi
   | ok ta =>
   rw [hinfa] at hpi
+  rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinfa
   simp only [] at hpi
   cases hwta : (Setlec.pureFns μ env g).whnf d ta with
   | error err => rw [hwta] at hpi; exact nomatch hpi
@@ -1099,10 +1116,11 @@ theorem probeTySortVacuity_of (hm : KnotFuelMono μ env)
     exact ⟨g, ta, hinfa, gw, lw, hlw⟩
   obtain rfl : wta = .sort ℓ := TypeWhnfLE_det hm hW1 hW
   rw [isUnitLikeTy_sort, if_neg Bool.false_ne_true] at hpi
-  cases hinfta : (Setlec.pureFns μ env g).infer d ta with
+  cases hinfta : (Setlec.pureFns μ env g).inferIO d ta with
   | error err => rw [hinfta] at hpi; exact nomatch hpi
   | ok sa =>
   rw [hinfta] at hpi
+  rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinfta
   simp only [] at hpi
   cases hwsa : (Setlec.pureFns μ env g).whnf d sa with
   | error err => rw [hwsa] at hpi; exact nomatch hpi
@@ -1140,15 +1158,17 @@ theorem probeTySortVacuity_of (hm : KnotFuelMono μ env)
         simp only [Setlec.Level.eval] at hev
         omega
       | false =>
-        cases hinfb : (Setlec.pureFns μ env g).infer d b' with
+        cases hinfb : (Setlec.pureFns μ env g).inferIO d b' with
         | error err => rw [hinfb] at hpi; exact nomatch hpi
         | ok tb =>
         rw [hinfb] at hpi
+        rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinfb
         simp only [] at hpi
-        cases hinftb : (Setlec.pureFns μ env g).infer d tb with
+        cases hinftb : (Setlec.pureFns μ env g).inferIO d tb with
         | error err => rw [hinftb] at hpi; exact nomatch hpi
         | ok sb =>
         rw [hinftb] at hpi
+        rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinftb
         simp only [] at hpi
         cases hwsb : (Setlec.pureFns μ env g).whnf d sb with
         | error err => rw [hwsb] at hpi; exact nomatch hpi
@@ -1621,16 +1641,18 @@ theorem certZip_subst {μ : CheckMode} {env : Env} {fc d : Nat}
 type-chain pins `uT` to a double successor, refuting the `Prop`
 check by eval arithmetic (the probe walk, at literal subjects). -/
 theorem proofIrrel_sorts_absurd {μ : CheckMode} {env : Env}
+    (hg : μ.betaGate = false)
     (hm : KnotFuelMono μ env) {g d : Nat} {u v : Level}
     (hpi : Setlec.proofIrrel (Setlec.pureFns μ env g) env d
       (.sort u) (.sort v) = .ok true) : False := by
   have hdet := KnotFuelDet_of_mono hm
   unfold Setlec.proofIrrel at hpi
   simp only [Bind.bind, Except.bind] at hpi
-  cases hinfa : (Setlec.pureFns μ env g).infer d (.sort u) with
+  cases hinfa : (Setlec.pureFns μ env g).inferIO d (.sort u) with
   | error err => rw [hinfa] at hpi; exact nomatch hpi
   | ok ta =>
   rw [hinfa] at hpi
+  rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinfa
   simp only [] at hpi
   obtain rfl : ta = .sort (.succ u) := inferTypeCore_sort_out hinfa
   cases hwta : (Setlec.pureFns μ env g).whnf d (.sort (.succ u)) with
@@ -1640,10 +1662,11 @@ theorem proofIrrel_sorts_absurd {μ : CheckMode} {env : Env}
   simp only [] at hpi
   obtain rfl : wta = .sort (.succ u) := whnf_sort_out hdet hwta
   rw [isUnitLikeTy_sort, if_neg Bool.false_ne_true] at hpi
-  cases hinfta : (Setlec.pureFns μ env g).infer d (.sort (.succ u)) with
+  cases hinfta : (Setlec.pureFns μ env g).inferIO d (.sort (.succ u)) with
   | error err => rw [hinfta] at hpi; exact nomatch hpi
   | ok sa =>
   rw [hinfta] at hpi
+  rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinfta
   simp only [] at hpi
   obtain rfl : sa = .sort (.succ (.succ u)) :=
     inferTypeCore_sort_out hinfta
@@ -1673,15 +1696,17 @@ theorem proofIrrel_sorts_absurd {μ : CheckMode} {env : Env}
       simp only [Setlec.Level.eval] at hev
       omega
     | false =>
-      cases hinfb : (Setlec.pureFns μ env g).infer d (.sort v) with
+      cases hinfb : (Setlec.pureFns μ env g).inferIO d (.sort v) with
       | error err => rw [hinfb] at hpi; exact nomatch hpi
       | ok tb =>
       rw [hinfb] at hpi
+      rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinfb
       simp only [] at hpi
-      cases hinftb : (Setlec.pureFns μ env g).infer d tb with
+      cases hinftb : (Setlec.pureFns μ env g).inferIO d tb with
       | error err => rw [hinftb] at hpi; exact nomatch hpi
       | ok sb =>
       rw [hinftb] at hpi
+      rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinftb
       simp only [] at hpi
       cases hwsb : (Setlec.pureFns μ env g).whnf d sb with
       | error err => rw [hwsb] at hpi; exact nomatch hpi
@@ -1701,6 +1726,7 @@ theorem proofIrrel_sorts_absurd {μ : CheckMode} {env : Env}
 walk at literal subjects; the fallback is
 `proofIrrel_sorts_absurd`). -/
 theorem stuckIrrel_sorts_absurd {μ : CheckMode} {env : Env}
+    (hg : μ.betaGate = false)
     (hm : KnotFuelMono μ env) {g d : Nat} {u v : Level}
     (hsi : Setlec.stuckIrrel μ (Setlec.pureFns μ env g) env d
       (.sort u) (.sort v) = .ok true) : False := by
@@ -1737,10 +1763,11 @@ theorem stuckIrrel_sorts_absurd {μ : CheckMode} {env : Env}
   | true =>
     unfold Setlec.structEtaCert at h3
     simp only [Bind.bind, Except.bind] at h3
-    cases hinf3 : (Setlec.pureFns μ env g).infer d (.sort v) with
+    cases hinf3 : (Setlec.pureFns μ env g).inferIO d (.sort v) with
     | error err => rw [hinf3] at h3; exact nomatch h3
     | ok tb =>
     rw [hinf3] at h3
+    rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinf3
     simp only [] at h3
     cases hw3 : (Setlec.pureFns μ env g).whnf d tb with
     | error err => rw [hw3] at h3; exact nomatch h3
@@ -1761,10 +1788,11 @@ theorem stuckIrrel_sorts_absurd {μ : CheckMode} {env : Env}
   | true =>
     unfold Setlec.structEtaCert at h4
     simp only [Bind.bind, Except.bind] at h4
-    cases hinf4 : (Setlec.pureFns μ env g).infer d (.sort u) with
+    cases hinf4 : (Setlec.pureFns μ env g).inferIO d (.sort u) with
     | error err => rw [hinf4] at h4; exact nomatch h4
     | ok tb =>
     rw [hinf4] at h4
+    rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinf4
     simp only [] at h4
     cases hw4 : (Setlec.pureFns μ env g).whnf d tb with
     | error err => rw [hw4] at h4; exact nomatch h4
@@ -1785,10 +1813,11 @@ theorem stuckIrrel_sorts_absurd {μ : CheckMode} {env : Env}
   | true =>
     unfold Setlec.structUnitCert at h5
     simp only [Bind.bind, Except.bind] at h5
-    cases hinf5 : (Setlec.pureFns μ env g).infer d (.sort u) with
+    cases hinf5 : (Setlec.pureFns μ env g).inferIO d (.sort u) with
     | error err => rw [hinf5] at h5; exact nomatch h5
     | ok ta =>
     rw [hinf5] at h5
+    rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinf5
     simp only [] at h5
     obtain rfl : ta = .sort (.succ u) := inferTypeCore_sort_out hinf5
     cases hw5 : (Setlec.pureFns μ env g).whnf d (.sort (.succ u)) with
@@ -1800,12 +1829,13 @@ theorem stuckIrrel_sorts_absurd {μ : CheckMode} {env : Env}
     exact nomatch h5
   | false =>
   rw [if_neg Bool.false_ne_true] at hsi
-  exact proofIrrel_sorts_absurd hm hsi
+  exact proofIrrel_sorts_absurd hg hm hsi
 
 /-- **The sort-sort cert inversion** (the summit's stuck-stuck
 terminal and the cert case's base): a certified pair of literal
 sorts has eval-equal levels. -/
 theorem isDefEqCore_sorts_eval {μ : CheckMode} {env : Env}
+    (hg : μ.betaGate = false)
     {φ : Name → Nat} (hm : KnotFuelMono μ env)
     {fc d : Nat} {u v : Level}
     (h : isDefEqCore μ env fc d (.sort u) (.sort v) = .ok true) :
@@ -1826,7 +1856,7 @@ theorem isDefEqCore_sorts_eval {μ : CheckMode} {env : Env}
       hdet.2.2.1 hwb (whnfCore_sort_run (whnfCore_pos hwb))
     cases hcert with
     | syn => rfl
-    | irrel _ _ hpi => exact (proofIrrel_sorts_absurd hm hpi).elim
+    | irrel _ _ hpi => exact (proofIrrel_sorts_absurd hg hm hpi).elim
     | natL _ _ a₂ hrn hk => exact nomatch hrn
     | natR _ _ b₂ hrnA hrnB hk => exact nomatch hrnB
     | deltaL _ _ a₂ hu hk => exact nomatch hu
@@ -1836,7 +1866,7 @@ theorem isDefEqCore_sorts_eval {μ : CheckMode} {env : Env}
       unfold Setlec.defeqSpine at hs
       exact nomatch hs
     | sorts _ _ hiseq => exact Level.isEquiv_sound hiseq φ
-    | rescue _ _ hsi => exact (stuckIrrel_sorts_absurd hm hsi).elim
+    | rescue _ _ hsi => exact (stuckIrrel_sorts_absurd hg hm hsi).elim
 
 /-- Spine arguments of a bvar-closed expression are bvar-closed. -/
 theorem getAppArgs_bounded : ∀ {e : Expr},
@@ -2539,14 +2569,15 @@ only `refl`, `sortSlack` and `cert` can relate two sorts, and each
 forces eval-equal levels (`cert` through the landed
 `isDefEqCore_sorts_eval`). -/
 theorem certZip_sorts_eval {μ : CheckMode} {env : Env}
-    {φ : Name → Nat} (hm : KnotFuelMono μ env)
+    {φ : Name → Nat} (hg : μ.betaGate = false)
+    (hm : KnotFuelMono μ env)
     {fc d : Nat} {u v : Level}
     (hz : CertZip μ env fc d (.sort u) (.sort v)) :
     u.eval φ = v.eval φ := by
   cases hz with
   | refl _ => rfl
   | sortSlack _ _ hev => exact hev φ
-  | cert _ _ _ _ hc => exact isDefEqCore_sorts_eval hm hc
+  | cert _ _ _ _ hc => exact isDefEqCore_sorts_eval hg hm hc
 
 /-- **The Θ seam, frozen** (the one routed hard case of the sim
 tier): a cert-related head pair under pointwise-zipped spines, both
@@ -2622,6 +2653,7 @@ theorem whnfCore_app_decompose {μ : CheckMode} (hg : μ.betaGate = false) {env 
     | error err => rw [hinf] at h; exact nomatch h
     | ok ta =>
     rw [hinf] at h
+    rw [Setlec.inferTypeIO_def, Setlec.inferTypeIO_off hg] at hinf
     simp only [] at h
     cases hdq : (Setlec.pureFns μ env g).defeq d ta ty with
     | error err => rw [hdq] at h; exact nomatch h
@@ -2632,11 +2664,11 @@ theorem whnfCore_app_decompose {μ : CheckMode} (hg : μ.betaGate = false) {env 
     | true =>
       rw [if_pos rfl] at h
       exact .inl ⟨n, ty, body, mb, ta, rfl,
-        (by rw [← Setlec.inferTypeIO_off hg]; exact hinf), hdq, h⟩
+        hinf, hdq, h⟩
     | false =>
       rw [if_neg Bool.false_ne_true] at h
       exact .inr (.inl ⟨n, ty, body, mb, ta, rfl,
-        (by rw [← Setlec.inferTypeIO_off hg]; exact hinf), hdq,
+        hinf, hdq,
         (Except.ok.inj h).symm⟩)
   · next hne =>
     cases hio : Setlec.iotaRec μ (Setlec.pureFns μ env g) env d
@@ -3765,6 +3797,7 @@ the spine core discharged onto `ZipWhnfSortAgree`.  (The trio legs
 still route through the refuted transport species pending the
 semantic discharge — this composite tracks the live frontier.) -/
 theorem ensureSortAgreeR_of_summit {φ : Name → Nat}
+    (hg : μ.betaGate = false)
     {Q : Nat → Expr → Expr → Prop}
     (hB : BoolCtorsInert env)
     (hTC : TypeTransportCoreF μ env) (hTD : TypeTransportDeltaF μ env)
@@ -3780,7 +3813,7 @@ theorem ensureSortAgreeR_of_summit {φ : Name → Nat}
     EnsureSortAgreeRQ μ env φ Q :=
   have hD : DeltaSpineSortAgree μ env φ Q :=
     deltaSpineSortAgree_of (φ := φ) (Q := Q) hZ
-  ensureSortAgreeR_of_core (Q := Q) hB hTC hTD hTN hIC hID hIN hInf
+  ensureSortAgreeR_of_core (Q := Q) hg hB hTC hTD hTN hIC hID hIN hInf
     hLC hLD hLN hQC hQD hQN hQs hD
 
 /-! ### The public claims collapse onto the summit
