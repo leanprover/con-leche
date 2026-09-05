@@ -38207,7 +38207,7 @@ accepted terms, so the branch is verdict-dead there).
 | W2a | `ProjEntry.tower` field | LANDED (zero proof changes) |
 | W2b | generator + `checkDirectProj` entry install + twins + bridge re-proofs | LANDED |
 | W2c | infer tower branch (4 twins) + clause-proof adaptation | LANDED |
-| W3 | `denoteP`/`denote` reading branch + erasure law | frozen (§1) |
+| W3 | `denoteP`/`denote` reading branch + erasure law | frozen (§1) + route notes below |
 | W4 | install soundness (checklist items 1–2) | pending |
 | W5 | rewrite removal (P/parity), flip, battery | pending |
 | W6 | PSigma' retirement (gated) | pending |
@@ -38267,3 +38267,25 @@ by family:
 
 Receipts: 521 jobs warning-free, layering 0 edges; behavior
 byte-identical (no tower entries exist pre-flip).
+
+**W3 route notes** (decided at the W2c seal, for the next stage's
+first hour):
+
+* **parallel clauses, both readings**: `denoteP` (`SetP/Annot/Bit`)
+  branches on `env.findProj? sn i`'s entry kind — tower →
+  `projAV i ea` (import `SetBase/TowerLeaf`), pair/none → today's
+  `i < 2` clause; the R-side `denote` (`Verify/Denote`) gets the SAME
+  branch with a local `VExpr` iterated-proj def (`projNV`, the erase
+  image of `projAV`), keeping `denoteP_erase` clause-parallel — do NOT
+  try a one-sided change, the erasure law is consumed mid-lane;
+* the erase commutation `(projAV i ea).erase = projNV i (ea.erase)`
+  lives with `denoteP_erase`'s proj case (`SetP/Annot/Bit`, which
+  imports both sides);
+* the walks to adapt: the 9 `denoteP.induct` sites, `denoteP_proj_inv`
+  (its consumers pattern-match `⟨vp, hvp, hi2, rfl⟩` — the inversion
+  goes three-way), `denotePInstLevels`, the R-side `denote` walks, and
+  `AcceptedP`'s `i < 2`/`projPinsP` gates (the recorded
+  caveat-(i) remnant: per-entry clauses, tower side reachable only
+  post-flip — same pin-kill discipline as W2c);
+* pre-flip the new branches are dead (no tower entries), so W3 lands
+  behavior-neutral exactly like W2b/W2c.
