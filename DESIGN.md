@@ -38289,3 +38289,169 @@ first hour):
   post-flip — same pin-kill discipline as W2c);
 * pre-flip the new branches are dead (no tower entries), so W3 lands
   behavior-neutral exactly like W2b/W2c.
+
+## TASK #167 — THE PACKED NODE WORD (2026-09-05, `agent/packing`;
+LANDS CODE — the user's saturating ruling, executed)
+
+### 0. WHAT LANDED, IN ONE LINE
+
+`Setlec.Expr`'s **four** `@[computed_field]`s are **one**: a packed
+`UInt64` laid out as `Lean.Expr.Data` is — and `Expr.bvarB`,
+`Expr.fvarB`, `Expr.hasLP`, `Expr.hash` are still the same functions,
+so **not one statement below `Kernel/Expr.lean` moved**.
+
+### 1. THE LAYOUT, AND THE WIDTH DECISION
+
+| bits | field | width |
+|---|---|---|
+| 63…32 | `hash` | 32 |
+| 31 | *reserved* | 1 |
+| 30…16 | `bvarB` (saturating) | 15 |
+| 15…1 | `fvarB` (saturating) | 15 |
+| 0 | `hasLP` | 1 |
+
+`Lean.Expr.Data`'s own proportions are hash 32 + `looseBVarRange` 20 +
+flags; setlec needs **two** ranges (Lean carries only a `hasFVar`
+bool), so the 31 bits below the hash split 15/15/1 with one spare.
+The hash stays wide at 32 — the coordinator's constraint — and is the
+one *value* the packing changes (it was 64 bits; `beqFast`'s
+false-agree probability goes from `2^-64` to `2^-32`, which is
+`Lean.Expr`'s own bargain).
+
+**The measured maxima** — a temporary fifth computed field `mxB`
+(the max over a subtree of `max bvarB fvarB`) read at `internI`, at
+the seven `ExprOpsC` build sites and at the parser's `ie` node, so
+every node the checker ever builds was observed:
+
+| stream | max `max bvarB fvarB` | headroom to 32767 |
+|---|---|---|
+| `init-full` (61 048 decls) | **213** | 154× |
+| `grind-ring-5` | **488** | 67× |
+| `app-lam` (the deepest artificial workload) | **4000** | 8.2× |
+
+The parser's own site never exceeded the probe's 48-node threshold on
+`init-full`: input terms are shallow, and what grows the bound is the
+checker's own binder cursors.
+
+**The fvar-allocation finding, asked for by the charter**: fvar
+indices are **de Bruijn levels**, not a global counter.  Every
+`internI (.fvar depth …)` in `Cached/CoreC.lean` and `CoreNC.lean`
+takes the `depth` parameter threaded through the core (or `d + k`
+inside a telescope loop), so `fvarB` is bounded by the local-context
+depth exactly as `bvarB` is bounded by the binder nesting.  **A
+global counter would have forced a wide field or a different
+treatment; a level does not.**  15 bits serve both.
+
+### 2. THE OVERFLOW CONVENTION — SATURATE, AND STAY EXACT ANYWAY
+
+The charter opened with *decline on overflow* (exit 2, with a width
+invariant maintained at the entry points).  The user withdrew that
+mid-batch — *"I have qualms about introducing a WFe invariant for the
+packed bvar field.  Maybe saturating is easier, with degraded
+performance once saturated?"* — and the batch executed the second
+design.
+
+The coordinator's proposed proof shape for saturation was
+*exact-below-saturation*: weaken `bvarB_eq` to a one-directional
+lemma and let the `≤`-comparison consumers ride free.  **That shape
+was checked and rejected on a finding**, which is worth recording
+because it is not obvious:
+
+> `bvarB_le : e.bvarB ≤ d → looseBVarsBounded d e` is **not** free
+> under a saturating field.  It fails exactly when `d ≥ satRange`,
+> and `d` is a traversal cursor — a variable at every one of the ~90
+> call sites, with no statically provable bound.  Making the skip
+> tests carry the guard (`e.bvarB ≤ min d satMax`) works, but it
+> weakens `looseBVarsBounded_spec` (a *both-directions* equation
+> consumed by `rw` at 8 sites, and by four **parse-time accept
+> guards** — a false reject is a wrong verdict, not a slow one) and
+> it restates `bvarBoundM_eff`.  Priced at ~60 hand edits in
+> `Verify/Cached/{OpsC,GuardsC,SimCEff}.lean` **plus two statement
+> moves**.
+
+So the batch saturates the **storage** and keeps the **accessor**
+exact:
+
+```
+def bvarB (e : Expr) : Nat :=
+  let r := e.bvarBRaw                     -- the packed 15-bit field
+  if r == satRange then bvarBoundMemo e else r
+```
+
+`bvarBoundMemo` is the *same recurrence*, memoized (`Std.HashMap`
+keyed by the node) so the fallback is `O(DAG)` — the standing
+no-unmemoized-traversals rule holds on the saturated branch too.
+This is the user's sentence taken literally: **saturation costs time,
+and only on terms that saturate**; it costs no truth anywhere.
+
+Proof shape, three lemmas where there was one, landing on the old one:
+
+1. `bvarBRaw_exact : e.bvarBRaw < satRange → e.bvarBRaw =
+   Expr.bvarBound e` — induction on the packed word's per-constructor
+   equations.  The binder arm is the only interesting one: the
+   *saturating predecessor* `satPred` maps `satRange` to itself
+   rather than to `satRange - 1`, which is what keeps "stored value
+   `satRange` means *at least* `satRange`" true through a binder;
+2. `bvarBoundMemo_eq : Expr.bvarBoundMemo e = Expr.bvarBound e` —
+   the `MemoBInv` pattern, cloned from `wscopedBGo_spec`;
+3. `bvarB_eq : e.bvarB = Expr.bvarBound e` — **verbatim the old
+   statement**, by a two-way split on the saturation test.
+
+Same three for `fvarB`.  `hasLP` is one bit, hence exact with no
+fallback; `hash` has no exactness lemma to keep.
+
+### 3. THE CHURN, AND WHY IT IS FOUR LINES
+
+Files touched: `Kernel/Expr.lean` (the word, the roundtrip family, the
+per-constructor equations), `Kernel/ExprOps.lean` (the two memoized
+walks and the two accessors), `Verify/Cached/Erase.lean` (the six new
+lemmas landing on the two old ones).
+
+**Everything else: four lines** — `simpa using hcut` → `simp` at the
+`bvar` and `lit` arms of `instLevelParamsGo_spec`
+(`Verify/Cached/OpsC.lean`) and `allLevelParamsDefinedGo_spec`
+(`Verify/Cached/GuardsC.lean`), where `hasLP` is now a `@[simp]`
+equation and the hypothesis became redundant.  Every one of the ~70
+`bvarB_le` / `fvarB_le` / `hasLP_false` consumers B3a counted, and
+every executable skip site in `Cached/ExprOpsC.lean` and
+`Cached/StateC.lean`, compiled **untouched**.
+
+That is the batch's reusable lesson, and it is B3a's §3 answered:
+*the exactness→saturation cascade B3a priced is avoidable — pay for a
+slow exact branch instead of a weak lemma, and the representation
+change stays a representation change.*
+
+### 4. THE PROOF TECHNIQUE WORTH KEEPING
+
+The packing is written with **arithmetic**, not bitwise, operators:
+
+```
+packData h b f lp = h * 4294967296 + b * 65536 + f * 2 + (if lp then 1 else 0)
+bvarOfData w      = w / 65536 % 32768
+```
+
+Disjoint fields make `+` the bitwise join and `/`,`%` by powers of two
+the shift-and-mask — LLVM emits the same instructions — and every
+roundtrip lemma is then `UInt64.toNat_inj` + `simp [UInt64.toNat_*]` +
+**`omega`**.  No `bv_decide`, no `BitVec` bridging, no `Nat.land`
+lemma hunting.  The whole family (`bvarOfData_pack`, `fvarOfData_pack`,
+`lpOfData_pack`, `hashOfData_pack` and their range companions) is 40
+lines.
+
+The one trap: `omega` needs the *outer* `% 2^64` discharged, so each
+lemma carries the componentwise range hypotheses and `cases lp` first
+(otherwise `(if lp then 1 else 0).toNat` blocks it).
+
+### 5. RECEIPTS
+
+`lake build` green and **warning-free**, 521 jobs; `lake test` green;
+layering base 246 / R 105 / P 120 / neutral 3, **0 P→R, 0 R→P**;
+proofdeps **96 rows as pinned**, doors 0; arena tutorial **90/92**,
+e2e **73/73**, annot **14/14**, retired flags 8/8, mode flags 11/11,
+**no-model sweep 138 arena + 73 e2e + 14 annot as expected (its 3
+recorded divergences)** — verdict identity everywhere, and **no
+stream reached the saturated branch**; axioms of `bvarB_eq`,
+`fvarB_eq`, `hasLP_eq`, `bvarBoundMemo_eq`, `fvarRangeMemo_eq` and
+both cached capstones exactly the standard three; no `sorry`, no new
+axiom, no statement left conditional.
+
