@@ -38095,3 +38095,26 @@ collapse to one core without a single expectation override.
 > deletion before doing it — and the same arithmetic says which
 > deletions are NOT worth doing for build time (the 78.7 s of delete-set
 > CPU bought only the 34 s that sat in series).
+
+
+## TASK #172 — THE DEFERRED B4 MEASUREMENT (io bake), post-removal tree
+(2026-09-05, coordinator-run per the frozen B4 plan §8; binary d99b5c62 @ 88bfc2dd; baseline setlec-788e6511 (d6a7bd2d); preprocessed streams, --pre, instructions:u single-run idle-guarded; raw cells _tmp/io-measure/cells.tsv)
+
+| stream | R (=r) | P (=p) | parity (--no-model) | P vs R | P ÷ parity |
+|---|---|---|---|---|---|
+| **init-full (decisive)** | 2749.70 G | **1911.71 G** | 1219.18 G | **−30.5%** | **1.568×** |
+| init-prelude (signal) | 24.837 | 18.593 | 10.162 | −25.1% | 1.830× |
+| grind-ring-5 (outlier/bug-finder) | 88.582 | 64.169 | 42.568 | −27.6% | 1.508× |
+| app-lam (control) | 290.139 | 217.606 | 217.428 | −25.0% | 1.001× |
+| beta-ladder (control) | 44.793 | 54.061 | 42.268 | **+20.7% ⚠** | 1.279× |
+| let-ladder (control) | 10.487 | 10.485 | 10.464 | −0.0% | 1.002× |
+
+Verdicts identical in every cell (exit 0; accepted counts equal per stream, init-full 61 048 in all three modes).
+
+**The io increment, isolated** (same config, old→new binary): init-full =p 2221.55 → 1911.71 G = **−13.9% from verified infer_only alone**; init-prelude −15.8%; grind −14.4%. The R lane pays +0.56% (init-full) for the io plumbing — the flag-ignoring lane's cost is noise-grade. Combined verified-mode arc on init-full since the pre-β baseline: ≈ −30%.
+
+**Two findings:**
+1. **app-lam: P ≡ parity (1.001×).** On the graph-regime-saturated DAG stream the licensed skips remove essentially the entire remaining certificate cost — the per-argument application certificate, previously the largest named residual, is gone where the license reaches.
+2. **beta-ladder regression (+20.7% P vs R), diagnosed hypothesis:** the ladder's binders are possibly-Prop (skips never fire) while the io call-site conversion SPLITS the inference traffic across the two memos — the same subterm inferred under both flavors misses the other flavor's entry. This is precisely the workload for the user's shared-memo pilot (#176: memo-as-lemma-cache; the cross-memo peek on the later-options list). Recorded as the pilot's motivating measurement; no action taken (threshold/heuristic-class changes need user sign-off).
+
+Parity note in passing: init-full --no-model at 1219.2 G ≈ **2.95× official (413.0 G, official-pre)** — the first sub-3× parity measurement in the project, the accumulated effect of the one-type migration, direct parse, loop port and the interned removal. PERF.md regeneration (four-column shape) is due and will supersede these cells as the canonical table.
