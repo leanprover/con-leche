@@ -84,19 +84,13 @@ def psigmaMkA : ConstantInfo :=
                           (Setlec.Expr.bvar 3))
                         (Setlec.Expr.bvar 2))
                       { bi := Setlec.BinderInfo.default,
-                        pw := Setlec.PropWhen.ifAllZero
-                                [Setlec.Name.str (Setlec.Name.anonymous) "u",
-                                 Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                        pw := (3 : Setlec.PropWhen) })
                     { bi := Setlec.BinderInfo.default,
-                      pw := Setlec.PropWhen.ifAllZero
-                              [Setlec.Name.str (Setlec.Name.anonymous) "u",
-                               Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                      pw := (3 : Setlec.PropWhen) })
                   { bi := Setlec.BinderInfo.implicit,
-                    pw := Setlec.PropWhen.ifAllZero
-                            [Setlec.Name.str (Setlec.Name.anonymous) "u", Setlec.Name.str (Setlec.Name.anonymous) "v"] })
+                    pw := (3 : Setlec.PropWhen) })
                 { bi := Setlec.BinderInfo.implicit,
-                  pw := Setlec.PropWhen.ifAllZero
-                          [Setlec.Name.str (Setlec.Name.anonymous) "u", Setlec.Name.str (Setlec.Name.anonymous) "v"] } }
+                  pw := (3 : Setlec.PropWhen) } }
     2
     2
 
@@ -151,8 +145,8 @@ def psigmaRecA : ConstantInfo :=
                                   (Setlec.Expr.bvar 3))
                                 (Setlec.Expr.bvar 1))
                               (Setlec.Expr.bvar 0)))
-                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
-                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.always })
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.always })
                       (Setlec.Expr.forallE
                         (Setlec.Name.str (Setlec.Name.anonymous) "t")
                         (Setlec.Expr.app
@@ -164,11 +158,11 @@ def psigmaRecA : ConstantInfo :=
                             (Setlec.Expr.bvar 3))
                           (Setlec.Expr.bvar 2))
                         (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
-                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
-                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
-                    { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.ifAllZero [] })
-                  { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.ifAllZero [] })
-                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.ifAllZero [] } }
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.always })
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.always })
+                    { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.always })
+                  { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.always })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.always } }
     4
     4
     [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'") "mk",
@@ -221,8 +215,8 @@ def psigmaRecA : ConstantInfo :=
                                   (Setlec.Expr.bvar 3))
                                 (Setlec.Expr.bvar 1))
                               (Setlec.Expr.bvar 0)))
-                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
-                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
+                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.always })
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.always })
                       (Setlec.Expr.lam
                         (Setlec.Name.str (Setlec.Name.anonymous) "fst")
                         (Setlec.Expr.bvar 3)
@@ -232,12 +226,12 @@ def psigmaRecA : ConstantInfo :=
                           (Setlec.Expr.app
                             (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 1))
                             (Setlec.Expr.bvar 0))
-                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
-                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
-                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
-                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
-                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.ifAllZero [] } }]
+                          { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.always })
+                        { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.always })
+                      { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.always })
+                    { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.always })
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.always })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.always } }]
 
 
 /-! ## The pinned pair projection-table entries

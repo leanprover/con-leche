@@ -331,7 +331,7 @@ def iotaRecNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                     (← isEquivListLM usj cmpLvls) then do
                  let cmpOk ← match rl.fire with
                    | .nested _ pins => do
-                     let cmpArgs ← pinArgsI cv.levelParams us
+                     let cmpArgs ← pinArgsI fe.env.lps cv.levelParams us
                        (args.take rP) (rP - 1) pins
                      defEqListI r fe depth (margs.take rl.ctorParams) cmpArgs
                    | _ =>
@@ -545,7 +545,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
               -- is a unit, so the level-instantiated peel runs
               -- directly on the entry type and the interned spine.
               let tyI := entry.ty.instantiateLevelParams
-                entry.levelParams us
+                entry.levelParams us (Level.masksOf fe.env.lps us)
               match Expr.instPisAt (targs ++ [pe]) tyI with
               | some (_, resid) => internExprM resid
               | none => throw (.internal "malformed projection entry")

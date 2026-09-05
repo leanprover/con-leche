@@ -137,6 +137,7 @@ branch; inductive and basis blocks reuse the `Expr`-level drivers). -/
 def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
+    let fe := fe.withLps cv.levelParams
     let (cvA, jty) ← checkConstantValC mode fe cv
     if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
       let fe2 ← checkDefnValC mode fe cvA jty value hint
@@ -162,9 +163,11 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
     else
       checkDefnValC mode fe cvA jty value hint
   | .thmDecl cv value => do
+    let fe := fe.withLps cv.levelParams
     let (cvA, jty) ← checkConstantValC mode fe cv
     checkThmValC mode fe cvA jty value
   | .opaqueDecl cv value => do
+    let fe := fe.withLps cv.levelParams
     let (cvA, jty) ← checkConstantValC mode fe cv
     let fe2 ← checkOpaqueValC mode fe cvA jty value
     if reduceOpNames.contains cvA.name then do
@@ -172,6 +175,7 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
       checkReducePinF (sharedOpsC mode fe) fe fe2 cvA.name vE
     pure fe2
   | .axiomDecl cv => do
+    let fe := fe.withLps cv.levelParams
     let (cvA, jty) ← checkConstantValC mode fe cv
     if stdAxiomOkF fe cvA then do
       recordCConst cvA.name cvA.type jty none

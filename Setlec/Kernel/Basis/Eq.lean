@@ -71,8 +71,8 @@ def eqReflA : ConstantInfo :=
                         (Setlec.Expr.bvar 1))
                       (Setlec.Expr.bvar 0))
                     (Setlec.Expr.bvar 0))
-                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.ifAllZero [] })
-                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.ifAllZero [] } }
+                  { bi := Setlec.BinderInfo.default, pw := Setlec.PropWhen.always })
+                { bi := Setlec.BinderInfo.implicit, pw := Setlec.PropWhen.always } }
     2
     0
 
@@ -135,17 +135,17 @@ def eqRecA : ConstantInfo :=
                             (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 1))
                             (Setlec.Expr.bvar 0))
                           { bi := Setlec.BinderInfo.default,
-                            pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] })
+                            pw := (1 : Setlec.PropWhen) })
                         { bi := Setlec.BinderInfo.implicit,
-                          pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] })
+                          pw := (1 : Setlec.PropWhen) })
                       { bi := Setlec.BinderInfo.default,
-                        pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] })
+                        pw := (1 : Setlec.PropWhen) })
                     { bi := Setlec.BinderInfo.implicit,
-                      pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] })
+                      pw := (1 : Setlec.PropWhen) })
                   { bi := Setlec.BinderInfo.implicit,
-                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] })
+                    pw := (1 : Setlec.PropWhen) })
                 { bi := Setlec.BinderInfo.implicit,
-                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] } }
+                  pw := (1 : Setlec.PropWhen) } }
     5
     4
     [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Eq") "refl",
@@ -190,12 +190,12 @@ def eqRecA : ConstantInfo :=
                           (Setlec.Expr.bvar 1)))
                       (Setlec.Expr.bvar 0)
                       { bi := Setlec.BinderInfo.default,
-                        pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] })
+                        pw := (1 : Setlec.PropWhen) })
                     { bi := Setlec.BinderInfo.default,
-                      pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] })
+                      pw := (1 : Setlec.PropWhen) })
                   { bi := Setlec.BinderInfo.default,
-                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] })
+                    pw := (1 : Setlec.PropWhen) })
                 { bi := Setlec.BinderInfo.implicit,
-                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u_1"] } }]
+                  pw := (1 : Setlec.PropWhen) } }]
 
 end Setlec

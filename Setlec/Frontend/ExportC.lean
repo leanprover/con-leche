@@ -103,7 +103,8 @@ private def parsePwD (st : StateD) (j : Json) : M PropWhen := do
       | "never" => pure .never
       | _ => throw s!"unknown pw {s}"
     else if let .ok a := v.getArr? then
-      pure (.ifAllZero (← a.toList.mapM (fun i => do st.name (← i.getNat?))))
+      if a.isEmpty then pure .always
+      else throw "PROBE: named input pw annotations have no positional reading"
     else
       throw "malformed pw field"
 

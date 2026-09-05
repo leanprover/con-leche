@@ -164,29 +164,35 @@ def isNonZero : Level → Bool
   | .imax _ b => b.isNonZero
   | .param _ => false
 
-/-- The zero-ness datum of a level (task #161): the exact reading of
-`{φ | eval φ l = 0}`.  `Setlec.Verify.PropWhen` proves
-`(zeronessOf l).holds φ = (eval φ l == 0)`.  Case notes: a `max` is
-zero iff both sides are (`inter`); an `imax` is zero iff its right
-side is (`eval (imax a b) = if eval b = 0 then 0 else max …`). -/
-def zeronessOf : Level → PropWhen
-  | .zero => .ifAllZero []
-  | .succ _ => .never
-  | .param n => .ifAllZero [n]
-  | .max a b => (zeronessOf a).inter (zeronessOf b)
-  | .imax _ b => zeronessOf b
+/-- PROBE: the position of a name in the declaration's parameter list. -/
+def posOf (ps : List Name) (n : Name) : Option Nat :=
+  go ps 0
+where
+  go : List Name → Nat → Option Nat
+  | [], _ => none
+  | p :: rest, i => if p == n then some i else go rest (i + 1)
 
-/-- Push a level-parameter substitution through a zero-ness datum
-(task #161): each parameter becomes its replacement's datum,
-intersected — `Z(subst ks vs l)` is exactly
-`substPW ks vs (zeronessOf l)` (`Verify.PropWhen.zeronessOf_subst`,
-a syntactic equation).  Shape-preserving (`PropWhen.bindZ`): an
-unlisted parameter reproduces `ifAllZero [n]`, so instantiating a
-declaration at its own parameters is the identity here too
-(`substPW_self`), with no canonical-form side condition. -/
-def substPW (ks : List Name) (vs : List Level) (pw : PropWhen) :
-    PropWhen :=
-  pw.bindZ fun n => zeronessOf (subst.go ks vs n)
+/-- PROBE (agent/pw-bitmask): the zero-ness datum of a level as a
+positional mask over the parameter list `ps` — the exact reading of
+`{ψ | eval ψ l = 0}`.  A parameter outside `ps` has no position and
+reads `never` (the checker guarantees definedness at insertion). -/
+def maskOf (ps : List Name) : Level → PropWhen
+  | .zero => .always
+  | .succ _ => .never
+  | .param n => match posOf ps n with
+    | some i => PropWhen.bit i
+    | none => .never
+  | .max a b => (maskOf ps a).inter (maskOf ps b)
+  | .imax _ b => maskOf ps b
+
+/-- The masks of instantiating levels over the *new* context `ps'`. -/
+def masksOf (ps' : List Name) (us : List Level) : List PropWhen :=
+  us.map (maskOf ps')
+
+/-- Push a level-parameter substitution through a datum: bit `i` becomes
+the `i`-th instantiating level's mask over the new context, united. -/
+@[inline] def substPW (ms : List PropWhen) (pw : PropWhen) : PropWhen :=
+  pw.bindZ ms
 
 end Setlec.Level
 
@@ -211,22 +217,32 @@ def Name.isProjFnShape : Name → Bool
 
 /-- Substitute level parameters throughout an expression (sorts and
 constant level arguments). -/
-def Expr.instantiateLevelParams (ks : List Name) (us : List Level) : Expr → Expr
+def Expr.instantiateLevelParams (ks : List Name) (us : List Level)
+    (ms : List PropWhen) : Expr → Expr
   | .bvar i => .bvar i
-  | .fvar idx n ty => .fvar idx n (ty.instantiateLevelParams ks us)
+  | .fvar idx n ty => .fvar idx n (ty.instantiateLevelParams ks us ms)
   | .sort u => .sort (Level.subst ks us u)
   | .const n vs => .const n (vs.map (Level.subst ks us))
-  | .app f a => .app (f.instantiateLevelParams ks us) (a.instantiateLevelParams ks us)
+  | .app f a => .app (f.instantiateLevelParams ks us ms) (a.instantiateLevelParams ks us ms)
   | .lam n ty body m =>
-    .lam n (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
-      ⟨m.bi, Level.substPW ks us m.pw⟩
+    .lam n (ty.instantiateLevelParams ks us ms) (body.instantiateLevelParams ks us ms)
+      ⟨m.bi, Level.substPW ms m.pw⟩
   | .forallE n ty body m =>
-    .forallE n (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
-      ⟨m.bi, Level.substPW ks us m.pw⟩
-  | .letE n ty val body => .letE n (ty.instantiateLevelParams ks us)
-      (val.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
+    .forallE n (ty.instantiateLevelParams ks us ms) (body.instantiateLevelParams ks us ms)
+      ⟨m.bi, Level.substPW ms m.pw⟩
+  | .letE n ty val body => .letE n (ty.instantiateLevelParams ks us ms)
+      (val.instantiateLevelParams ks us ms) (body.instantiateLevelParams ks us ms)
   | .lit l => .lit l
-  | .proj s i e => .proj s i (e.instantiateLevelParams ks us)
+  | .proj s i e => .proj s i (e.instantiateLevelParams ks us ms)
+
+/-- PROBE (agent/pw-bitmask): re-read a term annotated in universe
+context `from` in context `to` — the identity level substitution with
+a context change (levels unchanged, positional masks remapped).  Needed
+wherever the checker reuses a stored term by parameter-*name* identity
+instead of instantiating it. -/
+def Expr.remapPW («from» to : List Name) (e : Expr) : Expr :=
+  e.instantiateLevelParams «from» («from».map .param)
+    (Level.masksOf to («from».map .param))
 
 /-- Are all level parameters occurring in `e` among `params`?  Binder
 prop-ness data included (task #161): their parameters are level
@@ -241,7 +257,7 @@ def Expr.allLevelParamsDefined (params : List Name) : Expr → Bool
   | .app f a => f.allLevelParamsDefined params && a.allLevelParamsDefined params
   | .lam _ t b m | .forallE _ t b m =>
     t.allLevelParamsDefined params && b.allLevelParamsDefined params
-      && m.pw.paramsDefined params
+      && m.pw.paramsDefined params.length
   | .letE _ t v b => t.allLevelParamsDefined params && v.allLevelParamsDefined params
       && b.allLevelParamsDefined params
   | .lit _ => true

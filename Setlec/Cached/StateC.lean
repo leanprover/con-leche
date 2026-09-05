@@ -83,11 +83,11 @@ namespace CStore
 /-- Memo table for the zero-ness readout (structural `Level` keys). -/
 abbrev PWMemo := Std.HashMap Level PropWhen
 
-@[inline] def zeronessOfLIGo (_ : CStore) (memo : PWMemo) (u : Level) :
+@[inline] def zeronessOfLIGo (_ : CStore) (lps : List Name) (memo : PWMemo) (u : Level) :
     PropWhen × PWMemo :=
   match memo[u]? with
   | some r => (r, memo)
-  | none => let r := Level.zeronessOf u; (r, memo.insert u r)
+  | none => let r := Level.maskOf lps u; (r, memo.insert u r)
 
 end CStore
 
@@ -339,8 +339,8 @@ not memoized, as in the interned checker). -/
   pure (ExprC.pisToLams k e body)
 
 @[inline] def instLevelParamsM (ks : List Name) (us : List Level)
-    (e : ExprC) : CheckCM ExprC :=
-  pure (ExprC.instLevelParams ks us e)
+    (ms : List PropWhen) (e : ExprC) : CheckCM ExprC :=
+  pure (ExprC.instLevelParams ks us ms e)
 
 /-! ## Level operations
 
@@ -427,8 +427,8 @@ def isEquivListLM : List Level → List Level → CheckCM (Option Bool)
   | _, _ => pure (some false)
 
 /-- The zero-ness datum of a level (task #161). -/
-@[inline] def zeronessOfM (u : Level) : CheckCM PropWhen :=
-  pure (Level.zeronessOf u)
+@[inline] def zeronessOfM (lps : List Name) (u : Level) : CheckCM PropWhen :=
+  pure (Level.maskOf lps u)
 
 /-! ## Lazy stored-constant conversions -/
 
@@ -463,7 +463,7 @@ def constTyAtM (fe : FEnv) (_nI : Name) (n : Name) (us : List Level) :
     | some ci =>
       let cv := ci.toConstantVal
       let raw ← storedTyIdxM n cv.type
-      let i ← instLevelParamsM cv.levelParams us raw
+      let i ← instLevelParamsM cv.levelParams us (Level.masksOf fe.env.lps us) raw
       modify fun s =>
         let mp := s.constTyAt
         let s := { s with constTyAt := ∅ }
@@ -481,7 +481,7 @@ def constValAtM (fe : FEnv) (_nI : Name) (n : Name) (us : List Level) :
     match fe.find? n with
     | some (.defnInfo cv v _) =>
       let raw ← storedValIdxM n v
-      let i ← instLevelParamsM cv.levelParams us raw
+      let i ← instLevelParamsM cv.levelParams us (Level.masksOf fe.env.lps us) raw
       modify fun s =>
         let mp := s.constValAt
         let s := { s with constValAt := ∅ }
@@ -489,7 +489,7 @@ def constValAtM (fe : FEnv) (_nI : Name) (n : Name) (us : List Level) :
       pure i
     | some (.thmInfo cv v) =>
       let raw ← storedValIdxM n v
-      let i ← instLevelParamsM cv.levelParams us raw
+      let i ← instLevelParamsM cv.levelParams us (Level.masksOf fe.env.lps us) raw
       modify fun s =>
         let mp := s.constValAt
         let s := { s with constValAt := ∅ }
@@ -510,7 +510,7 @@ def ruleRhsAtM (fe : FEnv) (_cI _jI : Name) (c j : Name) (us : List Level) :
       match rules.find? (fun r' => r'.ctor == j) with
       | some rl =>
         let raw ← internExprM rl.rhs
-        let i ← instLevelParamsM cv.levelParams us raw
+        let i ← instLevelParamsM cv.levelParams us (Level.masksOf fe.env.lps us) raw
         modify fun s =>
           let mp := s.ruleRhsAt
           let s := { s with ruleRhsAt := ∅ }

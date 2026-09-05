@@ -381,7 +381,8 @@ def checkIotaThmF (ops : CheckerOps m) (fe' feSelf : FEnv)
     unless (cvj.type.stripPis (cnP + cnF)).isSome do
       throw (.notImplemented s!"iota constructor telescope for {cvName}")
     let (cdoms, cres) ← unwrapOr
-        (Expr.instPisAt (fvs.take cnP ++ xFvs) (cvj.type.renameConsts f))
+        (Expr.instPisAt (fvs.take cnP ++ xFvs)
+          ((cvj.type.remapPW cvj.levelParams lps).renameConsts f))
         (.notImplemented s!"iota constructor telescope for {cvName}")
     unless cres.getAppArgs.length = cnP + (mI - rP) do
       throw (.notImplemented s!"iota constructor indices for {cvName}")
@@ -397,7 +398,7 @@ def checkIotaThmF (ops : CheckerOps m) (fe' feSelf : FEnv)
     let (fvsP, _) ← unwrapOr (openPisAtFvars rP tyA 0)
       (.notImplemented s!"iota recursor telescope for {cvName}")
     let (cdomsP, crestP) ← unwrapOr
-      (Expr.instPisAt (fvsP.take cnP) cvj.type)
+      (Expr.instPisAt (fvsP.take cnP) (cvj.type.remapPW cvj.levelParams lps))
       (.notImplemented s!"iota constructor telescope for {cvName}")
     checkDefEqList ops feSelf.env depth
       ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP
@@ -488,7 +489,7 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
     let (cdoms, cres) ← unwrapOr
         (Expr.instPisAt (pinsF ++ xFvs)
           ((cvj.type.instantiateLevelParams cvj.levelParams
-            lvls).renameConsts f))
+            lvls (Level.masksOf lps lvls)).renameConsts f))
         (.notImplemented s!"iota constructor telescope for {cvName}")
     unless cres.getAppArgs.length = cnP + (mI - rP) do
       throw (.notImplemented s!"iota constructor indices for {cvName}")
@@ -507,7 +508,7 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
       Expr.instSpine (fvsP.take rP) (rP - 1) p
     checkAnnotList ops feSelf.env depth pinsP
     let (cdomsP, crestP) ← unwrapOr (Expr.instPisAt pinsP
-        (cvj.type.instantiateLevelParams cvj.levelParams lvls))
+        (cvj.type.instantiateLevelParams cvj.levelParams lvls (Level.masksOf lps lvls)))
       (.notImplemented s!"iota constructor telescope for {cvName}")
     checkTypedList ops feSelf.env depth pinsP cdomsP
     let (xFvsP, crest2P) ← unwrapOr (openPisAtFvars cnF crestP rP)
@@ -916,7 +917,14 @@ def checkDirectRecTyF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
     (.notImplemented "direct structure: recursor telescope")
   let ps := fvsP.take p.nP
   let famApp := Expr.mkAppN (.const T (lps.map .param)) ps
-  let (cdomsP, crest) ← unwrapOr (Expr.instPisAtF ps cvCa.type)
+  -- PROBE (agent/pw-bitmask): the constructor type was annotated in the
+  -- TYPE's universe context; the recursor's context prepends the motive
+  -- universe, so the positional masks must be remapped (an identity
+  -- level substitution with a context change) before the term is read
+  -- in the recursor's context.
+  let cvCTy := cvCa.type.instantiateLevelParams lps (lps.map .param)
+    (Level.masksOf cvRa.levelParams (lps.map .param))
+  let (cdomsP, crest) ← unwrapOr (Expr.instPisAtF ps cvCTy)
     (.notImplemented "direct structure: constructor telescope")
   checkDirectDomsAtFA ops fe 0 ps.toArray cdomsP.toArray p.nP
   let mfv ← unwrapOr fvsP[p.nP]?
@@ -967,7 +975,12 @@ def checkDirectRuleF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
   let depth := p.nP + 2 + p.nF
   let (fvsP, _) ← unwrapOr (openPisAtFvarsF (p.nP + 2) cvRa.type 0)
     (.notImplemented "direct structure: recursor telescope")
-  let (_, crest) ← unwrapOr (Expr.instPisAtF (fvsP.take p.nP) cvCa.type)
+  -- PROBE (agent/pw-bitmask): remap into the recursor's context, as in
+  -- `checkDirectRecTyF`.
+  let lps := p.cvT.levelParams
+  let cvCTy := cvCa.type.instantiateLevelParams lps (lps.map .param)
+    (Level.masksOf cvRa.levelParams (lps.map .param))
+  let (_, crest) ← unwrapOr (Expr.instPisAtF (fvsP.take p.nP) cvCTy)
     (.notImplemented "direct structure: constructor telescope")
   let (xFvs, _) ← unwrapOr (openPisAtFvarsF p.nF crest (p.nP + 2))
     (.notImplemented "direct structure: constructor field telescope")

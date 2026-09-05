@@ -349,12 +349,17 @@ first.  Names are unique (the checker rejects duplicates), so the order is
 irrelevant for lookup. -/
 structure Env where
   consts : List ConstantInfo
+  /-- PROBE (agent/pw-bitmask): the level parameters of the declaration
+  under check — the universe context the positional `pw` masks are
+  read against (the official kernel's `lparams` beside its local
+  context).  Set by the driver per declaration. -/
+  lps : List Name := []
   deriving Repr, Inhabited
 
 namespace Env
 
 /-- The empty environment; the starting point of every checker run. -/
-def empty : Env := ⟨[]⟩
+def empty : Env := { consts := [] }
 
 def find? (env : Env) (n : Name) : Option ConstantInfo :=
   env.consts.find? (·.name == n)

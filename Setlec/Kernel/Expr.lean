@@ -67,109 +67,74 @@ inductive BinderInfo where
   | instImplicit
   deriving DecidableEq, Repr, Inhabited, Hashable
 
-/-- The zero-ness datum of a binder's codomain sort — the regime
-discriminator of the validated-annotation design (task #161).  For
-every level `l`, the set `Z(l) := {φ | eval φ l = 0}` of zeroing
-valuations is either empty (`never`) or of the form "every parameter
-in `ps` is zero" (`ifAllZero ps`; `ps = []` = always zero) — see
-`Level.zeronessOf` and the mechanized battery in
-`Setlec.Verify.PropWhen`.
-
-`ps` is an unordered, possibly-duplicated parameter *set in list
-clothing*: all structural operations (`inter`, `bindZ`,
-`Level.substPW`) are shape-preserving — no sorting, no
-deduplication — which is what makes level instantiation's identity
-and composition laws hold *unconditionally*
-(`Level.substPW_self`/`substPW_comp`).  Comparison is by the
-containment test `equiv`, which is sound **and complete** for
-zero-ness agreement at every valuation (`Verify.PropWhen`); the
-checker's validation and defeq sites compare with `equiv`, never
-with `==`. -/
-inductive PropWhen where
-  | never
-  | ifAllZero (ps : List Name)
-  deriving DecidableEq, Repr, Inhabited, Hashable
+/-- PROBE (agent/pw-bitmask): the zero-ness datum of a binder's codomain
+sort as a **flat positional bitmask** over the *current declaration's*
+level-parameter list — bit `i` set = "the `i`-th level parameter must
+be zero"; `always = 0` (zero at every valuation); `never = all ones`
+(nonzero at every valuation — distinct from every satisfiable set as
+long as the declaration has at most 63 parameters, which the checker
+must decline above).  An `abbrev` for `UInt64`, so a `BinderMeta` holds
+it as an inline scalar: no heap object, no list cells, and `=`/`==`/
+`hash` all decide zero-ness agreement outright (the free datum's
+containment test `equiv` and the `ZeroSet` canonical form collapse to
+word equality).  The former free datum `never | ifAllZero (ps : List
+Name)` and its laws are in the task-#161 design record. -/
+abbrev PropWhen := UInt64
 
 namespace PropWhen
 
-/-- Does the datum hold at a valuation — is the codomain sort zero
-there?  (The model side's dispatch bit; the kernel never evaluates
-this, it only compares data by `equiv`.) -/
-def holds (φ : Name → Nat) : PropWhen → Bool
-  | .never => false
-  | .ifAllZero ps => ps.all fun n => φ n == 0
+/-- Nonzero at every valuation: all ones. -/
+def never : PropWhen := 0xFFFFFFFFFFFFFFFF
 
-/-- Is the datum `never` — "the codomain sort is nonzero at *every*
-valuation", the graph regime everywhere?  This is the **only**
-kernel-decidable reading of the annotation that the verification tier
-licenses a check-skip on (task #161 bucket 2): the P-tier claims split
-their certificate cases on `pwBit φ m.pw = 0`, and `isNever` is
-exactly the ∀-`φ` uniform version of the positive branch —
-`pwBit φ .never = 1` at every `φ`, and no other datum has that
-property (`.ifAllZero ps` holds at the all-zero valuation).  Sound
-*and* exact: `PropWhen.holds_eq_false_iff_isNever`
-(`Verify/PropWhen.lean`) and `pwBit_ne_zero_of_isNever` /
-`isNever_iff_forall_pwBit_ne_zero` (`SetR/Annot/Bit.lean`).
+/-- Zero at every valuation: the empty condition. -/
+def always : PropWhen := 0
 
-The datum may be read **only** to skip a re-check; it must never
-select a reduct, a computed type, or a comparison result (law 1 as
-amended at task #161: "annotations never change a reduct or a computed
-type; annotation-gated check-skipping is permitted where the skip's
-soundness is a P-tier theorem *and* the gate fires only where the
-licensing theorems' hypotheses hold — `μ.verified = true`").  Every
-executable call site therefore carries the `μ.verified` conjunct; see
-`inferBodyIO` (`Kernel/CoreIO.lean`). -/
-def isNever : PropWhen → Bool
-  | .never => true
-  | .ifAllZero _ => false
+/-- The number of level parameters a declaration may have: above this
+the mask's `never` value would coincide with a satisfiable set. -/
+def maxParams : Nat := 63
+
+/-- Position `i`'s singleton condition. -/
+@[inline] def bit (i : Nat) : PropWhen := (1 : UInt64) <<< i.toUInt64
+
+/-- Does the datum hold at a positional valuation — is the codomain
+sort zero there?  (Spec only: the kernel never evaluates this.) -/
+def holds (ψ : Nat → Nat) (pw : PropWhen) : Bool :=
+  pw != never && (List.range 64).all fun i => (pw &&& bit i) == 0 || ψ i == 0
+
+/-- Is the datum `never` — the graph regime everywhere. -/
+@[inline] def isNever (pw : PropWhen) : Bool := pw == never
 
 /-- Does the datum mention any level parameter — is `Level.substPW`
-ever non-trivial on it?  Folded into `Expr.hasLevelParam` and the
-eager `eparamBs` recurrence (task #87), so the has-param shortcut of
-the interned level-instantiation walk stays exact. -/
-def hasParams : PropWhen → Bool
-  | .never => false
-  | .ifAllZero ps => !ps.isEmpty
+ever non-trivial on it? -/
+@[inline] def hasParams (pw : PropWhen) : Bool := pw != never && pw != always
 
-/-- Are all parameters of the datum among `params`?  Folded into
-`Expr.allLevelParamsDefined` (task #161): level instantiation's
-composition law (`Level.substPW_comp`) is *false* for data whose
-parameters escape the declaration's — exactly as for the levels
-themselves. -/
-def paramsDefined (params : List Name) : PropWhen → Bool
-  | .never => true
-  | .ifAllZero ps => ps.all params.contains
+/-- Are all positions of the datum below `n` (the declaration's
+parameter count)?  `never` is defined everywhere. -/
+@[inline] def paramsDefined (n : Nat) (pw : PropWhen) : Bool :=
+  pw == never || (pw >>> n.toUInt64) == 0
 
 /-- Intersection of two zero-ness predicates (the `max` rule: a `max`
-is zero iff both sides are): `never` absorbs, sets append. -/
-def inter : PropWhen → PropWhen → PropWhen
-  | .never, _ => .never
-  | _, .never => .never
-  | .ifAllZero ps, .ifAllZero qs => .ifAllZero (ps ++ qs)
+is zero iff both sides are): union of the conditions; `never` (all
+ones) absorbs. -/
+@[inline] def inter (a b : PropWhen) : PropWhen := a ||| b
 
-/-- Substitute each parameter of the datum by a whole datum and
-intersect ("all of `ps` zero" becomes "all replacements zero") — the
-monadic bind of the zero-ness reading.  Shape-preserving: parameters
-mapped to `ifAllZero [n]` reproduce the input list exactly, which is
-what the unconditional substitution laws rest on. -/
-def bindZ (f : Name → PropWhen) : PropWhen → PropWhen
-  | .never => .never
-  | .ifAllZero ps => go ps
+/-- Substitute each position of the datum by a whole datum and intersect
+— the monadic bind: the union of `ms[i]` over the set bits `i`; a
+position beyond `ms` (an undefined parameter) is `never`.  Identity
+(`ms[i] = bit i`) and composition are unconditional bit algebra. -/
+def bindZ (ms : List PropWhen) (pw : PropWhen) : PropWhen :=
+  if pw == never then never else go ms pw
 where
-  go : List Name → PropWhen
-  | [] => .ifAllZero []
-  | n :: rest => (f n).inter (go rest)
+  go : List PropWhen → UInt64 → PropWhen
+  | [], w => if w == 0 then always else never
+  | m :: rest, w =>
+    if w == 0 then always
+    else
+      let here := if (w &&& 1) == 1 then m else always
+      if here == never then never else here ||| go rest (w >>> 1)
 
-/-- Decidable zero-ness agreement at *every* valuation: mutual
-containment of the parameter sets (`never` only agrees with `never` —
-`ifAllZero` data hold at the all-zero valuation, `never` nowhere).
-Sound and complete (`Verify.PropWhen`); this is the comparison every
-validation and defeq site uses. -/
-def equiv : PropWhen → PropWhen → Bool
-  | .never, .never => true
-  | .ifAllZero ps, .ifAllZero qs =>
-    ps.all qs.contains && qs.all ps.contains
-  | _, _ => false
+/-- Zero-ness agreement at every valuation: word equality. -/
+@[inline] def equiv (a b : PropWhen) : Bool := a == b
 
 end PropWhen
 

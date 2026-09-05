@@ -21,6 +21,121 @@ def Setlec.CheckError.exitCode : CheckError → UInt32
   | .invalid _ => 1
   | .internal _ => 3
 
+/-! ## PROBE (agent/pw-bitmask): a physical census of the persisted `pw` payload
+
+Address-keyed (`ptrAddrUnsafe`) walk of every `Expr` reachable from the
+final environment, counting distinct heap objects — so shared objects
+(chain-rule data, static `.ifAllZero []`, shared sub-DAGs) are counted
+once, exactly as the allocator sees them.  Gated by `SETLEC_PW_CENSUS`;
+measurement-only, never to land. -/
+namespace PwCensus
+
+structure Acc where
+  nodes : Std.HashSet USize := {}
+  metas : Std.HashSet USize := {}
+  pws : Std.HashSet USize := {}
+  cells : Std.HashSet USize := {}
+  headNames : Std.HashSet USize := {}
+  paramNames : Std.HashSet USize := {}
+  canon : Std.HashSet (List Name) := {}
+  binders : Nat := 0
+  never : Nat := 0
+  ifz : Nat := 0
+  lenHist : Array Nat := Array.replicate 17 0
+  cellsLogical : Nat := 0
+  bytesNodes : Nat := 0
+
+@[inline] unsafe def addr (a : α) : USize := ptrAddrUnsafe a
+@[inline] unsafe def isScalar (a : α) : Bool := (ptrAddrUnsafe a) &&& 1 == 1
+
+unsafe def levelParams (acc : Acc) : Level → Acc
+  | .zero => acc
+  | .succ u => levelParams acc u
+  | .max a b | .imax a b => levelParams (levelParams acc a) b
+  | .param n => { acc with paramNames := acc.paramNames.insert (addr n) }
+
+unsafe def cells (acc : Acc) : List Name → Nat → Acc × Nat
+  | [], k => (acc, k)
+  | l@(n :: rest), k =>
+    let acc := { acc with cells := acc.cells.insert (addr l),
+                          headNames := acc.headNames.insert (addr n) }
+    cells acc rest (k + 1)
+
+unsafe def metaOf (acc : Acc) (m : BinderMeta) : Acc :=
+  let acc := { acc with metas := acc.metas.insert (addr m), binders := acc.binders + 1 }
+  if m.pw == .never then { acc with never := acc.never + 1 }
+  else
+    let acc := { acc with ifz := acc.ifz + 1 }
+    let k := (List.range 64).foldl (fun k i => if (m.pw &&& PropWhen.bit i) != 0 then k + 1 else k) 0
+    let i := min k 16
+    { acc with lenHist := acc.lenHist.set! i (acc.lenHist[i]! + 1),
+               cellsLogical := acc.cellsLogical + k,
+               canon := acc.canon.insert [Name.num .anonymous m.pw.toNat] }
+
+/-- Object sizes (bytes) with the four computed fields (hash scalar, two
+boxed `Nat`s, one `Bool` scalar): header 8 + 8/ptr + 8 hash + 1, rounded
+up to 8. -/
+def nodeBytes : Expr → Nat
+  | .bvar .. => 48 | .fvar .. => 64 | .sort .. => 48 | .const .. => 56
+  | .app .. => 56 | .lam .. => 72 | .forallE .. => 72 | .letE .. => 72
+  | .lit .. => 48 | .proj .. => 64
+
+unsafe def walk (acc : Acc) (root : Expr) : Acc := Id.run do
+  let mut acc := acc
+  let mut stk : Array Expr := #[root]
+  while h : stk.size > 0 do
+    let e := stk[stk.size - 1]
+    stk := stk.pop
+    let a := addr e
+    if acc.nodes.contains a then continue
+    acc := { acc with nodes := acc.nodes.insert a,
+                      bytesNodes := acc.bytesNodes + nodeBytes e }
+    match e with
+    | .bvar _ | .lit _ => pure ()
+    | .fvar _ _ ty => stk := stk.push ty
+    | .sort u => acc := levelParams acc u
+    | .const _ us => acc := us.foldl levelParams acc
+    | .app f x => stk := (stk.push f).push x
+    | .lam _ ty b m | .forallE _ ty b m =>
+      acc := metaOf acc m
+      stk := (stk.push ty).push b
+    | .letE _ ty v b => stk := ((stk.push ty).push v).push b
+    | .proj _ _ x => stk := stk.push x
+  return acc
+
+unsafe def const (acc : Acc) (ci : ConstantInfo) : Acc :=
+  let cv := ci.toConstantVal
+  let acc := cv.levelParams.foldl (fun acc n =>
+    { acc with paramNames := acc.paramNames.insert (addr n) }) acc
+  let acc := walk acc cv.type
+  match ci with
+  | .defnInfo _ v _ | .thmInfo _ v => walk acc v
+  | .recInfo _ _ _ rules => rules.foldl (fun acc r =>
+      let acc := walk acc r.rhs
+      match r.fire with
+      | .nested lvls pins => (lvls.foldl levelParams (pins.foldl walk acc))
+      | _ => acc) acc
+  | _ => acc
+
+unsafe def report (env : Env) : IO Unit := do
+  let acc := env.consts.foldl const {}
+  let shared := acc.headNames.fold (fun k a => if acc.paramNames.contains a then k + 1 else k) 0
+  let pwBytes := 16 * acc.pws.size + 24 * acc.cells.size
+  IO.eprintln s!"pw-census: consts={env.consts.length} exprDagNodes={acc.nodes.size} \
+    exprBytesEst={acc.bytesNodes}"
+  IO.eprintln s!"pw-census: binders(DAG)={acc.binders} never={acc.never} ifAllZero={acc.ifz} \
+    cellsLogical={acc.cellsLogical}"
+  IO.eprintln s!"pw-census: distinct metaObjs={acc.metas.size} (24B each = {24 * acc.metas.size}) \
+    distinct ifAllZeroObjs={acc.pws.size} distinct consCells={acc.cells.size} \
+    pwPayloadBytes={pwBytes}"
+  IO.eprintln s!"pw-census: distinct canonical sets={acc.canon.size} \
+    headNameObjs={acc.headNames.size} ofWhichSharedWithTermParams={shared}"
+  IO.eprintln s!"pw-census: lenHist(0..16+)={acc.lenHist}"
+
+@[implemented_by report] def reportSafe (_ : Env) : IO Unit := pure ()
+
+end PwCensus
+
 /-- Locate the lean-inductive-models preprocessor: `$SETLEC_INDUCTIVE_MODELS`,
 then `$PATH`, then the development checkout under `_tmp/`. -/
 def findPreprocessor : IO (Option String) := do
@@ -159,6 +274,8 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         match foldD decls.toList with
         | .ok env =>
           IO.println s!"setlec: accepted {env.consts.length} declarations"
+          if (← IO.getEnv "SETLEC_PW_CENSUS").isSome then
+            PwCensus.reportSafe env
           return ← finish 0
         | .error e =>
           -- Diagnostic second pass: the verdict above is the verified

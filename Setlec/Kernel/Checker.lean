@@ -106,7 +106,7 @@ def checkDirectInd (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     (.notImplemented "direct structure: type former telescope")
   unless tbody == Expr.sort p.resSort do
     throw (.notImplemented "direct structure: type former result sort")
-  pure (⟨.indInfo cvTa (directCaps p) :: env.consts⟩, cvTa)
+  pure ({ env with consts := .indInfo cvTa (directCaps p) :: env.consts }, cvTa)
 
 /-- Stage 2: the constructor — the ordinary constant check, the
 annotated result shape, and the per-field universe bound.
@@ -148,7 +148,7 @@ def checkDirectCtor (ops : CheckerOps m) (env₀ env : Env) (p : DirectParts)
   unless xq.1.all fun x => x.fvarTypeD.constsResolve env₀ do
     throw (.notImplemented "direct structure: field domain after the block")
   checkDirectFieldUniv ops env p.resSort p.nP xq.1 p.nF
-  pure (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa)
+  pure ({ env with consts := .ctorInfo cvCa p.nP p.nF :: env.consts }, cvCa)
 
 /-- Stage 3: the recursor's type is the generated shape.  The skeleton
 (motive dependent over the family, one minor over the constructor's
@@ -320,8 +320,8 @@ def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
   let fieldSort ← ops.ensureSort env (nP + 1) fSty
   let le ← liftFueled "level comparison" (Level.leq fieldSort resSort)
   if resSort.isNonZero || le then
-    pure ⟨.projInfo ⟨T, i, lps, nP, C, nF, ptyA, fieldSort, resSort,
-      true, false, true⟩ :: env.consts⟩
+    pure { env with consts := (.projInfo ⟨T, i, lps, nP, C, nF, ptyA, fieldSort, resSort,
+      true, false, true⟩) :: env.consts }
   else
     pure env
 
@@ -344,11 +344,11 @@ def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
   checkDirectRecTy ops env₂ p cvTa cvCa cvRa
   let rhsA ← checkDirectRule ops env₂ p cvCa cvRa
   let env₃ : Env :=
-    ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+    { env₂ with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
           .plain else .inert,
-        rhsA⟩] :: env₂.consts⟩
+        rhsA⟩]) :: env₂.consts }
   unless (List.range p.nF).all
       (fun j => (env₃.find? (projFnName p.cvT.name j)).isNone) do
     throw (.invalid "projection name family taken")
@@ -360,7 +360,7 @@ def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
 def installBasisDecl (env : Env) (ci : ConstantInfo) : m Env := do
   unless (env.find? ci.name).isNone do
     throw (.invalid s!"duplicate declaration {ci.name}")
-  pure (⟨ci :: env.consts⟩ : Env)
+  pure ({ env with consts := ci :: env.consts } : Env)
 
 /-- Check a `def` declaration's value against its checked constant.
 The reducibility hint is stored untouched: it steers only the lazy
@@ -380,7 +380,7 @@ def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in definition {cv.name}")
-  pure ⟨.defnInfo cv value hint :: env.consts⟩
+  pure { env with consts := .defnInfo cv value hint :: env.consts }
 
 /-- Check a `theorem` declaration's value against its checked constant
 (whose type must additionally be a proposition). -/
@@ -403,7 +403,7 @@ def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in theorem {cv.name}")
-  pure ⟨.thmInfo cv value :: env.consts⟩
+  pure { env with consts := .thmInfo cv value :: env.consts }
 
 /-- Check an `opaque` declaration's value against its checked
 constant: exactly the theorem check without the is-a-proposition
@@ -428,7 +428,7 @@ def checkOpaqueVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in opaque {cv.name}")
-  pure ⟨.axiomInfo cv :: env.consts⟩
+  pure { env with consts := .axiomInfo cv :: env.consts }
 /-- Certify a list of recurrence equations by definitional equality
 (at depth 2: the equations' variables are `fvar 0`/`fvar 1`). -/
 def certifyNatEqs (ops : CheckerOps m) (env : Env) :
@@ -781,7 +781,7 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- non-pinned shape likewise (the pin would otherwise shadow).
     let cvA ← checkConstantVal ops env cv
     if stdAxiomOk env cvA then
-      pure ⟨.axiomInfo cvA :: env.consts⟩
+      pure { env with consts := .axiomInfo cvA :: env.consts }
     else if cvA.name = trustCompilerName then
       -- `Lean.trustCompiler : True` is trivially realizable (task
       -- #95): installed exactly like a checked `opaque` with witness
@@ -790,7 +790,7 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
       -- checked for that value, and the model interprets the constant
       -- by `True.intro`'s interpretation.
       if trustCompilerOk env cvA then
-        pure ⟨.axiomInfo cvA :: env.consts⟩
+        pure { env with consts := .axiomInfo cvA :: env.consts }
       else throw (.notImplemented
         s!"unsupported Lean.trustCompiler shape ({cv.name})")
     else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
@@ -799,7 +799,7 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
       -- reduce opaque, `∀ a b, reduce a = b → a = b` interprets to an
       -- inhabited proposition (the hypothesis *is* the conclusion).
       if ofReduceAxOk env cvA then
-        pure ⟨.axiomInfo cvA :: env.consts⟩
+        pure { env with consts := .axiomInfo cvA :: env.consts }
       else throw (.notImplemented
         s!"unsupported compiler-trust axiom environment ({cv.name})")
     else if cvA.name = propextName ∨ cvA.name = choiceName then
