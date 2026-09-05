@@ -55,7 +55,8 @@ consumes; the two stored-block conjuncts of that theorem are read only
 by the certified tiers' denotation lemmas and stay in the tower. -/
 def NativeProjPinned (env : Env) : Prop :=
   ∀ e : ProjEntry, (ConstantInfo.projInfo e) ∈ env.consts →
-    e.native = true → e = pairFstEntry ∨ e = pairSndEntry
+    e.native = true → e.tower = false →
+    e = pairFstEntry ∨ e = pairSndEntry
 
 theorem NativeProjPinned.empty : NativeProjPinned Env.empty := by
   intro e h; simp [Env.empty] at h
@@ -68,21 +69,21 @@ def ConsedNonProj (env env' : Env) : Prop :=
 theorem NativeProjPinned.consed {env env' : Env} (h : NativeProjPinned env)
     (hc : ConsedNonProj env env') : NativeProjPinned env' := by
   obtain ⟨ci, hci, rfl⟩ := hc
-  intro e hmem hnat
+  intro e hmem hnat htw
   rcases List.mem_cons.mp hmem with rfl | hmem'
   · exact absurd rfl (hci e)
-  · exact h e hmem' hnat
+  · exact h e hmem' hnat htw
 
 /-- The elimination-template extension: the `native` flag is a literal
 `false` at the construction site, so the head is vacuous. -/
 theorem NativeProjPinned.cons_template {env : Env} {e₀ : ProjEntry}
     (h : NativeProjPinned env) (hn : e₀.native = false) :
     NativeProjPinned ⟨.projInfo e₀ :: env.consts⟩ := by
-  intro e hmem hnat
+  intro e hmem hnat htw
   rcases List.mem_cons.mp hmem with heq | hmem'
   · cases ConstantInfo.projInfo.inj heq.symm
     exact absurd (hn.symm.trans hnat) (by decide)
-  · exact h e hmem' hnat
+  · exact h e hmem' hnat htw
 
 /-! ## The basis census — the only producer of a `native` entry
 
@@ -242,10 +243,10 @@ theorem installBasisDecl_preserves {ci : ConstantInfo} {k : BasisKind}
     NativeProjPinned env' := by
   have hE := installBasisDecl_shape h
   subst hE
-  intro e hmemc hnat
+  intro e hmemc hnat htw
   rcases List.mem_cons.mp hmemc with rfl | hmem'
   · exact basis_native_pinned hmem hnat
-  · exact hI e hmem' hnat
+  · exact hI e hmem' hnat htw
 
 theorem installProjTemplate_preserves {T c : Name} {lps : List Name}
     {nP nF i : Nat} (hI : NativeProjPinned env)
@@ -514,29 +515,23 @@ tower.  The two stored-block conjuncts of that theorem are not here —
 they are read only by the certified tiers' denotation lemmas and stay
 where they are. -/
 theorem NativeProjPinned.pinned (hI : NativeProjPinned env)
-    (hf : env.findProj? sn i = some entry) (hnat : entry.native = true) :
+    (hf : env.findProj? sn i = some entry) (hnat : entry.native = true)
+    (htw : entry.tower = false) :
     (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
       sn = psigmaName ∧ entry.idx = i :=
-  let hpin := hI entry (List.mem_of_find?_eq_some (Env.findProj?_some hf)) hnat
+  let hpin := hI entry (List.mem_of_find?_eq_some (Env.findProj?_some hf))
+    hnat htw
   ⟨hpin, projEntry_names hf hpin⟩
-
-/-- A pinned (pair-backed) entry is not tower-backed — what the
-task-#175 tower branches guard on. -/
-theorem NativeProjPinned.not_tower (hI : NativeProjPinned env)
-    {sn : Name} {i : Nat} {entry : ProjEntry}
-    (hf : env.findProj? sn i = some entry) (hnat : entry.native = true) :
-    entry.tower = false := by
-  obtain ⟨hpin, -, -⟩ := hI.pinned hf hnat
-  rcases hpin with rfl | rfl <;> rfl
 
 /-- The clause-level consequence, spelled out: at a `native` entry the
 parameter spine has exactly two members and the index is `0` or `1`, so
 the `.proj` inference clause's `.internal "malformed projection entry"`
 branch is **unreachable** on any environment the checker builds. -/
 theorem NativeProjPinned.spineShape (hI : NativeProjPinned env)
-    (hf : env.findProj? sn i = some entry) (hnat : entry.native = true) :
+    (hf : env.findProj? sn i = some entry) (hnat : entry.native = true)
+    (htw : entry.tower = false) :
     entry.numParams = 2 ∧ entry.levelParams.length = 2 ∧ i < 2 := by
-  obtain ⟨hpin, -, hidx⟩ := hI.pinned hf hnat
+  obtain ⟨hpin, -, hidx⟩ := hI.pinned hf hnat htw
   refine ⟨?_, ?_, ?_⟩ <;>
     rcases hpin with rfl | rfl <;>
       first

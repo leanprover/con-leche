@@ -265,4 +265,65 @@ theorem recRulesP_cons_rec (mp : EnvS2PM V μ env)
       (by rw [Setlec.Env.find?_cons, if_neg (fun hh => hnN hh.symm)] at hf
           exact hf) hmem hfire
 
+/-! ## The tower projection law across a fresh cons (task #175 wiring, W5)
+
+`TowerOkP` (`Annot/EnvS2P.lean`) is keyed on the stored tower-backed
+entries; a cons that is not itself a tower entry adds none, and every
+stored row transports exactly as `recRuleLawP_cons_prefix`'s: the
+lookups the law reads (the entry, the former, the constructor) are
+prefix lookups, the two readings it carries (`Ta`, `TCa`) move
+**forward** by `denoteP_cons_fresh_mono`, and the two leaves it
+mentions (`acval T`, `acval entry.ctor`) are the prefix's by
+`acvalWith_ne` — both names are stored, so neither is the fresh one.
+The semantic clauses are then the prefix's verbatim. -/
+
+/-- **The tower projection law survives a fresh cons that is not a
+tower entry.**  The direct install's own entries establish theirs
+bespoke (`SetP/DirectInstallP`, W4c). -/
+theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
+    (φ : Name → Nat) : TowerOkP m₂ φ := by
+  intro T i entry hf htw
+  -- the entry is a prefix entry: the head is not a tower entry
+  have hf3 := Setlec.Env.findProj?_some hf
+  have hfP0 : env.find? (Setlec.projFnName T i) = some (.projInfo entry) := by
+    rw [Setlec.Env.find?_cons] at hf3
+    split at hf3
+    · exact absurd htw (by
+        rw [hntc entry (Option.some.inj hf3)]; exact Bool.false_ne_true)
+    · exact hf3
+  have hfP : env.findProj? T i = some entry := by
+    unfold Setlec.Env.findProj?
+    rw [hfP0]
+  obtain ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
+    hlaw⟩ := mp.tower_ok φ T i entry hfP htw
+  -- the two stored names are not the fresh one
+  have hne : ∀ {n : Name} {ci : ConstantInfo}, env.find? n = some ci →
+      n ≠ c₀.name := by
+    intro n ci hn hh
+    rw [hh, hfresh] at hn
+    exact nomatch hn
+  have hnT : T ≠ c₀.name := hne hfT
+  have hnC : entry.ctor ≠ c₀.name := hne hfC
+  refine ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, ?_, hlpsT⟩, cvC, ?_, hlpsC,
+    fun us hus => ?_⟩
+  · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfT]; rfl)]; exact hfT
+  · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]; exact hfC
+  obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
+  refine ⟨⟨Ta, ?_, ?_⟩, ?_⟩
+  · rw [hac]
+    exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
+      (constsBound_instType mp.base2.wf
+        (Setlec.SetR.Env.find?_mem hfP0) us) hTa
+  · intro ρ vs x rest hlen hokT hokx hmem hpeel
+    rw [hac, acvalWith_ne hnT] at hokT hmem
+    exact hA ρ vs x rest hlen hokT hokx hmem hpeel
+  · intro ρ ys hlen hok
+    rw [hac, acvalWith_ne hnC] at hok ⊢
+    exact hB ρ ys hlen hok
+
 end Setlec.SetR.Interp2

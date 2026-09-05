@@ -51,13 +51,11 @@ cases *are* `ProjPhaseAcvalP`'s three conjuncts. -/
 theorem projFwd_renameOkP {T ctorName : Name} {nF : Nat} {env' : Env}
     {cval : TConstVal} {acval : Name → (Name → Nat) → AVExpr}
     (hinv : ProjPhaseInvS T ctorName nF env' cval)
-    (hinvA : ProjPhaseAcvalP T ctorName nF env' acval)
-    (htf : ∀ (sn : Name) (i : Nat) (entry : Setlec.ProjEntry),
-      env'.findProj? sn i = some entry → entry.tower = false) :
+    (hinvA : ProjPhaseAcvalP T ctorName nF env' acval) :
     RenameOkP acval env' (fun n => if (env'.find? n).isSome = true then
       projFwd T ctorName nF n else n) := by
-  refine ⟨(projFwd_renameOkT hinv htf).1,
-    (projFwd_renameOkT hinv htf).2.1, ?_, htf⟩
+  refine ⟨(projFwd_renameOkT hinv).1,
+    (projFwd_renameOkT hinv).2.1, ?_⟩
   intro n ψ
   dsimp only
   cases hf : env'.find? n with

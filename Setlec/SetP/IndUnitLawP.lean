@@ -146,9 +146,7 @@ theorem blockTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
     · rw [if_pos hb]; exact hIA n hb ci hfn ψ'
     · rw [if_neg hb]
   rw [← denoteP_erasedEq (Expr.ErasedEq.of_eqUpToNames hren) 0]
-  exact (denoteP_renameConsts_resolve hup hval
-    (fun sn i entry hf => mp.base2.proj_ok.towerFree sn i entry hf)
-    ty 0 htr).symm
+  exact (denoteP_renameConsts_resolve hup hval ty 0 htr).symm
 
 /-- The member cons's instance: `MemberValR` supplies both data. -/
 theorem memberTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}

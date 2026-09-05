@@ -321,7 +321,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
       hnres (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
       (fun _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq)) hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -502,6 +502,11 @@ theorem harvestDefnP (hμ : μ.verified = true)
       (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
       (A := A) hfresh
       (Or.inl (fun _ h => ConstantInfo.noConfusion h)) _ rfl
+  · -- `tower_ok` (task #175 wiring W5): a value-kind cons is never a
+    -- tower entry
+    exact fun φ => towerOkP_cons_fresh mp
+      (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 
 /-! ## The `thm` mirror (batch H2, T1)
 
@@ -691,7 +696,7 @@ theorem harvestThmP (hμ : μ.verified = true)
       hnres (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
       (fun _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq)) hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -768,6 +773,11 @@ theorem harvestThmP (hμ : μ.verified = true)
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
       (A := A) hfresh
       (Or.inl (fun _ h => ConstantInfo.noConfusion h)) _ rfl
+  · -- `tower_ok` (task #175 wiring W5): a value-kind cons is never a
+    -- tower entry
+    exact fun φ => towerOkP_cons_fresh mp
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value')
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 
 /-! ## The `opaque` kind: the H2 SKIP, since unlocked
 
@@ -945,7 +955,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
       (fun _ _ heq => nomatch heq) (fun _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq))
     hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -1016,6 +1026,11 @@ theorem harvestAxiomP (hμ : μ.verified = true)
     exact reduceOpsP_cons_fresh mp.reduce_ops
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) hfresh (Or.inr hnotreduce) _ rfl
+  · -- `tower_ok` (task #175 wiring W5): a value-kind cons is never a
+    -- tower entry
+    exact fun φ => towerOkP_cons_fresh mp
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 
 
 /-! ## The `opaque` kind, unlocked (the exposed leaf equation)
@@ -1192,7 +1207,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
       (fun _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq))
     hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
@@ -1269,5 +1284,10 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
         obtain ⟨sta, hsta, htE, -, -⟩ := hrowsT ψ
         exact htE ρ (Sat2_nil V ρ))
       hmemA hred _ rfl
+  · -- `tower_ok` (task #175 wiring W5): a value-kind cons is never a
+    -- tower entry
+    exact fun φ => towerOkP_cons_fresh mp
+      (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
+      (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 
 end Setlec.SetR.Interp2

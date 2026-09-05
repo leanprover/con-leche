@@ -236,7 +236,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     rw [← hLspine.length, hlarity]
   have hvLfEq : vLf = m.acval Rn ψ' := by
     rw [hconstDen (f Rn) ciRm lps hfRnE hRmlps] at hvLf
-    rw [hroT.2.2.1] at hvLf
+    rw [hroT.2.2] at hvLf
     exact (Option.some.inj hvLf).symm
   have hokArgs : ∀ σ : Nat → V, Sat2 V Δa σ →
       ∀ a ∈ vLargs, AnnotOkP V σ a := by

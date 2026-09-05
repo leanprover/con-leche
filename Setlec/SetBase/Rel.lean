@@ -225,6 +225,35 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       Infer μ env cval φ Δ P te →
       DefEq μ env cval φ Δ te te' →
       Red μ env cval φ Δ (.proj i p) fv
+  /-- R6′ (task #175 wiring W5): the structural projection at a
+  **tower-backed** entry — R6's premises verbatim plus the entry
+  kind, concluding at the uniform iterated reading (`projNV i`),
+  which is what `denote`'s tower branch reads a `.proj` node to. -/
+  | projRedTower {Δ : List VExpr} {p P fv ta ta' te te' TC restC : VExpr}
+      {i : Nat} {sn : Name} {entry : ProjEntry} {ci : ConstantInfo}
+      {us : List Level} {vs : List VExpr} :
+      env.findProj? sn i = some entry →
+      entry.native = true → entry.tower = true →
+      i < entry.numFields →
+      vs.length = entry.numParams + entry.numFields →
+      us.length = entry.levelParams.length →
+      env.find? entry.ctor = some ci →
+      us.length = ci.toConstantVal.levelParams.length →
+      P = VExpr.mkAppN
+        (cval entry.ctor
+          (Level.substFn φ ci.toConstantVal.levelParams us)) vs →
+      vs[entry.numParams + i]? = some fv →
+      denoteClosed cval env φ
+        (ci.toConstantVal.type.instantiateLevelParams
+          ci.toConstantVal.levelParams us) = some TC →
+      VExpr.Closed TC →
+      Red μ env cval φ Δ p P →
+      Tele μ env cval φ Δ TC vs restC →
+      Infer μ env cval φ Δ fv ta →
+      DefEq μ env cval φ Δ ta ta' →
+      Infer μ env cval φ Δ P te →
+      DefEq μ env cval φ Δ te te' →
+      Red μ env cval φ Δ (projNV i p) fv
   /-- R7/R16: a `String` literal steps to (the reduction of) its
   denoted constructor form — `projLitToCtor` (`Core.lean:1224-1229`)
   and `litMajorToCtor`'s string case (`Core.lean:1208-1213`), one
@@ -608,6 +637,27 @@ inductive Infer (μ : CheckMode) (env : Env) (cval : TConstVal)
         (VExpr.mkAppN
           (cval T (Level.substFn φ ciT.toConstantVal.levelParams us)) ps) →
       Infer μ env cval φ Δ (.proj i p) resV
+  /-- I9′ (task #175 wiring W5): projections at a **tower-backed**
+  entry — I9's premises verbatim plus the entry kind, concluding at the
+  uniform iterated reading. -/
+  | projTower {Δ : List VExpr} {p tp TP resV : VExpr} {i : Nat} {T : Name}
+      {entry : ProjEntry} {ciT : ConstantInfo} {us : List Level}
+      {ps : List VExpr} :
+      env.findProj? T i = some entry →
+      entry.native = true → entry.tower = true →
+      ps.length = entry.numParams →
+      us.length = entry.levelParams.length →
+      env.find? T = some ciT →
+      us.length = ciT.toConstantVal.levelParams.length →
+      denoteClosed cval env φ
+        (entry.ty.instantiateLevelParams entry.levelParams us) = some TP →
+      VExpr.Closed TP →
+      piResidualV TP (ps ++ [p]) = some resV →
+      Infer μ env cval φ Δ p tp →
+      DefEq μ env cval φ Δ tp
+        (VExpr.mkAppN
+          (cval T (Level.substFn φ ciT.toConstantVal.levelParams us)) ps) →
+      Infer μ env cval φ Δ (projNV i p) resV
   /-- I10: `let` (`Core.lean:1645-1656`): annotation is a type, value
   matches it, body inferred with the value transparent. -/
   | letE {Δ : List VExpr} {T v b tT tv B : VExpr} {u : Nat} :
@@ -874,5 +924,28 @@ theorem DefEqL.length_eq {μ : CheckMode} {env : Env} {cval : TConstVal}
   | nil => cases h; rfl
   | cons a as ih => cases h with
     | cons _ htail => simpa using ih htail
+
+/-! ## The iterated-projection congruences (task #175 wiring W5)
+
+The tower reading of a `.proj` node is `projNV i`, a chain of pair
+projections; `Red.projArg` and `DefEq.projCong` iterate along it. -/
+
+theorem Red.projNV_arg {μ : CheckMode} {env : Env} {cval : TConstVal}
+    {φ : Name → Nat} {Δ : List VExpr} :
+    ∀ {i : Nat} {e e' : VExpr}, Red μ env cval φ Δ e e' →
+      Red μ env cval φ Δ (projNV i e) (projNV i e')
+  | 0, _, _, h => Red.projArg h
+  | i + 1, e, e', h =>
+    Red.projNV_arg (i := i) (e := .proj 1 e) (e' := .proj 1 e')
+      (Red.projArg h)
+
+theorem DefEq.projNV_cong {μ : CheckMode} {env : Env} {cval : TConstVal}
+    {φ : Name → Nat} {Δ : List VExpr} :
+    ∀ {i : Nat} {e₁ e₂ : VExpr}, DefEq μ env cval φ Δ e₁ e₂ →
+      DefEq μ env cval φ Δ (projNV i e₁) (projNV i e₂)
+  | 0, _, _, h => DefEq.projCong h
+  | i + 1, e₁, e₂, h =>
+    DefEq.projNV_cong (i := i) (e₁ := .proj 1 e₁) (e₂ := .proj 1 e₂)
+      (DefEq.projCong h)
 
 end Setlec.SetR

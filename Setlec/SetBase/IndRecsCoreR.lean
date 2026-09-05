@@ -169,10 +169,10 @@ def EnvR.swap {env₀ env₃ : Env} (m₀ : EnvR env₀)
   · -- proj_ok: projection entries and their blocks are untouched
     obtain ⟨hp1, hp2, hp3⟩ := m₀.proj_ok
     refine ⟨?_, ?_, ?_⟩
-    · intro n entry hf hnat
+    · intro n entry hf hnat htw
       obtain ⟨he, hps, hpm⟩ :=
         hp1 n entry ((hsame n _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hnat
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hnat htw
       refine ⟨he, ?_, ?_⟩
       · exact (hsame _ _
           (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hps
@@ -181,9 +181,10 @@ def EnvR.swap {env₀ env₃ : Env} (m₀ : EnvR env₀)
     · intro i entry hf
       exact hp2 i entry ((hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
-    · intro n entry hf
-      exact hp3 n entry ((hsame _ _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+    · intro n entry hf htw
+      exact TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
+        (hp3 n entry ((hsame _ _
+          (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) htw)
   · -- thm_ok: likewise a theorem is never a swap's right side
     intro cv value hmem ψ
     obtain ⟨c₀, hc₀, hpair⟩ := swapSh_mem_corr hsw _ hmem
@@ -327,19 +328,20 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
   · -- `ProjOkT`: projection entries are untouched
     obtain ⟨hp1, hp2, hp3⟩ := hprojS
     refine ⟨?_, ?_, ?_⟩
-    · intro n entry hf hnat
+    · intro n entry hf hnat htw
       obtain ⟨he, hps, hpm⟩ :=
         hp1 n entry ((hsame n _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hnat
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hnat htw
       exact ⟨he,
         (hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hps,
         (hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hpm⟩
     · intro i entry hf
       exact hp2 i entry ((hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
-    · intro n entry hf
-      exact hp3 n entry ((hsame _ _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+    · intro n entry hf htw
+      exact TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
+        (hp3 n entry ((hsame _ _
+          (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) htw)
 
 /-! ## The group phase, at the `EnvR` level -/
 

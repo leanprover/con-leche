@@ -530,6 +530,112 @@ def RecRulesP {V : Type w} [SetTheory V] {env : Env}
     ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
       RecRuleLawP m φ n cv mI rP rl
 
+/-! ## The tower projection law (task #175 wiring, W5)
+
+A **tower-backed** projection-table entry (`entry.tower = true`, the
+direct-structure install's native entries) is typed by the checker
+generically — the stored `ty` peeled along the parameters and the
+subject (`inferBody`'s tower branch) — and reduced by the structural
+rule `proj_i (ctor p⃗ x⃗) ↦ x_i`; the reading is the uniform
+`projAV i` (`denoteP`'s tower branch).  The P `.proj` rows therefore
+need, per stored tower entry, exactly two semantic facts about the
+environment: the **typing law** (the projection of a member of the
+family lands in the peeled entry type's reading, graded) and the
+**iota law** (the projection of a certified constructor spine is the
+selected field's reading).  Both are **environment laws** in the sense
+of `caps_ok`/`rec_rules` — fixed by the direct install and by nothing
+else — so they are a field of `EnvS2PM`, established at the install
+(`SetP/DirectInstallP`, W4c) and transported across every other cons
+(`towerOkP_cons_fresh`, `SetP/RecRulesPCons.lean`).
+
+**Why the typing law is stated over a syntactic peel** (`peelPis`)
+rather than a `TeleFitPA` fit: the `.proj` infer row holds the
+subject's *reduced type* as a graded reading (`AnnotOkP` of the family
+application) and the subject's membership in it — never a certified
+parameter spine, since the family application is a *type* the run
+produced, not an application it checked.  Building a fit from the
+grading alone would need the leaf's λ-domains pinned to the type
+reading's Π-domains at every row; the law takes the grading and the
+membership as its premises instead, and the install discharges the
+pinning once.  The residual is then the *syntactic* peel of the
+entry-type reading along the readings (`denoteP_piResidual_peel`,
+the fit-free mirror of `teleFitPA_residual`), which the row computes
+from the checker's own `instPisAt` run.
+
+The iota law takes the constructor application's grading alone (see
+its clause). -/
+
+/-- The syntactic Π-peel along a list of readings: the fit's residual
+without the memberships (`TeleFitPA`'s spine, data only). -/
+def _root_.Setlec.SetR.AVExpr.peelPis : AVExpr → List AVExpr → Option AVExpr
+  | T, [] => some T
+  | .pi _ _ _ B, a :: as => Setlec.SetR.AVExpr.peelPis (B.inst a) as
+  | _, _ :: _ => none
+
+/-- A fit's residual is the peel's. -/
+theorem TeleFitPA.peelPis {V : Type w} [SetTheory V] {ρ : Nat → V} :
+    ∀ {T rest : AVExpr} {as : List AVExpr}, TeleFitPA V ρ T as rest →
+      Setlec.SetR.AVExpr.peelPis T as = some rest := by
+  intro T rest as h
+  induction h with
+  | nil => rfl
+  | cons _ _ ih => exact ih
+
+/-- **One tower-backed entry's projection law** (see the section
+docstring): the entry's stored data agrees with the stored former and
+constructor, and at every level instantiation the typing law and the
+iota law hold at the entry's own type reading and the constructor's. -/
+def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS2Core V env) (φ : Name → Nat)
+    (T : Name) (i : Nat) (entry : ProjEntry) : Prop :=
+  entry.native = true ∧ entry.structName = T ∧ entry.idx = i ∧
+  i < entry.numFields ∧
+  (∃ (cvT : ConstantVal) (capsT : IndCaps),
+    env.find? T = some (.indInfo cvT capsT) ∧
+    cvT.levelParams = entry.levelParams) ∧
+  ∃ cvC : ConstantVal,
+    env.find? entry.ctor
+      = some (.ctorInfo cvC entry.numParams entry.numFields) ∧
+    cvC.levelParams = entry.levelParams ∧
+    ∀ us : List Level, us.length = entry.levelParams.length →
+      -- (A) the typing law
+      (∃ Ta : AVExpr,
+        denoteP m.acval env φ 0
+          (entry.ty.instantiateLevelParams entry.levelParams us) = some Ta ∧
+        ∀ (ρ : Nat → V) (vs : List AVExpr) (x rest : AVExpr),
+          vs.length = entry.numParams →
+          AnnotOkP V ρ (AVExpr.mkAppN
+            (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
+          AnnotOkP V ρ x →
+          interp2 V ρ x ∈ˢ interp2 V ρ (AVExpr.mkAppN
+            (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
+          Setlec.SetR.AVExpr.peelPis Ta (vs ++ [x]) = some rest →
+          AnnotOkP V ρ (projAV i x) ∧ AnnotOkP V ρ rest ∧
+            interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest) ∧
+      -- (B) the iota law: the projection of a *graded* constructor
+      -- application is the selected field.  The premise is the
+      -- application's grading alone (its slot chain): in today's
+      -- recognised class the result sort is `isNonZero`, so every
+      -- constructor binder is graph-regime and graph rigidity pins the
+      -- memberships without a certificate — which is what the
+      -- `whnfCore` row holds under the io skip.  (A Prop-widened
+      -- class would add the certified-fit alternative here.)
+      (∀ (ρ : Nat → V) (ys : List AVExpr),
+        ys.length = entry.numParams + entry.numFields →
+        AnnotOkP V ρ (AVExpr.mkAppN
+          (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys) →
+        interp2 V ρ (projAV i (AVExpr.mkAppN
+            (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys))
+          = interp2 V ρ (ys.getD (entry.numParams + i) default))
+
+/-- **The tower projection law, keyed on every stored tower-backed
+entry** (`RecRulesP`'s sibling). -/
+def TowerOkP {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvS2Core V env) (φ : Name → Nat) : Prop :=
+  ∀ (T : Name) (i : Nat) (entry : ProjEntry),
+    env.findProj? T i = some entry → entry.tower = true →
+    TowerEntryLawP m φ T i entry
+
 /-- **The P-tier environment invariant, at one mode** (see the module
 docstring). -/
 structure EnvS2PM (μ : CheckMode) (env : Env) where
@@ -593,6 +699,12 @@ structure EnvS2PM (μ : CheckMode) (env : Env) where
   install's identity certificate and by nothing else, so the supplier
   is `harvestOpaqueP`.  Consumed by the `ofReduce*` axiom branch) -/
   reduce_ops : ReduceOpsP base2
+  /-- the stored tower-backed projection entries' typing and iota
+  laws (task #175 wiring W5; an *environment law* for the same reason
+  `rec_rules` is — a direct structure's entries are fixed by its
+  install and by nothing else, so the supplier is the direct install
+  step.  Consumed by the `.proj` rows' tower branches) -/
+  tower_ok : ∀ φ : Name → Nat, TowerOkP base2 φ
 
 namespace EnvS2PM
 
@@ -730,6 +842,10 @@ noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
     exact nomatch hf
   reduce_ops := fun c _ cv hf => by
     rw [show Env.empty.find? c = none from rfl] at hf
+    exact nomatch hf
+  tower_ok := fun _ T i entry hf => by
+    have : Env.empty.findProj? T i = none := rfl
+    rw [this] at hf
     exact nomatch hf
 
 end Setlec.SetR.Interp2

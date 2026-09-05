@@ -872,12 +872,10 @@ theorem blockRenameOkT {blockNames : List Name} {envSelf : Env}
     {cvalSelf : TConstVal}
     (hIS : BlockInstalledTT blockNames envSelf cvalSelf)
     (hnames : ∀ n, blockNames.contains n = true →
-      (envSelf.find? n).isSome = true)
-    (htf : ∀ (sn : Name) (i : Nat) (entry : ProjEntry),
-      envSelf.findProj? sn i = some entry → entry.tower = false) :
+      (envSelf.find? n).isSome = true) :
     RenameOkT cvalSelf envSelf (fun n =>
       if blockNames.contains n then n.str "_model" else n) := by
-    refine ⟨?_, ?_, ?_, htf⟩
+    refine ⟨?_, ?_, ?_⟩
     · intro n ciS hfS
       dsimp only
       by_cases hc : blockNames.contains n = true

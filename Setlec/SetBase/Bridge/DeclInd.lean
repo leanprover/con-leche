@@ -401,8 +401,7 @@ theorem indRecsRS
     · exact provisionRecsS_stored recs hprov ci hci
   obtain ⟨cval₃, hfold⟩ :=
     indRecsFoldRS (envBase := env₂) mS
-      (blockRenameOkT hIS hnames
-        (fun sn i entry hf => mS.proj_ok.towerFree sn i entry hf))
+      (blockRenameOkT hIS hnames)
       (provisionRecsS_mono recs hprov) checked
       (fun c hc => (provisionRecsS_entries recs hprov c hc).1)
       (cval := m.cval) h

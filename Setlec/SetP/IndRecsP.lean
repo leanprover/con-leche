@@ -180,10 +180,8 @@ theorem indRecsP (hμ : μ.verified = true)
       · rw [provisionRecsRunS_mono recs hprov n ci hf]; rfl
     · exact provisionRecsRunS_stored recs hprov ci hci
   -- the block renaming, at both tiers
-  have htf := fun sn i entry hf =>
-    mS.base2.proj_ok.towerFree sn i entry hf
-  have hro := blockRenameOkT hIS hnames htf
-  have hroP := blockRenameOkP hIS hIAS hnames htf
+  have hro := blockRenameOkT hIS hnames
+  have hroP := blockRenameOkP hIS hIAS hnames
   -- the fold's swap data, model-free (task #161 S6): this call used
   -- to be `indRecsFoldS mS.base` — the v1 install, run for two of its
   -- five conclusions.  `indRecsFoldFacts` (`SetBase/IndBlockR.lean`)

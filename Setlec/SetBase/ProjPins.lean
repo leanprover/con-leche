@@ -36,15 +36,6 @@ variable {env : Env} {cval : TConstVal} {φ : Name → Nat}
 
 /-! ### Entry identification -/
 
-/-- A `ProjOkT`-pinned entry is not tower-backed (task #175 wiring):
-the fact the P rows use to kill the inversion's tower side. -/
-theorem projEntry_not_tower (hpo : ProjOkT env) {sn : Name} {i : Nat}
-    {entry : ProjEntry}
-    (hf : env.findProj? sn i = some entry) (hnat : entry.native = true) :
-    entry.tower = false := by
-  obtain ⟨hpin, -, -⟩ := hpo.1 _ _ (Env.findProj?_some hf) hnat
-  rcases hpin with rfl | rfl <;> rfl
-
 /-- A native table entry is one of the two pinned pair entries, its
 stored name pins the struct name and index, and the pair block is
 stored.  (`Model/Core/Whnf.lean:317-326`'s moves, packaged.)
@@ -66,13 +57,14 @@ finding:
   they are read only by the denotation lemmas below.  They stay here. -/
 theorem projEntry_pins (hpo : ProjOkT env) {sn : Name} {i : Nat}
     {entry : ProjEntry}
-    (hf : env.findProj? sn i = some entry) (hnat : entry.native = true) :
+    (hf : env.findProj? sn i = some entry) (hnat : entry.native = true)
+    (htw : entry.tower = false) :
     (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
     sn = psigmaName ∧ entry.idx = i ∧
     env.find? psigmaName = some psigmaA ∧
     env.find? psigmaMkName = some psigmaMkA := by
   obtain ⟨hpin, hpsig, hpsigMk⟩ :=
-    hpo.1 _ _ (Env.findProj?_some hf) hnat
+    hpo.1 _ _ (Env.findProj?_some hf) hnat htw
   obtain ⟨hsn, hidx⟩ := Setlec.projEntry_names hf hpin
   exact ⟨hpin, hsn, hidx, hpsig, hpsigMk⟩
 
@@ -165,6 +157,7 @@ across the E2-gate re-point, so its callers are untouched. -/
 theorem piResidual_of_computed (hpo : ProjOkT env) {sn : Name} {i : Nat}
     {entry : ProjEntry} {us : List Level} {A B pe t : Expr}
     (hfe : env.findProj? sn i = some entry) (hnat : entry.native = true)
+    (htw : entry.tower = false)
     (hlenUs : us.length = entry.levelParams.length)
     (hA : Expr.looseBVarsBounded 0 A = true)
     (hB : Expr.looseBVarsBounded 0 B = true)
@@ -173,7 +166,7 @@ theorem piResidual_of_computed (hpo : ProjOkT env) {sn : Name} {i : Nat}
     Setlec.piResidual
       (entry.ty.instantiateLevelParams entry.levelParams us)
       ([A, B] ++ [pe]) = some t :=
-  let p := projEntry_pins hpo hfe hnat
+  let p := projEntry_pins hpo hfe hnat htw
   piResidual_of_pinned p.1 p.2.1 p.2.2.1 hlenUs hA hB hcomp
 
 /-- **The walk, from the install-time invariant** — the same conclusion
@@ -184,6 +177,7 @@ theorem piResidual_of_invariant {sn : Name} {i : Nat}
     {entry : ProjEntry} {us : List Level} {A B pe t : Expr}
     (hI : Setlec.NativeProjPinned env)
     (hfe : env.findProj? sn i = some entry) (hnat : entry.native = true)
+    (htw : entry.tower = false)
     (hlenUs : us.length = entry.levelParams.length)
     (hA : Expr.looseBVarsBounded 0 A = true)
     (hB : Expr.looseBVarsBounded 0 B = true)
@@ -192,7 +186,7 @@ theorem piResidual_of_invariant {sn : Name} {i : Nat}
     Setlec.piResidual
       (entry.ty.instantiateLevelParams entry.levelParams us)
       ([A, B] ++ [pe]) = some t :=
-  let p := hI.pinned hfe hnat
+  let p := hI.pinned hfe hnat htw
   piResidual_of_pinned p.1 p.2.1 p.2.2 hlenUs hA hB hcomp
 
 /-! ### The pinned types' denotations (concrete computations) -/

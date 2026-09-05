@@ -241,8 +241,10 @@ def coreCons (m : EnvS2Core V env) {c₀ : ConstantInfo}
         rw [show acvalWith m.acval c₀.name A c₀.name = A from
           acvalWith_self]
         exact (hh.pin hres).2 ψ t hp⟩)
-  proj_ok := ProjOkT.cons m.proj_ok hfresh hh.projHead hh.projPair
-    hh.projTower
+  proj_ok := ProjOkT.cons m.proj_ok hfresh
+    (fun entry heq hnat _ => hh.projHead entry heq hnat) hh.projPair
+    (fun entry heq htw => absurd ((hh.projTower entry heq).symm.trans htw)
+      (by decide))
   rec_ctors := Setlec.RecCtorsStored.cons m.rec_ctors hfresh hh.ctorsHead
   acval_closed := acvalWith_closed m.acval_closed hAclosed
   acval_params := acvalWith_params m.acval_params hAparams
@@ -294,7 +296,9 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     (hrec_rules : ∀ φ : Name → Nat,
       RecRulesP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ)
     (hreduce_ops : ReduceOpsP (V := V)
-        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _)) :
+        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _))
+    (htower_ok : ∀ φ : Name → Nat,
+      TowerOkP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   have hbound := envWF_constsBound mp.base2.wf
@@ -398,6 +402,7 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     eq_lawP := heq_law
     caps_ok := hcaps_ok
     rec_rules := hrec_rules
-    reduce_ops := hreduce_ops }, rfl⟩
+    reduce_ops := hreduce_ops
+    tower_ok := htower_ok }, rfl⟩
 
 end Setlec.SetR.Interp2

@@ -132,8 +132,6 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     fun ψ => by rw [hA]
   -- the pruned renaming, and the type's reading at the prefix
   have hroP := projFwd_renameOkP hinv hinvA
-    (fun sn2 i2 entry2 hf2 =>
-      mp.base2.proj_ok.towerFree sn2 i2 entry2 hf2)
   have hrenP : pty.renameConsts (fun n =>
       if (env'.find? n).isSome = true then
         projFwd T ctorName nF n else n) = mcv.type := by

@@ -98,10 +98,8 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     rw [hh, hctor] at hfm
     exact nomatch (Option.some.inj hfm)
   -- the pruned projection renaming, at both tiers
-  have htf := fun sn2 i2 entry2 hf2 =>
-    mp.base2.proj_ok.towerFree sn2 i2 entry2 hf2
-  have hro := projFwd_renameOkT hinv htf
-  have hroP := projFwd_renameOkP hinv hinvA htf
+  have hro := projFwd_renameOkT hinv
+  have hroP := projFwd_renameOkP hinv hinvA
   have hfRn : (if (env'.find? (projModelName T i)).isSome = true then
       projFwd T ctorName nF (projModelName T i)
       else projModelName T i) = projModelName T i := by
