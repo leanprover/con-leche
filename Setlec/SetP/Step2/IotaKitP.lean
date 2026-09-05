@@ -239,8 +239,8 @@ One step is `InferReadsP` (the argument's type reads),
 `InferClaims2P` (it is graded and the argument inhabits it) and
 `DefEqClaims2P` (it is the domain) — the checker's own order. -/
 theorem certs_telePA {m : EnvS2Core V env}
-    (ihd : DefEqClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel) :
+    (ihd : DefEqClaims2P μ m φ fuel) (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hexi : InferExistsIOSP μ m φ fuel) :
     ∀ {d : Nat} {Δa : List AVExpr} (ty : Expr) (args : List Expr)
       (vs : List AVExpr) (Ta : AVExpr),
       Setlec.iotaCertsP μ env fuel d ty args = .ok true →
@@ -251,6 +251,7 @@ theorem certs_telePA {m : EnvS2Core V env}
       (∀ x ∈ args, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
         Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x) →
       DenoteSpineP m.acval env φ d args vs →
+      (∀ x ∈ vs, ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ x) →
       ∃ resta : AVExpr,
         (∀ ρ : Nat → V, Sat2 V Δa ρ → TeleFitPA V ρ Ta vs resta) ∧
         (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ resta) ∧
@@ -258,11 +259,11 @@ theorem certs_telePA {m : EnvS2Core V env}
   intro d Δa ty args
   induction args generalizing ty with
   | nil =>
-    intro vs Ta _ _ _ _ _ _ hokT _ hsp
+    intro vs Ta _ _ _ _ _ _ hokT _ hsp _
     cases hsp
     exact ⟨Ta, fun _ _ => .nil, hokT, by simp⟩
   | cons a as ih =>
-    intro vs Ta hc hwty hbty hLbty hCty hity hokT hargs hsp
+    intro vs Ta hc hwty hbty hLbty hCty hity hokT hargs hsp hokvs
     match ty, hc, hwty, hbty, hLbty, hCty, hity with
     | .bvar _, hc, _, _, _, _, _ => exact nomatch hc
     | .fvar _ _ _, hc, _, _, _, _, _ => exact nomatch hc
@@ -300,16 +301,18 @@ theorem certs_telePA {m : EnvS2Core V env}
           ((AnnotValidV_pi V ρ 0 _ doma bodya) ▸ (hokT ρ hρ).2).2.1 x hx⟩
     -- the argument's inferred type reads, is graded, and holds it
     obtain ⟨taa, htaa⟩ :=
-      hreads hta haw hab haLb (LeafReadsP.of_ctxOkP haC) haa
-    obtain ⟨hokA, hokTa, hmemA⟩ := ihi hta haw hab haLb haC haa htaa
+      hexi hta haw hab haLb haC haa
+    have hokA : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ aa :=
+      hokvs aa List.mem_cons_self
+    obtain ⟨hokTa, hmemA⟩ := ihis hta haw hab haLb haC haa htaa hokA
     have hwta : Expr.WScoped d ta :=
-      Setlec.inferTypeCore_WScoped m.wf fuel hta haw
+      Setlec.inferTypeIO_WScoped m.wf fuel hta haw
     have hbta : ta.looseBVarsBounded 0 = true :=
-      Setlec.inferTypeCore_looseBVars m.wf fuel hta haw hab haLb
+      Setlec.inferTypeIO_looseBVars m.wf fuel hta haw hab haLb
     have hLta : Expr.LeavesBounded ta := fun l hl =>
-      haLb l (Setlec.inferTypeCore_fvarLeaves m.wf fuel hta haw l hl)
+      haLb l (Setlec.inferTypeIO_fvarLeaves m.wf fuel hta haw l hl)
     have hCta : CtxOkP m φ d Δa ta :=
-      haC.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel hta haw)
+      haC.of_subset (Setlec.inferTypeIO_fvarLeaves m.wf fuel hta haw)
     have hdeq : ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ taa = interp2 V ρ doma :=
       ihd hde hwta hbta hLta hdomw hdomb hLbdom hCta hCdom htaa hdoma
@@ -342,7 +345,7 @@ theorem certs_telePA {m : EnvS2Core V env}
     obtain ⟨resta, hfit, hokR, hokAs⟩ :=
       ih (body.instantiate1 a) _ _ hrestc hwbody hbbody hLbbody hCbody
         hbody' hokBody' (fun x hx => hargs x (List.mem_cons_of_mem a hx))
-        hsp'
+        hsp' (fun x hx => hokvs x (List.mem_cons_of_mem aa hx))
     refine ⟨resta, fun ρ hρ =>
       .cons ((hdeq ρ hρ) ▸ hmemA ρ hρ) (hfit ρ hρ), hokR, fun x hx => ?_⟩
     rcases List.mem_cons.mp hx with rfl | hx'

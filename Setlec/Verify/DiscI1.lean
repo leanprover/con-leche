@@ -163,12 +163,12 @@ theorem iotaCertsIAux_sim (ih : SSimI mode env f) {d : Nat} :
           simpa only [WScoped] using hwty
         show SimAt mode env s₀ RelV
           (instListM t acc >>= fun dom' =>
-            (coreKnotI mode (mkFEnv env) f).infer d a >>= fun ta =>
+            (coreKnotI mode (mkFEnv env) f).inferIO d a >>= fun ta =>
             (coreKnotI mode (mkFEnv env) f).defeq d ta dom' >>= fun r =>
             if r then iotaCertsIAux (coreKnotI mode (mkFEnv env) f)
               (mkFEnv env) d b (a :: acc) as
             else pure false)
-          ((fueledFns mode env).infer d x >>= fun ta =>
+          ((fueledFns mode env).inferIO d x >>= fun ta =>
             (fueledFns mode env).defeq d ta (et.instantiateList ws) >>= fun r =>
             if r then iotaCerts (fueledFns mode env) env d
               ((eb.instantiateList ws 1).instantiate1 x) xs
@@ -176,7 +176,7 @@ theorem iotaCertsIAux_sim (ih : SSimI mode env f) {d : Nat} :
         have hwx : WScoped d x := hwargs x (List.mem_cons_self ..)
         refine SimAt.bind_left (instListM_eff (d := 0) hs hth hacc)
           (fun s₁ dom' hs₁ hext₁ hQdom => ?_)
-        refine SimAt.bind (ih.infer hs₁ (denoteT_mono hext₁ hax) hwx)
+        refine SimAt.bind (ih.inferIO hs₁ (denoteT_mono hext₁ hax) hwx)
           (fun s₂ ta tax hs₂ hext₂ hP => ?_)
         obtain ⟨htax, hwtax⟩ := hP
         refine SimAt.bind (ih.defeq hs₂ htax

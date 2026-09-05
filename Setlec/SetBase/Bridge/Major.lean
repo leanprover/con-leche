@@ -54,6 +54,7 @@ def MajorStepR {env : Env} (m : EnvR env) (φ : Name → Nat)
 /-- **`MajorStepR`, proved** (R12/R13/R14, and the identity
 fallthrough). -/
 theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
+    (hg : mode.betaGate = false)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
     (ihi : InferClaimsR mode m φ fuel) :
@@ -63,7 +64,8 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     tmaj₀, tmaj, T, us₀, ust, cvT, caps, hrules, hfcj, hpres, hfT, hitm,
     hwtm, hfnT, hcase⟩
   · exact ⟨vm, hvm, Red.refl, hws, hb, hLb, hC⟩
-  · -- the fabrication's frame conditions come with the inversion
+  · rw [Setlec.inferTypeIO_off hg] at hitm
+    -- the fabrication's frame conditions come with the inversion
     have hwF : Expr.WScoped d major' := Expr.WScoped.of_wscopedB hwsB
     have hLF : Expr.LeavesBounded major' := fun l hl =>
       hLb l (by
@@ -103,7 +105,8 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
       rcases hcase with ⟨hK, hcnF, hlpj, hcnP, hstrip, rfl, hcerts, ⟨tfab,
         hitfab, hdefab⟩, hirr⟩ | ⟨heta, hectr, hproj, hnz, hlenP, hlenU,
         hlpj, hstrip, rfl, hcerts, hetacase⟩
-      · -- R12: the K-flagged rescue
+      · rw [Setlec.inferTypeIO_off hg] at hitfab
+        -- R12: the K-flagged rescue
         have hspK : DenoteSpine m.cval env φ d (tmaj.getAppArgs.take cnP)
             (ts.take cnP) := hspt.take cnP
         have hdF : denote m.cval env φ d
@@ -118,7 +121,7 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
             from hlpj.symm)]
           rfl
         obtain ⟨vs', rest, hsp', htele⟩ :=
-          certs_teleR m φ hcl ihd ihi _ (tmaj.getAppArgs.take cnP) TVj hcerts
+          certs_teleR m φ hg hcl ihd ihi _ (tmaj.getAppArgs.take cnP) TVj hcerts
             hVw hVb hVL hVC hTVjd
             (fun x hx => hfrT x (List.mem_of_mem_take hx))
         obtain rfl : vs' = ts.take cnP := DenoteSpine.det hsp' hspK
@@ -137,7 +140,7 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         exact ⟨_, hdF, Red.rescueK (hrules ▸ hfrec) hfcj hpres hfT hK hcnF hlpj hlenT
           (by rw [hspt.length]; exact hcnP) hstrip rfl hTVj0 hTVjc hmI hmD
           htele hFI (hDfab.trans hFD.symm)
-          (proofIrrel_stepR m φ ihw ihi hirr hwF hbB hLF hws hb hLb hCF hC
+          (proofIrrel_stepR hg m φ ihw ihi hirr hwF hbB hLF hws hb hLb hCF hC
             hdF hvm),
           hwF, hbB, hLF, hCF⟩
       · -- R13/R14: the eta-capable rescue
@@ -229,7 +232,7 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
                   | exact (hfrM y hy).2.2.1 l hly
                   | exact (hfrM y hy).2.2.2.2 l hly
           obtain ⟨vs', rest, hsp', htele⟩ :=
-            certs_teleR m φ hcl ihd ihi _
+            certs_teleR m φ hg hcl ihd ihi _
               (etaFabArgs T ust tmaj.getAppArgs major caps.etaFields) TVj
               hcerts hVw hVb hVL hVC hTVjd hfrF
           obtain rfl : vs' = etaFabArgsV m.cval T
@@ -238,7 +241,7 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
           refine ⟨_, hdF, Red.rescueEta (hrules ▸ hfrec) hfcj hpres hfT heta
             hectr hproj (by rw [hspt.length]; exact hlenP) hlenT hnz hlpj
             hstrip rfl hTVj0 hTVjc hmI hmD htele ?_, hwF, hbB, hLF, hCF⟩
-          exact structEtaCertWith_stepR m φ hcl ihw ihd ihi hcw hwF hbB hLF hCF
+          exact structEtaCertWith_stepR m φ hg hcl ihw ihd ihi hcw hwF hbB hLF hCF
             hws hb hLb hC hwr hbr hLr hCr hdF hvm hWsave hmI hmD
         · -- R14: the 0-field fallthrough
           have hEmpty : etaFabArgs T ust tmaj.getAppArgs major caps.etaFields
@@ -264,7 +267,7 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
               from hlpj.symm)]
             rfl
           obtain ⟨vs', rest, hsp', htele⟩ :=
-            certs_teleR m φ hcl ihd ihi _
+            certs_teleR m φ hg hcl ihd ihi _
               (etaFabArgs T ust tmaj.getAppArgs major caps.etaFields) TVj
               hcerts hVw hVb hVL hVC hTVjd (by
                 rw [hEmpty]; exact hfrT)
@@ -273,7 +276,7 @@ theorem majorToCtor_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
           refine ⟨_, hdF, Red.rescueUnit0 (hrules ▸ hfrec) hfcj hpres hfT heta
             hectr hproj hnF0 (by rw [hspt.length]; exact hlenP) hlenT hnz hlpj
             hstrip rfl hTVj0 hTVjc hmI hmD htele ?_, hwF, hbB, hLF, hCF⟩
-          exact proofIrrel_stepR m φ ihw ihi hirr hwF hbB hLF hws hb hLb hCF hC
+          exact proofIrrel_stepR hg m φ ihw ihi hirr hwF hbB hLF hws hb hLb hCF hC
             hdF hvm
     · exact nomatch hvT
 

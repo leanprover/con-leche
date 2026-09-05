@@ -58,6 +58,7 @@ theorem choose_fun {α : Type _} {P : Nat → α → Prop} (h : ∀ j, ∃ x, P 
 
 /-- **`StructEtaCertStepR`, proved** (D10). -/
 theorem structEtaCertWith_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
+    (hg : mode.betaGate = false)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (_ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
     (ihi : InferClaimsR mode m φ fuel)
@@ -108,7 +109,7 @@ theorem structEtaCertWith_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
       obtain ⟨hTFw, hTFb, hTFL, hTFC⟩ :=
         frame_declTypeR (cval := m.cval) (φ := φ) (mode := mode) m.wf hfT us' d hCa.1
       obtain ⟨ts', restT, hspt', hteleT⟩ :=
-        certs_teleR m φ hcl ihd ihi _ wtb.getAppArgs TFv hcertT hTFw hTFb hTFL
+        certs_teleR m φ hg hcl ihd ihi _ wtb.getAppArgs TFv hcertT hTFw hTFb hTFL
           hTFC hTFd hfrT
       rw [DenoteSpine.det hspt' hspt] at hteleT
       -- the per-field data, made function-valued
@@ -142,7 +143,7 @@ theorem structEtaCertWith_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
             frame_declTypeR (cval := m.cval) (φ := φ) (mode := mode) m.wf hfp us' d
               hCa.1
           obtain ⟨vsj, restj, hspj, htelej⟩ :=
-            certs_teleR m φ hcl ihd ihi _ (wtb.getAppArgs ++ [b]) TPj hic hPw hPb
+            certs_teleR m φ hg hcl ihd ihi _ (wtb.getAppArgs ++ [b]) TPj hic hPw hPb
               hPL hPC hTPd hframeTb
           obtain rfl : vsj = ts ++ [vb] := DenoteSpine.det hspj hspTb
           exact ⟨⟨cvpj, mIpj, rPpj, rulespj, TPj, restj⟩, fun _ =>
@@ -207,18 +208,20 @@ theorem structEtaCertWith_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
 is that reduction plus the core.  R13 (`Red.rescueEta`) calls the core
 directly, at the `tmaj` `majorToCtor` already computed. -/
 theorem structEtaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
-    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    {fuel : Nat} (hg : mode.betaGate = false)
+    (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
     (ihi : InferClaimsR mode m φ fuel) :
     StructEtaCertStepR (mode := mode) m φ fuel := by
   intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   obtain ⟨tb, wtb, htb, hwtb, hcw⟩ := structEtaCert_inv h
+  rw [Setlec.inferTypeIO_off hg] at htb
   obtain ⟨vb₀, W, hvb₀, hW, TB, hbI, hbD⟩ :=
     inferShapeR m φ ihw ihi htb hwtb hwb hbb hLb hCb
   have hveq : vb₀ = vb := by rw [hvb₀] at hvb; exact Option.some.inj hvb
   rw [hveq] at hbI
   obtain ⟨htbw, htbb, htbL, htbC⟩ := frame_inferR m.wf htb hwb hbb hLb hCb
-  exact structEtaCertWith_stepR m φ hcl ihw ihd ihi hcw hwa hba hLa hCa
+  exact structEtaCertWith_stepR m φ hg hcl ihw ihd ihi hcw hwa hba hLa hCa
     hwb hbb hLb hCb
     (whnf_WScoped m.wf fuel hwtb htbw) (whnf_looseBVars m.wf fuel hwtb htbb)
     (fun l hl => htbL l (whnf_fvarLeaves m.wf fuel hwtb l hl))
@@ -227,13 +230,15 @@ theorem structEtaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
 
 /-- **`PairEtaCertStepR`, proved** (D12). -/
 theorem pairEtaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
-    {fuel : Nat} (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
+    {fuel : Nat} (hg : mode.betaGate = false)
+    (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
     (ihi : InferClaimsR mode m φ fuel) :
     PairEtaCertStepR (mode := mode) m φ fuel := by
   intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
     mI, rP, rr, rfl, hfc, htb, hwtb, hfc', hfrec, hrct, hrnf, hmrp, hres,
     hlev, hdα, hdβ, hd₁, hd₂⟩ := pairEtaCert_inv h
+  rw [Setlec.inferTypeIO_off hg] at htb
   -- the constructor spine's denotation, through `mkAppN`
   rw [show (Expr.app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂)
       = Expr.mkAppN (.const c us) [pα, pβ, s₁, s₂] from rfl] at hva hwa hba hLa hCa

@@ -114,7 +114,8 @@ def inferLamsLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
   | .lam .. => pure ()
   | _ =>
     if mode.verified then
-      let btt ← r.infer (d + k) bt
+      -- task #172 B4: the type-of-a-type leaf at the io grade
+      let btt ← r.inferIO (d + k) bt
       match ← r.whnf (d + k) btt with
       | .sort vb =>
         match stk with
@@ -293,7 +294,7 @@ def inferLamsTail (mode : CheckMode) (r : CoreFns m) (env : Env)
     (d : Nat) (t : Expr) (k : Nat) (stk : List InferLamEntryX)
     (bt : Expr) : m Expr := do
   if mode.verified && !t.isLam then
-    let btt ← r.infer (d + k) bt
+    let btt ← r.inferIO (d + k) bt
     let vb ← ensureSort r env (d + k) btt
     match stk with
     | (_, _, mb₀) :: _ =>
@@ -488,7 +489,7 @@ theorem inferTypeCore_lam_eq (env : Env) (F d : Nat) (n : Name)
                      throw (.notImplemented
                        "sort-annotation mismatch (lam-cod-chain)")
                  | none => do
-                   let btt ← inferTypeCore mode env F (d + 1) bt
+                   let btt ← inferTypeIO mode env F (d + 1) bt
                    let vb ← ensureSortCore mode env F (d + 1) btt
                    unless (Level.zeronessOf vb).equiv mb.pw do
                      throw (.notImplemented
@@ -887,7 +888,7 @@ theorem inferLamsLeaf_sound {d : Nat} {t : Expr}
       rw [if_neg hv] at hrun ⊢
       exact hout hrun
     rw [if_pos hv] at hrun ⊢
-    rw [infer_def] at hrun ⊢
+    rw [inferTypeIO_def] at hrun ⊢
     obtain ⟨btt, hbtt, hrun⟩ := bind_okB hrun
     rw [hbtt, okB_bind]
     obtain ⟨w, hw, hrun⟩ := bind_okB hrun
@@ -1037,9 +1038,9 @@ theorem inferLams_sound {d : Nat} :
           rw [if_neg (by simp [hv])] at htail
           exact htail
         rw [if_pos hv] at htail ⊢
-        rw [infer_def] at htail
+        rw [inferTypeIO_def] at htail
         obtain ⟨btt, hbtt, htail⟩ := bind_okB htail
-        rw [inferTypeCore_mono (Nat.le_max_right F F') hbtt, okB_bind]
+        rw [inferTypeIO_mono (Nat.le_max_right F F') hbtt, okB_bind]
         rw [ensureSort_def] at htail
         obtain ⟨v, hv2, htail⟩ := bind_okB htail
         rw [ensureSortCore_mono (Nat.le_max_right F F') hv2, okB_bind]

@@ -217,15 +217,15 @@ theorem iotaCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       have hwtb : WScoped d ty ∧ WScoped d body := by
         simpa only [WScoped] using hwty
       show DiscV mode env _
-        ((C : CoreFns CheckSM).infer d arg >>= fun ta =>
+        ((C : CoreFns CheckSM).inferIO d arg >>= fun ta =>
           (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
           if b then iotaCerts C env d (body.instantiate1 arg) rest
           else pure false)
-        ((G : CoreFns CheckSM).infer d arg >>= fun ta =>
+        ((G : CoreFns CheckSM).inferIO d arg >>= fun ta =>
           (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
           if b then iotaCerts G env d (body.instantiate1 arg) rest
           else pure false)
-      refine DiscV.bind (ih.site_infer henv hwarg) (fun ta hta => ?_)
+      refine DiscV.bind (ih.site_inferIO henv hwarg) (fun ta hta => ?_)
       refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
       cases b with
       | true =>
@@ -307,21 +307,21 @@ theorem proofIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     DiscV mode env (fun _ => True) (proofIrrel C env d a b)
       (proofIrrel G env d a b) := by
   unfold proofIrrel
-  refine DiscV.bind (ih.site_infer henv hwa) (fun ta hta => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwa) (fun ta hta => ?_)
   refine DiscV.bind (ih.site_whnf henv hta) (fun w₁ _ => ?_)
   split
-  · refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
+  · refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
     refine DiscV.bind (ih.site_whnf henv htb) (fun w₂ _ => ?_)
     split
     · exact DiscV.pure trivial
     · exact DiscV.pure trivial
-  · refine DiscV.bind (ih.site_infer henv hta) (fun tta htta => ?_)
+  · refine DiscV.bind (ih.site_inferIO henv hta) (fun tta htta => ?_)
     refine DiscV.bind (ih.site_whnf henv htta) (fun w _ => ?_)
     cases w <;> try exact DiscV.pure trivial
     case sort uT =>
       refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okA _ => ?_)
-      refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
-      refine DiscV.bind (ih.site_infer henv htb) (fun ttb httb => ?_)
+      refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
+      refine DiscV.bind (ih.site_inferIO henv htb) (fun ttb httb => ?_)
       refine DiscV.bind (ih.site_whnf henv httb) (fun w' _ => ?_)
       cases w' <;> try exact DiscV.pure trivial
       case sort vT =>
@@ -343,7 +343,7 @@ theorem pairEtaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       exact ⟨hwa.1.1.1.2, hwa.1.1.2⟩
     split
     case _ cvm =>
-      refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
+      refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
       refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwwtb => ?_)
       split
       case _ c' us' A B =>
@@ -519,7 +519,7 @@ theorem structEtaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     DiscV mode env (fun _ => True) (structEtaCert mode C env d a b)
       (structEtaCert mode G env d a b) := by
   unfold structEtaCert
-  refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
   refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
   exact structEtaCertWith_disc ih henv hwa hwb hwtb
 
@@ -528,14 +528,14 @@ theorem structUnitCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     DiscV mode env (fun _ => True) (structUnitCert C env d a b)
       (structUnitCert G env d a b) := by
   unfold structUnitCert
-  refine DiscV.bind (ih.site_infer henv hwa) (fun ta hta => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwa) (fun ta hta => ?_)
   refine DiscV.bind (ih.site_whnf henv hta) (fun wta hwta => ?_)
   split <;> try exact DiscV.pure trivial
   rename_i T us' heqw
   split <;> try exact DiscV.pure trivial
   rename_i cvT caps hfT
   split <;> try exact DiscV.pure trivial
-  refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
   refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
   refine DiscV.bind (ih.site_defeq hwta hwtb) (fun r _ => ?_)
   split <;> try exact DiscV.pure trivial
@@ -553,7 +553,7 @@ theorem etaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       (etaCert mode C env d n₁ ty₁ body₁ m₁ b)
       (etaCert mode G env d n₁ ty₁ body₁ m₁ b) := by
   unfold etaCert
-  refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
   refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
   split <;> try exact DiscV.pure trivial
   rename_i n₂ ty₂ body₂ m₂
@@ -582,8 +582,8 @@ theorem projCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   unfold projCert
   have hwarg : WScoped d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) :=
     wscoped_getD hwe.getAppArgs _
-  refine DiscV.bind (ih.site_infer henv hwarg) (fun ta hta => ?_)
-  refine DiscV.bind (ih.site_infer henv hwe) (fun te hte => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwarg) (fun ta hta => ?_)
+  refine DiscV.bind (ih.site_inferIO henv hwe) (fun te hte => ?_)
   exact DiscV.pure trivial
 
 theorem stuckIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
@@ -640,7 +640,7 @@ theorem majorToCtor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have htfC : cvj.type.hasFvar = false := (henv _ (find?_mem hfr)).1
     split
     · -- K branch
-      refine DiscV.bind (ih.site_infer henv hmaj) (fun tm htm => ?_)
+      refine DiscV.bind (ih.site_inferIO henv hmaj) (fun tm htm => ?_)
       refine DiscV.bind (ih.site_whnf henv htm) (fun tmaj htmaj => ?_)
       split <;> try exact DiscV.pure hmaj
       split <;> try exact DiscV.pure hmaj
@@ -655,7 +655,7 @@ theorem majorToCtor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           (fun x hx => htmaj.getAppArgs x (List.mem_of_mem_take hx)))
           (fun rc _ => ?_)
         split
-        · refine DiscV.bind (ih.site_infer henv hwfab)
+        · refine DiscV.bind (ih.site_inferIO henv hwfab)
             (fun tfab htfab => ?_)
           refine DiscV.bind (ih.site_defeq htmaj htfab) (fun rde _ => ?_)
           split
@@ -669,7 +669,7 @@ theorem majorToCtor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       · exact DiscV.pure hmaj
     split
     · -- eta branch
-      refine DiscV.bind (ih.site_infer henv hmaj) (fun tm htm => ?_)
+      refine DiscV.bind (ih.site_inferIO henv hmaj) (fun tm htm => ?_)
       refine DiscV.bind (ih.site_whnf henv htm) (fun tmaj htmaj => ?_)
       split <;> try exact DiscV.pure hmaj
       split <;> try exact DiscV.pure hmaj
@@ -1378,7 +1378,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
             (fun _ h => h.elim)
       | none =>
         dsimp only
-        refine DiscV.bind (ih.site_infer henv hbt) (fun btt hbtt => ?_)
+        refine DiscV.bind (ih.site_inferIO henv hbt) (fun btt hbtt => ?_)
         refine DiscV.bind (ensureSort_disc ih henv hbtt) (fun v _ => ?_)
         split
         · exact hpure

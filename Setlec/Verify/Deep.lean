@@ -610,16 +610,16 @@ private theorem iotaCerts_shift (henv : EnvWF env)
       have hwty' : WScoped d ty' ∧ WScoped d body := by
         simpa only [WScoped] using hwty
       show ((do
-          let ta ← (pureFns mode env fuel).infer (d + 1) (shiftFrom p arg)
+          let ta ← (pureFns mode env fuel).inferIO (d + 1) (shiftFrom p arg)
           if ← (pureFns mode env fuel).defeq (d + 1) ta (shiftFrom p ty') then
             iotaCerts (pureFns mode env fuel) env (d + 1)
               ((shiftFrom p body).instantiate1 (shiftFrom p arg))
               (rest.map (shiftFrom p))
           else pure false : CheckM Bool)) = _
-      refine bind_congr _ (ih.infer hpd hwarg) ?_
+      refine bind_congr _ (ih.inferIO hpd hwarg) ?_
       intro ta hta
       refine bind_congr_eq
-        (ih.defeq hpd (inferTypeCore_WScoped henv fuel hta hwarg)
+        (ih.defeq hpd (inferTypeIO_WScoped henv fuel hta hwarg)
           hwty'.1) ?_
       intro bb _
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
@@ -715,22 +715,22 @@ private theorem proofIrrel_shift (henv : EnvWF env)
         (shiftFrom p b) =
       proofIrrel (pureFns mode env fuel) env d a b := by
   simp only [proofIrrel]
-  refine bind_congr _ (ih.infer hpd hwa) ?_
+  refine bind_congr _ (ih.inferIO hpd hwa) ?_
   intro ta hta
-  have hwta : WScoped d ta := inferTypeCore_WScoped henv fuel hta hwa
+  have hwta : WScoped d ta := inferTypeIO_WScoped henv fuel hta hwa
   refine bind_congr _ (ih.whnf hpd hwta) ?_
   intro wta _
   rw [isUnitLikeTy_shiftFrom]
   refine ite_congr' (fun _ => ?_) (fun _ => ?_)
-  · refine bind_congr _ (ih.infer hpd hwb) ?_
+  · refine bind_congr _ (ih.inferIO hpd hwb) ?_
     intro tb htb
-    have hwtb : WScoped d tb := inferTypeCore_WScoped henv fuel htb hwb
+    have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
     refine bind_congr _ (ih.whnf hpd hwtb) ?_
     intro wtb _
     rw [isUnitLikeTy_shiftFrom]
-  · refine bind_congr _ (ih.infer hpd hwta) ?_
+  · refine bind_congr _ (ih.inferIO hpd hwta) ?_
     intro tta htta
-    have hwtta : WScoped d tta := inferTypeCore_WScoped henv fuel htta hwta
+    have hwtta : WScoped d tta := inferTypeIO_WScoped henv fuel htta hwta
     refine bind_congr _ (ih.whnf hpd hwtta) ?_
     intro w _
     cases w <;> try rfl
@@ -738,12 +738,12 @@ private theorem proofIrrel_shift (henv : EnvWF env)
     case sort u =>
     refine bind_congr_eq rfl ?_
     intro okA _
-    refine bind_congr _ (ih.infer hpd hwb) ?_
+    refine bind_congr _ (ih.inferIO hpd hwb) ?_
     intro tb htb
-    have hwtb : WScoped d tb := inferTypeCore_WScoped henv fuel htb hwb
-    refine bind_congr _ (ih.infer hpd hwtb) ?_
+    have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
+    refine bind_congr _ (ih.inferIO hpd hwtb) ?_
     intro ttb httb
-    have hwttb : WScoped d ttb := inferTypeCore_WScoped henv fuel httb hwtb
+    have hwttb : WScoped d ttb := inferTypeIO_WScoped henv fuel httb hwtb
     refine bind_congr _ (ih.whnf hpd hwttb) ?_
     intro w' _
     cases w' <;> try rfl
@@ -781,9 +781,9 @@ private theorem pairEtaCert_shift (henv : EnvWF env)
     | 2, 1 => rfl
     | 2, _ + 3 => rfl
     | 2, 2 =>
-    refine bind_congr _ (ih.infer hpd hwb) ?_
+    refine bind_congr _ (ih.inferIO hpd hwb) ?_
     intro tb htb
-    have hwtb : WScoped d tb := inferTypeCore_WScoped henv fuel htb hwb
+    have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
     refine bind_congr _ (ih.whnf hpd hwtb) ?_
     intro wtb hwtb'
     cases wtb <;> try (first | rfl | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
@@ -1017,9 +1017,9 @@ private theorem structEtaCert_shift (henv : EnvWF env)
         (shiftFrom p b) =
       structEtaCert mode (pureFns mode env fuel) env d a b := by
   simp only [structEtaCert]
-  refine bind_congr _ (ih.infer hpd hwb) ?_
+  refine bind_congr _ (ih.inferIO hpd hwb) ?_
   intro tb htb
-  have hwtb : WScoped d tb := inferTypeCore_WScoped henv fuel htb hwb
+  have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
   refine bind_congr _ (ih.whnf hpd hwtb) ?_
   intro wtb hwtb'
   exact structEtaCertWith_shift henv ih hpd hwa hwb
@@ -1032,9 +1032,9 @@ private theorem structUnitCert_shift (henv : EnvWF env)
         (shiftFrom p b) =
       structUnitCert (pureFns mode env fuel) env d a b := by
   simp only [structUnitCert]
-  refine bind_congr _ (ih.infer hpd hwa) ?_
+  refine bind_congr _ (ih.inferIO hpd hwa) ?_
   intro ta hta
-  have hwta : WScoped d ta := inferTypeCore_WScoped henv fuel hta hwa
+  have hwta : WScoped d ta := inferTypeIO_WScoped henv fuel hta hwa
   refine bind_congr _ (ih.whnf hpd hwta) ?_
   intro wta hwta'
   have hwwta : WScoped d wta := whnf_WScoped henv fuel hwta' hwta
@@ -1050,9 +1050,9 @@ private theorem structUnitCert_shift (henv : EnvWF env)
     case indInfo cvT caps =>
     rw [getAppArgs_shiftFrom, List.length_map]
     refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-    refine bind_congr _ (ih.infer hpd hwb) ?_
+    refine bind_congr _ (ih.inferIO hpd hwb) ?_
     intro tb htb
-    have hwtb : WScoped d tb := inferTypeCore_WScoped henv fuel htb hwb
+    have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
     refine bind_congr _ (ih.whnf hpd hwtb) ?_
     intro wtb hwtb'
     refine bind_congr_eq
@@ -1079,9 +1079,9 @@ private theorem etaCert_shift (henv : EnvWF env)
         (shiftFrom p body₁) m₁ (shiftFrom p b) =
       etaCert mode (pureFns mode env fuel) env d n₁ ty₁ body₁ m₁ b := by
   simp only [etaCert]
-  refine bind_congr _ (ih.infer hpd hwb) ?_
+  refine bind_congr _ (ih.inferIO hpd hwb) ?_
   intro tb htb
-  have hwtb : WScoped d tb := inferTypeCore_WScoped henv fuel htb hwb
+  have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
   refine bind_congr _ (ih.whnf hpd hwtb) ?_
   intro wtb hwtb'
   cases wtb <;> try rfl
@@ -1139,9 +1139,9 @@ private theorem projCert_shift (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd
   rw [getAppArgs_shiftFrom, getD_map_shiftFrom]
   have hwarg : WScoped d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) :=
     WScoped_getD (fun x hx => hwe₂.getAppArgs x hx) _
-  refine bind_congr _ (ih.infer hpd hwarg) ?_
+  refine bind_congr _ (ih.inferIO hpd hwarg) ?_
   intro ta _
-  refine bind_congr _ (ih.infer hpd hwe₂) ?_
+  refine bind_congr _ (ih.inferIO hpd hwe₂) ?_
   intro te _
   rfl
 
@@ -1179,10 +1179,10 @@ private theorem majorToCtor_shift (henv : EnvWF env)
           dsimp only
           refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
           · -- K rescue
-            refine bind_rel _ _ (ih.infer hpd hwmaj) ?_
+            refine bind_rel _ _ (ih.inferIO hpd hwmaj) ?_
             intro tmaj₀ htmaj₀
             have hwtmaj₀ : WScoped d tmaj₀ :=
-              inferTypeCore_WScoped henv fuel htmaj₀ hwmaj
+              inferTypeIO_WScoped henv fuel htmaj₀ hwmaj
             refine bind_rel _ _ (ih.whnf hpd hwtmaj₀) ?_
             intro tmaj htmaj
             have hwtmaj : WScoped d tmaj :=
@@ -1225,10 +1225,10 @@ private theorem majorToCtor_shift (henv : EnvWF env)
             refine bind_rel_eq _ hcert ?_
             intro bc _
             refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-            refine bind_rel _ _ (ih.infer hpd hwfab) ?_
+            refine bind_rel _ _ (ih.inferIO hpd hwfab) ?_
             intro tfab htfab
             have hwtfab : WScoped d tfab :=
-              inferTypeCore_WScoped henv fuel htfab hwfab
+              inferTypeIO_WScoped henv fuel htfab hwfab
             refine bind_rel_eq _ (ih.defeq hpd hwtmaj hwtfab) ?_
             intro bde _
             refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
@@ -1237,10 +1237,10 @@ private theorem majorToCtor_shift (henv : EnvWF env)
             exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
           · -- structure-eta rescue (or no rescue)
             refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-            refine bind_rel _ _ (ih.infer hpd hwmaj) ?_
+            refine bind_rel _ _ (ih.inferIO hpd hwmaj) ?_
             intro tmaj₀ htmaj₀
             have hwtmaj₀ : WScoped d tmaj₀ :=
-              inferTypeCore_WScoped henv fuel htmaj₀ hwmaj
+              inferTypeIO_WScoped henv fuel htmaj₀ hwmaj
             refine bind_rel _ _ (ih.whnf hpd hwtmaj₀) ?_
             intro tmaj htmaj
             have hwtmaj : WScoped d tmaj :=
@@ -2214,11 +2214,11 @@ private theorem infer_step (henv : EnvWF env)
         (fun _ => by rw [← shiftFrom_abstract1 hpd]; rfl)
         (fun _ => rfl)
     | none =>
-      refine bind_rel _ _ (ih.infer (p := p) (d := d + 1)
+      refine bind_rel _ _ (ih.inferIO (p := p) (d := d + 1)
         (by omega) hwbt) ?_
       intro btt hbtt
       have hwbtt : WScoped (d + 1) btt :=
-        inferTypeCore_WScoped henv fuel hbtt hwbt
+        inferTypeIO_WScoped henv fuel hbtt hwbt
       refine bind_rel_eq _ (ensureSort_shift henv ih (p := p)
         (d := d + 1) (by omega) hwbtt) ?_
       intro v _

@@ -208,11 +208,11 @@ theorem iotaCerts_mono (hs : CoreSub r₁ r₂) {d : Nat} :
     | forallE n dom body bi =>
       unfold Setlec.iotaCerts at h ⊢
       simp only [Bind.bind, Except.bind] at h ⊢
-      cases hi : r₁.infer d a with
+      cases hi : r₁.inferIO d a with
       | error err => rw [hi] at h; exact nomatch h
       | ok ta =>
         rw [hi] at h
-        rw [hs.2.2.1 hi]
+        rw [hs.2.2.2.2.2 hi]
         simp only [] at h ⊢
         cases hd : r₁.defeq d ta dom with
         | error err => rw [hd] at h; exact nomatch h
@@ -339,15 +339,15 @@ theorem projCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {e₂ : Expr}
     Setlec.projCert r₂ env d e₂ i nP = .ok v := by
   unfold Setlec.projCert at h ⊢
   simp only [Bind.bind, Except.bind] at h ⊢
-  cases h1 : r₁.infer d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) with
+  cases h1 : r₁.inferIO d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) with
   | error err => rw [h1] at h; exact nomatch h
   | ok ta =>
-  rw [h1] at h; rw [hs.2.2.1 h1]
+  rw [h1] at h; rw [hs.2.2.2.2.2 h1]
   simp only [] at h ⊢
-  cases h5 : r₁.infer d e₂ with
+  cases h5 : r₁.inferIO d e₂ with
   | error err => rw [h5] at h; exact nomatch h
   | ok te =>
-  rw [h5] at h; rw [hs.2.2.1 h5]
+  rw [h5] at h; rw [hs.2.2.2.2.2 h5]
   simp only [] at h ⊢
   exact h
 
@@ -357,10 +357,10 @@ theorem proofIrrel_mono (hs : CoreSub r₁ r₂) {d : Nat} {a b : Expr}
     Setlec.proofIrrel r₂ env d a b = .ok v := by
   unfold Setlec.proofIrrel at h ⊢
   simp only [Bind.bind, Except.bind] at h ⊢
-  cases h1 : r₁.infer d a with
+  cases h1 : r₁.inferIO d a with
   | error err => rw [h1] at h; exact nomatch h
   | ok ta =>
-  rw [h1] at h; rw [hs.2.2.1 h1]
+  rw [h1] at h; rw [hs.2.2.2.2.2 h1]
   simp only [] at h ⊢
   cases h2 : r₁.whnf d ta with
   | error err => rw [h2] at h; exact nomatch h
@@ -369,10 +369,10 @@ theorem proofIrrel_mono (hs : CoreSub r₁ r₂) {d : Nat} {a b : Expr}
   simp only [] at h ⊢
   by_cases hu : Setlec.isUnitLikeTy env wa = true
   · rw [if_pos hu] at h ⊢
-    cases h3 : r₁.infer d b with
+    cases h3 : r₁.inferIO d b with
     | error err => rw [h3] at h; exact nomatch h
     | ok tb =>
-    rw [h3] at h; rw [hs.2.2.1 h3]
+    rw [h3] at h; rw [hs.2.2.2.2.2 h3]
     simp only [] at h ⊢
     cases h4 : r₁.whnf d tb with
     | error err => rw [h4] at h; exact nomatch h
@@ -381,10 +381,10 @@ theorem proofIrrel_mono (hs : CoreSub r₁ r₂) {d : Nat} {a b : Expr}
     simp only [] at h ⊢
     exact h
   · rw [if_neg hu] at h ⊢
-    cases h3 : r₁.infer d ta with
+    cases h3 : r₁.inferIO d ta with
     | error err => rw [h3] at h; exact nomatch h
     | ok tta =>
-    rw [h3] at h; rw [hs.2.2.1 h3]
+    rw [h3] at h; rw [hs.2.2.2.2.2 h3]
     simp only [] at h ⊢
     cases h4 : r₁.whnf d tta with
     | error err => rw [h4] at h; exact nomatch h
@@ -400,15 +400,15 @@ theorem proofIrrel_mono (hs : CoreSub r₁ r₂) {d : Nat} {a b : Expr}
       | ok okA =>
       rw [h5] at h
       simp only [] at h ⊢
-      cases h6 : r₁.infer d b with
+      cases h6 : r₁.inferIO d b with
       | error err => rw [h6] at h; exact nomatch h
       | ok tb =>
-      rw [h6] at h; rw [hs.2.2.1 h6]
+      rw [h6] at h; rw [hs.2.2.2.2.2 h6]
       simp only [] at h ⊢
-      cases h7 : r₁.infer d tb with
+      cases h7 : r₁.inferIO d tb with
       | error err => rw [h7] at h; exact nomatch h
       | ok ttb =>
-      rw [h7] at h; rw [hs.2.2.1 h7]
+      rw [h7] at h; rw [hs.2.2.2.2.2 h7]
       simp only [] at h ⊢
       cases h8 : r₁.whnf d ttb with
       | error err => rw [h8] at h; exact nomatch h
@@ -433,10 +433,10 @@ theorem etaCert_mono (hs : CoreSub r₁ r₂) {d : Nat} {n₁ : Name}
     Setlec.etaCert μ r₂ env d n₁ ty₁ body₁ m₁ b = .ok v := by
   unfold Setlec.etaCert at h ⊢
   simp only [Bind.bind, Except.bind] at h ⊢
-  cases h1 : r₁.infer d b with
+  cases h1 : r₁.inferIO d b with
   | error err => rw [h1] at h; exact nomatch h
   | ok tb =>
-  rw [h1] at h; rw [hs.2.2.1 h1]
+  rw [h1] at h; rw [hs.2.2.2.2.2 h1]
   simp only [] at h ⊢
   cases h2 : r₁.whnf d tb with
   | error err => rw [h2] at h; exact nomatch h
@@ -530,10 +530,10 @@ theorem pairEtaCert_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
     split at h
     · next cvm heq =>
       simp only [Bind.bind, Except.bind] at h ⊢
-      cases h1 : r₁.infer d b with
+      cases h1 : r₁.inferIO d b with
       | error err => rw [h1] at h; exact nomatch h
       | ok tb =>
-      rw [h1] at h; rw [hs.2.2.1 h1]
+      rw [h1] at h; rw [hs.2.2.2.2.2 h1]
       simp only [] at h ⊢
       cases h2 : r₁.whnf d tb with
       | error err => rw [h2] at h; exact nomatch h
@@ -611,10 +611,10 @@ theorem structUnitCert_mono (hs : CoreSub r₁ r₂) {d : Nat}
     Setlec.structUnitCert r₂ env d a b = .ok v := by
   unfold Setlec.structUnitCert at h ⊢
   simp only [Bind.bind, Except.bind] at h ⊢
-  cases h1 : r₁.infer d a with
+  cases h1 : r₁.inferIO d a with
   | error err => rw [h1] at h; exact nomatch h
   | ok ta =>
-  rw [h1] at h; rw [hs.2.2.1 h1]
+  rw [h1] at h; rw [hs.2.2.2.2.2 h1]
   simp only [] at h ⊢
   cases h2 : r₁.whnf d ta with
   | error err => rw [h2] at h; exact nomatch h
@@ -628,10 +628,10 @@ theorem structUnitCert_mono (hs : CoreSub r₁ r₂) {d : Nat}
       split at h
       · next hg =>
         rw [if_pos hg]
-        cases h3 : r₁.infer d b with
+        cases h3 : r₁.inferIO d b with
         | error err => rw [h3] at h; exact nomatch h
         | ok tb =>
-        rw [h3] at h; rw [hs.2.2.1 h3]
+        rw [h3] at h; rw [hs.2.2.2.2.2 h3]
         simp only [] at h ⊢
         cases h4 : r₁.whnf d tb with
         | error err => rw [h4] at h; exact nomatch h
@@ -747,10 +747,10 @@ theorem structEtaCert_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
     Setlec.structEtaCert μ r₂ env d a b = .ok v := by
   unfold Setlec.structEtaCert at h ⊢
   simp only [Bind.bind, Except.bind] at h ⊢
-  cases h1 : r₁.infer d b with
+  cases h1 : r₁.inferIO d b with
   | error err => rw [h1] at h; exact nomatch h
   | ok tb =>
-  rw [h1] at h; rw [hs.2.2.1 h1]
+  rw [h1] at h; rw [hs.2.2.2.2.2 h1]
   simp only [] at h ⊢
   cases h2 : r₁.whnf d tb with
   | error err => rw [h2] at h; exact nomatch h
@@ -857,10 +857,10 @@ theorem majorToCtor_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
           by_cases hK : caps.ruleK = true ∧ cnF = 0
           · rw [if_pos hK] at h ⊢
             simp only [Bind.bind, Except.bind] at h ⊢
-            cases h1 : r₁.infer d major with
+            cases h1 : r₁.inferIO d major with
             | error err => rw [h1] at h; exact nomatch h
             | ok tm =>
-            rw [h1] at h; rw [hs.2.2.1 h1]
+            rw [h1] at h; rw [hs.2.2.2.2.2 h1]
             simp only [] at h ⊢
             cases h2 : r₁.whnf d tm with
             | error err => rw [h2] at h; exact nomatch h
@@ -890,12 +890,12 @@ theorem majorToCtor_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
                     | false => exact h
                     | true =>
                     simp only [if_true] at h ⊢
-                    cases h4 : r₁.infer d (Expr.mkAppN
+                    cases h4 : r₁.inferIO d (Expr.mkAppN
                         (.const rl.ctor ust)
                         (tmaj.getAppArgs.take cnP)) with
                     | error err => rw [h4] at h; exact nomatch h
                     | ok tf =>
-                    rw [h4] at h; rw [hs.2.2.1 h4]
+                    rw [h4] at h; rw [hs.2.2.2.2.2 h4]
                     simp only [] at h ⊢
                     cases h5 : r₁.defeq d tmaj tf with
                     | error err => rw [h5] at h; exact nomatch h
@@ -923,10 +923,10 @@ theorem majorToCtor_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
                 Setlec.Name.isProjFnShape recName = false
             · rw [if_pos hE] at h ⊢
               simp only [Bind.bind, Except.bind] at h ⊢
-              cases h1 : r₁.infer d major with
+              cases h1 : r₁.inferIO d major with
               | error err => rw [h1] at h; exact nomatch h
               | ok tm =>
-              rw [h1] at h; rw [hs.2.2.1 h1]
+              rw [h1] at h; rw [hs.2.2.2.2.2 h1]
               simp only [] at h ⊢
               cases h2 : r₁.whnf d tm with
               | error err => rw [h2] at h; exact nomatch h
@@ -1591,10 +1591,10 @@ theorem inferBody_mono {μ : CheckMode} (hs : CoreSub r₁ r₂)
       | none =>
         intro h
         dsimp only at h ⊢
-        cases h4 : r₁.infer (d + 1) bt with
+        cases h4 : r₁.inferIO (d + 1) bt with
         | error err => rw [h4] at h; exact nomatch h
         | ok btt =>
-        rw [h4] at h; rw [hs.2.2.1 h4]
+        rw [h4] at h; rw [hs.2.2.2.2.2 h4]
         simp only [] at h ⊢
         cases h5 : Setlec.ensureSort r₁ env (d + 1) btt with
         | error err => rw [h5] at h; exact nomatch h

@@ -181,6 +181,7 @@ theorem frame_litToCtorIfNat {cval : TConstVal} {φ : Name → Nat} {d : Nat}
 /-- **`IotaStepR`, proved** (R11, with R16 at the major and the
 `MajorStepR` rescues). -/
 theorem iota_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
+    (hg : mode.betaGate = false)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihd : DefEqClaimsR mode m φ fuel)
     (ihi : InferClaimsR mode m φ fuel) :
@@ -233,7 +234,7 @@ theorem iota_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         obtain rfl : v₀ = strLitT m.cval env φ s := (Option.some.inj hv₀).symm
         exact ⟨w, hw, Red.strLitCtor hg hSC0 hSCc hRw, hww, hbw, hLw, hCw⟩
     obtain ⟨vm, hvm, hRm, hwm, hbm, hLm, hCm⟩ :=
-      majorToCtor_stepR m φ hcl ihw ihd ihi hfrec hmajc hw₁ hb₁ hL₁ hC₁ hv₁
+      majorToCtor_stepR m φ hg hcl ihw ihd ihi hfrec hmajc hw₁ hb₁ hL₁ hC₁ hv₁
     -- the constructor spine
     have hrctor : r.ctor = cj := by
       have := List.find?_some hrfind
@@ -284,14 +285,14 @@ theorem iota_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         · rcases List.mem_singleton.mp hx' with rfl
           exact ⟨hwm, hbm, hLm, hCm⟩
       obtain ⟨vsR, restR, hspR', hteleR⟩ :=
-        certs_teleR m φ hcl ihd ihi _ (e.getAppArgs.take mI ++ [major]) TV
+        certs_teleR m φ hg hcl ihd ihi _ (e.getAppArgs.take mI ++ [major]) TV
           hcertR hRw hRb hRL hRC hTVd hfrR
       obtain rfl : vsR = xs.take mI ++ [VExpr.mkAppN (m.cval r.ctor
           (Level.substFn φ cvj.levelParams usj)) ys] :=
         DenoteSpine.det hspR' hspR
       -- the constructor telescope
       obtain ⟨vsC, restC, hspC', hteleC⟩ :=
-        certs_teleR m φ hcl ihd ihi _ major.getAppArgs TVj hcertC hJw hJb hJL
+        certs_teleR m φ hg hcl ihd ihi _ major.getAppArgs TVj hcertC hJw hJb hJL
           hJC hTVjd hfrM
       rw [DenoteSpine.det hspC' hspy] at hteleC
       -- the index decomposition

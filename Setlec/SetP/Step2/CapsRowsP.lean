@@ -185,8 +185,8 @@ metatheorem above:
 graded and the argument inhabits it) and `DefEqClaims2P` (it is the
 domain) — the checker's own order, exactly as in `certs_teleR`. -/
 theorem certs_teleP {m : EnvS2Core V env}
-    (ihd : DefEqClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel) :
+    (ihd : DefEqClaims2P μ m φ fuel) (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hexi : InferExistsIOSP μ m φ fuel) :
     ∀ {d : Nat} {Δa : List AVExpr} (ty : Expr) (args : List Expr)
       (vs : List AVExpr) (Ta : AVExpr),
       Setlec.iotaCertsP μ env fuel d ty args = .ok true →
@@ -198,16 +198,17 @@ theorem certs_teleP {m : EnvS2Core V env}
       (∀ x ∈ args, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
         Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x) →
       DenoteSpineP m.acval env φ d args vs →
+      (∀ x ∈ vs, ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ x) →
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         ∃ rest, TeleFitP V ρ Ta (vs.map (interp2 V ρ)) rest := by
   intro d Δa ty args
   induction args generalizing ty with
   | nil =>
-    intro vs Ta _ _ _ _ _ _ _ _ _ hsp ρ _
+    intro vs Ta _ _ _ _ _ _ _ _ _ hsp _ ρ _
     cases hsp
     exact ⟨interp2 V ρ Ta, .nil⟩
   | cons a as ih =>
-    intro vs Ta hc hpc hwty hbty hLbty hCty hity hokT hargs hsp
+    intro vs Ta hc hpc hwty hbty hLbty hCty hity hokT hargs hsp hokvs
     match ty, hc, hwty, hbty, hLbty, hCty, hity with
     | .bvar _, hc, _, _, _, _, _ => exact nomatch hc
     | .fvar _ _ _, hc, _, _, _, _, _ => exact nomatch hc
@@ -248,16 +249,18 @@ theorem certs_teleP {m : EnvS2Core V env}
           ((AnnotValidV_pi V ρ 0 _ doma bodya) ▸ (hokT ρ hρ).2).2.1 x hx⟩
     -- the argument's inferred type reads, is graded, and holds it
     obtain ⟨taa, htaa⟩ :=
-      hreads hta haw hab haLb (LeafReadsP.of_ctxOkP haC) haa
-    obtain ⟨hokA, hokTa, hmemA⟩ := ihi hta haw hab haLb haC haa htaa
+      hexi hta haw hab haLb haC haa
+    have hokA : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ aa :=
+      hokvs aa List.mem_cons_self
+    obtain ⟨hokTa, hmemA⟩ := ihis hta haw hab haLb haC haa htaa hokA
     have hwta : Expr.WScoped d ta :=
-      Setlec.inferTypeCore_WScoped m.wf fuel hta haw
+      Setlec.inferTypeIO_WScoped m.wf fuel hta haw
     have hbta : ta.looseBVarsBounded 0 = true :=
-      Setlec.inferTypeCore_looseBVars m.wf fuel hta haw hab haLb
+      Setlec.inferTypeIO_looseBVars m.wf fuel hta haw hab haLb
     have hLta : Expr.LeavesBounded ta := fun l hl =>
-      haLb l (Setlec.inferTypeCore_fvarLeaves m.wf fuel hta haw l hl)
+      haLb l (Setlec.inferTypeIO_fvarLeaves m.wf fuel hta haw l hl)
     have hCta : CtxOkP m φ d Δa ta :=
-      haC.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel hta haw)
+      haC.of_subset (Setlec.inferTypeIO_fvarLeaves m.wf fuel hta haw)
     -- the certificate against the domain
     have hdeq : ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ taa = interp2 V ρ doma :=
@@ -292,7 +295,8 @@ theorem certs_teleP {m : EnvS2Core V env}
     obtain ⟨rest, hfit⟩ :=
       ih (body.instantiate1 a) _ _ hrestc (hpcB.inst aa 0) hwbody hbbody
         hLbbody hCbody hbody' hokBody'
-        (fun x hx => hargs x (List.mem_cons_of_mem a hx)) hsp' ρ hρ
+        (fun x hx => hargs x (List.mem_cons_of_mem a hx)) hsp'
+        (fun x hx => hokvs x (List.mem_cons_of_mem aa hx)) ρ hρ
     refine ⟨rest, .cons ((hdeq ρ hρ) ▸ hmemA ρ hρ) ?_⟩
     refine teleFitP_of_inst0 (aa := aa) ?_ hfit
     rw [List.length_map, ← hsp'.length]
@@ -477,8 +481,8 @@ fabricated value spine is `etaFabArgs2`, and the certificate's two
 arguments. -/
 theorem structEtaCertWithP_step {m : EnvS2Core V env}
     (hcaps : CapsOkP m) (hct : ConstTypeP m φ) (hav : AcvalValidP m)
-    (ihd : DefEqClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel)
+    (ihd : DefEqClaims2P μ m φ fuel) (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hexi : InferExistsIOSP μ m φ fuel)
     {d : Nat} {Δa : List AVExpr} {a b wtb : Expr}
     {aa ba wtba : AVExpr}
     (hcw : Setlec.structEtaCertWithP μ env fuel d a b wtb = .ok true)
@@ -571,10 +575,11 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
     exact piChainP_of_stripPis cnP
       (Setlec.Expr.stripPis_instantiateLevelParams_isSome
         cvT.levelParams us' cnP hstrip) hTVd
+  obtain ⟨hohT, hoT⟩ := hoistP_spine tsa hokW
   obtain ⟨rest, hfitT⟩ :=
-    certs_teleP ihd ihi hreads _ wtb.getAppArgs tsa TVa hcertT hpcT
+    certs_teleP ihd ihis hexi _ wtb.getAppArgs tsa TVa hcertT hpcT
       hTw hbdT hTL hTC hTVd (fun σ _ => hokTVa σ)
-      (frame_spineP hwr hbr hLr hCr) hspt ρ hρ
+      (frame_spineP hwr hbr hLr hCr) hspt hoT ρ hρ
   -- the fold form both sides are read in
   have hfold : ∀ (l : List AVExpr) (x : V),
       l.foldl (fun r y => SetTheory.app r (interp2 V ρ y)) x
@@ -592,7 +597,6 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
     hlenTs hfitT hmemFam
   -- the two argument spines' gradings
   obtain ⟨hohA, hoA⟩ := hoistP_spine asa hokA
-  obtain ⟨-, hoT⟩ := hoistP_spine tsa hokW
   -- the fabricated projection spine: it reads, and it is graded
   have hspTb : DenoteSpineP m.acval env φ d (wtb.getAppArgs ++ [b])
       (tsa ++ [ba]) := hspt.append (DenoteSpineP.cons hdb DenoteSpineP.nil)
@@ -654,13 +658,13 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
         (Setlec.Expr.stripPis_instantiateLevelParams_isSome
           cvp.levelParams us' _ hstrpj) htpa
     obtain ⟨restp, hfitp⟩ :=
-      certs_teleP ihd ihi hreads _ (wtb.getAppArgs ++ [b]) (tsa ++ [ba])
+      certs_teleP ihd ihis hexi _ (wtb.getAppArgs ++ [b]) (tsa ++ [ba])
         tpa hicj hpcp (Setlec.Expr.WScoped.of_not_hasFvar hnfp) hbdp
         (Setlec.Expr.LeavesBounded.of_not_hasFvar hnfp)
         ⟨hCa.1, fun l hl => by
           rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfp] at hl
           exact nomatch hl⟩
-        htpa (fun τ _ => hoktpa τ) hframeTb hspTb σ hσ
+        htpa (fun τ _ => hoktpa τ) hframeTb hspTb hokTb' σ hσ
     refine (annotOkP_mkAppN_of_fit (tsa ++ [ba]) (hoktpa σ)
       ⟨m.acval_ok2 _ _ σ, hav _ _ σ⟩
       (fun x hx => hokTb' x hx σ hσ) ?_ hfitp).1
@@ -719,25 +723,26 @@ it) plus `structEtaCertWithP_step`. -/
 theorem structEtaIrrelP_of_claims {m : EnvS2Core V env}
     (hcaps : CapsOkP m) (hct : ConstTypeP m φ) (hav : AcvalValidP m)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
-    (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
+    (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hexi : InferExistsIOSP μ m φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
     StructEtaIrrelP μ m φ fuel := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
   obtain ⟨tb, wtb, htb, hwtb, hcw⟩ := Setlec.structEtaCert_inv h
   -- the stuck side's inferred type: frames, reading, membership
   have hwt : Expr.WScoped d tb :=
-    Setlec.inferTypeCore_WScoped m.wf fuel htb hwb
+    Setlec.inferTypeIO_WScoped m.wf fuel htb hwb
   have hbt : tb.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLb
+    Setlec.inferTypeIO_looseBVars m.wf fuel htb hwb hbb hLb
   have hLt : Expr.LeavesBounded tb := fun l hl =>
-    hLb l (Setlec.inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
+    hLb l (Setlec.inferTypeIO_fvarLeaves m.wf fuel htb hwb l hl)
   have hCt : CtxOkP m φ d Δa tb :=
-    hCb.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel htb hwb)
+    hCb.of_subset (Setlec.inferTypeIO_fvarLeaves m.wf fuel htb hwb)
   obtain ⟨tba, htba⟩ :=
-    hreads htb hwb hbb hLb (LeafReadsP.of_ctxOkP hCb) hdb
-  obtain ⟨-, hokTb, hmemB⟩ := ihi htb hwb hbb hLb hCb hdb htba
-  obtain ⟨wtba, hwtba⟩ := hwreads hwtb hwt hbt hLt htba
+    hexi htb hwb hbb hLb hCb hdb
+  obtain ⟨hokTb, hmemB⟩ := ihis htb hwb hbb hLb hCb hdb htba hokB
+  obtain ⟨wtba, hwtba⟩ := hwreads hwtb hwt hbt hLt
+    (LeafReadsP.of_ctxOkP hCt) htba
   obtain ⟨hokW, heqW⟩ := ihw hwtb hwt hbt hLt hCt htba hwtba hokTb
   -- the reduct's frames
   have hwr : Expr.WScoped d wtb := Setlec.whnf_WScoped m.wf fuel hwtb hwt
@@ -747,7 +752,7 @@ theorem structEtaIrrelP_of_claims {m : EnvS2Core V env}
     hLt l (Setlec.whnf_fvarLeaves m.wf fuel hwtb l hl)
   have hCr : CtxOkP m φ d Δa wtb :=
     hCt.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwtb)
-  exact structEtaCertWithP_step hcaps hct hav ihd ihi hreads hcw
+  exact structEtaCertWithP_step hcaps hct hav ihd ihis hexi hcw
     hwa hba hLa hCa hwb hbb hLb hCb hwr hbr hLr hCr hda hdb hwtba
     hokA hokB hokW (fun σ hσ => (heqW σ hσ) ▸ hmemB σ hσ) ρ hρ
 
@@ -794,8 +799,8 @@ pair is *pinned*, so its value is fixed by the basis and the only
 inputs are the claims. -/
 theorem pairEtaIrrelP_of_claims {m : EnvS2Core V env}
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
-    (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
+    (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hexi : InferExistsIOSP μ m φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
     PairEtaIrrelP μ m φ fuel := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
@@ -842,17 +847,18 @@ theorem pairEtaIrrelP_of_claims {m : EnvS2Core V env}
       (Level.substFn φ cvm.levelParams us) := (Option.some.inj hf4).symm
   -- the stuck side's type: frames, reading, reduction
   have hwt : Expr.WScoped d tb :=
-    Setlec.inferTypeCore_WScoped m.wf fuel htb hwb
+    Setlec.inferTypeIO_WScoped m.wf fuel htb hwb
   have hbt : tb.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLb
+    Setlec.inferTypeIO_looseBVars m.wf fuel htb hwb hbb hLb
   have hLt : Expr.LeavesBounded tb := fun l hl =>
-    hLb l (Setlec.inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
+    hLb l (Setlec.inferTypeIO_fvarLeaves m.wf fuel htb hwb l hl)
   have hCt : CtxOkP m φ d Δa tb :=
-    hCb.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel htb hwb)
+    hCb.of_subset (Setlec.inferTypeIO_fvarLeaves m.wf fuel htb hwb)
   obtain ⟨tba, htba⟩ :=
-    hreads htb hwb hbb hLb (LeafReadsP.of_ctxOkP hCb) hdb
-  obtain ⟨-, hokTb, hmemB⟩ := ihi htb hwb hbb hLb hCb hdb htba
-  obtain ⟨wtba, hwtba⟩ := hwreads hwtb hwt hbt hLt htba
+    hexi htb hwb hbb hLb hCb hdb
+  obtain ⟨hokTb, hmemB⟩ := ihis htb hwb hbb hLb hCb hdb htba hokB
+  obtain ⟨wtba, hwtba⟩ := hwreads hwtb hwt hbt hLt
+    (LeafReadsP.of_ctxOkP hCt) htba
   obtain ⟨hokW, heqW⟩ := ihw hwtb hwt hbt hLt hCt htba hwtba hokTb
   have hwr : Expr.WScoped d (.app (.app (.const Setlec.psigmaName us') A) B) :=
     Setlec.whnf_WScoped m.wf fuel hwtb hwt
@@ -986,8 +992,8 @@ two members. -/
 theorem structUnitIrrelP_of_claims {m : EnvS2Core V env}
     (hcaps : CapsOkP m)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
-    (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel)
+    (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hexi : InferExistsIOSP μ m φ fuel)
     (hwreads : WhnfReadsP m μ φ fuel) :
     StructUnitIrrelP μ m φ fuel := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
@@ -998,7 +1004,7 @@ theorem structUnitIrrelP_of_claims {m : EnvS2Core V env}
   -- one side's chain: the reading, membership and reduction package
   -- of an inferred type, whnf'd
   have side : ∀ (x tx wtx : Expr) (xa : AVExpr),
-      inferTypeCore μ env fuel d x = .ok tx →
+      Setlec.inferTypeIO μ env fuel d x = .ok tx →
       whnf μ env fuel d tx = .ok wtx →
       Expr.WScoped d x → x.looseBVarsBounded 0 = true →
       Expr.LeavesBounded x → CtxOkP m φ d Δa x →
@@ -1011,18 +1017,19 @@ theorem structUnitIrrelP_of_claims {m : EnvS2Core V env}
         Expr.LeavesBounded wtx ∧ CtxOkP m φ d Δa wtx := by
     intro x tx wtx xa htx hwtx hwx hbx hLx hCx hdx hokX
     have hwt : Expr.WScoped d tx :=
-      Setlec.inferTypeCore_WScoped m.wf fuel htx hwx
+      Setlec.inferTypeIO_WScoped m.wf fuel htx hwx
     have hbt : tx.looseBVarsBounded 0 = true :=
-      Setlec.inferTypeCore_looseBVars m.wf fuel htx hwx hbx hLx
+      Setlec.inferTypeIO_looseBVars m.wf fuel htx hwx hbx hLx
     have hLt : Expr.LeavesBounded tx := fun l hl =>
-      hLx l (Setlec.inferTypeCore_fvarLeaves m.wf fuel htx hwx l hl)
+      hLx l (Setlec.inferTypeIO_fvarLeaves m.wf fuel htx hwx l hl)
     have hCt : CtxOkP m φ d Δa tx :=
-      hCx.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel
+      hCx.of_subset (Setlec.inferTypeIO_fvarLeaves m.wf fuel
         htx hwx)
     obtain ⟨txa, htxa⟩ :=
-      hreads htx hwx hbx hLx (LeafReadsP.of_ctxOkP hCx) hdx
-    obtain ⟨-, hokTx, hmemX⟩ := ihi htx hwx hbx hLx hCx hdx htxa
-    obtain ⟨wtxa, hwtxa⟩ := hwreads hwtx hwt hbt hLt htxa
+      hexi htx hwx hbx hLx hCx hdx
+    obtain ⟨hokTx, hmemX⟩ := ihis htx hwx hbx hLx hCx hdx htxa hokX
+    obtain ⟨wtxa, hwtxa⟩ := hwreads hwtx hwt hbt hLt
+      (LeafReadsP.of_ctxOkP hCt) htxa
     obtain ⟨hokW, heqW⟩ := ihw hwtx hwt hbt hLt hCt htxa hwtxa hokTx
     refine ⟨wtxa, hwtxa, hokW, ?_,
       Setlec.whnf_WScoped m.wf fuel hwtx hwt,
@@ -1083,10 +1090,11 @@ theorem structUnitIrrelP_of_claims {m : EnvS2Core V env}
     exact piChainP_of_stripPis caps.unitParams
       (Setlec.Expr.stripPis_instantiateLevelParams_isSome
         cvT.levelParams us' caps.unitParams hstrip) hTVd
+  obtain ⟨hohT, hoT⟩ := hoistP_spine tsa hokWA
   obtain ⟨rest, hfitT⟩ :=
-    certs_teleP ihd ihi hreads _ wta.getAppArgs tsa TVa hcerts hpcT
+    certs_teleP ihd ihis hexi _ wta.getAppArgs tsa TVa hcerts hpcT
       hTw hbdT hTL hTC hTVd (fun σ _ => hokTVa σ)
-      (frame_spineP hwrA hbrA hLrA hCrA) hspt ρ hρ
+      (frame_spineP hwrA hbrA hLrA hCrA) hspt hoT ρ hρ
   -- both members, at the folded family instance
   have hfold : ∀ (l : List AVExpr) (x : V),
       l.foldl (fun r y => SetTheory.app r (interp2 V ρ y)) x

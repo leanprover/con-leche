@@ -174,7 +174,7 @@ def iotaCertsIAux (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     match ← viewI ty with
     | some (.forallE _ dom body _) => do
       let dom' ← instListM dom acc
-      let ta ← r.infer depth arg
+      let ta ← r.inferIO depth arg
       if ← r.defeq depth ta dom' then
         iotaCertsIAux r fe depth body (arg :: acc) rest
       else pure false
@@ -226,24 +226,24 @@ def defeqSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
 /-- Twin of `proofIrrel`. -/
 def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
-  let ta ← r.infer depth a
+  let ta ← r.inferIO depth a
   let wta ← r.whnf depth ta
   if ← withStore (fun st => isUnitLikeTyI fe st wta) then do
-    let tb ← r.infer depth b
+    let tb ← r.inferIO depth b
     let wtb ← r.whnf depth tb
     if ← withStore (fun st => isUnitLikeTyI fe st wtb) then
       pure true
     else
       pure false
   else do
-    let tta ← r.infer depth ta
+    let tta ← r.inferIO depth ta
     let wtta ← r.whnf depth tta
     match ← viewI wtta with
     | some (.sort uT) => do
       let z ← internLM .zero
       let okA ← liftFueled "level comparison" (← isEquivLM uT z)
-      let tb ← r.infer depth b
-      let ttb ← r.infer depth tb
+      let tb ← r.inferIO depth b
+      let ttb ← r.inferIO depth tb
       let wttb ← r.whnf depth ttb
       match ← viewI wttb with
       | some (.sort vT) => do
@@ -286,7 +286,7 @@ def pairEtaCertI (_cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             let cn ← readbackNM c
             match fe.find? cn with
             | some (.ctorInfo _cvm 2 2) => do
-              let tb ← r.infer depth b
+              let tb ← r.inferIO depth b
               let wtb ← r.whnf depth tb
               match ← viewI wtb with
               | some (.app g₂ B) =>
@@ -422,14 +422,14 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 /-- Twin of `structEtaCert`. -/
 def structEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
-  let tb ← r.infer depth b
+  let tb ← r.inferIO depth b
   let wtb ← r.whnf depth tb
   structEtaCertWithI cfg.iotaMode r fe depth a b wtb
 
 /-- Twin of `structUnitCert`. -/
 def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
-  let ta ← r.infer depth a
+  let ta ← r.inferIO depth a
   let wta ← r.whnf depth ta
   match ← withStore (fun st => st.getNode (st.getAppFnI wta)) with
   | some (.const T us') => do
@@ -442,7 +442,7 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
           targs.length = caps.unitParams ∧
           us'.length = cvT.levelParams.length ∧
           (cvT.type.stripPis caps.unitParams).isSome = true then do
-        let tb ← r.infer depth b
+        let tb ← r.inferIO depth b
         let wtb ← r.whnf depth tb
         if ← r.defeq depth wta wtb then do
           let tyT ← constTyAtM fe T Tn us'
@@ -457,7 +457,7 @@ spec). -/
 def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
     (n₁ : Name) (ty₁ body₁ : ExprC) (m₁ : BinderMeta) (b : ExprC) :
     CheckCM Bool := do
-  let tb ← r.infer depth b
+  let tb ← r.inferIO depth b
   let wtb ← r.whnf depth tb
   match ← viewI wtb with
   | some (.forallE _ ty₂ _ m₂) => do
@@ -497,7 +497,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         match fe.find? T with
         | some (.indInfo cvT caps) =>
           if caps.ruleK = true ∧ cnF = 0 then do
-            let tmaj₀ ← r.infer depth major
+            let tmaj₀ ← r.inferIO depth major
             let tmaj ← r.whnf depth tmaj₀
             match ← withStore (fun st => st.getNode (st.getAppFnI tmaj)) with
             | some (.const T' ust) =>
@@ -524,7 +524,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       -- #49/#71; arena bad/098_ruleKbad);
                       -- `proofIrrelI` stays as the soundness
                       -- certificate
-                      let tfab ← r.infer depth fab
+                      let tfab ← r.inferIO depth fab
                       if ← r.defeq depth tmaj tfab then
                         if ← proofIrrelI r fe depth fab major then
                           pure fab
@@ -537,7 +537,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             | _ => pure major
           else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
               Name.isProjFnShape recName = false then do
-            let tmaj₀ ← r.infer depth major
+            let tmaj₀ ← r.inferIO depth major
             let tmaj ← r.whnf depth tmaj₀
             match ← withStore (fun st => st.getNode (st.getAppFnI tmaj)) with
             | some (.const T' ust) => do
@@ -712,8 +712,8 @@ def projCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
   let bvar0 ← internI (.bvar 0)
   let args ← withStore (·.getAppArgsI e₂)
   let arg := args.getD (nP + i) bvar0
-  let _ta ← r.infer depth arg
-  let _te ← r.infer depth e₂
+  let _ta ← r.inferIO depth arg
+  let _te ← r.inferIO depth e₂
   pure true
 
 mutual
@@ -1022,7 +1022,7 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
   | some (.lam ..) => pure ()
   | _ =>
     if cfg.verified then
-      let btt ← r.infer (d + k) bt
+      let btt ← r.inferIO (d + k) bt
       let wbtt ← r.whnf (d + k) btt
       match ← viewI wbtt with
       | some (.sort vb) =>

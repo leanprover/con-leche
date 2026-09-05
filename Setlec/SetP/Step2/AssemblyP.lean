@@ -74,7 +74,12 @@ theorem checkStep2P5_of_quarters (hμ : μ.verified = true)
     ⟨whnfCoreStepP_of hμ hwin env m φ fuel h1 h2 h3 h4 h5,
      whnfStepP_of hμ hwin env m φ fuel h1 h2 h3 h4 h5,
      defEqStepP_of hμ hdin env m φ fuel h1 h2 h3 h4,
-     inferStepP_of hiin.base hμ env m φ fuel hμ h1 h2 h3 h4,
+     inferStepP_of hiin.base
+       (fun m' φ' fuel' ihw' ihi' ihio' => sortSemAtIOSP_of
+         (sortSemAtP_of_claims ihw' ihi' (hiin.base.infer_reads m' φ' fuel'))
+         (sortSemAtIOP_of_claims ihw' ihio'
+           (hiin.infer_reads_io m' φ' fuel')))
+       hμ env m φ fuel hμ h1 h2 h3 h4 h5,
      inferStepIOP_of hiin hμ env m φ fuel hμ h1 h2 h3 h4 h5⟩
 
 /-- **The five-way ladder, closed over fuel**: the four sealed claims

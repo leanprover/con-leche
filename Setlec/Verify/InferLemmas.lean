@@ -204,7 +204,7 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
       inferTypeCore mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
       (mode.verified = true → body.isLam = false → ∃ btt v,
-        inferTypeCore mode env fuel (d + 1) bt = .ok btt ∧
+        inferTypeIO mode env fuel (d + 1) bt = .ok btt ∧
         whnf mode env fuel (d + 1) btt = .ok (.sort v) ∧
         (Level.zeronessOf v).equiv m.pw = true) ∧
       (mode.verified = true → ∀ pwI, body.lamPw = some pwI →
@@ -212,7 +212,7 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
       t = .forallE n ty (bt.abstract1 d) m := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def] at h
+  simp only [infer_def, inferTypeIO_def, whnf_def] at h
   cases htty : inferTypeCore mode env fuel d ty with
   | error err => rw [htty] at h; exact nomatch h
   | ok tty =>
@@ -270,7 +270,7 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     simp only [Expr.lamPw] at h
     simp only [ensureSort, whnf_def, Bind.bind, Except.bind] at h
     revert h
-    cases hbtt : inferTypeCore mode env fuel (d + 1) bt with
+    cases hbtt : inferTypeIO mode env fuel (d + 1) bt with
     | error err => intro h; exact nomatch h
     | ok btt => ?_
     dsimp only
@@ -775,19 +775,19 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
     {nP : Nat}
     (h : projCertP mode env fuel d e₂ i nP = .ok true) :
     ∃ ta te,
-      inferTypeCore mode env fuel d (e₂.getAppArgs.getD (nP + i) (.bvar 0))
+      inferTypeIO mode env fuel d (e₂.getAppArgs.getD (nP + i) (.bvar 0))
         = .ok ta ∧
-      inferTypeCore mode env fuel d e₂ = .ok te := by
+      inferTypeIO mode env fuel d e₂ = .ok te := by
   dsimp only [projCertP] at h
   simp only [projCert, Bind.bind, Except.bind] at h
-  simp only [infer_def] at h
-  cases hta : inferTypeCore mode env fuel d
+  simp only [inferTypeIO_def] at h
+  cases hta : inferTypeIO mode env fuel d
       (e₂.getAppArgs.getD (nP + i) (.bvar 0)) with
   | error err => rw [hta] at h; exact nomatch h
   | ok ta =>
   rw [hta] at h
   dsimp only at h
-  cases hte : inferTypeCore mode env fuel d e₂ with
+  cases hte : inferTypeIO mode env fuel d e₂ with
   | error err => rw [hte] at h; exact nomatch h
   | ok te =>
   exact ⟨ta, te, rfl, rfl⟩
@@ -1040,7 +1040,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
        env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) ∧
        (cvj.type.piResult).getAppFn = .const T us₀ ∧
        env.find? T = some (.indInfo cvT caps) ∧
-       inferTypeCore mode env fuel d major = .ok tmaj₀ ∧
+       inferTypeIO mode env fuel d major = .ok tmaj₀ ∧
        whnf mode env fuel d tmaj₀ = .ok tmaj ∧
        tmaj.getAppFn = .const T ust ∧
        ((caps.ruleK = true ∧ cnF = 0 ∧
@@ -1052,7 +1052,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
          iotaCertsP mode env fuel d
            (cvj.type.instantiateLevelParams cvj.levelParams ust)
            (tmaj.getAppArgs.take cnP) = .ok true ∧
-         (∃ tfab, inferTypeCore mode env fuel d major' = .ok tfab ∧
+         (∃ tfab, inferTypeIO mode env fuel d major' = .ok tfab ∧
            isDefEqCore mode env fuel d tmaj tfab = .ok true) ∧
          proofIrrelP mode env fuel d major' major = .ok true) ∨
         (caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
@@ -1074,7 +1074,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
            proofIrrelP mode env fuel d major' major = .ok true))))) := by
   dsimp only [majorToCtorP] at h
   simp only [majorToCtor, Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def, defeq_def, proofIrrel_fold,
+  simp only [inferTypeIO_def, whnf_def, defeq_def, proofIrrel_fold,
     iotaCerts_fold, structEtaCertWith_fold] at h
   revert h
   cases hca : isCtorApp env major with
@@ -1139,7 +1139,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
   by_cases hK : caps.ruleK = true ∧ cnF = 0
   · rw [if_pos hK] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hti : inferTypeCore mode env fuel d major with
+    cases hti : inferTypeIO mode env fuel d major with
     | error err => rw [hti] at h; exact nomatch h
     | ok tmaj₀ =>
     rw [hti] at h
@@ -1236,7 +1236,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     | true =>
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases htf : inferTypeCore mode env fuel d
+    cases htf : inferTypeIO mode env fuel d
         (Expr.mkAppN (.const rl.ctor ust)
           (tmaj.getAppArgs.take cnP)) with
     | error err => rw [htf] at h; exact nomatch h
@@ -1286,7 +1286,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
       exact Or.inl h.symm
     rw [if_pos hE] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hti : inferTypeCore mode env fuel d major with
+    cases hti : inferTypeIO mode env fuel d major with
     | error err => rw [hti] at h; exact nomatch h
     | ok tmaj₀ =>
     rw [hti] at h
@@ -1507,13 +1507,13 @@ theorem iotaCerts_step_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty body : Expr} {m : BinderMeta} {arg : Expr} {rest : List Expr}
     (h : iotaCertsP mode env fuel d (.forallE n ty body m) (arg :: rest) =
       .ok true) :
-    ∃ ta, inferTypeCore mode env fuel d arg = .ok ta ∧
+    ∃ ta, inferTypeIO mode env fuel d arg = .ok ta ∧
       isDefEqCore mode env fuel d ta ty = .ok true ∧
       iotaCertsP mode env fuel d (body.instantiate1 arg) rest = .ok true := by
   dsimp only [iotaCertsP] at h
   simp only [iotaCerts, Bind.bind, Except.bind] at h
-  simp only [infer_def, defeq_def, iotaCerts_fold] at h
-  cases hta : inferTypeCore mode env fuel d arg with
+  simp only [inferTypeIO_def, defeq_def, iotaCerts_fold] at h
+  cases hta : inferTypeIO mode env fuel d arg with
   | error err => rw [hta] at h; exact nomatch h
   | ok ta =>
   rw [hta] at h
@@ -1584,23 +1584,23 @@ both sides' types whnf to the basis unit type, or both types' sorts are
 theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : proofIrrelP mode env fuel d a b = .ok true) :
     ∃ ta wta,
-      inferTypeCore mode env fuel d a = .ok ta ∧
+      inferTypeIO mode env fuel d a = .ok ta ∧
       whnf mode env fuel d ta = .ok wta ∧
       ((isUnitLikeTy env wta = true ∧
-        ∃ tb wtb, inferTypeCore mode env fuel d b = .ok tb ∧
+        ∃ tb wtb, inferTypeIO mode env fuel d b = .ok tb ∧
           whnf mode env fuel d tb = .ok wtb ∧ isUnitLikeTy env wtb = true) ∨
        (∃ sta uT tb stb vT,
-        inferTypeCore mode env fuel d ta = .ok sta ∧
+        inferTypeIO mode env fuel d ta = .ok sta ∧
         whnf mode env fuel d sta = .ok (.sort uT) ∧
         Level.isEquiv uT .zero = some true ∧
-        inferTypeCore mode env fuel d b = .ok tb ∧
-        inferTypeCore mode env fuel d tb = .ok stb ∧
+        inferTypeIO mode env fuel d b = .ok tb ∧
+        inferTypeIO mode env fuel d tb = .ok stb ∧
         whnf mode env fuel d stb = .ok (.sort vT) ∧
         Level.isEquiv vT .zero = some true)) := by
   dsimp only [proofIrrelP] at h
   simp only [proofIrrel, Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def] at h
-  cases hta : inferTypeCore mode env fuel d a with
+  simp only [inferTypeIO_def, whnf_def] at h
+  cases hta : inferTypeIO mode env fuel d a with
   | error err => rw [hta] at h; exact nomatch h
   | ok ta =>
   rw [hta] at h
@@ -1615,7 +1615,7 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
   · -- unit branch
     rw [if_pos hu] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases htb : inferTypeCore mode env fuel d b with
+    cases htb : inferTypeIO mode env fuel d b with
     | error err => rw [htb] at h; exact nomatch h
     | ok tb =>
     rw [htb] at h
@@ -1632,7 +1632,7 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
   · -- Prop branch
     rw [if_neg hu] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hsta : inferTypeCore mode env fuel d ta with
+    cases hsta : inferTypeIO mode env fuel d ta with
     | error err => rw [hsta] at h; exact nomatch h
     | ok sta =>
     rw [hsta] at h
@@ -1660,12 +1660,12 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     try dsimp only [liftFueled] at h
     try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
     try dsimp only at h
-    cases htb : inferTypeCore mode env fuel d b with
+    cases htb : inferTypeIO mode env fuel d b with
     | error err => rw [htb] at h; exact nomatch h
     | ok tb =>
     rw [htb] at h
     dsimp only at h
-    cases hstb : inferTypeCore mode env fuel d tb with
+    cases hstb : inferTypeIO mode env fuel d tb with
     | error err => rw [hstb] at h; exact nomatch h
     | ok stb =>
     rw [hstb] at h
@@ -1708,7 +1708,7 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
     ∃ c us pα pβ s₁ s₂ cvm tb c' us' A B cvi capsi cvr mI rP rr,
       a = .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ ∧
       env.find? c = some (.ctorInfo cvm 2 2) ∧
-      inferTypeCore mode env fuel d b = .ok tb ∧
+      inferTypeIO mode env fuel d b = .ok tb ∧
       whnf mode env fuel d tb = .ok (.app (.app (.const c' us') A) B) ∧
       env.find? c' = some (.indInfo cvi capsi) ∧
       env.find? (c'.str "rec") = some (.recInfo cvr mI rP [rr]) ∧
@@ -1721,7 +1721,7 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
       isDefEqCore mode env fuel d s₂ (.proj c' 1 b) = .ok true := by
   dsimp only [pairEtaCertP] at h
   simp only [pairEtaCert, Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def, defeq_def] at h
+  simp only [inferTypeIO_def, whnf_def, defeq_def] at h
   revert h
   match a with
   | .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ => ?_
@@ -1802,7 +1802,7 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   intro h
   try dsimp only at h
   try simp only [Bind.bind, Except.bind] at h
-  cases htb : inferTypeCore mode env fuel d b with
+  cases htb : inferTypeIO mode env fuel d b with
   | error err => rw [htb] at h; exact nomatch h
   | ok tb =>
   rw [htb] at h
@@ -2175,14 +2175,14 @@ reduction: the stuck side's type is inferred and reduced, and the
 `With` form of the certificate ran on the result. -/
 theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : structEtaCertP mode env fuel d a b = .ok true) :
-    ∃ tb wtb, inferTypeCore mode env fuel d b = .ok tb ∧
+    ∃ tb wtb, inferTypeIO mode env fuel d b = .ok tb ∧
       whnf mode env fuel d tb = .ok wtb ∧
       structEtaCertWithP mode env fuel d a b wtb = .ok true := by
   dsimp only [structEtaCertP] at h
   rw [structEtaCert] at h
   simp only [Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def, structEtaCertWith_fold] at h
-  cases htb : inferTypeCore mode env fuel d b with
+  simp only [inferTypeIO_def, whnf_def, structEtaCertWith_fold] at h
+  cases htb : inferTypeIO mode env fuel d b with
   | error e => rw [htb] at h; exact nomatch h
   | ok tb =>
   rw [htb] at h
@@ -2199,7 +2199,7 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : structUnitCertP mode env fuel d a b = .ok true) :
     ∃ (ta wta : Expr) (T : Name) (us' : List Level)
       (cvT : ConstantVal) (caps : IndCaps) (tb wtb : Expr),
-      inferTypeCore mode env fuel d a = .ok ta ∧
+      inferTypeIO mode env fuel d a = .ok ta ∧
       whnf mode env fuel d ta = .ok wta ∧
       wta.getAppFn = .const T us' ∧
       env.find? T = some (.indInfo cvT caps) ∧
@@ -2208,7 +2208,7 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
       wta.getAppArgs.length = caps.unitParams ∧
       us'.length = cvT.levelParams.length ∧
       (cvT.type.stripPis caps.unitParams).isSome = true ∧
-      inferTypeCore mode env fuel d b = .ok tb ∧
+      inferTypeIO mode env fuel d b = .ok tb ∧
       whnf mode env fuel d tb = .ok wtb ∧
       isDefEqCore mode env fuel d wta wtb = .ok true ∧
       iotaCertsP mode env fuel d
@@ -2217,8 +2217,8 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   dsimp only [structUnitCertP] at h
   rw [structUnitCert] at h
   simp only [Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def, defeq_def, iotaCerts_fold] at h
-  cases hta : inferTypeCore mode env fuel d a with
+  simp only [inferTypeIO_def, whnf_def, defeq_def, iotaCerts_fold] at h
+  cases hta : inferTypeIO mode env fuel d a with
   | error e => rw [hta] at h; exact nomatch h
   | ok ta => ?_
   rw [hta] at h
@@ -2263,7 +2263,7 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   rw [if_pos hcond] at h
   obtain ⟨he1, he2, he3, he4, he5⟩ := hcond
   try simp only [Bind.bind, Except.bind] at h
-  cases htb : inferTypeCore mode env fuel d b with
+  cases htb : inferTypeIO mode env fuel d b with
   | error e => rw [htb] at h; exact nomatch h
   | ok tb => ?_
   rw [htb] at h
@@ -2290,7 +2290,7 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : 
     {m₁ : BinderMeta}
     (h : etaCertP mode env fuel d n₁ ty₁ body₁ m₁ b = .ok true) :
     ∃ tb n₂ ty₂ fb m₂,
-      inferTypeCore mode env fuel d b = .ok tb ∧
+      inferTypeIO mode env fuel d b = .ok tb ∧
       whnf mode env fuel d tb = .ok (.forallE n₂ ty₂ fb m₂) ∧
       isDefEqCore mode env fuel d ty₂ ty₁ = .ok true ∧
       isDefEqCore mode env fuel (d + 1) (body₁.instantiate1 (.fvar d n₁ ty₁))
@@ -2298,8 +2298,8 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : 
       (mode.verified = true → m₁.pw.equiv m₂.pw = true) := by
   dsimp only [etaCertP] at h
   simp only [etaCert, Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def, defeq_def] at h
-  cases htb : inferTypeCore mode env fuel d b with
+  simp only [inferTypeIO_def, whnf_def, defeq_def] at h
+  cases htb : inferTypeIO mode env fuel d b with
   | error err => rw [htb] at h; exact nomatch h
   | ok tb =>
   rw [htb] at h

@@ -1,6 +1,7 @@
 import Setlec.SetP.Step2.DefEqP
 import Setlec.SetP.Step2.InferP
 import Setlec.Verify.PinnedShapes
+import Setlec.Verify.InferIOLeaves
 
 /-!
 # Proof irrelevance over `interp2` (task #161, P4 — the semantic rows begin)
@@ -41,10 +42,10 @@ subsingleton — the caps invariant), not in the quarter. -/
 def UnitIrrelPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b ta wta tb wtb : Expr} {Δa : List AVExpr},
-    inferTypeCore μ env fuel d a = .ok ta →
+    Setlec.inferTypeIO μ env fuel d a = .ok ta →
     whnf μ env fuel d ta = .ok wta →
     isUnitLikeTy env wta = true →
-    inferTypeCore μ env fuel d b = .ok tb →
+    Setlec.inferTypeIO μ env fuel d b = .ok tb →
     whnf μ env fuel d tb = .ok wtb →
     isUnitLikeTy env wtb = true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
@@ -62,33 +63,34 @@ def UnitIrrelPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 /-- One side of the `Prop` branch: a term whose type's sort is a
 zero-equivalent level interprets to `pt`. -/
 private theorem prop_side_pt {m : EnvS2Core V env}
-    (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel)
+    (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hsss : SortSemAtIOSP m μ φ fuel)
+    (hreads : InferReadsIOSP m μ φ fuel)
     {d : Nat} {a ta sta : Expr} {uT : Level} {Δa : List AVExpr}
     {aa : AVExpr}
-    (hta : inferTypeCore μ env fuel d a = .ok ta)
-    (hsta : inferTypeCore μ env fuel d ta = .ok sta)
+    (hta : Setlec.inferTypeIO μ env fuel d a = .ok ta)
+    (hsta : Setlec.inferTypeIO μ env fuel d ta = .ok sta)
     (hwsta : whnf μ env fuel d sta = .ok (.sort uT))
     (huT : Level.isEquiv uT .zero = some true)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a)
     (hCa : CtxOkP m φ d Δa a)
     (hda : denoteP m.acval env φ d a = some aa)
+    (hokA : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ aa)
     (ρ : Nat → V) (hρ : Sat2 V Δa ρ) :
     interp2 V ρ aa = (pt : V) := by
   obtain ⟨taa, htaa⟩ :=
     hreads hta hwa hba hLa (LeafReadsP.of_ctxOkP hCa) hda
-  obtain ⟨-, -, hmemA⟩ := ihi hta hwa hba hLa hCa hda htaa
+  obtain ⟨hokTa, hmemA⟩ := ihis hta hwa hba hLa hCa hda htaa hokA
   have hwta : Expr.WScoped d ta :=
-    inferTypeCore_WScoped m.wf fuel hta hwa
+    Setlec.inferTypeIO_WScoped m.wf fuel hta hwa
   have hbta : ta.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.wf fuel hta hwa hba hLa
+    Setlec.inferTypeIO_looseBVars m.wf fuel hta hwa hba hLa
   have hLta : Expr.LeavesBounded ta := fun l hl =>
-    hLa l (inferTypeCore_fvarLeaves m.wf fuel hta hwa l hl)
+    hLa l (Setlec.inferTypeIO_fvarLeaves m.wf fuel hta hwa l hl)
   have hCta : CtxOkP m φ d Δa ta :=
-    hCa.of_subset (inferTypeCore_fvarLeaves m.wf fuel hta hwa)
-  have hA := sortSemAtP_of_claims ihw ihi hreads hCta hwta hbta hLta
-    hsta hwsta htaa ρ hρ
+    hCa.of_subset (Setlec.inferTypeIO_fvarLeaves m.wf fuel hta hwa)
+  have hA := hsss hCta hwta hbta hLta hsta hwsta htaa hokTa ρ hρ
   have h0 : Level.eval φ uT = 0 := Setlec.Level.isEquiv_sound huT φ
   rw [h0] at hA
   exact mem_univ_zero hA.2 (hmemA ρ hρ)
@@ -104,33 +106,36 @@ the pins only `PUnit` passes its three conditions
 `interp2` is `unitSet`, and `unitSet` is `{pt}`.  The caps tier's
 first discharged row (task #161). -/
 private theorem unit_side_pt {m : EnvS2Core V env}
-    (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel)
+    (ihw : WhnfClaims2P μ m φ fuel)
+    (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hreads : InferReadsIOSP m μ φ fuel)
     (hwreads : WhnfReadsP m μ φ fuel)
     {d : Nat} {a ta wta : Expr} {Δa : List AVExpr} {aa : AVExpr}
-    (hta : inferTypeCore μ env fuel d a = .ok ta)
+    (hta : Setlec.inferTypeIO μ env fuel d a = .ok ta)
     (hwta : whnf μ env fuel d ta = .ok wta)
     (hu : isUnitLikeTy env wta = true)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a)
     (hCa : CtxOkP m φ d Δa a)
     (hda : denoteP m.acval env φ d a = some aa)
+    (hokA : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ aa)
     (ρ : Nat → V) (hρ : Sat2 V Δa ρ) :
     interp2 V ρ aa = (pt : V) := by
   obtain ⟨taa, htaa⟩ :=
     hreads hta hwa hba hLa (LeafReadsP.of_ctxOkP hCa) hda
-  obtain ⟨-, hokTa, hmemA⟩ := ihi hta hwa hba hLa hCa hda htaa
+  obtain ⟨hokTa, hmemA⟩ := ihis hta hwa hba hLa hCa hda htaa hokA
   -- the inferred type's frames
   have hwt : Expr.WScoped d ta :=
-    inferTypeCore_WScoped m.wf fuel hta hwa
+    Setlec.inferTypeIO_WScoped m.wf fuel hta hwa
   have hbt : ta.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.wf fuel hta hwa hba hLa
+    Setlec.inferTypeIO_looseBVars m.wf fuel hta hwa hba hLa
   have hLt : Expr.LeavesBounded ta := fun l hl =>
-    hLa l (inferTypeCore_fvarLeaves m.wf fuel hta hwa l hl)
+    hLa l (Setlec.inferTypeIO_fvarLeaves m.wf fuel hta hwa l hl)
   have hCt : CtxOkP m φ d Δa ta :=
-    hCa.of_subset (inferTypeCore_fvarLeaves m.wf fuel hta hwa)
+    hCa.of_subset (Setlec.inferTypeIO_fvarLeaves m.wf fuel hta hwa)
   -- the head normal form reads, and the reduction preserves interp2
-  obtain ⟨wtaa, hwtaa⟩ := hwreads hwta hwt hbt hLt htaa
+  obtain ⟨wtaa, hwtaa⟩ := hwreads hwta hwt hbt hLt
+    (LeafReadsP.of_ctxOkP hCt) htaa
   obtain ⟨-, heqW⟩ := ihw hwta hwt hbt hLt hCt htaa hwtaa hokTa
   -- the unit-like type is the pinned `PUnit`
   obtain ⟨us, rfl, hfind⟩ :=
@@ -166,22 +171,24 @@ private theorem unit_side_pt {m : EnvS2Core V env}
 of the claims plus the pinned basis, so it leaves the caps tier's bill
 (task #161; the first of the four capability rows to fall). -/
 theorem unitIrrelPQ_of_claims {m : EnvS2Core V env}
-    (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel)
+    (ihw : WhnfClaims2P μ m φ fuel)
+    (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hreads : InferReadsIOSP m μ φ fuel)
     (hwreads : WhnfReadsP m μ φ fuel) :
     UnitIrrelPQ μ m φ fuel := by
   intro d a b ta wta tb wtb Δa hta hwta hu htb hwtb hub hwa hba hLa
-    hwb hbb hLb aa ba hCa hCb hda hdb _hokA _hokB ρ hρ
-  rw [unit_side_pt ihw ihi hreads hwreads hta hwta hu hwa hba hLa
-      hCa hda ρ hρ,
-    unit_side_pt ihw ihi hreads hwreads htb hwtb hub hwb hbb hLb
-      hCb hdb ρ hρ]
+    hwb hbb hLb aa ba hCa hCb hda hdb hokA hokB ρ hρ
+  rw [unit_side_pt ihw ihis hreads hwreads hta hwta hu hwa hba hLa
+      hCa hda hokA ρ hρ,
+    unit_side_pt ihw ihis hreads hwreads htb hwtb hub hwb hbb hLb
+      hCb hdb hokB ρ hρ]
 
 /-- **Residue 3's discharge, `Prop` branch outright** (see the module
 docstring); the unit-like branch routes to `UnitIrrelPQ`. -/
 theorem proofIrrelPQ_of_claims {m : EnvS2Core V env}
-    (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel)
+    (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hsss : SortSemAtIOSP m μ φ fuel)
+    (hreads : InferReadsIOSP m μ φ fuel)
     (hunit : UnitIrrelPQ μ m φ fuel) :
     ProofIrrelPQ μ m φ fuel := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
@@ -192,9 +199,9 @@ theorem proofIrrelPQ_of_claims {m : EnvS2Core V env}
     ⟨sta, uT, tb, stb, vT, hsta, hwsta, huT, htb, hstb, hwstb, hvT⟩
   · exact hunit hta hwta hu htb hwtb hub hwa hba hLa hwb hbb hLb
       hCa hCb hda hdb hokA hokB ρ hρ
-  · rw [prop_side_pt ihw ihi hreads hta hsta hwsta huT hwa hba hLa
-        hCa hda ρ hρ,
-      prop_side_pt ihw ihi hreads htb hstb hwstb hvT hwb hbb hLb
-        hCb hdb ρ hρ]
+  · rw [prop_side_pt ihis hsss hreads hta hsta hwsta huT hwa hba hLa
+        hCa hda hokA ρ hρ,
+      prop_side_pt ihis hsss hreads htb hstb hwstb hvT hwb hbb hLb
+        hCb hdb hokB ρ hρ]
 
 end Setlec.SetR.Interp2

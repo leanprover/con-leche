@@ -97,11 +97,11 @@ theorem iotaCerts_atF (d : Nat) (F : Nat) :
   | _, [] => rfl
   | .forallE n ty body mb, arg :: rest => by
     show ((do
-        let ta ← (fueledFns mode env).infer d arg
+        let ta ← (fueledFns mode env).inferIO d arg
         if ← (fueledFns mode env).defeq d ta ty then
           iotaCerts (fueledFns mode env) env d (body.instantiate1 arg) rest
         else pure false : FueledM Bool)).val F = (do
-        let ta ← (pureFns mode env F).infer d arg
+        let ta ← (pureFns mode env F).inferIO d arg
         if ← (pureFns mode env F).defeq d ta ty then
           iotaCerts (pureFns mode env F) env d (body.instantiate1 arg) rest
         else pure false)

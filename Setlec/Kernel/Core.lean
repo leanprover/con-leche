@@ -804,7 +804,8 @@ def iotaCerts (r : CoreFns m) (env : Env) (depth : Nat) :
     Expr → List Expr → m Bool
   | _, [] => pure true
   | .forallE _ ty body _, arg :: rest => do
-    let ta ← r.infer depth arg
+    -- task #172 B4: the spine certificate's inference at the io grade
+    let ta ← r.inferIO depth arg
     if ← r.defeq depth ta ty then
       iotaCerts r env depth (body.instantiate1 arg) rest
     else pure false
@@ -840,19 +841,21 @@ heterogeneous comparison unreachable, so the official kernel's check is
 implied (see DESIGN.md, design-review triage). -/
 def proofIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
-  let ta ← r.infer depth a
+  -- task #172 B4: every inference here is at the io grade (official's
+  -- is_def_eq_proof_irrel runs infer_type — always infer_only)
+  let ta ← r.inferIO depth a
   if isUnitLikeTy env (← r.whnf depth ta) then
-    let tb ← r.infer depth b
+    let tb ← r.inferIO depth b
     if isUnitLikeTy env (← r.whnf depth tb) then
       pure true
     else
       pure false
   else
-    match ← r.whnf depth (← r.infer depth ta) with
+    match ← r.whnf depth (← r.inferIO depth ta) with
     | .sort uT =>
       let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
-      let tb ← r.infer depth b
-      match ← r.whnf depth (← r.infer depth tb) with
+      let tb ← r.inferIO depth b
+      match ← r.whnf depth (← r.inferIO depth tb) with
       | .sort vT =>
         let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
         pure (okA && okB)
@@ -885,7 +888,8 @@ def pairEtaCert (_mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
   | .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ =>
     match env.find? c with
     | some (.ctorInfo _cvm 2 2) => do
-      let tb ← r.infer depth b
+      -- task #172 B4: io grade (official's try_eta_struct infer_type)
+      let tb ← r.inferIO depth b
       match ← r.whnf depth tb with
       | .app (.app (.const c' us') A) B =>
         match env.find? c' with
@@ -1016,7 +1020,8 @@ type application is additionally certified against the type former's
 telescope (the memberships the stored eta law consumes). -/
 def structEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
-  let tb ← r.infer depth b
+  -- task #172 B4: io grade
+  let tb ← r.inferIO depth b
   let wtb ← r.whnf depth tb
   structEtaCertWith mode r env depth a b wtb
 
@@ -1026,7 +1031,8 @@ application is certified against the family's telescope), so their
 values coincide by the stored unit law. -/
 def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
-  let ta ← r.infer depth a
+  -- task #172 B4: io grade
+  let ta ← r.inferIO depth a
   let wta ← r.whnf depth ta
   match wta.getAppFn with
   | .const T us' =>
@@ -1037,7 +1043,7 @@ def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
           wta.getAppArgs.length = caps.unitParams ∧
           us'.length = cvT.levelParams.length ∧
           (cvT.type.stripPis caps.unitParams).isSome = true then
-        let tb ← r.infer depth b
+        let tb ← r.inferIO depth b
         let wtb ← r.whnf depth tb
         if ← r.defeq depth wta wtb then
           iotaCerts r env depth
@@ -1055,7 +1061,8 @@ is pointwise the application of `b`.  The λ is then `b`'s eta-expansion
 def etaCert (mode : CheckMode) (r : CoreFns m) (_env : Env) (depth : Nat)
     (n₁ : Name) (ty₁ body₁ : Expr) (m₁ : BinderMeta) (b : Expr) :
     m Bool := do
-  let tb ← r.infer depth b
+  -- task #172 B4: io grade
+  let tb ← r.inferIO depth b
   match ← r.whnf depth tb with
   | .forallE _ ty₂ _ m₂ =>
     -- Task #161: the λ's prop-ness annotation must agree with the
@@ -1121,7 +1128,8 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
         match env.find? T with
         | some (.indInfo cvT caps) =>
           if caps.ruleK = true ∧ cnF = 0 then
-            let tmaj ← r.whnf depth (← r.infer depth major)
+            -- task #172 B4: io grade (lean4lean toCtorWhenK inferType)
+            let tmaj ← r.whnf depth (← r.inferIO depth major)
             match tmaj.getAppFn with
             | .const T' ust =>
               if T' = T ∧ cvj.levelParams.length = ust.length then
@@ -1158,7 +1166,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                       -- `Eq.rec.{3,3}`).  `proofIrrel` stays as the
                       -- soundness certificate (in the model both
                       -- sides are the proof point).
-                      if ← r.defeq depth tmaj (← r.infer depth fab) then
+                      if ← r.defeq depth tmaj (← r.inferIO depth fab) then
                         if ← proofIrrel r env depth fab major then
                           pure fab
                         else pure major
@@ -1173,7 +1181,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
               -- no-op (its own reduct), looping the reduction: a
               -- stuck projection stays stuck
               Name.isProjFnShape recName = false then
-            let tmaj ← r.whnf depth (← r.infer depth major)
+            let tmaj ← r.whnf depth (← r.inferIO depth major)
             match tmaj.getAppFn with
             | .const T' ust =>
               -- The official kernel does not eta-rescue propositional
@@ -1425,8 +1433,9 @@ list. -/
 def projCert (r : CoreFns m) (_env : Env) (depth : Nat)
     (e₂ : Expr) (i : Nat) (nP : Nat) : m Bool := do
   let arg := e₂.getAppArgs.getD (nP + i) (.bvar 0)
-  let _ta ← r.infer depth arg
-  let _te ← r.infer depth e₂
+  -- task #172 B4: io grade
+  let _ta ← r.inferIO depth arg
+  let _te ← r.inferIO depth e₂
   pure true
 
 /-- **THE β SITE'S GATE** (task #161): does the mode's β gate fire at
@@ -1698,7 +1707,9 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           | none =>
             -- The innermost binder: the task-#152 codomain-sort
             -- computation, now also validating the node's annotation.
-            let btt ← r.infer (depth + 1) bt
+            -- task #172 B4: the type-of-a-type leaf at the io grade
+            -- (the recursive call just established the body type)
+            let btt ← r.inferIO (depth + 1) bt
             let vb ← ensureSort r env (depth + 1) btt
             unless (Level.zeronessOf vb).equiv mb.pw do
               throw (.notImplemented

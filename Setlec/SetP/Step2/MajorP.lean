@@ -1,4 +1,5 @@
 import Setlec.SetP.Step2.IotaKitP
+import Setlec.SetP.Step2.ProjPinsP
 
 /-!
 # The stuck-major rescues, P currency (task #161, iota tier)
@@ -128,7 +129,8 @@ theorem litMajorToCtorP_stepP {m : EnvS2Core V env}
       denotePStrLit_of_guard (m := m) d s hg hea
     have hCc : CtxOkP m φ d Δa (Setlec.strLitToConstructor s) :=
       ⟨hC.1, fun l hl => by rw [hfv] at hl; exact nomatch hl⟩
-    obtain ⟨ea₁, hea₁⟩ := hwreads hred hwc hbc hLc hSC
+    obtain ⟨ea₁, hea₁⟩ := hwreads hred hwc hbc hLc
+      (fun l hl => by rw [hfv] at hl; exact nomatch hl) hSC
     obtain ⟨hok₁, heq₁⟩ := ihw hred hwc hbc hLc hCc hSC hea₁ hok
     exact ⟨ea₁, hea₁, hok₁, heq₁,
       Setlec.whnf_WScoped m.wf fuel hred hwc,
@@ -156,18 +158,159 @@ def MajorStepP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
       Expr.WScoped d major' ∧ major'.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded major' ∧ CtxOkP m φ d Δa major'
 
+/-- **The rescue's fabrication reads — the reads-only walk** (task
+#172 B4).  With the certificate runs io-graded, per-argument
+readability can no longer be extracted from them (a skipped position
+is not traversed); instead the fabrication's parts read because the
+major's own io-inferred type does (`InferReadsIOP` + `WhnfReadsP`),
+and the projection spines are stored constants applied to those same
+parts.  The leaf package of the fabrication is the subject's. -/
+theorem majorToCtorP_reads {m : EnvS2Core V env}
+    (ihw : WhnfReadsP m μ φ fuel) (ihio : InferReadsIOP m μ φ fuel)
+    {d : Nat} {recName : Name} {rules : List Setlec.RecRule}
+    {e e' : Expr} {ea : AVExpr}
+    (h : Setlec.majorToCtorP μ env fuel d recName rules e = .ok e')
+    (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded e) (hlr : LeafReadsP m φ d e)
+    (hea : denoteP m.acval env φ d e = some ea) :
+    (∃ w, denoteP m.acval env φ d e' = some w) ∧
+      LeafReadsP m φ d e' := by
+  rcases Setlec.majorToCtor_inv h with rfl | ⟨hwsB, hbB, hleafB, rl, cvj,
+    cnP, cnF, tmaj₀, tmaj, T, us₀, ust, cvT, caps, hrules, hfcj, hpres,
+    hfT, hitm, hwtm, hfnT, hcase⟩
+  · exact ⟨⟨ea, hea⟩, hlr⟩
+  · -- the major's io-inferred type reads, then its reduct
+    have hitmL := inferTypeCoreIO_of_slot hitm
+    have hwt0 : Expr.WScoped d tmaj₀ :=
+      Setlec.inferTypeIO_WScoped m.wf fuel hitm hws
+    have hbt0 : tmaj₀.looseBVarsBounded 0 = true :=
+      Setlec.inferTypeIO_looseBVars m.wf fuel hitm hws hb hLb
+    have hLt0 : Expr.LeavesBounded tmaj₀ := fun l hl =>
+      hLb l (Setlec.inferTypeIO_fvarLeaves m.wf fuel hitm hws l hl)
+    have hlrt0 : LeafReadsP m φ d tmaj₀ :=
+      hlr.of_subset (Setlec.inferTypeIO_fvarLeaves m.wf fuel hitm hws)
+    obtain ⟨t0a, ht0a⟩ := ihio hitmL hws hb hLb hlr hea
+    obtain ⟨tma, htma⟩ := ihw hwtm hwt0 hbt0 hLt0 hlrt0 ht0a
+    have hlrtm : LeafReadsP m φ d tmaj :=
+      hlrt0.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwtm)
+    -- the reduced type's parameter spine reads
+    rw [show tmaj = Expr.mkAppN tmaj.getAppFn tmaj.getAppArgs from
+      (Setlec.Expr.mkAppN_getApp tmaj).symm, hfnT] at htma
+    obtain ⟨vT, tsa, hvT, hspt, -⟩ := denoteP_mkAppN_inv htma
+    have hlrTargs : ∀ x ∈ tmaj.getAppArgs, LeafReadsP m φ d x :=
+      fun x hx => hlrtm.of_subset
+        (fun l hl => Setlec.fvarLeaves_getAppArgs hx l hl)
+    rcases hcase with ⟨hK, hcnF, hlpj, hcnP, hstrip, rfl, hcerts,
+        ⟨tfab, hitfab, hdefab⟩, hirr⟩ |
+      ⟨heta, hectr, hproj, hnz, hlenP, hlenU, hlpj, hstrip, rfl, hcerts,
+        hetacase⟩
+    · -- K: the parameters-only constructor application
+      refine ⟨⟨_, denoteP_mkAppN (hspt.take cnP)
+        (denoteP_const hfcj (show ust.length
+          = (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams.length
+          from hlpj.symm))⟩, ?_⟩
+      intro l hl
+      rcases Setlec.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+      · exact absurd hl' (by simp [Expr.fvarLeaves])
+      · exact hlrTargs y (List.mem_of_mem_take hy) l hly
+    · -- η: parameters plus the stored projection spines
+      -- each fabricated argument reads
+      have hallF : ∀ x ∈ Setlec.etaFabArgs T ust tmaj.getAppArgs e
+          caps.etaFields,
+          (∃ xa, denoteP m.acval env φ d x = some xa) ∧
+            LeafReadsP m φ d x := by
+        intro x hx
+        rw [Setlec.etaFabArgs] at hx
+        rcases List.mem_append.mp hx with hx' | hx'
+        · obtain ⟨xa, hxa⟩ := hspt.mem x hx'
+          exact ⟨⟨xa, hxa⟩, hlrTargs x hx'⟩
+        · obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx'
+          -- the projection function is stored (the R13 certificate
+          -- pins it); at zero fields the range is empty
+          rcases hetacase with hcw | ⟨hnF0, hlpj', hirr⟩
+          · obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, ust2, cvT2, caps2,
+              hfna2, hfc2, hlena2, hfnb2, hfT2, -, -, -, hefld2, -, -, -,
+              hlenus2, hlpc2, -, -, -, hprojs, -, -, -⟩ :=
+              Setlec.structEtaCertWith_inv hcw
+            have hTeq : T2 = T := by
+              rw [hfnT] at hfnb2
+              exact (Setlec.Expr.const.inj hfnb2).1.symm
+            have hUeq : ust2 = ust := by
+              rw [hfnT] at hfnb2
+              exact (Setlec.Expr.const.inj hfnb2).2.symm
+            rw [hTeq, hUeq] at hprojs
+            rw [hTeq] at hfT2
+            rw [hUeq] at hlenus2
+            have hcvTeq : cvT2 = cvT := by
+              rw [hfT] at hfT2
+              exact ((ConstantInfo.indInfo.inj (Option.some.inj hfT2)).1).symm
+            have hcapseq : caps2 = caps := by
+              rw [hfT] at hfT2
+              exact ((ConstantInfo.indInfo.inj (Option.some.inj hfT2)).2).symm
+            rw [hcvTeq] at hprojs hlenus2
+            rw [hcapseq] at hefld2
+            obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpp, -, -⟩ :=
+              Setlec.structEtaProjCerts_inv _ hprojs j (by
+                rw [List.mem_range] at hj ⊢; rw [← hefld2]; exact hj)
+            have hspM : DenoteSpineP m.acval env φ d
+                (tmaj.getAppArgs ++ [e]) (tsa ++ [ea]) :=
+              hspt.append (DenoteSpineP.cons hea DenoteSpineP.nil)
+            refine ⟨⟨_, denoteP_mkAppN hspM
+              (denoteP_const hfp (show ust.length
+                = (ConstantInfo.recInfo cvp mIp rPp
+                    rulesp).toConstantVal.levelParams.length from by
+                show ust.length = cvp.levelParams.length
+                rw [hlpp]; exact hlenus2))⟩, ?_⟩
+            intro l hl
+            rcases Setlec.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+            · exact absurd hl' (by simp [Expr.fvarLeaves])
+            · rcases List.mem_append.mp hy with hy' | hy'
+              · exact hlrTargs y hy' l hly
+              · rcases List.mem_singleton.mp hy' with rfl
+                exact hlr l hly
+          · rw [List.mem_range, hnF0] at hj
+            exact absurd hj (Nat.not_lt_zero j)
+      -- assemble the spine
+      have hspF : ∃ ys, DenoteSpineP m.acval env φ d
+          (Setlec.etaFabArgs T ust tmaj.getAppArgs e caps.etaFields)
+          ys := by
+        have hall := fun x hx => (hallF x hx).1
+        revert hall
+        generalize Setlec.etaFabArgs T ust tmaj.getAppArgs e
+          caps.etaFields = args
+        intro hall
+        induction args with
+        | nil => exact ⟨[], .nil⟩
+        | cons x xs ih =>
+          obtain ⟨xa, hxa⟩ := hall x List.mem_cons_self
+          obtain ⟨ys, hys⟩ :=
+            ih (fun y hy => hall y (List.mem_cons_of_mem x hy))
+          exact ⟨xa :: ys, .cons hxa hys⟩
+      obtain ⟨ys, hspF⟩ := hspF
+      refine ⟨⟨_, denoteP_mkAppN hspF
+        (denoteP_const (hectr ▸ hfcj) (show ust.length
+          = (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams.length
+          from hlpj.symm))⟩, ?_⟩
+      intro l hl
+      rcases Setlec.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+      · exact absurd hl' (by simp [Expr.fvarLeaves])
+      · exact (hallF y hy).2 l hly
+
 /-- **`MajorStepP`, proved** (R12/R13/R14 and the identity
 fallthrough). -/
 theorem majorToCtorP_stepP {m : EnvS2Core V env}
     (hcaps : CapsOkP m) (hct : ConstTypeP m φ) (hav : AcvalValidP m)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
-    (ihi : InferClaims2P μ m φ fuel)
-    (hreads : InferReadsP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
+    (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hsss : SortSemAtIOSP m μ φ fuel)
+    (hexi : InferExistsIOSP μ m φ fuel)
+    (hreads_ios : InferReadsIOSP m μ φ fuel)
+    (hwreads : WhnfReadsP m μ φ fuel) :
     MajorStepP μ m φ fuel := by
   intro d Δa recName rules major major' vm h hws hb hLb hC hvm hokm
   have hpi : ProofIrrelPQ μ m φ fuel :=
-    proofIrrelPQ_of_claims ihw ihi hreads
-      (unitIrrelPQ_of_claims ihw ihi hreads hwreads)
+    proofIrrelPQ_of_claims ihis hsss hreads_ios
+      (unitIrrelPQ_of_claims ihw ihis hreads_ios hwreads)
   rcases Setlec.majorToCtor_inv h with rfl | ⟨hwsB, hbB, hleafB, rl, cvj,
     cnP, cnF, tmaj₀, tmaj, T, us₀, ust, cvT, caps, hrules, hfcj, hpres,
     hfT, hitm, hwtm, hfnT, hcase⟩
@@ -184,17 +327,18 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
         simpa using this)
     -- the major's type: inferred, read, graded, inhabited; then reduced
     have hwt0 : Expr.WScoped d tmaj₀ :=
-      Setlec.inferTypeCore_WScoped m.wf fuel hitm hws
+      Setlec.inferTypeIO_WScoped m.wf fuel hitm hws
     have hbt0 : tmaj₀.looseBVarsBounded 0 = true :=
-      Setlec.inferTypeCore_looseBVars m.wf fuel hitm hws hb hLb
+      Setlec.inferTypeIO_looseBVars m.wf fuel hitm hws hb hLb
     have hLt0 : Expr.LeavesBounded tmaj₀ := fun l hl =>
-      hLb l (Setlec.inferTypeCore_fvarLeaves m.wf fuel hitm hws l hl)
+      hLb l (Setlec.inferTypeIO_fvarLeaves m.wf fuel hitm hws l hl)
     have hCt0 : CtxOkP m φ d Δa tmaj₀ :=
-      hC.of_subset (Setlec.inferTypeCore_fvarLeaves m.wf fuel hitm hws)
+      hC.of_subset (Setlec.inferTypeIO_fvarLeaves m.wf fuel hitm hws)
     obtain ⟨tmaj₀a, htmaj₀a⟩ :=
-      hreads hitm hws hb hLb (LeafReadsP.of_ctxOkP hC) hvm
-    obtain ⟨-, hokT0, hmemM⟩ := ihi hitm hws hb hLb hC hvm htmaj₀a
-    obtain ⟨tmaja, htmaja⟩ := hwreads hwtm hwt0 hbt0 hLt0 htmaj₀a
+      hexi hitm hws hb hLb hC hvm
+    obtain ⟨hokT0, hmemM⟩ := ihis hitm hws hb hLb hC hvm htmaj₀a hokm
+    obtain ⟨tmaja, htmaja⟩ := hwreads hwtm hwt0 hbt0 hLt0
+      (LeafReadsP.of_ctxOkP hCt0) htmaj₀a
     obtain ⟨hokTm, heqTm⟩ :=
       ihw hwtm hwt0 hbt0 hLt0 hCt0 htmaj₀a htmaja hokT0
     have hwr : Expr.WScoped d tmaj :=
@@ -213,6 +357,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
     rw [show tmaj = Expr.mkAppN tmaj.getAppFn tmaj.getAppArgs from
       (Setlec.Expr.mkAppN_getApp tmaj).symm, hfnT] at htmaja
     obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := denoteP_mkAppN_inv htmaja
+    obtain ⟨-, hoTs⟩ := hoistP_spine tsa hokTm
     -- the constructor's stored type, read and graded
     have hlenCj : ust.length = cvj.levelParams.length := by
       rcases hcase with ⟨-, -, hlpj, -⟩ | ⟨-, -, -, -, -, -, hlpj, -⟩
@@ -247,6 +392,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
         (∀ x ∈ fargs, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
           Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x) →
         DenoteSpineP m.acval env φ d fargs fargsa →
+        (∀ x ∈ fargsa, ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ x) →
         denoteP m.acval env φ d (Expr.mkAppN (.const rl.ctor ust) fargs)
             = some (AVExpr.mkAppN
               (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
@@ -255,13 +401,13 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
             AnnotOkP V ρ (AVExpr.mkAppN
               (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
               fargsa) := by
-      intro fargs fargsa hcerts hframes hsp
+      intro fargs fargsa hcerts hframes hsp hoks
       refine ⟨denoteP_mkAppN hsp hheadCj, fun ρ hρ => ?_⟩
       obtain ⟨resta, hfit, -, hokArgs⟩ :=
-        certs_telePA ihd ihi hreads _ fargs fargsa TVja hcerts
+        certs_telePA ihd ihis hexi _ fargs fargsa TVja hcerts
           (Setlec.Expr.WScoped.of_not_hasFvar hnfj) hbdj
           (Setlec.Expr.LeavesBounded.of_not_hasFvar hnfj) hCj hTVja
-          (fun σ _ => hokTVja σ) hframes hsp
+          (fun σ _ => hokTVja σ) hframes hsp hoks
       exact (annotOkP_mkAppN_of_fitA fargsa (hokTVja ρ)
         ⟨m.acval_ok2 _ _ ρ, hav _ _ ρ⟩
         (fun x hx => hokArgs x hx ρ hρ) (hmemCj ρ) (hfit ρ hρ)).1
@@ -274,6 +420,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
         hcerts
         (fun x hx => frame_spineP hwr hbr hLr hCr x (List.mem_of_mem_take hx))
         (hspt.take cnP)
+        (fun x hx => hoTs x (List.mem_of_mem_take hx))
       exact ⟨_, hdF, hokF,
         fun ρ hρ => (hpi hirr hwF hbB hLF hws hb hLb hCF hC hdF hvm
           hokF hokm ρ hρ).symm,
@@ -332,6 +479,48 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
           show some (m.acval (projFnName T j)
             (Level.substFn φ cvp.levelParams ust)) = _
           rw [hlpp]
+        have hokMs : ∀ x ∈ tsa ++ [vm], ∀ ρ : Nat → V, Sat2 V Δa ρ →
+            AnnotOkP V ρ x := by
+          intro x hx
+          rcases List.mem_append.mp hx with hx' | hx'
+          · exact hoTs x hx'
+          · rcases List.mem_singleton.mp hx' with rfl; exact hokm
+        have hokProj : ∀ j ∈ List.range caps.etaFields, ∀ ρ : Nat → V,
+            Sat2 V Δa ρ → AnnotOkP V ρ (AVExpr.mkAppN
+              (m.acval (projFnName T j)
+                (Level.substFn φ cvT.levelParams ust)) (tsa ++ [vm])) := by
+          intro j hj ρ hρ
+          obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpp, hstrp, hicj⟩ :=
+            Setlec.structEtaProjCerts_inv _ hprojs j (by
+              rw [List.mem_range] at hj ⊢; rw [← hefld2]; exact hj)
+          have hlenp : ust.length = cvp.levelParams.length := by
+            rw [hlpp]; exact hlenus2
+          obtain ⟨tpa, htpa, hoktpa, hmemp⟩ :=
+            hct d (projFnName T j) _ ust hfp hlenp
+          have hwfp := m.wf _ (Setlec.SetR.Env.find?_mem hfp)
+          have hnfp : (cvp.type.instantiateLevelParams cvp.levelParams
+              ust).hasFvar = false := by
+            rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfp.1
+          have hbdp : (cvp.type.instantiateLevelParams cvp.levelParams
+              ust).looseBVarsBounded 0 = true := by
+            rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+            exact hwfp.2.2.2.1
+          obtain ⟨restp, hfitp, -, -⟩ :=
+            certs_telePA ihd ihis hexi _ (tmaj.getAppArgs ++ [major])
+              (tsa ++ [vm]) tpa hicj
+              (Setlec.Expr.WScoped.of_not_hasFvar hnfp) hbdp
+              (Setlec.Expr.LeavesBounded.of_not_hasFvar hnfp)
+              ⟨hC.1, fun l hl => by
+                rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfp]
+                  at hl
+                exact nomatch hl⟩
+              htpa (fun τ _ => hoktpa τ) hfrM hspM hokMs
+          refine (annotOkP_mkAppN_of_fitA (tsa ++ [vm]) (hoktpa ρ)
+            ⟨m.acval_ok2 _ _ ρ, hav _ _ ρ⟩
+            (fun x hx => hokMs x hx ρ hρ) ?_ (hfitp ρ hρ)).1
+          have := hmemp ρ
+          dsimp only [Setlec.ConstantInfo.toConstantVal] at this
+          rwa [hlpp] at this
         have hspF : DenoteSpineP m.acval env φ d
             (Setlec.etaFabArgs T ust tmaj.getAppArgs major caps.etaFields)
             (tsa ++ (List.range caps.etaFields).map fun j =>
@@ -359,10 +548,19 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               · first
                 | exact (hfrM y hy).2.2.1 l hly
                 | exact (hfrM y hy).2.2.2.2 l hly
-        obtain ⟨hdF0, hokF0⟩ := hfab _ _ hcerts hfrF hspF
+        have hoksF : ∀ x ∈ (tsa ++ (List.range caps.etaFields).map fun j =>
+            AVExpr.mkAppN (m.acval (projFnName T j)
+              (Level.substFn φ cvT.levelParams ust)) (tsa ++ [vm])),
+            ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ x := by
+          intro x hx
+          rcases List.mem_append.mp hx with hx' | hx'
+          · exact hoTs x hx'
+          · obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx'
+            exact hokProj j hj
+        obtain ⟨hdF0, hokF0⟩ := hfab _ _ hcerts hfrF hspF hoksF
         rw [hectr] at hdF0 hokF0
         refine ⟨_, hdF0, hokF0, fun ρ hρ => ?_, hwF, hbB, hLF, hCF⟩
-        exact (structEtaCertWithP_step hcaps hct hav ihd ihi hreads hcw
+        exact (structEtaCertWithP_step hcaps hct hav ihd ihis hexi hcw
           hwF hbB hLF hCF hws hb hLb hC hwr hbr hLr hCr hdF0 hvm hsave
           hokF0 hokm hokTm hmemMW ρ hρ).symm
       · -- R14: the zero-field fallthrough
@@ -372,7 +570,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
           simp
         obtain ⟨hdF0, hokF0⟩ := hfab tmaj.getAppArgs tsa
           (by rw [← hEmpty]; exact hcerts)
-          (frame_spineP hwr hbr hLr hCr) hspt
+          (frame_spineP hwr hbr hLr hCr) hspt hoTs
         have hdF : denoteP m.acval env φ d
             (Expr.mkAppN (.const caps.etaCtor ust)
               (Setlec.etaFabArgs T ust tmaj.getAppArgs major caps.etaFields))

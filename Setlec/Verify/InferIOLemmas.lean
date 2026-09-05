@@ -268,6 +268,101 @@ theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
       exact ⟨tf, n', ty', body', m', rfl, hw, h.symm,
         Or.inr ⟨ta, rfl, hde⟩⟩
 
+/-- **Fuel monotonicity for the io leaf lane** (task #172 B4): the
+leaf knot's auxiliary slots are the full knot's (monotone by
+`pureFns_mono`), and both infer slots are `inferBodyIO` over the
+smaller leaf knot — `inferBodyIO_mono` closes the induction. -/
+theorem pureFnsIO_mono (env : Env) : ∀ {f f' : Nat}, f ≤ f' →
+    FnsRefines (pureFnsIO mode env f) (pureFnsIO mode env f')
+  | 0, _, _ => by
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+    · intro d e v hv
+      simp [pureFnsIO, coreKnotIO, throw, throwThe,
+        MonadExceptOf.throw] at hv
+    · intro d e v hv
+      simp [pureFnsIO, coreKnotIO, throw, throwThe,
+        MonadExceptOf.throw] at hv
+    · intro d e v hv
+      simp [pureFnsIO, coreKnotIO, throw, throwThe,
+        MonadExceptOf.throw] at hv
+    · intro d a b v hv
+      simp [pureFnsIO, coreKnotIO, throw, throwThe,
+        MonadExceptOf.throw] at hv
+    · intro d e v hv
+      simp [pureFnsIO, coreKnotIO, throw, throwThe,
+        MonadExceptOf.throw] at hv
+    · intro d e v hv
+      simp [pureFnsIO, coreKnotIO, throw, throwThe,
+        MonadExceptOf.throw] at hv
+  | f + 1, f' + 1, hle => by
+    have ih := pureFnsIO_mono env (Nat.le_of_succ_le_succ hle)
+    have ihfull := pureFns_mono (mode := mode) env hle
+    exact ⟨fun d e => ihfull.1 d e, fun d e => ihfull.2.1 d e,
+      fun d e => inferBodyIO_mono ih d e,
+      fun d a b => ihfull.2.2.2.1 d a b,
+      fun d e => ihfull.2.2.2.2.1 d e,
+      fun d e => inferBodyIO_mono ih d e⟩
+
+theorem inferTypeCoreIO_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
+    {d : Nat} {e r : Expr}
+    (h : inferTypeCoreIO mode env f d e = .ok r) :
+    inferTypeCoreIO mode env f' d e = .ok r :=
+  (pureFnsIO_mono env hle).2.2.1 d e r h
+
+/-- `inferTypeCoreIO_app_inv` with all runs re-levelled to the outer
+fuel (`inferTypeCore_app_inv'`'s io twin). -/
+theorem inferTypeCoreIO_app_inv' {env : Env} {fuel d : Nat}
+    {f a t : Expr}
+    (h : inferTypeCoreIO mode env fuel d (.app f a) = .ok t) :
+    ∃ tf n' ty' body' m', inferTypeCoreIO mode env fuel d f = .ok tf ∧
+      whnf mode env fuel d tf = .ok (.forallE n' ty' body' m') ∧
+      t = body'.instantiate1 a ∧
+      ((mode.verified && m'.pw.isNever) = true ∨
+        ∃ ta, inferTypeCoreIO mode env fuel d a = .ok ta ∧
+          isDefEqCore mode env fuel d ta ty' = .ok true) := by
+  match fuel, h with
+  | 0, h => rw [inferTypeCoreIO_zero] at h; exact nomatch h
+  | fuel + 1, h =>
+    obtain ⟨tf, n', ty', body', m', h1, h2, h3, hd⟩ :=
+      inferTypeCoreIO_app_inv h
+    refine ⟨tf, n', ty', body', m',
+      inferTypeCoreIO_mono (Nat.le_succ _) h1,
+      whnf_mono (Nat.le_succ _) h2, h3, ?_⟩
+    rcases hd with hd | ⟨ta, h4, h5⟩
+    · exact Or.inl hd
+    · exact Or.inr ⟨ta, inferTypeCoreIO_mono (Nat.le_succ _) h4,
+        isDefEqCore_mono (Nat.le_succ _) h5⟩
+
+/-- Inversion for the constant rule of the io lane — the clause is the
+full lane's verbatim. -/
+theorem inferTypeCoreIO_const_inv {env : Env} {fuel d : Nat}
+    {n : Name} {us : List Level} {t : Expr}
+    (h : inferTypeCoreIO mode env fuel d (.const n us) = .ok t) :
+    ∃ ci, env.find? n = some ci ∧
+      t = ci.toConstantVal.type.instantiateLevelParams
+        ci.toConstantVal.levelParams us := by
+  match fuel, h with
+  | 0, h => rw [inferTypeCoreIO_zero] at h; exact nomatch h
+  | fuel + 1, h =>
+    rw [inferTypeCoreIO_succ] at h
+    simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
+      Bind.bind, Except.bind] at h
+    revert h
+    cases hf : env.find? n with
+    | none =>
+      intro h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
+    | some ci =>
+      intro h
+      dsimp only at h
+      revert h
+      split
+      · intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact ⟨ci, rfl, h.symm⟩
+      · intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+
 /-- Inversion for the let-rule of the io lane
 (`inferTypeCore_letE_inv`'s twin: the three inferences at the io lane,
 the sort/conversion runs at the full one). -/
@@ -502,7 +597,16 @@ theorem inferTypeCoreIO_of_full {env : Env} :
               · rfl
               · exact absurd hlp (by
                   cases body <;> simp_all [Expr.isLam, Expr.lamPw]))
-          rw [inferTypeCoreIO_of_full hbtt]
+          have hbtt' : inferTypeCoreIO mode env fuel (d + 1) bt
+              = .ok btt := by
+            cases hgb : mode.betaGate with
+            | false =>
+              rw [inferTypeIO_off hgb] at hbtt
+              exact inferTypeCoreIO_of_full hbtt
+            | true =>
+              rw [inferTypeIO_on hgb] at hbtt
+              exact hbtt
+          rw [hbtt']
           dsimp only
           have hesb' : ensureSortCore mode env fuel (d + 1) btt
               = .ok vb := by
@@ -579,6 +683,20 @@ theorem inferTypeIO_of_full {env : Env} {fuel d : Nat} {e t : Expr}
   cases hg : mode.betaGate with
   | false => rw [inferTypeIO_off hg]; exact h
   | true => rw [inferTypeIO_on hg]; exact inferTypeCoreIO_of_full h
+
+/-- A slot success is a leaf-lane success: at the gated mode they are
+the same lane; at a gate-off mode the slot is the full lane and the
+weakening applies. -/
+theorem inferTypeCoreIO_of_slot {env : Env} {fuel d : Nat} {e t : Expr}
+    (h : inferTypeIO mode env fuel d e = .ok t) :
+    inferTypeCoreIO mode env fuel d e = .ok t := by
+  cases hg : mode.betaGate with
+  | false =>
+    rw [inferTypeIO_off hg] at h
+    exact inferTypeCoreIO_of_full h
+  | true =>
+    rw [inferTypeIO_on hg] at h
+    exact h
 
 
 end Setlec

@@ -130,33 +130,37 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
       sortSemAtP_of_claims ihw ihi hreads
     have hssio : SortSemAtIOP m μ φ fuel :=
       sortSemAtIOP_of_claims ihw ihio hreads_io
+    have hsss : SortSemAtIOSP m μ φ fuel :=
+      sortSemAtIOSP_of hss hssio
+    have hreads_ios : InferReadsIOSP m μ φ fuel :=
+      inferReadsIOSP_of hreads hreads_io
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · -- the head-normalisation quarter
       exact whnfCore_claimsP m hex
         (betaCertP_of_claims m hexis ihd ihis)
         (iotaStepP_of h.rec_rules h.caps_ok h.reads.const_ty
-          h.acval_valid ihw ihd ihi hreads hwreads)
-        (projStepP_of_claims ihwc ihw ihd ihi hreads hwreads) ihwc
+          h.acval_valid ihw ihd ihis hsss hexis hreads_ios hwreads)
+        (projStepP_of_claims ihwc ihw ihd ihio hreads_io hwreads) ihwc
     · -- the reduction loop
       exact whnf_claimsP m hex ihwc (h.nat_step fuel ihw)
         (deltaP_of m h.reads.defn)
     · -- the defeq quarter, of_claims discharges wired
       have hsi : StuckIrrelPQ μ m φ fuel :=
-        stuckIrrelP_of_claims ihw ihi hreads
-          (unitIrrelPQ_of_claims ihw ihi hreads hwreads)
-          (pairEtaIrrelP_of_claims ihw ihd ihi hreads hwreads)
+        stuckIrrelP_of_claims ihis hsss hreads_ios
+          (unitIrrelPQ_of_claims ihw ihis hreads_ios hwreads)
+          (pairEtaIrrelP_of_claims ihw ihd ihis hexis hwreads)
           (structEtaIrrelP_of_claims h.caps_ok h.reads.const_ty
-            h.acval_valid ihw ihd ihi hreads hwreads)
-          (structUnitIrrelP_of_claims h.caps_ok ihw ihd ihi hreads
+            h.acval_valid ihw ihd ihis hexis hwreads)
+          (structUnitIrrelP_of_claims h.caps_ok ihw ihd ihis hexis
             hwreads)
       have hstep : DefEqStepAtP μ m φ fuel :=
         defeqStep_claimP (whnfCoreReductExistsP_of' h.reads) ihwc
           (denotePDeltaP_of h.reads) (h.nat_stepQ fuel ihw)
-          (proofIrrelPQ_of_claims ihw ihi hreads
-            (unitIrrelPQ_of_claims ihw ihi hreads hwreads))
+          (proofIrrelPQ_of_claims ihis hsss hreads_ios
+            (unitIrrelPQ_of_claims ihw ihis hreads_ios hwreads))
           (defeqStuck_claimP hμ ihd hsi denotePStrLit_of_guard
             (acvalParamsP m) (appCongrStuckP_of_claims ihd)
-            (etaCertStepP_of_claims hμ ihw ihd ihi hreads hwreads))
+            (etaCertStepP_of_claims hμ ihw ihd ihis hreads_ios hwreads))
           (defEqSpineP_of_claims ihd (acvalParamsP m))
       -- (`defeq_claimsP hstep` trips an implicit-eta unification
       -- wrinkle at the `DefEqStepAtP` unfolding; its two-line body is
@@ -187,7 +191,8 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
       | .forallE nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
         exact infer_forallE_claimP m hμ hss hrun hws hb hLb hC hea hta
       | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
-        exact infer_lam_claimP m hμ hss ihi hrun hws hb hLb hC hea hta
+        exact infer_lam_claimP m hμ hss hsss ihi hrun hws hb hLb hC hea
+          hta
       | .app fe ae, hrun, hws, hb, hLb, hC, hea =>
         exact infer_app_claimP m hreads hwreads ihw ihd ihi hrun
           hws hb hLb hC hea hta
@@ -255,11 +260,6 @@ heads; what remains as arguments is exactly the semantic-content bill
 (iota / proj / literal / caps / the two infer clause rows), each named
 by its tier in the frontier-transformation table. -/
 theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
-    (hacc : ∀ {F d : Nat} {x t : Expr},
-      Setlec.inferTypeCore μ env F d x = .ok t →
-      Expr.WScoped d x → x.looseBVarsBounded 0 = true →
-      Expr.LeavesBounded x →
-      ∃ xa, denoteP mp.base2.acval env φ d x = some xa)
     (hnat_r : ∀ fuel, ReduceNatReadsP μ mp.base2 φ fuel)
     (hnat : ∀ fuel,
       WhnfClaims2P μ mp.base2 φ fuel → ReduceNatStepP μ mp.base2 φ fuel)
@@ -268,7 +268,8 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
         ReduceNatStepPQ μ mp.base2 φ fuel) :
     TierInputsAtP V μ mp.base2 φ where
   reads := ReadsInputsP.ofEnvS2PM mp
-    (fun _fuel => iotaReadsP_of (mp.rec_rules φ) hacc) hnat_r
+    (fun _fuel ihw ihio => iotaReadsP_of (mp.rec_rules φ) ihw ihio)
+    hnat_r
   acval_valid := mp.acvalValidP
   nat_heads := mp.nat_heads φ
   rec_rules := mp.rec_rules φ
