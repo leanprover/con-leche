@@ -38517,3 +38517,29 @@ it deserves its own row:
   set-theoretic model and consistency.  It is now `Setlec/SetP/*` (with
   the shared semantic tier in `Setlec/SetBase/*`); flagged for the
   user, not edited by the agent.
+
+### 9. POST-MERGE REVALIDATION (2026-09-05, master `7d3d4dbf`)
+
+Merged `--no-ff` on the coordinator's grant and re-run on master with a
+cold `.lake` for the deleted modules' oleans:
+
+* `lake build` exit 0, **warning-free**; `lake test` exit 0;
+* `tests/arena.sh` exit 0 — layering `base 242 / P 120 / caps 2 /
+  umbrella 1; 0 base->lane, 0 impl->theory`; proofdeps **88 rows as
+  pinned, doors 0**; arena tutorial **90/92**, e2e **73/73**, annot
+  **14/14**, retired flags **8/8**, mode flags **11/11**, no-model
+  sweep **138 + 73 + 14 as expected (3 recorded divergences)**.
+
+**STAGE B, AS AMENDED AT THE GRANT.**  Its scope shrinks to the
+*implementation* surface, `MainC`'s letters having gone with their
+carriers in Stage A: `cfgR` and the `*RC` named cores; the
+`--set-model=r` spelling (with `--set-model` becoming the P core);
+`CheckMode`'s `setModel(R)` value and its impl-tier reads; the R lane's
+config-differentiated `.proj`-rewrite path; the tests' mode-flag
+expectations (`tests/arena.sh`, 11/11 → the R case retires); and — the
+coordinator's addition — `scripts/perf-tables.sh`, which has **no
+data-driven probe for the R column**: its `CONFIG_IDS=(official parity
+R P)` (line 96) and the `R) CMD=("$BIN" --set-model=r …)` arm (line
+108) are two literal lines that must drop together, so the
+regeneration never invokes a retired flag.  Held for the signal after
+the wiring batch's W5.
