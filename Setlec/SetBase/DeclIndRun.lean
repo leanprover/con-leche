@@ -74,18 +74,6 @@ def MemberValRunR (μ : CheckMode) (F : Nat) (env' : Env)
           if blockNames.contains n then n.str "_model" else n)
         cvm.type = true
 
-/-- **The member front door's projection.**  Where a *shared* lemma of
-the ind-tier residue can simply take the weaker hypothesis, it does
-(`memberInstallInv`, `SetBase/EnvRCons.lean`), and the R lane composes
-with this — the S4 discipline, one source of truth, applied at the
-residue instead of at the bridge. -/
-theorem MemberValR.toRun {μ : CheckMode} {F : Nat} {env' : Env}
-    {cval : TConstVal} {blockNames : List Name} {cv cvA : ConstantVal}
-    (h : MemberValR μ F env' cval blockNames cv cvA) :
-    MemberValRunR μ F env' blockNames cv cvA := by
-  obtain ⟨type', hcv, hrest⟩ := h
-  exact ⟨type', hcv.toRun, hrest⟩
-
 /-- `IndMembersR`'s run/guard half.  **The running valuation is gone**:
 `IndMembersR` threads `cvalModeled` from step to step so that member
 `k`'s front door speaks at the valuation the members before it built,
@@ -381,28 +369,6 @@ def ProjFnRunR (μ : CheckMode) (F : Nat) (env' : Env)
       [⟨ctorName, nF, nP,
         if Expr.recRulePlain pty nP nP nP then .plain else .inert,
         rhsA⟩] :: env'.consts⟩
-
-/-- **The projection record's projection.**  Same discipline as
-`MemberValR.toRun`: `projFnInv` and `projFnR_head` take the weaker
-hypothesis, and the collapsed lane composes with this. -/
-theorem ProjFnR.toRun {μ : CheckMode} {F : Nat} {env' : Env}
-    {cval : TConstVal} {T ctorName : Name} {lps : List Name}
-    {nP nF i : Nat} {env'' : Env}
-    (h : ProjFnR μ F env' cval T ctorName lps nP nF i env'') :
-    ProjFnRunR μ F env' T ctorName lps nP nF i env'' := by
-  obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
-    hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
-    hilt, hstripP, hbig, henv⟩ := h
-  obtain ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
-    hrhsb, hrlp, hrres, hrstrip, -, hrhsRun, tcv, tval, hthmE, htlps,
-    hsbodyPin, fvsI, sbodyO, hopen, -, hsty1, hsty2⟩ := hbig
-  exact ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
-    hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
-    hilt, hstripP,
-    ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
-      hrhsb, hrlp, hrres, hrstrip, hrhsRun, tcv, tval, hthmE, htlps,
-      hsbodyPin, fvsI, sbodyO, hopen, hsty1, hsty2⟩,
-    henv⟩
 
 /-- `ProjInstallR`'s run/guard half.  The valuation the install picks
 for the projection function (`cvalWith … (projModelName T i)`) was the

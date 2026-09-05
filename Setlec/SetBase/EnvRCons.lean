@@ -1,8 +1,13 @@
 import Setlec.SetBase.EnvR
+
 import Setlec.SetBase.DeclIndRun
+
 import Setlec.SetBase.IndBlockR
+
 import Setlec.Verify.Extend.Block
+
 import Setlec.Verify.Extend.Ind
+
 import Setlec.SetBase.ProjPhase
 
 /-!
@@ -310,48 +315,6 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
     (fun n ψ hn => by
       rw [hc₀name] at hn
       exact congrFun (cvalWith_ne hn) ψ)
-
-/-- **One member installed at the `EnvR` level** — `memberInstallS`'s
-model-free twin, and the tool the bridge's member and provisioning
-folds need in place of the `EnvS` install (finding 8). -/
-theorem memberInstallR {μ : CheckMode} {F : Nat}
-    {blockNames : List Name} {env : Env} (m : EnvR env)
-    {cv cvA : ConstantVal} {c₀ : ConstantInfo}
-    (hmv : MemberValR μ F env m.cval blockNames cv cvA)
-    (hI : BlockInstalledTT blockNames env m.cval)
-    (hbn : blockNames.contains cvA.name = true)
-    (hpins : ∀ caps, c₀ = .indInfo cvA caps →
-      EtaPins μ env cv.name cv.levelParams caps ∧
-        (caps.eta = true → blockNames.contains caps.etaCtor = true) ∧
-        (caps.eta = true → 0 < caps.etaFields →
-          env.find? (projFnName cv.name 0) = none))
-    (hEC : EtaFamiliesClosedO blockNames env)
-    (hBP : BlockEtaPinned μ blockNames env)
-    (hc₀cv : c₀.toConstantVal = cvA) (hc₀name : c₀.name = cvA.name)
-    (hkind : BlockMemberKind c₀ cvA) :
-    ∃ m₁ : EnvR ⟨c₀ :: env.consts⟩,
-      m₁.cval = cvalModeled m.cval cvA.name ∧
-      BlockInstalledTT blockNames ⟨c₀ :: env.consts⟩
-        (cvalModeled m.cval cvA.name) ∧
-      EtaFamiliesClosedO blockNames ⟨c₀ :: env.consts⟩ ∧
-      BlockEtaPinned μ blockNames ⟨c₀ :: env.consts⟩ := by
-  obtain ⟨hwf, hI₁, hEC₁, hBP₁⟩ :=
-    memberInstallInv m.wf hmv.toRun hI hbn hpins hEC hBP hc₀cv hc₀name hkind
-  obtain ⟨type', hcv, hcvA, hms, cvm, mval, hint, hmE, hmlps, hren⟩ :=
-    id hmv
-  obtain ⟨hfind, -, -, -, -, -, -, -, -, -, hden⟩ := hcv
-  have hnameA : cvA.name = cv.name := by rw [hcvA]
-  have htypeA : cvA.type = type' := by rw [hcvA]
-  have hfreshA : env.find? cvA.name = none := by
-    rw [hnameA]
-    exact Option.isNone_iff_eq_none.mp hfind
-  obtain ⟨m₁, hm₁⟩ :=
-    EnvR.consBlockMember m hc₀cv hc₀name hkind hfreshA hwf hmE hmlps
-      (fun ψ => by
-        obtain ⟨Tv, tT, u, hTv, -, -⟩ := hden ψ
-        exact ⟨Tv, by rw [htypeA]; exact hTv⟩)
-  exact ⟨m₁, hm₁, hI₁, hEC₁, hBP₁⟩
-
 
 /-! ## The projection install's invariant half, model-free
 

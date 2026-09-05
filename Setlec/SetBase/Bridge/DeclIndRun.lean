@@ -1,5 +1,8 @@
 import Setlec.SetBase.DeclIndRun
+
 import Setlec.SetBase.Bridge.DeclRun
+import Setlec.Verify.Extend.Iota
+import Setlec.Verify.Extend.Proj
 
 /-!
 # The **run-only** `indDecl` bridge (task #161 S11b, THE SEPARATION)

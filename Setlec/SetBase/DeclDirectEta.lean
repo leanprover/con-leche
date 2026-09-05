@@ -1,7 +1,11 @@
 import Setlec.SetBase.DeclDirect
+
 import Setlec.SetBase.IndBlockRun
+
 import Setlec.SetBase.DeclEta
+
 import Setlec.Verify.Extend.Inversions
+
 import Setlec.Verify.ProjPinInv
 
 /-!
@@ -222,27 +226,5 @@ theorem declIndRunDispatchEtaClosed {μ : CheckMode} {F : Nat}
   split at h
   · exact declDirectR_etaClosed hE h
   · exact declIndEtaClosedRun hE h
-
-/-- The `.indDecl` dispatch (relation level), likewise. -/
-theorem declIndDispatchEtaClosed {μ : CheckMode} {F : Nat}
-    {env envI : Env} {cval : Setlec.TTVerify.TConstVal}
-    {block : List ConstantInfo}
-    (hE : EtaFamiliesClosed env)
-    (h : DeclIndDispatchR μ F env cval block envI) : EtaFamiliesClosed envI := by
-  unfold DeclIndDispatchR at h
-  split at h
-  · exact declDirectR_etaClosed hE h
-  · exact declIndEtaClosed hE h
-
-/-- **The declaration fold's η-closure half**, `DeclR` instance
-(relocated from `DeclEta` at W5, where it read the flag through
-`declIndDispatchR_eq_ind`; now the dispatch's own case split). -/
-theorem declEtaStep {μ : CheckMode} {F : Nat}
-    {cval : Setlec.TTVerify.TConstVal}
-    {env : Env} {d : Setlec.Declaration} {env₂ : Env}
-    (hE : EtaFamiliesClosed env)
-    (h : DeclR μ F cval env d env₂) : EtaFamiliesClosed env₂ :=
-  declEtaStepRun (fun hb => declIndDispatchEtaClosed hE hb) hE
-    (DeclR.toRun h)
 
 end Setlec.SetR

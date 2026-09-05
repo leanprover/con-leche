@@ -1,114 +1,29 @@
-import Setlec.SetBase.Bridge.DeclInd
 import Setlec.SetBase.DeclDirect
 import Setlec.SetBase.Bridge.DeclRun
 import Setlec.SetBase.Bridge.DeclIndRun
 
 /-!
-# The assembly (task #148, T6): the model-free half
+# The assembly (task #148, T6): the RUN bridge
 
-`checkDecl` → `DeclR` by dispatch, off the V-free bridge invariant
-alone.  **Task #161 S8 — the zero-opener**: S7 made the whole bridge
-model-free (`checkDeclR_ofEnvRE`, which runs on an `EnvR` and whose
-proof tree mentions no model), and the last P→R edge survived only
-because this file still *sat* under `Setlec/SetR/`.  Killing it was a
-MOVE, and this is it: the three model-free theorems below are
-byte-unchanged from `Setlec/SetR/Bridge/Sound.lean`, and the collapsed
-lane's own fold — `checkDeclR_sound` and `foldlM_R`, which carry the
-`EnvS` invariant along the dispatch — stayed behind in that file,
-which now imports this one.  (`checkDeclRun_sound` stayed behind too
-until S11b's opener deleted it: consumer-free, and the S10 seal
-measured its composition as a derivation route, not a projection.)
+`checkDecl` → `DeclRunR` by dispatch, off no invariant at all.
 
-The three per-declaration bridge obligations that the collapsed fold
-keeps as named hypotheses (the `Nat` equation certificates, the
-div/mod pins, the reduce pins) are stated *attached* there, at their
-own `m`'s valuation; nothing here mentions a valuation at all.
+**What this file used to hold, and why it does not (2026-09-05).**  The
+assembly had two halves: the *derivation* bridge
+(`checkDeclR_ofEnvR`/`checkDeclR_ofEnvRE`, `checkDecl` → `DeclR` off
+the V-free `EnvR`) and the *run* bridge below.  S11a's whole point was
+that the graded fold needs only the second — the run/guard record, with
+no derivation on the path — and a proof-term probe at the SetR
+removal's Stage C confirmed it at the criterion that matters: the
+derivation half was absent from every capstone's closure AND from this
+file's own surviving theorem.  It went with the R tier
+(`Bridge/{Main,Decl,DeclInd,…}`, `SetBase/{Rel,Weaken,CtxOkR}`) that
+built it.
 -/
 
 namespace Setlec.SetR
-open Setlec.TT Setlec.TTVerify SetTheory
+open Setlec.TT Setlec.TTVerify
 universe w
 
-
-/-- **The bridge's `m`-dropped skeleton — D6's S5 item.**
-
-Five of the six declaration kinds bridge against `EnvR` alone (the
-V-free invariant of `SetBase/EnvR.lean`); the sixth is a **premise**,
-in the shape `declStepS` takes its five install obligations and
-`declEtaStepRun` takes its η one.
-
-**The measurement behind the shape** (task #161 S5, and it is a
-finding): `Bridge/Decl.lean` never needed a model.  Ten signatures
-there took `m : EnvS V env` and every one of them used it only through
-`EnvS.toEnvR`; re-signing them to `EnvR env` cost **zero proof
-edits**, so `declDefnR`/`declThmR`/`declOpaqueR`/`declAxiomR` and the
-four pin bridges are now model-free outright, and `declBasisR` always
-was.  The `indDecl` kind is the one that could not follow at S5, and
-the reason was `Bridge/DeclInd.lean`'s **finding 8**, not the records:
-`IndMembersR` carries a `ConstantValR` at *each intermediate
-environment of the member fold*, and nothing built an `EnvR` there
-except by projection from the `EnvS` the install fold is producing —
-so bridge and install had to walk together.  S6 and S7 supplied the
-`EnvR`-level cons for the block folds (the ind tier's own de-basing),
-which is what `checkDeclR_ofEnvRE` below cashes.
-
-`checkDeclR_sound` (`SetR/Bridge/Sound.lean`) is this theorem's `EnvS`
-instance — statement byte-unchanged, one source of truth. -/
-theorem checkDeclR_ofEnvR
-    {F : Nat}
-    {env env₂ : Env} (mR : EnvR env)
-    {d : Declaration}
-    (hind : ∀ {block : List ConstantInfo} {envI : Env},
-      checkIndDecl (m := CheckM) modeR (fueledOps modeR F) env block = .ok envI →
-      DeclIndR modeR F env mR.cval block envI)
-    (h : checkDecl modeR (fueledOps modeR F) env d = .ok env₂) :
-    DeclR modeR F mR.cval env d env₂ :=
-  checkDeclR_of
-    (fun hh => declDefnR mR hh)
-    (fun hh => declThmR mR hh)
-    (fun hh => declOpaqueR mR hh)
-    (fun hh => declAxiomR mR hh)
-    (fun hh => declBasisR hh)
-    -- FLAG-AGNOSTIC (task #175 wiring W4): the `.indDecl` clause is
-    -- the `directParts?` dispatch; the direct arm inverts by
-    -- `declDirectR_of`, the modeled arm by the premise.  Pre-flip
-    -- the direct arm is dead (`directStructsEnabled = false`), but
-    -- the proof no longer reads the flag.
-    (fun {block} hh => by
-      rw [checkDecl] at hh
-      rw [DeclIndDispatchR]
-      revert hh
-      cases hdp : directParts? env block with
-      | some p =>
-        intro hh
-        exact declDirectR_of hh
-      | none =>
-        intro hh
-        exact hind hh) h
-
-/-- **The bridge, whole, from an `EnvR`** (task #161 S7): the ind
-kind's premise of `checkDeclR_ofEnvR` is discharged by `declIndRR`,
-so `checkDecl` bridges against the V-free invariant alone and
-`Bridge/*` carries no model at all.
-
-This is what Walls A and B bought.  S5 could only drop the `m` from
-the five non-`ind` kinds because the ind bridge had to walk with its
-install (finding 8); S6 freed the member and provisioning walks, S7
-the recursor group's swap (`indRecsCoreR`) and the projection walk
-(`projFnRR`).  `checkDeclR_sound` (`SetR/Bridge/Sound.lean`) is this
-theorem's `EnvS` instance — statement byte-unchanged, one source of
-truth.
-
-**This is the theorem the graded lane's fold imports** (`SetP/FoldP.lean`,
-through `EnvS2PM.toEnvR`), and its residence here rather than under
-`Setlec/SetR/` is what takes the layering whitelist to zero. -/
-theorem checkDeclR_ofEnvRE
-    {F : Nat}
-    {env env₂ : Env} (mR : EnvR env) (hE : EtaFamiliesClosed env)
-    {d : Declaration}
-    (h : checkDecl modeR (fueledOps modeR F) env d = .ok env₂) :
-    DeclR modeR F mR.cval env d env₂ :=
-  checkDeclR_ofEnvR mR (fun hh => declIndRR mR hE hh) h
 
 /-- **The RUN bridge, whole, from an `EnvR`** (task #161 S11a): the
 run/guard record, from the checker, with **no derivation on the path

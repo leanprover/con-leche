@@ -1,5 +1,7 @@
 import Setlec.SetBase.EnvRCons
+
 import Setlec.SetBase.DeclIndRun
+
 import Setlec.Verify.Denote.Levels
 
 /-!
@@ -289,68 +291,6 @@ theorem projFnR_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     · exact ⟨cvj, nP, nF, hctor⟩
     · exact nomatch h
 
-/-- **One projection field installs, at the `EnvR` level** —
-`projFnS`'s model-free twin.  The carrier is `EnvR.consProjFn`; the
-two invariants are `projFnInv`'s, so there is one proof of each
-across the lanes. -/
-theorem projFnRR {μ : CheckMode} {F : Nat} {env' env₁ : Env}
-    {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
-    {blockNames : List Name} (m : EnvR env')
-    (hR : ProjFnR μ F env' m.cval T ctorName lps nP nF i env₁)
-    (hinv : ProjPhaseInvS T ctorName nF env' m.cval)
-    (hIB : BlockInstalledTT blockNames env' m.cval)
-    (hbshape : ∀ n, blockNames.contains n = true →
-      n.isProjFnShape = false) :
-    ∃ m₁ : EnvR env₁,
-      m₁.cval = cvalWith m.cval (projFnName T i)
-        (fun ψ => m.cval (projModelName T i) ψ) ∧
-      ProjPhaseInvS T ctorName nF env₁ m₁.cval ∧
-      BlockInstalledTT blockNames env₁ m₁.cval := by
-  have hRid := hR
-  obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
-    hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
-    hilt, hstripP, hbig, henv⟩ := hR
-  obtain ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
-    hrhsb, hrlp, hrres, hrstrip, hrhsKey, -, -⟩ := hbig
-  subst henv
-  -- the stored rule's own syntactic obligations
-  have hrulesWF : ∀ r ∈ [(⟨ctorName, nF, nP,
-        if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
-        else .inert, rhsA⟩ : RecRule)],
-      (RecRule.rhs r).hasFvar = false ∧
-      (RecRule.rhs r).allLevelParamsDefined lps = true ∧
-      (RecRule.rhs r).constsResolve env' = true ∧
-      (RecRule.rhs r).looseBVarsBounded 0 = true ∧
-      ∀ lvls pins, RecRule.fire r ≠ .nested lvls pins := by
-    intro r hr
-    rcases List.mem_cons.mp hr with rfl | h
-    · refine ⟨hrhsw, hrlp, hrres, hrhsb, ?_⟩
-      intro lvls pins
-      by_cases hc : Expr.recRulePlain pty nP nP nP = true
-      · simp only [hc, if_true]
-        exact fun hh => nomatch hh
-      · simp only [eq_false_of_ne_true hc]
-        exact fun hh => nomatch hh
-    · exact nomatch h
-  have hrhsDen : ∀ r ∈ [(⟨ctorName, nF, nP,
-        if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
-        else .inert, rhsA⟩ : RecRule)],
-      RecRule.fire r ≠ .inert →
-      ∀ ψ : Name → Nat,
-        ∃ Rv, denoteClosed m.cval env' ψ (RecRule.rhs r) = some Rv := by
-    intro r hr _ ψ
-    rcases List.mem_cons.mp hr with rfl | h
-    · obtain ⟨Rv, t, hRv, -⟩ := hrhsKey ψ
-      exact ⟨Rv, hRv⟩
-    · exact nomatch h
-  obtain ⟨m₁, hm₁cval⟩ :=
-    EnvR.consProjFn m hfm hmlps hpnone hround hptyres hptyb hptyf
-      hptylp hinv hrulesWF hrhsDen
-  obtain ⟨hinv₁, hIB₁⟩ := projFnInv hRid.toRun hinv hIB hbshape
-  exact ⟨m₁, hm₁cval, by rw [hm₁cval]; exact hinv₁,
-    by rw [hm₁cval]; exact hIB₁⟩
-
-
 /-! ## Two shared projection-phase constants (task #161 S7)
 
 Relocated verbatim from `SetR/Install/ProjInstallS.lean`: both lanes'
@@ -372,10 +312,8 @@ theorem projFwd_model_self {T ctorName : Name} {nF i : Nat}
     intro hh
     exact Name.num_ne_str _ _ _ _ (eq_of_beq hh).symm]
 
-
 /-- The valuation an elimination-template entry takes. -/
 def templateVal : (Name → Nat) → VExpr :=
   fun _ => .eqE (.sort 0) .prf .prf
-
 
 end Setlec.SetR
