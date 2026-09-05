@@ -1,30 +1,37 @@
 name = "setlec"
-defaultTargets = ["SetlecBase", "SetlecR", "SetlecP", "SetlecCaps", "setlec"]
+defaultTargets = ["SetlecBase", "SetlecP", "SetlecCaps", "setlec"]
 testDriver = "SetlecTests"
 
-# THE SEPARATION (task #161) — the ruled four-lib layout, staged.
+# THE SEPARATION (task #161) — the ruled lib layout, as it stands after
+# the SetR removal (user ruling 2026-09-05, "do remove the SetR tier,
+# for more focus").
 #
 #             SetlecBase
 #   Kernel/* · model-free Verify/* · SetTheory/* · TT/*
 #   SetBase/* (the lane-neutral semantic primitives)
-#        ↑                      ↑
-#    SetlecR                SetlecP
-#   EnvS · Sound/* ·       de-based EnvS2Core · Annot
-#   Install/* · the 2U     carriers · Interp2 rows ·
-#   lane · R + R2          self-standing fold · P capstone
-#        ↑                      ↑
+#                               ↑
+#                           SetlecP
+#                   de-based EnvS2Core · Annot
+#                   carriers · Interp2 rows ·
+#                   self-standing fold · P capstone
+#                               ↑
 #             SetlecCaps (exe/capstones)
 #
-# STAGING NOTE (S2).  The four-lib layout is now COMPLETE: S2 moved the
-# graded lane's 115 modules to `Setlec/SetP/*` and `SetlecP` is a target.
-# Eleven P→R edges survive, each on `tests/layering.sh`'s whitelist
-# tagged with the batch (S3/S4/S7) that removes it; they are the
-# de-basing's work order, and the whitelist may only ever shrink.
+# HISTORY.  The layout was a FOUR-lib one until 2026-09-05: `SetlecR`
+# rooted `Setlec.SetR` — the collapsed-model consistency proof for the
+# R core (`EnvS`, `Sound/*`, `Install/*`, the `R`/`R2`/`R2M` capstones).
+# The B4 measurement had shown a ZERO acceptance delta between the two
+# verified configurations (225 fixtures + init-full byte-identical), so
+# the graded lane's `no_proof_of_Empty_SPCD_P` covers the shipped path
+# alone and the collapsed lane was retired whole.  The separation
+# campaign (task #161) had left the two trees genuinely disjoint — zero
+# edges in either direction — which is why the cut was clean: only
+# `Verify/Cached/MainC` and `tests/ProofDeps` had to change at all.
 #
 # HONESTY NOTE about "cross-import = build error" (S1 finding).  Lake
 # does NOT give an import barrier between `lean_lib`s of the SAME
 # package: import resolution is per-package, so a module in one lib may
-# import a module rooted in another (today `Setlec.SetR.*` imports
+# import a module rooted in another (today `Setlec.SetP.*` imports
 # `Setlec.Kernel.*` across exactly such a boundary).  The lib split is
 # therefore the layout, not the fence; `tests/layering.sh` is the fence.
 # A hard build error would need the lanes to become separate Lake
@@ -66,23 +73,13 @@ name = "SetlecBase"
 roots = ["Setlec", "Setlec.TT", "Setlec.SetBase"]
 extraDepTargets = ["SetlecPinCerts"]
 
-# The collapsed-model lane (task #148's mode-indexed relation family and
-# everything above it): `Rel`, `Sound/*`, `EnvS`, `Install/*`, `Bridge/*`,
-# the `R` capstones in `Main.lean` and — per the task-#161 ruling
-# "everything EnvS-containing lives in R" — the 2U/`denote2` tier and its
-# `R2` capstones in `Main2.lean`.  Since S2 this lib roots the collapsed
-# lane ALONE.
-[[lean_lib]]
-name = "SetlecR"
-roots = ["Setlec.SetR"]
-
 # The graded-model lane (task #161 S2): the `AnnotOk2` bit carriers, the
 # de-basing's `EnvS2Core`/`EnvS2P`, the per-rule `…P` quarters and rows,
 # the basis/inductive/projection install `…P` families, `FoldP` and
-# `CapstoneP`.  Stands on `SetlecBase`; may not import `SetlecR` (the
-# eleven surviving edges are whitelisted in `tests/layering.sh`).  Only
-# the file paths moved — the Lean namespaces are `Setlec.SetR.{Interp2,
-# Annot}` still, so no frozen statement changed name.
+# `CapstoneP`.  Stands on `SetlecBase`; since the SetR removal it is the
+# ONLY model lane.  Only the file paths ever moved — the Lean namespaces
+# are `Setlec.SetR.{Interp2, Annot}` still, so no frozen statement
+# changed name.
 [[lean_lib]]
 name = "SetlecP"
 roots = ["Setlec.SetP"]
@@ -90,8 +87,8 @@ roots = ["Setlec.SetP"]
 # The capstone assembly (task #163): the cached checker variant's
 # verification tier — the `ExprC` erasure/field-exactness seam, the `SimC`
 # simulation, and the consistency corollaries for `--core=cached-parsed`.
-# `Verify/Cached/MainC.lean` is the two-lane assembly and is the ONLY
-# module allowed to see both lanes.
+# `Verify/Cached/MainC.lean` carries the shipped driver's capstone; it
+# was the two-lane assembly until the SetR removal left one lane.
 [[lean_lib]]
 name = "SetlecCaps"
 roots = ["Setlec.Verify.Cached"]

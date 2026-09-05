@@ -58,14 +58,14 @@ MEASURED = os.environ['SETLEC_PROOFDEPS_MEASURED']
 #
 # **TASK #161 S11b — THE TABLE IS EMPTY.**  Every row below reads
 # `absent` except the vacuity sentinel (`Setlec.Expr`, one per root):
-# not one of the eleven R targets is reachable from any of the ten
-# roots, and four of those roots are the SHIPPED P CAPSTONES.  That is
-# the campaign's criterion, mechanized: the graded consistency proof's
-# proof term does not mention the collapsed model (`EnvS`), the
-# declaration bridge (`checkDeclR_ofEnvRE`), its records (`DeclR`,
-# `DeclIndR`), the ind bridge (`declIndRR`), or the derivation tier at
-# either granularity — the relation TYPES `Red`/`Infer`/`DefEq` and the
-# constructors `Red.beta`/`Infer.app`/`DefEq.trans` alike.
+# not one of the ten R targets is reachable from any of the eight
+# roots, two of which are the SHIPPED P CAPSTONES.  That is the
+# campaign's criterion, mechanized: the graded consistency proof's
+# proof term does not mention the declaration bridge
+# (`checkDeclR_ofEnvRE`), its records (`DeclR`, `DeclIndR`), the ind
+# bridge (`declIndRR`), or the derivation tier at either granularity —
+# the relation TYPES `Red`/`Infer`/`DefEq` and the constructors
+# `Red.beta`/`Infer.app`/`DefEq.trans` alike.
 #
 # Read it in three blocks.
 #
@@ -86,13 +86,25 @@ MEASURED = os.environ['SETLEC_PROOFDEPS_MEASURED']
 #     same way: every R target absent.  The pin only ever tightens, and
 #     a row whose subject no longer exists is not a loosening.
 #
+#     **THE SetR REMOVAL (2026-09-05) — THE ELEVENTH TARGET GOES.**
+#     `Setlec.SetR.EnvS`, the collapsed model's environment invariant
+#     and the campaign's first target, was deleted with the tier it
+#     lived in (`Setlec/SetR/*`, the R core's whole consistency proof).
+#     Its EIGHT rows — one per root — retire WITH THEIR SUBJECT: 96 →
+#     88.  Nothing else moved, and that is the measurement worth
+#     recording.  The other ten targets are all `Setlec/SetBase/*`
+#     declarations under the unchanged namespace `Setlec.SetR`: the
+#     shared relation tier the graded proof must not touch was never in
+#     the deleted directory, so the gate's criterion survives the
+#     removal intact rather than being weakened by it.
+#
 #     **Block (B) is retired**: it pinned a CUT at
 #     `declIndRR`, and a cut at a constant that is not in the closure
 #     measures the uncut reading (S11a finding 1: an inert cut row is
 #     rot-shaped).  The door is now pinned directly, as a target.
 #
 # (C) THE P TIER'S OWN MATHEMATICS.  The claims tower, the inductive
-#     tier's step and the value kinds' harvest reach none of the eleven.
+#     tier's step and the value kinds' harvest reach none of the ten.
 #     `declIndP`'s two `PRESENT` rows (`Infer`/`DefEq`, through its
 #     `DeclIndR` premise's statement furniture — the S10 measurement)
 #     are gone with the premise.
@@ -101,7 +113,7 @@ MEASURED = os.environ['SETLEC_PROOFDEPS_MEASURED']
 #     non-`ind` kinds' dispatch, S11a), `declIndRunRR` (the `ind` run
 #     bridge, S11b) and `checkDeclRun_ofEnvRE` (the theorem the graded
 #     fold actually calls, all six kinds discharged) reach none of the
-#     eleven.  This is the deliverable stated positively rather than as
+#     ten.  This is the deliverable stated positively rather than as
 #     an absence in someone else's closure.
 PIN = """
 # (A) the shipped P capstone family — EVERY R target absent
@@ -113,7 +125,6 @@ absent  SPCD_P :: Setlec.SetR.Infer
 absent  SPCD_P :: Setlec.SetR.Infer.app
 absent  SPCD_P :: Setlec.SetR.DefEq
 absent  SPCD_P :: Setlec.SetR.DefEq.trans
-absent  SPCD_P :: Setlec.SetR.EnvS
 absent  SPCD_P :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  SPCD_P :: Setlec.SetR.DeclR
 absent  SPCD_P :: Setlec.SetR.declIndRR
@@ -125,7 +136,6 @@ absent  P :: Setlec.SetR.Infer
 absent  P :: Setlec.SetR.Infer.app
 absent  P :: Setlec.SetR.DefEq
 absent  P :: Setlec.SetR.DefEq.trans
-absent  P :: Setlec.SetR.EnvS
 absent  P :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  P :: Setlec.SetR.DeclR
 absent  P :: Setlec.SetR.declIndRR
@@ -139,7 +149,6 @@ absent  claims :: Setlec.SetR.Infer
 absent  claims :: Setlec.SetR.Infer.app
 absent  claims :: Setlec.SetR.DefEq
 absent  claims :: Setlec.SetR.DefEq.trans
-absent  claims :: Setlec.SetR.EnvS
 absent  claims :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  claims :: Setlec.SetR.DeclR
 absent  claims :: Setlec.SetR.declIndRR
@@ -151,7 +160,6 @@ absent  declIndP :: Setlec.SetR.Infer
 absent  declIndP :: Setlec.SetR.Infer.app
 absent  declIndP :: Setlec.SetR.DefEq
 absent  declIndP :: Setlec.SetR.DefEq.trans
-absent  declIndP :: Setlec.SetR.EnvS
 absent  declIndP :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  declIndP :: Setlec.SetR.DeclR
 absent  declIndP :: Setlec.SetR.declIndRR
@@ -163,7 +171,6 @@ absent  harvestDefnP :: Setlec.SetR.Infer
 absent  harvestDefnP :: Setlec.SetR.Infer.app
 absent  harvestDefnP :: Setlec.SetR.DefEq
 absent  harvestDefnP :: Setlec.SetR.DefEq.trans
-absent  harvestDefnP :: Setlec.SetR.EnvS
 absent  harvestDefnP :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  harvestDefnP :: Setlec.SetR.DeclR
 absent  harvestDefnP :: Setlec.SetR.declIndRR
@@ -177,7 +184,6 @@ absent  runroute :: Setlec.SetR.Infer
 absent  runroute :: Setlec.SetR.Infer.app
 absent  runroute :: Setlec.SetR.DefEq
 absent  runroute :: Setlec.SetR.DefEq.trans
-absent  runroute :: Setlec.SetR.EnvS
 absent  runroute :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  runroute :: Setlec.SetR.DeclR
 absent  runroute :: Setlec.SetR.declIndRR
@@ -189,7 +195,6 @@ absent  indrunroute :: Setlec.SetR.Infer
 absent  indrunroute :: Setlec.SetR.Infer.app
 absent  indrunroute :: Setlec.SetR.DefEq
 absent  indrunroute :: Setlec.SetR.DefEq.trans
-absent  indrunroute :: Setlec.SetR.EnvS
 absent  indrunroute :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  indrunroute :: Setlec.SetR.DeclR
 absent  indrunroute :: Setlec.SetR.declIndRR
@@ -201,7 +206,6 @@ absent  declrun :: Setlec.SetR.Infer
 absent  declrun :: Setlec.SetR.Infer.app
 absent  declrun :: Setlec.SetR.DefEq
 absent  declrun :: Setlec.SetR.DefEq.trans
-absent  declrun :: Setlec.SetR.EnvS
 absent  declrun :: Setlec.SetR.checkDeclR_ofEnvRE
 absent  declrun :: Setlec.SetR.DeclR
 absent  declrun :: Setlec.SetR.declIndRR
@@ -272,7 +276,7 @@ if stale:
 
 if not fail:
     caps = ['SPCD_P', 'P']
-    tgts = ['EnvS', 'checkDeclR_ofEnvRE', 'DeclR', 'DeclIndR', 'declIndRR']
+    tgts = ['checkDeclR_ofEnvRE', 'DeclR', 'DeclIndR', 'declIndRR']
     rel = ['Red', 'Red.beta', 'Infer', 'Infer.app', 'DefEq', 'DefEq.trans']
     recs = sum(1 for c in caps for t in tgts
                if got['%s :: Setlec.SetR.%s' % (c, t)] == 'absent')
@@ -280,7 +284,7 @@ if not fail:
                if got['%s :: Setlec.SetR.%s' % (c, t)] == 'absent')
     doors = sum(1 for c in caps for t in rel
                 if got['%s :: Setlec.SetR.%s' % (c, t)] == 'PRESENT')
-    print('proofdeps: %d rows as pinned; EnvS/checkDeclR_ofEnvRE/DeclR/'
+    print('proofdeps: %d rows as pinned; checkDeclR_ofEnvRE/DeclR/'
           'DeclIndR/declIndRR absent %d/%d and the derivation tier '
           '(Red, Red.beta, Infer, Infer.app, DefEq, DefEq.trans) absent '
           '%d/%d across the 2 shipped P capstones (doors: %d)'
