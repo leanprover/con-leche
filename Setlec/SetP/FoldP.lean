@@ -3,6 +3,7 @@ import Setlec.SetP.BasisPSigmaP
 import Setlec.SetP.DeclIndP
 import Setlec.SetBase.IndBlockR
 import Setlec.SetBase.Bridge.Sound
+import Setlec.SetBase.DeclDirectEta
 
 /-!
 # The P declaration fold, and the conditional capstone (task #161, P4)
@@ -159,9 +160,10 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
   -- η-closure premised on `declIndS memberKeyS mp.base`; S5's ind unit
   -- (`SetBase/IndBlockR.lean`) proves it from `DeclIndR` alone, so the
   -- fold consults no install obligation for its η half at all.
+  -- task #175 wiring W5: the η half is FLAG-AGNOSTIC — the `.indDecl`
+  -- dispatch's own case split (`declIndRunDispatchEtaClosed`)
   refine ⟨?_, Setlec.SetR.declEtaStepRun
-    (fun h' => Setlec.SetR.declIndEtaClosedRun hE
-      (Setlec.SetR.declIndRunDispatchR_eq_ind.mp h')) hE hrun⟩
+    (fun h' => Setlec.SetR.declIndRunDispatchEtaClosed hE h') hE hrun⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := hrun
