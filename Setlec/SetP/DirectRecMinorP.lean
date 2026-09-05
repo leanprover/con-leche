@@ -148,22 +148,20 @@ theorem consList_range_reverse_shift (j : Nat) (ρ : Nat → V) :
 /-! ## The minor space -/
 
 set_option maxHeartbeats 6400000 in
-/-- **The minor binder's reading is the minor space.** -/
-theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
+/-- **The opened field domains are the constructor's field entries, lifted
+over the minor and motive slots**: the two composite contexts (`Γm`
+above a minor-slot entry `E`, the lifted field entries above it) have
+the same satisfying valuations at every field depth, and the entries
+interpret alike under them — `frameIdent` over the field pins. -/
+theorem minorFieldsIdent {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
     {nP nF : Nat} {tyR : Expr} {fvsR : List Expr} {oR : Expr} {Γr : List AVExpr} {Rr : AVExpr}
     (hR : OpenedP m φ (nP + 3) tyR fvsR oR Γr Rr)
     (hidxR : ∀ (i : Nat) (x : Expr), fvsR[i]? = some x → ∃ nm ty, x = Expr.fvar i nm ty)
     (hlenF : fvsR.length = nP + 3)
-    {nmM : Name} {tyM : Expr}
-    {nmm : Name} {tym : Expr} (hmin : fvsR[nP + 1]? = some (.fvar (nP + 1) nmm tym))
     {xFvs : List Expr} {minBody : Expr} {Γm : List AVExpr} {Rm : AVExpr}
     (comp : CompOpenedP m φ nP nF fvsR xFvs minBody Γr Γm Rm)
-    {ℓ : Nat} (hPiBits : PiBitsOpen φ (ℓ = 0) nF (nP + 2) tym)
     {ds : List (Nat × Nat × AVExpr)} {bodyC : AVExpr} (hlenDs : ds.length = nP + nF)
     (hCok : ∀ ρ : Nat → V, AnnotOkP V ρ (mkPisAV ds bodyC))
-    {C : Name} {lps : List Name} {cvCa : ConstantVal}
-    (hfC : env.find? C = some (.ctorInfo cvCa nP nF)) (hlpsC : cvCa.levelParams = lps)
-    {w : Nat} (hleafC : m.acval C φ = directMkAV w ds ((ds.drop nP).map (·.2.2)))
     {crest : Expr} (hres : denoteP m.acval env φ nP crest = some (mkPisAV (ds.drop nP) bodyC))
     (hwres : Expr.WScoped nP crest) (hbres : crest.looseBVarsBounded 0 = true)
     (hleafres : ∀ l ∈ crest.fvarLeaves,
@@ -172,22 +170,20 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
     (hcf : Expr.instPisAt xFvs crest = some (cdomsF, crest2))
     (hpinsF : ∀ i, i < nF → ∃ a b, xFvs[i]? = some a ∧ cdomsF[i]? = some b ∧
       Setlec.isDefEqCore μ env F (nP + 2 + i) (Expr.fvarTypeD a) b = .ok true)
-    (hminBody : minBody = .app (.fvar nP nmM tyM)
-      (Expr.mkAppN (.const C (lps.map .param)) (fvsR.take nP ++ xFvs)))
     (hiffP : ∀ ρ : Nat → V, Sat2 V (Γr.drop 3) ρ ↔
       Sat2 V (((ds.take nP).map (·.2.2)).reverse) ρ)
-    (hfieldsB : ∀ ρ : Nat → V, Sat2 V (((ds.take nP).map (·.2.2)).reverse) ρ →
-      FieldsOkB w ρ ((ds.drop nP).map (·.2.2))) :
-    ∀ ρp : Nat → V, Sat2 V (Γr.drop 3) ρp →
-      ∀ M : V, M ∈ˢ interp2 V ρp (Γr.getD 2 default) →
-        interp2 V (cons M ρp) (Γr.getD 1 default)
-          = minorSp ℓ w M ((ds.drop nP).map (·.2.2)) ρp [] := by
-  intro ρp hρp M hM
+    (E : AVExpr) :
+    (∀ j, j ≤ nF → ∀ ρ' : Nat → V,
+      Sat2 V (compCtx Γm Γr nF E j) ρ' ↔
+        Sat2 V ((((liftDoms 2 0 ((ds.drop nP).take j)).map (·.2.2)).reverse) ++
+          (E :: Γr.drop 2)) ρ') ∧
+    (∀ j, j < nF → ∀ ρ' : Nat → V, Sat2 V (compCtx Γm Γr nF E j) ρ' →
+      interp2 V ρ' (Γm.getD (nF - 1 - j) default)
+        = interp2 V ρ' (((((ds.drop nP).map (fun d : Nat × Nat × AVExpr => d.2.2))).getD j default).liftN 2 j)) := by
   have hlenR : Γr.length = nP + 3 := hR.len
   have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
   have hlenFds : (ds.drop nP).length = nF := by simp [hlenDs]
   have hΓ₂len : ((((ds.take nP).map (·.2.2)).reverse)).length = nP := by simp [hlenDs]
-  have hsatC := (hiffP ρp).mp hρp
   -- the constructor tower's gradings
   have hstC := stripPisAV_mkPisAV ds bodyC
   rw [hlenDs] at hstC
@@ -196,13 +192,6 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
   simp only [List.append_nil] at okΓc
   have hΓc := reverse_map_take_drop ds nP
   -- the padded base frame
-  have hdrop2 : Γr.drop 2 = Γr.getD 2 default :: Γr.drop 3 := by
-    have h := drop_succ_eq_getD_cons hlenR (i := nP) (by omega)
-    rwa [show nP + 3 - (nP + 1) = 2 from by omega, show nP + 3 - 1 - nP = 2 from by omega,
-      show nP + 3 - nP = 3 from by omega] at h
-  have hsat0 : Sat2 V (.sort 0 :: Γr.drop 2) (cons unitSet (cons M ρp)) := by
-    rw [hdrop2]
-    exact Sat2_cons V (Sat2_cons V hρp hM) (unitSet_mem_univ 0)
   -- the constructor's residual, lifted under the minor and the motive
   have hres2 : denoteP m.acval env φ (nP + 2) crest
       = some (mkPisAV (liftDoms 2 0 (ds.drop nP)) (bodyC.liftN 2 nF)) := by
@@ -230,15 +219,15 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
       List.getD_eq_getElem?_getD, List.getElem?_map, hd]
     try rfl
   -- the two composite contexts
-  have hΓ1len : (compCtx Γm Γr nF (.sort 0) nF).length = nP + 2 + nF :=
+  have hΓ1len : (compCtx Γm Γr nF E nF).length = nP + 2 + nF :=
     compCtx_length comp.lenM hlenR (Nat.le_refl _)
   have hΓ2len : ((((liftDoms 2 0 (ds.drop nP)).map (·.2.2)).reverse) ++
-      (.sort 0 :: Γr.drop 2)).length = nP + 2 + nF := by
+      (E :: Γr.drop 2)).length = nP + 2 + nF := by
     simp [liftDoms_length, hlenFds, hlenR]; omega
   have hΓ2drop : ∀ j, j ≤ nF →
-      (((((liftDoms 2 0 (ds.drop nP)).map (·.2.2)).reverse) ++ (.sort 0 :: Γr.drop 2)).drop
+      (((((liftDoms 2 0 (ds.drop nP)).map (·.2.2)).reverse) ++ (E :: Γr.drop 2)).drop
           (nF - j))
-        = (((liftDoms 2 0 ((ds.drop nP).take j)).map (·.2.2)).reverse) ++ (.sort 0 :: Γr.drop 2) := by
+        = (((liftDoms 2 0 ((ds.drop nP).take j)).map (·.2.2)).reverse) ++ (E :: Γr.drop 2) := by
     intro j hj
     rw [List.drop_append_of_le_length
         (by rw [List.length_reverse, List.length_map, liftDoms_length, hlenFds]; exact Nat.sub_le _ _),
@@ -247,14 +236,14 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
   -- the base frame's satisfaction, from any composite frame's
   have hbaseSat : ∀ (j : Nat) (ρ' : Nat → V), j ≤ nF →
       Sat2 V ((((liftDoms 2 0 ((ds.drop nP).take j)).map (·.2.2)).reverse) ++
-        (.sort 0 :: Γr.drop 2)) ρ' →
+        (E :: Γr.drop 2)) ρ' →
       Sat2 V (((ds.take nP).map (·.2.2)).reverse) (fun i => ρ' (i + j + 2)) ∧
       SpineFit (fun i => ρ' (i + j + 2)) (((ds.drop nP).map (·.2.2)).take j)
         ((List.range j).reverse.map ρ') := by
     intro j ρ' hj hs
     have hlenLj : ((((liftDoms 2 0 ((ds.drop nP).take j)).map (·.2.2)))).length = j := by
       simp [liftDoms_length]; omega
-    have hsp := spineFit_of_sat2 (Δ₀ := .sort 0 :: Γr.drop 2)
+    have hsp := spineFit_of_sat2 (Δ₀ := E :: Γr.drop 2)
       (Ds := ((liftDoms 2 0 ((ds.drop nP).take j)).map (·.2.2))) hs
     rw [hlenLj] at hsp
     have hsp' := (spineFit_liftDoms 2).mp hsp
@@ -331,7 +320,7 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
   have hleafCtx : ∀ l : Nat × Name × Expr,
       (Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsR.take (nP + 1) ∨ Expr.fvar l.1 l.2.1 l.2.2 ∈ xFvs) →
       (Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsR.take (nP + 2) ∨ Expr.fvar l.1 l.2.1 l.2.2 ∈ xFvs) ∧
-      (l.1 = nP + 1 → (AVExpr.sort 0) = Γr.getD 1 default) := by
+      (l.1 = nP + 1 → E = Γr.getD 1 default) := by
     intro l hl
     refine ⟨?_, fun h => absurd h (hnotMinor l hl)⟩
     rcases hl with h | h
@@ -353,10 +342,10 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
   -- identified at every composite frame whose earlier fields are
   -- already identified
   have hagree : ∀ j, j < nF →
-      (∀ ρ' : Nat → V, Sat2 V (compCtx Γm Γr nF (.sort 0) j) ρ' ↔
+      (∀ ρ' : Nat → V, Sat2 V (compCtx Γm Γr nF E j) ρ' ↔
         Sat2 V ((((liftDoms 2 0 ((ds.drop nP).take j)).map (·.2.2)).reverse) ++
-          (.sort 0 :: Γr.drop 2)) ρ') →
-      ∀ ρ' : Nat → V, Sat2 V (compCtx Γm Γr nF (.sort 0) j) ρ' →
+          (E :: Γr.drop 2)) ρ') →
+      ∀ ρ' : Nat → V, Sat2 V (compCtx Γm Γr nF E j) ρ' →
         interp2 V ρ' (Γm.getD (nF - 1 - j) default)
           = interp2 V ρ' (((((ds.drop nP).map (fun d : Nat × Nat × AVExpr => d.2.2))).getD j default).liftN 2 j) := by
     intro j hj hiff ρ' hρ'
@@ -364,7 +353,7 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
     -- the opened domain's side
     obtain ⟨-, hwa, hba, hLa, hleafa⟩ := comp.varX j a ha
     have hda := comp.domsX j a ha
-    have hCa := comp.ctx (.sort 0) (Nat.le_of_lt hj) hwa (fun l hl => hleafCtx l (hleafa l hl))
+    have hCa := comp.ctx E (Nat.le_of_lt hj) hwa (fun l hl => hleafCtx l (hleafa l hl))
     -- the constructor domain's side
     have hwb : Expr.WScoped (nP + 2 + j) b :=
       instPisAt_index_WScoped xFvs (d := nP + 2) hcf (Expr.WScoped.mono (by omega) hwres)
@@ -380,15 +369,15 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
       · obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
         exact hleafX q x hq l hlx
     have hLb : Expr.LeavesBounded b := fun l hl => (hleafb l hl).2
-    have hCb := comp.ctx (.sort 0) (Nat.le_of_lt hj) hwb (fun l hl => hleafCtx l (hleafb l hl).1)
+    have hCb := comp.ctx E (Nat.le_of_lt hj) hwb (fun l hl => hleafCtx l (hleafb l hl).1)
     have hdb : denoteP m.acval env φ (nP + 2 + j) b
         = some (((((ds.drop nP).map (fun d : Nat × Nat × AVExpr => d.2.2))).getD j default).liftN 2 j) := by
       have := hdomsF j hj
       rw [List.getD_eq_getElem?_getD (l := cdomsF), hb, Option.getD_some, hentL j hj] at this
       exact this
     -- the gradings
-    have hoka := comp.okΓm (.sort 0) j hj
-    have hokb : ∀ ρ'' : Nat → V, Sat2 V (compCtx Γm Γr nF (.sort 0) j) ρ'' →
+    have hoka := comp.okΓm E j hj
+    have hokb : ∀ ρ'' : Nat → V, Sat2 V (compCtx Γm Γr nF E j) ρ'' →
         AnnotOkP V ρ'' (((((ds.drop nP).map (fun d : Nat × Nat × AVExpr => d.2.2))).getD j default).liftN 2 j) := by
       intro ρ'' hρ''
       obtain ⟨hsatΓ₂, hspF⟩ := hbaseSat j ρ'' (Nat.le_of_lt hj) ((hiff ρ'').mp hρ'')
@@ -416,15 +405,15 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
   have hequiv := frameIdent (V := V) hΓ1len hΓ2len (fun i hi hiff ρ' hρ' => by
     rcases Nat.lt_or_ge i (nP + 2) with hlt | hge
     · -- a base entry: the same on both sides
-      have e1 : (compCtx Γm Γr nF (.sort 0) nF).getD (nP + 2 + nF - 1 - i) default
-          = (AVExpr.sort 0 :: Γr.drop 2).getD (nP + 1 - i) default := by
+      have e1 : (compCtx Γm Γr nF E nF).getD (nP + 2 + nF - 1 - i) default
+          = (E :: Γr.drop 2).getD (nP + 1 - i) default := by
         simp only [compCtx, Nat.sub_self, List.drop_zero]
         rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by rw [comp.lenM]; omega),
           comp.lenM, show nP + 2 + nF - 1 - i - nF = nP + 1 - i from by omega,
           ← List.getD_eq_getElem?_getD]
       have e2 : ((((liftDoms 2 0 (ds.drop nP)).map (·.2.2)).reverse) ++
-            (.sort 0 :: Γr.drop 2)).getD (nP + 2 + nF - 1 - i) default
-          = (AVExpr.sort 0 :: Γr.drop 2).getD (nP + 1 - i) default := by
+            (E :: Γr.drop 2)).getD (nP + 2 + nF - 1 - i) default
+          = (E :: Γr.drop 2).getD (nP + 1 - i) default := by
         rw [List.getD_eq_getElem?_getD,
           List.getElem?_append_right (by simp [liftDoms_length, hlenFds]; omega)]
         simp only [List.length_reverse, List.length_map, liftDoms_length, hlenFds]
@@ -434,25 +423,25 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
     · -- a field entry: the pin
       obtain ⟨j, rfl⟩ : ∃ j, i = nP + 2 + j := ⟨i - (nP + 2), by omega⟩
       have hj : j < nF := by omega
-      have hdropΓ1 : (compCtx Γm Γr nF (.sort 0) nF).drop (nP + 2 + nF - (nP + 2 + j))
-          = compCtx Γm Γr nF (.sort 0) j := by
+      have hdropΓ1 : (compCtx Γm Γr nF E nF).drop (nP + 2 + nF - (nP + 2 + j))
+          = compCtx Γm Γr nF E j := by
         rw [show nP + 2 + nF - (nP + 2 + j) = nF - j from by omega]
         exact compCtx_drop_fields comp.lenM (Nat.le_of_lt hj) (Nat.le_refl _)
       have hdropΓ2 : ((((liftDoms 2 0 (ds.drop nP)).map (·.2.2)).reverse) ++
-            (.sort 0 :: Γr.drop 2)).drop (nP + 2 + nF - (nP + 2 + j))
+            (E :: Γr.drop 2)).drop (nP + 2 + nF - (nP + 2 + j))
           = (((liftDoms 2 0 ((ds.drop nP).take j)).map (·.2.2)).reverse) ++
-            (.sort 0 :: Γr.drop 2) := by
+            (E :: Γr.drop 2) := by
         rw [show nP + 2 + nF - (nP + 2 + j) = nF - j from by omega]
         exact hΓ2drop j (Nat.le_of_lt hj)
       rw [hdropΓ1] at hρ'
       rw [hdropΓ1, hdropΓ2] at hiff
-      have e1 : (compCtx Γm Γr nF (.sort 0) nF).getD (nP + 2 + nF - 1 - (nP + 2 + j)) default
+      have e1 : (compCtx Γm Γr nF E nF).getD (nP + 2 + nF - 1 - (nP + 2 + j)) default
           = Γm.getD (nF - 1 - j) default := by
         rw [List.getD_eq_getElem?_getD, show nP + 2 + nF - 1 - (nP + 2 + j) = nF - 1 - j from by omega,
           compCtx_getElem?_field comp.lenM (Nat.le_refl _) hj]
         rfl
       have e2 : ((((liftDoms 2 0 (ds.drop nP)).map (·.2.2)).reverse) ++
-            (.sort 0 :: Γr.drop 2)).getD (nP + 2 + nF - 1 - (nP + 2 + j)) default
+            (E :: Γr.drop 2)).getD (nP + 2 + nF - 1 - (nP + 2 + j)) default
           = ((((ds.drop nP).map (fun d : Nat × Nat × AVExpr => d.2.2))).getD j default).liftN 2 j := by
         rw [List.getD_eq_getElem?_getD, show nP + 2 + nF - 1 - (nP + 2 + j) = nF - 1 - j from by omega,
           List.getElem?_append_left (by simp [liftDoms_length, hlenFds]; omega),
@@ -460,14 +449,68 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
       rw [e1, e2]
       exact hagree j hj hiff ρ' hρ')
   have hequiv' : ∀ j, j ≤ nF → ∀ ρ' : Nat → V,
-      Sat2 V (compCtx Γm Γr nF (.sort 0) j) ρ' ↔
+      Sat2 V (compCtx Γm Γr nF E j) ρ' ↔
         Sat2 V ((((liftDoms 2 0 ((ds.drop nP).take j)).map (·.2.2)).reverse) ++
-          (.sort 0 :: Γr.drop 2)) ρ' := by
+          (E :: Γr.drop 2)) ρ' := by
     intro j hj ρ'
     have := hequiv (nP + 2 + j) (by omega) ρ'
     rw [show nP + 2 + nF - (nP + 2 + j) = nF - j from by omega,
       compCtx_drop_fields comp.lenM hj (Nat.le_refl _), hΓ2drop j hj] at this
     exact this
+  exact ⟨hequiv', fun j hj ρ' h => hagree j hj (hequiv' j (Nat.le_of_lt hj)) ρ' h⟩
+
+set_option maxHeartbeats 6400000 in
+/-- **The minor binder's reading is the minor space.** -/
+theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
+    {nP nF : Nat} {tyR : Expr} {fvsR : List Expr} {oR : Expr} {Γr : List AVExpr} {Rr : AVExpr}
+    (hR : OpenedP m φ (nP + 3) tyR fvsR oR Γr Rr)
+    (hidxR : ∀ (i : Nat) (x : Expr), fvsR[i]? = some x → ∃ nm ty, x = Expr.fvar i nm ty)
+    (hlenF : fvsR.length = nP + 3)
+    {nmM : Name} {tyM : Expr}
+    {nmm : Name} {tym : Expr} (hmin : fvsR[nP + 1]? = some (.fvar (nP + 1) nmm tym))
+    {xFvs : List Expr} {minBody : Expr} {Γm : List AVExpr} {Rm : AVExpr}
+    (comp : CompOpenedP m φ nP nF fvsR xFvs minBody Γr Γm Rm)
+    {ℓ : Nat} (hPiBits : PiBitsOpen φ (ℓ = 0) nF (nP + 2) tym)
+    {ds : List (Nat × Nat × AVExpr)} {bodyC : AVExpr} (hlenDs : ds.length = nP + nF)
+    (hCok : ∀ ρ : Nat → V, AnnotOkP V ρ (mkPisAV ds bodyC))
+    {C : Name} {lps : List Name} {cvCa : ConstantVal}
+    (hfC : env.find? C = some (.ctorInfo cvCa nP nF)) (hlpsC : cvCa.levelParams = lps)
+    {w : Nat} (hleafC : m.acval C φ = directMkAV w ds ((ds.drop nP).map (·.2.2)))
+    {crest : Expr} (hres : denoteP m.acval env φ nP crest = some (mkPisAV (ds.drop nP) bodyC))
+    (hwres : Expr.WScoped nP crest) (hbres : crest.looseBVarsBounded 0 = true)
+    (hleafres : ∀ l ∈ crest.fvarLeaves,
+      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsR.take nP ∧ l.2.2.looseBVarsBounded 0 = true)
+    {cdomsF : List Expr} {crest2 : Expr}
+    (hcf : Expr.instPisAt xFvs crest = some (cdomsF, crest2))
+    (hpinsF : ∀ i, i < nF → ∃ a b, xFvs[i]? = some a ∧ cdomsF[i]? = some b ∧
+      Setlec.isDefEqCore μ env F (nP + 2 + i) (Expr.fvarTypeD a) b = .ok true)
+    (hminBody : minBody = .app (.fvar nP nmM tyM)
+      (Expr.mkAppN (.const C (lps.map .param)) (fvsR.take nP ++ xFvs)))
+    (hiffP : ∀ ρ : Nat → V, Sat2 V (Γr.drop 3) ρ ↔
+      Sat2 V (((ds.take nP).map (·.2.2)).reverse) ρ)
+    (hfieldsB : ∀ ρ : Nat → V, Sat2 V (((ds.take nP).map (·.2.2)).reverse) ρ →
+      FieldsOkB w ρ ((ds.drop nP).map (·.2.2))) :
+    ∀ ρp : Nat → V, Sat2 V (Γr.drop 3) ρp →
+      ∀ M : V, M ∈ˢ interp2 V ρp (Γr.getD 2 default) →
+        interp2 V (cons M ρp) (Γr.getD 1 default)
+          = minorSp ℓ w M ((ds.drop nP).map (·.2.2)) ρp [] := by
+  intro ρp hρp M hM
+  have hlenR : Γr.length = nP + 3 := hR.len
+  have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
+  have hlenFds : (ds.drop nP).length = nF := by simp [hlenDs]
+  have hΓ₂len : ((((ds.take nP).map (·.2.2)).reverse)).length = nP := by simp [hlenDs]
+  have hsatC := (hiffP ρp).mp hρp
+  have hdrop2 : Γr.drop 2 = Γr.getD 2 default :: Γr.drop 3 := by
+    have h := drop_succ_eq_getD_cons hlenR (i := nP) (by omega)
+    rwa [show nP + 3 - (nP + 1) = 2 from by omega, show nP + 3 - 1 - nP = 2 from by omega,
+      show nP + 3 - nP = 3 from by omega] at h
+  have hsat0 : Sat2 V (.sort 0 :: Γr.drop 2) (cons unitSet (cons M ρp)) := by
+    rw [hdrop2]
+    exact Sat2_cons V (Sat2_cons V hρp hM) (unitSet_mem_univ 0)
+  have hidxX : ∀ (q : Nat) (x : Expr), xFvs[q]? = some x →
+      ∃ nm t, x = Expr.fvar (nP + 2 + q) nm t := fun q x hx => (comp.varX q x hx).1
+  obtain ⟨hequiv', hagree'⟩ := minorFieldsIdent hc hR hidxR hlenF comp hlenDs hCok hres hwres
+    hbres hleafres hcf hpinsF hiffP (.sort 0)
   -- the minor type's peel and its bits
   obtain ⟨gds, hst, hΓm⟩ := stripPisAV_of_piTeleP comp.tele
   obtain ⟨hTeq, hlenG⟩ := stripPisAV_eq_mkPis hst
@@ -501,7 +544,7 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
       rw [spineFit_liftDoms, shiftE_cons_cons, List.map_take]
       exact hsp
     have hsatComp := (hequiv' j (Nat.le_of_lt hj) _).mpr hsatL
-    have hag := hagree j hj (hequiv' j (Nat.le_of_lt hj)) _ hsatComp
+    have hag := hagree' j hj _ hsatComp
     have hent : (gds.getD j default).2.2 = Γm.getD (nF - 1 - j) default := by
       obtain ⟨q, hq⟩ : ∃ q, gds[j]? = some q :=
         ⟨_, List.getElem?_eq_getElem (by rw [hlenG]; exact hj)⟩
