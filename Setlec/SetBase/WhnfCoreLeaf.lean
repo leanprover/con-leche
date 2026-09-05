@@ -17,6 +17,15 @@ census would rather see them in `Setlec/Verify/*`, which is where
 proofs about kernel functions belong; that is a rename, not a move, so
 it is not this batch's business — the base directory is the boundary
 that matters.)
+
+**KEPT at the SetR removal's Stage C** (2026-09-05), which deleted the
+relation family and the whole derivation bridge above it.  This module
+carries the `Setlec.SetR` namespace and an `…R` name prefix, and it is
+neither: six `rfl` facts about the *kernel's* `whnfCore`, with a live
+consumer in the graded lane (`SetP/Step2/WhnfP.lean`).  It is the
+clearest case in the tree of the rule the batch ran on — *classify a
+module by what its statements mention, not by the namespace it sits
+in.*  The `…R` in the names is now historical spelling only.
 -/
 
 namespace Setlec.SetR

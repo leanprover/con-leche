@@ -41832,3 +41832,600 @@ Verdict summaries identical to the pre-flip runs (61048 in both modes).
 The drop is the fallback's absence plus the direct install's tower
 entries typing every `.proj` node by the stored telescope (no rewrite,
 no re-annotation).
+
+## THE SetR TIER, REMOVED — STAGE B: THE R CORE (2026-09-05,
+`agent/setr-removal`, off the W4c+W5 flip at `3ce7622b`)
+
+### 0. WHAT LANDED, AND THE ONE THING THAT DID NOT
+
+The checker has **two cores**: the verified graded one (`--set-model`,
+spelled `--set-model=p` too) and the unverified parity one
+(`--no-model`).  The R core — every certificate unconditional — is
+gone: `cfgR`, the four `…RC` bodies, its simulation letter and the
+`cfgR_*` identity table, fifteen declarations in all, and the flag
+that selected it is a hard error.
+
+**What did not land, and it is the batch's finding: the `CheckMode`
+constructor `.setModel` cannot be deleted yet.**  It is `Setlec.modeR`,
+and `modeR` is the mode the **shared declaration bridge**
+(`SetBase/Bridge/{Main,Decl,DeclInd}`) is stated at — `checkBridge` is
+premised on `mode.betaGate = false`, which `.setModelP` does not
+satisfy, so the tier cannot be re-pointed; it can only be deleted.
+Whether it should be is §4, and it is a coordinator/user question, not
+this batch's.
+
+| | before (`3ce7622b`) | after |
+|---|---|---|
+| verified cores selectable from the CLI | 2 (`=r`, `=p`) | **1** (`--set-model` = `=p`) |
+| named concrete cores | 8 (`…RC` ×4, `…PC` ×4) | **4** (`…PC`) |
+| `CoreCfg` configs | 3 (`cfgR`, `cfgP`, `cfgNC`) | **2** (`cfgP`, `cfgNC`) |
+| `tests/arena.sh` mode flags | 11/11 | **14/14** |
+| `scripts/perf-tables.sh` columns | official·parity·R·P | **official·parity·P** |
+
+### 1. THE FLAG SURFACE — THE SIMPLEST HONEST ONE
+
+The charter asked for the simplest surface and for a report on whether
+`--set-model=p` should be kept or retired.  As landed:
+
+* **`--set-model`** — the default, and now the **graded** core.  The
+  spelling did not change meaning by accident: it changed because the
+  thing it named was deleted, and the surviving verified core is the
+  one the shipped letter (`no_proof_of_Empty_SPCD_P`) is about.
+* **`--set-model=p`** — **kept**, as the explicit spelling of the same
+  selection.  Retiring it would break every measurement script and
+  every recorded cell in this file for no gain, and it is not an
+  alias onto a *different* core — it is the same one, named.
+* **`--set-model=r`** — a **hard error** (exit 3) naming what replaced
+  it, per the retired-spelling discipline (task #172): *a verdict's
+  provenance must be readable off the invocation.*  Aliasing it onto
+  the graded core would have been the one genuinely unsafe choice —
+  a script that asked for unconditional certificates would silently
+  get licensed skips.
+
+`Main.childArgs`' `.setModel` arm is dead (no flag produces the mode)
+and deliberately re-emits `--set-model=r`, so that if it ever became
+reachable the supervised child would fail loudly instead of quietly
+running a different core.
+
+### 2. `annotate-basis` MOVED, AND THE MOVE IS RECEIPTED
+
+`AnnotateBasis.lean` was the last **implementation-tier** reader of
+`.setModel`: six `annotateCore .setModel` calls generating the basis
+annotations.  Leaving it there would have made the generator run a
+configuration no shipped checker runs — so it moved to `.setModelP`,
+and the move was checked rather than argued:
+
+> `annotate-basis` at `.setModel` and at `.setModelP` produce
+> **byte-identical output** (1 415 lines, `diff -q` clean;
+> `_tmp/setr-b/annot-basis-{setModel,setModelP}.txt`).
+
+That is the expected result — `annotateBodyI` reads only
+`cfg.verified`, `true` at both — but "expected" is not a receipt, and
+a generator whose output is committed to the tree does not get changed
+on an argument.  **After this, no implementation-tier declaration
+reads `.setModel`.**
+
+### 3. THE BATTERY, AND WHAT MOVED IN IT
+
+Green, on the branch tip with master merged: build warning-free,
+`lake test` silent, `tests/arena.sh` **0 FAIL** — arena tutorial
+**90/92**, e2e **73/73**, annot **14/14**, retired flags **8/8**,
+no-model sweep **138 + 73 + 14 as expected (3 recorded divergences)**,
+proofdeps **88 rows as pinned, doors 0**, layering
+`base 250 / P 163 / caps 2 / umbrella 1; 0 base->lane, 0 impl->theory`.
+
+init-full (`init-full-pre2.ndjson`, `ulimit -v 16G`, `timeout 1800`):
+**61 048 declarations accepted** under `--set-model=p`, under
+`--set-model` and under `--no-model` alike — the same count as the W5
+merged-tip baselines, byte-for-byte on the output line.
+`--set-model=r` exits **3** with the retirement message.
+
+Two expectation changes:
+
+1. **`tests/arena.sh` mode flags 11/11 → 14/14.**  The `--set-model=r`
+   accept case becomes two hard-error cases (good stream and bad — a
+   retired flag must error *before* the verdict, not instead of it),
+   and `--set-model=p` and the bare default gain reject cases they
+   never had.  Net +3.
+2. **`tests/SetlecTests.lean`.**  The two SHIPPED-driver guards move to
+   `.setModelP` (they pin `checkDeclsSPCachedD`, which is what runs);
+   the reference-semantics guards stay at `.setModel` **deliberately**,
+   because that is the ungated verified mode the bridge tier is stated
+   at, and moving them would have silently changed what they pin (the
+   "ungated knot is stuck at both data" guards would flip at
+   `.setModelP` — the gate is the point). Three accessor rows added at
+   `.setModelP`, and `#guard Setlec.modeR == CheckMode.setModel` pins
+   the identity the next batch will have to break.
+
+### 4. THE FINDING — THE R **BRIDGE** IS DEAD WEIGHT, AND DELETING IT
+### RETIRES THE CAMPAIGN'S OWN INSTRUMENT
+
+Measured with a proof-term probe (`_tmp/setr-b/Probe.lean`, the
+`tests/ProofDeps.lean` walk at four roots):
+
+| target | `SPCD_P` | `P` | `checkDeclRun_ofEnvRE` | `declIndRunRR` |
+|---|---|---|---|---|
+| `modeR` | absent | absent | absent | absent |
+| `cfgR` | absent | absent | absent | absent |
+| `checkBridge` | absent | absent | absent | absent |
+| `declDefnR` | absent | absent | absent | absent |
+| `declIndRR` | absent | absent | absent | absent |
+| `checkDeclR_ofEnvRE` | absent | absent | absent | absent |
+| `checkDeclRun_ofEnvRE` | PRESENT | PRESENT | — | absent |
+| `checkDeclRun_of` | PRESENT | PRESENT | PRESENT | absent |
+| `declIndRunRR` | PRESENT | PRESENT | PRESENT | — |
+
+So the **derivation** bridge — `checkBridge`, the six `decl*R` kind
+bridges, `checkDeclR_ofEnvR(E)`, the whole `modeR`-instantiated tier —
+is off the shipped path entirely; what the graded fold calls is the
+**run** bridge, which is generic in `μ`.  S11a's design (*"the run
+route builds no derivation"*) is what makes the R tier droppable, and
+it is confirmed here at the proof-term criterion, not the import one.
+
+**And that is exactly why it is not this batch's deletion.**  Four of
+`tests/proofdeps.sh`'s ten targets are declarations in that tier
+(`checkDeclR_ofEnvRE`, `DeclR`, `DeclIndR`, `declIndRR`), and the other
+six are the relation tier those bridges build (`Red`, `Infer`, `DefEq`
+and their constructors).  Deleting the tier does not tighten the gate;
+it **empties** it — the campaign's question ("does the graded proof's
+proof term mention the collapsed model?") becomes true because there
+is nothing left to mention.  The trade is real in both directions:
+
+* *for deleting*: several thousand lines of `SetBase/Bridge/*` and
+  `SetBase/{Rel,Weaken,CtxOkR,Decl}` that nothing shipped depends on,
+  plus the `.setModel` constructor, plus B3c's last four carriers;
+* *against*: the tree loses its only mechanized statement of the
+  separation property, and `.setModel` is currently the only ungated
+  verified mode — the `betaGate_off_or_verified` partition would
+  become one-sided in fact as well as in reading.
+
+**Flagged, not taken**, per the escalation rule.  It is a coherent
+Stage C with a coordinator ruling attached: *what should the proofdeps
+gate measure once there is one lane?*
+
+### 5. WHAT `modeR` MEANS NOW
+
+`Setlec.modeR` survives with its name and a rewritten docstring: it is
+no longer "the R core at the pure tier" but **the concrete verified,
+ungated mode the shared declaration bridge is stated at**.  The rename
+was not done, on purpose — `modeR` occurs ~200 times in three
+`SetBase/Bridge` modules whose statements are frozen, and renaming a
+constant to describe a residue we may delete outright next batch is
+churn that would have to be undone.  The docstring carries the
+correction; §4 carries the decision.
+
+Ledger row:
+
+> *A name can outlive the thing it was named for, and the honest
+> repair is the docstring, not the identifier* — when the identifier's
+> whole future is a pending deletion.  Renaming would have made three
+> frozen modules noisy for one batch's readability.
+
+### 6. RECEIPTS
+
+* `lake build` warning-free; `lake test` exit 0;
+* `tests/arena.sh` exit 0, every line as in §3;
+* init-full 61 048 accepted at `--set-model=p`, `--set-model`,
+  `--no-model` (`_tmp/setr-b/initfull-{p,default,nm}.out`);
+  `--set-model=r` exit 3;
+* `annotate-basis` output byte-identical across the mode move;
+* axiom audit: `no_proof_of_Empty_SPCD_P`,
+  `checkDeclsSPCachedD_sound_P`, `foldSPC_PM`,
+  `no_proof_of_Empty_P`, `no_proof_of_Empty_P_of` all at exactly
+  `[propext, Classical.choice, Quot.sound]`;
+* no `sorry`, no new axiom, no statement left conditional.
+
+### 7. NOT TOUCHED (concurrency)
+
+`agent/wiring-w6` holds the `PSigma'` pin retirement in the SetP pin
+modules and the pair-entry kernel install path; nothing in this batch
+reaches them, and no deletion here needed a change there.
+
+## THE SetR TIER, REMOVED — STAGE C: THE RELATION FAMILY, THE MODE
+ENUM, AND A REDEFINED GATE (2026-09-05, `agent/setr-stage-c`)
+
+### 0. WHAT LANDED
+
+The last of the collapsed model is gone, and with it the last thing
+that made `CheckMode` a three-valued flag:
+
+| | before (`9f44b2c8`) | after |
+|---|---|---|
+| `CheckMode` constructors | 3 (`setModel`=R, `setModelP`, `noModel`) | **2** (`setModel` = the graded lane, `noModel`) |
+| `Setlec/SetBase/*` modules | 52 | **29** |
+| tree modules (layering census) | base 250 / P 163 | **base 228 / P 163** |
+| proofdeps | 88 target rows, 10 R targets | **1 365 module rows, 4 capstones, doors 0** |
+| deleted this stage | — | **~15 400 lines** |
+
+Two commits: the tier (C1) and the enum + gate (C2/C3).
+
+### 1. C1 — THE DERIVATION BRIDGE, AND WHY IT WAS A SPLIT
+
+24 whole modules — `SetBase/Bridge/{Main, Claims, WhnfCore, Infer,
+InferStruct, DefEq, DefEqClosed, Spine, Irrel, Stuck, StuckIrrel, Eta,
+EtaCerts, Certs, StrLitR, Proj, Major, Iota, ReduceNat, DeclInd}` and
+`SetBase/{Rel, Weaken, CtxOkR}` — plus the derivation halves of nine
+mixed ones.  The licence was the Stage B probe, re-run at four roots:
+`modeR`, `cfgR`, `checkBridge`, `declDefnR`, `declIndRR` and
+`checkDeclR_ofEnvRE` are absent from both capstones' closures **and**
+from `checkDeclRun_ofEnvRE`/`declIndRunRR`, the run route the graded
+fold actually calls.  S11a's design claim — *the run route builds no
+derivation* — is what made the tier droppable, and this is that claim
+cashed.
+
+**It was a split-and-delete, not a `git rm`**, for the interned
+batch's reason: the representation-free residue lived *inside* the
+delete set.
+
+* **`SetBase/SpineV.lean` is new.**  `projSpinesV`, `etaFabArgsV` and
+  `piResidualV` were written inside `Rel.lean` because the rules that
+  needed them were there; five live consumers reach them
+  (`SetP/Annot/EnvS2P`, `SetP/IndEtaLawP`, `SetP/Step2/Proj{Pins,Rows}P`,
+  `SetBase/ProjPins`).  Extracted verbatim, namespace unchanged, so no
+  consumer needed a rename — only an import line.
+* **`SetBase/WhnfCoreLeaf.lean` was deleted and put back.**  It sits
+  in `Setlec/SetBase`, carries the `Setlec.SetR` namespace and names
+  its lemmas `whnfCoreR_*`, and is none of those things: six `rfl`
+  facts about the **kernel's** `whnfCore`, with a live `SetP/Step2/WhnfP`
+  consumer.  It is the clearest instance in the tree of the rule the
+  batch ran on.
+* `SetBase/Decl.lean` 1 092 → 203 (the run records).  `DeclIndR` is
+  deleted but `DeclIndR.TemplatesR` survives it — the template pass
+  never took a valuation and never built a derivation, so it was
+  always a run record wearing a `where` clause.  It keeps its
+  qualified name in a `namespace DeclIndR` block, because five
+  consumers spell it that way and a rename would have edited four
+  modules to say the same thing.
+* `SetBase/Bridge/Decl.lean` 2 755 → 172 (four checker-to-run
+  inversions); `Bridge/Sound.lean` keeps `checkDeclRun_ofEnvRE` alone;
+  `Bridge/ProjRed.lean` 547 → 48 (two `stripPis` lemmas, pure `Expr`).
+* `DeclRun`/`DeclIndRun` lose the `*.toRun` projections.  They were
+  the compatibility shim across S11a's transition — *"one source of
+  truth: the R lane keeps proving `DeclR`, and these discard the
+  derivation halves"* — and they now have nothing to project **from**.
+
+**The method that made this tractable**: delete the modules first and
+let the *compiler* enumerate the residue.  What survives a tree without
+`Rel.lean` is, by construction, relation-free — a criterion no census
+can get wrong.  Seven build rounds, each naming exactly the next
+declaration to go.
+
+### 2. THE ONE CONSUMER OUTSIDE THE DELETE SET
+
+A dry run over every module mentioning the derivation records
+(`TypedListW`, `DefEqListW`, `OpenCtxR`, …) found **278 lines in three
+files**, of which exactly one was outside `SetBase`:
+`SetP/IotaRuleNestedP.lean`'s `typedListW_denote_getD`, a 21-line dead
+lemma about the deleted `TypedListW`.  Noted for the concurrent ι
+batch; nothing else in `SetP` moved.
+
+That number is the finding.  The tier looked entangled with the graded
+lane — ten `SetP` modules *mention* those records — and the entanglement
+was entirely in prose and in one dead lemma.  **A grep over names finds
+docstrings; only a parse that strips comments finds uses.**  The first
+run of the pruning tool dropped `DeclIndRunR` — the record the shipped
+capstone depends on — because its *docstring* mentions `IndMembersR`.
+
+### 3. C2 — THE MODE ENUM COLLAPSES TO TWO
+
+`CheckMode` is `| setModel | noModel`, where `setModel` **is** the old
+`setModelP`: the graded lane took the retired lane's name, because
+there is one verified mode and `--set-model=r` is a hard error rather
+than an alias.  `modeR` is deleted with its subject; `betaGate` is now
+`| .setModel => true | _ => false`, and the two accessors `betaGate`
+and `verified` separate the same two modes — which is what "two cores"
+means at the mode level.
+
+**The coverage certificates are deleted, not made one-sided**, per the
+user's ruling that *coverage certificates were the pathology*.
+`CheckMode.verified_of_betaGate` and
+`CheckMode.betaGate_off_or_verified` partitioned the mode set between
+the R capstone family and the P one; with one verified mode the
+partition is true and empty.  What the asymmetry fence actually needs
+is stated where it is consumed — `AnnotOkP_beta_gate`
+(`SetP/Step2/GateP.lean`), against the **datum**, not against the mode
+set.  `verified_isNever_of_betaGateFires` survives and now proves its
+own conjunct by `cases mode`.
+
+`AnnotateBasis` and `Main` follow the rename; `Main.childArgs`' dead R
+arm goes with the constructor, and the `Inhabited` default and
+`Args.mode` now agree **by construction** rather than by accident.
+
+### 4. C3 — WHAT THE PROOFDEPS GATE MEASURES NOW
+
+**What it measured.**  P-vs-R disjointness: eleven named R targets,
+each pinned `absent` from every capstone's constant closure — the
+separation campaign's deliverable, mechanized, 88 rows at Stage B.
+
+**Why it is vacuous.**  All eleven targets are deleted.  The rows are
+not weakened; they have no subject.  A gate whose targets do not exist
+either reports `MISSING-TARGET` or — if the names are quietly dropped —
+forty-four vacuous `absent`s, which is the worse failure: a green gate
+measuring the empty set.  *The separation is not weaker; there is no
+second lane to be separated from.*
+
+**What it measures now.**  A **frozen module-level dependency pin**:
+for each of the four surviving capstones (`SPCD_P`,
+`checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `P`), the exact set of
+`Setlec.*` modules its type and proof term reach at the constant level,
+sorted, frozen in `tests/proofdeps-expected.txt` (1 365 rows) and
+checked as a **diff**.  The ratchet keeps its shape and its
+vocabulary: a module that ENTERS a closure is a **door** — the
+regression class the gate was built for, a capstone silently acquiring
+a dependency on machinery it should not need — and a module that LEAVES
+is progress that must be regenerated and recorded in the batch that
+earned it.
+
+It is honestly a weaker claim: a pin is not a theorem, and "module X is
+on the path" is not "declaration Y is used".  It is also the strongest
+thing left to say about a tree with one lane, and the shape it pins is
+not trivial — `SPCD_P` reaches the whole `Cached` tier (351 modules)
+and `P`, the pure fueled checker, reaches none of it (314).  A change
+that made the pure capstone depend on the cached driver would show up
+as 37 new rows.
+
+### 5. RECEIPTS
+
+* `lake build` warning-free (435 jobs); `lake test` exit 0;
+* `tests/arena.sh` exit 0: arena tutorial **90/92**, e2e **73/73**,
+  annot **14/14**, retired flags **8/8**, mode flags **14/14**,
+  no-model sweep **138 + 73 + 14 as expected (3 recorded
+  divergences)**, proofdeps **1 365 rows as pinned, doors 0**,
+  layering `base 228 / P 163 / caps 2 / umbrella 1; 0 base->lane,
+  0 impl->theory`;
+* init-full (`ulimit -v 16G`, `timeout 1800`): **61 048 accepted**
+  under `--set-model` and under `--no-model` — the W5 baselines,
+  unmoved through a 15 400-line deletion and a mode-enum collapse;
+* `annotate-basis` output byte-identical across the rename;
+* axiom audit: `no_proof_of_Empty_SPCD_P`,
+  `checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `no_proof_of_Empty_P`,
+  `no_proof_of_Empty_P_of` all at exactly
+  `[propext, Classical.choice, Quot.sound]`;
+* no `sorry`, no new axiom, no statement left conditional.
+
+### 6. LEDGER
+
+> *A grep over names finds docstrings; only a parse that strips
+> comments finds uses.*  The pruning tool's first run deleted the
+> shipped capstone's own dependency because a docstring mentioned a
+> dying record.  Any automated deletion criterion has to read code, not
+> text — and the cheapest way to be sure is to delete the module and
+> let the compiler enumerate what breaks.
+
+> *When a gate's subject is deleted, the gate is not weakened — it is
+> vacuous, and that is worse.*  Retiring the rows and writing down what
+> replaced them is the only honest move; silently keeping eleven
+> `absent`s about names that no longer exist would have left a green
+> gate measuring nothing.
+
+> *A name can outlive its referent, but a mode value should not.*
+> Stage B kept `modeR` because deleting `CheckMode.setModel` needed the
+> bridge tier gone first; Stage C deleted the tier and the value in one
+> batch, and the graded lane took the name.  The intermediate state —
+> a mode no flag could produce — was correct for exactly one batch and
+> was never going to be a resting place.
+
+## THE ι BATCH, LANDED (2026-09-05, `agent/iota-batch`)
+
+The three granted items of the ι audit + second look (above: "THE ι
+AUDIT", §5 and §9.6), landed together with their proof adaptations on
+master `3ce7622b` (the direct-structure flip).  Sites: the spec
+`Kernel/Core.lean` (`iotaCerts`, `iotaIndexOk`, `iotaRec`), the cached
+twins `Cached/CoreC.lean` (`iotaCertsIAux`/`iotaCertsI`, `iotaIndexOkI`,
+`iotaRecI`) and the parity core `Cached/CoreNC.lean` (`iotaRecNC`, pins
+only); the P lane `SetP/Step2/IotaGateP.lean` (new) and
+`Step2/IotaRowsP.lean`; the Verify family (`InferLemmas`, `Fueled`,
+`PairM`, `Disc`, `Deep`, `Knot`) and the cached simulations
+(`Verify/Cached/DiscC1..3`).
+
+### 1. Item 1 — the ι-slot licence, as landed
+
+* **The kernel shape.**  `iotaCerts r env depth (lic : Bool)`: at
+  `lic = true` a `∀`-binder whose datum is `.never` is skipped — no
+  domain instantiation, no `inferIO`, no `defeq` — and the walk goes
+  on with the argument as if certified.  The cached
+  `iotaCertsIAux … lic` is the same with the accumulator discipline
+  (the licensed slot pushes the argument onto `acc` and never touches
+  the store).  **Scoping is the second look's (§9.1.4), binding**:
+  `iotaRec`'s two telescope runs pass `lic := mode.betaGate`; every
+  other caller — `structEtaProjCerts`, `structEtaCert`,
+  `structUnitCert`, `etaCert`'s slot, `majorToCtor`'s K and η
+  fabrications, and their cached twins — passes `false`.
+* **The mode read is `CheckMode.betaGate`, not `verified`.**  The
+  theorem is io-shaped (§9.1.1: `io_domain_transfer` verbatim), but
+  the *accessor* a certificate-skip may read is the β gate's:
+  `CheckMode.betaGate`'s docstring names it "the only place `.setModelP`
+  differs from `.setModel`" and the fence discipline ("wraps the test
+  only") rides on it.  Concretely this kept the R bridge
+  (`SetBase/Bridge/Iota.lean`'s `iota_stepR`, invoked at `modeR` where
+  `verified = true` but `betaGate = false`) provable with one
+  `rw [hg] at hcertR hcertC`; a `verified`-keyed licence would have
+  fired at `modeR`, where the relation tier has no slot to license
+  from.  With the SetR Stage B removal the two accessors coincide on
+  the surviving modes (`.setModelP`: both `true`; `.noModel`: both
+  `false`), so nothing observable hangs on the choice; it is recorded
+  because the P proof reads only `isNever` (`pwBit_ne_zero_of_isNever`)
+  and the capstone's hypothesis stays `μ.verified = true`, i.e. the
+  licence theorem is mode-free and the mode read is pure kernel policy.
+* **The P side** (`IotaGateP.lean`): `iota_slot_transfer` (=
+  `io_domain_transfer`, arguments renamed), `annotOkP_mkAppN_head`,
+  `annotOkP_app_congr_arg` / `annotOkP_mkAppN_snoc_congr` (exchange an
+  app's argument for an interpretation-equal graded one — how the
+  subject's grading, stated at the *original* major, supplies the slot
+  at the *rescued* major through `heqAll`), `certs_teleLicP` (the
+  licensed twin of `certs_telePA`: inputs `AnnotOkP (mkAppN fa vs)` and
+  `⟦fa⟧ ∈ ⟦Ta⟧`, the head-prefix's membership carried down the
+  telescope by `annotOkP_mkAppN_of_fitA` at `[aa]`; at a licensed slot
+  the membership is the transfer, at a certified slot it is the run's
+  — `certs_telePA`'s step verbatim), `iota_slot_fence`
+  (`io_squash_no_transfer`, roles renamed) and `iota_gate_exact`.  The
+  probe's `TeleFitMix` intermediate was not needed: the syntactic walk
+  produces `TeleFitPA` directly, because the *next* slot's telescope
+  grading (`hokBody'`) needs this slot's membership either way, so the
+  mixed walk cannot be separated from the licence.  `iotaStepP_of`
+  feeds `hok` (the subject's spine grading, major slot exchanged) and
+  `hokMj` (the rescued major's) plus `constTypeP_pkg`'s third conjunct
+  (`mem_typeP`), previously discarded.  `certs_telePA` stays, at
+  `lic = false`, for the rescue rows (`MajorP`, `CapsRowsP`).
+* **Verify.**  `iotaCerts_step_inv_gate` is the disjunction (gate fired
+  ∧ tail | run ∧ tail); `iotaCerts_step_inv` keeps its statement at
+  `lic = false` (all four consumers are rescue rows).  `iotaCerts_atF`,
+  `_fst`/`_snd`, `_disc`, `_shift` are parametric in `lic` with one
+  `by_cases` on the gate.  `iotaCertsP_infers` (IotaRowsP) is deleted:
+  a licensed slot runs no inference, and B4 had already made the reads
+  row independent of the certificate (its docstring is updated).
+* **Cached.**  `iotaCertsCAux_sim` gains the licensed arm (both sides
+  skip; the tail is the same recursive call).  `iotaRecC_sim` now takes
+  the ι mode `mi` separately from the knot's `mode`: the walks
+  (`DiscC4`) apply it at `cfg.iotaMode`, and before this batch the two
+  were identified by unification *unfolding `iotaRecI` down to the
+  statically-false `ttChecks` read* — with `mi.betaGate` in the body
+  that collapse is gone and the unifier timed out.  The split is the
+  honest statement anyway (the sim holds at any ι mode, both sides
+  reading the same `mi.betaGate`).
+
+### 2. Item 2 — the index block, as landed
+
+`iotaIndexOk r env depth mI rP cnP tyCtor margs idx` (twin
+`iotaIndexOkI`): `if mI = rP then pure true else match piResidual
+tyCtor margs with | some residual => defEqList … (residual.getAppArgs.
+drop cnP) idx | none => pure false`.  The `stripPisBody` + head-const
+test is gone at every `mI` (consumed by nothing, §9.3).  A finding
+worth its own line: writing the block inline as `let idxOk ← if … then
+… else match …` made the do-elaborator **duplicate the continuation
+into all three branches**, which is unprovable-shaped for the
+`bind_rel`/`SimC.bind` cascades; the helper restores one bind.
+`iotaRec_inv` loses the binders `cbinders cbody residual cr usr` and
+four conjuncts, gaining one (`iotaIndexOkP … = .ok true`);
+`iotaIndexOk_inv` (at `mI ≠ rP`) returns the residual and the
+comparison.  The P row discharges `IotaIndexPinP` at `mI = rP` by
+`⟨restC, [], rfl, Or.inl rfl, fun i hi => absurd hi (by omega)⟩` and
+otherwise runs the old decomposition inside the `by_cases` (the
+residual's frames moved with it).
+
+### 3. Item 3 — the pins, as landed
+
+Deleted from `iotaRec`, `iotaRecI` and the parity `iotaRecNC` (the
+parity lane's only change); `iotaRec_inv` drops `har1 har2`; the R
+cluster's two premise slots (`Red.iota` h10/h11, `wkRedIota`) dropped.
+The R-cluster edits (`Rel.lean`, `Weaken.lean`, `Bridge/Iota.lean`,
+`Bridge/Certs.lean`, `Bridge/EtaCerts.lean`) were made minimal and
+build-green on `3ce7622b`.  SetR Stage B (merged to master as
+`9f44b2c8`) turned out to remove the R *core*, flag and letters only —
+`SetBase/Rel.lean` and `SetBase/Bridge/*` survive as the P assembly's
+build dependency (§9.3 of the second look) — so these edits stand
+after the master merge (`819e5c6d`; the only conflict was this
+file's tail).  What they do: `Red.iota` and `wkRedIota` lose the two
+pin slots; `iota_stepR` rewrites the licence off (`rw [hg]`, the lane
+is at `betaGate = false`), destructures the new `iotaRec_inv`, and
+builds the index premises by the same `mI = rP` split as the P row;
+`certs_teleR` and the two `EtaCerts` spellings are at `lic = false`.
+
+### 4. Measurements (init-full-pre2, `--pre`, `ulimit -v 16G`, `perf stat -e instructions:u`, single runs, one session)
+
+Leave-one-out at the kernel (exe rebuilt from the batch with the item's
+cached-core code restored; proofs untouched — the variants are
+measurement copies, never committed):
+
+| binary | P (`--set-model=p`) | Δ vs next | item |
+|---|---|---|---|
+| C: batch with items 1–3 all restored (= master's ι code) | **1579.94 G** | — | (reproduces the master receipt 1579.71 G) |
+| B: C minus the pins | 1574.94 G | −5.00 G (−0.32 %) | 3 |
+| A: B minus the index block | 1570.06 G | −4.88 G (−0.31 %) | 2 |
+| the batch (A minus the licence) | **1265.20 G** | **−304.86 G (−19.3 %)** | 1 |
+| parity (`--no-model`), the batch | **1056.85 G** vs 1061.49 G | −4.64 G (−0.44 %) | 3 (parity has no certificates or index block) |
+
+Every run: exit 0, accepted 61 048.  Total P: **−314.7 G, −19.9 %**
+against master; the licence alone is 97 % of it.  The audit priced the
+licence at −8.66 % of a 2 754 G pre-flip instrumented baseline
+(≈ 238 G) and items 2+3 at ≈ 37 G; on the post-flip tree (task #175 W5,
+#176 pointer-first equality, #167 packing — every one of which cut the
+*other* costs) the certificates are a larger share and the residual
+walk a smaller one, and the arena-era `stripPis` allocation the audit
+priced is gone with the interned world.  The absolute licence saving
+(305 G) exceeds the audit's whole "both `iotaCerts` runs" cell (250 G)
+because the per-slot `inferIO` runs got relatively costlier as the
+rest got cheaper; the shape is as predicted (99.77 % of slots
+licensed).
+
+**Merged-tip receipts** (`819e5c6d` = the batch with master `9f44b2c8`
+merged; same harness, single runs): P **1265.25 G**, parity
+**1056.74 G**, exit 0 / accepted 61 048 in both — identical to the
+pre-merge numbers to 0.01 %.  Gates at the tip: `lake build`
+warning-free, `lake test`, `tests/layering.sh`, `tests/proofdeps.sh`
+(88 rows as pinned), `tests/arena.sh` 0 FAIL with the bad-test
+expectations unchanged; the capstone
+`no_proof_of_Empty_SPCD_P`, `certs_teleLicP` and `iota_slot_fence` depend
+on exactly `[propext, Classical.choice, Quot.sound]`.
+
+### 5. Item 4 (RHS stored as the peeled body) — skipped, estimate
+
+Not measured, by the cost rule.  Kernel side it is small (`ruleRhsAtM`
+stores the peeled body at the level-instantiated cache; the fire does
+one `instantiateRev` instead of `mkAppNM` + the `whnfAppI` β peel).
+The payoff bound from the census: 4.17 M fires × (`rP` + `nfields`)
+interned app nodes (≈ 20 M internings) plus the β gate's per-binder
+reads, and the certificates at the RHS's non-`.never` λ binders —
+likely 1–3 % of P, unmeasured.  The proof side is the blocker:
+`RecRuleLawP`'s conclusion `rec p⃗ M m⃗ i⃗ (ctor p⃗ x⃗) = rhs p⃗ x⃗` is
+stated at the λ-form reading `Ra` and *fed* by twenty-odd suppliers —
+`IotaRulePlainP`, `IotaRuleNestedP`, `RecRulesPCons`, the direct-rec
+law family (`DirectRecLaw*P`), `IndRecsP`/`IndFireP`/`IndBottom*P`, and
+the five basis blocks (`BasisEqP`, `BasisPSigmaP`, `BasisBlocksP`,
+`BasisQuotP`, `BasisEmptyP`) whose laws compute at literal λ-terms.
+Restating over the body form (`= body[x⃗/bvars]`, i.e. `instRevChain`
+of the body's reading) moves every one of those to the substituted
+reading and additionally has to absorb what the β steps of the reduct
+currently do at squash-regime binders (`AnnotOkP_beta_zero`'s
+membership comes from the β certificate, which the body form skips).
+More than a session by a wide margin; recorded, not attempted.
+
+### 6. Findings and conformance
+
+* The licence changes no verdict (arena 0 FAIL, bad-test expectations
+  unchanged, init-full 61 048 in both modes) and is a strict
+  accept-superset only in the sense every certificate-skip is: a slot
+  that would have *failed* certification at a `.never` binder is now
+  not tested — but such a slot cannot exist under a validated
+  annotation (the transfer theorem), so the set of accepted streams is
+  unchanged for annotated inputs.
+* Official/lean4lean run no telescope certificates at all
+  (`inductiveReduceRec`), so items 1–3 all move toward reference
+  conformance (F5 rows priced in the audit §6).
+* `iotaIndexOk` is the audit's (B)/(A) hybrid: the comparison stays
+  where indices exist because `IotaIndexPinP` is a law hypothesis
+  there; nothing was moved to install.
+
+### 7. Post-Stage-C receipts (the merge-grant conditions, 2026-09-05)
+
+Master moved to `621416c7` (SetR Stage C: `SetBase/Bridge/*`,
+`SetBase/{Rel,Weaken,CtxOkR}` and the derivation tier deleted;
+`CheckMode` collapsed to `{setModel, noModel}`).  Merged as `6b3646b5`:
+the batch's five R-cluster edits (§3) resolved **by deletion**, the
+only content conflict was this file's tail (both records kept).
+
+* **The licence's mode read survives the enum collapse unchanged.**
+  `CheckMode.betaGate` is `.setModel → true | _ → false` and
+  `CheckMode.verified` is `.noModel → false | _ → true` — the two
+  accessors now coincide on every constructor, so `iotaCerts … lic :=
+  mode.betaGate` keeps both its meaning ("a certificate-skip may read
+  the validated datum") and its value at the shipped modes.  Not
+  re-keyed on the constructor.
+* **`tests/proofdeps.sh`** (now the frozen per-capstone module pin):
+  ONE module entered all four capstone closures —
+  `Setlec.SetP.Step2.IotaGateP`, the licence module, which is on the ι
+  row's proof path by construction (`iotaStepP_of` → `certs_teleLicP`
+  → `iota_slot_transfer`/`io_domain_transfer`).  That is the batch's
+  own door, explained here; no module left.  The pin was regenerated
+  (`tests/proofdeps.sh --list`), 1365 → 1369 rows.
+* **Gates at `6b3646b5` (+ the pin)**: `lake build` warning-free (436
+  jobs), `lake test`, `tests/layering.sh` (base 228 / P 164 / caps 2;
+  0 base→lane, 0 impl→theory), `tests/proofdeps.sh` 1369 rows, doors 0,
+  `tests/arena.sh` 0 FAIL (arena 90/92, e2e 73/73, annot 14/14, mode
+  flags 14/14, bad-test expectations unchanged); the capstone
+  `no_proof_of_Empty_SPCD_P`, `certs_teleLicP` and `iota_slot_fence`
+  depend on exactly `[propext, Classical.choice, Quot.sound]`.
+* **init-full-pre2** (`--pre`, `ulimit -v 16G`, `instructions:u`, one
+  run each): P (`--set-model=p`) **1265.19 G**, parity (`--no-model`)
+  **1056.83 G**; exit 0, accepted 61 048 in both.  Against the
+  pre-batch master receipt (1579.71 G / 1061.49 G): **−19.9 % / −0.44 %**.

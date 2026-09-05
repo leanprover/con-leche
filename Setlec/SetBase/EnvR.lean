@@ -1,4 +1,3 @@
-import Setlec.SetBase.CtxOkR
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InferLeaves
 import Setlec.SetBase.ProjPins
@@ -152,14 +151,5 @@ theorem Env.find?_mem {env : Env} {n : Name} {ci : ConstantInfo}
     (h : env.find? n = some ci) : ci ∈ env.consts := by
   unfold Setlec.Env.find? at h
   exact List.mem_of_find?_eq_some h
-
-/-- `CtxOkR` only reads the leaf set, so it restricts along any subset
-of leaves.  (The `Δ.length` conjunct is carried, not re-derived.)
-Transpose of `CtxOk.of_subset`. -/
-theorem CtxOkR.of_subset {μ : CheckMode} {cval : TConstVal} {env : Env}
-    {φ : Name → Nat} {d : Nat} {Δ : List VExpr} {e e' : Expr}
-    (hsub : ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves)
-    (h : CtxOkR μ cval env φ d Δ e) : CtxOkR μ cval env φ d Δ e' :=
-  ⟨h.1, fun l hl => h.2 l (hsub l hl)⟩
 
 end Setlec.SetR

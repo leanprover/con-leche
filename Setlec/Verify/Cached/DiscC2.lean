@@ -464,8 +464,8 @@ theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             (coreKnotI mode (mkFEnv env) f).defeq d wta wtb >>= fun r =>
             if r then
               constTyAtM (mkFEnv env) T Tn us' >>= fun tyT =>
-              iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d tyT
-                targs
+              iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d false
+                tyT targs
             else pure false
           else pure false
         | _ => pure false
@@ -485,7 +485,7 @@ theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             (fueledFns mode env).whnf d tb >>= fun wtb =>
             (fueledFns mode env).defeq d wta wtb >>= fun r =>
             if r then
-              iotaCerts (fueledFns mode env) env d
+              iotaCerts (fueledFns mode env) env d false
                 (cvT.type.instantiateLevelParams cvT.levelParams us')
                 wta.getAppArgs
             else pure false
@@ -1188,7 +1188,7 @@ private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
                 liftFueled "level comparison"
                   (Level.isEquivList us us') >>= fun ok =>
                 if ok then
-                  iotaCerts (fueledFns mode env) env d
+                  iotaCerts (fueledFns mode env) env d false
                       (cvT.type.instantiateLevelParams cvT.levelParams us')
                       wtb.getAppArgs >>= fun r₁ =>
                   if r₁ then
@@ -1201,7 +1201,7 @@ private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
                         fun r₃ =>
                       if r₃ then
                         (if mode.ttChecks then
-                            iotaCerts (fueledFns mode env) env d
+                            iotaCerts (fueledFns mode env) env d false
                               (cvc.type.instantiateLevelParams
                                 cvc.levelParams us)
                               (wtb.getAppArgs ++
@@ -1267,7 +1267,7 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                   if ok then
                     constTyAtM (mkFEnv env) T Tn us' >>= fun tyT =>
                     iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
-                        tyT targs >>= fun r₁ =>
+                        false tyT targs >>= fun r₁ =>
                     if r₁ then
                       structEtaProjCertsI (coreKnotI mode (mkFEnv env) f)
                           (mkFEnv env) d T Tn us' targs j cvT.levelParams
@@ -1281,7 +1281,7 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                           (if mode.ttChecks then
                               constTyAtM (mkFEnv env) c cn us >>= fun tyCtor =>
                               iotaCertsI (coreKnotI mode (mkFEnv env) f)
-                                (mkFEnv env) d tyCtor (targs ++ projs)
+                                (mkFEnv env) d false tyCtor (targs ++ projs)
                             else pure true) >>= fun r₄ =>
                           if r₄ then
                             defEqListI (coreKnotI mode (mkFEnv env) f)

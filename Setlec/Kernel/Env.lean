@@ -13,32 +13,39 @@ can replace it later, with a proof that it refines this one.
 
 namespace Setlec
 
-/-- The checker's mode setting (task #147; two modes since the
-declarative lane's retirement at task #148 T7b), validated once at
-startup and threaded as configuration — never re-read at runtime (the
-`directStructsEnabled` discipline).
+/-- **The checker's mode setting** — two values since the R core's
+retirement (2026-09-05), validated once at startup and threaded as
+configuration, never re-read at runtime (the `directStructsEnabled`
+discipline).
 
-* `.setModel` (the default, `--set-model`): the surface the
-  set-theoretic model proves.  The seven TT-lane checks (tasks #126,
-  #129, #130, #135, #136, #137, #146) are **off**; every always-on
-  certificate family (per-redex beta, per-argument application,
-  proof-irrelevance chains, `etaCert`, `iotaCerts`, `projCert`) keeps
-  running.
-* `.setModelP` (`--set-model=p`, task #161): the *same* surface with
-  the β-certificate gate on — at a λ-binder whose **validated**
-  annotation is `.never` the per-redex argument certificate is skipped
-  (`betaTest`, `Setlec/Kernel/Core.lean`).  Everything else, including
-  every zero-kind certificate and the whole projection clause, is
-  `.setModel`'s verbatim: the gate wraps the *test* only.  This is a
-  mode value on the *one* executable, not a second knot.
+* `.setModel` (the default, `--set-model`, spelled `--set-model=p`
+  too): the verified lane.  The surface the **graded** set-theoretic
+  model proves — `no_proof_of_Empty_SPCD_P`
+  (`Setlec/Verify/Cached/MainC.lean`) is its letter over the driver
+  this binary runs.  The seven TT-lane checks (tasks #126, #129, #130,
+  #135, #136, #137, #146) are off; the β-certificate gate is on — at a
+  λ-binder whose **validated** annotation is `.never` the per-redex
+  argument certificate is skipped (`betaTest`,
+  `Setlec/Kernel/Core.lean`) — and the io-graded knot slot skips the
+  per-argument application certificate under the same licence.  Every
+  other certificate family runs unconditionally.
 * `.noModel` (`--no-model`): the unverified lane — full front-door
   check per declaration (official-kernel parity), infer-only internal
   discipline (task #134), and **no certificate families at all**
   (task #76).  Selected by a different driver stack
-  (`Setlec/Kernel/CheckerNM.lean`). -/
+  (`Setlec/Kernel/CheckerNM.lean`).
+
+**HISTORY, because the spelling moved.**  There were three values
+until 2026-09-05: `.setModel` (the R lane — every certificate
+unconditional), `.setModel` (the graded lane) and `.noModel`.  The
+user's ruling removed the collapsed-model consistency proof, and the R
+core went with the proof it was the subject of, the acceptance delta
+between the two verified lanes having measured **zero**.  The graded
+value then took the retired one's name: there is one verified mode, so
+it is `.setModel`, and `--set-model=r` is a hard error rather than an
+alias onto a different core. -/
 inductive CheckMode where
   | setModel
-  | setModelP
   | noModel
   deriving DecidableEq, Repr, Inhabited
 
@@ -51,23 +58,22 @@ stays the single place a future lane would turn them back on. -/
 def CheckMode.ttChecks : CheckMode → Bool
   | _ => false
 
-/-- Are the *verified* modes' extra checks enabled — the checks both
-model lanes want and the unverified lane must not run, because it is
+/-- Are the *verified* mode's extra checks enabled — the checks the
+model lane wants and the unverified lane must not run, because it is
 the official-parity lane?  The second accessor the kernel branches on
 (task #152: the λ-rule's codomain-sort check, `inferBody`'s `.lam`
 clause).  This is deliberately **not** `ttChecks`: the λ codomain sort
-is a premise of the *set* lane's annotation pass (`Setlec/SetR`), so it
-must run at `.setModel` too; and it is a check the reference kernel's
+is a premise of the set lane's annotation pass (`Setlec/SetP`), so it
+must run at `.setModel`; and it is a check the reference kernel's
 `infer_lambda` does not run, so it must not run at `.noModel`. -/
 def CheckMode.verified : CheckMode → Bool
   | .noModel => false
   | _ => true
 
 /-- Is the **β-certificate gate** on (task #161)?  The third accessor
-the kernel branches on, and the *only* place `.setModelP` differs from
-`.setModel`: at a λ-binder whose validated annotation datum is
-`.never` the per-redex argument certificate is skipped
-(`betaTest`, `Setlec/Kernel/Core.lean`).
+the kernel branches on: at a λ-binder whose validated annotation datum
+is `.never` the per-redex argument certificate is skipped (`betaTest`,
+`Setlec/Kernel/Core.lean`).
 
 Two disciplines ride on this accessor being a *mode* accessor rather
 than a second knot:
@@ -78,10 +84,15 @@ than a second knot:
   needs is ever skipped;
 * **the dead-branch collapse** — at `betaGate = false` the gated test
   is definitionally the ungated one (`betaTest_of_gate_off`), which is
-  what keeps every non-gated mode's proof one rewrite away from its
-  pre-gate form. -/
+  what keeps the parity lane's proofs one rewrite away from their
+  pre-gate form.
+
+Since the R core's retirement the gate is on at the *only* verified
+mode, so `betaGate` and `verified` now agree except at `.noModel`.
+They stay two accessors because they gate different checks and the
+kernel reads them at different sites. -/
 def CheckMode.betaGate : CheckMode → Bool
-  | .setModelP => true
+  | .setModel => true
   | _ => false
 
 /-- Data common to all constants: name, universe parameters, type. -/

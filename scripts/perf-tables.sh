@@ -90,10 +90,11 @@ if [ "$INTERNED" = yes ]; then
   CONFIG_IDS=(official sm-prod sm-cached nm-prod nm-cached)
 else
   # POST-TRI-CORE (task #172): one representation, so the core axis is
-  # gone and the columns are official + the three verification lanes.
-  # NB confirm the flag surface when the refactor lands — if a `--core`
-  # selector survives with the three lanes on it, move it here.
-  CONFIG_IDS=(official parity R P)
+  # gone and the columns are official + the checker's lanes.  The R
+  # column went 2026-09-05 with the R core and `--set-model=r` (which
+  # is now a hard error, so leaving the arm in would make the
+  # regeneration invoke a retired flag).
+  CONFIG_IDS=(official parity P)
 fi
 config_cmd() { # $1 = config id, $2 = stream file -> fills CMD
   case "$1" in
@@ -103,9 +104,8 @@ config_cmd() { # $1 = config id, $2 = stream file -> fills CMD
     sm-cached) CMD=("$BIN" --set-model --core=cached-parsed --pre "$2") ;;
     nm-prod)   CMD=("$BIN" --no-model  --core=production    --pre "$2") ;;
     nm-cached) CMD=("$BIN" --no-model  --core=cached-parsed --pre "$2") ;;
-    # post-tri-core (the three lanes on the one representation)
+    # post-tri-core (the two lanes on the one representation)
     parity)    CMD=("$BIN" --no-model    --pre "$2") ;;
-    R)         CMD=("$BIN" --set-model=r --pre "$2") ;;
     P)         CMD=("$BIN" --set-model=p --pre "$2") ;;
     *) echo "unknown config $1" >&2; exit 1 ;;
   esac

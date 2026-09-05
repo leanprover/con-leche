@@ -698,40 +698,31 @@ theorem whnfCoreBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
   exact SimC.wr (whnfCoreLoopC_sim ih henv whnfCoreLoopFuel hs hden hw)
     (fun v F hF => whnfCoreLoop_sound_body d ex v whnfCoreLoopFuel F hF)
 
-/-! ## The two named concrete cores' simulations (task #172, batch B2)
+/-! ## The named concrete core's simulation (task #172, batch B2; the
+R letter retired 2026-09-05)
 
 **THE MEASUREMENT the batch was dispatched for.**  The walks above are
 generic in `cfg`, so one proof serves every instantiation; the
-capstone is pinned at `cfgOf mode`, and `cfgOf .setModel` **is** `cfgR`
-by `rfl` (`cfgOf_setModel`).  The two per-core letters are therefore
-`exact` with no conversion step and no restated lemma:
+capstone is pinned at `cfgOf mode`, and `cfgOf .setModel` **is**
+`cfgP` by `rfl` (`cfgOf_setModel`).  The per-core letter is therefore
+`exact` with no conversion step and no restated lemma: the tower
+**INSTANTIATES**, and per concrete core the whnfCore family costs
+**one proof line** (a term application) and **zero** new proof steps.
 
-* the towers **INSTANTIATE**.  Per concrete core the whnfCore family
-  costs **one proof line** (a term application) and **zero** new
-  proof steps;
-* nothing here is a second copy of anything: `whnfCoreBodyRC` and
-  `whnfCoreBodyPC` are the *same body* at two configs, and this pair
-  of letters is what makes that visible to a reader who never opens
-  the template. -/
+`whnfCoreBodyRC_sim` was this letter's R twin.  It retired with its
+subject when the R core went (2026-09-05): `whnfCoreBodyRC` and `cfgR`
+are gone, so the statement has nothing left to be about.  The
+measurement it recorded is not lost — it is the same one this letter
+records, at the core that ships. -/
 
-/-- The R core's head normalization simulates the specification. -/
-theorem whnfCoreBodyRC_sim (ih : SSimC .setModel env f) (henv : EnvWF env)
+/-- The P core's head normalization simulates the specification. -/
+theorem whnfCoreBodyPC_sim (ih : SSimC .setModel env f) (henv : EnvWF env)
     {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState}
     (hs : CSOK .setModel env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC .setModel env s₀ (RelEC d)
-      (whnfCoreBodyRC (coreKnotI .setModel (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfCoreBodyPC (coreKnotI .setModel (mkFEnv env) f) (mkFEnv env) d i)
       (whnfCoreBody .setModel (fueledFns .setModel env) env d ex) :=
-  whnfCoreBodyC_sim ih henv hs hden hw
-
-/-- The P core's head normalization simulates the specification. -/
-theorem whnfCoreBodyPC_sim (ih : SSimC .setModelP env f) (henv : EnvWF env)
-    {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState}
-    (hs : CSOK .setModelP env s₀)
-    (hden : RelC i ex) (hw : Expr.WScoped d ex) :
-    SimC .setModelP env s₀ (RelEC d)
-      (whnfCoreBodyPC (coreKnotI .setModelP (mkFEnv env) f) (mkFEnv env) d i)
-      (whnfCoreBody .setModelP (fueledFns .setModelP env) env d ex) :=
   whnfCoreBodyC_sim ih henv hs hden hw
 
 end Walks

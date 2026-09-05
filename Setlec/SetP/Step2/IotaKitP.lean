@@ -243,7 +243,7 @@ theorem certs_telePA {m : EnvS2Core V env}
     (hexi : InferExistsIOSP μ m φ fuel) :
     ∀ {d : Nat} {Δa : List AVExpr} (ty : Expr) (args : List Expr)
       (vs : List AVExpr) (Ta : AVExpr),
-      Setlec.iotaCertsP μ env fuel d ty args = .ok true →
+      Setlec.iotaCertsP μ env fuel d false ty args = .ok true →
       Expr.WScoped d ty → ty.looseBVarsBounded 0 = true →
       Expr.LeavesBounded ty → CtxOkP m φ d Δa ty →
       denoteP m.acval env φ d ty = some Ta →

@@ -1,8 +1,8 @@
-import Setlec.SetBase.Rel
 import Setlec.Verify.Denote.SubstAlgebra
 import Setlec.Verify.Denote.Levels
 import Setlec.Verify.EnvPreds
 import Setlec.Verify.ProjPinInv
+import Setlec.SetBase.SpineV
 
 /-!
 # The pinned projection entries, denoted (task #148)

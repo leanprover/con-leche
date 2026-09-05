@@ -19,13 +19,18 @@ is silently vacuous if a flag it assumes is compiled the other way;
 these guards pin the actual values.  One `#guard` per pinned value,
 each naming the theorem family that depends on it. -/
 
--- The default mode is `--set-model`: `CheckMode`'s `Inhabited` default
--- (which Main's `Args.mode := .setModel` and the driver dispatch pin
--- operationally — tests/arena.sh's mode_case exercises the flag).  The
--- set-lane consistency theorems (`checkDeclsSP_sound` /
--- `no_proof_of_Empty*` families) are consumed at this mode by the
--- #148 bridge.
+-- `CheckMode` has TWO values since the SetR removal (2026-09-05), and
+-- `.setModel` -- the verified graded lane, `--set-model` and
+-- `--set-model=p` -- is the first constructor, so it is both the
+-- `Inhabited` default and `Main.lean`'s `Args.mode`.  Those agreed by
+-- accident before and agree by construction now.
+--
+-- The β-certificate gate is ON at it and only at it: the two accessors
+-- `betaGate` and `verified` now separate the same two modes, which is
+-- what "two cores" means at the mode level.
 #guard (default : CheckMode) == .setModel
+#guard CheckMode.betaGate .setModel == true
+#guard CheckMode.betaGate .noModel == false
 
 -- The seven-check gate is OFF at every mode since task #148 T7b: the
 -- declarative lane that turned it on (and its `.ttModel` value) was
@@ -38,8 +43,8 @@ each naming the theorem family that depends on it. -/
 -- The λ-codomain-sort gate (task #152, `inferBody`'s `.lam` clause):
 -- ON in the verified lane — the set lane's annotation pass reads the
 -- fact off `inferTypeCore_lam_inv`'s `mode.verified = true → …`
--- conjunct, so compiling this `false` at `.setModel` would make that
--- conjunct vacuous — and OFF at `.noModel`, which is the
+-- conjunct, so compiling this `false` at a verified mode would make
+-- that conjunct vacuous — and OFF at `.noModel`, which is the
 -- official-parity lane (the reference kernel's `infer_lambda` does not
 -- sort-check the body's type).
 #guard CheckMode.verified .setModel == true
@@ -402,8 +407,8 @@ here, in the vacuity-protection discipline of the config audit above.
 
 The subject is `(fun x : Prop => x) Prop`: the argument's type is
 `Type`, not `Prop`, so the per-redex certificate FAILS and the ungated
-reduction is stuck at the redex.  Only the binder's `pw` datum
-distinguishes the two knots. -/
+reduction is stuck at the redex.  Only the binder's `pw` datum and the
+mode distinguish the outcomes. -/
 
 private def gateNever : BinderMeta := ⟨.default, .never⟩
 private def gateMaybe : BinderMeta := ⟨.default, .ifAllZero []⟩
@@ -414,12 +419,13 @@ private def gateRedex (mb : BinderMeta) : Expr :=
 
 private def gateStuck (mb : BinderMeta) : Expr := gateRedex mb
 
--- The ungated knot is stuck at BOTH data: the certificate is
--- unconditional there (the task-#100 de-gating, untouched).
-#guard (whnfCore .setModel Env.empty 100 0 (gateRedex gateNever)).toOption
-  == some (gateStuck gateNever)
-#guard (whnfCore .setModel Env.empty 100 0 (gateRedex gateMaybe)).toOption
-  == some (gateStuck gateMaybe)
+-- The UNGATED-KNOT guards retired 2026-09-05: they read
+--     whnfCore .setModel … == some (gateStuck …)      at BOTH data
+-- and pinned that the ungated knot runs the per-redex certificate
+-- unconditionally (the task-#100 de-gating).  `.setModel` was the R
+-- mode then; the R core and its mode value are deleted, so the guards
+-- pinned a mode that no longer exists.  What survives of the property
+-- is (c) below, at `--no-model` — the only ungated mode left.
 
 -- (a) THE GATE IS LIVE: at a validated `.never` binder the gated knot
 -- skips the certificate and reduces.  If this guard ever reads
@@ -434,8 +440,15 @@ private def gateStuck (mb : BinderMeta) : Expr := gateRedex mb
   == some (gateStuck gateMaybe)
 
 -- (c) THE GATE IS MODE-GATED (law 1 (i)): at `--no-model` the
--- annotation is not validated, so the gated knot is the ungated one.
+-- annotation is not validated, so the gated knot is the ungated one —
+-- and, since the R core's retirement, this is also the tree's only
+-- witness that the UNGATED knot runs the certificate unconditionally
+-- (the task-#100 de-gating), at both data.
 #guard (whnfCoreP .noModel Env.empty 100 0 (gateRedex gateNever)).toOption
+  == some (gateStuck gateNever)
+#guard (whnfCoreP .noModel Env.empty 100 0 (gateRedex gateMaybe)).toOption
+  == some (gateStuck gateMaybe)
+#guard (whnfCore .noModel Env.empty 100 0 (gateRedex gateNever)).toOption
   == some (gateStuck gateNever)
 #guard CheckMode.verified .noModel == false
 
