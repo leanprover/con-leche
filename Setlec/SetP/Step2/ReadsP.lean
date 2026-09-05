@@ -294,7 +294,7 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
         fun l hl => hLc l (Setlec.whnf_fvarLeaves m.wf fuel hred l hl),
         hlrc.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hred)⟩
   rcases hcase with rfl | ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU,
-    hwcf, -⟩
+    -, hwcf, -⟩
   · -- stuck: the projection of the reduced scrutinee, at whichever
     -- entry kind the node's name carries (task #175 wiring W5)
     rcases hrd with ⟨entry, hfe, htw, -⟩ | ⟨hnt, hi2, -⟩

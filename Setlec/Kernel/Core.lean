@@ -1452,6 +1452,21 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     | _ => pure none
   | _ => pure none
 
+/-- **The tower-fire guard** (task #175 W4c/O4): `whnfCore` fires the
+structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i` at a tower-backed entry only
+under the same `Prop` guard `inferTypeCore` checks at a `.proj` use —
+at a `Prop`-declared structure the field's guard level must be `Prop`
+at the constructor's own level instantiation.  A data field of a
+`Prop` structure has no reduction (its uses are never typed either):
+in a proof-irrelevant model the constructor application is the point
+and the field's value is not, so the unguarded rule would be
+unsound-to-model.  The pair entries are ungated; a non-`Prop` family
+passes because its field sorts are bounded by its result sort (O5). -/
+def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
+  !entry.tower || !(Level.isEquiv entry.structSort .zero == some true) ||
+    (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
+      == some true)
+
 /-- Certification for a possibly-Prop structural projection
 `proj_i (ctor p⃗ x⃗)` (the subject `e₂` is the whnf'd constructor
 application): the projected argument and the subject are both typed.
@@ -1576,7 +1591,8 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           let args := e'.getAppArgs
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
-              us.length = entry.levelParams.length then
+              us.length = entry.levelParams.length ∧
+              entry.fireOk us = true then
             let arg := args.getD (entry.numParams + i) (.bvar 0)
             -- Certify the reduction: at Prop instances both the
             -- projected argument and the subject collapse to the

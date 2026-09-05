@@ -44,7 +44,11 @@ the user's ruling that the direct route carries every feature).
   `Inductive/Add.lean:289-296`) — the reduction site carries the
   semantic load (proof irrelevance), as on the modeled path. -/
 def directCaps (p : DirectParts) : IndCaps where
-  eta := true
+  -- structure eta is claimed for the non-`Prop` families only (task
+  -- #175 W4c/O4): at a `Prop`-declared structure every proof is
+  -- already definitionally equal by proof irrelevance, and the tower
+  -- eta fabrication's `.proj` nodes at a data field would be untyped
+  eta := !p.isProp
   etaCtor := p.cvC.name
   etaParams := p.nP
   etaFields := p.nF

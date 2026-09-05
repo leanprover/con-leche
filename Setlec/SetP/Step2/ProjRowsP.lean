@@ -911,7 +911,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
         fun l hl => hLc l (Setlec.whnf_fvarLeaves m.wf fuel hred l hl),
         hCc.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hred)⟩
   rcases hcase with rfl |
-    ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert⟩
+    ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hfire, hwcf, hcert⟩
   · -- stuck: the projection of the reduced scrutinee, at the node's
     -- own entry kind
     obtain ⟨v₃', hv₃', hrd'⟩ := denoteP_proj_inv hea'

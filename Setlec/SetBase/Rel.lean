@@ -248,6 +248,9 @@ inductive Red (μ : CheckMode) (env : Env) (cval : TConstVal)
       i < entry.numFields →
       vs.length = entry.numParams + entry.numFields →
       us.length = entry.levelParams.length →
+      -- the tower-fire guard (task #175 W4c/O4): the clause fires only
+      -- under the `Prop` guard at the constructor's instantiation
+      entry.fireOk us = true →
       env.find? entry.ctor = some ci →
       us.length = ci.toConstantVal.levelParams.length →
       P = VExpr.mkAppN

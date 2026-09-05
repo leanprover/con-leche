@@ -57,7 +57,8 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
         | .const c us =>
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               e'.getAppArgs.length = entry.numParams + entry.numFields ∧
-              us.length = entry.levelParams.length then
+              us.length = entry.levelParams.length ∧
+              entry.fireOk us = true then
             projCert (fueledFns mode env) env d e' i
               entry.numParams >>= fun b =>
             if b then

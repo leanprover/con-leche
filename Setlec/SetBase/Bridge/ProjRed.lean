@@ -365,7 +365,7 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         exact ⟨_, rfl, Red.projArg hR₃⟩
       · rw [if_neg hi2] at hv; exact nomatch hv
   rcases hcase with rfl |
-    ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert⟩
+    ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hfire, hwcf, hcert⟩
   · -- stuck: the reduced scrutinee under the projection
     refine hstuck v rfl ?_ ?_
     · intro entry hfp htwe
@@ -489,7 +489,7 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         exact Option.some.inj hv₃
       refine ⟨w, hw, Red.trans ?_ hRw⟩
       refine Red.projRedTower hfe hnat htw hilt (by rw [hspa.length, hlenA])
-        hlenU hfC hlenC rfl ?_ hTC0 hTCc hR₃ htele hI₁ hD₁ hJ₁ hE₁
+        hlenU hfire hfC hlenC rfl ?_ hTC0 hTCc hR₃ htele hI₁ hD₁ hJ₁ hE₁
       simp only [List.getD, List.getElem?_eq_getElem hidx']
       rfl
     · -- PAIR-BACKED: the pinned constructor, as before

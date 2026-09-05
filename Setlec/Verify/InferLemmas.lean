@@ -705,6 +705,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
           i < entry.numFields ∧
           e₃.getAppArgs.length = entry.numParams + entry.numFields ∧
           us.length = entry.levelParams.length ∧
+          entry.fireOk us = true ∧
           whnfCore mode env fuel d
             (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
           projCertP mode env fuel d e₃ i entry.numParams = .ok true) := by
@@ -734,7 +735,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
     dsimp only at h
     split at h
     next hcond =>
-      obtain ⟨hnat, rfl, hi, hlen, hus⟩ := hcond
+      obtain ⟨hnat, rfl, hi, hlen, hus, hfire⟩ := hcond
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
       cases hcert : projCertP mode env fuel d e₃ i entry.numParams with
@@ -745,7 +746,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       | true =>
         simp only [if_true] at h
         try dsimp only at h
-        exact Or.inr ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, h, hcert⟩
+        exact Or.inr ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, hfire, h, hcert⟩
       | false =>
         simp only [Bool.false_eq_true, if_false] at h
         exact Or.inl (Except.ok.inj h).symm
@@ -3192,7 +3193,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           · exact hwe₂
           · exact ihLoop hred (strLitToConstructor_WScoped s d)
         rcases hcase with rfl |
-          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
+          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, -, hred, -⟩
         · simpa [WScoped] using hwe₃
         · exact ihCore hred (hwe₃.getAppArgs _ (getD_mem (by omega)))
     · -- whnf loop: the reduction chain is iteration on the loop's own

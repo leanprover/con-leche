@@ -432,7 +432,8 @@ def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           let args ← withStore (·.getAppArgsI e')
           if entry.native ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
-              us.length = entry.levelParams.length then do
+              us.length = entry.levelParams.length ∧
+              entry.fireOk us = true then do
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
             -- task #100 de-gating: ungated, as in `whnfCoreStepI`

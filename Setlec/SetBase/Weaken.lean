@@ -308,6 +308,7 @@ private theorem wkRedProjRedTower (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (h3 : i < entry.numFields)
     (h4 : vs.length = entry.numParams + entry.numFields)
     (h5 : us.length = entry.levelParams.length)
+    (h5f : entry.fireOk us = true)
     (h6 : env.find? entry.ctor = some ci)
     (h7 : us.length = ci.toConstantVal.levelParams.length)
     (h8 : P = VExpr.mkAppN
@@ -335,7 +336,7 @@ private theorem wkRedProjRedTower (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
   rw [liftN_projNV]
   refine Red.projRedTower (vs := vs.map (·.liftN n k))
     (restC := restC.liftN n k) h1 h2 h2t h3
-    (by simpa using h4) h5 h6 h7 ?_ ?_ hTC hTCc (ihp H) ?_ (ihfv H)
+    (by simpa using h4) h5 h5f h6 h7 ?_ ?_ hTC hTCc (ihp H) ?_ (ihfv H)
     (ihlta H) (ihP H) (ihlte H)
   · rw [h8, liftN_mkAppN, liftN_eq_self_of_closed (hcl _ _)]
   · rw [List.getElem?_map, h9]
