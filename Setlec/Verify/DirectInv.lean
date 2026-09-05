@@ -413,4 +413,130 @@ theorem checkDirectProjEntry_shape {env envOut : Env} {T C : Name}
       mbC, hop', hsb', hsd', hb1, hot', htf', by rw [hci', hcres], hb2⟩,
     h.symm⟩
 
+/-! ## The frame walks: binder-domain pins and field sorts -/
+
+/-- `checkDirectDomsAt`, inverted: every position below the walk's
+bound carries a successful `isDefEqCore` at its own frame. -/
+theorem checkDirectDomsAt_inv {env : Env} {F off : Nat} {fvs doms : List Expr} :
+    ∀ {j : Nat},
+      checkDirectDomsAt (fueledOps mode F) env off fvs doms j = .ok () →
+      ∀ i, i < j → ∃ a b, fvs[i]? = some a ∧ doms[i]? = some b ∧
+        isDefEqCore mode env F (off + i) (Expr.fvarTypeD a) b = .ok true
+  | 0, _, i, hi => absurd hi (Nat.not_lt_zero _)
+  | j + 1, h, i, hi => by
+    unfold checkDirectDomsAt at h
+    obtain ⟨a, ha, h⟩ := exceptBind_ok h
+    have ha' := unwrapOr_ok ha
+    obtain ⟨b, hb, h⟩ := exceptBind_ok h
+    have hb' := unwrapOr_ok hb
+    try simp only at h
+    obtain ⟨c, hc, h⟩ := exceptBind_ok h
+    have hc' : isDefEqCore mode env F (off + j) (Expr.fvarTypeD a) b = .ok c := hc
+    cases c with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte] at h
+      close_throw
+    | true =>
+    rw [if_pos rfl] at h
+    try simp only at h
+    rcases Nat.lt_or_ge i j with hij | hij
+    · exact checkDirectDomsAt_inv h i hij
+    · obtain rfl : i = j := by omega
+      exact ⟨a, b, ha', hb', hc'⟩
+
+/-- `checkDirectFieldSorts`, inverted: the sorts are returned in field
+order, one per field, each the `ensureSort` of the field annotation's
+inferred type at the field's own frame, under the official universe
+bound (`isProp = false`) or the large-eliminator propositionality
+re-check (`isProp ∧ large`). -/
+theorem checkDirectFieldSorts_inv {env : Env} {isProp large : Bool}
+    {s : Level} {nP F : Nat} {fvs : List Expr} :
+    ∀ {j : Nat} {sorts : List Level},
+      checkDirectFieldSorts (fueledOps mode F) env isProp large s nP fvs j
+        = .ok sorts →
+      sorts.length = j ∧
+      ∀ i, i < j → ∃ fv ty u, fvs[i]? = some fv ∧ sorts[i]? = some u ∧
+        inferTypeCore mode env F (nP + i) (Expr.fvarTypeD fv) = .ok ty ∧
+        ensureSortCore mode env F (nP + i) ty = .ok u ∧
+        (isProp = false → Level.leq u s = some true) ∧
+        (isProp = true → large = true →
+          (Level.isEquiv u .zero == some true) = true)
+  | 0, sorts, h => by
+    simp only [checkDirectFieldSorts, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨rfl, fun i hi => absurd hi (Nat.not_lt_zero _)⟩
+  | j + 1, sorts, h => by
+    unfold checkDirectFieldSorts at h
+    obtain ⟨fv, hfv, h⟩ := exceptBind_ok h
+    have hfv' := unwrapOr_ok hfv
+    try simp only at h
+    obtain ⟨ty, hty₀, h⟩ := exceptBind_ok h
+    have hty : inferTypeCore mode env F (nP + j) (Expr.fvarTypeD fv) = .ok ty := hty₀
+    obtain ⟨u, hu₀, h⟩ := exceptBind_ok h
+    have hu : ensureSortCore mode env F (nP + j) ty = .ok u := hu₀
+    try simp only at h
+    -- the guard, as one fact per branch
+    suffices hs : ∃ rest,
+        checkDirectFieldSorts (fueledOps mode F) env isProp large s nP fvs j
+          = .ok rest ∧ sorts = rest ++ [u] ∧
+        (isProp = false → Level.leq u s = some true) ∧
+        (isProp = true → large = true →
+          (Level.isEquiv u .zero == some true) = true) by
+      obtain ⟨rest, hrest, rfl, hleq, hz⟩ := hs
+      obtain ⟨hlen, hall⟩ := checkDirectFieldSorts_inv hrest
+      refine ⟨by simp [hlen], ?_⟩
+      intro i hi
+      rcases Nat.lt_or_ge i j with hij | hij
+      · obtain ⟨fv', ty', u', hfv'', hu'', hty'', hen'', hl'', hz''⟩ :=
+          hall i hij
+        exact ⟨fv', ty', u', hfv'', by
+          rw [List.getElem?_append_left (by omega)]; exact hu'', hty'', hen'',
+          hl'', hz''⟩
+      · obtain rfl : i = j := by omega
+        exact ⟨fv, ty, u, hfv', by
+          rw [List.getElem?_append_right (by omega), hlen, Nat.sub_self]; rfl,
+          hty, hu, hleq, hz⟩
+    by_cases hnp : (!isProp) = true
+    · rw [if_pos hnp] at h
+      obtain ⟨b, hb, h⟩ := exceptBind_ok h
+      have hb' : Level.leq u s = some b := by
+        cases hl : Level.leq u s with
+        | none => rw [hl] at hb; exact absurd hb (by simp [liftFueled, throw, throwThe, MonadExceptOf.throw])
+        | some b' =>
+          rw [hl] at hb
+          simp only [liftFueled, pure, Except.pure, Except.ok.injEq] at hb
+          rw [hb]
+      cases b with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte] at h
+        close_throw
+      | true =>
+      rw [if_pos rfl] at h
+      simp only [pure, Except.pure, bind, Except.bind] at h
+      obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
+      simp only [Except.ok.injEq] at h
+      refine ⟨rest, hrest, h.symm, fun _ => hb', fun hp => ?_⟩
+      simp [hp] at hnp
+    · rw [if_neg hnp] at h
+      have hp : isProp = true := by simpa using hnp
+      by_cases hl : large = true
+      · rw [if_pos hl] at h
+        by_cases hz : (Level.isEquiv u .zero == some true) = true
+        · rw [if_pos hz] at h
+          simp only [pure, Except.pure, bind, Except.bind] at h
+          obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
+          simp only [Except.ok.injEq] at h
+          refine ⟨rest, hrest, h.symm, fun h0 => ?_, fun _ _ => hz⟩
+          rw [hp] at h0
+          exact nomatch h0
+        · rw [if_neg hz] at h
+          close_throw
+      · rw [if_neg hl] at h
+        simp only [pure, Except.pure, bind, Except.bind] at h
+        obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
+        simp only [Except.ok.injEq] at h
+        refine ⟨rest, hrest, h.symm, fun h0 => ?_, fun _ h1 => absurd h1 hl⟩
+        rw [hp] at h0
+        exact nomatch h0
+
 end Setlec
