@@ -38206,7 +38206,7 @@ accepted terms, so the branch is verdict-dead there).
 | W1 | this freeze + sizing flag | LANDED |
 | W2a | `ProjEntry.tower` field | LANDED (zero proof changes) |
 | W2b | generator + `checkDirectProj` entry install + twins + bridge re-proofs | LANDED |
-| W2c | infer tower branch (4 twins) + clause-proof adaptation | scoped (see below) |
+| W2c | infer tower branch (4 twins) + clause-proof adaptation | LANDED |
 | W3 | `denoteP`/`denote` reading branch + erasure law | frozen (§1) |
 | W4 | install soundness (checklist items 1–2) | pending |
 | W5 | rewrite removal (P/parity), flip, battery | pending |
@@ -38234,12 +38234,36 @@ Receipts: 521 jobs warning-free, `lake test` green, layering 0 edges;
 behavior byte-identical (the install sites sit behind
 `directStructsEnabled = false`).
 
-**W2c scoping finding** (the reason it is its own stage): the two
-cached infer bodies (`CoreC.inferBodyI`, `CoreNC.inferBodyNC`) work
-over the interned store, and B2 deleted the entry-type
-**materialisation** (`projFnIdxM`/`constTyAtM`, the level-instantiated
-intern) — the tower branch there must re-add a materialisation path
-(instantiate `entry.ty`, readback/intern the computed residual) with
-its `SimC` rows, on top of the two plain-`Expr` bodies
-(`inferBody`/`inferBodyIO`) and the row adaptations (P/R proj rows
-case-split on `entry.tower`, dead pre-flip by `ProjOkT`'s pin).
+**W2c as landed** (2026-09-05).  The scoping fear about cached
+materialisation was MOOT: since the interned-world deletion (B3a)
+`ExprC = Expr` and the store is a unit, so the tower branch runs the
+level-instantiated `Expr.instPisAt` peel directly on the "interned"
+spine in all four bodies (`inferBody`, `inferBodyIO`,
+`CoreC.inferBodyI`, `CoreNC.inferBodyNC`) — the pair fast path
+untouched, guarded by `¬ entry.tower`.  The clause-proof adaptation,
+by family:
+
+* **the inversions restated** (`inferTypeCore_proj_inv` and its io
+  twin): the last conjunct becomes the two-implication pair —
+  `tower = false → the pair shape; tower = true → the residual
+  equation` — so consumers with a pin kill one side and syntactic
+  consumers handle both;
+* **the pin-kill lemmas**: `projEntry_not_tower` (`SetBase/ProjPins`,
+  off `ProjOkT`) and `NativeProjPinned.not_tower` (`ProjPinInv`) — the
+  P/R rows (`Bridge/Proj`, `ProjRowsP` ×2, `ReadsP`, `ReadsIOP`)
+  discharge the tower side with them; `AcceptedP` needed nothing (it
+  discards the residual conjunct);
+* **the syntactic walks handle the tower side directly** via the new
+  fold kit: `instPisAt_WScoped` (moved from `BridgeWfImp` to
+  `InferLemmas` for the leaf modules), `instPisAt_fvarLeaves`
+  (`InferLeaves`), `instPisAt_looseBVars` + `instPisAt_lvlParams` and
+  the stored-entry-type facts `projEntry_ty_hasFvar/_WScoped/
+  _looseBVars` (`InferLemmas`/`LevelPres`), `instPisAt_shiftFrom`
+  (`Deep`, the depth-invariance commutation) — consumed by
+  `InferLeaves` ×3, `InferIOLeaves` ×3, `LevelPres` ×2, `Deep` ×2,
+  `Disc` ×2 (the `DiscV` walks), `DiscC4` ×2 (the cached `SimC`s,
+  where `RelCL` = equality makes the two tower scrutinees coincide),
+  and `InferIOLemmas`' io-of-full replay.
+
+Receipts: 521 jobs warning-free, layering 0 edges; behavior
+byte-identical (no tower entries exist pre-flip).

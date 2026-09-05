@@ -578,51 +578,6 @@ theorem instPisAt_index_WScoped :
     | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
     | letE _ _ _ _ | lit _ | proj _ _ _ => exact nomatch h
 
-/-- Instantiating a `∀`-telescope at scoped arguments produces scoped
-domains and a scoped residual. -/
-theorem instPisAt_WScoped {d : Nat} :
-    ∀ (args : List Expr) (ty : Expr) {doms : List Expr} {res : Expr},
-      Expr.instPisAt args ty = some (doms, res) → WScoped d ty →
-      (∀ a ∈ args, WScoped d a) →
-      (∀ x ∈ doms, WScoped d x) ∧ WScoped d res
-  | [], ty, doms, res, h, hty, _ => by
-    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨(fun x hx => nomatch hx), hty⟩
-  | a :: as, ty, doms, res, h, hty, hargs => by
-    cases ty with
-    | forallE nm dom body mb =>
-      simp only [Expr.instPisAt] at h
-      revert h
-      cases hrec : Expr.instPisAt as (body.instantiate1 a) with
-      | none => intro h; exact nomatch h
-      | some p =>
-        obtain ⟨ds, rest⟩ := p
-        intro h
-        simp only [Option.map_some, Option.some.injEq,
-          Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        simp only [WScoped] at hty
-        obtain ⟨hdom, hbody⟩ := hty
-        have hinst : WScoped d (body.instantiate1 a) :=
-          WScoped.instantiate1_gen (hargs a List.mem_cons_self) 0 hbody
-        obtain ⟨hds, hres⟩ := instPisAt_WScoped as _ hrec hinst
-          (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
-        refine ⟨?_, hres⟩
-        intro x hx
-        rcases List.mem_cons.mp hx with rfl | hx
-        · exact hdom
-        · exact hds x hx
-    | bvar k => exact nomatch h
-    | fvar a' b c => exact nomatch h
-    | sort u => exact nomatch h
-    | const c us => exact nomatch h
-    | app f a' => exact nomatch h
-    | lam a' b c d' => exact nomatch h
-    | letE a' b c d' => exact nomatch h
-    | lit l => exact nomatch h
-    | proj s k e => exact nomatch h
-
 /-- `instPisAt` for `λ`-binders, scoped. -/
 theorem instLamsAt_WScoped {d : Nat} :
     ∀ (args : List Expr) (ty : Expr) {doms : List Expr} {res : Expr},

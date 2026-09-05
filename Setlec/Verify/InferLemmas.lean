@@ -2363,13 +2363,21 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       env.findProj? T i = some entry ∧ entry.native = true ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
-      -- task #161 item B2 (harvest site 21 / P10): the returned type
-      -- is *computed*, not walked, so the inversion reads it off the
-      -- two-way branch.  `projResidualP`'s conclusion, verbatim — see
-      -- `SetR/Interp2/Step2/ProjPinsP.lean`, where the same shape used
-      -- to be *derived* from a `piResidual` premise.
-      (∃ A B, te.getAppArgs = [A, B] ∧
-        ((i = 0 ∧ t = A) ∨ (i = 1 ∧ t = .app B (.proj T 0 e)))) := by
+      -- task #161 item B2 (harvest site 21 / P10): at a pair-backed
+      -- entry the returned type is *computed*, not walked, so the
+      -- inversion reads it off the two-way branch — `projResidualP`'s
+      -- conclusion, verbatim.  Task #175 wiring W2c: at a
+      -- tower-backed entry the returned type is the entry type's
+      -- residual along the spine and the subject; consumers with a
+      -- pin in scope (`ProjOkT`/`NativeProjPinned` `not_tower`) kill
+      -- that side, scoping/level consumers handle it directly.
+      ((entry.tower = false →
+        ∃ A B, te.getAppArgs = [A, B] ∧
+          ((i = 0 ∧ t = A) ∨ (i = 1 ∧ t = .app B (.proj T 0 e)))) ∧
+       (entry.tower = true →
+        ∃ ds, Expr.instPisAt (te.getAppArgs ++ [e])
+            (entry.ty.instantiateLevelParams entry.levelParams us)
+          = some (ds, t))) := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def] at h
@@ -2407,24 +2415,152 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
   case isFalse => exact nomatch h
   case isTrue hcond =>
     obtain ⟨hnat, hlen, hus⟩ := hcond
-    revert h
-    match hargs : te.getAppArgs, i with
-    | [A, B], 0 => ?_
-    | [A, B], 1 => ?_
-    | [], _ => intro h; exact nomatch h
-    | [_], _ => intro h; exact nomatch h
-    | _ :: _ :: _ :: _, _ => intro h; exact nomatch h
-    | [_, _], _ + 2 => intro h; exact nomatch h
-    · intro h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-        A, B, hargs, Or.inl ⟨rfl, rfl⟩⟩
-    · intro h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-        A, B, hargs, Or.inr ⟨rfl, rfl⟩⟩
+    by_cases htw : entry.tower = true
+    · -- the tower branch: the residual walk's result
+      rw [if_pos htw] at h
+      revert h
+      cases hpi : Expr.instPisAt (te.getAppArgs ++ [e])
+          (entry.ty.instantiateLevelParams entry.levelParams us) with
+      | none => intro h; exact nomatch h
+      | some q =>
+        obtain ⟨ds, resid⟩ := q
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+          fun hf => absurd htw (by simp [hf]), fun _ => ⟨ds, hpi⟩⟩
+    · -- the pair branch, as before
+      rw [if_neg htw] at h
+      have htw' : entry.tower = false := by
+        cases hv : entry.tower
+        · rfl
+        · exact absurd hv htw
+      revert h
+      match hargs : te.getAppArgs, i with
+      | [A, B], 0 => ?_
+      | [A, B], 1 => ?_
+      | [], _ => intro h; exact nomatch h
+      | [_], _ => intro h; exact nomatch h
+      | _ :: _ :: _ :: _, _ => intro h; exact nomatch h
+      | [_, _], _ + 2 => intro h; exact nomatch h
+      · intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+          fun _ => ⟨A, B, hargs, Or.inl ⟨rfl, rfl⟩⟩,
+          fun ht => absurd ht (by simp [htw'])⟩
+      · intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+          fun _ => ⟨A, B, hargs, Or.inr ⟨rfl, rfl⟩⟩,
+          fun ht => absurd ht (by simp [htw'])⟩
+
+/-! ## The tower-entry helpers (task #175 wiring W2c)
+
+Shared by the inversion's consumers: the stored entry type is a stored
+constant's closed type, and `instPisAt` preserves scoping.
+(`instPisAt_WScoped` moved here from `BridgeWfImp` so the leaf modules
+can reach it.) -/
+
+/-- A stored projection entry's type has no fvars (it is a stored
+constant's type; `ConstWF`), after any level instantiation. -/
+theorem projEntry_ty_hasFvar {env : Env} (henv : EnvWF env) {T : Name}
+    {i : Nat} {entry : ProjEntry} (hf : env.findProj? T i = some entry)
+    (us : List Level) :
+    (entry.ty.instantiateLevelParams entry.levelParams us).hasFvar
+      = false := by
+  have hwf := henv _ (List.mem_of_find?_eq_some (Env.findProj?_some hf))
+  rw [Expr.hasFvar_instantiateLevelParams]
+  exact hwf.1
+
+/-- ...and is therefore scoped at any depth. -/
+theorem projEntry_ty_WScoped {env : Env} (henv : EnvWF env) {T : Name}
+    {i : Nat} {entry : ProjEntry} (hf : env.findProj? T i = some entry)
+    (us : List Level) {d : Nat} :
+    WScoped d (entry.ty.instantiateLevelParams entry.levelParams us) :=
+  WScoped.of_not_hasFvar (projEntry_ty_hasFvar henv hf us)
+
+/-- Instantiating a `∀`-telescope at scoped arguments produces scoped
+domains and a scoped residual. -/
+theorem instPisAt_WScoped {d : Nat} :
+    ∀ (args : List Expr) (ty : Expr) {doms : List Expr} {res : Expr},
+      Expr.instPisAt args ty = some (doms, res) → WScoped d ty →
+      (∀ a ∈ args, WScoped d a) →
+      (∀ x ∈ doms, WScoped d x) ∧ WScoped d res
+  | [], ty, doms, res, h, hty, _ => by
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨(fun x hx => nomatch hx), hty⟩
+  | a :: as, ty, doms, res, h, hty, hargs => by
+    cases ty with
+    | forallE nm dom body mb =>
+      simp only [Expr.instPisAt] at h
+      revert h
+      cases hrec : Expr.instPisAt as (body.instantiate1 a) with
+      | none => intro h; exact nomatch h
+      | some p =>
+        obtain ⟨ds, rest⟩ := p
+        intro h
+        simp only [Option.map_some, Option.some.injEq,
+          Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp only [WScoped] at hty
+        obtain ⟨hdom, hbody⟩ := hty
+        have hinst : WScoped d (body.instantiate1 a) :=
+          WScoped.instantiate1_gen (hargs a List.mem_cons_self) 0 hbody
+        obtain ⟨hds, hres⟩ := instPisAt_WScoped as _ hrec hinst
+          (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
+        exact ⟨fun x hx => by
+          rcases List.mem_cons.mp hx with rfl | hx
+          · exact hdom
+          · exact hds x hx, hres⟩
+    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
+    | letE _ _ _ _ | lit _ | proj _ _ _ => exact nomatch h
+
+/-- Peeling a `∀`-telescope along bounded arguments keeps the residual
+bvar-closed. -/
+theorem instPisAt_looseBVars :
+    ∀ (args : List Expr) (ty : Expr) {doms : List Expr} {res : Expr},
+      Expr.instPisAt args ty = some (doms, res) →
+      ty.looseBVarsBounded 0 = true →
+      (∀ a ∈ args, a.looseBVarsBounded 0 = true) →
+      res.looseBVarsBounded 0 = true
+  | [], ty, doms, res, h, hty, _ => by
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact hty
+  | a :: as, ty, doms, res, h, hty, hargs => by
+    cases ty with
+    | forallE nm dom body mb =>
+      simp only [Expr.instPisAt] at h
+      revert h
+      cases hrec : Expr.instPisAt as (body.instantiate1 a) with
+      | none => intro h; exact nomatch h
+      | some p =>
+        obtain ⟨ds, rest⟩ := p
+        intro h
+        simp only [Option.map_some, Option.some.injEq,
+          Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hty
+        exact instPisAt_looseBVars as _ hrec
+          (looseBVarsBounded_instantiate1_gen
+            (hargs a List.mem_cons_self) hty.2)
+          (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
+    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
+    | letE _ _ _ _ | lit _ | proj _ _ _ => exact nomatch h
+
+/-- A stored projection entry's type is bvar-closed after level
+instantiation. -/
+theorem projEntry_ty_looseBVars {env : Env} (henv : EnvWF env)
+    {T : Name} {i : Nat} {entry : ProjEntry}
+    (hf : env.findProj? T i = some entry) (us : List Level) :
+    (entry.ty.instantiateLevelParams entry.levelParams
+      us).looseBVarsBounded 0 = true := by
+  have hwf := henv _ (List.mem_of_find?_eq_some (Env.findProj?_some hf))
+  rw [Expr.looseBVarsBounded_instantiateLevelParams]
+  exact hwf.2.2.2.1
 
 /-! ## Well-scopedness preservation through reduction -/
 

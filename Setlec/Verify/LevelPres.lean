@@ -139,6 +139,39 @@ theorem allLevelParamsDefined_mkAppN : ∀ {xs : List Expr} {f : Expr},
     simp only [allLevelParamsDefined, Bool.and_eq_true]
     exact ⟨hf, hxs x List.mem_cons_self⟩
 
+/-- Peeling a `∀`-telescope at level-defined arguments keeps the
+residual level-defined (task #175 wiring W2c). -/
+theorem instPisAt_lvlParams {ps : List Name} :
+    ∀ (args : List Expr) (ty : Expr) {doms : List Expr} {res : Expr},
+      Expr.instPisAt args ty = some (doms, res) →
+      ty.allLevelParamsDefined ps = true →
+      (∀ a ∈ args, a.allLevelParamsDefined ps = true) →
+      res.allLevelParamsDefined ps = true
+  | [], ty, doms, res, h, hty, _ => by
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact hty
+  | a :: as, ty, doms, res, h, hty, hargs => by
+    cases ty with
+    | forallE nm dom body mb =>
+      simp only [Expr.instPisAt] at h
+      revert h
+      cases hrec : Expr.instPisAt as (body.instantiate1 a) with
+      | none => intro h; exact nomatch h
+      | some p =>
+        obtain ⟨ds, rest⟩ := p
+        intro h
+        simp only [Option.map_some, Option.some.injEq,
+          Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hty
+        exact instPisAt_lvlParams as _ hrec
+          (Expr.allLevelParamsDefined_instantiate1_gen
+            (hargs a List.mem_cons_self) 0 hty.1.2)
+          (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
+    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
+    | letE _ _ _ _ | lit _ | proj _ _ _ => exact nomatch h
+
 theorem allLevelParamsDefined_getAppFn :
     ∀ {e : Expr}, e.allLevelParamsDefined ps = true →
       e.getAppFn.allLevelParamsDefined ps = true := by
@@ -584,17 +617,42 @@ theorem inferTypeCore_lvlParams {env : Env} (henv : EnvWF env)
       exact Expr.allLevelParamsDefined_instantiate1_gen hp.2 0 hPi.1.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, A, B, hargs, hres⟩ := inferTypeCore_proj_inv h
+        hus, hpair, htow⟩ := inferTypeCore_proj_inv h
       simp only [allLevelParamsDefined] at hp
       have hte' := whnf_lvlParams henv fuel hiota hwt (ihI hte hp)
-      -- task #161 item B2: the computed residual's level parameters
-      -- are the spine's and the subject's
-      have hA := allLevelParamsDefined_getAppArgs hte' A (by rw [hargs]; simp)
-      have hB := allLevelParamsDefined_getAppArgs hte' B (by rw [hargs]; simp)
-      rcases hres with ⟨-, rfl⟩ | ⟨-, rfl⟩
-      · exact hA
-      · simp only [allLevelParamsDefined, Bool.and_eq_true]
-        exact ⟨hB, hp⟩
+      cases htw : entry.tower with
+      | false =>
+        obtain ⟨A, B, hargs, hres⟩ := hpair htw
+        -- task #161 item B2: the computed residual's level parameters
+        -- are the spine's and the subject's
+        have hA := allLevelParamsDefined_getAppArgs hte' A
+          (by rw [hargs]; simp)
+        have hB := allLevelParamsDefined_getAppArgs hte' B
+          (by rw [hargs]; simp)
+        rcases hres with ⟨-, rfl⟩ | ⟨-, rfl⟩
+        · exact hA
+        · simp only [allLevelParamsDefined, Bool.and_eq_true]
+          exact ⟨hB, hp⟩
+      | true =>
+        -- task #175 wiring W2c: the tower residual — the stored entry
+        -- type's own parameters are substituted at `us`, which the
+        -- reduced type's head defines
+        obtain ⟨ds, hpi⟩ := htow htw
+        have hus' : ∀ u ∈ us, u.allParamsDefined ps = true := by
+          have hfnP := allLevelParamsDefined_getAppFn hte'
+          rw [hfn] at hfnP
+          simp only [allLevelParamsDefined, List.all_eq_true] at hfnP
+          exact hfnP
+        have hwf := henv _
+          (List.mem_of_find?_eq_some (Env.findProj?_some hfp))
+        refine instPisAt_lvlParams _ _ hpi
+          (allLevelParamsDefined_instantiateLevelParams hus hus'
+            hwf.2.1) ?_
+        intro a ha
+        rcases List.mem_append.mp ha with ha | ha
+        · exact allLevelParamsDefined_getAppArgs hte' a ha
+        · rcases List.mem_singleton.mp ha with rfl
+          exact hp
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
@@ -683,9 +741,29 @@ theorem inferTypeCoreIO_lvlParams {env : Env} (henv : EnvWF env)
       exact Expr.allLevelParamsDefined_instantiate1_gen hp.2 0 hPi.1.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, A, B, hargs, hres⟩ := inferTypeCoreIO_proj_inv h
+        hus, hpair, htow⟩ := inferTypeCoreIO_proj_inv h
       simp only [allLevelParamsDefined] at hp
       have hte' := whnf_lvlParams henv fuel hiota hwt (ihI hte hp)
+      cases htw : entry.tower with
+      | true =>
+        obtain ⟨ds, hpi⟩ := htow htw
+        have hus' : ∀ u ∈ us, u.allParamsDefined ps = true := by
+          have hfnP := allLevelParamsDefined_getAppFn hte'
+          rw [hfn] at hfnP
+          simp only [allLevelParamsDefined, List.all_eq_true] at hfnP
+          exact hfnP
+        have hwf := henv _
+          (List.mem_of_find?_eq_some (Env.findProj?_some hfp))
+        refine instPisAt_lvlParams _ _ hpi
+          (allLevelParamsDefined_instantiateLevelParams hus hus'
+            hwf.2.1) ?_
+        intro a ha
+        rcases List.mem_append.mp ha with ha | ha
+        · exact allLevelParamsDefined_getAppArgs hte' a ha
+        · rcases List.mem_singleton.mp ha with rfl
+          exact hp
+      | false =>
+      obtain ⟨A, B, hargs, hres⟩ := hpair htw
       have hA := allLevelParamsDefined_getAppArgs hte' A (by rw [hargs]; simp)
       have hB := allLevelParamsDefined_getAppArgs hte' B (by rw [hargs]; simp)
       rcases hres with ⟨-, rfl⟩ | ⟨-, rfl⟩

@@ -2138,40 +2138,63 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           ExprC.getAppArgs_spec te
         rw [htargs.length]
         split
-        · -- task #161 item B2 (harvest site 21 / P10): the residual is
-          -- the *computed* two-way branch on both sides.  `RelCL` maps
-          -- the interned spine onto the spec's, so matching the
-          -- interned list fixes both; the second branch's node is two
-          -- `internI`s whose erasure is the spec's `Expr`.
-          match hgt : ExprC.getAppArgs te, ip with
-          | [], _ => exact SimC.throw
-          | [_], _ => exact SimC.throw
-          | _ :: _ :: _ :: _, _ => exact SimC.throw
-          | [Ai, Bi], 0 =>
-            rw [hgt] at htargs
-            have hspec := htargs
-            rw [← hspec]
-            refine SimC.pure hs₂ ⟨rfl, ?_⟩
-            exact hwte.getAppArgs Ai (by rw [← hspec]; simp)
-          | [Ai, Bi], 1 =>
-            rw [hgt] at htargs
-            have hspec := htargs
-            rw [← hspec]
-            refine SimC.bind_left
-              (internI_eff hs₂ (n := ExprView.proj T 0 pe))
-              (fun s₃ p₀ hs₃ hQ₀ => ?_)
-            refine SimC.of_eff
-              (internI_eff hs₃ (n := ExprView.app Bi p₀)) _
-              (fun pr hQ => ⟨?_, ?_⟩)
-            · show _ = _
-              rw [hQ]
-              show Expr.app Bi (p₀) = _
-              rw [hQ₀]
-              rfl
-            · simp only [Expr.WScoped]
-              exact ⟨hwte.getAppArgs Bi (by rw [← hspec]; simp),
-                hwpe⟩
-          | [Ai, Bi], _ + 2 => exact SimC.throw
+        · cases htw : entry.tower with
+          | true =>
+            -- task #175 wiring W2c: the tower residual — `ExprC = Expr`
+            -- (the identity world), so the two scrutinees coincide
+            -- once `RelCL` rewrites the spine
+            simp only [↓reduceIte]
+            rw [htargs]
+            cases hpi : Expr.instPisAt (Expr.getAppArgs te ++ [pe])
+                (entry.ty.instantiateLevelParams entry.levelParams
+                  us) with
+            | none => exact SimC.throw
+            | some q =>
+              obtain ⟨ds, resid⟩ := q
+              refine SimC.pure hs₂ ⟨rfl, ?_⟩
+              refine (instPisAt_WScoped _ _ hpi
+                (projEntry_ty_WScoped henv hfp us) ?_).2
+              intro a ha
+              rcases List.mem_append.mp ha with ha | ha
+              · exact hwte.getAppArgs a ha
+              · rcases List.mem_singleton.mp ha with rfl
+                exact hwpe
+          | false =>
+           simp only [Bool.false_eq_true, ↓reduceIte]
+           -- task #161 item B2 (harvest site 21 / P10): the residual is
+           -- the *computed* two-way branch on both sides.  `RelCL` maps
+           -- the interned spine onto the spec's, so matching the
+           -- interned list fixes both; the second branch's node is two
+           -- `internI`s whose erasure is the spec's `Expr`.
+           match hgt : ExprC.getAppArgs te, ip with
+           | [], _ => exact SimC.throw
+           | [_], _ => exact SimC.throw
+           | _ :: _ :: _ :: _, _ => exact SimC.throw
+           | [Ai, Bi], 0 =>
+             rw [hgt] at htargs
+             have hspec := htargs
+             rw [← hspec]
+             refine SimC.pure hs₂ ⟨rfl, ?_⟩
+             exact hwte.getAppArgs Ai (by rw [← hspec]; simp)
+           | [Ai, Bi], 1 =>
+             rw [hgt] at htargs
+             have hspec := htargs
+             rw [← hspec]
+             refine SimC.bind_left
+               (internI_eff hs₂ (n := ExprView.proj T 0 pe))
+               (fun s₃ p₀ hs₃ hQ₀ => ?_)
+             refine SimC.of_eff
+               (internI_eff hs₃ (n := ExprView.app Bi p₀)) _
+               (fun pr hQ => ⟨?_, ?_⟩)
+             · show _ = _
+               rw [hQ]
+               show Expr.app Bi (p₀) = _
+               rw [hQ₀]
+               rfl
+             · simp only [Expr.WScoped]
+               exact ⟨hwte.getAppArgs Bi (by rw [← hspec]; simp),
+                 hwpe⟩
+           | [Ai, Bi], _ + 2 => exact SimC.throw
         · exact SimC.throw
     | bvar k' => exact SimC.throw
     | sort u' => exact SimC.throw
@@ -2537,40 +2560,62 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
           ExprC.getAppArgs_spec te
         rw [htargs.length]
         split
-        · -- task #161 item B2 (harvest site 21 / P10): the residual is
-          -- the *computed* two-way branch on both sides.  `RelCL` maps
-          -- the interned spine onto the spec's, so matching the
-          -- interned list fixes both; the second branch's node is two
-          -- `internI`s whose erasure is the spec's `Expr`.
-          match hgt : ExprC.getAppArgs te, ip with
-          | [], _ => exact SimC.throw
-          | [_], _ => exact SimC.throw
-          | _ :: _ :: _ :: _, _ => exact SimC.throw
-          | [Ai, Bi], 0 =>
-            rw [hgt] at htargs
-            have hspec := htargs
-            rw [← hspec]
-            refine SimC.pure hs₂ ⟨rfl, ?_⟩
-            exact hwte.getAppArgs Ai (by rw [← hspec]; simp)
-          | [Ai, Bi], 1 =>
-            rw [hgt] at htargs
-            have hspec := htargs
-            rw [← hspec]
-            refine SimC.bind_left
-              (internI_eff hs₂ (n := ExprView.proj T 0 pe))
-              (fun s₃ p₀ hs₃ hQ₀ => ?_)
-            refine SimC.of_eff
-              (internI_eff hs₃ (n := ExprView.app Bi p₀)) _
-              (fun pr hQ => ⟨?_, ?_⟩)
-            · show _ = _
-              rw [hQ]
-              show Expr.app Bi (p₀) = _
-              rw [hQ₀]
-              rfl
-            · simp only [Expr.WScoped]
-              exact ⟨hwte.getAppArgs Bi (by rw [← hspec]; simp),
-                hwpe⟩
-          | [Ai, Bi], _ + 2 => exact SimC.throw
+        · cases htw : entry.tower with
+          | true =>
+            -- task #175 wiring W2c: the tower residual, as in
+            -- `inferBodyC_sim`
+            simp only [↓reduceIte]
+            rw [htargs]
+            cases hpi : Expr.instPisAt (Expr.getAppArgs te ++ [pe])
+                (entry.ty.instantiateLevelParams entry.levelParams
+                  us) with
+            | none => exact SimC.throw
+            | some q =>
+              obtain ⟨ds, resid⟩ := q
+              refine SimC.pure hs₂ ⟨rfl, ?_⟩
+              refine (instPisAt_WScoped _ _ hpi
+                (projEntry_ty_WScoped henv hfp us) ?_).2
+              intro a ha
+              rcases List.mem_append.mp ha with ha | ha
+              · exact hwte.getAppArgs a ha
+              · rcases List.mem_singleton.mp ha with rfl
+                exact hwpe
+          | false =>
+           simp only [Bool.false_eq_true, ↓reduceIte]
+           -- task #161 item B2 (harvest site 21 / P10): the residual is
+           -- the *computed* two-way branch on both sides.  `RelCL` maps
+           -- the interned spine onto the spec's, so matching the
+           -- interned list fixes both; the second branch's node is two
+           -- `internI`s whose erasure is the spec's `Expr`.
+           match hgt : ExprC.getAppArgs te, ip with
+           | [], _ => exact SimC.throw
+           | [_], _ => exact SimC.throw
+           | _ :: _ :: _ :: _, _ => exact SimC.throw
+           | [Ai, Bi], 0 =>
+             rw [hgt] at htargs
+             have hspec := htargs
+             rw [← hspec]
+             refine SimC.pure hs₂ ⟨rfl, ?_⟩
+             exact hwte.getAppArgs Ai (by rw [← hspec]; simp)
+           | [Ai, Bi], 1 =>
+             rw [hgt] at htargs
+             have hspec := htargs
+             rw [← hspec]
+             refine SimC.bind_left
+               (internI_eff hs₂ (n := ExprView.proj T 0 pe))
+               (fun s₃ p₀ hs₃ hQ₀ => ?_)
+             refine SimC.of_eff
+               (internI_eff hs₃ (n := ExprView.app Bi p₀)) _
+               (fun pr hQ => ⟨?_, ?_⟩)
+             · show _ = _
+               rw [hQ]
+               show Expr.app Bi (p₀) = _
+               rw [hQ₀]
+               rfl
+             · simp only [Expr.WScoped]
+               exact ⟨hwte.getAppArgs Bi (by rw [← hspec]; simp),
+                 hwpe⟩
+           | [Ai, Bi], _ + 2 => exact SimC.throw
         · exact SimC.throw
     | bvar k' => exact SimC.throw
     | sort u' => exact SimC.throw

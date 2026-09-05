@@ -1196,12 +1196,20 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
           let targs ← withStore (·.getAppArgsI te)
           if entry.native ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            -- Task #161 item B2 (harvest site 21 / P10): the
-            -- residual is computed, not walked — see the spec body.
-            -- With the walk gone, so are the entry type's
-            -- materialisation (`projFnIdxM` + `constTyAtM`, a
-            -- level-instantiated intern) and the `projFnName` name
-            -- build that fed it.
+            if entry.tower then
+              -- task #175 wiring W2c: the tower-backed residual, as in
+              -- the spec body — since B3a `ExprC = Expr` and the store
+              -- is a unit, so the level-instantiated peel runs
+              -- directly on the entry type and the interned spine.
+              let tyI := entry.ty.instantiateLevelParams
+                entry.levelParams us
+              match Expr.instPisAt (targs ++ [pe]) tyI with
+              | some (_, resid) => internExprM resid
+              | none => throw (.internal "malformed projection entry")
+            else
+            -- Task #161 item B2 (harvest site 21 / P10): at a
+            -- pair-backed entry the residual is computed, not walked
+            -- — see the spec body.
             match targs, i with
             | [A, _], 0 => pure A
             | [_, B], 1 => do

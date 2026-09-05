@@ -539,16 +539,21 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
           let targs ← withStore (·.getAppArgsI te)
           if entry.native ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            -- Task #172 batch B1b (E2): the same clause as
-            -- `inferBodyI`'s — the residual is computed from the
-            -- pinned two-parameter basis shape, not walked out of the
-            -- stored entry type.  `NativeProjPinned.spineShape`
-            -- (`Verify/ProjPinInv.lean`) makes the fall-through branch
-            -- unreachable on every environment the checker builds, and
-            -- `piResidual_of_invariant` (`SetBase/ProjPins.lean`)
-            -- proves the computed value is what the walk would have
-            -- returned — both with no environment predicate as a
-            -- premise, so this lane stays licence-free.
+            if entry.tower then
+              -- task #175 wiring W2c: the tower-backed residual, as in
+              -- the spec body — since B3a `ExprC = Expr` and the store
+              -- is a unit, so the level-instantiated peel runs
+              -- directly on the entry type and the interned spine.
+              let tyI := entry.ty.instantiateLevelParams
+                entry.levelParams us
+              match Expr.instPisAt (targs ++ [pe]) tyI with
+              | some (_, resid) => internExprM resid
+              | none => throw (.internal "malformed projection entry")
+            else
+            -- Task #172 batch B1b (E2): the same pair clause as
+            -- `inferBodyI`'s — the residual computed from the pinned
+            -- two-parameter basis shape (`NativeProjPinned.spineShape`
+            -- + `piResidual_of_invariant`), licence-free.
             match targs, i with
             | [A, _], 0 => pure A
             | [_, B], 1 => do

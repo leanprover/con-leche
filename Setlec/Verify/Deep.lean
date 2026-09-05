@@ -2080,6 +2080,27 @@ private theorem whnf_step (henv : EnvWF env)
   rw [whnf_succ, whnf_succ]
   exact whnfLoop_shift henv ih whnfLoopFuel hpd hw
 
+/-- `instPisAt` commutes with the frame shift (task #175 wiring W2c:
+the tower residual's depth invariance). -/
+private theorem instPisAt_shiftFrom (p : Nat) :
+    ∀ (args : List Expr) (ty : Expr),
+      Expr.instPisAt (args.map (Expr.shiftFrom p)) (Expr.shiftFrom p ty)
+        = (Expr.instPisAt args ty).map
+            fun q => (q.1.map (Expr.shiftFrom p), Expr.shiftFrom p q.2) := by
+  intro args
+  induction args with
+  | nil => intro ty; rfl
+  | cons a as ih =>
+    intro ty
+    cases ty <;> try rfl
+    case fvar idx n ty =>
+      simp only [shiftFrom]
+      split <;> rfl
+    case forallE nm dom body mb =>
+      simp only [List.map_cons, shiftFrom, Expr.instPisAt,
+        ← shiftFrom_instantiate1_gen, ih]
+      cases Expr.instPisAt as (body.instantiate1 a) <;> rfl
+
 private theorem infer_step (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) : InferShift mode env (fuel + 1) := by
   intro p d hpd e hw
@@ -2272,25 +2293,44 @@ private theorem infer_step (henv : EnvWF env)
       dsimp only
       simp only [getAppArgs_shiftFrom, List.length_map]
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-      -- task #161 item B2: the computed residual commutes with the
-      -- shift by `List.map`'s own shape — the two-element match sees
-      -- the same list on both sides
-      cases hargs : w.getAppArgs with
-      | nil => rfl
-      | cons A rest =>
-        cases rest with
+      cases htw : entry.tower with
+      | true =>
+        -- task #175 wiring W2c: the tower residual commutes with the
+        -- shift — the entry type is closed, so the shift passes to
+        -- the spine and the subject
+        simp only [↓reduceIte]
+        have htyc := projEntry_ty_hasFvar henv hfp us₂
+        have hmain := instPisAt_shiftFrom p (w.getAppArgs ++ [pe])
+          (entry.ty.instantiateLevelParams entry.levelParams us₂)
+        rw [shiftFrom_eq_self_of_not_hasFvar (p := p) htyc] at hmain
+        rw [show w.getAppArgs.map (Expr.shiftFrom p) ++
+              [Expr.shiftFrom p pe]
+            = (w.getAppArgs ++ [pe]).map (Expr.shiftFrom p) by
+          simp, hmain]
+        cases Expr.instPisAt (w.getAppArgs ++ [pe])
+          (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        -- task #161 item B2: the computed residual commutes with the
+        -- shift by `List.map`'s own shape — the two-element match sees
+        -- the same list on both sides
+        cases hargs : w.getAppArgs with
         | nil => rfl
-        | cons B rest2 =>
-          cases rest2 with
-          | cons _ _ => rfl
-          | nil =>
-            match i with
-            | 0 => rfl
-            | 1 =>
-              simp only [List.map, pure, Except.pure, map_ok]
-              rw [shiftFrom]
-              rfl
-            | _ + 2 => rfl
+        | cons A rest =>
+          cases rest with
+          | nil => rfl
+          | cons B rest2 =>
+            cases rest2 with
+            | cons _ _ => rfl
+            | nil =>
+              match i with
+              | 0 => rfl
+              | 1 =>
+                simp only [List.map, pure, Except.pure, map_ok]
+                rw [shiftFrom]
+                rfl
+              | _ + 2 => rfl
+
 
 /-- The io *lane* (the leaf knot, `inferTypeCoreIO`) commutes with the
 shift (task #172 B4): `infer_step`'s walk with the io folds, the io
@@ -2512,25 +2552,42 @@ private theorem inferIOCore_step (henv : EnvWF env)
       dsimp only
       simp only [getAppArgs_shiftFrom, List.length_map]
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-      -- task #161 item B2: the computed residual commutes with the
-      -- shift by `List.map`'s own shape — the two-element match sees
-      -- the same list on both sides
-      cases hargs : w.getAppArgs with
-      | nil => rfl
-      | cons A rest =>
-        cases rest with
+      cases htw : entry.tower with
+      | true =>
+        -- task #175 wiring W2c: the tower residual commutes with the
+        -- shift — the entry type is closed
+        simp only [↓reduceIte]
+        have htyc := projEntry_ty_hasFvar henv hfp us₂
+        have hmain := instPisAt_shiftFrom p (w.getAppArgs ++ [pe])
+          (entry.ty.instantiateLevelParams entry.levelParams us₂)
+        rw [shiftFrom_eq_self_of_not_hasFvar (p := p) htyc] at hmain
+        rw [show w.getAppArgs.map (Expr.shiftFrom p) ++
+              [Expr.shiftFrom p pe]
+            = (w.getAppArgs ++ [pe]).map (Expr.shiftFrom p) by
+          simp, hmain]
+        cases Expr.instPisAt (w.getAppArgs ++ [pe])
+          (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        -- task #161 item B2: the computed residual commutes with the
+        -- shift by `List.map`'s own shape — the two-element match sees
+        -- the same list on both sides
+        cases hargs : w.getAppArgs with
         | nil => rfl
-        | cons B rest2 =>
-          cases rest2 with
-          | cons _ _ => rfl
-          | nil =>
-            match i with
-            | 0 => rfl
-            | 1 =>
-              simp only [List.map, pure, Except.pure, map_ok]
-              rw [shiftFrom]
-              rfl
-            | _ + 2 => rfl
+        | cons A rest =>
+          cases rest with
+          | nil => rfl
+          | cons B rest2 =>
+            cases rest2 with
+            | cons _ _ => rfl
+            | nil =>
+              match i with
+              | 0 => rfl
+              | 1 =>
+                simp only [List.map, pure, Except.pure, map_ok]
+                rw [shiftFrom]
+                rfl
+              | _ + 2 => rfl
 
 
 /-- The knot's io *slot* commutes with the shift, at `fuel + 1`

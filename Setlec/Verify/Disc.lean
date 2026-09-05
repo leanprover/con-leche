@@ -1418,15 +1418,29 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     rename_i entry hfpw
     split <;> try exact DiscV.throw _
     rename_i hcond
-    -- task #161 item B2: the computed two-way residual
     split
-    · rename_i A _ heq
-      exact DiscV.pure (hww.getAppArgs A (by rw [heq]; simp))
-    · rename_i _ B heq
-      refine DiscV.pure ?_
-      simp only [WScoped]
-      exact ⟨hww.getAppArgs B (by rw [heq]; simp), hwpe⟩
-    · exact DiscV.throw _
+    · -- task #175 wiring W2c: the tower residual — scoped because the
+      -- stored entry type is closed and the spine and subject are
+      split
+      · rename_i fst resid heq
+        refine DiscV.pure ?_
+        refine (instPisAt_WScoped _ _ heq
+          (projEntry_ty_WScoped henv hfpw usw) ?_).2
+        intro a ha
+        rcases List.mem_append.mp ha with ha | ha
+        · exact hww.getAppArgs a ha
+        · rcases List.mem_singleton.mp ha with rfl
+          exact hwpe
+      · exact DiscV.throw _
+    · -- task #161 item B2: the computed two-way residual
+      split
+      · rename_i A _ heq
+        exact DiscV.pure (hww.getAppArgs A (by rw [heq]; simp))
+      · rename_i _ B heq
+        refine DiscV.pure ?_
+        simp only [WScoped]
+        exact ⟨hww.getAppArgs B (by rw [heq]; simp), hwpe⟩
+      · exact DiscV.throw _
 
 /-- The io inference body's walk (task #172 B4): `inferBody_disc` over
 the io-grade views — the recursion sites are the io slot
@@ -1588,13 +1602,27 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split <;> try exact DiscV.throw _
     rename_i hcond
     split
-    · rename_i A _ heq
-      exact DiscV.pure (hww.getAppArgs A (by rw [heq]; simp))
-    · rename_i _ B heq
-      refine DiscV.pure ?_
-      simp only [WScoped]
-      exact ⟨hww.getAppArgs B (by rw [heq]; simp), hwpe⟩
-    · exact DiscV.throw _
+    · -- task #175 wiring W2c: the tower residual (as in
+      -- `inferBody_disc`)
+      split
+      · rename_i fst resid heq
+        refine DiscV.pure ?_
+        refine (instPisAt_WScoped _ _ heq
+          (projEntry_ty_WScoped henv hfpw usw) ?_).2
+        intro a ha
+        rcases List.mem_append.mp ha with ha | ha
+        · exact hww.getAppArgs a ha
+        · rcases List.mem_singleton.mp ha with rfl
+          exact hwpe
+      · exact DiscV.throw _
+    · split
+      · rename_i A _ heq
+        exact DiscV.pure (hww.getAppArgs A (by rw [heq]; simp))
+      · rename_i _ B heq
+        refine DiscV.pure ?_
+        simp only [WScoped]
+        exact ⟨hww.getAppArgs B (by rw [heq]; simp), hwpe⟩
+      · exact DiscV.throw _
 
 set_option maxHeartbeats 1600000 in
 theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
