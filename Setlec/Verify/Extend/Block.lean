@@ -115,12 +115,10 @@ environment/valuation carrying the block invariant.  Transpose of
 `BlockInstalled.renameOk`. -/
 theorem BlockInstalledTT.renameOkT {blockNames : List Name} {env₁ : Env}
     {cval₁ : TConstVal}
-    (hI : BlockInstalledTT blockNames env₁ cval₁)
-    (htf : ∀ (sn : Name) (i : Nat) (entry : ProjEntry),
-      env₁.findProj? sn i = some entry → entry.tower = false) :
+    (hI : BlockInstalledTT blockNames env₁ cval₁) :
     RenameOkT cval₁ env₁ (fun n => if (env₁.find? n).isSome = true then
       (if blockNames.contains n then n.str "_model" else n) else n) := by
-  refine ⟨?_, ?_, ?_, htf⟩
+  refine ⟨?_, ?_, ?_⟩
   · intro n ci₂ hf₂
     have hsome : (env₁.find? n).isSome = true := by rw [hf₂]; rfl
     simp only [hsome, if_true]

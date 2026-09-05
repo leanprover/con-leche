@@ -3,6 +3,7 @@ import Setlec.SetP.Step2.InferIOP
 import Setlec.SetP.Step2.WhnfP
 import Setlec.SetP.Step2.DefEqP
 import Setlec.SetP.Step2.ProjPinsP
+import Setlec.SetP.Step2.TowerKitP
 import Setlec.SetP.Annot.EnvS2P
 import Setlec.SetBase.LitParams
 
@@ -266,8 +267,7 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
     hLb l (by simpa [Expr.fvarLeaves] using hl)
   have hlrpe : LeafReadsP m φ d pe :=
     hlrb.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)
-  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv_pair
-    (fun entry hf => m.proj_ok.towerFree _ _ _ hf) hea
+  obtain ⟨vp, hvp, hrd⟩ := denoteP_proj_inv hea
   -- the reduced scrutinee
   obtain ⟨v₂, hv₂⟩ := ihw hwpe hws hb hLpe hlrpe hvp
   have hlr₂ : LeafReadsP m φ d e₂ :=
@@ -295,10 +295,13 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
         hlrc.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hred)⟩
   rcases hcase with rfl | ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU,
     hwcf, -⟩
-  · refine ⟨.proj i v₃, ?_⟩
-    rw [denoteP_proj_pair m.acval (env := env) (φ := φ) _ _ _ _
-      (fun entry hf => m.proj_ok.towerFree _ _ _ hf), hv₃]
-    exact if_pos hi2
+  · -- stuck: the projection of the reduced scrutinee, at whichever
+    -- entry kind the node's name carries (task #175 wiring W5)
+    rcases hrd with ⟨entry, hfe, htw, -⟩ | ⟨hnt, hi2, -⟩
+    · exact ⟨projAV i v₃, denoteP_proj_tower hfe htw hv₃⟩
+    · refine ⟨.proj i v₃, ?_⟩
+      rw [denoteP_proj_pair m.acval (env := env) (φ := φ) _ _ _ _ hnt, hv₃]
+      exact if_pos hi2
   · -- the table fires: the reduct is a head-normalised spine argument
     have hmem : e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)
         ∈ e₃.getAppArgs := Setlec.getD_mem (by rw [hlenA]; omega)
@@ -318,31 +321,27 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
     exact ihwc hwcf hwF hbF hLF
       (hlr₃.of_subset (Setlec.fvarLeaves_getAppArgs hmem)) hvf
 
-/-- **`InferProjReadsP`, discharged.**  The returned type is
-`projResidualP`'s computed residual: the first parameter of the reduced
-subject type, or the second applied to `pe.1`.  Both read — the
-parameters because the reduced type reads (`ihi` then `ihw`), the
-projection node because the subject's own reading supplies `i < 2`. -/
-theorem inferProjReadsP_of {m : EnvS2Core V env}
+/-- **`InferProjReadsP`, discharged.**  At a pair-backed entry the
+returned type is `projResidualP`'s computed residual: the first
+parameter of the reduced subject type, or the second applied to
+`pe.1` — both read.  At a tower-backed entry (task #175 wiring W5)
+it is the checker's peel of the stored entry type along the parameters
+and the subject, which reads by `denoteP_instPisAt_peel` from the
+entry type's reading (the tower law's `Ta`). -/
+theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
     (ihi : InferReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
     InferProjReadsP μ m φ fuel := by
   intro d i sn pe t ea h hws hb hLb hlr hea
-  -- task #161 item B2 (harvest site 21 / P10): the returned type is
-  -- the clause's own computed two-way residual, so the inversion hands
-  -- it over directly — `projResidualP`'s derivation from a
-  -- `piResidual` premise is retired with the walk.
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, hpair, -⟩ := Setlec.inferTypeCore_proj_inv h
-  obtain ⟨A, B, hAB, hcase⟩ :=
-    hpair (projEntry_not_tower m.proj_ok hfe hnat)
+    hlenUs, hpair, htow, hsn⟩ := Setlec.inferTypeCore_proj_inv h
+  subst hsn
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
   have hLpe : Expr.LeavesBounded pe := fun l hl =>
     hLb l (by simpa [Expr.fvarLeaves] using hl)
   have hlrpe : LeafReadsP m φ d pe :=
     hlr.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)
-  obtain ⟨vp, hvp, hi2, rfl⟩ := denoteP_proj_inv_pair
-    (fun entry hf => m.proj_ok.towerFree _ _ _ hf) hea
+  obtain ⟨vp, hvp, hrd⟩ := denoteP_proj_inv hea
   -- the subject's type, and its head normal form
   obtain ⟨tpea, htpea⟩ := ihi htpe hws hb hLpe hlrpe hvp
   have hwtpe : Expr.WScoped d tpe :=
@@ -354,21 +353,56 @@ theorem inferProjReadsP_of {m : EnvS2Core V env}
   obtain ⟨tea, htea⟩ := ihw hwte hwtpe hbtpe hLtpe
     (hlrpe.of_subset (inferTypeCore_fvarLeaves m.wf fuel htpe hws))
     htpea
+  have hwte' : Expr.WScoped d te := Setlec.whnf_WScoped m.wf fuel hwte hwtpe
   have hbte : te.looseBVarsBounded 0 = true :=
     Setlec.whnf_looseBVars m.wf fuel hwte hbtpe
   -- the reduced type's parameter spine reads
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
     (Setlec.Expr.mkAppN_getApp te).symm] at htea
   obtain ⟨-, vs, -, hspt, -⟩ := denoteP_mkAppN_inv htea
-  rw [hAB] at hspt
-  rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
-  · exact hspt.mem t (by simp)
-  · obtain ⟨Ba, hBa⟩ := hspt.mem B (by simp)
-    exact ⟨.app Ba (.proj 0 vp), by
-      rw [denoteP_app, hBa, denoteP_proj_pair m.acval (env := env)
-        (φ := φ) _ _ _ _
-        (fun entry hf => m.proj_ok.towerFree _ _ _ hf), hvp]
-      simp⟩
+  by_cases htw : entry.tower = true
+  · -- tower-backed: the residual is the peel of the entry type, read
+    obtain ⟨ds, hpi⟩ := htow htw
+    obtain ⟨-, -, -, -, -, -, -, -, hlaw⟩ := htower T i entry hfe htw
+    obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
+    obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
+    have hframes : ∀ x ∈ te.getAppArgs ++ [pe],
+        Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true := by
+      intro x hx
+      rcases List.mem_append.mp hx with hx' | hx'
+      · exact ⟨hwte'.getAppArgs x hx',
+          Setlec.looseBVarsBounded_getAppArgs hbte x hx'⟩
+      · rcases List.mem_singleton.mp hx' with rfl
+        exact ⟨hws, hb⟩
+    obtain ⟨restA, hrest, -⟩ := denoteP_instPisAt_peel m.acval_closed
+      (acval_inst_self m) (te.getAppArgs ++ [pe]) hpi
+      (Expr.WScoped.of_not_hasFvar (towerEntry_tyI_closed m.wf hfe us).1)
+      hframes (hTad d) (hspt.snoc hvp)
+    exact ⟨restA, hrest⟩
+  · -- pair-backed: the clause's own computed two-way residual
+    have htw' : entry.tower = false := by
+      cases hv : entry.tower
+      · rfl
+      · exact absurd hv htw
+    obtain ⟨A, B, hAB, hcase⟩ := hpair htw'
+    obtain ⟨hnt, hi2, rfl⟩ : (∀ entry', env.findProj? T i = some entry' →
+        entry'.tower = false) ∧ i < 2 ∧ ea = .proj i vp := by
+      rcases hrd with ⟨entry', hfe', htw'', -⟩ | h
+      · obtain rfl := Option.some.inj (hfe'.symm.trans hfe)
+        exact absurd htw'' htw
+      · exact h
+    rw [hAB] at hspt
+    rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
+    · exact hspt.mem t (by simp)
+    · obtain ⟨Ba, hBa⟩ := hspt.mem B (by simp)
+      -- the first projection node sits at the pair block's own slot
+      obtain ⟨rfl, -⟩ := projPinsP m.proj_ok hfe hnat htw'
+      have hnt0 : ∀ entry', env.findProj? Setlec.psigmaName 0 = some entry' →
+          entry'.tower = false := fun e he => m.proj_ok.psigma_not_tower he
+      exact ⟨.app Ba (.proj 0 vp), by
+        rw [denoteP_app, hBa, denoteP_proj_pair m.acval (env := env)
+          (φ := φ) _ _ _ _ hnt0, hvp]
+        simp⟩
 
 /-! ## T3a — the `whnfCore` clauses -/
 
@@ -914,7 +948,7 @@ private theorem inferReads_letE {m : EnvS2Core V env}
 
 /-- **`InferReadsP` at `fuel + 1`** — the eleven shapes. -/
 theorem inferReadsP_succ {m : EnvS2Core V env}
-    (hct : ConstTypeP m φ)
+    (hct : ConstTypeP m φ) (htower : TowerOkP m φ)
     (ihi : InferReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
     InferReadsP m μ φ (fuel + 1) := by
   intro d e t ea h hws hb hLb hlr hea
@@ -932,7 +966,7 @@ theorem inferReadsP_succ {m : EnvS2Core V env}
   | .letE nn tt vv bb =>
     exact inferReads_letE ihi h hws hb hLb hlr hea
   | .proj sn i pe =>
-    exact inferProjReadsP_of ihi ihw h hws hb hLb hlr hea
+    exact inferProjReadsP_of htower ihi ihw h hws hb hLb hlr hea
 
 /-! # The joint induction and the routed bundle -/
 
@@ -970,6 +1004,10 @@ structure ReadsInputsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     IotaReadsP μ m φ fuel
   /-- the literal acceleration's output reads — **literal tier** -/
   nat : ∀ fuel, ReduceNatReadsP μ m φ fuel
+  /-- the stored tower-backed entries' laws — **install tier**, an
+  `EnvS2PM` field (`tower_ok`; task #175 wiring W5): the `.proj`
+  clause's tower branch reads the entry type's reading off it -/
+  tower_ok : TowerOkP m φ
 
 /-- **The two install-tier fields, from the environment invariant.**
 `EnvS2PM` already carries both, so a caller holding the P environment
@@ -983,5 +1021,6 @@ theorem ReadsInputsP.ofEnvS2PM (mp : EnvS2PM V μ env)
   defn := mp.defn_reads
   iota := hiota
   nat := hnat
+  tower_ok := mp.tower_ok φ
 
 end Setlec.SetR.Interp2

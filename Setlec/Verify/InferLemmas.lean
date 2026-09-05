@@ -2377,7 +2377,9 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
        (entry.tower = true →
         ∃ ds, Expr.instPisAt (te.getAppArgs ++ [e])
             (entry.ty.instantiateLevelParams entry.levelParams us)
-          = some (ds, t))) := by
+          = some (ds, t)) ∧
+       -- task #175 wiring W5: the node's struct name is the head's
+       T = sn) := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def] at h
@@ -2414,7 +2416,7 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
   split at h
   case isFalse => exact nomatch h
   case isTrue hcond =>
-    obtain ⟨hnat, hlen, hus⟩ := hcond
+    obtain ⟨hnat, hsn, hlen, hus⟩ := hcond
     by_cases htw : entry.tower = true
     · -- the tower branch: the residual walk's result
       rw [if_pos htw] at h
@@ -2428,7 +2430,7 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h
         exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-          fun hf => absurd htw (by simp [hf]), fun _ => ⟨ds, hpi⟩⟩
+          fun hf => absurd htw (by simp [hf]), fun _ => ⟨ds, hpi⟩, hsn⟩
     · -- the pair branch, as before
       rw [if_neg htw] at h
       have htw' : entry.tower = false := by
@@ -2448,13 +2450,13 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
         subst h
         exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
           fun _ => ⟨A, B, hargs, Or.inl ⟨rfl, rfl⟩⟩,
-          fun ht => absurd ht (by simp [htw'])⟩
+          fun ht => absurd ht (by simp [htw']), hsn⟩
       · intro h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h
         exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
           fun _ => ⟨A, B, hargs, Or.inr ⟨rfl, rfl⟩⟩,
-          fun ht => absurd ht (by simp [htw'])⟩
+          fun ht => absurd ht (by simp [htw']), hsn⟩
 
 /-! ## The tower-entry helpers (task #175 wiring W2c)
 

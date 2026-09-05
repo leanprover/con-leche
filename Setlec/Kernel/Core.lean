@@ -1729,7 +1729,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           throw (.invalid "application type mismatch")
         pure (body.instantiate1 a)
       | _ => throw (.invalid "function expected")
-    | .proj _sn i pe => do
+    | .proj sn i pe => do
       -- A `.proj` node is typed by its projection-table entry: the
       -- stored level-parametric type, instantiated at the subject
       -- type's levels and peeled along its arguments and the subject.
@@ -1740,7 +1740,11 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | .const T us =>
         match env.findProj? T i with
         | some entry =>
-          if entry.native ∧ te.getAppArgs.length = entry.numParams ∧
+          -- task #175 wiring W5: the node's struct name must be the
+          -- subject type's head (official `infer_proj`'s
+          -- `const_name(I) == proj_sname(e)`); the readings key the
+          -- table on the node's name, the checker on the head's
+          if entry.native ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             if entry.tower then
               -- task #175 wiring W2c: the generic residual for a
@@ -1873,13 +1877,17 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             throw (.invalid "application type mismatch")
         pure (body.instantiate1 a)
       | _ => throw (.invalid "function expected")
-    | .proj _sn i pe => do
+    | .proj sn i pe => do
       let te ← r.whnf depth (← r.infer depth pe)
       match te.getAppFn with
       | .const T us =>
         match env.findProj? T i with
         | some entry =>
-          if entry.native ∧ te.getAppArgs.length = entry.numParams ∧
+          -- task #175 wiring W5: the node's struct name must be the
+          -- subject type's head (official `infer_proj`'s
+          -- `const_name(I) == proj_sname(e)`); the readings key the
+          -- table on the node's name, the checker on the head's
+          if entry.native ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             if entry.tower then
               -- task #175 wiring W2c: the generic residual for a
@@ -2147,7 +2155,11 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
       else stuckIrrel mode r env depth (.app f₁ a₁) (.app f₂ a₂)
     | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ => do
       -- Stuck projections: congruence, else the stuck fallbacks.
-      if i₁ == i₂ then
+      -- Task #175 wiring W5: congruence requires the same struct name
+      -- — the entry-kind readings differ across names, and on
+      -- annotated terms the name is the subject type's head, so
+      -- defeq subjects always agree (transitional: dissolves at W6).
+      if s₁ == s₂ && i₁ == i₂ then
         if ← r.defeq depth e₁ e₂ then pure true
         else stuckIrrel mode r env depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
       else stuckIrrel mode r env depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)

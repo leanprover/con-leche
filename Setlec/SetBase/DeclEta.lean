@@ -135,20 +135,9 @@ theorem declEtaStepRun {μ : CheckMode} {F : Nat}
       (basisIndOk_declsA kind) hE
   | indDecl block => exact hind h
 
-/-- **The declaration fold's η-closure half** (see the module
-docstring): a checked declaration keeps the stored η-families closed.
-Five of the six kinds read `DeclR`'s freshness guard and nothing else;
-`indDecl` is the premise.
-
-Statement byte-unchanged since S3; S4 re-proved it as the `DeclR`
-instance of `declEtaStepRun` above, one source of truth. -/
-theorem declEtaStep {μ : CheckMode} {F : Nat} {cval : TConstVal}
-    {env : Env} {d : Declaration} {env₂ : Env}
-    (hind : ∀ {block : List ConstantInfo} {envI : Env},
-      DeclIndR μ F env cval block envI → EtaFamiliesClosed envI)
-    (hE : EtaFamiliesClosed env)
-    (h : DeclR μ F cval env d env₂) : EtaFamiliesClosed env₂ :=
-  declEtaStepRun (fun hb => hind (declIndDispatchR_eq_ind.mp hb)) hE
-    (DeclR.toRun h)
+/-! `declEtaStep` — the `DeclR` instance — moved to
+`SetBase/DeclDirectEta.lean` at task #175 wiring W5, where the
+`.indDecl` dispatch's η half is proved for BOTH arms and the instance
+reads the kernel's own case split instead of the flag. -/
 
 end Setlec.SetR

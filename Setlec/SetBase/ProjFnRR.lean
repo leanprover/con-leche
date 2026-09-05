@@ -105,7 +105,6 @@ theorem EnvR.consProjFn {env' : Env} (m : EnvR env')
       ∃ t, denoteClosed m.cval env' ψ pty = some t := by
     intro ψ
     have hro := projFwd_renameOkT hinv
-      (fun sn i entry hf => m.proj_ok.towerFree sn i entry hf)
     have hcong : pty.renameConsts (fun n =>
         if (env'.find? n).isSome = true then
           projFwd T ctorName nF n else n)

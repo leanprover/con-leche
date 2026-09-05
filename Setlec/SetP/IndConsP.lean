@@ -135,7 +135,7 @@ theorem declStepPM_of_ind_cons (mp : EnvS2PM V μ env)
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh
     hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
-    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hvalReads`: an inductive cons is never a definition or a theorem
     intro _ψ cv2 value2 hmem
     rcases hmem with ⟨hint2, hdt⟩ | hdt
@@ -157,6 +157,9 @@ theorem declStepPM_of_ind_cons (mp : EnvS2PM V μ env)
   · exact fun φ => hrec _ rfl φ
   · exact reduceOpsP_cons_fresh mp.reduce_ops hfresh
       (Or.inl hnotax) _ rfl
+  · -- `tower_ok` (task #175 wiring W5): an ind-tier cons is never a
+    -- tower entry (`hh.projTower`)
+    exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower _ rfl φ
 
 /-- **The P step at a block *member* cons** — `declStepPM_of_ind_cons`
 with `rec_rules` discharged too.  A member is an `indInfo` or a

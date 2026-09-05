@@ -46,7 +46,8 @@ plus one `rcases` over the two pins; every conjunct is `rfl` in each
 branch. -/
 theorem projPinsP {sn : Name} {i : Nat} {entry : ProjEntry}
     (hpo : Setlec.ProjOkT env)
-    (hfe : env.findProj? sn i = some entry) (hnat : entry.native = true) :
+    (hfe : env.findProj? sn i = some entry) (hnat : entry.native = true)
+    (htw : entry.tower = false) :
     sn = Setlec.psigmaName ∧ entry.idx = i ∧ i < 2 ∧
       entry.numParams = 2 ∧ entry.numFields = 2 ∧
       entry.ctor = Setlec.psigmaMkName ∧
@@ -55,7 +56,7 @@ theorem projPinsP {sn : Name} {i : Nat} {entry : ProjEntry}
       env.find? Setlec.psigmaName = some Setlec.psigmaA ∧
       env.find? Setlec.psigmaMkName = some Setlec.psigmaMkA := by
   obtain ⟨hpin, hsn, hidx, hpsig, hpsigMk⟩ :=
-    Setlec.SetR.projEntry_pins hpo hfe hnat
+    Setlec.SetR.projEntry_pins hpo hfe hnat htw
   refine ⟨hsn, hidx, ?_, ?_, ?_, ?_, ?_, hpin, hpsig, hpsigMk⟩ <;>
     rcases hpin with rfl | rfl <;>
       first

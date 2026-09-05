@@ -140,7 +140,8 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
         (betaCertP_of_claims m hexis ihd ihis)
         (iotaStepP_of h.rec_rules h.caps_ok h.reads.const_ty
           h.acval_valid ihw ihd ihis hsss hexis hreads_ios hwreads)
-        (projStepP_of_claims ihwc ihw ihd ihio hreads_io hwreads) ihwc
+        (projStepP_of_claims h.reads.tower_ok ihwc ihw ihd ihio hreads_io
+          hwreads) ihwc
     · -- the reduction loop
       exact whnf_claimsP m hex ihwc (h.nat_step fuel ihw)
         (deltaP_of m h.reads.defn)
@@ -200,7 +201,8 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
         exact infer_letE_claimP m hss hreads ihi hrun hws hb hLb
           hC hea hta
       | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
-        exact inferProjStepP_of_claims ihw ihi hreads hwreads hrun hws hb
+        exact inferProjStepP_of_claims h.reads.tower_ok ihw ihi hreads
+          hwreads hrun hws hb
           hLb hC hea hta
     · -- the io quarter (the eleven-arm dispatcher, env-fixed;
       -- task #172 B4)
@@ -233,7 +235,8 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
       | .letE nm ty val bd, hrun, hws, hb, hLb, hC, hea, hok =>
         exact infer_letE_claimIOP m ihio hrun hws hb hLb hC hea hta hok
       | .proj sn i pe, hrun, hws, hb, hLb, hC, hea, hok =>
-        exact inferProjStepIOP_of_claims ihw ihio hreads_io hwreads hrun
+        exact inferProjStepIOP_of_claims h.reads.tower_ok ihw ihio hreads_io
+          hwreads hrun
           hws hb hLb hC hea hta hok
 
 /-- The four sealed claims at every fuel — the joint induction's first

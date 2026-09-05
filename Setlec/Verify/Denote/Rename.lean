@@ -56,13 +56,11 @@ def RenameOkT (cval : TConstVal) (env : Env) (f : Name → Name) : Prop :=
   (∀ n ci, env.find? n = some ci → ∃ ci', env.find? (f n) = some ci' ∧
     ci'.toConstantVal.levelParams = ci.toConstantVal.levelParams) ∧
   (∀ n, env.find? n = none → env.find? (f n) = none) ∧
-  (∀ (n : Name) (ψ : Name → Nat), cval (f n) ψ = cval n ψ) ∧
-  -- task #175 wiring W3: the branched `.proj` reading consults the
-  -- table at both the source and the image name, so its rename
-  -- invariance needs every stored entry tower-free (`ProjOkT`'s
-  -- third conjunct, via `ProjOkT.towerFree`); weakens with it at W5
-  (∀ (sn : Name) (i : Nat) (entry : ProjEntry),
-    env.findProj? sn i = some entry → entry.tower = false)
+  (∀ (n : Name) (ψ : Name → Nat), cval (f n) ψ = cval n ψ)
+  -- (task #175 wiring W3 added a fourth, tower-freeness conjunct here
+  -- because the branched `.proj` reading consulted the table at both
+  -- the source and the image name; W5 fixed the struct name under
+  -- `renameConsts` instead, and the conjunct is gone.)
 
 /-- Renaming constants along a `RenameOkT` map preserves the
 denotation.  Transpose of `interp_renameConsts`, clause for clause;
@@ -87,20 +85,15 @@ theorem denote_renameConsts {f : Name → Name} (hro : RenameOkT cval env f) :
       dsimp only
       rw [hlp]
       by_cases hal : ws.length = ci.toConstantVal.levelParams.length
-      · rw [if_pos hal, if_pos hal, hro.2.2.1]
+      · rw [if_pos hal, if_pos hal, hro.2.2]
       · rw [if_neg hal, if_neg hal]
   | .app g a, d => by
     simp only [Expr.renameConsts, denote_app,
       denote_renameConsts hro g d, denote_renameConsts hro a d]
   | .proj s i e, d => by
-    -- both lookups (image and source name) are tower-free, so both
-    -- readings take the pair shape
-    simp only [Expr.renameConsts]
-    rw [denote_proj_pair cval env φ d (f s) i (e.renameConsts f)
-        (fun entry hf => hro.2.2.2 (f s) i entry hf),
-      denote_proj_pair cval env φ d s i e
-        (fun entry hf => hro.2.2.2 s i entry hf),
-      denote_renameConsts hro e d]
+    -- the struct name is fixed under renaming, so both readings
+    -- consult the same entry
+    simp only [Expr.renameConsts, denote_proj, denote_renameConsts hro e d]
   | .forallE n ty body m, d => by
     simp only [Expr.renameConsts, denote_forallE]
     rw [← Expr.renameConsts_instantiate1]
@@ -235,9 +228,7 @@ theorem denote_renameConsts_resolve {f : Name → Name}
       ∃ ci', env.find? (f n) = some ci' ∧
         ci'.toConstantVal.levelParams = ci.toConstantVal.levelParams)
     (hval : ∀ (n : Name) (ci : ConstantInfo), env.find? n = some ci →
-      ∀ ψ : Name → Nat, cval (f n) ψ = cval n ψ)
-    (htf : ∀ (sn : Name) (i : Nat) (entry : ProjEntry),
-      env.findProj? sn i = some entry → entry.tower = false) :
+      ∀ ψ : Name → Nat, cval (f n) ψ = cval n ψ) :
     ∀ (e : Expr) (d : Nat), e.constsResolve env = true →
       denote cval env φ d (e.renameConsts f) = denote cval env φ d e
   | .bvar _, _, _ => by simp [Expr.renameConsts]
@@ -262,39 +253,35 @@ theorem denote_renameConsts_resolve {f : Name → Name}
   | .app g a, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denote_app,
-      denote_renameConsts_resolve hup hval htf g d hr.1,
-      denote_renameConsts_resolve hup hval htf a d hr.2]
+      denote_renameConsts_resolve hup hval g d hr.1,
+      denote_renameConsts_resolve hup hval a d hr.2]
   | .proj s i e, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
-    simp only [Expr.renameConsts]
-    rw [denote_proj_pair cval env φ d (f s) i (e.renameConsts f)
-        (fun entry hf => htf (f s) i entry hf),
-      denote_proj_pair cval env φ d s i e
-        (fun entry hf => htf s i entry hf),
-      denote_renameConsts_resolve hup hval htf e d hr.2]
+    simp only [Expr.renameConsts, denote_proj,
+      denote_renameConsts_resolve hup hval e d hr.2]
   | .forallE n ty body m, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denote_forallE]
     rw [← Expr.renameConsts_instantiate1]
-    rw [denote_renameConsts_resolve hup hval htf ty d hr.1,
-      denote_renameConsts_resolve hup hval htf
+    rw [denote_renameConsts_resolve hup hval ty d hr.1,
+      denote_renameConsts_resolve hup hval
         (body.instantiate1 (.fvar d n ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1 0 hr.2)]
   | .lam n ty body m, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denote_lam]
     rw [← Expr.renameConsts_instantiate1]
-    rw [denote_renameConsts_resolve hup hval htf ty d hr.1,
-      denote_renameConsts_resolve hup hval htf
+    rw [denote_renameConsts_resolve hup hval ty d hr.1,
+      denote_renameConsts_resolve hup hval
         (body.instantiate1 (.fvar d n ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1 0 hr.2)]
   | .letE n ty val body, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denote_letE]
     rw [← Expr.renameConsts_instantiate1]
-    rw [denote_renameConsts_resolve hup hval htf ty d hr.1.1,
-      denote_renameConsts_resolve hup hval htf val d hr.1.2,
-      denote_renameConsts_resolve hup hval htf
+    rw [denote_renameConsts_resolve hup hval ty d hr.1.1,
+      denote_renameConsts_resolve hup hval val d hr.1.2,
+      denote_renameConsts_resolve hup hval
         (body.instantiate1 (.fvar d n ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1.1 0 hr.2)]
   termination_by e => e.sizeB

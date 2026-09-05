@@ -829,7 +829,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       (Expr.proj s₂' j₂ (e₂)) := hwb'
                     have h2 : Expr.WScoped d (e₂) := by
                       simpa only [Expr.WScoped] using hwb''
-                    by_cases hjj : (j₁ == j₂) = true
+                    by_cases hjj : (s₁' == s₂' && j₁ == j₂) = true
                     · rw [if_pos hjj, if_pos hjj]
                       refine SimC.bind
                         (ih.defeq hs₆ rfl rfl h1 h2)
