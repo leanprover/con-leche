@@ -38906,11 +38906,10 @@ harness's own control.
 ### 6. RECEIPTS
 
 `lake build` green and **warning-free**, 407 jobs (521 before the
-merge with master's SetR deletion); `lake test` green;
-layering base 242 / P 120 / caps 2 / umbrella 1, **0 base→lane, 0
-impl→theory** (pre-merge: base 246 / R 105 / P 120 / neutral 3, 0
-P→R, 0 R→P); proofdeps **88 rows as pinned**, doors 0 (pre-merge
-96); arena tutorial **90/92**,
+merges with master's SetR deletion and the wiring W3+W4 seams);
+`lake test` green; layering base 244 / P 120 / caps 2 / umbrella 1,
+**0 base→lane, 0 impl→theory**; proofdeps **88 rows as pinned**,
+doors 0; arena tutorial **90/92**,
 e2e **73/73**, annot **14/14**, retired flags 8/8, mode flags 11/11,
 **no-model sweep 138 arena + 73 e2e + 14 annot as expected (its 3
 recorded divergences)**; `init-full` **accepted 61 048 declarations
@@ -38918,5 +38917,6 @@ under all three modes** (`--set-model`, `--set-model=p`,
 `--no-model`), baseline and packed alike — verdict identity
 everywhere, and **no stream reached the saturated branch**; axioms of `bvarB_eq`,
 `fvarB_eq`, `hasLP_eq`, `bvarBoundMemo_eq`, `fvarRangeMemo_eq` and
-both cached capstones exactly the standard three; no `sorry`, no new
-axiom, no statement left conditional.
+both shipped cached capstones (`checkDeclsSPCachedD_sound_P`,
+`no_proof_of_Empty_SPCD_P`) exactly the standard three; **zero**
+`sorry`, no new axiom, no statement left conditional.
