@@ -38118,3 +38118,95 @@ Verdicts identical in every cell (exit 0; accepted counts equal per stream, init
 2. **beta-ladder regression (+20.7% P vs R), diagnosed hypothesis:** the ladder's binders are possibly-Prop (skips never fire) while the io call-site conversion SPLITS the inference traffic across the two memos — the same subterm inferred under both flavors misses the other flavor's entry. This is precisely the workload for the user's shared-memo pilot (#176: memo-as-lemma-cache; the cross-memo peek on the later-options list). Recorded as the pilot's motivating measurement; no action taken (threshold/heuristic-class changes need user sign-off).
 
 Parity note in passing: init-full --no-model at 1219.2 G ≈ **2.95× official (413.0 G, official-pre)** — the first sub-3× parity measurement in the project, the accumulated effect of the one-type migration, direct parse, loop port and the interned removal. PERF.md regeneration (four-column shape) is due and will supersede these cells as the canonical table.
+
+## TASK #175 WIRING — the direct-structure wiring batch: freeze + sizing
+(2026-09-05, `agent/wiring`)
+
+### 0. MID-BATCH SIZING FLAG, raised before the first edit
+
+The checklist as ordered (items 1–5 + config-differentiated rewrite
+removal + flip + battery + PSigma' retirement) measures, on this
+tree, at **several sessions**, not one: the infer `.proj` clause has
+four executable twins (`Core`, `CoreP`, `Cached/CoreC`,
+`Cached/CoreNC`) and 45 proof modules mention the infer bodies;
+`checkDirectProj` has two lane twins (`Cached/CheckerC`,
+`Cached/ParsedNC`) plus six Verify bridge modules carrying its
+fuel/simulation batteries; the install-soundness discharge (items
+1–2) is comparable in mass to the whole introduction batch; and the
+retirement re-derives the `BasisPSigmaP` surface (~1.8k lines)
+through the tower.  Executed accordingly: staged, each stage landing
+green, the ledger below recording exactly where the batch stands.
+
+### 1. THE DESIGN FINDING that shrinks item 5 to one clause: the
+entry-kind branch lives in the READING, not the syntax
+
+The tuple-tier caveat (i) priced "`AVExpr.proj` gains the entry key"
+as a broad ride through the substitution metatheory and every P-lane
+`.proj` row.  **That ride does not exist.**  The tower projection
+`projS i = sfst ∘ ssnd^i` is already spelled in today's `AVExpr` by
+the iterated pair node — `projAV i = .proj 0 ∘ (.proj 1)^i`
+(`SetBase/TowerLeaf.lean`), with its interpretation, substitution
+commutations and `AnnotOk2` batteries landed (`projAV_interp`,
+`projAV_liftN/_inst`, `projAV_ok2_tower`).  So the entry key is
+consumed at **`denoteP` time** (which holds the env): the `.proj`
+clause branches on the entry kind and emits
+
+    tower-backed entry for (sn, i):  projAV i ea
+    pair-backed / none (today):      if i < 2 then .proj i ea
+
+`AVExpr` unchanged, `interp2` unchanged, `AnnotOk2`/`AnnotValidV`
+clauses unchanged, the substitution metatheory untouched.  The R-side
+`denote` gets the same branch so the erasure law stays clause-parallel
+(in the R configuration the rewrite keeps bare `.proj`-on-tower off
+accepted terms, so the branch is verdict-dead there).
+
+### 2. The kernel deltas, frozen
+
+* **`ProjEntry.tower : Bool := false`** — the entry-kind
+  discriminator.  Default `false`: the five existing construction
+  sites are untouched literals; `NativeProjPinned` keeps its exact
+  statement pre-flip.  Post-flip form (frozen):
+  `e.native = true → e = pairFstEntry ∨ e = pairSndEntry ∨
+  e.tower = true` — and the `.proj` infer clause's pinned fast path
+  guards on `¬ e.tower`.
+* **The `.proj`-node type generator** (`Kernel/Direct.lean`):
+  `directProjTyP` = `directProjTy` with earlier fields spelled
+  `.proj T j t` instead of `projFnName T j` applications — the native
+  entries' recorded `ty` discipline, and what makes O4's per-field
+  entry independence real (no `projFnName` resolution chain).
+* **`checkDirectProj` → entry install** (+ `CheckerC`/`ParsedNC`
+  twins): the definitional re-checks stay (subject domain, residual —
+  the model's pins); the degenerate recursor and its rule go; the
+  install becomes `.projInfo ⟨T, i, lps, nP, C, nF, ptyPA, fieldSort,
+  resSort, native := true, recExtraLevel := false, tower := true⟩`
+  with `fieldSort` from `ensureSort` at the opened frame, behind the
+  **O4 per-field branch**: entry iff `resSort.isNonZero ∨
+  Level.leq fieldSort resSort` (vacuously true for today's recognised
+  class; the else-branch installs nothing and is the recognition-
+  widening seam).  R2 stays excluded by `directNonRec` (O2, syntactic).
+* **The infer `.proj` tower branch** (four twins): at
+  `entry.native ∧ entry.tower`, the residual is computed generically —
+  `entry.ty.instantiateLevelParams entry.levelParams us` peeled by
+  `Expr.instPisAt (te.getAppArgs ++ [pe])` — restoring the pre-B2
+  walk shape for tower entries only; the two-entry list match stays
+  the pair fast path.  `whnfCore`'s structural rule and `annotate`'s
+  native branch are already generic (the #107/#161 audit, re-confirmed
+  on this tree) and need no change.
+* **Kernel eta for tower-backed structures** (defeq's stuck-`.proj`
+  rescue, today pair-specific at `Core.lean:912`) is NOT in this
+  freeze: the tier grants the law, but the kernel rescue is a
+  capability addition with its own battery, deferred until the flip
+  stage prices it against arena expectations.
+
+### 3. The ledger
+
+| stage | content | state |
+|---|---|---|
+| W1 | this freeze + sizing flag | this entry |
+| W2a | `ProjEntry.tower` field | — |
+| W2b | generator + `checkDirectProj` entry install + twins + bridge re-proofs | — |
+| W2c | infer tower branch (4 twins) + clause-proof adaptation | — |
+| W3 | `denoteP`/`denote` reading branch + erasure law | — |
+| W4 | install soundness (checklist items 1–2) | — |
+| W5 | rewrite removal (P/parity), flip, battery | — |
+| W6 | PSigma' retirement (gated) | — |
