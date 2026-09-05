@@ -295,10 +295,13 @@ theorem denote_ctorTyR {env : Env} (m : EnvR env) (φ : Name → Nat)
     (denote_psigmaMkTy_eq (cval := m.cval) (φ := φ) hpsig l0 l1)
   exact ⟨_, denote_psigmaMkTy_eq hpsig l0 l1, hc, hd⟩
 
-/-- **`ProjStepR`, proved** (R6, and R7 at the scrutinee).  The stuck
-branch is `Red.projArg` — finding 2's rule, and the reason it had to
-exist: *every* non-firing branch of the clause returns the reduced
-scrutinee under the projection. -/
+/-- **`ProjStepR`, proved** (R6/R6′, and R7 at the scrutinee).  The
+stuck branch is `Red.projArg` — finding 2's rule, and the reason it
+had to exist: *every* non-firing branch of the clause returns the
+reduced scrutinee under the projection — iterated along `projNV` at a
+tower-backed entry (`Red.projNV_arg`).  The firing branch at a
+tower-backed entry (task #175 wiring W5) is R6′ with the constructor's
+stored type in place of the pinned one. -/
 theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     {fuel : Nat} (hg : mode.betaGate = false)
     (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
@@ -307,43 +310,205 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     ProjStepR (mode := mode) m φ fuel := by
   intro d Δ sn i pe e' v h hws hb hLb hC hv
   obtain ⟨e₂, e₃, hwpe, hlit, hcase⟩ := whnf_proj_inv h
-  rw [denote_proj_pair m.cval env φ d sn i pe
-    (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf')] at hv
+  rw [denote_proj] at hv
   cases hvp : denote m.cval env φ d pe with
   | none => rw [hvp] at hv; exact nomatch hv
   | some vp =>
   rw [hvp] at hv
   dsimp only at hv
-  by_cases hi2 : i < 2
-  · rw [if_pos hi2] at hv
-    obtain rfl : v = .proj i vp := (Option.some.inj hv).symm
-    simp only [Expr.WScoped] at hws
-    simp only [Expr.looseBVarsBounded] at hb
-    have hLpe : Expr.LeavesBounded pe := fun l hl =>
-      hLb l (by simpa [Expr.fvarLeaves] using hl)
-    have hCpe : CtxOkR mode m.cval env φ d Δ pe :=
-      CtxOkR.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl) hC
-    obtain ⟨v₃, hv₃, hR₃, hw₃, hb₃, hL₃, hC₃⟩ :=
-      proj_scrutineeR m φ hcl ihw hwpe hlit hws hb hLpe hCpe hvp
-    rcases hcase with rfl |
-      ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert⟩
-    · -- stuck: the reduced scrutinee under the projection — `Red.projArg`
-      refine ⟨.proj i v₃, ?_, Red.projArg hR₃⟩
-      rw [denote_proj_pair m.cval env φ d sn i _
-        (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf'), hv₃]
-      dsimp only
-      rw [if_pos hi2]
-    · -- the table fires
-      obtain ⟨hpin, rfl, hidx, hpsig, hpsigMk⟩ := projEntry_pins m.proj_ok hfe hnat
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded] at hb
+  have hLpe : Expr.LeavesBounded pe := fun l hl =>
+    hLb l (by simpa [Expr.fvarLeaves] using hl)
+  have hCpe : CtxOkR mode m.cval env φ d Δ pe :=
+    CtxOkR.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl) hC
+  obtain ⟨v₃, hv₃, hR₃, hw₃, hb₃, hL₃, hC₃⟩ :=
+    proj_scrutineeR m φ hcl ihw hwpe hlit hws hb hLpe hCpe hvp
+  -- the reading of the stuck node at the reduced scrutinee, at either
+  -- entry kind
+  have hstuck : ∀ (v' : VExpr), v = v' →
+      (∀ entry, env.findProj? sn i = some entry → entry.tower = true →
+        v' = projNV i vp) →
+      ((∀ entry, env.findProj? sn i = some entry → entry.tower = false) →
+        i < 2 → v' = .proj i vp) →
+      ∃ w, denote m.cval env φ d (.proj sn i e₃) = some w ∧
+        Red mode env m.cval φ Δ v' w := by
+    intro v' hvv htw hpr
+    rw [denote_proj, hv₃]
+    dsimp only
+    cases hfp : env.findProj? sn i with
+    | some entry =>
+      rw [hfp] at hv
+      dsimp only at hv ⊢
+      by_cases htwe : entry.tower = true
+      · rw [if_pos htwe] at hv ⊢
+        rw [htw entry hfp htwe]
+        exact ⟨_, rfl, Red.projNV_arg hR₃⟩
+      · rw [if_neg htwe] at hv ⊢
+        have htwf : entry.tower = false := by
+          cases hh : entry.tower
+          · rfl
+          · exact absurd hh htwe
+        by_cases hi2 : i < 2
+        · rw [if_pos hi2] at hv ⊢
+          rw [hpr (fun e he => by
+            obtain rfl : entry = e := Option.some.inj (hfp.symm.trans he)
+            exact htwf) hi2]
+          exact ⟨_, rfl, Red.projArg hR₃⟩
+        · rw [if_neg hi2] at hv; exact nomatch hv
+    | none =>
+      rw [hfp] at hv
+      dsimp only at hv ⊢
+      by_cases hi2 : i < 2
+      · rw [if_pos hi2] at hv ⊢
+        rw [hpr (fun e he => by rw [hfp] at he; exact nomatch he) hi2]
+        exact ⟨_, rfl, Red.projArg hR₃⟩
+      · rw [if_neg hi2] at hv; exact nomatch hv
+  rcases hcase with rfl |
+    ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hwcf, hcert⟩
+  · -- stuck: the reduced scrutinee under the projection
+    refine hstuck v rfl ?_ ?_
+    · intro entry hfp htwe
+      rw [hfp] at hv; dsimp only at hv; rw [if_pos htwe] at hv
+      exact (Option.some.inj hv).symm
+    · intro hnt hi2
+      cases hfp : env.findProj? sn i with
+      | some entry =>
+        rw [hfp] at hv; dsimp only at hv
+        rw [if_neg (by simp [hnt entry hfp]), if_pos hi2] at hv
+        exact (Option.some.inj hv).symm
+      | none =>
+        rw [hfp] at hv; dsimp only at hv; rw [if_pos hi2] at hv
+        exact (Option.some.inj hv).symm
+  · -- the table fires
+    rw [hfe] at hv
+    dsimp only at hv
+    -- the constructor spine, denoted
+    rw [show e₃ = Expr.mkAppN e₃.getAppFn e₃.getAppArgs from
+      (Expr.mkAppN_getApp e₃).symm, hfn] at hv₃
+    obtain ⟨vc, vs, hvc, hspa, rfl⟩ := denote_mkAppN_inv hv₃
+    -- the certificate pack
+    obtain ⟨ta, te, hita, hite⟩ := projCert_inv hcert
+    rw [Setlec.inferTypeIO_off hg] at hita hite
+    -- frames for the spine and for the projected field
+    have hfrE : ∀ x ∈ e₃.getAppArgs, Expr.WScoped d x ∧
+        x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
+        CtxOkR mode m.cval env φ d Δ x :=
+      frame_spineR hw₃ hb₃ hL₃ hC₃
+    have hmem : e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)
+        ∈ e₃.getAppArgs :=
+      getD_mem (by rw [hlenA]; omega)
+    obtain ⟨hwF, hbF, hLF, hCF⟩ := hfrE _ hmem
+    have hidx' : (entry.numParams + i) < vs.length := by
+      rw [hspa.length, hlenA]; omega
+    have hfvd : denote m.cval env φ d
+        (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0))
+        = some (vs.getD (entry.numParams + i) default) := by
+      have := hspa.get ⟨entry.numParams + i, by rw [hspa.length] at hidx'; exact hidx'⟩
+      simpa [List.getD, List.getElem?_eq_getElem
+        (show entry.numParams + i < e₃.getAppArgs.length by
+          rw [hlenA]; omega)] using this
+    have hE₃ : Expr.mkAppN (Expr.const entry.ctor us) e₃.getAppArgs = e₃ := by
+      rw [← hfn]; exact Expr.mkAppN_getApp e₃
+    -- the head's own infer run
+    obtain ⟨tf₀, hf₀⟩ :=
+      inferSpine_headR (f := Expr.const entry.ctor us)
+        e₃.getAppArgs.reverse (by
+          rw [List.reverse_reverse, hE₃]
+          exact hite)
+    obtain ⟨ciMk, hfMk, rfl⟩ := inferTypeCore_const_inv hf₀
+    -- the two certificate chains, shared by both entry kinds
+    obtain ⟨fv, vta, hfv, hvta, T₁, hI₁, hD₁⟩ := ihi hita hwF hbF hLF hCF
+    obtain rfl : fv = vs.getD (entry.numParams + i) default := by
+      rw [hfv] at hfvd; exact Option.some.inj hfvd
+    obtain ⟨vP, vte, hvP, hvte, S₁, hJ₁, hE₁⟩ := ihi hite hw₃ hb₃ hL₃ hC₃
+    rw [← hE₃] at hvP
+    -- the field's own head normalization
+    obtain ⟨w, hw, hRw⟩ := ihwc hwcf hwF hbF hLF hCF hfvd
+    by_cases htw : entry.tower = true
+    · -- TOWER-BACKED (task #175 wiring W5): R6′ at the stored constructor
+      rw [if_pos htw] at hv
+      obtain rfl : v = projNV i vp := (Option.some.inj hv).symm
+      obtain ⟨-, -, -, -, -, -, cvC, hfC, hlpsC, hstrip⟩ :=
+        m.proj_ok.towerHead hfe htw
+      obtain rfl : ciMk = .ctorInfo cvC entry.numParams entry.numFields :=
+        Option.some.inj (hfMk.symm.trans hfC)
+      have hlenC : us.length = (ConstantInfo.ctorInfo cvC entry.numParams
+          entry.numFields).toConstantVal.levelParams.length := by
+        show us.length = cvC.levelParams.length
+        rw [hlpsC]; exact hlenU
+      rw [denote_const, hfC] at hvc
+      dsimp only at hvc
+      rw [if_pos hlenC] at hvc
+      obtain rfl : vc = m.cval entry.ctor (Level.substFn φ
+          (ConstantInfo.ctorInfo cvC entry.numParams
+            entry.numFields).toConstantVal.levelParams us) :=
+        (Option.some.inj hvc).symm
+      -- the constructor's stored type: denoted, closed, depth-free
+      have hmemC := find?_mem hfC
+      obtain ⟨TC, hTC'⟩ := m.ty_denotes _ hmemC (Level.substFn φ
+        (ConstantInfo.ctorInfo cvC entry.numParams
+          entry.numFields).toConstantVal.levelParams us)
+      obtain ⟨hnfC, -, -, hbdC, -⟩ := m.wf _ hmemC
+      have hTC0 : denoteClosed m.cval env φ
+          ((ConstantInfo.ctorInfo cvC entry.numParams
+            entry.numFields).toConstantVal.type.instantiateLevelParams
+            (ConstantInfo.ctorInfo cvC entry.numParams
+              entry.numFields).toConstantVal.levelParams us) = some TC := by
+        rw [denoteClosed, denote_instLevels m.val_params]
+        exact hTC'
+      have hnfC' : ((ConstantInfo.ctorInfo cvC entry.numParams
+          entry.numFields).toConstantVal.type.instantiateLevelParams
+          (ConstantInfo.ctorInfo cvC entry.numParams
+            entry.numFields).toConstantVal.levelParams us).hasFvar = false := by
+        rw [Expr.hasFvar_instantiateLevelParams]; exact hnfC
+      have hbdC' : ((ConstantInfo.ctorInfo cvC entry.numParams
+          entry.numFields).toConstantVal.type.instantiateLevelParams
+          (ConstantInfo.ctorInfo cvC entry.numParams
+            entry.numFields).toConstantVal.levelParams us).looseBVarsBounded 0
+          = true := by
+        rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hbdC
+      obtain ⟨hTCc, hTCd⟩ := denote_closedExprR hcl hnfC' hbdC' hTC0
+      -- the constructor spine's telescope: the infer run's own
+      -- per-argument re-checks, walked (the R6 amendment)
+      obtain ⟨rest, hrest, -, htele⟩ :=
+        tele_of_inferSpineR m φ hcl ihd ihi hf₀ (hTCd d)
+          (Expr.WScoped.of_not_hasFvar rfl) rfl
+          (Expr.LeavesBounded.of_not_hasFvar rfl)
+          (CtxOkR.of_fvarLeaves_nil hC.1 (by simp [Expr.fvarLeaves]))
+          e₃.getAppArgs.reverse (k := 0)
+          (by rw [List.reverse_reverse, hE₃]; exact hite)
+          (by rw [List.length_reverse, hlenA, Nat.add_zero]
+              exact Setlec.Expr.stripPis_instantiateLevelParams_isSome _ _ _ hstrip)
+          (by rw [List.reverse_reverse]; exact hspa)
+          (fun x hx => hfrE x (List.mem_reverse.mp hx))
+      obtain rfl : vP = VExpr.mkAppN (m.cval entry.ctor (Level.substFn φ
+          (ConstantInfo.ctorInfo cvC entry.numParams
+            entry.numFields).toConstantVal.levelParams us)) vs := by
+        rw [hvP] at hv₃
+        exact Option.some.inj hv₃
+      refine ⟨w, hw, Red.trans ?_ hRw⟩
+      refine Red.projRedTower hfe hnat htw hilt (by rw [hspa.length, hlenA])
+        hlenU hfC hlenC rfl ?_ hTC0 hTCc hR₃ htele hI₁ hD₁ hJ₁ hE₁
+      simp only [List.getD, List.getElem?_eq_getElem hidx']
+      rfl
+    · -- PAIR-BACKED: the pinned constructor, as before
+      rw [if_neg htw] at hv
+      have htw' : entry.tower = false := by
+        cases hh : entry.tower
+        · rfl
+        · exact absurd hh htw
+      obtain ⟨hpin, rfl, hidx, hpsig, hpsigMk⟩ :=
+        projEntry_pins m.proj_ok hfe hnat htw'
+      have hi2 : i < 2 := by
+        rcases hpin with rfl | rfl <;> · rw [← hidx]; simp [pairFstEntry, pairSndEntry]
+      rw [if_pos hi2] at hv
+      obtain rfl : v = .proj i vp := (Option.some.inj hv).symm
       have hctor : entry.ctor = psigmaMkName := by
         rcases hpin with rfl | rfl <;> rfl
       have hlen2 : us.length = 2 := by
         rcases hpin with rfl | rfl <;> simpa [pairFstEntry, pairSndEntry] using hlenU
       obtain ⟨l0, l1, rfl⟩ := List.length_two' hlen2
-      -- the constructor spine, denoted
-      rw [show e₃ = Expr.mkAppN e₃.getAppFn e₃.getAppArgs from
-        (Expr.mkAppN_getApp e₃).symm, hfn] at hv₃
-      obtain ⟨vc, vs, hvc, hspa, rfl⟩ := denote_mkAppN_inv hv₃
       have hfctor : env.find? entry.ctor = some psigmaMkA := by
         rw [hctor]; exact hpsigMk
       rw [denote_const, hfctor] at hvc
@@ -354,37 +519,6 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
             (Level.substFn φ psigmaMkA.toConstantVal.levelParams [l0, l1]) :=
           (Option.some.inj hvc).symm
         obtain ⟨TC, hTC0, hTCc, hTCd⟩ := denote_ctorTyR m φ hcl hpsig l0 l1
-        -- the certificate pack
-        obtain ⟨ta, te, hita, hite⟩ := projCert_inv hcert
-        rw [Setlec.inferTypeIO_off hg] at hita hite
-        -- frames for the spine and for the projected field
-        have hfrE : ∀ x ∈ e₃.getAppArgs, Expr.WScoped d x ∧
-            x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
-            CtxOkR mode m.cval env φ d Δ x :=
-          frame_spineR hw₃ hb₃ hL₃ hC₃
-        have hmem : e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)
-            ∈ e₃.getAppArgs :=
-          getD_mem (by rw [hlenA]; omega)
-        obtain ⟨hwF, hbF, hLF, hCF⟩ := hfrE _ hmem
-        have hidx' : (entry.numParams + i) < vs.length := by
-          rw [hspa.length, hlenA]; omega
-        have hfvd : denote m.cval env φ d
-            (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-            = some (vs.getD (entry.numParams + i) default) := by
-          have := hspa.get ⟨entry.numParams + i, by rw [hspa.length] at hidx'; exact hidx'⟩
-          simpa [List.getD, List.getElem?_eq_getElem
-            (show entry.numParams + i < e₃.getAppArgs.length by
-              rw [hlenA]; omega)] using this
-        -- the constructor spine's telescope: the infer run's own
-        -- per-argument re-checks, walked (the R6 amendment)
-        obtain ⟨tf₀, hf₀⟩ :=
-          inferSpine_headR (f := Expr.const entry.ctor [l0, l1])
-            e₃.getAppArgs.reverse (by
-              rw [List.reverse_reverse]
-              rw [show Expr.mkAppN (.const entry.ctor [l0, l1]) e₃.getAppArgs
-                = e₃ from by rw [← hfn]; exact Expr.mkAppN_getApp e₃]
-              exact hite)
-        obtain ⟨ciMk, hfMk, rfl⟩ := inferTypeCore_const_inv hf₀
         obtain rfl : ciMk = psigmaMkA := by
           rw [hfMk] at hfctor; exact Option.some.inj hfctor
         obtain ⟨rest, hrest, -, htele⟩ :=
@@ -393,30 +527,15 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
             (Expr.LeavesBounded.of_not_hasFvar rfl)
             (CtxOkR.of_fvarLeaves_nil hC.1 (by simp [Expr.fvarLeaves]))
             e₃.getAppArgs.reverse (k := 0)
-            (by rw [List.reverse_reverse]
-                rw [show Expr.mkAppN (.const entry.ctor [l0, l1])
-                  e₃.getAppArgs = e₃ from by
-                    rw [← hfn]; exact Expr.mkAppN_getApp e₃]
-                exact hite)
+            (by rw [List.reverse_reverse, hE₃]; exact hite)
             (by rw [List.length_reverse, hlenA]
                 rcases hpin with rfl | rfl <;> rfl)
             (by rw [List.reverse_reverse]; exact hspa)
             (fun x hx => hfrE x (List.mem_reverse.mp hx))
-        -- the two certificate chains
-        obtain ⟨fv, vta, hfv, hvta, T₁, hI₁, hD₁⟩ := ihi hita hwF hbF hLF hCF
-        obtain rfl : fv = vs.getD (entry.numParams + i) default := by
-          rw [hfv] at hfvd; exact Option.some.inj hfvd
-        -- the subject's chain
-        have hE₃ : Expr.mkAppN (Expr.const entry.ctor [l0, l1])
-            e₃.getAppArgs = e₃ := by rw [← hfn]; exact Expr.mkAppN_getApp e₃
-        obtain ⟨vP, vte, hvP, hvte, S₁, hJ₁, hE₁⟩ := ihi hite hw₃ hb₃ hL₃ hC₃
-        rw [← hE₃] at hvP
         obtain rfl : vP = VExpr.mkAppN (m.cval entry.ctor
             (Level.substFn φ psigmaMkA.toConstantVal.levelParams [l0, l1])) vs := by
           rw [hvP] at hv₃
           exact Option.some.inj hv₃
-        -- the field's own head normalization
-        obtain ⟨w, hw, hRw⟩ := ihwc hwcf hwF hbF hLF hCF hfvd
         refine ⟨w, hw, Red.trans ?_ hRw⟩
         refine Red.projRed hfe hnat hilt (by rw [hspa.length, hlenA]) hlenU
           hfctor (by rw [← hlenC]) rfl ?_ hTC0 hTCc hR₃ htele
@@ -424,6 +543,5 @@ theorem proj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         simp only [List.getD, List.getElem?_eq_getElem hidx']
         rfl
       · exact nomatch hvc
-  · rw [if_neg hi2] at hv; exact nomatch hv
 
 end Setlec.SetR

@@ -496,10 +496,10 @@ theorem defeqStuck_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
       cases r with
       | false => exact hfall h
       | true =>
-        rw [denote_proj_pair m.cval env φ d s₁ i₁ e₁
-          (fun entry hf => m.proj_ok.towerFree _ _ _ hf)] at hva
-        rw [denote_proj_pair m.cval env φ d s₁ i₁ e₂
-          (fun entry hf => m.proj_ok.towerFree _ _ _ hf)] at hvb
+        -- both nodes carry the same name and index (the W5 guard), so
+        -- both readings take the entry's kind: `.proj i` at a pair
+        -- entry, `projNV i` at a tower entry — each a congruence
+        rw [denote_proj] at hva hvb
         cases he₁ : denote m.cval env φ d e₁ with
         | none => rw [he₁] at hva; exact nomatch hva
         | some ve₁ =>
@@ -509,19 +509,40 @@ theorem defeqStuck_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
         rw [he₁] at hva
         rw [he₂] at hvb
         dsimp only at hva hvb
-        by_cases hlt : i₁ < 2
-        · rw [if_pos hlt] at hva hvb
-          obtain rfl : va = .proj i₁ ve₁ := (Option.some.inj hva).symm
-          obtain rfl : vb = .proj i₁ ve₂ := (Option.some.inj hvb).symm
-          simp only [Expr.WScoped] at hwa hwb
-          simp only [Expr.looseBVarsBounded] at hba hbb
-          exact DefEq.projCong (ihd hde hwa hba
-            (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
-            hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
-            (CtxOkR.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
-            (CtxOkR.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hCb)
-            he₁ he₂)
-        · rw [if_neg hlt] at hva; exact nomatch hva
+        simp only [Expr.WScoped] at hwa hwb
+        simp only [Expr.looseBVarsBounded] at hba hbb
+        have hD := ihd hde hwa hba
+          (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
+          hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
+          (CtxOkR.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hCa)
+          (CtxOkR.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hCb)
+          he₁ he₂
+        have hpairCase : ∀ (hva' : (if i₁ < 2 then some (VExpr.proj i₁ ve₁)
+              else none) = some va)
+            (hvb' : (if i₁ < 2 then some (VExpr.proj i₁ ve₂) else none)
+              = some vb), DefEq mode env m.cval φ Δ va vb := by
+          intro hva' hvb'
+          by_cases hlt : i₁ < 2
+          · rw [if_pos hlt] at hva' hvb'
+            obtain rfl : va = .proj i₁ ve₁ := (Option.some.inj hva').symm
+            obtain rfl : vb = .proj i₁ ve₂ := (Option.some.inj hvb').symm
+            exact DefEq.projCong hD
+          · rw [if_neg hlt] at hva'; exact nomatch hva'
+        cases hfp : env.findProj? s₁ i₁ with
+        | some entry =>
+          rw [hfp] at hva hvb
+          dsimp only at hva hvb
+          by_cases htw : entry.tower = true
+          · rw [if_pos htw] at hva hvb
+            obtain rfl : va = projNV i₁ ve₁ := (Option.some.inj hva).symm
+            obtain rfl : vb = projNV i₁ ve₂ := (Option.some.inj hvb).symm
+            exact DefEq.projNV_cong hD
+          · rw [if_neg htw] at hva hvb
+            exact hpairCase hva hvb
+        | none =>
+          rw [hfp] at hva hvb
+          dsimp only at hva hvb
+          exact hpairCase hva hvb
     · exact hfall h
   -- 15: one-sided λ on the left (D13)
   · rename_i n₁ ty₁ bd₁ mb₁ hnl

@@ -557,11 +557,9 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
       · exact ⟨hi2, rfl⟩
     -- the entry's pins, and the returned type
     obtain ⟨rfl, -, -, -, -, -, hlU, -, hpsig, -⟩ :=
-      projPinsP m.proj_ok hfe hnat
+      projPinsP m.proj_ok hfe hnat htw'
     have hnt0 : ∀ entry', env.findProj? Setlec.psigmaName 0 = some entry' →
-        entry'.tower = false := fun e he =>
-      projEntry_not_tower m.proj_ok he
-        (m.proj_ok.2.1 0 e (Setlec.Env.findProj?_some he))
+        entry'.tower = false := fun e he => m.proj_ok.psigma_not_tower he
     -- the reduced type's spine
     rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
       (Setlec.Expr.mkAppN_getApp te).symm, hfn] at htea
@@ -753,11 +751,9 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
       · exact ⟨hi2, rfl⟩
     -- the entry's pins, and the returned type
     obtain ⟨rfl, -, -, -, -, -, hlU, -, hpsig, -⟩ :=
-      projPinsP m.proj_ok hfe hnat
+      projPinsP m.proj_ok hfe hnat htw'
     have hnt0 : ∀ entry', env.findProj? Setlec.psigmaName 0 = some entry' →
-        entry'.tower = false := fun e he =>
-      projEntry_not_tower m.proj_ok he
-        (m.proj_ok.2.1 0 e (Setlec.Env.findProj?_some he))
+        entry'.tower = false := fun e he => m.proj_ok.psigma_not_tower he
     -- the reduced type's spine
     rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
       (Setlec.Expr.mkAppN_getApp te).symm, hfn] at htea
@@ -990,8 +986,12 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
         · obtain rfl := Option.some.inj (hfe'.symm.trans hfe)
           exact absurd htw'' htw
         · exact ⟨hi2, rfl⟩
+      have htw' : entry.tower = false := by
+        cases hv : entry.tower
+        · rfl
+        · exact absurd hv htw
       obtain ⟨-, hidx, -, hnP, hnF, hctor, hlU, hpin, -, hfmk⟩ :=
-        projPinsP m.proj_ok hfe hnat
+        projPinsP m.proj_ok hfe hnat htw'
       obtain ⟨l0, l1, rfl⟩ := Setlec.List.length_two (by rw [hlenU, hlU])
       obtain ⟨a0, a1, a2, a3, hargs⟩ :=
         Setlec.List.length_four (by rw [hlenA, hnP, hnF])

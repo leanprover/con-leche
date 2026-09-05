@@ -241,8 +241,10 @@ def coreCons (m : EnvS2Core V env) {c₀ : ConstantInfo}
         rw [show acvalWith m.acval c₀.name A c₀.name = A from
           acvalWith_self]
         exact (hh.pin hres).2 ψ t hp⟩)
-  proj_ok := ProjOkT.cons m.proj_ok hfresh hh.projHead hh.projPair
-    hh.projTower
+  proj_ok := ProjOkT.cons m.proj_ok hfresh
+    (fun entry heq hnat _ => hh.projHead entry heq hnat) hh.projPair
+    (fun entry heq htw => absurd ((hh.projTower entry heq).symm.trans htw)
+      (by decide))
   rec_ctors := Setlec.RecCtorsStored.cons m.rec_ctors hfresh hh.ctorsHead
   acval_closed := acvalWith_closed m.acval_closed hAclosed
   acval_params := acvalWith_params m.acval_params hAparams

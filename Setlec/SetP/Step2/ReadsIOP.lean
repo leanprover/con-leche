@@ -322,11 +322,9 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
     · exact hspt.mem t (by simp)
     · obtain ⟨Ba, hBa⟩ := hspt.mem B (by simp)
       -- the first projection node sits at the pair block's own slot
-      obtain ⟨rfl, -⟩ := projPinsP m.proj_ok hfe hnat
+      obtain ⟨rfl, -⟩ := projPinsP m.proj_ok hfe hnat htw'
       have hnt0 : ∀ entry', env.findProj? Setlec.psigmaName 0 = some entry' →
-          entry'.tower = false := fun e he =>
-        projEntry_not_tower m.proj_ok he
-          (m.proj_ok.2.1 0 e (Setlec.Env.findProj?_some he))
+          entry'.tower = false := fun e he => m.proj_ok.psigma_not_tower he
       exact ⟨.app Ba (.proj 0 vp), by
         rw [denoteP_app, hBa, denoteP_proj_pair m.acval (env := env)
           (φ := φ) _ _ _ _ hnt0, hvp]

@@ -149,22 +149,51 @@ theorem denote_entryTyR {env : Env} (m : EnvR env) (φ : Name → Nat)
     exact ⟨_, denote_pairFstTy_eq hpsig l0 l1, hc, hd⟩
   · obtain ⟨hc, hd⟩ := denote_closedExprR hcl hnf hbd
       (denote_pairSndTy_eq (cval := m.cval) (φ := φ) hpsig
-        (fun e he => m.proj_ok.towerFree _ _ _ he) l0 l1)
+        (fun e he => m.proj_ok.psigma_not_tower he) l0 l1)
     exact ⟨_, denote_pairSndTy_eq hpsig
-      (fun e he => m.proj_ok.towerFree _ _ _ he) l0 l1, hc, hd⟩
+      (fun e he => m.proj_ok.psigma_not_tower he) l0 l1, hc, hd⟩
 
-/-- **`InferProjStepR`, proved** (I9).  Head-match only — task #129's
-`projParamCert` was TT-lane-only and is deleted (task #161, item A). -/
+/-- The checker's `instPisAt` peel is `piResidual`'s walk: both peel a
+`∀` one argument at a time and instantiate; `instPisAt` merely records
+the domains alongside. -/
+theorem piResidual_of_instPisAt :
+    ∀ (args : List Expr) {e rest : Expr} {ds : List Expr},
+      Expr.instPisAt args e = some (ds, rest) →
+      Setlec.piResidual e args = some rest
+  | [], e, rest, ds, h => by
+    obtain ⟨-, rfl⟩ : ds = [] ∧ rest = e := by
+      simpa [Expr.instPisAt] using h.symm
+    rfl
+  | a :: as, .forallE n dom body mb, rest, ds, h => by
+    simp only [Expr.instPisAt, Option.map_eq_some_iff] at h
+    obtain ⟨⟨ds', r'⟩, h', heq⟩ := h
+    obtain ⟨-, rfl⟩ : dom :: ds' = ds ∧ r' = rest := by simpa using heq
+    exact piResidual_of_instPisAt as h'
+  | _ :: _, .bvar _, _, _, h => nomatch h
+  | _ :: _, .fvar _ _ _, _, _, h => nomatch h
+  | _ :: _, .sort _, _, _, h => nomatch h
+  | _ :: _, .const _ _, _, _, h => nomatch h
+  | _ :: _, .app _ _, _, _, h => nomatch h
+  | _ :: _, .lam _ _ _ _, _, _, h => nomatch h
+  | _ :: _, .letE _ _ _ _, _, _, h => nomatch h
+  | _ :: _, .lit _, _, _, h => nomatch h
+  | _ :: _, .proj _ _ _, _, _, h => nomatch h
+
+/-- **`InferProjStepR`, proved** (I9 at a pair-backed entry, I9′ at a
+tower-backed one — task #175 wiring W5).  Head-match only — task
+#129's `projParamCert` was TT-lane-only and is deleted (task #161,
+item A).  At a tower entry the stored entry type is a stored type
+(`EnvR.ty_denotes`), the checker's `instPisAt` peel is `piResidual`'s
+walk (`piResidual_of_instPisAt`), and the head data
+(`ProjOkT.towerHead`) supplies the former's lookup. -/
 theorem inferProj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihw : WhnfClaimsR mode m φ fuel) (ihi : InferClaimsR mode m φ fuel) :
     InferProjStepR (mode := mode) m φ fuel := by
   intro d Δ sn i pe t h hws hb hLb hC
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, hpair, -⟩ := inferTypeCore_proj_inv h
-  obtain ⟨A₀, B₀, hargs₀, hcomp⟩ :=
-    hpair (projEntry_not_tower m.proj_ok hfe hnat)
-  obtain ⟨hpin, rfl, hidx, hpsig, hpsigMk⟩ := projEntry_pins m.proj_ok hfe hnat
+    hlenUs, hpair, htow, hsn⟩ := inferTypeCore_proj_inv h
+  subst hsn
   -- the subject's frames, and its type reduced to the family application
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
@@ -184,53 +213,108 @@ theorem inferProj_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
     (Expr.mkAppN_getApp te).symm, hfn] at hW
   obtain ⟨vT, ps, hvT, hspt, rfl⟩ := denote_mkAppN_inv hW
-  rw [denote_const, hpsig] at hvT
-  dsimp only at hvT
-  split at hvT
-  · next hlenT =>
-    obtain rfl : vT = m.cval psigmaName
-        (Level.substFn φ psigmaA.toConstantVal.levelParams us) :=
-      (Option.some.inj hvT).symm
-    -- the entry's type, denoted
-    obtain ⟨TP, hTP0, hTPc, hTPd⟩ := denote_entryTyR m φ hcl hpin hpsig hlenUs
-    -- the residual walk
-    have hframes : ∀ x ∈ te.getAppArgs ++ [pe],
-        Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true := by
-      intro x hx
-      rcases List.mem_append.mp hx with hx' | hx'
-      · exact ⟨(frame_spineR hwr hbr hLr hCr x hx').1,
-          (frame_spineR hwr hbr hLr hCr x hx').2.1⟩
-      · rcases List.mem_singleton.mp hx' with rfl
-        exact ⟨hws, hb⟩
-    -- task #161 item B2 (harvest site 21 / P10): the clause returns
-    -- the *computed* residual; `piResidual_of_computed` turns it back
-    -- into the walk this tier's `Infer.proj` states, using the pin and
-    -- the two parameters' frames (which `hframes` already supplies).
+  have hframes : ∀ x ∈ te.getAppArgs ++ [pe],
+      Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · exact ⟨(frame_spineR hwr hbr hLr hCr x hx').1,
+        (frame_spineR hwr hbr hLr hCr x hx').2.1⟩
+    · rcases List.mem_singleton.mp hx' with rfl
+      exact ⟨hws, hb⟩
+  by_cases htw : entry.tower = true
+  · -- TOWER-BACKED (task #175 wiring W5): I9′, the entry type walked
+    obtain ⟨ds, hpi⟩ := htow htw
+    obtain ⟨-, -, -, -, -, ⟨cvT, capsT, hfT, hlpsT⟩, -⟩ :=
+      m.proj_ok.towerHead hfe htw
+    rw [(Env.findProj?_names hfe).1] at hfT
+    -- the entry type, a stored type: denoted, closed, depth-free
+    have hmemE := find?_mem (Env.findProj?_some hfe)
+    obtain ⟨TP, hTP⟩ := m.ty_denotes _ hmemE (Level.substFn φ entry.levelParams us)
+    obtain ⟨hnfE, -, -, hbdE, -⟩ := m.wf _ hmemE
+    have hTP0 : denoteClosed m.cval env φ
+        (entry.ty.instantiateLevelParams entry.levelParams us) = some TP := by
+      rw [denoteClosed, denote_instLevels m.val_params]
+      exact hTP
+    have hnf' : (entry.ty.instantiateLevelParams entry.levelParams us).hasFvar
+        = false := by
+      rw [Expr.hasFvar_instantiateLevelParams]; exact hnfE
+    have hbd' : (entry.ty.instantiateLevelParams entry.levelParams
+        us).looseBVarsBounded 0 = true := by
+      rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hbdE
+    obtain ⟨hTPc, hTPd⟩ := denote_closedExprR hcl hnf' hbd' hTP0
+    -- the residual walk, from the checker's own peel
     have hres : Setlec.piResidual
         (entry.ty.instantiateLevelParams entry.levelParams us)
-        (te.getAppArgs ++ [pe]) = some t := by
-      rw [hargs₀]
-      exact piResidual_of_computed m.proj_ok hfe hnat hlenUs
-        (hframes A₀ (by rw [hargs₀]; simp)).2
-        (hframes B₀ (by rw [hargs₀]; simp)).2 hcomp
+        (te.getAppArgs ++ [pe]) = some t := piResidual_of_instPisAt _ hpi
     obtain ⟨RV, hRV, hpres⟩ :=
       denote_piResidualR hcl hres (hTPd d)
         (hspt.append (DenoteSpine.cons hvp DenoteSpine.nil))
-        (Expr.WScoped.of_not_hasFvar (by
-          rw [Expr.hasFvar_instantiateLevelParams]
-          rcases hpin with rfl | rfl <;> rfl))
-        (by rw [Expr.looseBVarsBounded_instantiateLevelParams]
-            rcases hpin with rfl | rfl <;> rfl)
-        hframes
-    have hi2 : i < 2 := by
-      rcases hpin with rfl | rfl <;> · rw [← hidx]; simp [pairFstEntry, pairSndEntry]
-    refine ⟨.proj i vp, RV, ?_, hRV, RV,
-      Infer.proj hfe hnat (by rw [hspt.length, hlenArgs]) hlenUs hpsig
-        (by rw [← hlenT]) hTP0 hTPc hpres hpI hpD, DefEq.refl⟩
-    rw [denote_proj_pair m.cval env φ d sn i pe
-      (fun entry' hf' => m.proj_ok.towerFree _ _ _ hf'), hvp]
+        (Expr.WScoped.of_not_hasFvar hnf') hbd' hframes
+    -- the former's leaf at the head
+    have hlenT : us.length
+        = (ConstantInfo.indInfo cvT capsT).toConstantVal.levelParams.length := by
+      show us.length = cvT.levelParams.length
+      rw [hlpsT]; exact hlenUs
+    rw [denote_const, hfT] at hvT
+    dsimp only at hvT
+    rw [if_pos hlenT] at hvT
+    obtain rfl : vT = m.cval T (Level.substFn φ
+        (ConstantInfo.indInfo cvT capsT).toConstantVal.levelParams us) :=
+      (Option.some.inj hvT).symm
+    refine ⟨projNV i vp, RV, ?_, hRV, RV,
+      Infer.projTower hfe hnat htw (by rw [hspt.length, hlenArgs]) hlenUs
+        hfT hlenT hTP0 hTPc hpres hpI hpD, DefEq.refl⟩
+    rw [denote_proj, hvp]
     dsimp only
-    rw [if_pos hi2]
-  · exact nomatch hvT
+    rw [hfe]
+    dsimp only
+    rw [if_pos htw]
+  · -- PAIR-BACKED: the pinned entry, as before
+    have htw' : entry.tower = false := by
+      cases hv : entry.tower
+      · rfl
+      · exact absurd hv htw
+    obtain ⟨A₀, B₀, hargs₀, hcomp⟩ := hpair htw'
+    obtain ⟨hpin, rfl, hidx, hpsig, hpsigMk⟩ :=
+      projEntry_pins m.proj_ok hfe hnat htw'
+    rw [denote_const, hpsig] at hvT
+    dsimp only at hvT
+    split at hvT
+    · next hlenT =>
+      obtain rfl : vT = m.cval psigmaName
+          (Level.substFn φ psigmaA.toConstantVal.levelParams us) :=
+        (Option.some.inj hvT).symm
+      -- the entry's type, denoted
+      obtain ⟨TP, hTP0, hTPc, hTPd⟩ := denote_entryTyR m φ hcl hpin hpsig hlenUs
+      -- task #161 item B2 (harvest site 21 / P10): the clause returns
+      -- the *computed* residual; `piResidual_of_computed` turns it back
+      -- into the walk this tier's `Infer.proj` states, using the pin and
+      -- the two parameters' frames (which `hframes` already supplies).
+      have hres : Setlec.piResidual
+          (entry.ty.instantiateLevelParams entry.levelParams us)
+          (te.getAppArgs ++ [pe]) = some t := by
+        rw [hargs₀]
+        exact piResidual_of_computed m.proj_ok hfe hnat htw' hlenUs
+          (hframes A₀ (by rw [hargs₀]; simp)).2
+          (hframes B₀ (by rw [hargs₀]; simp)).2 hcomp
+      obtain ⟨RV, hRV, hpres⟩ :=
+        denote_piResidualR hcl hres (hTPd d)
+          (hspt.append (DenoteSpine.cons hvp DenoteSpine.nil))
+          (Expr.WScoped.of_not_hasFvar (by
+            rw [Expr.hasFvar_instantiateLevelParams]
+            rcases hpin with rfl | rfl <;> rfl))
+          (by rw [Expr.looseBVarsBounded_instantiateLevelParams]
+              rcases hpin with rfl | rfl <;> rfl)
+          hframes
+      have hi2 : i < 2 := by
+        rcases hpin with rfl | rfl <;> · rw [← hidx]; simp [pairFstEntry, pairSndEntry]
+      refine ⟨.proj i vp, RV, ?_, hRV, RV,
+        Infer.proj hfe hnat (by rw [hspt.length, hlenArgs]) hlenUs hpsig
+          (by rw [← hlenT]) hTP0 hTPc hpres hpI hpD, DefEq.refl⟩
+      rw [denote_proj_pair m.cval env φ d psigmaName i pe
+        (fun entry' hf' => m.proj_ok.psigma_not_tower hf'), hvp]
+      dsimp only
+      rw [if_pos hi2]
+    · exact nomatch hvT
 
 end Setlec.SetR

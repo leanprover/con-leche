@@ -313,7 +313,14 @@ theorem pairEtaCert_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
           denote m.cval env φ d (.proj c' i b) = some (.proj i vb) := by
         intro i hi
         rw [denote_proj_pair m.cval env φ d c' i b
-          (fun entry hf => m.proj_ok.towerFree _ _ _ hf), hvb]
+          (fun entry hf => by
+            -- the family's recursor is reserved, a tower former's is not
+            cases htw : entry.tower
+            · rfl
+            · exfalso
+              obtain ⟨-, -, hrecres, -⟩ := m.proj_ok.towerHead hf htw
+              rw [(Env.findProj?_names hf).1, hres] at hrecres
+              exact nomatch hrecres), hvb]
         dsimp only
         rw [if_pos hi]
       have hfpj : ∀ (i : Nat), Expr.WScoped d (.proj c' i b) ∧

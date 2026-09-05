@@ -954,7 +954,7 @@ theorem pairEtaIrrelP_of_claims {m : EnvS2Core V env}
     intro i hi
     rw [denoteP_proj_pair m.acval (env := env) (φ := φ) d
         Setlec.psigmaName i b
-        (fun entry hf => m.proj_ok.towerFree _ _ _ hf), hdb]
+        (fun entry hf => m.proj_ok.psigma_not_tower hf), hdb]
     exact if_pos hi
   -- the four certificates, at `interp2`
   have heqα : interp2 V ρ pαa = interp2 V ρ Aa :=

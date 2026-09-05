@@ -202,14 +202,16 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
         hL l (by simpa [Expr.fvarLeaves] using hl))
       by_cases htw : entry.tower = true
       · exact ⟨_, denoteP_proj_tower hfe htw hpa⟩
-      · obtain ⟨-, -, hi2, -⟩ := projPinsP m.proj_ok hfe hnat
+      · have htw' : entry.tower = false := by
+          cases hv : entry.tower
+          · rfl
+          · exact absurd hv htw
+        obtain ⟨-, -, hi2, -⟩ := projPinsP m.proj_ok hfe hnat htw'
         have hnt : ∀ entry', env.findProj? T i = some entry' →
             entry'.tower = false := by
           intro e he
           obtain rfl : entry = e := Option.some.inj (hfe.symm.trans he)
-          cases hv : entry.tower
-          · rfl
-          · exact absurd hv htw
+          exact htw'
         exact ⟨_, by
           rw [denoteP_proj_pair m.acval (env := env) (φ := φ) _ _ _ _ hnt,
             hpa]

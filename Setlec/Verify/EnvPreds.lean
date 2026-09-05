@@ -1,4 +1,5 @@
 import Setlec.Kernel.Basis
+import Setlec.Verify.EnvWF
 
 /-!
 # `V`-free environment predicates (task #123)
@@ -88,6 +89,40 @@ theorem ProjOk.empty : ProjOk Env.empty := by
   intro n entry h
   simp [Env.find?, Env.empty] at h
 
+/-- **A tower-backed entry's syntactic head data** (task #175 wiring
+W5): the facts the direct install establishes syntactically for every
+entry it stores, and which the readings' consumers need with no
+environment record beyond `ProjOkT` — native; the former, its
+recursor and the constructor are unreserved names (the recogniser's
+own guards, so a tower entry never sits at a pinned basis family, in
+particular never at `PSigma'`); the index is in range; the former is
+stored as an inductive and the constructor as a constructor at the
+entry's own arities and level parameters. -/
+def TowerHead (env : Env) (entry : ProjEntry) : Prop :=
+  entry.native = true ∧
+  reservedBasisNames.contains entry.structName = false ∧
+  reservedBasisNames.contains (entry.structName.str "rec") = false ∧
+  reservedBasisNames.contains entry.ctor = false ∧
+  entry.idx < entry.numFields ∧
+  (∃ (cvT : ConstantVal) (caps : IndCaps),
+    env.find? entry.structName = some (.indInfo cvT caps) ∧
+    cvT.levelParams = entry.levelParams) ∧
+  ∃ cvC : ConstantVal,
+    env.find? entry.ctor = some (.ctorInfo cvC entry.numParams entry.numFields) ∧
+    cvC.levelParams = entry.levelParams ∧
+    (cvC.type.stripPis (entry.numParams + entry.numFields)).isSome = true
+
+/-- The head data survives any extension that keeps the two lookups. -/
+theorem TowerHead.mono {env env' : Env} {entry : ProjEntry}
+    (hkeep : ∀ (n : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      env.find? n = some ci → env'.find? n = some ci)
+    (h : TowerHead env entry) : TowerHead env' entry := by
+  obtain ⟨h1, h2, h3, h4, h5, ⟨cvT, caps, hT, hlT⟩, cvC, hC, hlC, hstrip⟩ := h
+  exact ⟨h1, h2, h3, h4, h5,
+    ⟨cvT, caps, hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) hT, hlT⟩,
+    cvC, hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) hC, hlC, hstrip⟩
+
 /-- Every stored *native* projection-table entry is one of the two
 pinned pair entries, with the pair block stored alongside.
 
@@ -104,44 +139,54 @@ names to native entries.  Relocated here verbatim (task #148, T1) from
 `Setlec/TTVerify/EnvTT.lean`, so that both verification lanes can
 import it. -/
 def ProjOkT (env : Env) : Prop :=
+  -- a native entry that is NOT tower-backed is one of the two pinned
+  -- pair entries, with the pair block stored (task #175 wiring W5:
+  -- the pin is now conditional on the entry kind)
   (∀ n entry, env.find? n = some (.projInfo entry) →
-    entry.native = true →
+    entry.native = true → entry.tower = false →
     (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
     env.find? psigmaName = some psigmaA ∧
     env.find? psigmaMkName = some psigmaMkA) ∧
   (∀ i entry, env.find? (projFnName psigmaName i) = some (.projInfo entry) →
     entry.native = true) ∧
-  -- task #175 wiring W3: pre-flip, EVERY stored table entry is
-  -- tower-free — what the branched readings' invariance lemmas
-  -- consume; at the flip this conjunct weakens to the per-block
-  -- coverage disjunction together with `NativeProjPinned`'s
+  -- task #175 wiring W5 (was W3's blanket tower-freeness): a
+  -- tower-backed entry carries its syntactic head data
   (∀ n entry, env.find? n = some (.projInfo entry) →
-    entry.tower = false)
+    entry.tower = true → TowerHead env entry)
 
 theorem ProjOkT.empty : ProjOkT Env.empty := by
   refine ⟨?_, ?_, ?_⟩ <;> (intro n entry h; simp [Env.find?, Env.empty] at h)
 
-/-- The third conjunct, as the readings' walks consume it: `towerAt`
-is `false` everywhere (task #175 wiring W3). -/
-theorem ProjOkT.towerFree {env : Env} (h : ProjOkT env) :
-    ∀ (sn : Name) (i : Nat) (entry : ProjEntry),
-      env.findProj? sn i = some entry → entry.tower = false := by
-  intro sn i entry hf
-  unfold Env.findProj? at hf
-  cases h0 : env.find? (projFnName sn i) with
-  | none => rw [h0] at hf; exact nomatch hf
-  | some ci =>
-    rw [h0] at hf
-    cases ci with
-    | projInfo e =>
-      obtain rfl := Option.some.inj hf
-      exact h.2.2 _ _ h0
-    | axiomInfo cv => exact nomatch hf
-    | defnInfo cv v hint => exact nomatch hf
-    | thmInfo cv v => exact nomatch hf
-    | indInfo cv caps => exact nomatch hf
-    | ctorInfo cv np nf => exact nomatch hf
-    | recInfo cv mI rP rules => exact nomatch hf
+/-- A successful table lookup fixes the entry's struct name and index
+— the store keys an entry under `projFnName entry.structName
+entry.idx`, and `projFnName` is injective.  No environment predicate. -/
+theorem Env.findProj?_names {env : Env} {sn : Name} {i : Nat}
+    {entry : ProjEntry} (hf : env.findProj? sn i = some entry) :
+    entry.structName = sn ∧ entry.idx = i := by
+  have h1 := List.find?_some (Env.findProj?_some hf)
+  have h2 : (ConstantInfo.projInfo entry).name = projFnName sn i :=
+    eq_of_beq (by simpa using h1)
+  simp only [ConstantInfo.name, ConstantInfo.toConstantVal] at h2
+  exact projFnName_inj h2
+
+/-- The third conjunct at a lookup. -/
+theorem ProjOkT.towerHead {env : Env} (h : ProjOkT env)
+    {sn : Name} {i : Nat} {entry : ProjEntry}
+    (hf : env.findProj? sn i = some entry) (htw : entry.tower = true) :
+    TowerHead env entry :=
+  h.2.2 _ _ (Env.findProj?_some hf) htw
+
+/-- **An entry at the pinned pair family is never tower-backed**: a
+tower entry's former is unreserved, and `PSigma'` is reserved. -/
+theorem ProjOkT.psigma_not_tower {env : Env} (h : ProjOkT env)
+    {i : Nat} {entry : ProjEntry}
+    (hf : env.findProj? psigmaName i = some entry) : entry.tower = false := by
+  cases htw : entry.tower
+  · rfl
+  · exfalso
+    obtain ⟨-, hres, -⟩ := h.towerHead hf htw
+    rw [(Env.findProj?_names hf).1] at hres
+    exact absurd hres (by decide)
 
 theorem BasisBlocks.empty : BasisBlocks Env.empty := by
   refine ⟨?_, ?_, ?_, ?_⟩ <;>

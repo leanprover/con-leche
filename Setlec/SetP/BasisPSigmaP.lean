@@ -643,7 +643,7 @@ theorem denoteP_pairSndA_type (ψ : Name → Nat)
   have hnt : ∀ e, Env.findProj? ⟨pairSndA :: env.consts⟩
       psigmaName 0 = some e → e.tower = false := by
     intro e he
-    refine m.proj_ok.towerFree psigmaName 0 e ?_
+    refine m.proj_ok.psigma_not_tower (i := 0) (entry := e) ?_
     unfold Setlec.Env.findProj? at he ⊢
     rwa [Setlec.Env.find?_cons, if_neg (show ¬ pairSndA.name
       = Setlec.projFnName psigmaName 0 by decide)] at he

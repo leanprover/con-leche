@@ -1017,17 +1017,20 @@ theorem BasisPinnedTT.cons {env : Env} {cval cval' : TConstVal}
     rw [← hi.ag n (fun hh => hn hh.symm)]
     exact (h n ci hf hres).2 t ψ hp
 
-/-- The native projection table survives an install. -/
+/-- The native projection table survives an install.  A head that is a
+tower-backed entry supplies its own head data (task #175 wiring W5);
+the stored entries' head data survives by freshness. -/
 theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
     (hfresh : env.find? c₀.name = none)
     (hhead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
+      entry.tower = false →
       (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
       env.find? psigmaName = some psigmaA ∧
       env.find? psigmaMkName = some psigmaMkA)
     (hheadPair : ∀ i entry, c₀ = .projInfo entry →
       c₀.name = projFnName psigmaName i → entry.native = true)
-    (hheadTower : ∀ entry, c₀ = .projInfo entry →
-      entry.tower = false) :
+    (hheadTower : ∀ entry, c₀ = .projInfo entry → entry.tower = true →
+      TowerHead ⟨c₀ :: env.consts⟩ entry) :
     ProjOkT ⟨c₀ :: env.consts⟩ := by
   have step : ∀ entry,
       ((entry = pairFstEntry ∨ entry = pairSndEntry) ∧
@@ -1040,27 +1043,32 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
     refine ⟨h1, ?_, ?_⟩
     · rw [Env.find?_cons_of_isSome hfresh (by rw [h2]; rfl)]; exact h2
     · rw [Env.find?_cons_of_isSome hfresh (by rw [h3]; rfl)]; exact h3
+  have hkeep : ∀ (n : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      env.find? n = some ci → (⟨c₀ :: env.consts⟩ : Env).find? n = some ci := by
+    intro n ci _ hf
+    rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]; exact hf
   refine ⟨?_, ?_, ?_⟩
-  · intro n entry hf hnat
+  · intro n entry hf hnat htw
     by_cases hn : c₀.name = n
     · subst hn
       rw [Env.find?_cons, if_pos rfl] at hf
-      exact step entry (hhead entry (Option.some.inj hf) hnat)
+      exact step entry (hhead entry (Option.some.inj hf) hnat htw)
     · rw [Env.find?_cons, if_neg hn] at hf
-      exact step entry (h.1 n entry hf hnat)
+      exact step entry (h.1 n entry hf hnat htw)
   · intro i entry hf
     by_cases hn : c₀.name = projFnName psigmaName i
     · rw [Env.find?_cons, if_pos hn] at hf
       exact hheadPair i entry (Option.some.inj hf) hn
     · rw [Env.find?_cons, if_neg hn] at hf
       exact h.2.1 i entry hf
-  · intro n entry hf
+  · intro n entry hf htw
     by_cases hn : c₀.name = n
     · subst hn
       rw [Env.find?_cons, if_pos rfl] at hf
-      exact hheadTower entry (Option.some.inj hf)
+      exact hheadTower entry (Option.some.inj hf) htw
     · rw [Env.find?_cons, if_neg hn] at hf
-      exact h.2.2 n entry hf
+      exact TowerHead.mono hkeep (h.2.2 n entry hf htw)
 
 /-- Every name a clause set reads is valued the same after an install
 at a different name. -/
