@@ -40423,8 +40423,10 @@ So the landed shape is the **two-function** one:
     theorem Name.beqPtr_eq (a b : Name) :
         Name.beqPtr a b = decide (a = b) := …
 
-    @[implemented_by Name.beqPtr]
     def Name.beq (a b : Name) : Bool := decide (a = b)
+
+    @[csimp] theorem Name.beq_eq_beqPtr : @Name.beq = @Name.beqPtr := by
+      funext a b; exact (Name.beqPtr_eq a b).symm
 
 and identically for `Level`.  The *pure* side is plain decidable
 equality, so the kernel, `decide` and `#guard` see exactly what they saw
@@ -40432,17 +40434,53 @@ before; the *compiled* side is `lean_ptr_addr` → cached hash → derived
 `decEq`, i.e. `lean_name_eq`'s own order (`object.cpp:2762`) and
 `level.cpp:125`'s.
 
-**This `implemented_by` is not a trust escape.**  It is the `Expr.beq`
-/ `beqFast` *shape* without `Expr.beqFast`'s *content*: there the
-substitute is `unsafe` and the census (`Setlec/Cached/ExprC.lean`,
-row 1) carries "pointer equality implies structural equality" as a
-trusted fact; here `Name.beqPtr` is a **safe** definition **proved
-equal** to what it replaces (`Name.beqPtr_eq`, `Level.beqPtr_eq`),
-because `withPtrEq`'s obligation `a = b → k () = true` is discharged
-and the hash guard is sound outright (`hashData` is a function of the
+**The substitution mechanism is `@[csimp]`, not `@[implemented_by]` —
+USER RULING, 2026-09-05, verbatim:** *"do *not* use `implemented_by`.
+If you can prove them equal, use `csimp`."*  The batch first landed
+with `@[implemented_by Name.beqPtr]` and was converted on the ruling
+(`agent/ptreq-csimp`).  The ruling is the right line and the
+distinction is real: `implemented_by` is an *unchecked* attribute — a
+promise the compiler takes on faith and `#print axioms` cannot see —
+whereas `csimp` substitutes on an equality this repository **proves**
+and the kernel checks.  Everything the pointer-first path needs is
+already a theorem here: `withPtrEq a b k h` is *defined* as `k ()` and
+its obligation `a = b → k () = true` is discharged at `beqPtr`, and
+the hash guard is sound outright (`hashData` is a function of the
 value, so a hash mismatch *is* an inequality — the task-#172 B3a
-argument).  The census gained **users of the `@[computed_field]` row**
-(P3) and **no new row**.
+argument).  So there was never anything to promise.
+
+**Consequently task #176 adds no census row at all**, and the wording
+matters: the census (`Setlec/Cached/ExprC.lean`) enumerates
+`implemented_by`-class escapes because they are invisible to
+`#print axioms`; a `csimp` rewrite is not of that class.
+`ExprC.beqFast` (row 1) therefore remains this tree's **only** such
+escape and now stands alone; the `@[computed_field]` row (row 2)
+gained two users (`Name.hashData`, `Level.hashData`, P3).
+
+**The conversion was verified in the generated C, not assumed.**
+Diffing `.lake/build/ir/Setlec/Kernel/Expr.c` between the
+`implemented_by` build and the `csimp` build: *every call site is
+byte-identical*; the only difference is that `csimp` additionally
+emits the now-dead `Name.beq`/`Level.beq` bodies (`implemented_by`
+suppressed them).  `instBEqName`'s closure still points at
+`Name_beqPtr___boxed`, and `beqB` still opens each of its five name
+comparisons with `lean_ptr_addr` + `Name_hashData`.
+
+And measured, so the C-level reading is not the only evidence.  The
+decisive A/B row re-run on the `csimp` binary (same harness, same
+median-of-3):
+
+| variant | `init-full` G instr | Δ vs base | Δ vs the `implemented_by` build |
+|---|---|---|---|
+| base | 2931.77 | — | — |
+| `implemented_by` | 2764.32 | −5.71 % | — |
+| **`csimp`** | **2764.53** | **−5.70 %** | **+0.008 %** |
+
+i.e. the two builds are the same binary to within 213 M instructions
+out of 2.76 T — the win is entirely intact, and the ruling costs
+nothing but a better-founded attribute.  Peak RSS 928.2 MB (the
+`implemented_by` build's 931.5, within run-to-run variation); exit 0,
+61 048 declarations accepted.
 
 Verified in the compiled IR (`.lake/build/ir/Setlec/Kernel/Expr.c`):
 `beqB`'s five per-node `Name` comparisons are each now
@@ -40546,12 +40584,13 @@ proofs that unfolded `isEquiv` (`isEquiv_sound'`, `isEquiv_cascade`,
 (`isEquivLM_run_ptr`).
 
 **(ii) The module system hides `withPtrEq` from the kernel** — §1 item
-2.  Recorded because it constrains every future pointer-first site in
-this tree: the pure body of anything the kernel may have to *reduce*
-must stay `withPtrEq`-free, and the pointer test goes in an
-`@[implemented_by]` twin proved equal to it.  This is a strictly better
-discipline than `Expr.beqFast`'s and is the recommended pattern for the
-remaining sites.
+2.  Recorded because it fixes the pattern for every future
+pointer-first site in this tree: the pure body of anything the kernel
+may have to *reduce* must stay `withPtrEq`-free, and the pointer test
+goes in a **`@[csimp]`** twin proved equal to it — never an
+`@[implemented_by]` one (user ruling, §1).  That pattern is strictly
+better than `Expr.beqFast`'s, which is an unchecked promise, and it is
+what P1b and any successor should use.
 
 ### 4. WHAT IS LEFT
 
@@ -40584,10 +40623,1007 @@ pinned.  `#print axioms` on
 `[propext, Classical.choice, Quot.sound]` for all three, unchanged.
 
 Three commits, one per item, so the attribution above is reproducible:
-P3 (cached hashes), P1 (`Name`), P2 (`Level` + the disjunct).
+P3 (cached hashes), P1 (`Name`), P2 (`Level` + the disjunct); plus the
+`csimp` conversion on `agent/ptreq-csimp`, whose own receipts are the
+same battery, the generated-C diff quoted in §1, and a re-run of the
+decisive A/B row to confirm the win survived the attribute change.
 Measurement artifacts: `_tmp/ptreq-land/` — `baseline/setlec` (the
 snapshot), `p3/setlec`, `p3p1-setlec`, `p3p1p2-setlec`, `one.sh`,
 `rows/*.tsv`.
+
+## TASK #168 — FAST `isProp`/`isProof` OFF THE HEAD SYMBOL: census, design,
+## licence, payoff, plan (2026-09-05, `agent/isproof-design`, read-only)
+
+**Read-only.**  Nothing under `Setlec/**` changed on this branch; the
+instruments are two throwaway measurement copies (`_tmp/isproof-meas`,
+`_tmp/isproof-meas2`, a `dbg_trace` census + `IMASK` fast-path masks
+over `Setlec/Cached/CoreC.lean`, the ι audit's discipline) and one
+probe compiled against master (`_tmp/isproof-design/IsProofLicence.lean`,
+axioms exactly `propext`/`Classical.choice`/`Quot.sound` on every
+theorem).  None of it lands.  The user's idea (task #168, 2026-09-03):
+*"fast `isProof` and `isProp` functions that only look at the head
+symbol (and maybe arity) of a term, and that make use of our
+annotations on lambdas and pis … probably needs similar proof machinery
+as `infer_only`, as it really is a restricted form of that."*
+
+### 0. The answer, first
+
+* **The idea is right and the payoff is large: −8.79 % instructions on
+  init-full** (P mode, verdict identical, 61 048 accepted) from the
+  `proofIrrel` fast path alone; **−16.83 % with the annotate-pass
+  leaves and the unconsumed io-λ domain check** (§2).  `proofIrrel` is
+  called 8.63 M times per init-full run — once per `defeqStep` that
+  survives the pointer/whnfCore tests — and 99.7 % of those calls
+  answer `false`.
+* **Prop-ness is invariant under application** (`zeronessOf (imax u v)
+  = zeronessOf v`, i.e. `eval φ (imax u v) = 0 ↔ eval φ v = 0`), so the
+  head's *stored* type decides at every arity, over-application
+  included: the datum a head-symbol reader needs is **one `PropWhen` per
+  constant** — the zero-ness of the sort of its type — substituted at
+  the use's levels by `substPW`.  Arity enters only the *unit-like*
+  question (§3.3).
+* **The "definitely not a proof" arm carries 97 % of the payoff and
+  needs no model theorem at all**: a refused equation is always sound;
+  its obligation is kernel-level *agreement* with the slow path on
+  validated annotations — a verdict question, which the census answers
+  with **0 disagreements in 7.82 M decided calls** (§4.3).
+* **The "definitely a proof" arm is a SQUASH-regime licence**, the io
+  licence's dual: an always-zero datum makes the head's product reading
+  a truth value, its inhabitant `pt`, and `app pt _ = pt`.  No
+  `AnnotOk2` slot, no domain membership, no graph rigidity — three
+  kernel-shaped theorems, probed (§4.1).  The graph regime enters once,
+  for a proof whose type is a type-former application (`h : a = b`):
+  `io_domain_transfer` per slot of the former's all-`.never` telescope
+  (§4.2).  The fence is `irrel_fast_fence`: at a nonzero bit the product
+  has two distinct members.
+* Two census findings beyond the idea: the io-lane λ clause's
+  domain-sort check is **unconsumed by the P proof and skipped by
+  official** at `infer_only` (−0.60 %, §5.3); and the annotate pass's
+  leaf inferences are the same two readers with **no licence obligation
+  at all** (the pass is untrusted; validation judges the datum),
+  −7.17 % (§5.2).
+* Landing: sequenced after the wiring batch releases `CoreC`/the P
+  rows; three stages, the first (the no-arm) with zero P-lane theorems
+  (§7).
+
+### 1. The census — every place the checker asks "is this a Prop / a proof?"
+
+Shipping core `Setlec/Cached/CoreC.lean` (spec twin `Kernel/Core.lean`);
+fire counts are one instrumented `--set-model=p --pre` run per stream
+(`ICENSUS=1`); official = `_tmp/lean4-master-kernel/type_checker.cpp`
+and lean4lean.
+
+| # | site (CoreC) | computes today | init-full | init-prelude | official counterpart | fast reader |
+|---|---|---|---|---|---|---|
+| A | `proofIrrelI` (`:226-254`), called from the `defeqStep` hoist `:1310`, `stuckIrrelI :484`, the K rescue `:529`, the η rescue `:574` | `inferIO a`, `whnf`, `isUnitLikeTy`; then `inferIO ta`, `whnf`, `.sort u` + `isEquiv u 0`; same for `b` — 4 io inferences + 2–4 whnfs | **8.63** calls (hoist 8 618 879, stuck 7 566, K 127, η 1); results: false 8 596 942, Prop-true 28 237, unit-true 1 394 | 103 185 (hoist 103 028, stuck 129, K 28, η 0); false 101 547, Prop-true 1 164, unit-true 474 | `is_def_eq_proof_irrel` `:932-939` — `infer_type(t)`, `is_prop` (`:383-390`: `ensure_sort(infer_type)` + `normalizes_to_zero`), `infer_type(s)`, `is_def_eq(t_type, s_type)`; no unit-like branch (that is `is_def_eq_unit_like`, last in `is_def_eq_core` `:1245`) | `isProofFast` both sides (§3) |
+| B | `isPropTypeI` (`:1467`) at `annotateProjRecI :1511` (the structure's Prop-ness) and `projFieldDomI :1491` (a depended-on field) | `annotate ty`, `inferIO`, `ensureSort`, `isEquiv 0` | 149 | 0 | `infer_proj` `:274` `is_prop(type)`, `:279`/`:289` `is_prop` of the field domain | `isPropFast` on the annotated type |
+| B′ | `annotateProjRecI :1519-1525` — the projected field's sort (`sfi`) and its Prop test | `annotate`, `inferIO`, `ensureSort`, `isEquiv 0` | 112 | 0 | `infer_proj :289` | `isPropFast` (the level `sfi` is also needed for `recExtraLevel`; keep the run there) |
+| C | binder-domain sort checks, full lane: `inferPisI :1117` + `inferBodyI :1162`; `inferLamsI :1066` + `:1171`; `letE :1228` | `infer dom`, `whnf`, `.sort` — an *is-a-type* check whose level `u` is consumed (∀) or discarded (λ, let) | ∀ 440 166, λ 556 549, let 0 | ∀ 26 232, λ 23 004, let 0 | `infer_pi :151` (always), `infer_lambda :130-133` and `infer_let :216` (only at `!infer_only`) | not a prop test; out of scope (a fast *sort* reader is full `infer_only` territory) |
+| C′ | binder-domain sort checks, io lane: `inferBodyIOI` ∀ `:1261`, λ `:1277` | same | ∀ 4 446 410, λ 4 654 797 | ∀ 84 623, λ 55 363 | `infer_pi :151` runs it; **`infer_lambda :131` skips it at `infer_only`** | the io λ check is **unconsumed** by `infer_lam_claimIOP` (§5.3) — droppable |
+| D | leaf sort checks: `inferPisLeafI :1098`; `inferLamsLeafI :1025` (verified: the body's type's sort, for the `(lam-cod-leaf)` validation); io λ leaf `:1291`; io ∀ leaf `:1268` | `infer body` (+ `inferIO bt` for λ), `whnf`, `.sort v`, `zeronessOf v` vs `mb.pw` | ∀ 178 786, λ 277 095, io-λ 3 241 548, io-∀ 4 446 410 | 11 253, 9 366, 31 632, 84 623 | `infer_pi :158` (the codomain sort is the result); no λ counterpart (the validation is ours) | the *validation* must stay a run (it is what makes the datum trustworthy — the P2 supplier class); the io leaves are `proofIrrel`'s own type-of-type inferences and go with A |
+| E | K/η rescue prop tests: `majorToCtorI` η branch `:550` `piResultNeverZero` (the instantiated non-Prop guard); the K branch's `proofIrrelI fab major :529`; the type discovery `inferIO major :500/:540` | the guard is already a **level read, no inference**; the K certificate is A; the discovery is inference | guard: η entries 5 634; K 5 253 | 19; 649 | lean4lean `toCtorWhenStruct` `Reduce.lean:63-64` (`whnf (inferType eType)` then `u.isNeverZero`) — setlec's guard is the head-read version already; `toCtorWhenK :29-40` has no `is_prop` | nothing to do (the ι audit: the rescue family costs −0.005 %) |
+| F | the ι certificate's regime reads (`iotaCertsIAux :175`, `mb.pw` of the telescope binder) | a datum read (proposed licence, ι audit #1 / second look §9.1) | 25.9 M slots, 99.77 % `.never` (ι audit) | — | none | not a prop test; the ι licence is `io_domain_transfer`, unchanged by this design |
+| G | annotate's own sort inferences: `annotPwPiI :1622` leaf, `annotPwLamI :1671` leaf (the chain rule collapses telescopes: chain hits 139 / 229) | ∀ leaf: `inferIO body'`, `ensureSort`, `zeronessOf`; λ leaf: `inferIO body'`, `inferIO bt`, `ensureSort`, `zeronessOf` | ∀ 179 487, λ 278 768 | 11 298, 9 443 | none (the pass is ours) | `isPropFast` (∀ leaf) / `isProofFast` (λ leaf): the datum IS what the readers compute; **no licence** (the pass is untrusted, `infer` validates) |
+| H | `etaCertI :470` `m₁.pw.equiv m₂.pw`; `inferLamsOutI :1003`, `inferPisOutI :1087` (validation against a computed sort) | datum comparisons | — | — | none | already reads; the validations are the datum's *suppliers* and stay |
+
+The proofIrrel call profile (init-full, `a` = the first side, after `whnfCore`):
+
+| head class of `a` | init-full | init-prelude |
+|---|---|---|
+| `.const` app | 5 854 833 | 44 813 |
+| `.fvar` app | 163 873 | 10 913 |
+| `.forallE` | 2 327 313 | 40 235 |
+| `.sort` | 156 712 | 4 059 |
+| `.lam` | 67 498 | 1 553 |
+| `.lit` | 54 781 | 1 105 |
+| `.proj` | 1 563 | 507 |
+| other (`.letE`) | 0 | 243 |
+
+### 2. The measured cost (`instructions:u`, one run per init-full cell, `ulimit -v 16000000`, `--set-model=p --pre`; the instrumented binary at mask 0 is the baseline — the `IMASK` reads cost the same in every cell)
+
+| mask (what is live) | init-full | Δ | grind-ring-5 | Δ |
+|---|---|---|---|---|
+| 0 baseline (instrumented) | 1803.38 G | — | 60.275 G | — |
+| 1 `proofIrrel` fast path, all arms (copy 1: conservative unit-like reader) | 1644.92 G | **−8.79 %** | 54.796 G | **−9.09 %** |
+| 16 … the `notPrf → false` arm only | 1650.54 G | −8.48 % | 54.936 G | −8.86 % |
+| 2 annotate leaves (`annotPwPi`/`annotPwLam`) fast | 1674.17 G | −7.17 % | 57.473 G | −4.65 % |
+| 4 `isPropType` fast | 1803.40 G | +0.00 % | 60.273 G | −0.00 % |
+| 8 io-λ domain sort check dropped | 1792.52 G | −0.60 % | 59.863 G | −0.68 % |
+| 15 all four | 1499.88 G | **−16.83 %** | 51.623 G | **−14.36 %** |
+| 1 (copy 2: the residual reader with per-binder `instantiate1`, §3.3) | 1735.81 G | −3.75 % | — | — |
+| 15 (copy 2) | 1590.38 G | −11.81 % | — | — |
+| 1 (copy 2b: the same reader, allocation-light — peel without substitution, one `instantiateList` on the residual) | 1672.85 G | −7.24 % | — | — |
+
+**Every masked run accepted 61 048 / 3 946 declarations** — the fast
+paths are verdict-identical on both streams (and the census's
+disagreement counter is 0, §4.3).  The arms are additive within noise
+(1 ⊕ 2 ⊕ 8 on grind: 9.09 + 4.65 + 0.68 = 14.42 against 15's 14.36).
+
+**The reader's own cost is decisive (the copy-2 rows).**  The
+residual reader that substituted every peeled binder (`b.instantiate1
+a` per ∀ — the ι audit's `stripPis` allocation pattern, ×8.6 M calls)
+gave away most of the win — copy 2, mask 1: −3.75 % against copy 1's
+−8.79 % — although it decides more calls (96 % vs 91 % on prelude);
+peeling without substitution and instantiating only the small residual
+once (copy 2b) recovers part of it, −7.24 %, and is *still* behind
+copy 1: the extra 5 % of decided calls are worth less than one
+`instantiateList` per call.  So the landing shape is **copy 1's
+allocation-free reader** (peel the syntactic telescope, resolve a bvar
+residual to the spine argument it names, strip a λ argument's binders
+and read its body's head; no substitution anywhere) — and the reader's
+existence is itself the strongest argument for Option U (§3.3), under
+which the no arm needs no residual read at all.
+
+### 3. The fast functions — what they read, what they answer
+
+Two readers, three-valued (`some true` = definitely, `some false` =
+definitely not, `none` = fall back to today's io inference).  Both are
+*pure functions of the head symbol, the arity and the `pw` data* — no
+run, no memo, no mode.  Prototype (measurement grade) in
+`_tmp/isproof-meas2/Setlec/Cached/Diag.lean` (`typeSortPW`, `proofPW`,
+`residualClass`, `unitClass`, `irrelDecide`).
+
+**3.1 `typeSortPW env T : Option PropWhen`** — the zero-ness datum of
+the sort of the *type* `T` (so `isPropFast T = (typeSortPW T).map
+(·.equiv (.ifAllZero []))`):
+
+| `T` | datum | why |
+|---|---|---|
+| `∀ x : A, B` with meta `m` | `m.pw` | the ∀'s sort is `imax u v`, zero iff `v` is; `m.pw` IS `zeronessOf v` (validated: `(forall-cod)`, `inferPisOutI`) |
+| `Sort u` | `.never` | `Sort u : Sort (u+1)` |
+| `I a₁ … aₙ`, `I` a stored constant at levels `us`, `I`'s stored type syntactically `∀ p₁ … pₖ, R` with `k ≥ n` | `substPW lps us (zeronessOf u)` if `R = Sort u` after peeling `n`; `substPW lps us m.pw` if the residual is a ∀ with meta `m` | the residual's sort, read at the stored type, then instantiated (`pwBit_substPW`) |
+| `x a₁ … aₙ`, `x` an fvar of type `ty` | as the previous row on `ty`, no level substitution | fvar types are already at the declaration's levels |
+| anything else (proj-, let-, λ-headed; a peel failure) | `none` | fall back |
+
+**3.2 `proofPW env a : Option PropWhen`** — the datum of the sort of the
+*type* of `a` (so `isProofFast a = (proofPW a).map (·.equiv (.ifAllZero
+[]))`), read off `a.getAppFn` **at any arity**:
+
+| head of `a` | datum | licence (§4) |
+|---|---|---|
+| `.const c us`, stored type `T_c` | `(typeSortPW env T_c).map (substPW lps us)` — the sort-zero-ness of `T_c`, which is that of the type of `c a⃗` for every `a⃗` (prop-ness is invariant under application) | `irrel_fast_const_pi` (T_c a ∀), `prf_of_type_former_spine` (T_c = `I b⃗`) |
+| `.fvar _ _ ty` | `typeSortPW env ty` | `irrel_fast_fvar_pi` (+ the `ty = p`, `p : Sort 0` twin — Sat2 twice) |
+| `.lam _ _ _ m`, unapplied | `m.pw` (the λ datum is the zero-ness of the sort of the body's type — `(lam-cod-leaf)`) | `irrel_fast_lam` |
+| `.sort`, `.forallE`, `.lit` | `.never` | never proofs (their types are sorts / `Nat` / `String`) |
+| `.proj`, `.letE`, applied λ | `none` | fall back (an applied λ never reaches `proofIrrel`: the sides are `whnfCore`'d) |
+
+The kernel's three-valued verdict on a datum is exactly the slow path's
+`Level.isEquiv u .zero`: `pw.equiv (.ifAllZero [])` ⟺ the sort is zero
+at every valuation (`alwaysZero_iff_forall_pwBit_eq_zero`, both
+directions, probed); `.never` and `.ifAllZero (ps ≠ [])` are "not a
+Prop" exactly as `isEquiv (param u) 0 = false` is.
+
+**3.3 The unit-like question — the only place arity matters.**
+`proofIrrel`'s first branch is `isUnitLikeTy` (the pinned `PUnit` only,
+`unitLike_eq_punit`), tested on the *whnf* of the type.  A
+"definitely not a proof" verdict may only return `false` if the type is
+also definitely not `PUnit` after whnf, and that is a question about
+the *residual* of the head's telescope after **all** the spine's
+arguments — over-application through a recursor/matcher motive (`Nat.casesOn (motive := fun _ => A → B) n f g x`) is common (11 % of
+prelude calls).  `residualClass` (`_tmp/isproof-meas2`) reads it:
+instantiate the syntactic ∀s with the arguments (the residual is small
+— this is `inferSpine`'s own leaf `instListRev`), β-peel a λ-headed
+residual syntactically (bounded), then classify the head: ∀/`Sort`/
+fvar/inductive-or-axiom-or-ctor constant ≠ `PUnit` → rigid (`0`);
+`PUnit` → unit-like; a def-headed residual is followed one syntactic
+unfolding level (`Unit := PUnit.{1}`) and otherwise unknown.  Coverage
+on init-prelude (§4.3): decided 96.3 % of calls; the residue is `PUnit`
+itself (0.5 %), def-headed residuals (2.1 %: `x : Set α`-like fvars,
+`PSigma'.snd`'s `β p.1`, `Eq.rec` motives) and 0.5 % arity failures.
+
+**Option U (cleaner endpoint, recorded, not measured):** move the
+`PUnit` test out of the hoist into `stuckIrrel` — where official has it
+(`is_def_eq_unit_like`, the last test of `is_def_eq_core`,
+`type_checker.cpp:1245`) and where setlec already keeps the
+capability-based `structUnitCertI`.  Then `proofIrrel` is pure
+prop-ness, the no-arm needs **no residual read at all** (100 % of
+`notPrf` verdicts decide), and `proofIrrel_inv` loses its unit disjunct
+(`UnitIrrelPQ` moves to the stuck row, which already discharges the caps
+unit row).  Verdict-neutrality: every structural-failure exit of
+`defeqStep` reaches `stuckIrrelI` (`.proj`/`.proj` included,
+`CoreC.lean:1442-1446`); the exits that do not (`.sort`/`.sort`, literal
+mismatches) cannot be `PUnit`-typed.  `stuckIrrel` fires 129 times per
+prelude run against 103 028 hoists, so the relocated test is free.
+Accept-superset only; the conformance ruling's class.
+
+### 4. The licences (frozen, probed — `_tmp/isproof-design/IsProofLicence.lean`)
+
+**4.1 The squash-regime licence (the "yes" arm).**  The io licence
+skips a certificate at a `.never` binder because in the *graph* regime
+membership is graph-hood and domains are unique
+(`io_domain_transfer`).  The proof-irrelevance fast path is the dual:
+at an **always-zero** datum the reading's binder bit is `0` at every
+valuation (`pwBit_eq_zero_of_alwaysZero`), the product is
+`piR 0 A B = truthVal (…)`, its inhabitant is `pt`
+(`eq_pt_of_mem_piR_zero`), and `app pt a = pt` (`app_pt`) — so every
+spine on such a head is `pt`, with **no hypothesis on the domain, the
+codomain, the arguments, or `AnnotOkP`**:
+
+    theorem prf_of_mem_piR_zero_spine {f A : V} {B : V → V}
+        (hf : f ∈ˢ piR 0 A B) (as : List V) : as.foldl app f = pt
+
+The kernel-shaped forms, one per head class, each closing
+`ProofIrrelPQ`'s conclusion `interp2 ρ aa = pt` for its side:
+
+    theorem irrel_fast_const_pi (hct : ConstTypeP m φ)      -- the stored `mem_typeP` fact
+        (hf : env.find? c = some ci) (hlen : us.length = lps.length)
+        (hty : ci.toConstantVal.type = .forallE n A B mb)
+        (hz : (Level.substPW lps us mb.pw).equiv (.ifAllZero []) = true)
+        (hea : denoteP m.acval env φ d (Expr.mkAppN (.const c us) as) = some ea)
+        (ρ) : interp2 V ρ ea = pt
+    theorem irrel_fast_fvar_pi (hC : CtxOkP m φ d Δa (mkAppN (.fvar idx n (.forallE n' A B mb)) as))
+        (hz : mb.pw.equiv (.ifAllZero []) = true) (hea : …) (ρ) (hρ : Sat2 V Δa ρ) :
+        interp2 V ρ ea = pt
+    theorem irrel_fast_lam (hea : denoteP acval env φ d (.lam n ty bd mb) = some ea)
+        (hz : mb.pw.equiv (.ifAllZero []) = true) (ρ) : interp2 V ρ ea = pt
+
+`irrel_fast_const_pi`'s premise is `ConstTypeP` — the same input
+`iotaStepP_of` consumes (`constTypeP_pkg`) — supplied by the tier
+inputs; the row today (`proofIrrelPQ_of_claims`, `Step2/IrrelP.lean`)
+takes `ihis`/`hsss`/`hreads`/`hunit` and would gain `hct` (in scope at
+its three callers: `StuckP.lean:406`, `TiersP.lean:160`,
+`MajorP.lean:312`, all under the tier inputs).  The `AnnotOkP` premise
+`ProofIrrelPQ` already holds is **not used** by the yes arm — the
+subject's grading does not enter; only the head's stored membership
+does.  `irrel_fast_lam` needs nothing at all: `interp2 (.lam 0 A b) =
+lamR 0 _ _ = pt` is the reading's definition.
+
+**4.2 The one graph-regime step.**  For `c : I b⃗` (no ∀ at the head's
+type: `trivial : True`, `h : a = b`, `h : x ∈ s`), `⟦c⟧ = pt` needs
+`⟦I b⃗⟧ ∈ univ 0`, and that is the type former's telescope walked with
+the spine's own app slots — every binder of `∀ p⃗, Sort u` is `.never`
+(the codomain's sort is `succ`), so every slot is licensed and
+`io_domain_transfer` transfers each argument into its domain:
+
+    theorem type_former_spine_univ (hmix : TeleFitMix V ρ Ta as (.sort u))
+        (hokT : AnnotOkP V ρ Ta) (hokS : AnnotOkP V ρ (mkAppN f as))
+        (hf : interp2 V ρ f ∈ˢ interp2 V ρ Ta) :
+        interp2 V ρ (mkAppN f as) ∈ˢ univ u
+    theorem prf_of_type_former_spine (bs : List V) (hmix : TeleFitMix V ρ Ta as (.sort 0))
+        (hokT …) (hokS …) (hI …) (hc : c ∈ˢ interp2 V ρ (mkAppN I as)) : bs.foldl app c = pt
+
+`TeleFitMix`/`teleFitPA_of_mix` are the ι second look's (restated in
+the probe, verbatim); the P-lane premises are `type_okP` (the grading
+of `T_c`'s reading, which IS `mkAppN ⟦I⟧ ⟦b⃗⟧`) and `mem_typeP` twice
+(`c` in `T_c`, `I` in `T_I`) — all `ConstTypeP`/`EnvS2PM` rows.  The
+kernel-shaped statement (the reading of `I`'s instantiated stored type
+peeled to `.sort`, one `denoteP_forallE_inv` per binder with
+`gate_pwBit_ne_zero` at each `.never` datum) is the ι licence's mixed
+walk again (`certs_telePA`'s shape); it is the yes arm's only real
+proof bill, and the yes arm is ≈ 2 % of the win (§2, masks 1 vs 16).
+
+**4.3 The "no" arm has no licence and no fence — it has a census.**
+`proofIrrel = false` refuses an equation; refusing is always sound, so
+the P row is untouched (`proofIrrel_inv` is stated at `.ok true`).  What
+the no arm owes is *conformance*: on validated annotations the
+head-read datum and the slow path's `isEquiv u 0` agree exactly
+(validation is `equiv` against the computed `zeronessOf`, sound and
+complete; level instantiation commutes, `holds_substPW`; term
+instantiation leaves the datum untouched and the sort unchanged), so a
+fast `false` is the slow `false`.  The census runs both and counts:
+init-full 7.82 decided calls, **0 disagreements**; init-prelude
+99 382 decided (96.3 %), 0 disagreements; grind-ring-5 verdicts equal.
+Where validation does *not* reach — the parity core writes no data
+(`annotatePisPwI` returns `none` at `cfg.verified = false`, the parser
+default `.never` stays) — the fast arm must not fire: **the gate is
+`cfg.verified`**, law 1's mode conjunct, as at the io site.
+
+One more accept-superset inside the yes arm, named: `a : PUnit.{0}` is
+both a proof and unit-like; the slow path's unit-first ordering answers
+`b unit-like?` while the fast path answers `b a proof?`.  Both are
+sound; the fast one is the larger accept set; the census never saw it.
+
+**4.4 The fence.**  Where does a head-symbol read lie about prop-ness?
+Only where the datum is not always-zero: at a nonzero bit the product
+reading is a graph set with two distinct members, so a `prf` verdict
+from a `.never` or `.ifAllZero [u]` datum would equate distinct values:
+
+    theorem irrel_fast_fence : ∃ (A : V) (B : V → V) (f g : V),
+        f ∈ˢ piR 1 A B ∧ g ∈ˢ piR 1 A B ∧ f ≠ g
+    theorem not_alwaysZero_exists_pos (h : pw.equiv (.ifAllZero []) = false) :
+        ∃ φ, pwBit φ pw ≠ 0
+
+(witness: `lamR 1 {pt} (fun _ => truthVal False)` vs `… truthVal
+True`, separated by `app_lamR_pos`).  The second theorem says the fence
+is reachable from every other datum — the licensed fragment is exactly
+`pw ≡ .ifAllZero []`, as `pw = .never` is exactly the io fragment.  The
+"wrong binder" error (reading the *domain's* prop-ness — `h : p → Nat`)
+is the same fence: the ∀'s datum is its codomain's, by the annotator's
+chain rule and by `denoteP`'s `.forallE` clause, and nothing else on
+the node is a prop-ness datum.
+
+### 5. Findings
+
+**5.1 The datum is per constant, and it belongs at install.**  Since
+prop-ness is application-invariant, `proofPW` for a constant head is a
+function of the *stored* type alone: `sortPW c := zeronessOf u_c` where
+the front door already computes `T_c : Sort u_c` (`checkDecl`'s
+`ensureSort`).  Computing it per call syntactically (the prototype:
+peel the stored telescope, read the residual) is the ι audit's
+"environment invariant re-checked per redex" pattern; the
+invariants-over-runtime-gates ruling (task #42) says store it once.  Two
+routes, priced: (a) **a stored datum** — an `Env` side table (the
+`findProj?` precedent) or a `ConstantVal` field, written by `checkDecl`
+from `u_c`, with one new `EnvS2PM` row (`type_sortP : (sortPW c).holds
+ψ → ⟦T_c⟧ ∈ univ 0`, discharged at install from the front-door run's
+`SortSemAtP`), threaded through the fold's cons/basis/extend sites the
+way `TowerFree` rode `ProjOkT` (zero new threading if it rides an
+existing per-constant record) — covers **every** constant, no peel
+failures, O(1) per call + `substPW`; (b) **derive at the use site** from
+`ConstTypeP` + the syntactic telescope (§4.1/4.2) — no install ride, no
+new row, but the yes arm's type-former case needs the mixed walk and
+the datum read is a telescope walk per call (memoizable per constant in
+`CState`).  The census says (b)'s syntactic coverage is 96 % of calls;
+the no arm — the payoff — needs neither the row nor the walk.
+
+**5.2 The annotate pass is the free lunch.**  `annotPwPi`/`annotPwLam`
+leaves compute exactly `typeSortPW`/`proofPW` by inference
+(init-prelude: 11 298 + 9 443 leaves; fast definite on 98 % / 99 %;
+0 non-equivalent data).  The pass is untrusted — `infer` validates
+every datum it writes — so a fast leaf has **no licence obligation**;
+its only risk is a wrong datum turning a reject (exit 1) into a
+`sort-annotation mismatch` decline (exit 2) on an *ill-typed* input,
+which the readers cannot do on validated stored types.  −7.17 % on
+init-full.
+
+**5.3 The io-lane λ domain-sort check is unconsumed.**  `inferBodyIO`'s
+λ clause runs `infer dom; whnf; .sort` (`CoreC.lean:1277-1280`);
+official's `infer_lambda` skips it at `infer_only` (`:131`); and the P
+row `infer_lam_claimIOP` (`Step2/InferIOP.lean:460`) binds the domain
+run (`hty`/`hwu` of `inferTypeCoreIO_lam_inv`) and never uses it — the
+domain's grading comes from the premise (`AnnotOkP.hoist_lam`).  So it
+is an (A)-class drop in the ι audit's taxonomy: official does not do
+it, the P model does not need it.  −0.60 % init-full; 4 654 797 fires.
+(The io ∀ clause's domain run stays: its level is the result's `imax`.)
+
+**5.4 Where the proofIrrel cost actually sits.**  The io ∀ clause fires
+4 446 410 times per init-full run against 440 166 full-lane ∀ domain
+checks: the io lane's ∀ traffic is overwhelmingly `proofIrrel`'s
+type-of-type inferences (`inferIO ta` on a ∀-typed `ta`, chained one
+clause per binder — the B4 seal's "chained, not looped" follow-up), and
+it disappears with the fast path rather than needing the loop.
+
+**5.5 Conformance (restrictions are findings).**  (i) Official's
+`is_def_eq_proof_irrel` has no unit-like branch; setlec's hoist has one
+(the D9 rule).  Option U (§3.3) is the official shape.  (ii) The fast
+yes arm is an accept-superset of the slow path at `PUnit.{0}` (§4.3);
+tolerated by the proofIrrel conformance ruling.  (iii) The yes arm
+keeps both recorded divergences (no `is_def_eq(t_type, s_type)`, Bool
+fall-through) — the ruling stands; a fast path changes neither.
+(iv) `piResultNeverZero` at the η rescue is already the head-read form
+of lean4lean's `u.isNeverZero` (`Reduce.lean:64`).
+
+### 6. The payoff, per site (init-full, from §2)
+
+| site | what the fast path removes | share |
+|---|---|---|
+| A `proofIrrel`, the no arm (`notPrf` + rigid residual → `false`) | 2 io inferences + 2 whnfs + the unit test per call, on 90.3 % of calls | **−8.48 %** |
+| A `proofIrrel`, the yes arm (`prf`/`prf` → `true`) | the same on 26 576 calls | −0.31 % |
+| G annotate leaves | one/two io inferences + `ensureSort` per telescope | −7.17 % |
+| C′ io-λ domain check | one io inference + whnf per io λ clause | −0.60 % |
+| B/B′ `isPropType` | (no fires on these streams) | 0 |
+| C/D/E/F/H | not prop tests (suppliers, level reads, the ι licence) | — |
+| **total (mask 15)** | | **−16.83 %** |
+
+For scale: the io bake was −13.9 % on init-full from verified
+`infer_only`; this is the same order from a *restricted* `infer_only`
+that infers nothing.
+
+### 7. The landing plan (after the wiring batch releases `Cached/CoreC`, `Kernel/Core`, the `SetP/Step2` rows)
+
+**Stage 1 — the no arm (the payoff; zero P-lane theorems).**
+Spec `Kernel/Core.lean`: `proofIrrel` gains, under `mode.verified`, the
+head-read prelude `match isProofFast env a with | .notPrf (rigid) =>
+pure false | …` before the io inferences; `isProofFast`/`typeSortPW`/
+`residualClass` land in `Kernel/ExprOps.lean` (pure, total, fuelled) —
+with Option U folded in if the user takes it (then `proofIrrel` = the
+Prop branch only and the residual reader is not needed).  Twins:
+`CoreC.proofIrrelI`, `CoreNC.proofIrrelNC` (parity core: the gate is
+false there, the code path identical by `cfg.verified`).  Verify:
+`proofIrrel_inv` (`Verify/InferLemmas.lean:1584`) is stated at
+`.ok true` and is **unchanged**; the cached sims (`DiscC2.lean` ×5,
+`DiscC3.lean` ×4, `DiscC5.lean` ×1) gain the fast-arm case by the
+`iotaCertsI`-gate recipe (both twins take the same branch on the same
+datum).  R lane (`SetBase/Bridge/Irrel.lean`, `ProofIrrelStepR`): reads
+`proofIrrel_inv` only — untouched.  **No new theorem; the bill is the
+sim cases.**  A verdict census (the instrumented copy's counter 22) runs
+once on init-full at landing and is recorded as a receipt.
+
+**Stage 2 — the annotate leaves and the io-λ drop (no licence).**
+`annotPwPi`/`annotPwLam` (spec + `CoreC` loops) take the reader first;
+`inferBodyIO`'s λ clause loses its domain run.  Proof side: the annotate
+identification walks (`Verify/Cached/BinderLoopC.lean:982-1074`,
+`AgreeAnnot.lean`) follow the clause change mechanically;
+`inferTypeCoreIO_lam_inv` loses two conjuncts and its consumers
+(`infer_lam_claimIOP`, the io leaf/scoping trio) drop the binders.
+
+**Stage 3 — the yes arm (the licence, priced).**  Gate `mode.verified
+&& mode.betaGate` (the P flag; R collapses with `hg` as at every
+converted row).  `proofIrrel_inv` gains a third disjunct (both sides
+`isProofFast = .prf`), with an inversion `isProofFast_prf_inv` giving
+the head shape and the datum facts; `proofIrrelPQ_of_claims` gains
+`hct : ConstTypeP` and the three probe theorems close the ∀-typed and λ
+cases outright; the type-former case is the mixed walk over `I`'s
+instantiated stored type (`denoteP_forallE_inv` per binder,
+`gate_pwBit_ne_zero`, `teleFitPA_of_mix`, `prf_of_type_former_spine`)
+— ~150–250 lines by the ι licence's measure.  Its payoff is ≈ −0.31 %,
+so it is sequenced last and may be left on the shelf if the ι licence
+(−8.66 %) is the better use of the same walk.
+
+**Stage 4 — the stored datum (route (a) of §5.1)**, if the census at
+stage 1 shows the syntactic reader's 4 % residue matters or the packed
+`pw` (the bitmask design) lands and wants a flat per-constant field: one
+`Env` side table + one `EnvS2PM` row + the install discharge from
+`SortSemAtP`.
+
+Not in the plan: the binder-domain sort checks of the full lane (C) —
+suppliers; the ι regime reads (F) — the ι licence; the rescue family
+(E) — free.
+
+### 8. Instruments
+
+* `_tmp/isproof-meas` (copy 1, the timed masks): `patch.py` (the
+  reproducible CoreC instrumentation: counters 0–52 + masks 0/1/2/3/4),
+  `Setlec/Cached/Diag.lean` (`typeSortPW`, `proofPW`, the conservative
+  `unitClass`, `irrelDecide`), `run.sh`/`all.sh`/`census.sh`,
+  `grind5.tsv`, `full.tsv`, `census-full.txt`.
+* `_tmp/isproof-meas2` (copy 2 / 2b): the `residualClass` reader
+  (final form: allocation-light), the name traces (`NAME`/`UNK`/`R5`),
+  `names.sh`, `full2.tsv` (copy 2, per-binder substitution),
+  `full2b.tsv` (copy 2b).
+* `_tmp/isproof-design/IsProofLicence.lean`: the probe — compile from
+  the master checkout with `lake env lean`; every theorem prints
+  exactly the standard three axioms.
+* Census discipline as the ι audit's: `dbg_trace` (`never_extract`)
+  counters aggregated by `awk`; the fast-live masks are timed runs, the
+  census run is never timed.
+
+## THE LADDER AUDIT: the η/unit-like/K family, the nat-op and literal
+## guards, the normalization pass and `projCert` — what each certifies,
+## what it costs, and what is left after the β/io/ι rounds
+## (2026-09-05, `agent/ladder-audit`)
+
+**Read-only.**  Nothing under `Setlec/**` changed on this branch; the
+instruments are a throwaway measurement copy (`_tmp/ladder-meas`: a
+`dbg_trace` census and an `IMASK` leave-one-out mask over
+`Setlec/Cached/CoreC.lean`, applied by `instr.py`), never landed.  The
+method is the ι audit's verbatim (DESIGN.md, "THE ι AUDIT" + its
+second look): classify every reduction-/check-time step as
+**(A) DROPPABLE**, **(B) MOVABLE TO INSTALL**, **(C) LICENSABLE** or
+**(D) INHERENT**; measure by leave-one-out on init-full (decisive) and
+grind-ring-5 (bug-finder); every masked run must still accept the
+pinned counts.  Scope: the certificate classes the β, io and ι rounds
+left — the η/unit-like/K family, the nat-op and literal guards, the
+annotate pass's surviving jobs, and `projCert`.  The `proofIrrel`
+arms, the sort tests and the K/η prop tests belong to
+`agent/isproof-design` and appear here only as cross-references.
+
+**Relation to task #161's certificate-tax audit.**  Most of this scope
+was *ruled* there and is not re-litigated: the P11 family (pair-η,
+struct-η, struct-unit, the K/η rescue) is **SUPPLIERS, measured below
+noise**; `projCert`'s infer run is a **RECORDED NON-CANDIDATE**
+(ratified squash countermodel); P9 (its four sort legs) and P7
+(`natOpGuard` → one `find?`) **landed**; P6 (`strLitSupported` → a
+cached flag) was **DROPPED** with a measured pessimization argument.
+This audit re-measures that scope on a *reduction-heavy* fixture and a
+post-#176 tree, and it contributes four things the earlier round does
+not have: **a price tag for `projCert`** (its row's measure column
+reads "—"), **the separation of `natLitSupported` from
+`strLitSupported`** (whose ruling was written about the latter and
+inverts for the former), **the `reduceNat` name-dispatch finding**
+(the ptreq record's P1b, extended), and **the η family priced as it
+will be after the task-#175 wiring batch**.
+
+### 1. THE HEADLINE
+
+**Everything in this scope, masked off at once, is −0.169 % of
+init-full and −1.221 % of grind-ring-5.**  The two streams disagree
+about *how* that total is split, and the disagreement is the report's
+main finding.
+
+| item | init-full | grind-ring-5 | ratio |
+|---|---|---|---|
+| `projCert`'s two `inferIO` runs | −0.048 % | **−0.865 %** | 18× |
+| `annotateBody`'s `.letE` + `.lit` work | −0.048 % | −0.241 % | 5× |
+| the nat/literal guards (all four) | −0.050 % | −0.105 % | 2× |
+| … of which the `reduceNat` name dispatch | −0.043 % | −0.094 % | 2× |
+| … of which `natLitSupported`'s env scan | −0.040 % | −0.140 % | 3.5× |
+| **the whole η/unit/K certificate content** | **−0.023 %** | **−0.017 %** | 0.7× |
+| **all of the above at once** | **−0.169 %** | **−1.221 %** | 7× |
+
+On a general-purpose stream the four classes are *comparable* — each
+lands in a narrow 0.02–0.05 % band, with the η family the smallest.
+On a projection- and structure-heavy stream one of them, `projCert`,
+takes 71 % of the total on its own.  **That is the workload the
+task-#175 direct-structure flip creates** (§6: post-flip η compares
+`.proj` nodes, routing more traffic through exactly that site), so the
+grind-ring-5 column is the forward-looking one and the init-full
+column is today's.
+
+**Precision note.**  The sweep's two init-full baselines agree to
+0.002 %, but the nat package is sub-additive by ≈ 0.04 % against its
+parts, so single-run init-full resolution is realistically 0.02–0.04 %
+— enough for the total and for the coarse ordering, not enough to
+separate the 0.04 % rows from each other.  grind-ring-5 (median of
+three, two baselines agreeing to 0.002 %) is what ranks the sites.
+
+**Where the money actually is, for scale.**  The #168 record
+(`agent/isproof-design`, landed the same day) prices the fast
+`isProof` no-arm at **−8.48 %** of init-full — 50× this audit's whole
+scope.  Nothing here competes with that; these are the small rows the
+big ones leave behind.
+
+Three further results decide individual rows:
+
+* **The η/unit-like/K family is attempted ≈ 69 700 times per init-full
+  run and runs ≈ 27 500 certificates** — against 4.17 M ι fires,
+  12.46 M `proofIrrel` entries, 23.52 M `reduceNat` entries and
+  9.51 M annotate node visits.  #161's P11 verdict (SUPPLIERS, below
+  noise) is confirmed at a second fixture and on a tree 18 % faster
+  than the one it measured: **the η family is not where the money
+  is**, on either stream.
+* **`structUnitCert` succeeds 3 times in 61 048 declarations — and
+  those 3 decide the verdict**: masking it off keeps grind-ring-5
+  green but **rejects init-full** (`invalid: application type mismatch
+  [at theorem Std.Rii.forIn'_congr]`).  A certificate that costs
+  +0.002 % and is load-bearing, sitting behind a named P-lane wall
+  (§6).
+* **`reduceNat`'s name dispatch never got task #176's pointer-first
+  equality**: 14 *structural* `DecidableEq` `Name` comparisons at
+  every 2-argument const-headed application the checker
+  weak-head-normalizes (1 277 412 per init-full run), 3 at every
+  1-argument one (2 357 386) — the ptreq record's own "P1b" gap, at a
+  third and much larger site family than the two it names (§5).  At
+  −0.043 % init-full it is, on today's decisive stream, **the largest
+  actionable item in the audit and by far the cheapest fix**.
+
+### 2. The census (`--set-model`, one instrumented run per stream)
+
+| counter | init-full | grind-ring-5 |
+|---|---|---|
+| `stuckIrrel` entries | 12 571 | 1 197 |
+| `pairEtaCert` attempts (both orders) | 23 095 | 1 807 |
+| … shape gate passed (`ctorInfo _ 2 2`) | 4 193 | 840 |
+| … succeeded | 2 431 | 709 |
+| `structEtaCertWith` attempts | 24 775 | 992 |
+| … capability gate passed | 8 589 | 247 |
+| … succeeded | 8 366 | 238 |
+| `structUnitCert` attempts | 7 899 | 369 |
+| … gate passed / succeeded | **3 / 3** | **0 / 0** |
+| `etaCert` (λ-η) attempts / successes | 1 402 / 1 366 | 61 / 59 |
+| `structEtaProjCerts` per-field `iotaCerts` runs | 15 975 | 487 |
+| K-branch synthetic `iotaCerts` | 5 358 | 677 |
+| η-branch synthetic `iotaCerts` | 6 126 | 119 |
+| the family's `stripPis` arity pins | 36 051 | 1 530 |
+| `proofIrrel` entries *(cross-ref)* | 12 457 378 | 298 597 |
+| `reduceNat` entries | **23 519 416** | 630 714 |
+| … reaching a 1-arg `const` head, `us = []` | 2 357 386 | 32 408 |
+| … reaching a 2-arg `const` head, `us = []` | **1 277 412** | 103 932 |
+| … firing (`Nat.succ` literal packing) | 35 628 | 1 552 |
+| `natLitSupportedF` evaluations | **454 613** | 48 260 |
+| `strLitSupportedF` evaluations | 16 749 | 211 |
+| `natOpStoredF` evaluations | 222 457 | 20 539 |
+| `annotateBody` node visits | 9 510 284 | 384 077 |
+| … `.lit` natVal / strVal | 42 111 / 8 320 | 1 625 / 104 |
+| … `.letE` | 11 776 | 835 |
+| … `.proj` (native fast path / elim rewrite) | 10 224 (1 156 / 9 068) | 1 197 (441 / 756) |
+| `projCert` entries | 6 459 | 2 097 |
+| `whnfCoreStep` `.proj` entries | 16 575 | 5 167 |
+| `unfoldDefinition` entries | 13 969 707 | 467 888 |
+
+`structEtaCertWith`'s 24 775 attempts are 18 649 from `defeq`'s
+`structEtaCert` plus 6 126 from `majorToCtor`'s η rescue; the two
+counters add exactly.  The K/η fabrication counts (5 358 / 6 126)
+reproduce the ι census's, which is the instruments' cross-check.
+
+### 3. The measured cost (leave-one-out, `instructions:u`)
+
+grind-ring-5: median of three, baselines 83.9209 G / 83.9194 G /
+83.9196 G across the sweep — they agree to **0.002 %**, this fixture's
+noise floor.  init-full: one run per cell, baseline 2596.79 G (mean of the two baseline runs).
+`ulimit -v 16000000`.  Two other agents ran init-full on the same
+machine throughout, so **only instruction counts are reported** (wall
+times were contended).  **Every accepting masked run accepted 61 048 /
+3 946 declarations**; the five rejecting masks are findings, not
+failures.
+
+**Read the init-full column at 0.02–0.04 % resolution.**  The two
+baseline runs agree to 0.002 %, but the nat package (mask 525824)
+comes out −0.050 % against its parts' 0.089 %, so single-run scatter
+is larger than the baseline pair suggests.  The totals and the coarse
+ordering hold; the 0.04 % rows are not separable from each other.  The
+grind-ring-5 column (median of three, floor 0.002 %) is what ranks
+the sites.
+
+| masked-off site | grind-ring-5 | init-full |
+|---|---|---|
+| `structEtaCertWith`'s structure-telescope `iotaCerts` | −0.002 % | — |
+| `structEtaProjCerts`' per-field `iotaCerts` | −0.008 % | — |
+| `structUnitCert`'s `iotaCerts` | +0.002 % | — |
+| K-branch synthetic `iotaCerts` | −0.006 % | — |
+| η-branch synthetic `iotaCerts` | −0.002 % | — |
+| the family's `stripPis` pins computed allocation-free | −0.002 % | — |
+| **all six of the above at once** | **−0.017 %** | −0.023 % |
+| the K fabrication type check (`defeq tmaj tfab`) | +0.061 % *(noise)* | — |
+| `structUnitCert` off entirely | −0.001 %, **accepts** | **REJECT** `Std.Rii.forIn'_congr` |
+| `pairEtaCert` off entirely | **REJECT** `PSigma'.rec'` | — |
+| `structEtaCert` off entirely | **REJECT** `PProd.rec._model` | — |
+| the whole η/unit cascade in `stuckIrrel` off | **REJECT** `PSigma'.rec'` | — |
+| `etaCert` (λ-η) off | **REJECT** `List.rec._model` | — |
+| `natLitSupportedF` → `true` | **−0.140 %** | −0.040 % |
+| `strLitSupportedF` → `true` | −0.002 % | — |
+| `natOpStoredF` → `true` | −0.008 % | −0.004 % |
+| the `reduceNat` name chain via `==` (`Name.beq`) | **−0.094 %** | −0.043 % |
+| all four nat/literal guard items | −0.105 % | −0.050 % |
+| `annotateBody`'s `.letE` type/value walks | **−0.234 %** | −0.040 % |
+| `annotateBody`'s `.lit` guards | −0.007 % | — |
+| both annotate items | −0.241 % | −0.048 % |
+| **`projCert`'s two `inferIO` runs** | **−0.865 %** | −0.048 % |
+| **every accepting item above, at once** | **−1.221 %** | −0.168 % |
+
+The costs are additive to within the noise floor on grind-ring-5: the
+four package components sum to 1.228 % against the combined mask's
+1.221 %.
+
+Two masks are **ceilings, not savings**: `natLitSupportedF` →`true`
+and `strLitSupportedF` → `true` delete the guard outright, whereas the
+proposed cached form still pays an `Option Nat` field read and a `<`
+comparison per use.  The `reduceNat`-name-chain mask, by contrast, *is*
+the proposed change (a `||`-chain of `==` in place of the `∨`-chain of
+`decide (· = ·)`), so its −0.094 % is a saving.
+
+### 4. The classification
+
+**(A) DROPPABLE — official does not do it and the P model does not
+need it.**  *Nothing in this scope.*  Unlike the ι path (whose two
+`stripPis` pins were bound and discarded), every fire-time test in the
+η family is either a hypothesis of `EtaLawP`/`UnitLawP` or a datum the
+row's inversion consumes — the arity pins included: `hstrip`
+(bound at `Step2/CapsRowsP.lean:507`, consumed at `:577`; the unit
+twin at `:1004`/`:1094`) and `hstrpj` (`:640`, consumed at `:659`)
+all feed `piChainP_of_stripPis` (`:433`).  The one item that *behaves*
+like a
+drop — `structUnitCert`, which succeeds **3 times in 61 048
+declarations** and never on grind-ring-5 — is not one: masking it off
+keeps grind-ring-5 green but **rejects init-full** (`invalid:
+application type mismatch [at theorem Std.Rii.forIn'_congr]`).  Three
+certificate successes in a 61 048-declaration stream decide that
+stream's verdict.  It is also official's own `is_def_eq_unit_like`
+(`type_checker.cpp:1159`).  **(D)**, at +0.000 %.
+
+**(B) MOVABLE TO INSTALL — a property of the stored entry or of the
+environment, re-checked per use.**
+
+1. **`natLitSupportedF` as an `FEnv` completion counter** — the
+   largest (B) item, and a row #161's P6 ruling never separated out.
+   The guard is three `Env.find?`s plus three structural shape
+   re-checks (`Nat : Sort 1`, `Nat.zero : Nat`,
+   `Nat.succ : Nat → Nat`; `Kernel/Core.lean:276-296`), evaluated
+   **454 613 times per init-full run** — at `reduceNat`'s `Nat.succ`
+   fast path, at `litToCtorIfNat`, and at the `.lit` clause of both
+   the annotate pass and `infer`.  §5 gives the form and answers P6's
+   pessimization argument (which is *correct for `strLitSupported`*
+   and inverts for `natLitSupported`).  Cost −0.140 %.
+2. **The η family's slot-kind gate** (new on `agent/wiring3`, task
+   #175 W4c): `structEtaCertWith` gained
+   `towerSlotsAllF fe Tn cnF || recSlotsAllF fe Tn cnF`, i.e. up to
+   2·cnF `Env.find?`s per η attempt, testing a property of the
+   *stored* family that cannot change after install — and duplicating
+   the very lookups `structEtaProjCerts` then repeats per field.  It
+   belongs on `IndCaps` (one `slotKind` field written by
+   `indBlockCaps`/`directCaps`), not in the certificate.  Not on
+   master, so unmeasured; bounded above by the family's total
+   (≤ 0.02 %).  Recorded for the wiring batch, not proposed as work.
+3. **`structEtaProjCerts`' shared prefix.**  The per-field certificate
+   runs `iotaCerts` on `∀ p⃗ (t : T p⃗), F_j` against `targs ++ [b]`
+   once **per field**, and every run re-certifies the *same* `targs`
+   against the same parameter telescope and the same `b` against the
+   same `T targs`; the only per-field difference is the codomain,
+   which `iotaCerts` never reads.  cnF runs collapse to one plus cnF
+   `PiChainP` witnesses.  −0.008 %; §6 says why this is the right
+   shape *post-flip*, where the shared prefix is `directProjTyP`'s own
+   install-time identity rather than a coincidence.
+
+**(C) LICENSABLE — needs the redex, but only at the squash regime.**
+**The η family's three `iotaCerts` runs** (structure telescope,
+per-field projection telescope, synthetic constructor spine) are
+semantically identical to the ι audit's proposal 1 — `TeleFitP` from
+`iotaCerts`, licensed at a `.never` ∀-binder by `io_domain_transfer` —
+and #161 already classified them SUPPLIERS.  Total ≤ 0.02 %.
+**Licence them for uniformity when the ι licence lands, never for the
+number.**  The ι second look's exception stands: the K/η rescue's
+synthetic certificates (`CoreC.lean:519,567`) **cannot** be licensed,
+because in the P lane they *produce* the grading `hokMj` a licence
+would consume (`Step2/MajorP.lean`).
+
+**(D) INHERENT — genuinely per-redex.**
+
+* The η/unit cascade and each certificate's `defEqList` runs:
+  measured load-bearing (four rejecting masks, §3) and they are
+  `EtaLawP`'s own premises.  `defEqList (aargs.drop cnP) projs` is
+  official's per-field `is_def_eq` (`try_eta_struct_core`,
+  `type_checker.cpp:900-903`), and #161 row 26 already measured it as
+  the family's only expensive keeper.
+* The family's `stripPis` arity pins — **unlike ι's**, consumed.  Only
+  the allocation-free rewrite applies (−0.002 %).
+* **`projCert`'s two `inferIO` runs** — a *ratified* non-candidate
+  (squash countermodel; `projCert_inv`, `Verify/InferLemmas.lean:774`,
+  hands `projStepP_of_claims` the two typings out of which it walks
+  the spine's four).  Not re-litigated.  §7 gives its price and the
+  reason it matters more after the wiring batch, not less.
+* `natOpStoredF` at `reduceNat`'s op branches: one `Env.find?`, and it
+  is **exactly** the hypothesis of `NatOpGuardLawP`
+  (`SetP/Step2/NatP.lean:157`) — §5.  −0.008 %.
+* `annotateBody`'s structural rebuild, its `pw` writes and its `.letE`
+  walks (§8).
+
+### 5. Scope 2 in full: the nat-op guard measured against the bar
+
+The bar (coordinator, from the user): *the install invariant already
+says "if a pinned op name exists in the environment it is the
+certified one", so the fire-time guard should be exactly a name
+comparison plus the literal-argument test.*  `reduceNat` runs at every
+`whnfStep` and on both sides of every fvar-free stuck `defeqStep` —
+**23 519 416 entries per init-full run**, of which 2 357 386 reach a
+1-argument `const` head with `us = []` and 1 277 412 a 2-argument one.
+Row by row:
+
+| fire-time step | what it does | verdict |
+|---|---|---|
+| the op-name test | **14** `decide (cn = X)` at a 2-arg head, 3 at a 1-arg head, through the **derived structural `DecidableEq`** — *not* `Name.beq`/`beqPtr`, so task #176's pointer-and-hash-first equality does not reach it | at the bar in content, off it in implementation: **−0.094 %** for the one-word `=` → `==` swap |
+| `natOpStoredF fe cn` | one `Env.find?`, asking only "stored as a `defnInfo`" | **at the bar.** It is verbatim the hypothesis of `NatOpGuardLawP` — *"stored as a `defnInfo` → the full `natOpGuard`"* — which `EnvS2PM.nat_ops`/`.div_mod` supply. #161 P7 already made this move (it used to re-derive `natOpGuard` per hit). **(D)**, −0.008 % |
+| the literal test | `r.whnf` on each argument, then `rawNatLit?`; runs only after the name test passes | at the bar, **(D)** |
+| `natOpGuardF` | **not a fire-time guard at all**: install-only (`CheckerC.lean:250`, `ParsedC.lean:144`, `ParsedNC.lean:294`; `divModEnvGuardF` for the GMP family) | at the bar |
+| `natLitSupportedF` | 3 `Env.find?`s + 3 structural type re-checks, per literal fire *and* per `.lit` node of the annotate and infer passes, 454 613×/run | **off the bar — (B)** |
+| `strLitSupportedF` | 8 `Env.find?`s + 8 shape re-checks, 16 749×/run | off the bar, but **P6's ruling stands** (below) |
+
+**Short answer to the bar: the op guard *is* a name test plus one
+`Env.find?`, and that `find?` is the P lane's own premise — cost
+0.008 %.**  What is not at the bar is (a) the name test's
+implementation and (b) the *literal-basis* guard, which is a different
+invariant (the `Nat` block is installed) with no install record behind
+it at all.
+
+**Why `natLitSupported` is a live (B) row where `strLitSupported` is
+not.**  #161's B4/P6 finding dropped the "cached per-environment flag"
+for `strLitSupported` on two measured grounds: the guard barely runs
+(25 `strVal` records on init-prelude, 1 702 on init-full), and a flag
+maintained at `mkFEnv`/`push`/`restrictTo` would be *evaluated* 30–130×
+more often than the guard it replaces.  Both grounds invert here:
+
+* **Volume.**  `natLitSupportedF` is evaluated **454 613** times per
+  init-full run against **61 048** installed constants — 7.4× more
+  evaluations than pushes, where `strLitSupportedF`'s 16 749 is 3.6×
+  *fewer*.
+* **Form.**  The pessimization argument is about a maintained `Bool`.
+  The honest form is a **completion counter**, `natLitAt : Option Nat`
+  on `FEnv`: the guard becomes `match fe.natLitAt with | some k => k <
+  fe.visibleBelow | none => false`.  Then `restrictTo` needs **no**
+  maintenance at all (it only lowers `visibleBelow`, and the
+  comparison already reads it — this is exactly the objection the flag
+  form could not answer), and `push` does nothing once the counter is
+  set, i.e. nothing for ~61 000 of the 61 048 pushes of a real stream.
+  Correctness is exact because duplicate declarations are rejected at
+  install (`DeclCheck.lean:309,734`), so a visible name's entry never
+  changes: `natLitAt = some k` iff all three names are stored with the
+  pinned shapes and `k` is the largest of their installation counters.
+* **The B3 objection does not apply either.**  P6 noted that
+  `strLitSupported` has no install-time enforcement and no `EnvS` law,
+  so there is no cheaper *equivalent test*.  The counter is not an
+  equivalent test — it is the same test, computed once.  The proof
+  side is one `FEnv` field and its three lemmas in
+  `Verify/EnvBound.lean` (`mkFEnv`, `push`, `restrictTo`); the `Env`
+  twin `natLitSupported` and every statement about it are untouched.
+
+**The `=` versus `==` finding, generalised.**  The ptreq record's
+"WHAT IS LEFT / P1b" names two `if n = n'` sites in
+`Cached/CoreC.lean` (`:218` delta same-head, `:1403` const/const
+defeq) that the landed `BEq Name` does not reach.  `reduceNat`'s
+dispatch is a **third and much larger one**: 14 structural `Name`
+comparisons at every 2-argument const-headed application the checker
+weak-head-normalizes (1 277 412 per init-full run) and 3 at every
+1-argument one (2 357 386) — *whether or not the head is a `Nat`
+operation*.  Same one-word fix, same zero proof motion (`LawfulBEq
+Name` closes `(a == b) = true ↔ a = b`), measured at **−0.094 %** on
+grind-ring-5 alone.  Recommendation: fold it into the P1b follow-up
+the coordinator already docketed for when the wiring batch releases
+`Cached/CoreC.lean`.
+
+### 6. Scope 1 in full: the η family as it will be after the wiring
+### batch
+
+Priced as it will be, not only as it is (`agent/wiring3`, task #175
+W4c K1, plus the W5/W6 stages the freeze schedules):
+
+* **The fabricated spine gets cheaper.**  `etaProjs`/`projAppsI` emit
+  `.proj T j b` nodes when every slot is tower-backed, instead of
+  `mkAppN (.const (projFnName T j) us) (targs ++ [b])` — no `mkAppN`,
+  no `constTyAt` for a projection function, no `projFnIdx`.
+* **The per-field certificate does not go away**: `structEtaProjCerts`
+  gains a `.projInfo` arm that reads the *entry's* stored type instead
+  of the projection function's — same telescope, same `iotaCerts`,
+  same arity pin.  §4(B)3's collapse is therefore the right shape for
+  it and is *more* attractive post-flip, because the entry's type is
+  **generated** from the structure's own type by `directProjTyP`, so
+  the shared `∀ p⃗ (t : T p⃗)` prefix is an install-time identity.
+* **The `_model` η artifacts become unconsumed.**  On the direct path
+  there is no `projFnName T j` recursor and no degenerate recursor
+  (W2b removed both from `checkDirectProj`), so `EtaFamilyStored` and
+  `structEtaProjCerts_inv` change shape — the wiring batch's own bill,
+  recorded here as the dependency of §4(B)3.
+* **The family's per-field cost migrates into `projCert`.**  The final
+  `defEqList (aargs.drop cnP) projs` now compares `.proj` nodes, and
+  every `.proj` comparison enters `whnfCoreStep`'s `.proj` clause and
+  hence `projCert`.  **The audit's largest item gets more traffic
+  after the flip, not less** — which raises the value of pricing it
+  and of P9-style economies around it.
+* **`pairEtaCert` becomes dead at W6.**  It is keyed on
+  `reservedBasisNames` (the pinned `PSigma'` block), which W6 retires;
+  `structEtaCert` covers pairs once the pair type is an ordinary
+  direct structure.  **Today it is load-bearing** — masking it off
+  rejects `PSigma'.rec'` — so it is a *scheduled* deletion, not a
+  proposal.  #161's P11a (its two type-argument runs → a shape test,
+  0.01 %) is superseded by that schedule: do not spend proof effort on
+  a certificate the wiring batch deletes.
+* **The unit-like half is blocked by a named wall regardless of
+  cost.**  `SetP/CapsP.lean:110-185`: `CapsOkP`'s unit half carries an
+  `EtaFamilyStored` premise its own consumer cannot supply, mechanized
+  as `etaFamilyStored_not_derivable`.  The certificate costs nothing
+  (+0.000 %) and fires 3 times on all of init-full — but those 3 fires
+  decide init-full's verdict (§4(A)), so the wall is a *soundness*
+  obligation on a live path, not a dead-code question; the fix stays
+  the one-line premise deletion the wall records.
+
+### 7. `projCert`, priced
+
+`projCertI` (`CoreC.lean:710-717`) infers the projected field's
+argument and the whole constructor spine and then returns `true`
+**unconditionally**: after #161's P9 landed (the four sort legs are
+gone), the run has no verdict content at all — `projCert_inv`
+(`Verify/InferLemmas.lean:774-780`) yields exactly two facts, that
+both inferences succeed, and `projStepP_of_claims`
+(`Step2/ProjRowsP.lean:857`) walks the spine's typings out of them.
+Official's `whnf_core` projection case does **no** inference
+(`reduce_proj`/`reduce_proj_core`, `type_checker.cpp:419-454`); its
+own comment says why it does not need to — *"`infer_proj` rejects a
+`sname` that disagrees with the projected expression's type"*.  This is
+conformance residue **F4**, whose row in the certificate-tax table has
+carried an empty measure column since the round closed.
+
+**The number: −0.865 % on grind-ring-5 and −0.048 % on init-full**, at
+6 459 `projCert` entries and 16 575 `whnfCore` `.proj` entries per
+init-full run.  The 17× spread is the fixture, and it reconciles the
+row with #161's init-prelude figure (0.06 % / 0.17 %): on a
+general-purpose stream the site is invisible, on a projection-heavy
+one it is the biggest thing in this audit.  **The verdict is not
+re-opened** — the squash countermodel stands and the row stays a
+non-candidate; what is new is the number and its workload dependence.
+The consequence for the wiring batch is in §6: post-flip η compares
+`.proj` nodes, so the *share* of streams that look like grind-ring-5
+grows.  If any engineering is ever spent here it should be P9-shaped
+(a cheaper equivalent computation of the same two typings), never a
+removal.
+
+### 8. Scope 3: what the normalization pass still does
+
+`annotateBody` visits 9 510 284 nodes per init-full run.  Excluding
+the `.proj` elimination rewrite (deleted by the wiring batch's W5),
+the surviving jobs are:
+
+1. **the `pw` writes** on ∀/λ telescopes — the pass's purpose (#161
+   P5), one `infer`+`whnf` per *telescope*, memo-shared with the
+   front-door sweep.  **(D)**; #161 measured the write half at 1.80 %
+   / 1.90 % and it is not a certificate.
+2. **the `.lit` guards** — 42 111 natVal + 8 320 strVal nodes; the
+   cost is §5's and the fix is §4(B)1's.  −0.007 %.
+3. **the `.letE` value-transparency walks** — 11 776 let nodes;
+   `annotate ty` and `annotate v`, **both results discarded**, before
+   `inst1M b v` and the reduct's own walk.  Measured **−0.234 %** (grind-ring-5).
+   Note this is *not* #161's row 6 (the redundant `infer_let` triple,
+   since deleted): these two calls survive it.  They are pure *checks*
+   (fvar scope, literal support) on subterms the reduct need not
+   contain — `ty` never does, `v` only if the body uses the binder —
+   so they are the pass's coverage, not redundancy: **(D)**, now with
+   a number.  Dropping them would let a `let` whose value is unused
+   carry an out-of-scope fvar or an unsupported literal past the
+   pass, to be caught (or not) downstream; that is a real narrowing
+   and is not proposed.
+4. **the structural rebuild** of `.app` and the binder telescopes.
+   **(D)**.
+5. **the `.proj` clause** — 10 224 nodes, 1 156 native fast path,
+   9 068 rewrite.  Post-W5 the clause degenerates to *renaming* the
+   node's `sn` to the head of `whnf (infer pe)`, at the price of one
+   `inferIO` + one `whnf` + one `findProj?` per `.proj` node.
+   **Conformance finding (restrictions are findings):** official's
+   `infer_proj` **rejects** a node whose `proj_sname` is not the
+   inferred head (`type_checker.cpp:257`, `I_name != proj_sname(e)` →
+   `invalid_proj_exception`) and never rewrites; setlec's rename is an
+   accept-superset deviation, and `reduce_proj_core`'s comment shows
+   official *relies* on that rejection.  Post-W5 the clause can
+   therefore become structural (`intern (.proj sn i e')`), letting
+   `infer`'s own `T = sn` test decide exactly as official does — which
+   removes the annotate pass's last call into the core **and** tightens
+   conformance.  Estimated ≤ 0.05 % from the node count; the argument
+   is conformance, not cost.
+
+### 9. Prioritised proposal list
+
+**Standing caveat: the whole list is worth −0.169 % of init-full and
+−1.221 % of grind-ring-5** (§1), so no row is a performance argument
+on its own.  The ordering below is grind-ring-5's, i.e. an ordering of
+*where a projection- and structure-heavy workload spends* — the
+workload the direct-structure flip creates.  On today's decisive
+stream the ordering is flatter and row 2 (the `Name` dispatch) is the
+largest actionable item.  Rows 1–3 are worth taking because each is
+*also* a simplification or a conformance repair, not for its
+number.
+
+| # | proposal | route | measured | proof-side cost |
+|---|---|---|---|---|
+| 1 | `natLitSupportedF` as an `FEnv` completion counter (`natLitAt`) | **install-validate** | **−0.140 %** g5 / −0.040 % IF | one `FEnv` field + three lemmas in `Verify/EnvBound.lean`; the `Env` twin and every statement about it untouched; answers P6's pessimization argument (§5) |
+| 2 | `reduceNat`'s name dispatch via `==` (`Name.beq` → `beqPtr`) | **local** (ptreq P1b, extended) | **−0.094 %** g5 / **−0.043 %** IF | zero: `LawfulBEq Name`, one `beq_iff_eq` per inversion |
+| 3 | post-W5: make annotate's `.proj` clause structural | **drop** + conformance repair | ≤ −0.05 % (est.) | the annotate `.proj` rows lose their core calls; `infer`'s `T = sn` test already exists |
+| 4 | collapse `structEtaProjCerts`' cnF identical prefix runs to one | **install-validate** | −0.008 % | `structEtaProjCerts_inv` gains a shared-prefix form; post-flip the prefix is `directProjTyP`'s identity |
+| 5 | the η family's three `iotaCerts` runs, `.never`-licensed | **licence** (with ι's) | ≤ −0.02 % | none of its own once the ι licence lands |
+| 6 | the wiring batch's `towerSlotsAll‖recSlotsAll` gate → an `IndCaps` field | **install-validate** | unmeasured, ≤ 0.02 % | one field, written by `indBlockCaps`/`directCaps`; a note for the wiring batch |
+| 7 | the η family's `stripPis` pins computed allocation-free | local | −0.002 % | a `stripPis_isSome_iff` lemma, as ι's 3′ |
+| — | **`projCert`'s infer run** | **no action — ratified non-candidate** | **−0.865 %** g5 / −0.048 % IF, priced here | the number belongs in F4's row, not in a proposal |
+| — | `annotateBody`'s `.letE` walks | **no action** — the pass's coverage | −0.234 % g5 / −0.040 % IF | — |
+| — | `natOpStoredF`, the K fabrication type check, `structUnitCert`, the rescue's scope guards, `pairEtaCert` | **no action** | ≤ 0.01 % each | `pairEtaCert` is a *scheduled* W6 deletion, not a candidate |
+
+### 10. Conformance notes (restrictions are findings)
+
+* **F4 is now priced.**  `projCert`'s two inference runs, which
+  official's `reduce_proj` does not perform, cost **−0.865 %** on
+  grind-ring-5 (−0.048 % on init-full) — the largest conformance
+  residue in this scope by an order of magnitude, and 5–15× the
+  init-prelude estimate the certificate-tax table records.
+* **New: the annotate pass's `.proj` rename is an accept-superset
+  deviation.**  Official rejects `proj_sname(e) ≠ I_name`
+  (`type_checker.cpp:257`) and its `reduce_proj_core` comment relies on
+  that rejection; setlec rewrites the node to the inferred head.
+  §8 item 5.
+* **The η certificate's setlec-only content, priced.**  Against
+  `try_eta_struct_core` (`type_checker.cpp:889-905`) setlec adds a
+  level-list comparison, the structure-telescope `iotaCerts`, the
+  per-field projection `iotaCerts` and the arity pins, and replaces
+  official's `is_def_eq(infer_type t, infer_type s)` by the capability
+  gate plus `defEqList (aargs.take cnP) targs`.  Total setlec-only
+  cost **≤ 0.02 %**.  Not a cost question.
+* **The `stuckIrrel` cascade runs `proofIrrel` twice.**  Official's
+  order after `is_def_eq_app` is `try_eta_expansion`,
+  `try_eta_struct`, `try_string_lit_expansion`,
+  `is_def_eq_unit_like`, with proof irrelevance hoisted before lazy
+  delta (`type_checker.cpp:1202,1233-1242`).  Setlec hoists it the
+  same way (`defeqStep`, `CoreC.lean:1310`) **and** runs it again as
+  `stuckIrrel`'s last arm.  This audit counted 12 457 378 `proofIrrel`
+  entries per init-full run at `--set-model`; the #168 record
+  (`agent/isproof-design`, landed alongside this one) splits the same
+  site by caller at `--set-model=p` — hoist 8 618 879, `stuckIrrel`
+  7 566, K rescue 127, η rescue 1 — so the cascade-tail run is
+  **0.09 % of the site's traffic** and the hoist is all of it.  The
+  site is that record's, not this one's: it prices the fast-`isProof`
+  no-arm at −8.48 % of init-full, which is 50× everything in this
+  audit's scope put together.  Recorded here only so the two censuses
+  reconcile.
+* **The rescue's fabrication scope guards** (`wscopedB`,
+  `looseBVarsBounded`, `leafGuard`) have no official counterpart, and
+  `leafGuard fab base` rebuilds `fvarLeaves base` with a **fresh**
+  memo per call — 11 484 fabrications per init-full run, inside the
+  rescue family's ι-measured −0.005 %.  No action; recorded.
+
+### 11. Instruments
+
+`_tmp/ladder-meas` (throwaway, never landed): `instr.py` (the
+instrumentation patch over a pristine `Setlec/Cached/CoreC.lean` —
+36 census counters and 20 `IMASK` skip bits), `Setlec/Cached/Diag.lean`
+(inherited from the ι audit: `envNat`, `iskip`, the `dbg_trace` census
+switch, `piArityGE`), `run.sh` (the leave-one-out harness), `g5.sh` /
+`full.sh` / `full2.sh` (the sweeps), `apply.py` (the record's number
+substitution), `g5.tsv`, `full.tsv`, `full2.tsv`, `census-g5.txt`,
+`census-full.txt`.  As in the ι audit a pure counter bump is unusable
+(LCNF drops it), so the census goes through `dbg_trace`
+(`never_extract`).
 
 ## TASK #175 W4c — P2 SEAL AND THE P3 PLAN (2026-09-05, `agent/wiring3`)
 
