@@ -40466,6 +40466,22 @@ suppressed them).  `instBEqName`'s closure still points at
 `Name_beqPtr___boxed`, and `beqB` still opens each of its five name
 comparisons with `lean_ptr_addr` + `Name_hashData`.
 
+And measured, so the C-level reading is not the only evidence.  The
+decisive A/B row re-run on the `csimp` binary (same harness, same
+median-of-3):
+
+| variant | `init-full` G instr | Δ vs base | Δ vs the `implemented_by` build |
+|---|---|---|---|
+| base | 2931.77 | — | — |
+| `implemented_by` | 2764.32 | −5.71 % | — |
+| **`csimp`** | **2764.53** | **−5.70 %** | **+0.008 %** |
+
+i.e. the two builds are the same binary to within 213 M instructions
+out of 2.76 T — the win is entirely intact, and the ruling costs
+nothing but a better-founded attribute.  Peak RSS 928.2 MB (the
+`implemented_by` build's 931.5, within run-to-run variation); exit 0,
+61 048 declarations accepted.
+
 Verified in the compiled IR (`.lake/build/ir/Setlec/Kernel/Expr.c`):
 `beqB`'s five per-node `Name` comparisons are each now
 `lean_ptr_addr` ×2 → `Name_hashData` ×2 → `instDecidableEqName_decEq`
