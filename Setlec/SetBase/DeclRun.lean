@@ -224,82 +224,16 @@ def DeclRunR (μ : CheckMode) (F : Nat)
   | .basisDecl kind, env₂ => DeclBasisR env kind env₂
   | .indDecl block, env₂ => Ind block env₂
 
-/-! ## The projections
+/-! ## The projections, retired (2026-09-05)
 
-One source of truth: the R lane keeps proving `DeclR`, and these
-discard the derivation halves.  Nothing in `Bridge/*` moves. -/
-
-theorem ConstantValR.toRun {μ : CheckMode} {F : Nat} {env : Env}
-    {cval : TConstVal} {cv : ConstantVal} {type' : Expr}
-    (h : ConstantValR μ F env cval cv type') :
-    ConstantValRunR μ F env cv type' :=
-  ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.1, h.2.2.2.2.1, h.2.2.2.2.2.1,
-    h.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.2.1,
-    h.2.2.2.2.2.2.2.2.2.1⟩
-
-theorem ValueFrontR.toRun {μ : CheckMode} {F : Nat} {env : Env}
-    {cval : TConstVal} {cv : ConstantVal} {value type' value' : Expr}
-    (h : ValueFrontR μ F env cval cv value type' value') :
-    ValueFrontRunR μ F env cv value type' value' :=
-  ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.1, h.2.2.2.2.1, h.2.2.2.2.2.1⟩
-
-theorem DivModPinR.toRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {cval : TConstVal} {c : Name} {value' : Expr}
-    (h : DivModPinR μ F env env₂ cval c value') :
-    DivModPinRunR μ F env env₂ c value' := h
-
-theorem ReducePinR.toRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {cval : TConstVal} {c : Name} {value : Expr}
-    (h : ReducePinR μ F env env₂ cval c value) :
-    ReducePinRunR μ F env env₂ c value := by
-  obtain ⟨hst, hel, hpg, valA, pinA, hav, hap, hrun, -⟩ := h
-  exact ⟨hst, hel, hpg, valA, pinA, hav, hap, hrun⟩
-
-theorem DeclDefnR.toRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {cval : TConstVal} {cv : ConstantVal} {value : Expr}
-    {hint : ReducibilityHint}
-    (h : DeclDefnR μ F env cval cv value hint env₂) :
-    DeclDefnRunR μ F env cv value hint env₂ := by
-  obtain ⟨type', value', hcv, hvfr, henv, hnat, hdm⟩ := h
-  exact ⟨type', value', hcv.toRun, hvfr.toRun, henv,
-    fun hn => ⟨(hnat hn).1, (hnat hn).2.1, (hnat hn).2.2.2⟩,
-    fun hn => (hdm hn).toRun⟩
-
-theorem DeclThmR.toRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {cval : TConstVal} {cv : ConstantVal} {value : Expr}
-    (h : DeclThmR μ F env cval cv value env₂) :
-    DeclThmRunR μ F env cv value env₂ := by
-  obtain ⟨type', value', hcv, hprun, -, hvfr, henv⟩ := h
-  exact ⟨type', value', hcv.toRun, hprun, hvfr.toRun, henv⟩
-
-theorem DeclOpaqueR.toRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {cval : TConstVal} {cv : ConstantVal} {value : Expr}
-    (h : DeclOpaqueR μ F env cval cv value env₂) :
-    DeclOpaqueRunR μ F env cv value env₂ := by
-  obtain ⟨type', value', hcv, hvfr, henv, hred⟩ := h
-  exact ⟨type', value', hcv.toRun, hvfr.toRun, henv,
-    fun hn => (hred hn).toRun⟩
-
-theorem DeclAxiomR.toRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {cval : TConstVal} {cv : ConstantVal}
-    (h : DeclAxiomR μ F env cval cv env₂) :
-    DeclAxiomRunR μ F env cv env₂ := by
-  obtain ⟨type', hcv, hbranch⟩ := h
-  exact ⟨type', hcv.toRun, hbranch⟩
-
-/-- **The dispatch projection.**  The inductive kind is carried
-unchanged (the `Ind` parameter is instantiated at `DeclIndR` itself),
-so this is a genuine projection at all six kinds. -/
-theorem DeclR.toRun {μ : CheckMode} {F : Nat} {cval : TConstVal}
-    {env : Env} {d : Declaration} {env₂ : Env}
-    (h : DeclR μ F cval env d env₂) :
-    DeclRunR μ F (DeclIndDispatchR μ F env cval) env d env₂ := by
-  cases d with
-  | defnDecl cv value hint => exact DeclDefnR.toRun h
-  | thmDecl cv value => exact DeclThmR.toRun h
-  | opaqueDecl cv value => exact DeclOpaqueR.toRun h
-  | axiomDecl cv => exact DeclAxiomR.toRun h
-  | basisDecl kind => exact h
-  | indDecl block => exact h
+`ConstantValR.toRun`, `ValueFrontR.toRun`, `DivModPinR.toRun`,
+`ReducePinR.toRun`, the four per-kind `toRun`s and `DeclR.toRun` sat
+here under the note *"one source of truth: the R lane keeps proving
+`DeclR`, and these discard the derivation halves."*  There is no R lane
+and no `DeclR`: the SetR removal's Stage C deleted the relation family
+and every derivation record over it, so the projections have nothing
+left to project FROM.  The run records below them are now the only
+source of truth, which is what S11a was aiming at — the projections
+were the compatibility shim across the transition. -/
 
 end Setlec.SetR

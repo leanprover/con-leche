@@ -1,6 +1,9 @@
 import Setlec.SetBase.IndBlockRun
+
 import Setlec.SetP.IotaRulePlainP
+
 import Setlec.SetP.IndPinRowP
+
 import Setlec.SetP.IndBottomNestedP
 
 /-!
@@ -27,7 +30,9 @@ two.
 namespace Setlec.SetR.Interp2
 
 open Setlec.TT Setlec.TTVerify SetTheory
+
 open Setlec.SetR
+
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta RecRule isDefEqCore inferTypeCore DefEqListOk TypedListOk)
 
@@ -35,30 +40,9 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-- A recorded typed *walk* carries its subjects' denotations, at one
-index (`typedListOk_getD`'s derivation twin). -/
-theorem typedListW_denote_getD {cval : TConstVal} {μ : CheckMode}
-    {env : Env} {φ : Name → Nat} {d : Nat} :
-    ∀ {as bs : List Expr}, TypedListW μ env cval φ d as bs →
-      ∀ i, i < as.length →
-        ∃ Ev, denote cval env φ d (as.getD i default) = some Ev := by
-  intro as
-  induction as with
-  | nil =>
-    intro bs h i hi
-    simp only [List.length_nil] at hi
-    omega
-  | cons a as ih =>
-    intro bs h i hi
-    match bs, h with
-    | b :: bs, ⟨⟨Ev, Dv, hEv, _, _⟩, hrest⟩ =>
-      match i with
-      | 0 => exact ⟨Ev, hEv⟩
-      | i + 1 => exact ih hrest i (by simpa using hi)
-
-set_option maxHeartbeats 12800000 in
 /-- **One checked `.nested` rule's fired law, at the reading**
 (`iotaRuleS`'s nested branch, plus the P tier's pin conjunct). -/
+
 theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (mp : EnvS2PM V μ envSelf)
     (hdeq : ∀ ψ : Name → Nat, DefEqClaims2P μ mp.base2 ψ F)
@@ -520,11 +504,11 @@ theorem iotaRuleP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     exact iotaRuleNestedP mp hdeq hinf hreadsP hf hroT hIS hup hbnA
       hself heqfind hkit hfm φ
 
-set_option maxHeartbeats 1600000 in
 /-- **Every rule the per-recursor fold returns carries its fired law**
 (`iotaRulesS`'s P half).  The syntactic clauses of `RuleFactsS` are
 V-free and the v1 fold already establishes them; what the P tier owes
 is the row. -/
+
 theorem iotaRulesP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (mp : EnvS2PM V μ envSelf)
     (hdeq : ∀ ψ : Name → Nat, DefEqClaims2P μ mp.base2 ψ F)

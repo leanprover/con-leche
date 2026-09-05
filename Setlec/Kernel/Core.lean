@@ -98,7 +98,7 @@ structure CoreFns (m : Type → Type u) where
   the grade's meaning per mode: at a gate-off mode (`μ.betaGate =
   false` — the R core, the parity core) this is the full `infer`,
   verbatim (the flag is ignored, task #170's R clause); at the gated
-  mode (`.setModelP`, the P core) it is the io body, whose application
+  mode (`.setModel`, the P core) it is the io body, whose application
   clause skips the per-argument certificate exactly at a validated
   `.never` binder under the graph-regime license
   (`Setlec/SetP/IOLicenseP.lean`). -/
@@ -1504,7 +1504,7 @@ def projCert (r : CoreFns m) (_env : Env) (depth : Nat)
 /-- **THE β SITE'S GATE** (task #161): does the mode's β gate fire at
 this binder?
 
-At `mode.betaGate` (i.e. at `.setModelP`, and nowhere else) a λ-binder
+At `mode.betaGate` (i.e. at `.setModel`, and nowhere else) a λ-binder
 whose *validated* annotation datum is `.never` — "the codomain sort is
 nonzero at every valuation" — licenses skipping the certificate: the
 sealed P claim's positive branch (`AnnotOkP_beta_gate`,
