@@ -40462,7 +40462,13 @@ Baseline binary snapshotted before any edit
 exit 0 with the same accepted count (61 048 / 3 946 / 97) — **verdict
 identity**.
 
-| stream | variant | G instr | Δ vs base | peak RSS (MB) | Δ vs base |
+**Read the RSS column with §2's caveat**: it is `time -v`'s maximum
+over the checker **and** its `lean-inductive-models` preprocessor
+child, so the `init-full` rise below is *not* the checker's heap — see
+the `--pre` table underneath, where the checker's own peak **falls by
+0.8 %**.
+
+| stream | variant | G instr | Δ vs base | peak RSS, whole pipeline (MB) | Δ vs base |
 |---|---|---|---|---|---|
 | `init-full` | base | 2931.77 | — | 923.7 | — |
 | | +P3 | 2853.31 | **−2.68 %** | 932.8 | +0.99 % |
@@ -40559,9 +40565,11 @@ remaining sites.
   need an exposed clone of `withPtrEq` and hence a new census row.
   The site-local edit is the recommendation; it was out of scope here
   because `Cached/CoreC.lean` belonged to a concurrent branch.
+  **On the docket** (coordinator, 2026-09-05): land it as a one-word
+  follow-up once the task-#175 wiring batch releases that file.
 * **P4** (`Level.subst`/`simplify` returning the original object; the
-  `has_param` cutoff) — not granted, ceiling 0.09 % plus allocator
-  relief.
+  `has_param` cutoff) — **stays ungranted** (coordinator, 2026-09-05);
+  ceiling 0.09 % plus allocator relief.
 
 ### 5. RECEIPTS
 
