@@ -985,8 +985,8 @@ construction), so the generated projection type is read off it in one
 step instead of redoing the `i` earlier substitutions
 (`directProjTy_eq_resid`). -/
 def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
-    (nP nF : Nat) (cvTa cvCa : ConstantVal) (rt? : Option Expr)
-    (fe : FEnv) (i : Nat) : m FEnv := do
+    (nP nF : Nat) (resSort : Level) (cvTa cvCa : ConstantVal)
+    (rt? : Option Expr) (fe : FEnv) (i : Nat) : m FEnv := do
   let pty ← unwrapOr (directProjTyR T lps nP nF i cvTa.type rt?)
     (.notImplemented "direct structure: projection type")
   unless !pty.hasFvar && pty.looseBVarsBounded 0 do
@@ -1015,8 +1015,7 @@ def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
     (.notImplemented "direct structure: projection subject telescope")
   let tfv ← unwrapOr tFvs[0]?
     (.internal "direct structure: projection subject index")
-  let projArgs := (List.range i).map fun j =>
-    Expr.mkAppN (.const (projFnName T j) (lps.map .param)) (fvsP ++ [tfv])
+  let projArgs := (List.range i).map fun j => Expr.proj T j tfv
   let (_, cresid) ← unwrapOr (Expr.instPisAtF (fvsP ++ projArgs) cvCa.type)
     (.notImplemented "direct structure: projection field telescope")
   let fdom ← unwrapOr (match cresid with
@@ -1025,10 +1024,16 @@ def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
     (.notImplemented "direct structure: projection field telescope")
   unless ← ops.isDefEq fe.env (nP + 1) resid fdom do
     throw (.notImplemented "direct structure: projection residual")
-  let rhsA ← checkProjRuleF ops fe ptyA cvCa lps nP nF i
-  pure (fe.push (.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
-    [⟨C, nF, nP,
-      if Expr.recRulePlain ptyA nP nP nP then .plain else .inert, rhsA⟩]))
+  -- the projected field's sort at the opened frame — the entry's
+  -- possibly-Prop guard datum and O4's comparand
+  let fSty ← ops.inferType fe.env (nP + 1) resid
+  let fieldSort ← ops.ensureSort fe.env (nP + 1) fSty
+  let le ← liftFueled "level comparison" (Level.leq fieldSort resSort)
+  if resSort.isNonZero || le then
+    pure (fe.push (.projInfo ⟨T, i, lps, nP, C, nF, ptyA, fieldSort, resSort,
+      true, false, true⟩))
+  else
+    pure fe
 
 end Mirrors
 

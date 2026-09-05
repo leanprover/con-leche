@@ -38202,11 +38202,43 @@ accepted terms, so the branch is verdict-dead there).
 
 | stage | content | state |
 |---|---|---|
-| W1 | this freeze + sizing flag | this entry |
-| W2a | `ProjEntry.tower` field | — |
-| W2b | generator + `checkDirectProj` entry install + twins + bridge re-proofs | — |
-| W2c | infer tower branch (4 twins) + clause-proof adaptation | — |
-| W3 | `denoteP`/`denote` reading branch + erasure law | — |
-| W4 | install soundness (checklist items 1–2) | — |
-| W5 | rewrite removal (P/parity), flip, battery | — |
-| W6 | PSigma' retirement (gated) | — |
+| W1 | this freeze + sizing flag | LANDED |
+| W2a | `ProjEntry.tower` field | LANDED (zero proof changes) |
+| W2b | generator + `checkDirectProj` entry install + twins + bridge re-proofs | LANDED |
+| W2c | infer tower branch (4 twins) + clause-proof adaptation | scoped (see below) |
+| W3 | `denoteP`/`denote` reading branch + erasure law | frozen (§1) |
+| W4 | install soundness (checklist items 1–2) | pending |
+| W5 | rewrite removal (P/parity), flip, battery | pending |
+| W6 | PSigma' retirement (gated) | pending |
+
+**W2b as landed** (2026-09-05): `directProjArgP`/`directProjResidP`/
+`directProjTyP` (`Kernel/Direct.lean`); `checkDirectProj`
+(`Kernel/Checker.lean`) and `checkDirectProjF` (`Kernel/DeclCheck.lean`)
+install `.projInfo` tower entries behind the O4 branch — the
+degenerate recursor and `checkProjRule` call are gone from the direct
+path; `CheckerC`/`ParsedNC` thread `p.resSort` and step the
+incremental residual with `directProjArgP`.  Bridge re-proofs:
+`BridgeDecl` (pair + fuel batteries, `liftFueled` rows swapped in for
+the rule rows), `BridgeWfImp` (`checkDirectProj_wfimp`'s tail is now
+inferType/ensureSort/`liftFueled`/ite; the `.proj`-node spine's
+`WScoped` collapses to the subject's), `BridgeCS3`
+(`checkDirectProjS_sim` extended with the three new op sims).
+`ProjPinInv`: `checkDirectProj_consed` and
+`checkDirectStruct_preserves` are DELETED — the function now installs
+native non-pair entries, so pre-flip the invariant walk discharges
+the direct arm by `directParts?_none` (flag-false unreachability, the
+same discharge `BridgeWFDecl`/`BridgeCSDecl`/`Bridge/Sound` already
+use); the post-flip invariant is the §2 disjunction, owed at W5.
+Receipts: 521 jobs warning-free, `lake test` green, layering 0 edges;
+behavior byte-identical (the install sites sit behind
+`directStructsEnabled = false`).
+
+**W2c scoping finding** (the reason it is its own stage): the two
+cached infer bodies (`CoreC.inferBodyI`, `CoreNC.inferBodyNC`) work
+over the interned store, and B2 deleted the entry-type
+**materialisation** (`projFnIdxM`/`constTyAtM`, the level-instantiated
+intern) — the tower branch there must re-add a materialisation path
+(instantiate `entry.ty`, readback/intern the computed residual) with
+its `SimC` rows, on top of the two plain-`Expr` bodies
+(`inferBody`/`inferBodyIO`) and the row adaptations (P/R proj rows
+case-split on `entry.tower`, dead pre-flip by `ProjOkT`'s pin).

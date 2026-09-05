@@ -247,20 +247,24 @@ def checkDirectRule (ops : CheckerOps m) (env : Env) (p : DirectParts)
   let _rhsTy ← ops.inferType env 0 rhsA
   pure rhsA
 
-/-- Install the projection function for field `i` of a direct simple
-structure.  Same slot and same consumer as the modeled path's
-`checkProjFn`: a degenerate recursor (no motive, no minors, no indices)
-stored under `projFnName T i`, which is the projection-table name
-family `annotateProjElim` dispatches on — so `.proj` nodes on a direct
-structure rewrite into `T.proj.i` applications exactly as they do on a
-modeled one, and the generic iota machinery reduces them.  Only the
-*type* comes from a different source: generated from the constructor
-telescope (`directProjTy`) instead of read off a `_model.proj_i`
-artifact.  Fields are installed in order, since field `i`'s type
-mentions the earlier projections. -/
+/-- Install the **native tower-backed projection entry** for field `i`
+of a direct simple structure (task #175 wiring; supersedes the
+degenerate-recursor install).  The stored `ty` is the generated
+projection type in `.proj`-node spelling (`directProjTyP`), reduction
+is `whnfCore`'s generic structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i`,
+and the definitional re-checks below (subject domain, residual) are
+exactly the interpretation pins the model consumes.  The **O4
+per-field branch**: the entry is installed iff the levelwise bound
+`ψ(structSort) = 0 → ψ(fieldSort) = 0` is decidably discharged —
+`resSort.isNonZero` (today's whole recognised class) or
+`Level.leq fieldSort resSort` (the monotone case); a field failing it
+gets NO entry and its `.proj` uses stay per-use checked.  Fields are
+installed in order: field `i`'s type spells the earlier projections as
+`.proj` nodes, whose annotation reads the earlier entries. -/
 def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
-    (nP nF : Nat) (cvTa cvCa : ConstantVal) (env : Env) (i : Nat) : m Env := do
-  let pty ← unwrapOr (directProjTy T lps nP nF i cvTa.type cvCa.type)
+    (nP nF : Nat) (resSort : Level) (cvTa cvCa : ConstantVal) (env : Env)
+    (i : Nat) : m Env := do
+  let pty ← unwrapOr (directProjTyP T lps nP nF i cvTa.type cvCa.type)
     (.notImplemented "direct structure: projection type")
   unless !pty.hasFvar && pty.looseBVarsBounded 0 do
     throw (.notImplemented "direct structure: projection type scoping")
@@ -301,8 +305,7 @@ def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
     (.notImplemented "direct structure: projection subject telescope")
   let tfv ← unwrapOr tFvs[0]?
     (.internal "direct structure: projection subject index")
-  let projArgs := (List.range i).map fun j =>
-    Expr.mkAppN (.const (projFnName T j) (lps.map .param)) (fvsP ++ [tfv])
+  let projArgs := (List.range i).map fun j => Expr.proj T j tfv
   let (_, cresid) ← unwrapOr (Expr.instPisAt (fvsP ++ projArgs) cvCa.type)
     (.notImplemented "direct structure: projection field telescope")
   let fdom ← unwrapOr (match cresid with
@@ -311,11 +314,16 @@ def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
     (.notImplemented "direct structure: projection field telescope")
   unless ← ops.isDefEq env (nP + 1) resid fdom do
     throw (.notImplemented "direct structure: projection residual")
-  let rhsA ← checkProjRule ops env ptyA cvCa lps nP nF i
-  pure ⟨.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
-    [⟨C, nF, nP,
-      if Expr.recRulePlain ptyA nP nP nP then .plain else .inert, rhsA⟩] ::
-    env.consts⟩
+  -- the projected field's sort at the opened frame — the entry's
+  -- possibly-Prop guard datum and O4's comparand
+  let fSty ← ops.inferType env (nP + 1) resid
+  let fieldSort ← ops.ensureSort env (nP + 1) fSty
+  let le ← liftFueled "level comparison" (Level.leq fieldSort resSort)
+  if resSort.isNonZero || le then
+    pure ⟨.projInfo ⟨T, i, lps, nP, C, nF, ptyA, fieldSort, resSort,
+      true, false, true⟩ :: env.consts⟩
+  else
+    pure env
 
 /-- Check and install a **direct simple structure** (task #82): the
 type former, the constructor, the recursor with its single rule, and
@@ -346,7 +354,7 @@ def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     throw (.invalid "projection name family taken")
   (List.range p.nF).foldlM
     (checkDirectProj ops p.cvT.name p.cvC.name p.cvT.levelParams
-      p.nP p.nF cvTa cvCa) env₃
+      p.nP p.nF p.resSort cvTa cvCa) env₃
 
 /-- Install one pinned basis declaration (duplicate-checked). -/
 def installBasisDecl (env : Env) (ci : ConstantInfo) : m Env := do

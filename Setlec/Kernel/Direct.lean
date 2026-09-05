@@ -231,6 +231,32 @@ def directProjTy (T : Name) (lps : List Name) (nP nF i : Nat)
   let args := directProjPs nP ++ (List.range i).map (directProjArg T lps nP)
   directProjTyR T lps nP nF i tty (Expr.instPisAtLift args cty)
 
+/-- The `j`-th earlier-field substitute in a **tower entry's**
+generated type (task #175 wiring): the first-class node `t.j`
+(`.proj T j` of the subject), at `directProjArg`'s frame (subject
+`t = bvar 0`).  No `projFnName` chain — each field's entry stands
+alone, which is what makes O4's per-field entry branch real. -/
+def directProjArgP (T : Name) (j : Nat) : Expr :=
+  Expr.proj T j (Expr.bvar 0)
+
+/-- `directProjResid` in the `.proj`-node spelling: the constructor
+telescope peeled at the parameters and the first `i` subject
+projections, threaded incrementally (step `i → i + 1` is a single
+`instantiate1Lift`). -/
+def directProjResidP (T : Name) (nP : Nat) (cty : Expr) : Nat → Option Expr
+  | 0 => Expr.instPisAtLift (directProjPs nP) cty
+  | i + 1 => (directProjResidP T nP cty i).bind
+      (Expr.instPisAtLift [directProjArgP T i])
+
+/-- The tower entry's projection type for field `i` —
+`∀ p⃗ (t : T p⃗), F_i[p⃗ ; f_j := t.j  (j < i)]`: `directProjTy` with
+earlier fields spelled as `.proj` nodes (the native-entry `ty`
+discipline recorded at `ProjEntry`). -/
+def directProjTyP (T : Name) (lps : List Name) (nP nF i : Nat)
+    (tty cty : Expr) : Option Expr :=
+  let args := directProjPs nP ++ (List.range i).map (directProjArgP T)
+  directProjTyR T lps nP nF i tty (Expr.instPisAtLift args cty)
+
 /-- **Non-recursive**: every binder domain of the constructor already
 resolves in the *pre-block* environment.  This subsumes the reference
 positivity check (`checkPositivity`/`hasIndOcc`, lean4lean
