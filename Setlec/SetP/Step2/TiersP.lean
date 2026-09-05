@@ -140,8 +140,7 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
         (betaCertP_of_claims m hexis ihd ihis)
         (iotaStepP_of h.rec_rules h.caps_ok h.reads.tower_ok h.reads.const_ty
           h.acval_valid ihw ihd ihis hsss hexis hreads_ios hwreads)
-        (projStepP_of_claims h.reads.tower_ok ihwc ihw ihd ihio hreads_io
-          hwreads) ihwc
+        (projStepP_of_claims h.reads.tower_ok ihwc ihw hwreads) ihwc
     · -- the reduction loop
       exact whnf_claimsP m hex ihwc (h.nat_step fuel ihw)
         (deltaP_of m h.reads.defn)
@@ -149,7 +148,6 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
       have hsi : StuckIrrelPQ μ m φ fuel :=
         stuckIrrelP_of_claims ihis hsss hreads_ios
           (unitIrrelPQ_of_claims ihw ihis hreads_ios hwreads)
-          (pairEtaIrrelP_of_claims ihw ihd ihis hexis hwreads)
           (structEtaIrrelP_of_claims h.caps_ok h.reads.tower_ok h.reads.const_ty
             h.acval_valid ihw ihd ihis hexis hwreads)
           (structUnitIrrelP_of_claims h.caps_ok ihw ihd ihis hexis

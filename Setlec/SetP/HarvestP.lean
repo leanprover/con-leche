@@ -318,7 +318,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
         (fun _ _ heq => nomatch heq)⟩)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)))
-      hnres (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+      hnres (fun _ heq => nomatch heq)
       (fun _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq)) hAclosed
     hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
@@ -694,7 +694,7 @@ theorem harvestThmP (hμ : μ.verified = true)
           exact ⟨hvf', hvp, Expr.constsResolve_mono hvr, hbv'⟩)⟩)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)))
-      hnres (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+      hnres (fun _ heq => nomatch heq)
       (fun _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq)) hAclosed
     hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
@@ -954,7 +954,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
         (fun _ _ _ _ heq => nomatch heq),
         (fun _ _ heq => nomatch heq)⟩)
       hAvclosed hnres (fun _ heq => nomatch heq)
-      (fun _ _ heq => nomatch heq) (fun _ heq => nomatch heq)
+      (fun _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq))
     hAclosed
     hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
@@ -1206,7 +1206,7 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
         (fun _ _ heq => nomatch heq)⟩)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)))
-      hnres (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+      hnres (fun _ heq => nomatch heq)
       (fun _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq))
     hAclosed

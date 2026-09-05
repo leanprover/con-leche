@@ -32,9 +32,6 @@ def SibFinds (env : Env) (c₀ : ConstantInfo) : Prop :=
       env.find? natName = some natA ∧
       env.find? natZeroName = some natZeroA ∧
       env.find? natSuccName = some natSuccA) ∧
-    (c₀.name = psigmaName.str "rec" →
-      env.find? psigmaName = some psigmaA ∧
-      env.find? psigmaMkName = some psigmaMkA) ∧
     (c₀.name = punitName.str "rec" →
       env.find? punitName = some punitA ∧
       env.find? punitUnitName = some punitUnitA)
@@ -48,13 +45,13 @@ theorem BasisBlocks.cons {env : Env} {c₀ : ConstantInfo}
     intro s X hs
     rw [Env.find?_cons_of_isSome hfind' (by rw [hs]; rfl)]
     exact hs
-  refine ⟨?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_⟩
   · intro cv mI rP rules h
     rw [Env.find?_cons] at h
     split at h
     · next hn =>
       obtain heq := (Option.some.inj h)
-      obtain ⟨hs, -, -, -⟩ := hsib cv mI rP rules heq
+      obtain ⟨hs, -, -⟩ := hsib cv mI rP rules heq
       obtain ⟨h1, h2⟩ := hs hn
       exact ⟨keep h1, keep h2⟩
     · next hn =>
@@ -65,7 +62,7 @@ theorem BasisBlocks.cons {env : Env} {c₀ : ConstantInfo}
     split at h
     · next hn =>
       obtain heq := (Option.some.inj h)
-      obtain ⟨-, hs, -, -⟩ := hsib cv mI rP rules heq
+      obtain ⟨-, hs, -⟩ := hsib cv mI rP rules heq
       obtain ⟨h1, h2, h3⟩ := hs hn
       exact ⟨keep h1, keep h2, keep h3⟩
     · next hn =>
@@ -76,22 +73,11 @@ theorem BasisBlocks.cons {env : Env} {c₀ : ConstantInfo}
     split at h
     · next hn =>
       obtain heq := (Option.some.inj h)
-      obtain ⟨-, -, hs, -⟩ := hsib cv mI rP rules heq
+      obtain ⟨-, -, hs⟩ := hsib cv mI rP rules heq
       obtain ⟨h1, h2⟩ := hs hn
       exact ⟨keep h1, keep h2⟩
     · next hn =>
-      obtain ⟨h1, h2⟩ := hb.right.right.left cv mI rP rules h
-      exact ⟨keep h1, keep h2⟩
-  · intro cv mI rP rules h
-    rw [Env.find?_cons] at h
-    split at h
-    · next hn =>
-      obtain heq := (Option.some.inj h)
-      obtain ⟨-, -, -, hs⟩ := hsib cv mI rP rules heq
-      obtain ⟨h1, h2⟩ := hs hn
-      exact ⟨keep h1, keep h2⟩
-    · next hn =>
-      obtain ⟨h1, h2⟩ := hb.right.right.right cv mI rP rules h
+      obtain ⟨h1, h2⟩ := hb.right.right cv mI rP rules h
       exact ⟨keep h1, keep h2⟩
 
 /-- `RecCtorsStored` is preserved by a fresh extension, given the
