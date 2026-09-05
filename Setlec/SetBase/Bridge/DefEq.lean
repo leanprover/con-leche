@@ -158,6 +158,21 @@ def ProofIrrelStepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     ∀ {va vb : VExpr}, denote m.cval env φ d a = some va →
       denote m.cval env φ d b = some vb → DefEq mode env m.cval φ Δ va vb
 
+/-- The hoisted `Prop`-branch test's verdict yields an equation (D8;
+task #168, Option U — the hoist runs `propIrrel`, the unit branch stays
+with `stuckIrrel`'s `proofIrrel`). -/
+def PropIrrelStepR {env : Env} (m : EnvR env) (φ : Name → Nat)
+    (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {Δ : List VExpr} {a b : Expr},
+    propIrrelP mode env fuel d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    CtxOkR mode m.cval env φ d Δ a → CtxOkR mode m.cval env φ d Δ b →
+    ∀ {va vb : VExpr}, denote m.cval env φ d a = some va →
+      denote m.cval env φ d b = some vb → DefEq mode env m.cval φ Δ va vb
+
 /-- `defeqSpine`'s verdict yields an equation (D7's second entry
 point). -/
 def DefEqSpineStepR {env : Env} (m : EnvR env) (φ : Name → Nat)
@@ -190,7 +205,7 @@ def DefEqStuckStepR {env : Env} (m : EnvR env) (φ : Name → Nat)
     whnfCore mode env fuel d a = .ok a' →
     whnfCore mode env fuel d b = .ok b' →
     (a' == b') = false →
-    proofIrrelP mode env fuel d a' b' = .ok false →
+    propIrrelP mode env fuel d a' b' = .ok false →
     (if !a'.hasFvar && !b'.hasFvar then
       reduceNatP mode env fuel d a' else pure none) = .ok none →
     (if !a'.hasFvar && !b'.hasFvar then
@@ -234,14 +249,14 @@ theorem defeqStep_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihwc : WhnfCoreClaimsR mode m φ fuel)
     (hnat : ReduceNatStepR (mode := mode) m φ fuel)
-    (hpi : ProofIrrelStepR (mode := mode) m φ fuel)
+    (hpi : PropIrrelStepR (mode := mode) m φ fuel)
     (hstk : DefEqStuckStepR (mode := mode) m φ fuel)
     (hspine : DefEqSpineStepR (mode := mode) m φ fuel) :
     DefEqStepR (mode := mode) m φ fuel := by
   intro d k hk Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   have h0 := h
   simp only [defeqStep, Bind.bind, Except.bind, whnfCore_def,
-    proofIrrel_fold, reduceNat_fold, defeqSpine_fold, stuckIrrel_fold,
+    propIrrel_fold, reduceNat_fold, defeqSpine_fold, stuckIrrel_fold,
     defeq_def] at h
   split at h
   · -- syntactic
@@ -271,7 +286,7 @@ theorem defeqStep_claimR {env : Env} (m : EnvR env) (φ : Name → Nat)
       obtain rfl : a' = b' := eq_of_beq hab'
       obtain rfl : va' = vb' := by rw [hva'] at hvb'; exact Option.some.inj hvb'
       exact DefEq.refl
-    · cases hir : proofIrrelP mode env fuel d a' b' with
+    · cases hir : propIrrelP mode env fuel d a' b' with
       | error err => rw [hir] at h; exact nomatch h
       | ok r =>
       rw [hir] at h
@@ -394,7 +409,7 @@ theorem defeq_claimsR_closed {env : Env} (m : EnvR env) (φ : Name → Nat)
     {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
     (ihwc : WhnfCoreClaimsR mode m φ fuel)
     (hnat : ReduceNatStepR (mode := mode) m φ fuel)
-    (hpi : ProofIrrelStepR (mode := mode) m φ fuel)
+    (hpi : PropIrrelStepR (mode := mode) m φ fuel)
     (hstk : DefEqStuckStepR (mode := mode) m φ fuel)
     (hspine : DefEqSpineStepR (mode := mode) m φ fuel) :
     DefEqClaimsR mode m φ (fuel + 1) :=

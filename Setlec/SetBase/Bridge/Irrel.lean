@@ -101,4 +101,35 @@ theorem proofIrrel_stepR {env : Env} (hg : mode.betaGate = false)
     rw [hv0] at hE2
     exact DefEq.irrelProp hI1 hD1 hI2 hD2 hJ1 hE1 hJ2 hE2
 
+/-- **`PropIrrelStepR`, proved** (task #168): the hoist's `Prop`
+branch, D8 alone. -/
+theorem propIrrel_stepR {env : Env} (hg : mode.betaGate = false)
+    (m : EnvR env) (φ : Name → Nat)
+    {fuel : Nat} (ihw : WhnfClaimsR mode m φ fuel)
+    (ihi : InferClaimsR mode m φ fuel) :
+    PropIrrelStepR (mode := mode) m φ fuel := by
+  intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
+  obtain ⟨ta, sta, uT, tb, stb, vT, hta, hsta, hwsta, hequ, htb, hstb,
+    hwstb, heqv⟩ := propIrrel_inv h
+  rw [Setlec.inferTypeIO_off hg] at hta hsta htb hstb
+  have hu0 : Level.eval φ uT = 0 := by
+    have := Level.isEquiv_sound hequ φ
+    simpa [Level.eval] using this
+  have hv0 : Level.eval φ vT = 0 := by
+    have := Level.isEquiv_sound heqv φ
+    simpa [Level.eval] using this
+  obtain ⟨va', vta, hva', hvta, T₁, hI1, hD1⟩ := ihi hta hwa hba hLa hCa
+  obtain rfl : va' = va := by rw [hva'] at hva; exact Option.some.inj hva
+  obtain ⟨htaw, htab, htaL, htaC⟩ := frame_inferR m.wf hta hwa hba hLa hCa
+  obtain ⟨T₂, hI2, hD2⟩ :=
+    inferSortR m φ ihw ihi hsta hwsta htaw htab htaL htaC hvta
+  rw [hu0] at hD2
+  obtain ⟨vb', vtb, hvb', hvtb, S₁, hJ1, hE1⟩ := ihi htb hwb hbb hLb hCb
+  obtain rfl : vb' = vb := by rw [hvb'] at hvb; exact Option.some.inj hvb
+  obtain ⟨htbw, htbb, htbL, htbC⟩ := frame_inferR m.wf htb hwb hbb hLb hCb
+  obtain ⟨S₂, hJ2, hE2⟩ :=
+    inferSortR m φ ihw ihi hstb hwstb htbw htbb htbL htbC hvtb
+  rw [hv0] at hE2
+  exact DefEq.irrelProp hI1 hD1 hI2 hD2 hJ1 hE1 hJ2 hE2
+
 end Setlec.SetR

@@ -1,5 +1,6 @@
 import Setlec.Kernel.CoreCfg
 import Setlec.Kernel.Env
+import Setlec.Kernel.PropRead
 import Setlec.Kernel.Level
 import Setlec.Kernel.ExprOps
 import Setlec.Kernel.Basis
@@ -861,6 +862,42 @@ def proofIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
         pure (okA && okB)
       | _ => pure false
     | _ => pure false
+
+/-- **The hoisted proof-irrelevance test** (task #168, Option U): the
+`Prop` branch of `proofIrrel` alone — official's
+`is_def_eq_proof_irrel` has no unit-like branch; that test lives in
+`stuckIrrel` (official's `is_def_eq_unit_like`, the last test of
+`is_def_eq_core`), which `proofIrrel` still serves.
+
+Before the io inferences, the head-symbol readers decide the **"not a
+proof" arm** at the verified modes: a side whose validated datum says
+"not a proposition" refuses the shortcut outright (`notProofFast`,
+`Setlec/Kernel/PropRead.lean`).  Refusing is always sound — the P row
+is stated at `.ok true` — and the arm's obligation is *agreement* with
+the slow path on validated data, recorded by the landing census
+(DESIGN.md, task #168: 0 disagreements).  The gate is `mode.verified`:
+the parity core validates no annotation, so it reads none.  The
+**"yes" arm** (`isProofFast` on both sides → `true`) is the
+squash-regime licence, stage 3 of the same design; it is gated on the
+P flag (`mode.betaGate`) like every licensed skip. -/
+def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+    m Bool := do
+  if mode.verified &&
+      (notProofFast env.find? a || notProofFast env.find? b) then
+    pure false
+  else
+  -- task #172 B4: every inference here is at the io grade
+  let ta ← r.inferIO depth a
+  match ← r.whnf depth (← r.inferIO depth ta) with
+  | .sort uT =>
+    let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
+    let tb ← r.inferIO depth b
+    match ← r.whnf depth (← r.inferIO depth tb) with
+    | .sort vT =>
+      let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
+      pure (okA && okB)
+    | _ => pure false
+  | _ => pure false
 
 /-- Pair eta certification: `a` is a fully applied structure
 constructor (a stored constructor that is the single rule of an
@@ -2065,7 +2102,10 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     -- would grind through proof bodies first (init-prelude probe:
     -- 227 G → recovered by the hoist).  The fallback's copy stays
     -- (memoized; reachable when a reduction step rewrites a side).
-    if ← proofIrrel r env depth a' b' then pure true else
+    -- Task #168 (Option U): the hoist is the `Prop` branch only, with
+    -- the head-symbol fast arms; the unit-like test is `stuckIrrel`'s
+    -- (every structural-failure exit below reaches it).
+    if ← propIrrel mode r env depth a' b' then pure true else
     -- Literal acceleration is guarded on *both* sides being free of
     -- free variables, mirroring the official kernel
     -- (`type_checker.cpp`, `lazy_delta_reduction`:

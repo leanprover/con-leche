@@ -204,4 +204,23 @@ theorem proofIrrelPQ_of_claims {m : EnvS2Core V env}
       prop_side_pt ihis hsss hreads htb hstb hwstb hvT hwb hbb hLb
         hCb hdb hokB ρ hρ]
 
+/-- **The hoisted `Prop`-branch row** (task #168, Option U): the hoist
+runs `propIrrel`, whose only `true` verdict is the slow `Prop` branch —
+`prop_side_pt` twice.  The fast "not a proof" arm never answers
+`true`, so it owes nothing here; the yes arm's licence lands with
+stage 3. -/
+theorem propIrrelPQ_of_claims {m : EnvS2Core V env}
+    (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hsss : SortSemAtIOSP m μ φ fuel)
+    (hreads : InferReadsIOSP m μ φ fuel) :
+    PropIrrelPQ μ m φ fuel := by
+  intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
+    hokA hokB ρ hρ
+  obtain ⟨ta, sta, uT, tb, stb, vT, hta, hsta, hwsta, huT, htb, hstb,
+    hwstb, hvT⟩ := Setlec.propIrrel_inv h
+  rw [prop_side_pt ihis hsss hreads hta hsta hwsta huT hwa hba hLa
+      hCa hda hokA ρ hρ,
+    prop_side_pt ihis hsss hreads htb hstb hwstb hvT hwb hbb hLb
+      hCb hdb hokB ρ hρ]
+
 end Setlec.SetR.Interp2

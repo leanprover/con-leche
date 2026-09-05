@@ -1,5 +1,6 @@
 import Setlec.Kernel.TypeChecker
 import Setlec.Verify.Shift
+import Setlec.Verify.PropRead
 import Setlec.Verify.EnvWF
 import Setlec.Verify.InstLevels
 import Setlec.Verify.InferIOLeaves
@@ -1129,6 +1130,41 @@ private theorem stuckIrrel_shift (henv : EnvWF env)
   intro b₅ _
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   exact proofIrrel_shift henv ih hpd hwa hwb
+
+/-- The hoisted `Prop`-branch test (task #168): the fast arm reads
+head symbols only, which the shift preserves (`notProofFast_shiftFrom`);
+the slow branch is `proofIrrel_shift`'s `Prop` branch. -/
+private theorem propIrrel_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (hwa : WScoped d a) (hwb : WScoped d b) :
+    propIrrel mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+        (shiftFrom p b) =
+      propIrrel mode (pureFns mode env fuel) env d a b := by
+  simp only [propIrrel, notProofFast_shiftFrom]
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  refine bind_congr _ (ih.inferIO hpd hwa) ?_
+  intro ta hta
+  have hwta : WScoped d ta := inferTypeIO_WScoped henv fuel hta hwa
+  refine bind_congr _ (ih.inferIO hpd hwta) ?_
+  intro tta htta
+  have hwtta : WScoped d tta := inferTypeIO_WScoped henv fuel htta hwta
+  refine bind_congr _ (ih.whnf hpd hwtta) ?_
+  intro w _
+  cases w <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
+  case sort u =>
+  refine bind_congr_eq rfl ?_
+  intro okA _
+  refine bind_congr _ (ih.inferIO hpd hwb) ?_
+  intro tb htb
+  have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
+  refine bind_congr _ (ih.inferIO hpd hwtb) ?_
+  intro ttb httb
+  have hwttb : WScoped d ttb := inferTypeIO_WScoped henv fuel httb hwtb
+  refine bind_congr _ (ih.whnf hpd hwttb) ?_
+  intro w' _
+  cases w' <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
 
 private theorem projCert_shift (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e₂ : Expr}
     (hwe₂ : WScoped d e₂) (i : Nat) (nP : Nat) :
@@ -2424,8 +2460,8 @@ private theorem defeqLoop_shift (henv : EnvWF env)
   have hwwb : WScoped d wb := whnfCore_WScoped henv fuel hwb' hwb
   rw [shiftFrom_beq]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
-  -- hoisted proof irrelevance
-  refine bind_congr_eq (proofIrrel_shift henv ih hpd hwwa hwwb) ?_
+  -- hoisted proof irrelevance (the `Prop` branch, task #168)
+  refine bind_congr_eq (propIrrel_shift henv ih hpd hwwa hwwb) ?_
   rintro rpi -
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   -- literal acceleration branches (guarded on fvar-free sides; the

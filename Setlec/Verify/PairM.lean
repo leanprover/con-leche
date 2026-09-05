@@ -500,6 +500,18 @@ theorem proofIrrel_snd_proj (d : Nat) (a b : Expr) :
   unfold proofIrrel
   snd_tac
 
+theorem propIrrel_fst_proj (d : Nat) (a b : Expr) :
+    (propIrrel mode (pairFns r₁ r₂ h) env d a b).val.1 =
+      propIrrel mode r₁ env d a b := by
+  unfold propIrrel
+  fst_tac
+
+theorem propIrrel_snd_proj (d : Nat) (a b : Expr) :
+    (propIrrel mode (pairFns r₁ r₂ h) env d a b).val.2 =
+      propIrrel mode r₂ env d a b := by
+  unfold propIrrel
+  snd_tac
+
 theorem pairEtaCert_fst_proj (d : Nat) (a b : Expr) :
     (pairEtaCert mode (pairFns r₁ r₂ h) env d a b).val.1 =
       pairEtaCert mode r₁ env d a b := by
@@ -570,6 +582,7 @@ macro "fst_step2" : tactic =>
     | (rw [reduceNat_fst_proj])
     | (rw [ensureSort_fst_proj])
     | (rw [proofIrrel_fst_proj])
+    | (rw [propIrrel_fst_proj])
     | (rw [pairEtaCert_fst_proj])
     | (rw [structEtaCertWith_fst_proj])
     | (rw [structUnitCert_fst_proj])
@@ -595,6 +608,7 @@ macro "snd_step2" : tactic =>
     | (rw [reduceNat_snd_proj])
     | (rw [ensureSort_snd_proj])
     | (rw [proofIrrel_snd_proj])
+    | (rw [propIrrel_snd_proj])
     | (rw [pairEtaCert_snd_proj])
     | (rw [structEtaCertWith_snd_proj])
     | (rw [structUnitCert_snd_proj])
@@ -832,6 +846,7 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [reduceNat_fst_proj])
     | (rw [ensureSort_fst_proj])
     | (rw [proofIrrel_fst_proj])
+    | (rw [propIrrel_fst_proj])
     | (rw [pairEtaCert_fst_proj])
     | (rw [structEtaCertWith_fst_proj])
     | (rw [structUnitCert_fst_proj])
@@ -882,6 +897,7 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [reduceNat_snd_proj])
     | (rw [ensureSort_snd_proj])
     | (rw [proofIrrel_snd_proj])
+    | (rw [propIrrel_snd_proj])
     | (rw [pairEtaCert_snd_proj])
     | (rw [structEtaCertWith_snd_proj])
     | (rw [structUnitCert_snd_proj])

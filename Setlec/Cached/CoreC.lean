@@ -269,6 +269,32 @@ each core and its one downstream read (`ttChecks`) is definitionally
 eliminated there (`Setlec/Kernel/CoreCfg.lean`). -/
 variable (cfg : CoreCfg)
 
+/-- Twin of `propIrrel` (task #168): the hoisted `Prop`-branch test
+with the head-symbol "not a proof" arm, gated on `cfg.verified`. -/
+def propIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
+    CheckCM Bool := do
+  if cfg.verified &&
+      (notProofFast fe.find? a || notProofFast fe.find? b) then
+    pure false
+  else
+  let ta ← r.inferIO depth a
+  let tta ← r.inferIO depth ta
+  let wtta ← r.whnf depth tta
+  match ← viewI wtta with
+  | some (.sort uT) => do
+    let z ← internLM .zero
+    let okA ← liftFueled "level comparison" (← isEquivLM uT z)
+    let tb ← r.inferIO depth b
+    let ttb ← r.inferIO depth tb
+    let wttb ← r.whnf depth ttb
+    match ← viewI wttb with
+    | some (.sort vT) => do
+      let z ← internLM .zero
+      let okB ← liftFueled "level comparison" (← isEquivLM vT z)
+      pure (okA && okB)
+    | _ => pure false
+  | _ => pure false
+
 /-- Twin of `pairEtaCert`. -/
 def pairEtaCertI (_cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (a b : ExprC) :
@@ -1346,8 +1372,9 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     let b' ← r.whnfCore depth b
     if a' == b' then pure true else
     -- proof irrelevance hoisted before lazy delta, as in the spec
-    -- (and the official kernel)
-    if ← proofIrrelI r fe depth a' b' then pure true else
+    -- (and the official kernel); the `Prop` branch with the fast arms
+    -- (task #168, Option U)
+    if ← propIrrelI cfg r fe depth a' b' then pure true else
     -- Literal folding only when both sides are fvar-free, mirroring
     -- the official kernel (`type_checker.cpp`, `lazy_delta_reduction`)
     -- and lean4lean (`TypeChecker.lean:782`); see `defeqBody` for the

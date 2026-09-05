@@ -40,7 +40,7 @@ theorem defeq_claimsR_full {env : Env} (m : EnvR env) (φ : Name → Nat)
     (ihd : DefEqClaimsR mode m φ fuel) (ihi : InferClaimsR mode m φ fuel) :
     DefEqClaimsR mode m φ (fuel + 1) :=
   defeq_claimsR_closed m φ hcl ihwc (reduceNat_stepR m φ hcl ihw)
-    (proofIrrel_stepR hg m φ ihw ihi)
+    (propIrrel_stepR hg m φ ihw ihi)
     (defeqStuck_stepR m φ hg hcl ihw ihd ihi
       (stuckIrrel_stepR_closed m φ hg hcl ihw ihd ihi))
     (defeqSpine_stepR m φ ihd)

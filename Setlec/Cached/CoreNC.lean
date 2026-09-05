@@ -594,7 +594,7 @@ def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
     if a' == b' then pure true else
-    if ← proofIrrelI r fe depth a' b' then pure true else
+    if ← propIrrelI cfgNC r fe depth a' b' then pure true else
     -- fvar-free guard on defeq-side literal folding, as in
     -- `defeqBodyI` (official kernel `lazy_delta_reduction`; lean4lean
     -- `TypeChecker.lean:782`)

@@ -182,7 +182,7 @@ theorem defeqStuck_stepR {env : Env} (m : EnvR env) (φ : Name → Nat)
   intro d Δ k a b a' b' h hab hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
   simp only [defeqStep, Bind.bind, Except.bind, whnfCore_def,
-    proofIrrel_fold, reduceNat_fold, defeqSpine_fold, stuckIrrel_fold,
+    propIrrel_fold, reduceNat_fold, defeqSpine_fold, stuckIrrel_fold,
     defeq_def, defEqList_fold, etaCert_fold] at h
   rw [if_neg (by simpa using hab), hwca] at h
   dsimp only at h
