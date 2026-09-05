@@ -41697,3 +41697,123 @@ install half, `DeclDirectR → EnvS2PM`.  Landed in P2 (commits P2a/P2b):
 Engineering notes carried forward: `split at h` on a do-block with join
 points needs `rw [if_pos …]` (BridgeWfImp's idiom) or a `letFun` unfold
 first; stage inversions use the run existential + `assumption`.
+
+## TASK #175 W4c — P3 MODULE 7 SEAL, W5 (2026-09-05, `agent/wiring3`)
+
+### 0. What landed
+
+The P install half is closed: `declDirectP : EnvS2PM env → … →
+DeclDirectR μ F env p env₂ → Nonempty (EnvS2PM env₂)`
+(`SetP/DeclDirectP.lean`), dispatched at `SetP/FoldP.lean`'s `indDecl`
+case on the kernel's `directParts?`; the two P capstones audit to
+exactly `[propext, Classical.choice, Quot.sound]`; the modeled route's
+projection installs stay but serve nothing a `.proj` node reads.  Every
+supported `.proj` node is typed by a **native tower entry of the direct
+install** (or a pinned pair entry): the elimination fallbacks
+`annotateProjElim`/`annotateProjRec`/`projFieldDom` and their cached
+twins are deleted (W5), with their walks in `PairM`, `Fueled`, `Disc`,
+`DiscC6`, `Deep`, `Abstract`, `ProjSlots`, `Leaves`, `Knot`.
+
+Receipts at the seal (branch head, master merged): full build
+warning-free; `lake test`; `tests/arena.sh` 0 FAIL — 90/92 good
+(the two custom-axiom declines by design; `089_projProp3` now accepted),
+e2e 73/73, annot 14/14, no-model sweep as recorded, proofdeps 88 rows
+as pinned, layering clean; init-full-pre2 under `--set-model=p --pre`
+**accepted 61048 declarations** (= the W5 baseline
+`_tmp/w5-initfull---set-model=p.out`), and under `--no-model --pre`
+likewise (see the seal message).  Census
+(`_tmp/scratch/census_projs.py`): all 3452 `.proj` nodes of init-full
+sit on direct-shaped structures (single type, single constructor, no
+indices, non-recursive), so the fallback deletion is verdict-neutral
+there by construction.
+
+### 1. Design decisions taken in module 7 (the entry stage)
+
+1. **Route (2): a tower entry is a table entry, not a term.**
+   `ConstantInfo.isTowerEntry` (Env.lean); `inferTypeCore`/`inferBodyIO`
+   and the cached `inferBodyI` reject a `.const` naming one.  The P
+   invariant's `mem_typeP` is guarded by `isTowerEntry = false`;
+   `ConstTypeP` carries the guard; the new `tower_ty` field records
+   that an entry's type peels `nP + 1` binders (`TowerHead` carries the
+   same conjunct); the entry's leaf is `.prf`.  Why: the agreement
+   floor's skeleton is a function of the raw block, so the entry
+   decision cannot depend on whether the entry's type is inhabited at
+   every level instantiation — and at a propositional structure with a
+   data field a later field depends on (`Exists`) it is not.  Route (1)
+   (entries as terms with `mem_typeP`) was refuted by exactly that.
+2. **All slots install** (`directProjSlots p` = "the generated type
+   exists"); the official guard is the entry's level:
+   `directProjGuards cty nP nF sorts` joins the field's sort with the
+   sorts of every earlier field a later field uses
+   (`directUsedLater`, `Expr.hasLooseBVar` — official `infer_proj`'s
+   `has_loose_bvars(binding_body)` clause), checked at every use of a
+   `Prop`-declared structure in the tower infer branch.
+3. **Invariance of unused fields** (`SetP/DirectEntryFreeP.lean`): a
+   field no later binder mentions is a lift in the projected type's
+   reading (`denoteP_liftN_of_leaf_free`), and `interp2`/`AnnotOkP` are
+   congruent under lifts — so at a squash instance the frames only need
+   the *used* earlier fields to be propositions (the guard's content),
+   the unused ones being transported from the fitting prefix
+   (`free_of_diff`, `interp2_congr_lifts`, `annotOkP_congr_lifts`).
+4. **σ — the guard's zeroing instantiation** (`directGuardSigma`,
+   `SetP/DirectSigmaP.lean`).  A tower entry of a `Prop`-declared
+   structure is usable only where its guard is `Prop`; there the
+   parameters the guard forces to zero (`Level.zeronessOf`, exact) are
+   zero.  So the entry install annotates and infers the generated type
+   — and pins its frames against the constructor type — at that
+   instantiation, where the earlier projections it mentions pass their
+   own guards (`Exists.2` in init-full: `.proj Exists 0 t` inside the
+   entry type is fine at `u := 0`, and only there).  The P side:
+   `substFn_directGuardSigma` — wherever the guard is `Prop` the
+   instantiation fixes the valuation, so `entryFrames` (now over the
+   instantiated constructor type at fixed valuations, `famSpineRow`/
+   `famSpine_read_at` at any fixed instantiation) applies at every
+   valuation the (A) law is owed at; (B) and (C) never read the entry
+   type.
+5. **Admission and inert entries.**  A slot whose type mentions a
+   never-`Prop` earlier projection (`IsValidUTF8.1`: field 0 is a
+   `List Char`) has no usable instantiation; the official kernel
+   rejects every use.  It is *not admitted* (`directSlotAdmitAt`:
+   every used-later earlier guard is `Prop` at σ — exactly the inner
+   checks the install runs; `directSlotAdmit` cumulative, hence a
+   prefix) and holds an **inert entry** (`directInertEntry`: non-native,
+   non-tower, type `Sort 1`, leaf `Sort 0`; `declStepPM_of_inert_cons`),
+   so the skeleton is the block's own.  A `.proj` use on it is the
+   official `infer_proj` rejection (`invalid`, not a decline — the
+   verdict is positively determined).  `FoldInvP.prev` is keyed on
+   admission.
+6. **The kernel entry pin** (`checkDirectDomsAt` at the entry's
+   parameters) and the **bits-free rule law**, the **dummy-former
+   install** (the constructor's data at a former with a dummy field
+   chain, identified afterwards through `denoteP_acvalWith_unmentioned₂`)
+   — module 6/7 mechanics, recorded in the module commits.
+
+### 2. Findings
+
+* **`Exists` at `u := 0` is the shape that forced σ**: the official
+  kernel accepts `.proj Exists 1 h` (type `p h.1`) exactly at `u := 0`;
+  any design that validates the entry type at generic levels rejects
+  the block or the use.  Our verdicts match the official kernel's on
+  the corpus (init-full 61048/61048).
+* **`IsValidUTF8` is the shape that forced inert entries**: a
+  `Prop` structure with a data field of a never-`Prop` sort used by a
+  later field.  Officially every projection of the later field is
+  invalid; ours is too.
+* **Accept-superset, pre-existing**: the annotate rule normalises a
+  `.proj sn i e` node's display name to the subject type's head
+  without checking `sn = T` (the official `proj_sname(e) ==
+  const_name(I)` check is in `inferBody`'s tower branch only).  Not
+  changed here; a `.proj Foo i (x : Bar)` on input is accepted as
+  `.proj Bar i x`.  Sound (the readings key on the head), recorded.
+* **Verdict kinds at the `.proj` dispatch post-W5**: inert entry →
+  `invalid` (official), out-of-range index on a projectable structure
+  → `invalid`, no entry family → decline, non-const head → decline.
+  All bad-test expectations unchanged (085 = 1, 088–095 = 1, 086 = 2).
+* **Not done / deferred**: the P1b rider (`=`→`==` at the two hot
+  const-name defeq tests in `Cached/CoreC.lean`) — left alone, the
+  mirror walks would need the `LawfulBEq` bridge; W6 (`PSigma'`
+  retirement) — gated, untouched; deleting the modeled route's
+  projection installs (`installProjTemplate`, `checkProjRule`,
+  `installProjFnStep`, 27 files) — kept: the template entries are
+  inert, the projection functions still serve the modeled eta spine
+  (`recSlotsAll`), and the census shows no `.proj` use reaches them.
