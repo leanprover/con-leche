@@ -22,13 +22,30 @@ Design decisions (see DESIGN.md):
 
 namespace Setlec
 
-/-- Hierarchical names, same shape as `Lean.Name` but without the cached hash,
-so that it is a plain inductive datatype convenient for verification. -/
+/-- Hierarchical names, same shape as `Lean.Name` — including the
+cached hash, which lives in a `@[computed_field]` exactly as
+`Lean.Name`'s does (`@[computed_field, inline] hash : Name → UInt64`,
+`Init/Prelude.lean`; the C runtime stores it in the object header and
+reads it with `lean_name_hash_ptr`).  Logically the field is a
+*function of the value*, so it is invisible to every statement:
+`DecidableEq` is still the derived structural equality, and the field
+only spares the `Hashable` instance a walk (task #176 P3). -/
 inductive Name where
   | anonymous
   | str (pre : Name) (s : String)
   | num (pre : Name) (n : Nat)
-  deriving DecidableEq, Repr, Inhabited, Hashable
+with
+  /-- The cached hash of a name (official: the `uint64` in the `Name`
+  object's header). -/
+  @[computed_field] hashData : Name → UInt64
+    | .anonymous => 1723
+    | .str p s => mixHash (mixHash 1 p.hashData) (hash s)
+    | .num p n => mixHash (mixHash 2 p.hashData) (hash n)
+deriving DecidableEq, Repr, Inhabited
+
+/-- Hashing a name is an `O(1)` field read, not a structural walk with
+a byte-wise `String` hash per limb. -/
+instance : Hashable Name := ⟨Name.hashData⟩
 
 namespace Name
 
@@ -49,14 +66,30 @@ instance : ToString Name := ⟨Name.toString⟩
 
 end Name
 
-/-- Universe levels, mirroring `Lean.Level` without metavariables. -/
+/-- Universe levels, mirroring `Lean.Level` without metavariables —
+including the cached hash, which `Lean.Level` also keeps in a
+`@[computed_field]` (`data`, `Lean/Level.lean`) and the C++ kernel in
+the level's packed data word (`level::hash()`).  As for `Name`, the
+field is a function of the value and no statement sees it. -/
 inductive Level where
   | zero
   | succ (u : Level)
   | max (u v : Level)
   | imax (u v : Level)
   | param (n : Name)
-  deriving DecidableEq, Repr, Inhabited, Hashable
+with
+  /-- The cached hash of a level. -/
+  @[computed_field] hashData : Level → UInt64
+    | .zero => 1
+    | .succ u => mixHash 3 u.hashData
+    | .max u v => mixHash 5 (mixHash u.hashData v.hashData)
+    | .imax u v => mixHash 7 (mixHash u.hashData v.hashData)
+    | .param n => mixHash 11 (hash n)
+deriving DecidableEq, Repr, Inhabited
+
+/-- Hashing a level is an `O(1)` field read (the memo maps keyed by
+`Level` — `lsimpC`, `lnzC`, `eqvC` — probe with this). -/
+instance : Hashable Level := ⟨Level.hashData⟩
 
 /-- Binder annotations. Irrelevant to checking; kept for round-tripping and
 error messages. -/
@@ -192,16 +225,6 @@ inductive Literal where
   | strVal (s : String)
   deriving DecidableEq, Repr, Inhabited, Hashable
 
-/-- Depth-bounded `Level` hash (towers from universe arithmetic can be
-deep; the memo maps only need *some* function of the value). -/
-def Level.hashB : Nat → Level → UInt64
-  | 0, _ => 511
-  | _ + 1, .zero => 1
-  | n + 1, .succ u => mixHash 3 (Level.hashB n u)
-  | n + 1, .max u v => mixHash 5 (mixHash (Level.hashB n u) (Level.hashB n v))
-  | n + 1, .imax u v => mixHash 7 (mixHash (Level.hashB n u) (Level.hashB n v))
-  | _ + 1, .param p => mixHash 11 (hash p)
-
 /-- Does the level mention a parameter (the official kernel's
 `level.has_param`)?  There is no interned level table here, so this is
 an `O(|u|)` walk — paid once per `.sort`/`.const` node construction,
@@ -217,10 +240,12 @@ def levelsHaveParam : List Level → Bool
   | [] => false
   | u :: us => levelHasParam u || levelsHaveParam us
 
-/-- Depth-bounded level hash (a hash may ignore structure; `BEq` stays
-full).  Keeping it bounded is what makes a `.sort`/`.const` node's
-`hash` field `O(1)` in the level's size. -/
-@[inline] def levelHash (u : Level) : UInt64 := Level.hashB 4 u
+/-- A level's hash: the cached `@[computed_field]`, so a `.sort`/`.const`
+node's `hash` field is `O(1)` in the level's size *and* exact (before
+task #176 P3 this was a depth-4-bounded walk, `Level.hashB`, because
+the level had nowhere to put a hash — the same trade `Expr.hashB` made
+before task #172 B3a). -/
+@[inline] def levelHash (u : Level) : UInt64 := u.hashData
 
 /-- `levelHash` folded over a level list. -/
 def levelsHash : List Level → UInt64
@@ -513,8 +538,9 @@ end Expr
 
 /-- Hashing is the computed field: `O(1)`, no traversal.  (Before task
 #172 B3a this was a *node-budgeted* walk, `Expr.hashB`, because the
-pure representation had nowhere to put a hash; the budget is now only
-inside `levelHash`.) -/
+pure representation had nowhere to put a hash.  `levelHash` kept a
+depth budget for the same reason until task #176 P3 gave `Level` its
+own computed field; no hash in the tree is budgeted any more.) -/
 instance : Hashable Expr := ⟨Expr.hash⟩
 
 namespace Expr
