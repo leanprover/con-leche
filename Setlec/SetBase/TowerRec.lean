@@ -246,6 +246,10 @@ space, and the carrier. -/
 def RecBase (ℓ w : Nat) (ρp : Nat → V) (Fs : List AVExpr)
     (dM dm dt : Nat × Nat × AVExpr) : Prop :=
   FieldsOkB w ρp Fs ∧
+  -- the large eliminator of a propositional structure has every field
+  -- propositional (task #175 W4c/O4, `checkDirectFieldSorts`); the
+  -- small one at squash needs no bound (the minor is the point)
+  (w = 0 → ℓ ≠ 0 → FieldsBound 0 ρp Fs) ∧
   AnnotOk2 V ρp dM.2.2 ∧
   interp2 V ρp dM.2.2
     = piR (ℓ + 1) (towerSet w (teleOfFields ρp Fs))
@@ -267,10 +271,86 @@ def RecPre (ℓ w : Nat) (ρ : Nat → V) (Fs : List AVExpr)
   | d :: pds => AnnotOk2 V ρ d.2.2 ∧
       ∀ a, a ∈ˢ interp2 V ρ d.2.2 → RecPre ℓ w (cons a ρ) Fs dM dm dt pds
 
+/-! ### The squash regime at a small eliminator
+
+At `ℓ = 0 = w` (a propositional structure eliminated into `Prop`) the
+minor is the proof point, every projection of the major is the point,
+and the body is the point applied to points — `pt` outright
+(`app_pt`).  Its grading is by trivial packages (every slot is
+`unitSet`), and its membership in `motive t` is the motive's
+inhabitation at the point, read off the minor's truth along any
+fitting spine (`towerSet_zero_elim` supplies one).  No field bound
+enters — the data fields of such a structure (arena tutorial 087)
+have none. -/
+
+/-- The minor space at `ℓ = 0 = w` is inhabited exactly when the
+motive is inhabited at the point along every fitting spine. -/
+theorem minorSp_zero_inhab {M : V} :
+    ∀ {Fs : List AVExpr} {ρf : Nat → V} {acc : List V} {m : V}
+      {as : List V},
+      m ∈ˢ minorSp 0 0 M Fs ρf acc → SpineFit ρf Fs as →
+      ∃ y, y ∈ˢ SetTheory.app M pt
+  | [], _, acc, m, _, hm, _ => ⟨m, by simpa [minorSp] using hm⟩
+  | F :: Fs, ρf, acc, m, a :: as, hm, hsp => by
+    have hm' : m ∈ˢ piR 0 (interp2 V ρf F)
+      (fun a => minorSp 0 0 M Fs (cons a ρf) (acc ++ [a])) := hm
+    rw [piR_zero] at hm'
+    obtain ⟨y, hy⟩ := of_mem_truthVal hm' a hsp.1
+    exact minorSp_zero_inhab hy hsp.2
+  | _ :: _, _, _, _, [], _, hsp => hsp.elim
+
+/-- A projection of the point is graded (trivial packages) and is the
+point. -/
+theorem projAV_ok2_pt :
+    ∀ (i : Nat) {e : AVExpr} {σ : Nat → V},
+      AnnotOk2 V σ e → interp2 V σ e = pt →
+      AnnotOk2 V σ (projAV i e) ∧ interp2 V σ (projAV i e) = pt
+  | 0, e, σ, hok, hpt => by
+    refine ⟨?_, ?_⟩
+    · show AnnotOk2 V σ (.proj 0 e)
+      rw [AnnotOk2_proj]
+      refine ⟨hok, by omega, 0, 0, unitSet, fun _ => unitSet, ?_,
+        unitSet_mem_univ 0, fun _ _ => unitSet_mem_univ 0⟩
+      rw [hpt, show Nat.max 0 0 = 0 from rfl, sigmaSet_zero]
+      exact pt_mem_truthVal ⟨pt, pt_mem_unitSet, pt, pt_mem_unitSet⟩
+    · rw [projAV_interp, hpt, projS_pt]
+  | i + 1, e, σ, hok, hpt => by
+    have h1 : AnnotOk2 V σ (.proj 1 e) ∧ interp2 V σ (.proj 1 e) = pt := by
+      refine ⟨?_, ?_⟩
+      · rw [AnnotOk2_proj]
+        refine ⟨hok, by omega, 0, 0, unitSet, fun _ => unitSet, ?_,
+          unitSet_mem_univ 0, fun _ _ => unitSet_mem_univ 0⟩
+        rw [hpt, show Nat.max 0 0 = 0 from rfl, sigmaSet_zero]
+        exact pt_mem_truthVal ⟨pt, pt_mem_unitSet, pt, pt_mem_unitSet⟩
+      · show (if 1 = 0 then sfst (interp2 V σ e) else ssnd (interp2 V σ e)) = pt
+        rw [if_neg Nat.one_ne_zero, hpt, ssnd_pt]
+    exact projAV_ok2_pt i h1.1 h1.2
+
+/-- An application spine of points is graded and is the point. -/
+theorem mkAppN_ok2_pt :
+    ∀ {args : List AVExpr} {f : AVExpr} {σ : Nat → V},
+      AnnotOk2 V σ f → interp2 V σ f = pt →
+      (∀ a ∈ args, AnnotOk2 V σ a ∧ interp2 V σ a = pt) →
+      AnnotOk2 V σ (AVExpr.mkAppN f args) ∧
+        interp2 V σ (AVExpr.mkAppN f args) = pt
+  | [], _, _, hf, hpt, _ => ⟨hf, hpt⟩
+  | a :: args, f, σ, hf, hpt, hargs => by
+    rw [AVExpr.mkAppN_cons]
+    refine mkAppN_ok2_pt ?_ ?_ fun a' ha' => hargs a' (.tail _ ha')
+    · rw [AnnotOk2_app]
+      refine ⟨hf, (hargs a (.head _)).1, 0, unitSet, fun _ => unitSet, ?_, ?_,
+        fun _ _ _ => mem_univZero.mpr (Subset.refl _)⟩
+      · rw [hpt]
+        exact pt_mem_piR_zero_of fun _ _ => pt_mem_unitSet
+      · rw [(hargs a (.head _)).2]
+        exact pt_mem_unitSet
+    · rw [interp2_app, hpt, app_pt]
+
 /-- **The recursor leaf's `UnderTowerOk`** — `towerRec` spelled: the
 base folds the minor along the projections (`minorSp_spine`), closes
 with eta (`mkTower (projList n t) = t`, `towerSet_elim`) in the graph
-regime and with `t = pt` (`towerSet_zero_elim`) at squash. -/
+regime and with `t = pt` (`towerSet_zero_elim`) at squash; the small
+eliminator at squash is the point case above. -/
 theorem underTowerOk_of_recPre {ℓ w : Nat} {Fs : List AVExpr}
     {dM dm dt : Nat × Nat × AVExpr} :
     ∀ {pds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
@@ -280,7 +360,7 @@ theorem underTowerOk_of_recPre {ℓ w : Nat} {Fs : List AVExpr}
   | d :: pds, ρ, h =>
     ⟨h.1, fun a ha => underTowerOk_of_recPre (h.2 a ha)⟩
   | [], ρp, h => by
-    obtain ⟨hFs, hMok, hMeq, hMcont⟩ := h
+    obtain ⟨hFs, hFb0, hMok, hMeq, hMcont⟩ := h
     refine ⟨hMok, fun M hM => ?_⟩
     obtain ⟨hmok, hmeq, hrest⟩ := hMcont M hM
     refine ⟨hmok, fun m hm => ?_⟩
@@ -301,6 +381,36 @@ theorem underTowerOk_of_recPre {ℓ w : Nat} {Fs : List AVExpr}
       · rw [(mem_piR_pos (Nat.succ_ne_zero ℓ) hM).2.2.1 y hy]
         rw [← univ_zero]
         exact empty_mem_univ 0
+    by_cases hsq : ℓ = 0 ∧ w = 0
+    · -- the small eliminator at squash: everything is the point
+      obtain ⟨rfl, rfl⟩ := hsq
+      have hm0 : m = pt :=
+        eq_pt_of_mem_univZero
+          (minorSp_zero_univZero rfl (hM0 rfl) Fs ρp []) hm
+      obtain ⟨rfl, as, hfit⟩ := towerSet_zero_elim _ ht
+      have hbody := mkAppN_ok2_pt (V := V)
+        (args := (List.range Fs.length).map fun i => projAV i (.bvar 0))
+        (f := .bvar 1) (σ := cons pt (cons m (cons M ρp)))
+        (by simp) (by rw [interp2_bvar]; exact hm0)
+        (fun a ha => by
+          obtain ⟨i, -, rfl⟩ := List.mem_map.mp ha
+          exact projAV_ok2_pt i (by simp) (by rw [interp2_bvar]; rfl))
+      obtain ⟨y, hy⟩ := minorSp_zero_inhab (as := as) hm
+        (fitsS_teleOfFields.mp hfit)
+      have hy' : y = pt := eq_pt_of_mem_univZero (hM0 rfl pt) hy
+      subst hy'
+      refine ⟨hbody.1, ?_, fun _ => hM0 rfl pt⟩
+      show interp2 V (cons pt (cons m (cons M ρp))) (recBodyAV Fs.length)
+        ∈ˢ SetTheory.app M pt
+      rw [recBodyAV, hbody.2]
+      exact hy
+    -- the graph regime, or the large eliminator at squash: the bound
+    -- is available
+    have hbnd : FieldsBound w ρp Fs := by
+      by_cases hw : w = 0
+      · subst hw
+        exact hFb0 rfl fun h0 => hsq ⟨h0, rfl⟩
+      · exact hFs.toBound hw
     -- the spine, graded and folded
     have hspine := minorSp_spine (V := V) hM0
       (Fs := Fs) (args := (List.range Fs.length).map
@@ -310,7 +420,7 @@ theorem underTowerOk_of_recPre {ℓ w : Nat} {Fs : List AVExpr}
       (by simp) hm
       (by
         have hfit := argsOkFit_projSpine (Fs := Fs) (ρp := ρp)
-          (σ := cons t (cons m (cons M ρp))) ht hFs.toBound
+          (σ := cons t (cons m (cons M ρp))) ht hbnd
           Fs.length 0 (Nat.zero_add _)
         rwa [← List.range_eq_range', List.drop_zero] at hfit)
     refine ⟨hspine.1, ?_, ?_⟩

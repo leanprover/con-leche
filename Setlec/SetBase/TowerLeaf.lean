@@ -43,14 +43,41 @@ universe uv
 
 variable {V : Type uv} [SetTheory V]
 
-/-- The carrier body: the right-nested `.psigma [w, w]` application
-tower over the field domains, `.punit`-terminated.  The fibre λ is
-annotated `w + 1` (its body is a type of sort `w`), so it is a graph
-at every regime. -/
-def towerBodyAV (w : Nat) : List AVExpr → AVExpr
+/-- The carrier body, graph regime: the right-nested `.psigma [w, w]`
+application tower over the field domains, `.punit`-terminated.  The
+fibre λ is annotated `w + 1` (its body is a type of sort `w`), so it
+is a graph at every regime. -/
+def towerBodyAVPos (w : Nat) : List AVExpr → AVExpr
   | [] => .const .punit [w + 1]
   | F :: Fs => .app (.app (.const .psigma [w, w]) F)
-      (.lam (w + 1) F (towerBodyAV w Fs))
+      (.lam (w + 1) F (towerBodyAVPos w Fs))
+
+/-- `(_ : P) → Empty` at bit `0`: the truth value of `P`'s emptiness
+(`piR 0`'s ∀ over an empty codomain). -/
+def negAV (P : AVExpr) : AVExpr := .pi 0 0 P (.const .empty [0])
+
+/-- The carrier body, **squash regime** (task #175 W4c/O4): the truth
+value of the field chain's inhabitation, spelled classically as
+`¬ ∀ x₀ : F₀, ¬ ∀ x₁ : F₁, … ¬ True` with bit-`0` Π nodes.  The
+`.psigma [0, 0]` spelling cannot serve here — its pinned valuation
+reads the first component in `univ 0`, and a `Prop`-declared
+structure may carry data fields (arena tutorial 087) — while `piR 0`
+truncates whatever its domain is, exactly as `sigmaSet 0` does.  No
+field bound is needed for the interpretation. -/
+def sqBodyAV : List AVExpr → AVExpr
+  | [] => .const .punit [1]
+  | F :: Fs => negAV (.pi 0 0 F (negAV (sqBodyAV Fs)))
+
+/-- The carrier body, both regimes: the squash spelling at `w = 0`,
+the pair tower above. -/
+def towerBodyAV (w : Nat) (Fs : List AVExpr) : AVExpr :=
+  if w = 0 then sqBodyAV Fs else towerBodyAVPos w Fs
+
+theorem towerBodyAV_zero (Fs : List AVExpr) :
+    towerBodyAV 0 Fs = sqBodyAV Fs := if_pos rfl
+
+theorem towerBodyAV_pos {w : Nat} (hw : w ≠ 0) (Fs : List AVExpr) :
+    towerBodyAV w Fs = towerBodyAVPos w Fs := if_neg hw
 
 /-- The uniform projection spelling: `.proj 0 ∘ (.proj 1)^i` — the
 `AVExpr` form of the tier's `projS i = sfst ∘ ssnd^i`.  Depends only
@@ -60,19 +87,84 @@ def projAV : Nat → AVExpr → AVExpr
   | i + 1, e => projAV i (.proj 1 e)
 
 /-- `FieldsOkB w ρ Fs`: the hereditary grading the body's `AnnotOk2`
-consumes — each domain is itself graded and its interpretation is
-bounded, at every fitting prefix. -/
+consumes — each domain is itself graded and, in the graph regime, its
+interpretation is bounded, at every fitting prefix.  (At squash the
+carrier is a truth value whatever the fields are — `towerBodyAV`'s
+`sqBodyAV` spelling — so no bound is asked; task #175 W4c/O4.) -/
 def FieldsOkB (w : Nat) (ρ : Nat → V) : List AVExpr → Prop
   | [] => True
-  | F :: Fs => AnnotOk2 V ρ F ∧ interp2 V ρ F ∈ˢ (univ w : V) ∧
+  | F :: Fs => AnnotOk2 V ρ F ∧ (w ≠ 0 → interp2 V ρ F ∈ˢ (univ w : V)) ∧
       ∀ a, a ∈ˢ interp2 V ρ F → FieldsOkB w (cons a ρ) Fs
 
-theorem FieldsOkB.toBound :
-    ∀ {w : Nat} {Fs : List AVExpr} {ρ : Nat → V},
+theorem FieldsOkB.toBound {w : Nat} (hw : w ≠ 0) :
+    ∀ {Fs : List AVExpr} {ρ : Nat → V},
       FieldsOkB w ρ Fs → FieldsBound w ρ Fs
-  | _, [], _, _ => trivial
-  | _, _ :: Fs, _, h =>
-    ⟨h.2.1, fun a ha => FieldsOkB.toBound (Fs := Fs) (h.2.2 a ha)⟩
+  | [], _, _ => trivial
+  | _ :: Fs, _, h =>
+    ⟨h.2.1 hw, fun a ha => FieldsOkB.toBound hw (Fs := Fs) (h.2.2 a ha)⟩
+
+/-- The graded chain, with the bound supplied in both regimes. -/
+theorem FieldsOkB.of_bound {w : Nat} :
+    ∀ {Fs : List AVExpr} {ρ : Nat → V},
+      FieldsOkB w ρ Fs → (w = 0 → FieldsBound 0 ρ Fs) → FieldsBound w ρ Fs
+  | _, _, h, h0 => by
+    by_cases hw : w = 0
+    · subst hw; exact h0 rfl
+    · exact h.toBound hw
+
+/-! ## The squash spelling's interpretation -/
+
+theorem exists_mem_truthVal {p : Prop} :
+    (∃ y : V, y ∈ˢ (truthVal p : V)) ↔ p :=
+  ⟨fun ⟨_, hy⟩ => of_mem_truthVal hy, fun hp => ⟨pt, pt_mem_truthVal hp⟩⟩
+
+theorem interp2_negAV (ρ : Nat → V) (P : AVExpr) :
+    interp2 V ρ (negAV P) = truthVal (¬ ∃ x, x ∈ˢ interp2 V ρ P) := by
+  show piR 0 (interp2 V ρ P) (fun _ => (empty : V)) = _
+  rw [piR_zero]
+  refine truthVal_congr ⟨fun h ⟨x, hx⟩ => ?_, fun h x hx => absurd ⟨x, hx⟩ h⟩
+  obtain ⟨y, hy⟩ := h x hx
+  exact not_mem_empty y hy
+
+/-- **The squash body reads back as the squash carrier**, with no
+premise at all. -/
+theorem sqBodyAV_interp :
+    ∀ (Fs : List AVExpr) (ρ : Nat → V),
+      interp2 V ρ (sqBodyAV Fs) = towerSet 0 (teleOfFields ρ Fs)
+  | [], _ => rfl
+  | F :: Fs, ρ => by
+    show interp2 V ρ (negAV (.pi 0 0 F (negAV (sqBodyAV Fs)))) = _
+    rw [interp2_negAV, teleOfFields_cons]
+    show _ = sigmaSet 0 (interp2 V ρ F)
+      (fun a => towerSet 0 (teleOfFields (cons a ρ) Fs))
+    rw [sigmaSet_zero]
+    refine truthVal_congr ?_
+    rw [interp2_pi, piR_zero, exists_mem_truthVal]
+    have hin : ∀ x : V, (∃ y, y ∈ˢ interp2 V (cons x ρ) (negAV (sqBodyAV Fs)))
+        ↔ ¬ ∃ z, z ∈ˢ towerSet 0 (teleOfFields (cons x ρ) Fs) := by
+      intro x
+      rw [interp2_negAV, sqBodyAV_interp Fs (cons x ρ), exists_mem_truthVal]
+    constructor
+    · intro h
+      exact Classical.byContradiction fun hno =>
+        h fun x hx => (hin x).mpr fun hz => hno ⟨x, hx, hz⟩
+    · rintro ⟨x, hx, y, hy⟩ hall
+      exact (hin x).mp (hall x hx) ⟨y, hy⟩
+
+/-- **The squash body is graded** from the chain's own gradings. -/
+theorem sqBodyAV_ok2 :
+    ∀ {Fs : List AVExpr} {ρ : Nat → V}, FieldsOkB 0 ρ Fs →
+      AnnotOk2 V ρ (sqBodyAV Fs)
+  | [], ρ, _ => by simp [sqBodyAV]
+  | F :: Fs, ρ, hok => by
+    show AnnotOk2 V ρ (negAV (.pi 0 0 F (negAV (sqBodyAV Fs))))
+    unfold negAV
+    rw [AnnotOk2_pi]
+    refine ⟨?_, fun _ _ => by simp⟩
+    rw [AnnotOk2_pi]
+    refine ⟨hok.1, fun x hx => ?_⟩
+    rw [AnnotOk2_pi]
+    exact ⟨sqBodyAV_ok2 (hok.2.2 x hx), fun _ _ => by simp⟩
 
 /-- The `[w, w]` instance of the pair former's product membership: the
 `.psigma [w, w]` value inhabits the two-step product landing in
@@ -91,19 +183,19 @@ theorem psigmaV2_ww_mem (w : Nat) :
 hereditary bound (O5's semantic form), the `.psigma` spelling
 interprets to `towerSet w` of the interpreted telescope — at every
 level, both regimes. -/
-theorem towerBodyAV_interp {w : Nat} :
+theorem towerBodyAVPos_interp {w : Nat} :
     ∀ {Fs : List AVExpr} {ρ : Nat → V}, FieldsBound w ρ Fs →
-      interp2 V ρ (towerBodyAV w Fs)
+      interp2 V ρ (towerBodyAVPos w Fs)
         = towerSet w (teleOfFields ρ Fs)
   | [], _, _ => rfl
   | F :: Fs, ρ, hb => by
     have hA : interp2 V ρ F ∈ˢ (univ w : V) := hb.1
     have hG : ∀ x, x ∈ˢ interp2 V ρ F →
-        interp2 V (cons x ρ) (towerBodyAV w Fs)
+        interp2 V (cons x ρ) (towerBodyAVPos w Fs)
           = towerSet w (teleOfFields (cons x ρ) Fs) :=
-      fun x hx => towerBodyAV_interp (hb.2 x hx)
+      fun x hx => towerBodyAVPos_interp (hb.2 x hx)
     have hB : (lamR (w + 1) (interp2 V ρ F)
-          fun x => interp2 V (cons x ρ) (towerBodyAV w Fs))
+          fun x => interp2 V (cons x ρ) (towerBodyAVPos w Fs))
         ∈ˢ piR (w + 1) (interp2 V ρ F) (fun _ => (univ w : V)) :=
       lamR_mem fun x hx => by
         rw [hG x hx]
@@ -112,13 +204,33 @@ theorem towerBodyAV_interp {w : Nat} :
     show SetTheory.app (SetTheory.app (bval2 V .psigma [w, w])
         (interp2 V ρ F))
         (lamR (w + 1) (interp2 V ρ F)
-          fun x => interp2 V (cons x ρ) (towerBodyAV w Fs))
+          fun x => interp2 V (cons x ρ) (towerBodyAVPos w Fs))
       = towerSet w (teleOfFields ρ (F :: Fs))
     rw [hbv, psigmaV2_app V hA hB,
       show Nat.max w w = w from Nat.max_self w, teleOfFields_cons]
     show sigmaSet w _ _ = sigmaSet w _ _
     exact sigma_congr fun x hx => by
       rw [app_lamR_pos (Nat.succ_ne_zero w) hx, hG x hx]
+
+/-- **The carrier body reads back as the tier's carrier**, both
+regimes: unconditionally at squash, under the hereditary bound (O5's
+semantic form) in the graph regime. -/
+theorem towerBodyAV_interp {w : Nat} {Fs : List AVExpr} {ρ : Nat → V}
+    (hb : w ≠ 0 → FieldsBound w ρ Fs) :
+    interp2 V ρ (towerBodyAV w Fs) = towerSet w (teleOfFields ρ Fs) := by
+  by_cases hw : w = 0
+  · subst hw; rw [towerBodyAV_zero]; exact sqBodyAV_interp Fs ρ
+  · rw [towerBodyAV_pos hw]; exact towerBodyAVPos_interp (hb hw)
+
+/-- The carrier's formation, both regimes. -/
+theorem towerSet_univ_of_okB {w : Nat} {Fs : List AVExpr} {ρ : Nat → V}
+    (hb : w ≠ 0 → FieldsBound w ρ Fs) :
+    towerSet w (teleOfFields ρ Fs) ∈ˢ (univ w : V) := by
+  by_cases hw : w = 0
+  · subst hw
+    rw [univ_zero]
+    exact towerSet_zero_univZero_teleOfFields
+  · exact towerSet_univ_teleOfFields (hb hw)
 
 /-- **The uniform projection spelling reads back as `projS`** — the
 definitional commutation, no premises at all (matching the tier's
@@ -156,21 +268,21 @@ theorem projAV_inst :
 supplied by `psigmaV2_ww_mem` and the fibre package by the tier's
 formation laws; the hereditary premise carries the domains' own
 grading. -/
-theorem towerBodyAV_ok2 {w : Nat} :
+theorem towerBodyAVPos_ok2 {w : Nat} (hw : w ≠ 0) :
     ∀ {Fs : List AVExpr} {ρ : Nat → V}, FieldsOkB w ρ Fs →
-      AnnotOk2 V ρ (towerBodyAV w Fs)
-  | [], ρ, _ => by simp [towerBodyAV]
+      AnnotOk2 V ρ (towerBodyAVPos w Fs)
+  | [], ρ, _ => by simp [towerBodyAVPos]
   | F :: Fs, ρ, hok => by
-    have hb : FieldsBound w ρ (F :: Fs) := hok.toBound
-    have hA : interp2 V ρ F ∈ˢ (univ w : V) := hok.2.1
+    have hb : FieldsBound w ρ (F :: Fs) := hok.toBound hw
+    have hA : interp2 V ρ F ∈ˢ (univ w : V) := hok.2.1 hw
     have hG : ∀ x, x ∈ˢ interp2 V ρ F →
-        interp2 V (cons x ρ) (towerBodyAV w Fs)
+        interp2 V (cons x ρ) (towerBodyAVPos w Fs)
           = towerSet w (teleOfFields (cons x ρ) Fs) :=
-      fun x hx => towerBodyAV_interp (hb.2 x hx)
+      fun x hx => towerBodyAVPos_interp (hb.2 x hx)
     have hbv : interp2 V ρ (.const .psigma [w, w]) = psigmaV2 V w w := rfl
     have hvac : ¬ w + 1 = 0 := Nat.succ_ne_zero w
     show AnnotOk2 V ρ (.app (.app (.const .psigma [w, w]) F)
-      (.lam (w + 1) F (towerBodyAV w Fs)))
+      (.lam (w + 1) F (towerBodyAVPos w Fs)))
     rw [AnnotOk2_app]
     refine ⟨?_, ?_, ?_⟩
     · -- the inner application `.psigma [w,w] F`
@@ -182,7 +294,7 @@ theorem towerBodyAV_ok2 {w : Nat} :
           hbv ▸ psigmaV2_ww_mem w, hA, fun h => absurd h hvac⟩⟩
     · -- the fibre λ
       rw [AnnotOk2_lam]
-      refine ⟨hok.1, fun x hx => towerBodyAV_ok2 (hok.2.2 x hx),
+      refine ⟨hok.1, fun x hx => towerBodyAVPos_ok2 hw (hok.2.2 x hx),
         ⟨fun _ => (univ w : V), fun x hx => ?_, fun h => absurd h hvac⟩⟩
       rw [hG x hx]
       exact towerSet_univ_teleOfFields (hb.2 x hx)
@@ -196,6 +308,13 @@ theorem towerBodyAV_ok2 {w : Nat} :
       · exact lamR_mem fun x hx => by
           rw [hG x hx]
           exact towerSet_univ_teleOfFields (hb.2 x hx)
+
+/-- **The carrier body is graded** (`AnnotOk2`), both regimes. -/
+theorem towerBodyAV_ok2 {w : Nat} {Fs : List AVExpr} {ρ : Nat → V}
+    (hok : FieldsOkB w ρ Fs) : AnnotOk2 V ρ (towerBodyAV w Fs) := by
+  by_cases hw : w = 0
+  · subst hw; rw [towerBodyAV_zero]; exact sqBodyAV_ok2 hok
+  · rw [towerBodyAV_pos hw]; exact towerBodyAVPos_ok2 hw hok
 
 /-! ## Stage 3: the λ/Π-tower formers and the type-former leaf
 
@@ -365,8 +484,8 @@ theorem directTyAV_mem {w : Nat} {Fs : List AVExpr} :
         ∈ˢ interp2 V ρ (mkPisAV pps (.sort w))
   | [], ρ, h => by
     show interp2 V ρ (towerBodyAV w Fs) ∈ˢ (univ w : V)
-    rw [towerBodyAV_interp h.toBound]
-    exact towerSet_univ_teleOfFields h.toBound
+    rw [towerBodyAV_interp (fun hw => h.toBound hw)]
+    exact towerSet_univ_of_okB (fun hw => h.toBound hw)
   | d :: pps, ρ, h => by
     show (lamR (w + 1) (interp2 V ρ d.2.2)
         fun a => interp2 V (cons a ρ)
@@ -401,7 +520,7 @@ will consume. -/
 theorem directTyAV_fold {w : Nat} {Fs : List AVExpr}
     {pps : List (Nat × Nat × AVExpr)} {ρ : Nat → V} {as : List V}
     (hsp : SpineFit ρ (pps.map (·.2.2)) as)
-    (hb : FieldsBound w (consList as ρ) Fs) :
+    (hb : w ≠ 0 → FieldsBound w (consList as ρ) Fs) :
     as.foldl SetTheory.app (interp2 V ρ (directTyAV w pps Fs))
       = towerSet w (teleOfFields (consList as ρ) Fs) := by
   have hsp' : SpineFit ρ ((pps.map fun d => (w + 1, d.2.2)).map (·.2)) as := by
