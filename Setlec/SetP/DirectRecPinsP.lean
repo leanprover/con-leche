@@ -64,11 +64,11 @@ theorem leaf_of_prefix {m : EnvS2Core V env} {k : Nat} {e : Expr} {fvs : List Ex
 /-- **The family spine's row** at depth `nP + e` over the recursor's
 frame: scoped, bounded, correlated with the context, read, and — at
 every satisfying frame — graded with the carrier's value. -/
-theorem famSpineRow {m : EnvS2Core V env} {nP : Nat} {tyR : Expr}
+theorem famSpineRow {m : EnvS2Core V env} {nP k : Nat} {tyR : Expr}
     {fvsR : List Expr} {oR : Expr} {Γr : List AVExpr} {Rr : AVExpr}
-    (hR : OpenedP m φ (nP + 3) tyR fvsR oR Γr Rr)
+    (hR : OpenedP m φ (nP + k) tyR fvsR oR Γr Rr)
     (hidxR : ∀ (i : Nat) (x : Expr), fvsR[i]? = some x → ∃ nm ty, x = Expr.fvar i nm ty)
-    (hlenF : fvsR.length = nP + 3)
+    (hlenF : fvsR.length = nP + k)
     {T : Name} {lps : List Name} {ci : ConstantInfo} (hfT : env.find? T = some ci)
     (hlps : ci.toConstantVal.levelParams = lps)
     {w : Nat} {Fs : List AVExpr} {pps : List (Nat × Nat × AVExpr)}
@@ -76,16 +76,16 @@ theorem famSpineRow {m : EnvS2Core V env} {nP : Nat} {tyR : Expr}
     (hbits : ∀ d ∈ pps, d.2.1 ≠ 0) (hbelow : DomsBelow 0 pps) (hlen : pps.length = nP)
     (hok : ∀ ρ : Nat → V, ParamsOkT w ρ Fs pps)
     (hval : ∀ ρ : Nat → V, UnderTowerValid ρ (towerBodyAV w Fs) pps)
-    (hsatP : ∀ ρ : Nat → V, Sat2 V (Γr.drop 3) ρ → Sat2 V ((pps.map (·.2.2)).reverse) ρ)
-    (e : Nat) (he : e ≤ 3) :
+    (hsatP : ∀ ρ : Nat → V, Sat2 V (Γr.drop k) ρ → Sat2 V ((pps.map (·.2.2)).reverse) ρ)
+    (e : Nat) (he : e ≤ k) :
     Expr.WScoped (nP + e) (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP)) ∧
     (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP)).looseBVarsBounded 0 = true ∧
     Expr.LeavesBounded (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP)) ∧
-    CtxOkP m φ (nP + e) (Γr.drop (3 - e))
+    CtxOkP m φ (nP + e) (Γr.drop (k - e))
       (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP)) ∧
     denoteP m.acval env φ (nP + e) (Expr.mkAppN (.const T (lps.map .param)) (fvsR.take nP))
       = some (AVExpr.mkAppN (directTyAV w pps Fs) (paramBvarsAt nP (nP + e))) ∧
-    ∀ ρ : Nat → V, Sat2 V (Γr.drop (3 - e)) ρ →
+    ∀ ρ : Nat → V, Sat2 V (Γr.drop (k - e)) ρ →
       AnnotOkP V ρ (AVExpr.mkAppN (directTyAV w pps Fs) (paramBvarsAt nP (nP + e))) ∧
       interp2 V ρ (AVExpr.mkAppN (directTyAV w pps Fs) (paramBvarsAt nP (nP + e)))
         = towerSet w (teleOfFields (fun j => ρ (j + e)) Fs) := by
@@ -128,13 +128,13 @@ theorem famSpineRow {m : EnvS2Core V env} {nP : Nat} {tyR : Expr}
   refine ⟨hws, hbd, fun l hl => (hleaves l hl).2, ?_, ?_, ?_⟩
   · have := hR.ctx (i := nP + e) (by omega) hws
       (fun l hl => List.mem_of_mem_take (hleaves l hl).1)
-    rw [show nP + 3 - (nP + e) = 3 - e from by omega] at this
+    rw [show nP + k - (nP + e) = k - e from by omega] at this
     exact this
   · rw [famSpine_read hfT hlps hlenT hidxT (nP + e) φ, hleafT]
   · intro ρ hρ
-    have hρ3 : Sat2 V (Γr.drop 3) (fun j => ρ (j + e)) := by
+    have hρ3 : Sat2 V (Γr.drop k) (fun j => ρ (j + e)) := by
       have := Sat2_drop hρ e
-      rwa [List.drop_drop, show 3 - e + e = 3 from by omega] at this
+      rwa [List.drop_drop, show k - e + e = k from by omega] at this
     exact famSpine_val hbits hbelow hlen hok hval hcl (fun j => rfl) (hsatP _ hρ3)
 
 /-! ## The parameter frames, identified -/
@@ -143,11 +143,11 @@ theorem famSpineRow {m : EnvS2Core V env} {nP : Nat} {tyR : Expr}
 constructor's residual at the recursor's parameters reads to the field
 tower at depth `nP`. -/
 theorem recParamIdent {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
-    {nP nF : Nat} {tyR cty : Expr}
+    {nP nF k : Nat} {tyR cty : Expr}
     {fvsR : List Expr} {oR : Expr} {Γr : List AVExpr} {Rr : AVExpr}
-    (hR : OpenedP m φ (nP + 3) tyR fvsR oR Γr Rr)
+    (hR : OpenedP m φ (nP + k) tyR fvsR oR Γr Rr)
     (hidxR : ∀ (i : Nat) (x : Expr), fvsR[i]? = some x → ∃ nm ty, x = Expr.fvar i nm ty)
-    (hlenF : fvsR.length = nP + 3)
+    (hlenF : fvsR.length = nP + k)
     {ds : List (Nat × Nat × AVExpr)} {bodyC : AVExpr}
     (hlenDs : ds.length = nP + nF)
     (hCread : denoteP m.acval env φ 0 cty = some (mkPisAV ds bodyC))
@@ -157,7 +157,7 @@ theorem recParamIdent {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
     (hci : Expr.instPisAt (fvsR.take nP) cty = some (cdomsP, crest))
     (hpins : ∀ i, i < nP → ∃ a b, (fvsR.take nP)[i]? = some a ∧ cdomsP[i]? = some b ∧
       Setlec.isDefEqCore μ env F (0 + i) (Expr.fvarTypeD a) b = .ok true) :
-    (∀ i, i ≤ nP → ∀ ρ : Nat → V, Sat2 V (Γr.drop (nP + 3 - i)) ρ ↔
+    (∀ i, i ≤ nP → ∀ ρ : Nat → V, Sat2 V (Γr.drop (nP + k - i)) ρ ↔
       Sat2 V ((((ds.take nP).map (·.2.2)).reverse).drop (nP - i)) ρ) ∧
     denoteP m.acval env φ nP crest = some (mkPisAV (ds.drop nP) bodyC) ∧
     Expr.WScoped nP crest ∧ crest.looseBVarsBounded 0 = true ∧
@@ -218,10 +218,10 @@ theorem recParamIdent {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
     · exact leaf_of_prefix hR hidxR h
   refine ⟨?_, hres, hwres, hbres, fun l hl => hleafC l (Or.inr hl)⟩
   -- the identification
-  have hΓ1 : (Γr.drop 3).length = nP := by rw [List.length_drop, hR.len]; omega
+  have hΓ1 : (Γr.drop k).length = nP := by rw [List.length_drop, hR.len]; omega
   have hΓ2 : ((((ds.take nP).map (·.2.2)).reverse)).length = nP := by
     simp [hlenDs]
-  have hdrop3 : ∀ i, i ≤ nP → (Γr.drop 3).drop (nP - i) = Γr.drop (nP + 3 - i) := by
+  have hdrop3 : ∀ i, i ≤ nP → (Γr.drop k).drop (nP - i) = Γr.drop (nP + k - i) := by
     intro i hi; rw [List.drop_drop]; congr 1; omega
   have key := frameIdent (V := V) hΓ1 hΓ2 (fun i hi hiff ρ hρ => by
     rw [hdrop3 i (by omega)] at hρ
@@ -249,16 +249,16 @@ theorem recParamIdent {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
       rw [List.getD_eq_getElem?_getD (l := cdomsP), hb, Option.getD_some, Nat.zero_add] at this
       exact this
     -- the gradings, under the recursor's frame
-    have hoka : ∀ ρ : Nat → V, Sat2 V (Γr.drop (nP + 3 - i)) ρ →
-        AnnotOkP V ρ (Γr.getD (nP + 3 - 1 - i) default) := hR.okΓ i (by omega)
-    have hokb : ∀ ρ : Nat → V, Sat2 V (Γr.drop (nP + 3 - i)) ρ →
+    have hoka : ∀ ρ : Nat → V, Sat2 V (Γr.drop (nP + k - i)) ρ →
+        AnnotOkP V ρ (Γr.getD (nP + k - 1 - i) default) := hR.okΓ i (by omega)
+    have hokb : ∀ ρ : Nat → V, Sat2 V (Γr.drop (nP + k - i)) ρ →
         AnnotOkP V ρ (((((ds.take nP).map (·.2.2)).reverse)).getD (nP - 1 - i) default) := by
       intro ρ hρ
       have hρ2 := (hiff ρ).mp (by rw [hdrop3 i (by omega)]; exact hρ)
       have := okΓc i (by omega) ρ (by rw [drop_fields_eq hlenDs i (by omega)]; exact hρ2)
       rwa [getD_reverse_take hlenDs hi] at this
     have := hc.defEqRow hdeq hwa hba hLa hwb hbb hLb hCa hCb' hda hdb hoka hokb ρ hρ
-    rw [getD_drop', show 3 + (nP - 1 - i) = nP + 3 - 1 - i from by omega]
+    rw [getD_drop', show k + (nP - 1 - i) = nP + k - 1 - i from by omega]
     exact this)
   intro i hi ρ
   rw [← hdrop3 i hi]

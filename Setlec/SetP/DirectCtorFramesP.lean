@@ -163,7 +163,11 @@ theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
         (p.isProp = false →
           FieldsBound (p.resSort.eval ψ) ρ (((ds ψ).drop p.nP).map (·.2.2))) ∧
         (p.isProp = true → p.large = true →
-          FieldsBound 0 ρ (((ds ψ).drop p.nP).map (·.2.2)))) := by
+          FieldsBound 0 ρ (((ds ψ).drop p.nP).map (·.2.2))) ∧
+        (∀ j, j < p.nF → ∀ as : List V,
+          SpineFit ρ ((((ds ψ).drop p.nP).map (·.2.2)).take j) as →
+          interp2 V (consList as ρ) ((((ds ψ).drop p.nP).map (·.2.2)).getD j default)
+            ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V))) := by
   obtain ⟨hccv, -, -, fvsP, crest, tfvs, trest, xFvs, hopC, hopT, hdoms, hopX,
     -, hsorts⟩ := Setlec.checkDirectCtor_shape hCtor
   obtain ⟨-, -, -, -, hlbt, hitf, type', -, -, hann', -, -, -, -, rfl⟩ :=
@@ -188,7 +192,11 @@ theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
         (p.isProp = false →
           FieldsBound (p.resSort.eval ψ) ρ (((ds ψ).drop p.nP).map (·.2.2))) ∧
         (p.isProp = true → p.large = true →
-          FieldsBound 0 ρ (((ds ψ).drop p.nP).map (·.2.2))) := by
+          FieldsBound 0 ρ (((ds ψ).drop p.nP).map (·.2.2))) ∧
+        (∀ j, j < p.nF → ∀ as : List V,
+          SpineFit ρ ((((ds ψ).drop p.nP).map (·.2.2)).take j) as →
+          interp2 V (consList as ρ) ((((ds ψ).drop p.nP).map (·.2.2)).getD j default)
+            ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) := by
     intro ψ
     have hc := claimsAtP_of hμ mp ψ F
     have hT : OpenedP mp.base2 ψ p.nP cvTa.type tfvs trest
@@ -206,6 +214,7 @@ theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       exact ⟨a, b', by rw [List.getElem?_append_left (by omega)]; exact ha, hb',
         by rw [Nat.zero_add] at hdeq; exact hdeq⟩)
     have hlenDs := hCD.len ψ
+    have hlenF : ((((ds ψ).drop p.nP).map (·.2.2))).length = p.nF := by simp [hlenDs]
     have hiff : ∀ ρ : Nat → V, Sat2 V ((pps ψ).map (·.2.2)).reverse ρ ↔
         Sat2 V (((ds ψ).take p.nP).map (·.2.2)).reverse ρ := by
       intro ρ
@@ -241,7 +250,7 @@ theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       have hread := hC.doms (p.nP + j) fv hfvA
       exact (hc.sortRow hi hens hws hb hL hCtx hread ρ hρ).2
     have hFsEq := fieldsFrom_eq_drop (ds := ds ψ) (nP := p.nP) (nF := p.nF) hlenDs
-    refine ⟨?_, ?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · -- `FieldsOkB`
       rw [← hFsEq]
       refine fieldsOkB_of_frame rfl hΓlen hC.okΓ ?_ 0 (Nat.zero_le _) ρ hρ'
@@ -272,6 +281,28 @@ theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       have h0 := Level.isEquiv_sound (beq_iff_eq.mp (hz hp hl)) ψ
       have := hmem ρ hρ
       rwa [h0] at this
+    · -- the per-field sorts, along a fitting prefix
+      intro j hj as hsp
+      obtain ⟨u, hu, -, -, hmem⟩ := hrow j hj
+      have hsat := sat2_of_spineFit (Δ₀ := (((ds ψ).take p.nP).map (·.2.2)).reverse) hρ hsp
+      have hlenAs : as.length = j := by
+        rw [hsp.length_eq, List.length_take, hlenF]; omega
+      have hdropj : ((((ds ψ).map (·.2.2)).reverse)).drop (p.nP + p.nF - (p.nP + j))
+          = ((((ds ψ).drop p.nP).map (·.2.2)).take j).reverse ++
+            (((ds ψ).take p.nP).map (·.2.2)).reverse := by
+        rw [reverse_map_take_drop (ds ψ) p.nP, show p.nP + p.nF - (p.nP + j) = p.nF - j from by omega,
+          List.drop_append_of_le_length (by rw [List.length_reverse, hlenF]; exact Nat.sub_le _ _),
+          List.drop_reverse, hlenF, show p.nF - (p.nF - j) = j from by omega]
+      have hentj : ((((ds ψ).map (·.2.2)).reverse)).getD (p.nP + p.nF - 1 - (p.nP + j)) default
+          = (((ds ψ).drop p.nP).map (·.2.2)).getD j default := by
+        rw [reverse_map_take_drop (ds ψ) p.nP, show p.nP + p.nF - 1 - (p.nP + j) = p.nF - 1 - j from by omega,
+          List.getD_eq_getElem?_getD, List.getElem?_append_left (by rw [List.length_reverse, hlenF]; omega),
+          List.getElem?_reverse (by rw [hlenF]; omega), hlenF,
+          show p.nF - 1 - (p.nF - 1 - j) = j from by omega, ← List.getD_eq_getElem?_getD]
+      have := hmem (consList as ρ) (by rw [hdropj]; exact hsat)
+      rw [hentj] at this
+      rw [List.getD_eq_getElem?_getD (l := sorts), hu]
+      exact this
   exact ⟨fun ψ => (hframes ψ).1, fun ψ => (hframes ψ).2⟩
 
 end Setlec.SetR.Interp2
