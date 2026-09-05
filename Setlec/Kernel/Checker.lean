@@ -332,18 +332,18 @@ def checkDirectProjEntry (ops : CheckerOps m) (T C : Name) (lps : List Name)
     true, false, true⟩ :: env.consts⟩
 
 /-- The projection slot for field `i` (task #175 W4c/O4): the entry
-decision `directProjSlotOk` — a function of the block's input data —
-says whether an entry installs at all; a skipped slot is a plain
-fall-through, never a verdict (the block installs; a `.proj` use of
-the field declines at its own site).  Otherwise the entry is installed
-with its guard level. -/
+decision `slots` (`directProjSlots`, a function of the block's raw
+types) says whether an entry installs at all; a skipped slot is a
+plain fall-through, never a verdict (the block installs; a `.proj` use
+of the field declines at its own site).  Otherwise the entry is
+installed, from the annotated types, with its guard level. -/
 def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
-    (nP nF : Nat) (resSort : Level) (isProp large : Bool)
-    (cvTa cvCa : ConstantVal) (guards : List Level) (env : Env) (i : Nat) :
-    m Env := do
-  let pty ← unwrapOr (directProjTyP T lps nP nF i cvTa.type cvCa.type)
-    (.notImplemented "direct structure: projection type")
-  if directProjSlotOk T isProp large pty then
+    (nP nF : Nat) (resSort : Level) (slots : List Bool)
+    (guards : List Level) (cvTa cvCa : ConstantVal) (env : Env) (i : Nat) :
+    m Env :=
+  if slots.getD i false then do
+    let pty ← unwrapOr (directProjTyP T lps nP nF i cvTa.type cvCa.type)
+      (.notImplemented "direct structure: projection type")
     checkDirectProjEntry ops T C lps nP nF resSort (guards.getD i .zero)
       cvCa pty env i
   else pure env
@@ -377,8 +377,8 @@ def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     throw (.invalid "projection name family taken")
   (List.range p.nF).foldlM
     (checkDirectProj ops p.cvT.name p.cvC.name p.cvT.levelParams
-      p.nP p.nF p.resSort p.isProp p.large cvTa cvCa
-      (directProjGuards cvCa.type p.nP p.nF sorts)) env₃
+      p.nP p.nF p.resSort (directProjSlots p)
+      (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa) env₃
 
 /-- Install one pinned basis declaration (duplicate-checked). -/
 def installBasisDecl (env : Env) (ci : ConstantInfo) : m Env := do

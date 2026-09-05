@@ -333,7 +333,7 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
     InferProjReadsP μ m φ fuel := by
   intro d i sn pe t ea h hws hb hLb hlr hea
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, hpair, htow, hsn⟩ := Setlec.inferTypeCore_proj_inv h
+    hlenUs, hguard, hpair, htow, hsn⟩ := Setlec.inferTypeCore_proj_inv h
   subst hsn
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb

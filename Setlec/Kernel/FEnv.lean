@@ -84,6 +84,20 @@ def push (fe : FEnv) (ci : ConstantInfo) : FEnv :=
   ⟨⟨ci :: fe.env.consts⟩, fe.idx.insert ci.name (fe.visibleBelow, ci),
    fe.visibleBelow + 1⟩
 
+/-- `towerSlotsAll` through the index. -/
+def towerSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=
+  (List.range nF).all fun j =>
+    match fe.find? (projFnName T j) with
+    | some (.projInfo e) => e.tower
+    | _ => false
+
+/-- `recSlotsAll` through the index. -/
+def recSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=
+  (List.range nF).all fun j =>
+    match fe.find? (projFnName T j) with
+    | some (.recInfo _ _ _ _) => true
+    | _ => false
+
 /-- Indexed projection-table lookup (`= Env.findProj?` for `mkFEnv`). -/
 def findProj? (fe : FEnv) (T : Name) (i : Nat) : Option ProjEntry :=
   match fe.find? (projFnName T i) with

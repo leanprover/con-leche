@@ -2174,16 +2174,5 @@ theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
 
 end DeclBattery
 
-/-- **The direct-structure path is compile-time disabled**
-(`directStructsEnabled = false`), so `checkDecl`'s `indDecl` clause
-*is* `checkIndDecl`.  Named so that every consumer's dependence on the
-switch is findable, and so the branch collapses at one site rather
-than being re-cased everywhere (task #148 T6). -/
-theorem directParts?_none (env : Env) (block : List ConstantInfo) :
-    directParts? env block = none := by
-  unfold directParts?
-  cases directPartsCore? block with
-  | none => rfl
-  | some p => simp [directStructsEnabled]
 
 end Setlec

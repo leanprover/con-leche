@@ -21,9 +21,8 @@ the per-stage anatomy (the `checkDirectRecTy` frame walks, the
 `checkDirectProj` entry data) is exposed by inversion lemmas on the
 stage functions where the dischargers need it.
 
-Pre-flip (`directStructsEnabled = false`) the arm is dead:
-`directParts?_none` reduces `DeclR`'s guarded `.indDecl` row to
-`DeclIndR`, and every consumer discharges the direct case with it.
+Since task #175 W4c the direct route is the priority route: every
+consumer of the dispatch cases on the kernel's own `directParts?`.
 -/
 
 namespace Setlec.SetR
@@ -56,7 +55,7 @@ theorem declDirectR_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
       env envI p cvTa with
   | error e => rw [hCtor] at h; exact nomatch h
   | ok r₂ =>
-  obtain ⟨envC, cvCa⟩ := r₂
+  obtain ⟨envC, cvCa, sorts⟩ := r₂
   rw [hCtor] at h
   dsimp only at h
   cases hCV : checkConstantVal (m := Setlec.CheckM) (fueledOps μ F)
@@ -78,7 +77,7 @@ theorem declDirectR_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   | ok rhsA =>
   rw [hRule] at h
   dsimp only at h
-  refine ⟨cvTa, cvCa, cvRa, rhsA, envI, envC, hInd, hCtor, hCV,
+  refine ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hCV,
     hRecTy, hRule, ?_⟩
   dsimp only at h ⊢
   revert h
@@ -108,7 +107,8 @@ theorem declDirectR_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
       revert h
       cases hstep : checkDirectProj (m := Setlec.CheckM)
           (fueledOps μ F) p.cvT.name p.cvC.name p.cvT.levelParams
-          p.nP p.nF p.resSort cvTa cvCa env₃ i with
+          p.nP p.nF p.resSort (directProjSlots p)
+          (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa env₃ i with
       | error e => intro h; exact nomatch h
       | ok env₄ =>
         intro h
@@ -119,7 +119,8 @@ theorem declDirectR_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
 /-! ## The run-level dispatch
 
 `checkDeclRun_ofEnvRE`'s `Ind` slot, post-#175: the direct arm is
-already a run relation, so the dispatch pairs it with `DeclIndRunR`. -/
+already a run relation, so the dispatch pairs it with `DeclIndRunR`.
+Consumers case on the kernel's `directParts?` (the priority gate). -/
 
 /-- The `.indDecl` dispatch at the run level. -/
 def DeclIndRunDispatchR (μ : CheckMode) (F : Nat) (env : Env)
@@ -127,18 +128,5 @@ def DeclIndRunDispatchR (μ : CheckMode) (F : Nat) (env : Env)
   match Setlec.directParts? env block with
   | some p => DeclDirectR μ F env p env₂
   | none => DeclIndRunR μ F env block env₂
-
-/-- Pre-flip the run dispatch **is** the modeled run record. -/
-theorem declIndRunDispatchR_eq_ind {μ : CheckMode} {F : Nat}
-    {env : Env} {block : List ConstantInfo} {env₂ : Env} :
-    DeclIndRunDispatchR μ F env block env₂
-      ↔ DeclIndRunR μ F env block env₂ := by
-  rw [DeclIndRunDispatchR]
-  have hnone : Setlec.directParts? env block = none := by
-    unfold Setlec.directParts?
-    cases Setlec.directPartsCore? block with
-    | none => rfl
-    | some p => simp [Setlec.directStructsEnabled]
-  rw [hnone]
 
 end Setlec.SetR

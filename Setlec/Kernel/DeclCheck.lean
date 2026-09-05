@@ -1031,12 +1031,12 @@ def checkDirectProjEntryF (ops : CheckerOps m) (T C : Name) (lps : List Name)
 /-- `checkDirectProj` through the index (the entry decision, the
 guard level). -/
 def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
-    (nP nF : Nat) (resSort : Level) (isProp large : Bool)
-    (cvTa cvCa : ConstantVal) (guards : List Level) (rt? : Option Expr)
-    (fe : FEnv) (i : Nat) : m FEnv := do
-  let pty ← unwrapOr (directProjTyR T lps nP nF i cvTa.type rt?)
-    (.notImplemented "direct structure: projection type")
-  if directProjSlotOk T isProp large pty then
+    (nP nF : Nat) (resSort : Level) (slots : List Bool)
+    (guards : List Level) (cvTa cvCa : ConstantVal) (rt? : Option Expr)
+    (fe : FEnv) (i : Nat) : m FEnv :=
+  if slots.getD i false then do
+    let pty ← unwrapOr (directProjTyR T lps nP nF i cvTa.type rt?)
+      (.notImplemented "direct structure: projection type")
     checkDirectProjEntryF ops T C lps nP nF resSort (guards.getD i .zero)
       cvCa pty fe i
   else pure fe

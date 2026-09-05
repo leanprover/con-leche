@@ -272,6 +272,16 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
                 lpsT rest
             else pure false
           else pure false
+        | some (.projInfo entry) =>
+          if entry.tower = true ∧ entry.levelParams = lpsT ∧
+              (entry.ty.stripPis (targs.length + 1)).isSome = true then
+            if ← iotaCerts (pairFns r₁ r₂ h) env d
+                (entry.ty.instantiateLevelParams entry.levelParams us')
+                (targs ++ [b]) then
+              structEtaProjCerts (pairFns r₁ r₂ h) env d T us' targs b
+                lpsT rest
+            else pure false
+          else pure false
         | _ => pure false : PairM rel Bool)).val.1 = (do
         match env.find? (projFnName T i) with
         | some (.recInfo cvp _ _ _) =>
@@ -279,6 +289,15 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts r₁ env d
                 (cvp.type.instantiateLevelParams cvp.levelParams us')
+                (targs ++ [b]) then
+              structEtaProjCerts r₁ env d T us' targs b lpsT rest
+            else pure false
+          else pure false
+        | some (.projInfo entry) =>
+          if entry.tower = true ∧ entry.levelParams = lpsT ∧
+              (entry.ty.stripPis (targs.length + 1)).isSome = true then
+            if ← iotaCerts r₁ env d
+                (entry.ty.instantiateLevelParams entry.levelParams us')
                 (targs ++ [b]) then
               structEtaProjCerts r₁ env d T us' targs b lpsT rest
             else pure false
@@ -301,7 +320,18 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
           | false => rfl
         · rfl
       | axiomInfo cv => rfl
-      | projInfo _ => rfl
+      | projInfo entry =>
+        dsimp only
+        split
+        · rw [PairM.fst_bind, iotaCerts_fst]
+          congr 1
+          funext r
+          cases r with
+          | true =>
+            simp only [↓reduceIte]
+            exact structEtaProjCerts_fst d T us' targs b lpsT rest
+          | false => rfl
+        · rfl
       | defnInfo cv value => rfl
       | thmInfo cv value => rfl
       | indInfo cv caps => rfl
@@ -327,6 +357,16 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
                 lpsT rest
             else pure false
           else pure false
+        | some (.projInfo entry) =>
+          if entry.tower = true ∧ entry.levelParams = lpsT ∧
+              (entry.ty.stripPis (targs.length + 1)).isSome = true then
+            if ← iotaCerts (pairFns r₁ r₂ h) env d
+                (entry.ty.instantiateLevelParams entry.levelParams us')
+                (targs ++ [b]) then
+              structEtaProjCerts (pairFns r₁ r₂ h) env d T us' targs b
+                lpsT rest
+            else pure false
+          else pure false
         | _ => pure false : PairM rel Bool)).val.2 = (do
         match env.find? (projFnName T i) with
         | some (.recInfo cvp _ _ _) =>
@@ -334,6 +374,15 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts r₂ env d
                 (cvp.type.instantiateLevelParams cvp.levelParams us')
+                (targs ++ [b]) then
+              structEtaProjCerts r₂ env d T us' targs b lpsT rest
+            else pure false
+          else pure false
+        | some (.projInfo entry) =>
+          if entry.tower = true ∧ entry.levelParams = lpsT ∧
+              (entry.ty.stripPis (targs.length + 1)).isSome = true then
+            if ← iotaCerts r₂ env d
+                (entry.ty.instantiateLevelParams entry.levelParams us')
                 (targs ++ [b]) then
               structEtaProjCerts r₂ env d T us' targs b lpsT rest
             else pure false
@@ -356,7 +405,18 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
           | false => rfl
         · rfl
       | axiomInfo cv => rfl
-      | projInfo _ => rfl
+      | projInfo entry =>
+        dsimp only
+        split
+        · rw [PairM.snd_bind, iotaCerts_snd]
+          congr 1
+          funext r
+          cases r with
+          | true =>
+            simp only [↓reduceIte]
+            exact structEtaProjCerts_snd d T us' targs b lpsT rest
+          | false => rfl
+        · rfl
       | defnInfo cv value => rfl
       | thmInfo cv value => rfl
       | indInfo cv caps => rfl

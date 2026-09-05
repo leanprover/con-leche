@@ -811,6 +811,52 @@ inductive DefEq (μ : CheckMode) (env : Env) (cval : TConstVal)
           cnF) →
       DefEq μ env cval φ Δ
         (VExpr.mkAppN (cval c (Level.substFn φ cvc.levelParams us)) as) b
+  /-- D10 at **tower-backed** slots (task #175 W4c): `structEta`'s
+  twin for a family whose projection slots are the direct install's
+  native tower entries — the per-field certificates are the entries'
+  stored types, and the fabricated projections are `.proj T j b`
+  nodes, whose tower reading is `projNV j`. -/
+  | structEtaTower {Δ : List VExpr} {b tb TFv restT : VExpr}
+      {c T : Name} {cvc cvT : ConstantVal} {caps : IndCaps}
+      {cnP cnF : Nat} {us us' : List Level} {as ts : List VExpr}
+      {ent : Nat → ProjEntry} {TPv restP : Nat → VExpr} :
+      env.find? c = some (.ctorInfo cvc cnP cnF) →
+      as.length = cnP + cnF →
+      env.find? T = some (.indInfo cvT caps) →
+      caps.eta = true → caps.etaCtor = c →
+      caps.etaParams = cnP → caps.etaFields = cnF →
+      reservedBasisNames.contains T = false →
+      reservedBasisNames.contains c = false →
+      ts.length = cnP →
+      us'.length = cvT.levelParams.length →
+      cvc.levelParams = cvT.levelParams →
+      (cvT.type.stripPis cnP).isSome = true →
+      Level.isEquivList us us' = some true →
+      denoteClosed cval env φ
+        (cvT.type.instantiateLevelParams cvT.levelParams us') = some TFv →
+      VExpr.Closed TFv →
+      (∀ j, j < cnF →
+        env.find? (projFnName T j) = some (.projInfo (ent j))) →
+      (∀ j, j < cnF → (ent j).tower = true) →
+      (∀ j, j < cnF → (ent j).levelParams = cvT.levelParams) →
+      (∀ j, j < cnF → ((ent j).ty.stripPis (cnP + 1)).isSome = true) →
+      (∀ j, j < cnF →
+        denoteClosed cval env φ
+          ((ent j).ty.instantiateLevelParams (ent j).levelParams us')
+          = some (TPv j)) →
+      (∀ j, j < cnF → VExpr.Closed (TPv j)) →
+      Infer μ env cval φ Δ b tb →
+      DefEq μ env cval φ Δ tb
+        (VExpr.mkAppN
+          (cval T (Level.substFn φ cvT.levelParams us')) ts) →
+      Tele μ env cval φ Δ TFv ts restT →
+      (∀ j, j < cnF →
+        Tele μ env cval φ Δ (TPv j) (ts ++ [b]) (restP j)) →
+      DefEqL μ env cval φ Δ (as.take cnP) ts →
+      DefEqL μ env cval φ Δ (as.drop cnP)
+        ((List.range cnF).map fun j => projNV j b) →
+      DefEq μ env cval φ Δ
+        (VExpr.mkAppN (cval c (Level.substFn φ cvc.levelParams us)) as) b
   /-- D11: unit-likeness for a stored unit-like family
   (`structUnitCert`, `Core.lean:998-1020`). -/
   | structUnit {Δ : List VExpr} {a b ta tb TB TFv rest : VExpr}

@@ -468,7 +468,7 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     InferProjStepP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, hpair, htow, hsn⟩ := Setlec.inferTypeCore_proj_inv h
+    hlenUs, hguard, hpair, htow, hsn⟩ := Setlec.inferTypeCore_proj_inv h
   subst hsn
   -- the subject's frames
   simp only [Expr.WScoped] at hws

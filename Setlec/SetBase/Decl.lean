@@ -975,27 +975,31 @@ functions where the dischargers need it (`SetBase/DeclDirect.lean`
 holds the `checkDirectStruct` inversion). -/
 
 /-- The projection-slot fold (`checkDirectStruct`'s tail): each slot
-is `checkDirectProj`'s own run at the accumulator — the O4 branch
-decides *inside* the run whether an entry installs. -/
+is `checkDirectProj`'s own run at the accumulator — the entry decision
+(`slots`, `directProjSlots`) and the guard levels (`guards`,
+`directProjGuards`) are the fold's data. -/
 def DirectProjFoldR (μ : CheckMode) (F : Nat) (T C : Name)
-    (lps : List Name) (nP nF : Nat) (resSort : Level)
-    (cvTa cvCa : ConstantVal) : Env → List Nat → Env → Prop
+    (lps : List Name) (nP nF : Nat) (resSort : Level) (slots : List Bool)
+    (guards : List Level) (cvTa cvCa : ConstantVal) :
+    Env → List Nat → Env → Prop
   | env', [], env₂ => env₂ = env'
   | env', i :: rest, env₂ =>
     ∃ env'', checkDirectProj (m := Setlec.CheckM) (fueledOps μ F)
-        T C lps nP nF resSort cvTa cvCa env' i = .ok env'' ∧
-      DirectProjFoldR μ F T C lps nP nF resSort cvTa cvCa env'' rest env₂
+        T C lps nP nF resSort slots guards cvTa cvCa env' i = .ok env'' ∧
+      DirectProjFoldR μ F T C lps nP nF resSort slots guards cvTa cvCa env''
+        rest env₂
 
 /-- **The direct-structure declaration, as checked**: the stage runs
 of `checkDirectStruct`, with the intermediate environments and the
 recursor install named.  `env` is the pre-block environment. -/
 def DeclDirectR (μ : CheckMode) (F : Nat) (env : Env)
     (p : DirectParts) (env₂ : Env) : Prop :=
-  ∃ (cvTa cvCa cvRa : ConstantVal) (rhsA : Expr) (envI envC : Env),
+  ∃ (cvTa cvCa cvRa : ConstantVal) (sorts : List Level) (rhsA : Expr)
+    (envI envC : Env),
     checkDirectInd (m := Setlec.CheckM) (fueledOps μ F) env p
       = .ok (envI, cvTa) ∧
     checkDirectCtor (m := Setlec.CheckM) (fueledOps μ F) env envI p cvTa
-      = .ok (envC, cvCa) ∧
+      = .ok (envC, cvCa, sorts) ∧
     checkConstantVal (m := Setlec.CheckM) (fueledOps μ F) envC p.cvR
       = .ok cvRa ∧
     checkDirectRecTy (m := Setlec.CheckM) (fueledOps μ F) envC p
@@ -1012,33 +1016,19 @@ def DeclDirectR (μ : CheckMode) (F : Nat) (env : Env)
         (fun j => (env₃.find? (projFnName p.cvT.name j)).isNone)
         = true ∧
       DirectProjFoldR μ F p.cvT.name p.cvC.name p.cvT.levelParams
-        p.nP p.nF p.resSort cvTa cvCa env₃ (List.range p.nF) env₂)
+        p.nP p.nF p.resSort (directProjSlots p)
+        (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa env₃
+        (List.range p.nF) env₂)
 
 /-- The `.indDecl` dispatch, post-#175: the recognised direct class
 goes through `checkDirectStruct` and everything else through the
-modeled path — `checkDecl`'s own branch, mirrored.  Pre-flip
-`directParts?_none` reduces this to `DeclIndR` outright. -/
+modeled path — `checkDecl`'s own branch, mirrored. -/
 def DeclIndDispatchR (μ : CheckMode) (F : Nat) (env : Env)
     (cval : Setlec.TTVerify.TConstVal) (block : List ConstantInfo)
     (env₂ : Env) : Prop :=
   match Setlec.directParts? env block with
   | some p => DeclDirectR μ F env p env₂
   | none => DeclIndR μ F env cval block env₂
-
-/-- Pre-flip the dispatch **is** the modeled relation
-(`directParts?_none`) — the consumers' one-line reduction. -/
-theorem declIndDispatchR_eq_ind {μ : CheckMode} {F : Nat} {env : Env}
-    {cval : Setlec.TTVerify.TConstVal} {block : List ConstantInfo}
-    {env₂ : Env} :
-    DeclIndDispatchR μ F env cval block env₂
-      ↔ DeclIndR μ F env cval block env₂ := by
-  rw [DeclIndDispatchR]
-  have hnone : Setlec.directParts? env block = none := by
-    unfold Setlec.directParts?
-    cases Setlec.directPartsCore? block with
-    | none => rfl
-    | some p => simp [Setlec.directStructsEnabled]
-  rw [hnone]
 
 
 /-! ## The assembly -/

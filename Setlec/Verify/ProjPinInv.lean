@@ -371,23 +371,72 @@ theorem checkIndDecl_preserves {block : List ConstantInfo}
        exact checkIndRecs_preserves (indMembers_preserves hI hM) h)
     | exact absurd h (by simp)
 
-/-! ### The direct structure (task #175 wiring: unreachable pre-flip)
+/-! ### The direct structure (task #175 W4c: the priority route)
 
-`checkDirectProj` now installs **native tower-backed** projection
-entries (`tower := true`), which the pin as stated excludes — the
-post-flip invariant is the frozen disjunction (DESIGN, task #175
-wiring, §2: `native → pair ∨ tower`), landing together with the infer
-clause's `¬ tower` guard at the flip stage.  Pre-flip the arm is
-unreachable — `directStructsEnabled = false` makes `directParts?`
-return `none` on every input — and the walk discharges it by
-computation, not by a preserved shape. -/
+`checkDirectProj` installs **native tower-backed** projection entries
+(`tower := true`), which the pin — conditional on `tower = false` since
+W5 S4 — does not constrain; every other store of the direct install is
+a non-entry cons. -/
 
-private theorem directParts?_none (env : Env) (block : List ConstantInfo) :
-    directParts? env block = none := by
-  unfold directParts?
-  split
-  · simp [directStructsEnabled]
-  · rfl
+theorem checkDirectProjEntry_tower {T C : Name} {lps : List Name}
+    {nP nF : Nat} {resSort guard : Level} {cvCa : ConstantVal} {pty : Expr}
+    {i : Nat}
+    (h : checkDirectProjEntry (m := CheckM) ops T C lps nP nF resSort guard
+      cvCa pty env i = .ok env') :
+    ∃ entry : ProjEntry, entry.tower = true ∧
+      env' = ⟨.projInfo entry :: env.consts⟩ := by
+  unfold checkDirectProjEntry at h
+  repeat' first
+    | (obtain ⟨_, -, h⟩ := exceptBind_ok h)
+    | split at h
+  all_goals first
+    | exact ⟨_, rfl, (Except.ok.inj h).symm⟩
+    | exact absurd h (by simp)
+
+theorem checkDirectProj_preserves {T C : Name} {lps : List Name}
+    {nP nF : Nat} {resSort : Level} {slots : List Bool} {guards : List Level}
+    {cvTa cvCa : ConstantVal} {i : Nat} (hI : NativeProjPinned env)
+    (h : checkDirectProj (m := CheckM) ops T C lps nP nF resSort slots guards
+      cvTa cvCa env i = .ok env') : NativeProjPinned env' := by
+  unfold checkDirectProj at h
+  split at h
+  · obtain ⟨pty, -, h⟩ := exceptBind_ok h
+    obtain ⟨entry, htw, rfl⟩ := checkDirectProjEntry_tower h
+    intro e hmem hnat htw'
+    rcases List.mem_cons.mp hmem with heq | hmem'
+    · cases ConstantInfo.projInfo.inj heq.symm
+      exact absurd (htw.symm.trans htw') (by decide)
+    · exact hI e hmem' hnat htw'
+  · exact (Except.ok.inj h) ▸ hI
+
+theorem checkDirectStruct_preserves {p : DirectParts} (hI : NativeProjPinned env)
+    (h : checkDirectStruct (m := CheckM) ops env p = .ok env') :
+    NativeProjPinned env' := by
+  unfold checkDirectStruct at h
+  obtain ⟨⟨env₁, cvTa⟩, hInd, h⟩ := exceptBind_ok h
+  try dsimp only at h
+  obtain ⟨⟨env₂, cvCa, sorts⟩, hCtor, h⟩ := exceptBind_ok h
+  try dsimp only at h
+  obtain ⟨cvRa, -, h⟩ := exceptBind_ok h
+  obtain ⟨_, -, h⟩ := exceptBind_ok h
+  obtain ⟨rhsA, -, h⟩ := exceptBind_ok h
+  try dsimp only at h
+  revert h
+  generalize (if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
+      RecRuleFire.plain else RecRuleFire.inert) = fire
+  intro h
+  have hI₂ : NativeProjPinned ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩] :: env₂.consts⟩ :=
+    ((hI.consed (checkDirectInd_consed hInd)).consed
+      (checkDirectCtor_consed hCtor)).consed ⟨_, (fun e => by simp), rfl⟩
+  split at h
+  · refine foldlM_preserves ?_ hI₂ h
+    intro e e' a hIe hs
+    exact checkDirectProj_preserves hIe hs
+  · first
+      | exact nomatch h
+      | (simp only [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+         exact nomatch h)
 
 /-! ### The declaration, and the stream -/
 
@@ -469,8 +518,9 @@ theorem checkDecl_preserves {d : Declaration} (hI : NativeProjPinned env)
       | exact absurd h (by simp)
   | indDecl block =>
     dsimp only at h
-    rw [directParts?_none] at h
-    exact checkIndDecl_preserves hI h
+    split at h
+    · exact checkDirectStruct_preserves hI h
+    · exact checkIndDecl_preserves hI h
 
 /-- **The stream preserves the pin**, from the empty environment. -/
 theorem checkDecls_nativeProjPinned {ds : List Declaration}

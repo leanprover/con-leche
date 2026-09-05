@@ -351,6 +351,20 @@ fall-through, never a verdict. -/
 def directProjSlotOk (T : Name) (isProp large : Bool) (pty : Expr) : Bool :=
   !isProp || large || pty.projNodesOk (fun s _ => s != T)
 
+/-- **The entry decisions of a recognised block**, one per field,
+computed on the block's RAW types (the agreement floor's currency:
+input data, nothing a core computed) — the annotated types' generated
+projection type can only mention *fewer* earlier fields (annotation
+zeta-reduces `let`s and adds no field variable), and an annotated
+entry type that still mentions a data field of a propositional
+structure fails its own inference, which declines the block. -/
+def directProjSlots (p : DirectParts) : List Bool :=
+  (List.range p.nF).map fun i =>
+    match directProjTyP p.cvT.name p.cvT.levelParams p.nP p.nF i p.cvT.type
+        p.cvC.type with
+    | some pty => directProjSlotOk p.cvT.name p.isProp p.large pty
+    | none => false
+
 /-- **Non-recursive**: every binder domain of the constructor already
 resolves in the *pre-block* environment.  This subsumes the reference
 positivity check (`checkPositivity`/`hasIndOcc`, lean4lean

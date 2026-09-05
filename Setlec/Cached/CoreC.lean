@@ -415,7 +415,8 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 targs.length = cnP ∧
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
-                (cvT.type.stripPis cnP).isSome = true then do
+                (cvT.type.stripPis cnP).isSome = true ∧
+                (towerSlotsAllF fe Tn cnF || recSlotsAllF fe Tn cnF) = true then do
               if ← liftFueled "level comparison"
                   (← isEquivListLM us us') then do
                 let tyT ← constTyAtM fe T Tn us'
