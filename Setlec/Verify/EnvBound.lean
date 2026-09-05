@@ -1,4 +1,4 @@
-import Setlec.Kernel.CoreI
+import Setlec.Kernel.DeclCheck
 
 /-!
 # The index's installation counters and the prefix view (task #108)
@@ -263,5 +263,53 @@ theorem restrictTo_push_find? (env : Env) (k : Nat) (n : Name)
         | some (c, cj) => if c < k + 1 then some cj else none
         | none => none)
     rfl
+
+
+/-! ## The `FEnv` index agrees with `Env.find?`
+
+(`mkFEnv_find?` itself, and the bounded-lookup theory it now sits in,
+are in `Setlec/Verify/EnvBound.lean`.) -/
+
+/-- The indexed projection lookup computes `Env.findProj?`. -/
+theorem mkFEnv_findProj? (env : Env) (T : Name) (i : Nat) :
+    (mkFEnv env).findProj? T i = env.findProj? T i := by
+  rw [FEnv.findProj?, Env.findProj?, mkFEnv_find?]
+  rfl
+
+/-! ## Guard twins agree with the `Env` versions -/
+
+theorem natLitSupportedF_eq (env : Env) :
+    natLitSupportedF (mkFEnv env) = natLitSupported env := by
+  simp only [natLitSupportedF, natLitSupported, mkFEnv_find?]
+
+theorem strLitSupportedF_eq (env : Env) :
+    strLitSupportedF (mkFEnv env) = strLitSupported env := by
+  simp only [strLitSupportedF, strLitSupported, mkFEnv_find?,
+    natLitSupportedF_eq]
+
+theorem natOpStoredF_eq (env : Env) (c : Name) :
+    natOpStoredF (mkFEnv env) c = natOpStored env c := by
+  simp only [natOpStoredF, natOpStored, mkFEnv_find?]
+  rfl
+
+theorem natOpGuardF_eq (env : Env) (c : Name) :
+    natOpGuardF (mkFEnv env) c = natOpGuard env c := by
+  simp only [natOpGuardF, natOpGuard, mkFEnv_find?, natLitSupportedF_eq]
+  rfl
+
+/-! ## The `Pi`-residual spelling
+
+`Expr.instPis` (the spec's telescope instantiation) and the core's
+`piResidual` are the same function; both engines' `inferSpine` reduce
+through it. -/
+
+/-- `Expr.instPis` and the core's `piResidual` are the same function. -/
+theorem instPis_eq_piResidual :
+    ∀ (e : Expr) (as : List Expr), e.instPis as = piResidual e as
+  | _, [] => rfl
+  | .forallE _ _ b _, a :: as => instPis_eq_piResidual (b.instantiate1 a) as
+  | .bvar _, _ :: _ | .fvar _ _ _, _ :: _ | .sort _, _ :: _
+  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
+  | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
 
 end Setlec

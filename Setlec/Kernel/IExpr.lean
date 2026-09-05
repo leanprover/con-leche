@@ -629,13 +629,6 @@ def internExpr (st : EStore) : Expr → EIdx × EStore
 @[inline] def levelPtrBEq (a b : Level) : Bool :=
   withPtrEq a b (fun _ => a == b) (fun h => by subst h; simp)
 
-/-- Structural expression equality with a physical-equality shortcut
-(definitionally `a == b`).  Used to validate interned-environment
-entries against the stored constant they cache: the entry was created
-from the very object stored in the environment, so the pointer test
-succeeds without walking either expression. -/
-@[inline] def exprPtrBEq (a b : Expr) : Bool :=
-  withPtrEq a b (fun _ => a == b) (fun h => by subst h; simp)
 
 /-!
 ## Level operations on indices (task #62)

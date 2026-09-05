@@ -3196,55 +3196,6 @@ theorem lbbMono : ∀ {e : Expr} {k k' : Nat}, k ≤ k' →
     intro k k' hle hb
     exact ihe hle hb
 
-/-- The least `k` with `looseBVarsBounded k` (the spec function of the
-eager `bvarBs` entries). -/
-def _root_.Setlec.Expr.bvarBound : Expr → Nat
-  | .bvar i => i + 1
-  | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => 0
-  | .app f a => max f.bvarBound a.bvarBound
-  | .lam _ ty body _ | .forallE _ ty body _ =>
-    max ty.bvarBound (body.bvarBound - 1)
-  | .letE _ ty val body =>
-    max (max ty.bvarBound val.bvarBound) (body.bvarBound - 1)
-  | .proj _ _ e => e.bvarBound
-
-/-- `bvarBound` is exact for `looseBVarsBounded`. -/
-theorem looseBVarsBounded_iff {x : Expr} :
-    ∀ {k : Nat}, x.looseBVarsBounded k = true ↔ x.bvarBound ≤ k := by
-  induction x <;> intro k <;>
-    (try simp [Expr.looseBVarsBounded, Expr.bvarBound, Nat.max_le, *]) <;>
-    omega
-
-/-- The least `d` with `fvarsBelow d` (the spec function of the eager
-`fvarBs` entries; `fvar` type annotations are not descended, matching
-`fvarsBelow` and the abstraction traversals). -/
-def _root_.Setlec.Expr.fvarRange : Expr → Nat
-  | .fvar idx _ _ => idx + 1
-  | .bvar _ | .sort _ | .const _ _ | .lit _ => 0
-  | .app f a => max f.fvarRange a.fvarRange
-  | .lam _ ty body _ | .forallE _ ty body _ =>
-    max ty.fvarRange body.fvarRange
-  | .letE _ ty val body =>
-    max (max ty.fvarRange val.fvarRange) body.fvarRange
-  | .proj _ _ e => e.fvarRange
-
-/-- A term is fvar-free iff its range is zero. -/
-theorem hasFvar_eq_false_iff {x : Expr} :
-    x.hasFvar = false ↔ x.fvarRange = 0 := by
-  induction x <;>
-    simp_all [Expr.hasFvar, Expr.fvarRange, Nat.max_eq_zero_iff,
-      and_assoc]
-
-/-- A term has a reachable fvar leaf iff its range is nonzero. -/
-theorem fvarRange_bne_zero {x : Expr} : (x.fvarRange != 0) = x.hasFvar := by
-  cases hh : x.hasFvar with
-  | false => simp [hasFvar_eq_false_iff.mp hh]
-  | true =>
-    have hne : x.fvarRange ≠ 0 := by
-      intro h0
-      rw [hasFvar_eq_false_iff.mpr h0] at hh
-      cases hh
-    simpa using hne
 
 /-- On a well-formed (flag-off) store the dispatching bound read is
 the tier-one array read (tier two is empty, so the fallback is the
@@ -3504,7 +3455,7 @@ identity branch). -/
 theorem WF.bvarBoundD_le {st : EStore} (hwf : st.WF) {e : EIdx}
     {x : Expr} {d : Nat} (hx : st.denote e = some x)
     (hle : st.bvarBoundD e ≤ d) : x.looseBVarsBounded d = true :=
-  looseBVarsBounded_iff.mpr (hwf.bvarBoundD_exact e hx ▸ hle)
+  Expr.looseBVarsBounded_iff.mpr (hwf.bvarBoundD_exact e hx ▸ hle)
 
 /-- Whether a level mentions any parameter (the spec function of the
 eager `lparamBs` entries; official kernel `level.cpp` `has_param`,
@@ -5571,7 +5522,7 @@ cursor certifies `looseBVarsBounded` of the tier-aware denotation. -/
 theorem TWF.bvarBoundD_le2 {st : EStore} (h : st.TWF) {e : EIdx}
     {x : Expr} {d : Nat} (hx : st.denoteT e = some x)
     (hle : st.bvarBoundD e ≤ d) : x.looseBVarsBounded d = true :=
-  looseBVarsBounded_iff.mpr (h.bvarBoundD_exact2 e hx ▸ hle)
+  Expr.looseBVarsBounded_iff.mpr (h.bvarBoundD_exact2 e hx ▸ hle)
 
 /-- Prune consequence over `denoteT`: a `false` has-level-param entry
 certifies the tier-aware denotation level-param-free. -/

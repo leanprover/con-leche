@@ -177,7 +177,7 @@ the interned original's position). -/
 /-- One cached-environment entry: a stored constant's annotated type
 and (for definitions/theorems/opaques) value converted to `ExprC`,
 each tagged with the very `Expr` object it came from.  A use validates
-the tag by pointer equality (`EStore.exprPtrBEq`, reused), so the
+the tag by pointer equality (`Expr.exprPtrBEq`, reused), so the
 conversion of a stored constant is paid once per declaration instead
 of once per delta step — the counterpart of `IState.ienv`. -/
 structure CConstE where
@@ -438,7 +438,7 @@ def storedTyIdxM (n : Name) (ty : Expr) : CheckCM ExprC := do
   let ent? : Option CConstE ← modifyGet fun s => (s.ienv[n]?, s)
   match ent? with
   | some ent =>
-    if EStore.exprPtrBEq ent.tyE ty then pure ent.ty
+    if Expr.exprPtrBEq ent.tyE ty then pure ent.ty
     else internExprM ty
   | none => internExprM ty
 
@@ -448,7 +448,7 @@ def storedValIdxM (n : Name) (v : Expr) : CheckCM ExprC := do
   let ent? : Option CConstE ← modifyGet fun s => (s.ienv[n]?, s)
   match ent? with
   | some ⟨_, _, some (vE, vi)⟩ =>
-    if EStore.exprPtrBEq vE v then pure vi
+    if Expr.exprPtrBEq vE v then pure vi
     else internExprM v
   | _ => internExprM v
 

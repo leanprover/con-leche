@@ -560,4 +560,78 @@ def eqUpToNames : Expr → Expr → Bool
   | .proj s i e, .proj s' i' e' => s == s' && i == i' && eqUpToNames e e'
   | _, _ => false
 
+/-! ## Derived-field spec functions, and their exactness
+
+The four `@[computed_field]`s of `Expr` (`Setlec/Kernel/Expr.lean`) are
+declared by their recurrences; these are the same recurrences written
+as ordinary definitions, together with the equivalences that make a
+field read license the traversal cutoff it guards.  Self-contained:
+they mention nothing but `Expr`.
+
+They lived in `Setlec/Kernel/ArenaWF.lean` (the parallel-array
+exactness proofs) and `Setlec/Verify/IExpr.lean` until task #172's
+interned removal; the cached engine's field facts
+(`Setlec/Verify/Cached/Erase.lean`) are stated against them. -/
+
+/-- The least `k` with `looseBVarsBounded k` (the spec function of the
+eager `bvarBs` entries). -/
+def _root_.Setlec.Expr.bvarBound : Expr → Nat
+  | .bvar i => i + 1
+  | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => 0
+  | .app f a => max f.bvarBound a.bvarBound
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    max ty.bvarBound (body.bvarBound - 1)
+  | .letE _ ty val body =>
+    max (max ty.bvarBound val.bvarBound) (body.bvarBound - 1)
+  | .proj _ _ e => e.bvarBound
+
+/-- `bvarBound` is exact for `looseBVarsBounded`. -/
+theorem looseBVarsBounded_iff {x : Expr} :
+    ∀ {k : Nat}, x.looseBVarsBounded k = true ↔ x.bvarBound ≤ k := by
+  induction x <;> intro k <;>
+    (try simp [Expr.looseBVarsBounded, Expr.bvarBound, Nat.max_le, *]) <;>
+    omega
+
+/-- The least `d` with `fvarsBelow d` (the spec function of the eager
+`fvarBs` entries; `fvar` type annotations are not descended, matching
+`fvarsBelow` and the abstraction traversals). -/
+def _root_.Setlec.Expr.fvarRange : Expr → Nat
+  | .fvar idx _ _ => idx + 1
+  | .bvar _ | .sort _ | .const _ _ | .lit _ => 0
+  | .app f a => max f.fvarRange a.fvarRange
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    max ty.fvarRange body.fvarRange
+  | .letE _ ty val body =>
+    max (max ty.fvarRange val.fvarRange) body.fvarRange
+  | .proj _ _ e => e.fvarRange
+
+/-- A term is fvar-free iff its range is zero. -/
+theorem hasFvar_eq_false_iff {x : Expr} :
+    x.hasFvar = false ↔ x.fvarRange = 0 := by
+  induction x <;>
+    simp_all [Expr.hasFvar, Expr.fvarRange, Nat.max_eq_zero_iff,
+      and_assoc]
+
+/-- A term has a reachable fvar leaf iff its range is nonzero. -/
+theorem fvarRange_bne_zero {x : Expr} : (x.fvarRange != 0) = x.hasFvar := by
+  cases hh : x.hasFvar with
+  | false => simp [hasFvar_eq_false_iff.mp hh]
+  | true =>
+    have hne : x.fvarRange ≠ 0 := by
+      intro h0
+      rw [hasFvar_eq_false_iff.mpr h0] at hh
+      cases hh
+    simpa using hne
+
+
+/-! ## Pointer-equality shortcut -/
+
+/-- Structural expression equality with a physical-equality shortcut
+(definitionally `a == b`).  Used to validate interned-environment
+entries against the stored constant they cache: the entry was created
+from the very object stored in the environment, so the pointer test
+succeeds without walking either expression. -/
+@[inline] def exprPtrBEq (a b : Expr) : Bool :=
+  withPtrEq a b (fun _ => a == b) (fun h => by subst h; simp)
+
 end Setlec.Expr

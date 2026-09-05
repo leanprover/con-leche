@@ -1341,7 +1341,7 @@ on the invariant (`fvarB_eq _`), so its non-zeroness is the spec's
 theorem hasFvarI_spec {st : CStore} {e : ExprC} {ex : Expr}
     (h : e = ex) : st.hasFvarI e = ex.hasFvar := by
   show (e.fvarB != 0) = _
-  rw [fvarB_eq e, h, fvarRange_bne_zero]
+  rw [fvarB_eq e, h, Expr.fvarRange_bne_zero]
 
 open ExprC in
 /-- Store-shaped `wscopedB`. -/

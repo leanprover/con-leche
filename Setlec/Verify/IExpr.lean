@@ -93,12 +93,6 @@ theorem cond_transport {st st' : EStore} (hext : Ext st st') (hwf : st.TWF)
   exact hcond x hx
 
 
-/-- `fvarRange` is exact for `fvarsBelow`. -/
-theorem fvarsBelow_iff {x : Expr} {d : Nat} :
-    x.fvarsBelow d ↔ x.fvarRange ≤ d := by
-  induction x <;>
-    (try simp [Expr.fvarsBelow, Expr.fvarRange, Nat.max_le, *]) <;>
-    omega
 
 
 /-- Cutoff consequence: a range entry at or below the base certifies
@@ -107,7 +101,7 @@ branch). -/
 theorem TWF.fvarRangeD_le {st : EStore} (hwf : st.TWF) {e : EIdx}
     {x : Expr} {d : Nat} (hx : st.denoteT e = some x)
     (hle : st.fvarRangeD e ≤ d) : x.fvarsBelow d :=
-  fvarsBelow_iff.mpr (hwf.fvarRangeD_exact2 e hx ▸ hle)
+  Expr.fvarsBelow_iff.mpr (hwf.fvarRangeD_exact2 e hx ▸ hle)
 
 /-! ## `instantiate1I` commutes with `denoteT` -/
 
@@ -2587,7 +2581,7 @@ theorem hasFvarI_spec {st : EStore} {e : EIdx} {a : Expr}
     (hwf : st.TWF) (he : st.denoteT e = some a) :
     st.hasFvarI e = a.hasFvar := by
   show (st.fvarRangeD e != 0) = a.hasFvar
-  rw [hwf.fvarRangeD_exact2 e he, fvarRange_bne_zero]
+  rw [hwf.fvarRangeD_exact2 e he, Expr.fvarRange_bne_zero]
 
 
 theorem looseBVarsBoundedIGo_spec {st : EStore} (hwf : st.TWF) :
