@@ -93,7 +93,7 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       (∀ ρ : Nat → V, Sat2 V ((((eds ψ).map (·.2.2)).reverse).drop 1) ρ →
         interp2 V ρ ((((eds ψ).map (·.2.2)).reverse).getD 0 default)
           = towerSet (resSort.eval ψ) (teleOfFields ρ (((ds ψ).drop nP).map (·.2.2)))) ∧
-      ((resSort.eval ψ = 0 → ∀ j, j ≤ i → (sorts.getD j .zero).eval ψ = 0) →
+      ((resSort.eval ψ = 0 → ∀ j, j < i → (sorts.getD j .zero).eval ψ = 0) →
         ∀ ρ : Nat → V, Sat2 V (((eds ψ).map (·.2.2)).reverse) ρ →
           interp2 V ρ (R ψ)
             = interp2 V (consList (projList i (ρ 0)) (fun j => ρ (j + 1)))
