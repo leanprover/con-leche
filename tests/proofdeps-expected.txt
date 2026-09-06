@@ -76,6 +76,7 @@ SPCD_P :: Setlec.Semantics.ProjPhase
 SPCD_P :: Setlec.Semantics.Sat2
 SPCD_P :: Setlec.Semantics.Skeleton
 SPCD_P :: Setlec.Semantics.Syntax
+SPCD_P :: Setlec.Semantics.Tower.IdxEq
 SPCD_P :: Setlec.Semantics.Tower.SumCase
 SPCD_P :: Setlec.Semantics.Tower.SumLeaf
 SPCD_P :: Setlec.Semantics.Tower.SumMk
@@ -446,6 +447,7 @@ sound_P :: Setlec.Semantics.ProjPhase
 sound_P :: Setlec.Semantics.Sat2
 sound_P :: Setlec.Semantics.Skeleton
 sound_P :: Setlec.Semantics.Syntax
+sound_P :: Setlec.Semantics.Tower.IdxEq
 sound_P :: Setlec.Semantics.Tower.SumCase
 sound_P :: Setlec.Semantics.Tower.SumLeaf
 sound_P :: Setlec.Semantics.Tower.SumMk
@@ -816,6 +818,7 @@ foldSPC_PM :: Setlec.Semantics.ProjPhase
 foldSPC_PM :: Setlec.Semantics.Sat2
 foldSPC_PM :: Setlec.Semantics.Skeleton
 foldSPC_PM :: Setlec.Semantics.Syntax
+foldSPC_PM :: Setlec.Semantics.Tower.IdxEq
 foldSPC_PM :: Setlec.Semantics.Tower.SumCase
 foldSPC_PM :: Setlec.Semantics.Tower.SumLeaf
 foldSPC_PM :: Setlec.Semantics.Tower.SumMk
@@ -1175,6 +1178,7 @@ P :: Setlec.Semantics.ProjPhase
 P :: Setlec.Semantics.Sat2
 P :: Setlec.Semantics.Skeleton
 P :: Setlec.Semantics.Syntax
+P :: Setlec.Semantics.Tower.IdxEq
 P :: Setlec.Semantics.Tower.SumCase
 P :: Setlec.Semantics.Tower.SumLeaf
 P :: Setlec.Semantics.Tower.SumMk
