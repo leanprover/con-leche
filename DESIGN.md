@@ -51867,3 +51867,95 @@ the rest are gated call sites in shipped bodies (`Kernel/Core.lean:1079`,
 `Verify/Cached/DiscC2.lean:855,935,1088`).  Touching the first group changes
 the functions every capstone is stated about.  Left in place, as the
 modeonly lane's ~15-file estimate predicted.
+
+## TASK #193 — THE NATIVE PREDICATE WAS LOOSER THAN THE RECOGNISER: a former declared at a definition (2026-09-06, `agent/indexed-fix`)
+
+### The finding
+
+On the Mathlib stream regenerated with the indexed predicate
+(`agent/perf-regen`), `lech --trusted` DECLINED at fold position 49 833:
+`missing model for CategoryTheory.Presieve.ofArrows`.  The official
+kernel accepts the stream.  The block:
+
+    inductive Presieve.ofArrows {ι} (Y : ι → C) (f : ∀ i, Y i ⟶ X) : Presieve X
+      | mk (i : ι) : ofArrows Y f (f i)          -- Presieve X := ∀ ⦃Y⦄, Set (Y ⟶ X)
+
+Decoded from the cone: the stored former type is six Π binders ending in
+`CategoryTheory.Presieve C inst X` — a CONSTANT APPLICATION, not a
+`Sort`; the recursor carries `numIndices = 2` because Lean's kernel
+`whnf`s the former's type to `∀ (Y : C) (g : Y ⟶ X), Prop` when it
+counts indices.  **The failing conjunct is `directSumPartsCore?`'s
+former-telescope pin, `cvT.type.stripPis (nP + nIdx)` ending in
+`.sort`** (`Lech/Kernel/Direct/SumParts.lean`).  NOT the constructor's
+index expression: `ofArrows Y f (Y i) (f i)` is an ordinary spine and
+general index terms are graded and spine-fitted by the indexed route
+(the diagnosis "the index is a general term `f i`" was wrong).  The
+predicate `lechNativeSum` mirrored that conjunct as `numIndices` alone,
+which is exactly the kernel's whnf-counted number and says nothing
+about the declared type's syntax — so the block was left native, the
+recogniser fell through to the modelled path, and the stream carried
+no model.  The structure arm had the same latent hole (`numIndices ==
+0` for "the former IS `∀ p⃗, Sort u`"); no init-full block exercises
+either.
+
+### The fix (Part A — the quick one; Part B is task #195)
+
+* `LechPreprocess.lean`: `lechFormerTelescope` — `numParams +
+  numIndices` `forallE` binders then a `sort`, read off the DECLARED
+  `Lean.Expr` with no unfolding — in both arms.  The header table's row
+  for this conjunct is corrected.  Init-full: the native set is
+  UNCHANGED (548 blocks; no def-headed former there).
+* `Main.lean`: `LECH_ROUTE_TRACE=1` — one `lech: route <block>
+  <struct|sum|basis|modeled>` line per inductive block on the progress
+  lane, computed by `directPartsF?`/`directSumPartsF?` on the very
+  environment the step sees (so it is the dispatch of `checkIndDeclSF`,
+  not a re-implementation).
+* `tests/native-audit.sh` (+ a section of `tests/arena.sh`): **the
+  mechanical predicate ⊆ recogniser check** — for each raw stream,
+  `lech-preprocess`'s `native` lines against the route trace; a native
+  block that reads `modeled` (or a "missing model" decline) FAILS; a
+  native block the fold never reached is a NOTE.  Default: the 92 good
+  arena fixtures (169 native blocks: 108 struct, 61 sum, 0
+  unrecognised); `--full` adds init-full (with the Presieve cone: 94
+  streams, 775 native blocks — 638 struct, 135 sum, 2 basis, 0
+  unrecognised, 0 unreached).
+* `tests/e2e/direct_idx_defhead` (exported through the fixed
+  `lech-preprocess`): `OfFn f : Pred α` with `Pred α := α → Prop` — the
+  Presieve shape at a fresh name, MODELLED again (route `modeled`),
+  beside the control `Rel f : α → Prop` (route `sum`); accept in both
+  modes.
+
+### Receipts (tip `1a76e013` + this record)
+
+Build warning-free (636 jobs), `lake test` green (axiom pin included),
+`tests/arena.sh` exit 0 — layering 241/165/3/1, proofdeps 2 515 rows /
+0 doors (unchanged: no proof file touched), trust surface 18/4/0, the
+native audit above, 90/92 · e2e 97/97 · annot 14/14 · retired 8/8 ·
+mode 16/16 · progress 6/6, the trusted sweep.  init-full stock
+`--verified` 60 549 / `--trusted` 60 549; regenerated with the fixed
+predicate (`init-full-pre-fix.ndjson`, 548 native) `--verified` 55 835 /
+`--trusted` 55 835 — all exit 0, identical to the indexed landing's
+baseline.  **The Presieve cone**: cut from the raw Mathlib export with
+the String-support constants (`_tmp/indexed-fix/slice_multi_fast.py`,
+the sigmahom slicer fixed for lean4export's key-sorted raw records —
+`"ie"` is not the first key of an `app`/`bvar`/`const` line there, and
+the child scan must start at the line's head), preprocessed with the
+fixed binary (`ofArrows: model of 4 declarations`): `--verified` and
+`--trusted` **accept 881 declarations**; the same cone cut from the
+perf lane's stream reproduces the decline in both modes (fold position
+591).  No Mathlib-scale checker run was made here.
+
+### Part B (task #195, next on this lane) — support these blocks directly
+
+User direction: falling back is the quick fix, not the end state.  The
+route should take a former whose declared type only UNFOLDS to the
+telescope: the recogniser computes the telescope by whnf of the
+declared type (as official does for `numIndices`), the generated
+recursor's motive/minor/major and the rules are built over the whnf'd
+telescope (which is what the stream's recursor already carries), the
+stored former keeps its declared type, and the P tier reads the
+former's type through the model's delta law (a constant's denotation
+is its value's) instead of the syntactic-telescope reading.  Same
+question for constructor residuals/fields declared at definitions
+(census owed).  The audit test then proves predicate ⊆ recogniser for
+the re-widened predicate mechanically.
