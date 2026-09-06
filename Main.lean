@@ -1,4 +1,4 @@
-import Setlec.Cached.ParsedT
+import Setlec.Cached.ParsedC
 import Setlec.Frontend.ExportC
 
 /-!
@@ -163,11 +163,12 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
           if taintSkipped.isEmpty then return code
           IO.eprintln s!"setlec: declined: {Frontend.taintSummary taintSkipped}"
           return (if code = 0 then 2 else code)
-        let foldD : List Setlec.Cached.DeclC → Setlec.CheckM Setlec.Env :=
-          if mode == Setlec.CheckMode.trusted then
-            Setlec.Cached.checkDeclsSPCachedDT
-          else Setlec.Cached.checkDeclsSPCachedD mode
-        match foldD decls.toList with
+        -- ONE driver, two configs (2026-09-06): the trusted mode is
+        -- the shared bodies at `cfgT`, the verified mode the same
+        -- bodies at `cfgP` (`cfgOf .verified`, `rfl`).
+        let cfg : Setlec.CoreCfg :=
+          if mode == Setlec.CheckMode.trusted then Setlec.cfgT else Setlec.cfgP
+        match Setlec.Cached.checkDeclsSPCachedD cfg decls.toList with
         | .ok env =>
           IO.println s!"setlec: accepted {env.consts.length} declarations"
           return ← finish 0
@@ -177,9 +178,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
           -- message.  No re-parse is needed — the records carry no
           -- arena, so the fold never shared a store with them.
           let stepD := fun fe d s =>
-            if mode == Setlec.CheckMode.trusted then
-              (Setlec.Cached.checkDeclSPStepCT fe d).run s
-            else (Setlec.Cached.checkDeclSPStepC mode fe d).run s
+            (Setlec.Cached.checkDeclSPStepC cfg fe d).run s
           let ctx := diagLoopC stepD decls 0
             (Setlec.mkFEnv Setlec.Env.empty) {}
           IO.eprintln s!"setlec: {e}{ctx}"
@@ -203,11 +202,14 @@ def usage : String := String.intercalate "\n" [
   "                    certificate family runs.  Covered by",
   "                    no_proof_of_Empty_SPCD_P over the driver this",
   "                    binary runs (Setlec/Verify/Cached/MainC.lean)",
-  "  --trusted         the unverified mode: the same checker with the",
-  "                    work that exists for CERTIFICATION ONLY dropped",
-  "                    — full checking-mode front door per declaration,",
-  "                    infer-only internal re-derivations, and no",
-  "                    certificate families at all.  Everything",
+  "  --trusted         the unverified mode: the SAME checker bodies as",
+  "                    --verified, instantiated at the config with the",
+  "                    certification-only work switched off (cfgT =",
+  "                    cfgP with verified := false): the annotation",
+  "                    validations, the lambda-codomain sort check and",
+  "                    the projection certificate family are omitted;",
+  "                    the beta/io licences read the (unvalidated)",
+  "                    annotation datum as in --verified.  Everything",
   "                    believed necessary for SOUNDNESS stays (which is",
   "                    not the same as necessary for the soundness",
   "                    proof to go through), and the mode is never",
@@ -219,10 +221,11 @@ def usage : String := String.intercalate "\n" [
   "                    lean-inductive-models: skip the preprocessor",
   "                    detection scan and spawn entirely",
   "",
-  "There are TWO cores and one parse: the verified core (--verified,",
-  "the default) and the unverified trusted core (--trusted).  The",
-  "stream is read directly to the cached representation and checked by",
-  "the driver the capstone letter is about (no_proof_of_Empty_SPCD_P in",
+  "There is ONE core at two configs and one parse: the verified config",
+  "(--verified, the default) and the unverified trusted config",
+  "(--trusted).  The stream is read directly to the cached",
+  "representation and checked by the one driver, which the capstone",
+  "letter is about at the verified config (no_proof_of_Empty_SPCD_P in",
   "Setlec/Verify/Cached/MainC.lean).  Retired: --set-model/",
   "--set-model=p (now --verified) and --no-model (now --trusted),",
   "2026-09-06; the --core selector, the interned arena and the",

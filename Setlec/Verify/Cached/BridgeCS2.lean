@@ -48,7 +48,7 @@ theorem checkTypedListS_sim (henv : EnvWF env) {depth : Nat} :
       (∀ a ∈ as, Expr.WScoped depth a) → (∀ b ∈ bs, Expr.WScoped depth b) →
       ∀ {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
-        (checkTypedList (sharedOpsC mode (mkFEnv env)) env depth as bs)
+        (checkTypedList (sharedOpsC (cfgOf mode) (mkFEnv env)) env depth as bs)
         (checkTypedList (fueledOpsM mode) env depth as bs)
   | [], [], _, _, s₀, hs => SimC.pure hs rfl
   | [], _ :: _, _, _, s₀, hs => SimC.throw
@@ -78,7 +78,7 @@ theorem checkDefEqListS_sim (henv : EnvWF env) {depth : Nat} :
       (∀ a ∈ as, Expr.WScoped depth a) → (∀ b ∈ bs, Expr.WScoped depth b) →
       ∀ {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
-        (checkDefEqList (sharedOpsC mode (mkFEnv env)) env depth as bs)
+        (checkDefEqList (sharedOpsC (cfgOf mode) (mkFEnv env)) env depth as bs)
         (checkDefEqList (fueledOpsM mode) env depth as bs)
   | [], [], _, _, s₀, hs => SimC.pure hs rfl
   | [], _ :: _, _, _, s₀, hs => SimC.throw
@@ -106,7 +106,7 @@ theorem checkAnnotListS_sim (henv : EnvWF env) {depth : Nat} :
       (∀ a ∈ as, Expr.WScoped depth a) →
       ∀ {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
-        (checkAnnotList (sharedOpsC mode (mkFEnv env)) env depth as)
+        (checkAnnotList (sharedOpsC (cfgOf mode) (mkFEnv env)) env depth as)
         (checkAnnotList (fueledOpsM mode) env depth as)
   | [], _, s₀, hs => SimC.pure hs rfl
   | a :: as, ha, s₀, hs => by
@@ -132,7 +132,7 @@ theorem checkIotaSidesTyS_sim {depth : Nat} {alphaS lhsS rhsS : Expr}
     (hα : Expr.WScoped depth alphaS) (hl : Expr.WScoped depth lhsS)
     (hr : Expr.WScoped depth rhsS) (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkIotaSidesTy mode (sharedOpsC mode (mkFEnv env)) env depth alphaS
+      (checkIotaSidesTy mode (sharedOpsC (cfgOf mode) (mkFEnv env)) env depth alphaS
         lhsS rhsS ℓA cvName)
       (checkIotaSidesTy mode (fueledOpsM mode) env depth alphaS lhsS rhsS
         ℓA cvName) := by
@@ -193,7 +193,7 @@ theorem checkIotaThmS_sim {env' : Env} (henv' : EnvWF env')
     (htyA : tyA.hasFvar = false) (hctor : cvj.type.hasFvar = false)
     (hrhsA : rhsA.hasFvar = false) (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkIotaThm mode (sharedOpsC mode (mkFEnv env)) env' env f cvName lps
+      (checkIotaThm mode (sharedOpsC (cfgOf mode) (mkFEnv env)) env' env f cvName lps
         tyA mI rP j r cvj cnP cnF rhsA)
       (checkIotaThm mode (fueledOpsM mode) env' env f cvName lps tyA
         mI rP j r cvj cnP cnF rhsA) := by
@@ -371,7 +371,7 @@ theorem checkIotaThmNS_sim {env' : Env} (henv' : EnvWF env')
     (htyA : tyA.hasFvar = false) (hctor : cvj.type.hasFvar = false)
     (hrhsA : rhsA.hasFvar = false) (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkIotaThmN mode (sharedOpsC mode (mkFEnv env)) env' env f cvName lps
+      (checkIotaThmN mode (sharedOpsC (cfgOf mode) (mkFEnv env)) env' env f cvName lps
         tyA mI rP j r cvj cnP cnF rhsA)
       (checkIotaThmN mode (fueledOpsM mode) env' env f cvName lps tyA
         mI rP j r cvj cnP cnF rhsA) := by
@@ -584,7 +584,7 @@ theorem checkIotaRuleS_sim {env' : Env} (henv' : EnvWF env')
     {lps : List Name} {tyA : Expr} {mI rP j : Nat} {r : RecRule}
     (htyA : tyA.hasFvar = false) (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkIotaRule mode (sharedOpsC mode (mkFEnv env)) env' env f cvName lps
+      (checkIotaRule mode (sharedOpsC (cfgOf mode) (mkFEnv env)) env' env f cvName lps
         tyA mI rP j r)
       (checkIotaRule mode (fueledOpsM mode) env' env f cvName lps tyA mI rP j r) := by
   unfold checkIotaRule
@@ -648,7 +648,7 @@ theorem checkIotaRulesS_sim {env' : Env} (henv' : EnvWF env')
     (htyA : tyA.hasFvar = false) :
     ∀ {j : Nat} {rules : List RecRule} {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
-        (checkIotaRules mode (sharedOpsC mode (mkFEnv env)) env' env f cvName lps
+        (checkIotaRules mode (sharedOpsC (cfgOf mode) (mkFEnv env)) env' env f cvName lps
           tyA mI rP j rules)
         (checkIotaRules mode (fueledOpsM mode) env' env f cvName lps tyA
           mI rP j rules)
@@ -668,7 +668,7 @@ returned constant's type is well-scoped. -/
 theorem checkMemberValS_sim (henv : EnvWF env) {blockNames : List Name}
     {cv : ConstantVal} (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v = w ∧ Expr.WScoped 0 v.type)
-      (checkMemberVal (sharedOpsC mode (mkFEnv env)) blockNames env cv)
+      (checkMemberVal (sharedOpsC (cfgOf mode) (mkFEnv env)) blockNames env cv)
       (checkMemberVal (fueledOpsM mode) blockNames env cv) := by
   unfold checkMemberVal
   refine SimC.bind (checkConstantValS_sim henv hs)
@@ -704,7 +704,7 @@ theorem checkProjRuleS_sim (henv : EnvWF env) {pty : Expr}
     (hCf : cvj.type.hasFvar = false)
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkProjRule (sharedOpsC mode (mkFEnv env)) env pty cvj lps nP nF i)
+      (checkProjRule (sharedOpsC (cfgOf mode) (mkFEnv env)) env pty cvj lps nP nF i)
       (checkProjRule (fueledOpsM mode) env pty cvj lps nP nF i) := by
   unfold checkProjRule
   dsimp only [sharedOpsC]
@@ -906,7 +906,7 @@ theorem checkProjIotaS_sim {T ctorName : Name}
     {lps : List Name} {cvj : ConstantVal} {nP nF i : Nat}
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkProjIota mode (sharedOpsC mode (mkFEnv env)) env env T ctorName lps
+      (checkProjIota mode (sharedOpsC (cfgOf mode) (mkFEnv env)) env env T ctorName lps
         cvj nP nF i)
       (checkProjIota mode (fueledOpsM mode) env env T ctorName lps cvj nP nF
         i) := by

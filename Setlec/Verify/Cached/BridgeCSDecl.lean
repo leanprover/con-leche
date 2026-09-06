@@ -139,18 +139,18 @@ generic `checkDecl` (at the cached shared operations) followed by
 `mkFEnv` — the `CheckCM` twin of `checkDeclSF_nonind`. -/
 theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
     (hnotind : ∀ block, d ≠ .indDecl block) :
-    checkDeclSF mode (mkFEnv env) d
-      = checkDecl mode (sharedOpsC mode (mkFEnv env)) env d
+    checkDeclSF (cfgOf mode) (mkFEnv env) d
+      = checkDecl mode (sharedOpsC (cfgOf mode) (mkFEnv env)) env d
           >>= fun e => pure (mkFEnv e) := by
   cases d with
   | indDecl block => exact absurd rfl (hnotind block)
   | defnDecl cv value hint =>
     show (do
-        let cv ← checkConstantValF (sharedOpsC mode (mkFEnv env))
+        let cv ← checkConstantValF (sharedOpsC (cfgOf mode) (mkFEnv env))
           (mkFEnv env) cv
         if natOpNames.contains cv.name ||
             natDivModNames.contains cv.name then
-          let fe2 ← checkDefnValF (sharedOpsC mode (mkFEnv env)) (mkFEnv env)
+          let fe2 ← checkDefnValF (sharedOpsC (cfgOf mode) (mkFEnv env)) (mkFEnv env)
             cv value hint
           if natOpNames.contains cv.name then
             unless natOpGuardF fe2 cv.name &&
@@ -159,7 +159,7 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
                 s!"nonstandard structural Nat operation environment ({cv.name})")
             match fe2.find? cv.name with
             | some (.defnInfo _ value' _) =>
-              let ok ← certifyNatEqs (sharedOpsC mode (mkFEnv env))
+              let ok ← certifyNatEqs (sharedOpsC (cfgOf mode) (mkFEnv env))
                 (mkFEnv env).env
                 ((natOpEquations 0 cv.name).map fun eq =>
                   (Expr.substConst0 cv.name value' eq.1,
@@ -170,11 +170,11 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
             | _ => throw (.internal
                 s!"structural Nat operation not stored ({cv.name})")
           if natDivModNames.contains cv.name then
-            checkDivModPinF (sharedOpsC mode (mkFEnv env)) (mkFEnv env) fe2
+            checkDivModPinF (sharedOpsC (cfgOf mode) (mkFEnv env)) (mkFEnv env) fe2
               cv.name
           pure fe2
         else
-          checkDefnValF (sharedOpsC mode (mkFEnv env)) (mkFEnv env)
+          checkDefnValF (sharedOpsC (cfgOf mode) (mkFEnv env)) (mkFEnv env)
             cv value hint : CheckCM FEnv) = _
     unfold checkDecl
     simp only [checkConstantValF_eq, mkFEnv_env, bind_assoc]
@@ -209,20 +209,20 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
         rfl
   | thmDecl cv value =>
     show (do
-        let cv ← checkConstantValF (sharedOpsC mode (mkFEnv env))
+        let cv ← checkConstantValF (sharedOpsC (cfgOf mode) (mkFEnv env))
           (mkFEnv env) cv
-        checkThmValF (sharedOpsC mode (mkFEnv env)) (mkFEnv env) cv value :
+        checkThmValF (sharedOpsC (cfgOf mode) (mkFEnv env)) (mkFEnv env) cv value :
         CheckCM FEnv) = _
     unfold checkDecl
     simp only [checkConstantValF_eq, checkThmValF_pushC, bind_assoc]
   | opaqueDecl cv value =>
     show (do
-        let cv ← checkConstantValF (sharedOpsC mode (mkFEnv env))
+        let cv ← checkConstantValF (sharedOpsC (cfgOf mode) (mkFEnv env))
           (mkFEnv env) cv
-        let fe2 ← checkOpaqueValF (sharedOpsC mode (mkFEnv env))
+        let fe2 ← checkOpaqueValF (sharedOpsC (cfgOf mode) (mkFEnv env))
           (mkFEnv env) cv value
         if reduceOpNames.contains cv.name then
-          checkReducePinF (sharedOpsC mode (mkFEnv env)) (mkFEnv env) fe2
+          checkReducePinF (sharedOpsC (cfgOf mode) (mkFEnv env)) (mkFEnv env) fe2
             cv.name value
         pure fe2 : CheckCM FEnv) = _
     unfold checkDecl
@@ -233,7 +233,7 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
       ite_bindC, throwC_bind_eq] <;> rfl
   | axiomDecl cv =>
     show (do
-        let cvA ← checkConstantValF (sharedOpsC mode (mkFEnv env))
+        let cvA ← checkConstantValF (sharedOpsC (cfgOf mode) (mkFEnv env))
           (mkFEnv env) cv
         if stdAxiomOkF (mkFEnv env) cvA then
           pure ((mkFEnv env).push (.axiomInfo cvA))
@@ -330,7 +330,7 @@ reproduced by the pure fueled `checkDirectStruct`. -/
 theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
     {p : DirectParts} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : checkDirectStructS mode (mkFEnv env) p s₀ = .ok (feOut, s')) :
+    (h : checkDirectStructS (cfgOf mode) (mkFEnv env) p s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkDirectStruct (fueledOps mode F) env p = .ok feOut.env := by
   unfold checkDirectStructS at h
@@ -445,7 +445,7 @@ pure fueled `checkIndDecl`. -/
 theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : checkIndDeclSF mode (mkFEnv env) block s₀ = .ok (feOut, s')) :
+    (h : checkIndDeclSF (cfgOf mode) (mkFEnv env) block s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkIndDecl mode (fueledOps mode F) env block = .ok feOut.env := by
   unfold checkIndDeclSF at h
@@ -476,6 +476,9 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
     rw [hfe₃] at h
     simp only [mkFEnv_find?] at h
     rw [ctorResidualOkF_eq] at h
+    -- the driver is config-parametric (2026-09-06): its install-time
+    -- `CheckMode` is `(cfgOf mode).iotaMode`, which is `mode` by `rfl`
+    rw [show (cfgOf mode).iotaMode = mode from rfl] at h
     by_cases hctorRes : ctorResidualOk mode fe₃.env cvT.name cvC.name
         cvT.levelParams nP nF caps.eta = true
     case neg =>
@@ -654,8 +657,8 @@ theorem checkIndOrDirectSF_run {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
     (h : (match directPartsF? (mkFEnv env) block with
-          | some p => checkDirectStructS mode (mkFEnv env) p
-          | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
+          | some p => checkDirectStructS (cfgOf mode) (mkFEnv env) p
+          | none => checkIndDeclSF (cfgOf mode) (mkFEnv env) block) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkDecl mode (fueledOps mode F) env (.indDecl block) =
@@ -680,12 +683,12 @@ over a well-formed environment is reproduced by the pure fueled
 checker, and the resulting index is `mkFEnv` of its environment. -/
 theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
     {fe' : FEnv} (henv : EnvWF env)
-    (h : checkDeclSharedF mode (mkFEnv env) d = .ok fe') :
+    (h : checkDeclSharedF (cfgOf mode) (mkFEnv env) d = .ok fe') :
     fe' = mkFEnv fe'.env ∧
     ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env := by
   unfold checkDeclSharedF at h
   simp only [StateT.run'] at h
-  cases hrun : checkDeclSF mode (mkFEnv env) d ({} : CState) with
+  cases hrun : checkDeclSF (cfgOf mode) (mkFEnv env) d ({} : CState) with
   | error e =>
     rw [hrun] at h
     simp only [Functor.map, Except.map] at h

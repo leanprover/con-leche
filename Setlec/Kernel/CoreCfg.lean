@@ -121,11 +121,12 @@ def cfgP : CoreCfg where
   iotaMode := .verified
 
 /-- **The trusted core's configuration** (task #172, batch B3; the
-licence ruling of 2026-09-06).  Not a second *verified* core — the
-trusted core is unproven-sound by the user's own order — but a named
-config all the same, because `Cached/CoreT.lean`'s cross-calls into
-the shared helpers have to say which configuration they mean, and
-`.trusted` is no longer a thing a templated helper can take.
+licence ruling of 2026-09-06; the twin's retirement, 2026-09-06).  Not
+a second *verified* core — the trusted core is unproven-sound by the
+user's own order — but **the same core**: since the retirement of
+`Cached/CoreT.lean` the trusted mode is `Cached/CoreC.lean`'s one knot
+and `Cached/ParsedC.lean`'s one driver at this config
+(`Main.lean` maps `--trusted` to `cfgT`, `--verified` to `cfgP`).
 
 **`cfgT` is `cfgP` with the certification-only bit off, and nothing
 else** (`cfgT_eq_cfgP_verified_off` below).  That is the definition of
@@ -144,7 +145,13 @@ official-shaped.  Trust the writer, skip the validation.
 `iotaMode` is the only other field that differs, and it is inert:
 `ttChecks` is `false` at both modes (`cfgP_iotaMode_ttChecks`,
 `cfgT_iotaMode_ttChecks`), so the ι cone's one branch is eliminated at
-either value.
+either value.  (It became *fully* inert at the twin's retirement: the
+ι cone's slot licence used to read `iotaMode.betaGate`, which is
+`false` at `.trusted`, so at "the shared bodies at `cfgT`" the ι
+telescope certificates would have run unlicensed — the last inversion,
+found when the shipped lane first reached those bodies.  `iotaRecI`
+now reads `cfg.betaGate`; `iotaMode` is consumed by `ttChecks` reads
+only, in the core and in the install-time stages alike.)
 
 **`cfgT` is therefore no longer in the image of `cfgOf`**
 (`cfgOf_trusted_ne_cfgT`): `cfgOf` maps the *mode-parametric* towers'
@@ -153,10 +160,11 @@ dead-branch collapse and the establishment/consumption fence live.
 Nothing is proved about `cfgT`, so nothing is lost; the divergence is
 recorded rather than papered over.
 
-B5/B6 retire `Cached/CoreT.lean` into a full instantiation at this
-config; until then it is the residual sharing's name, and naming it is
-route C's own discipline (*the config record's fields are the
-divergence list*) applied to the trusted side. -/
+The B5/B6 retirement of `Cached/CoreT.lean` into a full instantiation
+at this config landed 2026-09-06 (DESIGN.md, "CORET RETIRED"): route
+C's own discipline — *the config record's fields are the divergence
+list* — now holds on the trusted side too, with `verified` the one
+divergent field. -/
 def cfgT : CoreCfg where
   betaGate := true
   ioGate := true
