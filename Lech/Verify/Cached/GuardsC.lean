@@ -1385,14 +1385,6 @@ theorem leafGuardI_spec {st : CStore} {fab base : ExprC} {fx bx : Expr}
       = (fx.fvarLeaves.all fun l => bx.fvarLeaves.contains l) := by
   rw [CStore.leafGuardI, ExprC.leafGuard_spec, h₁, h₂]
 
-open ExprC in
-/-- Store-shaped `∀`-telescope body strip. -/
-theorem stripPisBodyI_spec {st : CStore} {k : Nat} {e : ExprC} {ex : Expr}
-    (h : e = ex) :
-    OptEr (st.stripPisBodyI k e) ((ex.stripPis k).map (·.2)) := by
-  rw [CStore.stripPisBodyI, ← h]
-  exact ExprC.stripPisBody_spec _ _
-
 /-! ## Constant resolution
 
 `constsResolveFCGo` (`Lech/Cached/StateC.lean`) is the clone's

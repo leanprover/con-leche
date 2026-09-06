@@ -153,63 +153,6 @@ theorem mkAppN_spec : ∀ (args : List ExprC) (f : ExprC),
     rw [show mkAppN f (a :: as) = mkAppN (mkApp f a) as from rfl, this]
     rfl
 
-/-! ## Telescope queries -/
-
-theorem stripPisBody_spec : ∀ (k : Nat) (e : ExprC),
-    OptEr (stripPisBody k e) (((Expr.stripPis k e)).map (·.2)) := by
-  intro k
-  induction k with
-  | zero => intro e; exact rfl
-  | succ k ih =>
-    intro e
-    cases e with
-    | forallE n ty b m =>
-      have := ih b
-      rw [show stripPisBody (k + 1) (.forallE n ty b m)
-          = stripPisBody k b from rfl]
-      rw [show ((Expr.stripPis (k + 1) (.forallE n ty b m))).map
-            (·.2)
-          = ((Expr.stripPis k b)).map (·.2) by
-        cases hs : (Expr.stripPis k b) <;>
-          simp [Expr.stripPis, hs]]
-      exact this
-    | _ => exact trivial
-
-theorem pisToLams_spec : ∀ (k : Nat) (e body : ExprC),
-    OptEr (pisToLams k e body)
-      (Expr.pisToLams k e body) := by
-  intro k
-  induction k with
-  | zero => intro e body; exact rfl
-  | succ k ih =>
-    intro e body
-    cases e with
-    | forallE n ty rest mb =>
-      have hrec := ih rest body
-      rw [show pisToLams (k + 1) (.forallE n ty rest mb) body
-          = (match pisToLams k rest body with
-             | some b => some (mkLam n ty b ⟨mb.bi, .never⟩)
-             | none => none) from rfl]
-      rw [show Expr.pisToLams (k + 1)
-            ((.forallE n ty rest mb)) body
-          = (Expr.pisToLams k rest body).map
-              (fun bx => .lam n ty bx ⟨mb.bi, .never⟩) from rfl]
-      cases hgo : pisToLams k rest body with
-      | none =>
-        rw [hgo] at hrec
-        cases hox : Expr.pisToLams k rest body with
-        | none => exact trivial
-        | some bx => rw [hox] at hrec; exact absurd hrec not_false
-      | some bc =>
-        rw [hgo] at hrec
-        cases hox : Expr.pisToLams k rest body with
-        | none => rw [hox] at hrec; exact absurd hrec not_false
-        | some bx =>
-          rw [hox] at hrec
-          show mkLam n ty bc ⟨mb.bi, .never⟩ = _
-          rw [mkLam_eq, (hrec : bc = bx)]
-    | _ => exact trivial
-
 /-! ## Scope queries -/
 
 theorem looseBVarsBounded_spec {k : Nat} (e : ExprC) :

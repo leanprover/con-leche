@@ -654,14 +654,6 @@ def leafGuard (fab base : ExprC) : Bool :=
 
 /-! ## Telescope operations -/
 
-/-- The body after `k` leading `∀`-binders. -/
-def stripPisBody : Nat → ExprC → Option ExprC
-  | 0, e => some e
-  | k + 1, e =>
-    match e with
-    | .forallE _ _ b _ .. => stripPisBody k b
-    | _ => none
-
 /-- The `instantiate1` chain of `Expr.instSpine`. -/
 def instSpineChain : List ExprC → Nat → ExprC → ExprC
   | [], _, e => e
@@ -698,17 +690,6 @@ decreasing_by
 @[inherit_doc piResidualAcc]
 def piResidual (e : ExprC) (args : List ExprC) : Option ExprC :=
   piResidualAcc [] e args
-
-/-- `Expr.pisToLams` on `ExprC`. -/
-def pisToLams : Nat → ExprC → ExprC → Option ExprC
-  | 0, _, body => some body
-  | k + 1, e, body =>
-    match e with
-    | .forallE n ty rest mb .. =>
-      match pisToLams k rest body with
-      | some b => some (mkLam n ty b ⟨mb.bi, .never⟩)
-      | none => none
-    | _ => none
 
 /-! ## Level-parameter definedness (the parsed-index driver's guard) -/
 

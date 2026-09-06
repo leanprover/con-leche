@@ -229,15 +229,6 @@ theorem piResidualM_eff (hs : CSOK mode env s₀) {e : ExprC}
   rw [← he.erase, ← hargs.map]
   exact h
 
-theorem pisToLamsM_eff (hs : CSOK mode env s₀) {k : Nat} {e body : ExprC}
-    {x xb : Expr} (he : RelC e x) (hb : RelC body xb) :
-    CEff mode env s₀ (fun o => OptEr o (Expr.pisToLams k x xb))
-      (pisToLamsM k e body) := by
-  refine CEff.pure hs ?_
-  have h := pisToLams_spec k e body
-  rw [← he.erase, ← hb.erase]
-  exact h
-
 theorem instLevelParamsM_eff (hs : CSOK mode env s₀) {ks : List Name}
     {us : List Level} {e : ExprC} {a : Expr} (he : RelC e a) :
     CEff mode env s₀
@@ -280,39 +271,14 @@ theorem internLM_eff (hs : CSOK mode env s₀) (u : Level) :
     CEff mode env s₀ (fun v => v = u) (internLM u) :=
   CEff.pure hs rfl
 
-theorem viewLM_eff (hs : CSOK mode env s₀) (u : Level) :
-    CEff mode env s₀ (fun o => o = some u) (viewLM u) :=
-  CEff.pure hs rfl
-
-theorem readbackLevelM_eff (hs : CSOK mode env s₀) (u : Level) :
-    CEff mode env s₀ (fun v => v = u) (readbackLevelM u) :=
-  CEff.pure hs rfl
-
 theorem readbackLevelsM_eff (hs : CSOK mode env s₀) (us : List Level) :
     CEff mode env s₀ (fun vs => vs = us) (readbackLevelsM us) :=
-  CEff.pure hs rfl
-
-theorem substLM_eff (hs : CSOK mode env s₀) (ks : List Name)
-    (us : List Level) (u : Level) :
-    CEff mode env s₀ (fun v => v = Level.subst ks us u) (substLM ks us u) :=
-  CEff.pure hs rfl
-
-theorem substLevelTreeM_eff (hs : CSOK mode env s₀) (ks : List Name)
-    (us : List Level) (l : Level) :
-    CEff mode env s₀ (fun v => v = Level.subst ks us l)
-      (substLevelTreeM ks us l) :=
   CEff.pure hs rfl
 
 theorem substLevelTreesM_eff (hs : CSOK mode env s₀) (ks : List Name)
     (us : List Level) (ls : List Level) :
     CEff mode env s₀ (fun vs => vs = ls.map (Level.subst ks us))
       (substLevelTreesM ks us ls) :=
-  CEff.pure hs rfl
-
-/-- The zero-ness readout is a pure function of the level tree
-(task #161). -/
-theorem zeronessOfM_eff (hs : CSOK mode env s₀) (u : Level) :
-    CEff mode env s₀ (fun r => r = Level.zeronessOf u) (zeronessOfM u) :=
   CEff.pure hs rfl
 
 end Effects

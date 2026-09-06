@@ -77,9 +77,6 @@ namespace CStore
 
 @[inline] def hasFvarI (_ : CStore) (e : ExprC) : Bool := e.hasFvar
 
-@[inline] def stripPisBodyI (_ : CStore) (k : Nat) (e : ExprC) :
-    Option ExprC := ExprC.stripPisBody k e
-
 /-- Memo table for the zero-ness readout (structural `Level` keys). -/
 abbrev PWMemo := Std.HashMap Level PropWhen
 
@@ -277,10 +274,6 @@ kept under their original names so the twins read the same. -/
 
 @[inline] def internLM (u : Level) : CheckCM Level := pure u
 
-@[inline] def viewLM (u : Level) : CheckCM (Option Level) := pure (some u)
-
-@[inline] def readbackLevelM (u : Level) : CheckCM Level := pure u
-
 @[inline] def readbackLevelsM (us : List Level) : CheckCM (List Level) :=
   pure us
 
@@ -342,10 +335,6 @@ not memoized, as in the interned checker). -/
     CheckCM (Option ExprC) :=
   pure (ExprC.piResidual e args)
 
-@[inline] def pisToLamsM (k : Nat) (e body : ExprC) :
-    CheckCM (Option ExprC) :=
-  pure (ExprC.pisToLams k e body)
-
 @[inline] def instLevelParamsM (ks : List Name) (us : List Level)
     (e : ExprC) : CheckCM ExprC :=
   pure (ExprC.instLevelParams ks us e)
@@ -357,14 +346,6 @@ memos are keyed structurally — the one place the clone pays a
 non-`O(1)` hash.  The *results* are cached exactly as in the interned
 checker (`lsimpC`, `lnzC`, `eqvC`), so a decided comparison is never
 recomputed. -/
-
-@[inline] def substLM (ks : List Name) (us : List Level) (u : Level) :
-    CheckCM Level :=
-  pure (Level.subst ks us u)
-
-@[inline] def substLevelTreeM (ks : List Name) (us : List Level)
-    (l : Level) : CheckCM Level :=
-  pure (Level.subst ks us l)
 
 @[inline] def substLevelTreesM (ks : List Name) (us : List Level)
     (ls : List Level) : CheckCM (List Level) :=
@@ -441,10 +422,6 @@ def isEquivListLM : List Level → List Level → CheckCM (Option Bool)
     | some false => pure (some false)
     | some true => isEquivListLM ls rs
   | _, _ => pure (some false)
-
-/-- The zero-ness datum of a level (task #161). -/
-@[inline] def zeronessOfM (u : Level) : CheckCM PropWhen :=
-  pure (Level.zeronessOf u)
 
 /-! ## Lazy stored-constant conversions -/
 
@@ -596,12 +573,6 @@ def constsResolveFCGo (fe : FEnv) (memo : Std.HashMap ExprC Bool)
 /-- `Expr.constsResolveF fe` on `ExprC` (one memoized DAG walk). -/
 def constsResolveFC (fe : FEnv) (e : ExprC) : Bool :=
   (constsResolveFCGo fe {} e).1
-
-@[inline] def CStore.constsResolveFI (_ : CStore) (fe : FEnv) (e : ExprC) :
-    Bool := constsResolveFC fe e
-
-@[inline] def CStore.allLevelParamsDefinedI (_ : CStore) (ps : List Name)
-    (e : ExprC) : Bool := ExprC.allLevelParamsDefined ps e
 
 /-- Record an accepted constant's converted type/value, tagged with the
 very `Expr` objects pushed into the environment (the counterpart of
