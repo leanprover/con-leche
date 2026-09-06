@@ -1,16 +1,11 @@
 import Setlec.Verify.Cached.MainC
 
 /-!
-# The comparator solution
+# Comparator solution
 
-The theorem of `Challenge.lean`, restated verbatim and proved from the
-shipped capstone `Setlec.Cached.no_proof_of_Empty_SPCD_P`
-(`Setlec/Verify/Cached/MainC.lean`) at the verified mode: `cfgP` is
-`cfgOf .verified` by `rfl` (`cfgOf_verified_eq_cfgP`).
-
-This module deliberately does **not** import `Challenge`: the comparator
-builds the two modules separately and compares the two environments'
-copies of the statement, constant by constant.
+`Challenge.lean`'s theorem, proved from the capstone
+`no_proof_of_Empty_SPCD_P` (`cfgOf .verified = cfgP` by `rfl`).  Must not
+import `Challenge`.
 -/
 
 universe w

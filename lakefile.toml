@@ -131,16 +131,8 @@ roots = ["Setlec.Verify.Cached"]
 name = "SetlecTests"
 srcDir = "tests"
 
-# THE COMPARATOR CHALLENGE (2026-09-06).  `Challenge.lean` states the
-# headline claim — the shipped checker at `cfgP` never accepts a stream
-# storing a constant of type `Empty` — over the implementation and the
-# `SetTheory` interface alone, with a `sorry`; `Solution.lean` restates it
-# and proves it from the capstone `no_proof_of_Empty_SPCD_P`.
-# `leanprover/comparator` (config: `comparator.json`) builds the two
-# modules separately, checks the statements and their constant closures
-# agree, audits the solution's axioms and replays it through the Lean
-# kernel.  Both are default targets so `lake build` keeps them compiling;
-# the challenge's `sorry` warning is silenced at the theorem, not here.
+# The comparator challenge: `Challenge.lean` (statement, `sorry`) and
+# `Solution.lean` (proof); config in `comparator.json`.
 [[lean_lib]]
 name = "Challenge"
 
