@@ -1,4 +1,4 @@
-import Setlec.Kernel.Basis
+import Setlec.Kernel.BasisA
 import Setlec.Verify.EnvWF
 
 /-!
@@ -68,7 +68,7 @@ theorem RecCtorsStored.empty : RecCtorsStored Env.empty := by
   intro n cv mI rP rules h
   simp [Env.find?, Env.empty] at h
 
-/-- **A tower-backed entry's syntactic head data** (task #175 wiring
+/-- **A table entry's syntactic head data** (task #175 wiring
 W5): the facts the direct install establishes syntactically for every
 entry of the table it stores, and which the readings' consumers need
 with no environment record beyond `ProjOkT` — the former, its
@@ -102,20 +102,20 @@ theorem TowerHead.mono {env env' : Env} {entry : ProjEntry}
     ⟨cvT, caps, hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) hT, hlT⟩,
     ⟨cvC, hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) hC, hlC, hstrip⟩⟩
 
-/-- **The projection-table discipline**: every stored tower-backed
-table carries, at each of its fields, the syntactic head data
-(`TowerHead`).
+/-- **The projection-table discipline**: every stored table carries,
+at each of its fields, the syntactic head data (`TowerHead`).
 
 **Purely syntactic, so it transposes verbatim** — it mentions no
 values, no interpretation and no derivations.  Relocated here (task
 #148, T1) from `Setlec/TTVerify/EnvTT.lean`, so that both verification
 lanes can import it.  Until task #175 W6 a first conjunct pinned every
 native non-tower entry to one of the two `PSigma'` pair entries; the
-pin is retired with the pinned pair, and since task #175 S1 `tower` is
-the table's only kind discriminator (the `native` flag is gone). -/
+pin is retired with the pinned pair, and task #175 tower-flag retired
+the table-kind flag itself — the modeled route installs no table, so
+the discipline is uniform over every stored one. -/
 def ProjOkT (env : Env) : Prop :=
   ∀ n tbl, env.find? n = some (.projInfo tbl) →
-    tbl.tower = true → ∀ i, i < tbl.numFields → TowerHead env (tbl.entry i)
+    ∀ i, i < tbl.numFields → TowerHead env (tbl.entry i)
 
 theorem ProjOkT.empty : ProjOkT Env.empty := by
   intro n tbl h; simp [Env.find?, Env.empty] at h
@@ -140,22 +140,20 @@ theorem isTowerEntry_false_of_find? {env : Env} {n : Name} {c : ConstantInfo}
     c.isTowerEntry = false := by
   cases c with
   | projInfo tbl =>
-    cases htw : tbl.tower
-    · simp [ConstantInfo.isTowerEntry, htw]
-    · exfalso
-      have h1 := List.find?_some hf
-      have hname : (ConstantInfo.projInfo tbl).name = n := eq_of_beq (by simpa using h1)
-      simp only [ConstantInfo.name, ConstantInfo.toConstantVal, projTableName] at hname
-      exact hn _ _ hname.symm
+    exfalso
+    have h1 := List.find?_some hf
+    have hname : (ConstantInfo.projInfo tbl).name = n := eq_of_beq (by simpa using h1)
+    simp only [ConstantInfo.name, ConstantInfo.toConstantVal, projTableName] at hname
+    exact hn _ _ hname.symm
   | _ => rfl
 
-/-- The discipline at a lookup: a tower-backed entry's head data. -/
+/-- The discipline at a lookup: a stored entry's head data. -/
 theorem ProjOkT.towerHead {env : Env} (h : ProjOkT env)
     {sn : Name} {i : Nat} {entry : ProjEntry}
-    (hf : env.findProj? sn i = some entry) (htw : entry.tower = true) :
+    (hf : env.findProj? sn i = some entry) :
     TowerHead env entry := by
   obtain ⟨tbl, hf', hi, rfl⟩ := Env.findProj?_some hf
-  exact h _ _ hf' htw i hi
+  exact h _ _ hf' i hi
 
 theorem BasisBlocks.empty : BasisBlocks Env.empty := by
   refine ⟨?_, ?_, ?_⟩ <;>

@@ -1,5 +1,5 @@
 /- End-to-end test: WF-recursive Nat operations on literals (div,
-   mod, gcd, bit ops, log2) have no verified fast path; reducing them
+   mod, gcd, bit ops) have no verified fast path; reducing them
    natively is unsupported, and unary/delta grinding on big literals
    would build huge terms — the checker must positively decline. -/
 

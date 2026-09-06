@@ -91,26 +91,22 @@ theorem denote_env_ext {cval : TConstVal} {env₁ env₂ : Env}
   | case16 d n ty val body hbad ihty ihval =>
     simp only [denote_letE, ← ihty, ← ihval]
   | case17 d sn i e h1 ihe => simp only [denote_proj, ← ihe, hproj sn i]
-  | case18 d sn i e B h1 entry h2 h3 ihe =>
+  | case18 d sn i e B h1 entry h2 ihe =>
     simp only [denote_proj, ← ihe, hproj sn i]
-  | case19 d sn i e B h1 entry h2 h3 h4 ihe =>
+  | case19 d sn i e B h1 h2 h3 ihe =>
     simp only [denote_proj, ← ihe, hproj sn i]
-  | case20 d sn i e B h1 entry h2 h3 h4 ihe =>
+  | case20 d sn i e B h1 h2 h3 ihe =>
     simp only [denote_proj, ← ihe, hproj sn i]
-  | case21 d sn i e B h1 h2 h3 ihe =>
-    simp only [denote_proj, ← ihe, hproj sn i]
-  | case22 d sn i e B h1 h2 h3 ihe =>
-    simp only [denote_proj, ← ihe, hproj sn i]
-  | case23 d n _ | case24 d n _ =>
+  | case21 d n _ | case22 d n _ =>
     simp only [denote_natLit, hnat]
-  | case25 d s _ | case26 d s _ =>
+  | case23 d s _ | case24 d s _ =>
     simp only [denote_strLit, hstr]
     by_cases hg2 : strLitSupported env₂ = true
     · rw [if_pos hg2, if_pos hg2, strLitT, strLitT,
         levelParamsAt_ext (henvLev listNilName),
         levelParamsAt_ext (henvLev listConsName)]
     · simp [hg2]
-  | case27 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case25 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     match x with
     | .bvar i => simp only [denote_bvar]
     | .sort u => exact (k1 u rfl).elim

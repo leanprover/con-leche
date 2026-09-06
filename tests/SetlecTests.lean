@@ -300,7 +300,7 @@ private def emptyModelAuxName : Name :=
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
   | .ok ⟨ds, _, _⟩ =>
-    (Setlec.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
+    (Setlec.Cached.checkDeclsSPCachedD Setlec.cfgP ds.toList).toBool
   | .error _ => false
 
 /-! ## Frontend: taint skip-and-continue
@@ -351,7 +351,7 @@ private def taintSkipExport : String := String.intercalate "\n" [
 -- reach install: it is absent from the declarations).
 #guard match Frontend.parseExportD taintSkipExport with
   | .ok ⟨ds, _, _⟩ =>
-    (Setlec.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
+    (Setlec.Cached.checkDeclsSPCachedD Setlec.cfgP ds.toList).toBool
   | .error _ => false
 
 -- A stream without tolerated-axiom uses records no skips.
@@ -458,13 +458,17 @@ private def gateStuck (mb : BinderMeta) : Expr := gateRedex mb
 The take-the-waiver probe for the io app clause's statement, at the
 kernel level: the gated arm of `inferTypeCoreIO_app_inv`'s disjunction
 must be REACHABLE (else the clause's gated branch is a vacuous theorem
-wearing a disjunction), and it must be exactly scoped — datum-exact
-and mode-gated, the same three-point battery as the β gate above.
+wearing a disjunction), and it must be exactly scoped — datum-exact,
+and (since the licence ruling of 2026-09-06) datum-**only**: the io
+skip is a LICENCE, not certification-only work, so it fires on the
+binder's `pw` alone, in both modes.  That is the one point where this
+battery stopped mirroring the β gate's above, which still reads
+`mode.betaGate` in the mode-parametric spec.
 
 The subject applies a ∀-typed head to `.bvar 0`, whose inference
 THROWS (out of fragment) — so any lane that runs the argument
-certificate fails, and only a *fired* gate succeeds.  Only the ∀'s
-`pw` datum and the mode distinguish the outcomes. -/
+certificate fails, and only a *fired* licence succeeds.  Only the ∀'s
+`pw` datum distinguishes the outcomes. -/
 
 private def ioPiTy (mb : BinderMeta) : Expr :=
   .forallE (.str .anonymous "x") (.sort .zero) (.sort .zero) mb
@@ -483,10 +487,14 @@ private def ioRedex (mb : BinderMeta) : Expr :=
 #guard (inferTypeCoreIO .verified Env.empty 6 1 (ioRedex gateMaybe)).toOption
   == none
 
--- (c) THE io GATE IS MODE-GATED (law 1 (i)): at `--trusted` the
--- annotation is not validated, so the certificate runs even at
--- `.never`.
+-- (c) THE io LICENCE IS NOT MODE-GATED (the ruling of 2026-09-06,
+-- superseding the "mode-gated, law 1 (i)" guard that stood here): the
+-- trusted mode omits the *validation* of the datum, never the licence
+-- that reads it — so at `--trusted` the licence fires exactly as at
+-- `--verified`, and it is still DATUM-exact there.
 #guard (inferTypeCoreIO .trusted Env.empty 6 1 (ioRedex gateNever)).toOption
+  == some (.sort .zero)
+#guard (inferTypeCoreIO .trusted Env.empty 6 1 (ioRedex gateMaybe)).toOption
   == none
 
 -- (d) THE FULL LANE IS STRICTER AT BOTH DATA: the io grade narrows

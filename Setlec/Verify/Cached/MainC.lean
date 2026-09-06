@@ -65,13 +65,13 @@ theorem DeclCRel_total : ∀ (pc : DeclC), ∃ d, DeclCRel pc d
 mirror; no conversion pass to peel). -/
 theorem checkDeclsSPCachedD_run {μ : CheckMode}
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env') :
-    ∃ fe s', (ds.foldlM (checkDeclSPStepC μ)
+    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
+    ∃ fe s', (ds.foldlM (checkDeclSPStepC (cfgOf μ))
         (mkFEnv Env.empty)) ({} : CState) = .ok (fe, s') ∧
       fe.env = env' := by
   unfold checkDeclsSPCachedD at h
   simp only [Bind.bind, Except.bind] at h
-  cases hf : (ds.foldlM (checkDeclSPStepC μ)
+  cases hf : (ds.foldlM (checkDeclSPStepC (cfgOf μ))
       (mkFEnv Env.empty)).run' ({} : CState) with
   | error e => rw [hf] at h; exact nomatch h
   | ok fe =>
@@ -80,7 +80,7 @@ theorem checkDeclsSPCachedD_run {μ : CheckMode}
       have h' : (Except.ok fe.env : CheckM Env) = .ok env' := h
       exact Except.ok.inj h'
     simp only [StateT.run'] at hf
-    cases hrun : (ds.foldlM (checkDeclSPStepC μ)
+    cases hrun : (ds.foldlM (checkDeclSPStepC (cfgOf μ))
         (mkFEnv Env.empty)) ({} : CState) with
     | error e => rw [hrun] at hf; exact nomatch hf
     | ok pr =>
@@ -130,7 +130,7 @@ theorem foldSPC_PM (hμ : μ.verifiedChecks = true) :
       EnvSPOk V μ fe.env →
       CSOKF s₀ →
       (∀ pc ∈ ds, ∃ d, DeclCRel pc d) →
-      (ds.foldlM (checkDeclSPStepC μ) fe) s₀ = .ok (fe', s') →
+      (ds.foldlM (checkDeclSPStepC (cfgOf μ)) fe) s₀ = .ok (fe', s') →
       EnvSPOk V μ fe'.env
   | [], fe, fe', s₀, s', _, hm, _, _, h => by
     obtain ⟨hfe, rfl⟩ := pureC_ok h
@@ -151,7 +151,7 @@ theorem foldSPC_PM (hμ : μ.verifiedChecks = true) :
 /-- **Acceptance, shipped direct-parse driver, P route.** -/
 theorem checkDeclsSPCachedD_sound_P (hμ : μ.verifiedChecks = true)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
     Nonempty (EnvS2PM V μ env') := by
   obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
   exact (foldSPC_PM hμ ds (mkFEnv Env.empty) rfl
@@ -166,7 +166,7 @@ input-level only. -/
 theorem no_proof_of_Empty_SPCD_P (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const emptyName [] → False := by
   obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h

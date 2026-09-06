@@ -20,7 +20,7 @@ import sys
 
 TARGETS = [
     "Nat.div", "Nat.mod", "Nat.gcd", "Nat.land", "Nat.lor", "Nat.xor",
-    "Nat.shiftLeft", "Nat.shiftRight", "Nat.log2",
+    "Nat.shiftLeft", "Nat.shiftRight",
 ]
 
 

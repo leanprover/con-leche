@@ -139,6 +139,14 @@ if tests/layering.sh; then :; else fail=1; fi
 # proof path.  The pin only ever tightens.
 if tests/proofdeps.sh; then :; else fail=1; fi
 
+# THE PIN-DUMP FRESHNESS GATE (task #176).  The pinned Nat-operation
+# declarations and their certificate proof blobs are a COMMITTED
+# generator output (pins/<toolchain>.json, see pins/README.md) since the
+# olean-by-name load was removed from the checker's build.  As with
+# every committed generator output here, staleness is a test failure:
+# regenerate and diff.
+if tests/pindump.sh; then :; else fail=1; fi
+
 # --- the arena half ------------------------------------------------
 arena_half() {
   accepted=0
@@ -171,6 +179,12 @@ arena_half() {
 # Own end-to-end tests (committed exports of tests/e2e/src/*.lean;
 # regenerate with lean-inductive-models' scripts/export-fixture.sh,
 # FIXTURE_DIR=tests/e2e/src OUT_DIR=tests/e2e FILTER=0).
+#
+# The committed `pre` fixtures were preprocessed by the STOCK tool, so
+# they still carry `_model` artifacts for blocks the direct install
+# recognises; that is inert (the W4c priority gate ignores them) and
+# they are deliberately left alone as pre-#178 baselines.  A fixture
+# regenerated from now on should go through `setlec-preprocess`.
 e2e_half() {
   e2e_ok=0
   e2e_total=0

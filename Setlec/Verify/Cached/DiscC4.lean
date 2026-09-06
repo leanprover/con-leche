@@ -29,7 +29,6 @@ namespace Setlec.Cached
 open Setlec.Cached.ExprC
 
 variable {mode : CheckMode}
-variable {cfg : CoreCfg}
 
 section Walks
 
@@ -37,7 +36,7 @@ variable {env : Env} {f : Nat}
 
 private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
     (kM : Expr → FueledM Expr) (e : Expr) :
-    whnfCoreStepM cfg (fueledFns mode env) env d kM e =
+    whnfCoreStepM (cfgOf mode) (fueledFns mode env) env d kM e =
     (match e with
     | .sort u => pure (.sort u)
     | .fvar idx n ty => pure (.fvar idx n ty)
@@ -47,7 +46,7 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
     | .lit l => pure (.lit l)
     | .app g' a =>
       (fueledFns mode env).whnfCore d (Expr.app g' a).getAppFn >>= fun v =>
-        whnfApp cfg (fueledFns mode env) env d kM v (Expr.app g' a).getAppArgs
+        whnfApp (cfgOf mode) (fueledFns mode env) env d kM v (Expr.app g' a).getAppArgs
     | .proj sn i pe =>
       (fueledFns mode env).whnf d pe >>= fun e' =>
       projLitToCtor (fueledFns mode env) env d e' >>= fun e' =>
@@ -55,11 +54,11 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
       | some entry =>
         match e'.getAppFn with
         | .const c us =>
-          if entry.tower ∧ c = entry.ctor ∧ i < entry.numFields ∧
+          if c = entry.ctor ∧ i < entry.numFields ∧
               e'.getAppArgs.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then
-            projCertAt (fueledFns mode env) env d cfg.verified cfg.betaGate c us
+            projCertAt (fueledFns mode env) env d (cfgOf mode).verified (cfgOf mode).betaGate c us
                 e'.getAppArgs >>=
               fun b =>
             if b then
@@ -81,11 +80,11 @@ private theorem whnfCoreC_iota_tail (ih : SSimC mode env f) (henv : EnvWF env)
     (hwf' : Expr.WScoped d f'x) (hwa : Expr.WScoped d xa) :
     SimC mode env s₀ (RelEC d)
       (internI (.app f' a) >>= fun fa =>
-        iotaRecI cfg.iotaMode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
+        iotaRecI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
         match o with
-        | some e'' => (coreKnotI mode (mkFEnv env) f).whnfCore d e''
+        | some e'' => (coreKnotI (cfgOf mode) (mkFEnv env) f).whnfCore d e''
         | none => pure fa)
-      (iotaRec cfg.iotaMode (fueledFns mode env) env d (.app f'x xa) >>= fun o =>
+      (iotaRec (cfgOf mode).iotaMode (fueledFns mode env) env d (.app f'x xa) >>= fun o =>
         match o with
         | some e'' => (fueledFns mode env).whnfCore d e''
         | none => pure (.app f'x xa)) := by
@@ -128,8 +127,8 @@ theorem whnfAppC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
       RelC v vx → Expr.WScoped d vx →
       RelCL args xs → (∀ x ∈ xs, Expr.WScoped d x) →
       SimC mode env s₀ (RelEC d)
-        (whnfAppI cfg (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI v args)
-        (whnfApp cfg (fueledFns mode env) env d kM vx xs)
+        (whnfAppI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d kI v args)
+        (whnfApp (cfgOf mode) (fueledFns mode env) env d kM vx xs)
   | [], xs, v, vx, s₀, hs, hv, hwv, hargs, hwargs => by
     obtain rfl := hargs.nil_inv
     rw [whnfAppI.eq_def]
@@ -163,11 +162,11 @@ theorem whnfAppC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
       unfold whnfAppLam
       -- task #161: the β gate reads the *same* `mb` on both sides
       -- (`eraseC` copies the binder meta), so one `by_cases`
-      by_cases hgate : cfg.betaSkip mb.pw = true
+      by_cases hgate : (cfgOf mode).betaSkip mb.pw = true
       · simp only [hgate, ↓reduceIte]
         exact betaPeelC_sim ih henv hk hs rfl
           (RelCL.cons hax RelCL.nil) hwsub hrest hwrest
-      have hgf : cfg.betaSkip mb.pw = false := by
+      have hgf : (cfgOf mode).betaSkip mb.pw = false := by
         simpa only [Bool.not_eq_true] using hgate
       simp only [hgf, Bool.false_eq_true, ↓reduceIte]
       refine SimC.bind (ih.inferIO hs hax hwxa)
@@ -271,14 +270,14 @@ theorem whnfAppIotaC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
     (hrest : RelCL rest xs) (hwrest : ∀ x ∈ xs, Expr.WScoped d x) :
     SimC mode env s₀ (RelEC d)
       (internI (.app v a) >>= fun fa =>
-        iotaRecI cfg.iotaMode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
+        iotaRecI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
         match o with
         | some e'' =>
           kI e'' >>= fun v' =>
-            whnfAppI cfg (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI v' rest
+            whnfAppI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d kI v' rest
         | none =>
-          whnfAppI cfg (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI fa rest)
-      (whnfAppIota cfg (fueledFns mode env) env d kM vx xa xs) := by
+          whnfAppI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d kI fa rest)
+      (whnfAppIota (cfgOf mode) (fueledFns mode env) env d kM vx xa xs) := by
     unfold whnfAppIota
     have hwapp : Expr.WScoped d (.app vx xa) := by
       simp only [Expr.WScoped]
@@ -323,8 +322,8 @@ theorem betaPeelC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
       Expr.WScoped d (tx.instantiateList ws) →
       RelCL args xs → (∀ x ∈ xs, Expr.WScoped d x) →
       SimC mode env s₀ (RelEC d)
-        (betaPeelI cfg (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI t acc args)
-        (betaPeel cfg (fueledFns mode env) env d kM tx ws xs)
+        (betaPeelI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d kI t acc args)
+        (betaPeel (cfgOf mode) (fueledFns mode env) env d kM tx ws xs)
   | [], xs, t, tx, acc, ws, s₀, hs, ht, hacc, hwty, hargs, hwargs => by
     obtain rfl := hargs.nil_inv
     rw [betaPeelI.eq_def]
@@ -360,11 +359,11 @@ theorem betaPeelC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
         rw [Expr.instantiateList_cons]
         exact Expr.WScoped.instantiate1_gen hwxa 0 hcomp.2
       -- task #161: the β gate, same datum on both sides
-      by_cases hgate : cfg.betaSkip mb.pw = true
+      by_cases hgate : (cfgOf mode).betaSkip mb.pw = true
       · simp only [hgate, ↓reduceIte]
         exact betaPeelC_sim ih henv hk hs rfl
           (RelCL.cons hax hacc) hwsub hrest hwrest
-      have hgf : cfg.betaSkip mb.pw = false := by
+      have hgf : (cfgOf mode).betaSkip mb.pw = false := by
         simpa only [Bool.not_eq_true] using hgate
       simp only [hgf, Bool.false_eq_true, ↓reduceIte]
       refine SimC.bind_left (instListM_eff (d := 0) hs rfl hacc)
@@ -512,8 +511,8 @@ theorem whnfCoreStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (whnfCoreStepI cfg (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i)
-      (whnfCoreStepM cfg (fueledFns mode env) env d kM ex) := by
+      (whnfCoreStepI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d kI i)
+      (whnfCoreStepM (cfgOf mode) (fueledFns mode env) env d kM ex) := by
   unfold whnfCoreStepI
   rw [whnfCoreStepM_unfold]
   refine SimC.view ?_
@@ -599,7 +598,7 @@ theorem whnfCoreStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           wscoped_getD hwe'.getAppArgs _
         split
         · rename_i hcond
-          obtain ⟨-, rfl, -, -, -⟩ := hcond
+          obtain ⟨rfl, -, -, -⟩ := hcond
           refine SimC.bind_left
             (internI_eff hs₁ (n := ExprView.bvar 0))
             (fun s₂ bvar0 hs₂ hQ0 => ?_)
@@ -679,8 +678,8 @@ theorem whnfCoreLoopC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     ∀ (n : Nat) {i : ExprC} {ex : Expr} {s₀ : CState}, CSOK mode env s₀ →
       RelC i ex → Expr.WScoped d ex →
       SimC mode env s₀ (RelEC d)
-        (whnfCoreLoopI cfg (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i)
-        (whnfCoreLoopM cfg (fueledFns mode env) env d n ex)
+        (whnfCoreLoopI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d n i)
+        (whnfCoreLoopM (cfgOf mode) (fueledFns mode env) env d n ex)
   | 0, _, _, _, _, _, _ => SimC.throw
   | n + 1, _, _, _, hs, hden, hw => by
     simp only [whnfCoreLoopI, whnfCoreLoopM]
@@ -694,7 +693,7 @@ theorem whnfCoreBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (whnfCoreBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfCoreBodyI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
       (whnfCoreBody mode (fueledFns mode env) env d ex) := by
   unfold whnfCoreBodyI
   exact SimC.wr (whnfCoreLoopC_sim ih henv whnfCoreLoopFuel hs hden hw)
@@ -704,7 +703,7 @@ theorem whnfCoreBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
 R letter retired 2026-09-05)
 
 **THE MEASUREMENT the batch was dispatched for.**  The walks above are
-generic in `cfg`, so one proof serves every instantiation; the
+generic in `(cfgOf mode)`, so one proof serves every instantiation; the
 capstone is pinned at `cfgOf mode`, and `cfgOf .verified` **is**
 `cfgP` by `rfl` (`cfgOf_verified_eq_cfgP`).  The per-core letter is therefore
 `exact` with no conversion step and no restated lemma: the tower
@@ -723,7 +722,7 @@ theorem whnfCoreBodyPC_sim (ih : SSimC .verified env f) (henv : EnvWF env)
     (hs : CSOK .verified env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC .verified env s₀ (RelEC d)
-      (whnfCoreBodyPC (coreKnotI .verified (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfCoreBodyPC (coreKnotI cfgP (mkFEnv env) f) (mkFEnv env) d i)
       (whnfCoreBody .verified (fueledFns .verified env) env d ex) :=
   whnfCoreBodyC_sim ih henv hs hden hw
 
@@ -755,7 +754,7 @@ theorem whnfStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (whnfStepI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i)
+      (whnfStepI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d kI i)
       (whnfStep (fueledFns mode env) env d kM ex) := by
   unfold whnfStepI
   rw [whnfStep_unfold]
@@ -796,7 +795,7 @@ theorem whnfLoopC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
     ∀ (n : Nat) {i : ExprC} {ex : Expr} {s₀ : CState}, CSOK mode env s₀ →
       RelC i ex → Expr.WScoped d ex →
       SimC mode env s₀ (RelEC d)
-        (whnfLoopI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i)
+        (whnfLoopI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d n i)
         (whnfLoop (fueledFns mode env) env d n ex)
   | 0, _, _, _, _, _, _ => SimC.throw
   | n + 1, _, _, _, hs, hden, hw => by
@@ -808,7 +807,7 @@ theorem whnfBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (whnfBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfBodyI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
       (whnfBody (fueledFns mode env) env d ex) :=
   whnfLoopC_sim ih henv whnfLoopFuel hs hden hw
 
@@ -827,7 +826,7 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       Expr.WScoped d (tx.instantiateList ws) →
       RelCL args xs → (∀ x ∈ xs, Expr.WScoped d x) →
       SimC mode env s₀ (RelEC d)
-        (inferSpineI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d ty acc args)
+        (inferSpineI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d ty acc args)
         (inferSpine (fueledFns mode env) d tx ws xs)
   | [], xs, ty, tx, acc, ws, s₀, hs, ht, hacc, hwty, hargs, hwargs => by
     obtain rfl := hargs.nil_inv
@@ -1323,9 +1322,9 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       RelCL args xs → (∀ x ∈ xs, Expr.WScoped d x) →
       SimC mode env s₀ (RelEC d)
         (inferSpineIOI (cfgOf mode)
-          (CoreFnsI.ioView (coreKnotI mode (mkFEnv env) f)) (mkFEnv env)
+          (CoreFnsI.ioView (coreKnotI (cfgOf mode) (mkFEnv env) f)) (mkFEnv env)
           d ty acc args)
-        (inferSpineIO mode (fueledFns mode env) d tx ws xs)
+        (inferSpineIO (fueledFns mode env) d tx ws xs)
   | [], xs, ty, tx, acc, ws, s₀, hs, ht, hacc, hwty, hargs, hwargs => by
     obtain rfl := hargs.nil_inv
     rw [inferSpineIOI.eq_def]
@@ -1361,12 +1360,12 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         rw [Expr.instantiateList_cons]
         exact Expr.WScoped.instantiate1_gen hwxa 0 hcomp.2
       try dsimp only
-      by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
-      · simp only [cfgOf_verified, hg2, ↓reduceIte]
+      by_cases hg2 : mb.pw.isNever = true
+      · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
         exact inferSpineIOC_sim ih henv hs rfl
           (by rw [toListRev_push]; exact RelCL.cons hax hacc) hwsub
           hrest hwrest
-      · simp only [cfgOf_verified, hg2, Bool.false_eq_true, ↓reduceIte]
+      · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
         refine SimC.bind_left (instListRevM_eff (d := 0) hs rfl hacc)
           (fun s₁ dom' hs₁ hQdom => ?_)
         refine SimC.bind (ih.inferIO hs₁ hax hwxa)
@@ -1389,7 +1388,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       have hnl : ∀ n' dom' body' bi',
           (Expr.bvar k) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
-      rw [inferSpineIO_ne_pi _ _ _ hnl]
+      rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
         (fun s₁ ty' hs₁ hQty => ?_)
@@ -1408,12 +1407,12 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
-        · simp only [cfgOf_verified, hg2, ↓reduceIte]
+        by_cases hg2 : mb.pw.isNever = true
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [cfgOf_verified, hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1443,7 +1442,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       have hnl : ∀ n' dom' body' bi',
           (Expr.sort u) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
-      rw [inferSpineIO_ne_pi _ _ _ hnl]
+      rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
         (fun s₁ ty' hs₁ hQty => ?_)
@@ -1462,12 +1461,12 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
-        · simp only [cfgOf_verified, hg2, ↓reduceIte]
+        by_cases hg2 : mb.pw.isNever = true
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [cfgOf_verified, hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1497,7 +1496,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       have hnl : ∀ n' dom' body' bi',
           (Expr.const nm us) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
-      rw [inferSpineIO_ne_pi _ _ _ hnl]
+      rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
         (fun s₁ ty' hs₁ hQty => ?_)
@@ -1516,12 +1515,12 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
-        · simp only [cfgOf_verified, hg2, ↓reduceIte]
+        by_cases hg2 : mb.pw.isNever = true
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [cfgOf_verified, hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1551,7 +1550,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       have hnl : ∀ n' dom' body' bi',
           (Expr.lit l) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
-      rw [inferSpineIO_ne_pi _ _ _ hnl]
+      rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
         (fun s₁ ty' hs₁ hQty => ?_)
@@ -1570,12 +1569,12 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
-        · simp only [cfgOf_verified, hg2, ↓reduceIte]
+        by_cases hg2 : mb.pw.isNever = true
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [cfgOf_verified, hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1605,7 +1604,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       have hnl : ∀ n' dom' body' bi',
           (Expr.fvar idx nm tt) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
-      rw [inferSpineIO_ne_pi _ _ _ hnl]
+      rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
         (fun s₁ ty' hs₁ hQty => ?_)
@@ -1624,12 +1623,12 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
-        · simp only [cfgOf_verified, hg2, ↓reduceIte]
+        by_cases hg2 : mb.pw.isNever = true
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [cfgOf_verified, hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1659,7 +1658,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       have hnl : ∀ n' dom' body' bi',
           (Expr.app f₂ a₂) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
-      rw [inferSpineIO_ne_pi _ _ _ hnl]
+      rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
         (fun s₁ ty' hs₁ hQty => ?_)
@@ -1678,12 +1677,12 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
-        · simp only [cfgOf_verified, hg2, ↓reduceIte]
+        by_cases hg2 : mb.pw.isNever = true
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [cfgOf_verified, hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1713,7 +1712,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       have hnl : ∀ n' dom' body' bi',
           (Expr.lam nm tt b mm) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
-      rw [inferSpineIO_ne_pi _ _ _ hnl]
+      rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
         (fun s₁ ty' hs₁ hQty => ?_)
@@ -1732,12 +1731,12 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
-        · simp only [cfgOf_verified, hg2, ↓reduceIte]
+        by_cases hg2 : mb.pw.isNever = true
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [cfgOf_verified, hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1767,7 +1766,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       have hnl : ∀ n' dom' body' bi',
           (Expr.letE nm tt vv b) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
-      rw [inferSpineIO_ne_pi _ _ _ hnl]
+      rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
         (fun s₁ ty' hs₁ hQty => ?_)
@@ -1786,12 +1785,12 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
-        · simp only [cfgOf_verified, hg2, ↓reduceIte]
+        by_cases hg2 : mb.pw.isNever = true
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [cfgOf_verified, hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1821,7 +1820,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       have hnl : ∀ n' dom' body' bi',
           (Expr.proj sn j pe) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
-      rw [inferSpineIO_ne_pi _ _ _ hnl]
+      rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
         (fun s₁ ty' hs₁ hQty => ?_)
@@ -1840,12 +1839,12 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
-        · simp only [cfgOf_verified, hg2, ↓reduceIte]
+        by_cases hg2 : mb.pw.isNever = true
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [cfgOf_verified, hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1875,7 +1874,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (inferBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (inferBodyI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
       (inferBody mode (fueledFns mode env) env d ex) := by
   unfold inferBodyI
   refine SimC.view ?_
@@ -2142,10 +2141,11 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           rename_i hcond
           rw [htargs]
           have hres : SimC mode env s₂' (RelEC d)
-              (internExprM (entry.typeAt us (Expr.getAppArgs te) pe))
+              (internExprM (entry.typeAtI us (Expr.getAppArgs te) pe))
               (pure (entry.typeAt us (Expr.getAppArgs te) pe) : FueledM Expr) :=
-            SimC.pure hs₂ ⟨rfl, projEntry_typeAt_WScoped henv hfp us
-              hcond.2.2.1
+            SimC.pure hs₂ ⟨ProjEntry.typeAtI_eq entry us _ pe,
+              projEntry_typeAt_WScoped henv hfp us
+              hcond.2.1
               (fun a ha => hwte.getAppArgs a ha) hwpe⟩
           -- the Prop guard (task #175 W4c) runs no walk of its own
           split
@@ -2177,7 +2177,7 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
       (inferBodyIOI (cfgOf mode)
-        (CoreFnsI.ioView (coreKnotI mode (mkFEnv env) f)) (mkFEnv env) d i)
+        (CoreFnsI.ioView (coreKnotI (cfgOf mode) (mkFEnv env) f)) (mkFEnv env) d i)
       (inferBodyIO mode (CoreFns.ioView (fueledFns mode env)) env d ex) := by
   unfold inferBodyIOI
   refine SimC.view ?_
@@ -2509,10 +2509,11 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
           rename_i hcond
           rw [htargs]
           have hres : SimC mode env s₂' (RelEC d)
-              (internExprM (entry.typeAt us (Expr.getAppArgs te) pe))
+              (internExprM (entry.typeAtI us (Expr.getAppArgs te) pe))
               (pure (entry.typeAt us (Expr.getAppArgs te) pe) : FueledM Expr) :=
-            SimC.pure hs₂ ⟨rfl, projEntry_typeAt_WScoped henv hfp us
-              hcond.2.2.1
+            SimC.pure hs₂ ⟨ProjEntry.typeAtI_eq entry us _ pe,
+              projEntry_typeAt_WScoped henv hfp us
+              hcond.2.1
               (fun a ha => hwte.getAppArgs a ha) hwpe⟩
           -- the Prop guard (task #175 W4c) runs no walk of its own
           split

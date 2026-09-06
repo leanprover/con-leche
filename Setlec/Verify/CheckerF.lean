@@ -279,21 +279,12 @@ theorem checkDirectDomsAtF_eq (ops : CheckerOps m) (env : Env)
     simp only [checkDirectDomsAtF, checkDirectDomsAt, mkFEnv_env,
       checkDirectDomsAtF_eq ops env off fvs doms j]
 
-theorem checkDirectRecTyF_eq (ops : CheckerOps m) (env : Env)
-    (p : DirectParts) (cvTa cvCa cvRa : ConstantVal) :
-    checkDirectRecTyF ops (mkFEnv env) p cvTa cvCa cvRa
-      = checkDirectRecTy ops env p cvTa cvCa cvRa := by
-  simp only [checkDirectRecTyF, checkDirectRecTy, mkFEnv_env,
-    checkDirectDomsAtFA_eq, checkDirectDomsAtF_eq, openPisAtFvarsF_eq,
-    instPisAtF_eq] <;> rfl
-
-theorem checkDirectRuleF_eq (ops : CheckerOps m) (env : Env)
-    (p : DirectParts) (cvCa cvRa : ConstantVal) :
-    checkDirectRuleF ops (mkFEnv env) p cvCa cvRa
-      = checkDirectRule ops env p cvCa cvRa := by
-  simp only [checkDirectRuleF, checkDirectRule, mkFEnv_env,
-    constsResolveF_eq, openPisAtFvarsF_eq, instPisAtF_eq,
-    instLamsAtF_eq] <;> rfl
+theorem checkDirectRecF_eq (ops : CheckerOps m) (env : Env)
+    (p : DirectParts) (cvTa cvCa : ConstantVal) :
+    checkDirectRecF ops (mkFEnv env) p cvTa cvCa
+      = checkDirectRec ops env p cvTa cvCa := by
+  simp only [checkDirectRecF, checkDirectRec, mkFEnv_env, constsResolveF_eq,
+    checkConstantValF_eq]
 
 omit [MonadExceptOf CheckError m] in
 theorem checkDivModCertsF_eq (ops : CheckerOps m) (env : Env) (c : Name)

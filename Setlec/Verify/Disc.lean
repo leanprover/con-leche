@@ -116,35 +116,7 @@ theorem reduceNat_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           cases rawNatLit? w with
           | some n => exact DiscV.pure (WScopedO.some (by simp [WScoped]))
           | none => exact DiscV.pure WScopedO.none
-        · split
-          · refine DiscV.bind (ih.site_whnf henv hwfa.2) (fun w _ => ?_)
-            cases rawNatLit? w with
-            | none => exact DiscV.pure WScopedO.none
-            | some n =>
-              dsimp only
-              cases hres : natOpResult c n 0 with
-              | none => exact DiscV.pure WScopedO.none
-              | some r =>
-                rcases natOpResult_shape hres with ⟨n', rfl⟩ | ⟨bn, rfl⟩ <;>
-                  exact DiscV.pure (WScopedO.some (by simp [WScoped]))
-          · split
-            · -- the certified `log2` branch mirrors `pred`'s
-              refine DiscV.bind (ih.site_whnf henv hwfa.2) (fun w _ => ?_)
-              cases rawNatLit? w with
-              | none => exact DiscV.pure WScopedO.none
-              | some n =>
-                dsimp only
-                cases hres : natOpResult c n 0 with
-                | none => exact DiscV.pure WScopedO.none
-                | some r =>
-                  rcases natOpResult_shape hres with ⟨n', rfl⟩ | ⟨bn, rfl⟩ <;>
-                    exact DiscV.pure (WScopedO.some (by simp [WScoped]))
-            · split
-              · refine DiscV.bind (ih.site_whnf henv hwfa.2) (fun w _ => ?_)
-                cases rawNatLit? w with
-                | none => exact DiscV.pure WScopedO.none
-                | some _ => exact DiscV.throw _
-              · exact DiscV.pure WScopedO.none
+        · exact DiscV.pure WScopedO.none
     | .app g b =>
       have hwgb : WScoped d g ∧ WScoped d b := by
         simpa only [WScoped] using hwfa.1
@@ -911,7 +883,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         | some entry =>
           match e'.getAppFn with
           | .const c us =>
-            if entry.tower ∧ c = entry.ctor ∧ i < entry.numFields ∧
+            if c = entry.ctor ∧ i < entry.numFields ∧
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
@@ -929,7 +901,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         | some entry =>
           match e'.getAppFn with
           | .const c us =>
-            if entry.tower ∧ c = entry.ctor ∧ i < entry.numFields ∧
+            if c = entry.ctor ∧ i < entry.numFields ∧
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
@@ -1123,12 +1095,9 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         | .const T _ =>
           match env.findProj? T i with
           | some entry =>
-            if entry.tower then
-              if te.getAppArgs.length = entry.numParams then
-                pure (Expr.proj T i e')
-              else throw (.invalid "projection parameter mismatch")
-            else throw (.invalid
-              "projection from a propositional structure must be a proposition")
+            if te.getAppArgs.length = entry.numParams then
+              pure (Expr.proj T i e')
+            else throw (.invalid "projection parameter mismatch")
           | none => throw (if (env.findProj? T 0).isSome then
               CheckError.invalid "projection index out of range"
             else .notImplemented "projection on a non-structure-like type")
@@ -1140,12 +1109,9 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         | .const T _ =>
           match env.findProj? T i with
           | some entry =>
-            if entry.tower then
-              if te.getAppArgs.length = entry.numParams then
-                pure (Expr.proj T i e')
-              else throw (.invalid "projection parameter mismatch")
-            else throw (.invalid
-              "projection from a propositional structure must be a proposition")
+            if te.getAppArgs.length = entry.numParams then
+              pure (Expr.proj T i e')
+            else throw (.invalid "projection parameter mismatch")
           | none => throw (if (env.findProj? T 0).isSome then
               CheckError.invalid "projection index out of range"
             else .notImplemented "projection on a non-structure-like type")
@@ -1156,11 +1122,9 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split <;> try exact DiscV.throw _
     split <;> try exact DiscV.throw _
     split
-    · split
-      · refine DiscV.pure ?_
-        show WScoped d (Expr.proj _ i e')
-        simpa only [WScoped] using he'
-      · exact DiscV.throw _
+    · refine DiscV.pure ?_
+      show WScoped d (Expr.proj _ i e')
+      simpa only [WScoped] using he'
     · exact DiscV.throw _
 
 set_option maxHeartbeats 1600000 in
@@ -1325,7 +1289,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hres : DiscV mode env (WScoped d)
         (pure (entry.typeAt usw w.getAppArgs pe) : CheckSM Expr)
         (pure (entry.typeAt usw w.getAppArgs pe) : CheckSM Expr) :=
-      DiscV.pure (projEntry_typeAt_WScoped henv hfpw usw hcond.2.2.1
+      DiscV.pure (projEntry_typeAt_WScoped henv hfpw usw hcond.2.1
         (fun a ha => hww.getAppArgs a ha) hwpe)
     -- the Prop guard (task #175 W4c) runs no walk of its own
     split
@@ -1500,7 +1464,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hres : DiscV mode env (WScoped d)
         (pure (entry.typeAt usw w.getAppArgs pe) : CheckSM Expr)
         (pure (entry.typeAt usw w.getAppArgs pe) : CheckSM Expr) :=
-      DiscV.pure (projEntry_typeAt_WScoped henv hfpw usw hcond.2.2.1
+      DiscV.pure (projEntry_typeAt_WScoped henv hfpw usw hcond.2.1
         (fun a ha => hww.getAppArgs a ha) hwpe)
     -- the Prop guard (task #175 W4c) runs no walk of its own
     split

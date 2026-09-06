@@ -525,6 +525,27 @@ def instLevelParamsGo (ks : List Name) (us : List Level)
 def instLevelParams (ks : List Name) (us : List Level) (e : ExprC) : ExprC :=
   if !e.hasLP then e else (instLevelParamsGo ks us {} e).1
 
+/-- `ProjEntry.typeAt` on `ExprC`: the same two instantiations through
+the memoized, **sharing-preserving** `instLevelParams` and
+`instantiateList` (`ProjEntry.typeAtI_eq`, `Setlec/Verify/Cached/
+OpsC.lean`, is the equation).
+
+The executable `.proj` inference clause used to call the spec's
+`ProjEntry.typeAt` directly — legitimate as a *value* (`ExprC = Expr`)
+but not as a *computation*: `Expr.instantiateList` is the unmemoized
+tree walk, and its `bvar` arm re-traverses the replacement (`vs[j - d]`
+under `vs.take (j - d)`), so every occurrence of the subject and of
+every parameter in the field type came back as a fresh **tree copy**
+of a term that was a DAG.  On a projection chain over a Mathlib
+carrier (`(Classical.choice …).ColimitCocone.0.Cocone.0.CommRingCat.0`)
+the copies nest, and at `AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen`
+(subject tree 3.9 · 10⁸ nodes on a 3 106-node DAG) the copy alone is
+the out-of-memory — DESIGN.md "The affine frontier". -/
+def _root_.Setlec.ProjEntry.typeAtI (entry : ProjEntry) (us : List Level)
+    (targs : List ExprC) (pe : ExprC) : ExprC :=
+  instantiateList (instLevelParams entry.levelParams us entry.body)
+    (pe :: targs.reverse)
+
 /-! ## Scope queries -/
 
 /-- `Expr.looseBVarsBounded k` — `O(1)`: the cached bound is *exact*

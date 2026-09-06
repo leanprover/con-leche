@@ -6,10 +6,9 @@ import Setlec.Verify.IotaWalkInv
 # The declaration-level RUN inversions (task #148 T6; the derivation
 half removed 2026-09-05)
 
-Four inversions from `checkDecl`'s own steps into the V-free run
-records of `SetBase/Decl.lean`: `certifyNatEqs` into `NatEqsRun`, the
-elimination-template fold into `DeclIndRun.Templates`, and the pinned
-basis fold into `BasisInstallRun`/`DeclBasisRun`.  Each inverts a statement
+Three inversions from `checkDecl`'s own steps into the V-free run
+records of `SetBase/Decl.lean`: `certifyNatEqs` into `NatEqsRun`, and
+the pinned basis fold into `BasisInstallRun`/`DeclBasisRun`.  Each inverts a statement
 about the checker into a statement about the checker; no valuation, no
 relation and no model appears in any of them.
 
@@ -66,30 +65,6 @@ theorem natEqsRun_of_certs {μ : CheckMode} {F : Nat} {env : Env} :
         rcases List.mem_cons.mp heq with rfl | heq'
         · exact hx
         · exact ih h eq heq'
-
-/-! ## `indDecl`, the back half: the elimination-template install
-
-`checkIndDecl`'s last step installs the inert template table
-(`installProjTemplate`, task #175 S1).  It is a pure stored-data
-install and inverts outright (`installProjTemplate_inv`).  (Its
-sibling, the projection-*function* fold, was parametric in `ProjFnR`'s
-inversion and went with `ProjFnR`.) -/
-
-/-- **The elimination-template install, inverted.** -/
-theorem templates_of {T ctorName : Name} {lps : List Name}
-    {nP nF : Nat} {env' env₂ : Env}
-    (h : installProjTemplate (m := CheckM) env' T ctorName lps nP nF = .ok env₂) :
-    DeclIndRun.Templates T ctorName lps nP nF env' env₂ := by
-  unfold installProjTemplate at h
-  split at h
-  · split at h
-    · next hc =>
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact Or.inr ⟨Option.isNone_iff_eq_none.mp hc.1, h.symm⟩
-    · simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact Or.inl h.symm
-  · simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact Or.inl h.symm
 
 /-! ## `basisDecl`
 

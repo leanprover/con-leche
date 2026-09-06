@@ -159,51 +159,66 @@ theorem direct_ctor_wf {env₀ env env₂ : Env} (henv : EnvWF env)
        exact ⟨envWF_cons_ctor henv (by assumption), htf, htb⟩)
     | close_throw
 
-/-- The rule's right-hand side, as the stage's own guard checked it. -/
-theorem checkDirectRule_facts {env : Env} {p : DirectParts}
-    {cvCa cvRa : ConstantVal} {rhsA : Expr} {F : Nat}
-    (h : checkDirectRule (fueledOps mode F) env p cvCa cvRa = .ok rhsA) :
-    rhsA.hasFvar = false ∧
-    rhsA.allLevelParamsDefined cvRa.levelParams = true ∧
-    rhsA.constsResolve env = true ∧
-    rhsA.looseBVarsBounded 0 = true := by
-  unfold checkDirectRule at h
+/-- The recursor stage's stored pieces, as its own guards checked
+them (task #175 S2): the stored type is the generated recursor type
+at the stream's name and level parameters, and both it and the
+generated rule pass the four scoping clauses. -/
+theorem checkDirectRec_facts {env : Env} {p : DirectParts}
+    {cvTa cvCa cvRa : ConstantVal} {rhsA : Expr} {F : Nat}
+    (h : checkDirectRec (fueledOps mode F) env p cvTa cvCa = .ok (cvRa, rhsA)) :
+    cvRa.name = p.cvR.name ∧ cvRa.levelParams = p.cvR.levelParams ∧
+    (cvRa.type.hasFvar = false ∧
+      cvRa.type.allLevelParamsDefined cvRa.levelParams = true ∧
+      cvRa.type.constsResolve env = true ∧
+      cvRa.type.looseBVarsBounded 0 = true) ∧
+    (rhsA.hasFvar = false ∧
+      rhsA.allLevelParamsDefined cvRa.levelParams = true ∧
+      rhsA.constsResolve env = true ∧
+      rhsA.looseBVarsBounded 0 = true) := by
+  unfold checkDirectRec at h
+  obtain ⟨cvRi, -, h⟩ := exceptBind_ok h
+  try dsimp only at h
+  obtain ⟨recTy, -, h⟩ := exceptBind_ok h
+  obtain ⟨rhs, -, h⟩ := exceptBind_ok h
+  try dsimp only at h
   split at h
-  · try simp only at h
-    obtain ⟨rhsA', -, h⟩ := exceptBind_ok h
+  · try dsimp only at h
+    have hg1 : (Expr.allLevelParamsDefined p.cvR.levelParams recTy &&
+        Expr.constsResolve env recTy && Expr.looseBVarsBounded 0 recTy &&
+        !recTy.hasFvar) = true := by assumption
     split at h
-    · try simp only at h
-      have hg : (Expr.allLevelParamsDefined cvRa.levelParams rhsA' &&
-          Expr.constsResolve env rhsA' && Expr.looseBVarsBounded 0 rhsA' &&
-          !rhsA'.hasFvar) = true := by assumption
-      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hg
-      have hret : rhsA' = rhsA := by
+    · try dsimp only at h
+      have hg2 : (Expr.allLevelParamsDefined p.cvR.levelParams rhs &&
+          Expr.constsResolve env rhs && Expr.looseBVarsBounded 0 rhs &&
+          !rhs.hasFvar) = true := by assumption
+      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hg1 hg2
+      have hret : cvRa = ⟨p.cvR.name, p.cvR.levelParams, recTy⟩ ∧ rhsA = rhs := by
         repeat' first
           | (obtain ⟨_, _, h⟩ := exceptBind_ok h)
           | split at h
         all_goals first
           | (try dsimp only at h
-             simp only [pure, Except.pure, Except.ok.injEq] at h
-             exact h)
+             simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+             exact ⟨h.1.symm, h.2.symm⟩)
           | close_throw
-      subst hret
-      exact ⟨hg.2, hg.1.1.1, hg.1.1.2, hg.1.2⟩
+      obtain ⟨rfl, rfl⟩ := hret
+      exact ⟨rfl, rfl, ⟨hg1.2, hg1.1.1.1, hg1.1.1.2, hg1.1.2⟩,
+        ⟨hg2.2, hg2.1.1.1, hg2.1.1.2, hg2.1.2⟩⟩
     · close_throw
   · close_throw
 
-/-- Stage 3/4 at the run level: the recursor cons carrying its single
-rule is well-formed (the rule's right-hand side facts are the stage's
-own guard; the fire mode is never `.nested`). -/
+/-- Stage 3 at the run level: the recursor cons carrying its single
+rule is well-formed — the stored type's and the rule's four clauses are
+the stage's own guards; the fire mode is never `.nested`. -/
 theorem direct_rec_wf {env : Env} (henv : EnvWF env)
-    {p : DirectParts} {cvCa cvRa : ConstantVal} {rhsA : Expr} {F G : Nat}
-    (hcv : checkConstantVal (fueledOps mode F) env p.cvR = .ok cvRa)
-    (hru : checkDirectRule (fueledOps mode G) env p cvCa cvRa = .ok rhsA) :
+    {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {rhsA : Expr} {F : Nat}
+    (h : checkDirectRec (fueledOps mode F) env p cvTa cvCa = .ok (cvRa, rhsA)) :
     EnvWF ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
           .plain else .inert, rhsA⟩] :: env.consts⟩ := by
-  obtain ⟨htf, htp, htr, htb⟩ := checkConstantVal_typeWF hcv
-  obtain ⟨hrfv, hrlp, hrres, hrbv⟩ := checkDirectRule_facts hru
+  obtain ⟨-, -, ⟨htf, htp, htr, htb⟩, ⟨hrfv, hrlp, hrres, hrbv⟩⟩ :=
+    checkDirectRec_facts h
   refine EnvWF.cons henv (directConstWF htf htp
     (Expr.constsResolve_mono htr) htb
     (fun _ _ _ heq => nomatch heq) ?_)
@@ -234,7 +249,7 @@ theorem checkDirectProjTable_inv {env envOut : Env} {T C : Name}
         b.looseBVarsBounded (nP + 1)) = true) ∧
       (List.range nF).all (fun j => (env.find? (projFnName T j)).isNone) = true ∧
       env.find? (projTableName T) = none ∧
-      envOut = ⟨.projInfo ⟨T, lps, nP, C, nF, rs, bodies, guards, true⟩
+      envOut = ⟨.projInfo ⟨T, lps, nP, C, nF, rs, bodies, guards⟩
         :: env.consts⟩ := by
   unfold checkDirectProjTable at h
   obtain ⟨bodies, hb, h⟩ := exceptBind_ok h

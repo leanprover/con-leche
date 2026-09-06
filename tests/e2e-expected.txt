@@ -213,17 +213,23 @@
 2 nat_shiftleft_perturbed.ndjson
 0 nat_shiftright_ok.ndjson
 2 nat_shiftright_perturbed.ndjson
+# nat_log2_ok: since the audit's S1 (`Nat.log2` left the literal op
+# set — official's reduce_nat folds nothing unary but Nat.succ, and
+# the install-time pin went with the fast path) this fixture pins the
+# ORDINARY route: a stream declaring Nat.log2 and applying it to a
+# literal must still accept, by unfolding, with no acceleration and no
+# decline.  Its perturbed twin was deleted with the pin: a
+# differently-defined Nat.log2 is now accepted, as official accepts it.
 0 nat_log2_ok.ndjson
-2 nat_log2_perturbed.ndjson
 # Self-contained certificate blobs (task #113): *pure-cone* slices —
 # the operation's dependency closure plus only the guard-required
 # ground operations (scripts/natop_cone_roots.json), with the cert
 # proofs' historical auxiliary constants (funext, Eq.subst,
-# of_decide_eq_true, Nat.log2_terminates, …) positively absent from
-# the stream — must accept: the generated proofs may only reference
-# the op's own cone (which every stream declaring the op provides).
+# of_decide_eq_true, …) positively absent from the stream — must
+# accept: the generated proofs may only reference the op's own cone
+# (which every stream declaring the op provides).  (nat_log2_cone was
+# the second slice; it went with the Nat.log2 pin at the audit's S1.)
 0 nat_land_cone.ndjson
-0 nat_log2_cone.ndjson
 # subject_reduction_redex (arena good/undecidability/subject-reduction-redex):
 # `x2 x4` needs `f 1 (proof_2 x0) ≡ f 0 (proof_1 x0)` where the proofs
 # are *theorems* whose values must delta-unfold for the Acc iota step
@@ -435,3 +441,15 @@
 # `args = nparams + nindices`, not `is_non_rec_structure` — a
 # conservative decline on our side, recorded as a finding in DESIGN.md.
 2 indexed_one_ctor_proj.ndjson pre
+# proj_share.ndjson (tests/e2e/src/proj_share.lean; the affine frontier,
+# 2026-09-06): raw `.proj Box 0 b` nodes on a structure whose parameter
+# is a 27-node DAG with a 2^27-node tree (`big% 26`, lean4export
+# hash-consed).  The executable `.proj` inference clause used to compute
+# the field type through the spec's tree-walking `Expr.instantiateList`,
+# materializing a 134 M-node copy of the parameter per projection —
+# the out-of-memory at Mathlib's
+# `AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen` (DESIGN.md "The
+# affine frontier").  Now through the memoized `ExprC` instantiation
+# (`ProjEntry.typeAtI`); official accepts in milliseconds, so do both
+# modes.  Pre-fix: out-of-memory under the 16 GB cap.
+0 proj_share.ndjson raw

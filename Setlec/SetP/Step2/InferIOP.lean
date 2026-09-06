@@ -670,8 +670,9 @@ theorem infer_letE_claimIOP (m : EnvS2Core V env)
 frozen statement; DESIGN.md, "THE IO LICENSE BATCH").  The inversion's
 certificate disjunct splits the proof:
 
-* **gated arm** (`μ.verifiedChecks && m'.pw.isNever` — the mode conjunct is
-  *in* the disjunct, so the clause needs no mode hypothesis): the
+* **gated arm** (`m'.pw.isNever` — the **datum alone** since the
+  licence ruling of 2026-09-06; the clause never needed a mode
+  hypothesis and now the disjunct does not carry one either): the
   skipped fact `⟦a⟧ ∈ ⟦Aa⟧` is recovered by `io_domain_transfer`
   from the premise's hereditary app slot (`hoist_app`), the io-run's
   computed product (`ihio` at `f` + the reduction claim) and
@@ -783,9 +784,8 @@ theorem infer_app_claimIOP (m : EnvS2Core V env)
       interp2 V ρ aa ∈ˢ interp2 V ρ Aa := by
     rcases hcert with hg | ⟨tya, hia, hde⟩
     · -- THE GATED ARM: the license fires
-      rw [Bool.and_eq_true] at hg
       have hw0 : pwBit φ mb'.pw ≠ 0 :=
-        pwBit_ne_zero_of_isNever hg.2 φ
+        pwBit_ne_zero_of_isNever hg φ
       intro ρ hρ
       obtain ⟨v, A, B, hfslot, haslot, -⟩ := hslot ρ hρ
       have hf' := hf2 ρ hρ

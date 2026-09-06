@@ -233,9 +233,9 @@ theorem majorToCtorP_reads {m : EnvS2Core V env}
           · -- a `.proj` node at a tower entry reads to the tower reading
             rw [if_pos htow] at hx'
             obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx'
-            obtain ⟨entry, hfe, htw⟩ :=
+            obtain ⟨entry, hfe⟩ :=
               Setlec.towerSlotsAll_slot htow j (List.mem_range.mp hj)
-            refine ⟨⟨_, denoteP_proj_tower hfe htw hea⟩, ?_⟩
+            refine ⟨⟨_, denoteP_proj_tower hfe hea⟩, ?_⟩
             intro l hl
             exact hlr l (by simpa [Expr.fvarLeaves] using hl)
           rw [if_neg htow] at hx'
@@ -498,28 +498,28 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
           -- (task #175 S1: the slots are the table's, whose head data
           -- carries the former's level parameters)
           have hslotE : ∀ j, j < caps.etaFields → ∃ entry : ProjEntry,
-              env.findProj? T j = some entry ∧ entry.tower = true ∧
+              env.findProj? T j = some entry ∧
               entry.levelParams = cvT.levelParams := by
             intro j hj
-            obtain ⟨entry, hfe, htw⟩ := Setlec.towerSlotsAll_slot htow j hj
+            obtain ⟨entry, hfe⟩ := Setlec.towerSlotsAll_slot htow j hj
             obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', -, -, -, -⟩, -⟩ :=
-              htower T j entry hfe htw
+              htower T j entry hfe
             have hcvT' : cvT' = cvT := by
               rw [hfT] at hfT'
               exact (ConstantInfo.indInfo.inj (Option.some.inj hfT')).1.symm
-            exact ⟨entry, hfe, htw, by rw [← hlpsT', hcvT']⟩
+            exact ⟨entry, hfe, by rw [← hlpsT', hcvT']⟩
           have hpfacts : ∀ j ∈ List.range caps.etaFields,
               denoteP m.acval env φ d (.proj T j major) = some (projAV j vm) := by
             intro j hj
-            obtain ⟨entry, hfe, htw, -⟩ := hslotE j (List.mem_range.mp hj)
-            exact denoteP_proj_tower hfe htw hvm
+            obtain ⟨entry, hfe, -⟩ := hslotE j (List.mem_range.mp hj)
+            exact denoteP_proj_tower hfe hvm
           have hokProj : ∀ j ∈ List.range caps.etaFields, ∀ ρ : Nat → V,
               Sat2 V Δa ρ → AnnotOkP V ρ (projAV j vm) := by
             intro j hj ρ hρ
-            obtain ⟨entry, hfe, htw, hlpe⟩ :=
+            obtain ⟨entry, hfe, hlpe⟩ :=
               hslotE j (List.mem_range.mp hj)
             obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j,
-              _, -, -, hlawj, -⟩ := htower T j entry hfe htw
+              _, -, -, hlawj, -⟩ := htower T j entry hfe
             have hcapsTj : capsTj = caps := by
               rw [hfT] at hfTj
               exact (ConstantInfo.indInfo.inj (Option.some.inj hfTj)).2.symm

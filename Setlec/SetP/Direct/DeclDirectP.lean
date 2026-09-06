@@ -109,7 +109,7 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
     {block : List ConstantInfo} {p : DirectParts} (mp : EnvS2PM V μ env)
     (hE : Setlec.EtaFamiliesClosed env) (hdp : Setlec.directParts? env block = some p)
     (h : Setlec.Semantics.DeclDirectRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hccvR, hRec, hRule, hTbl⟩ := h
+  obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hRec, hTbl⟩ := h
   dsimp only at hTbl
   -- the table stage's own guards: the projection-function name family
   -- is free (the modeled route's η-family key) and the table is fresh
@@ -127,8 +127,9 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
   have hcbT : ConstsBound env cvTa.type :=
     constsBound_of_constsResolve _ (by rw [hTtype]; exact htrT)
   -- the constructor's shape
-  obtain ⟨hccvC, rfl, ⟨cbs, hstripC⟩, fvsP, crest, tfvs, trest, xFvs, hopC, -, -, hopX, hxres,
+  obtain ⟨hccvC, rfl, ⟨cbs, hstripC⟩, fvsP, crest, tfvs, trest, xFvs, hopC, hopT, -, hopX, hxres,
     hsorts⟩ := Setlec.checkDirectCtor_shape hCtor
+  have hstripC' : (cvCa.type.stripPis (p.nP + p.nF)).isSome = true := by rw [hstripC]; rfl
   obtain ⟨hfindC, -, hpshapeC, -, -, hnfC, typeC, -, -, hannC, -, htrC, -, -, htyC⟩ :=
     Setlec.checkConstantVal_inv hccvC
   have hCname : cvCa.name = p.cvC.name := by rw [htyC]
@@ -255,16 +256,22 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
       · obtain ⟨cvC', hfC'⟩ := hE T'' cvT'' caps hf he hr
         exact ⟨cvC', Setlec.Env.find?_cons_of_fresh hCfreshI
           (Setlec.Env.find?_cons_of_fresh hTfresh hfC')⟩
-  obtain ⟨rds, hRD⟩ := recData_of hμ mpC hccvR hRec
-  obtain ⟨mp₃, hac₃⟩ := stageRec hμ hE_C mpC hccvR hRec hRule hfT_C hlpsT hfC_C hlpsC helim
-    (fun hnF => hslotsF 0 hnF) hFD_C hCD_C hRD hleafT_C hleafC_C hiff
+  -- the recursor's data, read off the generated type (task #175 S2)
+  have hRD := recData_of hμ mpC hRec hfT_C hlpsT hfC_C hlpsC hopT hstripC' hFD_C hCD_C
+  obtain ⟨hRuleRead, hRuleOk⟩ := ruleData_of hμ mpC hRec hfT_C hlpsT hfC_C hlpsC hopT hstripC'
+    hFD_C hCD_C
+  obtain ⟨mp₃, hac₃⟩ := stageRec hE_C mpC hRec hstripT hfT_C hlpsT hfC_C hlpsC helim
+    (fun hnF => hslotsF 0 hnF) hFD_C hCD_C hRD (fun _ => rfl) hRuleRead hRuleOk hleafT_C hleafC_C
+    hiff
     (fun ψ ρ h => ⟨(hfields ψ ρ h).1, (hfields ψ ρ h).2.1, (hfields ψ ρ h).2.2.1,
       (hfields ψ ρ h).2.2.2.1⟩)
   -- the fold's invariant at the first slot
-  obtain ⟨hfindR, -, -, -, -, hnfR, typeR, -, -, hannR, -, htrR, -, -, htyR⟩ :=
+  obtain ⟨cvRi, typeR, -, -, -, hccvR, hgenR, hgenRhs, -, htrR, -, -, -, -, -, -, -, -, -, -,
+    hcvRa⟩ := Setlec.checkDirectRec_shape hRec
+  obtain ⟨hfindR, -, -, -, -, -, -, -, -, -, -, -, -, -, -⟩ :=
     Setlec.checkConstantVal_inv hccvR
-  have hRname' : cvRa.name = p.cvR.name := by rw [htyR]
-  have hRtype : cvRa.type = typeR := by rw [htyR]
+  have hRname' : cvRa.name = p.cvR.name := by rw [hcvRa]
+  have hRtype : cvRa.type = typeR := by rw [hcvRa]
   have hRfresh : (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
       env.consts⟩ : Env).consts⟩ : Env).find? cvRa.name = none := by
     rw [hRname']; exact hfindR
@@ -276,7 +283,6 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
     (mpC.base2.wf _ (Setlec.Semantics.Env.find?_mem hfT_C)).2.2.1
   have hcbC_C := constsBound_of_constsResolve _
     (mpC.base2.wf _ (Setlec.Semantics.Env.find?_mem hfC_C)).2.2.1
-  obtain ⟨hnfRhs, -, hannRhs, -⟩ := Setlec.checkDirectRule_shape hRule
   -- the structure's slots are mentioned by no stored piece: no table
   -- is stored below the table stage (task #175 S1)
   have hslotI : ∀ j,
@@ -308,16 +314,23 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
         exact Setlec.annotateCore_noProjAt μ hannC hnfC (hslotI j))
       (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h) (fun _ _ _ _ h => nomatch h)
       (fun _ h => nomatch h))
+    -- the generated recursor and its rule mention no projection node the
+    -- former's and the constructor's types do not (task #175 S2)
+    have hnpT : Expr.NoProjAt p.cvT.name j cvTa.type :=
+      Setlec.Expr.noProjAt_of_constsResolve hfindT _ (by rw [hTtype]; exact htrT)
+    have hnpC : Expr.NoProjAt p.cvT.name j cvCa.type := by
+      rw [hCtype]
+      exact Setlec.annotateCore_noProjAt μ hannC hnfC (hslotI j)
     refine h2.cons ⟨?_, (fun _ _ _ h => nomatch h), (fun _ _ h => nomatch h), ?_,
       (fun _ h => nomatch h)⟩
     · show Expr.NoProjAt p.cvT.name j cvRa.type
       rw [hRtype]
-      exact Setlec.annotateCore_noProjAt μ hannR hnfR (hslotC j)
+      exact Setlec.Expr.NoProjAt.directRecTy hgenR hnpT hnpC
     · intro cv mI rP rules heq r hr
       injection heq with _ _ _ hrules
       subst hrules
       rcases List.mem_singleton.mp hr with rfl
-      refine ⟨Setlec.annotateCore_noProjAt μ hannRhs hnfRhs (hslotC j), ?_⟩
+      refine ⟨Setlec.Expr.NoProjAt.directRecRhs hgenRhs hnpT hnpC, ?_⟩
       intro lvls pins hfire
       split at hfire <;> exact nomatch hfire
   -- the table's cons

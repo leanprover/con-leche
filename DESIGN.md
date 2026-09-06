@@ -1008,16 +1008,23 @@ hard build error.  Contract points:
   once).
 * **Layering via the module system.**  `Setlec/Kernel/Expr.lean`,
   `Setlec/PinGen/*.lean` and `Setlec/Kernel/NatOpPins.lean` are
-  `module`s; `NatOpPins` reaches the generator through
-  `meta import Setlec.PinGen`, so `Lean.*` stays out of the runtime
-  import closure (the setlec binary grew ~2 MB for the pins data, not
-  ~100 MB for libLean; checker runtime code never touches `Lean.*`
-  APIs).  Because a `module`'s ambient environment strips imported
-  theorem *proofs* (and `meta import all Lean` does not restore
-  cross-package proofs — probed: `dif_pos` has no value there), the
-  generator computes in a dedicated full-view environment
-  (`importModules` at `OLeanLevel.private` over `Init` and the
-  certificate module) and splices into the ambient one.
+  `module`s; `NatOpPins` reaches its elaboration-time helpers through a
+  `meta import`, so `Lean.*` stays out of the runtime import closure
+  (the setlec binary grew ~2 MB for the pins data, not ~100 MB for
+  libLean; checker runtime code never touches `Lean.*` APIs).  Because
+  a `module`'s ambient environment strips imported theorem *proofs*
+  (and `meta import all Lean` does not restore cross-package proofs —
+  probed: `dif_pos` has no value there), the generator computes in a
+  dedicated full-view environment (`importModules` at
+  `OLeanLevel.private` over `Init` and the certificate module).
+  **SUPERSEDED IN PART at task #176 (2026-09-06):** that full-view
+  environment is no longer built while `NatOpPins` elaborates — loading
+  an olean by name is not an import edge, Lake never ordered it, and a
+  cold `lake build setlec` failed on a missing `Certs.olean`.  The
+  computation moved to the `natop-pins-export` executable and the
+  result is a committed file; `NatOpPins` now `meta import`s only
+  `Setlec/PinGen/Dump.lean` (the format).  See "The pins as a committed
+  file" below.
 * **Prefix allowlists** (`scripts/natop_prefix.json`, from
   `scripts/extract_natop_prefix.py`) are checked-in generator *input*
   (an allowlist of stream-declared names, not a blob), extracted from
@@ -1053,11 +1060,9 @@ hard build error.  Contract points:
   pointwise-congruence unfolding (`natFixGoCongr`/`natFixUnfold`,
   with per-op `dcongr`-based congruence hypotheses — first-order
   recursive occurrences never need function extensionality) derives
-  the one-step equations; `log2` is proved from a mirror of its
-  fuel-structural compiled value (`log2Go`, plain `Nat.rec` — no WF
-  machinery), with the `n/2 ≤ f` fuel bound hand-derived from the
-  file's own `div` certificates (`Nat.div_lt_self`'s stock proof
-  pulls `Or`/`Exists`/`propext`/`Acc`).  Blob sizes stay far under
+  the one-step equations.  (`Nat.log2` was proved the same way, from
+  a mirror of its fuel-structural compiled value; that whole section
+  went with the log2 pin at the audit's S1.)  Blob sizes stay far under
   the 2^25 tree budget (max ≈1.8 M unshared-tree / 8 k-node DAG per
   op, `Nat.xor`); a *naive* full inlining had exploded to 2^40
   saturated trees.  Each proof blob is spliced as its **own**
@@ -1065,26 +1070,32 @@ hard build error.  Contract points:
   list: the model bridge (`Setlec/Model/DivModCert.lean`) reduces the
   list structure and must never zeta through the blobs' `let`-chains
   (kernel recursion depth; the blobs stay opaque to the model).
-  Verification fixtures: `nat_land_cone`/`nat_log2_cone` (e2e) are
-  *pure-cone* slices — the op's dependency closure plus only the
-  guard-required ground ops, with `funext`-et-al positively absent —
-  accepted end to end.  Diagnosis unchanged:
+  Verification fixture: `nat_land_cone` (e2e) is a *pure-cone* slice
+  — the op's dependency closure plus only the guard-required ground
+  ops, with `funext`-et-al positively absent — accepted end to end.
+  (`nat_log2_cone` was the second such slice; it went with the log2
+  pin at the audit's S1.)  Diagnosis unchanged:
   `scripts/DumpNatOpPinConsts.lean` + `scripts/
   diagnose_natop_prefix.py` (the op self-ref stays a false positive).
-  Rebuild caveat: Lake tracks neither the `include_str` json edge nor
-  the certs module; `touch` does nothing (content-hash traces) —
-  delete the `PinGen*`/`NatOpPins*` build artifacts to force
-  regeneration.
+  Rebuild caveat (SUPERSEDED at #176 for the certs half): Lake tracks
+  neither the `include_str` json edges nor — back when it existed — the
+  olean-by-name load of the certs module; `touch` does nothing
+  (content-hash traces).  Since #176 the pins are regenerated
+  deliberately (`lake exe natop-pins-export`) and `tests/pindump.sh`
+  fails the battery if the committed dump is stale, so the "delete the
+  build artifacts" ritual is only needed for `Setlec/PinGen.lean`'s own
+  `include_str` inputs when re-exporting.
 * **StdAxioms pins** are small and stay vendored
   (`Setlec/Kernel/StdAxioms.lean`); basis blocks (`PSigma'` …) are
   preprocessor-owned and out of scope for the generator.
 
 ### The remaining GMP `Nat` operations (2026-08-22, task #54)
 
-The official accelerator whitelist's seven remaining operations —
+The official accelerator whitelist's remaining operations —
 `Nat.gcd`, `Nat.land`, `Nat.lor`, `Nat.xor`, `Nat.shiftLeft`,
-`Nat.shiftRight`, `Nat.log2` — join the `div`/`mod` family (the
-`natDivModNames` list, now nine operations; the name is historic).
+`Nat.shiftRight` (and, until the audit's S1, `Nat.log2`) — join the
+`div`/`mod` family (the `natDivModNames` list, eight operations since
+`Nat.log2` left with its fast path; the name is historic).
 Each follows exactly the pinned-declaration pattern: elab-time def pin
 (defeq gate, mismatch declines), hand-pinned `ble`-guarded
 characterization statements in `divModCertStmts`, generated proof
@@ -1098,13 +1109,16 @@ induction over the literal), consumed by `reduceNat_sound`.
   - `gcd`: `1 ≤ x → gcd x y = gcd (y % x) x`; `x = 0 → gcd x y = y`.
   - `shiftLeft`: `1 ≤ y → x <<< y = (2*x) <<< (y-1)`; `y = 0 → = x`.
   - `shiftRight`: `1 ≤ y → x >>> y = (x >>> (y-1)) / 2`; `y = 0 → = x`.
-  - `log2`: `2 ≤ x → log2 x = succ (log2 (x/2))`; `x < 2 → = 0`.
-    `log2` is **unary**: the statements still quantify over both frame
-    variables (`y` unused), so the certificate check, `checkDivModCerts`
-    and the frame machinery stay uniform; only the *model* side
-    branches (a unary `natOpTyPinned` shape shared with `pred`, a
-    unary function-space membership, and `eqSide_app1` in place of
-    `eqSide_app2` in the bridge).
+  - `log2` (REMOVED at the divergence audit's S1, §15): it was
+    `2 ≤ x → log2 x = succ (log2 (x/2))`; `x < 2 → = 0`, and the
+    family's only **unary** member — the statements still quantified
+    over both frame variables (`y` unused) so the certificate check,
+    `checkDivModCerts` and the frame machinery stayed uniform, and
+    only the *model* side branched (a unary `natOpTyPinned` shape
+    shared with `pred`, a unary function-space membership,
+    `eqSide_app1` for `eqSide_app2`).  With it gone every
+    pin-certified operation is binary and those branches are gone
+    too; `natOpTyPinned`'s unary arm now serves `Nat.pred` alone.
   - `land`/`lor`/`xor` (`Nat.bitwise` at `and`/`or`/`bne`): the
     recurrence characterizes the operation **arithmetically** — the
     combined low bit is `(x%2)*(y%2)` for `and`,
@@ -1126,14 +1140,14 @@ induction over the literal), consumed by `reduceNat_sound`.
   `delta`; WF definitions are irreducible) and finishes with
   elementary `Nat` rewriting.  The later ops (`gcd` at its stream
   position, `log2`) have `Iff`/`And`/`propext`/`Int` prefix-present
-  and use ordinary core lemmas (`Nat.gcd_succ`, `Nat.log2_def`); the
+  and use ordinary core lemmas (`Nat.gcd_succ`); the
   shifts are structural and their recurrences are `rfl`.
 
 * **Uniqueness lemma shapes.**  `gcd`/`land`/`lor`/`xor`: strong
   induction on the first literal with the second generalized (step at
   `y % x` resp. `x/2`, `y/2`); shifts: strong induction on the second
-  literal with the first generalized; `log2`: strong induction on the
-  single literal.  The bit operations' metatheory-side recurrences are
+  literal with the first generalized.  The bit operations'
+  metatheory-side recurrences are
   the *generator's own certificate theorems reused at the meta level*
   (`Setlec/Model/NatOps.lean` imports `Setlec.PinGen.Certs`); their
   guards are bridged with `Nat.ble_eq_true_of_le`.
@@ -5453,7 +5467,8 @@ them one-per-def from `checkDefnValP` (the theorem path was already a
 true tail call, zero copies — the target shape).
 
 **Fix.**  The rare branch is a pure name test
-(`natOpNames`/`natDivModNames`, 16 pinned names), so it is decided
+(`natOpNames`/`natDivModNames`, 16 pinned names — 15 since `Nat.log2`
+left at the audit's S1), so it is decided
 *before* the value check: the common path tail-calls
 `checkDefnValP`/`F` with `fe` consumed; the rare path keeps today's
 exact behavior (still certifying against the pre-push `fe`).  Mirrored
@@ -9498,6 +9513,13 @@ their pin literals differ in how tightly they are pinned by proofs:
   `ErasedEq.of_eraseNames` + `interp_erasedEq` bridge a `matchesPin`
   hit exactly as before.  A regeneration through `AnnotateBasis.lean`
   must preserve this normalization (noted in the module header).
+  *(SUPERSEDED 2026-09-06, `agent/basis-literals`: there is no
+  regeneration step any more — the annotated forms are computed from
+  the raw pins by `#annotate_basis` while the pin module elaborates,
+  and the annotation pass writes `pw` and nothing else, so the
+  normalization holds by construction.  EVERY paragraph in this file
+  that names `AnnotateBasis.lean` as the way to regenerate the basis
+  literals is superseded the same way; see the record at the end.)*
 
 **Rejected alternative.**  Making `Expr.eraseNames` erase the
 annotation and dropping the `m = m'` conjunct from `Expr.ErasedEq` was
@@ -12061,8 +12083,9 @@ rows are *deleted from the bundle*.
 2. **The numeral transports.**  `Sound/NatOps.lean`'s seven structural
    closed forms (`natOpV2_pred`/`sub`/`mul`/`pow`/`beq`/`ble` beside
    the lead's `natOpV2_add`, `Interp2/NatSemP.lean`) and
-   `Sound/NatOpsWf.lean`'s nine WF strong inductions
-   (`natOpV2_div`/`mod`/`gcd`/`shiftLeft`/`shiftRight`/`log2`/`land`/
+   `Sound/NatOpsWf.lean`'s WF strong inductions (nine at the time,
+   eight since `Nat.log2` left the family)
+   (`natOpV2_div`/`mod`/`gcd`/`shiftLeft`/`shiftRight`/`land`/
    `lor`/`xor`, `Interp2/NatWfP.lean`), all at `interp2`.  The
    `PinGen.*Cert` arithmetic facts are pure `Nat` and were reused as
    they stand.
@@ -43096,8 +43119,9 @@ constant.  So the term is *tiny* and the type is *tiny*; what is
 enormous is the reduction the kernel must perform to whnf
 `Decidable.decide (@Eq Rat _ _)` to `Bool.true`.  This is the classic
 Mathlib `decide`-over-`Rat` kernel-computation pattern, and it is not a
-`Nat` problem: `Nat.pred/add/sub/mul/pow/beq/ble` (`natOpNames`) and
-`Nat.div/mod/gcd/land/lor/xor/shiftLeft/shiftRight/log2`
+`Nat` problem: `Nat.add/sub/mul/pow/beq/ble` (`natOpNames`, whose
+`Nat.pred` carries no fast path) and
+`Nat.div/mod/gcd/land/lor/xor/shiftLeft/shiftRight`
 (`natDivModNames`) all have certified literal fast paths already.  The
 depth is spent above them, in `Rat`/`Int` structure reduction.
 
@@ -43631,7 +43655,8 @@ Verdict-class changes (WAIT for the user's go):
    `pred`/`log2` makes those literal applications grind (official
    grinds them too); the cap makes `a ^ b` with `b > 2^24` grind
    instead of computing.  Zero payoff, ruling-compliance only — the
-   user decides.
+   user decides.  (Both landed: S2 at master `8640f5e9`, S1 at
+   `agent/nat-ops-official`; §14/§15.)
 10. **V1 — K on a mutual Prop block** (I2): add official's "single
     inductive type" condition to `ruleK`.  Unreachable in real streams.
 
@@ -45209,10 +45234,14 @@ fixtures.  §4's datum is what says its residue on the Mathlib stream is
 zero, and §6's measurement is what says where it lands the campaign:
 **24.10 %**, at `CategoryTheory.Sigma.SigmaHom` — modulo the 660
 declarations the probe cut and the fix keeps.
-### 12. Phase 2, fix 6 — S2 landed: the `pow` exponent cap; S1 withdrawn by the user (`agent/divergence-s12`)
+### 12. Phase 2, fix 6 — S2 landed: the `pow` exponent cap; S1 withdrawn *at the time* (`agent/divergence-s12`)
 
-**The ruling (2026-09-06).**  Land the blow-up protection (official
-`reduce_pow`'s cap), KEEP the `Nat.pred`/`Nat.log2` literal fast paths.
+**The ruling (2026-09-06, superseded the same day by §15).**  Land the
+blow-up protection (official `reduce_pow`'s cap), KEEP the
+`Nat.pred`/`Nat.log2` literal fast paths.  (The second half was
+reversed hours later on conformance grounds; this section is kept as
+the record of the S2 landing and of the instruction measurements,
+which §15 relies on.)
 
 **S2.**  Official `reduce_pow` (`type_checker.cpp:616-627`) refuses an
 exponent above `ReducePowMaxExp = 1 << 24` and lets `Nat.pow` unfold;
@@ -45286,8 +45315,13 @@ instruction counts of the same binaries are flat.
 
 **Conclusion.**  The fast paths are strategy supersets with no
 measurable payoff on any stream at hand (each saves a handful of iota
-steps per literal use), and no cost; per the user's ruling they stay.
-The only fix worth having in this family was S2 (the cap), landed.
+steps per literal use), and no cost.  The measurement stands, and it
+is what decided the question in the end — the *other* way: since
+neither path buys anything, keeping them buys nothing either, and on
+2026-09-06 the user ruled them out on conformance grounds ("Remove the
+pred/log2 fast paths, it's odd to optimize random functions that the
+official kernel does not").  S1 is therefore LANDED, and with it the
+`Nat.log2` pin and certificates — see §15.
 ### 14. Phase 2 closed — status per row (2026-09-06)
 
 | row | status |
@@ -45298,12 +45332,85 @@ The only fix worth having in this family was S2 (the cap), landed.
 | D13 (struct-eta shape gate before inferring) | **landed** — master `791bf869` |
 | D4 (no proof irrelevance on quick pairs) | **landed** — master `f42cd259`; verdicts unchanged on init-full and the suites |
 | V1 (K on a mutual block) | **withdrawn by inspection** — an install-time invariant already (§11); master `f0009992` (record only) |
-| S1 (`pred`/`log2` fast paths) | **withdrawn by the user** — nobody grinds (§13); the fast paths stay |
+| S1 (`pred`/`log2` fast paths) | **landed** — `agent/nat-ops-official`, by the user's 2026-09-06 conformance ruling (§15); §13's "nobody grinds" measurement stands and is why the removal is free |
 | S2 (the pow cap at 2^24) | **landed** — this branch (`agent/divergence-s12`) |
 | W4 (one iota attempt per spine) | **deferred to the docket** — touches `iotaRec`'s exact-arity contract and `IotaRowsP`; cost linear in spine length, no witness built |
 | D5 (`cheap_proj` first pass, `tryUnfoldProjApp`, `lazyDeltaProjReduction`) | **deferred to the docket** — the largest restructuring (a second `whnfCore` entry + two lazy-delta helpers), both-direction cost, no witness built |
 | eager flag (item 6) | **deferred to the docket** — §8: full six-field threading (283 sites + ~770 lemma mentions) vs defeq-cone-only (57 + ~170, whnf-nested residual); separate memo tables either way; 1 use per stream, accepted; a cost divergence, not a verdict one |
 | E4 (proofIrrel type comparison / fall-through), N2 (`reduce_native`) | **stay** by the standing rulings |
+
+### 15. S1 landed — the literal op set is exactly official's, and the `Nat.log2` pin went with it (2026-09-06, `agent/nat-ops-official`)
+
+**The ruling.**  "Remove the pred/log2 fast paths, it's odd to
+optimize random functions that the official kernel does not."  This
+reverses §12's second half.  §13's measurement is untouched and is
+what makes the removal free: neither path was buying anything, so
+neither costs anything to give up (variant A on init-full: 812.06 G
+parity vs master's 812.44 G, 841.84 G vs 842.27 G in P — noise).
+
+**What the checker folds now.**  `reduceNat` (spec, `Kernel/Core.lean`)
+and `reduceNatI` (the twin both cores run, `Cached/CoreC.lean`) fold
+`Nat.succ` on a literal and the fourteen binary operations `add sub mul
+pow gcd mod div beq ble land lor xor shiftLeft shiftRight` — official
+`reduce_nat`'s list (`type_checker.cpp:639-668`), no more and no less,
+with `pow` capped at `2^24` (S2) and the first argument whnf'd first
+(D15).  A `Nat.pred lit` or `Nat.log2 lit` application unfolds, exactly
+as in official; the capless-`log2` positive decline is gone with them.
+
+**What came out with the log2 fast path.**  Nothing licensed the
+`Nat.log2` install-time pin any more, so the whole of it went: the
+entry in `natDivModNames` and in `natOpWfNames` (the WF decline safety
+net — a `Nat.log2` literal is no longer declined, it grinds, as
+official grinds it), `natOpDeps`/`natOpResult`'s rows, the
+`divModDeclPin`/`divModCertProofs`/`divModCertStmts` branches, the
+`Nat.log2` `OpSpec` (so `#gen_natop_pins` splices no `natLog2DeclPin`/
+`natLog2CertProofs`), the entire `Nat.log2` section of
+`PinGen/Certs.lean` (`log2Go`/`log2Eq`/`log2GoZero`/`divHalfLeAux`/
+`log2Bound`/`log2GoCongr`/`bleSelf`/`log2RecCert`/`log2BaseCert`, 137
+lines), its 5 671-line `natop_prefix.json` allowlist and its
+`natop_cone_roots.json` root, and on the model side
+`divModClausesV`'s log2 clause, `natOpTyPinned_unaryE`,
+`divModClausesP_log2`, `natOpV2_log2`, the log2 arms of
+`divModClausesV_congr`/`dmValNames_stored`, the log2 `unHead` case and
+`dmUnNames`' log2 branch.  Every pin-certified operation is now
+binary, so `dmUnNames` is constantly `[Nat.succ]`, every nine-way
+`natDivModNames` split became eight-way, and `natOpTyPinned`'s unary
+arm serves `Nat.pred` alone.  Net: −6 077 lines, +96.
+
+**What stayed, and why.**  `Nat.pred` REMAINS in `natOpNames` — with
+no fast path of its own, but `Nat.sub`'s recurrence is
+`sub x (succ y) = pred (sub x y)` and `natOpV2_sub` reads
+`natOpV2_pred`, so `Nat.pred`'s install-time recurrence certification
+is what makes `sub`'s literal fold sound, and thence div/mod/land/lor/
+xor/shift's.  It is shared machinery for the fourteen, not a leftover
+of its own fast path; `natOpNames` is now "six ops with a fast path
+plus `pred`, the certified dependency".
+
+**Fixtures.**  `nat_log2_perturbed` (was decline 2) DELETED: with the
+pin gone a differently-defined `Nat.log2` is accepted — measured, exit
+0 — which is what official does, so the fixture tested nothing.
+`nat_log2_cone` (accept 0) DELETED: it was the second *pure-cone
+certificate-blob* slice and there are no log2 cert blobs left;
+`nat_land_cone` still pins that property.  `nat_log2_ok` (accept 0)
+KEPT and re-documented — it now pins the ORDINARY route: a stream
+declaring `Nat.log2` and applying it to a literal must still accept,
+by unfolding, with no acceleration and no decline (measured: exit 0,
+433 declarations).  `nat_pred_wrong` (reject 1) KEPT unchanged:
+`Nat.pred` is still certified at install, and the perturbed statement
+now rejects through the structural unfold rather than the fast path.
+e2e is 76/76 (two fixtures fewer).
+
+**Gates at the tip** (master `161cd827` merged — the mode rename
+landed in between, so the runs below use `--verified`/`--trusted`):
+`lake build` warning-free (444 jobs), `lake test`, `tests/arena.sh`
+0 FAIL (tutorial 90/92, e2e 76/76, annot 14/14, retired flags 8/8,
+mode flags 16/16, trusted sweep 138 arena + 76 e2e + 14 annot with the
+three recorded divergences), proofdeps 1 371 rows as pinned / doors 0
+(no module added or removed — the removal is all *within* modules),
+layering 0 edges, init-full-pre2 ACCEPT 60 549 constants in both
+modes, the four capstones at exactly `[propext, Classical.choice,
+Quot.sound]`.
+
 ## MODE RENAME — `--verified` / `--trusted`, and the fast `isProof` arms ungated (2026-09-06, `agent/mode-rename`)
 
 **The user's ruling.**  The two modes were named after the artefacts
@@ -45523,34 +45630,40 @@ changed — those reads gate a *licence*, and a licence on an
 | `defeqStepI` | `(defeq-forall)`, `(defeq-lam)`: the compared binders' data must agree | validation; the defeq verdict does not read the datum |
 | `projCertAtI` | the whole `.proj` certificate family (`projCertI`) | a certificate |
 
-**B — licences, FLAGGED (the trusted mode does MORE work at each).**
-These read `verified`/`betaGate`/`ioGate` to *skip* work on the strength
-of a **validated** datum.  The trusted mode validates nothing, so they
-are off there and the skipped work runs:
+**B — LICENCES, ON IN BOTH MODES.**  *(Rewritten 2026-09-06 by the
+second ruling; see "TRUSTED LICENCES" below.  As first written, this
+group was FLAGGED and three of its rows were inversions — the trusted
+mode did MORE work than the verified one there.)*  These reads *skip*
+work whose correctness rests on an annotation datum.  **Validating**
+that datum is group A and is omitted in the trusted mode; the licence
+that **consumes** it is not certification-only work and stays on —
+trust the writer, skip the validation.
 
-| site | the licence | effect in trusted |
+| site | the licence | state |
 |---|---|---|
-| `whnfCoreStepI` β sites (`cfg.betaSkip`) | skip the per-redex argument certificate at a validated `.never` binder | certificate always runs |
-| `inferSpineIOI` (`unless cfg.verified && mt.pw.isNever`) | skip the per-argument application certificate under the graph-regime licence | certificate always runs |
-| the knot's `inferIO` slot (`cfg.ioGate`) | run `inferBodyIO` (official's `infer_only`) instead of the full inference body | the full body runs |
+| `whnfCoreStepI` β sites (`cfg.betaSkip`) | skip the per-redex argument certificate at a `.never` binder | **on in both** (`cfgT.betaGate = true`) |
+| `inferSpineIOI` (`unless mt.pw.isNever`) | skip the per-argument application certificate under the graph-regime licence | **on in both** — the `cfg.verified` conjunct is *gone*, at the site, at its spec and mirror, and in its inversion lemma |
+| the knot's `inferIO` slot (`cfg.ioGate`) | run `inferBodyIO` (official's `infer_only`) instead of the full inference body | **on in both** (`cfgT.ioGate = true`) |
 | `projCertAtI`'s second Bool (`cfg.betaGate`) | the licensed half of the projection certificate | moot — the family is off in A |
-| `cfg.iotaMode` | the ι cone's `ttChecks` residue | none: `ttChecks` is `false` at both modes |
+| `cfg.iotaMode` | the ι cone's `ttChecks` residue | moot — `ttChecks` is `false` at both modes |
 
-So three of the four are **inversions**: the trusted mode is slower than
-the verified one there, which is the opposite of what the mode is for.
-Resolving them means either extending the licences to unvalidated data
-(a soundness question for the trusted mode) or accepting the inversion
-as the price of the licences resting on validation.  Recorded for the
-ruling; nothing changed here.
+**So the mode's definition is now exactly group A**: `cfgT` is `cfgP`
+with `verified := false` (plus the inert `iotaMode`), and nothing else
+(`cfgT_eq_cfgP_verified_off`, `Setlec/Kernel/CoreCfg.lean`).
 
-**Related, and part of the same second ruling.**  The writers leave an
-**input-supplied** annotation alone (`pwWritten mb.pw`, i.e. any
-non-`.never` datum in the stream).  In the verified mode the validation
-checks of group A catch a wrong one; in the trusted mode nothing does,
-and the ungated `isProofFast` yes arm now reads it.  A stream can
-therefore steer the trusted mode's proof-irrelevance verdict.  That is
-the trusted mode being unverified, which is by design — but it is worth
-saying in one line, because it is the concrete shape "trusted" takes.
+**Related, and settled by the same ruling: the input-supplied
+annotation front door STAYS.**  The writers leave an **input-supplied**
+annotation alone (`pwWritten mb.pw`, i.e. any non-`.never` datum in the
+stream).  In the verified mode the validation checks of group A catch a
+wrong one; in the trusted mode nothing does, and the ungated
+`isProofFast` yes arm — and now the β and io licences — read it.  A
+stream can therefore steer the trusted mode's verdicts.  The user's
+ruling keeps the ability: *"I am happy to leave that ability under the
+'if you break it you get to keep both halves' rule.  The `--trusted`
+mode is only for us anyway."*  So `pwWritten`, the parser's `pw` field
+and the `annot` fixture suite all stay, and the one line worth saying
+is this: **in the trusted mode a supplied annotation is trusted
+unvalidated, by design.**
 
 **Gates, with the ruling in (all green).**  `lake build` warning-free
 (444 jobs); `lake test`; `tests/arena.sh` 0 FAIL — arena 90/92, e2e
@@ -45793,6 +45906,1450 @@ init-full-pre2.ndjson`): **accept, 60 549 declarations, both modes**
   the extracted slice accepting).  Any other Type-valued indexed
   one-constructor family with artifacts downstream now installs the
   same way; a `.proj` on one would be the first such node in the corpus.
+
+## TRUSTED LICENCES — group B turned ON in the trusted mode (2026-09-06, `agent/trusted-licences`)
+
+**The user's ruling**, closing the "second ruling" the omission table
+above was recorded for:
+
+> the trusted mode is "the verified core with certification-only steps
+> omitted"; the group B reads are LICENCES — they skip work whose
+> correctness rests on an annotation that verified mode VALIDATES.  In
+> trusted mode the validation is omitted but the licence must still
+> apply: **trust the writer, skip the validation.**
+
+and, on the input-supplied annotation front door:
+
+> I am happy to leave that ability under the "if you break it you get
+> to keep both halves" rule.  The `--trusted` mode is only for us
+> anyway.
+
+So the mode's definition is now **exactly group A**, and the omission
+table's group B rows above were rewritten to "on in both modes".
+
+### THE `cfgT` DIFF — the whole implementation, in four field values
+
+`Setlec/Kernel/CoreCfg.lean`:
+
+| field | `cfgP` | `cfgT` before | `cfgT` after | group |
+|---|---|---|---|---|
+| `betaGate` | `true` | `false` | **`true`** | B (licence) |
+| `ioGate` | `true` | `false` | **`true`** | B (licence) |
+| `verified` | `true` | `false` | `false` | **A — the mode** |
+| `iotaMode` | `.verified` | `.trusted` | `.trusted` | inert (`ttChecks` is `false` at both) |
+
+`cfgT` therefore differs from `cfgP` in **`verified` alone**, plus the
+inert `iotaMode` — pinned as `cfgT_eq_cfgP_verified_off :
+cfgT = { cfgP with verified := false, iotaMode := .trusted }`, by
+`rfl`.  New `rfl` rows `cfgT_betaSkip` / `cfgT_betaGate` /
+`cfgT_ioGate` / `cfgT_verified` / `cfgT_iotaMode_ttChecks` state the
+mode; `cfgT_ioGate` flipped from `= false` to `= true`.
+
+**`cfgOf_trusted_eq_cfgT` is RETIRED, and its retirement is the
+ruling's one structural consequence.**  `cfgOf` maps a `CheckMode` for
+the *mode-parametric* towers and must keep `betaGate := mode.betaGate`
+there: `betaGateFires_off` (the dead-branch collapse) and
+`verified_isNever_of_betaGateFires` (the establishment/consumption
+fence) are both **false** at a `.trusted` whose gates are on, and both
+are load-bearing in the P tier.  So `cfgOf .trusted` and `cfgT` have
+parted company, recorded as `cfgOf_trusted_ne_cfgT`.  Nothing is
+proved about either, so the split costs no theorem — but it means
+`cfgT` is now the shipped trusted core's config and `cfgOf .trusted` a
+spelling nothing ships.
+
+### THE ONE INLINE EDIT: the io licence reads the datum alone
+
+`unless cfg.verified && mt.pw.isNever` → `unless mt.pw.isNever`, at
+`inferSpineIOI` (`Cached/CoreC.lean`), at its spec twin
+`inferBodyIO`'s app clause (`Kernel/Core.lean`) and at the pure mirror
+family `inferStepIO` / `inferSpineIO` / `inferSpineIOPi` /
+`inferSpineIOWhnf` (`Verify/BetaSpine.lean`).  Keeping the conjunct
+would have kept the inversion: `cfg.verified` is group A and is off in
+trusted, so the trusted mode ran a certificate the verified mode
+skips.
+
+**Why this weakens no proof.**  The licence's P-tier consumer,
+`infer_app_claimIOP`'s gated arm (`SetP/Step2/InferIOP.lean`), spent
+only `hg.2` — it fed `pwBit_ne_zero_of_isNever` the **datum** and
+never looked at the mode conjunct.  So `inferTypeCoreIO_app_inv`'s
+disjunct simply drops its left conjunct (`m'.pw.isNever = true ∨ …`),
+the arm's proof loses one `rw [Bool.and_eq_true]`, and
+`io_domain_transfer` is applied exactly as before.  Signature
+consequence, as at the mode rename: with no configuration read left,
+`inferSpineIOI` loses its `CoreCfg` and the four mirrors lose their
+`CheckMode`.
+
+`projCertAtI`'s second `Bool` and `cfg.iotaMode` were left alone:
+both are moot per the table (the projection certificate family is off
+in group A at `cfgT`; `ttChecks` is `false` at both modes), and
+neither cleanup is trivial — `iotaMode` retires with the ι cone's
+parameter, which is its own batch.
+
+### FIXTURE: the io battery's "mode-gated" guard is now "datum-only"
+
+`tests/SetlecTests.lean`'s io-gate battery pinned
+`inferTypeCoreIO .trusted … (ioRedex gateNever) == none` under the
+heading "THE io GATE IS MODE-GATED (law 1 (i))".  That guard was the
+old ruling, so it flipped: `.trusted` now answers
+`some (.sort .zero)`, and a companion guard keeps the arm
+**datum**-exact there (`gateMaybe` still `none`).  The β battery above
+it is untouched — the mode-parametric spec still reads
+`mode.betaGate`, and that is where the P tier's collapse lives.
+
+### FINDING: the flips are verdict- AND performance-neutral TODAY
+
+Reported because the omission table does not say it, and a reader
+would otherwise expect a number.  The table enumerates the config
+reads of `Cached/CoreC.lean`; **the shipped trusted lane is
+`Cached/CoreT.lean`**, a hand-written cert-skipping twin, and it
+reaches only four `CoreC` bodies at `cfgT` — `inferPisI`,
+`inferLamsI`, `etaCertI` and, at the front door, `inferBodyI`.  It
+does *not* use `whnfCoreStepI`/`whnfAppI`/`betaPeelI` (its `whnfCore`
+is `whnfCoreBodyT`), nor `coreKnotI` (its knots are `coreKnotT` /
+`coreKnotFT`), nor `inferBodyIOI`.  Consequently:
+
+* `cfgT.betaGate` and `cfgT.ioGate` are **not read anywhere on the
+  shipped trusted path**, so flipping them changes no run;
+* the io conjunct drop changes nothing at `cfgP` either
+  (`true && x` is `x` by `rfl`);
+* and the three rows the table called inversions were **not
+  inversions in the shipped lane**: `whnfAppT`/`betaPeelT` run *no*
+  β certificate at all, and `inferSpineT` runs *no* per-argument
+  certificate at all — strictly less work than either licence.  The
+  hand-written twin was already past the licence.
+
+So this batch makes the *configuration* say what the mode is, and the
+flips become live when B5/B6 retires `Cached/CoreT.lean` into a full
+instantiation of the shared bodies at `cfgT` — at which point the
+trusted lane inherits the licences instead of the inversions.  That is
+the sequencing the census already planned; the ruling is now recorded
+in the one place that batch will read.
+
+Measured confirmation: every verdict below is byte-identical to the
+mode-rename batch's, and `tests/trusted-expected.txt` needed **no
+change** (its 3 recorded divergences all survive, unchanged and for
+the same reason).
+
+### GATES (all green)
+
+`lake build` warning-free (444 jobs); `lake test` (after the one
+fixture flip above); `tests/arena.sh` **0 FAIL** — arena 90/92, e2e
+78/78, annot 14/14, retired flags 8/8, mode flags 16/16, trusted sweep
+138 arena + 78 e2e + 14 annot with the same 3 recorded divergences;
+layering base 235 / P 160 / caps 2 / umbrella 1, 0 base→lane edges, 0
+impl→theory; proofdeps 1 371 rows across 4 capstones, **0 doors**.
+`init-full-pre2` accepts in BOTH modes: `--trusted` exit 0 / 60 549
+declarations (169 s), `--verified` exit 0 / 60 549 declarations
+(167 s) — wall clock on a shared machine, not a perf figure.
+Every gate above was re-run **after** the `master` merge (which brought
+in `agent/nat-ops-official` and `agent/sigmahom`); the numbers are the
+merged tree's.  Axioms of `no_proof_of_Empty_SPCD_P`,
+`checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `no_constant_of_Empty_P`,
+`prf_of_isProofFast`, `propIrrelPQ_of_claims`, `propIrrel_inv`,
+`propIrrelC_sim` and `trusted_agrees_P_skels_D`: exactly
+`[propext, Classical.choice, Quot.sound]`.  No perf number was taken —
+the batch is performance-neutral by the finding above, and the perf
+cadence resumes after the grant.
+
+## TASK #175 tower-flag — the projection table's KIND FLAG is retired: a family without a table IS a modeled one (2026-09-06, `agent/tower-flag`)
+
+User question, and the answer it carries: *"what do we need the `tower`
+flag for?  Isn't it sufficient to prove that the projection typing and
+iota hold for all enabled projections?"* — yes.  `ProjTable.tower` /
+`ProjEntry.tower` and the modeled route's inert elimination-template
+tables are gone.
+
+### 1. What the flag was doing, and why nothing needed it
+
+Since S1 there is one projection-table constant per structure, under
+`projTableName T`, and two routes could install one:
+
+* the **direct** simple-structure install (`checkDirectProjTable`),
+  which stores the field bodies, the guards and the struct sort —
+  `tower = true`;
+* the **modeled** route (`installProjTemplate`), which stored an
+  *inert* table for a Prop structure some of whose `_model.proj_i`
+  artifacts are absent — empty guards, dummy bodies, `tower = false`.
+  Task #175 wiring W5 had already deleted the recursor-inlining
+  fallback that consumed it, so the inert table "typed no node and
+  fired no reduction": it recorded the family and nothing else.
+
+So the flag partitioned stored tables into "real" and "records the
+family".  But the store already carries that distinction: **a family
+without a table is a modeled one**, and `findProj? = none` is what
+every `.proj` site reads.  Dropping the inert install makes the flag a
+constant `true` on every stored table, and a constant premise is
+deletable.
+
+The one thing the flag did that was *not* redundant was the eta
+spine's spelling choice (`towerSlotsAll` → `.proj T j b` nodes vs
+`recSlotsAll` → projection-function applications).  That question is
+now asked directly: "does the table cover the slot" for the `.proj`
+spelling, `recSlotsAll` for the modeled one.
+
+### 2. What went
+
+Implementation: the two fields, `ProjTable.entry_tower`,
+`installProjTemplate` and `installProjTemplateS`, and their call sites
+in `checkIndDecl` / `checkIndDeclSF` / `checkIndDeclT` (the
+single-constructor arm now ends at the projection-function fold).
+`ConstantInfo.isTowerEntry` becomes "is a `projInfo` constant" —
+still the guard that keeps a table out of `inferTypeCore`'s `.const`
+clause, since a table is not a term.
+
+Verification, all of it *losing a premise* rather than gaining one:
+`ProjEntry.fireOk` (the `!entry.tower ||` disjunct), the two infer
+branches' `entry.tower ∧ …` conjunct, `whnfCore`'s fire, the annotate
+branch (a table entry types the node; **no** table declines at the
+node's own site), `towerSlotsAll`/`towerSlotsAllF`, `ProjOkT` and
+`ProjOkT.towerHead`, `ProjSlotsOk`, `TowerHead`'s consumers,
+`TowerOkP` / `TowerEntryLawP` / `towerGuardAt_of_fireOk`,
+`ConsCrossEnv` / `ConsCrossAt` (and `.ofNtc`, now "the head is not a
+table"), `denoteP_envExtend`, `denoteP_envExtend_mono`,
+`denoteP_envExtend_mono_at`, `findProj?_cons_of_base_none`,
+`findProj?_cons_tower`, `ConsHeadP` and `Installs`' `ntc` clauses.
+
+The run/bridge cone of the template install went with it:
+`projTemplateSkels` and `installProjTemplateS_skels` (AgreeFloor),
+`installProjTemplate_{fst,snd}_dproj` / `_datF` / `_wfimp`
+(`BridgeDecl`, `BridgeWfImp`), `installProjTemplate_inv` and
+`installProjTemplates_find_{new,preserved}` (`Verify/Extend/Proj`),
+`installProjTemplateS_run` (`BridgeCS4`), `DeclIndRun.Templates` with
+`templates_of` / `templates_ext` / `templatesP` / `templateConsP` /
+`templateValP` / `templateVal`, and the P fold's inert-cons step
+`declStepPM_of_projTemplate_cons`.  `DeclIndRun`'s single-constructor
+arm loses its last conjunct (`∃ envP, ProjInstallRun … envP ∧
+Templates … envP env₂` becomes `ProjInstallRun … env₂`).
+
+**The denotation clause.**  All three tiers (`denote`, `denote2`,
+`denoteP`) read a `.proj` node by the uniform iterated spelling
+(`projNV`/`projAV`) at *every* stored entry, and keep the legacy
+`i < 2` pair fallback only where there is **no** table.  That is a
+strict simplification of the clause; its splitter drops from six cases
+to four, so the four `denote.induct` consumers (`Verify/Denote/{Install,
+EnvExt,Shift,Levels}.lean`) renumber `case17…case27` → `case17…case25`.
+`denote_proj_pair` / `denoteP_proj_pair` / `denoteP_proj_inv_pair` now
+take `findProj? = none` rather than "every entry here is non-tower".
+
+### 3. Verdict-neutrality, and the one behaviour that moves
+
+Nothing was ever typed or fired through an inert table, so no accepted
+stream changes.  The one thing that moves is the **reason** on a
+`.proj` at a modeled family that used to carry a template: it was
+`.invalid` (reject, and under a misleading message about propositional
+structures), and is now the `none` branch's `.notImplemented`
+(decline, "projection on a non-structure-like type").  That is exactly
+the SigmaHom ruling's own answer — *a `.proj` on a type without a
+table declines at its own site* — so the two modeled-family cases now
+agree instead of differing by whether the recogniser happened to
+record the family.  No arena or e2e verdict is affected (no test
+projects from such a family).
+
+### 4. Gates
+
+`lake build` warning-free (444 jobs); `lake test` green; `tests/arena.sh`
+0 FAIL apart from the expected proofdeps departure — arena 90/92 good
+accepted, e2e 80/80, annot 14/14, retired flags 8/8, mode flags 16/16,
+trusted sweep 138 + 80 + 14 with the 3 recorded divergences; **every
+verdict unchanged**.  init-full (`--pre init-full-pre2.ndjson`):
+**accept in BOTH modes, 60 549 declarations** — the accepted count did
+*not* drop, i.e. that stream installed no inert table at all, which is
+its own small piece of evidence that the tables were dead weight.  The
+four capstones (`no_proof_of_Empty_SPCD_P`,
+`checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `SetP.no_proof_of_Empty_P`)
+depend on exactly `[propext, Classical.choice, Quot.sound]`; layering
+holds.  proofdeps regenerated: **1 370 rows, one module LEFT a
+closure** (`P :: Setlec.Verify.Extend.Modeled` — its remaining
+contribution to the P capstone was the template install's inversion),
+**no doors**.
+
+## THE Nat-OP PINS AS A COMMITTED FILE — `lake build setlec` works cold (2026-09-06, `agent/pin-dump`, task #176)
+
+### 1. THE DEFECT, AND WHY IT WAS INVISIBLE FOR SO LONG
+
+On a cold tree, at master:
+
+```
+$ lake build setlec
+✖ [28/88] Building Setlec.Kernel.NatOpPins (651ms)
+error: Setlec/Kernel/NatOpPins.lean:33:0: object file
+  '…/.lake/build/lib/lean/Setlec/PinGen/Certs.olean' of module
+  Setlec.PinGen.Certs does not exist
+```
+
+`#gen_natop_pins` (task #53) computed the pins **while `NatOpPins`
+elaborated**, over an environment built by `importModules` at
+`OLeanLevel.private` on `Setlec.PinGen.Certs`.  Loading an olean *by
+name* is not an import edge: Lake has no way to know the module needs
+it.  The lakefile stood in three `extraDepTargets = ["SetlecPinCerts"]`
+lines for the edge — and those order a **target**, not a module.  When
+`Setlec.Kernel.NatOpPins` is reached through the `setlec` executable's
+import graph, the exe's `extraDepTargets` does not gate the individual
+module builds that Lake schedules in parallel, so `NatOpPins` can (and
+does) start before `Certs.olean` exists.  It looked fine for months
+because nobody built a genuinely cold tree without first building the
+default targets, where `SetlecBase`'s own `extraDepTargets` happened to
+win the race.
+
+**The rule this instance teaches, and it generalises past this file:**
+*an ordering that is not an import edge is not an ordering.*  Lake's
+`extraDepTargets` sequences targets; module scheduling inside a target
+is not covered by it.  Any construction that reads a build artifact by
+name — an olean, a generated `.c`, a data file — must either be reached
+by a real `import` or be a committed input.
+
+### 2. THE RULING, AND WHY IT IS THE RIGHT SHAPE ANYWAY
+
+> "committing the pin as a file is fine – as soon as we want to support
+> multiple toolchains we have to do that.  CI can keep the export up to
+> date.  So let's just do that.  `lake build setlec` should work out of
+> the box."  — user
+
+Multi-toolchain support forces this regardless: a pin computed from
+*the compiling toolchain* can only ever describe that one toolchain, so
+supporting a second means storing both, which means storing them.  The
+dump is therefore named after the toolchain it came from
+(`pins/leanprover-lean4-v4.33.0.json`) and a second one sits beside it.
+The dumps live in a **top-level `pins/`** directory with a `README.md`,
+not under `Setlec/` — a committed data artifact is not source, and
+burying it in the module tree made it read like one (user, 2026-09-06:
+*"It's strange to put the nat op pin json into the source directory"*).
+`include_str` resolves relative to the *importing source file's*
+directory, so the embed in `Setlec/Kernel/NatOpPins.lean` spells it
+`"../../pins/leanprover-lean4-v4.33.0.json"`.
+
+### 3. WHAT LANDED
+
+| piece | what it is |
+|---|---|
+| `Setlec/PinGen/Dump.lean` | the interchange format: `PinEntry`/`PinBlob` (the share table, moved here from `PinGen` — the table IS the format), the `Lean.Expr` emitter `PinBlob.value`, the JSON codec, and the `#load_natop_pins` loader.  Imports `Lean` and `Setlec.Kernel.Expr`, nothing else |
+| `PinDump.lean`, `lean_exe natop-pins-export` | the generator.  Its root **imports** `Setlec.PinGen.Certs` — the build-order edge the old mechanism lacked — and computes the pins in the same `OLeanLevel.private` full-view environment as before |
+| `pins/<toolchain>.json` (+ `pins/README.md`) | the committed dump: 710 KB, 40 910 lines, one share-table entry per line |
+| `Setlec/Kernel/NatOpPins.lean` | an ordinary module: `#load_natop_pins include_str "../../pins/leanprover-lean4-v4.33.0.json"`.  No `meta import Setlec.PinGen`, no olean loading |
+| `tests/pindump.sh` | the freshness gate, wired into `tests/arena.sh` beside `layering.sh`/`proofdeps.sh` |
+| `lakefile.toml` | the three `extraDepTargets = ["SetlecPinCerts"]` lines removed |
+
+**One emitter, not two.**  The share table is what the dump carries, so
+`buildExprValue` (which the `#gen_trust_pins` pins still use) is
+literally `(blobOf ·).value` and the loader calls the same
+`PinBlob.value`.  There is no second code path that could drift.
+
+**Elaboration time, not initialization time.**  The splice stays an
+`addDecl`+`compileDecl` of `Expr` constants.  A runtime parse
+(`def natXCertProofs := parse …`) would have been cheaper to write and
+wrong: the model bridge reduces the *list* structure of
+`natXCertProofs` definitionally, and a parser call cannot reduce.  It
+would also have moved a 710 KB JSON parse into every process start
+(the `loadPrefixes` lesson recorded above).
+
+### 4. THE FORMAT DECISION, AND THE ONE THAT WAS REJECTED
+
+JSON, parsed with `Lean.Json` — the toolchain's own parser, already
+this generator's *input* format (`scripts/natop_prefix.json`), stable
+across toolchains, and it solves the string escaping (name components,
+`Literal.strVal`) that a bespoke line format would have had to
+re-solve.
+
+The ndjson export dialect was considered and **rejected for a
+structural reason, not a taste one**: reusing the frontend's `Expr`
+parser is impossible from here.  `Setlec.Frontend.*` imports
+`Setlec.Kernel.*`, which imports `Setlec.Kernel.NatOpPins` — a cycle,
+and a `meta import` does not break it.  "Reuse the existing parser"
+had exactly one candidate and it was unreachable.
+
+What is dumped is the **share table**, not the `Setlec.Expr` tree: the
+pins share heavily (`Nat.xor`'s largest proof blob is 8 030 shared
+entries against ≈1.8 M unshared tree nodes), so the tree form would be
+three orders of magnitude larger.  Entries are tag-led arrays
+(`["a",123,124]`) whose arguments are absolute indices of earlier
+entries; `Name.anonymous` and `Level.zero` stay inline, exactly as the
+pre-#176 builder had them, which is what makes the emitted `let`-chain
+identical rather than merely equivalent.
+
+### 5. THE BYTE-IDENTITY RECEIPT
+
+The point of the exercise is that the pins' *content* is unchanged, and
+that was measured, not argued.  A probe (`_tmp/PinProbe.lean`)
+re-serialises the **spliced constants** — the eight `…DeclPin`s and the
+nineteen `…CertProofs_i` blobs — back through the dump format.  Built
+in a worktree at master (old `#gen_natop_pins` path) and in this branch
+(new `#load_natop_pins` path):
+
+```
+40 908 lines each; diff -q clean
+committed dump == the master-tree probe output, byte for byte
+```
+
+`blobOf` is injective (the table plus root determines the `Expr`), so
+equal serialisations mean equal `Setlec.Expr` values, hence equal
+declaration values.
+
+Cost note: `Setlec.Kernel.NatOpPins` builds in **8.2 s** instead of
+**26 s** — the certificate closure computation left the checker's build
+and now runs only when the dump is regenerated (1.3 s for all eight
+operations).
+
+### 6. WHERE THE TRUST STILL COMES FROM
+
+Unchanged, and worth stating because "committed blob" reads like a
+weakening.  The certificates are still kernel-checked theorems
+(`Setlec/PinGen/Certs.lean`, the `SetlecPinCerts` library, still built
+by `lake build`); the dump carries their *proof terms*; and this
+checker re-checks those terms at install time against the hand-pinned
+statements in `Setlec/Kernel/Checker.lean`.  A corrupted dump does not
+produce a wrong accept — it produces a failed certificate check and a
+decline.  The committed file is a cache of a computation, not an axiom.
+
+Two independent staleness ratchets:
+
+1. `tests/pindump.sh` regenerates and `diff -q`s; a stale dump fails
+   the standard battery, and its only fix is
+   `lake exe natop-pins-export`.
+2. the loader refuses a dump whose recorded `leanVersion` is not the
+   running one, so a toolchain bump is a *build error* with the
+   regeneration command in the message, never a silent wrong pin.
+
+### 7. WHAT `SetlecPinCerts` IS NOW
+
+Still a buildable `lean_lib`; no longer anything's build-order
+prerequisite.  Its in-tree consumers are the generator executable and
+`Setlec.SetP.NatWfP` (which reuses the certificate theorems at the meta
+level) — both by ordinary `import`, both ordered by Lake for free.
+
+## CORET RETIRED — the trusted core is the shared bodies at `cfgT` (2026-09-06, `agent/coret-retire`)
+
+**The order.**  The user's definition of the trusted mode (MODE RENAME,
+verbatim): *"how fast would the checker be if we dropped all
+additional work that we have to for certification only … What must not
+be dropped is everything that we believe to be necessary for
+soundness"* and *"we don't want to optimize that mode alone … it should
+always be like the real mode with just certain steps/checks omitted."*
+The TRUSTED LICENCES record found that the shipped trusted lane was
+not that: `Setlec/Cached/CoreT.lean` was a **hand-written**
+cert-skipping twin reaching only four `CoreC` bodies at `cfgT`
+(`inferPisI`, `inferLamsI`, `etaCertI`, and `inferBodyI` at the front
+door) and never `whnfCoreStepI`/`whnfAppI`/`betaPeelI`/`coreKnotI`/
+`inferBodyIOI` — so `cfgT.betaGate`/`ioGate` were not read on the
+shipped path at all.  A hand-written twin violates the second sentence
+by construction (every edit to the real core is a divergence until
+someone mirrors it).  This batch retires it: **the trusted core is the
+same shared bodies, instantiated at `cfgT`, exactly as the verified
+core is the shared bodies at `cfgP`**, and the omissions are computed
+away by the config template at each core.
+
+### 1. The census — every place `CoreT`/`ParsedT` diverged from "CoreC at `cfgT`"
+
+Read off the two files side by side, clause by clause, against
+`Cached/CoreC.lean` at the post-licence `cfgT`.  Three classes, per
+the order: (A) already a `cfg.verified` read — the twin was redundant
+there; (B) a certificate skip not yet config-driven — made
+config-driven if certification-only, *kept in both modes* if official
+does it; (C) an optimization only the twin had — moved into both
+modes or dropped.  Plus (D): places where the twin had **drifted**
+behind the real core, which the instantiation corrects for free.
+
+| # | twin site | shared body at `cfgT` | class | disposition |
+|---|---|---|---|---|
+| 1 | `inferBodyT` ∀/λ clauses → `inferPisI cfgT`/`inferLamsI cfgT` | same call | A | redundant: `(forall-cod)`, `(lam-cod-chain)`, `(lam-cod-leaf)` and the λ-codomain sort check are `cfg.verified` reads |
+| 2 | `defeqStepT` λ-η arms → `etaCertI cfgT` | same call | A | redundant: `(eta)` is a `cfg.verified` read |
+| 3 | `defeqStepT` ∀/∀ and λ/λ clauses: no `pw` agreement | `(defeq-forall)`/`(defeq-lam)` under `cfg.verified` | A | redundant |
+| 4 | `whnfCoreStepT` `.proj`: no `projCertI` | `projCertAtI … cfg.verified …` = `pure true` | A | redundant |
+| 5 | `inferSpineT`: no per-argument certificate at any internal inference | `inferSpineIOI`: skipped at a `.never` datum (the io licence), run elsewhere | **B** | certification-only (official's `infer_only` checks no argument) → `cfg.ioSkip pw := !cfg.certs \|\| pw.isNever`; `true` at `cfgT` |
+| 6 | `whnfAppT`/`betaPeelT`: no β argument certificate | `cfg.betaSkip mb.pw` = the β licence (skip at `.never`) | **B** | certification-only (official's `whnf_core` β-reduces unchecked) → `cfg.betaSkip pw := !cfg.certs \|\| (cfg.betaGate && pw.isNever)`; `true` at `cfgT` |
+| 7 | `iotaRecT`: no recursor/constructor telescope certificates | `iotaCertsI … cfg.betaGate …` ×2 (licensed at `.never`) | **B** | certification-only (`inductive_reduce_rec` certifies no spine) → `certAtI cfg (…)` |
+| 8 | `iotaRecT`: no canonical-index comparison | `iotaIndexOkI` | **B** | certification-only (official compares no indices) → `certAtI cfg (…)` |
+| 9 | `iotaRecT`: the parameter comparison only for nested rules and projection-function rules | `defEqListI (margs.take ctorParams) cmpArgs` unconditionally | **B** | the nested comparands ARE the fire's pins and the proj-fn rule's comparison is verdict-relevant (task #175 W4c) — **kept in both modes**; the ordinary plain-rule re-comparison is certification-only → `certUnlessI cfg (isNested \|\| isProjFnShape) (…)` |
+| 10 | `structEtaCertWithT`: no type-former telescope certificate, no per-projection telescope certificates | `iotaCertsI tyT targs`, `structEtaProjCertsI` | **B** | certification-only (lean4lean's `tryEtaStructCore` checks the guard, the level and parameter comparison and the per-field defeq — all kept) → `certAtI cfg (…)` ×2 |
+| 11 | `structUnitCertT`: no type-former telescope certificate | `iotaCertsI tyT targs` after the defeq | **B** | certification-only (`isDefEqUnitLike` stops at the defeq — kept) → `certAtI cfg (…)`; `structUnitCertI` takes `cfg` |
+| 12 | `majorToCtorT` K branch: no synthetic-spine certificate, no trailing `proofIrrelI` | `iotaCertsI tyCtor (margs.take cnP)`, `proofIrrelI fab major` | **B** | both certification-only (official's `to_cnstr_when_K` does the fabricated type's defeq — **kept in both modes** — and nothing else) → `certAtI cfg (…)` ×2 |
+| 13 | `majorToCtorT` η branch: no synthetic-spine certificate | `iotaCertsI tyCtor (margs ++ projs)` | **B** | certification-only → `certAtI cfg (…)`; the `structEtaCertWithI` and the `etaFields = 0` `proofIrrelI` fallback are kept (the twin kept them too) |
+| 14 | `structEtaCertWithT`: no `ttChecks` residue | `if cfg.iotaMode.ttChecks then …` | inert | `ttChecks` is `false` at both modes |
+| 15 | `memoEIT`/`memoBIT`: `@[inline]` memo wrappers (perf-eng E2) | `memoEI`/`memoBI` plain | **C** | moved into both modes: `@[inline]` on `memoEI`/`memoBI` (a compiler attribute; the unfolded term is unchanged) |
+| 16 | `memoEIO`: the one-directional memo share `inferFC → inferC` (a checking-mode result served to an infer-only query; task #134/#161) | the io slot has its own memo `inferIOC`, no share | **C** | **dropped**: a trusted-only optimization is out of bounds; adding the share to both modes needs `CSOK.inferIOC` to admit `inferC` entries (a metatheorem `infer ⊆ inferIO` on the spec) — a separate, proof-bearing batch if the post-merge sizing wants it.  `CState.inferFC` and `flushInferFC` go with it |
+| 17 | `coreKnotT` + `coreKnotFT`: two knots (internal infer-only, front-door checking) | one knot, `infer` (front door) / `inferIO` (internal grade) slots at `cfg.ioGate = true` | structural | the same discipline, already in the shared knot since task #172 B4; the twin predated it |
+| 18 | `inferBodyT` `.const`: no `isTowerEntry` guard | `"projection table entry used as a constant"` rejected | **D** | drift; the guard is a well-formedness check (not certification-only), runs in both modes |
+| 19 | `majorToCtorT` K/η: no `stripPis`/arity pins before the fabrication | the pins run | **D** | drift; harmless guards, both modes |
+| 20 | `sharedOpsCT`: the install-time ops (`checkMemberValF`, `checkIotaRulesF`, `certifyNatEqs`, the pin installs…) on the **internal** knot — `inferType` was infer-only | `sharedOpsC cfg` on the one knot — `inferType` is the checking-mode front door | **D** | drift, and a real one: official checks inductive members' types with the full inference; the twin let an ill-typed argument inside a constructor type through.  Both modes check |
+| 21 | `checkIotaRulesF .trusted` etc. (the install stages' `CheckMode`) | `cfg.iotaMode` | inert | those stages read only `ttChecks` |
+| 22 | (found by the instantiation, not the twin) `iotaRecI`'s slot licence read `cfg.iotaMode.betaGate` | `.trusted.betaGate = false` → the ι certificates would have run **unlicensed** at `cfgT` | inversion | the ι cone now takes `cfg` and reads `cfg.betaGate` (the same field the β site reads); `iotaMode` is consumed by `ttChecks` reads only — as `CoreCfg`'s docstring always claimed.  Moot at `cfgT` once row 7 is off, but wrong at any config that runs the certificates |
+
+Rows 5–13 are the retired task-#76 skip list, reproduced as
+configuration.  **Nothing in it is a check official performs**; the
+checks the twin *kept* — the K fabrication's type defeq, the η guard /
+level / parameter / per-field comparisons, the unit-like defeq, the
+nested-rule and projection-rule comparands — are exactly the ones
+official performs, and they run in both modes.  Rows 18–20 are the
+twin's drift, corrected by construction: the trusted mode now runs
+every well-formedness guard the verified mode runs.
+
+### 2. The instantiation
+
+* `coreKnotI (cfg : CoreCfg)` — the knot takes the config, not the
+  mode (`let cfg := cfgOf mode` was its first line; now it is the
+  parameter).  `checkDeclsSPCachedD (cfg : CoreCfg)` and every driver
+  stage in `Cached/CheckerC.lean`/`ParsedC.lean` likewise; the four
+  install-time stages that still take a `CheckMode`
+  (`checkIotaRulesF`, `checkProjIotaF`, `indBlockCapsF`,
+  `ctorResidualOkF`, each reading only the uninhabited-true
+  `ttChecks`) get `cfg.iotaMode`.  `Main.lean` maps `--verified` to
+  `cfgP` and `--trusted` to `cfgT` and runs **one** driver.
+* `Setlec/Cached/CoreT.lean` (824 lines) and `ParsedT.lean` (362
+  lines) are deleted; `CState.inferFC` with them.  Named `…TC` cores
+  (`whnfCoreBodyTC`, `inferBodyTC`, `defeqBodyTC`) sit beside the
+  `…PC` ones for symmetry — definitions, not clones.
+* **The certificate-family bit.**  Rows 5–13 needed a config read that
+  did not exist.  It is a second field, `CoreCfg.certs`, beside
+  `verified`, and the reason it is a second field is the proof tower:
+  `verified` gates checks the P tier's *premises* rest on, so the spec
+  (`Kernel/Core.lean`) reads `mode.verifiedChecks` at the same sites
+  and `cfgOf` maps the field to the accessor.  The certificate families
+  have **no switch in the spec** — no proved instance ever omits them
+  — so `certs` is the literal `true` at every `cfgOf mode`
+  (`cfgOf_certs`, `rfl`), and each read (`certAtI cfg c := if cfg.certs
+  then c else pure true`, `certUnlessI`, and the `!cfg.certs ||`
+  disjunct in `betaSkip`/`ioSkip`) is **definitionally invisible** to
+  the simulation tower: the cached body at `cfgOf mode` is the spec
+  body by `rfl`, as before the field existed.  That is the template's
+  own `rfl`-eliminability requirement doing the work: a field that is a
+  literal at every proved instance costs no theorem, and at the one
+  unproved instance it is the mode.  The alternative — threading
+  `hμ : μ.verifiedChecks = true` through every cached simulation and
+  every P-tier inversion of `iotaCerts`/`majorToCtor`/`structEtaCertWith`
+  (66/27/23 references) — was sized and rejected as a proof campaign
+  for no theorem.
+* Consequently `cfgT = { cfgP with verified := false, certs := false,
+  iotaMode := .trusted }` (`cfgT_eq_cfgP_verified_off`, `rfl`): **the
+  trusted mode is the verified core with the two certification-only
+  bits off**, and the list of `cfg.verified` reads plus the list of
+  `certAtI`/`certUnlessI`/`betaSkip`/`ioSkip` reads in
+  `Cached/CoreC.lean` is the complete list of what it omits.  The
+  group-B licence fields stay `true` (the TRUSTED LICENCES ruling); at
+  `cfgT` the β licence is moot — `cfgT_betaSkip : cfgT.betaSkip pw =
+  true` — because the certificate it licenses is off wholesale, while
+  `ioGate` stays load-bearing (it is what makes the internal grade the
+  io body, official's `infer_only`).
+* The ι cone (`structEtaCertWithI` → `majorToCtorI` → `prepareMajorI`
+  → `iotaRecI`) is templated over `cfg` (row 22).
+
+### 3. The agreement theorems
+
+`Verify/Cached/AgreeFloor.lean` used to prove the skeleton spec for
+*both* drivers stage by stage — its second half was a 300-line
+clause-by-clause duplicate of the first.  Now there is one driver and
+the floor is the skeleton spec proved **once, for every config**:
+
+    checkDeclsSPCachedD_skels {cfg : CoreCfg} :
+      checkDeclsSPCachedD cfg ds = .ok env → envSkels env = streamSkels ds
+
+and the three agreement theorems keep their names and become its two
+instances glued by `Eq.trans`, for **any two configs**:
+
+    trusted_agrees_P_skels_D {cfgP' cfgT'} (hP : checkDeclsSPCachedD cfgP' ds = .ok envP)
+      (hN : checkDeclsSPCachedD cfgT' ds = .ok envN) : envSkels envN = envSkels envP
+
+(`_names_D`, `_count_D` likewise; `trusted_agrees_P_skels_shipped`
+spells out the `cfgP`/`cfgT` pair).  Strictly stronger than the frozen
+B7 statement: the old theorem is the instance `cfgOf mode` / `cfgT`.
+The proof got *easier* for the reason the order predicted — the two
+configs' omissions are invisible to the install skeleton by
+construction (the spec forgets everything a core computes), so the
+statement is config-generic without a case split.  The rest of the
+tower is restated at `coreKnotI (cfgOf mode)` / `sharedOpsC (cfgOf
+mode)` (etc.) — the same terms, since `cfgOf mode` is what the old
+`coreKnotI mode` built internally; `DiscC4`'s `whnfCore` walks, which
+were stated at a free `cfg` beside a free `mode`, are pinned at `cfgOf
+mode` (their only consumer's instance) because the ι step now reads
+`cfg.betaGate` rather than `cfg.iotaMode.betaGate`.  `AgreeAnnot`'s
+T2a/T2b content is untouched (the annotation pass reads no config).
+The capstones `no_proof_of_Empty_SPCD_P` / `checkDeclsSPCachedD_sound_P`
+/ `foldSPC_PM` are stated at `checkDeclsSPCachedD (cfgOf μ)` under the
+same `hμ`; `cfgOf .verified = cfgP` (`rfl`) is the shipped instance.
+
+### 4. Receipts
+
+All at the batch's own tip (`agent/coret-retire`, off master at the
+TRUSTED LICENCES merge `96827f45`; no master merge before the grant,
+per the protocol change of 2026-09-06), every checker run one at a
+time, no wall-clock figure taken (the post-merge task sizes the lane
+in instructions).
+
+* `lake build` **440 jobs, warning-free**; `lake test` green.
+* `tests/arena.sh` **0 FAIL**: arena 90/92 good tests accepted, e2e
+  78/78, annot 14/14, retired flags 8/8, mode flags 16/16; **trusted
+  sweep 138 arena + 78 e2e + 14 annot as expected, the same 3 recorded
+  divergences** (`tests/trusted-expected.txt` needed no change: the
+  three `annot_decline_*` lines survive for the same reason — the
+  trusted core writes the annotations and never validates them).  So
+  **no verdict changed** between the twin and the instantiated core,
+  in either stage: neither the group-A-only instantiation (stage 1,
+  `0ad734f8`, where the trusted mode still ran every certificate
+  family) nor the certificate-family bit (stage 2) moved a single
+  fixture — the fixtures do not distinguish a certificate that runs
+  from one that is skipped, which is what a certificate is.  Nor did
+  the drift corrections (rows 18–20): no fixture exercises them.
+* `init-full-pre2` **accepts in BOTH modes**: `--trusted` 60 549
+  declarations / exit 0, `--verified` 60 549 / exit 0 (each measured
+  at stage 1 and again at the tip).
+* `tests/layering.sh`: base 233 / P 160 / caps 2 / umbrella 1, **0
+  base→lane edges, 0 impl→theory** (two base modules fewer: the twin).
+* `tests/proofdeps.sh`: **1 371 rows across 4 capstones, 0 doors —
+  unchanged.**  The pin did not move because `CoreT`/`ParsedT` were
+  never on any capstone's proof path: the four roots are the P letters
+  (`SPCD_P`, `sound_P`, `foldSPC_PM`, `P`), all stated over the
+  verified driver, and the twin was imported only by `Main.lean` and
+  the two agreement modules, neither of which a root reaches.  "CoreT
+  leaves" is therefore a statement about the import graph (the
+  layering count), not about the pin.
+* Axioms of `no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_sound_P`,
+  `foldSPC_PM`, `no_proof_of_Empty_P`, `trusted_agrees_P_skels_D`,
+  `trusted_agrees_P_names_D`, `trusted_agrees_P_count_D`,
+  `trusted_agrees_P_skels_shipped` and `checkDeclsSPCachedD_skels`:
+  **exactly `[propext, Classical.choice, Quot.sound]`**;
+  `cfgT_eq_cfgP_verified_off` uses none.
+* Tree: `Setlec/Cached/CoreT.lean` (−824) and `ParsedT.lean` (−362)
+  deleted; `AgreeFloor.lean` −300 (the duplicated T stages); the
+  simulation tower's restatement is a spelling change
+  (`coreKnotI mode` → `coreKnotI (cfgOf mode)`, 198 sites, and the
+  driver names likewise) plus one explicit `(cfgOf mode).iotaMode =
+  mode` rewrite in `BridgeCSDecl.lean` and `cfgOf_ioSkip` in twenty
+  simp sets of `DiscC4.lean`; nothing in `Kernel/Core.lean`, the
+  Fueled/Knot/Disc/Deep layers or `SetP/*` changed.
+
+**What the post-merge sizing will see.**  Relative to the twin the
+instantiated trusted core (a) skips the same certificate families,
+(b) additionally runs the well-formedness guards of rows 18–20 and the
+checking-mode inference at the install-time ops, (c) lost the
+one-directional memo share of row 16, and (d) gained the `@[inline]`
+memo wrappers in both modes.  None of these was measured here, by the
+cadence; if (c) shows, it is a both-modes batch with a proof
+obligation, not a trusted-only one.
+
+**Follow-ups this batch does not take.**  `iotaMode` is now consumed
+by `ttChecks` reads only (core and install stages) and can retire with
+that row as the census planned; the `certs`-versus-`verified` split is
+a proof-economy decision that a future spec-side switch for the
+certificate families could collapse into one bit, at the cost of
+threading `hμ` through the cached simulations — not worth a theorem
+today.
+
+## TASK #178 — `setlec-preprocess`: the preprocessor told what the direct route already installs (2026-09-06, `agent/preprocess`)
+
+**The user's ask.**
+
+> The lean-inductive-model repo now provides a lean library that allows
+> you to choose which decls to process. […] Import it as a library that
+> is used from a `setlec-preprocess` executable that declares that we
+> have native support for certain structures. Call this binary instead
+> (same flags otherwise). Tell me how much smaller our preprocessed
+> mathlib dump got this way.
+
+### WHY THIS WAS FREE MONEY
+
+Since task #175 W4c the direct simple-structure route is a **priority
+gate**: `directParts?` recognises a block and installs it from the
+reference checks alone, *whether or not the stream carries `_model`
+artifacts for it* — those artifacts are then ordinary, unconsumed
+declarations.  So every preprocessed stream since the flip has been
+carrying a model for every structure the checker installs natively, and
+the checker has been parsing, type-checking and discarding all of it.
+
+`lean-inductive-models` `45d1346` ("Route every inductive block through
+one entry, with native support") is what makes it addressable: the tool
+is now a library function
+`InductiveModels.main args (native := pred)`, and `pred : NativeSupport`
+(`EDecl → Bool`) sees **every** inductive block as its export record —
+the input's blocks and the ones a model itself introduces (the spliced
+`PProd'`, the carve arm's index-erasure skeleton) alike.  A block it
+accepts is left unmodelled and reported on a `native` line
+(`Dep: native — left to the consumer`), outside the decline count.  The
+tool's five-member basis (`Eq`, `Nat`, `PUnit`, `PSigma'`, `Quot`) is
+native regardless and is not the predicate's to decide.
+
+### THE PIECES
+
+* **`[[require]]`** on `https://github.com/nomeata/lean-inductive-models`
+  pinned at `45d134663fae` — a commit, not a branch: the predicate mirrors
+  a recogniser and both sides of that mirror have to move deliberately.
+  `lake-manifest.json` carries the pin.  Toolchain matches
+  (`leanprover/lean4:v4.33.0` on both sides), which is why the require is
+  a plain one with no toolchain negotiation.
+* **`SetlecPreprocess.lean`** — `def main args := InductiveModels.main args
+  (native := setlecNative)`, one `[[lean_exe]] setlec-preprocess`
+  (`supportInterpreter = true`, as the tool's own executable target is
+  upstream).  It imports **no** `Setlec.*` module, so `tests/layering.sh`
+  and `tests/proofdeps.sh` are untouched by the dependency, and no kernel
+  or model file changed in this task at all.
+* **`Main.lean`'s `findPreprocessor`** now resolves
+  `$SETLEC_INDUCTIVE_MODELS` → this build's `setlec-preprocess` →
+  the stock `_tmp/lean-inductive-models` checkout → `setlec-preprocess` on
+  `$PATH`.  The stock checkout stays as a legacy fallback because it costs
+  one `pathExists` and its output is a *superset*: every block left native
+  here is modelled there, and the priority gate ignores the model either
+  way.  `scripts/perf-tables.sh`'s `$PREPROC` and `tests/scale.sh`'s
+  availability probe follow the same order.  Flags are unchanged
+  everywhere — the new binary is the tool's own CLI.
+
+### THE PREDICATE, AND THE DIRECTION THAT MATTERS
+
+`setlecNative` must accept **only** blocks `Setlec.directPartsCore?`
+accepts.  The direction is not symmetric:
+
+* predicate accepts, recogniser rejects → the block reaches the checker
+  as a bare inductive with **no model**: a DECLINE where the stream used
+  to be an accept.  This is the regression class.
+* predicate rejects, recogniser accepts → the block is modelled as before
+  and the direct install ignores the model.  Costs bytes, costs no
+  verdict.
+
+So where a conjunct could not be mirrored the predicate errs strict.  The
+mirror is conjunct-for-conjunct in `SetlecPreprocess.lean`'s header; the
+three interesting rows:
+
+| `directPartsCore?` | in `setlecNative` |
+| --- | --- |
+| `mI == nP + 2 ∧ rP == nP + 2` (with `mI = rnP+rnM+rnm+rnI`, `rP = rnP+rnM+rnm` — how `Frontend/ExportC.lean` packs the record) | `rec.numIndices == 0 ∧ rec.numMotives == 1 ∧ rec.numMinors == 1 ∧ rec.numParams == ctor.numParams` |
+| `directShape` + the rule's `λ p⃗ motive minor f⃗, minor f⃗` | **not mirrored** — argued, and gated by `tests/native-agree.sh` |
+| `directNonRec env` (constructor binder domains resolve in the pre-block environment) | `!type.isRec ∧ type.numNested == 0` |
+
+The two unmirrored conjuncts pin *the shape Lean's kernel generates* for
+a single-member, index-free, one-constructor inductive.  They are in the
+recogniser because the **checker** reads an untrusted stream; the
+predicate reads records that Lean's own `addDecl`/export path produced.
+Mirroring them would mean a second, drifting implementation of a
+syntactic pin over a second `Expr` type (`Lean.Expr` in the executable,
+`Setlec.Expr` in the kernel) — the two sides cannot share a definition,
+because setlec's `ConstantInfo` does not even carry `numIndices` /
+`isRec` / `numNested` (its `.indInfo` holds a `ConstantVal` and a
+capability record).  So the argument is gated empirically instead.
+
+Also in the predicate and *not* in the recogniser, all in the strict
+direction: `!isUnsafe` on all three records, `type.all == [type.name]`,
+`ctor.induct == type.name`, `ctor.numParams == type.numParams`, and
+setlec's `reservedBasisNames` — copied, not shared, because
+`Setlec/Kernel/Basis/Names.lean` is not importable from the executable.
+`PSigma'` is deliberately absent from that list: task #175 W6 retired its
+pin and it installs through the direct path as an ordinary two-field
+structure.
+
+**Propositional structures are in.**  `directPartsCore?` recognises both
+eliminator shapes — the large one (a fresh elimination level parameter in
+front) and the small one Lean generates for a `Prop`-valued structure
+with a non-`Prop` field — and W4c/O4's squash regime installs them.  The
+predicate mirrors the same `large? else small` order.  This is why
+`WellFounded`, `Nonempty` and friends come out native.
+
+### THE GATE: `tests/native-agree.sh`
+
+Each stream goes through **both** binaries — the stock tool at the pinned
+revision, and `setlec-preprocess` — and the checker's verdict on the two
+outputs must agree.  A verdict that differs fails, whichever way it went;
+an accept→decline is named as the regression it is.
+
+Over the vendored arena corpus: **111/111 comparable streams agree, 390
+native blocks across 70 streams.**  Two `bad/` fixtures outside the
+expectations file (`proj-of-stuck-prop`, `proj-of-subst-prop`) change the
+*preprocessor's own* exit from 3 to 0 — the tool no longer has to model
+the block it was crashing on — and the checker declines both either way;
+they are NOTEs, not failures.
+
+**A methodology trap worth recording.**  The script's first draft
+compared a stream against the *previous* stream's output whenever a run
+wrote no file: `-o PATH` builds in a private sibling and renames over the
+target only after every check passes, so a rejected run leaves the target
+absent, not empty.  It reported seventeen phantom `accept → decline`
+regressions on the `bad/` corpus before the loop was made to clear both
+outputs per stream.  A comparison harness over a tool with an atomic-write
+contract must delete, not overwrite.
+
+### THE MEASUREMENT
+
+Preprocessed once from the raw `lean4export` stream with each binary; the
+old file is left in place (other lanes read it) and the new one written
+beside it as `*-pre-native.ndjson`.  "decls" counts kernel declaration
+records (`def`/`thm`/`inductive`/`opaque`/`axiom`/`quot` lines), not
+NDJSON lines.
+
+| stream | raw | modelled (stock) | modelled (native) | Δ bytes | Δ decls |
+| --- | --- | --- | --- | --- | --- |
+| init-core | 6,358,020 B / 3,402 | 9,367,868 B / 5,230 | **7,956,590 B / 3,942** | −15.07 % | −24.63 % |
+| init-full | 324,561,407 B / 53,093 | 335,744,595 B / 58,609 | **328,520,326 B / 54,351** | −2.15 % | −7.27 % |
+| mathlib-full | 5,636,308,621 B / 654,504 | 5,821,584,448 B / 727,270 | **5,708,171,489 B / 670,982** | −1.95 % | −7.74 % |
+
+The percentage-of-total figures understate what happened, because a
+preprocessed stream is mostly the *input's own proof terms*.  Against the
+thing the preprocessor actually adds:
+
+| stream | model-added decls, stock | model-added decls, native | removed | blocks left native | model families generated |
+| --- | --- | --- | --- | --- | --- |
+| init-core | 1,828 | 540 | **70.5 %** | 172 | 212 → 40 |
+| init-full | 5,516 | 1,258 | **77.2 %** | 486 | 606 → 120 |
+| mathlib-full | 72,766 | 16,478 | **77.4 %** | 5,683 | 6,883 → 1,200 |
+
+(The last column is the tool's own `output check: N model families checked`
+line — what it built and structurally checked.  The structural statement
+comparison drops with it: on mathlib, 48,683 statements → 7,634.)
+
+**Mathlib: 113 MB and 56,288 declaration records smaller — 77 % of
+everything the preprocessor was adding, gone.**  5,683 of the 6,887
+inductive blocks in the output (82.5 %) are now left unmodelled.
+Preprocessing wall time 6:43 at 9.8 GB peak RSS for the native run, 7:26
+at 9.7 GB for the stock one.
+
+**The baseline column is a clean isolate.**  Both stock runs were redone
+at the pinned revision `45d1346` rather than read off the historical
+files, and both came out BYTE-IDENTICAL to them (`cmp`, 336 MB and
+5.8 GB) — so the deltas above measure the predicate, not the tool's
+history between the August dumps and today.  The re-runs were deleted
+afterwards; the historical `init-full-pre.ndjson` and
+`mathlib-full-pre.ndjson` stand untouched beside the new
+`*-pre-native.ndjson` files, which other lanes can now read.
+
+### VERDICTS
+
+All numbers below are from the **merged tip** — the landing merge took
+master's CoreT retirement (`Cached/CoreT.lean` and `ParsedT.lean` deleted,
+`Main`'s driver one `cfg`-parametric `checkDeclsSPCachedD`), the
+tower-flag retirement and the pin dump, and the whole battery was re-run
+once on top of them.  Three textual conflicts, all trivial: `lakefile.toml`
+(master's `natop-pins-export` target versus this task's
+`setlec-preprocess`; both kept), `DESIGN.md` (three sections appended at
+the same anchor; ordered by landing), and `Main.lean`'s usage text —
+`--pre` now names `setlec-preprocess (or the stock lean-inductive-models)`.
+`findPreprocessor` and the new driver dispatch never touched the same
+lines.
+
+* `lake build` warning-free (616 jobs, dependency included); `lake test`
+  green.
+* `tests/arena.sh`: **0 FAIL** — arena tutorial 90/92 accepted, e2e 78/78,
+  annot 14/14, retired flags 8/8, mode flags 16/16, trusted sweep 138+78+14
+  with the 3 recorded divergences.  Every verdict identical to master's.
+  The arena half really exercises the change: those fixtures are raw, so
+  the checker spawns `setlec-preprocess` for each of them.
+* `tests/layering.sh` and `tests/proofdeps.sh` as pinned at the merged tip
+  (234/160/2/1 modules, 0 edges either way; 1370 pinned rows, 0 doors) —
+  the two counts moved with master's CoreT deletion, not with this task:
+  **no kernel, model or proof file was touched here.**  `tests/pindump.sh`
+  (new with master) reports the committed
+  `NatOpPins/leanprover-lean4-v4.33.0.json` fresh, 40,910 lines.
+* init-full, new stream, both modes: `--verified` → 0, `--trusted` → 0,
+  56,291 declarations accepted (the stock stream: 60,549 — the 4,258
+  difference is exactly the model declarations that stopped being
+  generated).  The stock run at the pinned revision reproduces the
+  historical `init-full-pre.ndjson` **byte for byte**, so the baseline
+  column is a clean isolate of the predicate, not of the six months of
+  tool changes behind it.
+* Timings are NOT reported as a finding.  The pre-merge pairs were taken
+  while another lane was running the checker on this machine and
+  disagreed on sign (`--verified` 156 s → 187 s, `--trusted` 163 s →
+  136 s); at the merged tip the native stream runs 136.9 s / 135.7 s, but
+  there is no contention-free *stock*-stream pair to put beside it.  The
+  direct install does more per block than consuming a model does, so a
+  real measurement is owed here; it belongs to the perf cadence, not to
+  this task.
+
+### CONSEQUENCES FOR OTHER LANES
+
+`lake build` now fetches a dependency on a fresh tree (`lake update`
+already ran; the manifest is committed).  A worktree without network will
+fail its first build until `.lake/packages/lean_inductive_models` exists.
+Budget ~2 minutes of dependency build per fresh worktree.
+
+The committed `tests/e2e/*` `pre` fixtures were preprocessed by the stock
+tool and still carry `_model` artifacts for direct-installed blocks.  That
+is inert and they are deliberately left as pre-#178 baselines; a fixture
+regenerated from now on should go through `setlec-preprocess`
+(recorded in `tests/arena.sh`'s e2e header).
+
+## TASK #175 S2 — THE RECURSOR IS GENERATED AND COMPARED (2026-09-06, `agent/s2-rec`)
+
+### 0. What landed
+
+Two commits off master `0bf7fd57` (the nat-ops-official merge), gated at the
+branch's own tip (the coordinator's protocol: no master merge before the
+report):
+
+| commit | content |
+|---|---|
+| `13910564` | kernel: `directRecTy`/`directRecRhs` generate the recursor type and rule; `checkDirectRec` keeps `checkConstantVal` on the stream's recursor, infers the generated type and rule, compares the two types by **one closed `isDefEq`**, and stores the *generated* recursor; the index twin, both cached drivers, the run records, the pair/fueled/wf mirrors, the cached sims, the agreement-floor skeletons |
+| `8e7f403c` | proofs: the generated forms read syntactically (`Verify/Direct/DirectRec.lean`, `SetP/Direct/DirectRecReadP.lean`); `recFrames` is a computation; `recRuleLaw`'s λ-domain fit is `spineFit_of_sat2`; five recursor-frame modules deleted |
+
+Net against master: 31 files, **+2 672 / −3 841** (the SetP tier alone
+−2 685 / +1 517; the review's projection was −2 300 / +600 — the reading
+module is larger than the estimate because it spells both the type's and
+the rule's readings out, see §2).
+
+### 1. The design, and the one departure from the brief
+
+**The generated forms** (`Setlec/Kernel/Direct/Parts.lean`).  Over the
+annotated type former `tty = ∀ p⃗, Sort w` and the annotated constructor
+`cty = ∀ p⃗ f⃗, T p⃗`, with `ℓ := directElimLevel elim large` and the
+elimination datum `pw := Level.zeronessOf ℓ`:
+
+    recTy_fab := replacePisPw pw nP tty
+                   (∀ {motive : ∀ (t : T p⃗), Sort ℓ}
+                      (mk : minorTy) (t : T p⃗ [under 2]), motive t)
+    minorTy   := replacePisPw pw nF ((cty.stripPis nP).2.liftLooseBVars 1 0)
+                   (motive (C p⃗ f⃗) [motive at bvar nF, params under 1+nF])
+    rhs_fab   := pisToLamsPw pw nP tty
+                   (λ {motive} (mk : minorTy),
+                      pisToLamsPw pw nF ((cty.stripPis nP).2.liftLooseBVars 2 0)
+                        (minor f⃗ [minor at bvar nF]))
+
+`Expr.replacePisPw`/`Expr.pisToLamsPw` re-emit the first `k` binders of a
+telescope with their domains verbatim and their codomain datum reset to
+`pw`, over a new body; the field telescope is the constructor's strip past
+the parameters, *lifted* under the motive (and the minor, for the rule) —
+`liftLooseBVars`, no capture-avoiding substitution, since the substitutes
+are variables.  Every generated binder carries `pw`: each codomain is
+`motive t : Sort ℓ` through `imax`'s right-argument rule, so the datum is
+exactly what the verified-mode inference validates at `(forall-cod)` and
+`(lam-cod-*)`, and what the stream's annotated recursor carries at the same
+binders (the defeq sites compare data by `PropWhen.equiv`, and `equiv` is
+semantic — `equiv_iff_holds`).  The motive's own binder `(t : T p⃗)` has
+codomain `Sort ℓ : Sort (ℓ+1)`, hence `.never`.  The generators take a
+**list** of constructors (one minor premise and one rule per constructor,
+`directMinorsPis`/`directMinorsLams`, minor `j` sitting `j + 1` binders
+below the parameters) though the recogniser admits one; the proofs are at
+the singleton (`directRecTy_single`/`directRecRhs_single`).
+
+**The stage** (`checkDirectRec`, `Kernel/Direct/Install.lean`): the
+ordinary constant check on the stream's recursor (freshness, reservation,
+level parameters, annotate + infer — the input has to be annotated for the
+datum comparison), the generated type and rule with the four `EnvWF`
+scoping guards (internal on failure — they cannot fail on an accepted
+block), `inferType` + `ensureSort` on the generated type, **`isDefEq env
+0 cvRi.type recTy_fab`** (a mismatch declines: our generator differs from
+Lean's), `inferType` on the generated rule, and the cons of
+`⟨p.cvR.name, p.cvR.levelParams, recTy_fab⟩` with the single rule
+`rhs_fab`.  Gone: `directShape`'s re-check on the annotated constants, the
+`nP + nF` `checkDirectDomsAt` pins at the opened frames, the motive's and
+major's `isDefEq` at depth `nP`/`nP + 2`, the rule's annotate run and its
+`checkDefEqList` over `nP + 2 + nF` λ-domains.  `checkDirectDomsAt` itself
+stays (the constructor stage's parameter pins against the type former's).
+
+**The departure: what is stored is the generated recursor, not the
+stream's.**  The brief kept the stream's type stored and transferred its
+membership through `DefEqClaims2P` at `Δa = []`.  The membership half of
+that works (the closed `isDefEq` gives the two readings' interpretations
+equal, and the generated form's leaf inhabits its own reading).  The rule
+law does not: `RecRuleLawP` hands the fired rule a spine that fits the
+*stored* type's reading, and the fold of the leaf λ-tower along that spine
+(`mkLamsAV_fold_graded`) needs the spine to fit the leaf's **own** domains
+— entrywise identification of the stored reading's binder data with the
+generated one's, which the whole-type defeq does not give (at a
+propositional motive both readings are truth values and carry no domain at
+all; at a data motive it would need a graph-domain extraction argument).
+Entrywise identification is exactly what the deleted frame modules got
+from the per-binder pins.  Storing the generated form dissolves the
+question: the stored reading *is* the generated one, the comparison
+carries no proof obligation, and this is what the reference kernels do
+(official generates its recursor and stores it; the stream's is not
+consulted at all).  Verdicts: the stored type is definitionally the
+stream's, so downstream inference agrees up to `isDefEq`; the gates
+below found no change.
+
+### 2. The proof shape
+
+* **Syntactic** (`Verify/Direct/DirectRec.lean`, 614 lines): the two
+  walks under `instantiate1`/`instSeq` and under `stripPis`
+  (`replacePisPw_instSeq`, `pisToLamsPw_instSeq`,
+  `replacePisPw_stripPis`); the lifted field telescope instantiated at
+  the parameter variables and the extra binders' variables is the
+  constructor's residual at the parameters alone
+  (`instSeq_minorTele` = `instSeq_liftLooseBVars_prefix`, which existed);
+  the closed spellings instantiate to the variables
+  (`map_instSeq_directPsAt`, `instSeq_minorBody`, `instSeq_ruleBody`);
+  `instPisAt_of_stripPis` (the peel is the strip's body instantiated);
+  no generated node is a `.proj` node (`Expr.NoProjAt.directRecTy`/
+  `.directRecRhs`, for the tower law's `NoProjEnv`).  The review's "one
+  new shift lemma" is not needed: reading the residual one/two deeper is
+  `denoteP_lift` on the closed residual, and the per-entry lift is
+  `liftN_mkPisAV`.
+* **Readings** (`SetP/Direct/DirectRecReadP.lean`, 859 lines):
+  `denoteP_replacePisPw`/`denoteP_pisToLamsPw` — a walk over an opened
+  telescope reads to the tower over the telescope's own domain readings,
+  bits reset, over the body at the opening's variables; then
+  `denoteP_directRecTy` (the type reads to `mkPisAV (recDataAV …) (motive
+  t)` with the three special entries spelled — `motiveAV`, `minorAV` over
+  `liftDoms 1 0 (ds.drop nP)`, `majorAV`) and `denoteP_directRecRhs` (the
+  rule reads to `mkLamsAV (ruleDataAV …) (minor f⃗)`, the field data
+  lifted two under).  `recData_of`: the reading is syntactic, the bits are
+  the datum's (`zeronessOf_sound`), the grading is the generated type's
+  own inference run (`inferRow`), the level dependence is
+  `denoteP_params_ext`.  `ruleData_of` likewise from the rule's inference
+  run.  The old `RecData` record and its `.cross` are unchanged, so the
+  stage's consumers see the same interface with an explicit `rds`.
+* **Frames** (`DirectRecFramesP`): `RecBase` is a computation — the
+  parameter frames coincide outright (the recursor's parameter entries are
+  the type former's, bits aside), the motive entry is `famSpine_val` plus
+  `piR_congr_bit`, the minor entry is `interp_minorSp_of_tele` over
+  `liftDoms 1 0` (the field domains agree along a fitting chain through
+  `shiftE_consList_len`; the core is the constructor leaf's fold, the same
+  computation `recMinor` ended in), the major entry is `famSpine_val` two
+  under; the entries' gradings come from the opened type's record
+  (`OpenedP.okΓ`).  `recOpenedAll` opens the generated type by
+  `replacePisPw_stripPis` + `stripPis_append` — no run inversion.
+* **The rule law** (`DirectRecLawP`): the rule's λ-domains are the
+  frame's own entries (`ruleDataAV_map_dom`), so the fit `recLawCore`
+  takes is `spineFit_of_sat2` at the reversed data — `recLawFits` (332
+  lines) is gone.  `recLawCore` is untouched.
+* **Deleted** (1 884 lines): `DirectRecKitP` (177, not even on the proof
+  path), `DirectRecCompP` (374), `DirectRecPinsP` (377), `DirectRecMinorP`
+  (622), `DirectRecLawFitsP` (334); plus the frame halves of
+  `DirectRecFramesP` (325 → 312, now a computation) and `DirectRecLawP`
+  (385 → 279), `RecData`'s run-inversion derivation (`DirectRecDataP` 187
+  → 96), and the Verify inversions `checkDirectRecTy_shape`/
+  `checkDirectRule_shape`, `checkDirectRecTy_wfimp`/`checkDirectRule_wfimp`
+  (≈ 370 lines), `checkDirectRecTyS_sim`/`checkDirectRuleS_sim` (≈ 250).
+  The generic kit the deleted modules held (`spineFit_liftDoms`,
+  `spineFit_append_inv`, `map_fieldBvars_interp`, `frameVals` and its
+  lemmas) moved to `DirectRecKit2P`/`DirectRecLawKitP`.
+* **Bits.**  The minor's field binders carry ℓ-bits (the ctor's w-bits are
+  in `ds`, untouched); every consumer is bit-agnostic
+  (`interp_minorSp_of_tele` takes any bits zero-agreeing with ℓ,
+  `RecBase`'s `FieldsOkB` is over the domains only, `Sat2` reads domains
+  only), so `rebit` only ever has to keep the domains
+  (`rebit_map_dom`).
+
+### 3. Notes for the sum-types extension
+
+The generators already fold over a constructor list; the recogniser
+(`directPartsCore?`), `DirectParts` (one `cvC`, one `nF`, one `rhs`), the
+install's `ctors := [(p.cvC.name, p.nF, cvCa.type)]` and the stored rule
+list are what change, and on the proof side `directRecTy_single`/
+`directRecRhs_single` become per-constructor unfoldings, `recDataAV` gets
+one minor entry per constructor (each `minorAV` at its own offset
+`o = j + 1`), and `recRuleLaw` is stated per rule.  The reading lemmas
+`denoteP_replacePisPw`/`denoteP_pisToLamsPw` and the syntactic kit are
+already offset-generic (`directPsAt o`, `directCtorSpineAt … o`,
+`instSeq_minorTele tfvs extras`).
+
+### 4. Receipts
+
+All at the branch tip `c2daaf38` (three commits over master `0bf7fd57`;
+master not merged — gated at the tip per the coordinator's protocol):
+`lake build` warning-free (441 jobs); `lake test` green;
+`tests/arena.sh` exit 0 — layering base 236 / P 156, 0 base→lane and 0
+impl→theory edges; proofdeps **1 363** rows as pinned across the four
+capstones, doors 0 (regenerated: `DirectRecCompP`, `DirectRecLawFitsP`,
+`DirectRecMinorP`, `DirectRecPinsP` leave all four cones — `DirectRecKitP`
+was never on the proof path — and `SetP.Direct.DirectRecReadP`,
+`Verify.Direct.DirectRec` enter all four; 1 371 → 1 363); arena tutorial
+90/92 good (the two custom-axiom declines by design), e2e 78/78, annot
+14/14, retired flags 8/8, mode flags 16/16, trusted sweep as expected
+with the 3 recorded divergences; the four capstones' axioms exactly
+`[propext, Classical.choice, Quot.sound]` (`_tmp/s2/axioms-tip.out`); no
+`sorry`, no new axiom.
+
+init-full-pre2 (`ulimit -v 16000000; timeout 3000`, single runs):
+`--pre --verified` **accepted 60 549** (exit 0, 159 s wall);
+`--pre --trusted` **accepted 60 549** (exit 0, 146 s).  The Mathlib prefix
+slice `_tmp/next-frontier/diseq-slice-pre.ndjson` accepts (1 790
+declarations, exit 0; it was exit 2 for the P and parity binaries in
+the frontier record).  The direct-structure fixtures
+`tests/e2e/direct_struct_raw.ndjson` (52) and `direct_nested_dep.ndjson`
+(49) accept.  Outputs under `_tmp/s2/`.
+
+One detour on the way: the first tip emitted the motive binder as
+`.implicit` and declined every stream past `propext` — the
+standard-axiom pins (`stdAxiomOk`, `ConstantVal.matchesPin`) compare the
+stored `Iff.rec`/`Nonempty.rec` against the exported shapes up to names
+and data but not binder infos, and the export carries `.default` at the
+recursor's own binders.  The generator now emits the export's infos
+(`c2daaf38`); a syntactic pin on a *generated* constant is exactly the
+kind of coupling the multi-constructor extension should keep in view.
+No performance measurement (a granted design — no perf before the
+grant).
+
+**Post-merge receipts** (master `32499485` merged into the branch — the
+CoreT retirement dropped `Cached/ParsedT.lean` and the trusted
+`checkDirectStructT_skels`; the sim and driver now take `cfg`/`cfgOf
+mode`): `lake build` warning-free (613 jobs), `lake test` green,
+`tests/arena.sh` exit 0 (layering 0 edges, proofdeps **1 362** rows as
+pinned with doors 0, pindump fresh, 90/92 · 78/78 · 14/14 · 8/8 · 16/16,
+trusted sweep with the 3 recorded divergences), init-full-pre2
+`--pre --verified` 60 549 (169 s) and `--pre --trusted` 60 549 (154 s),
+the Mathlib slice 1 790 accepted, the four capstones' axioms exactly
+`[propext, Classical.choice, Quot.sound]`.
+
+## THE BASIS LITERALS, DERIVED — hand-written raw pins + `#annotate_basis` (2026-09-06, `agent/basis-literals`)
+
+**The defect.**  The pinned basis blocks, the standard-axiom
+prerequisite families and the compiler-trust pins are *stored
+annotated*: `installBasisDecl` puts the `*A` constants into the
+environment verbatim and the model proofs read their `pw` data off
+them.  Those constants were a **paste**: `AnnotateBasis.lean` (the
+`annotate-basis` `[[lean_exe]]`) ran the checker's annotation over the
+raw pins and printed `Repr`, and the output was copied into
+`Setlec/Kernel/Basis/*.lean`, `StdAxioms.lean` and `TrustAxioms.lean`
+as ~1 900 lines of fully-qualified constructor spellings.  Nothing in
+the build re-ran the generator, so the literals were a committed cache
+with **no checked relation to their source** — a stale paste would
+have been invisible, and the raw pins beside them (the things a human
+can check against `Init.Prelude`) were themselves one-line
+machine-shaped dumps.
+
+**The shape the user ruled for** (2026-09-06 night): *hand-written raw
+types plus elaboration-time annotation, no pins file, generator
+deleted.*
+
+### 1. The raw pins, hand-written (`Setlec/Kernel/Basis/Builder.lean`, 110 lines)
+
+One definition per constant (`eqRaw`, `eqReflRaw`, `eqRecRaw`,
+`natRaw`, …, `quotSoundRaw`; `iffRaw`/`iffIntroRaw`/`iffRecRaw`,
+`nonemptyRaw`/…, `propextRaw`, `choiceRaw`, and the two parameterized
+trust builders), written through a builder whose every helper is ONE
+`Expr` constructor application at the raw binder annotation:
+
+| helper | is |
+|---|---|
+| `pi x ty b` / `piI` / `piA` | `.forallE (bn x) ty b ⟨.default⧸.implicit, .never⟩`, `piA` at the anonymous binder |
+| `lm x ty b` / `lmI` | the `.lam` twins |
+| `bv i`, `srt u`, `prop`, `type1`, `cnst n us` | `.bvar` / `.sort` / `Sort 0` / `Sort 1` / `.const` |
+| `ap2`…`ap4` | left-nested `.app` chains |
+| `rule c n rhs` | `⟨c, n, 0, .inert, rhs⟩` — the parse placeholders |
+| `uN`/`u`, `vN`/`v`, `u1N`/`u1` | the three universe parameters the exporter names |
+
+Nothing is abbreviated away: a pin lines up against `Init.Prelude`
+binder by binder and index by index, and shared sub-terms (a
+recursor's motive, `Quot`'s relation argument) are `private def`s with
+a docstring saying which binder context their indices are relative to.
+The pin modules shrank from 1 871 to 893 lines (Eq 201→62, Nat
+218→66, PUnit 116→50, Empty 64→34, Quot 444→116, StdAxioms 491→303,
+TrustAxioms 293→219, Basis 44→43).
+
+### 2. The annotation, at elaboration time (`Setlec/Kernel/BasisGen.lean`, 330 lines)
+
+Two commands, following the `#load_natop_pins` precedent
+(`Setlec/PinGen/Dump.lean`): compute the value in meta code, quote it
+back to a `Lean.Expr`, `addDecl` + `compileDecl`.
+
+```
+#annotate_basis over <env : List ConstantInfo>   -- ConstantInfo pins,
+  | eqA := eqRaw                                 -- env threaded
+  | ...
+#annotate_pins  over <env : List ConstantInfo>   -- ConstantVal pins,
+  | propextA := propextRaw                       -- same env for each
+```
+
+The leading `|` is what keeps the entries from parsing as one applied
+term.  `over` is elaborated and evaluated at `List ConstantInfo`, so
+it may name constants an earlier command in the same file defined
+(`StdAxioms` passes `[eqA]`, then the whole `Iff`/`Nonempty` prefix;
+`TrustAxioms` passes its pinned prerequisite list, then that list plus
+the two annotated reduce operations).
+
+`annotateInfo` is the install path's recipe verbatim: the **type**
+through `annotateCore .verified env checkFuel 0`; for a recursor, the
+install-computed rule fields first (`ctorParams` off the stored
+constructor, `fire` off `Expr.recRulePlain`) and then each rule's
+**rhs** over the environment extended with the recursor itself (which
+`Nat.rec`'s successor rule needs).  An `annotateCore` error is an
+elaboration error, `throwErrorAt` the raw term — checked with a
+deliberate failure (a `.projInfo` raw errors at the splice).
+
+The splice gives each constant the reducibility hint an ordinary `def`
+of the same body would get (`.regular (getMaxHeight env value + 1)` via
+`mkDefinitionValInferringUnsafe`), so the `decide`/`rfl`/`simp [eqA]`
+consumers in `Setlec/SetP/*` see exactly what they saw before.
+`Lean.Elab.Term.evalTerm` is `unsafe`; the three wrappers are the
+standard `@[implemented_by]` pairing.  **That is not a trust point and
+the "no `implemented_by` in checker code" ruling does not reach it:**
+these three live in elaborator-only meta code that runs while the pin
+module elaborates, and everything they produce is a `Declaration` the
+Lean kernel then checks — a wrong evaluation cannot yield a
+well-typed wrong constant silently, and none of it is in the shipped
+checker's execution path.
+
+### 3. The module structure — and why it moved
+
+Running the annotation needs `Setlec.Kernel.TypeChecker` →
+`Setlec.Kernel.Core` → `Setlec.Kernel.Basis`.  So the annotated forms
+**cannot** live in a module the core imports.  The split:
+
+* `Setlec.Kernel.Basis{,.Names,.Builder,.Eq,.Nat,.PUnit,.Empty,.Quot}` —
+  RAW only, below the core, unchanged as an import of `Core.lean`
+  (the frontend matches incoming records against `BasisKind.decls`);
+* `Setlec.Kernel.BasisA` (new, 52 lines) — the 17 basis `*A` constants
+  and `BasisKind.declsA`, above `TypeChecker`;
+* `StdAxioms` / `TrustAxioms` keep their `*A` constants in place and
+  gain the commands (both now import `BasisA` + `BasisGen`);
+* `Verify/EnvPreds` and `Semantics/BasisRules` follow the move
+  (`Setlec.Kernel.Basis` → `Setlec.Kernel.BasisA`).
+
+**The `import Lean` blast radius, measured before choosing.**
+`BasisGen` imports `Lean`.  `Lean` is *already* in 273 of the tree's
+429 modules' import closures (via `Setlec/Kernel/NatOpPins.lean`'s
+`meta import Setlec.PinGen.Dump` — a `meta import` does propagate to a
+classic importer, confirmed by probe).  Putting the annotated forms
+above `TypeChecker` rather than below it keeps the core and the
+untainted proof modules clean: the delta is **5 modules**
+(`Kernel.StdAxioms`, `Semantics.BasisRules`, `Semantics.EqTower`,
+`Semantics.EraseInv`, `Verify.EnvPreds`).  Had the literals stayed in
+`Basis/Eq.lean`, `Lean` would have entered `Setlec.Kernel.Core` and
+with it ~130 proof modules that today do not see Lean's instances and
+simp set.  The module-system alternative (`module` + `meta import`,
+the NatOpPins pattern) does NOT avoid this: a classic importer imports
+a `module` at `.private` level and gets its meta closure, so it would
+have needed every importer up the chain converted too.
+
+### 4. The receipt — byte-identity, twice
+
+Before the generator was deleted, `BasisReceipt.lean` (1 344 lines,
+commit `d8c62f0c`, deleted in this one) held **master's literals
+verbatim** under a `Receipt` namespace and checked
+
+    example : <new> = Receipt.<old>Old := by rfl
+
+for all 38 of them — the 9 raw blocks (`eqBasis`, `natBasis`,
+`punitBasis`, `emptyBasis`, `quotBasis`, `iffFamily`, `propextRaw`,
+`nonemptyFamily`, `choiceRaw`) and the 29 annotated constants (17
+basis + `iffA`/`iffIntroA`/`iffRecA`/`nonemptyA`/`nonemptyIntroA`/
+`nonemptyRecA`/`propextA`/`choiceA` + `reduceNatCvA`/`reduceBoolCvA`/
+`ofReduceNatA`/`ofReduceBoolA`).  All pass, kernel-checked.
+
+Independently: the OLD generator, re-run against the NEW hand-written
+raw pins, produced output **byte-identical** to its pre-change output
+(1 207 lines, `diff` clean).  That is the second, source-side receipt:
+the hand-written raws are the same values as the machine-shaped ones.
+
+### 5. What was deleted
+
+* `AnnotateBasis.lean` — 117 lines;
+* its `[[lean_exe]] name = "annotate-basis"` in `lakefile.toml`;
+* `AnnotateBasis` from `tests/layering.sh`'s `IMPL_ROOTS` and extra
+  roots (the gate still reports 0 base→lane and 0 impl→theory edges);
+* `BasisReceipt.lean` — 1 344 lines, once its receipt was taken;
+* ~978 lines of pasted literals from the eight pin modules.
+
+`tests/pindump.sh`'s header comment, which named the discipline after
+`annotate-basis`, now names it after what it is (a
+committed-generator-output freshness ratchet) and records that the
+basis half of it no longer needs a gate: a literal that is recomputed
+on every build cannot go stale.
+
+### 6. Why this is stronger than a freshness gate
+
+The obvious alternative was to keep the paste and add a
+`tests/basis-literals.sh` that regenerates and `diff`s (the
+`pindump.sh` shape).  Deriving beats gating here because the derivation
+is *cheap and total*: annotating 27 small closed types costs
+milliseconds inside an elaboration that already runs, so there is no
+committed artifact to be stale, no toolchain-named file, no
+regeneration instruction in any document, and one fewer executable in
+the build.  The pin dump keeps its gate because its computation is not
+cheap (it reads kernel-checked certificate proof terms out of a second
+library) and its build ordering was the defect task #176 fixed.
+
+## The affine frontier: a MEMORY blow-up from the `.proj` inference clause — the executable path ran the spec's tree-walking `instantiateList`, copying every DAG subject (2026-09-06, `agent/affine-fix`)
+
+The full Mathlib stream at master `c5485803` ended at 1 651 s with
+`INTERNAL PANIC: out of memory` under `ulimit -v 22000000`, in the
+check phase, RSS 12.5 GB → 18.7 GB inside one 30 s sample
+(`_tmp/frontier3/c5485803-p.log`, `-rss.log`).  The frontier-finding
+agent's trace run named the record: **181 570**,
+`AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen` (24.97 % of the
+stream), and cut its dependency cone
+(`_tmp/frontier3/affine-slice-pre.ndjson`, 212 MB, 26 466 records):
+official accepts in 45 s; ours, pre-fix, dies in both modes at ~216 s
+under the 16 GB cap (`affine-verdicts.txt`, exit 3 supervised / exit 1
+in-process).  Not a fuel exhaustion — no fuel message, and the
+`gdb` samples (`bt-{1..4}.txt`) all sit in `Expr.beqGo`, the memoized
+structural-equality descent, reached from `memoEI`'s `whnfCore` memo
+probe inside `defeqStepI`, ten `defEqListI` levels deep under the
+theorem value's `inferSpineI`.
+
+### 1. The declaration
+
+`_tmp/frontier3/affine_shape.py` on the slice's last record: the
+theorem's **type** is a 341-node DAG (tree 14 211); its **value** a
+**3 106-node DAG with a 392 695 789-node tree** (depth 104) —
+`λ X s hs hs₂. let this := …; let this := …; …` over scheme-theoretic
+carriers (`Scheme.toLocallyRingedSpace (pullback … (Spec (Functor.obj …)) …)`),
+where the same instance/carrier objects are passed hundreds of times.
+Any operation that materializes such a term as a *tree* is 10⁸ nodes
+≈ 16 GB.  That is the whole mechanism; the rest is finding which
+operation did.
+
+### 2. The instrument, and what it found
+
+A throwaway debug build (`_tmp/affine-debug`, never committed) added
+two probes to `Expr.beqFast` and to every syntactic wrapper and memo
+entry point: (a) when the budgeted descent falls to `beqGo`, print the
+memo size and each side's `(pointer-DAG, tree)` sizes; (b) at every
+`inst1M`/`instListM`/`instListRevM`/`abstractRangeM`/`mkAppNM`/
+`instSpineM`/`piResidualM`/`instLevelParamsM` result and every
+`whnfCore`/`whnf`/`infer`/`inferIO`/`annotate` memo miss, print the
+call whose OUTPUT is *copy-degraded* — `(pointer-DAG, structural-DAG,
+tree)` with pointer-DAG ≫ structural-DAG, i.e. structurally equal
+subterms at many distinct addresses — while no INPUT is.  Findings
+(`_tmp/affine-fix-runs/dbg{1,3}-verified.out`):
+
+* The `beqGo` comparisons that grow are between a DAG and a **copy of
+  it with the sharing gone**: `a: dag=959 tree=297 989` against
+  `b: dag=99 849 tree=297 989`; `dag=1 157` against `dag=821 294` (tree
+  2.3 M); at the end `dag=799` against `dag=7 647 139` (tree 16.5 M),
+  the same pair compared over and over — each comparison allocating a
+  7.6 M-entry address-pair memo.  Once such a copy is a memo KEY, every
+  probe with a structurally equal term pays the tree.
+* **Every origin is the same call** — 1 368 of 1 376 flagged events are
+  tagged `inferIO`, the other 8 are downstream `inst1M`s whose inputs
+  were already copies (below the flag threshold).  The flagged
+  `inferIO` inputs are well-shared `.proj` nodes and their outputs are
+  field types whose *parameter* is a tree copy of the subject's
+  carrier:
+
+      [unshare:inferIO] in=[(269, (223, 61345))] out=(27629, (225, 61347))
+        args=[(27627,223,61345)]
+        (CommRing (Classical.choice … …).ColimitCocone.0.Cocone.0.CommRingCat.0)
+
+  — input pointer-DAG 269 / structural 223 / tree 61 345; output
+  parameter pointer-DAG 27 627 for the same 223 structural nodes: a
+  full copy, leaves excepted.  Projection chains over a carrier
+  (`(Classical.choice …).ColimitCocone.0.Cocone.0.CommRingCat.0`, the
+  instance tower `CommRing → Ring → Semiring → NonUnitalSemiring …`)
+  copy the subject at every level and the copies nest.
+
+### 3. The clause
+
+`Setlec/Cached/CoreC.lean`, `inferBodyI`'s `.proj` clause, computed the
+field type as `internExprM (entry.typeAt us targs pe)` — **the spec's
+`ProjEntry.typeAt`** (`Kernel/Core.lean`), legitimate as a *value*
+(`ExprC = Expr` since task #172 B3a, the comment said as much) but not
+as a *computation*: `typeAt` is `(body.instantiateLevelParams …).instantiateList (pe :: targs.reverse)`
+over `Kernel/ExprOps.lean`'s **unmemoized** `Expr.instantiateList`,
+whose `.bvar` arm is
+
+    instantiateList vs[j - d] (vs.take (j - d)) d
+
+— it *re-traverses the replacement* (the spec's fold semantics, "a
+replacement inserted early is traversed again by the later
+`instantiate1` passes"), and every arm rebuilds its node.  So each
+occurrence of the subject `pe` and of each parameter in the field type
+came back as a fresh tree copy.  Exactly the class the memory note
+"No unmemoized traversals" forbids in executable paths; this one hid
+behind the identity `ExprC = Expr`.
+
+**Official** (`type_checker.cpp:239-284`, `infer_proj`, v4.33.0):
+`r = instantiate(binding_body(r), args[i])` for the parameters and
+`instantiate(binding_body(r), mk_proj(I_name, i, proj_expr(e)))` for
+the prior fields — `instantiate` inserts the replacement **by
+pointer** (`lift_loose_bvars` returns its argument unchanged on a
+closed term), so the field type shares the subject and the parameters
+with the node being typed.  Structurally the same instantiation as
+ours; the divergence was purely representational — a tree where
+official keeps a DAG — and it is a *memory* divergence, not a
+strategy one: no reduction or comparison differs, the verdict is the
+same, only the allocation is exponential.
+
+### 4. The fix (both modes; one definition, one equation)
+
+`Setlec/Cached/ExprOpsC.lean`:
+
+    def ProjEntry.typeAtI (entry : ProjEntry) (us : List Level)
+        (targs : List ExprC) (pe : ExprC) : ExprC :=
+      instantiateList (instLevelParams entry.levelParams us entry.body)
+        (pe :: targs.reverse)
+
+— the same two instantiations through the memoized, sharing-preserving
+`ExprC.instLevelParams` and `ExprC.instantiateList` (whose `.bvar` arm
+returns a closed replacement **by reference**; the re-entry runs only
+on an open one, under its own table).  `inferBodyI`'s clause calls
+it; `inferBodyIOI` dispatches to the same clause, so the trusted core
+and the verified core share the fix by construction.  Nothing else
+moved.
+
+### 5. The proof
+
+`Setlec/Verify/Cached/OpsC.lean`:
+
+    theorem ProjEntry.typeAtI_eq … : entry.typeAtI us targs pe = entry.typeAt us targs pe
+
+by `instantiateList_spec` and `instLevelParams_spec` (the two
+memoized walks each equal their tree-walk spec — proved long ago for
+every other call site).  The only proof references to the clause are
+the two `SimC.pure hs₂ ⟨rfl, projEntry_typeAt_WScoped …⟩` steps of
+`inferBodyC_sim` / `inferBodyIOC_sim` (`Verify/Cached/DiscC4.lean`);
+`rfl` became `ProjEntry.typeAtI_eq entry us _ pe` (`RelC` is `v' = v`).
+The spec, the `Expr`-level lemma families (`projEntry_typeAt_WScoped`,
+`typeAt_eq_instSpine`, `typeAt_shiftFrom`, …) and the P tier are
+untouched — they speak about `typeAt`, and the executable now equals
+it by a theorem instead of by definition.  No sorry, no new axiom;
+capstones at `[propext, Classical.choice, Quot.sound]`; layering 0
+impl→theory; proofdeps **1 370 rows, 0 doors** (as pinned; no module
+entered or left a closure).
+
+### 6. The coordinator's pointer (lean4lean d41b6377, `reduceNat`'s fvar filter)
+
+Checked while in the path.  (1) Our whnf-side `reduceNat` /
+`reduceNatI` and their call site `whnfStep` carry **no** free-variable
+guard (`grep hasFvar Kernel/Core.lean` hits only `defeqStep`'s
+`Bool.true` shortcut and the lazy-delta fold guard, the two sites
+official has at `:1097` and `:1008`); official v4.33's `reduce_nat`
+(`:639-668`) has none either.  No divergence.  (2) The affine blow-up
+involves no `Nat`/literal reduction at all — the slice's flagged
+events are all `.proj` inferences on carrier types.
+
+### 7. The fixture
+
+`tests/e2e/src/proj_share.lean` → `tests/e2e/proj_share.ndjson` (raw,
+201 lines; exported through `lean-inductive-models/scripts/export-fixture.sh`
+with `--#export unbox unbox2` — without the filter the `import Lean`
+closure is 12 M lines).  `big% n` is a term elaborator returning
+`Prod (T n) (T n)` with BOTH children the same `Expr` object (a DAG of
+`n + 1` nodes, tree `2^(n+1) − 1`; lean4export hash-conses, so the
+stream carries 27 records for `big% 26`); `boxval% b` returns a
+literal `Expr.proj Box 0 b` (the elaborator would emit the projection
+*function* for `b.val`); `noncomputable def unbox (b : Box (big% 26)) : big% 26 := boxval% b`
+and a two-deep `unbox2`.  (`noncomputable` because the code generator
+walks the type as a tree — the elaboration alone did not finish
+otherwise.)  Typing the `.proj` node instantiates the field type
+`α := big% 26`: the tree walk materializes 2^27 nodes per projection.
+
+| `n` (tree `2^(n+1)`) | pre-fix (`c5485803`), verified | fixed, verified |
+|---|---|---|
+| 20 (2.1 M) | accept, 8.84 s, 567 MB | accept, 0.05 s, 71 MB |
+| 22 (8.4 M) | accept, 49.6 s, 2.77 GB | accept, 0.06 s, 71 MB |
+| 24 (33.6 M) | accept, 235 s, 8.98 GB | accept, 0.05 s, 73 MB |
+| **26 (134 M), the committed fixture** | **out of memory** at 34 s (exit 3, 12.1 GB RSS at the 16 GB virtual cap) | accept, both modes, 0.353 G instr (official 0.167 G) |
+
+Wall/RSS from `/usr/bin/env time` under the 16 GB cap — a scaling
+picture, not a perf figure (×4–5.6 per +2 in both time and memory, as
+a tree copy should).
+
+### 8. Receipts
+
+* Slice `affine-slice-pre.ndjson` (`ulimit -v 16000000; timeout 3000`):
+  pre-fix **out of memory at 216 s** (verified; RSS 11.8 GB at the
+  last sample before the cap), fixed **accept, 28 665 declarations,
+  70 s verified / 65 s trusted**, peak RSS ≈ 0.5 GB.  Official 45 s.
+* `lake build` warning-free (616 jobs); `lake test` green;
+  `tests/proofdeps.sh` 1 370 rows / 0 doors; layering base 234 / P 160
+  / caps 2 / umbrella 1, 0 base→lane, 0 impl→theory.
+* `tests/arena.sh` **0 FAIL, every verdict unchanged**: arena tutorial
+  90/92 good accepted (032/033 the by-design declines), e2e **79/79**
+  (master's 78 + `proj_share`), annot 14/14, retired flags 8/8, mode
+  flags 16/16, trusted sweep 138 arena + 79 e2e + 14 annot with the
+  same 3 recorded divergences; pindump fresh.
+* init-full (`init-full-pre2.ndjson --pre`, 16 GB cap): **accept,
+  60 549 declarations, both modes** — `--verified` 155 s / 866 MB,
+  `--trusted` 148 s / 866 MB (`/usr/bin/env time`, verdict only).
+* The full Mathlib stream was **not** rerun (the cadence: gates + the
+  slice; the campaign measurement is the frontier agent's).
+
+### 9. Notes for the next frontier agent
+
+* The two instruments are worth keeping in mind: `dagStats` (pointer-DAG
+  vs tree, keyed by address) and the *copy-degradation* test
+  (pointer-DAG ≫ structural-DAG) at every syntactic wrapper and memo
+  miss, printing only ORIGINS (inputs not degraded).  The patch is
+  `_tmp/affine-fix-runs/debug-probe-affine.patch`.
+* A grep for the class: any `Expr.`-namespace traversal from
+  `Kernel/ExprOps.lean` reached from `Setlec/Cached/*` at check time.
+  After this fix the only such calls are the wrappers' `ExprC.` twins;
+  `Kernel/{DeclCheck,Modeled,Direct/*}.lean` still use the spec walks
+  at *install* time on block-sized terms, where no DAG blow-up has
+  been seen.
 
 ## The Mathlib frontier at 24.97 %: a defeq BLOW-UP, not a decline — `AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen` OOMs where official takes 45 s (2026-09-06, `agent/frontier3`)
 
@@ -46055,3 +47612,26 @@ what is misbehaving.
   fixable defect on the same path (§4); it is not obviously *the*
   cause, and the memoized `ExprC` twin already exists next to it.
 * Do not cut cones as a fix.  §5 says the class recurs at 32.2 %.
+
+### 9. Update at the merge (master `e0389e5e`)
+
+The rung this section reports is **already fixed**: the preceding
+section (`agent/affine-fix`) found the mechanism the backtraces of §4
+could only bracket — the `.proj` inference clause instantiating
+through the *spec's* `ProjEntry.typeAt`, i.e. the unmemoized
+`Kernel/ExprOps.lean` `instantiateList` making tree copies of DAG
+subjects — and routed it through the memoized `ExprC` twin.  §3's
+slice now accepts in ~70 s (official 29 s).
+
+So of §4's three candidate call sites the live one was
+`Core.lean:1625` (`ProjEntry.typeAt`); §4 named all three because the
+sampled frames were `instantiateList` all the way down and could not
+be attributed further.  What survives this section unchanged is **§5**:
+the *ladder* datum is a measurement of the stream, not of the bug.
+Rung 5 stands at **32.216 %**
+(`Algebra.tensorH1CotangentOfIsLocalization_toLinearMap`), and whether
+it is the same class in the *mechanism* sense — rather than merely the
+same symptom, an OOM in the same tower — is now an open question for
+the next finder, since the mechanism §5 was written against has been
+removed.  The §7 tools and §8's "work against the slice, not the
+stream" stand.

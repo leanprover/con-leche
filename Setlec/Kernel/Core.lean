@@ -97,12 +97,14 @@ structure CoreFns (m : Type → Type u) where
   carries a validated annotation invariant (`AnnotOkP` in the P
   claims) is re-inferred without re-establishing it.  The knot decides
   the grade's meaning per mode: at a gate-off mode (`μ.betaGate =
-  false` — the R core, the trusted core) this is the full `infer`,
-  verbatim (the flag is ignored, task #170's R clause); at the gated
-  mode (`.verified`, the P core) it is the io body, whose application
-  clause skips the per-argument certificate exactly at a validated
-  `.never` binder under the graph-regime license
-  (`Setlec/SetP/IOLicenseP.lean`). -/
+  false`) this is the full `infer`, verbatim (the flag is ignored,
+  task #170's R clause); at the gated mode (`.verified`, the P core)
+  it is the io body, whose application clause skips the per-argument
+  certificate at a `.never` binder under the graph-regime license
+  (`Setlec/SetP/IOLicenseP.lean`).  The **shipped** trusted core
+  selects the io body too (`cfgT.ioGate = true`, the licence ruling of
+  2026-09-06); this mode-parametric spelling is not the thing that
+  ships, so `μ.betaGate` here stays the P tier's own bit. -/
   inferIO : Nat → Expr → m Expr
 
 /-- The **io-grade view** of a core record: the record whose full-grade
@@ -519,7 +521,6 @@ def natLorName : Name := natName.str "lor"
 def natXorName : Name := natName.str "xor"
 def natShiftLeftName : Name := natName.str "shiftLeft"
 def natShiftRightName : Name := natName.str "shiftRight"
-def natLog2Name : Name := natName.str "log2"
 def boolName : Name := .str .anonymous "Bool"
 def boolTrueName : Name := boolName.str "true"
 def boolFalseName : Name := boolName.str "false"
@@ -545,7 +546,12 @@ def Expr.quickPair : Expr → Expr → Bool
   | .lam .., .lam .. => true
   | _, _ => false
 
-/-- The structural-Nat operations with a certified literal fast path. -/
+/-- The certified structural-`Nat` operations.  Six of them
+(`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
+here without one — it has no fast path (official's `reduce_nat` folds
+nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
+`sub x (succ y) = pred (sub x y)` names it, so its own recurrences
+must be certified for `sub`'s literal fold to be sound. -/
 def natOpNames : List Name :=
   [natPredName, natAddName, natSubName, natMulName, natPowName,
    natBeqName, natBleName]
@@ -560,10 +566,12 @@ installing them.  Presence in the store is therefore again the
 capability: a stored operation under one of these names has passed pin
 and certificates, or the install declined.  (The name is historic:
 the family started with `Nat.div`/`Nat.mod` and now covers every
-pin-certified WF-recursive kernel-accelerated `Nat` operation.) -/
+pin-certified WF-recursive kernel-accelerated `Nat` operation —
+`Nat.log2` left the list when its fast path did, official folding no
+unary operation but `Nat.succ`.) -/
 def natDivModNames : List Name :=
   [natDivName, natModName, natGcdName, natLandName, natLorName,
-   natXorName, natShiftLeftName, natShiftRightName, natLog2Name]
+   natXorName, natShiftLeftName, natShiftRightName]
 
 /-- The operations (transitively) involved in `c`'s recurrences. -/
 def natOpDeps (c : Name) : List Name :=
@@ -588,7 +596,6 @@ def natOpDeps (c : Name) : List Name :=
     [natSubName, natMulName, natBleName, natShiftLeftName]
   else if c = natShiftRightName then
     [natSubName, natBleName, natDivName, natShiftRightName]
-  else if c = natLog2Name then [natBleName, natDivName, natLog2Name]
   else []
 
 /-- The defining recurrence equations of a structural-Nat operation,
@@ -644,7 +651,6 @@ def natOpResult (c : Name) (a b : Nat) : Option Expr :=
     some (.lit (.natVal (Nat.shiftLeft a b)))
   else if c = natShiftRightName then
     some (.lit (.natVal (Nat.shiftRight a b)))
-  else if c = natLog2Name then some (.lit (.natVal (Nat.log2 a)))
   else if c = natBeqName then
     some (.const (if a = b then boolTrueName else boolFalseName) [])
   else if c = natBleName then
@@ -679,7 +685,7 @@ the fuel recursion.  Declaring the functions themselves is
 unaffected: only the reduction path declines. -/
 def natOpWfNames : List Name :=
   [natDivName, natModName, natGcdName, natLandName, natLorName,
-   natXorName, natShiftLeftName, natShiftRightName, natLog2Name]
+   natXorName, natShiftLeftName, natShiftRightName]
 
 /-- Substitute the level-monomorphic constant `n` by `r` through an
 application spine (the certification equations' self-references; the
@@ -719,12 +725,12 @@ def natOpCod (env : Env) (c : Name) (e : Expr) : Bool :=
      | none => false)
   else e == .const natName []
 
-/-- The pinned type of a structural-Nat operation:
-`Nat → Nat` for `pred`, `Nat → Nat → Nat` for the arithmetic
+/-- The pinned type of a certified `Nat` operation:
+`Nat → Nat` for the unary `pred`, `Nat → Nat → Nat` for the arithmetic
 operations, `Nat → Nat → Bool` for the comparisons.  The model reads
 the operations' function-space memberships off this shape. -/
 def natOpTyPinned (env : Env) (c : Name) (ty : Expr) : Bool :=
-  if c = natPredName || c = natLog2Name then
+  if c = natPredName then
     match ty with
     | .forallE _ dom body _mb =>
       dom == .const natName [] && natOpCod env c body
@@ -786,21 +792,11 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (some (.lit (.natVal (n + 1))))
       | none => pure none
-    else if c = natPredName ∧ natOpStored env c = true then
-      match rawNatLit? (← r.whnf depth a) with
-      | some n => pure (natOpResult c n 0)
-      | none => pure none
-    else if c = natLog2Name ∧ natOpStored env c = true then
-      match rawNatLit? (← r.whnf depth a) with
-      | some n => pure (natOpResult c n 0)
-      | none => pure none
-    else if c = natLog2Name ∧ natLitSupported env then
-      -- capless `log2` literal: positively decline (safety net; a
-      -- mismatching declaration already declined at install)
-      match rawNatLit? (← r.whnf depth a) with
-      | some _ => throw (.notImplemented
-          s!"native Nat computation on literals ({c})")
-      | none => pure none
+    -- (the audit's S1: the `Nat.pred` and `Nat.log2` literal fast paths
+    -- are gone — official `reduce_nat` (`type_checker.cpp:639-668`) has
+    -- `Nat.succ` and the fourteen binary operations, nothing else.
+    -- `Nat.pred` stays a certified structural operation because
+    -- `Nat.sub`'s recurrence names it; `Nat.log2` is gone entirely)
     else pure none
   | .app (.app (.const c []) a) b =>
     if (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
@@ -1005,12 +1001,12 @@ def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
       else pure false
     | _ => pure false
 
-/-- Are all `nF` projection slots of `T` tower-backed entries? -/
+/-- Are all `nF` projection slots of `T` table entries — i.e. does
+`T`'s projection table exist and cover them?  (Task #175 tower-flag:
+a stored table always carries bodies, so "the entry exists" is the
+whole test.) -/
 def towerSlotsAll (env : Env) (T : Name) (nF : Nat) : Bool :=
-  (List.range nF).all fun j =>
-    match env.findProj? T j with
-    | some e => e.tower
-    | none => false
+  (List.range nF).all fun j => (env.findProj? T j).isSome
 
 /-- Are all `nF` projection slots of `T` recursor-backed projection
 functions (the modeled path's)?  With `towerSlotsAll` the eta
@@ -1023,7 +1019,7 @@ def recSlotsAll (env : Env) (T : Name) (nF : Nat) : Bool :=
     | _ => false
 
 /-- The fabricated projections of a structure-eta spine (task #175
-W4c): `.proj T j b` nodes when every slot is a tower-backed entry (the
+W4c): `.proj T j b` nodes when every slot has a table entry (the
 direct install's structures — the node is what the table types and
 reduces), else the modeled path's projection-function applications. -/
 def etaProjs (env : Env) (T : Name) (us : List Level) (targs : List Expr)
@@ -1065,7 +1061,7 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                     (cvT.type.instantiateLevelParams cvT.levelParams
                       us') wtb.getAppArgs then
                   -- the per-slot certificates are the projection-function
-                  -- kind's; a tower-backed family has none (task #175 S1)
+                  -- kind's; a tabled family has none (task #175 S1)
                   if ← (if towerSlotsAll env T cnF then pure true
                       else structEtaProjCerts r env depth T us'
                         wtb.getAppArgs b cvT.levelParams
@@ -1609,8 +1605,7 @@ so of the projected field directly (`TowerEntryLawP`'s iota clause,
 `Prop`-declared structure stay out: such a node is not even typed
 (`inferBody`'s guard). -/
 def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
-  !entry.tower ||
-    !(Level.isEquiv entry.structSort .zero == some true) ||
+  !(Level.isEquiv entry.structSort .zero == some true) ||
     (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
       == some true)
 
@@ -1759,15 +1754,15 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- expansion site.
       let e' ← projLitToCtor r env depth e'
       -- The structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i`, driven by the
-      -- projection table (never by basis names): a tower-backed entry
-      -- for (structName, i) supplies the constructor, the counts, and
-      -- the possibly-Prop level guard.
+      -- projection table (never by basis names): the table entry for
+      -- (structName, i) supplies the constructor, the counts, and the
+      -- possibly-Prop level guard.
       match env.findProj? sn i with
       | some entry =>
         match e'.getAppFn with
         | .const c us =>
           let args := e'.getAppArgs
-          if entry.tower ∧ c = entry.ctor ∧ i < entry.numFields ∧
+          if c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then
@@ -1874,8 +1869,8 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       match env.find? n with
       | none => throw (.invalid s!"unknown constant {n}")
       | some ci =>
-        -- a tower-backed projection-table entry is not a term (task
-        -- #175 W4c): `.proj` nodes read it, no constant names it
+        -- a projection table is not a term (task #175 W4c): `.proj`
+        -- nodes read it, no constant names it
         unless !ci.isTowerEntry do
           throw (.invalid s!"projection table entry used as a constant {n}")
         let cv := ci.toConstantVal
@@ -1976,9 +1971,10 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- A `.proj` node is typed by its projection-table entry: the
       -- stored body, level-instantiated at the subject type's levels
       -- and instantiated at its arguments and the subject (task #175
-      -- S1).  Only tower-backed entries type bare nodes (task #175
+      -- S1).  Only stored table entries type bare nodes (task #175
       -- W6: the pinned pair entries and their computed two-member
-      -- fast path are retired).
+      -- fast path are retired; tower-flag: every stored table is a
+      -- real one, the modeled route installs none).
       let te ← r.whnf depth (← r.infer depth pe)
       match te.getAppFn with
       | .const T us =>
@@ -1988,7 +1984,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- subject type's head (official `infer_proj`'s
           -- `const_name(I) == proj_sname(e)`); the readings key the
           -- table on the node's name, the checker on the head's
-          if entry.tower ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
+          if T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             -- the official `infer_proj` restriction (task #175
             -- W4c/O4): at a `Prop`-declared structure the field —
@@ -2049,8 +2045,8 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       match env.find? n with
       | none => throw (.invalid s!"unknown constant {n}")
       | some ci =>
-        -- a tower-backed projection-table entry is not a term (task
-        -- #175 W4c): `.proj` nodes read it, no constant names it
+        -- a projection table is not a term (task #175 W4c): `.proj`
+        -- nodes read it, no constant names it
         unless !ci.isTowerEntry do
           throw (.invalid s!"projection table entry used as a constant {n}")
         let cv := ci.toConstantVal
@@ -2100,17 +2096,21 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
       | .forallE _ ty body mt => do
-        -- **THE io SITE.**  At a ∀ whose validated datum is `never`
-        -- the certificate is dead weight: the premise-form io claim
+        -- **THE io SITE.**  At a ∀ whose datum is `never` the
+        -- certificate is dead weight: the premise-form io claim
         -- derives `⟦a⟧ ∈ ⟦ty⟧` from the subject's own `AnnotOk2` app
         -- slot (`io_domain_transfer` + `piR_dom_unique`,
         -- side-condition free).  At a possibly-zero datum the
         -- certificate runs unconditionally — the squash regime's
         -- membership is model-class-wide unrecoverable
         -- (`io_membership_fails_at_squash`), and that fence is
-        -- absolute.  `mode.verifiedChecks` is the law's mode gate: the
-        -- annotation is only *validated* at the verified modes.
-        unless mode.verifiedChecks && mt.pw.isNever do
+        -- absolute.  The read is the DATUM ALONE (the licence ruling
+        -- of 2026-09-06): it used to carry a `mode.verifiedChecks`
+        -- conjunct, which inverted the trusted mode into running a
+        -- certificate the verified mode skips.  Validating the datum
+        -- is certification-only work; consuming it is not.  The
+        -- licensing theorem never read the mode either.
+        unless mt.pw.isNever do
           let ta ← r.infer depth a
           unless ← r.defeq depth ta ty do
             throw (.invalid "application type mismatch")
@@ -2126,7 +2126,7 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- subject type's head (official `infer_proj`'s
           -- `const_name(I) == proj_sname(e)`); the readings key the
           -- table on the node's name, the checker on the head's
-          if entry.tower ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
+          if T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             -- the official `infer_proj` restriction (task #175
             -- W4c/O4), as in `inferBody`
@@ -2629,27 +2629,19 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .proj _sn i pe => do
       let e' ← r.annotate depth pe
       -- Run the projection rule (the one place it is checked; this
-      -- establishes the semantic proj clause of `AnnotOk`).  A
-      -- tower-backed table entry types the node directly (the display
-      -- name is normalized to the type's head, so reduction's table
-      -- lookup is complete on annotated terms); anything else goes
-      -- through the rewrite/fallback dispatch.
+      -- establishes the semantic proj clause of `AnnotOk`).  A table
+      -- entry types the node directly (the display name is normalized
+      -- to the type's head, so reduction's table lookup is complete on
+      -- annotated terms); a family without a table is a modeled one
+      -- and has no `.proj` typing at all.
       let te ← r.whnf depth (← r.inferIO depth e')
       match te.getAppFn with
       | .const T _ =>
         match env.findProj? T i with
-        | some entry =>
-          if entry.tower then do
-            unless te.getAppArgs.length = entry.numParams do
-              throw (.invalid "projection parameter mismatch")
-            pure (.proj T i e')
-          else
-            -- the modeled path's inert template entry: the family
-            -- carries no tower table, so the official `infer_proj`
-            -- has no typing for the node here (task #175 wiring W5:
-            -- the recursor-inlining fallback is gone)
-            throw (.invalid
-              "projection from a propositional structure must be a proposition")
+        | some entry => do
+          unless te.getAppArgs.length = entry.numParams do
+            throw (.invalid "projection parameter mismatch")
+          pure (.proj T i e')
         | none =>
           -- task #175 wiring W5: the elimination fallbacks are gone —
           -- every supported projection is a native table entry.

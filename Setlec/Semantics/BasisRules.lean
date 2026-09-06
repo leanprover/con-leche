@@ -1,5 +1,5 @@
 import Setlec.Semantics.Syntax
-import Setlec.Kernel.Basis
+import Setlec.Kernel.BasisA
 import Setlec.Verify.EnvPreds
 
 /-!

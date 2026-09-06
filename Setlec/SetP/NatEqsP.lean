@@ -327,7 +327,7 @@ bits the stored annotation carries. -/
 /-- The pinned binary type's syntactic shape (the `natOpTyPinned`
 else-branch, unpacked). -/
 theorem natOpTyPinned_shape_bin {env' : Env} {c : Name} {ty : Expr}
-    (hnu : ¬(c = Setlec.natPredName ∨ c = Setlec.natLog2Name))
+    (hnu : ¬(c = Setlec.natPredName))
     (h : Setlec.natOpTyPinned env' c ty = true) :
     ∃ n₁ n₂ mb₁ mb₂ cod,
       ty = .forallE n₁ (.const Setlec.natName [])
@@ -340,10 +340,7 @@ theorem natOpTyPinned_shape_bin {env' : Env} {c : Name} {ty : Expr}
         cod = .const Setlec.natName []) := by
   unfold Setlec.natOpTyPinned at h
   split at h
-  · next hc =>
-    exfalso
-    simp only [Bool.or_eq_true, decide_eq_true_eq] at hc
-    exact hnu hc
+  · next hc => exact absurd hc hnu
   · split at h
     · next a dom b dom2 body mb2 mb =>
       simp only [Bool.and_eq_true, beq_iff_eq] at h
@@ -378,7 +375,7 @@ theorem natOpTyPinned_shape_bin {env' : Env} {c : Name} {ty : Expr}
 
 /-- The pinned unary type's syntactic shape. -/
 theorem natOpTyPinned_shape_un {env' : Env} {c : Name} {ty : Expr}
-    (hu : c = Setlec.natPredName ∨ c = Setlec.natLog2Name)
+    (hu : c = Setlec.natPredName)
     (h : Setlec.natOpTyPinned env' c ty = true) :
     ∃ n₁ mb₁, ty = .forallE n₁ (.const Setlec.natName [])
       (.const Setlec.natName []) mb₁ := by
@@ -392,13 +389,10 @@ theorem natOpTyPinned_shape_un {env' : Env} {c : Name} {ty : Expr}
       split at hcod
       · next hcb =>
         exfalso
-        rcases hu with rfl | rfl <;> exact absurd hcb (by decide)
+        subst hu; exact absurd hcb (by decide)
       · exact ⟨a, mb, by rw [beq_iff_eq.mp hcod]⟩
     · exact nomatch h
-  · next hc =>
-    exfalso
-    simp only [Bool.or_eq_true, decide_eq_true_eq] at hc
-    exact hc hu
+  · next hc => exact absurd hu hc
 
 /-! ## Reading the pinned types -/
 
@@ -918,17 +912,17 @@ theorem consCrossAt_of_natFragOk {c : Name} {c₀ : ConstantInfo} :
       ConsCrossAt c₀ e := by
   intro e
   induction e with
-  | sort _ => intro _ _ _ _ _; simp
+  | sort _ => intro _ _ _ _; simp
   | fvar i n ty =>
-    intro h entry heq htw j
+    intro h entry heq j
     simp only [Setlec.TTVerify.natFragOk, Bool.and_eq_true, beq_iff_eq] at h
     simp [h.2]
-  | const _ _ => intro _ _ _ _ _; simp
+  | const _ _ => intro _ _ _ _; simp
   | app f a ihf iha =>
-    intro h entry heq htw j
+    intro h entry heq j
     simp only [Setlec.TTVerify.natFragOk, Bool.and_eq_true] at h
     simp only [Expr.NoProjAt]
-    exact ⟨ihf h.1 entry heq htw j, iha h.2 entry heq htw j⟩
+    exact ⟨ihf h.1 entry heq j, iha h.2 entry heq j⟩
   | bvar _ | lam _ _ _ _ | forallE _ _ _ _ | letE _ _ _ _ | lit _ | proj _ _ _ =>
     intro h; simp [Setlec.TTVerify.natFragOk] at h
 
@@ -1046,10 +1040,9 @@ theorem natSelfHeadP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
   constructor
   · -- the binary head
     intro hcp
-    have hnu : ¬(c = Setlec.natPredName ∨ c = Setlec.natLog2Name) := by
-      rintro (rfl | rfl)
-      · exact hcp rfl
-      · exact absurd hcmem (by decide)
+    have hnu : ¬(c = Setlec.natPredName) := by
+      rintro rfl
+      exact hcp rfl
     obtain ⟨n₁, n₂, mb₁, mb₂, cod, hty, hcmp, hncmp⟩ :=
       natOpTyPinned_shape_bin hnu hpin
     by_cases hccmp : c = Setlec.natBeqName ∨ c = Setlec.natBleName
@@ -1091,7 +1084,7 @@ theorem natSelfHeadP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
   · -- the unary head (`pred`)
     intro hcp
     obtain ⟨n₁, mb₁, hty⟩ :=
-      natOpTyPinned_shape_un (Or.inl hcp) hpin
+      natOpTyPinned_shape_un hcp hpin
     have hTshape := denoteP_pinnedUnTy mp.base2 φ hfN hlpN
       (n₁ := n₁) (mb₁ := mb₁)
     rw [← hty] at hTshape
@@ -1228,7 +1221,7 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
   -- stored dependency heads (the pinned types via `hdepsOk`)
   have hdepBin : ∀ o ∈ Setlec.natOpDeps cq, o ≠ cq →
       ¬(o = Setlec.natBeqName ∨ o = Setlec.natBleName) →
-      ¬(o = Setlec.natPredName ∨ o = Setlec.natLog2Name) →
+      ¬(o = Setlec.natPredName) →
       NatBinHeadP mp.base2 φ (.const o [])
         (fun ρ => interp2 V ρ (mp.base2.acval Setlec.natName φ)) := by
     intro o ho hone honcmp honun
@@ -1240,7 +1233,7 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
     exact natBinHeadP_of_stored (ψ := φ) mp hfo hlpo
       (by rw [hty, hcodN honcmp]) hfN hlpN hfN hlpN
   have hdepUn : ∀ o ∈ Setlec.natOpDeps cq, o ≠ cq →
-      (o = Setlec.natPredName ∨ o = Setlec.natLog2Name) →
+      o = Setlec.natPredName →
       NatUnHeadP mp.base2 φ (.const o [])
         (fun ρ => interp2 V ρ (mp.base2.acval Setlec.natName φ)) := by
     intro o ho hone houn
@@ -1342,8 +1335,7 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       have h := hSelfBin (by decide)
       simpa only [show natOpCodN Setlec.natSubName = Setlec.natName
         from by unfold natOpCodN; rw [if_neg (by decide)]] using h
-    have hpred := hdepUn Setlec.natPredName (by decide) (by decide)
-      (Or.inl rfl)
+    have hpred := hdepUn Setlec.natPredName (by decide) (by decide) rfl
     have hvx := natArgP_var0 mp.base2 φ (.str .anonymous "x")
     have hvy := natArgP_var1 mp.base2 φ (.str .anonymous "y")
     have hz := natArgP_zero mp.base2 hnh hvalV hs

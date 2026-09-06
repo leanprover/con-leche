@@ -1,4 +1,4 @@
-import Setlec.Cached.ParsedT
+import Setlec.Cached.ParsedC
 
 /-!
 # T2a / T2b — `annotate`'s config identity and the `pw` writes
@@ -7,9 +7,10 @@ import Setlec.Cached.ParsedT
 Census part 4 §3's second and third obligations, at the **cached** tier
 (the user's drop-the-interned ruling).
 
-At this tier the trusted core's `annotate` **is** the certified body —
-`Cached/CoreT.lean` ties
-`annotate := memoEIT … (fun d e => annotateBodyI prev.get fe d e)`.
+At this tier the trusted core's `annotate` **is** the verified body —
+since the twin's retirement (2026-09-06) the trusted core is the one
+knot `coreKnotI` at `cfgT`, whose `annotate` slot is `annotateBodyI`,
+a body that takes no config at all.
 
 **T2a and T2b are discharged by the SIGNATURE since 2026-09-06.**  The
 mode rename's second half ungated the `pw` writers (DESIGN.md, "MODE

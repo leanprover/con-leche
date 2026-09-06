@@ -11,7 +11,6 @@ at the P tier exactly as they do at v1's.
 * `indMembersPM` — the non-recursor members (part 2);
 * `indRecsP` — the recursor group, provision/fire/swap (part 10);
 * `projInstallP` — the projection functions (part 10);
-* `templatesP` — the elimination templates (part 10).
 
 **Everything between them is v1's bookkeeping, unchanged**: the block
 split, the freshness chains, `EtaPins.transport`, the `hidR`
@@ -122,8 +121,7 @@ theorem declIndP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   rcases hmain with ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt, harm⟩ |
     ⟨-, envM, hmem, hrecs⟩
   · -- the single-constructor arm
-    obtain ⟨envM, envR, hmem, hrecs, -, hprojFresh,
-      envP, hproj, htpl⟩ := harm
+    obtain ⟨envM, envR, hmem, hrecs, -, hprojFresh, hproj⟩ := harm
     have hmemFil : ∀ {p : ConstantInfo → Bool} {x : ConstantInfo},
         block.filter p = [x] → x ∈ block := by
       intro p x hfil
@@ -272,11 +270,11 @@ theorem declIndP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       intro cvT' capsT' hf _
       obtain ⟨-, rfl⟩ := hidR cvT' capsT' hf
       rfl
-    -- the projection fold and the templates
+    -- the projection fold
     obtain ⟨mp₃, -, -, -, -⟩ :=
       projInstallP hμ hTblock hbshape _ mp₂ hproj hinvR
         hinvAR hI₂ hIA₂ hpinsR hCblockR hFieldsR
-    exact templatesP mp₃ htpl
+    exact ⟨mp₃⟩
   · -- the generic arm: an empty capability record
     have hBP0 : Setlec.BlockEtaPinned μ (block.map (·.name)) env :=
       fun n cvS capsS hnb hf _ =>

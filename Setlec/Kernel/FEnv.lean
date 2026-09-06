@@ -92,10 +92,7 @@ def findProj? (fe : FEnv) (T : Name) (i : Nat) : Option ProjEntry :=
 
 /-- `towerSlotsAll` through the index. -/
 def towerSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=
-  (List.range nF).all fun j =>
-    match fe.findProj? T j with
-    | some e => e.tower
-    | none => false
+  (List.range nF).all fun j => (fe.findProj? T j).isSome
 
 /-- `recSlotsAll` through the index. -/
 def recSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=

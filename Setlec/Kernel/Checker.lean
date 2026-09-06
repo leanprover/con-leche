@@ -115,7 +115,6 @@ def divModDeclPin (c : Name) : Expr :=
   else if c = natXorName then natXorDeclPin
   else if c = natShiftLeftName then natShiftLeftDeclPin
   else if c = natShiftRightName then natShiftRightDeclPin
-  else if c = natLog2Name then natLog2DeclPin
   else natModDeclPin
 
 /-- The vendored certificate proof terms of a pin-certified
@@ -129,7 +128,6 @@ def divModCertProofs (c : Name) : List Expr :=
   else if c = natXorName then natXorCertProofs
   else if c = natShiftLeftName then natShiftLeftCertProofs
   else if c = natShiftRightName then natShiftRightCertProofs
-  else if c = natLog2Name then natLog2CertProofs
   else natModCertProofs
 
 /-- The pinned characterization statements of a pin-certified
@@ -169,8 +167,6 @@ def divModCertStmts (c : Name) : List (List Expr × Expr) :=
     .app (.app (.const natAddName []) a) b
   let mul2 : Expr → Expr → Expr := fun a b =>
     .app (.app (.const natMulName []) a) b
-  let op1 : Expr → Expr := fun a => .app (.const c []) a
-  let s1 : Expr → Expr := fun a => .app (.const natSuccName []) a
   if c = natGcdName then
     -- `gcd`: `1 ≤ x → gcd x y = gcd (y % x) x`, `x = 0 → gcd x y = y`
     [([eqB (ble2 one x) bT], eqN (op2 x y) (op2 (mod2 y x) x)),
@@ -183,11 +179,6 @@ def divModCertStmts (c : Name) : List (List Expr × Expr) :=
     -- `1 ≤ y → x >>> y = (x >>> (y-1)) / 2`, `y = 0 → x >>> y = x`
     [([eqB (ble2 one y) bT], eqN (op2 x y) (div2 (op2 x (sub2 y one)) two)),
      ([eqB (ble2 one y) bF], eqN (op2 x y) x)]
-  else if c = natLog2Name then
-    -- unary: `2 ≤ x → log2 x = succ (log2 (x/2))`, `x < 2 → log2 x = 0`
-    -- (the statement frame still has both variables; `y` is unused)
-    [([eqB (ble2 two x) bT], eqN (op1 x) (s1 (op1 (div2 x two)))),
-     ([eqB (ble2 two x) bF], eqN (op1 x) z)]
   else if c = natLandName then
     -- `1 ≤ x → x &&& y = 2*((x/2) &&& (y/2)) + (x%2)*(y%2)`,
     -- `x = 0 → x &&& y = 0`

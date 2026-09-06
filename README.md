@@ -1,4 +1,4 @@
-# Setlec -- a lean checker that's never False
+# Setlec – a lean checker that's never False
 
 Setlec is an external checker for the Lean theorem prover that is proven (in Lean) to be consistent in that it does not accept a proof of False.
 
@@ -8,17 +8,17 @@ The core idea of this project is: What if we allow the checker implementation to
 
 The checker is practically useful; it can process all of mathlib in TODO minutes and within TODO memory. It is a relatively slow checker (see below for why), roughly 2.5× slower than the official kernel on common workloads.
 
-It was implemented and proven to be consistent by Claude (Fable and Opus), under heavy supervision by Joachim Breitner. See the git history for all the detours and dead ends it took. It is a huge pile of code and a mess. Maybe this will improve over time. Until then: It works and is proven. 
+It was implemented and proven to be consistent by Claude (Fable and Opus), under heavy supervision by Joachim Breitner at the Lean FRO. See the git history for all the detours and dead ends it took. It is a huge pile of code and a mess. Maybe this will improve over time. Until then: It works and is proven. 
 
 This README is actually human written (with AI only doing copy-editing, fact checking and filling in numbers).
 
 ## Design of the checker implementation
 
 * The checker is implemented in Lean.
-* It uses its own term representation, so it does not rely on Lean’s `Lean.Expr`, and thus not the unverified C++ routines related to that.
+* It uses its own term representation, so it does not rely on Lean’s `Lean.Expr`, and thus does not rely on the unverified C++ routines for that type.
 * Term representation is locally nameless, with open variables represented as deBruijn level + type (inspired by nanoda).
 * Memoization of core checker routines via hash maps and hashes pre-computed using `@[computed_field]`, like in the official checker and lean4lean.
-* Only few inductive types are supported natively: `Empty`, `PUnit`, `Eq`, `Nat`, `Quot` and structures. For all other types, this checker relies on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that validates them.
+* Only few inductive types are supported natively: `Empty`, `PUnit`, `Eq`, `Nat`, `Quot` and structures. For all other types, this checker relies on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models that we can validate.
 * Accepted incompleteness: Primitive projections are only supported
   - on non-recursive non-indexed structures or
   - inside the projection *functions* that the elaborator produces.

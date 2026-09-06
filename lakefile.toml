@@ -1,6 +1,24 @@
 name = "setlec"
-defaultTargets = ["SetlecBase", "SetlecP", "SetlecCaps", "setlec"]
+defaultTargets = ["SetlecBase", "SetlecP", "SetlecCaps", "setlec", "setlec-preprocess"]
 testDriver = "SetlecTests"
+
+# THE PREPROCESSOR, AS A LIBRARY (task #178).  `lean-inductive-models` reduces
+# an export's inductives to its five-member basis; since its `45d1346` it is
+# also a Lean library, `InductiveModels.main args (native := pred)`, whose
+# `pred` says which inductive blocks the *consumer* handles itself.  setlec's
+# direct simple-structure path handles a whole class of them, so the checker
+# ships its own front end for the tool — `setlec-preprocess`, below — and
+# spawns that instead of the stock binary.
+#
+# The pin is a commit, not a branch: the predicate mirrors a recogniser
+# (`Setlec/Kernel/Direct/Parts.lean`) and both sides of that mirror have to
+# move deliberately.  Nothing in the `Setlec.*` libraries imports this
+# dependency: it is the `setlec-preprocess` executable's alone, so the layering
+# gate and the proof-dependency pin are untouched by it.
+[[require]]
+name = "lean_inductive_models"
+git = "https://github.com/nomeata/lean-inductive-models"
+rev = "45d134663faec16f13b4885f4a5a11bdd08de1b2"
 
 # THE SEPARATION (task #161) — the ruled lib layout, as it stands after
 # the SetR removal (user ruling 2026-09-05, "do remove the SetR tier,
@@ -55,10 +73,23 @@ testDriver = "SetlecTests"
 
 # The pin-generator's certificate theorems (Setlec/PinGen/Certs.lean) are
 # a classic (non-`module`) library: the proofs unfold core definition
-# bodies, which the module system hides.  `Setlec/Kernel/NatOpPins.lean`
-# loads the built olean into the generator's full-view environment at
-# elaboration time, so it must be built first — hence the
-# `extraDepTargets` below.
+# bodies, which the module system hides.
+#
+# SUPERSEDED (task #176, 2026-09-06) — the paragraph that stood here
+# said `Setlec/Kernel/NatOpPins.lean` "loads the built olean into the
+# generator's full-view environment at elaboration time, so it must be
+# built first — hence the `extraDepTargets`".  That ordering was not an
+# import edge and Lake did not honour it through the executable's
+# import graph: on a cold tree `lake build setlec` failed with "object
+# file '…/Setlec/PinGen/Certs.olean' of module Setlec.PinGen.Certs does
+# not exist".  Per the user's ruling the pins are now a COMMITTED file
+# (`pins/<toolchain>.json`, see `pins/README.md`), written by the
+# `natop-pins-export` executable below, whose root *imports*
+# `Setlec.PinGen.Certs` — a real edge Lake orders.  The certificates
+# stay kernel-checked theorems in this library (that is where their
+# trust comes from), but nothing in the checker's build depends on it:
+# its only in-tree consumers are the generator and `Setlec.SetP.NatWfP`,
+# both by ordinary import.
 [[lean_lib]]
 name = "SetlecPinCerts"
 roots = ["Setlec.PinGen.Certs"]
@@ -74,7 +105,6 @@ roots = ["Setlec.PinGen.Certs"]
 [[lean_lib]]
 name = "SetlecBase"
 roots = ["Setlec", "Setlec.TT", "Setlec.SetModel", "Setlec.Semantics"]
-extraDepTargets = ["SetlecPinCerts"]
 
 # The graded-model lane (task #161 S2): the `AnnotOk2` bit carriers, the
 # de-basing's `EnvS2Core`/`EnvS2P`, the per-rule `…P` quarters and rows,
@@ -103,9 +133,25 @@ srcDir = "tests"
 [[lean_exe]]
 name = "setlec"
 root = "Main"
-extraDepTargets = ["SetlecPinCerts"]
 
+# The pin dump generator (task #176).  Lives in the certificate
+# library's world — its root imports `Setlec.PinGen.Certs`, so the
+# proof bodies are visible to `importModules` at `OLeanLevel.private`
+# and Lake builds that olean first.  Writes
+# `pins/<toolchain>.json`; `tests/pindump.sh` checks
+# the committed file against a fresh regeneration.
 [[lean_exe]]
-name = "annotate-basis"
-root = "AnnotateBasis"
-extraDepTargets = ["SetlecPinCerts"]
+name = "natop-pins-export"
+root = "PinDump"
+
+# The checker's own front end for `lean-inductive-models` (task #178): the
+# tool's `main`, passed setlec's `NativeSupport`.  `supportInterpreter` because
+# the tool imports `Lean` and replays declarations through the kernel, exactly
+# as its own executable target does upstream.  It imports no `Setlec.*` module
+# — the predicate is a documented mirror of `Setlec.directPartsCore?`, gated by
+# `tests/native-agree.sh`, not a shared definition (the two sides speak
+# different `Expr` types).
+[[lean_exe]]
+name = "setlec-preprocess"
+root = "SetlecPreprocess"
+supportInterpreter = true
