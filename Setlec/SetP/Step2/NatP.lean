@@ -168,10 +168,8 @@ theorem natOpGuardLawP_of (mp : EnvS2PM V μ env) : NatOpGuardLawP env := by
   · exact (mp.nat_ops (fun _ => 0) c hm cv v hh hf).1
   · exact (mp.div_mod (fun _ => 0) c hm cv v hh hf).1
 
-/-- The unary clause's branch analysis: `Nat.succ` packing, `Nat.pred`,
-the certified `Nat.log2`, and the capless `log2` safety net (which
-throws on a literal and returns `none` without one, so it never hands
-back a reduct). -/
+/-- The unary clause's branch analysis: `Nat.succ` packing, the only
+unary fold. -/
 private theorem natLeafP_unary (_hlaw : NatOpGuardLawP env)
     {fuel d : Nat} {c : Name} {a e₂ : Expr}
     (h : reduceNatP μ env fuel d (.app (.const c []) a)

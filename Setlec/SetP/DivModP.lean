@@ -71,10 +71,10 @@ theorem divModClausesV_congr {val val' : Name → V} {c : Name} {x y : V}
   rcases (show c = Setlec.natDivName ∨ c = Setlec.natModName ∨
       c = Setlec.natGcdName ∨ c = Setlec.natLandName ∨
       c = Setlec.natLorName ∨ c = Setlec.natXorName ∨
-      c = Setlec.natShiftLeftName ∨ c = Setlec.natShiftRightName ∨
-      c = Setlec.natLog2Name from by
+      c = Setlec.natShiftLeftName ∨ c = Setlec.natShiftRightName
+      from by
     simpa [Setlec.natDivModNames] using hc) with
-    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · have hc' := h Setlec.natDivName (by decide)
     have hSub := h Setlec.natSubName (by decide)
     simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hSub]
@@ -116,9 +116,6 @@ theorem divModClausesV_congr {val val' : Name → V} {c : Name} {x y : V}
     have hDiv := h Setlec.natDivName (by decide)
     simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hSub,
       hDiv]
-  · have hc' := h Setlec.natLog2Name (by decide)
-    have hDiv := h Setlec.natDivName (by decide)
-    simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hDiv]
 
 /-! ## Every mentioned head is stored -/
 
@@ -139,10 +136,10 @@ theorem dmValNames_stored {c : Name} (hc : c ∈ Setlec.natDivModNames)
     rcases (show c = Setlec.natDivName ∨ c = Setlec.natModName ∨
         c = Setlec.natGcdName ∨ c = Setlec.natLandName ∨
         c = Setlec.natLorName ∨ c = Setlec.natXorName ∨
-        c = Setlec.natShiftLeftName ∨ c = Setlec.natShiftRightName ∨
-        c = Setlec.natLog2Name from by
+        c = Setlec.natShiftLeftName ∨ c = Setlec.natShiftRightName
+        from by
       simpa [Setlec.natDivModNames] using hc) with
-      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
   intro n hn
   simp only [dmValNames, List.mem_cons] at hn
   rcases hn with rfl | rfl | rfl | rfl | rfl | rfl | rfl | hn

@@ -137,9 +137,8 @@ theorem denoteP_headP {m : EnvS2Core V env} {d : Nat} {c : Name}
 
 /-! ## The unary clause
 
-`Nat.succ` packing, `Nat.pred`, the certified `Nat.log2`, and the
-capless `log2` safety net (which throws on a literal, so it cannot
-reach here). -/
+`Nat.succ` packing — the only unary operation official's `reduce_nat`
+folds, and since the audit's S1 the only one ours folds either. -/
 
 /-- The `.app (.const c []) a` clause's `interp2` equality. -/
 theorem reduceNatSemP_unary (mp : EnvS2PM V μ env) {fuel : Nat}
