@@ -50421,6 +50421,41 @@ lesson generalises: **a module split under a module-level dependency pin must
 keep the consumed declarations in the module that is pinned, and move the
 unconsumed ones out.**
 
+**Re-derived on top of task #185 (CoreCfg retirement) at the landing.**  #185
+threads `mode : CheckMode` through every core and cached function and puts
+`hμ` on the simulation tower, and `Verify/BridgeDecl.lean` is one of its
+files — so the cut was not merged textually.  Master's `BridgeDecl.lean` was
+taken wholesale and the split re-derived from it by a *marker-driven*
+splitter (`_tmp/buildtime/resplit_bridgedecl.py`: it locates `section
+DeclBattery`, the `atF` section comment and the last `end DeclBattery`, and
+copies master's own imports, docstring, `set_option`s, namespace and section
+variables).  Two checks make that safe, both re-run on the post-#185
+content: the multiset of the 217 declaration names is identical before and
+after the cut, and **none of the 27 declarations referenced from outside the
+file lies inside the projection battery** (they are at lines 72–161 and
+1584–2221 of master's 2 301-line file).  One trap found and fixed in the
+splitter: `open Classical in` sits in that preamble and is a *modifier on the
+next declaration*, so copying it across attaches it to `section DeclBattery`
+and derails the scope stack.
+
+Post-merge numbers on #185's content, same instrument:
+
+| module | `instructions:u` |
+|---|---|
+| `Verify/BridgeDecl` as master has it (2 301 lines) | **702.8 G** |
+| `Verify/BridgeDecl` after (906 lines) | **142.9 G**, −79.7 % |
+| `Verify/BridgeDeclPair` (1 439 lines, off the chain) | **564.2 G** |
+| sum | 707.1 G, +0.6 % |
+
+Full re-gate at the landing: `lake build` warning-free (651 jobs), `lake test`
+green, `tests/arena.sh` EXIT 0 — layering base 255 / P 167 / caps 3 /
+umbrella 1 with 0 base→lane and 0 impl→theory, **proofdeps 2 522 rows across
+7 roots, 0 doors — byte-identical to the pin #185 landed**, pindump fresh,
+trust surface 18 escapes in 4 allowlisted files (433 scanned) / 0 outside,
+axioms pinned at 11 theorems, tutorial 90/92, e2e 96/96, annot 14/14, flags
+8/8 + 16/16, progress lane 6/6, trusted sweep 138 + 96 + 14 with the 3
+recorded divergences.
+
 **The open question this raises, and it is not ours to close.**  If the
 projection battery has no consumer, deleting it would take ~565 G — **10.5 %
 of the whole build's instructions** — off the CPU bill outright, together
