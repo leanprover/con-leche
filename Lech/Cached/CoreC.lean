@@ -1931,8 +1931,15 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
         (fun d e => whnfCoreBodyI mode (prev ()) fe d e)
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI (prev ()) fe d e)
+      -- TASK #196 E4 (measurement only, ACCEPT-SUPERSET): the ELISION
+      -- CEILING — the full slot runs the *io* body and recurses at the
+      -- io grade, so the per-argument application check is skipped at
+      -- every `.never` binder everywhere, not only where an io memo
+      -- entry happened to exist.  One table, one body: E4 - E0 bounds
+      -- how much of E2's win is "checked less" rather than "cached
+      -- better".
       infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-        (fun d e => inferBodyI mode (prev ()) fe d e)
+        (fun d e => inferBodyIOI mode (prev ()).ioView fe d e)
       defeq := memoBI
         (fun d a b => defeqBodyI mode (prev ()) fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
@@ -1947,10 +1954,9 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       -- the same function there (task #170: "in R mode infer_only is
       -- just equivalent to infer").
       inferIO := if mode.ioGate then
-          -- TASK #196 E1b (measurement only): the read-side sound
-          -- direction — probe `inferIOC`, then `inferC`, write only
-          -- `inferIOC`.
-          memoEIUnionIO
+          -- TASK #196 E4: the io slot is the full slot (same body, same
+          -- table).
+          memoEI (·.inferC) (fun st mp => { st with inferC := mp })
             (fun d e => inferBodyIOI mode (prev ()).ioView fe d e)
         else
           memoEI (·.inferC) (fun st mp => { st with inferC := mp })
