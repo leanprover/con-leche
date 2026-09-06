@@ -52039,7 +52039,9 @@ axiom pin: 11 theorems at `[propext, Classical.choice, Quot.sound]`).
   with the moved names.  This is the same headline-number decision the
   PERF lane's `agent/perf-regen` reached independently for the
   official comparison ("accepted declaration RECORDS"); the two land
-  on the same line and the merge takes the prelude adjustment.
+  on the same line, and the coordinator's ruling at this landing is
+  that the reconciliation happens at THAT lane's merge, which takes
+  the prelude adjustment (`- preludeCount + preludeDropped`).
 * **Tests.**  `tests/LechTests/PreludeTests.lean`: the prelude parses,
   holds exactly 7 records / 6 basis kinds / the 4 `Bool` names and no
   basis name in the by-name index, is **accepted by the verified fold
