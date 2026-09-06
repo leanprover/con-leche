@@ -44853,3 +44853,229 @@ The `pw` datum is now closed as a performance lever in both
 directions: cheap changes buy nothing measurable, and the change that
 buys 2 % costs a universe context threaded through the whole
 verification tier.
+
+## TASK #175 SigmaHom — the Mathlib frontier at an INDEXED one-constructor family: the model's projections are ignored at install (2026-09-06, `agent/sigmahom`)
+
+With `DiseqCnstr`'s cone cut out
+(`_tmp/mathlib-scoping/mathlib-full-pre-nocone.ndjson`), the full
+Mathlib stream ended in a positive decline, exit 2, at record 175 281
+(24.10 % of the cut stream; `_tmp/next-frontier/nocone-e736f24d-p.log`):
+
+    setlec: not implemented yet: projection constructor residual arity
+      [at inductive CategoryTheory.Sigma.SigmaHom]
+
+### 1. The shape
+
+`CategoryTheory.Sigma.SigmaHom` (block dump:
+`_tmp/next-frontier/sigmahom-block.txt`):
+
+    inductive SigmaHom.{w₁, v₁, u₁} {I : Type w₁} {C : I → Type u₁}
+        [inst : ∀ i, Category.{v₁, u₁} (C i)] :
+        (Σ i, C i) → (Σ i, C i) → Type (max w₁ v₁ u₁)
+      | mk : ∀ {i : I} {X Y : C i}, (X ⟶ Y) → SigmaHom ⟨i, X⟩ ⟨i, Y⟩
+
+`numParams = 3`, **`numIndices = 2`**, one constructor with **4 fields**
+(`i`, `X`, `Y`, the hom), `isRec = false`, `numNested = 0`; the
+recursor has one motive, one minor, `numIndices = 2`.  The
+constructor's residual is `SigmaHom I C inst (Sigma.mk I _ i X)
+(Sigma.mk I _ i Y)` — the family at its parameters **and two index
+expressions built from the fields** — five arguments.
+
+### 2. The failing condition, and which route it is
+
+`Setlec/Kernel/CheckerBase.lean:218` `checkProjShape` (stage 2b of the
+**modeled** projection-function install): the constructor type
+stripped of `nP + nF` binders must be the family applied to *exactly*
+`nP` arguments —
+
+    unless cbody.getAppArgs.length == nP do
+      throw (.notImplemented "projection constructor residual arity")
+
+5 ≠ 3.  It is reached from `checkIndDecl` (`Kernel/Modeled.lean`) →
+`installProjFnStep` → `checkProjFn`, i.e. **only because the
+preprocessor emitted `SigmaHom._model.proj_{0..3}`** (with their
+`.iota` theorems and a `_model.eta`) for this indexed family — its
+indexed-fibre projection tranche
+(`lean-inductive-models/src/InductiveModels/Projection.lean`,
+`indexedFibreOneLayerProjectionFamily`: one constructor, any number of
+indices, a never-zero result sort, the recursor non-K with one minor).
+`installProjFnStep` installs a public projection function whenever the
+artifact exists, and the install pins the structure shape.  It is
+**not** the direct route: `directPartsCore?` (`Kernel/Direct/Parts.lean`)
+requires `mI == nP + 2 && rP == nP + 2`, and an indexed family's major
+sits at `nP + 2 + numIndices`, so the recogniser answers `none` and the
+block falls through to the modeled route.  Every other pin on the way
+(`checkEtaThm`, `ctorResidualOk`, `installProjTemplate`'s `rP = nP + 2`)
+is already index-aware; this one was not, because until Mathlib no
+*Type-valued* indexed one-constructor family with artifacts had been
+seen — the Prop-valued ones (`Acc`, `HEq`, `Int.NonNeg`,
+`IndexedSingleton`, … — the 91 blocks of the task-#136 table) reach
+the same pin only when their model carries a `proj_0`, which is why
+arena bad test 110 (`IndexedSingleton`) used to *decline* (§6).
+
+### 3. Official's treatment
+
+`src/kernel/inductive.cpp:26-31`:
+
+    /** Return true if the given declaration is a non-recursive structure
+        (an inductive type with one constructor and no indices). */
+    bool is_non_rec_structure(environment const & env, name const & decl_name) {
+        ... return I_val.get_ncnstrs() == 1 && I_val.get_nindices() == 0 && !I_val.is_rec();
+    }
+
+used at `type_checker.cpp:830` (`try_eta_struct_core`: structure eta in
+defeq) and `:1077` (`is_def_eq_unit_like`).  `SigmaHom` fails it (two
+indices): no structure eta, no unit-likeness.  **`infer_proj`
+(`type_checker.cpp:239-284`) does *not* consult it**: it accepts a
+`.proj I i e` on any inductive with one constructor and `args.size() ==
+nparams + nindices`, instantiating the constructor type at the
+parameters only.  The census agent's datum: **no `.proj SigmaHom` node
+exists anywhere in the stream** (the elaborator emits `.proj` only for
+`structure`s).  So official installs `SigmaHom` as an ordinary
+inductive and never needs a projection for it.
+
+### 4. The ruling and the fix
+
+User ruling (verbatim): *"Indexed types should not be handled by the
+direct route.  Ignore the projections from the model, and decline if a
+`.proj` actually occurs."*
+
+`Setlec/Kernel/Modeled.lean`:
+
+    def ctorTargetsFam (ctorTy : Expr) (T : Name) (lps : List Name) (nP nF : Nat) : Bool :=
+      match ctorTy.stripPis (nP + nF) with
+      | some (_, cbody) => cbody == directFam T lps nP nF
+      | none => false
+
+— official's structure-likeness read off the block's own constructor
+(an index-free one-constructor family's constructor targets `T p⃗`,
+the same conjunct `checkDirectCtor` pins on the direct route; an
+indexed family's targets `T p⃗ i⃗`).  `checkIndDecl` and its two cached
+twins (`checkIndDeclSF`, `Cached/CheckerC.lean`; `checkIndDeclNC`,
+`Cached/ParsedNC.lean`) run the projection-function fold **only when it
+holds**:
+
+    let env₄ ←
+      if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF then
+        (List.range nF).foldlM (installProjFnStep …) env₃
+      else pure env₃
+    installProjTemplate env₄ …
+
+Off the shape the phase is the identity: the `_model.proj_i`
+definitions and their theorems were already checked as the ordinary
+definitions/theorems they are, and stay so; no public `T.proj_i`, no
+table.  Three consequences, each checked against the code rather than
+argued:
+
+* **The eta capability was never claimable for an indexed family.**
+  `checkEtaThm` pins the statement's `(nP+1)`-th binder domain to
+  `T._model p⃗` at exactly `nP` parameter variables; an indexed family's
+  model former takes `nP + numIndices` arguments, so the emitted
+  `SigmaHom._model.eta` (which quantifies over the indices too) fails
+  the pin and `caps.eta = false`.  `ctorResidualOk` is guarded on
+  `eta`, so it does not fire either.
+* **The defeq eta spine cannot fire.**  `Cached/CoreC.lean:398-406`
+  requires `caps.eta = true` **and** `towerSlotsAllF || recSlotsAllF`
+  (every field has a tower entry or a projection function); an indexed
+  family now has neither — which is official's `is_non_rec_structure`
+  gate at `try_eta_struct_core`, reached by a different road.
+* **A `.proj` on such a type declines at its own site**: no table, no
+  projection function → `infer` reports "projection on a
+  non-structure-like type", exit 2 (both modes).  This is a
+  *conservative* decline relative to official (§3: `infer_proj` would
+  accept it) — recorded as a finding, not a bug: the ruling asks for
+  the decline, no such node occurs in the corpus, and a decline is
+  never a soundness event.
+
+The decision reads the block's **incoming** constructor type, not the
+stored one: it is then a function of the block, which is what the
+parity↔P agreement floor's skeleton specification
+(`indDeclSkelsModeled`, `Verify/Cached/AgreeFloor.lean`) can compute —
+a stored-type read would have put a datum outside the install skeleton
+into an install guard.  It is a gate, not a pin: every install it admits
+is still checked in full by `checkProjFn`.
+
+### 5. The proof
+
+Minimal by construction — skipping a fold only weakens what the run
+record establishes for the skipped entries, and nothing consumed them:
+
+* `Semantics/DeclIndRun.lean` `DeclIndRun`: the projection clause is
+  `ProjInstallRun … envR (if ctorTargetsFam cvC.type … then List.range nF else []) envP`.
+  `ProjInstallRun` itself and its consumers `projInstallP`
+  (`SetP/ProjInstallP.lean`) and `projInstallRun_ext`
+  (`Semantics/IndBlockRun.lean`) are generic in the field list — one
+  `List.range nF` argument became `_` in each.
+* `Semantics/Bridge/DeclIndRun.lean` `declIndRun_of` and
+  `Verify/Cached/BridgeCSDecl.lean` `checkIndDeclSF_run`: one
+  `by_cases` on the gate; the negative branch is the identity step
+  (`pureC_ok`) followed by the unchanged template bridge.
+* `Verify/Cached/AgreeFloor.lean`: `indDeclSkelsModeled` carries the
+  same `if`; `checkIndDeclSF_skels`/`checkIndDeclNC_skels` split on it,
+  the negative branch is `Yields.pure`.
+* The fuel/pair bridges (`checkIndDecl_datF`, `_fst_dproj`,
+  `_snd_dproj`; `Verify/BridgeDecl.lean`) needed no edit — their
+  tactics `split` on `if`s already.
+
+Modules touched: `Kernel/Modeled`, `Cached/CheckerC`, `Cached/ParsedNC`,
+`Semantics/DeclIndRun`, `Semantics/Bridge/DeclIndRun`,
+`Semantics/IndBlockRun`, `SetP/DeclIndP`, `Verify/Cached/AgreeFloor`,
+`Verify/Cached/BridgeCSDecl`.  No sorries, no new axioms; the four
+capstones (`no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_sound_P`,
+`foldSPC_PM`, `SetP.no_proof_of_Empty_P`) depend on exactly `[propext,
+Classical.choice, Quot.sound]`; layering `0 impl→theory`; proofdeps
+**1371 rows, 0 doors** (no module entered or left a closure — the gate
+lives in modules already on every path).
+
+### 6. Receipts
+
+Slices (`_tmp/sigmahom/`; official = v4.33.0 `kernel`; ours at the
+worktree binary; `ulimit -v 16000000; timeout 3000`):
+
+| slice | records | official | ours P, pre-fix | ours P, fixed | ours no-model, fixed |
+|---|---|---|---|---|---|
+| `sigmahom-slice-pre.ndjson` (the block's cone, `slice_fast.py`, 41 s) | 1 209 (48 MB) | accept, 1.1 s | 2 (String-support gap, §7) | 2 (same gap) | 2 (same gap) |
+| `sigmahom-comp-slice-pre.ndjson` (cone of `SigmaHom.comp` — a consumer through `SigmaHom.casesOn` — plus the String-support constants; `slice_multi_fast.py`, 1 min 51 s) | 1 246 (108 MB) | accept, 2.3 s | **2** "projection constructor residual arity" | **0**, 3.3 s | **0**, 3.2 s |
+
+Fixtures (`tests/e2e/src/indexed_one_ctor.lean`, exported raw via
+`lean-inductive-models/scripts/export-fixture.sh`): `IdxHom : Pt → Pt →
+Type` with `mk : (i : Nat) → (x y : Bool) → Eq x y → IdxHom ⟨i, x⟩ ⟨i,
+y⟩`, a `casesOn` consumer and a `rfl` forcing the indexed iota.  The
+preprocessor emits `IdxHom._model.proj_{0..3}`, `.iota`, `.eta` for it
+— the SigmaHom shape in 283 lines.  Accepts in both modes, raw (the
+harness preprocesses) and `--pre`.  `indexed_one_ctor_proj.ndjson`
+(`pre`): the preprocessed stream plus a hand-written `def IdxHom.badProj
+:= fun h => h.0` — declines, exit 2, both modes ("projection on a
+non-structure-like type"); **official accepts it** (97 declarations),
+§3.
+
+Gates on the worktree: `lake build` warning-free (444 jobs); `lake
+test` green; `tests/arena.sh` with sweeps: arena 90/92 good accepted
+(unchanged), e2e 80/80 (master's 78 + the two fixtures), annot 14/14,
+retired flags 8/8, mode flags 14/14, no-model sweep 138 + 80 + 14 with
+the 3 recorded divergences;
+**one arena verdict moved, 2 → 1, on a bad test**:
+`bad/tutorial/110_indexedStructEta` (structure eta asserted on
+`IndexedSingleton`, one index, Prop) declined at the block install
+before — the model's `proj_0` hit this pin — and is now *rejected* with
+official's own reason ("type mismatch": no eta on an indexed family).
+Recorded in `tests/arena-expected.txt`.  init-full (`--pre
+init-full-pre2.ndjson`): **accept, 60 549 declarations, both modes**
+(158 s P / 144 s no-model, verdict only).
+
+### 7. Notes for the next frontier agent
+
+* `_tmp/sigmahom/slice_multi_fast.py`: `slice_fast.py` with
+  comma-separated targets (the kept set is the union; the cut point is
+  the last target).  A cone slice of a Mathlib declaration needs the
+  String-support constants added as targets (`String`, `String.ofList`,
+  `List`, `List.nil`, `List.cons`, `Char`, `Char.ofNat`, plus `Nat`,
+  `Nat.zero`, `Nat.succ`): the `_autoParam` definitions carry string
+  literals whose support declarations are implicit, and the checker
+  declines "string literals before the String support declarations"
+  without them.  The bare SigmaHom slice's residual exit 2 is exactly
+  that.
+* The full Mathlib stream was **not** rerun here (the cadence: gates +
+  the extracted slice accepting).  Any other Type-valued indexed
+  one-constructor family with artifacts downstream now installs the
+  same way; a `.proj` on one would be the first such node in the corpus.
