@@ -1310,10 +1310,12 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
                 throw (.invalid
                   "projection from a propositional structure must be a proposition")
             -- the body at the arguments and the subject, as in the
-            -- spec body (task #175 S1) — since B3a `ExprC = Expr` and
-            -- the store is a unit, so the instantiation runs directly
-            -- on the stored body and the interned spine.
-            internExprM (entry.typeAt us targs pe)
+            -- spec body (task #175 S1) — through the memoized,
+            -- sharing-preserving `ExprC` instantiations
+            -- (`ProjEntry.typeAtI`; the spec's `typeAt` is a tree walk
+            -- that copied the subject and the parameters — the affine
+            -- frontier's out-of-memory, DESIGN.md "The affine frontier")
+            internExprM (entry.typeAtI us targs pe)
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
