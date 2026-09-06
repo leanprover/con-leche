@@ -45209,3 +45209,98 @@ fixtures.  §4's datum is what says its residue on the Mathlib stream is
 zero, and §6's measurement is what says where it lands the campaign:
 **24.10 %**, at `CategoryTheory.Sigma.SigmaHom` — modulo the 660
 declarations the probe cut and the fix keeps.
+### 12. Phase 2, fix 6 — S2 landed: the `pow` exponent cap; S1 withdrawn by the user (`agent/divergence-s12`)
+
+**The ruling (2026-09-06).**  Land the blow-up protection (official
+`reduce_pow`'s cap), KEEP the `Nat.pred`/`Nat.log2` literal fast paths.
+
+**S2.**  Official `reduce_pow` (`type_checker.cpp:616-627`) refuses an
+exponent above `ReducePowMaxExp = 1 << 24` and lets `Nat.pow` unfold;
+`natOpResult natPowName a b` is now `none` for `b > 16777216`.
+(Previously ours computed any `a ^ b` natively — an unbounded
+allocation on a hostile stream.)  Proofs: `natOpResult_shape`/`_atom`
+split the new `if`; `reduceNatSemP_binary`'s pow case reads the reduct
+through the cap.  No new axiom, no `sorry`; capstones at `[propext,
+Classical.choice, Quot.sound]`.
+
+**Measured, in instructions** (`ulimit -v 16G`, `perf stat -e
+instructions:u`, one checker at a time; master `f0009992`'s own binary
+vs executable-only variants of it — A: `pred`/`log2` fast paths
+removed, B: the pow cap alone):
+
+| stream | master parity | A parity | B parity | master P | A P | B P |
+|---|---|---|---|---|---|---|
+| `init-full-pre2` | 812.44 G | 812.06 G | 812.43 G | 842.27 G | 841.84 G | 842.28 G |
+| `grind-ring-5` | 28.265 G | 28.261 G | 28.265 G | 31.644 G | 31.640 G | 31.644 G |
+
+All three accept 60 549 / 3 866 constants.  The pow cap is free (±0.00 %);
+the `pred`/`log2` removal is also flat (−0.05 %, noise-level) — the
+earlier wall-time deltas (+18 % / +32 %) were shared-machine contention,
+not work (§13).
+
+**Gates at the tip** (master `162caa4d` merged): `lake build`
+warning-free (444 jobs), `lake test`, `tests/arena.sh` 0 FAIL (tutorial
+90/92, e2e 78/78 incl. `nat_pow_wrong` = 1, annot 14/14, flags 8/8 +
+14/14, no-model sweep as recorded), proofdeps 1 371 rows as pinned /
+doors 0, layering 0 edges; init-full ACCEPT 60 549 both modes (variant
+B, and re-run at the tip).
+
+### 13. Why the `pred`/`log2` fast paths buy nothing: official does not grind either (investigation, no code)
+
+**(1) Official's literal op set, re-read.**  `type_checker.cpp:29-44`
+declares the globals `g_nat_{zero,succ,add,sub,mul,pow,gcd,mod,div,beq,
+ble,land,lor,xor,shiftLeft,shiftRight}` and `reduce_nat` (`:639-668`)
+dispatches exactly on them: `succ` (one argument) and the fourteen
+binary operations.  `reduce_bin_nat_pred` (`:629-637`) is the folder
+for the *predicates* `beq`/`ble`, not `Nat.pred`; `pred_t`/`pred_s`
+(`:994-995`) are `is_def_eq_offset`'s predecessor peel.  There is no
+`log2` and no `pred` in the list (lean4lean `TypeChecker.lean`'s
+`reduceNat` agrees).  So both of ours ARE supersets — but supersets of
+a cheap route:
+
+**(2) What official does per op on a literal.**
+* `Nat.pred` (`Init/Prelude.lean:1974`: `| 0 => 0 | succ a => a`,
+  compiled to `Nat.rec`/`casesOn`): `unfold_definition`, then
+  `inductive_reduce_rec` with `nat_lit_to_constructor` on the literal
+  major — ONE iota step, the literal peeled one layer.
+* `Nat.log2` (`Init/Data/Nat/Log2.lean:42-45`, "Lean assembly", NOT
+  well-founded recursion): `n.rec (fun _ => nat_lit 0) (fun _ ih n =>
+  ((nat_lit 2).ble n).rec (nat_lit 0) ((ih (n.div (nat_lit 2))).succ))
+  n` — the literal is its own structural fuel; each recursive call peels
+  one `succ` off the fuel via `nat_lit_to_constructor`, folds `Nat.ble
+  2 n` and `Nat.div n 2` with the literal extension, and iota-reduces
+  the `Bool.rec`: `O(log₂ n)` iota steps.  The stream's definition is
+  the 4.29.1 export's; the fixtures show the same cost.
+
+**(3) What ours does without the fast paths** (variant A): the same
+route — `unfoldDefinition`, then `iotaRec`'s `litMajorToCtor` (our
+`nat_lit_to_constructor` site) at the `Nat.rec` major, the `ble`/`div`
+folds — measured flat on init-full and grind-ring-5 (§12) and on the
+fixtures: `nat_log2_ok` 3.525 G (master) vs 3.526 G (A), `nat_ops_edge`
+0.6775 vs 0.6776 G; official on the same fixtures 0.593 G / 0.190 G
+(the gap is the pin certification the fixtures exist to exercise, not
+the reduction).  No grinding on either side; no missing
+literal-to-constructor site.  The +18 %/+32 % wall-time deltas that
+raised the question were contention on the shared machine: the
+instruction counts of the same binaries are flat.
+
+**Conclusion.**  The fast paths are strategy supersets with no
+measurable payoff on any stream at hand (each saves a handful of iota
+steps per literal use), and no cost; per the user's ruling they stay.
+The only fix worth having in this family was S2 (the cap), landed.
+### 14. Phase 2 closed — status per row (2026-09-06)
+
+| row | status |
+|---|---|
+| D15 (`reduceNat` argument order) | **landed** — master `494173b2` (with the phase-1 table); regression fixture `natop_arg_order` |
+| D3 (proof irrelevance once per entry) | **landed** — master `10eefcf1`; the prize: 5× → 2.4× per delta step on the witness |
+| E2 (the eq-true shortcut) | **landed** — master `10eefcf1` (rode D3) |
+| D13 (struct-eta shape gate before inferring) | **landed** — master `791bf869` |
+| D4 (no proof irrelevance on quick pairs) | **landed** — master `f42cd259`; verdicts unchanged on init-full and the suites |
+| V1 (K on a mutual block) | **withdrawn by inspection** — an install-time invariant already (§11); master `f0009992` (record only) |
+| S1 (`pred`/`log2` fast paths) | **withdrawn by the user** — nobody grinds (§13); the fast paths stay |
+| S2 (the pow cap at 2^24) | **landed** — this branch (`agent/divergence-s12`) |
+| W4 (one iota attempt per spine) | **deferred to the docket** — touches `iotaRec`'s exact-arity contract and `IotaRowsP`; cost linear in spine length, no witness built |
+| D5 (`cheap_proj` first pass, `tryUnfoldProjApp`, `lazyDeltaProjReduction`) | **deferred to the docket** — the largest restructuring (a second `whnfCore` entry + two lazy-delta helpers), both-direction cost, no witness built |
+| eager flag (item 6) | **deferred to the docket** — §8: full six-field threading (283 sites + ~770 lemma mentions) vs defeq-cone-only (57 + ~170, whnf-nested residual); separate memo tables either way; 1 use per stream, accepted; a cost divergence, not a verdict one |
+| E4 (proofIrrel type comparison / fall-through), N2 (`reduce_native`) | **stay** by the standing rulings |
