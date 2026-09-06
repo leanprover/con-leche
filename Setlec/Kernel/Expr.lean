@@ -369,7 +369,7 @@ soundness is a P-tier theorem *and* the gate fires only where the
 licensing theorems' hypotheses hold — `μ.verified = true`").  Every
 executable call site therefore carries the `μ.verified` conjunct; see
 `inferBodyIO` (`Kernel/CoreIO.lean`). -/
-def isNever : PropWhen → Bool
+@[inline] def isNever : PropWhen → Bool
   | .never => true
   | _ => false
 
@@ -384,7 +384,7 @@ def isNever : PropWhen → Bool
 ever non-trivial on it?  Folded into `Expr.hasLevelParam` and the
 eager `eparamBs` recurrence (task #87), so the has-param shortcut of
 the interned level-instantiation walk stays exact. -/
-def hasParams : PropWhen → Bool
+@[inline] def hasParams : PropWhen → Bool
   | .never => false
   | .always => false
   | _ => true
@@ -512,6 +512,10 @@ def equiv : PropWhen → PropWhen → Bool
   | .never, _ => false
   | _, .never => false
   | .always, .always => true
+  -- `[]` is mutually contained only with `[]`, so a non-empty list
+  -- disagrees with `always` without building either list.
+  | .always, _ => false
+  | _, .always => false
   | .one a, .one b => a == b
   | p, q => p.toList.all q.toList.contains && q.toList.all p.toList.contains
 
