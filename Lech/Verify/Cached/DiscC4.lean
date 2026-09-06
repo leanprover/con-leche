@@ -554,7 +554,7 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
     have he'd : RelC e' e' := rfl
     have hwproj : Expr.WScoped d (Expr.proj sn ip e') := by
       simpa only [Expr.WScoped] using hwe'
-    refine SimC.bind_left (readbackNM_eff hs₁ sn)
+    refine SimC.bind_left (pureEq_eff hs₁ sn)
       (fun s₁' snw hs₁ hsnw => ?_)
     subst snw
     rw [mkFEnv_findProj?]
@@ -576,7 +576,7 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
         refine SimC.pureB ?_
         have hargs : RelCL (ExprC.getAppArgs e') ((Expr.getAppArgs e')) :=
           ExprC.getAppArgs_spec e'
-        refine SimC.bind_left (beqNameM_eff hs₁ c entry.ctor)
+        refine SimC.bind_left (pureEq_eff hs₁ (c == entry.ctor))
           (fun s₁b bq hs₁ hbq => ?_)
         subst bq
         rw [hargs.length]
@@ -1854,7 +1854,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     unfold inferBody
     dsimp only
     try dsimp only
-    refine SimC.bind_left (internLM_eff hs (Level.succ u))
+    refine SimC.bind_left (pureEq_eff hs (Level.succ u))
       (fun s₁ su hs₁ hsu => ?_)
     subst su
     exact SimC.of_eff
@@ -1918,7 +1918,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       rw [natLitSupportedF_eq]
       by_cases hg : natLitSupported env
       · rw [if_pos hg, if_pos hg]
-        refine SimC.bind_left (internNameM_eff hs natName)
+        refine SimC.bind_left (pureEq_eff hs natName)
           (fun s₁ ni hs₁ hQni => ?_)
         subst ni
         exact SimC.of_eff
@@ -1930,7 +1930,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       rw [strLitSupportedF_eq]
       by_cases hg : strLitSupported env
       · rw [if_pos hg, if_pos hg]
-        refine SimC.bind_left (internNameM_eff hs stringName)
+        refine SimC.bind_left (pureEq_eff hs stringName)
           (fun s₁ ni hs₁ hQni => ?_)
         subst ni
         exact SimC.of_eff
@@ -1944,7 +1944,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     dsimp only
     refine SimC.bind_pure_right ?_
     try dsimp only
-    refine SimC.bind_left (readbackNM_eff hs nm)
+    refine SimC.bind_left (pureEq_eff hs nm)
       (fun s₀' nw hs hnw => ?_)
     subst nw
     rw [mkFEnv_find?]
@@ -2075,7 +2075,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     | const T us =>
       rw [show (Expr.getAppFn te) = Expr.const T us from hfn.symm]
       dsimp only
-      refine SimC.bind_left (readbackNM_eff hs₂ T)
+      refine SimC.bind_left (pureEq_eff hs₂ T)
         (fun s₂' Tw hs₂ hTw => ?_)
       subst Tw
       rw [mkFEnv_findProj?]
@@ -2094,7 +2094,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           rename_i hcond
           rw [htargs]
           have hres : SimC mode env s₂' (RelEC d)
-              (internExprM (entry.typeAtI us (Expr.getAppArgs te) pe))
+              (pure (entry.typeAtI us (Expr.getAppArgs te) pe))
               (pure (entry.typeAt us (Expr.getAppArgs te) pe) : FueledM Expr) :=
             SimC.pure hs₂ ⟨ProjEntry.typeAtI_eq entry us _ pe,
               projEntry_typeAt_WScoped henv hfp us
@@ -2141,7 +2141,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     unfold inferBodyI inferBodyIO
     dsimp only
     try dsimp only
-    refine SimC.bind_left (internLM_eff hs (Level.succ u))
+    refine SimC.bind_left (pureEq_eff hs (Level.succ u))
       (fun s₁ su hs₁ hsu => ?_)
     subst su
     exact SimC.of_eff
@@ -2205,7 +2205,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       rw [natLitSupportedF_eq]
       by_cases hg : natLitSupported env
       · rw [if_pos hg, if_pos hg]
-        refine SimC.bind_left (internNameM_eff hs natName)
+        refine SimC.bind_left (pureEq_eff hs natName)
           (fun s₁ ni hs₁ hQni => ?_)
         subst ni
         exact SimC.of_eff
@@ -2217,7 +2217,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       rw [strLitSupportedF_eq]
       by_cases hg : strLitSupported env
       · rw [if_pos hg, if_pos hg]
-        refine SimC.bind_left (internNameM_eff hs stringName)
+        refine SimC.bind_left (pureEq_eff hs stringName)
           (fun s₁ ni hs₁ hQni => ?_)
         subst ni
         exact SimC.of_eff
@@ -2231,7 +2231,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     dsimp only
     refine SimC.bind_pure_right ?_
     try dsimp only
-    refine SimC.bind_left (readbackNM_eff hs nm)
+    refine SimC.bind_left (pureEq_eff hs nm)
       (fun s₀' nw hs hnw => ?_)
     subst nw
     rw [mkFEnv_find?]
@@ -2288,7 +2288,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       · simp only [hv, ↓reduceIte]
         by_cases hc : (Level.zeronessOf v).equiv m.pw = true
         · simp only [hc, ↓reduceIte]
-          refine SimC.bind_left (internLM_eff hs₆ (Level.imax u v))
+          refine SimC.bind_left (pureEq_eff hs₆ (Level.imax u v))
             (fun s₇ iu hs₇ hQiu => ?_)
           subst hQiu
           exact SimC.of_eff
@@ -2297,7 +2297,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
         · simp only [hc, Bool.false_eq_true, ↓reduceIte]
           exact SimC.throw_bind
       · simp only [hv, Bool.false_eq_true, ↓reduceIte]
-        refine SimC.bind_left (internLM_eff hs₆ (Level.imax u v))
+        refine SimC.bind_left (pureEq_eff hs₆ (Level.imax u v))
           (fun s₇ iu hs₇ hQiu => ?_)
         subst hQiu
         exact SimC.of_eff
@@ -2420,7 +2420,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     | const T us =>
       rw [show (Expr.getAppFn te) = Expr.const T us from hfn.symm]
       dsimp only
-      refine SimC.bind_left (readbackNM_eff hs₂ T)
+      refine SimC.bind_left (pureEq_eff hs₂ T)
         (fun s₂' Tw hs₂ hTw => ?_)
       subst Tw
       rw [mkFEnv_findProj?]
@@ -2438,7 +2438,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
           rename_i hcond
           rw [htargs]
           have hres : SimC mode env s₂' (RelEC d)
-              (internExprM (entry.typeAtI us (Expr.getAppArgs te) pe))
+              (pure (entry.typeAtI us (Expr.getAppArgs te) pe))
               (pure (entry.typeAt us (Expr.getAppArgs te) pe) : FueledM Expr) :=
             SimC.pure hs₂ ⟨ProjEntry.typeAtI_eq entry us _ pe,
               projEntry_typeAt_WScoped henv hfp us

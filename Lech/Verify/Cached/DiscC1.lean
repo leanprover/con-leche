@@ -338,7 +338,7 @@ theorem litToCtorIfNatC_eff {s₀ : CState} (hs : CSOK mode env s₀)
     match i with
     | .lit (.natVal n) =>
       if natLitSupportedF (mkFEnv env) then
-        internExprM (natLitToConstructor n)
+        pure (natLitToConstructor n)
       else pure i
     | _ => pure i)
   obtain rfl := hden
@@ -354,7 +354,7 @@ theorem litToCtorIfNatC_eff {s₀ : CState} (hs : CSOK mode env s₀)
          else .lit (.natVal k)) from rfl]
       by_cases hg : natLitSupported env
       · rw [if_pos hg, if_pos hg]
-        exact internExprM_eff hs _
+        exact pureC_eff hs _
       · rw [if_neg hg, if_neg hg]
         exact CEff.pure hs hden
     | strVal str => exact CEff.pure hs hden
@@ -387,7 +387,7 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
     (
       match (ExprC.getAppFn i) with
       | .const n us => do
-        let nm ← readbackNM n
+        let nm ← pure n
         match (mkFEnv env).find? nm with
         | some (.defnInfo cv _ _) =>
           if us.length = cv.levelParams.length then do
@@ -430,7 +430,7 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
     have hfn' : (Expr.getAppFn i) = Expr.const nm us := hfn.symm
     rw [hspec, hfn']
     dsimp only
-    refine (readbackNM_eff hs nm).bind ?_
+    refine (pureEq_eff hs nm).bind ?_
     intro s₀' nmv hs hnmv
     subst hnmv
     rw [mkFEnv_find?]
@@ -547,7 +547,7 @@ theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       rw [strLitSupportedF_eq]
       by_cases hg : strLitSupported env
       · rw [if_pos hg, if_pos hg]
-        refine SimC.bind_left (internExprM_eff hs (strLitToConstructor str))
+        refine SimC.bind_left (pureC_eff hs (strLitToConstructor str))
           (fun s₁ x hs₁ hQ => ?_)
         exact ih.whnf hs₁ hQ (strLitToConstructor_WScoped str d)
       · rw [if_neg hg, if_neg hg]
@@ -607,7 +607,7 @@ theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       rw [strLitSupportedF_eq]
       by_cases hg : strLitSupported env
       · rw [if_pos hg, if_pos hg]
-        refine SimC.bind_left (internExprM_eff hs (strLitToConstructor str))
+        refine SimC.bind_left (pureC_eff hs (strLitToConstructor str))
           (fun s₁ x hs₁ hQ => ?_)
         exact ih.whnf hs₁ hQ (strLitToConstructor_WScoped str d)
       · rw [if_neg hg, if_neg hg]
@@ -808,7 +808,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       cases us with
       | cons u us' => exact SimC.pure hs trivial
       | nil =>
-        refine SimC.bind_left (readbackNM_eff hs c)
+        refine SimC.bind_left (pureEq_eff hs c)
           (fun s₀' cv hs hcv => ?_)
         subst hcv
         rw [show reduceNat (fueledFns mode env) env d
@@ -829,7 +829,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
           rw [rawNatLitC?_spec' hwden]
           cases rawNatLit? wx with
           | some k =>
-            refine SimC.bind_left (internExprM_eff hs₁ _)
+            refine SimC.bind_left (pureC_eff hs₁ _)
               (fun s₂ r hs₂ hQ => ?_)
             exact SimC.pure hs₂ (relOC_some_lit hQ)
           | none => exact SimC.pure hs₁ trivial
@@ -847,7 +847,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
         cases us with
         | cons u us' => exact SimC.pure hs trivial
         | nil =>
-          refine SimC.bind_left (readbackNM_eff hs c)
+          refine SimC.bind_left (pureEq_eff hs c)
             (fun s₀' cv hs hcv => ?_)
           subst hcv
           rw [show reduceNat (fueledFns mode env) env d
@@ -904,7 +904,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
                 cases hres : natOpResult cv n₁ n₂ with
                 | some x =>
                   dsimp only
-                  refine SimC.bind_left (internExprM_eff hs₂ x)
+                  refine SimC.bind_left (pureC_eff hs₂ x)
                     (fun s₃ r hs₃ hQ => ?_)
                   refine SimC.pure hs₃ ⟨hQ, ?_⟩
                   rcases natOpResult_shape hres with ⟨n', rfl⟩ |

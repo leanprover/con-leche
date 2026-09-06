@@ -43,7 +43,7 @@ theorem isPropTypeC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     ((coreKnotI mode (mkFEnv env) f).annotate d i >>= fun ty' =>
       (coreKnotI mode (mkFEnv env) f).inferIO d ty' >>= fun tty =>
       ensureSortI (coreKnotI mode (mkFEnv env) f) d tty >>= fun s =>
-      internLM .zero >>= fun z =>
+      pure .zero >>= fun z =>
       isEquivLM s z >>= fun o =>
       liftFueled "level comparison" o)
     ((fueledFns mode env).annotate d ty >>= fun ty' =>
@@ -59,7 +59,7 @@ theorem isPropTypeC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
   refine SimC.bind (ensureSortC_sim ih hs₂ httyd hwtty)
     (fun s₃ u lu hs₃ hPu => ?_)
   obtain rfl : u = lu := hPu
-  refine SimC.bind_left (internLM_eff hs₃ .zero)
+  refine SimC.bind_left (pureEq_eff hs₃ Level.zero)
     (fun s₃z z hs₃z hz => ?_)
   subst hz
   refine SimC.bind_left (isEquivLM_eff hs₃z u Level.zero)
@@ -284,7 +284,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     | const T us =>
       rw [show (Expr.getAppFn te) = Expr.const T us from hfn.symm]
       dsimp only
-      refine SimC.bind_left (readbackNM_eff hs₃ T)
+      refine SimC.bind_left (pureEq_eff hs₃ T)
         (fun s₃T Tw hs₃T hTw => ?_)
       subst hTw
       rw [mkFEnv_findProj?]

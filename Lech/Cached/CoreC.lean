@@ -66,7 +66,7 @@ unfold too. -/
 def unfoldDefinitionI (fe : FEnv) (e : ExprC) : CheckCM (Option ExprC) := do
   match ExprC.getAppFn e with
   | .const n us => do
-    let nm ← readbackNM n
+    let nm ← pure n
     match fe.find? nm with
     | some (.defnInfo cv _ _) =>
       if us.length = cv.levelParams.length then do
@@ -89,7 +89,7 @@ def unfoldDefinitionI (fe : FEnv) (e : ExprC) : CheckCM (Option ExprC) := do
 def litToCtorIfNatI (fe : FEnv) (e : ExprC) : CheckCM ExprC := do
   match e with
   | .lit (.natVal n) =>
-    if natLitSupportedF fe then internExprM (natLitToConstructor n)
+    if natLitSupportedF fe then pure (natLitToConstructor n)
     else pure e
   | _ => pure e
 
@@ -103,12 +103,12 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
       match us with
       | _ :: _ => pure none
       | [] => do
-        let cn ← readbackNM c
+        let cn ← pure c
         if cn = natSuccName ∧ natLitSupportedF fe then do
           let w ← r.whnf depth b
           match ← pure (rawNatLitC? w) with
           | some n => do
-            let r ← internExprM (.lit (.natVal (n + 1)))
+            let r ← pure (Expr.lit (.natVal (n + 1)))
             pure (some r)
           | none => pure none
         else pure none
@@ -118,7 +118,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
         match us with
         | _ :: _ => pure none
         | [] => do
-          let cn ← readbackNM c
+          let cn ← pure c
           if (cn = natAddName ∨ cn = natSubName ∨ cn = natMulName ∨
               cn = natPowName ∨ cn = natBeqName ∨ cn = natBleName ∨
               cn = natDivName ∨ cn = natModName ∨ cn = natGcdName ∨
@@ -135,7 +135,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
               | some n₂ =>
                 match natOpResult cn n₁ n₂ with
                 | some x => do
-                  let r ← internExprM x
+                  let r ← pure x
                   pure (some r)
                 | none => pure none
               | none => pure none
@@ -258,14 +258,14 @@ def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     let wtta ← r.whnf depth tta
     match wtta with
     | .sort uT => do
-      let z ← internLM .zero
+      let z ← pure .zero
       let okA ← liftFueled "level comparison" (← isEquivLM uT z)
       let tb ← r.inferIO depth b
       let ttb ← r.inferIO depth tb
       let wttb ← r.whnf depth ttb
       match wttb with
       | .sort vT => do
-        let z ← internLM .zero
+        let z ← pure .zero
         let okB ← liftFueled "level comparison" (← isEquivLM vT z)
         pure (okA && okB)
       | _ => pure false
@@ -344,14 +344,14 @@ def propIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
   let wtta ← r.whnf depth tta
   match wtta with
   | .sort uT => do
-    let z ← internLM .zero
+    let z ← pure .zero
     let okA ← liftFueled "level comparison" (← isEquivLM uT z)
     let tb ← r.inferIO depth b
     let ttb ← r.inferIO depth tb
     let wttb ← r.whnf depth ttb
     match wttb with
     | .sort vT => do
-      let z ← internLM .zero
+      let z ← pure .zero
       let okB ← liftFueled "level comparison" (← isEquivLM vT z)
       pure (okA && okB)
     | _ => pure false
@@ -364,7 +364,7 @@ def projAppsFnI (T : Name) (us' : List Level) (targs : List ExprC)
     (b : ExprC) : List Nat → CheckCM (List ExprC)
   | [] => pure []
   | i :: rest => do
-    let pf ← projFnIdxM T i
+    let pf ← pure (projFnName T i)
     let h ← pure (Expr.const pf us')
     let r ← mkAppNM h (targs ++ [b])
     let rs ← projAppsFnI T us' targs b rest
@@ -400,7 +400,7 @@ def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.recInfo cvp _ _ _) =>
       if cvp.levelParams = lpsT ∧
           (cvp.type.stripPis (targs.length + 1)).isSome = true then do
-        let pf ← projFnIdxM TI i
+        let pf ← pure (projFnName TI i)
         let pty ← constTyAtM fe pf (projFnName T i) us'
         if ← iotaCertsI r fe depth false pty (targs ++ [b]) then
           structEtaProjCertsI r fe depth TI T us' targs b lpsT rest
@@ -413,14 +413,14 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (a b wtb : ExprC) : CheckCM Bool := do
   match ExprC.getAppFn a with
   | .const c us => do
-    let cn ← readbackNM c
+    let cn ← pure c
     match fe.find? cn with
     | some (.ctorInfo cvc cnP cnF) => do
       let aargs ← pure (ExprC.getAppArgs a)
       if aargs.length = cnP + cnF then
         match ExprC.getAppFn wtb with
         | .const T us' => do
-          let Tn ← readbackNM T
+          let Tn ← pure T
           match fe.find? Tn with
           | some (.indInfo cvT caps) => do
             let targs ← pure (ExprC.getAppArgs wtb)
@@ -492,7 +492,7 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
   let wta ← r.whnf depth ta
   match ExprC.getAppFn wta with
   | .const T us' => do
-    let Tn ← readbackNM T
+    let Tn ← pure T
     match fe.find? Tn with
     | some (.indInfo cvT caps) => do
       let targs ← pure (ExprC.getAppArgs wta)
@@ -561,11 +561,11 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             let tmaj ← r.whnf depth tmaj₀
             match ExprC.getAppFn tmaj with
             | .const T' ust =>
-              if (← beqNameM T' T) ∧ cvj.levelParams.length = ust.length then do
+              if (← pure (T' == T)) ∧ cvj.levelParams.length = ust.length then do
                 let margs ← pure (ExprC.getAppArgs tmaj)
                 if cnP ≤ margs.length ∧
                     (cvj.type.stripPis cnP).isSome = true then do
-                  let ctorI ← internNameM rl.ctor
+                  let ctorI ← pure rl.ctor
                   let h ← pure (Expr.const ctorI ust)
                   let fab ← mkAppNM h (margs.take cnP)
                   if ← pure (ExprC.wscopedB depth fab &&
@@ -605,19 +605,19 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             match ExprC.getAppFn tmaj with
             | .const T' ust => do
               let margs ← pure (ExprC.getAppArgs tmaj)
-              let ustL ← readbackLevelsM ust
+              let ustL ← pure ust
               -- instantiated non-Prop guard, as in the spec body
               -- `majorToCtor` (task #61)
-              if (← beqNameM T' T) ∧ margs.length = caps.etaParams ∧
+              if (← pure (T' == T)) ∧ margs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
                   piResultNeverZero cvT.levelParams ustL cvT.type = true then do
                 if cvj.levelParams.length = ust.length ∧
                     (cvj.type.stripPis
                       (caps.etaParams + caps.etaFields)).isSome
                       = true then do
-                  let TI ← internNameM T
+                  let TI ← pure T
                   let projs ← projAppsI fe T TI ust margs major caps.etaFields
-                  let ctorI ← internNameM caps.etaCtor
+                  let ctorI ← pure caps.etaCtor
                   let h ← pure (Expr.const ctorI ust)
                   let fab ← mkAppNM h (margs ++ projs)
                   if ← pure (ExprC.wscopedB depth fab &&
@@ -655,7 +655,7 @@ def litMajorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
   match e with
   | .lit (.strVal s) =>
     if strLitSupportedF fe then do
-      let x ← internExprM (strLitToConstructor s)
+      let x ← pure (strLitToConstructor s)
       r.whnf depth x
     else pure e
   | _ => litToCtorIfNatI fe e
@@ -666,7 +666,7 @@ def projLitToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
   match e with
   | .lit (.strVal s) =>
     if strLitSupportedF fe then do
-      let x ← internExprM (strLitToConstructor s)
+      let x ← pure (strLitToConstructor s)
       r.whnf depth x
     else pure e
   | _ => pure e
@@ -693,7 +693,7 @@ def pinArgsI (lps : List Name) (us : List Level) (args : List ExprC)
     (t : Nat) : List Expr → CheckCM (List ExprC)
   | [] => pure []
   | p :: ps => do
-    let praw ← internExprM p
+    let praw ← pure p
     let pi ← instLevelParamsM lps us praw
     let r ← instSpineM args t pi
     let rs ← pinArgsI lps us args t ps
@@ -704,7 +704,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
     CheckCM (Option ExprC) := do
   match ExprC.getAppFn e with
   | .const c us => do
-    let cn ← readbackNM c
+    let cn ← pure c
     match fe.find? cn with
     | some (.recInfo cv mI rP rules) => do
       let args ← pure (ExprC.getAppArgs e)
@@ -715,7 +715,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
         let major ← prepareMajorI mode r fe depth cn rules (args.getD mI bvar0)
         match ExprC.getAppFn major with
         | .const cj usj => do
-          let cjn ← readbackNM cj
+          let cjn ← pure cj
           match fe.find? cjn with
           | some (.ctorInfo cvj _ _) =>
             match rules.find? (fun r' => r'.ctor == cjn) with
@@ -794,7 +794,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
 /-- Twin of `projCert`. -/
 def projCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (lic : Bool)
     (c : Name) (us : List Level) (args : List ExprC) : CheckCM Bool := do
-  let cn ← readbackNM c
+  let cn ← pure c
   match fe.find? cn with
   | some (.ctorInfo _ _ _) => do
     let tyC ← constTyAtM fe c cn us
@@ -914,13 +914,13 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | .proj sn i pe => do
       let e' ← r.whnf depth pe
       let e' ← projLitToCtorI r fe depth e'
-      let snn ← readbackNM sn
+      let snn ← pure sn
       match fe.findProj? snn i with
       | some entry =>
         match ExprC.getAppFn e' with
         | .const c us => do
           let args ← pure (ExprC.getAppArgs e')
-          if (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
+          if (← pure (c == entry.ctor)) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then do
@@ -1191,7 +1191,7 @@ def inferPisOutI : List (Level × PropWhen) → Level → PWMemo → CheckCM Lev
     let (pv, memo) ← pure (zeronessOfLGo memo v)
     if mode.verifiedChecks && !(pv.equiv pw) then
       throw (.notImplemented "sort-annotation mismatch (forall-cod)")
-    let v' ← internLM (.imax u v)
+    let v' ← pure (.imax u v)
     inferPisOutI rest v' memo
 
 /-- Leaf phase of `inferPisI`: bulk-open the residual body, infer its
@@ -1235,13 +1235,13 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
   fun depth e => do
     match e with
     | .sort u => do
-      let su ← internLM (.succ u)
+      let su ← pure (.succ u)
       pure (Expr.sort su)
     | .fvar idx _ ty =>
       if idx < depth then pure ty
       else throw (.invalid "free variable out of scope")
     | .const n us => do
-      let nm ← readbackNM n
+      let nm ← pure n
       match fe.find? nm with
       | none => throw (.invalid s!"unknown constant {nm}")
       | some ci =>
@@ -1253,12 +1253,12 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         constTyAtM fe n nm us
     | .lit (.natVal _) => do
       if natLitSupportedF fe then do
-        let ni ← internNameM natName
+        let ni ← pure natName
         pure (Expr.const ni [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
     | .lit (.strVal _) => do
       if strLitSupportedF fe then do
-        let si ← internNameM stringName
+        let si ← pure stringName
         pure (Expr.const si [])
       else throw (.notImplemented
         "string literals before the String support declarations")
@@ -1297,7 +1297,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       let te ← r.whnf depth tpe
       match ExprC.getAppFn te with
       | .const T us => do
-        let Tn ← readbackNM T
+        let Tn ← pure T
         match fe.findProj? Tn i with
         | some entry => do
           let targs ← pure (ExprC.getAppArgs te)
@@ -1317,7 +1317,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
             -- (`ProjEntry.typeAtI`; the spec's `typeAt` is a tree walk
             -- that copied the subject and the parameters — the affine
             -- frontier's out-of-memory, DESIGN.md "The affine frontier")
-            internExprM (entry.typeAtI us targs pe)
+            pure (entry.typeAtI us targs pe)
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
@@ -1370,7 +1370,7 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         if mode.verifiedChecks then
           unless (Level.zeronessOf v).equiv mb.pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
-        let iu ← internLM (.imax u v)
+        let iu ← pure (.imax u v)
         pure (Expr.sort iu)
       | _ => throw (.invalid "expected a sort")
     | .lam n ty body mb => do
@@ -1470,15 +1470,15 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       liftFueled "level comparison" (← isEquivLM u v)
     | .lit l₁, .lit l₂ => pure (l₁ == l₂)
     | .lit (.natVal n), .const c us =>
-      if (← beqNameM c natZeroName) ∧ us = [] then pure (n == 0)
+      if (← pure (c == natZeroName)) ∧ us = [] then pure (n == 0)
       else stuckIrrelI mode r fe depth a' b'
     | .const c us, .lit (.natVal n) =>
-      if (← beqNameM c natZeroName) ∧ us = [] then pure (n == 0)
+      if (← pure (c == natZeroName)) ∧ us = [] then pure (n == 0)
       else stuckIrrelI mode r fe depth a' b'
     | .lit (.natVal nn), .app f x => do
       match nn, f with
       | k + 1, .const c [] =>
-        if ← beqNameM c natSuccName then do
+        if ← pure (c == natSuccName) then do
           let kl ← pure (Expr.lit (.natVal k))
           r.defeq depth kl x
         else stuckIrrelI mode r fe depth a' b'
@@ -1486,7 +1486,7 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | .app f x, .lit (.natVal nn) => do
       match nn, f with
       | k + 1, .const c [] =>
-        if ← beqNameM c natSuccName then do
+        if ← pure (c == natSuccName) then do
           let kl ← pure (Expr.lit (.natVal k))
           r.defeq depth x kl
         else stuckIrrelI mode r fe depth a' b'
@@ -1494,16 +1494,16 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | .lit (.strVal s), .app fO _x => do
       match fO with
       | .const cO usO =>
-        if (← beqNameM cO stringOfListName) ∧ usO = [] ∧ strLitSupportedF fe then do
-          let sc ← internExprM (strLitToConstructor s)
+        if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitSupportedF fe then do
+          let sc ← pure (strLitToConstructor s)
           r.defeq depth sc b'
         else stuckIrrelI mode r fe depth a' b'
       | _ => stuckIrrelI mode r fe depth a' b'
     | .app fO _x, .lit (.strVal s) => do
       match fO with
       | .const cO usO =>
-        if (← beqNameM cO stringOfListName) ∧ usO = [] ∧ strLitSupportedF fe then do
-          let sc ← internExprM (strLitToConstructor s)
+        if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitSupportedF fe then do
+          let sc ← pure (strLitToConstructor s)
           r.defeq depth a' sc
         else stuckIrrelI mode r fe depth a' b'
       | _ => stuckIrrelI mode r fe depth a' b'
@@ -1580,7 +1580,7 @@ def isPropTypeI (r : CoreFnsI) (_fe : FEnv) (depth : Nat) (ty : ExprC) :
   let ty' ← r.annotate depth ty
   let tty ← r.inferIO depth ty'
   let s ← ensureSortI r depth tty
-  let z ← internLM .zero
+  let z ← pure .zero
   liftFueled "level comparison" (← isEquivLM s z)
 
 /-! ### Annotation binder-telescope loops (task #72; see the
@@ -1794,7 +1794,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
       let te ← r.whnf depth tpe
       match ExprC.getAppFn te with
       | .const T _ => do
-        let Tn ← readbackNM T
+        let Tn ← pure T
         match fe.findProj? Tn i with
         | some entry => do
           let targs ← pure (ExprC.getAppArgs te)

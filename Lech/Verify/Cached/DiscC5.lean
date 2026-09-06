@@ -389,7 +389,7 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                       exact SimC.pure hs₆ rfl
                     | const c₂ us₂ =>
                       dsimp only
-                      refine SimC.bind_left (beqNameM_eff hs₆ c₂ natZeroName)
+                      refine SimC.bind_left (pureEq_eff hs₆ (c₂ == natZeroName))
                         (fun s₆b bq hs₆b hbq => ?_)
                       subst bq
                       simp only [beq_iff_eq]
@@ -419,7 +419,7 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                           | nil =>
                             dsimp only
                             refine SimC.bind_left
-                              (beqNameM_eff hs₆ cf natSuccName)
+                              (pureEq_eff hs₆ (cf == natSuccName))
                               (fun s₆b bq hs₆b hbq => ?_)
                             subst bq
                             simp only [beq_iff_eq]
@@ -457,14 +457,14 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                         dsimp only
                         rw [strLitSupportedF_eq]
                         refine SimC.bind_left
-                          (beqNameM_eff hs₆ cf stringOfListName)
+                          (pureEq_eff hs₆ (cf == stringOfListName))
                           (fun s₆b bq hs₆b hbq => ?_)
                         subst bq
                         simp only [beq_iff_eq]
                         by_cases hsc : cf = stringOfListName ∧ usf = [] ∧
                             strLitSupported env = true
                         · rw [if_pos hsc, if_pos hsc]
-                          refine SimC.bind_left (internExprM_eff hs₆b
+                          refine SimC.bind_left (pureC_eff hs₆b
                             (strLitToConstructor str))
                             (fun s₇ sc hs₇ hQs => ?_)
                           exact ih.defeq hs₇ hQs hbS
@@ -522,7 +522,7 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                     cases l₂ with
                     | natVal n₂ =>
                       dsimp only
-                      refine SimC.bind_left (beqNameM_eff hs₆ c₁ natZeroName)
+                      refine SimC.bind_left (pureEq_eff hs₆ (c₁ == natZeroName))
                         (fun s₆b bq hs₆b hbq => ?_)
                       subst bq
                       simp only [beq_iff_eq]
@@ -762,7 +762,7 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                           | nil =>
                             dsimp only
                             refine SimC.bind_left
-                              (beqNameM_eff hs₆ cf natSuccName)
+                              (pureEq_eff hs₆ (cf == natSuccName))
                               (fun s₆b bq hs₆b hbq => ?_)
                             subst bq
                             simp only [beq_iff_eq]
@@ -788,14 +788,14 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                         dsimp only
                         rw [strLitSupportedF_eq]
                         refine SimC.bind_left
-                          (beqNameM_eff hs₆ cf stringOfListName)
+                          (pureEq_eff hs₆ (cf == stringOfListName))
                           (fun s₆b bq hs₆b hbq => ?_)
                         subst bq
                         simp only [beq_iff_eq]
                         by_cases hsc : cf = stringOfListName ∧ usf = [] ∧
                             strLitSupported env = true
                         · rw [if_pos hsc, if_pos hsc]
-                          refine SimC.bind_left (internExprM_eff hs₆b
+                          refine SimC.bind_left (pureC_eff hs₆b
                             (strLitToConstructor str))
                             (fun s₇ sc hs₇ hQs => ?_)
                           exact ih.defeq hs₇ haS hQs hwa'

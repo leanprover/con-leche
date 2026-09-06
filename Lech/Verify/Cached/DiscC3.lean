@@ -137,12 +137,12 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                 
                 match (ExprC.getAppFn tmaj) with
                 | .const T' ust =>
-                  beqNameM T' T >>= fun bq =>
+                  pure (T' == T) >>= fun bq =>
                   if bq ∧ cvj.levelParams.length = ust.length then
                     pure (ExprC.getAppArgs tmaj) >>= fun margs =>
                     if cnP ≤ margs.length ∧
                         (cvj.type.stripPis cnP).isSome = true then
-                      internNameM rl.ctor >>= fun ctorI =>
+                      pure rl.ctor >>= fun ctorI =>
                       pure (Expr.const ctorI ust) >>= fun h =>
                       mkAppNM h (margs.take cnP) >>= fun fab =>
                       pure (ExprC.wscopedB d fab &&
@@ -178,8 +178,8 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                 match (ExprC.getAppFn tmaj) with
                 | .const T' ust =>
                   pure (ExprC.getAppArgs tmaj) >>= fun margs =>
-                  readbackLevelsM ust >>= fun ustL =>
-                  beqNameM T' T >>= fun bq =>
+                  pure ust >>= fun ustL =>
+                  pure (T' == T) >>= fun bq =>
                   if bq ∧ margs.length = caps.etaParams ∧
                       ust.length = cvT.levelParams.length ∧
                       piResultNeverZero cvT.levelParams ustL cvT.type
@@ -188,10 +188,10 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                         (cvj.type.stripPis
                           (caps.etaParams + caps.etaFields)).isSome
                           = true then
-                      internNameM T >>= fun TI =>
+                      pure T >>= fun TI =>
                       projAppsI (mkFEnv env) T TI ust margs i
                           caps.etaFields >>= fun projs =>
-                      internNameM caps.etaCtor >>= fun ctorI =>
+                      pure caps.etaCtor >>= fun ctorI =>
                       pure (Expr.const ctorI ust) >>= fun h =>
                       mkAppNM h (margs ++ projs) >>= fun fab =>
                       pure (ExprC.wscopedB d fab &&
@@ -277,7 +277,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                     rw [show (Expr.getAppFn tmaj) = Expr.const T' ust
                       from hfn.symm]
                     dsimp only
-                    refine SimC.bind_left (beqNameM_eff hs₂ T' T)
+                    refine SimC.bind_left (pureEq_eff hs₂ (T' == T))
                       (fun s₂b bq hs₂ hbq => ?_)
                     subst bq
                     simp only [beq_iff_eq]
@@ -287,7 +287,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       split
                       rotate_left
                       · exact SimC.pure hs₂ ⟨hden, hmaj⟩
-                      refine SimC.bind_left (internNameM_eff hs₂ rl.ctor)
+                      refine SimC.bind_left (pureEq_eff hs₂ rl.ctor)
                         (fun s₂n ctorI hs₂ hQctorI => ?_)
                       subst hQctorI
                       refine SimC.bind_left (pureC_eff hs₂
@@ -418,10 +418,10 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                         from hfn.symm]
                       dsimp only
                       refine SimC.pureB ?_
-                      refine SimC.bind_left (readbackLevelsM_eff hs₂ ust)
+                      refine SimC.bind_left (pureEq_eff hs₂ ust)
                         (fun s₂r ustL hs₂r hustL => ?_)
                       subst ustL
-                      refine SimC.bind_left (beqNameM_eff hs₂r T' T)
+                      refine SimC.bind_left (pureEq_eff hs₂r (T' == T))
                         (fun s₂rb bq hs₂r hbq => ?_)
                       subst bq
                       simp only [hmargs.length,
@@ -430,13 +430,13 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       · split
                         rotate_left
                         · exact SimC.pure hs₂r ⟨hden, hmaj⟩
-                        refine SimC.bind_left (internNameM_eff hs₂r T)
+                        refine SimC.bind_left (pureEq_eff hs₂r T)
                           (fun s₂t TI hs₂r hQTI => ?_)
                         subst TI
                         refine SimC.bind_left (projAppsC_eff T ust
                           caps.etaFields hs₂r hmargs hden)
                           (fun s₃ projs hs₃ hQp => ?_)
-                        refine SimC.bind_left (internNameM_eff hs₃
+                        refine SimC.bind_left (pureEq_eff hs₃
                           caps.etaCtor)
                           (fun s₃n ctorI hs₃ hQctorI => ?_)
                         subst hQctorI
@@ -605,12 +605,12 @@ theorem pinArgsC_eff (lps : List Name) (us : List Level) :
     exact CEff.pure hs RelCL.nil
   | p :: ps, s₀, hs, args, xs, t, hargs => by
     show CEff mode env s₀ _
-      (internExprM p >>= fun praw =>
+      (pure p >>= fun praw =>
         instLevelParamsM lps us praw >>= fun pi =>
         instSpineM args t pi >>= fun r =>
         pinArgsI lps us args t ps >>= fun rs =>
         pure (r :: rs))
-    refine CEff.bind (internExprM_eff hs p) (fun s₁ praw hs₁ hQpr => ?_)
+    refine CEff.bind (pureC_eff hs p) (fun s₁ praw hs₁ hQpr => ?_)
     refine CEff.bind (instLevelParamsM_eff hs₁ hQpr)
       (fun s₁' pi hs₁' hQp => ?_)
     refine CEff.bind (instSpineM_eff hs₁' hQp hargs)
@@ -920,7 +920,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
   | const c us =>
     rw [show (Expr.getAppFn i) = Expr.const c us from hfn.symm]
     dsimp only
-    refine SimC.bind_left (readbackNM_eff hs c) (fun s₀c cw hs hcw => ?_)
+    refine SimC.bind_left (pureEq_eff hs c) (fun s₀c cw hs hcw => ?_)
     subst cw
     rw [mkFEnv_find?]
     cases hfc : env.find? c with
@@ -952,7 +952,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
             rw [show (Expr.getAppFn major) = Expr.const cj usj
               from hfn'.symm]
             dsimp only
-            refine SimC.bind_left (readbackNM_eff hs₄ cj)
+            refine SimC.bind_left (pureEq_eff hs₄ cj)
               (fun s₄c cjw hs₄ hcjw => ?_)
             subst cjw
             rw [mkFEnv_find?]

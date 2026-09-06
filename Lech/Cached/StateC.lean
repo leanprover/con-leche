@@ -176,30 +176,6 @@ def instCCapC : Nat := 32000000
 /-- The cached-clone checker monad. -/
 abbrev CheckCM := StateT CState CheckM
 
-/-- Convert a whole `Expr` (fabricated terms, stored instantiations).
-The identity since task #172 B3a — one type — kept under the interned
-twin's name so the two read the same. -/
-@[inline] def internExprM (x : Expr) : CheckCM ExprC :=
-  pure x
-
-/-! Names and levels are plain trees in the clone, so the interned
-checker's name/level interning and readback wrappers are identities —
-kept under their original names so the twins read the same. -/
-
-@[inline] def internNameM (n : Name) : CheckCM Name := pure n
-
-@[inline] def readbackNM (n : Name) : CheckCM Name := pure n
-
-@[inline] def beqNameM (i : Name) (nm : Name) : CheckCM Bool := pure (i == nm)
-
-@[inline] def projFnIdxM (T : Name) (i : Nat) : CheckCM Name :=
-  pure (projFnName T i)
-
-@[inline] def internLM (u : Level) : CheckCM Level := pure u
-
-@[inline] def readbackLevelsM (us : List Level) : CheckCM (List Level) :=
-  pure us
-
 /-- Peel fuel of the binder-telescope loops.  The interned loops use
 the arena's node count (an upper bound on any binder chain in a
 canonical arena); there is no such count here, so a constant beyond
@@ -355,8 +331,8 @@ def storedTyIdxM (n : Name) (ty : Expr) : CheckCM ExprC := do
   match ent? with
   | some ent =>
     if Expr.exprPtrBEq ent.tyE ty then pure ent.ty
-    else internExprM ty
-  | none => internExprM ty
+    else pure ty
+  | none => pure ty
 
 /-- The `ExprC` of a stored definition/theorem value (see
 `storedTyIdxM`). -/
@@ -365,8 +341,8 @@ def storedValIdxM (n : Name) (v : Expr) : CheckCM ExprC := do
   match ent? with
   | some ⟨_, _, some (vE, vi)⟩ =>
     if Expr.exprPtrBEq vE v then pure vi
-    else internExprM v
-  | _ => internExprM v
+    else pure v
+  | _ => pure v
 
 /-- The level-instantiated *type* of the stored constant `n`. -/
 def constTyAtM (fe : FEnv) (_nI : Name) (n : Name) (us : List Level) :
@@ -425,8 +401,7 @@ def ruleRhsAtM (fe : FEnv) (_cI _jI : Name) (c j : Name) (us : List Level) :
     | some (.recInfo cv _ _ rules) =>
       match rules.find? (fun r' => r'.ctor == j) with
       | some rl =>
-        let raw ← internExprM rl.rhs
-        let i ← instLevelParamsM cv.levelParams us raw
+        let i ← instLevelParamsM cv.levelParams us rl.rhs
         modify fun s =>
           let mp := s.ruleRhsAt
           let s := { s with ruleRhsAt := ∅ }
