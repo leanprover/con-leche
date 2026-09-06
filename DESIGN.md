@@ -53692,3 +53692,34 @@ leaves native and the generator declines is the run's decline naming
 the reason.  The in-tree `.gz` fixtures `nested_pin_names` and
 `indexed_nested_aux` are *preprocessed* streams: the modeller stands
 down on them (the "model present" test), as designed.
+
+### The Mathlib census of the in-process rungs (after B3), and B4's scope
+
+`LECH_INMODEL_CENSUS=1` is a parse-only run: a generator decline is
+recorded and the block pushed bare, so one parse lists every
+mutual/nested block's outcome (the driver stops before the fold).
+Over a types-only cone of Mathlib's 51 nested/mutual blocks
+(`_tmp/inmodel/slice_types.py` in the main checkout: the declarations
+reachable from the blocks through TYPES, values' trees kept but their
+constants not followed — 103 MB): **46 blocks generate in-process, 5
+decline**, all five with one reason — *the container is itself
+nested*: `Lean.Elab.InfoTree` through `Lean.PersistentArrayNode`, and
+`Lean.Widget.MsgEmbed`, `Lean.Widget.HighlightedMsgEmbed`,
+`Lean.Server.Test.Runner.Client.{MsgEmbed,HighlightedMsgEmbed}` through
+`Lean.Widget.TaggedText`.  (Generation is the parse-level verdict; the
+fold's acceptance of the generated records at Mathlib scale is a
+Mathlib run's, not affordable on this lane.)
+
+**B4 = container groups.**  A container that is itself nested (or a
+member of a mutual block) has a recursor with several motives, and the
+kernel's flattening puts every member of the container's family —
+instantiated at the pins — among OUR mimics.  So `pack`/`unpackPack`
+for such a group are ONE application of each group member's recursor
+with the group's motives `λ ı⃗ x, aux p⃗ (tag.k p⃗ ı⃗)` and minors for
+every group constructor (our aux constructors for the same container
+constructor at the same pins), the "self-recursive field takes the
+hypothesis" rule becoming "group-member-typed field takes the
+hypothesis", and the emission order topological over groups.  The
+group is read off the container's block record and its first
+recursor's motives (`readMems` on the container, the container's
+parameters substituted by the pins).
