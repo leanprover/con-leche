@@ -43411,3 +43411,170 @@ the worktree removed), resume record `_tmp/pw-bitmask-land/HANDOFF.md`
 (state, module counts, the twelve-class repair recipe, the discharged
 judgment items and where they live, the open ones).  The measurement
 script is `_tmp/pw-bitmask-land/measure.sh`.
+
+## THE SMALL-LIST `pw` CONSTRUCTORS (2026-09-06, `agent/pw-small`)
+
+**User task, verbatim:** *"let an opus agent apply a cheap
+optimization where singleton and duoton lists are folded into the PW
+data structure via dedicated constructors.  This change should be
+fully encapsulated by the data structure.  Lists only larger than 2."*
+
+The cheap sibling of the parked positional bitmask (previous section):
+same census, same target — the `List Name` cell chain behind the
+binder annotation — but no universe context, so no architecture
+impact.  It landed; the measured payoff is **about nothing**, and
+that is the section's finding.
+
+### 1. The representation
+
+    inductive PropWhen where
+      | never                                  -- nonzero everywhere
+      | always                                 -- ifAllZero []
+      | one  (p : Name)                        -- ifAllZero [p]
+      | two  (p q : Name)                      -- ifAllZero [p, q]
+      | many (p q r : Name) (rest : List Name) -- ifAllZero (p::q::r::rest)
+
+`many` stores its **first three entries plus the tail**, not a bare
+list.  That is the whole trick that keeps the change free of a
+well-formedness obligation: `ifAllZero (p :: q :: r :: rest)` reduces
+to `many p q r rest` *definitionally*, so the constructors are in
+definitional bijection with `List Name`, `ifAllZero` is a total
+normalizing function with no invariant to carry, and the view
+eliminator's `ifAllZero` case typechecks by `rfl` in every arm.  A
+bare `many (ps : List Name)` would have needed either a `3 ≤ ps.length`
+proof field or a non-canonical junk representation; neither is needed.
+
+Canonical form is therefore enforced by the smart constructor and is
+*definitional*, not a WF proof — the option the task asked to prefer.
+The datum is still an unordered, possibly-duplicated parameter set in
+list clothing: `ifAllZero` does no sorting and no deduplication, which
+is what keeps `substPW_self`/`substPW_comp` unconditional.
+
+### 2. The API — and the encapsulation argument
+
+Outside `namespace PropWhen`, **nothing mentions `always`, `one`,
+`two` or `many`** (checked: `grep -rn "PropWhen.always\|PropWhen.one\|
+PropWhen.two\|PropWhen.many\|\.always\b"` over `Setlec/`, `tests/`,
+`Main.lean`, `AnnotateBasis.lean` matches only `Kernel/Expr.lean`).
+The interface is:
+
+| name | what it is | who uses it |
+|---|---|---|
+| `PropWhen.never` | still a constructor | everywhere, unchanged |
+| `PropWhen.ifAllZero : List Name → PropWhen` | the old constructor, now an `@[inline]` normalizing **smart constructor** | every construction site, unchanged source text |
+| `PropWhen.toList` / `toList?` | the parameter list (`never ↦ []` / `none`) | the three sites that genuinely need the list |
+| `PropWhen.casesZ` | the `never \| ifAllZero ps` **view**, registered `@[cases_eliminator, induction_eliminator, elab_as_elim]` | every `cases pw with \| never \| ifAllZero ps` — verbatim as before |
+| `holds`, `isNever`, `hasParams`, `paramsDefined`, `inter`, `bindZ`, `equiv` | defined constructor-wise (fast), each re-stated in the old `never`/`ifAllZero` form as an `@[simp]` equation pair | the equations, not the definitions, are what proofs consume |
+
+`@[cases_eliminator]`/`@[induction_eliminator]` is what makes the
+change invisible to the proof tier: `cases pw with | never => … |
+ifAllZero ps => …` still elaborates, still binds `ps : List Name`, and
+still leaves goals about `ifAllZero ps`.  The only thing that stopped
+working is *definitional* unfolding at a variable list — `holds φ
+(ifAllZero ps)` is no longer `rfl`-equal to `ps.all …` — so the sites
+that leaned on that now cite the `@[simp]` equation instead.
+
+**No statement outside `Kernel/Expr.lean`, `Kernel/ZeroSet.lean`,
+`Verify/PropWhen.lean` and `Verify/ZeroSet.lean` changed.**  Every edit
+elsewhere is a tactic edit inside an unchanged theorem.  Two lemmas
+*moved* (statements identical): `PropWhen.inter_nil` and
+`PropWhen.inter_never_right`, from `Verify/PropWhen.lean` to
+`Kernel/Expr.lean` beside the definition, so they can be `@[simp]` for
+the constructor-wise proofs.  Two are new and internal:
+`PropWhen.inter_assoc` and `PropWhen.bindZ_go_append` (list-level
+replacements for the old proofs' constructor case splits).
+
+### 3. The census of routed sites
+
+Sites that *pattern-matched* on `.ifAllZero`/`.never` or needed the
+list.  Everything else — every `.ifAllZero ps` in *term* position,
+including the 156 in `SetP/BasisBlocksP.lean`, the 40 in
+`Kernel/Basis/Quot.lean` and the 17 test fixtures — needed **no
+change at all**, because the smart constructor keeps the source text
+valid.
+
+| file | site | route taken |
+|---|---|---|
+| `Kernel/Core.lean:2334` | `pwWritten` | `!pw.isNever` |
+| `Kernel/ZeroSet.lean:471` | `ZPropWhen.ofFree` | `toList?` + two `@[simp]` equations (`ofFree_never`, `ofFree_ifAllZero`) |
+| `PinGen.lean:94` | `ToExpr PropWhen` | `toList?`; still emits `Setlec.PropWhen.ifAllZero <list>` |
+| `Kernel/ExprOps.lean:797,808` | `substPW_eq_self`, `paramsDefined_of_not_hasParams` | `simp [PropWhen.hasParams] at h` → `simp at h` (the delta-unfold blocked the spec lemma) |
+| `Verify/PropRead.lean:163` | `peelNeverPis_instantiateLevelParams` | `nomatch hnev` → `simp at hnev` |
+| `SetP/Annot/Bit.lean:101,116` | `pwBit_ne_zero_of_isNever`, `isNever_iff_forall_pwBit_ne_zero` | same two moves |
+| `SetP/Step2/IrrelFastP.lean:79,88,95` | `pwBit_eq_zero_of_isProp`, `alwaysZero_iff_forall_pwBit_eq_zero` | drop `Setlec.PropWhen.holds` from the `simp` hint list |
+| `SetP/BasisEmptyP.lean:119,148,156` | the three `pwBit_ifAllZero_*` shapes | ditto |
+| `SetP/BasisEqP.lean:895` | `eqRecValT2_congr` | ditto |
+| `Verify/PropWhen.lean` (14 proofs) | the whole law battery | `show`s that relied on `bindZ f (ifAllZero ps) ≡ bindZ.go f ps` now `rw [bindZ_ifAllZero]` first; `simp [inter, holds, equiv, paramsDefined]` hints dropped |
+| `Verify/ZeroSet.lean:536,541,546,584` | the free↔canonical bridge | `rfl` → `simp`; `holds_substPW_free` is now just `Level.holds_substPW` |
+
+`Frontend/ExportC.lean`'s `parsePwD` and `parsePw` build with the
+smart constructor and did not change; nothing prints a `pw` field.
+
+**Byte-identical generator output.**  `AnnotateBasis.lean` prints the
+committed `Basis/*.lean`, `StdAxioms.lean` and `TrustAxioms.lean`
+literals with `repr`, so the *derived* `Repr` was load-bearing.  It is
+replaced by a hand-written instance that reproduces the old
+two-constructor derivation exactly (`Repr.addAppParen (Format.group
+(Format.nest (if prec ≥ 1024 then 1 else 2) …)) prec`, the shape
+`Lean/Elab/Deriving/Repr.lean` emits).  Verified mechanically: all
+**29** records the generator prints appear verbatim (indented by two)
+in the committed files, before and after the change, and the two
+generator runs are `diff -q` identical.
+
+### 4. The receipts
+
+Baseline = the branch point `58c39103`, measured in this worktree in
+this session; `perf stat -e instructions:u`, `ulimit -v 16000000`,
+VmHWM sampled once a second over the process tree (no
+`/usr/bin/time` on this box; other agents' checker runs share the
+machine, so the sampler descends *our* pid tree rather than matching
+by name — an earlier by-name sample read 13.9 GB off someone else's
+run).  init-full-pre2, `--pre`; 60 549 accepted in every cell.
+
+| stream / mode | master | `agent/pw-small` | Δ |
+|---|---|---|---|
+| init-full P (`--set-model`) | 984.584 G / 984.575 G | 983.149 G / 983.201 G | **−0.14 %** |
+| init-full parity (`--no-model`) | 1030.849 G / 1030.953 G | 1031.246 G / 1031.281 G | **+0.03 %** |
+| grind-ring-5 (`--set-model`, median of 3) | 46.895 G | 46.800 G | **−0.20 %** |
+| init-full P VmHWM | 933 884 kB | 933 396 / 935 912 kB | ≈ 0 |
+| init-full parity VmHWM | 919 692 kB | 924 672 / 916 104 kB | ≈ 0 (spread 0.9 %) |
+| grind-ring-5 VmHWM | 267 588 kB | 264 028 kB | −1.3 % |
+
+Run-to-run spread on init-full instructions is 0.001 % (two baseline
+runs each), so the P and grind-ring-5 wins and the parity loss are all
+*real* and all *negligible*.  Verdicts: `tests/arena.sh` output
+**byte-identical** to the baseline run (0 FAIL, 90/92 good, 73/73 e2e,
+14/14 annot, 8/8 retired flags, 14/14 mode flags, the 3 recorded
+no-model divergences); `lake build` warning-free; `lake test` green;
+the four capstones' axioms exactly `[propext, Classical.choice,
+Quot.sound]`.
+
+**Why so little — and it was predictable.**  The census already said
+the payload is 0.075 % of peak RSS.  What this change actually saves
+is *one heap object per non-empty datum*: `ifAllZero [p]` was a
+16-byte datum plus a 24-byte cons cell, `one p` is a single 16-byte
+object, and `ifAllZero []` is now `lean_box(1)`, a scalar with no
+object at all.  Against the census's 34 095 distinct data / 33 232
+cons cells (1.34 MB) that is ~0.8 MB, i.e. 0.09 % of RSS — which is
+exactly the size of the observed RSS deltas.  The instruction side
+gets the derived `Hashable`/`DecidableEq` and `equiv` on one fewer
+level of indirection, `inter` answering `always`/singleton pairs
+without an append, and `bindZ` answering a singleton with no `inter`
+at all; the code generator turns `zeronessOf` into `lean_box(1)` /
+`lean_box(0)` / one `alloc_ctor` with no intermediate list
+(inspected in `Kernel/Level.c`).  It adds up to a seventh of a
+percent.
+
+The parity mode's +0.03 % is the mirror: `--no-model` spends
+proportionally less of its time where the datum is read, so the
+slightly deeper `inter`/`equiv` decision trees are not paid back.
+
+**The standing verdict this confirms.**  The packed-bitmask landing
+measured −1.8 % / −2.3 % and the user parked it as "not worth the
+architecture impact".  This variant costs *no* architecture — the
+representation is invisible above the module, the P tier never
+learned it exists — and correspondingly buys about a tenth of that.
+The `pw` datum is now closed as a performance lever in both
+directions: cheap changes buy nothing measurable, and the change that
+buys 2 % costs a universe context threaded through the whole
+verification tier.
