@@ -107,7 +107,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     {ldomsL : List Expr} {lrest2 : Expr}
     (hinstLam : Expr.instLamsAt (fvsP ++ xFvsP) rhsA
       = some (ldomsL, lrest2))
-    -- the recorded runs (`IotaRunsR`, plus the second widening's row)
+    -- the recorded runs (`IotaRuns`, plus the second widening's row)
     (hdeIdx : DefEqListOk μ F env (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP))
@@ -121,7 +121,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldomsL)
     (hdeRhs : isDefEqCore μ env F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
-    -- the sides pack's two recorded runs (`IotaRunsR`'s last two)
+    -- the sides pack's two recorded runs (`IotaRuns`'s last two)
     (hsideL : ∃ tl, inferTypeCore μ env F (rP + cnF) lhsS = .ok tl ∧
       isDefEqCore μ env F (rP + cnF) tl αS = .ok true)
     (hsideR : ∃ tr, inferTypeCore μ env F (rP + cnF) rhsS = .ok tr ∧

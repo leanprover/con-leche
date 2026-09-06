@@ -573,7 +573,7 @@ theorem extendPUnitRecP (mp : EnvS2PM V μ env)
 `punitK` branch — the two lanes in lockstep, exactly as
 `declBasisPB_emptyK`. -/
 theorem declBasisPB_punitK {env₂ : Env} (mp : EnvS2PM V μ env)
-    (h : Setlec.Semantics.BasisInstallR env
+    (h : Setlec.Semantics.BasisInstallRun env
       Setlec.BasisKind.punitK.declsA env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   rw [show Setlec.BasisKind.punitK.declsA
@@ -1875,7 +1875,7 @@ theorem extendNatRecP (mp : EnvS2PM V μ env)
 /-- **The `Nat` block, installed at the P tier.**  `BasisStepPB`'s
 `natK` branch. -/
 theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
-    (h : Setlec.Semantics.BasisInstallR env
+    (h : Setlec.Semantics.BasisInstallRun env
       Setlec.BasisKind.natK.declsA env₁) :
     Nonempty (EnvS2PM V μ env₁) := by
   rw [show Setlec.BasisKind.natK.declsA

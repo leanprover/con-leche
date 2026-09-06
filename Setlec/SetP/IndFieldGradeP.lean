@@ -4,7 +4,7 @@ import Setlec.SetP.IndParamGradeP
 # The field domains, graded and fired (task #161, IND TIER part 5)
 
 **The half part 4 could not run.**  `prefixGradeFireP` closed the
-statement frame's prefix positions on the rows `IotaRunsR` already
+statement frame's prefix positions on the rows `IotaRuns` already
 carried; this file closes the *field* positions, and it is the theorem
 the second widening was applied for.
 

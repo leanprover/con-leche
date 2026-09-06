@@ -1,4 +1,4 @@
-import Setlec.Semantics.EnvRCons
+import Setlec.Semantics.EnvFactsCons
 import Setlec.Semantics.DeclIndRun
 import Setlec.Verify.Denote.Levels
 
@@ -14,7 +14,7 @@ cons, and this module is it.
 
 **The one hard field is `ty_denotes` at the head.**  A block member's
 cons reads its head type's denotation straight off `ConstantValR`
-(`EnvR.consBlockMember`'s `hty`); a projection entry cannot, because
+(`EnvFacts.consBlockMember`'s `hty`); a projection entry cannot, because
 the entry's *stored* type is `pty = mcv.type.renameConsts (projBack T
 ctorName nF)` — the model projection's type read backwards.  Its
 denotation therefore has to come from the model projection's, through
@@ -27,7 +27,7 @@ denote cval env ψ 0 pty
   = denote cval env ψ 0 mcv.type                     -- ProjFnR's roundtrip `hround`
 ```
 
-and the last one denotes because `mcv` is *stored* (`EnvR.ty_denotes`).
+and the last one denotes because `mcv` is *stored* (`EnvFacts.ty_denotes`).
 `projFwd_renameOkT` is already the base's (`SetBase/ProjPhase.lean`),
 so nothing semantic enters.
 
@@ -52,10 +52,10 @@ abbrev projEntry (T : Name) (lps : List Name) (pty : Expr)
     (nP i : Nat) (rules : List RecRule) : ConstantInfo :=
   .recInfo ⟨projFnName T i, lps, pty⟩ nP nP rules
 
-/-- **The `EnvR` cons at a projection-function entry** — Wall B's
+/-- **The `EnvFacts` cons at a projection-function entry** — Wall B's
 front door.  Parameterised by the rule list exactly as `projConsS` is,
 because the projection bottom fires *below* the cons. -/
-theorem EnvR.consProjFn {env' : Env} (m : EnvR env')
+theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
     {rules : List RecRule}
     {mcv : ConstantVal} {mval : Expr} {mhint : ReducibilityHint}
@@ -80,7 +80,7 @@ theorem EnvR.consProjFn {env' : Env} (m : EnvR env')
     (hrhsDen : ∀ r ∈ rules, RecRule.fire r ≠ .inert →
       ∀ ψ : Name → Nat,
         ∃ Rv, denoteClosed m.cval env' ψ (RecRule.rhs r) = some Rv) :
-    ∃ m₁ : EnvR ⟨projEntry T lps pty nP i rules :: env'.consts⟩,
+    ∃ m₁ : EnvFacts ⟨projEntry T lps pty nP i rules :: env'.consts⟩,
       m₁.cval = cvalWith m.cval (projFnName T i)
         (fun ψ => m.cval (projModelName T i) ψ) := by
   have hfresh : env'.find? (projFnName T i) = none :=
@@ -234,11 +234,11 @@ theorem EnvR.consProjFn {env' : Env} (m : EnvR env')
 stored rule's constructor.  Both lanes' conses need them — the R lane
 inside `projConsS`, the P lane at `projConsP` — and neither is
 semantic. -/
-theorem projFnR_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
+theorem projFn_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     {T ctorName : Name} {lps : List Name}
     {nP nF i : Nat}
     (hwfE : EnvWF env')
-    (hR : ProjFnRunR μ F env' T ctorName lps nP nF i env₁) :
+    (hR : ProjFnRun μ F env' T ctorName lps nP nF i env₁) :
     EnvWF env₁ ∧
       ∀ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
         (env₁.consts.headD default) = .recInfo cvR mI rP rules →

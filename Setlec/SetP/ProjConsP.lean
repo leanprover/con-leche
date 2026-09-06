@@ -1,6 +1,6 @@
 import Setlec.SetP.ProjRenameP
 import Setlec.SetP.IndProjEtaP
-import Setlec.Semantics.ProjFnRR
+import Setlec.Semantics.ProjFnFacts
 
 /-!
 # The projection-function cons, P tier (task #161, IND TIER part 10)
@@ -91,7 +91,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
       capsT.eta = true → blockNames.contains capsT.etaCtor = true)
     (hFields : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → capsT.etaFields = nF)
-    -- the head's own obligations (task #161 S7: `projFnR_head`
+    -- the head's own obligations (task #161 S7: `projFn_head`
     -- supplies both from `ProjFnR` alone)
     (hwf : EnvWF ⟨c₀ :: env'.consts⟩)
     (hctorsHead : ∀ (cvR : ConstantVal) (mI rP : Nat)

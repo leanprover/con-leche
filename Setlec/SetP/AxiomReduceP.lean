@@ -324,7 +324,7 @@ or a `simp` on a leaf clause and the whole content is the
 membership. -/
 theorem axiomOfReduceP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
-    (hcv : ConstantValRunR μ F env cv type')
+    (hcv : ConstantValRun μ F env cv type')
     (hor : cv.name = Setlec.ofReduceNatName ∨
       cv.name = Setlec.ofReduceBoolName)
     (hok : Setlec.ofReduceAxOk env ⟨cv.name, cv.levelParams, type'⟩

@@ -1,7 +1,7 @@
 import Setlec.Semantics.DeclIndRun
 
 /-!
-# `DeclDirectR`: the direct-structure declaration relation (task #175 wiring, W4)
+# `DeclDirectRun`: the direct-structure declaration relation (task #175 wiring, W4)
 
 The direct arm of `checkDecl`'s `.indDecl` clause
 (`checkDirectStruct`, `Setlec/Kernel/Checker.lean`), recorded as a
@@ -9,7 +9,7 @@ The direct arm of `checkDecl`'s `.indDecl` clause
 function's own `.ok` run at the fueled ops, plus the install spine.
 
 **Why runs and not unfoldings** (the W4 freeze's threading decision):
-the direct block has no model artifacts, so — unlike `DeclIndR`,
+the direct block has no model artifacts, so — unlike `DeclIndRun`,
 whose member rows pin valuations to stored `_model` leaves — nothing
 V-free can pin the direct constants' valuations here.  The tier's
 leaves (`directTyAV`/`directMkAV`/`directRecAV`) are *built by the
@@ -37,11 +37,11 @@ open Setlec (Env Expr Name Level CheckMode ConstantVal ConstantInfo
 `checkDirectStruct`'s body is the stage chain; the inversion is the
 monad-shape argument, one `cases` per bind. -/
 
-theorem declDirectR_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
+theorem declDirectRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : DirectParts}
     (h : checkDirectStruct (m := Setlec.CheckM) (fueledOps μ F) env p
       = .ok env₂) :
-    DeclDirectR μ F env p env₂ := by
+    DeclDirectRun μ F env p env₂ := by
   rw [checkDirectStruct] at h
   simp only [bind, Except.bind] at h
   cases hInd : checkDirectInd (m := Setlec.CheckM) (fueledOps μ F)
@@ -118,15 +118,15 @@ theorem declDirectR_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
 
 /-! ## The run-level dispatch
 
-`checkDeclRun_ofEnvRE`'s `Ind` slot, post-#175: the direct arm is
-already a run relation, so the dispatch pairs it with `DeclIndRunR`.
+`checkDeclRun_ofEnvFactsE`'s `Ind` slot, post-#175: the direct arm is
+already a run relation, so the dispatch pairs it with `DeclIndRun`.
 Consumers case on the kernel's `directParts?` (the priority gate). -/
 
 /-- The `.indDecl` dispatch at the run level. -/
-def DeclIndRunDispatchR (μ : CheckMode) (F : Nat) (env : Env)
+def DeclIndRunDispatch (μ : CheckMode) (F : Nat) (env : Env)
     (block : List ConstantInfo) (env₂ : Env) : Prop :=
   match Setlec.directParts? env block with
-  | some p => DeclDirectR μ F env p env₂
-  | none => DeclIndRunR μ F env block env₂
+  | some p => DeclDirectRun μ F env p env₂
+  | none => DeclIndRun μ F env block env₂
 
 end Setlec.Semantics

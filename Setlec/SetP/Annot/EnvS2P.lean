@@ -1,5 +1,5 @@
 import Setlec.SetP.Step2.AssemblyP
-import Setlec.Semantics.EnvR
+import Setlec.Semantics.EnvFacts
 import Setlec.Semantics.DivModEval
 import Setlec.Semantics.SpineV
 
@@ -58,7 +58,7 @@ operation's defining equations read under `denoteP` and hold as
 the plain assignment (the heads are level-monomorphic).
 
 Supplied as an `EnvS2PM` field: established at the operation's own
-install from the recorded `isDefEqCore` runs (`NatEqsRunR`) through
+install from the recorded `isDefEqCore` runs (`NatEqsRun`) through
 `DefEqClaims2P` — the run-certificate route (`Interp2/NatEqsP.lean`)
 — and preserved across every other fresh cons.  Consumed by the
 numeral-transport inductions (`Sound/NatOps`' shape at `interp2`),
@@ -883,10 +883,10 @@ theorem notTower_of_atom (m : EnvS2PM V μ env) {c : ConstantInfo}
   | _ => rfl
 
 /-- **The bridge invariant, from the P invariant** (task #161 S7,
-Wall C step (e)) — `EnvS.toEnvR`'s P-side twin, and the last thing
+Wall C step (e)) — `EnvS.toEnvFacts`'s P-side twin, and the last thing
 `EnvS2PM.base` was for.  Every field is a projection:
 
-| `EnvR` field | source |
+| `EnvFacts` field | source |
 |---|---|
 | `cval`, `cval_closed`, `wf`, `proj_ok` | `base2`'s own |
 | `val_params` | `acval_params`, erased |
@@ -897,8 +897,8 @@ Wall C step (e)) — `EnvS.toEnvR`'s P-side twin, and the last thing
 
 Nothing of the collapsed model is consulted, and the P lane's
 `checkDeclR_ofEnvRE` runs on this. -/
-def toEnvR {V : Type w} [SetTheory V] {μ : CheckMode}
-    {env : Env} (m : EnvS2PM V μ env) : Setlec.Semantics.EnvR env where
+def toEnvFacts {V : Type w} [SetTheory V] {μ : CheckMode}
+    {env : Env} (m : EnvS2PM V μ env) : Setlec.Semantics.EnvFacts env where
   cval := m.base2.cvalE
   cval_closed := m.base2.cval_closed
   wf := m.base2.wf
@@ -929,9 +929,9 @@ def toEnvR {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- The P bridge invariant keeps the carrier's valuation —
 definitionally. -/
-theorem toEnvR_cval {V : Type w} [SetTheory V] {μ : CheckMode}
+theorem toEnvFacts_cval {V : Type w} [SetTheory V] {μ : CheckMode}
     {env : Env} (m : EnvS2PM V μ env) :
-    (toEnvR m).cval = m.base2.cvalE := rfl
+    (toEnvFacts m).cval = m.base2.cvalE := rfl
 
 end EnvS2PM
 

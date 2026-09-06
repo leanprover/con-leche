@@ -189,7 +189,7 @@ theorem reduceOpsP_install (hμ : μ.verified = true)
     (hmemA : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp2 V ρ (A ψ) ∈ˢ interp2 V ρ (Ta ψ))
     (hred : Setlec.reduceOpNames.contains cv.name = true →
-      ReducePinRunR μ F env
+      ReducePinRun μ F env
         ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩
         cv.name value)
     (m₂ : EnvS2Core V

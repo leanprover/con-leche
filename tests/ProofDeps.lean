@@ -28,7 +28,7 @@ from that finding, is unchanged and is why this file still exists:
 Until 2026-09-05 it measured **P-vs-R disjointness**: eleven named R
 targets (`Red`, `Red.beta`, `Infer`, `Infer.app`, `DefEq`,
 `DefEq.trans`, `EnvS`, `checkDeclR_ofEnvRE`, `DeclR`, `declIndRR`,
-`DeclIndR`), each checked absent from every capstone's constant
+`DeclIndRun`), each checked absent from every capstone's constant
 closure.  Every row read `absent`, and that was the separation
 campaign's deliverable, mechanized.
 

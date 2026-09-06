@@ -75,7 +75,7 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
-    (hkit : IotaRuleRunR μ F env₂ envSelf f cvA.name
+    (hkit : IotaRuleRun μ F env₂ envSelf f cvA.name
       cvA.levelParams cvA.type mI rP j r r')
     (hfireP : RecRule.fire r' = .plain) (φ : Name → Nat) :
     RecRuleLawP mp.base2 φ cvA.name cvA mI rP r' := by
@@ -180,7 +180,7 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   -- ===== the canonical branch =====
   obtain ⟨hpl, hfireP0, hthmR⟩ :
       Expr.recRulePlain cvA.type mI rP cnPK = true ∧ fire = .plain ∧
-        IotaThmRunR μ F env₂ envSelf f cvA.name
+        IotaThmRun μ F env₂ envSelf f cvA.name
           cvA.levelParams cvA.type mI rP j r cvjK cnPK cnFK rhsA := by
     rcases hbranch with h | ⟨hnpl, hrest⟩
     · exact h

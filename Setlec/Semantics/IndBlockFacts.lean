@@ -23,7 +23,7 @@ re-run η-only".
 of the two folds' model content is needed.  Every ingredient of
 `declIndS`'s second component was already relation-level and V-free —
 `indMembersR_mono`/`_indNew`/`_ctorEntry`, `indRecsR_noInd`,
-`projInstallR_ext`, `templatesR_ext` — and the *one* ingredient that
+`projInstallR_ext`, `templates_ext` — and the *one* ingredient that
 was not, `indRecsS`'s `hnonrecUp`, is not a consequence of the install
 at all: the group's install fold accumulates on the **base**
 environment (`IndRecsFoldR`'s `acc` starts at `env₂`, not at the
@@ -38,7 +38,7 @@ This module is model-free by construction: no `V`, no `SetTheory`, no
 residue consists of, moved here verbatim from
 `SetR/Install/{IndRecsS,IndMembersS,DeclIndS}.lean`, plus the three new
 lemmas the keep-fact needs and `declIndEtaClosed`, the ind kind's
-η-closure proved from `DeclIndR` alone.  `declIndS` routes its own
+η-closure proved from `DeclIndRun` alone.  `declIndS` routes its own
 second component through it (one source of truth), and the P fold
 consumes it instead of `declIndS memberKeyS mp.base`.
 -/
@@ -69,10 +69,10 @@ theorem etaPins_empty {μ : CheckMode} {env : Env} {T : Name}
   ⟨fun h => absurd h (by decide), fun h => absurd h (by decide)⟩
 
 /-- The elimination-template fold is an `ExtEta` extension. -/
-theorem templatesR_ext {T ctorName : Name} {lps : List Name}
+theorem templates_ext {T ctorName : Name} {lps : List Name}
     {nP nF : Nat} :
     ∀ (idxs : List Nat) {env' env₂ : Env},
-      DeclIndR.TemplatesR T ctorName lps nP nF env' idxs env₂ →
+      DeclIndRun.Templates T ctorName lps nP nF env' idxs env₂ →
       ExtEta env' env₂ := by
   intro idxs
   induction idxs with
@@ -209,19 +209,19 @@ owes the installed environment, and **six of its seven conjuncts are
 syntactic**; the seventh is the fired law, which is the only place a
 model appears.  What the ind tier's de-basing needs is those six plus
 the two the law's *head* carries — `rP ≤ mI` and the right-hand side's
-denotation — because they are exactly what an `EnvR` at the swapped
+denotation — because they are exactly what an `EnvFacts` at the swapped
 environment asks for (`rec_params_le`, `rec_rhs_denotes`).
 
-`RuleFactsR` is that package, and `iotaRulesFactsR` produces it from
+`RuleFacts` is that package, and `iotaRulesFactsR` produces it from
 the rule fold's record alone.  `iotaRulesS` is re-proved through it,
 so there is one proof of the syntactic half.
 -/
 
 /-- **What one checked rule owes the environment, model-free**:
 `RuleFactsS`'s six syntactic conjuncts, plus the two facts about a
-*fired* rule an `EnvR` reads — the parameter bound and the right-hand
+*fired* rule an `EnvFacts` reads — the parameter bound and the right-hand
 side's denotation.  (The law itself stays in `RuleFactsS`.) -/
-def RuleFactsR (envSelf : Env) (cvalSelf : TConstVal)
+def RuleFacts (envSelf : Env) (cvalSelf : TConstVal)
     (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) : Prop :=
   (RecRule.rhs rl).hasFvar = false ∧
   (RecRule.rhs rl).allLevelParamsDefined cv.levelParams = true ∧

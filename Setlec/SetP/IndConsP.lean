@@ -29,7 +29,7 @@ and `reservedBasisNames` is the twenty pinned names — `Nat`,
 * `eq_lawP` goes through `eqLawP_cons_fresh` for the same reason: no
   block member is named `Eq`, so the pinned spine's law is untouched.
 
-The projection conses (`ProjFnR`'s `recInfo`, `TemplatesR`'s
+The projection conses (`ProjFnR`'s `recInfo`, `Templates`'s
 `projInfo`) carry no reserved check of their own, but their names are
 `projFnName T i`, and `projFnName_ne_reserved` supplies the same four
 disequalities.
@@ -258,13 +258,13 @@ theorem declStepPM_of_ind_rec_cons (mp : EnvS2PM V μ env)
     (fun _ h => nomatch h) hh hAclosed hAparams hAok
     hAvalid htyReads htyOk hmemNew hcaps hrec (fun _ h => nomatch h)
 
-/-- **The P step at an elimination-*template* cons** (`TemplatesR`'s
+/-- **The P step at an elimination-*template* cons** (`Templates`'s
 `projInfo`): the one ind-tier cons with **no** open row at all.  A
 `projInfo` is none of the three kinds `EtaFamilyStored` mentions, so
 `capsOkP_cons_fresh` descends the families, and it stores no rules, so
 `recRulesP_cons_fresh` transports the ι contracts.  What remains is
 the tower and its type's reading — and the stored type is
-`.sort .zero` by `TemplatesR`'s own pin. -/
+`.sort .zero` by `Templates`'s own pin. -/
 theorem declStepPM_of_projTemplate_cons (mp : EnvS2PM V μ env)
     {entry : Setlec.ProjEntry} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? (ConstantInfo.projInfo entry).name = none)

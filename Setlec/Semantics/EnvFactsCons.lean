@@ -1,18 +1,18 @@
-import Setlec.Semantics.EnvR
+import Setlec.Semantics.EnvFacts
 import Setlec.Semantics.DeclIndRun
-import Setlec.Semantics.IndBlockR
+import Setlec.Semantics.IndBlockFacts
 import Setlec.Verify.Extend.Block
 
 import Setlec.Verify.Extend.Ind
 
 import Setlec.Semantics.ProjPhase
 /-!
-# The `EnvR`-level cons for the block folds (task #161 S6, the opener)
+# The `EnvFacts`-level cons for the block folds (task #161 S6, the opener)
 
 `Setlec/SetR/Bridge/DeclInd.lean`'s **finding 8** is the last place the
 bridge needs a model: `IndMembersR` carries a `ConstantValR` at *each
 intermediate environment* of the member fold, and — as landed at S5 —
-nothing built an `EnvR` there except by projection from the `EnvS` the
+nothing built an `EnvFacts` there except by projection from the `EnvS` the
 install fold was producing.  Bridge and install therefore had to walk
 together, and that is what kept `checkDeclR_sound`'s `m`, hence
 `FoldP`'s `mp.base`, hence `EnvS2PM.base`, alive.
@@ -23,13 +23,13 @@ transport across a fresh cons **with a changed valuation**
 environment).  The two are already one bundle — `Installs`
 (`Verify/Denote/Install.lean`) — so the transport itself is
 `Installs.denoteUp`, and what this module contributes is the field-by-
-field `EnvR` cons that consumes it (`EnvR.consBlockMember`), plus the
-`EnvR` twin of `memberInstallS`'s *invariant* half
+field `EnvFacts` cons that consumes it (`EnvFacts.consBlockMember`), plus the
+`EnvFacts` twin of `memberInstallS`'s *invariant* half
 (`memberInstallR`).
 
 **Why every field goes through** (the S5 seal's table, checked):
 
-| `EnvR` field | at a block-member cons |
+| `EnvFacts` field | at a block-member cons |
 |---|---|
 | `cval` | `cvalModeled m.cval cvA.name` — the model artifact's leaf |
 | `cval_closed` | inherited: `cvalModeled` only ever re-points a name at *another old leaf* |
@@ -67,7 +67,7 @@ theorem name_ne_of_mem_of_fresh {env : Env} {c₀ : ConstantInfo}
   intro c hc h
   exact h0 c hc (by simp [h])
 
-/-- **The `EnvR` cons at a block member** — finding 8's missing lemma.
+/-- **The `EnvFacts` cons at a block member** — finding 8's missing lemma.
 
 The member takes the model artifact's leaf (`cvalModeled`), so the new
 valuation re-points one name at another *old* name's value: no new
@@ -75,7 +75,7 @@ denotation is created, and every old field transports through the
 `Installs` bundle.  The type's denotation at the head is
 `ConstantValR`'s own `denoteClosed` conjunct, passed in as `hty` — the
 bridge has it from `memberValR_of`, the install from the front door. -/
-theorem EnvR.consBlockMember {env : Env} (m : EnvR env)
+theorem EnvFacts.consBlockMember {env : Env} (m : EnvFacts env)
     {c₀ : ConstantInfo} {cvA : ConstantVal}
     (hc₀cv : c₀.toConstantVal = cvA) (hc₀name : c₀.name = cvA.name)
     (hkind : BlockMemberKind c₀ cvA)
@@ -87,7 +87,7 @@ theorem EnvR.consBlockMember {env : Env} (m : EnvR env)
     (hmlps : cvm.levelParams = cvA.levelParams)
     (hty : ∀ ψ : Name → Nat,
       ∃ t, denoteClosed m.cval env ψ cvA.type = some t) :
-    ∃ m₁ : EnvR ⟨c₀ :: env.consts⟩,
+    ∃ m₁ : EnvFacts ⟨c₀ :: env.consts⟩,
       m₁.cval = cvalModeled m.cval cvA.name := by
   have hfresh' : env.find? c₀.name = none := by rw [hc₀name]; exact hfresh
   have hne := name_ne_of_mem_of_fresh hfresh'
@@ -231,7 +231,7 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env : Env} {cval : TConstVal}
     (hwfE : EnvWF env)
     {cv cvA : ConstantVal} {c₀ : ConstantInfo}
-    (hmv : MemberValRunR μ F env blockNames cv cvA)
+    (hmv : MemberValRun μ F env blockNames cv cvA)
     (hI : BlockInstalledTT blockNames env cval)
     (hbn : blockNames.contains cvA.name = true)
     (hpins : ∀ caps, c₀ = .indInfo cvA caps →
@@ -422,7 +422,7 @@ install** — `projFnS`'s invariant half, off the record alone. -/
 theorem projFnInv {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     {cval : TConstVal} {T ctorName : Name} {lps : List Name}
     {nP nF i : Nat} {blockNames : List Name}
-    (hR : ProjFnRunR μ F env' T ctorName lps nP nF i env₁)
+    (hR : ProjFnRun μ F env' T ctorName lps nP nF i env₁)
     (hinv : ProjPhaseInvS T ctorName nF env' cval)
     (hIB : BlockInstalledTT blockNames env' cval)
     (hbshape : ∀ n, blockNames.contains n = true →

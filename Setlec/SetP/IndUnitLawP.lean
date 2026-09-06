@@ -152,7 +152,7 @@ theorem blockTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
 /-- The member cons's instance: `MemberValR` supplies both data. -/
 theorem memberTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
     {cv cvA : ConstantVal}
-    (hmv : MemberValRunR μ F env blockNames cv cvA)
+    (hmv : MemberValRun μ F env blockNames cv cvA)
     (hIB : BlockInstalledTT blockNames env mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
     {cvm : ConstantVal} {mval : Expr} {hint : ReducibilityHint}

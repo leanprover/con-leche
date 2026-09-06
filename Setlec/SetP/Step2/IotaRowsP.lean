@@ -51,7 +51,7 @@ census entry the row is charged to.
 structural simplifications the P currency buys:
 
 * the law's first conjunct `rP ≤ mI` and its carried `Ra` replace
-  v1's `EnvR.rec_params_le` and `EnvR.rec_rhs_denotes`, so **no new
+  v1's `EnvFacts.rec_params_le` and `EnvFacts.rec_rhs_denotes`, so **no new
   environment field appears for the row**;
 * the law's `xs` is already the recursor's *index* prefix and its last
   argument is already the constructor spine, so v1's

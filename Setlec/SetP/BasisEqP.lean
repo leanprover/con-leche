@@ -1221,7 +1221,7 @@ theorem extendEqRecP (mp : EnvS2PM V μ env)
 `eqK` branch — the block whose chain reads its own earlier leaves, and
 so the one that consumes the install's exposed `acval`. -/
 theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
-    (h : Setlec.Semantics.BasisInstallR env
+    (h : Setlec.Semantics.BasisInstallRun env
       Setlec.BasisKind.eqK.declsA env₁) :
     Nonempty (EnvS2PM V μ env₁) := by
   rw [show Setlec.BasisKind.eqK.declsA = [eqA, eqReflA, eqRecA]

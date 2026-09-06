@@ -11,7 +11,7 @@ part-4 entry above names the shape the surviving stages need: at a
 positions upward, spending position `i`'s checked equality to earn
 position `i + 1`'s b-side grading.  This file runs that induction for
 the recursor-prefix walk (`hdePre`), which is the branch whose rows
-`IotaRunsR` already carries.
+`IotaRuns` already carries.
 
 It is here for two reasons.  It is the zipper's prefix half and the
 successor keeps it; and it **mechanizes the part-4 finding's positive

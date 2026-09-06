@@ -1,5 +1,5 @@
 import Setlec.Semantics.IndBlockRun
-import Setlec.Semantics.IndRecsCoreR
+import Setlec.Semantics.IndRecsCore
 import Setlec.SetP.SwapP
 import Setlec.SetP.IndMembersP
 import Setlec.SetP.CapstoneP
@@ -78,8 +78,8 @@ theorem indRecsFoldP (hμ : μ.verified = true) {F : Nat}
         envSelf.find? n = some (.recInfo cv mI rP rules) ∨
         RecLawsAtP mp.base2 cv mI rP rules) →
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
-      ProvisionRecsRunR μ F blockNames envP recs envSelf checked →
-      IndRecsRunR.IndRecsFoldRunR μ F blockNames envBase envSelf
+      ProvisionRecsRun μ F blockNames envP recs envSelf checked →
+      IndRecsRun.IndRecsFoldRun μ F blockNames envBase envSelf
         envF checked env₃ →
       ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
         (rules : List RecRule),
@@ -161,7 +161,7 @@ theorem indRecsP (hμ : μ.verified = true)
       (env₂.find? n).isSome = true ∨ ∃ ci ∈ recs, ci.name = n)
     (hEC : Setlec.EtaFamiliesClosedO blockNames env₂)
     (hBP : Setlec.BlockEtaPinned μ blockNames env₂)
-    (h : IndRecsRunR μ F blockNames env₂ recs env₃) :
+    (h : IndRecsRun μ F blockNames env₂ recs env₃) :
     ∃ mp₃ : EnvS2PM V μ env₃,
       BlockInstalledTT blockNames env₃ mp₃.base2.cvalE ∧
       BlockAcvalInstalled blockNames env₃ mp₃.base2.acval := by
@@ -191,10 +191,10 @@ theorem indRecsP (hμ : μ.verified = true)
   -- the P lane no longer round-trips through the collapsed install
   -- here at all.
   -- **the rule rhs's reading, from the RUN** (task #161 S11b): the
-  -- one row `RuleFactsR` wants that the run record does not carry is
+  -- one row `RuleFacts` wants that the run record does not carry is
   -- the fired rhs's denotation, and `acceptedReadsP_of` supplies it at
   -- the P carrier — the S10 residual-A route, threaded as
-  -- `iotaRulesFactsRunR`'s `hden` premise.
+  -- `iotaRulesFactsRun`'s `hden` premise.
   have hdenS : ∀ e : Expr, e.hasFvar = false →
       e.looseBVarsBounded 0 = true →
       (∃ t', inferTypeCore μ envSelf F 0 e = .ok t') →
@@ -211,9 +211,9 @@ theorem indRecsP (hμ : μ.verified = true)
     exact ⟨ea.erase,
       denoteP_erase mS.base2.acval_erase 0 e hea⟩
   obtain ⟨hswR, hnresR, hentR, hentFR⟩ :=
-    indRecsFoldFactsRun (RuleFactsR envSelf mS.base2.cvalE)
+    indRecsFoldFactsRun (RuleFacts envSelf mS.base2.cvalE)
       (fun _cvA _mI _rP rules rules' _hbnA _hselfA hiot =>
-        iotaRulesFactsRunR
+        iotaRulesFactsRun
           (fun n ci hf =>
             Or.inl (provisionRecsRunS_mono recs hprov n ci hf))
           hdenS 0 rules rules' hiot)

@@ -126,7 +126,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
     {ldomsL : List Expr} {lrest2 : Expr}
     (hinstLam : Expr.instLamsAt (fvsP ++ xFvsP) rhsA
       = some (ldomsL, lrest2))
-    -- the recorded runs (`IotaRunsR`, plus the second widening's rows)
+    -- the recorded runs (`IotaRuns`, plus the second widening's rows)
     (hTypedP : TypedListOk μ F env (rP + cnF)
       (pins.map (Expr.instSpine (fvsP.take rP) (rP - 1))) cdomsP)
     (hdeIdx : DefEqListOk μ F env (rP + cnF)

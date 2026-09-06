@@ -13,7 +13,7 @@ chain.
 **One premise is the third exposure's, and it is named as such.**
 `DefEqClaims2P` converts the rhs run only against *both* comparands'
 gradings.  The a-side is the statement's own right-hand side and its
-grading is `IotaRunsR`'s own `inferTypeCore rhsS` run through
+grading is `IotaRuns`'s own `inferTypeCore rhsS` run through
 `InferClaims2P`; the b-side is the *applied form*, whose grading needs
 `Ra`'s — the row `IotaRuleR` does not carry (see the third-exposure
 entry in DESIGN.md).  So it enters here as `hokApp`, in the `∀ ba`

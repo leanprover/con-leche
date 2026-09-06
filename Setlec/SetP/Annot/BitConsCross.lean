@@ -2,7 +2,7 @@ import Setlec.SetP.Annot.BitExtendTower
 import Setlec.SetP.Annot.BitInstall
 import Setlec.Verify.Denote.OpenVars
 import Setlec.Verify.InferLemmas
-import Setlec.Semantics.EnvR
+import Setlec.Semantics.EnvFacts
 
 /-!
 # The P cons crossing at a tower head (task #175 W4c, P3 module 4)

@@ -28,18 +28,18 @@ import Setlec.Semantics.DeclEta
 import Setlec.Semantics.DeclRun
 import Setlec.Semantics.Direct.DeclDirect
 import Setlec.Semantics.DeclIndRun
-import Setlec.Semantics.IndBlockR
+import Setlec.Semantics.IndBlockFacts
 import Setlec.Semantics.IndBlockRun
-import Setlec.Semantics.EnvR
-import Setlec.Semantics.EnvRCons
-import Setlec.Semantics.IndRecsCoreR
+import Setlec.Semantics.EnvFacts
+import Setlec.Semantics.EnvFactsCons
+import Setlec.Semantics.IndRecsCore
 import Setlec.Semantics.BasisRules
 import Setlec.Semantics.Tower.TowerIntro
 import Setlec.Semantics.Tower.TowerLeaf
 import Setlec.Semantics.Tower.TowerMk
 import Setlec.Semantics.Tower.TowerRec
 import Setlec.Semantics.Tower.TowerWire
-import Setlec.Semantics.ProjFnRR
+import Setlec.Semantics.ProjFnFacts
 import Setlec.Semantics.Bridge.ProjRed
 import Setlec.Semantics.Spine2
 import Setlec.Semantics.Bridge.Decl
@@ -140,12 +140,12 @@ being a reason to keep the file in R):
 
 S6 (the residue) added:
 
-* `EnvR` — **the bridge invariant** (whole-module move of
+* `EnvFacts` — **the bridge invariant** (whole-module move of
   `SetR/Bridge/Env`).  It never had a lane: every field is V-free by
   construction (the module docstring says so), its four imports are
   all base, and both lanes now build one — the R lane by projection
-  from `EnvS` (`EnvS.toEnvR`), the P lane by projection from
-  `EnvS2PM` (`EnvS2PM.toEnvR`), which is what lets the P fold call the
+  from `EnvS` (`EnvS.toEnvFacts`), the P lane by projection from
+  `EnvS2PM` (`EnvS2PM.toEnvFacts`), which is what lets the P fold call the
   bridge without a collapsed-model carrier.
 
 S7 (the de-basing's last wall) added `IndRecsCoreR`, `ProjFnRR`,
@@ -162,19 +162,19 @@ checker-to-derivation bridge, twenty-two modules, from `Claims` to
   model at all — twenty of the twenty-three modules were already
   `EnvS`-free at S7;
 * `Bridge/Decl` — the six per-kind declaration bridges and their front
-  doors, model-free since S5 (`EnvR`-signed, zero proof edits);
+  doors, model-free since S5 (`EnvFacts`-signed, zero proof edits);
 * `Bridge/DeclInd` — the interleaved `indDecl` walk, model-free since
-  S7 (`declIndRR`, off an `EnvR`; its `EnvS` instance `declIndRS` was
+  S7 (`declIndRR`, off an `EnvFacts`; its `EnvS` instance `declIndRS` was
   consumer-free after that re-proof and is deleted);
 * `Bridge/Sound` — `directParts?_none`, `checkDeclR_ofEnvR` and
-  `checkDeclR_ofEnvRE`, the dispatch off an `EnvR`.
+  `checkDeclR_ofEnvRE`, the dispatch off an `EnvFacts`.
 
 S11a added `Bridge/DeclRun` — the **run-only** bridges for the five
-non-`ind` declaration kinds (`declDefnRunR_of`, `declThmRunR_of`,
-`declOpaqueRunR_of`, `declAxiomRunR_of`, `declBasisR` verbatim) and
+non-`ind` declaration kinds (`declDefnRun_of`, `declThmRun_of`,
+`declOpaqueRun_of`, `declAxiomRun_of`, `declBasisRun` verbatim) and
 the dispatch `checkDeclRun_of`, whose only route into the derivation
-tier is `DeclRunR`'s `Ind` parameter.  `Bridge/Sound` assembles it as
-`checkDeclRun_ofEnvRE` (the `Ind` slot filled by `declIndRR` until
+tier is `DeclRun`'s `Ind` parameter.  `Bridge/Sound` assembles it as
+`checkDeclRun_ofEnvFactsE` (the `Ind` slot filled by `declIndRR` until
 S11b), and that — not `checkDeclR_ofEnvRE` — is what the graded fold
 now imports.  The measurement is `tests/proofdeps.sh`'s, not this
 file's: the criterion is the proof term, and an import listing cannot
@@ -184,7 +184,7 @@ see it (S9's finding).
 residence here rather than under `Setlec/SetR/` is what takes the
 layering whitelist to **zero**: `tests/layering.sh` reads
 `0 P->R edges (whitelist EMPTY)`.  What stayed in `Setlec/SetR/Bridge/`
-is exactly the collapsed lane's own two instances — `EnvS.toEnvR`
+is exactly the collapsed lane's own two instances — `EnvS.toEnvFacts`
 (`Decl.lean`) and `checkDeclR_sound`/`foldlM_R` (`Sound.lean`).
 
 **Only the file paths and module names moved.**  The Lean namespaces

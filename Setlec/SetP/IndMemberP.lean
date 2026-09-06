@@ -77,7 +77,7 @@ inhabits the checked member's type's reading, graded, at every
 assignment. -/
 theorem memberKeyP (mp : EnvS2PM V μ env) {blockNames : List Name}
     {cv cvA : ConstantVal}
-    (hmv : MemberValRunR μ F env blockNames cv cvA)
+    (hmv : MemberValRun μ F env blockNames cv cvA)
     (hIB : BlockInstalledTT blockNames env mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
     (ψ : Name → Nat) :

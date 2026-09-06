@@ -28,7 +28,7 @@ Three deltas against v1, all of them the P tier's own currency:
   refutes it (`eq_pt_of_mem_piR_zero` + `not_pt_mem_piR_pos`), so
   `piR_dom_unique` applies with no side condition;
 * **the sides pack is a pair of recorded runs, not a derivation
-  bundle.**  `sidesMemP` is four lines: `IotaRunsR` carries
+  bundle.**  `sidesMemP` is four lines: `IotaRuns` carries
   `inferTypeCore lhsS` and `isDefEqCore … αS` outright, and
   `InferClaims2P`/`DefEqClaims2P` convert them at the frame's own
   context.  v1's `sidesMemS` had to rebuild three `CtxOkR`s and fire
@@ -387,7 +387,7 @@ the recorded `checkIotaSidesTy` runs, converted at the frame's own
 context, put both equation sides in the slot — and grade all three.
 
 Where v1 rebuilds three `CtxOkR`s and fires quantified-context packs,
-the P tier reads the two runs `IotaRunsR` records straight through
+the P tier reads the two runs `IotaRuns` records straight through
 `InferClaims2P`/`DefEqClaims2P`; the context is the stages' shared
 one. -/
 theorem sidesMemP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}

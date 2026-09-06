@@ -25,22 +25,22 @@ lane's own fold inherited `Red.beta` through a record it never reads.
 This module **cuts the weld at the five non-`ind` kinds**: each bridge
 below is the same inversion feeding `SetBase/DeclRun.lean`'s run record
 directly, with no derivation on the path.  The records are re-used, not
-duplicated — `DeclRunR`'s payload is zero (task #161 S10 ruling 1: the
+duplicated — `DeclRun`'s payload is zero (task #161 S10 ruling 1: the
 family is valuation-free outright, since `acceptedReadsP_of` supplies
 every reading the P lane wants from the runs).
 
-**What is *not* here**: the `ind` kind.  It stays `DeclRunR`'s `Ind`
+**What is *not* here**: the `ind` kind.  It stays `DeclRun`'s `Ind`
 parameter — the slot S4 built for exactly this staging — and is
 supplied at the call site (today by `declIndRR`, the relation-carrying
 bridge; S11b replaces it with the ind run bridge).  So `checkDeclRun_of`
 below is relation-free *outright*, and the only door left into the
 derivation tier is the `Ind` premise.
 
-**The `basisDecl` kind is `declBasisR` verbatim** (`Bridge/Decl.lean`):
-that kind's record was already guards-only, `DeclRunR` re-uses
-`DeclBasisR` as-is (the S4 table's "re-used verbatim" row), and its
+**The `basisDecl` kind is `declBasisRun` verbatim** (`Bridge/Decl.lean`):
+that kind's record was already guards-only, `DeclRun` re-uses
+`DeclBasisRun` as-is (the S4 table's "re-used verbatim" row), and its
 bridge builds no derivation.  Importing `Bridge/Decl.lean` for it (and
-for `natEqsRunR_of_certs`, likewise already run-only) costs the *proof
+for `natEqsRun_of_certs`, likewise already run-only) costs the *proof
 term* nothing — the separation's criterion is the proof-term closure,
 not the import graph, which is S9's own finding.
 -/
@@ -53,14 +53,14 @@ open Setlec.TT Setlec.TTVerify
 
 /-- **`checkConstantVal`, inverted into the run record.**  The
 relation-free half of `constantValR_of`: the same inversion, the same
-two closedness facts beside it, and `ConstantValRunR` instead of
-`ConstantValR`.  No `EnvR`, no valuation, no `checkBridge`. -/
-theorem constantValRunR_of {env : Env} {μ : CheckMode} {F : Nat}
+two closedness facts beside it, and `ConstantValRun` instead of
+`ConstantValR`.  No `EnvFacts`, no valuation, no `checkBridge`. -/
+theorem constantValRun_of {env : Env} {μ : CheckMode} {F : Nat}
     {cv cv' : ConstantVal}
     (h : checkConstantVal (fueledOps μ F) env cv = .ok cv') :
     ∃ type', cv' = { cv with type := type' } ∧
       type'.hasFvar = false ∧ type'.looseBVarsBounded 0 = true ∧
-      ConstantValRunR μ F env cv type' := by
+      ConstantValRun μ F env cv type' := by
   obtain ⟨hfind, hres, hpsh, hnd, hlbt, hitf, type, stype, u, hann, htp,
     htr, hst, hsort, rfl⟩ := checkConstantVal_inv h
   obtain ⟨htf, hbt'⟩ := annotate_syntax hann hitf hlbt
@@ -69,11 +69,11 @@ theorem constantValRunR_of {env : Env} {μ : CheckMode} {F : Nat}
     hann, htp, htr, ⟨stype, u, hst, hsort⟩⟩
 
 /-- **The value front door, run half.**  `valueFrontR_of`'s premises
-*are* `ValueFrontRunR`'s conjuncts — the run record was read off this
+*are* `ValueFrontRun`'s conjuncts — the run record was read off this
 very destructuring (task #161 P4 H1) — so the run bridge is the
 packing, and the `m`/`checkBridge` half of `valueFrontR_of` is what
 does not happen here. -/
-theorem valueFrontRunR_of {env : Env} {μ : CheckMode} {F : Nat}
+theorem valueFrontRun_of {env : Env} {μ : CheckMode} {F : Nat}
     {cv : ConstantVal} {value type' value' vtype : Expr}
     (hlbv : value.looseBVarsBounded 0 = true)
     (hivf : value.hasFvar = false)
@@ -82,35 +82,35 @@ theorem valueFrontRunR_of {env : Env} {μ : CheckMode} {F : Nat}
     (hvr : value'.constsResolve env = true)
     (hvt : inferTypeCore μ env F 0 value' = .ok vtype)
     (hde : isDefEqCore μ env F 0 vtype type' = .ok true) :
-    ValueFrontRunR μ F env cv value type' value' :=
+    ValueFrontRun μ F env cv value type' value' :=
   ⟨hlbv, hivf, hannv, hvp, hvr, ⟨vtype, hvt, hde⟩⟩
 
 /-! ## The conditional pin packs, run half -/
 
 /-- **`checkReducePin`, run half.**  `checkReducePin_inv`'s output
-re-associated: `ReducePinRunR` is exactly the inversion minus the
+re-associated: `ReducePinRun` is exactly the inversion minus the
 elaborator-drift verdict (`hp1`, which no record ever carried) and
 minus the identity's `DefEq` transport (`reducePinR_of`'s whole
 `fun φ` block). -/
-theorem reducePinRunR_of {env env' : Env} {μ : CheckMode} {F : Nat}
+theorem reducePinRun_of {env env' : Env} {μ : CheckMode} {F : Nat}
     {c : Name} {value : Expr}
     (h : checkReducePin (m := CheckM) (fueledOps μ F) env env' c value
       = .ok ()) :
-    ReducePinRunR μ F env env' c value := by
+    ReducePinRun μ F env env' c value := by
   obtain ⟨hstored, helem, hpg, valA, pinA, hva, hpa, -, hp2⟩ :=
     checkReducePin_inv h
   exact ⟨hstored, helem, hpg, valA, pinA, hva, hpa, hp2⟩
 
 /-- **`checkDivModPin`, run half.**  `DivModPinR` was already
 valuation-free (its `_cval` is a dead parameter), so this is
-`divModPinR_of`'s script with the `EnvR` dropped — the one kind where
+`divModPinR_of`'s script with the `EnvFacts` dropped — the one kind where
 "the projection is the identity" was true all along. -/
-theorem divModPinRunR_of {env env' : Env} {μ : CheckMode} {F : Nat}
+theorem divModPinRun_of {env env' : Env} {μ : CheckMode} {F : Nat}
     {c : Name} {cv0 : ConstantVal} {v : Expr} {hint0 : ReducibilityHint}
     (hstore : env'.find? c = some (.defnInfo cv0 v hint0))
     (h : checkDivModPin (m := CheckM) (fueledOps μ F) env env' c
       = .ok ()) :
-    DivModPinRunR μ F env env' c v := by
+    DivModPinRun μ F env env' c v := by
   obtain ⟨henv, cv', value', hint', hfind, hguards, ⟨pinA, hpa, -⟩,
     hcerts⟩ := checkDivModPin_inv h
   obtain rfl : value' = v := by
@@ -129,11 +129,11 @@ point where those build a derivation.  The S10 bill priced them as
 are: the same case analysis, stopping at the run record. -/
 
 /-- **`thmDecl`, run half.** -/
-theorem declThmRunR_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
+theorem declThmRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
     {cv : ConstantVal} {value : Expr}
     (h : checkDecl μ (fueledOps μ F) env (.thmDecl cv value)
       = .ok env₂) :
-    DeclThmRunR μ F env cv value env₂ := by
+    DeclThmRun μ F env cv value env₂ := by
   simp only [checkDecl, checkThmVal, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
     Bind.bind, Except.bind] at h
@@ -142,7 +142,7 @@ theorem declThmRunR_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, -, -, hcv⟩ := constantValRunR_of hccv
+  obtain ⟨type, rfl, -, -, hcv⟩ := constantValRun_of hccv
   simp only [Pure.pure, Except.pure] at h
   cases hst2 : inferTypeCore μ env F 0 type with
   | error e => rw [hst2] at h; exact nomatch h
@@ -196,22 +196,22 @@ theorem declThmRunR_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
   exact ⟨type, value', hcv, ⟨stype2, u2, hst2, hsort2, hpz⟩,
-    valueFrontRunR_of hlbv hivf' hannv hvp hvr hvt hde, h.symm⟩
+    valueFrontRun_of hlbv hivf' hannv hvp hvr hvt hde, h.symm⟩
 
 /-- **`axiomDecl`, run half.**  Nothing but stored-data guards happens
 past the front door here, so this is `declAxiomR`'s script with its one
 `constantValR_of` call swapped for the run inversion. -/
-theorem declAxiomRunR_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
+theorem declAxiomRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
     {cv : ConstantVal}
     (h : checkDecl μ (fueledOps μ F) env (.axiomDecl cv) = .ok env₂) :
-    DeclAxiomRunR μ F env cv env₂ := by
+    DeclAxiomRun μ F env cv env₂ := by
   simp only [checkDecl, Bind.bind, Except.bind] at h
   cases hccv : checkConstantVal (fueledOps μ F) env cv with
   | error e => rw [hccv] at h; exact nomatch h
   | ok cvA =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, -, -, hcv⟩ := constantValRunR_of hccv
+  obtain ⟨type, rfl, -, -, hcv⟩ := constantValRun_of hccv
   refine ⟨type, hcv, ?_⟩
   by_cases hstd : stdAxiomOk env { cv with type := type } = true
   · rw [if_pos hstd] at h
@@ -256,11 +256,11 @@ theorem declAxiomRunR_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
 
 /-- **`opaqueDecl`, run half**, with the compiler-trust pin's run
 inversion in place of the pin bridge. -/
-theorem declOpaqueRunR_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
+theorem declOpaqueRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
     {cv : ConstantVal} {value : Expr}
     (h : checkDecl μ (fueledOps μ F) env (.opaqueDecl cv value)
       = .ok env₂) :
-    DeclOpaqueRunR μ F env cv value env₂ := by
+    DeclOpaqueRun μ F env cv value env₂ := by
   simp only [checkDecl, checkOpaqueVal, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind] at h
   cases hccv : checkConstantVal (fueledOps μ F) env cv with
@@ -268,7 +268,7 @@ theorem declOpaqueRunR_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, -, -, hcv⟩ := constantValRunR_of hccv
+  obtain ⟨type, rfl, -, -, hcv⟩ := constantValRun_of hccv
   simp only [Pure.pure, Except.pure] at h
   by_cases hlbv : value.looseBVarsBounded 0 = true
   case neg => simp [hlbv] at h
@@ -303,7 +303,7 @@ theorem declOpaqueRunR_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
   refine ⟨type, value', hcv,
-    valueFrontRunR_of hlbv hivf' hannv hvp hvr hvt hde, ?_, ?_⟩
+    valueFrontRun_of hlbv hivf' hannv hvp hvr hvt hde, ?_, ?_⟩
   · by_cases hro : reduceOpNames.contains cv.name = true
     · rw [if_pos hro] at h
       cases hrpin : checkReducePin (m := CheckM) (fueledOps μ F) env
@@ -327,18 +327,18 @@ theorem declOpaqueRunR_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
       rw [hrpin] at h
       simp only [Except.ok.injEq] at h
       subst h
-      exact reducePinRunR_of hrpin
+      exact reducePinRun_of hrpin
 
 /-- **`defnDecl`, run half**, with the two structural-`Nat` pins' run
-inversions (`natEqsRunR_of_certs`, `divModPinRunR_of`) in place of the
+inversions (`natEqsRun_of_certs`, `divModPinRun_of`) in place of the
 pin bridges.  The `key` block — the dispatch on the two pin guards — is
 `declDefnR`'s verbatim: it is pure control flow and names nothing
 semantic. -/
-theorem declDefnRunR_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
+theorem declDefnRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     (h : checkDecl μ (fueledOps μ F) env (.defnDecl cv value hint)
       = .ok env₂) :
-    DeclDefnRunR μ F env cv value hint env₂ := by
+    DeclDefnRun μ F env cv value hint env₂ := by
   simp only [checkDecl, checkDefnVal, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind] at h
   cases hccv : checkConstantVal (fueledOps μ F) env cv with
@@ -346,7 +346,7 @@ theorem declDefnRunR_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, -, -, hcv⟩ := constantValRunR_of hccv
+  obtain ⟨type, rfl, -, -, hcv⟩ := constantValRun_of hccv
   simp only [Pure.pure, Except.pure] at h
   by_cases hlbv : value.looseBVarsBounded 0 = true
   case neg => simp [hlbv] at h
@@ -463,21 +463,21 @@ theorem declDefnRunR_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
         exact ⟨rfl, fun hc => absurd hc hno, fun hc => absurd hc hdn⟩
   obtain ⟨rfl, hnatK, hdmK⟩ := key
   exact ⟨type, value', hcv,
-    valueFrontRunR_of hlbv hivf' hannv hvp hvr hvt hde,
+    valueFrontRun_of hlbv hivf' hannv hvp hvr hvt hde,
     rfl,
     fun hc => ⟨(hnatK hc).1, (hnatK hc).2.1,
-      natEqsRunR_of_certs _ (hnatK hc).2.2⟩,
-    fun hc => divModPinRunR_of
+      natEqsRun_of_certs _ (hnatK hc).2.2⟩,
+    fun hc => divModPinRun_of
       (by rw [Env.find?_cons]; exact if_pos rfl) (hdmK hc)⟩
 
 /-! ## The assembly -/
 
 /-- **The run dispatch — task #161 S11a's deliverable.**
 
-`checkDeclR_of`'s twin at `DeclRunR`, with a decisive difference: five
+`checkDeclR_of`'s twin at `DeclRun`, with a decisive difference: five
 of the six per-kind obligations are **discharged here**, not taken as
 parameters, because their bridges need no carrier at all.  What is left
-is the `Ind` premise — `DeclRunR`'s own parameter slot, built at S4 for
+is the `Ind` premise — `DeclRun`'s own parameter slot, built at S4 for
 exactly this staging.
 
 **The separation property, stated**: this theorem's proof term reaches
@@ -493,13 +493,13 @@ theorem checkDeclRun_of {μ : CheckMode} {F : Nat}
       Ind block env₂)
     {d : Declaration}
     (h : checkDecl μ (fueledOps μ F) env d = .ok env₂) :
-    DeclRunR μ F Ind env d env₂ := by
+    DeclRun μ F Ind env d env₂ := by
   cases d with
-  | defnDecl cv value hint => exact declDefnRunR_of h
-  | thmDecl cv value => exact declThmRunR_of h
-  | opaqueDecl cv value => exact declOpaqueRunR_of h
-  | axiomDecl cv => exact declAxiomRunR_of h
-  | basisDecl kind => exact declBasisR h
+  | defnDecl cv value hint => exact declDefnRun_of h
+  | thmDecl cv value => exact declThmRun_of h
+  | opaqueDecl cv value => exact declOpaqueRun_of h
+  | axiomDecl cv => exact declAxiomRun_of h
+  | basisDecl kind => exact declBasisRun h
   | indDecl block => exact hind h
 
 end Setlec.Semantics

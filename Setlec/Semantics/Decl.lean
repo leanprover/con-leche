@@ -24,7 +24,7 @@ records outside both surviving capstones' closures **and** outside the
 run route the graded fold calls; what is left here is exactly the part
 that was inside it.
 
-`DeclIndR` is gone, but `DeclIndR.TemplatesR` survives it — the
+`DeclIndRun` is gone, but `DeclIndRun.Templates` survives it — the
 elimination-template pass never took a valuation and never built a
 derivation (D6's refinement point, cashed at T5 stage 6), so it was
 always a run record wearing a `where` clause.  It keeps its full name,
@@ -51,24 +51,24 @@ through `DefEqClaims2P` — the run-certificate move — because the
 relational `NatEqsR` above concludes a `DefEq` whose soundness lives
 at the collapse currency only (`Interp2/Step2/NatP.lean`'s wall
 record). -/
-def NatEqsRunR (μ : CheckMode) (F : Nat) (env : Env)
+def NatEqsRun (μ : CheckMode) (F : Nat) (env : Env)
     (eqs : List (Expr × Expr)) : Prop :=
   ∀ eq ∈ eqs, isDefEqCore μ env F 2 eq.1 eq.2 = .ok true
 
 /-- The pinned basis-block install (`checkDecl`'s basis branch): the
 quot-requires-`Eq` guard and the freshness-checked fold. -/
-def BasisInstallR (env : Env) : List ConstantInfo → Env → Prop
+def BasisInstallRun (env : Env) : List ConstantInfo → Env → Prop
   | [], env₂ => env₂ = env
   | ci :: rest, env₂ =>
     (env.find? ci.name).isNone = true ∧
-    BasisInstallR ⟨ci :: env.consts⟩ rest env₂
+    BasisInstallRun ⟨ci :: env.consts⟩ rest env₂
 
 /-- A pinned basis block (design §1.5, `basis` row): side conditions
 only — the pinned declarations are pre-annotated, and their semantic
 content is `EnvS`'s basis fields (T5), not per-install premises. -/
-def DeclBasisR (env : Env) (kind : BasisKind) (env₂ : Env) : Prop :=
+def DeclBasisRun (env : Env) (kind : BasisKind) (env₂ : Env) : Prop :=
   (kind = .quotK → env.find? eqName = some eqA) ∧
-  BasisInstallR env kind.declsA env₂
+  BasisInstallRun env kind.declsA env₂
 
 /-- The valuation a modeled block member takes at its install: the
 model artifact's.  The block folds thread it (finding 5's resolution,
@@ -87,7 +87,7 @@ tier's establishment consumes these through the claims
 derivation → run is false for a fuel-bounded checker — the part-3
 wall's two countermodels); the derivation walks stay for the v1
 installs. -/
-def IotaRunsR (μ : CheckMode) (F : Nat) (envSelf : Env) (depth : Nat)
+def IotaRuns (μ : CheckMode) (F : Nat) (envSelf : Env) (depth : Nat)
     (idxL idxR domL domR preL preR lamL lamR : List Expr)
     (rhsS rhsApplied alphaS lhsS : Expr) : Prop :=
   DefEqListOk μ F envSelf depth idxL idxR ∧
@@ -102,13 +102,13 @@ def IotaRunsR (μ : CheckMode) (F : Nat) (envSelf : Env) (depth : Nat)
 
 /-! ## The elimination-template pass
 
-`DeclIndR` is deleted; this pass is not.  It is kept under its old
-qualified name (`DeclIndR.TemplatesR`) because that is how
+`DeclIndRun` is deleted; this pass is not.  It is kept under its old
+qualified name (`DeclIndRun.Templates`) because that is how
 `SetBase/{DeclIndRun,IndBlockR,IndBlockRun}.lean` and
 `SetP/ProjInstallP.lean` spell it, and a rename would have edited four
 modules to say the same thing. -/
 
-namespace DeclIndR
+namespace DeclIndRun
 
 /-- The elimination-template second pass: pure stored-data installs
 (`installProjTemplateStep`).
@@ -122,7 +122,7 @@ the valuation is the *install's* free choice.  Threading one here
 would have forced the soundness side to model a valuation the
 relation picked arbitrarily; dropping it is both simpler and more
 faithful to `installProjTemplate`, which never touches a value. -/
-def TemplatesR (T ctorName : Name) (lps : List Name) (nP nF : Nat) :
+def Templates (T ctorName : Name) (lps : List Name) (nP nF : Nat) :
     Env → List Nat → Env → Prop
   | env', [], env₂ => env₂ = env'
   | env', i :: rest, env₂ =>
@@ -139,9 +139,9 @@ def TemplatesR (T ctorName : Name) (lps : List Name) (nP nF : Nat) :
          entry.levelParams = lps ∧ entry.ty = .sort .zero ∧
          (env'.find? (projFnName T i)).isNone = true ∧
          env'' = ⟨.projInfo entry :: env'.consts⟩) ∧
-      TemplatesR T ctorName lps nP nF env'' rest env₂
+      Templates T ctorName lps nP nF env'' rest env₂
 
-end DeclIndR
+end DeclIndRun
 
 /-! ## The direct-structure arm (task #175 wiring, W4)
 
@@ -158,7 +158,7 @@ holds the `checkDirectStruct` inversion). -/
 is `checkDirectProj`'s own run at the accumulator — the entry decision
 (`slots`, `directProjSlots`) and the guard levels (`guards`,
 `directProjGuards`) are the fold's data. -/
-def DirectProjFoldR (μ : CheckMode) (F : Nat) (T C : Name)
+def DirectProjFoldRun (μ : CheckMode) (F : Nat) (T C : Name)
     (lps : List Name) (nP nF : Nat) (resSort : Level) (slots : List Bool)
     (guards : List Level) (cvTa cvCa : ConstantVal) :
     Env → List Nat → Env → Prop
@@ -166,13 +166,13 @@ def DirectProjFoldR (μ : CheckMode) (F : Nat) (T C : Name)
   | env', i :: rest, env₂ =>
     ∃ env'', checkDirectProj (m := Setlec.CheckM) (fueledOps μ F)
         T C lps nP nF resSort slots guards cvTa cvCa env' i = .ok env'' ∧
-      DirectProjFoldR μ F T C lps nP nF resSort slots guards cvTa cvCa env''
+      DirectProjFoldRun μ F T C lps nP nF resSort slots guards cvTa cvCa env''
         rest env₂
 
 /-- **The direct-structure declaration, as checked**: the stage runs
 of `checkDirectStruct`, with the intermediate environments and the
 recursor install named.  `env` is the pre-block environment. -/
-def DeclDirectR (μ : CheckMode) (F : Nat) (env : Env)
+def DeclDirectRun (μ : CheckMode) (F : Nat) (env : Env)
     (p : DirectParts) (env₂ : Env) : Prop :=
   ∃ (cvTa cvCa cvRa : ConstantVal) (sorts : List Level) (rhsA : Expr)
     (envI envC : Env),
@@ -195,7 +195,7 @@ def DeclDirectR (μ : CheckMode) (F : Nat) (env : Env)
      (List.range p.nF).all
         (fun j => (env₃.find? (projFnName p.cvT.name j)).isNone)
         = true ∧
-      DirectProjFoldR μ F p.cvT.name p.cvC.name p.cvT.levelParams
+      DirectProjFoldRun μ F p.cvT.name p.cvC.name p.cvT.levelParams
         p.nP p.nF p.resSort (directProjSlots p)
         (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa env₃
         (List.range p.nF) env₂)

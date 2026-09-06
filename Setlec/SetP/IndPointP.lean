@@ -26,7 +26,7 @@ projections.**  `DefEqClaims2P` wants the a-side — an argument of the
 statement's left-hand side — and the b-side — an argument of the
 constructor residual — graded.  The a-side comes from the statement
 side's own grading (`hokLhs`, which the bottom reads off the
-`checkIotaSidesTy` inference run `IotaRunsR` records) by
+`checkIotaSidesTy` inference run `IotaRuns` records) by
 `AnnotOkP_mkAppN_args`; the b-side from `instPisAt_resP_graded` at the
 run's completed spine memberships (`hspMem`), again by
 `AnnotOkP_mkAppN_args`.  The spine memberships are the zipper's own

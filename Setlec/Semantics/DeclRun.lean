@@ -1,7 +1,7 @@
 import Setlec.Semantics.Decl
 
 /-!
-# `DeclRunR` — the run/guard projection of `DeclR` (task #161 S4, THE
+# `DeclRun` — the run/guard projection of `DeclR` (task #161 S4, THE
 SEPARATION; the design census's **C3**)
 
 The layering diagram's own sentence about the shared base reads
@@ -22,7 +22,7 @@ conjunct:
   … ∧ Infer … ∧ DefEq …` conjuncts.  These are keyed by a
   `TConstVal` and are what the *collapsed* lane's installs consume.
 
-`DeclRunR` below is `DeclR` with the second kind deleted.  It is
+`DeclRun` below is `DeclR` with the second kind deleted.  It is
 **valuation-free**: no `cval` parameter, no `denote`, no `Infer`, no
 `DefEq`, no `V`.  `DeclR.toRun` projects onto it, so the records stay
 shared and single-sourced: the R lane keeps proving `DeclR` (nothing
@@ -36,27 +36,27 @@ statement is frozen before a consumer has exercised it):
 |---|---|---|
 | `ConstantValR` | the `∀ φ, ∃ Tv tT u, denoteClosed … ∧ Infer … ∧ DefEq …` front door | the six freshness/reservation/level/scoping guards (`hfresh` at every harvest and at `declEtaStep`), the annotate output (`annotate_syntax`), the two `allLevelParamsDefined`/`constsResolve` guards, and H1's own run chain `∃ stype u, inferTypeCore … ∧ ensureSortCore …` (the type's reading, through `acceptedReadsP_of`) |
 | `ValueFrontR` | the `∀ φ, ∃ Tv Vv tv, …` front door | the value's two syntactic guards, its annotate output, its two resolution guards, and H1's run **pair** `∃ vtype, inferTypeCore … ∧ isDefEqCore …` (the leaf's reading, and the membership crossing) |
-| `NatEqsR` | **the whole relation** | replaced by its twin `NatEqsRunR`, which `DeclDefnR` already carries beside it (H1); `natOpsP_install` consumes the runs |
-| `DivModPinR` | nothing — it is already valuation-free (its `_cval` parameter is unused) | re-stated without the dead parameter as `DivModPinRunR`; `divModP_install` consumes the guards and the certificate verdict |
+| `NatEqsR` | **the whole relation** | replaced by its twin `NatEqsRun`, which `DeclDefnR` already carries beside it (H1); `natOpsP_install` consumes the runs |
+| `DivModPinR` | nothing — it is already valuation-free (its `_cval` parameter is unused) | re-stated without the dead parameter as `DivModPinRun`; `divModP_install` consumes the guards and the certificate verdict |
 | `ReducePinR` | the `∀ φ, ∃ E V, … DefEq …` identity | the three storage guards, both annotate outputs and the recorded identity-certificate run; `reduceOpsP_install` consumes exactly these |
 | `DeclThmR` | the `∀ φ, ∃ Tv sT, … DefEq … (.sort 0)` is-a-proposition front | H1's prop-check run triple (`inferTypeCore` + `ensureSortCore` + `Level.isEquiv`) |
 | `DeclAxiomR` | (via `ConstantValR`) | the four-way branch disjunction verbatim — pure stored-data guards |
-| `DeclBasisR` | nothing | re-used **verbatim**: it is already guards only |
-| `DeclIndR` | — | **not projected here.**  See the `Ind` parameter below. |
+| `DeclBasisRun` | nothing | re-used **verbatim**: it is already guards only |
+| `DeclIndRun` | — | **not projected here.**  See the `Ind` parameter below. |
 
-**The inductive kind is a parameter, not a projection.**  `DeclIndR`'s
+**The inductive kind is a parameter, not a projection.**  `DeclIndRun`'s
 run/guard projection is not this batch's: S3's stop-and-name refuted
 the census's C4 at `indDecl` (the block's η-closure is proved
 *interleaved* with the model-carrying `indMembersS`/`indRecsS` folds),
 and the same interleaving is what the ind kind's run projection has to
 undo — S5's named "DeclIndS η-only unit".  Rather than freeze a
-statement now and edit it then, `DeclRunR` takes the inductive kind's
+statement now and edit it then, `DeclRun` takes the inductive kind's
 payload as a **`Prop`-valued parameter** `Ind`, exactly as `declStepS`
 takes its five per-kind install obligations and as `declEtaStep`
 (`SetBase/DeclEta.lean`) takes the ind kind's η-closure as its one
-premise.  Today every caller instantiates `Ind := DeclIndR μ F env
+premise.  Today every caller instantiates `Ind := DeclIndRun μ F env
 cval`; when the ind unit lands, callers instantiate `Ind :=
-DeclIndRunR μ F env` and **`DeclRunR`'s own text does not change**.
+DeclIndRun μ F env` and **`DeclRun`'s own text does not change**.
 -/
 
 namespace Setlec.Semantics
@@ -68,7 +68,7 @@ open Setlec.TT Setlec.TTVerify
 Moved here from `SetR/Install/ValueKinds.lean` at task #161 S4 (the
 design census §3.3's last open split): the lemma is a pure
 `annotateCore` inversion — no `EnvS`, no `V` — and it is the first
-thing every consumer of a `*RunR` record's annotate conjunct calls, on
+thing every consumer of a `*Run` record's annotate conjunct calls, on
 both lanes. -/
 
 /-- The annotate outputs' syntactic facts, packaged: no fvars, bounded,
@@ -86,7 +86,7 @@ theorem annotate_syntax {μ : CheckMode} {F : Nat} {env : Env} {e e' : Expr}
 
 /-- `ConstantValR`'s run/guard half: everything but the trailing
 front-door derivation. -/
-def ConstantValRunR (μ : CheckMode) (F : Nat) (env : Env)
+def ConstantValRun (μ : CheckMode) (F : Nat) (env : Env)
     (cv : ConstantVal) (type' : Expr) : Prop :=
   (env.find? cv.name).isNone = true ∧
   reservedBasisNames.contains cv.name = false ∧
@@ -102,7 +102,7 @@ def ConstantValRunR (μ : CheckMode) (F : Nat) (env : Env)
 
 /-- `ValueFrontR`'s run/guard half: everything but the trailing
 front-door derivation. -/
-def ValueFrontRunR (μ : CheckMode) (F : Nat) (env : Env)
+def ValueFrontRun (μ : CheckMode) (F : Nat) (env : Env)
     (cv : ConstantVal) (value : Expr) (type' value' : Expr) : Prop :=
   value.looseBVarsBounded 0 = true ∧
   value.hasFvar = false ∧
@@ -118,7 +118,7 @@ def ValueFrontRunR (μ : CheckMode) (F : Nat) (env : Env)
 already run-only (task #148 T6 recorded the reason: the pin comparison
 is not transposed and the certificates enter as the checker's verdict),
 so this is a re-statement, not a projection. -/
-def DivModPinRunR (μ : CheckMode) (F : Nat) (env env₂ : Env)
+def DivModPinRun (μ : CheckMode) (F : Nat) (env env₂ : Env)
     (c : Name) (value' : Expr) : Prop :=
   divModEnvGuard env₂ c = true ∧
   divModPinGuard env c = true ∧
@@ -130,7 +130,7 @@ def DivModPinRunR (μ : CheckMode) (F : Nat) (env env₂ : Env)
 /-- `ReducePinR`'s run/guard half: the storage guards, both annotate
 outputs and the recorded identity-certificate run, without the
 derivation the identity carries beside it. -/
-def ReducePinRunR (μ : CheckMode) (F : Nat) (env env₂ : Env)
+def ReducePinRun (μ : CheckMode) (F : Nat) (env env₂ : Env)
     (c : Name) (value : Expr) : Prop :=
   reduceStoredOk env₂ c = true ∧
   reduceElemOk env c = true ∧
@@ -144,52 +144,52 @@ def ReducePinRunR (μ : CheckMode) (F : Nat) (env env₂ : Env)
 /-! ## The value kinds, run half -/
 
 /-- `DeclDefnR`'s run/guard half. -/
-def DeclDefnRunR (μ : CheckMode) (F : Nat) (env : Env)
+def DeclDefnRun (μ : CheckMode) (F : Nat) (env : Env)
     (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint)
     (env₂ : Env) : Prop :=
   ∃ type' value',
-    ConstantValRunR μ F env cv type' ∧
-    ValueFrontRunR μ F env cv value type' value' ∧
+    ConstantValRun μ F env cv type' ∧
+    ValueFrontRun μ F env cv value type' value' ∧
     env₂ = ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
       env.consts⟩ ∧
     (natOpNames.contains cv.name = true →
       natOpGuard env₂ cv.name = true ∧
       (natOpDeps cv.name).all (natOpStoredOk env₂) = true ∧
-      NatEqsRunR μ F env
+      NatEqsRun μ F env
         ((natOpEquations 0 cv.name).map fun eq =>
           (Expr.substConst0 cv.name value' eq.1,
            Expr.substConst0 cv.name value' eq.2))) ∧
     (natDivModNames.contains cv.name = true →
-      DivModPinRunR μ F env env₂ cv.name value')
+      DivModPinRun μ F env env₂ cv.name value')
 
 /-- `DeclThmR`'s run/guard half. -/
-def DeclThmRunR (μ : CheckMode) (F : Nat) (env : Env)
+def DeclThmRun (μ : CheckMode) (F : Nat) (env : Env)
     (cv : ConstantVal) (value : Expr) (env₂ : Env) : Prop :=
   ∃ type' value',
-    ConstantValRunR μ F env cv type' ∧
+    ConstantValRun μ F env cv type' ∧
     (∃ stype u, inferTypeCore μ env F 0 type' = .ok stype ∧
       ensureSortCore μ env F 0 stype = .ok u ∧
       Level.isEquiv u .zero = some true) ∧
-    ValueFrontRunR μ F env cv value type' value' ∧
+    ValueFrontRun μ F env cv value type' value' ∧
     env₂ = ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
       env.consts⟩
 
 /-- `DeclOpaqueR`'s run/guard half. -/
-def DeclOpaqueRunR (μ : CheckMode) (F : Nat) (env : Env)
+def DeclOpaqueRun (μ : CheckMode) (F : Nat) (env : Env)
     (cv : ConstantVal) (value : Expr) (env₂ : Env) : Prop :=
   ∃ type' value',
-    ConstantValRunR μ F env cv type' ∧
-    ValueFrontRunR μ F env cv value type' value' ∧
+    ConstantValRun μ F env cv type' ∧
+    ValueFrontRun μ F env cv value type' value' ∧
     env₂ = ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩ ∧
     (reduceOpNames.contains cv.name = true →
-      ReducePinRunR μ F env env₂ cv.name value)
+      ReducePinRun μ F env env₂ cv.name value)
 
 /-- `DeclAxiomR`'s run/guard half: the branch disjunction is pure
 stored-data guards and is carried verbatim. -/
-def DeclAxiomRunR (μ : CheckMode) (F : Nat) (env : Env)
+def DeclAxiomRun (μ : CheckMode) (F : Nat) (env : Env)
     (cv : ConstantVal) (env₂ : Env) : Prop :=
   ∃ type',
-    ConstantValRunR μ F env cv type' ∧
+    ConstantValRun μ F env cv type' ∧
     (let cvA : ConstantVal := ⟨cv.name, cv.levelParams, type'⟩
      (stdAxiomOk env cvA = true ∧
         env₂ = ⟨.axiomInfo cvA :: env.consts⟩) ∨
@@ -212,16 +212,16 @@ every derivation conjunct deleted, and the inductive kind's payload
 taken as a parameter (see the module docstring — S5's unit replaces the
 instantiation, not this text).
 
-`DeclBasisR` is re-used verbatim: that kind's record was already guards
+`DeclBasisRun` is re-used verbatim: that kind's record was already guards
 only. -/
-def DeclRunR (μ : CheckMode) (F : Nat)
+def DeclRun (μ : CheckMode) (F : Nat)
     (Ind : List ConstantInfo → Env → Prop) (env : Env) :
     Declaration → Env → Prop
-  | .defnDecl cv value hint, env₂ => DeclDefnRunR μ F env cv value hint env₂
-  | .thmDecl cv value, env₂ => DeclThmRunR μ F env cv value env₂
-  | .opaqueDecl cv value, env₂ => DeclOpaqueRunR μ F env cv value env₂
-  | .axiomDecl cv, env₂ => DeclAxiomRunR μ F env cv env₂
-  | .basisDecl kind, env₂ => DeclBasisR env kind env₂
+  | .defnDecl cv value hint, env₂ => DeclDefnRun μ F env cv value hint env₂
+  | .thmDecl cv value, env₂ => DeclThmRun μ F env cv value env₂
+  | .opaqueDecl cv value, env₂ => DeclOpaqueRun μ F env cv value env₂
+  | .axiomDecl cv, env₂ => DeclAxiomRun μ F env cv env₂
+  | .basisDecl kind, env₂ => DeclBasisRun env kind env₂
   | .indDecl block, env₂ => Ind block env₂
 
 /-! ## The projections, retired (2026-09-05)

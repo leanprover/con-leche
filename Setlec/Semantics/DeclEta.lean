@@ -15,7 +15,7 @@ reading `declStepS`'s own per-kind proofs.
 here** (restrictions-are-findings).  Five of the six kinds are exactly
 as the census read them — the η-closure follows from `DeclR`'s `find?`
 freshness guard and the cons's kind, by `EtaFamiliesClosed.cons_nonind`
-(and, at `basisDecl`, by `basisInstallR_etaClosed`, which is itself
+(and, at `basisDecl`, by `basisInstallRun_etaClosed`, which is itself
 model-free).  The sixth, `indDecl`, is **not**: `declStepS`'s ind
 branch takes its η-closure from `hind m hE h` — the `DeclIndS`
 obligation — and that obligation's own discharge (`Install/DeclIndS.lean`)
@@ -66,14 +66,14 @@ theorem basisIndOk_mem {l : List ConstantInfo} (h : basisIndOk l = true)
 
 /-- The pinned basis fold keeps the stored eta families closed: every
 pinned former it stores carries a reserved name. -/
-theorem basisInstallR_etaClosed :
+theorem basisInstallRun_etaClosed :
     ∀ (l : List ConstantInfo) {env env₂ : Env},
-      BasisInstallR env l env₂ → basisIndOk l = true →
+      BasisInstallRun env l env₂ → basisIndOk l = true →
       EtaFamiliesClosed env → EtaFamiliesClosed env₂
   | [], _, _, h, _, hE => by rw [h]; exact hE
   | ci :: rest, env, env₂, h, hok, hE => by
     obtain ⟨hfresh, htail⟩ := h
-    refine basisInstallR_etaClosed rest htail ?_ ?_
+    refine basisInstallRun_etaClosed rest htail ?_ ?_
     · have := List.all_eq_true.mp hok
       exact List.all_eq_true.mpr fun x hx =>
         this x (List.mem_cons_of_mem _ hx)
@@ -90,20 +90,20 @@ theorem basisIndOk_declsA (kind : BasisKind) :
 /-- **The declaration fold's η-closure half, on the run projection**
 (task #161 S4).  The proof never looked at a derivation conjunct — it
 reads `ConstantValR`'s freshness guard and the kinds' cons shapes and
-nothing else — so it is stated over `DeclRunR` (`SetBase/DeclRun.lean`)
+nothing else — so it is stated over `DeclRun` (`SetBase/DeclRun.lean`)
 and `declEtaStep` below is its `DeclR` instance.  This is what lets the
 P fold take its η half from a valuation-free record.
 
-The inductive kind is `DeclRunR`'s `Ind` parameter here, so the one
+The inductive kind is `DeclRun`'s `Ind` parameter here, so the one
 premise is at whatever payload the caller instantiates — today
-`DeclIndR`, after S5's ind unit `DeclIndRunR`. -/
+`DeclIndRun`, after S5's ind unit `DeclIndRun`. -/
 theorem declEtaStepRun {μ : CheckMode} {F : Nat}
     {Ind : List ConstantInfo → Env → Prop}
     {env : Env} {d : Declaration} {env₂ : Env}
     (hind : ∀ {block : List ConstantInfo} {envI : Env},
       Ind block envI → EtaFamiliesClosed envI)
     (hE : EtaFamiliesClosed env)
-    (h : DeclRunR μ F Ind env d env₂) : EtaFamiliesClosed env₂ := by
+    (h : DeclRun μ F Ind env d env₂) : EtaFamiliesClosed env₂ := by
   cases d with
   | defnDecl cv value hint =>
     obtain ⟨type', value', hcv, -, rfl, -, -⟩ := h
@@ -131,7 +131,7 @@ theorem declEtaStepRun {μ : CheckMode} {F : Nat}
         (fun _ _ heq => nomatch heq)
     · exact hE
   | basisDecl kind =>
-    exact basisInstallR_etaClosed kind.declsA h.2
+    exact basisInstallRun_etaClosed kind.declsA h.2
       (basisIndOk_declsA kind) hE
   | indDecl block => exact hind h
 

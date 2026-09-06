@@ -1,4 +1,4 @@
-import Setlec.Semantics.EnvRCons
+import Setlec.Semantics.EnvFactsCons
 import Setlec.Verify.Denote.EnvExt
 
 import Setlec.Verify.Denote.Levels
@@ -10,35 +10,35 @@ S6 measured the last wall under `Bridge/DeclInd.lean`'s finding 8 and
 found it one level below the residue: the projection walk starts at
 `env₃`, the recursor group's output, and `env₃` is not a *cons* of
 anything the bridge built — it is a **swap** of the provisional
-environment (`EnvS.swap`, `SwapShList`).  An `EnvR env₃` therefore
+environment (`EnvS.swap`, `SwapShList`).  An `EnvFacts env₃` therefore
 needs, for every fired rule of every swapped recursor, the two facts
 `rec_params_le` (`rP ≤ mI`) and `rec_rhs_denotes` (the right-hand
 side's denotation at every level instantiation), and until S6 both
 lived only inside `RecRuleLawV`, a model-carrying wrapper.
 
-S6 built the storage half (`RuleFactsR` / `iotaRulesFactsR` /
+S6 built the storage half (`RuleFacts` / `iotaRulesFactsR` /
 `indRecsFoldFacts`, `SetBase/IndBlockR.lean`).  This module is the
-other half — the group's `EnvR` core, in three pieces:
+other half — the group's `EnvFacts` core, in three pieces:
 
-* `provisionRecsRcore` — `provisionRecsS`'s `EnvR` twin, off the
+* `provisionRecsRcore` — `provisionRecsS`'s `EnvFacts` twin, off the
   *relation*; its step is `memberInstallR` (S6);
-* `EnvR.swap` — `EnvS.swap`'s `EnvR` shadow.  It is **strictly
+* `EnvFacts.swap` — `EnvS.swap`'s `EnvFacts` shadow.  It is **strictly
   smaller** than the `EnvS` swap: no `RecCtorsStored`, no
-  `SwapNResS`, no `RecRulesV` — an `EnvR` has no `rec_ctors`, no
+  `SwapNResS`, no `RecRulesV` — an `EnvFacts` has no `rec_ctors`, no
   `basis_pinned` and no law field, so the transport is
   `denote_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq` plus the two rule
   facts, taken as hypotheses exactly as `EnvS.swap` takes its law;
 * `indRecsCoreR` — `indRecsS`'s tail (`hwf₃`, the block invariant's
   survival, the three preservation facts), whose every ingredient is
-  now `RuleFactsR`.
+  now `RuleFacts`.
 
-**The one join that is not a copy.**  `RuleFactsR`'s fired-rule
+**The one join that is not a copy.**  `RuleFacts`'s fired-rule
 conjunct denotes the right-hand side *uninstantiated* (that is the
 shape `IotaRuleR`'s H1 run exposure stores), while `rec_rhs_denotes`
 asks for the *level-instantiated* one.  `denote_instLevels`
 (`Verify/Denote/Levels.lean`) is the bridge, at the substituted
 assignment `Level.substFn ψ cv.levelParams us`, and its `ValParams`
-premise is `EnvR.val_params` verbatim.  Nothing semantic is involved.
+premise is `EnvFacts.val_params` verbatim.  Nothing semantic is involved.
 
 Model-free by construction: no `V`, no `SetTheory`, no `EnvS`.
 -/
@@ -47,20 +47,20 @@ namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
-/-! ## The provisioning fold, at the `EnvR` level -/
+/-! ## The provisioning fold, at the `EnvFacts` level -/
 
-/-! ## The group rule-list swap, at the `EnvR` level -/
+/-! ## The group rule-list swap, at the `EnvFacts` level -/
 
-/-- **The group rule-list swap, model-free**: an `EnvR` of the
+/-- **The group rule-list swap, model-free**: an `EnvFacts` of the
 provisional (rule-less) environment transports to the environment
 carrying the checked rule lists, with the *same* valuation —
 definitionally.
 
 The two rule fields are hypotheses, exactly as `EnvS.swap` takes
 `RecRulesV` as one: they are what the group install proves (there from
-the iota bottoms, here from `RuleFactsR`). -/
+the iota bottoms, here from `RuleFacts`). -/
 
-def EnvR.swap {env₀ env₃ : Env} (m₀ : EnvR env₀)
+def EnvFacts.swap {env₀ env₃ : Env} (m₀ : EnvFacts env₀)
     (hsw : SwapShList env₀.consts env₃.consts)
     (hwf : EnvWF env₃)
     (hle : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
@@ -75,7 +75,7 @@ def EnvR.swap {env₀ env₃ : Env} (m₀ : EnvR env₀)
           us.length = cv.levelParams.length →
           ∃ R, denoteClosed m₀.cval env₃ ψ
             (r.rhs.instantiateLevelParams cv.levelParams us) = some R) :
-    EnvR env₃ := by
+    EnvFacts env₃ := by
   have hcorr : ∀ n : Name,
       env₃.find? n = env₀.find? n ∨
       ∃ cv mI rP rules,
@@ -153,7 +153,7 @@ def EnvR.swap {env₀ env₃ : Env} (m₀ : EnvR env₀)
     exact m₀.nat_op_guard c hmem (by simp [natOpStored, hf₀])
 
 /-- The swap keeps the valuation — definitionally. -/
-theorem EnvR.swap_cval {env₀ env₃ : Env} (m₀ : EnvR env₀)
+theorem EnvFacts.swap_cval {env₀ env₃ : Env} (m₀ : EnvFacts env₀)
     (hsw : SwapShList env₀.consts env₃.consts) (hwf : EnvWF env₃)
     (hle : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
       (rules : List RecRule),
@@ -171,12 +171,12 @@ theorem EnvR.swap_cval {env₀ env₃ : Env} (m₀ : EnvR env₀)
 
 /-! ## The swapped environment's four syntactic facts
 
-`EnvR.swap` takes `EnvWF env₃` as a hypothesis and needs no
+`EnvFacts.swap` takes `EnvWF env₃` as a hypothesis and needs no
 `RecCtorsStored`/`BasisPinnedTT`/`ProjOkT` of its own — but the *P*
 lane's carrier (`EnvS2Core`) carries all four, and the [set] install
 proves them inside `indRecsS`.  They are extracted here so that the
 ind tier's two swaps (`indRecsCoreR` below and `EnvS2PM.swapP`) share
-one proof, off `RuleFactsR` alone.
+one proof, off `RuleFacts` alone.
 -/
 
 /-- **The four syntactic environment facts survive the group swap.** -/
@@ -189,12 +189,12 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
     (hentR : ∀ c ∈ env₃.consts, c ∈ envSelf.consts ∨
       ∃ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
         c = .recInfo cv mI rP rules ∧
-        ∀ rl ∈ rules, RuleFactsR envSelf cvalSelf cv mI rP rl)
+        ∀ rl ∈ rules, RuleFacts envSelf cvalSelf cv mI rP rl)
     (hentF : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
       (rules : List RecRule),
       env₃.find? n = some (.recInfo cv mI rP rules) →
       envSelf.find? n = some (.recInfo cv mI rP rules) ∨
-      ∀ rl ∈ rules, RuleFactsR envSelf cvalSelf cv mI rP rl) :
+      ∀ rl ∈ rules, RuleFacts envSelf cvalSelf cv mI rP rl) :
     EnvWF env₃ ∧ RecCtorsStored env₃ ∧
       BasisPinnedTT env₃ cvalSelf ∧ ProjOkT env₃ := by
   have hcg : SwapCongr envSelf env₃ := SwapShList.congr hswR
@@ -288,7 +288,7 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
         (hp3 n entry ((hsame _ _
           (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) htw)
 
-/-! ## The group phase, at the `EnvR` level -/
+/-! ## The group phase, at the `EnvFacts` level -/
 
 
 end Setlec.Semantics

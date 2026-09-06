@@ -10,7 +10,7 @@ comparisons only through `IotaWalksR`, six rows of quantified-context
 *derivation packs* at the v1 currency, which no P proof can read
 (`interp2_ne_interp_erase` refutes the transport, and derivation → run
 is false for a fuel-bounded incomplete checker).  The lead's widening
-(`IotaRunsR`, `SetR/Decl.lean`) records the runs the producer already
+(`IotaRuns`, `SetR/Decl.lean`) records the runs the producer already
 held; this file is their conversion.
 
 `defEqAtP_of_run` is `openWalk_eqS`'s P transpose and the pivot of
@@ -54,7 +54,7 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
 /-! ## One comparison -/
 
 /-- **A recorded comparison fires at a padded frame** —
-`openWalk_eqS`'s P transpose, at the currency `IotaRunsR`'s rows are
+`openWalk_eqS`'s P transpose, at the currency `IotaRuns`'s rows are
 recorded in.
 
 The context is the opened frame's (`ctxOkP_of_openers`), built once

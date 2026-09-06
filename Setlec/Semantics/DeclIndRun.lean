@@ -1,15 +1,15 @@
 import Setlec.Semantics.DeclRun
 
 /-!
-# `DeclIndRunR` — the inductive kind's run/guard record family (task
+# `DeclIndRun` — the inductive kind's run/guard record family (task
 #161 S11b, THE SEPARATION)
 
-`DeclRunR` (`SetBase/DeclRun.lean`) took the inductive kind's payload
+`DeclRun` (`SetBase/DeclRun.lean`) took the inductive kind's payload
 as a **parameter** `Ind` — S4's slot, held open because the ind tier's
 run projection was not yet designed.  This module supplies it.
 
 **The shape, and why it is exactly this** (task #161 S10 ruling 1,
-"payload ZERO"): the family below is `DeclIndR`
+"payload ZERO"): the family below is `DeclIndRun`
 (`SetBase/Decl.lean`) with every `∀ φ : Name → Nat, …` conjunct struck
 out.  That is not a preference — it is a measurement.  The S10 seal
 counted the derivation conjuncts the graded lane reads from the
@@ -20,32 +20,32 @@ from the *runs*.  The count is now **zero**, so the run family owes no
 derivation row at all.
 
 **And therefore it carries no valuation.**  Each record below takes
-`cval : TConstVal` in `DeclIndR` for one reason only — to state its
+`cval : TConstVal` in `DeclIndRun` for one reason only — to state its
 own `∀ φ` rows — and the block folds thread `cvalModeled` /
 `cvalWith` only to *feed* those rows at the next environment.  Strike
-the rows and the whole valuation column dies with them: `MemberValRunR`
-has no `cval` because `ConstantValRunR` has none, `IndMembersRunR` has
+the rows and the whole valuation column dies with them: `MemberValRun`
+has no `cval` because `ConstantValRun` has none, `IndMembersRun` has
 no running valuation because there is nothing left to key on it, and
-`DeclIndRunR` binds no intermediate `cvalM`/`cvalR`/`cvalP`.  The
-family is valuation-free outright, exactly like `DeclRunR` — no
+`DeclIndRun` binds no intermediate `cvalM`/`cvalR`/`cvalP`.  The
+family is valuation-free outright, exactly like `DeclRun` — no
 `denote`, no `Infer`, no `DefEq`, no `V`.
 
 **Reused verbatim, not re-stated** (the S4 discipline):
 
-* `IotaRunsR` (`SetBase/Decl.lean`) — the walks' *recorded runs* were
+* `IotaRuns` (`SetBase/Decl.lean`) — the walks' *recorded runs* were
   already valuation-free when H1 landed them, and both families point
   at the same definition;
-* `DeclIndR.TemplatesR` — the elimination-template pass never took a
+* `DeclIndRun.Templates` — the elimination-template pass never took a
   valuation (D6's refinement, cashed at T5 stage 6), so the run record
-  names the R family's own `TemplatesR`;
+  names the R family's own `Templates`;
 * `DefEqListOk` / `TypedListOk` — the run halves of the two typed
   walks, likewise already there.
 
-**What consumes it**: `checkDeclRun_ofEnvRE`'s `Ind` slot
-(`SetBase/Bridge/Sound.lean`), fed by `declIndRunRR`
+**What consumes it**: `checkDeclRun_ofEnvFactsE`'s `Ind` slot
+(`SetBase/Bridge/Sound.lean`), fed by `declIndRun_of`
 (`SetBase/Bridge/DeclIndRun.lean`), and the graded lane's ind tier
 (`SetP/DeclIndP.lean` and the eight files below it).  The R lane keeps
-proving `DeclIndR`: nothing here replaces it, and the two families are
+proving `DeclIndRun`: nothing here replaces it, and the two families are
 independent consumers of the same checker inversions.
 -/
 
@@ -56,13 +56,13 @@ open Setlec.TT Setlec.TTVerify
 /-! ## The block members -/
 
 /-- `MemberValR`'s run/guard half: the member's front door
-(`ConstantValRunR`) and the model-counterpart pins, which were always
+(`ConstantValRun`) and the model-counterpart pins, which were always
 pure stored-data lookups. -/
-def MemberValRunR (μ : CheckMode) (F : Nat) (env' : Env)
+def MemberValRun (μ : CheckMode) (F : Nat) (env' : Env)
     (blockNames : List Name) (cv : ConstantVal) (cvA : ConstantVal) :
     Prop :=
   ∃ type',
-    ConstantValRunR μ F env' cv type' ∧
+    ConstantValRun μ F env' cv type' ∧
     cvA = ⟨cv.name, cv.levelParams, type'⟩ ∧
     cvA.name.isModelSuffix = false ∧
     ∃ cvm mval hint,
@@ -80,23 +80,23 @@ def MemberValRunR (μ : CheckMode) (F : Nat) (env' : Env)
 and the front door is the only thing that reads it.  With the front
 door's derivation struck, the fold is a plain walk over the running
 *environment*. -/
-def IndMembersRunR (μ : CheckMode) (F : Nat)
+def IndMembersRun (μ : CheckMode) (F : Nat)
     (blockNames : List Name) (caps : IndCaps) :
     Env → List ConstantInfo → Env → Prop
   | env', [], env₂ => env₂ = env'
   | env', ci :: rest, env₂ =>
-    ∃ cvA, MemberValRunR μ F env' blockNames ci.toConstantVal cvA ∧
+    ∃ cvA, MemberValRun μ F env' blockNames ci.toConstantVal cvA ∧
       match ci with
       | .indInfo _ _ =>
-        IndMembersRunR μ F blockNames caps
+        IndMembersRun μ F blockNames caps
           ⟨.indInfo cvA caps :: env'.consts⟩ rest env₂
       | .ctorInfo _ nP nF =>
-        IndMembersRunR μ F blockNames caps
+        IndMembersRun μ F blockNames caps
           ⟨.ctorInfo cvA nP nF :: env'.consts⟩ rest env₂
       | _ => False
 
 /-- `ProvisionRecsR`'s run/guard half. -/
-def ProvisionRecsRunR (μ : CheckMode) (F : Nat)
+def ProvisionRecsRun (μ : CheckMode) (F : Nat)
     (blockNames : List Name) :
     Env → List ConstantInfo →
     Env → List (ConstantVal × Nat × Nat × List RecRule) → Prop
@@ -105,8 +105,8 @@ def ProvisionRecsRunR (μ : CheckMode) (F : Nat)
   | envAcc, ci :: rest, envSelf, checked =>
     ∃ cvA mI rP rules rest',
       ci = .recInfo ci.toConstantVal mI rP rules ∧
-      MemberValRunR μ F envAcc blockNames ci.toConstantVal cvA ∧
-      ProvisionRecsRunR μ F blockNames
+      MemberValRun μ F envAcc blockNames ci.toConstantVal cvA ∧
+      ProvisionRecsRun μ F blockNames
         ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest envSelf rest' ∧
       checked = (cvA, mI, rP, rules) :: rest'
 
@@ -114,9 +114,9 @@ def ProvisionRecsRunR (μ : CheckMode) (F : Nat)
 
 /-- `IotaThmR`'s run/guard half: the shape pins verbatim, the
 parameter-domain comparison's recorded run (`DefEqListOk`), and
-`IotaRunsR` — the six walk rows' checker verdicts.  What is struck is
+`IotaRuns` — the six walk rows' checker verdicts.  What is struck is
 the `∀ φ` parameter-domain walk and `IotaWalksR` itself. -/
-def IotaThmRunR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
+def IotaThmRun (μ : CheckMode) (F : Nat) (env' envSelf : Env)
     (f : Name → Name) (cvName : Name)
     (lps : List Name) (tyA : Expr) (mI rP j : Nat) (r : RecRule)
     (cvj : ConstantVal) (cnP cnF : Nat) (rhsA : Expr) : Prop :=
@@ -152,7 +152,7 @@ def IotaThmRunR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
          Expr.instLamsAt (fvsP ++ xFvsP) rhsA = some (ldomsL, lrest2) ∧
          DefEqListOk μ F envSelf depth
            ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP ∧
-         IotaRunsR μ F envSelf depth
+         IotaRuns μ F envSelf depth
            ((largs.drop rP).take (mI - rP)) (cres.getAppArgs.drop cnP)
            (xFvs.map Expr.fvarTypeD) (cdoms.drop cnP)
            ((fvs.take rP).map Expr.fvarTypeD) rdoms
@@ -162,9 +162,9 @@ def IotaThmRunR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
 
 /-- `IotaThmNR`'s run/guard half: the nested shape data verbatim (the
 generalized major pin, the `checkAnnotList` fixed points, the arity
-pin), the pins' recorded typing run (`TypedListOk`), and `IotaRunsR`.
+pin), the pins' recorded typing run (`TypedListOk`), and `IotaRuns`.
 Struck: the `∀ φ` `TypedListW` walk and `IotaWalksR`. -/
-def IotaThmNRunR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
+def IotaThmNRun (μ : CheckMode) (F : Nat) (env' envSelf : Env)
     (f : Name → Name) (cvName : Name)
     (lps : List Name) (tyA : Expr) (mI rP j : Nat) (r : RecRule)
     (cvj : ConstantVal) (cnP cnF : Nat) (rhsA : Expr)
@@ -216,7 +216,7 @@ def IotaThmNRunR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
          TypedListOk μ F envSelf depth
            (pins.map fun p =>
              Expr.instSpine (fvsP.take rP) (rP - 1) p) cdomsP ∧
-         IotaRunsR μ F envSelf depth
+         IotaRuns μ F envSelf depth
            ((largs.drop rP).take (mI - rP)) (cres.getAppArgs.drop cnP)
            (xFvs.map Expr.fvarTypeD) (cdoms.drop cnP)
            ((fvs.take rP).map Expr.fvarTypeD) rdoms
@@ -227,7 +227,7 @@ def IotaThmNRunR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
 /-- `IotaRuleR`'s run/guard half: the rhs guards, the annotate output,
 the λ-telescope shape and the fire-mode dispatch, with the rhs front
 door's derivation struck and its recorded `inferTypeCore` run kept. -/
-def IotaRuleRunR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
+def IotaRuleRun (μ : CheckMode) (F : Nat) (env' envSelf : Env)
     (f : Name → Name) (cvName : Name)
     (lps : List Name) (tyA : Expr) (mI rP j : Nat) (r r' : RecRule) :
     Prop :=
@@ -244,53 +244,53 @@ def IotaRuleRunR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
     ∃ fire,
       r' = { r with rhs := rhsA, ctorParams := cnP, fire := fire } ∧
       ((Expr.recRulePlain tyA mI rP cnP = true ∧ fire = .plain ∧
-          IotaThmRunR μ F env' envSelf f cvName lps tyA mI rP j r
+          IotaThmRun μ F env' envSelf f cvName lps tyA mI rP j r
             cvj cnP cnF rhsA) ∨
        (Expr.recRulePlain tyA mI rP cnP = false ∧
           ((fire = .inert ∧
             nestedRuleShape env' envSelf cvName lps tyA mI rP cnP j
               = none) ∨
            (∃ lvls pins, fire = .nested lvls pins ∧
-             IotaThmNRunR μ F env' envSelf f cvName lps tyA mI rP j r
+             IotaThmNRun μ F env' envSelf f cvName lps tyA mI rP j r
                cvj cnP cnF rhsA lvls pins))))
 
 /-- `IotaRulesR`'s run/guard half. -/
-def IotaRulesRunR (μ : CheckMode) (F : Nat) (env' envSelf : Env)
+def IotaRulesRun (μ : CheckMode) (F : Nat) (env' envSelf : Env)
     (f : Name → Name) (cvName : Name)
     (lps : List Name) (tyA : Expr) (mI rP : Nat) :
     Nat → List RecRule → List RecRule → Prop
   | _, [], out => out = []
   | j, r :: rest, out =>
     ∃ r' rest',
-      IotaRuleRunR μ F env' envSelf f cvName lps tyA mI rP j r r' ∧
-      IotaRulesRunR μ F env' envSelf f cvName lps tyA mI rP
+      IotaRuleRun μ F env' envSelf f cvName lps tyA mI rP j r r' ∧
+      IotaRulesRun μ F env' envSelf f cvName lps tyA mI rP
         (j + 1) rest rest' ∧
       out = r' :: rest'
 
 /-- `IndRecsR`'s run/guard half. -/
-def IndRecsRunR (μ : CheckMode) (F : Nat)
+def IndRecsRun (μ : CheckMode) (F : Nat)
     (blockNames : List Name) (env₂ : Env)
     (recs : List ConstantInfo) (env₃ : Env) : Prop :=
   (recs = [] ∧ env₃ = env₂) ∨
   (recs ≠ [] ∧
    env₂.find? eqName = some eqA ∧
    ∃ envSelf checked,
-     ProvisionRecsRunR μ F blockNames env₂ recs envSelf checked ∧
-     IndRecsFoldRunR μ F blockNames env₂ envSelf env₂ checked env₃)
+     ProvisionRecsRun μ F blockNames env₂ recs envSelf checked ∧
+     IndRecsFoldRun μ F blockNames env₂ envSelf env₂ checked env₃)
 where
   /-- The install fold over the provisioned group, run half. -/
-  IndRecsFoldRunR (μ : CheckMode) (F : Nat) (blockNames : List Name)
+  IndRecsFoldRun (μ : CheckMode) (F : Nat) (blockNames : List Name)
       (envBase envSelf : Env) :
       Env → List (ConstantVal × Nat × Nat × List RecRule) →
       Env → Prop
     | acc, [], out => out = acc
     | acc, c :: rest, out =>
       ∃ rules',
-        IotaRulesRunR μ F envBase envSelf
+        IotaRulesRun μ F envBase envSelf
           (fun n => if blockNames.contains n then n.str "_model" else n)
           c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
           rules' ∧
-        IndRecsFoldRunR μ F blockNames envBase envSelf
+        IndRecsFoldRun μ F blockNames envBase envSelf
           ⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ rest out
 
 /-! ## The projection phase -/
@@ -299,7 +299,7 @@ where
 with the rule's front-door derivation and the `proj_i.iota` sides
 pack's `∀ φ` walk struck (their recorded runs — the `inferTypeCore`
 verdict and `checkIotaSidesTy`'s literal pair — stay). -/
-def ProjFnRunR (μ : CheckMode) (F : Nat) (env' : Env)
+def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
     (T ctorName : Name) (lps : List Name) (nP nF i : Nat)
     (env'' : Env) : Prop :=
   ∃ cvj mcv mval mhint pty rhsA,
@@ -373,32 +373,32 @@ def ProjFnRunR (μ : CheckMode) (F : Nat) (env' : Env)
 /-- `ProjInstallR`'s run/guard half.  The valuation the install picks
 for the projection function (`cvalWith … (projModelName T i)`) was the
 `ProjFnR` front door's, so it goes with it. -/
-def ProjInstallRunR (μ : CheckMode) (F : Nat)
+def ProjInstallRun (μ : CheckMode) (F : Nat)
     (T ctorName : Name) (lps : List Name) (nP nF : Nat) :
     Env → List Nat → Env → Prop
   | env', [], env₄ => env₄ = env'
   | env', i :: rest, env₄ =>
     ∃ env'',
-      (ProjFnRunR μ F env' T ctorName lps nP nF i env'' ∨
+      (ProjFnRun μ F env' T ctorName lps nP nF i env'' ∨
        ((env'.find? (projModelName T i)).isNone = true ∧
          env'' = env')) ∧
-      ProjInstallRunR μ F T ctorName lps nP nF env'' rest env₄
+      ProjInstallRun μ F T ctorName lps nP nF env'' rest env₄
 
 /-! ## The assembly -/
 
-/-- **The inductive kind's run/guard record** — `DeclRunR`'s `Ind`
+/-- **The inductive kind's run/guard record** — `DeclRun`'s `Ind`
 parameter, at last (task #161 S11b).
 
-`DeclIndR` with every `∀ φ` conjunct struck and the valuation column
+`DeclIndRun` with every `∀ φ` conjunct struck and the valuation column
 gone with them.  The block split pins, the member fold, the recursor
 group, the constructor residual and projection-freshness guards, the
 projection installs and the elimination templates are carried
 unchanged — they are stored-data guards and checker verdicts
 throughout.
 
-`DeclIndR.TemplatesR` is re-used **verbatim**: that pass never took a
+`DeclIndRun.Templates` is re-used **verbatim**: that pass never took a
 valuation. -/
-def DeclIndRunR (μ : CheckMode) (F : Nat) (env : Env)
+def DeclIndRun (μ : CheckMode) (F : Nat) (env : Env)
     (block : List ConstantInfo) (env₂ : Env) : Prop :=
   let recs := block.filter (fun ci => match ci with
     | .recInfo _ _ _ _ => true | _ => false)
@@ -414,17 +414,17 @@ def DeclIndRunR (μ : CheckMode) (F : Nat) (env : Env)
         = [.ctorInfo cvC nP nF] ∧
       (let caps := indBlockCaps μ env cvT cvC nP nF
        ∃ envM envR,
-         IndMembersRunR μ F blockNames caps env nonrecs envM ∧
-         IndRecsRunR μ F blockNames envM recs envR ∧
+         IndMembersRun μ F blockNames caps env nonrecs envM ∧
+         IndRecsRun μ F blockNames envM recs envR ∧
          ctorResidualOk μ envR cvT.name cvC.name cvT.levelParams nP nF
            caps.eta = true ∧
          (List.range nF).all
            (fun j => (envR.find? (projFnName cvT.name j)).isNone)
            = true ∧
          ∃ envP,
-           ProjInstallRunR μ F cvT.name cvC.name cvT.levelParams nP nF
+           ProjInstallRun μ F cvT.name cvC.name cvT.levelParams nP nF
              envR (List.range nF) envP ∧
-           DeclIndR.TemplatesR cvT.name cvC.name cvT.levelParams nP nF
+           DeclIndRun.Templates cvT.name cvC.name cvT.levelParams nP nF
              envP (List.range nF) env₂)) ∨
    (¬ (∃ cvT capsT cvC nP nF,
         block.filter (fun ci => match ci with
@@ -433,7 +433,7 @@ def DeclIndRunR (μ : CheckMode) (F : Nat) (env : Env)
           | .ctorInfo _ _ _ => true | _ => false)
           = [.ctorInfo cvC nP nF]) ∧
     ∃ envM,
-      IndMembersRunR μ F blockNames {} env nonrecs envM ∧
-      IndRecsRunR μ F blockNames envM recs env₂))
+      IndMembersRun μ F blockNames {} env nonrecs envM ∧
+      IndRecsRun μ F blockNames envM recs env₂))
 
 end Setlec.Semantics
