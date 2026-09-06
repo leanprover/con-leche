@@ -393,6 +393,10 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     ∃ (idxArgs : List Expr) (ds : (Name → Nat) → List (Nat × Nat × AVExpr))
       (Es : (Name → Nat) → List AVExpr) (srcs : List (Option Nat)),
       (∀ e ∈ idxArgs, e.constsResolve env₀ = true) ∧
+      (∃ (fvsP : List Expr) (crest : Expr) (xFvs : List Expr) (xrest : Expr),
+        openPisAtFvars nP cvCa.type 0 = some (fvsP, crest) ∧
+        openPisAtFvars nF crest nP = some (xFvs, xrest) ∧
+        idxArgs = xrest.getAppArgs.drop nP) ∧
       CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs := by
   obtain ⟨hccv, hresid, fvsP, crest, tfvs, trest, xFvs, idxArgs, sorts, hopC, -, -, hopX, hlenI,
     -, hres, hsorts⟩ := Setlec.checkDirectSumCtor_shape hCtor
@@ -489,7 +493,9 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   have hspec : ∀ ψ, _ := fun ψ => Classical.choose_spec (Classical.choose_spec (hper ψ))
   refine ⟨idxArgs, fun ψ => Classical.choose (hper ψ),
     fun ψ => Classical.choose (Classical.choose_spec (hper ψ)),
-    srcsOf xFvs idxArgs sorts nF, hres, ?_⟩
+    srcsOf xFvs idxArgs sorts nF, hres, ⟨fvsP, crest, xFvs, _, hopC, hopX, ?_⟩, ?_⟩
+  · rw [Expr.getAppArgs_mkAppN, show (Expr.const T (lps.map .param)).getAppArgs = [] from rfl,
+      List.nil_append, List.drop_left' hlenP]
   refine ⟨hresid, fun ψ => (hspec ψ).1, fun ψ => (hspec ψ).2.1, fun ψ => (hspec ψ).2.2.1,
     hlenI, fun ψ => (hspec ψ).2.2.2.1,
     fun ψ => (hspec ψ).2.2.2.2.1, fun ψ => (hspec ψ).2.2.2.2.2.1,
