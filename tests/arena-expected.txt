@@ -186,4 +186,10 @@
 3 bad/tutorial/135_misnamed_rec_user.ndjson
 1 bad/tutorial/136_dup_rec_def2.ndjson
 1 bad/tutorial/137_dup_ctor_rec.ndjson
+# 138_DupConCon (task #175 sum-types, 2026-09-06): a two-constructor
+# block whose constructors share a name.  The direct SUM route checks
+# all constructors at the former's environment and conses them
+# afterwards, so it guards the names pairwise distinct up front and
+# REJECTS (the reference-correct verdict; the modeled route declined
+# at the preprocessor's model check).
 1 bad/tutorial/138_DupConCon.ndjson

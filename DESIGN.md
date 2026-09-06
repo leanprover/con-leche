@@ -47647,7 +47647,6 @@ the next finder, since the mechanism §5 was written against has been
 removed.  The §7 tools and §8's "work against the slice, not the
 stream" stand.
 
-
 ## Task #179 — no threads, and the linearity audit that followed (2026-09-06, `agent/linear-audit`)
 
 **The user's brief:** *"oh, no threads please! and 6% array copying is
@@ -47888,6 +47887,533 @@ divergences); `tests/layering.sh` base 237 / P 156 / caps 2 / umbrella 1,
 across 4 capstones, **0 doors** — no regeneration needed; `init-full`
 accepted, 60 549 declarations, in both modes.  PERF.md's table is now
 stale by 16 % on `init-full` and should be regenerated at the landing.
+## TASK #175 SUM TYPES — THE DIRECT ROUTE AT ANY NUMBER OF CONSTRUCTORS OTHER THAN ONE (2026-09-06, `agent/sum-types`)
+
+### 0. What landed
+
+Fifteen commits off master `bb7047dd` (the S2 merge), gated at the
+branch's own tip: 50 files, **+11 106 / −52**; the new modules
+(kernel `Direct/Sum{Parts,Install,InstallF}`, model
+`SetModel/TaggedSum`, `Semantics/Tower/Sum{Case,Leaf,Mk,RecCase,Rec,
+Wire}`, `Semantics/Direct/DeclDirectSum{,Eta}`, `Verify/Direct/Sum{Inv,
+WF,Rec}`, `SetP/DirectSum/*` — twelve modules) total 7 920 lines.
+The single-constructor route (`directParts?` → `checkDirectStruct`:
+table, η, projections) is untouched: the dispatch is a three-way
+`match` (`directParts?`, then `directSumParts?`, then the modeled
+path) in `Setlec/Kernel/Checker.lean`, `Setlec/Cached/CheckerC.lean`,
+`Setlec/Cached/ParsedC.lean`, and every verification twin of it.
+
+**Size, and what the indexed-families task inherits.**  Of the 7 900
+lines, about **2 000 are the per-constructor LIST MACHINERY**, reusable
+as is by any multi-constructor route: the position-indexed data
+function `dsF` with `ctorDataList`/`CtorFactsAt`/`ctorReads_of`
+(`SumRecDataP`), the minors' telescope read by one list induction
+(`CtorReads`, `denoteP_minorsPis`/`denoteP_minorsLams`, `minorAVAt`,
+`sumMinorsData`; `SumRecReadP`), the minor chain's walk and frame
+(`sumMinorsTail`, `RecTailS`/`TailFrame`, `recTailS_spine`,
+`sumRecSpine_facts`; `SumRecFramesP`/`SumRecLawP`), and the
+constructors' cons loop with its two invariants (`ConsedAt`/
+`PendingAt`, `sumCtorsLoop`; `DeclDirectSumP`) plus the kernel's
+list-shaped stages (`checkDirectSumCtors`/`consSumCtors`/
+`checkDirectSumRules` and their inversions).  The remaining ~5 900
+are SUM-SPECIFIC: the tagged union and its laws (`TaggedSum`), the
+syntactic `Nat.rec` case split at explicit depth and the three leaves
+(`SumCase`/`SumLeaf`/`SumMk`/`SumRecCase`/`SumRec`/`SumWire`, ~2 060
+lines — the biggest block), the elimination restriction, and the
+per-stage proofs that read those leaves.  An indexed route keeps the
+first part verbatim (the loop is agnostic to the carrier) and
+replaces the leaves and their laws by the fibre construction (§6).
+
+**The class.**  A non-recursive, non-indexed, non-nested inductive
+block with `n ≠ 1` constructors: enumerations (`Bool`, `Ordering`,
+`Lean.SourceInfo`), `Option`, `Sum`/`PSum`, `Decidable`, `Except`,
+`Or`-shaped `Prop`s, and the zero-constructor blocks (`False`,
+`PEmpty`; the pinned `Empty` stays a basis type, its name reserved).
+No projections, no η, no unit-likeness, no K: the block is stored with
+the empty capability record and the recursor carries `n` plain rules.
+
+### 1. The model
+
+**The carrier** (`Setlec/SetModel/TaggedSum.lean`).  Constructor `i`'s
+fibre is its tuple tower; the carrier is the tagged disjoint union
+
+    sumSet w f  := sigmaSet w ω (natFibre f)        natFibre f (vnat i) = f i,
+    inj i a     := spair (vnat i) a                  natFibre f k       = ∅ off the numerals
+    sumRec      := the case split on the tag
+
+— a `sigmaSet` over the numerals, so both regimes come for free from
+`sigmaSet`'s own zero test: at `w = 0` the carrier is `pt`'s squash and
+every injection is the point (`injW 0 i a = pt`).  The laws are proved
+once for all constructors: membership (`inj_mem`, `sumSet_elim`), tag
+disjointness (`inj_inj`, `sfst_inj`, `ssnd_inj`), the eliminator's
+iota (`sumRec_inj`), and the universe bound (`sumSet_mem_univ`, off
+`omega_mem_univ_succ`).
+
+**The spelling** (`Semantics/Tower/SumCase.lean`).  The case split is
+SYNTACTIC: `caseAVAt w Ts d k` is a nested `Nat.rec.{w+1}` on the tag
+`k` with the constant motive `λ _ : Nat, Sort w` and the branches
+`Ts` lifted by the explicit depth `d` (no substitution — the depth is
+threaded through every spelling).  The carrier body is a `psigma
+[w,w] Nat (λ k. case k)` in the graph regime and `¬ ∀ k : Nat, ¬ case
+k` at squash (`sumBodyAV`); the injection at constructor `j` is
+`psigmaMk [w,w] Nat (λ k. case k) (numeral j) payload`
+(`sumInjAtAV`); the recursor body is a nested `Nat.rec.{imax w ℓ}`
+case split on `proj 0 (bvar 0)` applied to `proj 1 (bvar 0)`
+(`caseRecAV`/`sumRecBodyAV`), the motive and the `n` minors read off
+the frame at explicit depth `D = n + 2` (`RecFrameS`).  The three
+leaves are the λ-towers over the parameter data (former,
+`directSumTyAV`), the parameter + field data (constructor `j`,
+`directSumMkAV`), and the recursor's data (`directSumRecAV`) —
+`mkLamsC`, as the structure route's.
+
+### 2. The kernel
+
+**The recogniser** (`Setlec/Kernel/Direct/SumParts.lean`,
+`directSumPartsCore?`): one type, `n ≠ 1` constructors, one recursor
+named `T.rec` with `mI = rP = nP + n + 1`, every constructor at the
+block's level parameters with `nP` parameters and the result `T p⃗`
+(`directFam`), the recursor's rules positionally `⟨C_j, nF_j, nP,
+plain, λ p⃗ motive m⃗ f⃗. m_j f⃗⟩` (`directSumRulesOk` /
+`directRuleBodyAt`), the former stripping to a sort; large/small
+elimination from the recursor's level parameters (`elim :: lps` /
+`lps`).  `directSumNonRec` (the `directNonRec` twin) is the
+non-recursiveness gate: every constructor's field domain resolves in
+the pre-block environment.
+
+**The install** (`Setlec/Kernel/Direct/SumInstall.lean`,
+`checkDirectSum`).  Two front guards, then three stages:
+
+  * *the elimination restriction* — official `elim_only_at_universe_
+    zero`: `large ∧ ¬ resSort.isNeverZero ∧ 2 ≤ n` is REJECTED (a
+    large eliminator on a multi-constructor inductive whose sort may
+    be `Prop` is inconsistent with proof irrelevance: at squash every
+    constructor value is the point); a zero-constructor `Prop` keeps
+    its large eliminator (`False.rec`);
+  * *distinct names* — `(ctors.map name).Nodup`, because the
+    constructors are all checked at the FORMER'S environment
+    (`checkDirectSumCtors`: `checkConstantVal`, the telescope shape,
+    the parameter domains against the former's, the field sorts with
+    the official per-field bound, the residual `T p⃗`) and consed
+    afterwards (`consSumCtors`, the first constructor deepest) — the
+    one-pass discipline the P proof wants (§4); a duplicate name would
+    make the second cons shadow the first.  Arena
+    `138_DupConCon` (two constructors of one name) therefore REJECTS
+    (`1`, the reference-correct verdict) where the modeled route
+    declined (`2`); `tests/arena-expected.txt` records it;
+  * *the recursor* — S2's discipline at a constructor list:
+    `directRecTy` over `ctorsA.map (name, nF, type)` generates the
+    type (`∀ p⃗ motive m_0 … m_{n-1} (t : T p⃗), motive t`, the minors by
+    `directMinorsPis` with the offset threaded), `checkConstantVal` on
+    the stream's recursor, scoping guards, infer + `ensureSort`, ONE
+    closed `isDefEq` against the stream's type, and the `n` rules by
+    `checkDirectSumRules` (each generated by `directRecRhs … j`,
+    scoped-checked and inferred); the stored recursor is the
+    generated one with `directSumRules` (`plain` iff `recRulePlain`).
+
+`Setlec/Kernel/Direct/SumInstallF.lean` is the index twin.  Both cached
+drivers dispatch (`checkDirectSumS` with the flushes).
+
+**The preprocessor** (`SetlecPreprocess.lean`, `setlecNative`) gained
+the mirror arm in the same batch: a `.induct [type] ctors [rec]` block
+with `ctors.length ≠ 1` and the recogniser's conjuncts is left
+`native`.  Over the raw init-full export the widened `setlec-
+preprocess` leaves **534** blocks native (477 single-constructor, 42
+sums — 3 zero-constructor, 22 two-, 9 three-, 4 four-, 3 five-, 1
+nineteen-constructor — and 15 of the preprocessor's own `_wcore`/tag
+blocks), the stream shrinking from 335.7 MB to 327.9 MB.
+
+### 3. The verification tier
+
+`Verify/Direct/SumInv.lean` inverts every stage (the constructor
+shape with its openings and sorts, `checkDirectSumCtors_inv`
+positionally, the rules positionally, the recursor's shape, the
+recogniser — now also carrying `∀ q ∈ cvT.levelParams, q ∈
+cvR.levelParams`, which the leaf's level-dependence needs);
+`SumWF.lean` the well-formedness (the conses by
+`envWF_consSumCtors`); `SumRec.lean` the generated forms' syntactic
+kit at a list — `directRecTy_unfold`/`directRecRhs_unfold`,
+`instSeq_minorBody_at` (the minor's conclusion under `o` extras: the
+motive is extra 0), `instSeq_ruleBody_at` (minor `j` is extra `j+1`),
+the `NoProjAt` walks, `Level.isNeverZero_sound`, and
+`directSumRules_getElem?`.  `Semantics/Direct/DeclDirectSum.lean`
+is the run relation (the two guards as facts, the three runs, the
+install spine) with the three-arm `DeclIndRunDispatch`;
+`DeclDirectSumEta.lean` its η-closure; `BridgeDecl`'s dproj/datF
+stanzas, `CheckerF`'s `_eq` lemmas, `BridgeCS3`'s sims,
+`BridgeCSDecl`'s run bridge and `AgreeFloor`'s skeletons cover the
+cached tier (the plumbing sub-batch, one Opus agent, reviewed).
+
+### 4. The P proof (`Setlec/SetP/DirectSum/*`)
+
+The shape follows the structure route stage for stage, the list
+threaded as a POSITION-INDEXED DATA FUNCTION `dsF : Nat → (Name → Nat)
+→ List (Nat × Nat × AVExpr)` (`ctorDataList dsF ψ ctorsA 0` is the
+constructor data list at `ψ`, `fssOf nP` its field chains):
+
+  * **readings** (`SumRecReadP`): `denoteP_minorsPis` /
+    `denoteP_minorsLams` read the minors' telescope by ONE induction
+    over the constructor list, the accumulated variables (the motive,
+    then the earlier minors) threaded as `extras` indexed from `nP`;
+    `denoteP_directRecTy_sum` reads the generated type to the Π-tower
+    over `sumRecDataAV = rebit b pps ++ [motive] ++ sumMinorsData ++
+    [major]`, `denoteP_directRecRhs_sum` rule `j` to the λ-tower over
+    `sumRuleDataAV` with the core `minor_j f⃗`
+    (`sumRuleCoreAV nF n j = mkAppN (bvar (nF + n - 1 - j)) f⃗`);
+  * **data** (`SumDataP`, `SumRecDataP`): each constructor's
+    `CtorData` and frames (`sumCtorData_of`, `sumCtorFrames`), the
+    recursor's `SumRecData` (`n` minor entries, the core `motive t`
+    under the motive and `n` minors) and rule `j`'s reading and
+    grading by its own inference run (`sumRuleData_of`);
+  * **frames** (`SumRecFramesP`): `sumRecFrames` computes `RecBaseS`
+    at a parameter frame — the motive entry to `Π (t : carrier), Sort
+    ℓ`, minor `j` (at the frame under the motive and the earlier
+    minors, `sumMinorsTail` walking the chain with the reversed
+    context's `Sat2` threaded) to `minorSpC ℓ M (ctorVal w j) Fs_j`
+    by `interp_minorSpC_of_tele`, the major to the carrier by
+    `sumFamSpine_val`; the elimination restriction's readout `hwl :
+    w = 0 → n = 0 ∨ ℓ = 0` is exactly `Level.isNeverZero_sound` plus
+    `n ≠ 1`;
+  * **walks and the law** (`SumRecLawP`): a spine fitting the
+    recursor's data splits as parameters/motive/minors/major and
+    yields `RecFrameS`, `RecHypS` and the major's membership
+    (`sumRecSpine_facts`, off `recTailS_spine`); the leaf's `RecPreS`
+    and validity walks (`sumRecWalks`; the body's validity at a full
+    frame needs the semantic premises, read off the frame's spine);
+    `sumRecLawCore`: both sides fold to minor `j` at the fields — at
+    `ℓ = 0` both are the point (no field bookkeeping at all), in the
+    graph regime by the body's iota `sumRecBody_iota`;
+  * **stages**: `stageSumFormer` (the empty capability record: the
+    η/unit laws are vacuous), `stageSumCtor` (constructor `j` at any
+    environment holding the former), `stageSumRec` (`sumRecRuleLaw`
+    per stored rule via `directSumRules_getElem?`; the leaf's level
+    dependence needs the recogniser's `lps ⊆ cvR.levelParams`);
+  * **the assembly** (`DeclDirectSumP`): the former is staged TWICE —
+    first with the empty chain list, to read every constructor's
+    field data at a carrier storing the former (`Classical.choose`
+    over the positions makes `dsF₀`), then with the chains read; the
+    readings are identified past the parameters by
+    `denoteP_openPis_agree` (no field domain mentions the former —
+    `checkDirectSumCtor`'s resolution guard at the PRE-BLOCK
+    environment); then `sumCtorsLoop` conses the constructors in
+    order with two invariants — `ConsedAt` (every earlier
+    constructor's facts and leaf cross each later cons; the leaves by
+    `acvalWith_ne` off the distinct names) and `PendingAt` (every
+    later constructor stays fresh, resolves, and its data crosses) —
+    and `stageSumRec` closes.  `FoldP`'s three-arm dispatch calls it;
+    the sorry stub is gone.
+
+### 5. Fixtures and gates
+
+`tests/e2e/direct_sum_{enum,option,or}.ndjson` (exported through
+`setlec-preprocess`, so every sum block is native: a three-
+constructor enumeration with iota on every constructor through `rec`
+and `casesOn`; `Opt`, the universe-polymorphic `Sum'`, `Dec p` and the
+zero-constructor `False`; the two-constructor `Prop` `Or'` with the
+small eliminator through `Or'.elim`, the zero-constructor `Prop`
+`Absurd` with its LARGE eliminator, `Nil : Type`) accept;
+`direct_sum_or_large_bad.ndjson` (`Or'.rec`'s motive patched to
+`Sort u`) rejects.  Arena/e2e blocks now going direct-sum
+(`setlec-preprocess`'s `native` lines joined with the streams'
+constructor counts): `Bool` in 40 tutorial/e2e fixtures (`035_boolType`
+… `097_ruleK`, the `nat_*`, `str_*`, `trust_*` suites), `Color` (2,
+the rb-tree fixtures), `BoolProp`, `MyBool`, `False`, `Or`,
+`Decidable`, `Option`, `Except`, `Int`, `Ordering`, `PEmpty`,
+`Lean.SourceInfo`, `Lean.Syntax.Preresolved`, `EStateM.Result`,
+`Lean.Macro.Exception` (init-prelude and the grind fixture), `Dep`
+(`direct_nested_dep`), `Bad` (`proj-non-structure`).
+
+Receipts at `ac61e9f9`: `lake build` warning-free (641 jobs), `lake
+test` green, `tests/layering.sh` (`base 250 / P 166 / caps 2 /
+umbrella 1; 0 base->lane, 0 impl->theory`), `tests/arena.sh`
+0 FAIL (tutorial 90/92 good accepted — the two custom-axiom declines
+by design —, e2e 82/82, annot 14/14, retired flags 8/8, mode flags
+16/16, the trusted sweep 138 + 82 + 14 with the 3 recorded
+divergences; the only verdict change in the whole suite is
+`138_DupConCon` 2 → 1), `tests/proofdeps.sh` regenerated — the 99 doors are
+exactly the sum modules entering the four capstones' closures
+(`foldSPC_PM`, `sound_P`, `SPCD_P`, `P`; 1 461 rows now, 0 doors
+after the pin), the four capstones' axioms exactly `[propext,
+Classical.choice, Quot.sound]`, init-full-pre2 `--pre --verified`
+60 549 accepted (exit 0) and `--pre --trusted` 60 549 (exit 0), the
+REGENERATED init-full stream (widened `setlec-preprocess`, 534 native
+blocks) `--verified` 55 931 (exit 0) and `--trusted` 55 931 (exit 0; the
+stream carries 4 618 fewer declarations — the `_model` artifacts of
+the 534 native blocks are no longer emitted — and every remaining one
+accepts), the
+Mathlib slice `diseq-slice-pre.ndjson` 1 790 accepted (exit 0).
+`tests/native-agree.sh` is SKIPPED here as on master (the stock
+`lean-inductive-models` is not built in the workspace).
+Re-gated once at the master merge `5e65b404` (master `61899d09`: the
+basis literals, the affine `typeAtI` fix, the linear audit; CoreC's two
+foreign hunks merged clean): build warning-free (647 jobs), `lake
+test` green, `tests/arena.sh` exit 0 (layering `base 252 / P 166`,
+proofdeps 1 441 rows / 0 doors as auto-merged, pindump fresh, 90/92 ·
+83/83 · 14/14 · 8/8 · 16/16, the trusted sweep), init-full-pre2
+`--verified` 60 549 and `--trusted` 60 549 (exit 0), the four
+capstones' axioms unchanged.
+
+### 6. What indexed families need next — the fibre construction
+
+The sum route stops exactly at indices: with `numIndices = 0` the
+carrier is one set and the tag is the only case split.  An indexed
+family `T p⃗ : I → Sort w` needs a carrier PER INDEX VALUE — a function
+`fibre : ⟦I⟧ → V` with `T p⃗ i ↦ fibre i` — whose fibre at `i` is the
+tagged union of those constructor towers whose RESULT index (a term
+over the fields) evaluates to `i`: `fibre i = sumSet w (λ k. {tower
+of ctor k restricted to ⟦idx_k f⃗⟧ = i})`.  The pieces this batch
+leaves ready: the tag split over `ω` (`natFibre`) and the per-
+constructor towers are unchanged; what is new is (a) the restriction
+of a tower to an index-equation (a separation over the tower by the
+interpreted index term — `sepSet`, over the SetTheory interface), (b)
+the former's leaf becoming a λ over the index binders whose body is
+the restricted union, (c) the recursor's motive `∀ i (t : T p⃗ i), Sort
+ℓ` and the major's index arguments, and (d) the rule law's iota with
+the index equation discharged by the constructor's result index.  The
+one-constructor indexed family (SigmaHom, DESIGN §"TASK #175
+SigmaHom") is the `n = 1` instance of the same construction; the K
+rule at a zero-field indexed `Prop` is the squash instance.  Not done
+here.
+
+## Mathlib frontier tooling: `scripts/resume_slice.py` — the resume slice, and the measurement that at rung 5 it buys **0.25 %** (2026-09-06, `agent/resume-slice`)
+
+The ladder tools so far all cut *forward*: `slice_fast.py` keeps a
+target's cone and truncates there, `cut_decl_cone.py` removes a
+declaration's dependents.  The one the campaign was missing cuts
+*backward*: after a rung has been localised, everything before it has
+a known verdict, so re-checking it on the next attempt is pure
+latency.  `scripts/resume_slice.py` is that tool, and this section is
+both its README and the finding that came out of running it.
+
+### 1. What it does
+
+    scripts/resume_slice.py [--dry-run] [--report FILE] STREAM CUT [OUT]
+
+`CUT` is a 1-based declaration-record index (`decl_index.py`'s
+numbering) or a declaration name; the cut record is the first record of
+the kept suffix.  The output is a valid `setlec --pre` stream holding
+
+* every record at or after the cut, verbatim;
+* of the records before the cut, exactly the transitive dependency
+  closure reachable from the kept suffix;
+* every `in`, `il` and `meta` record (a few percent of the stream — no
+  name or level closure is needed), and the kept `ie` records **at
+  their original ids**, gaps and all, exactly as `slice_fast.py`
+  emits them.
+
+Four keep-rules beyond plain reachability, each of them load-bearing
+against a *silent* behaviour change rather than against a dangling
+reference:
+
+| rule | why |
+|---|---|
+| the `_model` companions of every kept declaration | `Kernel/Checker.lean`'s `directParts?` requires a block's companions to be **absent** to take the direct route, so dropping one flips the install route; `projRewriteD` reads the block's `T._model.proj_i.iota` artifacts, which no expression references |
+| the pinned basis blocks `Eq`, `Nat`, `PUnit`, `Empty` | `punitSeen` gates the projection-function rewrite (65 sites on this stream); the quotient basis install demands the pinned `Eq` |
+| every `quot` record | slot 0 is what pushes `.basisDecl .quotK` |
+| every `axiom` record | an axiom record is where a non-standard axiom's *positive decline* happens; keeping them all means a resume slice can never lose that verdict |
+
+Tolerated-axiom taint needs no rule of its own: taint *propagates*
+through the slice, because a kept declaration that used a skipped axiom
+still arrives with its tainted dependency present.  What the slice
+cannot reproduce is the *size* of the final `declined:` summary —
+dropped prefix declarations contribute no skips.
+
+### 2. The soundness caveat (in the script header too)
+
+**A resume slice has a smaller resident base than the full stream.**
+The parsed prefix is most of the checker's flat RSS — 12.2 GiB of the
+18.7 GiB ceiling on full Mathlib — so a *memory* blow-up the full run
+hits can fail to reproduce on the slice.  This is the finder's argument
+against a prefix bisect (§2 of "The Mathlib frontier at 24.97 %"),
+verbatim and in the same direction: **a slice can only hide a failure,
+never invent one.**  It is a localisation and re-check tool.  It is
+never the acceptance run, and its wall times and peak RSS are not the
+stream's.
+
+One further, smaller caveat: reference extraction is regex-based over
+the raw JSON, as in every slicer here, so a `strVal` payload spelling
+`"type":123` would be read as a reference.  That over-keeps; it never
+under-keeps.
+
+### 3. The finding: at rung 5 there is nothing to cut
+
+Run against `_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson`
+(5 708 171 489 B, **670 982** declaration records — the *native*
+preprocessor's stream, whose record numbering differs from the old
+`mathlib-full-pre.ndjson`; rung 5 sits at **198 370 / 670 982 =
+29.564 %** here, not 32.216 %):
+
+| | |
+|---|---|
+| cut | record 198 370, `thm Algebra.tensorH1CotangentOfIsLocalization_toLinearMap` |
+| prefix declaration records | 198 369 — **195 620 kept (98.614 %)**, 2 749 dropped |
+| prefix expression records | 32 163 542 — 31 922 944 kept, 240 598 dropped |
+| bytes | 5 708 171 489 → 5 693 668 882 kept = **99.746 %** |
+| what the resume slice buys | **0.254 % of the stream** |
+
+**At the ladder's live rung a resume slice buys essentially nothing.**
+The prefix of Mathlib at 30 % is the shared algebraic base, and the
+remaining 70 % still reaches almost all of it.  The mechanism is
+transitivity, not breadth: the suffix names only **56 294** prefix
+records *directly*; the other **139 326** come in as the dependency
+closure of those.  So a private `_simp` auxiliary survives the cut
+because the public lemma that uses it survives, and that public lemma
+survives because something in the last 70 % cites it.
+
+The payoff is a function of where the cut is, and the shape is worth
+recording, because it says when the tool is worth reaching for:
+
+| stream | cut | prefix records dropped | bytes dropped |
+|---|---|---|---|
+| Mathlib (native) | 29.564 % (**rung 5**) | 1.386 % | **0.254 %** |
+| Mathlib (native) | 50.000 % | 6.707 % | 2.346 % |
+| Mathlib (native) | 90.000 % | 40.400 % | 29.040 % |
+| `init-full-pre-native` | 50.001 % | 16.431 % | 7.419 % |
+| `std-time-cone/pre` | 70.909 % | 14.254 % | 16.315 % |
+
+The curve is convex and it is *late*: half of Mathlib is worth 2.3 % of
+the bytes, and only at 90 % does the tool return anything like the cut
+fraction.  The reading is the corpus's, not the checker's — Mathlib is
+a tower whose base stays live to the very top, so "declarations nothing
+after this point references" is a nearly empty set anywhere below the
+last tenth.
+
+So the tool earns its keep on a *late* cut, and on the Mathlib ladder —
+whose rungs sit at 17 %, 21 %, 24 %, 25 %, 30 % — it does not.  The
+campaign should keep working against the cone slices (`slice_fast.py`,
+`cut_decl_cone.py`), which produce a 200 MB reproducer, and not against
+a 5.69 GB resume slice that is the full stream minus a rounding error.
+That is the decision-grade datum of this section.
+
+### 4. Validation
+
+* **Identity.** `CUT = 1` reproduces the input byte for byte
+  (`_tmp/std-time-cone/pre.ndjson`).
+* **Structural.** Every kept record's expression, name and constant
+  references resolve inside the output, on all three slices.
+* **`std-time-cone` at record 4 000 / 5 641.**  Slice accepts **5 713**
+  declarations, full stream accepts 6 301; the difference, 588, is
+  exactly the constant count of the 570 dropped records.
+* **init-full at 50 %** (the required sanity test, `--verified --pre`,
+  `ulimit -v 16000000`).  Slice: exit **0**, accepted **51 817**
+  declarations, 2:16.58, max RSS 802 964 KB.  Full stream: exit **0**,
+  accepted **56 291**, 2:21.05, max RSS 857 468 KB.  The gap, 4 474
+  constants, is again exactly the 4 465 dropped records.  The
+  **verdict is preserved and the accepted set is the expected one**;
+  the wall-time saving is inside the noise, because 7.4 % of the bytes
+  are worth about that much of the run.
+* **Mathlib rung 5** — see §5; **the end-to-end verdict comparison is
+  still owed** (the run was killed for the session's memory budget, not
+  by the checker).
+
+### 5. The Mathlib rung-5 slice under the checker: 46 min of evidence, verdict PENDING (do not restart — see §7)
+
+`_tmp/resume-slice/run.sh rung5slice mathlib-rung5.ndjson`, master
+`2664b1dd` (binary md5 `c247c72eb96c5930c245e56414ddc08b`),
+`--verified --pre`, `ulimit -v 22000000`, `timeout 14400`.
+
+The run was **killed at t = 2 791 s (46:30) by SIGTERM (exit 143)** —
+the session's cgroup budget, with the `frontier4` lane's full-stream
+pass running beside it; two Mathlib-scale checkers plus builds do not
+fit.  **Session rule from that: one Mathlib-scale checker at a time.**
+So the comparison the task wants — same verdict at the same
+declaration as the full run — is **not yet made**, and this section
+must be completed by re-running the slice once `frontier4`'s pass has
+ended.  What the 46 minutes did establish:
+
+* **The slice parses.**  `rchar` reached 100 % of 5 693 668 882 B at
+  t ≈ 300 s and the checker went on to check, so every expression id
+  the kept records name resolves inside the slice — a full structural
+  validation of the closure at Mathlib scale, not a sample.
+* **The projection rewrite fires at exactly the same sites.**  The
+  slice prints `setlec: 65 projection functions of non-direct
+  structure-likes rewritten to recursor form`; so does the full-stream
+  run.  That is `punitSeen`, `projOwners` and the
+  `T._model.proj_i.iota` artifacts all surviving §1's keep-rules —
+  the failure mode those rules exist to prevent, tested and absent.
+* **The resident base, measured rather than argued.**  Slice: steady
+  RSS 12.07-12.11 GB, parse peak VmHWM 13.08 GB.  Full stream, same
+  binary generation, same limits: steady 12.09-12.13 GB, peak
+  13.15 GB.  The headroom a resume slice hides at this cut is
+  **~0.07 GB, ~0.5 %** — §2's caveat is real in kind and, here,
+  negligible in size, for the same reason §3 gives: there is almost
+  nothing to cut.
+* No reject, decline or panic in those 46 minutes.
+
+### 6. Speed, and the wall-time caveat
+
+The slicer is two passes.  The prefix is scanned line by line (the
+expression DAG flattened into `array`s, `slice_fast.py`'s layout, with
+a regex-free fast path for `app` nodes — four of five records); the
+suffix, every record of which is kept, is scanned with bulk
+`re.findall` over 256 MB chunks, ~7x faster per byte and all that is
+needed there, since the only thing the suffix contributes is the set of
+*prefix* ids and names it mentions.  The emit pass copies the whole
+suffix byte for byte and filters only the prefix.
+
+"Every `ie` record after the cut is kept" is exact, not merely
+conservative: lean4export emits an expression record the first time a
+declaration's serialisation needs it, so every expression record
+between two declaration records is reachable from the later one.
+
+On the 5.71 GB stream, producing the 5.69 GB rung-5 slice: **scan 110 s,
+mark 13 s, emit 18 s, total 140 s**, peak RSS 3.14 GB.  A second,
+byte-identical run taken later measured 163 s (scan 122, mark 15, emit
+26) — **wall time carries the usual contention caveat**, and here it is
+visible in the numbers themselves: the first run shared the machine
+with one full-Mathlib checker pass, the second with two, and the second
+run had *more* optimisation in it, not less.  Load average 16-25
+throughout.  The record and byte counts above carry no such caveat, and
+the two runs' outputs `cmp` equal.
+
+The remaining lever, if a resume slice ever becomes hot enough to
+want: the suffix scan is chunk-parallel by construction (each 256 MB
+chunk's reference sets merge independently, and the declaration records
+merge in chunk order), so a `multiprocessing` pool would take the 110 s
+scan to well under a minute.  It was not worth writing for a tool whose
+own measurement says it buys 0.25 % at the rung it was built for.
+
+### 7. Artefacts (`_tmp/resume-slice/`), and how to finish §5
+
+* `run.sh` — Mathlib-scale harness for a slice (22 GB cap, 4 h timeout,
+  RSS + `rchar` sampled every 30 s), the `frontier4` script retargeted.
+* `mathlib-rung5.ndjson` — the rung-5 resume slice (5 693 668 882 B) and
+  `mathlib-rung5.report`.
+* `mathlib-cut335491.dryrun`, `mathlib-cut603884.dryrun` — the 50 % and
+  90 % points of §3's curve.
+* `initfull-50pct.{ndjson,report,out,time}` and `initfull-full.{out,time}`
+  — the §4 sanity pair.
+* `rung5slice-{p,rss}.log`, `-time.txt`, `.exitcode`, `-binary.md5` —
+  the killed run of §5 (exit 143 = SIGTERM at 46:30).
+
+**§5 is PENDING and must not be restarted on sight.**  The
+coordinator's standing ruling (2026-09-06): the `frontier4` full-stream
+pass has not ended, **a second Mathlib-scale run is not allowed while
+it runs**, and the first attempt was already killed for the session's
+cgroup budget.  Do not re-launch it opportunistically; it is
+*scheduled*, not merely waiting.  The precondition is
+
+    pgrep -f "frontier4/.lake/build/bin/setlec"    # must be empty
+
+and the *coordinator's* go-ahead — one Mathlib-scale checker at a time.
+Then
+
+    _tmp/resume-slice/run.sh rung5slice2 _tmp/resume-slice/mathlib-rung5.ndjson
+
+and compare the verdict, the dying/last declaration and the RSS profile
+against the full-stream pass in `_tmp/frontier4/beb8c2bb-*`.  The
+prediction the slice has to meet: **the same outcome at the same
+declaration**, since the slice keeps 99.746 % of the stream and every
+record from rung 5 on.
+
+Note what this run is now *for*, and what it is not.  §3's payoff curve
+has already decided the campaign question — **the cone slicers
+(`slice_fast.py`, `cut_decl_cone.py`) stay the workhorse**, and no
+frontier work waits on §5.  The pending run buys one thing only: the
+end-to-end confirmation that a resume slice preserves the verdict at
+Mathlib scale, which §5's parse, the matching 65 projection rewrites
+and the 46 minutes of clean checking already make very likely.  It is
+worth taking when a Mathlib-scale slot is free anyway; it is not worth
+displacing anything for.
 
 ## TASK #180 — NO TEMP FILE: the preprocessor's stdout IS the parser's input (2026-09-07, `agent/tmpdir`)
 

@@ -213,7 +213,10 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
   | .indDecl block =>
     match directPartsF? fe block with
     | some p => checkDirectStructS cfg fe p
-    | none => checkIndDeclSF cfg fe block
+    | none =>
+      match directSumPartsF? fe block with
+      | some p => checkDirectSumS cfg fe p
+      | none => checkIndDeclSF cfg fe block
 
 /-- One step of the converted-declaration fold: flush, then check. -/
 def checkDeclSPStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do

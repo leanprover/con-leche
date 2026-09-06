@@ -307,6 +307,35 @@
 # `raw`/`pre` lines' byte-identity is what the pass now pins.
 0 std_axioms.ndjson pre
 0 direct_struct_raw.ndjson pre
+# The direct SUM install (task #175 sum-types, 2026-09-06): non-recursive,
+# non-indexed inductives with any number of constructors other than one
+# — the tagged disjoint union of one tuple tower per constructor.  The
+# fixtures were exported through `setlec-preprocess` (the widened
+# `setlecNative` leaves every such block unmodelled: not one `_model`
+# declaration in the streams), so they assert `--pre`.
+#   direct_sum_enum:   a three-constructor enumeration (`Color`), iota
+#                      on every constructor through `Color.rec` and
+#                      `Color.casesOn`; the exported `Bool`/`OfNat`
+#                      blocks go direct as well.
+#   direct_sum_option: `Opt` (a dependent field), the universe-
+#                      polymorphic `Sum'`, `Dec p` over a `Prop`
+#                      parameter (its `isFalse` field mentions `False`,
+#                      a zero-constructor `Prop` inductive, direct too).
+#   direct_sum_or:     `Or'` (two-constructor `Prop`: the SMALL
+#                      eliminator, both rules through `Or'.elim`), the
+#                      zero-constructor `Absurd : Prop` (LARGE eliminator,
+#                      admissible with no constructor) and `Nil : Type`.
+#   direct_sum_or_large_bad: `Or'.rec`'s motive patched to `Sort u` — a
+#                      large eliminator on a two-constructor inductive
+#                      whose sort may be `Prop`, which the official
+#                      kernel's `elim_only_at_universe_zero` forbids;
+#                      the install must REJECT (the model's iota law
+#                      would be inconsistent: both constructor values
+#                      are the proof point).
+0 direct_sum_enum.ndjson pre
+0 direct_sum_option.ndjson pre
+0 direct_sum_or.ndjson pre
+1 direct_sum_or_large_bad.ndjson pre
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
