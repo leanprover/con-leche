@@ -275,68 +275,51 @@ theorem instantiate1Go_spec {v : ExprC} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (Expr.instantiate1_eq_self (bvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · dsimp only
-        split
-        · rename_i hid
-          refine ⟨hm.insert ?_, ?_⟩ <;>
-            simp [hid]
-        · split
-          · rename_i hid hid'
-            refine ⟨hm.insert ?_, ?_⟩ <;>
-              simp [hid, hid']
-          · rename_i hid hid'
-            refine ⟨hm.insert ?_, ?_⟩ <;>
-              simp [hid, hid']
+    · dsimp only
+      split
+      · rename_i hid
+        exact ⟨hm, by simp [hid]⟩
+      · split
+        · rename_i hid hid'
+          exact ⟨hm, by simp [hid, hid']⟩
+        · rename_i hid hid'
+          exact ⟨hm, by simp [hid, hid']⟩
   | fvar idx n ty iht =>
     intro memo d hm
     rw [instantiate1Go.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (Expr.instantiate1_eq_self (bvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · exact ⟨hm.insert rfl, rfl⟩
+    · exact ⟨hm, rfl⟩
   | sort u =>
     intro memo d hm
     rw [instantiate1Go.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (Expr.instantiate1_eq_self (bvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · exact ⟨hm.insert rfl, rfl⟩
+    · exact ⟨hm, rfl⟩
   | const n us =>
     intro memo d hm
     rw [instantiate1Go.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (Expr.instantiate1_eq_self (bvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · exact ⟨hm.insert rfl, rfl⟩
+    · exact ⟨hm, rfl⟩
   | lit l =>
     intro memo d hm
     rw [instantiate1Go.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (Expr.instantiate1_eq_self (bvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · exact ⟨hm.insert rfl, rfl⟩
+    · exact ⟨hm, rfl⟩
   | app f a ihf iha =>
     intro memo d hm
     rw [instantiate1Go.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (Expr.instantiate1_eq_self (bvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨hf2, hf3⟩ := ihf (d := d) hm
@@ -345,7 +328,6 @@ theorem instantiate1Go_spec {v : ExprC} : ∀ {e : ExprC},
         obtain ⟨ha2, ha3⟩ := iha (d := d) hf2
         rcases hpa : instantiate1Go v mf a d with ⟨a', ma⟩
         simp only [hpa] at ha2 ha3
-        simp only [hpf, hpa]
         have hres : (mkApp f' a')
             = (Expr.instantiate1 (.app f a) v d) := by
           rw [mkApp_eq, hf3, ha3]; rfl
@@ -356,7 +338,8 @@ theorem instantiate1Go_spec {v : ExprC} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (Expr.instantiate1_eq_self (bvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht (d := d) hm
@@ -365,20 +348,18 @@ theorem instantiate1Go_spec {v : ExprC} : ∀ {e : ExprC},
         obtain ⟨h5, h6⟩ := ihb (d := d + 1) h2
         rcases hq : instantiate1Go v mt bd (d + 1) with ⟨b', mb⟩
         simp only [hq] at h5 h6
-        simp only [hp, hq]
         have hres : (mkLam n ty' b' m)
-            = (Expr.instantiate1 (.lam n ty bd m)
-                v d) := by
+            = (Expr.instantiate1 (.lam n ty bd m) v d) := by
           rw [mkLam_eq, h3, h6]; rfl
-        exact ⟨h5.insert hres,
-          hres⟩
+        exact ⟨h5.insert hres, hres⟩
   | forallE n ty bd m iht ihb =>
     intro memo d hm
     rw [instantiate1Go.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (Expr.instantiate1_eq_self (bvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht (d := d) hm
@@ -387,10 +368,8 @@ theorem instantiate1Go_spec {v : ExprC} : ∀ {e : ExprC},
         obtain ⟨h5, h6⟩ := ihb (d := d + 1) h2
         rcases hq : instantiate1Go v mt bd (d + 1) with ⟨b', mb⟩
         simp only [hq] at h5 h6
-        simp only [hp, hq]
         have hres : (mkForallE n ty' b' m)
-            = (Expr.instantiate1 (.forallE n ty bd m)
-                v d) := by
+            = (Expr.instantiate1 (.forallE n ty bd m) v d) := by
           rw [mkForallE_eq, h3, h6]; rfl
         exact ⟨h5.insert hres, hres⟩
   | letE n ty val bd iht ihv ihb =>
@@ -399,7 +378,8 @@ theorem instantiate1Go_spec {v : ExprC} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (Expr.instantiate1_eq_self (bvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht (d := d) hm
@@ -411,10 +391,8 @@ theorem instantiate1Go_spec {v : ExprC} : ∀ {e : ExprC},
         obtain ⟨h8, h9⟩ := ihb (d := d + 1) h5
         rcases hr : instantiate1Go v mv bd (d + 1) with ⟨b', mb⟩
         simp only [hr] at h8 h9
-        simp only [hp, hq, hr]
         have hres : (mkLetE n ty' v' b')
-            = (Expr.instantiate1 (.letE n ty val bd)
-                v d) := by
+            = (Expr.instantiate1 (.letE n ty val bd) v d) := by
           rw [mkLetE_eq, h3, h6, h9]; rfl
         exact ⟨h8.insert hres, hres⟩
   | proj s i sub ihe =>
@@ -423,16 +401,15 @@ theorem instantiate1Go_spec {v : ExprC} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (Expr.instantiate1_eq_self (bvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := ihe (d := d) hm
         rcases hp : instantiate1Go v memo sub d with ⟨s', ms⟩
         simp only [hp] at h2 h3
-        simp only [hp]
         have hres : (mkProj s i s')
-            = (Expr.instantiate1 (.proj s i sub)
-                v d) := by
+            = (Expr.instantiate1 (.proj s i sub) v d) := by
           rw [mkProj_eq, h3]; rfl
         exact ⟨h2.insert hres, hres⟩
 
@@ -446,31 +423,34 @@ theorem instantiate1_spec {e v : ExprC} {d : Nat} :
 
 /-! ## Bulk instantiation -/
 
-/-- The bulk-instantiation memo invariant: every stored value is well
-formed and erases to the substitution of the *live prefix* named by the
-key at the key's own erasure. -/
-def MemoLInv (ws : List Expr) (memo : MemoNL) : Prop :=
-  ∀ (e : ExprC) (k c : Nat) (r : ExprC), memo[(e, k, c)]? = some r →
+/-- The bulk-instantiation memo invariant: every stored value is the
+substitution of the live prefix at the key's cursor.
+
+**The prefix `k` is a parameter of the invariant, not of the key**
+(task #177): one table serves exactly one live prefix, because the
+`bvar` arm's re-entry — the only place the prefix shrinks — runs under
+a fresh table. -/
+def MemoLInv (ws : List Expr) (k : Nat) (memo : MemoNL) : Prop :=
+  ∀ (e : ExprC) (c : Nat) (r : ExprC), memo[(e, c)]? = some r →
     r = (Expr.instantiateList e (ws.take k) c)
 
-theorem MemoLInv.empty {ws : List Expr} : MemoLInv ws {} := by
-  intro e k c r h
+theorem MemoLInv.empty {ws : List Expr} {k : Nat} : MemoLInv ws k {} := by
+  intro e c r h
   simp at h
 
-theorem MemoLInv.insert {ws : List Expr} {memo : MemoNL}
-    (hm : MemoLInv ws memo) {e r : ExprC} {k c : Nat}
+theorem MemoLInv.insert {ws : List Expr} {k : Nat} {memo : MemoNL}
+    (hm : MemoLInv ws k memo) {e r : ExprC} {c : Nat}
     (heq : r = (Expr.instantiateList e (ws.take k) c)) :
-    MemoLInv ws (memo.insert (e, k, c) r) := by
-  intro e' k' c' r' hk
+    MemoLInv ws k (memo.insert (e, c) r) := by
+  intro e' c' r' hk
   rw [Std.HashMap.getElem?_insert] at hk
   split at hk
   · rename_i hbeq
     cases hk
-    obtain ⟨he, hkc⟩ := pairKey_inv hbeq
-    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ (eq_of_beq hkc)
-    rw [← he]
+    obtain ⟨he, hc⟩ := pairKey_inv hbeq
+    rw [← he, ← (beq_iff_eq ..).mp hc]
     exact heq
-  · exact hm e' k' c' r' hk
+  · exact hm e' c' r' hk
 
 /-! `Expr.instantiateList` is well founded, so it does not reduce
 definitionally: the per-constructor equations have to be named. -/
@@ -522,8 +502,8 @@ at the replacement with a shorter prefix), structural on the node
 inside it. -/
 theorem instantiateListGo_spec {vs : Array ExprC} :
     ∀ (k : Nat) (e : ExprC), ∀ {memo : MemoNL} {d : Nat},
-      k ≤ vs.size → MemoLInv (vs.toList) memo →
-        MemoLInv (vs.toList) (instantiateListGo vs memo e k d).2 ∧
+      k ≤ vs.size → MemoLInv (vs.toList) k memo →
+        MemoLInv (vs.toList) k (instantiateListGo vs memo e k d).2 ∧
         (instantiateListGo vs memo e k d).1
           = (Expr.instantiateList e
               ((vs.toList).take k) d) := by
@@ -541,58 +521,58 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
       exact ⟨hm, by simp [Expr.instantiateList_nil]⟩
     · split
       · rename_i hcut
-        exact ⟨hm,
-          (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
-      · split
-        · rename_i r hhit
-          exact ⟨hm, (hm _ _ _ _ hhit)⟩
-        · rename_i hk0 hcut _
-          have hlen : ((vs.toList).take k).length = k := by
-            simp; omega
-          dsimp only
+        exact ⟨hm, (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
+      · rename_i hk0 hcut
+        have hlen : ((vs.toList).take k).length = k := by
+          simp; omega
+        dsimp only
+        split
+        · rename_i hid
+          refine ⟨hm, ?_⟩
+          simp [Expr.instantiateList, hid]
+        · rename_i hid
           split
-          · rename_i hid
-            have hres : (Expr.bvar i)
-                = (Expr.instantiateList (Expr.bvar i)
-                    ((vs.toList).take k) d) := by
-              simp [Expr.instantiateList, hid]
-            exact ⟨hm.insert hres, hres⟩
-          · rename_i hid
+          · rename_i hidk
             split
-            · rename_i hidk
+            · rename_i hidv
+              have hget : ((vs.toList).take k)[i - d]'(by
+                  rw [hlen]; exact hidk) = vs[i - d] := by
+                rw [List.getElem_take]
+                simp
+              have htk : ((vs.toList).take k).take (i - d)
+                  = (vs.toList).take (i - d) := by
+                rw [List.take_take]
+                congr 1
+                omega
+              have hRHS : (Expr.instantiateList (Expr.bvar i)
+                    ((vs.toList).take k) d)
+                  = (Expr.instantiateList vs[i - d]
+                      ((vs.toList).take (i - d)) d) := by
+                rw [Expr.instantiateList, if_neg hid,
+                  dif_pos (by rw [hlen]; exact hidk), hget, htk]
               split
-              · rename_i hidv
-                obtain ⟨h2, h3⟩ :=
+              · rename_i hfast
+                refine ⟨hm, ?_⟩
+                rw [hRHS]
+                rcases Bool.or_eq_true .. |>.mp hfast with h0 | hb
+                · have hnil : (vs.toList).take (i - d) = [] := by
+                    have h0' : i - d = 0 := by simpa using h0
+                    rw [h0']
+                    simp
+                  rw [hnil]
+                  exact (Expr.instantiateList_nil _ _).symm
+                · have hb' : vs[i - d].bvarB ≤ d := by simpa using hb
+                  exact (Expr.instantiateList_eq_self (bvarB_le hb')).symm
+              · obtain ⟨-, h3⟩ :=
                   ihk (i - d) hidk vs[i - d] (d := d)
-                    (Nat.le_of_lt hidv) hm
-                rcases hp : instantiateListGo vs memo vs[i - d] (i - d) d
-                  with ⟨r₁, m₁⟩
-                simp only [hp] at h2 h3
-                have hget : ((vs.toList).take k)[i - d]'(by
-                    rw [hlen]; exact hidk) = vs[i - d] := by
-                  rw [List.getElem_take]
-                  simp
-                have htk : ((vs.toList).take k).take (i - d)
-                    = (vs.toList).take (i - d) := by
-                  rw [List.take_take]
-                  congr 1
-                  omega
-                have hres : r₁
-                    = (Expr.instantiateList (Expr.bvar i)
-                        ((vs.toList).take k) d) := by
-                  rw [h3, Expr.instantiateList,
-                    if_neg hid, dif_pos (by rw [hlen]; exact hidk), hget,
-                    htk]
-                exact ⟨h2.insert hres, hres⟩
-              · rename_i hidv
-                exact absurd (by omega : i - d < vs.size) hidv
-            · rename_i hidk
-              have hres : (mkBVar (i - k))
-                  = (Expr.instantiateList (Expr.bvar i)
-                      ((vs.toList).take k) d) := by
-                rw [mkBVar_eq, Expr.instantiateList,
-                  if_neg hid, dif_neg (by rw [hlen]; exact hidk), hlen]
-              exact ⟨hm.insert hres, hres⟩
+                    (Nat.le_of_lt hidv) MemoLInv.empty
+                exact ⟨hm, by rw [hRHS]; exact h3⟩
+            · rename_i hidv
+              exact absurd (by omega : i - d < vs.size) hidv
+          · rename_i hidk
+            refine ⟨hm, ?_⟩
+            rw [mkBVar_eq, Expr.instantiateList,
+              if_neg hid, dif_neg (by rw [hlen]; exact hidk), hlen]
   | fvar idx n ty iht =>
     intro memo d hk hm
     rw [instantiateListGo.eq_def]
@@ -602,12 +582,8 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
       exact ⟨hm, by simp [Expr.instantiateList_nil]⟩
     · split
       · rename_i hcut
-        exact ⟨hm,
-          (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
-      · split
-        · rename_i r hhit
-          exact ⟨hm, (hm _ _ _ _ hhit)⟩
-        · exact ⟨hm.insert (instList_leaf rfl), instList_leaf rfl⟩
+        exact ⟨hm, (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
+      · exact ⟨hm, instList_leaf rfl⟩
   | sort u =>
     intro memo d hk hm
     rw [instantiateListGo.eq_def]
@@ -617,12 +593,8 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
       exact ⟨hm, by simp [Expr.instantiateList_nil]⟩
     · split
       · rename_i hcut
-        exact ⟨hm,
-          (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
-      · split
-        · rename_i r hhit
-          exact ⟨hm, (hm _ _ _ _ hhit)⟩
-        · exact ⟨hm.insert (instList_leaf rfl), instList_leaf rfl⟩
+        exact ⟨hm, (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
+      · exact ⟨hm, instList_leaf rfl⟩
   | const n us =>
     intro memo d hk hm
     rw [instantiateListGo.eq_def]
@@ -632,12 +604,8 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
       exact ⟨hm, by simp [Expr.instantiateList_nil]⟩
     · split
       · rename_i hcut
-        exact ⟨hm,
-          (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
-      · split
-        · rename_i r hhit
-          exact ⟨hm, (hm _ _ _ _ hhit)⟩
-        · exact ⟨hm.insert (instList_leaf rfl), instList_leaf rfl⟩
+        exact ⟨hm, (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
+      · exact ⟨hm, instList_leaf rfl⟩
   | lit l =>
     intro memo d hk hm
     rw [instantiateListGo.eq_def]
@@ -647,12 +615,8 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
       exact ⟨hm, by simp [Expr.instantiateList_nil]⟩
     · split
       · rename_i hcut
-        exact ⟨hm,
-          (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
-      · split
-        · rename_i r hhit
-          exact ⟨hm, (hm _ _ _ _ hhit)⟩
-        · exact ⟨hm.insert (instList_leaf rfl), instList_leaf rfl⟩
+        exact ⟨hm, (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
+      · exact ⟨hm, instList_leaf rfl⟩
   | app f a ihf iha =>
     intro memo d hk hm
     rw [instantiateListGo.eq_def]
@@ -662,18 +626,17 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
       exact ⟨hm, by simp [Expr.instantiateList_nil]⟩
     · split
       · rename_i hcut
-        exact ⟨hm,
-          (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
-      · split
+        exact ⟨hm, (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
+      · dsimp only
+        split
         · rename_i r hhit
-          exact ⟨hm, (hm _ _ _ _ hhit)⟩
+          exact ⟨hm, (hm _ _ _ hhit)⟩
         · obtain ⟨h2, h3⟩ := ihf (d := d) hk hm
           rcases hp : instantiateListGo vs memo f k d with ⟨f', mf⟩
           simp only [hp] at h2 h3
           obtain ⟨h5, h6⟩ := iha (d := d) hk h2
           rcases hq : instantiateListGo vs mf a k d with ⟨a', ma⟩
           simp only [hq] at h5 h6
-          simp only [hp, hq]
           have hres : (mkApp f' a')
               = (Expr.instantiateList (.app f a)
                   ((vs.toList).take k) d) := by
@@ -688,24 +651,22 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
       exact ⟨hm, by simp [Expr.instantiateList_nil]⟩
     · split
       · rename_i hcut
-        exact ⟨hm,
-          (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
-      · split
+        exact ⟨hm, (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
+      · dsimp only
+        split
         · rename_i r hhit
-          exact ⟨hm, (hm _ _ _ _ hhit)⟩
+          exact ⟨hm, (hm _ _ _ hhit)⟩
         · obtain ⟨h2, h3⟩ := iht (d := d) hk hm
           rcases hp : instantiateListGo vs memo ty k d with ⟨ty', mt⟩
           simp only [hp] at h2 h3
           obtain ⟨h5, h6⟩ := ihb (d := d + 1) hk h2
           rcases hq : instantiateListGo vs mt bd k (d + 1) with ⟨b', mb⟩
           simp only [hq] at h5 h6
-          simp only [hp, hq]
           have hres : (mkLam n ty' b' m)
               = (Expr.instantiateList (.lam n ty bd m)
                   ((vs.toList).take k) d) := by
             rw [instList_lam, mkLam_eq, h3, h6]
-          exact ⟨h5.insert hres,
-            hres⟩
+          exact ⟨h5.insert hres, hres⟩
   | forallE n ty bd m iht ihb =>
     intro memo d hk hm
     rw [instantiateListGo.eq_def]
@@ -715,18 +676,17 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
       exact ⟨hm, by simp [Expr.instantiateList_nil]⟩
     · split
       · rename_i hcut
-        exact ⟨hm,
-          (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
-      · split
+        exact ⟨hm, (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
+      · dsimp only
+        split
         · rename_i r hhit
-          exact ⟨hm, (hm _ _ _ _ hhit)⟩
+          exact ⟨hm, (hm _ _ _ hhit)⟩
         · obtain ⟨h2, h3⟩ := iht (d := d) hk hm
           rcases hp : instantiateListGo vs memo ty k d with ⟨ty', mt⟩
           simp only [hp] at h2 h3
           obtain ⟨h5, h6⟩ := ihb (d := d + 1) hk h2
           rcases hq : instantiateListGo vs mt bd k (d + 1) with ⟨b', mb⟩
           simp only [hq] at h5 h6
-          simp only [hp, hq]
           have hres : (mkForallE n ty' b' m)
               = (Expr.instantiateList (.forallE n ty bd m)
                   ((vs.toList).take k) d) := by
@@ -741,11 +701,11 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
       exact ⟨hm, by simp [Expr.instantiateList_nil]⟩
     · split
       · rename_i hcut
-        exact ⟨hm,
-          (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
-      · split
+        exact ⟨hm, (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
+      · dsimp only
+        split
         · rename_i r hhit
-          exact ⟨hm, (hm _ _ _ _ hhit)⟩
+          exact ⟨hm, (hm _ _ _ hhit)⟩
         · obtain ⟨h2, h3⟩ := iht (d := d) hk hm
           rcases hp : instantiateListGo vs memo ty k d with ⟨ty', mt⟩
           simp only [hp] at h2 h3
@@ -755,13 +715,12 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
           obtain ⟨h8, h9⟩ := ihb (d := d + 1) hk h5
           rcases hr : instantiateListGo vs mv bd k (d + 1) with ⟨b', mb⟩
           simp only [hr] at h8 h9
-          simp only [hp, hq, hr]
           have hres : (mkLetE n ty' v' b')
               = (Expr.instantiateList (.letE n ty val bd)
                   ((vs.toList).take k) d) := by
             rw [instList_letE, mkLetE_eq, h3, h6, h9]
           exact ⟨h8.insert hres, hres⟩
-  | proj s i sub ihe =>
+  | proj sn i sub ihe =>
     intro memo d hk hm
     rw [instantiateListGo.eq_def]
     split
@@ -770,17 +729,16 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
       exact ⟨hm, by simp [Expr.instantiateList_nil]⟩
     · split
       · rename_i hcut
-        exact ⟨hm,
-          (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
-      · split
+        exact ⟨hm, (Expr.instantiateList_eq_self (bvarB_le hcut)).symm⟩
+      · dsimp only
+        split
         · rename_i r hhit
-          exact ⟨hm, (hm _ _ _ _ hhit)⟩
+          exact ⟨hm, (hm _ _ _ hhit)⟩
         · obtain ⟨h2, h3⟩ := ihe (d := d) hk hm
           rcases hp : instantiateListGo vs memo sub k d with ⟨s', ms⟩
           simp only [hp] at h2 h3
-          simp only [hp]
-          have hres : (mkProj s i s')
-              = (Expr.instantiateList (.proj s i sub)
+          have hres : (mkProj sn i s')
+              = (Expr.instantiateList (.proj sn i sub)
                   ((vs.toList).take k) d) := by
             rw [instList_proj, mkProj_eq, h3]
           exact ⟨h2.insert hres, hres⟩
@@ -848,24 +806,21 @@ theorem instantiateRevGo_eq {vs : Array ExprC} :
     by_cases hcut : (Expr.bvar i).bvarB ≤ d
     · rw [if_pos hcut, if_pos hcut]
     rw [if_neg hcut, if_neg hcut]
-    cases hmemo : memo[(Expr.bvar i, k, d)]? with
-    | some r => rfl
-    | none =>
-      dsimp only
-      by_cases hid : i < d
-      · rw [if_pos hid, if_pos hid]
-      rw [if_neg hid, if_neg hid]
-      by_cases hidk : i - d < k
-      · rw [dif_pos hidk, dif_pos hidk]
-        have hsz : vs.reverse.size = vs.size := by simp
-        by_cases hidv : i - d < vs.size
-        · rw [dif_pos hidv, dif_pos (hsz ▸ hidv)]
-          have hget : vs.reverse[i - d]'(hsz ▸ hidv)
-              = vs[vs.size - 1 - (i - d)]'(by omega) := by
-            simp [Array.getElem_reverse]
-          rw [ihk (i - d) hidk, hget]
-        · rw [dif_neg hidv, dif_neg (fun h => hidv (hsz ▸ h))]
-      · rw [dif_neg hidk, dif_neg hidk]
+    dsimp only
+    by_cases hid : i < d
+    · rw [if_pos hid, if_pos hid]
+    rw [if_neg hid, if_neg hid]
+    by_cases hidk : i - d < k
+    · rw [dif_pos hidk, dif_pos hidk]
+      have hsz : vs.reverse.size = vs.size := by simp
+      by_cases hidv : i - d < vs.size
+      · rw [dif_pos hidv, dif_pos (hsz ▸ hidv)]
+        have hget : vs.reverse[i - d]'(hsz ▸ hidv)
+            = vs[vs.size - 1 - (i - d)]'(by omega) := by
+          simp [Array.getElem_reverse]
+        rw [ihk (i - d) hidk, hget]
+      · rw [dif_neg hidv, dif_neg (fun h => hidv (hsz ▸ h))]
+    · rw [dif_neg hidk, dif_neg hidk]
   | fvar idx n ty iht =>
     intro memo d
     rw [instantiateRevGo.eq_def, instantiateListGo.eq_def]
@@ -887,7 +842,8 @@ theorem instantiateRevGo_eq {vs : Array ExprC} :
     by_cases hcut : (Expr.app f a).bvarB ≤ d
     · rw [if_pos hcut, if_pos hcut]
     rw [if_neg hcut, if_neg hcut]
-    cases hmemo : memo[(Expr.app f a, k, d)]? with
+    dsimp only
+    cases hmemo : memo[(Expr.app f a, d)]? with
     | some r => rfl
     | none =>
       dsimp only
@@ -903,7 +859,8 @@ theorem instantiateRevGo_eq {vs : Array ExprC} :
     by_cases hcut : (Expr.lam n ty bd m).bvarB ≤ d
     · rw [if_pos hcut, if_pos hcut]
     rw [if_neg hcut, if_neg hcut]
-    cases hmemo : memo[(Expr.lam n ty bd m, k, d)]? with
+    dsimp only
+    cases hmemo : memo[(Expr.lam n ty bd m, d)]? with
     | some r => rfl
     | none =>
       dsimp only
@@ -919,7 +876,8 @@ theorem instantiateRevGo_eq {vs : Array ExprC} :
     by_cases hcut : (Expr.forallE n ty bd m).bvarB ≤ d
     · rw [if_pos hcut, if_pos hcut]
     rw [if_neg hcut, if_neg hcut]
-    cases hmemo : memo[(Expr.forallE n ty bd m, k, d)]? with
+    dsimp only
+    cases hmemo : memo[(Expr.forallE n ty bd m, d)]? with
     | some r => rfl
     | none =>
       dsimp only
@@ -935,7 +893,8 @@ theorem instantiateRevGo_eq {vs : Array ExprC} :
     by_cases hcut : (Expr.letE n ty val bd).bvarB ≤ d
     · rw [if_pos hcut, if_pos hcut]
     rw [if_neg hcut, if_neg hcut]
-    cases hmemo : memo[(Expr.letE n ty val bd, k, d)]? with
+    dsimp only
+    cases hmemo : memo[(Expr.letE n ty val bd, d)]? with
     | some r => rfl
     | none =>
       dsimp only
@@ -944,16 +903,17 @@ theorem instantiateRevGo_eq {vs : Array ExprC} :
       rw [ihv m₁ d]
       rcases h2 : instantiateListGo vs.reverse m₁ val k d with ⟨v', m₂⟩
       rw [ihb m₂ (d + 1)]
-  | proj s i sub ihe =>
+  | proj sn i sub ihe =>
     intro memo d
     rw [instantiateRevGo.eq_def, instantiateListGo.eq_def]
     by_cases hk0 : k = 0
     · simp only [if_pos hk0]
     rw [if_neg hk0, if_neg hk0]
-    by_cases hcut : (Expr.proj s i sub).bvarB ≤ d
+    by_cases hcut : (Expr.proj sn i sub).bvarB ≤ d
     · rw [if_pos hcut, if_pos hcut]
     rw [if_neg hcut, if_neg hcut]
-    cases hmemo : memo[(Expr.proj s i sub, k, d)]? with
+    dsimp only
+    cases hmemo : memo[(Expr.proj sn i sub, d)]? with
     | some r => rfl
     | none =>
       dsimp only
@@ -1044,64 +1004,48 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (abstract1_eq_self (fvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · dsimp only
-        split
-        · rename_i hidx
-          refine ⟨hm.insert ?_, ?_⟩ <;>
-            simp [Expr.abstract1, hidx]
-        · rename_i hidx
-          refine ⟨hm.insert ?_, ?_⟩ <;>
-            simp [Expr.abstract1, hidx]
+    · dsimp only
+      split
+      · rename_i hidx
+        exact ⟨hm, by simp [Expr.abstract1, hidx]⟩
+      · rename_i hidx
+        exact ⟨hm, by simp [Expr.abstract1, hidx]⟩
   | bvar i =>
     intro memo k hm
     rw [abstract1Go.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (abstract1_eq_self (fvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · exact ⟨hm.insert rfl, rfl⟩
+    · exact ⟨hm, rfl⟩
   | sort u =>
     intro memo k hm
     rw [abstract1Go.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (abstract1_eq_self (fvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · exact ⟨hm.insert rfl, rfl⟩
+    · exact ⟨hm, rfl⟩
   | const n us =>
     intro memo k hm
     rw [abstract1Go.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (abstract1_eq_self (fvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · exact ⟨hm.insert rfl, rfl⟩
+    · exact ⟨hm, rfl⟩
   | lit l =>
     intro memo k hm
     rw [abstract1Go.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (abstract1_eq_self (fvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · exact ⟨hm.insert rfl, rfl⟩
+    · exact ⟨hm, rfl⟩
   | app f a ihf iha =>
     intro memo k hm
     rw [abstract1Go.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (abstract1_eq_self (fvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := ihf (k := k) hm
@@ -1110,7 +1054,6 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC},
         obtain ⟨h5, h6⟩ := iha (k := k) h2
         rcases hq : abstract1Go d mf a k with ⟨a', ma⟩
         simp only [hq] at h5 h6
-        simp only [hp, hq]
         have hres : (mkApp f' a')
             = (Expr.abstract1 (.app f a) d k) := by
           rw [mkApp_eq, h3, h6]; rfl
@@ -1121,7 +1064,8 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (abstract1_eq_self (fvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht (k := k) hm
@@ -1130,7 +1074,6 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC},
         obtain ⟨h5, h6⟩ := ihb (k := k + 1) h2
         rcases hq : abstract1Go d mt bd (k + 1) with ⟨b', mb⟩
         simp only [hq] at h5 h6
-        simp only [hp, hq]
         have hres : (mkLam n ty' b' m)
             = (Expr.abstract1 (.lam n ty bd m) d k) := by
           rw [mkLam_eq, h3, h6]; rfl
@@ -1142,7 +1085,8 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (abstract1_eq_self (fvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht (k := k) hm
@@ -1151,7 +1095,6 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC},
         obtain ⟨h5, h6⟩ := ihb (k := k + 1) h2
         rcases hq : abstract1Go d mt bd (k + 1) with ⟨b', mb⟩
         simp only [hq] at h5 h6
-        simp only [hp, hq]
         have hres : (mkForallE n ty' b' m)
             = (Expr.abstract1 (.forallE n ty bd m) d k) := by
           rw [mkForallE_eq, h3, h6]; rfl
@@ -1162,7 +1105,8 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (abstract1_eq_self (fvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht (k := k) hm
@@ -1174,7 +1118,6 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC},
         obtain ⟨h8, h9⟩ := ihb (k := k + 1) h5
         rcases hr : abstract1Go d mv bd (k + 1) with ⟨b', mb⟩
         simp only [hr] at h8 h9
-        simp only [hp, hq, hr]
         have hres : (mkLetE n ty' v' b')
             = (Expr.abstract1 (.letE n ty val bd) d k) := by
           rw [mkLetE_eq, h3, h6, h9]; rfl
@@ -1185,13 +1128,13 @@ theorem abstract1Go_spec {d : Nat} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (abstract1_eq_self (fvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := ihe (k := k) hm
         rcases hp : abstract1Go d memo sub k with ⟨s', ms⟩
         simp only [hp] at h2 h3
-        simp only [hp]
         have hres : (mkProj s i s')
             = (Expr.abstract1 (.proj s i sub) d k) := by
           rw [mkProj_eq, h3]; rfl
@@ -1250,64 +1193,48 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (abstractRange_eq_self (fvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · dsimp only
-        split
-        · rename_i hidx
-          refine ⟨hm.insert ?_, ?_⟩ <;>
-            simp [Expr.abstractRange, hidx]
-        · rename_i hidx
-          refine ⟨hm.insert ?_, ?_⟩ <;>
-            simp [Expr.abstractRange, hidx]
+    · dsimp only
+      split
+      · rename_i hidx
+        exact ⟨hm, by simp [Expr.abstractRange, hidx]⟩
+      · rename_i hidx
+        exact ⟨hm, by simp [Expr.abstractRange, hidx]⟩
   | bvar i =>
     intro memo c hm
     rw [abstractRangeGo.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (abstractRange_eq_self (fvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · exact ⟨hm.insert rfl, rfl⟩
+    · exact ⟨hm, rfl⟩
   | sort u =>
     intro memo c hm
     rw [abstractRangeGo.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (abstractRange_eq_self (fvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · exact ⟨hm.insert rfl, rfl⟩
+    · exact ⟨hm, rfl⟩
   | const n us =>
     intro memo c hm
     rw [abstractRangeGo.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (abstractRange_eq_self (fvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · exact ⟨hm.insert rfl, rfl⟩
+    · exact ⟨hm, rfl⟩
   | lit l =>
     intro memo c hm
     rw [abstractRangeGo.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (abstractRange_eq_self (fvarB_le hcut)).symm⟩
-    · split
-      · rename_i r hhit
-        exact ⟨hm, (hm _ _ _ hhit)⟩
-      · exact ⟨hm.insert rfl, rfl⟩
+    · exact ⟨hm, rfl⟩
   | app f a ihf iha =>
     intro memo c hm
     rw [abstractRangeGo.eq_def]
     split
     · rename_i hcut
       exact ⟨hm, (abstractRange_eq_self (fvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := ihf (c := c) hm
@@ -1316,7 +1243,6 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC},
         obtain ⟨h5, h6⟩ := iha (c := c) h2
         rcases hq : abstractRangeGo d k mf a c with ⟨a', ma⟩
         simp only [hq] at h5 h6
-        simp only [hp, hq]
         have hres : (mkApp f' a')
             = (Expr.abstractRange (.app f a) d k c) := by
           rw [mkApp_eq, h3, h6]; rfl
@@ -1327,7 +1253,8 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (abstractRange_eq_self (fvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht (c := c) hm
@@ -1336,7 +1263,6 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC},
         obtain ⟨h5, h6⟩ := ihb (c := c + 1) h2
         rcases hq : abstractRangeGo d k mt bd (c + 1) with ⟨b', mb⟩
         simp only [hq] at h5 h6
-        simp only [hp, hq]
         have hres : (mkLam n ty' b' m)
             = (Expr.abstractRange (.lam n ty bd m) d k c) := by
           rw [mkLam_eq, h3, h6]; rfl
@@ -1348,7 +1274,8 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (abstractRange_eq_self (fvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht (c := c) hm
@@ -1357,7 +1284,6 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC},
         obtain ⟨h5, h6⟩ := ihb (c := c + 1) h2
         rcases hq : abstractRangeGo d k mt bd (c + 1) with ⟨b', mb⟩
         simp only [hq] at h5 h6
-        simp only [hp, hq]
         have hres : (mkForallE n ty' b' m)
             = (Expr.abstractRange (.forallE n ty bd m)
                 d k c) := by
@@ -1369,7 +1295,8 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (abstractRange_eq_self (fvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht (c := c) hm
@@ -1381,7 +1308,6 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC},
         obtain ⟨h8, h9⟩ := ihb (c := c + 1) h5
         rcases hr : abstractRangeGo d k mv bd (c + 1) with ⟨b', mb⟩
         simp only [hr] at h8 h9
-        simp only [hp, hq, hr]
         have hres : (mkLetE n ty' v' b')
             = (Expr.abstractRange (.letE n ty val bd)
                 d k c) := by
@@ -1393,13 +1319,13 @@ theorem abstractRangeGo_spec {d k : Nat} : ∀ {e : ExprC},
     split
     · rename_i hcut
       exact ⟨hm, (abstractRange_eq_self (fvarB_le hcut)).symm⟩
-    · split
+    · dsimp only
+      split
       · rename_i r hhit
         exact ⟨hm, (hm _ _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := ihe (c := c) hm
         rcases hp : abstractRangeGo d k memo sub c with ⟨s', ms⟩
         simp only [hp] at h2 h3
-        simp only [hp]
         have hres : (mkProj s i s')
             = (Expr.abstractRange (.proj s i sub) d k c) := by
           rw [mkProj_eq, h3]; rfl
