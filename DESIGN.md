@@ -1053,11 +1053,9 @@ hard build error.  Contract points:
   pointwise-congruence unfolding (`natFixGoCongr`/`natFixUnfold`,
   with per-op `dcongr`-based congruence hypotheses — first-order
   recursive occurrences never need function extensionality) derives
-  the one-step equations; `log2` is proved from a mirror of its
-  fuel-structural compiled value (`log2Go`, plain `Nat.rec` — no WF
-  machinery), with the `n/2 ≤ f` fuel bound hand-derived from the
-  file's own `div` certificates (`Nat.div_lt_self`'s stock proof
-  pulls `Or`/`Exists`/`propext`/`Acc`).  Blob sizes stay far under
+  the one-step equations.  (`Nat.log2` was proved the same way, from
+  a mirror of its fuel-structural compiled value; that whole section
+  went with the log2 pin at the audit's S1.)  Blob sizes stay far under
   the 2^25 tree budget (max ≈1.8 M unshared-tree / 8 k-node DAG per
   op, `Nat.xor`); a *naive* full inlining had exploded to 2^40
   saturated trees.  Each proof blob is spliced as its **own**
@@ -1065,10 +1063,11 @@ hard build error.  Contract points:
   list: the model bridge (`Setlec/Model/DivModCert.lean`) reduces the
   list structure and must never zeta through the blobs' `let`-chains
   (kernel recursion depth; the blobs stay opaque to the model).
-  Verification fixtures: `nat_land_cone`/`nat_log2_cone` (e2e) are
-  *pure-cone* slices — the op's dependency closure plus only the
-  guard-required ground ops, with `funext`-et-al positively absent —
-  accepted end to end.  Diagnosis unchanged:
+  Verification fixture: `nat_land_cone` (e2e) is a *pure-cone* slice
+  — the op's dependency closure plus only the guard-required ground
+  ops, with `funext`-et-al positively absent — accepted end to end.
+  (`nat_log2_cone` was the second such slice; it went with the log2
+  pin at the audit's S1.)  Diagnosis unchanged:
   `scripts/DumpNatOpPinConsts.lean` + `scripts/
   diagnose_natop_prefix.py` (the op self-ref stays a false positive).
   Rebuild caveat: Lake tracks neither the `include_str` json edge nor
@@ -1081,10 +1080,11 @@ hard build error.  Contract points:
 
 ### The remaining GMP `Nat` operations (2026-08-22, task #54)
 
-The official accelerator whitelist's seven remaining operations —
+The official accelerator whitelist's remaining operations —
 `Nat.gcd`, `Nat.land`, `Nat.lor`, `Nat.xor`, `Nat.shiftLeft`,
-`Nat.shiftRight`, `Nat.log2` — join the `div`/`mod` family (the
-`natDivModNames` list, now nine operations; the name is historic).
+`Nat.shiftRight` (and, until the audit's S1, `Nat.log2`) — join the
+`div`/`mod` family (the `natDivModNames` list, eight operations since
+`Nat.log2` left with its fast path; the name is historic).
 Each follows exactly the pinned-declaration pattern: elab-time def pin
 (defeq gate, mismatch declines), hand-pinned `ble`-guarded
 characterization statements in `divModCertStmts`, generated proof
@@ -1098,13 +1098,16 @@ induction over the literal), consumed by `reduceNat_sound`.
   - `gcd`: `1 ≤ x → gcd x y = gcd (y % x) x`; `x = 0 → gcd x y = y`.
   - `shiftLeft`: `1 ≤ y → x <<< y = (2*x) <<< (y-1)`; `y = 0 → = x`.
   - `shiftRight`: `1 ≤ y → x >>> y = (x >>> (y-1)) / 2`; `y = 0 → = x`.
-  - `log2`: `2 ≤ x → log2 x = succ (log2 (x/2))`; `x < 2 → = 0`.
-    `log2` is **unary**: the statements still quantify over both frame
-    variables (`y` unused), so the certificate check, `checkDivModCerts`
-    and the frame machinery stay uniform; only the *model* side
-    branches (a unary `natOpTyPinned` shape shared with `pred`, a
-    unary function-space membership, and `eqSide_app1` in place of
-    `eqSide_app2` in the bridge).
+  - `log2` (REMOVED at the divergence audit's S1, §15): it was
+    `2 ≤ x → log2 x = succ (log2 (x/2))`; `x < 2 → = 0`, and the
+    family's only **unary** member — the statements still quantified
+    over both frame variables (`y` unused) so the certificate check,
+    `checkDivModCerts` and the frame machinery stayed uniform, and
+    only the *model* side branched (a unary `natOpTyPinned` shape
+    shared with `pred`, a unary function-space membership,
+    `eqSide_app1` for `eqSide_app2`).  With it gone every
+    pin-certified operation is binary and those branches are gone
+    too; `natOpTyPinned`'s unary arm now serves `Nat.pred` alone.
   - `land`/`lor`/`xor` (`Nat.bitwise` at `and`/`or`/`bne`): the
     recurrence characterizes the operation **arithmetically** — the
     combined low bit is `(x%2)*(y%2)` for `and`,
@@ -1126,14 +1129,14 @@ induction over the literal), consumed by `reduceNat_sound`.
   `delta`; WF definitions are irreducible) and finishes with
   elementary `Nat` rewriting.  The later ops (`gcd` at its stream
   position, `log2`) have `Iff`/`And`/`propext`/`Int` prefix-present
-  and use ordinary core lemmas (`Nat.gcd_succ`, `Nat.log2_def`); the
+  and use ordinary core lemmas (`Nat.gcd_succ`); the
   shifts are structural and their recurrences are `rfl`.
 
 * **Uniqueness lemma shapes.**  `gcd`/`land`/`lor`/`xor`: strong
   induction on the first literal with the second generalized (step at
   `y % x` resp. `x/2`, `y/2`); shifts: strong induction on the second
-  literal with the first generalized; `log2`: strong induction on the
-  single literal.  The bit operations' metatheory-side recurrences are
+  literal with the first generalized.  The bit operations'
+  metatheory-side recurrences are
   the *generator's own certificate theorems reused at the meta level*
   (`Setlec/Model/NatOps.lean` imports `Setlec.PinGen.Certs`); their
   guards are bridged with `Nat.ble_eq_true_of_le`.
@@ -5453,7 +5456,8 @@ them one-per-def from `checkDefnValP` (the theorem path was already a
 true tail call, zero copies — the target shape).
 
 **Fix.**  The rare branch is a pure name test
-(`natOpNames`/`natDivModNames`, 16 pinned names), so it is decided
+(`natOpNames`/`natDivModNames`, 16 pinned names — 15 since `Nat.log2`
+left at the audit's S1), so it is decided
 *before* the value check: the common path tail-calls
 `checkDefnValP`/`F` with `fe` consumed; the rare path keeps today's
 exact behavior (still certifying against the pre-push `fe`).  Mirrored
@@ -12061,8 +12065,9 @@ rows are *deleted from the bundle*.
 2. **The numeral transports.**  `Sound/NatOps.lean`'s seven structural
    closed forms (`natOpV2_pred`/`sub`/`mul`/`pow`/`beq`/`ble` beside
    the lead's `natOpV2_add`, `Interp2/NatSemP.lean`) and
-   `Sound/NatOpsWf.lean`'s nine WF strong inductions
-   (`natOpV2_div`/`mod`/`gcd`/`shiftLeft`/`shiftRight`/`log2`/`land`/
+   `Sound/NatOpsWf.lean`'s WF strong inductions (nine at the time,
+   eight since `Nat.log2` left the family)
+   (`natOpV2_div`/`mod`/`gcd`/`shiftLeft`/`shiftRight`/`land`/
    `lor`/`xor`, `Interp2/NatWfP.lean`), all at `interp2`.  The
    `PinGen.*Cert` arithmetic facts are pure `Nat` and were reused as
    they stand.
@@ -43096,8 +43101,9 @@ constant.  So the term is *tiny* and the type is *tiny*; what is
 enormous is the reduction the kernel must perform to whnf
 `Decidable.decide (@Eq Rat _ _)` to `Bool.true`.  This is the classic
 Mathlib `decide`-over-`Rat` kernel-computation pattern, and it is not a
-`Nat` problem: `Nat.pred/add/sub/mul/pow/beq/ble` (`natOpNames`) and
-`Nat.div/mod/gcd/land/lor/xor/shiftLeft/shiftRight/log2`
+`Nat` problem: `Nat.add/sub/mul/pow/beq/ble` (`natOpNames`, whose
+`Nat.pred` carries no fast path) and
+`Nat.div/mod/gcd/land/lor/xor/shiftLeft/shiftRight`
 (`natDivModNames`) all have certified literal fast paths already.  The
 depth is spent above them, in `Rat`/`Int` structure reduction.
 
@@ -43631,7 +43637,8 @@ Verdict-class changes (WAIT for the user's go):
    `pred`/`log2` makes those literal applications grind (official
    grinds them too); the cap makes `a ^ b` with `b > 2^24` grind
    instead of computing.  Zero payoff, ruling-compliance only — the
-   user decides.
+   user decides.  (Both landed: S2 at master `8640f5e9`, S1 at
+   `agent/nat-ops-official`; §14/§15.)
 10. **V1 — K on a mutual Prop block** (I2): add official's "single
     inductive type" condition to `ruleK`.  Unreachable in real streams.
 
@@ -45209,10 +45216,14 @@ fixtures.  §4's datum is what says its residue on the Mathlib stream is
 zero, and §6's measurement is what says where it lands the campaign:
 **24.10 %**, at `CategoryTheory.Sigma.SigmaHom` — modulo the 660
 declarations the probe cut and the fix keeps.
-### 12. Phase 2, fix 6 — S2 landed: the `pow` exponent cap; S1 withdrawn by the user (`agent/divergence-s12`)
+### 12. Phase 2, fix 6 — S2 landed: the `pow` exponent cap; S1 withdrawn *at the time* (`agent/divergence-s12`)
 
-**The ruling (2026-09-06).**  Land the blow-up protection (official
-`reduce_pow`'s cap), KEEP the `Nat.pred`/`Nat.log2` literal fast paths.
+**The ruling (2026-09-06, superseded the same day by §15).**  Land the
+blow-up protection (official `reduce_pow`'s cap), KEEP the
+`Nat.pred`/`Nat.log2` literal fast paths.  (The second half was
+reversed hours later on conformance grounds; this section is kept as
+the record of the S2 landing and of the instruction measurements,
+which §15 relies on.)
 
 **S2.**  Official `reduce_pow` (`type_checker.cpp:616-627`) refuses an
 exponent above `ReducePowMaxExp = 1 << 24` and lets `Nat.pow` unfold;
@@ -45286,8 +45297,13 @@ instruction counts of the same binaries are flat.
 
 **Conclusion.**  The fast paths are strategy supersets with no
 measurable payoff on any stream at hand (each saves a handful of iota
-steps per literal use), and no cost; per the user's ruling they stay.
-The only fix worth having in this family was S2 (the cap), landed.
+steps per literal use), and no cost.  The measurement stands, and it
+is what decided the question in the end — the *other* way: since
+neither path buys anything, keeping them buys nothing either, and on
+2026-09-06 the user ruled them out on conformance grounds ("Remove the
+pred/log2 fast paths, it's odd to optimize random functions that the
+official kernel does not").  S1 is therefore LANDED, and with it the
+`Nat.log2` pin and certificates — see §15.
 ### 14. Phase 2 closed — status per row (2026-09-06)
 
 | row | status |
@@ -45298,9 +45314,77 @@ The only fix worth having in this family was S2 (the cap), landed.
 | D13 (struct-eta shape gate before inferring) | **landed** — master `791bf869` |
 | D4 (no proof irrelevance on quick pairs) | **landed** — master `f42cd259`; verdicts unchanged on init-full and the suites |
 | V1 (K on a mutual block) | **withdrawn by inspection** — an install-time invariant already (§11); master `f0009992` (record only) |
-| S1 (`pred`/`log2` fast paths) | **withdrawn by the user** — nobody grinds (§13); the fast paths stay |
+| S1 (`pred`/`log2` fast paths) | **landed** — `agent/nat-ops-official`, by the user's 2026-09-06 conformance ruling (§15); §13's "nobody grinds" measurement stands and is why the removal is free |
 | S2 (the pow cap at 2^24) | **landed** — this branch (`agent/divergence-s12`) |
 | W4 (one iota attempt per spine) | **deferred to the docket** — touches `iotaRec`'s exact-arity contract and `IotaRowsP`; cost linear in spine length, no witness built |
 | D5 (`cheap_proj` first pass, `tryUnfoldProjApp`, `lazyDeltaProjReduction`) | **deferred to the docket** — the largest restructuring (a second `whnfCore` entry + two lazy-delta helpers), both-direction cost, no witness built |
 | eager flag (item 6) | **deferred to the docket** — §8: full six-field threading (283 sites + ~770 lemma mentions) vs defeq-cone-only (57 + ~170, whnf-nested residual); separate memo tables either way; 1 use per stream, accepted; a cost divergence, not a verdict one |
 | E4 (proofIrrel type comparison / fall-through), N2 (`reduce_native`) | **stay** by the standing rulings |
+
+### 15. S1 landed — the literal op set is exactly official's, and the `Nat.log2` pin went with it (2026-09-06, `agent/nat-ops-official`)
+
+**The ruling.**  "Remove the pred/log2 fast paths, it's odd to
+optimize random functions that the official kernel does not."  This
+reverses §12's second half.  §13's measurement is untouched and is
+what makes the removal free: neither path was buying anything, so
+neither costs anything to give up (variant A on init-full: 812.06 G
+parity vs master's 812.44 G, 841.84 G vs 842.27 G in P — noise).
+
+**What the checker folds now.**  `reduceNat` (spec, `Kernel/Core.lean`)
+and `reduceNatI` (the twin both cores run, `Cached/CoreC.lean`) fold
+`Nat.succ` on a literal and the fourteen binary operations `add sub mul
+pow gcd mod div beq ble land lor xor shiftLeft shiftRight` — official
+`reduce_nat`'s list (`type_checker.cpp:639-668`), no more and no less,
+with `pow` capped at `2^24` (S2) and the first argument whnf'd first
+(D15).  A `Nat.pred lit` or `Nat.log2 lit` application unfolds, exactly
+as in official; the capless-`log2` positive decline is gone with them.
+
+**What came out with the log2 fast path.**  Nothing licensed the
+`Nat.log2` install-time pin any more, so the whole of it went: the
+entry in `natDivModNames` and in `natOpWfNames` (the WF decline safety
+net — a `Nat.log2` literal is no longer declined, it grinds, as
+official grinds it), `natOpDeps`/`natOpResult`'s rows, the
+`divModDeclPin`/`divModCertProofs`/`divModCertStmts` branches, the
+`Nat.log2` `OpSpec` (so `#gen_natop_pins` splices no `natLog2DeclPin`/
+`natLog2CertProofs`), the entire `Nat.log2` section of
+`PinGen/Certs.lean` (`log2Go`/`log2Eq`/`log2GoZero`/`divHalfLeAux`/
+`log2Bound`/`log2GoCongr`/`bleSelf`/`log2RecCert`/`log2BaseCert`, 137
+lines), its 5 671-line `natop_prefix.json` allowlist and its
+`natop_cone_roots.json` root, and on the model side
+`divModClausesV`'s log2 clause, `natOpTyPinned_unaryE`,
+`divModClausesP_log2`, `natOpV2_log2`, the log2 arms of
+`divModClausesV_congr`/`dmValNames_stored`, the log2 `unHead` case and
+`dmUnNames`' log2 branch.  Every pin-certified operation is now
+binary, so `dmUnNames` is constantly `[Nat.succ]`, every nine-way
+`natDivModNames` split became eight-way, and `natOpTyPinned`'s unary
+arm serves `Nat.pred` alone.  Net: −6 077 lines, +96.
+
+**What stayed, and why.**  `Nat.pred` REMAINS in `natOpNames` — with
+no fast path of its own, but `Nat.sub`'s recurrence is
+`sub x (succ y) = pred (sub x y)` and `natOpV2_sub` reads
+`natOpV2_pred`, so `Nat.pred`'s install-time recurrence certification
+is what makes `sub`'s literal fold sound, and thence div/mod/land/lor/
+xor/shift's.  It is shared machinery for the fourteen, not a leftover
+of its own fast path; `natOpNames` is now "six ops with a fast path
+plus `pred`, the certified dependency".
+
+**Fixtures.**  `nat_log2_perturbed` (was decline 2) DELETED: with the
+pin gone a differently-defined `Nat.log2` is accepted — measured, exit
+0 — which is what official does, so the fixture tested nothing.
+`nat_log2_cone` (accept 0) DELETED: it was the second *pure-cone
+certificate-blob* slice and there are no log2 cert blobs left;
+`nat_land_cone` still pins that property.  `nat_log2_ok` (accept 0)
+KEPT and re-documented — it now pins the ORDINARY route: a stream
+declaring `Nat.log2` and applying it to a literal must still accept,
+by unfolding, with no acceleration and no decline (measured: exit 0,
+433 declarations).  `nat_pred_wrong` (reject 1) KEPT unchanged:
+`Nat.pred` is still certified at install, and the perturbed statement
+now rejects through the structural unfold rather than the fast path.
+e2e is 76/76 (two fixtures fewer).
+
+**Gates at the tip.**  `lake build` warning-free (444 jobs), `lake
+test`, `tests/arena.sh` 0 FAIL (tutorial 90/92, e2e 76/76, annot
+14/14, flags 8/8 + 14/14, no-model sweep as recorded), proofdeps
+1 371 rows as pinned / doors 0 (no module added or removed), layering
+0 edges, init-full-pre2 ACCEPT 60 549 constants in both modes, the
+four capstones at exactly `[propext, Classical.choice, Quot.sound]`.
