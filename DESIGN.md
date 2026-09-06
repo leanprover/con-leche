@@ -47636,7 +47636,7 @@ the next finder, since the mechanism §5 was written against has been
 removed.  The §7 tools and §8's "work against the slice, not the
 stream" stand.
 
-## THE ARENA SUITE (all but Mathlib) — every upstream test through `lka.py`, 0 incorrect verdicts, `init` and `Std` ACCEPTED (2026-09-06, `agent/arena-suite`)
+## THE ARENA SUITE (all but Mathlib) — every upstream test through `lka.py`, 0 incorrect verdicts, `init` and `Std` ACCEPTED; PARKED at `cslib` (2026-09-06, `agent/arena-suite`)
 
 The local battery only ever saw the arena's *tutorial* group (a vendored
 2026-08-19 tarball, `tests/arena-expected.txt`), plus five streams the
@@ -47907,14 +47907,50 @@ algorithmic-conversion non-transitivity the thesis predicts, reproduced
 exactly, with official agreeing on every one.  `proj-maybe-prop` and
 `proj-maybe-prop-past` we accept, as official does.
 
-### 7. `cslib`
+### 7. PARKED — what is still unrun, and the exact resume
 
-The 2.0 GB `cslib` export is the one stream left: its first run was
-stopped mid-flight when the machine's memory rule landed (one
-Mathlib-scale checker run at a time, session-wide, and a foreign Mathlib
-lane held ~12 GB).  It is recorded here when it lands; the invocation is
+**Parked 2026-09-06 by user ruling**: the Mathlib lane comes first and
+the machine has to be quieter; nothing of this suite may hold memory
+meanwhile.  The branch is `agent/arena-suite`, unmerged.  Everything
+above is measured and final; the two gaps are:
 
-    SETLEC_TMPDIR=… scripts/arena/run-suite.sh run cslib   # 22 GB / 4 h
+1. **`cslib` at `--verified`** — the 2.0 GB export.  Its first run was
+   stopped mid-flight (the session-wide rule: one Mathlib-scale checker
+   run at a time, and a foreign Mathlib lane held ~12 GB).  Never
+   completed, no verdict.
+2. **the four big streams at `--trusted`** — `init`, `std`, `cedar`,
+   `cslib`.  The `--trusted` sweep covers the 202 small tests only
+   (where it agrees with `--verified` on every one).
+
+Everything else in the suite is done: 202 small tests in both modes,
+`init`/`std`/`cedar` at `--verified`, and the official v4.34.0-rc2
+reference column over the 202.
+
+**The corpus survives the park.**  `_tmp/arena-suite/` keeps the arena
+clone (`lean-kernel-arena` @ `91f376e`), the ~4 GB of built exports in
+its `_build/tests`, the built `official` checker, and the result
+snapshots (`results-verified-small`, `results-trusted-small`,
+`results-verified-big`, `results-official-small`).  So a resume does
+**not** re-clone or re-export; it is one command per missing cell.
+Resume, verbatim, from a built worktree of this branch, with no foreign
+Mathlib-scale run live (`pgrep -f '\.lake/build/bin/setlec'` shows none
+but your own):
+
+    cd <worktree>            # lake build first; the driver checks the binaries
+    SETLEC_ARENA_DIR=/home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena \
+    SETLEC_VLIMIT=22000000 SETLEC_TIMEOUT=14400 \
+      scripts/arena/run-suite.sh run cslib
+
+    # then, one at a time, the trusted column of the big four:
+    SETLEC_ARENA_DIR=/home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena \
+    SETLEC_MODE=--trusted SETLEC_VLIMIT=22000000 SETLEC_TIMEOUT=14400 \
+      scripts/arena/run-suite.sh run init std cedar cslib
+
+    SETLEC_ARENA_DIR=/home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena \
+      scripts/arena/run-suite.sh table
+
+`SETLEC_TMPDIR` defaults to `_tmp/arena-suite/tmp` — do not let it fall
+back to `/tmp`, which is a tmpfs here (§1).
 
 ### 8. Reproducing
 
