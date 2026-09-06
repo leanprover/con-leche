@@ -39,10 +39,8 @@ collapses show up only here:
 
 * `denoteBM_annotBinderMeta` becomes the definitional
   `annotBinderMetaI_eq` (the clone's meta *is* the spec's).
-* `simAt_withStore_pure` becomes `SimC.pure`: the cached `withStore` is
-  `fun rd => pure (rd default)`.  It is kept under the name
-  `simC_withStore_pure` so the two `annotPw*` walks read like their
-  originals.
+* the zero-ness read becomes `SimC.pure`: it is a plain `pure`, named
+  `simC_pure_pure` for the two `annotPw*` walks.
 
 The `mk`/`mkX` premise of `annotateBindersOutC_sim` is the transposition
 of the interned `denoteNode`-agreement premise: the built view
@@ -259,11 +257,11 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
           obtain ⟨n0x, ty0x, mb0x⟩ := e0x
           obtain rfl : mb0x = mb0 := hstk.1.2.2.symm
           dsimp only
-          refine SimC.withStore ?_
-          obtain ⟨-, hzeq⟩ := zeronessOfLIGoC_spec (st := default) v
+          refine SimC.pureB ?_
+          obtain ⟨-, hzeq⟩ := zeronessOfLGo_spec v
             (memo := {}) PWMemoInvC.empty
-            (p := (CStore.zeronessOfLIGo default {} v).1)
-            (memo' := (CStore.zeronessOfLIGo default {} v).2) rfl
+            (p := (zeronessOfLGo {} v).1)
+            (memo' := (zeronessOfLGo {} v).2) rfl
           rw [hzeq]
           split
           case isFalse => exact SimC.throw_bind
@@ -370,7 +368,7 @@ def RelLStk : List (Level × PropWhen) → List (Level × PropWhen) → Prop
 
 theorem inferPisOutC_sim :
     ∀ {stk : List (Level × PropWhen)} {stkx : List (Level × PropWhen)}
-      {v : Level} {lv : Level} {memo : CStore.PWMemo} {s₀ : CState},
+      {v : Level} {lv : Level} {memo : PWMemo} {s₀ : CState},
       CSOK mode env s₀ → RelLStk stk stkx → v = lv →
       PWMemoInvC memo →
       SimC mode env s₀ (fun (iv : Level) (ivx : Level) => iv = ivx)
@@ -395,8 +393,7 @@ theorem inferPisOutC_sim :
       subst hv
       show SimC mode env s₀ _
         (do
-          let (pv, memo) ← Lech.Cached.withStore fun st =>
-            st.zeronessOfLIGo memo v
+          let (pv, memo) ← pure (zeronessOfLGo memo v)
           if mode.verifiedChecks && !(pv.equiv pw) then
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
@@ -407,11 +404,11 @@ theorem inferPisOutC_sim :
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
           inferPisOut (m := FueledM) mode rx (.imax u v))
-      refine SimC.withStore ?_
-      obtain ⟨hminv', hzeq⟩ := zeronessOfLIGoC_spec (st := default) v
+      refine SimC.pureB ?_
+      obtain ⟨hminv', hzeq⟩ := zeronessOfLGo_spec v
         (memo := memo) hminv
-        (p := (CStore.zeronessOfLIGo default memo v).1)
-        (memo' := (CStore.zeronessOfLIGo default memo v).2) rfl
+        (p := (zeronessOfLGo memo v).1)
+        (memo' := (zeronessOfLGo memo v).2) rfl
       dsimp only
       rw [hzeq]
       split
@@ -960,14 +957,12 @@ theorem annotateBindersOutC_sim
         (hmk n tyAbs (tyx'.abstractRange d j) cur curx
           (annotBinderMeta pw? bi) hQab hcur)]
 
-/-- A bare store read against a pure fueled result (the write's last
-step: `zeronessOfLIGo` on the sort level).  The cached `withStore` is
-`pure ∘ (· default)`, so the interned `simAt_withStore_pure` collapses
-to `SimC.pure`. -/
-private theorem simC_withStore_pure {β α : Type}
-    {P : β → α → Prop} {rd : CStore → β} {a : α} {s₀ : CState}
-    (hs : CSOK mode env s₀) (h : P (rd default) a) :
-    SimC mode env s₀ P (Lech.Cached.withStore rd) (pure a) :=
+/-- A bare pure read against a pure fueled result (the write's last
+step: `zeronessOfLGo` on the sort level). -/
+private theorem simC_pure_pure {β α : Type}
+    {P : β → α → Prop} {b : β} {a : α} {s₀ : CState}
+    (hs : CSOK mode env s₀) (h : P b a) :
+    SimC mode env s₀ P (pure b) (pure a) :=
   SimC.pure hs h
 
 /-- **The telescope datum's walk (task #161 P5).**  Both sides read the
@@ -995,11 +990,11 @@ theorem annotPwPiC_sim (ih : SSimC mode env f) {d : Nat}
     refine SimC.bind (ensureSortC_sim ih hs₂ hbtd hwbt)
       (fun s₃ v lv hs₃ hPv => ?_)
     obtain rfl : v = lv := hPv
-    obtain ⟨-, hzeq⟩ := zeronessOfLIGoC_spec (st := default) v
+    obtain ⟨-, hzeq⟩ := zeronessOfLGo_spec v
       (memo := {}) PWMemoInvC.empty
-      (p := (CStore.zeronessOfLIGo default {} v).1)
-      (memo' := (CStore.zeronessOfLIGo default {} v).2) rfl
-    exact simC_withStore_pure hs₃ hzeq
+      (p := (zeronessOfLGo {} v).1)
+      (memo' := (zeronessOfLGo {} v).2) rfl
+    exact simC_pure_pure hs₃ hzeq
 
 /-- The λ twin of `annotPwPiC_sim`. -/
 theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
@@ -1026,11 +1021,11 @@ theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
     refine SimC.bind (ensureSortC_sim ih hs₃ hbttd hwbtt)
       (fun s₄ vb lvb hs₄ hPv => ?_)
     obtain rfl : vb = lvb := hPv
-    obtain ⟨-, hzeq⟩ := zeronessOfLIGoC_spec (st := default) vb
+    obtain ⟨-, hzeq⟩ := zeronessOfLGo_spec vb
       (memo := {}) PWMemoInvC.empty
-      (p := (CStore.zeronessOfLIGo default {} vb).1)
-      (memo' := (CStore.zeronessOfLIGo default {} vb).2) rfl
-    exact simC_withStore_pure hs₄ hzeq
+      (p := (zeronessOfLGo {} vb).1)
+      (memo' := (zeronessOfLGo {} vb).2) rfl
+    exact simC_pure_pure hs₄ hzeq
 
 /-- The write the telescope loops use (ungated, both modes). -/
 theorem annotatePisPwC_sim (ih : SSimC mode env f) {d k : Nat}

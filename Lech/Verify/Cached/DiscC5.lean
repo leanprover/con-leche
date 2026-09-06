@@ -181,10 +181,10 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
   · simp only [if_neg hab]
     -- the eq-true shortcut (E2): two store reads for the guard, then the
     -- guarded `whnf`
-    refine SimC.withStore ?_
-    rw [isBoolTrueI_spec hdenb]
-    refine SimC.withStore ?_
-    rw [hasFvarI_spec hdena]
+    refine SimC.pureB ?_
+    rw [isBoolTrue_spec' hdenb]
+    refine SimC.pureB ?_
+    rw [hasFvar_spec' hdena]
     refine SimC.bind (boolTrueShortcutIfC_sim ih hs hdena hwa _)
       (fun s₀b rbt rbtx hs₀b hPbt => ?_)
     cases hPbt
@@ -208,8 +208,8 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
     · simp only [if_neg hab']
       -- hoisted proof irrelevance (the `Prop` branch, task #168)
       -- the D4 quick-pair read
-      refine SimC.withStore ?_
-      rw [quickPairI_spec ha'd hb'd]
+      refine SimC.pureB ?_
+      rw [quickPair_spec' ha'd hb'd]
       refine SimC.bind (propIrrelIfC_sim ih hs₂ ha'd hb'd hwa' hwb' _)
         (fun s₂p rpi rpix hs₂p hPpi => ?_)
       cases hPpi
@@ -222,8 +222,8 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
       have hs₂ := hs₂p
       -- peel the fvar-guard read; `hasFvarI` agrees with the spec's
       -- `hasFvar`, so both sides carry the same guard
-      refine SimC.withStore ?_
-      rw [hasFvarI_spec ha'd, hasFvarI_spec hb'd]
+      refine SimC.pureB ?_
+      rw [hasFvar_spec' ha'd, hasFvar_spec' hb'd]
       refine SimC.bind (reduceNatIfC_sim ih hs₂ ha'd hwa' _)
         (fun s₃ o₁ o₁x hs₃ hPo₁ => ?_)
       cases o₁ with
@@ -251,10 +251,10 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
             | some b₂x => exact absurd hPo₂ (by simp [RelOC])
             | none =>
               -- Lazy delta, decision before materialization (task #106)
-              refine SimC.withStore ?_
-              refine SimC.withStore ?_
-              rw [unfoldableHeadI_spec ha'd,
-                unfoldableHeadI_spec hb'd]
+              refine SimC.pureB ?_
+              refine SimC.pureB ?_
+              rw [unfoldableHeadC_spec' ha'd,
+                unfoldableHeadC_spec' hb'd]
               cases hda : unfoldableHead env a'x with
               | true =>
                 cases hdb : unfoldableHead env b'x with
@@ -277,10 +277,10 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                         (unfoldDefinition_WScoped henv hua hwa') hwb'
                 | true =>
                   dsimp only
-                  refine SimC.withStore ?_
-                  refine SimC.withStore ?_
-                  rw [headHintI_spec ha'd,
-                    headHintI_spec hb'd]
+                  refine SimC.pureB ?_
+                  refine SimC.pureB ?_
+                  rw [headHintC_spec' ha'd,
+                    headHintC_spec' hb'd]
                   by_cases hlt₁ : ReducibilityHint.lt
                       (headHint env b'x) (headHint env a'x) = true
                   · rw [if_pos hlt₁, if_pos hlt₁]
@@ -319,8 +319,8 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                           exact hk _ hs₅ ha'd hQb hwa'
                             (unfoldDefinition_WScoped henv hub hwb')
                     · rw [if_neg hlt₂, if_neg hlt₂]
-                      refine SimC.withStore ?_
-                      rw [sameConstHeadsI_spec ha'd hb'd]
+                      refine SimC.pureB ?_
+                      rw [sameConstHeadsC_spec' ha'd hb'd]
                       by_cases hsr : (ReducibilityHint.sameRegular
                           (headHint env a'x) (headHint env b'x) &&
                           sameConstHeads a'x b'x) = true
@@ -696,8 +696,8 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                   | app f₂ x₂ =>
                     dsimp only [ExprC.view]
                     -- spine-wise congruence (task #106)
-                    refine SimC.withStore ?_
-                    refine SimC.withStore ?_
+                    refine SimC.pureB ?_
+                    refine SimC.pureB ?_
                     have hAA : RelCL
                         (ExprC.getAppArgs (Expr.app f₁ x₁))
                         (Expr.app (f₁) (x₁)).getAppArgs :=
@@ -716,14 +716,13 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                           (Expr.app f₂ x₂)).length
                         = (Expr.app (f₂) (x₂)).getAppArgs.length :=
                       RelCL.length hBB
-                    simp only [CStore.getAppArgsI, hlena, hlenb]
+                    simp only [hlena, hlenb]
                     by_cases hlen :
                         (Expr.app (f₁) (x₁)).getAppArgs.length
                           = (Expr.app (f₂) (x₂)).getAppArgs.length
                     · rw [if_pos hlen, if_pos hlen]
-                      refine SimC.withStore ?_
-                      refine SimC.withStore ?_
-                      simp only [CStore.getAppFnI]
+                      refine SimC.pureB ?_
+                      refine SimC.pureB ?_
                       have hfa := ExprC.getAppFn_spec (Expr.app f₁ x₁)
                       have hfb := ExprC.getAppFn_spec (Expr.app f₂ x₂)
                       refine SimC.bind (ih.defeq hs₆ hfa hfb

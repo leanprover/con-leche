@@ -120,7 +120,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
       (majorToCtor mode (fueledFns mode env) env d recName rules major) := by
   obtain rfl := CheckMode.eq_verified hμ
   show SimC .verified env s₀ (RelEC d)
-    (Lech.Cached.withStore (fun st => isCtorAppI (mkFEnv env) st i) >>=
+    (pure (isCtorAppC (mkFEnv env) i) >>=
       fun ctor =>
       if ctor then pure i else
       match rules with
@@ -134,21 +134,20 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
               if caps.ruleK = true ∧ cnF = 0 then
                 (coreKnotI .verified (mkFEnv env) f).inferIO d i >>= fun tm =>
                 (coreKnotI .verified (mkFEnv env) f).whnf d tm >>= fun tmaj =>
-                Lech.Cached.withStore
-                    (fun st => st.getNode (st.getAppFnI tmaj)) >>= fun n =>
+                Lech.Cached.viewI (ExprC.getAppFn tmaj) >>= fun n =>
                 match n with
                 | some (.const T' ust) =>
                   beqNameM T' T >>= fun bq =>
                   if bq ∧ cvj.levelParams.length = ust.length then
-                    Lech.Cached.withStore (·.getAppArgsI tmaj) >>= fun margs =>
+                    pure (ExprC.getAppArgs tmaj) >>= fun margs =>
                     if cnP ≤ margs.length ∧
                         (cvj.type.stripPis cnP).isSome = true then
                       internNameM rl.ctor >>= fun ctorI =>
                       internI (.const ctorI ust) >>= fun h =>
                       mkAppNM h (margs.take cnP) >>= fun fab =>
-                      Lech.Cached.withStore (fun st => st.wscopedBI d fab &&
-                        st.looseBVarsBoundedI 0 fab &&
-                        st.leafGuardI fab i) >>=
+                      pure (ExprC.wscopedB d fab &&
+                        ExprC.looseBVarsBounded 0 fab &&
+                        ExprC.leafGuard fab i) >>=
                         fun g =>
                       if g then
                         constTyAtM (mkFEnv env) ctorI rl.ctor ust >>=
@@ -175,11 +174,10 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                   Name.isProjFnShape recName = false then
                 (coreKnotI .verified (mkFEnv env) f).inferIO d i >>= fun tm =>
                 (coreKnotI .verified (mkFEnv env) f).whnf d tm >>= fun tmaj =>
-                Lech.Cached.withStore
-                    (fun st => st.getNode (st.getAppFnI tmaj)) >>= fun n =>
+                Lech.Cached.viewI (ExprC.getAppFn tmaj) >>= fun n =>
                 match n with
                 | some (.const T' ust) =>
-                  Lech.Cached.withStore (·.getAppArgsI tmaj) >>= fun margs =>
+                  pure (ExprC.getAppArgs tmaj) >>= fun margs =>
                   readbackLevelsM ust >>= fun ustL =>
                   beqNameM T' T >>= fun bq =>
                   if bq ∧ margs.length = caps.etaParams ∧
@@ -196,9 +194,9 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       internNameM caps.etaCtor >>= fun ctorI =>
                       internI (.const ctorI ust) >>= fun h =>
                       mkAppNM h (margs ++ projs) >>= fun fab =>
-                      Lech.Cached.withStore (fun st => st.wscopedBI d fab &&
-                        st.looseBVarsBoundedI 0 fab &&
-                        st.leafGuardI fab i) >>=
+                      pure (ExprC.wscopedB d fab &&
+                        ExprC.looseBVarsBounded 0 fab &&
+                        ExprC.leafGuard fab i) >>=
                         fun g =>
                       if g then
                         constTyAtM (mkFEnv env) ctorI rl.ctor ust >>=
@@ -228,10 +226,10 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
       | _ => pure i)
     (majorToCtor .verified (fueledFns .verified env) env d recName rules major)
   rw [majorToCtor_unfold]
-  refine SimC.withStore ?_
+  refine SimC.pureB ?_
   obtain rfl := hden
   have hden : RelC i i := rfl
-  rw [isCtorAppI_spec rfl]
+  rw [isCtorAppC_spec' rfl]
   by_cases hctor : isCtorApp env i
   · rw [if_pos hctor, if_pos hctor]
     exact SimC.pure hs ⟨hden, hmaj⟩
@@ -271,9 +269,8 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                   have hmargs : RelCL (ExprC.getAppArgs tmaj)
                       (Expr.getAppArgs tmaj) :=
                     ExprC.getAppArgs_spec _
-                  refine SimC.withStore ?_
+                  refine SimC.pureB ?_
                   have hfn := ExprC.getAppFn_spec tmaj
-                  dsimp only [CStore.getNode, CStore.getAppFnI]
                   generalize hg : ExprC.getAppFn tmaj = g at hfn ⊢
                   cases g with
                   | const T' ust =>
@@ -285,8 +282,8 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                     subst bq
                     simp only [beq_iff_eq]
                     split
-                    · refine SimC.withStore ?_
-                      simp only [CStore.getAppArgsI, hmargs.length]
+                    · refine SimC.pureB ?_
+                      simp only [hmargs.length]
                       split
                       rotate_left
                       · exact SimC.pure hs₂ ⟨hden, hmaj⟩
@@ -302,10 +299,10 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       have hQfab' : RelC fab
                           (Expr.mkAppN (.const rl.ctor ust)
                             ((Expr.getAppArgs tmaj).take cnP)) := hQfab
-                      refine SimC.withStore ?_
-                      rw [wscopedBI_spec hQfab',
-                        looseBVarsBoundedI_spec hQfab',
-                        leafGuardI_spec hQfab' rfl]
+                      refine SimC.pureB ?_
+                      rw [wscopedB_spec' hQfab',
+                        looseBVarsBounded_spec' hQfab',
+                        leafGuard_spec' hQfab' rfl]
                       split
                       · rename_i hguard
                         have hwfab := Expr.WScoped.of_wscopedB
@@ -412,23 +409,22 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                     have hmargs : RelCL (ExprC.getAppArgs tmaj)
                         (Expr.getAppArgs tmaj) :=
                       ExprC.getAppArgs_spec _
-                    refine SimC.withStore ?_
+                    refine SimC.pureB ?_
                     have hfn := ExprC.getAppFn_spec tmaj
-                    dsimp only [CStore.getNode, CStore.getAppFnI]
                     generalize hg : ExprC.getAppFn tmaj = g at hfn ⊢
                     cases g with
                     | const T' ust =>
                       rw [show (Expr.getAppFn tmaj) = Expr.const T' ust
                         from hfn.symm]
                       dsimp only
-                      refine SimC.withStore ?_
+                      refine SimC.pureB ?_
                       refine SimC.bind_left (readbackLevelsM_eff hs₂ ust)
                         (fun s₂r ustL hs₂r hustL => ?_)
                       subst ustL
                       refine SimC.bind_left (beqNameM_eff hs₂r T' T)
                         (fun s₂rb bq hs₂r hbq => ?_)
                       subst bq
-                      simp only [CStore.getAppArgsI, hmargs.length,
+                      simp only [hmargs.length,
                         beq_iff_eq]
                       split
                       · split
@@ -454,10 +450,10 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                             (Expr.mkAppN (.const caps.etaCtor ust)
                               (etaFabArgsE env T ust (Expr.getAppArgs tmaj) i
                                 caps.etaFields)) := hQfab
-                        refine SimC.withStore ?_
-                        rw [wscopedBI_spec hQfab',
-                          looseBVarsBoundedI_spec hQfab',
-                          leafGuardI_spec hQfab' rfl]
+                        refine SimC.pureB ?_
+                        rw [wscopedB_spec' hQfab',
+                          looseBVarsBounded_spec' hQfab',
+                          leafGuard_spec' hQfab' rfl]
                         split
                         · rename_i hguard
                           have hwfab := Expr.WScoped.of_wscopedB
@@ -657,10 +653,9 @@ theorem iotaIndexOkC_sim (ih : SSimC mode env f) {d : Nat} {mI rP cnP : Nat}
           piResidual_WScoped hresx hwty hwys
         obtain rfl := hresd
         dsimp only
-        refine SimC.withStore ?_
+        refine SimC.pureB ?_
         have hres : RelCL (ExprC.getAppArgs res) (Expr.getAppArgs res) :=
           ExprC.getAppArgs_spec res
-        simp only [CStore.getAppArgsI]
         exact defEqListC_sim ih hs₁ (hres.drop cnP) hidx
           (fun x hx => hresW.getAppArgs x (List.mem_of_mem_drop hx)) hwis
 
@@ -914,13 +909,12 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
   obtain rfl := CheckMode.eq_verified hmi
   unfold iotaRecI
   rw [iotaRec_unfold .verified]
-  refine SimC.withStore ?_
+  refine SimC.pureB ?_
   obtain rfl := hden
   have hden : RelC i i := rfl
   have hargs : RelCL (ExprC.getAppArgs i) (Expr.getAppArgs i) :=
     ExprC.getAppArgs_spec i
   have hfn := ExprC.getAppFn_spec i
-  dsimp only [CStore.getNode, CStore.getAppFnI]
   generalize hg : ExprC.getAppFn i = g at hfn ⊢
   cases g with
   | const c us =>
@@ -935,8 +929,8 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
       cases ci with
       | recInfo cv mI rP rules =>
         dsimp only
-        refine SimC.withStore ?_
-        simp only [CStore.getAppArgsI, hargs.length]
+        refine SimC.pureB ?_
+        simp only [hargs.length]
         by_cases hlen : (Expr.getAppArgs i).length = mI + 1 ∧
             us.length = cv.levelParams.length
         · rw [if_pos hlen, if_pos hlen]
@@ -950,7 +944,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
           obtain ⟨rfl, hmaj⟩ := hP₂
           have hmargs : RelCL (ExprC.getAppArgs major)
               (Expr.getAppArgs major) := ExprC.getAppArgs_spec major
-          refine SimC.withStore ?_
+          refine SimC.pureB ?_
           have hfn' := ExprC.getAppFn_spec major
           generalize hg' : ExprC.getAppFn major = g' at hfn' ⊢
           cases g' with
@@ -972,7 +966,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
                 | none => exact SimC.pure hs₄ trivial
                 | some rl =>
                   dsimp only
-                  refine SimC.withStore ?_
+                  refine SimC.pureB ?_
                   simp only [hmargs.length]
                   by_cases hmlen : (Expr.getAppArgs major).length =
                       rl.ctorParams + rl.nfields

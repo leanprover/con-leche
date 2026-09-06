@@ -62,8 +62,7 @@ private theorem instKey_inv {a c : ExprC} {vs vs' : List ExprC} {d d' : Nat}
 /-! ## Component replacements
 
 The `CSOK` clauses are independent, so a wrapper that touches one cache
-gets its invariant back by replacing that clause.  (These are the ports
-of `ISOK.withStore*`; there is no arena leg to transport.) -/
+gets its invariant back by replacing that clause. -/
 
 variable {env : Env}
 

@@ -9,7 +9,7 @@ Task #163, batch 4.  The pieces of the cached clone that sit *between*
 the parse arena and the core:
 
 * the fabrication leaf guard (`fvarLeaves`/`leafMem`/`leavesSubGo`/
-  `leafGuard`) — the transposition of `leafGuardI_spec`
+  `leafGuard`) — the transposition of `leafGuard_spec'`
   (`Lech/Verify/IExprOps.lean`);
 * the level-parameter definedness walk
   (`ExprC.allLevelParamsDefined`) — the transposition of
@@ -28,7 +28,7 @@ Two structural differences from the arena twins are paid for here.
    is **not** `Expr.fvarLeaves` of the erasure — only its *set of
    elements* is.  Since the only consumer (`leafMem`) is a membership
    test, a membership characterization is exactly what is needed, and
-   `leafGuard_spec` still lands on `leafGuardI_spec`'s `Expr`-side
+   `leafGuard_spec` still lands on `leafGuard_spec'`'s `Expr`-side
    right-hand side verbatim.
 
    Marking a node *before* descending into it is what makes the `seen`
@@ -1127,7 +1127,7 @@ theorem leavesSubGo_spec {bl : List (Nat × Name × ExprC)}
         exact ⟨hres, h2.insert hres⟩
 
 /-- **The fabrication leaf guard agrees with the `Expr`-level
-leaf-subset boolean** — `leafGuardI_spec`'s right-hand side, verbatim,
+leaf-subset boolean** — `leafGuard_spec'`'s right-hand side, verbatim,
 with the arena denotation replaced by the erasure. -/
 theorem leafGuard_spec {fab base : ExprC} :
     ExprC.leafGuard fab base
@@ -1146,12 +1146,13 @@ theorem leafGuard_spec {fab base : ExprC} :
 
 end ExprC
 
-/-! ## Store-guard agreement
+/-! ## Guard agreement
 
-The store-shaped guard twins of `Lech/Cached/StateC.lean` are pure
-functions of the node, so each agrees with its `Expr`-side original on
-the erasure.  (Only the ones the body walks consume are proved; more
-land with the walks that need them.) -/
+The environment-index guards of `Lech/Cached/StateC.lean` are pure
+functions of the node, so each agrees with its `Expr`-side original.
+Each comes in two forms: the plain equation, and (primed) the same
+equation transported along the value equation the simulation
+carries. -/
 
 open ExprC in
 /-- The `Nat`-literal readout agrees with the spec's `rawNatLit?` on
@@ -1170,13 +1171,11 @@ theorem rawNatLitC?_spec (e : ExprC) :
   | _ => rfl
 
 open ExprC in
-/-- The store-shaped spelling the core bodies use (`withStore
-(rawNatLitI? · w)`), stated against the erasure of the queried node —
-the transposition of `rawNatLitI?_spec` (`Lech/Verify/IExprOps.lean`),
-whose arena denotation hypothesis becomes the erasure equation. -/
-theorem rawNatLitI?_spec {st : CStore} {w : ExprC} {wx : Expr}
-    (h : w = wx) : rawNatLitI? st w = rawNatLit? wx := by
-  rw [rawNatLitI?, rawNatLitC?_spec, h]
+/-- `rawNatLitC?_spec` transported along the value equation the
+simulation carries. -/
+theorem rawNatLitC?_spec' {w : ExprC} {wx : Expr}
+    (h : w = wx) : rawNatLitC? w = rawNatLit? wx := by
+  rw [rawNatLitC?_spec, h]
 
 open ExprC in
 /-- The unit-like-type guard agrees with the spec's `isUnitLikeTy` on
@@ -1198,13 +1197,11 @@ theorem isUnitLikeTyC_spec {env : Env} (e : ExprC) :
   | _ => rfl
 
 open ExprC in
-/-- The store-shaped spelling the core bodies use (`withStore (fun st =>
-isUnitLikeTyI fe st w)`) — the transposition of `isUnitLikeTyI_spec`
-(`Lech/Verify/IExprOps.lean`). -/
-theorem isUnitLikeTyI_spec {env : Env} {st : CStore} {w : ExprC} {wx : Expr}
+/-- `isUnitLikeTyC_spec` transported along the value equation. -/
+theorem isUnitLikeTyC_spec' {env : Env} {w : ExprC} {wx : Expr}
     (h : w = wx) :
-    isUnitLikeTyI (mkFEnv env) st w = isUnitLikeTy env wx := by
-  rw [isUnitLikeTyI, isUnitLikeTyC_spec, h]
+    isUnitLikeTyC (mkFEnv env) w = isUnitLikeTy env wx := by
+  rw [isUnitLikeTyC_spec, h]
 
 open ExprC in
 /-- The constructor-application guard agrees with the spec's
@@ -1230,27 +1227,24 @@ theorem isCtorAppC_spec {env : Env} {e : ExprC} :
   | _ => rfl
 
 open ExprC in
-/-- The store-shaped spelling the core bodies use (`withStore (fun st =>
-isCtorAppI fe st e)`) — the transposition of `isCtorAppI_spec`
-(`Lech/Verify/IExprOps.lean`). -/
-theorem isCtorAppI_spec {env : Env} {st : CStore} {e : ExprC} {ex : Expr}
+/-- `isCtorAppC_spec` transported along the value equation. -/
+theorem isCtorAppC_spec' {env : Env} {e : ExprC} {ex : Expr}
     (h : e = ex) :
-    isCtorAppI (mkFEnv env) st e = isCtorApp env ex := by
-  rw [isCtorAppI, isCtorAppC_spec, h]
+    isCtorAppC (mkFEnv env) e = isCtorApp env ex := by
+  rw [isCtorAppC_spec, h]
 
-/-- The `quickPairI` store read agrees with the spec's `Expr.quickPair` on
-the erasures. -/
-theorem quickPairI_spec {st : CStore} {a b : ExprC} {ax bx : Expr}
-    (ha : a = ax) (hb : b = bx) : quickPairI st a b = Expr.quickPair ax bx := by
-  rw [quickPairI, ha, hb]
+/-- `Expr.quickPair` transported along the value equations. -/
+theorem quickPair_spec' {a b : ExprC} {ax bx : Expr}
+    (ha : a = ax) (hb : b = bx) : Expr.quickPair a b = Expr.quickPair ax bx := by
+  rw [ha, hb]
 
 /-- The eta constructor-shape gate agrees with the spec's `etaCtorShape`
-on the erasure (`ExprC = Expr`; only the environment lookup differs). -/
-theorem etaCtorShapeI_spec {env : Env} {st : CStore} {e : ExprC} {ex : Expr}
+(`ExprC = Expr`; only the environment lookup differs). -/
+theorem etaCtorShapeC_spec' {env : Env} {e : ExprC} {ex : Expr}
     (h : e = ex) :
-    etaCtorShapeI (mkFEnv env) st e = etaCtorShape env ex := by
+    etaCtorShapeC (mkFEnv env) e = etaCtorShape env ex := by
   subst h
-  unfold etaCtorShapeI etaCtorShapeC etaCtorShape
+  unfold etaCtorShapeC etaCtorShape
   generalize Expr.getAppFn e = f
   cases f <;> simp only [mkFEnv_find?] <;> first
     | rfl
@@ -1282,13 +1276,11 @@ theorem headHintC_spec {env : Env} {e : ExprC} :
   | _ => rfl
 
 open ExprC in
-/-- The store-shaped spelling the core bodies use (`withStore (fun st =>
-headHintI fe st e)`) — the transposition of `headHintI_spec`
-(`Lech/Verify/IExprOps.lean`). -/
-theorem headHintI_spec {env : Env} {st : CStore} {e : ExprC} {ex : Expr}
+/-- `headHintC_spec` transported along the value equation. -/
+theorem headHintC_spec' {env : Env} {e : ExprC} {ex : Expr}
     (h : e = ex) :
-    headHintI (mkFEnv env) st e = headHint env ex := by
-  rw [headHintI, headHintC_spec, h]
+    headHintC (mkFEnv env) e = headHint env ex := by
+  rw [headHintC_spec, h]
 
 open ExprC in
 /-- The lazy-delta unfoldability decision agrees with the spec's
@@ -1314,12 +1306,11 @@ theorem unfoldableHeadC_spec {env : Env} {e : ExprC} :
   | _ => rfl
 
 open ExprC in
-/-- The store-shaped spelling the core bodies use — the transposition
-of `unfoldableHeadI_spec` (`Lech/Verify/IExprOps.lean`). -/
-theorem unfoldableHeadI_spec {env : Env} {st : CStore} {e : ExprC} {ex : Expr}
+/-- `unfoldableHeadC_spec` transported along the value equation. -/
+theorem unfoldableHeadC_spec' {env : Env} {e : ExprC} {ex : Expr}
     (h : e = ex) :
-    unfoldableHeadI (mkFEnv env) st e = unfoldableHead env ex := by
-  rw [unfoldableHeadI, unfoldableHeadC_spec, h]
+    unfoldableHeadC (mkFEnv env) e = unfoldableHead env ex := by
+  rw [unfoldableHeadC_spec, h]
 
 open ExprC in
 /-- The same-constant-head short-circuit agrees with the spec's
@@ -1346,48 +1337,45 @@ theorem sameConstHeadsC_spec {a b : ExprC} :
   | _ => cases b <;> rfl
 
 open ExprC in
-/-- The store-shaped spelling the core bodies use — the transposition
-of `sameConstHeadsI_spec` (`Lech/Verify/IExprOps.lean`). -/
-theorem sameConstHeadsI_spec {st : CStore} {a b : ExprC} {xa xb : Expr}
+/-- `sameConstHeadsC_spec` transported along the value equations. -/
+theorem sameConstHeadsC_spec' {a b : ExprC} {xa xb : Expr}
     (h₁ : a = xa) (h₂ : b = xb) :
-    sameConstHeadsI st a b = sameConstHeads xa xb := by
-  rw [sameConstHeadsI, sameConstHeadsC_spec, h₁, h₂]
+    sameConstHeadsC a b = sameConstHeads xa xb := by
+  rw [sameConstHeadsC_spec, h₁, h₂]
 
 open ExprC in
-/-- Store-shaped `hasFvar`: the `O(1)` eager fvar-range field is exact
-on the invariant (`fvarB_eq _`), so its non-zeroness is the spec's
-`Expr.hasFvar` — the transposition of `hasFvarI_spec`
-(`Lech/Verify/IExpr.lean`). -/
-theorem hasFvarI_spec {st : CStore} {e : ExprC} {ex : Expr}
-    (h : e = ex) : st.hasFvarI e = ex.hasFvar := by
+/-- The `O(1)` eager fvar-range field is exact (`fvarB_eq _`), so its
+non-zeroness is the spec's `Expr.hasFvar`. -/
+theorem hasFvar_spec' {e : ExprC} {ex : Expr}
+    (h : e = ex) : ExprC.hasFvar e = ex.hasFvar := by
   show (e.fvarB != 0) = _
   rw [fvarB_eq e, h, Expr.fvarRange_bne_zero]
 
 open ExprC in
-/-- Store-shaped `wscopedB`. -/
-theorem wscopedBI_spec {st : CStore} {d : Nat} {e : ExprC} {ex : Expr}
+/-- `ExprC.wscopedB_spec` transported along the value equation. -/
+theorem wscopedB_spec' {d : Nat} {e : ExprC} {ex : Expr}
     (h : e = ex) :
-    st.wscopedBI d e = ex.wscopedB d := by
-  rw [CStore.wscopedBI, ExprC.wscopedB_spec, h]
+    ExprC.wscopedB d e = ex.wscopedB d := by
+  rw [ExprC.wscopedB_spec, h]
 
 open ExprC in
-/-- Store-shaped `looseBVarsBounded`. -/
-theorem looseBVarsBoundedI_spec {st : CStore} {k : Nat} {e : ExprC}
+/-- `ExprC.looseBVarsBounded_spec` transported along the value equation. -/
+theorem looseBVarsBounded_spec' {k : Nat} {e : ExprC}
     {ex : Expr} (h : e = ex) :
-    st.looseBVarsBoundedI k e = ex.looseBVarsBounded k := by
-  rw [CStore.looseBVarsBoundedI, ExprC.looseBVarsBounded_spec, h]
+    ExprC.looseBVarsBounded k e = ex.looseBVarsBounded k := by
+  rw [ExprC.looseBVarsBounded_spec, h]
 
 open ExprC in
-/-- Store-shaped fabrication leaf guard. -/
-theorem leafGuardI_spec {st : CStore} {fab base : ExprC} {fx bx : Expr}
+/-- `ExprC.leafGuard_spec` transported along the value equations. -/
+theorem leafGuard_spec' {fab base : ExprC} {fx bx : Expr}
     (h₁ : fab = fx) (h₂ : base = bx) :
-    st.leafGuardI fab base
+    ExprC.leafGuard fab base
       = (fx.fvarLeaves.all fun l => bx.fvarLeaves.contains l) := by
-  rw [CStore.leafGuardI, ExprC.leafGuard_spec, h₁, h₂]
+  rw [ExprC.leafGuard_spec, h₁, h₂]
 
 /-! ## Constant resolution
 
-`constsResolveFCGo` (`Lech/Cached/StateC.lean`) is the clone's
+`constsResolveFCGo` (`Lech/Cached/StateC.lean`) is the cached
 `Expr.constsResolveF`: an `ExprC`-keyed memoized walk with **no**
 cutoff (the environment index is an ambient parameter of the call, so
 only the node matters). -/
@@ -1619,24 +1607,21 @@ theorem constsResolveFC_spec {fe : FEnv} {e : ExprC} :
 
 /-! ### The zero-ness readout's memo (task #163, batch 9)
 
-The binder-telescope loops read `CStore.zeronessOfLIGo` through
-`withStore`, threading a `PWMemo` across the `inferPisOutI` fold.  The
-port of `PWMemoInv`/`zeronessOfLIGo_spec` (`Lech/Verify/IExpr.lean`):
-the keys are structural `Level`s here, so the invariant loses both the
-range clause and the denotation quantifier — an entry simply *is* the
-readout of its key — and there is no `mono` (nothing is
-state-indexed). -/
+The binder-telescope loops call `zeronessOfLGo`, threading a `PWMemo`
+across the `inferPisOutI` fold.  The keys are structural `Level`s, so
+an entry simply *is* the readout of its key, and there is no `mono`
+(nothing is state-indexed). -/
 
-/-- Memo invariant of the cached `zeronessOfLIGo`: every entry is the
+/-- Memo invariant of `zeronessOfLGo`: every entry is the
 readout of its key. -/
-def PWMemoInvC (memo : CStore.PWMemo) : Prop :=
+def PWMemoInvC (memo : PWMemo) : Prop :=
   ∀ (u : Level) (pw : PropWhen), memo[u]? = some pw → pw = Level.zeronessOf u
 
 theorem PWMemoInvC.empty : PWMemoInvC {} := by
   intro u pw hpw
   simp at hpw
 
-theorem PWMemoInvC.insert {memo : CStore.PWMemo} {u : Level}
+theorem PWMemoInvC.insert {memo : PWMemo} {u : Level}
     (h : PWMemoInvC memo) :
     PWMemoInvC (memo.insert u (Level.zeronessOf u)) := by
   intro u' pw' hpw'
@@ -1649,15 +1634,14 @@ theorem PWMemoInvC.insert {memo : CStore.PWMemo} {u : Level}
   · rw [if_neg (by simpa using hk)] at hpw'
     exact h u' pw' hpw'
 
-/-- The cached zero-ness readout agrees with the tree readout and
-maintains its memo invariant (the transposition of
-`zeronessOfLIGo_spec`; no store, no denotation). -/
-theorem zeronessOfLIGoC_spec {st : CStore} (v : Level)
-    {memo : CStore.PWMemo} {p : PropWhen} {memo' : CStore.PWMemo}
+/-- The memoized zero-ness readout agrees with the tree readout and
+maintains its memo invariant. -/
+theorem zeronessOfLGo_spec (v : Level)
+    {memo : PWMemo} {p : PropWhen} {memo' : PWMemo}
     (hminv : PWMemoInvC memo)
-    (hgo : st.zeronessOfLIGo memo v = (p, memo')) :
+    (hgo : zeronessOfLGo memo v = (p, memo')) :
     PWMemoInvC memo' ∧ p = Level.zeronessOf v := by
-  unfold CStore.zeronessOfLIGo at hgo
+  unfold zeronessOfLGo at hgo
   split at hgo
   · rename_i r hhit
     cases hgo

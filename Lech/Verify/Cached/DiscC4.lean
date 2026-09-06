@@ -16,10 +16,8 @@ byte-identical to the interned original's.
 
 The one code-shape deviation from the interned original (recorded at
 the batch-10 re-sync) lives in `inferBodyI`: the binder-telescope peel
-fuel is the clone's constant `peelFuelM` where the arena reads its node
-count.  Both are opaque to the binder-loop tails, which quantify over
-the fuel, so the walk peels a `peelFuelM_eff` where the interned walk
-peels a `withStore`.
+fuel is the constant `peelFuelM`, opaque to the binder-loop tails,
+which quantify over the fuel.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -540,9 +538,8 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
     dsimp only [ExprC.view]
     -- Bulk beta (task #50): the twin normalizes the spine head once and
     -- runs the argument loop against its mirror.
-    refine SimC.withStore ?_
-    refine SimC.withStore ?_
-    dsimp only [CStore.getAppFnI, CStore.getAppArgsI]
+    refine SimC.pureB ?_
+    refine SimC.pureB ?_
     have hhead : RelC (ExprC.getAppFn (Expr.app g' a))
         ((Expr.app g' a).getAppFn) :=
       ExprC.getAppFn_spec _
@@ -578,16 +575,14 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
         (fun pr hQ => ⟨hQ, hwproj⟩)
     | some entry =>
       dsimp only
-      refine SimC.withStore ?_
-      dsimp only [CStore.getNode, CStore.getAppFnI]
+      refine SimC.pureB ?_
       have hfn := ExprC.getAppFn_spec e'
       generalize hg : ExprC.getAppFn e' = g at hfn ⊢
       cases g with
       | const c us =>
         rw [show (Expr.getAppFn e') = Expr.const c us from hfn.symm]
         dsimp only
-        refine SimC.withStore ?_
-        dsimp only [CStore.getAppArgsI]
+        refine SimC.pureB ?_
         have hargs : RelCL (ExprC.getAppArgs e') ((Expr.getAppArgs e')) :=
           ExprC.getAppArgs_spec e'
         refine SimC.bind_left (beqNameM_eff hs₁ c entry.ctor)
@@ -2085,9 +2080,8 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     -- reproduces the loop's verdict in the chained body.
     refine SimC.wr ?_
       (fun v F hF => inferSpine_sound_body d g' a v F hF)
-    refine SimC.withStore ?_
-    refine SimC.withStore ?_
-    dsimp only [CStore.getAppFnI, CStore.getAppArgsI]
+    refine SimC.pureB ?_
+    refine SimC.pureB ?_
     have hhead : RelC (ExprC.getAppFn (Expr.app g' a))
         ((Expr.app g' a).getAppFn) :=
       ExprC.getAppFn_spec _
@@ -2116,8 +2110,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     refine SimC.bind (ih.whnf hs₁ htped hwtpe)
       (fun s₂ te tex hs₂ hP₂ => ?_)
     obtain ⟨rfl, hwte⟩ := hP₂
-    refine SimC.withStore ?_
-    dsimp only [CStore.getNode, CStore.getAppFnI]
+    refine SimC.pureB ?_
     have hfn := ExprC.getAppFn_spec te
     generalize hg : ExprC.getAppFn te = g at hfn ⊢
     cases g with
@@ -2132,8 +2125,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       | none => exact SimC.throw
       | some entry =>
         dsimp only
-        refine SimC.withStore ?_
-        dsimp only [CStore.getAppArgsI]
+        refine SimC.pureB ?_
         have htargs : RelCL (ExprC.getAppArgs te) ((Expr.getAppArgs te)) :=
           ExprC.getAppArgs_spec te
         rw [htargs.length]
@@ -2451,9 +2443,8 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     -- io-grade view
     refine SimC.wr ?_
       (fun v F hF => inferSpineIO_sound_body hgb d g' a v F hF)
-    refine SimC.withStore ?_
-    refine SimC.withStore ?_
-    dsimp only [CStore.getAppFnI, CStore.getAppArgsI]
+    refine SimC.pureB ?_
+    refine SimC.pureB ?_
     have hhead : RelC (ExprC.getAppFn (Expr.app g' a))
         ((Expr.app g' a).getAppFn) :=
       ExprC.getAppFn_spec _
@@ -2483,8 +2474,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     refine SimC.bind (ih.whnf hs₁ htped hwtpe)
       (fun s₂ te tex hs₂ hP₂ => ?_)
     obtain ⟨rfl, hwte⟩ := hP₂
-    refine SimC.withStore ?_
-    dsimp only [CStore.getNode, CStore.getAppFnI]
+    refine SimC.pureB ?_
     have hfn := ExprC.getAppFn_spec te
     generalize hg : ExprC.getAppFn te = g at hfn ⊢
     cases g with
@@ -2499,8 +2489,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       | none => exact SimC.throw
       | some entry =>
         dsimp only
-        refine SimC.withStore ?_
-        dsimp only [CStore.getAppArgsI]
+        refine SimC.pureB ?_
         have htargs : RelCL (ExprC.getAppArgs te) ((Expr.getAppArgs te)) :=
           ExprC.getAppArgs_spec te
         rw [htargs.length]

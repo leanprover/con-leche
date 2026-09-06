@@ -16,19 +16,17 @@ no arena, hence no `Ext`, no `denoteT`/`denote` distinction and no
 tier flag (`hoff`) anywhere — plus the representation differences the
 `ExprC` currency forces, all of which are *shrinkages*:
 
-* the DAG-memoized syntactic guards are pure `ExprC` walks, not
-  `withStore` reads: `looseBVarsBoundedI`/`hasFvarI`/
-  `allLevelParamsDefinedI`/`constsResolveFI` become
+* the DAG-memoized syntactic guards are pure `ExprC` walks —
   `ExprC.looseBVarsBounded`/`ExprC.hasFvar`/
-  `ExprC.allLevelParamsDefined`/`constsResolveFC`, and their agreement
+  `ExprC.allLevelParamsDefined`/`constsResolveFC` — and their agreement
   with the `Expr`-side guards is `Lech/Verify/Cached/GuardsC.lean`'s
-  `*_spec` family — so every `SimAt.withStore` peel disappears;
+  `*_spec` family, so every store-read peel disappears;
 * the readback `readbackEM j` is the pure `ExprC.toExpr j`
   (`toExpr_eq`: the memoized readback *is* the erasure), so every
   `readbackEM_eff` step disappears;
-* `opSIxC` has no `readbackLevelM` wrapper (levels are already trees),
+* `opSIxC` has no level-readback wrapper (levels are already trees),
   so `opSIxC_sim` is `ensureSortC_sim` plus the `ensureSort_atF`
-  rewrite — the `SimAt.bind`/`readbackLevelM_eff` pair disappears;
+  rewrite;
 * `recordCConst`'s effect (`recordCConst_eff`,
   `Lech/Verify/Cached/SimCEff.lean`) takes `RelC` facts where
   `recordIConst_eff` took `denoteT` facts at a flag-off state.
@@ -91,10 +89,10 @@ private theorem fueledM_bind_pure' {α : Type} (x : FueledM α) :
 /-! ## The `ExprC` guards agree with the `Expr` guards -/
 
 /-- `ExprC.hasFvar` is `Expr.hasFvar` of the erasure (the store-shaped
-`hasFvarI_spec` at the unit store). -/
+`hasFvar_spec'` at the unit store). -/
 theorem hasFvar_spec {e : ExprC} {ex : Expr}
     (h : e = ex) : e.hasFvar = ex.hasFvar :=
-  hasFvarI_spec (st := default) h
+  hasFvar_spec' h
 
 /-! ## Parsed-index entry operations -/
 

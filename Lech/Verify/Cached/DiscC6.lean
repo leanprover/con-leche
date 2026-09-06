@@ -274,13 +274,12 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     refine SimC.bind (ih.whnf hs₂ htped hwtpe)
       (fun s₃ te tex hs₃ hP₃ => ?_)
     obtain ⟨hted, hwte⟩ := hP₃
-    refine SimC.withStore ?_
+    refine SimC.pureB ?_
     obtain rfl := hted
     have hted : RelC te te := rfl
     have htargs : RelCL (ExprC.getAppArgs te) (Expr.getAppArgs te) :=
       ExprC.getAppArgs_spec te
     have hfn := ExprC.getAppFn_spec te
-    dsimp only [CStore.getNode, CStore.getAppFnI]
     generalize hgn : ExprC.getAppFn te = g at hfn ⊢
     cases g with
     | const T us =>
@@ -295,8 +294,8 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
         exact SimC.throw
       | some entry =>
         dsimp only
-        refine SimC.withStore ?_
-        simp only [CStore.getAppArgsI, RelCL.length htargs]
+        refine SimC.pureB ?_
+        simp only [RelCL.length htargs]
         by_cases hlen : (Expr.getAppArgs te).length = entry.numParams
         · rw [if_pos hlen, if_pos hlen]
           exact SimC.of_eff

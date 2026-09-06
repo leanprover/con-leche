@@ -2,93 +2,59 @@ import Lech.Kernel.FEnv
 import Lech.Cached.ExprOpsC
 
 /-!
-# The cached-clone checker state and its operation wrappers
+# The cached checker state and its operation wrappers
 
-The `ExprC` counterpart of `IState` (`Lech/Kernel/CoreI.lean`) and of
-the monadic store-access layer above it.  Same cache set, same
-lifetimes, same linear-update discipline (detach a component from the
-state record before mutating it); the arena is gone, so the
-"interning" wrappers become plain smart-constructor calls and the
-node-view wrappers become field reads.
+The per-declaration state: the converted-constant cache, the memo
+caches for the five entry points, the level-operation memos and the
+persistent bulk-instantiation memo, with the linear-update discipline
+(detach a component from the state record before mutating it) each of
+them is written in.
 
-The environment index (`FEnv`) and every `FEnv`-based guard are
-**reused verbatim** from the interned checker — they are
-representation-free.  Only the store-based guards (`isCtorAppI`,
-`isUnitLikeTyI`, `headHintI`, `unfoldableHeadI`, `sameConstHeadsI`,
-`rawNatLitI?`) get `ExprC` twins here.
+Task #198 removed the last of the arena's shape from this module: the
+unit `CStore` and its twenty forwarding "methods", and the `withStore`
+wrapper that ran a query against it.  The environment-index guards
+below (`isUnitLikeTyC`, `isCtorAppC`, `headHintC`, `unfoldableHeadC`,
+`sameConstHeadsC`, `rawNatLitC?`, `etaCtorShapeC`) are what the core
+calls directly.
 
-## Memo key discipline (the pilot's central decision)
+## Memo key discipline
 
 Pointer identity is not available as a *key*, so the memo maps are
 keyed on `ExprC` values with:
 
-* `Hashable ExprC` = the cached hash field (`O(1)`, no traversal — the
-  arena gets `O(1)` from the index instead);
+* `Hashable ExprC` = the cached hash field (`O(1)`, no traversal);
 * `BEq ExprC` = pointer identity, then the cached hashes, then
   structural descent.  Bucket comparisons therefore cost `O(1)` on
   the overwhelmingly common shared-subterm case (instantiation and
   abstraction return unchanged subterms *by reference*), and a hash
   mismatch rejects the rest without descending.
 
-A hash-cons table was deliberately **not** added: it would reintroduce
-the arena's central data structure, which is exactly what the pilot
-exists to do without.  The `Level`-keyed and `Name`-keyed caches
-(`lsimpC`, `eqvC`, `constTyAt`, …) are the one place where structural
-hashing survives — see the pilot's assessment in DESIGN.md.
+A hash-cons table is deliberately **not** used: it would reintroduce
+the deleted arena's central data structure.  The `Level`-keyed and
+`Name`-keyed caches (`lsimpC`, `eqvC`, `constTyAt`, …) are the one
+place where structural hashing survives.
 -/
 
 namespace Lech.Cached
 
 open Lech
 
-/-! ## The vestigial store
+/-! ## The zero-ness memo
 
-The interned twins read the arena through a store value (`withStore
-(fun st => st.getAppArgsI e)` &c.).  `ExprC` needs no store, but the
-clone keeps the *shape* of every such call so that it mirrors its
-interned original character for character — `CStore` is a unit type
-whose "methods" are the corresponding `ExprC` operations, and
-`withStore` is `pure`.  This is what makes the clone auditable against
-`Lech/Kernel/CoreI.lean` line by line. -/
-
-/-- The vestigial store (a unit). -/
-structure CStore where
-  dummy : Unit := ()
-  deriving Inhabited
-
-namespace CStore
-
-@[inline] def getNode (_ : CStore) (e : ExprC) : Option (ExprView ExprC) :=
-  some e.view
-
-@[inline] def getAppFnI (_ : CStore) (e : ExprC) : ExprC := ExprC.getAppFn e
-
-@[inline] def getAppArgsI (_ : CStore) (e : ExprC) : List ExprC :=
-  ExprC.getAppArgs e
-
-@[inline] def wscopedBI (_ : CStore) (d : Nat) (e : ExprC) : Bool :=
-  ExprC.wscopedB d e
-
-@[inline] def looseBVarsBoundedI (_ : CStore) (k : Nat) (e : ExprC) : Bool :=
-  ExprC.looseBVarsBounded k e
-
-@[inline] def leafGuardI (_ : CStore) (fab base : ExprC) : Bool :=
-  ExprC.leafGuard fab base
-
-@[inline] def hasFvarI (_ : CStore) (e : ExprC) : Bool := e.hasFvar
+The only piece of the retired `CStore` that computed anything: a
+`Level`-keyed memo for the binder loops' zero-ness readout. -/
 
 /-- Memo table for the zero-ness readout (structural `Level` keys). -/
 abbrev PWMemo := Std.HashMap Level PropWhen
 
-@[inline] def zeronessOfLIGo (_ : CStore) (memo : PWMemo) (u : Level) :
+/-- The zero-ness readout, memoized on the level tree. -/
+@[inline] def zeronessOfLGo (memo : PWMemo) (u : Level) :
     PropWhen × PWMemo :=
   match memo[u]? with
   | some r => (r, memo)
   | none => let r := Level.zeronessOf u; (r, memo.insert u r)
 
-end CStore
-
-/-! ## Store-free guard twins -/
+/-! ## The environment-index guards -/
 
 /-- `isUnitLikeTy` through the index, on a (whnf'd) `ExprC`. -/
 def isUnitLikeTyC (fe : FEnv) (e : ExprC) : Bool :=
@@ -148,15 +114,6 @@ def rawNatLitC? (e : ExprC) : Option Nat :=
   | .const c [] .. => if c == natZeroName then some 0 else none
   | _ => none
 
-/-! The store-shaped spellings the twins use (a `CStore` argument in
-the interned original's position). -/
-
-@[inline] def isUnitLikeTyI (fe : FEnv) (_ : CStore) (e : ExprC) : Bool :=
-  isUnitLikeTyC fe e
-
-@[inline] def isCtorAppI (fe : FEnv) (_ : CStore) (e : ExprC) : Bool :=
-  isCtorAppC fe e
-
 /-- Twin of `etaCtorShape` (the audit's D13 gate; `ExprC = Expr`). -/
 def etaCtorShapeC (fe : FEnv) (e : ExprC) : Bool :=
   match Expr.getAppFn e with
@@ -165,24 +122,6 @@ def etaCtorShapeC (fe : FEnv) (e : ExprC) : Bool :=
     | some (.ctorInfo _ cnP cnF) => (Expr.getAppArgs e).length == cnP + cnF
     | _ => false
   | _ => false
-
-@[inline] def etaCtorShapeI (fe : FEnv) (_ : CStore) (e : ExprC) : Bool :=
-  etaCtorShapeC fe e
-
-/-- The store read of `Expr.quickPair` (the audit's D4 gate; `ExprC = Expr`). -/
-@[inline] def quickPairI (_ : CStore) (a b : ExprC) : Bool := Expr.quickPair a b
-
-@[inline] def headHintI (fe : FEnv) (_ : CStore) (e : ExprC) :
-    ReducibilityHint := headHintC fe e
-
-@[inline] def unfoldableHeadI (fe : FEnv) (_ : CStore) (e : ExprC) : Bool :=
-  unfoldableHeadC fe e
-
-@[inline] def sameConstHeadsI (_ : CStore) (a b : ExprC) : Bool :=
-  sameConstHeadsC a b
-
-@[inline] def rawNatLitI? (_ : CStore) (e : ExprC) : Option Nat :=
-  rawNatLitC? e
 
 /-! ## The state -/
 
@@ -200,8 +139,7 @@ structure CConstE where
 /-- Per-declaration state: the converted-constant cache, the memo
 caches for the five entry points, the lazy caches for
 level-instantiated stored constants, the level-operation memos, and
-the persistent bulk-instantiation memo (task #145).  Mirrors `IState`
-field for field, minus the arena. -/
+the persistent bulk-instantiation memo (task #145). -/
 structure CState where
   ienv : Std.HashMap Name CConstE := {}
   constTyAt : Std.HashMap (Name × List Level) ExprC := {}
@@ -238,8 +176,7 @@ def instCCapC : Nat := 32000000
 /-- The cached-clone checker monad. -/
 abbrev CheckCM := StateT CState CheckM
 
-/-! ## Node access (pure; kept monadic so the clone mirrors the
-interned twins call for call) -/
+/-! ## Node access -/
 
 /-- Read a node's one-level view. -/
 @[inline] def viewI (e : ExprC) : CheckCM (Option (ExprView ExprC)) :=
@@ -254,10 +191,6 @@ The identity since task #172 B3a — one type — kept under the interned
 twin's name so the two read the same. -/
 @[inline] def internExprM (x : Expr) : CheckCM ExprC :=
   pure x
-
-/-- Run a store query (the store is a unit here). -/
-@[inline] def withStore {α : Type} (f : CStore → α) : CheckCM α :=
-  pure (f default)
 
 /-! Names and levels are plain trees in the clone, so the interned
 checker's name/level interning and readback wrappers are identities —
