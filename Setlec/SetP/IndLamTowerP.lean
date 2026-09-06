@@ -34,10 +34,11 @@ is produced existentially instead of by `List.take` on a constructor
 argument.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name)
 
 universe w
@@ -190,4 +191,4 @@ theorem lamTowerStepP :
       · rw [AnnotValidV_app]
         exact ⟨(hokApp' hokws).2, (hokws _ (List.mem_of_getElem? hwn)).2⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

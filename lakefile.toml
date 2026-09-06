@@ -8,7 +8,8 @@ testDriver = "SetlecTests"
 #
 #             SetlecBase
 #   Kernel/* · model-free Verify/* · SetTheory/* · TT/*
-#   SetBase/* (the lane-neutral semantic primitives)
+#   SetModel/* (pure set constructions) · Semantics/* (Expr-facing
+#   denotation and claims; the two halves of the former SetBase/*)
 #                               ↑
 #                           SetlecP
 #                   de-based EnvS2Core · Annot
@@ -65,12 +66,14 @@ roots = ["Setlec.PinGen.Certs"]
 # The shared base: the checker itself (`Setlec.Kernel.*`), the model-free
 # verification tier (`Setlec.Verify.*`), the `SetTheory` interface, the
 # declarative type-theory layer (`Setlec.TT.*`, task #74 — its own module
-# hierarchy, importing nothing from the checker), and `Setlec.SetBase.*`
-# (task #161 S1: the six lane-neutral semantic primitives).  Both model
-# lanes stand on this and nothing here may import either lane.
+# hierarchy, importing nothing from the checker), `Setlec.SetModel.*`
+# (the pure set constructions) and `Setlec.Semantics.*` (the Expr-facing
+# denotation and claims) — the two halves the former `Setlec.SetBase.*`
+# (task #161 S1) was split into on 2026-09-06.  The model lane stands on
+# this and nothing here may import it.
 [[lean_lib]]
 name = "SetlecBase"
-roots = ["Setlec", "Setlec.TT", "Setlec.SetBase"]
+roots = ["Setlec", "Setlec.TT", "Setlec.SetModel", "Setlec.Semantics"]
 extraDepTargets = ["SetlecPinCerts"]
 
 # The graded-model lane (task #161 S2): the `AnnotOk2` bit carriers, the

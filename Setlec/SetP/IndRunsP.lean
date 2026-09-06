@@ -39,10 +39,11 @@ none of them is *free*, and transposing the conclusion alone would
 have dropped them silently.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name isDefEqCore DefEqListOk)
 
 universe w
@@ -187,4 +188,4 @@ theorem defEqListP_of_runs {m : EnvS2Core V env} {F : Nat}
     (defEqListOk_getD hruns i hi) hwa hba hLa hwb hbb hLb hleafA hltA hleafB hltB
     haa hbaR hga hgb hsat
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

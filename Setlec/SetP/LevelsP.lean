@@ -35,10 +35,11 @@ insensitivity of the support slots, restated here off a bare
 states them at the U carrier, which the P tier does not have).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal)
 
 universe w
@@ -265,4 +266,4 @@ theorem denoteP_instLevels (hp : AcvalParamsAt env acval)
       | natVal k => exact absurd rfl (hnat k)
       | strVal s => exact absurd rfl (hstr s)
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

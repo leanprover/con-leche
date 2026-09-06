@@ -1,7 +1,7 @@
 import Setlec.SetP.Step2.TiersP
 import Setlec.SetP.Annot.BitExtend
 import Setlec.SetP.Annot.BitConsCross
-import Setlec.SetBase.ConstsBound
+import Setlec.Semantics.ConstsBound
 import Setlec.Verify.Extend.Sibs
 
 /-!
@@ -31,10 +31,11 @@ deltas:
 is not a literal pin; the pin installs supply it bespoke).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint)
 
@@ -520,4 +521,4 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     (fun _ => hmemNew) hvalReads hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops
     htower_ok
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

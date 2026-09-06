@@ -1,5 +1,5 @@
 import Setlec.SetP.BasisQuotP
-import Setlec.SetBase.BasisRules
+import Setlec.Semantics.BasisRules
 
 /-!
 # The `Eq` block, P tier (task #161, ENDGAME H)
@@ -26,10 +26,11 @@ The three constants' bits are forced, not chosen (ENDGAME E §1):
 `.ifAllZero []`, and `Eq.rec`'s six are `.ifAllZero [u_1]`.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr eqValT eqReflValT eqRecValT)
+open Setlec.Semantics (AVExpr eqValT eqReflValT eqRecValT)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)
 
@@ -1220,7 +1221,7 @@ theorem extendEqRecP (mp : EnvS2PM V μ env)
 `eqK` branch — the block whose chain reads its own earlier leaves, and
 so the one that consumes the install's exposed `acval`. -/
 theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
-    (h : Setlec.SetR.BasisInstallR env
+    (h : Setlec.Semantics.BasisInstallR env
       Setlec.BasisKind.eqK.declsA env₁) :
     Nonempty (EnvS2PM V μ env₁) := by
   rw [show Setlec.BasisKind.eqK.declsA = [eqA, eqReflA, eqRecA]
@@ -1328,4 +1329,4 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
 
 end Eq
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

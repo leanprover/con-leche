@@ -35,10 +35,11 @@ therefore not transposed by part 3's survey — is not what was needed:
 it descends along the chain.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 
 universe w
 
@@ -150,4 +151,4 @@ theorem hokA_padded {K n : Nat} {Tstmt : AVExpr} {Γs : List AVExpr}
   have hq0 : K - n ≤ q := by omega
   exact hsat q (Γs.getD q default) (hpad q hq0 hq2)
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

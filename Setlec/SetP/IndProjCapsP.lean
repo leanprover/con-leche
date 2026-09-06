@@ -40,10 +40,11 @@ third of its three positions, and it is the reason step 5 survives
 the part-3 wall: nothing here reads a comparison the checker ran.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps)
 
@@ -153,7 +154,7 @@ theorem capsOkP_cons_proj (mp : EnvS2PM V μ env)
       · rw [hac]
         exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
           (constsBound_instType mp.base2.wf
-            (Setlec.SetR.Env.find?_mem hfE) us) hTVa
+            (Setlec.Semantics.Env.find?_mem hfE) us) hTVa
       · intro ρ ts rest x hlents hfit hmem
         rw [hac, acvalWith_ne hnT] at hmem
         have hfab : etaFabArgs2
@@ -188,9 +189,9 @@ theorem capsOkP_cons_proj (mp : EnvS2PM V μ env)
     · rw [hac]
       exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
         (constsBound_instType mp.base2.wf
-          (Setlec.SetR.Env.find?_mem hfE) us) hTVa
+          (Setlec.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x y hlents hfit hmx hmy
       rw [hac, acvalWith_ne hnT] at hmx hmy
       exact hlaw ρ ts rest x y hlents hfit hmx hmy
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

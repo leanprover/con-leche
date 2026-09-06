@@ -6,7 +6,7 @@
 > `*_R` theorems of `Setlec/SetR/Main.lean`.**
 >
 > **This file is deliberately kept.**  Its §0 and §25 are the project's
-> *house practices*, declared binding by `Setlec/SetR/DESIGN.md`, and
+> *house practices*, declared binding by `docs/SetR-DESIGN.md`, and
 > twenty-odd findings elsewhere in the tree cite its sections by number.
 > Deleting a lane's code does not delete what building it taught; the
 > paths in the prose below now name files that no longer exist, and

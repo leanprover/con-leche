@@ -27,10 +27,11 @@ The transposition is faithful; the one delta worth naming is
 `PiTeleP.prefix`, and it is a saving.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 
 universe w
 
@@ -156,4 +157,4 @@ theorem sat2_pad_of_mems {K : Nat} {T : AVExpr} {Γ : List AVExpr}
         show K - n + (n - 1 - m) = K - 1 - m from by omega]]
   exact h1
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

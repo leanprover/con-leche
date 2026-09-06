@@ -1,5 +1,5 @@
 import Setlec.SetP.BasisConsP
-import Setlec.SetBase.EqTower
+import Setlec.Semantics.EqTower
 
 /-!
 # The annotated hand-built basis towers, `Eq` family (task #161, ENDGAME E)
@@ -49,10 +49,11 @@ be recorded as such rather than deleted: a future hand-built value at a
 constant whose type is *not* stored would still have a genuine choice.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr eqValT eqReflValT eqRecValT)
+open Setlec.Semantics (AVExpr eqValT eqReflValT eqRecValT)
 open Setlec (Name)
 
 universe w
@@ -293,4 +294,4 @@ theorem eqLawP_of_tower {env : Setlec.Env} (m : EnvS2Core V env)
   · rw [hleaf]
     exact eqValT2_app₃_okP ψ ρ hAa hla hra hA ha hb
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

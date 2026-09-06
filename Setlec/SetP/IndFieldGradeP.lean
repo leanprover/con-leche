@@ -28,10 +28,11 @@ field spine positions below `n` are earned from the induction's own
 earlier steps against `Sat2`.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name isDefEqCore DefEqListOk)
 
 universe w
@@ -304,4 +305,4 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
   rw [interp2_liftN, hshiftEnv n ρ'] at hfire
   exact hfire
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

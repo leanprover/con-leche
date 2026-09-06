@@ -46,10 +46,11 @@ disagree where anything looks.
 Nothing in this file chooses a numeral.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   emptyA emptyRecA emptyName uN)
 
@@ -262,7 +263,7 @@ it.  `BasisInstallR` is a right-nested `∧` chain, so the walk is an
 /-- **The `Empty` block, installed at the P tier.**  `BasisStepPB`'s
 `emptyK` branch. -/
 theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
-    (h : Setlec.SetR.BasisInstallR env Setlec.BasisKind.emptyK.declsA env₂) :
+    (h : Setlec.Semantics.BasisInstallR env Setlec.BasisKind.emptyK.declsA env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   rw [show Setlec.BasisKind.emptyK.declsA = [emptyA, emptyRecA] from rfl]
     at h
@@ -352,4 +353,4 @@ theorem basis_rec_rules_nonempty (kind : Setlec.BasisKind)
   case emptyK => exact absurd rfl hk
   all_goals decide
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

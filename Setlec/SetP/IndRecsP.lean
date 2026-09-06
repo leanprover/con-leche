@@ -1,5 +1,5 @@
-import Setlec.SetBase.IndBlockRun
-import Setlec.SetBase.IndRecsCoreR
+import Setlec.Semantics.IndBlockRun
+import Setlec.Semantics.IndRecsCoreR
 import Setlec.SetP.SwapP
 import Setlec.SetP.IndMembersP
 import Setlec.SetP.CapstoneP
@@ -34,10 +34,11 @@ whole induction — the only per-step data are the block membership and
 the provisioned entry's lookup.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps)
 
@@ -269,4 +270,4 @@ theorem indRecsP (hμ : μ.verified = true)
         (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon),
       hlps, hren, hv⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

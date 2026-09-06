@@ -1,5 +1,5 @@
 import Setlec.SetP.Annot.BitInstall
-import Setlec.SetBase.ConstsBound
+import Setlec.Semantics.ConstsBound
 
 /-!
 # `denoteP` across an environment extension (task #161, P3.2)
@@ -29,10 +29,11 @@ That is the whole Θ-residue for this key, gone by construction rather
 than by discharge.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level PropWhen
   natLitSupported strLitSupported)
 
@@ -339,4 +340,4 @@ theorem denoteP_envExtend_mono {env₀ env : Env}
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

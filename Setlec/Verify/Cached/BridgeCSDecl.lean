@@ -1,6 +1,6 @@
 import Setlec.Verify.Cached.BridgeCS4
-import Setlec.Verify.DirectWF
-import Setlec.Verify.DirectResid
+import Setlec.Verify.Direct.DirectWF
+import Setlec.Verify.Direct.DirectResid
 
 /-!
 # Cached shared-state checker: the inductive block and the per-declaration bridge

@@ -38,10 +38,11 @@ are keyed there), and `denoteP_erase` + `denote_bvarsBelow` produce
 it.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level)
 
 universe w
@@ -51,17 +52,17 @@ variable {env : Env} {φ : Name → Nat}
 
 /-! ## `instSeq` corollaries at bounded readings -/
 
-open Setlec.SetR.AVExpr in
+open Setlec.Semantics.AVExpr in
 /-- A reading with only low bound variables passes an `instSeq`
 untouched (`VExpr.instSeq_eq_self_of_bvarsBelow`), at the erasure's
 boundedness. -/
 theorem instSeqP_eq_self_of_bvarsBelow :
     ∀ (vs : List AVExpr) (t : Nat) {X : AVExpr} {m : Nat},
       VExpr.bvarsBelow m X.erase → m + vs.length ≤ t + 1 →
-      Setlec.SetR.AVExpr.instSeq vs t X = X
+      Setlec.Semantics.AVExpr.instSeq vs t X = X
   | [], _, _, _, _, _ => rfl
   | a :: vs, t, X, m, hb, h => by
-    show Setlec.SetR.AVExpr.instSeq vs (t - 1) (X.inst a t) = _
+    show Setlec.Semantics.AVExpr.instSeq vs (t - 1) (X.inst a t) = _
     rw [AVExpr.inst_eq_self X
       (VExpr.bvarsBelow.mono (by simp only [List.length_cons] at h; omega)
         hb) a]
@@ -75,43 +76,43 @@ theorem instSeqP_eq_self_of_bvarsBelow :
       exact instSeqP_eq_self_of_bvarsBelow vs t' hb (by
         simp only [List.length_cons] at h; omega)
 
-open Setlec.SetR.AVExpr in
+open Setlec.Semantics.AVExpr in
 /-- **`instSeq` through a reverse-instantiation chain**
 (`VExpr.instSeq_instRevChain`), with no side conditions. -/
 theorem instSeqP_instRevChain :
     ∀ (bs : List AVExpr) (X : AVExpr) (vs : List AVExpr) (t : Nat),
       vs.length ≤ t + 1 →
-      Setlec.SetR.AVExpr.instSeq vs t
-          (Setlec.SetR.AVExpr.instRevChain bs X)
-        = Setlec.SetR.AVExpr.instRevChain
-            (bs.map (Setlec.SetR.AVExpr.instSeq vs t))
-            (Setlec.SetR.AVExpr.instSeq vs (t + bs.length) X)
+      Setlec.Semantics.AVExpr.instSeq vs t
+          (Setlec.Semantics.AVExpr.instRevChain bs X)
+        = Setlec.Semantics.AVExpr.instRevChain
+            (bs.map (Setlec.Semantics.AVExpr.instSeq vs t))
+            (Setlec.Semantics.AVExpr.instSeq vs (t + bs.length) X)
   | [], X, vs, t, _ => rfl
   | b :: bs, X, vs, t, h => by
-    show Setlec.SetR.AVExpr.instSeq vs t
-        (Setlec.SetR.AVExpr.instRevChain bs
+    show Setlec.Semantics.AVExpr.instSeq vs t
+        (Setlec.Semantics.AVExpr.instRevChain bs
           (X.inst (liftN bs.length b 0) 0)) = _
     rw [instSeqP_instRevChain bs _ vs t h,
       instSeqP_inst0 vs (t + bs.length) X _ (by omega),
       instSeqP_liftN0 vs t bs.length b h]
-    show Setlec.SetR.AVExpr.instRevChain (List.map _ bs) _ = _
-    rw [show (b :: bs).map (Setlec.SetR.AVExpr.instSeq vs t)
-        = Setlec.SetR.AVExpr.instSeq vs t b
-            :: bs.map (Setlec.SetR.AVExpr.instSeq vs t) from rfl]
-    show _ = Setlec.SetR.AVExpr.instRevChain
-      (bs.map (Setlec.SetR.AVExpr.instSeq vs t)) _
-    rw [show (bs.map (Setlec.SetR.AVExpr.instSeq vs t)).length
+    show Setlec.Semantics.AVExpr.instRevChain (List.map _ bs) _ = _
+    rw [show (b :: bs).map (Setlec.Semantics.AVExpr.instSeq vs t)
+        = Setlec.Semantics.AVExpr.instSeq vs t b
+            :: bs.map (Setlec.Semantics.AVExpr.instSeq vs t) from rfl]
+    show _ = Setlec.Semantics.AVExpr.instRevChain
+      (bs.map (Setlec.Semantics.AVExpr.instSeq vs t)) _
+    rw [show (bs.map (Setlec.Semantics.AVExpr.instSeq vs t)).length
         = bs.length from by simp]
     simp only [List.length_cons]
     rfl
 
-open Setlec.SetR.AVExpr in
+open Setlec.Semantics.AVExpr in
 /-- A padded fired spine resolves a frame variable to its slot's
 reading (`padHit`), with `.prf` as the padding element. -/
 theorem padHitP {K : Nat} (q : AVExpr) :
     ∀ (n p : Nat) (vals : List AVExpr), p < n →
     vals.length = n → n ≤ K →
-    Setlec.SetR.AVExpr.instSeq
+    Setlec.Semantics.AVExpr.instSeq
         (vals ++ List.replicate (K - n) q) (K - 1)
         (.bvar (K - 1 - p))
       = vals.getD p default := by
@@ -134,9 +135,9 @@ theorem padHitP {K : Nat} (q : AVExpr) :
     (K - 1 - p) (vals.getD p default) hidx (by omega)
   simp only [Nat.zero_add] at h1
   rw [hlenT] at h1
-  rw [h1, Setlec.SetR.AVExpr.liftN_zero]
+  rw [h1, Setlec.Semantics.AVExpr.liftN_zero]
 
-open Setlec.SetR.AVExpr in
+open Setlec.Semantics.AVExpr in
 /-- **The chain identity at the reading** (`nestedChain`): a pin's
 frame reading under any fired spine that starts with the prefix
 readings is the canonical reverse chain at those readings. -/
@@ -146,12 +147,12 @@ theorem nestedChainP {rP cnF : Nat} {xs : List AVExpr} (q : AVExpr)
     vals.length = n → n ≤ rP + cnF → rP ≤ n →
     vals.take rP = xs.take rP →
     VExpr.bvarsBelow rP wp.erase →
-    Setlec.SetR.AVExpr.instSeq
+    Setlec.Semantics.AVExpr.instSeq
       (vals ++ List.replicate (rP + cnF - n) q)
       (rP + cnF - 1)
-      (Setlec.SetR.AVExpr.instRevChain ((List.range rP).map fun j =>
+      (Setlec.Semantics.AVExpr.instRevChain ((List.range rP).map fun j =>
         AVExpr.bvar (rP + cnF - 1 - j)) wp)
-      = Setlec.SetR.AVExpr.instRevChain (xs.take rP) wp := by
+      = Setlec.Semantics.AVExpr.instRevChain (xs.take rP) wp := by
   have hpadhit := padHitP (K := rP + cnF) q
   intro vals n wp hvl hn hrn hpre hbv
   rw [instSeqP_instRevChain _ _ _ _ (by
@@ -170,7 +171,7 @@ theorem nestedChainP {rP cnF : Nat} {xs : List AVExpr} (q : AVExpr)
       simp only [id_eq]]
   refine List.map_congr_left fun j hj => ?_
   have hjr : j < rP := List.mem_range.mp hj
-  show Setlec.SetR.AVExpr.instSeq (vals ++ List.replicate
+  show Setlec.Semantics.AVExpr.instSeq (vals ++ List.replicate
       (rP + cnF - n) q) (rP + cnF - 1)
       (.bvar (rP + cnF - 1 - j)) = _
   rw [hpadhit n j vals (by omega) hvl hn, ← hpre]
@@ -318,9 +319,9 @@ theorem pinCrossP
     (hvalspre : vals.take rP = zs) :
     ∃ w0, denoteP acval env φ (rP + cnF)
         (Expr.instSpine os (rP - 1) p) = some w0 ∧
-      Setlec.SetR.AVExpr.instSeq
+      Setlec.Semantics.AVExpr.instSeq
           (vals ++ List.replicate (rP + cnF - n) q) (rP + cnF - 1) w0
-        = Setlec.SetR.AVExpr.instRevChain zs vpa := by
+        = Setlec.Semantics.AVExpr.instRevChain zs vpa := by
   -- the frame's prefix openers read to the canonical bvar spine
   have hbvslen : ((List.range rP).map
       (fun j => AVExpr.bvar (rP + cnF - 1 - j))).length = rP := by
@@ -374,4 +375,4 @@ theorem pinCrossP
   rw [List.take_of_length_le (Nat.le_of_eq hzslen)] at hchain
   exact hchain
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

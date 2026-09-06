@@ -22,10 +22,11 @@ taking `Δa := Γs` makes that entry condition `rfl`-shaped and the
 zipper's `Sat2 V Γs (chainP V ρ zs)` output *is* the stages' input.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta isDefEqCore inferTypeCore DefEqListOk)
 
@@ -323,7 +324,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     rw [denoteP_renameConsts hroT]
     exact hTVj0
   have hokTVj : ∀ σ : Nat → V, AnnotOkP V σ TVja :=
-    mp.type_okP _ (Setlec.SetR.Env.find?_mem hctorE)
+    mp.type_okP _ (Setlec.Semantics.Env.find?_mem hctorE)
       (Level.substFn φ lps us) TVja hTVj0
   obtain ⟨⟨bsC, cbody⟩, hstripC⟩ := Option.isSome_iff_exists.mp hCstrips
   obtain ⟨Γj, Rj, htowerJ, hΓjlen0, hRjdenA, hdomsJ⟩ :=
@@ -1151,4 +1152,4 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     (fun τ => (hRaFacts τ).1) hinstLam hdeLam hzslen hsat
     (teleFitPA_to_chain (rP + cnF) htowerS hzslen hfitS) hzsAnnot
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

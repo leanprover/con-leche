@@ -1552,7 +1552,7 @@ theorem EtaPins.transport {env₁ env₂ : Env} {T : Name}
 eta head obligation at a member install is about a family that may
 already be stored, and about the run's projection freshness.  Both are
 `V`-free, both step at every install, and both are supplied at the
-assembly (`Setlec/SetR/DESIGN.md`, §"`MemberEtaS`: a threaded
+assembly (`docs/SetR-DESIGN.md`, §"`MemberEtaS`: a threaded
 invariant, not a forwarded obligation"). -/
 
 /-- **Every stored eta-capable block former carries what its family's

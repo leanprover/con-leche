@@ -21,10 +21,11 @@ by `chainP_tail`: `fun j => (chainP V ρ zs) (j + (K - k))` *is*
 index arithmetic.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level DefEqListOk)
 
 universe w
@@ -117,4 +118,4 @@ theorem annotTransportP {m : EnvS2Core V env} {F : Nat}
   rwa [show zs.take K = zs from
     List.take_of_length_le (Nat.le_of_eq hzslen)] at hok'
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

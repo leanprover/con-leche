@@ -45,10 +45,11 @@ and its value fact is `empty_mem_univ 0` through `interp2_sort` —
 trick transposes with no `dummyPropT` detour at all.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 
 universe w
 
@@ -153,23 +154,23 @@ argument first, at descending cuts. -/
 
 /-- Instantiate a spine of readings at descending cuts, outermost
 first (`VExpr.instSeq`'s twin). -/
-def _root_.Setlec.SetR.AVExpr.instSeq :
+def _root_.Setlec.Semantics.AVExpr.instSeq :
     List AVExpr → Nat → AVExpr → AVExpr
   | [], _, e => e
-  | a :: as, t, e => Setlec.SetR.AVExpr.instSeq as (t - 1) (e.inst a t)
+  | a :: as, t, e => Setlec.Semantics.AVExpr.instSeq as (t - 1) (e.inst a t)
 
 @[simp] theorem AVExpr.instSeq_nil (t : Nat) (e : AVExpr) :
-    Setlec.SetR.AVExpr.instSeq [] t e = e := rfl
+    Setlec.Semantics.AVExpr.instSeq [] t e = e := rfl
 
 theorem AVExpr.instSeq_cons (a : AVExpr) (as : List AVExpr) (t : Nat)
     (e : AVExpr) :
-    Setlec.SetR.AVExpr.instSeq (a :: as) t e
-      = Setlec.SetR.AVExpr.instSeq as (t - 1) (e.inst a t) := rfl
+    Setlec.Semantics.AVExpr.instSeq (a :: as) t e
+      = Setlec.Semantics.AVExpr.instSeq as (t - 1) (e.inst a t) := rfl
 
 /-- **Evaluation is instantiation** (`interp_instSeq`'s twin). -/
 theorem interp2_instSeq :
     ∀ (ws : List AVExpr) (e : AVExpr) (ρ : Nat → V),
-      interp2 V ρ (Setlec.SetR.AVExpr.instSeq ws (ws.length - 1) e)
+      interp2 V ρ (Setlec.Semantics.AVExpr.instSeq ws (ws.length - 1) e)
         = interp2 V (chainP V ρ ws) e := by
   intro ws
   induction ws with
@@ -367,7 +368,7 @@ theorem teleFitPA_of_tower :
         interp2 V ρ (ws.getD n default)
           ∈ˢ interp2 V (chainP V ρ (ws.take n))
             (Γ.getD (k - 1 - n) default)) →
-      TeleFitPA V ρ T ws (Setlec.SetR.AVExpr.instSeq ws (k - 1) R) := by
+      TeleFitPA V ρ T ws (Setlec.Semantics.AVExpr.instSeq ws (k - 1) R) := by
   intro k
   induction k with
   | zero =>
@@ -392,8 +393,8 @@ theorem teleFitPA_of_tower :
     -- the tail: the instantiated tower via the recursion at `k`
     have hinst := htail.inst w 0
     have hfit := ihk hinst (ws := ws') (ρ := ρ) hlen' ?_
-    · rw [show Setlec.SetR.AVExpr.instSeq (w :: ws') (k + 1 - 1) R
-          = Setlec.SetR.AVExpr.instSeq ws' (k - 1) (R.inst w k) from by
+    · rw [show Setlec.Semantics.AVExpr.instSeq (w :: ws') (k + 1 - 1) R
+          = Setlec.Semantics.AVExpr.instSeq ws' (k - 1) (R.inst w k) from by
         rw [AVExpr.instSeq_cons]
         simp only [Nat.add_sub_cancel]]
       rw [show (0 : Nat) + k = k from Nat.zero_add k] at hfit
@@ -509,4 +510,4 @@ theorem ctxOkP_of_openers {env : Env} {m : EnvS2Core V env}
     rw [henv]
     exact h
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics
