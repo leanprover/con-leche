@@ -47763,9 +47763,45 @@ That is the decision-grade datum of this section.
   **verdict is preserved and the accepted set is the expected one**;
   the wall-time saving is inside the noise, because 7.4 % of the bytes
   are worth about that much of the run.
-* **Mathlib rung 5** — see §5.
+* **Mathlib rung 5** — see §5; **the end-to-end verdict comparison is
+  still owed** (the run was killed for the session's memory budget, not
+  by the checker).
 
-### 5. Speed, and the wall-time caveat
+### 5. The Mathlib rung-5 slice under the checker: 46 min of evidence, verdict PENDING
+
+`_tmp/resume-slice/run.sh rung5slice mathlib-rung5.ndjson`, master
+`2664b1dd` (binary md5 `c247c72eb96c5930c245e56414ddc08b`),
+`--verified --pre`, `ulimit -v 22000000`, `timeout 14400`.
+
+The run was **killed at t = 2 791 s (46:30) by SIGTERM (exit 143)** —
+the session's cgroup budget, with the `frontier4` lane's full-stream
+pass running beside it; two Mathlib-scale checkers plus builds do not
+fit.  **Session rule from that: one Mathlib-scale checker at a time.**
+So the comparison the task wants — same verdict at the same
+declaration as the full run — is **not yet made**, and this section
+must be completed by re-running the slice once `frontier4`'s pass has
+ended.  What the 46 minutes did establish:
+
+* **The slice parses.**  `rchar` reached 100 % of 5 693 668 882 B at
+  t ≈ 300 s and the checker went on to check, so every expression id
+  the kept records name resolves inside the slice — a full structural
+  validation of the closure at Mathlib scale, not a sample.
+* **The projection rewrite fires at exactly the same sites.**  The
+  slice prints `setlec: 65 projection functions of non-direct
+  structure-likes rewritten to recursor form`; so does the full-stream
+  run.  That is `punitSeen`, `projOwners` and the
+  `T._model.proj_i.iota` artifacts all surviving §1's keep-rules —
+  the failure mode those rules exist to prevent, tested and absent.
+* **The resident base, measured rather than argued.**  Slice: steady
+  RSS 12.07-12.11 GB, parse peak VmHWM 13.08 GB.  Full stream, same
+  binary generation, same limits: steady 12.09-12.13 GB, peak
+  13.15 GB.  The headroom a resume slice hides at this cut is
+  **~0.07 GB, ~0.5 %** — §2's caveat is real in kind and, here,
+  negligible in size, for the same reason §3 gives: there is almost
+  nothing to cut.
+* No reject, decline or panic in those 46 minutes.
+
+### 6. Speed, and the wall-time caveat
 
 The slicer is two passes.  The prefix is scanned line by line (the
 expression DAG flattened into `array`s, `slice_fast.py`'s layout, with
@@ -47798,7 +47834,7 @@ merge in chunk order), so a `multiprocessing` pool would take the 110 s
 scan to well under a minute.  It was not worth writing for a tool whose
 own measurement says it buys 0.25 % at the rung it was built for.
 
-### 6. Artefacts (`_tmp/resume-slice/`)
+### 7. Artefacts (`_tmp/resume-slice/`), and how to finish §5
 
 * `run.sh` — Mathlib-scale harness for a slice (22 GB cap, 4 h timeout,
   RSS + `rchar` sampled every 30 s), the `frontier4` script retargeted.
@@ -47808,4 +47844,17 @@ own measurement says it buys 0.25 % at the rung it was built for.
   90 % points of §3's curve.
 * `initfull-50pct.{ndjson,report,out,time}` and `initfull-full.{out,time}`
   — the §4 sanity pair.
-* `rung5slice-{p,rss}.log`, `-time.txt`, `.exitcode`, `-binary.md5`.
+* `rung5slice-{p,rss}.log`, `-time.txt`, `.exitcode`, `-binary.md5` —
+  the killed run of §5 (exit 143 = SIGTERM at 46:30).
+
+To finish §5, wait until `pgrep -f "frontier4/.lake/build/bin/setlec"`
+is empty (one Mathlib-scale checker at a time — the session's cgroup
+budget does not hold two), then
+
+    _tmp/resume-slice/run.sh rung5slice2 _tmp/resume-slice/mathlib-rung5.ndjson
+
+and compare the verdict, the dying/last declaration and the RSS profile
+against the full-stream pass in `_tmp/frontier4/beb8c2bb-*`.  The
+prediction the slice has to meet: **the same outcome at the same
+declaration**, since the slice keeps 99.746 % of the stream and every
+record from rung 5 on.
