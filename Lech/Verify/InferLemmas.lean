@@ -213,7 +213,7 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
         m.pw = pwI) ∧
       t = .forallE n ty (bt.abstract1 d) m := by
   rw [inferTypeCore_succ] at h
-  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
+  simp only [inferBody, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, inferTypeIO_def, whnf_def] at h
   cases htty : inferTypeCore mode env fuel d ty with
   | error err => rw [htty] at h; exact nomatch h
@@ -327,7 +327,7 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
       ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
         isDefEqCore mode env fuel d ta ty' = .ok true := by
   rw [inferTypeCore_succ] at h
-  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
+  simp only [inferBody, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def, defeq_def] at h
   cases htf : inferTypeCore mode env fuel d f with
   | error err => rw [htf] at h; exact nomatch h
@@ -380,7 +380,7 @@ theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
       (mode.verifiedChecks = true → Level.zeronessOf v = m.pw) ∧
       t = .sort (.imax u v) := by
   rw [inferTypeCore_succ] at h
-  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
+  simp only [inferBody, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def, ensureSort_def] at h
   try dsimp only at h
   cases hty : inferTypeCore mode env fuel d ty with
@@ -470,7 +470,7 @@ theorem inferTypeCore_letE_inv {env : Env} {fuel d : Nat} {n : Name}
       isDefEqCore mode env fuel d tv ty = .ok true ∧
       inferTypeCore mode env fuel d (b.instantiate1 v) = .ok t := by
   rw [inferTypeCore_succ] at h
-  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
+  simp only [inferBody, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def, defeq_def, ensureSort_def] at h
   cases hty : inferTypeCore mode env fuel d ty with
   | error err => rw [hty] at h; exact nomatch h
@@ -555,7 +555,7 @@ theorem inferTypeCore_const_inv {env : Env} {fuel d : Nat}
   | 0, h => rw [inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
     rw [inferTypeCore_succ] at h
-    simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
+    simp only [inferBody, pure, Except.pure, Bind.bind,
       Except.bind] at h
     revert h
     cases hf : env.find? n with
@@ -2316,7 +2316,7 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
        -- task #175 wiring W5: the node's struct name is the head's
        T = sn) := by
   rw [inferTypeCore_succ] at h
-  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
+  simp only [inferBody, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def] at h
   cases hte : inferTypeCore mode env fuel d e with
   | error err => rw [hte] at h; exact nomatch h

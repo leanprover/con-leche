@@ -26,12 +26,11 @@ Two pieces of the interned kit are *not* restated here:
   driver-directed flush at environment transitions sound.
 
 Against `SimS` the systematic deletions of the tier carry through: no
-arena, hence no `Ext` and no `readbackI`; `internExprM` is the pure
-`ExprC.ofExpr` (`internExprM_eff`), and the readback step is
-no conversion at all since task #172 B3a (the runners pass their
-argument through), so both seams
-collapse to `RelC` facts.  The `opE` result relation therefore stays on
-`Expr` — `opE` returns `ExprC.toExpr j` — and is state-free.
+arena, hence no `Ext` and no readback, and (since task #172 B3a) no
+conversion into the cached representation either — the runners pass
+their argument through, so both seams collapse to `RelC` facts and a
+fabricated node is a plain `pure` (`pureC_eff`).  The `opE` result
+relation therefore stays on `Expr` and is state-free.
 
 The driver-level walks composing these along `checkDeclSF` are in
 `Lech/Verify/Cached/BridgeCS*.lean`.

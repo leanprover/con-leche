@@ -32,12 +32,12 @@ theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
     cases e with
     | sort u =>
       rw [inferTypeCoreIO_succ] at h
-      simp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+      simp only [inferBodyIO, Bind.bind, Except.bind,
         pure, Except.pure, Except.ok.injEq] at h
       subst h; simp [WScoped]
     | fvar idx n ty =>
       rw [inferTypeCoreIO_succ] at h
-      simp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+      simp only [inferBodyIO, Bind.bind, Except.bind,
         pure, Except.pure] at h
       revert h
       split
@@ -50,7 +50,7 @@ theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
         simp [throw, throwThe, MonadExceptOf.throw] at h
     | const n ws =>
       rw [inferTypeCoreIO_succ] at h
-      simp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+      simp only [inferBodyIO, Bind.bind, Except.bind,
         pure, Except.pure] at h
       revert h
       cases hf : env.find? n with
@@ -77,7 +77,7 @@ theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
       | .natVal n, h => ?natCase
       | .strVal s, h => ?strCase
       case strCase =>
-        dsimp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+        dsimp only [inferBodyIO, Bind.bind, Except.bind,
           pure, Except.pure] at h
         revert h
         split
@@ -89,7 +89,7 @@ theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
           simp only [Except.ok.injEq] at h
           subst h; simp [WScoped]
       case natCase =>
-        dsimp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+        dsimp only [inferBodyIO, Bind.bind, Except.bind,
           pure, Except.pure] at h
         revert h
         split
@@ -131,7 +131,7 @@ theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
         (fun a ha => hwPi.getAppArgs a ha) hw
     | bvar i =>
       rw [inferTypeCoreIO_succ] at h
-      simp [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind, pure,
+      simp [inferBodyIO, Bind.bind, Except.bind, pure,
         Except.pure, throw, throwThe, MonadExceptOf.throw] at h
     | letE n' t' v' b' =>
       obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCoreIO_letE_inv h
@@ -148,12 +148,12 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
     cases e with
     | sort u =>
       rw [inferTypeCoreIO_succ] at h
-      simp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+      simp only [inferBodyIO, Bind.bind, Except.bind,
         pure, Except.pure, Except.ok.injEq] at h
       subst h; intro l hl; simp [fvarLeaves] at hl
     | fvar idx n ty =>
       rw [inferTypeCoreIO_succ] at h
-      simp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+      simp only [inferBodyIO, Bind.bind, Except.bind,
         pure, Except.pure] at h
       revert h
       split
@@ -166,7 +166,7 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
         simp [throw, throwThe, MonadExceptOf.throw] at h
     | const n ws =>
       rw [inferTypeCoreIO_succ] at h
-      simp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+      simp only [inferBodyIO, Bind.bind, Except.bind,
         pure, Except.pure] at h
       revert h
       cases hf : env.find? n with
@@ -195,7 +195,7 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
       | .natVal n, h => ?natCase
       | .strVal s, h => ?strCase
       case strCase =>
-        dsimp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+        dsimp only [inferBodyIO, Bind.bind, Except.bind,
           pure, Except.pure] at h
         revert h
         split
@@ -207,7 +207,7 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
           simp only [Except.ok.injEq] at h
           subst h; intro l hl; simp [fvarLeaves] at hl
       case natCase =>
-        dsimp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+        dsimp only [inferBodyIO, Bind.bind, Except.bind,
           pure, Except.pure] at h
         revert h
         split
@@ -274,7 +274,7 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
           exact hla
     | bvar i =>
       rw [inferTypeCoreIO_succ] at h
-      simp [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind, pure,
+      simp [inferBodyIO, Bind.bind, Except.bind, pure,
         Except.pure, throw, throwThe, MonadExceptOf.throw] at h
     | letE n' t' v' b' =>
       obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCoreIO_letE_inv h
@@ -297,12 +297,12 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
     cases e with
     | sort u =>
       rw [inferTypeCoreIO_succ] at h
-      simp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+      simp only [inferBodyIO, Bind.bind, Except.bind,
         pure, Except.pure, Except.ok.injEq] at h
       subst h; simp [looseBVarsBounded]
     | fvar idx n ty =>
       rw [inferTypeCoreIO_succ] at h
-      simp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+      simp only [inferBodyIO, Bind.bind, Except.bind,
         pure, Except.pure] at h
       revert h
       split
@@ -314,7 +314,7 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
         simp [throw, throwThe, MonadExceptOf.throw] at h
     | const n ws =>
       rw [inferTypeCoreIO_succ] at h
-      simp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+      simp only [inferBodyIO, Bind.bind, Except.bind,
         pure, Except.pure] at h
       revert h
       cases hf : env.find? n with
@@ -341,7 +341,7 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
       | .natVal n, h => ?natCase
       | .strVal s, h => ?strCase
       case strCase =>
-        dsimp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+        dsimp only [inferBodyIO, Bind.bind, Except.bind,
           pure, Except.pure] at h
         revert h
         split
@@ -353,7 +353,7 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
           simp only [Except.ok.injEq] at h
           subst h; simp [looseBVarsBounded]
       case natCase =>
-        dsimp only [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind,
+        dsimp only [inferBodyIO, Bind.bind, Except.bind,
           pure, Except.pure] at h
         revert h
         split
@@ -412,7 +412,7 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
         (fun a ha => looseBVarsBounded_getAppArgs hbPi _ ha) hb
     | bvar i =>
       rw [inferTypeCoreIO_succ] at h
-      simp [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind, pure,
+      simp [inferBodyIO, Bind.bind, Except.bind, pure,
         Except.pure, throw, throwThe, MonadExceptOf.throw] at h
     | letE n' t' v' b' =>
       obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCoreIO_letE_inv h

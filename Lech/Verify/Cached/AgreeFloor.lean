@@ -598,7 +598,7 @@ theorem SkelIs.isSome {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
 /-! ## The cached certified driver's install stages -/
 
 theorem checkConstantValC_name (mode : CheckMode) (fe : FEnv)
-    (cv : ConstantValC) :
+    (cv : ConstantVal) :
     Yields (checkConstantValC mode fe cv) (fun p => p.1.name = cv.name) := by
   unfold checkConstantValC
   yields
