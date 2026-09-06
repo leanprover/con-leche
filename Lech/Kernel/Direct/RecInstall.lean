@@ -41,9 +41,12 @@ variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-- The kinds the recogniser computed, re-checked on the annotated
 constructor types: an ordinary field's domain resolves in the
-pre-block environment `env₀`, a recursive field's domain is exactly
-the family at the parameters. -/
-def directFixFieldsOk (env₀ : Env) (T : Name) (lps : List Name) (nP : Nat)
+pre-block environment `env₀`, a recursive field's domain is the
+family at the parameters and index expressions free of the block
+(`recFamOk`), no later binder or index expression mentioning the
+field; the constructor's residual index expressions are free of the
+block. -/
+def directFixFieldsOk (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (ctorsA : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) : Bool :=
   ctorsA.length == kinds.length &&
   (List.range ctorsA.length).all fun j =>
@@ -51,11 +54,13 @@ def directFixFieldsOk (env₀ : Env) (T : Name) (lps : List Name) (nP : Nat)
     | some cA, some ks =>
       ks.length == cA.2 &&
       (match cA.1.type.stripPis (nP + cA.2) with
-       | some (cbs, _) => (List.range cA.2).all fun i =>
+       | some (cbs, cbody) =>
+         (cbody.getAppArgs.drop nP).all (fun a => !a.mentionsConst T) &&
+         (List.range cA.2).all fun i =>
            let dom := (cbs.getD (nP + i) default).2.1
            match ks.getD i .ordinary with
            | .ordinary => dom.constsResolve env₀
-           | .recursive => dom == directFam T lps nP i && !directUsedLater cA.1.type nP i
+           | .recursive => recFamOk T lps nP nIdx i dom && !directUsedLater cA.1.type nP i
            | _ => false
        | none => false)
     | _, _ => false
@@ -64,17 +69,18 @@ def directFixFieldsOk (env₀ : Env) (T : Name) (lps : List Name) (nP : Nat)
 each scoped at the environment holding the recursor's constant
 (`envR`): a rule mentions the recursor and is not inferred. -/
 def checkDirectFixRules (envR : Env) (rlps : List Name) (T : Name) (lps : List Name)
-    (elim : Name) (large : Bool) (nP : Nat) (tty : Expr)
+    (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
     (ctors : List (Name × Nat × Expr × List Nat)) (recC : Name) (rlvls : List Level) :
     Nat → Nat → m (List Expr)
   | 0, _ => pure []
   | k + 1, j => do
-    let rhs ← unwrapOr (directRecRhsR T lps elim large nP tty ctors recC rlvls j)
+    let rhs ← unwrapOr (directRecRhsR T lps elim large nP nIdx tty ctors recC rlvls j)
       (.internal "direct rec: recursor rule")
     unless rhs.allLevelParamsDefined rlps && rhs.constsResolve envR &&
         rhs.looseBVarsBounded 0 && !rhs.hasFvar do
       throw (.internal "direct rec: recursor rule scoping")
-    let rest ← checkDirectFixRules envR rlps T lps elim large nP tty ctors recC rlvls k (j + 1)
+    let rest ← checkDirectFixRules envR rlps T lps elim large nP nIdx tty ctors recC rlvls k
+      (j + 1)
     pure (rhs :: rest)
 
 /-- Stage 3: the recursor, generated and compared — the generated
@@ -88,7 +94,7 @@ def checkDirectFixRec (ops : CheckerOps m) (env : Env) (p : DirectFixParts)
   let T := p.cvT.name
   let lps := p.cvT.levelParams
   let ctors := directFixCtors4 ctorsA p.kinds
-  let recTy ← unwrapOr (directRecTyR T lps p.elim p.large p.nP cvTa.type ctors)
+  let recTy ← unwrapOr (directRecTyR T lps p.elim p.large p.nP p.nIdx cvTa.type ctors)
     (.internal "direct rec: recursor type")
   unless recTy.allLevelParamsDefined p.cvR.levelParams && recTy.constsResolve env &&
       recTy.looseBVarsBounded 0 && !recTy.hasFvar do
@@ -100,8 +106,8 @@ def checkDirectFixRec (ops : CheckerOps m) (env : Env) (p : DirectFixParts)
     throw (.invalid "direct rec: recursor type is not the generated one")
   let cvRa : ConstantVal := ⟨p.cvR.name, p.cvR.levelParams, recTy⟩
   let envR : Env := ⟨.recInfo cvRa p.majorIdx p.rulePrefix [] :: env.consts⟩
-  let rhss ← checkDirectFixRules envR p.cvR.levelParams T lps p.elim p.large p.nP cvTa.type
-    ctors p.cvR.name (p.cvR.levelParams.map .param) ctors.length 0
+  let rhss ← checkDirectFixRules envR p.cvR.levelParams T lps p.elim p.large p.nP p.nIdx
+    cvTa.type ctors p.cvR.name (p.cvR.levelParams.map .param) ctors.length 0
   pure (cvRa, rhss)
 
 /-- Check and install a **direct recursive block**: positivity, the
@@ -124,9 +130,9 @@ def checkDirectFix (ops : CheckerOps m) (env : Env) (p : DirectFixParts) : m Env
   -- the constructors' field domains may mention the block: the
   -- resolution guard is pointed at the former's environment, and the
   -- kinds are re-checked afterwards
-  let ctorsA ← checkDirectSumCtors ops env₁ env₁ p.cvT.name p.cvT.levelParams p.nP 0
+  let ctorsA ← checkDirectSumCtors ops env₁ env₁ p.cvT.name p.cvT.levelParams p.nP p.nIdx
     p.resSort p.isProp p.large cvTa p.ctors
-  unless directFixFieldsOk env p.cvT.name p.cvT.levelParams p.nP ctorsA p.kinds do
+  unless directFixFieldsOk env p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA p.kinds do
     throw (.internal "direct rec: field kinds")
   let env₂ := consSumCtors p.nP ctorsA env₁
   let (cvRa, rhss) ← checkDirectFixRec ops env₂ p cvTa ctorsA

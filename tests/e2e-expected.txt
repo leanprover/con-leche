@@ -440,12 +440,33 @@
 #   direct_fix_nat_ih_bad: `Nat'.rec`'s `n_ih` binder patched from
 #                     `motive n` to `Nat'` — the stream's recursor is not
 #                     the generated one, REJECTED at the S2 comparison.
+# INDEXED recursive families (the route is indexed from the start):
+#   direct_fix_vec:   `Vec' α n` with the recursive `cons` at index
+#                     `Nat.succ n` (`length`, `map` with a motive reading
+#                     the index, `headD`, `small`) and `Tm k n` — a
+#                     parameter and an index, two recursive fields at
+#                     different index expressions in one constructor.
+#   direct_fix_le:    the two-index `Le' a b` (added by `addDecl`: the
+#                     `inductive` command would promote the fixed first
+#                     index) and `Even' n` — recursive `Prop`s with two
+#                     constructors, SMALL elimination only.
+#   direct_fix_acc_large: `Up n (n+1)` with ONE recursive constructor
+#                     and the large eliminator (the data field is an
+#                     index): DECLINED positively, as `Loop`.
+#   direct_fix_vec_ih_idx_bad: `Vec'.rec`'s `v_ih` binder patched to
+#                     `motive (Nat.succ n) v` — the hypothesis at the
+#                     wrong index, REJECTED (the patched recursor type
+#                     is ill-typed before the S2 comparison is reached).
 0 direct_fix_nat.ndjson pre
 0 direct_fix_tree.ndjson pre
 0 direct_fix_prop.ndjson pre
 2 direct_fix_prop_large.ndjson pre
 1 direct_fix_nat_neg_bad.ndjson pre
 1 direct_fix_nat_ih_bad.ndjson pre
+0 direct_fix_vec.ndjson pre
+0 direct_fix_le.ndjson pre
+2 direct_fix_acc_large.ndjson pre
+1 direct_fix_vec_ih_idx_bad.ndjson pre
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the

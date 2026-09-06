@@ -200,8 +200,8 @@ def checkDirectFixS (fe : FEnv) (p : DirectFixParts) : CheckCM FEnv := do
   let (fe₁, cvTa) ← checkDirectSumIndF (sharedOpsC mode fe) fe p.toDirectSumParts
   flushC
   let ctorsA ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p.cvT.name p.cvT.levelParams
-    p.nP 0 p.resSort p.isProp p.large cvTa p.ctors
-  unless directFixFieldsOkF fe p.cvT.name p.cvT.levelParams p.nP ctorsA p.kinds do
+    p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
+  unless directFixFieldsOkF fe p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA p.kinds do
     throw (.internal "direct rec: field kinds")
   let fe₂ := consSumCtorsF p.nP ctorsA fe₁
   flushC
