@@ -16,7 +16,11 @@ and the recursor's rules are the block's only definitional content.
 The per-constructor stage is `checkDirectCtor` with the constructor
 made explicit (the direct structure route's stage reads it off its
 `DirectParts`); the field-sort walk and the domain pins are shared
-(`checkDirectFieldSorts`, `checkDirectDomsAt`).  The index-threaded
+(`checkDirectFieldSorts`, `checkDirectDomsAt`).  Every constructor's
+type is checked at the environment holding the type former alone and
+the constructors are consed afterwards: they never mention each other,
+and this order keeps the install soundness one-pass (each
+constructor's reading is taken at the one environment, and crossed).  The index-threaded
 twins are `Setlec/Kernel/Direct/SumInstallF.lean`.
 -/
 
@@ -34,14 +38,17 @@ def checkDirectSumInd (ops : CheckerOps m) (env : Env) (p : DirectSumParts) :
     throw (.notImplemented "direct sum: type former result sort")
   pure (⟨.indInfo cvTa {} :: env.consts⟩, cvTa)
 
-/-- Stage 2, one constructor: the ordinary constant check, the
+/-- Stage 2, one constructor's type: the ordinary constant check, the
 annotated result shape, the parameter pins against the type former's
 opened telescope, the pre-block resolution of the field domains, and
 the per-field universe bound (`checkDirectCtor`, the constructor made
-explicit; `env₀` is the pre-block environment). -/
+explicit; `env₀` is the pre-block environment, `env` the one holding
+the type former).  Every constructor is checked at the environment
+holding the type former alone — the constructors do not mention each
+other — and the block conses them afterwards (`checkDirectSum`). -/
 def checkDirectSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP : Nat) (resSort : Level) (isProp large : Bool)
-    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (Env × ConstantVal) := do
+    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m ConstantVal := do
   let cvCa ← checkConstantVal ops env cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
@@ -59,21 +66,24 @@ def checkDirectSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
   unless xq.1.all fun x => x.fvarTypeD.constsResolve env₀ do
     throw (.notImplemented "direct sum: field domain after the block")
   let _sorts ← checkDirectFieldSorts ops env isProp large resSort nP xq.1 nF
-  pure (⟨.ctorInfo cvCa nP nF :: env.consts⟩, cvCa)
+  pure cvCa
 
-/-- Stage 2, all constructors in order; returns the annotated
-constructors with their field counts. -/
-def checkDirectSumCtors (ops : CheckerOps m) (env₀ : Env) (T : Name)
+/-- Stage 2, all constructors' types, at the environment holding the
+type former; returns the annotated constructors with their field
+counts. -/
+def checkDirectSumCtors (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP : Nat) (resSort : Level) (isProp large : Bool)
-    (cvTa : ConstantVal) : List (ConstantVal × Nat) → Env →
-    m (Env × List (ConstantVal × Nat))
-  | [], env => pure (env, [])
-  | c :: cs, env => do
-    let (env', cvCa) ← checkDirectSumCtor ops env₀ env T lps nP resSort isProp large
-      c.1 c.2 cvTa
-    let (env'', rest) ← checkDirectSumCtors ops env₀ T lps nP resSort isProp large cvTa
-      cs env'
-    pure (env'', (cvCa, c.2) :: rest)
+    (cvTa : ConstantVal) : List (ConstantVal × Nat) → m (List (ConstantVal × Nat))
+  | [] => pure []
+  | c :: cs => do
+    let cvCa ← checkDirectSumCtor ops env₀ env T lps nP resSort isProp large c.1 c.2 cvTa
+    let rest ← checkDirectSumCtors ops env₀ env T lps nP resSort isProp large cvTa cs
+    pure ((cvCa, c.2) :: rest)
+
+/-- The constructors' conses, in order (the first constructor deepest). -/
+def consSumCtors (nP : Nat) : List (ConstantVal × Nat) → Env → Env
+  | [], env => env
+  | c :: cs, env => consSumCtors nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts⟩
 
 /-- The generated rules for constructors `j, j+1, …` (`k` of them):
 each is scoped-checked and inferred (task #175 S2's discipline for the
@@ -136,9 +146,14 @@ def checkDirectSum (ops : CheckerOps m) (env : Env) (p : DirectSumParts) : m Env
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
     throw (.invalid "direct sum: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
+  -- the constructors are checked at one environment and consed
+  -- afterwards, so their names must be pairwise distinct here
+  unless (p.ctors.map (·.1.name)).Nodup do
+    throw (.invalid "direct sum: duplicate constructor")
   let (env₁, cvTa) ← checkDirectSumInd ops env p
-  let (env₂, ctorsA) ← checkDirectSumCtors ops env p.cvT.name p.cvT.levelParams p.nP
-    p.resSort p.isProp p.large cvTa p.ctors env₁
+  let ctorsA ← checkDirectSumCtors ops env env₁ p.cvT.name p.cvT.levelParams p.nP
+    p.resSort p.isProp p.large cvTa p.ctors
+  let env₂ := consSumCtors p.nP ctorsA env₁
   let (cvRa, rhss) ← checkDirectSumRec ops env₂ p cvTa ctorsA
   let mI := p.nP + 1 + p.ctors.length
   pure ⟨.recInfo cvRa mI mI (directSumRules p.nP mI cvRa.type ctorsA rhss) :: env₂.consts⟩

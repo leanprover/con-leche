@@ -41,7 +41,7 @@ def checkDirectSumIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectSumParts) :
 /-- `checkDirectSumCtor` through the index. -/
 def checkDirectSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP : Nat) (resSort : Level) (isProp large : Bool)
-    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (FEnv × ConstantVal) := do
+    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m ConstantVal := do
   let cvCa ← checkConstantValF ops fe cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
@@ -59,20 +59,22 @@ def checkDirectSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
   unless xq.1.all fun x => x.fvarTypeD.constsResolveF fe₀ do
     throw (.notImplemented "direct sum: field domain after the block")
   let _sorts ← checkDirectFieldSortsFA ops fe isProp large resSort nP xq.1.toArray nF
-  pure (fe.push (.ctorInfo cvCa nP nF), cvCa)
+  pure cvCa
 
 /-- `checkDirectSumCtors` through the index. -/
-def checkDirectSumCtorsF (ops : CheckerOps m) (fe₀ : FEnv) (T : Name)
+def checkDirectSumCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP : Nat) (resSort : Level) (isProp large : Bool)
-    (cvTa : ConstantVal) : List (ConstantVal × Nat) → FEnv →
-    m (FEnv × List (ConstantVal × Nat))
-  | [], fe => pure (fe, [])
-  | c :: cs, fe => do
-    let (fe', cvCa) ← checkDirectSumCtorF ops fe₀ fe T lps nP resSort isProp large
-      c.1 c.2 cvTa
-    let (fe'', rest) ← checkDirectSumCtorsF ops fe₀ T lps nP resSort isProp large cvTa
-      cs fe'
-    pure (fe'', (cvCa, c.2) :: rest)
+    (cvTa : ConstantVal) : List (ConstantVal × Nat) → m (List (ConstantVal × Nat))
+  | [] => pure []
+  | c :: cs => do
+    let cvCa ← checkDirectSumCtorF ops fe₀ fe T lps nP resSort isProp large c.1 c.2 cvTa
+    let rest ← checkDirectSumCtorsF ops fe₀ fe T lps nP resSort isProp large cvTa cs
+    pure ((cvCa, c.2) :: rest)
+
+/-- `consSumCtors` through the index. -/
+def consSumCtorsF (nP : Nat) : List (ConstantVal × Nat) → FEnv → FEnv
+  | [], fe => fe
+  | c :: cs, fe => consSumCtorsF nP cs (fe.push (.ctorInfo c.1 nP c.2))
 
 /-- `checkDirectSumRules` through the index. -/
 def checkDirectSumRulesF (ops : CheckerOps m) (fe : FEnv) (rlps : List Name)

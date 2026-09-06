@@ -157,29 +157,21 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
   checkDirectProjTableF (m := CheckCM) p.cvT.name p.cvC.name p.cvT.levelParams
     p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) cvCa fe₃
 
-/-- `checkDirectSumCtors` through the index with a flush per
-environment transition (the memo caches are valid for one environment
-only). -/
-def checkDirectSumCtorsS (fe₀ : FEnv) (T : Name) (lps : List Name) (nP : Nat)
-    (resSort : Level) (isProp large : Bool) (cvTa : ConstantVal) :
-    List (ConstantVal × Nat) → FEnv → CheckCM (FEnv × List (ConstantVal × Nat))
-  | [], fe => pure (fe, [])
-  | c :: cs, fe => do
-    flushC
-    let (fe', cvCa) ← checkDirectSumCtorF (sharedOpsC cfg fe) fe₀ fe T lps nP resSort
-      isProp large c.1 c.2 cvTa
-    let (fe'', rest) ← checkDirectSumCtorsS fe₀ T lps nP resSort isProp large cvTa cs fe'
-    pure (fe'', (cvCa, c.2) :: rest)
-
-/-- `checkDirectSum` through the index (task #175 sum-types). -/
+/-- `checkDirectSum` through the index (task #175 sum-types).  One
+flush per environment transition: the former's, the constructors'
+(all at the former's environment), the recursor's. -/
 def checkDirectSumS (fe : FEnv) (p : DirectSumParts) : CheckCM FEnv := do
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
     throw (.invalid "direct sum: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
+  unless (p.ctors.map (·.1.name)).Nodup do
+    throw (.invalid "direct sum: duplicate constructor")
   flushC
   let (fe₁, cvTa) ← checkDirectSumIndF (sharedOpsC cfg fe) fe p
-  let (fe₂, ctorsA) ← checkDirectSumCtorsS cfg fe p.cvT.name p.cvT.levelParams p.nP
-    p.resSort p.isProp p.large cvTa p.ctors fe₁
+  flushC
+  let ctorsA ← checkDirectSumCtorsF (sharedOpsC cfg fe₁) fe fe₁ p.cvT.name p.cvT.levelParams
+    p.nP p.resSort p.isProp p.large cvTa p.ctors
+  let fe₂ := consSumCtorsF p.nP ctorsA fe₁
   flushC
   let (cvRa, rhss) ← checkDirectSumRecF (sharedOpsC cfg fe₂) fe₂ p cvTa ctorsA
   let mI := p.nP + 1 + p.ctors.length
