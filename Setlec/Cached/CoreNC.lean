@@ -100,9 +100,13 @@ def structEtaCertWithNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 `Setlec/Kernel/CoreNC.lean`'s `structEtaCertNC`). -/
 def structEtaCertNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
-  let tb ← r.infer depth b
-  let wtb ← r.whnf depth tb
-  structEtaCertWithNC r fe depth a b wtb
+  -- the constructor-shape gate first (D13), as in the spec
+  let sh ← withStore (fun st => etaCtorShapeI fe st a)
+  if sh then
+    let tb ← r.infer depth b
+    let wtb ← r.whnf depth tb
+    structEtaCertWithNC r fe depth a b wtb
+  else pure false
 
 /-- Cert-skipping twin of `structUnitCertI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `structUnitCertNC`): keeps the unit-like

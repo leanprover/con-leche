@@ -2119,6 +2119,8 @@ theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
       structEtaCertWithP mode env fuel d a b wtb = .ok true := by
   dsimp only [structEtaCertP] at h
   rw [structEtaCert] at h
+  split at h
+  case isFalse => exact nomatch h
   simp only [Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def, structEtaCertWith_fold] at h
   cases htb : inferTypeIO mode env fuel d b with

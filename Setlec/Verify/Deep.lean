@@ -925,6 +925,16 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
       rw [List.map_drop, ← hlist] at h3
       exact h3
 
+/-- `etaCtorShape` reads the head constant and the spine length, both
+shift-invariant. -/
+private theorem etaCtorShape_shiftFrom {env : Env} (p : Nat) (e : Expr) :
+    etaCtorShape env (shiftFrom p e) = etaCtorShape env e := by
+  unfold etaCtorShape
+  rw [getAppFn_shiftFrom, getAppArgs_shiftFrom, List.length_map]
+  generalize e.getAppFn = f
+  cases f <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
+
 private theorem structEtaCert_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
@@ -932,6 +942,8 @@ private theorem structEtaCert_shift (henv : EnvWF env)
         (shiftFrom p b) =
       structEtaCert mode (pureFns mode env fuel) env d a b := by
   simp only [structEtaCert]
+  rw [etaCtorShape_shiftFrom]
+  refine ite_congr' (fun _ => ?_) (fun _ => rfl)
   refine bind_congr _ (ih.inferIO hpd hwb) ?_
   intro tb htb
   have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb

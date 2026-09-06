@@ -160,6 +160,18 @@ the interned original's position). -/
 @[inline] def isCtorAppI (fe : FEnv) (_ : CStore) (e : ExprC) : Bool :=
   isCtorAppC fe e
 
+/-- Twin of `etaCtorShape` (the audit's D13 gate; `ExprC = Expr`). -/
+def etaCtorShapeC (fe : FEnv) (e : ExprC) : Bool :=
+  match Expr.getAppFn e with
+  | .const c _ =>
+    match fe.find? c with
+    | some (.ctorInfo _ cnP cnF) => (Expr.getAppArgs e).length == cnP + cnF
+    | _ => false
+  | _ => false
+
+@[inline] def etaCtorShapeI (fe : FEnv) (_ : CStore) (e : ExprC) : Bool :=
+  etaCtorShapeC fe e
+
 @[inline] def headHintI (fe : FEnv) (_ : CStore) (e : ExprC) :
     ReducibilityHint := headHintC fe e
 
