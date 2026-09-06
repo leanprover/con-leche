@@ -52775,3 +52775,311 @@ flags 8/8, mode flags 16/16, prelude counts 3/3, progress lane 6/6,
 trusted sweep 138 + 100 + 14 with the 3 recorded divergences.
 init-full accepted in both modes with the same counts (§5).  Master
 merged (it had moved by a README edit only).
+## TASK #192 — THE MEMO PROBE'S `Expr.beq`: official's memo shape, and what else was tried (2026-09-06, `agent/beqmemo`)
+
+**The brief.**  Task #189 found that on four of the five slowest
+Mathlib declarations 91 – 96 % of lech's instructions are `Expr.beq`
+plus its allocator traffic, all of it under a memo bucket probe
+comparing a key against a *structurally equal, freshly allocated*
+term.  This task takes its proposal P2 — "`Expr.beq`'s memo in
+official's shape" — measures it, and measures three other levers
+beside it.
+
+### 1. What landed: P2
+
+`Lech/Kernel/Expr.lean`.  Three changes to the executed equality, none
+of them visible to the answer:
+
+1. **The memo is `Std.HashMap Nat Nat`**, `addr a ↦ addr b`, instead of
+   `Std.HashMap (USize × USize) Bool`.  A `USize × USize` key is
+   **three heap objects** — the `Prod` cell and a boxed `USize` each —
+   built on *every* probe, hit or miss, and again on every insert; the
+   `Option Bool` the probe returned was a fourth.  A `Nat` holding an
+   address is below `LEAN_MAX_SMALL_NAT`, so `USize.toNat` is
+   `lean_box` (a tag, not an allocation) and `getD` returns a scalar:
+   **a probe now allocates nothing at all.**  `Std.DHashMap`'s
+   `scrambleHash` folds the high bits down, so the alignment zeros in
+   an address's low bits do not cluster.
+2. **Only `true` is recorded**, as `expr_eq_fn` does.  A completed
+   `false` aborts the whole comparison — every arm propagates it to
+   the root — so no `false` is ever re-queried, and that is what makes
+   the single-address key sound: `getD pa 0 == pb` answers exactly
+   "this pair was proved equal".  A key that gets re-bound loses its
+   old entry; that costs a re-walk, never an answer.
+3. **Leaves are neither probed nor recorded** (`beqRecursive`): a
+   `bvar`/`sort`/`const`/`lit` pair is decided without a descent, so
+   an entry for it can never save a walk, and leaves are the majority
+   of a real term's nodes.
+
+Plus one free strengthening: the cheap reject compares the whole
+packed computed word `a.data`, not its top 32 bits `a.hash`.  Same
+instruction; it now also rejects on a `bvarB`, `fvarB` or `hasLP`
+disagreement.  Soundness is unchanged — `data` is a `@[computed_field]`,
+i.e. a function of the node — and the `beqFast` docstring's trust
+argument and `Lech/Cached/ExprC.lean`'s census row are still true word
+for word (the memo is still address-keyed and still valid for exactly
+one comparison's lifetime).
+
+**C-level evidence** (`.lake/build/ir/Lech/Kernel/Expr.c`, master vs
+this branch).  In `Lech_Expr_beqGo`: `lean_box_usize` **4 → 0**
+(replaced by two `lean_usize_to_nat`, which is `lean_box` on this
+range); the `AssocList.get?` specialisation, which allocated the
+`some` cell per hit, is replaced by a `Const_getD` specialisation with
+**zero** `lean_alloc_ctor`.  What remains per recursive node is one
+`lean_alloc_ctor(0, 2, 0)` — the `Bool × HashMap` return pair — and,
+on a successful node, one bucket cons cell.  (The static
+`lean_alloc_ctor` count in the body rises 7 → 25 because the extra
+branch duplicates the *return site*, not because a node allocates
+more.)
+
+### 2. The numbers
+
+`perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`,
+`nice -n 5`, `LECH_SUPERVISED=1`, `--pre` on both sides; target-only =
+full − notarget on the task-#189 slices (`_tmp/slowest/slices/`).  The
+`base` column is master `28cf1037` measured in this session and
+reproduces DESIGN #189's table to five significant figures on all ten
+lech cells, so the two tables are comparable.
+
+**Target-only (G instructions), and × official from #189:**
+
+| tag | mode | base | **P2** | Δ | official |
+|---|---|---|---|---|---|
+| t1 | trusted | 37.399 | **27.317** | **−27.0 %** | 3.33 |
+| t1 | verified | 37.585 | **27.409** | **−27.1 %** | 3.33 |
+| t2 | trusted | 22.184 | **19.136** | −13.7 % | 1.23 |
+| t2 | verified | 43.171 | **38.628** | −10.5 % | 1.23 |
+| t3 | trusted | 28.809 | **28.029** | −2.7 % | 3.40 |
+| t3 | verified | 28.873 | **28.104** | −2.7 % | 3.40 |
+| t4 | trusted | 2.462 | **2.397** | −2.6 % | 0.35 |
+| t4 | verified | 25.962 | **20.637** | **−20.5 %** | 0.35 |
+| t5 | trusted | 24.334 | **18.240** | **−25.0 %** | 0.98 |
+| t5 | verified | 24.462 | **18.259** | **−25.4 %** | 0.98 |
+
+Aggregated over the five at verified: 160.05 G → **132.99 G**, i.e.
+17.2× official → **14.3×**.  t3 — #189's one *material* declaration —
+moves least, which is the right sign: its cost is size, not sharing.
+
+**Whole streams (G):**
+
+| stream | mode | base | P2 | Δ |
+|---|---|---|---|---|
+| `init-full` | trusted | 652.611 | 651.466 | −0.18 % |
+| `init-full` | verified | 679.076 | 677.850 | −0.18 % |
+| `beta-ladder` | trusted | 40.941 | 40.922 | −0.05 % |
+| `beta-ladder` | verified | 40.947 | 40.928 | −0.05 % |
+| `grind-ring-5` | trusted | 28.544 | 28.339 | −0.7 % |
+| `grind-ring-5` | verified | 30.745 | 30.539 | −0.7 % |
+| `app-lam` | trusted | 161.684 | 161.619 | −0.04 % |
+| `app-lam` | verified | 161.691 | 161.625 | −0.04 % |
+| t1 (whole cone) | verified | 352.074 | 339.803 | −3.5 % |
+| t5 (whole cone) | verified | 75.495 | 69.095 | −8.5 % |
+
+**Re-confirmed on the post-merge master** (`d6aeff20`, i.e. after
+#190, #191 and #193): a fresh baseline binary at that commit
+reproduces the `28cf1037` cells to four significant figures
+(t5 trusted 72.914 vs 72.880 G, t1 trusted 334.288 vs 334.245 G), and
+the merged branch measures target-only t5 −25.1 % / −25.0 % and t1
+−26.9 % / −27.1 % (trusted / verified).  The table above therefore
+stands on current master.
+
+So P2 is a **tail** fix, exactly as #189 predicted: a quarter off the
+pathological declarations, a rounding error on the streams whose
+comparisons are decided by the pointer test.  Verdicts unchanged
+everywhere (`tests/arena.sh`: arena 90/92, e2e 96/96, annot 14/14,
+trusted sweep as expected; `lake test`; `tests/proofdeps.sh` 0 doors;
+axiom pin unchanged; trust surface 18 escapes in 4 allowlisted files,
+0 outside).
+
+**A side finding worth acting on: PERF.md is stale.**  Its `init-full`
+row says 794.99 G trusted / 841.70 G verified; master measures
+**652.61 G / 679.08 G** — the landings since `161cd827` bought 18 %
+that the table does not show.  PERF regen was already on the docket;
+this is the number that says it matters.
+
+### 3. What was tried and did NOT pan out
+
+**P2c — drop `beqB`, always run the memoized descent.**  The idea was
+that `beqB`'s 4 096-node allocation-free prefix is thrown away
+whenever the budget runs out, so the memoized descent restarts from
+scratch.  Refuted on the battery: `beta-ladder` +10.7 %
+(40.92 → 45.29 G), `grind-ring-5` +6.8 % / +7.2 %, `app-lam` −0.1 %.
+The budgeted descent earns its keep: the overwhelming majority of
+comparisons are decided inside it, and a hash-table touch per node is
+dearer than the wasted prefix.  (The slice cell for this variant was
+contaminated by a concurrent rebuild of the same binary and is not
+reported; the battery refutes it on its own.)
+
+**P2e — replace the memo with an open-addressed table in one
+`Array Nat`.**  Layout `t[0] = cap`, `t[1] = used`, then `(key, value)`
+slots; every element a tagged scalar, so no cons cell per entry, no
+boxed key, in-place `Array.set!` while unshared, and one `lean_dec_ref`
+over scalars at death — on paper it removes most of the 35 % the
+post-P2 profile still spends in the allocator.  Measured: t5 trusted
+**115.71 G against P2's 66.59 G (+74 %)**, with correct verdicts on
+the whole battery.  Two candidate causes, not separated: the fresh
+`Array.replicate` per memoised comparison, and `Array.set!` not
+staying in place (the obvious linearity trap — reading `t.getD 1 0`
+*inside* the last `set!`'s argument keeps a second reference alive
+across the writes — was found and fixed, and the variant was still
++74 %).  Recorded as a negative result; anyone retrying it should
+first prove the array stays unshared (`dbgTraceIfShared`) rather than
+assume it.
+
+**P1-lite — node identity at `whnfCoreStepI`'s app clause.**  When the
+spine head neither moved nor can start a redex (`inertSpineHeadI`: an
+`fvar`/`sort`/`lit`, or a `const` that names no recursor — `iotaRecI`
+only ever fires under a recursor `const` and `whnfAppI`'s β arm only
+under a `lam`), `whnfAppI` would rebuild `e` node for node, so the
+clause can return `e` itself.  Measured (probe binary, `lake build
+lech` only): on the *targets* it is worth nothing — t1 −0.5 %, t5
+−0.2 %, t3 −1.0 %, t4 +0.4 % — because `whnfCore` is memoised, so the
+fresh copy is built once per key and the identity loss is not what the
+probes pay for.  On the *cones* it is a real but small win: t1 whole
+cone −1.4 %, t5 −0.8 %, `grind-ring-5` verified −1.2 %.  It is **not
+free to land**: it breaks exactly one simulation obligation
+(`Lech/Verify/Cached/DiscC4.lean:554`), which needs a lemma
+"`whnfAppI` at an inert head is `pure (mkApp v args)`" and its spec
+twin.  Left for a task that wants the 1 %.
+
+**P1b — node identity at `annotateBodyI`, decided by `==`.**  The same
+idea one layer up, and the layer that actually rebuilds every node:
+`annotate`'s `.app` clause always mints `internI (.app f' a')`, so
+return `e` when `f' == f && a' == a` (and the analogous single-binder
+`.lam` and `.proj` clauses).  This one is *provable* — `eq_of_beq`
+turns the guard into the equation — so it looked like the landable
+version of P1.  Refuted by measurement: `app-lam` **+60.4 %**
+(161.62 → 259.29 G), `beta-ladder` +5.6 %, `grind-ring-5` +0.8 %.
+The reason is the whole point of #189 in miniature: **you pay a
+full-DAG `beq` to save a full-DAG `beq`.**  The guard is `O(1)` only
+when annotate already returned the same object; the moment anything
+deep changed, `f' == f` walks the DAG that the rebuild was going to
+be compared against anyway.
+
+**W4 (the divergence audit's row) is priced by the same probe.**  The
+brief asked whether `whnfAppI`'s per-prefix `iotaRecI` should become
+official's one attempt per spine.  P1-lite's fast path *is* that fix
+for the common case — at an inert head it skips every prefix's
+`internI (.app v a)` and every prefix's `iotaRecI` (each of which
+re-walks the spine with `getAppFnI`, so the row is quadratic in spine
+length, not linear as the audit says) — and it measured **−1.4 % on a
+whole cone and ≈ 0 on the pathological targets**.  So W4's real price
+is about one percent, not the "one full-DAG `Expr.beq` at the next
+probe" #189 §5 attributed to it: the fresh spine node is the clause's
+*return value* either way, and `whnfCore`'s memo means it is minted
+once per key.  #189's P3 ("raise W4 in the audit's fix list") is
+**withdrawn** — W4 stays a cost row worth ≈ 1 %, below the proof it
+costs.
+
+**The conclusion those two draw together.**  Identity preservation
+cannot be bought with a *value* comparison.  It needs either a
+pointer test — a new named escape, which the standing preference is
+against — or #189's P1, **hash-consing `internI`**, which pays one
+`O(arity)` `beq` per *constructed* node (its children being already
+interned) instead of one `O(DAG)` `beq` per *probed* key.  P1 remains
+the only lever that can close the remaining 14.3× on the tail.
+
+### 4. Where the tail sits after P2
+
+`perf record -F 999` attached to the process only while it is on the
+target (`_tmp/beqmemo/prof.sh`), t5, verified:
+
+| group | share |
+|---|---|
+| `beqGo` + `beqB` + `beqFast` | 36.7 % |
+| `beqGo`'s `HashMap` insert + expand | 16.4 % |
+| allocator / RC (`lean_dec_ref_cold` 19.1, `mi_free` 6.7, `lean_del_core_other` 3.7, `mi_malloc_small` 3.2, …) | 35.7 % |
+| everything else | ≈ 11 % |
+
+`Expr.beq` is still the declaration, and the remaining allocator block
+is now the memo's *bucket cons cells* and the `Bool × HashMap` return
+pair, not its keys.  Pure-Lean floors: one `lean_alloc_ctor` per
+recursive node for the returned pair (Lean has no unboxed multi-return;
+`ST.Ref` buys nothing, `EStateM.Result` allocates too) and one cons
+cell per recorded pair.  Official avoids both because its cache is a
+C++ `unordered_set` with a custom allocator and because it skips the
+cache for **unshared** nodes.  The Lean analogue of that last one is
+`isExclusiveUnsafe` (`Init/Util.lean:99`) — and it is *not* worth
+taking: our recursive calls own their arguments, so the refcount is
+≥ 2 almost everywhere and the test would answer "shared" always,
+while costing a new pointer escape.
+
+### 5. P4 — the certificate census on t2/t4: it is NOT a certificate family
+
+#189 §3 found verified − trusted = 21.04 G on t2 and 23.50 G on t4
+(10.6× the check on t4) and asked which certificate family that is.
+25 gdb backtraces on each target in verified mode
+(`_tmp/beqmemo/gdbs.sh`, the #189 recipe):
+
+| frame | t4 | t2 |
+|---|---|---|
+| `Expr.beqFast` under `coreKnotI`'s memo probe | 23 / 25 | 22 / 25 |
+| `inferSpineI ← inferLamsLeafI ← inferLamsI ← inferBodyI ← checkThmValC` | 22 / 25 | 21 / 25 |
+| any of `iotaCertsI`, `structEtaCertI`, `projCertI`, `etaCertI`, `majorToCtorI` | **0 / 25** | **0 / 25** |
+| `inferSpineIOI` / `inferBodyIOI` (the io-grade argument certificate) | 1 / 25 | 4 / 25 |
+| `annotPwLamI` (the λ-chain datum writer) | 1 / 25 | 4 / 25 |
+
+**No `certAtI`/`certUnlessI` family appears at all.**  The verified-only
+site on the sampled path is `inferLamsLeafI`'s `mode.verifiedChecks`
+block (`Lech/Cached/CoreC.lean:1134-1149`) — the λ-codomain sort check
+and the task-#161 annotation validation, which are `verifiedChecks`
+checks, not `certs` certificate families.  It runs `r.inferIO` on the
+body's *type* and `r.whnf` on the result, i.e. it re-enters the
+memoised inference with freshly rebuilt keys, and its cost is §1's
+mechanism again rather than any extra material.  So the answer to
+#189's P4 is: **on these two declarations the "certificate tax" is the
+λ-codomain sort check, and it is another instance of the `beq`
+finding, not a separate one.**  (25 samples per target; the reading
+that a family is *absent* is safe, the attribution of the delta to
+`inferLamsLeafI` is the best of the sampled candidates.)
+
+### 6. The `PropWhen` question (coordinator's rider) — the count is ZERO
+
+`PropWhen` is an unordered, possibly duplicated parameter list whose
+semantic comparison is `equiv` while `Expr.beq` compares binder metas
+with `==` and the node hash mixes the raw representation.  Two terms
+whose annotations are `equiv` but not `==` would therefore hash apart
+and miss every memo.  Does it happen?
+
+Probe (`agent/pwcensus`, never to land): `dbg_trace` at
+`Lech.Cached.ExprC.mkLam`/`mkForallE` — the cached tier's only binder
+constructors, which `ofView`/`internI` and every substitution and
+level-instantiation walk route through — for every datum with **two or
+more** parameters, and at the parser's `parsePwD` for every parsed
+one.  `dbgTrace` is `fun _ f => f ()`, so the terms are unchanged
+(`pwTrace_eq` closes the smart constructors' `rfl` lemmas).
+
+| stream | multi-param data built | distinct values | parsed multi-param |
+|---|---|---|---|
+| `init-full` | 106 | **1** | 0 |
+| t1 | 20 | **1** | 0 |
+| t2 | 20 | **1** | 0 |
+| t3 | 20 | **1** | 0 |
+| t4 | 20 | **1** | 0 |
+| t5 | 20 | **1** | 0 |
+
+The one value is `ifAllZero [u, v]` in every case (the basis blocks'
+two-universe binders).  Since `equiv`-but-not-`==` needs two data with
+the same parameter *set* and different lists, and exactly **one**
+multi-element datum value is ever built — with no duplicate entry, so
+not `equiv` to a shorter one either — **the number of memo probes lost
+to a non-canonical `pw` is 0 on `init-full` and on all five slices.**
+Task #194's normalization is a hygiene and proof simplification on
+this evidence, not a performance lever; nothing in `Expr.beq` was
+changed for it.
+
+### 7. Reproduce
+
+```sh
+# the five slices and their -notarget twins: DESIGN #189 §8
+_tmp/beqmemo/measure.sh <bin> <tag> {battery|slices|initfull}
+_tmp/beqmemo/prof.sh    <bin> t5 <decl-name> --verified 8   # flat profile
+_tmp/beqmemo/gdbs.sh    <bin> t4 <decl-name> 25 --verified  # backtraces
+```
+
+Artefacts under `_tmp/beqmemo/` (gitignored): `cells.tsv` (every cell),
+`slices.log`/`run2.log` (the runs), `perf-t5.data`,
+`bt-t4--verified.txt`/`bt-t2--verified.txt` (the 50 backtraces),
+`arena.log`.  The refuted variants are the branches `agent/beqmemo2`
+(P2e), `agent/beqmemo3` (P1-lite), `agent/beqmemo5` (P1b),
+`agent/pwcensus` (the `PropWhen` probe) — none of them lands.
