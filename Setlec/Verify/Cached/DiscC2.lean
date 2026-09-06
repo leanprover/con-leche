@@ -31,6 +31,119 @@ section Walks
 
 variable {env : Env} {f : Nat}
 
+/-- The hoisted `Prop`-branch test (task #168): the fast arm is the
+same pure read on both sides (`mkFEnv_find?_fun`); the slow branch is
+`proofIrrelC_sim`'s `Prop` branch. -/
+theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
+    {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hdena : RelC i a) (hdenb : RelC j b)
+    (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    SimC mode env s₀ RelVC
+      (propIrrelI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env)
+        d i j)
+      (propIrrel mode (fueledFns mode env) env d a b) := by
+  obtain rfl : a = i := hdena.symm
+  obtain rfl : b = j := hdenb.symm
+  show SimC mode env s₀ RelVC
+    (if mode.verified &&
+        (notProofFast (mkFEnv env).find? a || notProofFast (mkFEnv env).find? b)
+      then pure false
+      else if mode.verified && mode.betaGate &&
+        isProofFast (mkFEnv env).find? a && isProofFast (mkFEnv env).find? b
+      then pure true else
+      (coreKnotI mode (mkFEnv env) f).inferIO d a >>= fun ta =>
+      (coreKnotI mode (mkFEnv env) f).inferIO d ta >>= fun tta =>
+      (coreKnotI mode (mkFEnv env) f).whnf d tta >>= fun wtta =>
+      viewI wtta >>= fun n =>
+      match n with
+      | some (.sort uT) =>
+        internLM .zero >>= fun zA =>
+        isEquivLM uT zA >>= fun oA =>
+        liftFueled "level comparison" oA >>= fun okA =>
+        (coreKnotI mode (mkFEnv env) f).inferIO d b >>= fun tb =>
+        (coreKnotI mode (mkFEnv env) f).inferIO d tb >>= fun ttb =>
+        (coreKnotI mode (mkFEnv env) f).whnf d ttb >>= fun wttb =>
+        viewI wttb >>= fun n' =>
+        match n' with
+        | some (.sort vT) =>
+          internLM .zero >>= fun zB =>
+          isEquivLM vT zB >>= fun oB =>
+          liftFueled "level comparison" oB >>= fun okB =>
+          pure (okA && okB)
+        | _ => pure false
+      | _ => pure false)
+    (propIrrel mode (fueledFns mode env) env d a b)
+  rw [show (mkFEnv env).find? = env.find? from funext (mkFEnv_find? env)]
+  unfold propIrrel
+  by_cases hc : (mode.verified &&
+      (notProofFast env.find? a || notProofFast env.find? b)) = true
+  · rw [if_pos hc, if_pos hc]
+    exact SimC.pure hs rfl
+  · rw [if_neg hc, if_neg hc]
+    by_cases hy : (mode.verified && mode.betaGate &&
+        isProofFast env.find? a && isProofFast env.find? b) = true
+    · rw [if_pos hy, if_pos hy]
+      exact SimC.pure hs rfl
+    rw [if_neg hy, if_neg hy]
+    refine SimC.bind (ih.inferIO hs rfl hwa) (fun s₁ ta tax hs₁ hP => ?_)
+    obtain ⟨htad, hwta⟩ := hP
+    refine SimC.bind (ih.inferIO hs₁ htad hwta) (fun s₃ tta ttax hs₃ hP₃ => ?_)
+    obtain ⟨httad, hwtta⟩ := hP₃
+    refine SimC.bind (ih.whnf hs₃ httad hwtta) (fun s₄ wtta wttax hs₄ hP₄ => ?_)
+    obtain ⟨hwttad, hwwtta⟩ := hP₄
+    refine SimC.view ?_
+    obtain rfl := hwttad
+    cases wtta with
+    | sort uT =>
+      refine SimC.bind_left (internLM_eff hs₄ .zero)
+        (fun s₄z zA hs₄z hzA => ?_)
+      subst hzA
+      refine SimC.bind_left (isEquivLM_eff hs₄z uT .zero)
+        (fun s₄o oA hs₄o hoA => ?_)
+      subst hoA
+      refine SimC.bind (SimC.liftFueled _ _ hs₄o)
+        (fun s₅ okA okA' hs₅ hPok => ?_)
+      obtain rfl : okA = okA' := hPok
+      refine SimC.bind (ih.inferIO hs₅ rfl hwb) (fun s₆ tb tbx hs₆ hP₆ => ?_)
+      obtain ⟨htbd, hwtb⟩ := hP₆
+      refine SimC.bind (ih.inferIO hs₆ htbd hwtb) (fun s₇ ttb ttbx hs₇ hP₇ => ?_)
+      obtain ⟨httbd, hwttb⟩ := hP₇
+      refine SimC.bind (ih.whnf hs₇ httbd hwttb)
+        (fun s₈ wttb wttbx hs₈ hP₈ => ?_)
+      obtain ⟨hwttbd, hwwttb⟩ := hP₈
+      refine SimC.view ?_
+      obtain ⟨hwc', rfl⟩ := hwttbd
+      cases wttb with
+      | sort vT =>
+        refine SimC.bind_left (internLM_eff hs₈ .zero)
+          (fun s₈z zB hs₈z hzB => ?_)
+        subst hzB
+        refine SimC.bind_left (isEquivLM_eff hs₈z vT .zero)
+          (fun s₈o oB hs₈o hoB => ?_)
+        subst hoB
+        refine SimC.bind (SimC.liftFueled _ _ hs₈o)
+          (fun s₉ okB okB' hs₉ hPok' => ?_)
+        obtain rfl : okB = okB' := hPok'
+        exact SimC.pure hs₉ rfl
+      | bvar k => exact SimC.pure hs₈ rfl
+      | const nm us => exact SimC.pure hs₈ rfl
+      | lit l => exact SimC.pure hs₈ rfl
+      | fvar idx nm t => exact SimC.pure hs₈ rfl
+      | app f' a' => exact SimC.pure hs₈ rfl
+      | lam nm t b' m => exact SimC.pure hs₈ rfl
+      | forallE nm t b' m => exact SimC.pure hs₈ rfl
+      | letE nm t v b' => exact SimC.pure hs₈ rfl
+      | proj s i e => exact SimC.pure hs₈ rfl
+    | bvar k => exact SimC.pure hs₄ rfl
+    | const nm us => exact SimC.pure hs₄ rfl
+    | lit l => exact SimC.pure hs₄ rfl
+    | fvar idx nm t => exact SimC.pure hs₄ rfl
+    | app f' a' => exact SimC.pure hs₄ rfl
+    | lam nm t b' m => exact SimC.pure hs₄ rfl
+    | forallE nm t b' m => exact SimC.pure hs₄ rfl
+    | letE nm t v b' => exact SimC.pure hs₄ rfl
+    | proj s i e => exact SimC.pure hs₄ rfl
+
 /-- Port of `proofIrrelI_sim`. -/
 theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
@@ -304,11 +417,11 @@ theorem projCertC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
       match (mkFEnv env).find? cn with
       | some (.ctorInfo _ _ _) =>
         constTyAtM (mkFEnv env) c cn us >>= fun tyC =>
-        iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d tyC args
+        iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d false tyC args
       | _ => pure false)
     (match env.find? c with
       | some (.ctorInfo cvC _ _) =>
-        iotaCerts (fueledFns mode env) env d
+        iotaCerts (fueledFns mode env) env d false
           (cvC.type.instantiateLevelParams cvC.levelParams us) xs
       | _ => pure false)
   refine SimC.bind_left (readbackNM_eff hs c) (fun s₁ cn hs₁ hcn => ?_)
@@ -359,8 +472,8 @@ theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             (coreKnotI mode (mkFEnv env) f).defeq d wta wtb >>= fun r =>
             if r then
               constTyAtM (mkFEnv env) T Tn us' >>= fun tyT =>
-              iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d tyT
-                targs
+              iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d false
+                tyT targs
             else pure false
           else pure false
         | _ => pure false
@@ -380,7 +493,7 @@ theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             (fueledFns mode env).whnf d tb >>= fun wtb =>
             (fueledFns mode env).defeq d wta wtb >>= fun r =>
             if r then
-              iotaCerts (fueledFns mode env) env d
+              iotaCerts (fueledFns mode env) env d false
                 (cvT.type.instantiateLevelParams cvT.levelParams us')
                 wta.getAppArgs
             else pure false
@@ -701,7 +814,7 @@ private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
                 liftFueled "level comparison"
                   (Level.isEquivList us us') >>= fun ok =>
                 if ok then
-                  iotaCerts (fueledFns mode env) env d
+                  iotaCerts (fueledFns mode env) env d false
                       (cvT.type.instantiateLevelParams cvT.levelParams us')
                       wtb.getAppArgs >>= fun r₁ =>
                   if r₁ then
@@ -714,7 +827,7 @@ private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
                         fun r₃ =>
                       if r₃ then
                         (if mode.ttChecks then
-                            iotaCerts (fueledFns mode env) env d
+                            iotaCerts (fueledFns mode env) env d false
                               (cvc.type.instantiateLevelParams
                                 cvc.levelParams us)
                               (wtb.getAppArgs ++
@@ -780,7 +893,7 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                   if ok then
                     constTyAtM (mkFEnv env) T Tn us' >>= fun tyT =>
                     iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
-                        tyT targs >>= fun r₁ =>
+                        false tyT targs >>= fun r₁ =>
                     if r₁ then
                       structEtaProjCertsI (coreKnotI mode (mkFEnv env) f)
                           (mkFEnv env) d T Tn us' targs j cvT.levelParams
@@ -794,7 +907,7 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                           (if mode.ttChecks then
                               constTyAtM (mkFEnv env) c cn us >>= fun tyCtor =>
                               iotaCertsI (coreKnotI mode (mkFEnv env) f)
-                                (mkFEnv env) d tyCtor (targs ++ projs)
+                                (mkFEnv env) d false tyCtor (targs ++ projs)
                             else pure true) >>= fun r₄ =>
                           if r₄ then
                             defEqListI (coreKnotI mode (mkFEnv env) f)

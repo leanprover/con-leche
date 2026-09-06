@@ -13,6 +13,7 @@ import Setlec.SetP.Step2.AssemblyP
 import Setlec.SetP.Annot.EnvS2Core
 import Setlec.SetP.Annot.EnvS2P
 import Setlec.SetP.Step2.IrrelP
+import Setlec.SetP.Step2.IrrelFastP
 import Setlec.SetP.Step2.StuckP
 import Setlec.SetP.Step2.ReadsP
 import Setlec.SetP.Step2.ReadsIOP

@@ -481,7 +481,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
     (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  obtain ⟨tty, u, bt, hty, hwu, hbt, hleafC, hchainC, rfl⟩ :=
+  obtain ⟨bt, hbt, hleafC, hchainC, rfl⟩ :=
     Setlec.inferTypeCoreIO_lam_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb

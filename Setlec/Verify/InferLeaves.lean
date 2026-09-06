@@ -517,10 +517,10 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           · exact Or.inr hb
         · -- iota step
           obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
-            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, -, hmaj, hlit,
+            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hmaj, hlit,
             hsub, hmfn, hfj,
             hrule,
-            hml, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
+            hml, -, hlev, hpeq, hcerts, hmcerts, -, rfl⟩ :=
             iotaRec_inv hio
           have hsubM1 : ∀ l ∈ major₁.fvarLeaves, l ∈ major₀.fvarLeaves := by
             rcases litMajorToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
@@ -661,10 +661,10 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
             (looseBVarsBounded_instantiate1_gen hb.2 hbf'.2)
         · -- iota step
           obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
-            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, -, hmaj, hlit,
+            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hmaj, hlit,
             hsub, hmfn, hfj,
             hrule,
-            hml, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
+            hml, -, hlev, hpeq, hcerts, hmcerts, -, rfl⟩ :=
             iotaRec_inv hio
           have hbapp : (Expr.app f' a).looseBVarsBounded 0 = true := by
             simp only [looseBVarsBounded, Bool.and_eq_true]

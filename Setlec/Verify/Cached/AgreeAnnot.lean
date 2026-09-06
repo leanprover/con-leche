@@ -103,13 +103,13 @@ theorem annotBinderMetaI_bi (pw? : Option PropWhen) (mb : BinderMeta) :
 config's `verified` field and nothing else, and it is a literal
 `false` there (task #172 B3: the mode accessor became a config
 field; the collapse is still `rfl`). -/
-@[simp] theorem annotatePisPwI_cfgNC (r : CoreFnsI) (d k : Nat)
+@[simp] theorem annotatePisPwI_cfgNC (r : CoreFnsI) (fe : FEnv) (d k : Nat)
     (leaf' : ExprC) :
-    annotatePisPwI cfgNC r d k leaf' = pure none := rfl
+    annotatePisPwI cfgNC r fe d k leaf' = pure none := rfl
 
-@[simp] theorem annotateLamsPwI_cfgNC (r : CoreFnsI) (d k : Nat)
+@[simp] theorem annotateLamsPwI_cfgNC (r : CoreFnsI) (fe : FEnv) (d k : Nat)
     (leaf' : ExprC) :
-    annotateLamsPwI cfgNC r d k leaf' = pure none := rfl
+    annotateLamsPwI cfgNC r fe d k leaf' = pure none := rfl
 
 /-- **T2b, the rebuild loop.**  `annotateBindersOutI`'s output does not
 depend on the datum written: two runs whose inputs agree modulo
@@ -170,20 +170,20 @@ Scoped to *accept*, as everywhere in B7: the verified run's datum
 computation calls `r.infer`, which may fail where the parity run does
 not (a class-1, acceptance-only divergence). -/
 
-theorem annotatePisLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (d : Nat)
+theorem annotatePisLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv) (d : Nat)
     (t : ExprC) (k : Nat) (fvs : Array ExprC) (stk : List AnnotBinderEntry)
     {s : CState} {a₁ a₂ : ExprC} {s₁ s₂ : CState}
-    (h₁ : annotatePisLeafI cfgNC r d t k fvs stk s = .ok (a₁, s₁))
-    (h₂ : annotatePisLeafI cfg r d t k fvs stk s = .ok (a₂, s₂)) :
+    (h₁ : annotatePisLeafI cfgNC r fe d t k fvs stk s = .ok (a₁, s₁))
+    (h₂ : annotatePisLeafI cfg r fe d t k fvs stk s = .ok (a₂, s₂)) :
     ExprC.erasePwC a₁ = ExprC.erasePwC a₂ := by
-  have e₁ : annotatePisLeafI cfgNC r d t k fvs stk s
+  have e₁ : annotatePisLeafI cfgNC r fe d t k fvs stk s
       = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
           (fun p => annotateBindersOutI
             (fun n ty b mb => ExprView.forallE n ty b mb) d none stk (k - 1)
             (ExprC.abstractRange p.1 d k) p.2) := rfl
-  have e₂ : annotatePisLeafI cfg r d t k fvs stk s
+  have e₂ : annotatePisLeafI cfg r fe d t k fvs stk s
       = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
-          (fun p => (annotatePisPwI cfg r d k p.1 p.2).bind
+          (fun p => (annotatePisPwI cfg r fe d k p.1 p.2).bind
             (fun q => annotateBindersOutI
               (fun n ty b mb => ExprView.forallE n ty b mb) d q.1 stk (k - 1)
               (ExprC.abstractRange p.1 d k) q.2)) := rfl
@@ -193,7 +193,7 @@ theorem annotatePisLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (d : Nat)
   | ok p =>
     rw [hA] at h₁ h₂
     simp only [Except.bind] at h₁ h₂
-    cases hB : annotatePisPwI cfg r d k p.1 p.2 with
+    cases hB : annotatePisPwI cfg r fe d k p.1 p.2 with
     | error e => rw [hB] at h₂; cases h₂
     | ok q =>
       rw [hB] at h₂
@@ -208,20 +208,20 @@ theorem annotatePisLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (d : Nat)
       simp only [Except.map] at hh
       exact Except.ok.inj hh
 
-theorem annotateLamsLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (d : Nat)
+theorem annotateLamsLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv) (d : Nat)
     (t : ExprC) (k : Nat) (fvs : Array ExprC) (stk : List AnnotBinderEntry)
     {s : CState} {a₁ a₂ : ExprC} {s₁ s₂ : CState}
-    (h₁ : annotateLamsLeafI cfgNC r d t k fvs stk s = .ok (a₁, s₁))
-    (h₂ : annotateLamsLeafI cfg r d t k fvs stk s = .ok (a₂, s₂)) :
+    (h₁ : annotateLamsLeafI cfgNC r fe d t k fvs stk s = .ok (a₁, s₁))
+    (h₂ : annotateLamsLeafI cfg r fe d t k fvs stk s = .ok (a₂, s₂)) :
     ExprC.erasePwC a₁ = ExprC.erasePwC a₂ := by
-  have e₁ : annotateLamsLeafI cfgNC r d t k fvs stk s
+  have e₁ : annotateLamsLeafI cfgNC r fe d t k fvs stk s
       = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
           (fun p => annotateBindersOutI
             (fun n ty b mb => ExprView.lam n ty b mb) d none stk (k - 1)
             (ExprC.abstractRange p.1 d k) p.2) := rfl
-  have e₂ : annotateLamsLeafI cfg r d t k fvs stk s
+  have e₂ : annotateLamsLeafI cfg r fe d t k fvs stk s
       = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
-          (fun p => (annotateLamsPwI cfg r d k p.1 p.2).bind
+          (fun p => (annotateLamsPwI cfg r fe d k p.1 p.2).bind
             (fun q => annotateBindersOutI
               (fun n ty b mb => ExprView.lam n ty b mb) d q.1 stk (k - 1)
               (ExprC.abstractRange p.1 d k) q.2)) := rfl
@@ -231,7 +231,7 @@ theorem annotateLamsLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (d : Nat)
   | ok p =>
     rw [hA] at h₁ h₂
     simp only [Except.bind] at h₁ h₂
-    cases hB : annotateLamsPwI cfg r d k p.1 p.2 with
+    cases hB : annotateLamsPwI cfg r fe d k p.1 p.2 with
     | error e => rw [hB] at h₂; cases h₂
     | ok q =>
       rw [hB] at h₂

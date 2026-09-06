@@ -113,7 +113,7 @@ private theorem inferReadsIO_lam {m : EnvS2Core V env}
     (hlr : LeafReadsP m φ d (.lam n ty body mb))
     (hea : denoteP m.acval env φ d (.lam n ty body mb) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
-  obtain ⟨-, -, bt, -, -, hbt, -, -, rfl⟩ :=
+  obtain ⟨bt, hbt, -, -, rfl⟩ :=
     Setlec.inferTypeCoreIO_lam_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb

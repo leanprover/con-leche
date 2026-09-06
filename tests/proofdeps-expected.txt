@@ -25,6 +25,7 @@ SPCD_P :: Setlec.Kernel.FEnv
 SPCD_P :: Setlec.Kernel.Level
 SPCD_P :: Setlec.Kernel.Modeled
 SPCD_P :: Setlec.Kernel.NatOpPins
+SPCD_P :: Setlec.Kernel.PropRead
 SPCD_P :: Setlec.Kernel.StdAxioms
 SPCD_P :: Setlec.Kernel.TrustAxioms
 SPCD_P :: Setlec.Kernel.TrustPins
@@ -219,8 +220,10 @@ SPCD_P :: Setlec.SetP.Step2.CapsRowsP
 SPCD_P :: Setlec.SetP.Step2.DefEqP
 SPCD_P :: Setlec.SetP.Step2.InferIOP
 SPCD_P :: Setlec.SetP.Step2.InferP
+SPCD_P :: Setlec.SetP.Step2.IotaGateP
 SPCD_P :: Setlec.SetP.Step2.IotaKitP
 SPCD_P :: Setlec.SetP.Step2.IotaRowsP
+SPCD_P :: Setlec.SetP.Step2.IrrelFastP
 SPCD_P :: Setlec.SetP.Step2.IrrelP
 SPCD_P :: Setlec.SetP.Step2.MajorP
 SPCD_P :: Setlec.SetP.Step2.NatP
@@ -337,6 +340,7 @@ SPCD_P :: Setlec.Verify.OfReducePin
 SPCD_P :: Setlec.Verify.PairM
 SPCD_P :: Setlec.Verify.PinnedShapes
 SPCD_P :: Setlec.Verify.ProjSlots
+SPCD_P :: Setlec.Verify.PropRead
 SPCD_P :: Setlec.Verify.PropWhen
 SPCD_P :: Setlec.Verify.ReducePinInv
 SPCD_P :: Setlec.Verify.Shift
@@ -370,6 +374,7 @@ sound_P :: Setlec.Kernel.FEnv
 sound_P :: Setlec.Kernel.Level
 sound_P :: Setlec.Kernel.Modeled
 sound_P :: Setlec.Kernel.NatOpPins
+sound_P :: Setlec.Kernel.PropRead
 sound_P :: Setlec.Kernel.StdAxioms
 sound_P :: Setlec.Kernel.TrustAxioms
 sound_P :: Setlec.Kernel.TrustPins
@@ -564,8 +569,10 @@ sound_P :: Setlec.SetP.Step2.CapsRowsP
 sound_P :: Setlec.SetP.Step2.DefEqP
 sound_P :: Setlec.SetP.Step2.InferIOP
 sound_P :: Setlec.SetP.Step2.InferP
+sound_P :: Setlec.SetP.Step2.IotaGateP
 sound_P :: Setlec.SetP.Step2.IotaKitP
 sound_P :: Setlec.SetP.Step2.IotaRowsP
+sound_P :: Setlec.SetP.Step2.IrrelFastP
 sound_P :: Setlec.SetP.Step2.IrrelP
 sound_P :: Setlec.SetP.Step2.MajorP
 sound_P :: Setlec.SetP.Step2.NatP
@@ -682,6 +689,7 @@ sound_P :: Setlec.Verify.OfReducePin
 sound_P :: Setlec.Verify.PairM
 sound_P :: Setlec.Verify.PinnedShapes
 sound_P :: Setlec.Verify.ProjSlots
+sound_P :: Setlec.Verify.PropRead
 sound_P :: Setlec.Verify.PropWhen
 sound_P :: Setlec.Verify.ReducePinInv
 sound_P :: Setlec.Verify.Shift
@@ -715,6 +723,7 @@ foldSPC_PM :: Setlec.Kernel.FEnv
 foldSPC_PM :: Setlec.Kernel.Level
 foldSPC_PM :: Setlec.Kernel.Modeled
 foldSPC_PM :: Setlec.Kernel.NatOpPins
+foldSPC_PM :: Setlec.Kernel.PropRead
 foldSPC_PM :: Setlec.Kernel.StdAxioms
 foldSPC_PM :: Setlec.Kernel.TrustAxioms
 foldSPC_PM :: Setlec.Kernel.TrustPins
@@ -909,8 +918,10 @@ foldSPC_PM :: Setlec.SetP.Step2.CapsRowsP
 foldSPC_PM :: Setlec.SetP.Step2.DefEqP
 foldSPC_PM :: Setlec.SetP.Step2.InferIOP
 foldSPC_PM :: Setlec.SetP.Step2.InferP
+foldSPC_PM :: Setlec.SetP.Step2.IotaGateP
 foldSPC_PM :: Setlec.SetP.Step2.IotaKitP
 foldSPC_PM :: Setlec.SetP.Step2.IotaRowsP
+foldSPC_PM :: Setlec.SetP.Step2.IrrelFastP
 foldSPC_PM :: Setlec.SetP.Step2.IrrelP
 foldSPC_PM :: Setlec.SetP.Step2.MajorP
 foldSPC_PM :: Setlec.SetP.Step2.NatP
@@ -1027,6 +1038,7 @@ foldSPC_PM :: Setlec.Verify.OfReducePin
 foldSPC_PM :: Setlec.Verify.PairM
 foldSPC_PM :: Setlec.Verify.PinnedShapes
 foldSPC_PM :: Setlec.Verify.ProjSlots
+foldSPC_PM :: Setlec.Verify.PropRead
 foldSPC_PM :: Setlec.Verify.PropWhen
 foldSPC_PM :: Setlec.Verify.ReducePinInv
 foldSPC_PM :: Setlec.Verify.Shift
@@ -1051,6 +1063,7 @@ P :: Setlec.Kernel.ExprOps
 P :: Setlec.Kernel.Level
 P :: Setlec.Kernel.Modeled
 P :: Setlec.Kernel.NatOpPins
+P :: Setlec.Kernel.PropRead
 P :: Setlec.Kernel.StdAxioms
 P :: Setlec.Kernel.TrustAxioms
 P :: Setlec.Kernel.TrustPins
@@ -1245,8 +1258,10 @@ P :: Setlec.SetP.Step2.CapsRowsP
 P :: Setlec.SetP.Step2.DefEqP
 P :: Setlec.SetP.Step2.InferIOP
 P :: Setlec.SetP.Step2.InferP
+P :: Setlec.SetP.Step2.IotaGateP
 P :: Setlec.SetP.Step2.IotaKitP
 P :: Setlec.SetP.Step2.IotaRowsP
+P :: Setlec.SetP.Step2.IrrelFastP
 P :: Setlec.SetP.Step2.IrrelP
 P :: Setlec.SetP.Step2.MajorP
 P :: Setlec.SetP.Step2.NatP
@@ -1333,6 +1348,7 @@ P :: Setlec.Verify.OfReducePin
 P :: Setlec.Verify.PairM
 P :: Setlec.Verify.PinnedShapes
 P :: Setlec.Verify.ProjSlots
+P :: Setlec.Verify.PropRead
 P :: Setlec.Verify.PropWhen
 P :: Setlec.Verify.ReducePinInv
 P :: Setlec.Verify.Shift

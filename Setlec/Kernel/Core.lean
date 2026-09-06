@@ -1,5 +1,6 @@
 import Setlec.Kernel.CoreCfg
 import Setlec.Kernel.Env
+import Setlec.Kernel.PropRead
 import Setlec.Kernel.Level
 import Setlec.Kernel.ExprOps
 import Setlec.Kernel.Basis
@@ -799,16 +800,35 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
 /-- Certify a spine against a recursor telescope: each argument's
 inferred type is defeq to the corresponding (instantiated) domain.
 This is what hands the soundness proof the memberships the iota
-equations need, at every level assignment. -/
-def iotaCerts (r : CoreFns m) (env : Env) (depth : Nat) :
+equations need, at every level assignment.
+
+**The ι-slot licence** (the ι batch, 2026-09-05; DESIGN.md "THE ι
+AUDIT" §9.1): at a *licensed* walk (`lic = true`, set only by
+`iotaRec`'s two calls — the fire-time telescope runs, where the redex
+is a subterm of the subject and carries its own `AnnotOk2` app slots)
+a slot whose `∀`-binder datum is `.never` is skipped: the membership
+the run would establish follows from the slot and the head's
+membership in the telescope's reading (`io_domain_transfer`, the io
+gate's theorem verbatim; `SetP/Step2/IotaGateP.lean`).  The rescue's
+synthetic-spine certifications (`majorToCtor`, the η/unit/K
+fabrications) run at `lic = false`: a fabricated spine is not a
+subterm of the subject and its grading is *produced* by this very
+run, so gating it would be circular.  The fence is
+`io_squash_no_transfer`'s witness: at a possibly-zero datum the skip
+is unsound model-class-wide, so the licensed fragment is exactly
+`.never`. -/
+def iotaCerts (r : CoreFns m) (env : Env) (depth : Nat) (lic : Bool) :
     Expr → List Expr → m Bool
   | _, [] => pure true
-  | .forallE _ ty body _, arg :: rest => do
-    -- task #172 B4: the spine certificate's inference at the io grade
-    let ta ← r.inferIO depth arg
-    if ← r.defeq depth ta ty then
-      iotaCerts r env depth (body.instantiate1 arg) rest
-    else pure false
+  | .forallE _ ty body mb, arg :: rest =>
+    if lic && mb.pw.isNever then
+      iotaCerts r env depth lic (body.instantiate1 arg) rest
+    else do
+      -- task #172 B4: the spine certificate's inference at the io grade
+      let ta ← r.inferIO depth arg
+      if ← r.defeq depth ta ty then
+        iotaCerts r env depth lic (body.instantiate1 arg) rest
+      else pure false
   | _, _ :: _ => pure false
 
 /-- Peel a `∀`-telescope along an argument list (the residual type of
@@ -828,6 +848,24 @@ def defEqList (r : CoreFns m) (env : Env) (depth : Nat) :
       defEqList r env depth as bs
     else pure false
   | _, _ => pure false
+
+/-- The canonical-index comparison of a firing ι redex (the ι batch,
+2026-09-05).  Where the recursor has indices (`rP < mI`) the residual of
+the constructor's telescope `tyCtor` along the major's spine `margs`
+must agree, past the `cnP` parameters, with the recursor's index
+arguments `idx` — the model's iota equation only speaks about the
+canonical indices.  At `mI = rP` there is nothing to compare (the law's
+`IotaIndexPinP` is discharged by `Or.inl rfl`) and the block is
+skipped.  The residual-head test that once stood beside the comparison
+(`stripPis` + "the body's head is a constant") was consumed by nothing
+in the P lane and is gone. -/
+def iotaIndexOk (r : CoreFns m) (env : Env) (depth : Nat) (mI rP cnP : Nat)
+    (tyCtor : Expr) (margs idx : List Expr) : m Bool :=
+  if mI = rP then pure true
+  else
+    match piResidual tyCtor margs with
+    | some residual => defEqList r env depth (residual.getAppArgs.drop cnP) idx
+    | none => pure false
 
 /-- Proof irrelevance certification: both sides' types whnf to the
 basis unit type (all of whose inhabitants are the proof point in the
@@ -862,6 +900,48 @@ def proofIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
       | _ => pure false
     | _ => pure false
 
+/-- **The hoisted proof-irrelevance test** (task #168, Option U): the
+`Prop` branch of `proofIrrel` alone — official's
+`is_def_eq_proof_irrel` has no unit-like branch; that test lives in
+`stuckIrrel` (official's `is_def_eq_unit_like`, the last test of
+`is_def_eq_core`), which `proofIrrel` still serves.
+
+Before the io inferences, the head-symbol readers decide the **"not a
+proof" arm** at the verified modes: a side whose validated datum says
+"not a proposition" refuses the shortcut outright (`notProofFast`,
+`Setlec/Kernel/PropRead.lean`).  Refusing is always sound — the P row
+is stated at `.ok true` — and the arm's obligation is *agreement* with
+the slow path on validated data, recorded by the landing census
+(DESIGN.md, task #168: 0 disagreements).  The gate is `mode.verified`:
+the parity core validates no annotation, so it reads none.  The
+**"yes" arm** (`isProofFast` on both sides → `true`) is the
+squash-regime licence, stage 3 of the same design; it is gated on the
+P flag (`mode.betaGate`) like every licensed skip. -/
+def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+    m Bool := do
+  if mode.verified &&
+      (notProofFast env.find? a || notProofFast env.find? b) then
+    pure false
+  else if mode.verified && mode.betaGate &&
+      isProofFast env.find? a && isProofFast env.find? b then
+    -- the yes arm (task #168 stage 3): both heads' validated data say
+    -- "a proposition at every valuation" — the squash-regime licence
+    -- (`prf_of_isProofFast`, `Setlec/SetP/Step2/IrrelFastP.lean`)
+    pure true
+  else
+  -- task #172 B4: every inference here is at the io grade
+  let ta ← r.inferIO depth a
+  match ← r.whnf depth (← r.inferIO depth ta) with
+  | .sort uT =>
+    let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
+    let tb ← r.inferIO depth b
+    match ← r.whnf depth (← r.inferIO depth tb) with
+    | .sort vT =>
+      let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
+      pure (okA && okB)
+    | _ => pure false
+  | _ => pure false
+
 /-- The per-projection telescope certificates of a structural eta
 certification: for every field index, the installed projection
 function's telescope is certified against the type's arguments and the
@@ -875,7 +955,7 @@ def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
     | some (.recInfo cvp _ _ _) =>
       if cvp.levelParams = lpsT ∧
           (cvp.type.stripPis (targs.length + 1)).isSome = true then
-        if ← iotaCerts r env depth
+        if ← iotaCerts r env depth false
             (cvp.type.instantiateLevelParams cvp.levelParams us')
             (targs ++ [b]) then
           structEtaProjCerts r env depth T us' targs b lpsT rest
@@ -886,7 +966,7 @@ def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
       -- same `∀ p⃗ (t : T p⃗), F_i` telescope, certified the same way
       if entry.tower = true ∧ entry.levelParams = lpsT ∧
           (entry.ty.stripPis (targs.length + 1)).isSome = true then
-        if ← iotaCerts r env depth
+        if ← iotaCerts r env depth false
             (entry.ty.instantiateLevelParams entry.levelParams us')
             (targs ++ [b]) then
           structEtaProjCerts r env depth T us' targs b lpsT rest
@@ -950,7 +1030,7 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                 (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true then
               if ← liftFueled "level comparison"
                   (Level.isEquivList us us') then
-                if ← iotaCerts r env depth
+                if ← iotaCerts r env depth false
                     (cvT.type.instantiateLevelParams cvT.levelParams
                       us') wtb.getAppArgs then
                   if ← structEtaProjCerts r env depth T us'
@@ -967,7 +1047,7 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                       -- did not).  TT-lane check (task #147): skipped
                       -- unless `mode.ttChecks`.
                       if ← (if mode.ttChecks then
-                          iotaCerts r env depth
+                          iotaCerts r env depth false
                             (cvc.type.instantiateLevelParams
                               cvc.levelParams us)
                             (wtb.getAppArgs ++
@@ -1022,7 +1102,7 @@ def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
         let tb ← r.inferIO depth b
         let wtb ← r.whnf depth tb
         if ← r.defeq depth wta wtb then
-          iotaCerts r env depth
+          iotaCerts r env depth false
             (cvT.type.instantiateLevelParams cvT.levelParams us')
             wta.getAppArgs
         else pure false
@@ -1132,7 +1212,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                     -- certificates to recover memberships from, so
                     -- the *ungated* telescope certificate runs here,
                     -- relocated from the fire path.
-                    if ← iotaCerts r env depth
+                    if ← iotaCerts r env depth false
                         (cvj.type.instantiateLevelParams
                           cvj.levelParams ust)
                         (tmaj.getAppArgs.take cnP) then
@@ -1190,7 +1270,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                         (fun l => major.fvarLeaves.contains l) then
                     -- synthetic-spine certification, as in the K
                     -- branch (task #71)
-                    if ← iotaCerts r env depth
+                    if ← iotaCerts r env depth false
                         (cvj.type.instantiateLevelParams
                           cvj.levelParams ust)
                         (etaFabArgsE env T ust tmaj.getAppArgs major
@@ -1334,9 +1414,12 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                  throw (.notImplemented
                    "iota reduction over a nested auxiliary recursor rule")
                else
-               if (cv.type.stripPis (mI + 1)).isSome ∧
-                  (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome
-                  then
+                -- The ι batch (2026-09-05): the two `stripPis` arity
+                -- pins that stood here were an environment invariant
+                -- re-checked per fire (every install route establishes
+                -- them; the P lane bound and never used them) — deleted
+                -- per the "invariants over runtime gates" ruling.
+                --
                 -- the constructor's levels and parameters must agree
                 -- with the rule's comparands (canonical: the
                 -- recursor's own instantiation and leading arguments;
@@ -1350,38 +1433,31 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                  if ← defEqList r env depth (margs.take rl.ctorParams)
                     (recFireComparands rl cv.levelParams us
                       cvj.levelParams args rP).2 then
-                  if ← iotaCerts r env depth
+                  -- the two telescope runs, *licensed* (`iotaCerts`'
+                  -- docstring): the redex is a subterm of the subject.
+                  -- The mode read is the β gate's accessor — the one
+                  -- place a certificate-skip may read the validated
+                  -- datum (`CheckMode.betaGate`'s docstring)
+                  if ← iotaCerts r env depth mode.betaGate
                      (cv.type.instantiateLevelParams cv.levelParams us)
                      (args.take mI ++ [major]) then
-                   if ← iotaCerts r env depth
+                   if ← iotaCerts r env depth mode.betaGate
                       (cvj.type.instantiateLevelParams cvj.levelParams usj)
                       margs then
                     -- the recursor's index arguments must match the
-                    -- constructor's canonical index tuple (the residual
-                    -- of its telescope, whose head must be the stored
-                    -- family): the model's iota equation only speaks
-                    -- about the canonical indices
-                    match (cvj.type.instantiateLevelParams cvj.levelParams
-                          usj).stripPis (rl.ctorParams + rl.nfields),
-                        piResidual (cvj.type.instantiateLevelParams
-                          cvj.levelParams usj) margs with
-                    | some (_, cbody), some residual =>
-                      match cbody.getAppFn with
-                      | .const _ _ =>
-                        if ← defEqList r env depth
-                            (residual.getAppArgs.drop rl.ctorParams)
-                            ((args.take mI).drop rP) then
-                          pure (some (Expr.mkAppN
-                            (rl.rhs.instantiateLevelParams cv.levelParams us)
-                            (args.take rP ++ margs.drop rl.ctorParams)))
-                        else pure none
-                      | _ => pure none
-                    | _, _ => pure none
+                    -- constructor's canonical index tuple, where the
+                    -- recursor has indices (`iotaIndexOk`)
+                    if ← iotaIndexOk r env depth mI rP rl.ctorParams
+                        (cvj.type.instantiateLevelParams cvj.levelParams usj)
+                        margs ((args.take mI).drop rP) then
+                      pure (some (Expr.mkAppN
+                        (rl.rhs.instantiateLevelParams cv.levelParams us)
+                        (args.take rP ++ margs.drop rl.ctorParams)))
+                    else pure none
                    else pure none
                   else pure none
                  else pure none
                 else pure none
-               else pure none
               else pure none
             | none => pure none
           | _ => pure none
@@ -1447,8 +1523,8 @@ def projCert (r : CoreFns m) (env : Env) (depth : Nat)
     (c : Name) (us : List Level) (args : List Expr) : m Bool := do
   match env.find? c with
   | some (.ctorInfo cvC _ _) =>
-    iotaCerts r env depth (cvC.type.instantiateLevelParams cvC.levelParams us)
-      args
+    iotaCerts r env depth false
+      (cvC.type.instantiateLevelParams cvC.levelParams us) args
   | _ => pure false
 
 /-- **THE β SITE'S GATE** (task #161): does the mode's β gate fire at
@@ -1855,24 +1931,27 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         pure (.sort (.imax u v))
       | _ => throw (.invalid "expected a sort")
     | .lam n ty body mb => do
-      match ← r.whnf depth (← r.infer depth ty) with
-      | .sort _ => do
-        let bt ← r.infer (depth + 1)
-          (body.instantiate1 (.fvar depth n ty))
-        if mode.verified then
-          match body.lamPw with
-          | some pwI =>
-            unless mb.pw.equiv pwI do
-              throw (.notImplemented
-                "sort-annotation mismatch (lam-cod-chain)")
-          | none =>
-            let btt ← r.infer (depth + 1) bt
-            let vb ← ensureSort r env (depth + 1) btt
-            unless (Level.zeronessOf vb).equiv mb.pw do
-              throw (.notImplemented
-                "sort-annotation mismatch (lam-cod-leaf)")
-        pure (.forallE n ty (bt.abstract1 depth) mb)
-      | _ => throw (.invalid "expected a sort")
+      -- Task #168 stage 2: no domain-sort run at the io grade —
+      -- official's `infer_lambda` skips it at `infer_only`
+      -- (`type_checker.cpp:131`), and the P row (`infer_lam_claimIOP`)
+      -- never consumed it: the domain's grading comes from the
+      -- premise (`AnnotOkP.hoist_lam`).  The codomain validation stays
+      -- — it is what makes the λ datum trustworthy.
+      let bt ← r.infer (depth + 1)
+        (body.instantiate1 (.fvar depth n ty))
+      if mode.verified then
+        match body.lamPw with
+        | some pwI =>
+          unless mb.pw.equiv pwI do
+            throw (.notImplemented
+              "sort-annotation mismatch (lam-cod-chain)")
+        | none =>
+          let btt ← r.infer (depth + 1) bt
+          let vb ← ensureSort r env (depth + 1) btt
+          unless (Level.zeronessOf vb).equiv mb.pw do
+            throw (.notImplemented
+              "sort-annotation mismatch (lam-cod-leaf)")
+      pure (.forallE n ty (bt.abstract1 depth) mb)
     | .app f a => do
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
@@ -1987,7 +2066,10 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     -- would grind through proof bodies first (init-prelude probe:
     -- 227 G → recovered by the hoist).  The fallback's copy stays
     -- (memoized; reachable when a reduction step rewrites a side).
-    if ← proofIrrel r env depth a' b' then pure true else
+    -- Task #168 (Option U): the hoist is the `Prop` branch only, with
+    -- the head-symbol fast arms; the unit-like test is `stuckIrrel`'s
+    -- (every structural-failure exit below reaches it).
+    if ← propIrrel mode r env depth a' b' then pure true else
     -- Literal acceleration is guarded on *both* sides being free of
     -- free variables, mirroring the official kernel
     -- (`type_checker.cpp`, `lazy_delta_reduction`:
@@ -2265,8 +2347,13 @@ environment: `annotate` never looks a constant up, but inferring the
 inner ∀ node does.  See DESIGN.md, task #161 P5 proof-lane finding. -/
 def annotPwPi (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
     m PropWhen := do
-  match body'.forallPw with
-  | some pwI => pure pwI
+  -- Task #168 stage 2: the head-symbol reader first.  It subsumes the
+  -- chain read (`typeSortPW` of a ∀ IS its `forallPw`) and answers
+  -- most leaves without inference; the pass is untrusted — `infer`
+  -- validates every datum it writes — so the reader owes no licence
+  -- here, only the datum's agreement (census: 0 non-equivalent data).
+  match typeSortPW env.find? body' with
+  | some pw => pure pw
   | none => do
     -- io grade: `body'` is already annotated (bottom-up)
     let v ← ensureSort r env depth (← r.inferIO depth body')
@@ -2278,8 +2365,10 @@ neighbour's datum (the chain rule, no inference), any other body pays
 one leaf computation (`(lam-cod-leaf)`). -/
 def annotPwLam (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
     m PropWhen := do
-  match body'.lamPw with
-  | some pwI => pure pwI
+  -- task #168 stage 2: the reader first (it subsumes the `lamPw`
+  -- chain read), as in `annotPwPi`
+  match proofPW env.find? body' with
+  | some pw => pure pw
   | none => do
     -- io grade: `body'` is already annotated (bottom-up)
     let bt ← r.inferIO depth body'

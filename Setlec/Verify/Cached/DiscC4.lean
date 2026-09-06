@@ -2400,81 +2400,63 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
     dsimp only [viewM, Expr.view]
     refine SimC.bind_pure_right ?_
     try dsimp only
-    refine SimC.bind (ih.inferIO hs rfl hwtb.1)
-      (fun s₁ tty ttyx hs₁ hP => ?_)
-    obtain ⟨httyd, hwtty⟩ := hP
-    refine SimC.bind (ih.whnf hs₁ httyd hwtty)
-      (fun s₂ w wx hs₂ hP₂ => ?_)
-    obtain ⟨rfl, hww⟩ := hP₂
-    refine SimC.view ?_
-    cases w with
-    | sort u =>
-      dsimp only [ExprC.view]
-      refine SimC.bind_left
-        (internI_eff hs₂ (n := ExprView.fvar d nm t))
-        (fun s₃ fv hs₃ hQfv => ?_)
-      subst hQfv
-      refine SimC.bind_left (inst1M_eff hs₃ rfl rfl)
-        (fun s₄ ob hs₄ hQob => ?_)
-      have hwopen : Expr.WScoped (d + 1)
-          (b.instantiate1 (Expr.fvar d nm t)) :=
-        Expr.WScoped.instantiate1 hwtb.1 0 hwtb.2
-      refine SimC.bind (ih.inferIO hs₄ hQob hwopen)
-        (fun s₅ bt btx hs₅ hP₅ => ?_)
-      obtain ⟨hbtd, hwbt⟩ := hP₅
-      obtain rfl := hbtd
-      have hres : ∀ {s₆ : CState}, CSOK mode env s₆ →
-          SimC mode env s₆ (RelEC d)
-            ((do
-              let bAbs ← abstract1M bt d
-              internI (.forallE nm t bAbs m)) : CheckCM ExprC)
-            ((pure (Expr.forallE nm t (Expr.abstract1 bt d) m) :
-              FueledM Expr)) := by
-        intro s₆ hs₆
-        refine SimC.bind_left (abstract1M_eff hs₆ rfl)
-          (fun s₇ bAbs hs₇ hQ => ?_)
-        subst hQ
-        exact SimC.of_eff
-          (internI_eff hs₇
-            (n := ExprView.forallE nm t (Expr.abstract1 bt d) m)) _
-          (fun r hQ => ⟨hQ, by
-            simp only [Expr.WScoped]
-            exact ⟨hwtb.1, Setlec.WScoped.abstract1 0 hwbt⟩⟩)
-      dsimp only [cfgOf_verified]
-      by_cases hv : mode.verified = true
-      · simp only [hv, ↓reduceIte]
-        cases hbp : b.lamPw with
-        | some pwI =>
-          dsimp only
-          by_cases hc : m.pw.equiv pwI = true
-          · simp only [hc, ↓reduceIte]
-            exact hres hs₅
-          · simp only [hc, Bool.false_eq_true, ↓reduceIte]
-            exact SimC.throw_bind
-        | none =>
-          dsimp only
-          refine SimC.bind (ih.inferIO hs₅ rfl hwbt)
-            (fun s₆ btt bttx hs₆ hP₆ => ?_)
-          obtain ⟨hbttd, hwbtt⟩ := hP₆
-          refine SimC.bind (ensureSortC_sim ih hs₆ hbttd hwbtt)
-            (fun s₇ vb lvb hs₇ hPv => ?_)
-          obtain rfl := hPv
-          by_cases hc : (Level.zeronessOf vb).equiv m.pw = true
-          · simp only [hc, ↓reduceIte]
-            exact hres hs₇
-          · simp only [hc, Bool.false_eq_true, ↓reduceIte]
-            exact SimC.throw_bind
-      · simp only [hv, Bool.false_eq_true, ↓reduceIte]
-        exact hres hs₅
-    | bvar k' => exact SimC.throw
-    | const nm' us' => exact SimC.throw
-    | lit l' => exact SimC.throw
-    | fvar idx' nm' t' => exact SimC.throw
-    | app f' a' => exact SimC.throw
-    | lam nm' t' b' m' => exact SimC.throw
-    | forallE nm' t' b' m' => exact SimC.throw
-    | letE nm' t' v' b' => exact SimC.throw
-    | proj s' j' e' => exact SimC.throw
+    -- task #168 stage 2: no domain-sort run at the io λ clause
+    refine SimC.bind_left
+      (internI_eff hs (n := ExprView.fvar d nm t))
+      (fun s₃ fv hs₃ hQfv => ?_)
+    subst hQfv
+    refine SimC.bind_left (inst1M_eff hs₃ rfl rfl)
+      (fun s₄ ob hs₄ hQob => ?_)
+    have hwopen : Expr.WScoped (d + 1)
+        (b.instantiate1 (Expr.fvar d nm t)) :=
+      Expr.WScoped.instantiate1 hwtb.1 0 hwtb.2
+    refine SimC.bind (ih.inferIO hs₄ hQob hwopen)
+      (fun s₅ bt btx hs₅ hP₅ => ?_)
+    obtain ⟨hbtd, hwbt⟩ := hP₅
+    obtain rfl := hbtd
+    have hres : ∀ {s₆ : CState}, CSOK mode env s₆ →
+        SimC mode env s₆ (RelEC d)
+          ((do
+            let bAbs ← abstract1M bt d
+            internI (.forallE nm t bAbs m)) : CheckCM ExprC)
+          ((pure (Expr.forallE nm t (Expr.abstract1 bt d) m) :
+            FueledM Expr)) := by
+      intro s₆ hs₆
+      refine SimC.bind_left (abstract1M_eff hs₆ rfl)
+        (fun s₇ bAbs hs₇ hQ => ?_)
+      subst hQ
+      exact SimC.of_eff
+        (internI_eff hs₇
+          (n := ExprView.forallE nm t (Expr.abstract1 bt d) m)) _
+        (fun r hQ => ⟨hQ, by
+          simp only [Expr.WScoped]
+          exact ⟨hwtb.1, Setlec.WScoped.abstract1 0 hwbt⟩⟩)
+    dsimp only [cfgOf_verified]
+    by_cases hv : mode.verified = true
+    · simp only [hv, ↓reduceIte]
+      cases hbp : b.lamPw with
+      | some pwI =>
+        dsimp only
+        by_cases hc : m.pw.equiv pwI = true
+        · simp only [hc, ↓reduceIte]
+          exact hres hs₅
+        · simp only [hc, Bool.false_eq_true, ↓reduceIte]
+          exact SimC.throw_bind
+      | none =>
+        dsimp only
+        refine SimC.bind (ih.inferIO hs₅ rfl hwbt)
+          (fun s₆ btt bttx hs₆ hP₆ => ?_)
+        obtain ⟨hbttd, hwbtt⟩ := hP₆
+        refine SimC.bind (ensureSortC_sim ih hs₆ hbttd hwbtt)
+          (fun s₇ vb lvb hs₇ hPv => ?_)
+        obtain rfl := hPv
+        by_cases hc : (Level.zeronessOf vb).equiv m.pw = true
+        · simp only [hc, ↓reduceIte]
+          exact hres hs₇
+        · simp only [hc, Bool.false_eq_true, ↓reduceIte]
+          exact SimC.throw_bind
+    · simp only [hv, Bool.false_eq_true, ↓reduceIte]
+      exact hres hs₅
   | app g' a =>
     dsimp only [ExprC.view]
     -- the gated spine; `inferSpineIO_sound_body` (at the gated mode)

@@ -413,7 +413,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
     -- fabrication's own `iotaCerts` run certifies exactly its arguments,
     -- and `certs_telePA` returns their gradings with the fit
     have hfab : ∀ (fargs : List Expr) (fargsa : List AVExpr),
-        Setlec.iotaCertsP μ env fuel d
+        Setlec.iotaCertsP μ env fuel d false
             (cvj.type.instantiateLevelParams cvj.levelParams ust)
             fargs = .ok true →
         (∀ x ∈ fargs, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
@@ -591,7 +591,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               env.find? (projFnName T j) = some (.recInfo cvp mIp rPp rulesp) ∧
               cvp.levelParams = cvT.levelParams ∧
               (cvp.type.stripPis (tmaj.getAppArgs.length + 1)).isSome = true ∧
-              Setlec.iotaCertsP μ env fuel d
+              Setlec.iotaCertsP μ env fuel d false
                 (cvp.type.instantiateLevelParams cvp.levelParams ust)
                 (tmaj.getAppArgs ++ [major]) = .ok true := by
             intro j hj

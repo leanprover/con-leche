@@ -4,6 +4,7 @@ import Setlec.SetP.Step2.CapsRowsP
 import Setlec.SetP.Step2.StrLitP
 import Setlec.SetP.Step2.ProjRowsP
 import Setlec.SetP.Step2.IotaRowsP
+import Setlec.SetP.Step2.IrrelFastP
 
 /-!
 # The tiers assembly (task #161, P4): one env-fixed bundle, one induction
@@ -156,8 +157,7 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
       have hstep : DefEqStepAtP μ m φ fuel :=
         defeqStep_claimP (whnfCoreReductExistsP_of' h.reads) ihwc
           (denotePDeltaP_of h.reads) (h.nat_stepQ fuel ihw)
-          (proofIrrelPQ_of_claims ihis hsss hreads_ios
-            (unitIrrelPQ_of_claims ihw ihis hreads_ios hwreads))
+          (propIrrelPQ_of_claims h.reads.const_ty ihis hsss hreads_ios)
           (defeqStuck_claimP hμ ihd hsi denotePStrLit_of_guard
             (acvalParamsP m) (appCongrStuckP_of_claims ihd)
             (etaCertStepP_of_claims hμ ihw ihd ihis hreads_ios hwreads))
