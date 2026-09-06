@@ -79,8 +79,8 @@ automation:
 
 fidelity:
   divergences: >-
-    The checker differs from the official Lean kernel in a few recorded
-    places (DESIGN.md); it declines on unsupported features, and the
+    The checker differs from the official Lean kernel in a few places
+    (see README.md); it declines on unsupported features, and the
     theorem speaks only about acceptance.
 
 review:
