@@ -41,7 +41,7 @@ predicate rejects) or argued below.
 | `mI == nP + 2 ∧ rP == nP + 2` (with `mI = rnP+rnM+rnm+rnI`, `rP = rnP+rnM+rnm`, from `Lech/Frontend/ExportC.lean`) | `rec.numIndices == 0 ∧ rec.numMotives == 1 ∧ rec.numMinors == 1 ∧ rec.numParams == ctor.numParams` |
 | `rule.ctor == C ∧ rule.nfields == nF` | the same, on `ERecRule` |
 | `rule.rhs.stripLams (nP+2+nF)` is `directRuleBody nF` | *not mirrored* — see below |
-| `cvT.type.stripPis nP` ends in `.sort` | `type.numIndices == 0` (an index-free member's type former *is* `∀ p⃗, Sort u`) |
+| `cvT.type.stripPis nP` ends in `.sort` | `lechFormerTelescope` — `numParams + numIndices` Π binders then a `Sort`, on the DECLARED type (task #193: `numIndices` alone is NOT this conjunct — a former declared at a definition that unfolds to a telescope, `inductive … : Presieve X`, has indices and no syntactic telescope, and the routes reject it) |
 | large: `cvR.levelParams = elim :: lps`, `elim ∉ lps`; else small: `cvR.levelParams == lps` | the same, on `rec.levelParams` |
 | `directShape` (constructor result `T p⃗`; recursor motive/minor/major domains and `motive t` result) | *not mirrored* — see below |
 | `directNonRec env` (every constructor binder domain resolves in the pre-block environment) | `!type.isRec ∧ type.numNested == 0` |
@@ -96,6 +96,27 @@ inert.)  The mirror doctrine of the module header is unaffected: the
 predicate must be no looser than *the checker*, and the checker's first
 route for this block is the pin. -/
 
+/-- **The type former's DECLARED type is a syntactic telescope**
+(task #193): `numParams + numIndices` Π binders ending in a `Sort`.
+This mirrors the recognisers' `cvT.type.stripPis (nP + nIdx)` ending in
+`.sort` — a conjunct the predicate used to read off `numIndices` alone,
+which is wrong for a former declared AT A DEFINITION that only
+*unfolds* to a telescope: `inductive Presieve.ofArrows … : Presieve X`
+(Mathlib; `Presieve X := ∀ ⦃Y⦄, Set (Y ⟶ X)`) has `numIndices = 2` from
+the kernel's `whnf`, but its stored type ends in `Presieve C inst X`,
+and the direct routes — whose generators and whose P-tier former
+reading are syntactic over the declared telescope — do not take it.
+Read with `Lean.Expr`'s binder structure only; no environment, no
+unfolding, so the direction is exact. -/
+def lechFormerTelescope (type : EIndType) : Bool :=
+  go (type.numParams + type.numIndices) type.type
+where
+  go : Nat → Lean.Expr → Bool
+    | 0, .sort _ => true
+    | 0, _ => false
+    | n + 1, .forallE _ _ body _ => go n body
+    | _ + 1, _ => false
+
 /-- THE DIRECT SUM CLASS (task #175 sum-types, indexed): any number of
 constructors other than one, or an indexed family with any number of
 constructors — `Lech.directSumPartsCore?`
@@ -108,6 +129,8 @@ two conjuncts argued rather than mirrored, as at the structure class. -/
 def lechNativeSum (type : EIndType) (ctors : List ECtor) (rec : ERec) : Bool :=
   -- any number of constructors other than one, or an indexed family
   (ctors.length != 1 || type.numIndices != 0) &&
+  -- the former's declared type: `∀ p⃗ ı⃗, Sort w` syntactically (#193)
+  lechFormerTelescope type &&
   -- the member: non-recursive, non-nested, safe
   !type.isRec && type.numNested == 0 &&
     !type.isUnsafe && type.all == [type.name] &&
@@ -156,8 +179,10 @@ def lechNative : NativeSupport := fun block =>
     -- indexed: not a structure — official's `is_structure_like` needs
     -- no index)
     (type.numIndices != 0 && lechNativeSum type [ctor] rec) ||
-    -- the member: index-free, non-recursive, non-nested, safe, one constructor
-    (type.numIndices == 0 && !type.isRec && type.numNested == 0 &&
+    -- the member: index-free, non-recursive, non-nested, safe, one
+    -- constructor, its declared type `∀ p⃗, Sort u` syntactically (#193)
+    (type.numIndices == 0 && lechFormerTelescope type &&
+      !type.isRec && type.numNested == 0 &&
       !type.isUnsafe && type.all == [type.name] && type.ctors == [ctor.name] &&
     -- the constructor: this member's, at its level parameters
     ctor.induct == type.name && ctor.levelParams == type.levelParams &&

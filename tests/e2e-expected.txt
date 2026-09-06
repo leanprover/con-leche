@@ -408,6 +408,17 @@
 0 direct_idx_prop.ndjson pre
 1 direct_idx_prop_large_bad.ndjson pre
 1 direct_idx_prop_idx_bad.ndjson pre
+#   direct_idx_defhead (task #193): `OfFn f : Pred α` — an indexed
+#                    one-constructor family declared AT A DEFINITION
+#                    (`Pred α := α → Prop`) that only unfolds to the
+#                    telescope, Mathlib's `Presieve.ofArrows` shape; the
+#                    direct routes' `stripPis (nP + nIdx)` does not take
+#                    it, so `lechFormerTelescope` keeps it MODELLED
+#                    (the predicate used to say native off `numIndices`
+#                    alone: neither model nor install, a decline).  The
+#                    control `Rel` (telescope spelled out) goes direct.
+#                    Exported through the fixed `lech-preprocess`.
+0 direct_idx_defhead.ndjson pre
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
