@@ -2289,6 +2289,35 @@ private theorem inferIOSlot_step (henv : EnvWF env)
     rw [← inferTypeIO_on hg, ← inferTypeIO_on hg]
     exact ih.inferIO hpd' hw'
 
+private theorem isBoolTrue_shiftFrom {p : Nat} {e : Expr} :
+    (shiftFrom p e).isBoolTrue = e.isBoolTrue := by
+  cases e <;> first
+    | rfl
+    | (simp only [shiftFrom]; split <;> rfl)
+
+/-- The eq-true shortcut (the audit's E2) is shift-invariant: one `whnf`
+and a head test that ignores the shift. -/
+private theorem boolTrueShortcut_shift (_henv : EnvWF env)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a : Expr}
+    (hwa : WScoped d a) :
+    boolTrueShortcut (pureFns mode env fuel) (d + 1) (shiftFrom p a) =
+      boolTrueShortcut (pureFns mode env fuel) d a := by
+  unfold boolTrueShortcut
+  refine bind_congr (shiftFrom p) (ih.whnf hpd hwa) ?_
+  intro w _
+  rw [isBoolTrue_shiftFrom]
+
+/-- `boolTrueShortcut_shift` under its guard. -/
+private theorem boolTrueShortcutIf_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a : Expr}
+    (hwa : WScoped d a) (g : Bool) :
+    (if g then boolTrueShortcut (pureFns mode env fuel) (d + 1) (shiftFrom p a)
+        else pure false) =
+      (if g then boolTrueShortcut (pureFns mode env fuel) d a else pure false) := by
+  cases g
+  · rfl
+  · exact boolTrueShortcut_shift henv ih hpd hwa
+
 /-- `propIrrel_shift` under the once-per-entry gate (the audit's D3). -/
 private theorem propIrrelIf_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
@@ -2318,6 +2347,12 @@ private theorem defeqLoop_shift (henv : EnvWF env)
   intro p d hpd pi a b hwa hwb
   simp only [defeqLoop, defeqStep]
   rw [shiftFrom_beq]
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  -- the eq-true shortcut (E2): its guard reads the shifted sides' head
+  -- and fvar range, both shift-invariant
+  rw [isBoolTrue_shiftFrom, hasFvar_shiftFrom]
+  refine bind_congr_eq (boolTrueShortcutIf_shift henv ih hpd hwa _) ?_
+  rintro rbt -
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   refine bind_congr _ (ih.whnfCore hpd hwa) ?_
   intro wa hwa'

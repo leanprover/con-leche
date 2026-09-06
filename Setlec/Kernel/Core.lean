@@ -524,6 +524,13 @@ def boolName : Name := .str .anonymous "Bool"
 def boolTrueName : Name := boolName.str "true"
 def boolFalseName : Name := boolName.str "false"
 
+/-- Is `e` the constant `Bool.true` — the official kernel's
+`is_constant(e, Bool.true)` (`type_checker.cpp:1097`): the name, no
+universe levels. -/
+def Expr.isBoolTrue : Expr → Bool
+  | .const c [] => c == boolTrueName
+  | _ => false
+
 /-- The structural-Nat operations with a certified literal fast path. -/
 def natOpNames : List Name :=
   [natPredName, natAddName, natSubName, natMulName, natPowName,
@@ -2039,6 +2046,20 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .bvar _ =>
       throw (.notImplemented "inferType beyond the supported fragment")
 
+/-- **The eq-true shortcut** (the divergence audit's E2): official
+`is_def_eq_core`'s second clause (`type_checker.cpp:1093-1101`) — when
+the right side is the constant `Bool.true` and the left side has no
+free variables, the left side is fully head-normalised (`whnf`, the
+cached loop) and the verdict is `true` iff the reduct is `Bool.true`; on
+failure the step continues.  Only the reduction is here; the guard is
+`defeqStep`'s, and it fires only at an `is_def_eq_core` entry (`pi`).
+Verdict-neutral against lazy delta (a `whnf` reduct is what the
+unfolding loop reaches, one step at a time), one memoised `whnf`
+instead of one loop iteration per unfolding. -/
+def boolTrueShortcut (r : CoreFns m) (depth : Nat) (a : Expr) : m Bool := do
+  let w ← r.whnf depth a
+  pure w.isBoolTrue
+
 /-- Levels-and-spine congruence for two applications of the same
 stored constant — the lazy delta *same-head short-circuit* (the
 official kernel's `try_eq_const_app`): before unfolding both sides of
@@ -2084,6 +2105,12 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Bool → Expr → Expr → m Bool) (pi : Bool) (a b : Expr) : m Bool := do
     -- syntactic fast path (the references' most-hit branch)
     if a == b then pure true else
+    -- the eq-true shortcut (E2, `boolTrueShortcut`): right side
+    -- `Bool.true`, left side fvar-free, at an entry only — official's
+    -- `(!has_fvar(t) || m_eager_reduce) && is_constant(s, Bool.true)`
+    -- (`:1097`; the eager flag is not mirrored yet, see the audit)
+    if ← (if pi && b.isBoolTrue && !a.hasFvar then boolTrueShortcut r depth a
+        else pure false) then pure true else
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
     if a' == b' then pure true else

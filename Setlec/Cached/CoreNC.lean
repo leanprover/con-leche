@@ -507,6 +507,11 @@ def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : Bool → ExprC → ExprC → CheckCM Bool) (pi : Bool) (a b : ExprC) :
     CheckCM Bool := do
     if a == b then pure true else
+    -- the eq-true shortcut (E2), as in the spec
+    let bt ← withStore (isBoolTrueI · b)
+    let af ← withStore (fun st => st.hasFvarI a)
+    if ← (if pi && bt && !af then boolTrueShortcutI r depth a
+        else pure false) then pure true else
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
     if a' == b' then pure true else

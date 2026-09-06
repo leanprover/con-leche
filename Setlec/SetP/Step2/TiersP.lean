@@ -157,7 +157,7 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
           (structUnitIrrelP_of_claims h.caps_ok ihw ihd ihis hexis
             hwreads)
       have hstep : DefEqStepAtP μ m φ fuel :=
-        defeqStep_claimP (whnfCoreReductExistsP_of' h.reads) ihwc
+        defeqStep_claimP (whnfCoreReductExistsP_of' h.reads) ihwc ihw
           (denotePDeltaP_of h.reads) (h.nat_stepQ fuel ihw)
           (propIrrelPQ_of_claims h.reads.const_ty ihis hsss hreads_ios)
           (defeqStuck_claimP hμ ihd hsi denotePStrLit_of_guard

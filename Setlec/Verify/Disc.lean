@@ -1497,6 +1497,24 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     · exact hres
 
 set_option maxHeartbeats 1600000 in
+/-- The eq-true shortcut (the audit's E2) runs one `whnf` on both records. -/
+theorem boolTrueShortcut_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {a : Expr} (hwa : WScoped d a) :
+    DiscV mode env (fun _ => True) (boolTrueShortcut C d a)
+      (boolTrueShortcut G d a) := by
+  unfold boolTrueShortcut
+  exact DiscV.bind (ih.site_whnf henv hwa) (fun w _ => DiscV.pure trivial)
+
+/-- `boolTrueShortcut_disc` under its guard. -/
+theorem boolTrueShortcutIf_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {a : Expr} (hwa : WScoped d a) (g : Bool) :
+    DiscV mode env (fun _ => True)
+      (if g then boolTrueShortcut C d a else pure false)
+      (if g then boolTrueShortcut G d a else pure false) := by
+  cases g
+  · exact DiscV.pure trivial
+  · exact boolTrueShortcut_disc ih henv hwa
+
 /-- `propIrrel_disc` under the once-per-entry gate (the audit's D3): the
 pruned branch is `pure false` on both records. -/
 theorem propIrrelIf_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
@@ -1516,8 +1534,11 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     DiscV mode env (fun _ => True) (defeqStep mode C env d kC pi a b)
       (defeqStep mode G env d kG pi a b) := by
   unfold defeqStep
-  split
-  · exact DiscV.pure trivial
+  -- (the two leading conditionals by `DiscV.ite`: `split` on the grown
+  -- body exceeds the simp step budget)
+  refine DiscV.ite (fun _ => DiscV.pure trivial) (fun _ => ?_)
+  refine DiscV.bind (boolTrueShortcutIf_disc ih henv hwa _) (fun rbt _ => ?_)
+  refine DiscV.ite (fun _ => DiscV.pure trivial) (fun _ => ?_)
   refine DiscV.bind (ih.site_whnfCore henv hwa) (fun a' ha' => ?_)
   refine DiscV.bind (ih.site_whnfCore henv hwb) (fun b' hb' => ?_)
   split

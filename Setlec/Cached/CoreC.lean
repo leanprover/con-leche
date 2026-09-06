@@ -1304,11 +1304,28 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       internI (.forallE n ty bAbs mb)
     | _ => inferBodyI cfg r fe depth e
 
+/-- The store read of `Expr.isBoolTrue` (`ExprC = Expr`; the
+`rawNatLitI?` convention). -/
+@[inline] def isBoolTrueI (_ : CStore) (e : ExprC) : Bool := Expr.isBoolTrue e
+
+/-- Twin of `boolTrueShortcut`. -/
+def boolTrueShortcutI (r : CoreFnsI) (depth : Nat) (a : ExprC) : CheckCM Bool := do
+  let w ← r.whnf depth a
+  -- (a direct head read: `ExprC = Expr`; a trailing `withStore` bind is
+  -- folded away by the `do` elaborator, so the store-read spelling has
+  -- no `>>=` for the simulation to peel)
+  pure (Expr.isBoolTrue w)
+
 /-- Twin of `defeqStep`. -/
 def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : Bool → ExprC → ExprC → CheckCM Bool) (pi : Bool) (a b : ExprC) :
     CheckCM Bool := do
     if a == b then pure true else
+    -- the eq-true shortcut (E2), as in the spec
+    let bt ← withStore (isBoolTrueI · b)
+    let af ← withStore (fun st => st.hasFvarI a)
+    if ← (if pi && bt && !af then boolTrueShortcutI r depth a
+        else pure false) then pure true else
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
     if a' == b' then pure true else

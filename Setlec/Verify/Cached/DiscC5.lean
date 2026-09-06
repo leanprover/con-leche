@@ -179,6 +179,22 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
   · simp only [if_pos hab]
     exact SimC.pure hs rfl
   · simp only [if_neg hab]
+    -- the eq-true shortcut (E2): two store reads for the guard, then the
+    -- guarded `whnf`
+    refine SimC.withStore ?_
+    rw [isBoolTrueI_spec hdenb]
+    refine SimC.withStore ?_
+    rw [hasFvarI_spec hdena]
+    refine SimC.bind (boolTrueShortcutIfC_sim ih hs hdena hwa _)
+      (fun s₀b rbt rbtx hs₀b hPbt => ?_)
+    cases hPbt
+    cases rbt with
+    | true =>
+      simp only [↓reduceIte]
+      exact SimC.pure hs₀b rfl
+    | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    have hs := hs₀b
     refine SimC.bind (ih.whnfCore hs hdena hwa)
       (fun s₁ a' a'x hs₁ hPa => ?_)
     obtain ⟨ha'd, hwa'⟩ := hPa

@@ -299,6 +299,8 @@ def DefEqStuckP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     {pi : Bool} {a b a' b' : Expr},
     defeqStep μ (pureFns μ env fuel) env d k pi a b = .ok true →
     (a == b) = false →
+    (if pi && b.isBoolTrue && !a.hasFvar then
+      Setlec.boolTrueShortcutP μ env fuel d a else pure false) = .ok false →
     whnfCore μ env fuel d a = .ok a' →
     whnfCore μ env fuel d b = .ok b' →
     (a' == b') = false →
@@ -499,10 +501,16 @@ two readings taken at two fuels — and in the P currency there is one
 reading, so all of them disappear together with the `max Fa Fb` join.
 What is left is the checker's own case tree. -/
 
+/-- `Expr.isBoolTrue` reads exactly the constant `Bool.true`. -/
+private theorem isBoolTrue_iff {e : Expr} :
+    e.isBoolTrue = true ↔ e = .const Setlec.boolTrueName [] := by
+  cases e <;> (try cases ‹List Level›) <;> simp [Expr.isBoolTrue]
+
 /-- **`DefEqStepAtP`**, modulo the routed obligations. -/
 theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
     (hex : WhnfCoreReductExistsP μ m φ fuel)
     (ihwc : WhnfCoreClaims2P μ m φ fuel)
+    (ihw : WhnfClaims2P μ m φ fuel)
     (hdel : DenotePDeltaP m φ)
     (hnat : ReduceNatStepPQ μ m φ fuel) (hpi : PropIrrelPQ μ m φ fuel)
     (hstk : DefEqStuckP μ m φ fuel)
@@ -513,6 +521,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
   have h0 := h
   simp only [defeqStep, Bind.bind, Except.bind, Setlec.whnfCore_def,
     Setlec.propIrrel_fold, Setlec.reduceNat_fold,
+    Setlec.boolTrueShortcut_fold,
     Setlec.defeqSpine_fold, Setlec.stuckIrrel_fold,
     Setlec.defeq_def] at h
   split at h
@@ -522,7 +531,38 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
     obtain rfl : aa = ba := by
       rw [hda] at hdb; exact Option.some.inj hdb
     rfl
-  · cases hwca : whnfCore μ env fuel d a with
+  · -- the eq-true shortcut (E2): a `true` verdict is `whnf a = Bool.true
+    -- = b`, closed by the whnf claim at the reduct's own reading (`b`'s)
+    cases hbt : (if pi && b.isBoolTrue && !a.hasFvar then
+        Setlec.boolTrueShortcutP μ env fuel d a else pure false) with
+    | error err => rw [hbt] at h; exact nomatch h
+    | ok rbt =>
+    rw [hbt] at h
+    dsimp only at h
+    cases rbt with
+    | true =>
+      have hbt' : Setlec.boolTrueShortcutP μ env fuel d a = .ok true ∧
+          b.isBoolTrue = true := by
+        split at hbt
+        · next hc =>
+          simp only [Bool.and_eq_true] at hc
+          exact ⟨hbt, hc.1.2⟩
+        · exact nomatch hbt
+      obtain ⟨hsc, hbtrue⟩ := hbt'
+      simp only [Setlec.boolTrueShortcutP, Setlec.boolTrueShortcut, Bind.bind,
+        Except.bind, Setlec.whnf_def] at hsc
+      cases hw : Setlec.whnf μ env fuel d a with
+      | error err => rw [hw] at hsc; exact nomatch hsc
+      | ok w =>
+      rw [hw] at hsc
+      simp only [pure, Except.pure, Except.ok.injEq] at hsc
+      obtain rfl : w = b := by
+        rw [isBoolTrue_iff] at hsc hbtrue
+        rw [hsc, hbtrue]
+      exact (ihw hw hwa hba hLa hCa hda hdb hokA).2 ρ hρ
+    | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte] at h
+    cases hwca : whnfCore μ env fuel d a with
     | error err => rw [hwca] at h; exact nomatch h
     | ok a' =>
     rw [hwca] at h
@@ -607,7 +647,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
           cases hhb : Setlec.unfoldableHead env b' <;>
           rw [hha, hhb] at h <;> dsimp only at h
         · -- neither head unfolds: the stuck configuration
-          exact hstk h0 (by simpa using ‹¬(a == b) = true›) hwca
+          exact hstk h0 (by simpa using ‹¬(a == b) = true›) hbt hwca
             hwcb (by simpa using ‹¬(a' == b') = true›) hir hna hnb
             hha hhb hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hda'
             hdb' hokA' hokB' ρ hρ
@@ -823,13 +863,17 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
     (hstr : DenotePStrLit m φ) (hap : AcvalParamsP m)
     (happ : AppCongrStuckP μ m φ fuel) (heta : EtaCertStepP μ m φ fuel) :
     DefEqStuckP μ m φ fuel := by
-  intro d Δa _k _pi a b a' b' h hab hwca hwcb hab' hir hna hnb hha hhb
+  intro d Δa _k _pi a b a' b' h hab hbt hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb aa' ba' hCa hCb hda hdb hokA hokB ρ hρ
   simp only [defeqStep, Bind.bind, Except.bind, Setlec.whnfCore_def,
     Setlec.propIrrel_fold, Setlec.reduceNat_fold,
+    Setlec.boolTrueShortcut_fold,
     Setlec.defeqSpine_fold, Setlec.stuckIrrel_fold, Setlec.defeq_def,
     Setlec.defEqList_fold, Setlec.etaCert_fold] at h
-  rw [if_neg (by simpa using hab), hwca] at h
+  rw [if_neg (by simpa using hab), hbt] at h
+  dsimp only at h
+  simp only [Bool.false_eq_true, ↓reduceIte] at h
+  rw [hwca] at h
   dsimp only at h
   rw [hwcb] at h
   dsimp only at h
@@ -844,7 +888,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
   have hfall : Setlec.stuckIrrelP μ env fuel d a' b' = .ok true →
       interp2 V ρ aa' = interp2 V ρ ba' := fun hs =>
     hsi hs hwa hba hLa hwb hbb hLb hCa hCb hda hdb hokA hokB ρ hρ
-  clear hab hwca hwcb hab' hir hna hnb hha hhb hsi
+  clear hab hbt hwca hwcb hab' hir hna hnb hha hhb hsi
   split at h
   -- 1: sort/sort
   · rename_i u v
@@ -1272,9 +1316,9 @@ mode pin; **no `BinderSortAgree`** — residue 9's successor is the run's
 own `equiv` certificate, read at `hμ` inside `defeqStuck_claimP`. -/
 theorem defEqStepP_of (hμ : μ.verified = true)
     (hin : DefEqInputsP μ V) : DefEqStepP μ V := by
-  intro env m φ fuel ihwc _ihw ihd _ihi
+  intro env m φ fuel ihwc ihw ihd _ihi
   exact defeq_claimsP
-    (defeqStep_claimP (hin.hex env m φ fuel) ihwc (hin.hdel env m φ)
+    (defeqStep_claimP (hin.hex env m φ fuel) ihwc ihw (hin.hdel env m φ)
       (hin.hnat env m φ fuel) (hin.hpi env m φ fuel)
       (defeqStuck_claimP hμ ihd (hin.hsi env m φ fuel)
         (hin.hstr env m φ) (hin.hap env m) (hin.happ env m φ fuel)

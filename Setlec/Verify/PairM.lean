@@ -456,6 +456,18 @@ theorem reduceNat_snd_proj (d : Nat) (e : Expr) :
   unfold reduceNat
   snd_tac
 
+theorem boolTrueShortcut_fst_proj (d : Nat) (e : Expr) :
+    (boolTrueShortcut (pairFns r₁ r₂ h) d e).val.1 =
+      boolTrueShortcut r₁ d e := by
+  unfold boolTrueShortcut
+  fst_tac
+
+theorem boolTrueShortcut_snd_proj (d : Nat) (e : Expr) :
+    (boolTrueShortcut (pairFns r₁ r₂ h) d e).val.2 =
+      boolTrueShortcut r₂ d e := by
+  unfold boolTrueShortcut
+  snd_tac
+
 theorem ensureSort_fst_proj (d : Nat) (e : Expr) :
     (ensureSort (pairFns r₁ r₂ h) env d e).val.1 =
       ensureSort r₁ env d e := by
@@ -573,6 +585,7 @@ macro "fst_step2" : tactic =>
     | (rw [defEqList_fst])
     | (rw [structEtaProjCerts_fst])
     | (rw [reduceNat_fst_proj])
+    | (rw [boolTrueShortcut_fst_proj])
     | (rw [ensureSort_fst_proj])
     | (rw [proofIrrel_fst_proj])
     | (rw [propIrrel_fst_proj])
@@ -600,6 +613,7 @@ macro "snd_step2" : tactic =>
     | (rw [defEqList_snd])
     | (rw [structEtaProjCerts_snd])
     | (rw [reduceNat_snd_proj])
+    | (rw [boolTrueShortcut_snd_proj])
     | (rw [ensureSort_snd_proj])
     | (rw [proofIrrel_snd_proj])
     | (rw [propIrrel_snd_proj])
@@ -753,6 +767,7 @@ macro "fst_step3" : tactic =>
     | (rw [defEqList_fst])
     | (rw [structEtaProjCerts_fst])
     | (rw [reduceNat_fst_proj])
+    | (rw [boolTrueShortcut_fst_proj])
     | (rw [ensureSort_fst_proj])
     | (rw [proofIrrel_fst_proj])
     | (rw [structEtaCertWith_fst_proj])
@@ -783,6 +798,7 @@ macro "snd_step3" : tactic =>
     | (rw [defEqList_snd])
     | (rw [structEtaProjCerts_snd])
     | (rw [reduceNat_snd_proj])
+    | (rw [boolTrueShortcut_snd_proj])
     | (rw [ensureSort_snd_proj])
     | (rw [proofIrrel_snd_proj])
     | (rw [structEtaCertWith_snd_proj])
@@ -841,6 +857,7 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [defEqList_fst])
     | (rw [structEtaProjCerts_fst])
     | (rw [reduceNat_fst_proj])
+    | (rw [boolTrueShortcut_fst_proj])
     | (rw [ensureSort_fst_proj])
     | (rw [proofIrrel_fst_proj])
     | (rw [propIrrel_fst_proj])
@@ -893,6 +910,7 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [defEqList_snd])
     | (rw [structEtaProjCerts_snd])
     | (rw [reduceNat_snd_proj])
+    | (rw [boolTrueShortcut_snd_proj])
     | (rw [ensureSort_snd_proj])
     | (rw [proofIrrel_snd_proj])
     | (rw [propIrrel_snd_proj])
