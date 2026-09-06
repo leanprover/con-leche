@@ -53388,3 +53388,199 @@ warning-free, `lake test`, arena exit 0 (native audit 169/0, e2e
 102/102), init-full stock 58 604 / 58 604 and regenerated (548 native)
 53 890 / 53 890, the 23-cone 2 949 both modes, full audit 970/0 — all
 identical to the tip's.
+
+## TASK #200 — IN-PROCESS MODELS OF NESTED AND MUTUAL BLOCKS (2026-09-06, `agent/inmodel`)
+
+**The user's directive (verbatim):** *"For nested and mutual: What we
+can also do is copy lean-inductive-model's modelling of nested and
+mutual and combine it with the existing modelled installation, but do
+it all on our Expr and without the preprocessor. A bit extra runtime
+work (certification tax actually), but the quickest path to dropping
+the inductive-model dependency."*
+
+### Part A — the design, as accepted
+
+**What the tool does, and what of it the checker reads.**
+lean-inductive-models' mutual rung declares two new inductive blocks —
+a *tag* enumeration `T._model._impl.tag : ∀ p⃗, Sort W` with one
+constructor per member carrying that member's index telescope, and one
+*auxiliary family* `T._model._impl.aux : ∀ p⃗ (t : tag p⃗), Sort u` whose
+constructors are the members' with every `T_m p⃗ e⃗` rewritten to
+`aux p⃗ (tag.m p⃗ e⃗)` — and lets Lean's kernel mint their recursors; the
+public slots are `T_m._model := λ p⃗ ı⃗, aux p⃗ (tag.m p⃗ ı⃗)`, the
+constructors verbatim, and `T_m.rec._model` = `aux.rec` at a motive
+that dispatches on the tag by `tag.rec`, the minors passing through
+unchanged, so every iota theorem is `Eq.refl`.  Its nested rung runs
+the kernel's own nested→mutual specialisation (mimic members for the
+nested occurrences, in the kernel's motive order) and then an
+isomorphism per mimic (`pack`/`unpack`, `unpackPack`/`packUnpack`,
+`congrPack`), the recursor models transporting along them, the iota
+theorems by one `Eq.rec` per packed position.  Below that the tool
+reduces the auxiliary family to its five-member basis (the W-tree
+`_wcore` island, carve/tuple/Church arms) — the tier this task does
+NOT port: **our base is the direct fixpoint route (task #188, at
+indices)**, which installs the auxiliary family from the reference
+checks alone.  Of the tool's output the checker consumes exactly the
+public slots (`Lech/Kernel/Modeled.lean`: the member/constructor/
+recursor models, type `==` the public type under the group renaming up
+to binder names; the `iota_j` theorems; `proj_i`/`proj_i.iota` of
+structure-like members, whose `Eq` level `Lech/Frontend/ProjRec.lean`
+reads; `eta`/`unitlike`, which the tool emits only for NON-recursive
+structure-likes — so mutual/nested blocks have none today either).
+`MutualOneLayer` (definitional projections for the tool's own
+consumers), the `--check-*` modes, `KernelCheck`, `Plan` as a
+standalone (the exported recursor is the oracle: motive `m`'s domain
+is the member/mimic carrier, each minor's telescope the mimic
+constructor's fields with the `ih` binders saying which fields recurse
+to which member) are not ported.
+
+**The census** (`_tmp/inmodel/{census,shape_census}.py` in the main
+checkout, raw exports): init-full has 588 blocks — 478 direct
+structures, 57 direct sums, 48 recursive (the #188 class), **4
+reflexive** (`Acc`, `Acc.below`, `Lean.Order.iterates`, `.below`),
+**1 nested** (`Lean.Syntax`, through `Array`, `numNested = 2`), 0
+mutual.  Mathlib: 6644 blocks — 5671 / 630 / 251 direct-or-#188,
+**41 reflexive**, **38 nested, 10 mutual, 3 mutual+nested**.  Of those
+51: all index-free except `Lists.Equiv`/`.below` (Prop, 2–3 indices,
+small eliminator) and `Mathlib.Tactic.Ring.ExBase` (4 indices); zero
+reflexive fields, zero nested occurrences under a binder, zero later
+fields depending on a packed field; containers `Array`/`List`/`Prod`/
+`Option`/`Except` and a few Lean structures; four blocks nest through
+`Lean.Widget.TaggedText`, itself nested (a cyclic mimic group); the
+two Prop mutual blocks are small-elim.  Mutual blocks with several
+members eliminate into Prop only when Prop (official
+`elim_only_at_universe_zero`), so "Prop + large" can arise only at a
+nested single-type block.
+
+**The port, as built.**  A new frontend module tree,
+`Lech/Frontend/InModel{,/Kit,/Mutual}.lean`, invoked from the direct
+parse (`Lech/Frontend/ExportC.lean`) at a mutual or nested block's
+record *when the stream carries no `T._model`*: it produces `DeclC`
+records — the tag block, the auxiliary block, the public slots, the
+iota theorems, the projection artifacts — that are pushed AHEAD of
+the block, below the verified fold, exactly like the prelude and the
+projection rewrite (the main theorem quantifies over the parsed list
+and never learns they were generated).  **Soundness needs nothing from
+the generator**: every record is checked by the fold as a stream
+declaration (the certification tax: the models' type checks, one
+defeq per iota rule) and the block installs through the unchanged
+modeled route, whose install-time checks compare the stream's block
+against those checked models; a wrong record rejects at that record
+or declines at the install, never accepts.  The generator's
+correctness decides coverage only, and every decline names its reason
+(`lech: declined: in-process model of T: …`), so the residual is
+exact.  Everything the generator needs beyond the block is a
+declaration table the parse now keeps (`StateD.constTypes`,
+`heights`: the declared types and definitional heights of everything
+pushed so far, the prelude included) — a **syntactic sort inferer**
+(`Kit.inferTy`: const types instantiated, Π/λ/sort rules, head-β only,
+no unfolding) gives the `Eq` level of a `proj_i.iota` (and, at B2, the
+tag's universe); where it fails the artifact is skipped or the block
+declines.  Hints are the kernel's rule, one above the highest constant
+the value mentions.
+
+**The residual after #188 + #200, and the dependency question:** the
+reflexive blocks (init-full's `Acc`!), infinitary nested occurrences,
+#188's own fall-throughs, Prop nested blocks with a large eliminator,
+`imax`-bounded universes.  So `lean_inductive_models` cannot be
+dropped by these two tasks alone — `Acc` blocks init-full — and a
+route for reflexive/Prop inductives is a separate design (raised with
+the user); after #200 the tool's job on init-full shrinks to the four
+reflexive blocks.  **Coordinator rulings (2026-09-06):** the order
+B1 index-free mutual → B2 indexed mutual → B3 nested → B4 cyclic
+groups and mutual+nested; `agent/recursive` may be merged into a
+worktree for TESTING ONLY; until #188 is on master every sub-step is
+gated against the debug dump AND the merged-recursive binary, final
+gates on master when #188 lands; the reflexive/Prop residual is not
+this lane's.
+
+### B1 — index-free mutual blocks (this landing)
+
+*The construction* (`Lech/Frontend/InModel/Mutual.lean`, `genMutual`;
+the recursor generator `Kit.recTy`/`recRhs` is `directRecTyI`/
+`directRecRhsI` of `Lech/Kernel/Direct/Parts.lean` with the `ih`
+binders of the official `mk_rec_infos` threaded in — the fixpoint
+route regenerates and compares the auxiliary family's recursor by one
+`isDefEq`, so binder names are display-only but the argument order
+and the `ih` placement are the kernel's).  For a block `T_1 … T_k`
+over one parameter telescope `p⃗` at sort `u`:
+
+* `tag : ∀ p⃗, Type`, constructors `tag.m : ∀ p⃗, tag p⃗` — an
+  enumeration the DIRECT SUM route installs (route trace `sum`);
+* `aux : ∀ p⃗ (t : tag p⃗), Sort u`, constructor `aux.m.C : ∀ p⃗ f⃗',
+  aux p⃗ (tag.m p⃗)` per public constructor with every field `T_{m'} p⃗`
+  rewritten to `aux p⃗ (tag.m' p⃗)` (`Kit.specFam`), the recursor with
+  one `ih : motive (tag.m' p⃗) f_i` per recursive field — the FIXPOINT
+  route's, at indices;
+* `T_m._model := λ p⃗, aux p⃗ (tag.m p⃗)`; `C._model := λ p⃗ f⃗, aux.m.C p⃗
+  f⃗` (its declared type the public one renamed; the λ-domains are the
+  renamed public ones, the application typed by δ);
+  `T_m.rec._model := λ p⃗ M⃗ S⃗ t, aux.rec p⃗ Mot S⃗ (tag.m p⃗) t` with
+  `Mot := λ i s, tag.rec.{imax u (ℓ+1)} p⃗ (λ i', ∀ s, aux p⃗ i' → Sort ℓ)
+  M⃗ i s` — the public minors pass through unchanged, since
+  `Mot (tag.m' p⃗) f ≡ M_{m'} f` and `aux.m.C p⃗ f⃗ ≡ C._model p⃗ f⃗` by δι;
+* `T_m.rec._model.iota_j : ∀ p⃗ M⃗ S⃗ f⃗, @Eq.{ℓ} (M_m (C._model p⃗ f⃗))
+  (T_m.rec._model p⃗ M⃗ S⃗ (C._model p⃗ f⃗)) (S_J f⃗ (T_{m'}.rec._model p⃗ M⃗
+  S⃗ f_i)…)` by `Eq.refl` (δι through `aux.rec` and `tag.rec`; the
+  statement's left side is what `checkIotaThm` pins structurally, its
+  right side the rule's applied right-hand side β-reduced);
+* for a structure-like non-Prop member: `T_m._model.proj_i` — the
+  model recursor at the constant motive `λ _, F_i[f_j := proj_j p⃗ t]`,
+  every other motive `PUnit`, built by the projection rewrite's own
+  builder (`projRecValue` on a model-side owner record) — and
+  `proj_i.iota` by `Eq.refl` at the field's sort from the inferer.
+  The modeled install runs its projection phase only at single-type
+  blocks, so at a mutual block these feed exactly the rewrite's
+  `projLevels`; they are emitted honestly anyway (the contract is the
+  tool's).
+
+*Declines* (the residual instrument): nested members (B3), indexed
+members (B2), a reflexive member (the export's flag), a field
+mentioning the block other than as a plain member application, members
+whose level parameters / parameter telescope / sort differ, a Prop
+block with a large eliminator (cannot arise at a mutual block).
+
+*The transition.*  The generated auxiliary family is an indexed
+recursive inductive; with the fixpoint route not yet on master, a raw
+mutual block modelled in-process declines at that family ("missing
+model for `T._model._impl.aux`").  So `lech-preprocess`'s native
+predicate gains the in-process class (`lechNativeInModel`, mirrored
+conjunct for conjunct as at the other classes) **only under
+`LECH_INMODEL_NATIVE=1`** (`lechNativeInModelAll`): by default the
+tool still models mutual blocks and the in-process modeller stands
+down on seeing `T._model` in the stream — zero verdict change on any
+default run — and the flag flips to the default when #188 lands.
+`LECH_INMODEL=0` turns the modeller off; `LECH_INMODEL_DUMP=OUT` writes
+the raw input with the generated records spliced in ahead of each
+block (`Lech/Frontend/{ExportWrite,InModelDump}.lean`, lean4export
+3.1 records at table indices above the input's maximum — the tool's
+parser keeps a sparse table beside its dense one).  The route trace
+reads `inmodel` for an in-process block.
+
+*Gates.*  `tests/inmodel.sh` (in `tests/arena.sh`): for each raw
+fixture, the raw run (exit 2 at the auxiliary family before #188, 0
+after — either recorded, anything else FAIL), the dump through
+`LECH_INMODEL_NATIVE=1 lech-preprocess --no-check` (the tool's
+structural checks audit model roles lech never consumes — `proj_0` of
+a Prop structure-like) and back through `lech --pre` in both modes
+(must accept), and the off switch.  Fixture
+`tests/e2e/src/inmodel_mutual.lean` (`--#export`, raw): `Even`/`Odd`
+(cross recursion, several constructors, `rfl`s forcing iota through
+both recursors), `Node`/`Forest` (structure-like pair at `Type u`,
+four projection rewrites at the generated artifacts' levels), `A`/`B`
+(Prop pair, `noA` by mutual induction into `False`).  Result: 3 blocks
+modelled in-process; the modelled dump accepts **158 declarations in
+`--verified` and `--trusted`** (8 blocks routed `modeled`: the three
+public blocks, their three auxiliary families and the two carve
+skeletons the tool adds); through the default pipe the fixture
+accepts tool-modelled (e2e expectation `0`).  `tests/e2e/
+mutual_struct_proj` is reflexive (`nodes : Fin 0 → Node`) and stays
+the tool's, by the predicate and by the generator's decline alike.
+
+*Receipts:* build warning-free, `lake test` (the positional
+`ParseResultD` patterns widened by the two new fields), `tests/arena.sh`
+exit 0 (see the landing merge for the counts), `tests/inmodel.sh` OK.
+The merged-recursive gate is reported in the READY message: with
+`agent/recursive`'s indexed route (`09891f11`) merged into a
+TEST-ONLY worktree, the raw fixture's auxiliary families install
+directly.

@@ -542,6 +542,15 @@
 # decline at Lean.Meta.Grind.AC.DiseqCnstr.lhs).
 0 mutual_struct_proj.ndjson
 0 nested_struct_proj.ndjson
+# inmodel_mutual.ndjson (task #200 B1, the in-process modeller): three
+# index-free MUTUAL blocks — a data pair with cross recursion, a
+# structure-like pair with a universe-polymorphic parameter (projection
+# rewrites at the sorts the generated `proj_i.iota` artifacts name), a
+# Prop pair with a small eliminator.  Here, through the default pipe,
+# the stock predicate lets `lech-preprocess` model the blocks and the
+# in-process modeller stands down (it sees the models in the stream);
+# the in-process path itself is gated by tests/inmodel.sh.
+0 inmodel_mutual.ndjson
 # indexed_one_ctor.ndjson (task #175 SigmaHom, 2026-09-06): an INDEXED
 # one-constructor family in Type (Mathlib's CategoryTheory.Sigma.SigmaHom
 # shape: two indices built from the fields, dependent fields).  Not

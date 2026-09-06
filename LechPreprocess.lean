@@ -172,6 +172,59 @@ def lechNativeSum (type : EIndType) (ctors : List ECtor) (rec : ERec) : Bool :=
   !lechReservedBasisNames.contains type.name &&
     !lechReservedBasisNames.contains rec.name
 
+/-- Does the block name occur in the expression? -/
+def lechMentions (ns : List Lean.Name) (e : Lean.Expr) : Bool :=
+  (e.find? fun x => match x with
+    | .const n _ => ns.contains n
+    | _ => false).isSome
+
+/-- THE IN-PROCESS MUTUAL CLASS (task #200, B1): a mutual block
+(several types, none nested) that lech models in-process
+(`Lech/Frontend/InModel/Mutual.lean`, `genMutual`), mirrored conjunct
+for conjunct on the export's `Lean.Expr`: every member index-free,
+non-reflexive, safe, at one parameter count and level-parameter list;
+every constructor's field domain either free of the block or exactly a
+member at the parameter variables; one recursor per member with the
+block's motive/minor counts and one eliminator shape.  The members'
+telescope agreement and the recursor shape are argued (Lean's own
+`mutual` elaboration produces them); `tests/native-audit.sh` gates the
+mirror as at the other classes. -/
+def lechNativeInModel (types : List EIndType) (ctors : List ECtor) (recs : List ERec) : Bool :=
+  match types with
+  | [] | [_] => false
+  | t0 :: _ =>
+    let names := types.map (·.name)
+    let lps := t0.levelParams
+    let nP := t0.numParams
+    types.all (fun t => t.numIndices == 0 && t.numNested == 0 && !t.isReflexive &&
+      !t.isUnsafe && t.levelParams == lps && t.numParams == nP &&
+      t.all == names && lechFormerTelescope t) &&
+    ctors.all (fun c => c.levelParams == lps && c.numParams == nP && !c.isUnsafe &&
+      names.contains c.induct && !lechReservedBasisNames.contains c.name &&
+      lechFieldsPlain names lps nP c.type 0 0) &&
+    recs.length == types.length &&
+    types.all (fun t => recs.any fun r => r.name == t.name.str "rec") &&
+    recs.all (fun r => r.numIndices == 0 && r.numMotives == types.length &&
+      r.numMinors == ctors.length && r.numParams == nP && !r.isUnsafe &&
+      r.levelParams == (recs.headD default).levelParams &&
+      ((match r.levelParams with
+        | elim :: rest => rest == lps && !lps.contains elim
+        | [] => false) || r.levelParams == lps)) &&
+    !names.any lechReservedBasisNames.contains
+where
+  /-- every field domain is free of the block or exactly a member at
+  the parameter variables (`InModel.classifyCtor`) -/
+  lechFieldsPlain (names : List Lean.Name) (lps : List Lean.Name) (nP : Nat) :
+      Lean.Expr → Nat → Nat → Bool
+    | .forallE _ dom body _, k, i =>
+      if k < nP then lechFieldsPlain names lps nP body (k + 1) i
+      else
+        (!lechMentions names dom ||
+          names.any fun n => dom == Lean.mkAppN (Lean.mkConst n (lps.map .param))
+            ((List.range nP).map fun j => Lean.mkBVar (i + nP - 1 - j)).toArray) &&
+        lechFieldsPlain names lps nP body (k + 1) (i + 1)
+    | _, _, _ => true
+
 /-- The blocks lech installs natively: the **direct simple-structure class**
 of `Lech.directPartsCore?` (`Lech/Kernel/Direct/Parts.lean`) and the
 **direct sum class** of `Lech.directSumPartsCore?` (`lechNativeSum`).
@@ -219,10 +272,25 @@ def lechNative : NativeSupport := fun block =>
   | .induct [type] ctors [rec] => lechNativeSum type ctors rec
   | _ => false
 
+/-- `lechNative` plus the in-process class (task #200): the blocks lech
+models itself (`Lech/Frontend/InModel/*`) come out unmodelled.
+TRANSITIONAL: selected by `LECH_INMODEL_NATIVE=1` until the direct
+fixpoint route (task #188) installs the generated auxiliary families
+at indices — before that, a block left native here reaches the fold
+with an auxiliary family no route installs, a decline; with the stock
+predicate the tool models the block and the in-process modeller
+stands down (it sees the model in the stream). -/
+def lechNativeInModelAll : NativeSupport := fun block =>
+  lechNative block ||
+  match block with
+  | .induct types ctors recs => lechNativeInModel types ctors recs
+  | _ => false
+
 /-- `lech-preprocess [OPTIONS] IN.ndjson` — `lean-inductive-models` with
 lech's native-support predicate.  Every option and exit code is the tool's
 own (see its README); the only difference is that the blocks
 `Lech.directPartsCore?`/`Lech.directSumPartsCore?` install directly come
 out unmodelled. -/
-def main (args : List String) : IO UInt32 :=
-  InductiveModels.main args (native := lechNative)
+def main (args : List String) : IO UInt32 := do
+  let inModel := (← IO.getEnv "LECH_INMODEL_NATIVE") == some "1"
+  InductiveModels.main args (native := if inModel then lechNativeInModelAll else lechNative)
