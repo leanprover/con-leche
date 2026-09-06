@@ -1,6 +1,6 @@
 import Setlec.Kernel.Modeled
 import Setlec.Kernel.TrustAxioms
-import Setlec.Kernel.Direct.Install
+import Setlec.Kernel.Direct.SumInstall
 
 /-!
 # The checker
@@ -480,9 +480,15 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- absent, so every preprocessed stream keeps today's route byte for
     -- byte; the module split (`CheckerBase ← Modeled ← Checker`) is why
     -- the dispatch lives here and not inside `checkIndDecl`.
+    -- The direct sum route (task #175 sum-types) takes the blocks with
+    -- any number of constructors other than one; the two recognisers
+    -- are disjoint by the constructor count.
     match directParts? env block with
     | some p => checkDirectStruct ops env p
-    | none => checkIndDecl mode ops env block
+    | none =>
+      match directSumParts? env block with
+      | some p => checkDirectSum ops env p
+      | none => checkIndDecl mode ops env block
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/
