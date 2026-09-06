@@ -559,12 +559,23 @@ theorem declIndRun_of
   split at h
   case isFalse => exact nomatch h
   next hprojFresh =>
+  -- the projection phase: structure-like blocks only (task #175 SigmaHom)
+  by_cases hsl : ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF = true
+  case neg =>
+    rw [if_neg hsl] at h
+    have h' : installProjTemplate (m := CheckM) envR cvT.name cvC.name
+        cvT.levelParams nP nF = .ok env₂ := h
+    exact ⟨hsplit, Or.inl ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt,
+      envM, envR, indMembersRunRS _ hmemFold, indRecsRunRS _ hrecsFold,
+      hres, hprojFresh, envR, (by rw [if_neg hsl]; rfl), templates_of h'⟩⟩
+  rw [if_pos hsl] at h
   split at h
   case h_1 => exact nomatch h
   next envP hprojFold =>
   exact ⟨hsplit, Or.inl ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt,
     envM, envR, indMembersRunRS _ hmemFold, indRecsRunRS _ hrecsFold,
     hres, hprojFresh, envP,
-    projInstallRunRS (List.range nF) hprojFold, templates_of h⟩⟩
+    (by rw [if_pos hsl]; exact projInstallRunRS (List.range nF) hprojFold),
+    templates_of h⟩⟩
 
 end Setlec.Semantics
