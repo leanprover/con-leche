@@ -417,6 +417,9 @@ theorem checkDirectSumCtorS_sim (henv : EnvWF env) {env₀ : Env} {T : Name}
   by_cases h3 : (xFvs.all fun x => Expr.constsResolve env₀ x.fvarTypeD) = true
   case neg => simp only [if_neg h3]; exact SimC.throw_bind
   simp only [if_pos h3]
+  by_cases h4 : ((cresid.getAppArgs.drop nP).all fun e => Expr.constsResolve env₀ e) = true
+  case neg => simp only [if_neg h4]; exact SimC.throw_bind
+  simp only [if_pos h4]
   refine SimC.bind (checkDirectFieldSortsIS_sim henv hxPos hs₆)
     (fun s₇ sorts sorts' hs₇ hS => ?_)
   obtain rfl : sorts = sorts' := hS
