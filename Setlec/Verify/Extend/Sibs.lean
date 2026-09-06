@@ -39,9 +39,9 @@ def SibFinds (env : Env) (c₀ : ConstantInfo) : Prop :=
 theorem BasisBlocks.cons {env : Env} {c₀ : ConstantInfo}
     (hb : BasisBlocks env) (hfind' : env.find? c₀.name = none)
     (hsib : SibFinds env c₀) :
-    BasisBlocks (⟨c₀ :: env.consts⟩ : Env) := by
+    BasisBlocks ({ env with consts := c₀ :: env.consts } : Env) := by
   have keep : ∀ {s : Name} {X : ConstantInfo}, env.find? s = some X →
-      Env.find? ⟨c₀ :: env.consts⟩ s = some X := by
+      Env.find? { env with consts := c₀ :: env.consts } s = some X := by
     intro s X hs
     rw [Env.find?_cons_of_isSome hfind' (by rw [hs]; rfl)]
     exact hs
@@ -88,7 +88,7 @@ theorem RecCtorsStored.cons {env : Env} {c₀ : ConstantInfo}
     (hnew : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) :
-    RecCtorsStored (⟨c₀ :: env.consts⟩ : Env) := by
+    RecCtorsStored ({ env with consts := c₀ :: env.consts } : Env) := by
   intro n cv mI rP rules hfp r hr
   rw [Env.find?_cons] at hfp
   split at hfp

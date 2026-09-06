@@ -5,8 +5,8 @@
 {"ie":0,"sort":0}
 {"ie":1,"bvar":0}
 {"ie":2,"bvar":1}
-{"ie":3,"forallE":{"binderInfo":"default","name":2,"type":1,"body":2,"pw":[]}}
-{"ie":4,"forallE":{"binderInfo":"default","name":1,"type":0,"body":3,"pw":[]}}
-{"ie":5,"lam":{"binderInfo":"default","name":2,"type":1,"body":1,"pw":[]}}
+{"ie":3,"forallE":{"binderInfo":"default","name":2,"type":1,"body":2}}
+{"ie":4,"forallE":{"binderInfo":"default","name":1,"type":0,"body":3}}
+{"ie":5,"lam":{"binderInfo":"default","name":2,"type":1,"body":1}}
 {"ie":6,"lam":{"binderInfo":"default","name":1,"type":0,"body":5}}
 {"thm":{"name":3,"levelParams":[],"type":4,"value":6}}

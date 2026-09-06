@@ -3335,10 +3335,10 @@ theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
       EnvWF e₂ →
       checkConstantVal (fueledOps mode F) e₂ p.cvR = .ok cvRa →
       checkDirectRule (fueledOps mode F) e₂ p cvCa cvRa = .ok rhsA →
-      EnvWF ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      EnvWF { e₂ with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-            .plain else .inert, rhsA⟩] :: e₂.consts⟩)
+            .plain else .inert, rhsA⟩]) :: e₂.consts })
     (hstep : ∀ (cvTa cvCa : ConstantVal) (sorts : List Level) (e e' : Env)
       (i : Nat), EnvWF e →
       checkDirectProj (fueledOps mode F) p.cvT.name p.cvC.name p.cvT.levelParams
@@ -3377,10 +3377,10 @@ theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
   simp only [Bind.bind, Except.bind]
   have henv₃ := hwf₃ env₂ cvCa cvRa rhsA henv₂ hcv' hru'
   by_cases h1 : (List.range p.nF).all (fun j =>
-      (Env.find? ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      (Env.find? { env₂ with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-            .plain else .inert, rhsA⟩] :: env₂.consts⟩
+            .plain else .inert, rhsA⟩]) :: env₂.consts }
         (projFnName p.cvT.name j)).isNone) = true
   case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
   rw [if_pos h1] at h ⊢

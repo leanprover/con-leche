@@ -107,7 +107,7 @@ theorem projPhaseAcvalP_cons {T ctorName : Name} {nF : Nat}
     (hilt : i < nF)
     (A : (Name → Nat) → AVExpr)
     (hself : ∀ ψ : Name → Nat, A ψ = acval (projModelName T i) ψ) :
-    ProjPhaseAcvalP T ctorName nF ⟨c₀ :: env'.consts⟩
+    ProjPhaseAcvalP T ctorName nF { env' with consts := c₀ :: env'.consts }
       (acvalWith acval c₀.name A) := by
   -- the head's name differs from every name the invariant reads
   have hneP : ∀ n : Name, (env'.find? n).isSome = true →
@@ -122,7 +122,7 @@ theorem projPhaseAcvalP_cons {T ctorName : Name} {nF : Nat}
   have hne : ∀ n : Name, n ≠ projFnName T i → n ≠ c₀.name :=
     fun n hn hh => hn (by rw [hh, hname])
   have hdown : ∀ n : Name, n ≠ projFnName T i →
-      (Env.find? ⟨c₀ :: env'.consts⟩ n).isSome = true →
+      (Env.find? { env' with consts := c₀ :: env'.consts } n).isSome = true →
       (env'.find? n).isSome = true := by
     intro n hn hs
     rw [Env.find?_cons, if_neg (fun hh => hn (by rw [← hh, hname]))]

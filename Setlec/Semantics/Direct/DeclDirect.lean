@@ -86,8 +86,8 @@ theorem declDirectRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
       p.nP then Setlec.RecRuleFire.plain
     else Setlec.RecRuleFire.inert) = fire
   -- name the recursor-extended environment
-  generalize (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
-    [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩] :: envC.consts⟩ : Env)
+  generalize ({ envC with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+    [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩]) :: envC.consts } : Env)
     = env₃
   split
   · next hall =>

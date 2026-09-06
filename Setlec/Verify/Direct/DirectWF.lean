@@ -85,7 +85,7 @@ four type-slot facts; every value clause is refuted by the kind). -/
 theorem envWF_cons_ind {env : Env} (henv : EnvWF env)
     {cvA : ConstantVal} {caps : IndCaps} {F : Nat} {cv : ConstantVal}
     (hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA) :
-    EnvWF ⟨.indInfo cvA caps :: env.consts⟩ := by
+    EnvWF { env with consts := .indInfo cvA caps :: env.consts } := by
   obtain ⟨htf, htp, htr, htb⟩ := checkConstantVal_typeWF hccv
   exact EnvWF.cons henv (directConstWF htf htp
     (Expr.constsResolve_mono htr) htb
@@ -96,7 +96,7 @@ theorem envWF_cons_ind {env : Env} (henv : EnvWF env)
 theorem envWF_cons_ctor {env : Env} (henv : EnvWF env)
     {cvA : ConstantVal} {nP nF F : Nat} {cv : ConstantVal}
     (hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA) :
-    EnvWF ⟨.ctorInfo cvA nP nF :: env.consts⟩ := by
+    EnvWF { env with consts := .ctorInfo cvA nP nF :: env.consts } := by
   obtain ⟨htf, htp, htr, htb⟩ := checkConstantVal_typeWF hccv
   exact EnvWF.cons henv (directConstWF htf htp
     (Expr.constsResolve_mono htr) htb
@@ -180,10 +180,10 @@ theorem direct_rec_wf {env : Env} (henv : EnvWF env)
     {p : DirectParts} {cvCa cvRa : ConstantVal} {rhsA : Expr} {F G : Nat}
     (hcv : checkConstantVal (fueledOps mode F) env p.cvR = .ok cvRa)
     (hru : checkDirectRule (fueledOps mode G) env p cvCa cvRa = .ok rhsA) :
-    EnvWF ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+    EnvWF { env with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-          .plain else .inert, rhsA⟩] :: env.consts⟩ := by
+          .plain else .inert, rhsA⟩]) :: env.consts } := by
   obtain ⟨htf, htp, htr, htb⟩ := checkConstantVal_typeWF hcv
   obtain ⟨hrfv, hrlp, hrres, hrbv⟩ := checkDirectRule_facts hru
   refine EnvWF.cons henv (directConstWF htf htp
@@ -207,8 +207,8 @@ theorem checkDirectProjEntry_facts {env envOut : Env} {T C : Name}
     (h : checkDirectProjEntry (fueledOps mode F) T C lps nP nF rs guard cvCa
       pty env i = .ok envOut) :
     ∃ ptyA : Expr,
-      envOut = ⟨.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, rs,
-        true, false, true⟩ :: env.consts⟩ ∧
+      envOut = { env with consts := (.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, rs,
+        true, false, true⟩) :: env.consts } ∧
       ptyA.hasFvar = false ∧
       ptyA.allLevelParamsDefined lps = true ∧
       ptyA.constsResolve env = true ∧

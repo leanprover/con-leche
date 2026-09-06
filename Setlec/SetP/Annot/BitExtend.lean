@@ -186,7 +186,7 @@ def LitGuardsMono (env₀ env : Env) : Prop :=
 /-- Free at every fresh cons, of any kind. -/
 theorem litGuardsMono_cons {env : Env} {c₀ : Setlec.ConstantInfo}
     (hfresh : env.find? c₀.name = none) :
-    LitGuardsMono env ⟨c₀ :: env.consts⟩ :=
+    LitGuardsMono env { env with consts := c₀ :: env.consts } :=
   ⟨natLitSupported_cons hfresh, strLitSupported_cons hfresh⟩
 
 /-- **The monotone crossing**: a successful prefix reading is

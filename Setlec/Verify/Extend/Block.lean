@@ -54,7 +54,7 @@ theorem BlockInstalledTT.step {blockNames : List Name} {env' : Env}
       cvm.type = true)
     (hval₁ : ∀ ψ, cval₁ ci₁.name ψ = cval (ci₁.name.str "_model") ψ)
     (hpres₁ : ∀ n ψ, n ≠ ci₁.name → cval₁ n ψ = cval n ψ) :
-    BlockInstalledTT blockNames ⟨ci₁ :: env'.consts⟩ cval₁ := by
+    BlockInstalledTT blockNames { env' with consts := ci₁ :: env'.consts } cval₁ := by
   intro n hbn ci₂ hf₂
   rw [Env.find?_cons] at hf₂
   split at hf₂
@@ -87,7 +87,7 @@ theorem BlockInstalledTT.fresh_cons {blockNames : List Name} {env' : Env}
     (hnotb : blockNames.contains c₀.name = false)
     (hfresh : env'.find? c₀.name = none)
     (hpres : ∀ n ψ, n ≠ c₀.name → cval₁ n ψ = cval n ψ) :
-    BlockInstalledTT blockNames ⟨c₀ :: env'.consts⟩ cval₁ := by
+    BlockInstalledTT blockNames { env' with consts := c₀ :: env'.consts } cval₁ := by
   intro n hbn ci₂ hf₂
   rw [Env.find?_cons] at hf₂
   split at hf₂

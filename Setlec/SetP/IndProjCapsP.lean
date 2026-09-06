@@ -62,9 +62,9 @@ theorem projEtaSplit {c₀ : ConstantInfo} {T₀ : Name} {i : Nat}
     (hc₀name : c₀.name = Setlec.projFnName T₀ i)
     (hc₀rec : ∃ cv mI rP rules, c₀ = .recInfo cv mI rP rules)
     {T : Name} {cvT : ConstantVal} {caps : IndCaps}
-    (hfT : (⟨c₀ :: env.consts⟩ : Env).find? T
+    (hfT : ({ env with consts := c₀ :: env.consts } : Env).find? T
       = some (.indInfo cvT caps))
-    (hfam : Setlec.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps) :
+    (hfam : Setlec.EtaFamilyStored { env with consts := c₀ :: env.consts } T caps) :
     (env.find? T = some (.indInfo cvT caps) ∧
         Setlec.EtaFamilyStored env T caps ∧
         T ≠ c₀.name ∧ caps.etaCtor ≠ c₀.name ∧
@@ -72,7 +72,7 @@ theorem projEtaSplit {c₀ : ConstantInfo} {T₀ : Name} {i : Nat}
       (T = T₀ ∧ i < caps.etaFields) := by
   obtain ⟨cvr, mIr, rPr, rulesr, hc₀eq⟩ := hc₀rec
   have hdown : ∀ n : Name, n ≠ c₀.name →
-      (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
+      ({ env with consts := c₀ :: env.consts } : Env).find? n = env.find? n := by
     intro n hn
     rw [Setlec.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
   -- the former is not the cons: the cons is a `recInfo`
@@ -124,14 +124,14 @@ theorem capsOkP_cons_proj (mp : EnvS2PM V μ env)
     (hfresh : env.find? c₀.name = none)
     (hc₀name : c₀.name = Setlec.projFnName T₀ i)
     (hc₀rec : ∃ cv mI rP rules, c₀ = .recInfo cv mI rP rules)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     -- the one live row: the family this cons completes
     (hcomplete : ∀ (cvT : ConstantVal) (caps : IndCaps),
-      (⟨c₀ :: env.consts⟩ : Env).find? T₀ = some (.indInfo cvT caps) →
+      ({ env with consts := c₀ :: env.consts } : Env).find? T₀ = some (.indInfo cvT caps) →
       caps.eta = true → i < caps.etaFields →
       Setlec.reservedBasisNames.contains T₀ = false →
-      Setlec.EtaFamilyStored ⟨c₀ :: env.consts⟩ T₀ caps →
+      Setlec.EtaFamilyStored { env with consts := c₀ :: env.consts } T₀ caps →
       ∀ φ' : Name → Nat, EtaLawP m₂ φ' T₀ cvT caps) :
     CapsOkP m₂ := by
   have hnotind : ∀ cv caps, c₀ ≠ .indInfo cv caps := by

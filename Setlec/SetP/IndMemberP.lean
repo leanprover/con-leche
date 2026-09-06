@@ -158,7 +158,7 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
     -- the extended store's well-formedness (`memberInstallInv`'s
     -- first conclusion; task #161 S7 — this is all the v1 install
     -- ever supplied here)
-    (hwf : EnvWF ⟨c₀ :: env.consts⟩)
+    (hwf : EnvWF { env with consts := c₀ :: env.consts })
     -- the member's key at the prefix (`memberKeyP`)
     (hkeyP : ∀ ψ : Name → Nat, ∃ ta,
       denoteP mp.base2.acval env ψ 0 cvA.type = some ta ∧
@@ -167,11 +167,11 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
         interp2 V ρ (mp.base2.acval (cvA.name.str "_model") ψ)
           ∈ˢ interp2 V ρ ta)
     -- the block fold's row
-    (hcaps : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+    (hcaps : ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
       m₂.acval = acvalWith mp.base2.acval cvA.name
         (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) →
       CapsOkP m₂) :
-    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+    ∃ mp' : EnvS2PM V μ { env with consts := c₀ :: env.consts },
       mp'.base2.acval = acvalWith mp.base2.acval cvA.name
         (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) := by
   -- the three kinds share a constant value and a name
@@ -197,7 +197,7 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
       denoteP mp.base2.acval env ψ 0 cvA.type = some ta →
       denoteP (acvalWith mp.base2.acval c₀.name
           (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ))
-        ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta := by
+        { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta := by
     intro ψ ta h
     rw [hcvA]
     exact denoteP_cons_fresh_mono hfresh'

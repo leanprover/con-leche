@@ -167,7 +167,7 @@ theorem provisionRecsRunRS
         intro h
         dsimp only at h
         cases hrest : provisionRecs (m := CheckM) (fueledOps μ F)
-            blockNames ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩
+            blockNames { envAcc with consts := .recInfo cvA mI rP [] :: envAcc.consts }
             rest with
         | error e => rw [hrest] at h; exact nomatch h
         | ok p =>
@@ -390,7 +390,7 @@ where
             envBase envSelf
             (fun n => if blockNames.contains n then n.str "_model" else n)
             c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
-          pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env))
+          pure ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts } : Env))
           acc = .ok env₃ →
         IndRecsRun.IndRecsFoldRun μ F blockNames envBase envSelf acc
           checked env₃ := by

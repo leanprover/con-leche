@@ -343,7 +343,7 @@ abbrev Memo0 := Std.HashMap ExprC ExprC
 
 /-- Core of `instantiateLevelParams` (memoized; nodes without a level
 parameter are returned unchanged — the arena's `eparamBs` cutoff). -/
-def instLevelParamsGo (ks : List Name) (us : List Level)
+def instLevelParamsGo (ks : List Name) (us : List Level) (ms : List PropWhen)
     (memo : Memo0) (e : ExprC) : ExprC × Memo0 :=
   if !e.hasLP then (e, memo) else
   match memo[e]? with
@@ -355,33 +355,34 @@ def instLevelParamsGo (ks : List Name) (us : List Level)
       | .sort u .. => (mkSort (Level.subst ks us u), memo)
       | .const n vs .. => (mkConst n (vs.map (Level.subst ks us)), memo)
       | .fvar idx n ty .. =>
-        let (t, memo) := instLevelParamsGo ks us memo ty
+        let (t, memo) := instLevelParamsGo ks us ms memo ty
         (mkFVar idx n t, memo)
       | .app f a .. =>
-        let (f', memo) := instLevelParamsGo ks us memo f
-        let (a', memo) := instLevelParamsGo ks us memo a
+        let (f', memo) := instLevelParamsGo ks us ms memo f
+        let (a', memo) := instLevelParamsGo ks us ms memo a
         (mkApp f' a', memo)
       | .lam n ty body m .. =>
-        let (ty', memo) := instLevelParamsGo ks us memo ty
-        let (b', memo) := instLevelParamsGo ks us memo body
-        (mkLam n ty' b' ⟨m.bi, Level.substPW ks us m.pw⟩, memo)
+        let (ty', memo) := instLevelParamsGo ks us ms memo ty
+        let (b', memo) := instLevelParamsGo ks us ms memo body
+        (mkLam n ty' b' ⟨m.bi, Level.substPW ms m.pw⟩, memo)
       | .forallE n ty body m .. =>
-        let (ty', memo) := instLevelParamsGo ks us memo ty
-        let (b', memo) := instLevelParamsGo ks us memo body
-        (mkForallE n ty' b' ⟨m.bi, Level.substPW ks us m.pw⟩, memo)
+        let (ty', memo) := instLevelParamsGo ks us ms memo ty
+        let (b', memo) := instLevelParamsGo ks us ms memo body
+        (mkForallE n ty' b' ⟨m.bi, Level.substPW ms m.pw⟩, memo)
       | .letE n ty val body .. =>
-        let (ty', memo) := instLevelParamsGo ks us memo ty
-        let (v', memo) := instLevelParamsGo ks us memo val
-        let (b', memo) := instLevelParamsGo ks us memo body
+        let (ty', memo) := instLevelParamsGo ks us ms memo ty
+        let (v', memo) := instLevelParamsGo ks us ms memo val
+        let (b', memo) := instLevelParamsGo ks us ms memo body
         (mkLetE n ty' v' b', memo)
       | .proj s i sub .. =>
-        let (s', memo) := instLevelParamsGo ks us memo sub
+        let (s', memo) := instLevelParamsGo ks us ms memo sub
         (mkProj s i s', memo)
     (r, memo.insert e r)
 
 /-- `Expr.instantiateLevelParams` on `ExprC`. -/
-def instLevelParams (ks : List Name) (us : List Level) (e : ExprC) : ExprC :=
-  if !e.hasLP then e else (instLevelParamsGo ks us {} e).1
+def instLevelParams (ks : List Name) (us : List Level) (ms : List PropWhen)
+    (e : ExprC) : ExprC :=
+  if !e.hasLP then e else (instLevelParamsGo ks us ms {} e).1
 
 /-! ## Scope queries -/
 
@@ -571,7 +572,7 @@ def allLevelParamsDefinedGo (params : List Name)
         let (rt, memo) := allLevelParamsDefinedGo params memo ty
         if rt then
           let (rb, memo) := allLevelParamsDefinedGo params memo body
-          (rb && m.pw.paramsDefined params, memo)
+          (rb && m.pw.paramsDefined params.length, memo)
         else (false, memo)
       | .letE _ ty val body .. =>
         let (rt, memo) := allLevelParamsDefinedGo params memo ty

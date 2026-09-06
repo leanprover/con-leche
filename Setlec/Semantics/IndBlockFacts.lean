@@ -112,10 +112,10 @@ theorem etaMemberData_step {μ : CheckMode} {blockNames : List Name}
       (caps.eta = true → blockNames.contains caps.etaCtor = true) ∧
       (caps.eta = true → 0 < caps.etaFields →
         env.find? (projFnName n 0) = none)) :
-    EtaPins μ ⟨c₀ :: env.consts⟩ n lps caps ∧
+    EtaPins μ { env with consts := c₀ :: env.consts } n lps caps ∧
       (caps.eta = true → blockNames.contains caps.etaCtor = true) ∧
       (caps.eta = true → 0 < caps.etaFields →
-        (⟨c₀ :: env.consts⟩ : Env).find? (projFnName n 0) = none) :=
+        ({ env with consts := c₀ :: env.consts } : Env).find? (projFnName n 0) = none) :=
   ⟨EtaPins.step h.1 hfresh, h.2.1, fun he hlt => by
     rw [Env.find?_cons, if_neg (fun hh =>
       projFnName_ne_of_shape (T := n) (j := 0) hshape hh.symm)]

@@ -80,14 +80,14 @@ theorem EnvFacts.consBlockMember {env : Env} (m : EnvFacts env)
     (hc₀cv : c₀.toConstantVal = cvA) (hc₀name : c₀.name = cvA.name)
     (hkind : BlockMemberKind c₀ cvA)
     (hfresh : env.find? cvA.name = none)
-    (hwf : EnvWF ⟨c₀ :: env.consts⟩)
+    (hwf : EnvWF { env with consts := c₀ :: env.consts })
     {cvm : ConstantVal} {mval : Expr} {hint : ReducibilityHint}
     (hmE : env.find? (cvA.name.str "_model")
       = some (.defnInfo cvm mval hint))
     (hmlps : cvm.levelParams = cvA.levelParams)
     (hty : ∀ ψ : Name → Nat,
       ∃ t, denoteClosed m.cval env ψ cvA.type = some t) :
-    ∃ m₁ : EnvFacts ⟨c₀ :: env.consts⟩,
+    ∃ m₁ : EnvFacts { env with consts := c₀ :: env.consts },
       m₁.cval = cvalModeled m.cval cvA.name := by
   have hfresh' : env.find? c₀.name = none := by rw [hc₀name]; exact hfresh
   have hne := name_ne_of_mem_of_fresh hfresh'
@@ -122,7 +122,7 @@ theorem EnvFacts.consBlockMember {env : Env} (m : EnvFacts env)
     rw [hc₀cv]
   -- the two shapes of a lookup in the extended store
   have hdown : ∀ (n : Name) (ci : ConstantInfo),
-      (⟨c₀ :: env.consts⟩ : Env).find? n = some ci →
+      ({ env with consts := c₀ :: env.consts } : Env).find? n = some ci →
       (n = c₀.name ∧ ci = c₀) ∨
         (n ≠ c₀.name ∧ env.find? n = some ci) := by
     intro n ci hf
@@ -243,11 +243,11 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
     (hBP : BlockEtaPinned μ blockNames env)
     (hc₀cv : c₀.toConstantVal = cvA) (hc₀name : c₀.name = cvA.name)
     (hkind : BlockMemberKind c₀ cvA) :
-    EnvWF ⟨c₀ :: env.consts⟩ ∧
-      BlockInstalledTT blockNames ⟨c₀ :: env.consts⟩
+    EnvWF { env with consts := c₀ :: env.consts } ∧
+      BlockInstalledTT blockNames { env with consts := c₀ :: env.consts }
         (cvalModeled cval cvA.name) ∧
-      EtaFamiliesClosedO blockNames ⟨c₀ :: env.consts⟩ ∧
-      BlockEtaPinned μ blockNames ⟨c₀ :: env.consts⟩ := by
+      EtaFamiliesClosedO blockNames { env with consts := c₀ :: env.consts } ∧
+      BlockEtaPinned μ blockNames { env with consts := c₀ :: env.consts } := by
   obtain ⟨type', hcv, hcvA, hms, cvm, mval, hint, hmE, hmlps, hren⟩ :=
     id hmv
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr, -⟩ :=
@@ -259,7 +259,7 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
   have hfreshA : env.find? cvA.name = none := by
     rw [hnameA]
     exact Option.isNone_iff_eq_none.mp hfind
-  have hwf : EnvWF ⟨c₀ :: env.consts⟩ := by
+  have hwf : EnvWF { env with consts := c₀ :: env.consts } := by
     refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · rw [hc₀cv, htypeA]; exact htf'
     · rw [hc₀cv, htypeA, hlpsA]; exact htp
@@ -346,7 +346,7 @@ theorem projPhaseInvS_cons {T ctorName : Name} {nF : Nat} {env' : Env}
     (hself : ∀ ψ : Name → Nat,
       cval₀ (projFnName T i) ψ = cval (projModelName T i) ψ)
     (hag : ∀ n, n ≠ projFnName T i → cval n = cval₀ n) :
-    ProjPhaseInvS T ctorName nF ⟨c₀ :: env'.consts⟩ cval₀ := by
+    ProjPhaseInvS T ctorName nF { env' with consts := c₀ :: env'.consts } cval₀ := by
   have hname : c₀.name = projFnName T i := by
     rw [show c₀.name = c₀.toConstantVal.name from rfl, hcvA]
   -- the head's name differs from every name the invariant reads
@@ -363,14 +363,14 @@ theorem projPhaseInvS_cons {T ctorName : Name} {nF : Nat} {env' : Env}
   have hmodelNe : ∀ (j : Nat), ¬c₀.name = projModelName T j :=
     fun j hh => hmodelNeP j (by rw [← hh, hname])
   have hdown : ∀ (n : Name) (ci : ConstantInfo),
-      Env.find? ⟨c₀ :: env'.consts⟩ n = some ci → ¬c₀.name = n →
+      Env.find? { env' with consts := c₀ :: env'.consts } n = some ci → ¬c₀.name = n →
       env'.find? n = some ci := by
     intro n ci hf hn
     rw [Env.find?_cons, if_neg hn] at hf
     exact hf
   have hup : ∀ (n : Name) (ci : ConstantInfo),
       env'.find? n = some ci → ¬c₀.name = n →
-      Env.find? ⟨c₀ :: env'.consts⟩ n = some ci := by
+      Env.find? { env' with consts := c₀ :: env'.consts } n = some ci := by
     intro n ci hf hn
     rw [Env.find?_cons, if_neg hn]
     exact hf

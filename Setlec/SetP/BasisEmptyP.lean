@@ -67,7 +67,7 @@ variable {μ : CheckMode} {env : Env}
 former has no binder, so there is no numeral to disagree about). -/
 theorem denoteP_emptyA_type
     {acval : Name → (Name → Nat) → AVExpr} (ψ : Name → Nat) :
-    denoteP acval ⟨emptyA :: env.consts⟩ ψ 0 emptyA.toConstantVal.type
+    denoteP acval { env with consts := emptyA :: env.consts } ψ 0 emptyA.toConstantVal.type
       = some (BConst.type2 .empty [1]) := by
   rw [show emptyA.toConstantVal.type = Expr.sort (.succ .zero) from rfl,
     denoteP_sort]
@@ -76,8 +76,8 @@ theorem denoteP_emptyA_type
 /-- **`Empty`, installed at the P tier.** -/
 theorem extendEmptyP (mp : EnvS2PM V μ env)
     (hfresh : env.find? emptyName = none)
-    (hwf : EnvWF ⟨emptyA :: env.consts⟩) :
-    Nonempty (EnvS2PM V μ ⟨emptyA :: env.consts⟩) := by
+    (hwf : EnvWF { env with consts := emptyA :: env.consts }) :
+    Nonempty (EnvS2PM V μ { env with consts := emptyA :: env.consts }) := by
   refine nonempty_of_exists (declStepPM_of_basis_cons mp
     (A := fun _ => AVExpr.const .empty [1]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
@@ -163,7 +163,7 @@ theorem denoteP_emptyRecA_type {m : EnvS2Core V env}
     {A : (Name → Nat) → AVExpr} (ψ : Name → Nat)
     (hE : env.find? emptyName = some emptyA) :
     denoteP (acvalWith m.acval emptyRecA.name A)
-        ⟨emptyRecA :: env.consts⟩ ψ 0 emptyRecA.toConstantVal.type
+        { env with consts := emptyRecA :: env.consts } ψ 0 emptyRecA.toConstantVal.type
       = some (.pi 0 (pwBit ψ (.ifAllZero [uN]))
           (.pi 0 (pwBit ψ .never) (.const .empty [1]) (.sort (ψ uN)))
           (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .empty [1])
@@ -177,10 +177,10 @@ theorem denoteP_emptyRecA_type {m : EnvS2Core V env}
     exact acval_basis_pinned hE (by decide) hpd
   have hEc : ∀ d : Nat,
       denoteP (acvalWith m.acval emptyRecA.name A)
-          ⟨emptyRecA :: env.consts⟩ ψ d (.const emptyName [])
+          { env with consts := emptyRecA :: env.consts } ψ d (.const emptyName [])
         = some (AVExpr.const .empty [1]) := by
     intro d
-    have hf : (⟨emptyRecA :: env.consts⟩ : Env).find? emptyName
+    have hf : ({ env with consts := emptyRecA :: env.consts } : Env).find? emptyName
         = some emptyA := by
       rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hE
     rw [denoteP_levelless_const hf (by rfl), hleaf]
@@ -217,8 +217,8 @@ theorem bitAgree_emptyRecA (ψ : Name → Nat) :
 theorem extendEmptyRecP (mp : EnvS2PM V μ env)
     (hE : env.find? emptyName = some emptyA)
     (hfresh : env.find? emptyRecA.name = none)
-    (hwf : EnvWF ⟨emptyRecA :: env.consts⟩) :
-    Nonempty (EnvS2PM V μ ⟨emptyRecA :: env.consts⟩) := by
+    (hwf : EnvWF { env with consts := emptyRecA :: env.consts }) :
+    Nonempty (EnvS2PM V μ { env with consts := emptyRecA :: env.consts }) := by
   have hty := fun ψ =>
     denoteP_emptyRecA_type (m := mp.base2)
       (A := fun ψ => AVExpr.const .emptyRec [1, ψ uN]) ψ hE
@@ -272,17 +272,17 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
   subst hnil
   have hf1 : env.find? emptyA.name = none :=
     Option.isNone_iff_eq_none.mp h1
-  have hwf1 : EnvWF ⟨emptyA :: env.consts⟩ :=
+  have hwf1 : EnvWF { env with consts := emptyA :: env.consts } :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq)⟩
   obtain ⟨mp1⟩ := extendEmptyP mp hf1 hwf1
-  have hE : (⟨emptyA :: env.consts⟩ : Env).find? emptyName
+  have hE : ({ env with consts := emptyA :: env.consts } : Env).find? emptyName
       = some emptyA := by
     rw [Setlec.Env.find?_cons]; exact if_pos rfl
-  have hf2 : (⟨emptyA :: env.consts⟩ : Env).find? emptyRecA.name
+  have hf2 : ({ env with consts := emptyA :: env.consts } : Env).find? emptyRecA.name
       = none := Option.isNone_iff_eq_none.mp h2
-  have hwf2 : EnvWF ⟨emptyRecA :: emptyA :: env.consts⟩ := by
+  have hwf2 : EnvWF { env with consts := emptyRecA :: emptyA :: env.consts } := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq),
       (fun _ _ _ _ heq => by
@@ -300,7 +300,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
               { bi := .default, pw := .ifAllZero [uN] })
             { bi := .default, pw := .ifAllZero [uN] } from rfl,
       Expr.constsResolve, Bool.and_eq_true, Option.isSome_iff_exists]
-    have hf : (⟨emptyRecA :: emptyA :: env.consts⟩ : Env).find?
+    have hf : ({ env with consts := emptyRecA :: emptyA :: env.consts } : Env).find?
         emptyName = some emptyA := by
       rw [Setlec.Env.find?_cons, if_neg (by decide)]
       exact hE

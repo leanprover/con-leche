@@ -117,7 +117,7 @@ def checkDirectInd (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     (.notImplemented "direct structure: type former telescope")
   unless tbody == Expr.sort p.resSort do
     throw (.notImplemented "direct structure: type former result sort")
-  pure (⟨.indInfo cvTa (directCaps p) :: env.consts⟩, cvTa)
+  pure ({ env with consts := .indInfo cvTa (directCaps p) :: env.consts }, cvTa)
 
 /-- Stage 2: the constructor — the ordinary constant check, the
 annotated result shape, and the per-field universe bound.
@@ -163,7 +163,7 @@ def checkDirectCtor (ops : CheckerOps m) (env₀ env : Env) (p : DirectParts)
   -- propositional structure's model is the squash, which needs none)
   let sorts ← checkDirectFieldSorts ops env p.isProp p.large p.resSort p.nP
     xq.1 p.nF
-  pure (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa, sorts)
+  pure ({ env with consts := .ctorInfo cvCa p.nP p.nF :: env.consts }, cvCa, sorts)
 
 /-- Stage 3: the recursor's type is the generated shape.  The skeleton
 (motive dependent over the family, one minor over the constructor's
@@ -184,8 +184,12 @@ def checkDirectRecTy (ops : CheckerOps m) (env : Env) (p : DirectParts)
   let ps := fvsP.take p.nP
   let famApp := Expr.mkAppN (.const T (lps.map .param)) ps
   -- the parameters: definitionally the constructor's parameter domains,
-  -- domain `j` at frame `j`
-  let (cdomsP, crest) ← unwrapOr (Expr.instPisAt ps cvCa.type)
+  -- domain `j` at frame `j`.  The constructor type was annotated in
+  -- the TYPE's universe context; the recursor's prepends the motive
+  -- universe, so the positional data are remapped (`Expr.remapPW`)
+  -- before the term is read in the recursor's context.
+  let cvCTy := cvCa.type.remapPW lps cvRa.levelParams
+  let (cdomsP, crest) ← unwrapOr (Expr.instPisAt ps cvCTy)
     (.notImplemented "direct structure: constructor telescope")
   checkDirectDomsAt ops env 0 ps cdomsP p.nP
   -- the motive: `∀ (t : T p⃗), Sort elim`
@@ -244,7 +248,9 @@ def checkDirectRule (ops : CheckerOps m) (env : Env) (p : DirectParts)
   let depth := p.nP + 2 + p.nF
   let (fvsP, _) ← unwrapOr (openPisAtFvars (p.nP + 2) cvRa.type 0)
     (.notImplemented "direct structure: recursor telescope")
-  let (_, crest) ← unwrapOr (Expr.instPisAt (fvsP.take p.nP) cvCa.type)
+  -- remapped into the recursor's context, as in `checkDirectRecTy`
+  let cvCTy := cvCa.type.remapPW p.cvT.levelParams cvRa.levelParams
+  let (_, crest) ← unwrapOr (Expr.instPisAt (fvsP.take p.nP) cvCTy)
     (.notImplemented "direct structure: constructor telescope")
   -- The frame is the **rule tower's own** (`ruleLhsParts`): the
   -- constructor's field telescope opened at the rule prefix, not the
@@ -284,8 +290,8 @@ def checkDirectProjEntry (ops : CheckerOps m) (T C : Name) (lps : List Name)
   -- the guard's zeroing instantiation (`directGuardSigma`): the
   -- entry's type is validated where the entry is usable
   let σ := directGuardSigma resSort lps guard
-  let ptyσ := pty.instantiateLevelParams lps σ
-  let ctyσ := cvCa.type.instantiateLevelParams lps σ
+  let ptyσ := pty.instantiateLevelParams lps σ (Level.masksOf lps σ)
+  let ctyσ := cvCa.type.instantiateLevelParams lps σ (Level.masksOf lps σ)
   let ptyA ← ops.annotate env 0 ptyσ
   unless ptyA.allLevelParamsDefined lps && ptyA.constsResolve env &&
       ptyA.looseBVarsBounded 0 && !ptyA.hasFvar do
@@ -342,8 +348,8 @@ def checkDirectProjEntry (ops : CheckerOps m) (T C : Name) (lps : List Name)
   -- the entry's `fieldSort` slot carries the projection's `Prop`
   -- guard level (`directProjGuards`), the datum the tower infer
   -- branch checks at every use of a `Prop`-declared structure
-  pure ⟨.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, resSort,
-    true, false, true⟩ :: env.consts⟩
+  pure { env with consts := (.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, resSort,
+    true, false, true⟩) :: env.consts }
 
 /-- The projection slot for field `i` (task #175 W4c/O4): the entry
 decision `slots` (`directProjSlots`, a function of the block's raw
@@ -366,8 +372,8 @@ def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
       -- field's projections decline at their own sites
       unless (env.find? (projFnName T i)).isNone do
         throw (.invalid "projection name taken")
-      pure ⟨.projInfo (directInertEntry T i lps nP C nF (guards.getD i .zero) resSort)
-        :: env.consts⟩
+      pure { env with consts := (.projInfo (directInertEntry T i lps nP C nF (guards.getD i .zero) resSort)
+       ) :: env.consts }
   else pure env
 
 /-- Check and install a **direct simple structure** (task #82): the
@@ -383,23 +389,28 @@ happened in `directParts?`; everything here is a genuine check of the
 declaration, so a failure is a verdict, not a fall-through. -/
 def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     m Env := do
-  let (env₁, cvTa) ← checkDirectInd ops env p
+  let envT ← enterCtx env p.cvT.levelParams
+  let (env₁, cvTa) ← checkDirectInd ops envT p
+  let env₁ ← enterCtx env₁ p.cvC.levelParams
   let (env₂, cvCa, sorts) ← checkDirectCtor ops env env₁ p cvTa
+  let env₂ ← enterCtx env₂ p.cvR.levelParams
   let cvRa ← checkConstantVal ops env₂ p.cvR
   checkDirectRecTy ops env₂ p cvTa cvCa cvRa
   let rhsA ← checkDirectRule ops env₂ p cvCa cvRa
   let env₃ : Env :=
-    ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+    { env₂ with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
           .plain else .inert,
-        rhsA⟩] :: env₂.consts⟩
+        rhsA⟩]) :: env₂.consts }
   unless (List.range p.nF).all
       (fun j => (env₃.find? (projFnName p.cvT.name j)).isNone) do
     throw (.invalid "projection name family taken")
   (List.range p.nF).foldlM
-    (checkDirectProj ops p.cvT.name p.cvC.name p.cvT.levelParams
-      p.nP p.nF p.resSort (directProjSlots p)
-      (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa) env₃
+    (fun env i => do
+      let env ← enterCtx env p.cvT.levelParams
+      checkDirectProj ops p.cvT.name p.cvC.name p.cvT.levelParams
+        p.nP p.nF p.resSort (directProjSlots p)
+        (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa env i) env₃
 
 end Setlec

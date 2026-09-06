@@ -231,7 +231,7 @@ theorem CtorData.cross {m : EnvS2Core V env} {T : Name} {cvC : ConstantVal}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none) (hT : T ≠ c₀.name)
     (hat : ConsCrossAt c₀ cvC.type) (hcb : ConstsBound env cvC.type)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     CtorData m₂ T cvC nP nF resSort ds := by
   have hbody : ∀ ψ, ctorBodyAV m₂ T nP nF ψ = ctorBodyAV m T nP nF ψ := by

@@ -168,13 +168,13 @@ theorem divModP_entry_cons {m : EnvS2Core V env} {φ : Name → Nat}
     (hprev : DivModP m φ)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith m.acval c₀.name A)
     {c : Name} (hcN : c ∈ Setlec.natDivModNames) (hne : c ≠ c₀.name)
     {cv' : ConstantVal} {v' : Expr} {hint' : ReducibilityHint}
-    (hf₂ : (⟨c₀ :: env.consts⟩ : Env).find? c
+    (hf₂ : ({ env with consts := c₀ :: env.consts } : Env).find? c
       = some (.defnInfo cv' v' hint')) :
-    natOpGuard (⟨c₀ :: env.consts⟩ : Env) c = true ∧
+    natOpGuard ({ env with consts := c₀ :: env.consts } : Env) c = true ∧
     ∀ (ρ : Nat → V) (x y : V),
       x ∈ˢ interp2 V ρ (m₂.acval Setlec.natName φ) →
       y ∈ˢ interp2 V ρ (m₂.acval Setlec.natName φ) →
@@ -212,7 +212,7 @@ theorem divModP_cons_fresh {m : EnvS2Core V env} {φ : Name → Nat}
     (hfresh : env.find? c₀.name = none)
     (hnothead : (∀ cv v hint, c₀ ≠ .defnInfo cv v hint) ∨
       c₀.name ∉ Setlec.natDivModNames)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     DivModP m₂ φ := by
   intro c hcN cv' v' hint' hf₂
@@ -238,7 +238,7 @@ theorem eqLawP_cons_fresh {m : EnvS2Core V env}
     (hprev : EqLawP m)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hne : eqName ≠ c₀.name)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     EqLawP m₂ := by
   intro hfind ψ
@@ -259,7 +259,7 @@ theorem eqLawP_cons_valueKind {m : EnvS2Core V env}
     (hprev : EqLawP m)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hnotind : ∀ cv caps, c₀ ≠ .indInfo cv caps)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     EqLawP m₂ := by
   by_cases hn : eqName = c₀.name
@@ -290,13 +290,13 @@ theorem reduceOpsP_entry_cons {m : EnvS2Core V env}
     (hprev : ReduceOpsP m)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith m.acval c₀.name A)
     {c : Name} (hcN : c ∈ Setlec.reduceOpNames) (hne : c ≠ c₀.name)
     {cv : ConstantVal}
-    (hf₂ : (⟨c₀ :: env.consts⟩ : Env).find? c = some (.axiomInfo cv))
+    (hf₂ : ({ env with consts := c₀ :: env.consts } : Env).find? c = some (.axiomInfo cv))
     (hpin : ConstantVal.matchesPin cv (Setlec.reduceOpCvA c) = true) :
-    ((⟨c₀ :: env.consts⟩ : Env).find?
+    (({ env with consts := c₀ :: env.consts } : Env).find?
         (Setlec.reduceElemName c)).isSome = true ∧
       ∀ (ψ : Name → Nat) (ρ : Nat → V) (x : V),
         x ∈ˢ interp2 V ρ (m₂.acval (Setlec.reduceElemName c) ψ) →
@@ -338,7 +338,7 @@ theorem reduceOpsP_cons_fresh {m : EnvS2Core V env}
     (hfresh : env.find? c₀.name = none)
     (hnothead : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
       c₀.name ∉ Setlec.reduceOpNames)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     ReduceOpsP m₂ := by
   intro c hcN cv hf₂ hpin

@@ -233,7 +233,7 @@ theorem acvalWith_params {acval : Name → (Name → Nat) → AVExpr}
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
       A ψ₁ = A ψ₂) :
     ∀ (m : Name) (ci : Setlec.ConstantInfo),
-      (⟨c₀ :: env.consts⟩ : Env).find? m = some ci →
+      ({ env with consts := c₀ :: env.consts } : Env).find? m = some ci →
       ∀ ψ₁ ψ₂ : Name → Nat,
         (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
         acvalWith acval c₀.name A m ψ₁

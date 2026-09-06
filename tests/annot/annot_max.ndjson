@@ -10,8 +10,8 @@
 {"ie":0,"sort":3}
 {"ie":1,"bvar":0}
 {"ie":2,"bvar":1}
-{"ie":3,"forallE":{"binderInfo":"default","name":4,"type":1,"body":2,"pw":[1,2]}}
-{"ie":4,"forallE":{"binderInfo":"default","name":3,"type":0,"body":3,"pw":[1,2]}}
-{"ie":5,"lam":{"binderInfo":"default","name":4,"type":1,"body":1,"pw":[2,1]}}
-{"ie":6,"lam":{"binderInfo":"default","name":3,"type":0,"body":5,"pw":[2,1]}}
+{"ie":3,"forallE":{"binderInfo":"default","name":4,"type":1,"body":2}}
+{"ie":4,"forallE":{"binderInfo":"default","name":3,"type":0,"body":3}}
+{"ie":5,"lam":{"binderInfo":"default","name":4,"type":1,"body":1}}
+{"ie":6,"lam":{"binderInfo":"default","name":3,"type":0,"body":5}}
 {"def":{"name":5,"levelParams":[1,2],"type":4,"value":6,"safety":"safe"}}

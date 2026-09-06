@@ -61,7 +61,7 @@ def BasisInstallRun (env : Env) : List ConstantInfo → Env → Prop
   | [], env₂ => env₂ = env
   | ci :: rest, env₂ =>
     (env.find? ci.name).isNone = true ∧
-    BasisInstallRun ⟨ci :: env.consts⟩ rest env₂
+    BasisInstallRun { env with consts := ci :: env.consts } rest env₂
 
 /-- A pinned basis block (design §1.5, `basis` row): side conditions
 only — the pinned declarations are pre-annotated, and their semantic
@@ -138,7 +138,7 @@ def Templates (T ctorName : Name) (lps : List Name) (nP nF : Nat) :
          -- needs
          entry.levelParams = lps ∧ entry.ty = .sort .zero ∧
          (env'.find? (projFnName T i)).isNone = true ∧
-         env'' = ⟨.projInfo entry :: env'.consts⟩) ∧
+         env'' = { env' with consts := .projInfo entry :: env'.consts }) ∧
       Templates T ctorName lps nP nF env'' rest env₂
 
 end DeclIndRun
@@ -187,11 +187,11 @@ def DeclDirectRun (μ : CheckMode) (F : Nat) (env : Env)
     checkDirectRule (m := Setlec.CheckM) (fueledOps μ F) envC p
       cvCa cvRa = .ok rhsA ∧
     (let env₃ : Env :=
-      ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      { envC with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
             .plain else .inert,
-          rhsA⟩] :: envC.consts⟩
+          rhsA⟩]) :: envC.consts }
      (List.range p.nF).all
         (fun j => (env₃.find? (projFnName p.cvT.name j)).isNone)
         = true ∧

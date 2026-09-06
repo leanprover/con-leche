@@ -13,13 +13,13 @@
 {"ie":0,"sort":3}
 {"ie":1,"bvar":0}
 {"ie":2,"bvar":1}
-{"ie":3,"forallE":{"binderInfo":"default","name":4,"type":1,"body":2,"pw":[2,1]}}
+{"ie":3,"forallE":{"binderInfo":"default","name":4,"type":1,"body":2}}
 {"ie":4,"forallE":{"binderInfo":"default","name":3,"type":0,"body":3}}
-{"ie":5,"lam":{"binderInfo":"default","name":4,"type":1,"body":1,"pw":[2,1]}}
+{"ie":5,"lam":{"binderInfo":"default","name":4,"type":1,"body":1}}
 {"ie":6,"lam":{"binderInfo":"default","name":3,"type":0,"body":5}}
 {"def":{"name":5,"levelParams":[1,2],"type":4,"value":6,"safety":"safe"}}
 {"ie":7,"sort":1}
-{"ie":8,"forallE":{"binderInfo":"default","name":6,"type":1,"body":2,"pw":[1,1]}}
+{"ie":8,"forallE":{"binderInfo":"default","name":6,"type":1,"body":2}}
 {"ie":9,"letE":{"name":7,"type":7,"value":1,"body":8}}
 {"ie":10,"forallE":{"binderInfo":"default","name":3,"type":7,"body":9}}
 {"ie":11,"lam":{"binderInfo":"default","name":6,"type":1,"body":1}}

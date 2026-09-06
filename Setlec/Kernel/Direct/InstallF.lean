@@ -141,7 +141,8 @@ def checkDirectRecTyF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
     (.notImplemented "direct structure: recursor telescope")
   let ps := fvsP.take p.nP
   let famApp := Expr.mkAppN (.const T (lps.map .param)) ps
-  let (cdomsP, crest) ← unwrapOr (Expr.instPisAtF ps cvCa.type)
+  let cvCTy := cvCa.type.remapPW lps cvRa.levelParams
+  let (cdomsP, crest) ← unwrapOr (Expr.instPisAtF ps cvCTy)
     (.notImplemented "direct structure: constructor telescope")
   checkDirectDomsAtFA ops fe 0 ps.toArray cdomsP.toArray p.nP
   let mfv ← unwrapOr fvsP[p.nP]?
@@ -192,7 +193,8 @@ def checkDirectRuleF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
   let depth := p.nP + 2 + p.nF
   let (fvsP, _) ← unwrapOr (openPisAtFvarsF (p.nP + 2) cvRa.type 0)
     (.notImplemented "direct structure: recursor telescope")
-  let (_, crest) ← unwrapOr (Expr.instPisAtF (fvsP.take p.nP) cvCa.type)
+  let cvCTy := cvCa.type.remapPW p.cvT.levelParams cvRa.levelParams
+  let (_, crest) ← unwrapOr (Expr.instPisAtF (fvsP.take p.nP) cvCTy)
     (.notImplemented "direct structure: constructor telescope")
   let (xFvs, _) ← unwrapOr (openPisAtFvarsF p.nF crest (p.nP + 2))
     (.notImplemented "direct structure: constructor field telescope")
@@ -215,8 +217,8 @@ def checkDirectProjEntryF (ops : CheckerOps m) (T C : Name) (lps : List Name)
   unless !pty.hasFvar && pty.looseBVarsBounded 0 do
     throw (.notImplemented "direct structure: projection type scoping")
   let σ := directGuardSigma resSort lps guard
-  let ptyσ := pty.instantiateLevelParams lps σ
-  let ctyσ := cvCa.type.instantiateLevelParams lps σ
+  let ptyσ := pty.instantiateLevelParams lps σ (Level.masksOf lps σ)
+  let ctyσ := cvCa.type.instantiateLevelParams lps σ (Level.masksOf lps σ)
   let ptyA ← ops.annotate fe.env 0 ptyσ
   unless ptyA.allLevelParamsDefined lps && ptyA.constsResolveF fe &&
       ptyA.looseBVarsBounded 0 && !ptyA.hasFvar do

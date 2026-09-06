@@ -121,7 +121,7 @@ theorem stageFormer (mp : EnvS2PM V μ env)
   -- the reading at the extension
   have hreadI : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval cvTa.name A)
-        ⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩ ψ 0 cvTa.type
+        { env with consts := .indInfo cvTa (Setlec.directCaps p) :: env.consts } ψ 0 cvTa.type
         = some (mkPisAV (pps ψ) (.sort (p.resSort.eval ψ))) := fun ψ =>
     denoteP_cons_mono (c₀ := .indInfo cvTa (Setlec.directCaps p)) hfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) ψ 0 hcb (hFD.read ψ)

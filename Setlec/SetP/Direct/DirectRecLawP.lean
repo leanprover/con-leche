@@ -75,7 +75,7 @@ theorem recRuleLaw (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
           FieldsBound 0 ρ (((ds ψ).drop p.nP).map (·.2.2))))
     (hfresh : env.find? cvRa.name = none)
     {rule : RecRule} (hrule : rule = ⟨p.cvC.name, p.nF, p.nP, .plain, rhsA⟩)
-    (m₂ : EnvS2Core V ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2) [rule] :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := .recInfo cvRa (p.nP + 2) (p.nP + 2) [rule] :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval cvRa.name
       (fun ψ => directRecAV ((elimLevel p).eval ψ) (rds ψ) p.nF))
     (hAokP : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -154,8 +154,8 @@ theorem recRuleLaw (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   have hcross : ∀ e : Expr, ConsCrossAt (.recInfo { p.cvR with type := type' } (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP, .plain, rhsA⟩]) e :=
     fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
-  have hfindC : (⟨.recInfo { p.cvR with type := type' } (p.nP + 2) (p.nP + 2)
-      [⟨p.cvC.name, p.nF, p.nP, .plain, rhsA⟩] :: env.consts⟩ : Env).find? p.cvC.name
+  have hfindC : ({ env with consts := (.recInfo { p.cvR with type := type' } (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP, .plain, rhsA⟩]) :: env.consts } : Env).find? p.cvC.name
       = some (.ctorInfo cvCa p.nP p.nF) := by
     rw [Setlec.Env.find?_cons, if_neg (fun h => hRC h.symm)]
     exact hfC
@@ -177,8 +177,8 @@ theorem recRuleLaw (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   have hcR := claimsAtP_of hμ mp ψR F
   obtain ⟨-, -, hokRa₀, -, -⟩ := hcR.inferRow hinf hw0 hrhsB hL0 (CtxOkP.nil hnil0) hRa
   have hokRa : ∀ ρ : Nat → V, AnnotOkP V ρ Ra := fun ρ => hokRa₀ ρ (Sat2_nil V ρ)
-  have hRa₂ : denoteP m₂.acval ⟨.recInfo { p.cvR with type := type' } (p.nP + 2) (p.nP + 2)
-      [⟨p.cvC.name, p.nF, p.nP, .plain, rhsA⟩] :: env.consts⟩ φ 0
+  have hRa₂ : denoteP m₂.acval { env with consts := (.recInfo { p.cvR with type := type' } (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP, .plain, rhsA⟩]) :: env.consts } φ 0
       (rhsA.instantiateLevelParams p.cvR.levelParams us) = some Ra := by
     rw [hinstR, hac]
     exact denoteP_cons_mono hfresh (hcross _) ψR 0 hcbR hRa

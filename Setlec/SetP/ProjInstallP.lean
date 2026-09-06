@@ -12,7 +12,7 @@ The shape is v1's, with one deliberate difference: `projFnP` and
 `projInstallP` carry the v1 carrier *with* them (they call `projFnS`
 and `projInstallS` internally) rather than taking it as a premise.  The
 projection fold is the one phase where the two tiers' step data are
-genuinely coupled — the P cons needs `EnvS V ⟨c₀ :: env'.consts⟩`
+genuinely coupled — the P cons needs `EnvS V { env' with consts := c₀ :: env'.consts }`
 constructively, and the *next* step's v1 premises (`ProjPhaseInvS`,
 `BlockInstalledTT`) are the previous step's v1 outputs — so running the
 two folds separately would mean re-deriving the whole v1 chain at every
@@ -295,9 +295,9 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
       eq_of_beq hround]
     exact hta
   have hnew : ∀ m₂ : EnvS2Core V
-      ⟨projEntry T lps pty nP i [⟨ctorName, nF, nP,
+      { env' with consts := (projEntry T lps pty nP i [⟨ctorName, nF, nP,
         if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
-        else .inert, rhsA⟩] :: env'.consts⟩,
+        else .inert, rhsA⟩]) :: env'.consts },
       m₂.acval = acvalWith mp.base2.acval (projFnName T i)
         (fun ψ => mp.base2.acval (projModelName T i) ψ) →
       ∀ (φ : Name → Nat), ∀ rl ∈ [(⟨ctorName, nF, nP,
@@ -493,7 +493,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
     (hlps : entry.levelParams = lps)
     (hty : entry.ty = .sort .zero)
     (hpnone : (env'.find? (projFnName T i)).isNone = true) :
-    ∃ mp' : EnvS2PM V μ ⟨.projInfo entry :: env'.consts⟩,
+    ∃ mp' : EnvS2PM V μ { env' with consts := .projInfo entry :: env'.consts },
       mp'.base2.cvalE
         = cvalWith mp.base2.cvalE (projFnName T i) templateVal := by
   have hname : (ConstantInfo.projInfo entry).name = projFnName T i := by
@@ -510,7 +510,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
   have htyRead : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval
           (ConstantInfo.projInfo entry).name templateValP)
-        ⟨.projInfo entry :: env'.consts⟩ ψ 0
+        { env' with consts := .projInfo entry :: env'.consts } ψ 0
         (ConstantInfo.projInfo entry).toConstantVal.type
         = some (.sort 0) := by
     intro ψ
@@ -543,7 +543,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
   have htyOkH : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval
           (ConstantInfo.projInfo entry).name templateValP)
-        ⟨.projInfo entry :: env'.consts⟩ ψ 0
+        { env' with consts := .projInfo entry :: env'.consts } ψ 0
         (ConstantInfo.projInfo entry).toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta := by
     intro ψ ta hta ρ
@@ -553,7 +553,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
   have hmemH : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval
           (ConstantInfo.projInfo entry).name templateValP)
-        ⟨.projInfo entry :: env'.consts⟩ ψ 0
+        { env' with consts := .projInfo entry :: env'.consts } ψ 0
         (ConstantInfo.projInfo entry).toConstantVal.type = some ta →
       ∀ ρ : Nat → V,
         interp2 V ρ (templateValP ψ) ∈ˢ interp2 V ρ ta := by

@@ -87,9 +87,9 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
         if blockNames.contains n then n.str "_model" else n)) cvm.type =
         true ∧
       ((∃ cv caps', ci = .indInfo cv caps') ∧
-         env₁ = ⟨.indInfo cvA caps :: env'.consts⟩ ∨
+         env₁ = { env' with consts := .indInfo cvA caps :: env'.consts } ∨
        (∃ cv nP nF, ci = .ctorInfo cv nP nF ∧
-         env₁ = ⟨.ctorInfo cvA nP nF :: env'.consts⟩)) := by
+         env₁ = { env' with consts := .ctorInfo cvA nP nF :: env'.consts })) := by
   simp only [checkIndMember, Bind.bind, Except.bind] at h
   cases hcmv : checkMemberVal (fueledOps mode F) blockNames env'
       ci.toConstantVal with
@@ -123,7 +123,7 @@ theorem provisionRecs_cons_inv {blockNames : List Name}
       checkMemberVal (fueledOps mode F) blockNames envAcc ci.toConstantVal =
         .ok cvA ∧
       provisionRecs (fueledOps mode F) blockNames
-        ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest = .ok p' ∧
+        { envAcc with consts := .recInfo cvA mI rP [] :: envAcc.consts } rest = .ok p' ∧
       p = (p'.1, (cvA, mI, rP, rules) :: p'.2) := by
   revert h
   match ci with
@@ -143,7 +143,7 @@ theorem provisionRecs_cons_inv {blockNames : List Name}
   rw [hcmv] at h
   try dsimp only at h
   cases hrec : provisionRecs (fueledOps mode F) blockNames
-      ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest with
+      { envAcc with consts := .recInfo cvA mI rP [] :: envAcc.consts } rest with
   | error e => rw [hrec] at h; exact nomatch h
   | ok p' =>
   rw [hrec] at h

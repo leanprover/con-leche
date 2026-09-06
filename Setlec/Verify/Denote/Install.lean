@@ -50,7 +50,7 @@ theorem EnvExtends.trans {e₁ e₂ e₃ : Env} (h₁ : EnvExtends e₁ e₂)
 /-- A cons-extension over a fresh name extends. -/
 theorem EnvExtends.cons {env : Env} {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none) :
-    EnvExtends env ⟨c₀ :: env.consts⟩ := by
+    EnvExtends env { env with consts := c₀ :: env.consts } := by
   intro n ci h
   rw [Env.find?_cons]
   split
@@ -80,11 +80,11 @@ theorem findProj?_cons_of_base_none {env : Env} {c₀ : ConstantInfo}
     (hntc : ∀ e', c₀ = .projInfo e' → e'.tower = false) :
     ∀ (sn : Name) (i : Nat) (entry : ProjEntry),
       env.findProj? sn i = none →
-      Env.findProj? ⟨c₀ :: env.consts⟩ sn i = some entry →
+      Env.findProj? { env with consts := c₀ :: env.consts } sn i = some entry →
       entry.tower = false := by
   intro sn i entry h0 h1
   unfold Env.findProj? at h0 h1
-  rw [show Env.find? ⟨c₀ :: env.consts⟩ (projFnName sn i)
+  rw [show Env.find? { env with consts := c₀ :: env.consts } (projFnName sn i)
       = if c₀.name = projFnName sn i then some c₀
         else env.find? (projFnName sn i) from Env.find?_cons] at h1
   by_cases hn : c₀.name = projFnName sn i
@@ -497,7 +497,7 @@ just the lookups**, which is a cheaper thing to want. -/
 theorem natLitSupported_cons_of_ne {env : Env} {c₀ : ConstantInfo}
     (h1 : c₀.name ≠ natName) (h2 : c₀.name ≠ natZeroName)
     (h3 : c₀.name ≠ natSuccName) :
-    natLitSupported ⟨c₀ :: env.consts⟩ = natLitSupported env := by
+    natLitSupported { env with consts := c₀ :: env.consts } = natLitSupported env := by
   unfold natLitSupported
   rw [Env.find?_cons, Env.find?_cons, Env.find?_cons,
     if_neg h1, if_neg h2, if_neg h3]
@@ -509,7 +509,7 @@ theorem strLitSupported_cons_of_ne {env : Env} {c₀ : ConstantInfo}
     (h5 : c₀.name ≠ stringOfListName) (h6 : c₀.name ≠ listName)
     (h7 : c₀.name ≠ listNilName) (h8 : c₀.name ≠ listConsName)
     (h9 : c₀.name ≠ charName) (h10 : c₀.name ≠ charOfNatName) :
-    strLitSupported ⟨c₀ :: env.consts⟩ = strLitSupported env := by
+    strLitSupported { env with consts := c₀ :: env.consts } = strLitSupported env := by
   unfold strLitSupported
   rw [natLitSupported_cons_of_ne h1 h2 h3]
   rw [Env.find?_cons, Env.find?_cons, Env.find?_cons, Env.find?_cons,
@@ -520,7 +520,7 @@ theorem strLitSupported_cons_of_ne {env : Env} {c₀ : ConstantInfo}
 /-- The stored level parameters of a name other than the new one. -/
 theorem levelParamsAt_cons_of_ne {env : Env} {c₀ : ConstantInfo} {n : Name}
     (h : c₀.name ≠ n) :
-    levelParamsAt ⟨c₀ :: env.consts⟩ n = levelParamsAt env n := by
+    levelParamsAt { env with consts := c₀ :: env.consts } n = levelParamsAt env n := by
   unfold levelParamsAt
   rw [Env.find?_cons, if_neg h]
 
@@ -562,9 +562,9 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
     {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
     (hntc : ∀ e', c₀ = .projInfo e' → e'.tower = false) :
     ∀ (d : Nat) (e : Expr), e.constsResolve env = true →
-      denote cval ⟨c₀ :: env.consts⟩ φ d e = denote cval env φ d e := by
+      denote cval { env with consts := c₀ :: env.consts } φ d e = denote cval env φ d e := by
   have hbranch : ∀ (sn : Name) (i : Nat) (ve : VExpr),
-      (match Env.findProj? ⟨c₀ :: env.consts⟩ sn i with
+      (match Env.findProj? { env with consts := c₀ :: env.consts } sn i with
         | some entry => if entry.tower = true then some (projNV i ve)
             else if i < 2 then some (.proj i ve) else none
         | none => if i < 2 then some (.proj i ve) else none)
@@ -574,7 +574,7 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
         | none => if i < 2 then some (.proj i ve) else none) := by
     intro sn i ve
     unfold Env.findProj?
-    rw [show Env.find? ⟨c₀ :: env.consts⟩ (projFnName sn i)
+    rw [show Env.find? { env with consts := c₀ :: env.consts } (projFnName sn i)
         = if c₀.name = projFnName sn i then some c₀
           else env.find? (projFnName sn i) from Env.find?_cons]
     by_cases hn : c₀.name = projFnName sn i
@@ -769,17 +769,17 @@ theorem denote_install {cval cval' : TConstVal} {env : Env} {φ : Name → Nat}
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
     (hlit : LitAgree env cval cval')
     (hguardN : natLitSupported env = true →
-      natLitSupported ⟨c₀ :: env.consts⟩ = true)
+      natLitSupported { env with consts := c₀ :: env.consts } = true)
     (hguardS : strLitSupported env = true →
-      strLitSupported ⟨c₀ :: env.consts⟩ = true)
+      strLitSupported { env with consts := c₀ :: env.consts } = true)
     (hlpNil : strLitSupported env = true →
-      levelParamsAt ⟨c₀ :: env.consts⟩ listNilName
+      levelParamsAt { env with consts := c₀ :: env.consts } listNilName
         = levelParamsAt env listNilName)
     (hlpCons : strLitSupported env = true →
-      levelParamsAt ⟨c₀ :: env.consts⟩ listConsName
+      levelParamsAt { env with consts := c₀ :: env.consts } listConsName
         = levelParamsAt env listConsName)
     (h : denote cval env φ d e = some v) :
-    denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v := by
+    denote cval' { env with consts := c₀ :: env.consts } φ d e = some v := by
   have hagE : ∀ n ci, env.find? n = some ci → cval n = cval' n := by
     intro n ci hfind
     refine hag n ?_
@@ -810,7 +810,7 @@ discharge the `hguardN`/`hguardS` obligations of `denote_mono`,
 /-- The `Nat`-literal guard is monotone under a fresh install. -/
 theorem natLitSupported_cons {env : Env} {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none) (h : natLitSupported env = true) :
-    natLitSupported ⟨c₀ :: env.consts⟩ = true := by
+    natLitSupported { env with consts := c₀ :: env.consts } = true := by
   simp only [natLitSupported, Bool.and_eq_true] at h ⊢
   obtain ⟨⟨h1, h2⟩, h3⟩ := h
   have i1 : (env.find? natName).isSome = true := by
@@ -826,7 +826,7 @@ theorem natLitSupported_cons {env : Env} {c₀ : ConstantInfo}
 /-- The `String`-literal guard is monotone under a fresh install. -/
 theorem strLitSupported_cons {env : Env} {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none) (h : strLitSupported env = true) :
-    strLitSupported ⟨c₀ :: env.consts⟩ = true := by
+    strLitSupported { env with consts := c₀ :: env.consts } = true := by
   simp only [strLitSupported, Bool.and_eq_true] at h ⊢
   obtain ⟨⟨⟨⟨⟨⟨⟨h0, h1⟩, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩ := h
   have i1 : (env.find? stringName).isSome = true := by
@@ -852,7 +852,7 @@ theorem strLitSupported_cons {env : Env} {c₀ : ConstantInfo}
 /-- The `Nat`-operation guard is monotone under a fresh install. -/
 theorem natOpGuard_cons {env : Env} {c₀ : ConstantInfo} {c : Name}
     (hfresh : env.find? c₀.name = none) (h : natOpGuard env c = true) :
-    natOpGuard ⟨c₀ :: env.consts⟩ c = true := by
+    natOpGuard { env with consts := c₀ :: env.consts } c = true := by
   simp only [natOpGuard, Bool.and_eq_true] at h ⊢
   obtain ⟨⟨h0, hdeps⟩, hbool⟩ := h
   refine ⟨⟨natLitSupported_cons hfresh h0, ?_⟩, ?_⟩
@@ -906,11 +906,11 @@ structure Installs (env : Env) (cval cval' : TConstVal)
   /-- `List.nil`'s stored level parameters do not move — needed only
   where a string literal can denote, i.e. under the guard. -/
   lpNil : strLitSupported env = true →
-    levelParamsAt ⟨c₀ :: env.consts⟩ listNilName
+    levelParamsAt { env with consts := c₀ :: env.consts } listNilName
       = levelParamsAt env listNilName
   /-- `List.cons`'s stored level parameters do not move. -/
   lpCons : strLitSupported env = true →
-    levelParamsAt ⟨c₀ :: env.consts⟩ listConsName
+    levelParamsAt { env with consts := c₀ :: env.consts } listConsName
       = levelParamsAt env listConsName
 
 /-- **An ordinary install needs nothing but freshness.**  Both the
@@ -930,7 +930,7 @@ theorem Installs.of_fresh {env : Env} {cval cval' : TConstVal}
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n) :
     Installs env cval cval' c₀ := by
   have step : ∀ n : Name, (env.find? n).isSome = true →
-      (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := fun n hn =>
+      ({ env with consts := c₀ :: env.consts } : Env).find? n = env.find? n := fun n hn =>
     Env.find?_cons_of_isSome hfresh hn
   refine ⟨hfresh, hntc, hag, LitAgree.of_fresh hfresh hag, fun hg => ?_,
     fun hg => ?_⟩
@@ -950,7 +950,7 @@ theorem Installs.denoteUp {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀)
     {φ : Name → Nat} {d : Nat} {e : Expr} {v : VExpr}
     (h : denote cval env φ d e = some v) :
-    denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v :=
+    denote cval' { env with consts := c₀ :: env.consts } φ d e = some v :=
   denote_install hi.fresh hi.ntc hi.ag hi.lit
     (natLitSupported_cons hi.fresh)
     (strLitSupported_cons hi.fresh) hi.lpNil hi.lpCons h
@@ -969,7 +969,7 @@ theorem Installs.denoteDown {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀)
     {φ : Name → Nat} {d : Nat} {e : Expr} {v : VExpr}
     (hres : e.constsResolve env = true)
-    (h : denote cval' ⟨c₀ :: env.consts⟩ φ d e = some v) :
+    (h : denote cval' { env with consts := c₀ :: env.consts } φ d e = some v) :
     denote cval env φ d e = some v := by
   have hagE : ∀ n ci, env.find? n = some ci → cval n = cval' n := by
     intro n ci hf
@@ -985,7 +985,7 @@ theorem Installs.denoteDown {env : Env} {cval cval' : TConstVal}
 theorem Installs.find {env : Env} {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (hi : Installs env cval cval' c₀) {n : Name}
     (h : (env.find? n).isSome = true) :
-    Env.find? ⟨c₀ :: env.consts⟩ n = env.find? n :=
+    Env.find? { env with consts := c₀ :: env.consts } n = env.find? n :=
   Env.find?_cons_of_isSome hi.fresh h
 
 
@@ -1005,7 +1005,7 @@ theorem BasisPinnedTT.cons {env : Env} {cval cval' : TConstVal}
       (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
       ∀ (ψ : Name → Nat) (t : VExpr),
         pinnedDirectT c₀.name ψ = some t → cval' c₀.name ψ = t) :
-    BasisPinnedTT ⟨c₀ :: env.consts⟩ cval' := by
+    BasisPinnedTT { env with consts := c₀ :: env.consts } cval' := by
   intro n ci hf hres
   by_cases hn : c₀.name = n
   · subst hn
@@ -1025,11 +1025,11 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
     (hhead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
       entry.tower = true)
     (hheadTower : ∀ entry, c₀ = .projInfo entry → entry.tower = true →
-      TowerHead ⟨c₀ :: env.consts⟩ entry) :
-    ProjOkT ⟨c₀ :: env.consts⟩ := by
+      TowerHead { env with consts := c₀ :: env.consts } entry) :
+    ProjOkT { env with consts := c₀ :: env.consts } := by
   have hkeep : ∀ (n : Name) (ci : ConstantInfo),
       (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
-      env.find? n = some ci → (⟨c₀ :: env.consts⟩ : Env).find? n = some ci := by
+      env.find? n = some ci → ({ env with consts := c₀ :: env.consts } : Env).find? n = some ci := by
     intro n ci _ hf
     rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]; exact hf
   refine ⟨?_, ?_⟩

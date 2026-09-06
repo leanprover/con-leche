@@ -151,14 +151,14 @@ def ProjEtaLawP (V : Type w) [SetTheory V] : Prop :=
     BlockInstalledTT blockNames env mp.base2.cvalE →
     BlockAcvalInstalled blockNames env mp.base2.acval →
     ∀ (cvT : ConstantVal) (caps : IndCaps),
-      (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      ({ env with consts := c₀ :: env.consts } : Env).find? T = some (.indInfo cvT caps) →
       caps.eta = true →
       Setlec.reservedBasisNames.contains T = false →
       Setlec.EtaPins μ env T cvT.levelParams caps →
       blockNames.contains T = true →
       blockNames.contains caps.etaCtor = true →
-      Setlec.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
-      ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+      Setlec.EtaFamilyStored { env with consts := c₀ :: env.consts } T caps →
+      ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
         m₂.acval = acvalWith mp.base2.acval c₀.name A →
         -- v1's `hvP`, install-supplied
         (∀ j, j < caps.etaFields → ∀ ψ : Name → Nat,
@@ -561,11 +561,11 @@ theorem capsOkP_cons_proj_of (mp : EnvS2PM V μ env)
     (hc₀rec : ∃ cv mI rP rules, c₀ = .recInfo cv mI rP rules)
     (hIB : BlockInstalledTT blockNames env mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     -- the install-supplied bundle at the completed family
     (hinst : ∀ (cvT : ConstantVal) (caps : IndCaps),
-      (⟨c₀ :: env.consts⟩ : Env).find? T₀ = some (.indInfo cvT caps) →
+      ({ env with consts := c₀ :: env.consts } : Env).find? T₀ = some (.indInfo cvT caps) →
       caps.eta = true →
       Setlec.EtaPins μ env T₀ cvT.levelParams caps ∧
         blockNames.contains T₀ = true ∧

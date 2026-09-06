@@ -95,7 +95,7 @@ theorem denoteP_openPis_agree {acval₁ acval₂ : Name → (Name → Nat) → A
 
 /-- A name fresh at a cons is fresh below it. -/
 theorem find?_none_of_cons {c : ConstantInfo} {env : Env} {n : Name}
-    (h : Env.find? ⟨c :: env.consts⟩ n = none) : env.find? n = none := by
+    (h : Env.find? { env with consts := c :: env.consts } n = none) : env.find? n = none := by
   rw [Setlec.Env.find?_cons] at h
   split at h
   · exact nomatch h
@@ -131,7 +131,7 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
   have hlpsC : cvCa.levelParams = p.cvT.levelParams := by rw [htyC]; exact hClps
   have hlpsCT : cvCa.levelParams = cvTa.levelParams := by rw [hlpsC, hlpsT]
   have hCtype : cvCa.type = typeC := by rw [htyC]
-  have hfT_I : (⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩ : Env).find? p.cvT.name
+  have hfT_I : ({ env with consts := .indInfo cvTa (Setlec.directCaps p) :: env.consts } : Env).find? p.cvT.name
       = some (.indInfo cvTa (Setlec.directCaps p)) := by
     rw [← hTname]; exact Setlec.Env.find?_cons_self _ _
   have hProp' : p.isProp = true → (Level.isEquiv p.resSort .zero == some true) = true :=
@@ -187,8 +187,8 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
       (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
-          rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
-            env.consts⟩ : Env).consts⟩ : Env).consts⟩ : Env).find? (projFnName p.cvT.name j)
+          rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: ({ env with consts := .indInfo cvTa (Setlec.directCaps p) ::
+        env.consts } : Env).consts⟩ : Env).consts⟩ : Env).find? (projFnName p.cvT.name j)
         = none := by
     intro j hj
     have := List.all_eq_true.mp hslots j (List.mem_range.mpr hj)
@@ -198,13 +198,13 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     (fun hnF => find?_none_of_cons (hslotsF 0 hnF)) hFD_I hCD hleafT_I hiff
     (fun ψ ρ h => ⟨(hfields ψ ρ h).1, (hfields ψ ρ h).2.1⟩)
   -- the recursor
-  have hCfreshI : (⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩ : Env).find? cvCa.name
+  have hCfreshI : ({ env with consts := .indInfo cvTa (Setlec.directCaps p) :: env.consts } : Env).find? cvCa.name
       = none := by rw [hCname]; exact hfindC
   have hTC : p.cvT.name ≠ cvCa.name := by
     intro h; rw [h, hCfreshI] at hfT_I; exact nomatch hfT_I
-  have hcbT_I : ConstsBound (⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩ : Env) cvTa.type :=
+  have hcbT_I : ConstsBound ({ env with consts := .indInfo cvTa (Setlec.directCaps p) :: env.consts } : Env) cvTa.type :=
     constsBound_of_constsResolve _ (mpI.base2.wf _ (Setlec.Semantics.Env.find?_mem hfT_I)).2.2.1
-  have hcbC : ConstsBound (⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩ : Env) cvCa.type :=
+  have hcbC : ConstsBound ({ env with consts := .indInfo cvTa (Setlec.directCaps p) :: env.consts } : Env) cvCa.type :=
     constsBound_of_constsResolve _ (by rw [hCtype]; exact htrC)
   have hFD_C : FormerData mpC.base2 cvTa p.nP p.resSort pps :=
     hFD_I.cross (c₀ := .ctorInfo cvCa p.nP p.nF) hCfreshI
@@ -212,13 +212,13 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
   have hCD_C : CtorData mpC.base2 p.cvT.name cvCa p.nP p.nF p.resSort ds :=
     hCD.cross (c₀ := .ctorInfo cvCa p.nP p.nF) hCfreshI hTC
       (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbC mpC.base2 hacC
-  have hfT_C : (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
-      env.consts⟩ : Env).consts⟩ : Env).find? p.cvT.name
+  have hfT_C : (⟨.ctorInfo cvCa p.nP p.nF :: ({ env with consts := .indInfo cvTa (Setlec.directCaps p) ::
+        env.consts } : Env).consts⟩ : Env).find? p.cvT.name
       = some (.indInfo cvTa (Setlec.directCaps p)) := by
     rw [Setlec.Env.find?_cons, if_neg (fun h => hTC h.symm)]
     exact hfT_I
-  have hfC_C : (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
-      env.consts⟩ : Env).consts⟩ : Env).find? p.cvC.name
+  have hfC_C : (⟨.ctorInfo cvCa p.nP p.nF :: ({ env with consts := .indInfo cvTa (Setlec.directCaps p) ::
+        env.consts } : Env).consts⟩ : Env).find? p.cvC.name
       = some (.ctorInfo cvCa p.nP p.nF) := by
     rw [← hCname]; exact Setlec.Env.find?_cons_self _ _
   have hleafT_C : ∀ ψ, mpC.base2.acval p.cvT.name ψ
@@ -234,7 +234,7 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     rw [hacC, ← hCname, acvalWith_self]
   -- the η-families stay closed at the constructor's extension
   have hE_C : Setlec.EtaFamiliesClosed ⟨.ctorInfo cvCa p.nP p.nF ::
-      (⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩ : Env).consts⟩ := by
+      ({ env with consts := .indInfo cvTa (Setlec.directCaps p) :: env.consts } : Env).consts⟩ := by
     intro T'' cvT'' caps hf he hr
     rw [Setlec.Env.find?_cons] at hf
     split at hf
@@ -261,8 +261,8 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     Setlec.checkConstantVal_inv hccvR
   have hRname' : cvRa.name = p.cvR.name := by rw [htyR]
   have hRtype : cvRa.type = typeR := by rw [htyR]
-  have hRfresh : (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
-      env.consts⟩ : Env).consts⟩ : Env).find? cvRa.name = none := by
+  have hRfresh : (⟨.ctorInfo cvCa p.nP p.nF :: ({ env with consts := .indInfo cvTa (Setlec.directCaps p) ::
+        env.consts } : Env).consts⟩ : Env).find? cvRa.name = none := by
     rw [hRname']; exact hfindR
   have hTR : p.cvT.name ≠ cvRa.name := by
     intro h; rw [h, hRfresh] at hfT_C; exact nomatch hfT_C
@@ -275,18 +275,18 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
   obtain ⟨hnfRhs, -, hannRhs, -⟩ := Setlec.checkDirectRule_shape hRule
   -- the not-yet-installed slots are mentioned by no stored piece
   have hfreshI : ∀ j, j < p.nF →
-      (⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩ : Env).find? (projFnName p.cvT.name j)
+      ({ env with consts := .indInfo cvTa (Setlec.directCaps p) :: env.consts } : Env).find? (projFnName p.cvT.name j)
         = none :=
     fun j hj => find?_none_of_cons (find?_none_of_cons (hslotsF j hj))
   have hfreshC : ∀ j, j < p.nF →
-      (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
-        env.consts⟩ : Env).consts⟩ : Env).find? (projFnName p.cvT.name j) = none :=
+      (⟨.ctorInfo cvCa p.nP p.nF :: ({ env with consts := .indInfo cvTa (Setlec.directCaps p) ::
+        env.consts } : Env).consts⟩ : Env).find? (projFnName p.cvT.name j) = none :=
     fun j hj => find?_none_of_cons (hslotsF j hj)
   have hnp₃ : ∀ j, j < p.nF → NoProjEnv ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
-        rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
-          env.consts⟩ : Env).consts⟩ : Env).consts⟩ p.cvT.name j := by
+        rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: ({ env with consts := .indInfo cvTa (Setlec.directCaps p) ::
+        env.consts } : Env).consts⟩ : Env).consts⟩ p.cvT.name j := by
     intro j hj
     have h0 : NoProjEnv env p.cvT.name j := noProjEnv_of_fresh mp.base2.wf hfindT j
     have h1 := h0.cons (c₀ := .indInfo cvTa (Setlec.directCaps p)) (NoProjHead.ofType
@@ -314,8 +314,8 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
   have hinv : FoldInvP V μ p cvTa cvCa sorts pps ds 0 ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
-        rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
-          env.consts⟩ : Env).consts⟩ : Env).consts⟩ := by
+        rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: ({ env with consts := .indInfo cvTa (Setlec.directCaps p) ::
+        env.consts } : Env).consts⟩ : Env).consts⟩ := by
     refine ⟨⟨mp₃, ?_, ?_, ?_, ?_⟩, ?_, ?_, fun j hj _ _ => absurd hj (Nat.not_lt_zero _),
       fun j _ hj => hslotsF j hj, fun j _ hj => hnp₃ j hj,
       Setlec.direct_rec_wf mpC.base2.wf hccvR hRule⟩

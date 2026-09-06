@@ -272,7 +272,7 @@ theorem EtaFamiliesClosed.cons_nonind {env : Env} {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none)
     (hknd : ∀ cv caps, c₀ = .indInfo cv caps → caps.eta = true →
       reservedBasisNames.contains c₀.name = true) :
-    EtaFamiliesClosed (⟨c₀ :: env.consts⟩ : Env) := by
+    EtaFamiliesClosed ({ env with consts := c₀ :: env.consts } : Env) := by
   intro T cvT caps hf he hr
   rw [Env.find?_cons] at hf
   split at hf
@@ -309,7 +309,7 @@ theorem ExtEta.trans {e₁ e₂ e₃ : Env} (h₁ : ExtEta e₁ e₂)
 theorem ExtEta.cons {env : Env} {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none)
     (hnotind : ∀ cv caps, c₀ ≠ .indInfo cv caps) :
-    ExtEta env ⟨c₀ :: env.consts⟩ := by
+    ExtEta env { env with consts := c₀ :: env.consts } := by
   refine ⟨fun n ci hf _ => Env.find?_cons_of_fresh hfresh hf,
     fun T cvT caps hf => ?_⟩
   rw [Env.find?_cons] at hf
@@ -409,7 +409,7 @@ theorem natOpGuard_intro {c : Name}
 theorem natOpGuard_cons {c : Name} {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none)
     (h : natOpGuard env c = true) :
-    natOpGuard (⟨c₀ :: env.consts⟩ : Env) c = true := by
+    natOpGuard ({ env with consts := c₀ :: env.consts } : Env) c = true := by
   obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv h
   obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, -⟩ :=
     natLitSupported_inv hs

@@ -548,8 +548,8 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
         .ok rhsA ∧
       (∃ u : Unit, checkProjIota mode (fueledOps mode F) env' env' T ctorName
         lps cvj nP nF i = .ok u) ∧
-      env₁ = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-        [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩] :: env'.consts⟩ := by
+      env₁ = { env' with consts := (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+        [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩]) :: env'.consts } := by
   simp only [checkProjFn, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
   cases hlk : (checkProjLookups env' T ctorName lps nP nF i : CheckM _) with
@@ -696,7 +696,7 @@ theorem installProjTemplates_find_new {T ctorName : Name}
     | ok env₂ =>
       rw [hstep] at h
       have hshape₂ : env₂ = env' ∨
-          ∃ entry, env₂ = ⟨.projInfo entry :: env'.consts⟩ := by
+          ∃ entry, env₂ = { env' with consts := .projInfo entry :: env'.consts } := by
         revert hstep
         unfold installProjTemplateStep installProjTemplate
         split
@@ -804,7 +804,7 @@ theorem installProjTemplates_find_preserved {T ctorName : Name}
     | ok env₂ =>
       rw [hstep] at h
       have hshape₂ : env₂ = env' ∨
-          ∃ entry, env₂ = ⟨.projInfo entry :: env'.consts⟩ ∧
+          ∃ entry, env₂ = { env' with consts := .projInfo entry :: env'.consts } ∧
             env'.find? (ConstantInfo.projInfo entry).name = none := by
         revert hstep
         unfold installProjTemplateStep installProjTemplate

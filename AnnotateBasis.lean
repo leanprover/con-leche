@@ -23,7 +23,7 @@ def main : IO Unit := do
         -- recursor itself (rule rhs may mention it)
         let annotateRules (rules : List RecRule) (self : ConstantInfo) :
             Except String (List RecRule) := Id.run do
-          let env' : Env := ⟨self :: env.consts⟩
+          let env' : Env := { env with consts := self :: env.consts }
           let mut out : List RecRule := []
           for r in rules do
             match annotateCore .setModel env' checkFuel 0 r.rhs with
@@ -57,7 +57,7 @@ def main : IO Unit := do
           | .projInfo e => pure (.projInfo e)
         IO.println (repr ci')
         IO.println "---8<---"
-        env := ⟨ci' :: env.consts⟩
+        env := { env with consts := ci' :: env.consts }
   -- standard-axiom prerequisite shapes: annotate the Iff/Nonempty
   -- families and the two axioms in dependency order, over the pinned
   -- Eq basis
@@ -82,7 +82,7 @@ def main : IO Unit := do
         | .projInfo e => .projInfo e
       IO.println (repr ci')
       IO.println "---8<---"
-      envS := ⟨ci' :: envS.consts⟩
+      envS := { envS with consts := ci' :: envS.consts }
   for cv in [propextRaw, choiceRaw] do
     match annotateCore .setModel envS checkFuel 0 cv.type with
     | .error e =>
@@ -106,7 +106,7 @@ def main : IO Unit := do
     | .ok ty' =>
       IO.println (repr ({ cv with type := ty' } : ConstantVal))
       IO.println "---8<---"
-      envT := ⟨.axiomInfo { cv with type := ty' } :: envT.consts⟩
+      envT := { envT with consts := .axiomInfo { cv with type := ty' } :: envT.consts }
   for cv in [ofReduceRaw ofReduceNatName, ofReduceRaw ofReduceBoolName] do
     match annotateCore .setModel envT checkFuel 0 cv.type with
     | .error e =>

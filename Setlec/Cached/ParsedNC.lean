@@ -59,6 +59,7 @@ the mode-gated stages at `.noModel`, mirroring `CheckerNC`) -/
 def checkIndMemberNC (blockNames : List Name) (caps : IndCaps)
     (fe : FEnv) (ci : ConstantInfo) : CheckCM FEnv := do
   flushC
+  let fe ← enterCtxF fe ci.toConstantVal.levelParams
   let cvA ← checkMemberValF (sharedOpsCNC fe) blockNames fe ci.toConstantVal
   match ci with
   | .indInfo _ _ => pure (fe.push (.indInfo cvA caps))
@@ -74,6 +75,7 @@ def provisionRecsNC (blockNames : List Name) :
     match ci with
     | .recInfo _ mI rP rules => do
       flushC
+      let feAcc ← enterCtxF feAcc ci.toConstantVal.levelParams
       let cvA ← checkMemberValF (sharedOpsCNC feAcc) blockNames feAcc
         ci.toConstantVal
       let (feSelf, others) ← provisionRecsNC blockNames
@@ -94,6 +96,7 @@ def checkIndRecsNC (blockNames : List Name) (fe₂ : FEnv)
     let (feSelf, checked) ← provisionRecsNC blockNames fe₂ recs
     flushC
     checked.foldlM (fun (acc : FEnv) c => do
+        let feSelf ← enterCtxF feSelf c.1.levelParams
         let rules' ← checkIotaRulesF .noModel (sharedOpsCNC feSelf) fe₂ feSelf
           f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
         pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules')))
@@ -102,6 +105,7 @@ def checkIndRecsNC (blockNames : List Name) (fe₂ : FEnv)
 /-- `checkProjFnS` at the cert-skipping ops. -/
 def checkProjFnNC (fe : FEnv) (T ctorName : Name) (lps : List Name)
     (nP nF i : Nat) : CheckCM FEnv := do
+  let fe ← enterCtxF fe lps
   let (cvj, mcv) ← checkProjLookupsF (m := CheckCM) fe T ctorName lps
     nP nF i
   let pty ← checkProjTyF (m := CheckCM) fe T ctorName lps mcv.type nP nF
@@ -130,6 +134,7 @@ def checkDirectProjsNC (T C : Name) (lps : List Name) (nP nF : Nat)
   | 0, _, _, fe => pure fe
   | todo + 1, i, rt?, fe => do
     flushC
+    let fe ← enterCtxF fe lps
     let fe' ← checkDirectProjF (sharedOpsCNC fe) T C lps nP nF resSort
       slots guards cvTa cvCa rt? fe i
     checkDirectProjsNC T C lps nP nF resSort slots guards cvTa cvCa todo
@@ -138,10 +143,13 @@ def checkDirectProjsNC (T C : Name) (lps : List Name) (nP nF : Nat)
 /-- `checkDirectStructS` at the cert-skipping ops. -/
 def checkDirectStructNC (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
   flushC
-  let (fe₁, cvTa) ← checkDirectIndF (sharedOpsCNC fe) fe p
+  let feT ← enterCtxF fe p.cvT.levelParams
+  let (fe₁, cvTa) ← checkDirectIndF (sharedOpsCNC feT) feT p
   flushC
+  let fe₁ ← enterCtxF fe₁ p.cvC.levelParams
   let (fe₂, cvCa, sorts) ← checkDirectCtorF (sharedOpsCNC fe₁) fe fe₁ p cvTa
   flushC
+  let fe₂ ← enterCtxF fe₂ p.cvR.levelParams
   let cvRa ← checkConstantValF (sharedOpsCNC fe₂) fe₂ p.cvR
   checkDirectRecTyF (sharedOpsCNC fe₂) fe₂ p cvTa cvCa cvRa
   let rhsA ← checkDirectRuleF (sharedOpsCNC fe₂) fe₂ p cvCa cvRa
@@ -289,6 +297,7 @@ def checkOpaqueValCNC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
 def checkDeclSPCNC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
+    let fe ← enterCtxF fe cv.levelParams
     let (cvA, jty) ← checkConstantValCNC fe cv
     if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
       let fe2 ← checkDefnValCNC fe cvA jty value hint
@@ -314,9 +323,11 @@ def checkDeclSPCNC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
     else
       checkDefnValCNC fe cvA jty value hint
   | .thmDecl cv value => do
+    let fe ← enterCtxF fe cv.levelParams
     let (cvA, jty) ← checkConstantValCNC fe cv
     checkThmValCNC fe cvA jty value
   | .opaqueDecl cv value => do
+    let fe ← enterCtxF fe cv.levelParams
     let (cvA, jty) ← checkConstantValCNC fe cv
     let fe2 ← checkOpaqueValCNC fe cvA jty value
     if reduceOpNames.contains cvA.name then do
@@ -324,6 +335,7 @@ def checkDeclSPCNC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
       checkReducePinF (sharedOpsCNC fe) fe fe2 cvA.name vE
     pure fe2
   | .axiomDecl cv => do
+    let fe ← enterCtxF fe cv.levelParams
     let (cvA, jty) ← checkConstantValCNC fe cv
     if stdAxiomOkF fe cvA then do
       recordCConst cvA.name cvA.type jty none

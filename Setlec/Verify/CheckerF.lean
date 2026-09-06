@@ -334,7 +334,7 @@ executing monad, in `Setlec/Verify/Cached/BridgeCSDecl.lean`; the
 `CheckIM` copies here went with the interned drivers (task #172). -/
 
 theorem push_mkFEnv (env : Env) (ci : ConstantInfo) :
-    (mkFEnv env).push ci = mkFEnv ⟨ci :: env.consts⟩ := rfl
+    (mkFEnv env).push ci = mkFEnv { env with consts := ci :: env.consts } := rfl
 
 
 end Setlec

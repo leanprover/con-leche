@@ -264,7 +264,7 @@ def iotaRecNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                     (← isEquivListLM usj cmpLvls) then do
                  let cmpOk ← match rl.fire with
                    | .nested _ pins => do
-                     let cmpArgs ← pinArgsI cv.levelParams us
+                     let cmpArgs ← pinArgsI fe.env.lpsL cv.levelParams us
                        (args.take rP) (rP - 1) pins
                      defEqListI r fe depth (margs.take rl.ctorParams) cmpArgs
                    | _ =>
@@ -442,7 +442,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         let fuel ← peelFuelM
         -- At `.noModel` the ∀-annotation validation is off (task
         -- #161), matching the spec's parity lane.
-        inferPisI cfgNC r depth fuel body 1 #[fv] [(u, mb.pw)]
+        inferPisI cfgNC r fe.env.lpsL depth fuel body 1 #[fv] [(u, mb.pw)]
       | _ => throw (.invalid "expected a sort")
     | some (.lam n ty body mb) => do
       let tty ← r.infer depth ty
@@ -454,7 +454,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         -- official-kernel parity is this lane's whole point).
         let fv ← internI (.fvar depth n ty)
         let fuel ← peelFuelM
-        inferLamsI cfgNC r depth fuel body 1 #[fv] [(n, ty, mb)]
+        inferLamsI cfgNC r fe.env.lpsL depth fuel body 1 #[fv] [(n, ty, mb)]
       | _ => throw (.invalid "expected a sort")
     | some (.app _ _) => do
       let h ← withStore (fun st => st.getAppFnI e)
@@ -484,8 +484,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
             -- the spec body — since B3a `ExprC = Expr` and the store
             -- is a unit, so the level-instantiated peel runs
             -- directly on the entry type and the interned spine.
-            let tyI := entry.ty.instantiateLevelParams
-              entry.levelParams us
+            let tyI := entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf fe.env.lpsL us)
             match Expr.instPisAt (targs ++ [pe]) tyI with
             | some (_, resid) => internExprM resid
             | none => throw (.internal "malformed projection entry")

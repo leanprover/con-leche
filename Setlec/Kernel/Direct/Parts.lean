@@ -339,7 +339,7 @@ def directProjGuards (cty : Expr) (nP nF : Nat) (sorts : List Level) :
 /-- **The guard's zeroing instantiation** (task #175 W4c P3 module 7,
 "σ"): at a `Prop`-declared structure, the instantiation of the block's
 level parameters that zeroes exactly the parameters the slot's guard
-level forces to zero (`Level.zeronessOf`, exact — `Verify.PropWhen`);
+level forces to zero (`Level.maskOf`, exact — `Verify.PropWhen`);
 the identity elsewhere.  A tower entry of a propositional structure is
 usable only where its guard is `Prop` (the official `infer_proj`
 restriction, checked at every use), and there these parameters *are*
@@ -351,10 +351,16 @@ guarded earlier projection (`directSlotAdmitAt`). -/
 def directGuardSigma (resSort : Level) (lps : List Name) (guard : Level) :
     List Level :=
   if Level.isEquiv resSort .zero == some true then
-    match guard.zeronessOf with
-    | .ifAllZero ps => lps.map fun p => if ps.contains p then .zero else .param p
-    | .never => lps.map .param
+    -- the guard's datum is positional over `lps` (the packed `pw`
+    -- datum, 2026-09-06): position `i` set ↦ the `i`-th parameter zeroed
+    let m := Level.maskOf lps guard
+    if m == .never then lps.map .param else go m lps 0
   else lps.map .param
+where
+  go (m : PropWhen) : List Name → Nat → List Level
+    | [], _ => []
+    | p :: rest, i =>
+      (if m.toNat.testBit i then .zero else .param p) :: go m rest (i + 1)
 
 /-- **Slot admission** (task #175 W4c P3 module 7): at a
 `Prop`-declared structure, every earlier field a later field uses has

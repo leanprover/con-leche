@@ -9,18 +9,20 @@ Two pure readers that answer "is this type a proposition?" / "is this
 term a proof?" from the **head symbol, the arity and the validated
 `pw` annotations** — no inference, no reduction, no memo.
 
-Prop-ness is invariant under application: `zeronessOf (imax u v) =
-zeronessOf v`, so the zero-ness of the sort of the type of `c a⃗` is
+Prop-ness is invariant under application: `maskOf ps (imax u v) =
+maskOf ps v`, so the zero-ness of the sort of the type of `c a⃗` is
 that of `c`'s *stored* type at every arity, over-application included.
 The datum a head-symbol reader needs is therefore **one `PropWhen` per
 constant** — the zero-ness of the sort of its type, read off the
-stored (annotated, validated) type and instantiated at the use's
-levels by `substPW`.
+stored (annotated, validated) type in the constant's own universe
+context and instantiated at the use's levels by `substPW` into the
+current context `lps` (the packed positional datum, 2026-09-06: the
+readers take the current declaration's parameter list).
 
 Both readers are three-valued (`some pw` = the datum, `none` = unknown,
 fall back to inference).  The kernel's verdict on a datum is exactly the
-slow path's `Level.isEquiv u .zero`: `pw.equiv (.ifAllZero [])` ⟺ the
-sort is zero at every valuation.
+slow path's `Level.isEquiv u .zero`: `pw == .always` ⟺ the sort is
+zero at every valuation.
 
 Trust: the readers consume annotations the checker validates
 (`(forall-cod)`, `(lam-cod-leaf)`/`(lam-cod-chain)` in `inferBody`;
@@ -63,27 +65,28 @@ end Expr
 residual says the type inhabits `Sort u`.  (A ∀ residual would mean
 the applied head is a function, not a type — unreachable on
 well-typed input, and unknown here.) -/
-def residualPW : Option Expr → Option PropWhen
-  | some (.sort u) => some (Level.zeronessOf u)
+def residualPW (ps : List Name) : Option Expr → Option PropWhen
+  | some (.sort u) => some (Level.maskOf ps u)
   | _ => none
 
 /-- The datum of a type-former application's *head* at `n` arguments:
-a constant head reads its stored type (level-instantiated), an fvar
-head its declared type; the residual after `n` syntactic binders is
-read by `residualPW`. -/
-def headTypePW (find? : Name → Option ConstantInfo) : Expr → Nat →
-    Option PropWhen
+a constant head reads its stored type (in the constant's own context,
+then level-instantiated into the current context `lps`), an fvar head
+its declared type (already in the current context); the residual
+after `n` syntactic binders is read by `residualPW`. -/
+def headTypePW (find? : Name → Option ConstantInfo) (lps : List Name) :
+    Expr → Nat → Option PropWhen
   | .const I us, n =>
     match find? I with
     | some ci =>
       if ci.isTowerEntry then none else
       let cv := ci.toConstantVal
       if us.length = cv.levelParams.length then
-        (residualPW (cv.type.peelNeverPis n)).map
-          (Level.substPW cv.levelParams us)
+        (residualPW cv.levelParams (cv.type.peelNeverPis n)).map
+          (Level.substPW (Level.masksOf lps us))
       else none
     | none => none
-  | .fvar _ _ ty, n => residualPW (ty.peelNeverPis n)
+  | .fvar _ _ ty, n => residualPW lps (ty.peelNeverPis n)
   | _, _ => none
 
 /-- The zero-ness datum of the sort of the *type* `T` ("is `T` a
@@ -92,29 +95,30 @@ carries it on its binder (`(forall-cod)`); a sort's sort is never zero;
 a constant- or fvar-headed type-former application reads the head's
 stored/declared type, peels the arity syntactically and reads the
 residual, level-instantiated for a constant.  `none` = unknown. -/
-def typeSortPW (find? : Name → Option ConstantInfo) (T : Expr) :
-    Option PropWhen :=
+def typeSortPW (find? : Name → Option ConstantInfo) (lps : List Name)
+    (T : Expr) : Option PropWhen :=
   match T with
   | .forallE _ _ _ m => some m.pw
   | .sort _ => some .never
-  | T => headTypePW find? T.getAppFn T.numArgs
+  | T => headTypePW find? lps T.getAppFn T.numArgs
 
 /-- The datum of a term's *head* (any arity): a constant head answers
 from its stored type (prop-ness is invariant under application), an
 fvar head from its declared type; sorts, ∀s and literals are never
 proofs. -/
-def headProofPW (find? : Name → Option ConstantInfo) : Expr →
-    Option PropWhen
+def headProofPW (find? : Name → Option ConstantInfo) (lps : List Name) :
+    Expr → Option PropWhen
   | .const c us =>
     match find? c with
     | some ci =>
       if ci.isTowerEntry then none else
       let cv := ci.toConstantVal
       if us.length = cv.levelParams.length then
-        (typeSortPW find? cv.type).map (Level.substPW cv.levelParams us)
+        (typeSortPW find? cv.levelParams cv.type).map
+          (Level.substPW (Level.masksOf lps us))
       else none
     | none => none
-  | .fvar _ _ ty => typeSortPW find? ty
+  | .fvar _ _ ty => typeSortPW find? lps ty
   | .sort _ | .forallE .. | .lit _ => some .never
   | _ => none
 
@@ -124,28 +128,30 @@ head answers from its stored/declared type; an unapplied λ answers from
 its own datum (the zero-ness of the sort of the body's type,
 `(lam-cod-leaf)`); sorts, ∀s and literals are never proofs.  `none` =
 unknown. -/
-def proofPW (find? : Name → Option ConstantInfo) (a : Expr) :
-    Option PropWhen :=
+def proofPW (find? : Name → Option ConstantInfo) (lps : List Name)
+    (a : Expr) : Option PropWhen :=
   match a with
   | .lam _ _ _ m => some m.pw
-  | a => headProofPW find? a.getAppFn
+  | a => headProofPW find? lps a.getAppFn
 
 /-- Is the datum "always zero" — the sort is `Prop` at every
 valuation? -/
 @[inline] def PropWhen.isProp (pw : PropWhen) : Bool :=
-  pw.equiv (.ifAllZero [])
+  pw == .always
 
 /-- **Definitely not a proof** (the no arm): the datum is known and is
 not always-zero. -/
-def notProofFast (find? : Name → Option ConstantInfo) (a : Expr) : Bool :=
-  match proofPW find? a with
+def notProofFast (find? : Name → Option ConstantInfo) (lps : List Name)
+    (a : Expr) : Bool :=
+  match proofPW find? lps a with
   | some pw => !pw.isProp
   | none => false
 
 /-- **Definitely a proof** (the yes arm): the datum is known and
 always-zero. -/
-def isProofFast (find? : Name → Option ConstantInfo) (a : Expr) : Bool :=
-  match proofPW find? a with
+def isProofFast (find? : Name → Option ConstantInfo) (lps : List Name)
+    (a : Expr) : Bool :=
+  match proofPW find? lps a with
   | some pw => pw.isProp
   | none => false
 

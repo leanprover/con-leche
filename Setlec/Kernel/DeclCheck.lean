@@ -303,6 +303,13 @@ section Mirrors
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
+/-- `enterCtx` through the index (`FEnv.withLps`). -/
+def enterCtxF (fe : FEnv) (lps : List Name) : m FEnv :=
+  match UnivCtx.of? lps with
+  | some c => pure (fe.withLps c)
+  | none => throw (.notImplemented
+      s!"more than {PropWhen.maxParams} universe parameters")
+
 /-- `checkConstantVal` through the index. -/
 def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
     (cv : ConstantVal) : m ConstantVal := do
@@ -380,8 +387,9 @@ def checkIotaThmF (ops : CheckerOps m) (fe' feSelf : FEnv)
       throw (.notImplemented s!"iota statement major mismatch for {cvName}")
     unless (cvj.type.stripPis (cnP + cnF)).isSome do
       throw (.notImplemented s!"iota constructor telescope for {cvName}")
+    let cvjTy := cvj.type.remapPW cvj.levelParams lps
     let (cdoms, cres) ← unwrapOr
-        (Expr.instPisAt (fvs.take cnP ++ xFvs) (cvj.type.renameConsts f))
+        (Expr.instPisAt (fvs.take cnP ++ xFvs) (cvjTy.renameConsts f))
         (.notImplemented s!"iota constructor telescope for {cvName}")
     unless cres.getAppArgs.length = cnP + (mI - rP) do
       throw (.notImplemented s!"iota constructor indices for {cvName}")
@@ -397,7 +405,7 @@ def checkIotaThmF (ops : CheckerOps m) (fe' feSelf : FEnv)
     let (fvsP, _) ← unwrapOr (openPisAtFvars rP tyA 0)
       (.notImplemented s!"iota recursor telescope for {cvName}")
     let (cdomsP, crestP) ← unwrapOr
-      (Expr.instPisAt (fvsP.take cnP) cvj.type)
+      (Expr.instPisAt (fvsP.take cnP) cvjTy)
       (.notImplemented s!"iota constructor telescope for {cvName}")
     checkDefEqList ops feSelf.env depth
       ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP
@@ -488,7 +496,7 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
     let (cdoms, cres) ← unwrapOr
         (Expr.instPisAt (pinsF ++ xFvs)
           ((cvj.type.instantiateLevelParams cvj.levelParams
-            lvls).renameConsts f))
+            lvls (Level.masksOf lps lvls)).renameConsts f))
         (.notImplemented s!"iota constructor telescope for {cvName}")
     unless cres.getAppArgs.length = cnP + (mI - rP) do
       throw (.notImplemented s!"iota constructor indices for {cvName}")
@@ -507,7 +515,8 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
       Expr.instSpine (fvsP.take rP) (rP - 1) p
     checkAnnotList ops feSelf.env depth pinsP
     let (cdomsP, crestP) ← unwrapOr (Expr.instPisAt pinsP
-        (cvj.type.instantiateLevelParams cvj.levelParams lvls))
+        (cvj.type.instantiateLevelParams cvj.levelParams lvls
+          (Level.masksOf lps lvls)))
       (.notImplemented s!"iota constructor telescope for {cvName}")
     checkTypedList ops feSelf.env depth pinsP cdomsP
     let (xFvsP, crest2P) ← unwrapOr (openPisAtFvars cnF crestP rP)
@@ -576,6 +585,8 @@ def checkProjLookupsF (fe : FEnv) (T ctorName : Name) (lps : List Name)
     | throw (.notImplemented "missing projection model")
   unless mcv.levelParams = lps do
     throw (.notImplemented "projection model level mismatch")
+  unless cvj.levelParams = lps do
+    throw (.notImplemented "projection constructor level mismatch")
   unless (fe.find? (projFnName T i)).isNone do
     throw (.invalid "projection name taken")
   unless (fe.find? T).isSome do

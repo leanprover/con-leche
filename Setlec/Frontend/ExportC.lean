@@ -94,7 +94,7 @@ private def getDeclExprD (st : StateD) (j : Json) (key : String) : M Expr := do
   getDeclD st j key (budgeted := true)
 
 /-- Twin of `parsePw` over the direct name table. -/
-private def parsePwD (st : StateD) (j : Json) : M PropWhen := do
+private def parsePwD (_st : StateD) (j : Json) : M PropWhen := do
   match j.getObjVal? "pw" with
   | .error _ => pure .never
   | .ok v =>
@@ -102,8 +102,13 @@ private def parsePwD (st : StateD) (j : Json) : M PropWhen := do
       match s with
       | "never" => pure .never
       | _ => throw s!"unknown pw {s}"
-    else if let .ok a := v.getArr? then
-      pure (.ifAllZero (← a.toList.mapM (fun i => do st.name (← i.getNat?))))
+    else if (v.getArr?).isOk then
+      -- the named-list input form (`"pw": [name indices]`) was retired
+      -- with the packed positional datum (2026-09-06, user ruling): a
+      -- parse-table node is shared across declarations, so a name list
+      -- cannot be positionalised at parse time, and the annotate pass
+      -- writes every datum anyway
+      throw pwNamedSentinel
     else
       throw "malformed pw field"
 
@@ -389,6 +394,8 @@ private def processLineD (st : StateD) (j : Json)
       pure (.inr "declaration uses a skipped (non-pinned) axiom")
     else if e = sizeSentinel then
       pure (.inr "declaration's unshared tree size exceeds the frontend budget (heavily DAG-shared input; this record kind still materializes trees)")
+    else if e = pwNamedSentinel then
+      pure (.inr "named-list pw annotations are not supported (the pw datum is positional; the annotate pass writes every datum)")
     else throw e
 
 /-! ## The byte fast path's direct apply functions -/

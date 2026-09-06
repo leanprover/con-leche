@@ -148,14 +148,14 @@ theorem natHeadsP_cons_offNat (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName)
-    (m2 : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m2 : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hacval : m2.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) : NatHeadsP m2 φ := by
   intro hg ρ
   rw [hacval]
   -- the three lookups are the prefix's, so the guard reflects
   have hfind : ∀ p : Name, c₀.name ≠ p →
-      (⟨c₀ :: env.consts⟩ : Env).find? p = env.find? p := by
+      ({ env with consts := c₀ :: env.consts } : Env).find? p = env.find? p := by
     intro p hp
     show List.find? _ (c₀ :: env.consts) = _
     rw [List.find?_cons_of_neg (by simpa using hp)]
@@ -190,8 +190,8 @@ theorem etaFamilyStored_descend_reserved {c₀ : ConstantInfo} {T : Name}
     {cvT : ConstantVal} {caps : IndCaps}
     (hres₀ : Setlec.reservedBasisNames.contains c₀.name = true)
     (hresT : Setlec.reservedBasisNames.contains T = false)
-    (hf : (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps))
-    (hfam : Setlec.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps) :
+    (hf : ({ env with consts := c₀ :: env.consts } : Env).find? T = some (.indInfo cvT caps))
+    (hfam : Setlec.EtaFamilyStored { env with consts := c₀ :: env.consts } T caps) :
     env.find? T = some (.indInfo cvT caps) ∧
       Setlec.EtaFamilyStored env T caps ∧
       T ≠ c₀.name ∧ caps.etaCtor ≠ c₀.name ∧
@@ -204,7 +204,7 @@ theorem etaFamilyStored_descend_reserved {c₀ : ConstantInfo} {T : Name}
   have hnP : ∀ j, j < caps.etaFields → projFnName T j ≠ c₀.name :=
     fun _ _ => projFnName_ne_reserved hres₀
   have hdown : ∀ n : Name, n ≠ c₀.name →
-      (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
+      ({ env with consts := c₀ :: env.consts } : Env).find? n = env.find? n := by
     intro n hn
     rw [Setlec.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
   refine ⟨by rwa [hdown _ hnT] at hf, ⟨hCres, ⟨cvC, ?_⟩, ?_⟩,
@@ -227,7 +227,7 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
     (hfresh : env.find? c₀.name = none)
     (hntc : ConsCrossEnv env c₀)
     (hres₀ : Setlec.reservedBasisNames.contains c₀.name = true)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A) :
     CapsOkP m₂ := by
   constructor

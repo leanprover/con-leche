@@ -136,7 +136,7 @@ private theorem cvA_type_facts' {env : Env} {cv cvA : ConstantVal}
 private theorem envWF_cons_provRec {env : Env} (henv : EnvWF env)
     {cvA : ConstantVal} {mI rP F : Nat} {cv : ConstantVal}
     (hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA) :
-    EnvWF ⟨.recInfo cvA mI rP [] :: env.consts⟩ := by
+    EnvWF { env with consts := .recInfo cvA mI rP [] :: env.consts } := by
   obtain ⟨htf, htp, htr, htb⟩ := cvA_type_facts' hccv
   exact EnvWF.cons henv (constWF_intro' htf htp
     (Expr.constsResolve_mono htr) htb
@@ -274,11 +274,11 @@ theorem provisionRecsS_run {blockNames : List Name} :
         (ConstantInfo.recInfo cv mI rP rules).toConstantVal = .ok cvA := by
       rw [← checkMemberVal_datF]; exact hFm
     obtain ⟨hccv, -⟩ := checkMemberVal_inv hFmp
-    have henv₁ : EnvWF ⟨.recInfo cvA mI rP [] :: env.consts⟩ :=
+    have henv₁ : EnvWF { env with consts := .recInfo cvA mI rP [] :: env.consts } :=
       envWF_cons_provRec henv hccv
     obtain ⟨p', s₃, hrec, h⟩ := bindC_ok h
     rw [show (mkFEnv env).push (.recInfo cvA mI rP []) =
-      mkFEnv ⟨.recInfo cvA mI rP [] :: env.consts⟩ from rfl] at hrec
+      mkFEnv { env with consts := .recInfo cvA mI rP [] :: env.consts } from rfl] at hrec
     obtain ⟨hwf₃, hfeS, henvS, F₂, hF₂⟩ :=
       provisionRecsS_run rest _ henv₁ hs₂.residue hrec
     obtain ⟨feSelf, others⟩ := p'
@@ -293,7 +293,7 @@ theorem provisionRecsS_run {blockNames : List Name} :
         (Nat.le_max_left F₁ F₂) hFm]
     simp only [Bind.bind, Except.bind]
     rw [(provisionRecs (fueledOpsM mode) blockNames
-        ⟨.recInfo cvA mI rP [] :: env.consts⟩ rest).property
+        { env with consts := .recInfo cvA mI rP [] :: env.consts } rest).property
         (Nat.le_max_right F₁ F₂) hF₂]
     rfl
 
@@ -345,7 +345,7 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
       ∃ F, (checked.foldlM (fun (acc : Env) (c : ConstantVal × Nat × Nat × List RecRule) => do
           let rules' ← checkIotaRules mode (fueledOpsM mode) env₂ envSelf f c.1.name
             c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
-          pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env))
+          pure ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts } : Env))
           acc.env).val F = .ok fe₃.env
   | [], acc, s₀, fe₃, s', _, hs, h => by
     obtain ⟨hfe, rfl⟩ := pureC_ok h
@@ -369,8 +369,8 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
     have hF₂' : (rest.foldlM (fun (acc : Env) (c : ConstantVal × Nat × Nat × List RecRule) => do
         let rules' ← checkIotaRules mode (fueledOpsM mode) env₂ envSelf f c.1.name
           c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
-        pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env))
-        (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.env.consts⟩ :
+        pure ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts } : Env))
+        ({ acc.env with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.env.consts } :
           Env)).val F₂ = .ok fe₃.env := hF₂
     refine atF_bind_intro (F₁ := F₁) (F₂ := F₂) ?_ hF₂'
     rw [FueledM.atF_bind, hF₁]
@@ -385,12 +385,12 @@ private theorem iotaFold_datF {env₂ envSelf : Env} {f : Name → Name}
       (checked.foldlM (fun (acc : Env) (c : ConstantVal × Nat × Nat × List RecRule) => do
           let rules' ← checkIotaRules mode (fueledOpsM mode) env₂ envSelf f c.1.name
             c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
-          pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env))
+          pure ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts } : Env))
           acc).val F = .ok env₃ →
       checked.foldlM (fun (acc : Env) (c : ConstantVal × Nat × Nat × List RecRule) => do
           let rules' ← checkIotaRules mode (fueledOps mode F) env₂ envSelf f
             c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
-          pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env))
+          pure ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts } : Env))
           acc = .ok env₃
   | [], acc, env₃, h => h
   | c :: rest, acc, env₃, h => by
@@ -403,10 +403,10 @@ private theorem iotaFold_datF {env₂ envSelf : Env} {f : Name → Name}
         CheckM Env) >>= _) = _
     rw [hir]
     simp only [Bind.bind, Except.bind]
-    have hstep' : (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' ::
-        acc.consts⟩ : Env) = e₁ := by
-      have hst : (Except.ok (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' ::
-          acc.consts⟩ : Env) : Except CheckError Env) = .ok e₁ := hstep
+    have hstep' : ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' ::
+        acc.consts } : Env) = e₁ := by
+      have hst : (Except.ok ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' ::
+        acc.consts } : Env) : Except CheckError Env) = .ok e₁ := hstep
       exact Except.ok.inj hst
     simp only [pure, Except.pure]
     rw [hstep']
@@ -478,7 +478,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
       let rules' ← checkIotaRules mode (fueledOpsM mode) env₂ feSelf.env
         (fun n => if blockNames.contains n then n.str "_model" else n)
         c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
-      pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env))
+      pure ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts } : Env))
       env₂ : FueledM Env).property (Nat.le_max_right F₁ F₂) hF₂
   have hprovPM : provisionRecs (fueledOps mode (max F₁ F₂)) blockNames env₂
       recs = .ok (feSelf.env, checked) := by
@@ -626,9 +626,9 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
     exact (checkProjRule (fueledOpsM mode) env pty cvj lps nP nF
       i).property hF₁₃ hFr
   have hFnp : checkProjFn mode (fueledOps mode F₃) env T ctorName lps nP nF i =
-      .ok (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+      .ok ({ env with consts := (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
         [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
-          .plain else .inert, rhsA⟩] :: env.consts⟩ : Env) := by
+          .plain else .inert, rhsA⟩]) :: env.consts } : Env) := by
     unfold checkProjFn
     show ((checkProjLookups env T ctorName lps nP nF i :
       CheckM _) >>= _) = _
@@ -653,9 +653,9 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
     simp only [Bind.bind, Except.bind]
     rfl
   have hFn : (checkProjFn mode (fueledOpsM mode) env T ctorName lps nP nF
-      i).val F₃ = .ok (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+      i).val F₃ = .ok ({ env with consts := (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
         [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
-          .plain else .inert, rhsA⟩] :: env.consts⟩ : Env) := by
+          .plain else .inert, rhsA⟩]) :: env.consts } : Env) := by
     rw [checkProjFn_datF]
     exact hFnp
   refine ⟨hs₄.residue, rfl, ?_, F₃, hFn⟩
@@ -668,15 +668,15 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
   obtain ⟨-, -, hres, hbv, hfv, hlp, -⟩ := checkProjTy_inv hty'
   obtain ⟨raw, rb, cb, cbody, hraw, hrf, hrb, hann, halp, hrres, hrbv,
     hrfv, hsl, hsp, hdm, -⟩ := checkProjRule_inv hrule'
-  show EnvWF (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+  show EnvWF ({ env with consts := (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
       [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
-        RecRuleFire.plain else .inert, rhsA⟩] :: env.consts⟩ : Env)
-  rw [show (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+        RecRuleFire.plain else .inert, rhsA⟩]) :: env.consts } : Env)
+  rw [show ({ env with consts := (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
       [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
-        RecRuleFire.plain else .inert, rhsA⟩] :: env.consts⟩ : Env) =
-    ⟨.recInfo ⟨projFnName T i, lps, pty'⟩ nP nP
+        RecRuleFire.plain else .inert, rhsA⟩]) :: env.consts } : Env) =
+    { env with consts := (.recInfo ⟨projFnName T i, lps, pty'⟩ nP nP
       [⟨ctorName, nF, nP, if Expr.recRulePlain pty' nP nP nP then
-        RecRuleFire.plain else .inert, rhsA'⟩] :: env.consts⟩
+        RecRuleFire.plain else .inert, rhsA'⟩]) :: env.consts }
     from by rw [hrecEq]]
   refine EnvWF.cons henv (constWF_intro' hfv hlp
     (Expr.constsResolve_mono hres) hbv

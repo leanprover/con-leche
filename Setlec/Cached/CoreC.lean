@@ -298,10 +298,10 @@ with the head-symbol "not a proof" arm, gated on `cfg.verified`. -/
 def propIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
   if cfg.verified &&
-      (notProofFast fe.find? a || notProofFast fe.find? b) then
+      (notProofFast fe.find? fe.env.lpsL a || notProofFast fe.find? fe.env.lpsL b) then
     pure false
   else if cfg.verified && cfg.betaGate &&
-      isProofFast fe.find? a && isProofFast fe.find? b then
+      isProofFast fe.find? fe.env.lpsL a && isProofFast fe.find? fe.env.lpsL b then
     pure true
   else
   let ta ← r.inferIO depth a
@@ -630,14 +630,14 @@ def projLitToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
 
 /-- The interned nested-rule pin instantiations (structural recursion;
 the spec side is `(recFireComparands …).2`'s `List.map`). -/
-def pinArgsI (lps : List Name) (us : List Level) (args : List ExprC)
+def pinArgsI (cur lps : List Name) (us : List Level) (args : List ExprC)
     (t : Nat) : List Expr → CheckCM (List ExprC)
   | [] => pure []
   | p :: ps => do
     let praw ← internExprM p
-    let pi ← instLevelParamsM lps us praw
+    let pi ← instLevelParamsM lps us (Level.masksOf cur us) praw
     let r ← instSpineM args t pi
-    let rs ← pinArgsI lps us args t ps
+    let rs ← pinArgsI cur lps us args t ps
     pure (r :: rs)
 
 /-- Twin of `iotaRec`. -/
@@ -682,7 +682,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                 let cmpArgs : List ExprC ←
                   match rl.fire with
                   | .nested _ pins =>
-                    pinArgsI cv.levelParams us (args.take rP) (rP - 1) pins
+                    pinArgsI fe.env.lpsL cv.levelParams us (args.take rP) (rP - 1) pins
                   | _ => pure (args.take rl.ctorParams)
                 if ← liftFueled "level comparison"
                     (← isEquivListLM usj cmpLvls) then do
@@ -1024,8 +1024,8 @@ sort-checked here — the spec's codomain check (`inferBody`'s `.lam`
 clause), which fires at the innermost binder of a λ-chain, i.e.
 exactly when the peel stops on a non-λ residual.  The guard is the
 same one the spec uses, on the same term. -/
-def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
-    (fvs : Array ExprC) (stk : List InferLamEntry) : CheckCM ExprC := do
+def inferLamsLeafI (r : CoreFnsI) (lps : List Name) (d : Nat) (t : ExprC)
+    (k : Nat) (fvs : Array ExprC) (stk : List InferLamEntry) : CheckCM ExprC := do
   let ob ← instListRevM t fvs
   let bt ← r.infer (d + k) ob
   match ← viewI t with
@@ -1041,8 +1041,7 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
         -- half of the spec's `.lam` clause check.
         match stk with
         | (_, _, mb₀) :: _ => do
-          let pv ← withStore fun st => (st.zeronessOfLIGo {} vb).1
-          unless pv.equiv mb₀.pw do
+          unless Level.maskOf? lps vb == some mb₀.pw do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-leaf)")
         | [] => pure ()
@@ -1067,7 +1066,7 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
 domain to be a type on the way in.  `k` counts the opened binders
 (`≥ 1`: the caller peels the first binder inline), `fvs` their free
 variables innermost-first. -/
-def inferLamsI (r : CoreFnsI) (d : Nat) :
+def inferLamsI (r : CoreFnsI) (lps : List Name) (d : Nat) :
     Nat → ExprC → Nat → Array ExprC → List InferLamEntry → CheckCM ExprC
   | fuel + 1, t, k, fvs, stk => do
     match ← viewI t with
@@ -1078,37 +1077,39 @@ def inferLamsI (r : CoreFnsI) (d : Nat) :
       match ← viewI wtty with
       | some (.sort _) => do
         let fv ← internI (.fvar (d + k) n tyo)
-        inferLamsI r d fuel body (k + 1) (fvs.push fv)
+        inferLamsI r lps d fuel body (k + 1) (fvs.push fv)
           ((n, tyo, mb) :: stk)
       | _ => throw (.invalid "expected a sort")
-    | _ => inferLamsLeafI cfg r d t k fvs stk
-  | 0, t, k, fvs, stk => inferLamsLeafI cfg r d t k fvs stk
+    | _ => inferLamsLeafI cfg r lps d t k fvs stk
+  | 0, t, k, fvs, stk => inferLamsLeafI cfg r lps d t k fvs stk
 
 /-- Rebuild loop of `inferPisI`: fold the accumulated domain sorts by
 `imax`, innermost binder first — exactly the chained `∀`-rule's result
 value. -/
-def inferPisOutI : List (Level × PropWhen) → Level → CStore.PWMemo → CheckCM Level
-  | [], v, _memo => pure v
-  | (u, pw) :: rest, v, memo => do
+def inferPisOutI (lps : List Name) :
+    List (Level × PropWhen) → Level → CheckCM Level
+  | [], v => pure v
+  | (u, pw) :: rest, v => do
     -- Task #161: validate the node's prop-ness annotation against its
     -- inferred codomain sort (`v` is exactly the spec `∀`-clause's
-    -- `v` at this node); the readout is memoized across the fold.
-    let (pv, memo) ← withStore fun st => st.zeronessOfLIGo memo v
-    if cfg.verified && !(pv.equiv pw) then
+    -- `v` at this node).  Packed datum: the readout is a bit walk, so
+    -- the former per-fold memo is gone.
+    if cfg.verified && !(Level.maskOf? lps v == some pw) then
       throw (.notImplemented "sort-annotation mismatch (forall-cod)")
     let v' ← internLM (.imax u v)
-    inferPisOutI rest v' memo
+    inferPisOutI lps rest v'
 
 /-- Leaf phase of `inferPisI`: bulk-open the residual body, infer its
 sort, then fold the domain sorts outward. -/
-def inferPisLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
-    (fvs : Array ExprC) (stk : List (Level × PropWhen)) : CheckCM ExprC := do
+def inferPisLeafI (r : CoreFnsI) (lps : List Name) (d : Nat) (t : ExprC)
+    (k : Nat) (fvs : Array ExprC) (stk : List (Level × PropWhen)) :
+    CheckCM ExprC := do
   let ob ← instListRevM t fvs
   let bt ← r.infer (d + k) ob
   let wbt ← r.whnf (d + k) bt
   match ← viewI wbt with
   | some (.sort v) => do
-    let iv ← inferPisOutI cfg stk v ({} : CStore.PWMemo)
+    let iv ← inferPisOutI cfg lps stk v
     internI (.sort iv)
   | _ => throw (.invalid "expected a sort")
 
@@ -1117,7 +1118,7 @@ its codomain sort — the stored annotation is not read): peel the raw
 ∀-chain, checking each opened domain to be a type on the way in and
 accumulating its sort, infer the bulk-opened leaf's sort once, and
 fold `imax` outward. -/
-def inferPisI (r : CoreFnsI) (d : Nat) :
+def inferPisI (r : CoreFnsI) (lps : List Name) (d : Nat) :
     Nat → ExprC → Nat → Array ExprC → List (Level × PropWhen) →
       CheckCM ExprC
   | fuel + 1, t, k, fvs, stk => do
@@ -1129,11 +1130,11 @@ def inferPisI (r : CoreFnsI) (d : Nat) :
       match ← viewI wtty with
       | some (.sort u) => do
         let fv ← internI (.fvar (d + k) n tyo)
-        inferPisI r d fuel body (k + 1) (fvs.push fv)
+        inferPisI r lps d fuel body (k + 1) (fvs.push fv)
           ((u, mb.pw) :: stk)
       | _ => throw (.invalid "expected a sort")
-    | _ => inferPisLeafI cfg r d t k fvs stk
-  | 0, t, k, fvs, stk => inferPisLeafI cfg r d t k fvs stk
+    | _ => inferPisLeafI cfg r lps d t k fvs stk
+  | 0, t, k, fvs, stk => inferPisLeafI cfg r lps d t k fvs stk
 
 /-- Twin of `inferBody`. -/
 def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
@@ -1177,7 +1178,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       | some (.sort u) => do
         let fv ← internI (.fvar depth n ty)
         let fuel ← peelFuelM
-        inferPisI cfg r depth fuel body 1 #[fv] [(u, mb.pw)]
+        inferPisI cfg r fe.env.lpsL depth fuel body 1 #[fv] [(u, mb.pw)]
       | _ => throw (.invalid "expected a sort")
     | some (.lam n ty body mb) => do
       let tty ← r.infer depth ty
@@ -1188,7 +1189,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         -- open in bulk, rebuild with `abstractRange`.
         let fv ← internI (.fvar depth n ty)
         let fuel ← peelFuelM
-        inferLamsI cfg r depth fuel body 1 #[fv] [(n, ty, mb)]
+        inferLamsI cfg r fe.env.lpsL depth fuel body 1 #[fv] [(n, ty, mb)]
       | _ => throw (.invalid "expected a sort")
     | some (.app _ _) => do
       -- Bulk telescope consumption (task #50): infer the spine head
@@ -1220,8 +1221,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
             -- the spec body — since B3a `ExprC = Expr` and the store
             -- is a unit, so the level-instantiated peel runs
             -- directly on the entry type and the interned spine.
-            let tyI := entry.ty.instantiateLevelParams
-              entry.levelParams us
+            let tyI := entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf fe.env.lpsL us)
             match Expr.instPisAt (targs ++ [pe]) tyI with
             | some (_, resid) => internExprM resid
             | none => throw (.internal "malformed projection entry")
@@ -1276,7 +1276,7 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         let bt ← r.infer (depth + 1) ob
         let v ← ensureSortI r (depth + 1) bt
         if cfg.verified then
-          unless (Level.zeronessOf v).equiv mb.pw do
+          unless Level.maskOf? fe.env.lpsL v == some mb.pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         let iu ← internLM (.imax u v)
         internI (.sort iu)
@@ -1296,7 +1296,7 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         | none =>
           let btt ← r.infer (depth + 1) bt
           let vb ← ensureSortI r (depth + 1) btt
-          unless (Level.zeronessOf vb).equiv mb.pw do
+          unless Level.maskOf? fe.env.lpsL vb == some mb.pw do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-leaf)")
       let bAbs ← abstract1M bt depth
@@ -1530,12 +1530,12 @@ def annotPwPiI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (body' : ExprC) :
     CheckCM PropWhen := do
   -- task #168 stage 2: the head-symbol reader first (it subsumes the
   -- chain read), as in the spec
-  match typeSortPW fe.find? body' with
+  match typeSortPW fe.find? fe.env.lpsL body' with
   | some pw => pure pw
   | none => do
     let bt ← r.inferIO depth body'
     let v ← ensureSortI r depth bt
-    withStore fun st => (st.zeronessOfLIGo {} v).1
+    pure (Level.maskOf fe.env.lpsL v)
 
 /-- Gated for the telescope loop: `none` = no write. -/
 def annotatePisPwI (r : CoreFnsI) (fe : FEnv) (d k : Nat) (leaf' : ExprC) :
@@ -1580,13 +1580,13 @@ datum, exactly as `inferLamsLeafI` reads it. -/
 def annotPwLamI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (body' : ExprC) :
     CheckCM PropWhen := do
   -- task #168 stage 2: the reader first, as in the spec
-  match proofPW fe.find? body' with
+  match proofPW fe.find? fe.env.lpsL body' with
   | some pw => pure pw
   | none => do
     let bt ← r.inferIO depth body'
     let btt ← r.inferIO depth bt
     let vb ← ensureSortI r depth btt
-    withStore fun st => (st.zeronessOfLIGo {} vb).1
+    pure (Level.maskOf fe.env.lpsL vb)
 
 /-- Gated for the telescope loop: `none` = no write. -/
 def annotateLamsPwI (r : CoreFnsI) (fe : FEnv) (d k : Nat) (leaf' : ExprC) :

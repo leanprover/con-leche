@@ -242,7 +242,7 @@ theorem checkDefnValC_sim (henv : EnvWF env) {cvA : ConstantVal}
     refine SimC.pure hs₃ ⟨rfl, push_mkFEnv env _, ?_⟩
     intro cv' v' h' hf
     rw [show ((mkFEnv env).push (.defnInfo cvA jv hint)).env =
-      ⟨.defnInfo cvA jv hint :: env.consts⟩ from rfl] at hf
+      { env with consts := .defnInfo cvA jv hint :: env.consts } from rfl] at hf
     rw [Env.find?_cons, if_pos (show (ConstantInfo.defnInfo cvA jv
       hint).name = cvA.name from rfl)] at hf
     simp only [Option.some.injEq, ConstantInfo.defnInfo.injEq] at hf

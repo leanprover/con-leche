@@ -706,18 +706,18 @@ theorem denoteP_substConst0 {acval : Name → (Name → Nat) → AVExpr}
     (hv : denoteP acval env ψ 0 v = some (A ψ))
     (hvf : v.hasFvar = false) :
     ∀ (d : Nat) (e : Expr), shallowE e = true →
-      denoteP (acvalWith acval c A) ⟨c₀ :: env.consts⟩ ψ d e
+      denoteP (acvalWith acval c A) { env with consts := c₀ :: env.consts } ψ d e
         = denoteP acval env ψ d (Expr.substConst0 c v e) := by
   intro d e
   induction e with
   | sort u =>
     intro _
-    show denoteP (acvalWith acval c A) ⟨c₀ :: env.consts⟩ ψ d (.sort u)
+    show denoteP (acvalWith acval c A) { env with consts := c₀ :: env.consts } ψ d (.sort u)
       = denoteP acval env ψ d (.sort u)
     rw [denoteP_sort, denoteP_sort]
   | fvar idx n ty =>
     intro _
-    show denoteP (acvalWith acval c A) ⟨c₀ :: env.consts⟩ ψ d
+    show denoteP (acvalWith acval c A) { env with consts := c₀ :: env.consts } ψ d
         (.fvar idx n ty) = denoteP acval env ψ d (.fvar idx n ty)
     rw [denoteP_fvar, denoteP_fvar]
   | const n us =>
@@ -728,9 +728,9 @@ theorem denoteP_substConst0 {acval : Name → (Name → Nat) → AVExpr}
       · subst hus
         rw [show Expr.substConst0 n v (.const n []) = v from by
           rw [Expr.substConst0, if_pos ⟨rfl, rfl⟩]]
-        have hfc : (⟨c₀ :: env.consts⟩ : Env).find? n = some c₀ := by
+        have hfc : ({ env with consts := c₀ :: env.consts } : Env).find? n = some c₀ := by
           rw [Setlec.Env.find?_cons, if_pos hname]
-        have h1 : denoteP (acvalWith acval n A) ⟨c₀ :: env.consts⟩ ψ d
+        have h1 : denoteP (acvalWith acval n A) { env with consts := c₀ :: env.consts } ψ d
             (.const n []) = some (acvalWith acval n A n ψ) :=
           denoteP_levelless_const hfc hlp
         rw [h1, show acvalWith acval n A n = A from acvalWith_self]
@@ -738,14 +738,14 @@ theorem denoteP_substConst0 {acval : Name → (Name → Nat) → AVExpr}
       · rw [show Expr.substConst0 n v (.const n us) = .const n us from
           by rw [Expr.substConst0, if_neg (fun h => hus h.2)]]
         rw [denoteP, denoteP]
-        rw [show (⟨c₀ :: env.consts⟩ : Env).find? n = some c₀ from by
+        rw [show ({ env with consts := c₀ :: env.consts } : Env).find? n = some c₀ from by
           rw [Setlec.Env.find?_cons, if_pos hname], hfresh]
         dsimp only
         rw [if_neg (by rw [hlp]; simpa using hus)]
     · rw [show Expr.substConst0 c v (.const n us) = .const n us from by
         rw [Expr.substConst0, if_neg (fun h => hn h.1)]]
       rw [denoteP, denoteP]
-      rw [show (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n from by
+      rw [show ({ env with consts := c₀ :: env.consts } : Env).find? n = env.find? n from by
         rw [Setlec.Env.find?_cons,
           if_neg (fun hh => hn (hh.symm.trans hname))]]
       cases hf : env.find? n with
@@ -828,12 +828,12 @@ extension — its shape is env-free, and its `Bool`-codomain storedness
 conjunct is descended separately by the caller). -/
 theorem natOpStoredOk_descend {c₀ : ConstantInfo} {n : Name}
     (hne : n ≠ c₀.name)
-    (hok : Setlec.natOpStoredOk ⟨c₀ :: env.consts⟩ n = true) :
+    (hok : Setlec.natOpStoredOk { env with consts := c₀ :: env.consts } n = true) :
     ∃ cvn vn hn, env.find? n = some (.defnInfo cvn vn hn) ∧
       cvn.levelParams = [] ∧
-      Setlec.natOpTyPinned ⟨c₀ :: env.consts⟩ n cvn.type = true := by
+      Setlec.natOpTyPinned { env with consts := c₀ :: env.consts } n cvn.type = true := by
   unfold Setlec.natOpStoredOk at hok
-  cases hf2 : (⟨c₀ :: env.consts⟩ : Env).find? n with
+  cases hf2 : ({ env with consts := c₀ :: env.consts } : Env).find? n with
   | none => rw [hf2] at hok; exact nomatch hok
   | some ci =>
     rw [hf2] at hok
@@ -939,16 +939,16 @@ theorem natOpsP_entry_cons (mp : EnvS2PM V μ env) {φ : Name → Nat}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
     (hntc : ConsCrossEnv env c₀)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     {c : Name} (hcN : c ∈ Setlec.natOpNames) (hne : c ≠ c₀.name)
     {cv' : ConstantVal} {v' : Expr} {hint' : ReducibilityHint}
-    (hf₂ : (⟨c₀ :: env.consts⟩ : Env).find? c
+    (hf₂ : ({ env with consts := c₀ :: env.consts } : Env).find? c
       = some (.defnInfo cv' v' hint')) :
-    natOpGuard (⟨c₀ :: env.consts⟩ : Env) c = true ∧
+    natOpGuard ({ env with consts := c₀ :: env.consts } : Env) c = true ∧
     ∀ eq ∈ Setlec.natOpEquations 0 c, ∃ L R,
-      denoteP m₂.acval ⟨c₀ :: env.consts⟩ φ 2 eq.1 = some L ∧
-      denoteP m₂.acval ⟨c₀ :: env.consts⟩ φ 2 eq.2 = some R ∧
+      denoteP m₂.acval { env with consts := c₀ :: env.consts } φ 2 eq.1 = some L ∧
+      denoteP m₂.acval { env with consts := c₀ :: env.consts } φ 2 eq.2 = some R ∧
       ∀ (ρ : Nat → V) (x y : V),
         x ∈ˢ interp2 V ρ (m₂.acval Setlec.natName φ) →
         y ∈ˢ interp2 V ρ (m₂.acval Setlec.natName φ) →
@@ -1000,7 +1000,7 @@ theorem natOpsP_cons_fresh (mp : EnvS2PM V μ env) {φ : Name → Nat}
     (hntc : ConsCrossEnv env c₀)
     (hnothead : (∀ cv v hint, c₀ ≠ .defnInfo cv v hint) ∨
       c₀.name ∉ Setlec.natOpNames)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A) :
     NatOpsP m₂ φ := by
   intro c hcN cv' v' hint' hf₂
@@ -1022,7 +1022,7 @@ theorem natSelfHeadP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
     {lps : List Name} {type' value' : Expr} {hint : ReducibilityHint}
     (hfresh : env.find? c = none)
     (hpin : Setlec.natOpTyPinned
-      (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩ : Env)
+      ({ env with consts := .defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts } : Env)
       c type' = true)
     (hs : natLitSupported env = true)
     {Ta : (Name → Nat) → AVExpr}
@@ -1116,11 +1116,11 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
     (hlpcv : lps = [])
     (hs : natLitSupported env = true)
     (hg2 : natOpGuard
-      (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩ : Env) c
+      ({ env with consts := .defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts } : Env) c
       = true)
     (hdepsOk : (Setlec.natOpDeps c).all
       (Setlec.natOpStoredOk
-        (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩ : Env))
+        ({ env with consts := .defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts } : Env))
       = true)
     (hruns : NatEqsRun μ F env
       ((Setlec.natOpEquations 0 c).map fun eq =>
@@ -1138,7 +1138,7 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       NatUnHeadP mp.base2 φ value'
         (fun ρ => interp2 V ρ (mp.base2.acval Setlec.natName φ)))
     (m₂ : EnvS2Core V
-      ⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩)
+      { env with consts := .defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts })
     (hac : m₂.acval
       = acvalWith mp.base2.acval c A) :
     NatOpsP m₂ φ := by
@@ -1167,7 +1167,7 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
     Setlec.TTVerify.natOpGuard_stored hg2
   have tr : ∀ {n : Name}, n ≠ cq →
       Setlec.TTVerify.storedNoLevels
-        (⟨.defnInfo ⟨cq, lps, type'⟩ value' hint :: env.consts⟩ : Env) n →
+        ({ env with consts := .defnInfo ⟨cq, lps, type'⟩ value' hint :: env.consts } : Env) n →
       Setlec.TTVerify.storedNoLevels env n := fun hne h =>
     Setlec.TTVerify.storedNoLevels_of_cons
       (ci := .defnInfo ⟨cq, lps, type'⟩ value' hint) rfl hne h
@@ -1206,7 +1206,7 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       denoteP mp.base2.acval env φ 2 (Expr.substConst0 cq value' e)
         = some ea →
       denoteP m₂.acval
-          ⟨.defnInfo ⟨cq, lps, type'⟩ value' hint :: env.consts⟩ φ 2 e
+          { env with consts := .defnInfo ⟨cq, lps, type'⟩ value' hint :: env.consts } φ 2 e
         = some ea := by
     intro e hsh ea h
     rw [hac, denoteP_substConst0 (c₀ := .defnInfo ⟨cq, lps, type'⟩
@@ -1260,10 +1260,10 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       (∀ ρ : Nat → V, Sat2 V (natCtx2 mp.base2 φ) ρ →
         AnnotOkP V ρ ra) →
       ∃ L R, denoteP m₂.acval
-          ⟨.defnInfo ⟨cq, lps, type'⟩ value' hint :: env.consts⟩ φ 2
+          { env with consts := .defnInfo ⟨cq, lps, type'⟩ value' hint :: env.consts } φ 2
           e1 = some L ∧
         denoteP m₂.acval
-          ⟨.defnInfo ⟨cq, lps, type'⟩ value' hint :: env.consts⟩ φ 2
+          { env with consts := .defnInfo ⟨cq, lps, type'⟩ value' hint :: env.consts } φ 2
           e2 = some R ∧
         ∀ (ρ : Nat → V) (x y : V),
           x ∈ˢ interp2 V ρ (m₂.acval Setlec.natName φ) →

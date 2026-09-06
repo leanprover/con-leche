@@ -54,9 +54,9 @@ def emptyRecA : ConstantInfo :=
                   (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Empty") [])
                   (Setlec.Expr.app (Setlec.Expr.bvar 1) (Setlec.Expr.bvar 0))
                   { bi := Setlec.BinderInfo.default,
-                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                    pw := Setlec.PropWhen.bit 0 })
                 { bi := Setlec.BinderInfo.default,
-                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] } }
+                  pw := Setlec.PropWhen.bit 0 } }
     1
     1
     []

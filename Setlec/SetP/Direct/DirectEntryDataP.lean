@@ -133,9 +133,9 @@ theorem EntryData.cross {m : EnvS2Core V env} {ptyA : Expr} {lps : List Name}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none) (hat : ConsCrossAt c₀ ptyA)
     (hcb : ConstsBound env ptyA)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
-    ∀ ψ : Name → Nat, denoteP m₂.acval ⟨c₀ :: env.consts⟩ ψ 0 ptyA
+    ∀ ψ : Name → Nat, denoteP m₂.acval { env with consts := c₀ :: env.consts } ψ 0 ptyA
       = some (mkPisAV (eds ψ) (R ψ)) := by
   intro ψ
   rw [hac]

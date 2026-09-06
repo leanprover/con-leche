@@ -47,6 +47,19 @@ def pureOps : CheckerOps CheckM := fueledOps mode checkFuel
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
+/-- Enter the universe context of a declaration (the packed `pw`
+datum, 2026-09-06): the drivers call this before checking anything of
+a declaration, so every annotation the checker writes or reads is
+positional over `lps`.  A declaration with more than
+`PropWhen.maxParams` level parameters has no representable context
+and is **declined** here (exit 2, positively detected) — the one
+new decline class of the packed datum. -/
+def enterCtx (env : Env) (lps : List Name) : m Env :=
+  match UnivCtx.of? lps with
+  | some c => pure (env.withLps c)
+  | none => throw (.notImplemented
+      s!"more than {PropWhen.maxParams} universe parameters")
+
 /-- Checks common to all declarations: fresh name, well-formed universe
 parameters, and a type that is a type and mentions only declared
 parameters.  Returns the constant with its type **annotated**

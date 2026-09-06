@@ -371,17 +371,41 @@ def type (c : ConstantInfo) : Expr := c.toConstantVal.type
 
 end ConstantInfo
 
+/-- A universe context: a declaration's level-parameter list, bounded
+by `PropWhen.maxParams` so that every parameter has a representable
+position in the packed `pw` datum. -/
+abbrev UnivCtx := { l : List Name // l.length ≤ PropWhen.maxParams }
+
+/-- The bounded context of a parameter list, if representable. -/
+def UnivCtx.of? (l : List Name) : Option UnivCtx :=
+  if h : l.length ≤ PropWhen.maxParams then some ⟨l, h⟩ else none
+
 /-- The global environment: the list of constants accepted so far, newest
 first.  Names are unique (the checker rejects duplicates), so the order is
 irrelevant for lookup. -/
 structure Env where
   consts : List ConstantInfo
+  /-- The level parameters of the declaration under check — the
+  universe context the positional `pw` masks are read against (the
+  official kernel's `lparams` beside its local context; the packed
+  `pw` datum, 2026-09-06).  Entered per declaration by the drivers
+  (`Env.withLps`); every kernel function returning an `Env` keeps the
+  context it was given.  The bound is carried by the type: a
+  declaration with more than `PropWhen.maxParams` parameters is
+  declined before its context is ever entered. -/
+  lps : UnivCtx := ⟨[], by decide⟩
   deriving Repr, Inhabited
 
 namespace Env
 
 /-- The empty environment; the starting point of every checker run. -/
-def empty : Env := ⟨[]⟩
+def empty : Env := { consts := [] }
+
+/-- Enter the universe context of the declaration under check. -/
+def withLps (env : Env) (lps : UnivCtx) : Env := { env with lps := lps }
+
+/-- The context's parameter list. -/
+@[inline] def lpsL (env : Env) : List Name := env.lps.1
 
 def find? (env : Env) (n : Name) : Option ConstantInfo :=
   env.consts.find? (·.name == n)

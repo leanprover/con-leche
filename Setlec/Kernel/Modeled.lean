@@ -102,8 +102,13 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     -- major's arguments: field domains and the canonical index tuple
     unless (cvj.type.stripPis (cnP + cnF)).isSome do
       throw (.notImplemented s!"iota constructor telescope for {cvName}")
+    -- the constructor's stored type was annotated in the CONSTRUCTOR's
+    -- universe context; the recursor's prepends the motive universe,
+    -- so the positional data are remapped before the term is read here
+    -- (`Expr.remapPW`; the packed `pw` datum, 2026-09-06)
+    let cvjTy := cvj.type.remapPW cvj.levelParams lps
     let (cdoms, cres) ← unwrapOr
-        (Expr.instPisAt (fvs.take cnP ++ xFvs) (cvj.type.renameConsts f))
+        (Expr.instPisAt (fvs.take cnP ++ xFvs) (cvjTy.renameConsts f))
         (.notImplemented s!"iota constructor telescope for {cvName}")
     unless cres.getAppArgs.length = cnP + (mI - rP) do
       throw (.notImplemented s!"iota constructor indices for {cvName}")
@@ -123,7 +128,7 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     let (fvsP, _) ← unwrapOr (openPisAtFvars rP tyA 0)
       (.notImplemented s!"iota recursor telescope for {cvName}")
     let (cdomsP, crestP) ← unwrapOr
-      (Expr.instPisAt (fvsP.take cnP) cvj.type)
+      (Expr.instPisAt (fvsP.take cnP) cvjTy)
       (.notImplemented s!"iota constructor telescope for {cvName}")
     -- the constructor's parameter domains are the recursor's (the
     -- λ-tower's parameter values fit both telescopes)
@@ -261,7 +266,7 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
     let (cdoms, cres) ← unwrapOr
         (Expr.instPisAt (pinsF ++ xFvs)
           ((cvj.type.instantiateLevelParams cvj.levelParams
-            lvls).renameConsts f))
+            lvls (Level.masksOf lps lvls)).renameConsts f))
         (.notImplemented s!"iota constructor telescope for {cvName}")
     unless cres.getAppArgs.length = cnP + (mI - rP) do
       throw (.notImplemented s!"iota constructor indices for {cvName}")
@@ -287,7 +292,8 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
     -- from the recursor-type walk)
     checkAnnotList ops envSelf depth pinsP
     let (cdomsP, crestP) ← unwrapOr (Expr.instPisAt pinsP
-        (cvj.type.instantiateLevelParams cvj.levelParams lvls))
+        (cvj.type.instantiateLevelParams cvj.levelParams lvls
+          (Level.masksOf lps lvls)))
       (.notImplemented s!"iota constructor telescope for {cvName}")
     -- the stored parameter instantiations inhabit the constructor's
     -- parameter domains (the λ-tower's parameter values fit them)
@@ -397,10 +403,11 @@ block earned (recorded on the inductive type former).  Recursors are
 handled by `checkIndRecs`. -/
 def checkIndMember (ops : CheckerOps m) (blockNames : List Name)
     (caps : IndCaps) (env' : Env) (ci : ConstantInfo) : m Env := do
+  let env' ← enterCtx env' ci.toConstantVal.levelParams
   let cvA ← checkMemberVal ops blockNames env' ci.toConstantVal
   match ci with
-  | .indInfo _ _ => pure (⟨.indInfo cvA caps :: env'.consts⟩ : Env)
-  | .ctorInfo _ nP nF => pure ⟨.ctorInfo cvA nP nF :: env'.consts⟩
+  | .indInfo _ _ => pure ({ env' with consts := .indInfo cvA caps :: env'.consts } : Env)
+  | .ctorInfo _ nP nF => pure { env' with consts := .ctorInfo cvA nP nF :: env'.consts }
   | _ => throw (.invalid s!"non-inductive member {cvA.name} in block")
 
 /-- Phase 0 of the recursor group: check each recursor's constant and
@@ -416,9 +423,10 @@ def provisionRecs (ops : CheckerOps m) (blockNames : List Name) :
   | envAcc, ci :: rest =>
     match ci with
     | .recInfo _ mI rP rules => do
+      let envAcc ← enterCtx envAcc ci.toConstantVal.levelParams
       let cvA ← checkMemberVal ops blockNames envAcc ci.toConstantVal
       let (envSelf, others) ← provisionRecs ops blockNames
-        ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest
+        { envAcc with consts := .recInfo cvA mI rP [] :: envAcc.consts } rest
       pure (envSelf, (cvA, mI, rP, rules) :: others)
     | _ => throw (.notImplemented "recursor before other block members")
 
@@ -439,9 +447,10 @@ def checkIndRecs (ops : CheckerOps m) (blockNames : List Name)
       throw (.notImplemented "modeled recursor requires the pinned Eq basis")
     let (envSelf, checked) ← provisionRecs ops blockNames env₂ recs
     checked.foldlM (fun (acc : Env) c => do
+        let envSelf ← enterCtx envSelf c.1.levelParams
         let rules' ← checkIotaRules mode ops env₂ envSelf f c.1.name
           c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
-        pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env))
+        pure ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts } : Env))
       env₂
 
 /-- Rename a model-side projection type back to public names. -/
@@ -476,6 +485,8 @@ def checkProjLookups (env' : Env) (T ctorName : Name) (lps : List Name)
     | throw (.notImplemented "missing projection model")
   unless mcv.levelParams = lps do
     throw (.notImplemented "projection model level mismatch")
+  unless cvj.levelParams = lps do
+    throw (.notImplemented "projection constructor level mismatch")
   unless (env'.find? (projFnName T i)).isNone do
     throw (.invalid "projection name taken")
   unless (env'.find? T).isSome do
@@ -559,6 +570,7 @@ stored as a degenerate recursor (no motive, no minors) carrying one
 rule, so the generic iota machinery reduces it. -/
 def checkProjFn (ops : CheckerOps m) (env' : Env) (T ctorName : Name) (lps : List Name)
     (nP nF i : Nat) : m Env := do
+  let env' ← enterCtx env' lps
   let (cvj, mcv) ← checkProjLookups env' T ctorName lps nP nF i
   let pty ← checkProjTy env' T ctorName lps mcv.type nP nF
   checkProjShape pty cvj.type nP nF
@@ -569,10 +581,9 @@ def checkProjFn (ops : CheckerOps m) (env' : Env) (T ctorName : Name) (lps : Lis
   -- a degenerate recursor: no motive, no minors, no indices, so the
   -- major sits at position nP and the rule prefix is the parameters;
   -- the canonical flag is computed here, once, like `checkIotaRule`
-  pure ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+  pure { env' with consts := (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
     [⟨ctorName, nF, nP,
-      if Expr.recRulePlain pty nP nP nP then .plain else .inert, rhsA⟩] ::
-    env'.consts⟩
+      if Expr.recRulePlain pty nP nP nP then .plain else .inert, rhsA⟩]) :: env'.consts }
 
 /-- Does the model document structural eta for this single-constructor
 block — a `T._model.eta` theorem with the pinned statement
@@ -689,9 +700,9 @@ def installProjTemplate (env : Env) (T ctorName : Name) (lps : List Name)
   | some (.recInfo cvR mI rP [rule]) =>
     if (env.find? (projFnName T i)).isNone ∧
         mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧ i < nF then
-      pure ⟨.projInfo ⟨T, i, lps, nP, ctorName, nF, .sort .zero,
+      pure { env with consts := (.projInfo ⟨T, i, lps, nP, ctorName, nF, .sort .zero,
         .zero, .zero, false,
-        cvR.levelParams.length = lps.length + 1, false⟩ :: env.consts⟩
+        cvR.levelParams.length = lps.length + 1, false⟩) :: env.consts }
     else pure env
   | _ => pure env
 

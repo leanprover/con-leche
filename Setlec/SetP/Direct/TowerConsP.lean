@@ -75,7 +75,7 @@ theorem NoProjHead.ofType {c₀ : ConstantInfo} {T : Name} {i : Nat}
 
 theorem NoProjEnv.cons {T : Name} {i : Nat} (h : NoProjEnv env T i)
     {c₀ : ConstantInfo} (hh : NoProjHead c₀ T i) :
-    NoProjEnv ⟨c₀ :: env.consts⟩ T i where
+    NoProjEnv { env with consts := c₀ :: env.consts } T i where
   type c hc := by
     rcases List.mem_cons.mp hc with rfl | hc
     · exact hh.type
@@ -106,10 +106,10 @@ theorem declStepPM_of_tower_cons (mp : EnvS2PM V μ env)
     (hnres : Setlec.reservedBasisNames.contains
       (ConstantInfo.projInfo entry).name = false)
     (htw : entry.tower = true)
-    (hwf : Setlec.EnvWF ⟨.projInfo entry :: env.consts⟩)
+    (hwf : Setlec.EnvWF { env with consts := .projInfo entry :: env.consts })
     (hvclosed : ∀ ψ : Name → Nat, VExpr.Closed ((A ψ).erase))
     (hnp : NoProjEnv env entry.structName entry.idx)
-    (hhead : Setlec.TowerHead ⟨.projInfo entry :: env.consts⟩ entry)
+    (hhead : Setlec.TowerHead { env with consts := .projInfo entry :: env.consts } entry)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ (ConstantInfo.projInfo entry).toConstantVal.levelParams,
@@ -121,20 +121,20 @@ theorem declStepPM_of_tower_cons (mp : EnvS2PM V μ env)
       ∃ ta : AVExpr,
         denoteP (acvalWith mp.base2.acval
             (ConstantInfo.projInfo entry).name A)
-          ⟨.projInfo entry :: env.consts⟩ ψ 0
+          { env with consts := .projInfo entry :: env.consts } ψ 0
           (ConstantInfo.projInfo entry).toConstantVal.type = some ta)
     (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval
             (ConstantInfo.projInfo entry).name A)
-          ⟨.projInfo entry :: env.consts⟩ ψ 0
+          { env with consts := .projInfo entry :: env.consts } ψ 0
           (ConstantInfo.projInfo entry).toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
-    (hlaw : ∀ m₂ : EnvS2Core V ⟨.projInfo entry :: env.consts⟩,
+    (hlaw : ∀ m₂ : EnvS2Core V { env with consts := .projInfo entry :: env.consts },
       m₂.acval = acvalWith mp.base2.acval
         (ConstantInfo.projInfo entry).name A →
       ∀ φ : Name → Nat,
         TowerEntryLawP m₂ φ entry.structName entry.idx entry) :
-    ∃ mp' : EnvS2PM V μ ⟨.projInfo entry :: env.consts⟩,
+    ∃ mp' : EnvS2PM V μ { env with consts := .projInfo entry :: env.consts },
       mp'.base2.acval = acvalWith mp.base2.acval
         (ConstantInfo.projInfo entry).name A := by
   have hh : ConsHeadP env (.projInfo entry) A :=
@@ -191,8 +191,8 @@ theorem declStepPM_of_inert_cons (mp : EnvS2PM V μ env)
       (ConstantInfo.projInfo entry).name = false)
     (htw : entry.tower = false) (hnat : entry.native = false)
     (hty : entry.ty = .sort (.succ .zero))
-    (hwf : Setlec.EnvWF ⟨.projInfo entry :: env.consts⟩) :
-    ∃ mp' : EnvS2PM V μ ⟨.projInfo entry :: env.consts⟩,
+    (hwf : Setlec.EnvWF { env with consts := .projInfo entry :: env.consts }) :
+    ∃ mp' : EnvS2PM V μ { env with consts := .projInfo entry :: env.consts },
       mp'.base2.acval = acvalWith mp.base2.acval
         (ConstantInfo.projInfo entry).name (fun _ => .sort 0) := by
   have hh : ConsHeadP env (.projInfo entry) (fun _ => .sort 0) :=
@@ -210,7 +210,7 @@ theorem declStepPM_of_inert_cons (mp : EnvS2PM V μ env)
       fun _ _ _ _ heq => nomatch heq⟩
   have hreads : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval (ConstantInfo.projInfo entry).name (fun _ => .sort 0))
-        ⟨.projInfo entry :: env.consts⟩ ψ 0 (ConstantInfo.projInfo entry).toConstantVal.type
+        { env with consts := .projInfo entry :: env.consts } ψ 0 (ConstantInfo.projInfo entry).toConstantVal.type
         = some (.sort 1) := by
     intro ψ
     show denoteP _ _ ψ 0 entry.ty = _

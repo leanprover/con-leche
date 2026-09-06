@@ -45,7 +45,7 @@ theorem checkIndMember_fold_names {blockNames : List Name}
     rcases hci with rfl | hci
     · exact hfind0
     · have hnone₁ := checkIndMember_fold_names rest env₁ env₂ h ci hci
-      have henv₁ : ∃ ci₁, env₁ = (⟨ci₁ :: env'.consts⟩ : Env) := by
+      have henv₁ : ∃ ci₁, env₁ = ({ env' with consts := ci₁ :: env'.consts } : Env) := by
         rcases hkind with ⟨-, rfl⟩ | ⟨cv, nP, nF, -, rfl⟩
         · exact ⟨_, rfl⟩
         · exact ⟨_, rfl⟩
@@ -212,7 +212,7 @@ theorem checkIndFold_find_preserved {blockNames : List Name}
       rw [show cvA.name = ci₀.name from by rw [hcvA]; rfl]
       exact hfind0
     have henv₁ : ∃ ci₁ : ConstantInfo, ci₁.name = cvA.name ∧
-        env₁ = ⟨ci₁ :: env'.consts⟩ := by
+        env₁ = { env' with consts := ci₁ :: env'.consts } := by
       rcases hkind with ⟨-, rfl⟩ | ⟨cv, nP, nF, -, rfl⟩
       · exact ⟨_, rfl, rfl⟩
       · exact ⟨_, rfl, rfl⟩
@@ -247,7 +247,7 @@ theorem EtaFamiliesClosedO.cons {blockNames : List Name} {env : Env}
     {c₀ : ConstantInfo} (h : EtaFamiliesClosedO blockNames env)
     (hfresh : env.find? c₀.name = none)
     (hbn : blockNames.contains c₀.name = true) :
-    EtaFamiliesClosedO blockNames ⟨c₀ :: env.consts⟩ := by
+    EtaFamiliesClosedO blockNames { env with consts := c₀ :: env.consts } := by
   intro T cvT caps hfT hcape hres hTb
   have hTne : T ≠ c₀.name := by
     intro he
@@ -279,7 +279,7 @@ theorem checkIndFold_mono {blockNames : List Name} {caps : IndCaps} :
     rw [hstep] at h
     obtain ⟨cvA, cvm, mval, hmcvm, hccv, -, -, -, -, hkind⟩ :=
       checkIndMember_inv hstep
-    have henv₁ : ∃ ci₁ : ConstantInfo, env₁ = ⟨ci₁ :: env'.consts⟩ := by
+    have henv₁ : ∃ ci₁ : ConstantInfo, env₁ = { env' with consts := ci₁ :: env'.consts } := by
       rcases hkind with ⟨-, rfl⟩ | ⟨cv, nP, nF, -, rfl⟩
       · exact ⟨_, rfl⟩
       · exact ⟨_, rfl⟩
@@ -313,7 +313,7 @@ theorem checkIndFold_stored {blockNames : List Name} {caps : IndCaps} :
       checkConstantVal_inv hccv
     have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
     have henv₁ : ∃ ci₁ : ConstantInfo, ci₁.name = cvA.name ∧
-        env₁ = ⟨ci₁ :: env'.consts⟩ := by
+        env₁ = { env' with consts := ci₁ :: env'.consts } := by
       rcases hkind with ⟨-, rfl⟩ | ⟨cv, nP, nF, -, rfl⟩
       · exact ⟨_, rfl, rfl⟩
       · exact ⟨_, rfl, rfl⟩

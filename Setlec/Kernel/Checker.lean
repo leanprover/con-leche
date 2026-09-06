@@ -25,7 +25,7 @@ variable (mode : CheckMode)
 def installBasisDecl (env : Env) (ci : ConstantInfo) : m Env := do
   unless (env.find? ci.name).isNone do
     throw (.invalid s!"duplicate declaration {ci.name}")
-  pure (⟨ci :: env.consts⟩ : Env)
+  pure ({ env with consts := ci :: env.consts } : Env)
 
 /-- Check a `def` declaration's value against its checked constant.
 The reducibility hint is stored untouched: it steers only the lazy
@@ -45,7 +45,7 @@ def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in definition {cv.name}")
-  pure ⟨.defnInfo cv value hint :: env.consts⟩
+  pure { env with consts := .defnInfo cv value hint :: env.consts }
 
 /-- Check a `theorem` declaration's value against its checked constant
 (whose type must additionally be a proposition). -/
@@ -68,7 +68,7 @@ def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in theorem {cv.name}")
-  pure ⟨.thmInfo cv value :: env.consts⟩
+  pure { env with consts := .thmInfo cv value :: env.consts }
 
 /-- Check an `opaque` declaration's value against its checked
 constant: exactly the theorem check without the is-a-proposition
@@ -93,7 +93,7 @@ def checkOpaqueVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in opaque {cv.name}")
-  pure ⟨.axiomInfo cv :: env.consts⟩
+  pure { env with consts := .axiomInfo cv :: env.consts }
 /-- Certify a list of recurrence equations by definitional equality
 (at depth 2: the equations' variables are `fvar 0`/`fvar 1`). -/
 def certifyNatEqs (ops : CheckerOps m) (env : Env) :
@@ -374,6 +374,7 @@ def checkReducePin (ops : CheckerOps m) (env env2 : Env) (c : Name)
 def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   match d with
   | .defnDecl cv value hint => do
+    let env ← enterCtx env cv.levelParams
     let cv ← checkConstantVal ops env cv
     let env2 ← checkDefnVal ops env cv value hint
     -- Structural-Nat pins: the fast-path ops must be the standard
@@ -414,10 +415,12 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     if natDivModNames.contains cv.name then
       checkDivModPin ops env env2 cv.name
     pure env2
-  | .thmDecl cv value =>
+  | .thmDecl cv value => do
+    let env ← enterCtx env cv.levelParams
     let cv ← checkConstantVal ops env cv
     checkThmVal ops env cv value
   | .opaqueDecl cv value => do
+    let env ← enterCtx env cv.levelParams
     let cv ← checkConstantVal ops env cv
     let env2 ← checkOpaqueVal ops env cv value
     -- Compiler-trust opaques (`Lean.reduceNat`/`Lean.reduceBool`,
@@ -444,9 +447,10 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- declaration that references the skipped axiom.  Any other axiom
     -- is a positive decline at its own record; a *pinned name* with a
     -- non-pinned shape likewise (the pin would otherwise shadow).
+    let env ← enterCtx env cv.levelParams
     let cvA ← checkConstantVal ops env cv
     if stdAxiomOk env cvA then
-      pure ⟨.axiomInfo cvA :: env.consts⟩
+      pure { env with consts := .axiomInfo cvA :: env.consts }
     else if cvA.name = trustCompilerName then
       -- `Lean.trustCompiler : True` is trivially realizable (task
       -- #95): installed exactly like a checked `opaque` with witness
@@ -455,7 +459,7 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
       -- checked for that value, and the model interprets the constant
       -- by `True.intro`'s interpretation.
       if trustCompilerOk env cvA then
-        pure ⟨.axiomInfo cvA :: env.consts⟩
+        pure { env with consts := .axiomInfo cvA :: env.consts }
       else throw (.notImplemented
         s!"unsupported Lean.trustCompiler shape ({cv.name})")
     else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
@@ -464,7 +468,7 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
       -- reduce opaque, `∀ a b, reduce a = b → a = b` interprets to an
       -- inhabited proposition (the hypothesis *is* the conclusion).
       if ofReduceAxOk env cvA then
-        pure ⟨.axiomInfo cvA :: env.consts⟩
+        pure { env with consts := .axiomInfo cvA :: env.consts }
       else throw (.notImplemented
         s!"unsupported compiler-trust axiom environment ({cv.name})")
     else if cvA.name = propextName ∨ cvA.name = choiceName then

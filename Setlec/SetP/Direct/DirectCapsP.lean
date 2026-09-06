@@ -49,22 +49,22 @@ theorem capsOkP_cons_direct (mp : EnvS2PM V μ env)
       caps'.eta = true →
       ∃ cvC', env.find? caps'.etaCtor
         = some (.ctorInfo cvC' caps'.etaParams caps'.etaFields))
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (hTlaws : ∀ (cvT : ConstantVal) (caps : IndCaps),
-      (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      ({ env with consts := c₀ :: env.consts } : Env).find? T = some (.indInfo cvT caps) →
       Setlec.reservedBasisNames.contains T = false →
-      (caps.eta = true → Setlec.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
+      (caps.eta = true → Setlec.EtaFamilyStored { env with consts := c₀ :: env.consts } T caps →
         ∀ φ' : Name → Nat, EtaLawP m₂ φ' T cvT caps) ∧
       (caps.unitlike = true → ∀ φ' : Name → Nat, UnitLawP m₂ φ' T cvT caps)) :
     CapsOkP m₂ := by
   -- a stored family other than the block's is a prefix lookup
   have hdown : ∀ n : Name, n ≠ c₀.name →
-      (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
+      ({ env with consts := c₀ :: env.consts } : Env).find? n = env.find? n := by
     intro n hn
     rw [Setlec.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
   have hneT : ∀ (T' : Name) (cvT' : ConstantVal) (caps' : IndCaps),
-      (⟨c₀ :: env.consts⟩ : Env).find? T' = some (.indInfo cvT' caps') →
+      ({ env with consts := c₀ :: env.consts } : Env).find? T' = some (.indInfo cvT' caps') →
       T' ≠ T → T' ≠ c₀.name := by
     intro T' cvT' caps' hf hne hh
     rcases hkind with ⟨cvT₀, caps₀, rfl, hname⟩ | hnotind

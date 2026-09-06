@@ -67,6 +67,7 @@ environment lookup routed through the index (task #63). -/
 def checkIndMemberS (blockNames : List Name) (caps : IndCaps)
     (fe : FEnv) (ci : ConstantInfo) : CheckCM FEnv := do
   flushC
+  let fe ← enterCtxF fe ci.toConstantVal.levelParams
   let cvA ← checkMemberValF (sharedOpsC mode fe) blockNames fe ci.toConstantVal
   match ci with
   | .indInfo _ _ => pure (fe.push (.indInfo cvA caps))
@@ -82,6 +83,7 @@ def provisionRecsS (blockNames : List Name) :
     match ci with
     | .recInfo _ mI rP rules => do
       flushC
+      let feAcc ← enterCtxF feAcc ci.toConstantVal.levelParams
       let cvA ← checkMemberValF (sharedOpsC mode feAcc) blockNames feAcc
         ci.toConstantVal
       let (feSelf, others) ← provisionRecsS blockNames
@@ -106,6 +108,7 @@ def checkIndRecsS (blockNames : List Name) (fe₂ : FEnv)
     let (feSelf, checked) ← provisionRecsS mode blockNames fe₂ recs
     flushC
     checked.foldlM (fun (acc : FEnv) c => do
+        let feSelf ← enterCtxF feSelf c.1.levelParams
         let rules' ← checkIotaRulesF mode (sharedOpsC mode feSelf) fe₂ feSelf
           f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
         pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules')))
@@ -115,6 +118,7 @@ def checkIndRecsS (blockNames : List Name) (fe₂ : FEnv)
 `checkProjFn`; the single-environment stages are the generic ones). -/
 def checkProjFnS (fe : FEnv) (T ctorName : Name) (lps : List Name)
     (nP nF i : Nat) : CheckCM FEnv := do
+  let fe ← enterCtxF fe lps
   let (cvj, mcv) ← checkProjLookupsF (m := CheckCM) fe T ctorName lps
     nP nF i
   let pty ← checkProjTyF (m := CheckCM) fe T ctorName lps mcv.type nP nF
@@ -172,6 +176,7 @@ def checkDirectProjsS (T C : Name) (lps : List Name) (nP nF : Nat)
   | 0, _, _, fe => pure fe
   | todo + 1, i, rt?, fe => do
     flushC
+    let fe ← enterCtxF fe lps
     let fe' ← checkDirectProjF (sharedOpsC mode fe) T C lps nP nF resSort
       slots guards cvTa cvCa rt? fe i
     checkDirectProjsS T C lps nP nF resSort slots guards cvTa cvCa todo
@@ -184,10 +189,13 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
   -- created them, and this driver walks five of them (the block's
   -- provisional environments plus one per projection).
   flushC
-  let (fe₁, cvTa) ← checkDirectIndF (sharedOpsC mode fe) fe p
+  let feT ← enterCtxF fe p.cvT.levelParams
+  let (fe₁, cvTa) ← checkDirectIndF (sharedOpsC mode feT) feT p
   flushC
+  let fe₁ ← enterCtxF fe₁ p.cvC.levelParams
   let (fe₂, cvCa, sorts) ← checkDirectCtorF (sharedOpsC mode fe₁) fe fe₁ p cvTa
   flushC
+  let fe₂ ← enterCtxF fe₂ p.cvR.levelParams
   let cvRa ← checkConstantValF (sharedOpsC mode fe₂) fe₂ p.cvR
   checkDirectRecTyF (sharedOpsC mode fe₂) fe₂ p cvTa cvCa cvRa
   let rhsA ← checkDirectRuleF (sharedOpsC mode fe₂) fe₂ p cvCa cvRa

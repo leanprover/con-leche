@@ -106,20 +106,20 @@ theorem declStepPM_of_basis_cons (mp : EnvS2PM V μ env)
     (htyReads : ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,
         denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta)
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta)
     (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
     (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
     (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
       first
         | (intro _ h; exact nomatch h)
         | (intro _ h; cases h; rfl)) :
-    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+    ∃ mp' : EnvS2PM V μ { env with consts := c₀ :: env.consts },
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
@@ -182,23 +182,23 @@ theorem declStepPM_of_basis_rec_cons (mp : EnvS2PM V μ env)
     (htyReads : ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,
         denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta)
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta)
     (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
     (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
-    (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+    (hrec : ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRulesP m₂ φ)
     (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
       first
         | (intro _ h; exact nomatch h)
         | (intro _ h; cases h; rfl)) :
-    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+    ∃ mp' : EnvS2PM V μ { env with consts := c₀ :: env.consts },
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
@@ -247,22 +247,22 @@ theorem declStepPM_of_basis_cons_eqrow (mp : EnvS2PM V μ env)
     (htyReads : ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,
         denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta)
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta)
     (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
     (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
-    (heq : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+    (heq : ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
       m₂.acval = acvalWith mp.base2.acval c₀.name A → EqLawP m₂)
     (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
       first
         | (intro _ h; exact nomatch h)
         | (intro _ h; cases h; rfl)) :
-    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+    ∃ mp' : EnvS2PM V μ { env with consts := c₀ :: env.consts },
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
@@ -307,26 +307,26 @@ theorem declStepPM_of_basis_cons_gen (mp : EnvS2PM V μ env)
     (htyReads : ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,
         denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta)
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta)
     (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
     (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
-    (hnh : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+    (hnh : ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, NatHeadsP m₂ φ)
-    (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+    (hrec : ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRulesP m₂ φ)
     (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
       first
         | (intro _ h; exact nomatch h)
         | (intro _ h; cases h; rfl)) :
-    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+    ∃ mp' : EnvS2PM V μ { env with consts := c₀ :: env.consts },
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_

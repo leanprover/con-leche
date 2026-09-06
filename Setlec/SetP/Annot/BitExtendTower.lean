@@ -200,7 +200,7 @@ the extension is the head's. -/
 theorem findProj?_cons_tower {env : Env} {entry₀ : Setlec.ProjEntry} :
     ∀ (sn : Name) (j : Nat) (entry : Setlec.ProjEntry),
       env.findProj? sn j = none →
-      Env.findProj? ⟨.projInfo entry₀ :: env.consts⟩ sn j = some entry →
+      Env.findProj? { env with consts := .projInfo entry₀ :: env.consts } sn j = some entry →
       entry.tower = true → sn = entry₀.structName ∧ j = entry₀.idx := by
   intro sn j entry h0 h1 _
   unfold Setlec.Env.findProj? at h0 h1

@@ -77,8 +77,8 @@ theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
     (hnotind : ∀ cv caps, c₀ ≠ .indInfo cv caps)
     (hnotctor : ∀ cv np nf, c₀ ≠ .ctorInfo cv np nf)
     (hnotrec : ∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules)
-    (hf : (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps))
-    (hfam : Setlec.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps) :
+    (hf : ({ env with consts := c₀ :: env.consts } : Env).find? T = some (.indInfo cvT caps))
+    (hfam : Setlec.EtaFamilyStored { env with consts := c₀ :: env.consts } T caps) :
     env.find? T = some (.indInfo cvT caps) ∧
       Setlec.EtaFamilyStored env T caps ∧
       T ≠ c₀.name ∧ caps.etaCtor ≠ c₀.name ∧
@@ -102,7 +102,7 @@ theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
     rw [heq, Setlec.Env.find?_cons, if_pos rfl] at hf2
     exact hnotrec cv2 mI2 rP2 rules2 (Option.some.inj hf2)
   have hdown : ∀ n : Name, n ≠ c₀.name →
-      (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
+      ({ env with consts := c₀ :: env.consts } : Env).find? n = env.find? n := by
     intro n hn
     rw [Setlec.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
   refine ⟨by rwa [hdown _ hnT] at hf, ⟨hCres, ⟨cvC, ?_⟩, ?_⟩,
@@ -204,7 +204,7 @@ theorem capsOkP_cons_fresh (mp : EnvS2PM V μ env)
     (hnotind : ∀ cv caps, c₀ ≠ .indInfo cv caps)
     (hnotctor : ∀ cv np nf, c₀ ≠ .ctorInfo cv np nf)
     (hnotrec : ∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A) :
     CapsOkP m₂ := by
   constructor

@@ -72,10 +72,10 @@ theorem stageRec (hμ : μ.verified = true) (hE : Setlec.EtaFamiliesClosed env)
     (helim : p.large = true → p.elim ∈ p.cvR.levelParams)
     -- the projection slots are still empty at the extension
     (hslot0 : 0 < p.nF →
-      (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      ({ env with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
-          rhsA⟩] :: env.consts⟩ : Env).find? (Setlec.projFnName p.cvT.name 0) = none)
+          rhsA⟩]) :: env.consts } : Env).find? (Setlec.projFnName p.cvT.name 0) = none)
     {pps ds rds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hFD : FormerData mp.base2 cvTa p.nP p.resSort pps)
     (hCD : CtorData mp.base2 p.cvT.name cvCa p.nP p.nF p.resSort ds)
@@ -94,10 +94,10 @@ theorem stageRec (hμ : μ.verified = true) (hE : Setlec.EtaFamiliesClosed env)
         (p.isProp = false → FieldsBound (p.resSort.eval ψ) ρ (((ds ψ).drop p.nP).map (·.2.2))) ∧
         (p.isProp = true → p.large = true →
           FieldsBound 0 ρ (((ds ψ).drop p.nP).map (·.2.2)))) :
-    ∃ mp' : EnvS2PM V μ ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+    ∃ mp' : EnvS2PM V μ { env with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
-          rhsA⟩] :: env.consts⟩,
+          rhsA⟩]) :: env.consts },
       mp'.base2.acval = acvalWith mp.base2.acval cvRa.name
         (fun ψ => directRecAV ((elimLevel p).eval ψ) (rds ψ) p.nF) := by
   -- the frames and the openings
@@ -136,7 +136,7 @@ theorem stageRec (hμ : μ.verified = true) (hE : Setlec.EtaFamiliesClosed env)
       if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert, rhsA⟩]
   have hcross : ∀ e : Expr, ConsCrossAt c₀ e := fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
   have hreadR : ∀ ψ : Name → Nat,
-      denoteP (acvalWith mp.base2.acval cvRa.name A) ⟨c₀ :: env.consts⟩ ψ 0 cvRa.type
+      denoteP (acvalWith mp.base2.acval cvRa.name A) { env with consts := c₀ :: env.consts } ψ 0 cvRa.type
         = some (mkPisAV (rds ψ) (.app (.bvar 2) (.bvar 0))) := fun ψ =>
     denoteP_cons_mono (c₀ := c₀) hfresh (hcross _) ψ 0 hcbR (hRD.read ψ)
   have hnresC : Setlec.reservedBasisNames.contains c₀.name = false := by
@@ -184,7 +184,7 @@ theorem stageRec (hμ : μ.verified = true) (hE : Setlec.EtaFamiliesClosed env)
     · intro T' cvT' caps' hf hne hres hcape
       exact hE T' cvT' caps' hf hcape hres
     · intro cvT caps hf hres
-      have hfT' : (⟨c₀ :: env.consts⟩ : Env).find? p.cvT.name
+      have hfT' : ({ env with consts := c₀ :: env.consts } : Env).find? p.cvT.name
           = some (.indInfo cvTa (Setlec.directCaps p)) := by
         rw [Setlec.Env.find?_cons, if_neg (fun h => hTR h.symm)]
         exact hfT

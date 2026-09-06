@@ -115,8 +115,8 @@ theorem checkDirectProj_run {μ : CheckMode} {F : Nat} {T C : Name}
     (slots.getD i false = true ∧
       directSlotAdmit resSort lps cvCa.type nP guards i = false ∧
       env.find? (projFnName T i) = none ∧
-      env' = ⟨.projInfo (directInertEntry T i lps nP C nF (guards.getD i .zero) resSort)
-        :: env.consts⟩) := by
+      env' = { env with consts := (.projInfo (directInertEntry T i lps nP C nF (guards.getD i .zero) resSort)
+       ) :: env.consts }) := by
   unfold checkDirectProj at h
   split at h
   · next hs =>

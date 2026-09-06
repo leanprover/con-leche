@@ -1,6 +1,5 @@
 import Setlec
 import Setlec.Frontend.ExportC
-import SetlecTests.ZeroSetTests
 
 /-!
 Test suite.  Tests are `#guard`s and `example`s, so `lake test` (which
@@ -131,21 +130,21 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 
 -- `def dependentType : Prop := ∀ (p : Prop), p` (tutorial test 004):
 -- impredicativity.  The binder carries the task-#161 sort annotation
--- `.ifAllZero []` ("the codomain is always a proposition"): the
+-- `.always` ("the codomain is always a proposition"): the
 -- verified mode validates annotations and declines a `.never` on a
 -- Prop-codomain binder.
 #guard (checkDecls .setModel (pureOps .setModel) [mkDef "dependentType" [] (.sort .zero)
-  (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩)]).toBool
+  (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .always⟩)]).toBool
 
 -- … and the same declaration with the unannotated (`.never`) binder is
 -- **accepted** since task #161 P5: `.never` is the parser's placeholder
 -- for an absent `"pw"` field, so the annotate pass recomputes it (here
--- to `.ifAllZero []`) and the front door then validates its own write.
+-- to `.always`) and the front door then validates its own write.
 -- Before the pass this was a positive decline at `(forall-cod)`.  The
 -- design records the consequence deliberately: an explicit
 -- `"pw": "never"` is indistinguishable from an absent field and is
 -- silently corrected rather than falsified, so the falsifiable claims
--- are exactly the `ifAllZero` ones (see the `bad*` guards below).
+-- are exactly the non-`never` ones (see the `bad*` guards below).
 #guard (checkDecls .setModel (pureOps .setModel) [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]).toBool
 #guard (checkDecls .noModel (pureOps .noModel) [mkDef "dependentType" [] (.sort .zero)
@@ -153,7 +152,7 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 
 -- `∀ (p : Prop), p : Type` is rejected (it is a Prop).
 #guard checkDecls .setModel (pureOps .setModel) [mkDef "bad2" [] (.sort (.succ .zero))
-    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩)]
+    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .always⟩)]
   matches .error (.invalid _)
 
 -- Input expressions containing fvars are rejected.
@@ -180,7 +179,7 @@ private def mkThm (n : String) (type value : Expr) : Declaration :=
 -- A theorem stating an accepted Prop with a matching proof-shaped value:
 -- `theorem t2 : Prop-valued-forall` where value has exactly that type.
 #guard (checkDecls .setModel (pureOps .setModel) [mkDef "prp" [] (.sort .zero)
-    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩),
+    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .always⟩),
   mkThm "t2" (.sort .zero) (.const (.str .anonymous "prp") [])]).toBool == false
   -- (const prp : Prop, but Prop ≠ prp's type Prop... value `prp : Prop`; type `Prop`:
   --  `prp : Prop` vs declared `Prop : ?` — declared type must be a Prop; `Prop` is not)
@@ -218,25 +217,26 @@ private def pwLam (pw : PropWhen) : Expr :=
 -- (defeq-forall): inequivalent binder annotations on otherwise defeq
 -- ∀s are a positive decline at the verified mode …
 #guard defeqStep .setModel stubFns Env.empty 0 (fun a b => pure (a == b))
-    (pwForall (.ifAllZero [])) (pwForall .never)
+    (pwForall (.always)) (pwForall .never)
   matches .error (.notImplemented _)
 -- … and no check at the unverified lane (official parity).
 #guard defeqStep .noModel stubFns Env.empty 0 (fun a b => pure (a == b))
-    (pwForall (.ifAllZero [])) (pwForall .never)
+    (pwForall (.always)) (pwForall .never)
   matches .ok true
--- Equivalent-but-unequal annotations pass: `equiv` is semantic
--- containment, not list equality.
+-- The packed datum is a canonical word: differently *spelled* but
+-- equal conditions (`bit 0 ∪ bit 0` against `bit 0`) are one word,
+-- so `equiv` (word equality) accepts.
 #guard defeqStep .setModel stubFns Env.empty 0 (fun a b => pure (a == b))
-    (pwForall (.ifAllZero [.str .anonymous "u", .str .anonymous "u"]))
-    (pwForall (.ifAllZero [.str .anonymous "u"]))
+    (pwForall (PropWhen.inter (.bit 0) (.bit 0)))
+    (pwForall (.bit 0))
   matches .ok true
 
 -- (defeq-lam): the λ congruence arm, same discipline.
 #guard defeqStep .setModel stubFns Env.empty 0 (fun a b => pure (a == b))
-    (pwLam (.ifAllZero [])) (pwLam .never)
+    (pwLam (.always)) (pwLam .never)
   matches .error (.notImplemented _)
 #guard defeqStep .noModel stubFns Env.empty 0 (fun a b => pure (a == b))
-    (pwLam (.ifAllZero [])) (pwLam .never)
+    (pwLam (.always)) (pwLam .never)
   matches .ok true
 
 -- (eta): η-certifying `fun p => f p` against a stuck `f` whose stored
@@ -249,13 +249,13 @@ private def etaStuckF (pw : PropWhen) : Expr :=
 
 #guard etaCert .setModel (pureFns .setModel Env.empty 100) Env.empty 1
     (.str .anonymous "p") (.sort .zero)
-    (.app (etaStuckF (.ifAllZero [])) (.bvar 0)) ⟨.default, .never⟩
-    (etaStuckF (.ifAllZero []))
+    (.app (etaStuckF (.always)) (.bvar 0)) ⟨.default, .never⟩
+    (etaStuckF (.always))
   matches .error (.notImplemented _)
 #guard etaCert .noModel (pureFns .noModel Env.empty 100) Env.empty 1
     (.str .anonymous "p") (.sort .zero)
-    (.app (etaStuckF (.ifAllZero [])) (.bvar 0)) ⟨.default, .never⟩
-    (etaStuckF (.ifAllZero []))
+    (.app (etaStuckF (.always)) (.bvar 0)) ⟨.default, .never⟩
+    (etaStuckF (.always))
   matches .ok true
 
 /-! ## Frontend: basis `_model` companions are ordinary declarations
@@ -411,7 +411,7 @@ reduction is stuck at the redex.  Only the binder's `pw` datum and the
 mode distinguish the outcomes. -/
 
 private def gateNever : BinderMeta := ⟨.default, .never⟩
-private def gateMaybe : BinderMeta := ⟨.default, .ifAllZero []⟩
+private def gateMaybe : BinderMeta := ⟨.default, .always⟩
 
 private def gateRedex (mb : BinderMeta) : Expr :=
   .app (.lam (.str .anonymous "x") (.sort .zero) (.bvar 0) mb)

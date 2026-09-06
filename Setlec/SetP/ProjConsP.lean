@@ -50,7 +50,7 @@ theorem blockAcvalInstalled_fresh_cons {blockNames : List Name}
     (hIA : BlockAcvalInstalled blockNames env acval)
     (hnotb : blockNames.contains c₀.name = false)
     (hstrNe : ∀ n : Name, c₀.name ≠ n.str "_model") :
-    BlockAcvalInstalled blockNames ⟨c₀ :: env.consts⟩
+    BlockAcvalInstalled blockNames { env with consts := c₀ :: env.consts }
       (acvalWith acval c₀.name A) := by
   intro n hbn ci hf ψ
   have hnN : n ≠ c₀.name := by
@@ -94,25 +94,25 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
       capsT.eta = true → capsT.etaFields = nF)
     -- the head's own obligations (task #161 S7: `projFn_head`
     -- supplies both from `ProjFnR` alone)
-    (hwf : EnvWF ⟨c₀ :: env'.consts⟩)
+    (hwf : EnvWF { env' with consts := c₀ :: env'.consts })
     (hctorsHead : ∀ (cvR : ConstantVal) (mI rP : Nat)
       (rules₀ : List RecRule), c₀ = .recInfo cvR mI rP rules₀ →
       ∀ r ∈ rules₀, ∃ cvj cnP cnF,
         env'.find? (Setlec.RecRule.ctor r)
           = some (.ctorInfo cvj cnP cnF))
     -- the fired rules: the bottom fires BELOW this cons
-    (hnew : ∀ m₂ : EnvS2Core V ⟨c₀ :: env'.consts⟩,
+    (hnew : ∀ m₂ : EnvS2Core V { env' with consts := c₀ :: env'.consts },
       m₂.acval = acvalWith mp.base2.acval (projFnName T i)
         (fun ψ => mp.base2.acval (projModelName T i) ψ) →
       ∀ (φ : Name → Nat), ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
         RecRuleLawP m₂ φ (projFnName T i) ⟨projFnName T i, lps, pty⟩
           nP nP rl) :
-    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env'.consts⟩,
+    ∃ mp' : EnvS2PM V μ { env' with consts := c₀ :: env'.consts },
       mp'.base2.acval = acvalWith mp.base2.acval (projFnName T i)
         (fun ψ => mp.base2.acval (projModelName T i) ψ) ∧
-      ProjPhaseAcvalP T ctorName nF ⟨c₀ :: env'.consts⟩
+      ProjPhaseAcvalP T ctorName nF { env' with consts := c₀ :: env'.consts }
         mp'.base2.acval ∧
-      BlockAcvalInstalled blockNames ⟨c₀ :: env'.consts⟩
+      BlockAcvalInstalled blockNames { env' with consts := c₀ :: env'.consts }
         mp'.base2.acval := by
   have hname : c₀.name = projFnName T i := by rw [hc₀]; rfl
   have hcvA : c₀.toConstantVal = ⟨projFnName T i, lps, pty⟩ := by
@@ -155,7 +155,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     constsBound_of_constsResolve _ hptyres
   have htyExt : ∀ ψ : Name → Nat, ∃ ta : AVExpr,
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env'.consts⟩ ψ 0 c₀.toConstantVal.type = some ta ∧
+          { env' with consts := c₀ :: env'.consts } ψ 0 c₀.toConstantVal.type = some ta ∧
       (∀ ρ : Nat → V, AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta := by
     intro ψ
@@ -181,7 +181,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     exact hp p (by rw [hcvA, ← hmlps]; exact hp')
   have htyOkH : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env'.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env' with consts := c₀ :: env'.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta := by
     intro ψ ta hta ρ
     obtain ⟨ta', hta', hok, -⟩ := htyExt ψ
@@ -189,7 +189,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     exact hok ρ
   have hmemNewH : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env'.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env' with consts := c₀ :: env'.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta := by
     intro ψ ta hta ρ
     obtain ⟨ta', hta', -, hmem⟩ := htyExt ψ
@@ -197,7 +197,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     exact hmem ρ
   -- `caps_ok`: the row `capsOkP_cons_proj` leaves open is the family
   -- this cons completes
-  have hcapsH : ∀ m₂ : EnvS2Core V ⟨c₀ :: env'.consts⟩,
+  have hcapsH : ∀ m₂ : EnvS2Core V { env' with consts := c₀ :: env'.consts },
       m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOkP m₂ := by
     intro m₂ hac
     refine capsOkP_cons_proj mp mp.caps_ok hfresh hname
@@ -235,7 +235,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
       cvT caps hfT hcape hresT (hpinsT cvT caps hfT₀) hTblock
       (hCblock cvT caps hfT₀ hcape) hfam m₂ hac hvP φ'
   -- `rec_rules`: the bottom fires below this cons
-  have hrecH : ∀ m₂ : EnvS2Core V ⟨c₀ :: env'.consts⟩,
+  have hrecH : ∀ m₂ : EnvS2Core V { env' with consts := c₀ :: env'.consts },
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRulesP m₂ φ := by
     intro m₂ hac φ

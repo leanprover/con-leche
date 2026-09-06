@@ -241,7 +241,7 @@ def Canon (fe : FEnv) : Prop := ∃ env, fe = mkFEnv env
 theorem canon_push {fe : FEnv} (h : Canon fe) (ci : ConstantInfo) :
     Canon (fe.push ci) := by
   obtain ⟨env, rfl⟩ := h
-  exact ⟨⟨ci :: env.consts⟩, rfl⟩
+  exact ⟨{ env with consts := ci :: env.consts }, rfl⟩
 
 theorem canon_find? {fe : FEnv} (h : Canon fe) (n : Name) :
     fe.find? n = fe.env.find? n := by

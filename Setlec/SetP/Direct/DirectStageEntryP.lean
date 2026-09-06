@@ -304,13 +304,13 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   -- the reading at the extension
   have hreadE : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval (ConstantInfo.projInfo entry).name A)
-        ⟨.projInfo entry :: env.consts⟩ ψ 0 ptyA = some (mkPisAV (eds ψ) (R ψ)) :=
+        { env with consts := .projInfo entry :: env.consts } ψ 0 ptyA = some (mkPisAV (eds ψ) (R ψ)) :=
     fun ψ => denoteP_cons_mono hfresh hcrossE ψ 0 hcbE (hED.read ψ)
-  have hfT₂ : (⟨.projInfo entry :: env.consts⟩ : Env).find? p.cvT.name
+  have hfT₂ : ({ env with consts := .projInfo entry :: env.consts } : Env).find? p.cvT.name
       = some (.indInfo cvTa (Setlec.directCaps p)) := by
     rw [Setlec.Env.find?_cons, if_neg (fun h => hneT h.symm)]
     exact hfT
-  have hfC₂ : (⟨.projInfo entry :: env.consts⟩ : Env).find? p.cvC.name
+  have hfC₂ : ({ env with consts := .projInfo entry :: env.consts } : Env).find? p.cvC.name
       = some (.ctorInfo cvCa p.nP p.nF) := by
     rw [Setlec.Env.find?_cons, if_neg (fun h => hneC h.symm)]
     exact hfC
@@ -338,7 +338,7 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       rw [acvalWith_ne hneC]
     have hFD₂ : FormerData m₂ cvTa p.nP p.resSort pps :=
       hFD.cross (c₀ := .projInfo entry) (A := A) hfresh hcrossT hcbT m₂ hac
-    have hreadE₂ : ∀ ψ, denoteP m₂.acval ⟨.projInfo entry :: env.consts⟩ ψ 0 ptyA
+    have hreadE₂ : ∀ ψ, denoteP m₂.acval { env with consts := .projInfo entry :: env.consts } ψ 0 ptyA
         = some (mkPisAV (eds ψ) (R ψ)) :=
       hED.cross (c₀ := .projInfo entry) (A := A) hfresh hcrossE hcbE m₂ hac
     refine ⟨rfl, rfl, rfl, hi, ⟨cvTa, Setlec.directCaps p, hfT₂, hlpsT, ?_, rfl, rfl, rfl⟩,

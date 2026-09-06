@@ -91,7 +91,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
     (hntc : ConsCrossEnv env c₀)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) {n : Name} {cv : ConstantVal} {mI rP : Nat}
     {rules : List RecRule} (hnN : n ≠ c₀.name)
@@ -224,7 +224,7 @@ theorem recRulesP_cons_fresh (mp : EnvS2PM V μ env)
     (hntc : ConsCrossEnv env c₀)
     (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
       rules = [])
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) : RecRulesP m₂ φ := by
   intro n cv mI rP rules hf rl hmem hfire
@@ -254,7 +254,7 @@ theorem recRulesP_cons_rec (mp : EnvS2PM V μ env)
     {cv₀ : ConstantVal} {mI₀ rP₀ : Nat} {rules₀ : List RecRule}
     (hfresh : env.find? c₀.name = none)
     (hkind : c₀ = .recInfo cv₀ mI₀ rP₀ rules₀)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat)
     (hnew : ∀ rl ∈ rules₀, RecRule.fire rl ≠ .inert →
@@ -296,7 +296,7 @@ theorem towerEntryLawP_cons_prefix (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
     (hcross : ConsCrossEnv env c₀)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) {T : Name} {i : Nat} {entry : ProjEntry}
     (hfP0 : env.find? (Setlec.projFnName T i) = some (.projInfo entry))
@@ -365,7 +365,7 @@ theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
     (hfresh : env.find? c₀.name = none)
     (hcross : ConsCrossEnv env c₀)
     (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) : TowerOkP m₂ φ := by
   intro T i entry hf htw
@@ -386,7 +386,7 @@ theorem towerOkP_cons_tower (mp : EnvS2PM V μ env)
     {entry₀ : ProjEntry} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? (ConstantInfo.projInfo entry₀).name = none)
     (hcross : ConsCrossEnv env (.projInfo entry₀))
-    (m₂ : EnvS2Core V ⟨.projInfo entry₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := .projInfo entry₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval
       (ConstantInfo.projInfo entry₀).name A)
     (hlaw : ∀ φ : Name → Nat,

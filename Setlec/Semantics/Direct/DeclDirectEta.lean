@@ -56,7 +56,7 @@ theorem checkDirectInd_inv {μ : CheckMode} {F : Nat} {env envI : Env}
       = .ok (envI, cvTa)) :
     ∃ cv : ConstantVal,
       checkConstantVal (m := Setlec.CheckM) (fueledOps μ F) env p.cvT = .ok cv ∧
-      cvTa = cv ∧ envI = ⟨.indInfo cv (directCaps p) :: env.consts⟩ := by
+      cvTa = cv ∧ envI = { env with consts := .indInfo cv (directCaps p) :: env.consts } := by
   unfold checkDirectInd at h
   repeat' first
     | (obtain ⟨_, _, h⟩ := Setlec.exceptBind_ok h)
@@ -75,7 +75,7 @@ theorem checkDirectCtor_inv {μ : CheckMode} {F : Nat} {env₀ env envC : Env}
       = .ok (envC, cvCa, sorts)) :
     ∃ cv : ConstantVal,
       checkConstantVal (m := Setlec.CheckM) (fueledOps μ F) env p.cvC = .ok cv ∧
-      cvCa = cv ∧ envC = ⟨.ctorInfo cv p.nP p.nF :: env.consts⟩ := by
+      cvCa = cv ∧ envC = { env with consts := .ctorInfo cv p.nP p.nF :: env.consts } := by
   unfold checkDirectCtor at h
   repeat' first
     | (obtain ⟨_, _, h⟩ := Setlec.exceptBind_ok h)
@@ -103,12 +103,12 @@ theorem checkDirectProj_inv {μ : CheckMode} {F : Nat} {T C : Name}
         entry.numParams = nP ∧ entry.numFields = nF ∧
         entry.levelParams = lps ∧
         entry.fieldSort = guards.getD i .zero ∧ entry.structSort = resSort ∧
-        env' = ⟨.projInfo entry :: env.consts⟩) ∨
+        env' = { env with consts := .projInfo entry :: env.consts }) ∨
       -- the inert entry at an unadmitted slot (task #175 W4c P3 module 7)
       (∃ entry : ProjEntry, env.find? (projFnName T i) = none ∧
         entry.tower = false ∧ entry.native = false ∧
         entry.structName = T ∧ entry.idx = i ∧
-        env' = ⟨.projInfo entry :: env.consts⟩) := by
+        env' = { env with consts := .projInfo entry :: env.consts }) := by
   unfold checkDirectProj at h
   split at h
   · obtain ⟨pty, -, h⟩ := Setlec.exceptBind_ok h
@@ -202,7 +202,7 @@ theorem declDirectRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
       · obtain ⟨cvC, hfC'⟩ := hE T'' cvT'' caps hf he hr
         refine ⟨cvC, ?_⟩
         exact Setlec.Env.find?_cons_of_fresh
-          (show Env.find? ⟨.indInfo cvT' (directCaps p) :: env.consts⟩
+          (show Env.find? { env with consts := .indInfo cvT' (directCaps p) :: env.consts }
               cvC'.name = none by rw [← hI, hnC]; exact hfC)
           (Setlec.Env.find?_cons_of_fresh
             (show env.find? cvT'.name = none by rw [hnT]; exact hfT) hfC')

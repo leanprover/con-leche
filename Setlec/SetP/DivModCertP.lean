@@ -1717,7 +1717,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     {lps : List Name} {type' value' : Expr} {hint : ReducibilityHint}
     (hmem : c ∈ Setlec.natDivModNames)
     (hgenv : Setlec.divModEnvGuard
-      (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩ : Env) c
+      ({ env with consts := .defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts } : Env) c
       = true)
     {A Ta : (Name → Nat) → AVExpr}
     (hA : ∀ ψ, denoteP mp.base2.acval env ψ 0 value' = some (A ψ))
@@ -1745,7 +1745,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
   have hnF : Setlec.boolFalseName ≠ c := hnF0.symm
   have hnE : eqName ≠ c := hnE0.symm
   have hdown : ∀ (n : Name) (ci : ConstantInfo), n ≠ c →
-      (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩
+      ({ env with consts := .defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts }
         : Env).find? n = some ci → env.find? n = some ci := by
     intro n ci hnn hf
     rwa [Setlec.Env.find?_cons, if_neg (fun hh => hnn hh.symm)] at hf
@@ -1773,7 +1773,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
       ∃ cvn vn hn, env.find? n = some (.defnInfo cvn vn hn) ∧
         cvn.levelParams = [] ∧
         Setlec.natOpTyPinned
-          (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩
+          ({ env with consts := .defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts }
             : Env) n cvn.type = true := by
     intro n hn hnc
     obtain ⟨cvn, vn, hintn, hfn2, hpinn⟩ :=
@@ -2083,7 +2083,7 @@ theorem divModP_install {F : Nat} (mp : EnvS2PM V μ env)
     (hcmem : c ∈ Setlec.natDivModNames)
     (hfresh : env.find? c = none)
     (hgenv : Setlec.divModEnvGuard
-      (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩ : Env) c
+      ({ env with consts := .defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts } : Env) c
       = true)
     (hcerts : Setlec.checkDivModCerts (m := Setlec.CheckM)
       (Setlec.fueledOps μ F) env c value'
@@ -2100,7 +2100,7 @@ theorem divModP_install {F : Nat} (mp : EnvS2PM V μ env)
     (hmemA : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp2 V ρ (A ψ) ∈ˢ interp2 V ρ (Ta ψ))
     (m₂ : EnvS2Core V
-      ⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩)
+      { env with consts := .defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c A) :
     DivModP m₂ φ := by
   intro cq hcqN cv' v' hint' hf₂

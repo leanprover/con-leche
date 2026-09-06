@@ -172,7 +172,7 @@ theorem RecData.cross {m : EnvS2Core V env} {cvR : ConstantVal}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none) (hat : ConsCrossAt c₀ cvR.type)
     (hcb : ConstsBound env cvR.type)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     RecData m₂ cvR nP elimL rds where
   read ψ := by

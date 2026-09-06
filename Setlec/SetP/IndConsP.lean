@@ -119,25 +119,25 @@ theorem declStepPM_of_ind_cons (mp : EnvS2PM V μ env)
     (htyReads : ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,
         denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta)
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta)
     (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
     (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
     -- the tier's two genuine rows
-    (hcaps : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+    (hcaps : ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
       m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOkP m₂)
-    (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+    (hrec : ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRulesP m₂ φ)
     -- the head is not a tower entry (task #175 W4c: those get their
     -- own kit, `DeclDirectP`)
     (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false) :
-    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+    ∃ mp' : EnvS2PM V μ { env with consts := c₀ :: env.consts },
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh
     hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
@@ -190,18 +190,18 @@ theorem declStepPM_of_ind_member_cons (mp : EnvS2PM V μ env)
     (htyReads : ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,
         denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta)
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta)
     (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
     (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
-    (hcaps : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+    (hcaps : ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
       m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOkP m₂) :
-    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+    ∃ mp' : EnvS2PM V μ { env with consts := c₀ :: env.consts },
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_ind_cons mp hfresh hnres ?_ ?_ ?_ hh
     hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
@@ -237,21 +237,21 @@ theorem declStepPM_of_ind_rec_cons (mp : EnvS2PM V μ env)
     (htyReads : ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,
         denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta)
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta)
     (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
     (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
+          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
-    (hcaps : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+    (hcaps : ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
       m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOkP m₂)
-    (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+    (hrec : ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRulesP m₂ φ) :
-    ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+    ∃ mp' : EnvS2PM V μ { env with consts := c₀ :: env.consts },
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   obtain ⟨cv, mI, rP, rules, rfl⟩ := hknd
   exact declStepPM_of_ind_cons mp hfresh hnres
@@ -283,22 +283,22 @@ theorem declStepPM_of_projTemplate_cons (mp : EnvS2PM V μ env)
       ∃ ta : AVExpr,
         denoteP (acvalWith mp.base2.acval
             (ConstantInfo.projInfo entry).name A)
-          ⟨.projInfo entry :: env.consts⟩ ψ 0
+          { env with consts := .projInfo entry :: env.consts } ψ 0
           (ConstantInfo.projInfo entry).toConstantVal.type = some ta)
     (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval
             (ConstantInfo.projInfo entry).name A)
-          ⟨.projInfo entry :: env.consts⟩ ψ 0
+          { env with consts := .projInfo entry :: env.consts } ψ 0
           (ConstantInfo.projInfo entry).toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
     (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval
             (ConstantInfo.projInfo entry).name A)
-          ⟨.projInfo entry :: env.consts⟩ ψ 0
+          { env with consts := .projInfo entry :: env.consts } ψ 0
           (ConstantInfo.projInfo entry).toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
     (hntc : entry.tower = false) :
-    ∃ mp' : EnvS2PM V μ ⟨.projInfo entry :: env.consts⟩,
+    ∃ mp' : EnvS2PM V μ { env with consts := .projInfo entry :: env.consts },
       mp'.base2.acval = acvalWith mp.base2.acval
         (ConstantInfo.projInfo entry).name A := by
   refine declStepPM_of_ind_cons mp hfresh hnres

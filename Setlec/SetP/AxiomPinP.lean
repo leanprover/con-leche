@@ -177,7 +177,7 @@ theorem axiomTrustCompilerP (hμ : μ.verified = true)
     (hok : Setlec.trustCompilerOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
     Nonempty (EnvS2PM V μ
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
+      { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts }) := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv'
@@ -267,7 +267,7 @@ theorem axiomStdP (hμ : μ.verified = true)
     (hok : Setlec.stdAxiomOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
     Nonempty (EnvS2PM V μ
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
+      { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts }) := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv'
@@ -275,8 +275,8 @@ theorem axiomStdP (hμ : μ.verified = true)
   have hfresh : env.find? cv.name = none :=
     Option.isNone_iff_eq_none.mp hfind
   obtain ⟨stype, usort, hst, hens⟩ := hrunT
-  have hwfc : Setlec.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-      env.consts⟩ := by
+  have hwfc : Setlec.EnvWF { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts } := by
     refine Setlec.EnvWF.cons mp.base2.wf
       ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_⟩
     · intro cv2 value2 hint2 heq; exact nomatch heq

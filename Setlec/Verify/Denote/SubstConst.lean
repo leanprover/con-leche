@@ -54,18 +54,18 @@ theorem denote_substConst0 {env : Env} {cval : TConstVal}
     (hv : denoteClosed cval env φ v = some V)
     (hvf : v.hasFvar = false) (hvb : v.looseBVarsBounded 0 = true) :
     ∀ (d : Nat) (e : Expr), shallowE e = true →
-      denote (cvalAt cval env c v) ⟨c₀ :: env.consts⟩ φ d e
+      denote (cvalAt cval env c v) { env with consts := c₀ :: env.consts } φ d e
         = denote cval env φ d (Expr.substConst0 c v e) := by
   intro d e
   induction e with
   | sort u =>
     intro _
-    show denote (cvalAt cval env c v) ⟨c₀ :: env.consts⟩ φ d (.sort u)
+    show denote (cvalAt cval env c v) { env with consts := c₀ :: env.consts } φ d (.sort u)
       = denote cval env φ d (.sort u)
     rw [denote_sort, denote_sort]
   | fvar idx n ty =>
     intro _
-    show denote (cvalAt cval env c v) ⟨c₀ :: env.consts⟩ φ d
+    show denote (cvalAt cval env c v) { env with consts := c₀ :: env.consts } φ d
         (.fvar idx n ty) = denote cval env φ d (.fvar idx n ty)
     rw [denote_fvar, denote_fvar]
   | const n us =>
@@ -81,7 +81,7 @@ theorem denote_substConst0 {env : Env} {cval : TConstVal}
         rw [if_pos (by rw [hlp]; rfl), hlp, substFn_nil0, cvalAt_self hv,
           denote_depth_closed hcl hvf hvb d]
         exact hv.symm
-      · show denote (cvalAt cval env n v) ⟨c₀ :: env.consts⟩ φ d
+      · show denote (cvalAt cval env n v) { env with consts := c₀ :: env.consts } φ d
             (.const n us) = denote cval env φ d
             (Expr.substConst0 n v (.const n us))
         rw [show Expr.substConst0 n v (.const n us) = .const n us from by

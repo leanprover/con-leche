@@ -65,10 +65,10 @@ nat half is free, and the str half is never consulted backward.) -/
 theorem natLitSupported_cons_back {env : Env} {c₀ : ConstantInfo}
     (hknd : (∀ cv mI, c₀ ≠ .indInfo cv mI) ∧
       ∀ cv a b, c₀ ≠ .ctorInfo cv a b)
-    (hg : Setlec.natLitSupported ⟨c₀ :: env.consts⟩ = true) :
+    (hg : Setlec.natLitSupported { env with consts := c₀ :: env.consts } = true) :
     Setlec.natLitSupported env = true := by
   have hfind : ∀ p : Name,
-      (⟨c₀ :: env.consts⟩ : Env).find? p
+      ({ env with consts := c₀ :: env.consts } : Env).find? p
         = if c₀.name = p then some c₀ else env.find? p := by
     intro p
     show List.find? _ (c₀ :: env.consts) = _
@@ -115,7 +115,7 @@ theorem natHeadsP_cons_fresh (mp : EnvS2PM V μ env)
     (hfresh : env.find? c₀.name = none)
     (hknd : (∀ cv mI, c₀ ≠ .indInfo cv mI) ∧
       ∀ cv a b, c₀ ≠ .ctorInfo cv a b)
-    (m2 : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m2 : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hacval : m2.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) : NatHeadsP m2 φ := by
   intro hg ρ
@@ -298,8 +298,8 @@ theorem harvestDefnP (hμ : μ.verified = true)
   have hcomp : ∀ (ψ : Name → Nat) (e : Expr), ConstsBound env e →
       ∀ {ea : AVExpr}, denoteP mp.base2.acval env ψ 0 e = some ea →
       denoteP (acvalWith mp.base2.acval cv.name A)
-          ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
-            env.consts⟩ ψ 0 e = some ea :=
+          { env with consts := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+        env.consts } ψ 0 e = some ea :=
     fun ψ e hcb {ea} h =>
       denoteP_cons_fresh_mono
         (acval := mp.base2.acval)
@@ -327,14 +327,14 @@ theorem harvestDefnP (hμ : μ.verified = true)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
-      ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
-        env.consts⟩ ψ 0 type' = some ta
+      { env with consts := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+        env.consts } ψ 0 type' = some ta
     exact ⟨Ta ψ, hcomp ψ type' hcbT (hTa ψ)⟩
   · -- `htyOk`
     intro ψ ta hta ρ
     replace hta : denoteP (acvalWith mp.base2.acval cv.name A)
-        ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
-          env.consts⟩ ψ 0 type' = some ta := hta
+        { env with consts := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+        env.consts } ψ 0 type' = some ta := hta
     obtain rfl : ta = Ta ψ :=
       (Option.some.inj
         ((hcomp ψ type' hcbT (hTa ψ)).symm.trans hta)).symm
@@ -343,8 +343,8 @@ theorem harvestDefnP (hμ : μ.verified = true)
   · -- `hmemNew`
     intro ψ ta hta ρ
     replace hta : denoteP (acvalWith mp.base2.acval cv.name A)
-        ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
-          env.consts⟩ ψ 0 type' = some ta := hta
+        { env with consts := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+        env.consts } ψ 0 type' = some ta := hta
     obtain rfl : ta = Ta ψ :=
       (Option.some.inj
         ((hcomp ψ type' hcbT (hTa ψ)).symm.trans hta)).symm
@@ -354,8 +354,8 @@ theorem harvestDefnP (hμ : μ.verified = true)
     rcases hmem with ⟨hint2, hdt⟩ | hdt
     · injection hdt with h1 h2 h3
       show denoteP (acvalWith mp.base2.acval cv.name A)
-          ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
-            env.consts⟩ ψ 0 value2
+          { env with consts := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+        env.consts } ψ 0 value2
         = some (A ψ)
       rw [h2]
       exact hcomp ψ value' hcbV (hA ψ)
@@ -424,8 +424,8 @@ theorem harvestDefnP (hμ : μ.verified = true)
         rcases h7 with h | h | h | h | h | h | h <;> rw [h] <;> decide
       have hd := List.all_eq_true.mp hdeps₂ cv.name (by simpa using hself)
       unfold Setlec.natOpStoredOk at hd
-      rw [show (⟨ConstantInfo.defnInfo ⟨cv.name, cv.levelParams, type'⟩
-            value' hint :: env.consts⟩ : Env).find? cv.name
+      rw [show ({ env with consts := (ConstantInfo.defnInfo ⟨cv.name, cv.levelParams, type'⟩
+            value' hint) :: env.consts } : Env).find? cv.name
           = some (.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value'
             hint) from by
         rw [Setlec.Env.find?_cons]; exact if_pos rfl] at hd
@@ -433,8 +433,8 @@ theorem harvestDefnP (hμ : μ.verified = true)
       have hlpcv : cv.levelParams = [] := by
         simpa [List.isEmpty_iff] using hd.1
       have hpin : Setlec.natOpTyPinned
-          (⟨ConstantInfo.defnInfo ⟨cv.name, cv.levelParams, type'⟩
-            value' hint :: env.consts⟩ : Env) cv.name type' = true :=
+          ({ env with consts := (ConstantInfo.defnInfo ⟨cv.name, cv.levelParams, type'⟩
+            value' hint) :: env.consts } : Env) cv.name type' = true :=
         hd.2
       have hsE : Setlec.natLitSupported env = true :=
         natLitSupported_cons_back
@@ -674,8 +674,8 @@ theorem harvestThmP (hμ : μ.verified = true)
   have hcomp : ∀ (ψ : Name → Nat) (e : Expr), ConstsBound env e →
       ∀ {ea : AVExpr}, denoteP mp.base2.acval env ψ 0 e = some ea →
       denoteP (acvalWith mp.base2.acval cv.name A)
-          ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
-            env.consts⟩ ψ 0 e = some ea :=
+          { env with consts := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
+        env.consts } ψ 0 e = some ea :=
     fun ψ e hcb {ea} h =>
       denoteP_cons_fresh_mono
         (acval := mp.base2.acval)
@@ -703,14 +703,14 @@ theorem harvestThmP (hμ : μ.verified = true)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
-      ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
-        env.consts⟩ ψ 0 type' = some ta
+      { env with consts := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
+        env.consts } ψ 0 type' = some ta
     exact ⟨Ta ψ, hcomp ψ type' hcbT (hTa ψ)⟩
   · -- `htyOk`
     intro ψ ta hta ρ
     replace hta : denoteP (acvalWith mp.base2.acval cv.name A)
-        ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
-          env.consts⟩ ψ 0 type' = some ta := hta
+        { env with consts := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
+        env.consts } ψ 0 type' = some ta := hta
     obtain rfl : ta = Ta ψ :=
       (Option.some.inj
         ((hcomp ψ type' hcbT (hTa ψ)).symm.trans hta)).symm
@@ -719,8 +719,8 @@ theorem harvestThmP (hμ : μ.verified = true)
   · -- `hmemNew`
     intro ψ ta hta ρ
     replace hta : denoteP (acvalWith mp.base2.acval cv.name A)
-        ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
-          env.consts⟩ ψ 0 type' = some ta := hta
+        { env with consts := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
+        env.consts } ψ 0 type' = some ta := hta
     obtain rfl : ta = Ta ψ :=
       (Option.some.inj
         ((hcomp ψ type' hcbT (hTa ψ)).symm.trans hta)).symm
@@ -731,8 +731,8 @@ theorem harvestThmP (hμ : μ.verified = true)
     · exact nomatch hdt
     · injection hdt with h1 h2
       show denoteP (acvalWith mp.base2.acval cv.name A)
-          ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
-            env.consts⟩ ψ 0 value2
+          { env with consts := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
+        env.consts } ψ 0 value2
         = some (A ψ)
       rw [h2]
       exact hcomp ψ value' hcbV (hA ψ)
@@ -886,7 +886,7 @@ theorem harvestAxiomP (hμ : μ.verified = true)
     -- the operations are installed as `opaque`s, never as axioms.
     (hnotreduce : cv.name ∉ Setlec.reduceOpNames) :
     Nonempty (EnvS2PM V μ
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
+      { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts }) := by
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
@@ -937,8 +937,8 @@ theorem harvestAxiomP (hμ : μ.verified = true)
   have hcomp : ∀ (ψ : Name → Nat) (e : Expr), ConstsBound env e →
       ∀ {ea : AVExpr}, denoteP mp.base2.acval env ψ 0 e = some ea →
       denoteP (acvalWith mp.base2.acval cv.name A)
-          ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-            env.consts⟩ ψ 0 e = some ea :=
+          { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts } ψ 0 e = some ea :=
     fun ψ e hcb {ea} h =>
       denoteP_cons_fresh_mono
         (acval := mp.base2.acval)
@@ -963,14 +963,14 @@ theorem harvestAxiomP (hμ : μ.verified = true)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-        env.consts⟩ ψ 0 type' = some ta
+      { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts } ψ 0 type' = some ta
     exact ⟨Ta ψ, hcomp ψ type' hcbT (hTa ψ)⟩
   · -- `htyOk`
     intro ψ ta hta ρ
     replace hta : denoteP (acvalWith mp.base2.acval cv.name A)
-        ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-          env.consts⟩ ψ 0 type' = some ta := hta
+        { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts } ψ 0 type' = some ta := hta
     obtain rfl : ta = Ta ψ :=
       (Option.some.inj
         ((hcomp ψ type' hcbT (hTa ψ)).symm.trans hta)).symm
@@ -979,8 +979,8 @@ theorem harvestAxiomP (hμ : μ.verified = true)
   · -- `hmemNew`: the pin tier's membership, crossed
     intro ψ ta hta ρ
     replace hta : denoteP (acvalWith mp.base2.acval cv.name A)
-        ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-          env.consts⟩ ψ 0 type' = some ta := hta
+        { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts } ψ 0 type' = some ta := hta
     obtain rfl : ta = Ta ψ :=
       (Option.some.inj
         ((hcomp ψ type' hcbT (hTa ψ)).symm.trans hta)).symm
@@ -1188,8 +1188,8 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   have hcomp : ∀ (ψ : Name → Nat) (e : Expr), ConstsBound env e →
       ∀ {ea : AVExpr}, denoteP mp.base2.acval env ψ 0 e = some ea →
       denoteP (acvalWith mp.base2.acval cv.name A)
-          ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-            env.consts⟩ ψ 0 e = some ea :=
+          { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts } ψ 0 e = some ea :=
     fun ψ e hcb {ea} h =>
       denoteP_cons_fresh_mono
         (acval := mp.base2.acval)
@@ -1216,14 +1216,14 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteP (acvalWith mp.base2.acval cv.name A)
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-        env.consts⟩ ψ 0 type' = some ta
+      { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts } ψ 0 type' = some ta
     exact ⟨Ta ψ, hcomp ψ type' hcbT (hTa ψ)⟩
   · -- `htyOk`
     intro ψ ta hta ρ
     replace hta : denoteP (acvalWith mp.base2.acval cv.name A)
-        ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-          env.consts⟩ ψ 0 type' = some ta := hta
+        { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts } ψ 0 type' = some ta := hta
     obtain rfl : ta = Ta ψ :=
       (Option.some.inj
         ((hcomp ψ type' hcbT (hTa ψ)).symm.trans hta)).symm
@@ -1232,8 +1232,8 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
   · -- `hmemNew`
     intro ψ ta hta ρ
     replace hta : denoteP (acvalWith mp.base2.acval cv.name A)
-        ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
-          env.consts⟩ ψ 0 type' = some ta := hta
+        { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        env.consts } ψ 0 type' = some ta := hta
     obtain rfl : ta = Ta ψ :=
       (Option.some.inj
         ((hcomp ψ type' hcbT (hTa ψ)).symm.trans hta)).symm

@@ -791,36 +791,41 @@ def _root_.Setlec.Expr.hasLevelParam : Expr → Bool
     ty.hasLevelParam || val.hasLevelParam || body.hasLevelParam
   | .proj _ _ e => e.hasLevelParam
 
-/-- `substPW` is the identity on parameter-free data (`never` and
-`ifAllZero []`) — the meta half of the has-param shortcut's
-soundness. -/
-theorem _root_.Setlec.Level.substPW_eq_self {ks : List Name}
-    {us : List Level} {pw : PropWhen} (h : pw.hasParams = false) :
-    Level.substPW ks us pw = pw := by
-  cases pw with
-  | never => rfl
-  | ifAllZero ps =>
-    cases ps with
-    | nil => rfl
-    | cons p ps => simp [PropWhen.hasParams] at h
+/-- A parameter-free datum is `never` or `always`. -/
+theorem _root_.Setlec.PropWhen.eq_never_or_always_of_not_hasParams
+    {pw : PropWhen} (h : pw.hasParams = false) :
+    pw = .never ∨ pw = .always := by
+  simp only [PropWhen.hasParams, Bool.and_eq_false_iff, bne_eq_false_iff_eq] at h
+  exact h
 
-/-- Parameter-free data are defined under any parameter list. -/
+theorem _root_.Setlec.PropWhen.bindZ_go_zero (ms : List PropWhen) :
+    PropWhen.bindZ.go ms 0 = .always := by
+  cases ms <;> simp [PropWhen.bindZ.go, PropWhen.always]
+
+/-- `substPW` is the identity on parameter-free data (`never` and
+`always`) — the meta half of the has-param shortcut's soundness. -/
+theorem _root_.Setlec.Level.substPW_eq_self {ms : List PropWhen}
+    {pw : PropWhen} (h : pw.hasParams = false) :
+    Level.substPW ms pw = pw := by
+  rcases PropWhen.eq_never_or_always_of_not_hasParams h with rfl | rfl
+  · simp [Level.substPW, PropWhen.bindZ]
+  · simp [Level.substPW, PropWhen.bindZ, PropWhen.bindZ_go_zero,
+      PropWhen.always, PropWhen.never]
+
+/-- Parameter-free data are defined under any parameter count. -/
 theorem _root_.Setlec.PropWhen.paramsDefined_of_not_hasParams
-    {params : List Name} {pw : PropWhen} (h : pw.hasParams = false) :
-    pw.paramsDefined params = true := by
-  cases pw with
-  | never => rfl
-  | ifAllZero ps =>
-    cases ps with
-    | nil => rfl
-    | cons p ps => simp [PropWhen.hasParams] at h
+    {n : Nat} {pw : PropWhen} (h : pw.hasParams = false) :
+    pw.paramsDefined n = true := by
+  rcases PropWhen.eq_never_or_always_of_not_hasParams h with rfl | rfl
+  · simp [PropWhen.paramsDefined]
+  · simp [PropWhen.paramsDefined, PropWhen.always, PropWhen.never]
 
 /-- Level-parameter instantiation is the identity on level-param-free
 expressions. -/
 theorem _root_.Setlec.Expr.instantiateLevelParams_eq_self
-    {ks : List Name} {us : List Level} {x : Expr}
+    {ks : List Name} {us : List Level} {ms : List PropWhen} {x : Expr}
     (h : x.hasLevelParam = false) :
-    x.instantiateLevelParams ks us = x := by
+    x.instantiateLevelParams ks us ms = x := by
   induction x with
   | bvar i => rfl
   | lit l => rfl

@@ -15,7 +15,7 @@ conjunct:
 
 * **guards and runs** — `Bool` side conditions on stored data,
   `annotateCore`/`inferTypeCore`/`isDefEqCore`/`ensureSortCore`
-  verdicts, and the `env₂ = ⟨… :: env.consts⟩` shapes.  These mention
+  verdicts, and the `env₂ = { env with consts := … :: env.consts }` shapes.  These mention
   no valuation at all.  They are what the P lane consumes (task #161
   P4 H1 widened `DeclR` five times precisely to record them);
 * **derivations** — the trailing `∀ φ : Name → Nat, ∃ …, denote cval
@@ -150,8 +150,8 @@ def DeclDefnRun (μ : CheckMode) (F : Nat) (env : Env)
   ∃ type' value',
     ConstantValRun μ F env cv type' ∧
     ValueFrontRun μ F env cv value type' value' ∧
-    env₂ = ⟨.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
-      env.consts⟩ ∧
+    env₂ = { env with consts := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+        env.consts } ∧
     (natOpNames.contains cv.name = true →
       natOpGuard env₂ cv.name = true ∧
       (natOpDeps cv.name).all (natOpStoredOk env₂) = true ∧
@@ -171,8 +171,8 @@ def DeclThmRun (μ : CheckMode) (F : Nat) (env : Env)
       ensureSortCore μ env F 0 stype = .ok u ∧
       Level.isEquiv u .zero = some true) ∧
     ValueFrontRun μ F env cv value type' value' ∧
-    env₂ = ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
-      env.consts⟩
+    env₂ = { env with consts := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
+        env.consts }
 
 /-- `DeclOpaqueR`'s run/guard half. -/
 def DeclOpaqueRun (μ : CheckMode) (F : Nat) (env : Env)
@@ -180,7 +180,7 @@ def DeclOpaqueRun (μ : CheckMode) (F : Nat) (env : Env)
   ∃ type' value',
     ConstantValRun μ F env cv type' ∧
     ValueFrontRun μ F env cv value type' value' ∧
-    env₂ = ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩ ∧
+    env₂ = { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts } ∧
     (reduceOpNames.contains cv.name = true →
       ReducePinRun μ F env env₂ cv.name value)
 
@@ -192,12 +192,12 @@ def DeclAxiomRun (μ : CheckMode) (F : Nat) (env : Env)
     ConstantValRun μ F env cv type' ∧
     (let cvA : ConstantVal := ⟨cv.name, cv.levelParams, type'⟩
      (stdAxiomOk env cvA = true ∧
-        env₂ = ⟨.axiomInfo cvA :: env.consts⟩) ∨
+        env₂ = { env with consts := .axiomInfo cvA :: env.consts }) ∨
      (cvA.name = trustCompilerName ∧ trustCompilerOk env cvA = true ∧
-        env₂ = ⟨.axiomInfo cvA :: env.consts⟩) ∨
+        env₂ = { env with consts := .axiomInfo cvA :: env.consts }) ∨
      ((cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName) ∧
         ofReduceAxOk env cvA = true ∧
-        env₂ = ⟨.axiomInfo cvA :: env.consts⟩) ∨
+        env₂ = { env with consts := .axiomInfo cvA :: env.consts }) ∨
      (stdAxiomOk env cvA = false ∧
         cvA.name ≠ trustCompilerName ∧
         cvA.name ≠ ofReduceNatName ∧ cvA.name ≠ ofReduceBoolName ∧

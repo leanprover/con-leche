@@ -215,12 +215,12 @@ def unfoldDefinition (env : Env) (e : Expr) : Option Expr :=
     match env.find? n with
     | some (.defnInfo cv value _) =>
       if us.length = cv.levelParams.length then
-        some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+        some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
           e.getAppArgs)
       else none
     | some (.thmInfo cv value) =>
       if us.length = cv.levelParams.length then
-        some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+        some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
           e.getAppArgs)
       else none
     | _ => none
@@ -920,10 +920,10 @@ P flag (`mode.betaGate`) like every licensed skip. -/
 def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
   if mode.verified &&
-      (notProofFast env.find? a || notProofFast env.find? b) then
+      (notProofFast env.find? env.lpsL a || notProofFast env.find? env.lpsL b) then
     pure false
   else if mode.verified && mode.betaGate &&
-      isProofFast env.find? a && isProofFast env.find? b then
+      isProofFast env.find? env.lpsL a && isProofFast env.find? env.lpsL b then
     -- the yes arm (task #168 stage 3): both heads' validated data say
     -- "a proposition at every valuation" — the squash-regime licence
     -- (`prf_of_isProofFast`, `Setlec/SetP/Step2/IrrelFastP.lean`)
@@ -956,7 +956,7 @@ def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
       if cvp.levelParams = lpsT ∧
           (cvp.type.stripPis (targs.length + 1)).isSome = true then
         if ← iotaCerts r env depth false
-            (cvp.type.instantiateLevelParams cvp.levelParams us')
+            (cvp.type.instantiateLevelParams cvp.levelParams us' (Level.masksOf env.lpsL us'))
             (targs ++ [b]) then
           structEtaProjCerts r env depth T us' targs b lpsT rest
         else pure false
@@ -967,7 +967,7 @@ def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
       if entry.tower = true ∧ entry.levelParams = lpsT ∧
           (entry.ty.stripPis (targs.length + 1)).isSome = true then
         if ← iotaCerts r env depth false
-            (entry.ty.instantiateLevelParams entry.levelParams us')
+            (entry.ty.instantiateLevelParams entry.levelParams us' (Level.masksOf env.lpsL us'))
             (targs ++ [b]) then
           structEtaProjCerts r env depth T us' targs b lpsT rest
         else pure false
@@ -1031,8 +1031,7 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
               if ← liftFueled "level comparison"
                   (Level.isEquivList us us') then
                 if ← iotaCerts r env depth false
-                    (cvT.type.instantiateLevelParams cvT.levelParams
-                      us') wtb.getAppArgs then
+                    (cvT.type.instantiateLevelParams cvT.levelParams us' (Level.masksOf env.lpsL us')) wtb.getAppArgs then
                   if ← structEtaProjCerts r env depth T us'
                       wtb.getAppArgs b cvT.levelParams
                       (List.range cnF) then
@@ -1048,8 +1047,7 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                       -- unless `mode.ttChecks`.
                       if ← (if mode.ttChecks then
                           iotaCerts r env depth false
-                            (cvc.type.instantiateLevelParams
-                              cvc.levelParams us)
+                            (cvc.type.instantiateLevelParams cvc.levelParams us (Level.masksOf env.lpsL us))
                             (wtb.getAppArgs ++
                               etaProjs env T us' wtb.getAppArgs b cnF)
                         else pure true) then
@@ -1103,7 +1101,7 @@ def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
         let wtb ← r.whnf depth tb
         if ← r.defeq depth wta wtb then
           iotaCerts r env depth false
-            (cvT.type.instantiateLevelParams cvT.levelParams us')
+            (cvT.type.instantiateLevelParams cvT.levelParams us' (Level.masksOf env.lpsL us'))
             wta.getAppArgs
         else pure false
       else pure false
@@ -1213,8 +1211,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                     -- the *ungated* telescope certificate runs here,
                     -- relocated from the fire path.
                     if ← iotaCerts r env depth false
-                        (cvj.type.instantiateLevelParams
-                          cvj.levelParams ust)
+                        (cvj.type.instantiateLevelParams cvj.levelParams ust (Level.masksOf env.lpsL ust))
                         (tmaj.getAppArgs.take cnP) then
                       -- The official `to_cnstr_when_K` type check on
                       -- the fabrication: the constructor
@@ -1271,8 +1268,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                     -- synthetic-spine certification, as in the K
                     -- branch (task #71)
                     if ← iotaCerts r env depth false
-                        (cvj.type.instantiateLevelParams
-                          cvj.levelParams ust)
+                        (cvj.type.instantiateLevelParams cvj.levelParams ust (Level.masksOf env.lpsL ust))
                         (etaFabArgsE env T ust tmaj.getAppArgs major
                           caps.etaFields) then
                       if ← structEtaCertWith mode r env depth fab major
@@ -1345,14 +1341,14 @@ major-domain instantiations, at the recursor's level instantiation and
 spine (the stored pins live in the `rP`-binder prefix context — index
 arguments never occur in them, by the shape certification).
 (Junk for `.inert` rules — `iotaRec` declines before reading it.) -/
-def recFireComparands (rl : RecRule) (lps : List Name)
+def recFireComparands (rl : RecRule) (cur lps : List Name)
     (us : List Level) (cvjLps : List Name) (args : List Expr)
     (rP : Nat) : List Level × List Expr :=
   match rl.fire with
   | .nested lvls pins =>
     (lvls.map (Level.subst lps us),
      pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
-       (p.instantiateLevelParams lps us))
+       (p.instantiateLevelParams lps us (Level.masksOf cur us)))
   | _ =>
     (cvjLps.map fun p => Level.subst lps us (.param p),
      args.take rl.ctorParams)
@@ -1383,7 +1379,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       -- RHS (`src/kernel/inductive.h:105`, present since v4.0.0);
       -- lean4lean does the same (`Inductive/Reduce.lean:98`) and
       -- nanoda's `subst_expr_levels` asserts it.  Without it
-      -- `rl.rhs.instantiateLevelParams cv.levelParams us` can leak a
+      -- `rl.rhs.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)` can leak a
       -- level parameter the subject never had -- refuted concretely
       -- at `Interp2/IotaArity.lean`.  Ungated: the reference has it
       -- unconditionally, so a mode gate would break parity.
@@ -1428,10 +1424,10 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                 -- (`Expr.recRulePlain` / the nested certification),
                 -- never re-derived per fire
                 if ← liftFueled "level comparison" (Level.isEquivList usj
-                    (recFireComparands rl cv.levelParams us
+                    (recFireComparands rl env.lpsL cv.levelParams us
                       cvj.levelParams args rP).1) then
                  if ← defEqList r env depth (margs.take rl.ctorParams)
-                    (recFireComparands rl cv.levelParams us
+                    (recFireComparands rl env.lpsL cv.levelParams us
                       cvj.levelParams args rP).2 then
                   -- the two telescope runs, *licensed* (`iotaCerts`'
                   -- docstring): the redex is a subterm of the subject.
@@ -1439,19 +1435,19 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                   -- place a certificate-skip may read the validated
                   -- datum (`CheckMode.betaGate`'s docstring)
                   if ← iotaCerts r env depth mode.betaGate
-                     (cv.type.instantiateLevelParams cv.levelParams us)
+                     (cv.type.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
                      (args.take mI ++ [major]) then
                    if ← iotaCerts r env depth mode.betaGate
-                      (cvj.type.instantiateLevelParams cvj.levelParams usj)
+                      (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj))
                       margs then
                     -- the recursor's index arguments must match the
                     -- constructor's canonical index tuple, where the
                     -- recursor has indices (`iotaIndexOk`)
                     if ← iotaIndexOk r env depth mI rP rl.ctorParams
-                        (cvj.type.instantiateLevelParams cvj.levelParams usj)
+                        (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj))
                         margs ((args.take mI).drop rP) then
                       pure (some (Expr.mkAppN
-                        (rl.rhs.instantiateLevelParams cv.levelParams us)
+                        (rl.rhs.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
                         (args.take rP ++ margs.drop rl.ctorParams)))
                     else pure none
                    else pure none
@@ -1529,7 +1525,7 @@ def projCert (r : CoreFns m) (env : Env) (depth : Nat) (lic : Bool)
   match env.find? c with
   | some (.ctorInfo cvC _ _) =>
     iotaCerts r env depth lic
-      (cvC.type.instantiateLevelParams cvC.levelParams us) args
+      (cvC.type.instantiateLevelParams cvC.levelParams us (Level.masksOf env.lpsL us)) args
   | _ => pure false
 
 /-- **THE β SITE'S GATE** (task #161): does the mode's β gate fire at
@@ -1735,7 +1731,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         let cv := ci.toConstantVal
         unless us.length = cv.levelParams.length do
           throw (.invalid s!"incorrect number of universe levels for {n}")
-        pure (cv.type.instantiateLevelParams cv.levelParams us)
+        pure (cv.type.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
     | .lit (.natVal _) => do
       if natLitSupported env then pure (.const natName [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
@@ -1759,7 +1755,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         let v ← ensureSort r env (depth + 1)
           (← r.infer (depth + 1) (body.instantiate1 (.fvar depth n ty)))
         if mode.verified then
-          unless (Level.zeronessOf v).equiv mb.pw do
+          unless Level.maskOf? env.lpsL v == some mb.pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         pure (.sort (.imax u v))
       | _ => throw (.invalid "expected a sort")
@@ -1808,7 +1804,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             -- (the recursive call just established the body type)
             let btt ← r.inferIO (depth + 1) bt
             let vb ← ensureSort r env (depth + 1) btt
-            unless (Level.zeronessOf vb).equiv mb.pw do
+            unless Level.maskOf? env.lpsL vb == some mb.pw do
               throw (.notImplemented
                 "sort-annotation mismatch (lam-cod-leaf)")
         pure (.forallE n ty (bt.abstract1 depth) mb)
@@ -1860,8 +1856,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             -- (`∀ p⃗ (t : T p⃗), F_i`, `.proj`-node spelling) is
             -- level-instantiated at the subject type's levels and
             -- peeled along the parameters and the subject
-            let tyI := entry.ty.instantiateLevelParams
-              entry.levelParams us
+            let tyI := entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)
             match Expr.instPisAt (te.getAppArgs ++ [pe]) tyI with
             | some (_, resid) => pure resid
             | none => throw (.internal "malformed projection entry")
@@ -1917,7 +1912,7 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         let cv := ci.toConstantVal
         unless us.length = cv.levelParams.length do
           throw (.invalid s!"incorrect number of universe levels for {n}")
-        pure (cv.type.instantiateLevelParams cv.levelParams us)
+        pure (cv.type.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
     | .lit (.natVal _) => do
       if natLitSupported env then pure (.const natName [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
@@ -1931,7 +1926,7 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         let v ← ensureSort r env (depth + 1)
           (← r.infer (depth + 1) (body.instantiate1 (.fvar depth n ty)))
         if mode.verified then
-          unless (Level.zeronessOf v).equiv mb.pw do
+          unless Level.maskOf? env.lpsL v == some mb.pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         pure (.sort (.imax u v))
       | _ => throw (.invalid "expected a sort")
@@ -1953,7 +1948,7 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         | none =>
           let btt ← r.infer (depth + 1) bt
           let vb ← ensureSort r env (depth + 1) btt
-          unless (Level.zeronessOf vb).equiv mb.pw do
+          unless Level.maskOf? env.lpsL vb == some mb.pw do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-leaf)")
       pure (.forallE n ty (bt.abstract1 depth) mb)
@@ -1999,8 +1994,7 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
                   "projection from a propositional structure must be a proposition")
             -- task #175 wiring W2c: the generic residual for a
             -- tower-backed entry, as in `inferBody`
-            let tyI := entry.ty.instantiateLevelParams
-              entry.levelParams us
+            let tyI := entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)
             match Expr.instPisAt (te.getAppArgs ++ [pe]) tyI with
             | some (_, resid) => pure resid
             | none => throw (.internal "malformed projection entry")
@@ -2315,13 +2309,15 @@ are judged by validation, never overwritten.  The parser's placeholder
 for an absent `"pw"` field is `.never`, which is also a legitimate
 value; the pass therefore recomputes over `.never` unconditionally
 (harmless: a genuinely never-zero codomain recomputes to `.never`),
-and the *only* input annotations preserved are the `ifAllZero` ones.
+and the only input annotation the parser still admits besides the
+placeholder is none — the named-list form was retired with the packed
+positional datum (2026-09-06), so on stream input the pass writes
+every datum; `pwWritten` keeps the pinned (pre-annotated) data of the
+basis blocks and the generated pins out of the rewrite.
 -/
 
 /-- Is this datum a real (non-placeholder) input annotation? -/
-@[inline] def pwWritten : PropWhen → Bool
-  | .never => false
-  | .ifAllZero _ => true
+@[inline] def pwWritten (pw : PropWhen) : Bool := !pw.isNever
 
 /-- The datum a rebuilt binder ends up with: the one threaded in from
 the node below (the chain rule), unless it carries a real input
@@ -2337,7 +2333,7 @@ clause validates against (`(forall-cod)`).
 
 **The chain read (task #161 P5, proof-lane repair).**  A ∀ body that is
 itself a ∀ reuses its inner neighbour's datum instead of inferring:
-`zeronessOf (imax u v) = zeronessOf v`, so every node of a telescope
+`maskOf ps (imax u v) = maskOf ps v`, so every node of a telescope
 carries the *leaf* codomain sort's zero-ness.  This is the same rule
 `annotPwLam` already applies through `lamPw`, and it is what makes the
 spec pass pay **one** inference per ∀ telescope, as the design's
@@ -2357,12 +2353,12 @@ def annotPwPi (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
   -- most leaves without inference; the pass is untrusted — `infer`
   -- validates every datum it writes — so the reader owes no licence
   -- here, only the datum's agreement (census: 0 non-equivalent data).
-  match typeSortPW env.find? body' with
+  match typeSortPW env.find? env.lpsL body' with
   | some pw => pure pw
   | none => do
     -- io grade: `body'` is already annotated (bottom-up)
     let v ← ensureSort r env depth (← r.inferIO depth body')
-    pure (Level.zeronessOf v)
+    pure (Level.maskOf env.lpsL v)
 
 /-- The λ node's datum: the zero-ness of the sort of the *body's type*.
 Mirrors `inferBody`'s λ clause exactly — a λ body reuses its inner
@@ -2372,13 +2368,13 @@ def annotPwLam (r : CoreFns m) (env : Env) (depth : Nat) (body' : Expr) :
     m PropWhen := do
   -- task #168 stage 2: the reader first (it subsumes the `lamPw`
   -- chain read), as in `annotPwPi`
-  match proofPW env.find? body' with
+  match proofPW env.find? env.lpsL body' with
   | some pw => pure pw
   | none => do
     -- io grade: `body'` is already annotated (bottom-up)
     let bt ← r.inferIO depth body'
     let vb ← ensureSort r env depth (← r.inferIO depth bt)
-    pure (Level.zeronessOf vb)
+    pure (Level.maskOf env.lpsL vb)
 
 /-- The annotation body: compute the codomain-sort annotations of every
 binder, bottom-up, by real inference on the opened (already annotated)

@@ -217,7 +217,7 @@ theorem stageCtor
     (hE₀ : Setlec.EtaFamiliesClosed env)
     {F : Nat} {p : DirectParts} {envI envC : Env} {cvTa cvCa : ConstantVal}
     {sorts : List Level}
-    (henvI : envI = ⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩)
+    (henvI : envI = { env with consts := .indInfo cvTa (Setlec.directCaps p) :: env.consts })
     (hTfresh₀ : env.find? p.cvT.name = none)
     (hTname : cvTa.name = p.cvT.name)
     (hlpsC : cvCa.levelParams = cvTa.levelParams)
@@ -277,7 +277,7 @@ theorem stageCtor
   -- the reading at the extension
   have hreadC : ∀ ψ : Name → Nat,
       denoteP (acvalWith mpI.base2.acval cvCa.name A)
-        ⟨.ctorInfo cvCa p.nP p.nF :: envI.consts⟩ ψ 0 cvCa.type
+        { envI with consts := .ctorInfo cvCa p.nP p.nF :: envI.consts } ψ 0 cvCa.type
         = some (mkPisAV (ds ψ) (ctorBodyAV mpI.base2 p.cvT.name p.nP p.nF ψ)) := fun ψ =>
     denoteP_cons_mono (c₀ := .ctorInfo cvCa p.nP p.nF) hfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) ψ 0 hcb (hCD.read ψ)
@@ -344,7 +344,7 @@ theorem stageCtor
         (by rw [hfC']; rfl)]
       exact hfC'
     · intro cvT caps hf hres
-      have hfT' : (⟨.ctorInfo cvCa p.nP p.nF :: envI.consts⟩ : Env).find? p.cvT.name
+      have hfT' : ({ envI with consts := .ctorInfo cvCa p.nP p.nF :: envI.consts } : Env).find? p.cvT.name
           = some (.indInfo cvTa (Setlec.directCaps p)) := by
         rw [Setlec.Env.find?_cons, if_neg (fun h => hTC h.symm)]
         exact hfT

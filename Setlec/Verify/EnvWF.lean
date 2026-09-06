@@ -82,7 +82,7 @@ def EnvWF (env : Env) : Prop := ∀ c ∈ env.consts, ConstWF env c
 
 /-- `find?` on a cons. -/
 theorem Env.find?_cons {c : ConstantInfo} {env : Env} {n : Name} :
-    Env.find? ⟨c :: env.consts⟩ n = if c.name = n then some c else env.find? n := by
+    Env.find? { env with consts := c :: env.consts } n = if c.name = n then some c else env.find? n := by
   simp only [Env.find?, List.find?]
   split
   · next h => simp_all
@@ -90,14 +90,14 @@ theorem Env.find?_cons {c : ConstantInfo} {env : Env} {n : Name} :
 
 /-- A cons finds its own head. -/
 theorem Env.find?_cons_self (c : ConstantInfo) (env : Env) :
-    Env.find? ⟨c :: env.consts⟩ c.name = some c := by
+    Env.find? { env with consts := c :: env.consts } c.name = some c := by
   rw [Env.find?_cons, if_pos rfl]
 
 /-- A cons of a *fresh* head does not find anything new. -/
 theorem Env.find?_cons_of_fresh {c : ConstantInfo} {env : Env}
     {n : Name} {ci : ConstantInfo} (hfresh : env.find? c.name = none)
     (h : env.find? n = some ci) :
-    Env.find? ⟨c :: env.consts⟩ n = some ci := by
+    Env.find? { env with consts := c :: env.consts } n = some ci := by
   rw [Env.find?_cons]
   split
   · next heq => rw [heq, h] at hfresh; exact nomatch hfresh
@@ -107,7 +107,7 @@ theorem Env.find?_cons_of_fresh {c : ConstantInfo} {env : Env}
 successful lookups. -/
 theorem Env.find?_cons_of_isSome {c : ConstantInfo} {env : Env} {n : Name}
     (hfresh : env.find? c.name = none) (h : (env.find? n).isSome = true) :
-    Env.find? ⟨c :: env.consts⟩ n = env.find? n := by
+    Env.find? { env with consts := c :: env.consts } n = env.find? n := by
   rw [Env.find?_cons]
   split
   · next heq => rw [← heq] at h; rw [hfresh] at h; simp at h
@@ -116,9 +116,9 @@ theorem Env.find?_cons_of_isSome {c : ConstantInfo} {env : Env} {n : Name}
 /-- Resolution is monotone under environment extension. -/
 theorem Expr.constsResolve_mono {c : ConstantInfo} {env : Env} :
     ∀ {e : Expr}, e.constsResolve env = true →
-      e.constsResolve ⟨c :: env.consts⟩ = true := by
+      e.constsResolve { env with consts := c :: env.consts } = true := by
   have hf : ∀ n, (env.find? n).isSome = true →
-      (Env.find? ⟨c :: env.consts⟩ n).isSome = true := by
+      (Env.find? { env with consts := c :: env.consts } n).isSome = true := by
     intro n h
     rw [Env.find?_cons]
     split <;> simp_all
@@ -372,7 +372,7 @@ theorem Expr.renameConsts_congr_resolve {env : Env} {f g : Name → Name}
 /-- Extending with a fresh, well-formed constant preserves `EnvWF`. -/
 theorem EnvWF.cons {c : ConstantInfo} {env : Env}
     (henv : EnvWF env)
-    (hc : ConstWF ⟨c :: env.consts⟩ c) : EnvWF ⟨c :: env.consts⟩ := by
+    (hc : ConstWF { env with consts := c :: env.consts } c) : EnvWF { env with consts := c :: env.consts } := by
   intro c' hc'
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc

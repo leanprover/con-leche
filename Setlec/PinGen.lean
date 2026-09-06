@@ -91,11 +91,23 @@ instance : ToExpr Setlec.BinderInfo where
     | .instImplicit => .const ``Setlec.BinderInfo.instImplicit []
   toTypeExpr := .const ``Setlec.BinderInfo []
 
+/-- The packed datum is quoted structurally — `never`, `always`, or
+the `inter` of its set bits' `bit i` — never as a bare numeral, so
+the pins stay readable and the verification tier's `holds`/`pwBit`
+simp lemmas apply to them term by term. -/
 instance : ToExpr Setlec.PropWhen where
-  toExpr
-    | .never => .const ``Setlec.PropWhen.never []
-    | .ifAllZero ps =>
-      .app (.const ``Setlec.PropWhen.ifAllZero []) (toExpr ps)
+  toExpr pw :=
+    if pw == Setlec.PropWhen.never then .const ``Setlec.PropWhen.never []
+    else if pw == Setlec.PropWhen.always then .const ``Setlec.PropWhen.always []
+    else
+      let bits := (List.range 64).filter fun i => pw.toNat.testBit i
+      let bitE := fun (i : Nat) =>
+        Lean.Expr.app (.const ``Setlec.PropWhen.bit []) (mkRawNatLit i)
+      match bits with
+      | [] => .const ``Setlec.PropWhen.always []
+      | b :: rest =>
+        rest.foldl (fun acc i =>
+          Lean.mkApp2 (.const ``Setlec.PropWhen.inter []) acc (bitE i)) (bitE b)
   toTypeExpr := .const ``Setlec.PropWhen []
 
 instance : ToExpr Setlec.BinderMeta where

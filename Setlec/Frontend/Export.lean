@@ -120,6 +120,11 @@ this should be unreachable; if it fires anyway it is converted to a
 decline at the record level (the pre-change behavior). -/
 def taintSentinel : String := "\x00uses-skipped-axiom"
 
+/-- Sentinel for a named-list `"pw"` input annotation (the packed
+positional datum, 2026-09-06): the form is retired, and a stream that
+carries it is positively declined at the record. -/
+def pwNamedSentinel : String := "\x00named-pw-annotation"
+
 /-- Internal sentinel converted to a decline at the record level. -/
 def sizeSentinel : String := "\x00tree-size-budget"
 

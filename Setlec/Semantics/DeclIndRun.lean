@@ -89,10 +89,10 @@ def IndMembersRun (μ : CheckMode) (F : Nat)
       match ci with
       | .indInfo _ _ =>
         IndMembersRun μ F blockNames caps
-          ⟨.indInfo cvA caps :: env'.consts⟩ rest env₂
+          { env' with consts := .indInfo cvA caps :: env'.consts } rest env₂
       | .ctorInfo _ nP nF =>
         IndMembersRun μ F blockNames caps
-          ⟨.ctorInfo cvA nP nF :: env'.consts⟩ rest env₂
+          { env' with consts := .ctorInfo cvA nP nF :: env'.consts } rest env₂
       | _ => False
 
 /-- `ProvisionRecsR`'s run/guard half. -/
@@ -107,7 +107,7 @@ def ProvisionRecsRun (μ : CheckMode) (F : Nat)
       ci = .recInfo ci.toConstantVal mI rP rules ∧
       MemberValRun μ F envAcc blockNames ci.toConstantVal cvA ∧
       ProvisionRecsRun μ F blockNames
-        ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest envSelf rest' ∧
+        { envAcc with consts := .recInfo cvA mI rP [] :: envAcc.consts } rest envSelf rest' ∧
       checked = (cvA, mI, rP, rules) :: rest'
 
 /-! ## The rule packs -/
@@ -291,7 +291,7 @@ where
           c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
           rules' ∧
         IndRecsFoldRun μ F blockNames envBase envSelf
-          ⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ rest out
+          { acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts } rest out
 
 /-! ## The projection phase -/
 
@@ -365,10 +365,10 @@ def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
               (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
             isDefEqCore μ env' F (nP + nF) tr
               (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true))) ∧
-    env'' = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+    env'' = { env' with consts := (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
       [⟨ctorName, nF, nP,
         if Expr.recRulePlain pty nP nP nP then .plain else .inert,
-        rhsA⟩] :: env'.consts⟩
+        rhsA⟩]) :: env'.consts }
 
 /-- `ProjInstallR`'s run/guard half.  The valuation the install picks
 for the projection function (`cvalWith … (projModelName T i)`) was the

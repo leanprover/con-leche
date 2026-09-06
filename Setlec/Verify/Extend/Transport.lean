@@ -25,8 +25,8 @@ variable {env : Env} {cvA : ConstantVal} {mI rP : Nat}
 /-- Lookups of other names ignore the head recursor's rule list. -/
 theorem Env.find?_recRules_swap (rules₁ rules₂ : List RecRule) {n : Name}
     (hn : n ≠ cvA.name) :
-    (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? n =
-    (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find? n := by
+    ({ env with consts := .recInfo cvA mI rP rules₁ :: env.consts } : Env).find? n =
+    ({ env with consts := .recInfo cvA mI rP rules₂ :: env.consts } : Env).find? n := by
   rw [Env.find?_cons, Env.find?_cons,
     if_neg (show ¬(ConstantInfo.recInfo cvA mI rP rules₁).name = n
       from fun h => hn h.symm),
@@ -36,9 +36,9 @@ theorem Env.find?_recRules_swap (rules₁ rules₂ : List RecRule) {n : Name}
 /-- Stored level parameters ignore the head recursor's rule list. -/
 theorem Env.recRules_levelext (rules₁ rules₂ : List RecRule) :
     ∀ n,
-      ((⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? n).map
+      (({ env with consts := .recInfo cvA mI rP rules₁ :: env.consts } : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) =
-      ((⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find? n).map
+      (({ env with consts := .recInfo cvA mI rP rules₂ :: env.consts } : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) := by
   intro n
   rw [Env.find?_cons, Env.find?_cons]
@@ -56,9 +56,9 @@ theorem Env.recRules_levelext (rules₁ rules₂ : List RecRule) :
 /-- Lookup success ignores the head recursor's rule list. -/
 theorem Env.recRules_isSome (rules₁ rules₂ : List RecRule) :
     ∀ n,
-      ((⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? n).isSome
+      (({ env with consts := .recInfo cvA mI rP rules₁ :: env.consts } : Env).find? n).isSome
       =
-      ((⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find? n).isSome := by
+      (({ env with consts := .recInfo cvA mI rP rules₂ :: env.consts } : Env).find? n).isSome := by
   intro n
   rw [Env.find?_cons, Env.find?_cons]
   by_cases h : cvA.name = n
@@ -76,8 +76,8 @@ theorem Env.recRules_isSome (rules₁ rules₂ : List RecRule) :
 list. -/
 theorem ConstWF.recRules_swap (rules₁ rules₂ : List RecRule)
     {c : ConstantInfo}
-    (hc : ConstWF (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env) c) :
-    ConstWF (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env) c := by
+    (hc : ConstWF ({ env with consts := .recInfo cvA mI rP rules₁ :: env.consts } : Env) c) :
+    ConstWF ({ env with consts := .recInfo cvA mI rP rules₂ :: env.consts } : Env) c := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hc
   refine ⟨h1, h2, ?_, h4, ?_, ?_, ?_⟩
   · rw [← Expr.constsResolve_congr (Env.recRules_isSome rules₁ rules₂)]
@@ -111,9 +111,9 @@ theorem ConstWF.recRules_swap (rules₁ rules₂ : List RecRule)
 /-- The head recursor's own `ConstWF`, with the rule list dropped (the
 rules-free provisional install). -/
 theorem ConstWF.recRules_head_empty {rules' : List RecRule}
-    (hwf : ConstWF (⟨.recInfo cvA mI rP rules' :: env.consts⟩ : Env)
+    (hwf : ConstWF ({ env with consts := .recInfo cvA mI rP rules' :: env.consts } : Env)
       (.recInfo cvA mI rP rules')) :
-    ConstWF (⟨.recInfo cvA mI rP [] :: env.consts⟩ : Env)
+    ConstWF ({ env with consts := .recInfo cvA mI rP [] :: env.consts } : Env)
       (.recInfo cvA mI rP []) := by
   obtain ⟨h1, h2, h3, h4, -, -, -⟩ := hwf
   refine ⟨h1, h2, ?_, h4, ?_, ?_, ?_⟩

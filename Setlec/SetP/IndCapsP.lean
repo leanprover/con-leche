@@ -66,11 +66,11 @@ theorem memberEtaSplit {blockNames : List Name}
     (hEC : Setlec.EtaFamiliesClosedO blockNames env)
     (hBP : Setlec.BlockEtaPinned μ blockNames env)
     {T : Name} {cvT : ConstantVal} {caps : IndCaps}
-    (hfT : (⟨c₀ :: env.consts⟩ : Env).find? T
+    (hfT : ({ env with consts := c₀ :: env.consts } : Env).find? T
       = some (.indInfo cvT caps))
     (hcape : caps.eta = true)
     (hnresT : Setlec.reservedBasisNames.contains T = false)
-    (hfam : Setlec.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps) :
+    (hfam : Setlec.EtaFamilyStored { env with consts := c₀ :: env.consts } T caps) :
     (env.find? T = some (.indInfo cvT caps) ∧
         Setlec.EtaFamilyStored env T caps ∧
         T ≠ c₀.name ∧ caps.etaCtor ≠ c₀.name ∧
@@ -79,7 +79,7 @@ theorem memberEtaSplit {blockNames : List Name}
         caps.etaFields = 0 ∧ blockNames.contains T = true ∧
         blockNames.contains caps.etaCtor = true) := by
   have hdown : ∀ n : Name, n ≠ c₀.name →
-      (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
+      ({ env with consts := c₀ :: env.consts } : Env).find? n = env.find? n := by
     intro n hn
     rw [Setlec.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
   -- no projection slot is a member's name
@@ -153,14 +153,14 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
     (hBP : Setlec.BlockEtaPinned μ blockNames env)
     -- the live η row: a block former at `etaFields = 0`
     (hetaLive : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
-      (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      ({ env with consts := c₀ :: env.consts } : Env).find? T = some (.indInfo cvT caps) →
       caps.eta = true → Setlec.reservedBasisNames.contains T = false →
       Setlec.EtaPins μ env T cvT.levelParams caps →
       caps.etaFields = 0 →
       blockNames.contains T = true →
       blockNames.contains caps.etaCtor = true →
-      Setlec.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
-      ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+      Setlec.EtaFamilyStored { env with consts := c₀ :: env.consts } T caps →
+      ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
         m₂.acval = acvalWith mp.base2.acval c₀.name A →
         ∀ φ' : Name → Nat, EtaLawP m₂ φ' T cvT caps)
     -- the live unit row: the cons's own former (the pins travel with
@@ -169,10 +169,10 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
       c₀ = .indInfo cvT caps → caps.unitlike = true →
       Setlec.reservedBasisNames.contains c₀.name = false →
       Setlec.EtaPins μ env cvA.name cvA.levelParams caps →
-      ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+      ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
         m₂.acval = acvalWith mp.base2.acval c₀.name A →
         ∀ φ' : Name → Nat, UnitLawP m₂ φ' c₀.name cvT caps)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A) :
     CapsOkP m₂ := by
   constructor

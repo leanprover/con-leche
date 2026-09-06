@@ -50,7 +50,7 @@ inductive ProvFacts (F : Nat) (blockNames : List Name) :
           if blockNames.contains n then n.str "_model" else n))
           cvm.type = true) →
       ProvFacts F blockNames
-        ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ envSelf rest →
+        { envAcc with consts := .recInfo cvA mI rP [] :: envAcc.consts } envSelf rest →
       ProvFacts F blockNames envAcc envSelf
         ((cvA, mI, rP, rules) :: rest)
 
@@ -181,7 +181,7 @@ inductive RulesChain (mode : CheckMode) (F : Nat)
       checkIotaRules mode (fueledOps mode F) env' envS f cvA.name cvA.levelParams
         cvA.type mI rP 0 rules = .ok rules' →
       RulesChain mode F env' envS f
-        ⟨.recInfo cvA mI rP rules' :: envAcc.consts⟩ env₃ rest →
+        { envAcc with consts := .recInfo cvA mI rP rules' :: envAcc.consts } env₃ rest →
       RulesChain mode F env' envS f envAcc env₃
         (((cvA, mI, rP, rules), rules') :: rest)
 
@@ -191,7 +191,7 @@ theorem rulesFold_inv {F : Nat} {env' envS : Env} {f : Name → Name} :
     checked.foldlM (fun (acc : Env) c => do
         let rules' ← checkIotaRules mode (fueledOps mode F) env' envS f c.1.name
           c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
-        pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env)) envAcc = .ok env₃ →
+        pure ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts } : Env)) envAcc = .ok env₃ →
     ∃ zipped, zipped.map Prod.fst = checked ∧
       RulesChain mode F env' envS f envAcc env₃ zipped
   | [], envAcc, env₃, h => by
@@ -291,8 +291,8 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
     intro c hc
     rcases List.mem_cons.mp hc with rfl | hc
     · have hupN : ∀ (n : Name) (ci : ConstantInfo),
-          (⟨.recInfo cvA mI rP [] ::
-            envAcc.consts⟩ : Env).find? n = some ci →
+          ({ envAcc with consts := .recInfo cvA mI rP [] ::
+        envAcc.consts } : Env).find? n = some ci →
           envSelf.find? n = some ci :=
         ProvFacts.find?_preserved hrest
       have hself : envSelf.find? cvA.name =
@@ -308,8 +308,8 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
         cases hf : envAcc.find? n with
         | none => rw [hf] at hn; exact nomatch hn
         | some ci =>
-          have h1 : (⟨.recInfo cvA mI rP [] ::
-              envAcc.consts⟩ : Env).find? n = some ci := by
+          have h1 : ({ envAcc with consts := .recInfo cvA mI rP [] ::
+        envAcc.consts } : Env).find? n = some ci := by
             rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
             exact hf
           rw [hupN n ci h1]

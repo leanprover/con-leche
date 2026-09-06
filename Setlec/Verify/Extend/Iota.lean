@@ -1473,10 +1473,10 @@ theorem EtaPins.step {env' : Env} {c₁ : ConstantInfo} {T : Name}
     {lps : List Name} {caps : IndCaps}
     (h : EtaPins mode env' T lps caps)
     (hfresh : env'.find? c₁.name = none) :
-    EtaPins mode ⟨c₁ :: env'.consts⟩ T lps caps := by
+    EtaPins mode { env' with consts := c₁ :: env'.consts } T lps caps := by
   have hkeep : ∀ (n : Name) (ci : ConstantInfo),
       env'.find? n = some ci →
-      (⟨c₁ :: env'.consts⟩ : Env).find? n = some ci := by
+      ({ env' with consts := c₁ :: env'.consts } : Env).find? n = some ci := by
     intro n ci hf
     rw [Env.find?_cons, if_neg ?_]
     · exact hf
@@ -1591,9 +1591,9 @@ theorem BlockEtaPinned.cons {mode : CheckMode} {blockNames : List Name}
         blockNames.contains capsS.etaCtor = true ∧
         (0 < capsS.etaFields →
           env.find? (projFnName c₀.name 0) = none)) :
-    BlockEtaPinned mode blockNames ⟨c₀ :: env.consts⟩ := by
+    BlockEtaPinned mode blockNames { env with consts := c₀ :: env.consts } := by
   have hup : ∀ n : Name, env.find? (projFnName n 0) = none →
-      (⟨c₀ :: env.consts⟩ : Env).find? (projFnName n 0) = none := by
+      ({ env with consts := c₀ :: env.consts } : Env).find? (projFnName n 0) = none := by
     intro n hn
     rw [Env.find?_cons, if_neg (fun he =>
       projFnName_ne_of_shape (T := n) (j := 0) hshape he.symm)]

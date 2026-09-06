@@ -96,21 +96,21 @@ def natRecA : ConstantInfo :=
                               [])
                             (Setlec.Expr.bvar 1)))
                         { bi := Setlec.BinderInfo.default,
-                          pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                          pw := Setlec.PropWhen.bit 0 })
                       { bi := Setlec.BinderInfo.default,
-                        pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                        pw := Setlec.PropWhen.bit 0 })
                     (Setlec.Expr.forallE
                       (Setlec.Name.str (Setlec.Name.anonymous) "t")
                       (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
                       (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 0))
                       { bi := Setlec.BinderInfo.default,
-                        pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                        pw := Setlec.PropWhen.bit 0 })
                     { bi := Setlec.BinderInfo.default,
-                      pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                      pw := Setlec.PropWhen.bit 0 })
                   { bi := Setlec.BinderInfo.default,
-                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                    pw := Setlec.PropWhen.bit 0 })
                 { bi := Setlec.BinderInfo.implicit,
-                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] } }
+                  pw := Setlec.PropWhen.bit 0 } }
     3
     3
     [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "zero",
@@ -145,16 +145,16 @@ def natRecA : ConstantInfo :=
                               [])
                             (Setlec.Expr.bvar 1)))
                         { bi := Setlec.BinderInfo.default,
-                          pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                          pw := Setlec.PropWhen.bit 0 })
                       { bi := Setlec.BinderInfo.default,
-                        pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                        pw := Setlec.PropWhen.bit 0 })
                     (Setlec.Expr.bvar 1)
                     { bi := Setlec.BinderInfo.default,
-                      pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                      pw := Setlec.PropWhen.bit 0 })
                   { bi := Setlec.BinderInfo.default,
-                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                    pw := Setlec.PropWhen.bit 0 })
                 { bi := Setlec.BinderInfo.default,
-                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] } },
+                  pw := Setlec.PropWhen.bit 0 } },
      { ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "succ",
        nfields := 1,
        ctorParams := 0,
@@ -187,9 +187,9 @@ def natRecA : ConstantInfo :=
                               [])
                             (Setlec.Expr.bvar 1)))
                         { bi := Setlec.BinderInfo.default,
-                          pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                          pw := Setlec.PropWhen.bit 0 })
                       { bi := Setlec.BinderInfo.default,
-                        pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                        pw := Setlec.PropWhen.bit 0 })
                     (Setlec.Expr.lam
                       (Setlec.Name.str (Setlec.Name.anonymous) "n")
                       (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
@@ -207,12 +207,12 @@ def natRecA : ConstantInfo :=
                             (Setlec.Expr.bvar 1))
                           (Setlec.Expr.bvar 0)))
                       { bi := Setlec.BinderInfo.default,
-                        pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                        pw := Setlec.PropWhen.bit 0 })
                     { bi := Setlec.BinderInfo.default,
-                      pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                      pw := Setlec.PropWhen.bit 0 })
                   { bi := Setlec.BinderInfo.default,
-                    pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] })
+                    pw := Setlec.PropWhen.bit 0 })
                 { bi := Setlec.BinderInfo.default,
-                  pw := Setlec.PropWhen.ifAllZero [Setlec.Name.str (Setlec.Name.anonymous) "u"] } }]
+                  pw := Setlec.PropWhen.bit 0 } }]
 
 end Setlec

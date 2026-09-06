@@ -45,7 +45,7 @@ theorem checkDirectInd_shape {env envI : Env} {p : DirectParts}
     {cvTa : ConstantVal} {F : Nat}
     (h : checkDirectInd (fueledOps mode F) env p = .ok (envI, cvTa)) :
     checkConstantVal (fueledOps mode F) env p.cvT = .ok cvTa ∧
-    envI = ⟨.indInfo cvTa (directCaps p) :: env.consts⟩ ∧
+    envI = { env with consts := .indInfo cvTa (directCaps p) :: env.consts } ∧
     ∃ bs, cvTa.type.stripPis p.nP = some (bs, .sort p.resSort) := by
   unfold checkDirectInd at h
   obtain ⟨cvTa', hccv, h⟩ := exceptBind_ok h
@@ -68,7 +68,7 @@ theorem checkDirectCtor_shape {env₀ env envC : Env} {p : DirectParts}
     (h : checkDirectCtor (fueledOps mode F) env₀ env p cvTa
       = .ok (envC, cvCa, sorts)) :
     checkConstantVal (fueledOps mode F) env p.cvC = .ok cvCa ∧
-    envC = ⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩ ∧
+    envC = { env with consts := .ctorInfo cvCa p.nP p.nF :: env.consts } ∧
     (∃ cbs, cvCa.type.stripPis (p.nP + p.nF)
       = some (cbs, directFam p.cvT.name p.cvT.levelParams p.nP p.nF)) ∧
     ∃ (fvsP : List Expr) (crest : Expr) (tfvs : List Expr) (trest : Expr)
@@ -338,8 +338,8 @@ theorem checkDirectProjEntry_shape {env envOut : Env} {T C : Name}
         Expr.instPisAt (fvsP ++ (List.range i).map fun j => Expr.proj T j tfv)
           (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)) = some (cds, .forallE nmC fdom bodyC mbC) ∧
         isDefEqCore mode env F (nP + 1) resid fdom = .ok true) ∧
-      envOut = ⟨.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, rs,
-        true, false, true⟩ :: env.consts⟩ := by
+      envOut = { env with consts := (.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, rs,
+        true, false, true⟩) :: env.consts } := by
   unfold checkDirectProjEntry at h
   try simp only at h
   by_cases h0 : (!pty.hasFvar && Expr.looseBVarsBounded 0 pty) = true

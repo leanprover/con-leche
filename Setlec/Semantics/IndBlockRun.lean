@@ -815,11 +815,11 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
         exact nomatch this.symm
     refine ?_
     have hsw' : SwapShList
-        (Env.consts ⟨.recInfo cvA mI rP [] :: envP.consts⟩)
-        (Env.consts ⟨.recInfo cvA mI rP rules' :: envF.consts⟩) :=
+        (Env.consts { envP with consts := .recInfo cvA mI rP [] :: envP.consts })
+        (Env.consts { envF with consts := .recInfo cvA mI rP rules' :: envF.consts }) :=
       SwapShList.cons (Or.inr ⟨cvA, mI, rP, rules', rfl, rfl⟩) hsw
-    have hnres' : SwapNResS ⟨.recInfo cvA mI rP [] :: envP.consts⟩
-        ⟨.recInfo cvA mI rP rules' :: envF.consts⟩ := by
+    have hnres' : SwapNResS { envP with consts := .recInfo cvA mI rP [] :: envP.consts }
+        { envF with consts := .recInfo cvA mI rP rules' :: envF.consts } := by
       intro n cv mI₀ rP₀ rules₀ h₀ h₃
       rw [Env.find?_cons] at h₀ h₃
       split at h₀
@@ -833,7 +833,7 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
         rw [if_neg (show ¬(ConstantInfo.recInfo cvA mI rP rules').name
           = n from hn)] at h₃
         exact hnres n cv mI₀ rP₀ rules₀ h₀ h₃
-    have hupF' : FoldUpS ⟨.recInfo cvA mI rP rules' :: envF.consts⟩
+    have hupF' : FoldUpS { envF with consts := .recInfo cvA mI rP rules' :: envF.consts }
         envSelf := by
       intro n ci hfx
       rw [Env.find?_cons] at hfx
@@ -844,7 +844,7 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
           rw [← hn]; exact hselfA⟩
       · exact hupF n ci hfx
     have hupP' : ∀ (n : Name) (ci : ConstantInfo),
-        (Env.find? ⟨.recInfo cvA mI rP [] :: envP.consts⟩ n) = some ci →
+        (Env.find? { envP with consts := .recInfo cvA mI rP [] :: envP.consts } n) = some ci →
         envSelf.find? n = some ci := by
       intro n ci hfx
       rw [Env.find?_cons] at hfx
@@ -853,11 +853,11 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
         obtain rfl := Option.some.inj hfx
         rw [← hn]; exact hselfA
       · exact hupP n ci hfx
-    have heqP' : Env.find? ⟨.recInfo cvA mI rP [] :: envP.consts⟩ eqName
+    have heqP' : Env.find? { envP with consts := .recInfo cvA mI rP [] :: envP.consts } eqName
         = some eqA :=
       Env.find?_cons_of_fresh (c := .recInfo _ mI rP []) hfreshP heqP
     have hents' : ∀ c ∈ (Env.consts
-        ⟨.recInfo cvA mI rP rules' :: envF.consts⟩),
+        { envF with consts := .recInfo cvA mI rP rules' :: envF.consts }),
         c ∈ envSelf.consts ∨
         ∃ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
           c = .recInfo cv mI rP rules ∧
@@ -868,7 +868,7 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
       · exact hents c hc'
     have hentF' : ∀ (n : Name) (cv : ConstantVal) (mI₀ rP₀ : Nat)
         (rules₀ : List RecRule),
-        Env.find? ⟨.recInfo cvA mI rP rules' :: envF.consts⟩ n
+        Env.find? { envF with consts := .recInfo cvA mI rP rules' :: envF.consts } n
           = some (.recInfo cv mI₀ rP₀ rules₀) →
         envSelf.find? n = some (.recInfo cv mI₀ rP₀ rules₀) ∨
         ∀ rl ∈ rules₀, RF cv mI₀ rP₀ rl := by

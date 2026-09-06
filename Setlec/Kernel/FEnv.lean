@@ -76,13 +76,19 @@ def restrictTo (fe : FEnv) (k : Nat) : FEnv :=
   { fe with visibleBelow := k }
 
 /-- The index of the cons-extended environment (`mkFEnv_push`:
-`FEnv.push (mkFEnv env) ci = mkFEnv ⟨ci :: env.consts⟩`, definitionally).
+`FEnv.push (mkFEnv env) ci = mkFEnv { env with consts := ci :: env.consts }`,
+definitionally).
 The new entry gets the next installation counter, and the visibility
 bound advances with it — so a push is visible to everything checked
 after it and to nothing checked before (task #108). -/
 def push (fe : FEnv) (ci : ConstantInfo) : FEnv :=
-  ⟨⟨ci :: fe.env.consts⟩, fe.idx.insert ci.name (fe.visibleBelow, ci),
-   fe.visibleBelow + 1⟩
+  ⟨{ fe.env with consts := ci :: fe.env.consts },
+   fe.idx.insert ci.name (fe.visibleBelow, ci), fe.visibleBelow + 1⟩
+
+/-- Enter the universe context of the declaration under check
+(`Env.withLps` through the index; the index is untouched). -/
+def withLps (fe : FEnv) (lps : UnivCtx) : FEnv :=
+  { fe with env := fe.env.withLps lps }
 
 /-- `towerSlotsAll` through the index. -/
 def towerSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=

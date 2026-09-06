@@ -9,7 +9,7 @@ import Setlec.Semantics.EnvFactsCons
 joint twin — one step that installs a member **at both tiers at
 once**, so that the P side always has the v1 carrier its
 `declStepPM_of_cons` premise names.  That pairing is forced: the P
-step needs `EnvS V ⟨c₀ :: env.consts⟩` *constructively*, and only the
+step needs `EnvS V { env with consts := c₀ :: env.consts }` *constructively*, and only the
 v1 install produces it.
 
 Carried across the step, and the reason each is here:
@@ -63,7 +63,7 @@ def MemberEtaLawP (V : Type w) [SetTheory V] : Prop :=
     c₀.toConstantVal = cvA → c₀.name = cvA.name →
     (∀ entry, c₀ = .projInfo entry → entry.tower = false) →
     ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
-      (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      ({ env with consts := c₀ :: env.consts } : Env).find? T = some (.indInfo cvT caps) →
       caps.eta = true → Setlec.reservedBasisNames.contains T = false →
       Setlec.EtaPins μ env T cvT.levelParams caps →
       caps.etaFields = 0 →
@@ -73,8 +73,8 @@ def MemberEtaLawP (V : Type w) [SetTheory V] : Prop :=
       -- law's *subject* and the model artifacts the pins name
       blockNames.contains T = true →
       blockNames.contains caps.etaCtor = true →
-      Setlec.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
-      ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+      Setlec.EtaFamilyStored { env with consts := c₀ :: env.consts } T caps →
+      ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
         m₂.acval = acvalWith mp.base2.acval c₀.name
           (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) →
         ∀ φ' : Name → Nat, EtaLawP m₂ φ' T cvT caps
@@ -103,7 +103,7 @@ def MemberUnitLawP (V : Type w) [SetTheory V] : Prop :=
       c₀ = .indInfo cvT caps → caps.unitlike = true →
       Setlec.reservedBasisNames.contains c₀.name = false →
       Setlec.EtaPins μ env cvA.name cvA.levelParams caps →
-      ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
+      ∀ m₂ : EnvS2Core V { env with consts := c₀ :: env.consts },
         m₂.acval = acvalWith mp.base2.acval c₀.name
           (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) →
         ∀ φ' : Name → Nat, UnitLawP m₂ φ' c₀.name cvT caps
@@ -129,16 +129,16 @@ theorem memberInstallPM (hetaP : MemberEtaLawP V)
     (hkind : (∃ caps, c₀ = .indInfo cvA caps) ∨
       (∃ nP nF, c₀ = .ctorInfo cvA nP nF) ∨
       (∃ mI rP, c₀ = .recInfo cvA mI rP [])) :
-    ∃ mp₁ : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
+    ∃ mp₁ : EnvS2PM V μ { env with consts := c₀ :: env.consts },
       mp₁.base2.cvalE = cvalModeled mp.base2.cvalE cvA.name ∧
       mp₁.base2.acval = acvalWith mp.base2.acval cvA.name
         (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) ∧
-      BlockInstalledTT blockNames ⟨c₀ :: env.consts⟩
+      BlockInstalledTT blockNames { env with consts := c₀ :: env.consts }
         mp₁.base2.cvalE ∧
-      BlockAcvalInstalled blockNames ⟨c₀ :: env.consts⟩
+      BlockAcvalInstalled blockNames { env with consts := c₀ :: env.consts }
         mp₁.base2.acval ∧
-      Setlec.EtaFamiliesClosedO blockNames ⟨c₀ :: env.consts⟩ ∧
-      Setlec.BlockEtaPinned μ blockNames ⟨c₀ :: env.consts⟩ := by
+      Setlec.EtaFamiliesClosedO blockNames { env with consts := c₀ :: env.consts } ∧
+      Setlec.BlockEtaPinned μ blockNames { env with consts := c₀ :: env.consts } := by
   obtain ⟨type', hcv, hcvA, hms, cvm, mval, hint, hmE, hmlps, hren⟩ :=
     id hmv
   obtain ⟨hfind, hnres, hpshape, -, -, -, -, -, htr, -⟩ := hcv

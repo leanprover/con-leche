@@ -168,7 +168,7 @@ theorem FormerData.cross {m : EnvS2Core V env} {cvT : ConstantVal}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none) (hat : ConsCrossAt c₀ cvT.type)
     (hcb : ConstsBound env cvT.type)
-    (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
+    (m₂ : EnvS2Core V { env with consts := c₀ :: env.consts })
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     FormerData m₂ cvT nP resSort pps where
   read ψ := by

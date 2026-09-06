@@ -410,10 +410,10 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
   rw [push_mkFEnv] at h
   simp only [mkFEnv_find?] at h
   by_cases hguard : (List.range p.nF).all (fun j =>
-      (Env.find? ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      (Env.find? { env₂ with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-            .plain else .inert, rhsA⟩] :: env₂.consts⟩
+            .plain else .inert, rhsA⟩]) :: env₂.consts }
         (projFnName p.cvT.name j)).isNone) = true
   case neg =>
     rw [if_neg hguard] at h
@@ -446,10 +446,10 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
       (checkDirectProj (fueledOps mode G) p.cvT.name p.cvC.name
         p.cvT.levelParams p.nP p.nF p.resSort (directProjSlots p)
         (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa)
-      ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      { env₂ with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-            .plain else .inert, rhsA⟩] :: env₂.consts⟩ = .ok feOut.env := by
+            .plain else .inert, rhsA⟩]) :: env₂.consts } = .ok feOut.env := by
     have := FueledM.up hle₆ hF₆
     rw [foldlM_atF, ← List.range_eq_range'] at this
     simpa only [checkDirectProj_datF] using this

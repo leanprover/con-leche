@@ -80,7 +80,7 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
     (hrhsDen : ∀ r ∈ rules, RecRule.fire r ≠ .inert →
       ∀ ψ : Name → Nat,
         ∃ Rv, denoteClosed m.cval env' ψ (RecRule.rhs r) = some Rv) :
-    ∃ m₁ : EnvFacts ⟨projEntry T lps pty nP i rules :: env'.consts⟩,
+    ∃ m₁ : EnvFacts { env' with consts := projEntry T lps pty nP i rules :: env'.consts },
       m₁.cval = cvalWith m.cval (projFnName T i)
         (fun ψ => m.cval (projModelName T i) ψ) := by
   have hfresh : env'.find? (projFnName T i) = none :=
@@ -120,7 +120,7 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
     exact ht
   -- the two lookup shapes in the extended store
   have hdown : ∀ (n : Name) (ci : ConstantInfo),
-      (⟨projEntry T lps pty nP i rules :: env'.consts⟩ : Env).find? n
+      ({ env' with consts := projEntry T lps pty nP i rules :: env'.consts } : Env).find? n
         = some ci →
       (n = projFnName T i ∧ ci = projEntry T lps pty nP i rules) ∨
         (n ≠ projFnName T i ∧ env'.find? n = some ci) := by
