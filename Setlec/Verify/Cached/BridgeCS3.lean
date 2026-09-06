@@ -260,6 +260,206 @@ theorem checkDirectRecS_sim (henv : EnvWF env) {p : DirectParts}
   refine SimC.bind (opE_infer_sim henv hs₆ hwr) (fun s₇ rty rty' hs₇ hT => ?_)
   exact SimC.pure hs₇ rfl
 
+/-! ## The direct sum install (task #175 sum-types)
+
+The same three stages over a constructor *list*: the former, one
+constructor stage per constructor — all at the environment holding the
+type former alone — and the recursor, generated and compared, whose
+rules loop runs `inferType` on closed generated right-hand sides. -/
+
+/-- Stage 1 (the type former) of the sum route at the shared
+operations. -/
+theorem checkDirectSumIndS_sim (henv : EnvWF env) {p : DirectSumParts}
+    (hs : CSOK mode env s₀) :
+    SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 (Prod.snd v).type)
+      (checkDirectSumInd (sharedOpsC (cfgOf mode) (mkFEnv env)) env p)
+      (checkDirectSumInd (fueledOpsM mode) env p) := by
+  unfold checkDirectSumInd
+  dsimp only [sharedOpsC]
+  refine SimC.bind (checkConstantValS_sim henv hs)
+    (fun s₁ cvTa cvTa' hs₁ hP => ?_)
+  obtain ⟨rfl, hTw⟩ := hP
+  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ q q' hs₂ hQ => ?_)
+  obtain ⟨rfl, -⟩ := hQ
+  obtain ⟨tbs, tbody⟩ := q
+  dsimp only
+  by_cases h1 : (tbody == Expr.sort p.resSort) = true
+  case neg => simp only [if_neg h1]; exact SimC.throw_bind
+  simp only [if_pos h1]
+  exact SimC.pure hs₂ ⟨rfl, hTw⟩
+
+/-- Stage 2 (one constructor, the constructor and its field count
+explicit) at the shared operations. -/
+theorem checkDirectSumCtorS_sim (henv : EnvWF env) {env₀ : Env} {T : Name}
+    {lps : List Name} {nP : Nat} {resSort : Level} {isProp large : Bool}
+    {cvC : ConstantVal} {nF : Nat} {cvTa : ConstantVal}
+    (hTf : cvTa.type.hasFvar = false) (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC
+      (checkDirectSumCtor (sharedOpsC (cfgOf mode) (mkFEnv env)) env₀ env T lps nP
+        resSort isProp large cvC nF cvTa)
+      (checkDirectSumCtor (fueledOpsM mode) env₀ env T lps nP resSort isProp large
+        cvC nF cvTa) := by
+  unfold checkDirectSumCtor
+  dsimp only [sharedOpsC]
+  refine SimC.bind (checkConstantValS_sim henv hs)
+    (fun s₁ cvCa cvCa' hs₁ hP => ?_)
+  obtain ⟨rfl, hCw⟩ := hP
+  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ q q' hs₂ hQ => ?_)
+  obtain ⟨rfl, -⟩ := hQ
+  obtain ⟨cbs, cbody⟩ := q
+  dsimp only
+  by_cases h1 : (cbody == directFam T lps nP nF) = true
+  case neg => simp only [if_neg h1]; exact SimC.throw_bind
+  simp only [if_pos h1]
+  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ cq cq' hs₃ hR => ?_)
+  obtain ⟨rfl, hop⟩ := hR
+  obtain ⟨fvsP, crest⟩ := cq
+  dsimp only
+  obtain ⟨hfvsW0, hcrW0⟩ := openPisAtFvars_WScoped nP cvCa.type 0 hop hCw
+  have hcrW : WScoped nP crest := by rwa [Nat.zero_add] at hcrW0
+  refine SimC.bind (SimC.unwrapOr' hs₃) (fun s₄ tq tq' hs₄ hS => ?_)
+  obtain ⟨rfl, hci⟩ := hS
+  obtain ⟨tfvs, trest⟩ := tq
+  dsimp only
+  obtain ⟨htfvsW0, -⟩ := openPisAtFvars_WScoped nP cvTa.type 0 hci
+    (WScoped.of_not_hasFvar hTf)
+  refine SimC.bind (checkDirectDomsAtS_sim (off := 0) henv
+      (fun i x hx => by
+        obtain ⟨nm, ty, rfl⟩ :=
+          openPisAtFvars_index nP cvCa.type 0 hop i x hx
+        have hw := hfvsW0 _ (List.mem_of_getElem? hx)
+        simp only [WScoped] at hw
+        exact hw.2)
+      (fun i x hx => by
+        rw [List.getElem?_map] at hx
+        obtain ⟨y, hy, rfl⟩ := Option.map_eq_some_iff.mp hx
+        obtain ⟨nm, ty, rfl⟩ :=
+          openPisAtFvars_index nP cvTa.type 0 hci i y hy
+        have hw := htfvsW0 _ (List.mem_of_getElem? hy)
+        simp only [WScoped] at hw
+        exact hw.2)
+      hs₄)
+    (fun s₅ u1 u1' hs₅ hU1 => ?_)
+  refine SimC.bind (SimC.unwrapOr' hs₅) (fun s₆ xq xq' hs₆ hT => ?_)
+  obtain ⟨rfl, hox⟩ := hT
+  obtain ⟨xFvs, cresid⟩ := xq
+  dsimp only
+  obtain ⟨hxW, -⟩ := openPisAtFvars_WScoped nF crest nP hox hcrW
+  have hxPos : ∀ (i : Nat) (x : Expr), xFvs[i]? = some x →
+      WScoped (nP + i) (Expr.fvarTypeD x) := by
+    intro i x hx
+    obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index nF crest nP hox i x hx
+    have hw := hxW _ (List.mem_of_getElem? hx)
+    simp only [WScoped] at hw
+    exact hw.2
+  by_cases h2 : (cresid == Expr.mkAppN (.const T (lps.map .param)) fvsP) = true
+  case neg => simp only [if_neg h2]; exact SimC.throw_bind
+  simp only [if_pos h2]
+  by_cases h3 : (xFvs.all fun x => Expr.constsResolve env₀ x.fvarTypeD) = true
+  case neg => simp only [if_neg h3]; exact SimC.throw_bind
+  simp only [if_pos h3]
+  refine SimC.bind (checkDirectFieldSortsS_sim henv hxPos hs₆)
+    (fun s₇ sorts sorts' hs₇ hS => ?_)
+  obtain rfl : sorts = sorts' := hS
+  exact SimC.pure hs₇ rfl
+
+/-- Stage 2, the whole constructor list: every constructor is checked
+at the *same* environment (the one holding the type former alone), so
+the walk is a plain induction on the list. -/
+theorem checkDirectSumCtorsS_sim (henv : EnvWF env) {env₀ : Env} {T : Name}
+    {lps : List Name} {nP : Nat} {resSort : Level} {isProp large : Bool}
+    {cvTa : ConstantVal} (hTf : cvTa.type.hasFvar = false) :
+    ∀ {cs : List (ConstantVal × Nat)} {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (checkDirectSumCtors (sharedOpsC (cfgOf mode) (mkFEnv env)) env₀ env T lps
+          nP resSort isProp large cvTa cs)
+        (checkDirectSumCtors (fueledOpsM mode) env₀ env T lps nP resSort isProp
+          large cvTa cs)
+  | [], s₀, hs => SimC.pure hs rfl
+  | c :: cs, s₀, hs => by
+    unfold checkDirectSumCtors
+    dsimp only [sharedOpsC]
+    refine SimC.bind (checkDirectSumCtorS_sim henv hTf hs)
+      (fun s₁ cvCa cvCa' hs₁ hP => ?_)
+    obtain rfl : cvCa = cvCa' := hP
+    refine SimC.bind (checkDirectSumCtorsS_sim henv hTf hs₁)
+      (fun s₂ rest rest' hs₂ hR => ?_)
+    obtain rfl : rest = rest' := hR
+    exact SimC.pure hs₂ rfl
+
+/-- The generated rules loop at the shared operations: each right-hand
+side is closed by its own scoping guard, so `inferType` runs at depth
+`0` on a well-scoped term. -/
+theorem checkDirectSumRulesS_sim (henv : EnvWF env) {rlps : List Name}
+    {T : Name} {lps : List Name} {elim : Name} {large : Bool} {nP : Nat}
+    {tty : Expr} {ctors : List (Name × Nat × Expr)} :
+    ∀ {k j : Nat} {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (checkDirectSumRules (sharedOpsC (cfgOf mode) (mkFEnv env)) env rlps T lps
+          elim large nP tty ctors k j)
+        (checkDirectSumRules (fueledOpsM mode) env rlps T lps elim large nP tty
+          ctors k j)
+  | 0, _, s₀, hs => SimC.pure hs rfl
+  | k + 1, j, s₀, hs => by
+    unfold checkDirectSumRules
+    dsimp only [sharedOpsC]
+    refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ rhs rhs' hs₁ hP => ?_)
+    obtain ⟨rfl, -⟩ := hP
+    by_cases h1 : (Expr.allLevelParamsDefined rlps rhs &&
+        Expr.constsResolve env rhs && Expr.looseBVarsBounded 0 rhs &&
+        !rhs.hasFvar) = true
+    case neg => simp only [if_neg h1]; exact SimC.throw_bind
+    simp only [if_pos h1]
+    have hrf : rhs.hasFvar = false := by
+      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h1
+      exact h1.2
+    have hwr : WScoped 0 rhs := WScoped.of_not_hasFvar hrf
+    refine SimC.bind (opE_infer_sim henv hs₁ hwr) (fun s₂ rty rty' hs₂ hT => ?_)
+    refine SimC.bind (checkDirectSumRulesS_sim henv hs₂)
+      (fun s₃ rest rest' hs₃ hR => ?_)
+    obtain rfl : rest = rest' := hR
+    exact SimC.pure hs₃ rfl
+
+/-- Stage 3 (the recursor, generated and compared) of the sum route at
+the shared operations. -/
+theorem checkDirectSumRecS_sim (henv : EnvWF env) {p : DirectSumParts}
+    {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
+    (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC
+      (checkDirectSumRec (sharedOpsC (cfgOf mode) (mkFEnv env)) env p cvTa ctorsA)
+      (checkDirectSumRec (fueledOpsM mode) env p cvTa ctorsA) := by
+  unfold checkDirectSumRec
+  dsimp only [sharedOpsC]
+  refine SimC.bind (checkConstantValS_sim henv hs) (fun s₁ cvRi cvRi' hs₁ hP => ?_)
+  obtain ⟨rfl, hwI⟩ := hP
+  try dsimp only
+  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ recTy recTy' hs₂ hR => ?_)
+  obtain ⟨rfl, -⟩ := hR
+  by_cases h1 : (Expr.allLevelParamsDefined p.cvR.levelParams recTy &&
+      Expr.constsResolve env recTy && Expr.looseBVarsBounded 0 recTy &&
+      !recTy.hasFvar) = true
+  case neg => simp only [if_neg h1]; exact SimC.throw_bind
+  simp only [if_pos h1]
+  have hRf : recTy.hasFvar = false := by
+    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h1
+    exact h1.2
+  have hwR : WScoped 0 recTy := WScoped.of_not_hasFvar hRf
+  refine SimC.bind (opE_infer_sim henv hs₂ hwR) (fun s₃ sty sty' hs₃ hS => ?_)
+  obtain ⟨rfl, hwsty⟩ := hS
+  refine SimC.bind (opS_sim henv hs₃ hwsty) (fun s₄ u u' hs₄ hU => ?_)
+  refine SimC.bind (opB_sim henv hs₄ hwI hwR) (fun s₅ b b' hs₅ hB => ?_)
+  obtain rfl : b = b' := hB
+  cases b with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    exact SimC.throw_bind
+  | true =>
+  simp only [↓reduceIte]
+  refine SimC.bind (checkDirectSumRulesS_sim henv hs₅)
+    (fun s₆ rhss rhss' hs₆ hRs => ?_)
+  obtain rfl : rhss = rhss' := hRs
+  exact SimC.pure hs₆ rfl
+
 end Walks3
 
 end Setlec.Cached
