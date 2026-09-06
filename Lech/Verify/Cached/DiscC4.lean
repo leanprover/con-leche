@@ -136,7 +136,6 @@ theorem whnfAppC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
     obtain ⟨xa, xs, rfl, hax, hrest⟩ := hargs.cons_inv
     rw [whnfAppI.eq_def]
     dsimp only
-    refine SimC.view ?_
     obtain rfl := hv
     have hvr : RelC v v := rfl
     have hwxa : Expr.WScoped d xa := hwargs xa (List.mem_cons_self ..)
@@ -144,7 +143,7 @@ theorem whnfAppC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
       fun x hx => hwargs x (List.mem_cons_of_mem _ hx)
     cases v with
     | lam nm ty body mb =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hwtb : Expr.WScoped d ty ∧ Expr.WScoped d body := by
         have hw' : Expr.WScoped d
           (.lam nm ty body mb) := hwv
@@ -331,7 +330,6 @@ theorem betaPeelC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
     obtain ⟨xa, xs, rfl, hax, hrest⟩ := hargs.cons_inv
     rw [betaPeelI.eq_def]
     dsimp only
-    refine SimC.view ?_
     obtain rfl := ht
     have htr : RelC t t := rfl
     have hwxa : Expr.WScoped d xa := hwargs xa (List.mem_cons_self ..)
@@ -339,7 +337,7 @@ theorem betaPeelC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
       fun x hx => hwargs x (List.mem_cons_of_mem _ hx)
     cases t with
     | lam nm ty body mb =>
-      dsimp only [ExprC.view]
+      dsimp only
       rw [betaPeel_lam]
       unfold betaPeelLam
       have hcomp : Expr.WScoped d ((Expr.instantiateList ty ws))
@@ -509,7 +507,6 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       (whnfCoreStepM mode (fueledFns mode env) env d kM ex) := by
   unfold whnfCoreStepI
   rw [whnfCoreStepM_unfold]
-  refine SimC.view ?_
   obtain rfl := hden
   have hden : RelC i i := rfl
   cases i with
@@ -521,7 +518,7 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
   | lit l => exact SimC.pure hs ⟨hden, hw⟩
   | bvar k => exact SimC.throw
   | letE nm t v b =>
-    dsimp only [ExprC.view]
+    dsimp only
     have hw' : Expr.WScoped d
       (.letE nm t v b) := hw
     simp only [Expr.WScoped] at hw'
@@ -529,7 +526,7 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       (fun s₁ e' hs₁ hQ => ?_)
     exact hk hs₁ hQ (Expr.WScoped.instantiate1_gen hw'.2.1 0 hw'.2.2)
   | app g' a =>
-    dsimp only [ExprC.view]
+    dsimp only
     -- Bulk beta (task #50): the twin normalizes the spine head once and
     -- runs the argument loop against its mirror.
     refine SimC.pureB ?_
@@ -544,7 +541,7 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       (fun s₁ v vh hs₁ hP => ?_)
     exact whnfAppC_sim hμ ih henv hk hs₁ hP.1 hP.2 hargs hw.getAppArgs
   | proj sn ip pe =>
-    dsimp only [ExprC.view]
+    dsimp only
     have hwpe : Expr.WScoped d pe := by
       have hw' : Expr.WScoped d (Expr.proj sn ip pe) := hw
       simpa only [Expr.WScoped] using hw'
@@ -832,7 +829,6 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
     obtain ⟨xa, xs, rfl, hax, hrest⟩ := hargs.cons_inv
     rw [inferSpineI.eq_def]
     dsimp only
-    refine SimC.view ?_
     obtain rfl := ht
     have htr : RelC ty ty := rfl
     have hwxa : Expr.WScoped d xa := hwargs xa (List.mem_cons_self ..)
@@ -840,7 +836,7 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       fun x hx => hwargs x (List.mem_cons_of_mem _ hx)
     cases ty with
     | forallE nm dom body mb =>
-      dsimp only [ExprC.view]
+      dsimp only
       rw [show (Expr.forallE nm dom body mb)
         = Expr.forallE nm dom body mb from rfl, inferSpine_pi]
       unfold inferSpinePi
@@ -873,7 +869,7 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
           (by rw [toListRev_push]; exact RelCL.cons hax hacc) hwsub
           hrest hwrest
     | bvar k =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.bvar k) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -884,10 +880,9 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -921,7 +916,7 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | sort u =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.sort u) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -932,10 +927,9 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -969,7 +963,7 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | const nm us =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.const nm us) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -980,10 +974,9 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1017,7 +1010,7 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | lit l =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.lit l) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1028,10 +1021,9 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1065,7 +1057,7 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | fvar idx nm tt =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.fvar idx nm tt) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1076,10 +1068,9 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1113,7 +1104,7 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | app f₂ a₂ =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.app f₂ a₂) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1124,10 +1115,9 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1161,7 +1151,7 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | lam nm tt b mm =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.lam nm tt b mm) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1172,10 +1162,9 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1209,7 +1198,7 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | letE nm tt vv b =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.letE nm tt vv b) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1220,10 +1209,9 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1257,7 +1245,7 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | proj sn j pe =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.proj sn j pe) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1268,10 +1256,9 @@ theorem inferSpineC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1329,7 +1316,6 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
     obtain ⟨xa, xs, rfl, hax, hrest⟩ := hargs.cons_inv
     rw [inferSpineIOI.eq_def]
     dsimp only
-    refine SimC.view ?_
     obtain rfl := ht
     have htr : RelC ty ty := rfl
     have hwxa : Expr.WScoped d xa := hwargs xa (List.mem_cons_self ..)
@@ -1337,7 +1323,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       fun x hx => hwargs x (List.mem_cons_of_mem _ hx)
     cases ty with
     | forallE nm dom body mb =>
-      dsimp only [ExprC.view]
+      dsimp only
       rw [show (Expr.forallE nm dom body mb)
         = Expr.forallE nm dom body mb from rfl, inferSpineIO_pi]
       unfold inferSpineIOPi
@@ -1376,7 +1362,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
             (by rw [toListRev_push]; exact RelCL.cons hax hacc) hwsub
             hrest hwrest
     | bvar k =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.bvar k) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1387,10 +1373,9 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1430,7 +1415,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | sort u =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.sort u) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1441,10 +1426,9 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1484,7 +1468,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | const nm us =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.const nm us) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1495,10 +1479,9 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1538,7 +1521,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | lit l =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.lit l) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1549,10 +1532,9 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1592,7 +1574,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | fvar idx nm tt =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.fvar idx nm tt) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1603,10 +1585,9 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1646,7 +1627,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | app f₂ a₂ =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.app f₂ a₂) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1657,10 +1638,9 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1700,7 +1680,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | lam nm tt b mm =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.lam nm tt b mm) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1711,10 +1691,9 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1754,7 +1733,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | letE nm tt vv b =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.letE nm tt vv b) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1765,10 +1744,9 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1808,7 +1786,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       | letE nm' t' v' b' => exact SimC.throw
       | proj s' j' e' => exact SimC.throw
     | proj sn j pe =>
-      dsimp only [ExprC.view]
+      dsimp only
       have hnl : ∀ n' dom' body' bi',
           (Expr.proj sn j pe) ≠ Expr.forallE n' dom' body' bi' :=
         fun _ _ _ _ h => nomatch h
@@ -1819,10 +1797,9 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       refine SimC.bind (ih.whnf hs₁ hQty hwty)
         (fun s₂ w wx hs₂ hP => ?_)
       obtain ⟨rfl, hww⟩ := hP
-      refine SimC.view ?_
       cases w with
       | forallE nmw dom body mb =>
-        dsimp only [ExprC.view]
+        dsimp only
         have hwtb : Expr.WScoped d dom
             ∧ Expr.WScoped d body := by
           have hw' : Expr.WScoped d
@@ -1869,15 +1846,13 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       (inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
       (inferBody mode (fueledFns mode env) env d ex) := by
   unfold inferBodyI
-  refine SimC.view ?_
   obtain rfl := hden
   have hden : RelC i i := rfl
   cases i with
   | sort u =>
-    dsimp only [ExprC.view]
+    dsimp only
     unfold inferBody
-    dsimp only [viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
+    dsimp only
     try dsimp only
     refine SimC.bind_left (internLM_eff hs (Level.succ u))
       (fun s₁ su hs₁ hsu => ?_)
@@ -1886,17 +1861,15 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       (pureC_eff hs₁ (x := Expr.sort (Level.succ u))) _
       (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
   | bvar k =>
-    dsimp only [ExprC.view]
+    dsimp only
     unfold inferBody
-    dsimp only [viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
+    dsimp only
     try dsimp only
     exact SimC.throw
   | letE nm t v b =>
-    dsimp only [ExprC.view]
+    dsimp only
     unfold inferBody
-    dsimp only [viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
+    dsimp only
     try dsimp only
     have hw' : Expr.WScoped d
       (.letE nm t v b) := hw
@@ -1924,11 +1897,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
         (fun s₅ e' hs₅ hQ => ?_)
       exact ih.infer hs₅ hQ (Expr.WScoped.instantiate1_gen hw'.2.1 0 hw'.2.2)
   | fvar idx nm t =>
-    dsimp only [ExprC.view]
-    unfold inferBody
-    dsimp only [viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
-    try dsimp only
+    simp only [inferBodyI, inferBody]
     have h' : idx < d ∧ Expr.WScoped idx t := by
       have hw' : Expr.WScoped d (Expr.fvar idx nm t) := hw
       simpa only [Expr.WScoped] using hw'
@@ -1939,9 +1908,9 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     · rw [if_neg hidx, if_neg hidx]
       exact SimC.throw
   | lit l =>
-    dsimp only [ExprC.view]
+    dsimp only
     unfold inferBody
-    dsimp only [viewM, Expr.view]
+    dsimp only
     refine SimC.bind_pure_right ?_
     try dsimp only
     cases l with
@@ -1970,9 +1939,9 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       · rw [if_neg hg, if_neg hg]
         exact SimC.throw
   | const nm us =>
-    dsimp only [ExprC.view]
+    dsimp only
     unfold inferBody
-    dsimp only [viewM, Expr.view]
+    dsimp only
     refine SimC.bind_pure_right ?_
     try dsimp only
     refine SimC.bind_left (readbackNM_eff hs nm)
@@ -1996,14 +1965,13 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       · rw [if_neg htw, if_neg htw]
         exact SimC.throw_bind
   | forallE nm t b m =>
-    dsimp only [ExprC.view]
+    dsimp only
     have hwtb : Expr.WScoped d t ∧ Expr.WScoped d b := by
       have hw' : Expr.WScoped d
         (Expr.forallE nm t b m) := hw
       simpa only [Expr.WScoped] using hw'
     unfold inferBody
-    dsimp only [viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
+    dsimp only
     try dsimp only
     refine SimC.bind (ih.infer hs rfl hwtb.1)
       (fun s₁ tty ttyx hs₁ hP => ?_)
@@ -2011,10 +1979,9 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     refine SimC.bind (ih.whnf hs₁ httyd hwtty)
       (fun s₂ w wx hs₂ hP₂ => ?_)
     obtain ⟨rfl, hww⟩ := hP₂
-    refine SimC.view ?_
     cases w with
     | sort u =>
-      dsimp only [ExprC.view]
+      dsimp only
       refine SimC.bind_left
         (pureC_eff hs₂ (x := Expr.fvar d nm t))
         (fun s₃ fv hs₃ hQfv => ?_)
@@ -2031,14 +1998,13 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     | letE nm' t' v' b' => exact SimC.throw
     | proj s' j' e' => exact SimC.throw
   | lam nm t b m =>
-    dsimp only [ExprC.view]
+    dsimp only
     have hwtb : Expr.WScoped d t ∧ Expr.WScoped d b := by
       have hw' : Expr.WScoped d
         (Expr.lam nm t b m) := hw
       simpa only [Expr.WScoped] using hw'
     unfold inferBody
-    dsimp only [viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
+    dsimp only
     try dsimp only
     obtain ⟨mbi, mpw⟩ := m
     refine SimC.bind (ih.infer hs rfl hwtb.1)
@@ -2047,10 +2013,9 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     refine SimC.bind (ih.whnf hs₁ httyd hwtty)
       (fun s₂ w wx hs₂ hP₂ => ?_)
     obtain ⟨rfl, hww⟩ := hP₂
-    refine SimC.view ?_
     cases w with
     | sort u =>
-      dsimp only [ExprC.view]
+      dsimp only
       refine SimC.bind_left
         (pureC_eff hs₂ (x := Expr.fvar d nm t))
         (fun s₃ fv hs₃ hQfv => ?_)
@@ -2068,7 +2033,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     | letE nm' t' v' b' => exact SimC.throw
     | proj s' j' e' => exact SimC.throw
   | app g' a =>
-    dsimp only [ExprC.view]
+    dsimp only
     -- Bulk telescope consumption (task #50): the twin infers the spine
     -- head once and walks the Π-telescope; `inferSpine_sound_body`
     -- reproduces the loop's verdict in the chained body.
@@ -2090,13 +2055,12 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     rw [Expr.instantiateList_nil]
     exact hP.2
   | proj sn ip pe =>
-    dsimp only [ExprC.view]
+    dsimp only
     have hwpe : Expr.WScoped d pe := by
       have hw' : Expr.WScoped d (Expr.proj sn ip pe) := hw
       simpa only [Expr.WScoped] using hw'
     unfold inferBody
-    dsimp only [viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
+    dsimp only
     try dsimp only
     refine SimC.bind (ih.infer hs rfl hwpe)
       (fun s₁ tpe tpex hs₁ hP => ?_)
@@ -2169,16 +2133,13 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
         (CoreFnsI.ioView (coreKnotI mode (mkFEnv env) f)) (mkFEnv env) d i)
       (inferBodyIO mode (CoreFns.ioView (fueledFns mode env)) env d ex) := by
   unfold inferBodyIOI
-  refine SimC.view ?_
   obtain rfl := hden
   have hden : RelC i i := rfl
   cases i with
   | sort u =>
-    dsimp only [ExprC.view]
+    dsimp only
     unfold inferBodyI inferBodyIO
-    refine SimC.view ?_
-    dsimp only [ExprC.view, viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
+    dsimp only
     try dsimp only
     refine SimC.bind_left (internLM_eff hs (Level.succ u))
       (fun s₁ su hs₁ hsu => ?_)
@@ -2187,19 +2148,15 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       (pureC_eff hs₁ (x := Expr.sort (Level.succ u))) _
       (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
   | bvar k =>
-    dsimp only [ExprC.view]
+    dsimp only
     unfold inferBodyI inferBodyIO
-    refine SimC.view ?_
-    dsimp only [ExprC.view, viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
+    dsimp only
     try dsimp only
     exact SimC.throw
   | letE nm t v b =>
-    dsimp only [ExprC.view]
+    dsimp only
     unfold inferBodyI inferBodyIO
-    refine SimC.view ?_
-    dsimp only [ExprC.view, viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
+    dsimp only
     try dsimp only
     have hw' : Expr.WScoped d
       (.letE nm t v b) := hw
@@ -2227,12 +2184,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
         (fun s₅ e' hs₅ hQ => ?_)
       exact ih.inferIO hs₅ hQ (Expr.WScoped.instantiate1_gen hw'.2.1 0 hw'.2.2)
   | fvar idx nm t =>
-    dsimp only [ExprC.view]
-    unfold inferBodyI inferBodyIO
-    refine SimC.view ?_
-    dsimp only [ExprC.view, viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
-    try dsimp only
+    simp only [inferBodyI, inferBodyIO]
     have h' : idx < d ∧ Expr.WScoped idx t := by
       have hw' : Expr.WScoped d (Expr.fvar idx nm t) := hw
       simpa only [Expr.WScoped] using hw'
@@ -2243,10 +2195,9 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     · rw [if_neg hidx, if_neg hidx]
       exact SimC.throw
   | lit l =>
-    dsimp only [ExprC.view]
+    dsimp only
     unfold inferBodyI inferBodyIO
-    refine SimC.view ?_
-    dsimp only [ExprC.view, viewM, Expr.view]
+    dsimp only
     refine SimC.bind_pure_right ?_
     try dsimp only
     cases l with
@@ -2275,10 +2226,9 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       · rw [if_neg hg, if_neg hg]
         exact SimC.throw
   | const nm us =>
-    dsimp only [ExprC.view]
+    dsimp only
     unfold inferBodyI inferBodyIO
-    refine SimC.view ?_
-    dsimp only [ExprC.view, viewM, Expr.view]
+    dsimp only
     refine SimC.bind_pure_right ?_
     try dsimp only
     refine SimC.bind_left (readbackNM_eff hs nm)
@@ -2302,14 +2252,13 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       · rw [if_neg htw, if_neg htw]
         exact SimC.throw_bind
   | forallE nm t b m =>
-    dsimp only [ExprC.view]
+    dsimp only
     have hwtb : Expr.WScoped d t ∧ Expr.WScoped d b := by
       have hw' : Expr.WScoped d
         (Expr.forallE nm t b m) := hw
       simpa only [Expr.WScoped] using hw'
     unfold inferBodyIO
-    dsimp only [viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
+    dsimp only
     try dsimp only
     refine SimC.bind (ih.inferIO hs rfl hwtb.1)
       (fun s₁ tty ttyx hs₁ hP => ?_)
@@ -2317,10 +2266,9 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     refine SimC.bind (ih.whnf hs₁ httyd hwtty)
       (fun s₂ w wx hs₂ hP₂ => ?_)
     obtain ⟨rfl, hww⟩ := hP₂
-    refine SimC.view ?_
     cases w with
     | sort u =>
-      dsimp only [ExprC.view]
+      dsimp only
       refine SimC.bind_left
         (pureC_eff hs₂ (x := Expr.fvar d nm t))
         (fun s₃ fv hs₃ hQfv => ?_)
@@ -2365,14 +2313,13 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     | letE nm' t' v' b' => exact SimC.throw
     | proj s' j' e' => exact SimC.throw
   | lam nm t b m =>
-    dsimp only [ExprC.view]
+    dsimp only
     have hwtb : Expr.WScoped d t ∧ Expr.WScoped d b := by
       have hw' : Expr.WScoped d
         (Expr.lam nm t b m) := hw
       simpa only [Expr.WScoped] using hw'
     unfold inferBodyIO
-    dsimp only [viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
+    dsimp only
     try dsimp only
     -- task #168 stage 2: no domain-sort run at the io λ clause
     refine SimC.bind_left
@@ -2431,7 +2378,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     · simp only [hv, Bool.false_eq_true, ↓reduceIte]
       exact hres hs₅
   | app g' a =>
-    dsimp only [ExprC.view]
+    dsimp only
     -- the gated spine; `inferSpineIO_sound_body` (at the gated mode)
     -- reproduces the loop's verdict in the chained io body over the
     -- io-grade view
@@ -2453,14 +2400,12 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     rw [Expr.instantiateList_nil]
     exact hP.2
   | proj sn ip pe =>
-    dsimp only [ExprC.view]
+    dsimp only
     have hwpe : Expr.WScoped d pe := by
       have hw' : Expr.WScoped d (Expr.proj sn ip pe) := hw
       simpa only [Expr.WScoped] using hw'
     unfold inferBodyI inferBodyIO
-    refine SimC.view ?_
-    dsimp only [ExprC.view, viewM, Expr.view]
-    refine SimC.bind_pure_right ?_
+    dsimp only
     try dsimp only
     refine SimC.bind (ih.inferIO hs rfl hwpe)
       (fun s₁ tpe tpex hs₁ hP => ?_)

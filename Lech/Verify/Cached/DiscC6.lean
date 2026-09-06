@@ -81,21 +81,20 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       (annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
       (annotateBody (fueledFns mode env) env d ex) := by
   unfold annotateBodyI
-  refine SimC.view ?_
   obtain rfl := hden
   have hden : RelC i i := rfl
   cases i with
   | bvar k =>
-    dsimp only [ExprC.view]
+    dsimp only
     exact SimC.pure hs ⟨hden, hw⟩
   | sort u =>
-    dsimp only [ExprC.view]
+    dsimp only
     exact SimC.pure hs ⟨hden, hw⟩
   | const nmN us =>
-    dsimp only [ExprC.view]
+    dsimp only
     exact SimC.pure hs ⟨hden, hw⟩
   | letE nmN t v b =>
-    dsimp only [ExprC.view]
+    dsimp only
     have hwtvb : Expr.WScoped d t ∧ Expr.WScoped d v ∧
         Expr.WScoped d b := by
       have hw' : Expr.WScoped d
@@ -114,7 +113,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     exact ih.annotate hs₇ hQob
       (Expr.WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
   | fvar idx nmN t =>
-    dsimp only [ExprC.view]
+    dsimp only
     unfold annotateBody
     try dsimp only
     by_cases hidx : idx < d
@@ -125,7 +124,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
   | lit l =>
     cases l with
     | natVal k =>
-      dsimp only [ExprC.view]
+      dsimp only
       unfold annotateBody
       try dsimp only
       rw [natLitSupportedF_eq]
@@ -135,7 +134,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       · rw [if_neg hg, if_neg hg]
         exact SimC.throw
     | strVal str =>
-      dsimp only [ExprC.view]
+      dsimp only
       unfold annotateBody
       try dsimp only
       rw [strLitSupportedF_eq]
@@ -145,7 +144,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       · rw [if_neg hg, if_neg hg]
         exact SimC.throw
   | app g' a =>
-    dsimp only [ExprC.view]
+    dsimp only
     -- structural (task #100 stage 6: the application rule's checks
     -- moved to the driver's inference sweep, so the spine loop is
     -- gone and the clause annotates the two children)
@@ -168,7 +167,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
         simp only [Expr.WScoped]
         exact ⟨Expr.WScoped.mono (Nat.le_refl _) hwg'', hwa''⟩⟩)
   | forallE nmN t b m =>
-    dsimp only [ExprC.view]
+    dsimp only
     have hwtb : Expr.WScoped d t ∧ Expr.WScoped d b := by
       have hw' : Expr.WScoped d
         (Expr.forallE nmN t b m) := hw
@@ -188,7 +187,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     exact annotatePisC_tail_sim ih hs₃ rfl rfl rfl rfl
       hQfv' hwty' hwtb.2
   | lam nmN t b m =>
-    dsimp only [ExprC.view]
+    dsimp only
     have hwtb : Expr.WScoped d t ∧ Expr.WScoped d b := by
       have hw' : Expr.WScoped d
         (Expr.lam nmN t b m) := hw
@@ -259,7 +258,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
         simp only [hpw, ↓reduceIte]
         exact hstep s₈ m.pw hs₈
   | proj snN ipN pe =>
-    dsimp only [ExprC.view]
+    dsimp only
     have hwpe : Expr.WScoped d pe := by
       have hw' : Expr.WScoped d (Expr.proj snN ipN pe) := hw
       simpa only [Expr.WScoped] using hw'

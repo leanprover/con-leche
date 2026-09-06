@@ -52,18 +52,18 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
       (coreKnotI mode (mkFEnv env) f).inferIO d a >>= fun ta =>
       (coreKnotI mode (mkFEnv env) f).inferIO d ta >>= fun tta =>
       (coreKnotI mode (mkFEnv env) f).whnf d tta >>= fun wtta =>
-      viewI wtta >>= fun n =>
-      match n with
-      | some (.sort uT) =>
+      
+      match wtta with
+      | .sort uT =>
         internLM .zero >>= fun zA =>
         isEquivLM uT zA >>= fun oA =>
         liftFueled "level comparison" oA >>= fun okA =>
         (coreKnotI mode (mkFEnv env) f).inferIO d b >>= fun tb =>
         (coreKnotI mode (mkFEnv env) f).inferIO d tb >>= fun ttb =>
         (coreKnotI mode (mkFEnv env) f).whnf d ttb >>= fun wttb =>
-        viewI wttb >>= fun n' =>
-        match n' with
-        | some (.sort vT) =>
+        
+        match wttb with
+        | .sort vT =>
           internLM .zero >>= fun zB =>
           isEquivLM vT zB >>= fun oB =>
           liftFueled "level comparison" oB >>= fun okB =>
@@ -89,7 +89,6 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     obtain ⟨httad, hwtta⟩ := hP₃
     refine SimC.bind (ih.whnf hs₃ httad hwtta) (fun s₄ wtta wttax hs₄ hP₄ => ?_)
     obtain ⟨hwttad, hwwtta⟩ := hP₄
-    refine SimC.view ?_
     obtain rfl := hwttad
     cases wtta with
     | sort uT =>
@@ -109,7 +108,6 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
       refine SimC.bind (ih.whnf hs₇ httbd hwttb)
         (fun s₈ wttb wttbx hs₈ hP₈ => ?_)
       obtain ⟨hwttbd, hwwttb⟩ := hP₈
-      refine SimC.view ?_
       obtain ⟨hwc', rfl⟩ := hwttbd
       cases wttb with
       | sort vT =>
@@ -210,18 +208,18 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
       else
         (coreKnotI mode (mkFEnv env) f).inferIO d ta >>= fun tta =>
         (coreKnotI mode (mkFEnv env) f).whnf d tta >>= fun wtta =>
-        viewI wtta >>= fun n =>
-        match n with
-        | some (.sort uT) =>
+        
+        match wtta with
+        | .sort uT =>
           internLM .zero >>= fun zA =>
           isEquivLM uT zA >>= fun oA =>
           liftFueled "level comparison" oA >>= fun okA =>
           (coreKnotI mode (mkFEnv env) f).inferIO d j >>= fun tb =>
           (coreKnotI mode (mkFEnv env) f).inferIO d tb >>= fun ttb =>
           (coreKnotI mode (mkFEnv env) f).whnf d ttb >>= fun wttb =>
-          viewI wttb >>= fun n' =>
-          match n' with
-          | some (.sort vT) =>
+          
+          match wttb with
+          | .sort vT =>
             internLM .zero >>= fun zB =>
             isEquivLM vT zB >>= fun oB =>
             liftFueled "level comparison" oB >>= fun okB =>
@@ -253,7 +251,6 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     obtain ⟨httad, hwtta⟩ := hP₃
     refine SimC.bind (ih.whnf hs₃ httad hwtta) (fun s₄ wtta wttax hs₄ hP₄ => ?_)
     obtain ⟨hwttad, hwwtta⟩ := hP₄
-    refine SimC.view ?_
     obtain rfl := hwttad
     cases wtta with
     | sort uT =>
@@ -273,7 +270,6 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
       refine SimC.bind (ih.whnf hs₇ httbd hwttb)
         (fun s₈ wttb wttbx hs₈ hP₈ => ?_)
       obtain ⟨hwttbd, hwwttb⟩ := hP₈
-      refine SimC.view ?_
       obtain ⟨hwc', rfl⟩ := hwttbd
       cases wttb with
       | sort vT =>
@@ -329,9 +325,9 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
   show SimC mode env s₀ RelVC
     ((coreKnotI mode (mkFEnv env) f).inferIO d b >>= fun tb =>
       (coreKnotI mode (mkFEnv env) f).whnf d tb >>= fun wtb =>
-      viewI wtb >>= fun n =>
-      match n with
-      | some (.forallE _ ty₂ _ m₂) =>
+      
+      match wtb with
+      | .forallE _ ty₂ _ m₂ =>
         (coreKnotI mode (mkFEnv env) f).defeq d ty₂ ty₁ >>= fun r =>
         if r then
           pure (Expr.fvar d n₁ ty₁) >>= fun fv =>
@@ -374,7 +370,6 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
   obtain ⟨htbd, hwtb⟩ := hP
   refine SimC.bind (ih.whnf hs₁ htbd hwtb) (fun s₂ wtb wtbx hs₂ hP₂ => ?_)
   obtain ⟨hwtbd, hwwtb⟩ := hP₂
-  refine SimC.view ?_
   obtain rfl := hwtbd
   cases wtb with
   | forallE nm ty₂ b₂ m₂ =>
@@ -513,10 +508,9 @@ theorem structUnitCertC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode 
   show SimC .verified env s₀ RelVC
     ((coreKnotI .verified (mkFEnv env) f).inferIO d i >>= fun ta =>
       (coreKnotI .verified (mkFEnv env) f).whnf d ta >>= fun wta =>
-      Lech.Cached.viewI (ExprC.getAppFn wta) >>=
-        fun n =>
-      match n with
-      | some (.const T us') =>
+      
+      match (ExprC.getAppFn wta) with
+      | .const T us' =>
         readbackNM T >>= fun Tn =>
         match (mkFEnv env).find? Tn with
         | some (.indInfo cvT caps) =>
@@ -886,19 +880,17 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
       (structEtaCertWith mode (fueledFns mode env) env d a b wtb) := by
   obtain rfl := CheckMode.eq_verified hμ
   show SimC .verified env s₀ RelVC
-    (Lech.Cached.viewI (ExprC.getAppFn i) >>=
-      fun n =>
-      match n with
-      | some (.const c us) =>
+    (
+      match (ExprC.getAppFn i) with
+      | .const c us =>
         readbackNM c >>= fun cn =>
         match (mkFEnv env).find? cn with
         | some (.ctorInfo cvc cnP cnF) =>
           pure (ExprC.getAppArgs i) >>= fun aargs =>
           if aargs.length = cnP + cnF then
-            Lech.Cached.viewI (ExprC.getAppFn w) >>=
-              fun n' =>
-            match n' with
-            | some (.const T us') =>
+            
+            match (ExprC.getAppFn w) with
+            | .const T us' =>
               readbackNM T >>= fun Tn =>
               match (mkFEnv env).find? Tn with
               | some (.indInfo cvT caps) =>

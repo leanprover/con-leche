@@ -143,7 +143,6 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
   | a :: as, xs, acc, ws, ty, tyx, s₀, hs, hty, hacc, hwty, hargs, hwargs => by
     obtain ⟨x, xs, rfl, hax, hasxs⟩ := hargs.cons_inv
     rw [iotaCertsIAux.eq_def]
-    refine SimC.view ?_
     obtain rfl := hty
     cases ty with
     | forallE nm t b m =>
@@ -306,9 +305,9 @@ theorem ensureSortC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       (ensureSort (fueledFns mode env) env d e) := by
   show SimC mode env s₀ RelVC
     ((coreKnotI mode (mkFEnv env) f).whnf d i >>= fun w =>
-      viewI w >>= fun n =>
-      match n with
-      | some (.sort u) => pure u
+      
+      match w with
+      | .sort u => pure u
       | _ => throw (.invalid "expected a sort"))
     ((fueledFns mode env).whnf d e >>= fun w =>
       match w with
@@ -316,7 +315,6 @@ theorem ensureSortC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       | _ => throw (.invalid "expected a sort"))
   refine SimC.bind (ih.whnf hs hden hw) (fun s₁ w wx hs₁ hP => ?_)
   obtain ⟨hwden, hww⟩ := hP
-  refine SimC.view ?_
   obtain rfl := hwden
   cases w with
   | sort u => exact SimC.pure hs₁ rfl
@@ -336,21 +334,20 @@ theorem litToCtorIfNatC_eff {s₀ : CState} (hs : CSOK mode env s₀)
     {i : ExprC} {e : Expr} (hden : RelC i e) :
     CEff mode env s₀ (fun r => RelC r (litToCtorIfNat env e))
       (litToCtorIfNatI (mkFEnv env) i) := by
-  show CEff mode env s₀ _ (viewI i >>= fun n =>
-    match n with
-    | some (.lit (.natVal n)) =>
+  show CEff mode env s₀ _ (
+    match i with
+    | .lit (.natVal n) =>
       if natLitSupportedF (mkFEnv env) then
         internExprM (natLitToConstructor n)
       else pure i
     | _ => pure i)
-  refine CEff.view ?_
   obtain rfl := hden
   have hden : RelC i i := rfl
   cases i with
   | lit l =>
     cases l with
     | natVal k =>
-      dsimp only [ExprC.view]
+      dsimp only
       rw [natLitSupportedF_eq]
       rw [show litToCtorIfNat env ((Expr.lit (.natVal k))) =
         (if natLitSupported env then natLitToConstructor k
@@ -387,9 +384,9 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
     CEff mode env s₀ (fun o => OptEr o (unfoldDefinition env e))
       (unfoldDefinitionI (mkFEnv env) i) := by
   show CEff mode env s₀ _
-    (Lech.Cached.viewI (ExprC.getAppFn i) >>= fun n =>
-      match n with
-      | some (.const n us) => do
+    (
+      match (ExprC.getAppFn i) with
+      | .const n us => do
         let nm ← readbackNM n
         match (mkFEnv env).find? nm with
         | some (.defnInfo cv _ _) =>
@@ -534,24 +531,14 @@ theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     SimC mode env s₀ (RelEC d)
       (litMajorToCtorI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
       (litMajorToCtor (fueledFns mode env) env d e) := by
-  show SimC mode env s₀ (RelEC d)
-    (viewI i >>= fun n =>
-      match n with
-      | some (.lit (.strVal s)) =>
-        if strLitSupportedF (mkFEnv env) then do
-          let x ← internExprM (strLitToConstructor s)
-          (coreKnotI mode (mkFEnv env) f).whnf d x
-        else pure i
-      | _ => litToCtorIfNatI (mkFEnv env) i)
-    (litMajorToCtor (fueledFns mode env) env d e)
-  refine SimC.view ?_
+  unfold litMajorToCtorI
   obtain rfl := hden
   have hden : RelC i i := rfl
   cases i with
   | lit l =>
     cases l with
     | strVal str =>
-      dsimp only [ExprC.view]
+      dsimp only
       rw [show litMajorToCtor (fueledFns mode env) env d
           ((Expr.lit (.strVal str))) =
         (if strLitSupported env then
@@ -604,24 +591,14 @@ theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     SimC mode env s₀ (RelEC d)
       (projLitToCtorI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
       (projLitToCtor (fueledFns mode env) env d e) := by
-  show SimC mode env s₀ (RelEC d)
-    (viewI i >>= fun n =>
-      match n with
-      | some (.lit (.strVal s)) =>
-        if strLitSupportedF (mkFEnv env) then do
-          let x ← internExprM (strLitToConstructor s)
-          (coreKnotI mode (mkFEnv env) f).whnf d x
-        else pure i
-      | _ => pure i)
-    (projLitToCtor (fueledFns mode env) env d e)
-  refine SimC.view ?_
+  unfold projLitToCtorI
   obtain rfl := hden
   have hden : RelC i i := rfl
   cases i with
   | lit l =>
     cases l with
     | strVal str =>
-      dsimp only [ExprC.view]
+      dsimp only
       rw [show projLitToCtor (fueledFns mode env) env d
           ((Expr.lit (.strVal str))) =
         (if strLitSupported env then
@@ -655,14 +632,12 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
       (defeqSpineI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       (defeqSpine (fueledFns mode env) env d a b) := by
   show SimC mode env s₀ RelVC
-    (Lech.Cached.viewI (ExprC.getAppFn i) >>=
-      fun n =>
-      match n with
-      | some (.const nm us) =>
-        Lech.Cached.viewI (ExprC.getAppFn j) >>=
-          fun n' =>
-        match n' with
-        | some (.const nm' us') => do
+    (
+      match (ExprC.getAppFn i) with
+      | .const nm us =>
+        
+        match (ExprC.getAppFn j) with
+        | .const nm' us' => do
           let aargs ← pure (ExprC.getAppArgs i)
           let bargs ← pure (ExprC.getAppArgs j)
           if nm = nm' ∧ aargs.length = bargs.length then do
@@ -818,74 +793,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     SimC mode env s₀ (RelOC d)
       (reduceNatI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
       (reduceNat (fueledFns mode env) env d e) := by
-  show SimC mode env s₀ (RelOC d)
-    (viewI i >>= fun n =>
-      match n with
-      | some (.app f₁ b) =>
-        viewI f₁ >>= fun n' =>
-        match n' with
-        | some (.const c us) =>
-          match us with
-          | _ :: _ => pure none
-          | [] =>
-            readbackNM c >>= fun cn =>
-            if cn = natSuccName ∧ natLitSupportedF (mkFEnv env) then
-              (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w =>
-              pure (rawNatLitC? w) >>= fun rn =>
-              match rn with
-              | some n => do
-                let r ← internExprM (.lit (.natVal (n + 1)))
-                pure (some r)
-              | none => pure none
-            else pure none
-        | some (.app f₂ a) =>
-          viewI f₂ >>= fun n'' =>
-          match n'' with
-          | some (.const c us) =>
-            match us with
-            | _ :: _ => pure none
-            | [] =>
-              readbackNM c >>= fun cn =>
-              if (cn = natAddName ∨ cn = natSubName ∨ cn = natMulName ∨
-                  cn = natPowName ∨ cn = natBeqName ∨ cn = natBleName ∨
-                  cn = natDivName ∨ cn = natModName ∨ cn = natGcdName ∨
-                  cn = natLandName ∨ cn = natLorName ∨ cn = natXorName ∨
-                  cn = natShiftLeftName ∨ cn = natShiftRightName) ∧
-                  natOpStoredF (mkFEnv env) cn = true then
-                (coreKnotI mode (mkFEnv env) f).whnf d a >>= fun w₁ =>
-                pure (rawNatLitC? w₁) >>= fun rn₁ =>
-                match rn₁ with
-                | some n₁ =>
-                  (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w₂ =>
-                  pure (rawNatLitC? w₂) >>= fun rn₂ =>
-                  match rn₂ with
-                  | some n₂ =>
-                    match natOpResult cn n₁ n₂ with
-                    | some x => do
-                      let r ← internExprM x
-                      pure (some r)
-                    | none => pure none
-                  | none => pure none
-                | none => pure none
-              else if natOpWfNames.contains cn ∧
-                  natLitSupportedF (mkFEnv env) then
-                (coreKnotI mode (mkFEnv env) f).whnf d a >>= fun w₁ =>
-                pure (rawNatLitC? w₁) >>= fun rn₁ =>
-                match rn₁ with
-                | some _ =>
-                  (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w₂ =>
-                  pure (rawNatLitC? w₂) >>= fun rn₂ =>
-                  match rn₂ with
-                  | some _ => throw (.notImplemented
-                      s!"native Nat computation on literals ({cn})")
-                  | none => pure none
-                | none => pure none
-              else pure none
-          | _ => pure none
-        | _ => pure none
-      | _ => pure none)
-    (reduceNat (fueledFns mode env) env d e)
-  refine SimC.view ?_
+  unfold reduceNatI
   obtain rfl := hden
   cases i with
   | app f₁ b =>
@@ -893,7 +801,6 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
         = Expr.app (f₁) b from rfl] at hw ⊢
     have hwfb : Expr.WScoped d (f₁) ∧ Expr.WScoped d b := by
       simpa only [Expr.WScoped] using hw
-    refine SimC.view ?_
     cases f₁ with
     | const c us =>
       rw [show (Expr.const c us)
@@ -933,7 +840,6 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
           = Expr.app (f₂) a from rfl] at hwfb ⊢
       have hwf₂a : Expr.WScoped d (f₂) ∧ Expr.WScoped d a := by
         simpa only [Expr.WScoped] using hwfb.1
-      refine SimC.view ?_
       cases f₂ with
       | const c us =>
         rw [show (Expr.const c us)

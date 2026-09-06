@@ -134,9 +134,9 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
               if caps.ruleK = true ∧ cnF = 0 then
                 (coreKnotI .verified (mkFEnv env) f).inferIO d i >>= fun tm =>
                 (coreKnotI .verified (mkFEnv env) f).whnf d tm >>= fun tmaj =>
-                Lech.Cached.viewI (ExprC.getAppFn tmaj) >>= fun n =>
-                match n with
-                | some (.const T' ust) =>
+                
+                match (ExprC.getAppFn tmaj) with
+                | .const T' ust =>
                   beqNameM T' T >>= fun bq =>
                   if bq ∧ cvj.levelParams.length = ust.length then
                     pure (ExprC.getAppArgs tmaj) >>= fun margs =>
@@ -174,9 +174,9 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                   Name.isProjFnShape recName = false then
                 (coreKnotI .verified (mkFEnv env) f).inferIO d i >>= fun tm =>
                 (coreKnotI .verified (mkFEnv env) f).whnf d tm >>= fun tmaj =>
-                Lech.Cached.viewI (ExprC.getAppFn tmaj) >>= fun n =>
-                match n with
-                | some (.const T' ust) =>
+                
+                match (ExprC.getAppFn tmaj) with
+                | .const T' ust =>
                   pure (ExprC.getAppArgs tmaj) >>= fun margs =>
                   readbackLevelsM ust >>= fun ustL =>
                   beqNameM T' T >>= fun bq =>

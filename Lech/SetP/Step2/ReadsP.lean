@@ -662,8 +662,8 @@ theorem inferReads_sort {m : EnvS2Core V env}
     (h : inferTypeCore μ env (fuel + 1) d (.sort u) = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind, Except.ok.injEq] at h
+  simp only [Lech.inferBody, pure,
+    Except.pure, Except.ok.injEq] at h
   subst h
   exact ⟨_, denoteP_sortQ⟩
 
@@ -675,8 +675,8 @@ theorem inferReads_fvar {m : EnvS2Core V env}
     (hlr : LeafReadsP m φ d (.fvar idx n ty)) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind] at h
+  simp only [Lech.inferBody, pure,
+    Except.pure] at h
   split at h
   · simp only [Except.ok.injEq] at h
     subst h
@@ -707,8 +707,8 @@ theorem inferReads_natLit {m : EnvS2Core V env}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.natVal k)) = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind] at h
+  simp only [Lech.inferBody, pure,
+    Except.pure] at h
   split at h
   · next hg =>
     simp only [Except.ok.injEq] at h
@@ -740,8 +740,8 @@ theorem inferReads_strLit {m : EnvS2Core V env}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.strVal s)) = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind] at h
+  simp only [Lech.inferBody, pure,
+    Except.pure] at h
   split at h
   · next hg =>
     simp only [Except.ok.injEq] at h

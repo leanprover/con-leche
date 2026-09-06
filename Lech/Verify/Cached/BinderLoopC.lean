@@ -179,26 +179,22 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
   obtain ⟨hbtd, hwbt⟩ := hPbt
   -- the λ-chain guard (task #152): the residual's head shape, read on
   -- both sides of the erasure
-  refine SimC.view ?_
   obtain rfl := ht
   cases t
   case lam nmN tyN bodyN mbN =>
-    dsimp only [ExprC.view]
+    dsimp only
     refine SimC.bind_left (abstractRangeM_eff hs₂ hbtd)
       (fun s₅ cur hs₅ hQcur => ?_)
-    refine SimC.view ?_
-    dsimp only [ExprC.view, Expr.lamPw]
+    dsimp only [Expr.lamPw]
     exact inferLamsOutC_sim hs₅ hstk hQcur
   all_goals
-    dsimp only [ExprC.view, Expr.lamPw]
+    dsimp only [Expr.lamPw]
     by_cases hv : mode.verifiedChecks = true
     case neg =>
       simp only [Bool.not_eq_true] at hv
       simp only [hv, ↓reduceIte]
       refine SimC.bind_left (abstractRangeM_eff hs₂ hbtd)
         (fun s₅ cur hs₅ hQcur => ?_)
-      refine SimC.view ?_
-      dsimp only [ExprC.view]
       cases hstk0 : stk with
       | nil =>
         cases hstkx0 : stkx with
@@ -226,11 +222,10 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
     refine SimC.bind (ih.whnf hs₃ hbttd hwbtt)
       (fun s₄ wbt wx hs₄ hPw => ?_)
     obtain ⟨hwd, hww⟩ := hPw
-    refine SimC.view ?_
     obtain rfl := hwd
     cases wbt
     case sort v =>
-      dsimp only [ExprC.view]
+      dsimp only
       -- the leaf validation (task #161): both sides read the same
       -- datum of the same sort; then the fold, per stack head
       cases hstk0 : stk with
@@ -240,8 +235,6 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
           dsimp only
           refine SimC.bind_left (abstractRangeM_eff hs₄ hbtd)
             (fun s₅ cur hs₅ hQcur => ?_)
-          refine SimC.view ?_
-          dsimp only [ExprC.view]
           exact inferLamsOutC_sim hs₅ trivial hQcur
         | cons _ _ =>
           rw [hstk0, hstkx0] at hstk
@@ -267,8 +260,6 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
           case isFalse => exact SimC.throw_bind
           refine SimC.bind_left (abstractRangeM_eff hs₄ hbtd)
             (fun s₅ cur hs₅ hQcur => ?_)
-          refine SimC.view ?_
-          dsimp only [ExprC.view]
           exact inferLamsOutC_sim hs₅ hstk hQcur
     all_goals exact SimC.throw
 
@@ -290,25 +281,24 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     intro hs ht hfvs hstk hw
     show SimC mode env s₀ RelDC
       (do
-        match ← viewI t with
-        | some (.lam n ty body mb) => do
+        match t with
+        | .lam n ty body mb => do
           let tyo ← instListRevM ty fvs
           let tty ← (coreKnotI mode (mkFEnv env) f).infer (d + k) tyo
           let wtty ← (coreKnotI mode (mkFEnv env) f).whnf (d + k) tty
-          match ← viewI wtty with
-          | some (.sort _) => do
+          match wtty with
+          | .sort _ => do
             let fv ← pure (Expr.fvar (d + k) n tyo)
             inferLamsI mode (coreKnotI mode (mkFEnv env) f) d fuel body (k + 1)
               (fvs.push fv) ((n, tyo, mb) :: stk)
           | _ => throw (.invalid "expected a sort")
         | _ => inferLamsLeafI mode (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
       _
-    refine SimC.view ?_
     have ht' := ht
     obtain rfl := ht
     cases t
     case lam nm ty body mb =>
-      dsimp only [ExprC.view] at hw ⊢
+      dsimp only at hw ⊢
       rw [inferLams_succ_lam]
       have hlamL : (Expr.lam nm ty body mb).instantiateList
           ws = Expr.lam nm ((Expr.instantiateList ty ws))
@@ -327,11 +317,10 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
       refine SimC.bind (ih.whnf hs₂ httyd hwtty)
         (fun s₃ wtty wx hs₃ hPw => ?_)
       obtain ⟨hwd, hww⟩ := hPw
-      refine SimC.view ?_
       obtain rfl := hwd
       cases wtty
       case sort u =>
-        dsimp only [ExprC.view]
+        dsimp only
         refine SimC.bind_left
           (pureC_eff hs₃ (x := Expr.fvar (d + k) nm tyo))
           (fun s₄ fv hs₄ hQfv => ?_)
@@ -352,7 +341,7 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
           ⟨⟨rfl, hQtyo, rfl⟩, hstk⟩ hwopen
       all_goals exact SimC.throw
     all_goals
-      dsimp only [ExprC.view]
+      dsimp only
       rw [inferLams_succ_ne_lam _ (fun _ _ _ _ h => Expr.noConfusion h)]
       exact inferLamsLeafC_sim ih hs ht' hfvs hstk hw
 
@@ -437,11 +426,10 @@ theorem inferPisLeafC_sim (ih : SSimC mode env f) {d : Nat}
   refine SimC.bind (ih.whnf hs₂ hbtd hwbt)
     (fun s₃ wbt wx hs₃ hPw => ?_)
   obtain ⟨hwd, hww⟩ := hPw
-  refine SimC.view ?_
   obtain rfl := hwd
   cases wbt
   case sort v =>
-    dsimp only [ExprC.view]
+    dsimp only
     refine SimC.bind (inferPisOutC_sim hs₃ hstk rfl PWMemoInvC.empty)
       (fun s₄ iv ivx hs₄ hiv => ?_)
     exact SimC.of_eff (pureC_eff hs₄ (x := Expr.sort iv))
@@ -469,13 +457,13 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
     intro hs ht hfvs hstk hw
     show SimC mode env s₀ RelDC
       (do
-        match ← viewI t with
-        | some (.forallE n ty body mb) => do
+        match t with
+        | .forallE n ty body mb => do
           let tyo ← instListRevM ty fvs
           let tty ← (coreKnotI mode (mkFEnv env) f).infer (d + k) tyo
           let wtty ← (coreKnotI mode (mkFEnv env) f).whnf (d + k) tty
-          match ← viewI wtty with
-          | some (.sort u) => do
+          match wtty with
+          | .sort u => do
             let fv ← pure (Expr.fvar (d + k) n tyo)
             inferPisI mode (coreKnotI mode (mkFEnv env) f) d fuel body
               (k + 1) (fvs.push fv) ((u, mb.pw) :: stk)
@@ -484,12 +472,11 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
           inferPisLeafI mode (coreKnotI mode (mkFEnv env) f) d t k fvs
             stk)
       _
-    refine SimC.view ?_
     have ht' := ht
     obtain rfl := ht
     cases t
     case forallE nm ty body mb =>
-      dsimp only [ExprC.view] at hw ⊢
+      dsimp only at hw ⊢
       rw [inferPis_succ_pi]
       have hpiL : (Expr.forallE nm ty body mb).instantiateList
           ws = Expr.forallE nm ((Expr.instantiateList ty ws))
@@ -508,11 +495,10 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
       refine SimC.bind (ih.whnf hs₂ httyd hwtty)
         (fun s₃ wtty wx hs₃ hPw => ?_)
       obtain ⟨hwd, hww⟩ := hPw
-      refine SimC.view ?_
       obtain rfl := hwd
       cases wtty
       case sort u =>
-        dsimp only [ExprC.view]
+        dsimp only
         refine SimC.bind_left
           (pureC_eff hs₃ (x := Expr.fvar (d + k) nm tyo))
           (fun s₄ fv hs₄ hQfv => ?_)
@@ -533,7 +519,7 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
           ⟨⟨rfl, rfl⟩, hstk⟩ hwopen
       all_goals exact SimC.throw
     all_goals
-      dsimp only [ExprC.view]
+      dsimp only
       rw [inferPis_succ_ne_pi _ (fun _ _ _ _ h => Expr.noConfusion h)]
       exact inferPisLeafC_sim ih hs ht' hfvs hstk hw
 
@@ -1105,8 +1091,8 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
     intro hs ht hfvs hstk hw
     show SimC mode env s₀ RelDC
       (do
-        match ← viewI t with
-        | some (.forallE n ty body mb) => do
+        match t with
+        | .forallE n ty body mb => do
           let tyo ← instListRevM ty fvs
           let ty' ← (coreKnotI mode (mkFEnv env) f).annotate (d + k) tyo
           let fv ← pure (Expr.fvar (d + k) n ty')
@@ -1116,12 +1102,11 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
           annotatePisLeafI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d t k fvs
             stk)
       _
-    refine SimC.view ?_
     have ht' := ht
     obtain rfl := ht
     cases t
     case forallE nm ty body mb =>
-      dsimp only [ExprC.view] at hw ⊢
+      dsimp only at hw ⊢
       rw [annotatePis_succ_pi]
       have hpiL : (Expr.forallE nm ty body mb).instantiateList
           ws = Expr.forallE nm ((Expr.instantiateList ty ws))
@@ -1155,7 +1140,7 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
         ⟨⟨rfl, rfl, hty'd, (by simpa using hwty')⟩, (by simpa using hstk)⟩
         hwopen
     all_goals
-      dsimp only [ExprC.view]
+      dsimp only
       rw [annotatePis_succ_ne_pi _ (fun _ _ _ _ h => Expr.noConfusion h)]
       exact annotatePisLeafC_sim ih hs ht' hfvs hstk hw
 
@@ -1207,8 +1192,8 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     intro hs ht hfvs hstk hw
     show SimC mode env s₀ RelDC
       (do
-        match ← viewI t with
-        | some (.lam n ty body mb) => do
+        match t with
+        | .lam n ty body mb => do
           let tyo ← instListRevM ty fvs
           let ty' ← (coreKnotI mode (mkFEnv env) f).annotate (d + k) tyo
           let fv ← pure (Expr.fvar (d + k) n ty')
@@ -1218,12 +1203,11 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
           annotateLamsLeafI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d t k fvs
             stk)
       _
-    refine SimC.view ?_
     have ht' := ht
     obtain rfl := ht
     cases t
     case lam nm ty body mb =>
-      dsimp only [ExprC.view] at hw ⊢
+      dsimp only at hw ⊢
       rw [annotateLams_succ_lam]
       have hlamL : (Expr.lam nm ty body mb).instantiateList
           ws = Expr.lam nm ((Expr.instantiateList ty ws))
@@ -1257,7 +1241,7 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
         ⟨⟨rfl, rfl, hty'd, (by simpa using hwty')⟩, (by simpa using hstk)⟩
         hwopen
     all_goals
-      dsimp only [ExprC.view]
+      dsimp only
       rw [annotateLams_succ_ne_lam _ (fun _ _ _ _ h => Expr.noConfusion h)]
       exact annotateLamsLeafC_sim ih hs ht' hfvs hstk hw
 

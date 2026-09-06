@@ -88,14 +88,6 @@ def OptEr : Option ExprC → Option Expr → Prop
   | some e, some x => e = x
   | _, _ => False
 
-/-! ## The one-level view -/
-
-
-
-/-- Reading a node one level down is the pure view. -/
-theorem view_spec (e : ExprC) : (view e) = (Expr.view e) := by
-  cases e <;> rfl
-
 /-! ## Spines -/
 
 theorem getAppFn_spec : ∀ e : ExprC, (getAppFn e) = (Expr.getAppFn e) := by

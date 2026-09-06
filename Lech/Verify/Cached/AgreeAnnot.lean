@@ -34,9 +34,9 @@ say what the pass may and may not change:
   `annotateLamsLeafI_erasePwC`) — the leaf's output is determined
   modulo `erasePwC`, which is exactly the `pw` field.
 
-The cached representation is **pure** — `viewI = pure ∘ view`, node
-construction is a plain allocation, `abstractRangeM`/`instListRevM`
-pure — so no state relation is needed anywhere below.  That is why the
+The cached representation is **pure** — a node is destructured by
+`match` and built by allocation, `abstractRangeM`/`instListRevM` are
+`pure` — so no state relation is needed anywhere below.  That is why the
 "one expr type everywhere" ruling makes this batch cheap.
 -/
 

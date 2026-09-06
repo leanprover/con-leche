@@ -56,22 +56,6 @@ open Lech
 
 namespace ExprC
 
-/-! ## The one-level view -/
-
-/-- The one-level view of a node (`Lech.ExprView`, the
-representation-generic destructuring seam of the core bodies). -/
-@[inline] def view : ExprC → ExprView ExprC
-  | .bvar i .. => .bvar i
-  | .fvar idx n ty .. => .fvar idx n ty
-  | .sort u .. => .sort u
-  | .const n us .. => .const n us
-  | .app f a .. => .app f a
-  | .lam n ty b m .. => .lam n ty b m
-  | .forallE n ty b m .. => .forallE n ty b m
-  | .letE n ty v b .. => .letE n ty v b
-  | .lit l .. => .lit l
-  | .proj s i e .. => .proj s i e
-
 /-! ## Spines -/
 
 /-- The head of an application spine. -/

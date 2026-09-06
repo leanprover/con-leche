@@ -176,12 +176,6 @@ def instCCapC : Nat := 32000000
 /-- The cached-clone checker monad. -/
 abbrev CheckCM := StateT CState CheckM
 
-/-! ## Node access -/
-
-/-- Read a node's one-level view. -/
-@[inline] def viewI (e : ExprC) : CheckCM (Option (ExprView ExprC)) :=
-  pure (some e.view)
-
 /-- Convert a whole `Expr` (fabricated terms, stored instantiations).
 The identity since task #172 B3a — one type — kept under the interned
 twin's name so the two read the same. -/

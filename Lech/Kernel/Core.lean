@@ -51,34 +51,6 @@ instance : ToString CheckError where
 
 abbrev CheckM := Except CheckError
 
-/-- One-level view of a term: the constructor with immediate children.
-The genericization seam for interned representations (task #26): core
-bodies destructure terms through `viewM`, which is `pure ∘ Expr.view`
-here and a store read for an interned index type. -/
-inductive ExprView (τ : Type) where
-  | bvar (i : Nat)
-  | fvar (idx : Nat) (name : Name) (type : τ)
-  | sort (u : Level)
-  | const (n : Name) (us : List Level)
-  | app (f a : τ)
-  | lam (n : Name) (type body : τ) (m : BinderMeta)
-  | forallE (n : Name) (type body : τ) (m : BinderMeta)
-  | letE (n : Name) (type value body : τ)
-  | lit (l : Literal)
-  | proj (structName : Name) (idx : Nat) (e : τ)
-
-@[inline] def Expr.view : Expr → ExprView Expr
-  | .bvar i => .bvar i
-  | .fvar idx n ty => .fvar idx n ty
-  | .sort u => .sort u
-  | .const n us => .const n us
-  | .app f a => .app f a
-  | .lam n ty b mb => .lam n ty b mb
-  | .forallE n ty b mb => .forallE n ty b mb
-  | .letE n ty v b => .letE n ty v b
-  | .lit l => .lit l
-  | .proj s i e => .proj s i e
-
 /-- The record of mutually recursive core entry points.  `whnfCore`
 computes a head normal form without delta; `whnf` is the full reduction
 loop; `infer` is type inference;
@@ -1845,15 +1817,12 @@ def ensureSort (r : CoreFns m) (_env : Env) (depth : Nat) (e : Expr) :
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
 
-/-- Destructure a term one level (see `ExprView`). -/
-@[inline] def viewM (e : Expr) : m (ExprView Expr) := pure e.view
-
 /-- The inference body — **infer-only**: the application rule's
 argument check ran once, in the annotation pass, and is trusted here
 (so speculative inference inside reduction cannot reject). -/
 def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e => do
-    match ← viewM (m := m) e with
+    match e with
     | .sort u => pure (.sort (.succ u))
     | .fvar idx _ ty =>
       -- Scope check at the leaf of a traversal that happens anyway
@@ -2036,7 +2005,7 @@ can tie the io slot; the definition is byte-identical to the io-license
 batch's. -/
 def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e => do
-    match ← viewM (m := m) e with
+    match e with
     | .sort u => pure (.sort (.succ u))
     | .fvar idx _ ty =>
       if idx < depth then pure ty

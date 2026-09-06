@@ -478,16 +478,6 @@ protected theorem throw_bind {β β' α : Type}
   intro v' s' hr
   exact nomatch hr
 
-/-- Peel a read (`viewI`): same state, value = the node's view. -/
-protected theorem view {β α : Type} {P : β → α → Prop}
-    {e : ExprC} {k : Option (ExprView ExprC) → CheckCM β} {p : FueledM α}
-    (h : SimC mode env s₀ P (k (some e.view)) p) :
-    SimC mode env s₀ P (viewI e >>= k) p := by
-  intro v' s' hr
-  apply h v' s'
-  simpa only [viewI, Bind.bind, StateT.bind, pure, StateT.pure,
-    Except.pure, Except.bind] using hr
-
 /-- Peel a pure read: same state, the continuation at the value.
 (Task #198: the port of the retired `withStore` peel — the cached
 checker's syntactic reads are plain `pure`s.) -/
@@ -598,15 +588,6 @@ protected theorem bind {β β' : Type} {Q : β → Prop} {R : β' → Prop}
     dsimp only [Except.bind] at hr
     obtain ⟨hs₁, hQ⟩ := hx b s₁ hc
     exact hf s₁ b hs₁ hQ v' s' hr
-
-protected theorem view {β : Type} {Q : β → Prop}
-    {e : ExprC} {k : Option (ExprView ExprC) → CheckCM β}
-    (h : CEff mode env s₀ Q (k (some e.view))) :
-    CEff mode env s₀ Q (viewI e >>= k) := by
-  intro v' s' hr
-  apply h v' s'
-  simpa only [viewI, Bind.bind, StateT.bind, pure, StateT.pure,
-    Except.pure, Except.bind] using hr
 
 @[inherit_doc SimC.pureB]
 protected theorem pureB {β γ : Type} {Q : β → Prop}

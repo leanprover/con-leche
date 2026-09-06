@@ -90,7 +90,7 @@ nothing here.*
 What did have to be re-pointed is the **clause** built on top, below.
 -/
 
-open Lech (CheckMode Env Expr Name inferTypeCore inferBody viewM
+open Lech (CheckMode Env Expr Name inferTypeCore inferBody
   natLitSupported)
 
 variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}

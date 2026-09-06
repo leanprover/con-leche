@@ -234,7 +234,7 @@ theorem inferTypeCore_fvar_outS {f d : Nat} {i : Nat} {n : Name}
   | succ f =>
     rw [Lech.inferTypeCore_succ] at h
     unfold Lech.inferBody at h
-    simp only [Lech.viewM, Lech.Expr.view, Bind.bind, Except.bind,
+    simp only [
       pure, Except.pure] at h
     split at h
     · exact (Except.ok.inj h).symm

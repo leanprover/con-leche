@@ -242,8 +242,8 @@ theorem infer_sort_claimIOP (m : EnvS2Core V env) {d : Nat} {u : Level}
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   rw [Lech.inferTypeCoreIO_succ] at h
-  simp only [Lech.inferBodyIO, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind, Except.ok.injEq] at h
+  simp only [Lech.inferBodyIO, pure,
+    Except.pure, Except.ok.injEq] at h
   subst h
   rw [denoteP_sortQ] at hea hta
   obtain rfl : ea = .sort (u.eval φ) := (Option.some.inj hea).symm
@@ -264,8 +264,8 @@ theorem infer_bvar_claimIOP (m : EnvS2Core V env) {d i : Nat} {t : Expr}
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   rw [Lech.inferTypeCoreIO_succ] at h
-  simp only [Lech.inferBodyIO, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind] at h
+  simp only [Lech.inferBodyIO, 
+    ] at h
   simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- `.fvar`, io lane: the leaf package of `CtxOkP` carries the type's
@@ -284,8 +284,8 @@ theorem infer_fvar_claimIOP (m : EnvS2Core V env)
   rw [denoteP] at hea
   obtain rfl : ea = .bvar (d - 1 - idx) := (Option.some.inj hea).symm
   rw [Lech.inferTypeCoreIO_succ] at h
-  simp only [Lech.inferBodyIO, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind] at h
+  simp only [Lech.inferBodyIO, pure,
+    Except.pure] at h
   split at h
   · simp only [Except.ok.injEq] at h
     subst h
@@ -314,7 +314,7 @@ theorem infer_const_claimIOP (m : EnvS2Core V env)
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   rw [Lech.inferTypeCoreIO_succ] at h
-  simp only [Lech.inferBodyIO, Lech.viewM, Expr.view, pure,
+  simp only [Lech.inferBodyIO, pure,
     Except.pure, Bind.bind, Except.bind] at h
   cases hf : env.find? n with
   | none =>
