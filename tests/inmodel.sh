@@ -15,8 +15,9 @@
 # in-process block routed `modeled`.
 #
 #   * raw run (`--pre` on the raw export, in-process modelling on):
-#     exit 2 at the auxiliary block before #188, exit 0 after — either is
-#     recorded, a REJECT or an error fails;
+#     exit 2 at the first recursive block no route installs (the
+#     auxiliary family, or a container such as `List`) before #188, exit
+#     0 after — either is recorded, a REJECT or an error fails;
 #   * dump → lech-preprocess → lech: exit 0 in `--verified` and
 #     `--trusted`, else FAIL;
 #   * `LECH_INMODEL=0` on the raw export: the blocks reach the fold bare
@@ -35,7 +36,9 @@ PRE=.lake/build/bin/lech-preprocess
 
 fixtures=("$@")
 if [ ${#fixtures[@]} = 0 ]; then
-  fixtures=(tests/e2e/inmodel_mutual.ndjson tests/e2e/inmodel_mutual_idx.ndjson)
+  fixtures=(tests/e2e/inmodel_mutual.ndjson tests/e2e/inmodel_mutual_idx.ndjson
+            tests/e2e/inmodel_nested.ndjson tests/e2e/nested_rec.ndjson
+            tests/e2e/nested_struct_proj.ndjson)
 fi
 
 WORK=$(mktemp -d "$TMPDIR/inmodel.XXXXXX")
@@ -51,8 +54,9 @@ for f in "${fixtures[@]}"; do
   blocks=$(sed -n 's/^lech: \([0-9]*\) inductive blocks modelled in-process: .*/\1/p' "$WORK/raw.log")
   case "$rawexit" in
     0) echo "  $name: raw run accepted (the fixpoint route installs the auxiliary families); ${blocks:-0} blocks in-process";;
-    2) if grep -q "missing model for .*_model._impl.aux" "$WORK/raw.log"; then
-         echo "  $name: raw run declines at the auxiliary family (task #188 not landed); ${blocks:-0} blocks in-process"
+    2) if grep -q "missing model for " "$WORK/raw.log"; then
+         at=$(sed -n 's/.*missing model for \([^ ]*\) .*/\1/p' "$WORK/raw.log" | head -1)
+         echo "  $name: raw run declines at $at (a recursive block without the fixpoint route, task #188 not landed); ${blocks:-0} blocks in-process"
        else
          echo "  FAIL $name: raw run declined elsewhere:"; tail -3 "$WORK/raw.log"; fail=1; continue
        fi;;

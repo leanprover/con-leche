@@ -167,6 +167,9 @@ structure StateD where
   inModelGen : Array (Nat × Array DeclC) := #[]
   /-- the number of `inductive` records seen so far -/
   indCount : Nat := 0
+  /-- the parsed inductive blocks, by member type name (the in-process
+  modeller's nested rung reads a container's shape off it) -/
+  indBlocks : Std.HashMap Name InModel.BlockRec := {}
   /-- stream records dropped as identical copies of prelude records:
   they count as accepted stream declarations (they ARE installed, from
   the prelude), so the driver's record count adds them back -/
@@ -571,10 +574,14 @@ private def processLineCoreD (st : StateD) (j : Json)
         -- reason (the residual that still needs `lech-preprocess`).
         let T0 := (block.head?.map (·.name)).getD .anonymous
         let b ← blockRecOf st v
+        let st :=
+          let m := st.indBlocks
+          let st := { st with indBlocks := {} }
+          { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
         if st.inModel && InModel.wants b &&
             !st.constTypes.contains (T0.str "_model") then
           let ctx : InModel.Ctx :=
-            ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0⟩
+            ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
           match InModel.generate ctx b with
           | .error why =>
             return .inr s!"in-process model of {T0}: {why}"

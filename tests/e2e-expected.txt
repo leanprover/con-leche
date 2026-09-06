@@ -559,6 +559,14 @@
 # inmodel_mutual through the default pipe; tests/inmodel.sh gates the
 # in-process path.
 0 inmodel_mutual_idx.ndjson
+# inmodel_nested.ndjson (task #200 B3): seven NESTED blocks — through
+# `List`, through the indexed `Vec`, through `Option`+`Prod` (two
+# mimics), through a structure `Wrap` over `List` (a mimic depending on
+# a mimic), at a dependent pin `DMap α (fun _ => PT α)`, a nested
+# structure with projections, and a mutual-and-nested pair.  Same
+# routing as inmodel_mutual through the default pipe; tests/inmodel.sh
+# gates the in-process path.
+0 inmodel_nested.ndjson
 # indexed_one_ctor.ndjson (task #175 SigmaHom, 2026-09-06): an INDEXED
 # one-constructor family in Type (Mathlib's CategoryTheory.Sigma.SigmaHom
 # shape: two indices built from the fields, dependent fields).  Not

@@ -1,4 +1,4 @@
-import Lech.Frontend.InModel.Mutual
+import Lech.Frontend.InModel.Nested
 
 /-!
 # The in-process modeller (task #200)
@@ -35,7 +35,7 @@ def wants (b : BlockRec) : Bool :=
 reason the block is declined. -/
 def generate (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) :=
   if b.types.any (·.numNested > 0) then
-    throw "nested block (B3)"
+    genNested ctx b
   else
     genMutual ctx b
 

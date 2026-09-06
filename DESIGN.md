@@ -53614,3 +53614,81 @@ Prop` / `Q : Nat → Bool → Prop`, `R`/`S` over `α : Type u`), the
 modelled dump accepts **434 declarations in both modes** (13 blocks
 routed `modeled`); the merged-recursive gate and the suite receipts
 in the READY message.
+
+### B3 — nested blocks (and, by the same code path, mutual-and-nested)
+
+`Lech/Frontend/InModel/Nested.lean`, the general rung.  **The exported
+recursor family is the oracle** for the kernel's nested→mutual
+reduction: motive `m`'s domain `∀ ı⃗ (t : Carrier), Sort ℓ` names a
+member — real (`T_m p⃗ ı⃗`) or a *mimic* (`I As ı⃗`, the container at its
+pins, the pins lowered to the parameter frame and checked free of the
+index variables) — in the kernel's order; minor `J`'s domain
+`∀ f⃗ ih⃗, motive_m e⃗ (C As f⃗)` names its constructor, its fields (the
+count from the block's constructor at a real member, from
+`T.rec_{j+1}`'s rule at a mimic; the domains lowered past the motives
+and minors and head-β-reduced, since a container at a dependent pin
+`DMap α (fun _ => T α)` leaves `(fun _ => T α) k` in the minor) and,
+through the `ih` binders, which fields recurse to which member — a
+count that must agree with the whole-carrier matches, and any other
+field must be free of the block (an occurrence under a binder is
+infinitary nesting: declined).  The auxiliary family has one member
+per motive; `specAll` rewrites every whole carrier occurrence to
+`aux p⃗ (tag.m p⃗ e⃗)`.  Containers must be plain (one type, not nested;
+`StateD.indBlocks` keeps the parsed block records for the check) and
+the mimics acyclic under "a field of one has the other's carrier"
+(topological emission order); the rest is B4.
+
+The isomorphisms, in that order: `_impl.unpack` (one `aux.rec` at the
+dispatching motive — the identity carrier at a real member, `Carrier_j`
+at a mimic; a mimic constructor's minor rebuilds the container
+constructor with the mimic-typed fields' hypotheses and the
+real-member fields *unchanged* — their hypothesis would be an opaque
+`aux.rec` rebuild, the first bug the fixture caught), per mimic
+`pack_j` (the container's recursor; self-recursive fields take the
+hypothesis, other mimics' fields `pack_{j'}`, real members pass),
+`unpack_j` (a wrapper), `congrPack_j` (a definition, so it unfolds to
+`Eq.refl` at `Eq.refl`), `unpackPack_j` (the container's recursor into
+`Prop`, the congruence chain `congrChain` over the moved positions —
+`S'_k := F l⃗ = F (r_1..r_k, l_{k+1}..)`, `S'_n = Eq.refl`, one `Eq.rec`
+per step; the spine builder is frame-aware, the second bug), then
+`_impl.packUnpack` (one `aux.rec` into `Prop` for all mimics; `s = s` at
+a real member) and its wrappers.  Then the constructor models (packing
+mimic-typed fields), `_impl.rec` (`aux.rec` at `M_m` / `M_{r+j} ∘
+unpack_j`, the public minors adapted: a mimic constructor's by
+unpacking its mimic-typed fields — no transport, `unpack` computes on
+the auxiliary constructor — a real constructor's by unpacking them and
+transporting the result along `packUnpack_j` per packed position, one
+`Eq.rec` each at the motive `M_m e⃗ (aux.m.C … z …)`), the member
+recursors (`_impl.rec` at the member's tag) and the mimic recursors
+(`_impl.rec` at `pack_j x`, back along `unpackPack_j x`), the iota
+theorems — `Eq.refl` where nothing is packed, else the nested
+`Eq.rec` over the packed positions described in the section head
+(the generalised statement is built once as a function of the
+per-position `(z_k, h_k)`; the LHS is the unfolded recursor, at a real
+constructor the transport chain along `congrPack_j u_k z_k h_k`, at a
+mimic constructor the outer transport along the congruence chain; the
+declared statement's LHS matches the instance by δι and proof
+irrelevance) — and `proj_i`/`proj_i.iota` of a structure-like owner
+(`aux.rec` at the constant motive, unpacking a packed field; the iota
+`unpackPack_j f_i` or `Eq.refl`).
+
+Gate: `tests/inmodel.sh` now runs `inmodel_nested` (7 blocks: `Tree`
+through `List` with below/brecOn recursion and a `rfl`, `TV` through the
+indexed `Vec`, `Op` through `Option` and `Prod`, `W` through
+`Wrap`→`List`, `PT` at the dependent pin, the structure `NTree` with
+two projection rewrites, the mutual-and-nested `A`/`B` — **785
+declarations accepted in both modes**, 29 blocks routed `modeled`),
+`nested_rec` (322) and `nested_struct_proj` (351, with the reflexive
+`Stream'` left to the tool by the predicate and the generator alike).
+**`Lean.Syntax` — the one nested block of init-full — models
+in-process**: its cone (`Lean.Syntax.getKind`/`getArgs`/`setArgs`/
+`identKind` + the String-support roots, cut by
+`_tmp/indexed-fix/slice_multi_fast.py`) accepts 620 declarations in
+both modes through the dump gate.  The transitional predicate
+(`lechNativeInModel`, still under `LECH_INMODEL_NATIVE=1`) covers the
+nested class as "every field free of the block or a constant-headed
+application" — the container's shape is invisible to it, so a block it
+leaves native and the generator declines is the run's decline naming
+the reason.  The in-tree `.gz` fixtures `nested_pin_names` and
+`indexed_nested_aux` are *preprocessed* streams: the modeller stands
+down on them (the "model present" test), as designed.

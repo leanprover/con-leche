@@ -86,6 +86,9 @@ the constants so far, and the definitional heights. -/
 structure Ctx where
   tbl : ConstTable
   heights : Name → Nat
+  /-- the parsed inductive blocks so far, by member type name (the
+  nested rung reads a container's shape off it) -/
+  blocks : Name → Option BlockRec := fun _ => none
 
 /-- A constructor of member `m`, classified: its record, its recursive
 field positions with the target member of each. -/

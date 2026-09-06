@@ -178,51 +178,55 @@ def lechMentions (ns : List Lean.Name) (e : Lean.Expr) : Bool :=
     | .const n _ => ns.contains n
     | _ => false).isSome
 
-/-- THE IN-PROCESS MUTUAL CLASS (task #200, B1): a mutual block
-(several types, none nested) that lech models in-process
-(`Lech/Frontend/InModel/Mutual.lean`, `genMutual`), mirrored conjunct
-for conjunct on the export's `Lean.Expr`: every member index-free,
+/-- THE IN-PROCESS CLASS (task #200): a mutual or nested block that
+lech models in-process (`Lech/Frontend/InModel/*`): every member
 non-reflexive, safe, at one parameter count and level-parameter list;
-every constructor's field domain either free of the block or exactly a
-member at the parameter variables; one recursor per member with the
-block's motive/minor counts and one eliminator shape.  The members'
-telescope agreement and the recursor shape are argued (Lean's own
-`mutual` elaboration produces them); `tests/native-audit.sh` gates the
-mirror as at the other classes. -/
+every constructor field either free of the block or a whole
+member/container occurrence (no occurrence under a binder); the
+recursor family with the block's motive/minor counts and one
+eliminator shape.  The members' telescope agreement and the recursor
+shapes are argued (Lean's own elaboration produces them); the
+container shapes are not visible here (see `lechFieldsWhole`). -/
 def lechNativeInModel (types : List EIndType) (ctors : List ECtor) (recs : List ERec) : Bool :=
   match types with
-  | [] | [_] => false
+  | [] => false
   | t0 :: _ =>
     let names := types.map (·.name)
     let lps := t0.levelParams
     let nP := t0.numParams
-    types.all (fun t => t.numIndices == 0 && t.numNested == 0 && !t.isReflexive &&
+    let nested := types.any (·.numNested > 0)
+    (types.length > 1 || nested) &&
+    types.all (fun t => !t.isReflexive &&
       !t.isUnsafe && t.levelParams == lps && t.numParams == nP &&
       t.all == names && lechFormerTelescope t) &&
     ctors.all (fun c => c.levelParams == lps && c.numParams == nP && !c.isUnsafe &&
       names.contains c.induct && !lechReservedBasisNames.contains c.name &&
-      lechFieldsPlain names lps nP c.type 0 0) &&
-    recs.length == types.length &&
+      lechFieldsWhole names c.type 0 0) &&
     types.all (fun t => recs.any fun r => r.name == t.name.str "rec") &&
-    recs.all (fun r => r.numIndices == 0 && r.numMotives == types.length &&
-      r.numMinors == ctors.length && r.numParams == nP && !r.isUnsafe &&
+    recs.all (fun r => r.numMotives == recs.length &&
+      r.numMinors == recs.foldl (fun acc r' => acc + r'.rules.length) 0 &&
+      r.numParams == nP && !r.isUnsafe &&
       r.levelParams == (recs.headD default).levelParams &&
       ((match r.levelParams with
         | elim :: rest => rest == lps && !lps.contains elim
         | [] => false) || r.levelParams == lps)) &&
     !names.any lechReservedBasisNames.contains
 where
-  /-- every field domain is free of the block or exactly a member at
-  the parameter variables (`InModel.classifyCtor`) -/
-  lechFieldsPlain (names : List Lean.Name) (lps : List Lean.Name) (nP : Nat) :
-      Lean.Expr → Nat → Nat → Bool
+  /-- every field domain is free of the block, or an application headed
+  by a constant (not a `∀`: a reflexive/infinitary field) — a whole
+  member or container occurrence, what the in-process rungs read as a
+  member's or a mimic's carrier (`InModel.matchCarrier`; a dependent pin
+  `I α (fun _ => T α)` is such a whole occurrence).  The container's own
+  shape (plain, acyclic, its fields finitary) is not visible to the
+  predicate: a block it leaves native and the generator then declines
+  is the run's decline, naming the reason — the residual list. -/
+  lechFieldsWhole (names : List Lean.Name) : Lean.Expr → Nat → Nat → Bool
     | .forallE _ dom body _, k, i =>
-      if k < nP then lechFieldsPlain names lps nP body (k + 1) i
-      else
-        (!lechMentions names dom ||
-          names.any fun n => dom == Lean.mkAppN (Lean.mkConst n (lps.map .param))
-            ((List.range nP).map fun j => Lean.mkBVar (i + nP - 1 - j)).toArray) &&
-        lechFieldsPlain names lps nP body (k + 1) (i + 1)
+      (!lechMentions names dom ||
+        (match dom.getAppFn with
+         | .const _ _ => true
+         | _ => false)) &&
+      lechFieldsWhole names body (k + 1) (i + 1)
     | _, _, _ => true
 
 /-- The blocks lech installs natively: the **direct simple-structure class**
