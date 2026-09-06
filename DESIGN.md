@@ -49274,6 +49274,214 @@ allowlist, tutorial 90/92, e2e 91/91 (the six new fixtures at
 `--verified` 56 291 and `--trusted` 56 291 (exit 0), unchanged.
 
 
+
+## Task #182 — the environment index is linear; the quadratic loop was the localisation lane (2026-09-06, `agent/fenv-linear`)
+
+**The brief.**  A relaunched Mathlib-scale run on a binary carrying task
+#179's `Thunk` fix showed, after ~180 k declarations, `lean_copy_expand_array`
+at 23.5 % with gdb backtraces putting 7 of 16 samples at
+
+```
+#0 lean_copy_expand_array
+#1 …Std_DHashMap…insert…at…Setlec_mkFEnvGo_spec__0
+#2 Setlec_Cached_recordCConst        (5)  /  Setlec_FEnv_push  (1)
+```
+
+— the name-index bucket array copied at (nearly) every accepted
+constant.  The task: find who else holds `fe`/`fe.idx` at the insert and
+fix it at the root; prime suspect `coreKnotI`'s closures.
+
+**The answer is none of the suspects, and the shipped checker is already
+linear.**  Frames #5-#7 of those same backtraces name the culprit:
+`traceLoopC`, the `SETLEC_TRACE_DECLS` localisation lane — which exists
+only in the `agent/frontier4` worktree and is not on master at all.
+
+### 1. The mechanism, at the C level
+
+`traceLoopC` (frontier4 `Main.lean`) is a `for … in` loop over `mut`
+accumulators:
+
+```lean
+let mut fe := Setlec.mkFEnv Setlec.Env.empty
+let mut s : Setlec.Cached.CState := {}
+for d in decls do
+  …
+  match stepF fe d s with
+  | .ok (fe', s') => fe := fe'; s := s'
+```
+
+`for` with `mut` desugars to `Array.forIn'Unsafe.loop` carrying the
+mutable variables in the loop's own accumulator, and the compiler cannot
+prove that accumulator dead across the step.  Its generated C
+(`frontier4/.lake/build/ir/Main.c`,
+`…forIn_x27Unsafe_loop___at___00traceLoopC_spec__0`):
+
+```c
+lean_inc(v_fst_761_);       /* the CState */
+lean_inc(v_a_766_);         /* the DeclC  */
+lean_inc(v_fst_757_);       /* the FEnv   */
+v___x_779_ = lean_apply_3(v_stepF_744_, v_fst_757_, v_a_766_, v_fst_761_);
+```
+
+Both the `FEnv` **and** the `CState` are `lean_inc`'d before the step.
+So for the whole of every declaration `fe.idx` and `s.ienv` carry a
+second reference; `lean_is_exclusive` is false at
+`FEnv.push`'s and `recordCConst`'s `insert`, `lean_array_uset` takes
+`lean_copy_expand_array_nonlinear`, and each of the two maps rewrites its
+entire bucket array — with a `lean_inc` per slot — once per declaration.
+`O(n)` per declaration, `O(n²)` per run.
+
+The shipped loop does the opposite, and it is worth reading side by side
+(`fenv-linear/.lake/build/ir/Main.c`, `checkDeclsGoM` specialised at
+`checkMain`):
+
+```c
+v_fst_881_ = lean_ctor_get(v_x_870_, 0);   /* p.1, the fold POSITION   */
+lean_inc_n(v_fst_881_, 2);                 /* only the Nat is retained */
+…
+v___x_886_ = lp_setlec_Setlec_Cached_checkDeclStepIdxC(
+               v_cfg_868_, v_x_870_, v_head_877_, v_x_871_);
+```
+
+The `(Nat × FEnv)` pair (`v_x_870_`) and the `CState` (`v_x_871_`) are
+passed **without an `inc`** — moved into the step.  Only `p.1`, a `Nat`,
+is retained, because `cb.after p.1 pd` needs it afterwards.
+`checkDeclStepIdxC` continues the discipline: reset/reuse on `p`, and on
+the exclusive path `fe` is taken out **without an `inc`** and handed to
+`checkDeclSPStepC`.  `FEnv.push` itself was already verified optimal at
+task #179 §3.  Nothing on the shipped path holds `fe` or the state across
+a declaration.
+
+**So the three suspects are all cleared**, and by measurement, not by
+reading: `coreKnotI`'s closures *do* capture `fe` (`lean_inc_ref` before
+`sharedOpsC`), but they are consumed inside `checkMemberValF`/the
+knot's callee and dead before the push; the fold does not retain its
+accumulator; `mkFEnv` is not re-run.
+
+### 2. The instrument: a synthetic linearity stream
+
+`scripts/gen_linear_stream.py N OUT.ndjson` emits N declarations
+`def cI : Sort 1 := Sort 0` (`Type := Prop`) — type-correct against the
+*empty* environment: no basis block, no prior constant, no binder, no
+literal.  Per-declaration checking work is constant by construction, so
+**the only thing that grows is the environment and its index**, and
+instructions must be linear in N.  This is the check `init-full` cannot
+perform: at 60 k constants an `O(n)`-per-declaration copy hides in the
+noise (it is worth 0.25 % there), which is exactly how task #179's census
+passed over the question.
+
+### 3. The shipped path is linear across a 30× range
+
+`perf stat -e instructions:u`, `ulimit -v 16G`, `timeout 3000`,
+`nice -n 5`, `SETLEC_SUPERVISED=1`, master `339e026d`:
+
+| N | instructions | per declaration |
+|---|---|---|
+| 100 000 | 8.99 G | 89 851 |
+| 200 000 | 17.87 G | 89 371 |
+| 300 000 | 26.68 G | 88 941 |
+| 1 000 000 | 88.89 G | 88 894 |
+| 3 000 000 | 268.46 G | **89 488** |
+
+Flat to ±1 % over 30×.  All accepted (exit 0, N declarations).
+
+### 4. The lane, measured against the shipped loop on the same binary
+
+The frontier4 binary, same streams, `SETLEC_TRACE_DECLS` off and on:
+
+| lane | N | instructions | per declaration |
+|---|---|---|---|
+| shipped | 50 000 | 4.57 G | 91 450 |
+| **`traceLoopC`** | 50 000 | **82.70 G** | **1 653 978** |
+| shipped | 100 000 | 8.97 G | 89 711 |
+| **`traceLoopC`** | 100 000 | **320.71 G** | **3 207 119** |
+| shipped | 200 000 | 17.85 G | 89 235 |
+
+The lane's per-declaration cost **doubles when N doubles** — 1.65 M →
+3.21 M — which is the definition of the quadratic term, and it is 18× the
+shipped cost already at 50 000.  (The lane's 200 000 cell was stopped: it
+would have been ~1.3 T instructions.)  Extrapolated to the ~180 k
+declarations at which the Mathlib run was sampled, the lane is spending
+roughly 60× the shipped loop's per-declaration cost on bucket copying
+alone — comfortably the 23.5 % the profile showed, and the pace drop
+(559 → 114 decl/s) with it.
+
+### 5. gdb sampling, the same instrument, on the shipped path
+
+`gdb -p PID -batch -ex "thread apply all bt 16"`, 29 samples 0.5 s apart,
+on the shipped loop at **3 000 000** declarations:
+
+* `lean_copy_expand_array` appears **zero** times in **any** frame of
+  **any** sample;
+* two samples land inside the very symbol the Mathlib backtrace named,
+  `…insert…at…Setlec_mkFEnvGo_spec__0` — one with it at `#0` — and
+  neither is copying.  The insert is caught in the act, in place, with an
+  index of three million entries.
+
+Receipts: `_tmp/fenv-linear/gdb-bt/`, `scale.tsv`, `trace-ab.sh`.
+
+### 6. `init-full`, master
+
+`lean_copy_expand_array` **0.25 %** (criterion: ≤ 0.3 %), `lean_mark_mt`
+absent, 60 549 accepted.  Unchanged from task #179's tip — as it must
+be, since nothing on the shipped path was touched.
+
+### 7. The rule, and where the shape still occurs
+
+**`for … in` with a `let mut` accumulator holding a large, linearly
+updated structure is the trap.**  The loop's own accumulator keeps the
+structure alive across the body, so every in-place update inside the body
+becomes a whole-array copy.  Explicit recursion is the fix, and the
+codebase already knew it: `parseExportHandleD`'s docstring says
+"*explicit recursion so the tables stay uniquely referenced across
+steps*" — that is this bug, avoided by construction, in the parser.
+
+**THE RULE, stated for anyone writing another loop over the fold: any
+loop that drives `checkDeclStepIdxC` — in `IO`, in `Id`, in a
+diagnostic lane, anywhere — must pass `(fe, st)` LINEARLY, i.e. hand
+each of them to the step and never touch it again in that iteration; and
+the way you check that you did is to read the generated C at the call
+site and confirm there is no `lean_inc` of either before the step.
+`for … in` with `let mut` fails this by construction; explicit recursion
+passes it.  The cost of getting it wrong is not a constant factor — it
+is `O(n)` per declaration on both the environment index and `ienv`, and
+it is invisible at `init-full` scale.  Measure with
+`scripts/gen_linear_stream.py`: instructions per declaration must be
+flat in N.**
+
+Census of the remaining instances on master, both off the shipped path
+and both left as they are, deliberately:
+
+* **`Frontend.parseExportD`** (`ExportC.lean:587`) — the wholesale parse,
+  `let mut st : StateD` over `for line in …`.  Used **only** by
+  `tests/SetlecTests.lean`'s `#guard`s on inputs of a few dozen lines; the
+  shipped parse is `parseExportStreamD → parseExportHandleD`, the explicit
+  recursion above.  A latent trap if anyone ever points it at a real
+  stream; noted here rather than rewritten, because rewriting it changes a
+  definition for no measurable gain.
+* **`processLineD`'s three alias loops** (`ExportC.lean:394-399`) —
+  `let mut st := st` over a block's members.  They are the `else` of
+  `if modeled then`, and the binary always parses with `modeled := true`
+  (`Main.lean:240`), so they do not run on the shipped path; and they
+  iterate over one block's members, not the stream.
+
+### 8. What this leaves
+
+* **Nothing to fix on master.**  The task's success criteria are met by
+  the tree as it stands: `init-full` 0.25 %, linear scaling to 3 M, no
+  copy at the insert under gdb.  This branch adds the instrument and this
+  record.
+* **The fix belongs in `agent/frontier4`**: `traceLoopC` should be
+  explicit recursion over `(lineNo, fe, s)`, exactly like
+  `parseExportHandleD`.  Until then every `SETLEC_TRACE_DECLS` run is
+  quadratic and its pace numbers say nothing about the shipped checker —
+  which also means the Mathlib frontier's *own* pace measurements taken in
+  that lane need re-reading.
+* Task #179's docket item (i) — give `CoreFnsI`'s fields an `FEnv`
+  parameter — **is not needed for linearity** and its motivation is
+  unchanged: it is worth ~60 G on `init-full` as the knot-rebuild cost,
+  not as a copy.
+
 ## TASK #183 — REGISTER-READY: the Comparator pair and the Palomar metadata (2026-09-06, `agent/comparator`)
 
 The tree gains the four files the [Palomar registry](https://palomar-registry.org/)
