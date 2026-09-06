@@ -218,71 +218,14 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
       | some p => checkDirectSumS cfg fe p
       | none => checkIndDeclSF cfg fe block
 
-/-! ## The progress heartbeat (`SETLEC_PROGRESS`, 2026-09-07)
-
-A multi-hour run over a big stream used to say nothing until it
-finished: the driver's fold is a **pure** `foldlM` in
-`StateT CState (Except CheckError)`, so there is no point at which the
-driver could interleave an `IO` print without either forking the fold
-or moving the statements that are about it
-(`checkDeclsSPCachedD_run`, `foldSPC_PM`, `checkDeclSPStepC_skels`,
-all stated over `ds.foldlM (checkDeclSPStepC cfg)`).  The
-`SETLEC_TRACE_DECLS` localisation lane pays that price by *replacing*
-the fold, which is why it is structurally unable to produce a verdict.
-
-The heartbeat here is the opposite trade: it stays **inside** the
-verified fold and buys its liveness with a *definitional identity*.
-`progressTick pd x` is `x` — that is its whole definition, and
-`progressTick_eq` is `rfl` — so the verdict, the fold's shape and
-every theorem about it are literally unchanged; the only proof-side
-cost is one extra name in the two `unfold`s that open the step.  What
-makes it print is an `@[implemented_by]` companion: the *compiled*
-`progressTickImpl` reads the shared counter, prints one line to stderr
-every `stride` declarations, and returns its argument — the same
-escape hatch `dbgTrace` is (a core `@[extern]` whose model is
-`fun s f => f ()`), in the same shape, and with the same obligation
-on the reader: **the impl must return `x` and touch nothing else.**
-It does: its only effects are a counter bump and a `putStr`/`flush`.
-
-Consequences worth stating plainly:
-
-* the heartbeat is not covered by the soundness proof, and cannot be —
-  a `Prop` cannot see a side effect.  What the proof *does* cover is
-  everything the fold computes: the printed line is the only
-  difference between the model and the binary here.
-* the module set of every capstone's constant closure is unchanged
-  (`tests/proofdeps.sh`): `progressTick` and the counter live in this
-  module, which is already pinned, and `declCLabel` — which formats a
-  name — is reached only from the *impl*, never from the logical body.
-* `stride = 0` (the default: the environment variable unset) makes the
-  impl one relaxed `IO.Ref` read per declaration, i.e. per declaration,
-  not per node.
--/
-
-/-- The heartbeat's configuration and running position, set once by the
-driver (`Main.lean`) after the parse and read by `progressTickImpl`. -/
-structure ProgressC where
-  /-- Print every `stride` declarations; `0` — the default — is off. -/
-  stride : Nat := 0
-  /-- The number of declarations the fold will see (`N`). -/
-  total : Nat := 0
-  /-- The fold position of the next declaration (`i`). -/
-  idx : Nat := 0
-  /-- `IO.monoMsNow` at the driver's start, so every line can carry the
-  elapsed time: a declaration that sits for minutes shows up as a *gap*
-  between two heartbeats, which is the whole point of stamping them. -/
-  startMs : Nat := 0
-  deriving Inhabited
+/-! ## Names and durations for the driver's messages -/
 
 /-- Milliseconds as `s.d` seconds (`12345` ↦ `"12.3"`).  `Nat`
-arithmetic — no `Float` formatting in a hot line. -/
+arithmetic — no `Float` formatting on a message path. -/
 def msSecs (ms : Nat) : String := s!"{ms / 1000}.{(ms % 1000) / 100}"
 
-initialize progressC : IO.Ref ProgressC ← IO.mkRef {}
-
 /-- A parsed declaration's display label (`Main.declCName`, shared with
-the heartbeat).  Reached only from `progressTickImpl`, never from a
-checked path. -/
+the driver's progress callback so the two can never drift). -/
 def declCLabel : DeclC → String
   | .defnDecl cv _ _ => s!"def {cv.name}"
   | .thmDecl cv _ => s!"theorem {cv.name}"
@@ -291,41 +234,10 @@ def declCLabel : DeclC → String
   | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
   | .basisDecl k => s!"basis block {repr k}"
 
-/-- The compiled behaviour of `progressTick`: bump the fold position,
-print `setlec: progress i/N <decl>` to stderr (flushed) every `stride`
-declarations, **return `x`**.  `@[never_extract]` keeps the call where
-it is written, so the line precedes the declaration's check. -/
-@[never_extract] unsafe def progressTickImpl {α : Type}
-    (pd : DeclC) (x : α) : α :=
-  unsafeBaseIO do
-    let st ← progressC.get
-    if st.stride == 0 then
-      return x
-    progressC.set { st with idx := st.idx + 1 }
-    if st.idx % st.stride == 0 then
-      let now ← IO.monoMsNow
-      let e ← IO.getStderr
-      let _ ← (do
-        e.putStr s!"setlec: progress {st.idx}/{st.total} {declCLabel pd} \
-          t={msSecs (now - st.startMs)}s\n"
-        e.flush).toBaseIO
-    return x
-
-/-- The progress hook: **the identity**, and nothing else (`rfl`).  Its
-compiled companion prints the heartbeat; see the section note above. -/
-@[implemented_by progressTickImpl]
-def progressTick {α : Type} (_pd : DeclC) (x : α) : α := x
-
-@[simp] theorem progressTick_eq {α : Type} (pd : DeclC) (x : α) :
-    progressTick pd x = x := rfl
-
-/-- One step of the converted-declaration fold: flush, then check
-(wrapped in the identity `progressTick`, whose compiled companion emits
-the opt-in heartbeat — the definition is `x`). -/
-def checkDeclSPStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
-  progressTick pd do
-    flushC
-    checkDeclSPC cfg fe pd
+/-- One step of the converted-declaration fold: flush, then check. -/
+def checkDeclSPStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do
+  flushC
+  checkDeclSPC cfg fe pd
 
 /-- The fold's step with the **position carried and the error tagged**
 (2026-09-07): the accumulator is `(i, fe)`, and a failing step reports
@@ -421,5 +333,143 @@ theorem foldIdxC_run'_ok (cfg : CoreCfg) (ds : List DeclC) (i : Nat)
     subst h
     rw [foldIdxC_ok cfg ds i fe hrun]
     rfl
+
+/-! ## The monadic driver: the same fold, with callbacks (2026-09-07)
+
+The tension this resolves: the driver wants to *do IO* around each
+declaration — a progress heartbeat, a localisation trace — while the
+fold stays the pure function the capstone letters are about.  The
+resolution is to run the same steps in an arbitrary monad `m` with two
+callbacks, and to prove that **the monadic loop's result is the pure
+fold's, in every lawful monad**.
+
+`Callbacks m` carries `before`/`after`, each taking the fold POSITION
+and the declaration record — never the checker's state — and returning
+`Unit`.  A callback therefore cannot influence the verdict at all; the
+only thing it can do is *fail in `m`* (an `IO` exception, say), in
+which case the loop returns no result rather than a wrong one.
+
+`checkDeclsSPCachedM_eq` is the whole story:
+
+    checkDeclsSPCachedM cb cfg ds
+      = (effects cb cfg ds >>= fun _ => pure (checkDeclsSPCachedD cfg ds))
+
+with `effects` the callback sequence *determined by the pure fold* —
+`before`/`after` along the accepted prefix, `before` alone on the
+declaration that fails.  The verdict on the right is
+`checkDeclsSPCachedD`, unchanged and untouched: no statement about it
+moves, and `no_proof_of_Empty_SPCD_IO`
+(`Setlec/Verify/Cached/MainC.lean`) reads the letter off this equation
+for the `IO` loop the binary actually runs. -/
+
+/-- The callbacks the monadic driver runs around each declaration: the
+fold position and the record, no checker state, `Unit` back. -/
+structure Callbacks (m : Type → Type) where
+  /-- Run before the declaration at fold position `i` is checked. -/
+  before : Nat → DeclC → m Unit
+  /-- Run after it has been checked, and only if it passed. -/
+  after : Nat → DeclC → m Unit
+
+/-- The pure loop, in the recursive form the monadic one mirrors
+(`checkDeclsGoP_fold`: it is the `foldlM` of `checkDeclsSPCachedD`). -/
+def checkDeclsGoP (cfg : CoreCfg) :
+    List DeclC → (Nat × FEnv) → CState → Except (CheckError × Nat) Env
+  | [], p, _ => .ok p.2.env
+  | pd :: ds, p, s =>
+    match checkDeclStepIdxC cfg p pd s with
+    | .ok (p', s') => checkDeclsGoP cfg ds p' s'
+    | .error e => .error e
+
+/-- The callback sequence the pure loop determines: `before` then
+`after` for each declaration it accepts, `before` alone for one it
+rejects, nothing after that. -/
+def effectsGo {m : Type → Type} [Monad m] (cb : Callbacks m) (cfg : CoreCfg) :
+    List DeclC → (Nat × FEnv) → CState → m Unit
+  | [], _, _ => pure ()
+  | pd :: ds, p, s => do
+    cb.before p.1 pd
+    match checkDeclStepIdxC cfg p pd s with
+    | .ok (p', s') => do
+      cb.after p.1 pd
+      effectsGo cb cfg ds p' s'
+    | .error _ => pure ()
+
+/-- The monadic loop: the pure step, with the callbacks around it. -/
+def checkDeclsGoM {m : Type → Type} [Monad m] (cb : Callbacks m)
+    (cfg : CoreCfg) :
+    List DeclC → (Nat × FEnv) → CState → m (Except (CheckError × Nat) Env)
+  | [], p, _ => pure (.ok p.2.env)
+  | pd :: ds, p, s => do
+    cb.before p.1 pd
+    match checkDeclStepIdxC cfg p pd s with
+    | .ok (p', s') => do
+      cb.after p.1 pd
+      checkDeclsGoM cb cfg ds p' s'
+    | .error e => pure (.error e)
+
+/-- **The driver the binary runs**: `checkDeclsSPCachedD`'s loop in a
+monad, with callbacks around each declaration.  Its result is the pure
+driver's, in every lawful monad (`checkDeclsSPCachedM_eq`). -/
+def checkDeclsSPCachedM {m : Type → Type} [Monad m] (cb : Callbacks m)
+    (cfg : CoreCfg) (ds : List DeclC) : m (Except (CheckError × Nat) Env) :=
+  checkDeclsGoM cb cfg ds (0, mkFEnv Env.empty) {}
+
+/-- The callback sequence of a whole run. -/
+def effects {m : Type → Type} [Monad m] (cb : Callbacks m) (cfg : CoreCfg)
+    (ds : List DeclC) : m Unit :=
+  effectsGo cb cfg ds (0, mkFEnv Env.empty) {}
+
+/-- The recursive pure loop is the `foldlM` the driver is defined by. -/
+theorem checkDeclsGoP_fold (cfg : CoreCfg) :
+    ∀ (ds : List DeclC) (p : Nat × FEnv) (s : CState),
+      checkDeclsGoP cfg ds p s
+        = ((ds.foldlM (checkDeclStepIdxC cfg) p) s).map (fun r => r.1.2.env)
+  | [], p, s => rfl
+  | pd :: ds, p, s => by
+    rw [List.foldlM_cons]
+    simp only [checkDeclsGoP, Bind.bind, StateT.bind, Except.bind]
+    cases hstep : checkDeclStepIdxC cfg p pd s with
+    | error e => simp only [Except.map]
+    | ok pr =>
+      obtain ⟨p', s'⟩ := pr
+      exact checkDeclsGoP_fold cfg ds p' s'
+
+/-- … so the shipped pure driver is the recursive loop. -/
+theorem checkDeclsSPCachedD_go (cfg : CoreCfg) (ds : List DeclC) :
+    checkDeclsSPCachedD cfg ds = checkDeclsGoP cfg ds (0, mkFEnv Env.empty) {} := by
+  rw [checkDeclsGoP_fold]
+  unfold checkDeclsSPCachedD
+  simp only [StateT.run', Bind.bind, Except.bind, Functor.map, Except.map]
+  cases (List.foldlM (checkDeclStepIdxC cfg) (0, mkFEnv Env.empty) ds) {} <;> rfl
+
+/-- **The bridge, at any lawful monad**: the monadic loop runs the
+callback sequence the pure loop determines, and returns what the pure
+loop returns. -/
+theorem checkDeclsGoM_eq {m : Type → Type} [Monad m] [LawfulMonad m]
+    (cb : Callbacks m) (cfg : CoreCfg) :
+    ∀ (ds : List DeclC) (p : Nat × FEnv) (s : CState),
+      checkDeclsGoM cb cfg ds p s
+        = (effectsGo cb cfg ds p s >>= fun _ =>
+            pure (checkDeclsGoP cfg ds p s))
+  | [], p, s => by
+    simp only [checkDeclsGoM, effectsGo, checkDeclsGoP, pure_bind]
+  | pd :: ds, p, s => by
+    simp only [checkDeclsGoM, effectsGo, checkDeclsGoP, bind_assoc]
+    refine bind_congr fun _ => ?_
+    cases hstep : checkDeclStepIdxC cfg p pd s with
+    | error e => simp only [pure_bind]
+    | ok pr =>
+      obtain ⟨p', s'⟩ := pr
+      simp only [bind_assoc]
+      exact bind_congr fun _ => checkDeclsGoM_eq cb cfg ds p' s'
+
+/-- **The bridge**: whatever the callbacks do, the monadic driver's
+result is the pure driver's. -/
+theorem checkDeclsSPCachedM_eq {m : Type → Type} [Monad m] [LawfulMonad m]
+    (cb : Callbacks m) (cfg : CoreCfg) (ds : List DeclC) :
+    checkDeclsSPCachedM cb cfg ds
+      = (effects cb cfg ds >>= fun _ => pure (checkDeclsSPCachedD cfg ds)) := by
+  rw [checkDeclsSPCachedD_go]
+  exact checkDeclsGoM_eq cb cfg ds (0, mkFEnv Env.empty) {}
 
 end Setlec.Cached

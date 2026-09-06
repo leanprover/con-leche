@@ -1190,8 +1190,7 @@ theorem checkDeclSPStepC_skels (cfg : CoreCfg) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : DeclC) :
     Yields (checkDeclSPStepC cfg fe pd)
       (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
-  -- `progressTick` is the identity (the heartbeat hook, `ParsedC.lean`)
-  unfold checkDeclSPStepC progressTick
+  unfold checkDeclSPStepC
   ybind
   exact checkDeclSPC_skels cfg h pd
 

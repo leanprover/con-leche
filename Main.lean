@@ -357,13 +357,21 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       let cfg : Setlec.CoreCfg :=
         if mode == Setlec.CheckMode.trusted then Setlec.cfgT else Setlec.cfgP
       -- The progress heartbeat (`SETLEC_PROGRESS=<stride>`,
-      -- 2026-09-07).  The fold below is the verified one, unchanged
-      -- and unforked: the per-declaration lines come from the
-      -- identity hook inside `checkDeclSPStepC`
-      -- (`Setlec.Cached.progressTick` — its definition is `x`; the
-      -- printing is its `@[implemented_by]` companion).  All the
-      -- driver does is hand it the stride and `N` and bracket the
-      -- fold with the two lines it cannot produce itself.
+      -- 2026-09-07).  The loop below is the verified one, and the
+      -- heartbeat is a CALLBACK it takes: `checkDeclsSPCachedM` runs
+      -- `checkDeclsSPCachedD`'s steps in `IO` with `before`/`after`
+      -- around each declaration, and
+      -- `Setlec.Cached.checkDeclsSPCachedM_run` says its result *is*
+      -- the pure driver's — for any callbacks.  A callback sees the
+      -- fold position and the record, never the checker's state, and
+      -- returns `Unit`: it cannot influence the verdict, only fail.
+      -- The letter for this loop is `Setlec.no_proof_of_Empty_IO`
+      -- (`Setlec/MainTheorem.lean`).
+      --
+      -- The line goes out BEFORE the declaration is checked, so a run
+      -- that dies — an OOM, a timeout, a `SIGKILL` — names on its last
+      -- line the declaration it died in, and the clock is read right
+      -- here in `IO`.
       --
       -- **Reading the index**: `i` is the *fold* position.  The
       -- stream's declaration-record index is close to it but not a
@@ -377,28 +385,30 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       -- portable handle.
       let tParse ← IO.monoMsNow
       if stride > 0 then
-        Setlec.Cached.progressC.set
-          { stride := stride, total := decls.size, idx := 0, startMs := t0 }
         IO.eprintln s!"setlec: progress parse done: {decls.size} \
           declarations t={Setlec.Cached.msSecs (tParse - t0)}s \
           (preprocess and parse)"
         (← IO.getStderr).flush
-      -- The closing line, and the hook's disarm: the counter says how
-      -- far the fold got (`= N` on an accept, the failing position
-      -- otherwise), and the stride goes back to 0 so nothing that
-      -- runs the step afterwards can print a second series.
-      let progressDone : IO Unit := do
+      let cb : Setlec.Cached.Callbacks IO := {
+        before := fun i pd => do
+          if stride > 0 && i % stride == 0 then
+            let now ← IO.monoMsNow
+            IO.eprintln s!"setlec: progress {i}/{decls.size} \
+              {declCName pd} t={Setlec.Cached.msSecs (now - t0)}s"
+            (← IO.getStderr).flush
+        after := fun _ _ => pure () }
+      -- The closing line: how far the loop got (`= N` on an accept,
+      -- the failing position otherwise) and how long it took.
+      let progressDone : Nat → IO Unit := fun reached => do
         if stride > 0 then
-          let st ← Setlec.Cached.progressC.get
-          Setlec.Cached.progressC.set { st with stride := 0 }
           let now ← IO.monoMsNow
-          IO.eprintln s!"setlec: progress fold done: {st.idx}/\
+          IO.eprintln s!"setlec: progress fold done: {reached}/\
             {decls.size} t={Setlec.Cached.msSecs (now - t0)}s \
             (fold {Setlec.Cached.msSecs (now - tParse)}s)"
           (← IO.getStderr).flush
-      match Setlec.Cached.checkDeclsSPCachedD cfg decls.toList with
+      match ← Setlec.Cached.checkDeclsSPCachedM cb cfg decls.toList with
       | .ok env =>
-        progressDone
+        progressDone decls.size
         -- A DECLINED stream never says "accepted" (2026-09-07).  The
         -- taint-skip verdict (user directive 2026-08-24) is a
         -- decline: declarations using tolerated axioms were skipped
@@ -418,7 +428,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
             {Frontend.taintDetail taintSkipped}"
           return 2
       | .error (e, i) =>
-        progressDone
+        progressDone i
         -- **No second pass** (2026-09-07): the fold's error carries
         -- the failing declaration's FOLD POSITION, so the message is
         -- read off the record array the driver already holds.  What

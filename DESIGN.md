@@ -48619,54 +48619,132 @@ divergences; `init-full` **55 931 accepted in both modes** (exit 0) —
 master's post-sum-types figure exactly, i.e. this task changes no
 verdict on it.
 
-## `SETLEC_PROGRESS` — a progress heartbeat INSIDE the verified fold (2026-09-07, `agent/heartbeat`)
+## `SETLEC_PROGRESS` — the driver takes CALLBACKS, and the letter is about the loop it runs (2026-09-07, `agent/heartbeat`)
 
-A multi-hour run said nothing until it finished.  The obstacle is
+A multi-hour run said nothing until it finished, and the obstacle was
 structural: the driver's fold is a *pure* `foldlM` in
-`StateT CState (Except CheckError)` (`checkDeclsSPCachedD`, the
-function `no_proof_of_Empty_SPCD_P` is stated over), so there is no
-point at which the `IO` driver could interleave a print — and the two
-ways out that do not need one both cost something the task forbids:
-*forking* the fold (what the `SETLEC_TRACE_DECLS` localisation lane
-does, which is exactly why that lane is structurally unable to produce
-a verdict) or *reshaping* it, which moves the statements that are
-about it.  So the heartbeat stays inside the fold and buys its
-liveness with a **definitional identity**: `progressTick pd x` is `x`
-— that is the whole definition, `progressTick_eq` is `rfl` — wrapped
-around `checkDeclSPStepC`'s body, while an `@[implemented_by]`
-companion does the printing at run time.  Nothing about the verdict,
-the fold's shape or any theorem over it changes; the entire proof-side
-cost is one extra name in the two `unfold`s that open the step
-(`checkDeclSPStepC_run`, `checkDeclSPStepC_skels`), and
-`tests/proofdeps.sh` reports **0 doors**: the hook, the counter and
-the label formatter live in `Setlec/Cached/ParsedC.lean`, a module
-already in every capstone's closure, and the formatter is reached only
-from the *impl*, never from the logical body.  The honest statement of
-what this costs: the compiled binary now differs from its model in one
-respect — a line on stderr — under the same reader's obligation
-`dbgTrace` carries (**the impl must return `x` and touch nothing
-else**; its only effects are a counter bump and a `putStr`/`flush`).
-A `Prop` cannot see a side effect, so this is not something the
-soundness proof can be made to cover; what it does cover, unchanged,
-is everything the fold computes.  The driver supplies the stride
-(`SETLEC_PROGRESS=<stride>`, validated once — a non-numeral is a hard
-error, per the provenance discipline), `N` and the run's start time
-through an `IO.Ref`, and brackets the fold with the two lines the hook
-cannot produce: `parse done` (N and the elapsed parse) and `fold done`
-(the position reached, which is `N` on an accept).  Every line carries
-`t=<elapsed>s`, so a single declaration sitting for minutes shows up
-as a *gap* between two heartbeats — the reason for stamping them.  `i`
-is the FOLD position, a constant **+4** below the stream's
-declaration-record index (the parse folds the pinned basis blocks into
-one `basisDecl`), the same offset the trace lane documents.  Two more
-notes: the supervisor now **streams** the child's stderr line by line
-instead of reading it to EOF and re-printing it at the end (a
-heartbeat that arrives after the run is not a heartbeat; the panic
-marker is looked for on the way past, so the supervision is
-unchanged), and `SETLEC_PROGRESS=1` — one flushed line per
-declaration — measured free: `init-full` 101.4 s at stride 1 against
-102.7 s with the variable unset, verdict line byte-identical in both
-modes at stride 5 000.
+`StateT CState (Except CheckError)`, so the `IO` driver had nowhere to
+interleave a print, while *forking* the fold is what the
+`SETLEC_TRACE_DECLS` localisation lane does — the reason that lane is
+structurally unable to produce a verdict.
+
+Two designs were tried and rejected before the right one.  A
+`progressTick` hook whose definition was `x` with an
+`@[implemented_by]` companion doing the printing: refused against the
+standing project ruling (*"do not use `implemented_by`; if you can
+prove them equal, use `csimp`"*).  A `dbgTrace` on a stride-gated
+branch inside the step: honest and escape-free, but it still put the
+message-building on the checked path and gave the fold a printing
+argument.  **The user's design supersedes both**: *"Can we make the
+main loop live in a `Monad` that takes `m Unit` callbacks before and
+after declarations, and still prove the main result about it?"*  Yes —
+and it is the better answer, because it lifts the whole question out
+of the fold.
+
+### The shape
+
+`Setlec/Cached/ParsedC.lean` gains, beside the pure driver and
+touching nothing of it:
+
+```lean
+structure Callbacks (m : Type → Type) where
+  before : Nat → DeclC → m Unit
+  after  : Nat → DeclC → m Unit
+
+def checkDeclsSPCachedM [Monad m] (cb : Callbacks m) (cfg : CoreCfg)
+    (ds : List DeclC) : m (Except (CheckError × Nat) Env)
+```
+
+A callback receives the **fold position** and the **declaration
+record** — never the checker's state — and returns `Unit`.  So the
+only thing a callback can do to a run is *fail in `m`*, and then the
+loop returns no result rather than a wrong one.  The bridge says the
+rest:
+
+```lean
+theorem checkDeclsSPCachedM_eq [Monad m] [LawfulMonad m] :
+    checkDeclsSPCachedM cb cfg ds
+      = (effects cb cfg ds >>= fun _ => pure (checkDeclsSPCachedD cfg ds))
+```
+
+— in **every lawful monad**, the loop runs the callback sequence the
+*pure* fold determines (`before`/`after` along the accepted prefix,
+`before` alone on the declaration that fails) and returns exactly
+`checkDeclsSPCachedD cfg ds`.  The verdict is the pure fold's, by
+theorem.
+
+### The `IO` letter
+
+`Setlec/Verify/Cached/MainC.lean` carries the run-level statement and
+the capstone:
+
+```lean
+theorem checkDeclsSPCachedM_run (cb : Callbacks IO) …
+    (h : checkDeclsSPCachedM cb cfg ds ω = .ok r ω') :
+    r = checkDeclsSPCachedD cfg ds
+
+theorem no_proof_of_Empty_SPCD_IO (V) [SetTheory V] (hμ : μ.verifiedChecks = true)
+    (cb : Callbacks IO) …
+    (h : checkDeclsSPCachedM cb (cfgOf μ) ds ω = .ok (.ok env') ω') :
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] → False
+```
+
+and `Setlec/MainTheorem.lean` states the readable sibling,
+`Setlec.no_proof_of_Empty_IO`, in the same negated-existential form as
+`Setlec.no_proof_of_Empty`.  **Finding, worth recording:** the `IO`
+case could not be quoted as an instance of the generic bridge.  In
+this toolchain `IO = EIO IO.Error = EST IO.Error IO.RealWorld`, and
+core ships **no `LawfulMonad` instance** for `EST`, `EIO` or `IO`
+(`#synth LawfulMonad IO` fails; the three primitive laws are provable
+by `funext` + `cases`, but `IO`'s own `Monad` instance is
+`instMonadEIO` with auxiliary definitions that `simp only` will not
+open).  So the `IO` run lemma is proved directly, by the same
+induction over the same two definitions, on top of two `rfl`-level
+facts about `EST`'s `bind`/`pure`.  If core ever gains the instance,
+that section collapses into an instantiation of the generic bridge.
+
+### What it costs, and what it does not
+
+* **No escapes**: `grep -rn "implemented_by\|unsafe\|dbgTrace"
+  Setlec/Cached Main.lean` finds nothing new.  No shared counter, no
+  `IO.Ref`, no `never_extract`.
+* **No statement moves.**  `checkDeclsSPCachedD` is untouched, so
+  `no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_run`, `foldSPC_PM`,
+  `checkDeclSPStepC_skels` and the agreement floor are literally the
+  theorems they were; the monadic loop is *new*, and its letter is
+  derived from theirs.
+* `tests/proofdeps.sh` is unchanged (0 doors): everything new lives in
+  modules already in the four capstones' closures.
+* The printing is `IO`, where it belongs; a `Prop` never has to see a
+  side effect.
+
+### Using it
+
+`SETLEC_PROGRESS=<stride>` (unset or `0` is off; a non-numeral is a
+hard error, per the provenance discipline) installs a `before`
+callback that prints
+
+    setlec: progress <i>/<N> <decl> t=<elapsed>s
+
+every `<stride>` declarations, flushed, plus the two bracket lines the
+loop cannot produce itself — `parse done` (N and the elapsed parse) and
+`fold done` (the position reached, `N` on an accept, and the fold
+duration).  The line goes out **before** the declaration is checked, so
+a run that dies — an OOM, a timeout, a `SIGKILL` — names the
+declaration it died in on its last line; that is also why the stride
+default is off rather than 1.  `i` is the FOLD position (see the
+measured note under NO SECOND PASS for why no stream-record index is
+printed beside it).  Cost, measured at stride 1 on `init-full` — one
+flushed line per declaration — nothing detectable (101.4 s against
+102.7 s with the variable unset).  The supervisor streams the child's
+stderr line by line rather than buffering it to EOF, so the lines
+arrive while the run is going.
+
+**Follow-up left open**: `SETLEC_TRACE_DECLS` (the localisation lane,
+`agent/frontier4`) is exactly a `before` callback, and moving it onto
+this loop would make it verdict-producing — it would stop being a lane
+that "cannot accept" and become the ordinary driver with a chattier
+callback.  Not done here because that lane is not on this branch.
 
 ## NO SECOND PASS — the fold's error carries the failing declaration (2026-09-07, `agent/heartbeat`)
 
@@ -48737,3 +48815,21 @@ path; the count-free `taintDetail` is the new half it is built from.)
 Checked: `scripts/perf-tables.sh` reads the count with
 `grep -oE '[0-9]+ declarations'`, which still matches, and
 `tests/arena.sh`, `tests/scale.sh` read exit codes only.
+### Gates (2026-09-07, at the merge with master `43169c7e`)
+
+`lake build` warning-free (648 jobs); `lake test` green; `tests/arena.sh`
+0 FAIL — arena tutorial 90/92, e2e 85/85, annot 14/14, retired flags
+8/8, mode flags 16/16, progress heartbeat 1/1, trusted sweep
+138 + 85 + 14 with its three recorded divergences — with
+`tests/layering.sh` (base 252 / P 166 / caps 3 / umbrella 1, 0
+base→lane, 0 impl→theory) and `tests/proofdeps.sh` (1 441 rows across
+the four capstones, **0 doors**, no regeneration) inside it; `#print
+axioms` on `Setlec.no_proof_of_Empty`, `Setlec.no_proof_of_Empty_IO`,
+`Setlec.Cached.no_proof_of_Empty_SPCD_IO` and
+`Setlec.Cached.checkDeclsSPCachedM_eq` exactly `[propext,
+Classical.choice, Quot.sound]`; `init-full`
+(`_tmp/init-exports/init-full-pre-native.ndjson`, `--pre`) accepted
+56 291 declarations in **both modes, with and without
+`SETLEC_PROGRESS=5000`**, verdict line byte-identical within each mode
+(verified 95.3 s off / 95.0 s on; trusted 95.4 s / 93.6 s — the
+callback loop costs nothing measurable).
