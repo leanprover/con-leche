@@ -1,0 +1,233 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mathlib-initiative/formalization.yaml/main/schema/formalization.schema.json
+# formalization.yaml v0.4 for Setlec (task #183).
+#
+# Registry conventions this file follows, beyond the upstream schema:
+#   * `sources[].type` uses Palomar's closed vocabulary (paper, book,
+#     web discussion, folklore, original-proof, other).
+#   * The result origin is ORIGINAL: exactly one `original-proof` source
+#     with relationship `other`, and every other relationship is
+#     `background`.
+#   * `project.authors` and `project.responsible_maintainers` name humans
+#     only; the AI contribution is reported under `automation`.
+version: "v0.4"
+
+project:
+  name: "Setlec"
+  description: >-
+    A checker for Lean's declaration export format, written in Lean and
+    verified in Lean, together with a machine-checked consistency proof
+    for it. The principal result is that if the shipped checker, run in
+    its default `--verified` mode, accepts a stream of declarations,
+    then the environment it built holds no constant stated at the type
+    `False`: an accepted export is not a proof of a contradiction. The
+    proof constructs a set-theoretic model of the accepted environment
+    inside an arbitrary type satisfying the project's `SetTheory`
+    interface, so it is parametric in the set theory rather than tied to
+    one.
+  authors:
+    - "Joachim Breitner"
+  # TODO(#183): the repository has NO licence file. Palomar requires one
+  # conventional licence file at the repository root and requires this
+  # field to match it. Add `LICENSE` and replace the value below with
+  # its SPDX identifier (the Palomar starter template uses Apache-2.0).
+  license: "TODO: add a root LICENSE file and name its SPDX identifier here"
+  responsible_maintainers:
+    - "Joachim Breitner"
+
+classification:
+  arxiv: ["cs.LO", "math.LO"]
+  msc2020: ["03B35", "03B70", "68V15"]
+
+sources:
+  - title: >-
+      Soundness of a proof checker for Lean's export format: an accepted
+      stream yields no constant of type False
+    type: original-proof
+    relationship: other
+    note: >-
+      The theorem is first presented by this formalization. It is a
+      statement about this project's own checker, so there is no prior
+      mathematical source that states it; the type theory it is a
+      soundness result for is cited below as background.
+  - title: "The Type Theory of Lean"
+    authors:
+      - "Mario Carneiro"
+    type: paper
+    id: "https://github.com/digama0/lean-type-theory"
+    location: "MSc thesis, Carnegie Mellon University, 2019"
+    relationship: background
+    note: >-
+      The reference account of the type theory the checker implements and
+      of the set-theoretic model construction used to justify it. Used as
+      background: no statement or proof in this repository is a
+      transcription of a statement in the thesis.
+    license: "unknown"
+    author_endorsement: "not-contacted"
+  - title: "lean4lean-model"
+    authors:
+      - "Mario Carneiro"
+    type: other
+    id: "https://github.com/digama0/lean4lean"
+    relationship: background
+    note: >-
+      A Lean formalization of the model construction for Lean's type
+      theory, consulted as a reference checkout during development. Used
+      as background; this project's set model (`Setlec/SetModel/*`,
+      `Setlec/SetP/*`) is an independent development against its own
+      `SetTheory` interface and shares no code with it.
+    license: "unknown"
+    author_endorsement: "not-contacted"
+
+related_formalizations:
+  - id: "https://github.com/digama0/lean4lean"
+    relationship: "independent"
+    note: >-
+      lean4lean is the other Lean-in-Lean typechecker with a metatheory
+      development. Setlec is an independent implementation and an
+      independent proof; lean4lean was used for comparison of checker
+      behaviour and coverage, not as a source of statements or proofs.
+
+status:
+  scope: >-
+    Formalized: the soundness of the shipped checking function. The
+    theorem `Setlec.no_proof_of_False` is stated about
+    `Setlec.Cached.checkDeclsSPCachedD (cfgOf .verified)`, which is the
+    function the `setlec` binary folds over the parsed export stream in
+    its default mode -- not a proof-friendly restatement of it. It says
+    that an accepting run yields an environment none of whose constants
+    has type `False`, where `False` is a pinned basis block the stream
+    cannot redefine.
+
+    Not formalized, and deliberately outside the statement: (1) the
+    front end -- reading bytes and parsing them into `List DeclC` -- is
+    not covered, so the theorem is about what the checker does with a
+    parsed stream, not about the file on disk; (2) the `--trusted` mode
+    is a separate, unverified lane and no claim here covers it; (3) the
+    `SetTheory` interface is assumed, not built: the proof is parametric
+    in a type `V` implementing a ZF-minus-style set theory with an
+    omega-chain of Grothendieck universes, and instantiating it (e.g. by
+    Aczel's construction, under the universe-chain hypothesis) is not
+    part of this development; (4) the conclusion is stated
+    SYNTACTICALLY -- `c.toConstantVal.type = .const falseName []` -- so a
+    constant whose type is definitionally but not syntactically `False`
+    is not excluded by this statement; (5) the companion theorems about
+    `Empty` and about the `IO` loop the driver runs exist in
+    `Setlec/MainTheorem.lean` but are not part of this Comparator
+    submission, which compares the single headline theorem.
+  # Excluding the deliberate `sorry` in the Comparator challenge module
+  # `Setlec/Challenge.lean`, which is the only `sorry` in the repository
+  # (gated by `tests/trust-surface.sh`).
+  sorry_count: 0
+  sorry_in_definitions: 0
+  axioms: ["propext", "Classical.choice", "Quot.sound"]
+  main_results:
+    - declaration: "Setlec.no_proof_of_False"
+      file: "Setlec/MainTheorem.lean"
+      sorry_count: 0
+      axioms: ["propext", "Classical.choice", "Quot.sound"]
+      comparator_config: "comparator.json"
+
+automation:
+  methods:
+    - method: "agent"
+      models:
+        - "Claude (Anthropic); several Opus and Sonnet model versions over the project's development"
+      framework: "Claude Code"
+      tool_setup: >-
+        Claude Code agents, run in git worktrees under a human
+        orchestrator, with project-specific instructions (CLAUDE.md), a
+        design journal the agents maintain (DESIGN.md), and a standard
+        test battery (`lake build`, `lake test`, `tests/arena.sh`) that
+        every change has to pass before it is merged. Agents wrote the
+        checker, the set model and the proofs; landing was manual.
+      cost:
+        wall_time: "not tracked"
+        spend_usd: "subscription-based"
+        hardware: "local machine"
+      prompting_notes: >-
+        Task-per-feature prompts written by the human orchestrator, each
+        naming the feature, its verification obligation and its gates.
+        The project rule is that a feature lands together with its
+        proofs and regression tests, and that conditional or `sorry`-ed
+        forms never count as done.
+    - method: "manual"
+      models: []
+      framework: "n/a"
+      tool_setup: >-
+        Human direction, review and landing: the theorem statements, the
+        design rulings and the trust-surface decisions are the
+        maintainer's, and every merge to master is his.
+      cost:
+        wall_time: "not tracked"
+        spend_usd: "n/a"
+        hardware: "local machine"
+      prompting_notes: "n/a"
+  spend_usd: "subscription-based"
+  notes: >-
+    Implemented and proved by Claude agents under human supervision. The
+    human maintainer set the goals, wrote and reviewed the statements
+    that are being claimed, ruled on design questions, and performed
+    every merge; the agents produced the implementation, the model
+    construction and the proof scripts. The claimed statement in
+    `Setlec/Challenge.lean` was human-reviewed. Machine-checkable
+    hygiene is enforced by the repository's own gates rather than by
+    trust in the agents: a `#print axioms` pin on every headline theorem
+    (`tests/SetlecTests/Axioms.lean`), a trust-surface gate that fails
+    the build on any compiler escape (`unsafe`, `implemented_by`,
+    `computed_field`, `native_decide`, `sorry`, ...) outside a
+    justified allowlist (`tests/trust-surface.sh`), a layering gate
+    keeping the implementation free of any import of the proof tower
+    (`tests/layering.sh`), and a proof-dependency pin on the capstones
+    (`tests/proofdeps.sh`).
+
+fidelity:
+  divergences: >-
+    None with respect to a mathematical source: the result is original.
+    With respect to the artifact it is about, two divergences are worth
+    naming. The checker deliberately differs from the official Lean
+    kernel in a small number of places where a conformant behaviour was
+    not provable or not yet supported; each such deviation is recorded
+    in DESIGN.md, and each is an accept-restriction (the checker rejects
+    or declines where the official kernel accepts), never an
+    accept-superset, with the two known exceptions in `proofIrrel`
+    (type comparison and fall-through) which the soundness proof
+    licenses. The checker also declines rather than accepts on features
+    it does not yet support; declining is a distinct exit code and is
+    not covered by the theorem, which speaks only about acceptance.
+
+review:
+  status: "self-assessed"
+  reviewers:
+    - "Joachim Breitner"
+  notes: >-
+    The maintainer reviewed the statement of the claimed theorem and the
+    Challenge module against the shipped code: that
+    `checkDeclsSPCachedD` and `cfgOf .verified` are the function and the
+    configuration the binary actually runs, that `falseName` is the
+    pinned basis block and not a redefinable name, and that `SetTheory
+    V` is a parameter of the proof rather than a hypothesis about the
+    input. The proof tower itself has not had an independent
+    line-by-line external review; the axiom pin, the trust-surface gate,
+    the layering gate and the proof-dependency pin are the mechanical
+    substitutes described under `automation.notes`. No external
+    reviewer has signed off.
+
+alignment:
+  namespace: "Setlec"
+  statements:
+    - source: >-
+        Original result: soundness of the Setlec checker's default
+        verified mode.
+      lean: "Setlec.no_proof_of_False"
+      module: "Setlec.MainTheorem"
+      status: "proved"
+      note: >-
+        The Comparator challenge module `Setlec.Challenge` states the
+        same theorem with `sorry`; the statements are token-identical.
+
+acknowledgements: >-
+  Mario Carneiro, for "The Type Theory of Lean" and for lean4lean, both
+  of which this project reads as background. The Lean FRO, for Lean 4,
+  lean4export and the kernel arena test suite the checker is exercised
+  against. `lean-inductive-models` (nomeata) is used as the export
+  preprocessor.

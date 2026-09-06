@@ -55,6 +55,21 @@
 #       (`Name.beqPtr_eq`), per the user's 2026-09-05 ruling *"do not
 #       use `implemented_by`"*.
 #
+#   Setlec/Challenge.lean            sorry
+#       THE PALOMAR CHALLENGE STATEMENT (task #183).  This file is the
+#       *challenge* half of the Comparator pair (`comparator.json`): the
+#       small readable statement of `Setlec.no_proof_of_False` that a
+#       reader audits, with `sorry` where the proof goes.  The `sorry`
+#       is the whole point of the file — Comparator's contract is that
+#       the challenge states the theorem and the *solution*
+#       (`Setlec/MainTheorem.lean`) proves it — and it is harmless
+#       because the module is a TCB dead end: nothing in the tree
+#       imports it, it roots its own `lean_lib` (`SetlecChallenge`), and
+#       that library is not in `defaultTargets`, so `lake build` never
+#       builds it and no shipped or proved declaration can reach the
+#       `sorryAx` it introduces.  A `sorry` anywhere else still fails
+#       this gate.
+#
 #   Setlec/Kernel/BasisGen.lean      unsafe, implemented_by
 #       ELABORATOR-ONLY.  `#annotate_basis` / `#annotate_pins` run the
 #       checker's own annotation pass at elaboration time through
@@ -98,6 +113,7 @@ TOKENS = {
 }
 
 ALLOW = {
+    'Setlec/Challenge.lean':       {'sorry'},
     'Setlec/Kernel/Expr.lean':
         {'unsafe', 'ptrAddrUnsafe', 'implemented_by', 'computed_field'},
     'Setlec/Kernel/Name.lean':     {'computed_field'},
