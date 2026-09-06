@@ -72,16 +72,15 @@ automation:
       framework: "Claude Code"
     - method: "manual"
   notes: >-
-    Implemented and proved by Claude agents; the human maintainer set
-    the goals, wrote and reviewed the claimed statement, and performed
-    every merge.  Gates in the repository pin the axioms of the main
-    theorem and fail the build on any compiler escape outside a
-    justified allowlist.
+    Implemented and proved by Claude agents.  The human maintainer
+    intensively discussed design and steps with the agents.  Gates in
+    the repository pin the axioms of the main theorem and fail the
+    build on any compiler escape outside a justified allowlist.
 
 fidelity:
   divergences: >-
-    The checker differs from the official Lean kernel in a few recorded
-    places (DESIGN.md); it declines on unsupported features, and the
+    The checker differs from the official Lean kernel in a few places
+    (see README.md); it declines on unsupported features, and the
     theorem speaks only about acceptance.
 
 review:
