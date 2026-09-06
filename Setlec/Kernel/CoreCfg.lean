@@ -28,10 +28,13 @@ way they are:
   the certificate's `Bool`.  At a `betaGate := false` config the read
   `cfg.betaSkip pw` reduces to `false`, so the gated `if` *is* its
   `else` arm — definitionally, and the `else` arm is the pre-gate
-  clause byte-for-byte (that was the retired `cfgR`, and it is still
-  `cfgT`).  At `cfgP` the read reduces to `pw.isNever`, so the
-  surviving branch inspects the **validated annotation datum** — data,
-  not a flag, which is exactly the census's finding 2 distinction.
+  clause byte-for-byte (that was the retired `cfgR`, and today only
+  `cfgOf .trusted` spells it).  At `cfgP` **and at `cfgT`** the read reduces
+  to `pw.isNever`, so the surviving branch inspects the **annotation
+  datum** — data, not a flag, which is exactly the census's finding 2
+  distinction.  (Since the licence ruling of 2026-09-06 the two
+  shipped configs agree on this field; what `cfgT` drops is the
+  *validation* of the datum, not the licence that reads it.)
   (The field itself is a `Bool` and `betaSkip` a definition over it;
   a field of *function* type eliminates just as well but is a closure
   at every β site — measured at B2, +0.36 % on `init-prelude`.);
@@ -69,9 +72,11 @@ module docstring). -/
 structure CoreCfg where
   /-- Is the β-certificate skip on?  Read (through `betaSkip`) at
   `whnfCore`'s β site.  `false` runs the per-redex argument
-  certificate always; at the P core it is `true`, and then the branch
-  reads the redex's own *validated* annotation datum
-  (`AnnotOkP_beta_gate`, `SetP/Step2/GateP.lean`).
+  certificate always; at **both shipped cores** it is `true`, and then
+  the branch reads the redex's own annotation datum — validated at
+  `cfgP` (`AnnotOkP_beta_gate`, `SetP/Step2/GateP.lean`),
+  unvalidated at `cfgT`, which is the licence ruling of 2026-09-06
+  ("trust the writer, skip the validation").
 
   **A `Bool` and not a `PropWhen → Bool`, on measured grounds.**  Both
   shapes satisfy the `rfl`-eliminability requirement, but a function
@@ -83,14 +88,15 @@ structure CoreCfg where
   /-- Is the **io-grade knot slot** the io body (task #170 / #172 B4)?
   Read once per knot level to select what the internal inference call
   sites run: at `false` the io slot is the full inference body,
-  verbatim (the flag is ignored — the R core and the trusted core); at
+  verbatim (the retired R core, and the retiring `cfgOf .trusted`); at
   `true` it is `inferBodyIO`, whose application clause skips the
-  per-argument certificate exactly at a validated `.never` binder
-  under the graph-regime license (`Setlec/SetP/IOLicenseP.lean`).
-  Maps to the same mode bit as `betaGate` (`cfgOf` reads
-  `mode.betaGate` for both) — the two skips are sibling licenses of
-  the one validated-annotation regime — but is its own field so an
-  attribution probe can flip one without the other. -/
+  per-argument certificate exactly at a `.never` binder under the
+  graph-regime license (`Setlec/SetP/IOLicenseP.lean`).  **`true` at
+  both shipped configs since the licence ruling of 2026-09-06**; it is
+  its own field, and not merged with `betaGate`, so an attribution
+  probe can flip one without the other.  `cfgOf` still maps it to
+  `mode.betaGate`, which is what keeps the mode-parametric towers
+  intact. -/
   ioGate : Bool
   /-- The verified lanes' extra checks: the λ-codomain sort check and
   the ∀/λ annotation validation.  Carried by the record from B2 on;
@@ -114,28 +120,46 @@ def cfgP : CoreCfg where
   verified := true
   iotaMode := .verified
 
-/-- **The trusted core's configuration** (task #172, batch
-B3).  Not a third *verified* core — the trusted core is unproven-sound
-by the user's own order — but a named config all the same, because
-`Cached/CoreT.lean`'s cross-calls into the shared helpers have to say
-which configuration they mean, and `.trusted` is no longer a thing a
-templated helper can take.
+/-- **The trusted core's configuration** (task #172, batch B3; the
+licence ruling of 2026-09-06).  Not a second *verified* core — the
+trusted core is unproven-sound by the user's own order — but a named
+config all the same, because `Cached/CoreT.lean`'s cross-calls into
+the shared helpers have to say which configuration they mean, and
+`.trusted` is no longer a thing a templated helper can take.
 
-Its `verified := false` is the *whole* content of the trusted lane's
-divergence at these seven sites: the λ-codomain sort check and the ∀/λ
-annotation validation are off, which is census class 1
+**`cfgT` is `cfgP` with the certification-only bit off, and nothing
+else** (`cfgT_eq_cfgP_verified_off` below).  That is the definition of
+the mode: the user's ruling of 2026-09-06 reads the omission table's
+group B — `betaGate`, `ioGate` — as *licences*, i.e. skips of work
+whose correctness rests on an annotation datum that the verified mode
+validates.  In the trusted mode the **validation** is omitted (that is
+group A, `verified := false`); the licence itself must still apply, or
+the mode would be *slower* than the mode it is defined as a subset of.
+So both licence fields are `true` here, exactly as at `cfgP`, and what
+`cfgT` skips is the group-A validation — the λ-codomain sort check and
+the ∀/λ annotation validation — which is census class 1
 (acceptance-only guard drops) and is what makes the lane
-official-shaped.  `cfgT.betaGate` is `false` for the same reason the
-R core's is: there is no validated datum in the trusted mode, so there is
-nothing a gate could read.
+official-shaped.  Trust the writer, skip the validation.
+
+`iotaMode` is the only other field that differs, and it is inert:
+`ttChecks` is `false` at both modes (`cfgP_iotaMode_ttChecks`,
+`cfgT_iotaMode_ttChecks`), so the ι cone's one branch is eliminated at
+either value.
+
+**`cfgT` is therefore no longer in the image of `cfgOf`**
+(`cfgOf_trusted_ne_cfgT`): `cfgOf` maps the *mode-parametric* towers'
+`CheckMode` and keeps `mode.betaGate` there, where the P tier's
+dead-branch collapse and the establishment/consumption fence live.
+Nothing is proved about `cfgT`, so nothing is lost; the divergence is
+recorded rather than papered over.
 
 B5/B6 retire `Cached/CoreT.lean` into a full instantiation at this
 config; until then it is the residual sharing's name, and naming it is
 route C's own discipline (*the config record's fields are the
 divergence list*) applied to the trusted side. -/
 def cfgT : CoreCfg where
-  betaGate := false
-  ioGate := false
+  betaGate := true
+  ioGate := true
   verified := false
   iotaMode := .trusted
 
@@ -154,22 +178,42 @@ def cfgOf (mode : CheckMode) : CoreCfg where
 field rather than as a field of function type, so that a core's β site
 compiles to the retiring flag's own two field reads and no closure
 (see `CoreCfg.betaGate`).  The elimination is unchanged: at a
-`betaGate := false` config (`cfgT`) the conjunction's left operand is
-the literal `false`, so the whole read is `false` by `rfl`, and at
-`cfgP` it is the annotation datum. -/
+`betaGate := false` config (`cfgOf .trusted`) the conjunction's left
+operand is the literal `false`, so the whole read is `false` by `rfl`;
+at `cfgP` and at `cfgT` it is the annotation datum. -/
 @[inline] def CoreCfg.betaSkip (cfg : CoreCfg) (pw : PropWhen) : Bool :=
   cfg.betaGate && pw.isNever
 
 /-- `cfgOf` at `.verified` **is** the P core's config — by `rfl`,
 which is the census's finding 1 (the flag-free core is already
-available definitionally) at the record level.  With two modes this and
-`cfgOf_trusted_eq_cfgT` are the whole transition map. -/
+available definitionally) at the record level.  This is the whole
+transition map now: `cfgOf` exists for the *mode-parametric* towers,
+whose only inhabited instance is the verified one. -/
 theorem cfgOf_verified_eq_cfgP : cfgOf .verified = cfgP := rfl
 
-/-- `cfgOf` at `.trusted` **is** the trusted core's config, by `rfl` —
-so the seven trusted cross-calls into the shared helpers are, still,
-the mode-parametric helper at the mode they always meant. -/
-theorem cfgOf_trusted_eq_cfgT : cfgOf .trusted = cfgT := rfl
+/-- **The trusted config is `cfgP` with the certification-only bit
+off** — the licence ruling of 2026-09-06, as one `rfl`.  Read it as
+the definition of the mode: `verified` is group A (dropped), and the
+only other difference is the inert `iotaMode`. -/
+theorem cfgT_eq_cfgP_verified_off :
+    cfgT = { cfgP with verified := false, iotaMode := .trusted } := rfl
+
+/-- **`cfgOf .trusted` is NOT `cfgT` any more**, and that is the
+ruling's one structural consequence, recorded rather than hidden.
+
+Until 2026-09-06 the two agreed by `rfl` and `Cached/CoreT.lean`'s
+cross-calls were "the mode-parametric helper at the mode they always
+meant".  With the group-B licences turned on in the trusted mode they
+disagree at `betaGate`/`ioGate`: `cfgOf` must keep mapping those to
+`mode.betaGate`, because that is where the P tier's dead-branch
+collapse (`betaGateFires_off`) and its establishment/consumption fence
+(`verified_isNever_of_betaGateFires`) live, and both would be *false*
+at a `.trusted` whose gates were on.  `cfgT` is the shipped trusted
+core's config; `cfgOf .trusted` is a mode-parametric spelling nothing
+ships.  Nothing is proved about either of them, so the split costs no
+theorem. -/
+theorem cfgOf_trusted_ne_cfgT : cfgOf .trusted ≠ cfgT := fun h =>
+  Bool.noConfusion (congrArg CoreCfg.betaGate h)
 
 /-! ## The three fields, eliminated at the core
 
@@ -181,7 +225,6 @@ row whose subject no longer exists is not a loosening. -/
 @[simp] theorem cfgP_betaSkip (pw : PropWhen) :
     cfgP.betaSkip pw = pw.isNever := rfl
 @[simp] theorem cfgP_ioGate : cfgP.ioGate = true := rfl
-@[simp] theorem cfgT_ioGate : cfgT.ioGate = false := rfl
 theorem cfgOf_ioGate (mode : CheckMode) :
     (cfgOf mode).ioGate = mode.betaGate := rfl
 @[simp] theorem cfgP_betaGate : cfgP.betaGate = true := rfl
@@ -192,5 +235,24 @@ theorem cfgOf_ioGate (mode : CheckMode) :
 core: `ttChecks` is uninhabited-true, so the ι cone's one branch is
 gone by `rfl`, not by a lemma. -/
 theorem cfgP_iotaMode_ttChecks : cfgP.iotaMode.ttChecks = false := rfl
+
+/-! ### The same table at `cfgT` (the licence ruling, 2026-09-06)
+
+The trusted core is unverified, so these rows carry no proof
+obligation — they are the *statement* of what the mode is, checked by
+the elaborator.  Group B is on; group A is off; `iotaMode` is inert. -/
+
+/-- The β licence, ON in the trusted core: the read is the annotation
+datum, exactly as at `cfgP` — unvalidated, by design. -/
+@[simp] theorem cfgT_betaSkip (pw : PropWhen) :
+    cfgT.betaSkip pw = pw.isNever := rfl
+@[simp] theorem cfgT_betaGate : cfgT.betaGate = true := rfl
+/-- The io licence, ON in the trusted core. -/
+@[simp] theorem cfgT_ioGate : cfgT.ioGate = true := rfl
+/-- **Group A, the whole mode**: the certification-only checks are the
+one thing the trusted core drops. -/
+@[simp] theorem cfgT_verified : cfgT.verified = false := rfl
+/-- The transitional field is inert at `cfgT` too. -/
+theorem cfgT_iotaMode_ttChecks : cfgT.iotaMode.ttChecks = false := rfl
 
 end Setlec
