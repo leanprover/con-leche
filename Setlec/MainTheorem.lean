@@ -42,10 +42,8 @@ open Setlec.Cached (DeclC checkDeclsSPCachedD)
 type `Empty`. -/
 theorem no_proof_of_Empty (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
-    (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env)
-    (proof : ∃ c ∈ env.consts, c.toConstantVal.type = .const emptyName []) :
-    False := by
-  obtain ⟨c, hc, hty⟩ := proof
-  exact Cached.no_proof_of_Empty_SPCD_P V rfl accepted c hc hty
+    (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env) :
+    ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const emptyName [] :=
+  fun ⟨c, hc, hty⟩ => Cached.no_proof_of_Empty_SPCD_P V rfl accepted c hc hty
 
 end Setlec
