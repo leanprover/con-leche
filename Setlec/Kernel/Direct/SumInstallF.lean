@@ -97,6 +97,8 @@ def checkDirectSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     throw (.notImplemented "direct sum: opened constructor residual")
   unless xq.1.all fun x => x.fvarTypeD.constsResolveF fe₀ do
     throw (.notImplemented "direct sum: field domain after the block")
+  unless (xq.2.getAppArgs.drop nP).all fun e => e.constsResolveF fe₀ do
+    throw (.invalid "direct sum: index expression mentions the block")
   let _sorts ← checkDirectFieldSortsIFA ops fe isProp large resSort nP xq.1.toArray
     (xq.2.getAppArgs.drop nP) nF
   pure cvCa

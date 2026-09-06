@@ -194,6 +194,7 @@ theorem checkDirectSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
         = some (xFvs, Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs)) ∧
       idxArgs.length = nIdx ∧
       (∀ x ∈ xFvs, x.fvarTypeD.constsResolve env₀ = true) ∧
+      (∀ e ∈ idxArgs, e.constsResolve env₀ = true) ∧
       checkDirectFieldSortsI (fueledOps mode F) env isProp large resSort
         nP xFvs idxArgs nF = .ok sorts := by
   unfold checkDirectSumCtor at h
@@ -224,6 +225,9 @@ theorem checkDirectSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
   by_cases h3 : (xFvs.all fun x => Expr.constsResolve env₀ x.fvarTypeD) = true
   case neg => rw [if_neg h3] at h; close_throw
   rw [if_pos h3] at h
+  by_cases h4 : ((xrest.getAppArgs.drop nP).all fun e => Expr.constsResolve env₀ e) = true
+  case neg => rw [if_neg h4] at h; close_throw
+  rw [if_pos h4] at h
   obtain ⟨sorts', hsorts, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
@@ -233,13 +237,15 @@ theorem checkDirectSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
   obtain ⟨es, hes, hesl⟩ := residual_shape hc.1.1 hc.2 hc.1.2
   refine ⟨hccv, ⟨cbs, es, by rw [hq', hes], hesl⟩,
     fvsP, crest, tfvs, trest, xFvs, xrest.getAppArgs.drop nP, sorts',
-    hcq', htq', by cases u; exact hdoms, ?_, ?_, ?_, hsorts⟩
+    hcq', htq', by cases u; exact hdoms, ?_, ?_, ?_, ?_, hsorts⟩
   · rw [hxq']
     congr 1
     rw [← h2.1.2, List.take_append_drop, ← h2.1.1, Expr.mkAppN_getApp]
   · rw [List.length_drop, h2.2]; omega
   · intro x hx
     exact List.all_eq_true.mp h3 x hx
+  · intro e he
+    exact List.all_eq_true.mp h4 e he
 
 /-- All constructors, positionally: the annotated list is as long as
 the input and every entry is its constructor's run. -/

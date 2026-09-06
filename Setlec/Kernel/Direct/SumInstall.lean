@@ -113,6 +113,10 @@ def checkDirectSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     throw (.notImplemented "direct sum: opened constructor residual")
   unless xq.1.all fun x => x.fvarTypeD.constsResolve env₀ do
     throw (.notImplemented "direct sum: field domain after the block")
+  -- the index expressions never mention the block (official
+  -- `is_valid_ind_app`: no inductive occurrence in an index argument)
+  unless (xq.2.getAppArgs.drop nP).all fun e => e.constsResolve env₀ do
+    throw (.invalid "direct sum: index expression mentions the block")
   let _sorts ← checkDirectFieldSortsI ops env isProp large resSort nP xq.1
     (xq.2.getAppArgs.drop nP) nF
   pure cvCa
