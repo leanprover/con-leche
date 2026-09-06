@@ -49604,10 +49604,12 @@ appear in `PalomarRegistry/PalomarPolicy`'s `docs/specification.md`:
   is reported where the schema wants it: `automation.methods` carries an
   `agent` entry (Claude / Claude Code, worktree-per-task under a human
   orchestrator) and a `manual` entry, with `automation.notes` saying plainly
-  that agents wrote the implementation and the proofs, the maintainer set the
-  goals, reviewed the claimed statements and performed every merge, and that
-  the repository's own gates (axiom pin, trust surface, layering, proofdeps)
-  are the mechanical substitute for trusting the agents.
+  that agents wrote the implementation and the proofs, that the maintainer
+  intensively discussed design and steps with the agents (CORRECTED by the
+  user on 2026-09-06: the maintainer did NOT review the statements and did
+  NOT perform the merges — the agents merged; do not claim otherwise
+  anywhere), and that the repository's own gates (axiom pin, trust surface,
+  layering, proofdeps) are the mechanical substitute for trusting the agents.
 
 `status.scope` is where the honest limitations go, and they are listed rather
 than softened: the parser/front end is outside the statement; `--trusted` is
