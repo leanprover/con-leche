@@ -249,6 +249,7 @@ theorem directSumPartsCore?_inv {block : List ConstantInfo} {p : DirectSumParts}
     reservedBasisNames.contains p.cvT.name = false ∧
     reservedBasisNames.contains p.cvR.name = false ∧
     (p.large = true → p.elim ∈ p.cvR.levelParams) ∧
+    (∀ q ∈ p.cvT.levelParams, q ∈ p.cvR.levelParams) ∧
     p.rhss.length = p.ctors.length := by
   unfold directSumPartsCore? at h
   split at h
@@ -292,7 +293,18 @@ theorem directSumPartsCore?_inv {block : List ConstantInfo} {p : DirectSumParts}
               split at h
               · next lq elim' hlarge =>
                 obtain rfl := Option.some.inj h
-                refine ⟨rfl, hc.1.1.1.1.1, hn1', hcs, hc.1.1.1.2, hc.1.1.2, ?_, ?_⟩
+                have hlps : ∀ q ∈ cvT.levelParams, q ∈ cvR.levelParams := by
+                  split at hlarge
+                  · next e relps hlp =>
+                    split at hlarge
+                    · next hcond =>
+                      simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+                      intro q hq
+                      rw [hlp]
+                      exact List.mem_cons_of_mem _ (by rw [hcond.1]; exact hq)
+                    · exact nomatch hlarge
+                  · exact nomatch hlarge
+                refine ⟨rfl, hc.1.1.1.1.1, hn1', hcs, hc.1.1.1.2, hc.1.1.2, ?_, hlps, ?_⟩
                 · intro _
                   show elim' ∈ cvR.levelParams
                   split at hlarge
@@ -306,10 +318,15 @@ theorem directSumPartsCore?_inv {block : List ConstantInfo} {p : DirectSumParts}
                 · simp [hrules]
               · next lq hlarge =>
                 split at h
-                · obtain rfl := Option.some.inj h
-                  refine ⟨rfl, hc.1.1.1.1.1, hn1', hcs, hc.1.1.1.2, hc.1.1.2, ?_, ?_⟩
+                · next hcond =>
+                  obtain rfl := Option.some.inj h
+                  refine ⟨rfl, hc.1.1.1.1.1, hn1', hcs, hc.1.1.1.2, hc.1.1.2, ?_, ?_, ?_⟩
                   · intro hl
                     exact absurd hl Bool.false_ne_true
+                  · intro q hq
+                    simp only [beq_iff_eq] at hcond
+                    show q ∈ cvR.levelParams
+                    rw [hcond]; exact hq
                   · simp [hrules]
                 · exact nomatch h
             all_goals first | exact nomatch h | simp at h
@@ -327,6 +344,7 @@ theorem directSumParts?_inv {env : Env} {block : List ConstantInfo} {p : DirectS
     reservedBasisNames.contains p.cvT.name = false ∧
     reservedBasisNames.contains p.cvR.name = false ∧
     (p.large = true → p.elim ∈ p.cvR.levelParams) ∧
+    (∀ q ∈ p.cvT.levelParams, q ∈ p.cvR.levelParams) ∧
     p.rhss.length = p.ctors.length := by
   unfold directSumParts? at h
   cases hp : directSumPartsCore? block with

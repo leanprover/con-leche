@@ -265,10 +265,12 @@ theorem sumRecLeafFacts {ℓ w nP n : Nat} {pds dms : List (Nat × Nat × AVExpr
     ∀ ρ : Nat → V,
       AnnotOkP V ρ (directSumRecAV ℓ w (pds ++ [dM] ++ dms ++ [dt]) Fss) ∧
       interp2 V ρ (directSumRecAV ℓ w (pds ++ [dM] ++ dms ++ [dt]) Fss)
-        ∈ˢ interp2 V ρ (mkPisAV (pds ++ [dM] ++ dms ++ [dt]) (.app (.bvar (Fss.length + 1)) (.bvar 0))) := by
+        ∈ˢ interp2 V ρ (mkPisAV (pds ++ [dM] ++ dms ++ [dt]) (.app (.bvar (n + 1)) (.bvar 0))) := by
   intro ρ
   obtain ⟨hpre, hval⟩ := sumRecWalks hlenP hlenM hFss okΓ hbase hvFss ρ
-  exact ⟨directSumRecAV_okP hz hpre hval, directSumRecAV_mem hz hpre⟩
+  have hmem := directSumRecAV_mem hz hpre
+  rw [hFss] at hmem
+  exact ⟨directSumRecAV_okP hz hpre hval, hmem⟩
 
 /-! ## The rule law -/
 
