@@ -14,9 +14,13 @@ conversion, leaving the plain identity function).  At install
 opaque value is compared against the pin by definitional equality —
 toolchain drift surfaces as a decline, never silently.
 
-Rebuild caveat: as with `Setlec/Kernel/NatOpPins.lean`, Lake sees no
-dependency edge to the toolchain prelude; `touch` this file to force
-regeneration after a toolchain bump.
+These two pins stay *generated at elaboration time*: `#gen_trust_pins`
+reads only the toolchain's own `Init`, which is always built, so it
+never had the build-ordering defect that moved the Nat-operation pins
+to a committed file at task #176 (see `Setlec/Kernel/NatOpPins.lean`).
+
+Rebuild caveat: Lake sees no dependency edge to the toolchain prelude;
+`touch` this file to force regeneration after a toolchain bump.
 -/
 
 set_option maxRecDepth 1000000
