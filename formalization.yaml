@@ -48,7 +48,7 @@ related_formalizations:
 status:
   scope: >-
     Covered: `Lech.no_proof_of_False` is stated about
-    `Lech.Cached.checkDeclsSPCachedD (cfgOf .verified)`, the function
+    `Lech.Cached.checkDeclsSPCachedD .verified`, the function
     the `lech` binary runs on the parsed export.  Not covered: the
     parser, the `--trusted` mode.  The proof is parametric in a type
     satisfying the `SetTheory` interface (ZF without infinity and choice
