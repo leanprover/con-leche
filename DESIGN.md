@@ -47769,6 +47769,33 @@ has grown since.  `mi_malloc_small`'s *share* rises because the
 denominator fell and because E1's rebuild really does allocate — see
 §4's last paragraph.)
 
+The same two symbols across the battery, before → after — **the cost
+scales with |env| × declarations, exactly as the mechanism predicts**:
+
+| stream / mode | `lean_mark_mt` | `lean_copy_expand_array` |
+|---|---|---|
+| `init-full` verified (60 549 decls) | 10.91 → **0.00 %** | 4.34 → **0.26 %** |
+| `grind-ring-5` verified (3 866) | 1.69 → **0.03 %** | 0.71 → **0.25 %** |
+| `grind-ring-5` trusted | 1.99 → **0.06 %** | 0.51 → **0.43 %** |
+| `app-lam` verified (94) | 0.03 → **0.01 %** | 0.00 → **0.00 %** |
+| `app-lam` trusted | 0.03 → **0.01 %** | 0.02 → **0.00 %** |
+
+`app-lam` is the control: 94 declarations, so the environment never
+grows enough for the mark or the copy to cost anything — and yet
+`app-lam` still gets *faster* by 0.44 %, which is the `Thunk`'s own
+per-call overhead (a cell allocation and an atomic exchange) net of the
+rebuild.  `init-full` trusted was not profiled; its −17.0 % on
+instructions says the same thing.
+
+**A measurement hazard, recorded because it nearly produced a wrong
+table.**  `perf report` resolves symbols against the binary *at the
+recorded path*.  The first `grind-ring-5` profiles were taken against
+`.lake/build/bin/setlec`, which was then rebuilt twice; re-reading
+those files later silently redistributed the samples (`lean_mark_mt`
+read 0.82 % instead of 1.69 %).  Every number above was re-taken
+against immutable copies (`_tmp/linear-audit/setlec-{base,fix}`).
+Snapshot the binary before recording, always.
+
 **How the copies were classified, since `lean_copy_expand_array_nonlinear`
 is a bare `jmp` into `lean_copy_expand_array` and carries no samples of
 its own:** `perf annotate lean_copy_expand_array`.  The function
@@ -47777,9 +47804,24 @@ branches on `lean_is_exclusive(a)` into a `memcpy` + `dealloc` arm
 `*dest = *it; lean_inc(*it)` loop (the non-linear copy).  Before, the
 samples sat almost entirely in the **inc loop** — ~95 % of the 4.34 %
 was non-linear copying, ~5 % real growth.  After, 0.26 % total remains,
-of which ~0.15 pp is still in the inc loop: three orders of magnitude
-smaller in absolute terms, unattributed, and left as a note rather than
-a hunt.
+of which ~0.15 pp is still in the inc loop.
+
+**Where that 0.15 pp is, as far as it could be pinned.**  A
+`--call-graph dwarf` run over `init-full` did not resolve the runtime
+frames (the samples land in `lean_copy_expand_array`, whose only
+non-linear caller is a bare `jmp` and whose Lean-side callers inline
+`lean_array_uset` and carry no CFI at that point).  What *did* pin part
+of it is annotating the Lean side instead: the walks' own memo inserts
+— the `Std.DHashMap … insert` specialisations at
+`Setlec_Cached_ExprC_instantiate1Go_spec__1` and
+`Setlec_Expr_bvarBoundGo_spec__0` — carry non-zero samples on the
+instruction *after* their `call lean_copy_expand_array_nonlinear`
+(≈0.006 pp and ≈0.003 pp of the total each).  So the residue is memo
+tables that are occasionally not exclusive at the insert, not the
+environment index.  `lean_array_push`'s non-exclusive arm accounts for
+almost none of it (the whole function is 0.13 %).  Two orders of
+magnitude below where this session started, and left as a lead rather
+than a hunt.
 
 Peak RSS on `init-full` (`VmHWM` from `/proc`, verified mode): 811 →
 **839 MB (+3.5 %)** — the honest cost of E1's rebuild, seven
