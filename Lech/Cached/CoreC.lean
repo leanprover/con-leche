@@ -1844,6 +1844,29 @@ only — the term the proofs unfold is unchanged. -/
         set' st (mp.insert e r)
       pure r
 
+/-- **TASK #196 MEASUREMENT ONLY — NEVER LANDS.**  `memoEI` for the
+full-`infer` slot with the *sound* one-directional seed: a computed
+full-inference result is inserted into the io memo as well, because a
+full-infer result is a valid infer-only result (the "named future
+option" of the task-#170 memo ruling — the full→only direction is
+sound by a monotonicity argument the proof tier does not have yet).
+Reads only `inferC`; writes both. -/
+@[inline] def memoEISeed (f : Nat → ExprC → CheckCM ExprC) :
+    Nat → ExprC → CheckCM ExprC :=
+  fun d e => do
+    match (← get).inferC[e]? with
+    | some r => pure r
+    | none =>
+      let r ← f d e
+      modify fun st =>
+        let mp := st.inferC
+        let st := { st with inferC := ∅ }
+        let st := { st with inferC := mp.insert e r }
+        let mq := st.inferIOC
+        let st := { st with inferIOC := ∅ }
+        { st with inferIOC := mq.insert e r }
+      pure r
+
 /-- Memoize the interned definitional-equality entry point under the
 index pair (`@[inline]` as `memoEI`). -/
 @[inline] def memoBI (f : Nat → ExprC → ExprC → CheckCM Bool) :
@@ -1909,7 +1932,8 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
         (fun d e => whnfCoreBodyI mode (prev ()) fe d e)
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI (prev ()) fe d e)
-      infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
+      -- TASK #196 E1 (measurement only): the sound one-directional seed.
+      infer := memoEISeed
         (fun d e => inferBodyI mode (prev ()) fe d e)
       defeq := memoBI
         (fun d a b => defeqBodyI mode (prev ()) fe d a b)
