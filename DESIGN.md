@@ -43158,3 +43158,189 @@ names, and building a general skip list was explicitly out of scope.
   ~16–17 GiB, still inside the 22 GB cap but with the streaming-parse
   fix (§2) it would be ~5 GiB.
 
+
+## Task #177 — the substitution walks' memo discipline (2026-09-06, agent/instantiate-opt)
+
+**The user's question:** *"instantiate is a very hot function for us —
+can we optimize it?"*  Method as ruled: profile first, one candidate at
+a time, verdicts unchanged, the perf number is the go/no-go, proof work
+only after a confirmed win.  Baseline = master `3993fb54`, whose cells
+reproduce PERF.md's table exactly (app-lam 208.62/208.97 G, init-full
+1085.56/987.05 G).
+
+### 1. The profile
+
+`perf record -F 199/99`, `instructions:u` symbol buckets, `ulimit -v
+16G`, `nice 5`, `SETLEC_SUPERVISED=1`, `--pre` streams; app-lam,
+grind-ring-5 and init-full in both modes (`_tmp/inst-opt/*.data`).
+
+| bucket | app-lam np | grind np | init-full np |
+|---|---|---|---|
+| `lean_dec_ref_cold` + `mi_free` + page collect + `mi_malloc` + `del_core_other` | 40.2 % | 35.1 % | 34.2 % |
+| kernel page-fault/`munmap` symbols | ~19 % | ~1 % | ~2 % |
+| `instantiate*Go` / `abstractRangeGo` (self) | 6.6 % | 4.3 % | 4.5 % |
+| the walks' `Std.DHashMap` spec sites (insert / get / expand) | 11.2 % | 8.1 % | 6.3 % |
+| `Expr.beqB`/`beqFast` (defeq descent, not this task) | 0.7 % | 5.1 % | 6.7 % |
+| `Expr.bvarBoundGo`'s own memo (the saturated-field fallback) | — | 2.4 % | 2.6 % |
+
+The generated C named the cause exactly.  For **every visited node** the
+walk allocated **four `Prod` cells** — two to build `(e, k, d)` for the
+probe and two more to build the same tuple again for the insert — plus
+the `ExprC × Memo` result pair, against **one** allocation for the
+rebuilt node.  The memo key, an `EIdx` scalar in the arena, is a
+*constructed* value here, and that is the whole gap.
+
+### 2. Candidates, each measured separately
+
+Screening set app-lam / grind-ring-5 / beta-ladder, `--no-model`, one
+run per cell (`_tmp/inst-opt/cells.tsv`); percentages are *incremental*
+against the row above.
+
+| # | candidate | app-lam | grind-ring-5 | beta-ladder | kept |
+|---|---|---|---|---|---|
+| A | build the key once (`let key := …`, shared by probe and insert) | −8.8 % | −3.6 % | −9.5 % | **yes** |
+| B | drop the live prefix `k` from the bulk key; the `bvar` re-entry runs under a fresh table, guarded so a cursor-closed replacement allocates none | −7.8 % | −3.8 % | −7.6 % | **yes** |
+| C | atoms answered outside the memo, via an `Option`-returning `@[inline]` helper | **+0.8 %** | −4.8 % | **+0.6 %** | **no** |
+| C′ | as C, but only the non-allocating atom answers bypass the memo | +0.9 % | −4.7 % | +0.7 % | **no** |
+| D | atoms answered outside the memo by moving the probe *into the compound arms* — one flat match, no `Option` | −7.8 % | −7.2 % | −9.4 % | **yes** |
+| E | a shared pool of the first 4096 `bvar` nodes for the walks' shifted atoms | −0.0 % | −0.4 % | −0.0 % | **yes** (RSS) |
+| F | pre-size the bulk memo at `vs.size` | +0.0 % | **+1.5 %** | +0.1 % | **no** |
+
+**C vs D is the session's finding.**  They compute the same thing and
+differ only in *how* the atom test is expressed: C returns
+`Option ExprC` from an `@[inline]` helper, D puts the probe in the arms
+of one flat match.  `some r` is a heap allocation, paid at every
+*compound* node (where the helper returns `none` only after the
+allocation is elaborated away — it is not), so C hands back at the
+compound nodes what it saves at the atoms: an 8.6 pp swing on app-lam
+between two spellings of one idea.  The first shape a restructure
+suggests was measured and rejected; the winning shape duplicates four
+lines of probe per arm and is the one to keep.  D also broke structural
+recursion in its natural spelling (`match e with | .bvar .. => … | _ =>
+match e with …`, whose `_` branch does not refine `e`) — the flat match
+is what makes the same code terminate *and* run fast.
+
+### 3. Candidates closed without a measurement, and why
+
+* **(a) early exit on the packed `bvarB`** — already there, at the head
+  of every `…Go` and at every entry point, and `d` is incremented under
+  binders so the cutoff is applied at the right offset at every node.
+  Nothing to add.
+* **(b) node-identity preservation** (return the original node when no
+  child changed) — **cannot fire in these walks**, because the cached
+  ranges are *exact*.  `bvarB e > d` means `e` really does contain a
+  loose `bvar` at or above `d`, which instantiation always changes; so
+  a node that reaches the rebuild always rebuilds to something new.
+  The same argument closes `abstract1`/`abstractRange` at their call
+  sites (`d` is the level just pushed, `d + k` the current level, so no
+  `fvar` in the term escapes the abstracted range).  This is a *finding
+  about the computed fields*, not a measurement: exactness already buys
+  what identity preservation would.
+* **(c) an allocation-free `ptrAddrUnsafe`-keyed probe table** —
+  **closed by the standing ruling, not by measurement.**
+  `implemented_by` is forbidden, and `ptrAddrUnsafe` cannot appear in a
+  `csimp` twin: an `unsafe def` is not a term of the logic, so
+  `f = fFast` cannot even be *stated*.  The safe primitive
+  `withPtrAddr a k h` demands `h : ∀ u₁ u₂, k u₁ = k u₂` — the result
+  must be provably independent of the address.  An address-keyed memo
+  can be made address-independent (store the `ExprC` and validate the
+  hit structurally), but the proof needs the *table's* invariant, which
+  is established by the very recursion the call sits inside and is not
+  a property of the continuation `k`.  So the safe primitive cannot
+  host this table.  The tree does have one such table —
+  `Expr.beqGo`'s address-pair memo — and it lives under `beqFast`,
+  i.e. census row 1, the one `implemented_by` escape the ruling
+  grandfathers and forbids extending.  A/B/D took the same allocations
+  out by a different route: 4 key cells per node → 1 at compound nodes,
+  0 at atoms.
+* **(d) one pass over the whole argument array** — already the shipped
+  shape: `instantiateListGo`/`instantiateRevGo` are single bulk passes
+  carrying the live prefix `k`, and `instSpine` takes the bulk form
+  whenever the spine spans the telescope.  The `instSpineChain`
+  fallback appears in no profile.
+* **(e) `@[specialize]`/`@[inline]` on higher-order helpers** — the
+  walks have none; the `Std.DHashMap` operations are already
+  monomorphized per call site (visible in the profile's symbol names).
+  The one closure-shaped helper this session *introduced* is candidate
+  C, and it was measured and rejected.
+
+### 4. The RSS follow-up (coordinator, mid-session)
+
+D's atoms are no longer memoized, so they are no longer *shared*: peak
+RSS rose +1.2 % on app-lam and +3–6 % on init-full.  Verified first that
+the unchanged atoms already return the original node **by reference**
+(`fvar`/`sort`/`const`/`lit` and the below-cursor `bvar` return `e`; a
+substituted `bvar` returns the replacement object) — so the only
+unshared atoms were the *shifted* `bvar (i − 1)` / `bvar (i − k)` and
+abstraction's fresh `bvar k`.  Candidate E is a 4096-entry pool of
+`bvar` nodes, built once at module initialization (hence persistent, so
+its reference counting is free), consulted by `mkBVarP` with a bounds
+check instead of an allocation.  It costs nothing in instructions
+(−0.0 to −0.5 %) and puts init-full's retention **below master's**.
+app-lam's +1.2 % survives the pool, so it is not the atoms; at 52 MB on
+a 4 GB peak it was not chased further.
+
+### 5. Result (baseline master `3993fb54`, both modes, `--pre`)
+
+| stream | parity before → after | P before → after |
+|---|---|---|
+| `app-lam` | 208.62 → **161.72 G** (−22.5 %) | 208.97 → **162.08 G** (−22.4 %) |
+| `beta-ladder` | 40.78 → **30.92 G** (−24.2 %) | 52.08 → **40.89 G** (−21.5 %) |
+| `grind-ring-5` | 37.50 → **32.15 G** (−14.3 %) | 37.38 → **32.10 G** (−14.1 %) |
+| `init-full` | 1085.56 → **939.93 G** (−13.4 %) | 987.05 → **853.40 G** (−13.5 %) |
+
+Peak RSS (VmHWM sampled from `/proc`, parity / P): app-lam 4075/4088 →
+4127/4126 MB; init-full 875/889 → **854/855 MB**.
+
+Verdicts identical everywhere: init-full 61 048 accepted in both modes,
+`tests/arena.sh` 0 FAIL (arena 90/92, e2e 73/73, annot 14/14, retired
+and mode flags, the `--no-model` sweep with its three recorded
+divergences), `lake test` green, layering and `tests/proofdeps.sh`
+unchanged (1364 rows, 0 doors), build warning-free.
+
+### 6. The proof shape
+
+The walks' **definitions** changed, so `Setlec/Verify/Cached/OpsC.lean`
+re-establishes them; their **statements** did not, so nothing
+downstream of that file moved (no `SimC`, `BridgeC*` or `DiscC*` edit,
+no capstone edit).  Three mechanical changes:
+
+* `MemoLInv` gained the live prefix `k` as a *parameter* and lost it
+  from the key — the invariant now reads "one table, one prefix", which
+  is exactly what candidate B made true;
+* the leaf cases lost their memo clause (`⟨hm, rfl⟩` where they had
+  `⟨hm.insert rfl, rfl⟩`), and the `bvar`/`fvar` atom cases lost theirs;
+* the compound cases gained a `dsimp only` where the arm's `match` now
+  has to reduce before the memo `split`, and their trailing
+  `simp only [hp, hq]` became unused (the `rcases hp : …` already
+  rewrites the goal in the new shape) and was dropped.
+
+The `bvar` arm's fresh-memo re-entry needs one new step: under
+`i − d = 0` the residual prefix is `[]` (`instantiateList_nil`), under
+`w.bvarB ≤ d` the replacement is its own instantiation
+(`instantiateList_eq_self`), and otherwise the strong induction on `k`
+applies at `MemoLInv.empty`.  `mkBVarP_eq` is a one-line theorem
+(`Array.getElem_ofFn`), `@[simp]`, so the pool is invisible to every
+other proof.
+
+Capstone axioms exactly `[propext, Classical.choice, Quot.sound]` on
+all three (`no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_sound_P`,
+`foldSPC_PM`).
+
+### 7. What this leaves for the next round
+
+* **`Expr.bvarBoundGo`'s own memo** (2.4 % grind, 2.6 % init-full): the
+  saturated-field fallback keys a `Std.HashMap` the same way the walks
+  used to.  Same three rules apply; it lives in
+  `Setlec/Kernel/Expr.lean`, which task #168's `PropWhen` work is
+  editing, so it was left alone deliberately.
+* **The result pair.**  Every node still allocates its
+  `ExprC × Memo` return.  Removing it means an `ST`-ref memo and a
+  monadic walk — a real proof bill, and the first thing to price if
+  another 5–10 % is wanted from these functions.
+* **`lean_copy_expand_array` (6.2 %) and `lean_mark_mt` (7.6 %) on
+  init-full** are outside the walks and unattributed; whoever profiles
+  next should start there.
+* Architecturally the floor recorded at task #161 still stands: the
+  cached representation hash-conses nothing, so it memo-keys
+  intermediates that official and lean4lean simply do not build.
