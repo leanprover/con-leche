@@ -551,6 +551,16 @@ theorem projCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     exact iotaCerts_disc ih henv (WScoped.of_not_hasFvar hnf) hwargs
   · exact DiscV.pure trivial
 
+theorem projCertAt_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {v lic : Bool} {c : Name} {us : List Level} {args : List Expr}
+    (hwargs : ∀ x ∈ args, WScoped d x) :
+    DiscV mode env (fun _ => True)
+      (projCertAt C env d v lic c us args) (projCertAt G env d v lic c us args) := by
+  unfold projCertAt
+  split
+  · exact projCert_disc ih henv hwargs
+  · exact DiscV.pure trivial
+
 theorem stuckIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
     DiscV mode env (fun _ => True) (stuckIrrel mode C env d a b)
@@ -892,7 +902,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
-              projCert C env d mode.betaGate c us e'.getAppArgs >>= fun b =>
+              projCertAt C env d mode.verified mode.betaGate c us e'.getAppArgs >>= fun b =>
               if b then
                 (C : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -910,7 +920,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
-              projCert G env d mode.betaGate c us e'.getAppArgs >>= fun b =>
+              projCertAt G env d mode.verified mode.betaGate c us e'.getAppArgs >>= fun b =>
               if b then
                 (G : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -928,7 +938,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split <;> try exact DiscV.pure hwproj
     split <;> try exact DiscV.pure hwproj
     split <;> try exact DiscV.pure hwproj
-    refine DiscV.bind (projCert_disc ih henv (fun x hx => he'.getAppArgs x hx))
+    refine DiscV.bind (projCertAt_disc ih henv (fun x hx => he'.getAppArgs x hx))
       (fun b _ => ?_)
     split
     · exact ih.site_whnfCore henv (hwarg _)

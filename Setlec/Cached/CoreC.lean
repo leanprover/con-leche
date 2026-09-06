@@ -719,6 +719,11 @@ def projCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (lic : Bool)
     iotaCertsI r fe depth lic tyC args
   | _ => pure false
 
+/-- Twin of `projCertAt`. -/
+def projCertAtI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (verified lic : Bool)
+    (c : Name) (us : List Level) (args : List ExprC) : CheckCM Bool :=
+  if verified then projCertI r fe depth lic c us args else pure true
+
 mutual
 
 /-- Bulk-beta argument loop (task #50): consume the whole application
@@ -840,11 +845,12 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
             -- task #100 de-gating: the certificate runs
-            -- unconditionally (the former nonzero-sort gate is
-            -- unsound-to-model under the domain-relative collapse);
-            -- task #175 W6: the spine against the constructor's type
-            -- (see `projCert`).
-            if ← projCertI r fe depth cfg.betaGate c us args then
+            -- unconditionally at the verified config (the former
+            -- nonzero-sort gate is unsound-to-model under the
+            -- domain-relative collapse); task #175 W6: the spine
+            -- against the constructor's type (see `projCert`); the
+            -- parity config runs none (`projCertAt`).
+            if ← projCertAtI r fe depth cfg.verified cfg.betaGate c us args then
               k arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')

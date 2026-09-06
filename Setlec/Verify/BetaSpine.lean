@@ -268,7 +268,7 @@ def whnfCoreStepM (cfg : CoreCfg) (r : CoreFns m) (env : Env) (depth : Nat)
             us.length = entry.levelParams.length ∧
             entry.fireOk us = true then
           let arg := args.getD (entry.numParams + i) (.bvar 0)
-          if ← projCert r env depth cfg.betaGate c us args then
+          if ← projCertAt r env depth cfg.verified cfg.betaGate c us args then
             k arg
           else pure (.proj sn i e')
         else pure (.proj sn i e')
@@ -463,6 +463,19 @@ theorem projCert_mono {d : Nat} {lic : Bool} {c : Name} {us : List Level}
     projCert (pureFns mode env F') env d lic c us args = .ok b := by
   rw [← projCert_atF] at h ⊢
   exact (projCert (fueledFns mode env) env d lic c us args).property hle h
+
+theorem projCertAt_mono {d : Nat} {v lic : Bool} {c : Name} {us : List Level}
+    {args : List Expr} {F F' : Nat} (hle : F ≤ F') {b : Bool}
+    (h : projCertAt (pureFns mode env F) env d v lic c us args = .ok b) :
+    projCertAt (pureFns mode env F') env d v lic c us args = .ok b := by
+  unfold projCertAt at h ⊢
+  split
+  · rename_i hv
+    rw [if_pos hv] at h
+    exact projCert_mono hle h
+  · rename_i hv
+    rw [if_neg hv] at h
+    exact h
 
 theorem iotaRec_mono {d : Nat} {e : Expr} {F F' : Nat}
     (hle : F ≤ F') {o : Option Expr}
@@ -1178,7 +1191,7 @@ theorem whnfCoreStepM_sound {d : Nat} (k : Expr → FueledM Expr)
             hfp, hfn]
           dsimp only
           rw [if_pos hcond,
-            projCert_mono (Nat.le_max_left F M) hb, ok_bind]
+            projCertAt_mono (Nat.le_max_left F M) hb, ok_bind]
           simp only [↓reduceIte]
           rw [whnfCore_def]
           exact whnfCore_mono (Nat.le_max_right F M) hM

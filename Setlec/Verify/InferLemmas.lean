@@ -716,11 +716,11 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
           entry.fireOk us = true ∧
           whnfCore mode env fuel d
             (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
-          projCertP mode env fuel d mode.betaGate entry.ctor us e₃.getAppArgs
-            = .ok true) := by
+          projCertAtP mode env fuel d mode.verified mode.betaGate entry.ctor us
+            e₃.getAppArgs = .ok true) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
-  simp only [whnfCore_def, whnf_def, projCert_fold,
+  simp only [whnfCore_def, whnf_def, projCertAt_fold,
     projLitToCtor_fold] at h
   cases he : whnf mode env fuel d e with
   | error err => rw [he] at h; exact nomatch h
@@ -747,7 +747,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       obtain ⟨hnat, rfl, hi, hlen, hus, hfire⟩ := hcond
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
-      cases hcert : projCertP mode env fuel d mode.betaGate entry.ctor us
+      cases hcert : projCertAtP mode env fuel d mode.verified mode.betaGate entry.ctor us
           e₃.getAppArgs with
       | error err => rw [hcert] at h; exact nomatch h
       | ok b =>
@@ -771,6 +771,15 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
   | letE n2 t2 v2 b2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | lit l2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | proj s2 i2 e3 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
+
+/-- At the verified mode the fire's gate runs the certificate
+(`projCertAt`; parity mirrors official, 2026-09-06). -/
+theorem projCertAtP_verified {env : Env} {fuel d : Nat} {lic : Bool} {c : Name}
+    {us : List Level} {args : List Expr} (hv : mode.verified = true)
+    (h : projCertAtP mode env fuel d mode.verified lic c us args = .ok true) :
+    projCertP mode env fuel d lic c us args = .ok true := by
+  simp only [projCertAtP, projCertAt, hv, ↓reduceIte] at h
+  exact h
 
 /-- Inversion for a successful projection certification (task #175 W6):
 the head is a stored constructor and the spine is certified against

@@ -143,7 +143,7 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
         (betaCertP_of_claims m hexis ihd ihis)
         (iotaStepP_of h.rec_rules h.caps_ok h.reads.tower_ok h.reads.const_ty
           h.acval_valid ihw ihd ihis hsss hexis hreads_ios hwreads)
-        (projStepP_of_claims h.reads.tower_ok h.reads.const_ty ihwc ihw ihd ihis
+        (projStepP_of_claims hμ h.reads.tower_ok h.reads.const_ty ihwc ihw ihd ihis
           hexis hwreads) ihwc
     · -- the reduction loop
       exact whnf_claimsP m hex ihwc (h.nat_step fuel ihw)

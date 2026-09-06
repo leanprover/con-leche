@@ -269,7 +269,7 @@ premises are `psigmaMkSpineP`'s walk of `projCert`'s own
 is the tower law's iota clause at the constructor application's graded
 reading — no run is walked, the grading's slot chain is the whole
 premise. -/
-theorem projStepP_of_claims {m : EnvS2Core V env}
+theorem projStepP_of_claims (hμ : μ.verified = true) {m : EnvS2Core V env}
     (htower : TowerOkP m φ) (hct : ConstTypeP m φ)
     (ihwc : WhnfCoreClaims2P μ m φ fuel) (ihw : WhnfClaims2P μ m φ fuel)
     (ihd : DefEqClaims2P μ m φ fuel) (ihis : InferClaimsIOS2P μ m φ fuel)
@@ -393,7 +393,8 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
     obtain ⟨hokE, heqE⟩ := ihwc hwcf hwF hbF hLF hCF hfvd hea' hokArg
     -- the certificate (task #175 W6): the spine fits the constructor
     -- type's reading — `projCert`'s `iotaCerts` through `certs_teleP`
-    obtain ⟨cvC', nP', nF', hfC', hcertI⟩ := Setlec.projCert_inv hcert
+    obtain ⟨cvC', nP', nF', hfC', hcertI⟩ :=
+      Setlec.projCert_inv (Setlec.projCertAtP_verified hμ hcert)
     obtain ⟨rfl, -, -⟩ :=
       ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfC'))
     have hwfC := m.wf _ (Setlec.Semantics.Env.find?_mem hfC)

@@ -11,7 +11,7 @@ arena replaced by the computed-field representation, exactly the way
 `Setlec/Cached/CoreC.lean` clones `Setlec/Kernel/CoreI.lean` (the
 store wrappers survive as `CStore` no-ops, the interning wrappers as
 smart constructors, the name/level interning as identities).  Where an
-NC body references a certified helper (`projCertI`, `reduceNatI`,
+NC body references a certified helper (`reduceNatI`,
 `unfoldDefinitionI`, `whnfBodyI`, `annotateBodyI`, `ensureSortI`, …)
 it uses the `CoreC` twin under the same name.
 
@@ -340,9 +340,9 @@ end
 `Setlec/Kernel/CoreNC.lean`'s `whnfCoreStepNC`): one head-normalization
 step with the loop's continuation `k` abstracted.  The app clause
 differs through `whnfAppNC`, and the proj clause drops the
-constructor-telescope certification `projTeleCertI` (task #126).  The
-possibly-Prop projection certificate `projCertI` is outside the
-task-#76 site list and kept. -/
+constructor-telescope certification `projTeleCertI` (task #126) and,
+since 2026-09-06 (parity mirrors official), the spine certificate
+`projCertI` too: official's `reduce_proj` runs none. -/
 def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : ExprC → CheckCM ExprC) (e : ExprC) : CheckCM ExprC := do
     match ← viewI e with
@@ -368,12 +368,11 @@ def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               entry.fireOk us = true then do
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
-            -- task #100 de-gating: ungated, as in `whnfCoreStepI`
-            -- (`projCertI` stays — outside the task-#76 skip list;
-            -- task #161 item B1 shrank it to its two `infer` runs)
-            if ← projCertI r fe depth false c us args then
-              k arg
-            else internI (.proj sn i e')
+            -- parity mirrors official (2026-09-06): `reduce_proj`
+            -- reduces every constructor redex with no certificate, so
+            -- the parity core runs none — `projCertAt` at
+            -- `verified = false` in the shared body
+            k arg
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
       | none => internI (.proj sn i e')

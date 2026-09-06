@@ -546,6 +546,24 @@ theorem projCert_snd_proj (d : Nat) (lic : Bool) (c : Name) (us : List Level)
   · exact iotaCerts_snd d lic _ _
   · rfl
 
+theorem projCertAt_fst_proj (d : Nat) (v lic : Bool) (c : Name) (us : List Level)
+    (args : List Expr) :
+    (projCertAt (pairFns r₁ r₂ h) env d v lic c us args).val.1 =
+      projCertAt r₁ env d v lic c us args := by
+  unfold projCertAt
+  split
+  · exact projCert_fst_proj d lic c us args
+  · rfl
+
+theorem projCertAt_snd_proj (d : Nat) (v lic : Bool) (c : Name) (us : List Level)
+    (args : List Expr) :
+    (projCertAt (pairFns r₁ r₂ h) env d v lic c us args).val.2 =
+      projCertAt r₂ env d v lic c us args := by
+  unfold projCertAt
+  split
+  · exact projCert_snd_proj d lic c us args
+  · rfl
+
 macro "fst_step2" : tactic =>
   `(tactic| repeat (first
     | rfl
@@ -561,6 +579,7 @@ macro "fst_step2" : tactic =>
     | (rw [structEtaCertWith_fst_proj])
     | (rw [structUnitCert_fst_proj])
     | (rw [etaCert_fst_proj])
+    | (rw [projCertAt_fst_proj])
     | (rw [projCert_fst_proj])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -587,6 +606,7 @@ macro "snd_step2" : tactic =>
     | (rw [structEtaCertWith_snd_proj])
     | (rw [structUnitCert_snd_proj])
     | (rw [etaCert_snd_proj])
+    | (rw [projCertAt_snd_proj])
     | (rw [projCert_snd_proj])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -738,6 +758,7 @@ macro "fst_step3" : tactic =>
     | (rw [structEtaCertWith_fst_proj])
     | (rw [structUnitCert_fst_proj])
     | (rw [etaCert_fst_proj])
+    | (rw [projCertAt_fst_proj])
     | (rw [projCert_fst_proj])
     | (rw [structEtaCert_fst_proj])
     | (rw [majorToCtor_fst_proj])
@@ -767,6 +788,7 @@ macro "snd_step3" : tactic =>
     | (rw [structEtaCertWith_snd_proj])
     | (rw [structUnitCert_snd_proj])
     | (rw [etaCert_snd_proj])
+    | (rw [projCertAt_snd_proj])
     | (rw [projCert_snd_proj])
     | (rw [structEtaCert_snd_proj])
     | (rw [majorToCtor_snd_proj])
@@ -825,6 +847,7 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [structEtaCertWith_fst_proj])
     | (rw [structUnitCert_fst_proj])
     | (rw [etaCert_fst_proj])
+    | (rw [projCertAt_fst_proj])
     | (rw [projCert_fst_proj])
     | (rw [structEtaCert_fst_proj])
     | (rw [majorToCtor_fst_proj])
@@ -876,6 +899,7 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [structEtaCertWith_snd_proj])
     | (rw [structUnitCert_snd_proj])
     | (rw [etaCert_snd_proj])
+    | (rw [projCertAt_snd_proj])
     | (rw [projCert_snd_proj])
     | (rw [structEtaCert_snd_proj])
     | (rw [majorToCtor_snd_proj])

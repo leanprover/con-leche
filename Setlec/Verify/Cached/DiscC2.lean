@@ -443,6 +443,20 @@ theorem projCertC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
     | recInfo _ _ _ _ => exact SimC.pure hs₁ rfl
     | projInfo _ => exact SimC.pure hs₁ rfl
 
+/-- `projCertC_sim` at the mode's gate (`projCertAt`; parity mirrors
+official, 2026-09-06). -/
+theorem projCertAtC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
+    {v lic : Bool} {c : Name} {us : List Level} {args : List ExprC} {xs : List Expr}
+    {s₀ : CState} (hs : CSOK mode env s₀)
+    (hargs : RelCL args xs) (hw : ∀ x ∈ xs, Expr.WScoped d x) :
+    SimC mode env s₀ RelVC
+      (projCertAtI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d v lic c us args)
+      (projCertAt (fueledFns mode env) env d v lic c us xs) := by
+  unfold projCertAtI projCertAt
+  split
+  · exact projCertC_sim ih henv hs hargs hw
+  · exact SimC.pure hs rfl
+
 /-- Port of `structUnitCertI_sim`. -/
 theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {i j : ExprC} {a b : Expr} {s₀ : CState}

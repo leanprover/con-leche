@@ -1539,6 +1539,20 @@ def projCert (r : CoreFns m) (env : Env) (depth : Nat) (lic : Bool)
       (cvC.type.instantiateLevelParams cvC.levelParams us) args
   | _ => pure false
 
+/-- **The fire certificate as the mode runs it** (parity mirrors
+official, 2026-09-06).  The P core (`verified = true`) certifies the
+constructor spine (`projCert`, licensed by the mode's β gate) — the
+model's licence for the fire at a squash instantiation.  The parity
+core is the official kernel's: `reduce_proj` reduces every
+constructor redex with no certificate (`type_checker.cpp`), so at
+`verified = false` no certificate runs and the rule fires
+unconditionally.  The parity lane stays an accept-superset of the P
+lane, which is all the agreement floor
+(`Verify/Cached/AgreeFloor.lean`) asks of it. -/
+def projCertAt (r : CoreFns m) (env : Env) (depth : Nat) (verified lic : Bool)
+    (c : Name) (us : List Level) (args : List Expr) : m Bool :=
+  if verified then projCert r env depth lic c us args else pure true
+
 /-- **THE β SITE'S GATE** (task #161): does the mode's β gate fire at
 this binder?
 
@@ -1635,13 +1649,15 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then
             let arg := args.getD (entry.numParams + i) (.bvar 0)
-            -- Certify the reduction: the constructor spine against
-            -- the constructor's stored type (task #175 W6; see
-            -- `projCert`).  Task #100 de-gating: the former
-            -- nonzero-sort gate is unsound-to-model under the
-            -- domain-relative collapse, so the certificate runs
-            -- unconditionally.
-            if ← projCert r env depth mode.betaGate c us args then
+            -- Certify the reduction at the verified mode: the
+            -- constructor spine against the constructor's stored type
+            -- (task #175 W6; see `projCert`).  Task #100 de-gating:
+            -- the former nonzero-sort gate is unsound-to-model under
+            -- the domain-relative collapse, so the certificate runs
+            -- unconditionally there; the parity mode runs none
+            -- (`projCertAt`: official's `reduce_proj` certifies
+            -- nothing).
+            if ← projCertAt r env depth mode.verified mode.betaGate c us args then
               r.whnfCore depth arg
             else pure (.proj sn i e')
           else pure (.proj sn i e')

@@ -1086,6 +1086,16 @@ private theorem projCert_shift (henv : EnvWF env) (ih : ShiftClaims mode env fue
     rwa [shiftFrom_eq_self_of_not_hasFvar (p := p) hnf] at h
   · rfl
 
+private theorem projCertAt_shift (henv : EnvWF env) (ih : ShiftClaims mode env fuel)
+    {p d : Nat} (hpd : p ≤ d) (v lic : Bool) {c : Name} {us : List Level}
+    {args : List Expr} (hwargs : ∀ x ∈ args, WScoped d x) :
+    projCertAt (pureFns mode env fuel) env (d + 1) v lic c us (args.map (shiftFrom p)) =
+      projCertAt (pureFns mode env fuel) env d v lic c us args := by
+  unfold projCertAt
+  split
+  · exact projCert_shift henv ih hpd lic hwargs
+  · rfl
+
 private theorem majorToCtor_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
     (rules : List RecRule) {major : Expr} (hwmaj : WScoped d major) :
@@ -1745,7 +1755,7 @@ private theorem whnfCore_step (henv : EnvWF env)
       have hwarg : WScoped d
           (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
         WScoped_getD (fun x hx => hwe₃.getAppArgs x hx) _
-      refine bind_rel_eq _ (projCert_shift henv ih hpd mode.betaGate
+      refine bind_rel_eq _ (projCertAt_shift henv ih hpd mode.verified mode.betaGate
         (fun x hx => hwe₃.getAppArgs x hx)) ?_
       intro bb _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
