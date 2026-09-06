@@ -90,9 +90,14 @@ def ok(r):
 
 
 def instr_text(r):
-    if r is None:
+    """Instructions for a cell.  A cell that did NOT accept ran only a
+    prefix of its stream, so its instruction count is not a measurement
+    of the workload: it is printed as such, never as a bare number."""
+    if r is None or not r["instr"]:
         return "—"
-    return f"{r['instr'] / 1e9:.2f} G" if r["instr"] else "—"
+    n = r["instr"]
+    t = f"{n / 1e12:.2f} T" if n >= 1e12 else f"{n / 1e9:.2f} G"
+    return t if r["exit"] == 0 else f"({t}, exit {r['exit']} — partial)"
 
 
 def ratio_text(r, base):
@@ -151,7 +156,7 @@ for s in stream_order:
     row = []
     for c in live:
         r = cells[s].get(c)
-        row.append("—" if r is None else f"{r['exit']} / {r['decls'] or '?'}")
+        row.append("—" if r is None else f"{r['exit']} / {r['decls'] or '—'}")
     A(f"| `{s}` | " + " | ".join(row) + " |")
 A("")
 A("Exit codes: 0 accept, 1 reject, 2 decline, 3 error.")
@@ -191,17 +196,21 @@ if ml:
     A("")
     A("| | " + " | ".join(LABELS[c] for c in live if c in ml) + " |")
     A("|" + "---|" * (1 + len([c for c in live if c in ml])))
-    A("| wall | " + " | ".join(f"{ml[c]['wall'] / 60:.1f} min"
+    def mlcell(c, txt):
+        return txt if ml[c]["exit"] == 0 else txt + " (partial)"
+    A("| wall | " + " | ".join(mlcell(c, f"{ml[c]['wall'] / 60:.1f} min")
                                for c in live if c in ml) + " |")
     A("| peak RSS (`time -v`) | "
-      + " | ".join(f"{ml[c]['rss'] / 1048576:.2f} GiB" if ml[c]["rss"] else "—"
-                   for c in live if c in ml) + " |")
+      + " | ".join(mlcell(c, f"{ml[c]['rss'] / 1048576:.2f} GiB") if ml[c]["rss"]
+                   else "—" for c in live if c in ml) + " |")
     A("")
 
 A("## Notes")
 A("")
 if meta.get("stalenote"):
     A(f"* {meta['stalenote']}")
+if meta.get("mathlibnote"):
+    A(f"* {meta['mathlibnote']}")
 A("* **The verdict line counts declaration RECORDS** (task #187).  It")
 A("  used to print `env.consts.length`, the number of environment")
 A("  CONSTANTS, which counts an inductive block's type former, its")

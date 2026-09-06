@@ -472,14 +472,23 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         -- property of our representation, not of the input: it moved
         -- whenever the representation moved (task #175 S1's one
         -- projection table per structure dropped init-full by 499 with
-        -- no verdict change) and it is not comparable with the official
-        -- checker, which reports how many stream declaration RECORDS it
-        -- accepted.  `decls.size` is exactly that: the parsed `DeclC`
-        -- list the fold consumed, one entry per accepted record (the
-        -- four `quot` records fold into one `basisDecl`, so the count
-        -- sits a few below the file's line count — see the fold-position
-        -- note above).  The environment-constant count stays available
-        -- on stderr under `LECH_VERBOSE=1`.
+        -- no verdict change).  `decls.size` is the parsed `DeclC` list
+        -- the fold consumed, one entry per accepted declaration record
+        -- (the four `quot` records fold into one `basisDecl` and the
+        -- `Quot.sound` axiom record joins them, so the count sits a few
+        -- below the file's record count — see the fold-position note
+        -- above), which IS a property of the input.
+        --
+        -- It still does not equal the official checker's number, and it
+        -- cannot: official prints `constMap.size`, its PARSED export,
+        -- where an inductive record counts as its type formers, its
+        -- constructors and its recursors (less the three `Quot.mk`/
+        -- `.lift`/`.ind` entries it erases).  That is a third unit —
+        -- also a function of the file, just a larger one.  Both are
+        -- derived from a stream by `scripts/stream-census.py`, which is
+        -- checked against both checkers' actual output.  The
+        -- environment-constant count stays available on stderr under
+        -- `LECH_VERBOSE=1`.
         let verboseCounts : IO Unit := do
           if (← IO.getEnv "LECH_VERBOSE").isSome then
             IO.eprintln s!"lech: environment: {env.consts.length} constants \
@@ -584,12 +593,18 @@ def usage : String := String.intercalate "\n" [
   "  LECH_VERBOSE=1    add one stderr line beside the verdict giving the",
   "                    ENVIRONMENT-CONSTANT count as well as the",
   "                    declaration-record count.  The verdict line counts",
-  "                    accepted declaration RECORDS — what the official",
-  "                    kernel reports, so the two are comparable; an",
-  "                    inductive record installs several constants (type",
-  "                    former, constructors, recursor, projection table),",
-  "                    so the constant count is larger and is a property",
-  "                    of our representation rather than of the input.",
+  "                    accepted declaration RECORDS: one per def/theorem/",
+  "                    opaque/axiom/inductive record the fold consumed.",
+  "                    That is a property of the INPUT.  The constant",
+  "                    count is not: an inductive record installs several",
+  "                    constants (type former, constructors, recursor,",
+  "                    projection table), so it moves when the",
+  "                    representation moves.  NB the official kernel's",
+  "                    'Accepted N declarations' is a third unit — its",
+  "                    parsed constMap, so an inductive record counts as",
+  "                    its members — which is also a function of the file",
+  "                    but a larger one; scripts/stream-census.py derives",
+  "                    both numbers from a stream.",
   "",
   "  --pre             assert FILE is already preprocessed output of",
   "                    lech-preprocess (or the stock",

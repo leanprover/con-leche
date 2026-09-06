@@ -1,18 +1,22 @@
-sha	bd4dcf6ab1397557dc1f2e7b38c2ab0cee96d789
-shashort	bd4dcf6a
-binsha	bd4dcf6ab1397557dc1f2e7b38c2ab0cee96d789
-dirty	1
-date	2026-09-06T19:31:40+00:00
+sha	fb2d7bf852715dbc6e95a1d7d53d468c1bf444ce
+shashort	fb2d7bf8
+binsha	fb2d7bf852715dbc6e95a1d7d53d468c1bf444ce
+dirty	0
+date	2026-09-06T19:45:55+00:00
 host	bubblewrap
 cpu	AMD EPYC 9455 48-Core Processor
 cores	96
 mem	125 GB
 kernelver	6.12.100
-official	/home/joachim/setlec/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel
-preproc	/home/joachim/setlec/.claude/worktrees/perf-regen/.lake/build/bin/lech-preprocess
-note	task #187 regeneration on agent/perf-regen off master bd4dcf6a; the verdict line now counts accepted DECLARATION RECORDS (parsed DeclC), not environment constants
-loadnote	the full-Mathlib preprocessor cell ran on the machine alongside the six small streams; instructions:u is contention-independent
+official	<main-checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel
+preproc	<checkout>/.lake/build/bin/lech-preprocess
+binmd5	da560a6a9aa744209283e711ae3a2b1d
+mathlibstream	`<checkout>/_tmp/mathlib-scoping/mathlib-full-pre-idx.ndjson` (5695851612 bytes)
+note	clean checkout of `agent/perf-regen` at fb2d7bf8 (master bd4dcf6a plus the task #187 verdict-line fix: the accepted count is the DECLARATION-RECORD count).  The branch tip adds one further commit that touches only comments and the `--help` text, so the measured binary is the one named below and the checking code is the tip's.
+loadnote	other agents' builds and single-process checkers ran on the machine throughout (load 9-45 of 96 cores); battery cells still ran strictly one at a time, and `instructions:u` is contention-independent
 configs	official trusted verified
 reps	1
 timeout	3000
 vlimit	16000000
+stalenote	**What changed since the previous table** (`161cd827`, 09:14 the same day).  Both the binary and the streams moved, and a control run separates them: THIS binary on the PREVIOUS table's own `init-full` stream gives official 412.89 G (previous table 413.14 G — unchanged, as it must be), `--trusted` 652.61 G (was 794.99 G) and `--verified` 679.07 G (was 841.70 G).  So −19.3 % of the verified column is the BINARY — the landings between the two tables: task #175's W2c/W3 direct indexed installs, #184's build-time split, #185's `CoreCfg` retirement (the mode is now the cores' only parameter) and #186's rename to Lech; the split among them was not measured — and a further −1.9 % is the REGENERATED stream (666.09 G), cut by the current `lech-preprocess`, whose predicate installs structures, sums and indexed families natively: 548 of init-full's 610 inductive blocks now go through the direct route and only 57 are still modeled.  Every accepted count also changed UNIT (next note), so no count here is comparable with the previous table's.
+mathlibnote	**The `mathlib-full` lech cells do not accept — a finding, not a measurement.**  Both exit 2 (decline) after ~4.5 min at fold position 49 833 of 664 976 (7.5 %) on `missing model for CategoryTheory.Presieve.ofArrows`: the widened `lech-preprocess` predicate calls that indexed one-constructor family native and emits no `_model`, but lech's direct indexed installer does not take it (the constructor's index is a general term `f i`, not a variable), so the frontend finds neither a native install nor a model.  The preprocessor's native class is not conservative with respect to the installer's; closing that gap is task #193, after which the stream is re-cut and the two lech cells re-run.  The official column IS a full accept of the same bytes, so the stream is sound; and this binary still accepts the PRE-#175 Mathlib stream (see DESIGN task #187 §4), so nothing regressed in the checker.
