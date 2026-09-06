@@ -52,8 +52,8 @@ Concretely, what each remaining branch needs is:
 and the route is fixed by the ruling: `ConstantValR`'s run conjunct
 (H1) gives `inferTypeCore μ env F 0 type' = .ok stype`; inverting it
 through `inferTypeCore_forall_inv` once per binder yields the
-validation conjunct `(Level.zeronessOf v).equiv mb.pw = true`, hence
-(`pwBit_of_equiv_zeronessOf`) `pwBit φ mb.pw = 0 ↔ Level.eval φ v = 0`;
+validation conjunct `Level.zeronessOf v = mb.pw`, hence
+(`pwBit_zeronessOf`) `pwBit φ mb.pw = 0 ↔ Level.eval φ v = 0`;
 the pin's datum is that same zero-ness *by construction*, so the two
 bits agree **once `Level.eval φ v` is known**.
 
