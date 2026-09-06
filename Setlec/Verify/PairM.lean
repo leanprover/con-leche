@@ -456,6 +456,18 @@ theorem reduceNat_snd_proj (d : Nat) (e : Expr) :
   unfold reduceNat
   snd_tac
 
+theorem boolTrueShortcut_fst_proj (d : Nat) (e : Expr) :
+    (boolTrueShortcut (pairFns r₁ r₂ h) d e).val.1 =
+      boolTrueShortcut r₁ d e := by
+  unfold boolTrueShortcut
+  fst_tac
+
+theorem boolTrueShortcut_snd_proj (d : Nat) (e : Expr) :
+    (boolTrueShortcut (pairFns r₁ r₂ h) d e).val.2 =
+      boolTrueShortcut r₂ d e := by
+  unfold boolTrueShortcut
+  snd_tac
+
 theorem ensureSort_fst_proj (d : Nat) (e : Expr) :
     (ensureSort (pairFns r₁ r₂ h) env d e).val.1 =
       ensureSort r₁ env d e := by
@@ -573,6 +585,7 @@ macro "fst_step2" : tactic =>
     | (rw [defEqList_fst])
     | (rw [structEtaProjCerts_fst])
     | (rw [reduceNat_fst_proj])
+    | (rw [boolTrueShortcut_fst_proj])
     | (rw [ensureSort_fst_proj])
     | (rw [proofIrrel_fst_proj])
     | (rw [propIrrel_fst_proj])
@@ -600,6 +613,7 @@ macro "snd_step2" : tactic =>
     | (rw [defEqList_snd])
     | (rw [structEtaProjCerts_snd])
     | (rw [reduceNat_snd_proj])
+    | (rw [boolTrueShortcut_snd_proj])
     | (rw [ensureSort_snd_proj])
     | (rw [proofIrrel_snd_proj])
     | (rw [propIrrel_snd_proj])
@@ -775,6 +789,7 @@ macro "fst_step3" : tactic =>
     | (rw [defEqList_fst])
     | (rw [structEtaProjCerts_fst])
     | (rw [reduceNat_fst_proj])
+    | (rw [boolTrueShortcut_fst_proj])
     | (rw [ensureSort_fst_proj])
     | (rw [proofIrrel_fst_proj])
     | (rw [structEtaCertWith_fst_proj])
@@ -806,6 +821,7 @@ macro "snd_step3" : tactic =>
     | (rw [defEqList_snd])
     | (rw [structEtaProjCerts_snd])
     | (rw [reduceNat_snd_proj])
+    | (rw [boolTrueShortcut_snd_proj])
     | (rw [ensureSort_snd_proj])
     | (rw [proofIrrel_snd_proj])
     | (rw [structEtaCertWith_snd_proj])
@@ -865,6 +881,7 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [defEqList_fst])
     | (rw [structEtaProjCerts_fst])
     | (rw [reduceNat_fst_proj])
+    | (rw [boolTrueShortcut_fst_proj])
     | (rw [ensureSort_fst_proj])
     | (rw [proofIrrel_fst_proj])
     | (rw [propIrrel_fst_proj])
@@ -917,6 +934,7 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [defEqList_snd])
     | (rw [structEtaProjCerts_snd])
     | (rw [reduceNat_snd_proj])
+    | (rw [boolTrueShortcut_snd_proj])
     | (rw [ensureSort_snd_proj])
     | (rw [proofIrrel_snd_proj])
     | (rw [propIrrel_snd_proj])
@@ -1040,47 +1058,49 @@ theorem inferBodyIO_snd_proj (d : Nat) (e : Expr) :
   unfold inferBodyIO
   snd_tac4
 
-theorem defeqStep_fst_proj (d : Nat) (k : Expr → Expr → PairM rel Bool)
-    (k₁ : Expr → Expr → M₁ Bool) (hk : ∀ a b, (k a b).val.1 = k₁ a b)
-    (a b : Expr) :
-    (defeqStep mode (pairFns r₁ r₂ h) env d k a b).val.1 =
-      defeqStep mode r₁ env d k₁ a b := by
+theorem defeqStep_fst_proj (d : Nat) (k : Bool → Expr → Expr → PairM rel Bool)
+    (k₁ : Bool → Expr → Expr → M₁ Bool)
+    (hk : ∀ pi a b, (k pi a b).val.1 = k₁ pi a b) (pi : Bool) (a b : Expr) :
+    (defeqStep mode (pairFns r₁ r₂ h) env d k pi a b).val.1 =
+      defeqStep mode r₁ env d k₁ pi a b := by
   unfold defeqStep
   fst_tac4k hk
 
-theorem defeqStep_snd_proj (d : Nat) (k : Expr → Expr → PairM rel Bool)
-    (k₂ : Expr → Expr → M₂ Bool) (hk : ∀ a b, (k a b).val.2 = k₂ a b)
-    (a b : Expr) :
-    (defeqStep mode (pairFns r₁ r₂ h) env d k a b).val.2 =
-      defeqStep mode r₂ env d k₂ a b := by
+theorem defeqStep_snd_proj (d : Nat) (k : Bool → Expr → Expr → PairM rel Bool)
+    (k₂ : Bool → Expr → Expr → M₂ Bool)
+    (hk : ∀ pi a b, (k pi a b).val.2 = k₂ pi a b) (pi : Bool) (a b : Expr) :
+    (defeqStep mode (pairFns r₁ r₂ h) env d k pi a b).val.2 =
+      defeqStep mode r₂ env d k₂ pi a b := by
   unfold defeqStep
   snd_tac4k hk
 
 theorem defeqLoop_fst_proj (d : Nat) :
-    ∀ (n : Nat) (a b : Expr),
-      (defeqLoop mode (pairFns r₁ r₂ h) env d n a b).val.1 =
-        defeqLoop mode r₁ env d n a b
-  | 0, _, _ => rfl
-  | n + 1, a, b =>
-    defeqStep_fst_proj d _ _ (fun x y => defeqLoop_fst_proj d n x y) a b
+    ∀ (n : Nat) (pi : Bool) (a b : Expr),
+      (defeqLoop mode (pairFns r₁ r₂ h) env d n pi a b).val.1 =
+        defeqLoop mode r₁ env d n pi a b
+  | 0, _, _, _ => rfl
+  | n + 1, pi, a, b =>
+    defeqStep_fst_proj d _ _ (fun pi' x y => defeqLoop_fst_proj d n pi' x y)
+      pi a b
 
 theorem defeqLoop_snd_proj (d : Nat) :
-    ∀ (n : Nat) (a b : Expr),
-      (defeqLoop mode (pairFns r₁ r₂ h) env d n a b).val.2 =
-        defeqLoop mode r₂ env d n a b
-  | 0, _, _ => rfl
-  | n + 1, a, b =>
-    defeqStep_snd_proj d _ _ (fun x y => defeqLoop_snd_proj d n x y) a b
+    ∀ (n : Nat) (pi : Bool) (a b : Expr),
+      (defeqLoop mode (pairFns r₁ r₂ h) env d n pi a b).val.2 =
+        defeqLoop mode r₂ env d n pi a b
+  | 0, _, _, _ => rfl
+  | n + 1, pi, a, b =>
+    defeqStep_snd_proj d _ _ (fun pi' x y => defeqLoop_snd_proj d n pi' x y)
+      pi a b
 
 theorem defeqBody_fst_proj (d : Nat) (a b : Expr) :
     (defeqBody mode (pairFns r₁ r₂ h) env d a b).val.1 =
       defeqBody mode r₁ env d a b :=
-  defeqLoop_fst_proj d defeqLoopFuel a b
+  defeqLoop_fst_proj d defeqLoopFuel true a b
 
 theorem defeqBody_snd_proj (d : Nat) (a b : Expr) :
     (defeqBody mode (pairFns r₁ r₂ h) env d a b).val.2 =
       defeqBody mode r₂ env d a b :=
-  defeqLoop_snd_proj d defeqLoopFuel a b
+  defeqLoop_snd_proj d defeqLoopFuel true a b
 
 -- Task #161 P5: the ∀/λ clauses' untrusted `pw` write is one more
 -- inference call under the same cascade (`annotPwPi` = infer +

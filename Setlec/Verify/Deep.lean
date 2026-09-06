@@ -925,6 +925,16 @@ private theorem structEtaCertWith_shift (henv : EnvWF env)
       rw [List.map_drop, ← hlist] at h3
       exact h3
 
+/-- `etaCtorShape` reads the head constant and the spine length, both
+shift-invariant. -/
+private theorem etaCtorShape_shiftFrom {env : Env} (p : Nat) (e : Expr) :
+    etaCtorShape env (shiftFrom p e) = etaCtorShape env e := by
+  unfold etaCtorShape
+  rw [getAppFn_shiftFrom, getAppArgs_shiftFrom, List.length_map]
+  generalize e.getAppFn = f
+  cases f <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
+
 private theorem structEtaCert_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
@@ -932,6 +942,8 @@ private theorem structEtaCert_shift (henv : EnvWF env)
         (shiftFrom p b) =
       structEtaCert mode (pureFns mode env fuel) env d a b := by
   simp only [structEtaCert]
+  rw [etaCtorShape_shiftFrom]
+  refine ite_congr' (fun _ => ?_) (fun _ => rfl)
   refine bind_congr _ (ih.inferIO hpd hwb) ?_
   intro tb htb
   have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
@@ -2300,23 +2312,76 @@ private theorem inferIOSlot_step (henv : EnvWF env)
     rw [← inferTypeIO_on hg, ← inferTypeIO_on hg]
     exact ih.inferIO hpd' hw'
 
+private theorem isBoolTrue_shiftFrom {p : Nat} {e : Expr} :
+    (shiftFrom p e).isBoolTrue = e.isBoolTrue := by
+  cases e <;> first
+    | rfl
+    | (simp only [shiftFrom]; split <;> rfl)
+
+/-- The eq-true shortcut (the audit's E2) is shift-invariant: one `whnf`
+and a head test that ignores the shift. -/
+private theorem boolTrueShortcut_shift (_henv : EnvWF env)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a : Expr}
+    (hwa : WScoped d a) :
+    boolTrueShortcut (pureFns mode env fuel) (d + 1) (shiftFrom p a) =
+      boolTrueShortcut (pureFns mode env fuel) d a := by
+  unfold boolTrueShortcut
+  refine bind_congr (shiftFrom p) (ih.whnf hpd hwa) ?_
+  intro w _
+  rw [isBoolTrue_shiftFrom]
+
+/-- `boolTrueShortcut_shift` under its guard. -/
+private theorem boolTrueShortcutIf_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a : Expr}
+    (hwa : WScoped d a) (g : Bool) :
+    (if g then boolTrueShortcut (pureFns mode env fuel) (d + 1) (shiftFrom p a)
+        else pure false) =
+      (if g then boolTrueShortcut (pureFns mode env fuel) d a else pure false) := by
+  cases g
+  · rfl
+  · exact boolTrueShortcut_shift henv ih hpd hwa
+
+private theorem quickPair_shiftFrom {p : Nat} {a b : Expr} :
+    (shiftFrom p a).quickPair (shiftFrom p b) = a.quickPair b := by
+  cases a <;> cases b <;> first
+    | rfl
+    | (simp only [shiftFrom]; (repeat split) <;> rfl)
+
+/-- `propIrrel_shift` under the once-per-entry gate (the audit's D3). -/
+private theorem propIrrelIf_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (hwa : WScoped d a) (hwb : WScoped d b) (g : Bool) :
+    (if g then propIrrel mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+        (shiftFrom p b) else pure false) =
+      (if g then propIrrel mode (pureFns mode env fuel) env d a b
+        else pure false) := by
+  cases g
+  · rfl
+  · exact propIrrel_shift henv ih hpd hwa hwb
+
 /-- The lazy-delta *loop* is shift-invariant, by induction on its own
 step budget (task #106); the per-step `whnfCore`, proof irrelevance
 and the structural congruences come from the knot hypothesis `ih`. -/
 private theorem defeqLoop_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) :
-    ∀ (n : Nat) {p d : Nat}, p ≤ d → ∀ {a b : Expr},
+    ∀ (n : Nat) {p d : Nat}, p ≤ d → ∀ (pi : Bool) {a b : Expr},
       WScoped d a → WScoped d b →
-      defeqLoop mode (pureFns mode env fuel) env (d + 1) n (shiftFrom p a)
+      defeqLoop mode (pureFns mode env fuel) env (d + 1) n pi (shiftFrom p a)
           (shiftFrom p b) =
-        defeqLoop mode (pureFns mode env fuel) env d n a b := by
+        defeqLoop mode (pureFns mode env fuel) env d n pi a b := by
   intro n
   induction n with
-  | zero => intro p d _ a b _ _; rfl
+  | zero => intro p d _ pi a b _ _; rfl
   | succ n ihN =>
-  intro p d hpd a b hwa hwb
+  intro p d hpd pi a b hwa hwb
   simp only [defeqLoop, defeqStep]
   rw [shiftFrom_beq]
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  -- the eq-true shortcut (E2): its guard reads the shifted sides' head
+  -- and fvar range, both shift-invariant
+  rw [isBoolTrue_shiftFrom, hasFvar_shiftFrom]
+  refine bind_congr_eq (boolTrueShortcutIf_shift henv ih hpd hwa _) ?_
+  rintro rbt -
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   refine bind_congr _ (ih.whnfCore hpd hwa) ?_
   intro wa hwa'
@@ -2327,7 +2392,8 @@ private theorem defeqLoop_shift (henv : EnvWF env)
   rw [shiftFrom_beq]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   -- hoisted proof irrelevance (the `Prop` branch, task #168)
-  refine bind_congr_eq (propIrrel_shift henv ih hpd hwwa hwwb) ?_
+  rw [quickPair_shiftFrom]
+  refine bind_congr_eq (propIrrelIf_shift henv ih hpd hwwa hwwb _) ?_
   rintro rpi -
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   -- literal acceleration branches (guarded on fvar-free sides; the
@@ -2341,7 +2407,7 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     have hwa₂ : WScoped d a₂ := by
       rcases reduceNat_inv (reduceNatIf_some hoa) with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;>
         simp [WScoped]
-    exact ihN hpd hwa₂ hwwb
+    exact ihN hpd _ hwa₂ hwwb
   | none =>
   refine bind_congr (Option.map (shiftFrom p))
     (reduceNatIf_shift henv ih hpd hwwb _) ?_
@@ -2351,7 +2417,7 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     have hwb₂ : WScoped d b₂ := by
       rcases reduceNat_inv (reduceNatIf_some hob) with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;>
         simp [WScoped]
-    exact ihN hpd hwwa hwb₂
+    exact ihN hpd _ hwwa hwb₂
   | none =>
   simp only [Option.map_none]
   -- The lazy delta *decision* is taken before any unfolding is
@@ -2360,10 +2426,10 @@ private theorem defeqLoop_shift (henv : EnvWF env)
   have hunfL : ∀ {x y : Expr}, WScoped d x → WScoped d y →
       (match unfoldDefinition env (shiftFrom p x) with
         | some a₂ =>
-          defeqLoop mode (pureFns mode env fuel) env (d + 1) n a₂ (shiftFrom p y)
+          defeqLoop mode (pureFns mode env fuel) env (d + 1) n false a₂ (shiftFrom p y)
         | none => pure false) =
       (match unfoldDefinition env x with
-        | some a₂ => defeqLoop mode (pureFns mode env fuel) env d n a₂ y
+        | some a₂ => defeqLoop mode (pureFns mode env fuel) env d n false a₂ y
         | none => pure false) := by
     intro x y hx hy
     rw [unfoldDefinition_shiftFrom henv]
@@ -2371,14 +2437,14 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     | none => rfl
     | some a₂ =>
       simp only [Option.map_some]
-      exact ihN hpd (unfoldDefinition_WScoped henv hu hx) hy
+      exact ihN hpd _ (unfoldDefinition_WScoped henv hu hx) hy
   have hunfR : ∀ {x y : Expr}, WScoped d x → WScoped d y →
       (match unfoldDefinition env (shiftFrom p y) with
         | some b₂ =>
-          defeqLoop mode (pureFns mode env fuel) env (d + 1) n (shiftFrom p x) b₂
+          defeqLoop mode (pureFns mode env fuel) env (d + 1) n false (shiftFrom p x) b₂
         | none => pure false) =
       (match unfoldDefinition env y with
-        | some b₂ => defeqLoop mode (pureFns mode env fuel) env d n x b₂
+        | some b₂ => defeqLoop mode (pureFns mode env fuel) env d n false x b₂
         | none => pure false) := by
     intro x y hx hy
     rw [unfoldDefinition_shiftFrom henv]
@@ -2386,20 +2452,20 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     | none => rfl
     | some b₂ =>
       simp only [Option.map_some]
-      exact ihN hpd hx (unfoldDefinition_WScoped henv hv hy)
+      exact ihN hpd _ hx (unfoldDefinition_WScoped henv hv hy)
   have hunfB : ∀ {x y : Expr}, WScoped d x → WScoped d y →
       (match unfoldDefinition env (shiftFrom p x),
           unfoldDefinition env (shiftFrom p y) with
-        | some a₂, some b₂ => defeqLoop mode (pureFns mode env fuel) env (d + 1) n a₂ b₂
+        | some a₂, some b₂ => defeqLoop mode (pureFns mode env fuel) env (d + 1) n false a₂ b₂
         | _, _ => pure false) =
       (match unfoldDefinition env x, unfoldDefinition env y with
-        | some a₂, some b₂ => defeqLoop mode (pureFns mode env fuel) env d n a₂ b₂
+        | some a₂, some b₂ => defeqLoop mode (pureFns mode env fuel) env d n false a₂ b₂
         | _, _ => pure false) := by
     intro x y hx hy
     rw [unfoldDefinition_shiftFrom henv, unfoldDefinition_shiftFrom henv]
     cases hu : unfoldDefinition env x <;> cases hv : unfoldDefinition env y <;>
       simp only [Option.map_some, Option.map_none] <;> try rfl
-    exact ihN hpd (unfoldDefinition_WScoped henv hu hx)
+    exact ihN hpd _ (unfoldDefinition_WScoped henv hu hx)
       (unfoldDefinition_WScoped henv hv hy)
   rw [unfoldableHead_shiftFrom, unfoldableHead_shiftFrom]
   cases hda : unfoldableHead env wa with
@@ -2715,7 +2781,7 @@ private theorem defeq_step (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) : DefEqShift mode env (fuel + 1) := by
   intro p d hpd a b hwa hwb
   rw [isDefEqCore_succ, isDefEqCore_succ]
-  exact defeqLoop_shift henv ih defeqLoopFuel hpd hwa hwb
+  exact defeqLoop_shift henv ih defeqLoopFuel hpd true hwa hwb
 
 private theorem annotate_step (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) : AnnotShift mode env (fuel + 1) := by

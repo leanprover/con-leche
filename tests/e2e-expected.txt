@@ -402,3 +402,16 @@
 # delta chains compared by rfl); a plain accept, kept as the fixture the
 # lazy-delta restructuring is measured on
 0 delta_chain.ndjson
+# mutual_struct_proj / nested_struct_proj (the projection-function
+# rewrite, Setlec/Frontend/ProjRec.lean, 2026-09-06): the elaborator's
+# `T.f := fun self => self.i` on structure-likes the direct install
+# does not serve — a MUTUAL pair of structures (dependent field, proof
+# field at elimination level 0, recursive field across the block), a
+# NESTED structure (`kids : List Tree`, auxiliary motive/minors) and a
+# reflexive RECURSIVE one (`tail : Unit → Stream'`) — are rewritten to
+# `T.rec` applications by the frontend before checking; the `rfl`
+# consumers force iota through them.  Pre-rewrite verdict: 2
+# ("projection on a non-structure-like type", the Mathlib frontier's
+# decline at Lean.Meta.Grind.AC.DiseqCnstr.lhs).
+0 mutual_struct_proj.ndjson
+0 nested_struct_proj.ndjson
