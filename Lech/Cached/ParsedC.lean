@@ -32,18 +32,19 @@ open Lech
 
 /-! ## Parsed declarations over `ExprC` -/
 
-/-- `ConstantVal` with the type as an `ExprC`. -/
-structure ConstantValC where
-  name : Name
-  levelParams : List Name
-  type : ExprC
-
-/-- A parsed declaration over `ExprC` (the counterpart of `DeclP`). -/
+/-- A parsed declaration over `ExprC` (task #198: its constant-value
+records *are* `Lech.ConstantVal` — the separate `ConstantValC`, whose
+only difference was an `ExprC`-typed `type` field, went with the
+interning-era distinction between the two expression types.  Note the
+one consequence: `cv.type` is now `Expr`-typed, so dot notation on it
+finds `Lech.Expr`'s members and NOT the cached namespace's — the two
+`hasFvar`s differ (`O(1)` field read vs a walk), which is why the guard
+below names `ExprC.hasFvar` outright.) -/
 inductive DeclC where
-  | axiomDecl (val : ConstantValC)
-  | defnDecl (val : ConstantValC) (value : ExprC) (hint : ReducibilityHint)
-  | thmDecl (val : ConstantValC) (value : ExprC)
-  | opaqueDecl (val : ConstantValC) (value : ExprC)
+  | axiomDecl (val : ConstantVal)
+  | defnDecl (val : ConstantVal) (value : ExprC) (hint : ReducibilityHint)
+  | thmDecl (val : ConstantVal) (value : ExprC)
+  | opaqueDecl (val : ConstantVal) (value : ExprC)
   | basisDecl (kind : BasisKind)
   | indDecl (block : List ConstantInfo)
 
@@ -58,7 +59,7 @@ def opSIxC (fe : FEnv) (d : Nat) (i : ExprC) : CheckCM Level :=
 /-- `checkConstantVal` on a converted declaration: the checks of
 `checkConstantValF` with the syntactic passes memoized on the `ExprC`
 DAG and the operations on `ExprC` values. -/
-def checkConstantValC (fe : FEnv) (cv : ConstantValC) :
+def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
     CheckCM (ConstantVal × ExprC) := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
@@ -70,7 +71,7 @@ def checkConstantValC (fe : FEnv) (cv : ConstantValC) :
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless ExprC.looseBVarsBounded 0 cv.type do
     throw (.invalid s!"loose bound variable in type of {cv.name}")
-  if cv.type.hasFvar then
+  if ExprC.hasFvar cv.type then
     throw (.invalid s!"unexpected free variable in type of {cv.name}")
   let jty ← (coreKnotI mode fe checkFuel).annotate 0 cv.type
   unless ExprC.allLevelParamsDefined cv.levelParams jty do

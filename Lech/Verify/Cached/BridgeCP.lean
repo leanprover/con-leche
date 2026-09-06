@@ -55,19 +55,19 @@ premise is the state-free per-constructor erasure relation: `RelC`
 builds it, so `cases` on the relation reproduces the interned walks'
 destructuring of `hden`. -/
 inductive DeclCRel : DeclC → Declaration → Prop where
-  | axiomDecl {cv : ConstantValC} {tyE : Expr} (hty : RelC cv.type tyE) :
+  | axiomDecl {cv : ConstantVal} {tyE : Expr} (hty : RelC cv.type tyE) :
       DeclCRel (.axiomDecl cv)
         (.axiomDecl ⟨cv.name, cv.levelParams, tyE⟩)
-  | defnDecl {cv : ConstantValC} {tyE : Expr} {value : ExprC} {ve : Expr}
+  | defnDecl {cv : ConstantVal} {tyE : Expr} {value : ExprC} {ve : Expr}
       {hint : ReducibilityHint}
       (hty : RelC cv.type tyE) (hv : RelC value ve) :
       DeclCRel (.defnDecl cv value hint)
         (.defnDecl ⟨cv.name, cv.levelParams, tyE⟩ ve hint)
-  | thmDecl {cv : ConstantValC} {tyE : Expr} {value : ExprC} {ve : Expr}
+  | thmDecl {cv : ConstantVal} {tyE : Expr} {value : ExprC} {ve : Expr}
       (hty : RelC cv.type tyE) (hv : RelC value ve) :
       DeclCRel (.thmDecl cv value)
         (.thmDecl ⟨cv.name, cv.levelParams, tyE⟩ ve)
-  | opaqueDecl {cv : ConstantValC} {tyE : Expr} {value : ExprC} {ve : Expr}
+  | opaqueDecl {cv : ConstantVal} {tyE : Expr} {value : ExprC} {ve : Expr}
       (hty : RelC cv.type tyE) (hv : RelC value ve) :
       DeclCRel (.opaqueDecl cv value)
         (.opaqueDecl ⟨cv.name, cv.levelParams, tyE⟩ ve)
@@ -115,7 +115,7 @@ theorem opSIxC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Na
 fueled families on the erased header: the returned constant is the
 fueled result, its type well-scoped, and the returned `ExprC` is
 related to it. -/
-theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvp : ConstantValC}
+theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvp : ConstantVal}
     {tyE : Expr} (hs : CSOK mode env s₀) (hden : RelC cvp.type tyE) :
     SimC mode env s₀ (fun v w => v.1 = w ∧ v.1.name = cvp.name ∧
         Expr.WScoped 0 v.1.type ∧ RelC v.2 v.1.type)
