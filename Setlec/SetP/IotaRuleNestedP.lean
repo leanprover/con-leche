@@ -316,11 +316,11 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   have hokTV : ∀ σ : Nat → V, AnnotOkP V σ TV := htyOk ψ TV hTV0
   -- the constructor type at the stored instantiation
   have hctyPw : (cvjK.type.instantiateLevelParams cvjK.levelParams
-      lvls).hasFvar = false := by
+      lvls (Level.masksOf env.lpsL lvls)).hasFvar = false := by
     rw [Expr.hasFvar_instantiateLevelParams]
     exact hCw
   have hctyPb : (cvjK.type.instantiateLevelParams cvjK.levelParams
-      lvls).looseBVarsBounded 0 = true := by
+      lvls (Level.masksOf env.lpsL lvls)).looseBVarsBounded 0 = true := by
     rw [Expr.looseBVarsBounded_instantiateLevelParams]
     exact hCb
   obtain ⟨TVjP, hTVjP0R⟩ := mp.type_reads _ (Env.find?_mem hfcS)
@@ -329,7 +329,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       (Level.substFn ψ cvjK.levelParams lvls) 0 cvjK.type
       = some TVjP := hTVjP0R
   have hTVjP0 : denoteP mp.base2.acval envSelf ψ 0
-      (cvjK.type.instantiateLevelParams cvjK.levelParams lvls)
+      (cvjK.type.instantiateLevelParams cvjK.levelParams lvls (Level.masksOf env.lpsL lvls))
       = some TVjP := by
     rw [denotePInstLevels]
     exact hTVjP00
@@ -337,7 +337,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     denoteP_closed mp.base2.acval_erase mp.base2.cval_closed
       hctyPw hctyPb hTVjP0 1 k
   have hTVjP : denoteP mp.base2.acval envSelf ψ (rP + cnFK)
-      (cvjK.type.instantiateLevelParams cvjK.levelParams lvls)
+      (cvjK.type.instantiateLevelParams cvjK.levelParams lvls (Level.masksOf env.lpsL lvls))
       = some TVjP :=
     denoteP_depth_of_closed mp.base2.acval_closed hctyPw hTVjPcl
       hTVjP0 (rP + cnFK)

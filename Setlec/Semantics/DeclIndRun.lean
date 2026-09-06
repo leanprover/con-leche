@@ -85,14 +85,18 @@ def IndMembersRun (μ : CheckMode) (F : Nat)
     Env → List ConstantInfo → Env → Prop
   | env', [], env₂ => env₂ = env'
   | env', ci :: rest, env₂ =>
-    ∃ cvA, MemberValRun μ F env' blockNames ci.toConstantVal cvA ∧
+    ∃ (c : UnivCtx) (cvA : ConstantVal),
+      UnivCtx.of? ci.toConstantVal.levelParams = some c ∧
+      MemberValRun μ F (env'.withLps c) blockNames ci.toConstantVal cvA ∧
       match ci with
       | .indInfo _ _ =>
         IndMembersRun μ F blockNames caps
-          { env' with consts := .indInfo cvA caps :: env'.consts } rest env₂
+          { env'.withLps c with consts := .indInfo cvA caps :: (env'.withLps c).consts }
+          rest env₂
       | .ctorInfo _ nP nF =>
         IndMembersRun μ F blockNames caps
-          { env' with consts := .ctorInfo cvA nP nF :: env'.consts } rest env₂
+          { env'.withLps c with consts := .ctorInfo cvA nP nF :: (env'.withLps c).consts }
+          rest env₂
       | _ => False
 
 /-- `ProvisionRecsR`'s run/guard half. -/
@@ -103,11 +107,13 @@ def ProvisionRecsRun (μ : CheckMode) (F : Nat)
   | envAcc, [], envSelf, checked =>
     envSelf = envAcc ∧ checked = []
   | envAcc, ci :: rest, envSelf, checked =>
-    ∃ cvA mI rP rules rest',
+    ∃ (c : UnivCtx), ∃ cvA mI rP rules rest',
       ci = .recInfo ci.toConstantVal mI rP rules ∧
-      MemberValRun μ F envAcc blockNames ci.toConstantVal cvA ∧
+      UnivCtx.of? ci.toConstantVal.levelParams = some c ∧
+      MemberValRun μ F (envAcc.withLps c) blockNames ci.toConstantVal cvA ∧
       ProvisionRecsRun μ F blockNames
-        { envAcc with consts := .recInfo cvA mI rP [] :: envAcc.consts } rest envSelf rest' ∧
+        { envAcc.withLps c with consts := .recInfo cvA mI rP [] :: (envAcc.withLps c).consts }
+        rest envSelf rest' ∧
       checked = (cvA, mI, rP, rules) :: rest'
 
 /-! ## The rule packs -/
@@ -140,13 +146,15 @@ def IotaThmRun (μ : CheckMode) (F : Nat) (env' envSelf : Env)
         (fvs.take cnP ++ xFvs)) = true ∧
      (cvj.type.stripPis (cnP + cnF)).isSome = true ∧
      ∃ cdoms cres rdoms fvsP cdomsP crestP xFvsP crest2 ldoms lrest,
-       Expr.instPisAt (fvs.take cnP ++ xFvs) (cvj.type.renameConsts f)
+       Expr.instPisAt (fvs.take cnP ++ xFvs)
+           ((cvj.type.remapPW cvj.levelParams lps).renameConsts f)
          = some (cdoms, cres) ∧
        cres.getAppArgs.length = cnP + (mI - rP) ∧
        Expr.instPisAt (fvs.take rP) (tyA.renameConsts f)
          = some (rdoms, lrest) ∧
        openPisAtFvars rP tyA 0 = some (fvsP, crest2) ∧
-       Expr.instPisAt (fvsP.take cnP) cvj.type = some (cdomsP, crestP) ∧
+       Expr.instPisAt (fvsP.take cnP) (cvj.type.remapPW cvj.levelParams lps)
+         = some (cdomsP, crestP) ∧
        openPisAtFvars cnF crestP rP = some (xFvsP, ldoms) ∧
        ∃ ldomsL lrest2,
          Expr.instLamsAt (fvsP ++ xFvsP) rhsA = some (ldomsL, lrest2) ∧
@@ -197,7 +205,7 @@ def IotaThmNRun (μ : CheckMode) (F : Nat) (env' envSelf : Env)
      ∃ cdoms cres rdoms lrest fvsP crest2 cdomsP crestP xFvsP ldoms,
        Expr.instPisAt (pinsF ++ xFvs)
          ((cvj.type.instantiateLevelParams cvj.levelParams
-           lvls).renameConsts f) = some (cdoms, cres) ∧
+           lvls (Level.masksOf lps lvls)).renameConsts f) = some (cdoms, cres) ∧
        cres.getAppArgs.length = cnP + (mI - rP) ∧
        Expr.instPisAt (fvs.take rP) (tyA.renameConsts f)
          = some (rdoms, lrest) ∧
@@ -206,7 +214,7 @@ def IotaThmNRun (μ : CheckMode) (F : Nat) (env' envSelf : Env)
           Expr.instSpine (fvsP.take rP) (rP - 1) p
         (∀ p ∈ pinsP, annotateCore μ envSelf F depth p = .ok p) ∧
         Expr.instPisAt pinsP
-          (cvj.type.instantiateLevelParams cvj.levelParams lvls)
+          (cvj.type.instantiateLevelParams cvj.levelParams lvls (Level.masksOf lps lvls))
           = some (cdomsP, crestP) ∧
         openPisAtFvars cnF crestP rP = some (xFvsP, ldoms) ∧
         (ldoms.getAppArgs.length == cnP + (mI - rP)) = true) ∧
@@ -285,8 +293,9 @@ where
       Env → Prop
     | acc, [], out => out = acc
     | acc, c :: rest, out =>
-      ∃ rules',
-        IotaRulesRun μ F envBase envSelf
+      ∃ (cu : UnivCtx), ∃ rules',
+        UnivCtx.of? c.1.levelParams = some cu ∧
+        IotaRulesRun μ F envBase (envSelf.withLps cu)
           (fun n => if blockNames.contains n then n.str "_model" else n)
           c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
           rules' ∧
@@ -302,10 +311,12 @@ verdict and `checkIotaSidesTy`'s literal pair — stay). -/
 def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
     (T ctorName : Name) (lps : List Name) (nP nF i : Nat)
     (env'' : Env) : Prop :=
-  ∃ cvj mcv mval mhint pty rhsA,
+  ∃ (c : UnivCtx), ∃ cvj mcv mval mhint pty rhsA,
+    UnivCtx.of? lps = some c ∧
     env'.find? ctorName = some (.ctorInfo cvj nP nF) ∧
     env'.find? (projModelName T i) = some (.defnInfo mcv mval mhint) ∧
     mcv.levelParams = lps ∧
+    cvj.levelParams = lps ∧
     (env'.find? (projFnName T i)).isNone = true ∧
     (env'.find? T).isSome = true ∧
     env'.find? eqName = some eqA ∧
@@ -331,7 +342,7 @@ def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
         ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta), i0 < nP + nF →
           rbinders[i0]? = some b → cbinders[i0]? = some b' →
           b.2.1 = b'.2.1) ∧
-      (∃ t', inferTypeCore μ env' F 0 rhsA = .ok t') ∧
+      (∃ t', inferTypeCore μ (env'.withLps c) F 0 rhsA = .ok t') ∧
       (∃ tcv tval,
         env'.find? ((projModelName T i).str "iota")
           = some (.thmInfo tcv tval) ∧
@@ -357,18 +368,18 @@ def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
             b.2.1 = b'.2.1.renameConsts (projFwd T ctorName nF)) ∧
         ∃ fvsI sbodyO,
           openPisAtFvars (nP + nF) tcv.type 0 = some (fvsI, sbodyO) ∧
-          (∃ tl, inferTypeCore μ env' F (nP + nF)
+          (∃ tl, inferTypeCore μ (env'.withLps c) F (nP + nF)
               (sbodyO.getAppArgs.getD 1 (.bvar 0)) = .ok tl ∧
-            isDefEqCore μ env' F (nP + nF) tl
+            isDefEqCore μ (env'.withLps c) F (nP + nF) tl
               (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true) ∧
-          (∃ tr, inferTypeCore μ env' F (nP + nF)
+          (∃ tr, inferTypeCore μ (env'.withLps c) F (nP + nF)
               (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
-            isDefEqCore μ env' F (nP + nF) tr
+            isDefEqCore μ (env'.withLps c) F (nP + nF) tr
               (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true))) ∧
-    env'' = { env' with consts := (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+    env'' = { env'.withLps c with consts := (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
       [⟨ctorName, nF, nP,
         if Expr.recRulePlain pty nP nP nP then .plain else .inert,
-        rhsA⟩]) :: env'.consts }
+        rhsA⟩]) :: (env'.withLps c).consts }
 
 /-- `ProjInstallR`'s run/guard half.  The valuation the install picks
 for the projection function (`cvalWith … (projModelName T i)`) was the

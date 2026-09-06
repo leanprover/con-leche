@@ -250,7 +250,7 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
       BlockEtaPinned μ blockNames { env with consts := c₀ :: env.consts } := by
   obtain ⟨type', hcv, hcvA, hms, cvm, mval, hint, hmE, hmlps, hren⟩ :=
     id hmv
-  obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr, -⟩ :=
+  obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr, -, hlen⟩ :=
     hcv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
   have hnameA : cvA.name = cv.name := by rw [hcvA]
@@ -260,7 +260,7 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
     rw [hnameA]
     exact Option.isNone_iff_eq_none.mp hfind
   have hwf : EnvWF { env with consts := c₀ :: env.consts } := by
-    refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · rw [hc₀cv, htypeA]; exact htf'
     · rw [hc₀cv, htypeA, hlpsA]; exact htp
     · rw [hc₀cv, htypeA]; exact Expr.constsResolve_mono htr
@@ -277,6 +277,7 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
         exact nomatch hr
     · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
         intro cv2 v2 heq <;> exact nomatch heq
+    · rw [hc₀cv, hlpsA]; exact ⟨hnd, hlen⟩
   have hpinsA : ∀ caps, c₀ = .indInfo cvA caps →
       EtaPins μ env cvA.name cvA.levelParams caps ∧
         (caps.eta = true → blockNames.contains caps.etaCtor = true) ∧
@@ -433,7 +434,7 @@ theorem projFnInv {μ : CheckMode} {F : Nat} {env' env₁ : Env}
       BlockInstalledTT blockNames env₁
         (cvalWith cval (projFnName T i)
           (fun ψ => cval (projModelName T i) ψ)) := by
-  obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
+  obtain ⟨c, cvj, mcv, mval, mhint, pty, rhsA, -, hctor, hfm, hmlps, -, hpnone,
     hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
     hilt, hstripP, hbig, henv⟩ := hR
   subst henv

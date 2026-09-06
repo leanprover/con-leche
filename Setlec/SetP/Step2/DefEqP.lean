@@ -29,8 +29,8 @@ the λ-congruence case, where `v₁`/`v₂` are the two sides'
 `sortOfE`/`lamSortE` numerals and `deqStep2_piCong`/`deqStep2_lamCong`
 demand one shared numeral.
 
-In the P currency those numerals are `pwBit φ m₁.pw` and
-`pwBit φ m₂.pw` — read off each side's *own* validated annotation
+In the P currency those numerals are `pwBit env.lpsL φ m₁.pw` and
+`pwBit env.lpsL φ m₂.pw` — read off each side's *own* validated annotation
 (`denoteP_forallE_inv`/`denoteP_lam_inv`), no run involved.  And the
 binder arms of `defeqStep` (`Kernel/Core.lean`) end with the task-#161
 check
@@ -1033,8 +1033,8 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
           dsimp only at h
           rw [hμ, hq1] at h
           simp [throw, throwThe, MonadExceptOf.throw] at h
-      have hpw : pwBit φ mb₁.pw = pwBit φ mb₂.pw :=
-        pwBit_eq_of_equiv hq φ
+      have hpw : pwBit env.lpsL φ mb₁.pw = pwBit env.lpsL φ mb₂.pw :=
+        pwBit_eq_of_equiv hq env.lpsL φ
       obtain ⟨hoT₁, hoB₁⟩ := hoistP_pi hokA
       obtain ⟨hoT₂, hoB₂⟩ := hoistP_pi hokB
       obtain ⟨hDA, hDB⟩ := binder_congrP ihd hdt hbd
@@ -1088,8 +1088,8 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
           dsimp only at h
           rw [hμ, hq1] at h
           simp [throw, throwThe, MonadExceptOf.throw] at h
-      have hpw : pwBit φ mb₁.pw = pwBit φ mb₂.pw :=
-        pwBit_eq_of_equiv hq φ
+      have hpw : pwBit env.lpsL φ mb₁.pw = pwBit env.lpsL φ mb₂.pw :=
+        pwBit_eq_of_equiv hq env.lpsL φ
       obtain ⟨hoT₁, hoB₁⟩ := hoistP_lam hokA
       obtain ⟨hoT₂, hoB₂⟩ := hoistP_lam hokB
       obtain ⟨hDA, hDB⟩ := binder_congrP ihd hdt hbd
@@ -1218,6 +1218,7 @@ outright from the `EnvS2U` field. -/
 defeq claim at `fuel + 1`. -/
 def DefEqStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
+    Level.NonzeroOutside env.lpsL φ →
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ (fuel + 1)
@@ -1264,7 +1265,7 @@ mode pin; **no `BinderSortAgree`** — residue 9's successor is the run's
 own `equiv` certificate, read at `hμ` inside `defeqStuck_claimP`. -/
 theorem defEqStepP_of (hμ : μ.verified = true)
     (hin : DefEqInputsP μ V) : DefEqStepP μ V := by
-  intro env m φ fuel ihwc _ihw ihd _ihi
+  intro env m φ fuel _hφ ihwc _ihw ihd _ihi
   exact defeq_claimsP
     (defeqStep_claimP (hin.hex env m φ fuel) ihwc (hin.hdel env m φ)
       (hin.hnat env m φ fuel) (hin.hpi env m φ fuel)

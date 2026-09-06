@@ -42,6 +42,23 @@ theorem find?_none_ne {env : Env} {n : Name} (h : env.find? n = none) :
   have := List.find?_eq_none.mp h c hc
   simpa using this
 
+/-- Inversion for `enterCtx` (the packed `pw` datum): the context is
+entered exactly when the parameter list is representable. -/
+theorem enterCtx_inv {env env' : Env} {lps : List Name}
+    (h : enterCtx (m := CheckM) env lps = .ok env') :
+    ∃ c : UnivCtx, UnivCtx.of? lps = some c ∧ env' = env.withLps c := by
+  unfold enterCtx at h
+  cases hc : UnivCtx.of? lps with
+  | some c =>
+    rw [hc] at h
+    exact ⟨c, rfl, (Except.ok.inj h).symm⟩
+  | none => rw [hc] at h; exact nomatch h
+
+theorem enterCtx_of_some {env : Env} {lps : List Name} {c : UnivCtx}
+    (hc : UnivCtx.of? lps = some c) :
+    enterCtx (m := CheckM) env lps = .ok (env.withLps c) := by
+  unfold enterCtx; rw [hc]; rfl
+
 /-- Inversion for `checkConstantVal`. -/
 theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
     (h : checkConstantVal (fueledOps mode F) env cv = .ok cv') :

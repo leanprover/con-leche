@@ -223,6 +223,7 @@ mode.  This is the io slot of `CheckStep2P5`
 (`Claims2PIO.lean`). -/
 def InferStepIOP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
+    Level.NonzeroOutside env.lpsL φ →
     μ.verified = true →
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
@@ -411,10 +412,10 @@ theorem infer_forallE_claimIOP (m : EnvS2Core V env)
     have hrow := sound_pi V (u := u.eval φ) (v := v.eval φ)
       hdom.1.1 (fun x hx => (hcod x hx).1) hdom.2
       (fun x hx => (hcod x hx).2)
-    have hzag : pwBit φ mb.pw = 0 ↔ v.eval φ = 0 :=
-      pwBit_of_equiv_zeronessOf hz φ
+    have hzag : pwBit env.lpsL φ mb.pw = 0 ↔ v.eval φ = 0 :=
+      pwBit_of_maskOf? hz φ
     have hbridge :
-        interp2 V ρ (.pi 0 (pwBit φ mb.pw) tyA baA)
+        interp2 V ρ (.pi 0 (pwBit env.lpsL φ mb.pw) tyA baA)
           = interp2 V ρ (.pi (u.eval φ) (v.eval φ) tyA baA) := by
       rw [interp2_pi, interp2_pi]
       exact piR_zero_agree hzag fun x _ => rfl
@@ -500,7 +501,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
       (body.instantiate1 (.fvar d n ty)) with _ | ba
   · rw [hba] at hea; exact nomatch hea
   rw [hba] at hea
-  obtain rfl : ea = .lam (pwBit φ mb.pw) tyA ba :=
+  obtain rfl : ea = .lam (pwBit env.lpsL φ mb.pw) tyA ba :=
     (Option.some.inj hea).symm
   -- the abstraction round trip, for the ∀-type's reading
   obtain ⟨hwopen, hbopen, hLopen⟩ :=
@@ -529,7 +530,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
   rcases hbtA : denoteP m.acval env φ (d + 1) bt with _ | btA
   · rw [hbtA] at hta; exact nomatch hta
   rw [hbtA] at hta
-  obtain rfl : ta = .pi 0 (pwBit φ mb.pw) tyA btA :=
+  obtain rfl : ta = .pi 0 (pwBit env.lpsL φ mb.pw) tyA btA :=
     (Option.some.inj hta).symm
   -- **the premise, spent**: the domain's and the opened body's grading
   obtain ⟨hokty, hokba⟩ := AnnotOkP.hoist_lam (V := V) hok
@@ -542,7 +543,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
   -- the fibre regime fact, one `have`, both uses (the meta copy)
   have hCbt : CtxOkP m φ (d + 1) (tyA :: Δa) bt :=
     hCop.of_subset (inferTypeCoreIO_fvarLeaves m.wf fuel hbt hwopen)
-  have hzfib : pwBit φ mb.pw = 0 →
+  have hzfib : pwBit env.lpsL φ mb.pw = 0 →
       ∀ (ρ' : Nat → V), Sat2 V (tyA :: Δa) ρ' →
         interp2 V ρ' btA ∈ˢ (univZero : V) := by
     intro hb0 ρ' hρ'
@@ -564,8 +565,8 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
           exact Setlec.inferIO_lam_meta_copy hbt
       obtain ⟨tyIA, btIA, -, -, rfl⟩ := denoteP_forallE_inv hbtA
       rw [interp2_pi]
-      have hinner : pwBit φ mbI.pw = 0 := by
-        rw [← pwBit_eq_of_equiv hpwEq φ]
+      have hinner : pwBit env.lpsL φ mbI.pw = 0 := by
+        rw [← pwBit_eq_of_equiv hpwEq env.lpsL φ]
         exact hb0
       rw [hinner]
       exact piR_zero_mem_univZero
@@ -763,7 +764,7 @@ theorem infer_app_claimIOP (m : EnvS2Core V env)
     rw [AnnotOk2_pi] at h1
     rw [AnnotValidV_pi] at h2
     exact ⟨h1.2 x hx, h2.2.1 x hx⟩
-  have hcod0 : ∀ (ρ : Nat → V), Sat2 V Δa ρ → pwBit φ mb'.pw = 0 →
+  have hcod0 : ∀ (ρ : Nat → V), Sat2 V Δa ρ → pwBit env.lpsL φ mb'.pw = 0 →
       ∀ x, x ∈ˢ interp2 V ρ Aa →
         interp2 V (cons x ρ) Ba ∈ˢ (univZero : V) := by
     intro ρ hρ h0 x hx
@@ -773,7 +774,7 @@ theorem infer_app_claimIOP (m : EnvS2Core V env)
   -- the head's membership at the computed product
   have hf2 : ∀ ρ : Nat → V, Sat2 V Δa ρ →
       interp2 V ρ fa
-        ∈ˢ interp2 V ρ (.pi 0 (pwBit φ mb'.pw) Aa Ba) := by
+        ∈ˢ interp2 V ρ (.pi 0 (pwBit env.lpsL φ mb'.pw) Aa Ba) := by
     intro ρ hρ
     rw [← hredf ρ hρ]
     exact hrowfM ρ hρ
@@ -784,8 +785,8 @@ theorem infer_app_claimIOP (m : EnvS2Core V env)
     rcases hcert with hg | ⟨tya, hia, hde⟩
     · -- THE GATED ARM: the license fires
       rw [Bool.and_eq_true] at hg
-      have hw0 : pwBit φ mb'.pw ≠ 0 :=
-        pwBit_ne_zero_of_isNever hg.2 φ
+      have hw0 : pwBit env.lpsL φ mb'.pw ≠ 0 :=
+        pwBit_ne_zero_of_isNever hg.2 env.lpsL φ
       intro ρ hρ
       obtain ⟨v, A, B, hfslot, haslot, -⟩ := hslot ρ hρ
       have hf' := hf2 ρ hρ
@@ -892,7 +893,7 @@ Ten are theorems of this file (the literal pair through the run
 transfer); `.proj` routes through the input structure. -/
 theorem inferStepIOP_of (h : InferInputsIOP V μ)
     (hμ : μ.verified = true) : InferStepIOP μ V := by
-  intro env m φ fuel _hv _ihwc ihw ihd _ihi ihio
+  intro env m φ fuel _hφ _hv _ihwc ihw ihd _ihi ihio
   have hss : SortSemAtIOP m μ φ fuel :=
     sortSemAtIOP_of_claims ihw ihio (h.infer_reads_io m φ fuel)
   intro d e t Δa hrun hws hb hLb ea ta hC hea hta hok

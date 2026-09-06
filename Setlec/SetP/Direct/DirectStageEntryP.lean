@@ -352,7 +352,7 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       intro us _
       refine ⟨⟨mkPisAV (eds (Level.substFn φ p.cvT.levelParams us))
         (R (Level.substFn φ p.cvT.levelParams us)), ?_, ?_⟩, ?_⟩
-      · show denoteP m₂.acval _ φ 0 (ptyA.instantiateLevelParams p.cvT.levelParams us) = _
+      · show denoteP m₂.acval _ φ 0 (ptyA.instantiateLevelParams p.cvT.levelParams us (Level.masksOf env.lpsL us)) = _
         rw [denotePInstLevels m₂ φ p.cvT.levelParams us 0 ptyA]
         exact hreadE₂ _
       · -- (A)

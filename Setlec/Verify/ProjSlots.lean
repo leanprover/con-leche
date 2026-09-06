@@ -125,9 +125,9 @@ theorem NoProjAt.instantiate1 {v : Expr} (hv : NoProjAt T i v) :
     exact ⟨h.1, ihe d h.2⟩
 
 /-- Level instantiation moves no node. -/
-theorem NoProjAt.instantiateLevelParams (ks : List Name) (us : List Level) :
+theorem NoProjAt.instantiateLevelParams (ks : List Name) (us : List Level) (ms : List PropWhen) :
     ∀ e : Expr, NoProjAt T i e →
-      NoProjAt T i (e.instantiateLevelParams ks us) := by
+      NoProjAt T i (e.instantiateLevelParams ks us ms) := by
   intro e
   induction e with
   | bvar j => intro _; simp [Expr.instantiateLevelParams]

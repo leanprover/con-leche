@@ -1,4 +1,5 @@
 import Setlec.Verify.BridgeDecl
+import Setlec.Verify.Extend.Inversions
 
 /-!
 # `wfOpsM mode` runs to pure runs, per declaration-checker function
@@ -921,7 +922,7 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   obtain ⟨cdoms, cres⟩ := q2
   have hcinst' := unwrapOr_atF_ok hcinst
   show ((unwrapOr (Expr.instPisAt (fvs.take cnP ++
-    fvs.drop rP) (cvj.type.renameConsts f)) _ :
+    fvs.drop rP) ((cvj.type.remapPW cvj.levelParams lps).renameConsts f)) _ :
     CheckM _) >>= _) = _
   rw [hcinst']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
@@ -934,7 +935,7 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     · exact hfvsW a (List.mem_of_mem_drop hax)
   have hcinstW := instPisAt_WScoped _ _ hcinst'
     (WScoped.of_not_hasFvar (by
-      rw [hasFvar_renameConsts]
+      rw [hasFvar_renameConsts, Expr.remapPW, hasFvar_instantiateLevelParams]
       exact hctor)) hcargW
   obtain ⟨hcdomsW, hcresW⟩ := hcinstW
   by_cases h9 : cres.getAppArgs.length = cnP + (mI - rP)
@@ -996,13 +997,14 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   obtain ⟨q5, hcinstP, h⟩ := atF_bind_ok h
   obtain ⟨cdomsP, crestP⟩ := q5
   have hcinstP' := unwrapOr_atF_ok hcinstP
-  show ((unwrapOr (Expr.instPisAt (fvsP.take cnP) cvj.type) _ :
+  show ((unwrapOr (Expr.instPisAt (fvsP.take cnP)
+    (cvj.type.remapPW cvj.levelParams lps)) _ :
     CheckM _) >>= _) = _
   rw [hcinstP']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only [] at h ⊢
   have hcinstPW := instPisAt_WScoped (d := rP) _ _ hcinstP'
-    (WScoped.of_not_hasFvar hctor)
+    (WScoped.of_not_hasFvar (by rw [Expr.remapPW, hasFvar_instantiateLevelParams]; exact hctor))
     (fun a ha => hfvsPW a (List.mem_of_mem_take ha))
   obtain ⟨hcdomsPW, hcrestPW⟩ := hcinstPW
   obtain ⟨uP, hdP, h⟩ := atF_bind_ok h
@@ -1207,7 +1209,7 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
       (p.renameConsts f)) ++ fvs.drop rP)
     ((cvj.type.instantiateLevelParams cvj.levelParams
-      lvls).renameConsts f)) _ : CheckM _) >>= _) = _
+      lvls (Level.masksOf lps lvls)).renameConsts f)) _ : CheckM _) >>= _) = _
   rw [hcinst']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only [] at h ⊢
@@ -1300,7 +1302,7 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   have hcinstP' := unwrapOr_atF_ok hcinstP
   show ((unwrapOr (Expr.instPisAt
     (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
-    (cvj.type.instantiateLevelParams cvj.levelParams lvls)) _ :
+    (cvj.type.instantiateLevelParams cvj.levelParams lvls (Level.masksOf lps lvls))) _ :
     CheckM _) >>= _) = _
   rw [hcinstP']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
@@ -1744,9 +1746,12 @@ theorem checkProjLookups_ctor {env' : Env} {T ctorName : Name}
         next =>
           split at h
           next =>
-            simp only [pure, Except.pure, Except.ok.injEq,
-              Prod.mk.injEq] at h
-            rw [h.1]
+            split at h
+            next =>
+              simp only [pure, Except.pure, Except.ok.injEq,
+                Prod.mk.injEq] at h
+              rw [h.1]
+            next => exact nomatch h
           next => exact nomatch h
         next => exact nomatch h
       next => exact nomatch h
@@ -1932,15 +1937,22 @@ theorem checkProjFn_wfimp {env' : Env} (henv' : EnvWF env')
     (h : (checkProjFn mode (wfOpsM mode) env' T ctorName lps nP nF i).val F = .ok v) :
     checkProjFn mode (fueledOps mode F) env' T ctorName lps nP nF i = .ok v := by
   unfold checkProjFn at h ⊢
+  obtain ⟨envU, henter, h⟩ := atF_bind_ok h
+  rw [enterCtx_atF] at henter
+  show ((enterCtx env' lps : CheckM Env) >>= _) = _
+  rw [henter]
+  simp only [Bind.bind, Except.bind]
+  obtain ⟨c, -, rfl⟩ := enterCtx_inv henter
+  have henv' := henv'.withLps c
   obtain ⟨⟨cvj, mcv⟩, hlk, h⟩ := atF_bind_ok h
   rw [checkProjLookups_datF] at hlk
-  show ((checkProjLookups env' T ctorName lps nP nF i :
+  show ((checkProjLookups (env'.withLps c) T ctorName lps nP nF i :
     CheckM (ConstantVal × ConstantVal)) >>= _) = _
   rw [hlk]
   simp only [Bind.bind, Except.bind]
   obtain ⟨pty, hty, h⟩ := atF_bind_ok h
   rw [checkProjTy_datF] at hty
-  show ((checkProjTy env' T ctorName lps mcv.type nP nF :
+  show ((checkProjTy (env'.withLps c) T ctorName lps mcv.type nP nF :
     CheckM Expr) >>= _) = _
   rw [hty]
   simp only [Bind.bind, Except.bind]
@@ -1961,13 +1973,13 @@ theorem checkProjFn_wfimp {env' : Env} (henv' : EnvWF env')
     (show cvj.type.looseBVarsBounded 0 = true from
       (henv' _ (find?_mem hctor)).2.2.2.1)
     hrule
-  show (checkProjRule (fueledOps mode F) env' pty cvj lps nP nF i >>= _) = _
+  show (checkProjRule (fueledOps mode F) (env'.withLps c) pty cvj lps nP nF i >>= _) = _
   rw [hrule']
   simp only [Bind.bind, Except.bind]
   obtain ⟨u, hiota, h⟩ := atF_bind_ok h
   have hiota' := checkProjIota_wfimp henv' hiota
-  show (checkProjIota mode (fueledOps mode F) env' env' T ctorName lps cvj nP
-    nF i >>= _) = _
+  show (checkProjIota mode (fueledOps mode F) (env'.withLps c) (env'.withLps c) T ctorName
+    lps cvj nP nF i >>= _) = _
   rw [hiota']
   simp only [Bind.bind, Except.bind]
   exact h
@@ -2705,13 +2717,15 @@ theorem checkDirectRecTy_wfimp {env : Env} (henv : EnvWF env)
   obtain ⟨cdomsP, crest⟩ := q2
   dsimp only [] at h
   have hci' := unwrapOr_atF_ok hci
-  show ((unwrapOr (Expr.instPisAt (fvsP.take p.nP) cvCa.type) _ :
+  show ((unwrapOr (Expr.instPisAt (fvsP.take p.nP)
+    (cvCa.type.remapPW p.cvT.levelParams cvRa.levelParams)) _ :
     CheckM _) >>= _) = _
   rw [hci']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
   obtain ⟨hcdW, hcrW⟩ := instPisAt_WScoped (d := p.nP + 2 + p.nF) _ _ hci'
-    (WScoped.of_not_hasFvar hCf) hpsW
+    (WScoped.of_not_hasFvar (by
+      rw [Expr.remapPW, hasFvar_instantiateLevelParams]; exact hCf)) hpsW
   have hpsWn : ∀ x ∈ fvsP.take p.nP, WScoped p.nP x := by
     intro x hx
     obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hx
@@ -2725,7 +2739,7 @@ theorem checkDirectRecTy_wfimp {env : Env} (henv : EnvWF env)
       exact ⟨by omega, hw.2⟩
     · exact nomatch hi
   obtain ⟨-, hcrWn⟩ := instPisAt_WScoped (d := p.nP) _ _ hci'
-    (WScoped.of_not_hasFvar hCf) hpsWn
+    (WScoped.of_not_hasFvar (by rw [Expr.remapPW, hasFvar_instantiateLevelParams]; exact hCf)) hpsWn
   obtain ⟨u1, hd1, h⟩ := atF_bind_ok h
   have hpsIdx : ∀ (i : Nat) (x : Expr), (fvsP.take p.nP)[i]? = some x →
       WScoped (0 + i) (Expr.fvarTypeD x) := by
@@ -2742,7 +2756,7 @@ theorem checkDirectRecTy_wfimp {env : Env} (henv : EnvWF env)
       WScoped (0 + i) x := by
     intro i x hx
     refine instPisAt_index_WScoped (fvsP.take p.nP) (d := 0) hci'
-      (WScoped.of_not_hasFvar hCf) ?_ i x hx
+      (WScoped.of_not_hasFvar (by rw [Expr.remapPW, hasFvar_instantiateLevelParams]; exact hCf)) ?_ i x hx
     intro k a hk
     rw [List.getElem?_take] at hk
     split at hk
@@ -2979,7 +2993,8 @@ theorem checkDirectRule_wfimp {env : Env} (henv : EnvWF env)
   have hpsW2 : ∀ x ∈ fvsP.take p.nP, WScoped (p.nP + 2) x :=
     fun x hx => hfvsW0 x (List.mem_of_mem_take hx)
   obtain ⟨-, hcrW2⟩ := instPisAt_WScoped (d := p.nP + 2) _ _ hci'
-    (WScoped.of_not_hasFvar hCf) hpsW2
+    (WScoped.of_not_hasFvar (by
+      rw [Expr.remapPW, hasFvar_instantiateLevelParams]; exact hCf)) hpsW2
   obtain ⟨q4, hox, h⟩ := atF_bind_ok h
   obtain ⟨xFvs, xrest⟩ := q4
   dsimp only [] at h
@@ -3044,16 +3059,17 @@ theorem checkDirectProjEntry_wfimp {env : Env} (henv : EnvWF env)
   have hptyf : pty.hasFvar = false := by
     simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h0
     exact h0.1
-  have hptyσf : (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)).hasFvar
-      = false := by
+  have hptyσf : (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)
+      (Level.masksOf lps (directGuardSigma rs lps guard))).hasFvar = false := by
     rw [hasFvar_instantiateLevelParams]; exact hptyf
-  have hCfσ : ((cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard))).hasFvar
-      = false := by
+  have hCfσ : ((cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)
+      (Level.masksOf lps (directGuardSigma rs lps guard)))).hasFvar = false := by
     rw [hasFvar_instantiateLevelParams]; exact hCf
   rw [wfOpsM_annotate henv (wscopedB_of_not_hasFvar hptyσf)] at h
   obtain ⟨ptyA, hann, h⟩ := atF_bind_ok h
   have hann' : (fueledOps mode F).annotate env 0
-      (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)) = .ok ptyA := hann
+      (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)
+        (Level.masksOf lps (directGuardSigma rs lps guard))) = .ok ptyA := hann
   rw [hann']
   simp only [Bind.bind, Except.bind]
   by_cases h1 : (Expr.allLevelParamsDefined lps ptyA &&
@@ -3157,7 +3173,8 @@ theorem checkDirectProjEntry_wfimp {env : Env} (henv : EnvWF env)
   obtain ⟨cdomsP, crestP⟩ := q5
   dsimp only [] at h
   have hcp' := unwrapOr_atF_ok hcp
-  show ((unwrapOr (Expr.instPisAt fvsP (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard))) _ : CheckM _) >>= _) = _
+  show ((unwrapOr (Expr.instPisAt fvsP (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)
+      (Level.masksOf lps (directGuardSigma rs lps guard)))) _ : CheckM _) >>= _) = _
   rw [hcp']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
@@ -3188,7 +3205,8 @@ theorem checkDirectProjEntry_wfimp {env : Env} (henv : EnvWF env)
   obtain ⟨cdoms, cresid⟩ := q4
   dsimp only [] at h
   have hci' := unwrapOr_atF_ok hci
-  show ((unwrapOr (Expr.instPisAt (fvsP ++ _) (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard))) _ : CheckM _)
+  show ((unwrapOr (Expr.instPisAt (fvsP ++ _) (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)
+      (Level.masksOf lps (directGuardSigma rs lps guard)))) _ : CheckM _)
     >>= _) = _
   rw [hci']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
@@ -3277,35 +3295,52 @@ theorem foldDirectProj_wfimp {T C : Name} {lps : List Name}
       checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa cvCa e i = .ok e' →
       EnvWF e') :
     ∀ (idxs : List Nat) (e : Env) {e₂ : Env}, EnvWF e →
-      (idxs.foldlM (checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa)
+      (idxs.foldlM (fun env i => do
+          let env ← enterCtx env lps
+          checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa env i)
         e).val F = .ok e₂ →
-      idxs.foldlM (checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa cvCa)
+      idxs.foldlM (fun env i => do
+          let env ← enterCtx env lps
+          checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa cvCa env i)
         e = .ok e₂
   | [], e, e₂, _, h => by
     have h' : (Except.ok e : CheckM Env) = Except.ok e₂ := h
     cases h'
     rfl
   | i :: idxs, e, e₂, he, h => by
-    have h' : ((checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa e i >>=
-        fun e₁ => idxs.foldlM
-          (checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa) e₁ :
+    have h' : (((enterCtx (m := FueledM) e lps >>= fun eU =>
+        checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa eU i) >>=
+        fun e₁ => idxs.foldlM (fun env i => do
+          let env ← enterCtx env lps
+          checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa env i) e₁ :
         FueledM Env)).val F = .ok e₂ := h
-    rw [FueledM.atF_bind] at h'
-    cases hm : (checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa e i).val F
-      with
+    rw [FueledM.atF_bind, FueledM.atF_bind, enterCtx_atF] at h'
+    cases hE : enterCtx (m := CheckM) e lps with
+    | error err => rw [hE] at h'; exact nomatch h'
+    | ok eU =>
+    rw [hE] at h'
+    obtain ⟨c, -, rfl⟩ := enterCtx_inv hE
+    simp only [Bind.bind, Except.bind] at h'
+    cases hm : (checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa
+        (e.withLps c) i).val F with
     | error err => rw [hm] at h'; exact nomatch h'
     | ok e₁ =>
       rw [hm] at h'
-      have h'' : (idxs.foldlM
-        (checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa) e₁).val F =
-          .ok e₂ := h'
-      have hp := checkDirectProj_wfimp he hCf hCb hm
+      have h'' : (idxs.foldlM (fun env i => do
+          let env ← enterCtx env lps
+          checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa env i)
+        e₁).val F = .ok e₂ := h'
+      have hp := checkDirectProj_wfimp (he.withLps c) hCf hCb hm
       have hrest := foldDirectProj_wfimp hCf hCb hstep idxs e₁
-        (hstep e e₁ i he hp) h''
-      show (checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa cvCa e i >>=
-        fun e₁ => idxs.foldlM
-          (checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa cvCa) e₁) =
-        .ok e₂
+        (hstep _ e₁ i (he.withLps c) hp) h''
+      show ((enterCtx (m := CheckM) e lps >>= fun eU =>
+        checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa cvCa eU i) >>=
+        fun e₁ => idxs.foldlM (fun env i => do
+          let env ← enterCtx env lps
+          checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa cvCa env i)
+          e₁) = .ok e₂
+      rw [hE]
+      simp only [Bind.bind, Except.bind]
       rw [hp]
       exact hrest
 
@@ -3322,12 +3357,16 @@ model (`Setlec/Model/Extend/`), exactly as `installProjFnStep`'s
 does. -/
 theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
     {p : DirectParts} {F : Nat} {v : Env}
-    (hwf₁ : ∀ (e₁ : Env) (cvTa : ConstantVal),
-      (checkDirectInd (wfOpsM mode) env p).val F = .ok (e₁, cvTa) →
+    (hwf₁ : ∀ (cT : UnivCtx) (e₁ : Env) (cvTa : ConstantVal),
+      UnivCtx.of? p.cvT.levelParams = some cT →
+      (checkDirectInd (wfOpsM mode) (env.withLps cT) p).val F = .ok (e₁, cvTa) →
       EnvWF e₁ ∧ cvTa.type.hasFvar = false)
-    (hwf₂ : ∀ (e₁ e₂ : Env) (cvTa cvCa : ConstantVal) (sorts : List Level),
-      (checkDirectInd (wfOpsM mode) env p).val F = .ok (e₁, cvTa) →
-      (checkDirectCtor (wfOpsM mode) env e₁ p cvTa).val F
+    (hwf₂ : ∀ (cT cC : UnivCtx) (e₁ e₂ : Env) (cvTa cvCa : ConstantVal)
+      (sorts : List Level),
+      UnivCtx.of? p.cvT.levelParams = some cT →
+      UnivCtx.of? p.cvC.levelParams = some cC →
+      (checkDirectInd (wfOpsM mode) (env.withLps cT) p).val F = .ok (e₁, cvTa) →
+      (checkDirectCtor (wfOpsM mode) env (e₁.withLps cC) p cvTa).val F
         = .ok (e₂, cvCa, sorts) →
       EnvWF e₂ ∧ cvCa.type.hasFvar = false ∧
         cvCa.type.looseBVarsBounded 0 = true)
@@ -3348,39 +3387,59 @@ theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
     (h : (checkDirectStruct (wfOpsM mode) env p).val F = .ok v) :
     checkDirectStruct (fueledOps mode F) env p = .ok v := by
   unfold checkDirectStruct at h ⊢
+  obtain ⟨envT, hET, h⟩ := atF_bind_ok h
+  rw [enterCtx_atF] at hET
+  show ((enterCtx env p.cvT.levelParams : CheckM Env) >>= _) = _
+  rw [hET]
+  simp only [Bind.bind, Except.bind]
+  obtain ⟨cT, hcT, rfl⟩ := enterCtx_inv hET
   obtain ⟨q1, hind, h⟩ := atF_bind_ok h
   obtain ⟨env₁, cvTa⟩ := q1
   dsimp only [] at h
-  have hind' := checkDirectInd_wfimp henv hind
+  have hind' := checkDirectInd_wfimp (henv.withLps cT) hind
   rw [hind']
   simp only [Bind.bind, Except.bind]
-  obtain ⟨henv₁, hTf⟩ := hwf₁ env₁ cvTa hind
+  obtain ⟨henv₁, hTf⟩ := hwf₁ cT env₁ cvTa hcT hind
+  obtain ⟨envC', hEC, h⟩ := atF_bind_ok h
+  rw [enterCtx_atF] at hEC
+  show ((enterCtx env₁ p.cvC.levelParams : CheckM Env) >>= _) = _
+  rw [hEC]
+  simp only [Bind.bind, Except.bind]
+  obtain ⟨cC, hcC, rfl⟩ := enterCtx_inv hEC
   obtain ⟨q2, hct, h⟩ := atF_bind_ok h
   obtain ⟨env₂, cvCa, sorts⟩ := q2
   dsimp only [] at h
-  have hct' := checkDirectCtor_wfimp henv₁ hTf hct
+  have hct' := checkDirectCtor_wfimp (henv₁.withLps cC) hTf hct
   rw [hct']
   simp only [Bind.bind, Except.bind]
-  obtain ⟨henv₂, hCf, hCb⟩ := hwf₂ env₁ env₂ cvTa cvCa sorts hind hct
+  obtain ⟨henv₂, hCf, hCb⟩ := hwf₂ cT cC env₁ env₂ cvTa cvCa sorts hcT hcC hind hct
+  obtain ⟨envR', hER, h⟩ := atF_bind_ok h
+  rw [enterCtx_atF] at hER
+  show ((enterCtx env₂ p.cvR.levelParams : CheckM Env) >>= _) = _
+  rw [hER]
+  simp only [Bind.bind, Except.bind]
+  obtain ⟨cR, hcR, rfl⟩ := enterCtx_inv hER
+  have henv₂R : EnvWF (env₂.withLps cR) := henv₂.withLps cR
   obtain ⟨cvRa, hcv, h⟩ := atF_bind_ok h
-  have hcv' := checkConstantVal_wfimp henv₂ hcv
+  have hcv' := checkConstantVal_wfimp henv₂R hcv
   rw [hcv']
   simp only [Bind.bind, Except.bind]
   obtain ⟨hRf, -, -, -⟩ := checkConstantVal_typeWF hcv'
   obtain ⟨u0, hrt, h⟩ := atF_bind_ok h
-  have hrt' := checkDirectRecTy_wfimp henv₂ hCf hRf hrt
+  have hrt' := checkDirectRecTy_wfimp henv₂R hCf hRf hrt
   rw [hrt']
   simp only [Bind.bind, Except.bind]
   obtain ⟨rhsA, hru, h⟩ := atF_bind_ok h
-  obtain ⟨hru', -⟩ := checkDirectRule_wfimp henv₂ hCf hRf hru
+  obtain ⟨hru', -⟩ := checkDirectRule_wfimp henv₂R hCf hRf hru
   rw [hru']
   simp only [Bind.bind, Except.bind]
-  have henv₃ := hwf₃ env₂ cvCa cvRa rhsA henv₂ hcv' hru'
+  have henv₃ := hwf₃ (env₂.withLps cR) cvCa cvRa rhsA henv₂R hcv' hru'
   by_cases h1 : (List.range p.nF).all (fun j =>
-      (Env.find? { env₂ with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
-        [⟨p.cvC.name, p.nF, p.nP,
-          if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-            .plain else .inert, rhsA⟩]) :: env₂.consts }
+      (Env.find? { consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+                     [⟨p.cvC.name, p.nF, p.nP,
+                       if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
+                         .plain else .inert, rhsA⟩]) :: (env₂.withLps cR).consts,
+                   lps := (env₂.withLps cR).lps }
         (projFnName p.cvT.name j)).isNone) = true
   case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
   rw [if_pos h1] at h ⊢

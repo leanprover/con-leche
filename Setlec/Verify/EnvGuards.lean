@@ -286,6 +286,15 @@ theorem EtaFamiliesClosed.cons_nonind {env : Env} {c₀ : ConstantInfo}
     rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
     exact hfC
 
+/-- The stored eta families are a fact about `consts` alone: the
+universe context is transparent. -/
+theorem EtaFamiliesClosed.withLps {env : Env} (hE : EtaFamiliesClosed env)
+    (c : UnivCtx) : EtaFamiliesClosed (env.withLps c) := by
+  intro T cvT caps hf he hr
+  rw [Env.find?_withLps] at hf
+  obtain ⟨cvC, hfC⟩ := hE T cvT caps hf he hr
+  exact ⟨cvC, by rw [Env.find?_withLps]; exact hfC⟩
+
 /-- The extension shape every phase after a block's member fold has:
 non-recursor entries survive verbatim (the recursor swap replaces its
 own provisional entries), and no new former appears. -/

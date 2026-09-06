@@ -36,7 +36,7 @@ The denote2-lane chain (`charList_facts2`, `strLit_facts2`) takes its
 head memberships at `piR 1 …` — the regime bit **fixed at 1**, on the
 argument that `Char`/`List Char`/`String`/`Nat` are all `Type`-level.
 That argument is unavailable at the P currency: `denoteP` reads the
-*stored* bit `pwBit φ mb.pw` off the annotated binder, and nothing in
+*stored* bit `pwBit env.lpsL φ mb.pw` off the annotated binder, and nothing in
 `strLitSupported` pins it.  The rows below therefore keep the bits
 abstract and pay for it with `TeleFitP`/`annotOkP_mkAppN_of_fit`,
 whose `v = 0` fibre premises come from the type reading's own
@@ -206,7 +206,7 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       us.length = ci.toConstantVal.levelParams.length →
       denoteP m.acval env φ 0
         (ci.toConstantVal.type.instantiateLevelParams
-          ci.toConstantVal.levelParams us) = some ta →
+          ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)) = some ta →
       (∀ σ : Nat → V, AnnotOkP V σ ta) ∧
         ∀ σ : Nat → V,
           interp2 V σ (m.acval n
@@ -244,13 +244,13 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       (m.acval Setlec.charName (Level.substFn φ [] []))
       ∈ˢ (univ 1 : V) := by
     have hIH : ciH.toConstantVal.type.instantiateLevelParams
-        ciH.toConstantVal.levelParams []
+        ciH.toConstantVal.levelParams [] (Level.masksOf env.lpsL [])
         = Expr.sort (Level.succ Level.zero) := by
       rw [hlpH, hTH]
       simp [Expr.instantiateLevelParams, Level.subst]
     have hR : denoteP m.acval env φ 0
         (ciH.toConstantVal.type.instantiateLevelParams
-          ciH.toConstantVal.levelParams []) = some ((.sort 1) : AVExpr) := by
+          ciH.toConstantVal.levelParams [] (Level.masksOf env.lpsL [])) = some ((.sort 1) : AVExpr) := by
       rw [hIH, denoteP_sort]
       rfl
     have h := (head _ _ _ _ hfH (Setlec.isTowerEntry_false_of_find? hfH (fun _ _ h => by simp [Setlec.charName] at h)) (by simp [hlpH]) hR).2 ρ
@@ -258,16 +258,16 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     exact h
   -- `List.nil`
   have hIN : ciN.toConstantVal.type.instantiateLevelParams
-      ciN.toConstantVal.levelParams [Level.zero]
+      ciN.toConstantVal.levelParams [Level.zero] (Level.masksOf env.lpsL [Level.zero])
       = Expr.forallE nmN (.sort (Level.succ Level.zero))
           (.app (.const Setlec.listName [Level.zero]) (.bvar 0))
-          ⟨mbN.bi, Level.substPW [pN] [Level.zero] mbN.pw⟩ := by
+          ⟨mbN.bi, Level.substPW (Level.masksOf env.lpsL [Level.zero]) mbN.pw⟩ := by
     rw [hlpN, hTN]
     simp [Expr.instantiateLevelParams, Level.subst, Level.subst.go]
   have hRN : denoteP m.acval env φ 0
       (ciN.toConstantVal.type.instantiateLevelParams
-        ciN.toConstantVal.levelParams [Level.zero])
-      = some ((.pi 0 (pwBit φ (Level.substPW [pN] [Level.zero] mbN.pw))
+        ciN.toConstantVal.levelParams [Level.zero] (Level.masksOf env.lpsL [Level.zero]))
+      = some ((.pi 0 (pwBit env.lpsL φ (Level.substPW (Level.masksOf env.lpsL [Level.zero]) mbN.pw))
           (.sort 1)
           (.app (m.acval Setlec.listName
             (Level.substFn φ ciL.toConstantVal.levelParams [Level.zero]))
@@ -282,23 +282,23 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
   obtain ⟨hokRN, hmemRN⟩ := head _ _ _ _ hfN (Setlec.isTowerEntry_false_of_find? hfN (fun _ _ h => by simp [Setlec.listNilName] at h)) (by simp [hlpN]) hRN
   -- `List.cons`
   have hIC : ciC.toConstantVal.type.instantiateLevelParams
-      ciC.toConstantVal.levelParams [Level.zero]
+      ciC.toConstantVal.levelParams [Level.zero] (Level.masksOf env.lpsL [Level.zero])
       = Expr.forallE nm1 (.sort (Level.succ Level.zero))
           (.forallE nm2 (.bvar 0)
             (.forallE nm3 (.app (.const Setlec.listName [Level.zero]) (.bvar 1))
               (.app (.const Setlec.listName [Level.zero]) (.bvar 2))
-              ⟨mb3.bi, Level.substPW [pC] [Level.zero] mb3.pw⟩)
-            ⟨mb2.bi, Level.substPW [pC] [Level.zero] mb2.pw⟩)
-          ⟨mb1.bi, Level.substPW [pC] [Level.zero] mb1.pw⟩ := by
+              ⟨mb3.bi, Level.substPW (Level.masksOf env.lpsL [Level.zero]) mb3.pw⟩)
+            ⟨mb2.bi, Level.substPW (Level.masksOf env.lpsL [Level.zero]) mb2.pw⟩)
+          ⟨mb1.bi, Level.substPW (Level.masksOf env.lpsL [Level.zero]) mb1.pw⟩ := by
     rw [hlpC, hTC]
     simp [Expr.instantiateLevelParams, Level.subst, Level.subst.go]
   have hRC : denoteP m.acval env φ 0
       (ciC.toConstantVal.type.instantiateLevelParams
-        ciC.toConstantVal.levelParams [Level.zero])
-      = some ((.pi 0 (pwBit φ (Level.substPW [pC] [Level.zero] mb1.pw))
+        ciC.toConstantVal.levelParams [Level.zero] (Level.masksOf env.lpsL [Level.zero]))
+      = some ((.pi 0 (pwBit env.lpsL φ (Level.substPW (Level.masksOf env.lpsL [Level.zero]) mb1.pw))
           (.sort 1)
-          (.pi 0 (pwBit φ (Level.substPW [pC] [Level.zero] mb2.pw)) (.bvar 0)
-            (.pi 0 (pwBit φ (Level.substPW [pC] [Level.zero] mb3.pw))
+          (.pi 0 (pwBit env.lpsL φ (Level.substPW (Level.masksOf env.lpsL [Level.zero]) mb2.pw)) (.bvar 0)
+            (.pi 0 (pwBit env.lpsL φ (Level.substPW (Level.masksOf env.lpsL [Level.zero]) mb3.pw))
               (.app (m.acval Setlec.listName
                 (Level.substFn φ ciL.toConstantVal.levelParams [Level.zero]))
                 (.bvar 1))
@@ -309,8 +309,8 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       show (Expr.forallE nm2 (.bvar 0)
             (.forallE nm3 (.app (.const Setlec.listName [Level.zero]) (.bvar 1))
               (.app (.const Setlec.listName [Level.zero]) (.bvar 2))
-              ⟨mb3.bi, Level.substPW [pC] [Level.zero] mb3.pw⟩)
-            ⟨mb2.bi, Level.substPW [pC] [Level.zero] mb2.pw⟩).instantiate1
+              ⟨mb3.bi, Level.substPW (Level.masksOf env.lpsL [Level.zero]) mb3.pw⟩)
+            ⟨mb2.bi, Level.substPW (Level.masksOf env.lpsL [Level.zero]) mb2.pw⟩).instantiate1
           (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero)))
         = Expr.forallE nm2 (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero)))
             (.forallE nm3
@@ -318,22 +318,22 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
                 (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
               (.app (.const Setlec.listName [Level.zero])
                 (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
-              ⟨mb3.bi, Level.substPW [pC] [Level.zero] mb3.pw⟩)
-            ⟨mb2.bi, Level.substPW [pC] [Level.zero] mb2.pw⟩ from rfl,
+              ⟨mb3.bi, Level.substPW (Level.masksOf env.lpsL [Level.zero]) mb3.pw⟩)
+            ⟨mb2.bi, Level.substPW (Level.masksOf env.lpsL [Level.zero]) mb2.pw⟩ from rfl,
       denoteP_forallE, denoteP_fvar,
       show (Expr.forallE nm3
               (.app (.const Setlec.listName [Level.zero])
                 (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
               (.app (.const Setlec.listName [Level.zero])
                 (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
-              ⟨mb3.bi, Level.substPW [pC] [Level.zero] mb3.pw⟩).instantiate1
+              ⟨mb3.bi, Level.substPW (Level.masksOf env.lpsL [Level.zero]) mb3.pw⟩).instantiate1
           (.fvar (0 + 1) nm2 (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
         = Expr.forallE nm3
             (.app (.const Setlec.listName [Level.zero])
               (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
             (.app (.const Setlec.listName [Level.zero])
               (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
-            ⟨mb3.bi, Level.substPW [pC] [Level.zero] mb3.pw⟩ from rfl,
+            ⟨mb3.bi, Level.substPW (Level.masksOf env.lpsL [Level.zero]) mb3.pw⟩ from rfl,
       denoteP_forallE, denoteP_app, hKL, denoteP_fvar,
       show (Expr.app (.const Setlec.listName [Level.zero])
               (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero)))).instantiate1
@@ -347,15 +347,15 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
   obtain ⟨hokRC, hmemRC⟩ := head _ _ _ _ hfC (Setlec.isTowerEntry_false_of_find? hfC (fun _ _ h => by simp [Setlec.listConsName] at h)) (by simp [hlpC]) hRC
   -- `Char.ofNat`
   have hIF : ciF.toConstantVal.type.instantiateLevelParams
-      ciF.toConstantVal.levelParams []
+      ciF.toConstantVal.levelParams [] (Level.masksOf env.lpsL [])
       = Expr.forallE nmF (.const Setlec.natName []) (.const Setlec.charName [])
-          ⟨mbF.bi, Level.substPW [] [] mbF.pw⟩ := by
+          ⟨mbF.bi, Level.substPW (Level.masksOf env.lpsL []) mbF.pw⟩ := by
     rw [hlpF, hTF]
     simp [Expr.instantiateLevelParams]
   have hRF : denoteP m.acval env φ 0
       (ciF.toConstantVal.type.instantiateLevelParams
-        ciF.toConstantVal.levelParams [])
-      = some ((.pi 0 (pwBit φ (Level.substPW [] [] mbF.pw))
+        ciF.toConstantVal.levelParams [] (Level.masksOf env.lpsL []))
+      = some ((.pi 0 (pwBit env.lpsL φ (Level.substPW (Level.masksOf env.lpsL []) mbF.pw))
           (m.acval Setlec.natName (Level.substFn φ [] []))
           (m.acval Setlec.charName (Level.substFn φ [] []))) : AVExpr) := by
     rw [hIF, denoteP_forallE, hKNat,
@@ -366,18 +366,18 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
   obtain ⟨hokRF, hmemRF⟩ := head _ _ _ _ hfF (Setlec.isTowerEntry_false_of_find? hfF (fun _ _ h => by simp [Setlec.charOfNatName] at h)) (by simp [hlpF]) hRF
   -- `String.ofList`
   have hIO : ciO.toConstantVal.type.instantiateLevelParams
-      ciO.toConstantVal.levelParams []
+      ciO.toConstantVal.levelParams [] (Level.masksOf env.lpsL [])
       = Expr.forallE nmO
           (.app (.const Setlec.listName [Level.zero])
             (.const Setlec.charName []))
           (.const Setlec.stringName [])
-          ⟨mbO.bi, Level.substPW [] [] mbO.pw⟩ := by
+          ⟨mbO.bi, Level.substPW (Level.masksOf env.lpsL []) mbO.pw⟩ := by
     rw [hlpO, hTO]
     simp [Expr.instantiateLevelParams, Level.subst]
   have hRO : denoteP m.acval env φ 0
       (ciO.toConstantVal.type.instantiateLevelParams
-        ciO.toConstantVal.levelParams [])
-      = some ((.pi 0 (pwBit φ (Level.substPW [] [] mbO.pw))
+        ciO.toConstantVal.levelParams [] (Level.masksOf env.lpsL []))
+      = some ((.pi 0 (pwBit env.lpsL φ (Level.substPW (Level.masksOf env.lpsL []) mbO.pw))
           (.app (m.acval Setlec.listName
             (Level.substFn φ ciL.toConstantVal.levelParams [Level.zero]))
             (m.acval Setlec.charName (Level.substFn φ [] [])))

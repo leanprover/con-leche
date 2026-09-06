@@ -41,8 +41,8 @@ same reason `IrrelP.lean`'s proof irrelevance was:
   the single statement covers both.  So the η discharge needs **no
   case split on the bit** — the v1 lane's two-branch argument
   disappears.  What the bit is used for instead is the *identification*
-  of the two annotations: the λ's own `pwBit φ m₁.pw` must be the
-  ∀-type's `pwBit φ m₂.pw`, and task #161 P2 put exactly that
+  of the two annotations: the λ's own `pwBit env.lpsL φ m₁.pw` must be the
+  ∀-type's `pwBit env.lpsL φ m₂.pw`, and task #161 P2 put exactly that
   certificate into `etaCert`'s tail (`m₁.pw.equiv m₂.pw` at
   `μ.verified`), so `pwBit_eq_of_equiv` closes it.  This is the
   extraction idiom of `DefEqP.lean`'s "THE KEY DELTA" blocks, at the η
@@ -593,18 +593,18 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
   -- the λ's own reading, and its two gradings
   obtain ⟨ta, bda, hta, hbda, rfl⟩ := denoteP_lam_inv hda
   have hokTa : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ ta := fun σ hσ =>
-    ⟨((AnnotOk2_lam V σ (pwBit φ mb.pw) ta bda) ▸ (hokA σ hσ).1).1,
-      ((AnnotValidV_lam V σ (pwBit φ mb.pw) ta bda) ▸ (hokA σ hσ).2).1⟩
+    ⟨((AnnotOk2_lam V σ (pwBit env.lpsL φ mb.pw) ta bda) ▸ (hokA σ hσ).1).1,
+      ((AnnotValidV_lam V σ (pwBit env.lpsL φ mb.pw) ta bda) ▸ (hokA σ hσ).2).1⟩
   have hcons : ∀ σ : Nat → V, cons (σ 0) (fun j => σ (j + 1)) = σ := by
     intro σ; funext i; cases i with | zero => rfl | succ i => rfl
   have hokBda : ∀ σ : Nat → V, Sat2 V (ta :: Δa) σ →
       AnnotOkP V σ bda := by
     intro σ hσ
     refine ⟨?_, ?_⟩
-    · have := ((AnnotOk2_lam V _ (pwBit φ mb.pw) ta bda) ▸
+    · have := ((AnnotOk2_lam V _ (pwBit env.lpsL φ mb.pw) ta bda) ▸
         (hokA _ (Sat2_tail hσ)).1).2.1 (σ 0) (hσ 0 ta rfl)
       rwa [hcons σ] at this
-    · have := ((AnnotValidV_lam V _ (pwBit φ mb.pw) ta bda) ▸
+    · have := ((AnnotValidV_lam V _ (pwBit env.lpsL φ mb.pw) ta bda) ▸
         (hokA _ (Sat2_tail hσ)).2).2 (σ 0) (hσ 0 ta rfl)
       rwa [hcons σ] at this
   -- `b`'s inferred type, its reduct, and both readings
@@ -640,8 +640,8 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
     hCwr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl])
   have hokTa₂ : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ ta₂ :=
     fun σ hσ =>
-      ⟨((AnnotOk2_pi V σ 0 (pwBit φ m₂.pw) ta₂ ba₂) ▸ (hokW σ hσ).1).1,
-        ((AnnotValidV_pi V σ 0 (pwBit φ m₂.pw) ta₂ ba₂)
+      ⟨((AnnotOk2_pi V σ 0 (pwBit env.lpsL φ m₂.pw) ta₂ ba₂) ▸ (hokW σ hσ).1).1,
+        ((AnnotValidV_pi V σ 0 (pwBit env.lpsL φ m₂.pw) ta₂ ba₂)
           ▸ (hokW σ hσ).2).1⟩
   -- premise one: the two domains agree
   have hdom : ∀ σ : Nat → V, Sat2 V Δa σ →
@@ -650,15 +650,15 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
       hokTa₂ hokTa
   -- premise two: `b` inhabits the product the ∀-type names
   have hmem : ∀ σ : Nat → V, Sat2 V Δa σ →
-      interp2 V σ ba ∈ˢ piR (pwBit φ m₂.pw) (interp2 V σ ta₂)
+      interp2 V σ ba ∈ˢ piR (pwBit env.lpsL φ m₂.pw) (interp2 V σ ta₂)
         (fun x => interp2 V (cons x σ) ba₂) := by
     intro σ hσ
     have hm := hmemB σ hσ
     rw [heqW σ hσ, interp2_pi] at hm
     exact hm
   -- premise three (the P2 certificate): the two bits are equal
-  have hbit : pwBit φ mb.pw = pwBit φ m₂.pw :=
-    pwBit_eq_of_equiv (hpw hμ) φ
+  have hbit : pwBit env.lpsL φ mb.pw = pwBit env.lpsL φ m₂.pw :=
+    pwBit_eq_of_equiv (hpw hμ) env.lpsL φ
   -- premise four: the λ's fibre is `app ⟦b⟧`
   have hdbUp : denoteP m.acval env φ (d + 1) b = some ba.lift := by
     rw [denoteP_weaken_top m.acval_closed hwb, hdb]; rfl
@@ -681,14 +681,14 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
     have hok0 := AnnotOkP.hoist_lift (X := ta) hokB σ hσ
     refine ⟨?_, ?_⟩
     · rw [AnnotOk2_app]
-      refine ⟨hok0.1, by simp, pwBit φ m₂.pw,
+      refine ⟨hok0.1, by simp, pwBit env.lpsL φ m₂.pw,
         interp2 V (fun j => σ (j + 1)) ta₂,
         (fun x => interp2 V (cons x (fun j => σ (j + 1))) ba₂), ?_, ?_,
         ?_⟩
       · rw [interp2_lift]; exact hmem _ hσ'
       · show σ 0 ∈ˢ _
         rw [hdom _ hσ']; exact hx
-      · exact ((AnnotValidV_pi V _ 0 (pwBit φ m₂.pw) ta₂ ba₂)
+      · exact ((AnnotValidV_pi V _ 0 (pwBit env.lpsL φ m₂.pw) ta₂ ba₂)
           ▸ (hokW _ hσ').2).2.2
     · rw [AnnotValidV_app]
       exact ⟨hok0.2, by simp⟩

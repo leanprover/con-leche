@@ -110,7 +110,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
       (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
         (p.renameConsts f)) ++ fvs.drop rP)
       ((cvj.type.instantiateLevelParams cvj.levelParams
-        lvls).renameConsts f) = some (cdoms, cres))
+        lvls (Level.masksOf env.lpsL lvls)).renameConsts f) = some (cdoms, cres))
     (hclen : cres.getAppArgs.length = cnP + (mI - rP))
     {rdoms : List Expr} {rrest : Expr}
     (hrinst : Expr.instPisAt (fvs.take rP) (tyA.renameConsts f)
@@ -120,7 +120,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
     {cdomsP : List Expr} {crestP : Expr}
     (hcinstP : Expr.instPisAt
       (pins.map (Expr.instSpine (fvsP.take rP) (rP - 1)))
-      (cvj.type.instantiateLevelParams cvj.levelParams lvls)
+      (cvj.type.instantiateLevelParams cvj.levelParams lvls (Level.masksOf env.lpsL lvls))
       = some (cdomsP, crestP))
     {xFvsP : List Expr} {ldoms : Expr}
     (hopenXP : openPisAtFvars cnF crestP rP = some (xFvsP, ldoms))
@@ -170,7 +170,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
           denoteP mp.base2.acval env φ 0
             (tyA.instantiateLevelParams lps us) = some TVa →
           denoteP mp.base2.acval env φ 0
-            (cvj.type.instantiateLevelParams cvj.levelParams usj)
+            (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj))
             = some TVja →
           TeleFitPA V ρ TVa
             (xs ++ [AVExpr.mkAppN
@@ -208,7 +208,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
   -- (part 8 finding — with the spines inlined the tail is ~30× slower
   -- and runs the elaborator out of memory).
   obtain ⟨ctyL, hctyL⟩ : ∃ e : Expr,
-      e = cvj.type.instantiateLevelParams cvj.levelParams lvls := ⟨_, rfl⟩
+      e = cvj.type.instantiateLevelParams cvj.levelParams lvls (Level.masksOf env.lpsL lvls) := ⟨_, rfl⟩
   obtain ⟨psP, hpsP⟩ : ∃ l : List Expr,
       l = pins.map (Expr.instSpine (fvsP.take rP) (rP - 1)) := ⟨_, rfl⟩
   obtain ⟨psR, hpsR⟩ : ∃ l : List Expr,

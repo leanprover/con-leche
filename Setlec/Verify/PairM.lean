@@ -304,7 +304,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts (pairFns r₁ r₂ h) env d false
-                (cvp.type.instantiateLevelParams cvp.levelParams us')
+                (cvp.type.instantiateLevelParams cvp.levelParams us' (Level.masksOf env.lpsL us'))
                 (targs ++ [b]) then
               structEtaProjCerts (pairFns r₁ r₂ h) env d T us' targs b
                 lpsT rest
@@ -314,7 +314,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
           if entry.tower = true ∧ entry.levelParams = lpsT ∧
               (entry.ty.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts (pairFns r₁ r₂ h) env d false
-                (entry.ty.instantiateLevelParams entry.levelParams us')
+                (entry.ty.instantiateLevelParams entry.levelParams us' (Level.masksOf env.lpsL us'))
                 (targs ++ [b]) then
               structEtaProjCerts (pairFns r₁ r₂ h) env d T us' targs b
                 lpsT rest
@@ -326,7 +326,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts r₁ env d false
-                (cvp.type.instantiateLevelParams cvp.levelParams us')
+                (cvp.type.instantiateLevelParams cvp.levelParams us' (Level.masksOf env.lpsL us'))
                 (targs ++ [b]) then
               structEtaProjCerts r₁ env d T us' targs b lpsT rest
             else pure false
@@ -335,7 +335,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
           if entry.tower = true ∧ entry.levelParams = lpsT ∧
               (entry.ty.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts r₁ env d false
-                (entry.ty.instantiateLevelParams entry.levelParams us')
+                (entry.ty.instantiateLevelParams entry.levelParams us' (Level.masksOf env.lpsL us'))
                 (targs ++ [b]) then
               structEtaProjCerts r₁ env d T us' targs b lpsT rest
             else pure false
@@ -389,7 +389,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts (pairFns r₁ r₂ h) env d false
-                (cvp.type.instantiateLevelParams cvp.levelParams us')
+                (cvp.type.instantiateLevelParams cvp.levelParams us' (Level.masksOf env.lpsL us'))
                 (targs ++ [b]) then
               structEtaProjCerts (pairFns r₁ r₂ h) env d T us' targs b
                 lpsT rest
@@ -399,7 +399,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
           if entry.tower = true ∧ entry.levelParams = lpsT ∧
               (entry.ty.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts (pairFns r₁ r₂ h) env d false
-                (entry.ty.instantiateLevelParams entry.levelParams us')
+                (entry.ty.instantiateLevelParams entry.levelParams us' (Level.masksOf env.lpsL us'))
                 (targs ++ [b]) then
               structEtaProjCerts (pairFns r₁ r₂ h) env d T us' targs b
                 lpsT rest
@@ -411,7 +411,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts r₂ env d false
-                (cvp.type.instantiateLevelParams cvp.levelParams us')
+                (cvp.type.instantiateLevelParams cvp.levelParams us' (Level.masksOf env.lpsL us'))
                 (targs ++ [b]) then
               structEtaProjCerts r₂ env d T us' targs b lpsT rest
             else pure false
@@ -420,7 +420,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
           if entry.tower = true ∧ entry.levelParams = lpsT ∧
               (entry.ty.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts r₂ env d false
-                (entry.ty.instantiateLevelParams entry.levelParams us')
+                (entry.ty.instantiateLevelParams entry.levelParams us' (Level.masksOf env.lpsL us'))
                 (targs ++ [b]) then
               structEtaProjCerts r₂ env d T us' targs b lpsT rest
             else pure false

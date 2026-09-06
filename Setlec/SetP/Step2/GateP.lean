@@ -55,14 +55,15 @@ variable {V : Type w} [SetTheory V]
 
 /-- **The gate's condition, read at the claims' split.**  The kernel
 tests `mode.verified && mb.pw.isNever`; the claims split on
-`pwBit φ mb.pw = 0` at the ambient valuation.  A fired gate puts the
+`pwBit ps φ mb.pw = 0` at the ambient context and valuation.  A fired gate puts the
 datum on the positive side at *every* `φ` — the ∀-`φ` uniform form of
 the split, and the sound half of `isNever_iff_forall_pwBit_ne_zero`. -/
 theorem gate_pwBit_ne_zero {mode : CheckMode} {mb : BinderMeta}
-    (hg : (mode.verified && mb.pw.isNever) = true) (φ : Name → Nat) :
-    pwBit φ mb.pw ≠ 0 :=
+    (hg : (mode.verified && mb.pw.isNever) = true) (ps : List Name)
+    (φ : Name → Nat) :
+    pwBit ps φ mb.pw ≠ 0 :=
   pwBit_ne_zero_of_isNever (by
-    rcases Bool.and_eq_true .. |>.mp hg with ⟨-, h⟩; exact h) φ
+    rcases Bool.and_eq_true .. |>.mp hg with ⟨-, h⟩; exact h) ps φ
 
 /-- **THE β-GATE'S LICENSE.**  At a fired gate the β step's two
 obligations — the interpretation equality and the reduct's
@@ -75,22 +76,22 @@ the whole content of the gate: the run the kernel deletes
 taken. -/
 theorem AnnotOkP_beta_gate {mode : CheckMode} {mb : BinderMeta}
     (hg : (mode.verified && mb.pw.isNever) = true)
-    {A b a : AVExpr} {φ : Name → Nat} {ρ : Nat → V}
-    (h : AnnotOkP V ρ (.app (.lam (pwBit φ mb.pw) A b) a)) :
-    interp2 V ρ (.app (.lam (pwBit φ mb.pw) A b) a)
+    {A b a : AVExpr} {ps : List Name} {φ : Name → Nat} {ρ : Nat → V}
+    (h : AnnotOkP V ρ (.app (.lam (pwBit ps φ mb.pw) A b) a)) :
+    interp2 V ρ (.app (.lam (pwBit ps φ mb.pw) A b) a)
         = interp2 V ρ (b.inst a) ∧
       AnnotOkP V ρ (b.inst a) :=
-  AnnotOkP_beta_pos (gate_pwBit_ne_zero hg φ) h
+  AnnotOkP_beta_pos (gate_pwBit_ne_zero hg ps φ) h
 
 /-- **THE ASYMMETRY FENCE.**  A fired gate and a zero-kind datum
 cannot coexist.  The certificate-consuming arm of the β split
-(`AnnotOkP_beta_zero`) is guarded by `pwBit φ mb.pw = 0`, so under the
+(`AnnotOkP_beta_zero`) is guarded by `pwBit ps φ mb.pw = 0`, so under the
 gate that arm is *unreachable*: no transposed obligation can reach for
 a certificate the gate skipped, and the establishment/consumption
 asymmetry survives the transposition intact. -/
 theorem gate_zero_kind_unreachable {mode : CheckMode} {mb : BinderMeta}
-    (hg : (mode.verified && mb.pw.isNever) = true) {φ : Name → Nat}
-    (hz : pwBit φ mb.pw = 0) : False :=
-  gate_pwBit_ne_zero hg φ hz
+    (hg : (mode.verified && mb.pw.isNever) = true) {ps : List Name}
+    {φ : Name → Nat} (hz : pwBit ps φ mb.pw = 0) : False :=
+  gate_pwBit_ne_zero hg ps φ hz
 
 end Setlec.SetP

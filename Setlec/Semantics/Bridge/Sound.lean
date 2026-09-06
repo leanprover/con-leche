@@ -53,7 +53,7 @@ theorem checkDeclRun_ofEnvFactsE
     -- clause's own `directParts?` dispatch — `declDirectRun_of` on the
     -- direct arm, `declIndRun_of` on the modeled one.
     (fun {block} hh => by
-      rw [checkDecl] at hh
+      rw [checkDecl, checkDeclAt] at hh
       rw [DeclIndRunDispatch]
       revert hh
       cases hdp : directParts? env block with

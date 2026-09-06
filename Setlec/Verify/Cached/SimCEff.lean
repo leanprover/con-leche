@@ -239,10 +239,11 @@ theorem pisToLamsM_eff (hs : CSOK mode env s₀) {k : Nat} {e body : ExprC}
   exact h
 
 theorem instLevelParamsM_eff (hs : CSOK mode env s₀) {ks : List Name}
-    {us : List Level} {e : ExprC} {a : Expr} (he : RelC e a) :
+    {us : List Level} {ms : List PropWhen} {e : ExprC} {a : Expr}
+    (he : RelC e a) :
     CEff mode env s₀
-      (fun i => RelC i (a.instantiateLevelParams ks us))
-      (instLevelParamsM ks us e) := by
+      (fun i => RelC i (a.instantiateLevelParams ks us ms))
+      (instLevelParamsM ks us ms e) := by
   refine CEff.pure hs ?_
   show _ = _
   rw [instLevelParams_spec (ks := ks) (us := us), he.erase]
@@ -309,10 +310,10 @@ theorem substLevelTreesM_eff (hs : CSOK mode env s₀) (ks : List Name)
       (substLevelTreesM ks us ls) :=
   CEff.pure hs rfl
 
-/-- The zero-ness readout is a pure function of the level tree
-(task #161). -/
-theorem zeronessOfM_eff (hs : CSOK mode env s₀) (u : Level) :
-    CEff mode env s₀ (fun r => r = Level.zeronessOf u) (zeronessOfM u) :=
+/-- The packed-datum readout is a pure function of the level tree and
+the universe context (task #161; positional since the packed `pw`). -/
+theorem zeronessOfM_eff (hs : CSOK mode env s₀) (lps : List Name) (u : Level) :
+    CEff mode env s₀ (fun r => r = Level.maskOf lps u) (zeronessOfM lps u) :=
   CEff.pure hs rfl
 
 end Effects
@@ -681,7 +682,7 @@ theorem CSOK.insertConstTy {s : CState} (hs : CSOK mode env s)
     {n : Name} {us : List Level} {i : ExprC} {ci : ConstantInfo}
     (hfind : env.find? n = some ci)
     (hrel : RelC i (ci.toConstantVal.type.instantiateLevelParams
-      ci.toConstantVal.levelParams us)) :
+      ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us))) :
     CSOK mode env { s with constTyAt := s.constTyAt.insert (n, us) i } := by
   refine ⟨?_, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC, hs.inferC, hs.inferIOC,
     hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
@@ -705,7 +706,7 @@ theorem CSOK.insertConstVal {s : CState} (hs : CSOK mode env s)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hfind : env.find? n = some (.defnInfo cv v hint) ∨
       env.find? n = some (.thmInfo cv v))
-    (hrel : RelC i (v.instantiateLevelParams cv.levelParams us)) :
+    (hrel : RelC i (v.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))) :
     CSOK mode env { s with constValAt := s.constValAt.insert (n, us) i } := by
   refine ⟨hs.constTy, ?_, hs.ruleRhs, hs.whnfCoreC, hs.whnfC, hs.inferC, hs.inferIOC,
     hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
@@ -729,7 +730,7 @@ theorem CSOK.insertRuleRhs {s : CState} (hs : CSOK mode env s)
     {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule} {rl : RecRule}
     (hfind : env.find? c = some (.recInfo cv mI rP rules))
     (hrl : rules.find? (fun r' => r'.ctor == j) = some rl)
-    (hrel : RelC i (rl.rhs.instantiateLevelParams cv.levelParams us)) :
+    (hrel : RelC i (rl.rhs.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))) :
     CSOK mode env
       { s with ruleRhsAt := s.ruleRhsAt.insert (c, j, us) i } := by
   refine ⟨hs.constTy, hs.constVal, ?_, hs.whnfCoreC, hs.whnfC, hs.inferC, hs.inferIOC,
@@ -828,7 +829,7 @@ theorem constTyAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
     {us : List Level} {ci : ConstantInfo} (hfind : env.find? n = some ci) :
     CEff mode env s₀ (fun i => RelC i
         (ci.toConstantVal.type.instantiateLevelParams
-          ci.toConstantVal.levelParams us))
+          ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)))
       (constTyAtM (mkFEnv env) nI n us) := by
   intro v' s' hr
   rw [show constTyAtM (mkFEnv env) nI n us = (do
@@ -840,7 +841,7 @@ theorem constTyAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
         | some ci =>
           let cv := ci.toConstantVal
           let raw ← storedTyIdxM n cv.type
-          let i ← instLevelParamsM cv.levelParams us raw
+          let i ← instLevelParamsM cv.levelParams us (Level.masksOf (mkFEnv env).env.lpsL us) raw
           modify fun s =>
             let mp := s.constTyAt
             let s := { s with constTyAt := ∅ }
@@ -871,7 +872,7 @@ theorem constTyAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
       rw [hrun] at hr
       dsimp only at hr
       obtain ⟨hs₁, hraw⟩ := storedTyIdxM_eff hs _ raw s₁ hrun
-      cases hrun₂ : instLevelParamsM ci.toConstantVal.levelParams us raw s₁
+      cases hrun₂ : instLevelParamsM ci.toConstantVal.levelParams us (Level.masksOf (mkFEnv env).env.lpsL us) raw s₁
           with
       | error he => rw [hrun₂] at hr; exact nomatch hr
       | ok pr₂ =>
@@ -893,7 +894,7 @@ theorem constValAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
     (hfind : env.find? n = some (.defnInfo cv v hint) ∨
       env.find? n = some (.thmInfo cv v)) :
     CEff mode env s₀
-      (fun i => RelC i (v.instantiateLevelParams cv.levelParams us))
+      (fun i => RelC i (v.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)))
       (constValAtM (mkFEnv env) nI n us) := by
   intro v' s' hr
   rw [show constValAtM (mkFEnv env) nI n us = (do
@@ -904,7 +905,7 @@ theorem constValAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
         match (mkFEnv env).find? n with
         | some (.defnInfo cv v _) =>
           let raw ← storedValIdxM n v
-          let i ← instLevelParamsM cv.levelParams us raw
+          let i ← instLevelParamsM cv.levelParams us (Level.masksOf (mkFEnv env).env.lpsL us) raw
           modify fun s =>
             let mp := s.constValAt
             let s := { s with constValAt := ∅ }
@@ -912,7 +913,7 @@ theorem constValAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
           pure i
         | some (.thmInfo cv v) =>
           let raw ← storedValIdxM n v
-          let i ← instLevelParamsM cv.levelParams us raw
+          let i ← instLevelParamsM cv.levelParams us (Level.masksOf (mkFEnv env).env.lpsL us) raw
           modify fun s =>
             let mp := s.constValAt
             let s := { s with constValAt := ∅ }
@@ -945,7 +946,7 @@ theorem constValAtM_eff (hs : CSOK mode env s₀) {nI n : Name}
         rw [hrun] at hr
         dsimp only at hr
         obtain ⟨hs₁, hraw⟩ := storedValIdxM_eff hs _ raw s₁ hrun
-        cases hrun₂ : instLevelParamsM cv.levelParams us raw s₁ with
+        cases hrun₂ : instLevelParamsM cv.levelParams us (Level.masksOf (mkFEnv env).env.lpsL us) raw s₁ with
         | error he => rw [hrun₂] at hr; exact nomatch hr
         | ok pr₂ =>
           obtain ⟨i, s₂⟩ := pr₂
@@ -968,7 +969,7 @@ theorem ruleRhsAtM_eff (hs : CSOK mode env s₀) {cI jI c j : Name}
     (hfind : env.find? c = some (.recInfo cv mI rP rules))
     (hrl : rules.find? (fun r' => r'.ctor == j) = some rl) :
     CEff mode env s₀
-      (fun i => RelC i (rl.rhs.instantiateLevelParams cv.levelParams us))
+      (fun i => RelC i (rl.rhs.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)))
       (ruleRhsAtM (mkFEnv env) cI jI c j us) := by
   intro v' s' hr
   rw [show ruleRhsAtM (mkFEnv env) cI jI c j us = (do
@@ -981,7 +982,7 @@ theorem ruleRhsAtM_eff (hs : CSOK mode env s₀) {cI jI c j : Name}
           match rules.find? (fun r' => r'.ctor == j) with
           | some rl =>
             let raw ← internExprM rl.rhs
-            let i ← instLevelParamsM cv.levelParams us raw
+            let i ← instLevelParamsM cv.levelParams us (Level.masksOf (mkFEnv env).env.lpsL us) raw
             modify fun s =>
               let mp := s.ruleRhsAt
               let s := { s with ruleRhsAt := ∅ }
@@ -1018,7 +1019,7 @@ theorem ruleRhsAtM_eff (hs : CSOK mode env s₀) {cI jI c j : Name}
       rw [hrun] at hr
       dsimp only at hr
       obtain ⟨hs₁, hraw⟩ := internExprM_eff hs _ raw s₁ hrun
-      cases hrun₂ : instLevelParamsM cv.levelParams us raw s₁ with
+      cases hrun₂ : instLevelParamsM cv.levelParams us (Level.masksOf (mkFEnv env).env.lpsL us) raw s₁ with
       | error he => rw [hrun₂] at hr; exact nomatch hr
       | ok pr₂ =>
         obtain ⟨i, s₂⟩ := pr₂

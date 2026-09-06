@@ -47,7 +47,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                           (fun l => major.fvarLeaves.contains l) then
                       iotaCerts (fueledFns mode env) env d false
                           (cvj.type.instantiateLevelParams
-                            cvj.levelParams ust)
+                            cvj.levelParams ust (Level.masksOf env.lpsL ust))
                           (tmaj.getAppArgs.take cnP) >>= fun rc =>
                       if rc then
                         (fueledFns mode env).inferIO d fab >>= fun tfab =>
@@ -84,7 +84,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                           (fun l => major.fvarLeaves.contains l) then
                       iotaCerts (fueledFns mode env) env d false
                           (cvj.type.instantiateLevelParams
-                            cvj.levelParams ust)
+                            cvj.levelParams ust (Level.masksOf env.lpsL ust))
                           (etaFabArgsE env T ust tmaj.getAppArgs major
                             caps.etaFields) >>= fun rc =>
                       if rc then
@@ -316,7 +316,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         simp only [ConstantInfo.toConstantVal] at hQty
                         have hwty : Expr.WScoped d
                             (cvj.type.instantiateLevelParams
-                              cvj.levelParams ust) := by
+                              cvj.levelParams ust (Level.masksOf env.lpsL ust)) := by
                           obtain ⟨htf, -⟩ := henv _ (find?_mem hfj)
                           exact wscoped_instLevels_of_not_hasFvar
                             htf _ _
@@ -468,7 +468,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                           simp only [ConstantInfo.toConstantVal] at hQty
                           have hwty : Expr.WScoped d
                               (cvj.type.instantiateLevelParams
-                                cvj.levelParams ust) := by
+                                cvj.levelParams ust (Level.masksOf env.lpsL ust)) := by
                             obtain ⟨htf, -⟩ := henv _ (find?_mem hfj)
                             exact wscoped_instLevels_of_not_hasFvar
                               htf _ _
@@ -602,16 +602,16 @@ theorem pinArgsC_eff (lps : List Name) (us : List Level) :
       RelCL args xs →
       CEff mode env s₀ (fun rs => RelCL rs
           (ps.map fun p => Expr.instSpine xs t
-            (p.instantiateLevelParams lps us)))
-        (pinArgsI lps us args t ps)
+            (p.instantiateLevelParams lps us (Level.masksOf env.lpsL us))))
+        (pinArgsI env.lpsL lps us args t ps)
   | [], s₀, hs, args, xs, t, hargs => by
     exact CEff.pure hs RelCL.nil
   | p :: ps, s₀, hs, args, xs, t, hargs => by
     show CEff mode env s₀ _
       (internExprM p >>= fun praw =>
-        instLevelParamsM lps us praw >>= fun pi =>
+        instLevelParamsM lps us (Level.masksOf env.lpsL us) praw >>= fun pi =>
         instSpineM args t pi >>= fun r =>
-        pinArgsI lps us args t ps >>= fun rs =>
+        pinArgsI env.lpsL lps us args t ps >>= fun rs =>
         pure (r :: rs))
     refine CEff.bind (internExprM_eff hs p) (fun s₁ praw hs₁ hQpr => ?_)
     refine CEff.bind (instLevelParamsM_eff hs₁ hQpr)
@@ -703,31 +703,31 @@ private theorem iotaRec_certs_tail (ih : SSimC mode env f) (henv : EnvWF env)
           else pure none
         else pure none)
       (iotaCerts (fueledFns mode env) env d mi.betaGate
-          (cv.type.instantiateLevelParams cv.levelParams us)
+          (cv.type.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
           (ex.getAppArgs.take mI ++ [majorx]) >>= fun r₂ =>
         if r₂ then
           iotaCerts (fueledFns mode env) env d mi.betaGate
-              (cvj.type.instantiateLevelParams cvj.levelParams usj)
+              (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj))
               majorx.getAppArgs >>= fun r₃ =>
           if r₃ then
             iotaIndexOk (fueledFns mode env) env d mI rP rl.ctorParams
-                (cvj.type.instantiateLevelParams cvj.levelParams usj)
+                (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj))
                 majorx.getAppArgs ((ex.getAppArgs.take mI).drop rP) >>=
               fun r₄ =>
             if r₄ then
               pure (some (Expr.mkAppN
-                (rl.rhs.instantiateLevelParams cv.levelParams us)
+                (rl.rhs.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
                 (ex.getAppArgs.take rP ++
                   majorx.getAppArgs.drop rl.ctorParams)))
             else pure none
           else pure none
         else pure none) := by
   have hwrecty : Expr.WScoped d
-      (cv.type.instantiateLevelParams cv.levelParams us) := by
+      (cv.type.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfc)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
   have hwctorty : Expr.WScoped d
-      (cvj.type.instantiateLevelParams cvj.levelParams usj) := by
+      (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj)) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfj)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
   refine SimC.bind_left (constTyAtM_eff hs hfc)
@@ -817,38 +817,38 @@ private theorem iotaRec_unfold (mi : CheckMode) (env : Env) (d : Nat)
                       "iota reduction over a nested auxiliary recursor rule")
                   else
                     liftFueled "level comparison" (Level.isEquivList usj
-                        (recFireComparands rl cv.levelParams us
+                        (recFireComparands rl env.lpsL cv.levelParams us
                           cvj.levelParams e.getAppArgs rP).1) >>=
                       fun okl =>
                     if okl then
                       defEqList (fueledFns mode env) env d
                           (major.getAppArgs.take rl.ctorParams)
-                          (recFireComparands rl cv.levelParams us
+                          (recFireComparands rl env.lpsL cv.levelParams us
                             cvj.levelParams e.getAppArgs rP).2 >>=
                         fun r₁ =>
                       if r₁ then
                         iotaCerts (fueledFns mode env) env d mi.betaGate
                             (cv.type.instantiateLevelParams
-                              cv.levelParams us)
+                              cv.levelParams us (Level.masksOf env.lpsL us))
                             (e.getAppArgs.take mI ++ [major]) >>=
                           fun r₂ =>
                         if r₂ then
                           iotaCerts (fueledFns mode env) env d mi.betaGate
                               (cvj.type.instantiateLevelParams
-                                cvj.levelParams usj)
+                                cvj.levelParams usj (Level.masksOf env.lpsL usj))
                               major.getAppArgs >>= fun r₃ =>
                           if r₃ then
                             iotaIndexOk (fueledFns mode env) env d mI rP
                                 rl.ctorParams
                                 (cvj.type.instantiateLevelParams
-                                  cvj.levelParams usj)
+                                  cvj.levelParams usj (Level.masksOf env.lpsL usj))
                                 major.getAppArgs
                                 ((e.getAppArgs.take mI).drop rP) >>=
                               fun r₄ =>
                             if r₄ then
                               pure (some (Expr.mkAppN
                                 (rl.rhs.instantiateLevelParams
-                                  cv.levelParams us)
+                                  cv.levelParams us (Level.masksOf env.lpsL us))
                                 (e.getAppArgs.take rP ++
                                   major.getAppArgs.drop
                                     rl.ctorParams)))
@@ -964,7 +964,7 @@ theorem iotaRecC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                           rfl rl (List.mem_of_find?_eq_some hrule)
                         exact ((g5 lvls pins hf').2.2.1 pin hpin).1
                       have hcmpW := recFireComparands_snd_WScoped rl
-                        cv.levelParams us cvj.levelParams
+                        env.lpsL cv.levelParams us cvj.levelParams
                         (Expr.getAppArgs i) rP hargsW hpinsW
                       cases hfire : rl.fire with
                       | inert => simp [hfire] at *

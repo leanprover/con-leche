@@ -206,7 +206,7 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
       (mode.verified = true → body.isLam = false → ∃ btt v,
         inferTypeIO mode env fuel (d + 1) bt = .ok btt ∧
         whnf mode env fuel (d + 1) btt = .ok (.sort v) ∧
-        (Level.zeronessOf v).equiv m.pw = true) ∧
+        Level.maskOf? env.lpsL v = some m.pw) ∧
       (mode.verified = true → ∀ pwI, body.lamPw = some pwI →
         m.pw.equiv pwI = true) ∧
       t = .forallE n ty (bt.abstract1 d) m := by
@@ -282,11 +282,11 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     | .sort v =>
       intro h
       dsimp only [pure, Except.pure] at h
-      by_cases hz : (Level.zeronessOf v).equiv m.pw = true
+      by_cases hz : (Level.maskOf? env.lpsL v == some m.pw) = true
       · rw [if_pos hz] at h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         refine ⟨tty, u, bt, rfl, hwtty, rfl,
-          fun _ _ => ⟨btt, v, hbtt, hwbtt, hz⟩, ?_, h.symm⟩
+          fun _ _ => ⟨btt, v, hbtt, hwbtt, by simpa using hz⟩, ?_, h.symm⟩
         intro _ pwI heq
         first
           | exact nomatch heq
@@ -375,7 +375,7 @@ theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
       inferTypeCore mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
       ensureSortCore mode env fuel (d + 1) bt = .ok v ∧
-      (mode.verified = true → (Level.zeronessOf v).equiv m.pw = true) ∧
+      (mode.verified = true → Level.maskOf? env.lpsL v = some m.pw) ∧
       t = .sort (.imax u v) := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
@@ -417,10 +417,10 @@ theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
     exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes,
       fun hv' => absurd hv' hv, h.symm⟩
   rw [if_pos hv] at h
-  by_cases hz : (Level.zeronessOf v).equiv m.pw = true
+  by_cases hz : (Level.maskOf? env.lpsL v == some m.pw) = true
   · rw [if_pos hz] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes, fun _ => hz, h.symm⟩
+    exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes, fun _ => by simpa using hz, h.symm⟩
   · rw [if_neg hz] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
 
@@ -548,7 +548,7 @@ theorem inferTypeCore_const_inv {env : Env} {fuel d : Nat}
     (h : inferTypeCore mode env fuel d (.const n us) = .ok t) :
     ∃ ci, env.find? n = some ci ∧ ci.isTowerEntry = false ∧
       t = ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us := by
+        ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us) := by
   match fuel, h with
   | 0, h => rw [inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
@@ -778,7 +778,7 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {lic : Bool} {c : Name}
     (h : projCertP mode env fuel d lic c us args = .ok true) :
     ∃ cvC nP nF, env.find? c = some (.ctorInfo cvC nP nF) ∧
       iotaCertsP mode env fuel d lic
-        (cvC.type.instantiateLevelParams cvC.levelParams us) args = .ok true := by
+        (cvC.type.instantiateLevelParams cvC.levelParams us (Level.masksOf env.lpsL us)) args = .ok true := by
   dsimp only [projCertP] at h
   simp only [projCert] at h
   split at h
@@ -805,21 +805,21 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       major.getAppArgs.length = r.ctorParams + r.nfields ∧
       r.fire ≠ .inert ∧
       Level.isEquivList usj
-        (recFireComparands r cv.levelParams us cvj.levelParams
+        (recFireComparands r env.lpsL cv.levelParams us cvj.levelParams
           e.getAppArgs rP).1 = some true ∧
       defEqListP mode env fuel d (major.getAppArgs.take r.ctorParams)
-        (recFireComparands r cv.levelParams us cvj.levelParams
+        (recFireComparands r env.lpsL cv.levelParams us cvj.levelParams
           e.getAppArgs rP).2 = .ok true ∧
       iotaCertsP mode env fuel d mode.betaGate
-        (cv.type.instantiateLevelParams cv.levelParams us)
+        (cv.type.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
         (e.getAppArgs.take mI ++ [major]) = .ok true ∧
       iotaCertsP mode env fuel d mode.betaGate
-        (cvj.type.instantiateLevelParams cvj.levelParams usj)
+        (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj))
         major.getAppArgs = .ok true ∧
       iotaIndexOkP mode env fuel d mI rP r.ctorParams
-        (cvj.type.instantiateLevelParams cvj.levelParams usj)
+        (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj))
         major.getAppArgs ((e.getAppArgs.take mI).drop rP) = .ok true ∧
-      eout = Expr.mkAppN (r.rhs.instantiateLevelParams cv.levelParams us)
+      eout = Expr.mkAppN (r.rhs.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
         (e.getAppArgs.take rP ++
           major.getAppArgs.drop r.ctorParams) := by
   dsimp only [iotaRecP] at h
@@ -914,7 +914,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   rw [if_neg hplain0] at h
   try simp only [Bind.bind, Except.bind] at h
   cases hlev : Level.isEquivList usj
-      (recFireComparands r cv.levelParams us cvj.levelParams
+      (recFireComparands r env.lpsL cv.levelParams us cvj.levelParams
         e.getAppArgs rP).1 with
   | none => rw [hlev] at h; simp [liftFueled] at h
   | some bl =>
@@ -927,7 +927,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
   cases hpeq : defEqListP mode env fuel d (major.getAppArgs.take r.ctorParams)
-      (recFireComparands r cv.levelParams us cvj.levelParams e.getAppArgs rP).2 with
+      (recFireComparands r env.lpsL cv.levelParams us cvj.levelParams e.getAppArgs rP).2 with
   | error err => rw [hpeq] at h; exact nomatch h
   | ok rp =>
   rw [hpeq] at h
@@ -938,7 +938,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
   cases hcerts : iotaCertsP mode env fuel d mode.betaGate
-      (cv.type.instantiateLevelParams cv.levelParams us)
+      (cv.type.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
       (e.getAppArgs.take mI ++ [major]) with
   | error err => rw [hcerts] at h; exact nomatch h
   | ok rc =>
@@ -950,7 +950,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
   cases hmcerts : iotaCertsP mode env fuel d mode.betaGate
-      (cvj.type.instantiateLevelParams cvj.levelParams usj)
+      (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj))
       major.getAppArgs with
   | error err => rw [hmcerts] at h; exact nomatch h
   | ok rmc =>
@@ -963,7 +963,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   try simp only [Bind.bind, Except.bind] at h
   -- the index block (`iotaIndexOk`)
   cases hidx : iotaIndexOkP mode env fuel d mI rP r.ctorParams
-      (cvj.type.instantiateLevelParams cvj.levelParams usj)
+      (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj))
       major.getAppArgs ((e.getAppArgs.take mI).drop rP) with
   | error err => rw [hidx] at h; exact nomatch h
   | ok ri =>
@@ -1021,7 +1021,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
          major' = Expr.mkAppN (.const rl.ctor ust)
            (tmaj.getAppArgs.take cnP) ∧
          iotaCertsP mode env fuel d false
-           (cvj.type.instantiateLevelParams cvj.levelParams ust)
+           (cvj.type.instantiateLevelParams cvj.levelParams ust (Level.masksOf env.lpsL ust))
            (tmaj.getAppArgs.take cnP) = .ok true ∧
          (∃ tfab, inferTypeIO mode env fuel d major' = .ok tfab ∧
            isDefEqCore mode env fuel d tmaj tfab = .ok true) ∧
@@ -1037,7 +1037,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
          major' = Expr.mkAppN (.const caps.etaCtor ust)
            (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields) ∧
          iotaCertsP mode env fuel d false
-           (cvj.type.instantiateLevelParams cvj.levelParams ust)
+           (cvj.type.instantiateLevelParams cvj.levelParams ust (Level.masksOf env.lpsL ust))
            (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
            = .ok true ∧
          (structEtaCertWithP mode env fuel d major' major tmaj = .ok true ∨
@@ -1193,7 +1193,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
     cases hcertK : iotaCertsP mode env fuel d false
-        (cvj.type.instantiateLevelParams cvj.levelParams ust)
+        (cvj.type.instantiateLevelParams cvj.levelParams ust (Level.masksOf env.lpsL ust))
         (tmaj.getAppArgs.take cnP) with
     | error err => rw [hcertK] at h; exact nomatch h
     | ok bck =>
@@ -1346,7 +1346,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
     cases hcertE : iotaCertsP mode env fuel d false
-        (cvj.type.instantiateLevelParams cvj.levelParams ust)
+        (cvj.type.instantiateLevelParams cvj.levelParams ust (Level.masksOf env.lpsL ust))
         (etaFabArgsE env T' ust tmaj.getAppArgs major caps.etaFields) with
     | error err => rw [hcertE] at h; exact nomatch h
     | ok bce =>
@@ -1580,7 +1580,7 @@ ever answers `false`, so it contributes nothing here. -/
 theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : propIrrelP mode env fuel d a b = .ok true) :
     (mode.verified = true ∧ mode.betaGate = true ∧
-      isProofFast env.find? a = true ∧ isProofFast env.find? b = true) ∨
+      isProofFast env.find? env.lpsL a = true ∧ isProofFast env.find? env.lpsL b = true) ∨
     ∃ ta sta uT tb stb vT,
       inferTypeIO mode env fuel d a = .ok ta ∧
       inferTypeIO mode env fuel d ta = .ok sta ∧
@@ -1827,7 +1827,7 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
           cvp.levelParams = lpsT ∧
           (cvp.type.stripPis (targs.length + 1)).isSome = true ∧
           iotaCertsP mode env fuel d false
-            (cvp.type.instantiateLevelParams cvp.levelParams us')
+            (cvp.type.instantiateLevelParams cvp.levelParams us' (Level.masksOf env.lpsL us'))
             (targs ++ [b]) = .ok true) ∨
         -- a tower-backed entry (task #175 W4c): its stored type certified
         -- the same way
@@ -1836,7 +1836,7 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
           entry.tower = true ∧ entry.levelParams = lpsT ∧
           (entry.ty.stripPis (targs.length + 1)).isSome = true ∧
           iotaCertsP mode env fuel d false
-            (entry.ty.instantiateLevelParams entry.levelParams us')
+            (entry.ty.instantiateLevelParams entry.levelParams us' (Level.masksOf env.lpsL us'))
             (targs ++ [b]) = .ok true)
   | [], _, i, hi => nomatch hi
   | i₀ :: rest, h, i, hi => by
@@ -1862,7 +1862,7 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
       obtain ⟨htw, hlps, hstrp⟩ := hlps
       simp only [Bind.bind, Except.bind] at h
       cases hic : iotaCertsP mode env fuel d false
-          (entry.ty.instantiateLevelParams entry.levelParams us')
+          (entry.ty.instantiateLevelParams entry.levelParams us' (Level.masksOf env.lpsL us'))
           (targs ++ [b]) with
       | error e => rw [hic] at h; exact nomatch h
       | ok r => ?_
@@ -1883,7 +1883,7 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
       obtain ⟨hlps, hstrp⟩ := hlps
       simp only [Bind.bind, Except.bind] at h
       cases hic : iotaCertsP mode env fuel d false
-          (cvp.type.instantiateLevelParams cvp.levelParams us')
+          (cvp.type.instantiateLevelParams cvp.levelParams us' (Level.masksOf env.lpsL us'))
           (targs ++ [b]) with
       | error e => rw [hic] at h; exact nomatch h
       | ok r => ?_
@@ -1920,7 +1920,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       (towerSlotsAll env T cnF || recSlotsAll env T cnF) = true ∧
       Level.isEquivList us us' = some true ∧
       iotaCertsP mode env fuel d false
-        (cvT.type.instantiateLevelParams cvT.levelParams us')
+        (cvT.type.instantiateLevelParams cvT.levelParams us' (Level.masksOf env.lpsL us'))
         wtb.getAppArgs = .ok true ∧
       structEtaProjCertsP mode env fuel d T us' wtb.getAppArgs b
         cvT.levelParams (List.range cnF) = .ok true ∧
@@ -1930,7 +1930,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       -- check (task #147): delivered only at `mode.ttChecks`
       (mode.ttChecks = true →
         iotaCertsP mode env fuel d false
-          (cvc.type.instantiateLevelParams cvc.levelParams us)
+          (cvc.type.instantiateLevelParams cvc.levelParams us (Level.masksOf env.lpsL us))
           (wtb.getAppArgs ++ etaProjs env T us' wtb.getAppArgs b cnF) = .ok true) ∧
       defEqListP mode env fuel d (a.getAppArgs.drop cnP)
         (etaProjs env T us' wtb.getAppArgs b cnF) = .ok true := by
@@ -2016,7 +2016,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | true => ?_
   simp only [↓reduceIte] at h
   cases hic : iotaCertsP mode env fuel d false
-      (cvT.type.instantiateLevelParams cvT.levelParams us')
+      (cvT.type.instantiateLevelParams cvT.levelParams us' (Level.masksOf env.lpsL us'))
       wtb.getAppArgs with
   | error e => rw [hic] at h; exact nomatch h
   | ok r₁ => ?_
@@ -2064,7 +2064,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   rw [htt] at h
   simp only [↓reduceIte] at h
   cases hic2 : iotaCertsP mode env fuel d false
-      (cvc.type.instantiateLevelParams cvc.levelParams us)
+      (cvc.type.instantiateLevelParams cvc.levelParams us (Level.masksOf env.lpsL us))
       (wtb.getAppArgs ++ etaProjs env T us' wtb.getAppArgs b cnF) with
   | error e => rw [hic2] at h; exact nomatch h
   | ok r₄ => ?_
@@ -2120,7 +2120,7 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
       whnf mode env fuel d tb = .ok wtb ∧
       isDefEqCore mode env fuel d wta wtb = .ok true ∧
       iotaCertsP mode env fuel d false
-        (cvT.type.instantiateLevelParams cvT.levelParams us')
+        (cvT.type.instantiateLevelParams cvT.levelParams us' (Level.masksOf env.lpsL us'))
         wta.getAppArgs = .ok true := by
   dsimp only [structUnitCertP] at h
   rw [structUnitCert] at h
@@ -2284,7 +2284,7 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       -- consumers that need `entry.tower = true` read it off
       -- `ProjOkT.tower_of_native`)
       ((∃ ds, Expr.instPisAt (te.getAppArgs ++ [e])
-            (entry.ty.instantiateLevelParams entry.levelParams us)
+            (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us))
           = some (ds, t)) ∧
        -- task #175 wiring W5: the node's struct name is the head's
        T = sn) := by
@@ -2340,7 +2340,7 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
         exact absurd h (by
           simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind])
     have h' : (match Expr.instPisAt (te.getAppArgs ++ [e])
-          (entry.ty.instantiateLevelParams entry.levelParams us) with
+          (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)) with
         | some (_, resid) => (pure resid : Except CheckError Expr)
         | none => (throw (CheckError.internal "malformed projection entry") :
             Except CheckError Expr)) = .ok t := by
@@ -2352,7 +2352,7 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
     clear h
     revert h'
     cases hpi : Expr.instPisAt (te.getAppArgs ++ [e])
-        (entry.ty.instantiateLevelParams entry.levelParams us) with
+        (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)) with
     | none => intro h; exact nomatch h
     | some q =>
       obtain ⟨ds, resid⟩ := q
@@ -2374,7 +2374,7 @@ instantiation — the projection certificate's telescope (task #175 W6). -/
 theorem const_ty_hasFvar {env : Env} (henv : EnvWF env) {n : Name}
     {ci : ConstantInfo} (hf : env.find? n = some ci) (us : List Level) :
     (ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams
-      us).hasFvar = false := by
+      us (Level.masksOf env.lpsL us)).hasFvar = false := by
   have hwf := henv _ (List.mem_of_find?_eq_some hf)
   rw [Expr.hasFvar_instantiateLevelParams]
   exact hwf.1
@@ -2384,7 +2384,7 @@ theorem const_ty_WScoped {env : Env} (henv : EnvWF env) {n : Name}
     {ci : ConstantInfo} (hf : env.find? n = some ci) (us : List Level)
     {d : Nat} :
     WScoped d (ci.toConstantVal.type.instantiateLevelParams
-      ci.toConstantVal.levelParams us) :=
+      ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)) :=
   WScoped.of_not_hasFvar (const_ty_hasFvar henv hf us)
 
 /-- A stored projection entry's type has no fvars (it is a stored
@@ -2392,7 +2392,7 @@ constant's type; `ConstWF`), after any level instantiation. -/
 theorem projEntry_ty_hasFvar {env : Env} (henv : EnvWF env) {T : Name}
     {i : Nat} {entry : ProjEntry} (hf : env.findProj? T i = some entry)
     (us : List Level) :
-    (entry.ty.instantiateLevelParams entry.levelParams us).hasFvar
+    (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)).hasFvar
       = false := by
   have hwf := henv _ (List.mem_of_find?_eq_some (Env.findProj?_some hf))
   rw [Expr.hasFvar_instantiateLevelParams]
@@ -2402,7 +2402,7 @@ theorem projEntry_ty_hasFvar {env : Env} (henv : EnvWF env) {T : Name}
 theorem projEntry_ty_WScoped {env : Env} (henv : EnvWF env) {T : Name}
     {i : Nat} {entry : ProjEntry} (hf : env.findProj? T i = some entry)
     (us : List Level) {d : Nat} :
-    WScoped d (entry.ty.instantiateLevelParams entry.levelParams us) :=
+    WScoped d (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)) :=
   WScoped.of_not_hasFvar (projEntry_ty_hasFvar henv hf us)
 
 /-- Instantiating a `∀`-telescope at scoped arguments produces scoped
@@ -2481,7 +2481,7 @@ theorem projEntry_ty_looseBVars {env : Env} (henv : EnvWF env)
     {T : Name} {i : Nat} {entry : ProjEntry}
     (hf : env.findProj? T i = some entry) (us : List Level) :
     (entry.ty.instantiateLevelParams entry.levelParams
-      us).looseBVarsBounded 0 = true := by
+      us (Level.masksOf env.lpsL us)).looseBVarsBounded 0 = true := by
   have hwf := henv _ (List.mem_of_find?_eq_some (Env.findProj?_some hf))
   rw [Expr.looseBVarsBounded_instantiateLevelParams]
   exact hwf.2.2.2.1
@@ -2896,7 +2896,7 @@ theorem unfoldDefinition_WScoped {env : Env} (henv : EnvWF env)
     · intro h
       simp only [Option.some.injEq] at h
       subst h
-      obtain ⟨-, -, -, -, -, -, hval⟩ := henv _ (find?_mem hf)
+      obtain ⟨-, -, -, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
       obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
       refine Expr.WScoped.mkAppN
         (WScoped.of_not_hasFvar (by
@@ -2994,7 +2994,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           have hargs : ∀ x, x ∈ (Expr.app f' a).getAppArgs → WScoped d x :=
             fun x hx => hwapp.getAppArgs x hx
           have hrhs : WScoped d
-              (r.rhs.instantiateLevelParams cv.levelParams us) := by
+              (r.rhs.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)) := by
             obtain ⟨-, -, -, -, -, hrules, -⟩ := henv _ (find?_mem hfc)
             obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules rfl r
               (List.mem_of_find?_eq_some hrule)

@@ -71,9 +71,9 @@ theorem ConsCrossAt.ofNtc {c₀ : ConstantInfo} {e : Expr}
   absurd ((hntc entry heq).symm.trans htw) (by decide)
 
 theorem ConsCrossAt.instantiateLevelParams {c₀ : ConstantInfo} {e : Expr}
-    (h : ConsCrossAt c₀ e) (ks : List Name) (us : List Level) :
-    ConsCrossAt c₀ (e.instantiateLevelParams ks us) := fun entry heq htw =>
-  Expr.NoProjAt.instantiateLevelParams ks us e (h entry heq htw)
+    (h : ConsCrossAt c₀ e) (ks : List Name) (us : List Level) (ms : List PropWhen) :
+    ConsCrossAt c₀ (e.instantiateLevelParams ks us ms) := fun entry heq htw =>
+  Expr.NoProjAt.instantiateLevelParams ks us ms e (h entry heq htw)
 
 theorem ConsCrossAt.instantiate1 {c₀ : ConstantInfo} {e v : Expr}
     (h : ConsCrossAt c₀ e) (hv : ConsCrossAt c₀ v) (d : Nat) :

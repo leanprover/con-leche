@@ -154,9 +154,10 @@ the milestone capstone's census is read off those signatures. -/
 invariant + the one bespoke literal-tier fact (`nat_heads`, an install
 product of the `Nat` basis — supplied by the fold at that install and
 carried by `EnvS2PM`). -/
-theorem TierInputsAtP.ofSem (mp : EnvS2PM V μ env) (φ : Name → Nat) :
+theorem TierInputsAtP.ofSem (mp : EnvS2PM V μ env) (φ : Name → Nat)
+    (hφ : Level.NonzeroOutside env.lpsL φ) :
     TierInputsAtP V μ mp.base2 φ :=
-  TierInputsAtP.ofEnvS2PM mp
+  TierInputsAtP.ofEnvS2PM mp hφ
     (fun fuel => reduceNatReadsP_of mp.base2 (natOpGuardLawP_of mp) φ fuel)
     (fun _fuel ihw => reduceNatStepP_of mp ihw)
     (fun _fuel ihw => reduceNatStepPQ_of mp ihw)

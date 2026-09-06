@@ -21,7 +21,7 @@ runs the same four moves —
 1. the run inversion delivers the P2 validation conjunct
    (`(zeronessOf v).equiv mb.pw`, at `μ.verified`) alongside the sort
    runs — no `sortOfE` cross-fuel gymnastics, the annotation's numeral
-   is `pwBit φ mb.pw` *definitionally* (`denoteP_forallE_inv`);
+   is `pwBit env.lpsL φ mb.pw` *definitionally* (`denoteP_forallE_inv`);
 2. `SortSemP` (the routed residue, `SortSem2` with `sortOfE` unfolded
    into its two checker runs and the currency upgraded) grades domain
    and opened codomain;
@@ -127,7 +127,7 @@ def ConstTypeP {env : Env} (m : EnvS2Core V env)
     ∃ ta,
       denoteP m.acval env φ d
         (ci.toConstantVal.type.instantiateLevelParams
-          ci.toConstantVal.levelParams us) = some ta ∧
+          ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)) = some ta ∧
       (∀ ρ : Nat → V, AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V,
         interp2 V ρ (m.acval n
@@ -325,10 +325,10 @@ theorem infer_forallE_claimP (m : EnvS2Core V env)
       hdom.1.1 (fun x hx => (hcod x hx).1) hdom.2
       (fun x hx => (hcod x hx).2)
     -- move 4: the numeral bridge (residue 9's successor is a rewrite)
-    have hzag : pwBit φ mb.pw = 0 ↔ v.eval φ = 0 :=
-      pwBit_of_equiv_zeronessOf hz φ
+    have hzag : pwBit env.lpsL φ mb.pw = 0 ↔ v.eval φ = 0 :=
+      pwBit_of_maskOf? hz φ
     have hbridge :
-        interp2 V ρ (.pi 0 (pwBit φ mb.pw) tyA baA)
+        interp2 V ρ (.pi 0 (pwBit env.lpsL φ mb.pw) tyA baA)
           = interp2 V ρ (.pi (u.eval φ) (v.eval φ) tyA baA) := by
       rw [interp2_pi, interp2_pi]
       exact piR_zero_agree hzag fun x _ => rfl
@@ -387,7 +387,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
       (body.instantiate1 (.fvar d n ty)) with _ | ba
   · rw [hba] at hea; exact nomatch hea
   rw [hba] at hea
-  obtain rfl : ea = .lam (pwBit φ mb.pw) tyA ba :=
+  obtain rfl : ea = .lam (pwBit env.lpsL φ mb.pw) tyA ba :=
     (Option.some.inj hea).symm
   -- the abstraction round trip, for the ∀-type's reading
   obtain ⟨hwopen, hbopen, hLopen⟩ :=
@@ -416,7 +416,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
   rcases hbtA : denoteP m.acval env φ (d + 1) bt with _ | btA
   · rw [hbtA] at hta; exact nomatch hta
   rw [hbtA] at hta
-  obtain rfl : ta = .pi 0 (pwBit φ mb.pw) tyA btA :=
+  obtain rfl : ta = .pi 0 (pwBit env.lpsL φ mb.pw) tyA btA :=
     (Option.some.inj hta).symm
   -- the domain and the opened body, graded; the opened context in
   -- place (`CtxOkP.openS` at the residue's own grading)
@@ -431,7 +431,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
   have hCbt : CtxOkP m φ (d + 1) (tyA :: Δa) bt :=
     hCop.of_subset
       (inferTypeCore_fvarLeaves m.wf fuel hbt hwopen)
-  have hzfib : pwBit φ mb.pw = 0 →
+  have hzfib : pwBit env.lpsL φ mb.pw = 0 →
       ∀ (ρ' : Nat → V), Sat2 V (tyA :: Δa) ρ' →
         interp2 V ρ' btA ∈ˢ (univZero : V) := by
     intro hb0 ρ' hρ'
@@ -455,8 +455,8 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
           exact Setlec.infer_lam_meta_copy hbt
       obtain ⟨tyIA, btIA, -, -, rfl⟩ := denoteP_forallE_inv hbtA
       rw [interp2_pi]
-      have hinner : pwBit φ mbI.pw = 0 := by
-        rw [← pwBit_eq_of_equiv hpwEq φ]
+      have hinner : pwBit env.lpsL φ mbI.pw = 0 := by
+        rw [← pwBit_eq_of_equiv hpwEq env.lpsL φ]
         exact hb0
       rw [hinner]
       exact piR_zero_mem_univZero
@@ -923,7 +923,7 @@ things replace canonical machinery:
 2. **the app slot's kind-`0` component is read off the ∀-type's own
    annotation.**  The canonical clause re-runs `SortSem2` at the
    codomain to learn `v' = 0 → fibres ∈ univZero`; in the validated
-   reading the whnf'd function type is `.pi 0 (pwBit φ mb'.pw) Aa Ba`
+   reading the whnf'd function type is `.pi 0 (pwBit env.lpsL φ mb'.pw) Aa Ba`
    and that implication *is* `AnnotValidV`'s `pi` component, which
    `ihw` hands over as part of its conclusion.  So the clause takes
    **no `SortSemP`**;
@@ -1010,7 +1010,7 @@ theorem infer_app_claimP (m : EnvS2Core V env)
     rw [AnnotOk2_pi] at h1
     rw [AnnotValidV_pi] at h2
     exact ⟨h1.2 x hx, h2.2.1 x hx⟩
-  have hcod0 : ∀ (ρ : Nat → V), Sat2 V Δa ρ → pwBit φ mb'.pw = 0 →
+  have hcod0 : ∀ (ρ : Nat → V), Sat2 V Δa ρ → pwBit env.lpsL φ mb'.pw = 0 →
       ∀ x, x ∈ˢ interp2 V ρ Aa →
         interp2 V (cons x ρ) Ba ∈ˢ (univZero : V) := by
     intro ρ hρ h0 x hx
@@ -1040,7 +1040,7 @@ theorem infer_app_claimP (m : EnvS2Core V env)
     exact hrowaM ρ hρ
   have hf2 : ∀ ρ : Nat → V, Sat2 V Δa ρ →
       interp2 V ρ fa
-        ∈ˢ interp2 V ρ (.pi 0 (pwBit φ mb'.pw) Aa Ba) := by
+        ∈ˢ interp2 V ρ (.pi 0 (pwBit env.lpsL φ mb'.pw) Aa Ba) := by
     intro ρ hρ
     rw [← hredf ρ hρ]
     exact hrowfM ρ hρ
@@ -1116,6 +1116,7 @@ the mode pinned: the four claims at `fuel` give the inference claim at
 `fuel + 1`, at a validating mode. -/
 def InferStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
+    Level.NonzeroOutside env.lpsL φ →
     μ.verified = true →
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
@@ -1132,7 +1133,7 @@ theorem inferStepP_of (h : InferInputsP V μ)
       InferClaimsIO2P μ m φ fuel → SortSemAtIOSP m μ φ fuel)
     (hμ : μ.verified = true) :
     InferStepP μ V := by
-  intro env m φ fuel _hv _ihwc ihw ihd ihi ihio
+  intro env m φ fuel _hφ _hv _ihwc ihw ihd ihi ihio
   have hss : SortSemAtP m μ φ fuel :=
     sortSemAtP_of_claims ihw ihi (h.infer_reads m φ fuel)
   have hsss : SortSemAtIOSP m μ φ fuel := hsssF m φ fuel ihw ihi ihio

@@ -14,7 +14,7 @@ nested-pin conjunct (`Annot/EnvS2P.lean`):
     denoteP m.acval env φ rP
       (Setlec.TTVerify.openRev 0 rP
         ((pins.getD i default).instantiateLevelParams
-          cv.levelParams us)) = some vpa ∧
+          cv.levelParams us (Level.masksOf env.lpsL us))) = some vpa ∧
     ∀ ρ : Nat → V, AnnotOkP V ρ vpa) ∧
 ```
 

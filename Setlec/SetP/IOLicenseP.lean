@@ -37,7 +37,7 @@ theorems are the *entire* new mathematics of verified infer-only:
   (spike `inferonly-metatheory`).  Consequence, binding: a verified
   infer-only mode must KEEP the per-argument check at binders whose
   validated `pw` can be zero, and may skip it exactly at
-  `pw = .never` (where `pwBit φ .never = 1 ≠ 0` at every valuation —
+  `pw = .never` (where `pwBit env.lpsL φ .never = 1 ≠ 0` at every valuation —
   `isNever_iff_forall_pwBit_ne_zero`, `Annot/Bit.lean`).
   `pw = .never` is the whole licensed fragment, forever.
 

@@ -160,6 +160,11 @@ def levelParamsAt (env : Env) (n : Name) : List Name :=
   | some ci => ci.toConstantVal.levelParams
   | none => []
 
+@[simp] theorem levelParamsAt_withLps (env : Env) (c : UnivCtx) (n : Name) :
+    levelParamsAt (env.withLps c) n = levelParamsAt env n := rfl
+@[simp] theorem levelParamsAt_withLpsL (env : Env) (l : List Name) (n : Name) :
+    levelParamsAt (env.withLpsL l) n = levelParamsAt env n := rfl
+
 /-- The term of a `String` literal: the denotation of its constructor
 form (`strLitToConstructor`), written out — each constant valued
 exactly as the `.const` clause values it on that form.  Transpose of

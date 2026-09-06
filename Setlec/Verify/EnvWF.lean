@@ -75,29 +75,65 @@ def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
     value.hasFvar = false ∧
     value.allLevelParamsDefined cv.levelParams = true ∧
     value.constsResolve env = true ∧
-    value.looseBVarsBounded 0 = true)
+    value.looseBVarsBounded 0 = true) ∧
+  -- the packed `pw` datum (2026-09-06): a stored constant's
+  -- level-parameter list is duplicate-free and representable (at most
+  -- `PropWhen.maxParams` parameters) — what the positional reading of
+  -- its stored annotations rests on (`Level.holds_substPW`'s premises)
+  (Name.nodup c.toConstantVal.levelParams = true ∧
+    c.toConstantVal.levelParams.length ≤ PropWhen.maxParams)
 
 /-- Every stored constant is syntactically well-formed. -/
 def EnvWF (env : Env) : Prop := ∀ c ∈ env.consts, ConstWF env c
 
+/-- Well-formedness reads the environment only through lookups (the
+packed `pw` datum, 2026-09-06): it crosses a universe-context entry. -/
+theorem ConstWF.withLps {env : Env} {c : ConstantInfo} (h : ConstWF env c)
+    (l : UnivCtx) : ConstWF (env.withLps l) c := by
+  simp only [ConstWF, Expr.constsResolve_withLps] at h ⊢
+  exact h
+
+theorem EnvWF.withLps {env : Env} (h : EnvWF env) (l : UnivCtx) :
+    EnvWF (env.withLps l) := fun c hc => (h c hc).withLps l
+
+/-- `Name.nodup`, as the list predicate. -/
+theorem Name.nodup_iff : ∀ {l : List Name}, Name.nodup l = true ↔ l.Nodup
+  | [] => by simp [Name.nodup]
+  | n :: rest => by
+    simp only [Name.nodup, Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
+      List.nodup_cons, Name.nodup_iff]
+    constructor
+    · rintro ⟨h1, h2⟩
+      exact ⟨by simpa [List.contains_iff_mem] using h1, h2⟩
+    · rintro ⟨h1, h2⟩
+      exact ⟨by simpa [List.contains_iff_mem] using h1, h2⟩
+
+/-- The two context facts of a well-formed stored constant, as the
+crossing law wants them. -/
+theorem ConstWF.ctx {env : Env} {c : ConstantInfo} (h : ConstWF env c) :
+    c.toConstantVal.levelParams.Nodup ∧
+      c.toConstantVal.levelParams.length ≤ PropWhen.maxParams :=
+  ⟨Name.nodup_iff.mp h.2.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.2⟩
+
 /-- `find?` on a cons. -/
-theorem Env.find?_cons {c : ConstantInfo} {env : Env} {n : Name} :
-    Env.find? { env with consts := c :: env.consts } n = if c.name = n then some c else env.find? n := by
+theorem Env.find?_cons {c : ConstantInfo} {env : Env} {l : UnivCtx} {n : Name} :
+    Env.find? { consts := c :: env.consts, lps := l } n
+      = if c.name = n then some c else env.find? n := by
   simp only [Env.find?, List.find?]
   split
   · next h => simp_all
   · next h => simp_all
 
 /-- A cons finds its own head. -/
-theorem Env.find?_cons_self (c : ConstantInfo) (env : Env) :
-    Env.find? { env with consts := c :: env.consts } c.name = some c := by
+theorem Env.find?_cons_self (c : ConstantInfo) (env : Env) {l : UnivCtx} :
+    Env.find? { consts := c :: env.consts, lps := l } c.name = some c := by
   rw [Env.find?_cons, if_pos rfl]
 
 /-- A cons of a *fresh* head does not find anything new. -/
-theorem Env.find?_cons_of_fresh {c : ConstantInfo} {env : Env}
+theorem Env.find?_cons_of_fresh {c : ConstantInfo} {env : Env} {l : UnivCtx}
     {n : Name} {ci : ConstantInfo} (hfresh : env.find? c.name = none)
     (h : env.find? n = some ci) :
-    Env.find? { env with consts := c :: env.consts } n = some ci := by
+    Env.find? { consts := c :: env.consts, lps := l } n = some ci := by
   rw [Env.find?_cons]
   split
   · next heq => rw [heq, h] at hfresh; exact nomatch hfresh
@@ -105,20 +141,21 @@ theorem Env.find?_cons_of_fresh {c : ConstantInfo} {env : Env}
 
 /-- Extending the environment with a fresh constant does not change
 successful lookups. -/
-theorem Env.find?_cons_of_isSome {c : ConstantInfo} {env : Env} {n : Name}
+theorem Env.find?_cons_of_isSome {c : ConstantInfo} {env : Env} {l : UnivCtx} {n : Name}
     (hfresh : env.find? c.name = none) (h : (env.find? n).isSome = true) :
-    Env.find? { env with consts := c :: env.consts } n = env.find? n := by
+    Env.find? { consts := c :: env.consts, lps := l } n = env.find? n := by
   rw [Env.find?_cons]
   split
   · next heq => rw [← heq] at h; rw [hfresh] at h; simp at h
   · rfl
 
-/-- Resolution is monotone under environment extension. -/
-theorem Expr.constsResolve_mono {c : ConstantInfo} {env : Env} :
+/-- Resolution is monotone under environment extension (at any
+context). -/
+theorem Expr.constsResolve_mono {c : ConstantInfo} {env : Env} {l : UnivCtx} :
     ∀ {e : Expr}, e.constsResolve env = true →
-      e.constsResolve { env with consts := c :: env.consts } = true := by
+      e.constsResolve { consts := c :: env.consts, lps := l } = true := by
   have hf : ∀ n, (env.find? n).isSome = true →
-      (Env.find? { env with consts := c :: env.consts } n).isSome = true := by
+      (Env.find? { consts := c :: env.consts, lps := l } n).isSome = true := by
     intro n h
     rw [Env.find?_cons]
     split <;> simp_all
@@ -182,8 +219,8 @@ theorem Expr.constsResolve_instantiate1 {env : Env} {d : Nat} {n : Name} {ty : E
 
 /-- Level instantiation does not change which constants occur. -/
 theorem Expr.constsResolve_instantiateLevelParams {env : Env} (ks : List Name)
-    (us : List Level) :
-    ∀ {e : Expr}, (e.instantiateLevelParams ks us).constsResolve env = e.constsResolve env := by
+    (us : List Level) (ms : List PropWhen) :
+    ∀ {e : Expr}, (e.instantiateLevelParams ks us ms).constsResolve env = e.constsResolve env := by
   intro e
   induction e <;> simp_all [Expr.instantiateLevelParams, Expr.constsResolve]
 
@@ -369,20 +406,23 @@ theorem Expr.renameConsts_congr_resolve {env : Env} {f g : Name → Name}
   | (rename_i s _ _ h'; exact hfg s h'.1)
   | (rename_i s _ _; exact hfg s h.1)
 
-/-- Extending with a fresh, well-formed constant preserves `EnvWF`. -/
-theorem EnvWF.cons {c : ConstantInfo} {env : Env}
+/-- Extending with a fresh, well-formed constant preserves `EnvWF` (at
+any context — the packed `pw` datum's drivers push at the entered
+context). -/
+theorem EnvWF.cons {c : ConstantInfo} {env : Env} {l : UnivCtx}
     (henv : EnvWF env)
-    (hc : ConstWF { env with consts := c :: env.consts } c) : EnvWF { env with consts := c :: env.consts } := by
+    (hc : ConstWF { consts := c :: env.consts, lps := l } c) :
+    EnvWF { consts := c :: env.consts, lps := l } := by
   intro c' hc'
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
-  · obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := henv c' hmem
+  · obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := henv c' hmem
     refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value hint heq =>
       let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
       ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_,
       fun cv value heq =>
         let ⟨g1, g2, g3, g4⟩ := h7 cv value heq
-        ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩⟩
+        ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, h8⟩
     intro cv mI rP rules heq r hr
     obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP rules heq r hr
     refine ⟨g1, g2, Expr.constsResolve_mono g3, g4, ?_⟩

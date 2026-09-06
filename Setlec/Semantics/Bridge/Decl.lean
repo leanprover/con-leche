@@ -163,7 +163,7 @@ theorem declBasisRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {kind : BasisKind}
     (h : checkDecl μ (fueledOps μ F) env (.basisDecl kind) = .ok env₂) :
     DeclBasisRun env kind env₂ := by
-  simp only [checkDecl, Bind.bind, Except.bind] at h
+  simp only [checkDecl, checkDeclAt, Bind.bind, Except.bind] at h
   by_cases hk : kind = .quotK
   · subst hk
     by_cases hEq : env.find? eqName = some eqA

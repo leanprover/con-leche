@@ -134,10 +134,9 @@ def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
 
 /-- One converted declaration (mirrors `checkDeclSPPlain` branch by
 branch; inductive and basis blocks reuse the `Expr`-level drivers). -/
-def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
+def checkDeclSPCAt (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
-    let fe ← enterCtxF fe cv.levelParams
     let (cvA, jty) ← checkConstantValC mode fe cv
     if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
       let fe2 ← checkDefnValC mode fe cvA jty value hint
@@ -163,11 +162,9 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
     else
       checkDefnValC mode fe cvA jty value hint
   | .thmDecl cv value => do
-    let fe ← enterCtxF fe cv.levelParams
     let (cvA, jty) ← checkConstantValC mode fe cv
     checkThmValC mode fe cvA jty value
   | .opaqueDecl cv value => do
-    let fe ← enterCtxF fe cv.levelParams
     let (cvA, jty) ← checkConstantValC mode fe cv
     let fe2 ← checkOpaqueValC mode fe cvA jty value
     if reduceOpNames.contains cvA.name then do
@@ -175,7 +172,6 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
       checkReducePinF (sharedOpsC mode fe) fe fe2 cvA.name vE
     pure fe2
   | .axiomDecl cv => do
-    let fe ← enterCtxF fe cv.levelParams
     let (cvA, jty) ← checkConstantValC mode fe cv
     if stdAxiomOkF fe cvA then do
       recordCConst cvA.name cvA.type jty none
@@ -207,6 +203,17 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
     match directPartsF? fe block with
     | some p => checkDirectStructS mode fe p
     | none => checkIndDeclSF mode fe block
+
+
+/-- One converted declaration (mirrors `checkDecl`: the constant-headed
+kinds enter the declaration's universe context first, `checkDeclSPCAt`
+is the body at the entered index). -/
+def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
+  match pd with
+  | .defnDecl cv _ _ | .thmDecl cv _ | .opaqueDecl cv _ | .axiomDecl cv => do
+    let fe ← enterCtxF fe cv.levelParams
+    checkDeclSPCAt mode fe pd
+  | .basisDecl _ | .indDecl _ => checkDeclSPCAt mode fe pd
 
 /-- One step of the converted-declaration fold: flush, then check. -/
 def checkDeclSPStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do

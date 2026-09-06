@@ -168,12 +168,25 @@ theorem towerEntry_ty_wf (hwf : Setlec.EnvWF env) {T : Name} {i : Nat}
 theorem towerEntry_tyI_closed (hwf : Setlec.EnvWF env) {T : Name}
     {i : Nat} {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
     (us : List Level) :
-    (entry.ty.instantiateLevelParams entry.levelParams us).hasFvar = false ∧
-      (entry.ty.instantiateLevelParams entry.levelParams us).looseBVarsBounded 0
+    (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)).hasFvar = false ∧
+      (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)).looseBVarsBounded 0
         = true := by
   obtain ⟨h1, h2, -⟩ := towerEntry_ty_wf hwf hfe
   exact ⟨by rw [Expr.hasFvar_instantiateLevelParams]; exact h1,
     by rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact h2⟩
+
+/-- The crossing at a stored tower entry's type: the law's context-free
+reading, instantiated at the ambient context. -/
+theorem towerEntry_ty_inst {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ)
+    {T : Name} {i : Nat} {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
+    {us : List Level} (hl : us.length = entry.levelParams.length) {Ta : AVExpr}
+    (hTa : denoteP m.acval (env.withLpsL entry.levelParams)
+      (Level.substFn φ entry.levelParams us) 0 entry.ty = some Ta) :
+    denoteP m.acval env φ 0
+      (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us))
+      = some Ta :=
+  denoteP_stored_ty_inst hφ (Setlec.Env.findProj?_some hfe) hl hTa
 
 /-- **The entry type's reading is depth-free** — closed subject,
 closed reading, `denoteP_depth_of_closed`. -/
@@ -181,9 +194,9 @@ theorem towerEntry_ty_at_depth {m : EnvS2Core V env} {T : Name} {i : Nat}
     {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
     {us : List Level} {Ta : AVExpr}
     (hTa : denoteP m.acval env φ 0
-      (entry.ty.instantiateLevelParams entry.levelParams us) = some Ta) :
+      (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)) = some Ta) :
     (∀ d : Nat, denoteP m.acval env φ d
-      (entry.ty.instantiateLevelParams entry.levelParams us) = some Ta) ∧
+      (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)) = some Ta) ∧
     ∀ k : Nat, Ta.liftN 1 k = Ta := by
   obtain ⟨hnf, hb⟩ := towerEntry_tyI_closed m.wf hfe us
   have hcl : ∀ k : Nat, Ta.liftN 1 k = Ta := fun k =>

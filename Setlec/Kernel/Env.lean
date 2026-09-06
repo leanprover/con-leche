@@ -380,6 +380,38 @@ abbrev UnivCtx := { l : List Name // l.length ≤ PropWhen.maxParams }
 def UnivCtx.of? (l : List Name) : Option UnivCtx :=
   if h : l.length ≤ PropWhen.maxParams then some ⟨l, h⟩ else none
 
+theorem UnivCtx.of?_eq_some {l : List Name} {c : UnivCtx} :
+    UnivCtx.of? l = some c ↔ c.1 = l := by
+  unfold UnivCtx.of?
+  constructor
+  · intro h
+    split at h
+    · exact (congrArg Subtype.val (Option.some.inj h)).symm
+    · exact nomatch h
+  · intro h
+    have hl : l.length ≤ PropWhen.maxParams := h ▸ c.2
+    rw [dif_pos hl]
+    congr 1
+    exact Subtype.ext h.symm
+
+theorem UnivCtx.len_of_some {l : List Name} {c : UnivCtx}
+    (h : UnivCtx.of? l = some c) : l.length ≤ PropWhen.maxParams :=
+  (UnivCtx.of?_eq_some.mp h) ▸ c.2
+
+theorem UnivCtx.of?_some_self (c : UnivCtx) : UnivCtx.of? c.1 = some c :=
+  UnivCtx.of?_eq_some.mpr rfl
+
+/-- The bounded context of a parameter list: the list itself where it is
+representable, the empty context otherwise (the statement-side reading
+of a stored constant's context; the checker declines the other case
+before storing). -/
+def UnivCtx.ofList (l : List Name) : UnivCtx :=
+  if h : l.length ≤ PropWhen.maxParams then ⟨l, h⟩ else ⟨[], by decide⟩
+
+theorem UnivCtx.ofList_val {l : List Name} (h : l.length ≤ PropWhen.maxParams) :
+    (UnivCtx.ofList l).1 = l := by
+  unfold UnivCtx.ofList; rw [dif_pos h]
+
 /-- The global environment: the list of constants accepted so far, newest
 first.  Names are unique (the checker rejects duplicates), so the order is
 irrelevant for lookup. -/
@@ -404,8 +436,34 @@ def empty : Env := { consts := [] }
 /-- Enter the universe context of the declaration under check. -/
 def withLps (env : Env) (lps : UnivCtx) : Env := { env with lps := lps }
 
+/-- Enter the context of a stored constant's parameter list (the
+statement-side spelling: `UnivCtx.ofList`). -/
+def withLpsL (env : Env) (lps : List Name) : Env := env.withLps (UnivCtx.ofList lps)
+
+@[simp] theorem withLpsL_consts (env : Env) (l : List Name) :
+    (env.withLpsL l).consts = env.consts := rfl
+@[simp] theorem withLpsL_lps (env : Env) (l : List Name) :
+    (env.withLpsL l).lps = UnivCtx.ofList l := rfl
+
 /-- The context's parameter list. -/
 @[inline] def lpsL (env : Env) : List Name := env.lps.1
+
+/-! The context is a separate field: every lookup ignores it. -/
+
+@[simp] theorem withLps_consts (env : Env) (c : UnivCtx) :
+    (env.withLps c).consts = env.consts := rfl
+@[simp] theorem withLps_lps (env : Env) (c : UnivCtx) : (env.withLps c).lps = c := rfl
+@[simp] theorem lpsL_withLps (env : Env) (c : UnivCtx) : (env.withLps c).lpsL = c.1 := rfl
+theorem lpsL_withLpsL (env : Env) {l : List Name} (h : l.length ≤ PropWhen.maxParams) :
+    (env.withLpsL l).lpsL = l := UnivCtx.ofList_val h
+theorem withLps_withLps (env : Env) (c c' : UnivCtx) :
+    (env.withLps c).withLps c' = env.withLps c' := rfl
+@[simp] theorem consts_mk_cons (env : Env) (ci : ConstantInfo) :
+    ({ env with consts := ci :: env.consts } : Env).consts = ci :: env.consts := rfl
+@[simp] theorem lps_mk_cons (env : Env) (ci : ConstantInfo) :
+    ({ env with consts := ci :: env.consts } : Env).lps = env.lps := rfl
+@[simp] theorem lpsL_mk_cons (env : Env) (ci : ConstantInfo) :
+    ({ env with consts := ci :: env.consts } : Env).lpsL = env.lpsL := rfl
 
 def find? (env : Env) (n : Name) : Option ConstantInfo :=
   env.consts.find? (·.name == n)
@@ -415,6 +473,15 @@ def findProj? (env : Env) (T : Name) (i : Nat) : Option ProjEntry :=
   match env.find? (projFnName T i) with
   | some (.projInfo e) => some e
   | _ => none
+
+@[simp] theorem find?_withLps (env : Env) (c : UnivCtx) (n : Name) :
+    (env.withLps c).find? n = env.find? n := rfl
+@[simp] theorem findProj?_withLps (env : Env) (c : UnivCtx) (T : Name) (i : Nat) :
+    (env.withLps c).findProj? T i = env.findProj? T i := rfl
+@[simp] theorem find?_withLpsL (env : Env) (l : List Name) (n : Name) :
+    (env.withLpsL l).find? n = env.find? n := rfl
+@[simp] theorem findProj?_withLpsL (env : Env) (l : List Name) (T : Name) (i : Nat) :
+    (env.withLpsL l).findProj? T i = env.findProj? T i := rfl
 
 end Env
 

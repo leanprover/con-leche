@@ -14,6 +14,46 @@ swap in both verification lanes.
 
 namespace Setlec.TTVerify
 
+/-- The literal spelling reads the environment only through lookups. -/
+theorem strLitT_withLps (cval : TConstVal) (env : Env) (c : UnivCtx) (φ : Name → Nat)
+    (s : String) : strLitT cval (env.withLps c) φ s = strLitT cval env φ s := rfl
+
+/-- **The erased reading ignores the universe context** (the packed
+`pw` datum, 2026-09-06): `denote` reads no binder datum, and every
+environment access is a lookup. -/
+theorem denote_withLps (cval : TConstVal) (env : Env) (c : UnivCtx) (φ : Name → Nat) :
+    ∀ (d : Nat) (e : Expr), denote cval (env.withLps c) φ d e = denote cval env φ d e := by
+  intro d e
+  induction d, e using denote.induct (cval := cval) (env := env) (φ := φ)
+  case case27 d x hs hf hc hpi hl ha hle hpr hn hstr =>
+    cases x with
+    | bvar i => rw [denote.eq_def, denote.eq_def]
+    | sort u => exact absurd rfl (hs u)
+    | fvar i nm ty => exact absurd rfl (hf i nm ty)
+    | const n vs => exact absurd rfl (hc n vs)
+    | forallE n ty b mb => exact absurd rfl (hpi n ty b mb)
+    | lam n ty b mb => exact absurd rfl (hl n ty b mb)
+    | app fe a => exact absurd rfl (ha fe a)
+    | letE n ty v b => exact absurd rfl (hle n ty v b)
+    | proj sn i e => exact absurd rfl (hpr sn i e)
+    | lit l =>
+      cases l with
+      | natVal k => exact absurd rfl (hn k)
+      | strVal s => exact absurd rfl (hstr s)
+  all_goals (rw [denote, denote]; try simp_all [strLitT_withLps])
+
+theorem denote_withLpsL (cval : TConstVal) (env : Env) (l : List Name) (φ : Name → Nat)
+    (d : Nat) (e : Expr) : denote cval (env.withLpsL l) φ d e = denote cval env φ d e :=
+  denote_withLps cval env _ φ d e
+
+theorem denoteClosed_withLps (cval : TConstVal) (env : Env) (c : UnivCtx) (φ : Name → Nat)
+    (e : Expr) : denoteClosed cval (env.withLps c) φ e = denoteClosed cval env φ e :=
+  denote_withLps cval env c φ 0 e
+
+theorem denoteClosed_withLpsL (cval : TConstVal) (env : Env) (l : List Name) (φ : Name → Nat)
+    (e : Expr) : denoteClosed cval (env.withLpsL l) φ e = denoteClosed cval env φ e :=
+  denote_withLps cval env _ φ 0 e
+
 open Setlec.TT
 
 /-- The stored level parameters only read the constant's

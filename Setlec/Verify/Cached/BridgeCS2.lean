@@ -264,7 +264,7 @@ theorem checkIotaThmS_sim {env' : Env} (henv' : EnvWF env')
     · exact hfvsW a (List.mem_of_mem_drop hax)
   have hcinstW := instPisAt_WScoped _ _ hcinst
     (Expr.WScoped.of_not_hasFvar (by
-      rw [hasFvar_renameConsts]
+      rw [hasFvar_renameConsts, Expr.remapPW, Expr.hasFvar_instantiateLevelParams]
       exact hctor)) hcargW
   obtain ⟨hcdomsW, hcresW⟩ := hcinstW
   by_cases h9 : cres.getAppArgs.length = cnP + (mI - rP)
@@ -311,7 +311,8 @@ theorem checkIotaThmS_sim {env' : Env} (henv' : EnvWF env')
   obtain ⟨cdomsP, crestP⟩ := q5
   dsimp only
   have hcinstPW := instPisAt_WScoped (d := rP) _ _ hcinstP
-    (Expr.WScoped.of_not_hasFvar hctor)
+    (Expr.WScoped.of_not_hasFvar (by
+      rw [Expr.remapPW, Expr.hasFvar_instantiateLevelParams]; exact hctor))
     (fun a ha => hfvsPW a (List.mem_of_mem_take ha))
   obtain ⟨hcdomsPW, hcrestPW⟩ := hcinstPW
   refine SimC.bind (checkDefEqListS_sim henv
@@ -828,6 +829,9 @@ theorem checkProjLookupsS_sim {env' : Env} {T ctorName : Name}
   by_cases h4 : mcv.levelParams = lps
   case neg => simp only [if_neg h4]; exact SimC.throw_bind
   simp only [if_pos h4]
+  by_cases h4' : cvj.levelParams = lps
+  case neg => simp only [if_neg h4']; exact SimC.throw_bind
+  simp only [if_pos h4']
   by_cases h5 : (env'.find? (projFnName T i)).isNone = true
   case neg => simp only [if_neg h5]; exact SimC.throw_bind
   simp only [if_pos h5]

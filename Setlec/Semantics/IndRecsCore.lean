@@ -74,7 +74,7 @@ def EnvFacts.swap {env₀ env₃ : Env} (m₀ : EnvFacts env₀)
         ∀ (us : List Level) (ψ : Name → Nat),
           us.length = cv.levelParams.length →
           ∃ R, denoteClosed m₀.cval env₃ ψ
-            (r.rhs.instantiateLevelParams cv.levelParams us) = some R) :
+            (r.rhs.instantiateLevelParams cv.levelParams us (Level.masksOf env₃.lpsL us)) = some R) :
     EnvFacts env₃ := by
   have hcorr : ∀ n : Name,
       env₃.find? n = env₀.find? n ∨
@@ -166,7 +166,7 @@ theorem EnvFacts.swap_cval {env₀ env₃ : Env} (m₀ : EnvFacts env₀)
         ∀ (us : List Level) (ψ : Name → Nat),
           us.length = cv.levelParams.length →
           ∃ R, denoteClosed m₀.cval env₃ ψ
-            (r.rhs.instantiateLevelParams cv.levelParams us) = some R) :
+            (r.rhs.instantiateLevelParams cv.levelParams us (Level.masksOf env₃.lpsL us)) = some R) :
     (m₀.swap hsw hwf hle hrhs).cval = m₀.cval := rfl
 
 /-! ## The swapped environment's four syntactic facts
@@ -218,8 +218,8 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
   · -- `EnvWF`
     intro c hc
     rcases hentR c hc with hcS | ⟨cv, mI, rP, rules, rfl, hfacts⟩
-    · obtain ⟨hSw, hSlp, hSres, hSb, hSdef, hSrec, hSthm⟩ := hwfS c hcS
-      refine ⟨hSw, hSlp, hres₃ _ hSres, hSb, ?_, ?_, ?_⟩
+    · obtain ⟨hSw, hSlp, hSres, hSb, hSdef, hSrec, hSthm, hSctx⟩ := hwfS c hcS
+      refine ⟨hSw, hSlp, hres₃ _ hSres, hSb, ?_, ?_, ?_, hSctx⟩
       · intro cv v hint heq
         obtain ⟨d1, d2, d3, d4⟩ := hSdef cv v hint heq
         exact ⟨d1, d2, hres₃ _ d3, d4⟩
@@ -236,16 +236,16 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
         obtain ⟨t1, t2, t3, t4⟩ := hSthm cv v heq
         exact ⟨t1, t2, hres₃ _ t3, t4⟩
     · obtain ⟨c₀, hc₀, hpair⟩ := swapSh_mem_corr hswR _ hc
-      obtain ⟨hSw, hSlp, hSres, hSb, -, -, -⟩ := hwfS c₀ hc₀
+      obtain ⟨hSw, hSlp, hSres, hSb, -, -, -, hSctx⟩ := hwfS c₀ hc₀
       have hcvt : c₀.toConstantVal = cv := by
         rcases hpair with rfl | ⟨cv', mI', rP', rules', rfl, heq⟩
         · rfl
         · obtain ⟨rfl, -, -, -⟩ := ConstantInfo.recInfo.inj heq
           rfl
-      rw [hcvt] at hSw hSlp hSres hSb
+      rw [hcvt] at hSw hSlp hSres hSb hSctx
       refine ⟨hSw, hSlp, hres₃ _ hSres, hSb,
         fun _ _ _ hcon => ConstantInfo.noConfusion hcon, ?_,
-        fun _ _ hcon => ConstantInfo.noConfusion hcon⟩
+        fun _ _ hcon => ConstantInfo.noConfusion hcon, hSctx⟩
       intro cv' mI' rP' rules' heq r hr
       obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj heq
       obtain ⟨w1, w2, w3, w4, w5, -, -⟩ := hfacts r hr

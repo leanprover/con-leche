@@ -30,6 +30,7 @@ extension whose only new tower slot is `(T, i)`. -/
 theorem denoteP_envExtend_mono_at {env₀ env : Env}
     {acval : Name → (Name → Nat) → AVExpr} {φ : Name → Nat}
     {T : Name} {i : Nat}
+    (hlps : env₀.lpsL = env.lpsL)
     (hF : FindPreserved env₀ env) (hG : LitGuardsMono env₀ env)
     (hproj : ∀ (sn : Name) (j : Nat) (entry : Setlec.ProjEntry),
       env₀.findProj? sn j = none → env.findProj? sn j = some entry →
@@ -77,7 +78,7 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     have hnpb : Expr.NoProjAt T i (body.instantiate1 (.fvar d n ty)) :=
       Expr.NoProjAt.instantiate1 (Expr.noProjAt_fvar.mpr hnp.1) _ _ hnp.2
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_forallE_inv h
-    rw [denoteP, ihty hc.1 hnp.1 hta, ihbody hcb hnpb hba]
+    rw [denoteP, ihty hc.1 hnp.1 hta, ihbody hcb hnpb hba, hlps]
     rfl
   | case7 d n ty body m ihty ihbody =>
     intro hc hnp ea h
@@ -89,7 +90,7 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     have hnpb : Expr.NoProjAt T i (body.instantiate1 (.fvar d n ty)) :=
       Expr.NoProjAt.instantiate1 (Expr.noProjAt_fvar.mpr hnp.1) _ _ hnp.2
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_lam_inv h
-    rw [denoteP, ihty hc.1 hnp.1 hta, ihbody hcb hnpb hba]
+    rw [denoteP, ihty hc.1 hnp.1 hta, ihbody hcb hnpb hba, hlps]
     rfl
   | case8 d f a ihf iha =>
     intro hc hnp ea h

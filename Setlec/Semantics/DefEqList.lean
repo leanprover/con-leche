@@ -18,10 +18,10 @@ namespace Setlec.Semantics
 variable {mode : CheckMode} {env : Env}
 
 /-- The level comparand reads no arguments, in either fire branch. -/
-theorem recFireComparands_fst_nil (rl : RecRule) (lps : List Name)
+theorem recFireComparands_fst_nil (rl : RecRule) (cur lps : List Name)
     (us : List Level) (cvjLps : List Name) (args : List Expr) (rP : Nat) :
-    (recFireComparands rl lps us cvjLps args rP).1
-      = (recFireComparands rl lps us cvjLps [] rP).1 := by
+    (recFireComparands rl cur lps us cvjLps args rP).1
+      = (recFireComparands rl cur lps us cvjLps [] rP).1 := by
   unfold recFireComparands
   cases rl.fire <;> rfl
 

@@ -175,7 +175,7 @@ theorem denoteP_openPis {acval : Name → (Name → Nat) → AVExpr} {env : Env}
         obtain ⟨rfl, rfl⟩ := hop
         obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_forallE_inv hden
         obtain ⟨pps, b, hst, hb, hlen, hbind⟩ := denoteP_openPis n hop' hba
-        refine ⟨(0, pwBit φ mb.pw, ta) :: pps, b, ?_, ?_, ?_, ?_⟩
+        refine ⟨(0, pwBit env.lpsL φ mb.pw, ta) :: pps, b, ?_, ?_, ?_, ?_⟩
         · simp only [stripPisAV, hst, Option.map_some]
         · rw [show d + (n + 1) = d + 1 + n from by omega]; exact hb
         · simp [hlen]
@@ -184,7 +184,7 @@ theorem denoteP_openPis {acval : Name → (Name → Nat) → AVExpr} {env : Env}
           | zero =>
             simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
             subst hx
-            exact ⟨(0, pwBit φ mb.pw, ta), rfl, rfl,
+            exact ⟨(0, pwBit env.lpsL φ mb.pw, ta), rfl, rfl,
               by rw [Nat.add_zero]; exact hta⟩
           | succ i =>
             simp only [List.getElem?_cons_succ] at hx

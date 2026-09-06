@@ -309,7 +309,7 @@ theorem wscoped_getD {d : Nat} :
 rule right-hand side) is well-scoped at any depth. -/
 theorem wscoped_instLevels_of_not_hasFvar {e : Expr}
     (h : e.hasFvar = false) (ps : List Name) (us : List Level) {d : Nat} :
-    WScoped d (e.instantiateLevelParams ps us) :=
+    WScoped d (e.instantiateLevelParams ps us ms) :=
   WScoped.of_not_hasFvar (by rw [hasFvar_instantiateLevelParams]; exact h)
 
 theorem proofIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
@@ -384,7 +384,7 @@ theorem structEtaProjCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         dsimp only
         split
         · have htyw : WScoped d
-              (cvp.type.instantiateLevelParams cvp.levelParams us') := by
+              (cvp.type.instantiateLevelParams cvp.levelParams us' (Level.masksOf env.lpsL us')) := by
             obtain ⟨htf, -⟩ := henv _ (find?_mem hf)
             exact wscoped_instLevels_of_not_hasFvar htf _ _
           have hargs : ∀ x ∈ targs ++ [b], WScoped d x := by
@@ -407,7 +407,7 @@ theorem structEtaProjCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         dsimp only
         split
         · have htyw : WScoped d
-              (entry.ty.instantiateLevelParams entry.levelParams us') :=
+              (entry.ty.instantiateLevelParams entry.levelParams us' (Level.masksOf env.lpsL us')) :=
             projEntry_ty_WScoped henv (by unfold Env.findProj?; rw [hf]) us'
           have hargs : ∀ x ∈ targs ++ [b], WScoped d x := by
             intro x hx
@@ -448,7 +448,7 @@ theorem structEtaCertWith_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   refine DiscV.bind (DiscV.liftFueled_true _ _) (fun ok _ => ?_)
   split <;> try exact DiscV.pure trivial
   have htyw : WScoped d
-      (cvT.type.instantiateLevelParams cvT.levelParams us') := by
+      (cvT.type.instantiateLevelParams cvT.levelParams us' (Level.masksOf env.lpsL us')) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfT)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
   refine DiscV.bind
@@ -478,7 +478,7 @@ theorem structEtaCertWith_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         exact hwb
   -- task #137: the constructor-telescope certificate
   have htycw : WScoped d
-      (cvc.type.instantiateLevelParams cvc.levelParams us) := by
+      (cvc.type.instantiateLevelParams cvc.levelParams us (Level.masksOf env.lpsL us)) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfc)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
   refine DiscV.bind (P := fun _ => True) ?_ (fun r₄ _ => ?_)
@@ -520,7 +520,7 @@ theorem structUnitCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   refine DiscV.bind (ih.site_defeq hwta hwtb) (fun r _ => ?_)
   split <;> try exact DiscV.pure trivial
   have htyw : WScoped d
-      (cvT.type.instantiateLevelParams cvT.levelParams us') := by
+      (cvT.type.instantiateLevelParams cvT.levelParams us' (Level.masksOf env.lpsL us')) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfT)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
   exact iotaCerts_disc ih henv htyw hwta.getAppArgs
@@ -562,7 +562,7 @@ theorem projCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   unfold projCert
   split
   · rename_i cvC nP nF hf
-    have hnf : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false :=
+    have hnf : (cvC.type.instantiateLevelParams cvC.levelParams us (Level.masksOf env.lpsL us)).hasFvar = false :=
       const_ty_hasFvar henv hf us
     exact iotaCerts_disc ih henv (WScoped.of_not_hasFvar hnf) hwargs
   · exact DiscV.pure trivial
@@ -768,22 +768,22 @@ theorem iotaRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   split <;> try exact DiscV.pure WScopedO.none
   refine DiscV.bind (defEqList_disc ih
     (fun x hx => hmaj.getAppArgs x (List.mem_of_mem_take hx))
-    (recFireComparands_snd_WScoped rl cv.levelParams us
+    (recFireComparands_snd_WScoped rl env.lpsL cv.levelParams us
       cvj.levelParams e.getAppArgs rP
       (fun x hx => hw.getAppArgs x hx)
       (fun lvls pins hf' pin hpin => by
-        obtain ⟨-, -, -, -, -, hrules, -⟩ := henv _ (find?_mem hfc)
+        obtain ⟨-, -, -, -, -, hrules, -, -⟩ := henv _ (find?_mem hfc)
         obtain ⟨-, -, -, -, g5⟩ := hrules cv mI rP rules rfl rl
           (List.mem_of_find?_eq_some hrule)
         exact ((g5 lvls pins hf').2.2.1 pin hpin).1)))
     (fun r₁ _ => ?_)
   split <;> try exact DiscV.pure WScopedO.none
   have hwrecty : WScoped d
-      (cv.type.instantiateLevelParams cv.levelParams us) := by
+      (cv.type.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfc)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
   have hwctorty : WScoped d
-      (cvj.type.instantiateLevelParams cvj.levelParams usj) := by
+      (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj)) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfj)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
   refine DiscV.bind (iotaCerts_disc ih henv hwrecty ?_) (fun r₂ _ => ?_)
@@ -803,7 +803,7 @@ theorem iotaRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   split
   · refine DiscV.pure (WScopedO.some ?_)
     refine Expr.WScoped.mkAppN ?_ ?_
-    · obtain ⟨-, -, -, -, -, hrules, -⟩ := henv _ (find?_mem hfc)
+    · obtain ⟨-, -, -, -, -, hrules, -, -⟩ := henv _ (find?_mem hfc)
       obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules rfl rl
         (List.mem_of_find?_eq_some hrule)
       exact wscoped_instLevels_of_not_hasFvar hrf _ _
@@ -1317,11 +1317,11 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     -- stored entry type is closed and the spine and subject are
     have hres : DiscV mode env (WScoped d)
         (match Expr.instPisAt (w.getAppArgs ++ [pe])
-            (entry.ty.instantiateLevelParams entry.levelParams usw) with
+            (entry.ty.instantiateLevelParams entry.levelParams usw (Level.masksOf env.lpsL usw)) with
           | some (_, resid) => (pure resid : CheckSM Expr)
           | none => throw (CheckError.internal "malformed projection entry"))
         (match Expr.instPisAt (w.getAppArgs ++ [pe])
-            (entry.ty.instantiateLevelParams entry.levelParams usw) with
+            (entry.ty.instantiateLevelParams entry.levelParams usw (Level.masksOf env.lpsL usw)) with
           | some (_, resid) => (pure resid : CheckSM Expr)
           | none => throw (CheckError.internal "malformed projection entry")) := by
       split
@@ -1507,11 +1507,11 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     -- `inferBody_disc`)
     have hres : DiscV mode env (WScoped d)
         (match Expr.instPisAt (w.getAppArgs ++ [pe])
-            (entry.ty.instantiateLevelParams entry.levelParams usw) with
+            (entry.ty.instantiateLevelParams entry.levelParams usw (Level.masksOf env.lpsL usw)) with
           | some (_, resid) => (pure resid : CheckSM Expr)
           | none => throw (CheckError.internal "malformed projection entry"))
         (match Expr.instPisAt (w.getAppArgs ++ [pe])
-            (entry.ty.instantiateLevelParams entry.levelParams usw) with
+            (entry.ty.instantiateLevelParams entry.levelParams usw (Level.masksOf env.lpsL usw)) with
           | some (_, resid) => (pure resid : CheckSM Expr)
           | none => throw (CheckError.internal "malformed projection entry")) := by
       split

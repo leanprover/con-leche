@@ -106,7 +106,7 @@ theorem lamPw_instantiateList_fvars {vs : List Expr}
 
 /-- Pure mirror of `inferLamsLeafI` (task #152: the chain's body-type
 sort check, at the verified modes, on a non-λ residual). -/
-def inferLamsLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
+def inferLamsLeaf (mode : CheckMode) (lps : List Name) (r : CoreFns m) (d : Nat)
     (t : Expr) (k : Nat) (fvs : List Expr)
     (stk : List InferLamEntryX) : m Expr := do
   let bt ← r.infer (d + k) (t.instantiateList fvs)
@@ -120,7 +120,7 @@ def inferLamsLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
       | .sort vb =>
         match stk with
         | (_, _, mb₀) :: _ =>
-          unless (Level.zeronessOf vb).equiv mb₀.pw do
+          unless Level.maskOf? lps vb == some mb₀.pw do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-leaf)")
         | [] => pure ()
@@ -134,7 +134,7 @@ def inferLamsLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
        | [] => .never)
 
 /-- Pure mirror of `inferLamsI`. -/
-def inferLams (mode : CheckMode) (r : CoreFns m) (d : Nat) :
+def inferLams (mode : CheckMode) (lps : List Name) (r : CoreFns m) (d : Nat) :
     Nat → Expr → Nat → List Expr → List InferLamEntryX → m Expr
   | fuel + 1, t, k, fvs, stk =>
     match t with
@@ -143,35 +143,35 @@ def inferLams (mode : CheckMode) (r : CoreFns m) (d : Nat) :
       let tty ← r.infer (d + k) tyo
       match ← r.whnf (d + k) tty with
       | .sort _ =>
-        inferLams mode r d fuel body (k + 1)
+        inferLams mode lps r d fuel body (k + 1)
           (Expr.fvar (d + k) n tyo :: fvs) ((n, tyo, mb) :: stk)
       | _ => throw (.invalid "expected a sort")
-    | t => inferLamsLeaf mode r d t k fvs stk
-  | 0, t, k, fvs, stk => inferLamsLeaf mode r d t k fvs stk
+    | t => inferLamsLeaf mode lps r d t k fvs stk
+  | 0, t, k, fvs, stk => inferLamsLeaf mode lps r d t k fvs stk
 
 /-- Pure mirror of `inferPisOutI` (the `imax` fold, pure). -/
-def inferPisOut (mode : CheckMode) :
+def inferPisOut (mode : CheckMode) (lps : List Name) :
     List (Level × PropWhen) → Level → m Level
   | [], v => pure v
   | (u, pw) :: rest, v => do
-    if mode.verified && !((Level.zeronessOf v).equiv pw) then
+    if mode.verified && !(Level.maskOf? lps v == some pw) then
       throw (.notImplemented "sort-annotation mismatch (forall-cod)")
-    inferPisOut mode rest (.imax u v)
+    inferPisOut mode lps rest (.imax u v)
 
 /-- Pure mirror of `inferPisLeafI` (task #161: the fold validates each
 node's prop-ness annotation against its codomain sort). -/
-def inferPisLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
+def inferPisLeaf (mode : CheckMode) (lps : List Name) (r : CoreFns m) (d : Nat)
     (t : Expr) (k : Nat)
     (fvs : List Expr) (stk : List (Level × PropWhen)) : m Expr := do
   let bt ← r.infer (d + k) (t.instantiateList fvs)
   match ← r.whnf (d + k) bt with
   | .sort v => do
-    let iv ← inferPisOut mode stk v
+    let iv ← inferPisOut mode lps stk v
     pure (Expr.sort iv)
   | _ => throw (.invalid "expected a sort")
 
 /-- Pure mirror of `inferPisI`. -/
-def inferPis (mode : CheckMode) (r : CoreFns m) (d : Nat) :
+def inferPis (mode : CheckMode) (lps : List Name) (r : CoreFns m) (d : Nat) :
     Nat → Expr → Nat → List Expr → List (Level × PropWhen) → m Expr
   | fuel + 1, t, k, fvs, stk =>
     match t with
@@ -180,11 +180,11 @@ def inferPis (mode : CheckMode) (r : CoreFns m) (d : Nat) :
       let tty ← r.infer (d + k) tyo
       match ← r.whnf (d + k) tty with
       | .sort u =>
-        inferPis mode r d fuel body (k + 1)
+        inferPis mode lps r d fuel body (k + 1)
           (Expr.fvar (d + k) n tyo :: fvs) ((u, mb.pw) :: stk)
       | _ => throw (.invalid "expected a sort")
-    | t => inferPisLeaf mode r d t k fvs stk
-  | 0, t, k, fvs, stk => inferPisLeaf mode r d t k fvs stk
+    | t => inferPisLeaf mode lps r d t k fvs stk
+  | 0, t, k, fvs, stk => inferPisLeaf mode lps r d t k fvs stk
 
 /-- The datum invariant the rebuild fold carries: at the verified
 modes the threaded datum is exactly what the chained tail's write
@@ -298,7 +298,7 @@ def inferLamsTail (mode : CheckMode) (r : CoreFns m) (env : Env)
     let vb ← ensureSort r env (d + k) btt
     match stk with
     | (_, _, mb₀) :: _ =>
-      unless (Level.zeronessOf vb).equiv mb₀.pw do
+      unless Level.maskOf? env.lpsL vb == some mb₀.pw do
         throw (.notImplemented "sort-annotation mismatch (lam-cod-leaf)")
     | [] => pure ()
   inferLamsWrap mode d stk (k - 1) bt
@@ -319,7 +319,7 @@ def inferPisWrap (mode : CheckMode) (r : CoreFns m) (env : Env)
   | (u, pw) :: rest, j, bt => do
     let v ← ensureSort r env (d + j + 1) bt
     if mode.verified then
-      unless (Level.zeronessOf v).equiv pw do
+      unless Level.maskOf? env.lpsL v == some pw do
         throw (.notImplemented "sort-annotation mismatch (forall-cod)")
     inferPisWrap mode r env d rest (j - 1) (.sort (.imax u v))
 
@@ -356,18 +356,18 @@ variable {r : CoreFns m} {env : Env} {d : Nat}
 
 theorem inferLams_zero (t : Expr) (k : Nat) (fvs : List Expr)
     (stk : List InferLamEntryX) :
-    inferLams mode r d 0 t k fvs stk
-      = inferLamsLeaf mode r d t k fvs stk := rfl
+    inferLams mode env.lpsL r d 0 t k fvs stk
+      = inferLamsLeaf mode env.lpsL r d t k fvs stk := rfl
 
 theorem inferLams_succ_lam (fuel : Nat) (n : Name) (ty body : Expr)
     (mb : BinderMeta) (k : Nat) (fvs : List Expr)
     (stk : List InferLamEntryX) :
-    inferLams mode r d (fuel + 1) (.lam n ty body mb) k fvs stk
+    inferLams mode env.lpsL r d (fuel + 1) (.lam n ty body mb) k fvs stk
       = (do
         let tty ← r.infer (d + k) (ty.instantiateList fvs)
         match ← r.whnf (d + k) tty with
         | .sort _ =>
-          inferLams mode r d fuel body (k + 1)
+          inferLams mode env.lpsL r d fuel body (k + 1)
             (Expr.fvar (d + k) n (ty.instantiateList fvs) :: fvs)
             ((n, ty.instantiateList fvs, mb) :: stk)
         | _ => throw (.invalid "expected a sort")) := rfl
@@ -375,26 +375,26 @@ theorem inferLams_succ_lam (fuel : Nat) (n : Name) (ty body : Expr)
 theorem inferLams_succ_ne_lam (fuel : Nat) {t : Expr}
     (ht : ∀ n ty body mb, t ≠ .lam n ty body mb) (k : Nat)
     (fvs : List Expr) (stk : List InferLamEntryX) :
-    inferLams mode r d (fuel + 1) t k fvs stk
-      = inferLamsLeaf mode r d t k fvs stk := by
+    inferLams mode env.lpsL r d (fuel + 1) t k fvs stk
+      = inferLamsLeaf mode env.lpsL r d t k fvs stk := by
   cases t with
   | lam n ty body mb => exact absurd rfl (ht n ty body mb)
   | _ => rw [inferLams] <;> exact fun _ _ _ _ h => nomatch h
 
 theorem inferPis_zero (t : Expr) (k : Nat) (fvs : List Expr)
     (stk : List (Level × PropWhen)) :
-    inferPis mode r d 0 t k fvs stk
-      = inferPisLeaf mode r d t k fvs stk := rfl
+    inferPis mode env.lpsL r d 0 t k fvs stk
+      = inferPisLeaf mode env.lpsL r d t k fvs stk := rfl
 
 theorem inferPis_succ_pi (fuel : Nat) (n : Name) (ty body : Expr)
     (mb : BinderMeta) (k : Nat) (fvs : List Expr)
     (stk : List (Level × PropWhen)) :
-    inferPis mode r d (fuel + 1) (.forallE n ty body mb) k fvs stk
+    inferPis mode env.lpsL r d (fuel + 1) (.forallE n ty body mb) k fvs stk
       = (do
         let tty ← r.infer (d + k) (ty.instantiateList fvs)
         match ← r.whnf (d + k) tty with
         | .sort u =>
-          inferPis mode r d fuel body (k + 1)
+          inferPis mode env.lpsL r d fuel body (k + 1)
             (Expr.fvar (d + k) n (ty.instantiateList fvs) :: fvs)
             ((u, mb.pw) :: stk)
         | _ => throw (.invalid "expected a sort")) := rfl
@@ -402,8 +402,8 @@ theorem inferPis_succ_pi (fuel : Nat) (n : Name) (ty body : Expr)
 theorem inferPis_succ_ne_pi (fuel : Nat) {t : Expr}
     (ht : ∀ n ty body mb, t ≠ .forallE n ty body mb) (k : Nat)
     (fvs : List Expr) (stk : List (Level × PropWhen)) :
-    inferPis mode r d (fuel + 1) t k fvs stk
-      = inferPisLeaf mode r d t k fvs stk := by
+    inferPis mode env.lpsL r d (fuel + 1) t k fvs stk
+      = inferPisLeaf mode env.lpsL r d t k fvs stk := by
   cases t with
   | forallE n ty body mb => exact absurd rfl (ht n ty body mb)
   | _ => rw [inferPis] <;> exact fun _ _ _ _ h => nomatch h
@@ -466,7 +466,7 @@ theorem inferTypeCore_forallE_eq (env : Env) (F d : Nat) (n : Name)
                (body.instantiate1 (.fvar d n ty)) >>= fun bt =>
              ensureSortCore mode env F (d + 1) bt >>= fun v => do
                if mode.verified then
-                 unless (Level.zeronessOf v).equiv mb.pw do
+                 unless Level.maskOf? env.lpsL v == some mb.pw do
                    throw (.notImplemented
                      "sort-annotation mismatch (forall-cod)")
                pure (Expr.sort (.imax u v))
@@ -491,7 +491,7 @@ theorem inferTypeCore_lam_eq (env : Env) (F d : Nat) (n : Name)
                  | none => do
                    let btt ← inferTypeIO mode env F (d + 1) bt
                    let vb ← ensureSortCore mode env F (d + 1) btt
-                   unless (Level.zeronessOf vb).equiv mb.pw do
+                   unless Level.maskOf? env.lpsL vb == some mb.pw do
                      throw (.notImplemented
                        "sort-annotation mismatch (lam-cod-leaf)")
                pure (Expr.forallE n ty (bt.abstract1 d) mb))
@@ -573,8 +573,8 @@ theorem inferLamsOut_atF (d : Nat) :
 
 theorem inferLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
     (fvs : List Expr) (stk : List InferLamEntryX) (F : Nat) :
-    (inferLamsLeaf mode (fueledFns mode env) d t k fvs stk).val F
-      = inferLamsLeaf mode (pureFns mode env F) d t k fvs stk := by
+    (inferLamsLeaf mode env.lpsL (fueledFns mode env) d t k fvs stk).val F
+      = inferLamsLeaf mode env.lpsL (pureFns mode env F) d t k fvs stk := by
   unfold inferLamsLeaf
   rw [FueledM.atF_bind]
   congr 1
@@ -602,7 +602,7 @@ theorem inferLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
       | cons e rest =>
         obtain ⟨n0, ty0, mb0⟩ := e
         dsimp only
-        by_cases hz : (Level.zeronessOf vb).equiv mb0.pw = true
+        by_cases hz : (Level.maskOf? env.lpsL vb == some mb0.pw) = true
         · simp only [if_pos hz]
           exact inferLamsOut_atF d _ (k - 1) _ _ F
         · simp only [if_neg hz]
@@ -612,8 +612,8 @@ theorem inferLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
 theorem inferLams_atF (d : Nat) :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List InferLamEntryX) (F : Nat),
-      (inferLams mode (fueledFns mode env) d fuel t k fvs stk).val F
-        = inferLams mode (pureFns mode env F) d fuel t k fvs stk
+      (inferLams mode env.lpsL (fueledFns mode env) d fuel t k fvs stk).val F
+        = inferLams mode env.lpsL (pureFns mode env F) d fuel t k fvs stk
   | 0, t, k, fvs, stk, F => inferLamsLeaf_atF d t k fvs stk F
   | fuel + 1, t, k, fvs, stk, F => by
     by_cases hlam : ∃ n ty body mb, t = Expr.lam n ty body mb
@@ -635,13 +635,13 @@ theorem inferLams_atF (d : Nat) :
 
 theorem inferPisOut_atF :
     ∀ (stk : List (Level × PropWhen)) (v : Level) (F : Nat),
-      (inferPisOut (m := FueledM) mode stk v).val F
-        = inferPisOut (m := CheckM) mode stk v
+      (inferPisOut (m := FueledM) mode env.lpsL stk v).val F
+        = inferPisOut (m := CheckM) mode env.lpsL stk v
   | [], _, _ => rfl
   | (u, pw) :: rest, v, F => by
     unfold inferPisOut
     dsimp only
-    by_cases hg : (mode.verified && !((Level.zeronessOf v).equiv pw))
+    by_cases hg : (mode.verified && !(Level.maskOf? env.lpsL v == some pw))
         = true
     · simp only [if_pos hg]
       rfl
@@ -650,8 +650,8 @@ theorem inferPisOut_atF :
 
 theorem inferPisLeaf_atF (d : Nat) (t : Expr) (k : Nat)
     (fvs : List Expr) (stk : List (Level × PropWhen)) (F : Nat) :
-    (inferPisLeaf mode (fueledFns mode env) d t k fvs stk).val F
-      = inferPisLeaf mode (pureFns mode env F) d t k fvs stk := by
+    (inferPisLeaf mode env.lpsL (fueledFns mode env) d t k fvs stk).val F
+      = inferPisLeaf mode env.lpsL (pureFns mode env F) d t k fvs stk := by
   unfold inferPisLeaf
   rw [FueledM.atF_bind]
   congr 1
@@ -669,8 +669,8 @@ theorem inferPisLeaf_atF (d : Nat) (t : Expr) (k : Nat)
 theorem inferPis_atF (d : Nat) :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List (Level × PropWhen)) (F : Nat),
-      (inferPis mode (fueledFns mode env) d fuel t k fvs stk).val F
-        = inferPis mode (pureFns mode env F) d fuel t k fvs stk
+      (inferPis mode env.lpsL (fueledFns mode env) d fuel t k fvs stk).val F
+        = inferPis mode env.lpsL (pureFns mode env F) d fuel t k fvs stk
   | 0, t, k, fvs, stk, F => inferPisLeaf_atF d t k fvs stk F
   | fuel + 1, t, k, fvs, stk, F => by
     by_cases hpi : ∃ n ty body mb, t = Expr.forallE n ty body mb
@@ -843,7 +843,7 @@ theorem inferLamsLeaf_sound {d : Nat} {t : Expr}
     {k : Nat} {fvs : List Expr} {stk : List InferLamEntryX} {F : Nat}
     {res : Expr}
     (hlen : stk.length = k)
-    (hrun : inferLamsLeaf mode (pureFns mode env F) d t k fvs stk = .ok res) :
+    (hrun : inferLamsLeaf mode env.lpsL (pureFns mode env F) d t k fvs stk = .ok res) :
     ∃ F', (inferTypeCore mode env F' (d + k) (t.instantiateList fvs) >>=
       fun bt => inferLamsTail (m := CheckM) mode (pureFns mode env F')
         env d t k stk bt) = .ok res := by
@@ -908,7 +908,7 @@ theorem inferLamsLeaf_sound {d : Nat} {t : Expr}
         obtain ⟨n0, ty0, mb0⟩ := e
         dsimp only at hrun ⊢
         try rw [pure_bind]
-        by_cases hz : (Level.zeronessOf v).equiv mb0.pw = true
+        by_cases hz : (Level.maskOf? env.lpsL v == some mb0.pw) = true
         · simp only [if_pos hz] at hrun ⊢
           exact hout hrun
         · simp only [if_neg hz] at hrun
@@ -925,7 +925,7 @@ theorem inferLams_sound {d : Nat} :
       (stk : List InferLamEntryX) (F : Nat) (res : Expr),
       stk.length = k →
       (∀ x ∈ fvs, ∃ i n ty, x = Expr.fvar i n ty) →
-      inferLams mode (pureFns mode env F) d fuel t k fvs stk = .ok res →
+      inferLams mode env.lpsL (pureFns mode env F) d fuel t k fvs stk = .ok res →
       ∃ F', (inferTypeCore mode env F' (d + k) (t.instantiateList fvs) >>=
         fun bt => inferLamsTail (m := CheckM) mode (pureFns mode env F')
           env d t k stk bt) = .ok res := by
@@ -1045,7 +1045,7 @@ theorem inferLams_sound {d : Nat} :
         obtain ⟨v, hv2, htail⟩ := bind_okB htail
         rw [ensureSortCore_mono (Nat.le_max_right F F') hv2, okB_bind]
         try dsimp only at htail ⊢
-        by_cases hz : (Level.zeronessOf v).equiv mb.pw = true
+        by_cases hz : (Level.maskOf? env.lpsL v == some mb.pw) = true
         case neg =>
           rw [if_neg hz] at htail
           exact nomatch htail
@@ -1081,7 +1081,7 @@ theorem inferPisWrap_mono {d : Nat} :
       rw [if_neg hver] at h ⊢
       exact ih hle h
     rw [if_pos hver] at h ⊢
-    by_cases hz : (Level.zeronessOf v).equiv pw = true
+    by_cases hz : (Level.maskOf? env.lpsL v == some pw) = true
     · rw [if_pos hz] at h ⊢
       exact ih hle h
     · rw [if_neg hz] at h
@@ -1094,7 +1094,7 @@ theorem inferPisWrap_sort {d : Nat} :
     ∀ (stk : List (Level × PropWhen)) (j : Nat) (v : Level) {F : Nat},
       2 ≤ F →
       inferPisWrap mode (pureFns mode env F) env d stk j (.sort v)
-        = (inferPisOut (m := CheckM) mode stk v).map Expr.sort := by
+        = (inferPisOut (m := CheckM) mode env.lpsL stk v).map Expr.sort := by
   intro stk
   induction stk with
   | nil => intro j v F hF; rfl
@@ -1104,7 +1104,7 @@ theorem inferPisWrap_sort {d : Nat} :
     show (ensureSort (pureFns mode env F) env (d + j + 1) (.sort v) >>=
       fun v' => (do
         if mode.verified then
-          unless (Level.zeronessOf v').equiv pw do
+          unless Level.maskOf? env.lpsL v' == some pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         inferPisWrap mode (pureFns mode env F) env d rest (j - 1)
           (.sort (.imax u v')))) = _
@@ -1117,20 +1117,20 @@ theorem inferPisWrap_sort {d : Nat} :
     rw [pure_bind]
     unfold inferPisOut
     dsimp only
-    by_cases hg : (mode.verified && !((Level.zeronessOf v).equiv pw))
+    by_cases hg : (mode.verified && !(Level.maskOf? env.lpsL v == some pw))
         = true
     · have hver : mode.verified = true := by
         rcases Bool.and_eq_true .. |>.mp hg with ⟨h1, -⟩
         exact h1
-      have hz : ¬ ((Level.zeronessOf v).equiv pw = true) := by
+      have hz : ¬ ((Level.maskOf? env.lpsL v == some pw) = true) := by
         rcases Bool.and_eq_true .. |>.mp hg with ⟨-, h2⟩
         simpa using h2
       rw [if_pos hg, if_pos hver, if_neg hz]
       rfl
     · rw [if_neg hg]
       by_cases hver : mode.verified = true
-      · have hz : (Level.zeronessOf v).equiv pw = true := by
-          by_cases hc : (Level.zeronessOf v).equiv pw = true
+      · have hz : (Level.maskOf? env.lpsL v == some pw) = true := by
+          by_cases hc : (Level.maskOf? env.lpsL v == some pw) = true
           · exact hc
           · exact absurd (by simp [hver, hc]) hg
         rw [if_pos hver, if_pos hz]
@@ -1143,7 +1143,7 @@ theorem inferPisLeaf_sound {d : Nat} {t : Expr}
     {k : Nat} {fvs : List Expr} {stk : List (Level × PropWhen)} {F : Nat}
     {res : Expr}
     (hlen : stk.length = k) (hk : 1 ≤ k)
-    (hrun : inferPisLeaf mode (pureFns mode env F) d t k fvs stk
+    (hrun : inferPisLeaf mode env.lpsL (pureFns mode env F) d t k fvs stk
       = .ok res) :
     ∃ F', (inferTypeCore mode env F' (d + k) (t.instantiateList fvs) >>=
       fun bt => inferPisWrap mode (pureFns mode env F') env d stk
@@ -1179,7 +1179,7 @@ theorem inferPisLeaf_sound {d : Nat} {t : Expr}
     show (ensureSort (pureFns mode env (max F 2)) env (d + (k - 1) + 1)
         bt >>= fun v' => (do
       if mode.verified then
-        unless (Level.zeronessOf v').equiv pw do
+        unless Level.maskOf? env.lpsL v' == some pw do
           throw (.notImplemented "sort-annotation mismatch (forall-cod)")
       inferPisWrap mode (pureFns mode env (max F 2)) env d rest
         ((k - 1) - 1) (.sort (.imax u v')))) = _
@@ -1189,7 +1189,7 @@ theorem inferPisLeaf_sound {d : Nat} {t : Expr}
     rw [pure_bind]
     unfold inferPisOut at hout
     dsimp only at hout
-    by_cases hg : (mode.verified && !((Level.zeronessOf v).equiv pw))
+    by_cases hg : (mode.verified && !(Level.maskOf? env.lpsL v == some pw))
         = true
     · rw [if_pos hg] at hout
       exact nomatch hout
@@ -1202,8 +1202,8 @@ theorem inferPisLeaf_sound {d : Nat} {t : Expr}
       rw [← hres]
       rfl
     by_cases hver : mode.verified = true
-    · have hz : (Level.zeronessOf v).equiv pw = true := by
-        by_cases hc : (Level.zeronessOf v).equiv pw = true
+    · have hz : (Level.maskOf? env.lpsL v == some pw) = true := by
+        by_cases hc : (Level.maskOf? env.lpsL v == some pw) = true
         · exact hc
         · exact absurd (by simp [hver, hc]) hg
       rw [if_pos hver, if_pos hz]
@@ -1217,7 +1217,7 @@ theorem inferPis_sound {d : Nat} :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List (Level × PropWhen)) (F : Nat) (res : Expr),
       stk.length = k → 1 ≤ k →
-      inferPis mode (pureFns mode env F) d fuel t k fvs stk = .ok res →
+      inferPis mode env.lpsL (pureFns mode env F) d fuel t k fvs stk = .ok res →
       ∃ F', (inferTypeCore mode env F' (d + k) (t.instantiateList fvs) >>=
         fun bt => inferPisWrap mode (pureFns mode env F') env d stk
           (k - 1) bt) = .ok res := by
@@ -1284,7 +1284,7 @@ theorem inferPis_sound {d : Nat} :
         exact inferPisWrap_mono (Nat.le_trans (Nat.le_max_right F F')
           (Nat.le_succ _)) hwrap
       rw [if_pos hver] at hwrap ⊢
-      by_cases hz : (Level.zeronessOf v).equiv mb.pw = true
+      by_cases hz : (Level.maskOf? env.lpsL v == some mb.pw) = true
       case neg =>
         rw [if_neg hz] at hwrap
         exact nomatch hwrap
@@ -1461,7 +1461,7 @@ theorem annotPwPi_mono {env : Env} {F F' : Nat} (hle : F ≤ F')
     annotPwPi (pureFns mode env F') env d e = .ok pw := by
   revert h
   unfold annotPwPi
-  cases typeSortPW env.find? e with
+  cases typeSortPW env.find? env.lpsL e with
   | some p => exact id
   | none =>
     dsimp only
@@ -1485,7 +1485,7 @@ theorem annotPwLam_mono {env : Env} {F F' : Nat} (hle : F ≤ F')
     annotPwLam (pureFns mode env F') env d e = .ok pw := by
   revert h
   unfold annotPwLam
-  cases proofPW env.find? e with
+  cases proofPW env.find? env.lpsL e with
   | some p => exact id
   | none =>
     dsimp only
@@ -1615,7 +1615,7 @@ theorem annotatePisLeaf_sound {d : Nat} {t : Expr}
     rw [hleaf, okB_bind]
     rw [← annotateBindersOut_wrap (mk := fun n ty b mb => .forallE n ty b mb)
       (fun n ty b bi d k c => rfl)
-      (fun e => typeSortPW env.find? e)
+      (fun e => typeSortPW env.find? env.lpsL e)
       (fun D e => annotPwPi (pureFns mode env F) env D e)
       (fun n ty b mb => rfl)
       (fun D e p hp => by unfold annotPwPi; rw [hp])
@@ -1717,7 +1717,7 @@ theorem annotateLamsLeaf_sound {d : Nat} {t : Expr}
     rw [hleaf, okB_bind]
     rw [← annotateBindersOut_wrap (mk := fun n ty b mb => .lam n ty b mb)
       (fun n ty b bi d k c => rfl)
-      (fun e => proofPW env.find? e)
+      (fun e => proofPW env.find? env.lpsL e)
       (fun D e => annotPwLam (pureFns mode env F) env D e)
       (fun n ty b mb => rfl)
       (fun D e p hp => by unfold annotPwLam; rw [hp])

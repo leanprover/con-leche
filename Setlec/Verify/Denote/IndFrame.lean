@@ -1039,9 +1039,9 @@ theorem Expr.getAppArgs_length_instantiate1_const {c : Name}
 
 /-- Level instantiation never changes an application's arity. -/
 theorem Expr.getAppArgs_length_instantiateLevelParams
-    (ks : List Name) (us : List Level) :
+    (ks : List Name) (us : List Level) (ms : List PropWhen) :
     ∀ (e : Expr),
-      ((e.instantiateLevelParams ks us).getAppArgs).length =
+      ((e.instantiateLevelParams ks us ms).getAppArgs).length =
         e.getAppArgs.length := by
   intro e
   induction e with
@@ -1116,10 +1116,10 @@ theorem Expr.getAppFn_renameConsts (f : Name → Name) :
 
 /-- The application head under level instantiation. -/
 theorem Expr.getAppFn_instantiateLevelParams (ks : List Name)
-    (us : List Level) :
+    (us : List Level) (ms : List PropWhen) :
     ∀ (e : Expr),
-      (e.instantiateLevelParams ks us).getAppFn =
-        (e.getAppFn).instantiateLevelParams ks us := by
+      (e.instantiateLevelParams ks us ms).getAppFn =
+        (e.getAppFn).instantiateLevelParams ks us ms := by
   intro e
   induction e with
   | app g a ihg iha =>

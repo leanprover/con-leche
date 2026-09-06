@@ -130,67 +130,103 @@ theorem acval_natPairP (m : EnvS2Core V env)
       simpa [ConstantInfo.toConstantVal] using h.1
     | _ => simp [natSuccOk] at h
 
-/-- **The level crossing for `denoteP`, unconditional and exact**:
-reading an instantiated term at `φ` is reading the term at the
-composed valuation `Level.substFn φ ks us`.  The binder step is
-`pwBit_substPW` (i.e. `PropWhen.holds_substPW`); the constant step is
-`EnvS2.acval_params` + `Level.substFn_map_subst`, as in the canonical
-walk. -/
+/-- **The level crossing for `denoteP`** (packed datum, 2026-09-06):
+reading an instantiated term at `φ` in the environment's context is
+reading the term at the composed valuation `Level.substFn φ ks us` in
+its own context `ks` (`Env.withLpsL`).  The binder step is
+`pwBit_substPW` (`Level.holds_substPW`), the constant step is
+`EnvS2.acval_params` + `Level.substFn_map_subst`.  Premises: the term's
+data are defined in `ks` (a stored term's insertion invariant), `ks`
+is a duplicate-free representable context, the lists align, and `φ`
+is nonzero outside the environment's context — the exactness class of
+the total reader (`Level.holds_maskOf`; the reading of an
+unrepresentable parameter is `never`, which is the truth exactly
+there). -/
 theorem denotePInstLevels (m : EnvS2Core V env)
-    (φ : Name → Nat) (ks : List Name) (us : List Level) :
-    ∀ (d : Nat) (e : Expr),
-      denoteP m.acval env φ d (e.instantiateLevelParams ks us)
-        = denoteP m.acval env (Level.substFn φ ks us) d e := by
+    (φ : Name → Nat) (ks : List Name) (us : List Level)
+    (hnd : ks.Nodup) (hks : ks.length ≤ 63) (hl : us.length = ks.length)
+    (hφ : Level.NonzeroOutside env.lpsL φ) :
+    ∀ (d : Nat) (e : Expr), e.allLevelParamsDefined ks = true →
+      denoteP m.acval env φ d (e.instantiateLevelParams ks us (Level.masksOf env.lpsL us))
+        = denoteP m.acval (env.withLpsL ks) (Level.substFn φ ks us) d e := by
   intro d e
   induction d, e using denoteP.induct (env := env) with
   | case1 d u =>
+    intro _
     rw [Expr.instantiateLevelParams, denoteP, denoteP, Level.eval_subst]
   | case2 d idx nm ty =>
+    intro _
     rw [Expr.instantiateLevelParams, denoteP, denoteP]
   | case3 d n vs ci hf hlen =>
-    rw [Expr.instantiateLevelParams, denoteP, denoteP, hf]
+    intro _
+    rw [Expr.instantiateLevelParams, denoteP, denoteP, hf, Env.find?_withLpsL, hf]
     dsimp only
     rw [if_pos hlen, if_pos (by simpa using hlen)]
     exact congrArg some
       (m.acval_params n ci hf _ _ fun p hp =>
         Level.substFn_map_subst hlen hp)
   | case4 d n vs ci hf hlen =>
-    rw [Expr.instantiateLevelParams, denoteP, denoteP, hf]
+    intro _
+    rw [Expr.instantiateLevelParams, denoteP, denoteP, hf, Env.find?_withLpsL, hf]
     dsimp only
     rw [if_neg hlen, if_neg (by simpa using hlen)]
   | case5 d n vs hf =>
-    rw [Expr.instantiateLevelParams, denoteP, denoteP, hf]
+    intro _
+    rw [Expr.instantiateLevelParams, denoteP, denoteP, hf, Env.find?_withLpsL, hf]
   | case6 d n ty body mb ihty ihbody =>
+    intro hd
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [Expr.instantiateLevelParams, denoteP, denoteP,
-      ← Expr.instantiateLevelParams_instantiate1 ks us body 0,
-      ihty, ihbody]
-    simp only [pwBit_substPW]
+      ← Expr.instantiateLevelParams_instantiate1 ks us _ body 0,
+      ihty hd.1.1, ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.1.2)]
+    have hb : pwBit env.lpsL φ (Level.substPW (Level.masksOf env.lpsL us) mb.pw)
+        = pwBit (env.withLpsL ks).lpsL (Level.substFn φ ks us) mb.pw := by
+      rw [Env.lpsL_withLpsL env hks]
+      exact pwBit_substPW hnd env.lps.2 hl hφ hd.2
+    simp only [hb]
   | case7 d n ty body mb ihty ihbody =>
+    intro hd
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [Expr.instantiateLevelParams, denoteP, denoteP,
-      ← Expr.instantiateLevelParams_instantiate1 ks us body 0,
-      ihty, ihbody]
-    simp only [pwBit_substPW]
+      ← Expr.instantiateLevelParams_instantiate1 ks us _ body 0,
+      ihty hd.1.1, ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.1.2)]
+    have hb : pwBit env.lpsL φ (Level.substPW (Level.masksOf env.lpsL us) mb.pw)
+        = pwBit (env.withLpsL ks).lpsL (Level.substFn φ ks us) mb.pw := by
+      rw [Env.lpsL_withLpsL env hks]
+      exact pwBit_substPW hnd env.lps.2 hl hφ hd.2
+    simp only [hb]
   | case8 d fe a ihf iha =>
-    rw [Expr.instantiateLevelParams, denoteP, denoteP, ihf, iha]
+    intro hd
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
+    rw [Expr.instantiateLevelParams, denoteP, denoteP, ihf hd.1, iha hd.2]
   | case9 d n ty val body ihty ihval ihbody =>
+    intro hd
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [Expr.instantiateLevelParams, denoteP, denoteP,
-      ← Expr.instantiateLevelParams_instantiate1 ks us body 0,
-      ihty, ihval, ihbody]
+      ← Expr.instantiateLevelParams_instantiate1 ks us _ body 0,
+      ihty hd.1.1, ihval hd.1.2,
+      ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.2)]
   | case10 d sn i e ihe =>
-    rw [Expr.instantiateLevelParams, denoteP, denoteP, ihe]
+    intro hd
+    rw [Expr.instantiateLevelParams, denoteP, denoteP, Env.findProj?_withLpsL,
+      ihe (by simpa [Expr.allLevelParamsDefined] using hd)]
   | case11 d k hsup =>
-    rw [Expr.instantiateLevelParams, denoteP, denoteP,
+    intro _
+    rw [Expr.instantiateLevelParams, denoteP, denoteP, natLitSupported_withLpsL,
       if_pos hsup, if_pos hsup]
     obtain ⟨ez, es⟩ := acval_natPairP m hsup
       (Level.substFn (Level.substFn φ ks us) [] [])
       (Level.substFn φ [] [])
     rw [ez, es]
   | case12 d k hsup =>
-    rw [Expr.instantiateLevelParams, denoteP, denoteP,
+    intro _
+    rw [Expr.instantiateLevelParams, denoteP, denoteP, natLitSupported_withLpsL,
       if_neg hsup, if_neg hsup]
   | case13 d s hsup =>
-    rw [Expr.instantiateLevelParams, denoteP, denoteP,
+    intro _
+    rw [Expr.instantiateLevelParams, denoteP, denoteP, strLitSupported_withLpsL,
       if_pos hsup, if_pos hsup]
+    simp only [levelParamsAt_withLpsL]
     have hg := hsup
     simp only [Setlec.strLitSupported, Bool.and_eq_true] at hg
     obtain ⟨⟨⟨⟨⟨⟨⟨h0, -⟩, h2⟩, -⟩, h4⟩, h5⟩, h6⟩, h7⟩ := hg
@@ -231,9 +267,11 @@ theorem denotePInstLevels (m : EnvS2Core V env)
       (Level.substFn φ ks us) φ
     rw [ez, es, esol, echar, eofn, enil, econs]
   | case14 d s hsup =>
-    rw [Expr.instantiateLevelParams, denoteP, denoteP,
+    intro _
+    rw [Expr.instantiateLevelParams, denoteP, denoteP, strLitSupported_withLpsL,
       if_neg hsup, if_neg hsup]
   | case15 d x hxs hfv hc hpi hlam happ hlet hproj hnat hstr =>
+    intro _
     cases x with
     | bvar i =>
       rw [Expr.instantiateLevelParams, denoteP.eq_def, denoteP.eq_def]
@@ -250,16 +288,58 @@ theorem denotePInstLevels (m : EnvS2Core V env)
       | natVal k => exact absurd rfl (hnat k)
       | strVal s => exact absurd rfl (hstr s)
 
-/-- **The reading's φ-congruence at the expression's own parameters**
+/-- **The crossing, packaged for a stored subject**: a context-free
+reading (at the subject's own parameter list, at the substituted
+valuation) is the ambient reading of the level-instantiated subject —
+at the packed datum's valuation class. -/
+theorem denoteP_ctxFree_inst {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ)
+    {ks : List Name} (hnd : ks.Nodup) (hks : ks.length ≤ PropWhen.maxParams)
+    {us : List Level} (hl : us.length = ks.length) {e : Expr}
+    (hdef : e.allLevelParamsDefined ks = true) {d : Nat} {ea : AVExpr}
+    (h : denoteP m.acval (env.withLpsL ks) (Level.substFn φ ks us) d e = some ea) :
+    denoteP m.acval env φ d (e.instantiateLevelParams ks us (Level.masksOf env.lpsL us))
+      = some ea := by
+  rw [denotePInstLevels m φ ks us hnd hks hl hφ d e hdef]; exact h
+
+/-- The crossing at a stored constant's type (`EnvWF` supplies the
+context facts). -/
+theorem denoteP_stored_ty_inst {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ)
+    {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci) {us : List Level}
+    (hl : us.length = ci.toConstantVal.levelParams.length) {d : Nat} {ta : AVExpr}
+    (h : denoteP m.acval (env.withLpsL ci.toConstantVal.levelParams)
+      (Level.substFn φ ci.toConstantVal.levelParams us) d ci.toConstantVal.type = some ta) :
+    denoteP m.acval env φ d (ci.toConstantVal.type.instantiateLevelParams
+      ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)) = some ta :=
+  have hwf := m.wf ci (List.mem_of_find?_eq_some hf)
+  denoteP_ctxFree_inst hφ hwf.ctx.1 hwf.ctx.2 hl hwf.2.1 h
+
+/-- The crossing at a stored recursor rule's right-hand side. -/
+theorem denoteP_stored_rule_inst {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ)
+    {n : Name} {cv : Setlec.ConstantVal} {mI rP : Nat} {rules : List Setlec.RecRule}
+    (hf : env.find? n = some (.recInfo cv mI rP rules)) {rl : Setlec.RecRule}
+    (hmem : rl ∈ rules) {us : List Level}
+    (hl : us.length = cv.levelParams.length) {d : Nat} {ra : AVExpr}
+    (h : denoteP m.acval (env.withLpsL cv.levelParams)
+      (Level.substFn φ cv.levelParams us) d (Setlec.RecRule.rhs rl) = some ra) :
+    denoteP m.acval env φ d ((Setlec.RecRule.rhs rl).instantiateLevelParams
+      cv.levelParams us (Level.masksOf env.lpsL us)) = some ra :=
+  have hwf := m.wf _ (List.mem_of_find?_eq_some hf)
+  denoteP_ctxFree_inst hφ hwf.ctx.1 hwf.ctx.2 hl
+    (hwf.2.2.2.2.2.1 cv mI rP rules rfl rl hmem).2.1 h
+
+/-- **The reading's φ-congruence at the environment's own parameters**
 (`denote_params_ext`'s mirror; the harvest layer's `hAparams`
-supplier).  The one new step against the v1 walk is the binder
-numeral: `PropWhen.holds_ext` at the meta's `paramsDefined` conjunct —
-which is exactly why task #161 folded the datum's footprint into
-`Expr.allLevelParamsDefined`. -/
+supplier).  Packed datum: a term whose data are defined below the
+context's length reads its valuation only at the context's names
+(`PropWhen.holds_ext_lt`) — which is exactly why task #161 folded the
+datum's footprint into `Expr.allLevelParamsDefined`. -/
 theorem denoteP_params_ext (m : EnvS2Core V env)
-    {ps : List Name} {φ₁ φ₂ : Name → Nat}
-    (hφ : ∀ p ∈ ps, φ₁ p = φ₂ p) :
-    ∀ (d : Nat) (e : Expr), e.allLevelParamsDefined ps = true →
+    {φ₁ φ₂ : Name → Nat}
+    (hφ : ∀ p ∈ env.lpsL, φ₁ p = φ₂ p) :
+    ∀ (d : Nat) (e : Expr), e.allLevelParamsDefined env.lpsL = true →
       denoteP m.acval env φ₁ d e = denoteP m.acval env φ₂ d e := by
   intro d e
   induction d, e using denoteP.induct (env := env) with
@@ -287,9 +367,14 @@ theorem denoteP_params_ext (m : EnvS2Core V env)
   | case6 d n ty body mb ihty ihbody =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    have hpw : pwBit φ₁ mb.pw = pwBit φ₂ mb.pw := by
+    have hpw : pwBit env.lpsL φ₁ mb.pw = pwBit env.lpsL φ₂ mb.pw := by
       unfold pwBit
-      rw [Setlec.PropWhen.holds_ext hd.2 hφ]
+      rw [Setlec.PropWhen.holds_ext_lt hd.2 (fun i hi => ?_)]
+      simp only [Level.valAt]
+      have hget : env.lpsL.getD i .anonymous = env.lpsL[i] := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi]; rfl
+      rw [hget]
+      exact hφ _ (List.getElem_mem hi)
     rw [denoteP, denoteP, ← ihty hd.1.1,
       ← ihbody (Setlec.Expr.allLevelParamsDefined_instantiate1 hd.1.1 0
         hd.1.2)]
@@ -297,9 +382,14 @@ theorem denoteP_params_ext (m : EnvS2Core V env)
   | case7 d n ty body mb ihty ihbody =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    have hpw : pwBit φ₁ mb.pw = pwBit φ₂ mb.pw := by
+    have hpw : pwBit env.lpsL φ₁ mb.pw = pwBit env.lpsL φ₂ mb.pw := by
       unfold pwBit
-      rw [Setlec.PropWhen.holds_ext hd.2 hφ]
+      rw [Setlec.PropWhen.holds_ext_lt hd.2 (fun i hi => ?_)]
+      simp only [Level.valAt]
+      have hget : env.lpsL.getD i .anonymous = env.lpsL[i] := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi]; rfl
+      rw [hget]
+      exact hφ _ (List.getElem_mem hi)
     rw [denoteP, denoteP, ← ihty hd.1.1,
       ← ihbody (Setlec.Expr.allLevelParamsDefined_instantiate1 hd.1.1 0
         hd.1.2)]

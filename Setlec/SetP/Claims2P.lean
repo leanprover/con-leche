@@ -155,6 +155,7 @@ def InferClaims2P (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 /-- The P-generation step. -/
 def CheckStep2P (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
+    Level.NonzeroOutside env.lpsL φ →
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
     WhnfCoreClaims2P μ m φ (fuel + 1) ∧ WhnfClaims2P μ m φ (fuel + 1) ∧
@@ -163,7 +164,8 @@ def CheckStep2P (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 /-- The P-generation induction: generic in the step, zero case from
 the checker's own zero-fuel throws (currency-independent). -/
 theorem checkSound2P {μ : CheckMode} {env : Env}
-    (hstep : CheckStep2P μ V) (m : EnvS2Core V env) (φ : Name → Nat) :
+    (hstep : CheckStep2P μ V) (m : EnvS2Core V env) (φ : Name → Nat)
+    (hφ : Level.NonzeroOutside env.lpsL φ) :
     ∀ fuel : Nat,
       WhnfCoreClaims2P μ m φ fuel ∧ WhnfClaims2P μ m φ fuel ∧
         DefEqClaims2P μ m φ fuel ∧ InferClaims2P μ m φ fuel := by
@@ -185,6 +187,6 @@ theorem checkSound2P {μ : CheckMode} {env : Env}
       simp [throw, throwThe, MonadExceptOf.throw] at h
   | succ fuel ih =>
     obtain ⟨ihwc, ihw, ihd, ihi⟩ := ih
-    exact hstep env m φ fuel ihwc ihw ihd ihi
+    exact hstep env m φ fuel hφ ihwc ihw ihd ihi
 
 end Setlec.SetP

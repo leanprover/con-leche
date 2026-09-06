@@ -177,6 +177,18 @@ variable {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
   {rel : MonadRel M₁ M₂} {o₁ : CheckerOps M₁} {o₂ : CheckerOps M₂}
   {h : OpsRel rel o₁ o₂}
 
+theorem enterCtx_fst_proj (env : Env) (lps : List Name) :
+    (enterCtx (m := PairM rel) env lps).val.1 = enterCtx env lps := by
+  unfold enterCtx; split <;> rfl
+
+theorem enterCtx_snd_proj (env : Env) (lps : List Name) :
+    (enterCtx (m := PairM rel) env lps).val.2 = enterCtx env lps := by
+  unfold enterCtx; split <;> rfl
+
+theorem enterCtx_atF (env : Env) (lps : List Name) (F : Nat) :
+    (enterCtx (m := FueledM) env lps).val F = enterCtx (m := CheckM) env lps := by
+  unfold enterCtx; split <;> rfl
+
 theorem foldlM_fst {α β : Type} (g : β → α → PairM rel β) :
     ∀ (l : List α) (init : β),
       (l.foldlM g init).val.1 =
@@ -208,6 +220,7 @@ theorem foldlM_snd {α β : Type} (g : β → α → PairM rel β) :
 macro "dfst_step_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_fst_proj])
+    | (rw [enterCtx_fst_proj])
     | (rw [foldlM_fst])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -222,6 +235,7 @@ macro "dfst_tac" : tactic =>
 macro "dsnd_step_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_snd_proj])
+    | (rw [enterCtx_snd_proj])
     | (rw [foldlM_snd])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -582,6 +596,7 @@ theorem checkIotaRules_snd_dproj (env' envSelf : Env)
 macro "dfst_step2_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_fst_proj])
+    | (rw [enterCtx_fst_proj])
     | (rw [foldlM_fst])
     | (rw [checkConstantVal_fst_dproj])
     | (rw [checkProjLookups_fst_dproj])
@@ -606,6 +621,7 @@ macro "dfst_tac2" : tactic =>
 macro "dsnd_step2_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_snd_proj])
+    | (rw [enterCtx_snd_proj])
     | (rw [foldlM_snd])
     | (rw [checkConstantVal_snd_dproj])
     | (rw [checkProjLookups_snd_dproj])
@@ -700,7 +716,7 @@ theorem checkIndRecs_fst_dproj (blockNames : List Name) (env₂ : Env)
   unfold checkIndRecs
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, provisionRecs_fst_dproj, foldlM_fst,
-    checkIotaRules_fst_dproj]
+    enterCtx_fst_proj, checkIotaRules_fst_dproj]
 
 theorem checkIndRecs_snd_dproj (blockNames : List Name) (env₂ : Env)
     (recs : List ConstantInfo) :
@@ -709,11 +725,12 @@ theorem checkIndRecs_snd_dproj (blockNames : List Name) (env₂ : Env)
   unfold checkIndRecs
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, provisionRecs_snd_dproj, foldlM_snd,
-    checkIotaRules_snd_dproj]
+    enterCtx_snd_proj, checkIotaRules_snd_dproj]
 
 macro "dfst_step3_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_fst_proj])
+    | (rw [enterCtx_fst_proj])
     | (rw [foldlM_fst])
     | (rw [checkConstantVal_fst_dproj])
     | (rw [checkProjLookups_fst_dproj])
@@ -738,6 +755,7 @@ macro "dfst_tac3" : tactic =>
 macro "dsnd_step3_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_snd_proj])
+    | (rw [enterCtx_snd_proj])
     | (rw [foldlM_snd])
     | (rw [checkConstantVal_snd_dproj])
     | (rw [checkProjLookups_snd_dproj])
@@ -1046,24 +1064,25 @@ theorem checkDirectStruct_fst_dproj (env : Env) (p : DirectParts) :
       checkDirectStruct o₁ env p := by
   unfold checkDirectStruct
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
-    PairM.fst_ite, foldlM_fst, checkConstantVal_fst_dproj,
+    PairM.fst_ite, foldlM_fst, enterCtx_fst_proj, checkConstantVal_fst_dproj,
     checkDirectInd_fst_dproj, checkDirectCtor_fst_dproj,
     checkDirectRecTy_fst_dproj, checkDirectRule_fst_dproj,
-    checkDirectProj_fst_fun]
+    checkDirectProj_fst_fun, checkDirectProj_fst_dproj]
 
 theorem checkDirectStruct_snd_dproj (env : Env) (p : DirectParts) :
     (checkDirectStruct (pairOps o₁ o₂ h) env p).val.2 =
       checkDirectStruct o₂ env p := by
   unfold checkDirectStruct
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
-    PairM.snd_ite, foldlM_snd, checkConstantVal_snd_dproj,
+    PairM.snd_ite, foldlM_snd, enterCtx_snd_proj, checkConstantVal_snd_dproj,
     checkDirectInd_snd_dproj, checkDirectCtor_snd_dproj,
     checkDirectRecTy_snd_dproj, checkDirectRule_snd_dproj,
-    checkDirectProj_snd_fun]
+    checkDirectProj_snd_fun, checkDirectProj_snd_dproj]
 
 macro "dfst_step4_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_fst_proj])
+    | (rw [enterCtx_fst_proj])
     | (rw [foldlM_fst])
     | (simp only [checkIndMember_fst_dproj, checkProjFn_fst_dproj,
         installProjFnStep_fst_dproj, installBasisDecl_fst_dproj])
@@ -1094,6 +1113,7 @@ macro "dfst_tac4" : tactic =>
 macro "dsnd_step4_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_snd_proj])
+    | (rw [enterCtx_snd_proj])
     | (rw [foldlM_snd])
     | (simp only [checkIndMember_snd_dproj, checkProjFn_snd_dproj,
         installProjFnStep_snd_dproj, installBasisDecl_snd_dproj])
@@ -1136,6 +1156,7 @@ theorem checkIndDecl_snd_dproj (env : Env) (block : List ConstantInfo) :
 macro "dfst_step5_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_fst_proj])
+    | (rw [enterCtx_fst_proj])
     | (rw [foldlM_fst])
     | (simp only [checkIndMember_fst_dproj, checkProjFn_fst_dproj,
         installProjFnStep_fst_dproj, installBasisDecl_fst_dproj,
@@ -1167,6 +1188,7 @@ macro "dfst_tac5" : tactic =>
 macro "dsnd_step5_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_snd_proj])
+    | (rw [enterCtx_snd_proj])
     | (rw [foldlM_snd])
     | (simp only [checkIndMember_snd_dproj, checkProjFn_snd_dproj,
         installProjFnStep_snd_dproj, installBasisDecl_snd_dproj,
@@ -1371,10 +1393,10 @@ theorem checkReducePin_snd_dproj (env env2 : Env) (c : Name)
     | rfl
     | (simp only [PairM.snd_pure, PairM.snd_throw]))
 
-theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
-    (checkDecl mode (pairOps o₁ o₂ h) env d).val.1 =
-      checkDecl mode o₁ env d := by
-  unfold checkDecl
+theorem checkDeclAt_fst_dproj (env : Env) (d : Declaration) :
+    (checkDeclAt mode (pairOps o₁ o₂ h) env d).val.1 =
+      checkDeclAt mode o₁ env d := by
+  unfold checkDeclAt
   cases d with
   | defnDecl cv value hint =>
     dsimp only
@@ -1440,10 +1462,25 @@ theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     · exact checkDirectStruct_fst_dproj env _
     · exact checkIndDecl_fst_dproj env block
 
-theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
-    (checkDecl mode (pairOps o₁ o₂ h) env d).val.2 =
-      checkDecl mode o₂ env d := by
+
+theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
+    (checkDecl mode (pairOps o₁ o₂ h) env d).val.1 =
+      checkDecl mode o₁ env d := by
   unfold checkDecl
+  cases d with
+  | defnDecl cv value hint | thmDecl cv value | opaqueDecl cv value | axiomDecl cv =>
+    dsimp only
+    rw [PairM.fst_bind, enterCtx_fst_proj]
+    congr 1
+    funext env
+    exact checkDeclAt_fst_dproj env _
+  | basisDecl kind => exact checkDeclAt_fst_dproj env _
+  | indDecl block => exact checkDeclAt_fst_dproj env _
+
+theorem checkDeclAt_snd_dproj (env : Env) (d : Declaration) :
+    (checkDeclAt mode (pairOps o₁ o₂ h) env d).val.2 =
+      checkDeclAt mode o₂ env d := by
+  unfold checkDeclAt
   cases d with
   | defnDecl cv value hint =>
     dsimp only
@@ -1509,6 +1546,21 @@ theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     · exact checkDirectStruct_snd_dproj env _
     · exact checkIndDecl_snd_dproj env block
 
+
+theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
+    (checkDecl mode (pairOps o₁ o₂ h) env d).val.2 =
+      checkDecl mode o₂ env d := by
+  unfold checkDecl
+  cases d with
+  | defnDecl cv value hint | thmDecl cv value | opaqueDecl cv value | axiomDecl cv =>
+    dsimp only
+    rw [PairM.snd_bind, enterCtx_snd_proj]
+    congr 1
+    funext env
+    exact checkDeclAt_snd_dproj env _
+  | basisDecl kind => exact checkDeclAt_snd_dproj env _
+  | indDecl block => exact checkDeclAt_snd_dproj env _
+
 theorem checkDecls_fst_dproj (ds : List Declaration) :
     (checkDecls mode (pairOps o₁ o₂ h) ds).val.1 =
       checkDecls mode o₁ ds := by
@@ -1542,6 +1594,7 @@ theorem foldlM_atF {α β : Type} (g : β → α → FueledM β) (F : Nat) :
 macro "datF_step_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_atF])
+    | (rw [enterCtx_atF])
     | (rw [foldlM_atF])
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -1734,6 +1787,7 @@ theorem checkIotaRules_datF (env' envSelf : Env)
 macro "datF_step2_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_atF])
+    | (rw [enterCtx_atF])
     | (rw [foldlM_atF])
     | (rw [checkConstantVal_datF])
     | (rw [checkProjLookups_datF])
@@ -1794,11 +1848,12 @@ theorem checkIndRecs_datF (blockNames : List Name) (env₂ : Env)
       checkIndRecs mode (fueledOps mode F) blockNames env₂ recs := by
   unfold checkIndRecs
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    provisionRecs_datF, foldlM_atF, checkIotaRules_datF]
+    provisionRecs_datF, foldlM_atF, enterCtx_atF, checkIotaRules_datF]
 
 macro "datF_step3_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_atF])
+    | (rw [enterCtx_atF])
     | (rw [foldlM_atF])
     | (rw [checkConstantVal_datF])
     | (rw [checkProjLookups_datF])
@@ -1972,13 +2027,14 @@ theorem checkDirectStruct_datF (env : Env) (p : DirectParts) (F : Nat) :
       checkDirectStruct (fueledOps mode F) env p := by
   unfold checkDirectStruct
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, foldlM_atF, checkConstantVal_datF,
+    FueledM.atF_ite, foldlM_atF, enterCtx_atF, checkConstantVal_datF,
     checkDirectInd_datF, checkDirectCtor_datF, checkDirectRecTy_datF,
-    checkDirectRule_datF, checkDirectProj_datF_fun]
+    checkDirectRule_datF, checkDirectProj_datF_fun, checkDirectProj_datF]
 
 macro "datF_step4_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_atF])
+    | (rw [enterCtx_atF])
     | (rw [foldlM_atF])
     | (simp only [checkIndMember_datF, checkProjFn_datF,
         installProjFnStep_datF, installBasisDecl_datF])
@@ -2016,6 +2072,7 @@ theorem checkIndDecl_datF (env : Env) (block : List ConstantInfo) (F : Nat) :
 macro "datF_step5_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_atF])
+    | (rw [enterCtx_atF])
     | (rw [foldlM_atF])
     | (simp only [checkIndMember_datF, checkProjFn_datF,
         installProjFnStep_datF, installBasisDecl_datF,
@@ -2134,10 +2191,10 @@ theorem checkReducePin_datF (env env2 : Env) (c : Name) (value : Expr)
     | rfl
     | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
 
-theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
-    (checkDecl mode (fueledOpsM mode) env d).val F =
-      checkDecl mode (fueledOps mode F) env d := by
-  unfold checkDecl
+theorem checkDeclAt_datF (env : Env) (d : Declaration) (F : Nat) :
+    (checkDeclAt mode (fueledOpsM mode) env d).val F =
+      checkDeclAt mode (fueledOps mode F) env d := by
+  unfold checkDeclAt
   cases d with
   | defnDecl cv value hint =>
     dsimp only
@@ -2201,6 +2258,20 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     split
     · exact checkDirectStruct_datF env _ F
     · exact checkIndDecl_datF env block F
+
+theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
+    (checkDecl mode (fueledOpsM mode) env d).val F =
+      checkDecl mode (fueledOps mode F) env d := by
+  unfold checkDecl
+  cases d with
+  | defnDecl cv value hint | thmDecl cv value | opaqueDecl cv value | axiomDecl cv =>
+    dsimp only
+    rw [FueledM.atF_bind, enterCtx_atF]
+    congr 1
+    funext env
+    exact checkDeclAt_datF env _ F
+  | basisDecl kind => exact checkDeclAt_datF env _ F
+  | indDecl block => exact checkDeclAt_datF env _ F
 
 theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
     (checkDecls mode (fueledOpsM mode) ds).val F =

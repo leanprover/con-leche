@@ -91,6 +91,25 @@ structure EnvS2Core (env : Env) where
 
 variable {V}
 
+/-- **The carrier crosses a universe-context entry** (the packed `pw`
+datum, 2026-09-06): every field is a fact about the stored constants
+(lookups, valuations), none about the context, so the carrier at
+`env.withLps c` is the carrier at `env`, field for field. -/
+def EnvS2Core.withLps {env : Env} (m : EnvS2Core V env) (c : UnivCtx) :
+    EnvS2Core V (env.withLps c) where
+  wf := m.wf.withLps c
+  acval := m.acval
+  cval_closedL := m.cval_closedL
+  basis_pinnedL := m.basis_pinnedL
+  proj_ok := m.proj_ok
+  rec_ctors := m.rec_ctors
+  acval_closed := m.acval_closed
+  acval_params := m.acval_params
+  acval_ok2 := m.acval_ok2
+
+@[simp] theorem EnvS2Core.withLps_acval {env : Env} (m : EnvS2Core V env) (c : UnivCtx) :
+    (m.withLps c).acval = m.acval := rfl
+
 /-- **The collapsed valuation, recovered** — the re-supply the census
 measured at 135 sites (§1.2).  `AVExpr.erase` is a total syntactic
 function the carrier already owns, so no model content is

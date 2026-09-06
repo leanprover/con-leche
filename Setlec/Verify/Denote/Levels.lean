@@ -331,10 +331,10 @@ Its literal clauses are `natLitT_params` and `strLitT_params` applied
 at the two assignments — the guards carry them (§8.4), so no inversion
 lemma is needed here either. -/
 theorem denote_instLevels {env : Env} {cval : TConstVal}
-    (hp : ValParams env cval) {ks : List Name} {us : List Level}
+    (hp : ValParams env cval) {ks : List Name} {us : List Level} {ms : List PropWhen}
     (φ : Name → Nat) :
     ∀ (d : Nat) (e : Expr),
-      denote cval env φ d (e.instantiateLevelParams ks us) =
+      denote cval env φ d (e.instantiateLevelParams ks us ms) =
         denote cval env (Level.substFn φ ks us) d e := by
   intro d e
   induction d, e using denote.induct

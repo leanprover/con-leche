@@ -147,18 +147,18 @@ theorem directProjFoldRun_etaClosed {μ : CheckMode} {F : Nat} {T C : Name}
       EtaFamiliesClosed env → EtaFamiliesClosed env₂
   | [], _, _, h, hE => by rw [h]; exact hE
   | i :: rest, env, env₂, h, hE => by
-    obtain ⟨env'', hstep, hrest⟩ := h
+    obtain ⟨c, env'', -, hstep, hrest⟩ := h
     refine directProjFoldRun_etaClosed rest hrest ?_
     rcases checkDirectProj_inv hstep with rfl |
       ⟨entry, hfresh, -, -, hsn, hidx, -, -, -, -, -, -, rfl⟩ |
       ⟨entry, hfresh, -, -, hsn, hidx, rfl⟩
-    · exact hE
-    · refine EtaFamiliesClosed.cons_nonind hE ?_ (fun _ _ heq => nomatch heq)
+    · exact hE.withLps c
+    · refine EtaFamiliesClosed.cons_nonind (hE.withLps c) ?_ (fun _ _ heq => nomatch heq)
       have hname : (ConstantInfo.projInfo entry).name = projFnName T i := by
         show projFnName entry.structName entry.idx = projFnName T i
         rw [hsn, hidx]
       rw [hname]; exact hfresh
-    · refine EtaFamiliesClosed.cons_nonind hE ?_ (fun _ _ heq => nomatch heq)
+    · refine EtaFamiliesClosed.cons_nonind (hE.withLps c) ?_ (fun _ _ heq => nomatch heq)
       have hname : (ConstantInfo.projInfo entry).name = projFnName T i := by
         show projFnName entry.structName entry.idx = projFnName T i
         rw [hsn, hidx]
@@ -168,8 +168,8 @@ theorem directProjFoldRun_etaClosed {μ : CheckMode} {F : Nat} {T C : Name}
 theorem declDirectRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : DirectParts} (hE : EtaFamiliesClosed env)
     (h : DeclDirectRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hCV, -, -, -,
-    hfold⟩ := h
+  obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, cT, cC, cR, -, hInd, -, hCtor,
+    -, hCV, -, -, -, hfold⟩ := h
   obtain ⟨cvT', hcvT, -, hI⟩ := checkDirectInd_inv hInd
   obtain ⟨hfT, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
     Setlec.checkConstantVal_inv hcvT
@@ -186,29 +186,31 @@ theorem declDirectRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
   -- former's constructor is the head, and every prefix family keeps
   -- its constructor through the two fresh conses
   have hE₂ : EtaFamiliesClosed envC := by
-    rw [hC, hI]
+    rw [hC]
     intro T'' cvT'' caps hf he hr
     rw [Setlec.Env.find?_cons] at hf
     split at hf
     · exact nomatch (Option.some.inj hf)
-    · rw [Setlec.Env.find?_cons] at hf
+    · rw [Setlec.Env.find?_withLps, hI, Setlec.Env.find?_cons] at hf
       split at hf
       · obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
         refine ⟨cvC', ?_⟩
-        show Env.find? ⟨.ctorInfo cvC' p.nP p.nF :: _⟩ p.cvC.name
+        show Env.find? { consts := .ctorInfo cvC' p.nP p.nF :: _, lps := _ } p.cvC.name
           = some (.ctorInfo cvC' p.nP p.nF)
         rw [← hnC]
         exact Setlec.Env.find?_cons_self _ _
       · obtain ⟨cvC, hfC'⟩ := hE T'' cvT'' caps hf he hr
         refine ⟨cvC, ?_⟩
-        exact Setlec.Env.find?_cons_of_fresh
-          (show Env.find? { env with consts := .indInfo cvT' (directCaps p) :: env.consts }
-              cvC'.name = none by rw [← hI, hnC]; exact hfC)
-          (Setlec.Env.find?_cons_of_fresh
-            (show env.find? cvT'.name = none by rw [hnT]; exact hfT) hfC')
+        refine Setlec.Env.find?_cons_of_fresh (env := envI.withLps cC) ?_ ?_
+        · rw [Setlec.Env.find?_withLps]
+          show envI.find? cvC'.name = none
+          rw [hnC]; exact hfC
+        · rw [Setlec.Env.find?_withLps, hI]
+          exact Setlec.Env.find?_cons_of_fresh
+            (show (env.withLps cT).find? cvT'.name = none by rw [hnT]; exact hfT) hfC'
   refine directProjFoldRun_etaClosed _ hfold ?_
-  exact EtaFamiliesClosed.cons_nonind hE₂
-    (show envC.find? cvRa.name = none by rw [hnR]; exact hfR)
+  exact EtaFamiliesClosed.cons_nonind (hE₂.withLps cR)
+    (show (envC.withLps cR).find? cvRa.name = none by rw [hnR]; exact hfR)
     (fun _ _ heq => nomatch heq)
 
 /-! ## The dispatch, flag-agnostic -/

@@ -184,7 +184,7 @@ def EqFormerKeyP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat) :
     ∀ T : AVExpr,
       denoteP m.acval env φ 0
         (eqA.toConstantVal.type.instantiateLevelParams
-          eqA.toConstantVal.levelParams us) = some T →
+          eqA.toConstantVal.levelParams us (Level.masksOf env.lpsL us)) = some T →
       ∀ ρ : Nat → V,
         interp2 V ρ (m.acval eqName
             (Level.substFn φ eqA.toConstantVal.levelParams us))

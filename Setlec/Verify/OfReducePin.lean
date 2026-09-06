@@ -59,9 +59,9 @@ theorem ofReducePin_type {n : Name}
                .app (.const (ofReduceOp n) []) (.bvar 1), .bvar 0])
             (Expr.mkAppN (.const eqName [.succ .zero])
               [.const (reduceElemName (ofReduceOp n)) [],
-               .bvar 2, .bvar 1]) ⟨.default, .ifAllZero []⟩)
-          ⟨.default, .ifAllZero []⟩)
-        ⟨.default, .ifAllZero []⟩ := by
+               .bvar 2, .bvar 1]) ⟨.default, .always⟩)
+          ⟨.default, .always⟩)
+        ⟨.default, .always⟩ := by
   rcases hn with rfl | rfl <;> rfl
 
 /-- The pinned type of the operation itself. -/

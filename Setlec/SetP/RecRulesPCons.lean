@@ -109,7 +109,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
   · rw [hac]
     exact denoteP_cons_mono hfresh
       ((hntc.ruleRhs (Setlec.Semantics.Env.find?_mem hfE) hmem).instantiateLevelParams
-        _ _) _ 0
+        _ _ _) _ 0
       (constsBound_of_constsResolve _ (by
         rw [Setlec.Expr.constsResolve_instantiateLevelParams]
         exact hRres)) hRa0
@@ -130,7 +130,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
     · rw [hac]
       exact denoteP_cons_mono hfresh
         (((hntc.rulePinD (Setlec.Semantics.Env.find?_mem hfE) hmem hn
-          i).instantiateLevelParams _ _).openRev 0 rP) _ rP
+          i).instantiateLevelParams _ _ _).openRev 0 rP) _ rP
         (constsBound_openRev (constsBound_of_constsResolve _ (by
           rw [Setlec.Expr.constsResolve_instantiateLevelParams]
           exact hpinCR)) 0 rP) hvpa
@@ -144,7 +144,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
         refine Option.some.inj (Eq.trans ?_ hTVa)
         rw [hac]
         exact (denoteP_cons_mono hfresh
-          ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
+          ((hntc.typeOf hfE).instantiateLevelParams _ _ _) _ 0
           (constsBound_instType mp.base2.wf
             (Setlec.Semantics.Env.find?_mem hfE) us) hTVa').symm
       exact hok ρ zs TVa' restR hzl hzok hTVa' hfit
@@ -170,7 +170,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
       refine Option.some.inj (Eq.trans ?_ hTVa)
       rw [hac]
       exact (denoteP_cons_mono hfresh
-        ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
+        ((hntc.typeOf hfE).instantiateLevelParams _ _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.Semantics.Env.find?_mem hfE) us) hTVa').symm
     obtain ⟨TVja', hTVja', -, -⟩ :=
@@ -179,7 +179,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
       refine Option.some.inj (Eq.trans ?_ hTVja)
       rw [hac]
       exact (denoteP_cons_mono hfresh
-        ((hntc.typeOf hfcjE).instantiateLevelParams _ _) _ 0
+        ((hntc.typeOf hfcjE).instantiateLevelParams _ _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.Semantics.Env.find?_mem hfcjE) usj) hTVja').symm
     -- the `.nested` premise, contravariantly: a prefix pin reading is
@@ -189,7 +189,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
         ∀ vpa : AVExpr,
           denoteP mp.base2.acval env φ rP
             (openRev 0 rP ((pins.getD i default).instantiateLevelParams
-              cv.levelParams us)) = some vpa →
+              cv.levelParams us (Level.masksOf env.lpsL us))) = some vpa →
           interp2 V ρ (ys.getD i default)
             = interp2 V ρ (AVExpr.instRevChain (xs.take rP) vpa) := by
       intro lvls pins hn i hi vpa hvpa
@@ -205,7 +205,7 @@ theorem recRuleLawP_cons_prefix (mp : EnvS2PM V μ env)
       rw [hac]
       exact denoteP_cons_mono hfresh
         (((hntc.rulePinD (Setlec.Semantics.Env.find?_mem hfE) hmem hn
-          i).instantiateLevelParams _ _).openRev 0 rP) _ rP
+          i).instantiateLevelParams _ _ _).openRev 0 rP) _ rP
         (constsBound_openRev (constsBound_of_constsResolve _ (by
           rw [Setlec.Expr.constsResolve_instantiateLevelParams]
           exact hpinCR)) 0 rP) hvpa
@@ -323,7 +323,7 @@ theorem towerEntryLawP_cons_prefix (mp : EnvS2PM V μ env)
     refine ⟨⟨Ta, ?_, ?_⟩, ⟨TCa, ?_, ?_⟩⟩
     · rw [hac]
       exact denoteP_cons_mono hfresh
-        ((hcross.typeOf hfP0).instantiateLevelParams _ _) _ 0
+        ((hcross.typeOf hfP0).instantiateLevelParams _ _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.Semantics.Env.find?_mem hfP0) us) hTa
     · intro hg ρ vs x rest hlen hokT hokx hmem hpeel
@@ -333,7 +333,7 @@ theorem towerEntryLawP_cons_prefix (mp : EnvS2PM V μ env)
       -- prefix lookup's closed type
       rw [hac]
       exact denoteP_cons_mono hfresh
-        ((hcross.typeOf hfC).instantiateLevelParams _ _) _ 0
+        ((hcross.typeOf hfC).instantiateLevelParams _ _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.Semantics.Env.find?_mem hfC) us) hTCa
     · intro hg ρ ys rest hlen hok hfit
@@ -350,7 +350,7 @@ theorem towerEntryLawP_cons_prefix (mp : EnvS2PM V μ env)
     refine ⟨TVa, ?_, hok, ?_⟩
     · rw [hac]
       exact denoteP_cons_mono hfresh
-        ((hcross.typeOf hfT'').instantiateLevelParams _ _) _ 0
+        ((hcross.typeOf hfT'').instantiateLevelParams _ _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.Semantics.Env.find?_mem hfT'') us) hTVa
     · intro ρ ts rest x hlen hfit hmem

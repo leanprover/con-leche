@@ -96,6 +96,7 @@ def checkIndRecsNC (blockNames : List Name) (fe₂ : FEnv)
     let (feSelf, checked) ← provisionRecsNC blockNames fe₂ recs
     flushC
     checked.foldlM (fun (acc : FEnv) c => do
+        flushC
         let feSelf ← enterCtxF feSelf c.1.levelParams
         let rules' ← checkIotaRulesF .noModel (sharedOpsCNC feSelf) fe₂ feSelf
           f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
@@ -294,10 +295,9 @@ def checkOpaqueValCNC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
 
 /-- `checkDeclSPC` at the cert-skipping knot (mirrors
 `checkDeclSPNCPlain` branch by branch). -/
-def checkDeclSPCNC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
+def checkDeclSPCNCAt (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
-    let fe ← enterCtxF fe cv.levelParams
     let (cvA, jty) ← checkConstantValCNC fe cv
     if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
       let fe2 ← checkDefnValCNC fe cvA jty value hint
@@ -323,11 +323,9 @@ def checkDeclSPCNC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
     else
       checkDefnValCNC fe cvA jty value hint
   | .thmDecl cv value => do
-    let fe ← enterCtxF fe cv.levelParams
     let (cvA, jty) ← checkConstantValCNC fe cv
     checkThmValCNC fe cvA jty value
   | .opaqueDecl cv value => do
-    let fe ← enterCtxF fe cv.levelParams
     let (cvA, jty) ← checkConstantValCNC fe cv
     let fe2 ← checkOpaqueValCNC fe cvA jty value
     if reduceOpNames.contains cvA.name then do
@@ -335,7 +333,6 @@ def checkDeclSPCNC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
       checkReducePinF (sharedOpsCNC fe) fe fe2 cvA.name vE
     pure fe2
   | .axiomDecl cv => do
-    let fe ← enterCtxF fe cv.levelParams
     let (cvA, jty) ← checkConstantValCNC fe cv
     if stdAxiomOkF fe cvA then do
       recordCConst cvA.name cvA.type jty none
@@ -367,6 +364,17 @@ def checkDeclSPCNC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
     match directPartsF? fe block with
     | some p => checkDirectStructNC fe p
     | none => checkIndDeclNC fe block
+
+
+/-- `checkDeclSPC` at the cert-skipping knot: the constant-headed kinds
+enter the declaration's universe context first, `checkDeclSPCNCAt` is
+the body at the entered index. -/
+def checkDeclSPCNC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
+  match pd with
+  | .defnDecl cv _ _ | .thmDecl cv _ | .opaqueDecl cv _ | .axiomDecl cv => do
+    let fe ← enterCtxF fe cv.levelParams
+    checkDeclSPCNCAt fe pd
+  | .basisDecl _ | .indDecl _ => checkDeclSPCNCAt fe pd
 
 /-- One step of the cert-skipping converted-declaration fold: flush
 (entry-point memos and the checking-mode inference memo, back to

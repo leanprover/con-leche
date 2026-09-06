@@ -243,6 +243,14 @@ theorem canon_push {fe : FEnv} (h : Canon fe) (ci : ConstantInfo) :
   obtain ⟨env, rfl⟩ := h
   exact ⟨{ env with consts := ci :: env.consts }, rfl⟩
 
+/-- Entering a universe context keeps the index canonical (the packed
+`pw` datum: `mkFEnv (env.withLps c) = (mkFEnv env).withLps c`,
+definitionally). -/
+theorem canon_withLps {fe : FEnv} (h : Canon fe) (c : UnivCtx) :
+    Canon (fe.withLps c) := by
+  obtain ⟨env, rfl⟩ := h
+  exact ⟨env.withLps c, rfl⟩
+
 theorem canon_find? {fe : FEnv} (h : Canon fe) (n : Name) :
     fe.find? n = fe.env.find? n := by
   obtain ⟨env, rfl⟩ := h
@@ -266,6 +274,24 @@ theorem SkelIs.push {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
     show (ci :: fe.env.consts).map ciSkel = _
     rw [List.map_cons]
     exact congrArg (ciSkel ci :: ·) h.2⟩
+
+theorem SkelIs.withLps {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
+    (c : UnivCtx) : SkelIs (fe.withLps c) sk :=
+  ⟨canon_withLps h.1 c, h.2⟩
+
+/-- The context entry keeps the skeleton (it touches no constant). -/
+theorem enterCtxF_skels {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
+    (lps : List Name) :
+    Yields (enterCtxF (m := CheckCM) fe lps) (fun fe' => SkelIs fe' sk) := by
+  intro s a s' hr
+  unfold enterCtxF at hr
+  cases hc : UnivCtx.of? lps with
+  | some c =>
+    rw [hc] at hr
+    simp only [Pure.pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hr
+    rw [← hr.1]
+    exact h.withLps _
+  | none => rw [hc] at hr; cases hr
 
 /-- Skeleton inversion at a recursor (the one place a driver guard
 reads more than a name). -/
@@ -582,6 +608,7 @@ theorem checkIndMemberS_skels (mode : CheckMode) (blockNames : List Name)
       (fun fe' => SkelIs fe' (indMemberSkel ci :: sk)) := by
   unfold checkIndMemberS
   ybind
+  refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
   refine Yields.bind'
     (checkMemberValF_name (sharedOpsC mode fe) blockNames fe ci.toConstantVal)
     fun cvA hcvA => ?_
@@ -613,6 +640,8 @@ theorem provisionRecsS_spec (mode : CheckMode) (blockNames : List Name) :
     cases ci with
     | recInfo cv mI rP rules =>
       ybind
+      with_reducible apply Yields.bind
+      intro feAcc
       refine Yields.bind'
         (checkMemberValF_name (sharedOpsC mode feAcc) blockNames feAcc _)
         fun cvA hcvA => ?_
@@ -661,12 +690,18 @@ theorem checkIndRecsS_skels (mode : CheckMode) (blockNames : List Name)
       have hstep : ∀ (acc : FEnv) (c : ConstantVal × Nat × Nat × List RecRule)
           (sk' : List InstallSkel), SkelIs acc sk' →
           Yields (do
+            flushC
+            let feSelf ← enterCtxF feSelf c.1.levelParams
             let rules' ← checkIotaRulesF mode (sharedOpsC mode feSelf) fe₂ feSelf
               (fun n => if blockNames.contains n then n.str "_model" else n)
               c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
             pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules')))
             (fun acc' => SkelIs acc' (provSkel c :: sk')) := by
         intro acc c sk' hacc
+        with_reducible apply Yields.bind
+        intro _u
+        with_reducible apply Yields.bind
+        intro feSelf
         refine Yields.bind'
           (checkIotaRulesF_ctors mode (sharedOpsC mode feSelf) fe₂ feSelf _
             c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2)
@@ -689,6 +724,7 @@ theorem checkProjFnS_skels (mode : CheckMode) {fe : FEnv}
     Yields (checkProjFnS mode fe T ctorName lps nP nF i)
       (fun fe' => SkelIs fe' (.recr (projFnName T i) nP nP [ctorName] :: sk)) := by
   unfold checkProjFnS
+  refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
   yields
   all_goals (apply Yields.pure; exact h.push _)
 
@@ -795,6 +831,7 @@ theorem checkDirectProjsS_skels (mode : CheckMode) (T C : Name)
   | todo + 1, i, rt?, fe, sk, h => by
     unfold checkDirectProjsS
     ybind
+    refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
     refine Yields.bind'
       (checkDirectProjF_skels h _ T C lps nP nF resSort slots guards cvTa
         cvCa rt? i) fun fe' h' => ?_
@@ -808,14 +845,17 @@ theorem checkDirectStructS_skels (mode : CheckMode) {fe : FEnv}
       (fun fe' => SkelIs fe' (directSkels p sk)) := by
   unfold checkDirectStructS
   ybind
-  refine Yields.bind' (checkDirectIndF_skels h _ p) fun r₁ h₁ => ?_
+  refine Yields.bind' (enterCtxF_skels h _) fun feT hT => ?_
+  refine Yields.bind' (checkDirectIndF_skels hT _ p) fun r₁ h₁ => ?_
   obtain ⟨fe₁, cvTa⟩ := r₁
   simp only []
   ybind
+  refine Yields.bind' (enterCtxF_skels h₁ _) fun fe₁ h₁ => ?_
   refine Yields.bind' (checkDirectCtorF_skels h₁ _ p cvTa) fun r₂ h₂ => ?_
   obtain ⟨fe₂, cvCa, sorts⟩ := r₂
   simp only []
   ybind
+  refine Yields.bind' (enterCtxF_skels h₂ _) fun fe₂ h₂ => ?_
   refine Yields.bind' (checkConstantValF_name _ fe₂ p.cvR) fun cvRa hnR => ?_
   ybind
   with_reducible apply Yields.bind
@@ -855,6 +895,7 @@ theorem checkDirectProjsNC_skels (T C : Name)
   | todo + 1, i, rt?, fe, sk, h => by
     unfold checkDirectProjsNC
     ybind
+    refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
     refine Yields.bind'
       (checkDirectProjF_skels h _ T C lps nP nF resSort slots guards cvTa
         cvCa rt? i) fun fe' h' => ?_
@@ -868,14 +909,17 @@ theorem checkDirectStructNC_skels {fe : FEnv}
       (fun fe' => SkelIs fe' (directSkels p sk)) := by
   unfold checkDirectStructNC
   ybind
-  refine Yields.bind' (checkDirectIndF_skels h _ p) fun r₁ h₁ => ?_
+  refine Yields.bind' (enterCtxF_skels h _) fun feT hT => ?_
+  refine Yields.bind' (checkDirectIndF_skels hT _ p) fun r₁ h₁ => ?_
   obtain ⟨fe₁, cvTa⟩ := r₁
   simp only []
   ybind
+  refine Yields.bind' (enterCtxF_skels h₁ _) fun fe₁ h₁ => ?_
   refine Yields.bind' (checkDirectCtorF_skels h₁ _ p cvTa) fun r₂ h₂ => ?_
   obtain ⟨fe₂, cvCa, sorts⟩ := r₂
   simp only []
   ybind
+  refine Yields.bind' (enterCtxF_skels h₂ _) fun fe₂ h₂ => ?_
   refine Yields.bind' (checkConstantValF_name _ fe₂ p.cvR) fun cvRa hnR => ?_
   ybind
   with_reducible apply Yields.bind
@@ -996,10 +1040,11 @@ theorem checkDeclSPC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : DeclC) :
     Yields (checkDeclSPC mode fe pd)
       (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
-  unfold checkDeclSPC declCSkels
+  unfold checkDeclSPC checkDeclSPCAt declCSkels
   cases pd with
   | defnDecl cv value hint =>
     simp only []
+    refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
     refine Yields.bind' (checkConstantValC_name mode fe cv) fun p hp => ?_
     obtain ⟨cvA, jty⟩ := p
     simp only []
@@ -1013,12 +1058,14 @@ theorem checkDeclSPC_skels (mode : CheckMode) {fe : FEnv}
     · exact key
   | thmDecl cv value =>
     simp only []
+    refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
     refine Yields.bind' (checkConstantValC_name mode fe cv) fun p hp => ?_
     obtain ⟨cvA, jty⟩ := p
     rw [← hp]
     exact checkThmValC_skels mode h cvA jty value
   | opaqueDecl cv value =>
     simp only []
+    refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
     refine Yields.bind' (checkConstantValC_name mode fe cv) fun p hp => ?_
     obtain ⟨cvA, jty⟩ := p
     simp only []
@@ -1030,6 +1077,7 @@ theorem checkDeclSPC_skels (mode : CheckMode) {fe : FEnv}
     all_goals (apply Yields.pure; exact h2)
   | axiomDecl cv =>
     simp only []
+    refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
     refine Yields.bind' (checkConstantValC_name mode fe cv) fun p hp => ?_
     obtain ⟨cvA, jty⟩ := p
     simp only []
@@ -1127,6 +1175,7 @@ theorem checkIndMemberNC_skels (blockNames : List Name) (caps : IndCaps)
       (fun fe' => SkelIs fe' (indMemberSkel ci :: sk)) := by
   unfold checkIndMemberNC
   ybind
+  refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
   refine Yields.bind'
     (checkMemberValF_name (sharedOpsCNC fe) blockNames fe ci.toConstantVal)
     fun cvA hcvA => ?_
@@ -1154,6 +1203,8 @@ theorem provisionRecsNC_spec (blockNames : List Name) :
     cases ci with
     | recInfo cv mI rP rules =>
       ybind
+      with_reducible apply Yields.bind
+      intro feAcc
       refine Yields.bind'
         (checkMemberValF_name (sharedOpsCNC feAcc) blockNames feAcc _)
         fun cvA hcvA => ?_
@@ -1184,12 +1235,18 @@ theorem checkIndRecsNC_skels (blockNames : List Name) {fe₂ : FEnv}
       have hstep : ∀ (acc : FEnv) (c : ConstantVal × Nat × Nat × List RecRule)
           (sk' : List InstallSkel), SkelIs acc sk' →
           Yields (do
+            flushC
+            let feSelf ← enterCtxF feSelf c.1.levelParams
             let rules' ← checkIotaRulesF .noModel (sharedOpsCNC feSelf) fe₂ feSelf
               (fun n => if blockNames.contains n then n.str "_model" else n)
               c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
             pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules')))
             (fun acc' => SkelIs acc' (provSkel c :: sk')) := by
         intro acc c sk' hacc
+        with_reducible apply Yields.bind
+        intro _u
+        with_reducible apply Yields.bind
+        intro feSelf
         refine Yields.bind'
           (checkIotaRulesF_ctors .noModel (sharedOpsCNC feSelf) fe₂ feSelf _
             c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2)
@@ -1211,6 +1268,7 @@ theorem checkProjFnNC_skels {fe : FEnv} {sk : List InstallSkel}
     Yields (checkProjFnNC fe T ctorName lps nP nF i)
       (fun fe' => SkelIs fe' (.recr (projFnName T i) nP nP [ctorName] :: sk)) := by
   unfold checkProjFnNC
+  refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
   yields
   all_goals (apply Yields.pure; exact h.push _)
 
@@ -1289,10 +1347,11 @@ theorem checkDeclSPCNC_skels {fe : FEnv} {sk : List InstallSkel}
     (h : SkelIs fe sk) (pd : DeclC) :
     Yields (checkDeclSPCNC fe pd)
       (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
-  unfold checkDeclSPCNC declCSkels
+  unfold checkDeclSPCNC checkDeclSPCNCAt declCSkels
   cases pd with
   | defnDecl cv value hint =>
     simp only []
+    refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
     refine Yields.bind' (checkConstantValCNC_name fe cv) fun p hp => ?_
     obtain ⟨cvA, jty⟩ := p
     simp only []
@@ -1306,12 +1365,14 @@ theorem checkDeclSPCNC_skels {fe : FEnv} {sk : List InstallSkel}
     · exact key
   | thmDecl cv value =>
     simp only []
+    refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
     refine Yields.bind' (checkConstantValCNC_name fe cv) fun p hp => ?_
     obtain ⟨cvA, jty⟩ := p
     rw [← hp]
     exact checkThmValCNC_skels h cvA jty value
   | opaqueDecl cv value =>
     simp only []
+    refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
     refine Yields.bind' (checkConstantValCNC_name fe cv) fun p hp => ?_
     obtain ⟨cvA, jty⟩ := p
     simp only []
@@ -1323,6 +1384,7 @@ theorem checkDeclSPCNC_skels {fe : FEnv} {sk : List InstallSkel}
     all_goals (apply Yields.pure; exact h2)
   | axiomDecl cv =>
     simp only []
+    refine Yields.bind' (enterCtxF_skels h _) fun fe h => ?_
     refine Yields.bind' (checkConstantValCNC_name fe cv) fun p hp => ?_
     obtain ⟨cvA, jty⟩ := p
     simp only []

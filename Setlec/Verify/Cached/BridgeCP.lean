@@ -389,8 +389,8 @@ theorem checkDeclSPC_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
     {pd : DeclC} {d : Declaration} (hrel : DeclCRel pd d)
     (hnotind : ∀ block, pd ≠ .indDecl block) :
     SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env)
-      (checkDeclSPC mode (mkFEnv env) pd)
-      (checkDecl mode (fueledOpsM mode) env d) := by
+      (checkDeclSPCAt mode (mkFEnv env) pd)
+      (checkDeclAt mode (fueledOpsM mode) env d) := by
   cases hrel with
   | indDecl => exact absurd rfl (hnotind _)
   | @basisDecl kind =>
@@ -401,7 +401,7 @@ theorem checkDeclSPC_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
               "quotient basis requires the pinned Eq basis")
         kind.declsA.foldlM installBasisDeclF (mkFEnv env) :
         CheckCM FEnv) _
-    unfold checkDecl
+    unfold checkDeclAt
     dsimp only
     rw [installBasisFoldF_pushC]
     simp only [mkFEnv_find?]
@@ -425,7 +425,7 @@ theorem checkDeclSPC_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
       obtain rfl : e = e' := hP
       exact SimC.pure hs₁ ⟨rfl, rfl⟩
   | axiomDecl hty =>
-    unfold checkDeclSPC checkDecl
+    unfold checkDeclSPCAt checkDeclAt
     dsimp only
     refine SimC.bind (checkConstantValC_sim henv hs hty)
       (fun s₁ pr cvA hs₁ hP => ?_)
@@ -473,7 +473,7 @@ theorem checkDeclSPC_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
             · simp only [if_neg h3]
               exact SimC.throw
   | thmDecl hty hv =>
-    unfold checkDeclSPC checkDecl
+    unfold checkDeclSPCAt checkDeclAt
     dsimp only
     refine SimC.bind (checkConstantValC_sim henv hs hty)
       (fun s₁ pr cvA hs₁ hP => ?_)
@@ -483,7 +483,7 @@ theorem checkDeclSPC_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
     exact SimC.mono (fun v w h => h)
       (checkThmValC_sim henv hwty hjty hv hs₁)
   | opaqueDecl hty hv =>
-    unfold checkDeclSPC checkDecl
+    unfold checkDeclSPCAt checkDeclAt
     dsimp only
     refine SimC.bind (checkConstantValC_sim henv hs hty)
       (fun s₁ pr cvA hs₁ hP => ?_)
@@ -506,7 +506,7 @@ theorem checkDeclSPC_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
       (fun s₄ u u' hs₄ hP₄ => ?_)
     exact SimC.pure hs₄ ⟨rfl, hmk ▸ hmk⟩
   | defnDecl hty hv =>
-    unfold checkDeclSPC checkDecl
+    unfold checkDeclSPCAt checkDeclAt
     dsimp only
     refine SimC.bind (checkConstantValC_sim henv hs hty)
       (fun s₁ pr cvA hs₁ hP => ?_)
@@ -610,14 +610,27 @@ theorem checkDeclSPStepC_run {env : Env} (henv : EnvWF env) {pd : DeclC}
   injection hflush with hflush
   obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hflush
   have hcsok : CSOK mode env s₀.flushed := flushC_csok hres
-  have main : (∀ block, pd ≠ .indDecl block) →
+  -- the constant-headed kinds: enter the context, then the body's
+  -- simulation at the entered environment
+  have main : ∀ (cv : ConstantVal), (∀ block, pd ≠ .indDecl block) →
+      (checkDeclSPC mode (mkFEnv env) pd
+        = (enterCtxF (mkFEnv env) cv.levelParams >>= fun fe =>
+            checkDeclSPCAt mode fe pd)) →
+      (∀ F, checkDecl mode (fueledOps mode F) env d
+        = (enterCtx env cv.levelParams >>= fun env =>
+            checkDeclAt mode (fueledOps mode F) env d)) →
       CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
       ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env := by
-    intro hind
+    intro cv hind hC hP
+    rw [hC] at h
+    obtain ⟨c, hc, h⟩ := enterCtxF_bindC_ok h
+    rw [mkFEnv_withLps] at h
     obtain ⟨hs', v, ⟨henvEq, hmk⟩, F, hF⟩ :=
-      (checkDeclSPC_sim henv hcsok hrel hind) fe' s' h
+      (checkDeclSPC_sim (henv.withLps c) (flushC_csok hres) hrel hind) fe' s' h
     refine ⟨hs'.residue, hmk, F, ?_⟩
-    rw [← checkDecl_datF, henvEq]
+    rw [hP F, enterCtx_of_some hc]
+    simp only [Bind.bind, Except.bind]
+    rw [← checkDeclAt_datF, henvEq]
     exact hF
   cases hrel with
   | @indDecl block =>
@@ -628,11 +641,17 @@ theorem checkDeclSPStepC_run {env : Env} (henv : EnvWF env) {pd : DeclC}
     obtain ⟨hres', hfe, F, hF⟩ :=
       checkIndOrDirectSF_run henv hres.flushed hrun
     exact ⟨hres', hfe, F, hF⟩
-  | defnDecl hty hv => exact main (fun _ h => DeclC.noConfusion h)
-  | thmDecl hty hv => exact main (fun _ h => DeclC.noConfusion h)
-  | opaqueDecl hty hv => exact main (fun _ h => DeclC.noConfusion h)
-  | axiomDecl hty => exact main (fun _ h => DeclC.noConfusion h)
-  | basisDecl => exact main (fun _ h => DeclC.noConfusion h)
+  | defnDecl hty hv => exact main _ (fun _ h => DeclC.noConfusion h) rfl (fun _ => rfl)
+  | thmDecl hty hv => exact main _ (fun _ h => DeclC.noConfusion h) rfl (fun _ => rfl)
+  | opaqueDecl hty hv => exact main _ (fun _ h => DeclC.noConfusion h) rfl (fun _ => rfl)
+  | axiomDecl hty => exact main _ (fun _ h => DeclC.noConfusion h) rfl (fun _ => rfl)
+  | basisDecl =>
+    obtain ⟨hs', v, ⟨henvEq, hmk⟩, F, hF⟩ :=
+      (checkDeclSPC_sim henv hcsok hrel (fun _ h => DeclC.noConfusion h)) fe' s' h
+    refine ⟨hs'.residue, hmk, F, ?_⟩
+    show checkDeclAt mode (fueledOps mode F) env _ = _
+    rw [← checkDeclAt_datF, henvEq]
+    exact hF
 
 end WalksP
 

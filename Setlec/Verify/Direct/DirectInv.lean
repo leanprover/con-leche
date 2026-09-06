@@ -134,7 +134,8 @@ theorem checkDirectRecTy_shape {env : Env} {p : DirectParts}
       (cdomsF : List Expr) (crest2 : Expr)
       (jbs : List (Name × Expr × BinderMeta)) (jbody jdom : Expr),
       openPisAtFvars (p.nP + 2) cvRa.type 0 = some (fvsP, rest) ∧
-      Expr.instPisAt (fvsP.take p.nP) cvCa.type = some (cdomsP, crest) ∧
+      Expr.instPisAt (fvsP.take p.nP)
+        (cvCa.type.remapPW p.cvT.levelParams cvRa.levelParams) = some (cdomsP, crest) ∧
       checkDirectDomsAt (fueledOps mode F) env 0 (fvsP.take p.nP) cdomsP p.nP
         = .ok () ∧
       fvsP[p.nP]? = some mfv ∧
@@ -251,7 +252,8 @@ theorem checkDirectRule_shape {env : Env} {p : DirectParts}
     ∃ (fvsP : List Expr) (rrest : Expr) (cdomsP : List Expr) (crest : Expr)
       (xFvs : List Expr) (xrest : Expr) (ldoms : List Expr) (lrest rhsTy : Expr),
       openPisAtFvars (p.nP + 2) cvRa.type 0 = some (fvsP, rrest) ∧
-      Expr.instPisAt (fvsP.take p.nP) cvCa.type = some (cdomsP, crest) ∧
+      Expr.instPisAt (fvsP.take p.nP)
+        (cvCa.type.remapPW p.cvT.levelParams cvRa.levelParams) = some (cdomsP, crest) ∧
       openPisAtFvars p.nF crest (p.nP + 2) = some (xFvs, xrest) ∧
       Expr.instLamsAt (fvsP ++ xFvs) rhsA = some (ldoms, lrest) ∧
       checkDefEqList (fueledOps mode F) env (p.nP + 2 + p.nF)
@@ -312,7 +314,8 @@ theorem checkDirectProjEntry_shape {env envOut : Env} {T C : Name}
     pty.hasFvar = false ∧ pty.looseBVarsBounded 0 = true ∧
     ∃ ptyA : Expr,
       annotateCore mode env F 0
-        (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)) = .ok ptyA ∧
+        (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)
+          (Level.masksOf lps (directGuardSigma rs lps guard))) = .ok ptyA ∧
       ptyA.allLevelParamsDefined lps = true ∧
       ptyA.constsResolve env = true ∧
       ptyA.looseBVarsBounded 0 = true ∧
@@ -333,10 +336,12 @@ theorem checkDirectProjEntry_shape {env envOut : Env} {T C : Name}
           (Expr.mkAppN (.const T (directGuardSigma rs lps guard)) fvsP) = .ok true ∧
         openPisAtFvars 1 prest nP = some (tFvs, resid) ∧
         tFvs[0]? = some tfv ∧
-        Expr.instPisAt fvsP (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)) = some (cdomsP, crestP) ∧
+        Expr.instPisAt fvsP (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)
+            (Level.masksOf lps (directGuardSigma rs lps guard))) = some (cdomsP, crestP) ∧
         checkDirectDomsAt (fueledOps mode F) env 0 fvsP cdomsP nP = .ok () ∧
         Expr.instPisAt (fvsP ++ (List.range i).map fun j => Expr.proj T j tfv)
-          (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)) = some (cds, .forallE nmC fdom bodyC mbC) ∧
+          (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)
+            (Level.masksOf lps (directGuardSigma rs lps guard))) = some (cds, .forallE nmC fdom bodyC mbC) ∧
         isDefEqCore mode env F (nP + 1) resid fdom = .ok true) ∧
       envOut = { env with consts := (.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, rs,
         true, false, true⟩) :: env.consts } := by

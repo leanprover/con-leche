@@ -90,6 +90,11 @@ def push (fe : FEnv) (ci : ConstantInfo) : FEnv :=
 def withLps (fe : FEnv) (lps : UnivCtx) : FEnv :=
   { fe with env := fe.env.withLps lps }
 
+/-- The index built from `env` enters a universe context as the index
+built from the entered environment (the index reads `consts` alone). -/
+theorem _root_.Setlec.mkFEnv_withLps (env : Env) (c : UnivCtx) :
+    (mkFEnv env).withLps c = mkFEnv (env.withLps c) := rfl
+
 /-- `towerSlotsAll` through the index. -/
 def towerSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=
   (List.range nF).all fun j =>

@@ -108,6 +108,9 @@ def checkIndRecsS (blockNames : List Name) (fe₂ : FEnv)
     let (feSelf, checked) ← provisionRecsS mode blockNames fe₂ recs
     flushC
     checked.foldlM (fun (acc : FEnv) c => do
+        -- one flush per recursor: the memos are keyed at the
+        -- recursor's own universe context (packed `pw`, 2026-09-06)
+        flushC
         let feSelf ← enterCtxF feSelf c.1.levelParams
         let rules' ← checkIotaRulesF mode (sharedOpsC mode feSelf) fe₂ feSelf
           f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
@@ -248,7 +251,7 @@ def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
 
 /-- One declaration in the shared state, index in and out (mirrors
 `checkDecl` branch by branch; every lookup through the index). -/
-def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
+def checkDeclSFAt (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
   match d with
   | .defnDecl cv value hint => do
     let cv ← checkConstantValF (sharedOpsC mode fe) fe cv
@@ -315,6 +318,17 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
     match directPartsF? fe block with
     | some p => checkDirectStructS mode fe p
     | none => checkIndDeclSF mode fe block
+
+
+/-- One declaration in the shared state (mirrors `checkDecl`: the
+constant-headed kinds enter the declaration's universe context first,
+`checkDeclSFAt` is the body at the entered index). -/
+def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
+  match d with
+  | .defnDecl cv _ _ | .thmDecl cv _ | .opaqueDecl cv _ | .axiomDecl cv => do
+    let fe ← enterCtxF fe cv.levelParams
+    checkDeclSFAt mode fe d
+  | .basisDecl _ | .indDecl _ => checkDeclSFAt mode fe d
 
 /-- The shared-state checker step the binary runs: the index is
 threaded *across* declarations (built once for the whole stream; each

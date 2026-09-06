@@ -59,7 +59,7 @@ def PlainChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → N
         (fvs.take cnP ++ fvs.drop rP) ∧
     (cvj.type.stripPis (cnP + cnF)).isSome = true ∧
     Expr.instPisAt (fvs.take cnP ++ fvs.drop rP)
-      (cvj.type.renameConsts f) = some (cdoms, cres) ∧
+      ((cvj.type.remapPW cvj.levelParams cvA.levelParams).renameConsts f) = some (cdoms, cres) ∧
     cres.getAppArgs.length = cnP + (mI - rP) ∧
     DefEqListOk mode F env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
@@ -71,7 +71,7 @@ def PlainChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → N
     DefEqListOk mode F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms ∧
     openPisAtFvars rP cvA.type 0 = some (fvsP, restP) ∧
-    Expr.instPisAt (fvsP.take cnP) cvj.type = some (cdomsP, crestP) ∧
+    Expr.instPisAt (fvsP.take cnP) (cvj.type.remapPW cvj.levelParams cvA.levelParams) = some (cdomsP, crestP) ∧
     DefEqListOk mode F env₀ (rP + cnF)
       ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP ∧
     openPisAtFvars cnF crestP rP = some (xFvsP, crest2) ∧
@@ -132,7 +132,7 @@ def NestedChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → 
       (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
         (p.renameConsts f)) ++ fvs.drop rP)
       ((cvj.type.instantiateLevelParams cvj.levelParams
-        lvls).renameConsts f) = some (cdoms, cres) ∧
+        lvls (Level.masksOf cvA.levelParams lvls)).renameConsts f) = some (cdoms, cres) ∧
     cres.getAppArgs.length = cnP + (mI - rP) ∧
     DefEqListOk mode F env₀ (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
@@ -148,7 +148,7 @@ def NestedChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → 
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p)) ∧
     Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
-      (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
+      (cvj.type.instantiateLevelParams cvj.levelParams lvls (Level.masksOf cvA.levelParams lvls)) =
       some (cdomsP, crestP) ∧
     TypedListOk mode F env₀ (rP + cnF)
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
@@ -248,7 +248,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   try dsimp only at h
   revert h
   match hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop rP)
-      (cvj.type.renameConsts f) with
+      ((cvj.type.remapPW cvj.levelParams cvA.levelParams).renameConsts f) with
   | none => intro h; exact nomatch h
   | some (cdoms, cres) => ?_
   intro h
@@ -294,7 +294,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
   revert h
-  match hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type with
+  match hcinstP : Expr.instPisAt (fvsP.take cnP) (cvj.type.remapPW cvj.levelParams cvA.levelParams) with
   | none => intro h; exact nomatch h
   | some (cdomsP, crestP) => ?_
   intro h
@@ -615,7 +615,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
       (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
         (p.renameConsts f)) ++ fvs.drop rP)
       ((cvj.type.instantiateLevelParams cvj.levelParams
-        lvls).renameConsts f) with
+        lvls (Level.masksOf cvA.levelParams lvls)).renameConsts f) with
   | none => intro h; exact nomatch h
   | some (cdoms, cres) => ?_
   intro h
@@ -669,7 +669,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   revert h
   match hcinstP : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
-      (cvj.type.instantiateLevelParams cvj.levelParams lvls) with
+      (cvj.type.instantiateLevelParams cvj.levelParams lvls (Level.masksOf cvA.levelParams lvls)) with
   | none => intro h; exact nomatch h
   | some (cdomsP, crestP) => ?_
   intro h

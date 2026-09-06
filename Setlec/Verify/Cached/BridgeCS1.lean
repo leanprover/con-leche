@@ -466,12 +466,12 @@ operation calls sharing one state. -/
 theorem checkDeclS_nonind_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
     {d : Declaration} (hnotind : ∀ block, d ≠ .indDecl block) :
     SimC mode env s₀ RelVC
-      (checkDecl mode (sharedOpsC mode (mkFEnv env)) env d)
-      (checkDecl mode (fueledOpsM mode) env d) := by
+      (checkDeclAt mode (sharedOpsC mode (mkFEnv env)) env d)
+      (checkDeclAt mode (fueledOpsM mode) env d) := by
   cases d with
   | indDecl block => exact absurd rfl (hnotind block)
   | defnDecl cv value hint =>
-    unfold checkDecl
+    unfold checkDeclAt
     dsimp only
     refine SimC.bind (checkConstantValS_sim henv hs)
       (fun s₁ cvA cvA' hs₁ hP => ?_)
@@ -538,14 +538,14 @@ theorem checkDeclS_nonind_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
       | recInfo cv' mI rP rules => exact SimC.throw_bind
       | projInfo _ => exact SimC.throw_bind
   | thmDecl cv value =>
-    unfold checkDecl
+    unfold checkDeclAt
     dsimp only
     refine SimC.bind (checkConstantValS_sim henv hs)
       (fun s₁ cvA cvA' hs₁ hP => ?_)
     obtain ⟨rfl, hwty⟩ := hP
     exact checkThmValS_sim henv hwty hs₁
   | opaqueDecl cv value =>
-    unfold checkDecl
+    unfold checkDeclAt
     dsimp only
     refine SimC.bind (checkConstantValS_sim henv hs)
       (fun s₁ cvA cvA' hs₁ hP => ?_)
@@ -562,7 +562,7 @@ theorem checkDeclS_nonind_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
       (fun s₃ u u' hs₃ hP₃ => ?_)
     exact SimC.pure hs₃ rfl
   | axiomDecl cv =>
-    unfold checkDecl
+    unfold checkDeclAt
     dsimp only
     refine SimC.bind (checkConstantValS_sim henv hs)
       (fun s₁ cvA cvA' hs₁ hP => ?_)
@@ -598,7 +598,7 @@ theorem checkDeclS_nonind_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
             · simp only [if_neg h3]
               exact SimC.throw
   | basisDecl kind =>
-    unfold checkDecl
+    unfold checkDeclAt
     dsimp only
     by_cases hq : kind = .quotK
     · simp only [if_pos hq]

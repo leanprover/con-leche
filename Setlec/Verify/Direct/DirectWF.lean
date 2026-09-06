@@ -77,36 +77,51 @@ theorem directConstWF {env : Env} {c : ConstantInfo}
       value.constsResolve env = true ∧
       value.looseBVarsBounded 0 = true := by
         intro cv value h
-        exact ConstantInfo.noConfusion h) :
-    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h7⟩
+        exact ConstantInfo.noConfusion h)
+    (h8 : Name.nodup c.toConstantVal.levelParams = true ∧
+      c.toConstantVal.levelParams.length ≤ PropWhen.maxParams) :
+    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
 
 /-- A checked inductive-kind cons is well-formed (its `ConstWF` is the
 four type-slot facts; every value clause is refuted by the kind). -/
 theorem envWF_cons_ind {env : Env} (henv : EnvWF env)
     {cvA : ConstantVal} {caps : IndCaps} {F : Nat} {cv : ConstantVal}
+    (hlen : cv.levelParams.length ≤ PropWhen.maxParams)
     (hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA) :
     EnvWF { env with consts := .indInfo cvA caps :: env.consts } := by
   obtain ⟨htf, htp, htr, htb⟩ := checkConstantVal_typeWF hccv
+  obtain ⟨-, -, -, hnd, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
+    checkConstantVal_inv hccv
   exact EnvWF.cons henv (directConstWF htf htp
     (Expr.constsResolve_mono htr) htb
     (fun _ _ _ heq => nomatch heq)
-    (fun _ _ _ _ heq => nomatch heq))
+    (fun _ _ _ _ heq => nomatch heq)
+    (h8 := by
+      show Name.nodup cvA.levelParams = true ∧ cvA.levelParams.length ≤ _
+      rw [hcvA]; exact ⟨hnd, hlen⟩))
 
 /-- A checked constructor cons is well-formed. -/
 theorem envWF_cons_ctor {env : Env} (henv : EnvWF env)
     {cvA : ConstantVal} {nP nF F : Nat} {cv : ConstantVal}
+    (hlen : cv.levelParams.length ≤ PropWhen.maxParams)
     (hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA) :
     EnvWF { env with consts := .ctorInfo cvA nP nF :: env.consts } := by
   obtain ⟨htf, htp, htr, htb⟩ := checkConstantVal_typeWF hccv
+  obtain ⟨-, -, -, hnd, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
+    checkConstantVal_inv hccv
   exact EnvWF.cons henv (directConstWF htf htp
     (Expr.constsResolve_mono htr) htb
     (fun _ _ _ heq => nomatch heq)
-    (fun _ _ _ _ heq => nomatch heq))
+    (fun _ _ _ _ heq => nomatch heq)
+    (h8 := by
+      show Name.nodup cvA.levelParams = true ∧ cvA.levelParams.length ≤ _
+      rw [hcvA]; exact ⟨hnd, hlen⟩))
 
 /-- Stage 1 at the run level: the environment it produces is
 well-formed and the stored type is closed. -/
 theorem direct_ind_wf {env env₁ : Env} (henv : EnvWF env)
     {p : DirectParts} {cvTa : ConstantVal} {F : Nat}
+    (hlen : p.cvT.levelParams.length ≤ PropWhen.maxParams)
     (h : checkDirectInd (fueledOps mode F) env p = .ok (env₁, cvTa)) :
     EnvWF env₁ ∧ cvTa.type.hasFvar = false := by
   unfold checkDirectInd at h
@@ -117,7 +132,7 @@ theorem direct_ind_wf {env env₁ : Env} (henv : EnvWF env)
     | (try dsimp only at h
        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
        obtain ⟨rfl, rfl⟩ := h
-       exact ⟨envWF_cons_ind henv (by assumption),
+       exact ⟨envWF_cons_ind henv hlen (by assumption),
          (checkConstantVal_typeWF (by assumption)).1⟩)
     | close_throw
 
@@ -125,6 +140,7 @@ theorem direct_ind_wf {env env₁ : Env} (henv : EnvWF env)
 theorem direct_ctor_wf {env₀ env env₂ : Env} (henv : EnvWF env)
     {p : DirectParts} {cvTa cvCa : ConstantVal} {sorts : List Level}
     {F : Nat}
+    (hlen : p.cvC.levelParams.length ≤ PropWhen.maxParams)
     (h : checkDirectCtor (fueledOps mode F) env₀ env p cvTa
       = .ok (env₂, cvCa, sorts)) :
     EnvWF env₂ ∧ cvCa.type.hasFvar = false ∧
@@ -138,7 +154,7 @@ theorem direct_ctor_wf {env₀ env env₂ : Env} (henv : EnvWF env)
        simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
        obtain ⟨rfl, rfl, rfl⟩ := h
        obtain ⟨htf, -, -, htb⟩ := checkConstantVal_typeWF (by assumption)
-       exact ⟨envWF_cons_ctor henv (by assumption), htf, htb⟩)
+       exact ⟨envWF_cons_ctor henv hlen (by assumption), htf, htb⟩)
     | close_throw
 
 /-- The rule's right-hand side, as the stage's own guard checked it. -/
@@ -178,6 +194,7 @@ rule is well-formed (the rule's right-hand side facts are the stage's
 own guard; the fire mode is never `.nested`). -/
 theorem direct_rec_wf {env : Env} (henv : EnvWF env)
     {p : DirectParts} {cvCa cvRa : ConstantVal} {rhsA : Expr} {F G : Nat}
+    (hlen : p.cvR.levelParams.length ≤ PropWhen.maxParams)
     (hcv : checkConstantVal (fueledOps mode F) env p.cvR = .ok cvRa)
     (hru : checkDirectRule (fueledOps mode G) env p cvCa cvRa = .ok rhsA) :
     EnvWF { env with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
@@ -185,10 +202,14 @@ theorem direct_rec_wf {env : Env} (henv : EnvWF env)
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
           .plain else .inert, rhsA⟩]) :: env.consts } := by
   obtain ⟨htf, htp, htr, htb⟩ := checkConstantVal_typeWF hcv
+  obtain ⟨-, -, -, hnd, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
+    checkConstantVal_inv hcv
   obtain ⟨hrfv, hrlp, hrres, hrbv⟩ := checkDirectRule_facts hru
   refine EnvWF.cons henv (directConstWF htf htp
     (Expr.constsResolve_mono htr) htb
-    (fun _ _ _ heq => nomatch heq) ?_)
+    (fun _ _ _ heq => nomatch heq) ?_ (h8 := by
+      show Name.nodup cvRa.levelParams = true ∧ cvRa.levelParams.length ≤ _
+      rw [hcvA]; exact ⟨hnd, hlen⟩))
   intro cvR' mI' rP' rules' heq r hr
   injection heq with e1 e2 e3 e4
   subst e1
@@ -240,6 +261,7 @@ identity). -/
 theorem direct_proj_wf {env envOut : Env} (henv : EnvWF env)
     {T C : Name} {lps : List Name} {nP nF i F : Nat} {rs : Level}
     {slots : List Bool} {guards : List Level} {cvTa cvCa : ConstantVal}
+    (hnd : Name.nodup lps = true) (hlen : lps.length ≤ PropWhen.maxParams)
     (h : checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards
       cvTa cvCa env i = .ok envOut) :
     EnvWF envOut := by
@@ -251,14 +273,14 @@ theorem direct_proj_wf {env envOut : Env} (henv : EnvWF env)
       exact EnvWF.cons henv (directConstWF hfv hlp
         (Expr.constsResolve_mono hres) hbv
         (fun _ _ _ heq => nomatch heq)
-        (fun _ _ _ _ heq => nomatch heq))
+        (fun _ _ _ _ heq => nomatch heq) (h8 := ⟨hnd, hlen⟩))
     · -- the inert entry: a closed `Sort 1`
       split at h
       · simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h
         exact EnvWF.cons henv (directConstWF rfl rfl rfl rfl
           (fun _ _ _ heq => nomatch heq)
-          (fun _ _ _ _ heq => nomatch heq))
+          (fun _ _ _ _ heq => nomatch heq) (h8 := ⟨hnd, hlen⟩))
       · close_throw
   · simp only [pure, Except.pure, Except.ok.injEq] at h
     exact h ▸ henv

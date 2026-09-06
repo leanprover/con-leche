@@ -205,7 +205,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
           obtain ⟨h3, h4⟩ := ihb h2
           rcases hq : allLevelParamsDefinedGo ps mt bd with ⟨rb, mb⟩
           rw [hq] at h3 h4
-          have hres : (rb && m.pw.paramsDefined ps)
+          have hres : (rb && m.pw.paramsDefined ps.length)
               = (Expr.allLevelParamsDefined ps (.lam n ty bd m)) := by
             show _ = (Expr.lam n ty bd m
               ).allLevelParamsDefined ps
@@ -238,7 +238,7 @@ theorem allLevelParamsDefinedGo_spec {ps : List Name} :
           obtain ⟨h3, h4⟩ := ihb h2
           rcases hq : allLevelParamsDefinedGo ps mt bd with ⟨rb, mb⟩
           rw [hq] at h3 h4
-          have hres : (rb && m.pw.paramsDefined ps)
+          have hres : (rb && m.pw.paramsDefined ps.length)
               = (Expr.allLevelParamsDefined ps (.forallE n ty bd m)) := by
             show _ = (Expr.forallE n ty bd m
               ).allLevelParamsDefined ps
@@ -1617,16 +1617,16 @@ state-indexed). -/
 
 /-- Memo invariant of the cached `zeronessOfLIGo`: every entry is the
 readout of its key. -/
-def PWMemoInvC (memo : CStore.PWMemo) : Prop :=
-  ∀ (u : Level) (pw : PropWhen), memo[u]? = some pw → pw = Level.zeronessOf u
+def PWMemoInvC (lps : List Name) (memo : CStore.PWMemo) : Prop :=
+  ∀ (u : Level) (pw : PropWhen), memo[u]? = some pw → pw = Level.maskOf lps u
 
-theorem PWMemoInvC.empty : PWMemoInvC {} := by
+theorem PWMemoInvC.empty {lps : List Name} : PWMemoInvC lps {} := by
   intro u pw hpw
   simp at hpw
 
-theorem PWMemoInvC.insert {memo : CStore.PWMemo} {u : Level}
-    (h : PWMemoInvC memo) :
-    PWMemoInvC (memo.insert u (Level.zeronessOf u)) := by
+theorem PWMemoInvC.insert {lps : List Name} {memo : CStore.PWMemo} {u : Level}
+    (h : PWMemoInvC lps memo) :
+    PWMemoInvC lps (memo.insert u (Level.maskOf lps u)) := by
   intro u' pw' hpw'
   rw [Std.HashMap.getElem?_insert] at hpw'
   by_cases hk : u = u'
@@ -1640,11 +1640,11 @@ theorem PWMemoInvC.insert {memo : CStore.PWMemo} {u : Level}
 /-- The cached zero-ness readout agrees with the tree readout and
 maintains its memo invariant (the transposition of
 `zeronessOfLIGo_spec`; no store, no denotation). -/
-theorem zeronessOfLIGoC_spec {st : CStore} (v : Level)
+theorem zeronessOfLIGoC_spec {st : CStore} {lps : List Name} (v : Level)
     {memo : CStore.PWMemo} {p : PropWhen} {memo' : CStore.PWMemo}
-    (hminv : PWMemoInvC memo)
-    (hgo : st.zeronessOfLIGo memo v = (p, memo')) :
-    PWMemoInvC memo' ∧ p = Level.zeronessOf v := by
+    (hminv : PWMemoInvC lps memo)
+    (hgo : st.zeronessOfLIGo lps memo v = (p, memo')) :
+    PWMemoInvC lps memo' ∧ p = Level.maskOf lps v := by
   unfold CStore.zeronessOfLIGo at hgo
   split at hgo
   · rename_i r hhit

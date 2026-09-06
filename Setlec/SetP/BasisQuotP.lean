@@ -672,7 +672,7 @@ theorem quotIndLawP {m : EnvS2Core V env}
     ⟨_, rfl⟩
   have hRa : denoteP m₂.acval { env with consts := quotIndA :: env.consts } φ 0
       (quotIndRule.rhs.instantiateLevelParams
-        quotIndA.toConstantVal.levelParams us)
+        quotIndA.toConstantVal.levelParams us (Level.masksOf env.lpsL us))
       = some (quotIndRaP (ψ uN)) := by
     rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac, hψ,
       denoteP_quotInd_rhs (m := m) _ hQ hM]
@@ -698,7 +698,7 @@ theorem quotIndLawP {m : EnvS2Core V env}
     | [p, q, r], _ => exact ⟨p, q, r, rfl⟩
   have hTyRead : denoteP m₂.acval { env with consts := quotIndA :: env.consts } φ 0
       (quotIndA.toConstantVal.type.instantiateLevelParams
-        quotIndA.toConstantVal.levelParams us)
+        quotIndA.toConstantVal.levelParams us (Level.masksOf env.lpsL us))
       = some (quotIndTyP (ψ uN)) := by
     rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac,
       denoteP_quotIndA_type (m := m) _ hQ hM, ← hψ]
@@ -706,7 +706,7 @@ theorem quotIndLawP {m : EnvS2Core V env}
     (Option.some.inj (hTyRead.symm.trans hTVa)).symm
   have hCtorRead : denoteP m₂.acval { env with consts := quotIndA :: env.consts } φ 0
       (quotMkA.toConstantVal.type.instantiateLevelParams
-        quotMkA.toConstantVal.levelParams usj)
+        quotMkA.toConstantVal.levelParams usj (Level.masksOf env.lpsL usj))
       = some (quotMkTyP
           (pwBit (Level.substFn φ quotMkA.toConstantVal.levelParams usj)
             (.ifAllZero [uN]))
@@ -2031,7 +2031,7 @@ theorem quotLiftLawP {m : EnvS2Core V env}
     pwBit_ifAllZero_single ψ vN
   have hRa : denoteP m₂.acval { env with consts := quotLiftA :: env.consts } φ 0
       (quotLiftRule.rhs.instantiateLevelParams
-        quotLiftA.toConstantVal.levelParams us)
+        quotLiftA.toConstantVal.levelParams us (Level.masksOf env.lpsL us))
       = some (quotLiftRaP
           (m.acval eqName (Level.substFn ψ [uN] [Level.param vN]))
           (pwBit ψ (.ifAllZero [vN])) (ψ uN) (ψ vN)) := by
@@ -2068,7 +2068,7 @@ theorem quotLiftLawP {m : EnvS2Core V env}
   -- the two readings, identified
   have hTyRead : denoteP m₂.acval { env with consts := quotLiftA :: env.consts } φ 0
       (quotLiftA.toConstantVal.type.instantiateLevelParams
-        quotLiftA.toConstantVal.levelParams us)
+        quotLiftA.toConstantVal.levelParams us (Level.masksOf env.lpsL us))
       = some (quotLiftTyP
           (m.acval eqName (Level.substFn ψ [uN] [Level.param vN]))
           (pwBit ψ (.ifAllZero [vN])) (ψ uN) (ψ vN)) := by
@@ -2078,7 +2078,7 @@ theorem quotLiftLawP {m : EnvS2Core V env}
     (Option.some.inj (hTyRead.symm.trans hTVa)).symm
   have hCtorRead : denoteP m₂.acval { env with consts := quotLiftA :: env.consts } φ 0
       (quotMkA.toConstantVal.type.instantiateLevelParams
-        quotMkA.toConstantVal.levelParams usj)
+        quotMkA.toConstantVal.levelParams usj (Level.masksOf env.lpsL usj))
       = some (quotMkTyP
           (pwBit (Level.substFn φ quotMkA.toConstantVal.levelParams usj)
             (.ifAllZero [uN]))

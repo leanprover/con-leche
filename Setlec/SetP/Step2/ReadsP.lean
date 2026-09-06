@@ -88,13 +88,15 @@ quarters already carry, and the conversions are eta-expansions. -/
 conclusion — so `deltaP_of` discharges it verbatim.  Stated at the
 `AcvalDefnInstP` field so the consumer can pass `m.defn_reads`. -/
 theorem denotePDeltaP_of_fields (m : EnvS2Core V env)
+    (hφ : Level.NonzeroOutside env.lpsL φ)
     (hdi : AcvalDefnInstP m) : DenotePDeltaP m φ :=
-  fun hud hea => deltaP_of m hdi hud hea
+  fun hud hea => deltaP_of m hdi hφ hud hea
 
 /-- `DenotePDeltaP`, read straight off the P environment invariant. -/
-theorem EnvS2PM.denotePDeltaP (mp : EnvS2PM V μ env) :
+theorem EnvS2PM.denotePDeltaP (mp : EnvS2PM V μ env)
+    (hφ : Level.NonzeroOutside env.lpsL φ) :
     DenotePDeltaP mp.base2 φ :=
-  denotePDeltaP_of_fields mp.base2 mp.defn_reads
+  denotePDeltaP_of_fields mp.base2 hφ mp.defn_reads
 
 /-- **`WhnfCoreExistsP` and `WhnfCoreReductExistsP` are the same
 statement.**  Compared field by field: same implicit binders
@@ -331,7 +333,8 @@ parameter of the reduced subject type, or the second applied to
 it is the checker's peel of the stored entry type along the parameters
 and the subject, which reads by `denoteP_instPisAt_peel` from the
 entry type's reading (the tower law's `Ta`). -/
-theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
+theorem inferProjReadsP_of {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ) (htower : TowerOkP m φ)
     (ihi : InferReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
     InferProjReadsP μ m φ fuel := by
   intro d i sn pe t ea h hws hb hLb hlr hea
@@ -367,7 +370,7 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
   -- tower-backed: the residual is the peel of the entry type, read
   obtain ⟨-, -, -, -, -, -, _, -, -, hlaw, -⟩ := htower T i entry hfe htw
   obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
-  obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
+  obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe (towerEntry_ty_inst hφ hfe hlenUs hTa)
   have hframes : ∀ x ∈ te.getAppArgs ++ [pe],
       Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true := by
     intro x hx
@@ -833,7 +836,7 @@ private theorem inferReads_lam {m : EnvS2Core V env}
         (hlr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]))
         htyA)
       hba
-  refine ⟨AVExpr.pi 0 (pwBit φ mb.pw) tyA bta, ?_⟩
+  refine ⟨AVExpr.pi 0 (pwBit env.lpsL φ mb.pw) tyA bta, ?_⟩
   rw [denoteP, htyA, hround, hbta]
   rfl
 
@@ -926,6 +929,7 @@ private theorem inferReads_letE {m : EnvS2Core V env}
 
 /-- **`InferReadsP` at `fuel + 1`** — the eleven shapes. -/
 theorem inferReadsP_succ {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ)
     (hct : ConstTypeP m φ) (htower : TowerOkP m φ)
     (ihi : InferReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
     InferReadsP m μ φ (fuel + 1) := by
@@ -944,7 +948,7 @@ theorem inferReadsP_succ {m : EnvS2Core V env}
   | .letE nn tt vv bb =>
     exact inferReads_letE ihi h hws hb hLb hlr hea
   | .proj sn i pe =>
-    exact inferProjReadsP_of htower ihi ihw h hws hb hLb hlr hea
+    exact inferProjReadsP_of hφ htower ihi ihw h hws hb hLb hlr hea
 
 /-! # The joint induction and the routed bundle -/
 
@@ -969,6 +973,9 @@ facts of the P environment invariant (`EnvS2PM.constTypeP`,
 this file introduces. -/
 structure ReadsInputsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) : Prop where
+  /-- the packed datum's valuation class (2026-09-06): the stored
+  laws are context-free, and every instantiated reading crosses at it -/
+  hφ : Level.NonzeroOutside env.lpsL φ
   /-- the stored type's reading at a `const` node — **install tier**,
   and already an `EnvS2PM` consequence (`EnvS2PM.constTypeP`) -/
   const_ty : ConstTypeP m φ
@@ -991,11 +998,13 @@ structure ReadsInputsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 `EnvS2PM` already carries both, so a caller holding the P environment
 structure owes only the four clause-granular leaves. -/
 theorem ReadsInputsP.ofEnvS2PM (mp : EnvS2PM V μ env)
+    (hφ : Level.NonzeroOutside env.lpsL φ)
     (hiota : ∀ fuel, WhnfReadsP mp.base2 μ φ fuel →
       InferReadsIOP mp.base2 μ φ fuel → IotaReadsP μ mp.base2 φ fuel)
     (hnat : ∀ fuel, ReduceNatReadsP μ mp.base2 φ fuel) :
     ReadsInputsP μ mp.base2 φ where
-  const_ty := mp.constTypeP
+  hφ := hφ
+  const_ty := mp.constTypeP hφ
   defn := mp.defn_reads
   iota := hiota
   nat := hnat

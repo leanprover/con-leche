@@ -33,7 +33,7 @@ inductive ProvFacts (F : Nat) (blockNames : List Name) :
   | nil {env : Env} : ProvFacts F blockNames env env []
   | cons {envAcc envSelf : Env} {cvA : ConstantVal}
       {mI rP : Nat} {rules : List RecRule}
-      {rest : List (ConstantVal × Nat × Nat × List RecRule)} :
+      {rest : List (ConstantVal × Nat × Nat × List RecRule)} {c : UnivCtx} :
       envAcc.find? cvA.name = none →
       reservedBasisNames.contains cvA.name = false →
       cvA.name.isProjFnShape = false →
@@ -50,7 +50,7 @@ inductive ProvFacts (F : Nat) (blockNames : List Name) :
           if blockNames.contains n then n.str "_model" else n))
           cvm.type = true) →
       ProvFacts F blockNames
-        { envAcc with consts := .recInfo cvA mI rP [] :: envAcc.consts } envSelf rest →
+        { envAcc.withLps c with consts := .recInfo cvA mI rP [] :: (envAcc.withLps c).consts } envSelf rest →
       ProvFacts F blockNames envAcc envSelf
         ((cvA, mI, rP, rules) :: rest)
 
@@ -64,11 +64,11 @@ theorem ProvFacts.find?_preserved {F : Nat} {blockNames : List Name} :
   intro envAcc envSelf checked h
   induction h with
   | nil => intro n ci h; exact h
-  | @cons envAcc envSelf cvA mI rP rules rest hfresh _ _ _ _ _ _ _
+  | @cons envAcc envSelf cvA mI rP rules rest c hfresh _ _ _ _ _ _ _
       _ _ _ ih =>
     intro n ci hf
     refine ih n ci ?_
-    rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
+    rw [Env.find?_cons_of_isSome hfresh (by simp [hf])]
     exact hf
 
 /-- The provisional environments only add rule-less recursors: every
@@ -84,7 +84,7 @@ theorem ProvFacts.find?_corr {F : Nat} {blockNames : List Name} :
   intro envAcc envSelf checked h
   induction h with
   | nil => intro n; exact Or.inl rfl
-  | @cons envAcc envSelf cvA mI rP rules rest hfresh _ _ _ _ _ _ _
+  | @cons envAcc envSelf cvA mI rP rules rest c hfresh _ _ _ _ _ _ _
       _ _ _ ih =>
     intro n
     rcases ih n with heq | hrec
@@ -97,7 +97,7 @@ theorem ProvFacts.find?_corr {F : Nat} {blockNames : List Name} :
       · left
         rw [heq, Env.find?_cons,
           if_neg (show ¬(ConstantInfo.recInfo cvA mI rP
-            []).name = n from hn)]
+            []).name = n from hn), Env.find?_withLps]
     · exact Or.inr hrec
 
 /-- The shape-level swap pair (no obligations). -/
@@ -123,15 +123,15 @@ theorem SwapPairSh.name_eq {c₀ c₃ : ConstantInfo}
   · rfl
   · rfl
 
-/-- The lookup correspondence of a shape-level swap. -/
-theorem swapSh_find?_corr :
+/-- The lookup correspondence of a shape-level swap (list level). -/
+theorem swapSh_find?_corr_list :
     ∀ {consts₀ consts₃ : List ConstantInfo},
     SwapShList consts₀ consts₃ →
     ∀ n : Name,
-    (Env.mk consts₃).find? n = (Env.mk consts₀).find? n ∨
+    consts₃.find? (·.name == n) = consts₀.find? (·.name == n) ∨
     ∃ cv mI rP rules,
-      (Env.mk consts₀).find? n = some (.recInfo cv mI rP []) ∧
-      (Env.mk consts₃).find? n = some (.recInfo cv mI rP rules) ∧
+      consts₀.find? (·.name == n) = some (.recInfo cv mI rP []) ∧
+      consts₃.find? (·.name == n) = some (.recInfo cv mI rP rules) ∧
       cv.name = n := by
   intro consts₀ consts₃ hsw
   induction hsw with
@@ -140,11 +140,9 @@ theorem swapSh_find?_corr :
     intro n
     by_cases hn : c₃.name = n
     · have hn₀ : c₀.name = n := by rw [SwapPairSh.name_eq hpair, hn]
-      have h₃ : (Env.mk (c₃ :: rest₃)).find? n = some c₃ := by
-        show (c₃ :: rest₃).find? (·.name == n) = some c₃
+      have h₃ : (c₃ :: rest₃).find? (·.name == n) = some c₃ := by
         rw [List.find?_cons_of_pos (by simp [hn])]
-      have h₀ : (Env.mk (c₀ :: rest₀)).find? n = some c₀ := by
-        show (c₀ :: rest₀).find? (·.name == n) = some c₀
+      have h₀ : (c₀ :: rest₀).find? (·.name == n) = some c₀ := by
         rw [List.find?_cons_of_pos (by simp [hn₀])]
       rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩
       · exact Or.inl (h₃.trans h₀.symm)
@@ -153,18 +151,26 @@ theorem swapSh_find?_corr :
     · have hn₀ : ¬c₀.name = n := by
         rw [SwapPairSh.name_eq hpair]
         exact hn
-      have h₃ : (Env.mk (c₃ :: rest₃)).find? n =
-          (Env.mk rest₃).find? n := by
-        show (c₃ :: rest₃).find? (·.name == n) =
-          rest₃.find? (·.name == n)
+      have h₃ : (c₃ :: rest₃).find? (·.name == n) =
+          rest₃.find? (·.name == n) := by
         rw [List.find?_cons_of_neg (by simp [hn])]
-      have h₀ : (Env.mk (c₀ :: rest₀)).find? n =
-          (Env.mk rest₀).find? n := by
-        show (c₀ :: rest₀).find? (·.name == n) =
-          rest₀.find? (·.name == n)
+      have h₀ : (c₀ :: rest₀).find? (·.name == n) =
+          rest₀.find? (·.name == n) := by
         rw [List.find?_cons_of_neg (by simp [hn₀])]
       rw [h₃, h₀]
       exact ih n
+
+/-- The lookup correspondence of a shape-level swap: the universe
+contexts of the two environments are unconstrained (`find?` reads
+`consts` alone). -/
+theorem swapSh_find?_corr {env₀ env₃ : Env}
+    (hsw : SwapShList env₀.consts env₃.consts) (n : Name) :
+    env₃.find? n = env₀.find? n ∨
+    ∃ cv mI rP rules,
+      env₀.find? n = some (.recInfo cv mI rP []) ∧
+      env₃.find? n = some (.recInfo cv mI rP rules) ∧
+      cv.name = n :=
+  swapSh_find?_corr_list hsw n
 
 /-- The rule-checking fold's per-item facts, chaining the final
 environments; the list pairs each provisioned item with its checked
@@ -177,9 +183,11 @@ inductive RulesChain (mode : CheckMode) (F : Nat)
   | nil {env : Env} : RulesChain mode F env' envS f env env []
   | cons {envAcc env₃ : Env} {cvA : ConstantVal} {mI rP : Nat}
       {rules rules' : List RecRule}
-      {rest : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)} :
-      checkIotaRules mode (fueledOps mode F) env' envS f cvA.name cvA.levelParams
-        cvA.type mI rP 0 rules = .ok rules' →
+      {rest : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)}
+      {c : UnivCtx} :
+      UnivCtx.of? cvA.levelParams = some c →
+      checkIotaRules mode (fueledOps mode F) env' (envS.withLps c) f cvA.name
+        cvA.levelParams cvA.type mI rP 0 rules = .ok rules' →
       RulesChain mode F env' envS f
         { envAcc with consts := .recInfo cvA mI rP rules' :: envAcc.consts } env₃ rest →
       RulesChain mode F env' envS f envAcc env₃
@@ -189,6 +197,7 @@ inductive RulesChain (mode : CheckMode) (F : Nat)
 theorem rulesFold_inv {F : Nat} {env' envS : Env} {f : Name → Name} :
     ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule)) (envAcc env₃ : Env),
     checked.foldlM (fun (acc : Env) c => do
+        let envS ← enterCtx envS c.1.levelParams
         let rules' ← checkIotaRules mode (fueledOps mode F) env' envS f c.1.name
           c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
         pure ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts } : Env)) envAcc = .ok env₃ →
@@ -202,7 +211,14 @@ theorem rulesFold_inv {F : Nat} {env' envS : Env} {f : Name → Name} :
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
     revert h
-    cases hcir : checkIotaRules mode (fueledOps mode F) env' envS f c.1.name
+    cases henter : enterCtx (m := CheckM) envS c.1.levelParams with
+    | error e => intro h; exact nomatch h
+    | ok envU => ?_
+    obtain ⟨cU, hcU, rfl⟩ := enterCtx_inv henter
+    intro h
+    try dsimp only at h
+    revert h
+    cases hcir : checkIotaRules mode (fueledOps mode F) env' (envS.withLps cU) f c.1.name
         c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2 with
     | error e => intro h; exact nomatch h
     | ok rules' => ?_
@@ -211,7 +227,7 @@ theorem rulesFold_inv {F : Nat} {env' envS : Env} {f : Name → Name} :
     obtain ⟨zipped, hmap, hchain⟩ := rulesFold_inv rest _ env₃ h
     exact ⟨(c, rules') :: zipped, by rw [List.map_cons, hmap], by
       obtain ⟨cvA, mI, rP, rules⟩ := c
-      exact RulesChain.cons hcir hchain⟩
+      exact RulesChain.cons hcU hcir hchain⟩
 
 /-- The two chains' environments correspond pointwise (shape level). -/
 theorem chains_swapSh {F : Nat} {blockNames : List Name}
@@ -235,7 +251,7 @@ theorem chains_swapSh {F : Nat} {blockNames : List Name}
     cases hp with
     | cons hfresh hnres hshape hms hbn htyf htyb htlp htres hmodel hp' =>
       cases hr with
-      | cons hcir hr' =>
+      | cons _ hcir hr' =>
         exact ih hp' hr'
           (SwapShList.cons (Or.inr ⟨cvA, mI, rP, rules', rfl,
             rfl⟩) hacc)
@@ -246,17 +262,18 @@ theorem RulesChain.mem_facts {F : Nat} {env' envS : Env}
     ∀ {envAcc env₃ : Env}
       {zipped : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)},
       RulesChain mode F env' envS f envAcc env₃ zipped →
-      ∀ z ∈ zipped,
-        checkIotaRules mode (fueledOps mode F) env' envS f z.1.1.name
+      ∀ z ∈ zipped, ∃ c : UnivCtx,
+        UnivCtx.of? z.1.1.levelParams = some c ∧
+        checkIotaRules mode (fueledOps mode F) env' (envS.withLps c) f z.1.1.name
           z.1.1.levelParams z.1.1.type z.1.2.1 z.1.2.2.1
           0 z.1.2.2.2 = .ok z.2 := by
   intro envAcc env₃ zipped h
   induction h with
   | nil => intro z hz; exact nomatch hz
-  | cons hcir hrest ih =>
+  | cons hc hcir hrest ih =>
     intro z hz
     rcases List.mem_cons.mp hz with rfl | hz
-    · exact hcir
+    · exact ⟨_, hc, hcir⟩
     · exact ih z hz
 
 /-- Per-item extraction from the provisioning chain: each item's
@@ -286,13 +303,13 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
   intro envAcc envSelf checked h
   induction h with
   | nil => intro c hc; exact nomatch hc
-  | @cons envAcc envSelf cvA mI rP rules rest hfresh hnres hshape
+  | @cons envAcc envSelf cvA mI rP rules rest c hfresh hnres hshape
       hms hbnc htyf htyb htlp htres hmodel hrest ih =>
     intro c hc
     rcases List.mem_cons.mp hc with rfl | hc
     · have hupN : ∀ (n : Name) (ci : ConstantInfo),
-          ({ envAcc with consts := .recInfo cvA mI rP [] ::
-        envAcc.consts } : Env).find? n = some ci →
+          ({ envAcc.withLps c with consts := .recInfo cvA mI rP [] ::
+        (envAcc.withLps c).consts } : Env).find? n = some ci →
           envSelf.find? n = some ci :=
         ProvFacts.find?_preserved hrest
       have hself : envSelf.find? cvA.name =
@@ -308,15 +325,17 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
         cases hf : envAcc.find? n with
         | none => rw [hf] at hn; exact nomatch hn
         | some ci =>
-          have h1 : ({ envAcc with consts := .recInfo cvA mI rP [] ::
-        envAcc.consts } : Env).find? n = some ci := by
-            rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
+          have h1 : ({ envAcc.withLps c with consts := .recInfo cvA mI rP [] ::
+        (envAcc.withLps c).consts } : Env).find? n = some ci := by
+            rw [Env.find?_cons_of_isSome hfresh (by rw [Env.find?_withLps, hf]; rfl),
+              Env.find?_withLps]
             exact hf
           rw [hupN n ci h1]
           rfl
       · refine ⟨cvm, mval, hmcvm, ?_, hlps, hren⟩
         refine hupN _ _ ?_
-        rw [Env.find?_cons_of_isSome hfresh (by rw [hfm]; rfl)]
+        rw [Env.find?_cons_of_isSome hfresh (by rw [Env.find?_withLps, hfm]; rfl),
+          Env.find?_withLps]
         exact hfm
     · exact ih c hc
 
@@ -328,7 +347,7 @@ theorem provisionRecs_names {F : Nat} {blockNames : List Name} :
     ∀ ci ∈ recs, ∃ c ∈ p.2, c.1.name = ci.name
   | [], envAcc, p, h, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, c, cvA, p', rfl, hc, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, -, -, -, -, -, -⟩ := checkMemberVal_inv hcmv
     obtain ⟨-, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
@@ -351,7 +370,7 @@ theorem provisionRecs_mono {F : Nat} {blockNames : List Name} :
     subst h
     exact hn
   | ci :: rest, envAcc, p, h, n, hn => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, c, cvA, p', rfl, hc, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     refine provisionRecs_mono rest _ p' hrec n ?_
     rw [Env.find?_cons]
@@ -370,7 +389,7 @@ theorem provisionRecs_fresh {F : Nat} {blockNames : List Name} :
     ∀ ci ∈ recs, envAcc.find? ci.name = none
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, c, cvA, p', rfl, hc, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, -, -, -, -, -, -⟩ := checkMemberVal_inv hcmv
     obtain ⟨hfind0, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, -⟩ :=
@@ -415,7 +434,7 @@ theorem provisionRecs_modelfree {F : Nat} {blockNames : List Name} :
     ∀ ci ∈ recs, ci.name.isModelSuffix = false
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, c, cvA, p', rfl, hc, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     rcases List.mem_cons.mp hci with rfl | hci
     · obtain ⟨hccv, hms, -⟩ := checkMemberVal_inv hcmv
@@ -461,7 +480,7 @@ theorem provisionRecs_facts {F : Nat} {blockNames : List Name} :
     subst h
     exact ProvFacts.nil
   | ci :: rest, envAcc, p, h, hbn => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, c, cvA, p', rfl, hc, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, hms, cvm, mval, hmcvm, hfm, hlps, hrenf⟩ :=
       checkMemberVal_inv hcmv
@@ -495,9 +514,9 @@ theorem provisionRecs_facts {F : Nat} {blockNames : List Name} :
       exact hlp
     have htres : cvA.type.constsResolve envAcc = true := by
       rw [hcvA]
-      exact hres
+      simpa [Expr.constsResolve_withLps] using hres
     exact ProvFacts.cons hfind0 hnres0 hpshape0 hms hbnA htyf htyb htlp
-      htres ⟨cvm, mval, hmcvm, hfm, hlps, hrenf⟩
+      htres ⟨cvm, mval, hmcvm, by simpa using hfm, hlps, hrenf⟩
       (provisionRecs_facts rest _ p' hrec
         (fun cj hcj => hbn cj (List.mem_cons_of_mem _ hcj)))
 
@@ -528,7 +547,7 @@ theorem rulesChain_mem {F : Nat} {env' envS : Env} {f : Name → Name} :
   intro envAcc env₃ zipped h
   induction h with
   | nil => intro c hc; exact Or.inl hc
-  | @cons envAcc env₃ cvA mI rP rules rules' rest hcir hrest ih =>
+  | @cons envAcc env₃ cvA mI rP rules rules' rest _ _ hcir hrest ih =>
     intro c hc
     rcases ih c hc with hc' | ⟨z, hz, rfl⟩
     · rcases List.mem_cons.mp hc' with rfl | hc''
@@ -547,7 +566,7 @@ theorem provisionRecs_projshape {F : Nat} {blockNames : List Name} :
     ∀ ci ∈ recs, ci.name.isProjFnShape = false
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, c, cvA, p', rfl, hc, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     rcases List.mem_cons.mp hci with rfl | hci
     · obtain ⟨hccv, hms, -⟩ := checkMemberVal_inv hcmv
@@ -592,7 +611,7 @@ theorem provisionRecs_find_new {F : Nat} {blockNames : List Name} :
     subst h
     exact Or.inl hf
   | ci₀ :: rest, envAcc, p, h, n, ci, hf => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, c, cvA, p', rfl, hc, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     rcases provisionRecs_find_new rest _ p' hrec n ci hf with hf' | hk
     · rw [Env.find?_cons] at hf'
@@ -663,18 +682,19 @@ theorem provisionRecs_find_preserved {F : Nat} {blockNames : List Name} :
     subst h
     exact hf
   | ci₀ :: rest, envAcc, p, h, n, ci, hf => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, c, cvA, p', rfl, hc, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, -⟩ := checkMemberVal_inv hcmv
     obtain ⟨hfind0, -, -, -, -, -, tyA, stype, u, -, -, -, -, -,
       hcvA⟩ := checkConstantVal_inv hccv
-    have hfindA : envAcc.find?
+    have hfindA : (envAcc.withLps c).find?
         (ConstantInfo.recInfo cvA mI rP []).name = none := by
       show envAcc.find? cvA.name = none
       rw [show cvA.name = cv.name from by rw [hcvA]; rfl]
       exact hfind0
     refine provisionRecs_find_preserved rest _ p' hrec n ci ?_
-    rw [Env.find?_cons_of_isSome hfindA (by rw [hf]; rfl)]
+    rw [Env.find?_cons_of_isSome hfindA (by rw [Env.find?_withLps, hf]; rfl),
+      Env.find?_withLps]
     exact hf
 
 /-- The recursor phase preserves non-recursor stored lookups exactly
@@ -853,22 +873,21 @@ theorem SwapCongr.projEq {env₀ env₃ : Env} (hcg : SwapCongr env₀ env₃) :
       rw [hcg.findUp _ _ h0 (fun _ _ _ _ h => nomatch h)]
 
 /-- A shape-level swap induces the congruences. -/
-theorem SwapShList.congr {consts₀ consts₃ : List ConstantInfo}
-    (hsw : SwapShList consts₀ consts₃) :
-    SwapCongr (Env.mk consts₀) (Env.mk consts₃) := by
+theorem SwapShList.congr {env₀ env₃ : Env}
+    (hsw : SwapShList env₀.consts env₃.consts) :
+    SwapCongr env₀ env₃ := by
   have hcorr := swapSh_find?_corr hsw
   have hchk : ∀ (chk : Option ConstantInfo → Bool),
       (∀ cv mI rP rules rules',
         chk (some (.recInfo cv mI rP rules)) =
         chk (some (.recInfo cv mI rP rules'))) →
-      ∀ n, chk ((Env.mk consts₀).find? n) = chk ((Env.mk consts₃).find? n) := by
+      ∀ n, chk (env₀.find? n) = chk (env₃.find? n) := by
     intro chk hins n
     rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
     · rw [heq]
     · rw [h₀, h₃]
       exact hins cv mI rP [] rules
-  have hnat : natLitSupported (Env.mk consts₀)
-      = natLitSupported (Env.mk consts₃) := by
+  have hnat : natLitSupported env₀ = natLitSupported env₃ := by
     unfold natLitSupported
     rw [hchk natIndOk (fun _ _ _ _ _ => rfl) natName,
       hchk natZeroOk (fun _ _ _ _ _ => rfl) natZeroName,

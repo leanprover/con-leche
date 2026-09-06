@@ -328,6 +328,7 @@ theorem majorToCtorP_reads {m : EnvS2Core V env}
 /-- **`MajorStepP`, proved** (R12/R13/R14 and the identity
 fallthrough). -/
 theorem majorToCtorP_stepP {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ)
     (hcaps : CapsOkP m) (htower : TowerOkP m φ) (hct : ConstTypeP m φ) (hav : AcvalValidP m)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
     (ihis : InferClaimsIOS2P μ m φ fuel)
@@ -397,14 +398,14 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
     dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVja hmemCj
     have hwfj := m.wf _ (Setlec.Semantics.Env.find?_mem hfcj)
     have hnfj : (cvj.type.instantiateLevelParams cvj.levelParams
-        ust).hasFvar = false := by
+        ust (Level.masksOf env.lpsL ust)).hasFvar = false := by
       rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfj.1
     have hbdj : (cvj.type.instantiateLevelParams cvj.levelParams
-        ust).looseBVarsBounded 0 = true := by
+        ust (Level.masksOf env.lpsL ust)).looseBVarsBounded 0 = true := by
       rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
       exact hwfj.2.2.2.1
     have hCj : CtxOkP m φ d Δa
-        (cvj.type.instantiateLevelParams cvj.levelParams ust) :=
+        (cvj.type.instantiateLevelParams cvj.levelParams ust (Level.masksOf env.lpsL ust)) :=
       ⟨hC.1, fun l hl => by
         rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfj] at hl
         exact nomatch hl⟩
@@ -416,7 +417,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
     -- and `certs_telePA` returns their gradings with the fit
     have hfab : ∀ (fargs : List Expr) (fargsa : List AVExpr),
         Setlec.iotaCertsP μ env fuel d false
-            (cvj.type.instantiateLevelParams cvj.levelParams ust)
+            (cvj.type.instantiateLevelParams cvj.levelParams ust (Level.masksOf env.lpsL ust))
             fargs = .ok true →
         (∀ x ∈ fargs, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
           Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x) →
@@ -538,14 +539,15 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               towerGuardAt_of hO5j
                 (fun hp => by rw [heta, hp] at hetaj; exact nomatch hetaj)
             obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj ust (by rw [hlpe]; exact hlenus2)
-            obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
+            obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe
+              (towerEntry_ty_inst hφ hfe (by rw [hlpe]; exact hlenus2) hTa)
             -- the entry type's reading is a ∀-chain of the subject
             -- list's length, so it peels along it
             have hpc : PiChainP (tsa ++ [vm]).length Ta := by
               rw [List.length_append, List.length_singleton, ← hspt.length]
               exact piChainP_of_stripPis _
                 (Setlec.Expr.stripPis_instantiateLevelParams_isSome
-                  entry.levelParams ust _ hstrpe) (hTad d)
+                  entry.levelParams ust (Level.masksOf env.lpsL ust) _ hstrpe) (hTad d)
             obtain ⟨restj, hpeel⟩ := peelPis_of_piChainP _ hpc
             have hlenVs : tsa.length = entry.numParams := by
               rw [← hspt.length, hlenP, hparj]
@@ -581,7 +583,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
           obtain ⟨hdF0, hokF0⟩ := hfab _ _ hcerts hfrF hspF hoksF
           rw [hectr] at hdF0 hokF0
           refine ⟨_, hdF0, hokF0, fun ρ hρ => ?_, hwF, hbB, hLF, hCF⟩
-          exact (structEtaCertWithP_step hcaps htower hct hav ihd ihis hexi hcw
+          exact (structEtaCertWithP_step hφ hcaps htower hct hav ihd ihis hexi hcw
             hwF hbB hLF hCF hws hb hLb hC hwr hbr hLr hCr hdF0 hvm hsave
             hokF0 hokm hokTm hmemMW ρ hρ).symm
         · -- PROJECTION-FUNCTION SLOTS: the projection spines read (the
@@ -594,7 +596,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               cvp.levelParams = cvT.levelParams ∧
               (cvp.type.stripPis (tmaj.getAppArgs.length + 1)).isSome = true ∧
               Setlec.iotaCertsP μ env fuel d false
-                (cvp.type.instantiateLevelParams cvp.levelParams ust)
+                (cvp.type.instantiateLevelParams cvp.levelParams ust (Level.masksOf env.lpsL ust))
                 (tmaj.getAppArgs ++ [major]) = .ok true := by
             intro j hj
             rcases Setlec.structEtaProjCerts_inv _ hprojs j (by
@@ -637,10 +639,10 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               hct d (projFnName T j) _ ust hfp rfl hlenp
             have hwfp := m.wf _ (Setlec.Semantics.Env.find?_mem hfp)
             have hnfp : (cvp.type.instantiateLevelParams cvp.levelParams
-                ust).hasFvar = false := by
+                ust (Level.masksOf env.lpsL ust)).hasFvar = false := by
               rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfp.1
             have hbdp : (cvp.type.instantiateLevelParams cvp.levelParams
-                ust).looseBVarsBounded 0 = true := by
+                ust (Level.masksOf env.lpsL ust)).looseBVarsBounded 0 = true := by
               rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
               exact hwfp.2.2.2.1
             obtain ⟨restp, hfitp, -, -⟩ :=
@@ -698,7 +700,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
           obtain ⟨hdF0, hokF0⟩ := hfab _ _ hcerts hfrF hspF hoksF
           rw [hectr] at hdF0 hokF0
           refine ⟨_, hdF0, hokF0, fun ρ hρ => ?_, hwF, hbB, hLF, hCF⟩
-          exact (structEtaCertWithP_step hcaps htower hct hav ihd ihis hexi hcw
+          exact (structEtaCertWithP_step hφ hcaps htower hct hav ihd ihis hexi hcw
             hwF hbB hLF hCF hws hb hLb hC hwr hbr hLr hCr hdF0 hvm hsave
             hokF0 hokm hokTm hmemMW ρ hρ).symm
       · -- R14: the zero-field fallthrough

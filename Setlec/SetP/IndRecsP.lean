@@ -196,28 +196,29 @@ theorem indRecsP (hμ : μ.verified = true)
   -- the fired rhs's denotation, and `acceptedReadsP_of` supplies it at
   -- the P carrier — the S10 residual-A route, threaded as
   -- `iotaRulesFactsRun`'s `hden` premise.
-  have hdenS : ∀ e : Expr, e.hasFvar = false →
+  have hdenS : ∀ (cu : UnivCtx) (e : Expr), e.hasFvar = false →
       e.looseBVarsBounded 0 = true →
-      (∃ t', inferTypeCore μ envSelf F 0 e = .ok t') →
+      (∃ t', inferTypeCore μ (envSelf.withLps cu) F 0 e = .ok t') →
       ∀ φ : Name → Nat,
         ∃ Rv, denoteClosed mS.base2.cvalE envSelf φ e = some Rv := by
-    intro e hef heb hrun φ
+    intro cu e hef heb hrun φ
     obtain ⟨t', hrun'⟩ := hrun
     obtain ⟨ea, hea⟩ :=
-      acceptedReadsP_of mS.base2 φ hrun'
+      acceptedReadsP_of (mS.base2.withLps cu) φ hrun'
         (Expr.WScoped.of_not_hasFvar hef) heb
         (fun l hl => absurd hl (fun h' => by
           rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hef] at h'
           exact nomatch h'))
-    exact ⟨ea.erase,
-      denoteP_erase mS.base2.acval_erase 0 e hea⟩
+    refine ⟨ea.erase, ?_⟩
+    rw [← denoteClosed_withLps mS.base2.cvalE envSelf cu]
+    exact denoteP_erase (mS.base2.withLps cu).acval_erase 0 e hea
   obtain ⟨hswR, hnresR, hentR, hentFR⟩ :=
     indRecsFoldFactsRun (RuleFacts envSelf mS.base2.cvalE)
-      (fun _cvA _mI _rP rules rules' _hbnA _hselfA hiot =>
-        iotaRulesFactsRun
+      (fun _cvA _mI _rP rules rules' cu _hbnA _hselfA _hcu hiot =>
+        iotaRulesFactsRun cu
           (fun n ci hf =>
             Or.inl (provisionRecsRunS_mono recs hprov n ci hf))
-          hdenS 0 rules rules' hiot)
+          (hdenS cu) 0 rules rules' hiot)
       recs (SwapShList.of_eq env₂.consts)
       (SwapNResS.of_eq env₂)
       (fun n ci hf =>

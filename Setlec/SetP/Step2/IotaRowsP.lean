@@ -201,22 +201,22 @@ theorem constTypeP_pkg {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     ∃ ta : AVExpr,
       (∀ d : Nat, denoteP m.acval env φ d
         (ci.toConstantVal.type.instantiateLevelParams
-          ci.toConstantVal.levelParams us) = some ta) ∧
+          ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)) = some ta) ∧
       (∀ ρ : Nat → V, AnnotOkP V ρ ta) ∧
       (∀ ρ : Nat → V,
         interp2 V ρ (m.acval n
           (Level.substFn φ ci.toConstantVal.levelParams us)) ∈ˢ interp2 V ρ ta) ∧
       (ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us).hasFvar = false ∧
+        ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)).hasFvar = false ∧
       (ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us).looseBVarsBounded 0 = true := by
+        ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)).looseBVarsBounded 0 = true := by
   obtain ⟨ta, hta, hok, hmem⟩ := hct 0 n ci us hf hnt hlen
   have hwf := m.wf _ (Setlec.Semantics.Env.find?_mem hf)
   have hnf : (ci.toConstantVal.type.instantiateLevelParams
-      ci.toConstantVal.levelParams us).hasFvar = false := by
+      ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)).hasFvar = false := by
     rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwf.1
   have hbd : (ci.toConstantVal.type.instantiateLevelParams
-      ci.toConstantVal.levelParams us).looseBVarsBounded 0 = true := by
+      ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)).looseBVarsBounded 0 = true := by
     rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
     exact hwf.2.2.2.1
   exact ⟨ta, denoteP_depth_of_closed m.acval_closed hnf
@@ -303,23 +303,23 @@ theorem recRhsP_depth {m : EnvS2Core V env}
     {rules : List RecRule} (hf : env.find? n = some (.recInfo cv mI rP rules))
     {rl : RecRule} (hmem : rl ∈ rules) {us : List Level} {Ra : AVExpr}
     (hRa0 : denoteP m.acval env φ 0
-      ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
+      ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
       = some Ra) :
     (∀ d : Nat, denoteP m.acval env φ d
-        ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
+        ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
         = some Ra) ∧
       ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
-        us).hasFvar = false ∧
+        us (Level.masksOf env.lpsL us)).hasFvar = false ∧
       ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
-        us).looseBVarsBounded 0 = true := by
+        us (Level.masksOf env.lpsL us)).looseBVarsBounded 0 = true := by
   obtain ⟨-, -, -, -, -, hrec', -⟩ :=
     m.wf _ (Setlec.Semantics.Env.find?_mem hf)
   obtain ⟨hRnf, -, -, hRbd, -⟩ := hrec' cv mI rP rules rfl rl hmem
   have hnf : ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
-      us).hasFvar = false := by
+      us (Level.masksOf env.lpsL us)).hasFvar = false := by
     rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hRnf
   have hbd : ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
-      us).looseBVarsBounded 0 = true := by
+      us (Level.masksOf env.lpsL us)).looseBVarsBounded 0 = true := by
     rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]; exact hRbd
   exact ⟨denoteP_depth_of_closed m.acval_closed hnf
       (fun k => denoteP_closed m.acval_erase m.cval_closed hnf hbd hRa0 1 k)
@@ -334,7 +334,8 @@ right-hand side applied to a prefix of the subject's own arguments and
 a suffix of the rescued major's; the first spine reads because the
 subject does, the second because the clause's `iotaCerts` run inferred
 every one of its members. -/
-theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
+theorem iotaReadsP_of {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ) (hrec : RecRulesP m φ)
     (ihw : WhnfReadsP m μ φ fuel) (ihio : InferReadsIOP m μ φ fuel) :
     IotaReadsP μ m φ fuel := by
   intro d e e'' ea h hws hb hLb hlr hea
@@ -417,7 +418,8 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
     (List.mem_of_find?_eq_some hrfind) hfire
   obtain ⟨Ra, hRa0, -, -, -⟩ := hlaw0 us hlenU
   obtain ⟨hRa, hRnf, hRbd⟩ :=
-    recRhsP_depth hfrec (List.mem_of_find?_eq_some hrfind) hRa0
+    recRhsP_depth hfrec (List.mem_of_find?_eq_some hrfind)
+      (denoteP_stored_rule_inst hφ hfrec (List.mem_of_find?_eq_some hrfind) hlenU hRa0)
   -- the reduct
   have hspOut : DenoteSpineP m.acval env φ d
       (e.getAppArgs.take rP ++ major.getAppArgs.drop (RecRule.ctorParams r))
@@ -485,6 +487,7 @@ the wall stood for one worker-session. -/
 /-- **`IotaStepP`, discharged** (`iota_stepR`'s mirror; the wall above
 is its one flagged premise). -/
 theorem iotaStepP_of {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ)
     (hrec : RecRulesP m φ) (hcaps : CapsOkP m) (htower : TowerOkP m φ) (hct : ConstTypeP m φ)
     (hav : AcvalValidP m)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
@@ -504,7 +507,8 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   -- the law, and the right-hand side's reading at the ambient depth
   obtain ⟨hrPle, hlaw0⟩ := hrec c cv mI rP rules hfrec r hrmem hfire
   obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hlenU
-  obtain ⟨hRaD, hRnf, hRbd⟩ := recRhsP_depth hfrec hrmem hRa0
+  obtain ⟨hRaD, hRnf, hRbd⟩ := recRhsP_depth hfrec hrmem
+    (denoteP_stored_rule_inst hφ hfrec hrmem hlenU hRa0)
   -- the recursor spine, read
   rw [show e = Expr.mkAppN e.getAppFn e.getAppArgs from
     (Setlec.Expr.mkAppN_getApp e).symm, hfn] at hea
@@ -534,7 +538,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
       (hCM.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwmaj))
       hmj0a hokMj0
   obtain ⟨vmaj, hvmajSave, hokMj, heqMj, hwmj, hbmj, hLmj, hCmj⟩ :=
-    majorToCtorP_stepP hcaps htower hct hav ihw ihd ihis hsss hexi hreads_ios
+    majorToCtorP_stepP hφ hcaps htower hct hav ihw ihd ihis hsss hexi hreads_ios
       hwreads hmajc
       hw1 hb1 hL1 hC1 hmj1a hokMj1
   have heqAll : ∀ ρ : Nat → V, Sat2 V Δa ρ →
@@ -559,12 +563,12 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     constTypeP_pkg hct hfcj rfl hlenUj
   dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVaD hnfR hbdR hmemR
   dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVjaD hnfJ hbdJ hmemJ
-  have hCR : CtxOkP m φ d Δa (cv.type.instantiateLevelParams cv.levelParams us) :=
+  have hCR : CtxOkP m φ d Δa (cv.type.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)) :=
     ⟨hC.1, fun l hl => by
       rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfR] at hl
       exact nomatch hl⟩
   have hCJ : CtxOkP m φ d Δa
-      (cvj.type.instantiateLevelParams cvj.levelParams usj) :=
+      (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj)) :=
     ⟨hC.1, fun l hl => by
       rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfJ] at hl
       exact nomatch hl⟩
@@ -702,7 +706,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
         ∀ i, i < RecRule.ctorParams r →
         ∀ vpa : AVExpr,
           denoteP m.acval env φ rP (Setlec.TTVerify.openRev 0 rP
-            ((pins.getD i default).instantiateLevelParams cv.levelParams us))
+            ((pins.getD i default).instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)))
             = some vpa →
           interp2 V ρ (ys.getD i default)
             = interp2 V ρ (AVExpr.instRevChain ((xs.take mI).take rP) vpa) := by
@@ -714,7 +718,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
       have hcmp : (Setlec.recFireComparands r cv.levelParams us
           cvj.levelParams e.getAppArgs rP).2
           = pins.map (fun p => Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
-              (p.instantiateLevelParams cv.levelParams us)) := by
+              (p.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))) := by
         unfold Setlec.recFireComparands; rw [hn]
       have hlenPins : pins.length = RecRule.ctorParams r := by
         have hl := defEqListP_length hdefP
@@ -731,10 +735,10 @@ theorem iotaStepP_of {m : EnvS2Core V env}
       obtain ⟨hpinF, -, -, hpinB⟩ :=
         hpinsWf (pins.getD i default) (Setlec.getD_mem hilt)
       have hpinF' : ((pins.getD i default).instantiateLevelParams
-          cv.levelParams us).hasFvar = false := by
+          cv.levelParams us (Level.masksOf env.lpsL us)).hasFvar = false := by
         rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hpinF
       have hpinB' : ((pins.getD i default).instantiateLevelParams
-          cv.levelParams us).looseBVarsBounded
+          cv.levelParams us (Level.masksOf env.lpsL us)).looseBVarsBounded
           (e.getAppArgs.take rP).length = true := by
         rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams, hprelen]
         exact hpinB
@@ -757,10 +761,10 @@ theorem iotaStepP_of {m : EnvS2Core V env}
           show i < RecRule.ctorParams r from hi]
       have hgetR : ((pins.map (fun p =>
           Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
-            (p.instantiateLevelParams cv.levelParams us))).getD i default)
+            (p.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)))).getD i default)
           = Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
             ((pins.getD i default).instantiateLevelParams
-              cv.levelParams us) := by
+              cv.levelParams us (Level.masksOf env.lpsL us)) := by
         simp [List.getD, List.getElem?_map, List.getElem?_eq_getElem hilt]
       rw [hcmp] at hdefP
       have hcert := defEqListP_get hdefP i (by
@@ -771,22 +775,22 @@ theorem iotaStepP_of {m : EnvS2Core V env}
           = some (ys.getD i default) := hspy.getD _ i hiy
       have hcden' : denoteP m.acval env φ d
           (Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
-            ((pins.getD i default).instantiateLevelParams cv.levelParams us))
+            ((pins.getD i default).instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)))
           = some (AVExpr.instRevChain (xs.take rP) vpa) := by
         rw [Expr.instSpine_eq_instSeq]
         simpa using hcden
       have hfrPinX : Expr.WScoped d (Expr.instSpine (e.getAppArgs.take rP)
             (rP - 1) ((pins.getD i default).instantiateLevelParams
-              cv.levelParams us)) ∧
+              cv.levelParams us (Level.masksOf env.lpsL us))) ∧
           (Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
             ((pins.getD i default).instantiateLevelParams cv.levelParams
-              us)).looseBVarsBounded 0 = true ∧
+              us (Level.masksOf env.lpsL us))).looseBVarsBounded 0 = true ∧
           Expr.LeavesBounded (Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
             ((pins.getD i default).instantiateLevelParams
-              cv.levelParams us)) ∧
+              cv.levelParams us (Level.masksOf env.lpsL us))) ∧
           CtxOkP m φ d Δa (Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
             ((pins.getD i default).instantiateLevelParams
-              cv.levelParams us)) := by
+              cv.levelParams us (Level.masksOf env.lpsL us))) := by
         refine ⟨Setlec.instSpine_WScoped _
             (Setlec.Expr.WScoped.of_not_hasFvar hpinF')
             (fun y hy => (hargsPre y hy).1), ?_, fun l hl => ?_,

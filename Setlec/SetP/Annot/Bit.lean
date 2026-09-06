@@ -7,9 +7,12 @@ import Setlec.Verify.PropWhen
 
 `denoteP` is the pw-driven sibling of `denote2` (`Annot/Canon.lean`):
 clause for clause the same recursion, with every binder numeral read
-off the term's **own validated annotation** — `pwBit φ m.pw`, the
-datum's zero bit at the ground valuation — instead of `denote2`'s
-`sortOfE`/`lamSortE` checker runs.
+off the term's **own validated annotation** — `pwBit env.lpsL φ m.pw`,
+the datum's zero bit at the ground valuation, read through the
+environment's universe context (the packed positional datum,
+2026-09-06: an annotation is read only in the context it was written
+in, which is the context the checker holds while it walks the term) —
+instead of `denote2`'s `sortOfE`/`lamSortE` checker runs.
 
 The consequences are the P3 pivot in miniature:
 
@@ -43,7 +46,7 @@ amendment, not a plumbing gap.
 API discipline (task #161 ruling): `PropWhen` is consumed only through
 `holds` and the named battery laws — `pwBit` is `holds` composed with
 a two-point test, and every lemma below factors through
-`holds_eq_of_equiv` / `holds_of_equiv_zeronessOf` / `holds_substPW`.
+`holds_maskOf?` / `holds_substPW` (`Verify/PropWhen.lean`).
 -/
 
 namespace Setlec.SetP
@@ -59,18 +62,22 @@ open Setlec (CheckMode Env Expr Name Level PropWhen
 
 /-- The regime numeral a validated datum contributes at a ground
 valuation: `0` (the squash regime) exactly when the datum holds —
-"the codomain is a proposition here" — and `1` otherwise.  The value
-`1` is arbitrary; `interp2` reads binder numerals only through the
-`v = 0` test (`piR_zero_agree`/`lamR_zero_agree`). -/
-def pwBit (φ : Name → Nat) (pw : PropWhen) : Nat :=
-  if pw.holds φ then 0 else 1
+"the codomain is a proposition here" — and `1` otherwise.  Packed
+datum (2026-09-06): the datum is positional, so the valuation is read
+through the universe context `ps` the datum was written in
+(`Level.valAt ps φ`, position `i` ↦ `φ ps[i]`); `denoteP` passes the
+environment's context (`Env.lpsL`).  The value `1` is arbitrary;
+`interp2` reads binder numerals only through the `v = 0` test
+(`piR_zero_agree`/`lamR_zero_agree`). -/
+def pwBit (ps : List Name) (φ : Name → Nat) (pw : PropWhen) : Nat :=
+  if pw.holds (Level.valAt ps φ) then 0 else 1
 
-@[simp] theorem pwBit_eq_zero_iff {φ : Name → Nat} {pw : PropWhen} :
-    pwBit φ pw = 0 ↔ pw.holds φ = true := by
+@[simp] theorem pwBit_eq_zero_iff {ps : List Name} {φ : Name → Nat} {pw : PropWhen} :
+    pwBit ps φ pw = 0 ↔ pw.holds (Level.valAt ps φ) = true := by
   unfold pwBit; split <;> simp_all
 
-theorem pwBit_ne_zero_iff {φ : Name → Nat} {pw : PropWhen} :
-    pwBit φ pw ≠ 0 ↔ pw.holds φ = false := by
+theorem pwBit_ne_zero_iff {ps : List Name} {φ : Name → Nat} {pw : PropWhen} :
+    pwBit ps φ pw ≠ 0 ↔ pw.holds (Level.valAt ps φ) = false := by
   rw [Ne, pwBit_eq_zero_iff]
   simp
 
@@ -78,69 +85,72 @@ theorem pwBit_ne_zero_iff {φ : Name → Nat} {pw : PropWhen} :
 
 The kernel's licensed check-skips test `PropWhen.isNever` — the one
 thing about a datum a kernel can decide without a valuation.  The
-sealed claims split on `pwBit φ pw = 0` at the *ambient* valuation.
+sealed claims split on `pwBit ps φ pw = 0` at the *ambient* valuation.
 The two lemmas below are the receipt that the gate's condition is the
 **∀-`φ` uniform version of the claims' positive branch, exactly** —
 sound (a gated site is positive at every valuation, so the claim's
 cert-free arm applies) and complete (no other datum is positive at
 every valuation, so the gate cannot be widened without leaving the
-licensed branch).
-
-Landed at stage 1 on `agent/bucket2-s1` (commit `0c865695`) and
-re-landed here verbatim: the exactness is a fact about the datum, not
-about which site reads it, so it serves the io lane's application
-clause (`inferBodyIO`) and any future β-cert gate alike. -/
+licensed branch).  Representation-free: `never` reads `1` everywhere
+and every other word holds at the all-zero valuation. -/
 
 /-- **Soundness of the gate's condition**: a `never` datum is positive
 at every valuation. -/
 theorem pwBit_ne_zero_of_isNever {pw : PropWhen}
-    (h : Setlec.PropWhen.isNever pw = true) (φ : Name → Nat) :
-    pwBit φ pw ≠ 0 := by
-  cases pw with
-  | never => rw [pwBit_ne_zero_iff]; rfl
-  | ifAllZero ps => exact nomatch h
+    (h : Setlec.PropWhen.isNever pw = true) (ps : List Name) (φ : Name → Nat) :
+    pwBit ps φ pw ≠ 0 := by
+  have : pw = .never := by simpa [Setlec.PropWhen.isNever] using h
+  subst this
+  rw [pwBit_ne_zero_iff]
+  exact Setlec.PropWhen.holds_never _
 
 /-- **Exactness of the gate's condition**: `never` is *the* datum that
-is positive at every valuation — an `ifAllZero` datum lands in the
+is positive at every valuation — every other datum lands in the
 squash regime at the all-zero valuation, where the certificate is
 consumed and the skip would be unlicensed. -/
-theorem isNever_iff_forall_pwBit_ne_zero {pw : PropWhen} :
-    Setlec.PropWhen.isNever pw = true ↔ ∀ φ : Name → Nat, pwBit φ pw ≠ 0 := by
+theorem isNever_iff_forall_pwBit_ne_zero {ps : List Name} {pw : PropWhen} :
+    Setlec.PropWhen.isNever pw = true ↔ ∀ φ : Name → Nat, pwBit ps φ pw ≠ 0 := by
   constructor
-  · exact pwBit_ne_zero_of_isNever
+  · exact fun h φ => pwBit_ne_zero_of_isNever h ps φ
   · intro h
-    cases pw with
-    | never => rfl
-    | ifAllZero ps =>
-      exact absurd (pwBit_eq_zero_iff.mpr
-        (by simp [Setlec.PropWhen.holds])) (h (fun _ => 0))
+    have h0 := h (fun _ => 0)
+    rw [pwBit_ne_zero_iff] at h0
+    have : Level.valAt ps (fun _ => 0) = fun _ => 0 := rfl
+    rw [this, Setlec.PropWhen.holds_zero] at h0
+    simpa [Setlec.PropWhen.isNever] using h0
 
 /-- Checker-compared data (`PropWhen.equiv`, the P2 validation and
-defeq sites) contribute **equal** numerals — not merely zero-agreeing
-ones. -/
+defeq sites) contribute **equal** numerals — with canonical words the
+comparison is equality. -/
 theorem pwBit_eq_of_equiv {p q : PropWhen}
-    (h : PropWhen.equiv p q = true) (φ : Name → Nat) :
-    pwBit φ p = pwBit φ q := by
-  unfold pwBit
-  rw [Setlec.PropWhen.holds_eq_of_equiv h φ]
+    (h : PropWhen.equiv p q = true) (ps : List Name) (φ : Name → Nat) :
+    pwBit ps φ p = pwBit ps φ q := by
+  have : p = q := by simpa [Setlec.PropWhen.equiv] using h
+  rw [this]
 
 /-- **The establishment reading**: a datum the checker validated
-against a computed codomain sort (`(zeronessOf v).equiv m.pw`, the run
-inversions' conjunct) contributes the sort's true zero bit. -/
-theorem pwBit_of_equiv_zeronessOf {v : Level} {pw : PropWhen}
-    (h : PropWhen.equiv (Level.zeronessOf v) pw = true) (φ : Name → Nat) :
-    (pwBit φ pw = 0 ↔ Level.eval φ v = 0) := by
-  rw [pwBit_eq_zero_iff, Setlec.PropWhen.holds_of_equiv_zeronessOf h φ]
+against a computed codomain sort (`Level.maskOf? ps v = some pw`, the
+run inversions' conjunct) contributes the sort's true zero bit — at
+every valuation, with no definedness premise (the validation reader
+refuses an unrepresentable parameter). -/
+theorem pwBit_of_maskOf? {ps : List Name} {v : Level} {pw : PropWhen}
+    (h : Level.maskOf? ps v = some pw) (φ : Name → Nat) :
+    (pwBit ps φ pw = 0 ↔ Level.eval φ v = 0) := by
+  rw [pwBit_eq_zero_iff, Level.holds_maskOf? φ h]
   simp
 
-/-- **The crossing reading**: the instantiated datum's bit at `φ` is
-the datum's bit at the composed valuation — `denotePInstLevels`'
-binder step. -/
-theorem pwBit_substPW (φ : Name → Nat) (ks : List Name)
-    (vs : List Level) (pw : PropWhen) :
-    pwBit φ (Level.substPW ks vs pw) = pwBit (Level.substFn φ ks vs) pw := by
+/-- **The crossing reading**: the instantiated datum's bit at `φ`
+(read in the new context) is the datum's bit at the composed
+valuation (read in the old context) — `denotePInstLevels`' binder
+step (`Level.holds_substPW`'s premises). -/
+theorem pwBit_substPW {ks : List Name} {us : List Level} {ps' : List Name}
+    (hnd : ks.Nodup) (hps : ps'.length ≤ 63) (hl : us.length = ks.length)
+    {φ : Name → Nat} (hφ : Level.NonzeroOutside ps' φ)
+    {pw : PropWhen} (hdef : pw.paramsDefined ks.length = true) :
+    pwBit ps' φ (Level.substPW (Level.masksOf ps' us) pw)
+      = pwBit ks (Level.substFn φ ks us) pw := by
   unfold pwBit
-  rw [Setlec.Level.holds_substPW]
+  rw [Level.holds_substPW hnd hps hl hφ hdef]
 
 /-! ## The reading -/
 
@@ -164,12 +174,12 @@ def denoteP (acval : Name → (Name → Nat) → AVExpr)
     let ta ← denoteP acval env φ d ty
     let ba ← denoteP acval env φ (d + 1)
       (body.instantiate1 (.fvar d n ty))
-    some (.pi 0 (pwBit φ m.pw) ta ba)
+    some (.pi 0 (pwBit env.lpsL φ m.pw) ta ba)
   | d, .lam n ty body m => do
     let ta ← denoteP acval env φ d ty
     let ba ← denoteP acval env φ (d + 1)
       (body.instantiate1 (.fvar d n ty))
-    some (.lam (pwBit φ m.pw) ta ba)
+    some (.lam (pwBit env.lpsL φ m.pw) ta ba)
   | d, .app f a => do
     let fa ← denoteP acval env φ d f
     let aa ← denoteP acval env φ d a
@@ -219,6 +229,40 @@ decreasing_by
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
   | (simp [Expr.sizeB])
+
+/-! ## Context transparency of binder-free subjects
+
+The universe context (`env.lpsL`) enters `denoteP` only through the
+binder clauses' `pwBit`; a subject without binders reads identically
+in every context.  (The structural-Nat recurrence equations are such
+subjects: `EnvS2PM.withLps` crosses `NatOpsP` on this.) -/
+
+/-- No `forallE`/`lam`/`letE` node anywhere. -/
+def _root_.Setlec.Expr.BinderFree : Expr → Prop
+  | .app f a => f.BinderFree ∧ a.BinderFree
+  | .proj _ _ e => e.BinderFree
+  | .forallE .. | .lam .. | .letE .. => False
+  | _ => True
+
+/-- A binder-free subject reads the same in every universe context. -/
+theorem denoteP_withLps_binderFree {acval : Name → (Name → Nat) → AVExpr}
+    {env : Env} (c : UnivCtx) {φ : Name → Nat} :
+    ∀ {d : Nat} {e : Expr}, e.BinderFree →
+      denoteP acval (env.withLps c) φ d e = denoteP acval env φ d e
+  | _, .sort _, _ => by rw [denoteP, denoteP]
+  | _, .bvar _, _ => by rw [denoteP.eq_def, denoteP.eq_def]
+  | _, .fvar _ _ _, _ => by rw [denoteP, denoteP]
+  | _, .const _ _, _ => by rw [denoteP, denoteP, Env.find?_withLps]
+  | _, .forallE _ _ _ _, h | _, .lam _ _ _ _, h | _, .letE _ _ _ _, h => h.elim
+  | d, .app f a, ⟨hf, ha⟩ => by
+    rw [denoteP, denoteP, denoteP_withLps_binderFree c hf,
+      denoteP_withLps_binderFree c ha]
+  | d, .proj _ _ e, (h : e.BinderFree) => by
+    rw [denoteP, denoteP, denoteP_withLps_binderFree c h, Env.findProj?_withLps]
+  | _, .lit (.natVal _), _ => by rw [denoteP, denoteP, natLitSupported_withLps]
+  | _, .lit (.strVal _), _ => by
+    rw [denoteP, denoteP, strLitSupported_withLps, levelParamsAt_withLps,
+      levelParamsAt_withLps]
 
 /-! ## The erasure law
 

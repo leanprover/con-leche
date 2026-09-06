@@ -49,6 +49,13 @@ docstring).  Field order groups the tiers: the `reads` bundle carries
 the install/iota/proj/literal *readability* leaves inside it. -/
 structure TierInputsAtP (V : Type w) [SetTheory V] (μ : CheckMode)
     {env : Env} (m : EnvS2Core V env) (φ : Name → Nat) : Prop where
+  /-- the packed `pw` datum's valuation class (2026-09-06): `φ` is
+  nonzero outside the environment's universe context — the class at
+  which the positional reading of an unrepresentable parameter
+  (`never`) is the truth, hence at which the level crossing
+  (`denotePInstLevels`) holds.  Every instantiated reading the tiers
+  derive from the stored (context-free) laws rides this. -/
+  hφ : Level.NonzeroOutside env.lpsL φ
   /-- install tier: the readability bundle (its own four leaves are
   iota/proj/literal reads) -/
   reads : ReadsInputsP μ m φ
@@ -141,9 +148,9 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
     · -- the head-normalisation quarter
       exact whnfCore_claimsP m hex
         (betaCertP_of_claims m hexis ihd ihis)
-        (iotaStepP_of h.rec_rules h.caps_ok h.reads.tower_ok h.reads.const_ty
+        (iotaStepP_of h.reads.hφ h.rec_rules h.caps_ok h.reads.tower_ok h.reads.const_ty
           h.acval_valid ihw ihd ihis hsss hexis hreads_ios hwreads)
-        (projStepP_of_claims h.reads.tower_ok h.reads.const_ty ihwc ihw ihd ihis
+        (projStepP_of_claims h.reads.hφ h.reads.tower_ok h.reads.const_ty ihwc ihw ihd ihis
           hexis hwreads) ihwc
     · -- the reduction loop
       exact whnf_claimsP m hex ihwc (h.nat_step fuel ihw)
@@ -202,7 +209,7 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
         exact infer_letE_claimP m hss hreads ihi hrun hws hb hLb
           hC hea hta
       | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
-        exact inferProjStepP_of_claims h.reads.tower_ok ihw ihi hreads
+        exact inferProjStepP_of_claims h.reads.hφ h.reads.tower_ok ihw ihi hreads
           hwreads hrun hws hb
           hLb hC hea hta
     · -- the io quarter (the eleven-arm dispatcher, env-fixed;
@@ -236,7 +243,7 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
       | .letE nm ty val bd, hrun, hws, hb, hLb, hC, hea, hok =>
         exact infer_letE_claimIOP m ihio hrun hws hb hLb hC hea hta hok
       | .proj sn i pe, hrun, hws, hb, hLb, hC, hea, hok =>
-        exact inferProjStepIOP_of_claims h.reads.tower_ok ihw ihio hreads_io
+        exact inferProjStepIOP_of_claims h.reads.hφ h.reads.tower_ok ihw ihio hreads_io
           hwreads hrun
           hws hb hLb hC hea hta hok
 
@@ -264,6 +271,7 @@ heads; what remains as arguments is exactly the semantic-content bill
 (iota / proj / literal / caps / the two infer clause rows), each named
 by its tier in the frontier-transformation table. -/
 theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
+    (hφ : Level.NonzeroOutside env.lpsL φ)
     (hnat_r : ∀ fuel, ReduceNatReadsP μ mp.base2 φ fuel)
     (hnat : ∀ fuel,
       WhnfClaims2P μ mp.base2 φ fuel → ReduceNatStepP μ mp.base2 φ fuel)
@@ -271,8 +279,9 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
       WhnfClaims2P μ mp.base2 φ fuel →
         ReduceNatStepPQ μ mp.base2 φ fuel) :
     TierInputsAtP V μ mp.base2 φ where
-  reads := ReadsInputsP.ofEnvS2PM mp
-    (fun _fuel ihw ihio => iotaReadsP_of (mp.rec_rules φ) ihw ihio)
+  hφ := hφ
+  reads := ReadsInputsP.ofEnvS2PM mp hφ
+    (fun _fuel ihw ihio => iotaReadsP_of hφ (mp.rec_rules φ) ihw ihio)
     hnat_r
   acval_valid := mp.acvalValidP
   nat_heads := mp.nat_heads φ

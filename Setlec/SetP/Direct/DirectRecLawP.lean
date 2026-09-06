@@ -164,7 +164,7 @@ theorem recRuleLaw (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   dsimp only
   -- the readings at the instantiation
   have hinstR : ∀ (d : Nat) (e : Expr),
-      denoteP m₂.acval _ φ d (e.instantiateLevelParams p.cvR.levelParams us)
+      denoteP m₂.acval _ φ d (e.instantiateLevelParams p.cvR.levelParams us (Level.masksOf env.lpsL us))
         = denoteP m₂.acval _ (Level.substFn φ p.cvR.levelParams us) d e :=
     fun d e => denoteP_instLevels (acvalParamsAt_of_core m₂) φ d e
   generalize hψR : Level.substFn φ p.cvR.levelParams us = ψR at hinstR ⊢
@@ -179,7 +179,7 @@ theorem recRuleLaw (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   have hokRa : ∀ ρ : Nat → V, AnnotOkP V ρ Ra := fun ρ => hokRa₀ ρ (Sat2_nil V ρ)
   have hRa₂ : denoteP m₂.acval { env with consts := (.recInfo { p.cvR with type := type' } (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP, .plain, rhsA⟩]) :: env.consts } φ 0
-      (rhsA.instantiateLevelParams p.cvR.levelParams us) = some Ra := by
+      (rhsA.instantiateLevelParams p.cvR.levelParams us (Level.masksOf env.lpsL us)) = some Ra := by
     rw [hinstR, hac]
     exact denoteP_cons_mono hfresh (hcross _) ψR 0 hcbR hRa
   refine ⟨Ra, hRa₂, hokRa, fun _ _ h => absurd h (by simp), ?_⟩

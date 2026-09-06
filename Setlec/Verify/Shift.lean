@@ -458,9 +458,9 @@ theorem shiftFrom_mkAppN {p : Nat} :
 /-- Shifting (fvar indices) commutes with level instantiation
 (sorts and constant levels). -/
 theorem shiftFrom_instantiateLevelParams {p : Nat} (ks : List Name)
-    (us : List Level) :
-    ∀ (e : Expr), shiftFrom p (e.instantiateLevelParams ks us) =
-      (shiftFrom p e).instantiateLevelParams ks us := by
+    (us : List Level) (ms : List PropWhen) :
+    ∀ (e : Expr), shiftFrom p (e.instantiateLevelParams ks us ms) =
+      (shiftFrom p e).instantiateLevelParams ks us ms := by
   intro e
   induction e with
   | fvar idx n ty ih =>

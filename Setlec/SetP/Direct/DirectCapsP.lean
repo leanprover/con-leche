@@ -102,7 +102,7 @@ theorem capsOkP_cons_direct (mp : EnvS2PM V μ env)
     refine ⟨TVa, ?_, hokTVa, ?_⟩
     · rw [hac]
       exact denoteP_cons_mono hfresh
-        ((hcross.typeOf hfE).instantiateLevelParams _ _) _ 0
+        ((hcross.typeOf hfE).instantiateLevelParams _ _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x hlents hfit hmem
@@ -134,7 +134,7 @@ theorem capsOkP_cons_direct (mp : EnvS2PM V μ env)
     refine ⟨TVa, ?_, hokTVa, ?_⟩
     · rw [hac]
       exact denoteP_cons_mono hfresh
-        ((hcross.typeOf hfE).instantiateLevelParams _ _) _ 0
+        ((hcross.typeOf hfE).instantiateLevelParams _ _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x y hlents hfit hmx hmy

@@ -151,6 +151,7 @@ campaign's B4).  The four sealed families and the io family, all at
 `fuel`, give the same five at `fuel + 1`. -/
 def CheckStep2P5 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
+    Level.NonzeroOutside env.lpsL φ →
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
     InferClaimsIO2P μ m φ fuel →
@@ -163,7 +164,8 @@ checker's own zero-fuel throws — the io lane's zero level throws the
 same `internal` error as the full one (`inferTypeCoreIO_zero`), so the
 currency swap costs nothing here either. -/
 theorem checkSound2P5 {μ : CheckMode} {env : Env}
-    (hstep : CheckStep2P5 μ V) (m : EnvS2Core V env) (φ : Name → Nat) :
+    (hstep : CheckStep2P5 μ V) (m : EnvS2Core V env) (φ : Name → Nat)
+    (hφ : Level.NonzeroOutside env.lpsL φ) :
     ∀ fuel : Nat,
       WhnfCoreClaims2P μ m φ fuel ∧ WhnfClaims2P μ m φ fuel ∧
         DefEqClaims2P μ m φ fuel ∧ InferClaims2P μ m φ fuel ∧
@@ -189,6 +191,6 @@ theorem checkSound2P5 {μ : CheckMode} {env : Env}
       simp [throw, throwThe, MonadExceptOf.throw] at h
   | succ fuel ih =>
     obtain ⟨ihwc, ihw, ihd, ihi, ihio⟩ := ih
-    exact hstep env m φ fuel ihwc ihw ihd ihi ihio
+    exact hstep env m φ fuel hφ ihwc ihw ihd ihi ihio
 
 end Setlec.SetP

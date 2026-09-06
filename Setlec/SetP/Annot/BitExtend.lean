@@ -54,6 +54,7 @@ def DenotePEnvExtend (env₀ env : Env)
 `SortAgree`. -/
 theorem denoteP_envExtend {env₀ env : Env}
     {acval : Name → (Name → Nat) → AVExpr} {φ : Name → Nat}
+    (hlps : env₀.lpsL = env.lpsL)
     (hF : FindPreserved env₀ env) (hG : LitGuardsAgree env₀ env)
     (hproj : ∀ (sn : Name) (i : Nat) (entry : Setlec.ProjEntry),
       env₀.findProj? sn i = none → env.findProj? sn i = some entry →
@@ -91,14 +92,14 @@ theorem denoteP_envExtend {env₀ env : Env}
     have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d n ty)) :=
       ConstsBound.instantiate1
         (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2
-    rw [denoteP, denoteP, ihty hc.1, ihbody hcb]
+    rw [denoteP, denoteP, ihty hc.1, ihbody hcb, hlps]
   | case7 d n ty body m ihty ihbody =>
     intro hc
     rw [constsBound_lam] at hc
     have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d n ty)) :=
       ConstsBound.instantiate1
         (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2
-    rw [denoteP, denoteP, ihty hc.1, ihbody hcb]
+    rw [denoteP, denoteP, ihty hc.1, ihbody hcb, hlps]
   | case8 d f a ihf iha =>
     intro hc
     rw [constsBound_app] at hc
@@ -193,6 +194,7 @@ theorem litGuardsMono_cons {env : Env} {c₀ : Setlec.ConstantInfo}
 reproduced verbatim at the extension. -/
 theorem denoteP_envExtend_mono {env₀ env : Env}
     {acval : Name → (Name → Nat) → AVExpr} {φ : Name → Nat}
+    (hlps : env₀.lpsL = env.lpsL)
     (hF : FindPreserved env₀ env) (hG : LitGuardsMono env₀ env)
     (hproj : ∀ (sn : Name) (i : Nat) (entry : Setlec.ProjEntry),
       env₀.findProj? sn i = none → env.findProj? sn i = some entry →
@@ -237,7 +239,7 @@ theorem denoteP_envExtend_mono {env₀ env : Env}
       ConstsBound.instantiate1
         (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_forallE_inv h
-    rw [denoteP, ihty hc.1 hta, ihbody hcb hba]
+    rw [denoteP, ihty hc.1 hta, ihbody hcb hba, hlps]
     rfl
   | case7 d n ty body m ihty ihbody =>
     intro hc ea h
@@ -246,7 +248,7 @@ theorem denoteP_envExtend_mono {env₀ env : Env}
       ConstsBound.instantiate1
         (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_lam_inv h
-    rw [denoteP, ihty hc.1 hta, ihbody hcb hba]
+    rw [denoteP, ihty hc.1 hta, ihbody hcb hba, hlps]
     rfl
   | case8 d f a ihf iha =>
     intro hc ea h

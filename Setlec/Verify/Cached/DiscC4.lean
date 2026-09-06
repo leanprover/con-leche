@@ -2141,16 +2141,16 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           rw [htargs]
           have hres : SimC mode env s₂' (RelEC d)
               (match Expr.instPisAt (Expr.getAppArgs te ++ [pe])
-                  (entry.ty.instantiateLevelParams entry.levelParams us) with
+                  (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)) with
                 | some (_, resid) => internExprM resid
                 | none => throw (CheckError.internal "malformed projection entry"))
               (match Expr.instPisAt (Expr.getAppArgs te ++ [pe])
-                  (entry.ty.instantiateLevelParams entry.levelParams us) with
+                  (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)) with
                 | some (_, resid) => (pure resid : FueledM Expr)
                 | none => throw (CheckError.internal "malformed projection entry")) := by
             cases hpi : Expr.instPisAt (Expr.getAppArgs te ++ [pe])
                 (entry.ty.instantiateLevelParams entry.levelParams
-                  us) with
+                  us (Level.masksOf env.lpsL us)) with
             | none => exact SimC.throw
             | some q =>
               obtain ⟨ds, resid⟩ := q
@@ -2365,7 +2365,8 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
       dsimp only [cfgOf_verified]
       by_cases hv : mode.verified = true
       · simp only [hv, ↓reduceIte]
-        by_cases hc : (Level.zeronessOf v).equiv m.pw = true
+        try simp only [show (mkFEnv env).env.lpsL = env.lpsL from rfl]
+        by_cases hc : (Level.maskOf? env.lpsL v == some m.pw) = true
         · simp only [hc, ↓reduceIte]
           refine SimC.bind_left (internLM_eff hs₆ (Level.imax u v))
             (fun s₇ iu hs₇ hQiu => ?_)
@@ -2451,7 +2452,8 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
         refine SimC.bind (ensureSortC_sim ih hs₆ hbttd hwbtt)
           (fun s₇ vb lvb hs₇ hPv => ?_)
         obtain rfl := hPv
-        by_cases hc : (Level.zeronessOf vb).equiv m.pw = true
+        try simp only [show (mkFEnv env).env.lpsL = env.lpsL from rfl]
+        by_cases hc : (Level.maskOf? env.lpsL vb == some m.pw) = true
         · simp only [hc, ↓reduceIte]
           exact hres hs₇
         · simp only [hc, Bool.false_eq_true, ↓reduceIte]
@@ -2524,16 +2526,16 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
           rw [htargs]
           have hres : SimC mode env s₂' (RelEC d)
               (match Expr.instPisAt (Expr.getAppArgs te ++ [pe])
-                  (entry.ty.instantiateLevelParams entry.levelParams us) with
+                  (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)) with
                 | some (_, resid) => internExprM resid
                 | none => throw (CheckError.internal "malformed projection entry"))
               (match Expr.instPisAt (Expr.getAppArgs te ++ [pe])
-                  (entry.ty.instantiateLevelParams entry.levelParams us) with
+                  (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)) with
                 | some (_, resid) => (pure resid : FueledM Expr)
                 | none => throw (CheckError.internal "malformed projection entry")) := by
             cases hpi : Expr.instPisAt (Expr.getAppArgs te ++ [pe])
                 (entry.ty.instantiateLevelParams entry.levelParams
-                  us) with
+                  us (Level.masksOf env.lpsL us)) with
             | none => exact SimC.throw
             | some q =>
               obtain ⟨ds, resid⟩ := q

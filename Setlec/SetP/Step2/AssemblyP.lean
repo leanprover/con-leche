@@ -72,17 +72,17 @@ construction). -/
 theorem checkStep2P5_of_quarters (hμ : μ.verified = true)
     (hwin : WhnfInputsP V μ) (hdin : DefEqInputsP μ V)
     (hiin : InferInputsIOP V μ) : CheckStep2P5 μ V :=
-  fun env m φ fuel h1 h2 h3 h4 h5 =>
-    ⟨whnfCoreStepP_of hμ hwin env m φ fuel h1 h2 h3 h4 h5,
-     whnfStepP_of hμ hwin env m φ fuel h1 h2 h3 h4 h5,
-     defEqStepP_of hμ hdin env m φ fuel h1 h2 h3 h4,
+  fun env m φ fuel hφ h1 h2 h3 h4 h5 =>
+    ⟨whnfCoreStepP_of hμ hwin env m φ fuel hφ h1 h2 h3 h4 h5,
+     whnfStepP_of hμ hwin env m φ fuel hφ h1 h2 h3 h4 h5,
+     defEqStepP_of hμ hdin env m φ fuel hφ h1 h2 h3 h4,
      inferStepP_of hiin.base
        (fun m' φ' fuel' ihw' ihi' ihio' => sortSemAtIOSP_of
          (sortSemAtP_of_claims ihw' ihi' (hiin.base.infer_reads m' φ' fuel'))
          (sortSemAtIOP_of_claims ihw' ihio'
            (hiin.infer_reads_io m' φ' fuel')))
-       hμ env m φ fuel hμ h1 h2 h3 h4 h5,
-     inferStepIOP_of hiin hμ env m φ fuel hμ h1 h2 h3 h4 h5⟩
+       hμ env m φ fuel hφ hμ h1 h2 h3 h4 h5,
+     inferStepIOP_of hiin hμ env m φ fuel hφ hμ h1 h2 h3 h4 h5⟩
 
 /-- **The five-way ladder, closed over fuel**: the four sealed claims
 and the io claim hold at every fuel, at a validating mode, given the
@@ -91,11 +91,11 @@ consumes at each io call site. -/
 theorem checkSoundP5_of_inputs (hμ : μ.verified = true)
     (hwin : WhnfInputsP V μ) (hdin : DefEqInputsP μ V)
     (hiin : InferInputsIOP V μ) {env : Env} (m : EnvS2Core V env)
-    (φ : Name → Nat) :
+    (φ : Name → Nat) (hφ : Level.NonzeroOutside env.lpsL φ) :
     ∀ fuel : Nat,
       WhnfCoreClaims2P μ m φ fuel ∧ WhnfClaims2P μ m φ fuel ∧
         DefEqClaims2P μ m φ fuel ∧ InferClaims2P μ m φ fuel ∧
           InferClaimsIO2P μ m φ fuel :=
-  checkSound2P5 (checkStep2P5_of_quarters hμ hwin hdin hiin) m φ
+  checkSound2P5 (checkStep2P5_of_quarters hμ hwin hdin hiin) m φ hφ
 
 end Setlec.SetP

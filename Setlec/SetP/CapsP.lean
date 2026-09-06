@@ -58,7 +58,7 @@ theorem constsBound_instType {env : Env} (hwf : Setlec.EnvWF env)
     {c : ConstantInfo} (hc : c ∈ env.consts) (us : List Level) :
     ConstsBound env
       (c.toConstantVal.type.instantiateLevelParams
-        c.toConstantVal.levelParams us) := by
+        c.toConstantVal.levelParams us (Level.masksOf env.lpsL us)) := by
   obtain ⟨-, -, hty, -⟩ := hwf c hc
   refine constsBound_of_constsResolve _ ?_
   rw [Setlec.Expr.constsResolve_instantiateLevelParams]
@@ -217,7 +217,7 @@ theorem capsOkP_cons_fresh (mp : EnvS2PM V μ env)
     refine ⟨TVa, ?_, hokTVa, ?_⟩
     · rw [hac]
       exact denoteP_cons_mono hfresh
-        ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
+        ((hntc.typeOf hfE).instantiateLevelParams _ _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x hlents hfit hmem
@@ -253,7 +253,7 @@ theorem capsOkP_cons_fresh (mp : EnvS2PM V μ env)
     refine ⟨TVa, ?_, hokTVa, ?_⟩
     · rw [hac]
       exact denoteP_cons_mono hfresh
-        ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
+        ((hntc.typeOf hfE).instantiateLevelParams _ _ _) _ 0
         (constsBound_instType mp.base2.wf
           (Setlec.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x y hlents hfit hmx hmy

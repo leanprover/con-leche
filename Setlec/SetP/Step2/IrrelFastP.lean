@@ -74,14 +74,14 @@ theorem interp2_mkAppN_pt {ρ : Nat → V} {f : AVExpr}
 version of the claims' zero side: the bit is `0` at every valuation
 (the dual of `pwBit_ne_zero_of_isNever`). -/
 theorem pwBit_eq_zero_of_isProp {pw : PropWhen}
-    (h : pw.isProp = true) (φ : Name → Nat) : pwBit φ pw = 0 := by
-  rw [pwBit_eq_of_equiv h φ]
+    (h : pw.isProp = true) (φ : Name → Nat) : pwBit env.lpsL φ pw = 0 := by
+  rw [pwBit_eq_of_equiv h env.lpsL φ]
   simp [pwBit, Setlec.PropWhen.holds]
 
 /-- **Exactness**: `pw.isProp` is *the* datum that is zero at every
 valuation — `isNever_iff_forall_pwBit_ne_zero`'s mirror. -/
 theorem alwaysZero_iff_forall_pwBit_eq_zero {pw : PropWhen} :
-    pw.isProp = true ↔ ∀ φ : Name → Nat, pwBit φ pw = 0 := by
+    pw.isProp = true ↔ ∀ φ : Name → Nat, pwBit env.lpsL φ pw = 0 := by
   constructor
   · exact pwBit_eq_zero_of_isProp
   · intro h
@@ -174,7 +174,7 @@ theorem neverChainP_of_peel {acval : Name → (Name → Nat) → AVExpr} :
     intro d T u ta hp hd
     obtain ⟨nm, ty, b, m, rfl, hnev, hb⟩ := Expr.peelNeverPis_succ_inv hp
     obtain ⟨tA, tB, -, htB, rfl⟩ := denoteP_forallE_inv hd
-    exact ⟨pwBit_ne_zero_of_isNever hnev φ,
+    exact ⟨pwBit_ne_zero_of_isNever hnev env.lpsL φ,
       ih (Expr.peelNeverPis_instantiate1 n _ 0 hb) htB⟩
 
 /-- **A type former's application lands in its result universe.**  The
@@ -293,7 +293,7 @@ squash-regime licence (a ∀-typed head, a λ) or the one graph-regime
 step (a type-former-typed head). -/
 theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     {d : Nat} {a : Expr} {Δa : List AVExpr} {aa : AVExpr}
-    (h : isProofFast env.find? a = true)
+    (h : isProofFast env.find? env.lpsL a = true)
     (hCa : CtxOkP m φ d Δa a)
     (hda : denoteP m.acval env φ d a = some aa)
     (ρ : Nat → V) (hρ : Sat2 V Δa ρ) : interp2 V ρ aa = (pt : V) := by
@@ -323,7 +323,7 @@ theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       have hta' := hta d
       rw [hT, Setlec.Expr.instantiateLevelParams] at hta'
       obtain ⟨tA, tB, -, -, rfl⟩ := denoteP_forallE_inv hta'
-      have hbit : pwBit φ (Level.substPW ci.toConstantVal.levelParams us mb.pw)
+      have hbit : pwBit env.lpsL φ (Level.substPW ci.toConstantVal.levelParams us mb.pw)
           = 0 := pwBit_eq_zero_of_isProp hprop φ
       have hm := hmem ρ
       rw [interp2_pi, hbit] at hm
@@ -347,13 +347,13 @@ theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
           Setlec.PropWhen.zeronessOf_sound] at hb
         exact beq_iff_eq.mp hb
       have hT : (ci.toConstantVal.type.instantiateLevelParams
-          ci.toConstantVal.levelParams us).getAppFn =
+          ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)).getAppFn =
           .const I (us'.map (Level.subst ci.toConstantVal.levelParams us)) := by
         rw [Setlec.Expr.getAppFn_instantiateLevelParams, hfnT]
         rfl
       have hpeel' : ciI.toConstantVal.type.peelNeverPis
           (ci.toConstantVal.type.instantiateLevelParams
-            ci.toConstantVal.levelParams us).getAppArgs.length =
+            ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)).getAppArgs.length =
           some (.sort u) := by
         rw [Setlec.Expr.getAppArgs_instantiateLevelParams, List.length_map]
         exact hpeel

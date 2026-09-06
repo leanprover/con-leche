@@ -46,10 +46,10 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
   obtain rfl : b = j := hdenb.symm
   show SimC mode env s₀ RelVC
     (if mode.verified &&
-        (notProofFast (mkFEnv env).find? a || notProofFast (mkFEnv env).find? b)
+        (notProofFast (mkFEnv env).find? env.lpsL a || notProofFast (mkFEnv env).find? env.lpsL b)
       then pure false
       else if mode.verified && mode.betaGate &&
-        isProofFast (mkFEnv env).find? a && isProofFast (mkFEnv env).find? b
+        isProofFast (mkFEnv env).find? env.lpsL a && isProofFast (mkFEnv env).find? env.lpsL b
       then pure true else
       (coreKnotI mode (mkFEnv env) f).inferIO d a >>= fun ta =>
       (coreKnotI mode (mkFEnv env) f).inferIO d ta >>= fun tta =>
@@ -76,12 +76,12 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
   rw [show (mkFEnv env).find? = env.find? from funext (mkFEnv_find? env)]
   unfold propIrrel
   by_cases hc : (mode.verified &&
-      (notProofFast env.find? a || notProofFast env.find? b)) = true
+      (notProofFast env.find? env.lpsL a || notProofFast env.find? env.lpsL b)) = true
   · rw [if_pos hc, if_pos hc]
     exact SimC.pure hs rfl
   · rw [if_neg hc, if_neg hc]
     by_cases hy : (mode.verified && mode.betaGate &&
-        isProofFast env.find? a && isProofFast env.find? b) = true
+        isProofFast env.find? env.lpsL a && isProofFast env.find? env.lpsL b) = true
     · rw [if_pos hy, if_pos hy]
       exact SimC.pure hs rfl
     rw [if_neg hy, if_neg hy]
@@ -422,7 +422,7 @@ theorem projCertC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
     (match env.find? c with
       | some (.ctorInfo cvC _ _) =>
         iotaCerts (fueledFns mode env) env d lic
-          (cvC.type.instantiateLevelParams cvC.levelParams us) xs
+          (cvC.type.instantiateLevelParams cvC.levelParams us (Level.masksOf env.lpsL us)) xs
       | _ => pure false)
   refine SimC.bind_left (readbackNM_eff hs c) (fun s₁ cn hs₁ hcn => ?_)
   subst hcn
@@ -433,7 +433,7 @@ theorem projCertC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
     cases ci with
     | ctorInfo cvC nP nF =>
       refine SimC.bind_left (constTyAtM_eff hs₁ hf) (fun s₂ tyC hs₂ hty => ?_)
-      have hnf : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false :=
+      have hnf : (cvC.type.instantiateLevelParams cvC.levelParams us (Level.masksOf env.lpsL us)).hasFvar = false :=
         const_ty_hasFvar henv hf us
       exact iotaCertsC_sim ih hs₂ hty (Expr.WScoped.of_not_hasFvar hnf) hargs hw
     | axiomInfo _ => exact SimC.pure hs₁ rfl
@@ -494,7 +494,7 @@ theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             (fueledFns mode env).defeq d wta wtb >>= fun r =>
             if r then
               iotaCerts (fueledFns mode env) env d false
-                (cvT.type.instantiateLevelParams cvT.levelParams us')
+                (cvT.type.instantiateLevelParams cvT.levelParams us' (Level.masksOf env.lpsL us'))
                 wta.getAppArgs
             else pure false
           else pure false
@@ -547,7 +547,7 @@ theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             refine SimC.bind_left (constTyAtM_eff hs₅ hfT)
               (fun s₆ tyT hs₆ hQty => ?_)
             have htyw : Expr.WScoped d
-                (cvT.type.instantiateLevelParams cvT.levelParams us') := by
+                (cvT.type.instantiateLevelParams cvT.levelParams us' (Level.masksOf env.lpsL us')) := by
               obtain ⟨htf, -⟩ := henv _ (find?_mem hfT)
               exact wscoped_instLevels_of_not_hasFvar htf _ _
             exact iotaCertsC_sim ih hs₆ hQty htyw hargs hwwta.getAppArgs
@@ -719,7 +719,7 @@ theorem structEtaProjCertsC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           refine SimC.bind_left (constTyAtM_eff hs hf)
             (fun s₁ pty hs₁ hQty => ?_)
           have htyw : Expr.WScoped d
-              (cvp.type.instantiateLevelParams cvp.levelParams us') := by
+              (cvp.type.instantiateLevelParams cvp.levelParams us' (Level.masksOf env.lpsL us')) := by
             obtain ⟨htf, -⟩ := henv _ (find?_mem hf)
             exact wscoped_instLevels_of_not_hasFvar htf _ _
           have hargs : ∀ x ∈ xs ++ [xb], Expr.WScoped d x := by
@@ -750,7 +750,7 @@ theorem structEtaProjCertsC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           refine SimC.bind_left (constTyAtM_eff hs hf)
             (fun s₁ pty hs₁ hQty => ?_)
           have htyw : Expr.WScoped d
-              (entry.ty.instantiateLevelParams entry.levelParams us') := by
+              (entry.ty.instantiateLevelParams entry.levelParams us' (Level.masksOf env.lpsL us')) := by
             obtain ⟨htf, -⟩ := henv _ (find?_mem hf)
             exact wscoped_instLevels_of_not_hasFvar htf _ _
           have hargs : ∀ x ∈ xs ++ [xb], Expr.WScoped d x := by
@@ -815,7 +815,7 @@ private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
                   (Level.isEquivList us us') >>= fun ok =>
                 if ok then
                   iotaCerts (fueledFns mode env) env d false
-                      (cvT.type.instantiateLevelParams cvT.levelParams us')
+                      (cvT.type.instantiateLevelParams cvT.levelParams us' (Level.masksOf env.lpsL us'))
                       wtb.getAppArgs >>= fun r₁ =>
                   if r₁ then
                     structEtaProjCerts (fueledFns mode env) env d T us'
@@ -829,7 +829,7 @@ private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
                         (if mode.ttChecks then
                             iotaCerts (fueledFns mode env) env d false
                               (cvc.type.instantiateLevelParams
-                                cvc.levelParams us)
+                                cvc.levelParams us (Level.masksOf env.lpsL us))
                               (wtb.getAppArgs ++
                                 etaProjs env T us' wtb.getAppArgs b cnF)
                           else pure true) >>= fun r₄ =>
@@ -994,7 +994,7 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       (fun s₂ tyT hs₂ hQty => ?_)
                     have htyw : Expr.WScoped d
                         (cvT.type.instantiateLevelParams
-                          cvT.levelParams us') := by
+                          cvT.levelParams us' (Level.masksOf env.lpsL us')) := by
                       obtain ⟨htf, -⟩ := henv _ (find?_mem hfT)
                       exact wscoped_instLevels_of_not_hasFvar htf _ _
                     refine SimC.bind (iotaCertsC_sim ih hs₂ hQty htyw
@@ -1062,7 +1062,7 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                                 (fun s₇ tyCtor hs₇ hQtyc => ?_)
                               have htycw : Expr.WScoped d
                                   (cvc.type.instantiateLevelParams
-                                    cvc.levelParams us) := by
+                                    cvc.levelParams us (Level.masksOf env.lpsL us)) := by
                                 obtain ⟨htf, -⟩ := henv _ (find?_mem hfc)
                                 exact wscoped_instLevels_of_not_hasFvar
                                   htf _ _

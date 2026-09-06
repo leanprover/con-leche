@@ -130,15 +130,17 @@ theorem inferTypeCore_mkAppN_sort {env : Env} {F d : Nat} :
 
 /-- The first `n` binders of `e`, opened from depth `d` with the
 inference's own `fvar`s, each codomain bit zero exactly when `z`. -/
-def PiBitsOpen (φ : Name → Nat) (z : Prop) : Nat → Nat → Expr → Prop
+def PiBitsOpen (ps : List Name) (φ : Name → Nat) (z : Prop) :
+    Nat → Nat → Expr → Prop
   | 0, _, _ => True
   | n + 1, d, .forallE nm dom body mb =>
-    (pwBit φ mb.pw = 0 ↔ z) ∧
-      PiBitsOpen φ z n (d + 1) (body.instantiate1 (.fvar d nm dom))
+    (pwBit ps φ mb.pw = 0 ↔ z) ∧
+      PiBitsOpen ps φ z n (d + 1) (body.instantiate1 (.fvar d nm dom))
   | _ + 1, _, _ => False
 
-theorem PiBitsOpen.congr {φ : Name → Nat} {z z' : Prop} (hz : z ↔ z') :
-    ∀ {n d : Nat} {e : Expr}, PiBitsOpen φ z n d e → PiBitsOpen φ z' n d e
+theorem PiBitsOpen.congr {ps : List Name} {φ : Name → Nat} {z z' : Prop}
+    (hz : z ↔ z') :
+    ∀ {n d : Nat} {e : Expr}, PiBitsOpen ps φ z n d e → PiBitsOpen ps φ z' n d e
   | 0, _, _, _ => trivial
   | _ + 1, _, .forallE _ _ _ _, h =>
     ⟨h.1.trans hz, PiBitsOpen.congr hz h.2⟩
@@ -168,7 +170,7 @@ theorem piBits_of_infer {env : Env} (hver : mode.verified = true) :
         inferTypeCore mode env F' (d + n) opened = .ok tb ∧
         ensureSortCore mode env F' (d + n) tb = .ok vb ∧
         (∀ φ, Level.eval φ v₀ = 0 ↔ Level.eval φ vb = 0) ∧
-        ∀ φ, PiBitsOpen φ (Level.eval φ vb = 0) n d e
+        ∀ φ, PiBitsOpen env.lpsL φ (Level.eval φ vb = 0) n d e
   | 0, F, d, e, t, v₀, fvs, opened, hop, h, hens => by
     simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
     obtain ⟨-, rfl⟩ := hop
@@ -195,7 +197,7 @@ theorem piBits_of_infer {env : Env} (hver : mode.verified = true) :
             rw [ensureSortCore_sort_eq hens, eval_imax_eq_zero_iff]
             exact hv φ
           · intro φ
-            exact ⟨(pwBit_of_equiv_zeronessOf (hz hver) φ).trans (hv φ),
+            exact ⟨(pwBit_of_maskOf? (hz hver) φ).trans (hv φ),
               hbits φ⟩
         · exact nomatch hop
     | .bvar _, hop, _ | .fvar _ _ _, hop, _ | .sort _, hop, _
@@ -211,7 +213,7 @@ theorem stripPisAV_bits {acval : Name → (Name → Nat) → AVExpr} {env : Env}
     {φ : Name → Nat} {z : Prop} :
     ∀ (n : Nat) {d : Nat} {e : Expr} {ea : AVExpr}
       {pps : List (Nat × Nat × AVExpr)} {b : AVExpr},
-      PiBitsOpen φ z n d e → denoteP acval env φ d e = some ea →
+      PiBitsOpen env.lpsL φ z n d e → denoteP acval env φ d e = some ea →
       stripPisAV n ea = some (pps, b) →
       ∀ p ∈ pps, (p.2.1 = 0 ↔ z)
   | 0, d, e, ea, pps, b, _, _, hst => by

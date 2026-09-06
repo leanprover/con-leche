@@ -78,8 +78,9 @@ theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
 theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
     {env' env₁ : Env} {ci : ConstantInfo}
     (h : checkIndMember (fueledOps mode F) blockNames caps env' ci = .ok env₁) :
-    ∃ cvA cvm mval hmcvm,
-      checkConstantVal (fueledOps mode F) env' ci.toConstantVal = .ok cvA ∧
+    ∃ c cvA cvm mval hmcvm,
+      UnivCtx.of? ci.toConstantVal.levelParams = some c ∧
+      checkConstantVal (fueledOps mode F) (env'.withLps c) ci.toConstantVal = .ok cvA ∧
       cvA.name.isModelSuffix = false ∧
       env'.find? (cvA.name.str "_model") = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = cvA.levelParams ∧
@@ -87,18 +88,25 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
         if blockNames.contains n then n.str "_model" else n)) cvm.type =
         true ∧
       ((∃ cv caps', ci = .indInfo cv caps') ∧
-         env₁ = { env' with consts := .indInfo cvA caps :: env'.consts } ∨
+         env₁ = { env'.withLps c with consts := .indInfo cvA caps :: (env'.withLps c).consts } ∨
        (∃ cv nP nF, ci = .ctorInfo cv nP nF ∧
-         env₁ = { env' with consts := .ctorInfo cvA nP nF :: env'.consts })) := by
+         env₁ = { env'.withLps c with consts := .ctorInfo cvA nP nF :: (env'.withLps c).consts })) := by
   simp only [checkIndMember, Bind.bind, Except.bind] at h
-  cases hcmv : checkMemberVal (fueledOps mode F) blockNames env'
+  cases henter : enterCtx (m := CheckM) env' ci.toConstantVal.levelParams with
+  | error e => rw [henter] at h; exact nomatch h
+  | ok envU =>
+  rw [henter] at h
+  obtain ⟨c, hc, rfl⟩ := enterCtx_inv henter
+  try dsimp only at h
+  cases hcmv : checkMemberVal (fueledOps mode F) blockNames (env'.withLps c)
       ci.toConstantVal with
   | error e => rw [hcmv] at h; exact nomatch h
   | ok cvA =>
   rw [hcmv] at h
   obtain ⟨hccv, hms, cvm, mval, hmcvm, hfm, hlps, hren⟩ :=
     checkMemberVal_inv hcmv
-  refine ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hren, ?_⟩
+  simp only [Env.withLps_consts, Env.withLps_lps] at h
+  refine ⟨c, cvA, cvm, mval, hmcvm, hc, hccv, hms, by simpa using hfm, hlps, hren, ?_⟩
   cases ci with
   | axiomInfo cv => exact nomatch h
   | projInfo _ => exact nomatch h
@@ -118,12 +126,14 @@ theorem provisionRecs_cons_inv {blockNames : List Name}
     {p : Env × List (ConstantVal × Nat × Nat × List RecRule)}
     (h : provisionRecs (fueledOps mode F) blockNames envAcc (ci :: rest) =
       .ok p) :
-    ∃ cv mI rP rules cvA p',
+    ∃ cv mI rP rules c cvA p',
       ci = .recInfo cv mI rP rules ∧
-      checkMemberVal (fueledOps mode F) blockNames envAcc ci.toConstantVal =
+      UnivCtx.of? ci.toConstantVal.levelParams = some c ∧
+      checkMemberVal (fueledOps mode F) blockNames (envAcc.withLps c) ci.toConstantVal =
         .ok cvA ∧
       provisionRecs (fueledOps mode F) blockNames
-        { envAcc with consts := .recInfo cvA mI rP [] :: envAcc.consts } rest = .ok p' ∧
+        { envAcc.withLps c with consts := .recInfo cvA mI rP [] :: (envAcc.withLps c).consts } rest
+        = .ok p' ∧
       p = (p'.1, (cvA, mI, rP, rules) :: p'.2) := by
   revert h
   match ci with
@@ -136,18 +146,26 @@ theorem provisionRecs_cons_inv {blockNames : List Name}
   | .ctorInfo _ _ _ => intro h; exact nomatch h
   intro h
   simp only [provisionRecs, Bind.bind, Except.bind] at h
-  cases hcmv : checkMemberVal (fueledOps mode F) blockNames envAcc
+  cases henter : enterCtx (m := CheckM) envAcc
+      (ConstantInfo.recInfo cv mI rP rules).toConstantVal.levelParams with
+  | error e => rw [henter] at h; exact nomatch h
+  | ok envU =>
+  rw [henter] at h
+  obtain ⟨c, hc, rfl⟩ := enterCtx_inv henter
+  try dsimp only at h
+  cases hcmv : checkMemberVal (fueledOps mode F) blockNames (envAcc.withLps c)
       (ConstantInfo.recInfo cv mI rP rules).toConstantVal with
   | error e => rw [hcmv] at h; exact nomatch h
   | ok cvA =>
   rw [hcmv] at h
   try dsimp only at h
+  simp only [Env.withLps_consts, Env.withLps_lps] at h
   cases hrec : provisionRecs (fueledOps mode F) blockNames
-      { envAcc with consts := .recInfo cvA mI rP [] :: envAcc.consts } rest with
+      { consts := .recInfo cvA mI rP [] :: envAcc.consts, lps := c } rest with
   | error e => rw [hrec] at h; exact nomatch h
   | ok p' =>
   rw [hrec] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
-  exact ⟨cv, mI, rP, rules, cvA, p', rfl, rfl, hrec, h.symm⟩
+  exact ⟨cv, mI, rP, rules, c, cvA, p', rfl, hc, hcmv, hrec, h.symm⟩
 
 end Setlec

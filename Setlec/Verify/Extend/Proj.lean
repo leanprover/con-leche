@@ -32,6 +32,7 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
       env'.find? ctorName = some (.ctorInfo cvj nP nF) ∧
       env'.find? (projModelName T i) = some (.defnInfo mcv mval hmmcv) ∧
       mcv.levelParams = lps ∧
+      cvj.levelParams = lps ∧
       env'.find? (projFnName T i) = none ∧
       (env'.find? T).isSome = true ∧
       env'.find? eqName = some eqA := by
@@ -69,6 +70,10 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
   case neg => rw [if_neg hmlps] at h; exact nomatch h
   rw [if_pos hmlps] at h
   try dsimp only at h
+  by_cases hclps : cvj'.levelParams = lps
+  case neg => rw [if_neg hclps] at h; exact nomatch h
+  rw [if_pos hclps] at h
+  try dsimp only at h
   by_cases hpn : (env'.find? (projFnName T i)).isNone = true
   case neg => rw [if_neg hpn] at h; exact nomatch h
   rw [if_pos hpn] at h
@@ -85,7 +90,7 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
   rw [if_pos heqf] at h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
-  exact ⟨mval, hmv', rfl, rfl, hmlps, hpnone, hTf, heqf⟩
+  exact ⟨mval, hmv', rfl, rfl, hmlps, hclps, hpnone, hTf, heqf⟩
 
 /-- Invert stage 2 of `checkProjFn` (the public projection type). -/
 theorem checkProjTy_inv {env' : Env} {T ctorName : Name} {lps : List Name}
@@ -536,29 +541,36 @@ theorem checkProjShape_inv {pty cty : Expr} {nP nF : Nat} {u : Unit}
 theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
     {lps : List Name} {nP nF i : Nat}
     (h : checkProjFn mode (fueledOps mode F) env' T ctorName lps nP nF i = .ok env₁) :
-    ∃ cvj mcv,
-      (checkProjLookups env' T ctorName lps nP nF i : CheckM _) =
+    ∃ (c : UnivCtx) (cvj mcv : ConstantVal),
+      UnivCtx.of? lps = some c ∧
+      (checkProjLookups (env'.withLps c) T ctorName lps nP nF i : CheckM _) =
         .ok (cvj, mcv) ∧
-      ∃ pty, (checkProjTy env' T ctorName lps mcv.type nP nF : CheckM _) =
+      ∃ pty, (checkProjTy (env'.withLps c) T ctorName lps mcv.type nP nF : CheckM _) =
         .ok pty ∧
       (∃ u : Unit, (checkProjShape pty cvj.type nP nF : CheckM _)
         = .ok u) ∧
       i < nF ∧
-      ∃ rhsA, checkProjRule (fueledOps mode F) env' pty cvj lps nP nF i =
+      ∃ rhsA, checkProjRule (fueledOps mode F) (env'.withLps c) pty cvj lps nP nF i =
         .ok rhsA ∧
-      (∃ u : Unit, checkProjIota mode (fueledOps mode F) env' env' T ctorName
-        lps cvj nP nF i = .ok u) ∧
-      env₁ = { env' with consts := (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-        [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩]) :: env'.consts } := by
+      (∃ u : Unit, checkProjIota mode (fueledOps mode F) (env'.withLps c) (env'.withLps c)
+        T ctorName lps cvj nP nF i = .ok u) ∧
+      env₁ = { env'.withLps c with consts := (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+        [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩]) :: (env'.withLps c).consts } := by
   simp only [checkProjFn, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
-  cases hlk : (checkProjLookups env' T ctorName lps nP nF i : CheckM _) with
+  cases henter : enterCtx (m := CheckM) env' lps with
+  | error e => rw [henter] at h; exact nomatch h
+  | ok envU => ?_
+  rw [henter] at h
+  obtain ⟨c, hc, rfl⟩ := enterCtx_inv henter
+  try dsimp only at h
+  cases hlk : (checkProjLookups (env'.withLps c) T ctorName lps nP nF i : CheckM _) with
   | error e => rw [hlk] at h; exact nomatch h
   | ok pr => ?_
   rw [hlk] at h
   obtain ⟨cvj, mcv⟩ := pr
   try dsimp only at h
-  cases hty : (checkProjTy env' T ctorName lps mcv.type nP nF : CheckM _) with
+  cases hty : (checkProjTy (env'.withLps c) T ctorName lps mcv.type nP nF : CheckM _) with
   | error e => rw [hty] at h; exact nomatch h
   | ok pty => ?_
   rw [hty] at h
@@ -572,19 +584,19 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
   case neg => rw [if_neg hi] at h; exact nomatch h
   rw [if_pos hi] at h
   try dsimp only at h
-  cases hrule : checkProjRule (fueledOps mode F) env' pty cvj lps nP nF i
+  cases hrule : checkProjRule (fueledOps mode F) (env'.withLps c) pty cvj lps nP nF i
       with
   | error e => rw [hrule] at h; exact nomatch h
   | ok rhsA => ?_
   rw [hrule] at h
   try dsimp only at h
-  cases hio : checkProjIota mode (fueledOps mode F) env' env' T ctorName lps
-      cvj nP nF i with
+  cases hio : checkProjIota mode (fueledOps mode F) (env'.withLps c) (env'.withLps c)
+      T ctorName lps cvj nP nF i with
   | error e => rw [hio] at h; exact nomatch h
   | ok u => ?_
   rw [hio] at h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  exact ⟨cvj, mcv, rfl, pty, hty, ⟨u0, hshape⟩, hi, rhsA, hrule,
+  simp only [pure, Except.pure, Except.ok.injEq, Env.withLps_consts, Env.withLps_lps] at h
+  exact ⟨c, cvj, mcv, hc, hlk, pty, hty, ⟨u0, hshape⟩, hi, rhsA, hrule,
     ⟨u, hio⟩, h.symm⟩
 
 /-- The projection-artifact phase adds only recursor-kind constants
@@ -611,7 +623,7 @@ theorem checkProjFold_find_new {T ctorName : Name} {lps : List Name}
       | error e => rw [hstep] at h; exact nomatch h
       | ok env₂ => ?_
       rw [hstep] at h
-      obtain ⟨cvj, mcv, hlk, pty, hty, hshape, hi, rhsA, hrule, hio,
+      obtain ⟨c, cvj, mcv, hc, hlk, pty, hty, hshape, hi, rhsA, hrule, hio,
         henv₂⟩ := checkProjFn_inv hstep
       have hcons : ∀ (n' : Name) (ci' : ConstantInfo),
           env₂.find? n' = some ci' →
@@ -656,7 +668,7 @@ theorem checkProjFold_mono {T ctorName : Name} {lps : List Name}
       | error e => rw [hstep] at h; exact nomatch h
       | ok env₂ => ?_
       rw [hstep] at h
-      obtain ⟨cvj, mcv, hlk, pty, hty, hshape, hi, rhsA, hrule, hio,
+      obtain ⟨c, cvj, mcv, hc, hlk, pty, hty, hshape, hi, rhsA, hrule, hio,
         henv₂⟩ := checkProjFn_inv hstep
       refine checkProjFold_mono rest env₂ env₁ h n ?_
       rw [henv₂, Env.find?_cons]
@@ -764,18 +776,18 @@ theorem checkProjFold_find_preserved {T ctorName : Name}
       | error e => rw [hstep] at h; exact nomatch h
       | ok env₂ => ?_
       rw [hstep] at h
-      obtain ⟨cvj, mcv, hlk, pty, hty, hshape, hi, rhsA, hrule, hio,
+      obtain ⟨c, cvj, mcv, hc, hlk, pty, hty, hshape, hi, rhsA, hrule, hio,
         henv₂⟩ := checkProjFn_inv hstep
-      obtain ⟨mval2, hmmcv2, hctor2, hfm2, hmlps2, hpnone2, hTf2,
+      obtain ⟨mval2, hmmcv2, hctor2, hfm2, hmlps2, -, hpnone2, hTf2,
         heqf2⟩ := checkProjLookups_inv hlk
       refine checkProjFold_find_preserved rest env₂ env₁ h n ci ?_
       rw [henv₂]
       rw [Env.find?_cons_of_isSome
-        (show env'.find? (ConstantInfo.recInfo
+        (show (env'.withLps c).find? (ConstantInfo.recInfo
           ⟨projFnName T i₀, lps, pty⟩ nP nP [⟨ctorName, nF, nP,
             (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
              else .inert), rhsA⟩]).name = none from hpnone2)
-        (by rw [hf]; rfl)]
+        (by rw [Env.find?_withLps, hf]; rfl), Env.find?_withLps]
       exact hf
     · rw [if_neg hm] at h
       simp only [pure, Except.pure, Except.bind] at h

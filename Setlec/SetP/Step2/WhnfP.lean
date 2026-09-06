@@ -272,23 +272,30 @@ def AcvalDefnInstP {env : Env} (m : EnvS2Core V env) : Prop :=
     ((∃ hint : ReducibilityHint,
         ConstantInfo.defnInfo cv value hint ∈ env.consts) ∨
       ConstantInfo.thmInfo cv value ∈ env.consts) →
-    denoteP m.acval env ψ 0 value = some (m.acval cv.name ψ)
+    denoteP m.acval (env.withLpsL cv.levelParams) ψ 0 value = some (m.acval cv.name ψ)
 
 /-- **The instantiated form, derived.**  This is the whole of what the
-canonical lane routes as `Denote2InstLevels`, and it is one rewrite.
-Note that the arity premise `us.length = cv.levelParams.length` — which
-`AcvalDefnInst` carries — is *not needed*: `denotePInstLevels` is
-unconditional. -/
+canonical lane routes as `Denote2InstLevels`, and it is one rewrite —
+the crossing (`denotePInstLevels`), at the packed datum's valuation
+class and with the stored value's context facts (`EnvWF`). -/
 theorem acvalDefnInstP_subst {m : EnvS2Core V env}
-    (hdi : AcvalDefnInstP m) (φ : Name → Nat) {cv : ConstantVal}
-    {value : Expr} {us : List Level}
+    (hdi : AcvalDefnInstP m) (φ : Name → Nat) (hφ : Level.NonzeroOutside env.lpsL φ)
+    {cv : ConstantVal} {value : Expr} {us : List Level}
+    (hlen : us.length = cv.levelParams.length)
     (hmem : (∃ hint : ReducibilityHint,
         ConstantInfo.defnInfo cv value hint ∈ env.consts) ∨
       ConstantInfo.thmInfo cv value ∈ env.consts) :
     denoteP m.acval env φ 0
-        (value.instantiateLevelParams cv.levelParams us)
+        (value.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
       = some (m.acval cv.name (Level.substFn φ cv.levelParams us)) := by
-  rw [denotePInstLevels m φ cv.levelParams us 0 value]
+  have hctx : cv.levelParams.Nodup ∧ cv.levelParams.length ≤ 63 ∧
+      value.allLevelParamsDefined cv.levelParams = true := by
+    rcases hmem with ⟨hint, hmem⟩ | hmem
+    · have hwf := m.wf _ hmem
+      exact ⟨hwf.ctx.1, hwf.ctx.2, (hwf.2.2.2.2.1 cv value hint rfl).2.1⟩
+    · have hwf := m.wf _ hmem
+      exact ⟨hwf.ctx.1, hwf.ctx.2, (hwf.2.2.2.2.2.2.1 cv value rfl).2.1⟩
+  rw [denotePInstLevels m φ cv.levelParams us hctx.1 hctx.2.1 hlen hφ 0 value hctx.2.2]
   exact hdi _ cv value hmem
 
 /-- The shared core of `unfoldDefinition`'s two branches, P currency —
@@ -303,11 +310,11 @@ private theorem deltaP_core (m : EnvS2Core V env)
     (hlen : us.length = cv.levelParams.length)
     (hnofv : value.hasFvar = false)
     (hval : denoteP m.acval env φ 0
-        (value.instantiateLevelParams cv.levelParams us)
+        (value.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
       = some (m.acval ci.name (Level.substFn φ cv.levelParams us)))
     (hea : denoteP m.acval env φ d e = some ea) :
     denoteP m.acval env φ d
-        (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+        (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
           e.getAppArgs) = some ea := by
   obtain rfl : ci.name = n := by
     rw [Env.find?] at hfind
@@ -332,7 +339,8 @@ mirror; the spine (`denoteP_mkAppN_swap`), the depth
 (`denoteP_depth_of_closed`) and now the *level crossing*
 (`denotePInstLevels`, through `acvalDefnInstP_subst`) are all
 theorems. -/
-theorem deltaP_of (m : EnvS2Core V env) (hdi : AcvalDefnInstP m) :
+theorem deltaP_of (m : EnvS2Core V env) (hdi : AcvalDefnInstP m)
+    (hφ : Level.NonzeroOutside env.lpsL φ) :
     DeltaP m φ := by
   intro d e e' ea hud hea
   rw [unfoldDefinition] at hud
@@ -343,26 +351,26 @@ theorem deltaP_of (m : EnvS2Core V env) (hdi : AcvalDefnInstP m) :
       split at hud
       · next hlen =>
         obtain rfl : e' = Expr.mkAppN
-            (value.instantiateLevelParams cv.levelParams us)
+            (value.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
             e.getAppArgs := (Option.some.inj hud).symm
         exact deltaP_core m hfn hfind rfl hlen
           (by obtain ⟨-, -, -, -, hd, -⟩ :=
                 m.wf _ (find?_mem hfind)
               exact (hd cv value hint rfl).1)
-          (acvalDefnInstP_subst hdi φ
+          (acvalDefnInstP_subst hdi φ hφ hlen
             (Or.inl ⟨hint, find?_mem hfind⟩)) hea
       · exact nomatch hud
     · next cv value hfind =>
       split at hud
       · next hlen =>
         obtain rfl : e' = Expr.mkAppN
-            (value.instantiateLevelParams cv.levelParams us)
+            (value.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
             e.getAppArgs := (Option.some.inj hud).symm
         exact deltaP_core m hfn hfind rfl hlen
-          (by obtain ⟨-, -, -, -, -, -, ht⟩ :=
+          (by obtain ⟨-, -, -, -, -, -, ht, -⟩ :=
                 m.wf _ (find?_mem hfind)
               exact (ht cv value rfl).1)
-          (acvalDefnInstP_subst hdi φ (Or.inr (find?_mem hfind))) hea
+          (acvalDefnInstP_subst hdi φ hφ hlen (Or.inr (find?_mem hfind))) hea
       · exact nomatch hud
     · exact nomatch hud
   · exact nomatch hud
@@ -579,7 +587,7 @@ theorem whnfCore_letE_claimP (m : EnvS2Core V env) {fuel : Nat}
 
 /-- **The `.app` clause, P currency.**  The β kind split is verbatim
 the `…D` lane's — `Nat.eq_zero_or_pos` on the λ's stored numeral, which
-in this currency is `pwBit φ mb.pw` — and the two arms are
+in this currency is `pwBit env.lpsL φ mb.pw` — and the two arms are
 `AnnotOkP_beta_zero`/`AnnotOkP_beta_pos`.  The head's reduct reading
 comes from the routed existence factor; every other reading in the
 proof is inverted out of a premise. -/
@@ -676,11 +684,11 @@ theorem whnfCore_app_claimP (m : EnvS2Core V env) {fuel : Nat}
     have hLred : Expr.LeavesBounded (body.instantiate1 a) :=
       fun l hl => hLapp l (hsubred l hl)
     have hstep : ∀ ρ : Nat → V, Sat2 V Δa ρ →
-        interp2 V ρ (.app (.lam (pwBit φ mm.pw) tya ba) aa)
+        interp2 V ρ (.app (.lam (pwBit env.lpsL φ mm.pw) tya ba) aa)
             = interp2 V ρ (ba.inst aa) ∧
           AnnotOkP V ρ (ba.inst aa) := by
       intro ρ hρ
-      by_cases hz : pwBit φ mm.pw = 0
+      by_cases hz : pwBit env.lpsL φ mm.pw = 0
       · -- task #161: the zero-kind arm is the one that consumes a
         -- certificate, and it is exactly the arm a **fired β gate**
         -- cannot reach — the asymmetry fence, discharged here rather
@@ -688,7 +696,7 @@ theorem whnfCore_app_claimP (m : EnvS2Core V env) {fuel : Nat}
         -- is this same composition packaged).
         rcases hcertOr with hfired | ⟨ta, hta, hde⟩
         · exact absurd hz
-            (pwBit_ne_zero_of_isNever (isNever_of_betaGateFires hfired) φ)
+            (pwBit_ne_zero_of_isNever (isNever_of_betaGateFires hfired) env.lpsL φ)
         · rw [hz] at hokapp ⊢
           exact AnnotOkP_beta_zero (hokapp ρ hρ)
             (hcert hta hde hws.2 hb.2 hLa hwf'.1 hbf'.1 hLty hCa
@@ -845,6 +853,7 @@ theorem whnf_claimsP (m : EnvS2Core V env) {fuel : Nat}
 /-- The head-normalisation quarter, P currency. -/
 def WhnfCoreStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
+    Level.NonzeroOutside env.lpsL φ →
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
     InferClaimsIO2P μ m φ fuel →
@@ -853,6 +862,7 @@ def WhnfCoreStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 /-- The reduction-loop quarter, P currency. -/
 def WhnfStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
+    Level.NonzeroOutside env.lpsL φ →
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
     InferClaimsIO2P μ m φ fuel →
@@ -897,7 +907,7 @@ currency.**  `hμ` is *unused* (flagged in the module docstring); it is
 carried so the four quarters assemble under one mode hypothesis. -/
 theorem whnfCoreStepP_of (_hμ : μ.verified = true)
     (hin : WhnfInputsP V μ) : WhnfCoreStepP μ V :=
-  fun _env m φ fuel ihwc _ ihd ihi ihio =>
+  fun _env m φ fuel _hφ ihwc _ ihd ihi ihio =>
     whnfCore_claimsP m (hin.core_exists m φ fuel)
       (betaCertP_of_claims m (hin.infer_exists m φ fuel) ihd
         (inferClaimsIOS2P_of ihi ihio))
@@ -907,8 +917,8 @@ theorem whnfCoreStepP_of (_hμ : μ.verified = true)
 as above. -/
 theorem whnfStepP_of (_hμ : μ.verified = true)
     (hin : WhnfInputsP V μ) : WhnfStepP μ V :=
-  fun _env m φ fuel ihwc ihw _ _ _ =>
+  fun _env m φ fuel hφ ihwc ihw _ _ _ =>
     whnf_claimsP m (hin.core_exists m φ fuel) ihwc
-      (hin.nat m φ fuel ihw) (deltaP_of m (hin.defn m))
+      (hin.nat m φ fuel ihw) (deltaP_of m (hin.defn m) hφ)
 
 end Setlec.SetP

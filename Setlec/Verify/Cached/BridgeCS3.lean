@@ -258,9 +258,9 @@ theorem checkDirectRecTyS_sim (henv : EnvWF env) {p : DirectParts}
   obtain ⟨cdomsP, crest⟩ := q2
   dsimp only
   obtain ⟨hcdW, hcrW⟩ := instPisAt_WScoped (d := p.nP + 2 + p.nF) _ _ hci
-    (WScoped.of_not_hasFvar hCf) hpsW
+    (WScoped.of_not_hasFvar (by rw [Expr.remapPW, Expr.hasFvar_instantiateLevelParams]; exact hCf)) hpsW
   obtain ⟨-, hcrWn⟩ := instPisAt_WScoped (d := p.nP) _ _ hci
-    (WScoped.of_not_hasFvar hCf) hpsWn
+    (WScoped.of_not_hasFvar (by rw [Expr.remapPW, Expr.hasFvar_instantiateLevelParams]; exact hCf)) hpsWn
   have hpsIdx : ∀ (i : Nat) (x : Expr), (fvsP.take p.nP)[i]? = some x →
       WScoped (0 + i) (Expr.fvarTypeD x) := by
     intro i x hx
@@ -276,7 +276,7 @@ theorem checkDirectRecTyS_sim (henv : EnvWF env) {p : DirectParts}
       WScoped (0 + i) x := by
     intro i x hx
     refine instPisAt_index_WScoped (fvsP.take p.nP) (d := 0) hci
-      (WScoped.of_not_hasFvar hCf) ?_ i x hx
+      (WScoped.of_not_hasFvar (by rw [Expr.remapPW, Expr.hasFvar_instantiateLevelParams]; exact hCf)) ?_ i x hx
     intro k a hk
     rw [List.getElem?_take] at hk
     split at hk
@@ -440,7 +440,7 @@ theorem checkDirectRuleS_sim (henv : EnvWF env) {p : DirectParts}
   have hpsW2 : ∀ x ∈ fvsP.take p.nP, WScoped (p.nP + 2) x :=
     fun x hx => hfvsW0 x (List.mem_of_mem_take hx)
   obtain ⟨-, hcrW2⟩ := instPisAt_WScoped (d := p.nP + 2) _ _ hci
-    (WScoped.of_not_hasFvar hCf) hpsW2
+    (WScoped.of_not_hasFvar (by rw [Expr.remapPW, Expr.hasFvar_instantiateLevelParams]; exact hCf)) hpsW2
   refine SimC.bind (SimC.unwrapOr' hs₄) (fun s₅ q4 q4' hs₅ hT => ?_)
   obtain ⟨rfl, hox⟩ := hT
   obtain ⟨xFvs, xrest⟩ := q4
@@ -488,10 +488,12 @@ theorem checkDirectProjEntryS_sim (henv : EnvWF env) {T C : Name}
   have hptyf : pty.hasFvar = false := by
     simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h0
     exact h0.1
-  have hptyσf : (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)).hasFvar
+  have hptyσf : (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)
+      (Level.masksOf lps (directGuardSigma rs lps guard))).hasFvar
       = false := by
     rw [hasFvar_instantiateLevelParams]; exact hptyf
-  have hCfσ : (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)).hasFvar
+  have hCfσ : (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard)
+      (Level.masksOf lps (directGuardSigma rs lps guard))).hasFvar
       = false := by
     rw [hasFvar_instantiateLevelParams]; exact hCf
   refine SimC.bind (opE_annotate_sim henv hs₁ (WScoped.of_not_hasFvar hptyσf))

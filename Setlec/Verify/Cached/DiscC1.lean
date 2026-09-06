@@ -416,12 +416,12 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
         match env.find? n with
         | some (.defnInfo cv value _) =>
           if us.length = cv.levelParams.length then
-            some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+            some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
               (Expr.getAppArgs i))
           else none
         | some (.thmInfo cv value) =>
           if us.length = cv.levelParams.length then
-            some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+            some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
               (Expr.getAppArgs i))
           else none
         | _ => none

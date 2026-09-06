@@ -56,6 +56,7 @@ open Setlec.TT Setlec.TTVerify
 door and the model-counterpart lookups, no carrier. -/
 theorem memberValRun_of {env' : Env} {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {cv cvA : ConstantVal}
+    (hlen : cv.levelParams.length ≤ PropWhen.maxParams)
     (h : checkMemberVal (m := CheckM) (fueledOps μ F) blockNames env' cv
       = .ok cvA) :
     MemberValRun μ F env' blockNames cv cvA := by
@@ -65,7 +66,7 @@ theorem memberValRun_of {env' : Env} {μ : CheckMode} {F : Nat}
   | ok cv' =>
   rw [hccv] at h
   try dsimp only at h
-  obtain ⟨type, rfl, -, -, hcv⟩ := constantValRun_of hccv
+  obtain ⟨type, rfl, -, -, hcv⟩ := constantValRun_of hlen hccv
   by_cases hms : cv.name.isModelSuffix = true
   · rw [if_pos hms] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
@@ -121,18 +122,25 @@ theorem indMembersRunRS
     intro env env₂ h
     simp only [List.foldlM, Bind.bind, Except.bind, checkIndMember] at h
     revert h
+    cases henter : enterCtx (m := CheckM) env ci.toConstantVal.levelParams with
+    | error e => intro h; exact nomatch h
+    | ok envU => ?_
+    obtain ⟨c, hc, rfl⟩ := enterCtx_inv henter
+    intro h
+    try dsimp only at h
+    revert h
     cases hmv0 : checkMemberVal (m := CheckM) (fueledOps μ F) blockNames
-        env ci.toConstantVal with
+        (env.withLps c) ci.toConstantVal with
     | error e => intro h; exact nomatch h
     | ok cvA =>
       intro h
       cases ci with
       | indInfo cv caps' =>
         simp only [pure, Except.pure] at h
-        exact ⟨cvA, memberValRun_of hmv0, ih h⟩
+        exact ⟨c, cvA, hc, memberValRun_of (UnivCtx.len_of_some hc) hmv0, ih h⟩
       | ctorInfo cv nP nF =>
         simp only [pure, Except.pure] at h
-        exact ⟨cvA, memberValRun_of hmv0, ih h⟩
+        exact ⟨c, cvA, hc, memberValRun_of (UnivCtx.len_of_some hc) hmv0, ih h⟩
       | axiomInfo cv | defnInfo cv v hint | thmInfo cv v
       | recInfo cv mI rP rules | projInfo e =>
         simp [throw, throwThe, MonadExceptOf.throw] at h
@@ -159,15 +167,24 @@ theorem provisionRecsRunRS
     | recInfo cv mI rP rules =>
       simp only [provisionRecs, Bind.bind, Except.bind] at h
       revert h
+      cases henter : enterCtx (m := CheckM) envAcc
+          (ConstantInfo.recInfo cv mI rP rules).toConstantVal.levelParams with
+      | error e => intro h; exact nomatch h
+      | ok envU => ?_
+      obtain ⟨c, hc, rfl⟩ := enterCtx_inv henter
+      intro h
+      try dsimp only at h
+      revert h
       cases hmv0 : checkMemberVal (m := CheckM) (fueledOps μ F)
-          blockNames envAcc (ConstantInfo.recInfo cv mI rP
+          blockNames (envAcc.withLps c) (ConstantInfo.recInfo cv mI rP
             rules).toConstantVal with
       | error e => intro h; exact nomatch h
       | ok cvA =>
         intro h
         dsimp only at h
         cases hrest : provisionRecs (m := CheckM) (fueledOps μ F)
-            blockNames { envAcc with consts := .recInfo cvA mI rP [] :: envAcc.consts }
+            blockNames { consts := .recInfo cvA mI rP [] :: (envAcc.withLps c).consts,
+                         lps := (envAcc.withLps c).lps }
             rest with
         | error e => rw [hrest] at h; exact nomatch h
         | ok p =>
@@ -175,8 +192,8 @@ theorem provisionRecsRunRS
           simp only [pure, Except.pure, Except.ok.injEq,
             Prod.mk.injEq] at h
           obtain ⟨rfl, rfl⟩ := h
-          exact ⟨cvA, mI, rP, rules, p.2, rfl,
-            memberValRun_of hmv0, ih hrest, rfl⟩
+          exact ⟨c, cvA, mI, rP, rules, p.2, rfl, hc,
+            memberValRun_of (UnivCtx.len_of_some hc) hmv0, ih hrest, rfl⟩
     | axiomInfo cv | defnInfo cv v hint | thmInfo cv v
     | indInfo cv c | ctorInfo cv nP nF | projInfo e =>
       simp [provisionRecs, throw, throwThe, MonadExceptOf.throw] at h
@@ -386,6 +403,7 @@ where
       ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule))
         {acc env₃ : Env},
         checked.foldlM (fun (acc : Env) c => do
+          let envSelf ← enterCtx envSelf c.1.levelParams
           let rules' ← checkIotaRules (m := CheckM) μ (fueledOps μ F)
             envBase envSelf
             (fun n => if blockNames.contains n then n.str "_model" else n)
@@ -404,15 +422,22 @@ where
       intro acc env₃ h
       simp only [List.foldlM, Bind.bind, Except.bind] at h
       revert h
+      cases henter : enterCtx (m := CheckM) envSelf c.1.levelParams with
+      | error e => intro h; exact nomatch h
+      | ok envU => ?_
+      obtain ⟨cu, hcu, rfl⟩ := enterCtx_inv henter
+      intro h
+      try dsimp only at h
+      revert h
       cases hr : checkIotaRules (m := CheckM) μ (fueledOps μ F) envBase
-          envSelf
+          (envSelf.withLps cu)
           (fun n => if blockNames.contains n then n.str "_model" else n)
           c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2 with
       | error e => intro h; exact nomatch h
       | ok rules' => ?_
       intro h
       try dsimp only at h
-      exact ⟨rules', iotaRulesRun_of 0 c.2.2.2 rules' hr, ih h⟩
+      exact ⟨cu, rules', hcu, iotaRulesRun_of 0 c.2.2.2 rules' hr, ih h⟩
 
 /-! ## The projection phase -/
 
@@ -425,9 +450,9 @@ theorem projFnRun_of {env' env₁ : Env} {μ : CheckMode}
     (h : checkProjFn μ (fueledOps μ F) env' T ctorName lps nP nF i
       = .ok env₁) :
     ProjFnRun μ F env' T ctorName lps nP nF i env₁ := by
-  obtain ⟨cvj, mcv, hlk, pty, hty, ⟨u0, hshape⟩, hilt, rhsA, hrule,
+  obtain ⟨c, cvj, mcv, hc, hlk, pty, hty, ⟨u0, hshape⟩, hilt, rhsA, hrule,
     ⟨u, hio⟩, henv⟩ := checkProjFn_inv h
-  obtain ⟨mval, mhint, hctor, hfm, hmlps, hpnone, hTf, heqf⟩ :=
+  obtain ⟨mval, mhint, hctor, hfm, hmlps, hjlps, hpnone, hTf, heqf⟩ :=
     checkProjLookups_inv hlk
   obtain ⟨hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1⟩ :=
     checkProjTy_inv hty
@@ -447,12 +472,15 @@ theorem projFnRun_of {env' env₁ : Env} {μ : CheckMode}
     (Prod.mk.inj (Option.some.inj (hCstrip3.symm.trans hCstrip))).1
   rw [hcb2] at hdomsR
   rw [hcb3] at hdomsS
-  refine ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps,
-    (by rw [hpnone]; rfl), hTf, heqf, hptyB, (by rw [hround]; simp),
-    hptyres, hptyb, hptyf, hptylp, hstrip1, hilt,
+  refine ⟨c, cvj, mcv, mval, mhint, pty, rhsA, hc, hctor, hfm, hmlps, hjlps,
+    (by have hp := hpnone; rw [Env.find?_withLps] at hp; rw [hp]; rfl), hTf, heqf,
+    hptyB, (by rw [hround]; simp),
+    (by rw [← Expr.constsResolve_withLps env' c]; exact hptyres), hptyb, hptyf,
+    hptylp, hstrip1, hilt,
     (by rw [hstripP]; rfl),
     ⟨cbindersR, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsnf,
-      hrhsb, hrlp, hrres, ⟨rbinders, hrhsAstrip, ?_⟩,
+      hrhsb, hrlp, (by rw [← Expr.constsResolve_withLps env' c]; exact hrres),
+      ⟨rbinders, hrhsAstrip, ?_⟩,
       ⟨rhsTy, hity⟩,
       tcv, tval, hthmE, htlps,
       ⟨sbinders, ℓA, tySlot, hSstrip, ?_⟩, fvsO, sbodyO, hopenO,

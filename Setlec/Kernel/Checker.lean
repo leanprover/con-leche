@@ -370,11 +370,10 @@ def checkReducePin (ops : CheckerOps m) (env env2 : Env) (c : Name)
   else throw (.notImplemented
     s!"unsupported compiler-trust opaque declaration ({c})")
 
-/-- Check a single declaration, extending the environment on success. -/
-def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
+/-- The body of `checkDecl` at the entered universe context. -/
+def checkDeclAt (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   match d with
   | .defnDecl cv value hint => do
-    let env ← enterCtx env cv.levelParams
     let cv ← checkConstantVal ops env cv
     let env2 ← checkDefnVal ops env cv value hint
     -- Structural-Nat pins: the fast-path ops must be the standard
@@ -416,11 +415,9 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
       checkDivModPin ops env env2 cv.name
     pure env2
   | .thmDecl cv value => do
-    let env ← enterCtx env cv.levelParams
     let cv ← checkConstantVal ops env cv
     checkThmVal ops env cv value
   | .opaqueDecl cv value => do
-    let env ← enterCtx env cv.levelParams
     let cv ← checkConstantVal ops env cv
     let env2 ← checkOpaqueVal ops env cv value
     -- Compiler-trust opaques (`Lean.reduceNat`/`Lean.reduceBool`,
@@ -447,7 +444,6 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- declaration that references the skipped axiom.  Any other axiom
     -- is a positive decline at its own record; a *pinned name* with a
     -- non-pinned shape likewise (the pin would otherwise shadow).
-    let env ← enterCtx env cv.levelParams
     let cvA ← checkConstantVal ops env cv
     if stdAxiomOk env cvA then
       pure { env with consts := .axiomInfo cvA :: env.consts }
@@ -496,6 +492,19 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     match directParts? env block with
     | some p => checkDirectStruct ops env p
     | none => checkIndDecl mode ops env block
+
+
+/-- Check a single declaration, extending the environment on success.
+The four constant-headed kinds enter the declaration's universe context
+first (the packed `pw` datum, 2026-09-06: `enterCtx` declines more than
+`PropWhen.maxParams` parameters); `checkDeclAt` is the body at the
+entered environment. -/
+def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env :=
+  match d with
+  | .defnDecl cv _ _ | .thmDecl cv _ | .opaqueDecl cv _ | .axiomDecl cv => do
+    let env ← enterCtx env cv.levelParams
+    checkDeclAt mode ops env d
+  | .basisDecl _ | .indDecl _ => checkDeclAt mode ops env d
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/

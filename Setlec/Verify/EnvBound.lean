@@ -116,7 +116,7 @@ theorem mkFEnv_find? (env : Env) (n : Name) :
 /-- The environment truncated to its first `k` installed constants
 (`consts` is newest-first, so the prefix is the *tail*). -/
 def Env.prefixTo (env : Env) (k : Nat) : Env :=
-  ⟨env.consts.drop (env.consts.length - k)⟩
+  { env with consts := env.consts.drop (env.consts.length - k) }
 
 /-- The bound at (or above) the constant count hides nothing. -/
 theorem Env.prefixTo_length (env : Env) {k : Nat}

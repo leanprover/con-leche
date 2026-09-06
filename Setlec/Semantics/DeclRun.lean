@@ -98,7 +98,8 @@ def ConstantValRun (μ : CheckMode) (F : Nat) (env : Env)
   type'.allLevelParamsDefined cv.levelParams = true ∧
   type'.constsResolve env = true ∧
   (∃ stype u, inferTypeCore μ env F 0 type' = .ok stype ∧
-    ensureSortCore μ env F 0 stype = .ok u)
+    ensureSortCore μ env F 0 stype = .ok u) ∧
+  cv.levelParams.length ≤ PropWhen.maxParams
 
 /-- `ValueFrontR`'s run/guard half: everything but the trailing
 front-door derivation. -/
@@ -147,63 +148,69 @@ def ReducePinRun (μ : CheckMode) (F : Nat) (env env₂ : Env)
 def DeclDefnRun (μ : CheckMode) (F : Nat) (env : Env)
     (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint)
     (env₂ : Env) : Prop :=
-  ∃ type' value',
-    ConstantValRun μ F env cv type' ∧
-    ValueFrontRun μ F env cv value type' value' ∧
-    env₂ = { env with consts := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
-        env.consts } ∧
+  ∃ (c : UnivCtx) (type' value' : Expr),
+    UnivCtx.of? cv.levelParams = some c ∧
+    ConstantValRun μ F (env.withLps c) cv type' ∧
+    ValueFrontRun μ F (env.withLps c) cv value type' value' ∧
+    env₂ = { env.withLps c with consts := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint ::
+        (env.withLps c).consts } ∧
     (natOpNames.contains cv.name = true →
       natOpGuard env₂ cv.name = true ∧
       (natOpDeps cv.name).all (natOpStoredOk env₂) = true ∧
-      NatEqsRun μ F env
+      NatEqsRun μ F (env.withLps c)
         ((natOpEquations 0 cv.name).map fun eq =>
           (Expr.substConst0 cv.name value' eq.1,
            Expr.substConst0 cv.name value' eq.2))) ∧
     (natDivModNames.contains cv.name = true →
-      DivModPinRun μ F env env₂ cv.name value')
+      DivModPinRun μ F (env.withLps c) env₂ cv.name value')
 
 /-- `DeclThmR`'s run/guard half. -/
 def DeclThmRun (μ : CheckMode) (F : Nat) (env : Env)
     (cv : ConstantVal) (value : Expr) (env₂ : Env) : Prop :=
-  ∃ type' value',
-    ConstantValRun μ F env cv type' ∧
-    (∃ stype u, inferTypeCore μ env F 0 type' = .ok stype ∧
-      ensureSortCore μ env F 0 stype = .ok u ∧
+  ∃ (c : UnivCtx) (type' value' : Expr),
+    UnivCtx.of? cv.levelParams = some c ∧
+    ConstantValRun μ F (env.withLps c) cv type' ∧
+    (∃ stype u, inferTypeCore μ (env.withLps c) F 0 type' = .ok stype ∧
+      ensureSortCore μ (env.withLps c) F 0 stype = .ok u ∧
       Level.isEquiv u .zero = some true) ∧
-    ValueFrontRun μ F env cv value type' value' ∧
-    env₂ = { env with consts := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
-        env.consts }
+    ValueFrontRun μ F (env.withLps c) cv value type' value' ∧
+    env₂ = { env.withLps c with consts := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value' ::
+        (env.withLps c).consts }
 
 /-- `DeclOpaqueR`'s run/guard half. -/
 def DeclOpaqueRun (μ : CheckMode) (F : Nat) (env : Env)
     (cv : ConstantVal) (value : Expr) (env₂ : Env) : Prop :=
-  ∃ type' value',
-    ConstantValRun μ F env cv type' ∧
-    ValueFrontRun μ F env cv value type' value' ∧
-    env₂ = { env with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts } ∧
+  ∃ (c : UnivCtx) (type' value' : Expr),
+    UnivCtx.of? cv.levelParams = some c ∧
+    ConstantValRun μ F (env.withLps c) cv type' ∧
+    ValueFrontRun μ F (env.withLps c) cv value type' value' ∧
+    env₂ = { env.withLps c with consts := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+        (env.withLps c).consts } ∧
     (reduceOpNames.contains cv.name = true →
-      ReducePinRun μ F env env₂ cv.name value)
+      ReducePinRun μ F (env.withLps c) env₂ cv.name value)
 
 /-- `DeclAxiomR`'s run/guard half: the branch disjunction is pure
 stored-data guards and is carried verbatim. -/
 def DeclAxiomRun (μ : CheckMode) (F : Nat) (env : Env)
     (cv : ConstantVal) (env₂ : Env) : Prop :=
-  ∃ type',
-    ConstantValRun μ F env cv type' ∧
+  ∃ (c : UnivCtx) (type' : Expr),
+    UnivCtx.of? cv.levelParams = some c ∧
+    ConstantValRun μ F (env.withLps c) cv type' ∧
     (let cvA : ConstantVal := ⟨cv.name, cv.levelParams, type'⟩
-     (stdAxiomOk env cvA = true ∧
-        env₂ = { env with consts := .axiomInfo cvA :: env.consts }) ∨
-     (cvA.name = trustCompilerName ∧ trustCompilerOk env cvA = true ∧
-        env₂ = { env with consts := .axiomInfo cvA :: env.consts }) ∨
+     let envU : Env := env.withLps c
+     (stdAxiomOk envU cvA = true ∧
+        env₂ = { envU with consts := .axiomInfo cvA :: envU.consts }) ∨
+     (cvA.name = trustCompilerName ∧ trustCompilerOk envU cvA = true ∧
+        env₂ = { envU with consts := .axiomInfo cvA :: envU.consts }) ∨
      ((cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName) ∧
-        ofReduceAxOk env cvA = true ∧
-        env₂ = { env with consts := .axiomInfo cvA :: env.consts }) ∨
-     (stdAxiomOk env cvA = false ∧
+        ofReduceAxOk envU cvA = true ∧
+        env₂ = { envU with consts := .axiomInfo cvA :: envU.consts }) ∨
+     (stdAxiomOk envU cvA = false ∧
         cvA.name ≠ trustCompilerName ∧
         cvA.name ≠ ofReduceNatName ∧ cvA.name ≠ ofReduceBoolName ∧
         cvA.name ≠ propextName ∧ cvA.name ≠ choiceName ∧
         toleratedAxiomNames.contains cvA.name = true ∧
-        env₂ = env))
+        env₂ = envU))
 
 /-! ## The assembly -/
 

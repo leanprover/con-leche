@@ -38,14 +38,14 @@ theorem checkIndMember_fold_names {blockNames : List Name}
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ =>
     rw [hstep] at h
-    obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+    obtain ⟨c, cvA, cvm, mval, hmcvm, hc, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
       checkIndMember_inv hstep
     obtain ⟨hfind0, -⟩ := checkConstantVal_inv hccv
     rw [List.mem_cons] at hci
     rcases hci with rfl | hci
     · exact hfind0
     · have hnone₁ := checkIndMember_fold_names rest env₁ env₂ h ci hci
-      have henv₁ : ∃ ci₁, env₁ = ({ env' with consts := ci₁ :: env'.consts } : Env) := by
+      have henv₁ : ∃ ci₁, env₁ = ({ env'.withLps c with consts := ci₁ :: (env'.withLps c).consts } : Env) := by
         rcases hkind with ⟨-, rfl⟩ | ⟨cv, nP, nF, -, rfl⟩
         · exact ⟨_, rfl⟩
         · exact ⟨_, rfl⟩
@@ -72,7 +72,7 @@ theorem checkIndFold_modelfree {blockNames : List Name}
     rw [hstep] at h
     rw [List.mem_cons] at hci
     rcases hci with rfl | hci
-    · obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+    · obtain ⟨c, cvA, cvm, mval, hmcvm, hc, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
         checkIndMember_inv hstep
       obtain ⟨-, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
         checkConstantVal_inv hccv
@@ -99,7 +99,7 @@ theorem checkIndFold_projshape {blockNames : List Name}
     rw [hstep] at h
     rw [List.mem_cons] at hci
     rcases hci with rfl | hci
-    · obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+    · obtain ⟨c, cvA, cvm, mval, hmcvm, hc, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
         checkIndMember_inv hstep
       obtain ⟨-, -, hpshape0, -, -, -, tyA, stype, u, -, -, -, -, -,
         hcvA⟩ := checkConstantVal_inv hccv
@@ -129,7 +129,7 @@ theorem checkIndFold_find_new {blockNames : List Name}
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ => ?_
     rw [hstep] at h
-    obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+    obtain ⟨c, cvA, cvm, mval, hmcvm, hc, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
       checkIndMember_inv hstep
     obtain ⟨hfind0, -, -, -, -, -, tyA, stype, u, -, -, -, -, -,
       hcvA⟩ := checkConstantVal_inv hccv
@@ -177,7 +177,7 @@ theorem checkIndFold_kinds {blockNames : List Name} {caps : IndCaps} :
     rw [hstep] at h
     rw [List.mem_cons] at hci
     rcases hci with rfl | hci
-    · obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+    · obtain ⟨c, cvA, cvm, mval, hmcvm, hc, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
         checkIndMember_inv hstep
       rcases hkind with ⟨⟨cv, caps', rfl⟩, -⟩ | ⟨cv, nP, nF, rfl, -⟩
       · exact Or.inl ⟨cv, caps', rfl⟩
@@ -204,7 +204,7 @@ theorem checkIndFold_find_preserved {blockNames : List Name}
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ => ?_
     rw [hstep] at h
-    obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+    obtain ⟨c, cvA, cvm, mval, hmcvm, hc, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
       checkIndMember_inv hstep
     obtain ⟨hfind0, -, -, -, -, -, tyA, stype, u, -, -, -, -, -,
       hcvA⟩ := checkConstantVal_inv hccv
@@ -212,14 +212,14 @@ theorem checkIndFold_find_preserved {blockNames : List Name}
       rw [show cvA.name = ci₀.name from by rw [hcvA]; rfl]
       exact hfind0
     have henv₁ : ∃ ci₁ : ConstantInfo, ci₁.name = cvA.name ∧
-        env₁ = { env' with consts := ci₁ :: env'.consts } := by
+        env₁ = { env'.withLps c with consts := ci₁ :: (env'.withLps c).consts } := by
       rcases hkind with ⟨-, rfl⟩ | ⟨cv, nP, nF, -, rfl⟩
       · exact ⟨_, rfl, rfl⟩
       · exact ⟨_, rfl, rfl⟩
     obtain ⟨ci₁, hname₁, rfl⟩ := henv₁
     refine checkIndFold_find_preserved rest _ env₂ h n ci ?_
     rw [Env.find?_cons_of_isSome (by rw [hname₁]; exact hfindA)
-      (by rw [hf]; rfl)]
+      (by simp [hf])]
     exact hf
 
 /-- The eta families of stored formers *outside* the block are closed:
@@ -277,9 +277,9 @@ theorem checkIndFold_mono {blockNames : List Name} {caps : IndCaps} :
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ => ?_
     rw [hstep] at h
-    obtain ⟨cvA, cvm, mval, hmcvm, hccv, -, -, -, -, hkind⟩ :=
+    obtain ⟨c, cvA, cvm, mval, hmcvm, hc, hccv, -, -, -, -, hkind⟩ :=
       checkIndMember_inv hstep
-    have henv₁ : ∃ ci₁ : ConstantInfo, env₁ = { env' with consts := ci₁ :: env'.consts } := by
+    have henv₁ : ∃ ci₁ : ConstantInfo, env₁ = { env'.withLps c with consts := ci₁ :: (env'.withLps c).consts } := by
       rcases hkind with ⟨-, rfl⟩ | ⟨cv, nP, nF, -, rfl⟩
       · exact ⟨_, rfl⟩
       · exact ⟨_, rfl⟩
@@ -307,13 +307,13 @@ theorem checkIndFold_stored {blockNames : List Name} {caps : IndCaps} :
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ => ?_
     rw [hstep] at h
-    obtain ⟨cvA, cvm, mval, hmcvm, hccv, -, -, -, -, hkind⟩ :=
+    obtain ⟨c, cvA, cvm, mval, hmcvm, hc, hccv, -, -, -, -, hkind⟩ :=
       checkIndMember_inv hstep
     obtain ⟨-, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
       checkConstantVal_inv hccv
     have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
     have henv₁ : ∃ ci₁ : ConstantInfo, ci₁.name = cvA.name ∧
-        env₁ = { env' with consts := ci₁ :: env'.consts } := by
+        env₁ = { env'.withLps c with consts := ci₁ :: (env'.withLps c).consts } := by
       rcases hkind with ⟨-, rfl⟩ | ⟨cv, nP, nF, -, rfl⟩
       · exact ⟨_, rfl, rfl⟩
       · exact ⟨_, rfl, rfl⟩

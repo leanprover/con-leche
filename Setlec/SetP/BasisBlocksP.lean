@@ -338,7 +338,7 @@ theorem punitRecLawP {m : EnvS2Core V env}
     ⟨_, rfl⟩
   have hRa : denoteP m₂.acval { env with consts := punitRecA :: env.consts } φ 0
       (punitRecRule.rhs.instantiateLevelParams
-        punitRecA.toConstantVal.levelParams us)
+        punitRecA.toConstantVal.levelParams us (Level.masksOf env.lpsL us))
       = some (punitRaP ψ) := by
     rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac, hψ,
       denoteP_punitRec_rhs (m := m) _ hP hU]
@@ -1645,7 +1645,7 @@ theorem natRecTyRead (m₂ : EnvS2Core V { env with consts := natRecA :: env.con
     (hψ : ψ = Level.substFn φ natRecA.toConstantVal.levelParams us) :
     denoteP m₂.acval { env with consts := natRecA :: env.consts } φ 0
         (natRecA.toConstantVal.type.instantiateLevelParams
-          natRecA.toConstantVal.levelParams us)
+          natRecA.toConstantVal.levelParams us (Level.masksOf env.lpsL us))
       = some (.pi 0 (pwBit ψ (.ifAllZero [uN])) (natMotiveTyP ψ)
           (.pi 0 (pwBit ψ (.ifAllZero [uN]))
             (.app (.bvar 0) (.const .natZero []))

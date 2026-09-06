@@ -106,30 +106,30 @@ theorem declEtaStepRun {μ : CheckMode} {F : Nat}
     (h : DeclRun μ F Ind env d env₂) : EtaFamiliesClosed env₂ := by
   cases d with
   | defnDecl cv value hint =>
-    obtain ⟨type', value', hcv, -, rfl, -, -⟩ := h
-    exact EtaFamiliesClosed.cons_nonind hE
+    obtain ⟨c, type', value', -, hcv, -, rfl, -, -⟩ := h
+    exact EtaFamiliesClosed.cons_nonind (hE.withLps c)
       (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
   | thmDecl cv value =>
-    obtain ⟨type', value', hcv, -, -, rfl⟩ := h
-    exact EtaFamiliesClosed.cons_nonind hE
+    obtain ⟨c, type', value', -, hcv, -, -, rfl⟩ := h
+    exact EtaFamiliesClosed.cons_nonind (hE.withLps c)
       (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
   | opaqueDecl cv value =>
-    obtain ⟨type', value', hcv, -, rfl, -⟩ := h
-    exact EtaFamiliesClosed.cons_nonind hE
+    obtain ⟨c, type', value', -, hcv, -, rfl, -⟩ := h
+    exact EtaFamiliesClosed.cons_nonind (hE.withLps c)
       (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
   | axiomDecl cv =>
-    obtain ⟨type', hcv, harm⟩ := h
-    have hfresh : env.find? cv.name = none :=
+    obtain ⟨c, type', -, hcv, harm⟩ := h
+    have hfresh : (env.withLps c).find? cv.name = none :=
       Option.isNone_iff_eq_none.mp hcv.1
     rcases harm with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ |
       ⟨-, -, -, -, -, -, -, rfl⟩
-    · exact EtaFamiliesClosed.cons_nonind hE hfresh
+    · exact EtaFamiliesClosed.cons_nonind (hE.withLps c) hfresh
         (fun _ _ heq => nomatch heq)
-    · exact EtaFamiliesClosed.cons_nonind hE hfresh
+    · exact EtaFamiliesClosed.cons_nonind (hE.withLps c) hfresh
         (fun _ _ heq => nomatch heq)
-    · exact EtaFamiliesClosed.cons_nonind hE hfresh
+    · exact EtaFamiliesClosed.cons_nonind (hE.withLps c) hfresh
         (fun _ _ heq => nomatch heq)
-    · exact hE
+    · exact hE.withLps c
   | basisDecl kind =>
     exact basisInstallRun_etaClosed kind.declsA h.2
       (basisIndOk_declsA kind) hE

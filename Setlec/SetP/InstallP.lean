@@ -87,7 +87,7 @@ theorem denoteP_cons_fresh {acval : Name → (Name → Nat) → AVExpr}
     (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound env e) :
     denoteP (acvalWith acval c₀.name A) { env with consts := c₀ :: env.consts } ψ d e
       = denoteP acval env ψ d e := by
-  rw [← denoteP_envExtend (findPreserved_cons hfresh) hlga
+  rw [← denoteP_envExtend rfl (findPreserved_cons hfresh) hlga
       (Setlec.TTVerify.findProj?_cons_of_base_none hfresh hntc)
       d e hcb,
     denoteP_acvalWith_fresh hfresh d e]
@@ -106,7 +106,7 @@ theorem denoteP_cons_fresh_mono {acval : Name → (Name → Nat) → AVExpr}
     {ea : AVExpr} (h : denoteP acval env ψ d e = some ea) :
     denoteP (acvalWith acval c₀.name A) { env with consts := c₀ :: env.consts } ψ d e
       = some ea :=
-  denoteP_envExtend_mono (findPreserved_cons hfresh)
+  denoteP_envExtend_mono rfl (findPreserved_cons hfresh)
     (litGuardsMono_cons hfresh)
     (Setlec.TTVerify.findProj?_cons_of_base_none hfresh hntc) d e hcb
     (by rw [denoteP_acvalWith_fresh hfresh]; exact h)
@@ -127,7 +127,7 @@ theorem denoteP_cons_mono {acval : Name → (Name → Nat) → AVExpr}
   by_cases htw : ∃ entry : Setlec.ProjEntry, c₀ = .projInfo entry ∧
       entry.tower = true
   · obtain ⟨entry, rfl, htw⟩ := htw
-    refine denoteP_envExtend_mono_at (findPreserved_cons hfresh)
+    refine denoteP_envExtend_mono_at rfl (findPreserved_cons hfresh)
       (litGuardsMono_cons hfresh)
       (fun sn j e' h0 h1 htw' => findProj?_cons_tower sn j e' h0 h1 htw')
       d e hcb (hat entry rfl htw) ?_

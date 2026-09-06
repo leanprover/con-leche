@@ -368,7 +368,7 @@ theorem unfoldDefinition_fvarLeaves {env : Env} (henv : EnvWF env)
       simp only [Option.some.injEq] at h
       subst h
       intro l hl
-      obtain ⟨-, -, -, -, -, -, hval⟩ := henv _ (find?_mem hf)
+      obtain ⟨-, -, -, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
       obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
       rcases fvarLeaves_mkAppN hl with hl' | ⟨x, hx, hlx⟩
       · rw [fvarLeaves_eq_nil_of_not_hasFvar
@@ -424,7 +424,7 @@ theorem unfoldDefinition_looseBVars {env : Env} (henv : EnvWF env)
     · intro h
       simp only [Option.some.injEq] at h
       subst h
-      obtain ⟨-, -, -, -, -, -, hval⟩ := henv _ (find?_mem hf)
+      obtain ⟨-, -, -, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
       obtain ⟨-, -, -, hvb⟩ := hval cv value rfl
       refine looseBVarsBounded_mkAppN ?_ ?_
       · rw [looseBVarsBounded_instantiateLevelParams]

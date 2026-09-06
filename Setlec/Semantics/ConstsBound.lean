@@ -248,7 +248,7 @@ theorem envWF_constsBound {env : Env} (hwf : EnvWF env) :
         ConstsBound env value) ∧
       (∀ cv value, c = .thmInfo cv value → ConstsBound env value) := by
   intro c hc
-  obtain ⟨-, -, hty, -, hdefn, -, hthm⟩ := hwf c hc
+  obtain ⟨-, -, hty, -, hdefn, -, hthm, -⟩ := hwf c hc
   exact ⟨constsBound_of_constsResolve _ hty,
     fun cv value hint heq =>
       constsBound_of_constsResolve _ (hdefn cv value hint heq).2.2.1,

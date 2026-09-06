@@ -13,7 +13,7 @@ validated-annotation reading:
 * **no fuel parameter** — the fuel-monotonicity/cross-fuel/`fuelDown`
   family has no mirror because there is nothing to be monotone in;
 * **no sort-run conjuncts** — the binder inversions conclude
-  `ea = .pi 0 (pwBit φ mb.pw) ta ba` (resp. `.lam (pwBit φ mb.pw)`)
+  `ea = .pi 0 (pwBit env.lpsL φ mb.pw) ta ba` (resp. `.lam (pwBit env.lpsL φ mb.pw)`)
   *definitionally*, where `denote2`'s conclude `sortOfE`/`lamSortE`
   successes;
 * **premises that existed only to move a sort run are dropped** —
@@ -111,7 +111,7 @@ theorem denoteP_forallE (acval : Name → (Name → Nat) → AVExpr)
         let ta ← denoteP acval env φ d ty
         let ba ← denoteP acval env φ (d + 1)
           (body.instantiate1 (.fvar d n ty))
-        some (.pi 0 (pwBit φ mb.pw) ta ba)) := by
+        some (.pi 0 (pwBit env.lpsL φ mb.pw) ta ba)) := by
   rw [denoteP]
 
 theorem denoteP_lam (acval : Name → (Name → Nat) → AVExpr)
@@ -121,7 +121,7 @@ theorem denoteP_lam (acval : Name → (Name → Nat) → AVExpr)
         let ta ← denoteP acval env φ d ty
         let ba ← denoteP acval env φ (d + 1)
           (body.instantiate1 (.fvar d n ty))
-        some (.lam (pwBit φ mb.pw) ta ba)) := by
+        some (.lam (pwBit env.lpsL φ mb.pw) ta ba)) := by
   rw [denoteP]
 
 theorem denoteP_natLit {acval : Name → (Name → Nat) → AVExpr}
@@ -213,7 +213,7 @@ theorem denoteP_forallE_inv {d : Nat} {n : Name} {ty bd : Expr}
     ∃ ta ba, denoteP acval env φ d ty = some ta ∧
       denoteP acval env φ (d + 1)
         (bd.instantiate1 (.fvar d n ty)) = some ba ∧
-      ea = .pi 0 (pwBit φ mb.pw) ta ba := by
+      ea = .pi 0 (pwBit env.lpsL φ mb.pw) ta ba := by
   rw [denoteP] at h
   cases ht : denoteP acval env φ d ty with
   | none => rw [ht] at h; exact nomatch h
@@ -231,7 +231,7 @@ theorem denoteP_lam_inv {d : Nat} {n : Name} {ty bd : Expr}
     ∃ ta ba, denoteP acval env φ d ty = some ta ∧
       denoteP acval env φ (d + 1)
         (bd.instantiate1 (.fvar d n ty)) = some ba ∧
-      ea = .lam (pwBit φ mb.pw) ta ba := by
+      ea = .lam (pwBit env.lpsL φ mb.pw) ta ba := by
   rw [denoteP] at h
   cases ht : denoteP acval env φ d ty with
   | none => rw [ht] at h; exact nomatch h

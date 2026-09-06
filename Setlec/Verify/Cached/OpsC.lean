@@ -1420,19 +1420,19 @@ theorem abstractRange_spec {e : ExprC} {d k c : Nat} :
 /-! ## Level instantiation -/
 
 /-- The `instLevelParams` memo invariant (the key carries no cursor). -/
-def MemoLPInv (ks : List Name) (us : List Level) (memo : Memo0) : Prop :=
+def MemoLPInv (ks : List Name) (us : List Level) (ms : List PropWhen) (memo : Memo0) : Prop :=
   ∀ (e r : ExprC), memo[e]? = some r →
-    r = e.instantiateLevelParams ks us
+    r = e.instantiateLevelParams ks us ms
 
-theorem MemoLPInv.empty {ks : List Name} {us : List Level} :
-    MemoLPInv ks us {} := by
+theorem MemoLPInv.empty {ks : List Name} {us : List Level} {ms : List PropWhen} :
+    MemoLPInv ks us ms {} := by
   intro e r h
   simp at h
 
-theorem MemoLPInv.insert {ks : List Name} {us : List Level} {memo : Memo0}
-    (hm : MemoLPInv ks us memo) {e r : ExprC}
-    (heq : r = e.instantiateLevelParams ks us) :
-    MemoLPInv ks us (memo.insert e r) := by
+theorem MemoLPInv.insert {ks : List Name} {us : List Level} {ms : List PropWhen} {memo : Memo0}
+    (hm : MemoLPInv ks us ms memo) {e r : ExprC}
+    (heq : r = e.instantiateLevelParams ks us ms) :
+    MemoLPInv ks us ms (memo.insert e r) := by
   intro e' r' hk
   rw [Std.HashMap.getElem?_insert] at hk
   split at hk
@@ -1445,11 +1445,11 @@ theorem MemoLPInv.insert {ks : List Name} {us : List Level} {memo : Memo0}
 /-- **The level-instantiation core commutes with erasure** (the
 `hasLP` cutoff is `hasLP_false`; the binder arms substitute the
 prop-ness datum exactly as `Expr.instantiateLevelParams` does). -/
-theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
-    ∀ {e : ExprC}, ∀ {memo : Memo0}, MemoLPInv ks us memo →
-        MemoLPInv ks us (instLevelParamsGo ks us memo e).2 ∧
-        (instLevelParamsGo ks us memo e).1
-          = e.instantiateLevelParams ks us := by
+theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} {ms : List PropWhen} :
+    ∀ {e : ExprC}, ∀ {memo : Memo0}, MemoLPInv ks us ms memo →
+        MemoLPInv ks us ms (instLevelParamsGo ks us ms memo e).2 ∧
+        (instLevelParamsGo ks us ms memo e).1
+          = e.instantiateLevelParams ks us ms := by
   intro e
   induction e with
   | bvar i =>
@@ -1502,12 +1502,12 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
       · rename_i r hhit
         exact ⟨hm, (hm _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht hm
-        rcases hp : instLevelParamsGo ks us memo ty with ⟨t, mt⟩
+        rcases hp : instLevelParamsGo ks us ms memo ty with ⟨t, mt⟩
         simp only [hp] at h2 h3
         simp only [hp]
         have hres : (mkFVar idx n t)
             = (Expr.fvar idx n ty).instantiateLevelParams
-                ks us := by
+                ks us ms := by
           rw [mkFVar_eq, h3]; rfl
         exact ⟨h2.insert hres,
           hres⟩
@@ -1521,15 +1521,15 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
       · rename_i r hhit
         exact ⟨hm, (hm _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := ihf hm
-        rcases hp : instLevelParamsGo ks us memo f with ⟨f', mf⟩
+        rcases hp : instLevelParamsGo ks us ms memo f with ⟨f', mf⟩
         simp only [hp] at h2 h3
         obtain ⟨h5, h6⟩ := iha h2
-        rcases hq : instLevelParamsGo ks us mf a with ⟨a', ma⟩
+        rcases hq : instLevelParamsGo ks us ms mf a with ⟨a', ma⟩
         simp only [hq] at h5 h6
         simp only [hp, hq]
         have hres : (mkApp f' a')
             = (Expr.app f a).instantiateLevelParams
-                ks us := by
+                ks us ms := by
           rw [mkApp_eq, h3, h6]; rfl
         exact ⟨h5.insert hres, hres⟩
   | lam n ty bd m iht ihb =>
@@ -1542,15 +1542,15 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
       · rename_i r hhit
         exact ⟨hm, (hm _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht hm
-        rcases hp : instLevelParamsGo ks us memo ty with ⟨ty', mt⟩
+        rcases hp : instLevelParamsGo ks us ms memo ty with ⟨ty', mt⟩
         simp only [hp] at h2 h3
         obtain ⟨h5, h6⟩ := ihb h2
-        rcases hq : instLevelParamsGo ks us mt bd with ⟨b', mb⟩
+        rcases hq : instLevelParamsGo ks us ms mt bd with ⟨b', mb⟩
         simp only [hq] at h5 h6
         simp only [hp, hq]
-        have hres : (mkLam n ty' b' ⟨m.bi, Level.substPW ks us m.pw⟩)
+        have hres : (mkLam n ty' b' ⟨m.bi, Level.substPW ms m.pw⟩)
             = (Expr.lam n ty bd m).instantiateLevelParams
-                ks us := by
+                ks us ms := by
           rw [mkLam_eq, h3, h6]; rfl
         exact ⟨h5.insert hres,
           hres⟩
@@ -1564,15 +1564,15 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
       · rename_i r hhit
         exact ⟨hm, (hm _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht hm
-        rcases hp : instLevelParamsGo ks us memo ty with ⟨ty', mt⟩
+        rcases hp : instLevelParamsGo ks us ms memo ty with ⟨ty', mt⟩
         simp only [hp] at h2 h3
         obtain ⟨h5, h6⟩ := ihb h2
-        rcases hq : instLevelParamsGo ks us mt bd with ⟨b', mb⟩
+        rcases hq : instLevelParamsGo ks us ms mt bd with ⟨b', mb⟩
         simp only [hq] at h5 h6
         simp only [hp, hq]
-        have hres :               (mkForallE n ty' b' ⟨m.bi, Level.substPW ks us m.pw⟩)
+        have hres :               (mkForallE n ty' b' ⟨m.bi, Level.substPW ms m.pw⟩)
             = (Expr.forallE n ty bd m).instantiateLevelParams
-                ks us := by
+                ks us ms := by
           rw [mkForallE_eq, h3, h6]; rfl
         exact ⟨h5.insert hres, hres⟩
   | letE n ty val bd iht ihv ihb =>
@@ -1585,18 +1585,18 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
       · rename_i r hhit
         exact ⟨hm, (hm _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := iht hm
-        rcases hp : instLevelParamsGo ks us memo ty with ⟨ty', mt⟩
+        rcases hp : instLevelParamsGo ks us ms memo ty with ⟨ty', mt⟩
         simp only [hp] at h2 h3
         obtain ⟨h5, h6⟩ := ihv h2
-        rcases hq : instLevelParamsGo ks us mt val with ⟨v', mv⟩
+        rcases hq : instLevelParamsGo ks us ms mt val with ⟨v', mv⟩
         simp only [hq] at h5 h6
         obtain ⟨h8, h9⟩ := ihb h5
-        rcases hr : instLevelParamsGo ks us mv bd with ⟨b', mb⟩
+        rcases hr : instLevelParamsGo ks us ms mv bd with ⟨b', mb⟩
         simp only [hr] at h8 h9
         simp only [hp, hq, hr]
         have hres : (mkLetE n ty' v' b')
             = (Expr.letE n ty val bd).instantiateLevelParams
-                ks us := by
+                ks us ms := by
           rw [mkLetE_eq, h3, h6, h9]; rfl
         exact ⟨h8.insert hres, hres⟩
   | proj s i sub ihe =>
@@ -1609,17 +1609,17 @@ theorem instLevelParamsGo_spec {ks : List Name} {us : List Level} :
       · rename_i r hhit
         exact ⟨hm, (hm _ _ hhit)⟩
       · obtain ⟨h2, h3⟩ := ihe hm
-        rcases hp : instLevelParamsGo ks us memo sub with ⟨s', ms⟩
+        rcases hp : instLevelParamsGo ks us ms memo sub with ⟨s', mS⟩
         simp only [hp] at h2 h3
         simp only [hp]
         have hres : (mkProj s i s')
             = (Expr.proj s i sub).instantiateLevelParams
-                ks us := by
+                ks us ms := by
           rw [mkProj_eq, h3]; rfl
         exact ⟨h2.insert hres, hres⟩
 
-theorem instLevelParams_spec {ks : List Name} {us : List Level} {e : ExprC} :
-    (instLevelParams ks us e) = e.instantiateLevelParams ks us := by
+theorem instLevelParams_spec {ks : List Name} {us : List Level} {ms : List PropWhen} {e : ExprC} :
+    (instLevelParams ks us ms e) = e.instantiateLevelParams ks us ms := by
   rw [instLevelParams]
   split
   · rename_i hcut

@@ -153,7 +153,7 @@ private theorem inferReadsIO_lam {m : EnvS2Core V env}
         (hlr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]))
         htyA)
       hba
-  refine ⟨AVExpr.pi 0 (pwBit φ mb.pw) tyA bta, ?_⟩
+  refine ⟨AVExpr.pi 0 (pwBit env.lpsL φ mb.pw) tyA bta, ?_⟩
   rw [denoteP, htyA, hround, hbta]
   rfl
 
@@ -254,7 +254,7 @@ private theorem inferReadsIO_letE {m : EnvS2Core V env}
 /-- `.proj`, io lane: the full row's mirror with the io inversion
 (`inferProjReadsP_of`; task #175 wiring W5 for the tower branch). -/
 private theorem inferReadsIO_proj {m : EnvS2Core V env}
-    (htower : TowerOkP m φ)
+    (hφ : Level.NonzeroOutside env.lpsL φ) (htower : TowerOkP m φ)
     (ihi : InferReadsIOP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel)
     {d i : Nat} {sn : Name} {pe t : Expr} {ea : AVExpr}
     (h : inferTypeCoreIO μ env (fuel + 1) d (.proj sn i pe) = .ok t)
@@ -293,7 +293,7 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
   have htw : entry.tower = true := m.proj_ok.tower_of_native hfe hnat
   obtain ⟨-, -, -, -, -, -, _, -, -, hlaw, -⟩ := htower T i entry hfe htw
   obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
-  obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
+  obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe (towerEntry_ty_inst hφ hfe hlenUs hTa)
   have hframes : ∀ x ∈ te.getAppArgs ++ [pe],
       Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true := by
     intro x hx
@@ -315,6 +315,7 @@ shapes are the full lane's lemmas across a lane equation, one is
 closed by the subject's reading alone, one is a single line, and four
 are the mirrors above. -/
 theorem inferReadsIOP_succ {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ)
     (hct : ConstTypeP m φ) (htower : TowerOkP m φ)
     (ihi : InferReadsIOP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
     InferReadsIOP m μ φ (fuel + 1) := by
@@ -343,7 +344,7 @@ theorem inferReadsIOP_succ {m : EnvS2Core V env}
   | .letE nn tt vv bb =>
     exact inferReadsIO_letE ihi h hws hb hLb hlr hea
   | .proj sn i pe =>
-    exact inferReadsIO_proj htower ihi ihw h hws hb hLb hlr hea
+    exact inferReadsIO_proj hφ htower ihi ihw h hws hb hLb hlr hea
 
 /-- Fuel zero: the io entry point throws, so the statement is
 vacuous. -/
@@ -373,9 +374,9 @@ theorem readsAll4P_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
   | fuel + 1 =>
     let ih := readsAll4P_of hin fuel
     ⟨whnfCoreReadsP_succ (hin.iota fuel ih.2.1 ih.2.2.2) ih.1 ih.2.1,
-      whnfReadsP_succ ih.1 (hin.nat fuel) (deltaP_of m hin.defn),
-      inferReadsP_succ hin.const_ty hin.tower_ok ih.2.2.1 ih.2.1,
-      inferReadsIOP_succ hin.const_ty hin.tower_ok ih.2.2.2 ih.2.1⟩
+      whnfReadsP_succ ih.1 (hin.nat fuel) (deltaP_of m hin.defn hin.hφ),
+      inferReadsP_succ hin.hφ hin.const_ty hin.tower_ok ih.2.2.1 ih.2.1,
+      inferReadsIOP_succ hin.hφ hin.const_ty hin.tower_ok ih.2.2.2 ih.2.1⟩
 
 /-- The `whnfCore` reduct reads, at every fuel. -/
 theorem whnfCoreReadsP_of {m : EnvS2Core V env}
@@ -420,6 +421,6 @@ theorem inferExistsP_of {m : EnvS2Core V env} (hin : ReadsInputsP μ m φ) :
 /-- **Residue 5/6 — `DenotePDeltaP`, discharged outright.** -/
 theorem denotePDeltaP_of {m : EnvS2Core V env}
     (hin : ReadsInputsP μ m φ) : DenotePDeltaP m φ :=
-  denotePDeltaP_of_fields m hin.defn
+  denotePDeltaP_of_fields m hin.hφ hin.defn
 
 end Setlec.SetP

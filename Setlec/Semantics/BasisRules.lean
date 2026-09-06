@@ -32,11 +32,11 @@ def natRecZeroRule : RecRule :=
             (Expr.forallE (Name.anonymous.str "n_ih") (.app (.bvar 2)
               (.bvar 0))
               (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
-              { bi := .default, pw := .ifAllZero [uN] })
-            { bi := .default, pw := .ifAllZero [uN] })
-          (.bvar 1) { bi := .default, pw := .ifAllZero [uN] })
-        { bi := .default, pw := .ifAllZero [uN] })
-      { bi := .default, pw := .ifAllZero [uN] } }
+              { bi := .default, pw := .bit 0 })
+            { bi := .default, pw := .bit 0 })
+          (.bvar 1) { bi := .default, pw := .bit 0 })
+        { bi := .default, pw := .bit 0 })
+      { bi := .default, pw := .bit 0 } }
 
 def natRecSuccRule : RecRule :=
   { ctor := natSuccName, nfields := 1, ctorParams := 0, fire := .plain,
@@ -50,17 +50,17 @@ def natRecSuccRule : RecRule :=
             (Expr.forallE (Name.anonymous.str "n_ih") (.app (.bvar 2)
               (.bvar 0))
               (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
-              { bi := .default, pw := .ifAllZero [uN] })
-            { bi := .default, pw := .ifAllZero [uN] })
+              { bi := .default, pw := .bit 0 })
+            { bi := .default, pw := .bit 0 })
           (Expr.lam (Name.anonymous.str "n") (.const natName [])
             (.app (.app (.bvar 1) (.bvar 0))
               (.app (.app (.app (.app (.const (natName.str "rec")
                 [.param uN]) (.bvar 3)) (.bvar 2)) (.bvar 1)) (.bvar
                   0)))
-            { bi := .default, pw := .ifAllZero [uN] })
-          { bi := .default, pw := .ifAllZero [uN] })
-        { bi := .default, pw := .ifAllZero [uN] })
-      { bi := .default, pw := .ifAllZero [uN] } }
+            { bi := .default, pw := .bit 0 })
+          { bi := .default, pw := .bit 0 })
+        { bi := .default, pw := .bit 0 })
+      { bi := .default, pw := .bit 0 } }
 
 theorem natRecA_eq :
     natRecA = .recInfo natRecA.toConstantVal 3 3
@@ -86,13 +86,13 @@ def quotIndRule : RecRule :=
               (.app (.bvar 1)
                 (.app (.app (.app (.const quotMkName [.param uN])
                   (.bvar 3)) (.bvar 2)) (.bvar 0)))
-              { bi := .default, pw := .ifAllZero [] })
+              { bi := .default, pw := .always })
             (Expr.lam (Name.anonymous.str "a") (.bvar 3)
-              (.app (.bvar 1) (.bvar 0)) { bi := .default, pw := .ifAllZero [] })
-            { bi := .default, pw := .ifAllZero [] })
-          { bi := .default, pw := .ifAllZero [] })
-        { bi := .default, pw := .ifAllZero [] })
-      { bi := .default, pw := .ifAllZero [] } }
+              (.app (.bvar 1) (.bvar 0)) { bi := .default, pw := .always })
+            { bi := .default, pw := .always })
+          { bi := .default, pw := .always })
+        { bi := .default, pw := .always })
+      { bi := .default, pw := .always } }
 
 
 /-- `Quot.lift`'s single stored rule. -/
@@ -106,7 +106,7 @@ def quotLiftRule : RecRule :=
         (Expr.lam (Name.anonymous.str "β") (.sort (.param vN))
           (Expr.lam (Name.anonymous.str "f")
             (Expr.forallE (Name.anonymous.str "a") (.bvar 2) (.bvar 1)
-              { bi := .default, pw := .ifAllZero [vN] })
+              { bi := .default, pw := .bit 1 })
             (Expr.lam (Name.anonymous.str "h")
               (Expr.forallE (Name.anonymous.str "a") (.bvar 3)
                 (Expr.forallE (Name.anonymous.str "b") (.bvar 4)
@@ -115,15 +115,15 @@ def quotLiftRule : RecRule :=
                     (.app (.app (.app (.const eqName [.param vN])
                       (.bvar 4)) (.app (.bvar 3) (.bvar 2)))
                       (.app (.bvar 3) (.bvar 1)))
-                    { bi := .default, pw := .ifAllZero [] }) { bi := .default, pw := .ifAllZero [] })
-                { bi := .default, pw := .ifAllZero [] })
+                    { bi := .default, pw := .always }) { bi := .default, pw := .always })
+                { bi := .default, pw := .always })
               (Expr.lam (Name.anonymous.str "a") (.bvar 4)
-                (.app (.bvar 2) (.bvar 0)) { bi := .default, pw := .ifAllZero [vN] })
-              { bi := .default, pw := .ifAllZero [vN] })
-            { bi := .default, pw := .ifAllZero [vN] })
-          { bi := .default, pw := .ifAllZero [vN] })
-        { bi := .default, pw := .ifAllZero [vN] })
-      { bi := .default, pw := .ifAllZero [vN] } }
+                (.app (.bvar 2) (.bvar 0)) { bi := .default, pw := .bit 1 })
+              { bi := .default, pw := .bit 1 })
+            { bi := .default, pw := .bit 1 })
+          { bi := .default, pw := .bit 1 })
+        { bi := .default, pw := .bit 1 })
+      { bi := .default, pw := .bit 1 } }
 
 
 /-- `Eq.rec`'s single stored rule. -/
@@ -142,10 +142,10 @@ def eqRecRule : RecRule :=
             (.app (.app (.bvar 0) (.bvar 1))
               (.app (.app (.const eqReflName [.param uN]) (.bvar 2))
                 (.bvar 1)))
-            (.bvar 0) { bi := .default, pw := .ifAllZero [u1N] })
-          { bi := .default, pw := .ifAllZero [u1N] })
-        { bi := .default, pw := .ifAllZero [u1N] })
-      { bi := .implicit, pw := .ifAllZero [u1N] } }
+            (.bvar 0) { bi := .default, pw := .bit 0 })
+          { bi := .default, pw := .bit 0 })
+        { bi := .default, pw := .bit 0 })
+      { bi := .implicit, pw := .bit 0 } }
 
 
 /-- The stored declaration, with its rule named. -/

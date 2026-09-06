@@ -2,6 +2,7 @@ import Setlec.SetP.Step2.AssemblyP
 import Setlec.Semantics.EnvFacts
 import Setlec.Semantics.DivModEval
 import Setlec.Semantics.SpineV
+import Setlec.Verify.Denote.EnvExt
 
 /-!
 # `EnvS2PM` — the P-tier environment invariant (task #161, P4)
@@ -77,6 +78,34 @@ def NatOpsP {V : Type w} [SetTheory V] {env : Env}
         y ∈ˢ interp2 V ρ (m.acval Setlec.natName φ) →
         interp2 V (cons y (cons x ρ)) L
           = interp2 V (cons y (cons x ρ)) R
+
+/-- The recurrence equations are binder-free subjects. -/
+theorem natOpEquations_binderFree (d : Nat) (c : Name) :
+    ∀ eq ∈ Setlec.natOpEquations d c, eq.1.BinderFree ∧ eq.2.BinderFree := by
+  intro eq h
+  unfold Setlec.natOpEquations at h
+  split at h <;> (try split at h) <;> (try split at h) <;> (try split at h)
+    <;> (try split at h) <;> (try split at h) <;> (try split at h)
+    <;> simp only [List.mem_cons, List.mem_nil_iff, List.mem_singleton,
+      or_false] at h
+    <;> rcases h with rfl | rfl | rfl | rfl
+    <;> exact ⟨by simp [Expr.BinderFree], by simp [Expr.BinderFree]⟩
+
+/-- `NatOpsP` crosses a universe-context entry: the guard and the
+lookups read `consts` alone, and the equations are binder-free. -/
+theorem NatOpsP.withLps {V : Type w} [SetTheory V] {env : Env}
+    {m : EnvS2Core V env} {φ : Name → Nat} (h : NatOpsP m φ) (c : UnivCtx) :
+    NatOpsP (m.withLps c) φ := by
+  intro n hn cv v hint hf
+  rw [Env.find?_withLps] at hf
+  obtain ⟨hg, heqs⟩ := h n hn cv v hint hf
+  refine ⟨by rw [Setlec.natOpGuard_withLps]; exact hg, ?_⟩
+  intro eq heq
+  obtain ⟨L, R, hL, hR, hlaw⟩ := heqs eq heq
+  obtain ⟨hb1, hb2⟩ := natOpEquations_binderFree 0 n eq heq
+  refine ⟨L, R, ?_, ?_, hlaw⟩
+  · rw [EnvS2Core.withLps_acval, denoteP_withLps_binderFree c hb1]; exact hL
+  · rw [EnvS2Core.withLps_acval, denoteP_withLps_binderFree c hb2]; exact hR
 
 /-- **The pin-certified WF-recursive operations' guarded value
 recurrences at the validated-annotation tier** — `DivModV`
@@ -257,8 +286,8 @@ def EtaLawP {V : Type w} [SetTheory V] {env : Env}
     (cvT : ConstantVal) (caps : IndCaps) : Prop :=
   ∀ us : List Level, us.length = cvT.levelParams.length →
   ∃ TVa : AVExpr,
-    denoteP m.acval env φ' 0
-      (cvT.type.instantiateLevelParams cvT.levelParams us)
+    denoteP m.acval (env.withLpsL cvT.levelParams)
+        (Level.substFn φ' cvT.levelParams us) 0 cvT.type
       = some TVa ∧
     (∀ ρ : Nat → V, AnnotOkP V ρ TVa) ∧
     ∀ (ρ : Nat → V) (ts : List V) (rest : V) (x : V),
@@ -281,8 +310,8 @@ def UnitLawP {V : Type w} [SetTheory V] {env : Env}
     (cvT : ConstantVal) (caps : IndCaps) : Prop :=
   ∀ us : List Level, us.length = cvT.levelParams.length →
   ∃ TVa : AVExpr,
-    denoteP m.acval env φ' 0
-      (cvT.type.instantiateLevelParams cvT.levelParams us)
+    denoteP m.acval (env.withLpsL cvT.levelParams)
+        (Level.substFn φ' cvT.levelParams us) 0 cvT.type
       = some TVa ∧
     (∀ ρ : Nat → V, AnnotOkP V ρ TVa) ∧
     ∀ (ρ : Nat → V) (ts : List V) (rest : V) (x y : V),
@@ -438,8 +467,8 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
   rP ≤ mI ∧
   ∀ us : List Level, us.length = cv.levelParams.length →
     ∃ Ra : AVExpr,
-      denoteP m.acval env φ 0
-        ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
+      denoteP m.acval (env.withLpsL cv.levelParams)
+        (Level.substFn φ cv.levelParams us) 0 (RecRule.rhs rl)
         = some Ra ∧
       (∀ ρ : Nat → V, AnnotOkP V ρ Ra) ∧
       -- The nested pins' open readings are carried with a
@@ -457,15 +486,14 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
       (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
         ∀ i, i < RecRule.ctorParams rl →
         ∃ vpa : AVExpr,
-          denoteP m.acval env φ rP
-            (Setlec.TTVerify.openRev 0 rP
-              ((pins.getD i default).instantiateLevelParams
-                cv.levelParams us)) = some vpa ∧
+          denoteP m.acval (env.withLpsL cv.levelParams)
+            (Level.substFn φ cv.levelParams us) rP
+            (Setlec.TTVerify.openRev 0 rP (pins.getD i default)) = some vpa ∧
           ∀ (ρ : Nat → V) (zs : List AVExpr) (TVa restR : AVExpr),
             zs.length = rP →
             (∀ z ∈ zs, AnnotOkP V ρ z) →
-            denoteP m.acval env φ 0
-              (cv.type.instantiateLevelParams cv.levelParams us)
+            denoteP m.acval (env.withLpsL cv.levelParams)
+              (Level.substFn φ cv.levelParams us) 0 cv.type
               = some TVa →
             TeleFitPA V ρ TVa zs restR →
             AnnotOkP V ρ
@@ -479,7 +507,7 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
         usj.length = cvj.levelParams.length →
         Level.substFn φ cvj.levelParams usj
           = Level.substFn φ cvj.levelParams
-              (Setlec.recFireComparands rl cv.levelParams us
+              (Setlec.recFireComparands rl [] cv.levelParams us
                 cvj.levelParams [] rP).1 →
         (RecRule.fire rl = .plain →
           ∀ i, i < RecRule.ctorParams rl → i < mI →
@@ -488,21 +516,20 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
         (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
           ∀ i, i < RecRule.ctorParams rl →
           ∀ vpa : AVExpr,
-            denoteP m.acval env φ rP
-              (Setlec.TTVerify.openRev 0 rP
-                ((pins.getD i default).instantiateLevelParams
-                  cv.levelParams us)) = some vpa →
+            denoteP m.acval (env.withLpsL cv.levelParams)
+              (Level.substFn φ cv.levelParams us) rP
+              (Setlec.TTVerify.openRev 0 rP (pins.getD i default)) = some vpa →
             interp2 V ρ (ys.getD i default)
               = interp2 V ρ
                   (Setlec.SetP.AVExpr.instRevChain (xs.take rP)
                     vpa)) →
         IotaIndexPinP (V := V) ρ restC (RecRule.ctorParams rl)
           mI rP xs →
-        denoteP m.acval env φ 0
-          (cv.type.instantiateLevelParams cv.levelParams us)
+        denoteP m.acval (env.withLpsL cv.levelParams)
+          (Level.substFn φ cv.levelParams us) 0 cv.type
           = some TVa →
-        denoteP m.acval env φ 0
-          (cvj.type.instantiateLevelParams cvj.levelParams usj)
+        denoteP m.acval (env.withLpsL cvj.levelParams)
+          (Level.substFn φ cvj.levelParams usj) 0 cvj.type
           = some TVja →
         TeleFitPA V ρ TVa
           (xs ++ [AVExpr.mkAppN
@@ -599,8 +626,8 @@ def TowerEtaLawP {V : Type w} [SetTheory V] {env : Env}
     env.find? T = some (.indInfo cvT capsT) →
     ∀ us : List Level, us.length = entry.levelParams.length →
     ∃ TVa : AVExpr,
-      denoteP m.acval env φ 0
-        (cvT.type.instantiateLevelParams cvT.levelParams us) = some TVa ∧
+      denoteP m.acval (env.withLpsL cvT.levelParams)
+        (Level.substFn φ entry.levelParams us) 0 cvT.type = some TVa ∧
       (∀ ρ : Nat → V, AnnotOkP V ρ TVa) ∧
       ∀ (ρ : Nat → V) (ts : List V) (rest : V) (x : V),
         ts.length = entry.numParams →
@@ -692,8 +719,8 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
     (∀ us : List Level, us.length = entry.levelParams.length →
       -- (A) the typing law
       (∃ Ta : AVExpr,
-        denoteP m.acval env φ 0
-          (entry.ty.instantiateLevelParams entry.levelParams us) = some Ta ∧
+        denoteP m.acval (env.withLpsL entry.levelParams)
+          (Level.substFn φ entry.levelParams us) 0 entry.ty = some Ta ∧
         (TowerGuardAt φ entry us →
         ∀ (ρ : Nat → V) (vs : List AVExpr) (x rest : AVExpr),
           vs.length = entry.numParams →
@@ -718,8 +745,8 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
       -- there: the O5 bound at a non-`Prop` family, the guard at a
       -- `Prop`-declared one).
       (∃ TCa : AVExpr,
-        denoteP m.acval env φ 0
-          (cvC.type.instantiateLevelParams cvC.levelParams us) = some TCa ∧
+        denoteP m.acval (env.withLpsL cvC.levelParams)
+          (Level.substFn φ entry.levelParams us) 0 cvC.type = some TCa ∧
         (TowerGuardAt φ entry us →
         ∀ (ρ : Nat → V) (ys : List AVExpr) (rest : V),
         ys.length = entry.numParams + entry.numFields →
@@ -754,10 +781,12 @@ structure EnvS2PM (μ : CheckMode) (env : Env) where
   /-- every stored type reads, at every ground assignment -/
   type_reads : ∀ c ∈ env.consts, ∀ ψ : Name → Nat,
     ∃ ta : AVExpr,
-      denoteP base2.acval env ψ 0 c.toConstantVal.type = some ta
+      denoteP base2.acval (env.withLpsL c.toConstantVal.levelParams) ψ 0
+        c.toConstantVal.type = some ta
   /-- the stored types' readings are graded -/
   type_okP : ∀ c ∈ env.consts, ∀ (ψ : Name → Nat) (ta : AVExpr),
-    denoteP base2.acval env ψ 0 c.toConstantVal.type = some ta →
+    denoteP base2.acval (env.withLpsL c.toConstantVal.levelParams) ψ 0
+      c.toConstantVal.type = some ta →
     ∀ ρ : Nat → V, AnnotOkP V ρ ta
   /-- stored constants inhabit their types' readings — except the
   tower-backed projection-table entries (task #175 W4c P3 module 7):
@@ -767,7 +796,8 @@ structure EnvS2PM (μ : CheckMode) (env : Env) where
   field a later field depends on -/
   mem_typeP : ∀ c ∈ env.consts, c.isTowerEntry = false →
     ∀ (ψ : Name → Nat) (ta : AVExpr),
-    denoteP base2.acval env ψ 0 c.toConstantVal.type = some ta →
+    denoteP base2.acval (env.withLpsL c.toConstantVal.levelParams) ψ 0
+      c.toConstantVal.type = some ta →
     ∀ ρ : Nat → V,
       interp2 V ρ (base2.acval c.name ψ) ∈ˢ interp2 V ρ ta
   /-- a stored tower entry's type is a telescope over its parameters
@@ -832,9 +862,13 @@ theorem acvalValidP (m : EnvS2PM V μ env) : AcvalValidP m.base2 :=
 
 /-- **The `const` residue, derived — the worked example of the
 bundle-supplying layer.**  The three type fields at the composed
-assignment `Level.substFn φ ks us`, carried to the instantiated form
-by `denotePInstLevels` (an equality: no arity premise, no fuel). -/
-theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
+assignment `Level.substFn φ ks us` in the constant's own context,
+carried to the instantiated form by `denotePInstLevels` — at a
+valuation nonzero outside the environment's context (the packed
+datum's crossing class), with the stored constant's context facts
+from `EnvWF`. -/
+theorem constTypeP (m : EnvS2PM V μ env) (hφ : Level.NonzeroOutside env.lpsL φ) :
+    ConstTypeP m.base2 φ := by
   intro d n ci us hf hnt hlen
   have hmem := Setlec.Semantics.Env.find?_mem hf
   have hname := Setlec.Semantics.Env.find?_name hf
@@ -846,7 +880,7 @@ theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
     denoteP_closed m.base2.acval_erase m.base2.cval_closed
       hwf.1 hwf.2.2.2.1 hta 1 k
   have hdepth :
-      denoteP m.base2.acval env
+      denoteP m.base2.acval (env.withLpsL ci.toConstantVal.levelParams)
           (Level.substFn φ ci.toConstantVal.levelParams us) d
           ci.toConstantVal.type = some ta :=
     denoteP_depth_of_closed m.base2.acval_closed hwf.1 hcl hta d
@@ -854,12 +888,12 @@ theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
   have hcross :
       denoteP m.base2.acval env φ d
           (ci.toConstantVal.type.instantiateLevelParams
-            ci.toConstantVal.levelParams us)
-        = denoteP m.base2.acval env
+            ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us))
+        = denoteP m.base2.acval (env.withLpsL ci.toConstantVal.levelParams)
             (Level.substFn φ ci.toConstantVal.levelParams us) d
             ci.toConstantVal.type :=
-    denotePInstLevels m.base2 φ ci.toConstantVal.levelParams us d
-      ci.toConstantVal.type
+    denotePInstLevels m.base2 φ ci.toConstantVal.levelParams us
+      hwf.ctx.1 hwf.ctx.2 hlen hφ d ci.toConstantVal.type hwf.2.1
   refine ⟨ta, ?_, m.type_okP ci hmem _ ta hta, ?_⟩
   · rw [hcross]; exact hdepth
   · have := m.mem_typeP ci hmem hnt _ ta hta
@@ -907,26 +941,57 @@ def toEnvFacts {V : Type w} [SetTheory V] {μ : CheckMode}
     congrArg AVExpr.erase (m.base2.acval_params n ci hf φ₁ φ₂ hp)
   ty_denotes := fun c hc ψ => by
     obtain ⟨ta, hta⟩ := m.type_reads c hc ψ
-    exact ⟨ta.erase,
-      denoteP_erase m.base2.acval_erase 0 c.toConstantVal.type hta⟩
-  defn_eq := fun cv value hint hmem ψ =>
-    denoteP_erase m.base2.acval_erase 0 value
+    refine ⟨ta.erase, ?_⟩
+    rw [← denoteClosed_withLpsL m.base2.cvalE env c.toConstantVal.levelParams]
+    exact denoteP_erase m.base2.acval_erase 0 c.toConstantVal.type hta
+  defn_eq := fun cv value hint hmem ψ => by
+    rw [← denoteClosed_withLpsL m.base2.cvalE env cv.levelParams]
+    exact denoteP_erase m.base2.acval_erase 0 value
       (m.defn_reads ψ cv value (.inl ⟨hint, hmem⟩))
   rec_rhs_denotes := fun n cv mI rP rules hf r hr hfire us ψ hlen => by
     obtain ⟨-, hus⟩ := m.rec_rules ψ n cv mI rP rules hf r hr hfire
     obtain ⟨Ra, hRa, -, -⟩ := hus us hlen
-    exact ⟨Ra.erase, denoteP_erase m.base2.acval_erase 0 _ hRa⟩
+    refine ⟨Ra.erase, ?_⟩
+    have hvp : ValParams env m.base2.cvalE := fun n ci hf φ₁ φ₂ hp =>
+      congrArg AVExpr.erase (m.base2.acval_params n ci hf φ₁ φ₂ hp)
+    show denote m.base2.cvalE env ψ 0 _ = some Ra.erase
+    rw [denote_instLevels hvp ψ 0, ← denote_withLpsL m.base2.cvalE env cv.levelParams]
+    exact denoteP_erase m.base2.acval_erase 0 _ hRa
   rec_params_le := fun n cv mI rP rules hf r hr hfire =>
     (m.rec_rules (fun _ => 0) n cv mI rP rules hf r hr hfire).1
   proj_ok := m.base2.proj_ok
-  thm_ok := fun cv value hmem ψ =>
-    denoteP_erase m.base2.acval_erase 0 value
+  thm_ok := fun cv value hmem ψ => by
+    rw [← denoteClosed_withLpsL m.base2.cvalE env cv.levelParams]
+    exact denoteP_erase m.base2.acval_erase 0 value
       (m.defn_reads ψ cv value (.inr hmem))
   nat_op_guard := fun c hmem hst => by
     obtain ⟨cv, v, hh, hf⟩ := Setlec.natOpStored_inv hst
     rcases hmem with hm | hm
     · exact (m.nat_ops (fun _ => 0) c hm cv v hh hf).1
     · exact (m.div_mod (fun _ => 0) c hm cv v hh hf).1
+
+/-- **The invariant crosses a universe-context entry** (the packed
+`pw` datum, 2026-09-06): every field is stated context-free — the
+stored types, values and rule right-hand sides are read in their own
+constants' contexts (`Env.withLpsL`), which the entry leaves alone —
+so the invariant at `env.withLps c` is the invariant at `env`, field
+for field. -/
+def withLps (m : EnvS2PM V μ env) (c : UnivCtx) : EnvS2PM V μ (env.withLps c) where
+  base2 := m.base2.withLps c
+  acval_validV := m.acval_validV
+  type_reads := m.type_reads
+  type_okP := m.type_okP
+  mem_typeP := m.mem_typeP
+  tower_ty := m.tower_ty
+  defn_reads := m.defn_reads
+  nat_heads := m.nat_heads
+  nat_ops := fun φ => (m.nat_ops φ).withLps c
+  div_mod := m.div_mod
+  eq_lawP := m.eq_lawP
+  caps_ok := m.caps_ok
+  rec_rules := m.rec_rules
+  reduce_ops := m.reduce_ops
+  tower_ok := m.tower_ok
 
 /-- The P bridge invariant keeps the carrier's valuation —
 definitionally. -/

@@ -259,16 +259,16 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
   constTy : ∀ n us i, s.constTyAt[(n, us)]? = some i → ∃ ci,
     env.find? n = some ci ∧
     RelC i (ci.toConstantVal.type.instantiateLevelParams
-      ci.toConstantVal.levelParams us)
+      ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us))
   constVal : ∀ n us i, s.constValAt[(n, us)]? = some i → ∃ cv v h,
     (env.find? n = some (.defnInfo cv v h) ∨
       env.find? n = some (.thmInfo cv v)) ∧
-    RelC i (v.instantiateLevelParams cv.levelParams us)
+    RelC i (v.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
   ruleRhs : ∀ c j us i, s.ruleRhsAt[(c, j, us)]? = some i →
     ∃ cv mI rP rules rl,
     env.find? c = some (.recInfo cv mI rP rules) ∧
     rules.find? (fun r' => r'.ctor == j) = some rl ∧
-    RelC i (rl.rhs.instantiateLevelParams cv.levelParams us)
+    RelC i (rl.rhs.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))
   whnfCoreC : ∀ k v, s.whnfCoreC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
       whnfCore mode env F d k = .ok v

@@ -64,7 +64,7 @@ entry type's reading (`denoteP_instPisAt_peel`), and the three
 conclusions are the tower law's typing clause at the reduced subject
 type's graded reading. -/
 theorem inferProjStepP_of_claims {m : EnvS2Core V env}
-    (htower : TowerOkP m φ)
+    (hφ : Level.NonzeroOutside env.lpsL φ) (htower : TowerOkP m φ)
     (ihw : WhnfClaims2P μ m φ fuel) (ihi : InferClaims2P μ m φ fuel)
     (hreads : InferReadsP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
     InferProjStepP m μ φ fuel := by
@@ -106,7 +106,7 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
   obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
     htower T i entry hfe htw
   obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hlenUs
-  obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
+  obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe (towerEntry_ty_inst hφ hfe hlenUs hTa)
   obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe htw hea
   obtain rfl : vp = vp' := Option.some.inj (hvp.symm.trans hvp')
   -- the reduced type's spine, at the former's leaf
@@ -157,7 +157,7 @@ inversion — is the full row's, verbatim: those lanes are shared, which
 is the io knot's leaf-lane asymmetry seen from the proj clause. -/
 
 theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
-    (htower : TowerOkP m φ)
+    (hφ : Level.NonzeroOutside env.lpsL φ) (htower : TowerOkP m φ)
     (ihw : WhnfClaims2P μ m φ fuel) (ihio : InferClaimsIO2P μ m φ fuel)
     (hreads : InferReadsIOP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
     InferProjStepIOP m μ φ fuel := by
@@ -207,7 +207,7 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
   obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
     htower T i entry hfe htw
   obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hlenUs
-  obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
+  obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe (towerEntry_ty_inst hφ hfe hlenUs hTa)
   obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe htw hea
   obtain rfl : vp = vp' := Option.some.inj (hvp.symm.trans hvp')
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
@@ -276,6 +276,7 @@ is the tower law's iota clause at the constructor application's graded
 reading — no run is walked, the grading's slot chain is the whole
 premise. -/
 theorem projStepP_of_claims {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ)
     (htower : TowerOkP m φ) (hct : ConstTypeP m φ)
     (ihwc : WhnfCoreClaims2P μ m φ fuel) (ihw : WhnfClaims2P μ m φ fuel)
     (ihd : DefEqClaims2P μ m φ fuel) (ihis : InferClaimsIOS2P μ m φ fuel)
@@ -403,26 +404,32 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
     obtain ⟨rfl, -, -⟩ :=
       ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfC'))
     have hwfC := m.wf _ (Setlec.Semantics.Env.find?_mem hfC)
-    have hnfC : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar
+    have hnfC : (cvC.type.instantiateLevelParams cvC.levelParams us (Level.masksOf env.lpsL us)).hasFvar
         = false := by
       rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfC.1
     have hbdC : (cvC.type.instantiateLevelParams cvC.levelParams
-        us).looseBVarsBounded 0 = true := by
+        us (Level.masksOf env.lpsL us)).looseBVarsBounded 0 = true := by
       rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
       exact hwfC.2.2.2.1
+    have hTCaI : denoteP m.acval env φ 0
+        (cvC.type.instantiateLevelParams cvC.levelParams us (Level.masksOf env.lpsL us))
+        = some TCa :=
+      denoteP_stored_ty_inst hφ hfC
+        (by show us.length = cvC.levelParams.length; rw [hlpsC]; exact hlenU)
+        (by have h := hTCa; rw [← hlpsC] at h; exact h)
     have hTCd : denoteP m.acval env φ d
-        (cvC.type.instantiateLevelParams cvC.levelParams us) = some TCa :=
+        (cvC.type.instantiateLevelParams cvC.levelParams us (Level.masksOf env.lpsL us)) = some TCa :=
       denoteP_depth_of_closed m.acval_closed hnfC
-        (fun k => denoteP_closed m.acval_erase m.cval_closed hnfC hbdC hTCa 1 k)
-        hTCa d
+        (fun k => denoteP_closed m.acval_erase m.cval_closed hnfC hbdC hTCaI 1 k)
+        hTCaI d
     have hTw : Expr.WScoped d
-        (cvC.type.instantiateLevelParams cvC.levelParams us) :=
+        (cvC.type.instantiateLevelParams cvC.levelParams us (Level.masksOf env.lpsL us)) :=
       Setlec.Expr.WScoped.of_not_hasFvar hnfC
     have hTL : Expr.LeavesBounded
-        (cvC.type.instantiateLevelParams cvC.levelParams us) :=
+        (cvC.type.instantiateLevelParams cvC.levelParams us (Level.masksOf env.lpsL us)) :=
       Setlec.Expr.LeavesBounded.of_not_hasFvar hnfC
     have hTC : CtxOkP m φ d Δa
-        (cvC.type.instantiateLevelParams cvC.levelParams us) :=
+        (cvC.type.instantiateLevelParams cvC.levelParams us (Level.masksOf env.lpsL us)) :=
       ⟨hC.1, fun l hl => by
         rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfC] at hl
         exact nomatch hl⟩
@@ -430,7 +437,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
     -- constant's own
     obtain ⟨TCa', hTCa', hokTCa, hmemC0⟩ := hct 0 entry.ctor _ us hfC rfl
       (by show us.length = cvC.levelParams.length; rw [hlpsC]; exact hlenU)
-    obtain rfl : TCa = TCa' := Option.some.inj (hTCa.symm.trans hTCa')
+    obtain rfl : TCa = TCa' := Option.some.inj (hTCaI.symm.trans hTCa')
     have hmemC : ∀ σ : Nat → V, Sat2 V Δa σ →
         interp2 V σ (m.acval entry.ctor (Level.substFn φ entry.levelParams us))
           ∈ˢ interp2 V σ TCa := by
@@ -445,8 +452,8 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
     have hpc : PiChainP e₃.getAppArgs.length TCa := by
       rw [hlenA]
       exact piChainP_of_stripPis (entry.numParams + entry.numFields)
-        (Setlec.Expr.stripPis_instantiateLevelParams_isSome cvC.levelParams us _
-          hstrip) hTCd
+        (Setlec.Expr.stripPis_instantiateLevelParams_isSome cvC.levelParams us
+          (Level.masksOf env.lpsL us) _ hstrip) hTCd
     -- the licensed walk (task #175 W6): the spine is a subject subterm,
     -- so the `.never` slots ride the application's own grading
     obtain ⟨resta, hfitA, -, -⟩ :=

@@ -153,10 +153,14 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
     · rw [← hag n hn]
       exact m.cval_closed _ _
   · -- `EnvWF` at the extension
+    have hmwf := m.wf _ (Env.find?_mem hfm)
     refine EnvWF.cons m.wf ⟨hptyf, hptylp,
       Expr.constsResolve_mono hptyres, hptyb,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq), ?_,
-      (fun cv2 v2 heq => ConstantInfo.noConfusion heq)⟩
+      (fun cv2 v2 heq => ConstantInfo.noConfusion heq),
+      (by
+        show Name.nodup lps = true ∧ lps.length ≤ PropWhen.maxParams
+        rw [← hmlps]; exact hmwf.2.2.2.2.2.2.2)⟩
     intro cv2 mI2 rP2 rules2 heq r hr
     injection heq with h1 _ _ h4
     rw [← h4] at hr
@@ -197,7 +201,7 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
       obtain ⟨Rv, hRv⟩ :=
         hrhsDen r hr hfire (Level.substFn ψ cv.levelParams us)
       have hRv' : denote m.cval env' ψ 0
-          ((RecRule.rhs r).instantiateLevelParams cv.levelParams us)
+          ((RecRule.rhs r).instantiateLevelParams cv.levelParams us (Level.masksOf env'.lpsL us))
           = some Rv := by
         rw [denote_instLevels m.val_params ψ 0 (RecRule.rhs r)]
         exact hRv
@@ -244,7 +248,7 @@ theorem projFn_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
         (env₁.consts.headD default) = .recInfo cvR mI rP rules →
         ∀ r ∈ rules, ∃ cvj cnP cnF,
           env'.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) := by
-  obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
+  obtain ⟨c, cvj, mcv, mval, mhint, pty, rhsA, -, hctor, hfm, hmlps, -, hpnone,
     hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
     hilt, hstripP, hbig, henv⟩ := hR
   obtain ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
@@ -269,16 +273,20 @@ theorem projFn_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
         exact fun hh => nomatch hh
     · exact nomatch h
   refine ⟨?_, ?_⟩
-  · refine EnvWF.cons hwfE ⟨hptyf, hptylp,
-      Expr.constsResolve_mono hptyres, hptyb,
+  · have hmwf := hwfE _ (Env.find?_mem hfm)
+    refine EnvWF.cons (hwfE.withLps c) ⟨hptyf, hptylp,
+      Expr.constsResolve_mono (by rw [Expr.constsResolve_withLps]; exact hptyres), hptyb,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq), ?_,
-      (fun cv2 v2 heq => ConstantInfo.noConfusion heq)⟩
+      (fun cv2 v2 heq => ConstantInfo.noConfusion heq),
+      (by
+        show Name.nodup lps = true ∧ lps.length ≤ PropWhen.maxParams
+        rw [← hmlps]; exact hmwf.2.2.2.2.2.2.2)⟩
     intro cv2 mI2 rP2 rules2 heq r hr
     injection heq with h1 _ _ h4
     rw [← h4] at hr
     obtain ⟨w1, w2, w3, w4, w5⟩ := hrulesWF r hr
     refine ⟨w1, by rw [← h1]; exact w2,
-      Expr.constsResolve_mono w3, w4, ?_⟩
+      Expr.constsResolve_mono (by rw [Expr.constsResolve_withLps]; exact w3), w4, ?_⟩
     intro lvls pins hfr
     exact absurd hfr (w5 lvls pins)
   · intro cvR mI rP rules heq r hr

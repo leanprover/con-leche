@@ -41,7 +41,7 @@ theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat} {n : Name}
       inferTypeCoreIO mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
       ensureSortCore mode env fuel (d + 1) bt = .ok v ∧
-      (mode.verified = true → (Level.zeronessOf v).equiv m.pw = true) ∧
+      (mode.verified = true → Level.maskOf? env.lpsL v = some m.pw) ∧
       t = .sort (.imax u v) := by
   rw [inferTypeCoreIO_succ] at h
   simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure, Bind.bind,
@@ -84,10 +84,10 @@ theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat} {n : Name}
     exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes,
       fun hv' => absurd hv' hv, h.symm⟩
   rw [if_pos hv] at h
-  by_cases hz : (Level.zeronessOf v).equiv m.pw = true
+  by_cases hz : (Level.maskOf? env.lpsL v == some m.pw) = true
   · rw [if_pos hz] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes, fun _ => hz, h.symm⟩
+    exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes, fun _ => by simpa using hz, h.symm⟩
   · rw [if_neg hz] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
 
@@ -107,7 +107,7 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
       (mode.verified = true → body.isLam = false → ∃ btt v,
         inferTypeCoreIO mode env fuel (d + 1) bt = .ok btt ∧
         ensureSortCore mode env fuel (d + 1) btt = .ok v ∧
-        (Level.zeronessOf v).equiv m.pw = true) ∧
+        Level.maskOf? env.lpsL v = some m.pw) ∧
       (mode.verified = true → ∀ pwI, body.lamPw = some pwI →
         m.pw.equiv pwI = true) ∧
       t = .forallE n ty (bt.abstract1 d) m := by
@@ -161,11 +161,11 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     | ok v => ?_
     intro h
     dsimp only at h
-    by_cases hz : (Level.zeronessOf v).equiv m.pw = true
+    by_cases hz : (Level.maskOf? env.lpsL v == some m.pw) = true
     · rw [if_pos hz] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       refine ⟨bt, rfl,
-        fun _ _ => ⟨btt, v, hbtt, hes, hz⟩, ?_, h.symm⟩
+        fun _ _ => ⟨btt, v, hbtt, hes, by simpa using hz⟩, ?_, h.symm⟩
       intro _ pwI heq
       first
         | exact nomatch heq
@@ -320,7 +320,7 @@ theorem inferTypeCoreIO_const_inv {env : Env} {fuel d : Nat}
     (h : inferTypeCoreIO mode env fuel d (.const n us) = .ok t) :
     ∃ ci, env.find? n = some ci ∧ ci.isTowerEntry = false ∧
       t = ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us := by
+        ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us) := by
   match fuel, h with
   | 0, h => rw [inferTypeCoreIO_zero] at h; exact nomatch h
   | fuel + 1, h =>
@@ -410,7 +410,7 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
         (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
           == some true) = true) ∧
       ((∃ ds, Expr.instPisAt (te.getAppArgs ++ [e])
-            (entry.ty.instantiateLevelParams entry.levelParams us)
+            (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us))
           = some (ds, t)) ∧
        -- task #175 wiring W5: the node's struct name is the head's
        T = sn) := by
@@ -467,7 +467,7 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
         exact absurd h (by
           simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind])
     have h' : (match Expr.instPisAt (te.getAppArgs ++ [e])
-          (entry.ty.instantiateLevelParams entry.levelParams us) with
+          (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)) with
         | some (_, resid) => (pure resid : Except CheckError Expr)
         | none => (throw (CheckError.internal "malformed projection entry") :
             Except CheckError Expr)) = .ok t := by
@@ -479,7 +479,7 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
     clear h
     revert h'
     cases hpi : Expr.instPisAt (te.getAppArgs ++ [e])
-        (entry.ty.instantiateLevelParams entry.levelParams us) with
+        (entry.ty.instantiateLevelParams entry.levelParams us (Level.masksOf env.lpsL us)) with
     | none => intro h; exact nomatch h
     | some q =>
       obtain ⟨ds, resid⟩ := q

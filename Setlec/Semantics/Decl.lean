@@ -164,34 +164,40 @@ def DirectProjFoldRun (μ : CheckMode) (F : Nat) (T C : Name)
     Env → List Nat → Env → Prop
   | env', [], env₂ => env₂ = env'
   | env', i :: rest, env₂ =>
-    ∃ env'', checkDirectProj (m := Setlec.CheckM) (fueledOps μ F)
-        T C lps nP nF resSort slots guards cvTa cvCa env' i = .ok env'' ∧
+    ∃ (c : UnivCtx) (env'' : Env), UnivCtx.of? lps = some c ∧
+      checkDirectProj (m := Setlec.CheckM) (fueledOps μ F)
+        T C lps nP nF resSort slots guards cvTa cvCa (env'.withLps c) i = .ok env'' ∧
       DirectProjFoldRun μ F T C lps nP nF resSort slots guards cvTa cvCa env''
         rest env₂
 
 /-- **The direct-structure declaration, as checked**: the stage runs
-of `checkDirectStruct`, with the intermediate environments and the
-recursor install named.  `env` is the pre-block environment. -/
+of `checkDirectStruct`, with the intermediate environments, the
+universe contexts entered per stage (the packed `pw` datum: the type's,
+the constructor's, the recursor's) and the recursor install named.
+`env` is the pre-block environment. -/
 def DeclDirectRun (μ : CheckMode) (F : Nat) (env : Env)
     (p : DirectParts) (env₂ : Env) : Prop :=
   ∃ (cvTa cvCa cvRa : ConstantVal) (sorts : List Level) (rhsA : Expr)
-    (envI envC : Env),
-    checkDirectInd (m := Setlec.CheckM) (fueledOps μ F) env p
+    (envI envC : Env) (cT cC cR : UnivCtx),
+    UnivCtx.of? p.cvT.levelParams = some cT ∧
+    checkDirectInd (m := Setlec.CheckM) (fueledOps μ F) (env.withLps cT) p
       = .ok (envI, cvTa) ∧
-    checkDirectCtor (m := Setlec.CheckM) (fueledOps μ F) env envI p cvTa
+    UnivCtx.of? p.cvC.levelParams = some cC ∧
+    checkDirectCtor (m := Setlec.CheckM) (fueledOps μ F) env (envI.withLps cC) p cvTa
       = .ok (envC, cvCa, sorts) ∧
-    checkConstantVal (m := Setlec.CheckM) (fueledOps μ F) envC p.cvR
+    UnivCtx.of? p.cvR.levelParams = some cR ∧
+    checkConstantVal (m := Setlec.CheckM) (fueledOps μ F) (envC.withLps cR) p.cvR
       = .ok cvRa ∧
-    checkDirectRecTy (m := Setlec.CheckM) (fueledOps μ F) envC p
+    checkDirectRecTy (m := Setlec.CheckM) (fueledOps μ F) (envC.withLps cR) p
       cvTa cvCa cvRa = .ok () ∧
-    checkDirectRule (m := Setlec.CheckM) (fueledOps μ F) envC p
+    checkDirectRule (m := Setlec.CheckM) (fueledOps μ F) (envC.withLps cR) p
       cvCa cvRa = .ok rhsA ∧
     (let env₃ : Env :=
-      { envC with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      { envC.withLps cR with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
             .plain else .inert,
-          rhsA⟩]) :: envC.consts }
+          rhsA⟩]) :: (envC.withLps cR).consts }
      (List.range p.nF).all
         (fun j => (env₃.find? (projFnName p.cvT.name j)).isNone)
         = true ∧

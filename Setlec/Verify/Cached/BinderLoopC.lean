@@ -171,8 +171,8 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
     (hfvs : RelCL fvs.toList.reverse ws) (hstk : RelILStk stk stkx)
     (hw : Expr.WScoped (d + k) (tx.instantiateList ws)) :
     SimC mode env s₀ RelDC
-      (inferLamsLeafI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
-      (inferLamsLeaf mode (fueledFns mode env) d tx k ws stkx) := by
+      (inferLamsLeafI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) env.lpsL d t k fvs stk)
+      (inferLamsLeaf mode env.lpsL (fueledFns mode env) d tx k ws stkx) := by
   unfold inferLamsLeafI inferLamsLeaf
   refine SimC.bind_left (instListRevM_eff (d := 0) hs ht hfvs)
     (fun s₁ ob hs₁ hQob => ?_)
@@ -259,12 +259,6 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
           obtain ⟨n0x, ty0x, mb0x⟩ := e0x
           obtain rfl : mb0x = mb0 := hstk.1.2.2.symm
           dsimp only
-          refine SimC.withStore ?_
-          obtain ⟨-, hzeq⟩ := zeronessOfLIGoC_spec (st := default) v
-            (memo := {}) PWMemoInvC.empty
-            (p := (CStore.zeronessOfLIGo default {} v).1)
-            (memo' := (CStore.zeronessOfLIGo default {} v).2) rfl
-          rw [hzeq]
           split
           case isFalse => exact SimC.throw_bind
           refine SimC.bind_left (abstractRangeM_eff hs₄ hbtd)
@@ -283,8 +277,8 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
       RelCL fvs.toList.reverse ws → RelILStk stk stkx →
       Expr.WScoped (d + k) (tx.instantiateList ws) →
       SimC mode env s₀ RelDC
-        (inferLamsI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) d fuel t k fvs stk)
-        (inferLams mode (fueledFns mode env) d fuel tx k ws stkx)
+        (inferLamsI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) env.lpsL d fuel t k fvs stk)
+        (inferLams mode env.lpsL (fueledFns mode env) d fuel tx k ws stkx)
   | 0, t, tx, k, fvs, ws, stk, stkx, s₀ => by
     intro hs ht hfvs hstk hw
     exact inferLamsLeafC_sim ih hs ht hfvs hstk hw
@@ -300,10 +294,10 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
           match ← viewI wtty with
           | some (.sort _) => do
             let fv ← internI (.fvar (d + k) n tyo)
-            inferLamsI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) d fuel body (k + 1)
+            inferLamsI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) env.lpsL d fuel body (k + 1)
               (fvs.push fv) ((n, tyo, mb) :: stk)
           | _ => throw (.invalid "expected a sort")
-        | _ => inferLamsLeafI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
+        | _ => inferLamsLeafI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) env.lpsL d t k fvs stk)
       _
     refine SimC.view ?_
     have ht' := ht
@@ -370,22 +364,21 @@ def RelLStk : List (Level × PropWhen) → List (Level × PropWhen) → Prop
 
 theorem inferPisOutC_sim :
     ∀ {stk : List (Level × PropWhen)} {stkx : List (Level × PropWhen)}
-      {v : Level} {lv : Level} {memo : CStore.PWMemo} {s₀ : CState},
+      {v : Level} {lv : Level} {s₀ : CState},
       CSOK mode env s₀ → RelLStk stk stkx → v = lv →
-      PWMemoInvC memo →
       SimC mode env s₀ (fun (iv : Level) (ivx : Level) => iv = ivx)
-        (inferPisOutI (cfgOf mode) stk v memo)
-        (inferPisOut (m := FueledM) mode stkx lv) := by
+        (inferPisOutI (cfgOf mode) env.lpsL stk v)
+        (inferPisOut (m := FueledM) mode env.lpsL stkx lv) := by
   intro stk
   induction stk with
   | nil =>
-    intro stkx v lv memo s₀ hs hstk hv _hminv
+    intro stkx v lv s₀ hs hstk hv
     cases stkx with
     | nil => exact SimC.pure hs hv
     | cons ux rx => exact absurd hstk (by simp [RelLStk])
   | cons upw rest ih =>
     obtain ⟨u, pw⟩ := upw
-    intro stkx v lv memo s₀ hs hstk hv hminv
+    intro stkx v lv s₀ hs hstk hv
     cases stkx with
     | nil => exact absurd hstk (by simp [RelLStk])
     | cons uxp rx =>
@@ -395,31 +388,22 @@ theorem inferPisOutC_sim :
       subst hv
       show SimC mode env s₀ _
         (do
-          let (pv, memo) ← Setlec.Cached.withStore fun st =>
-            st.zeronessOfLIGo memo v
-          if mode.verified && !(pv.equiv pw) then
+          if mode.verified && !(Level.maskOf? env.lpsL v == some pw) then
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
           internLM (.imax u v) >>= fun v' =>
-            inferPisOutI (cfgOf mode) rest v' memo)
+            inferPisOutI (cfgOf mode) env.lpsL rest v')
         (do
-          if mode.verified && !((Level.zeronessOf v).equiv pw) then
+          if mode.verified && !(Level.maskOf? env.lpsL v == some pw) then
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
-          inferPisOut (m := FueledM) mode rx (.imax u v))
-      refine SimC.withStore ?_
-      obtain ⟨hminv', hzeq⟩ := zeronessOfLIGoC_spec (st := default) v
-        (memo := memo) hminv
-        (p := (CStore.zeronessOfLIGo default memo v).1)
-        (memo' := (CStore.zeronessOfLIGo default memo v).2) rfl
-      dsimp only
-      rw [hzeq]
+          inferPisOut (m := FueledM) mode env.lpsL rx (.imax u v))
       split
       · exact SimC.throw_bind
       refine SimC.bind_left (internLM_eff hs (.imax u v))
         (fun s₁ v' hs₁ hv' => ?_)
       subst hv'
-      exact ih (stkx := rx) (lv := .imax u v) hs₁ hrest rfl hminv'
+      exact ih (stkx := rx) (lv := .imax u v) hs₁ hrest rfl
 
 theorem inferPisLeafC_sim (ih : SSimC mode env f) {d : Nat}
     {t : ExprC} {tx : Expr} {k : Nat} {fvs : Array ExprC} {ws : List Expr}
@@ -429,8 +413,8 @@ theorem inferPisLeafC_sim (ih : SSimC mode env f) {d : Nat}
     (hfvs : RelCL fvs.toList.reverse ws) (hstk : RelLStk stk stkx)
     (hw : Expr.WScoped (d + k) (tx.instantiateList ws)) :
     SimC mode env s₀ RelDC
-      (inferPisLeafI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) d t k fvs stk)
-      (inferPisLeaf mode (fueledFns mode env) d tx k ws stkx) := by
+      (inferPisLeafI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) env.lpsL d t k fvs stk)
+      (inferPisLeaf mode env.lpsL (fueledFns mode env) d tx k ws stkx) := by
   unfold inferPisLeafI inferPisLeaf
   refine SimC.bind_left (instListRevM_eff (d := 0) hs ht hfvs)
     (fun s₁ ob hs₁ hQob => ?_)
@@ -445,7 +429,7 @@ theorem inferPisLeafC_sim (ih : SSimC mode env f) {d : Nat}
   cases wbt
   case sort v =>
     dsimp only [ExprC.view]
-    refine SimC.bind (inferPisOutC_sim hs₃ hstk rfl PWMemoInvC.empty)
+    refine SimC.bind (inferPisOutC_sim hs₃ hstk rfl)
       (fun s₄ iv ivx hs₄ hiv => ?_)
     exact SimC.of_eff (internI_eff hs₄ (n := ExprView.sort iv))
       _ (fun s hQ => by
@@ -462,9 +446,9 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
       RelCL fvs.toList.reverse ws → RelLStk stk stkx →
       Expr.WScoped (d + k) (tx.instantiateList ws) →
       SimC mode env s₀ RelDC
-        (inferPisI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) d fuel t k fvs
+        (inferPisI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) env.lpsL d fuel t k fvs
           stk)
-        (inferPis mode (fueledFns mode env) d fuel tx k ws stkx)
+        (inferPis mode env.lpsL (fueledFns mode env) d fuel tx k ws stkx)
   | 0, t, tx, k, fvs, ws, stk, stkx, s₀ => by
     intro hs ht hfvs hstk hw
     exact inferPisLeafC_sim ih hs ht hfvs hstk hw
@@ -480,11 +464,11 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
           match ← viewI wtty with
           | some (.sort u) => do
             let fv ← internI (.fvar (d + k) n tyo)
-            inferPisI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) d fuel body
+            inferPisI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) env.lpsL d fuel body
               (k + 1) (fvs.push fv) ((u, mb.pw) :: stk)
           | _ => throw (.invalid "expected a sort")
         | _ =>
-          inferPisLeafI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) d t k fvs
+          inferPisLeafI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) env.lpsL d t k fvs
             stk)
       _
     refine SimC.view ?_
@@ -562,7 +546,7 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
         | none => do
           let btt ← (fueledFns mode env).inferIO (d + 1) bt
           let vb ← ensureSort (fueledFns mode env) env (d + 1) btt
-          unless (Level.zeronessOf vb).equiv mbx.pw do
+          unless Level.maskOf? env.lpsL vb == some mbx.pw do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-leaf)")
       pure (Expr.forallE nm tyx (bt.abstract1 d) mbx)) : FueledM Expr).val F
@@ -577,7 +561,7 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
             | none => do
               let btt ← inferTypeIO mode env F (d + 1) bt
               let vb ← ensureSortCore mode env F (d + 1) btt
-              unless (Level.zeronessOf vb).equiv mbx.pw do
+              unless Level.maskOf? env.lpsL vb == some mbx.pw do
                 throw (.notImplemented
                   "sort-annotation mismatch (lam-cod-leaf)")
           pure (Expr.forallE nm tyx (bt.abstract1 d) mbx))) := by
@@ -601,7 +585,7 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
     rw [FueledM.atF_bind, ensureSort_atF]
     congr 1
     funext vb
-    by_cases hc : (Level.zeronessOf vb).equiv mbx.pw = true
+    by_cases hc : (Level.maskOf? env.lpsL vb == some mbx.pw) = true
     · rw [if_pos hc, if_pos hc]; rfl
     · rw [if_neg hc, if_neg hc]; rfl
 
@@ -617,7 +601,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
     (hfv : RelC fv (.fvar d nm tyx))
     (hwty : Expr.WScoped d tyx) (hwbody : Expr.WScoped d bodyx) :
     SimC mode env s₀ (RelEC d)
-      (inferLamsI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
+      (inferLamsI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) env.lpsL d fuel b 1 #[fv]
         [(nm, t, ⟨mbbi, mbpw⟩)])
       (do
         let bt ← (fueledFns mode env).infer (d + 1)
@@ -631,7 +615,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
           | none => do
             let btt ← (fueledFns mode env).inferIO (d + 1) bt
             let vb ← ensureSort (fueledFns mode env) env (d + 1) btt
-            unless (Level.zeronessOf vb).equiv
+            unless Level.maskOf? env.lpsL vb ==
                 (⟨mbbi, mbpw⟩ : BinderMeta).pw do
               throw (.notImplemented
                 "sort-annotation mismatch (lam-cod-leaf)")
@@ -641,9 +625,9 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
     rw [instList_single]
     exact Expr.WScoped.instantiate1 hwty 0 hwbody
   have hcore : SimC mode env s₀ RelDC
-      (inferLamsI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
+      (inferLamsI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) env.lpsL d fuel b 1 #[fv]
         [(nm, t, ⟨mbbi, mbpw⟩)])
-      (inferLams mode (fueledFns mode env) d fuel bodyx 1 [Expr.fvar d nm tyx]
+      (inferLams mode env.lpsL (fueledFns mode env) d fuel bodyx 1 [Expr.fvar d nm tyx]
         [(nm, tyx, ⟨mbbi, mbpw⟩)]) := by
     refine inferLamsC_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact RelCL.cons hfv RelCL.nil)
@@ -713,8 +697,8 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
       obtain ⟨v, hvv, htail⟩ := bind_okB htail
       rw [hvv, okB_bind]
       try dsimp only at htail ⊢
-      by_cases hz : (Level.zeronessOf v).equiv
-          (⟨mbbi, mbpw⟩ : BinderMeta).pw = true
+      by_cases hz : (Level.maskOf? env.lpsL v ==
+          (⟨mbbi, mbpw⟩ : BinderMeta).pw) = true
       case neg =>
         rw [if_neg hz] at htail
         exact nomatch htail
@@ -758,8 +742,8 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
         obtain ⟨btt, -, hF⟩ := bind_okB hF
         obtain ⟨v, -, hF⟩ := bind_okB hF
         revert hF
-        by_cases hc : (Level.zeronessOf v).equiv
-            (⟨mbbi, mbpw⟩ : BinderMeta).pw = true
+        by_cases hc : (Level.maskOf? env.lpsL v ==
+            (⟨mbbi, mbpw⟩ : BinderMeta).pw) = true
         · rw [if_pos hc]
           intro hF
           injection hF with hres
@@ -780,14 +764,14 @@ private theorem inferPiTail_atF {env : Env} (d : Nat) (nm : Name)
         (← (fueledFns mode env).infer (d + 1)
           (bodyx.instantiate1 (.fvar d nm tyx)))
       if mode.verified then
-        unless (Level.zeronessOf v).equiv pw do
+        unless Level.maskOf? env.lpsL v == some pw do
           throw (.notImplemented "sort-annotation mismatch (forall-cod)")
       pure (Expr.sort (.imax lu v))) : FueledM Expr).val F
     = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx))
         >>= fun bt => ensureSortCore mode env F (d + 1) bt >>= fun v =>
         (do
           if mode.verified then
-            unless (Level.zeronessOf v).equiv pw do
+            unless Level.maskOf? env.lpsL v == some pw do
               throw (.notImplemented
                 "sort-annotation mismatch (forall-cod)")
           pure (Expr.sort (.imax lu v)))) := by
@@ -800,7 +784,7 @@ private theorem inferPiTail_atF {env : Env} (d : Nat) (nm : Name)
   by_cases hv : mode.verified = true
   case neg => rw [if_neg hv, if_neg hv]; rfl
   rw [if_pos hv, if_pos hv]
-  by_cases hz : (Level.zeronessOf v).equiv pw = true
+  by_cases hz : (Level.maskOf? env.lpsL v == some pw) = true
   · rw [if_pos hz, if_pos hz]; rfl
   · rw [if_neg hz, if_neg hz]; rfl
 
@@ -815,14 +799,14 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
     (hfv : RelC fv (.fvar d nmx tyx))
     (hwty : Expr.WScoped d tyx) (hwbody : Expr.WScoped d bodyx) :
     SimC mode env s₀ (RelEC d)
-      (inferPisI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
+      (inferPisI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) env.lpsL d fuel b 1 #[fv]
         [(u, pw)])
       (do
         let v ← ensureSort (fueledFns mode env) env (d + 1)
           (← (fueledFns mode env).infer (d + 1)
             (bodyx.instantiate1 (.fvar d nmx tyx)))
         if mode.verified then
-          unless (Level.zeronessOf v).equiv pw do
+          unless Level.maskOf? env.lpsL v == some pw do
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
         pure (Expr.sort (.imax lu v))) := by
@@ -831,9 +815,9 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
     rw [instList_single]
     exact Expr.WScoped.instantiate1 hwty 0 hwbody
   have hcore : SimC mode env s₀ RelDC
-      (inferPisI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
+      (inferPisI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) env.lpsL d fuel b 1 #[fv]
         [(u, pw)])
-      (inferPis mode (fueledFns mode env) d fuel bodyx 1
+      (inferPis mode env.lpsL (fueledFns mode env) d fuel bodyx 1
         [Expr.fvar d nmx tyx] [(lu, pw)]) := by
     refine inferPisC_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact RelCL.cons hfv RelCL.nil)
@@ -864,7 +848,7 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
       unfold inferPisWrap at hwrap
       exact hwrap
     rw [if_pos hver] at hwrap ⊢
-    by_cases hz : (Level.zeronessOf v).equiv pw = true
+    by_cases hz : (Level.maskOf? env.lpsL v == some pw) = true
     case neg =>
       rw [if_neg hz] at hwrap
       exact nomatch hwrap
@@ -887,7 +871,7 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
       subst hres
       simp [Expr.WScoped]
     rw [if_pos hver]
-    by_cases hz : (Level.zeronessOf v).equiv pw = true
+    by_cases hz : (Level.maskOf? env.lpsL v == some pw) = true
     · rw [if_pos hz]
       intro hF
       injection hF with hres
@@ -984,8 +968,9 @@ theorem annotPwPiC_sim (ih : SSimC mode env f) {d : Nat}
   unfold annotPwPiI annotPwPi
   have hl' := hl
   obtain rfl := hl
-  rw [show (mkFEnv env).find? = env.find? from funext (mkFEnv_find? env)]
-  cases typeSortPW env.find? body' with
+  rw [show (mkFEnv env).find? = env.find? from funext (mkFEnv_find? env),
+    show (mkFEnv env).env.lpsL = env.lpsL from rfl]
+  cases typeSortPW env.find? env.lpsL body' with
   | some pw => exact SimC.pure hs rfl
   | none =>
     dsimp only
@@ -995,11 +980,7 @@ theorem annotPwPiC_sim (ih : SSimC mode env f) {d : Nat}
     refine SimC.bind (ensureSortC_sim ih hs₂ hbtd hwbt)
       (fun s₃ v lv hs₃ hPv => ?_)
     obtain rfl : v = lv := hPv
-    obtain ⟨-, hzeq⟩ := zeronessOfLIGoC_spec (st := default) v
-      (memo := {}) PWMemoInvC.empty
-      (p := (CStore.zeronessOfLIGo default {} v).1)
-      (memo' := (CStore.zeronessOfLIGo default {} v).2) rfl
-    exact simC_withStore_pure hs₃ hzeq
+    exact SimC.pure hs₃ rfl
 
 /-- The λ twin of `annotPwPiC_sim`. -/
 theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
@@ -1012,8 +993,9 @@ theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
   unfold annotPwLamI annotPwLam
   have hl' := hl
   obtain rfl := hl
-  rw [show (mkFEnv env).find? = env.find? from funext (mkFEnv_find? env)]
-  cases proofPW env.find? body' with
+  rw [show (mkFEnv env).find? = env.find? from funext (mkFEnv_find? env),
+    show (mkFEnv env).env.lpsL = env.lpsL from rfl]
+  cases proofPW env.find? env.lpsL body' with
   | some pw => exact SimC.pure hs rfl
   | none =>
     dsimp only
@@ -1026,11 +1008,7 @@ theorem annotPwLamC_sim (ih : SSimC mode env f) {d : Nat}
     refine SimC.bind (ensureSortC_sim ih hs₃ hbttd hwbtt)
       (fun s₄ vb lvb hs₄ hPv => ?_)
     obtain rfl : vb = lvb := hPv
-    obtain ⟨-, hzeq⟩ := zeronessOfLIGoC_spec (st := default) vb
-      (memo := {}) PWMemoInvC.empty
-      (p := (CStore.zeronessOfLIGo default {} vb).1)
-      (memo' := (CStore.zeronessOfLIGo default {} vb).2) rfl
-    exact simC_withStore_pure hs₄ hzeq
+    exact SimC.pure hs₄ rfl
 
 /-- The gated forms the telescope loops use. -/
 theorem annotatePisPwC_sim (ih : SSimC mode env f) {d k : Nat}

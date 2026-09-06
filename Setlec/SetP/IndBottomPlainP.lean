@@ -148,7 +148,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
           denoteP mp.base2.acval env φ 0
             (tyA.instantiateLevelParams lps us) = some TVa →
           denoteP mp.base2.acval env φ 0
-            (cvj.type.instantiateLevelParams cvj.levelParams usj)
+            (cvj.type.instantiateLevelParams cvj.levelParams usj (Level.masksOf env.lpsL usj))
             = some TVja →
           TeleFitPA V ρ TVa
             (xs ++ [AVExpr.mkAppN

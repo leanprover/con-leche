@@ -95,7 +95,7 @@ structure EnvFacts (env : Env) where
       ∀ (us : List Level) (ψ : Name → Nat),
         us.length = cv.levelParams.length →
         ∃ R, denoteClosed cval env ψ
-          (r.rhs.instantiateLevelParams cv.levelParams us) = some R
+          (r.rhs.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)) = some R
   /-- **A stored recursor's parameter count does not exceed its major
   index.**  The bridge-side half of the D3 split: `EnvWF` concludes
   `rP ≤ mI` only inside the `.nested` branch, so R11's *nested* premise

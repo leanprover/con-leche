@@ -14,7 +14,7 @@ membership `⟦a⟧ ∈ ⟦A⟧` for `TeleFitPA.cons`.
   with its arguments renamed.  The premise is the regime of the product
   the head-prefix inhabits (`piR v A B`, `v ≠ 0`), and the regime of a
   product IS its codomain sort's bit (`piR`'s numeral; `denoteP`'s
-  `.forallE` clause reads `pwBit φ m.pw` of exactly the node the walk
+  `.forallE` clause reads `pwBit env.lpsL φ m.pw` of exactly the node the walk
   peels).  The domain `A` is unconstrained — its own kind is irrelevant.
 * `certs_teleLicP` — the walk (`certs_telePA`'s licensed twin): the
   redex's own `AnnotOkP` carries every prefix's app slot
@@ -200,8 +200,8 @@ theorem certs_teleLicP {m : EnvS2Core V env}
         -- prefix inhabits the binder's product reading, the slot
         -- transfers
         refine ⟨fun ρ hρ => ?_, hrestc⟩
-        have hv : pwBit φ mb.pw ≠ 0 :=
-          pwBit_ne_zero_of_isNever (Bool.and_eq_true .. |>.mp hg).2 φ
+        have hv : pwBit env.lpsL φ mb.pw ≠ 0 :=
+          pwBit_ne_zero_of_isNever (Bool.and_eq_true .. |>.mp hg).2 env.lpsL φ
         obtain ⟨v', A', B', hslot, ha, -⟩ :=
           ((AnnotOk2_app V ρ fa aa) ▸ (hokApp ρ hρ).1).2.2
         have hf' := hfa ρ hρ
@@ -293,7 +293,7 @@ from every other datum at the all-zero valuation
 (`isNever_iff_forall_pwBit_ne_zero`'s completeness half), so no datum
 but `.never` puts every valuation on the licensed side. -/
 theorem iota_gate_exact {pw : PropWhen} :
-    PropWhen.isNever pw = true ↔ ∀ φ : Name → Nat, pwBit φ pw ≠ 0 :=
+    PropWhen.isNever pw = true ↔ ∀ φ : Name → Nat, pwBit env.lpsL φ pw ≠ 0 :=
   isNever_iff_forall_pwBit_ne_zero
 
 end Setlec.SetP

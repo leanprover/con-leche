@@ -50,7 +50,7 @@ theorem projInstallRun_ext {μ : CheckMode} {F : Nat}
     obtain ⟨env'', hstep, htail⟩ := h
     refine ExtEta.trans ?_ (ih htail)
     rcases hstep with hfn | ⟨-, rfl⟩
-    · obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, -, -, -, hfresh, -, -,
+    · obtain ⟨c, cvj, mcv, mval, mhint, pty, rhsA, -, -, -, -, -, hfresh, -, -,
         -, -, -, -, -, -, -, -, -, -, rfl⟩ := hfn
       exact ExtEta.cons (Option.isNone_iff_eq_none.mp hfresh)
         (fun _ _ hh => ConstantInfo.noConfusion hh)
@@ -74,7 +74,7 @@ theorem provisionRecsRunS_mono {μ : CheckMode} {F : Nat}
     exact hf
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h n ci hf
-    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hrec, -⟩ := h
+    obtain ⟨c, cvA, mI, rP, rules, rest', -, -, hmv, hrec, -⟩ := h
     obtain ⟨type', ⟨hfresh, -, -, -, -, -, -, -, -, -⟩, rfl, -⟩ := hmv
     exact ih hrec n ci (Env.find?_cons_of_fresh
       (c := .recInfo _ mI rP []) (Option.isNone_iff_eq_none.mp hfresh)
@@ -94,10 +94,10 @@ theorem provisionRecsRunS_fresh {μ : CheckMode} {F : Nat}
     exact nomatch hci
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h ci hci
-    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hprov', -⟩ := h
+    obtain ⟨c, cvA, mI, rP, rules, rest', -, -, hmv, hprov', -⟩ := h
     obtain ⟨type', hcv, hcvA, -⟩ := id hmv
     have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
-    have hfresh : envAcc.find? cvA.name = none := by
+    have hfresh : (envAcc.withLps c).find? cvA.name = none := by
       rw [hnameA]
       exact Option.isNone_iff_eq_none.mp hcv.1
     rcases List.mem_cons.mp hci with heq | hci'
@@ -126,7 +126,7 @@ theorem provisionRecsRunS_nameGuards {μ : CheckMode} {F : Nat}
     exact nomatch hci
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h ci hci
-    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hprov', -⟩ := h
+    obtain ⟨c, cvA, mI, rP, rules, rest', -, -, hmv, hprov', -⟩ := h
     obtain ⟨type', hcv, -, -⟩ := id hmv
     rcases List.mem_cons.mp hci with heq | hci'
     · rw [heq]
@@ -162,7 +162,7 @@ theorem indRecsFoldRun_noInd {μ : CheckMode} {F : Nat}
     exact hf
   | cons c rest ih =>
     intro acc out h T cvT caps hf
-    obtain ⟨rules', -, htail⟩ := h
+    obtain ⟨cu, rules', -, -, htail⟩ := h
     have h1 := ih htail T cvT caps hf
     rw [Env.find?_cons] at h1
     split at h1
@@ -198,7 +198,7 @@ theorem indRecsFoldRun_mono {μ : CheckMode} {F : Nat}
     exact hn
   | cons c rest ih =>
     intro acc out h n hn
-    obtain ⟨rules', -, htail⟩ := h
+    obtain ⟨cu, rules', -, -, htail⟩ := h
     refine ih htail n ?_
     rw [Env.find?_cons]
     split
@@ -240,12 +240,12 @@ theorem provisionRecsRunS_stored {μ : CheckMode} {F : Nat}
     exact nomatch hci
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h ci hci
-    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hprov', -⟩ := h
+    obtain ⟨c, cvA, mI, rP, rules, rest', -, -, hmv, hprov', -⟩ := h
     obtain ⟨type', -, hcvAdef, -⟩ := hmv
     rcases List.mem_cons.mp hci with rfl | hci'
     · have : envSelf.find? cvA.name = some (.recInfo cvA mI rP []) :=
         provisionRecsRunS_mono rest hprov' _ _
-          (Env.find?_cons_self (.recInfo cvA mI rP []) envAcc)
+          (Env.find?_cons_self (.recInfo cvA mI rP []) (envAcc.withLps c))
       rw [show ci.name = cvA.name by rw [hcvAdef]; rfl, this]
       rfl
     · exact ih hprov' ci hci'
@@ -265,7 +265,7 @@ theorem provisionRecsRunS_mem {μ : CheckMode} {F : Nat}
     exact hc
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h c hc
-    obtain ⟨cvA, mI, rP, rules, rest', -, -, hprov', -⟩ := h
+    obtain ⟨cu, cvA, mI, rP, rules, rest', -, -, -, hprov', -⟩ := h
     exact ih hprov' c (List.mem_cons_of_mem _ hc)
 
 /-- Each provisioned member is stored rule-less in the self
@@ -287,11 +287,11 @@ theorem provisionRecsRunS_entries {μ : CheckMode} {F : Nat}
     exact nomatch hc
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h c hc
-    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hrec, rfl⟩ := h
+    obtain ⟨cu, cvA, mI, rP, rules, rest', -, -, hmv, hrec, rfl⟩ := h
     obtain ⟨type', ⟨-, hres, -, -, -, -, -, -, -, -⟩, rfl, -⟩ := hmv
     rcases List.mem_cons.mp hc with rfl | hc'
     · exact ⟨provisionRecsRunS_mono rest hrec _ _
-        (Env.find?_cons_self (.recInfo _ mI rP []) envAcc), hres⟩
+        (Env.find?_cons_self (.recInfo _ mI rP []) (envAcc.withLps cu)), hres⟩
     · exact ih hrec c hc'
 
 /-! ## The member fold's syntactic residue -/
@@ -311,9 +311,9 @@ theorem indMembersRun_mono {μ : CheckMode} {F : Nat}
     exact hf
   | cons ci₀ rest ih =>
     intro env env₂ h n ci hf
-    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨c, cvA, -, hmv, hmatch⟩ := h
     obtain ⟨type', hcv, hcvA, -⟩ := id hmv
-    have hfresh : env.find? cvA.name = none := by
+    have hfresh : (env.withLps c).find? cvA.name = none := by
       rw [show cvA.name = ci₀.toConstantVal.name by rw [hcvA]]
       exact Option.isNone_iff_eq_none.mp hcv.1
     cases ci₀ with
@@ -342,7 +342,7 @@ theorem indMembersRun_stored {μ : CheckMode} {F : Nat}
     exact nomatch hci
   | cons ci₀ rest ih =>
     intro env env₂ h ci hci
-    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨c, cvA, -, hmv, hmatch⟩ := h
     obtain ⟨type', hcv, hcvA, -⟩ := id hmv
     have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
     rcases List.mem_cons.mp hci with heq | hci'
@@ -352,13 +352,13 @@ theorem indMembersRun_stored {μ : CheckMode} {F : Nat}
         rw [show (env₂.find? cvA.name)
             = some (ConstantInfo.indInfo cvA caps) from
           indMembersRun_mono rest hmatch _ _
-            (Env.find?_cons_self (.indInfo cvA caps) env)]
+            (Env.find?_cons_self (.indInfo cvA caps) (env.withLps c))]
         rfl
       | ctorInfo cv nP nF =>
         rw [show (env₂.find? cvA.name)
             = some (ConstantInfo.ctorInfo cvA nP nF) from
           indMembersRun_mono rest hmatch _ _
-            (Env.find?_cons_self (.ctorInfo cvA nP nF) env)]
+            (Env.find?_cons_self (.ctorInfo cvA nP nF) (env.withLps c))]
         rfl
       | axiomInfo cv => exact nomatch hmatch
       | defnInfo cv v hint => exact nomatch hmatch
@@ -387,10 +387,10 @@ theorem indMembersRun_fresh {μ : CheckMode} {F : Nat}
     exact nomatch hci
   | cons ci₀ rest ih =>
     intro env env₂ h ci hci
-    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨c, cvA, -, hmv, hmatch⟩ := h
     obtain ⟨type', hcv, hcvA, -⟩ := id hmv
     have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
-    have hfresh : env.find? cvA.name = none := by
+    have hfresh : (env.withLps c).find? cvA.name = none := by
       rw [hnameA]
       exact Option.isNone_iff_eq_none.mp hcv.1
     rcases List.mem_cons.mp hci with heq | hci'
@@ -429,7 +429,7 @@ theorem indMembersRun_nameGuards {μ : CheckMode} {F : Nat}
     exact nomatch hci
   | cons ci₀ rest ih =>
     intro env env₂ h ci hci
-    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨c, cvA, -, hmv, hmatch⟩ := h
     obtain ⟨type', hcv, -, -⟩ := id hmv
     rcases List.mem_cons.mp hci with heq | hci'
     · rw [heq]
@@ -460,7 +460,7 @@ theorem indMembersRun_indEntry {μ : CheckMode} {F : Nat}
     exact nomatch hci
   | cons ci₀ rest ih =>
     intro env env₂ h cv caps₂ hci
-    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨c, cvA, -, hmv, hmatch⟩ := h
     obtain ⟨type', hcv, hcvA, -⟩ := id hmv
     have hnameA : cvA.name = ci₀.toConstantVal.name := by rw [hcvA]
     have hlpsA : cvA.levelParams = ci₀.toConstantVal.levelParams := by
@@ -470,7 +470,7 @@ theorem indMembersRun_indEntry {μ : CheckMode} {F : Nat}
       refine ⟨cvA, hnameA, hlpsA, ?_⟩
       rw [show cv.name = cvA.name from hnameA.symm]
       exact indMembersRun_mono rest hmatch _ _
-        (Env.find?_cons_self (.indInfo cvA caps) env)
+        (Env.find?_cons_self (.indInfo cvA caps) (env.withLps c))
     · cases ci₀ with
       | indInfo cv' caps' => exact ih hmatch cv caps₂ hci'
       | ctorInfo cv' nP nF => exact ih hmatch cv caps₂ hci'
@@ -496,7 +496,7 @@ theorem indMembersRun_ctorEntry {μ : CheckMode} {F : Nat}
     exact nomatch hci
   | cons ci₀ rest ih =>
     intro env env₂ h cv nP nF hci
-    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨c, cvA, -, hmv, hmatch⟩ := h
     obtain ⟨type', hcv, hcvA, -⟩ := id hmv
     have hnameA : cvA.name = ci₀.toConstantVal.name := by rw [hcvA]
     rcases List.mem_cons.mp hci with heq | hci'
@@ -504,7 +504,7 @@ theorem indMembersRun_ctorEntry {μ : CheckMode} {F : Nat}
       refine ⟨cvA, ?_⟩
       rw [show cv.name = cvA.name from hnameA.symm]
       exact indMembersRun_mono rest hmatch _ _
-        (Env.find?_cons_self (.ctorInfo cvA nP nF) env)
+        (Env.find?_cons_self (.ctorInfo cvA nP nF) (env.withLps c))
     · cases ci₀ with
       | indInfo cv' caps' => exact ih hmatch cv nP nF hci'
       | ctorInfo cv' nP' nF' => exact ih hmatch cv nP nF hci'
@@ -533,7 +533,7 @@ theorem indMembersRun_indNew {μ : CheckMode} {F : Nat}
     exact Or.inl hf
   | cons ci₀ rest ih =>
     intro env env₂ h T cvT caps' hf
-    obtain ⟨cvA, hmv, hmatch⟩ := h
+    obtain ⟨c, cvA, -, hmv, hmatch⟩ := h
     obtain ⟨type', hcv, hcvA, -⟩ := id hmv
     have hnameA : cvA.name = ci₀.toConstantVal.name := by rw [hcvA]
     cases ci₀ with
@@ -583,7 +583,7 @@ theorem provisionRecsRun_checkedFresh {μ : CheckMode} {F : Nat}
     exact nomatch hc
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h c hc
-    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hprov', rfl⟩ := h
+    obtain ⟨cu, cvA, mI, rP, rules, rest', -, -, hmv, hprov', rfl⟩ := h
     obtain ⟨type', ⟨hfresh, -, -, -, -, -, -, -, -, -⟩, rfl, -⟩ := hmv
     rcases List.mem_cons.mp hc with rfl | hc'
     · exact Option.isNone_iff_eq_none.mp hfresh
@@ -611,7 +611,7 @@ theorem indRecsFoldRun_keep {μ : CheckMode} {F : Nat}
     rfl
   | cons c rest ih =>
     intro acc out h n hne
-    obtain ⟨rules', -, htail⟩ := h
+    obtain ⟨cu, rules', -, -, htail⟩ := h
     rw [ih htail n (fun c' hc' => hne c' (List.mem_cons_of_mem _ hc')),
       Env.find?_cons]
     exact if_neg (hne c List.mem_cons_self)
@@ -662,15 +662,16 @@ unchanged; neither lane re-proves the syntactic six. -/
 facts** — off `IotaRulesRun` plus a reading supplier. -/
 theorem iotaRulesFactsRun {μ : CheckMode} {F : Nat}
     {env₂ envSelf : Env} {cvalSelf : TConstVal} {f : Name → Name}
+    (cu : UnivCtx)
     (hup : FoldUpS env₂ envSelf)
     (hden : ∀ e : Expr, e.hasFvar = false →
       e.looseBVarsBounded 0 = true →
-      (∃ t', inferTypeCore μ envSelf F 0 e = .ok t') →
+      (∃ t', inferTypeCore μ (envSelf.withLps cu) F 0 e = .ok t') →
       ∀ φ : Name → Nat,
         ∃ Rv, denoteClosed cvalSelf envSelf φ e = some Rv)
     {cvA : ConstantVal} {mI rP : Nat} :
     ∀ (j : Nat) (rules rules' : List RecRule),
-      IotaRulesRun μ F env₂ envSelf f cvA.name cvA.levelParams
+      IotaRulesRun μ F env₂ (envSelf.withLps cu) f cvA.name cvA.levelParams
         cvA.type mI rP j rules rules' →
       ∀ rl ∈ rules', RuleFacts envSelf cvalSelf cvA mI rP rl := by
   intro j rules
@@ -698,7 +699,8 @@ theorem iotaRulesFactsRun {μ : CheckMode} {F : Nat}
         · exact h'
         · exact nomatch heq
       refine ⟨by rw [hr'rhs]; exact hrhsAw, by rw [hr'rhs]; exact hrlp,
-        by rw [hr'rhs]; exact hrres, by rw [hr'rhs]; exact hrhsAb, ?_,
+        by rw [hr'rhs]; rw [← Expr.constsResolve_withLps envSelf cu]; exact hrres,
+        by rw [hr'rhs]; exact hrhsAb, ?_,
         ⟨cvjK, cnPK, cnFK, hfcS⟩, ?_⟩
       · -- the nested shape facts, from `nestedRuleShape`
         intro lvls pins hfireN
@@ -712,8 +714,10 @@ theorem iotaRulesFactsRun {μ : CheckMode} {F : Nat}
         obtain ⟨hshape, -⟩ := hthmN
         obtain ⟨hrPmI, hlvls, hpins, pre, nm, dom, body, bm, D, hstrip,
           hfn, hargs, -⟩ := nestedRuleShape_inv hshape
-        exact ⟨hrPmI, hlvls, hpins, pre, nm, dom, body, bm, D, hstrip,
+        refine ⟨hrPmI, hlvls, fun pin hp => ?_, pre, nm, dom, body, bm, D, hstrip,
           hfn, hargs⟩
+        obtain ⟨p1, p2, p3, p4⟩ := hpins pin hp
+        exact ⟨p1, p2, by rw [← Expr.constsResolve_withLps envSelf cu]; exact p3, p4⟩
       · -- a fired rule: the parameter bound and the rhs's reading
         intro hfire
         refine ⟨?_, fun φ => ?_⟩
@@ -736,10 +740,11 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
     {envSelf envBase : Env}
     (RF : ConstantVal → Nat → Nat → RecRule → Prop)
     (hfire : ∀ (cvA : ConstantVal) (mI rP : Nat)
-      (rules rules' : List RecRule),
+      (rules rules' : List RecRule) (cu : UnivCtx),
       blockNames.contains cvA.name = true →
       envSelf.find? cvA.name = some (.recInfo cvA mI rP []) →
-      IotaRulesRun μ F envBase envSelf
+      UnivCtx.of? cvA.levelParams = some cu →
+      IotaRulesRun μ F envBase (envSelf.withLps cu)
         (fun n => if blockNames.contains n then n.str "_model" else n)
         cvA.name cvA.levelParams cvA.type mI rP 0 rules rules' →
       ∀ rl ∈ rules', RF cvA mI rP rl) :
@@ -786,39 +791,40 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
   | cons ci₀ rest ih =>
     intro envP envF env₃ checked hsw hnres hupF hupP heqP
       hents hentF hbn hprov hfold
-    obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hprov', rfl⟩ := hprov
-    obtain ⟨rules', hiot, hfold'⟩ := hfold
+    obtain ⟨c, cvA, mI, rP, rules, rest', hciE, -, hmv, hprov', rfl⟩ := hprov
+    obtain ⟨cu, rules', hcu, hiot, hfold'⟩ := hfold
     obtain ⟨type', ⟨hfresh0, hres0, -, -, -, -, -, -, -, -⟩, hcvAdef,
       -⟩ := hmv
     have hnameA : cvA.name = ci₀.toConstantVal.name := by
       rw [hcvAdef]
-    have hfreshP : envP.find? cvA.name = none := by
+    have hfreshP : (envP.withLps c).find? cvA.name = none := by
       rw [hnameA]; exact Option.isNone_iff_eq_none.mp hfresh0
+    have hfreshP0 : envP.find? cvA.name = none := hfreshP
     have hres : reservedBasisNames.contains cvA.name = false := by
       rw [hnameA]; exact hres0
     have hcg : SwapCongr envP envF := SwapShList.congr hsw
     have hselfA : envSelf.find? cvA.name
         = some (.recInfo cvA mI rP []) :=
       provisionRecsRunS_mono rest hprov' _ _
-        (Env.find?_cons_self (.recInfo cvA mI rP []) envP)
+        (Env.find?_cons_self (.recInfo cvA mI rP []) (envP.withLps c))
     have hbnA : blockNames.contains cvA.name = true := by
       rw [hnameA]; exact hbn ci₀ List.mem_cons_self
     have heqfF : envF.find? eqName = some eqA :=
       hcg.findUp eqName eqA heqP
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)
-    have hfacts := hfire cvA mI rP rules rules' hbnA hselfA hiot
+    have hfacts := hfire cvA mI rP rules rules' cu hbnA hselfA hcu hiot
     have hfreshF : envF.find? cvA.name = none := by
       rcases hF : envF.find? cvA.name with _ | ciF
       · rfl
       · have := hcg.isSomeEq cvA.name
-        rw [hF, hfreshP] at this
+        rw [hF, hfreshP0] at this
         exact nomatch this.symm
     refine ?_
     have hsw' : SwapShList
-        (Env.consts { envP with consts := .recInfo cvA mI rP [] :: envP.consts })
+        (Env.consts { envP.withLps c with consts := .recInfo cvA mI rP [] :: (envP.withLps c).consts })
         (Env.consts { envF with consts := .recInfo cvA mI rP rules' :: envF.consts }) :=
       SwapShList.cons (Or.inr ⟨cvA, mI, rP, rules', rfl, rfl⟩) hsw
-    have hnres' : SwapNResS { envP with consts := .recInfo cvA mI rP [] :: envP.consts }
+    have hnres' : SwapNResS { envP.withLps c with consts := .recInfo cvA mI rP [] :: (envP.withLps c).consts }
         { envF with consts := .recInfo cvA mI rP rules' :: envF.consts } := by
       intro n cv mI₀ rP₀ rules₀ h₀ h₃
       rw [Env.find?_cons] at h₀ h₃
@@ -844,7 +850,8 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
           rw [← hn]; exact hselfA⟩
       · exact hupF n ci hfx
     have hupP' : ∀ (n : Name) (ci : ConstantInfo),
-        (Env.find? { envP with consts := .recInfo cvA mI rP [] :: envP.consts } n) = some ci →
+        (Env.find? { envP.withLps c with consts := .recInfo cvA mI rP [] :: (envP.withLps c).consts } n)
+          = some ci →
         envSelf.find? n = some ci := by
       intro n ci hfx
       rw [Env.find?_cons] at hfx
@@ -853,8 +860,8 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
         obtain rfl := Option.some.inj hfx
         rw [← hn]; exact hselfA
       · exact hupP n ci hfx
-    have heqP' : Env.find? { envP with consts := .recInfo cvA mI rP [] :: envP.consts } eqName
-        = some eqA :=
+    have heqP' : Env.find? { envP.withLps c with consts := .recInfo cvA mI rP [] :: (envP.withLps c).consts }
+        eqName = some eqA :=
       Env.find?_cons_of_fresh (c := .recInfo _ mI rP []) hfreshP heqP
     have hents' : ∀ c ∈ (Env.consts
         { envF with consts := .recInfo cvA mI rP rules' :: envF.consts }),

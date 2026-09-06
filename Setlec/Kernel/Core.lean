@@ -306,6 +306,11 @@ def natLitSupported (env : Env) : Bool :=
   natIndOk (env.find? natName) && natZeroOk (env.find? natZeroName) &&
     natSuccOk (env.find? natSuccName)
 
+@[simp] theorem natLitSupported_withLps (env : Env) (c : UnivCtx) :
+    natLitSupported (env.withLps c) = natLitSupported env := rfl
+@[simp] theorem natLitSupported_withLpsL (env : Env) (l : List Name) :
+    natLitSupported (env.withLpsL l) = natLitSupported env := rfl
+
 /-- Do all constants referenced in `e` (including inside `fvar` type
 annotations) resolve in `env`?  A `Nat` literal implicitly references
 the `Nat` basis constants (and a `String` literal additionally the
@@ -332,6 +337,15 @@ def Expr.constsResolve (env : Env) : Expr → Bool
   | .letE _ ty val body =>
     ty.constsResolve env && val.constsResolve env && body.constsResolve env
   | .proj s _ e => (env.find? s).isSome && e.constsResolve env
+
+/-- Resolution reads the environment only through lookups: the
+universe context is invisible (the packed `pw` datum, 2026-09-06). -/
+theorem Expr.constsResolve_withLps (env : Env) (c : UnivCtx) :
+    ∀ e : Expr, e.constsResolve (env.withLps c) = e.constsResolve env := by
+  intro e
+  induction e <;> (try simp_all [Expr.constsResolve])
+  rename_i l
+  cases l <;> simp [Expr.constsResolve]
 
 /-- Convert a `Nat`-literal major premise to constructor form, one
 layer; anything else passes through. -/
@@ -475,6 +489,11 @@ def strLitSupported (env : Env) : Bool :=
     listConsTyOk (env.find? listConsName) &&
     charTyOk (env.find? charName) &&
     charOfNatTyOk (env.find? charOfNatName)
+
+@[simp] theorem strLitSupported_withLps (env : Env) (c : UnivCtx) :
+    strLitSupported (env.withLps c) = strLitSupported env := rfl
+@[simp] theorem strLitSupported_withLpsL (env : Env) (l : List Name) :
+    strLitSupported (env.withLpsL l) = strLitSupported env := rfl
 
 /-! ## Structural-Nat literal acceleration
 
@@ -643,6 +662,11 @@ def natOpGuard (env : Env) (c : Name) : Bool :=
       | some ci => ci.toConstantVal.levelParams.isEmpty
       | none => false)
    else true)
+
+/-- The universe context is transparent to the structural-Nat guard
+(it reads `consts` alone). -/
+@[simp] theorem natOpGuard_withLps (env : Env) (c : UnivCtx) (n : Name) :
+    natOpGuard (env.withLps c) n = natOpGuard env n := rfl
 
 /-- The pin-certified WF-recursive `Nat` operations, as a *safety
 net*: the preceding certified branches normally intercept literal

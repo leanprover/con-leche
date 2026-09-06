@@ -919,7 +919,7 @@ theorem eqRecLawP {m : EnvS2Core V env}
     pwBit_ifAllZero_single ψ u1N
   have hRa : denoteP m₂.acval { env with consts := eqRecA :: env.consts } φ 0
       (eqRecRule.rhs.instantiateLevelParams
-        eqRecA.toConstantVal.levelParams us)
+        eqRecA.toConstantVal.levelParams us (Level.masksOf env.lpsL us))
       = some (eqRecRaP (pwBit ψ (.ifAllZero [u1N])) ψ) := by
     rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac, hψ,
       denoteP_eqRec_rhs (m := m) _ hE hR hEv hRv]
@@ -951,7 +951,7 @@ theorem eqRecLawP {m : EnvS2Core V env}
     rw [Level.subst, Level.eval_subst_go]
   have hTyRead : denoteP m₂.acval { env with consts := eqRecA :: env.consts } φ 0
       (eqRecA.toConstantVal.type.instantiateLevelParams
-        eqRecA.toConstantVal.levelParams us)
+        eqRecA.toConstantVal.levelParams us (Level.masksOf env.lpsL us))
       = some (eqRecTyP (pwBit ψ (.ifAllZero [u1N])) ψ) := by
     rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac, hψ,
       denoteP_eqRecA_type (m := m) _ hE hR hEv hRv]
@@ -959,7 +959,7 @@ theorem eqRecLawP {m : EnvS2Core V env}
     (Option.some.inj (hTyRead.symm.trans hTVa)).symm
   have hCtorRead : denoteP m₂.acval { env with consts := eqRecA :: env.consts } φ 0
       (eqReflA.toConstantVal.type.instantiateLevelParams
-        eqReflA.toConstantVal.levelParams usj)
+        eqReflA.toConstantVal.levelParams usj (Level.masksOf env.lpsL usj))
       = some (eqReflTyP
           (Level.substFn φ eqReflA.toConstantVal.levelParams usj)) := by
     rw [denoteP_instLevels (acvalParamsAt_of_core m₂) φ, hac,

@@ -5,8 +5,8 @@ import Setlec.SetP.BasisEmptyP
 
 The basis tier's remaining bill — twenty type readings and seven
 `RecRuleLawP` rows — is stated at *instantiated* subjects:
-`RecRuleLawP` reads `rhs.instantiateLevelParams cv.levelParams us` and
-`cv.type.instantiateLevelParams cv.levelParams us`, and
+`RecRuleLawP` reads `rhs.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)` and
+`cv.type.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)`, and
 `EnvS2PM.type_reads` reads the stored type at the identity
 substitution.  Walking a substituted tree with the `denoteP_*` clause
 equations is possible but miserable: every `.sort` carries a
@@ -17,7 +17,7 @@ match.
 
 The fix is the crossing law, and for `denoteP` it is **pure algebra**:
 
-> `denoteP acval env φ d (e.instantiateLevelParams ks us)`
+> `denoteP acval env φ d (e.instantiateLevelParams ks us ms)`
 > `= denoteP acval env (Level.substFn φ ks us) d e`
 
 v1 has it (`denote_instLevels`, `Verify/Denote/Levels.lean`) and the
@@ -159,9 +159,9 @@ the reading runs no checker.  v1's `denote_instLevels` clause for
 clause, with `pwBit_substPW` at the binders (its docstring's named
 consumer) and `AcvalParamsAt` where v1 has `ValParams`. -/
 theorem denoteP_instLevels (hp : AcvalParamsAt env acval)
-    {ks : List Name} {us : List Level} (φ : Name → Nat) :
+    {ks : List Name} {us : List Level} {ms : List PropWhen} (φ : Name → Nat) :
     ∀ (d : Nat) (e : Expr),
-      denoteP acval env φ d (e.instantiateLevelParams ks us)
+      denoteP acval env φ d (e.instantiateLevelParams ks us ms)
         = denoteP acval env (Level.substFn φ ks us) d e := by
   intro d e
   induction d, e using denoteP.induct

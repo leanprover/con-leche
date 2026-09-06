@@ -249,23 +249,23 @@ theorem denote_openRev (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
 /-- The reverse opening commutes with level instantiation: the opener
 annotations are `.sort .zero`, fixed points of the substitution. -/
 theorem openRev_instantiateLevelParams (ks : List Name)
-    (us : List Level) :
+    (us : List Level) (ms : List PropWhen) :
     ∀ (d n : Nat) (e : Expr),
-      openRev d n (e.instantiateLevelParams ks us)
-        = (openRev d n e).instantiateLevelParams ks us := by
+      openRev d n (e.instantiateLevelParams ks us ms)
+        = (openRev d n e).instantiateLevelParams ks us ms := by
   intro d n
   induction n with
   | zero => intro e; rfl
   | succ n ih =>
     intro e
-    show (openRev d n (e.instantiateLevelParams ks us)).instantiate1
+    show (openRev d n (e.instantiateLevelParams ks us ms)).instantiate1
         (.fvar (d + n) Name.anonymous (.sort .zero)) 0 = _
     rw [ih,
-      show (openRev d (n + 1) e).instantiateLevelParams ks us
+      show (openRev d (n + 1) e).instantiateLevelParams ks us ms
         = ((openRev d n e).instantiate1
             (.fvar (d + n) Name.anonymous (.sort .zero))
-            0).instantiateLevelParams ks us from rfl,
-      Expr.instantiateLevelParams_instantiate1 ks us (openRev d n e) 0]
+            0).instantiateLevelParams ks us ms from rfl,
+      Expr.instantiateLevelParams_instantiate1 ks us ms (openRev d n e) 0]
     rfl
 
 /-- The reverse opening commutes with constant renaming (the opener

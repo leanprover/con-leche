@@ -155,8 +155,8 @@ generic `checkDecl` (at the cached shared operations) followed by
 `mkFEnv` — the `CheckCM` twin of `checkDeclSF_nonind`. -/
 theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
     (hnotind : ∀ block, d ≠ .indDecl block) :
-    checkDeclSF mode (mkFEnv env) d
-      = checkDecl mode (sharedOpsC mode (mkFEnv env)) env d
+    checkDeclSFAt mode (mkFEnv env) d
+      = checkDeclAt mode (sharedOpsC mode (mkFEnv env)) env d
           >>= fun e => pure (mkFEnv e) := by
   cases d with
   | indDecl block => exact absurd rfl (hnotind block)
@@ -192,7 +192,7 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
         else
           checkDefnValF (sharedOpsC mode (mkFEnv env)) (mkFEnv env)
             cv value hint : CheckCM FEnv) = _
-    unfold checkDecl
+    unfold checkDeclAt
     simp only [checkConstantValF_eq, mkFEnv_env, bind_assoc]
     refine bindC_congr fun cvA => ?_
     by_cases hb : (natOpNames.contains cvA.name ||
@@ -229,7 +229,7 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
           (mkFEnv env) cv
         checkThmValF (sharedOpsC mode (mkFEnv env)) (mkFEnv env) cv value :
         CheckCM FEnv) = _
-    unfold checkDecl
+    unfold checkDeclAt
     simp only [checkConstantValF_eq, checkThmValF_pushC, bind_assoc]
   | opaqueDecl cv value =>
     show (do
@@ -241,7 +241,7 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
           checkReducePinF (sharedOpsC mode (mkFEnv env)) (mkFEnv env) fe2
             cv.name value
         pure fe2 : CheckCM FEnv) = _
-    unfold checkDecl
+    unfold checkDeclAt
     simp only [checkConstantValF_eq, bind_assoc]
     refine bindC_congr fun cvA => ?_
     rw [checkOpaqueValF_pushC]
@@ -270,7 +270,7 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
         else
           throw (.notImplemented s!"non-standard axiom ({cv.name})") :
         CheckCM FEnv) = _
-    unfold checkDecl
+    unfold checkDeclAt
     simp only [checkConstantValF_eq, stdAxiomOkF_eq, trustCompilerOkF_eq,
       ofReduceAxOkF_eq, push_mkFEnv, bind_assoc, pure_bind, ite_bindC,
       throwC_bind_eq] <;> rfl
@@ -282,7 +282,7 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
               "quotient basis requires the pinned Eq basis")
         kind.declsA.foldlM installBasisDeclF (mkFEnv env) :
         CheckCM FEnv) = _
-    unfold checkDecl
+    unfold checkDeclAt
     simp only [mkFEnv_find?, installBasisFoldF_pushC, bind_assoc,
       pure_bind, ite_bindC, throwC_bind_eq] <;> rfl
 
@@ -655,6 +655,21 @@ theorem checkIndOrDirectSF_run {env : Env} (henv : EnvWF env)
     obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run henv hwf h
     exact ⟨hres, hfe, F, hF⟩
 
+/-- A context entry in the shared state: the only successful run is
+the `pure` at the entered index. -/
+theorem enterCtxF_bindC_ok {α : Type} {fe : FEnv} {lps : List Name}
+    {k : FEnv → CheckCM α} {s : CState} {r : α × CState}
+    (h : (enterCtxF fe lps >>= k) s = .ok r) :
+    ∃ c : UnivCtx, UnivCtx.of? lps = some c ∧ k (fe.withLps c) s = .ok r := by
+  unfold enterCtxF at h
+  cases hc : UnivCtx.of? lps with
+  | some c =>
+    rw [hc] at h
+    exact ⟨c, rfl, h⟩
+  | none =>
+    rw [hc, throwC_bind_eq] at h
+    exact nomatch h
+
 /-- The per-declaration bridge: a successful cached shared-state run
 over a well-formed environment is reproduced by the pure fueled
 checker, and the resulting index is `mkFEnv` of its environment. -/
@@ -681,58 +696,75 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
       obtain ⟨-, hfe, F, hF⟩ := checkIndOrDirectSF_run henv hwf0 hrun
       exact ⟨hfe, F, hF⟩
     | defnDecl cv value hint =>
-      rw [checkDeclSFC_nonind env _ (fun _ h => Declaration.noConfusion h)]
+      unfold checkDeclSF at hrun
+      obtain ⟨c, hc, hrun⟩ := enterCtxF_bindC_ok hrun
+      rw [mkFEnv_withLps,
+        checkDeclSFC_nonind (env.withLps c) _ (fun _ h => Declaration.noConfusion h)]
         at hrun
       obtain ⟨envO, s₁, hgen, hrun⟩ := bindC_ok hrun
       obtain ⟨hfe, rfl⟩ := pureC_ok hrun
       subst hfe
       obtain ⟨hs', v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (CSOK.empty env)
+        (checkDeclS_nonind_sim (henv.withLps c) (CSOK.empty (env.withLps c))
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
-      rw [← checkDecl_datF]
+      simp only [checkDecl, enterCtx_of_some hc, Bind.bind, Except.bind]
+      rw [← checkDeclAt_datF]
       exact hF
     | thmDecl cv value =>
-      rw [checkDeclSFC_nonind env _ (fun _ h => Declaration.noConfusion h)]
+      unfold checkDeclSF at hrun
+      obtain ⟨c, hc, hrun⟩ := enterCtxF_bindC_ok hrun
+      rw [mkFEnv_withLps,
+        checkDeclSFC_nonind (env.withLps c) _ (fun _ h => Declaration.noConfusion h)]
         at hrun
       obtain ⟨envO, s₁, hgen, hrun⟩ := bindC_ok hrun
       obtain ⟨hfe, rfl⟩ := pureC_ok hrun
       subst hfe
       obtain ⟨hs', v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (CSOK.empty env)
+        (checkDeclS_nonind_sim (henv.withLps c) (CSOK.empty (env.withLps c))
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
-      rw [← checkDecl_datF]
+      simp only [checkDecl, enterCtx_of_some hc, Bind.bind, Except.bind]
+      rw [← checkDeclAt_datF]
       exact hF
     | opaqueDecl cv value =>
-      rw [checkDeclSFC_nonind env _ (fun _ h => Declaration.noConfusion h)]
+      unfold checkDeclSF at hrun
+      obtain ⟨c, hc, hrun⟩ := enterCtxF_bindC_ok hrun
+      rw [mkFEnv_withLps,
+        checkDeclSFC_nonind (env.withLps c) _ (fun _ h => Declaration.noConfusion h)]
         at hrun
       obtain ⟨envO, s₁, hgen, hrun⟩ := bindC_ok hrun
       obtain ⟨hfe, rfl⟩ := pureC_ok hrun
       subst hfe
       obtain ⟨hs', v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (CSOK.empty env)
+        (checkDeclS_nonind_sim (henv.withLps c) (CSOK.empty (env.withLps c))
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
-      rw [← checkDecl_datF]
+      simp only [checkDecl, enterCtx_of_some hc, Bind.bind, Except.bind]
+      rw [← checkDeclAt_datF]
       exact hF
     | axiomDecl cv =>
-      rw [checkDeclSFC_nonind env _ (fun _ h => Declaration.noConfusion h)]
+      unfold checkDeclSF at hrun
+      obtain ⟨c, hc, hrun⟩ := enterCtxF_bindC_ok hrun
+      rw [mkFEnv_withLps,
+        checkDeclSFC_nonind (env.withLps c) _ (fun _ h => Declaration.noConfusion h)]
         at hrun
       obtain ⟨envO, s₁, hgen, hrun⟩ := bindC_ok hrun
       obtain ⟨hfe, rfl⟩ := pureC_ok hrun
       subst hfe
       obtain ⟨hs', v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (CSOK.empty env)
+        (checkDeclS_nonind_sim (henv.withLps c) (CSOK.empty (env.withLps c))
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
-      rw [← checkDecl_datF]
+      simp only [checkDecl, enterCtx_of_some hc, Bind.bind, Except.bind]
+      rw [← checkDeclAt_datF]
       exact hF
     | basisDecl kind =>
+      unfold checkDeclSF at hrun
       rw [checkDeclSFC_nonind env _ (fun _ h => Declaration.noConfusion h)]
         at hrun
       obtain ⟨envO, s₁, hgen, hrun⟩ := bindC_ok hrun
@@ -743,7 +775,8 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
-      rw [← checkDecl_datF]
+      show checkDeclAt mode (fueledOps mode F) env (.basisDecl kind) = _
+      rw [← checkDeclAt_datF]
       exact hF
 
 end Setlec.Cached
