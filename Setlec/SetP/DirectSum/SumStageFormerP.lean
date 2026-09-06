@@ -2,11 +2,12 @@ import Setlec.SetP.DirectSum.SumDataP
 import Setlec.Verify.Direct.SumWF
 
 /-!
-# The sum former's cons (task #175 sum-types)
+# The sum former's cons (task #175 sum-types, indexed)
 
 `stageSumFormer`: the P step at the sum's type former, for a given
 list of field chains `Fss` (one per constructor, scoped at the
-parameter frame) — `stageFormer` with the sum leaf `directSumTyAV`
+parameter-and-index frame — the restricted chains `rChains` at an
+indexed family) — `stageFormer` with the sum leaf `directSumTyAV`
 and the per-constructor grading `SumFieldsOkB`.  The former is stored
 with the empty capability record, so the block's own capability laws
 are vacuous.
@@ -75,11 +76,11 @@ theorem stageSumFormer (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectSumParts} {envI : Env} {cvTa : ConstantVal}
     (hind : Setlec.checkDirectSumInd (Setlec.fueledOps μ F) env p = .ok (envI, cvTa))
     {pps : (Name → Nat) → List (Nat × Nat × AVExpr)}
-    (hFD : FormerData mp.base2 cvTa p.nP p.resSort pps)
+    (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort pps)
     (Fss : (Name → Nat) → List (List AVExpr))
     (hFssParams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ q ∈ cvTa.levelParams, ψ₁ q = ψ₂ q) → Fss ψ₁ = Fss ψ₂)
-    (hFssBelow : ∀ ψ : Name → Nat, ∀ Fs ∈ Fss ψ, FieldsBelow p.nP Fs)
+    (hFssBelow : ∀ ψ : Name → Nat, ∀ Fs ∈ Fss ψ, FieldsBelow (p.nP + p.nIdx) Fs)
     (hFssOk : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V ((pps ψ).map (·.2.2)).reverse ρ →
       SumFieldsOkB (p.resSort.eval ψ) ρ (Fss ψ) ∧ SumFieldsValid ρ (Fss ψ)) :
@@ -103,18 +104,18 @@ theorem stageSumFormer (mp : EnvS2PM V μ env)
   have hwalks := formerWalksS hFD hFssOk
   have hreadI : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval cvTa.name A)
-        ⟨.indInfo cvTa {} :: env.consts⟩ ψ 0 cvTa.type
+        ⟨.indInfo cvTa (Setlec.directSumCaps p) :: env.consts⟩ ψ 0 cvTa.type
         = some (mkPisAV (pps ψ) (.sort (p.resSort.eval ψ))) := fun ψ =>
-    denoteP_cons_mono (c₀ := .indInfo cvTa {}) hfresh
+    denoteP_cons_mono (c₀ := .indInfo cvTa (Setlec.directSumCaps p)) hfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) ψ 0 hcb (hFD.read ψ)
   have hnresI : Setlec.reservedBasisNames.contains
-      (ConstantInfo.indInfo cvTa {}).name = false := by
+      (ConstantInfo.indInfo cvTa (Setlec.directSumCaps p)).name = false := by
     show Setlec.reservedBasisNames.contains cvTa.name = false
     rw [hname]; exact hnres
-  have hpshapeI : (ConstantInfo.indInfo cvTa {}).name.isProjFnShape = false := by
+  have hpshapeI : (ConstantInfo.indInfo cvTa (Setlec.directSumCaps p)).name.isProjFnShape = false := by
     show cvTa.name.isProjFnShape = false
     rw [hname]; exact hpshape
-  refine declStepPM_of_ind_member_cons mp (c₀ := .indInfo cvTa {})
+  refine declStepPM_of_ind_member_cons mp (c₀ := .indInfo cvTa (Setlec.directSumCaps p))
     (A := A) hfresh hnresI (Or.inl ⟨_, _, rfl⟩)
     (ConsHeadP.ofFresh hwfI (fun ψ => hAbelow ψ) hnresI
       (fun _ h => nomatch h)
@@ -138,14 +139,14 @@ theorem stageSumFormer (mp : EnvS2PM V μ env)
   · -- `caps_ok`: the prefix families cross; the block's own family
     -- claims nothing (the empty capability record)
     intro m₂ hac
-    refine capsOkP_cons_direct mp (c₀ := .indInfo cvTa {})
+    refine capsOkP_cons_direct mp (c₀ := .indInfo cvTa (Setlec.directSumCaps p))
       (A := A) (T := cvTa.name) hfresh
       (ConsCrossEnv.ofNtc fun _ h => nomatch h) hpshapeI
-      (Or.inl ⟨cvTa, {}, rfl, rfl⟩)
+      (Or.inl ⟨cvTa, Setlec.directSumCaps p, rfl, rfl⟩)
       (fun T' cvT' caps' hf _ hres hcape => hE₀ T' cvT' caps' hf hcape hres)
       m₂ hac ?_
     intro cvT caps hf _
-    have hself := Setlec.Env.find?_cons_self (ConstantInfo.indInfo cvTa {}) env
+    have hself := Setlec.Env.find?_cons_self (ConstantInfo.indInfo cvTa (Setlec.directSumCaps p)) env
     obtain ⟨rfl, rfl⟩ :=
       ConstantInfo.indInfo.inj (Option.some.inj (hself.symm.trans hf))
     exact ⟨fun he => absurd he Bool.false_ne_true, fun hu => absurd hu Bool.false_ne_true⟩
