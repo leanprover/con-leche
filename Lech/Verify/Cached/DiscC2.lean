@@ -336,7 +336,7 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
           (coreKnotI mode (mkFEnv env) f).defeq (d + 1) b₁ ba
             >>= fun r₂ =>
           if r₂ = true then
-            if (mode.verifiedChecks && !(m₁.pw.equiv m₂.pw)) = true then
+            if (mode.verifiedChecks && !(m₁.pw == m₂.pw)) = true then
               (throw (.notImplemented "sort-annotation mismatch (eta)")
                 : CheckCM Unit) >>= fun _ => pure true
             else pure true
@@ -353,7 +353,7 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
             (body₁x.instantiate1 (.fvar d n₁ ty₁x))
             (.app bx (.fvar d n₁ ty₁x)) >>= fun r₂ =>
           if r₂ = true then
-            if (mode.verifiedChecks && !(m₁.pw.equiv m₂.pw)) = true then
+            if (mode.verifiedChecks && !(m₁.pw == m₂.pw)) = true then
               (throw (.notImplemented "sort-annotation mismatch (eta)")
                 : FueledM Unit) >>= fun _ => pure true
             else pure true

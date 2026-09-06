@@ -30,7 +30,7 @@ metatheorem.**  `ValidInfer` — "every inferred type has a sort" — is
 `DefEq`-crossing wall), so `AnnotValidV` is never established by
 recursion on derivations.  It is established at the checker's own
 visit sites, where the P2 validation conjunct
-(`(zeronessOf v).equiv m.pw`, `inferTypeCore_forallE_inv`) meets the
+(`zeronessOf v = m.pw`, `inferTypeCore_forallE_inv`) meets the
 run lemma's semantic sort fact; `pwBit_zero_mem_univZero` below is
 that establishment step, isolated.  Preservation is the substitution
 pair (`AnnotValidV_liftN`/`AnnotValidV_inst`) + the level-crossing
@@ -113,7 +113,7 @@ theorem AnnotValidV_proj (ρ : Nat → V) (i : Nat) (e : AVExpr) :
 /-! ## The establishment step, isolated
 
 The `pi` component at a checker-visited node: the P2 run inversion
-supplies `(zeronessOf v).equiv pw` (the site passed), the run lemma
+supplies `zeronessOf v = pw` (the site passed), the run lemma
 supplies the codomain's semantic sort membership, and the bit laws
 turn the claimed bit into the sort's true zero — impredicativity is
 not consulted, the sort fact is enough. -/
@@ -125,13 +125,13 @@ the pointwise establishment step for `AnnotValidV`'s `pi` component
 (and for `AnnotOk2`'s λ-clause `v = 0` component at the leaf case). -/
 theorem pwBit_zero_mem_univZero {v : Level} {pw : PropWhen}
     {φ : Name → Nat}
-    (hz : PropWhen.equiv (Level.zeronessOf v) pw = true)
+    (hz : Level.zeronessOf v = pw)
     (hb : pwBit φ pw = 0) {x : V}
     (hx : x ∈ˢ (univ (Level.eval φ v) : V)) :
     x ∈ˢ (univZero : V) := by
   have h0 : Level.eval φ v = 0 := by
-    have := (pwBit_of_equiv_zeronessOf hz φ).mp hb
-    exact this
+    subst hz
+    exact (pwBit_zeronessOf φ v).mp hb
   rw [h0, univ_zero] at hx
   exact hx
 

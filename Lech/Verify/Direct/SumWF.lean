@@ -20,10 +20,10 @@ variable {mode : CheckMode}
 
 /-- Stage 1 at the run level. -/
 theorem direct_sum_ind_wf {env env₁ : Env} (henv : EnvWF env)
-    {p : DirectSumParts} {cvTa : ConstantVal} {F : Nat}
-    (h : checkDirectSumInd (fueledOps mode F) env p = .ok (env₁, cvTa)) :
+    {p p' : DirectSumParts} {cvTa : ConstantVal} {F : Nat}
+    (h : checkDirectSumInd (fueledOps mode F) env p = .ok (env₁, cvTa, p')) :
     EnvWF env₁ ∧ cvTa.type.hasFvar = false := by
-  obtain ⟨hccv, rfl, -⟩ := checkDirectSumInd_shape h
+  obtain ⟨cvT, s, -, -, hccv, rfl, rfl, -⟩ := checkDirectSumInd_shape h
   exact ⟨envWF_cons_ind henv hccv, (checkConstantVal_typeWF hccv).1⟩
 
 /-- A constructor's run at the former's environment: its type is

@@ -136,9 +136,6 @@ theorem sigma_mem_univ {u v : Nat} {A : V} {B : V → V}
       (univ_mono (Nat.le_max_left u v) A hA)
       (fun x hx => univ_mono (Nat.le_max_right u v) _ (hB x hx))
 
-/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
-stubs for these operators were removed 2026-09-06. -/
-
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] sigmaSet spair sfst ssnd
 

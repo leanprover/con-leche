@@ -83,16 +83,10 @@ theorem mem_unitSet {x : V} (h : x ∈ˢ (unitSet : V)) : x = pt :=
 theorem omega_mem_univ : (omega : V) ∈ˢ univ 1 :=
   omega_mem_univ_succ 0
 
-/-- The model of `Nat.zero`: the empty set, i.e. the ordinal `0`.
-
-`noncomputable` since 2026-09-06: `empty` is classical, and the
-`implemented_by … unsafeCast ()` stub that used to hide that is gone
-(external review §5.6).  Nothing executes this — the model layer is
-proof-only and the implementation may not import it. -/
+/-- The model of `Nat.zero`: the empty set, i.e. the ordinal `0`. -/
 noncomputable def natzero : V := empty
 
-/-- The model of `Nat.succ`: the von Neumann successor (`noncomputable`
-for the same reason as `natzero`). -/
+/-- The model of `Nat.succ`: the von Neumann successor. -/
 noncomputable def natsucc : V → V := vsucc
 
 theorem natzero_mem : (natzero : V) ∈ˢ omega := empty_mem_omega

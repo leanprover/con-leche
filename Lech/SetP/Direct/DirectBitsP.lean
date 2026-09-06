@@ -18,7 +18,7 @@ and recursor's binders carry a bit that is zero exactly when the
 result sort (resp. the elimination sort) evaluates to zero.  Validity
 (`AnnotValidV`) is one-directional — a zero bit at an empty-domain
 codomain is valid — so the content is *syntactic*: in verified mode
-`inferTypeCore`'s `.forallE` clause validates `equiv (zeronessOf v)
+`inferTypeCore`'s `.forallE` clause validates `zeronessOf v ==
 mb.pw` against the opened body's inferred sort `v`
 (`inferTypeCore_forall_inv`), and `checkConstantVal` runs that
 inference on the annotated type.  This module walks the Π-prefix
@@ -195,8 +195,9 @@ theorem piBits_of_infer {env : Env} (hver : mode.verifiedChecks = true) :
             rw [ensureSortCore_sort_eq hens, eval_imax_eq_zero_iff]
             exact hv φ
           · intro φ
-            exact ⟨(pwBit_of_equiv_zeronessOf (hz hver) φ).trans (hv φ),
-              hbits φ⟩
+            refine ⟨?_, hbits φ⟩
+            rw [← hz hver]
+            exact (pwBit_zeronessOf φ _).trans (hv φ)
         · exact nomatch hop
     | .bvar _, hop, _ | .fvar _ _ _, hop, _ | .sort _, hop, _
     | .const _ _, hop, _ | .app _ _, hop, _ | .lam _ _ _ _, hop, _

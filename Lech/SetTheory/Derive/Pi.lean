@@ -393,9 +393,6 @@ theorem lamC_dom_of_ne {A A' : V} {F : V → V} {B : V → V}
   · exact absurd heq graph_ne_pt
   · exact graph_dom_of_mem_piSet hmem
 
-/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
-stubs for these operators were removed 2026-09-06. -/
-
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] pcol piC lamC
 

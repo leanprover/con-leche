@@ -10,7 +10,7 @@ binder arms and to `etaCert`'s comparison first infers both compared
 expressions (`proofIrrel` runs before them, with no monadic
 short-circuit), the front door validates every binder an infer walks,
 and two annotations valid for level-equivalent codomain sorts are
-`equiv` (`PropWhen.equiv_iff_holds` is complete).
+equal (`PropWhen.eq_iff_holds`: the datum is canonical).
 
 The coordinator's ruling promotes the finding to a **theorem
 candidate** with a decide-by-proof mandate: *every expr reaching

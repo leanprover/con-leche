@@ -248,8 +248,7 @@ private def nW : Name := .str .anonymous "w"
 #guard PropWhen.ifAllZero [nU, nV] != PropWhen.ifAllZero [nU]
 #guard hash (PropWhen.ifAllZero [nV, nU]) == hash (PropWhen.ifAllZero [nU, nV, nU])
 #guard (PropWhen.ifAllZero [nW, nV, nU, nV]).toList == [nU, nV, nW]
-#guard (PropWhen.ifAllZero [nU, nV]).equiv (PropWhen.ifAllZero [nV, nU])
-#guard !(PropWhen.ifAllZero [nU, nV]).equiv .never
+#guard PropWhen.ifAllZero [nU, nV] != PropWhen.never
 #guard (PropWhen.ifAllZero [nU, nV]).inter (PropWhen.ifAllZero [nW])
   == (PropWhen.ifAllZero [nW]).inter (PropWhen.ifAllZero [nV, nU])
 #guard (PropWhen.ifAllZero [nU]).inter (PropWhen.ifAllZero [nU]) == PropWhen.ifAllZero [nU]

@@ -41,7 +41,7 @@ theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat} {n : Name}
       inferTypeCoreIO mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
       ensureSortCore mode env fuel (d + 1) bt = .ok v ∧
-      (mode.verifiedChecks = true → (Level.zeronessOf v).equiv m.pw = true) ∧
+      (mode.verifiedChecks = true → Level.zeronessOf v = m.pw) ∧
       t = .sort (.imax u v) := by
   rw [inferTypeCoreIO_succ] at h
   simp only [inferBodyIO, pure, Except.pure, Bind.bind,
@@ -84,10 +84,10 @@ theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat} {n : Name}
     exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes,
       fun hv' => absurd hv' hv, h.symm⟩
   rw [if_pos hv] at h
-  by_cases hz : (Level.zeronessOf v).equiv m.pw = true
+  by_cases hz : (Level.zeronessOf v == m.pw) = true
   · rw [if_pos hz] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes, fun _ => hz, h.symm⟩
+    exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes, fun _ => eq_of_beq hz, h.symm⟩
   · rw [if_neg hz] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
 
@@ -107,9 +107,9 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
       (mode.verifiedChecks = true → body.isLam = false → ∃ btt v,
         inferTypeCoreIO mode env fuel (d + 1) bt = .ok btt ∧
         ensureSortCore mode env fuel (d + 1) btt = .ok v ∧
-        (Level.zeronessOf v).equiv m.pw = true) ∧
+        Level.zeronessOf v = m.pw) ∧
       (mode.verifiedChecks = true → ∀ pwI, body.lamPw = some pwI →
-        m.pw.equiv pwI = true) ∧
+        m.pw = pwI) ∧
       t = .forallE n ty (bt.abstract1 d) m := by
   rw [inferTypeCoreIO_succ] at h
   simp only [inferBodyIO, pure, Except.pure, Bind.bind,
@@ -134,7 +134,7 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
   | .lam nI tyI bI mbI =>
     intro h
     simp only [Expr.lamPw] at h
-    by_cases hpw : m.pw.equiv mbI.pw = true
+    by_cases hpw : (m.pw == mbI.pw) = true
     · rw [if_pos hpw] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       refine ⟨bt, rfl, ?_, ?_, h.symm⟩
@@ -142,9 +142,9 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
       · intro _ pwI heq
         try simp only [Expr.lamPw, Option.some.injEq] at heq
         first
-          | (cases heq; exact hpw)
-          | (rw [← heq]; exact hpw)
-          | (injection heq with heq; rw [← heq]; exact hpw)
+          | (cases heq; exact eq_of_beq hpw)
+          | (rw [← heq]; exact eq_of_beq hpw)
+          | (injection heq with heq; rw [← heq]; exact eq_of_beq hpw)
     · rw [if_neg hpw] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
   | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
@@ -161,11 +161,11 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     | ok v => ?_
     intro h
     dsimp only at h
-    by_cases hz : (Level.zeronessOf v).equiv m.pw = true
+    by_cases hz : (Level.zeronessOf v == m.pw) = true
     · rw [if_pos hz] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       refine ⟨bt, rfl,
-        fun _ _ => ⟨btt, v, hbtt, hes, hz⟩, ?_, h.symm⟩
+        fun _ _ => ⟨btt, v, hbtt, hes, eq_of_beq hz⟩, ?_, h.symm⟩
       intro _ pwI heq
       first
         | exact nomatch heq

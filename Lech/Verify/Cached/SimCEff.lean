@@ -150,7 +150,7 @@ variable {s₀ : CState}
 
 /-- Building one node: the cached core allocates it outright, so the
 effect is the value's own reflexivity (task #198 -- this was
-`internI_eff`, whose `internI` was `pure ∘ ofView`). -/
+`internI_eff`, whose `internI` was a `pure` of the built node). -/
 theorem pureC_eff (hs : CSOK mode env s₀) (x : ExprC) :
     CEff mode env s₀ (fun i => RelC i x) (pure x) :=
   CEff.pure hs (RelC.refl x)
@@ -956,7 +956,7 @@ theorem ruleRhsAtM_eff (hs : CSOK mode env s₀) {cI jI c j : Name}
     dsimp only at hr
     simp only [Bind.bind, StateT.bind, Except.bind] at hr
     -- the raw right-hand side needs no conversion (task #198: what was
-    -- `internExprM rl.rhs` is the value itself)
+    -- a conversion of `rl.rhs` is the value itself)
     have hraw : RelC (rl.rhs : ExprC) rl.rhs := rfl
     cases hrun₂ : instLevelParamsM cv.levelParams us rl.rhs s₀ with
     | error he => rw [hrun₂] at hr; exact nomatch hr

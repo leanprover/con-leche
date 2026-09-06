@@ -113,6 +113,20 @@ theorem checkDirectIndF_pushC (ops : CheckerOps CheckCM) (env : Env)
   simp only [checkConstantValF_eq, push_mkFEnv, bind_assoc,
     pure_bind, ite_bindC, throwC_bind_eq] <;> rfl
 
+/-- The former's telescope stage through the index (task #195): the
+whnf loop reads the index's environment, the re-check is the indexed
+`checkConstantValF`. -/
+theorem checkDirectSumTeleF_pushC (ops : CheckerOps CheckCM) (env : Env)
+    (cv : ConstantVal) (n : Nat) (cvTa₀ : ConstantVal) :
+    checkDirectSumTeleF ops (mkFEnv env) cv n cvTa₀
+      = checkDirectSumTele ops env cv n cvTa₀ := by
+  unfold checkDirectSumTeleF checkDirectSumTele
+  cases hst : cvTa₀.type.stripPis n with
+  | none => simp only [checkConstantValF_eq, mkFEnv_env]
+  | some q =>
+    obtain ⟨bs, body⟩ := q
+    cases body <;> simp only [checkConstantValF_eq, mkFEnv_env]
+
 /-- The direct sum's type-former stage through the index (task #175
 sum-types). -/
 theorem checkDirectSumIndF_pushC (ops : CheckerOps CheckCM) (env : Env)
@@ -121,7 +135,7 @@ theorem checkDirectSumIndF_pushC (ops : CheckerOps CheckCM) (env : Env)
       = checkDirectSumInd ops env p
           >>= fun q => pure (mkFEnv q.1, q.2) := by
   unfold checkDirectSumIndF checkDirectSumInd
-  simp only [checkConstantValF_eq, push_mkFEnv, bind_assoc,
+  simp only [checkConstantValF_eq, checkDirectSumTeleF_pushC, push_mkFEnv, bind_assoc,
     pure_bind, ite_bindC, throwC_bind_eq] <;> rfl
 
 theorem checkDirectCtorF_pushC (ops : CheckerOps CheckCM) (env₀ env : Env)
@@ -437,15 +451,11 @@ theorem checkDirectSumS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkDirectSum (fueledOps mode F) env p = .ok feOut.env := by
   unfold checkDirectSumS at h
-  -- the two front guards
-  by_cases hg : (p.large && !p.resSort.isNeverZero &&
-      decide (2 ≤ p.ctors.length)) = true
-  · rw [if_pos hg] at h; exact absurd h throwC_bind_ok
-  rw [if_neg hg] at h
+  -- the distinct-names guard
   by_cases hnd : (p.ctors.map (·.1.name)).Nodup
   case neg => rw [if_neg hnd] at h; exact absurd h throwC_bind_ok
   rw [if_pos hnd] at h
-  -- stage 1: the type former
+  -- stage 1: the type former (task #195: it completes the record)
   obtain ⟨u0, sA, hfl0, h⟩ := bindC_ok h
   rw [flushC_run] at hfl0
   injection hfl0 with hfl0
@@ -456,10 +466,16 @@ theorem checkDirectSumS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   obtain ⟨hs₁, q1', hP1, F₁, hF₁⟩ :=
     (checkDirectSumIndS_sim hμ henv (flushC_csok hwf)) q1 s₁ hind
   obtain ⟨rfl, -⟩ := hP1
-  obtain ⟨env₁, cvTa⟩ := q1
-  have hF₁p : checkDirectSumInd (fueledOps mode F₁) env p = .ok (env₁, cvTa) := by
+  obtain ⟨env₁, cvTa, p'⟩ := q1
+  have hF₁p : checkDirectSumInd (fueledOps mode F₁) env p = .ok (env₁, cvTa, p') := by
     rw [← checkDirectSumInd_datF]; exact hF₁
   obtain ⟨henv₁, hTf⟩ := direct_sum_ind_wf henv hF₁p
+  -- the elimination restriction, at the completed record
+  try simp only at h
+  by_cases hg : (p'.large && !p'.resSort.isNeverZero &&
+      decide (2 ≤ p'.ctors.length)) = true
+  · rw [if_pos hg] at h; exact absurd h throwC_bind_ok
+  rw [if_neg hg] at h
   -- stage 2: every constructor, at the former's environment
   obtain ⟨u1, sB, hfl1, h⟩ := bindC_ok h
   rw [flushC_run] at hfl1
@@ -470,20 +486,20 @@ theorem checkDirectSumS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   obtain ⟨hs₂, ctorsA', hP2, F₂, hF₂⟩ :=
     (checkDirectSumCtorsS_sim hμ henv₁ hTf (flushC_csok hs₁.residue)) ctorsA s₂ hct
   obtain rfl : ctorsA = ctorsA' := hP2
-  have hF₂p : checkDirectSumCtors (fueledOps mode F₂) env env₁ p.cvT.name
-      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
+  have hF₂p : checkDirectSumCtors (fueledOps mode F₂) env env₁ p'.cvT.name
+      p'.cvT.levelParams p'.nP p'.nIdx p'.resSort p'.isProp p'.large cvTa p'.ctors
       = .ok ctorsA := by
     rw [← checkDirectSumCtors_datF]; exact hF₂
   -- the constructors' conses
   obtain ⟨hlen, hall⟩ := checkDirectSumCtors_inv hF₂p
-  have henv₂ : EnvWF (consSumCtors p.nP ctorsA env₁) := by
+  have henv₂ : EnvWF (consSumCtors p'.nP ctorsA env₁) := by
     refine envWF_consSumCtors henv₁ ?_
     intro c hc
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
-    have hj' : j < p.ctors.length := by
+    have hj' : j < p'.ctors.length := by
       have := (List.getElem?_eq_some_iff.mp hj).1
       omega
-    obtain ⟨-, hrun⟩ := hall j (p.ctors[j]) c (List.getElem?_eq_getElem hj') hj
+    obtain ⟨-, hrun⟩ := hall j (p'.ctors[j]) c (List.getElem?_eq_getElem hj') hj
     exact direct_sum_ctor_typeWF hrun
   rw [consSumCtorsF_mkFEnv] at h
   -- stage 3: the recursor, generated and compared
@@ -497,8 +513,8 @@ theorem checkDirectSumS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
     (checkDirectSumRecS_sim hμ henv₂ (flushC_csok hs₂.residue)) q3 s₃ hrc
   obtain rfl : q3 = q3' := hP3
   obtain ⟨cvRa, rhss⟩ := q3
-  have hF₃p : checkDirectSumRec (fueledOps mode F₃) (consSumCtors p.nP ctorsA env₁)
-      p cvTa ctorsA = .ok (cvRa, rhss) := by
+  have hF₃p : checkDirectSumRec (fueledOps mode F₃) (consSumCtors p'.nP ctorsA env₁)
+      p' cvTa ctorsA = .ok (cvRa, rhss) := by
     rw [← checkDirectSumRec_datF]; exact hF₃
   -- the final push
   rw [push_mkFEnv] at h
@@ -506,24 +522,21 @@ theorem checkDirectSumS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   obtain ⟨G, hle₁, hle₂, hle₃⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G :=
     ⟨max F₁ (max F₂ F₃), by omega, by omega, by omega⟩
   refine ⟨hs₃.residue, rfl, G, ?_⟩
-  have g₁ : checkDirectSumInd (fueledOps mode G) env p = .ok (env₁, cvTa) := by
+  have g₁ : checkDirectSumInd (fueledOps mode G) env p = .ok (env₁, cvTa, p') := by
     rw [← checkDirectSumInd_datF]; exact FueledM.up hle₁ hF₁
-  have g₂ : checkDirectSumCtors (fueledOps mode G) env env₁ p.cvT.name
-      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
+  have g₂ : checkDirectSumCtors (fueledOps mode G) env env₁ p'.cvT.name
+      p'.cvT.levelParams p'.nP p'.nIdx p'.resSort p'.isProp p'.large cvTa p'.ctors
       = .ok ctorsA := by
     rw [← checkDirectSumCtors_datF]; exact FueledM.up hle₂ hF₂
-  have g₃ : checkDirectSumRec (fueledOps mode G) (consSumCtors p.nP ctorsA env₁)
-      p cvTa ctorsA = .ok (cvRa, rhss) := by
+  have g₃ : checkDirectSumRec (fueledOps mode G) (consSumCtors p'.nP ctorsA env₁)
+      p' cvTa ctorsA = .ok (cvRa, rhss) := by
     rw [← checkDirectSumRec_datF]; exact FueledM.up hle₃ hF₃
   unfold checkDirectSum
-  rw [if_neg hg, if_pos hnd]
+  rw [if_pos hnd]
   simp only [Bind.bind, Except.bind, pure, Except.pure]
   rw [g₁]
-  simp only [Except.bind]
-  rw [g₂]
-  simp only [Except.bind]
-  rw [g₃]
-  rfl
+  simp only [Except.bind, if_neg hg, g₂, g₃]
+  try rfl
 
 /-- The inductive block at the cached driver is reproduced by the
 pure fueled `checkIndDecl`. -/

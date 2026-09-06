@@ -1,5 +1,6 @@
 import Lech.SetP.CtxOkPKit
 import Lech.SetP.Annot.BitLemmas
+import Lech.SetP.Annot.BitRename
 import Lech.Semantics.DefEqStep2
 import Lech.Semantics.Hoist
 import Lech.SetP.Step2.ProjAVKitP
@@ -36,14 +37,14 @@ binder arms of `defeqStep` (`Kernel/Core.lean`) end with the task-#161
 check
 
 ```
-    if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
+    if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
       throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
     pure true
 ```
 
 so a run that reached `.ok true` at `μ.verifiedChecks = true` **certifies**
-`m₁.pw.equiv m₂.pw`, and `pwBit_eq_of_equiv` turns that into equal
-numerals.  The obligation an outside supplier used to owe is now a
+`m₁.pw == m₂.pw`, i.e. `m₁.pw = m₂.pw`, hence equal
+numerals by rewriting.  The obligation an outside supplier used to owe is now a
 fact the run itself hands over: the quarter takes `hμ : μ.verifiedChecks =
 true` (a hypothesis of the *stuck claim* and of the *step*, never of
 the claims, which stay mode-generic) and no `hbs` at all.
@@ -755,7 +756,7 @@ theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
     {ty₁ bd₁ ty₂ bd₂ : Expr} {ta₁ ba₁ ta₂ ba₂ : AVExpr}
     (hdt : isDefEqCore μ env fuel d ty₁ ty₂ = .ok true)
     (hdd : isDefEqCore μ env fuel (d + 1)
-      (bd₁.instantiate1 (.fvar d n₁ ty₁))
+      (bd₁.instantiate1 (.fvar d n₂ ty₂))
       (bd₂.instantiate1 (.fvar d n₂ ty₂)) = .ok true)
     (hwt₁ : Expr.WScoped d ty₁) (hbt₁ : ty₁.looseBVarsBounded 0 = true)
     (hLt₁ : Expr.LeavesBounded ty₁)
@@ -787,15 +788,24 @@ theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
       interp2 V σ ta₁ = interp2 V σ ta₂ :=
     ihd hdt hwt₁ hbt₁ hLt₁ hwt₂ hbt₂ hLt₂ hCt₁ hCt₂ hta₁ hta₂
       hoT₁ hoT₂
+  -- The run opens BOTH bodies with the right binder's local (official
+  -- `is_def_eq_binding`, task #201); the left body's denotation is
+  -- read off its own opening — `denoteP` reads an fvar's index only.
+  have hva₁' : denoteP m.acval env φ (d + 1)
+      (bd₁.instantiate1 (.fvar d n₂ ty₂)) = some ba₁ := by
+    rw [denoteP_erasedEq (Expr.ErasedEq.instantiate1
+      (Expr.ErasedEq.rfl bd₁)
+      (show Expr.ErasedEq (.fvar d n₂ ty₂) (.fvar d n₁ ty₁) from rfl))]
+    exact hva₁
   have hLo₁ : Expr.LeavesBounded
-      (bd₁.instantiate1 (.fvar d n₁ ty₁)) := by
+      (bd₁.instantiate1 (.fvar d n₂ ty₂)) := by
     intro l hl
     rcases Expr.fvarLeaves_instantiate1 bd₁ 0 hl with h2 | h2
     · exact hLb₁ l h2
     · rw [Expr.fvarLeaves] at h2
       rcases List.mem_cons.mp h2 with rfl | h3
-      · exact hbt₁
-      · exact hLt₁ l h3
+      · exact hbt₂
+      · exact hLt₂ l h3
   have hLo₂ : Expr.LeavesBounded
       (bd₂.instantiate1 (.fvar d n₂ ty₂)) := by
     intro l hl
@@ -808,13 +818,13 @@ theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
   refine ⟨hdom ρ hρ, ?_⟩
   intro x hx
   exact ihd (Δa := ta₁ :: Δa) hdd
-    (Expr.WScoped.instantiate1 hwt₁ 0 hwb₁)
+    (Expr.WScoped.instantiate1 hwt₂ 0 hwb₁)
     (Lech.looseBVarsBounded_instantiate1 bd₁ 0 hbb₁) hLo₁
     (Expr.WScoped.instantiate1 hwt₂ 0 hwb₂)
     (Lech.looseBVarsBounded_instantiate1 bd₂ 0 hbb₂) hLo₂
-    (CtxOkP.openS hCt₁ hCb₁ hta₁ hoT₁)
+    (CtxOkP.openCongC hCb₁ hCt₂ hta₂ hoT₂ hdom)
     (CtxOkP.openCongC hCb₂ hCt₂ hta₂ hoT₂ hdom)
-    hva₁ hva₂ hoB₁
+    hva₁' hva₂ hoB₁
     (fun σ hσ => hoB₂ σ (Sat2.head_congr hdom hσ)) (cons x ρ)
     (Sat2_cons V hρ hx)
 
@@ -856,7 +866,7 @@ theorem acval_const_congrP {m : EnvS2Core V env} (hap : AcvalParamsP m)
 `obtain rfl : v₁ = v₂` lines in cases 11 and 12; each is replaced by
 the run's own certificate, extracted from the ok-true tail of the
 binder arm at `hμ : μ.verifiedChecks = true` and turned into an equation by
-`pwBit_eq_of_equiv`.  Nothing else in the block changes shape. -/
+`eq_of_beq`.  Nothing else in the block changes shape. -/
 theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
     (hμ : μ.verifiedChecks = true)
     (ihd : DefEqClaims2P μ m φ fuel) (hsi : StuckIrrelPQ μ m φ fuel)
@@ -1061,11 +1071,11 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       obtain ⟨ta₁, ba₁, hta₁, hva₁, rfl⟩ := denoteP_forallE_inv hda
       obtain ⟨ta₂, ba₂, hta₂, hva₂, rfl⟩ := denoteP_forallE_inv hdb
       have hbd : isDefEqCore μ env fuel (d + 1)
-          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₁.instantiate1 (Expr.fvar d n₂ ty₂))
           (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
         revert h
         cases hbd0 : isDefEqCore μ env fuel (d + 1)
-            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₁.instantiate1 (Expr.fvar d n₂ ty₂))
             (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
         | error err => intro h; exact nomatch h
         | ok rb =>
@@ -1075,18 +1085,18 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
           | false => simp [pure, Except.pure] at h
           | true => rfl
       -- THE KEY DELTA: the run's own certificate, in place of `hbs.1`
-      have hq : PropWhen.equiv mb₁.pw mb₂.pw = true := by
-        by_cases hq0 : PropWhen.equiv mb₁.pw mb₂.pw = true
+      have hq : (mb₁.pw == mb₂.pw) = true := by
+        by_cases hq0 : (mb₁.pw == mb₂.pw) = true
         · exact hq0
         · exfalso
-          have hq1 : PropWhen.equiv mb₁.pw mb₂.pw = false := by
+          have hq1 : (mb₁.pw == mb₂.pw) = false := by
             simpa using hq0
           rw [hbd] at h
           dsimp only at h
           rw [hμ, hq1] at h
           simp [throw, throwThe, MonadExceptOf.throw] at h
-      have hpw : pwBit φ mb₁.pw = pwBit φ mb₂.pw :=
-        pwBit_eq_of_equiv hq φ
+      have hpw : pwBit φ mb₁.pw = pwBit φ mb₂.pw := by
+        rw [eq_of_beq hq]
       obtain ⟨hoT₁, hoB₁⟩ := hoistP_pi hokA
       obtain ⟨hoT₂, hoB₂⟩ := hoistP_pi hokB
       obtain ⟨hDA, hDB⟩ := binder_congrP ihd hdt hbd
@@ -1116,11 +1126,11 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       obtain ⟨ta₁, ba₁, hta₁, hva₁, rfl⟩ := denoteP_lam_inv hda
       obtain ⟨ta₂, ba₂, hta₂, hva₂, rfl⟩ := denoteP_lam_inv hdb
       have hbd : isDefEqCore μ env fuel (d + 1)
-          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₁.instantiate1 (Expr.fvar d n₂ ty₂))
           (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
         revert h
         cases hbd0 : isDefEqCore μ env fuel (d + 1)
-            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₁.instantiate1 (Expr.fvar d n₂ ty₂))
             (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
         | error err => intro h; exact nomatch h
         | ok rb =>
@@ -1130,18 +1140,18 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
           | false => simp [pure, Except.pure] at h
           | true => rfl
       -- THE KEY DELTA: the run's own certificate, in place of `hbs.2`
-      have hq : PropWhen.equiv mb₁.pw mb₂.pw = true := by
-        by_cases hq0 : PropWhen.equiv mb₁.pw mb₂.pw = true
+      have hq : (mb₁.pw == mb₂.pw) = true := by
+        by_cases hq0 : (mb₁.pw == mb₂.pw) = true
         · exact hq0
         · exfalso
-          have hq1 : PropWhen.equiv mb₁.pw mb₂.pw = false := by
+          have hq1 : (mb₁.pw == mb₂.pw) = false := by
             simpa using hq0
           rw [hbd] at h
           dsimp only at h
           rw [hμ, hq1] at h
           simp [throw, throwThe, MonadExceptOf.throw] at h
-      have hpw : pwBit φ mb₁.pw = pwBit φ mb₂.pw :=
-        pwBit_eq_of_equiv hq φ
+      have hpw : pwBit φ mb₁.pw = pwBit φ mb₂.pw := by
+        rw [eq_of_beq hq]
       obtain ⟨hoT₁, hoB₁⟩ := hoistP_lam hokA
       obtain ⟨hoT₂, hoB₂⟩ := hoistP_lam hokB
       obtain ⟨hDA, hDB⟩ := binder_congrP ihd hdt hbd
@@ -1313,7 +1323,7 @@ structure DefEqInputsP (μ : CheckMode) (V : Type w) [SetTheory V] :
 
 /-- **The defeq quarter, P currency.**  Ten routed residues and one
 mode pin; **no `BinderSortAgree`** — residue 9's successor is the run's
-own `equiv` certificate, read at `hμ` inside `defeqStuck_claimP`. -/
+own `==` certificate, read at `hμ` inside `defeqStuck_claimP`. -/
 theorem defEqStepP_of (hμ : μ.verifiedChecks = true)
     (hin : DefEqInputsP μ V) : DefEqStepP μ V := by
   intro env m φ fuel ihwc ihw ihd _ihi
