@@ -32,7 +32,21 @@ iteration protocol. Keep it up to date when decisions change.
 * Large artifacts (reference checkouts, worktrees) go in `_tmp/` (gitignored;
   /tmp and /home are tmpfs). Reference clones already there: nanodatg,
   lean-inductive-models, lean4lean-model.
-* If running the checker may OOM, use a timeout and memory limit.
+* If running the checker may OOM, use a timeout and memory limit
+  (`ulimit -v 16000000` for ordinary runs, 22 GB for Mathlib scale;
+  `timeout` on every checker run; builds get `timeout` only).
+* Running builds and other long processes (agents): this machine is
+  shared by several agents in separate worktrees, and each worktree has
+  its own `.lake`, so builds never conflict and there is nothing to wait
+  for. Run your build in the foreground and capture its exit code:
+  `timeout 3600 lake build > _tmp/<lane>/build.log 2>&1; echo EXIT=$?`.
+  If it may exceed the tool's foreground limit, start that same command
+  in the background (`run_in_background`) and wait for the completion
+  notification. NEVER wait on a process-name pattern (`pgrep -f "lake
+  build"`, `pgrep -f bin/setlec`): that blocks on other agents' work,
+  for as long as anyone is building. If you must poll, poll the PID you
+  launched (`kill -0 $pid`). Wall time is not a measurement here (shared
+  machine); use `perf stat -e instructions:u`.
 * Exit codes (arena convention): 0 accept, 1 reject (invalid input proof),
   2 decline, 3 error. Decline (2) only when the checker *positively detects*
   a feature it doesn't support yet — never when an internal construction
