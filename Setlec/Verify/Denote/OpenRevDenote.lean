@@ -268,6 +268,17 @@ theorem openRev_instantiateLevelParams (ks : List Name)
       Expr.instantiateLevelParams_instantiate1 ks us ms (openRev d n e) 0]
     rfl
 
+/-- The reverse opening keeps the level-parameter footprint (the
+opener annotations are `.sort .zero`). -/
+theorem allLevelParamsDefined_openRev {ps : List Name} {e : Expr}
+    (h : e.allLevelParamsDefined ps = true) (d : Nat) :
+    ∀ n : Nat, (openRev d n e).allLevelParamsDefined ps = true
+  | 0 => h
+  | n + 1 =>
+    Expr.allLevelParamsDefined_instantiate1
+      (ty := .sort .zero) (d := d + n) (n := Name.anonymous) rfl 0
+      (allLevelParamsDefined_openRev h d n)
+
 /-- The reverse opening commutes with constant renaming (the opener
 annotations mention no constants). -/
 theorem openRev_renameConsts (f : Name → Name) :

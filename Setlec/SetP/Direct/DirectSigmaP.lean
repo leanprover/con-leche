@@ -40,7 +40,7 @@ theorem substFn_directGuardSigma_go (φ : Name → Nat) (m : PropWhen) :
     ∀ (lps : List Name) (k : Nat),
       (∀ j, PropWhen.tb m (k + j) = true → ∃ h : j < lps.length, φ lps[j] = 0) →
       ∀ n, Level.substFn φ lps (directGuardSigma.go m lps k) n = φ n
-  | [], _, _, n => by simp [directGuardSigma.go, Level.substFn]
+  | [], _, _, n => by simp [Level.substFn]
   | p :: rest, k, hm, n => by
     simp only [directGuardSigma.go, Level.substFn]
     by_cases hp : p = n

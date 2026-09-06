@@ -563,6 +563,13 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     constTypeP_pkg hct hfcj rfl hlenUj
   dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVaD hnfR hbdR hmemR
   dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVjaD hnfJ hbdJ hmemJ
+  -- the same two readings in the context-free form the stored laws use
+  have hTVaC : denoteP m.acval (env.withLpsL cv.levelParams)
+      (Level.substFn φ cv.levelParams us) 0 cv.type = some TVa :=
+    denoteP_stored_ty_ctxFree hφ hfrec (show us.length = _ from hlenU) (hTVaD 0)
+  have hTVjaC : denoteP m.acval (env.withLpsL cvj.levelParams)
+      (Level.substFn φ cvj.levelParams usj) 0 cvj.type = some TVja :=
+    denoteP_stored_ty_ctxFree hφ hfcj hlenUj (hTVjaD 0)
   have hCR : CtxOkP m φ d Δa (cv.type.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)) :=
     ⟨hC.1, fun l hl => by
       rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfR] at hl
@@ -617,9 +624,10 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   -- the level congruence (currency-free: the comparand reads no arguments)
   have hψ : Level.substFn φ cvj.levelParams usj
       = Level.substFn φ cvj.levelParams
-          (Setlec.recFireComparands r env.lpsL cv.levelParams us cvj.levelParams
+          (Setlec.recFireComparands r [] cv.levelParams us cvj.levelParams
             [] rP).1 := by
-    rw [recFireComparands_fst_nil] at hlev
+    rw [recFireComparands_fst_nil,
+      recFireComparands_fst_cur r env.lpsL []] at hlev
     exact Setlec.Level.substFn_congr (Setlec.Level.isEquivList_sound hlev φ)
   -- the fired equation and the transported grading, at each valuation
   have hmain : ∀ ρ : Nat → V, Sat2 V Δa ρ →
@@ -705,12 +713,13 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     have hnested : ∀ lvls pins, RecRule.fire r = .nested lvls pins →
         ∀ i, i < RecRule.ctorParams r →
         ∀ vpa : AVExpr,
-          denoteP m.acval env φ rP (Setlec.TTVerify.openRev 0 rP
-            ((pins.getD i default).instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us)))
+          denoteP m.acval (env.withLpsL cv.levelParams)
+            (Level.substFn φ cv.levelParams us) rP
+            (Setlec.TTVerify.openRev 0 rP (pins.getD i default))
             = some vpa →
           interp2 V ρ (ys.getD i default)
             = interp2 V ρ (AVExpr.instRevChain ((xs.take mI).take rP) vpa) := by
-      intro lvls pins hn i hi vpa hvpa
+      intro lvls pins hn i hi vpa hvpaC
       obtain ⟨-, -, -, -, -, hrec', -⟩ :=
         m.wf _ (Setlec.Semantics.Env.find?_mem hfrec)
       obtain ⟨-, -, -, -, hnest⟩ := hrec' cv mI rP rules rfl r hrmem
@@ -732,8 +741,15 @@ theorem iotaStepP_of {m : EnvS2Core V env}
         obtain ⟨hw2, hb2, -, -⟩ := hfrE x (List.mem_of_mem_take hx)
         exact ⟨hw2, hb2⟩
       have hilt : i < pins.length := by rw [hlenPins]; exact hi
-      obtain ⟨hpinF, -, -, hpinB⟩ :=
+      obtain ⟨hpinF, hpinD, -, hpinB⟩ :=
         hpinsWf (pins.getD i default) (Setlec.getD_mem hilt)
+      -- the pin's reading, crossed from the stored (context-free) law
+      -- to the ambient valuation of the instantiated comparand
+      have hwfR := m.wf _ (Setlec.Semantics.Env.find?_mem hfrec)
+      have hvpa : denoteP m.acval env φ rP (Setlec.TTVerify.openRev 0 rP
+          ((pins.getD i default).instantiateLevelParams cv.levelParams us
+            (Level.masksOf env.lpsL us))) = some vpa :=
+        denoteP_ctxFree_inst_openRev hφ hwfR.ctx.1 hwfR.ctx.2 hlenU hpinD hvpaC
       have hpinF' : ((pins.getD i default).instantiateLevelParams
           cv.levelParams us (Level.masksOf env.lpsL us)).hasFvar = false := by
         rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hpinF
@@ -810,7 +826,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
           AnnotOkP V σ (AVExpr.instRevChain (xs.take rP) vpa) := by
         obtain ⟨vpa', hvpa', hok'⟩ := hpinsOk lvls pins hn i hi
         obtain rfl : vpa' = vpa :=
-          Option.some.inj (hvpa'.symm.trans hvpa)
+          Option.some.inj (hvpa'.symm.trans hvpaC)
         intro σ hσ
         -- the fit in hand is at `xs.take mI ++ [ctor-app]`; the
         -- repaired conjunct wants its `rP`-prefix (part-6 probe
@@ -822,7 +838,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
         exact hok' σ (xs.take rP) TVa mid
           (by rw [List.length_take, hxsLen]; omega)
           (fun v hv => hoX v (List.mem_of_mem_take hv) σ hσ)
-          (hTVaD 0) hmid
+          hTVaC hmid
       have hstep := ihd hcert hwA hbA hLA hfrPinX.1 hfrPinX.2.1 hfrPinX.2.2.1
         hCA hfrPinX.2.2.2 hgy hcden'
         (hoY _ (Setlec.getD_mem (by rw [← hspy.length]; exact hiy)))
@@ -834,7 +850,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
       TVa TVja restR restC
       (by rw [List.length_take, hxsLen]; omega)
       (by rw [← hspy.length, hlenM])
-      hlenUj hψ hplain hnested hpinI (hTVaD 0) (hTVjaD 0)
+      hlenUj hψ hplain hnested hpinI hTVaC hTVjaC
       (hfitR ρ hρ) (hfitC ρ hρ)
     rw [List.take_take, Nat.min_eq_left hrPle] at heqLaw htrans
     have hsubj : interp2 V ρ (AVExpr.mkAppN

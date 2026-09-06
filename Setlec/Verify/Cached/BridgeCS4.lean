@@ -223,7 +223,7 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
         (fun _ _ _ heq => nomatch heq)
         (fun _ _ _ _ heq => nomatch heq) (h8 := h8))
     · unfold checkIndMember
-      simp only [FueledM.atF_bind, enterCtx_atF, enterCtx_of_some hc, Bind.bind,
+      simp only [enterCtx_atF, enterCtx_of_some hc, Bind.bind,
         Except.bind, hFm]
       rfl
   | ctorInfo cv nP nF =>
@@ -235,7 +235,7 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
         (fun _ _ _ heq => nomatch heq)
         (fun _ _ _ _ heq => nomatch heq) (h8 := h8))
     · unfold checkIndMember
-      simp only [FueledM.atF_bind, enterCtx_atF, enterCtx_of_some hc, Bind.bind,
+      simp only [enterCtx_atF, enterCtx_of_some hc, Bind.bind,
         Except.bind, hFm]
       rfl
   | axiomInfo cv => exact nomatch h
@@ -334,7 +334,7 @@ theorem provisionRecsS_run {blockNames : List Name} :
     show (provisionRecs (fueledOpsM mode) blockNames env
       (ConstantInfo.recInfo cv mI rP rules :: rest)).val (max F₁ F₂) = _
     unfold provisionRecs
-    simp only [FueledM.atF_bind, enterCtx_atF, enterCtx_of_some hc, Bind.bind,
+    simp only [enterCtx_atF, enterCtx_of_some hc, Bind.bind,
       Except.bind,
       (checkMemberVal (fueledOpsM mode) blockNames (env.withLps c) _).property
         (Nat.le_max_left F₁ F₂) hFm,
@@ -433,7 +433,7 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
         ({ acc.env with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.env.consts } :
           Env)).val F₂ = .ok fe₃.env := hF₂
     refine atF_bind_intro (F₁ := F₁) (F₂ := F₂) ?_ hF₂'
-    simp only [FueledM.atF_bind, enterCtx_atF, enterCtx_of_some hcu, Bind.bind,
+    simp only [enterCtx_atF, enterCtx_of_some hcu, Bind.bind,
       Except.bind, hF₁]
     rfl
 
@@ -470,7 +470,7 @@ private theorem iotaFold_datF {env₂ envSelf : Env} {f : Name → Name}
     rw [henter]
     simp only [Bind.bind, Except.bind]
     rw [hir]
-    simp only [Bind.bind, Except.bind]
+    simp only [Bind.bind]
     have hstep' : ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' ::
         acc.consts } : Env) = e₁ := by
       have hst : (Except.ok ({ acc with consts := .recInfo c.1 c.2.1 c.2.2.1 rules' ::

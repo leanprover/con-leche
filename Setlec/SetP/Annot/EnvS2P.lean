@@ -86,7 +86,7 @@ theorem natOpEquations_binderFree (d : Nat) (c : Name) :
   unfold Setlec.natOpEquations at h
   split at h <;> (try split at h) <;> (try split at h) <;> (try split at h)
     <;> (try split at h) <;> (try split at h) <;> (try split at h)
-    <;> simp only [List.mem_cons, List.mem_nil_iff, List.mem_singleton,
+    <;> simp only [List.mem_cons, List.mem_nil_iff,
       or_false] at h
     <;> rcases h with rfl | rfl | rfl | rfl
     <;> exact ⟨by simp [Expr.BinderFree], by simp [Expr.BinderFree]⟩

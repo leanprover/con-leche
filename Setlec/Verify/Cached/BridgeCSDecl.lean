@@ -292,21 +292,34 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
 bridge restored at task #175 W4c, the direct install being the only
 projection route) -/
 
+/-- The direct type former's parameter list is duplicate-free: its
+stage runs `checkConstantVal` on `p.cvT`. -/
+private theorem direct_ind_nodup {env env₁ : Env} {p : DirectParts}
+    {cvTa : ConstantVal} {F : Nat}
+    (h : checkDirectInd (fueledOps mode F) env p = .ok (env₁, cvTa)) :
+    Name.nodup p.cvT.levelParams = true := by
+  unfold checkDirectInd at h
+  obtain ⟨cvT', hcv, -⟩ := exceptBind_ok h
+  exact (checkConstantVal_inv hcv).2.2.2.1
+
 /-- The projection-install fold of the cached driver, run-level (one
 flush per field; the residual accumulator is the incremental
 constructor-telescope peel, which reads each slot's type as the
 generator does — `directProjTyR_residP`). -/
 theorem checkDirectProjsS_run {T C : Name} {lps : List Name} {nP nF : Nat}
     {rs : Level} {slots : List Bool} {guards : List Level}
-    {cvTa cvCa : ConstantVal} (hCf : cvCa.type.hasFvar = false) :
+    {cvTa cvCa : ConstantVal} (hCf : cvCa.type.hasFvar = false)
+    (hnd : Name.nodup lps = true) :
     ∀ (todo i : Nat) (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState},
       EnvWF env → CSOKF s₀ →
       checkDirectProjsS mode T C lps nP nF rs slots guards cvTa cvCa todo i
         (directProjResidP T nP cvCa.type i) (mkFEnv env) s₀ = .ok (fe', s') →
       CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
       ∃ F, ((List.range' i todo).foldlM
-        (checkDirectProj (fueledOpsM mode) T C lps nP nF rs slots guards
-          cvTa cvCa) env).val F = .ok fe'.env
+        (fun (env : Env) (j : Nat) => do
+          let env ← enterCtx env lps
+          checkDirectProj (fueledOpsM mode) T C lps nP nF rs slots guards
+            cvTa cvCa env j) env).val F = .ok fe'.env
   | 0, i, env, s₀, fe', s', henv, hwf, h => by
     obtain ⟨hfe, rfl⟩ := pureC_ok h
     subst hfe
@@ -317,23 +330,33 @@ theorem checkDirectProjsS_run {T C : Name} {lps : List Name} {nP nF : Nat}
     rw [flushC_run] at hflush
     injection hflush with hflush
     obtain rfl : s₀.flushed = sf := congrArg Prod.snd hflush
-    rw [checkDirectProjF_pushC] at h
+    obtain ⟨feU, sE, henter, hK⟩ := bindC_ok h
+    clear h
+    obtain ⟨c, hc, rfl, rfl⟩ := enterCtxF_run henter
+    rw [mkFEnv_withLps, checkDirectProjF_pushC] at hK
+    have h := hK
+    clear hK
+    have henvU : EnvWF (env.withLps c) := henv.withLps c
     obtain ⟨fe₁, s₁, hstep, h⟩ := bindC_ok h
     obtain ⟨e₁, s₂, hpj, hstep⟩ := bindC_ok hstep
     obtain ⟨hs₂, e₁', hP, F₁, hF₁⟩ :=
-      (checkDirectProjS_sim henv hCf (flushC_csok hwf)) e₁ s₂ hpj
+      (checkDirectProjS_sim henvU hCf (flushC_csok hwf)) e₁ s₂ hpj
     obtain rfl : e₁ = e₁' := hP
     obtain ⟨hfe₁, rfl⟩ := pureC_ok hstep
     subst hfe₁
     have hF₁p : checkDirectProj (fueledOps mode F₁) T C lps nP nF rs slots
-        guards cvTa cvCa env i = .ok e₁ := by
+        guards cvTa cvCa (env.withLps c) i = .ok e₁ := by
       rw [← checkDirectProj_datF]; exact hF₁
     obtain ⟨hwf', hfe', henv', F₂, hF₂⟩ :=
-      checkDirectProjsS_run hCf todo (i + 1) e₁ (direct_proj_wf henv hF₁p)
+      checkDirectProjsS_run hCf hnd todo (i + 1) e₁
+        (direct_proj_wf henvU hnd (UnivCtx.len_of_some hc) hF₁p)
         hs₂.residue h
     refine ⟨hwf', hfe', henv', max F₁ F₂, ?_⟩
     rw [List.range'_succ, List.foldlM_cons]
-    exact atF_bind_intro hF₁ hF₂
+    refine atF_bind_intro (F₁ := F₁) ?_ hF₂
+    rw [FueledM.atF_bind, enterCtx_atF, enterCtx_of_some hc]
+    simp only [Bind.bind, Except.bind]
+    exact hF₁
 
 set_option maxHeartbeats 1600000 in
 /-- The direct simple-structure install at the cached driver is
@@ -350,70 +373,95 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
   rw [flushC_run] at hfl0
   injection hfl0 with hfl0
   obtain rfl : s₀.flushed = sA := congrArg Prod.snd hfl0
-  rw [checkDirectIndF_pushC] at h
-  simp only [bind_assoc, pure_bind] at h
+  obtain ⟨feT, sT, henterT, hK⟩ := bindC_ok h
+  clear h
+  obtain ⟨cT, hcT, rfl, rfl⟩ := enterCtxF_run henterT
+  rw [mkFEnv_withLps, checkDirectIndF_pushC] at hK
+  simp only [bind_assoc, pure_bind] at hK
+  have h := hK
+  clear hK
+  have henvT : EnvWF (env.withLps cT) := henv.withLps cT
   obtain ⟨q1, s₁, hind, h⟩ := bindC_ok h
   obtain ⟨hs₁, q1', hP1, F₁, hF₁⟩ :=
-    (checkDirectIndS_sim henv (flushC_csok hwf)) q1 s₁ hind
+    (checkDirectIndS_sim henvT (flushC_csok hwf)) q1 s₁ hind
   obtain ⟨rfl, -⟩ := hP1
   obtain ⟨env₁, cvTa⟩ := q1
-  have hF₁p : checkDirectInd (fueledOps mode F₁) env p = .ok (env₁, cvTa) := by
+  have hF₁p : checkDirectInd (fueledOps mode F₁) (env.withLps cT) p
+      = .ok (env₁, cvTa) := by
     rw [← checkDirectInd_datF]; exact hF₁
-  obtain ⟨henv₁, hTf⟩ := direct_ind_wf henv hF₁p
+  obtain ⟨henv₁, hTf⟩ :=
+    direct_ind_wf henvT (UnivCtx.len_of_some hcT) hF₁p
+  have hndT : Name.nodup p.cvT.levelParams = true := direct_ind_nodup hF₁p
   -- stage 2: the constructor
   obtain ⟨u1, sB, hfl1, h⟩ := bindC_ok h
   rw [flushC_run] at hfl1
   injection hfl1 with hfl1
   obtain rfl : s₁.flushed = sB := congrArg Prod.snd hfl1
-  rw [checkDirectCtorF_pushC] at h
-  simp only [bind_assoc, pure_bind] at h
+  obtain ⟨feC, sCc, henterC, hK⟩ := bindC_ok h
+  clear h
+  obtain ⟨cC, hcC, rfl, rfl⟩ := enterCtxF_run henterC
+  rw [mkFEnv_withLps, checkDirectCtorF_pushC] at hK
+  simp only [bind_assoc, pure_bind] at hK
+  have h := hK
+  clear hK
+  have henvC : EnvWF (env₁.withLps cC) := henv₁.withLps cC
   obtain ⟨q2, s₂, hct, h⟩ := bindC_ok h
   obtain ⟨hs₂, q2', hP2, F₂, hF₂⟩ :=
-    (checkDirectCtorS_sim henv₁ hTf (flushC_csok hs₁.residue)) q2 s₂ hct
+    (checkDirectCtorS_sim henvC hTf (flushC_csok hs₁.residue)) q2 s₂ hct
   obtain ⟨rfl, -⟩ := hP2
   obtain ⟨env₂, cvCa, sorts⟩ := q2
-  have hF₂p : checkDirectCtor (fueledOps mode F₂) env env₁ p cvTa
-      = .ok (env₂, cvCa, sorts) := by
+  have hF₂p : checkDirectCtor (fueledOps mode F₂) env
+      (env₁.withLps cC) p cvTa = .ok (env₂, cvCa, sorts) := by
     rw [← checkDirectCtor_datF]; exact hF₂
-  obtain ⟨henv₂, hCf, -⟩ := direct_ctor_wf henv₁ hF₂p
+  obtain ⟨henv₂, hCf, -⟩ :=
+    direct_ctor_wf henvC (UnivCtx.len_of_some hcC) hF₂p
   -- stage 3: the recursor's constant and type
   obtain ⟨u2, sC, hfl2, h⟩ := bindC_ok h
   rw [flushC_run] at hfl2
   injection hfl2 with hfl2
   obtain rfl : s₂.flushed = sC := congrArg Prod.snd hfl2
+  obtain ⟨feR, sR, henterR, hK⟩ := bindC_ok h
+  clear h
+  obtain ⟨cR, hcR, rfl, rfl⟩ := enterCtxF_run henterR
+  rw [mkFEnv_withLps] at hK
+  have h := hK
+  clear hK
+  have henvR : EnvWF (env₂.withLps cR) := henv₂.withLps cR
   rw [checkConstantValF_eq] at h
   obtain ⟨cvRa, s₃, hcv, h⟩ := bindC_ok h
   obtain ⟨hs₃, cvRa', hP3, F₃, hF₃⟩ :=
-    (checkConstantValS_sim henv₂ (flushC_csok hs₂.residue)) cvRa s₃ hcv
+    (checkConstantValS_sim henvR (flushC_csok hs₂.residue)) cvRa s₃ hcv
   obtain ⟨rfl, -⟩ := hP3
-  have hF₃p : checkConstantVal (fueledOps mode F₃) env₂ p.cvR = .ok cvRa := by
+  have hF₃p : checkConstantVal (fueledOps mode F₃) (env₂.withLps cR) p.cvR
+      = .ok cvRa := by
     rw [← checkConstantVal_datF]; exact hF₃
   obtain ⟨hRf, -, -, -⟩ := checkConstantVal_typeWF hF₃p
   rw [checkDirectRecTyF_eq] at h
   obtain ⟨u3, s₄, hrt, h⟩ := bindC_ok h
   obtain ⟨hs₄, u3', hP4, F₄, hF₄⟩ :=
-    (checkDirectRecTyS_sim henv₂ hCf hRf hs₃) u3 s₄ hrt
-  have hF₄p : checkDirectRecTy (fueledOps mode F₄) env₂ p cvTa cvCa cvRa
-      = .ok u3' := by
+    (checkDirectRecTyS_sim henvR hCf hRf hs₃) u3 s₄ hrt
+  have hF₄p : checkDirectRecTy (fueledOps mode F₄) (env₂.withLps cR) p cvTa
+      cvCa cvRa = .ok u3' := by
     rw [← checkDirectRecTy_datF]; exact hF₄
   -- stage 4: the rule
   rw [checkDirectRuleF_eq] at h
   obtain ⟨rhsA, s₅, hru, h⟩ := bindC_ok h
   obtain ⟨hs₅, rhsA', hP5, F₅, hF₅⟩ :=
-    (checkDirectRuleS_sim henv₂ hCf hRf hs₄) rhsA s₅ hru
+    (checkDirectRuleS_sim henvR hCf hRf hs₄) rhsA s₅ hru
   obtain rfl : rhsA = rhsA' := hP5
-  have hF₅p : checkDirectRule (fueledOps mode F₅) env₂ p cvCa cvRa
+  have hF₅p : checkDirectRule (fueledOps mode F₅) (env₂.withLps cR) p cvCa cvRa
       = .ok rhsA := by
     rw [← checkDirectRule_datF]; exact hF₅
-  have henv₃ := direct_rec_wf henv₂ hF₃p hF₅p
+  have henv₃ := direct_rec_wf henvR (UnivCtx.len_of_some hcR) hF₃p hF₅p
   -- the projection phase
   rw [push_mkFEnv] at h
   simp only [mkFEnv_find?] at h
   by_cases hguard : (List.range p.nF).all (fun j =>
-      (Env.find? { env₂ with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      (Env.find? { env₂.withLps cR with
+        consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-            .plain else .inert, rhsA⟩]) :: env₂.consts }
+            .plain else .inert, rhsA⟩]) :: (env₂.withLps cR).consts }
         (projFnName p.cvT.name j)).isNone) = true
   case neg =>
     rw [if_neg hguard] at h
@@ -424,39 +472,53 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
       (lps := p.cvT.levelParams) (nP := p.nP) (nF := p.nF) (rs := p.resSort)
       (slots := directProjSlots p)
       (guards := directProjGuards cvCa.type p.nP p.nF sorts)
-      (cvTa := cvTa) (cvCa := cvCa) hCf p.nF 0 _ henv₃ hs₅.residue h
+      (cvTa := cvTa) (cvCa := cvCa) hCf hndT p.nF 0 _ henv₃ hs₅.residue h
   obtain ⟨G, hle₁, hle₂, hle₃, hle₄, hle₅, hle₆⟩ :
       ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G ∧ F₅ ≤ G ∧ F₆ ≤ G :=
     ⟨max F₁ (max F₂ (max F₃ (max F₄ (max F₅ F₆)))),
       by omega, by omega, by omega, by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
-  have g₁ : checkDirectInd (fueledOps mode G) env p = .ok (env₁, cvTa) := by
+  have g₁ : checkDirectInd (fueledOps mode G) (env.withLps cT) p
+      = .ok (env₁, cvTa) := by
     rw [← checkDirectInd_datF]; exact FueledM.up hle₁ hF₁
-  have g₂ : checkDirectCtor (fueledOps mode G) env env₁ p cvTa
+  have g₂ : checkDirectCtor (fueledOps mode G) env (env₁.withLps cC) p cvTa
       = .ok (env₂, cvCa, sorts) := by
     rw [← checkDirectCtor_datF]; exact FueledM.up hle₂ hF₂
-  have g₃ : checkConstantVal (fueledOps mode G) env₂ p.cvR = .ok cvRa := by
+  have g₃ : checkConstantVal (fueledOps mode G) (env₂.withLps cR) p.cvR
+      = .ok cvRa := by
     rw [← checkConstantVal_datF]; exact FueledM.up hle₃ hF₃
-  have g₄ : checkDirectRecTy (fueledOps mode G) env₂ p cvTa cvCa cvRa
-      = .ok u3' := by
+  have g₄ : checkDirectRecTy (fueledOps mode G) (env₂.withLps cR) p cvTa cvCa
+      cvRa = .ok u3' := by
     rw [← checkDirectRecTy_datF]; exact FueledM.up hle₄ hF₄
-  have g₅ : checkDirectRule (fueledOps mode G) env₂ p cvCa cvRa = .ok rhsA := by
+  have g₅ : checkDirectRule (fueledOps mode G) (env₂.withLps cR) p cvCa cvRa
+      = .ok rhsA := by
     rw [← checkDirectRule_datF]; exact FueledM.up hle₅ hF₅
   have g₆ : (List.range p.nF).foldlM
-      (checkDirectProj (fueledOps mode G) p.cvT.name p.cvC.name
-        p.cvT.levelParams p.nP p.nF p.resSort (directProjSlots p)
-        (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa)
-      { env₂ with consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      (fun (env : Env) (i : Nat) => do
+        let env ← enterCtx env p.cvT.levelParams
+        checkDirectProj (fueledOps mode G) p.cvT.name p.cvC.name
+          p.cvT.levelParams p.nP p.nF p.resSort (directProjSlots p)
+          (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa env i)
+      { env₂.withLps cR with
+        consts := (.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-            .plain else .inert, rhsA⟩]) :: env₂.consts } = .ok feOut.env := by
+            .plain else .inert, rhsA⟩]) :: (env₂.withLps cR).consts }
+      = .ok feOut.env := by
     have := FueledM.up hle₆ hF₆
     rw [foldlM_atF, ← List.range_eq_range'] at this
-    simpa only [checkDirectProj_datF] using this
+    simpa only [FueledM.atF_bind, enterCtx_atF, checkDirectProj_datF]
+      using this
   simp only [checkDirectStruct, Bind.bind, Except.bind, pure, Except.pure]
+  rw [enterCtx_of_some hcT]
+  simp only [Except.bind]
   rw [g₁]
   simp only [Except.bind]
+  rw [enterCtx_of_some hcC]
+  simp only [Except.bind]
   rw [g₂]
+  simp only [Except.bind]
+  rw [enterCtx_of_some hcR]
   simp only [Except.bind]
   rw [g₃]
   simp only [Except.bind]

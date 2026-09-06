@@ -1,4 +1,5 @@
 import Setlec.Verify.InstLevels
+import Setlec.Verify.Denote.OpenRevDenote
 import Setlec.SetP.Annot.Bit
 import Setlec.SetP.Annot.EnvS2Core
 
@@ -302,6 +303,33 @@ theorem denoteP_ctxFree_inst {m : EnvS2Core V env}
       = some ea := by
   rw [denotePInstLevels m φ ks us hnd hks hl hφ d e hdef]; exact h
 
+/-- The crossing, read backwards: an ambient reading of the
+level-instantiated subject is the context-free reading. -/
+theorem denoteP_inst_ctxFree {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ)
+    {ks : List Name} (hnd : ks.Nodup) (hks : ks.length ≤ PropWhen.maxParams)
+    {us : List Level} (hl : us.length = ks.length) {e : Expr}
+    (hdef : e.allLevelParamsDefined ks = true) {d : Nat} {ea : AVExpr}
+    (h : denoteP m.acval env φ d (e.instantiateLevelParams ks us (Level.masksOf env.lpsL us))
+      = some ea) :
+    denoteP m.acval (env.withLpsL ks) (Level.substFn φ ks us) d e = some ea := by
+  rw [← denotePInstLevels m φ ks us hnd hks hl hφ d e hdef]; exact h
+
+/-- The crossing under a reverse opening (the nested rules' stored
+parameter pins are read opened at the rule prefix). -/
+theorem denoteP_ctxFree_inst_openRev {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ)
+    {ks : List Name} (hnd : ks.Nodup) (hks : ks.length ≤ PropWhen.maxParams)
+    {us : List Level} (hl : us.length = ks.length) {e : Expr}
+    (hdef : e.allLevelParamsDefined ks = true) {d n : Nat} {ea : AVExpr}
+    (h : denoteP m.acval (env.withLpsL ks) (Level.substFn φ ks us) d
+      (openRev 0 n e) = some ea) :
+    denoteP m.acval env φ d (openRev 0 n
+      (e.instantiateLevelParams ks us (Level.masksOf env.lpsL us))) = some ea := by
+  rw [openRev_instantiateLevelParams]
+  exact denoteP_ctxFree_inst hφ hnd hks hl
+    (allLevelParamsDefined_openRev hdef 0 n) h
+
 /-- The crossing at a stored constant's type (`EnvWF` supplies the
 context facts). -/
 theorem denoteP_stored_ty_inst {m : EnvS2Core V env}
@@ -314,6 +342,20 @@ theorem denoteP_stored_ty_inst {m : EnvS2Core V env}
       ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)) = some ta :=
   have hwf := m.wf ci (List.mem_of_find?_eq_some hf)
   denoteP_ctxFree_inst hφ hwf.ctx.1 hwf.ctx.2 hl hwf.2.1 h
+
+/-- The backwards crossing at a stored constant's type: the ambient
+reading of the instantiated type is the context-free reading (the form
+the context-free laws consume). -/
+theorem denoteP_stored_ty_ctxFree {m : EnvS2Core V env}
+    (hφ : Level.NonzeroOutside env.lpsL φ)
+    {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci) {us : List Level}
+    (hl : us.length = ci.toConstantVal.levelParams.length) {d : Nat} {ta : AVExpr}
+    (h : denoteP m.acval env φ d (ci.toConstantVal.type.instantiateLevelParams
+      ci.toConstantVal.levelParams us (Level.masksOf env.lpsL us)) = some ta) :
+    denoteP m.acval (env.withLpsL ci.toConstantVal.levelParams)
+      (Level.substFn φ ci.toConstantVal.levelParams us) d ci.toConstantVal.type = some ta :=
+  have hwf := m.wf ci (List.mem_of_find?_eq_some hf)
+  denoteP_inst_ctxFree hφ hwf.ctx.1 hwf.ctx.2 hl hwf.2.1 h
 
 /-- The crossing at a stored recursor rule's right-hand side. -/
 theorem denoteP_stored_rule_inst {m : EnvS2Core V env}
