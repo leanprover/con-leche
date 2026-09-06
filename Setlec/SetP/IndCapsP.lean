@@ -140,7 +140,7 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
     {blockNames : List Name} {c₀ : ConstantInfo} {cvA : ConstantVal}
     {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (hntc : ∀ entry, c₀ ≠ .projInfo entry)
     (hc₀cv : c₀.toConstantVal = cvA) (hc₀name : c₀.name = cvA.name)
     (hpshape0 : c₀.name.isProjFnShape = false)
     (hbn : blockNames.contains cvA.name = true)

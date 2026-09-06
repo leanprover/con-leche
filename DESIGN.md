@@ -1008,16 +1008,23 @@ hard build error.  Contract points:
   once).
 * **Layering via the module system.**  `Setlec/Kernel/Expr.lean`,
   `Setlec/PinGen/*.lean` and `Setlec/Kernel/NatOpPins.lean` are
-  `module`s; `NatOpPins` reaches the generator through
-  `meta import Setlec.PinGen`, so `Lean.*` stays out of the runtime
-  import closure (the setlec binary grew ~2 MB for the pins data, not
-  ~100 MB for libLean; checker runtime code never touches `Lean.*`
-  APIs).  Because a `module`'s ambient environment strips imported
-  theorem *proofs* (and `meta import all Lean` does not restore
-  cross-package proofs — probed: `dif_pos` has no value there), the
-  generator computes in a dedicated full-view environment
-  (`importModules` at `OLeanLevel.private` over `Init` and the
-  certificate module) and splices into the ambient one.
+  `module`s; `NatOpPins` reaches its elaboration-time helpers through a
+  `meta import`, so `Lean.*` stays out of the runtime import closure
+  (the setlec binary grew ~2 MB for the pins data, not ~100 MB for
+  libLean; checker runtime code never touches `Lean.*` APIs).  Because
+  a `module`'s ambient environment strips imported theorem *proofs*
+  (and `meta import all Lean` does not restore cross-package proofs —
+  probed: `dif_pos` has no value there), the generator computes in a
+  dedicated full-view environment (`importModules` at
+  `OLeanLevel.private` over `Init` and the certificate module).
+  **SUPERSEDED IN PART at task #176 (2026-09-06):** that full-view
+  environment is no longer built while `NatOpPins` elaborates — loading
+  an olean by name is not an import edge, Lake never ordered it, and a
+  cold `lake build setlec` failed on a missing `Certs.olean`.  The
+  computation moved to the `natop-pins-export` executable and the
+  result is a committed file; `NatOpPins` now `meta import`s only
+  `Setlec/PinGen/Dump.lean` (the format).  See "The pins as a committed
+  file" below.
 * **Prefix allowlists** (`scripts/natop_prefix.json`, from
   `scripts/extract_natop_prefix.py`) are checked-in generator *input*
   (an allowlist of stream-declared names, not a blob), extracted from
@@ -1070,10 +1077,14 @@ hard build error.  Contract points:
   pin at the audit's S1.)  Diagnosis unchanged:
   `scripts/DumpNatOpPinConsts.lean` + `scripts/
   diagnose_natop_prefix.py` (the op self-ref stays a false positive).
-  Rebuild caveat: Lake tracks neither the `include_str` json edge nor
-  the certs module; `touch` does nothing (content-hash traces) —
-  delete the `PinGen*`/`NatOpPins*` build artifacts to force
-  regeneration.
+  Rebuild caveat (SUPERSEDED at #176 for the certs half): Lake tracks
+  neither the `include_str` json edges nor — back when it existed — the
+  olean-by-name load of the certs module; `touch` does nothing
+  (content-hash traces).  Since #176 the pins are regenerated
+  deliberately (`lake exe natop-pins-export`) and `tests/pindump.sh`
+  fails the battery if the committed dump is stale, so the "delete the
+  build artifacts" ritual is only needed for `Setlec/PinGen.lean`'s own
+  `include_str` inputs when re-exporting.
 * **StdAxioms pins** are small and stay vendored
   (`Setlec/Kernel/StdAxioms.lean`); basis blocks (`PSigma'` …) are
   preprocessor-owned and out of scope for the generator.
@@ -46032,6 +46043,265 @@ merged tree's.  Axioms of `no_proof_of_Empty_SPCD_P`,
 `[propext, Classical.choice, Quot.sound]`.  No perf number was taken —
 the batch is performance-neutral by the finding above, and the perf
 cadence resumes after the grant.
+
+## TASK #175 tower-flag — the projection table's KIND FLAG is retired: a family without a table IS a modeled one (2026-09-06, `agent/tower-flag`)
+
+User question, and the answer it carries: *"what do we need the `tower`
+flag for?  Isn't it sufficient to prove that the projection typing and
+iota hold for all enabled projections?"* — yes.  `ProjTable.tower` /
+`ProjEntry.tower` and the modeled route's inert elimination-template
+tables are gone.
+
+### 1. What the flag was doing, and why nothing needed it
+
+Since S1 there is one projection-table constant per structure, under
+`projTableName T`, and two routes could install one:
+
+* the **direct** simple-structure install (`checkDirectProjTable`),
+  which stores the field bodies, the guards and the struct sort —
+  `tower = true`;
+* the **modeled** route (`installProjTemplate`), which stored an
+  *inert* table for a Prop structure some of whose `_model.proj_i`
+  artifacts are absent — empty guards, dummy bodies, `tower = false`.
+  Task #175 wiring W5 had already deleted the recursor-inlining
+  fallback that consumed it, so the inert table "typed no node and
+  fired no reduction": it recorded the family and nothing else.
+
+So the flag partitioned stored tables into "real" and "records the
+family".  But the store already carries that distinction: **a family
+without a table is a modeled one**, and `findProj? = none` is what
+every `.proj` site reads.  Dropping the inert install makes the flag a
+constant `true` on every stored table, and a constant premise is
+deletable.
+
+The one thing the flag did that was *not* redundant was the eta
+spine's spelling choice (`towerSlotsAll` → `.proj T j b` nodes vs
+`recSlotsAll` → projection-function applications).  That question is
+now asked directly: "does the table cover the slot" for the `.proj`
+spelling, `recSlotsAll` for the modeled one.
+
+### 2. What went
+
+Implementation: the two fields, `ProjTable.entry_tower`,
+`installProjTemplate` and `installProjTemplateS`, and their call sites
+in `checkIndDecl` / `checkIndDeclSF` / `checkIndDeclT` (the
+single-constructor arm now ends at the projection-function fold).
+`ConstantInfo.isTowerEntry` becomes "is a `projInfo` constant" —
+still the guard that keeps a table out of `inferTypeCore`'s `.const`
+clause, since a table is not a term.
+
+Verification, all of it *losing a premise* rather than gaining one:
+`ProjEntry.fireOk` (the `!entry.tower ||` disjunct), the two infer
+branches' `entry.tower ∧ …` conjunct, `whnfCore`'s fire, the annotate
+branch (a table entry types the node; **no** table declines at the
+node's own site), `towerSlotsAll`/`towerSlotsAllF`, `ProjOkT` and
+`ProjOkT.towerHead`, `ProjSlotsOk`, `TowerHead`'s consumers,
+`TowerOkP` / `TowerEntryLawP` / `towerGuardAt_of_fireOk`,
+`ConsCrossEnv` / `ConsCrossAt` (and `.ofNtc`, now "the head is not a
+table"), `denoteP_envExtend`, `denoteP_envExtend_mono`,
+`denoteP_envExtend_mono_at`, `findProj?_cons_of_base_none`,
+`findProj?_cons_tower`, `ConsHeadP` and `Installs`' `ntc` clauses.
+
+The run/bridge cone of the template install went with it:
+`projTemplateSkels` and `installProjTemplateS_skels` (AgreeFloor),
+`installProjTemplate_{fst,snd}_dproj` / `_datF` / `_wfimp`
+(`BridgeDecl`, `BridgeWfImp`), `installProjTemplate_inv` and
+`installProjTemplates_find_{new,preserved}` (`Verify/Extend/Proj`),
+`installProjTemplateS_run` (`BridgeCS4`), `DeclIndRun.Templates` with
+`templates_of` / `templates_ext` / `templatesP` / `templateConsP` /
+`templateValP` / `templateVal`, and the P fold's inert-cons step
+`declStepPM_of_projTemplate_cons`.  `DeclIndRun`'s single-constructor
+arm loses its last conjunct (`∃ envP, ProjInstallRun … envP ∧
+Templates … envP env₂` becomes `ProjInstallRun … env₂`).
+
+**The denotation clause.**  All three tiers (`denote`, `denote2`,
+`denoteP`) read a `.proj` node by the uniform iterated spelling
+(`projNV`/`projAV`) at *every* stored entry, and keep the legacy
+`i < 2` pair fallback only where there is **no** table.  That is a
+strict simplification of the clause; its splitter drops from six cases
+to four, so the four `denote.induct` consumers (`Verify/Denote/{Install,
+EnvExt,Shift,Levels}.lean`) renumber `case17…case27` → `case17…case25`.
+`denote_proj_pair` / `denoteP_proj_pair` / `denoteP_proj_inv_pair` now
+take `findProj? = none` rather than "every entry here is non-tower".
+
+### 3. Verdict-neutrality, and the one behaviour that moves
+
+Nothing was ever typed or fired through an inert table, so no accepted
+stream changes.  The one thing that moves is the **reason** on a
+`.proj` at a modeled family that used to carry a template: it was
+`.invalid` (reject, and under a misleading message about propositional
+structures), and is now the `none` branch's `.notImplemented`
+(decline, "projection on a non-structure-like type").  That is exactly
+the SigmaHom ruling's own answer — *a `.proj` on a type without a
+table declines at its own site* — so the two modeled-family cases now
+agree instead of differing by whether the recogniser happened to
+record the family.  No arena or e2e verdict is affected (no test
+projects from such a family).
+
+### 4. Gates
+
+`lake build` warning-free (444 jobs); `lake test` green; `tests/arena.sh`
+0 FAIL apart from the expected proofdeps departure — arena 90/92 good
+accepted, e2e 80/80, annot 14/14, retired flags 8/8, mode flags 16/16,
+trusted sweep 138 + 80 + 14 with the 3 recorded divergences; **every
+verdict unchanged**.  init-full (`--pre init-full-pre2.ndjson`):
+**accept in BOTH modes, 60 549 declarations** — the accepted count did
+*not* drop, i.e. that stream installed no inert table at all, which is
+its own small piece of evidence that the tables were dead weight.  The
+four capstones (`no_proof_of_Empty_SPCD_P`,
+`checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `SetP.no_proof_of_Empty_P`)
+depend on exactly `[propext, Classical.choice, Quot.sound]`; layering
+holds.  proofdeps regenerated: **1 370 rows, one module LEFT a
+closure** (`P :: Setlec.Verify.Extend.Modeled` — its remaining
+contribution to the P capstone was the template install's inversion),
+**no doors**.
+
+## THE Nat-OP PINS AS A COMMITTED FILE — `lake build setlec` works cold (2026-09-06, `agent/pin-dump`, task #176)
+
+### 1. THE DEFECT, AND WHY IT WAS INVISIBLE FOR SO LONG
+
+On a cold tree, at master:
+
+```
+$ lake build setlec
+✖ [28/88] Building Setlec.Kernel.NatOpPins (651ms)
+error: Setlec/Kernel/NatOpPins.lean:33:0: object file
+  '…/.lake/build/lib/lean/Setlec/PinGen/Certs.olean' of module
+  Setlec.PinGen.Certs does not exist
+```
+
+`#gen_natop_pins` (task #53) computed the pins **while `NatOpPins`
+elaborated**, over an environment built by `importModules` at
+`OLeanLevel.private` on `Setlec.PinGen.Certs`.  Loading an olean *by
+name* is not an import edge: Lake has no way to know the module needs
+it.  The lakefile stood in three `extraDepTargets = ["SetlecPinCerts"]`
+lines for the edge — and those order a **target**, not a module.  When
+`Setlec.Kernel.NatOpPins` is reached through the `setlec` executable's
+import graph, the exe's `extraDepTargets` does not gate the individual
+module builds that Lake schedules in parallel, so `NatOpPins` can (and
+does) start before `Certs.olean` exists.  It looked fine for months
+because nobody built a genuinely cold tree without first building the
+default targets, where `SetlecBase`'s own `extraDepTargets` happened to
+win the race.
+
+**The rule this instance teaches, and it generalises past this file:**
+*an ordering that is not an import edge is not an ordering.*  Lake's
+`extraDepTargets` sequences targets; module scheduling inside a target
+is not covered by it.  Any construction that reads a build artifact by
+name — an olean, a generated `.c`, a data file — must either be reached
+by a real `import` or be a committed input.
+
+### 2. THE RULING, AND WHY IT IS THE RIGHT SHAPE ANYWAY
+
+> "committing the pin as a file is fine – as soon as we want to support
+> multiple toolchains we have to do that.  CI can keep the export up to
+> date.  So let's just do that.  `lake build setlec` should work out of
+> the box."  — user
+
+Multi-toolchain support forces this regardless: a pin computed from
+*the compiling toolchain* can only ever describe that one toolchain, so
+supporting a second means storing both, which means storing them.  The
+dump is therefore named after the toolchain it came from
+(`Setlec/Kernel/NatOpPins/leanprover-lean4-v4.33.0.json`) and a second
+one sits beside it.
+
+### 3. WHAT LANDED
+
+| piece | what it is |
+|---|---|
+| `Setlec/PinGen/Dump.lean` | the interchange format: `PinEntry`/`PinBlob` (the share table, moved here from `PinGen` — the table IS the format), the `Lean.Expr` emitter `PinBlob.value`, the JSON codec, and the `#load_natop_pins` loader.  Imports `Lean` and `Setlec.Kernel.Expr`, nothing else |
+| `PinDump.lean`, `lean_exe natop-pins-export` | the generator.  Its root **imports** `Setlec.PinGen.Certs` — the build-order edge the old mechanism lacked — and computes the pins in the same `OLeanLevel.private` full-view environment as before |
+| `Setlec/Kernel/NatOpPins/<toolchain>.json` | the committed dump: 710 KB, 40 910 lines, one share-table entry per line |
+| `Setlec/Kernel/NatOpPins.lean` | an ordinary module: `#load_natop_pins include_str "NatOpPins/leanprover-lean4-v4.33.0.json"`.  No `meta import Setlec.PinGen`, no olean loading |
+| `tests/pindump.sh` | the freshness gate, wired into `tests/arena.sh` beside `layering.sh`/`proofdeps.sh` |
+| `lakefile.toml` | the three `extraDepTargets = ["SetlecPinCerts"]` lines removed |
+
+**One emitter, not two.**  The share table is what the dump carries, so
+`buildExprValue` (which the `#gen_trust_pins` pins still use) is
+literally `(blobOf ·).value` and the loader calls the same
+`PinBlob.value`.  There is no second code path that could drift.
+
+**Elaboration time, not initialization time.**  The splice stays an
+`addDecl`+`compileDecl` of `Expr` constants.  A runtime parse
+(`def natXCertProofs := parse …`) would have been cheaper to write and
+wrong: the model bridge reduces the *list* structure of
+`natXCertProofs` definitionally, and a parser call cannot reduce.  It
+would also have moved a 710 KB JSON parse into every process start
+(the `loadPrefixes` lesson recorded above).
+
+### 4. THE FORMAT DECISION, AND THE ONE THAT WAS REJECTED
+
+JSON, parsed with `Lean.Json` — the toolchain's own parser, already
+this generator's *input* format (`scripts/natop_prefix.json`), stable
+across toolchains, and it solves the string escaping (name components,
+`Literal.strVal`) that a bespoke line format would have had to
+re-solve.
+
+The ndjson export dialect was considered and **rejected for a
+structural reason, not a taste one**: reusing the frontend's `Expr`
+parser is impossible from here.  `Setlec.Frontend.*` imports
+`Setlec.Kernel.*`, which imports `Setlec.Kernel.NatOpPins` — a cycle,
+and a `meta import` does not break it.  "Reuse the existing parser"
+had exactly one candidate and it was unreachable.
+
+What is dumped is the **share table**, not the `Setlec.Expr` tree: the
+pins share heavily (`Nat.xor`'s largest proof blob is 8 030 shared
+entries against ≈1.8 M unshared tree nodes), so the tree form would be
+three orders of magnitude larger.  Entries are tag-led arrays
+(`["a",123,124]`) whose arguments are absolute indices of earlier
+entries; `Name.anonymous` and `Level.zero` stay inline, exactly as the
+pre-#176 builder had them, which is what makes the emitted `let`-chain
+identical rather than merely equivalent.
+
+### 5. THE BYTE-IDENTITY RECEIPT
+
+The point of the exercise is that the pins' *content* is unchanged, and
+that was measured, not argued.  A probe (`_tmp/PinProbe.lean`)
+re-serialises the **spliced constants** — the eight `…DeclPin`s and the
+nineteen `…CertProofs_i` blobs — back through the dump format.  Built
+in a worktree at master (old `#gen_natop_pins` path) and in this branch
+(new `#load_natop_pins` path):
+
+```
+40 908 lines each; diff -q clean
+committed dump == the master-tree probe output, byte for byte
+```
+
+`blobOf` is injective (the table plus root determines the `Expr`), so
+equal serialisations mean equal `Setlec.Expr` values, hence equal
+declaration values.
+
+Cost note: `Setlec.Kernel.NatOpPins` builds in **8.2 s** instead of
+**26 s** — the certificate closure computation left the checker's build
+and now runs only when the dump is regenerated (1.3 s for all eight
+operations).
+
+### 6. WHERE THE TRUST STILL COMES FROM
+
+Unchanged, and worth stating because "committed blob" reads like a
+weakening.  The certificates are still kernel-checked theorems
+(`Setlec/PinGen/Certs.lean`, the `SetlecPinCerts` library, still built
+by `lake build`); the dump carries their *proof terms*; and this
+checker re-checks those terms at install time against the hand-pinned
+statements in `Setlec/Kernel/Checker.lean`.  A corrupted dump does not
+produce a wrong accept — it produces a failed certificate check and a
+decline.  The committed file is a cache of a computation, not an axiom.
+
+Two independent staleness ratchets:
+
+1. `tests/pindump.sh` regenerates and `diff -q`s; a stale dump fails
+   the standard battery, and its only fix is
+   `lake exe natop-pins-export`.
+2. the loader refuses a dump whose recorded `leanVersion` is not the
+   running one, so a toolchain bump is a *build error* with the
+   regeneration command in the message, never a silent wrong pin.
+
+### 7. WHAT `SetlecPinCerts` IS NOW
+
+Still a buildable `lean_lib`; no longer anything's build-order
+prerequisite.  Its in-tree consumers are the generator executable and
+`Setlec.SetP.NatWfP` (which reuses the certificate theorems at the meta
+level) — both by ordinary `import`, both ordered by Lake for free.
 
 ## CORET RETIRED — the trusted core is the shared bodies at `cfgT` (2026-09-06, `agent/coret-retire`)
 

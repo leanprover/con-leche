@@ -72,19 +72,16 @@ theorem denoteP_proj (acval : Name → (Name → Nat) → AVExpr)
       = (do
         let ea ← denoteP acval env φ d e
         match env.findProj? s i with
-        | some entry =>
-          if entry.tower then some (projAV i ea)
-          else if i < 2 then some (.proj i ea) else none
+        | some _ => some (projAV i ea)
         | none => if i < 2 then some (.proj i ea) else none) := by
   rw [denoteP]
   rfl
 
-/-- The clause at a pair-backed (or absent) entry — the pre-W3 shape,
-for consumers holding a pin. -/
+/-- The clause at an absent entry — the pre-W3 shape, for consumers
+holding an absence fact. -/
 theorem denoteP_proj_pair (acval : Name → (Name → Nat) → AVExpr)
     (d : Nat) (s : Name) (i : Nat) (e : Expr)
-    (hnt : ∀ entry, env.findProj? s i = some entry →
-      entry.tower = false) :
+    (hnt : env.findProj? s i = none) :
     denoteP acval env φ d (.proj s i e)
       = (do
         let ea ← denoteP acval env φ d e
@@ -94,15 +91,10 @@ theorem denoteP_proj_pair (acval : Name → (Name → Nat) → AVExpr)
   | none => rfl
   | some ea =>
     show (match env.findProj? s i with
-      | some entry => if entry.tower = true then some (projAV i ea)
-          else if i < 2 then some (AVExpr.proj i ea) else none
+      | some _ => some (projAV i ea)
       | none => if i < 2 then some (AVExpr.proj i ea) else none)
         = if i < 2 then some (AVExpr.proj i ea) else none
-    cases hfp : env.findProj? s i with
-    | none => rfl
-    | some entry =>
-      dsimp only
-      rw [if_neg (by simp [hnt entry hfp])]
+    rw [hnt]
 
 theorem denoteP_forallE (acval : Name → (Name → Nat) → AVExpr)
     (d : Nat) (n : Name) (ty body : Expr) (mb : Setlec.BinderMeta) :
@@ -151,60 +143,41 @@ theorem denoteP_proj_inv {d : Nat} {s : Name} {i : Nat} {e : Expr}
     {ea : AVExpr}
     (h : denoteP acval env φ d (.proj s i e) = some ea) :
     ∃ ia, denoteP acval env φ d e = some ia ∧
-      ((∃ entry, env.findProj? s i = some entry ∧
-          entry.tower = true ∧ ea = projAV i ia) ∨
-       ((∀ entry, env.findProj? s i = some entry →
-           entry.tower = false) ∧ i < 2 ∧ ea = .proj i ia)) := by
+      ((∃ entry, env.findProj? s i = some entry ∧ ea = projAV i ia) ∨
+       (env.findProj? s i = none ∧ i < 2 ∧ ea = .proj i ia)) := by
   rw [denoteP] at h
   cases he : denoteP acval env φ d e with
   | none => rw [he] at h; exact nomatch h
   | some ia =>
     rw [he] at h
     replace h : (match env.findProj? s i with
-        | some entry => if entry.tower = true then some (projAV i ia)
-            else if i < 2 then some (AVExpr.proj i ia) else none
+        | some _ => some (projAV i ia)
         | none => if i < 2 then some (AVExpr.proj i ia) else none)
           = some ea := h
     cases hfp : env.findProj? s i with
     | some entry =>
       rw [hfp] at h
       dsimp only at h
-      by_cases htw : entry.tower = true
-      · rw [if_pos htw] at h
-        exact ⟨ia, rfl, Or.inl ⟨entry, rfl, htw,
-          (Option.some.inj h).symm⟩⟩
-      · rw [if_neg htw] at h
-        split at h
-        · next hlt =>
-          refine ⟨ia, rfl, Or.inr ⟨?_, hlt, (Option.some.inj h).symm⟩⟩
-          intro e' he'
-          obtain rfl := Option.some.inj he'
-          cases hv : entry.tower
-          · rfl
-          · exact absurd hv htw
-        · exact nomatch h
+      exact ⟨ia, rfl, Or.inl ⟨entry, rfl, (Option.some.inj h).symm⟩⟩
     | none =>
       rw [hfp] at h
       dsimp only at h
       split at h
       · next hlt =>
-        refine ⟨ia, rfl, Or.inr ⟨?_, hlt, (Option.some.inj h).symm⟩⟩
-        intro e' he'
-        exact nomatch he'
+        exact ⟨ia, rfl, Or.inr ⟨rfl, hlt, (Option.some.inj h).symm⟩⟩
       · exact nomatch h
 
-/-- The inversion at a pair-backed (or absent) entry — the pre-W3
-shape, for consumers holding a pin. -/
+/-- The inversion at an absent entry — the pre-W3 shape, for consumers
+holding an absence fact. -/
 theorem denoteP_proj_inv_pair {d : Nat} {s : Name} {i : Nat} {e : Expr}
     {ea : AVExpr}
-    (hnt : ∀ entry, env.findProj? s i = some entry →
-      entry.tower = false)
+    (hnt : env.findProj? s i = none)
     (h : denoteP acval env φ d (.proj s i e) = some ea) :
     ∃ ia, denoteP acval env φ d e = some ia ∧ i < 2 ∧
       ea = .proj i ia := by
   obtain ⟨ia, hia, hcase⟩ := denoteP_proj_inv h
-  rcases hcase with ⟨entry, hfp, htw, -⟩ | ⟨-, hlt, rfl⟩
-  · exact absurd htw (by simp [hnt entry hfp])
+  rcases hcase with ⟨entry, hfp, -⟩ | ⟨-, hlt, rfl⟩
+  · rw [hnt] at hfp; exact nomatch hfp
   · exact ⟨ia, hia, hlt, rfl⟩
 
 theorem denoteP_forallE_inv {d : Nat} {n : Name} {ty bd : Expr}

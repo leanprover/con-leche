@@ -1203,17 +1203,17 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
         obtain ⟨ia₂, he₂, hrd₂⟩ := denoteP_proj_inv hdb
         simp only [Expr.WScoped] at hwa hwb
         simp only [Expr.looseBVarsBounded] at hba hbb
-        rcases hrd₁ with ⟨entry, hfe, htw, rfl⟩ | ⟨hnt, -, rfl⟩
-        · rcases hrd₂ with ⟨-, -, -, rfl⟩ | ⟨hnt', -, -⟩
+        rcases hrd₁ with ⟨entry, hfe, rfl⟩ | ⟨hnt, -, rfl⟩
+        · rcases hrd₂ with ⟨-, -, rfl⟩ | ⟨hnt', -, -⟩
           · exact interp2_projAV_congr (ihd hde hwa hba
               (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
               hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
               hCa.proj_arg hCb.proj_arg he₁ he₂
               (fun σ hσ => AnnotOkP_projAV_hoist (hokA σ hσ))
               (fun σ hσ => AnnotOkP_projAV_hoist (hokB σ hσ)) ρ hρ)
-          · exact absurd htw (by simp [hnt' entry hfe])
-        · rcases hrd₂ with ⟨entry', hfe', htw', -⟩ | ⟨-, -, rfl⟩
-          · exact absurd htw' (by simp [hnt entry' hfe'])
+          · rw [hnt'] at hfe; exact nomatch hfe
+        · rcases hrd₂ with ⟨entry', hfe', -⟩ | ⟨-, -, rfl⟩
+          · rw [hnt] at hfe'; exact nomatch hfe'
           · exact deqStep2_projCong (ihd hde hwa hba
               (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
               hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))

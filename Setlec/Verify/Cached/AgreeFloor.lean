@@ -33,9 +33,7 @@ Nothing here reasons about the cores.  The floor's whole content is
 that the fold is *the same fold* at every config, and the only work is
 that this is not quite true on the nose: the inductive-block clause
 installs constants under **environment-dependent guards**
-(`installProjFnStep*`'s model lookup; `installProjTemplateS`'s
-recursor lookup, which reads a stored recursor's `majorIdx`,
-`rulePrefix` and its single rule's `ctor`).  So the induction runs on
+(`installProjFnStep*`'s model lookup).  So the induction runs on
 the *install skeleton* — exactly the data those guards read, and
 nothing a core computes — and the names corollary falls out.
 
@@ -330,21 +328,6 @@ def projFnStepSkels (T ctorName : Name) (nP : Nat)
     .recr (projFnName T i) nP nP [ctorName] :: sk
   else sk
 
-/-- `installProjTemplateS`'s specification: the stored recursor's
-`majorIdx`, `rulePrefix` and single rule's `ctor`, the table name's
-freshness and the projection-function slots decide (task #175 S1: one
-inert table per family). -/
-def projTemplateSkels (T ctorName : Name) (nP nF : Nat)
-    (sk : List InstallSkel) : List InstallSkel :=
-  match skFind? sk (T.str "rec") with
-  | some (.recr _ mI rP [c]) =>
-    if (skFind? sk (projTableName T)).isNone ∧
-        mI = rP ∧ rP = nP + 2 ∧ c = ctorName ∧
-        !(List.range nF).all (fun i => (skFind? sk (projFnName T i)).isSome) then
-      .proj (projTableName T) :: sk
-    else sk
-  | _ => sk
-
 /-! The block's member classifiers.  They are *named* (rather than
 inlined `match` lambdas as in the driver) for one reason: the driver's
 own lambdas compile to per-declaration matcher constants, so a rewrite
@@ -379,10 +362,9 @@ def indDeclSkelsModeled (block : List ConstantInfo) (sk : List InstallSkel) :
     ((block.filter isNonRecCI).foldl indMemberSkels sk)
   match block.filter isIndCI, block.filter isCtorCI with
   | [.indInfo cvT _], [.ctorInfo cvC nP nF] =>
-    projTemplateSkels cvT.name cvC.name nP nF
-      (if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF then
-        (List.range nF).foldl (projFnStepSkels cvT.name cvC.name nP) base
-       else base)
+    if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF then
+      (List.range nF).foldl (projFnStepSkels cvT.name cvC.name nP) base
+    else base
   | _, _ => base
 
 /-! ### The direct simple-structure clause (task #175 W4c)
@@ -723,31 +705,6 @@ theorem installProjFnStepS_skels (cfg : CoreCfg) {fe : FEnv}
     exact checkProjFnS_skels cfg h T ctorName lps nP nF i
   · exact Yields.pure h
 
-theorem installProjTemplateS_skels {fe : FEnv} {sk : List InstallSkel}
-    (h : SkelIs fe sk) (T ctorName : Name) (lps : List Name) (nP nF : Nat) :
-    Yields (installProjTemplateS fe T ctorName lps nP nF)
-      (fun fe' => SkelIs fe' (projTemplateSkels T ctorName nP nF sk)) := by
-  unfold installProjTemplateS projTemplateSkels
-  rw [← h.find? (T.str "rec")]
-  cases hfe : fe.find? (T.str "rec") with
-  | none => exact Yields.pure h
-  | some ci =>
-    cases ci with
-    | recInfo cv mI rP rules =>
-      cases rules with
-      | nil => exact Yields.pure h
-      | cons r rest =>
-        cases rest with
-        | cons _ _ => exact Yields.pure h
-        | nil =>
-          simp only [ciSkel, List.map_cons, List.map_nil, Option.map]
-          rw [h.isNone (projTableName T)]
-          simp only [h.isSome]
-          split <;> rename_i hcond
-          · exact Yields.pure (h.push _)
-          · exact Yields.pure h
-    | _ => exact Yields.pure h
-
 /-! ## The direct simple-structure install's skeleton (task #175 W4c)
 
 Every stage's install decision is the block's own or a freshness
@@ -870,20 +827,13 @@ theorem checkIndDeclSF_skels (cfg : CoreCfg) {fe : FEnv}
           by_cases hsl : ctorTargetsFam cvC.type cvT.name cvT.levelParams
               nP nF = true
           · simp only [if_pos hsl]
-            refine Yields.bind'
-              (Yields.foldlM_rel (R := SkelIs)
-                (g := projFnStepSkels cvT.name cvC.name nP)
-                (fun acc i sk' hacc =>
-                  installProjFnStepS_skels cfg hacc cvT.name cvC.name
-                    cvT.levelParams nP nF i) (List.range nF) fe₃ _ h₃)
-              fun fe₄ h₄ => ?_
-            exact installProjTemplateS_skels h₄ cvT.name cvC.name
-              cvT.levelParams nP nF
+            exact Yields.foldlM_rel (R := SkelIs)
+              (g := projFnStepSkels cvT.name cvC.name nP)
+              (fun acc i sk' hacc =>
+                installProjFnStepS_skels cfg hacc cvT.name cvC.name
+                  cvT.levelParams nP nF i) (List.range nF) fe₃ _ h₃
           · simp only [if_neg hsl]
-            refine Yields.bind' (Yields.pure (P := fun fe' => SkelIs fe' _) h₃)
-              fun fe₄ h₄ => ?_
-            exact installProjTemplateS_skels h₄ cvT.name cvC.name
-              cvT.levelParams nP nF
+            exact Yields.pure (P := fun fe' => SkelIs fe' _) h₃
     case h_2 hne =>
       split
       case h_1 cvT capsT cvC nP nF hI hC =>

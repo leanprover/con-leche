@@ -40,34 +40,30 @@ variable {acval : Name → (Name → Nat) → AVExpr}
 
 /-! ## The reading at a tower entry -/
 
-/-- The clause at a tower-backed entry: the uniform iterated
-projection of the subject's reading. -/
+/-- The clause at a stored entry: the uniform iterated projection of
+the subject's reading. -/
 theorem denoteP_proj_tower {d : Nat} {s : Name} {i : Nat} {e : Expr}
     {entry : ProjEntry} {ia : AVExpr}
-    (hfe : env.findProj? s i = some entry) (htw : entry.tower = true)
+    (hfe : env.findProj? s i = some entry)
     (he : denoteP acval env φ d e = some ia) :
     denoteP acval env φ d (.proj s i e) = some (projAV i ia) := by
   rw [denoteP_proj, he]
   show (match env.findProj? s i with
-    | some entry => if entry.tower = true then some (projAV i ia)
-        else if i < 2 then some (AVExpr.proj i ia) else none
+    | some _ => some (projAV i ia)
     | none => if i < 2 then some (AVExpr.proj i ia) else none)
       = some (projAV i ia)
   rw [hfe]
-  dsimp only
-  rw [if_pos htw]
 
-/-- The inversion at a tower-backed entry. -/
+/-- The inversion at a stored entry. -/
 theorem denoteP_proj_inv_tower {d : Nat} {s : Name} {i : Nat} {e : Expr}
     {entry : ProjEntry} {ea : AVExpr}
-    (hfe : env.findProj? s i = some entry) (htw : entry.tower = true)
+    (hfe : env.findProj? s i = some entry)
     (h : denoteP acval env φ d (.proj s i e) = some ea) :
     ∃ ia, denoteP acval env φ d e = some ia ∧ ea = projAV i ia := by
   obtain ⟨ia, hia, hcase⟩ := denoteP_proj_inv h
-  rcases hcase with ⟨entry', hfe', -, rfl⟩ | ⟨hnt, -, -⟩
-  · obtain rfl : entry' = entry := Option.some.inj (hfe'.symm.trans hfe)
-    exact ⟨ia, hia, rfl⟩
-  · exact absurd htw (by simp [hnt entry hfe])
+  rcases hcase with ⟨entry', hfe', rfl⟩ | ⟨hnt, -, -⟩
+  · exact ⟨ia, hia, rfl⟩
+  · rw [hnt] at hfe; exact nomatch hfe
 
 /-- A read spine extended by one read argument. -/
 theorem DenoteSpineP.snoc {d : Nat} {as : List Expr} {vs : List AVExpr}

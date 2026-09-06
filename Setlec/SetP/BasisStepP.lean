@@ -115,10 +115,8 @@ theorem declStepPM_of_basis_cons (mp : EnvS2PM V μ env)
       denoteP (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
-      first
-        | (intro _ h; exact nomatch h)
-        | (intro _ h; cases h; rfl)) :
+    (hntc : ∀ entry, c₀ ≠ .projInfo entry := by
+      intro _ h; exact nomatch h) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
@@ -194,10 +192,8 @@ theorem declStepPM_of_basis_rec_cons (mp : EnvS2PM V μ env)
     (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRulesP m₂ φ)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
-      first
-        | (intro _ h; exact nomatch h)
-        | (intro _ h; cases h; rfl)) :
+    (hntc : ∀ entry, c₀ ≠ .projInfo entry := by
+      intro _ h; exact nomatch h) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
@@ -258,10 +254,8 @@ theorem declStepPM_of_basis_cons_eqrow (mp : EnvS2PM V μ env)
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
     (heq : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A → EqLawP m₂)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
-      first
-        | (intro _ h; exact nomatch h)
-        | (intro _ h; cases h; rfl)) :
+    (hntc : ∀ entry, c₀ ≠ .projInfo entry := by
+      intro _ h; exact nomatch h) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew
@@ -322,10 +316,8 @@ theorem declStepPM_of_basis_cons_gen (mp : EnvS2PM V μ env)
     (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRulesP m₂ φ)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
-      first
-        | (intro _ h; exact nomatch h)
-        | (intro _ h; cases h; rfl)) :
+    (hntc : ∀ entry, c₀ ≠ .projInfo entry := by
+      intro _ h; exact nomatch h) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk hmemNew

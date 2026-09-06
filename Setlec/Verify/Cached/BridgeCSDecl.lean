@@ -497,11 +497,9 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
         = true
     case neg =>
       rw [if_neg hsl] at h
-      obtain ⟨fe₄, s₄, hart, h⟩ := bindC_ok h
-      obtain ⟨hfe₄, rfl⟩ := pureC_ok hart
+      obtain ⟨hfe₄, rfl⟩ := pureC_ok h
       subst hfe₄
-      obtain ⟨hs4', hfeOut, hF₄p'⟩ := installProjTemplateS_run h
-      refine ⟨hs4' ▸ hwf₃, hfeOut, max F₁ F₂, ?_⟩
+      refine ⟨hwf₃, rfl, max F₁ F₂, ?_⟩
       have hF₁p := FueledM.up (Nat.le_max_left F₁ F₂) hF₁
       rw [foldlM_atF] at hF₁p
       simp only [checkIndMember_datF] at hF₁p
@@ -543,17 +541,13 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
             hF₂p.symm.trans hok
           injection hv
         rw [if_pos hctorRes, if_pos hguard, if_neg hsl]
-        exact hF₄p'
+        rfl
       next x1 x2 hne' =>
         exact (hne' cvT c0 cvC nP nF heq1 heq2).elim
     rw [if_pos hsl] at h
-    obtain ⟨fe₄, s₄, hart, h⟩ := bindC_ok h
     obtain ⟨hwf₄, hfe₄, henv₄, F₃, hF₃⟩ :=
-      foldProjFnS_run _ fe₃.env henv₃ hwf₃ hart
-    rw [hfe₄] at h
-    obtain ⟨hs4', hfeOut, hF₄p'⟩ := installProjTemplateS_run h
-    refine ⟨hs4' ▸ hwf₄, hfeOut,
-      max F₁ (max F₂ F₃), ?_⟩
+      foldProjFnS_run _ fe₃.env henv₃ hwf₃ h
+    refine ⟨hwf₄, hfe₄, max F₁ (max F₂ F₃), ?_⟩
     have hF₁p := FueledM.up (Nat.le_max_left F₁ (max F₂ F₃)) hF₁
     rw [foldlM_atF] at hF₁p
     simp only [checkIndMember_datF] at hF₁p
@@ -570,7 +564,7 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
     have hF₃p' : List.foldlM (installProjFnStep mode
         (fueledOps mode (max F₁ (max F₂ F₃)))
         cvT.name cvC.name cvT.levelParams nP nF) fe₃.env _ =
-        .ok fe₄.env := hF₃p
+        .ok feOut.env := hF₃p
     simp only [checkIndDecl]
     split
     case isFalse hgs => exact absurd hsplit hgs
@@ -605,14 +599,7 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
           hF₂p.symm.trans hok
         injection hv
       rw [if_pos hctorRes, if_pos hguard, if_pos hsl]
-      split
-      next err herr => exact nomatch (hF₃p'.symm.trans herr)
-      next v hok =>
-      obtain rfl : fe₄.env = v := by
-        have hv : (Except.ok fe₄.env : Except CheckError Env) = .ok v :=
-          hF₃p'.symm.trans hok
-        injection hv
-      exact hF₄p'
+      exact hF₃p'
     next x1 x2 hne' =>
       exact (hne' cvT c0 cvC nP nF heq1 heq2).elim
   case _ =>

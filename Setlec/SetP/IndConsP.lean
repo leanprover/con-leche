@@ -134,9 +134,9 @@ theorem declStepPM_of_ind_cons (mp : EnvS2PM V μ env)
     (hrec : ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRulesP m₂ φ)
-    -- the head is not a tower entry (task #175 W4c: those get their
-    -- own kit, `DeclDirectP`)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false) :
+    -- the head is not a projection table (task #175 W4c: those get
+    -- their own kit, `DeclDirectP`)
+    (hntc : ∀ entry, c₀ ≠ .projInfo entry) :
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStepPM_of_cons mp (c₀ := c₀) (A := A) hfresh hh
@@ -258,61 +258,5 @@ theorem declStepPM_of_ind_rec_cons (mp : EnvS2PM V μ env)
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (fun _ h => nomatch h) hh hAclosed hAparams hAok
     hAvalid htyReads htyOk hmemNew hcaps hrec (fun _ h => nomatch h)
-
-/-- **The P step at an elimination-*template* cons** (`Templates`'s
-`projInfo`): the one ind-tier cons with **no** open row at all.  A
-`projInfo` is none of the three kinds `EtaFamilyStored` mentions, so
-`capsOkP_cons_fresh` descends the families, and it stores no rules, so
-`recRulesP_cons_fresh` transports the ι contracts.  What remains is
-the tower and its type's reading — and the stored type is
-`.sort .zero` by `Templates`'s own pin. -/
-theorem declStepPM_of_projTemplate_cons (mp : EnvS2PM V μ env)
-    {tbl : Setlec.ProjTable} {A : (Name → Nat) → AVExpr}
-    (hfresh : env.find? (ConstantInfo.projInfo tbl).name = none)
-    (hnres : Setlec.reservedBasisNames.contains
-      (ConstantInfo.projInfo tbl).name = false)
-    (hh : ConsHeadP env (.projInfo tbl) A)
-    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
-    (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
-      (∀ p ∈ (ConstantInfo.projInfo tbl).toConstantVal.levelParams,
-        ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂)
-    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ))
-    (hAvalid : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      AnnotValidV V ρ (A ψ))
-    (htyReads : ∀ ψ : Name → Nat,
-      ∃ ta : AVExpr,
-        denoteP (acvalWith mp.base2.acval
-            (ConstantInfo.projInfo tbl).name A)
-          ⟨.projInfo tbl :: env.consts⟩ ψ 0
-          (ConstantInfo.projInfo tbl).toConstantVal.type = some ta)
-    (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
-      denoteP (acvalWith mp.base2.acval
-            (ConstantInfo.projInfo tbl).name A)
-          ⟨.projInfo tbl :: env.consts⟩ ψ 0
-          (ConstantInfo.projInfo tbl).toConstantVal.type = some ta →
-      ∀ ρ : Nat → V, AnnotOkP V ρ ta)
-    (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
-      denoteP (acvalWith mp.base2.acval
-            (ConstantInfo.projInfo tbl).name A)
-          ⟨.projInfo tbl :: env.consts⟩ ψ 0
-          (ConstantInfo.projInfo tbl).toConstantVal.type = some ta →
-      ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
-    (hntc : tbl.tower = false) :
-    ∃ mp' : EnvS2PM V μ ⟨.projInfo tbl :: env.consts⟩,
-      mp'.base2.acval = acvalWith mp.base2.acval
-        (ConstantInfo.projInfo tbl).name A := by
-  refine declStepPM_of_ind_cons mp hfresh hnres
-    (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
-    (fun _ h => nomatch h) hh hAclosed hAparams hAok
-    hAvalid htyReads htyOk hmemNew ?_ ?_
-    (fun e' h => by cases h; exact hntc)
-  · exact fun m₂ hac => capsOkP_cons_fresh mp mp.caps_ok hfresh
-      hh.projTower
-      (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h)
-      (fun _ _ _ _ h => nomatch h) m₂ hac
-  · exact fun m₂ hac φ =>
-      recRulesP_cons_fresh mp hfresh hh.projTower
-        (fun _ _ _ _ h => nomatch h) m₂
-        hac φ
 
 end Setlec.SetP

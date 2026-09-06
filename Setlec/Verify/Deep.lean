@@ -2013,7 +2013,7 @@ private theorem infer_step (henv : EnvWF env)
       -- task #175 S1: the body's instantiation commutes with the
       -- shift — the body is fvar-free, so the shift passes to the
       -- spine and the subject
-      obtain ⟨-, -, hlen, -⟩ := hc
+      obtain ⟨-, hlen, -⟩ := hc
       have hsh := ProjEntry.typeAt_shiftFrom (p := p) henv hfp us₂ hlen pe
       -- the Prop guard (task #175 W4c) is shift-independent: split it
       -- on both sides, then the residual
@@ -2246,7 +2246,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
       -- task #175 S1: the body's instantiation commutes with the
       -- shift — the body is fvar-free, so the shift passes to the
       -- spine and the subject
-      obtain ⟨-, -, hlen, -⟩ := hc
+      obtain ⟨-, hlen, -⟩ := hc
       have hsh := ProjEntry.typeAt_shiftFrom (p := p) henv hfp us₂ hlen pe
       -- the Prop guard (task #175 W4c) is shift-independent: split it
       -- on both sides, then the residual
@@ -2892,7 +2892,6 @@ private theorem annotate_step (henv : EnvWF env)
     | some entry =>
       dsimp only
       simp only [getAppArgs_shiftFrom, List.length_map]
-      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
 
 end Helpers

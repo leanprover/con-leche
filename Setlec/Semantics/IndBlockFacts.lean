@@ -23,7 +23,7 @@ re-run η-only".
 of the two folds' model content is needed.  Every ingredient of
 `declIndS`'s second component was already relation-level and V-free —
 `indMembersR_mono`/`_indNew`/`_ctorEntry`, `indRecsR_noInd`,
-`projInstallR_ext`, `templates_ext` — and the *one* ingredient that
+`projInstallR_ext` — and the *one* ingredient that
 was not, `indRecsS`'s `hnonrecUp`, is not a consequence of the install
 at all: the group's install fold accumulates on the **base**
 environment (`IndRecsFoldR`'s `acc` starts at `env₂`, not at the
@@ -67,15 +67,6 @@ theorem etaPins_of_indBlockCaps {μ : CheckMode} {env : Env}
 theorem etaPins_empty {μ : CheckMode} {env : Env} {T : Name}
     {lps : List Name} : EtaPins μ env T lps {} :=
   ⟨fun h => absurd h (by decide), fun h => absurd h (by decide)⟩
-
-/-- The elimination-template install is an `ExtEta` extension. -/
-theorem templates_ext {T ctorName : Name} {lps : List Name}
-    {nP nF : Nat} {env' env₂ : Env}
-    (h : DeclIndRun.Templates T ctorName lps nP nF env' env₂) :
-    ExtEta env' env₂ := by
-  rcases h with rfl | ⟨hfresh, rfl⟩
-  · exact ExtEta.refl _
-  · exact ExtEta.cons hfresh (fun _ _ hh => ConstantInfo.noConfusion hh)
 
 /-! ## The provisioning's syntactic residue -/
 

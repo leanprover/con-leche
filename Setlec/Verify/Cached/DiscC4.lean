@@ -54,7 +54,7 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
       | some entry =>
         match e'.getAppFn with
         | .const c us =>
-          if entry.tower ∧ c = entry.ctor ∧ i < entry.numFields ∧
+          if c = entry.ctor ∧ i < entry.numFields ∧
               e'.getAppArgs.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then
@@ -598,7 +598,7 @@ theorem whnfCoreStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           wscoped_getD hwe'.getAppArgs _
         split
         · rename_i hcond
-          obtain ⟨-, rfl, -, -, -⟩ := hcond
+          obtain ⟨rfl, -, -, -⟩ := hcond
           refine SimC.bind_left
             (internI_eff hs₁ (n := ExprView.bvar 0))
             (fun s₂ bvar0 hs₂ hQ0 => ?_)
@@ -2144,7 +2144,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
               (internExprM (entry.typeAt us (Expr.getAppArgs te) pe))
               (pure (entry.typeAt us (Expr.getAppArgs te) pe) : FueledM Expr) :=
             SimC.pure hs₂ ⟨rfl, projEntry_typeAt_WScoped henv hfp us
-              hcond.2.2.1
+              hcond.2.1
               (fun a ha => hwte.getAppArgs a ha) hwpe⟩
           -- the Prop guard (task #175 W4c) runs no walk of its own
           split
@@ -2511,7 +2511,7 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
               (internExprM (entry.typeAt us (Expr.getAppArgs te) pe))
               (pure (entry.typeAt us (Expr.getAppArgs te) pe) : FueledM Expr) :=
             SimC.pure hs₂ ⟨rfl, projEntry_typeAt_WScoped henv hfp us
-              hcond.2.2.1
+              hcond.2.1
               (fun a ha => hwte.getAppArgs a ha) hwpe⟩
           -- the Prop guard (task #175 W4c) runs no walk of its own
           split

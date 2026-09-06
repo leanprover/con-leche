@@ -137,19 +137,6 @@ def installProjFnStepS (T ctorName : Name) (lps : List Name)
     checkProjFnS cfg fe T ctorName lps nP nF i
   else pure fe
 
-/-- The Prop-fallback elimination-template table (mirrors
-`installProjTemplate`; operation-free, lookups through the index). -/
-def installProjTemplateS (fe : FEnv) (T ctorName : Name) (lps : List Name)
-    (nP nF : Nat) : CheckCM FEnv := do
-  match fe.find? (T.str "rec") with
-  | some (.recInfo _cvR mI rP [rule]) =>
-    if (fe.find? (projTableName T)).isNone ∧
-        mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧
-        !(List.range nF).all (fun i => (fe.find? (projFnName T i)).isSome) then
-      pure (fe.push (.projInfo ⟨T, lps, nP, ctorName, nF, .zero, Array.replicate nF (.sort .zero), [], false⟩))
-    else pure fe
-  | _ => pure fe
-
 /-- `checkDirectStruct` through the index. -/
 def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
   -- one `flushC` per environment transition, as everywhere else in this
@@ -197,13 +184,11 @@ def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
     unless (List.range nF).all
         (fun j => (fe₃.find? (projFnName cvT.name j)).isNone) do
       throw (.invalid "projection name family taken")
-    let fe₄ ←
-      if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF then
-        (List.range nF).foldlM
-          (installProjFnStepS cfg cvT.name cvC.name cvT.levelParams nP nF)
-          fe₃
-      else pure fe₃
-    installProjTemplateS fe₄ cvT.name cvC.name cvT.levelParams nP nF
+    if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF then
+      (List.range nF).foldlM
+        (installProjFnStepS cfg cvT.name cvC.name cvT.levelParams nP nF)
+        fe₃
+    else pure fe₃
   | _, _ => do
     let fe₂ ← nonrecs.foldlM (checkIndMemberS cfg blockNames {}) fe
     checkIndRecsS cfg blockNames fe₂ recs
