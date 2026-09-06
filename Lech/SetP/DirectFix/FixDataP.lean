@@ -107,6 +107,8 @@ structure FixCtorDataI {env : Env} (m : EnvS2Core V env) (env₀ : Env) (T : Nam
     (Eiss : (Name → Nat) → List (List AVExpr)) : Prop
     extends CtorDataI m T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs where
   opened : FixOpened env₀ T lps nP nIdx nF ks fvsP xFvs xrest
+  opens : ∃ crest, openPisAtFvars nP cvC.type 0 = some (fvsP, crest) ∧
+    openPisAtFvars nF crest nP = some (xFvs, xrest)
   ksLen : ks.length = nF
   xLen : xFvs.length = nF
   pLen : fvsP.length = nP
@@ -267,7 +269,8 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
       simp only [Eiss, List.getD_eq_getElem?_getD, List.getElem?_map]
       rw [List.getElem?_eq_none (by simp; omega)]
       rfl
-  refine ⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss, ⟨hCD, hO, hks, hlenX, hlenP, hidxX',
+  refine ⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss, ⟨hCD, hO, ⟨crest, hopP, hopX⟩, hks,
+    hlenX, hlenP, hidxX',
     hidxP', hidxEq, hdomRead, fun ψ => by simp [Eiss], ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
   · intro ψ i x hx hk
     have hi : i < nF := by rw [← hlenX]; exact (List.getElem?_eq_some_iff.mp hx).1
