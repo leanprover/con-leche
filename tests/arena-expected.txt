@@ -10,6 +10,30 @@
 # fixtures below carry the reference-correct reject again.  (Between
 # task #148 T0b and W4c the switch shipped `false`; before T0b an
 # expectation could be a pair "<on>|<off>" run against two binaries.)
+# Task #180 (2026-09-07) — **a preprocessor reject is our reject** (user
+# ruling).  The checker no longer falls back to checking the raw stream
+# when `setlec-preprocess` exits nonzero: the tool's verdict is passed
+# through (1 reject, 2 decline, anything else 3).  Sixteen bad tutorial
+# tests moved off the "2" they used to get from the fallback's missing
+# model (finding F1):
+#
+#  * FOURTEEN now REJECT (1), which is the reference verdict — the tool's
+#    kernel is Lean's, and it is rejecting the block while generating its
+#    model: non-positive occurrences (052, 055), wrong parameter or
+#    constructor-result shapes (047-050, 116, 117), an occurrence in an
+#    index (051), a non-sort motive (045), a field universe that does not
+#    fit (059), a constructor type that does not reduce to the owner
+#    (054), and the two duplicate-declaration streams (136, 138).
+#  * TWO become ERRORS (3), and this is a FINDING, not a preference:
+#    071_BogusRecursor and 135_misnamed_rec_user are inputs whose
+#    *declared* recursor metadata contradicts the block, and
+#    lean-inductive-models classifies that as its own internal error
+#    ("BogusRecursor.rec's exact recursor layout differs from its
+#    installed metadata"; "2 generated statements differ from their exact
+#    exported owner interface") rather than as a rejection of the input.
+#    The reference verdict for both is a reject.  Reported upstream-shaped
+#    in DESIGN.md (task #180): the classification belongs in the tool, and
+#    setlec must not second-guess an exit code it decided to trust.
 0 good/tutorial/001_basicDef.ndjson
 0 good/tutorial/003_arrowType.ndjson
 0 good/tutorial/004_dependentType.ndjson
@@ -109,18 +133,18 @@
 1 bad/tutorial/012_nonPropThm.ndjson
 1 bad/tutorial/017_tut06_bad01.ndjson
 1 bad/tutorial/044_inductBadNonSort.ndjson
-2 bad/tutorial/045_inductBadNonSort2.ndjson
+1 bad/tutorial/045_inductBadNonSort2.ndjson
 1 bad/tutorial/046_inductLevelParam.ndjson
-2 bad/tutorial/047_inductTooFewParams.ndjson
-2 bad/tutorial/048_inductWrongCtorParams.ndjson
-2 bad/tutorial/049_inductWrongCtorResParams.ndjson
-2 bad/tutorial/050_inductWrongCtorResLevel.ndjson
-2 bad/tutorial/051_inductInIndex.ndjson
-2 bad/tutorial/052_indNeg.ndjson
-2 bad/tutorial/054_reduceCtorType.mk.ndjson
-2 bad/tutorial/055_indNegReducible.ndjson
-2 bad/tutorial/059_typeWithTooHighTypeField.mk.ndjson
-2 bad/tutorial/071_BogusRecursor.ndjson
+1 bad/tutorial/047_inductTooFewParams.ndjson
+1 bad/tutorial/048_inductWrongCtorParams.ndjson
+1 bad/tutorial/049_inductWrongCtorResParams.ndjson
+1 bad/tutorial/050_inductWrongCtorResLevel.ndjson
+1 bad/tutorial/051_inductInIndex.ndjson
+1 bad/tutorial/052_indNeg.ndjson
+1 bad/tutorial/054_reduceCtorType.mk.ndjson
+1 bad/tutorial/055_indNegReducible.ndjson
+1 bad/tutorial/059_typeWithTooHighTypeField.mk.ndjson
+3 bad/tutorial/071_BogusRecursor.ndjson
 1 bad/tutorial/085_projOutOfRange.ndjson
 2 bad/tutorial/086_projNotStruct.ndjson
 1 bad/tutorial/088_projProp2.ndjson
@@ -144,8 +168,8 @@
 1 bad/tutorial/113_funEtaBad.ndjson
 1 bad/tutorial/114_etaRuleK.ndjson
 1 bad/tutorial/115_etaCtor.ndjson
-2 bad/tutorial/116_reflOccLeft.ndjson
-2 bad/tutorial/117_reflOccInIndex.ndjson
+1 bad/tutorial/116_reflOccLeft.ndjson
+1 bad/tutorial/117_reflOccInIndex.ndjson
 1 bad/tutorial/124_accRecNoEta.ndjson
 1 bad/tutorial/131_dup_defs.ndjson
 1 bad/tutorial/132_dup_ind_def.ndjson
@@ -159,13 +183,19 @@
 # freshness check.
 1 bad/tutorial/133_dup_ctor_def.ndjson
 1 bad/tutorial/134_dup_rec_def.ndjson
-2 bad/tutorial/135_misnamed_rec_user.ndjson
-2 bad/tutorial/136_dup_rec_def2.ndjson
+3 bad/tutorial/135_misnamed_rec_user.ndjson
+1 bad/tutorial/136_dup_rec_def2.ndjson
 1 bad/tutorial/137_dup_ctor_rec.ndjson
 # 138_DupConCon (task #175 sum-types, 2026-09-06): a two-constructor
 # block whose constructors share a name.  The direct SUM route checks
 # all constructors at the former's environment and conses them
 # afterwards, so it guards the names pairwise distinct up front and
 # REJECTS (the reference-correct verdict; the modeled route declined
-# at the preprocessor's model check).
+# at the preprocessor's model check).  Since task #180 the verdict
+# arrives one step earlier still: the preprocessor's own
+# duplicate-declaration check rejects the export ("invalid export:
+# duplicate declaration dup_ind_con_con.mk") and its verdict is ours.
+# The sum route's pairwise guard is what rejects the same stream when
+# the preprocessor is unavailable (SETLEC_INDUCTIVE_MODELS=/nonexistent:
+# "invalid: direct sum: duplicate constructor") — both give 1.
 1 bad/tutorial/138_DupConCon.ndjson

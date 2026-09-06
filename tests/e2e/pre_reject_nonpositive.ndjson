@@ -1,0 +1,12 @@
+{"meta":{"exporter":{"name":"lean4export","version":"3.1.0"},"format":{"version":"3.1.0"},"lean":{"githash":"f72c35b3f637c8c6571d353742168ab66cc22c00","version":"4.29.1"}}}
+{"in":1,"str":{"pre":0,"str":"indNeg"}}
+{"il":1,"succ":0}
+{"ie":0,"sort":1}
+{"in":2,"str":{"pre":1,"str":"mk"}}
+{"in":3,"str":{"pre":0,"str":"x"}}
+{"const":{"name":1,"us":[]},"ie":1}
+{"forallE":{"binderInfo":"default","body":1,"name":3,"type":1},"ie":2}
+{"forallE":{"binderInfo":"default","body":1,"name":3,"type":2},"ie":3}
+{"in":4,"str":{"pre":1,"str":"rec"}}
+{"ie":4,"sort":0}
+{"inductive":{"ctors":[{"cidx":0,"induct":1,"isUnsafe":false,"levelParams":[],"name":2,"numFields":1,"numParams":0,"type":3}],"recs":[{"all":[1],"isUnsafe":false,"k":false,"levelParams":[],"name":4,"numIndices":0,"numMinors":0,"numMotives":0,"numParams":0,"rules":[],"type":4}],"types":[{"all":[1],"ctors":[2],"isRec":false,"isReflexive":false,"isUnsafe":false,"levelParams":[],"name":1,"numIndices":0,"numNested":0,"numParams":0,"type":0}]}}

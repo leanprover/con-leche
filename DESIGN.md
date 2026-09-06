@@ -3655,7 +3655,13 @@ arena, never to the text.  JSON strings are built fresh by
 buffer; the read line is `copy`-detached before parsing as extra
 insurance (core's `Handle.lines` pattern).
 
-The **preprocessor spawn** no longer pipes: `preprocess` stream-scans
+The **preprocessor spawn** no longer pipes [SUPERSEDED 2026-09-07, task
+#180 — it pipes again, and this time *streams* the pipe instead of
+capturing it whole; the temp file is gone entirely.  See "NO TEMP FILE:
+the preprocessor's stdout IS the parser's input" at the end of this
+file.  What the paragraph below is still right about is the reason the
+*old* pipe was dropped: `IO.Process.output` buffers the child's whole
+stdout in a `String`]: `preprocess` stream-scans
 the input for `inductive`/`quot` records (ndjson keys cannot span
 lines), and when the tool is needed it writes to a **temp file**
 (`-o path`, `IO.FS.createTempFile`; honors `TMPDIR` — commonly tmpfs,
@@ -46587,7 +46593,12 @@ native regardless and is not the predicate's to decide.
   here is modelled there, and the priority gate ignores the model either
   way.  `scripts/perf-tables.sh`'s `$PREPROC` and `tests/scale.sh`'s
   availability probe follow the same order.  Flags are unchanged
-  everywhere — the new binary is the tool's own CLI.
+  everywhere — the new binary is the tool's own CLI.  [SUPERSEDED
+  2026-09-07, task #180: the checker's spawn now passes
+  `--quiet --no-type-check-generated` and no `-o` at all (it reads the
+  tool's stdout), and a nonzero exit is passed through as setlec's own
+  verdict instead of falling back to the raw stream.  See the task #180
+  section at the end of this file.]
 
 ### THE PREDICATE, AND THE DIRECTION THAT MATTERS
 
@@ -48403,3 +48414,207 @@ Mathlib scale, which §5's parse, the matching 65 projection rewrites
 and the 46 minutes of clean checking already make very likely.  It is
 worth taking when a Mathlib-scale slot is free anyway; it is not worth
 displacing anything for.
+
+## TASK #180 — NO TEMP FILE: the preprocessor's stdout IS the parser's input (2026-09-07, `agent/tmpdir`)
+
+**The finding.**  "Is anyone using tmpfs?" — yes, the checker itself was.
+`preprocess` ran `setlec-preprocess --quiet -o TMPFILE FILE` with the
+scratch path from `IO.FS.createTempFile`, which resolves to the system
+temp directory; on this machine (and most Linux distributions) `/tmp` is
+a RAM-backed tmpfs, so the *whole* preprocessed stream was charged to
+memory beside the checker's own heap — 336 MB for `init-full`, and a
+Mathlib-scale raw export would put ~5.8 GB there.  Relocating the file to
+disk was the obvious fix; the better one is that no file is needed.
+`lean-inductive-models` writes its export to **stdout** by default
+(`Cli.Config.outputTarget := "-"`, and its declaration-stream backend
+emits record by record), and setlec's frontend reads its input strictly
+forward, one `getLine` at a time.  So the tool is now spawned with
+`stdout := .piped` and no output flag, and `Frontend.parseExportHandleD`
+— `parseExportStreamD` split at the handle, the file wrapper kept — is
+fed that pipe: two processes streaming, nothing buffered whole in either,
+nothing on disk anywhere.  The child's stderr is *inherited* rather than
+captured (with `--quiet` the tool prints only fatal errors, which now
+reach the user instead of being swallowed by `IO.Process.output`, and no
+second pipe can fill while the first is being drained), and its exit
+code is still consulted — see "a preprocessor reject is our reject"
+below for what a nonzero one now means.  One further difference: a
+checker decline reached *before* the tool exits is our verdict, and the
+child is killed first, since we have stopped draining its pipe and a
+blocked writer would never exit; a *parse* error drains the pipe
+instead of killing, so that a tool which failed mid-stream — leaving us
+a truncated record — still gets to state its own verdict, which then
+wins over our reading of its debris.  Because the file is *gone* rather than
+moved, there is no cleanup path left to get wrong: not the error paths,
+not the supervised child's OOM kill (`SETLEC_SUPERVISED`), not `--pre`
+(which never spawns the tool at all).  What still needs scratch space is
+the *test scripts*, which gunzip multi-gigabyte fixtures — `tests/arena.sh`,
+`tests/pilot-parity.sh`, `tests/scale.sh`, `tests/pilot-scale.sh` now
+`export TMPDIR="${TMPDIR:-$PWD/_tmp/tmp}"` after their `cd` to the project
+root, so a caller's `TMPDIR` is honoured and the default is the project's
+on-disk `_tmp/` convention rather than the system temp; exporting it means
+every child (the checker, `mktemp -d`, the generator) inherits the same
+choice.  **Rule, recorded:** the checker creates no temporary files;
+anything in the tree that needs scratch space honours `TMPDIR` and
+otherwise uses `./_tmp/tmp`, never `/tmp`.
+
+### The spawn's flags: no second kernel over the generated islands
+
+The tool's defaults are `--check-input on`, `--check-output on` (its
+*structural* model-family checks), `--type-check-generated on` (Lean's
+**kernel** re-checks every generated model island as it is produced) and
+`--type-check-input off`.  The kernel re-check is duplicated work by
+construction: those generated definitions and theorems arrive in the
+stream setlec is handed, and setlec type-checks each of them itself, as
+an ordinary declaration, with the checker whose consistency is the point
+of this repository.  So the spawn now passes
+`--no-type-check-generated`.  The structural checks stay — they are
+cheap and they check *shape*, which nothing downstream re-derives — and
+`--type-check-input` stays **off** on principle: submitting the
+untrusted input to Lean's kernel is the job we exist to do ourselves.
+
+Measured on the raw exports, preprocessor alone, `perf stat -e
+instructions:u` (wall is same-machine and contended, quoted only for
+scale), and the output stream `cmp`-identical with and without the
+re-check in both cases:
+
+| stream | with re-check | without | Δ instr | wall (contended) |
+| --- | --- | --- | --- | --- |
+| `init-full` (325 MB in, 329 MB out) | 168.63 G | 166.16 G | **−1.46 %** | 17.4 s → 16.5 s |
+| `mathlib slice-small` (459 MB in, 483 MB out) | 284.01 G | 265.50 G | **−6.52 %** | 32.7 s → 28.3 s |
+
+So the flag is a real but small saving — a bigger one the more of the
+stream is *Mathlib-shaped*, since the saving is proportional to the
+generated model islands and `init-full` has proportionally fewer of
+them than a Mathlib slice.  It is worth *measuring* rather than
+assuming, because "Lean's kernel runs over every generated model"
+sounds like it should dominate and does not: the tool's own generation
+and parsing are the bulk of its work.
+
+**`mathlib-full` was not affordable, and said something anyway.**  Both
+passes over the 5.6 GB raw export died with `INTERNAL PANIC: out of
+memory` under the 16 GB `ulimit -v` cap (A 2.76 T instructions / 310 s,
+B 2.69 T / 287 s, both to the panic, so neither number is a
+measurement).  What the failed runs *did* leave behind is the point of
+this whole task, in the wild: two orphaned 2.9 GB
+`.lean-inductive-models-output-<hex>.tmp` siblings in the output
+directory — the tool's transactional `-o` scratch file, which an
+OOM-killed process never renames or removes.  Writing to a pipe has no
+such file to leak.
+
+### "A preprocessor reject is our reject" (user ruling, 2026-09-07)
+
+`lean-inductive-models` follows the same arena exit-code contract setlec
+does (its README: 1 rejected by a requested structural or kernel check,
+2 a requested generation route declined an unsupported owner, 3 parser /
+IO / CLI / internal error), and the kernel it rejects with is **Lean's
+own**.  A block it rejects — a non-positive occurrence, a wrong
+parameter count — is therefore invalid input, full stop, and not a
+limitation of ours.  Until now a nonzero exit made the checker discard
+the tool's output and check the *raw* stream instead, where the first
+inductive has no model and the run declined: 29 arena bad tests that
+expect a **reject** were getting a decline out of that path (finding
+F1), and the reject the reference kernel gives was reachable only by
+running the tool by hand.  The fallback is gone.  The mapping is now
+exit 1 → 1, exit 2 → 2, anything else → 3, each with the tool's own
+message already on stderr (it is spawned `stderr := .inherit`, and
+`--quiet` silences only its *success* reports).  The one exception,
+deliberately kept: a preprocessor that cannot be **run** — no binary at
+that path — still falls back to the raw stream, which is what the `raw`
+test fixtures exercise by pointing `SETLEC_INDUCTIVE_MODELS` at a
+nonexistent path.
+
+The decline message is setlec's own rather than the tool's, because the
+per-owner "declined —" lines *are* success-path reports and `--quiet`
+suppresses them; it says so and points at the re-run that prints them.
+
+Two e2e fixtures pin the two halves: `pre_reject_nonpositive.ndjson`
+(the arena's `bad/tutorial/052_indNeg`, vendored) now **rejects** with
+exit 1 and the tool's "(kernel) arg #1 of 'indNeg.mk' has a non
+positive occurrence of the datatypes being declared" on stderr, and
+`pre_decline_imax_field.ndjson` (lean-inductive-models' own
+`prim_shape_declines`, whose `PadImaxIdx` reaches no generation arm)
+**declines** with exit 2.  The second one also pins the native
+predicate's boundary from the other side: `PadImax`, the non-indexed
+half of the same shape, comes back `native` — the direct
+simple-structure route takes it — and only the indexed one declines.
+
+**What the arena said, and one FINDING.**  Sixteen bad tutorial tests
+moved off the fallback's decline.  Fourteen of them now **reject**,
+which is the reference verdict: the tool's kernel is Lean's and it is
+rejecting the block while generating its model — non-positive
+occurrences (052, 055), wrong parameter or constructor-result shapes
+(047–050, 116, 117), an occurrence in an index (051), a non-sort motive
+(045), a field universe that does not fit (059), a constructor type
+that does not reduce to its owner (054), the two duplicate-declaration
+streams (136, 138).  **Two become errors (3), and that is a finding to
+report, not a preference**: `071_BogusRecursor` and
+`135_misnamed_rec_user` are inputs whose *declared* recursor metadata
+contradicts their own block, and `lean-inductive-models` classifies
+that as its own internal error ("BogusRecursor.rec's exact recursor
+layout differs from its installed metadata"; "2 generated statements
+differ from their exact exported owner interface") rather than as a
+rejection of the input.  The reference verdict for both is a reject.
+The fix belongs upstream — an input lying about its own recursor is
+invalid input, not a tool malfunction — and setlec deliberately does
+**not** second-guess an exit code it has decided to trust; that would
+put the classification in two places.  Recorded here and pinned in
+`tests/arena-expected.txt`.
+
+### The one place the resolution had to get stricter
+
+Deciding "the tool is not there" now has to happen **before** the spawn,
+because after it a missing binary is indistinguishable from a failed
+one: Lean's `IO.Process.spawn` does not throw for a nonexistent
+executable — it succeeds, and the child prints "could not execute
+external process" and exits **255**.  Under the old code that landed in
+the `exitCode ≠ 0` arm and fell back to the raw stream, which is exactly
+what the nine `raw` e2e fixtures rely on
+(`SETLEC_INDUCTIVE_MODELS=/nonexistent`); under the new mapping it would
+have become a bogus exit 3, and did, for all nine, until
+`findPreprocessor` was made to resolve **every** branch to a path that
+exists — the `$PATH` step included, by looking `$PATH` up itself
+(`resolveTool`) instead of leaving the bare name to the spawn.
+
+**Gates.** `lake build` 619 jobs warning-free; `lake test` green;
+`tests/arena.sh` **0 FAIL** — arena tutorial 90/92 good accepted, e2e
+81/81 (the two new fixtures included), annot 14/14, retired flags 8/8,
+mode flags 16/16, trusted sweep 138+81+14 with its three recorded
+divergences, and sixteen bad tutorial expectations rewritten as
+described above; `init-full` accepted, **56 291 declarations in both
+modes**, unchanged from before the task (peak RSS 803 MB verified /
+837 MB trusted, ~1:55 each, `/tmp` entry count identical before and
+after); and the evidence for the no-temp-file claim — an arena tutorial
+*raw* export (`good/tutorial/080_RBTree.id_spec.ndjson`, which the
+preprocessor really does reduce) run under `strace -f -e
+trace=openat,unlink,rename,pipe2` with `TMPDIR` pointed at an empty
+directory: **zero** writable `openat`s across all three processes, zero
+`/tmp` accesses, the watched directory still empty afterwards, and the
+input opened twice read-only (the `needsPreprocess` scan and the tool's
+own read) with the export flowing through a `pipe2`.
+
+### Re-gated at the master merge (`0c9a69c0`; master `f1932977`)
+
+Merged master's sum-types route (`Kernel/Direct/Sum*`, `SetP/DirectSum`,
+the widened `setlecNative`), the resume-slice script and its DESIGN
+records.  Two conflicts, both textual: `DESIGN.md` (two appended
+sections — both kept, master's first) and `tests/arena-expected.txt` at
+`138_DupConCon`, where **both branches had already moved the line to
+`1`** for different reasons.  That is worth stating precisely, since the
+comment master left there is now one step behind the shipped path: with
+the preprocessor present, 138 is rejected by *its* duplicate-declaration
+check ("invalid export: duplicate declaration dup_ind_con_con.mk") and
+that verdict is ours; the sum route's pairwise-distinct guard
+("invalid: direct sum: duplicate constructor") is what rejects the same
+stream when the preprocessor is unavailable.  Both give 1, by two
+independent routes — the comment in the expectations file now says so.
+
+Gates, once, on the merge: `lake build` **647 jobs warning-free**;
+`lake test` green; `tests/arena.sh` **exit 0** — layering base 252 /
+P 166 / caps 2 / umbrella 1 with 0 base→lane and 0 impl→theory,
+`proofdeps` 1 441 rows / **0 doors** as auto-merged (no regeneration),
+pindump fresh, arena tutorial 90/92, e2e **85/85** (master's two new
+fixtures plus this task's two), annot 14/14, retired flags 8/8, mode
+flags 16/16, trusted sweep 138 + 85 + 14 with the three recorded
+divergences; `init-full` **55 931 accepted in both modes** (exit 0) —
+master's post-sum-types figure exactly, i.e. this task changes no
+verdict on it.
