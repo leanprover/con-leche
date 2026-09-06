@@ -155,10 +155,16 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- in this process.  `--pre` (an explicit user assertion, never
     -- content sniffing) skips detection and the preprocessor spawn.
     let (path, isTemp) ← if pre then pure (file, false) else preprocess file
+    -- Every VERDICT line names the mode (2026-09-07): a `--trusted`
+    -- run — the unverified lane — must never be mistaken for a
+    -- `--verified` one in a log, whatever it says.
+    let modeTag : String := match mode with
+      | .verified => "--verified"
+      | .trusted => "--trusted"
     try
       match ← Frontend.parseExportStreamD path (modeled := true) with
       | .error (.unsupported what) =>
-        IO.eprintln s!"setlec: declined: {what}"
+        IO.eprintln s!"setlec: declined: {what} ({modeTag})"
         return 2
       | .error (.parseError line msg) =>
         IO.eprintln s!"setlec: {file}:{line}: {msg}"
@@ -180,10 +186,13 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         -- or installed) and the rest of the stream was checked; a
         -- clean run over a stream with skips is still a decline —
         -- uses of tolerated axioms are never accepted.
-        let finish : UInt32 → IO UInt32 := fun code => do
-          if taintSkipped.isEmpty then return code
-          IO.eprintln s!"setlec: declined: {Frontend.taintSummary taintSkipped}"
-          return (if code = 0 then 2 else code)
+        -- On a stream that also FAILED, the skips are reported beside
+        -- the failure and the failure's own exit code stands.  (The
+        -- accepting case is the arm below: it never prints "accepted".)
+        let taintNote : IO Unit := do
+          unless taintSkipped.isEmpty do
+            IO.eprintln s!"setlec: declined: \
+              {Frontend.taintSummary taintSkipped} ({modeTag})"
         -- ONE driver, two configs (2026-09-06): the trusted mode is
         -- the shared bodies at `cfgT`, the verified mode the same
         -- bodies at `cfgP` (`cfgOf .verified`, `rfl`).
@@ -198,12 +207,16 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         -- driver does is hand it the stride and `N` and bracket the
         -- fold with the two lines it cannot produce itself.
         --
-        -- **Reading the index**: `i` is the *fold* position, which the
-        -- stream's declaration-record index sits a constant **+4**
-        -- above — the parse folds the pinned basis blocks into one
-        -- `basisDecl` record (the same offset the `SETLEC_TRACE_DECLS`
-        -- lane documents, checked there at fold positions 1 000 /
-        -- 50 000 / 100 000 / 150 000 of the full Mathlib stream).
+        -- **Reading the index**: `i` is the *fold* position.  The
+        -- stream's declaration-record index is close to it but not a
+        -- fixed offset above it — the parse folds the four `quot`
+        -- records into one `basisDecl` and drops a few others, and a
+        -- taint-skipping stream loses more (measured on
+        -- `init-full-pre-native`: 54 351 records against 54 346 fold
+        -- positions, offset 0 through position 5 000 and 5 by the end;
+        -- the `SETLEC_TRACE_DECLS` lane's `+4` is the Mathlib stream's
+        -- own total).  The declaration NAME on the line is the
+        -- portable handle.
         let tParse ← IO.monoMsNow
         if stride > 0 then
           Setlec.Cached.progressC.set
@@ -214,9 +227,8 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
           (← IO.getStderr).flush
         -- The closing line, and the hook's disarm: the counter says how
         -- far the fold got (`= N` on an accept, the failing position
-        -- otherwise), and the stride goes back to 0 so the diagnostic
-        -- second pass below — which runs the same step — is not counted
-        -- or printed a second time.
+        -- otherwise), and the stride goes back to 0 so nothing that
+        -- runs the step afterwards can print a second series.
         let progressDone : IO Unit := do
           if stride > 0 then
             let st ← Setlec.Cached.progressC.get
@@ -229,8 +241,24 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         match Setlec.Cached.checkDeclsSPCachedD cfg decls.toList with
         | .ok env =>
           progressDone
-          IO.println s!"setlec: accepted {env.consts.length} declarations"
-          return ← finish 0
+          -- A DECLINED stream never says "accepted" (2026-09-07).  The
+          -- taint-skip verdict (user directive 2026-08-24) is a
+          -- decline: declarations using tolerated axioms were skipped
+          -- at parse, so nothing tainted was checked or installed, and
+          -- a clean run over the rest is still not an acceptance of
+          -- the stream.  It used to print the accept line and *then*
+          -- the decline, which reads as an accept in a log and in
+          -- anything that greps for one.
+          if taintSkipped.isEmpty then
+            IO.println s!"setlec: accepted {env.consts.length} \
+              declarations ({modeTag})"
+            return 0
+          else
+            IO.eprintln s!"setlec: declined ({env.consts.length} \
+              declarations checked, {taintSkipped.size} skipped for \
+              tolerated axioms) ({modeTag}): \
+              {Frontend.taintDetail taintSkipped}"
+            return 2
         | .error (e, i) =>
           progressDone
           -- **No second pass** (2026-09-07): the fold's error carries
@@ -255,9 +283,10 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
               s!" [at {declCName decls[i]}, fold position {i}]"
             else s!" [at fold position {i}]"
           let now ← IO.monoMsNow
-          IO.eprintln s!"setlec: {e}{loc} \
+          IO.eprintln s!"setlec: {e}{loc} ({modeTag}) \
             t={Setlec.Cached.msSecs (now - t0)}s"
-          return ← finish e.exitCode
+          taintNote
+          return e.exitCode
     finally
       if isTemp then
         try IO.FS.removeFile path catch _ => pure ()

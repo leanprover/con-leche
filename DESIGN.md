@@ -47970,3 +47970,29 @@ law; the portable handle is the NAME, which
 percentage.  The trace lane keeps its job regardless: an OOM or a
 `SIGKILL` destroys the process before any `Except` can be returned, so
 a *printed* line remains the only witness there.
+
+## The verdict line names the MODE, and a declined stream never says "accepted" (2026-09-07, `agent/heartbeat`)
+
+Two things a log reader could be misled by, from an external-style
+review of the driver.  First, `setlec: accepted N declarations` did not
+say *which mode* produced it, so a `--trusted` run — the **unverified**
+lane, whose whole point is that it omits certificate families — was
+indistinguishable in a log from the `--verified` one the capstone is
+about.  Every verdict line now carries the flag that produced it:
+`setlec: accepted N declarations (--verified)`, the same tag on the
+decline lines and on the rejection line.  Second, and worse: a stream
+carrying a tolerated-axiom use is a **decline** (user directive
+2026-08-24 — the tainted declarations are skipped at parse and the
+rest is checked, which is not an acceptance of the stream), and the
+driver printed `accepted N declarations` on stdout and *then*
+`declined: …` on stderr before exiting 2.  Anything that greps for the
+accept line — or a human skimming — read that as an accept.  The
+accepting arm now branches: with no skips it prints the accept line and
+exits 0; with skips it prints
+`setlec: declined (N declarations checked, M skipped for tolerated
+axioms) (--mode): <detail>` and exits 2, and the word "accepted" never
+appears.  (`Frontend.taintSummary` keeps its shape for the failure
+path; the count-free `taintDetail` is the new half it is built from.)
+Checked: `scripts/perf-tables.sh` reads the count with
+`grep -oE '[0-9]+ declarations'`, which still matches, and
+`tests/arena.sh`, `tests/scale.sh` read exit codes only.
