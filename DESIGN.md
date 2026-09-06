@@ -52324,8 +52324,19 @@ did, now over a datum that cannot be non-canonical.
 `perf stat -e instructions:u`, `ulimit -v 16000000`, `timeout 1800`,
 `nice -n 5`, `LECH_SUPERVISED=1`, `init-full-pre-native.ndjson --pre`,
 one cell at a time; master = the branch point `9eb3bda0` built in its
-own worktree (`_tmp/pwnorm-base`), the branch = `7f857dad`.  All four
-cells: exit 0, **54 346 accepted**.
+own worktree, the branch = `7f857dad`.  All four cells: exit 0,
+**54 346 accepted**.  To reproduce (the baseline worktree was removed
+at the stand-down):
+
+    git worktree add --detach _tmp/pwnorm-base 9eb3bda0
+    cp -a .lake _tmp/pwnorm-base/.lake && (cd _tmp/pwnorm-base && lake build)
+    ulimit -v 16000000
+    for bin in _tmp/pwnorm-base/.lake/build/bin/lech .lake/build/bin/lech; do
+      for mode in --verified --trusted; do
+        LECH_SUPERVISED=1 nice -n 5 perf stat -e instructions:u -- \
+          timeout 1800 $bin $mode --pre _tmp/init-exports/init-full-pre-native.ndjson
+      done
+    done
 
 | mode | master `9eb3bda0` | `agent/pwnorm` | Δ |
 |---|---|---|---|
