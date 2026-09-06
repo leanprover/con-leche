@@ -46032,3 +46032,214 @@ merged tree's.  Axioms of `no_proof_of_Empty_SPCD_P`,
 `[propext, Classical.choice, Quot.sound]`.  No perf number was taken —
 the batch is performance-neutral by the finding above, and the perf
 cadence resumes after the grant.
+
+## TASK #178 — `setlec-preprocess`: the preprocessor told what the direct route already installs (2026-09-06, `agent/preprocess`)
+
+**The user's ask.**
+
+> The lean-inductive-model repo now provides a lean library that allows
+> you to choose which decls to process. […] Import it as a library that
+> is used from a `setlec-preprocess` executable that declares that we
+> have native support for certain structures. Call this binary instead
+> (same flags otherwise). Tell me how much smaller our preprocessed
+> mathlib dump got this way.
+
+### WHY THIS WAS FREE MONEY
+
+Since task #175 W4c the direct simple-structure route is a **priority
+gate**: `directParts?` recognises a block and installs it from the
+reference checks alone, *whether or not the stream carries `_model`
+artifacts for it* — those artifacts are then ordinary, unconsumed
+declarations.  So every preprocessed stream since the flip has been
+carrying a model for every structure the checker installs natively, and
+the checker has been parsing, type-checking and discarding all of it.
+
+`lean-inductive-models` `45d1346` ("Route every inductive block through
+one entry, with native support") is what makes it addressable: the tool
+is now a library function
+`InductiveModels.main args (native := pred)`, and `pred : NativeSupport`
+(`EDecl → Bool`) sees **every** inductive block as its export record —
+the input's blocks and the ones a model itself introduces (the spliced
+`PProd'`, the carve arm's index-erasure skeleton) alike.  A block it
+accepts is left unmodelled and reported on a `native` line
+(`Dep: native — left to the consumer`), outside the decline count.  The
+tool's five-member basis (`Eq`, `Nat`, `PUnit`, `PSigma'`, `Quot`) is
+native regardless and is not the predicate's to decide.
+
+### THE PIECES
+
+* **`[[require]]`** on `https://github.com/nomeata/lean-inductive-models`
+  pinned at `45d134663fae` — a commit, not a branch: the predicate mirrors
+  a recogniser and both sides of that mirror have to move deliberately.
+  `lake-manifest.json` carries the pin.  Toolchain matches
+  (`leanprover/lean4:v4.33.0` on both sides), which is why the require is
+  a plain one with no toolchain negotiation.
+* **`SetlecPreprocess.lean`** — `def main args := InductiveModels.main args
+  (native := setlecNative)`, one `[[lean_exe]] setlec-preprocess`
+  (`supportInterpreter = true`, as the tool's own executable target is
+  upstream).  It imports **no** `Setlec.*` module, so `tests/layering.sh`
+  and `tests/proofdeps.sh` are untouched by the dependency, and no kernel
+  or model file changed in this task at all.
+* **`Main.lean`'s `findPreprocessor`** now resolves
+  `$SETLEC_INDUCTIVE_MODELS` → this build's `setlec-preprocess` →
+  the stock `_tmp/lean-inductive-models` checkout → `setlec-preprocess` on
+  `$PATH`.  The stock checkout stays as a legacy fallback because it costs
+  one `pathExists` and its output is a *superset*: every block left native
+  here is modelled there, and the priority gate ignores the model either
+  way.  `scripts/perf-tables.sh`'s `$PREPROC` and `tests/scale.sh`'s
+  availability probe follow the same order.  Flags are unchanged
+  everywhere — the new binary is the tool's own CLI.
+
+### THE PREDICATE, AND THE DIRECTION THAT MATTERS
+
+`setlecNative` must accept **only** blocks `Setlec.directPartsCore?`
+accepts.  The direction is not symmetric:
+
+* predicate accepts, recogniser rejects → the block reaches the checker
+  as a bare inductive with **no model**: a DECLINE where the stream used
+  to be an accept.  This is the regression class.
+* predicate rejects, recogniser accepts → the block is modelled as before
+  and the direct install ignores the model.  Costs bytes, costs no
+  verdict.
+
+So where a conjunct could not be mirrored the predicate errs strict.  The
+mirror is conjunct-for-conjunct in `SetlecPreprocess.lean`'s header; the
+three interesting rows:
+
+| `directPartsCore?` | in `setlecNative` |
+| --- | --- |
+| `mI == nP + 2 ∧ rP == nP + 2` (with `mI = rnP+rnM+rnm+rnI`, `rP = rnP+rnM+rnm` — how `Frontend/ExportC.lean` packs the record) | `rec.numIndices == 0 ∧ rec.numMotives == 1 ∧ rec.numMinors == 1 ∧ rec.numParams == ctor.numParams` |
+| `directShape` + the rule's `λ p⃗ motive minor f⃗, minor f⃗` | **not mirrored** — argued, and gated by `tests/native-agree.sh` |
+| `directNonRec env` (constructor binder domains resolve in the pre-block environment) | `!type.isRec ∧ type.numNested == 0` |
+
+The two unmirrored conjuncts pin *the shape Lean's kernel generates* for
+a single-member, index-free, one-constructor inductive.  They are in the
+recogniser because the **checker** reads an untrusted stream; the
+predicate reads records that Lean's own `addDecl`/export path produced.
+Mirroring them would mean a second, drifting implementation of a
+syntactic pin over a second `Expr` type (`Lean.Expr` in the executable,
+`Setlec.Expr` in the kernel) — the two sides cannot share a definition,
+because setlec's `ConstantInfo` does not even carry `numIndices` /
+`isRec` / `numNested` (its `.indInfo` holds a `ConstantVal` and a
+capability record).  So the argument is gated empirically instead.
+
+Also in the predicate and *not* in the recogniser, all in the strict
+direction: `!isUnsafe` on all three records, `type.all == [type.name]`,
+`ctor.induct == type.name`, `ctor.numParams == type.numParams`, and
+setlec's `reservedBasisNames` — copied, not shared, because
+`Setlec/Kernel/Basis/Names.lean` is not importable from the executable.
+`PSigma'` is deliberately absent from that list: task #175 W6 retired its
+pin and it installs through the direct path as an ordinary two-field
+structure.
+
+**Propositional structures are in.**  `directPartsCore?` recognises both
+eliminator shapes — the large one (a fresh elimination level parameter in
+front) and the small one Lean generates for a `Prop`-valued structure
+with a non-`Prop` field — and W4c/O4's squash regime installs them.  The
+predicate mirrors the same `large? else small` order.  This is why
+`WellFounded`, `Nonempty` and friends come out native.
+
+### THE GATE: `tests/native-agree.sh`
+
+Each stream goes through **both** binaries — the stock tool at the pinned
+revision, and `setlec-preprocess` — and the checker's verdict on the two
+outputs must agree.  A verdict that differs fails, whichever way it went;
+an accept→decline is named as the regression it is.
+
+Over the vendored arena corpus: **111/111 comparable streams agree, 390
+native blocks across 70 streams.**  Two `bad/` fixtures outside the
+expectations file (`proj-of-stuck-prop`, `proj-of-subst-prop`) change the
+*preprocessor's own* exit from 3 to 0 — the tool no longer has to model
+the block it was crashing on — and the checker declines both either way;
+they are NOTEs, not failures.
+
+**A methodology trap worth recording.**  The script's first draft
+compared a stream against the *previous* stream's output whenever a run
+wrote no file: `-o PATH` builds in a private sibling and renames over the
+target only after every check passes, so a rejected run leaves the target
+absent, not empty.  It reported seventeen phantom `accept → decline`
+regressions on the `bad/` corpus before the loop was made to clear both
+outputs per stream.  A comparison harness over a tool with an atomic-write
+contract must delete, not overwrite.
+
+### THE MEASUREMENT
+
+Preprocessed once from the raw `lean4export` stream with each binary; the
+old file is left in place (other lanes read it) and the new one written
+beside it as `*-pre-native.ndjson`.  "decls" counts kernel declaration
+records (`def`/`thm`/`inductive`/`opaque`/`axiom`/`quot` lines), not
+NDJSON lines.
+
+| stream | raw | modelled (stock) | modelled (native) | Δ bytes | Δ decls |
+| --- | --- | --- | --- | --- | --- |
+| init-core | 6,358,020 B / 3,402 | 9,367,868 B / 5,230 | **7,956,590 B / 3,942** | −15.07 % | −24.63 % |
+| init-full | 324,561,407 B / 53,093 | 335,744,595 B / 58,609 | **328,520,326 B / 54,351** | −2.15 % | −7.27 % |
+| mathlib-full | 5,636,308,621 B / 654,504 | 5,821,584,448 B / 727,270 | **5,708,171,489 B / 670,982** | −1.95 % | −7.74 % |
+
+The percentage-of-total figures understate what happened, because a
+preprocessed stream is mostly the *input's own proof terms*.  Against the
+thing the preprocessor actually adds:
+
+| stream | model-added decls, stock | model-added decls, native | removed | blocks left native | model families generated |
+| --- | --- | --- | --- | --- | --- |
+| init-core | 1,828 | 540 | **70.5 %** | 172 | 212 → 40 |
+| init-full | 5,516 | 1,258 | **77.2 %** | 486 | 606 → 120 |
+| mathlib-full | 72,766 | 16,478 | **77.4 %** | 5,683 | 6,883 → 1,200 |
+
+(The last column is the tool's own `output check: N model families checked`
+line — what it built and structurally checked.  The structural statement
+comparison drops with it: on mathlib, 48,683 statements → 7,634.)
+
+**Mathlib: 113 MB and 56,288 declaration records smaller — 77 % of
+everything the preprocessor was adding, gone.**  5,683 of the 6,887
+inductive blocks in the output (82.5 %) are now left unmodelled.
+Preprocessing wall time 6:43 at 9.8 GB peak RSS for the native run, 7:26
+at 9.7 GB for the stock one.
+
+**The baseline column is a clean isolate.**  Both stock runs were redone
+at the pinned revision `45d1346` rather than read off the historical
+files, and both came out BYTE-IDENTICAL to them (`cmp`, 336 MB and
+5.8 GB) — so the deltas above measure the predicate, not the tool's
+history between the August dumps and today.  The re-runs were deleted
+afterwards; the historical `init-full-pre.ndjson` and
+`mathlib-full-pre.ndjson` stand untouched beside the new
+`*-pre-native.ndjson` files, which other lanes can now read.
+
+### VERDICTS
+
+* `lake build` warning-free (618 jobs, dependency included); `lake test`
+  green.
+* `tests/arena.sh`: **0 FAIL** — arena tutorial 90/92 accepted, e2e 78/78,
+  annot 14/14, retired flags 8/8, mode flags 16/16, trusted sweep 138+78+14
+  with the 3 recorded divergences.  Every verdict identical to master's.
+  The arena half really exercises the change: those fixtures are raw, so
+  the checker spawns `setlec-preprocess` for each of them.
+* `tests/layering.sh` and `tests/proofdeps.sh` unchanged (235/160/2/1
+  modules, 0 edges either way; 1371 pinned rows, 0 doors) — **no kernel,
+  model or proof file was touched in this task.**
+* init-full, new stream, both modes: `--verified` → 0, `--trusted` → 0,
+  56,291 declarations accepted (the stock stream: 60,549 — the 4,258
+  difference is exactly the model declarations that stopped being
+  generated).  The stock run at the pinned revision reproduces the
+  historical `init-full-pre.ndjson` **byte for byte**, so the baseline
+  column is a clean isolate of the predicate, not of the six months of
+  tool changes behind it.
+* Timings are NOT reported as a finding: another lane was running the
+  checker on this machine throughout, and the two init-full pairs
+  disagreed on sign (`--verified` 156 s → 187 s, `--trusted` 163 s → 136 s).
+  The direct install does more per block than consuming a model does, so
+  a real measurement is owed here; it belongs to the perf cadence, not to
+  this task.
+
+### CONSEQUENCES FOR OTHER LANES
+
+`lake build` now fetches a dependency on a fresh tree (`lake update`
+already ran; the manifest is committed).  A worktree without network will
+fail its first build until `.lake/packages/lean_inductive_models` exists.
+Budget ~2 minutes of dependency build per fresh worktree.
+
+The committed `tests/e2e/*` `pre` fixtures were preprocessed by the stock
+tool and still carry `_model` artifacts for direct-installed blocks.  That
+is inert and they are deliberately left as pre-#178 baselines; a fixture
+regenerated from now on should go through `setlec-preprocess`
+(recorded in `tests/arena.sh`'s e2e header).
