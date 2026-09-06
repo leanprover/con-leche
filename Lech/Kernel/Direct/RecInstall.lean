@@ -39,30 +39,50 @@ namespace Lech
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
+/-- Does the variable `q` occur as a leaf of `e` (annotations
+included, as `fvarLeaves` walks them)? -/
+def Expr.mentionsFvar (q : Nat) (e : Expr) : Bool := e.fvarLeaves.any fun l => l.1 == q
+
 /-- The kinds the recogniser computed, re-checked on the annotated
-constructor types: an ordinary field's domain resolves in the
-pre-block environment `env₀`, a recursive field's domain is the
-family at the parameters and index expressions free of the block
-(`recFamOk`), no later binder or index expression mentioning the
-field; the constructor's residual index expressions are free of the
-block. -/
+constructor type OPENED at variables (`openPisAtFvars`, as the stage
+read it): an ordinary field's domain resolves in the pre-block
+environment `env₀`; a recursive field's domain is the family at the
+opened parameter variables followed by `nIdx` index expressions
+resolving in `env₀`, and the variable occurs in no later field's
+domain nor in the residual (the model reads those at a frame whose
+recursive slots hold an arbitrary member of the family being defined);
+the residual's index expressions resolve in `env₀`. -/
+def directFixOpenedOk (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
+    (cty : Expr) (nF : Nat) (ks : List RecFieldKind) : Bool :=
+  match openPisAtFvars nP cty 0 with
+  | some (fvsP, crest) =>
+    match openPisAtFvars nF crest nP with
+    | some (xFvs, xrest) =>
+      (xrest.getAppArgs.drop nP).all (fun e => e.constsResolve env₀) &&
+      (List.range nF).all fun i =>
+        match xFvs[i]?, ks.getD i .ordinary with
+        | some x, .ordinary => x.fvarTypeD.constsResolve env₀
+        | some x, .recursive =>
+          x.fvarTypeD.getAppFn == Expr.const T (lps.map .param) &&
+          x.fvarTypeD.getAppArgs.take nP == fvsP &&
+          x.fvarTypeD.getAppArgs.length == nP + nIdx &&
+          (x.fvarTypeD.getAppArgs.drop nP).all (fun e => e.constsResolve env₀) &&
+          !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
+          !xrest.mentionsFvar (nP + i)
+        | _, _ => false
+    | none => false
+  | none => false
+
+/-- The kinds, re-checked on every annotated constructor
+(`directFixOpenedOk`), one kind list per constructor, one kind per
+field. -/
 def directFixFieldsOk (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (ctorsA : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) : Bool :=
   ctorsA.length == kinds.length &&
   (List.range ctorsA.length).all fun j =>
     match ctorsA[j]?, kinds[j]? with
     | some cA, some ks =>
-      ks.length == cA.2 &&
-      (match cA.1.type.stripPis (nP + cA.2) with
-       | some (cbs, cbody) =>
-         (cbody.getAppArgs.drop nP).all (fun a => !a.mentionsConst T) &&
-         (List.range cA.2).all fun i =>
-           let dom := (cbs.getD (nP + i) default).2.1
-           match ks.getD i .ordinary with
-           | .ordinary => dom.constsResolve env₀
-           | .recursive => recFamOk T lps nP nIdx i dom && !directUsedLater cA.1.type nP i
-           | _ => false
-       | none => false)
+      ks.length == cA.2 && directFixOpenedOk env₀ T lps nP nIdx cA.1.type cA.2 ks
     | _, _ => false
 
 /-- The generated rules for constructors `j, j+1, …` (`k` of them),

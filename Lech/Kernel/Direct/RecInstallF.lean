@@ -15,6 +15,28 @@ section Mirrors
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
+/-- `directFixOpenedOk` through the index. -/
+def directFixOpenedOkF (fe₀ : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
+    (cty : Expr) (nF : Nat) (ks : List RecFieldKind) : Bool :=
+  match openPisAtFvars nP cty 0 with
+  | some (fvsP, crest) =>
+    match openPisAtFvars nF crest nP with
+    | some (xFvs, xrest) =>
+      (xrest.getAppArgs.drop nP).all (fun e => e.constsResolveF fe₀) &&
+      (List.range nF).all fun i =>
+        match xFvs[i]?, ks.getD i .ordinary with
+        | some x, .ordinary => x.fvarTypeD.constsResolveF fe₀
+        | some x, .recursive =>
+          x.fvarTypeD.getAppFn == Expr.const T (lps.map .param) &&
+          x.fvarTypeD.getAppArgs.take nP == fvsP &&
+          x.fvarTypeD.getAppArgs.length == nP + nIdx &&
+          (x.fvarTypeD.getAppArgs.drop nP).all (fun e => e.constsResolveF fe₀) &&
+          !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
+          !xrest.mentionsFvar (nP + i)
+        | _, _ => false
+    | none => false
+  | none => false
+
 /-- `directFixFieldsOk` through the index. -/
 def directFixFieldsOkF (fe₀ : FEnv) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (ctorsA : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) : Bool :=
@@ -22,17 +44,7 @@ def directFixFieldsOkF (fe₀ : FEnv) (T : Name) (lps : List Name) (nP nIdx : Na
   (List.range ctorsA.length).all fun j =>
     match ctorsA[j]?, kinds[j]? with
     | some cA, some ks =>
-      ks.length == cA.2 &&
-      (match cA.1.type.stripPis (nP + cA.2) with
-       | some (cbs, cbody) =>
-         (cbody.getAppArgs.drop nP).all (fun a => !a.mentionsConst T) &&
-         (List.range cA.2).all fun i =>
-           let dom := (cbs.getD (nP + i) default).2.1
-           match ks.getD i .ordinary with
-           | .ordinary => dom.constsResolveF fe₀
-           | .recursive => recFamOk T lps nP nIdx i dom && !directUsedLater cA.1.type nP i
-           | _ => false
-       | none => false)
+      ks.length == cA.2 && directFixOpenedOkF fe₀ T lps nP nIdx cA.1.type cA.2 ks
     | _, _ => false
 
 /-- `checkDirectFixRules` through the index. -/

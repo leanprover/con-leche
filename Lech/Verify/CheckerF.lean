@@ -423,11 +423,17 @@ section FixMirrors
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
+theorem directFixOpenedOkF_eq (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
+    (cty : Expr) (nF : Nat) (ks : List RecFieldKind) :
+    directFixOpenedOkF (mkFEnv env₀) T lps nP nIdx cty nF ks
+      = directFixOpenedOk env₀ T lps nP nIdx cty nF ks := by
+  simp only [directFixOpenedOkF, directFixOpenedOk, constsResolveF_eq] <;> rfl
+
 theorem directFixFieldsOkF_eq (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (ctorsA : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) :
     directFixFieldsOkF (mkFEnv env₀) T lps nP nIdx ctorsA kinds
       = directFixFieldsOk env₀ T lps nP nIdx ctorsA kinds := by
-  simp only [directFixFieldsOkF, directFixFieldsOk, constsResolveF_eq] <;> rfl
+  simp only [directFixFieldsOkF, directFixFieldsOk, directFixOpenedOkF_eq] <;> rfl
 
 theorem checkDirectFixRulesF_eq (envR : Env) (rlps : List Name) (T : Name) (lps : List Name)
     (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
