@@ -1321,7 +1321,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       Expr.WScoped d (tx.instantiateList ws) →
       RelCL args xs → (∀ x ∈ xs, Expr.WScoped d x) →
       SimC mode env s₀ (RelEC d)
-        (inferSpineIOI
+        (inferSpineIOI (cfgOf mode)
           (CoreFnsI.ioView (coreKnotI (cfgOf mode) (mkFEnv env) f)) (mkFEnv env)
           d ty acc args)
         (inferSpineIO (fueledFns mode env) d tx ws xs)
@@ -1361,11 +1361,11 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         exact Expr.WScoped.instantiate1_gen hwxa 0 hcomp.2
       try dsimp only
       by_cases hg2 : mb.pw.isNever = true
-      · simp only [hg2, ↓reduceIte]
+      · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
         exact inferSpineIOC_sim ih henv hs rfl
           (by rw [toListRev_push]; exact RelCL.cons hax hacc) hwsub
           hrest hwrest
-      · simp only [hg2, Bool.false_eq_true, ↓reduceIte]
+      · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
         refine SimC.bind_left (instListRevM_eff (d := 0) hs rfl hacc)
           (fun s₁ dom' hs₁ hQdom => ?_)
         refine SimC.bind (ih.inferIO hs₁ hax hwxa)
@@ -1408,11 +1408,11 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
         by_cases hg2 : mb.pw.isNever = true
-        · simp only [hg2, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1462,11 +1462,11 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
         by_cases hg2 : mb.pw.isNever = true
-        · simp only [hg2, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1516,11 +1516,11 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
         by_cases hg2 : mb.pw.isNever = true
-        · simp only [hg2, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1570,11 +1570,11 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
         by_cases hg2 : mb.pw.isNever = true
-        · simp only [hg2, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1624,11 +1624,11 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
         by_cases hg2 : mb.pw.isNever = true
-        · simp only [hg2, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1678,11 +1678,11 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
         by_cases hg2 : mb.pw.isNever = true
-        · simp only [hg2, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1732,11 +1732,11 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
         by_cases hg2 : mb.pw.isNever = true
-        · simp only [hg2, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1786,11 +1786,11 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
         by_cases hg2 : mb.pw.isNever = true
-        · simp only [hg2, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃
@@ -1840,11 +1840,11 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
         by_cases hg2 : mb.pw.isNever = true
-        · simp only [hg2, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
             hwsub hrest hwrest
-        · simp only [hg2, Bool.false_eq_true, ↓reduceIte]
+        · simp only [cfgOf_ioSkip, hg2, Bool.false_eq_true, ↓reduceIte]
           refine SimC.bind (ih.inferIO hs₂ hax hwxa)
             (fun s₃ ta tax hs₃ hP₃ => ?_)
           obtain ⟨htad, hwta⟩ := hP₃

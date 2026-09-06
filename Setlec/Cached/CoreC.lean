@@ -23,8 +23,11 @@ core is this knot at `cfgP`; the trusted core is this same knot at
 `cfgT` — there is no second implementation.  The hand-written
 cert-skipping twin (`Setlec/Cached/CoreT.lean`, retired with this
 batch) is gone: what the trusted mode omits is exactly what
-`cfg.verified` gates here, and nothing else (DESIGN.md, "CORET
-RETIRED").
+`cfg.verified` gates here (group A: the annotation validations, the
+λ-codomain sort check, the projection certificate) plus what
+`cfg.certs` gates (the certificate families: every `certAtI` /
+`certUnlessI` site and the `betaSkip` / `ioSkip` reads), and nothing
+else (DESIGN.md, "CORET RETIRED").
 -/
 
 namespace Setlec.Cached
@@ -284,6 +287,45 @@ only the TT-lane residue on `cfg.iotaMode.ttChecks`, a literal `false`
 at each core (`Setlec/Kernel/CoreCfg.lean`). -/
 variable (cfg : CoreCfg)
 
+/-! ### The certificate-family switch (the twin's retirement, 2026-09-06)
+
+`CoreCfg.certs` (`Setlec/Kernel/CoreCfg.lean`) is the task-#76 skip
+list as a config bit: the certificate families the reference kernel
+does not run and only the soundness proof consumes.  Every such
+certificate below is spelled through one of the two wrappers here, so
+the list of `certAtI`/`certUnlessI` sites — plus the `betaSkip` and
+`ioSkip` reads — **is** the list of what the trusted core omits beyond
+group A.  At every `cfgOf mode` the field is the literal `true`, so
+`certAtI (cfgOf mode) c` is `c` by `rfl` (`certAtI_cfgOf`, checked in
+`Verify/BetaGate.lean`'s bridge): the spec bodies carry no such
+wrapper, and the simulation tower never sees one. -/
+
+/-- Run the certificate `c` when the config runs the certificate
+families; otherwise it is `true` without running. -/
+@[inline] def certAtI (cfg : CoreCfg) (c : CheckCM Bool) : CheckCM Bool :=
+  if cfg.certs then c else pure true
+
+/-- `certAtI` with a *verdict-relevant* exception: `keep = true` runs
+the check at every config (the twin's judgement at ι's parameter
+comparison — nested-rule comparands and projection-function rules
+compare in both modes, ordinary plain rules only when certifying). -/
+@[inline] def certUnlessI (cfg : CoreCfg) (keep : Bool) (c : CheckCM Bool) :
+    CheckCM Bool :=
+  if cfg.certs || keep then c else pure true
+
+/-- At every mode-parametric instance the wrapper is the certificate,
+definitionally — the simulation tower's blindness to the field, as one
+`rfl` each. -/
+@[simp] theorem certAtI_cfgOf (mode : CheckMode) (c : CheckCM Bool) :
+    certAtI (cfgOf mode) c = c := rfl
+@[simp] theorem certUnlessI_cfgOf (mode : CheckMode) (keep : Bool)
+    (c : CheckCM Bool) : certUnlessI (cfgOf mode) keep c = c := rfl
+/-- … and at the shipped cores the wrapper is the certificate or the
+constant `true`. -/
+@[simp] theorem certAtI_cfgP (c : CheckCM Bool) : certAtI cfgP c = c := rfl
+@[simp] theorem certAtI_cfgT (c : CheckCM Bool) :
+    certAtI cfgT c = pure true := rfl
+
 /-- Twin of `propIrrel` (task #168): the hoisted `Prop`-branch test
 with both head-symbol arms.  Ungated since 2026-09-06 — the readers
 run in both modes, so this body takes no `CoreCfg` at all. -/
@@ -391,10 +433,13 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               if ← liftFueled "level comparison"
                   (← isEquivListLM us us') then do
                 let tyT ← constTyAtM fe T Tn us'
-                if ← iotaCertsI r fe depth false tyT targs then do
+                -- the type-former telescope certificate and the
+                -- per-slot ones are certificate families (official's
+                -- `try_eta_struct_core` runs neither); off at `cfgT`
+                if ← certAtI cfg (iotaCertsI r fe depth false tyT targs) then do
                   -- the per-slot certificates are the projection-function
                   -- kind's; a tower-backed family has none (task #175 S1)
-                  if ← (if fe.towerSlotsAllF Tn cnF then pure true
+                  if ← certAtI cfg (if fe.towerSlotsAllF Tn cnF then pure true
                       else structEtaProjCertsI r fe depth T Tn us'
                         targs b cvT.levelParams (List.range cnF)) then do
                     if ← defEqListI r fe depth (aargs.take cnP) targs then do
@@ -456,8 +501,11 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
         let tb ← r.inferIO depth b
         let wtb ← r.whnf depth tb
         if ← r.defeq depth wta wtb then do
+          -- the type-former telescope certificate (a certificate
+          -- family: official's `is_def_eq_unit_like` stops at the
+          -- defeq above); off at `cfgT`
           let tyT ← constTyAtM fe T Tn us'
-          iotaCertsI r fe depth false tyT targs
+          certAtI cfg (iotaCertsI r fe depth false tyT targs)
         else pure false
       else pure false
     | _ => pure false
@@ -489,7 +537,7 @@ def stuckIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
   if ← structEtaCertI cfg r fe depth a b then pure true
   else if ← structEtaCertI cfg r fe depth b a then pure true
-  else if ← structUnitCertI r fe depth a b then pure true
+  else if ← structUnitCertI cfg r fe depth a b then pure true
   else proofIrrelI r fe depth a b
 
 /-- Twin of `majorToCtor`. -/
@@ -525,17 +573,20 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     -- telescope certificate, relocated here from the
                     -- fire path
                     let tyCtor ← constTyAtM fe ctorI rl.ctor ust
-                    if ← iotaCertsI r fe depth false tyCtor
-                        (margs.take cnP) then do
+                    -- (a certificate family; off at `cfgT`)
+                    if ← certAtI cfg (iotaCertsI r fe depth false tyCtor
+                        (margs.take cnP)) then do
                       -- official `to_cnstr_when_K` fabrication type
                       -- check (load-bearing with the major-slot
                       -- certificate gated at nonzero motives, tasks
-                      -- #49/#71; arena bad/098_ruleKbad);
-                      -- `proofIrrelI` stays as the soundness
-                      -- certificate
+                      -- #49/#71; arena bad/098_ruleKbad) — runs in
+                      -- both modes; `proofIrrelI` stays as the
+                      -- soundness certificate, a certificate family
+                      -- (official stops at the type check), off at
+                      -- `cfgT`
                       let tfab ← r.inferIO depth fab
                       if ← r.defeq depth tmaj tfab then
-                        if ← proofIrrelI r fe depth fab major then
+                        if ← certAtI cfg (proofIrrelI r fe depth fab major) then
                           pure fab
                         else pure major
                       else pure major
@@ -572,8 +623,9 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     -- synthetic-spine certification, as in the K
                     -- branch (task #71)
                     let tyCtor ← constTyAtM fe ctorI rl.ctor ust
-                    if ← iotaCertsI r fe depth false tyCtor
-                        (margs ++ projs) then do
+                    -- (a certificate family; off at `cfgT`)
+                    if ← certAtI cfg (iotaCertsI r fe depth false tyCtor
+                        (margs ++ projs)) then do
                       if ← structEtaCertWithI cfg r fe depth fab major
                           tmaj then
                         pure fab
@@ -688,8 +740,17 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                   | _ => pure (args.take rl.ctorParams)
                 if ← liftFueled "level comparison"
                     (← isEquivListLM usj cmpLvls) then do
-                 if ← defEqListI r fe depth (margs.take rl.ctorParams)
-                    cmpArgs then do
+                 -- the parameter comparison: verdict-relevant for a
+                 -- nested rule (the comparands ARE the pins) and for
+                 -- a projection-function rule, a certificate family
+                 -- for an ordinary plain rule (official's
+                 -- `inductive_reduce_rec` compares nothing) — the
+                 -- retired twin's judgement, kept
+                 if ← certUnlessI cfg
+                    ((match rl.fire with | .nested _ _ => true | _ => false)
+                      || Name.isProjFnShape cn)
+                    (defEqListI r fe depth (margs.take rl.ctorParams)
+                      cmpArgs) then do
                   let tyRec ← constTyAtM fe c cn us
                   -- the two telescope runs, licensed (`iotaCertsIAux`)
                   -- off the config's own β field — `true` at both
@@ -697,16 +758,19 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                   -- the transitional `cfg.iotaMode.betaGate` read it
                   -- replaced was `false` at `cfgT`, an inversion the
                   -- twin's retirement exposed (DESIGN.md, "CORET
-                  -- RETIRED")
-                  if ← iotaCertsI r fe depth cfg.betaGate tyRec
-                     (args.take mI ++ [major]) then do
+                  -- RETIRED").  Both are certificate families, off
+                  -- at `cfgT` (where the licence is therefore moot).
+                  if ← certAtI cfg (iotaCertsI r fe depth cfg.betaGate tyRec
+                     (args.take mI ++ [major])) then do
                    let tyCtor ← constTyAtM fe cj cjn usj
-                   if ← iotaCertsI r fe depth cfg.betaGate tyCtor margs
-                       then do
+                   if ← certAtI cfg (iotaCertsI r fe depth cfg.betaGate tyCtor
+                       margs) then do
                     -- the canonical-index comparison, only where
-                    -- indices exist (the spec's `iotaRec`)
-                    if ← iotaIndexOkI r fe depth mI rP rl.ctorParams tyCtor
-                        margs ((args.take mI).drop rP) then do
+                    -- indices exist (the spec's `iotaRec`); a
+                    -- certificate family, off at `cfgT`
+                    if ← certAtI cfg (iotaIndexOkI r fe depth mI rP
+                        rl.ctorParams tyCtor
+                        margs ((args.take mI).drop rP)) then do
                       let rhs ← ruleRhsAtM fe c cj cn cjn us
                       let red ← mkAppNM rhs
                         (args.take rP ++ margs.drop rl.ctorParams)
@@ -942,18 +1006,22 @@ conjunct made the *trusted* core run the certificate the verified core
 skips — an inversion of what the trusted mode is defined to be (the
 real mode with certification-only steps omitted).  Validating the
 datum is certification-only work and stays in group A; consuming it is
-not.  With the conjunct gone this walk reads no configuration at all,
-so the template parameter drops out of its signature — and the P
-tier's licensing theorem (`io_domain_transfer`,
+not.  The P tier's licensing theorem (`io_domain_transfer`,
 `SetP/IOLicenseP.lean`) never used the mode conjunct either: it spends
-only `pwBit_ne_zero_of_isNever`. -/
+only `pwBit_ne_zero_of_isNever`.
+
+**The read is `cfg.ioSkip mt.pw`** (the twin's retirement): at
+`cfgOf mode` and at `cfgP` that is `mt.pw.isNever` by `rfl` — the
+datum alone, as above — and at `cfgT` it is `true`: the per-argument
+certificate at an internal inference is a certificate family
+(official's `infer_only` runs none), skipped wholesale. -/
 def inferSpineIOI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     ExprC → Array ExprC → List ExprC → CheckCM ExprC
   | ty, acc, [] => instListRevM ty acc
   | ty, acc, a :: rest => do
     match ← viewI ty with
     | some (.forallE _ dom body mt) => do
-      unless mt.pw.isNever do
+      unless cfg.ioSkip mt.pw do
         let dom' ← instListRevM dom acc
         let ta ← r.infer depth a
         unless ← r.defeq depth ta dom' do
@@ -964,7 +1032,7 @@ def inferSpineIOI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       let w ← r.whnf depth ty'
       match ← viewI w with
       | some (.forallE _ dom body mt) => do
-        unless mt.pw.isNever do
+        unless cfg.ioSkip mt.pw do
           let ta ← r.infer depth a
           unless ← r.defeq depth ta dom do
             throw (.invalid "application type mismatch")
@@ -1280,7 +1348,7 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let tf ← r.infer depth h
-      inferSpineIOI r fe depth tf #[] args
+      inferSpineIOI cfg r fe depth tf #[] args
     | some (.forallE n ty body mb) => do
       -- the pure io ∀ clause, **chained** (deliberately not the
       -- task-#72 telescope loop: the loops are the front door's
@@ -1847,8 +1915,9 @@ clones** — one body, one name per family, and each unfolds to a term
 with no `CheckMode` branch left in it.  Since the twin's retirement
 the trusted core is the second instantiation of the same four bodies,
 at `cfgT` (`…TC` below): `cfgT_eq_cfgP_verified_off` says the two
-cores differ in the `verified` bit and nothing else, so **every
-`cfg.verified` read in this module is the complete list of what the
+cores differ in the `verified` and `certs` bits and nothing else, so
+**the `cfg.verified` reads plus the `certAtI`/`certUnlessI`/`betaSkip`/
+`ioSkip` reads in this module are the complete list of what the
 trusted mode omits**.
 
 `whnfCoreBodyPC` is the P core's head normalization: `cfgP.betaSkip`
@@ -1924,19 +1993,25 @@ config swapped, and `cfgT.verified = false` is the only field that
 computes differently.  `annotateBodyI` reads no config, so the
 annotation pass has one name for both cores. -/
 
-/-- **The trusted core's head-normalization body**: the β and ι
-licences read the (unvalidated) annotation datum exactly as at `cfgP`;
-the projection certificate family (`projCertAtI`) is off. -/
+/-- **The trusted core's head-normalization body**: the β argument
+certificate, the ι telescope certificates and index comparison, the
+η/unit/K-rescue certificates and the projection certificate family
+are all off (`cfgT.certs`, `cfgT.verified`); every guard and
+comparison official performs runs. -/
 def whnfCoreBodyTC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
   whnfCoreBodyI cfgT r fe
 
 /-- **The trusted core's inference body**: the λ-codomain sort check
-and the ∀/λ annotation validations are off. -/
+and the ∀/λ annotation validations are off; its io grade
+(`inferBodyIOI cfgT`, the knot's `inferIO` slot) runs no per-argument
+certificate at all (`cfgT_ioSkip`). -/
 def inferBodyTC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
   inferBodyI cfgT r fe
 
 /-- **The trusted core's conversion body**: the ∀/λ `pw` agreement
-checks (and `etaCertI`'s) are off. -/
+checks (and `etaCertI`'s) are off, and so are the structure-η,
+unit-like and K-rescue certificate families reached through
+`stuckIrrelI`/`whnfCore`. -/
 def defeqBodyTC (r : CoreFnsI) (fe : FEnv) :
     Nat → ExprC → ExprC → CheckCM Bool :=
   defeqBodyI cfgT r fe

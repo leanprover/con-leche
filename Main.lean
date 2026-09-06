@@ -105,15 +105,18 @@ the three-mode setting (task #147), validated once by the caller and
 consumed here as configuration; `pre` asserts the input is already
 preprocessed (`--pre`), skipping preprocessor detection and spawn.
 
-**Two cores, one parse.**  The interned representation and every
-driver over it retired with the arena (task #172), and the R core
-retired with the collapsed model (2026-09-05), so the stream is parsed
-directly to `ExprC` (`Frontend.parseExportStreamD`, task #171) and
-checked by the cached driver — the certified graded fold at
-`--verified` (the default), its trusted twin at `--trusted`.
-The certified one is covered by `no_proof_of_Empty_SPCD_P` over
-`checkDeclsSPCachedD` (`Setlec/Verify/Cached/MainC.lean`); the trusted
-one is unverified by design. -/
+**One core at two configs, one parse.**  The interned representation
+and every driver over it retired with the arena (task #172), the R
+core retired with the collapsed model (2026-09-05), and the
+hand-written trusted twin retired into an instantiation
+(2026-09-06), so the stream is parsed directly to `ExprC`
+(`Frontend.parseExportStreamD`, task #171) and checked by the one
+cached driver — at `cfgP` under `--verified` (the default), at `cfgT`
+under `--trusted`.  The verified instance is covered by
+`no_proof_of_Empty_SPCD_P` over `checkDeclsSPCachedD`
+(`Setlec/Verify/Cached/MainC.lean`); the trusted one is unverified by
+design and agrees with it on the install skeletons whenever both
+accept (`trusted_agrees_P_skels_shipped`). -/
 def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be
@@ -205,12 +208,15 @@ def usage : String := String.intercalate "\n" [
   "  --trusted         the unverified mode: the SAME checker bodies as",
   "                    --verified, instantiated at the config with the",
   "                    certification-only work switched off (cfgT =",
-  "                    cfgP with verified := false): the annotation",
-  "                    validations, the lambda-codomain sort check and",
-  "                    the projection certificate family are omitted;",
-  "                    the beta/io licences read the (unvalidated)",
-  "                    annotation datum as in --verified.  Everything",
-  "                    believed necessary for SOUNDNESS stays (which is",
+  "                    cfgP with verified := false, certs := false):",
+  "                    the annotation validations and the lambda-",
+  "                    codomain sort check, and the certificate",
+  "                    families the reference kernel does not run (the",
+  "                    beta/io argument certificates, the iota/eta/unit/K",
+  "                    telescope certificates, the projection",
+  "                    certificate) are omitted; every check official",
+  "                    performs stays.  Everything believed necessary",
+  "                    for SOUNDNESS stays (which is",
   "                    not the same as necessary for the soundness",
   "                    proof to go through), and the mode is never",
   "                    optimized on its own: it is the real mode with",

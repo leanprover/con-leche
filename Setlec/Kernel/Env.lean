@@ -36,12 +36,12 @@ discipline).
   proof to go through"), so the lane is never optimized on its own:
   it is the real mode with certain steps omitted (DESIGN.md, "MODE
   RENAME").  Since 2026-09-06 it is literally that: the one cached
-  driver at `cfgT` — `cfgP` with `verified := false`
-  (`Setlec/Kernel/CoreCfg.lean`), so what it omits is exactly what
-  `cfg.verified` gates in `Setlec/Cached/CoreC.lean` (DESIGN.md,
-  "CORET RETIRED").  `Main.lean` maps the mode to the config; the
-  cached tier never sees a `CheckMode` except through the inert
-  `CoreCfg.iotaMode`.
+  driver at `cfgT` — `cfgP` with `verified := false` and `certs :=
+  false` (`Setlec/Kernel/CoreCfg.lean`), so what it omits is exactly
+  what `cfg.verified` and `cfg.certs` gate in
+  `Setlec/Cached/CoreC.lean` (DESIGN.md, "CORET RETIRED").
+  `Main.lean` maps the mode to the config; the cached tier never sees
+  a `CheckMode` except through the inert `CoreCfg.iotaMode`.
 
 **HISTORY, because the spelling moved twice.**  There were three
 values until 2026-09-05: `.setModel` at `--set-model=r` (the R lane —

@@ -508,7 +508,7 @@ theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     (hs : CSOK mode env s₀) (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (structUnitCertI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i j)
+      (structUnitCertI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i j)
       (structUnitCert (fueledFns mode env) env d a b) := by
   show SimC mode env s₀ RelVC
     ((coreKnotI (cfgOf mode) (mkFEnv env) f).inferIO d i >>= fun ta =>
@@ -1244,7 +1244,7 @@ theorem stuckIrrelC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       structEtaCertI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d j i >>=
         fun r₄ =>
       if r₄ then pure true else
-      structUnitCertI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i j >>=
+      structUnitCertI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i j >>=
         fun r₅ =>
       if r₅ then pure true else
       proofIrrelI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i j)
