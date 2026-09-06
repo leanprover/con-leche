@@ -28,11 +28,29 @@ This README is actually human written (with AI only doing copy-editing, fact che
 
 The idea of the consistency proof is that we define a model in set theory, classical and extensional, and show that our checker only accepts Lean terms that have a model in that world.
 
+## The main theorem
+
+In [`Setlec/MainTheorem.lean`](./Setlect/MainTheorem.lean) we prove that if the `checkDeclsSPCachedD` function (which is called from `main`), when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
+
+```lean
+theorem no_proof_of_False (V : Type w) [SetTheory V]
+  (ds : List DeclC) (env : Env)
+  (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env)
+  ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName []
+```
+
+Of course this is just a corollary of a stronger statement that every environment built by this function has a model in the set theory.
+
+The meaning of `False` is hard-coded, so no tricks re-defining it will work.
+
+The parser is not covered by the verification.
+
 ### Set theory assumption
 
-The set model is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form; infinity and choice are derivable from that. See [`Setlec/SetTheory/Core.lean`](./Setlec/SetTheory/Core.lean) for the precise formulation of our set theory.
+The set model we assumein `[SetTheory V]` is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form; infinity and choice are derivable from that. See [`Setlec/SetTheory/Core.lean`](./Setlec/SetTheory/Core.lean) for the precise formulation of our set theory.
 
 We also show that this interface can be realized within Lean by Aczel's sets-as-trees construction, with the universe chain as the one remaining assumption ([`Setlec/SetTheory/Aczel.lean`](./Setlec/SetTheory/Aczel.lean)); that is the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis, the same assumption as in the [lean4lean-model](https://github.com/digama0/lean4lean-model).
+
 
 ### Level annotation
 
