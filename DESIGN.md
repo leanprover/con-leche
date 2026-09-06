@@ -9513,6 +9513,13 @@ their pin literals differ in how tightly they are pinned by proofs:
   `ErasedEq.of_eraseNames` + `interp_erasedEq` bridge a `matchesPin`
   hit exactly as before.  A regeneration through `AnnotateBasis.lean`
   must preserve this normalization (noted in the module header).
+  *(SUPERSEDED 2026-09-06, `agent/basis-literals`: there is no
+  regeneration step any more — the annotated forms are computed from
+  the raw pins by `#annotate_basis` while the pin module elaborates,
+  and the annotation pass writes `pw` and nothing else, so the
+  normalization holds by construction.  EVERY paragraph in this file
+  that names `AnnotateBasis.lean` as the way to regenerate the basis
+  literals is superseded the same way; see the record at the end.)*
 
 **Rejected alternative.**  Making `Expr.eraseNames` erase the
 annotation and dropping the `m = m'` conjunct from `Expr.ErasedEq` was
@@ -46302,3 +46309,166 @@ Still a buildable `lean_lib`; no longer anything's build-order
 prerequisite.  Its in-tree consumers are the generator executable and
 `Setlec.SetP.NatWfP` (which reuses the certificate theorems at the meta
 level) — both by ordinary `import`, both ordered by Lake for free.
+
+## THE BASIS LITERALS, DERIVED — hand-written raw pins + `#annotate_basis` (2026-09-06, `agent/basis-literals`)
+
+**The defect.**  The pinned basis blocks, the standard-axiom
+prerequisite families and the compiler-trust pins are *stored
+annotated*: `installBasisDecl` puts the `*A` constants into the
+environment verbatim and the model proofs read their `pw` data off
+them.  Those constants were a **paste**: `AnnotateBasis.lean` (the
+`annotate-basis` `[[lean_exe]]`) ran the checker's annotation over the
+raw pins and printed `Repr`, and the output was copied into
+`Setlec/Kernel/Basis/*.lean`, `StdAxioms.lean` and `TrustAxioms.lean`
+as ~1 900 lines of fully-qualified constructor spellings.  Nothing in
+the build re-ran the generator, so the literals were a committed cache
+with **no checked relation to their source** — a stale paste would
+have been invisible, and the raw pins beside them (the things a human
+can check against `Init.Prelude`) were themselves one-line
+machine-shaped dumps.
+
+**The shape the user ruled for** (2026-09-06 night): *hand-written raw
+types plus elaboration-time annotation, no pins file, generator
+deleted.*
+
+### 1. The raw pins, hand-written (`Setlec/Kernel/Basis/Builder.lean`, 110 lines)
+
+One definition per constant (`eqRaw`, `eqReflRaw`, `eqRecRaw`,
+`natRaw`, …, `quotSoundRaw`; `iffRaw`/`iffIntroRaw`/`iffRecRaw`,
+`nonemptyRaw`/…, `propextRaw`, `choiceRaw`, and the two parameterized
+trust builders), written through a builder whose every helper is ONE
+`Expr` constructor application at the raw binder annotation:
+
+| helper | is |
+|---|---|
+| `pi x ty b` / `piI` / `piA` | `.forallE (bn x) ty b ⟨.default⧸.implicit, .never⟩`, `piA` at the anonymous binder |
+| `lm x ty b` / `lmI` | the `.lam` twins |
+| `bv i`, `srt u`, `prop`, `type1`, `cnst n us` | `.bvar` / `.sort` / `Sort 0` / `Sort 1` / `.const` |
+| `ap2`…`ap4` | left-nested `.app` chains |
+| `rule c n rhs` | `⟨c, n, 0, .inert, rhs⟩` — the parse placeholders |
+| `uN`/`u`, `vN`/`v`, `u1N`/`u1` | the three universe parameters the exporter names |
+
+Nothing is abbreviated away: a pin lines up against `Init.Prelude`
+binder by binder and index by index, and shared sub-terms (a
+recursor's motive, `Quot`'s relation argument) are `private def`s with
+a docstring saying which binder context their indices are relative to.
+The pin modules shrank from 1 871 to 893 lines (Eq 201→62, Nat
+218→66, PUnit 116→50, Empty 64→34, Quot 444→116, StdAxioms 491→303,
+TrustAxioms 293→219, Basis 44→43).
+
+### 2. The annotation, at elaboration time (`Setlec/Kernel/BasisGen.lean`, 330 lines)
+
+Two commands, following the `#load_natop_pins` precedent
+(`Setlec/PinGen/Dump.lean`): compute the value in meta code, quote it
+back to a `Lean.Expr`, `addDecl` + `compileDecl`.
+
+```
+#annotate_basis over <env : List ConstantInfo>   -- ConstantInfo pins,
+  | eqA := eqRaw                                 -- env threaded
+  | ...
+#annotate_pins  over <env : List ConstantInfo>   -- ConstantVal pins,
+  | propextA := propextRaw                       -- same env for each
+```
+
+The leading `|` is what keeps the entries from parsing as one applied
+term.  `over` is elaborated and evaluated at `List ConstantInfo`, so
+it may name constants an earlier command in the same file defined
+(`StdAxioms` passes `[eqA]`, then the whole `Iff`/`Nonempty` prefix;
+`TrustAxioms` passes its pinned prerequisite list, then that list plus
+the two annotated reduce operations).
+
+`annotateInfo` is the install path's recipe verbatim: the **type**
+through `annotateCore .verified env checkFuel 0`; for a recursor, the
+install-computed rule fields first (`ctorParams` off the stored
+constructor, `fire` off `Expr.recRulePlain`) and then each rule's
+**rhs** over the environment extended with the recursor itself (which
+`Nat.rec`'s successor rule needs).  An `annotateCore` error is an
+elaboration error, `throwErrorAt` the raw term — checked with a
+deliberate failure (a `.projInfo` raw errors at the splice).
+
+The splice gives each constant the reducibility hint an ordinary `def`
+of the same body would get (`.regular (getMaxHeight env value + 1)` via
+`mkDefinitionValInferringUnsafe`), so the `decide`/`rfl`/`simp [eqA]`
+consumers in `Setlec/SetP/*` see exactly what they saw before.
+`Lean.Elab.Term.evalTerm` is `unsafe`; the three wrappers are the
+standard `@[implemented_by]` pairing.
+
+### 3. The module structure — and why it moved
+
+Running the annotation needs `Setlec.Kernel.TypeChecker` →
+`Setlec.Kernel.Core` → `Setlec.Kernel.Basis`.  So the annotated forms
+**cannot** live in a module the core imports.  The split:
+
+* `Setlec.Kernel.Basis{,.Names,.Builder,.Eq,.Nat,.PUnit,.Empty,.Quot}` —
+  RAW only, below the core, unchanged as an import of `Core.lean`
+  (the frontend matches incoming records against `BasisKind.decls`);
+* `Setlec.Kernel.BasisA` (new, 52 lines) — the 17 basis `*A` constants
+  and `BasisKind.declsA`, above `TypeChecker`;
+* `StdAxioms` / `TrustAxioms` keep their `*A` constants in place and
+  gain the commands (both now import `BasisA` + `BasisGen`);
+* `Verify/EnvPreds` and `Semantics/BasisRules` follow the move
+  (`Setlec.Kernel.Basis` → `Setlec.Kernel.BasisA`).
+
+**The `import Lean` blast radius, measured before choosing.**
+`BasisGen` imports `Lean`.  `Lean` is *already* in 273 of the tree's
+429 modules' import closures (via `Setlec/Kernel/NatOpPins.lean`'s
+`meta import Setlec.PinGen.Dump` — a `meta import` does propagate to a
+classic importer, confirmed by probe).  Putting the annotated forms
+above `TypeChecker` rather than below it keeps the core and the
+untainted proof modules clean: the delta is **5 modules**
+(`Kernel.StdAxioms`, `Semantics.BasisRules`, `Semantics.EqTower`,
+`Semantics.EraseInv`, `Verify.EnvPreds`).  Had the literals stayed in
+`Basis/Eq.lean`, `Lean` would have entered `Setlec.Kernel.Core` and
+with it ~130 proof modules that today do not see Lean's instances and
+simp set.  The module-system alternative (`module` + `meta import`,
+the NatOpPins pattern) does NOT avoid this: a classic importer imports
+a `module` at `.private` level and gets its meta closure, so it would
+have needed every importer up the chain converted too.
+
+### 4. The receipt — byte-identity, twice
+
+Before the generator was deleted, `BasisReceipt.lean` (1 344 lines,
+commit `d8c62f0c`, deleted in this one) held **master's literals
+verbatim** under a `Receipt` namespace and checked
+
+    example : <new> = Receipt.<old>Old := by rfl
+
+for all 38 of them — the 9 raw blocks (`eqBasis`, `natBasis`,
+`punitBasis`, `emptyBasis`, `quotBasis`, `iffFamily`, `propextRaw`,
+`nonemptyFamily`, `choiceRaw`) and the 29 annotated constants (17
+basis + `iffA`/`iffIntroA`/`iffRecA`/`nonemptyA`/`nonemptyIntroA`/
+`nonemptyRecA`/`propextA`/`choiceA` + `reduceNatCvA`/`reduceBoolCvA`/
+`ofReduceNatA`/`ofReduceBoolA`).  All pass, kernel-checked.
+
+Independently: the OLD generator, re-run against the NEW hand-written
+raw pins, produced output **byte-identical** to its pre-change output
+(1 207 lines, `diff` clean).  That is the second, source-side receipt:
+the hand-written raws are the same values as the machine-shaped ones.
+
+### 5. What was deleted
+
+* `AnnotateBasis.lean` — 117 lines;
+* its `[[lean_exe]] name = "annotate-basis"` in `lakefile.toml`;
+* `AnnotateBasis` from `tests/layering.sh`'s `IMPL_ROOTS` and extra
+  roots (the gate still reports 0 base→lane and 0 impl→theory edges);
+* `BasisReceipt.lean` — 1 344 lines, once its receipt was taken;
+* ~978 lines of pasted literals from the eight pin modules.
+
+`tests/pindump.sh`'s header comment, which named the discipline after
+`annotate-basis`, now names it after what it is (a
+committed-generator-output freshness ratchet) and records that the
+basis half of it no longer needs a gate: a literal that is recomputed
+on every build cannot go stale.
+
+### 6. Why this is stronger than a freshness gate
+
+The obvious alternative was to keep the paste and add a
+`tests/basis-literals.sh` that regenerates and `diff`s (the
+`pindump.sh` shape).  Deriving beats gating here because the derivation
+is *cheap and total*: annotating 27 small closed types costs
+milliseconds inside an elaboration that already runs, so there is no
+committed artifact to be stale, no toolchain-named file, no
+regeneration instruction in any document, and one fewer executable in
+the build.  The pin dump keeps its gate because its computation is not
+cheap (it reads kernel-checked certificate proof terms out of a second
+library) and its build ordering was the defect task #176 fixed.

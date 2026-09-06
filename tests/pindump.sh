@@ -14,8 +14,13 @@
 # certificate library's world (its root imports `Setlec.PinGen.Certs`,
 # so the proof bodies are visible and Lake orders the build).
 #
-# A committed generator output needs a staleness ratchet — the
-# `annotate-basis` discipline: regenerate, `diff -q`, fail loudly.  This
+# A committed generator output needs a staleness ratchet — regenerate,
+# `diff -q`, fail loudly.  (The discipline used to be named after
+# `annotate-basis`, the offline generator whose `Repr` output was pasted
+# into the basis pin modules.  That generator is gone as of 2026-09-06:
+# the basis literals are computed by the checker's own annotation pass
+# at elaboration time, `#annotate_basis` in Setlec/Kernel/BasisGen.lean,
+# so they cannot go stale and need no gate.  This dump still can.)  This
 # gate regenerates into a scratch directory under `_tmp/` and diffs.  A
 # difference means the dump no longer matches what the certificates,
 # `scripts/natop_prefix.json`, `Setlec/PinGen.lean` or the toolchain

@@ -116,10 +116,6 @@ srcDir = "tests"
 name = "setlec"
 root = "Main"
 
-[[lean_exe]]
-name = "annotate-basis"
-root = "AnnotateBasis"
-
 # The pin dump generator (task #176).  Lives in the certificate
 # library's world — its root imports `Setlec.PinGen.Certs`, so the
 # proof bodies are visible to `importModules` at `OLeanLevel.private`
