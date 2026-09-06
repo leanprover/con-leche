@@ -53083,3 +53083,110 @@ Artefacts under `_tmp/beqmemo/` (gitignored): `cells.tsv` (every cell),
 `arena.log`.  The refuted variants are the branches `agent/beqmemo2`
 (P2e), `agent/beqmemo3` (P1-lite), `agent/beqmemo5` (P1b),
 `agent/pwcensus` (the `PropWhen` probe) — none of them lands.
+
+## TASK #198 — REMOVING THE INTERNING-ERA ABSTRACTIONS (2026-09-06, `agent/deintern`)
+
+The checker once had an interned expression arena: hash-consed nodes in
+an `EStore`, `EIdx`/`LIdx`/`NIdx` children, a `CheckIM := StateT IState
+CheckM` monad whose every operation genuinely read or grew a store.
+That world is deleted (the interned tier and `Lech/SetR/*`, 2026-09-05;
+`ExprC` became an abbreviation for `Lech.Expr` at task #172 B3a).  What
+survived is its *shape*: a unit `CStore` whose methods ignore their
+first argument, a family of `CheckCM` wrappers that are all `pure . f`,
+a one-level `ExprView` that was "the genericization seam for interned
+representations (task #26)" by its own docstring, and an `internI` that
+is a plain allocation.
+
+**USER, verbatim:** *"internI is just a pure ofView.  This looks like
+we have a lot of abstractions that we needed when we still did
+interning, and can go now.  CStore as well.  And probably lots more."*
+And on the follow-up: *"ExprView can probably go as well?"*
+
+### The census
+
+Classes: **(a)** identity/trivial wrapper (`pure . f`, `id`, or a
+forward through a unit argument -- nothing computed, no invariant
+carried); **(b)** live abstraction (the name still separates two
+*different* things); **(c)** dead (never used outside its own
+definition and its verification twin).  "verify" counts proof-site
+mentions outside `Lech/Verify/Cached/SimCEff.lean`, which is the
+wrappers' own effect-spec module and dies with them -- that count is
+the deciding datum for removal.
+
+#### 0. The view round-trip (the head of the list)
+
+| item | file | what it is | impl | verify | class |
+|---|---|---|---|---|---|
+| `Lech.ExprView` | `Kernel/Core.lean:58` | one-level view inductive, ten constructors mirroring `Expr`'s | 12 | 67 | **(a)** |
+| `Lech.Expr.view` | `Kernel/Core.lean:70` | `Expr -> ExprView Expr`, constructor for constructor | - | 123 | **(a)** |
+| `Lech.viewM` | `Kernel/Core.lean:1849` | `pure e.view` -- the pure core's destructuring step | 4 | 123 | **(a)** |
+| `Cached.ExprC.view` | `Cached/ExprOpsC.lean:63` | **a second, identical copy** of `Expr.view` | 3 | - | **(a)** |
+| `Cached.ExprC.ofView` | `Cached/ExprOpsC.lean:76` | ten `mk*` calls, each `rfl` | 3 | 11 | **(a)** |
+| `Cached.ofViewE` | `Verify/Cached/OpsC.lean:98` | **a third copy** -- the `Expr`-side view builder | 0 | 13 | **(a)** |
+| `ofView_spec`, `ofViewE_view` | `Verify/Cached/OpsC.lean:110,119` | a lemma between two identical functions, and the round-trip | - | 3 | **(a)** |
+| `Cached.viewI` | `Cached/StateC.lean:248` | `pure (some e.view)` -- and the `Option` is arena residue (an index lookup could miss; a node cannot) | 42 | 68 | **(a)** |
+| `Cached.internI` | `Cached/StateC.lean:252` | `pure (ExprC.ofView n)`; all 44 call sites apply it to a *literal* view constructor | 44 | 59 | **(a)** |
+
+#### 1. `CStore` -- the vestigial unit store
+
+`structure CStore where dummy : Unit`, with `withStore (f : CStore ->
+a) : CheckCM a := pure (f default)`.  Its own docstring said it:
+*"`ExprC` needs no store, but the clone keeps the shape of every such
+call so that it mirrors its interned original character for
+character."*  The interned original is deleted, so the mirror has
+nothing to mirror.  Twenty methods, all `(a)` except three that are
+`(c)`:
+
+`getNode` (13 uses; definitionally `viewI`), `getAppFnI` (7),
+`getAppArgsI` (17), `wscopedBI` (2), `looseBVarsBoundedI` (2),
+`leafGuardI` (2), `hasFvarI` (4), `zeronessOfLIGo` (4),
+`isUnitLikeTyI` (2), `isCtorAppI` (1), `etaCtorShapeI` (1),
+`quickPairI` (1), `headHintI` (2), `unfoldableHeadI` (2),
+`sameConstHeadsI` (1), `rawNatLitI?` (5), `isBoolTrueI` (1);
+**dead**: `stripPisBodyI`, `constsResolveFI`, `allLevelParamsDefinedI`.
+`withStore` itself: 66 impl mentions, 110 verify (59 `SimC.withStore`
+peels, 3 `CEff.withStore`, ~20 statement echoes).
+
+#### 2. Identity `*M` wrappers in `CheckCM` (`Cached/StateC.lean`)
+
+All `pure (...)`; the interned twins were genuinely monadic.  Live
+**(b)** and untouched: `instListM`, `simplifyLM`, `isNonZeroLM`,
+`isEquivLM`, `storedTyIdxM`, `storedValIdxM`, `constTyAtM`,
+`constValAtM`, `ruleRhsAtM`, `recordCConst`, `flushC` -- each reads or
+writes a persistent memo and carries a `CSOK` clause.
+
+| wrapper | impl | `_eff` sites | | wrapper | impl | `_eff` sites |
+|---|---|---|---|---|---|---|
+| `internExprM` | 15 | 17 | | `peelFuelM` | 5 | 5 |
+| `internNameM` | 6 | 7 | | `bvarBoundM` | 2 | 1 |
+| `readbackNM` | 14 | 15 | | `inst1M` | 14 | 12 |
+| `beqNameM` | 10 | 9 | | `instListRevM` | 15 | 30 |
+| `projFnIdxM` | 3 | 2 | | `abstract1M` | 3 | 2 |
+| `internLM` | 9 | 10 | | `abstractRangeM` | 6 | 8 |
+| `readbackLevelsM` | 2 | 1 | | `mkAppNM` | 9 | 8 |
+| `substLevelTreesM` | 3 | 2 | | `instSpineM` | 2 | 1 |
+| `viewLM` **(c)** | 0 | 0 | | `piResidualM` | 2 | 1 |
+| `readbackLevelM` **(c)** | 0 | 0 | | `pisToLamsM` **(c)** | 0 | 0 |
+| `substLM` **(c)** | 0 | 0 | | `instLevelParamsM` | 6 | 1 |
+| `substLevelTreeM` **(c)** | 0 | 0 | | `zeronessOfM` **(c)** | 0 | 0 |
+
+Orphaned *with* the (c) rows: `ExprC.pisToLams` (only caller
+`pisToLamsM`) and `pisToLams_spec`; `ExprC.stripPisBody` (only caller
+`CStore.stripPisBodyI`) and `stripPisBody_spec`.
+
+#### 3. What stays, and why
+
+| item | class | why it stays |
+|---|---|---|
+| `CState` (14 memo fields) | **(b)** | the real per-declaration state; every field is read and every one has a `CSOK` clause (199 verify mentions) |
+| `CConstE` | **(b)** | the `Expr` pointer tag it carries is validated at every use; that is a computation, not a wrapper |
+| `FEnv` / `mkFEnv` (684 mentions) | **(b)** | a hash index over `Env`, not an interning residue |
+| `ExprC` (the abbrev) | **(b)** | it is the *namespace* that separates the memoized executed operations (`ExprC.instantiate1` -- a `Std.HashMap`-memoized DAG walk) from the pure specs (`Expr.instantiate1`); the whole `*_spec` battery is about that difference |
+| `DeclC` | **(b)** | its `basisDecl`/`indDecl` shape differs from `Decl`'s; not an identity wrapper |
+| `Verify/Cached/Erase.lean` | **(b)** | already the post-seam module: field exactness for the computed fields, nothing arena-shaped left |
+
+Already gone, confirmed by grep (no action): `EStore`, `ENode`, `EIdx`,
+`LIdx`, `NIdx`, `NNode`, `IState`, `CheckIM`, `eraseC`, `WFc`,
+`WExprC`, `WDeclC`, `ofExpr`, `ofExprFast`, `toExpr`, `hashSpec`,
+`beqSpec`, `zeroC`, `MemoErase`.
+
