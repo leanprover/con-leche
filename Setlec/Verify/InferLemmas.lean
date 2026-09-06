@@ -2842,63 +2842,7 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
         simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
         exact Or.inl ⟨n + 1, h.symm⟩
       | none => intro h; simp [pure, Except.pure] at h
-    · split
-      · intro h
-        revert h
-        cases hw : whnf mode env fuel d a with
-        | error err => intro h; exact nomatch h
-        | ok a' =>
-        intro h
-        dsimp only at h
-        revert h
-        match rawNatLit? a' with
-        | some n =>
-          intro h
-          dsimp only at h
-          cases hres : natOpResult c n 0 with
-          | none => rw [hres] at h; simp [pure, Except.pure] at h
-          | some r =>
-            rw [hres] at h
-            simp only [pure, Except.pure, Except.ok.injEq,
-              Option.some.injEq] at h
-            exact h ▸ natOpResult_shape hres
-        | none => intro h; simp [pure, Except.pure] at h
-      · -- the certified `log2` branch mirrors `pred`'s
-        split
-        · intro h
-          revert h
-          cases hw : whnf mode env fuel d a with
-          | error err => intro h; exact nomatch h
-          | ok a' =>
-          intro h
-          dsimp only at h
-          revert h
-          match rawNatLit? a' with
-          | some n =>
-            intro h
-            dsimp only at h
-            cases hres : natOpResult c n 0 with
-            | none => rw [hres] at h; simp [pure, Except.pure] at h
-            | some r =>
-              rw [hres] at h
-              simp only [pure, Except.pure, Except.ok.injEq,
-                Option.some.injEq] at h
-              exact h ▸ natOpResult_shape hres
-          | none => intro h; simp [pure, Except.pure] at h
-        · -- the capless `log2` decline branch never returns a reduct
-          split
-          · intro h
-            revert h
-            cases hw : whnf mode env fuel d a with
-            | error err => intro h; exact nomatch h
-            | ok a' =>
-            intro h
-            dsimp only at h
-            revert h
-            match rawNatLit? a' with
-            | some _ => intro h; exact nomatch h
-            | none => intro h; simp [pure, Except.pure] at h
-          · intro h; simp [pure, Except.pure] at h
+    · intro h; simp [pure, Except.pure] at h
   · -- binary fast paths
     intro h
     simp only [reduceNat, Bind.bind, Except.bind, whnf_def] at h

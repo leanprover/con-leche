@@ -786,21 +786,10 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (some (.lit (.natVal (n + 1))))
       | none => pure none
-    else if c = natPredName ∧ natOpStored env c = true then
-      match rawNatLit? (← r.whnf depth a) with
-      | some n => pure (natOpResult c n 0)
-      | none => pure none
-    else if c = natLog2Name ∧ natOpStored env c = true then
-      match rawNatLit? (← r.whnf depth a) with
-      | some n => pure (natOpResult c n 0)
-      | none => pure none
-    else if c = natLog2Name ∧ natLitSupported env then
-      -- capless `log2` literal: positively decline (safety net; a
-      -- mismatching declaration already declined at install)
-      match rawNatLit? (← r.whnf depth a) with
-      | some _ => throw (.notImplemented
-          s!"native Nat computation on literals ({c})")
-      | none => pure none
+    -- (the audit's S1: the `Nat.pred` and `Nat.log2` literal fast paths
+    -- are gone — official `reduce_nat` (`type_checker.cpp:639-668`) has
+    -- `Nat.succ` and the fourteen binary operations, nothing else; the
+    -- install-time pins and certificates for both operations stay)
     else pure none
   | .app (.app (.const c []) a) b =>
     if (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
