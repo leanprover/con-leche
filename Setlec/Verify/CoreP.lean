@@ -64,7 +64,7 @@ ungated lane's entire body-level inversion apparatus. -/
 
 @[simp] theorem pureFnsP_annotate (env : Env) (f d : Nat) (e : Expr) :
     (pureFnsP mode env (f + 1)).annotate d e =
-      annotateBody mode (pureFnsP mode env f) env d e := rfl
+      annotateBody (pureFnsP mode env f) env d e := rfl
 
 theorem whnfCoreP_succ (env : Env) (f d : Nat) (e : Expr) :
     whnfCoreP mode env (f + 1) d e =
@@ -83,7 +83,7 @@ theorem isDefEqCoreP_succ (env : Env) (f d : Nat) (a b : Expr) :
 
 theorem annotateCoreP_succ (env : Env) (f d : Nat) (e : Expr) :
     annotateCoreP mode env (f + 1) d e =
-      annotateBody mode (pureFnsP mode env f) env d e := rfl
+      annotateBody (pureFnsP mode env f) env d e := rfl
 
 theorem whnfCoreP_def (env : Env) (f d : Nat) (e : Expr) :
     (pureFnsP mode env f).whnfCore d e = whnfCoreP mode env f d e := rfl

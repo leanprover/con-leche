@@ -78,8 +78,8 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (annotateBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
-      (annotateBody mode (fueledFns mode env) env d ex) := by
+      (annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (annotateBody (fueledFns mode env) env d ex) := by
   unfold annotateBodyI
   refine SimC.view ?_
   obtain rfl := hden
@@ -249,7 +249,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       -- task #172 B3 method row: the cached guard reads
       -- `(cfgOf mode).verified`, the pure one `mode.verifiedChecks`; a bare
       -- `split` decides only one of the two `if`s.
-      by_cases hpw : (mode.verifiedChecks && !pwWritten m.pw) = true
+      by_cases hpw : (!pwWritten m.pw) = true
       · simp only [cfgOf_verified, hpw, ↓reduceIte]
         refine SimC.bind (annotPwLamC_sim ih hs₈ hbody'd hwbody')
           (fun s₉ pw pwx hs₉ hPpw => ?_)

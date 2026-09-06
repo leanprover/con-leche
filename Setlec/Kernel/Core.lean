@@ -2590,14 +2590,14 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- body via the ∀/λ rules)
       let ty' ← r.annotate depth ty
       let body' ← r.annotate (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-      let pw ← if mode.verifiedChecks && !pwWritten mb.pw then
+      let pw ← if !pwWritten mb.pw then
           annotPwPi r env (depth + 1) body'
         else pure mb.pw
       pure (.forallE n ty' (body'.abstract1 depth) ⟨mb.bi, pw⟩)
     | .lam n ty body mb => do
       let ty' ← r.annotate depth ty
       let body' ← r.annotate (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-      let pw ← if mode.verifiedChecks && !pwWritten mb.pw then
+      let pw ← if !pwWritten mb.pw then
           annotPwLam r env (depth + 1) body'
         else pure mb.pw
       pure (.lam n ty' (body'.abstract1 depth) ⟨mb.bi, pw⟩)
@@ -2685,7 +2685,7 @@ def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
         defeq := fun d a b =>
           defeqBody mode (coreKnot mode env wrap fuel) env d a b
         annotate := fun d e =>
-          annotateBody mode (coreKnot mode env wrap fuel) env d e
+          annotateBody (coreKnot mode env wrap fuel) env d e
         -- **The io slot** (task #170 / #172 B4).  The grade's meaning is
         -- the mode's: at the gated mode the io body, tied to the io-grade
         -- view of the knot one level down (the grade propagates, as

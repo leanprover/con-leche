@@ -137,7 +137,7 @@ def coreKnotP (env : Env) : Nat → CoreFns m
       defeq := fun d a b =>
         defeqBody mode (coreKnotP env fuel) env d a b
       annotate := fun d e =>
-        annotateBody mode (coreKnotP env fuel) env d e
+        annotateBody (coreKnotP env fuel) env d e
       -- parked stage-1 artifact: the io grade postdates this knot, and
       -- nothing states claims at its io slot — the full body keeps the
       -- record well-formed

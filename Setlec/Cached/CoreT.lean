@@ -779,7 +779,7 @@ def coreKnotT (fe : FEnv) : Nat → CoreFnsI
       defeq := memoBIT
         (fun d a b => defeqBodyT prev.get fe d a b)
       annotate := memoEIT (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI cfgT prev.get fe d e) }
+        (fun d e => annotateBodyI prev.get fe d e) }
 
 /-- The `--trusted` cached **checking-mode front-door knot** (port of
 `Setlec/Kernel/CoreNC.lean`'s `coreKnotFNC`; the task-#134 `coreKnotF`
@@ -813,7 +813,7 @@ def coreKnotFT (fe : FEnv) : Nat → CoreFnsI
       -- which is what an internal caller would mean in the trusted mode.
       inferIO := nc.infer
       annotate := memoEIT (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI cfgT prev.get fe d e) }
+        (fun d e => annotateBodyI prev.get fe d e) }
 
 /-- Drop the checking-mode inference memo (port of
 `Setlec/Kernel/CoreNC.lean`'s `flushInferFC`); called back to back

@@ -1109,14 +1109,14 @@ theorem defeqBody_snd_proj (d : Nat) (a b : Expr) :
 -- binds in front of the level-4 rewrites — no new lemma is needed, the
 -- calls are exactly the kind the `letE`/`proj` clauses already make.
 theorem annotateBody_fst_proj (d : Nat) (e : Expr) :
-    (annotateBody mode (pairFns r₁ r₂ h) env d e).val.1 =
-      annotateBody mode r₁ env d e := by
+    (annotateBody (pairFns r₁ r₂ h) env d e).val.1 =
+      annotateBody r₁ env d e := by
   unfold annotateBody annotPwPi annotPwLam
   fst_tac4
 
 theorem annotateBody_snd_proj (d : Nat) (e : Expr) :
-    (annotateBody mode (pairFns r₁ r₂ h) env d e).val.2 =
-      annotateBody mode r₂ env d e := by
+    (annotateBody (pairFns r₁ r₂ h) env d e).val.2 =
+      annotateBody r₂ env d e := by
   unfold annotateBody annotPwPi annotPwLam
   snd_tac4
 

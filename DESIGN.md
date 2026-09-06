@@ -44979,11 +44979,10 @@ on the gate being false there.
 **Verdict risk, and the hard stop.**  Ungating is verdict-changing for
 the trusted mode exactly where a reader and the slow path disagree,
 which the #168 landing census never observed — but that census ran in
-the VERIFIED mode.  `tests/arena.sh` stays 0 FAIL (arena 90/92, e2e
-78/78, annot 14/14, mode flags 16/16, the trusted sweep's same three
-recorded divergences) and `--verified` init-full still accepts (60 549
-constants, the task #175 S1 collapse, exit 0) — **but `--trusted`
-init-full BREAKS**, and that is this batch's stop.
+the VERIFIED mode.  `tests/arena.sh` stayed 0 FAIL and `--verified`
+init-full stayed at 60 549 / exit 0 — **but `--trusted` init-full
+BROKE**, which stopped the batch and produced the finding and the
+ruling below.
 
 ### STOP-FINDING (2026-09-06): the trusted mode writes no `pw`, so the NO arm misfires there
 
@@ -45022,23 +45021,97 @@ validates no annotation, so it reads none") — but the honest statement
 is sharper than "validates": it **writes** none.  A reader is only as
 good as the datum, and the trusted mode has no datum.
 
-**Options for the ruling** (none taken here; the batch stops):
+**THE RULING (option 2): ungate the WRITERS too.**  It follows from
+the purpose statement rather than being a trade against it.  *Writing*
+the datum is part of the real checker's algorithm — the readers and the
+licences consume it; what is certification-only is **validating** it and
+producing certificates.  A mode defined as "the real mode with certain
+steps omitted" therefore annotates exactly as the verified mode does,
+and omits only the validation.
 
-1. **Ungate the yes arm only.**  Measured green in both modes, and it
-   is the arm with a licence.  The no arm stays behind
-   `verifiedChecks` with the reason restated as *the writers are gated,
-   so the readers must be too*.
-2. **Ungate the writers too**, so the trusted mode annotates and both
-   readers have real data.  That contradicts the purpose statement in
-   the other direction: annotation *validation* is certification-only
-   work, but annotation *writing* would then be work the trusted mode
-   does only to feed a reader — and it costs the pass.
-3. **Make the readers total-safe**: have `typeSortPW`/`proofPW` answer
-   `none` (unknown → slow path) rather than trust a datum, which needs
-   a "this datum was written" bit the `PropWhen` default does not
-   carry.
+Ungated with the readers (all four writers, spec and cached twin):
 
-**THE BRANCH IS NOT MERGE-READY** as it stands: `agent/mode-rename`'s
-tip implements the ruling literally and therefore fails the
-`--trusted` init-full gate.  The rename commit alone (`86a6c0db`) is
-green on every gate.
+* `annotatePisPw` / `annotateLamsPw` (`Verify/BinderLoop.lean`) and
+  `annotatePisPwI` / `annotateLamsPwI` (`Cached/CoreC.lean`) — the
+  telescope leaves' write, which was `if verified then some p else none`;
+* `annotateBody`'s single-binder ∀ and λ writes (`Kernel/Core.lean`) and
+  the cached λ one (`Cached/CoreC.lean`), which were
+  `if verified && !pwWritten mb.pw then …`.
+
+**Consequence on the signatures, again**: with no configuration read
+left the annotation pass is config-free end to end — `annotateBody`,
+`annotatePis`/`annotateLams` and their leaves and wraps take no
+`CheckMode`, `annotateBodyI`/`annotatePisI`/`annotateLamsI` no
+`CoreCfg`.  Proof side: `AnnotPwOk` loses its Bool (the "no datum"
+alternative is unreachable, so the invariant says `False` there) and
+`annotatePisPw_inv`/`annotateLamsPw_inv` lose their case split;
+`annotatePisPwC_sim`/`annotateLamsPwC_sim` lose theirs.
+`Verify/Cached/AgreeAnnot.lean`'s T2a/T2b obligations are **discharged
+by the signature** now — `annotateBodyI_cfg_eq` and the two
+`…PwI_cfgT` collapses had the trusted config's `pw?` at `none` and were
+deleted with the gate (a row whose subject no longer exists); the
+erasure content they rested on is kept.
+
+### WHAT THE TRUSTED MODE OMITS — the definition of the mode from now on
+
+Every remaining configuration read in the shipped core
+(`Cached/CoreC.lean`, with its `Kernel/Core.lean` twin).  **Group A** is
+the mode: certification-only work, dropped.  **Group B** is flagged, not
+changed — those reads gate a *licence*, and a licence on an
+**unvalidated** annotation is a second ruling, not this batch's.
+
+**A — certification-only, dropped at `cfgT` (`verified = false`).**
+
+| site | what it skips | why certification-only |
+|---|---|---|
+| `etaCertI` | `(eta)`: the two binders' `pw` must agree | validates the datum; the η verdict itself does not read it |
+| `inferLamsOutI` | `(lam-cod-chain)`: a λ node's datum must equal its inner neighbour's | validation of the chain rule |
+| `inferLamsLeafI` | the λ-codomain **sort check** + `(lam-cod-leaf)` | official's `infer_lambda` runs neither; the sort check is the P annotation pass's premise |
+| `inferPisOutI` | `(forall-cod)`: a ∀ node's datum vs its inferred codomain sort | validation |
+| `inferBodyIOI` ∀ clause | `(forall-cod)` at the io grade | validation |
+| `inferBodyIOI` λ clause | `(lam-cod-chain)` / `(lam-cod-leaf)` at the io grade | validation |
+| `defeqStepI` | `(defeq-forall)`, `(defeq-lam)`: the compared binders' data must agree | validation; the defeq verdict does not read the datum |
+| `projCertAtI` | the whole `.proj` certificate family (`projCertI`) | a certificate |
+
+**B — licences, FLAGGED (the trusted mode does MORE work at each).**
+These read `verified`/`betaGate`/`ioGate` to *skip* work on the strength
+of a **validated** datum.  The trusted mode validates nothing, so they
+are off there and the skipped work runs:
+
+| site | the licence | effect in trusted |
+|---|---|---|
+| `whnfCoreStepI` β sites (`cfg.betaSkip`) | skip the per-redex argument certificate at a validated `.never` binder | certificate always runs |
+| `inferSpineIOI` (`unless cfg.verified && mt.pw.isNever`) | skip the per-argument application certificate under the graph-regime licence | certificate always runs |
+| the knot's `inferIO` slot (`cfg.ioGate`) | run `inferBodyIO` (official's `infer_only`) instead of the full inference body | the full body runs |
+| `projCertAtI`'s second Bool (`cfg.betaGate`) | the licensed half of the projection certificate | moot — the family is off in A |
+| `cfg.iotaMode` | the ι cone's `ttChecks` residue | none: `ttChecks` is `false` at both modes |
+
+So three of the four are **inversions**: the trusted mode is slower than
+the verified one there, which is the opposite of what the mode is for.
+Resolving them means either extending the licences to unvalidated data
+(a soundness question for the trusted mode) or accepting the inversion
+as the price of the licences resting on validation.  Recorded for the
+ruling; nothing changed here.
+
+**Related, and part of the same second ruling.**  The writers leave an
+**input-supplied** annotation alone (`pwWritten mb.pw`, i.e. any
+non-`.never` datum in the stream).  In the verified mode the validation
+checks of group A catch a wrong one; in the trusted mode nothing does,
+and the ungated `isProofFast` yes arm now reads it.  A stream can
+therefore steer the trusted mode's proof-irrelevance verdict.  That is
+the trusted mode being unverified, which is by design — but it is worth
+saying in one line, because it is the concrete shape "trusted" takes.
+
+**Gates, with the ruling in (all green).**  `lake build` warning-free
+(444 jobs); `lake test`; `tests/arena.sh` 0 FAIL — arena 90/92, e2e
+78/78, annot 14/14, retired flags 8/8, mode flags 16/16, trusted sweep
+138 arena + 78 e2e + 14 annot with the same 3 recorded divergences
+(they survive for a sharper reason now: the trusted lane *writes* the
+annotations and still does not validate them); layering 0 edges;
+proofdeps 1 371 rows, 0 doors.  **init-full-pre2 accepts in BOTH modes,
+60 549 constants, exit 0.**  Axioms of `no_proof_of_Empty_SPCD_P`,
+`checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `no_constant_of_Empty_P`,
+`prf_of_isProofFast`, `propIrrelPQ_of_claims`, `propIrrel_inv`,
+`propIrrelC_sim` and `trusted_agrees_P_skels_D`: exactly
+`[propext, Classical.choice, Quot.sound]`.  No number was measured —
+the perf cadence puts the annotation cost in trusted after the grant.

@@ -2792,17 +2792,17 @@ private theorem annotate_step (henv : EnvWF env)
   | .sort u => rfl
   | .const n us => rfl
   | .lit (.strVal str) =>
-    show annotateBody mode (pureFns mode env fuel) env (d + 1) (.lit (.strVal str)) =
-      (annotateBody mode (pureFns mode env fuel) env d (.lit (.strVal str))).map
+    show annotateBody (pureFns mode env fuel) env (d + 1) (.lit (.strVal str)) =
+      (annotateBody (pureFns mode env fuel) env d (.lit (.strVal str))).map
         (shiftFrom p)
     simp only [annotateBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .letE n ty v body =>
     simp only [WScoped] at hw
     rw [shiftFrom_letE]
-    show annotateBody mode (pureFns mode env fuel) env (d + 1)
+    show annotateBody (pureFns mode env fuel) env (d + 1)
         (.letE n (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
-      (annotateBody mode (pureFns mode env fuel) env d (.letE n ty v body)).map
+      (annotateBody (pureFns mode env fuel) env d (.letE n ty v body)).map
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw.1) ?_
@@ -2813,8 +2813,8 @@ private theorem annotate_step (henv : EnvWF env)
       (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
     rwa [shiftFrom_instantiate1_gen] at hbody
   | .lit (.natVal n) =>
-    show annotateBody mode (pureFns mode env fuel) env (d + 1) (.lit (.natVal n)) =
-      (annotateBody mode (pureFns mode env fuel) env d (.lit (.natVal n))).map
+    show annotateBody (pureFns mode env fuel) env (d + 1) (.lit (.natVal n)) =
+      (annotateBody (pureFns mode env fuel) env d (.lit (.natVal n))).map
         (shiftFrom p)
     simp only [annotateBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
@@ -2839,9 +2839,9 @@ private theorem annotate_step (henv : EnvWF env)
     rfl
   | .forallE n ty body mb =>
     simp only [WScoped] at hw
-    show annotateBody mode (pureFns mode env fuel) env (d + 1)
+    show annotateBody (pureFns mode env fuel) env (d + 1)
         (.forallE n (shiftFrom p ty) (shiftFrom p body) mb) =
-      (annotateBody mode (pureFns mode env fuel) env d (.forallE n ty body mb)).map
+      (annotateBody (pureFns mode env fuel) env d (.forallE n ty body mb)).map
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw.1) ?_
@@ -2869,9 +2869,9 @@ private theorem annotate_step (henv : EnvWF env)
       rfl
   | .lam n ty body mb =>
     simp only [WScoped] at hw
-    show annotateBody mode (pureFns mode env fuel) env (d + 1)
+    show annotateBody (pureFns mode env fuel) env (d + 1)
         (.lam n (shiftFrom p ty) (shiftFrom p body) mb) =
-      (annotateBody mode (pureFns mode env fuel) env d (.lam n ty body mb)).map
+      (annotateBody (pureFns mode env fuel) env d (.lam n ty body mb)).map
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw.1) ?_
@@ -2899,9 +2899,9 @@ private theorem annotate_step (henv : EnvWF env)
       rfl
   | .proj sn i pe =>
     simp only [WScoped] at hw
-    show annotateBody mode (pureFns mode env fuel) env (d + 1)
+    show annotateBody (pureFns mode env fuel) env (d + 1)
         (.proj sn i (shiftFrom p pe)) =
-      (annotateBody mode (pureFns mode env fuel) env d (.proj sn i pe)).map
+      (annotateBody (pureFns mode env fuel) env d (.proj sn i pe)).map
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw) ?_
