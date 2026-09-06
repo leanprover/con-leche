@@ -9,4 +9,4 @@ def loop : Nat → Nat → Nat
   | 0, acc => acc
   | n+1, acc => loop n (acc + 1)
 def slow (n : Nat) : Nat := loop n 0
-theorem w1 : Nat.add o (slow 40000) = Nat.add (id o) (slow 40000) := rfl
+theorem w1 : Nat.add o (slow 80000) = Nat.add (id o) (slow 80000) := rfl

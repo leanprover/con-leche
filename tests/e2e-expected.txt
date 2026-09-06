@@ -380,3 +380,13 @@
 # Expectation 0 records the CURRENT (divergent) verdict; it flips to 1
 # if the three-valued commit is ever threaded through `defeqStep`.
 0 irrel_commit.ndjson
+# natop_arg_order.ndjson: the divergence audit's D15 regression (DESIGN.md
+# "THE DIVERGENCE AUDIT") — `Nat.add o (slow 80000) = Nat.add (id o)
+# (slow 80000)` with `o` opaque: official's reduce_bin_nat_op never
+# evaluates the second argument (the first is stuck); before D15 setlec
+# whnf'd both and died of fuel (exit 3)
+0 natop_arg_order.ndjson
+# delta_chain.ndjson: the audit's D3 witness shape (two 300-step lockstep
+# delta chains compared by rfl); a plain accept, kept as the fixture the
+# lazy-delta restructuring is measured on
+0 delta_chain.ndjson

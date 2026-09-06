@@ -43588,3 +43588,62 @@ on the `.pre` file, `perf stat -e instructions:u`, `ulimit -v 16G`,
 | `natop_2x` (`slow 80000`) | 0.221 G, accept | **exit 3**, 33.08 G | — |
 | `delta_ctrl` (4 002 defs, no theorem) | 0.539 G | 1.360 G | — |
 | `delta_chain` (+ `c2000 = d2000 := rfl`) | 0.547 G | 1.403 G | 1.404 G |
+
+### 5. Phase 2, fix 1 — D15 landed: `reduceNat` whnf's the first argument first (`agent/divergence-audit`)
+
+**The clause.**  Official `reduce_bin_nat_op` / `reduce_bin_nat_pred` /
+`reduce_pow` (`type_checker.cpp:606-637`): `arg1 = whnf(...)`; if it is
+not a literal, `return none` — the second argument is never touched.
+Ours (`reduceNat`, `Core.lean`, the binary clause) wrote
+`match rawNatLit? (← r.whnf a), rawNatLit? (← r.whnf b) with`, which
+in `do`-notation runs BOTH whnfs before the match; `reduceNatI`
+(`CoreC.lean`) the same with two `let`s.  Now: `match rawNatLit?
+(← r.whnf a) with | some n₁ => match rawNatLit? (← r.whnf b) with … |
+none => pure none`, and the `natOpWfNames` safety net in the same
+shape.  Nothing else moved; the `Nat.succ`/`pred`/`log2` unary clauses
+were already one-argument.
+
+**Why it is a cost divergence and not a verdict one.**  The second
+whnf's result was only read behind the first's literal test, so no
+verdict depended on it — but its *work* did: on `Nat.add o (slow n)`
+with `o` opaque (never a literal) ours evaluated `slow n` at every
+defeq-side and whnf-side `reduceNat` attempt.  The K-bug class:
+exponential/unary work official never does.
+
+**Proofs.**  The bind-chain proofs that spelled the two whnf runs in
+sequence were re-nested — the second `bind` now sits inside the first
+literal's `some` arm: `reduceNat_disc` (`Verify/Disc.lean`),
+`reduceNat_shift` (`Verify/Deep.lean`), `reduceNat_inv`
+(`Verify/InferLemmas.lean`), `reduceNatC_sim` (`Verify/Cached/
+DiscC1.lean`, both the spelled-out `reduceNatI` body and the spec's
+`show`), `reduceNatSemP_binary` (`SetP/NatStepP.lean`) and
+`natLeafP_binary` (`SetP/Step2/NatP.lean`).  The produced facts are
+unchanged (the reduct is still `natOpResult c n₁ n₂` under both
+literal tests); the `_atF`/`_fst_proj`/`_snd_proj` lemmas are generic
+tactics and needed nothing.  No new axiom, no `sorry`.
+
+**Witness → fixture.**  `tests/e2e/src/natop_arg_order.lean` (`slow
+80000`, the variant that died) → `tests/e2e/natop_arg_order.ndjson`
+(raw export), expectation `0`; `tests/e2e/src/delta_chain.lean` (the
+D3 shape at 300 steps) → `tests/e2e/delta_chain.ndjson`, expectation
+`0` — both in `tests/e2e-expected.txt`.
+
+**Receipts** (worktree binary vs the master `a1ee6e41` binary built
+in a sibling worktree, same method as §4):
+
+| stream | official | master parity | master P | D15 parity | D15 P |
+|---|---|---|---|---|---|
+| `natop_arg_order` (`slow 40000`) | 0.221 G | 16.13 G | 14.04 G | **0.280 G** | **0.269 G** |
+| `natop_2x` (`slow 80000`) | 0.221 G, accept | **exit 3** (33.08 G) | — | **accept, 0.280 G** | **accept, 0.269 G** |
+| `delta_chain` (2 000 steps) | 0.547 G | 1.403 G | 1.404 G | 1.401 G | 1.402 G |
+| `init-full-pre2` | — | 1030.76 G | 984.40 G | 1030.61 G (−0.01 %) | 984.31 G (−0.01 %) |
+
+init-full: exit 0 / 60 549 constants in all four cells (verdicts
+unchanged; the stream carries no stuck-first-argument literal op, so
+the fix is neutral there — the witness is the point).  Gates at the
+tip: `lake build` warning-free (438 jobs), `lake test`, `tests/arena.sh`
+0 FAIL — tutorial 90/92 (bad-test verdicts unchanged), e2e 75/75
+(the two new fixtures in), annot 14/14, retired/mode flags 8/8 and
+14/14, no-model sweep as recorded (3 divergences), proofdeps 1 363
+rows as pinned, doors 0, layering 0 edges (base 232 / P 160).
+Artefacts: `_tmp/divergence-audit/{arena-d15b.log,initfull-*.out}`.
