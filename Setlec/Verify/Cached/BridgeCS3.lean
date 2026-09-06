@@ -42,7 +42,7 @@ theorem checkDirectDomsAtS_sim (henv : EnvWF env) {off : Nat}
     (ht : ∀ (i : Nat) (x : Expr), doms[i]? = some x → WScoped (off + i) x) :
     ∀ {j : Nat} {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
-        (checkDirectDomsAt (sharedOpsC mode (mkFEnv env)) env off fvs doms j)
+        (checkDirectDomsAt (sharedOpsC (cfgOf mode) (mkFEnv env)) env off fvs doms j)
         (checkDirectDomsAt (fueledOpsM mode) env off fvs doms j)
   | 0, s₀, hs => SimC.pure hs rfl
   | j + 1, s₀, hs => by
@@ -71,7 +71,7 @@ theorem checkDirectFieldSortsS_sim (henv : EnvWF env) {isProp large : Bool}
       WScoped (nP + i) (Expr.fvarTypeD x)) :
     ∀ {j : Nat} {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
-        (checkDirectFieldSorts (sharedOpsC mode (mkFEnv env)) env isProp large
+        (checkDirectFieldSorts (sharedOpsC (cfgOf mode) (mkFEnv env)) env isProp large
           s nP fvs j)
         (checkDirectFieldSorts (fueledOpsM mode) env isProp large s nP fvs j)
   | 0, s₀, hs => SimC.pure hs rfl
@@ -122,7 +122,7 @@ theorem checkDirectFieldSortsS_sim (henv : EnvWF env) {isProp large : Bool}
 theorem checkDirectIndS_sim (henv : EnvWF env) {p : DirectParts}
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 (Prod.snd v).type)
-      (checkDirectInd (sharedOpsC mode (mkFEnv env)) env p)
+      (checkDirectInd (sharedOpsC (cfgOf mode) (mkFEnv env)) env p)
       (checkDirectInd (fueledOpsM mode) env p) := by
   unfold checkDirectInd
   dsimp only [sharedOpsC]
@@ -143,7 +143,7 @@ theorem checkDirectCtorS_sim (henv : EnvWF env) {env₀ : Env}
     {p : DirectParts} {cvTa : ConstantVal}
     (hTf : cvTa.type.hasFvar = false) (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 (Prod.snd v).1.type)
-      (checkDirectCtor (sharedOpsC mode (mkFEnv env)) env₀ env p cvTa)
+      (checkDirectCtor (sharedOpsC (cfgOf mode) (mkFEnv env)) env₀ env p cvTa)
       (checkDirectCtor (fueledOpsM mode) env₀ env p cvTa) := by
   unfold checkDirectCtor
   dsimp only [sharedOpsC]
@@ -217,7 +217,7 @@ theorem checkDirectRecTyS_sim (henv : EnvWF env) {p : DirectParts}
     (hCf : cvCa.type.hasFvar = false) (hRf : cvRa.type.hasFvar = false)
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkDirectRecTy (sharedOpsC mode (mkFEnv env)) env p cvTa cvCa cvRa)
+      (checkDirectRecTy (sharedOpsC (cfgOf mode) (mkFEnv env)) env p cvTa cvCa cvRa)
       (checkDirectRecTy (fueledOpsM mode) env p cvTa cvCa cvRa) := by
   unfold checkDirectRecTy
   dsimp only [sharedOpsC]
@@ -395,7 +395,7 @@ theorem checkDirectRuleS_sim (henv : EnvWF env) {p : DirectParts}
     (hCf : cvCa.type.hasFvar = false) (hRf : cvRa.type.hasFvar = false)
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkDirectRule (sharedOpsC mode (mkFEnv env)) env p cvCa cvRa)
+      (checkDirectRule (sharedOpsC (cfgOf mode) (mkFEnv env)) env p cvCa cvRa)
       (checkDirectRule (fueledOpsM mode) env p cvCa cvRa) := by
   unfold checkDirectRule
   dsimp only [sharedOpsC]

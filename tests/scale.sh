@@ -53,8 +53,9 @@
 #     unavailable (no perf in PATH, or kernel.perf_event_paranoid too
 #     restrictive), the harness SKIPS everything: prominent notice,
 #     exit 0.
-#   * the lean-inductive-models preprocessor (found like the checker
-#     finds it: $SETLEC_INDUCTIVE_MODELS, _tmp/ dev checkout, PATH).
+#   * the preprocessor (found like the checker finds it:
+#     $SETLEC_INDUCTIVE_MODELS, this build's setlec-preprocess, the
+#     _tmp/ stock dev checkout, PATH).
 #     When unavailable, only the preprocessed shapes (ctors-mod,
 #     fields-mod) are SKIPPED with a notice; everything else runs.
 #
@@ -99,8 +100,9 @@ fi
 HAVE_PP=0
 if [ -n "${SETLEC_INDUCTIVE_MODELS:-}" ]; then
   [ -x "$SETLEC_INDUCTIVE_MODELS" ] && HAVE_PP=1
-elif [ -x _tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models ] \
-    || command -v lean-inductive-models >/dev/null 2>&1; then
+elif [ -x .lake/build/bin/setlec-preprocess ] \
+    || [ -x _tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models ] \
+    || command -v setlec-preprocess >/dev/null 2>&1; then
   HAVE_PP=1
 fi
 

@@ -1,6 +1,24 @@
 name = "setlec"
-defaultTargets = ["SetlecBase", "SetlecP", "SetlecCaps", "setlec"]
+defaultTargets = ["SetlecBase", "SetlecP", "SetlecCaps", "setlec", "setlec-preprocess"]
 testDriver = "SetlecTests"
+
+# THE PREPROCESSOR, AS A LIBRARY (task #178).  `lean-inductive-models` reduces
+# an export's inductives to its five-member basis; since its `45d1346` it is
+# also a Lean library, `InductiveModels.main args (native := pred)`, whose
+# `pred` says which inductive blocks the *consumer* handles itself.  setlec's
+# direct simple-structure path handles a whole class of them, so the checker
+# ships its own front end for the tool — `setlec-preprocess`, below — and
+# spawns that instead of the stock binary.
+#
+# The pin is a commit, not a branch: the predicate mirrors a recogniser
+# (`Setlec/Kernel/Direct/Parts.lean`) and both sides of that mirror have to
+# move deliberately.  Nothing in the `Setlec.*` libraries imports this
+# dependency: it is the `setlec-preprocess` executable's alone, so the layering
+# gate and the proof-dependency pin are untouched by it.
+[[require]]
+name = "lean_inductive_models"
+git = "https://github.com/nomeata/lean-inductive-models"
+rev = "45d134663faec16f13b4885f4a5a11bdd08de1b2"
 
 # THE SEPARATION (task #161) — the ruled lib layout, as it stands after
 # the SetR removal (user ruling 2026-09-05, "do remove the SetR tier,
@@ -129,3 +147,15 @@ root = "AnnotateBasis"
 [[lean_exe]]
 name = "natop-pins-export"
 root = "PinDump"
+
+# The checker's own front end for `lean-inductive-models` (task #178): the
+# tool's `main`, passed setlec's `NativeSupport`.  `supportInterpreter` because
+# the tool imports `Lean` and replays declarations through the kernel, exactly
+# as its own executable target does upstream.  It imports no `Setlec.*` module
+# — the predicate is a documented mirror of `Setlec.directPartsCore?`, gated by
+# `tests/native-agree.sh`, not a shared definition (the two sides speak
+# different `Expr` types).
+[[lean_exe]]
+name = "setlec-preprocess"
+root = "SetlecPreprocess"
+supportInterpreter = true
