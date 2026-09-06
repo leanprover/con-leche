@@ -690,34 +690,71 @@ test is an implementation detail of the fast path again, and
 `beq = decide (a = b)` is defeq to the `BEq` instance any type gets
 from its `DecidableEq`. -/
 
-/-- The executed equality: pointer test, hash test, then a **memoized**
-structural descent.
+/-- `true` for the nodes whose comparison recurses.  The memo is
+consulted and written **only** at these (task #192): a `bvar`, `sort`,
+`const` or `lit` pair is decided without a descent, so an entry for it
+can never save a walk and every one of them costs a probe, a bucket
+cons cell and, at the end of the call, its `lean_dec_ref`.  Leaves are
+the majority of the nodes of a real term. -/
+@[inline] def beqRecursive : Expr → Bool
+  | .fvar .. | .app .. | .lam .. | .forallE .. | .letE .. | .proj .. => true
+  | _ => false
 
-The memo (keyed by the pair of addresses, storing the decided answer)
-is what keeps equality `O(DAG)` rather than `O(tree)`.  It is not
-optional at this representation: hash-consing identifies structurally
-equal terms *however they arose*, so the arena never compares two
-distinct-but-equal DAGs; the clone does exactly that whenever a
-reduction rebuilds a term the arena would have collapsed, and without
-the memo `good/perf/app-lam` (24 k arena nodes, ~10^1160 unshared
-tree) is unreachable.  Pointer identity and the hash test still carry
-the overwhelming majority of comparisons; the memo is allocated only
-on the descent. -/
-unsafe def beqGo (memo : Std.HashMap (USize × USize) Bool) (a b : Expr) :
-    Bool × Std.HashMap (USize × USize) Bool :=
-  let pa := ptrAddrUnsafe a
-  let pb := ptrAddrUnsafe b
+/-- The executed equality: pointer test, computed-word test, then a
+**memoized** structural descent.
+
+The memo is what keeps equality `O(DAG)` rather than `O(tree)`.  It is
+not optional at this representation: hash-consing identifies
+structurally equal terms *however they arose*, so the arena never
+compares two distinct-but-equal DAGs; the clone does exactly that
+whenever a reduction rebuilds a term the arena would have collapsed,
+and without the memo `good/perf/app-lam` (24 k arena nodes, ~10^1160
+unshared tree) is unreachable.  Pointer identity and the word test
+still carry the overwhelming majority of comparisons; the memo is
+allocated only on the descent.
+
+**Its shape** (task #192; the previous one was
+`Std.HashMap (USize × USize) Bool`).  Task #189 measured 46 – 52 % of
+the five slowest Mathlib declarations in `mi_malloc_small` /
+`lean_dec_ref_cold` under this function, and that traffic was the
+memo's *keys*: a `USize × USize` key is three heap objects (the `Prod`
+cell and a boxed `USize` each), allocated on **every** probe — hit or
+miss — and again on every insert, and the `Bool` payload made a fourth
+object of the bucket cons cell.  Three changes, none of them visible
+to the answer:
+
+* the key is `addr a` as a **`Nat`**, the value `addr b` as a `Nat`.
+  An address is far below `LEAN_MAX_SMALL_NAT`, so `USize.toNat` is
+  `lean_box` — a tag, not an allocation — and a probe now allocates
+  nothing at all.  `Std.DHashMap`'s `scrambleHash` folds the high bits
+  down, so the alignment zeros in the low bits do not cluster.
+* only **`true`** is recorded, as official's `expr_eq_fn` does: a
+  completed `false` aborts the whole comparison (every arm below
+  propagates it to the root), so no `false` is ever re-queried and
+  `getD pa 0 == pb` — address `0` is no object — is the whole probe.
+  A key that gets re-bound (the same `a` proved equal to a second `b`)
+  loses its old entry; that costs a re-walk, never an answer.
+* leaves are neither probed nor recorded (`beqRecursive`).
+
+Soundness is unchanged and rests on the same two runtime facts as
+before (see `beqFast`): an entry is written only after a *completed*
+descent proved that pair equal, and both roots stay live for the whole
+call, so no keyed address can be recycled underneath it. -/
+unsafe def beqGo (memo : Std.HashMap Nat Nat) (a b : Expr) :
+    Bool × Std.HashMap Nat Nat :=
+  let pa := (ptrAddrUnsafe a).toNat
+  let pb := (ptrAddrUnsafe b).toNat
   if pa == pb then (true, memo)
-  else if a.hash != b.hash then (false, memo)
+  else if a.data != b.data then (false, memo)
   else
-    match memo[(pa, pb)]? with
-    | some r => (r, memo)
-    | none =>
-      let and2 := fun (memo : Std.HashMap (USize × USize) Bool)
+    let isRec := beqRecursive a
+    if isRec && memo.getD pa 0 == pb then (true, memo)
+    else
+      let and2 := fun (memo : Std.HashMap Nat Nat)
           (x y : Expr) (z w : Expr) =>
         let (r₁, memo) := beqGo memo x y
         if r₁ then beqGo memo z w else (false, memo)
-      let (r, memo) : Bool × Std.HashMap (USize × USize) Bool :=
+      let (r, memo) : Bool × Std.HashMap Nat Nat :=
         match a, b with
         | .bvar i .., .bvar j .. => (i == j, memo)
         | .fvar i n t .., .fvar j m u .. =>
@@ -738,21 +775,22 @@ unsafe def beqGo (memo : Std.HashMap (USize × USize) Bool) (a b : Expr) :
         | .proj s i e .., .proj s' i' e' .. =>
           if s == s' && i == i' then beqGo memo e e' else (false, memo)
         | _, _ => (false, memo)
-      (r, memo.insert (pa, pb) r)
+      if r && isRec then (true, memo.insert pa pb) else (r, memo)
 
 /-- Node budget of the allocation-free descent before the memoized one
 takes over.  Almost every comparison the checker makes is decided by
-the pointer test, the hash test, or a handful of nodes; paying for a
-memo table there was measured at +33 % instructions on `init-prelude`.
-Beyond the budget the term is big enough that `O(tree)` is the real
-risk, and the memoized descent is restarted from scratch. -/
+the pointer test, the computed-word test, or a handful of nodes; paying
+for a memo table there was measured at +33 % instructions on
+`init-prelude`.  Beyond the budget the term is big enough that
+`O(tree)` is the real risk, and the memoized descent is restarted from
+scratch. -/
 def beqBudget : Nat := 4096
 
 /-- Allocation-free structural descent on a node budget: `none` when
 the budget runs out (the caller retries under the memo). -/
 unsafe def beqB (fuel : Nat) (a b : Expr) : Option Bool × Nat :=
   if ptrAddrUnsafe a == ptrAddrUnsafe b then (some true, fuel)
-  else if a.hash != b.hash then (some false, fuel)
+  else if a.data != b.data then (some false, fuel)
   else
     match fuel with
     | 0 => (none, 0)
@@ -788,13 +826,16 @@ unsafe def beqB (fuel : Nat) (a b : Expr) : Option Bool × Nat :=
 **TRUST POINT** (task #163; the first of the **two** escapes the
 verified cached variant rests on — see the census in this module's
 header docstring).  The pure spec is *decidable equality*, and under
-computed fields the hash test needs no side condition (`a.hash` is a
-function of `a`, so a hash mismatch is an inequality outright — task
-#172 B3a shrank this argument exactly as B2 predicted).  What is left
+computed fields the cheap reject needs no side condition: the whole
+packed word `a.data` is a function of `a` (task #192 widened the test
+from `a.hash`, its top 32 bits, to the word — same instruction, and it
+rejects on a `bvarB`, `fvarB` or `hasLP` disagreement too), so a word
+mismatch is an inequality outright — task #172 B3a shrank this
+argument exactly as B2 predicted.  What is left
 to trust is two facts about the runtime: (a) *pointer equality implies structural equality* —
 Lean objects are immutable, so two references to one address are one
 value (the pointer short-circuits here and in `beqB`/`beqGo`, and the
-address-pair memo keys, all rest on this); (b) *the address-keyed memo
+address-keyed memo, all rest on this); (b) *the address-keyed memo
 entries stay valid for the life of one comparison* — both roots are
 live for the whole call, so every keyed subobject is reachable and
 the collector, which never moves objects, cannot reuse a keyed
@@ -802,7 +843,7 @@ address.  The verification (`Lech/Verify/Cached/*`) consumes only
 `beq`'s pure definition and never this function. -/
 unsafe def beqFast (a b : Expr) : Bool :=
   if ptrAddrUnsafe a == ptrAddrUnsafe b then true
-  else if a.hash != b.hash then false
+  else if a.data != b.data then false
   else
     match (beqB beqBudget a b).1 with
     | some r => r
