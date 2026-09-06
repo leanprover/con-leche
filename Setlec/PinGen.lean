@@ -92,10 +92,10 @@ instance : ToExpr Setlec.BinderInfo where
   toTypeExpr := .const ``Setlec.BinderInfo []
 
 instance : ToExpr Setlec.PropWhen where
-  toExpr
-    | .never => .const ``Setlec.PropWhen.never []
-    | .ifAllZero ps =>
-      .app (.const ``Setlec.PropWhen.ifAllZero []) (toExpr ps)
+  toExpr pw :=
+    match pw.toList? with
+    | none => .const ``Setlec.PropWhen.never []
+    | some ps => .app (.const ``Setlec.PropWhen.ifAllZero []) (toExpr ps)
   toTypeExpr := .const ``Setlec.PropWhen []
 
 instance : ToExpr Setlec.BinderMeta where

@@ -118,7 +118,7 @@ parameter is.  One of the *three* shapes every basis binder reduces to
 theorem pwBit_ifAllZero_single (ψ : Name → Nat) (n : Name) :
     pwBit ψ (Setlec.PropWhen.ifAllZero [n]) = 0 ↔ ψ n = 0 := by
   rw [pwBit_eq_zero_iff]
-  simp [Setlec.PropWhen.holds]
+  simp
 
 /-! ### STOP-AND-NAME: two `pwBit` shapes, not one (ENDGAME G)
 
@@ -147,7 +147,7 @@ and `Quot.lift`'s invariance binder). -/
 theorem pwBit_ifAllZero_nil (ψ : Name → Nat) :
     pwBit ψ (Setlec.PropWhen.ifAllZero []) = 0 := by
   rw [pwBit_eq_zero_iff]
-  simp [Setlec.PropWhen.holds]
+  simp
 
 /-- `pwBit` at a two-parameter `.ifAllZero` pin: zero exactly when
 *both* parameters are.  `PSigma'.mk`'s pin, and the basis tier's only
@@ -155,7 +155,7 @@ instance. -/
 theorem pwBit_ifAllZero_pair (ψ : Name → Nat) (n m : Name) :
     pwBit ψ (Setlec.PropWhen.ifAllZero [n, m]) = 0 ↔ (ψ n = 0 ∧ ψ m = 0) := by
   rw [pwBit_eq_zero_iff]
-  simp [Setlec.PropWhen.holds]
+  simp
 
 /-- **`Empty.rec`'s type reading.**  The four moves of the module
 docstring; the leaves are `acval_basis_pinned` at `Empty`. -/

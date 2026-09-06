@@ -26,8 +26,10 @@ SPCD_P :: Setlec.Kernel.ExprOps
 SPCD_P :: Setlec.Kernel.FEnv
 SPCD_P :: Setlec.Kernel.Level
 SPCD_P :: Setlec.Kernel.Modeled
+SPCD_P :: Setlec.Kernel.Name
 SPCD_P :: Setlec.Kernel.NatOpPins
 SPCD_P :: Setlec.Kernel.PropRead
+SPCD_P :: Setlec.Kernel.PropWhen
 SPCD_P :: Setlec.Kernel.StdAxioms
 SPCD_P :: Setlec.Kernel.TrustAxioms
 SPCD_P :: Setlec.Kernel.TrustPins
@@ -376,8 +378,10 @@ sound_P :: Setlec.Kernel.ExprOps
 sound_P :: Setlec.Kernel.FEnv
 sound_P :: Setlec.Kernel.Level
 sound_P :: Setlec.Kernel.Modeled
+sound_P :: Setlec.Kernel.Name
 sound_P :: Setlec.Kernel.NatOpPins
 sound_P :: Setlec.Kernel.PropRead
+sound_P :: Setlec.Kernel.PropWhen
 sound_P :: Setlec.Kernel.StdAxioms
 sound_P :: Setlec.Kernel.TrustAxioms
 sound_P :: Setlec.Kernel.TrustPins
@@ -726,8 +730,10 @@ foldSPC_PM :: Setlec.Kernel.ExprOps
 foldSPC_PM :: Setlec.Kernel.FEnv
 foldSPC_PM :: Setlec.Kernel.Level
 foldSPC_PM :: Setlec.Kernel.Modeled
+foldSPC_PM :: Setlec.Kernel.Name
 foldSPC_PM :: Setlec.Kernel.NatOpPins
 foldSPC_PM :: Setlec.Kernel.PropRead
+foldSPC_PM :: Setlec.Kernel.PropWhen
 foldSPC_PM :: Setlec.Kernel.StdAxioms
 foldSPC_PM :: Setlec.Kernel.TrustAxioms
 foldSPC_PM :: Setlec.Kernel.TrustPins
@@ -1066,8 +1072,10 @@ P :: Setlec.Kernel.Expr
 P :: Setlec.Kernel.ExprOps
 P :: Setlec.Kernel.Level
 P :: Setlec.Kernel.Modeled
+P :: Setlec.Kernel.Name
 P :: Setlec.Kernel.NatOpPins
 P :: Setlec.Kernel.PropRead
+P :: Setlec.Kernel.PropWhen
 P :: Setlec.Kernel.StdAxioms
 P :: Setlec.Kernel.TrustAxioms
 P :: Setlec.Kernel.TrustPins

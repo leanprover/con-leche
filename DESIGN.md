@@ -44567,6 +44567,292 @@ conjuncts are matched at the same sites (`nF == 0`; `piResultIsProp` =
 `Level.isEquiv u .zero`, i.e. `normalizes_to_zero`).  No code change;
 the table row is corrected above.
 
+## THE SMALL-LIST `pw` CONSTRUCTORS (2026-09-06, `agent/pw-small`)
+
+**User task, verbatim:** *"let an opus agent apply a cheap
+optimization where singleton and duoton lists are folded into the PW
+data structure via dedicated constructors.  This change should be
+fully encapsulated by the data structure.  Lists only larger than 2."*
+
+The cheap sibling of the parked positional bitmask (previous section):
+same census, same target — the `List Name` cell chain behind the
+binder annotation — but no universe context, so no architecture
+impact.  It landed; the measured payoff is **about nothing**, and
+that is the section's finding.
+
+### 1. The representation
+
+    inductive PropWhen where
+      | never                                  -- nonzero everywhere
+      | always                                 -- ifAllZero []
+      | one  (p : Name)                        -- ifAllZero [p]
+      | two  (p q : Name)                      -- ifAllZero [p, q]
+      | many (p q r : Name) (rest : List Name) -- ifAllZero (p::q::r::rest)
+
+`many` stores its **first three entries plus the tail**, not a bare
+list.  That is the whole trick that keeps the change free of a
+well-formedness obligation: `ifAllZero (p :: q :: r :: rest)` reduces
+to `many p q r rest` *definitionally*, so the constructors are in
+definitional bijection with `List Name`, `ifAllZero` is a total
+normalizing function with no invariant to carry, and the view
+eliminator's `ifAllZero` case typechecks by `rfl` in every arm.  A
+bare `many (ps : List Name)` would have needed either a `3 ≤ ps.length`
+proof field or a non-canonical junk representation; neither is needed.
+
+Canonical form is therefore enforced by the smart constructor and is
+*definitional*, not a WF proof — the option the task asked to prefer.
+The datum is still an unordered, possibly-duplicated parameter set in
+list clothing: `ifAllZero` does no sorting and no deduplication, which
+is what keeps `substPW_self`/`substPW_comp` unconditional.
+
+### 2. The API — and the encapsulation argument
+
+Outside `namespace PropWhen`, **nothing mentions `always`, `one`,
+`two` or `many`** (checked: `grep -rn "PropWhen.always\|PropWhen.one\|
+PropWhen.two\|PropWhen.many\|\.always\b"` over `Setlec/`, `tests/`,
+`Main.lean`, `AnnotateBasis.lean` matches only `Kernel/Expr.lean`).
+The interface is:
+
+| name | what it is | who uses it |
+|---|---|---|
+| `PropWhen.never` | still a constructor | everywhere, unchanged |
+| `PropWhen.ifAllZero : List Name → PropWhen` | the old constructor, now an `@[inline]` normalizing **smart constructor** | every construction site, unchanged source text |
+| `PropWhen.toList` / `toList?` | the parameter list (`never ↦ []` / `none`) | the three sites that genuinely need the list |
+| `PropWhen.casesZ` | the `never \| ifAllZero ps` **view**, registered `@[cases_eliminator, induction_eliminator, elab_as_elim]` | every `cases pw with \| never \| ifAllZero ps` — verbatim as before |
+| `holds`, `isNever`, `hasParams`, `paramsDefined`, `inter`, `bindZ`, `equiv` | defined constructor-wise (fast), each re-stated in the old `never`/`ifAllZero` form as an `@[simp]` equation pair | the equations, not the definitions, are what proofs consume |
+
+`@[cases_eliminator]`/`@[induction_eliminator]` is what makes the
+change invisible to the proof tier: `cases pw with | never => … |
+ifAllZero ps => …` still elaborates, still binds `ps : List Name`, and
+still leaves goals about `ifAllZero ps`.  The only thing that stopped
+working is *definitional* unfolding at a variable list — `holds φ
+(ifAllZero ps)` is no longer `rfl`-equal to `ps.all …` — so the sites
+that leaned on that now cite the `@[simp]` equation instead.
+
+**No statement outside `Kernel/Expr.lean`, `Kernel/ZeroSet.lean`,
+`Verify/PropWhen.lean` and `Verify/ZeroSet.lean` changed.**  Every edit
+elsewhere is a tactic edit inside an unchanged theorem.  Two lemmas
+*moved* (statements identical): `PropWhen.inter_nil` and
+`PropWhen.inter_never_right`, from `Verify/PropWhen.lean` to
+`Kernel/Expr.lean` beside the definition, so they can be `@[simp]` for
+the constructor-wise proofs.  Two are new and internal:
+`PropWhen.inter_assoc` and `PropWhen.bindZ_go_append` (list-level
+replacements for the old proofs' constructor case splits).
+
+### 3. The census of routed sites
+
+Sites that *pattern-matched* on `.ifAllZero`/`.never` or needed the
+list.  Everything else — every `.ifAllZero ps` in *term* position,
+including the 156 in `SetP/BasisBlocksP.lean`, the 40 in
+`Kernel/Basis/Quot.lean` and the 17 test fixtures — needed **no
+change at all**, because the smart constructor keeps the source text
+valid.
+
+| file | site | route taken |
+|---|---|---|
+| `Kernel/Core.lean:2334` | `pwWritten` | `!pw.isNever` |
+| `Kernel/ZeroSet.lean:471` | `ZPropWhen.ofFree` | `toList?` + two `@[simp]` equations (`ofFree_never`, `ofFree_ifAllZero`) |
+| `PinGen.lean:94` | `ToExpr PropWhen` | `toList?`; still emits `Setlec.PropWhen.ifAllZero <list>` |
+| `Kernel/ExprOps.lean:797,808` | `substPW_eq_self`, `paramsDefined_of_not_hasParams` | `simp [PropWhen.hasParams] at h` → `simp at h` (the delta-unfold blocked the spec lemma) |
+| `Verify/PropRead.lean:163` | `peelNeverPis_instantiateLevelParams` | `nomatch hnev` → `simp at hnev` |
+| `SetP/Annot/Bit.lean:101,116` | `pwBit_ne_zero_of_isNever`, `isNever_iff_forall_pwBit_ne_zero` | same two moves |
+| `SetP/Step2/IrrelFastP.lean:79,88,95` | `pwBit_eq_zero_of_isProp`, `alwaysZero_iff_forall_pwBit_eq_zero` | drop `Setlec.PropWhen.holds` from the `simp` hint list |
+| `SetP/BasisEmptyP.lean:119,148,156` | the three `pwBit_ifAllZero_*` shapes | ditto |
+| `SetP/BasisEqP.lean:895` | `eqRecValT2_congr` | ditto |
+| `Verify/PropWhen.lean` (14 proofs) | the whole law battery | `show`s that relied on `bindZ f (ifAllZero ps) ≡ bindZ.go f ps` now `rw [bindZ_ifAllZero]` first; `simp [inter, holds, equiv, paramsDefined]` hints dropped |
+| `Verify/ZeroSet.lean:536,541,546,584` | the free↔canonical bridge | `rfl` → `simp`; `holds_substPW_free` is now just `Level.holds_substPW` |
+
+`Frontend/ExportC.lean`'s `parsePwD` and `parsePw` build with the
+smart constructor and did not change; nothing prints a `pw` field.
+
+**Byte-identical generator output.**  `AnnotateBasis.lean` prints the
+committed `Basis/*.lean`, `StdAxioms.lean` and `TrustAxioms.lean`
+literals with `repr`, so the *derived* `Repr` was load-bearing.  It is
+replaced by a hand-written instance that reproduces the old
+two-constructor derivation exactly (`Repr.addAppParen (Format.group
+(Format.nest (if prec ≥ 1024 then 1 else 2) …)) prec`, the shape
+`Lean/Elab/Deriving/Repr.lean` emits).  Verified mechanically: all
+**29** records the generator prints appear verbatim (indented by two)
+in the committed files, before and after the change, and the two
+generator runs are `diff -q` identical.
+
+### 4. The module boundary — the representation is hidden, not hidden
+by convention (user follow-up, same session)
+
+**User question:** why are `PropWhen`'s operations not in their own
+module exposing only an API?  They are now, and the boundary is
+enforced by the compiler.
+
+**The split.**  `Setlec/Kernel/Name.lean` and
+`Setlec/Kernel/PropWhen.lean` come out of `Setlec/Kernel/Expr.lean`, in
+that order: the datum needs `Name` and nothing else, so it sits *below*
+the expression type it annotates.  `Expr.lean` publicly imports
+`PropWhen`, so no other file's imports changed.  Layering holds: the
+module imports `Setlec.Kernel.Name` and nothing else — nothing from
+`SetTheory`/`SetModel`/`Semantics`/`SetP`/`Verify`.
+
+**The representation.**  `PropWhenRepr` (the five constructors) is a
+`private inductive`; `PropWhen` is a one-field structure whose
+constructor *and* field are `private`:
+
+    private inductive PropWhenRepr where
+      | never | always | one (p) | two (p q) | many (p q r) (rest)
+    structure PropWhen where
+      private ofRepr ::
+      private repr : PropWhenRepr
+
+Checked, not asserted (`_tmp/leak.lean`): outside the module
+`Setlec.PropWhenRepr` is an unknown identifier, `⟨_⟩` is refused
+("Constructor for `Setlec.PropWhen` is marked as private"), `pw.repr`
+is refused, `PropWhen.ofRepr` does not resolve.  `never` is a
+*definition* now rather than a constructor; `.never` reads the same at
+every use site.
+
+**The exported surface** — this list is the whole of it:
+
+| kind | names |
+|---|---|
+| type | `PropWhen` |
+| constructors | `never`, `ifAllZero : List Name → PropWhen` |
+| views | `toList`, `toList?`, `casesZ` (registered `@[cases_eliminator, induction_eliminator, elab_as_elim]`) |
+| observers | `holds`, `isNever`, `hasParams`, `paramsDefined`, `inter`, `bindZ`, `bindZ.go`, `equiv` |
+| instances | `DecidableEq` (via `decEq`), `Hashable` (via `hash'`), `Inhabited`, `Repr` (via `reprPrec'`) |
+| shape equations | `toList_never`, `toList_ifAllZero`, `toList?_never`, `toList?_ifAllZero`, `ifAllZero_ne_never`, `ifAllZero_toList` |
+| observer equations (`@[simp]`) | `holds_never/_ifAllZero`, `isNever_never/_ifAllZero`, `hasParams_never/_ifAllZero`, `paramsDefined_never/_ifAllZero`, `inter_never_left/_never_right/_ifAllZero/_nil`, `nil_inter`, `inter_eq_toList`, `bindZ_never`, `bindZ_go_nil`, `bindZ_ifAllZero`, `equiv_never_never/_never_ifAllZero/_ifAllZero_never/_ifAllZero` |
+| laws | `holds_inter`, `holds_bindZ_go`, `holds_ext`, `equiv_iff_holds`, `equiv_refl`, `holds_eq_of_equiv`, `paramsDefined_inter_of`, `inter_assoc`, `bindZ_inter`, `bindZ_go_append`, `bindZ_congr_names`, `bindZ_unit` |
+
+The laws moved in from `Setlec/Verify/PropWhen.lean` under the
+`CLAUDE.md` Std.HashMap exception (a self-contained data-structure
+verification may live with the structure), statements unchanged.  What
+stayed behind is exactly what is *not* about the datum alone: the
+`Level`-facing laws (`zeronessOf_sound`, `holds_of_equiv_zeronessOf`,
+`zeronessOf_subst`, `substPW_self`, `substPW_comp`,
+`substPW_paramsDefined`, `zeronessOf_paramsDefined`, `holds_substPW`),
+which live above `Level` and are now pure consumers of the API —
+`Verify/PropWhen.lean` shrank 443 → 263 lines.  `Kernel/ZeroSet.lean`
+and `Verify/ZeroSet.lean` were already consumers (`toList?` plus the
+exported equations) and needed no change.
+
+**THE FINDING: hiding a representation in Lean's module system means
+*sealing*, and sealing here is free.**  An `@[expose]`d public
+declaration may not mention a private one — so a private representation
+forces the whole module out of `@[expose]` (`public section` only), and
+with it every `rfl`, `decide` and `#guard` that downstream might reduce
+through a `PropWhen` body, `DecidableEq Expr` included.  Whether that
+is affordable is not a matter of opinion, so it was measured before it
+was chosen: sealing the module (one line) and rebuilding gives **0
+errors and 0 warnings across all 442 modules, and `lake test` green**.
+The exported lemma set was already sufficient; nothing outside the
+module had been reaching through it.  Two mechanical consequences
+inside the module: `bindZ.go` becomes a top-level
+`def PropWhen.bindZ.go` (a `where` auxiliary of a sealed def is private
+and could not be named by the exported laws — the *statements* that
+mention it are unchanged), and the equation lemmas are tactic proofs
+rather than `rfl`, since an exported theorem may not rest on a sealed
+body (`simp [holds]` works: equation lemmas are exported; `:= rfl` does
+not: the kernel would have to unfold).
+
+**Runtime cost of the wrapper: none.**  Lean erases the one-field
+structure.  The generated C for `Level.zeronessOf` is byte-for-byte
+what it was before the wrapper — `lean_box(1)` for `ifAllZero []`, a
+single `lean_alloc_ctor(2, 1, 0)` for `ifAllZero [n]`, no intermediate
+list.
+
+**The proof-dependency pin moved, and it is the split, not a door.**
+`tests/proofdeps-expected.txt` gains exactly 8 rows —
+`Setlec.Kernel.Name` and `Setlec.Kernel.PropWhen` in each of the four
+capstones' closures — and loses none; `Setlec.Kernel.Expr`, which those
+two were carved out of, is still in all four.  Same constants, new
+module names.  Regenerated with `tests/proofdeps.sh --list`, justified
+here as the gate requires.
+
+### 5. The receipts
+
+`perf stat -e instructions:u`, `ulimit -v 16000000`, VmHWM sampled once
+a second over the process tree (no `/usr/bin/time` on this box; other
+agents' checker runs share the machine, so the sampler descends *our*
+pid tree rather than matching by name — an earlier by-name sample read
+13.9 GB off someone else's run).  init-full-pre2, `--pre`; 60 549
+accepted in every cell.  Run-to-run spread on init-full instructions is
+0.001–0.01 % (two runs per cell), so everything below is above noise
+and all of it is negligible.
+
+**(a) The datum change alone**, measured at the branch point
+`58c39103` against the same worktree before and after — this is the
+apples-to-apples number for the small-list constructors:
+
+| stream / mode | master `58c39103` | `agent/pw-small` | Δ |
+|---|---|---|---|
+| init-full P (`--set-model`) | 984.584 / 984.575 G | 983.149 / 983.201 G | **−0.14 %** |
+| init-full parity (`--no-model`) | 1030.849 / 1030.953 G | 1031.246 / 1031.281 G | **+0.03 %** |
+| grind-ring-5 (median of 3) | 46.895 G | 46.800 G | **−0.20 %** |
+| init-full P VmHWM | 933 884 kB | 933 396 / 935 912 kB | ≈ 0 |
+| init-full parity VmHWM | 919 692 kB | 924 672 / 916 104 kB | ≈ 0 (spread 0.9 %) |
+| grind-ring-5 VmHWM | 267 588 kB | 264 028 kB | −1.3 % |
+
+**(b) The landed branch, after the module split and the hiding**,
+against post-merge master `e736f24d` built in its own worktree:
+
+| stream / mode | master `e736f24d` | `agent/pw-small` tip | Δ |
+|---|---|---|---|
+| init-full P | 980.735 G | 980.314 / 980.219 G | **−0.05 %** |
+| init-full parity | 1030.695 / 1030.717 G | 1031.935 / 1031.997 G | **+0.12 %** |
+| grind-ring-5 (median of 3) | 46.817 G | 46.772 G | **−0.10 %** |
+| init-full P VmHWM | 940 192 kB | 938 652 kB | −0.16 % |
+| init-full parity VmHWM | 925 496 kB | 921 164 kB | −0.47 % |
+| grind-ring-5 VmHWM | 270 352 kB | 270 644 kB | +0.11 % |
+
+The module boundary and the hiding therefore cost nothing measurable in
+either direction — the codegen is unchanged, and the only movement
+between (a) and (b) is inside the same tenth of a percent.
+
+(The branch was merged forward once more before the seal, to
+`f0009992`; that master's own work moves the absolute numbers a long
+way — init-full P 842.27 G, parity 813.85 G at the final tip, 60 549
+accepted in both — so it is table (b), taken against `e736f24d` with
+both sides built in the same session, that is this change's receipt.)
+
+Verdicts: `tests/arena.sh` 0 FAIL — 90/92 good, 76/76 e2e, 14/14 annot,
+8/8 retired flags, 14/14 mode flags, the 3 recorded no-model
+divergences, layering 0 impl→theory, proofdeps 0 doors (against the
+regenerated 1371-row pin, §4); `lake build` warning-free; `lake test`
+green; the annotate-basis generator's output `diff -q` identical across
+every stage; the four capstones' axioms exactly `[propext,
+Classical.choice, Quot.sound]`.
+
+**Why so little — and it was predictable.**  The census already said
+the payload is 0.075 % of peak RSS.  What this change actually saves
+is *one heap object per non-empty datum*: `ifAllZero [p]` was a
+16-byte datum plus a 24-byte cons cell, `one p` is a single 16-byte
+object, and `ifAllZero []` is now `lean_box(1)`, a scalar with no
+object at all.  Against the census's 34 095 distinct data / 33 232
+cons cells (1.34 MB) that is ~0.8 MB, i.e. 0.09 % of RSS — which is
+exactly the size of the observed RSS deltas.  The instruction side
+gets the derived `Hashable`/`DecidableEq` and `equiv` on one fewer
+level of indirection, `inter` answering `always`/singleton pairs
+without an append, and `bindZ` answering a singleton with no `inter`
+at all; the code generator turns `zeronessOf` into `lean_box(1)` /
+`lean_box(0)` / one `alloc_ctor` with no intermediate list
+(inspected in `Kernel/Level.c`).  It adds up to a seventh of a
+percent.
+
+The parity mode's +0.03 % (+0.12 % at the tip) is the mirror:
+`--no-model` spends proportionally less of its time where the datum is
+read, so the slightly deeper `inter`/`equiv` decision trees are not
+paid back.  Reproducible across two runs per cell against a 0.01 %
+spread, and still negligible.
+
+**The standing verdict this confirms.**  The packed-bitmask landing
+measured −1.8 % / −2.3 % and the user parked it as "not worth the
+architecture impact".  This variant costs *no* architecture — the
+representation is now *provably* invisible above the module (a private
+inductive behind a private-constructor wrapper, in its own sealed
+module — §4), the P tier never learned it exists — and correspondingly
+buys about a tenth of that.
+The `pw` datum is now closed as a performance lever in both
+directions: cheap changes buy nothing measurable, and the change that
+buys 2 % costs a universe context threaded through the whole
+verification tier.
 
 ## The Mathlib frontier ladder: `.proj` on a mutual-block member — a *recognizer* gap, and the residue outside the projection functions is **zero** (2026-09-06, `agent/next-frontier`)
 
