@@ -1529,23 +1529,21 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           pure true
         else stuckIrrelI mode r fe depth a' b'
       else stuckIrrelI mode r fe depth a' b'
-    | some (.forallE n₁ ty₁ body₁ m₁), some (.forallE n₂ ty₂ body₂ m₂) => do
+    | some (.forallE _n₁ ty₁ body₁ m₁), some (.forallE n₂ ty₂ body₂ m₂) => do
       -- prop-ness agreement checked LAST (task #161); see `defeqBody`
       unless ← r.defeq depth ty₁ ty₂ do return false
-      let fv₁ ← internI (.fvar depth n₁ ty₁)
-      let b₁ ← inst1M body₁ fv₁
-      let fv₂ ← internI (.fvar depth n₂ ty₂)
-      let b₂ ← inst1M body₂ fv₂
+      let fv ← internI (.fvar depth n₂ ty₂)
+      let b₁ ← inst1M body₁ fv
+      let b₂ ← inst1M body₂ fv
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
       if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
       pure true
-    | some (.lam n₁ ty₁ body₁ m₁), some (.lam n₂ ty₂ body₂ m₂) => do
+    | some (.lam _n₁ ty₁ body₁ m₁), some (.lam n₂ ty₂ body₂ m₂) => do
       unless ← r.defeq depth ty₁ ty₂ do return false
-      let fv₁ ← internI (.fvar depth n₁ ty₁)
-      let b₁ ← inst1M body₁ fv₁
-      let fv₂ ← internI (.fvar depth n₂ ty₂)
-      let b₂ ← inst1M body₂ fv₂
+      let fv ← internI (.fvar depth n₂ ty₂)
+      let b₁ ← inst1M body₁ fv
+      let b₂ ← inst1M body₂ fv
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
       if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-lam)")
