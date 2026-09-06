@@ -52775,3 +52775,152 @@ flags 8/8, mode flags 16/16, prelude counts 3/3, progress lane 6/6,
 trusted sweep 138 + 100 + 14 with the 3 recorded divergences.
 init-full accepted in both modes with the same counts (§5).  Master
 merged (it had moved by a README edit only).
+
+## TASK #197 — THE `equiv` COMPARISON IS DELETED: a canonical datum is compared with `==` (2026-09-06, `agent/pwclean`)
+
+**User question, verbatim:** *"Wasn't there some code we can delete
+once we normalized the PropWhen structure?"*  Yes: everything that
+existed because two data could be zero-ness-equal without being
+equal.  Task #194 made the representation canonical; this task
+removes the machinery that compensated for it not being.
+
+### 1. The deletion list (line numbers at master `9f8afb32`)
+
+| declaration | file:line | why it existed |
+|---|---|---|
+| `PropWhen.equiv` | `Kernel/PropWhen.lean:454` | the containment test — the only comparison sound *and* complete on a non-canonical datum |
+| `PropWhen.equiv_iff_eq` | `:457` | #194's bridge from the old comparison to equality |
+| `PropWhen.equiv_refl` | `:461` | the fold's vacuous self-comparison step |
+| `PropWhen.equiv_iff_holds` | `:871` | soundness + completeness of the containment test |
+| `PropWhen.equiv_never_never`, `equiv_never_ifAllZero`, `equiv_ifAllZero_never`, `equiv_ifAllZero` | `:878–895` | the comparison's equations in the `never`/`ifAllZero` view |
+| `PropWhen.holds_eq_of_equiv` | `:1062` | "equivalent data read equal bits" — the transport the P3 tier consumed |
+| `PropWhen.holds_of_equiv_zeronessOf` | `Verify/PropWhen.lean:69` | the establishment law along `equiv` |
+| `pwBit_eq_of_equiv` | `SetP/Annot/Bit.lean:121` | transport of the bit along a passed comparison |
+| `pwBit_of_equiv_zeronessOf` | `SetP/Annot/Bit.lean:130` | transport of the bit along a passed validation |
+
+What replaces them: nothing, or one line.  `DecidableEq PropWhen` is
+decided constructor-wise directly (`decEq := decidable_of_iff (equivR
+a.repr b.repr = true) …`, the same `equivR` as before, so `==`
+compiles to the same code `equiv` did — checked in `PropWhen.c`).
+`SetP/Annot/Bit.lean` keeps **one hypothesis-free law**,
+`pwBit_zeronessOf φ v : pwBit φ (zeronessOf v) = 0 ↔ eval φ v = 0`
+(soundness of the readout as a bit); every former transport is a
+`rw` with the equality the run hands over.  Net: 29 files, +244 /
+−666 lines.
+
+### 2. The 57 call sites, and where the tier reasoned "equiv but not equal"
+
+* **Executable** (21 sites: `Kernel/Core.lean` ×9, `Cached/CoreC.lean`
+  ×9, `Kernel/PropRead.lean` `isProp`, `tests/LechTests.lean` ×2):
+  `a.equiv b` → `a == b`, verbatim otherwise.
+* **The inversion lemmas** — this is the substantive change.
+  `inferTypeCore_forall_inv` / `_forallE_inv` / `etaCertP` inversion
+  (`Verify/InferLemmas.lean:211,213,380,2239`) and the io twins
+  (`Verify/InferIOLemmas.lean:44,110,112`) used to export the
+  validation as a *Bool* conjunct `(zeronessOf v).equiv m.pw = true`
+  (resp. `m.pw.equiv pwI = true`, `m₁.pw.equiv m₂.pw = true`), and
+  every consumer then transported bits along it.  They now export the
+  **equality** `Level.zeronessOf v = m.pw` / `m.pw = pwI` / `m₁.pw =
+  m₂.pw`; the proofs gain one `eq_of_beq` at each export.
+* **The consumers** (`SetP/Step2/DefEqP.lean` ×2, `StuckP.lean`,
+  `InferP.lean` ×2, `InferIOP.lean` ×2, `IrrelFastP.lean`,
+  `Annot/ValidV.lean` (its own hypothesis is the equality now),
+  `AxiomBitsP.lean` ×5, `AxiomReduceP.lean` ×3,
+  `Direct/DirectBitsP.lean`): `pwBit_eq_of_equiv h φ` → `rw [h]`
+  (or `rw [eq_of_beq h]` where `h` is the run's own `==` certificate
+  read off the code, DefEqP's "KEY DELTA" blocks);
+  `pwBit_of_equiv_zeronessOf h φ` → `rw [← h]; exact
+  pwBit_zeronessOf φ _`.
+* **The run-lemma proofs** over the checker bodies (`Verify/
+  BinderLoop.lean` ×29, `Cached/BinderLoopC.lean` ×24, `DiscC2/4/5`):
+  textual `.equiv` → `==`; the two `simp [PropWhen.equiv_refl]` are
+  plain `simp` (`beq_self_eq_true`).
+
+### 3. Borderline items, left in place
+
+* **`toList?`** — four genuine users, all *printing*: `PinGen.lean:116`
+  (`ToExpr`), `PinGen/Dump.lean:368,373` (the pin dump), `Kernel/
+  BasisGen.lean:122`.  It inverts `ifAllZero`; nothing about it is
+  non-canonical.
+* **`casesZ`** — the `never | ifAllZero ps` view eliminator behind
+  `cases pw with` at 18 sites in 5 files (`Verify/PropWhen.lean`,
+  `ExprOps.lean`, `SetP/Annot/Bit.lean`, `IrrelFastP.lean`,
+  `BasisEmptyP.lean`, …).  It is the API for case analysis, not a
+  non-canonical reading; its `ifAllZero` case is offered for every
+  list, which is sound because the smart constructor normalizes.
+* **The canonicity laws of #194** that nothing outside the module
+  cites yet (`eq_of_toList`, `eq_of_mem_iff`, `mem_toList_ifAllZero`,
+  `ifAllZero_eq_iff`, `ifAllZero_canon`, `sorted_toList`,
+  `inter_comm`, `inter_self`, `canon_canon`) — they are the datum's
+  own law battery (the `Std.HashMap` pattern), most are used inside
+  the module, and they are what a future consumer reaches for instead
+  of the representation.  Not deleted.
+* **`eq_iff_holds`** — cited by `Verify/AnnotDefense.lean`'s argument
+  and the module headers; the one datum law the tier needs to know.
+
+### 4. Hypotheses re-checked (item 3 of the task)
+
+Every law in `Kernel/PropWhen.lean` and `Verify/PropWhen.lean` was
+read for a definedness hypothesis that only a non-canonical input
+needed.  There is none left: `substPW_self`, `zeronessOf_subst`,
+`bindZ_unit`, `bindZ_inter`, `inter_assoc/comm/self` are
+unconditional.  The hypotheses that remain are each the law's
+*content*, not a workaround: `substPW_comp`'s `paramsDefined ps`
+(representation-independent — a parameter outside the inner
+substitution's domain is substituted on the left and cannot be on the
+right; the level side's `subst_subst` has the same one), `holds_ext`'s
+`paramsDefined ps` (parameter locality is *about* the footprint),
+`substPW_paramsDefined` / `zeronessOf_paramsDefined` (footprint
+bounds, hypotheses are the bound), and `paramsDefined_of_not_hasParams`
+/ `substPW_eq_self` (`ExprOps.lean`, the has-param shortcut's own
+premise).  Amendment 2's second finding — `PropWhen.paramsDefined`
+folded into `Expr.allLevelParamsDefined` — stays for the same reason
+it was recorded: it is the level side's definedness surfacing for the
+datum, not a canonical-form condition.
+
+### 5. Prose
+
+Every comment that described the datum as "a set in list clothing"
+compared by "the containment test `equiv`, complete" now says the one
+sentence that is true: the datum is canonical, `==` decides zero-ness
+agreement (`Kernel/PropWhen.lean` header and type docstring,
+`Verify/PropWhen.lean`, `Core.lean` ×2, `Direct/Parts.lean`,
+`PropRead.lean`, `AnnotDefense.lean`, `SetP/Annot/Bit.lean`,
+`ValidV.lean` ×2, `DefEqP.lean` ×3, `StuckP.lean` ×2, `InferP.lean`
+×4, `AxiomBitsP.lean`, `AxiomPinP.lean`, `Claims2P.lean`,
+`DirectBitsP.lean`).  DESIGN's earlier records (the amendment-2
+section, the small-list section) are history and stay as written.
+
+### 6. Gates
+
+`lake build` 640 jobs, 0 errors, 0 warnings; `lake test` green (the
+#194 canonicity guards, now spelled with `==`/`!=`); `tests/arena.sh`
+0 FAIL: layering 0 impl→theory (the module still imports only
+`Lech.Kernel.Name`); proofdeps 2515 module rows as pinned, **0
+doors** (no row vanished — the deleted theorems were leaves of the
+capstones' closures, not modules); pindump fresh; trust surface 0
+outside the allowlist; native audit 92 streams / 169 blocks / 0
+unrecognised; axioms pinned (**11** theorems at `[propext,
+Classical.choice, Quot.sound]`); arena 90/92 good, e2e 101/101,
+annot 14/14, retired flags 8/8, mode flags 16/16, prelude counts
+3/3, progress lane 6/6, trusted sweep 138 + 101 + 14 with the 3
+recorded divergences.  Verdicts unchanged everywhere; the statements
+of the pinned theorems are untouched (the inversion lemmas whose
+conjuncts changed are not pinned).
+
+### 7. Perf
+
+`perf stat -e instructions:u`, `ulimit -v 16000000`, `timeout 1800`,
+`nice -n 5`, `LECH_SUPERVISED=1`, `init-full-pre-native.ndjson --pre`,
+one cell at a time; master = `9f8afb32` built in its own worktree,
+the branch = `39568721`.  All four cells exit 0, **54 346 accepted**.
+
+| mode | master `9f8afb32` | `agent/pwclean` | Δ |
+|---|---|---|---|
+| init-full `--verified` | 658.693 G | 658.687 G | −0.001 % |
+| init-full `--trusted` | 633.350 G | 633.349 G | −0.000 % |
+
+Neutral to four digits, which is the expected receipt: `==` and the
+deleted `equiv` compiled to the same `equivR` call (#194 §2), so the
+executable did not change — this task deleted *proof* and *API*, not
+work.
