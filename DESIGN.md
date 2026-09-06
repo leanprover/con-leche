@@ -42886,3 +42886,90 @@ grant, with the names chosen once.
 > docstrings turns "namespace unchanged" into a false sentence; the
 > honest record of a rename is one table in this file, and the
 > module headers stay as written when they were true.
+
+## CLEANUP PASS B — THE R TAG AND THE P NAMESPACE (2026-09-06, `agent/cleanup-b`)
+
+Granted off pass A's finding 1 and finding 3, on master `697a74e6`.
+Two commits, both mechanical under a table, both audited as pass A
+was (the whole diff, minus the table's rewrites, minus
+`namespace`/`end`/`open` lines, listed and read).
+
+### 1. B1 — the retired lane's tag, dropped (one convention)
+
+The convention: **a record of what the checker's run established is a
+`…Run`; a record of facts about an environment is `…Facts`; a
+namespace is named for what it holds.**  The `R` on all of these was
+the collapsed lane's tag (task #161's "run conjuncts → P, derivation
+conjuncts → R" split), and the lane is gone.
+
+| old | new | old | new |
+|---|---|---|---|
+| `DeclRunR` | `DeclRun` | `DeclIndRunR` | `DeclIndRun` |
+| `ConstantValRunR` | `ConstantValRun` | `ValueFrontRunR` | `ValueFrontRun` |
+| `DeclDefnRunR` / `DeclThmRunR` / `DeclOpaqueRunR` / `DeclAxiomRunR` | `…Run` | `DivModPinRunR` / `ReducePinRunR` / `NatEqsRunR` | `…Run` |
+| `IndMembersRunR` / `IndRecsRunR` / `IndRecsFoldRunR` | `…Run` | `ProvisionRecsRunR` / `MemberValRunR` | `…Run` |
+| `IotaRuleRunR` / `IotaRulesRunR` / `IotaThmRunR` / `IotaThmNRunR` | `…Run` | `ProjFnRunR` / `ProjInstallRunR` | `…Run` |
+| `iotaRulesFactsRunR` | `iotaRulesFactsRun` | `DeclIndRunDispatchR` | `DeclIndRunDispatch` |
+| `declIndRunRR` | `declIndRun_of` (its siblings' spelling) | every `xRunR_*` lemma | `xRun_*` |
+| `BasisInstallR` | `BasisInstallRun` | `DeclDirectR` | `DeclDirectRun` |
+| `DirectProjFoldR` | `DirectProjFoldRun` | `DeclBasisR` / `declBasisR` | `DeclBasisRun` / `declBasisRun` |
+| `IotaRunsR` | `IotaRuns` | `RuleFactsR` | `RuleFacts` |
+| `DeclIndR.TemplatesR` | `DeclIndRun.Templates` (`templatesR_*` → `templates_*`) | `projFnR_head` | `projFn_head` |
+| `EnvR` | `EnvFacts` (its own docstring's word) | `EnvS2PM.toEnvR` | `toEnvFacts` |
+| `checkDeclRun_ofEnvRE` | `checkDeclRun_ofEnvFactsE` | | |
+| module `Semantics/EnvR` | `Semantics/EnvFacts` | module `Semantics/EnvRCons` | `Semantics/EnvFactsCons` |
+| module `Semantics/IndBlockR` | `Semantics/IndBlockFacts` | module `Semantics/IndRecsCoreR` | `Semantics/IndRecsCore` |
+| module `Semantics/ProjFnRR` | `Semantics/ProjFnFacts` | | |
+
+Left alone, as ruled: `piR`/`lamR` (regime), `directProjTyR`
+(residual), `quotLiftR`; also `unitPropR`, `defeqC_etaR_arm`, `bindR`,
+and hypothesis/field names (`hokR`, `invR`, `lenR`, `okR`) — none is
+the lane's tag.  Docstrings **follow** this rename (unlike pass A's
+namespace rename): a docstring naming a declaration should name one
+that exists, and no historical claim turns false by it.  The census
+was taken at the environment level (`_tmp/cleanup-b/RCensus.lean`,
+every `Setlec.*` constant with an `R`-tagged component), not by grep,
+so structure fields and auto-generated names were in view — 62 table
+rows, 509 changed lines over 51 files, all mechanical under the table.
+The proofdeps pin: zero diff modulo the five module renames.
+
+### 2. B2 — `Setlec.SetP` (finding 3, its own commit)
+
+Every `Setlec/SetP` module now declares `namespace Setlec.SetP` and
+opens `Setlec.Semantics`; the 379 qualified uses of P-defined names
+follow (`Setlec.Semantics.X` → `Setlec.SetP.X`, decided against the
+environment's list of 4 659 constants P defines), as do `MainC`'s
+`open` list and the proofdeps root `P` (`Setlec.SetP.no_proof_of_Empty_P`).
+Module rows do not move, so the pin is untouched.
+
+It was *nearly* one sed.  Three exceptions, each marked at the site:
+
+* `SetP/Annot/BitInst`'s lift-identity block and the whole of
+  `SetP/BitAgree` **extend `Setlec.Semantics.AVExpr`** — `e.liftN_zero`,
+  `e.BitAgree`, the unqualified `liftN_*` names inside the block — and
+  dot notation resolves in the type's namespace, so both stay in
+  `Setlec.Semantics` (BitAgree opens `Setlec.SetP` for `AnnotValidV`).
+  Their nine names keep their `Setlec.Semantics.AVExpr.*` spellings.
+* `SetP/AxiomMemP` names `Setlec.Semantics.pt_not_mem_univZero`
+  explicitly: inside `namespace Setlec.Semantics` the namespace
+  candidate beat `SetTheory.pt_not_mem_univZero` (opened); inside
+  `Setlec.SetP` both arrive through `open` and Lean reports the term
+  ambiguous.  Pass A's record predicted this class; it fired once.
+
+Not noisy, therefore kept.  The resolution rule it documents: a P
+module that adds lemmas into a Semantics type's namespace must say so
+(`namespace Setlec.Semantics.T`), which is now visible in the source
+instead of implicit in a shared namespace.
+
+### 3. Receipts (branch tip, master `697a74e6`)
+
+* `lake build` warning-free (B1 102 s, B2 131 s); `lake test` exit 0;
+* `tests/arena.sh` exit 0 after each commit: tutorial 90/92, e2e
+  73/73, annot 14/14, flags 8/8 + 14/14, no-model sweep as expected,
+  proofdeps 1 364 rows / doors 0, layering `base 230 / P 163 / caps 2;
+  0/0`;
+* init-full-pre2 (`--pre`, 16G, `perf stat -e instructions:u`,
+  sequential single runs): **61 048 accepted** in both modes; P
+  **987.26 G** / 166.1 s (pass A: 987.27 G, −0.001 %), parity
+  **1085.84 G** / 192.3 s (pass A: 1085.83 G, +0.001 %);
+* no `sorry`, no new axiom, no statement changed.
