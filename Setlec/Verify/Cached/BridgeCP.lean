@@ -604,7 +604,8 @@ theorem checkDeclSPStepC_run {env : Env} (henv : EnvWF env) {pd : DeclC}
     (h : checkDeclSPStepC (cfgOf mode) (mkFEnv env) pd s₀ = .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
     ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env := by
-  unfold checkDeclSPStepC at h
+  -- `progressTick` is the identity (the heartbeat hook, `ParsedC.lean`)
+  unfold checkDeclSPStepC progressTick at h
   obtain ⟨u, s₁, hflush, h⟩ := bindC_ok h
   rw [flushC_run] at hflush
   injection hflush with hflush

@@ -215,10 +215,114 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
     | some p => checkDirectStructS cfg fe p
     | none => checkIndDeclSF cfg fe block
 
-/-- One step of the converted-declaration fold: flush, then check. -/
-def checkDeclSPStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do
-  flushC
-  checkDeclSPC cfg fe pd
+/-! ## The progress heartbeat (`SETLEC_PROGRESS`, 2026-09-07)
+
+A multi-hour run over a big stream used to say nothing until it
+finished: the driver's fold is a **pure** `foldlM` in
+`StateT CState (Except CheckError)`, so there is no point at which the
+driver could interleave an `IO` print without either forking the fold
+or moving the statements that are about it
+(`checkDeclsSPCachedD_run`, `foldSPC_PM`, `checkDeclSPStepC_skels`,
+all stated over `ds.foldlM (checkDeclSPStepC cfg)`).  The
+`SETLEC_TRACE_DECLS` localisation lane pays that price by *replacing*
+the fold, which is why it is structurally unable to produce a verdict.
+
+The heartbeat here is the opposite trade: it stays **inside** the
+verified fold and buys its liveness with a *definitional identity*.
+`progressTick pd x` is `x` — that is its whole definition, and
+`progressTick_eq` is `rfl` — so the verdict, the fold's shape and
+every theorem about it are literally unchanged; the only proof-side
+cost is one extra name in the two `unfold`s that open the step.  What
+makes it print is an `@[implemented_by]` companion: the *compiled*
+`progressTickImpl` reads the shared counter, prints one line to stderr
+every `stride` declarations, and returns its argument — the same
+escape hatch `dbgTrace` is (a core `@[extern]` whose model is
+`fun s f => f ()`), in the same shape, and with the same obligation
+on the reader: **the impl must return `x` and touch nothing else.**
+It does: its only effects are a counter bump and a `putStr`/`flush`.
+
+Consequences worth stating plainly:
+
+* the heartbeat is not covered by the soundness proof, and cannot be —
+  a `Prop` cannot see a side effect.  What the proof *does* cover is
+  everything the fold computes: the printed line is the only
+  difference between the model and the binary here.
+* the module set of every capstone's constant closure is unchanged
+  (`tests/proofdeps.sh`): `progressTick` and the counter live in this
+  module, which is already pinned, and `declCLabel` — which formats a
+  name — is reached only from the *impl*, never from the logical body.
+* `stride = 0` (the default: the environment variable unset) makes the
+  impl one relaxed `IO.Ref` read per declaration, i.e. per declaration,
+  not per node.
+-/
+
+/-- The heartbeat's configuration and running position, set once by the
+driver (`Main.lean`) after the parse and read by `progressTickImpl`. -/
+structure ProgressC where
+  /-- Print every `stride` declarations; `0` — the default — is off. -/
+  stride : Nat := 0
+  /-- The number of declarations the fold will see (`N`). -/
+  total : Nat := 0
+  /-- The fold position of the next declaration (`i`). -/
+  idx : Nat := 0
+  /-- `IO.monoMsNow` at the driver's start, so every line can carry the
+  elapsed time: a declaration that sits for minutes shows up as a *gap*
+  between two heartbeats, which is the whole point of stamping them. -/
+  startMs : Nat := 0
+  deriving Inhabited
+
+/-- Milliseconds as `s.d` seconds (`12345` ↦ `"12.3"`).  `Nat`
+arithmetic — no `Float` formatting in a hot line. -/
+def msSecs (ms : Nat) : String := s!"{ms / 1000}.{(ms % 1000) / 100}"
+
+initialize progressC : IO.Ref ProgressC ← IO.mkRef {}
+
+/-- A parsed declaration's display label (`Main.declCName`, shared with
+the heartbeat).  Reached only from `progressTickImpl`, never from a
+checked path. -/
+def declCLabel : DeclC → String
+  | .defnDecl cv _ _ => s!"def {cv.name}"
+  | .thmDecl cv _ => s!"theorem {cv.name}"
+  | .opaqueDecl cv _ => s!"opaque {cv.name}"
+  | .axiomDecl cv => s!"axiom {cv.name}"
+  | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
+  | .basisDecl k => s!"basis block {repr k}"
+
+/-- The compiled behaviour of `progressTick`: bump the fold position,
+print `setlec: progress i/N <decl>` to stderr (flushed) every `stride`
+declarations, **return `x`**.  `@[never_extract]` keeps the call where
+it is written, so the line precedes the declaration's check. -/
+@[never_extract] unsafe def progressTickImpl {α : Type}
+    (pd : DeclC) (x : α) : α :=
+  unsafeBaseIO do
+    let st ← progressC.get
+    if st.stride == 0 then
+      return x
+    progressC.set { st with idx := st.idx + 1 }
+    if st.idx % st.stride == 0 then
+      let now ← IO.monoMsNow
+      let e ← IO.getStderr
+      let _ ← (do
+        e.putStr s!"setlec: progress {st.idx}/{st.total} {declCLabel pd} \
+          t={msSecs (now - st.startMs)}s\n"
+        e.flush).toBaseIO
+    return x
+
+/-- The progress hook: **the identity**, and nothing else (`rfl`).  Its
+compiled companion prints the heartbeat; see the section note above. -/
+@[implemented_by progressTickImpl]
+def progressTick {α : Type} (_pd : DeclC) (x : α) : α := x
+
+@[simp] theorem progressTick_eq {α : Type} (pd : DeclC) (x : α) :
+    progressTick pd x = x := rfl
+
+/-- One step of the converted-declaration fold: flush, then check
+(wrapped in the identity `progressTick`, whose compiled companion emits
+the opt-in heartbeat — the definition is `x`). -/
+def checkDeclSPStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
+  progressTick pd do
+    flushC
+    checkDeclSPC cfg fe pd
 
 /-- Task #171: the direct-parse driver.  `DeclC` records come straight
 from the frontend (`Setlec/Frontend/ExportC.lean`) — no arena and no

@@ -349,6 +349,19 @@ else
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"
 
+# The progress heartbeat (`SETLEC_PROGRESS=<stride>`, 2026-09-07): the
+# variable emits `setlec: progress` lines on STDERR and changes no
+# verdict — the fold is the verified one, and the per-declaration lines
+# come from an identity hook inside it.
+prog_err=$(SETLEC_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_code=$?
+if [ "$prog_code" = 0 ] && [ -n "$(printf '%s' "$prog_err" | grep '^setlec: progress ')" ]; then
+  echo "progress heartbeat: 1/1 as expected"
+else
+  echo "PROGRESS FAIL: SETLEC_PROGRESS=1 exit $prog_code, stderr: $prog_err"
+  fail=1
+fi
+
 # The mode sweep (task #147): both suites again with `--trusted`
 # (certified expectations plus the recorded overrides in
 # tests/trusted-expected.txt).  See the header.

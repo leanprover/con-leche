@@ -47877,3 +47877,52 @@ divergences); `tests/layering.sh` base 237 / P 156 / caps 2 / umbrella 1,
 across 4 capstones, **0 doors** — no regeneration needed; `init-full`
 accepted, 60 549 declarations, in both modes.  PERF.md's table is now
 stale by 16 % on `init-full` and should be regenerated at the landing.
+
+## `SETLEC_PROGRESS` — a progress heartbeat INSIDE the verified fold (2026-09-07, `agent/heartbeat`)
+
+A multi-hour run said nothing until it finished.  The obstacle is
+structural: the driver's fold is a *pure* `foldlM` in
+`StateT CState (Except CheckError)` (`checkDeclsSPCachedD`, the
+function `no_proof_of_Empty_SPCD_P` is stated over), so there is no
+point at which the `IO` driver could interleave a print — and the two
+ways out that do not need one both cost something the task forbids:
+*forking* the fold (what the `SETLEC_TRACE_DECLS` localisation lane
+does, which is exactly why that lane is structurally unable to produce
+a verdict) or *reshaping* it, which moves the statements that are
+about it.  So the heartbeat stays inside the fold and buys its
+liveness with a **definitional identity**: `progressTick pd x` is `x`
+— that is the whole definition, `progressTick_eq` is `rfl` — wrapped
+around `checkDeclSPStepC`'s body, while an `@[implemented_by]`
+companion does the printing at run time.  Nothing about the verdict,
+the fold's shape or any theorem over it changes; the entire proof-side
+cost is one extra name in the two `unfold`s that open the step
+(`checkDeclSPStepC_run`, `checkDeclSPStepC_skels`), and
+`tests/proofdeps.sh` reports **0 doors**: the hook, the counter and
+the label formatter live in `Setlec/Cached/ParsedC.lean`, a module
+already in every capstone's closure, and the formatter is reached only
+from the *impl*, never from the logical body.  The honest statement of
+what this costs: the compiled binary now differs from its model in one
+respect — a line on stderr — under the same reader's obligation
+`dbgTrace` carries (**the impl must return `x` and touch nothing
+else**; its only effects are a counter bump and a `putStr`/`flush`).
+A `Prop` cannot see a side effect, so this is not something the
+soundness proof can be made to cover; what it does cover, unchanged,
+is everything the fold computes.  The driver supplies the stride
+(`SETLEC_PROGRESS=<stride>`, validated once — a non-numeral is a hard
+error, per the provenance discipline), `N` and the run's start time
+through an `IO.Ref`, and brackets the fold with the two lines the hook
+cannot produce: `parse done` (N and the elapsed parse) and `fold done`
+(the position reached, which is `N` on an accept).  Every line carries
+`t=<elapsed>s`, so a single declaration sitting for minutes shows up
+as a *gap* between two heartbeats — the reason for stamping them.  `i`
+is the FOLD position, a constant **+4** below the stream's
+declaration-record index (the parse folds the pinned basis blocks into
+one `basisDecl`), the same offset the trace lane documents.  Two more
+notes: the supervisor now **streams** the child's stderr line by line
+instead of reading it to EOF and re-printing it at the end (a
+heartbeat that arrives after the run is not a heartbeat; the panic
+marker is looked for on the way past, so the supervision is
+unchanged), and `SETLEC_PROGRESS=1` — one flushed line per
+declaration — measured free: `init-full` 101.4 s at stride 1 against
+102.7 s with the variable unset, verdict line byte-identical in both
+modes at stride 5 000.

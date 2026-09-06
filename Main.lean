@@ -92,14 +92,25 @@ def preprocess (file : String) : IO (String × Bool) := do
     try IO.FS.removeFile tmpPath catch _ => pure ()
     return (file, false)
 
-/-- `declPName` for the direct-parse `DeclC` records (task #171). -/
-def declCName : Setlec.Cached.DeclC → String
-  | .defnDecl cv _ _ => s!"def {cv.name}"
-  | .thmDecl cv _ => s!"theorem {cv.name}"
-  | .opaqueDecl cv _ => s!"opaque {cv.name}"
-  | .axiomDecl cv => s!"axiom {cv.name}"
-  | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
-  | .basisDecl k => s!"basis block {repr k}"
+/-- `declPName` for the direct-parse `DeclC` records (task #171).  The
+formatting itself lives beside the checker (`Setlec.Cached.declCLabel`)
+because the progress heartbeat's compiled hook prints it too, and the
+two must never drift apart. -/
+def declCName : Setlec.Cached.DeclC → String := Setlec.Cached.declCLabel
+
+/-- The progress heartbeat's stride (`SETLEC_PROGRESS=<stride>`;
+2026-09-07).  `none` — the variable unset — is off; a value that is not
+a decimal numeral is a hard error, per the provenance discipline the
+retired-variable arms follow (a run's output must be readable off its
+invocation, never silently degraded).  `0` is the explicit "off". -/
+def progressStride : IO (Except String Nat) := do
+  match ← IO.getEnv "SETLEC_PROGRESS" with
+  | none => return .ok 0
+  | some s =>
+    match s.toNat? with
+    | some n => return .ok n
+    | none => return .error s!"SETLEC_PROGRESS must be a declaration stride \
+        (a decimal numeral; 0 or unset is off), got {repr s}"
 
 /-- Diagnostic second-pass loop over `DeclC` (task #171; the direct
 pipeline needs no re-parse — the records carry no arena, so the fold
@@ -148,6 +159,12 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         certified mode is --verified, the default \
         (see DESIGN.md, task #147)"
       return 3
+    -- The opt-in progress heartbeat (2026-09-07): validated here, once,
+    -- before any work is done.
+    let stride ← match ← progressStride with
+      | .error msg => IO.eprintln s!"setlec: {msg}"; return 3
+      | .ok n => pure n
+    let t0 ← IO.monoMsNow
     -- Streaming frontend (task #57): the preprocessor writes to a temp
     -- file and the parse reads line by line — no wholesale text buffer
     -- in this process.  `--pre` (an explicit user assertion, never
@@ -187,11 +204,50 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         -- bodies at `cfgP` (`cfgOf .verified`, `rfl`).
         let cfg : Setlec.CoreCfg :=
           if mode == Setlec.CheckMode.trusted then Setlec.cfgT else Setlec.cfgP
+        -- The progress heartbeat (`SETLEC_PROGRESS=<stride>`,
+        -- 2026-09-07).  The fold below is the verified one, unchanged
+        -- and unforked: the per-declaration lines come from the
+        -- identity hook inside `checkDeclSPStepC`
+        -- (`Setlec.Cached.progressTick` — its definition is `x`; the
+        -- printing is its `@[implemented_by]` companion).  All the
+        -- driver does is hand it the stride and `N` and bracket the
+        -- fold with the two lines it cannot produce itself.
+        --
+        -- **Reading the index**: `i` is the *fold* position, which the
+        -- stream's declaration-record index sits a constant **+4**
+        -- above — the parse folds the pinned basis blocks into one
+        -- `basisDecl` record (the same offset the `SETLEC_TRACE_DECLS`
+        -- lane documents, checked there at fold positions 1 000 /
+        -- 50 000 / 100 000 / 150 000 of the full Mathlib stream).
+        let tParse ← IO.monoMsNow
+        if stride > 0 then
+          Setlec.Cached.progressC.set
+            { stride := stride, total := decls.size, idx := 0, startMs := t0 }
+          IO.eprintln s!"setlec: progress parse done: {decls.size} \
+            declarations t={Setlec.Cached.msSecs (tParse - t0)}s \
+            (preprocess and parse)"
+          (← IO.getStderr).flush
+        -- The closing line, and the hook's disarm: the counter says how
+        -- far the fold got (`= N` on an accept, the failing position
+        -- otherwise), and the stride goes back to 0 so the diagnostic
+        -- second pass below — which runs the same step — is not counted
+        -- or printed a second time.
+        let progressDone : IO Unit := do
+          if stride > 0 then
+            let st ← Setlec.Cached.progressC.get
+            Setlec.Cached.progressC.set { st with stride := 0 }
+            let now ← IO.monoMsNow
+            IO.eprintln s!"setlec: progress fold done: {st.idx}/\
+              {decls.size} t={Setlec.Cached.msSecs (now - t0)}s \
+              (fold {Setlec.Cached.msSecs (now - tParse)}s)"
+            (← IO.getStderr).flush
         match Setlec.Cached.checkDeclsSPCachedD cfg decls.toList with
         | .ok env =>
+          progressDone
           IO.println s!"setlec: accepted {env.consts.length} declarations"
           return ← finish 0
         | .error e =>
+          progressDone
           -- Diagnostic second pass: the verdict above is the verified
           -- run; this only locates the failing declaration for the
           -- message.  No re-parse is needed — the records carry no
@@ -239,6 +295,20 @@ def usage : String := String.intercalate "\n" [
   "                    certain steps omitted.  Replaces the retired",
   "                    --yolo/SETLEC_NO_PROOF_CERTS and",
   "                    --infer-only/SETLEC_INFER_ONLY",
+  "  SETLEC_PROGRESS=<stride>",
+  "                    opt-in progress heartbeat on STDERR: one",
+  "                    'setlec: progress <i>/<N> <decl> t=<s>s' line",
+  "                    every <stride> declarations during the",
+  "                    (unchanged, verified) fold, plus one line when",
+  "                    the parse finishes (N and the elapsed parse) and",
+  "                    one when the fold does.  t= is the elapsed time",
+  "                    since the run started, so a declaration that",
+  "                    sits for minutes is visible as a gap between two",
+  "                    lines.  <i> is the FOLD position; the",
+  "                    stream's declaration-record index is a constant",
+  "                    +4 above it (the parse folds the pinned basis",
+  "                    blocks into one record).  Unset or 0 is off",
+  "",
   "  --pre             assert FILE is already preprocessed output of",
   "                    setlec-preprocess (or the stock",
   "                    lean-inductive-models): skip the preprocessor",
@@ -382,10 +452,23 @@ def main (args : List String) : IO UInt32 := do
         env := #[("SETLEC_SUPERVISED", some "1")]
         stdout := .inherit
         stderr := .piped }
-      let err ← child.stderr.readToEnd
+      -- The child's stderr is STREAMED, line by line, rather than read
+      -- to EOF and re-printed at the end (2026-09-07): a progress
+      -- heartbeat that only appears once the run is over is not a
+      -- heartbeat, and the same goes for the localisation lane's TRACE
+      -- lines when the run dies without returning.  The panic marker is
+      -- looked for on the way past, so the supervision below is
+      -- unchanged.
+      let errOut ← IO.getStderr
+      let mut panicked := false
+      repeat
+        let line ← child.stderr.getLine
+        if line.isEmpty then break
+        errOut.putStr line
+        errOut.flush
+        if (line.splitOn "INTERNAL PANIC").length > 1 then panicked := true
       let code ← child.wait
-      IO.eprint err
-      if code = 1 ∧ (err.splitOn "INTERNAL PANIC").length > 1 then
+      if code = 1 ∧ panicked then
         IO.eprintln "setlec: internal panic in the checker process"
         return 3
       return code
