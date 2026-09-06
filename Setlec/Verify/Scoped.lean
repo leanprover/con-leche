@@ -323,6 +323,16 @@ protected theorem bind {α β : Type} {P : α → Prop} {Q : β → Prop}
     dsimp only [Except.bind]
     exact hf a hPa σ₁ hσ₁ v σ' h
 
+/-- A conditional, branch by branch (for bodies too large for `split`'s
+simp budget). -/
+protected theorem ite {α : Type} {P : α → Prop} {c : Prop} [Decidable c]
+    {x x' g g' : CheckSM α} (hx : c → DiscV mode env P x g)
+    (hy : ¬ c → DiscV mode env P x' g') :
+    DiscV mode env P (if c then x else x') (if c then g else g') := by
+  split
+  · exact hx ‹_›
+  · exact hy ‹_›
+
 protected theorem mono {α : Type} {P Q : α → Prop} {x g : CheckSM α}
     (hPQ : ∀ a, P a → Q a) (h : DiscV mode env P x g) : DiscV mode env Q x g := by
   intro σ hσ v σ' hr

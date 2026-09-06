@@ -283,6 +283,9 @@ abbrev isPropTypeP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr �
 abbrev reduceNatP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr →
     CheckM (Option Expr) := reduceNat (pureFns mode env fuel) env
 
+abbrev boolTrueShortcutP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr →
+    CheckM Bool := boolTrueShortcut (pureFns mode env fuel)
+
 abbrev defeqSpineP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
     CheckM Bool := defeqSpine (pureFns mode env fuel) env
 
@@ -329,6 +332,8 @@ theorem projCertAt_fold (env : Env) (fuel : Nat) :
     projCertAt (pureFns mode env fuel) env = projCertAtP mode env fuel := rfl
 theorem reduceNat_fold (env : Env) (fuel : Nat) :
     reduceNat (pureFns mode env fuel) env = reduceNatP mode env fuel := rfl
+theorem boolTrueShortcut_fold (env : Env) (fuel : Nat) :
+    boolTrueShortcut (pureFns mode env fuel) = boolTrueShortcutP mode env fuel := rfl
 theorem defeqSpine_fold (env : Env) (fuel : Nat) :
     defeqSpine (pureFns mode env fuel) env = defeqSpineP mode env fuel := rfl
 

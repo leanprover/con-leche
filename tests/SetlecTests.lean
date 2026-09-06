@@ -217,25 +217,25 @@ private def pwLam (pw : PropWhen) : Expr :=
 
 -- (defeq-forall): inequivalent binder annotations on otherwise defeq
 -- ∀s are a positive decline at the verified mode …
-#guard defeqStep .setModel stubFns Env.empty 0 (fun a b => pure (a == b))
+#guard defeqStep .setModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [])) (pwForall .never)
   matches .error (.notImplemented _)
 -- … and no check at the unverified lane (official parity).
-#guard defeqStep .noModel stubFns Env.empty 0 (fun a b => pure (a == b))
+#guard defeqStep .noModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [])) (pwForall .never)
   matches .ok true
 -- Equivalent-but-unequal annotations pass: `equiv` is semantic
 -- containment, not list equality.
-#guard defeqStep .setModel stubFns Env.empty 0 (fun a b => pure (a == b))
+#guard defeqStep .setModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [.str .anonymous "u", .str .anonymous "u"]))
     (pwForall (.ifAllZero [.str .anonymous "u"]))
   matches .ok true
 
 -- (defeq-lam): the λ congruence arm, same discipline.
-#guard defeqStep .setModel stubFns Env.empty 0 (fun a b => pure (a == b))
+#guard defeqStep .setModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwLam (.ifAllZero [])) (pwLam .never)
   matches .error (.notImplemented _)
-#guard defeqStep .noModel stubFns Env.empty 0 (fun a b => pure (a == b))
+#guard defeqStep .noModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwLam (.ifAllZero [])) (pwLam .never)
   matches .ok true
 

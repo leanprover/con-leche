@@ -43897,3 +43897,120 @@ doors; layering: 0 impl→theory edges.
   test, arena, proofdeps, init-full accept in both modes) plus the
   extracted slice; the full-stream rerun is a campaign measurement, not
   a fix's gate.
+### 6. Phase 2, fix 2 — D3 landed: proof irrelevance once per `is_def_eq_core` entry (`agent/divergence-d3`)
+
+**The clause.**  Official `is_def_eq_core` (`type_checker.cpp:1086-1162`)
+runs `is_def_eq_proof_irrel` ONCE (`:1118`), before
+`lazy_delta_reduction`; inside the loop an unfolding is followed only by
+`quick_is_def_eq` (`:965-969`), and the loop is re-entered from the top
+(`is_def_eq_core`, proof irrelevance included) only after a
+`reduce_nat`/`reduce_native` success (`:1010-1019`).  Ours re-entered the
+whole `defeqStep` — `propIrrel` included — through the loop continuation
+`k` after EVERY unfolding.
+
+**The change.**  `defeqStep` takes the entry flag `pi : Bool` and a
+continuation `k : Bool → Expr → Expr → m Bool`; the hoisted proof
+irrelevance is `if ← (if pi then propIrrel … else pure false)`; the
+literal-acceleration continuations call `k true` (official's
+`is_def_eq_core` restart), the four delta continuations `k false`;
+`defeqLoop` carries the flag, `defeqBody` enters at `true`.  The twins
+`defeqStepI`/`defeqStepNC` and their loops/bodies mirror it verbatim.
+No other clause moved: the syntactic fast path and `whnfCore` still run
+on every iteration (official's post-step `quick_is_def_eq` and
+`whnf_core(cheap_proj)` of the unfolded side), the fold guard, the hint
+comparison and the structural arms are untouched.
+
+**Why cost only.**  A re-run could not answer differently: the gate
+hides `propIrrel` on the delta continuations only, where the previous
+iteration's `propIrrel` on the same pair (up to an unfolding, which
+preserves the type and hence proof-hood) returned `false`; the memo
+(`defeqC`, keyed on `defeq` entries) is unchanged.  Removing calls can
+only remove throws.
+
+**Proofs.**  The flag is threaded through the step/loop statements:
+`defeqStep_disc`/`defeqLoop_disc` (+ `propIrrelIf_disc`, the
+`reduceNatIf_disc` pattern), `defeqLoop_shift` (+ `propIrrelIf_shift`),
+`defeqStep_atF`/`defeqLoop_atF`, `defeqStep_{fst,snd}_proj`/
+`defeqLoop_*_proj`, `defeqStepC_sim`/`defeqLoopC_sim`/`defeqBothC` (+
+`propIrrelIfC_sim` in `DiscC2`), and the P claims `DefEqStepAtP`
+(`∀ pi, DefEqContP (k pi)`, `∀ pi`), `DefEqStuckP` (the gated
+`propIrrelP … = .ok false` hypothesis), `defeqLoop_contP`,
+`defeqStep_claimP` (the `true` verdict of the gated run is read back
+through `split at hir`; delta sites use `hk false`, literal sites
+`hk true`), `defeqStuck_claimP`, and the tier discharge in `TiersP`.
+`tests/SetlecTests.lean`'s five `defeqStep` guards pass `true`.  No new
+axiom, no `sorry`; the four capstones stay at `[propext,
+Classical.choice, Quot.sound]`.
+
+**Receipts** (worktree binary; same method as §4; no init-full cell —
+perf is after the grant per the coordinator):
+
+| stream | official | before (D15 tip) | D3 |
+|---|---|---|---|
+| `delta_chain` parity (theorem cost = run − `delta_ctrl`) | 9 M instr | 44 M (1.403 − 1.360 G) | **21.4 M** (1.3785 − 1.3571 G) |
+| `delta_chain` P | — | ≈ 44 M | **22.5 M** (1.3978 − 1.3753 G) |
+| `natop_arg_order` | 0.221 G | 0.280 / 0.269 G | 0.280 / 0.269 G |
+
+Per lockstep delta step: 22 k → 10.7 k instructions (official 4.4 k;
+the remainder is the per-iteration `whnfCore` pair + fold-guard reads +
+the `hasFvar`/hint reads, and the knot's memo probes).  Gates at the
+tip: `lake build` warning-free (438 jobs), `lake test`, `tests/arena.sh`
+0 FAIL (tutorial 90/92, e2e 75/75, annot 14/14, flags 8/8 + 14/14,
+no-model sweep as recorded), proofdeps 1 363 rows / doors 0, layering
+0 edges.
+
+### 7. Phase 2, fix 3 — E2 landed: the eq-true shortcut at official's position (`agent/divergence-d3`)
+
+**The clause.**  Official `is_def_eq_core:1093-1101`: after
+`quick_is_def_eq` and before the `cheap_proj` `whnf_core` pair — if `s`
+is the constant `Bool.true` and `t` has no free variables (or the eager
+flag is set), `whnf(t)` (the full cached loop) and succeed iff the
+result is `Bool.true`; otherwise fall through.  Asymmetric (right side
+only), no commit on failure.
+
+**The change.**  `Expr.isBoolTrue` (the name, no levels — official's
+`is_constant(s, Bool.true)`), `boolTrueShortcut r depth a := do let w ←
+r.whnf depth a; pure w.isBoolTrue` (`Core.lean`, before `defeqSpine`),
+and in `defeqStep` right after the syntactic fast path:
+`if ← (if pi && b.isBoolTrue && !a.hasFvar then boolTrueShortcut r
+depth a else pure false) then pure true else …` — gated on the entry
+flag `pi` like proof irrelevance (official's clause sits in
+`is_def_eq_core`, never inside the lazy-delta loop).  Twins:
+`boolTrueShortcutI` (a direct head read on the reduct — `ExprC = Expr`,
+and a trailing `withStore` bind is folded away by the `do` elaborator)
+with the guard's two store reads (`isBoolTrueI`, `hasFvarI`);
+`defeqStepNC` the same.  **The eager flag is NOT mirrored** here: the
+guard is `!a.hasFvar` alone — see the D3 report's design note; the two
+read sites official has (`:1008`, `:1097`) are now both present and
+both read the fvar guard only.
+
+**Verdict-neutral.**  A `whnf` reduct is what lazy delta reaches one
+unfolding at a time (`whnf` = iterated `whnfCore` + `reduceNat` +
+one unfold; the loop runs the same three on the delta side, plus the
+quick checks), so the shortcut proves exactly what the loop would; on
+failure nothing is committed.  Cost: one memoised `whnf` instead of
+one loop iteration per unfolding on `rfl : … = true` shapes.
+
+**Proofs.**  New: `boolTrueShortcut_{atF,fst_proj,snd_proj}` (and the
+`atF_core4`/`fst_core4`/`snd_core4` rewrite lists), `boolTrueShortcutP`
++ `_fold` (`Knot.lean`), `boolTrueShortcut{,If}_disc` and **`DiscV.ite`**
+(`Scoped.lean`: the two leading conditionals of `defeqStep_disc` are
+now taken branch by branch — `split` on the grown body exceeds the simp
+step budget), `isBoolTrue_shiftFrom` + `boolTrueShortcut{,If}_shift`
+(`Deep.lean`), `isBoolTrueI_spec` + `boolTrueShortcut{,If}C_sim`
+(`DiscC2`), the guard peel in `defeqStepC_sim`, and in `DefEqP` the
+`DefEqStuckP` hypothesis for the failed shortcut, `isBoolTrue_iff`, and
+the new `true` branch of `defeqStep_claimP`: `whnf a = .ok w`,
+`w.isBoolTrue` and `b.isBoolTrue` give `w = b`, and the whnf claim
+`WhnfClaims2P` (new hypothesis `ihw`, available at both discharge
+sites) at the reduct's own reading — `b`'s — closes
+`interp aa = interp ba`.  No new axiom, no `sorry`; capstones at
+`[propext, Classical.choice, Quot.sound]`.
+
+**Receipts** (worktree binary): `delta_chain` parity 1.3789 G / P
+1.3981 G (control 1.3571 / 1.3753 G — unchanged from D3, the chain has
+no `Bool.true` side), `natop_arg_order` 0.280 / 0.269 G; gates at the
+tip: `lake build` warning-free (438 jobs), `lake test`, `tests/arena.sh`
+0 FAIL (tutorial 90/92, e2e 75/75, annot 14/14, flags 8/8 + 14/14,
+no-model sweep as recorded), proofdeps 1 363 rows / doors 0, layering
+0 edges.  No init-full cell (perf after the grant).
