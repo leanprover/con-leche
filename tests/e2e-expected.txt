@@ -408,6 +408,17 @@
 0 direct_idx_prop.ndjson pre
 1 direct_idx_prop_large_bad.ndjson pre
 1 direct_idx_prop_idx_bad.ndjson pre
+#   direct_idx_defhead (task #193): `OfFn f : Pred α` — an indexed
+#                    one-constructor family declared AT A DEFINITION
+#                    (`Pred α := α → Prop`) that only unfolds to the
+#                    telescope, Mathlib's `Presieve.ofArrows` shape; the
+#                    direct routes' `stripPis (nP + nIdx)` does not take
+#                    it, so `lechFormerTelescope` keeps it MODELLED
+#                    (the predicate used to say native off `numIndices`
+#                    alone: neither model nor install, a decline).  The
+#                    control `Rel` (telescope spelled out) goes direct.
+#                    Exported through the fixed `lech-preprocess`.
+0 direct_idx_defhead.ndjson pre
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
@@ -580,3 +591,40 @@
 #   accept, the widening's intended direction; the fixture now pins
 #   that the indexed owner goes native and installs.
 0 pre_decline_imax_field.ndjson
+
+# THE BUILT-IN PRELUDE AND THE GROUND HOIST (task #191, 2026-09-06;
+# Lech/Frontend/Prelude.lean, Lech/Frontend/NatOpGround.lean).  The
+# pin-certified Nat operations were sensitive to the stream's
+# installation order: `Nat.shiftLeft`'s certificate statements are
+# spelled over `Nat.ble`, `Nat.sub`, `Eq` and the `Bool` values, none
+# of which its own closure reaches, and lean4export's DFS order can
+# emit the operation first.  Now the six basis blocks and `Bool` are
+# installed FIRST, unconditionally (the prelude), and a pinned
+# operation's stream-certified structural ground is HOISTED ahead of it
+# (a dependency-closed reorder of the parsed list).
+#   natop_order:  the RAW lean4export of tests/e2e/src/natop_order.lean
+#                 in the exporter's own order — Nat.shiftLeft before
+#                 Bool, Nat.ble and Nat.sub.  The user's report, as a
+#                 3-theorem file.  Pre-#191 verdict: 2 ("unsupported
+#                 Nat.div/mod environment (Nat.shiftLeft)").
+#   natop_before_eq:  the same records with Nat.ble, Nat.sub and
+#                 Nat.shiftLeft (in that order, each after its ground)
+#                 hoisted ahead of `Eq` (scripts/mk_reorder_fixture.py):
+#                 the prelude alone fixes this one.  Pre-#191: 2.
+#   natop_before_ble: Nat.shiftLeft hoisted FIRST, ahead of Nat.ble and
+#                 Nat.sub: the hoist's own case.  Pre-#191: 2.
+#   prelude_bool_redefined: natop_order with `Bool : Type 1`
+#                 (scripts/mk_prelude_bool_bad.py) — a valid inductive
+#                 the official kernel accepts, but not the toolchain's
+#                 `Bool` the prelude installed first: DECLINE (exit 2,
+#                 the message names `Bool`).  Contrast the pinned basis
+#                 blocks (`Empty`/`False` above): a mismatching
+#                 redefinition of THOSE keeps REJECTING (reserved name).
+#   A stream re-declaring `Bool` identically (natop_order itself, and
+#   every fixture above that exports it) accepts with the stream copy
+#   dropped; tests/arena.sh's prelude section checks the record count
+#   is unchanged by the drop.
+0 natop_order.ndjson
+0 natop_before_eq.ndjson
+0 natop_before_ble.ndjson
+2 prelude_bool_redefined.ndjson

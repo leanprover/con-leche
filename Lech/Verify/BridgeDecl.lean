@@ -1,4 +1,5 @@
-import Lech.Verify.Bridge
+import Lech.Verify.Disc
+import Lech.Kernel.Checker
 
 /-!
 # The cache-refinement bridge, part C: the declaration checker

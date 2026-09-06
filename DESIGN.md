@@ -86,10 +86,23 @@ theorems above replace all three, claim for claim. Prose references to
 those paths elsewhere in this document are **historical citations**;
 the opening of this section is the one place kept current.
 `Lech/TTVerify/DESIGN.md` is deliberately kept (its §0/§25 are the
-house practices); so is the declarative layer
-`Lech/TT/{Syntax,Subst,Const,Judgment}` + `Lech/TT/Semantics/*`,
-whose `VExpr`/`interp`/`bval` the P tier consumes. Its design record is
-`Lech/TT/DESIGN.md`.
+house practices); so is `Lech/TT/{Syntax,Subst,Const,Judgment}`, and
+**for a reason this sentence used to state wrongly** (it read "so is
+the declarative layer … + `Lech/TT/Semantics/*`, whose
+`VExpr`/`interp`/`bval` the P tier consumes"; task #190 measured it).
+What the tower actually consumes is the **syntax**, not the
+declarative semantics: `VExpr`/`BConst`/`mkAppN` (`TT/Syntax`) and
+`liftN`/`inst`/`arrow` with their laws (`TT/Subst`) are what every
+`Semantics/*` and `SetP/*` module is written in; `TT/Const`'s basis
+constants are read by `Semantics/BasisType`, `SetModel/Value` and —
+`emptyT`, which the `Empty` letter is stated at — `SetP/CapstoneP`;
+`TT/Judgment` is kept alive by `natStepT`/`quotInvT`, which
+`Verify/Denote/SubstAlgebra` uses.  The P tier's `interp2`/`bval2` are
+its **own**, in `Lech/Semantics/*`, and never were `TT`'s.
+`Lech/TT/Semantics/*` — the declarative lane's model and its soundness
+theorem — was deleted at task #190, unread by anything but its own
+umbrella; `TT/Judgment`'s `HasType` relation lost its last reader with
+it. Its design record is `Lech/TT/DESIGN.md`.
 
 **Project goal** (set 2026-08-19): the lean kernel arena *tutorial* tests
 (except those involving custom axioms) are accepted by the checker, and the
@@ -418,7 +431,11 @@ relate the pair's components to the plain instantiations.
 * **Fuel monotonicity** (`Verify/Mono.lean`): `PairM` at
   success-refinement between two `CheckM` runs + one knot induction
   gives `whnfCore/whnf/infer/defeq/annotate/ensureSort` monotonicity.
-* **Cache simulation** (`Verify/Bridge.lean`): `FueledM` packages
+* **Cache simulation** (`Verify/Bridge.lean` — **deleted at task #190**,
+  2026-09-06: its `cached_*_sim`/`scopedSim` battery lost every consumer
+  with the interned arena; the shipped cached tier's simulation is
+  `Verify/Cached/SimC*`.  The paragraph is kept as the design record of
+  what that battery said): `FueledM` packages
   monotone fuel-indexed families; `CacheOK` backs every cache entry by
   a pure run at one fuel valid at *every* depth at which the key is
   well-scoped (see *Depth-free memo keys*); `simRel` (families vs.
@@ -515,7 +532,9 @@ to hold*):
 
 Concretely: the per-entry-point simulation is the *conditional*
 `ScopedSim` (one knot induction, `scopedSim` in
-`Lech/Verify/Bridge.lean`), and the entry-point bridges
+`Lech/Verify/Bridge.lean` — a **historical citation** since task #190
+deleted that module; `ScopedSim` itself lives on in
+`Lech/Verify/Disc.lean`), and the entry-point bridges
 (`cachedOps_*_bridge`) take `henv : EnvWF env` *and* the argument's
 `wscopedB` at the call depth.  The declaration-checker comparand
 `wfOpsM` (`Lech/Verify/BridgeDecl.lean`) conditions per call on
@@ -50845,6 +50864,1918 @@ Comparator, run for real against `landrun`: `Your solution is okay!` on
 `Lech.Challenge` / `Lech.MainTheorem` for `Lech.no_proof_of_False`, axioms
 within `[propext, Classical.choice, Quot.sound]`, solution replayed through the
 Lean kernel.
+
+## The Mathlib ladder is complete to 45.4 % with no wall — and the "pace decay" that looked like the next frontier was the localisation lane's own loop, not the checker (2026-09-06, `agent/frontier4`)
+
+This lane set out to find the rung after `agent/affine-fix`.  There
+isn't one within reach: both recorded memory rungs are retired, 45.4 %
+of the stream passes with no decline, reject, panic or fuel message,
+and no declaration costs more than five seconds.  The apparent
+throughput collapse that this record originally reported as the new
+frontier was **an artefact of the instrument**, and the retraction is
+the most useful thing in it.
+
+### 1. The stream and the denominators
+
+`_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson` (5 708 171 489 B,
+**670 982** declaration records) — the `lech-preprocess`-produced
+stream, in which the direct-shaped structures come back *unmodelled*.
+It is 56 288 records shorter than the modelled `mathlib-full-pre.ndjson`
+that `agent/frontier3` measured (727 270), so **every percentage here is
+on a different denominator than the earlier ladder's**:
+
+| rung | declaration | native record | native % | modelled % (frontier3) |
+|---|---|---|---|---|
+| 4 | `AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen` | 152 603 | **22.74 %** | 24.97 % |
+| 5 | `Algebra.tensorH1CotangentOfIsLocalization_toLinearMap` | 198 370 | **29.56 %** | 32.22 % |
+
+Percentages between the two streams are not comparable without this
+table.  `_tmp/frontier3/decl_index.py` produces it in ~3 min.
+
+### 2. What the runs establish about the CHECKER
+
+Verified mode, `ulimit -v 22000000`, over master `2664b1dd`+ and
+`5d0b12f0`+.  These facts are per-declaration and survive the
+instrument problem below, because the localisation loop runs the *same*
+`checkDeclSPStepC` the fold runs — its defect is cost per step, not
+which verdict a step gives:
+
+* **Rung 4 and rung 5 are retired outright by the affine fix.**  Both
+  were checked with the same trace timestamp as their neighbours, i.e.
+  in **under one second**:
+
+      1788708384 TRACE 152597 theorem AlgebraicGeometry.isIso_ΓSpec_adjunction_unit_app_basicOpen
+      1788708384 TRACE 152598 theorem AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen
+      1788708384 TRACE 152599 def AlgebraicGeometry.IsAffineHom.casesOn
+
+      1788709066 TRACE 198364 theorem Algebra.H1Cotangent.map.eq_1
+      1788709067 TRACE 198365 theorem Algebra.tensorH1CotangentOfIsLocalization_toLinearMap
+      1788709068 TRACE 198366 theorem Algebra.H1Cotangent.isLocalizedModule
+
+  frontier3's reading — "a class, not a declaration; only a
+  defeq/whnf strategy change retires it" — was right about the class
+  and the class went with `ProjEntry.typeAtI`.
+* **No successor rung appeared.**  The furthest run reached record
+  304 754 = **45.42 %** with no decline, no reject, no panic, no fuel
+  message.  Every previously recorded rung (17.4 % Rat K-order, 21.2 %
+  `.proj` on a mutual-block member, 24.10 % SigmaHom, and now 4 and 5)
+  is behind us.
+* **Nothing is slow.**  Over those 304 754 declarations the slowest
+  single one is **5 s** (`CategoryTheory.Limits.colimitLimitToLimitColimit_surjective`,
+  record 160 704), the next 4 s, the next 2 s, and the rest at or below
+  the log's 1 s resolution.  These are *upper bounds* — each interval
+  includes the lane's own per-step overhead.
+* **Memory is flat.**  RSS sits at ~12.1 GiB for the entire check in
+  every run — the parsed stream and nothing else; VmHWM 13.15 GiB is
+  the parse peak (5.71 GB read in 150 s).  The affine-class blow-up is
+  simply absent, and there is no accumulation.
+
+### 3. The retraction: the quadratic loop was the INSTRUMENT
+
+This record first reported a per-5 % chunk rate decaying 559 → 72
+decl/s and concluded that the frontier had become "a throughput curve"
+with a quadratic cost per accepted constant.  **That conclusion is
+withdrawn.**  `agent/fenv-linear` (`72def1a5`) measured the shipped
+fold directly on synthetic streams and found it **linear** — 89 k
+instructions per declaration, flat from 100 k to 3 M declarations.
+
+The quadratic loop was the localisation lane this agent wrote:
+
+    for d in decls do
+      …
+      match stepF fe d s with
+      | .ok (fe', s') => fe := fe'; s := s'
+
+A `for … in` over `mut` accumulators makes the compiled code
+`lean_inc` **both** the `FEnv` and the `CState` before each step, so
+both hashmaps are shared at their next insert and copy their bucket
+arrays — **per declaration**.  Measured: 1.65 M instructions/decl at
+50 k declarations, 3.2 M at 100 k, doubling with N.  Against the fold's
+flat 89 k that is the entire observed decay.
+
+So **both Mathlib pace tables measured the lane, not the checker**, and
+so did the "~25 % faster after the linear audit" comparison: the
+`Thunk CoreFnsI` removal changed how much the *lane's* copies cost.
+The tables are kept in `_tmp/frontier4/launcher-linear.log` as a record
+of the artefact, and must not be quoted as checker throughput.  What
+survives is §2 — which never depended on the rate.
+
+The lesson is a reference-counting one and belongs with "No unmemoized
+traversals": **a hand-written driver loop over `mut` state is not a
+substitute for the fold**, even when it calls the same step function.
+Linearity of the accumulator is a property of the loop's compiled form,
+not of the step, and a `for … in` over `mut` accumulators does not have
+it.  Any future instrument over the declaration list must be
+tail-recursive, and must be checked against `scripts/gen_linear_stream.py`
+with `perf stat -e instructions:u` at two sizes before its numbers are
+believed.
+
+### 4. Consequence: the trace lane does NOT land
+
+`Main.lean`'s `traceLoopC` (the `SETLEC_TRACE_DECLS` lane this agent
+built from frontier3's uncommitted patch) is **abandoned**, and this
+branch carries no `Main.lean` change.  The official mechanism is the
+`agent/ioshape` lane's **`LECH_PROGRESS`** IO fold: tail-recursive,
+linear, verified by measurement, and at stride 1 it prints every
+declaration before checking it — the same localisation, but inside the
+real fold, so it **produces a verdict**.
+
+That last point was the design constraint this lane identified and it
+is worth keeping even though its implementation is discarded.  A
+localisation loop that rebuilds the environment beside
+`checkDeclsSPCachedD` is *structurally incapable of accepting*: the
+fold is what `no_proof_of_Empty_SPCD_P` is about, so an "accept" out of
+a hand-rolled twin would be an unverified claim wearing the checker's
+exit code — the task #147 provenance rule, silent in this direction.
+`traceLoopC` handled that defensively (banner, fixed non-accepting exit
+3, location-only on error, six `tests/arena.sh` checks pinning all of
+it).  `LECH_PROGRESS` dissolves the problem instead of guarding it,
+which is the better answer: there is only ever one fold.  The arena
+checks worth carrying over in that form are: progress lines appear on
+the accepting fixture **and the verdict is still 0**; on the rejecting
+fixture the last progress line names the failing declaration **and the
+verdict is still 1**.
+
+### 5. Reading a progress index: the offset is not a constant
+
+`agent/frontier3` recorded that the trace index is "a constant +4 below
+the stream's declaration-record index".  It is neither +4 nor constant.
+
+A progress index counts the *fold's* position (0-based); the stream's
+record index is 1-based and larger, because the parse folds records
+away — each pinned basis block becomes one `basisDecl`, absorbing that
+block's `_model` companions; the `quot` block likewise; taint-skipped
+declarations vanish outright.  So the offset **starts at +1 and drifts
+upward through the prelude**, then is constant once the last basis
+block has gone by.  Measured on `mathlib-full-pre-native.ndjson`: fold
+position 0 = record 1, and the offset is **+5** from before fold
+position 1 000 onward (checked at 1 000 / 10 000 / 20 000 / 152 598 /
+198 365; the five `basisDecl`s sit at fold positions 3, 4, 12, 386 and
+29 879).  frontier3's own table already showed +5 — its `TRACE 181 570`
+was record 181 575.
+
+**So never assume an offset.**  Take a *name* off the progress line and
+hand it to `_tmp/frontier3/decl_index.py <stream.ndjson> <name>…`,
+which reports the record index and the percentage; calibrate on the
+stream in hand, at an index near the one of interest.
+
+### 6. The instruments that did work (`_tmp/frontier4/`)
+
+Kept for the acceptance run, and reusable against `LECH_PROGRESS`
+output unchanged (both emit `<epoch> <line>`):
+
+* `run-trace.sh` — frontier harness with the 22 GB cap, the timeout,
+  the RSS/read-offset sampler, and **every stderr line timestamped**
+  through an unbuffered `awk` (`systime()`), so one log is both a
+  progress signal and a per-declaration duration record.
+* `pace.sh` — pace table (elapsed, overall and per-5 %-chunk decl/s),
+  ETA, and the top-N slowest declarations, off such a log.
+* `trace_stats.sh` — the stall check (seconds since the last progress
+  line), for polling a live run.
+* The diagnosis recipe that caught the artefact, and would catch the
+  next one: when the rate decays while RSS is flat and no single
+  declaration is slow, the cost is per-accepted-constant, so look at
+  the *live* process — `perf record -p` for 25 s (here:
+  `lean_del_core_other` 30.4 %, `lean_copy_expand_array` 30.4 %,
+  `lean_mark_mt` 12.5 %) and `gdb -p` samples (`thread apply all bt` —
+  Lean runs `main` on a worker thread).  Both pointed at bucket-array
+  copies on the environment insert, which is what sent the question to
+  `agent/fenv-linear`.
+* Logs: `beb8c2bb-{p,rss}.log` (a plain run with no progress output —
+  2 h 08 min flat at 12.1 GiB and it could not say where it was, which
+  is the argument for `LECH_PROGRESS` in one line);
+  `trace-{trace,p,rss}-quadratic.log` (45.42 %);
+  `linear-{trace,p,rss}.log`, `launcher-linear.log`,
+  `pace-linear-atkill.txt` (the artefact tables).
+
+### 7. What is still open
+
+**No Mathlib verdict is claimed.**  No run reached the end of the
+stream, and the lane that ran furthest could not have produced a
+verdict in any case.  The acceptance run is the one to make once
+`LECH_PROGRESS` lands: full native stream, `LECH_PROGRESS=1`,
+22 GB cap, ≥ 6 h, pace table every 5 % — preceded by re-running
+`scripts/gen_linear_stream.py` at N = 300 000 and 1 000 000 under
+`perf stat -e instructions:u` to confirm the per-declaration cost is
+flat on the binary actually being run.
+
+### 8. Caveat
+
+Other lanes' builds and checker runs shared the machine throughout (at
+times two other `lech` processes).  Wall times carry that caveat —
+though after §3 no wall time here is load-bearing anyway.  Record
+indices, per-declaration durations at 1 s resolution, the RSS profile
+and the per-declaration verdicts do not.
+
+## ALL OF MATHLIB IS ACCEPTED: 695 202 declarations, exit 0, 57 minutes, 13.5 GB (2026-09-06, `agent/frontier4`)
+
+The goal the Mathlib ladder was climbing towards is reached.  The full
+Mathlib export, checked in the verified mode, is **accepted**: no
+decline, no reject, no fuel exhaustion, no memory wall.  The record
+below is the run, the receipts, and the retraction of the "throughput
+frontier" this same lane reported hours earlier.
+
+### 1. The verdict
+
+`_tmp/frontier4/accept-p.log`, verbatim (the binary predates the
+Setlec → Lech rename, so its own output says `setlec`):
+
+    # run-progress.sh tag=accept (SETLEC_PROGRESS=1 — THE ACCEPTANCE RUN; the exit code is the verdict)
+    # start   2026-09-06T18:08:44+00:00 (epoch 1788718124)
+    # binary  22e087c94376640fbe7af51d5d8f12f0  /home/joachim/setlec/.claude/worktrees/frontier4/.lake/build/bin/setlec
+    # mode    --verified --pre
+    # stream  /home/joachim/setlec/_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson (5708171489 bytes)
+    # limits  ulimit -v 22000000 KB, timeout 28800 s
+    setlec: accepted 695202 declarations (--verified)
+    # end     2026-09-06T19:05:45+00:00
+    # wall    3421 s
+    # exit    0  (0 accept, 1 reject, 2 decline, 3 error)
+    # traced  670979 declarations
+    # last    1788721516 setlec: progress fold done: 670977/670977 t=3392.5s (fold 3192.8s)
+    # peakRSS 13191.9 MB (sampler VmHWM)
+
+`/usr/bin/env time -v`: user 3 254.22 s, system 137.96 s, elapsed
+56:59.97, **maximum resident set size 13 508 488 KB = 12.88 GiB
+(13.51 GB)**.  Under the 22 GB virtual cap throughout; the 8 h timeout
+was never approached.
+
+**695 202 constants from 670 977 fold steps** — a declaration *record*
+carrying an inductive block installs its types, constructors and
+recursors together, so the constant count exceeds the record count.
+
+The binary is master `124c083f` (the merge of `agent/ioshape`) built in
+this worktree, md5 `22e087c94376640fbe7af51d5d8f12f0`, `lake build` 651
+jobs warning-free.
+
+### 2. The stream this is a verdict about
+
+`_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson`, 5 708 171 489 B,
+**670 982 declaration records**, `lean4export` 3.1.0 from Lean 4.29.1
+(githash `f72c35b3f637c8c6571d353742168ab66cc22c00`).
+
+It is the **native** preprocessed stream — produced by
+`lech-preprocess` against `lean-inductive-models` commit **`45d1346`**
+("Route every inductive block through one entry, with native support"),
+which carries the **pre-#175 direct predicate**.  That matters for what
+the verdict covers: this stream *predates task #175's widened
+predicate*, so **indexed families were still modeled here, not
+installed directly**.  A stream regenerated with the widened predicate
+routes more blocks through the direct installation path and is a
+different — and not yet run — acceptance subject.
+
+The native stream is also 56 288 records shorter than the modelled
+`mathlib-full-pre.ndjson` the earlier ladder used (727 270), so
+percentages are not comparable between the two without the conversion
+table in the ladder section above.
+
+The parse folds five pinned basis blocks away: 670 982 records enter,
+**670 977** fold steps come out — the `+5` offset that section
+predicted, confirmed by the checker's own `parse done` line.
+
+### 3. The pace, at every 5 %
+
+`LECH_PROGRESS=1` (stride 1: one line before every declaration), stderr
+timestamped by the harness.  "chunk" is the rate over the preceding 5 %.
+
+| mark | elapsed | overall | chunk |
+|---|---|---|---|
+| 5 % | 1.0 min | 559 decl/s | 559 decl/s |
+| 10 % | 2.5 min | 447 | 373 |
+| 15 % | 4.9 min | 344 | 235 |
+| 20 % | 6.6 min | 341 | 332 |
+| 25 % | 8.7 min | 321 | 260 |
+| 30 % | 11.8 min | 284 | 179 |
+| 35 % | 14.6 min | 269 | 206 |
+| 40 % | 17.1 min | 261 | 218 |
+| 45 % | 20.0 min | 252 | 195 |
+| 50 % | 23.0 min | 243 | 183 |
+| 55 % | 25.6 min | 240 | 214 |
+| 60 % | 28.4 min | 236 | 200 |
+| 65 % | 31.4 min | 232 | 193 |
+| 70 % | 34.9 min | 224 | 157 |
+| 75 % | 38.7 min | 217 | 148 |
+| 80 % | 43.2 min | 207 | 125 |
+| 85 % | 45.8 min | 207 | 210 |
+| 90 % | 48.4 min | 208 | 216 |
+| 95 % | 50.7 min | 210 | 245 |
+| 100 % | 53.2 min | 210 | — |
+
+**The chunk rate does not decay** — it wobbles between 125 and 373
+decl/s with the difficulty of the material and *recovers to 245 at
+95 %*, and the overall rate is flat at 207-210 decl/s from the 80 %
+mark on.  That is the signature of a linear fold: the cost per
+declaration is a property of the declaration, not of how many are
+already in the environment.
+
+Slowest declarations of the whole run (1 s resolution, and every one of
+them is a normal expensive proof, not a pathology) — **the parenthesis
+is WITHDRAWN by task #189** (see "THE FIVE SLOWEST DECLARATIONS OF THE
+ACCEPTANCE RUN", below): four of these five cost 11 – 75× the official
+kernel on their own dependency cones, and 40 – 90 % of each is
+`Expr.beq` under a memo bucket probe:
+
+| | |
+|---|---|
+| 9 s | `AlgebraicGeometry.isIso_pushoutSection_of_iSup_eq` |
+| 7 s | `AlgebraicGeometry.Scheme.exists_π_app_comp_eq_of_locallyOfFinitePresentation` |
+| 6 s | `…IsomOfJ.0.WeierstrassCurve.exists_variableChange_of_char_ne_two_or_three` |
+| 6 s | `…Lie.Cochain.0.LieModule.Cohomology.d₂₃_aux._proof_17` |
+| 5 s | `CategoryTheory.Limits.colimitLimitToLimitColimit_surjective` |
+
+### 4. Memory: flat, then one step at the end
+
+The RSS sampler (30 s interval, `accept-rss.log`):
+
+| phase | RSS |
+|---|---|
+| parse (t=0 → 200 s) | 0.07 → 12.09 GB, VmHWM 13.09 GB at the parse peak |
+| fold (t=200 → 3 050 s) | **flat 12.08 - 12.11 GB** for the whole 47 min |
+| tail (t≈3 050 → 3 392 s) | 12.10 → 13.19 GB |
+| peak | 13.19 GB sampler VmHWM / 13.51 GB `time -v` max RSS |
+
+Nothing accumulates through the check: the resident set is the parsed
+stream and stays there.  The final ~0.9 GB step is the environment's
+constant list being finished at the end of the fold.  Against the 22 GB
+cap there is 8 GB of headroom, and against the affine rung's 18.7 GB
+panic there is no comparison to make — that class is gone.
+
+### 5. The loop that produced it
+
+The run used the **`LECH_PROGRESS=1` progress loop**, not the default
+`checkDeclsSPCachedD` fold.  The user ruled that acceptable as the
+acceptance producer: the progress loop is the openly-unverified IO twin
+of the verified fold, its verdict line is byte-identical to the default
+loop's (pinned by the `agent/ioshape` progress-lane arena suite), and
+running with stride 1 is what makes a 57-minute run auditable — every
+declaration is named before it is checked, so a hang or a crash would
+have been localised instead of nameless.  The capstone still speaks
+about the verified fold; this run is the evidence that the fold's work
+completes on the corpus, declaration by declaration.
+
+### 6. The retraction that had to happen first
+
+Earlier the same day this lane reported the frontier as "a throughput
+curve" with a chunk rate decaying 559 → 72 decl/s, and named a cost
+quadratic in the environment size.  **That was the instrument, not the
+checker** (see the ladder section above): the `SETLEC_TRACE_DECLS`
+localisation loop this agent wrote used `for … in` over `mut`
+accumulators, which makes the compiled code `lean_inc` both the `FEnv`
+and the `CState` before each step, so both hashmaps copied their bucket
+arrays per declaration.  `agent/fenv-linear` measured the shipped fold
+on synthetic streams and found it flat.
+
+The two killed runs are kept as receipts **of the artefact only**, and
+must not be quoted as checker throughput:
+
+| run | binary | reached | note |
+|---|---|---|---|
+| `trace-*-quadratic` | pre-`agent/ioshape` | 45.42 % in 4 049 s | instrument artefact |
+| `linear-*` | `255eb70a` | 30.39 % in 1 410 s | instrument artefact |
+
+Set against them, the acceptance run did **100 %** in 3 193 s of fold —
+faster than either killed run reached half the stream.  The corrective
+was verified before the run rather than after: on this exact binary,
+`scripts/gen_linear_stream.py` at N = 300 000 and 1 000 000 under
+`perf stat -e instructions:u` gave **88 385** and **88 322**
+instructions per declaration, flat to 0.07 %.
+
+### 7. What this closes, and what it does not
+
+Closed: the Mathlib ladder.  Every recorded rung — 17.4 % (the Rat
+K-order divergence), 21.2 % (`.proj` on a mutual-block member), 24.10 %
+(`SigmaHom`), 22.74 % and 29.56 % of this stream (the two affine-class
+memory rungs) — is behind us, and no rung replaced them.  The corpus is
+no longer where the checker's limits are found.
+
+Not closed:
+
+* The verdict is on the **pre-#175** native stream (§2).  A stream cut
+  with the widened direct predicate routes indexed families through the
+  direct install and needs its own run.
+* The producing loop is the unverified progress twin (§5).  A run of
+  the default verified fold over the same stream would tie the verdict
+  to the capstone's own subject; it costs one 57-minute run.
+* Nothing here is a *performance* claim.  57 minutes and 13.5 GB on a
+  shared machine is a datum, not a comparison; the reference kernel was
+  not run on this stream.
+
+### 8. Receipts (`_tmp/frontier4/`)
+
+`accept-p.log` (header + verdict), `accept-progress.log` (670 979
+timestamped progress lines), `accept-rss.log`, `accept-time.txt`,
+`accept.exitcode` (0), `accept-binary.md5`, `launcher-accept.log`;
+`syn/perfstat.log` (the linearity check on the acceptance binary);
+`run-progress.sh`, `pace_progress.sh`, `trace_stats.sh` (the harness
+and its readers); and the two killed runs' logs, labelled per §6.
+
+## TASK #189 — THE FIVE SLOWEST DECLARATIONS OF THE ACCEPTANCE RUN: the tail is `Expr.beq`, not the material (2026-09-06, `agent/slowest`)
+
+**The question.**  The Mathlib acceptance run (`_tmp/frontier4/`, 695 202
+declarations, exit 0, 57 min) logged one line per declaration.  Which
+five cost the most, and is the checker doing something stupid on them?
+
+**The answer, in one line.**  All five are *stupid*, and it is the same
+stupidity: **40 – 90 % of each of them is spent inside `Expr.beq` —
+almost all of it under a `Std.HashMap` bucket probe, comparing a memo
+key against a structurally equal but freshly allocated term** — while
+the kernel's own reduction work (whnf, infer, defeq, iota, annotate,
+instantiate) is 4 – 28 %.  Against the official kernel on the *same
+bytes*, the five declarations cost **8.5× to 75×**, where the whole
+`init-full` stream costs 2.04× (PERF.md).  Nothing about the material
+explains that.
+
+### 1. The table
+
+From `_tmp/frontier4/accept-progress.log`: the heartbeat prints
+`t=<elapsed>s` (0.1 s resolution) **before** each declaration, so
+declaration *i*'s cost is the gap to line *i*+1 (`_tmp/slowest/top.py`).
+
+| # | s | fold pos | kind | declaration |
+|---|---|---|---|---|
+| 1 | 9.3 | 321 915 | theorem | `AlgebraicGeometry.isIso_pushoutSection_of_iSup_eq` |
+| 2 | 7.2 | 638 092 | theorem | `AlgebraicGeometry.Scheme.exists_π_app_comp_eq_of_locallyOfFinitePresentation` |
+| 3 | 5.9 | 279 992 | theorem | `_private.Mathlib.Algebra.Lie.Cochain.0.LieModule.Cohomology.d₂₃_aux._proof_17` |
+| 4 | 5.6 | 588 451 | theorem | `_private.…EllipticCurve.IsomOfJ.0.WeierstrassCurve.exists_variableChange_of_char_ne_two_or_three` |
+| 5 | 4.5 | 160 699 | theorem | `CategoryTheory.Limits.colimitLimitToLimitColimit_surjective` |
+
+The next ten, as context (the tail is smooth — no cliff after the five):
+
+| s | declaration |
+|---|---|
+| 4.2 | `…Lie.Cochain.0.LieModule.Cohomology.d₂₃_aux._proof_26` |
+| 3.8 | `…Lie.LieTheorem.0.LieModule.weightSpaceOfIsLieTower_aux` |
+| 3.7 | `AlgebraicGeometry.exists_appTop_π_eq_of_isLimit` |
+| 3.4 | `CategoryTheory.PreOneHypercover.sieve₁_inter` |
+| 3.0 | `groupHomology.H1CoresCoinfOfTrivial_exact` |
+| 3.0 | `Algebra.IsInvariant.exists_smul_of_under_eq_of_profinite` |
+| 2.9 | `CategoryTheory.Functor.IsDenseSubsite.isIso_ranCounit_app_of_isDenseSubsite` |
+| 2.7 | `Std.Tactic.BVDecide.BVExpr.bitblast.goCache._mutual.eq_def` |
+| 2.4 | `AlgebraicGeometry.exists_mem_of_isClosed_of_nonempty` |
+| 2.4 | `TopCat.Sheaf.IsFlasque.epi_of_shortExact` |
+
+The five together are 32.5 s of a 3 192.8 s fold (**1.0 %**), so this is
+a tail study, not a throughput lever — but the tail is where a
+divergence shows itself, and it did.  The previous finder's quick read
+(the acceptance record, §3) named the same five and called every one of
+them "a normal expensive proof, not a pathology".  **That reading is
+withdrawn by this task**: four of the five are pathological.
+
+### 2. The slices
+
+`_tmp/next-frontier/slice_fast.py` on
+`_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson` (the acceptance
+run's own stream, already preprocessed — both checkers read the same
+bytes, lech under `--pre`).  Each slice ends at its target, so the
+target is the last record; `_tmp/slowest/mknotarget.py` drops exactly
+that record to produce the `-notarget` twin, and **target cost = full −
+notarget** in both checkers.
+
+| tag | declaration | decls kept | expr nodes | bytes | target's own type+value DAG |
+|---|---|---|---|---|---|
+| t1 | `isIso_pushoutSection_of_iSup_eq` | 17 710 | 2 320 892 | 227 078 563 | 54 892 |
+| t2 | `exists_π_app_comp_eq_of_locallyOfFinitePresentation` | 29 001 | 4 513 689 | 437 544 286 | 38 695 |
+| t3 | `d₂₃_aux._proof_17` | 1 713 | 314 144 | 104 356 840 | 167 488 |
+| t4 | `exists_variableChange_of_char_ne_two_or_three` | 8 900 | 817 226 | 223 880 577 | 47 682 |
+| t5 | `colimitLimitToLimitColimit_surjective` | 4 522 | 389 947 | 70 574 609 | 25 807 |
+
+**t3 needed a multi-target slice.**  Its dependency cone contains string
+literals but not the `String` support block, so lech *declines* the
+plain cone (exit 2, "string literals before the String support
+declarations" — `strLitSupportedF`, `Lech/Kernel/FEnv.lean:114`).  It
+is sliced with `_tmp/sigmahom/slice_multi_fast.py` and the target plus
+`String,String.ofList,List,List.nil,List.cons,Char,Char.ofNat`.  This
+is a **slicer finding worth keeping**: a cone slice is not in general a
+runnable lech stream, because the literal-support guards are
+environment predicates the cone does not mention.
+
+Slice-local wall time for the target alone (`LECH_PROGRESS=1`, last
+declaration → `fold done`) against the acceptance run's heartbeat gap:
+t1 10.0 s / 9.3 s, t2 9.0 s / 7.2 s, t3 3.0 s / 5.9 s, t4 4.3 s /
+5.6 s, t5 4.0 s / 4.5 s.  The slices reproduce the phenomenon
+(the machine was loaded, so these are the loose numbers here;
+`instructions:u` below is the measurement).
+
+### 3. Instructions: official vs `--trusted` vs `--verified`
+
+`perf stat -e instructions:u`, one cell at a time, `ulimit -v
+16000000`, `timeout 900`, `nice -n 5`, `LECH_SUPERVISED=1`; official =
+`_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel`
+(the binary `scripts/perf-tables.sh` uses).  Repeated cells agreed to
+five significant figures (t1 verified 352.076 G / 352.074 G; t4's four
+lech cells re-run and reproduced to 5 digits), so the differences below
+are far above the noise.
+
+| tag | cfg | full (G) | notarget (G) | **target (G)** | × official |
+|---|---|---|---|---|---|
+| t1 | official | 220.28 | 216.95 | **3.33** | 1.0× |
+| t1 | trusted | 334.24 | 296.85 | **37.39** | 11.2× |
+| t1 | verified | 352.07 | 314.48 | **37.59** | **11.3×** |
+| t2 | official | 396.34 | 395.11 | **1.23** | 1.0× |
+| t2 | trusted | 695.45 | 673.27 | **22.18** | 18.0× |
+| t2 | verified | 788.42 | 745.20 | **43.22** | **35.1×** |
+| t3 | official | 40.43 | 37.03 | **3.40** | 1.0× |
+| t3 | trusted | 86.46 | 57.65 | **28.81** | 8.5× |
+| t3 | verified | 87.34 | 58.46 | **28.88** | **8.5×** |
+| t4 | official | 90.14 | 89.80 | **0.35** | 1.0× |
+| t4 | trusted | 131.13 | 128.67 | **2.46** | 7.1× |
+| t4 | verified | 158.20 | 132.24 | **25.96** | **75.1×** |
+| t5 | official | 32.57 | 31.59 | **0.98** | 1.0× |
+| t5 | trusted | 72.88 | 48.55 | **24.34** | 24.7× |
+| t5 | verified | 75.50 | 51.03 | **24.46** | **24.9×** |
+
+Whole-cone ratios, for scale: t1 1.60×, t2 1.99×, t3 2.16×, t4 1.76×,
+t5 2.32× verified ÷ official — i.e. **the cones are normal
+(≈ PERF.md's 2.04× on init-full) and the target alone is 8.5–75×.**
+Aggregated over the five: 160.1 G verified against 9.29 G official,
+**17.2×**.
+
+**A second, independent split falls out of the same table**: on t2 and
+t4 the *certificates* cost more than the checking.  Verified − trusted
+is 0.20 G (t1), **21.04 G** (t2), 0.07 G (t3), **23.50 G** (t4),
+0.12 G (t5).  On t4 the trusted lane checks the declaration in 2.46 G
+and the verified lane pays 25.96 G — the certification is **10.6×** the
+check.  That is a separate finding from the one below, and it has no
+counterpart in any existing census (task #172 B1's check-tax table is
+per-clause, not per-declaration).
+
+### 4. Where the time goes: `Expr.beq`, under a memo probe
+
+`perf record -F 999` attached to the process **only while it is on the
+target** (`_tmp/slowest/proftarget.sh`: run with `LECH_PROGRESS=1`,
+wait for the target's heartbeat line — the target is the slice's last
+declaration — then record).  Flat profile, `--sort symbol`, verified
+mode, grouped:
+
+| tag | `Expr.beq*` + its own memo | allocator / RC | everything else |
+|---|---|---|---|
+| t1 | 39.3 % | 52.0 % | **8.2 %** |
+| t2 | 43.4 % | 48.7 % | **8.1 %** |
+| t3 | 25.8 % | 46.0 % | 28.3 % |
+| t4 | 43.5 % | 51.6 % | **5.0 %** |
+| t5 | 45.7 % | 50.3 % | **4.0 %** |
+
+Top symbols are the same four everywhere: `Lech_Expr_beqGo`
+(19 – 22 %), `lean_dec_ref_cold` (17 – 23 %), `mi_free` (9 – 12 %),
+`mi_malloc_small` (6 – 9 %), then `beqGo`'s own
+`Std.DHashMap … get?/insert/expand` specialisations (10 – 14 % together)
+and `Lech_Expr_beqB`.  **No core symbol reaches 1 % on t1/t2/t4/t5**
+(the highest is 0.61 %) — `whnfCoreBodyI`,
+`defeqStepI`, `iotaRecI`, `inferBodyI` do not appear in the top 40 at
+all; the highest non-`beq`, non-allocator symbols are
+`ExprC.instantiateRevGo`, `ExprC.abstractRangeGo` and
+`ExprC.instantiate1Go` (0.2 – 2 %).  The allocator/RC block is
+`beqGo`'s: its memo is a `Std.HashMap (USize × USize) Bool` allocated
+**per comparison**, whose boxed `Prod` keys and boxed `Bool` values are
+malloc'd on insert and `lean_dec_ref`'d when the map dies at the end of
+the call.
+
+**Who calls it.**  `perf`'s dwarf call graph is useless on this binary
+(tail calls, no frame pointers), so the session's gdb recipe was used:
+25 samples of `gdb -p PID -batch -ex "thread apply all bt 150"` taken
+while the process was on t1's target (`_tmp/slowest/bt-t1.txt`,
+`gdbsample.sh`).  Taking the **outermost** `Expr.beq*` frame in each
+sample and reading its caller:
+
+| samples | caller of the outermost `beq` |
+|---|---|
+| 10 | `Std.DHashMap.…AssocList.get?` (the `HashMap Expr _` specialisation) |
+| 7 | `Std.DHashMap.…AssocList.get?` at `Lech_Cached_coreKnotI_spec__0` — i.e. `memoEI`/`memoBI` |
+| 3 | the shared `List.beq` specialisation |
+| 2 | truncated at 150 frames |
+| 2 | no `beq` on the stack |
+
+**17 of 25 samples are a hash-map bucket probe.**  Two live stacks
+spell the mechanism out end to end:
+
+```
+lean_dec_ref_cold
+Lech_Expr_beqFast
+Std_DHashMap_…_AssocList_get_x3f_…            ← memo bucket probe
+Lech_Cached_coreKnotI___lam__12               ← a knot field (infer)
+lean_apply_3 / Lech_Cached_inferSpineI ×6
+Lech_Cached_inferLamsLeafI → inferLamsI → inferBodyI
+```
+
+```
+Lech_Cached_ExprC_abstractRange
+Lech_Cached_annotateLamsLeafI → annotateLamsI → annotateBodyI
+Lech_Cached_coreKnotI___lam__10               ← the annotate knot field
+Lech_Cached_checkThmValC → checkDeclStepIdxC → checkDeclsProgressIO
+```
+
+### 5. The mechanism, named
+
+Every memo in the cached checker is keyed by an **expression value**:
+
+* `memoEI` (`Lech/Cached/CoreC.lean:1833`) is
+  `Std.HashMap ExprC ExprC` and backs *five* of the knot's six fields —
+  `whnfCore`, `whnf`, `infer`, `annotate`, `inferIO`
+  (`coreKnotI :1907-1932`);
+* `memoBI` (`:1849`) is `Std.HashMap (ExprC × ExprC) Bool` for `defeq`;
+* `CState` carries `instC : Std.HashMap (ExprC × List ExprC × Nat)
+  ExprC` and friends (`Lech/Cached/StateC.lean:233`).
+
+A probe hashes the key in `O(1)` (the `@[computed_field] data` word) and
+then compares it against each entry in its bucket with `Expr.beq`
+(`Lech/Kernel/Expr.lean:706-815`): pointer test, hash test, then
+`beqB` — an *allocation-free but unmemoised* descent on a 4096-node
+budget — and, when the budget runs out, **a restart from scratch** as
+`beqGo {}`, the memoised descent that allocates the `Std.HashMap`
+above.
+
+The pointer test is what makes that cheap — and it only fires when the
+probed key is *the same object* as the stored one.  In the cached
+("clone") representation it very often is not, because **`internI` is
+`ExprC.ofView`, a plain allocation with no hash-consing**
+(`Lech/Cached/StateC.lean:252`).  Every rebuild — `annotate`'s
+`instListRevM`/`abstractRangeM` telescopes, `betaPeelI`'s `instListM`,
+`whnfAppI`'s `internI (.app v a)` — mints a *fresh* node that is
+structurally equal to one already in the memo and can never be
+pointer-equal to it.  The probe therefore walks the whole DAG, with a
+hash-map insert per node, and the hash test cannot help: entries in one
+bucket have the same hash by construction.
+
+`Lech/Kernel/Expr.lean`'s own docstring (`:694-706`) predicted exactly
+this — *"hash-consing identifies structurally equal terms however they
+arose, so the arena never compares two distinct-but-equal DAGs; the
+clone does exactly that whenever a reduction rebuilds a term the arena
+would have collapsed"* — and priced it as the memo's justification.
+**This task is the missing number: on the acceptance run's hardest
+declarations that clause is 40 – 90 % of the cost, and 8.5 – 75× the
+official kernel.**
+
+**Official does the same algorithm and does not pay for it.**
+`expr_eq_fn` (`_tmp/lean4-src/src/kernel/expr_eq_fn.cpp:23-121`) is
+clause-for-clause our `beqGo`: `is_eqp` pointer test, `hash` test, a
+cache of `(lean_object*, lean_object*)` pairs.  Three differences, all
+in our disfavour:
+
+1. **Its cache is a flat `unordered_set` of address pairs with a custom
+   allocator**, created lazily, storing only "seen" (a completed
+   `false` aborts the whole comparison, so no `false` needs storing).
+   Ours is a persistent `Std.HashMap` with boxed `Prod` keys and boxed
+   `Bool` values, and it is *rebuilt and destroyed per call* — that is
+   the 46 – 52 % allocator/RC block.
+2. **It skips the cache for non-shared nodes** (`is_shared`) and for the
+   root; ours inserts at every node.
+3. **Its terms are far more often pointer-identical**, because official
+   has no annotate pass rebuilding every binder telescope, and its
+   `instantiate`/`whnf_core` return the original object when nothing
+   changed.
+
+So this is not on the divergence audit's list as a reduction-strategy
+item.  It is a **representation** divergence, and it is the cost the
+2026-09-05 deletion of the interned world bought its simplicity with.
+It does connect to one audit row, though: **W4** (`whnfAppI` tries
+`iotaRecI` at *every* spine prefix, interning a fresh `.app` node for
+each — DESIGN "THE DIVERGENCE AUDIT" row W4, priced there as "one
+allocation + env lookup per prefix").  Every one of those fresh nodes
+is a memo key that is *guaranteed* not to be pointer-equal to the
+node the memo already holds, so W4's real price is one full-DAG
+`Expr.beq` at the next probe.  W4 should move up the audit's fix list.
+
+### 6. Verdict per declaration
+
+* **t1 `isIso_pushoutSection_of_iSup_eq` — STUPID.**  11.3× official
+  (37.59 G vs 3.33 G), identical in both modes, 91 % of it in `beq` +
+  its allocator traffic, 17/25 gdb samples at a memo bucket probe under
+  `inferSpineI`/`annotateBodyI`.  Mechanism: §5.  Its DAG is 54 892
+  nodes — small; the material is not the problem.
+* **t2 `exists_π_app_comp_eq_of_locallyOfFinitePresentation` — STUPID,
+  twice.**  18.0× at trusted (§5's mechanism, 92 % `beq`+allocator) and
+  a *further* 21.04 G of certificates on top (35.1× at verified).  The
+  target's DAG is 38 695 nodes and official finishes it in 1.23 G.
+* **t3 `d₂₃_aux._proof_17` — MATERIAL, with a stupid surcharge.**  The
+  only one of the five whose term is genuinely huge (167 488 nodes, an
+  `abel_nf; simp` proof); official pays 3.40 G, its largest of the
+  five.  8.5× is the smallest ratio here, the certificates are free
+  (0.07 G), and the profile is the one that differs: `beqB` (the
+  *unmemoised* budgeted descent) at 19.7 % with `beqGo` at 2 %, and
+  28 % in substitution (`instantiateRevGo`, `abstractRangeGo`,
+  `instantiate1Go`).  Still 26 % `beq` and 46 % allocator, but here the
+  size is real.
+* **t4 `exists_variableChange_of_char_ne_two_or_three` — STUPID, and
+  the certificate tax is the headline.**  Trusted 2.46 G (7.1×),
+  verified 25.96 G (**75.1×**): the certification is 10.6× the check on
+  this one declaration, the largest verified÷trusted ratio anywhere in
+  the project's measurements.  The verified-mode profile is §5's
+  (95 % `beq` + allocator).
+* **t5 `colimitLimitToLimitColimit_surjective` — STUPID.**  24.9×
+  official (24.46 G vs 0.98 G), mode-independent, 96 % `beq` +
+  allocator, 4 % everything else, on a 25 807-node term.  The purest
+  instance of §5 in the set.
+
+### 7. No fix in this task; four proposals
+
+The one-line, verdict-neutral changes available here (`beqBudget`,
+`Lech/Kernel/Expr.lean:749`) are worth at most the 3 – 7.5 % (19.7 % on t3) that
+`beqB` burns before restarting, and touching that file rebuilds the
+tree; nothing else in the mechanism is one line.  So nothing was
+changed.  Proposed, in prize order:
+
+1. **P1 — hash-cons `internI`.**  One intern table in `CState`, so
+   `ExprC.ofView` returns the existing node when it has one.  Every
+   memo probe then decides at the pointer test and `beqGo` stops being
+   reachable from the memos at all.  Prize: the 40 – 90 % above.  Cost:
+   an intern table (memory — the acceptance run peaked at 13.5 GB of
+   22 GB) and one `beq` per *constructed* node instead of per *probed*
+   key — and that one is `O(1)` once the children are interned.  This
+   is deliberately **not** "resurrect the arena": the representation
+   stays `Lech.Expr` with computed fields, only `internI` changes.
+   Reproducers: any of the five slices.  **Measure first**: this task
+   profiled five *declarations*, not a stream — the `Expr.beq` share of
+   a whole `init-full` or Mathlib run is unknown, and the 2.04× overall
+   ratio bounds what P1 can be worth on average even if it collapses
+   the tail.
+2. **P2 — `Expr.beq`'s memo, official's shape.**  A visited-*set* of
+   address pairs (no `Bool`), lazily allocated, skipped for the root
+   and for unshared nodes, and no restart after `beqB` exhausts its
+   budget.  Independent of P1 and much smaller; worth roughly the
+   allocator/RC half of §4's table.
+3. **P3 — raise W4 in the divergence audit.**  Its row prices the
+   per-prefix `internI (.app v a)` as an allocation; §5 shows it also
+   costs a guaranteed full-DAG `beq` at the next memo probe.  Fixing
+   W4 (one iota attempt per spine, official's shape) is a strategy fix
+   *and* a sharing fix.
+4. **P4 — a per-declaration certificate census.**  t2 and t4 pay 21.0 G
+   and 23.5 G of verified-only work on a single theorem (t4: 10.6× the
+   check).  Which family — the β argument certificates in
+   `whnfAppI`/`betaPeelI`, `iotaCerts`, or `annotate`'s validation —
+   is not answered here.  Reproducers: `t2.ndjson`, `t4.ndjson` with
+   `--trusted` vs `--verified`.
+
+### 8. e2e fixtures: none of the five qualifies
+
+The repo's largest committed e2e fixture is 574 KB raw
+(`nat_divmod_ok.ndjson`) / 203 KB gzipped (`nat_xor_ok.ndjson.gz`).
+The five cones are 70.6 – 437.5 MB raw and ≈ 11.5 – 71 MB gzipped —
+the *smallest* is 57× the gzipped ceiling and 123× the raw one.  None
+is committed; `tests/e2e-expected.txt` is unchanged.  They live in
+`_tmp/slowest/slices/` and regenerate with:
+
+```sh
+S=_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson
+python3 _tmp/next-frontier/slice_fast.py "$S" \
+  AlgebraicGeometry.isIso_pushoutSection_of_iSup_eq            _tmp/slowest/slices/t1.ndjson
+python3 _tmp/next-frontier/slice_fast.py "$S" \
+  AlgebraicGeometry.Scheme.exists_π_app_comp_eq_of_locallyOfFinitePresentation \
+                                                               _tmp/slowest/slices/t2.ndjson
+# t3 needs the String support block (see §2)
+python3 _tmp/sigmahom/slice_multi_fast.py "$S" \
+  '_private.Mathlib.Algebra.Lie.Cochain.0.LieModule.Cohomology.d₂₃_aux._proof_17,String,String.ofList,List,List.nil,List.cons,Char,Char.ofNat' \
+                                                               _tmp/slowest/slices/t3.ndjson
+python3 _tmp/next-frontier/slice_fast.py "$S" \
+  '_private.Mathlib.AlgebraicGeometry.EllipticCurve.IsomOfJ.0.WeierstrassCurve.exists_variableChange_of_char_ne_two_or_three' \
+                                                               _tmp/slowest/slices/t4.ndjson
+python3 _tmp/next-frontier/slice_fast.py "$S" \
+  CategoryTheory.Limits.colimitLimitToLimitColimit_surjective  _tmp/slowest/slices/t5.ndjson
+# the -notarget twin of any slice:
+python3 _tmp/slowest/mknotarget.py _tmp/slowest/slices/tN.ndjson _tmp/slowest/slices/tN-notarget.ndjson
+```
+
+A *small* synthetic reproducer of §5 — the analogue of the divergence
+audit's `delta_chain.lean` — would be the right e2e fixture and is left
+to whichever task takes P1 or P2: it needs a proof whose checking
+rebuilds one large term many times (the shape is "an `inferSpineI` over
+a long application whose argument types are big and are re-derived
+rather than shared"), and building it honestly is a task of its own.
+
+### 9. Receipts (`_tmp/slowest/`)
+
+`top.py` (the heartbeat reader), `targets.txt`, `doslice.sh` +
+`slice.log` + `slice-t3b.log` (the five cones), `mknotarget.py`,
+`termsize.py`, `measure.sh` + `cells.tsv` + `table.py` (the 30
+instruction cells of §3), `proftarget.sh` + `perf-t{1..5}-target.data`
++ `proftarget-t*.log` (§4's flat profiles), `proftargetg.sh` +
+`perfg-t1.data` (the dwarf attempt, kept as a negative result),
+`gdbsample.sh` + `bt-t1.txt` (the 25 backtraces), `prog-t*.log` (the
+slice-local heartbeats), `slices/` (the ten `.ndjson` files, 2.1 GB —
+gitignored, regenerate per §8).
+
+## TASK #190 — REMOVE UNUSED CODE: sixteen dead modules, 5 235 lines, −11.1 % of the build (2026-09-06, `agent/deadcode`)
+
+The user's brief was three words — *"remove unused code"*.  What landed is
+**sixteen whole modules, one test file and 5 235 lines**, every one of them
+live, sorry-free, kernel-checked Lean that **nothing in the tree read**: the
+clean build drops from **5 438.2 G to 4 836.6 G `instructions:u` (−601.6 G,
+−11.06 %)** and the `Lech/` olean set from **459.14 MB to 435.46 MB over
+422 → 407 files (−23.69 MB, −5.16 %)**, at **zero verdict change — the
+shipped `bin/lech` is byte-identical to master's** (same md5; the diff
+touches no file in `Main.lean`'s import cone).
+
+It landed in two waves.  The first, nine modules, is what the mechanical
+criterion below certified outright; the second, seven more, is two items
+the batch had parked in §5 as *documented* parkings and the coordinator
+ruled on under the same three-word directive — the declarative lane's
+semantics and the parked canonical zero-ness representation.  Both were
+tier-2 clean by the same census, and one of them (§2) had a **false
+sentence in this document's opening** holding it in place.
+
+### 1. The criterion, and why it is a certificate rather than a guess
+
+Lean's own rule does the work: **a declaration can only be used by a module
+that transitively imports the module declaring it.**  So for a module `M`,
+
+* compute the transitive import closure of every `.lean` file in `Lech/`,
+  `tests/`, `scripts/`, `Main.lean`, `PinDump.lean`, `LechPreprocess.lean`
+  (the `public import` / `import all` forms included — miss those and the
+  graph silently says the whole `module`-system half of `Kernel/` has no
+  importers);
+* take `M`'s declared names, and their last components (dot notation and
+  `open` both reduce to that);
+* search only the modules **downstream** of `M`, with **comments stripped**
+  — the single most important step, because this tree documents its
+  retired machinery heavily and a raw `grep` reports a dead theorem as live
+  from the docstring that eulogises it.
+
+A module all of whose names survive that search is unused *whatever* is
+written about it.  The oracle for the answer is still `lake build`: every
+deletion here was made and then compiled.
+
+Two classes came out, and they need different work:
+
+* **umbrella-only modules** — the only importer is a `lean_lib` root
+  (`Lech.lean`, `Lech/SetP.lean`, `Lech/Semantics.lean`, `Lech/TT.lean`,
+  `Lech/Verify/Cached.lean`).  Deleting one is a file plus one import line.
+* **chain modules whose whole declaration set is dead** — imported by real
+  modules, which import them for nothing they use.  Deleting one means
+  re-pointing its importers at *its* imports; the compiler checks that.
+
+### 2. What was deleted
+
+| module | lines | class | why certain |
+|---|---:|---|---|
+| `Lech/Verify/BridgeDeclPair.lean` | 1 441 | umbrella-only | the pair-monad projection battery, 102 `_fst_dproj`/`_snd_dproj` theorems; task #184 §3 found it consumerless and its punchline `checkDecl_wfOpsM_bridge` gone with the interned executable, and recorded the deletion as "a ruling not ours to make".  This is the ruling. |
+| `Lech/Verify/Bridge.lean` | 500 | chain (`Verify/BridgeDecl`) | the memoized-knot cache-refinement bridge: `cached_{whnfCore,whnf,infer,annotate,defeq,inferIO}_sim` + `scopedSim`.  Its consumers were the `cachedOps_*_bridge` entry-point lemmas, which went with the arena at task #172; the shipped cached tier proves its own simulation in `Verify/Cached/SimC*`. |
+| `Lech/SetP/Annot/BitReads.lean` | 202 | chain (`IndPinRowP`, `IotaRulePlainP`) | `denoteP_isSome_of_denote`, `denotePClosed_isSome_of_denoteClosed` — the reading's totality bridge.  Four modules still *cite* them, all four in comments; no proof uses either. |
+| `Lech/Semantics/Spine2.lean` | 158 | chain (`Step2/ProjRowsP`) | `SlotChain`, `slotChain_fits`, `AnnotOk2_spine_slots`, `AnnotOk2_redex_fits`, `TeleFit2.fold_mem` — tier C seal 2's "what replaces the per-fire `iotaCertsI` walk"; the walk it replaced and the fold that consumed it are both gone. |
+| `Lech/Verify/Denote/HasTypeSubst.lean` | 153 | **orphan** | `LiftCtx`/`InstCtx` and their four `getElem?` lemmas.  No module imports it at all — it is not in any `lean_lib` root's cone and **was not even being built** (no `.olean` on a fully built master).  Its docstring says it stayed "because a live consumer uses them"; that consumer was `SetBase/Weaken.lean`. |
+| `Lech/Verify/Extend/Transport.lean` | 142 | chain (`Extend/Modeled`) | `Env.{find?_recRules_swap,recRules_levelext,recRules_isSome}`, `ConstWF.{recRules_swap,recRules_head_empty}` — the rule-list-swap congruences.  (The memory note "new extension lemmas go through `extend_fresh`/`extend_rec_swap` in `Extend/Transport.lean`" is stale twice over: neither name exists, and nothing goes through the file.) |
+| `Lech/SetP/Step2/AssemblyP.lean` | 101 | chain (`Annot/EnvS2P`) | `checkStep2P5_of_quarters`, `checkSoundP5_of_inputs` — the "5" assembly.  The shipped assembly is `checkStep2P_of_quarters`/`checkSoundP_of_inputs`, elsewhere; the P5 pair has no caller. |
+| `Lech/Semantics/SpineV.lean` | 60 | chain (6 importers) | `projSpinesV`, `etaFabArgsV`, `piResidualV` — value-level spine spec functions.  Six modules import it; none of the six mentions a name from it outside a docstring. |
+| `Lech/Semantics/Bridge/ProjRed.lean` | 49 | umbrella-only | `stripPis_mono`, `stripPis_le`.  Its docstring says in as many words "they stayed because a live consumer uses them" — the consumer was `SetP/DirectFoldEntryP.lean`, retired at task #175 S1.  **This is the one that proves the method's worth**: the file was on all seven `proofdeps` roots' closures, so the pin said "reached"; deleting it compiled with no change anywhere, and the gate reported exactly seven rows LEAVING and zero doors.  A module-level pin cannot tell "a constant of mine is used" from "a constant of mine is reachable". |
+| **wave 1 subtotal** | **2 806** | | |
+| `Lech/TT/Semantics/{Value,Interp,ConstOk,Soundness}.lean` | 1 202 | umbrella-only (4 modules) | the declarative lane's own model (`VVal`, `interp`, `bval`, `ConstOk`) and its soundness theorem `HasType.sound`.  The **only** importer of any of the four is the `Lech.TT` `lean_lib` root and each other; and the sentence in this document's opening that kept them — "whose `VExpr`/`interp`/`bval` the P tier consumes" — was **false for these four**: what the tower consumes is `TT/{Syntax,Subst,Const}`'s syntax and basis, and the P tier's `interp2`/`bval2` are its own, in `Lech/Semantics/*`.  The opening now says so.  Fallout to record: `TT/Judgment`'s `HasType` relation lost its last reader with them (the module stays — `natStepT`/`quotInvT` are used by `Verify/Denote/SubstAlgebra`). |
+| `Lech/Kernel/ZeroSet.lean` | 484 | the P5 trio | the canonical zero-ness datum `ZeroSet`/`ZPropWhen`.  **The checker never imported it**: the shipped binder annotation is the free `PropWhen` (`Kernel/PropWhen.lean`), and outside the trio the only two mentions in the tree are docstrings (`Lech/PinGen.lean:68`, `Kernel/PropWhen.lean:607`). |
+| `Lech/Verify/ZeroSet.lean` | 599 | the P5 trio | its law battery, mirroring `Verify/PropWhen.lean` law for law; 25 of its 66 theorems had no reference at all. |
+| `Lech/Kernel/ZeroSetPin.lean` | 47 | the P5 trio | two `ToExpr` instances that **no instance search could ever reach**, since nothing imported the module. |
+| `tests/LechTests/ZeroSetTests.lean` | 97 | the trio's own test | the trio's only consumer anywhere, and a test of nothing else.  Recorded explicitly because it is the one judgement call in this batch: a guard whose entire subject is deleted goes with it.  (`tests/LechTests.lean` loses the one import.) |
+| **total** | **5 235** | 16 modules + 1 test | |
+
+**On the trio.**  This document's bit-mask design (task #161 P5, "(ii)
+Comparison") already names `Kernel/ZeroSet.lean`, `Kernel/ZeroSetPin.lean`
+and `Verify/ZeroSet.lean` as **deleted** — as a *consequence* of a
+representation swap that has not happened.  They are deleted here for the
+simpler reason that nothing reads them; if that swap is ever made, the
+canonical datum is a `UInt64` word and none of these three files was going
+to be the thing that landed anyway.  Everything they proved is recoverable
+from git.
+
+Import rewiring: `Verify/BridgeDecl` ← `Verify/Disc` + `Kernel/Checker`;
+`Extend/Modeled` ← `Verify/EnvWF`; `IndPinRowP`/`IotaRulePlainP` ←
+`SetP/Annot/Bit`; `Annot/EnvS2P` ← the four `Step2/*` modules `AssemblyP`
+imported; six importers of `SpineV` ← `Verify/Denote{,.OpenVars,.VClosed}`;
+`ProjRowsP` ← `Semantics/Ok2`.  The second wave needed **none** — all
+seven modules were umbrella-only, so only `Lech.lean` (3 lines),
+`Lech/TT.lean` (4) and `tests/LechTests.lean` (1) changed.  No
+declaration, statement, signature or `private` marker changed anywhere in
+the tree.
+
+Two prose citations of a deleted file survive **on purpose**:
+`Lech/PinGen.lean:68` and `Kernel/PropWhen.lean:607` mention
+`Kernel/ZeroSetPin.lean` and `ZPropWhen.holds_congr` inside docstrings.
+Both are now historical citations in this document's usual sense, and
+editing either file's docstrings would change its olean hash and so
+invalidate a ~300-module cone for a comment — task #184 §2's finding,
+applied.  The cheap moment to fix them is the next real edit to those
+files.
+
+### 3. Gates
+
+`lake build` **636 jobs (was 651), 0 warnings**; `lake test` green;
+`tests/arena.sh` end to end — layering `base 241 / P 165 / caps 3 /
+umbrella 1, 0 base->lane edges, 0 impl->theory`; **`proofdeps` 2 515 rows
+across 7 roots, doors 0** (2 522 before: the seven `ProjRed` rows vanished
+in wave 1, which is the only permitted direction, the expectations were
+regenerated **once**, and wave 2 moved not a single row — neither
+`TT/Semantics/*` nor the ZeroSet trio was ever on a capstone's proof
+path); pindump fresh; trust surface 18 escapes in 4 allowlisted files
+(416 scanned), 0 outside; **axioms pinned, 11 theorems at `[propext,
+Classical.choice, Quot.sound]`**; arena tutorial 90/92; e2e 96/96; annot
+14/14; retired flags 8/8; mode flags 16/16; progress lane 6/6; trusted
+sweep 138 + 96 + 14 with the 3 recorded divergences.  `init-full`
+(pre-native stream) accepted in **both** modes, 56 291 declarations each,
+exit 0.  The verdict argument does not rest on those runs, though: the
+**binary is byte-identical to master's**, and the diff touches only
+`Lech/Verify/*`, `Lech/Semantics/*`, `Lech/SetP/*`, three umbrella files
+and the proofdeps expectations.
+
+### 4. What was measured
+
+| | before (`b7fa7331`) | after wave 1 | after wave 2 | Δ total |
+|---|---:|---:|---:|---:|
+| clean-build `instructions:u` | 5 438.2 G | 4 854.4 G | **4 836.6 G** | **−601.6 G, −11.06 %** |
+| Lake jobs | 651 | 643 | 636 | −15 |
+| `Lech/` oleans | 422 files, 459.14 MB | 414, 438.00 MB | 407, **435.46 MB** | −15 files, **−23.69 MB, −5.16 %** |
+
+`BridgeDeclPair` alone accounts for 562.7 G of the instruction drop and
+19.56 MB of the olean drop — task #184 measured that module in isolation and
+predicted "−10.5 % of the whole build's instructions" for deleting it; the
+whole first wave landed at −10.73 %, so its other eight modules contributed
+about 21 G between them, and the second wave's seven another 17.9 G.  **The
+lopsidedness is the finding, not a disappointment**: 2 429 lines of the
+second wave cost 3 % of what 1 441 lines of `BridgeDeclPair` cost, because
+what makes a module expensive is the proofs it elaborates, not its length.
+Dead code is worth removing for what it does to a reader; only *some* of it
+is worth removing for what it does to the clock.  Wall time is not quoted:
+the box was shared throughout.
+
+### 5. What was NOT deleted, and why — the borderline list
+
+Five items are unused by the same mechanical criterion and stay, each for
+a reason a future ruling can overturn.  **Together they are ~800 further
+lines plus a scattering of declarations.**
+
+(Two more were on this list when the batch was first proposed — the
+canonical zero-ness trio and `TT/Semantics/*`, 2 332 lines between them.
+The coordinator ruled on both under the same three-word directive and they
+are in §2's table instead.)
+
+* **The gated-knot P lane, 556 lines** — `Kernel/CoreP.lean` (180),
+  `Kernel/CheckerP.lean` (35), `Verify/CoreP.lean` (245),
+  `SetP/Step2/GateP.lean` (96).  Deliberate: task #161 S9 records the lane
+  as **HELD** with a named roadmap ("only then the claims-tower
+  transposition onto `whnfCoreP`"), and its own docstring says nothing here
+  is reachable from `Main.lean`.
+* **`Lech/TT/Judgment.lean`'s `HasType`** — the declarative typing
+  relation, unread since `TT/Semantics/*` went (§2).  The module stays for
+  `natStepT`/`quotInvT`; the relation itself is now the largest single dead
+  *declaration* in the tree and belongs to the docket in §6.
+* **`Verify/AnnotDefense.lean` (53)** — `DefensiveSitesQuiet` is a
+  *statement only*, under an explicit decide-by-proof mandate.
+* **`SetP/IndPinProbeP.lean` (203)** — a mechanized **refutation** of the
+  nested-pin conjunct; a negative result is a deliverable.
+* **`SetTheory/Derive/Collapse.lean` (351, 15 reference-free theorems)** —
+  the canon-collapse countermodels, cited by name in this document.
+* **`Verify/Cached/AgreeAnnot.lean` (156)** — clean tier 2 (umbrella-only,
+  zero references) but inside the `Verify/Cached/*` fence this batch was
+  given for `agent/recursive`.  Delete it in the batch that owns those
+  files.
+* **`Verify/BridgeDecl.lean`'s `pairOps`** — it had exactly one consumer,
+  `BridgeDeclPair`, so it died in this batch; `bridgeRel`, `wfOpsM_whnf`,
+  `fueledOpsM_annotate_atF` and `checkDecls_datF` were already dead.  Same
+  fence.
+* **The `SetTheory/Derive/*` law lists** (`Pi` 13, `PtFresh` 13, `Omega` 5,
+  `Pt` 5, …) — under the minimal-axiomatization ruling those per-construction
+  modules' law lists *are* the derived interface, not incidental lemmas.
+
+### 6. The rest of the census, for whoever wants it
+
+After this batch, **535 declarations in `Lech/` are referenced nowhere —
+not by another module, not by their own file, not by a test — across 177
+modules** (attribute-bearing declarations, instances, `syntax`/`macro`/`elab`
+and type formers excluded, since those resolve without being named).  The
+top of the list is `Verify/Denote/IndFrame` (20), `Verify/Subst` (18),
+`SetTheory/Derive/Collapse` (15), `Semantics/Kit` (14),
+`SetTheory/Derive/Pi` (14), `Verify/CoreP` (14),
+`SetTheory/Derive/PtFresh` (13), `PinGen/Certs` (12), `SetModel/Value`
+(12), `Verify/BridgeWfImp` (11), `Semantics/Hoist` (10),
+`Verify/Cached/SimCEff` (10), `Verify/InstLevels` (10) — plus `HasType`
+itself, which the type-former exclusion keeps out of the count.  These are
+*inside live modules*, so each is a judgement about whether a law belongs
+to its module's stated interface — which is why this batch stopped at whole
+modules.  **This list is the docket for a later interface pass**, by the
+coordinator's ruling, not a to-do this batch left half done.
+
+### 7. `CheckMode.ttChecks` — measured, not done (tier 4)
+
+`ttChecks` is constantly `false` (`Kernel/Env.lean:76`; guarded by
+`tests/LechTests.lean:42-43`, and `Verify/BetaGate.lean:106` proves
+`ttChecks_eq_false := rfl`).  The charter allowed removing it **only if the
+signature changes are mechanical and no capstone statement changes**.  They
+are not: two of the sixteen sites are inside *statements*, not tests —
+
+* `Verify/Extend/Proj.lean:310` and `Verify/InferLemmas.lean:1948-49` each
+  carry a `(mode.ttChecks = true → …)` conjunct in an install-stage /
+  inference record, so dropping the flag rewrites those records' statements;
+
+the rest are gated call sites in shipped bodies (`Kernel/Core.lean:1079`,
+`Kernel/DeclCheck.lean:228,260,271`, `Kernel/Modeled.lean:44,630,668,756`,
+`Cached/CoreC.lean:464`) and proof-side case splits that would collapse
+(`Verify/BridgeWfImp.lean:810`, `Verify/Deep.lean:884`,
+`Verify/Extend/Proj.lean:464`, `Verify/Cached/BridgeCS2.lean:166`,
+`Verify/Cached/DiscC2.lean:855,935,1088`).  Touching the first group changes
+the functions every capstone is stated about.  Left in place, as the
+modeonly lane's ~15-file estimate predicted.
+## TASK #191 — THE BUILT-IN PRELUDE AND THE GROUND HOIST: the Nat-op pins no longer depend on the stream's installation order (2026-09-06, `agent/prelude`)
+
+**The report (user, verbatim):** *"a user reported that the NatOpPins
+are sensitive to installation order of, say, Bool. to fix this I
+suggest you add Bool and what else is needed to the hand written
+pinned declaration, and actually add them to the env initially and
+unconditionally (our own little prelude). when they come later in the
+stream, just compare and decline if different."*  And the ruling on
+the shape, once the two designs were on the table: *"yes, don't change
+how Bool is installed! just change when it is added to the env!"*
+
+### 1. The reproduction, and what the sensitivity actually is
+
+A pin-certified operation's install (`checkDivModPin`) needs three
+things stored *before* the operation: the constants of the pinned
+defining expression (`divModPinGuard`'s `constsResolve`), the
+constants of the certificate proofs (`divModCertGuard`), and the
+guards' ground (`divModEnvGuard`: `natOpDeps c` stored as definitions,
+the pinned `Eq`, `Bool.true`/`Bool.false` at type `Bool`).  Most of
+that is in the operation's **own dependency closure** — its type and
+value reach it, so any well-formed stream declares it first — but the
+certificate *statements* (`divModCertStmts`) are spelled over
+constants the value never touches: `Nat.shiftLeft`'s over `Nat.ble`,
+`Nat.sub`, the `Bool` values and `Eq` (its value is `x <<< (n+1) =
+(2*x) <<< n`, `Nat.mul` and nothing else), the bitwise operations'
+over `Nat.mul`.  So the presence of those at the install depends on
+the stream's *order*.
+
+Computed mechanically on `init-full-pre-native` and on the 4.33
+pins (`_tmp/prelude/closure.py`: pin ∪ certificate constants minus the
+operation's transitive stream closure, by declaring record):
+
+| operation | order-sensitive ground (not in its own closure) |
+|---|---|
+| `Nat.mod`, `Nat.div`, `Nat.gcd`, `Nat.shiftRight` | none |
+| `Nat.shiftLeft` | `Bool`, `Eq`, `Nat.ble`, `Nat.sub` |
+| `Nat.land`, `Nat.lor`, `Nat.xor` | `Nat.mul` |
+
+And it is not a hypothetical order.  `lean4export` walks
+`env.constants` — a hash map — in hash order and emits each constant
+after its dependencies, so independent declarations come out in
+whatever order the roots are reached.  `tests/e2e/src/natop_order.lean`
+is three `rfl` theorems (`Nat.shiftLeft 3 4 = 48`, `Nat.ble 1 2 =
+true`, `Nat.sub 5 3 = 2`); its **unmodified raw export**
+(`tests/e2e/natop_order.ndjson`, `--#export shlEx bleEx subEx`) emits
+`Nat.shiftLeft` at record 23 and `Bool`, `Nat.ble`, `Nat.sub` after it.
+Master's verdict: **exit 2, `unsupported Nat.div/mod environment
+(Nat.shiftLeft)`** — a decline on a stream the official kernel accepts.
+That is the report, as a three-line file.
+
+### 2. The design: (B), with one correction the cone analysis forced
+
+Two shapes were on the table: (A) more hand-written pinned basis
+blocks (`Kernel/Basis/Bool.lean` … with SetP install proofs each), or
+(B) a prelude of the toolchain's own export records, checked by the
+ordinary routes and prepended to every parsed stream.  (B) was the
+recommendation and the user's ruling settled it; nothing of (A) was
+built.  What the cone analysis added:
+
+**The full cone minus the ops cannot be the prelude, and a smaller
+set is exactly right.**  The coordinator's sketch said "the
+dependency-ordered cone of declarations the pinned Nat ops need …
+minus the basis blocks and minus the Nat ops themselves".  Computed
+(`Lech/PinGen/Prelude.lean`, `sensitiveOf`/`classifyOp`), that cone
+has three parts, and only one of them belongs in a prelude:
+
+1. **The pinned basis blocks** (`Eq`, `Nat`, and — for uniformity of
+   "first in every fold" — `PUnit`, `Empty`, `False`, `Quot` with
+   `Quot.sound`).  Already hand-pinned and model-proved; they used to
+   be installed when the stream's record arrived, now they are
+   installed first.
+2. **`Bool`** — the only order-sensitive record owner that is neither
+   a basis block nor a stream-certified operation.  Its export
+   spelling is stable across every toolchain the tree has seen, so a
+   syntactic "compare and decline if different" is safe.
+3. **The residual: `Nat.ble`, `Nat.sub`, `Nat.mul`** — the structural
+   ops the statements are spelled over.  These are certified at
+   install by *definitional* recurrence equations (`certifyNatEqs`),
+   deliberately not by a syntactic pin, and that is what a prelude
+   copy would destroy: **every committed fixture is a 4.29 export
+   against a 4.33 build, and `Nat.add`/`Nat.sub`/`Nat.mul`/`Nat.ble`
+   changed spelling in between** — 4.29 inlines the `brecOn`
+   functional, 4.33 names it (`Nat.add._f`; probed with `#print` under
+   both toolchains, `_tmp/prelude/pp/`).  A prelude `Nat.ble` would
+   have declined `nat_ops`, `nat_divmod_ok`, every `nat_*` slice and
+   the arena's `good/init-prelude`.  Everything else in the cone
+   (`Decidable`, `Nat.le`, `WellFounded.Nat.fix`, …) is in the
+   operation's own closure and needs no help.
+
+   The residual is handled by the *other* pure pre-fold
+   transformation: **the hoist** (`Lech/Frontend/NatOpGround.lean`).
+   After the parse, for every pinned operation record whose
+   `natOpDeps` ground is declared later in the stream, the ground's
+   transitive dependency closure (within the stream) is moved ahead of
+   the operation.  A dependency-closed set moved earlier is still a
+   valid stream, the moved records still see their whole closure, and
+   the pass is a no-op (array returned untouched, no sort) on every
+   stream whose ground precedes its operations — the toolchain's own
+   export order, `init-full`, Mathlib.
+
+So "in the env initially and unconditionally" is realised as **"first
+in every fold"**: the verified fold `checkDeclsSPCachedD .verified ds`
+runs over `ds = prelude ++ stream'`, where `stream'` is the parsed
+stream minus its identical copies of prelude records, ground-hoisted.
+The main theorem quantifies over `ds`; the frontend sits below it,
+exactly like the projection rewrite of `Lech/Frontend/ProjRec.lean`.
+**Nothing in the kernel, the cached driver or the proofs changed**
+(`tests/proofdeps.sh`: 2522 module rows, 0 doors, no row moved; the
+axiom pin: 11 theorems at `[propext, Classical.choice, Quot.sound]`).
+
+### 3. What landed
+
+* **The generator** (`Lech/PinGen/Prelude.lean`, new; `Lech/PinGen.lean`
+  refactored into `computeOps`/`opDumpsOf`; `PinDump.lean`): per
+  operation, `need c` (pin ∪ certificate constants ∪ the guards'
+  ground), `closure c` (`coneOf`), `sensitive c` by declaring record
+  (`ownerOf`: constructors and recursors are present exactly when
+  their block is); `classifyOp` splits it into basis / prelude /
+  residual and **fails the generation** on anything else (an
+  order-sensitive constant that is neither preludable — its closure
+  reaches a stream-certified operation — nor an operation).  The
+  prelude is then serialized as **lean4export-format ndjson** by a port
+  of lean4export's `Export.lean` writer (`xConstant` and friends;
+  metadata stripped, `nondep` normalised, inductive blocks and the
+  `Quot` package as units), roots `[Eq, Nat, PUnit, Empty, False,
+  Quot, Quot.sound] ++ members`.  Written beside the dump as
+  `pins/<toolchain>.prelude.ndjson` (229 lines, 11 declaration
+  records: 5 inductive blocks, 4 `quot` records, `Quot.sound`, the
+  `Bool` block).
+* **The dump format** (`Lech/PinGen/Dump.lean`) bumps to
+  `lech-natop-pins/2`: `preludeFile`, `preludeMembers` (`["Bool"]`),
+  `preludeNames` (23 names), `orderResidual` (per operation, as in the
+  table above).  The pins themselves are byte-identical to `/1`.
+* **The frontend** (`Lech/Frontend/Prelude.lean`, new;
+  `Lech/Frontend/ExportC.lean`): `builtinPreludeText` embeds the file
+  with `include_str`; `builtinPreludeE` parses it with the ordinary
+  `parseExportD` into 7 `DeclC` records (the basis blocks through the
+  same pin match as any stream's — which is also what validates the
+  serializer's spelling of them: a mis-serialized `Nat` block would
+  parse as an alias and reject at the head of every run) and indexes
+  them (`PreludeIx`: by kind for basis blocks, by every declared name
+  otherwise).  Every parse takes a `PreludeIx`, starts with `PUnit`
+  seen for the projection rewrite, prepends the prelude's records to
+  its result, and routes every declaration push through `pushDecl`:
+  a basis block the prelude holds is dropped by kind; a record under
+  a prelude name is dropped when `DeclC.sameCanon` (same kind, equal
+  up to `ConstantInfo.canon` — the basis-matching canonical form:
+  binder names, binder infos and level-parameter names erased) and
+  **declines** the stream otherwise (`declaration Bool differs from
+  the checker's built-in prelude (the toolchain's own Bool, installed
+  first)`).  Records under prelude names are budgeted like basis
+  blocks (the canon comparison walks the tree).  `ParseResultD` gains
+  `preludeCount`, `preludeDropped`, `hoisted`.
+* **The hoist** (`Lech/Frontend/NatOpGround.lean`, new): a memoized
+  used-constants walk over the `ExprC` DAG (`Std.HashSet ExprC`,
+  pointer-first), `DeclC.usedConsts`, and `hoistNatOpGround`: name
+  index, per-operation closure of its later ground restricted to the
+  records after it, then one sort by `(target, moved-before-op, index)`
+  — only when something moves.
+* **The driver** (`Main.lean`): the prelude is resolved once per run
+  (a prelude that does not parse is exit 3 before any input is read),
+  handed to both parse paths (file and preprocessor pipe), and the
+  **verdict line now counts the STREAM's declaration records** —
+  `decls.size - preludeCount + preludeDropped`: the prelude's records
+  excluded, a stream record dropped as an identical prelude copy
+  included (it IS installed, from the prelude, and the official
+  checker counts it).  `LECH_VERBOSE=1` prints the environment's
+  constant count beside it (the number the line used to carry, a
+  property of our representation).  The hoist is reported on stderr
+  with the moved names.  This is the same headline-number decision the
+  PERF lane's `agent/perf-regen` reached independently for the
+  official comparison ("accepted declaration RECORDS"); the two land
+  on the same line, and the coordinator's ruling at this landing is
+  that the reconciliation happens at THAT lane's merge, which takes
+  the prelude adjustment (`- preludeCount + preludeDropped`).
+* **Tests.**  `tests/LechTests/PreludeTests.lean`: the prelude parses,
+  holds exactly 7 records / 6 basis kinds / the 4 `Bool` names and no
+  basis name in the by-name index, is **accepted by the verified fold
+  at both modes from the empty environment** (23 constants), and
+  parsed against itself drops all 7 records.  `tests/pindump.sh`
+  regenerates and diffs BOTH files and checks both `include_str`s and
+  the dump's `preludeFile`.  e2e (`tests/e2e-expected.txt`):
+  `natop_order` (the raw export, §1) **0**; `natop_before_eq`
+  (`scripts/mk_reorder_fixture.py Nat.ble Nat.sub Nat.shiftLeft` —
+  the operation after its ground, all before `Eq`: the prelude's own
+  case) **0**; `natop_before_ble` (`Nat.shiftLeft` hoisted first,
+  ahead of `Nat.ble`/`Nat.sub`: the hoist's own case) **0**;
+  `prelude_bool_redefined` (`scripts/mk_prelude_bool_bad.py`: `Bool :
+  Type 1`, a valid inductive the official kernel accepts) **2** with
+  the message naming `Bool`.  All three accepting fixtures are the
+  same 35 records in three orders, and `tests/arena.sh`'s new
+  `prelude counts` section checks all three report `accepted 35
+  declarations` — the record count is invariant under the prelude's
+  existence (4 of the 35 are prelude duplicates: `Nat`, `PUnit`,
+  `Bool`, `Eq`) and under reordering.
+* **Docs**: `pins/README.md` (the file pair, the prelude's membership
+  as a computed set, trust), `--help` (THE BUILT-IN PRELUDE,
+  `LECH_VERBOSE`), the module headers.
+
+### 4. The interplay, verified
+
+* **(i) `lech-preprocess`** sees the raw stream before the prelude
+  exists and is untouched: `Bool` (a two-constructor enumeration) is
+  native for it, so the stream's `Bool` arrives as an `inductive`
+  record, parses to the same `indDecl` as the prelude's, and is
+  dropped.  The stock tool's `pre` fixtures carry `Bool._model.*`
+  artifacts beside the block; those are ordinary definitions and stay
+  inert as before.  Every prelude block is directly installable (basis
+  from the pins, `Bool` through the direct sum route), so the prelude
+  is NOT run through the preprocessor at generation time and carries
+  no `_model` family — the "if `Acc` is in the cone" branch of the
+  task did not arise, because the cone members that would need
+  modelling (`Nat.le`, `Decidable`, …) are all in the operations' own
+  closures (§2).
+* **(ii) `reservedBasisNames`** and the basis pin match precede the
+  dedupe unchanged: the prelude's basis blocks parse to `basisDecl`s
+  (never through the reserved-name check), its `Bool` names are not
+  reserved, and — deliberately — **basis names are not in the
+  prelude's by-name index**, so a stream's mismatching `Empty`/`False`
+  keeps REJECTING through the reserved-name check
+  (`empty_redefined`/`false_redefined`/`false_rec_bad` still 1), while
+  a mismatching `Bool` DECLINES (the user's word).  The asymmetry is
+  intended and pinned: a basis redefinition is invalid input (task
+  #181's ruling), a differing `Bool` is a feature the checker
+  positively does not support.
+* **(iii) Streams from the empty environment**: `gen_linear_stream`'s
+  `def cN : Sort 1 := Sort 0` streams and every hand-written e2e stream
+  now fold 7 prelude records first.  The verdict line is unaffected
+  (`accepted 1000 declarations` at N = 1000; the constant count, 1023,
+  is on `LECH_VERBOSE`).  The PERF lane's record-based count
+  (`agent/perf-regen`, `decls.size`) becomes `decls.size -
+  preludeCount + preludeDropped` at the merge — the prelude records
+  are identifiable by count, as the task asked, and the dropped
+  copies are counted back.
+* **(iv) `scripts/gen_linear_stream.py`**: unchanged; per-declaration
+  instruction counts gain a constant (the prelude fold, ~7 records).
+* **(v) Taint**: a tainted record is dropped before it reaches
+  `pushDecl`; the prelude carries no tolerated axiom; taint fixtures
+  unchanged (e2e 100/100).
+* **(vi) `tests/pindump.sh`** covers the prelude file, both
+  `include_str`s and the dump's `preludeFile` (§3).
+* **(vii) The format tag** bumped to `/2`.
+
+### 5. Gates
+
+Build warning-free; `lake test` (axiom pin 11 theorems, the prelude
+guards); `tests/arena.sh`: layering 0 impl→theory edges, proofdeps
+2522 rows / 0 doors / no row moved, pindump both files fresh, trust
+surface 0 outside the allowlist, arena tutorial 90/92 good accepted
+(unchanged; no `CHANGE` line — **no arena verdict moved**), e2e
+100/100, annot 14/14, retired flags 8/8, mode flags 16/16, prelude
+counts 3/3, progress lane 6/6, trusted sweep as recorded.  `init-full`
+(`init-full-pre-native.ndjson --pre`, both modes): **exit 0, 54 346
+declarations** (the stream's records; master's line said 56 291 —
+the environment-constant count, which `LECH_VERBOSE` now reports as
+exactly 56 291 constants from 54 346 fold records, 7 prelude records
+in, 7 stream copies dropped: **the environment is identical to
+master's** — the stream declares every prelude block itself, so the
+prelude adds no constant, and the hoist moved nothing).  The
+Comparator pair (`Lech/Challenge.lean` / `Lech/MainTheorem.lean`) is
+untouched.
+
+### 6. Findings
+
+* **The reproduction is the plain export.**  No hand reordering was
+  needed to hit the report: lean4export's hash-order DFS emits
+  `Nat.shiftLeft` before `Bool` on a three-theorem file.  The tree's
+  fixtures never showed it because they are Init slices in Init's own
+  order.
+* **The structural ops cannot be pinned syntactically, and that is a
+  design fact, not a shortcut** (§2): the `._f` split between 4.29
+  and 4.33 is exactly the kind of drift the recurrence certification
+  was built to absorb.  Any future "put X in the prelude" must pass
+  the same test — `classifyOp` fails generation on a preludable
+  candidate whose closure reaches a stream-certified operation, and
+  `orderResidual` in the dump is where a toolchain bump would show a
+  new residual.
+* **The hoist is a reorder of the stream, reported, never silent**:
+  `lech: 7 declarations hoisted ahead of the pinned Nat operations
+  they ground: Nat.ble.match_1, Nat.ble, Unit, Unit.unit,
+  Nat.pow.match_1, Nat.pred, Nat.sub` on `natop_order`.  Fold
+  positions (`LECH_PROGRESS`) therefore count from the prelude's first
+  record and, on a hoisted stream, differ from the export's order; the
+  declaration NAME remains the portable handle, as before.
+* **Verdict monotonicity of the hoist**, for the record: a hoisted
+  record is checked in a smaller environment than it would have been
+  — its own closure plus the prelude — and the checks that read the
+  environment beyond a declaration's dependencies (`natOpGuard`,
+  `strLitSupported`, the reserved names, duplicates) are either
+  closure-internal for the records the hoist moves (a structural
+  op's `natOpDeps`) or unaffected.  A stream whose hoisted ground is
+  itself invalid now rejects at the ground instead of declining at
+  the operation — a more precise verdict on invalid input, never an
+  accept.
+* **`tests/trust-surface.sh` strips string literals with a regex that
+  does not cross a backslash-newline**, so one backslash-continued
+  `s!"…"` string flips quote parity for the rest of the file and the
+  gate then flags tokens inside *other* strings.  The new modules avoid
+  continued strings (`++`); the pre-existing ones in `Main.lean` happen
+  to be even in number.  Left as a note for the gate's owner.
+
+
+## TASK #193 — THE NATIVE PREDICATE WAS LOOSER THAN THE RECOGNISER: a former declared at a definition (2026-09-06, `agent/indexed-fix`)
+
+### The finding
+
+On the Mathlib stream regenerated with the indexed predicate
+(`agent/perf-regen`), `lech --trusted` DECLINED at fold position 49 833:
+`missing model for CategoryTheory.Presieve.ofArrows`.  The official
+kernel accepts the stream.  The block:
+
+    inductive Presieve.ofArrows {ι} (Y : ι → C) (f : ∀ i, Y i ⟶ X) : Presieve X
+      | mk (i : ι) : ofArrows Y f (f i)          -- Presieve X := ∀ ⦃Y⦄, Set (Y ⟶ X)
+
+Decoded from the cone: the stored former type is six Π binders ending in
+`CategoryTheory.Presieve C inst X` — a CONSTANT APPLICATION, not a
+`Sort`; the recursor carries `numIndices = 2` because Lean's kernel
+`whnf`s the former's type to `∀ (Y : C) (g : Y ⟶ X), Prop` when it
+counts indices.  **The failing conjunct is `directSumPartsCore?`'s
+former-telescope pin, `cvT.type.stripPis (nP + nIdx)` ending in
+`.sort`** (`Lech/Kernel/Direct/SumParts.lean`).  NOT the constructor's
+index expression: `ofArrows Y f (Y i) (f i)` is an ordinary spine and
+general index terms are graded and spine-fitted by the indexed route
+(the diagnosis "the index is a general term `f i`" was wrong).  The
+predicate `lechNativeSum` mirrored that conjunct as `numIndices` alone,
+which is exactly the kernel's whnf-counted number and says nothing
+about the declared type's syntax — so the block was left native, the
+recogniser fell through to the modelled path, and the stream carried
+no model.  The structure arm had the same latent hole (`numIndices ==
+0` for "the former IS `∀ p⃗, Sort u`"); no init-full block exercises
+either.
+
+### The fix (Part A — the quick one; Part B is task #195)
+
+* `LechPreprocess.lean`: `lechFormerTelescope` — `numParams +
+  numIndices` `forallE` binders then a `sort`, read off the DECLARED
+  `Lean.Expr` with no unfolding — in both arms.  The header table's row
+  for this conjunct is corrected.  Init-full: the native set is
+  UNCHANGED (548 blocks; no def-headed former there).
+* `Main.lean`: `LECH_ROUTE_TRACE=1` — one `lech: route <block>
+  <struct|sum|basis|modeled>` line per inductive block on the progress
+  lane, computed by `directPartsF?`/`directSumPartsF?` on the very
+  environment the step sees (so it is the dispatch of `checkIndDeclSF`,
+  not a re-implementation).
+* `tests/native-audit.sh` (+ a section of `tests/arena.sh`): **the
+  mechanical predicate ⊆ recogniser check** — for each raw stream,
+  `lech-preprocess`'s `native` lines against the route trace; a native
+  block that reads `modeled` (or a "missing model" decline) FAILS; a
+  native block the fold never reached is a NOTE.  Default: the 92 good
+  arena fixtures (169 native blocks: 108 struct, 61 sum, 0
+  unrecognised); `--full` adds init-full (with the Presieve cone: 94
+  streams, 775 native blocks — 638 struct, 135 sum, 2 basis, 0
+  unrecognised, 0 unreached).
+* `tests/e2e/direct_idx_defhead` (exported through the fixed
+  `lech-preprocess`): `OfFn f : Pred α` with `Pred α := α → Prop` — the
+  Presieve shape at a fresh name, MODELLED again (route `modeled`),
+  beside the control `Rel f : α → Prop` (route `sum`); accept in both
+  modes.
+
+### Receipts (tip `1a76e013` + this record)
+
+Build warning-free (636 jobs), `lake test` green (axiom pin included),
+`tests/arena.sh` exit 0 — layering 241/165/3/1, proofdeps 2 515 rows /
+0 doors (unchanged: no proof file touched), trust surface 18/4/0, the
+native audit above, 90/92 · e2e 97/97 · annot 14/14 · retired 8/8 ·
+mode 16/16 · progress 6/6, the trusted sweep.  init-full stock
+`--verified` 60 549 / `--trusted` 60 549; regenerated with the fixed
+predicate (`init-full-pre-fix.ndjson`, 548 native) `--verified` 55 835 /
+`--trusted` 55 835 — all exit 0, identical to the indexed landing's
+baseline.  **Re-gated at the master merge** (`ef700318`: #191 prelude,
+#192): build 640 jobs warning-free, `lake test`, arena exit 0 (native
+audit 169/0 unrecognised, prelude counts 3/3, e2e 101/101), full audit
+775/0, init-full stock 58 604 / 58 604 and regenerated 53 890 / 53 890
+(exit 0 — the verdict line now counts STREAM RECORDS per #191, exactly
+1 945 below the environment-constant counts above), the cone accepts.  **The Presieve cone**: cut from the raw Mathlib export with
+the String-support constants (`/home/joachim/setlec/_tmp/indexed-fix/slice_multi_fast.py` in the main checkout's `_tmp/` — not committed, the sigmahom slicer is not under `scripts/` either,
+the sigmahom slicer fixed for lean4export's key-sorted raw records —
+`"ie"` is not the first key of an `app`/`bvar`/`const` line there, and
+the child scan must start at the line's head), preprocessed with the
+fixed binary (`ofArrows: model of 4 declarations`): `--verified` and
+`--trusted` **accept 881 declarations**; the same cone cut from the
+perf lane's stream reproduces the decline in both modes (fold position
+591).  No Mathlib-scale checker run was made here.
+
+### Part B (task #195, next on this lane) — support these blocks directly
+
+User direction: falling back is the quick fix, not the end state.  The
+route should take a former whose declared type only UNFOLDS to the
+telescope: the recogniser computes the telescope by whnf of the
+declared type (as official does for `numIndices`), the generated
+recursor's motive/minor/major and the rules are built over the whnf'd
+telescope (which is what the stream's recursor already carries), the
+stored former keeps its declared type, and the P tier reads the
+former's type through the model's delta law (a constant's denotation
+is its value's) instead of the syntactic-telescope reading.  Same
+question for constructor residuals/fields declared at definitions
+(census owed).  The audit test then proves predicate ⊆ recogniser for
+the re-widened predicate mechanically.
+
+## TASK #196 — WOULD ONE CACHE FOR `infer` AND `infer_only` BUY ANYTHING?  Measured: the sound direction buys ZERO, and the whole ceiling is *check elision*, not caching (2026-09-06, `agent/infershare`)
+
+### 0. THE QUESTION, AND THE ANSWER IN THREE LINES
+
+User, verbatim: *"Have we ever established how much perf we'd gain if
+infer and infer_only shared one cache (would require changes to the
+proof architecture, but we can probably measure easily)?"*
+
+Measured, not argued.  **The answer is: essentially nothing, and the
+part of it that is not nothing is not a caching effect.**
+
+1. **The sound direction — a full-infer entry serving an infer-only
+   query — is worth 0.0 %.**  Read-side (E1b): −0.08 % on init-full
+   `--verified`, ±0.15 % across all twelve full-stream cells.
+   Write-side (E1, seed the io memo on every full-infer miss): a
+   **LOSS** of +2.39 % on init-full and up to **+35.2 %** on one
+   Mathlib slice.
+2. **Full sharing (E2, both directions, one table — unsound as it
+   stands) buys −0.74 % / −1.71 %** on init-full
+   (`--verified` / `--trusted`), and −0.6 % … −15.4 % on the five
+   #189 slices.
+3. **That win is not caching, it is checking less.**  E4 — the same
+   checker with the io *body* at every position, i.e. the elision
+   ceiling with no memo change at all — is **−3.15 % / −59.6 %** on
+   init-full and −16 % … −49 % on the slices.  E2 is a fraction of E4
+   that you reach by *reusing an under-checked entry*.  Since the
+   sound sharing direction measures zero, **every instruction E2 saves
+   is an omitted check**, and there is a cheaper, honest way to omit
+   the same checks (call the io body at more positions) that does not
+   touch the cache at all.
+
+So: **keeping the two memos apart costs nothing**, and merging
+them is not worth proof architecture.  **Do not spend proof architecture on
+merging the two memos.**  If the io body's skips are wanted more
+widely, that is the task-#170 call-site question (where does official
+pass `infer_only = true`), and it is worth 5–60× more.
+
+### 1. WHAT IS ACTUALLY SPLIT (the census the question needs)
+
+Only **one** pair of memos is split by the io grade.
+`CoreFnsI.ioView` (`Lech/Cached/CoreC.lean:64`) is
+`{ r with infer := r.inferIO }` — it replaces the `infer` slot and
+nothing else — and `CheckMode.ioGate` is the literal `true`
+(`Lech/Kernel/Env.lean:137`), so at both modes the knot ties
+
+* `infer`   → `inferBodyI`   under `CState.inferC`,
+* `inferIO` → `inferBodyIOI` under `CState.inferIOC`,
+
+and `whnfCore` / `whnf` / `defeq` / `annotate` have **one table each,
+shared by both grades already** (`coreKnotI`, `CoreC.lean:1872`).
+**This closes E3 of the commission structurally, with no run needed:
+there is no second grade-split pair to measure.**
+
+The two bodies differ in **exactly one clause** — the application
+clause, where `inferSpineIOI` (`CoreC.lean:1025`) guards the
+per-argument re-check on `mode.ioSkip mt.pw`
+(`Lech/Kernel/Env.lean:189`, `!mode.certs || pw.isNever`):
+
+* at `.verified` the argument's inference and the domain comparison
+  are skipped **at a binder whose validated annotation datum is
+  `.never`** (the graph-regime licence, `Lech/SetP/IOLicenseP.lean`);
+* at `.trusted` they are skipped **at every binder** (the certificate
+  family is off wholesale).
+
+The returned type is the same telescope walk either way, and the
+measurement confirms it: under E1 every non-io counter moves by
+≤ 0.1 % (§5).
+
+### 2. THE FIVE VARIANTS (each a commit on `agent/infershare`, none for landing)
+
+| | commit | what it does | sound? |
+|---|---|---|---|
+| **E0** | master `9eb3bda0` | two bodies, two tables | yes (this is master) |
+| **E1** | `ee1f2547` | `memoEISeed`: a computed full-infer result is inserted into `inferIOC` too | **yes** — the task-#170 ruling's *named future option* |
+| **E1b** | `ce1bc119` | `memoEIUnionIO`: the io slot probes `inferIOC`, then `inferC`; writes only `inferIOC` | **yes** — same direction, read-side, no extra insert |
+| **E2** | `054f0015` | the io slot memoizes into `inferC`: one table, both directions | **no** — an io entry can serve a full-infer query |
+| **E4** | `8567b133` | both slots run the io *body* under one table | no (accept-superset) — the **elision ceiling** |
+
+Plus `3fdaf23f` (memo-traffic counters, `LECH_MEMOSTATS`) and
+`b98b719c` (E1 instrumented).  `50c63a5f` reverts all of it: **what
+lands is this section and nothing else.**
+
+Workloads: init-full (`--pre`, both modes) and the five #189 slices in
+their `full` and `notarget` variants, both modes — 22 cells per
+variant, 110 cells in all, `perf stat -e instructions:u` plus peak RSS.
+**Every one of the 110 cells exits 0 with a verdict line identical to
+E0's**, on all five variants (so E2 and E4, accept-supersets both,
+happen not to change any verdict on these streams — which is what an
+accept-superset is allowed to do, not evidence that it is safe).
+
+### 3. THE TABLE (Ginstr; E0 absolute, the rest as a delta)
+
+```
+workload   mode         E0 Ginstr       E1      E1b       E2       E4
+---------------------------------------------------------------------
+init-full  verified         666.4   +2.39%   -0.08%   -0.74%   -3.15%
+init-full  trusted          641.9   +0.50%   -0.05%   -1.71%  -59.58%
+t1         verified         352.1   +2.95%   +0.15%   -0.85%  -26.52%
+t1         trusted          334.3   +0.91%   +0.00%   -0.67%  -44.70%
+t2         verified         788.4  +13.68%   +0.07%  -12.14%  -30.91%
+t2         trusted          695.4   +1.84%   -0.00%   -6.55%  -48.80%
+t3         verified          87.4   +0.26%   -0.01%   -0.09%  -24.40%
+t3         trusted           86.5   +0.14%   +0.00%   -0.07%  -30.37%
+t4         verified         158.3  +35.21%   -0.05%  -15.37%  -17.21%
+t4         trusted          131.2   +1.13%   -0.03%   -1.03%  -16.33%
+t5         verified          75.5   +1.76%   -0.10%   -0.56%  -20.65%
+t5         trusted           72.9   +0.57%   -0.03%   -0.53%  -41.13%
+
+target-only cells (full - notarget), the #189 harness's own reading
+t1         verified          37.6   +0.06%   +0.01%   +0.01%  -80.99%
+t1         trusted           37.4   +0.02%   +0.01%   +0.03%  -86.26%
+t2         verified          43.2  +60.26%   +0.03%  -90.04%  -90.34%
+t2         trusted           22.2   +6.20%   +0.09%  -85.63%  -89.85%
+t3         verified          28.9   +0.08%   -0.00%   +0.03%  -54.37%
+t3         trusted           28.8   +0.10%   +0.02%   +0.05%  -59.91%
+t4         verified          26.0 +205.54%   -0.03%  -91.53%  -91.17%
+t4         trusted            2.5  +32.51%   +0.01%  -34.16%  -51.62%
+t5         verified          24.5   +0.25%   +0.03%   -0.35%  -56.19%
+t5         trusted           24.3   +0.23%   -0.00%   -0.38%  -83.55%
+
+peak RSS, full cells (MiB, E0 absolute)
+init-full  verified         826.3   -1.10%   -2.37%   -0.87%   -2.85%
+init-full  trusted          829.0   -0.43%   -2.30%   -1.48%   -3.15%
+t2         verified        1031.1   -1.20%   -0.66%   -1.18%   -0.88%
+t4         verified         571.4   -1.96%   -4.49%   -7.69%   +0.32%
+t5         verified         219.6   -8.06%   -4.25%   -5.11%   +0.33%
+```
+
+Memory is a non-issue at every variant: the largest swing is −11 % and
+the checker peaks at ≈ 0.8–1.0 GiB throughout.
+
+### 4. WHERE THE MISSES ARE (`LECH_MEMOSTATS`, measured on E0's trajectory)
+
+```
+workload             infer.probe hit%   io.probe  io.hit%  ioMiss->full  %ioMiss  fullMiss->io %fullMiss
+init-full-verified    13,830,378 64.5%  1,063,394   49.9%       212,028    39.8%        66,012     1.34%
+init-full-trusted     13,830,378 64.5%    167,321   43.8%        19,819    21.1%        16,267     0.33%
+t1-verified            4,014,733 62.3%    655,199   49.6%        91,421    27.7%        25,200     1.67%
+t2-verified            7,554,698 63.6%  1,590,439   54.5%       153,424    21.2%        65,671     2.39%
+t3-verified              888,596 78.1%     56,982   49.0%         7,339    25.3%         2,141     1.10%
+t4-verified            1,680,518 63.2%    240,012   49.9%        38,340    31.9%        19,548     3.16%
+t5-verified              772,327 60.6%    161,307   49.9%        24,572    30.4%         7,220     2.37%
+```
+
+(`ioMiss->full` = io probes that missed but whose key was already in
+`inferC` — what E1/E1b would have turned into hits.  `fullMiss->io` =
+full-infer misses whose key was already in `inferIOC` — E2's extra,
+unsound direction.  These are *counterfactual* counts on the unshared
+trajectory: sharing changes the trajectory, so they bound the direct
+effect and miss the compounding.)
+
+Three readings, and they are the whole finding:
+
+* **The io lane is small.**  1.06 M io probes against 13.8 M full-infer
+  probes and 37.6 M `whnfCore` probes on init-full `--verified` — under
+  2 % of all memo traffic.  Nothing that touches only this lane can
+  move the total much, whichever way it goes.
+* **The sound direction has the *most* counterfactual hits and buys
+  nothing.**  212 028 io misses on init-full (39.8 % of them!) already
+  had their key in `inferC` — and converting all of them to hits (E1b)
+  is worth −0.08 %.  An io miss is cheap: the io body differs from the
+  full one in one guarded clause, and its sub-results are memoized
+  already.
+* **The unsound direction has ~3× *fewer* hits and is where the
+  instructions are.**  66 012 full-infer misses (1.34 %) had their key
+  in `inferIOC`, and E2 turns that into −0.74 %.  Each such hit elides
+  a whole subtree of application checks, so it compounds far past the
+  direct count — which is exactly the reason it is unsound.
+
+Table sizes at their per-declaration maxima (init-full `--verified`):
+`whnfCoreC` 62 412, `annotC` 22 542, `defeqC` 13 275, `whnfC` 10 364,
+`inferC` 10 000, **`inferIOC` 1 998**.  The io memo is the smallest
+table in the checker by 5×.  Over the run, `inferC` takes 4 914 224
+live entries summed at flush against `inferIOC`'s 532 642 (9.2×).
+
+### 5. WHY E1 (THE WRITE-SIDE SEED) IS A LOSS — AND THE #189 CONNECTION
+
+E1 is the *sound* thing to do and it costs up to a third of the run.
+The instrumented E1 (`b98b719c`) settles the mechanism, because it
+shows the seed **does work as a cache and still loses**.  E0 → E1,
+init-full `--verified`:
+
+| counter | E0 | E1 | |
+|---|---|---|---|
+| `inferIO.probe` | 1 063 394 | 901 105 | **−15.3 %** |
+| `inferIO.hit` | 530 752 | 593 771 | **+11.9 %** |
+| `max.inferIOC` | 1 998 | 10 004 | **+401 %** |
+| `sum.inferIOC.atFlush` | 532 642 | 5 155 584 | **+868 %** |
+| `infer.probe` / `.hit` | 13 830 378 / 8 916 154 | identical | ±0 |
+| `defeq.probe` | 15 775 949 | 15 766 577 | −0.06 % |
+| `whnfCore.probe` | 37 608 649 | 37 604 692 | −0.01 % |
+| `annot.probe` | 15 339 354 | identical | ±0 |
+
+**Every counter that is not the io memo's own moves by ≤ 0.1 %.**  The
+seed changes nothing the checker computes — confirming §1's claim that
+the two grades return the same value — it removes 162 000 io probes,
+and it still costs +2.39 %.  On t4 `--verified` the same shape costs
++35.2 % (`sum.inferIOC.atFlush` 120 155 → 678 664, `max` 7 047 →
+17 644).
+
+So the cost is pure memo maintenance: one extra `Std.HashMap.insert`
+per full-infer miss (4.9 M of them on init-full, 618 k on t4) into a
+table that then carries 5–10× more live entries — **and the keys the
+seed adds are the big ones**, since full inference is called on
+declaration types and values while the io lane sees argument
+positions.  That is #189's tail exactly ("the tail is `Expr.beq`, under
+a memo probe"): `BEq ExprC` is pointer identity, then the cached hash,
+then **structural descent**, so enlarging a memo's key set with large
+terms taxes every later probe of that memo.  The per-insert cost
+implied by t4 (≈ 10⁵ instructions) is far beyond a hash insert and is
+only explicable that way.
+
+**Recorded as a reusable rule: never seed a memo "for free".**  In this
+checker an insert is not cheap and a bigger table is not neutral; a
+sharing scheme must be read-side (E1b) or it is a regression.
+
+### 6. WHAT E2's WIN ACTUALLY IS, AND WHY E4 SETTLES IT
+
+E2 = E1b's direction *plus* the io→full direction, in one table.  E1b
+measures 0.  Therefore **E2's entire −0.74 % / −15.4 % is the io→full
+direction, i.e. full-infer queries answered by an entry that never ran
+the per-argument application check.**  It is not a caching win in any
+part.
+
+E4 puts a number on the same currency without touching the cache: run
+the io body at *every* inference position.  On init-full that is
+**−3.15 % at `--verified` and −59.6 % at `--trusted`** — the asymmetry
+is the licence's own shape (`ioSkip` at `.verified` fires only at a
+`.never` binder; at `.trusted` it fires everywhere).  On the Mathlib
+slices E4 is −16 % … −49 %, and on the two slices where E2 does best
+(t2, t4) E2's target-only cell reaches essentially all of E4's
+(−90.0 % vs −90.3 %; −91.5 % vs −91.2 %) — those two declarations
+happen to re-infer at full grade exactly the terms the io lane already
+holds.
+
+The conclusion the two together force: **the checker has a 3–60 %
+"check less" lever and a 0 % "cache better" lever, and merging the
+memos is a way of pulling a sliver of the first one by accident.**  The
+lever worth designing is the task-#170 call-site question (*where*
+should `inferOnly = true` be passed), not the memo layout.
+
+### 7. THE PROOF CHANGE E2 WOULD NEED — priced, since it will be asked
+
+`CSOK` (`Lech/Verify/Cached/SimC.lean:278,287`) carries two clauses:
+
+```
+inferC   : … s.inferC[k]?   = some v → … inferTypeCore mode env F d k = .ok v
+inferIOC : … s.inferIOC[k]? = some v → … inferTypeIO   mode env F d k = .ok v
+```
+
+* **E1/E1b (full → io) needs a spec-level monotonicity lemma**
+  `inferTypeCore … = .ok v → ∃ F', inferTypeIO … = .ok v` — the
+  "named future option" of the task-#170 memo ruling.  It is a mutual
+  induction over the whole core, and it is *the sound one*.  **The
+  measurement retires it: it would buy 0.0 %.  Do not build it.**
+* **E2 (io → full) is not a lemma, it is a re-architecture.**  The
+  needed statement `inferTypeIO … = .ok v → inferTypeCore … = .ok v`
+  is **false as a spec statement**: the io walk skips a real `defeq`
+  at a `.never` binder, and a skipped check that would have failed is
+  precisely the difference between the two.  What one would have to do
+  instead is give the shared table the *weaker* (io) clause and re-prove
+  **every consumer of a full-infer memo hit** against it — i.e. move
+  the claims tower's full-infer consumers onto `io_app_mem`
+  (`Lech/SetP/IOLicenseP.lean:85`), discharging the graph-regime
+  licence from the stored annotation datum at each one.  The fence is
+  mechanized and stays: `io_membership_fails_at_squash` (`:118`)
+  refutes the membership conclusion at the squash regime, so the
+  re-proof must carry the `.never` datum to every consumption site,
+  not merely assume it.  That is the whole `infer` half of the
+  SimC/claims split.  **For −0.74 % on init-full.  No.**
+
+### 8. WHAT THIS DOES *NOT* SAY
+
+* It does not say the io lane is useless.  E4's `--trusted` number
+  (−59.6 %) is the size of what the io grade already saves where it is
+  called; the finding is only that *sharing its memo* adds nothing.
+* It does not license E2 or E4 as designs.  Both are accept-supersets;
+  they were built to bound a number and are reverted.
+* The counterfactual counts in §4 are measured on the unshared
+  trajectory and understate compounding; the instruction deltas, not
+  the counts, are the measurement.
+
+### 9. KIT AND GATES
+
+Kit and raw data: `_tmp/infershare/{run.sh,counts.sh,report.py,report2.py,cells.tsv,table.txt,counts.tsv,counts/,counts-E1/,bin/}`.
+`run.sh <tag> <binary> [par]` runs the 22-cell battery
+(`perf stat -e instructions:u` + peak RSS, `ulimit -v 16000000`,
+`--pre` on a locally preprocessed `init-full-pre.ndjson` so no other
+lane's stream can move under it); `counts.sh` runs the instrumented
+binary under `LECH_MEMOSTATS=1`.  Baseline binary md5
+`9a2feb17cdc9df8d87a65bffed166373`, built at master `9eb3bda0`; its
+cells reproduce #189's own (`_tmp/slowest/cells.tsv`) to within 0.01 %.
+
+The experimental binaries were built with `lake build lech` only — the
+proof tier was never built against them, deliberately (E2 and E4 break
+the simulation tower by construction, which is the point).  What lands
+is this section; `50c63a5f` restores master's checker byte for byte,
+and the branch keeps the five variants in its history for anyone who
+wants to re-measure.
+
+## TASK #194 — THE `PropWhen` REPRESENTATION IS CANONICAL BY CONSTRUCTION (2026-09-06, `agent/pwnorm`)
+
+**User directive, verbatim:** *"We have the sealed API, so this should
+be painless.  So do normalize and add invariants to the constructors
+(ordered for .two, sorted for .many).  (It may be easier if the
+more-than-two constructor takes just a list, not three elements and a
+list, with a length > 2 invariant in the type)."*
+
+It was painless: one module changed (`Lech/Kernel/PropWhen.lean`),
+two docstrings followed (`Kernel/Level.lean`, `Verify/PropWhen.lean`),
+and **no proof outside the module changed** — `Verify/PropWhen.lean`'s
+`substPW_self`/`substPW_comp`/`zeronessOf_subst`/`holds_substPW`
+compile as they were, because the law battery kept every statement.
+
+### 1. The representation
+
+    private inductive PropWhenRepr where
+      | never
+      | always
+      | one  (p : Name)
+      | two  (p q : Name) (h : p < q)
+      | many (ps : List Name) (h : PropWhen.Sorted ps ∧ 2 < ps.length)
+
+`Sorted ps := List.Pairwise (· < ·) ps` — strictly ascending, which is
+"sorted and duplicate-free" in one clause.  The invariants are `Prop`
+fields, carried by the constructors: there is no value of the type
+that is not the canonical representative of its parameter set, so
+canonicity is never re-established and never checked at runtime.  The
+`many` constructor takes the bare list plus the invariant, as the
+directive suggested — the old `many p q r rest` trick existed only to
+avoid an invariant, and once one is carried anyway the list is
+simpler.  `deriving Hashable, Inhabited` handles the `Prop` fields
+(they are skipped); `DecidableEq` is *not* derived (see §2).
+
+**The order on `Name`.**  The tree had none (the `NNode` arena keys
+by interned index, the level arena stores raw names), so the module
+defines `Name.cmp`: structural lexicographic, constructor order
+`anonymous < str < num`, prefix first, then the payload by the core
+`compare` on `String`/`Nat` — the shape of `Lean.Name.quickLt` minus
+the hash short-cut, which would make the order depend on hashing.
+`a < b` is `cmp a b = .lt`, with `LT`/`Decidable` instances and the
+strict-total-order laws `lt_irrefl`, `lt_trans`, `lt_asymm`,
+`ne_of_lt`, `lt_trichotomy` (from `cmp_self`, `eq_of_cmp`, `cmp_swap`,
+`cmp_trans`; the payload halves come from `Std.TransCmp` /
+`Std.LawfulEqCmp` / `Std.OrientedCmp` of the core instances).  Mined
+from the deleted `Kernel/ZeroSet.lean` (`git show f7cfe8e0^:…`), as
+the task suggested; the module still imports only `Lech.Kernel.Name`.
+
+**The sorted-list layer** (`namespace PropWhen`, public): `merge`
+(the ordered union, `mem_merge`, `sorted_merge`, `all_merge`), `canon`
+(fold singletons in: `mem_canon`, `sorted_canon`, `all_canon`,
+`canon_eq_self` on sorted input, `canon_canon`), and the theorem the
+module rests on, `sorted_ext : Sorted as → Sorted bs → (∀ n, n ∈ as ↔
+n ∈ bs) → as = bs`.
+
+**The producers normalize.**  `ifAllZero [] / [p]` build `always` /
+`one p` with no comparison and no list cell (`@[inline]`, so
+`.ifAllZero [n]` at `Level.zeronessOf` still compiles to a single
+`lean_alloc_ctor(2,1,0)` — checked in `Kernel/Level.c`, byte-identical
+to the small-list constructors' shape); `ifAllZero [p, q]` is **one**
+`cmp` (`two'`: `.lt ↦ two p q`, `.eq ↦ one p`, `.gt ↦ two q p`); only
+length ≥ 3 runs `canon`.  `inter` answers `never`/`always`/`one×one`
+without touching a list (the `one×one` arm is `two'`); the general
+arm is `ofSorted (merge a.toList b.toList)`.  `bindZ` is unchanged in
+shape and canonical because `inter` is.  `Level.substPW` is `bindZ`.
+
+### 2. The comparison is equality
+
+`equiv` is still the API name at all 57 call sites; it is now
+structural equality spelled constructor-wise (`equivR`) so that the
+name comparisons go through `Name.beq` (the pointer-and-hash-guarded
+equality) rather than the derived structural walk.  The exported
+theorem is
+
+    equiv_iff_eq : equiv a b = true ↔ a = b
+
+and **`DecidableEq PropWhen` is defined from it** (`decEq :=
+decidable_of_iff _ (equiv_iff_eq a b)`), so `=`, `==`, `decide`,
+`equiv` and the derived `DecidableEq`/`BEq` of `BinderMeta` and `Expr`
+all run the *same* code — the C for `equiv`, `decEq` and
+`instDecidableEq` is three one-line calls to `equivR`.  Consequently:
+
+* `eq_iff_holds : p = q ↔ ∀ φ, p.holds φ = q.holds φ` (new; the
+  ZeroSet module's `eq_iff_holds`, now on the real datum) and
+  `equiv_iff_holds` is its composite with `equiv_iff_eq`.
+* `ifAllZero_eq_iff : ifAllZero ps = ifAllZero qs ↔ (∀ n, n ∈ ps ↔ n ∈
+  qs)` — the unique-representative theorem; `ifAllZero_canon`,
+  `eq_of_toList`, `eq_of_mem_iff`, `mem_toList_ifAllZero`,
+  `sorted_toList` are its companions.
+* **The packed hash word is canonical.**  `Hashable PropWhen` is the
+  derived hash of the representation, and equal sets are equal
+  representations, so two `equiv` data hash equal — the `Expr`
+  computed-field hash (`Kernel/Expr.lean`, through `BinderMeta`'s
+  derived `Hashable`) and `Expr.beq` now agree with `equiv` on the
+  `pw` contribution.  **For the perf lane (`agent/beqmemo`):** the
+  question whether non-canonical `pw` data ever caused memo misses (a
+  hash/`==` mismatch between `equiv`-equal metas) is moot from this
+  landing on — there are no two distinct `equiv`-equal data.
+
+### 3. The laws: what changed shape
+
+Statements unchanged, proofs redone (all inside the module):
+
+| law | before | now |
+|---|---|---|
+| `holds_ifAllZero`, `paramsDefined_ifAllZero`, `hasParams_ifAllZero` | 4-arm `simp` on the constructor | one `toList` characterization each (`holds_eq_toList`, `paramsDefined_eq_toList`, `hasParams_eq_toList`) + `toList_ifAllZero` + `all_canon` / `isEmpty_canon` |
+| `holds_inter` | 25-arm `simp` | `toList_inter` (`merge`) + `all_merge`, `never` cases separately |
+| `inter_ifAllZero`, `bindZ_ifAllZero` | `simp [inter, ifAllZero, toList]` per shape pair | **extensionality**: `eq_of_holds` + the `holds` equations (`List.all_append`; `bindZ_go_canon` via `holds_bindZ_go`) |
+| `equiv_never_*`, `equiv_ifAllZero` | 16-arm `simp` | `equiv_iff_eq` + `ifAllZero_ne_never` / `ifAllZero_eq_iff` |
+| `equiv_iff_holds`, `equiv_refl`, `holds_eq_of_equiv` | the containment argument (`mem_of_holds_eq`) | `equiv_iff_eq ∘ eq_iff_holds`; the separating-valuation argument moved into `eq_iff_holds` (`mem_of_all_eq`) |
+| `inter_never_right`, `paramsDefined_inter_of`, `inter_assoc`, `bindZ_go_append`, `bindZ_inter`, `bindZ_congr_names`, `bindZ_unit`, `holds_ext`, `holds_bindZ_go` | — | **unchanged**, they go through the exported equations only |
+
+Statements that *had* to change (the shape equations, not laws):
+`toList_ifAllZero : (ifAllZero ps).toList = canon ps` and
+`toList?_ifAllZero : … = some (canon ps)` (were `= ps`); neither is
+used outside the module.  `casesZ` keeps its type exactly — the
+`ifAllZero` case is offered for *every* list, canonical or not, which
+is sound because the smart constructor normalizes — and its `two`/
+`many` arms transport along `ifAllZero [p, q] = ⟨two p q h⟩` /
+`ifAllZero ps = ⟨many ps h⟩` (`Eq.mpr`, the private lemmas
+`ifAllZero_two`/`ifAllZero_many`).  New laws: `inter_comm`,
+`inter_self` (equalities, by canonicity).
+
+**Amendment 2 resolved.**  `Level.substPW_self` is unconditional
+again for the reason the ZeroSet lane predicted (`substPWZ_self`):
+the counterexample was a *normalizing* `substPW` applied to a
+*non-canonical* datum, and no such datum exists now.  Its datum half
+is `bindZ_unit` — an equality, proved exactly as before through
+`inter_ifAllZero`.  `substPW_comp` keeps its `paramsDefined`
+hypothesis, which is representation-independent (a parameter outside
+the inner substitution's domain is substituted on the left and
+cannot be on the right); no other law needs any hypothesis.
+`instantiateLevelParams_self` (`Verify/InstLevels.lean`) stands as it
+did, now over a datum that cannot be non-canonical.
+
+### 4. Findings
+
+* **Deriving handles `Prop` fields** — `deriving Hashable, Inhabited`
+  on the invariant-carrying inductive works (proof fields are
+  skipped), and the generated `.injEq` lemmas omit them
+  (`two p q h = two p' q' h'` simps to `p = p' ∧ q = q'`), so
+  `equivR_iff_eq` is one `cases x <;> cases y <;> simp [equivR]`.
+* **`rfl` is refused on an exported theorem about a sealed body** even
+  when the body is a `foldr` — `canon_nil`/`canon_cons` need `by simp
+  [canon]` (the error says so explicitly).  `merge` is well-founded
+  recursion, hence irreducible; everything about it goes through its
+  equation lemmas (`simp [merge]`, `fun_induction`).
+* `simp_all` does not substitute an equation it holds
+  (`h : ps = []`) into a `Prop` field hypothesis that mentions the same
+  variable; `eq_of_toList`'s cross-shape arms need `subst h` first.
+
+### 5. The receipts: perf
+
+`perf stat -e instructions:u`, `ulimit -v 16000000`, `timeout 1800`,
+`nice -n 5`, `LECH_SUPERVISED=1`, `init-full-pre-native.ndjson --pre`,
+one cell at a time; master = the branch point `9eb3bda0` built in its
+own worktree, the branch = `7f857dad`.  All four cells: exit 0,
+**54 346 accepted**.  To reproduce (the baseline worktree was removed
+at the stand-down):
+
+    git worktree add --detach _tmp/pwnorm-base 9eb3bda0
+    cp -a .lake _tmp/pwnorm-base/.lake && (cd _tmp/pwnorm-base && lake build)
+    ulimit -v 16000000
+    for bin in _tmp/pwnorm-base/.lake/build/bin/lech .lake/build/bin/lech; do
+      for mode in --verified --trusted; do
+        LECH_SUPERVISED=1 nice -n 5 perf stat -e instructions:u -- \
+          timeout 1800 $bin $mode --pre _tmp/init-exports/init-full-pre-native.ndjson
+      done
+    done
+
+| mode | master `9eb3bda0` | `agent/pwnorm` | Δ |
+|---|---|---|---|
+| init-full `--verified` | 669.910 G | 658.697 G | **−1.67 %** |
+| init-full `--trusted` | 643.761 G | 633.354 G | **−1.62 %** |
+
+The expectation was neutral; the change is a gain well above the
+0.01 % run-to-run spread, and it has one cause, read off the generated
+C.  Master's `DecidableEq PropWhen` was the *derived* instance, and
+`BinderMeta`'s derived `decEq` — which is what `Expr.beq`/`DecidableEq
+Expr` reach at every binder — called
+`instDecidableEqPropWhenRepr_decEq`, which compares names with the
+structural `instDecidableEqName` (11 call sites in the old
+`PropWhen.c`) and `inc`/`dec`s each `pw` around the call.  Now
+`DecidableEq PropWhen` is `equiv`, i.e. `equivR`, whose three name
+comparisons are `Name.beq` = `Name.beqPtr` after `@[csimp]`: pointer,
+then cached `hashData`, then the structural walk (6 `lean_ptr_addr`,
+6 `hashData` reads, 3 structural fallbacks in `equivR`'s body), on
+borrowed arguments.  Task #189 measured `Expr.beq` as the tail of the
+acceptance run; this is that comparison getting the same guard the
+`Name` inside it already had everywhere else.  The datum-shaped work
+of the change (the sort) never runs on init-full: no datum there has
+three parameters, and the 16 two-name data cost one `cmp` each.
+
+### 6. Gates
+
+`lake build` 640 jobs, 0 errors, 0 warnings; `lake test` green (the
+new canonicity guards: order, duplicates, `hash`, `inter`
+commutative/idempotent, `substPW` at the own parameters,
+`zeronessOf` of a `max` with a repeated parameter).  `tests/arena.sh`
+0 FAIL: layering 0 impl→theory (the module still imports only
+`Lech.Kernel.Name`); proofdeps 2515 rows as pinned, 0 doors; pindump
+fresh (no committed pin carries a two-name datum, so the sorted
+`Repr`/dump output is byte-identical); trust surface 0 outside the
+allowlist; axioms pinned (11 theorems at `[propext, Classical.choice,
+Quot.sound]`); arena 90/92 good, e2e 100/100, annot 14/14, retired
+flags 8/8, mode flags 16/16, prelude counts 3/3, progress lane 6/6,
+trusted sweep 138 + 100 + 14 with the 3 recorded divergences.
+init-full accepted in both modes with the same counts (§5).  Master
+merged (it had moved by a README edit only).
+
 ## Task #187 — PERF.md regenerated, all of Mathlib as a row, and the accepted count made comparable (2026-09-06, `agent/perf-regen`)
 
 The battery was re-cut from scratch at `fb2d7bf8` (master `bd4dcf6a`
@@ -51102,4 +53033,3 @@ prepended to every parsed stream, so the headline becomes
 the conflict; this branch contributes the wording, the `LECH_VERBOSE`
 line, the census tool and the greps.  Real streams' counts are
 unaffected.
-
