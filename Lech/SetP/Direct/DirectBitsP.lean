@@ -57,8 +57,7 @@ theorem inferTypeCore_sort_inv {env : Env} {F d : Nat} {u : Level} {t : Expr}
   | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
   | F + 1, h =>
     rw [Lech.inferTypeCore_succ] at h
-    simp only [Lech.inferBody, Lech.viewM, Expr.view, pure, Except.pure,
-      Bind.bind, Except.bind] at h
+    simp only [Lech.inferBody, pure, Except.pure] at h
     exact (Except.ok.inj h).symm
 
 theorem inferTypeCore_fvar_inv {env : Env} {F d idx : Nat} {n : Name}
@@ -68,8 +67,7 @@ theorem inferTypeCore_fvar_inv {env : Env} {F d idx : Nat} {n : Name}
   | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
   | F + 1, h =>
     rw [Lech.inferTypeCore_succ] at h
-    simp only [Lech.inferBody, Lech.viewM, Expr.view, pure, Except.pure,
-      Bind.bind, Except.bind] at h
+    simp only [Lech.inferBody, pure, Except.pure] at h
     split at h
     · exact ⟨‹_›, (Except.ok.inj h).symm⟩
     · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])

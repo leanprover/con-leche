@@ -62,8 +62,7 @@ private theorem instKey_inv {a c : ExprC} {vs vs' : List ExprC} {d d' : Nat}
 /-! ## Component replacements
 
 The `CSOK` clauses are independent, so a wrapper that touches one cache
-gets its invariant back by replacing that clause.  (These are the ports
-of `ISOK.withStore*`; there is no arena leg to transport.) -/
+gets its invariant back by replacing that clause. -/
 
 variable {env : Env}
 
@@ -149,19 +148,18 @@ section Effects
 
 variable {s₀ : CState}
 
-private theorem internI_run (n : ExprView ExprC) (s : CState) :
-    internI n s = .ok (ExprC.ofView n, s) := rfl
-
-/-- Building one node: the port of `internI_eff` (the arena's
-`intern_spec` becomes `ofView_spec`). -/
-theorem internI_eff (hs : CSOK mode env s₀) {n : ExprView ExprC} :
-    CEff mode env s₀ (fun i => RelC i (ofViewE (n))) (internI n) :=
-  CEff.pure hs (ofView_spec n)
-
-/-- Converting a whole `Expr`. -/
-theorem internExprM_eff (hs : CSOK mode env s₀) (x : Expr) :
-    CEff mode env s₀ (fun i => RelC i x) (internExprM x) :=
+/-- Building one node: the cached core allocates it outright, so the
+effect is the value's own reflexivity (task #198 -- this was
+`internI_eff`, whose `internI` was a `pure` of the built node). -/
+theorem pureC_eff (hs : CSOK mode env s₀) (x : ExprC) :
+    CEff mode env s₀ (fun i => RelC i x) (pure x) :=
   CEff.pure hs (RelC.refl x)
+
+/-- The `bvar` allocation goes through `Expr.mkBvar` (the shared small
+nodes), which is the constructor (`Expr.mkBvar_eq`). -/
+theorem pureBvar_eff (hs : CSOK mode env s₀) (i : Nat) :
+    CEff mode env s₀ (fun e => RelC e (Expr.bvar i)) (pure (Expr.mkBvar i)) :=
+  CEff.pure hs (Expr.mkBvar_eq i)
 
 theorem inst1M_eff (hs : CSOK mode env s₀) {e v : ExprC} {d : Nat}
     {a w : Expr} (he : RelC e a) (hv : RelC v w) :
@@ -229,15 +227,6 @@ theorem piResidualM_eff (hs : CSOK mode env s₀) {e : ExprC}
   rw [← he.erase, ← hargs.map]
   exact h
 
-theorem pisToLamsM_eff (hs : CSOK mode env s₀) {k : Nat} {e body : ExprC}
-    {x xb : Expr} (he : RelC e x) (hb : RelC body xb) :
-    CEff mode env s₀ (fun o => OptEr o (Expr.pisToLams k x xb))
-      (pisToLamsM k e body) := by
-  refine CEff.pure hs ?_
-  have h := pisToLams_spec k e body
-  rw [← he.erase, ← hb.erase]
-  exact h
-
 theorem instLevelParamsM_eff (hs : CSOK mode env s₀) {ks : List Name}
     {us : List Level} {e : ExprC} {a : Expr} (he : RelC e a) :
     CEff mode env s₀
@@ -253,66 +242,22 @@ theorem peelFuelM_eff (hs : CSOK mode env s₀) :
     CEff mode env s₀ (fun n => n = peelFuel) peelFuelM :=
   CEff.pure hs rfl
 
-/-! ## The identity name/level wrappers
+/-! ## Pure reads
 
-Names and levels are plain trees in the clone, so the interned
-checker's interning and readback wrappers are identities; each states
-the value fact its interned twin's `_eff` lemma states, with the
-denotation replaced by an equation. -/
+The names and levels the core fabricates are ordinary values: the
+cached checker's name/level "interning" and "readback" wrappers were
+identities and went at task #198, so what the walks peel is a `pure`
+and what they consume is its value equation. -/
 
-theorem internNameM_eff (hs : CSOK mode env s₀) (nm : Name) :
-    CEff mode env s₀ (fun i => i = nm) (internNameM nm) :=
-  CEff.pure hs rfl
-
-theorem readbackNM_eff (hs : CSOK mode env s₀) (nm : Name) :
-    CEff mode env s₀ (fun v => v = nm) (readbackNM nm) :=
-  CEff.pure hs rfl
-
-theorem beqNameM_eff (hs : CSOK mode env s₀) (i nm : Name) :
-    CEff mode env s₀ (fun b => b = (i == nm)) (beqNameM i nm) :=
-  CEff.pure hs rfl
-
-theorem projFnIdxM_eff (hs : CSOK mode env s₀) (T : Name) (i : Nat) :
-    CEff mode env s₀ (fun r => r = projFnName T i) (projFnIdxM T i) :=
-  CEff.pure hs rfl
-
-theorem internLM_eff (hs : CSOK mode env s₀) (u : Level) :
-    CEff mode env s₀ (fun v => v = u) (internLM u) :=
-  CEff.pure hs rfl
-
-theorem viewLM_eff (hs : CSOK mode env s₀) (u : Level) :
-    CEff mode env s₀ (fun o => o = some u) (viewLM u) :=
-  CEff.pure hs rfl
-
-theorem readbackLevelM_eff (hs : CSOK mode env s₀) (u : Level) :
-    CEff mode env s₀ (fun v => v = u) (readbackLevelM u) :=
-  CEff.pure hs rfl
-
-theorem readbackLevelsM_eff (hs : CSOK mode env s₀) (us : List Level) :
-    CEff mode env s₀ (fun vs => vs = us) (readbackLevelsM us) :=
-  CEff.pure hs rfl
-
-theorem substLM_eff (hs : CSOK mode env s₀) (ks : List Name)
-    (us : List Level) (u : Level) :
-    CEff mode env s₀ (fun v => v = Level.subst ks us u) (substLM ks us u) :=
-  CEff.pure hs rfl
-
-theorem substLevelTreeM_eff (hs : CSOK mode env s₀) (ks : List Name)
-    (us : List Level) (l : Level) :
-    CEff mode env s₀ (fun v => v = Level.subst ks us l)
-      (substLevelTreeM ks us l) :=
+/-- A `pure` read: the value is what was handed in. -/
+theorem pureEq_eff {α : Type} (hs : CSOK mode env s₀) (x : α) :
+    CEff mode env s₀ (fun v => v = x) (pure x) :=
   CEff.pure hs rfl
 
 theorem substLevelTreesM_eff (hs : CSOK mode env s₀) (ks : List Name)
     (us : List Level) (ls : List Level) :
     CEff mode env s₀ (fun vs => vs = ls.map (Level.subst ks us))
       (substLevelTreesM ks us ls) :=
-  CEff.pure hs rfl
-
-/-- The zero-ness readout is a pure function of the level tree
-(task #161). -/
-theorem zeronessOfM_eff (hs : CSOK mode env s₀) (u : Level) :
-    CEff mode env s₀ (fun r => r = Level.zeronessOf u) (zeronessOfM u) :=
   CEff.pure hs rfl
 
 end Effects
@@ -750,7 +695,7 @@ theorem CSOK.insertRuleRhs {s : CState} (hs : CSOK mode env s)
 /-- `storedTyIdxM` yields a term related to the given type — the
 converted-constant hit path via the self-certifying `ienv` clause (the
 pointer gate ties the tag to the argument), the miss paths via
-`internExprM_eff`. -/
+`pureC_eff`. -/
 theorem storedTyIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
     CEff mode env s₀ (fun i => RelC i x) (storedTyIdxM n x) := by
   intro v' s' hr
@@ -759,8 +704,8 @@ theorem storedTyIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
       match ent? with
       | some ent =>
         if Expr.exprPtrBEq ent.tyE x then pure ent.ty
-        else internExprM x
-      | none => internExprM x : CheckCM ExprC) from rfl] at hr
+        else pure x
+      | none => pure x : CheckCM ExprC) from rfl] at hr
   simp only [Bind.bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
     StateT.modifyGet, Except.bind, pure, Except.pure] at hr
   cases hl : s₀.ienv[n]? with
@@ -776,10 +721,10 @@ theorem storedTyIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
       obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
       exact ⟨hs, hEq ▸ (hs.ienv n ent hl).1⟩
     · rw [if_neg hgate] at hr
-      exact internExprM_eff hs x v' s' hr
+      exact pureC_eff hs x v' s' hr
   | none =>
     rw [hl] at hr
-    exact internExprM_eff hs x v' s' hr
+    exact pureC_eff hs x v' s' hr
 
 /-- `storedValIdxM` yields a term related to the given value (see
 `storedTyIdxM_eff`). -/
@@ -791,8 +736,8 @@ theorem storedValIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
       match ent? with
       | some ⟨_, _, some (vE, vi)⟩ =>
         if Expr.exprPtrBEq vE x then pure vi
-        else internExprM x
-      | _ => internExprM x : CheckCM ExprC) from rfl] at hr
+        else pure x
+      | _ => pure x : CheckCM ExprC) from rfl] at hr
   simp only [Bind.bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
     StateT.modifyGet, Except.bind, pure, Except.pure] at hr
   cases hl : s₀.ienv[n]? with
@@ -813,14 +758,14 @@ theorem storedValIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
         obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
         exact ⟨hs, hEq ▸ (hs.ienv n ⟨tyE, ty, some (vE, vi)⟩ hl).2 vE vi rfl⟩
       · rw [if_neg hgate] at hr
-        exact internExprM_eff hs x v' s' hr
+        exact pureC_eff hs x v' s' hr
     | none =>
       subst hval
       dsimp only at hr
-      exact internExprM_eff hs x v' s' hr
+      exact pureC_eff hs x v' s' hr
   | none =>
     rw [hl] at hr
-    exact internExprM_eff hs x v' s' hr
+    exact pureC_eff hs x v' s' hr
 
 /-- `constTyAtM` under the index of `env`: the result is related to the
 level-instantiated stored type. -/
@@ -980,8 +925,7 @@ theorem ruleRhsAtM_eff (hs : CSOK mode env s₀) {cI jI c j : Name}
         | some (.recInfo cv _ _ rules) =>
           match rules.find? (fun r' => r'.ctor == j) with
           | some rl =>
-            let raw ← internExprM rl.rhs
-            let i ← instLevelParamsM cv.levelParams us raw
+            let i ← instLevelParamsM cv.levelParams us rl.rhs
             modify fun s =>
               let mp := s.ruleRhsAt
               let s := { s with ruleRhsAt := ∅ }
@@ -1011,25 +955,21 @@ theorem ruleRhsAtM_eff (hs : CSOK mode env s₀) {cI jI c j : Name}
     rw [hrl] at hr
     dsimp only at hr
     simp only [Bind.bind, StateT.bind, Except.bind] at hr
-    cases hrun : internExprM rl.rhs s₀ with
-    | error he => rw [hrun] at hr; exact nomatch hr
-    | ok pr =>
-      obtain ⟨raw, s₁⟩ := pr
-      rw [hrun] at hr
+    -- the raw right-hand side needs no conversion (task #198: what was
+    -- a conversion of `rl.rhs` is the value itself)
+    have hraw : RelC (rl.rhs : ExprC) rl.rhs := rfl
+    cases hrun₂ : instLevelParamsM cv.levelParams us rl.rhs s₀ with
+    | error he => rw [hrun₂] at hr; exact nomatch hr
+    | ok pr₂ =>
+      obtain ⟨i, s₂⟩ := pr₂
+      rw [hrun₂] at hr
       dsimp only at hr
-      obtain ⟨hs₁, hraw⟩ := internExprM_eff hs _ raw s₁ hrun
-      cases hrun₂ : instLevelParamsM cv.levelParams us raw s₁ with
-      | error he => rw [hrun₂] at hr; exact nomatch hr
-      | ok pr₂ =>
-        obtain ⟨i, s₂⟩ := pr₂
-        rw [hrun₂] at hr
-        dsimp only at hr
-        obtain ⟨hs₂, hrel⟩ := instLevelParamsM_eff hs₁ hraw i s₂ hrun₂
-        simp only [modify, modifyGet, MonadStateOf.modifyGet,
-          StateT.modifyGet, pure, StateT.pure, Except.pure,
-          Except.ok.injEq] at hr
-        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
-        exact ⟨hs₂.insertRuleRhs hfind hrl hrel, hrel⟩
+      obtain ⟨hs₂, hrel⟩ := instLevelParamsM_eff hs hraw i s₂ hrun₂
+      simp only [modify, modifyGet, MonadStateOf.modifyGet,
+        StateT.modifyGet, pure, StateT.pure, Except.pure,
+        Except.ok.injEq] at hr
+      obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
+      exact ⟨hs₂.insertRuleRhs hfind hrl hrel, hrel⟩
 
 private theorem recordCConst_run (n : Name) (tyE : Expr) (ty : ExprC)
     (val : Option (Expr × ExprC)) (s : CState) :

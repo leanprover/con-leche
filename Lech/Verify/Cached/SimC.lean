@@ -478,24 +478,16 @@ protected theorem throw_bind {β β' α : Type}
   intro v' s' hr
   exact nomatch hr
 
-/-- Peel a read (`viewI`): same state, value = the node's view. -/
-protected theorem view {β α : Type} {P : β → α → Prop}
-    {e : ExprC} {k : Option (ExprView ExprC) → CheckCM β} {p : FueledM α}
-    (h : SimC mode env s₀ P (k (some e.view)) p) :
-    SimC mode env s₀ P (viewI e >>= k) p := by
+/-- Peel a pure read: same state, the continuation at the value.
+(Task #198: the port of the retired `withStore` peel — the cached
+checker's syntactic reads are plain `pure`s.) -/
+protected theorem pureB {β α γ : Type} {P : β → α → Prop}
+    {x : γ} {k : γ → CheckCM β} {p : FueledM α}
+    (h : SimC mode env s₀ P (k x) p) :
+    SimC mode env s₀ P ((pure x : CheckCM γ) >>= k) p := by
   intro v' s' hr
   apply h v' s'
-  simpa only [viewI, Bind.bind, StateT.bind, pure, StateT.pure,
-    Except.pure, Except.bind] using hr
-
-/-- Peel a read (`withStore`; the cached store is a unit). -/
-protected theorem withStore {β α γ : Type} {P : β → α → Prop}
-    {f : CStore → γ} {k : γ → CheckCM β} {p : FueledM α}
-    (h : SimC mode env s₀ P (k (f default)) p) :
-    SimC mode env s₀ P (Lech.Cached.withStore f >>= k) p := by
-  intro v' s' hr
-  apply h v' s'
-  simpa only [Lech.Cached.withStore, Bind.bind, StateT.bind, pure,
+  simpa only [Bind.bind, StateT.bind, pure,
     StateT.pure, Except.pure, Except.bind] using hr
 
 /-- Bind that *remembers* the first component's fueled run: the
@@ -597,22 +589,14 @@ protected theorem bind {β β' : Type} {Q : β → Prop} {R : β' → Prop}
     obtain ⟨hs₁, hQ⟩ := hx b s₁ hc
     exact hf s₁ b hs₁ hQ v' s' hr
 
-protected theorem view {β : Type} {Q : β → Prop}
-    {e : ExprC} {k : Option (ExprView ExprC) → CheckCM β}
-    (h : CEff mode env s₀ Q (k (some e.view))) :
-    CEff mode env s₀ Q (viewI e >>= k) := by
+@[inherit_doc SimC.pureB]
+protected theorem pureB {β γ : Type} {Q : β → Prop}
+    {x : γ} {k : γ → CheckCM β}
+    (h : CEff mode env s₀ Q (k x)) :
+    CEff mode env s₀ Q ((pure x : CheckCM γ) >>= k) := by
   intro v' s' hr
   apply h v' s'
-  simpa only [viewI, Bind.bind, StateT.bind, pure, StateT.pure,
-    Except.pure, Except.bind] using hr
-
-protected theorem withStore {β γ : Type} {Q : β → Prop}
-    {f : CStore → γ} {k : γ → CheckCM β}
-    (h : CEff mode env s₀ Q (k (f default))) :
-    CEff mode env s₀ Q (Lech.Cached.withStore f >>= k) := by
-  intro v' s' hr
-  apply h v' s'
-  simpa only [Lech.Cached.withStore, Bind.bind, StateT.bind, pure,
+  simpa only [Bind.bind, StateT.bind, pure,
     StateT.pure, Except.pure, Except.bind] using hr
 
 end CEff

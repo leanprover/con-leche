@@ -59,7 +59,7 @@ namespace Lech.Frontend
 
 open Lean (Json)
 open Lech
-open Lech.Cached (ExprC ConstantValC DeclC)
+open Lech.Cached (ExprC DeclC)
 
 private abbrev M := Except String
 
@@ -378,7 +378,7 @@ private def parseExprEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
 
 /-- Twin of `parseConstantValP`: the type stays `ExprC`. -/
 private def parseConstantValD (st : StateD) (v : Json) (budgeted : Bool) :
-    M ConstantValC := do
+    M ConstantVal := do
   let name ← getNameD st v "name"
   let ty ← getDeclD st v "type" (budgeted || st.budgetedD name)
   pure { name := name
@@ -398,7 +398,7 @@ private def parseConstantValTD (st : StateD) (v : Json) : M ConstantVal := do
 self` for a recorded owner `T`, the field's sort is on record from the
 artifact, `PUnit` is available, and the definition's level parameters
 are the block's.  `none` = leave the record as parsed. -/
-private def projRewriteD (st : StateD) (cv : ConstantValC) (vl : ExprC) :
+private def projRewriteD (st : StateD) (cv : ConstantVal) (vl : ExprC) :
     Option ExprC := do
   let .proj T i (.bvar 0) := lamBody vl | none
   let o ← st.projOwners[T]?

@@ -529,6 +529,12 @@
 # delta chains compared by rfl); a plain accept, kept as the fixture the
 # lazy-delta restructuring is measured on
 0 delta_chain.ndjson
+# binder_shared_local.ndjson: task #201 — the defeq binder arms open BOTH
+# bodies with ONE local (official `is_def_eq_binding`); before the fix two
+# bodies equal up to the bound variable's display name were not `==`, the
+# `.proj` whnfCore clause whnf'd `g x` on an open `x`, and `Nat.mul x 2^32`
+# was iota-ground unarily (exit 3, fuel).  Official accepts.
+0 binder_shared_local.ndjson
 # mutual_struct_proj / nested_struct_proj (the projection-function
 # rewrite, Lech/Frontend/ProjRec.lean, 2026-09-06): the elaborator's
 # `T.f := fun self => self.i` on structure-likes the direct install

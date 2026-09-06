@@ -882,7 +882,7 @@ matching stays on `.bvar` and no statement anywhere changes.
 **Where it is used.**  Every *runtime* `bvar` construction goes through
 it, and the routing is one line: `Lech.Cached.ExprC.mkBVar` is the
 cached tier's only `bvar` builder, so the substitution and abstraction
-walks, `ofView` and the frontend's parser are all covered at once.  The
+walks and the frontend's parser are all covered at once.  The
 remaining `.bvar` literals in the tree are either the pure *spec*
 functions of `Lech/Kernel/ExprOps.lean` (which must keep the bare
 constructor — they are what the pool is proved transparent against) or

@@ -1830,7 +1830,7 @@ private theorem infer_step (henv : EnvWF env)
         (.letE n (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
       (inferBody mode (pureFns mode env fuel) env d (.letE n ty v body)).map
         (shiftFrom p)
-    simp only [inferBody, viewM, Expr.view, pure_bind]
+    simp only [inferBody]
     refine bind_rel _ _ (ih.infer hpd hw.1) ?_
     intro tty htty
     refine bind_rel_eq _ (ensureSort_shift henv ih hpd
@@ -1849,18 +1849,18 @@ private theorem infer_step (henv : EnvWF env)
     show inferBody mode (pureFns mode env fuel) env (d + 1) (.lit (.natVal n)) =
       (inferBody mode (pureFns mode env fuel) env d (.lit (.natVal n))).map
         (shiftFrom p)
-    simp only [inferBody, viewM, Expr.view, pure_bind]
+    simp only [inferBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .lit (.strVal str) =>
     show inferBody mode (pureFns mode env fuel) env (d + 1) (.lit (.strVal str)) =
       (inferBody mode (pureFns mode env fuel) env d (.lit (.strVal str))).map
         (shiftFrom p)
-    simp only [inferBody, viewM, Expr.view, pure_bind]
+    simp only [inferBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .fvar idx n ty =>
     simp only [WScoped] at hw
     rw [shiftFrom_fvar]
-    simp only [inferBody, viewM, Expr.view, pure_bind]
+    simp only [inferBody]
     rw [if_pos (show shiftIdx p idx < d + 1 by
           simp only [shiftIdx]; split <;> omega),
         if_pos hw.1]
@@ -1871,7 +1871,7 @@ private theorem infer_step (henv : EnvWF env)
   | .const n us =>
     show inferBody mode (pureFns mode env fuel) env (d + 1) (.const n us) =
       (inferBody mode (pureFns mode env fuel) env d (.const n us)).map (shiftFrom p)
-    simp only [inferBody, viewM, Expr.view, pure_bind]
+    simp only [inferBody]
     cases hf : env.find? n with
     | none => rfl
     | some ci =>
@@ -1890,7 +1890,7 @@ private theorem infer_step (henv : EnvWF env)
         (.forallE n (shiftFrom p ty) (shiftFrom p body) mb) =
       (inferBody mode (pureFns mode env fuel) env d (.forallE n ty body mb)).map
         (shiftFrom p)
-    simp only [inferBody, viewM, Expr.view, pure_bind]
+    simp only [inferBody]
     refine bind_rel _ _ (ih.infer hpd hw.1) ?_
     intro tty htty
     refine bind_rel _ _
@@ -1921,7 +1921,7 @@ private theorem infer_step (henv : EnvWF env)
         (.lam n (shiftFrom p ty) (shiftFrom p body) mb) =
       (inferBody mode (pureFns mode env fuel) env d (.lam n ty body mb)).map
         (shiftFrom p)
-    simp only [inferBody, viewM, Expr.view, pure_bind]
+    simp only [inferBody]
     refine bind_rel _ _ (ih.infer hpd hw.1) ?_
     intro tty htty
     refine bind_rel _ _
@@ -1967,7 +1967,7 @@ private theorem infer_step (henv : EnvWF env)
   | .app f a =>
     simp only [WScoped] at hw
     rw [shiftFrom_app]
-    simp only [inferBody, viewM, Expr.view, pure_bind]
+    simp only [inferBody]
     refine bind_rel _ _ (ih.infer hpd hw.1) ?_
     intro tf htf
     refine bind_rel _ _
@@ -1993,7 +1993,7 @@ private theorem infer_step (henv : EnvWF env)
         (.proj sn i (shiftFrom p pe)) =
       (inferBody mode (pureFns mode env fuel) env d (.proj sn i pe)).map
         (shiftFrom p)
-    simp only [inferBody, viewM, Expr.view, pure_bind]
+    simp only [inferBody]
     refine bind_rel _ _ (ih.infer hpd hw) ?_
     intro te hte
     refine bind_rel _ _
@@ -2052,8 +2052,8 @@ private theorem inferIOCore_step (henv : EnvWF env)
         (.letE n (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
       (inferBodyIO mode (pureFnsIO mode env fuel) env d (.letE n ty v body)).map
         (shiftFrom p)
-    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
-      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    simp only [inferBodyIO, inferIO_def,
+      pureFnsIO_defeq, ensureSortIO_def]
     refine bind_rel _ _ (ihio hpd hw.1) ?_
     intro tty htty
     refine bind_rel_eq _ (ensureSort_shift henv ih hpd
@@ -2072,21 +2072,18 @@ private theorem inferIOCore_step (henv : EnvWF env)
     show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1) (.lit (.natVal n)) =
       (inferBodyIO mode (pureFnsIO mode env fuel) env d (.lit (.natVal n))).map
         (shiftFrom p)
-    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
-      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    simp only [inferBodyIO]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .lit (.strVal str) =>
     show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1) (.lit (.strVal str)) =
       (inferBodyIO mode (pureFnsIO mode env fuel) env d (.lit (.strVal str))).map
         (shiftFrom p)
-    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
-      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    simp only [inferBodyIO]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .fvar idx n ty =>
     simp only [WScoped] at hw
     rw [shiftFrom_fvar]
-    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
-      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    simp only [inferBodyIO]
     rw [if_pos (show shiftIdx p idx < d + 1 by
           simp only [shiftIdx]; split <;> omega),
         if_pos hw.1]
@@ -2097,8 +2094,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
   | .const n us =>
     show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1) (.const n us) =
       (inferBodyIO mode (pureFnsIO mode env fuel) env d (.const n us)).map (shiftFrom p)
-    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
-      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    simp only [inferBodyIO]
     cases hf : env.find? n with
     | none => rfl
     | some ci =>
@@ -2117,8 +2113,8 @@ private theorem inferIOCore_step (henv : EnvWF env)
         (.forallE n (shiftFrom p ty) (shiftFrom p body) mb) =
       (inferBodyIO mode (pureFnsIO mode env fuel) env d (.forallE n ty body mb)).map
         (shiftFrom p)
-    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
-      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    simp only [inferBodyIO, inferIO_def,
+      pureFnsIO_whnf, ensureSortIO_def]
     refine bind_rel _ _ (ihio hpd hw.1) ?_
     intro tty htty
     refine bind_rel _ _
@@ -2149,8 +2145,8 @@ private theorem inferIOCore_step (henv : EnvWF env)
         (.lam n (shiftFrom p ty) (shiftFrom p body) mb) =
       (inferBodyIO mode (pureFnsIO mode env fuel) env d (.lam n ty body mb)).map
         (shiftFrom p)
-    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
-      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    simp only [inferBodyIO, inferIO_def,
+      ensureSortIO_def]
     -- task #168 stage 2: no domain-sort run at the io λ clause
     have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
       WScoped.instantiate1 (n := n) hw.1 0 hw.2
@@ -2189,7 +2185,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
   | .app f a =>
     simp only [WScoped] at hw
     rw [shiftFrom_app]
-    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
+    simp only [inferBodyIO, inferIO_def,
       pureFnsIO_whnf, pureFnsIO_defeq]
     refine bind_rel _ _ (ihio hpd hw.1) ?_
     intro tf htf
@@ -2225,8 +2221,8 @@ private theorem inferIOCore_step (henv : EnvWF env)
         (.proj sn i (shiftFrom p pe)) =
       (inferBodyIO mode (pureFnsIO mode env fuel) env d (.proj sn i pe)).map
         (shiftFrom p)
-    simp only [inferBodyIO, viewM, Expr.view, pure_bind, inferIO_def,
-      pureFnsIO_whnf, pureFnsIO_defeq, ensureSortIO_def]
+    simp only [inferBodyIO, inferIO_def,
+      pureFnsIO_whnf]
     refine bind_rel _ _ (ihio hpd hw) ?_
     intro te hte
     refine bind_rel _ _
@@ -2563,7 +2559,7 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     intro b₁ _
     refine ite_congr' (fun _ => ?_) (fun _ => rfl)
     have hb := ih.defeq (p := p) (d := d + 1) (by omega)
-      (WScoped.instantiate1 (n := n₁) hwwa.1 0 hwwa.2)
+      (WScoped.instantiate1 (n := n₂) hwwb.1 0 hwwa.2)
       (WScoped.instantiate1 (n := n₂) hwwb.1 0 hwwb.2)
     rw [shiftFrom_instantiate1 hpd, shiftFrom_instantiate1 hpd] at hb
     refine bind_congr_eq hb ?_
@@ -2575,7 +2571,7 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     intro b₁ _
     refine ite_congr' (fun _ => ?_) (fun _ => rfl)
     have hb := ih.defeq (p := p) (d := d + 1) (by omega)
-      (WScoped.instantiate1 (n := n₁) hwwa.1 0 hwwa.2)
+      (WScoped.instantiate1 (n := n₂) hwwb.1 0 hwwa.2)
       (WScoped.instantiate1 (n := n₂) hwwb.1 0 hwwb.2)
     rw [shiftFrom_instantiate1 hpd, shiftFrom_instantiate1 hpd] at hb
     refine bind_congr_eq hb ?_

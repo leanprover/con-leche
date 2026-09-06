@@ -25,8 +25,8 @@ for the pilot's numbers:
 
 ## The memo discipline of the substitution walks (task #177)
 
-The arena's memo key was an `EIdx` — a scalar.  The clone's is a
-*constructed* key, so the probe costs allocations, and profiling put
+The retired arena's memo key was an `EIdx` — a scalar.  This tier's is
+a *constructed* key, so the probe costs allocations, and profiling put
 `instantiate*Go`/`abstract*Go` plus their `Std.DHashMap` spec sites at
 roughly half of every `--trusted` run.  Three shape rules cut that,
 and each is a property of the walks alone (the values are unchanged —
@@ -55,35 +55,6 @@ namespace Lech.Cached
 open Lech
 
 namespace ExprC
-
-/-! ## The one-level view -/
-
-/-- The one-level view of a node (`Lech.ExprView`, the
-representation-generic destructuring seam of the core bodies). -/
-@[inline] def view : ExprC → ExprView ExprC
-  | .bvar i .. => .bvar i
-  | .fvar idx n ty .. => .fvar idx n ty
-  | .sort u .. => .sort u
-  | .const n us .. => .const n us
-  | .app f a .. => .app f a
-  | .lam n ty b m .. => .lam n ty b m
-  | .forallE n ty b m .. => .forallE n ty b m
-  | .letE n ty v b .. => .letE n ty v b
-  | .lit l .. => .lit l
-  | .proj s i e .. => .proj s i e
-
-/-- Build a node from a one-level view (the smart constructors). -/
-@[inline] def ofView : ExprView ExprC → ExprC
-  | .bvar i => mkBVar i
-  | .fvar idx n ty => mkFVar idx n ty
-  | .sort u => mkSort u
-  | .const n us => mkConst n us
-  | .app f a => mkApp f a
-  | .lam n ty b m => mkLam n ty b m
-  | .forallE n ty b m => mkForallE n ty b m
-  | .letE n ty v b => mkLetE n ty v b
-  | .lit l => mkLit l
-  | .proj s i e => mkProj s i e
 
 /-! ## Spines -/
 
@@ -355,11 +326,9 @@ in place).
 
 **Documented deviation from the arena twin** (`abstract1IGo`, which has
 no such cutoff): a node whose cached fvar range is at or below `d`
-cannot contain `fvar d`, so it is returned unchanged.  The arena does
-not need the cutoff — its rebuild re-interns to the *same index* — but
-the clone's rebuild allocates, so returning the node itself is how the
-computed-field representation recovers the arena's idempotence.  Same
-value either way. -/
+cannot contain `fvar d`, so it is returned unchanged.  A rebuild here
+allocates, so returning the node itself is what keeps the walk
+idempotent on the shared subterms.  Same value either way. -/
 def abstract1Go (d : Nat) (memo : MemoN) (e : ExprC) (k : Nat) :
     ExprC × MemoN :=
   if e.fvarB ≤ d then (e, memo) else
@@ -654,14 +623,6 @@ def leafGuard (fab base : ExprC) : Bool :=
 
 /-! ## Telescope operations -/
 
-/-- The body after `k` leading `∀`-binders. -/
-def stripPisBody : Nat → ExprC → Option ExprC
-  | 0, e => some e
-  | k + 1, e =>
-    match e with
-    | .forallE _ _ b _ .. => stripPisBody k b
-    | _ => none
-
 /-- The `instantiate1` chain of `Expr.instSpine`. -/
 def instSpineChain : List ExprC → Nat → ExprC → ExprC
   | [], _, e => e
@@ -698,17 +659,6 @@ decreasing_by
 @[inherit_doc piResidualAcc]
 def piResidual (e : ExprC) (args : List ExprC) : Option ExprC :=
   piResidualAcc [] e args
-
-/-- `Expr.pisToLams` on `ExprC`. -/
-def pisToLams : Nat → ExprC → ExprC → Option ExprC
-  | 0, _, body => some body
-  | k + 1, e, body =>
-    match e with
-    | .forallE n ty rest mb .. =>
-      match pisToLams k rest body with
-      | some b => some (mkLam n ty b ⟨mb.bi, .never⟩)
-      | none => none
-    | _ => none
 
 /-! ## Level-parameter definedness (the parsed-index driver's guard) -/
 

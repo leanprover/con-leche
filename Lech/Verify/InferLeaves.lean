@@ -774,11 +774,11 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
     cases e with
     | sort u =>
       rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, Except.ok.injEq] at h
+      simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
       subst h; simp [WScoped]
     | fvar idx n ty =>
       rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
+      simp only [inferBody, pure,
         Except.pure] at h
       revert h
       split
@@ -791,7 +791,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
         simp [throw, throwThe, MonadExceptOf.throw] at h
     | const n ws =>
       rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+      simp only [inferBody, Bind.bind, Except.bind, pure, Except.pure] at h
       revert h
       cases hf : env.find? n with
       | none => intro h; exact nomatch h
@@ -817,7 +817,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       | .natVal n, h => ?natCase
       | .strVal s, h => ?strCase
       case strCase =>
-        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        dsimp only [inferBody, Bind.bind, Except.bind, pure, Except.pure] at h
         revert h
         split
         case isFalse =>
@@ -828,7 +828,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
           simp only [Except.ok.injEq] at h
           subst h; simp [WScoped]
       case natCase =>
-        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        dsimp only [inferBody, Bind.bind, Except.bind, pure, Except.pure] at h
         revert h
         split
         case isFalse =>
@@ -871,7 +871,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
         (fun a ha => hwPi.getAppArgs a ha) hw
     | bvar i =>
       rw [inferTypeCore_succ] at h
-      simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+      simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
     | letE n' t' v' b' =>
       obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCore_letE_inv h
       simp only [WScoped] at hw
@@ -887,11 +887,11 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
     cases e with
     | sort u =>
       rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, Except.ok.injEq] at h
+      simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
       subst h; intro l hl; simp [fvarLeaves] at hl
     | fvar idx n ty =>
       rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
+      simp only [inferBody, pure,
         Except.pure] at h
       revert h
       split
@@ -904,7 +904,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         simp [throw, throwThe, MonadExceptOf.throw] at h
     | const n ws =>
       rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+      simp only [inferBody, Bind.bind, Except.bind, pure, Except.pure] at h
       revert h
       cases hf : env.find? n with
       | none => intro h; exact nomatch h
@@ -932,7 +932,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
       | .natVal n, h => ?natCase
       | .strVal s, h => ?strCase
       case strCase =>
-        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        dsimp only [inferBody, Bind.bind, Except.bind, pure, Except.pure] at h
         revert h
         split
         case isFalse =>
@@ -943,7 +943,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
           simp only [Except.ok.injEq] at h
           subst h; intro l hl; simp [fvarLeaves] at hl
       case natCase =>
-        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        dsimp only [inferBody, Bind.bind, Except.bind, pure, Except.pure] at h
         revert h
         split
         case isFalse =>
@@ -1011,7 +1011,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
           exact hla
     | bvar i =>
       rw [inferTypeCore_succ] at h
-      simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+      simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
     | letE n' t' v' b' =>
       obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCore_letE_inv h
       simp only [WScoped] at hw
@@ -1033,11 +1033,11 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
     cases e with
     | sort u =>
       rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, Except.ok.injEq] at h
+      simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
       subst h; simp [looseBVarsBounded]
     | fvar idx n ty =>
       rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
+      simp only [inferBody, pure,
         Except.pure] at h
       revert h
       split
@@ -1049,7 +1049,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
         simp [throw, throwThe, MonadExceptOf.throw] at h
     | const n ws =>
       rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+      simp only [inferBody, Bind.bind, Except.bind, pure, Except.pure] at h
       revert h
       cases hf : env.find? n with
       | none => intro h; exact nomatch h
@@ -1075,7 +1075,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       | .natVal n, h => ?natCase
       | .strVal s, h => ?strCase
       case strCase =>
-        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        dsimp only [inferBody, Bind.bind, Except.bind, pure, Except.pure] at h
         revert h
         split
         case isFalse =>
@@ -1086,7 +1086,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
           simp only [Except.ok.injEq] at h
           subst h; simp [looseBVarsBounded]
       case natCase =>
-        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        dsimp only [inferBody, Bind.bind, Except.bind, pure, Except.pure] at h
         revert h
         split
         case isFalse =>
@@ -1145,7 +1145,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
         (fun a ha => looseBVarsBounded_getAppArgs hbPi _ ha) hb
     | bvar i =>
       rw [inferTypeCore_succ] at h
-      simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+      simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
     | letE n' t' v' b' =>
       obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCore_letE_inv h
       simp only [WScoped] at hw

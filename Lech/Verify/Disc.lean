@@ -1138,8 +1138,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
       simpa only [WScoped] using hw
     unfold inferBody
-    dsimp only [viewM, Expr.view]
-    simp only [pure_bind]
+    dsimp only
     refine DiscV.bind (ih.site_infer henv hwtvb.1) (fun tty htty => ?_)
     refine DiscV.bind (ensureSort_disc ih henv htty) (fun u _ => ?_)
     refine DiscV.bind (ih.site_infer henv hwtvb.2.1) (fun tv htv => ?_)
@@ -1182,8 +1181,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     · exact DiscV.throw _
   | .const n us =>
     unfold inferBody
-    dsimp only [viewM, Expr.view]
-    simp only [pure_bind]
+    dsimp only
     split <;> try exact DiscV.throw _
     rename_i ci hfn
     split
@@ -1199,8 +1197,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
     unfold inferBody
-    dsimp only [viewM, Expr.view]
-    simp only [pure_bind]
+    dsimp only
     refine DiscV.bind (ih.site_infer henv hwtb.1) (fun tty htty => ?_)
     refine DiscV.bind (ih.site_whnf henv htty) (fun w hww => ?_)
     split <;> try exact DiscV.throw _
@@ -1217,8 +1214,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
     unfold inferBody
-    dsimp only [viewM, Expr.view]
-    simp only [pure_bind]
+    dsimp only
     refine DiscV.bind (ih.site_infer henv hwtb.1) (fun tty htty => ?_)
     refine DiscV.bind (ih.site_whnf henv htty) (fun w hww => ?_)
     split <;> try exact DiscV.throw _
@@ -1255,8 +1251,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hwfa : WScoped d g' ∧ WScoped d a := by
       simpa only [WScoped] using hw
     unfold inferBody
-    dsimp only [viewM, Expr.view]
-    simp only [pure_bind]
+    dsimp only
     refine DiscV.bind (ih.site_infer henv hwfa.1) (fun tf htf => ?_)
     refine DiscV.bind (ih.site_whnf henv htf) (fun w hww => ?_)
     split <;> try exact DiscV.throw _
@@ -1274,8 +1269,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   | .proj sn i pe =>
     have hwpe : WScoped d pe := by simpa only [WScoped] using hw
     unfold inferBody
-    dsimp only [viewM, Expr.view]
-    simp only [pure_bind]
+    dsimp only
     refine DiscV.bind (ih.site_infer henv hwpe) (fun tpe htpe => ?_)
     refine DiscV.bind (ih.site_whnf henv htpe) (fun w hww => ?_)
     split <;> try exact DiscV.throw _
@@ -1315,8 +1309,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
       simpa only [WScoped] using hw
     unfold inferBodyIO
-    dsimp only [viewM, Expr.view]
-    simp only [pure_bind]
+    dsimp only
     refine DiscV.bind (ih.site_inferIO henv hwtvb.1) (fun tty htty => ?_)
     refine DiscV.bind (ensureSort_disc ih henv htty) (fun u _ => ?_)
     refine DiscV.bind (ih.site_inferIO henv hwtvb.2.1) (fun tv htv => ?_)
@@ -1359,8 +1352,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     · exact DiscV.throw _
   | .const n us =>
     unfold inferBodyIO
-    dsimp only [viewM, Expr.view]
-    simp only [pure_bind]
+    dsimp only
     split <;> try exact DiscV.throw _
     rename_i ci hfn
     split
@@ -1376,8 +1368,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
     unfold inferBodyIO
-    dsimp only [viewM, Expr.view]
-    simp only [pure_bind]
+    dsimp only
     refine DiscV.bind (ih.site_inferIO henv hwtb.1) (fun tty htty => ?_)
     refine DiscV.bind (ih.site_whnf henv htty) (fun w hww => ?_)
     split <;> try exact DiscV.throw _
@@ -1394,8 +1385,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
     unfold inferBodyIO
-    dsimp only [viewM, Expr.view]
-    simp only [pure_bind]
+    dsimp only
     -- task #168 stage 2: no domain-sort run at the io λ clause
     refine DiscV.bind (ih.site_inferIO henv
       (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
@@ -1427,8 +1417,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hwfa : WScoped d g' ∧ WScoped d a := by
       simpa only [WScoped] using hw
     unfold inferBodyIO
-    dsimp only [viewM, Expr.view]
-    simp only [pure_bind]
+    dsimp only
     refine DiscV.bind (ih.site_inferIO henv hwfa.1) (fun tf htf => ?_)
     refine DiscV.bind (ih.site_whnf henv htf) (fun w hww => ?_)
     split <;> try exact DiscV.throw _
@@ -1449,8 +1438,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   | .proj sn i pe =>
     have hwpe : WScoped d pe := by simpa only [WScoped] using hw
     unfold inferBodyIO
-    dsimp only [viewM, Expr.view]
-    simp only [pure_bind]
+    dsimp only
     refine DiscV.bind (ih.site_inferIO henv hwpe) (fun tpe htpe => ?_)
     refine DiscV.bind (ih.site_whnf henv htpe) (fun w hww => ?_)
     split <;> try exact DiscV.throw _
@@ -1638,7 +1626,7 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
       split
       · refine DiscV.bind (ih.site_defeq
-          (WScoped.instantiate1 h1.1 0 h1.2)
+          (WScoped.instantiate1 h2.1 0 h1.2)
           (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
         split
         · split
@@ -1656,7 +1644,7 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
       split
       · refine DiscV.bind (ih.site_defeq
-          (WScoped.instantiate1 h1.1 0 h1.2)
+          (WScoped.instantiate1 h2.1 0 h1.2)
           (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
         split
         · split
