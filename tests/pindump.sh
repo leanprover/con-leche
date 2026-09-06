@@ -55,11 +55,18 @@ if ! grep -q "include_str \"NatOpPins/$BASE\"" Setlec/Kernel/NatOpPins.lean; the
   exit 1
 fi
 
-lake build natop-pins-export >/dev/null 2>&1 || {
+# The generator is not a default target (`lake build` does not reach
+# it), so the tree's warning-free rule is enforced here instead.
+BUILDLOG=$(lake build natop-pins-export 2>&1) || {
   echo 'PINDUMP FAIL — the generator did not build:'
-  lake build natop-pins-export 2>&1 | tail -20
+  printf '%s\n' "$BUILDLOG" | tail -20
   exit 1
 }
+if printf '%s\n' "$BUILDLOG" | grep -q 'warning:'; then
+  echo 'PINDUMP FAIL — the generator built with warnings:'
+  printf '%s\n' "$BUILDLOG" | grep -A3 'warning:' | sed 's/^/    /'
+  exit 1
+fi
 
 rm -rf "$SCRATCH"
 mkdir -p "$SCRATCH"
