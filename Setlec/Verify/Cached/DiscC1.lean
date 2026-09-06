@@ -886,27 +886,33 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
                   cn = natShiftLeftName ∨ cn = natShiftRightName) ∧
                   natOpStoredF (mkFEnv env) cn = true then
                 (coreKnotI mode (mkFEnv env) f).whnf d a >>= fun w₁ =>
-                (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w₂ =>
                 Setlec.Cached.withStore (rawNatLitI? · w₁) >>= fun rn₁ =>
-                Setlec.Cached.withStore (rawNatLitI? · w₂) >>= fun rn₂ =>
-                match rn₁, rn₂ with
-                | some n₁, some n₂ =>
-                  match natOpResult cn n₁ n₂ with
-                  | some x => do
-                    let r ← internExprM x
-                    pure (some r)
+                match rn₁ with
+                | some n₁ =>
+                  (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w₂ =>
+                  Setlec.Cached.withStore (rawNatLitI? · w₂) >>= fun rn₂ =>
+                  match rn₂ with
+                  | some n₂ =>
+                    match natOpResult cn n₁ n₂ with
+                    | some x => do
+                      let r ← internExprM x
+                      pure (some r)
+                    | none => pure none
                   | none => pure none
-                | _, _ => pure none
+                | none => pure none
               else if natOpWfNames.contains cn ∧
                   natLitSupportedF (mkFEnv env) then
                 (coreKnotI mode (mkFEnv env) f).whnf d a >>= fun w₁ =>
-                (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w₂ =>
                 Setlec.Cached.withStore (rawNatLitI? · w₁) >>= fun rn₁ =>
-                Setlec.Cached.withStore (rawNatLitI? · w₂) >>= fun rn₂ =>
-                match rn₁, rn₂ with
-                | some _, some _ => throw (.notImplemented
-                    s!"native Nat computation on literals ({cn})")
-                | _, _ => pure none
+                match rn₁ with
+                | some _ =>
+                  (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w₂ =>
+                  Setlec.Cached.withStore (rawNatLitI? · w₂) >>= fun rn₂ =>
+                  match rn₂ with
+                  | some _ => throw (.notImplemented
+                      s!"native Nat computation on literals ({cn})")
+                  | none => pure none
+                | none => pure none
               else pure none
           | _ => pure none
         | _ => pure none
@@ -1049,17 +1055,23 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
                 cv = natShiftLeftName ∨ cv = natShiftRightName) ∧
                 natOpStored env cv = true then
               (fueledFns mode env).whnf d a >>= fun w₁ =>
-              (fueledFns mode env).whnf d b >>= fun w₂ =>
-              match rawNatLit? w₁, rawNatLit? w₂ with
-              | some n₁, some n₂ => pure (natOpResult cv n₁ n₂)
-              | _, _ => pure none
+              match rawNatLit? w₁ with
+              | some n₁ =>
+                (fueledFns mode env).whnf d b >>= fun w₂ =>
+                match rawNatLit? w₂ with
+                | some n₂ => pure (natOpResult cv n₁ n₂)
+                | none => pure none
+              | none => pure none
             else if natOpWfNames.contains cv ∧ natLitSupported env then
               (fueledFns mode env).whnf d a >>= fun w₁ =>
-              (fueledFns mode env).whnf d b >>= fun w₂ =>
-              match rawNatLit? w₁, rawNatLit? w₂ with
-              | some _, some _ => throw (.notImplemented
-                  s!"native Nat computation on literals ({cv})")
-              | _, _ => pure none
+              match rawNatLit? w₁ with
+              | some _ =>
+                (fueledFns mode env).whnf d b >>= fun w₂ =>
+                match rawNatLit? w₂ with
+                | some _ => throw (.notImplemented
+                    s!"native Nat computation on literals ({cv})")
+                | none => pure none
+              | none => pure none
             else pure none) from rfl]
           rw [natOpStoredF_eq, natLitSupportedF_eq]
           by_cases hg1 : (cv = natAddName ∨ cv = natSubName ∨
@@ -1069,17 +1081,19 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
               cv = natXorName ∨ cv = natShiftLeftName ∨
               cv = natShiftRightName) ∧ natOpStored env cv = true
           · rw [if_pos hg1, if_pos hg1]
+            -- first argument first; the second only behind a literal (D15)
             refine SimC.bind (ih.whnf hs rfl hwf₂a.2)
               (fun s₁ w₁ wx₁ hs₁ hP₁ => ?_)
             obtain ⟨hw1den, hww1⟩ := hP₁
-            refine SimC.bind (ih.whnf hs₁ rfl hwfb.2)
-              (fun s₂ w₂ wx₂ hs₂ hP₂ => ?_)
-            obtain ⟨hw2den, hww2⟩ := hP₂
             refine SimC.withStore ?_
-            refine SimC.withStore ?_
-            rw [rawNatLitI?_spec hw1den, rawNatLitI?_spec hw2den]
+            rw [rawNatLitI?_spec hw1den]
             cases rawNatLit? wx₁ with
             | some n₁ =>
+              refine SimC.bind (ih.whnf hs₁ rfl hwfb.2)
+                (fun s₂ w₂ wx₂ hs₂ hP₂ => ?_)
+              obtain ⟨hw2den, hww2⟩ := hP₂
+              refine SimC.withStore ?_
+              rw [rawNatLitI?_spec hw2den]
               cases rawNatLit? wx₂ with
               | some n₂ =>
                 dsimp only
@@ -1093,31 +1107,26 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
                     ⟨bn, rfl⟩ <;> simp [Expr.WScoped]
                 | none => exact SimC.pure hs₂ trivial
               | none => exact SimC.pure hs₂ trivial
-            | none =>
-              cases rawNatLit? wx₂ with
-              | some n₂ => exact SimC.pure hs₂ trivial
-              | none => exact SimC.pure hs₂ trivial
+            | none => exact SimC.pure hs₁ trivial
           · rw [if_neg hg1, if_neg hg1]
             by_cases hg2 : natOpWfNames.contains cv ∧ natLitSupported env
             · rw [if_pos hg2, if_pos hg2]
               refine SimC.bind (ih.whnf hs rfl hwf₂a.2)
                 (fun s₁ w₁ wx₁ hs₁ hP₁ => ?_)
               obtain ⟨hw1den, hww1⟩ := hP₁
-              refine SimC.bind (ih.whnf hs₁ rfl hwfb.2)
-                (fun s₂ w₂ wx₂ hs₂ hP₂ => ?_)
-              obtain ⟨hw2den, hww2⟩ := hP₂
               refine SimC.withStore ?_
-              refine SimC.withStore ?_
-              rw [rawNatLitI?_spec hw1den, rawNatLitI?_spec hw2den]
+              rw [rawNatLitI?_spec hw1den]
               cases rawNatLit? wx₁ with
               | some n₁ =>
+                refine SimC.bind (ih.whnf hs₁ rfl hwfb.2)
+                  (fun s₂ w₂ wx₂ hs₂ hP₂ => ?_)
+                obtain ⟨hw2den, hww2⟩ := hP₂
+                refine SimC.withStore ?_
+                rw [rawNatLitI?_spec hw2den]
                 cases rawNatLit? wx₂ with
                 | some n₂ => exact SimC.throw
                 | none => exact SimC.pure hs₂ trivial
-              | none =>
-                cases rawNatLit? wx₂ with
-                | some n₂ => exact SimC.pure hs₂ trivial
-                | none => exact SimC.pure hs₂ trivial
+              | none => exact SimC.pure hs₁ trivial
             · rw [if_neg hg2, if_neg hg2]
               exact SimC.pure hs trivial
       | bvar k => exact SimC.pure hs trivial

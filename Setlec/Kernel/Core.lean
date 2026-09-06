@@ -784,16 +784,27 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
         c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
         c = natShiftLeftName ∨ c = natShiftRightName) ∧
         natOpStored env c = true then
-      match rawNatLit? (← r.whnf depth a),
-          rawNatLit? (← r.whnf depth b) with
-      | some n₁, some n₂ => pure (natOpResult c n₁ n₂)
-      | _, _ => pure none
+      -- Official `reduce_bin_nat_op` (`type_checker.cpp:606-614`):
+      -- the FIRST argument is head-normalised and, unless it is a
+      -- literal, the step fails WITHOUT touching the second.  The
+      -- former two-scrutinee `match` whnf'd both up front — a cost
+      -- divergence (DESIGN.md "THE DIVERGENCE AUDIT", D15): on
+      -- `Nat.add o (slow n)` with `o` opaque it evaluated `slow n`
+      -- where official never does (fuel death at `n = 80000`; the fixture).
+      match rawNatLit? (← r.whnf depth a) with
+      | some n₁ =>
+        match rawNatLit? (← r.whnf depth b) with
+        | some n₂ => pure (natOpResult c n₁ n₂)
+        | none => pure none
+      | none => pure none
     else if natOpWfNames.contains c ∧ natLitSupported env then
-      match rawNatLit? (← r.whnf depth a),
-          rawNatLit? (← r.whnf depth b) with
-      | some _, some _ => throw (.notImplemented
-          s!"native Nat computation on literals ({c})")
-      | _, _ => pure none
+      match rawNatLit? (← r.whnf depth a) with
+      | some _ =>
+        match rawNatLit? (← r.whnf depth b) with
+        | some _ => throw (.notImplemented
+            s!"native Nat computation on literals ({c})")
+        | none => pure none
+      | none => pure none
     else pure none
   | _ => pure none
 

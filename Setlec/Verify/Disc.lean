@@ -158,12 +158,12 @@ theorem reduceNat_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         | [] =>
           simp only [reduceNat]
           split
-          · refine DiscV.bind (ih.site_whnf henv hwgb.2) (fun w₁ _ => ?_)
-            refine DiscV.bind (ih.site_whnf henv hwfa.2) (fun w₂ _ => ?_)
+          · -- first argument first; the second only behind a literal (D15)
+            refine DiscV.bind (ih.site_whnf henv hwgb.2) (fun w₁ _ => ?_)
             cases rawNatLit? w₁ with
-            | none =>
-              cases rawNatLit? w₂ <;> exact DiscV.pure WScopedO.none
+            | none => exact DiscV.pure WScopedO.none
             | some n₁ =>
+              refine DiscV.bind (ih.site_whnf henv hwfa.2) (fun w₂ _ => ?_)
               cases rawNatLit? w₂ with
               | none => exact DiscV.pure WScopedO.none
               | some n₂ =>
@@ -176,11 +176,10 @@ theorem reduceNat_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                     exact DiscV.pure (WScopedO.some (by simp [WScoped]))
           · split
             · refine DiscV.bind (ih.site_whnf henv hwgb.2) (fun w₁ _ => ?_)
-              refine DiscV.bind (ih.site_whnf henv hwfa.2) (fun w₂ _ => ?_)
               cases rawNatLit? w₁ with
-              | none =>
-                cases rawNatLit? w₂ <;> exact DiscV.pure WScopedO.none
+              | none => exact DiscV.pure WScopedO.none
               | some _ =>
+                refine DiscV.bind (ih.site_whnf henv hwfa.2) (fun w₂ _ => ?_)
                 cases rawNatLit? w₂ with
                 | none => exact DiscV.pure WScopedO.none
                 | some _ => exact DiscV.throw _

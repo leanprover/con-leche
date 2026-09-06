@@ -335,23 +335,26 @@ theorem reduceNatSemP_binary (mp : EnvS2PM V μ env) {fuel : Nat}
       rcases h14 with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|
         rfl|rfl <;> decide
     obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps c hself
+    -- first argument first; the second only behind a literal (D15)
     cases hwa : Setlec.whnf μ env fuel d a with
     | error err => rw [hwa] at h; exact nomatch h
     | ok a0 =>
     rw [hwa] at h
+    dsimp only at h
+    cases hra : Setlec.rawNatLit? a0 with
+    | none => rw [hra] at h; simp [pure, Except.pure] at h
+    | some n₁ =>
+    rw [hra] at h
     dsimp only at h
     cases hwb : Setlec.whnf μ env fuel d b with
     | error err => rw [hwb] at h; exact nomatch h
     | ok b0 =>
     rw [hwb] at h
     dsimp only at h
-    cases hra : Setlec.rawNatLit? a0 with
-    | none => rw [hra] at h; simp [pure, Except.pure] at h
-    | some n₁ =>
     cases hrb : Setlec.rawNatLit? b0 with
-    | none => rw [hra, hrb] at h; simp [pure, Except.pure] at h
+    | none => rw [hrb] at h; simp [pure, Except.pure] at h
     | some n₂ =>
-      rw [hra, hrb] at h
+      rw [hrb] at h
       dsimp only at h
       cases hres : natOpResult c n₁ n₂ with
       | none => rw [hres] at h; simp [pure, Except.pure] at h
@@ -467,18 +470,20 @@ theorem reduceNatSemP_binary (mp : EnvS2PM V μ env) {fuel : Nat}
       | ok a0 =>
       rw [hwa] at h
       dsimp only at h
+      cases hra : Setlec.rawNatLit? a0 with
+      | none => rw [hra] at h; simp [pure, Except.pure] at h
+      | some n₁ =>
+      rw [hra] at h
+      dsimp only at h
       cases hwb : Setlec.whnf μ env fuel d b with
       | error err => rw [hwb] at h; exact nomatch h
       | ok b0 =>
       rw [hwb] at h
       dsimp only at h
-      cases hra : Setlec.rawNatLit? a0 with
-      | none => rw [hra] at h; simp [pure, Except.pure] at h
-      | some n₁ =>
       cases hrb : Setlec.rawNatLit? b0 with
-      | none => rw [hra, hrb] at h; simp [pure, Except.pure] at h
+      | none => rw [hrb] at h; simp [pure, Except.pure] at h
       | some n₂ =>
-        rw [hra, hrb] at h
+        rw [hrb] at h
         simp [throw, throwThe, MonadExceptOf.throw] at h
     · simp [pure, Except.pure] at h
 
