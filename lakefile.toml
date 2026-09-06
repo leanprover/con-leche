@@ -65,7 +65,7 @@ testDriver = "SetlecTests"
 # import graph: on a cold tree `lake build setlec` failed with "object
 # file '…/Setlec/PinGen/Certs.olean' of module Setlec.PinGen.Certs does
 # not exist".  Per the user's ruling the pins are now a COMMITTED file
-# (`Setlec/Kernel/NatOpPins/<toolchain>.json`), written by the
+# (`pins/<toolchain>.json`, see `pins/README.md`), written by the
 # `natop-pins-export` executable below, whose root *imports*
 # `Setlec.PinGen.Certs` — a real edge Lake orders.  The certificates
 # stay kernel-checked theorems in this library (that is where their
@@ -124,7 +124,7 @@ root = "AnnotateBasis"
 # library's world — its root imports `Setlec.PinGen.Certs`, so the
 # proof bodies are visible to `importModules` at `OLeanLevel.private`
 # and Lake builds that olean first.  Writes
-# `Setlec/Kernel/NatOpPins/<toolchain>.json`; `tests/pindump.sh` checks
+# `pins/<toolchain>.json`; `tests/pindump.sh` checks
 # the committed file against a fresh regeneration.
 [[lean_exe]]
 name = "natop-pins-export"

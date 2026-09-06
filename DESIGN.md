@@ -46202,8 +46202,14 @@ Multi-toolchain support forces this regardless: a pin computed from
 *the compiling toolchain* can only ever describe that one toolchain, so
 supporting a second means storing both, which means storing them.  The
 dump is therefore named after the toolchain it came from
-(`Setlec/Kernel/NatOpPins/leanprover-lean4-v4.33.0.json`) and a second
-one sits beside it.
+(`pins/leanprover-lean4-v4.33.0.json`) and a second one sits beside it.
+The dumps live in a **top-level `pins/`** directory with a `README.md`,
+not under `Setlec/` — a committed data artifact is not source, and
+burying it in the module tree made it read like one (user, 2026-09-06:
+*"It's strange to put the nat op pin json into the source directory"*).
+`include_str` resolves relative to the *importing source file's*
+directory, so the embed in `Setlec/Kernel/NatOpPins.lean` spells it
+`"../../pins/leanprover-lean4-v4.33.0.json"`.
 
 ### 3. WHAT LANDED
 
@@ -46211,8 +46217,8 @@ one sits beside it.
 |---|---|
 | `Setlec/PinGen/Dump.lean` | the interchange format: `PinEntry`/`PinBlob` (the share table, moved here from `PinGen` — the table IS the format), the `Lean.Expr` emitter `PinBlob.value`, the JSON codec, and the `#load_natop_pins` loader.  Imports `Lean` and `Setlec.Kernel.Expr`, nothing else |
 | `PinDump.lean`, `lean_exe natop-pins-export` | the generator.  Its root **imports** `Setlec.PinGen.Certs` — the build-order edge the old mechanism lacked — and computes the pins in the same `OLeanLevel.private` full-view environment as before |
-| `Setlec/Kernel/NatOpPins/<toolchain>.json` | the committed dump: 710 KB, 40 910 lines, one share-table entry per line |
-| `Setlec/Kernel/NatOpPins.lean` | an ordinary module: `#load_natop_pins include_str "NatOpPins/leanprover-lean4-v4.33.0.json"`.  No `meta import Setlec.PinGen`, no olean loading |
+| `pins/<toolchain>.json` (+ `pins/README.md`) | the committed dump: 710 KB, 40 910 lines, one share-table entry per line |
+| `Setlec/Kernel/NatOpPins.lean` | an ordinary module: `#load_natop_pins include_str "../../pins/leanprover-lean4-v4.33.0.json"`.  No `meta import Setlec.PinGen`, no olean loading |
 | `tests/pindump.sh` | the freshness gate, wired into `tests/arena.sh` beside `layering.sh`/`proofdeps.sh` |
 | `lakefile.toml` | the three `extraDepTargets = ["SetlecPinCerts"]` lines removed |
 
