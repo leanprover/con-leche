@@ -47726,17 +47726,25 @@ recording, because it says when the tool is worth reaching for:
 
 | stream | cut | prefix records dropped | bytes dropped |
 |---|---|---|---|
-| Mathlib (native) | 29.6 % (rung 5) | 1.39 % | **0.25 %** |
-| `init-full-pre-native` | 50.0 % | 16.43 % | 7.42 % |
-| `std-time-cone/pre` | 70.9 % | 14.25 % | 16.32 % |
+| Mathlib (native) | 29.564 % (**rung 5**) | 1.386 % | **0.254 %** |
+| Mathlib (native) | 50.000 % | 6.707 % | 2.346 % |
+| Mathlib (native) | 90.000 % | 40.400 % | 29.040 % |
+| `init-full-pre-native` | 50.001 % | 16.431 % | 7.419 % |
+| `std-time-cone/pre` | 70.909 % | 14.254 % | 16.315 % |
 
-The tool earns its keep on a *late* cut in a *shallow* corpus.  On the
-Mathlib ladder — where the rungs sit at 17 %, 21 %, 24 %, 25 %, 30 % —
-it does not, and the campaign should keep working against the cone
-slices (`slice_fast.py`, `cut_decl_cone.py`) that produce a 200 MB
-reproducer, not against a 5.69 GB resume slice that is the full stream
-minus a rounding error.  That is the decision-grade datum here, and it
-is a measurement of the *corpus*, not of the checker.
+The curve is convex and it is *late*: half of Mathlib is worth 2.3 % of
+the bytes, and only at 90 % does the tool return anything like the cut
+fraction.  The reading is the corpus's, not the checker's — Mathlib is
+a tower whose base stays live to the very top, so "declarations nothing
+after this point references" is a nearly empty set anywhere below the
+last tenth.
+
+So the tool earns its keep on a *late* cut, and on the Mathlib ladder —
+whose rungs sit at 17 %, 21 %, 24 %, 25 %, 30 % — it does not.  The
+campaign should keep working against the cone slices (`slice_fast.py`,
+`cut_decl_cone.py`), which produce a 200 MB reproducer, and not against
+a 5.69 GB resume slice that is the full stream minus a rounding error.
+That is the decision-grade datum of this section.
 
 ### 4. Validation
 
@@ -47773,8 +47781,19 @@ conservative: lean4export emits an expression record the first time a
 declaration's serialisation needs it, so every expression record
 between two declaration records is reachable from the later one.
 
-On the 5.71 GB stream: **scan 110 s, mark 13 s, emit 18 s, total
-140 s**, peak RSS 3.14 GB, output 5.69 GB.  **Wall time carries the
-usual contention caveat** — a full Mathlib checker pass (`frontier4`)
-and several Lean builds shared the machine throughout, load average
-16-25.  The record and byte counts above do not.
+On the 5.71 GB stream, producing the 5.69 GB rung-5 slice: **scan 110 s,
+mark 13 s, emit 18 s, total 140 s**, peak RSS 3.14 GB.  A second,
+byte-identical run taken later measured 163 s (scan 122, mark 15, emit
+26) — **wall time carries the usual contention caveat**, and here it is
+visible in the numbers themselves: the first run shared the machine
+with one full-Mathlib checker pass, the second with two, and the second
+run had *more* optimisation in it, not less.  Load average 16-25
+throughout.  The record and byte counts above carry no such caveat, and
+the two runs' outputs `cmp` equal.
+
+The remaining lever, if a resume slice ever becomes hot enough to
+want: the suffix scan is chunk-parallel by construction (each 256 MB
+chunk's reference sets merge independently, and the declaration records
+merge in chunk order), so a `multiprocessing` pool would take the 110 s
+scan to well under a minute.  It was not worth writing for a tool whose
+own measurement says it buys 0.25 % at the rung it was built for.

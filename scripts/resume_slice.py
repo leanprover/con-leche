@@ -110,8 +110,14 @@ CP_RE = re.compile(rb'"const":\{"name":(\d+),|"typeName":(\d+)')
 # writes keys alphabetically), so they are parsed without a regex.  The
 # guard is exact; anything else falls through to the generic path.
 APP_HEAD = b'"app":{"arg":'
+# a declaration record at the start of a line.  `(?m)^` costs 6x here
+# (the engine re-anchors at every one of the ~8.4 M lines per 256 MB),
+# so the newline is matched literally and a chunk's own first line --
+# chunks are always line-aligned -- is tested separately.
 DECL_LINE_RE = re.compile(
-    rb'(?m)^\{"(?:' + b"|".join(k.encode() for k in DECL_KEYS) + rb')":')
+    rb'\n\{"(?:' + b"|".join(k.encode() for k in DECL_KEYS) + rb')":')
+DECL_HEAD_RE = re.compile(
+    rb'^\{"(?:' + b"|".join(k.encode() for k in DECL_KEYS) + rb')":')
 
 
 def log(msg):
@@ -279,8 +285,10 @@ class Scan:
         self.seed_name.update(map(int, PROJ_RE.findall(buf)))
         find = buf.find
         loads = json.loads
-        for m in DECL_LINE_RE.finditer(buf):
-            s = m.start()
+        starts = [m.start() + 1 for m in DECL_LINE_RE.finditer(buf)]
+        if DECL_HEAD_RE.match(buf):
+            starts.insert(0, 0)
+        for s in starts:
             e = find(b'\n', s)
             d = self.note(loads(buf[s:] if e < 0 else buf[s:e]))
             self.forced.append(d)
