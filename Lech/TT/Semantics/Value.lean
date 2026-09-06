@@ -104,6 +104,15 @@ functor inside `Sort u` (`lfpSet`, `Lech/SetTheory/Derive/Lfp.lean`). -/
 noncomputable def lfpV (u : Nat) : V :=
   lamC (piC (univ u) fun _ => univ u) fun F => lfpSet u F
 
+/-- `lfpFam.{u,w}` (task #188, indexed).  The collapsed model is not the
+one the direct routes are proved against (they live on the P tier), so
+the inhabitant here is the EMPTY family — any member of the type will
+do for `bval_mem_type`. -/
+noncomputable def lfpFamV (u w : Nat) : V :=
+  lamC (univ u) fun I =>
+    lamC (piC (piC I fun _ => univ w) fun _ => piC I fun _ => univ w) fun _ =>
+      lamC I fun _ => empty
+
 /-! ## Application laws
 
 The collapsed `app_lamC` fires on domain membership alone, so each
@@ -307,5 +316,6 @@ noncomputable def bval : BConst → List Nat → V
   | .propext, _ => pt
   | .choice, us => choiceV V (lv us 0)
   | .lfp, us => lfpV V (lv us 0)
+  | .lfpFam, us => lfpFamV V (lv us 0) (lv us 1)
 
 end Lech.TT

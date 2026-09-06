@@ -247,6 +247,14 @@ theorem bval_mem_lfp (us : List Nat) (ρ : Nat → V) :
   rw [lfpV]
   exact lamC_mem fun F _ => lfpSet_mem_univ _ F
 
+theorem bval_mem_lfpFam (us : List Nat) (ρ : Nat → V) :
+    bval V .lfpFam us ∈ˢ interp V ρ (BConst.type .lfpFam us) := by
+  show lfpFamV V (lv us 0) (lv us 1) ∈ˢ piC (univ (lv us 0) : V) fun I =>
+    piC (piC (piC I fun _ => univ (lv us 1)) fun _ => piC I fun _ => univ (lv us 1)) fun _ =>
+      piC I fun _ => univ (lv us 1)
+  rw [lfpFamV]
+  exact lamC_mem fun I _ => lamC_mem fun _ _ => lamC_mem fun _ _ => empty_mem_univ _
+
 /-! ## The `const` rule's semantic content -/
 
 /-- **Every built-in constant inhabits its type.** -/
@@ -272,5 +280,6 @@ theorem bval_mem_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
   | propext => exact bval_mem_propext V us ρ
   | choice => exact bval_mem_choice V us ρ
   | lfp => exact bval_mem_lfp V us ρ
+  | lfpFam => exact bval_mem_lfpFam V us ρ
 
 end Lech.TT

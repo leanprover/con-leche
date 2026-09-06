@@ -5,6 +5,7 @@ import Lech.SetTheory.Derive.Quot
 import Lech.SetTheory.Derive.Choice
 import Lech.SetTheory.Derive.PtFresh
 import Lech.SetTheory.Derive.Lfp
+import Lech.SetTheory.Derive.LfpFam
 
 /-!
 # The target set theory: the derived operator interface

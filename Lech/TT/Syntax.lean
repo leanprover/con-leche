@@ -155,6 +155,12 @@ inductive BConst where
   no certificate; the fixed-point laws hold under the semantic
   hypothesis that a closed member exists. -/
   | lfp
+  /-- `lfpFam.{u,w} : Π (I : Sort u), ((I → Sort w) → (I → Sort w)) → I → Sort w`
+  — the least pre-fixed point of a functor on FAMILIES over `I` (task
+  #188, indexed: the carrier of a directly installed recursive family,
+  `lfpFamSet`, `Lech/SetTheory/Derive/LfpFam.lean`).  Model-side only, like
+  `lfp`; total (the empty family when no closed family exists). -/
+  | lfpFam
   deriving Repr, DecidableEq, Inhabited
 
 /-- Terms.  See the module docstring for what is *not* here. -/
@@ -219,6 +225,7 @@ def BConst.numLevels : BConst → Nat
   | .nat | .natZero | .natSucc | .propext => 0
   | .natRec | .punit | .punitUnit | .empty
   | .quot | .quotMk | .quotInd | .quotSound | .choice | .lfp => 1
+  | .lfpFam => 2
   | .punitRec | .psigma | .psigmaMk
   | .emptyRec | .quotLift => 2
 

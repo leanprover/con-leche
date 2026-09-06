@@ -164,5 +164,11 @@ def BConst.type : BConst → List Nat → VExpr
     let u := lv us 0
     -- `(Sort u → Sort u) → Sort u` (task #188)
     .pi (arrow (.sort u) (.sort u)) (.sort u)
+  | .lfpFam, us =>
+    let u := lv us 0; let w := lv us 1
+    -- `Π (I : Sort u), ((I → Sort w) → (I → Sort w)) → I → Sort w` (task #188, indexed)
+    .pi (.sort u) <|
+    .pi (arrow (arrow (.bvar 0) (.sort w)) (arrow (.bvar 0) (.sort w))) <|
+    .pi (.bvar 1) (.sort w)
 
 end Lech.TT

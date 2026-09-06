@@ -37,22 +37,57 @@ noncomputable def iterF (Φ : V → V) : Nat → V
 @[simp] theorem iterF_zero (Φ : V → V) : iterF Φ 0 = empty := rfl
 @[simp] theorem iterF_succ (Φ : V → V) (n : Nat) : iterF Φ (n + 1) = Φ (iterF Φ n) := rfl
 
-/-- The ω-iterate: the union of the finite iterates. -/
-noncomputable def iterU (Φ : V → V) : V :=
-  sUnion (image (natFibre (iterF Φ)) omega)
+/-- The union of a countable family `f 0 ∪ f 1 ∪ …` (the ω-indexed union
+through the tag fibre). -/
+noncomputable def natUnion (f : Nat → V) : V :=
+  sUnion (image (natFibre f) omega)
 
-theorem mem_iterU {Φ : V → V} {x : V} : x ∈ˢ iterU Φ ↔ ∃ n, x ∈ˢ iterF Φ n := by
-  unfold iterU
+theorem mem_natUnion {f : Nat → V} {x : V} : x ∈ˢ natUnion f ↔ ∃ n, x ∈ˢ f n := by
+  unfold natUnion
   rw [mem_sUnion]
   constructor
   · rintro ⟨y, hy, hxy⟩
     obtain ⟨k, hk, rfl⟩ := mem_image.mp hy
-    obtain ⟨n, rfl, hfib⟩ := natFibre_of_mem (iterF Φ) hk
+    obtain ⟨n, rfl, hfib⟩ := natFibre_of_mem f hk
     rw [hfib] at hxy
     exact ⟨n, hxy⟩
   · rintro ⟨n, hn⟩
-    exact ⟨natFibre (iterF Φ) (vnat n), mem_image.mpr ⟨vnat n, vnat_mem_omega n, rfl⟩,
+    exact ⟨natFibre f (vnat n), mem_image.mpr ⟨vnat n, vnat_mem_omega n, rfl⟩,
       by rw [natFibre_vnat]; exact hn⟩
+
+/-- **Formation** (graph regime): a countable union of members of a
+positive level is a member. -/
+theorem natUnion_mem_univ_pos {w : Nat} (hw : w ≠ 0) {f : Nat → V}
+    (h : ∀ n, f n ∈ˢ (univ w : V)) : natUnion f ∈ˢ (univ w : V) := by
+  obtain ⟨w', rfl⟩ : ∃ w', w = w' + 1 := ⟨w - 1, by omega⟩
+  unfold natUnion
+  refine (univ_isTGUniverse (Nat.succ_ne_zero w')).famUnion_mem (omega_mem_univ_succ w') ?_
+  intro k hk
+  obtain ⟨n, rfl, hfib⟩ := natFibre_of_mem f hk
+  rw [hfib]
+  exact h n
+
+/-- **Formation** (squash regime): a union of truth values is a truth
+value. -/
+theorem natUnion_mem_univZero {f : Nat → V} (h : ∀ n, f n ∈ˢ (univZero : V)) :
+    natUnion f ∈ˢ (univZero : V) := by
+  rw [mem_univZero]
+  intro x hx
+  obtain ⟨n, hn⟩ := mem_natUnion.mp hx
+  exact (mem_univZero.mp (h n)) x hn
+
+/-- Formation, both regimes. -/
+theorem natUnion_mem_univ {w : Nat} {f : Nat → V} (h : ∀ n, f n ∈ˢ (univ w : V)) :
+    natUnion f ∈ˢ (univ w : V) := by
+  rcases Nat.eq_zero_or_pos w with rfl | hw
+  · rw [univ_zero] at h ⊢; exact natUnion_mem_univZero h
+  · exact natUnion_mem_univ_pos (Nat.pos_iff_ne_zero.mp hw) h
+
+/-- The ω-iterate: the union of the finite iterates. -/
+noncomputable def iterU (Φ : V → V) : V := natUnion (iterF Φ)
+
+theorem mem_iterU {Φ : V → V} {x : V} : x ∈ˢ iterU Φ ↔ ∃ n, x ∈ˢ iterF Φ n :=
+  mem_natUnion
 
 theorem iterF_subset_iterU (Φ : V → V) (n : Nat) : iterF Φ n ⊆ˢ iterU Φ :=
   fun _ hx => mem_iterU.mpr ⟨n, hx⟩
@@ -75,33 +110,18 @@ theorem iterF_mono {Φ : V → V} (hmono : ∀ X Y : V, X ⊆ˢ Y → Φ X ⊆ˢ
       | succ n ih => exact hmono _ _ ih
     · exact Subset.refl _
 
-/-- **Formation** (graph regime): a countable union of members of a
-positive level is a member. -/
 theorem iterU_mem_univ_pos {w : Nat} (hw : w ≠ 0) {Φ : V → V}
-    (h : ∀ n, iterF Φ n ∈ˢ (univ w : V)) : iterU Φ ∈ˢ (univ w : V) := by
-  obtain ⟨w', rfl⟩ : ∃ w', w = w' + 1 := ⟨w - 1, by omega⟩
-  unfold iterU
-  refine (univ_isTGUniverse (Nat.succ_ne_zero w')).famUnion_mem (omega_mem_univ_succ w') ?_
-  intro k hk
-  obtain ⟨n, rfl, hfib⟩ := natFibre_of_mem (iterF Φ) hk
-  rw [hfib]
-  exact h n
+    (h : ∀ n, iterF Φ n ∈ˢ (univ w : V)) : iterU Φ ∈ˢ (univ w : V) :=
+  natUnion_mem_univ_pos hw h
 
-/-- **Formation** (squash regime): a union of truth values is a truth
-value. -/
 theorem iterU_mem_univZero {Φ : V → V} (h : ∀ n, iterF Φ n ∈ˢ (univZero : V)) :
-    iterU Φ ∈ˢ (univZero : V) := by
-  rw [mem_univZero]
-  intro x hx
-  obtain ⟨n, hn⟩ := mem_iterU.mp hx
-  exact (mem_univZero.mp (h n)) x hn
+    iterU Φ ∈ˢ (univZero : V) :=
+  natUnion_mem_univZero h
 
 /-- Formation, both regimes. -/
 theorem iterU_mem_univ {w : Nat} {Φ : V → V} (h : ∀ n, iterF Φ n ∈ˢ (univ w : V)) :
-    iterU Φ ∈ˢ (univ w : V) := by
-  rcases Nat.eq_zero_or_pos w with rfl | hw
-  · rw [univ_zero] at h ⊢; exact iterU_mem_univZero h
-  · exact iterU_mem_univ_pos (Nat.pos_iff_ne_zero.mp hw) h
+    iterU Φ ∈ˢ (univ w : V) :=
+  natUnion_mem_univ h
 
 /-- **Closure** under a finitary functor: if every member of
 `Φ (iterU Φ)` lies in some finite stage's image, the ω-iterate is
