@@ -1,5 +1,6 @@
 import Lech.Frontend.Export
 import Lech.Frontend.ProjRec
+import Lech.Frontend.InModel
 import Lech.Frontend.NatOpGround
 import Lech.Cached.ParsedC
 
@@ -146,6 +147,36 @@ structure StateD where
   projRewrites : Array Name := #[]
   /-- the built-in prelude this parse dedupes against (task #191) -/
   prelude : PreludeIx := {}
+  /-- the declared types of every declaration pushed so far (the
+  prelude's included), by name: the in-process modeller's sort inferer
+  reads them, and its "does the stream carry a model for this block"
+  test looks up `T._model` here (task #200) -/
+  constTypes : Std.HashMap Name (List Name × ExprC) := {}
+  /-- the definitional heights of the definitions pushed so far (the
+  hints of the generated definitions are computed from them, task #200) -/
+  heights : Std.HashMap Name Nat := {}
+  /-- in-process modelling of mutual/nested blocks is on (task #200;
+  `LECH_INMODEL=0` turns it off) -/
+  inModel : Bool := true
+  /-- the blocks modelled in-process, in stream order (for the receipt
+  and the route trace) -/
+  inModelled : Array Name := #[]
+  /-- for the debug dump (`LECH_INMODEL_DUMP`): per modelled block, its
+  ordinal among the stream's `inductive` records and the generated
+  records -/
+  inModelGen : Array (Nat × Array DeclC) := #[]
+  /-- the number of `inductive` records seen so far -/
+  indCount : Nat := 0
+  /-- the parsed inductive blocks, by member type name (the in-process
+  modeller's nested rung reads a container's shape off it) -/
+  indBlocks : Std.HashMap Name InModel.BlockRec := {}
+  /-- CENSUS mode (`LECH_INMODEL_CENSUS=1`): a generator decline is
+  recorded and the block pushed bare instead of declining the parse, so
+  one parse lists every block's outcome (the driver then stops before
+  the fold) -/
+  inModelCensus : Bool := false
+  /-- the census's declines: block name and reason -/
+  inModelDeclined : Array (Name × String) := #[]
   /-- stream records dropped as identical copies of prelude records:
   they count as accepted stream declarations (they ARE installed, from
   the prelude), so the driver's record count adds them back -/
@@ -157,6 +188,25 @@ under a prelude name is budgeted like a basis block. -/
 private def StateD.budgetedD (st : StateD) (n : Name) : Bool :=
   budgetedName n || st.prelude.byName.contains n
 
+/-- Record a pushed declaration's constants in the declaration table
+(`constTypes`, `heights`; task #200). -/
+private def noteDecl (st : StateD) (d : DeclC) : StateD :=
+  let cvs : List (Name × List Name × ExprC × Option Nat) := match d with
+    | .axiomDecl cv => [(cv.name, cv.levelParams, cv.type, none)]
+    | .defnDecl cv _ h => [(cv.name, cv.levelParams, cv.type, some (InModel.hintHeight h))]
+    | .thmDecl cv _ => [(cv.name, cv.levelParams, cv.type, none)]
+    | .opaqueDecl cv _ => [(cv.name, cv.levelParams, cv.type, none)]
+    | .basisDecl k => k.decls.map fun ci =>
+      (ci.toConstantVal.name, ci.toConstantVal.levelParams, ci.toConstantVal.type, none)
+    | .indDecl block => block.map fun ci =>
+      (ci.toConstantVal.name, ci.toConstantVal.levelParams, ci.toConstantVal.type, none)
+  let ct := st.constTypes
+  let hs := st.heights
+  let st := { st with constTypes := {}, heights := {} }
+  let (ct, hs) := cvs.foldl (fun (ct, hs) (n, lps, ty, h) =>
+    (ct.insert n (lps, ty), match h with | some h => hs.insert n h | none => hs)) (ct, hs)
+  { st with constTypes := ct, heights := hs }
+
 /-- **The prelude dedupe** (task #191), at every declaration push: a
 basis block the prelude holds is dropped by kind; a record under a
 prelude name is dropped when it is the same declaration
@@ -166,10 +216,10 @@ private def pushDecl (st : StateD) (d : DeclC) : StateD ⊕ String :=
   | .basisDecl k =>
     if st.prelude.basis.contains k then
       .inl { st with preludeDropped := st.preludeDropped + 1 }
-    else .inl { st with decls := st.decls.push d }
+    else .inl (noteDecl { st with decls := st.decls.push d } d)
   | _ =>
     match d.names.findSome? (fun n => (st.prelude.byName[n]?).map (n, ·)) with
-    | none => .inl { st with decls := st.decls.push d }
+    | none => .inl (noteDecl { st with decls := st.decls.push d } d)
     | some (n, p) =>
       if d.sameCanon p then
         .inl { st with preludeDropped := st.preludeDropped + 1 }
@@ -357,6 +407,55 @@ private def projRewriteD (st : StateD) (cv : ConstantVal) (vl : ExprC) :
   let l ← st.projLevels[projIotaName T i]?
   projRecValue o l cv.type vl i
 
+/-- An artifact `T._model.proj_i.iota` names the field's sort in its
+`Eq` level: recorded for the projection rewrite (stream theorems and
+the in-process modeller's alike). -/
+private def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
+  if isProjIotaName cvp.name then
+    match projIotaLevel cvp.type with
+    | some l =>
+      let m := st.projLevels
+      let st := { st with projLevels := {} }
+      { st with projLevels := m.insert cvp.name l }
+    | none => st
+  else st
+
+/-- Push one record the in-process modeller generated (task #200):
+`pushDecl`, plus the projection-iota registration a stream theorem
+gets. -/
+private def pushGenD (st : StateD) (d : DeclC) : StateD ⊕ String :=
+  match d with
+  | .thmDecl cv _ => pushDecl (noteProjIota st cv) d
+  | _ => pushDecl st d
+
+/-- The export's shape data of an inductive record, for the in-process
+modeller (task #200). -/
+private def blockRecOf (st : StateD) (v : Json) : M InModel.BlockRec := do
+  let types ← (← (← v.getObjVal? "types").getArr?).toList.mapM fun t => do
+    pure { cv := ← parseConstantValTD st t
+           nP := ← (← t.getObjVal? "numParams").getNat?
+           nIdx := ← (← t.getObjVal? "numIndices").getNat?
+           ctors := (← (← getIdxs t "ctors").mapM st.name).toList
+           isRec := ← (← t.getObjVal? "isRec").getBool?
+           isReflexive := ← (← t.getObjVal? "isReflexive").getBool?
+           numNested := ← (← t.getObjVal? "numNested").getNat? : InModel.IndTypeRec }
+  let ctors ← (← (← v.getObjVal? "ctors").getArr?).toList.mapM fun c => do
+    pure { cv := ← parseConstantValTD st c
+           nP := ← (← c.getObjVal? "numParams").getNat?
+           nF := ← (← c.getObjVal? "numFields").getNat? : InModel.IndCtorRec }
+  let recs ← (← (← v.getObjVal? "recs").getArr?).toList.mapM fun r => do
+    let rules ← (← (← r.getObjVal? "rules").getArr?).toList.mapM fun ru => do
+      pure (RecRule.mk (← getNameD st ru "ctor")
+        (← (← ru.getObjVal? "nfields").getNat?) 0 .inert
+        (← getDeclExprD st ru "rhs"))
+    pure { cv := ← parseConstantValTD st r
+           nP := ← (← r.getObjVal? "numParams").getNat?
+           nM := ← (← r.getObjVal? "numMotives").getNat?
+           nm := ← (← r.getObjVal? "numMinors").getNat?
+           nI := ← (← r.getObjVal? "numIndices").getNat?
+           rules := rules : InModel.IndRecRec }
+  pure ⟨types, ctors, recs⟩
+
 /-- Twin of `processLineCore` over the direct state, producing `DeclC`
 records.  Every branch, guard and error string mirrors the arena
 parser's. -/
@@ -403,14 +502,7 @@ private def processLineCoreD (st : StateD) (j : Json)
     let vl ← getDeclD st v "value" (st.budgetedD cvp.name)
     -- an artifact `T._model.proj_i.iota` names the field's sort in its
     -- `Eq` level: recorded for the projection rewrite
-    let st ← if isProjIotaName cvp.name then
-        match projIotaLevel cvp.type with
-        | some l =>
-          let m := st.projLevels
-          let st := { st with projLevels := {} }
-          pure { st with projLevels := m.insert cvp.name l }
-        | none => pure st
-      else pure st
+    let st := noteProjIota st cvp
     -- a proof field's projection function is exported as a theorem
     -- (the elaborator's choice for a `Prop`-valued field): the same
     -- rewrite applies (2026-09-06)
@@ -444,6 +536,7 @@ private def processLineCoreD (st : StateD) (j : Json)
     else
       return .inr "quotient declaration mismatch"
   else if let .ok v := j.getObjVal? "inductive" then
+    let st := { st with indCount := st.indCount + 1 }
     let types ← (← (← v.getObjVal? "types").getArr?).mapM fun t => do
       if (← (← t.getObjVal? "isUnsafe").getBool?) then throw "unsafe inductive"
       pure (ConstantInfo.indInfo (← parseConstantValTD st t) {})
@@ -480,7 +573,41 @@ private def processLineCoreD (st : StateD) (j : Json)
       return pushDecl st (.basisDecl .falseK)
     else
       if modeled then
-        return pushDecl st (.indDecl block)
+        -- THE IN-PROCESS MODELLER (task #200): a mutual or nested block
+        -- the stream carries no model for gets its `_model` family
+        -- generated here and pushed ahead of it; the block then
+        -- installs through the modeled route as a preprocessed one
+        -- does.  A generator decline is the run's decline, naming the
+        -- reason (the residual that still needs `lech-preprocess`).
+        let T0 := (block.head?.map (·.name)).getD .anonymous
+        let b ← blockRecOf st v
+        let st :=
+          let m := st.indBlocks
+          let st := { st with indBlocks := {} }
+          { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
+        if st.inModel && InModel.wants b &&
+            !st.constTypes.contains (T0.str "_model") then
+          let ctx : InModel.Ctx :=
+            ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
+          match InModel.generate ctx b with
+          | .error why =>
+            if st.inModelCensus then
+              return pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
+                (.indDecl block)
+            else
+              return .inr s!"in-process model of {T0}: {why}"
+          | .ok gen =>
+            let mut st1 := st
+            for d in gen do
+              match pushGenD st1 d with
+              | .inl st' => st1 := st'
+              | r => return r
+            st1 := { st1 with
+              inModelled := st1.inModelled.push T0,
+              inModelGen := st1.inModelGen.push (st1.indCount - 1, gen.toArray) }
+            return pushDecl st1 (.indDecl block)
+        else
+          return pushDecl st (.indDecl block)
       else
         -- alias every member to its `_model` counterpart; the member
         -- type is the parsed `ExprC` slot itself (no re-interning, no
@@ -679,11 +806,21 @@ structure ParseResultD where
   (`Lech/Frontend/NatOpGround.lean`, task #191; names, for the
   driver's receipt) -/
   hoisted : Array Name := #[]
+  /-- the blocks modelled in-process (task #200), in stream order -/
+  inModelled : Array Name := #[]
+  /-- the in-process modeller's generated records per block, keyed by
+  the block's ordinal among the stream's `inductive` records (for the
+  debug dump only) -/
+  inModelGen : Array (Nat × Array DeclC) := #[]
+  /-- the census's declines (block, reason) -/
+  inModelDeclined : Array (Name × String) := #[]
 
 /-- The initial parse state over a prelude: `PUnit` counts as seen for
-the projection rewrite when the prelude installs it. -/
-private def StateD.init (prelude : PreludeIx) : StateD :=
-  { prelude, punitSeen := prelude.basis.contains .punitK }
+the projection rewrite when the prelude installs it; the prelude's
+constants seed the declaration table (task #200). -/
+private def StateD.init (prelude : PreludeIx) (inModel : Bool) (census : Bool := false) : StateD :=
+  prelude.decls.foldl noteDecl
+    { prelude, punitSeen := prelude.basis.contains .punitK, inModel, inModelCensus := census }
 
 /-- The result: the prelude's records, then the stream's with every
 pinned operation's stream-certified ground hoisted ahead of it
@@ -691,7 +828,8 @@ pinned operation's stream-certified ground hoisted ahead of it
 private def ParseResultD.ofState (st : StateD) : ParseResultD :=
   let (decls, hoisted) := hoistNatOpGround st.decls
   ⟨st.prelude.decls ++ decls, st.taintSkipped, st.projRewrites,
-   st.prelude.decls.size, st.preludeDropped, hoisted⟩
+   st.prelude.decls.size, st.preludeDropped, hoisted, st.inModelled, st.inModelGen,
+   st.inModelDeclined⟩
 
 /-- Twin of `feedLine`. -/
 private def feedLineD (st : StateD) (line : String) (lineNo : Nat)
@@ -711,9 +849,9 @@ private def feedLineD (st : StateD) (line : String) (lineNo : Nat)
 built-in prelude the result is prepended with and deduped against
 (task #191; empty for the prelude's own parse). -/
 def parseExportD (contents : String) (modeled : Bool := false)
-    (prelude : PreludeIx := {}) :
+    (prelude : PreludeIx := {}) (inModel : Bool := true) (census : Bool := false) :
     Except FrontendError ParseResultD := do
-  let mut st : StateD := .init prelude
+  let mut st : StateD := .init prelude inModel census
   let mut lineNo := 0
   for line in contents.splitToList (· == '\n') do
     lineNo := lineNo + 1
@@ -731,7 +869,8 @@ preprocessor's stdout directly (task #180: no scratch file at all;
 `Main.lean`), and it is a property to preserve: a seek or a re-open
 here would silently re-introduce the temp file. -/
 partial def parseExportHandleD (h : IO.FS.Handle)
-    (modeled : Bool := false) (prelude : PreludeIx := {}) :
+    (modeled : Bool := false) (prelude : PreludeIx := {}) (inModel : Bool := true)
+    (census : Bool := false) :
     IO (Except FrontendError ParseResultD) := do
   let rec loop (lineNo : Nat) (st : StateD) :
       IO (Except FrontendError ParseResultD) := do
@@ -742,12 +881,13 @@ partial def parseExportHandleD (h : IO.FS.Handle)
     match feedLineD st line (lineNo + 1) modeled with
     | .error e => return .error e
     | .ok st => loop (lineNo + 1) st
-  loop 0 (.init prelude)
+  loop 0 (.init prelude inModel census)
 
 /-- Streaming direct parse of a file. -/
 def parseExportStreamD (path : System.FilePath)
-    (modeled : Bool := false) (prelude : PreludeIx := {}) :
+    (modeled : Bool := false) (prelude : PreludeIx := {}) (inModel : Bool := true)
+    (census : Bool := false) :
     IO (Except FrontendError ParseResultD) := do
-  parseExportHandleD (← IO.FS.Handle.mk path .read) modeled prelude
+  parseExportHandleD (← IO.FS.Handle.mk path .read) modeled prelude inModel census
 
 end Lech.Frontend

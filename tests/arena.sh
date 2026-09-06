@@ -177,6 +177,12 @@ if tests/trust-surface.sh; then :; else fail=1; fi
 # recogniser rejects.  `tests/native-audit.sh --full` adds init-full.
 if tests/native-audit.sh; then :; else fail=1; fi
 
+# THE IN-PROCESS MODELLER'S GATE (task #200): the raw mutual/nested
+# fixtures through the generator, the debug dump modelled by the tool
+# for the generated auxiliary families, accepted in both modes; and the
+# off switch.  See tests/inmodel.sh's header.
+if tests/inmodel.sh; then :; else fail=1; fi
+
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
 # theorems, the four letters, the assembly under them and the `IO`
 # loop's bridge — and, since task #181, the `False` letters — carry `#guard_msgs in #print axioms`
