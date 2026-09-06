@@ -21,16 +21,31 @@ def Setlec.CheckError.exitCode : CheckError → UInt32
   | .invalid _ => 1
   | .internal _ => 3
 
-/-- Locate the lean-inductive-models preprocessor: `$SETLEC_INDUCTIVE_MODELS`,
-then `$PATH`, then the development checkout under `_tmp/`. -/
+/-- Locate the preprocessor (task #178: `setlec-preprocess`, the checker's own
+front end for `lean-inductive-models` — the tool's `main` passed setlec's
+`NativeSupport`, so the blocks `directParts?` installs directly come back
+unmodelled; `SetlecPreprocess.lean`).  Search order:
+
+1. `$SETLEC_INDUCTIVE_MODELS` — the explicit override, unchanged; the test
+   harnesses point it at a nonexistent path to run a stream *raw*.
+2. this build's `setlec-preprocess`;
+3. the stock `lean-inductive-models` development checkout under `_tmp/` — the
+   legacy fallback, which costs one `pathExists` and keeps a tree without a
+   built `setlec-preprocess` working (its output is a superset: every block
+   left native here is modelled there, and the direct install ignores the
+   model either way);
+4. `setlec-preprocess` on `$PATH`, resolved at spawn time. -/
 def findPreprocessor : IO (Option String) := do
   if let some p ← IO.getEnv "SETLEC_INDUCTIVE_MODELS" then
     return some p
-  let dev := "_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models"
+  let dev := ".lake/build/bin/setlec-preprocess"
   if ← System.FilePath.pathExists dev then
     return some dev
+  let legacy := "_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models"
+  if ← System.FilePath.pathExists legacy then
+    return some legacy
   -- fall back to PATH resolution by just trying the bare name at spawn time
-  return some "lean-inductive-models"
+  return some "setlec-preprocess"
 
 /-- Does the input contain records the preprocessor must reduce
 (`inductive`/`quot`)?  Streaming scan, line by line — the keys cannot
