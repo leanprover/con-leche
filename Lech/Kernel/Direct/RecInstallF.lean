@@ -28,7 +28,7 @@ def directFixFieldsOkF (fe₀ : FEnv) (T : Name) (lps : List Name) (nP : Nat)
            let dom := (cbs.getD (nP + i) default).2.1
            match ks.getD i .ordinary with
            | .ordinary => dom.constsResolveF fe₀
-           | .recursive => dom == directFam T lps nP i
+           | .recursive => dom == directFam T lps nP i && !directUsedLater cA.1.type nP i
            | _ => false
        | none => false)
     | _, _ => false

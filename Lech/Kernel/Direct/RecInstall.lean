@@ -55,7 +55,7 @@ def directFixFieldsOk (env₀ : Env) (T : Name) (lps : List Name) (nP : Nat)
            let dom := (cbs.getD (nP + i) default).2.1
            match ks.getD i .ordinary with
            | .ordinary => dom.constsResolve env₀
-           | .recursive => dom == directFam T lps nP i
+           | .recursive => dom == directFam T lps nP i && !directUsedLater cA.1.type nP i
            | _ => false
        | none => false)
     | _, _ => false
@@ -111,8 +111,6 @@ recursor with its rules. -/
 def checkDirectFix (ops : CheckerOps m) (env : Env) (p : DirectFixParts) : m Env := do
   if p.kinds.any (fun ks => ks.any (· == .negative)) then
     throw (.invalid "direct rec: non positive occurrence of the inductive type")
-  if p.kinds.any (fun ks => ks.any (· == .unsupported)) then
-    throw (.notImplemented "direct rec: reflexive or nested occurrence of the inductive type")
   if p.large && !p.resSort.isNeverZero then
     if decide (2 ≤ p.ctors.length) then
       throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \

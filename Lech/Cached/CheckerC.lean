@@ -187,8 +187,6 @@ transition. -/
 def checkDirectFixS (fe : FEnv) (p : DirectFixParts) : CheckCM FEnv := do
   if p.kinds.any (fun ks => ks.any (· == .negative)) then
     throw (.invalid "direct rec: non positive occurrence of the inductive type")
-  if p.kinds.any (fun ks => ks.any (· == .unsupported)) then
-    throw (.notImplemented "direct rec: reflexive or nested occurrence of the inductive type")
   if p.large && !p.resSort.isNeverZero then
     if decide (2 ≤ p.ctors.length) then
       throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \

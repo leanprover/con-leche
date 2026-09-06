@@ -95,12 +95,22 @@ def recFieldKind (T : Name) (lps : List Name) (nP o : Nat) (dom : Expr) : RecFie
   if dom.mentionsConst T then recPositivity T lps nP o dom 0 else .ordinary
 
 /-- The kinds of one constructor's fields, off its (raw or annotated)
-type. -/
+type.  A recursive field that a LATER binder mentions (`directUsedLater`)
+is marked unsupported: the model reads the ordinary domains at a frame
+whose recursive slots hold an arbitrary value, so no ordinary domain
+may depend on one.  (In a well-typed constructor a later domain can
+only mention a recursive field through a term whose type mentions the
+block — which is not ordinary — so this never fires on a stream the
+route would otherwise take; it is stated syntactically so the proof
+can read it.) -/
 def recCtorKinds (T : Name) (lps : List Name) (nP : Nat) (c : ConstantVal × Nat) :
     Option (List RecFieldKind) :=
   match c.1.type.stripPis (nP + c.2) with
   | some (cbs, _) =>
-    some ((List.range c.2).map fun i => recFieldKind T lps nP i (cbs.getD (nP + i) default).2.1)
+    some ((List.range c.2).map fun i =>
+      match recFieldKind T lps nP i (cbs.getD (nP + i) default).2.1 with
+      | .recursive => if directUsedLater c.1.type nP i then .unsupported else .recursive
+      | k => k)
   | none => none
 
 /-- The positions of the recursive fields. -/
@@ -301,22 +311,26 @@ def directFixKinds? (p : DirectSumParts) : Option (List (List RecFieldKind)) :=
 mentioning the block (else it is not this route: a non-recursive block
 is the structure's or the sum's), and — when every field is ordinary
 or a finitary recursive one — the rules' bodies.  A block with a
-non-positive or unsupported occurrence is admitted WITHOUT the rule
-check so that the install diagnoses it (reject, resp. decline) exactly
-as the official kernel's positivity check would, before anything else
-is looked at. -/
+NON-POSITIVE occurrence is admitted WITHOUT the rule check so that the
+install rejects it exactly as the official kernel's positivity check
+would, before anything else is looked at (no other route could accept
+it).  A block with an UNSUPPORTED occurrence (reflexive, nested, under
+a redex) is NOT this route's: it falls through to the modeled path,
+which accepts what the preprocessor could model — a positive decline
+here would regress the verdict of every such block (found on the
+arena's `RTree`, 2026-09-06). -/
 def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
   match directFixShape? block with
   | some p =>
     match directFixKinds? p with
     | some kinds =>
-      if kinds.any (fun ks => ks.any (· != .ordinary)) then
-        if kinds.all (fun ks => ks.all fun k => k == .ordinary || k == .recursive) then
-          if directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) p.nP p.ctors.length
-              p.ctors kinds p.rhss then
-            some ⟨p, kinds⟩
-          else none
-        else some ⟨p, kinds⟩
+      if kinds.any (fun ks => ks.any (· == .negative)) then some ⟨p, kinds⟩
+      else if kinds.any (fun ks => ks.any (· == .unsupported)) then none
+      else if kinds.any (fun ks => ks.any (· == .recursive)) then
+        if directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) p.nP p.ctors.length
+            p.ctors kinds p.rhss then
+          some ⟨p, kinds⟩
+        else none
       else none
     | none => none
   | none => none
