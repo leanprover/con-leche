@@ -231,7 +231,7 @@ theorem natDivModNames_ne_env {c : Name} (hc : c ∈ natDivModNames) :
     c ≠ natBeqName := by
   simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
     or_false] at hc
-  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
     exact ⟨by decide, by decide, by decide, by decide, by decide,
       by decide, by decide, by decide, by decide, by decide, by decide⟩
 

@@ -133,7 +133,14 @@
 1 bad/tutorial/099_ruleKAcc.ndjson
 1 bad/tutorial/103_proofIrrelevanceBad.ndjson
 1 bad/tutorial/108_indexedUnitEta.ndjson
-2 bad/tutorial/110_indexedStructEta.ndjson
+# 110: structure eta asserted on an INDEXED one-constructor family
+# (IndexedSingleton, one index).  Official rejects (no eta: not
+# `is_non_rec_structure`).  Until task #175 SigmaHom (2026-09-06) we
+# declined at the block's install instead — the preprocessor's
+# `_model.proj_0` artifact for the indexed family hit the modeled
+# route's structure-shaped residual pin; the install now ignores such
+# artifacts and the eta claim is rejected for the reference's reason.
+1 bad/tutorial/110_indexedStructEta.ndjson
 1 bad/tutorial/113_funEtaBad.ndjson
 1 bad/tutorial/114_etaRuleK.ndjson
 1 bad/tutorial/115_etaCtor.ndjson

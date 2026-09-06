@@ -521,7 +521,6 @@ def natLorName : Name := natName.str "lor"
 def natXorName : Name := natName.str "xor"
 def natShiftLeftName : Name := natName.str "shiftLeft"
 def natShiftRightName : Name := natName.str "shiftRight"
-def natLog2Name : Name := natName.str "log2"
 def boolName : Name := .str .anonymous "Bool"
 def boolTrueName : Name := boolName.str "true"
 def boolFalseName : Name := boolName.str "false"
@@ -547,7 +546,12 @@ def Expr.quickPair : Expr → Expr → Bool
   | .lam .., .lam .. => true
   | _, _ => false
 
-/-- The structural-Nat operations with a certified literal fast path. -/
+/-- The certified structural-`Nat` operations.  Six of them
+(`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
+here without one — it has no fast path (official's `reduce_nat` folds
+nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
+`sub x (succ y) = pred (sub x y)` names it, so its own recurrences
+must be certified for `sub`'s literal fold to be sound. -/
 def natOpNames : List Name :=
   [natPredName, natAddName, natSubName, natMulName, natPowName,
    natBeqName, natBleName]
@@ -562,10 +566,12 @@ installing them.  Presence in the store is therefore again the
 capability: a stored operation under one of these names has passed pin
 and certificates, or the install declined.  (The name is historic:
 the family started with `Nat.div`/`Nat.mod` and now covers every
-pin-certified WF-recursive kernel-accelerated `Nat` operation.) -/
+pin-certified WF-recursive kernel-accelerated `Nat` operation —
+`Nat.log2` left the list when its fast path did, official folding no
+unary operation but `Nat.succ`.) -/
 def natDivModNames : List Name :=
   [natDivName, natModName, natGcdName, natLandName, natLorName,
-   natXorName, natShiftLeftName, natShiftRightName, natLog2Name]
+   natXorName, natShiftLeftName, natShiftRightName]
 
 /-- The operations (transitively) involved in `c`'s recurrences. -/
 def natOpDeps (c : Name) : List Name :=
@@ -590,7 +596,6 @@ def natOpDeps (c : Name) : List Name :=
     [natSubName, natMulName, natBleName, natShiftLeftName]
   else if c = natShiftRightName then
     [natSubName, natBleName, natDivName, natShiftRightName]
-  else if c = natLog2Name then [natBleName, natDivName, natLog2Name]
   else []
 
 /-- The defining recurrence equations of a structural-Nat operation,
@@ -646,7 +651,6 @@ def natOpResult (c : Name) (a b : Nat) : Option Expr :=
     some (.lit (.natVal (Nat.shiftLeft a b)))
   else if c = natShiftRightName then
     some (.lit (.natVal (Nat.shiftRight a b)))
-  else if c = natLog2Name then some (.lit (.natVal (Nat.log2 a)))
   else if c = natBeqName then
     some (.const (if a = b then boolTrueName else boolFalseName) [])
   else if c = natBleName then
@@ -681,7 +685,7 @@ the fuel recursion.  Declaring the functions themselves is
 unaffected: only the reduction path declines. -/
 def natOpWfNames : List Name :=
   [natDivName, natModName, natGcdName, natLandName, natLorName,
-   natXorName, natShiftLeftName, natShiftRightName, natLog2Name]
+   natXorName, natShiftLeftName, natShiftRightName]
 
 /-- Substitute the level-monomorphic constant `n` by `r` through an
 application spine (the certification equations' self-references; the
@@ -721,12 +725,12 @@ def natOpCod (env : Env) (c : Name) (e : Expr) : Bool :=
      | none => false)
   else e == .const natName []
 
-/-- The pinned type of a structural-Nat operation:
-`Nat → Nat` for `pred`, `Nat → Nat → Nat` for the arithmetic
+/-- The pinned type of a certified `Nat` operation:
+`Nat → Nat` for the unary `pred`, `Nat → Nat → Nat` for the arithmetic
 operations, `Nat → Nat → Bool` for the comparisons.  The model reads
 the operations' function-space memberships off this shape. -/
 def natOpTyPinned (env : Env) (c : Name) (ty : Expr) : Bool :=
-  if c = natPredName || c = natLog2Name then
+  if c = natPredName then
     match ty with
     | .forallE _ dom body _mb =>
       dom == .const natName [] && natOpCod env c body
@@ -788,21 +792,11 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (some (.lit (.natVal (n + 1))))
       | none => pure none
-    else if c = natPredName ∧ natOpStored env c = true then
-      match rawNatLit? (← r.whnf depth a) with
-      | some n => pure (natOpResult c n 0)
-      | none => pure none
-    else if c = natLog2Name ∧ natOpStored env c = true then
-      match rawNatLit? (← r.whnf depth a) with
-      | some n => pure (natOpResult c n 0)
-      | none => pure none
-    else if c = natLog2Name ∧ natLitSupported env then
-      -- capless `log2` literal: positively decline (safety net; a
-      -- mismatching declaration already declined at install)
-      match rawNatLit? (← r.whnf depth a) with
-      | some _ => throw (.notImplemented
-          s!"native Nat computation on literals ({c})")
-      | none => pure none
+    -- (the audit's S1: the `Nat.pred` and `Nat.log2` literal fast paths
+    -- are gone — official `reduce_nat` (`type_checker.cpp:639-668`) has
+    -- `Nat.succ` and the fourteen binary operations, nothing else.
+    -- `Nat.pred` stays a certified structural operation because
+    -- `Nat.sub`'s recurrence names it; `Nat.log2` is gone entirely)
     else pure none
   | .app (.app (.const c []) a) b =>
     if (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨

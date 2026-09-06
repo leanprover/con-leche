@@ -213,17 +213,23 @@
 2 nat_shiftleft_perturbed.ndjson
 0 nat_shiftright_ok.ndjson
 2 nat_shiftright_perturbed.ndjson
+# nat_log2_ok: since the audit's S1 (`Nat.log2` left the literal op
+# set — official's reduce_nat folds nothing unary but Nat.succ, and
+# the install-time pin went with the fast path) this fixture pins the
+# ORDINARY route: a stream declaring Nat.log2 and applying it to a
+# literal must still accept, by unfolding, with no acceleration and no
+# decline.  Its perturbed twin was deleted with the pin: a
+# differently-defined Nat.log2 is now accepted, as official accepts it.
 0 nat_log2_ok.ndjson
-2 nat_log2_perturbed.ndjson
 # Self-contained certificate blobs (task #113): *pure-cone* slices —
 # the operation's dependency closure plus only the guard-required
 # ground operations (scripts/natop_cone_roots.json), with the cert
 # proofs' historical auxiliary constants (funext, Eq.subst,
-# of_decide_eq_true, Nat.log2_terminates, …) positively absent from
-# the stream — must accept: the generated proofs may only reference
-# the op's own cone (which every stream declaring the op provides).
+# of_decide_eq_true, …) positively absent from the stream — must
+# accept: the generated proofs may only reference the op's own cone
+# (which every stream declaring the op provides).  (nat_log2_cone was
+# the second slice; it went with the Nat.log2 pin at the audit's S1.)
 0 nat_land_cone.ndjson
-0 nat_log2_cone.ndjson
 # subject_reduction_redex (arena good/undecidability/subject-reduction-redex):
 # `x2 x4` needs `f 1 (proof_2 x0) ≡ f 0 (proof_1 x0)` where the proofs
 # are *theorems* whose values must delta-unfold for the Acc iota step
@@ -415,3 +421,23 @@
 # decline at Lean.Meta.Grind.AC.DiseqCnstr.lhs).
 0 mutual_struct_proj.ndjson
 0 nested_struct_proj.ndjson
+# indexed_one_ctor.ndjson (task #175 SigmaHom, 2026-09-06): an INDEXED
+# one-constructor family in Type (Mathlib's CategoryTheory.Sigma.SigmaHom
+# shape: two indices built from the fields, dependent fields).  Not
+# structure-like by official's `is_non_rec_structure` (one ctor AND no
+# indices), yet the preprocessor emits `IdxHom._model.proj_{0..3}` and
+# `.eta` for it (its indexed-fibre tranche); the modeled install must
+# ignore those artifacts (they stay ordinary definitions) instead of
+# declining at the structure-shaped residual pin.  The consumer goes
+# through casesOn and a `rfl` forces the indexed iota.  Pre-fix verdict:
+# 2 ("projection constructor residual arity").
+0 indexed_one_ctor.ndjson
+# indexed_one_ctor_proj.ndjson: the preprocessed stream above plus a
+# hand-written `def IdxHom.badProj := fun h => h.0` — a `.proj` node on
+# the indexed family.  No projection table exists for it, so the node is
+# a positive decline (user ruling: indexed types get no projections;
+# decline if a `.proj` occurs).  NB the official kernel ACCEPTS this
+# stream: `infer_proj` (type_checker.cpp) requires one constructor and
+# `args = nparams + nindices`, not `is_non_rec_structure` — a
+# conservative decline on our side, recorded as a finding in DESIGN.md.
+2 indexed_one_ctor_proj.ndjson pre

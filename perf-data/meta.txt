@@ -1,8 +1,8 @@
-sha	10d130f2dfa62eaa34a01cb322d006ce64540bb3
-shashort	10d130f2
-binsha	0dd12f73c6ee3d9dbfef6d70cbd7d79818e45673
+sha	161cd827fe729dd63d0148b8559bfb6a3631ec4e
+shashort	161cd827
+binsha	ab0acee3a05ad9e8f5eb5627ef657dd2adb4d27d
 dirty	0
-date	2026-09-06T01:37:21+00:00
+date	2026-09-06T09:14:28+00:00
 host	bubblewrap
 cpu	AMD EPYC 9455 48-Core Processor
 cores	96
@@ -10,10 +10,10 @@ mem	125 GB
 kernelver	6.12.100
 official	/home/joachim/setlec/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel
 preproc	/home/joachim/setlec/_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models
-note	the merge of master `8f9e8250` (task #175 W6) with the perf-tables tooling commits; the commits above master touch only `scripts/`
-loadnote	one unrelated single-process checker run (the Mathlib frontier campaign, one core of 96) was live on the machine throughout; battery cells still ran strictly one at a time
+note	clean checkout of master `161cd827` (the mode rename + the ungated fast `isProof` arms and `pw` writers); no commits above master
+loadnote	other agents ran unrelated single-process checkers on the machine throughout (load ~19 of 96 cores); battery cells still ran strictly one at a time, and `instructions:u` is contention-independent
 configs	official trusted verified
 reps	1
 timeout	3000
 vlimit	16000000
-stalenote	**Stale, awaiting regeneration.**  The cells are the ones measured at the commit above; nothing was re-measured since.  The table therefore PREDATES the instantiate-opt landing, and the mode rename of 2026-09-06 changed only the column *labels* (`parity` -> `trusted`, `P` -> `verified`) and the flags they name (`--no-model` -> `--trusted`, `--set-model=p` -> `--verified`).
+stalenote	**What changed since the previous table.**  Two landings, no method change.  (i) Since task #175 S1 a direct structure's projection table is ONE stored constant per structure instead of one per field, so every setlec accepted-declaration count drops with no verdict change: init-full 60 549 (was 61 048), grind-ring-5 3 866 (3 946), init-prelude 3 606 (3 653), app-lam 94 (97), let-ladder 66 (69), beta-ladder 53 (56).  (ii) Since the 2026-09-06 mode rename the trusted mode WRITES the `pw` binder annotations and runs the fast `isProof` head-symbol arms exactly as the verified mode does — only *validating* the annotations and producing certificates stays certification-only.

@@ -488,6 +488,62 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
       rw [if_neg hguard] at h
       exact absurd h throwC_bind_ok
     rw [if_pos hguard] at h
+    -- the projection phase: structure-like blocks only (task #175
+    -- SigmaHom); off the shape the phase is the identity
+    by_cases hsl : ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF
+        = true
+    case neg =>
+      rw [if_neg hsl] at h
+      obtain ⟨fe₄, s₄, hart, h⟩ := bindC_ok h
+      obtain ⟨hfe₄, rfl⟩ := pureC_ok hart
+      subst hfe₄
+      obtain ⟨hs4', hfeOut, hF₄p'⟩ := installProjTemplateS_run h
+      refine ⟨hs4' ▸ hwf₃, hfeOut, max F₁ F₂, ?_⟩
+      have hF₁p := FueledM.up (Nat.le_max_left F₁ F₂) hF₁
+      rw [foldlM_atF] at hF₁p
+      simp only [checkIndMember_datF] at hF₁p
+      have hF₂p := FueledM.up (Nat.le_max_right F₁ F₂) hF₂
+      rw [checkIndRecs_datF] at hF₂p
+      have hF₁p' : List.foldlM (checkIndMember (fueledOps mode (max F₁ F₂))
+          (block.map (·.name)) caps) env _ = .ok fe₂.env := hF₁p
+      simp only [checkIndDecl]
+      split
+      case isFalse hgs => exact absurd hsplit hgs
+      case isTrue hgs =>
+      split
+      next cvT' c0' cvC' nP' nF' heq1' heq2' =>
+        have h12 : ([(.indInfo cvT c0 : ConstantInfo)]) =
+            [(.indInfo cvT' c0' : ConstantInfo)] :=
+          heq1.symm.trans heq1'
+        have h34 : ([(.ctorInfo cvC nP nF : ConstantInfo)]) =
+            [(.ctorInfo cvC' nP' nF' : ConstantInfo)] :=
+          heq2.symm.trans heq2'
+        simp only [List.cons.injEq, and_true,
+          ConstantInfo.indInfo.injEq, ConstantInfo.ctorInfo.injEq]
+          at h12 h34
+        obtain ⟨rfl, rfl⟩ := h12
+        obtain ⟨rfl, rfl, rfl⟩ := h34
+        simp only [Bind.bind, Except.bind, pure, Except.pure]
+        rw [hcapsv']
+        split
+        next err herr => exact nomatch (hF₁p'.symm.trans herr)
+        next v hok =>
+        obtain rfl : fe₂.env = v := by
+          have hv : (Except.ok fe₂.env : Except CheckError Env) = .ok v :=
+            hF₁p'.symm.trans hok
+          injection hv
+        split
+        next err herr => exact nomatch (hF₂p.symm.trans herr)
+        next v hok =>
+        obtain rfl : fe₃.env = v := by
+          have hv : (Except.ok fe₃.env : Except CheckError Env) = .ok v :=
+            hF₂p.symm.trans hok
+          injection hv
+        rw [if_pos hctorRes, if_pos hguard, if_neg hsl]
+        exact hF₄p'
+      next x1 x2 hne' =>
+        exact (hne' cvT c0 cvC nP nF heq1 heq2).elim
+    rw [if_pos hsl] at h
     obtain ⟨fe₄, s₄, hart, h⟩ := bindC_ok h
     obtain ⟨hwf₄, hfe₄, henv₄, F₃, hF₃⟩ :=
       foldProjFnS_run _ fe₃.env henv₃ hwf₃ hart
@@ -545,7 +601,7 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
         have hv : (Except.ok fe₃.env : Except CheckError Env) = .ok v :=
           hF₂p.symm.trans hok
         injection hv
-      rw [if_pos hctorRes, if_pos hguard]
+      rw [if_pos hctorRes, if_pos hguard, if_pos hsl]
       split
       next err herr => exact nomatch (hF₃p'.symm.trans herr)
       next v hok =>
