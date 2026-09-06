@@ -2,7 +2,7 @@ import Setlec.SetP.Annot.BitExtendTower
 import Setlec.SetP.Annot.BitInstall
 import Setlec.Verify.Denote.OpenVars
 import Setlec.Verify.InferLemmas
-import Setlec.SetBase.EnvR
+import Setlec.Semantics.EnvR
 
 /-!
 # The P cons crossing at a tower head (task #175 W4c, P3 module 4)
@@ -26,10 +26,11 @@ consume:
   their level instantiations and openings.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal RecRule)
 
 /-- No stored piece of the environment mentions the slot `(T, i)`. -/
@@ -103,7 +104,7 @@ theorem ConsCrossEnv.type {env : Env} {c₀ : ConstantInfo}
 theorem ConsCrossEnv.typeOf {env : Env} {c₀ : ConstantInfo}
     (h : ConsCrossEnv env c₀) {n : Name} {c : ConstantInfo}
     (hf : env.find? n = some c) : ConsCrossAt c₀ c.toConstantVal.type :=
-  h.type (Setlec.SetR.Env.find?_mem hf)
+  h.type (Setlec.Semantics.Env.find?_mem hf)
 
 theorem ConsCrossEnv.defn {env : Env} {c₀ : ConstantInfo}
     (h : ConsCrossEnv env c₀) {cv : ConstantVal} {v : Expr}
@@ -150,4 +151,4 @@ theorem ConsCrossEnv.rulePinD {env : Env} {c₀ : ConstantInfo}
     show Expr.NoProjAt _ _ (Expr.bvar 0)
     simp
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

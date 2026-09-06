@@ -1,4 +1,4 @@
-import Setlec.SetBase.IndBlockRun
+import Setlec.Semantics.IndBlockRun
 import Setlec.SetP.IndBottomProjP
 import Setlec.SetP.Annot.BitReads
 -- task #161 S10: `acceptedReadsP_of` — the rule rhs's reading comes
@@ -39,10 +39,11 @@ conjunct owes the pins' `openRev` readings, whose supply is the
 successor's first item (see the seal).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta RecRule isDefEqCore inferTypeCore DefEqListOk)
 
@@ -282,4 +283,4 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   · intro i hi him
     exact hplain hfireP i (by rw [hr'cp]; exact hi) him
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

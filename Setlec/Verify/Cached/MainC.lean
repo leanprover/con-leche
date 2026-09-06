@@ -32,7 +32,7 @@ allowed to see both lanes; there is one lane.
 
 namespace Setlec.Cached
 
-open Setlec Setlec.SetR SetTheory
+open Setlec Setlec.Semantics SetTheory Setlec.SetModel
 
 universe w
 variable {V : Type w} [SetTheory V]
@@ -116,7 +116,7 @@ pure fueled checker the tower is stated about) its only sibling. -/
 
 section PLetters
 
-open Setlec.SetR.Interp2 (EnvSPOk EnvS2PM declStepPM
+open Setlec.Semantics (EnvSPOk EnvS2PM declStepPM
   no_constant_of_Empty_P)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
@@ -145,7 +145,7 @@ theorem foldSPC_PM (hμ : μ.verified = true) :
     obtain ⟨hres₁, hfe₁, F, hF⟩ :=
       checkDeclSPStepC_run mp.toEnvR.wf hres hd hstepC
     exact foldSPC_PM hμ ds fe₁ hfe₁
-      (declStepPM hμ mp hE (Setlec.SetR.checkDeclRun_ofEnvRE hF))
+      (declStepPM hμ mp hE (Setlec.Semantics.checkDeclRun_ofEnvRE hF))
       hres₁ (fun p hp => hrel p (List.mem_cons_of_mem _ hp)) h
 
 /-- **Acceptance, shipped direct-parse driver, P route.** -/
@@ -155,7 +155,7 @@ theorem checkDeclsSPCachedD_sound_P (hμ : μ.verified = true)
     Nonempty (EnvS2PM V μ env') := by
   obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
   exact (foldSPC_PM hμ ds (mkFEnv Env.empty) rfl
-    ⟨⟨Setlec.SetR.Interp2.EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩
+    ⟨⟨Setlec.Semantics.EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩
     CSOKF.empty wdecl_rel hrun).1
 
 /-- **THE CAPSTONE FOR THE SHIPPED DRIVER, P mode** (task #172 B4):

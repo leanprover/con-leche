@@ -31,10 +31,11 @@ generalized here to an unpadded fired spine) supplies the crossing
 datum `RecRuleLawP`'s parameter premise is quantified over.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta isDefEqCore inferTypeCore DefEqListOk TypedListOk)
 
@@ -365,7 +366,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
     denoteP_closed mp.base2.acval_erase mp.base2.cval_closed
       hCw hCb hTVj0 1 k
   have hokTVj : ∀ σ : Nat → V, AnnotOkP V σ TVja :=
-    mp.type_okP _ (Setlec.SetR.Env.find?_mem hctorE) _ TVja hTVj0
+    mp.type_okP _ (Setlec.Semantics.Env.find?_mem hctorE) _ TVja hTVj0
   -- the level-instantiated (and renamed) constructor type
   have hCvLw : ctyL.hasFvar = false := by
     rw [hctyL, Expr.hasFvar_instantiateLevelParams]
@@ -1366,4 +1367,4 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
     (fun τ => (hRaFacts τ).1) hinstLam hdeLam hzslen hsat
     (teleFitPA_to_chain (rP + cnF) htowerS hzslen hfitS) hzsAnnot
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

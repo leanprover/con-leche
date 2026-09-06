@@ -1,9 +1,9 @@
 import Setlec.SetP.AxiomReduceP
 import Setlec.SetP.DeclIndP
-import Setlec.SetP.DeclDirectP
-import Setlec.SetBase.IndBlockR
-import Setlec.SetBase.Bridge.Sound
-import Setlec.SetBase.DeclDirectEta
+import Setlec.SetP.Direct.DeclDirectP
+import Setlec.Semantics.IndBlockR
+import Setlec.Semantics.Bridge.Sound
+import Setlec.Semantics.Direct.DeclDirectEta
 
 /-!
 # The P declaration fold, and the conditional capstone (task #161, P4)
@@ -38,10 +38,11 @@ The routed bundles, by tier:
   is `hμ` alone.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   Declaration checkDecl checkDecls fueledOps)
 
@@ -151,7 +152,7 @@ non-`ind` kinds have run-only bridges (`checkDeclRun_of`,
 reads, and no step below changed a line. -/
 theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvS2PM V μ env) (hE : EtaFamiliesClosed env)
-    (hrun : DeclRunR μ F (Setlec.SetR.DeclIndRunDispatchR μ F env)
+    (hrun : DeclRunR μ F (Setlec.Semantics.DeclIndRunDispatchR μ F env)
       env d env₂) :
     EnvSPOk V μ env₂ := by
   -- the η half: `declEtaStepRun` (task #161 S3, the census's C4), now
@@ -161,8 +162,8 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
   -- fold consults no install obligation for its η half at all.
   -- task #175 wiring W5: the η half is FLAG-AGNOSTIC — the `.indDecl`
   -- dispatch's own case split (`declIndRunDispatchEtaClosed`)
-  refine ⟨?_, Setlec.SetR.declEtaStepRun
-    (fun h' => Setlec.SetR.declIndRunDispatchEtaClosed hE h') hE hrun⟩
+  refine ⟨?_, Setlec.Semantics.declEtaStepRun
+    (fun h' => Setlec.Semantics.declIndRunDispatchEtaClosed hE h') hE hrun⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := hrun
@@ -187,8 +188,8 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
     -- the `.indDecl` dispatch: the recognised direct class installs
     -- directly (task #175 W4c), everything else through the modeled
     -- path — the kernel's own `directParts?` case split
-    have hrun' : Setlec.SetR.DeclIndRunDispatchR μ F env block env₂ := hrun
-    unfold Setlec.SetR.DeclIndRunDispatchR at hrun'
+    have hrun' : Setlec.Semantics.DeclIndRunDispatchR μ F env block env₂ := hrun
+    unfold Setlec.Semantics.DeclIndRunDispatchR at hrun'
     cases hdp : Setlec.directParts? env block with
     | some p =>
       rw [hdp] at hrun'
@@ -222,7 +223,7 @@ theorem foldPM (hμ : μ.verified = true) {F : Nat} :
           -- *derivation*-free at the five non-`ind` kinds, so the only
           -- route from here into the relation tier is the `Ind`
           -- premise `checkDeclRun_ofEnvRE` fills with `declIndRR`.
-          (Setlec.SetR.checkDeclRun_ofEnvRE hd)) h
+          (Setlec.Semantics.checkDeclRun_ofEnvRE hd)) h
 
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'
@@ -272,4 +273,4 @@ theorem no_proof_of_Empty_P (V : Type w) [SetTheory V]
       c.toConstantVal.type = .const emptyName [] → False :=
   fun c hc hty => no_proof_of_Empty_P_of V hμ h c hc hty
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

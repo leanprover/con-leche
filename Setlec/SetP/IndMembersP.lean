@@ -1,6 +1,6 @@
-import Setlec.SetBase.IndBlockRun
+import Setlec.Semantics.IndBlockRun
 import Setlec.SetP.IndCapsP
-import Setlec.SetBase.EnvRCons
+import Setlec.Semantics.EnvRCons
 
 /-!
 # The member phase, P tier (task #161, IND TIER)
@@ -36,10 +36,11 @@ conjunct, which is exactly the conjunct v1's `BlockInstalledTT.step`
 consumes for the same purpose.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps ReducibilityHint)
 
@@ -317,7 +318,7 @@ theorem provisionRecsPM (hetaP : MemberEtaLawP V)
       {envSelf : Env}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
-      Setlec.SetR.ProvisionRecsRunR μ F blockNames envAcc
+      Setlec.Semantics.ProvisionRecsRunR μ F blockNames envAcc
         recs envSelf checked →
       BlockInstalledTT blockNames envAcc mp.base2.cvalE →
       BlockAcvalInstalled blockNames envAcc mp.base2.acval →
@@ -348,4 +349,4 @@ theorem provisionRecsPM (hetaP : MemberEtaLawP V)
       (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
       hrec hI₁ hIA₁ hEC₁ hBP₁
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

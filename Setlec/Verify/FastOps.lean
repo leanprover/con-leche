@@ -1,4 +1,4 @@
-import Setlec.Kernel.DeclCheck
+import Setlec.Kernel.Direct.InstallF
 import Setlec.Verify.InstList
 
 /-!

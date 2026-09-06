@@ -3,8 +3,8 @@ import Setlec.SetP.CtxOkPKit
 import Setlec.SetP.Annot.BitInst
 import Setlec.SetP.Annot.BitInstall
 import Setlec.SetP.Step2.BitLevels
-import Setlec.SetBase.Sat2
-import Setlec.SetBase.WhnfCoreLeaf
+import Setlec.Semantics.Sat2
+import Setlec.Semantics.WhnfCoreLeaf
 import Setlec.SetP.Claims2PIO
 
 /-!
@@ -66,10 +66,11 @@ proof reads it** — flagged here rather than dropped, because the
 capstone binds the four steps at one mode hypothesis.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level BinderMeta Literal whnf
   whnfCore whnfBody whnfLoop whnfStep whnfLoopFuel pureFns
   inferTypeCore iotaRecP reduceNatP unfoldDefinition ConstantInfo
@@ -509,8 +510,8 @@ theorem whnfCore_leaf_claimP (m : EnvS2Core V env) {fuel d : Nat}
     rcases hleaf with ⟨u, rfl⟩ | ⟨idx, n, ty, rfl⟩ |
       ⟨n, ty, body, bi, rfl⟩ | ⟨n, ty, body, mb, rfl⟩ |
       ⟨n, us, rfl⟩ | ⟨l, rfl⟩ <;>
-      simp only [whnfCoreR_sort, whnfCoreR_fvar, whnfCoreR_forallE,
-        whnfCoreR_lam, whnfCoreR_const, whnfCoreR_lit,
+      simp only [whnfCore_leaf_sort, whnfCore_leaf_fvar, whnfCore_leaf_forallE,
+        whnfCore_leaf_lam, whnfCore_leaf_const, whnfCore_leaf_lit,
         Except.ok.injEq] at h <;>
       exact h.symm
   subst he
@@ -909,4 +910,4 @@ theorem whnfStepP_of (_hμ : μ.verified = true)
     whnf_claimsP m (hin.core_exists m φ fuel) ihwc
       (hin.nat m φ fuel ihw) (deltaP_of m (hin.defn m))
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

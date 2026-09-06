@@ -23,10 +23,11 @@ The **unit-like branch** (`isUnitLikeTy` on both sides) is routed as
 caps/install machinery, not here.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level inferTypeCore whnf
   isUnitLikeTy)
 
@@ -204,4 +205,4 @@ theorem proofIrrelPQ_of_claims {m : EnvS2Core V env}
       prop_side_pt ihis hsss hreads htb hstb hwstb hvT hwb hbb hLb
         hCb hdb hokB ρ hρ]
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

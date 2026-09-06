@@ -29,10 +29,11 @@ that is the currency the reading's carrier stores, and
 `instSeqP_eq_self_of_closed` consumes it directly.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name BinderMeta)
 
 universe w
@@ -288,4 +289,4 @@ theorem zipFieldTermEqP
           (Γj.getD (cnP + cnF - 1 - (cnP + j)) default) := by
         rw [← hAnext]
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

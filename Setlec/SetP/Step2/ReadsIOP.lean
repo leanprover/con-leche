@@ -65,10 +65,11 @@ bundle the full walk takes, no io-graded input added — which is the
 statement `InferInputsIOP.infer_reads_io` wants.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level whnf whnfCore inferTypeCore
   inferTypeCoreIO)
 
@@ -420,4 +421,4 @@ theorem denotePDeltaP_of {m : EnvS2Core V env}
     (hin : ReadsInputsP μ m φ) : DenotePDeltaP m φ :=
   denotePDeltaP_of_fields m hin.defn
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -34,10 +34,11 @@ constructor run's `q`-th domain reads at depth `q` to the tower slot
 slot, lifted (`projSpineMemP`, `Interp2/IndProjKitP.lean`).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta isDefEqCore inferTypeCore DefEqListOk)
 
@@ -294,7 +295,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     denoteP_depth_of_closed mp.base2.acval_closed hCwR hTVjcl hTVjR0
       (rP + cnF)
   have hokTVj : ∀ σ : Nat → V, AnnotOkP V σ TVja :=
-    mp.type_okP _ (Setlec.SetR.Env.find?_mem hctorE)
+    mp.type_okP _ (Setlec.Semantics.Env.find?_mem hctorE)
       (Level.substFn φ lps us) TVja hTVj0
   obtain ⟨Γj, Rj, htowerJ, hΓjlen0, hRjdenA, hdomsJ⟩ :=
     stripPis_denotePTele (acval := mp.base2.acval) (env := env)
@@ -735,4 +736,4 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     · exact hxsA w (List.mem_of_mem_take hw')
     · exact hysA w (List.mem_of_mem_drop hw')
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

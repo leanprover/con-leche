@@ -1,5 +1,5 @@
 import Setlec.SetP.LevelsP
-import Setlec.SetBase.BasisRules
+import Setlec.Semantics.BasisRules
 
 /-!
 # The remaining basis blocks, P tier (task #161, ENDGAME G)
@@ -25,10 +25,11 @@ Three pieces of kit that `BasisEmptyP.lean` did not need, because
   collapsed rows at a recursor cons, whose seventh is bespoke.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)
 
@@ -572,7 +573,7 @@ theorem extendPUnitRecP (mp : EnvS2PM V μ env)
 `punitK` branch — the two lanes in lockstep, exactly as
 `declBasisPB_emptyK`. -/
 theorem declBasisPB_punitK {env₂ : Env} (mp : EnvS2PM V μ env)
-    (h : Setlec.SetR.BasisInstallR env
+    (h : Setlec.Semantics.BasisInstallR env
       Setlec.BasisKind.punitK.declsA env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   rw [show Setlec.BasisKind.punitK.declsA
@@ -1874,7 +1875,7 @@ theorem extendNatRecP (mp : EnvS2PM V μ env)
 /-- **The `Nat` block, installed at the P tier.**  `BasisStepPB`'s
 `natK` branch. -/
 theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
-    (h : Setlec.SetR.BasisInstallR env
+    (h : Setlec.Semantics.BasisInstallR env
       Setlec.BasisKind.natK.declsA env₁) :
     Nonempty (EnvS2PM V μ env₁) := by
   rw [show Setlec.BasisKind.natK.declsA
@@ -2009,4 +2010,4 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
 
 end Nat
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

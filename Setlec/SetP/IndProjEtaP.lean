@@ -60,10 +60,11 @@ one `acvalWith_ne` each with no case split, where the member key had
 to branch on "is the cons the former?" four times over.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps ReducibilityHint BinderMeta)
 
@@ -215,11 +216,11 @@ theorem projEtaLawP : ProjEtaLawP V := by
       have h := hTmE; rw [hfm] at h
       exact (Setlec.ConstantInfo.defnInfo.inj (Option.some.inj h)).1
     obtain ⟨-, -, hty, -⟩ :=
-      mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfE)
+      mp.base2.wf _ (Setlec.Semantics.Env.find?_mem hfE)
     exact blockTypeReadEq mp hIB hIA hty hren ψ
   have hcbT : ConstsBound env cvT.type := by
     obtain ⟨-, -, hty, -⟩ :=
-      mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfE)
+      mp.base2.wf _ (Setlec.Semantics.Env.find?_mem hfE)
     exact constsBound_of_constsResolve _ hty
   intro us hus
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
@@ -579,4 +580,4 @@ theorem capsOkP_cons_proj_of (mp : EnvS2PM V μ env)
         projEtaLawP mp hc₀name hc₀rec hfresh hIB hIA cvT caps hf hcape
           hres hp hbT hbC hfamS m₂ hac hvP φ')
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -48,10 +48,11 @@ spelling could not have gone:
   padding trick's `.sort 0`s, satisfied by the spine's own padding.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level)
 
 universe w
@@ -104,7 +105,7 @@ theorem annotOkP_instSeq {ρ : Nat → V} :
     ∀ (ws : List AVExpr) {X : AVExpr},
       (∀ w ∈ ws, AnnotOkP V ρ w) →
       AnnotOkP V (chainP V ρ ws) X →
-      AnnotOkP V ρ (Setlec.SetR.AVExpr.instSeq ws (ws.length - 1) X) := by
+      AnnotOkP V ρ (Setlec.Semantics.AVExpr.instSeq ws (ws.length - 1) X) := by
   intro ws
   induction ws with
   | nil => intro X _ hX; exact hX
@@ -124,7 +125,7 @@ theorem annotOkP_instSeq {ρ : Nat → V} :
         rw [hshift, ← chainP_cons_eq_instE]
         exact hX.2
     have h := ih (fun x hx => hoks x (List.mem_cons_of_mem _ hx)) hstep
-    show AnnotOkP V ρ (Setlec.SetR.AVExpr.instSeq ws
+    show AnnotOkP V ρ (Setlec.Semantics.AVExpr.instSeq ws
       ((w :: ws).length - 1 - 1) (X.inst w ((w :: ws).length - 1)))
     simpa using h
 
@@ -250,7 +251,7 @@ theorem nestedPinGradeP {acval : Name → (Name → Nat) → AVExpr}
     (hzslen : zs.length = rP)
     (hzsOk : ∀ z ∈ zs, AnnotOkP V ρ z)
     (hfit : TeleFitPA V ρ TVa zs restR) :
-    AnnotOkP V ρ (Setlec.SetR.AVExpr.instRevChain zs vpa) := by
+    AnnotOkP V ρ (Setlec.Semantics.AVExpr.instRevChain zs vpa) := by
   obtain ⟨w0, hw0, hcross⟩ := pinCrossP (acval := acval) (cval := cval)
     (env := env) (φ := φ) (cnF := cnF) hacl hainst hlink hcl padA hoslen
     hshape hwsOs hbOs hpw hpb hvpden hzslen (vals := zs) (n := rP)
@@ -273,4 +274,4 @@ theorem nestedPinGradeP {acval : Name → (Name → Nat) → AVExpr}
   · exact hcert w0 hw0 _
       (sat2_padded_chainP (cnF := cnF) htowerP hzslen hfit)
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

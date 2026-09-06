@@ -12,9 +12,10 @@ clause recurses, and the leaves are the routed `AcvalValidP` facts at
 the clause's own `acval` reads.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 
 universe w
 
@@ -45,4 +46,4 @@ theorem AnnotValidV_charListT2 {nilA consA ofNatA za sa : AVExpr}
       exact ⟨h3, AnnotValidV_natLitT2 hz hs c.toNat⟩⟩,
       AnnotValidV_charListT2 h1 h2 h3 hz hs cs⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

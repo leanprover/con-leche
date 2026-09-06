@@ -1,7 +1,7 @@
 import Setlec.SetP.InstallP
 import Setlec.SetP.Step2.NatP
-import Setlec.SetBase.NatFrag
-import Setlec.SetBase.DeclRun
+import Setlec.Semantics.NatFrag
+import Setlec.Semantics.DeclRun
 
 /-!
 # The structural-`Nat` recurrences, established at `interp2` from run
@@ -42,10 +42,11 @@ suppliers (`natOpsP_install` bespoke at the operation's own install,
 `natOpsP_cons_fresh` at every other fresh cons).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint natOpGuard natLitSupported)
 
@@ -573,8 +574,8 @@ theorem natBinHeadP_of_stored (mp : EnvS2PM V μ env) {ψ : Name → Nat}
     (hcodLp : codCi.toConstantVal.levelParams = []) :
     NatBinHeadP mp.base2 ψ (.const o [])
       (fun ρ => interp2 V ρ (mp.base2.acval codN ψ)) := by
-  have hmemE := Setlec.SetR.Env.find?_mem hf
-  have hnm : cvo.name = o := Setlec.SetR.Env.find?_name hf
+  have hmemE := Setlec.Semantics.Env.find?_mem hf
+  have hnm : cvo.name = o := Setlec.Semantics.Env.find?_name hf
   have hta : denoteP mp.base2.acval env ψ 0
       (ConstantInfo.defnInfo cvo vo ho).toConstantVal.type
       = some (.pi 0 (pwBit ψ mb₁.pw) (mp.base2.acval Setlec.natName ψ)
@@ -605,8 +606,8 @@ theorem natUnHeadP_of_stored (mp : EnvS2PM V μ env) {ψ : Name → Nat}
     (hlpN : ciN.toConstantVal.levelParams = []) :
     NatUnHeadP mp.base2 ψ (.const o [])
       (fun ρ => interp2 V ρ (mp.base2.acval Setlec.natName ψ)) := by
-  have hmemE := Setlec.SetR.Env.find?_mem hf
-  have hnm : cvo.name = o := Setlec.SetR.Env.find?_name hf
+  have hmemE := Setlec.Semantics.Env.find?_mem hf
+  have hnm : cvo.name = o := Setlec.Semantics.Env.find?_name hf
   have hta : denoteP mp.base2.acval env ψ 0
       (ConstantInfo.defnInfo cvo vo ho).toConstantVal.type
       = some (.pi 0 (pwBit ψ mb₁.pw) (mp.base2.acval Setlec.natName ψ)
@@ -1503,4 +1504,4 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       · simpa +decide [Expr.substConst0] using hla
       · simpa +decide [Expr.substConst0] using hra
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

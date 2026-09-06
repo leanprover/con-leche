@@ -1,5 +1,5 @@
 import Setlec.SetP.Claims2P
-import Setlec.SetBase.Denote2Closed
+import Setlec.Semantics.Denote2Closed
 
 /-!
 # `AnnotOkP`'s substitution metatheory (task #161, P3 batch 2)
@@ -23,10 +23,11 @@ conjunction — no half is charged for the other's premise.  See
 `Annot/ValidV.lean`'s note on why the `bvar` clause forces this.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name)
 
 universe w
@@ -88,4 +89,4 @@ theorem acval_inst_self {env : Setlec.Env}
         exact VExpr.bvarsBelow.mono (Nat.zero_le k)
           (m.cval_closed n ψ)) y
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics
