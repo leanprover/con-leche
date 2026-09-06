@@ -28,15 +28,29 @@ def directSumPartsF? (fe : FEnv) (block : List ConstantInfo) :
   | some p => if directSumNonRecF fe p then some p else none
   | none => none
 
+/-- `checkDirectSumTele` through the index (task #195): the whnf loop
+runs at the index's environment through the shared operations, the
+re-check of the closed telescope is `checkConstantValF`. -/
+def checkDirectSumTeleF (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal) (n : Nat)
+    (cvTa₀ : ConstantVal) : m (ConstantVal × Level) :=
+  match cvTa₀.type.stripPis n with
+  | some (_, .sort s) => pure (cvTa₀, s)
+  | _ => do
+    let (bs, s) ← whnfTelescope ops fe.env 0 n cvTa₀.type
+    let cvTa ← checkConstantValF ops fe { cv with type := closeTelescope bs 0 (.sort s) }
+    pure (cvTa, s)
+
 /-- `checkDirectSumInd` through the index. -/
 def checkDirectSumIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectSumParts) :
-    m (FEnv × ConstantVal) := do
-  let cvTa ← checkConstantValF ops fe p.cvT
+    m (FEnv × ConstantVal × DirectSumParts) := do
+  let cvTa₀ ← checkConstantValF ops fe p.cvT
+  let (cvTa, s) ← checkDirectSumTeleF ops fe p.cvT (p.nP + p.nIdx) cvTa₀
   let (_, tbody) ← unwrapOr (cvTa.type.stripPis (p.nP + p.nIdx))
-    (.notImplemented "direct sum: type former telescope")
-  unless tbody == Expr.sort p.resSort do
-    throw (.notImplemented "direct sum: type former result sort")
-  pure (fe.push (.indInfo cvTa (directSumCaps p)), cvTa)
+    (.internal "direct sum: type former telescope")
+  unless tbody == Expr.sort s do
+    throw (.internal "direct sum: type former result sort")
+  let p' := p.withSort s
+  pure (fe.push (.indInfo cvTa (directSumCaps p')), cvTa, p')
 
 /-- `checkDirectFieldSortsI` through the index. -/
 def checkDirectFieldSortsIF (ops : CheckerOps m) (fe : FEnv) (isProp large : Bool)

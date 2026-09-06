@@ -408,17 +408,26 @@
 0 direct_idx_prop.ndjson pre
 1 direct_idx_prop_large_bad.ndjson pre
 1 direct_idx_prop_idx_bad.ndjson pre
-#   direct_idx_defhead (task #193): `OfFn f : Pred α` — an indexed
-#                    one-constructor family declared AT A DEFINITION
-#                    (`Pred α := α → Prop`) that only unfolds to the
-#                    telescope, Mathlib's `Presieve.ofArrows` shape; the
-#                    direct routes' `stripPis (nP + nIdx)` does not take
-#                    it, so `lechFormerTelescope` keeps it MODELLED
-#                    (the predicate used to say native off `numIndices`
-#                    alone: neither model nor install, a decline).  The
-#                    control `Rel` (telescope spelled out) goes direct.
-#                    Exported through the fixed `lech-preprocess`.
+#   direct_idx_defhead (task #193, flipped at task #195): `OfFn f :
+#                    Pred α` — an indexed one-constructor family declared
+#                    AT A DEFINITION (`Pred α := α → Prop`) that only
+#                    unfolds to the telescope, Mathlib's
+#                    `Presieve.ofArrows` shape.  #193 kept it modelled
+#                    (the sum recogniser read the declared type
+#                    syntactically); #195's install reads the telescope
+#                    through official's whnf loop and stores the former
+#                    AT THE WHNF'D TELESCOPE, so the block goes DIRECT
+#                    (route `sum`, beside the control `Rel`).  Exported
+#                    through the #195 `lech-preprocess` (both native).
 0 direct_idx_defhead.ndjson pre
+#   presieve_ofarrows_cone (task #195): the dependency cone of Mathlib's
+#                    `CategoryTheory.Presieve.ofArrows` (with the
+#                    String-support constants), preprocessed by the #195
+#                    `lech-preprocess` — the block whose "missing model"
+#                    decline at 7.5 % of the regenerated Mathlib stream
+#                    was task #193's finding; it installs directly here
+#                    (638 declarations, both modes).
+0 presieve_ofarrows_cone.ndjson pre
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
