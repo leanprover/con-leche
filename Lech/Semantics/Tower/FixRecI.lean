@@ -1522,6 +1522,97 @@ theorem stepAV_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (
     · have := (h.hRecTy ρb).1
       rwa [h0, univ_zero] at this
 
+/-! ## The body's iota at a walk leaf -/
+
+/-- The recursive route's data at a K-frame `(ρb, r, p⃗, M, m⃗, ı⃗)`:
+the block `(p⃗, M, m⃗)` and the index tuple. -/
+theorem kframe_split (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) {ρ : Nat → V} {as : List V}
+    {t : V} (hsp : SpineFit ρ (rds.map (·.2.2)) (as ++ [t])) :
+    ∃ as₀ is, as = as₀ ++ is ∧ as₀.length = nP + 1 + Fss.length ∧ is.length = Ids.length := by
+  have hlen_as : as.length = nP + 1 + Fss.length + Ids.length := by
+    have := hsp.length_eq
+    rw [List.length_append, List.length_singleton, List.length_map, h.hlen] at this
+    omega
+  exact ⟨as.take (nP + 1 + Fss.length), as.drop (nP + 1 + Fss.length), (List.take_append_drop _ _).symm,
+    by rw [List.length_take]; omega, by rw [List.length_drop]; omega⟩
+
+omit [SetTheory V] in
+/-- The parameter frame of a K-frame over a bottom: the bottom under
+the parameters. -/
+theorem frP_block {ρb : Nat → V} {as₀ is : List V} (hl₀ : as₀.length = nP + 1 + Fss.length)
+    (hli : is.length = Ids.length) :
+    frP Fss.length Ids.length (consList (as₀ ++ is) ρb) = consList (as₀.take nP) ρb := by
+  rw [frP_of Fss.length Ids.length hli]
+  have hsplit : as₀ = as₀.take nP ++ as₀.drop nP := (List.take_append_drop _ _).symm
+  conv => lhs; rw [hsplit]
+  rw [consList_append, show Fss.length + 1 = (as₀.drop nP).length from by
+    rw [List.length_drop]; omega, shiftE_consList]
+
+/-- **The body's iota** at a walk leaf whose major is a constructor
+value: the minor at the fields and the ih values (the function at the
+block, the field's index values, the field). -/
+theorem body_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (hw : w ≠ 0) (hℓ : ℓ ≠ 0)
+    (ρb : Nat → V) {r : V} (hr : r ∈ˢ interp2 V ρb (recTyAV Fss.length Ids.length rds))
+    {as : List V} {t : V} (hsp : SpineFit (cons r ρb) (rds.map (·.2.2)) (as ++ [t]))
+    {j : Nat} (hj : j < Fss.length) {fs : List V} (hlen : fs.length = (Fss.getD j []).length)
+    (hmaj : t = inj j (mkTower (fs ++ [pt]))) :
+    interp2 V (consList (as ++ [t]) (cons r ρb)) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss)
+      = (fs ++ (recIdx (rss.getD j []) (Fss.getD j []).length).map fun i =>
+          (frKSpine nP Fss.length Ids.length (consList as (cons r ρb)) ++
+            (((Eiss.getD j []).getD i []).map
+              (interp2 V (consList (projList i (mkTower (fs ++ [pt])))
+                (frP Fss.length Ids.length (consList as (cons r ρb)))))) ++
+            [fs.getD i pt]).foldl SetTheory.app r).foldl SetTheory.app
+          (frMs Fss.length Ids.length (consList as (cons r ρb)) j) := by
+  have hKI := fixKI_of h ρb hr hsp
+  obtain ⟨-, ht⟩ := h.hK (cons r ρb) as t hsp
+  rw [← consList_snoc']
+  have hfr : RecFrameS 1 (consList as (cons r ρb)) (cons t (consList as (cons r ρb))) := by
+    unfold RecFrameS
+    rw [show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
+  have ht' : t ∈ˢ sumSet w (sumFibre w (consList as (cons r ρb))
+      (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)) := by
+    rw [← hKI.hyp.hfam]; exact ht
+  have hlen_as : as.length = nP + 1 + Fss.length + Ids.length := by
+    have := hsp.length_eq
+    rw [List.length_append, List.length_singleton, List.length_map, h.hlen] at this
+    omega
+  rw [fixRecBodyAVI_pos hw]
+  have hcase := caseRec_factsI hw hKI.hyp
+    (fun D' j' σ' hfr' hj' => FixKI.ihArgsOk_of hKI hw hfr' hj') Fss.length (D := 1) (j := 0)
+    (σ := cons t (consList as (cons r ρb))) (k := .proj 0 (.bvar 0)) hfr (Nat.zero_add _)
+  have htag : interp2 V (cons t (consList as (cons r ρb))) (.proj 0 (.bvar 0)) = vnat j := by
+    rw [interp2_proj, if_pos rfl, interp2_bvar, cons_zero, hmaj, sfst_inj]
+  have hpay : interp2 V (cons t (consList as (cons r ρb))) (.proj 1 (.bvar 0)) = mkTower (fs ++ [pt]) := by
+    rw [interp2_proj, if_neg Nat.one_ne_zero, interp2_bvar, cons_zero, hmaj, ssnd_inj]
+  have hkω : interp2 V (cons t (consList as (cons r ρb))) (.proj 0 (.bvar 0)) ∈ˢ (omega : V) := by
+    rw [htag]; exact vnat_mem_omega j
+  have hsel := (hcase.1 hkω).2 j htag hj
+  rw [Nat.zero_add] at hsel
+  rw [interp2_app, hsel, hpay]
+  -- the payload is in the fibre
+  obtain ⟨j', a, ha, hta⟩ := sumSet_elim hw ht'
+  rw [hmaj] at hta
+  obtain ⟨rfl, rfl⟩ := inj_inj hta
+  unfold baseSemI
+  rw [app_lamR_pos hℓ ha]
+  have hproj : ∀ i, i < fs.length → projS i (mkTower (fs ++ [pt])) = fs.getD i pt := by
+    intro i hi
+    rw [projS_mkTower i (fs ++ [pt]) (by simp; omega), List.getElem_append_left hi,
+      List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some]
+  congr 2
+  · rw [← projList_eq_map_range, ← hlen]
+    apply List.ext_getElem
+    · rw [projList_length]
+    · intro i h1 h2
+      rw [projList_get _ _ _ (by rwa [projList_length] at h1), hproj i h2,
+        List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
+  · unfold ihValsI
+    apply List.map_congr_left
+    intro i hi
+    obtain ⟨hik, -⟩ := mem_recIdx.mp hi
+    rw [frR_of nP Fss.length Ids.length hlen_as, hproj i (by rw [hlen]; simpa using hik)]
+
 end Rec
 
 end Lech.Semantics
