@@ -11,28 +11,28 @@
 #   * `perf stat -e instructions:u`, ONE run per cell; instructions are
 #     the only metric reported (contention-independent).
 #   * every run under `ulimit -v 16G`, `nice -n 5`, `timeout`,
-#     `SETLEC_SUPERVISED=1` (no supervisor re-exec).
+#     `LECH_SUPERVISED=1` (no supervisor re-exec).
 #   * PREPROCESSED INPUT ON BOTH SIDES: the preprocessor
-#     (`setlec-preprocess`, task #178 — `lean-inductive-models` told
-#     which blocks setlec installs natively) is run once per stream,
+#     (`lech-preprocess`, task #178 — `lean-inductive-models` told
+#     which blocks lech installs natively) is run once per stream,
 #     off the clock, and BOTH the
-#     official kernel and setlec (`--pre`) ingest that same file.  This
-#     removes the preprocessor floor and the spawn from every setlec
+#     official kernel and lech (`--pre`) ingest that same file.  This
+#     removes the preprocessor floor and the spawn from every lech
 #     cell and puts the two checkers on the same bytes.
 #   * ALL flags are passed EXPLICITLY: no cell relies on a default.
 #   * one timed cell at a time; before each cell the script waits until
-#     no other measurement process (setlec / official kernel / perf /
+#     no other measurement process (lech / official kernel / perf /
 #     the preprocessor) is running anywhere on the machine.
 #
 # Environment overrides: PERF_REPS, PERF_TIMEOUT, PERF_STREAMS,
-# PERF_CONFIGS, PERF_CACHE, SETLEC_OFFICIAL_KERNEL,
-# SETLEC_INDUCTIVE_MODELS.
+# PERF_CONFIGS, PERF_CACHE, LECH_OFFICIAL_KERNEL,
+# LECH_INDUCTIVE_MODELS.
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-BIN=$ROOT/.lake/build/bin/setlec
-OFFICIAL=${SETLEC_OFFICIAL_KERNEL:-$ROOT/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel}
-PREPROC=${SETLEC_INDUCTIVE_MODELS:-$ROOT/.lake/build/bin/setlec-preprocess}
+BIN=$ROOT/.lake/build/bin/lech
+OFFICIAL=${LECH_OFFICIAL_KERNEL:-$ROOT/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel}
+PREPROC=${LECH_INDUCTIVE_MODELS:-$ROOT/.lake/build/bin/lech-preprocess}
 ARENA=$ROOT/_tmp/arena-tests/good
 CACHE=${PERF_CACHE:-$ROOT/_tmp/perf-tables}
 TSV=$CACHE/table.tsv
@@ -99,7 +99,7 @@ wait_idle() {
   [ -n "${PERF_NO_WAIT:-}" ] && return
   # NB `pgrep -x` matches /proc/PID/comm, which the kernel truncates to
   # 15 characters — hence the truncated preprocessor name.
-  while pgrep -x setlec >/dev/null 2>&1 \
+  while pgrep -x lech >/dev/null 2>&1 \
      || pgrep -x kernel >/dev/null 2>&1 \
      || pgrep -x perf >/dev/null 2>&1 \
      || pgrep -x lean-inductive- >/dev/null 2>&1; do
@@ -138,7 +138,7 @@ cell() { # $1 = stream label, $2 = config id, $3 = preprocessed stream
     po=$(mktemp "$CACHE/perfstat.XXXXXX")
     load=$(cut -d' ' -f1 /proc/loadavg)
     t0=$(date +%s.%N)
-    out=$( (ulimit -v $VLIMIT; SETLEC_SUPERVISED=1 \
+    out=$( (ulimit -v $VLIMIT; LECH_SUPERVISED=1 \
               perf stat -e instructions:u -x, -o "$po" \
               timeout "$TIMEOUT" nice -n 5 "${CMD[@]}") 2>&1 )
     ex=$?
@@ -178,7 +178,7 @@ mkdir -p "$CACHE"
 if [ "${1:-}" = "--render" ]; then render; echo "PERF.md rewritten from $TSV"; exit 0; fi
 
 for f in "$BIN" "$OFFICIAL" "$PREPROC"; do
-  [ -x "$f" ] || { echo "missing binary: $f  (lake build setlec)" >&2; exit 1; }
+  [ -x "$f" ] || { echo "missing binary: $f  (lake build lech)" >&2; exit 1; }
 done
 
 # PERF_APPEND=1 resumes an interrupted battery: keep the cells already

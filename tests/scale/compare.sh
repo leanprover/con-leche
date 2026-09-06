@@ -4,7 +4,7 @@
 # per shape, run at doubling n, measure retired instructions (perf
 # stat -e instructions:u, median of 3), subtract the per-shape n=1
 # startup baseline, report the per-doubling exponent — applied
-# identically to setlec, the official kernel checker, and upstream
+# identically to lech, the official kernel checker, and upstream
 # nanoda, so constant factors AND growth exponents can be compared.
 #
 # Reference binaries (override via env):
@@ -25,7 +25,7 @@
 #
 # Shape coverage: the def-only shapes plus `fields`.  All streams are
 # fed to the references raw (they check inductive blocks natively);
-# setlec runs `fields`/`ctors` through its own pipeline (preprocessor
+# lech runs `fields`/`ctors` through its own pipeline (preprocessor
 # or direct install), so those rows compare *pipelines*, not identical
 # code paths — read them accordingly.  `ctors` is excluded by default
 # because its stream is Theta(n^2) bytes (each of the n rule RHSs
@@ -37,7 +37,7 @@ set -u
 cd "$(dirname "$0")/../.."
 
 GEN=tests/scale/gen.py
-SET=${SET:-.lake/build/bin/setlec}
+SET=${SET:-.lake/build/bin/lech}
 OFF=${OFF:-_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel}
 NAN=${NAN:-_tmp/nanoda_lib/target/release/nanoda_bin}
 TMP=$(mktemp -d)
@@ -66,7 +66,7 @@ SHAPES="chain:100 spine:50 many:100 telescope:50 dag:200 delta:100
 
 run_checker() { # run_checker CHECKER FILE
   case $1 in
-    setlec)   timeout 300 nice -n 10 "$SET" "$2" ;;
+    lech)   timeout 300 nice -n 10 "$SET" "$2" ;;
     official) timeout 300 nice -n 10 "$OFF" "$2" ;;
     nanoda)   timeout 300 nice -n 10 "$NAN" "$TMP/nanoda.json" < "$2" ;;
   esac
@@ -74,7 +74,7 @@ run_checker() { # run_checker CHECKER FILE
 
 measure_once() { # CHECKER FILE -> instruction count
   case $1 in
-    setlec)   perf stat -e instructions:u -x, timeout 300 nice -n 10 "$SET" "$2" 2>&1 >/dev/null ;;
+    lech)   perf stat -e instructions:u -x, timeout 300 nice -n 10 "$SET" "$2" 2>&1 >/dev/null ;;
     official) perf stat -e instructions:u -x, timeout 300 nice -n 10 "$OFF" "$2" 2>&1 >/dev/null ;;
     nanoda)   perf stat -e instructions:u -x, timeout 300 nice -n 10 "$NAN" "$TMP/nanoda.json" < "$2" 2>&1 >/dev/null ;;
   esac | awk -F, '/instructions/{print $1}'
@@ -87,7 +87,7 @@ measure() { # CHECKER FILE -> median of 3
   printf '%s\n%s\n%s\n' "$a" "$b" "$c" | sort -n | sed -n 2p
 }
 
-for chk in setlec official nanoda; do
+for chk in lech official nanoda; do
   bin=$SET; [ "$chk" = official ] && bin=$OFF; [ "$chk" = nanoda ] && bin=$NAN
   if [ ! -x "$bin" ]; then
     echo "### $chk: binary $bin not found — skipped (local references only)"

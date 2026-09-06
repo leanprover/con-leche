@@ -3,15 +3,15 @@
 #
 # WHY THIS EXISTS.  The pinned `Nat`-operation declarations and their
 # certificate proof blobs used to be computed while
-# `Setlec/Kernel/NatOpPins.lean` elaborated, out of an olean loaded BY
-# NAME (`Setlec/PinGen/Certs.olean`).  That is not an import edge, Lake
-# never ordered the two, and on a cold tree `lake build setlec` failed
+# `Lech/Kernel/NatOpPins.lean` elaborated, out of an olean loaded BY
+# NAME (`Lech/PinGen/Certs.olean`).  That is not an import edge, Lake
+# never ordered the two, and on a cold tree `lake build lech` failed
 # outright.  Per the user's ruling the pins are now a COMMITTED file,
 #
 #     pins/<toolchain>.json
 #
 # written by the `natop-pins-export` executable, which lives in the
-# certificate library's world (its root imports `Setlec.PinGen.Certs`,
+# certificate library's world (its root imports `Lech.PinGen.Certs`,
 # so the proof bodies are visible and Lake orders the build).
 #
 # A committed generator output needs a staleness ratchet — regenerate,
@@ -19,11 +19,11 @@
 # `annotate-basis`, the offline generator whose `Repr` output was pasted
 # into the basis pin modules.  That generator is gone as of 2026-09-06:
 # the basis literals are computed by the checker's own annotation pass
-# at elaboration time, `#annotate_basis` in Setlec/Kernel/BasisGen.lean,
+# at elaboration time, `#annotate_basis` in Lech/Kernel/BasisGen.lean,
 # so they cannot go stale and need no gate.  This dump still can.)  This
 # gate regenerates into a scratch directory under `_tmp/` and diffs.  A
 # difference means the dump no longer matches what the certificates,
-# `scripts/natop_prefix.json`, `Setlec/PinGen.lean` or the toolchain
+# `scripts/natop_prefix.json`, `Lech/PinGen.lean` or the toolchain
 # produce; the fix is ALWAYS to regenerate and commit, never to edit the
 # json:
 #
@@ -32,7 +32,7 @@
 # It also checks that the committed dump is named after, and records,
 # the toolchain in `lean-toolchain` — a bump must add a dump for the new
 # toolchain and re-point the `include_str` in
-# `Setlec/Kernel/NatOpPins.lean`.  (The loader independently refuses a
+# `Lech/Kernel/NatOpPins.lean`.  (The loader independently refuses a
 # dump whose `leanVersion` is not the running one, so a forgotten bump
 # is a build error, never a silent wrong pin.)
 #
@@ -41,7 +41,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 TC=$(tr -d ' \t\n\r' < lean-toolchain)
-# the generator's own sanitisation (Setlec.PinGen.toolchainFileName):
+# the generator's own sanitisation (Lech.PinGen.toolchainFileName):
 # everything outside [A-Za-z0-9._-] becomes '-'
 BASE=$(printf '%s' "$TC" | sed 's/[^A-Za-z0-9._-]/-/g').json
 COMMITTED=pins/$BASE
@@ -54,8 +54,8 @@ if [ ! -f "$COMMITTED" ]; then
   exit 1
 fi
 
-if ! grep -q "include_str \"../../pins/$BASE\"" Setlec/Kernel/NatOpPins.lean; then
-  echo "PINDUMP FAIL — Setlec/Kernel/NatOpPins.lean does not embed $BASE;"
+if ! grep -q "include_str \"../../pins/$BASE\"" Lech/Kernel/NatOpPins.lean; then
+  echo "PINDUMP FAIL — Lech/Kernel/NatOpPins.lean does not embed $BASE;"
   echo '    a toolchain bump must re-point the include_str at the new dump.'
   exit 1
 fi

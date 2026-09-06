@@ -33,7 +33,7 @@ compiler-liveness surprise, invisible in the source. Reason about it, then
    boxes the accumulator tuple and keeps the previous iteration live into the next
    step call. Use explicit tail recursion with the accumulators as plain
    arguments. (`progressLoop`/`diagLoop`/`parseExportStream` in `Main.lean`,
-   `Setlec/Frontend/Export.lean`.)
+   `Lech/Frontend/Export.lean`.)
 3. **`modify`, not `get`/`set`.** `let s ← get; let s := f s; set s` leaves the ref
    holding its own copy while you mutate; `modify f` hands ownership through. The
    VEIR parser went 22 s → 4.5 s on exactly this change (`getContext`/`setContext`
@@ -142,13 +142,13 @@ only after `r.infer` returned, keeping the projected `EStore` at RC 2 across the
 entire nested inference. ~6100 whole-table copies per run; ~35 % of the
 init-prelude probe. Fix: `withStore` is `@[noinline]` — an opaque state-threading
 call cannot be reordered, so the projection lives and dies inside the callee.
-(`Setlec/Kernel/CoreI.lean:279-291`; `DESIGN.md` "The whole-arena copy-on-write
+(`Lech/Kernel/CoreI.lean:279-291`; `DESIGN.md` "The whole-arena copy-on-write
 strikes".) Note `viewI` stays `@[inline]`: its result is always immediately
 matched, and branch selection forces it before any later state op.
 
 ### 3.2 `progressLoop`: the boxed `forIn` accumulator
 
-`SETLEC_PROGRESS`'s `for`/`mut` loop compiled to `forIn`, whose state tuple
+`LECH_PROGRESS`'s `for`/`mut` loop compiled to `forIn`, whose state tuple
 `(fe, s)` stays live into the next step call — so the interned state *entered every
 declaration* at RC 2 and the first mutation struck (+110 G instructions in both
 modes). Fix: explicit tail recursion, accumulators as plain arguments
@@ -173,7 +173,7 @@ in the number of definitions. The driver branches kept `fe` live across
 `checkDefnValP` for the *conditional* Nat-op certification
 (`certifyNatEqs (sharedOps fe) fe.env`, `checkDivModPinF … fe fe2`, intentionally
 pre-insertion), so `fe` was pinned at RC 2 and the final `fe.push` copied the map.
-`sharedOps fe` (`Setlec/Kernel/CheckerS.lean:329`) is a record of five closures
+`sharedOps fe` (`Lech/Kernel/CheckerS.lean:329`) is a record of five closures
 each capturing `fe` — **capture is an owned reference held for the callee's whole
 lifetime.**
 
@@ -267,7 +267,7 @@ implementation facts, not guarantees.
   `lean_unsigned_to_nat(n)` up to `2^32 - 1` and `lean_cstr_to_nat("…")` above it —
   a GMP string parse **at every evaluation of that literal expression**. Measured at
   5 % of the #89 probe (commit `4d60aca`). Fix: hoist the literal behind a top-level
-  `def` (parsed once), e.g. `tierTag := 2^62` in `Setlec/Kernel/IExpr.lean`.
+  `def` (parsed once), e.g. `tierTag := 2^62` in `Lech/Kernel/IExpr.lean`.
   Separately, values above `LEAN_MAX_SMALL_NAT = SIZE_MAX >> 1 = 2^63 - 1` leave the
   tagged-scalar regime entirely and become MPZ allocations — keep computed keys
   below `2^63`.
@@ -286,7 +286,7 @@ implementation facts, not guarantees.
   under the OOM supervisor re-exec). Fix: make it a *function* of its input, so it
   runs only where it is applied — closed subterms extracted from function bodies
   become lazy `once`-cells, so no eager work remains
-  (`Setlec/PinGen.lean:445-454`).
+  (`Lech/PinGen.lean:445-454`).
 
 ## 7. Checklist before landing a hot-path change
 

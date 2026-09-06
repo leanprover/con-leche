@@ -90,7 +90,7 @@ class Emit:
         self.out.write(json.dumps(obj, separators=(",", ":")) + "\n")
 
     def meta(self):
-        self._w({"meta": {"exporter": {"name": "setlec-scale-gen",
+        self._w({"meta": {"exporter": {"name": "lech-scale-gen",
                                        "version": "3.1.0"},
                           "format": {"version": "3.1.0"},
                           "lean": {"githash": "0" * 40,
@@ -349,7 +349,7 @@ def gen_fields(e, n):
     """Structure S with n Prop fields + a use projecting every field.
 
     The block matches the checker's direct simple-structure shape
-    (Setlec/Kernel/Direct.lean) exactly, so a raw run (preprocessor
+    (Lech/Kernel/Direct.lean) exactly, so a raw run (preprocessor
     disabled) takes the direct install path."""
     type1 = e.sort(e.level_succ(0))      # Sort 1
     prop = e.sort(0)

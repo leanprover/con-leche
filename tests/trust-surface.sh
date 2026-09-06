@@ -17,8 +17,8 @@
 # are complementary, not redundant).  An escape is therefore a TCB
 # entry: it is admissible only where someone has written down why.
 #
-# WHAT IT SCANS.  Every `*.lean` in `Setlec/`, `tests/`, `scripts/` and
-# the four top-level roots (`Main`, `Setlec`, `SetlecPreprocess`,
+# WHAT IT SCANS.  Every `*.lean` in `Lech/`, `tests/`, `scripts/` and
+# the four top-level roots (`Main`, `Lech`, `LechPreprocess`,
 # `PinDump`), with block comments, line comments and string literals
 # removed first — so the checker's own *data* (the `Name` literals
 # `"sorryAx"`, `"ofReduceBool"`, the `"unsafe axiom"` rejection messages
@@ -29,13 +29,13 @@
 # Lean sources that get exported into the streams the checker must
 # REJECT — so they deliberately contain the very constructs this gate
 # hunts (`tests/e2e/src/sorry_use.lean` is a `sorry`, by design).  They
-# are never part of setlec's own build.
+# are never part of lech's own build.
 #
 # THE ALLOWLIST, and the justification for every entry (file → the
 # tokens tolerated there).  A token in an allowlisted file that is not
 # on its own list fails just as loudly as one in a bare file.
 #
-#   Setlec/Kernel/Expr.lean          unsafe, ptrAddrUnsafe,
+#   Lech/Kernel/Expr.lean          unsafe, ptrAddrUnsafe,
 #                                    implemented_by, computed_field
 #       The tree's ONE `implemented_by`-class escape on the verified
 #       path: `@[implemented_by beqFast] Expr.beq`, a `ptrAddrUnsafe`
@@ -43,34 +43,34 @@
 #       `@[computed_field] data` (hash / bvar bound / fvar bound / …).
 #       Both are the user's standing ruling — *"Adopt computed_fields.
 #       It's a compiler feature, we trust the compiler"* (2026-09-04) —
-#       and the census that argues them is `Setlec/Cached/ExprC.lean`
+#       and the census that argues them is `Lech/Cached/ExprC.lean`
 #       §1–2.  Same escape class `Lean.Expr` itself lives on.
 #
-#   Setlec/Kernel/Name.lean          computed_field
+#   Lech/Kernel/Name.lean          computed_field
 #       A cached hash only (`Name.hashData`), exactly as `Lean.Name`'s.
 #       `Level.hashData` is the same escape and lives in `Expr.lean`
-#       above, which is why `Setlec/Kernel/Level.lean` needs no entry.
+#       above, which is why `Lech/Kernel/Level.lean` needs no entry.
 #       Pointer equality is NOT an escape on either: it goes through
 #       `@[csimp]` + `withPtrEq` with the redundancy proved
 #       (`Name.beqPtr_eq`), per the user's 2026-09-05 ruling *"do not
 #       use `implemented_by`"*.
 #
-#   Setlec/Challenge.lean            sorry
+#   Lech/Challenge.lean            sorry
 #       THE PALOMAR CHALLENGE STATEMENT (task #183).  This file is the
 #       *challenge* half of the Comparator pair (`comparator.json`): the
-#       small readable statement of `Setlec.no_proof_of_False` that a
+#       small readable statement of `Lech.no_proof_of_False` that a
 #       reader audits, with `sorry` where the proof goes.  The `sorry`
 #       is the whole point of the file — Comparator's contract is that
 #       the challenge states the theorem and the *solution*
-#       (`Setlec/MainTheorem.lean`) proves it — and it is harmless
+#       (`Lech/MainTheorem.lean`) proves it — and it is harmless
 #       because the module is a TCB dead end: nothing in the tree
-#       imports it, it roots its own `lean_lib` (`SetlecChallenge`), and
+#       imports it, it roots its own `lean_lib` (`LechChallenge`), and
 #       that library is not in `defaultTargets`, so `lake build` never
 #       builds it and no shipped or proved declaration can reach the
 #       `sorryAx` it introduces.  A `sorry` anywhere else still fails
 #       this gate.
 #
-#   Setlec/Kernel/BasisGen.lean      unsafe, implemented_by
+#   Lech/Kernel/BasisGen.lean      unsafe, implemented_by
 #       ELABORATOR-ONLY.  `#annotate_basis` / `#annotate_pins` run the
 #       checker's own annotation pass at elaboration time through
 #       `unsafe evalTerm` and splice the resulting literals.  Nothing
@@ -78,7 +78,7 @@
 #       the proofs consume.
 #
 # WHAT IS DELIBERATELY *NOT* ALLOWLISTED, and used to be:
-# `Setlec/SetTheory/Derive/*`.  Twenty `@[implemented_by …] … unsafeCast
+# `Lech/SetTheory/Derive/*`.  Twenty `@[implemented_by …] … unsafeCast
 # ()` stubs gave the noncomputable model operators compiled garbage so
 # that they could be *mentioned* in computable definitions.  Nothing
 # needed that (the operators were already `noncomputable def`s, and the
@@ -113,21 +113,21 @@ TOKENS = {
 }
 
 ALLOW = {
-    'Setlec/Challenge.lean':       {'sorry'},
-    'Setlec/Kernel/Expr.lean':
+    'Lech/Challenge.lean':       {'sorry'},
+    'Lech/Kernel/Expr.lean':
         {'unsafe', 'ptrAddrUnsafe', 'implemented_by', 'computed_field'},
-    'Setlec/Kernel/Name.lean':     {'computed_field'},
-    'Setlec/Kernel/BasisGen.lean': {'unsafe', 'implemented_by'},
+    'Lech/Kernel/Name.lean':     {'computed_field'},
+    'Lech/Kernel/BasisGen.lean': {'unsafe', 'implemented_by'},
 }
 
 # fixture *inputs*: deliberately contain what the checker must reject
 SKIP_DIRS = ('tests/e2e/src/',)
 
-ROOTS = ('Main.lean', 'Setlec.lean', 'SetlecPreprocess.lean', 'PinDump.lean')
+ROOTS = ('Main.lean', 'Lech.lean', 'LechPreprocess.lean', 'PinDump.lean')
 
 def sources():
     out = []
-    for top in ('Setlec', 'tests', 'scripts'):
+    for top in ('Lech', 'tests', 'scripts'):
         for dp, dirs, fs in os.walk(top):
             dirs[:] = [d for d in dirs if d != '.lake']
             for f in sorted(fs):

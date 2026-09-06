@@ -1,4 +1,4 @@
-import Setlec.SetBase.Ops
+import Lech.SetBase.Ops
 
 /-!
 # ROUND D PART 1 — ARCHIVE (route RETIRED before completion)
@@ -63,18 +63,18 @@ This file is **not** in any `lake` library root: nothing imports it,
 No totalized `interp2`, no law-battery re-proofs, no swap.  The
 carrier bound the encoding needs does not exist at the interpretation
 site: `AVExpr.lam` carries **one** numeral, the *codomain* sort `v`
-(`Setlec/SetR/Annot/Syntax.lean`), and `interp2`'s `.lam` clause reads
+(`Lech/SetR/Annot/Syntax.lean`), and `interp2`'s `.lam` clause reads
 only that.  The domain's sort was deliberately dropped from the
 annotation ("no consumer reads it"), and `Red.beta`'s subject
 `.app (.lam A b) a` has a λ whose domain sort **no premise supplies**
-(`Setlec/SetR/Annot/Pass.lean`, the existence-theorem docstring).
+(`Lech/SetR/Annot/Pass.lean`, the existence-theorem docstring).
 `pw` is a zero-ness bit, not a level.  Supplying the bound is an
 `AVExpr`/`Annotates`/tier-A-B-C change; it was never started.
 -/
 
-namespace Setlec.SetR.Interp2.ProbeD1
+namespace Lech.SetR.Interp2.ProbeD1
 
-open Setlec Setlec.SetTheory
+open Lech Lech.SetTheory
 
 universe u
 
@@ -205,4 +205,4 @@ theorem lamR_mem_piR_of {A : V} {F B : V → V}
 #print axioms lamT_not_mem_univ
 #print axioms lamR_mem_piR_of
 
-end Setlec.SetR.Interp2.ProbeD1
+end Lech.SetR.Interp2.ProbeD1

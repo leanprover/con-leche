@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/mathlib-initiative/formalization.yaml/main/schema/formalization.schema.json
-# formalization.yaml v0.4 for Setlec.  Kept deliberately short: only
+# formalization.yaml v0.4 for Lech.  Kept deliberately short: only
 # the schema's required fields plus what the Palomar registry asks for.
 version: "v0.4"
 
 project:
-  name: "Setlec"
+  name: "Lech"
   description: >-
     A checker for Lean's declaration export format, written and verified
     in Lean.  The main theorem: if the checker in its default `--verified`
@@ -21,7 +21,7 @@ classification:
   msc2020: ["03B35", "68V15"]
 
 sources:
-  - title: "Soundness of the Setlec checker"
+  - title: "Soundness of the Lech checker"
     type: original-proof
     relationship: other
     note: "An original result about this project's own checker."
@@ -47,20 +47,20 @@ related_formalizations:
 
 status:
   scope: >-
-    Covered: `Setlec.no_proof_of_False` is stated about
-    `Setlec.Cached.checkDeclsSPCachedD (cfgOf .verified)`, the function
-    the `setlec` binary runs on the parsed export.  Not covered: the
+    Covered: `Lech.no_proof_of_False` is stated about
+    `Lech.Cached.checkDeclsSPCachedD (cfgOf .verified)`, the function
+    the `lech` binary runs on the parsed export.  Not covered: the
     parser, the `--trusted` mode.  The proof is parametric in a type
     satisfying the `SetTheory` interface (ZF without infinity and choice
     plus an omega-chain of Grothendieck universes); the conclusion is
     syntactic (the constant's type is literally the pinned `False`).
   # The only `sorry` in the repository is the deliberate hole in the
-  # Comparator challenge module `Setlec/Challenge.lean`.
+  # Comparator challenge module `Lech/Challenge.lean`.
   sorry_count: 0
   axioms: ["propext", "Classical.choice", "Quot.sound"]
   main_results:
-    - declaration: "Setlec.no_proof_of_False"
-      file: "Setlec/MainTheorem.lean"
+    - declaration: "Lech.no_proof_of_False"
+      file: "Lech/MainTheorem.lean"
       axioms: ["propext", "Classical.choice", "Quot.sound"]
       comparator_config: "comparator.json"
 

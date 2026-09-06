@@ -14,9 +14,9 @@ The residual — that the two level lists are always equivalent at a
 reachable call — is a statement about the defeq descent, not about
 this function; it is argued in DESIGN.md, not mechanized here.
 -/
-import Setlec.Kernel.Core
+import Lech.Kernel.Core
 
-namespace Setlec
+namespace Lech
 
 /-- The pinned-name test accepts only a bare `PUnit` constant. -/
 theorem unitLikeTy_eq_punit_const {env : Env} {t : Expr}
@@ -40,7 +40,7 @@ theorem unitLike_pair_punit {env : Env} {ta tb : Expr}
   obtain ⟨vs, hv⟩ := unitLikeTy_eq_punit_const hb
   exact ⟨us, vs, hu, hv⟩
 
-end Setlec
+end Lech
 
-#print axioms Setlec.unitLikeTy_eq_punit_const
-#print axioms Setlec.unitLike_pair_punit
+#print axioms Lech.unitLikeTy_eq_punit_const
+#print axioms Lech.unitLike_pair_punit
