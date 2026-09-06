@@ -35,6 +35,8 @@ namespace Setlec
   | punitRecA := punitRecRaw
   | emptyA := emptyRaw
   | emptyRecA := emptyRecRaw
+  | falseA := falseRaw
+  | falseRecA := falseRecRaw
   | quotA := quotRaw
   | quotMkA := quotMkRaw
   | quotLiftA := quotLiftRaw
@@ -47,6 +49,7 @@ def BasisKind.declsA : BasisKind → List ConstantInfo
   | .natK => [natA, natZeroA, natSuccA, natRecA]
   | .punitK => [punitA, punitUnitA, punitRecA]
   | .emptyK => [emptyA, emptyRecA]
+  | .falseK => [falseA, falseRecA]
   | .quotK => [quotA, quotMkA, quotLiftA, quotIndA, quotSoundA]
 
 end Setlec

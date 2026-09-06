@@ -81,6 +81,21 @@ def setlecReservedBasisNames : List Lean.Name :=
    `Empty, `Empty.rec,
    `Quot, `Quot.mk, `Quot.lift, `Quot.ind, `Quot.sound]
 
+/-! **`False` is reserved by the checker but deliberately NOT listed above**
+(task #181).  `False`/`False.rec` joined `Setlec.reservedBasisNames` when
+the block was pinned (`Setlec/Kernel/Basis/False.lean`), so the direct sum
+recogniser rejects the name — but the frontend matches an incoming block
+against the pinned basis blocks *before* any recogniser runs
+(`Setlec/Frontend/ExportC.lean`), and the raw `False` block IS the pin.  A
+native `False` therefore never reaches the recogniser: the pin installs
+it, and leaving it native keeps the preprocessor's `False._model` artifacts
+— dead weight the pin would ignore, exactly as `Empty._model`'s are —
+out of the stream.  (`Empty` stays listed for the historical reason that
+it was reserved before the direct routes existed; its artifacts are
+inert.)  The mirror doctrine of the module header is unaffected: the
+predicate must be no looser than *the checker*, and the checker's first
+route for this block is the pin. -/
+
 /-- The blocks setlec installs natively: the **direct simple-structure class**
 of `Setlec.directPartsCore?` (`Setlec/Kernel/Direct/Parts.lean`).  See this
 module's header for the conjunct-by-conjunct correspondence and for the two

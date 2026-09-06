@@ -173,6 +173,8 @@ def pinnedInfo (n : Name) : ConstantInfo :=
   else if n = punitName.str "rec" then punitRecA
   else if n = emptyName then emptyA
   else if n = emptyName.str "rec" then emptyRecA
+  else if n = falseName then falseA
+  else if n = falseName.str "rec" then falseRecA
   else if n = quotName then quotA
   else if n = quotMkName then quotMkA
   else if n = quotLiftName then quotLiftA
@@ -222,6 +224,12 @@ theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
   by_cases h15 : n = emptyName.str "rec"
   · rw [if_pos h15] at h; exact nomatch h
   rw [if_neg h15] at h
+  by_cases h15a : n = falseName
+  · rw [if_pos h15a] at h; exact nomatch h
+  rw [if_neg h15a] at h
+  by_cases h15b : n = falseName.str "rec"
+  · rw [if_pos h15b] at h; exact nomatch h
+  rw [if_neg h15b] at h
   by_cases h16 : n = quotName
   · rw [if_pos h16] at h; exact nomatch h
   rw [if_neg h16] at h
@@ -245,7 +253,8 @@ theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
     (h : pinnedInfo n = .recInfo cv mI rP rules) :
     n = eqName.str "rec" ∨ n = natName.str "rec" ∨
     n = punitName.str "rec" ∨
-    n = emptyName.str "rec" ∨ n = quotLiftName ∨ n = quotIndName := by
+    n = emptyName.str "rec" ∨ n = falseName.str "rec" ∨
+    n = quotLiftName ∨ n = quotIndName := by
   delta pinnedInfo at h
   by_cases h1 : n = eqName
   · rw [if_pos h1] at h; exact nomatch h
@@ -283,6 +292,12 @@ theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
   by_cases h15 : n = emptyName.str "rec"
   · exact Or.inr (Or.inr (Or.inr (Or.inl h15)))
   rw [if_neg h15] at h
+  by_cases h15a : n = falseName
+  · rw [if_pos h15a] at h; exact nomatch h
+  rw [if_neg h15a] at h
+  by_cases h15b : n = falseName.str "rec"
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h15b))))
+  rw [if_neg h15b] at h
   by_cases h16 : n = quotName
   · rw [if_pos h16] at h; exact nomatch h
   rw [if_neg h16] at h
@@ -290,10 +305,10 @@ theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
   · rw [if_pos h17] at h; exact nomatch h
   rw [if_neg h17] at h
   by_cases h18 : n = quotLiftName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h18))))
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h18)))))
   rw [if_neg h18] at h
   by_cases h19 : n = quotIndName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h19))))
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h19)))))
   rw [if_neg h19] at h
   by_cases h20 : n = quotSoundName
   · rw [if_pos h20] at h; exact nomatch h
