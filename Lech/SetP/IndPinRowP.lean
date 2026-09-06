@@ -1,5 +1,5 @@
 import Lech.SetP.IndNestedParamP
-import Lech.SetP.Annot.BitReads
+import Lech.SetP.Annot.Bit
 
 /-!
 # `RecRuleLawP`'s pin conjunct, produced (task #161, IND TIER part 9)

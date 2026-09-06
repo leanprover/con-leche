@@ -25,9 +25,7 @@ import Lech.SetTheory.Derive.Collapse
 import Lech.SetTheory.Aczel
 import Lech.Verify.Mono
 import Lech.Verify.Deep
-import Lech.Verify.Bridge
 import Lech.Verify.BridgeDecl
-import Lech.Verify.BridgeDeclPair
 import Lech.Verify.OfReducePin
 import Lech.Kernel.ZeroSet
 import Lech.Verify.ZeroSet
