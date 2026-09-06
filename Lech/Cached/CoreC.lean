@@ -1932,8 +1932,10 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
         (fun d e => whnfCoreBodyI mode (prev ()) fe d e)
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI (prev ()) fe d e)
-      -- TASK #196 E1 (measurement only): the sound one-directional seed.
-      infer := memoEISeed
+      -- TASK #196 E2 (measurement only): ONE table for both grades, so
+      -- the full slot is the plain `memoEI` on `inferC` again and the
+      -- io slot below points at the SAME table.
+      infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
         (fun d e => inferBodyI mode (prev ()) fe d e)
       defeq := memoBI
         (fun d a b => defeqBodyI mode (prev ()) fe d a b)
@@ -1949,7 +1951,12 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       -- the same function there (task #170: "in R mode infer_only is
       -- just equivalent to infer").
       inferIO := if mode.ioGate then
-          memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
+          -- TASK #196 E2 (measurement only, UNSOUND AS IS): the io body
+          -- under the FULL memo — both directions shared.  A hit here
+          -- may serve a later full-infer query with an entry that
+          -- witnessed fewer checks; this measures the ceiling, not a
+          -- landable design.
+          memoEI (·.inferC) (fun st mp => { st with inferC := mp })
             (fun d e => inferBodyIOI mode (prev ()).ioView fe d e)
         else
           memoEI (·.inferC) (fun st mp => { st with inferC := mp })
