@@ -15,7 +15,7 @@ This README is actually human written (with AI only doing copy-editing, fact che
 ## Design of the checker implementation
 
 * The checker is implemented in Lean.
-* It uses its own term representation, so it does not rely on Lean’s `Lean.Expr`, and thus not the unverified C++ routines related to that.
+* It uses its own term representation, so it does not rely on Lean’s `Lean.Expr`, and thus does not rely on the unverified C++ routines for that type.
 * Term representation is locally nameless, with open variables represented as deBruijn level + type (inspired by nanoda).
 * Memoization of core checker routines via hash maps and hashes pre-computed using `@[computed_field]`, like in the official checker and lean4lean.
 * Only few inductive types are supported natively: `Empty`, `PUnit`, `Eq`, `Nat`, `Quot` and structures. For all other types, this checker relies on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that validates them.
