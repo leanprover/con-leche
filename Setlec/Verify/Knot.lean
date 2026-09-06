@@ -266,6 +266,9 @@ abbrev majorToCtorP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Name �
 abbrev litMajorToCtorP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr →
     CheckM Expr := litMajorToCtor (pureFns mode env fuel) env
 
+abbrev prepareMajorP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Name →
+    List RecRule → Expr → CheckM Expr := prepareMajor mode (pureFns mode env fuel) env
+
 abbrev projLitToCtorP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr →
     CheckM Expr := projLitToCtor (pureFns mode env fuel) env
 
@@ -314,6 +317,8 @@ theorem majorToCtor_fold (env : Env) (fuel : Nat) :
     majorToCtor mode (pureFns mode env fuel) env = majorToCtorP mode env fuel := rfl
 theorem litMajorToCtor_fold (env : Env) (fuel : Nat) :
     litMajorToCtor (pureFns mode env fuel) env = litMajorToCtorP mode env fuel := rfl
+theorem prepareMajor_fold (env : Env) (fuel : Nat) :
+    prepareMajor mode (pureFns mode env fuel) env = prepareMajorP mode env fuel := rfl
 theorem projLitToCtor_fold (env : Env) (fuel : Nat) :
     projLitToCtor (pureFns mode env fuel) env = projLitToCtorP mode env fuel := rfl
 theorem projCert_fold (env : Env) (fuel : Nat) :

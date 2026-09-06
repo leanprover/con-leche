@@ -378,6 +378,18 @@ theorem litMajorToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold litMajorToCtor
   atF_tac2
 
+theorem prepareMajor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr)
+    (F : Nat) :
+    (prepareMajor mi (fueledFns mode env) env d c rules e).val F =
+      prepareMajor mi (pureFns mode env F) env d c rules e := by
+  unfold prepareMajor
+  split <;> (repeat (first
+    | rfl
+    | (rw [majorToCtor_atF])
+    | (rw [litMajorToCtor_atF])
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])))
+
 theorem projLitToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
     (projLitToCtor (fueledFns mode env) env d e).val F =
       projLitToCtor (pureFns mode env F) env d e := by
@@ -409,6 +421,7 @@ macro "atF_step3" : tactic =>
     | (rw [structEtaCert_atF])
     | (rw [majorToCtor_atF])
     | (rw [litMajorToCtor_atF])
+    | (rw [prepareMajor_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
     | split))

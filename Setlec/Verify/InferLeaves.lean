@@ -516,25 +516,32 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           · exact Or.inl (ihCore hwf l (by simp [fvarLeaves, hb]))
           · exact Or.inr hb
         · -- iota step
-          obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
-            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hmaj, hlit,
-            hsub, hmfn, hfj,
+          obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj,
+            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
+            hmfn, hfj,
             hrule,
             hml, -, hlev, hpeq, hcerts, hmcerts, -, rfl⟩ :=
             iotaRec_inv hio
-          have hsubM1 : ∀ l ∈ major₁.fvarLeaves, l ∈ major₀.fvarLeaves := by
-            rcases litMajorToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
-            · exact fun l' hl' => litToCtorIfNat_fvarLeaves l' hl'
-            · intro l' hl'
-              have h0 := ihLoop hred l' hl'
-              rw [strLitToConstructor_fvarLeaves] at h0
-              cases h0
-          have hsubM : ∀ l ∈ major.fvarLeaves, l ∈ major₀.fvarLeaves := by
-            rcases majorToCtor_inv hsub with rfl | ⟨-, -, hall, -⟩
-            · exact hsubM1
-            · intro l' hl'
-              have := List.all_eq_true.mp hall l' hl'
-              exact hsubM1 l' (by simpa using this)
+          -- the major's leaves are the argument's, through the chain in
+          -- either order
+          have hsubM : ∀ l ∈ major.fvarLeaves,
+              l ∈ ((Expr.app f' a).getAppArgs.getD mI (.bvar 0)).fvarLeaves :=
+            prepareMajorP_ind hprep
+              (fun x => ∀ l ∈ x.fvarLeaves,
+                l ∈ ((Expr.app f' a).getAppArgs.getD mI (.bvar 0)).fvarLeaves)
+              (fun hw' hP l' hl' => hP l' (ihLoop hw' l' hl'))
+              (fun hl hP l' hl' => by
+                rcases litMajorToCtorP_inv hl with rfl | ⟨s, -, -, hred⟩
+                · exact hP l' (litToCtorIfNat_fvarLeaves l' hl')
+                · have h0 := ihLoop hred l' hl'
+                  rw [strLitToConstructor_fvarLeaves] at h0
+                  cases h0)
+              (fun hs hP l' hl' => by
+                rcases majorToCtor_inv hs with rfl | ⟨-, -, hall, -⟩
+                · exact hP l' hl'
+                · have := List.all_eq_true.mp hall l' hl'
+                  exact hP l' (by simpa using this))
+              (fun l' hl' => hl')
           have hl2 := ihCore hwe'' l hl
           rcases fvarLeaves_mkAppN hl2 with hrl | ⟨x, hx, hlx⟩
           · obtain ⟨-, -, -, -, -, hrules, -⟩ := henv _ (find?_mem hfc)
@@ -552,7 +559,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
               · exact Or.inr hll
             · have hxa := fvarLeaves_getAppArgs (List.mem_of_mem_drop hx)
                 l hlx
-              have hmj := ihLoop hmaj l (hsubM l hxa)
+              have hmj := hsubM l hxa
               have hll := fvarLeaves_getAppArgs
                 (getD_mem (l := (Expr.app f' a).getAppArgs) (by omega)) l hmj
               simp only [fvarLeaves, List.mem_append] at hll
@@ -660,26 +667,28 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
           exact ihCore hbeta
             (looseBVarsBounded_instantiate1_gen hb.2 hbf'.2)
         · -- iota step
-          obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
-            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hmaj, hlit,
-            hsub, hmfn, hfj,
+          obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj,
+            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
+            hmfn, hfj,
             hrule,
             hml, -, hlev, hpeq, hcerts, hmcerts, -, rfl⟩ :=
             iotaRec_inv hio
           have hbapp : (Expr.app f' a).looseBVarsBounded 0 = true := by
             simp only [looseBVarsBounded, Bool.and_eq_true]
             exact ⟨hbf', hb.2⟩
-          have hbmaj0 : major₀.looseBVarsBounded 0 = true :=
-            ihLoop hmaj
+          -- the major's bound variables, through the chain in either order
+          have hbmaj : major.looseBVarsBounded 0 = true :=
+            prepareMajorP_ind hprep (fun x => x.looseBVarsBounded 0 = true)
+              (fun hw' hb' => ihLoop hw' hb')
+              (fun hl hb' => by
+                rcases litMajorToCtorP_inv hl with rfl | ⟨s, -, -, hred⟩
+                · exact litToCtorIfNat_looseBVars hb'
+                · exact ihLoop hred (strLitToConstructor_looseBVars s 0))
+              (fun hs hb' => by
+                rcases majorToCtor_inv hs with rfl | ⟨-, hbM, -, -⟩
+                · exact hb'
+                · exact hbM)
               (looseBVarsBounded_getAppArgs hbapp _ (getD_mem (by omega)))
-          have hbmaj1 : major₁.looseBVarsBounded 0 = true := by
-            rcases litMajorToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
-            · exact litToCtorIfNat_looseBVars hbmaj0
-            · exact ihLoop hred (strLitToConstructor_looseBVars s 0)
-          have hbmaj : major.looseBVarsBounded 0 = true := by
-            rcases majorToCtor_inv hsub with rfl | ⟨-, hbM, -, -⟩
-            · exact hbmaj1
-            · exact hbM
           refine ihCore hwe'' ?_
           refine looseBVarsBounded_mkAppN ?_ ?_
           · obtain ⟨-, -, -, -, -, hrules, -⟩ := henv _ (find?_mem hfc)

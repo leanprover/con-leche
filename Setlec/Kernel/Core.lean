@@ -1335,6 +1335,70 @@ def projLitToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
     else pure (.lit (.strVal s))
   | e => pure e
 
+/-- Is a recursor K-flagged — its single rule's constructor has no
+fields and belongs to an inductive stored with the K capability (an
+inductive proposition)?  Exactly the guard of `majorToCtor`'s K
+rescue, read off the constant lookup: the official kernel's
+`recursor_val::is_k()`, computed at the block's install.  Abstracted
+over the lookup so the interned twin (`FEnv.find?`) shares the body. -/
+def recRuleKOf (find? : Name → Option ConstantInfo) (rules : List RecRule) :
+    Bool :=
+  match rules with
+  | [rl] =>
+    match find? rl.ctor with
+    | some (.ctorInfo cvj _ cnF) =>
+      match (cvj.type.piResult).getAppFn with
+      | .const T _ =>
+        match find? T with
+        | some (.indInfo _ caps) => caps.ruleK && cnF == 0
+        | _ => false
+      | _ => false
+    | _ => false
+  | _ => false
+
+/-- `recRuleKOf` at the environment's lookup. -/
+def recRuleK (env : Env) (rules : List RecRule) : Bool :=
+  recRuleKOf env.find? rules
+
+/-- The major premise's preparation before a rule fires, in the
+official kernel's order (`inductive_reduce_rec`,
+`src/kernel/inductive.cpp`; lean4lean `Inductive/Reduce.lean:66-72`):
+
+* at a K-flagged recursor the K rescue (`to_ctor_when_K`) runs on the
+  **raw** major — it reads only the major's *type* and fabricates the
+  constructor from it — and only then is the major head-normalized
+  (and its literal converted; a no-op on a proof, kept for the
+  site-by-site mirror);
+* elsewhere the major is head-normalized first, its literal
+  converted, and the structure-eta rescue (`to_ctor_when_structure`)
+  tried on the reduct.
+
+The two rescues live in one function (`majorToCtor`); the K branch is
+reachable exactly at `recRuleK`, the eta branch never is there (an
+inductive proposition fails its provably-nonzero guard), so the split
+below dispatches each to its official site and neither is attempted
+twice.
+
+Why the order matters (2026-09-06, the Mathlib `decide`-over-`Rat`
+frontier): with the whnf *first*, an `Eq.rec` whose major is a
+theorem application — `Eq.ndrec … (Int.decEq._proof_1 a b h)` with
+`h := Nat.eq_of_beq_eq_true …`, the shape `instDecidableEqRat`'s
+`h ▸` produces — delta-unfolds the proofs and iota-grinds
+`Nat.eq_of_beq_eq_true`'s `Nat.brecOn` tower unarily down the
+`604800` literal: one knot level per `succ`, fuel exhaustion.  The
+official order fabricates `Eq.refl` from the type (`a ≡ b` by the
+`Nat` literal fast paths) and never opens either proof. -/
+def prepareMajor (r : CoreFns m) (env : Env) (depth : Nat)
+    (recName : Name) (rules : List RecRule) (major : Expr) : m Expr := do
+  if recRuleK env rules then
+    let majorK ← majorToCtor mode r env depth recName rules major
+    let major₀ ← r.whnf depth majorK
+    litMajorToCtor r env depth major₀
+  else
+    let major₀ ← r.whnf depth major
+    let major₁ ← litMajorToCtor r env depth major₀
+    majorToCtor mode r env depth recName rules major₁
+
 /-- The level and constructor-parameter comparands a firing rule's
 checks compare the major's constructor levels and parameters against:
 for a canonical (`.plain`) rule the constructor's levels link to the
@@ -1388,9 +1452,10 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       -- at `Interp2/IotaArity.lean`.  Ungated: the reference has it
       -- unconditionally, so a mode gate would break parity.
       if args.length = mI + 1 ∧ us.length = cv.levelParams.length then
-        let major₀ ← r.whnf depth (args.getD mI (.bvar 0))
-        let major₁ ← litMajorToCtor r env depth major₀
-        let major ← majorToCtor mode r env depth c rules major₁
+        -- the major's preparation (K rescue / whnf / literal / eta) in
+        -- the official order — `prepareMajor`'s docstring
+        let major ← prepareMajor mode r env depth c rules
+          (args.getD mI (.bvar 0))
         match major.getAppFn with
         | .const cj usj =>
           match env.find? cj with

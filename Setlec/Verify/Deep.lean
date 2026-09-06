@@ -1284,8 +1284,8 @@ theorem iotaRec_WScoped (henv : EnvWF env)
     {d : Nat} {e e'' : Expr}
     (h : iotaRec mode (pureFns mode env fuel) env d e = .ok (some e''))
     (hw : WScoped d e) : WScoped d e'' := by
-  obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
-    cvj, cnP, cnF, r, hfn, hfc, hlen, -, hmaj, hlit, hsub,
+  obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj,
+    cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
     hmfn, hfj,
     hrule,
     hml, -, hlev, hpeq, hcerts, hmcerts, -, rfl⟩ :=
@@ -1299,16 +1299,8 @@ theorem iotaRec_WScoped (henv : EnvWF env)
       (List.mem_of_find?_eq_some hrule)
     exact WScoped.of_not_hasFvar
       (by rw [hasFvar_instantiateLevelParams]; exact hrf)
-  have hmaj0w : WScoped d major₀ := whnf_WScoped henv fuel hmaj
+  have hmajw : WScoped d major := prepareMajorP_WScoped henv hprep
     (hargs _ (getD_mem (by omega)))
-  have hmaj1w : WScoped d major₁ := by
-    rcases litMajorToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
-    · exact litToCtorIfNat_WScoped hmaj0w
-    · exact whnf_WScoped henv fuel hred (strLitToConstructor_WScoped s d)
-  have hmajw : WScoped d major := by
-    rcases majorToCtor_inv hsub with rfl | ⟨hwsc, -, -, -⟩
-    · exact hmaj1w
-    · exact WScoped.of_wscopedB hwsc
   refine Expr.WScoped.mkAppN hrhs ?_
   intro x hx
   rcases List.mem_append.mp hx with hx | hx
@@ -1437,6 +1429,38 @@ private theorem iotaIndexOk_shift (henv : EnvWF env)
       rw [← getAppArgs_shiftFrom] at h4
       exact h4
 
+/-- The major chain commutes with the shift, in either order. -/
+private theorem prepareMajor_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
+    (rules : List RecRule) {major : Expr} (hwmaj : WScoped d major) :
+    prepareMajor mode (pureFns mode env fuel) env (d + 1) recName rules
+        (shiftFrom p major) =
+      (prepareMajor mode (pureFns mode env fuel) env d recName rules major).map
+        (shiftFrom p) := by
+  simp only [prepareMajor]
+  by_cases hk : recRuleK env rules = true
+  · rw [if_pos hk, if_pos hk]
+    refine bind_rel _ _ (majorToCtor_shift henv ih hpd recName rules hwmaj) ?_
+    intro m₁ hm₁
+    have hw₁ : WScoped d m₁ := by
+      rcases majorToCtor_inv hm₁ with rfl | ⟨hwsc, -, -, -⟩
+      · exact hwmaj
+      · exact WScoped.of_wscopedB hwsc
+    refine bind_rel _ _ (ih.whnf hpd hw₁) ?_
+    intro m₂ hm₂
+    exact litMajorToCtor_shift henv ih hpd (whnf_WScoped henv fuel hm₂ hw₁)
+  · rw [if_neg hk, if_neg hk]
+    refine bind_rel _ _ (ih.whnf hpd hwmaj) ?_
+    intro m₀ hm₀
+    have hw₀ : WScoped d m₀ := whnf_WScoped henv fuel hm₀ hwmaj
+    refine bind_rel _ _ (litMajorToCtor_shift henv ih hpd hw₀) ?_
+    intro m₁ hm₁
+    have hw₁ : WScoped d m₁ := by
+      rcases litMajorToCtorP_inv hm₁ with rfl | ⟨s, -, -, hred⟩
+      · exact litToCtorIfNat_WScoped hw₀
+      · exact whnf_WScoped henv fuel hred (strLitToConstructor_WScoped s d)
+    exact majorToCtor_shift henv ih hpd recName rules hw₁
+
 private theorem iotaRec_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
     (hwe : WScoped d e) :
@@ -1460,22 +1484,9 @@ private theorem iotaRec_shift (henv : EnvWF env)
     rw [getD_map_shiftFrom]
     have hwgd : WScoped d (e.getAppArgs.getD mI (.bvar 0)) :=
       WScoped_getD (fun x hx => hwe.getAppArgs x hx) _
-    refine bind_rel _ _ (ih.whnf hpd hwgd) ?_
-    intro major₀ hmaj₀
-    have hwmaj₀ : WScoped d major₀ := whnf_WScoped henv fuel hmaj₀ hwgd
-    refine bind_rel _ _ (litMajorToCtor_shift henv ih hpd hwmaj₀) ?_
-    intro major₁ hmaj₁
-    have hwmaj₁ : WScoped d major₁ := by
-      rcases litMajorToCtorP_inv hmaj₁ with rfl | ⟨s, -, -, hred⟩
-      · exact litToCtorIfNat_WScoped hwmaj₀
-      · exact whnf_WScoped henv fuel hred (strLitToConstructor_WScoped s d)
-    refine bind_rel _ _
-      (majorToCtor_shift henv ih hpd c rules hwmaj₁) ?_
+    refine bind_rel _ _ (prepareMajor_shift henv ih hpd c rules hwgd) ?_
     intro major hmaj
-    have hwmaj : WScoped d major := by
-      rcases majorToCtor_inv hmaj with rfl | ⟨hwsc, -, -, -⟩
-      · exact hwmaj₁
-      · exact WScoped.of_wscopedB hwsc
+    have hwmaj : WScoped d major := prepareMajorP_WScoped henv hmaj hwgd
     rw [getAppFn_shiftFrom]
     cases hmfn : major.getAppFn <;> try rfl
     case fvar => rw [shiftFrom_fvar]; rfl

@@ -628,6 +628,22 @@ def projLitToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
     else pure e
   | _ => pure e
 
+/-- Twin of `prepareMajor`: the major's preparation in the official
+order (K rescue on the raw major, then whnf and the literal
+conversion; elsewhere whnf, literal, eta).  The K flag is the spec's
+`recRuleKOf` at the indexed lookup. -/
+def prepareMajorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (recName : Name) (rules : List RecRule) (major : ExprC) :
+    CheckCM ExprC := do
+  if recRuleKOf fe.find? rules then do
+    let majorK ← majorToCtorI mode r fe depth recName rules major
+    let major₀ ← r.whnf depth majorK
+    litMajorToCtorI r fe depth major₀
+  else do
+    let major₀ ← r.whnf depth major
+    let major₁ ← litMajorToCtorI r fe depth major₀
+    majorToCtorI mode r fe depth recName rules major₁
+
 /-- The interned nested-rule pin instantiations (structural recursion;
 the spec side is `(recFireComparands …).2`'s `List.map`). -/
 def pinArgsI (lps : List Name) (us : List Level) (args : List ExprC)
@@ -653,9 +669,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
       -- recursor's level arity before the rule's RHS is instantiated.
       if args.length = mI + 1 ∧ us.length = cv.levelParams.length then do
         let bvar0 ← internI (.bvar 0)
-        let major₀ ← r.whnf depth (args.getD mI bvar0)
-        let major₁ ← litMajorToCtorI r fe depth major₀
-        let major ← majorToCtorI mode r fe depth cn rules major₁
+        let major ← prepareMajorI mode r fe depth cn rules (args.getD mI bvar0)
         match ← withStore (fun st => st.getNode (st.getAppFnI major)) with
         | some (.const cj usj) => do
           let cjn ← readbackNM cj
