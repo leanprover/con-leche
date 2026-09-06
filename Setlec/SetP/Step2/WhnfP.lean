@@ -510,8 +510,8 @@ theorem whnfCore_leaf_claimP (m : EnvS2Core V env) {fuel d : Nat}
     rcases hleaf with ⟨u, rfl⟩ | ⟨idx, n, ty, rfl⟩ |
       ⟨n, ty, body, bi, rfl⟩ | ⟨n, ty, body, mb, rfl⟩ |
       ⟨n, us, rfl⟩ | ⟨l, rfl⟩ <;>
-      simp only [whnfCoreR_sort, whnfCoreR_fvar, whnfCoreR_forallE,
-        whnfCoreR_lam, whnfCoreR_const, whnfCoreR_lit,
+      simp only [whnfCore_leaf_sort, whnfCore_leaf_fvar, whnfCore_leaf_forallE,
+        whnfCore_leaf_lam, whnfCore_leaf_const, whnfCore_leaf_lit,
         Except.ok.injEq] at h <;>
       exact h.symm
   subst he

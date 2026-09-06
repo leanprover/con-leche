@@ -23,7 +23,7 @@ a finding, not a hypothesis to invent.
 
 ## What a case is
 
-The assembly architecture (`Setlec/SetR/DESIGN.md`, "the second
+The assembly architecture (`docs/SetR-DESIGN.md`, "the second
 soundness — architecture") rules out re-signing the 44-case mutual
 induction: the soundness is **per-step graded lemmas on `AVExpr`**,
 composed along the bridge claims, with annotations following the run

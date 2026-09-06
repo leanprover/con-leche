@@ -20,7 +20,7 @@ Three properties, each a design constraint rather than an observation:
   "is this value everywhere the proof point over its domain?" — *is*
   the domain-relative collapse (task #100), and it is what this layer
   removes.  Its cost was the countermodel recorded in
-  `Setlec/SetR/DESIGN.md`: empty-domain abstractions collapse at every
+  `docs/SetR-DESIGN.md`: empty-domain abstractions collapse at every
   level, so `⟦fun (x : ∀ p : Prop, p) => Prop⟧ = pt` and guarded beta
   produces `app pt univZero = pt ≠ univZero`.  Here
   `⟦fun (x : A) => e⟧` with a `Type`-sorted body is a graph over `⟦A⟧`

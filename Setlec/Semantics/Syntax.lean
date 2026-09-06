@@ -7,7 +7,7 @@ import Setlec.TT.Subst
 its binders: `pi A B` and `lam A b` are the bare formers, and the
 interpretation reads them through the *collapsed* operators `piC`/`lamC`
 (`Setlec/TT/Semantics/Interp.lean`), which is what makes the
-universe-cohabitation wall of the T5 c5 record (`Setlec/SetR/DESIGN.md`)
+universe-cohabitation wall of the T5 c5 record (`docs/SetR-DESIGN.md`)
 unavoidable — `pt ∈ˢ piC A (fun _ => univ 0)` holds, so no *typing* can
 separate a proposition's inhabitant from the proof point.
 
@@ -22,7 +22,7 @@ numeral sorts**:
 | everything else | the same node | none |
 
 **Design rulings this file implements** (task #151's own; recorded in
-`Setlec/SetR/DESIGN.md`'s tier-A section):
+`docs/SetR-DESIGN.md`'s tier-A section):
 
 * **Ground numerals, not `Level`s.**  `VExpr` already evaluates every
   level expression at its use site (`Setlec/TT/Syntax.lean`'s "universe

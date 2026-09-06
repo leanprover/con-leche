@@ -36,7 +36,7 @@ That is forced — `SetTheory`'s `univ 0 = power unitSet` fixes the
 canonical one-element set, so the unique element of a true truth value
 *is* `pt` — and it is not a collapse: no clause here tests a value, and
 the graph regime never produces, contains, or consults it.  See
-`Setlec/SetR/DESIGN.md`, tier B, "`pt` is demoted, not deleted".
+`docs/SetR-DESIGN.md`, tier B, "`pt` is demoted, not deleted".
 -/
 
 namespace Setlec.SetModel
@@ -264,7 +264,7 @@ theorem mem_piR_pos {v : Nat} {A f : V} {B : V → V} (hv : v ≠ 0)
 /-- The proof point never inhabits a graph-regime product — for *any*
 domain and *any* fibre family, in particular a universe-valued one.
 This is the removal of the collapse's universe-cohabitation wall
-(`Setlec/SetR/DESIGN.md`, T5 c5). -/
+(`docs/SetR-DESIGN.md`, T5 c5). -/
 theorem not_pt_mem_piR_pos {v : Nat} {A : V} {B : V → V} (hv : v ≠ 0) :
     ¬ (pt : V) ∈ˢ piR v A B :=
   fun h => (mem_piR_pos hv h).2.2.2 rfl

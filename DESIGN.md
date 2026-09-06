@@ -15,7 +15,7 @@ project prompt and is updated as decisions evolve.
 `no_proof_of_Empty{,_input}{,_C,_S,_SP}_R`, `checkDecl_sound_R`,
 `no_constant_of_Empty_R` — stand hypothesis-free at exactly
 `[propext, Classical.choice, Quot.sound]`. Its design record is
-`Setlec/SetR/DESIGN.md`.
+`docs/SetR-DESIGN.md`.
 
 **Two tiers were retired at T7/T7b, by user ruling.** The direct `Expr`
 set model and its consistency proof (`Setlec/Model/*`, 83 files / 62,992
@@ -28,7 +28,7 @@ citations. `Setlec/TTVerify/DESIGN.md` is deliberately kept (its §0/§25
 are the house practices); so is the declarative layer
 `Setlec/TT/{Syntax,Subst,Const,Judgment}` + `Setlec/TT/Semantics/*`,
 because `Setlec/SetR/*` consumes `VExpr`, `interp`, `bval` and
-`HasType.const`/`HasType.sound` — see `Setlec/SetR/DESIGN.md` "T7b" for
+`HasType.const`/`HasType.sound` — see `docs/SetR-DESIGN.md` "T7b" for
 the consumer measurement that fixed that boundary. Its design record is
 `Setlec/TT/DESIGN.md`.
 
@@ -10125,7 +10125,7 @@ streams the reference kernel accepts*.  The grant's rationale, on the
 record: **front-door checks are cheap — they do not affect reduction,
 and they benefit from the infer caches.**
 
-### Why it was owed (`Setlec/SetR/DESIGN.md`, findings A3 → B5 → A5)
+### Why it was owed (`docs/SetR-DESIGN.md`, findings A3 → B5 → A5)
 
 Task #100 stage 6 deleted the λ-annotation re-check along with the
 stored annotations, leaving `inferBody`'s `.lam` clause in the
@@ -10147,7 +10147,7 @@ is what the #151 annotation lane ran into:
   paragraph escalated the fork to the user: reinstate a kernel check
   (A), or bet on an unproved metatheory (B5″).
 
-**The fork is resolved: A, mode-gated.**  `Setlec/SetR/DESIGN.md`'s
+**The fork is resolved: A, mode-gated.**  `docs/SetR-DESIGN.md`'s
 new section records it on the lane's side.
 
 ### The check
@@ -10207,11 +10207,11 @@ body type).  The obstacle, stated so it is not rediscovered:
   fixture, same objection.
 
 **The lane-side record is owed, deliberately.**  This section is the
-resolution of `Setlec/SetR/DESIGN.md`'s A5 fork (repair **A**, granted
+resolution of `docs/SetR-DESIGN.md`'s A5 fork (repair **A**, granted
 with the exception above); the matching "A5 RESOLVED" note belongs in
 that file, but it was in flight under the T5 agent when this landed and
 an edit collision there is not worth a doc placement.  Whoever touches
-`Setlec/SetR/DESIGN.md` next should point A5's *Consequence* paragraph
+`docs/SetR-DESIGN.md` next should point A5's *Consequence* paragraph
 here — the technical content the lane needs is the next two paragraphs.
 
 **Nothing is lost to the lane, but the lane owes an induction.**  At an
@@ -10365,7 +10365,7 @@ structure BinderMeta where       structure IBinderMeta where
 ```
 
 * **Why two levels.**  `Interp2`'s F4 refutation
-  (`Setlec/SetR/DESIGN.md` "F4", mechanized as `lam_cod_sort_needed`
+  (`docs/SetR-DESIGN.md` "F4", mechanized as `lam_cod_sort_needed`
   in `Interp2/TierA.lean`) proves a structural interpretation's λ
   clause *cannot* be sound from the domain sort alone: the regime
   (squash vs graph) is the **codomain** sort's zero-ness.  `piR v A B`
@@ -10377,7 +10377,7 @@ structure BinderMeta where       structure IBinderMeta where
   sort is then `imax u v` for a ∀, read off the term with no
   inference.
 * **Why not `letE`.**  `interp2`'s `letE` clause is ζ (substitute the
-  value) and reads no annotation (`Setlec/SetR/DESIGN.md`, "The two
+  value) and reads no annotation (`docs/SetR-DESIGN.md`, "The two
   regimes": "`letE`: ζ needs no annotation"); the kernel likewise
   ζ-eliminates `letE` before any structural comparison
   (`Core.lean:1487-1492`), so no defeq arm ever compares one.  An
@@ -38676,7 +38676,7 @@ it deserves its own row:
 
 ### 8. WHAT STAGE A DELIBERATELY DID NOT DO
 
-* **`Setlec/SetR/DESIGN.md` is KEPT** (18 524 lines), with a preamble
+* **`docs/SetR-DESIGN.md` is KEPT** (18 524 lines), with a preamble
   saying the tier is gone.  It is not an archive: six live
   `Setlec/SetBase/*` modules — `Rel`, `Ok2`, `Syntax`, `Kit` among them
   — cite it **by path** for the deviations from the official kernel
