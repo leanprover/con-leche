@@ -30,15 +30,18 @@ discipline).
   per-argument application certificate under the same licence.  Every
   other certificate family runs unconditionally.
 * `.trusted` (`--trusted`): the unverified lane — the same checker
-  with the work that exists **for certification only** omitted: full
-  front-door check per declaration, infer-only internal discipline
-  (task #134), and **no certificate families at all** (task #76).
+  with the work that exists **for certification only** omitted.
   What must not be dropped is everything believed necessary for
   *soundness* (which is different from "necessary for our soundness
   proof to go through"), so the lane is never optimized on its own:
   it is the real mode with certain steps omitted (DESIGN.md, "MODE
-  RENAME").  Selected by its own driver stack
-  (`Setlec/Cached/ParsedT.lean`).
+  RENAME").  Since 2026-09-06 it is literally that: the one cached
+  driver at `cfgT` — `cfgP` with `verified := false` and `certs :=
+  false` (`Setlec/Kernel/CoreCfg.lean`), so what it omits is exactly
+  what `cfg.verified` and `cfg.certs` gate in
+  `Setlec/Cached/CoreC.lean` (DESIGN.md, "CORET RETIRED").
+  `Main.lean` maps the mode to the config; the cached tier never sees
+  a `CheckMode` except through the inert `CoreCfg.iotaMode`.
 
 **HISTORY, because the spelling moved twice.**  There were three
 values until 2026-09-05: `.setModel` at `--set-model=r` (the R lane —
@@ -132,7 +135,28 @@ placeholder `.inert`).
   parameters are checked against these, instantiated at the recursor's
   actual level and leading-argument spine.
 * `.inert` — never fires; a *matched* inert rule is a positive
-  decline in `iotaRec` (an uncertified nested auxiliary rule). -/
+  decline in `iotaRec` (an uncertified nested auxiliary rule).
+
+**Why the fire compares parameters, levels and indices at all** (the
+official kernel's `inductive_reduce_rec` and lean4lean fire by
+constructor name plus `nfields` and compare nothing — typing justifies
+it).  Our soundness argument for a fire is the stored rule law
+(`RecRuleLawP`) at the recursor's own parameters, and the P lane has no
+typing derivation in hand: the redex is only `AnnotOkP`, and since the
+ι-slot licence (2026-09-05) the major slot of a data-motive recursor is
+not even inferred, so nothing but these comparisons relates the
+constructor's `p⃗'`/`idx'` to the recursor's `p⃗`/`idx`.  Moving them
+into a licence was investigated (2026-09-06, `_tmp/iota-uniform/`):
+for *indices* it is refuted at the squash regime (`Acc.rec.{1}` on a
+cross-index `Acc.intro`: the licensed major's membership in `{pt}`
+carries no information, so the uniform fire's law is false); for
+*parameters* on the modeled route it needs parameter-independence of
+the `_model` constructor values — a set-level fact about model bodies
+with no Lean-typed spelling, which the public-interface-only ruling
+forbids.  Only the tuple-tower route could fire uniformly (its values
+ignore parameters by construction); a route-keyed uniform fire is the
+option once that route owns recursive and multi-constructor families.
+Stake: ≤ 0.8 % of init-full instructions. -/
 inductive RecRuleFire where
   | inert
   | plain
@@ -231,23 +255,26 @@ everything the checker's `.proj` rules consume about a structure `T`,
 stored once at the structure's install as ONE constant (keyed on the
 structure: `projTableName structName`; see `Env.findProj?`).
 
-* `tower = true`: the direct simple-structure install's table.  The
-  `.proj T i` node is first-class — typed by `bodies[i]`, the field's
-  result-type **body** `F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar 0)]`,
-  scoped at `numParams + 1` (the parameters and the subject are loose
-  `bvar`s, the subject at `bvar 0`, the earlier fields already spelled
-  as projections of the subject), instantiated at a use by ONE
-  `instantiateList` along the subject type's arguments and the
-  subject (`ProjEntry.typeAt`); reduced by the generic structural rule
-  `proj_i (ctor p⃗ x⃗) ↦ x_i`, guarded at possibly-Prop instances by
-  the stored `guards[i]`/`structSort` levels.  The bodies are taken
-  from the annotated constructor type by substitution alone
-  (`directProjBodies`) — no annotate, no infer, no pins: a slot with
-  no legal instantiation simply fails the guard at every use.
-* `tower = false`: the modeled path's inert elimination-template
-  table (`bodies` empty).  It types no node and fires no reduction; a
-  `.proj` use on the family is a verdict at its own site (task #175
-  wiring W5: the recursor-inlining fallback is gone). -/
+A table is installed by the direct simple-structure install alone.
+The `.proj T i` node is first-class — typed by `bodies[i]`, the
+field's result-type **body** `F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar
+0)]`, scoped at `numParams + 1` (the parameters and the subject are
+loose `bvar`s, the subject at `bvar 0`, the earlier fields already
+spelled as projections of the subject), instantiated at a use by ONE
+`instantiateList` along the subject type's arguments and the subject
+(`ProjEntry.typeAt`); reduced by the generic structural rule `proj_i
+(ctor p⃗ x⃗) ↦ x_i`, guarded at possibly-Prop instances by the stored
+`guards[i]`/`structSort` levels.  The bodies are taken from the
+annotated constructor type by substitution alone (`directProjBodies`)
+— no annotate, no infer, no pins: a slot with no legal instantiation
+simply fails the guard at every use.
+
+**Table-kind flag retired** (task #175 tower-flag, 2026-09-06): the
+modeled route installs no table at all — a family without a table IS
+a modeled one, and `findProj? = none` already says so at every
+`.proj` site.  So *every* stored table carries bodies, types its
+nodes and fires its rule, and the projection typing and iota laws
+hold uniformly over every entry of every stored table. -/
 structure ProjTable where
   structName : Name
   /-- the parent type former's level parameters -/
@@ -258,31 +285,24 @@ structure ProjTable where
   ctor : Name
   /-- its field count -/
   numFields : Nat
-  /-- the parent's result sort (tower tables only) -/
+  /-- the parent's result sort -/
   structSort : Level
-  /-- per field, the projection's result-type body (tower tables
-  only; see above) -/
+  /-- per field, the projection's result-type body (see above) -/
   bodies : Array Expr
-  /-- per field, **the projection's `Prop` guard level** (tower tables
-  only): the projected field's sort joined with the sorts of the
-  earlier fields that a later field's type uses — exactly the sorts
-  the official `infer_proj` requires to be `Prop` when projecting from
-  a propositional structure (task #175 W4c/O4, `directProjGuards`);
-  the tower infer branch checks it at every use of a `Prop`-declared
+  /-- per field, **the projection's `Prop` guard level**: the
+  projected field's sort joined with the sorts of the earlier fields
+  that a later field's type uses — exactly the sorts the official
+  `infer_proj` requires to be `Prop` when projecting from a
+  propositional structure (task #175 W4c/O4, `directProjGuards`); the
+  infer branch checks it at every use of a `Prop`-declared
   structure. -/
   guards : List Level
-  /-- **the table-kind discriminator** (task #175 wiring): `true` for
-  the direct-structure install's tower-backed table (the carrier is
-  the unit-terminated pair tower, `.proj i` reads field `i` via
-  `projS i = sfst ∘ ssnd^i`); `false` for the modeled path's inert
-  template table. -/
-  tower : Bool := false
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One projection-table entry** — the per-field VIEW of a
 `ProjTable` (`ProjTable.entry`), what `Env.findProj? T i` returns:
 the table's data at field `idx`.  `body` is `bodies[idx]` and
-`fieldSort` is `guards[idx]` (junk on an inert table). -/
+`fieldSort` is `guards[idx]`. -/
 structure ProjEntry where
   structName : Name
   idx : Nat
@@ -296,14 +316,13 @@ structure ProjEntry where
   /-- the projection's `Prop` guard level (see `ProjTable.guards`) -/
   fieldSort : Level
   structSort : Level
-  tower : Bool
   deriving DecidableEq, Repr, Inhabited
 
 /-- The per-field view of a table at field `i` (meaningful for `i <
 numFields`). -/
 def ProjTable.entry (tbl : ProjTable) (i : Nat) : ProjEntry :=
   ⟨tbl.structName, i, tbl.levelParams, tbl.numParams, tbl.ctor, tbl.numFields,
-    tbl.bodies.getD i default, tbl.guards.getD i .zero, tbl.structSort, tbl.tower⟩
+    tbl.bodies.getD i default, tbl.guards.getD i .zero, tbl.structSort⟩
 
 /-- Information stored about an accepted constant. -/
 inductive ConstantInfo where
@@ -384,11 +403,11 @@ def toConstantVal : ConstantInfo → ConstantVal
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
 
-/-- A tower-backed projection table (task #175 W4c): a table, not a
-term — no `.const` node names it (`inferTypeCore` rejects one), so the
-model owes it no leaf. -/
+/-- A projection table (task #175 W4c): a table, not a term — no
+`.const` node names it (`inferTypeCore` rejects one), so the model
+owes it no leaf. -/
 def isTowerEntry : ConstantInfo → Bool
-  | .projInfo tbl => tbl.tower
+  | .projInfo _ => true
   | _ => false
 
 /-- The index count of a recursor (majorIdx − rulePrefix; junk

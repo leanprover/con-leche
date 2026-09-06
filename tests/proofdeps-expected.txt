@@ -1331,7 +1331,6 @@ P :: Setlec.Verify.Extend.Block
 P :: Setlec.Verify.Extend.Ind
 P :: Setlec.Verify.Extend.Inversions
 P :: Setlec.Verify.Extend.Iota
-P :: Setlec.Verify.Extend.Modeled
 P :: Setlec.Verify.Extend.Proj
 P :: Setlec.Verify.Extend.Recs
 P :: Setlec.Verify.Extend.Sibs

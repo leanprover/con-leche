@@ -35,9 +35,6 @@ family is valuation-free outright, exactly like `DeclRun` — no
 * `IotaRuns` (`SetBase/Decl.lean`) — the walks' *recorded runs* were
   already valuation-free when H1 landed them, and both families point
   at the same definition;
-* `DeclIndRun.Templates` — the elimination-template pass never took a
-  valuation (D6's refinement, cashed at T5 stage 6), so the run record
-  names the R family's own `Templates`;
 * `DefEqListOk` / `TypedListOk` — the run halves of the two typed
   walks, likewise already there.
 
@@ -391,13 +388,13 @@ parameter, at last (task #161 S11b).
 
 `DeclIndRun` with every `∀ φ` conjunct struck and the valuation column
 gone with them.  The block split pins, the member fold, the recursor
-group, the constructor residual and projection-freshness guards, the
-projection installs and the elimination templates are carried
+group, the constructor residual and projection-freshness guards and the
+projection installs are carried
 unchanged — they are stored-data guards and checker verdicts
 throughout.
 
-`DeclIndRun.Templates` is re-used **verbatim**: that pass never took a
-valuation. -/
+(Task #175 tower-flag: the elimination-template pass is gone — the
+modeled route installs no projection table at all.) -/
 def DeclIndRun (μ : CheckMode) (F : Nat) (env : Env)
     (block : List ConstantInfo) (env₂ : Env) : Prop :=
   let recs := block.filter (fun ci => match ci with
@@ -421,13 +418,10 @@ def DeclIndRun (μ : CheckMode) (F : Nat) (env : Env)
          (List.range nF).all
            (fun j => (envR.find? (projFnName cvT.name j)).isNone)
            = true ∧
-         ∃ envP,
-           ProjInstallRun μ F cvT.name cvC.name cvT.levelParams nP nF
-             envR
-             (if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF
-              then List.range nF else []) envP ∧
-           DeclIndRun.Templates cvT.name cvC.name cvT.levelParams nP nF
-             envP env₂)) ∨
+         ProjInstallRun μ F cvT.name cvC.name cvT.levelParams nP nF
+           envR
+           (if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF
+            then List.range nF else []) env₂)) ∨
    (¬ (∃ cvT capsT cvC nP nF,
         block.filter (fun ci => match ci with
           | .indInfo _ _ => true | _ => false) = [.indInfo cvT capsT] ∧

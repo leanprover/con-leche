@@ -138,7 +138,7 @@ theorem capsOkP_cons_proj (mp : EnvS2PM V μ env)
     obtain ⟨cvr, mIr, rPr, rulesr, rfl⟩ := hc₀rec
     intro cv caps h
     exact nomatch h
-  have hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false := by
+  have hntc : ∀ entry, c₀ ≠ .projInfo entry := by
     obtain ⟨cvr, mIr, rPr, rulesr, rfl⟩ := hc₀rec
     intro entry h
     exact nomatch h

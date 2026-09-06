@@ -69,7 +69,7 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     (hreads : InferReadsP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
     InferProjStepP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta
-  obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
+  obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hlenArgs,
     hlenUs, hguard, rfl, hsn⟩ := Setlec.inferTypeCore_proj_inv h
   subst hsn
   -- the subject's frames
@@ -101,12 +101,11 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
   have hwte' : Expr.WScoped d te := Setlec.whnf_WScoped m.wf fuel hwte hwtpe
   have hbte : te.looseBVarsBounded 0 = true :=
     Setlec.whnf_looseBVars m.wf fuel hwte hbtpe
-  have htw : entry.tower = true := hnat
-  -- TOWER-BACKED (task #175 wiring W5): the tower law's typing clause
+  -- the tower law's typing clause (task #175 wiring W5)
   obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
-    htower T i entry hfe htw
+    htower T i entry hfe
   obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hlenUs
-  obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe htw hea
+  obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe hea
   obtain rfl : vp = vp' := Option.some.inj (hvp.symm.trans hvp')
   -- the reduced type's spine, at the former's leaf
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
@@ -159,7 +158,7 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
     (hreads : InferReadsIOP m μ φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
     InferProjStepIOP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta hok
-  obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
+  obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hlenArgs,
     hlenUs, hguard, rfl, hsn⟩ := Setlec.inferTypeCoreIO_proj_inv h
   subst hsn
   -- the subject's frames
@@ -174,7 +173,7 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
   -- form: the full lane established it; the io lane reads it)
   have hokPe : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ vp := by
     intro ρ hρ
-    rcases hrd with ⟨-, -, -, rfl⟩ | ⟨-, -, rfl⟩
+    rcases hrd with ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩
     · exact AnnotOkP_projAV_hoist (hok ρ hρ)
     · exact ⟨AnnotOk2.hoist_proj (V := V) (fun σ hσ => (hok σ hσ).1) ρ hρ,
         (AnnotValidV_proj V ρ i vp) ▸ (hok ρ hρ).2⟩
@@ -199,12 +198,11 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
   have hwte' : Expr.WScoped d te := Setlec.whnf_WScoped m.wf fuel hwte hwtpe
   have hbte : te.looseBVarsBounded 0 = true :=
     Setlec.whnf_looseBVars m.wf fuel hwte hbtpe
-  have htw : entry.tower = true := hnat
-  -- TOWER-BACKED (task #175 wiring W5): the tower law's typing clause
+  -- the tower law's typing clause (task #175 wiring W5)
   obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
-    htower T i entry hfe htw
+    htower T i entry hfe
   obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hlenUs
-  obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe htw hea
+  obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe hea
   obtain rfl : vp = vp' := Option.some.inj (hvp.symm.trans hvp')
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
     (Setlec.Expr.mkAppN_getApp te).symm, hfn] at htea
@@ -326,20 +324,20 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
         fun l hl => hLc l (Setlec.whnf_fvarLeaves m.wf fuel hred l hl),
         hCc.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hred)⟩
   rcases hcase with rfl |
-    ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU, hfire, hwcf, hcert⟩
+    ⟨us, entry, hfn, hfe, hilt, hlenA, hlenU, hfire, hwcf, hcert⟩
   · -- stuck: the projection of the reduced scrutinee, at the node's
     -- own entry kind
     obtain ⟨v₃', hv₃', hrd'⟩ := denoteP_proj_inv hea'
     obtain rfl : v₃ = v₃' := Option.some.inj (hv₃.symm.trans hv₃')
-    rcases hrd with ⟨entry, hfe, htw, rfl⟩ | ⟨hnt, hi2, rfl⟩
-    · -- tower-backed: `projAV` congruence
-      rcases hrd' with ⟨-, -, -, rfl⟩ | ⟨hnt', -, -⟩
+    rcases hrd with ⟨entry, hfe, rfl⟩ | ⟨hnt, hi2, rfl⟩
+    · -- a stored entry: `projAV` congruence
+      rcases hrd' with ⟨-, -, rfl⟩ | ⟨hnt', -, -⟩
       · exact ⟨fun σ hσ => AnnotOkP_projAV_congr (heq₃ σ hσ) (hok₃ σ hσ)
           (hokA σ hσ), fun σ hσ => interp2_projAV_congr (heq₃ σ hσ)⟩
-      · exact absurd htw (by simp [hnt' entry hfe])
-    · -- pair-backed
-      rcases hrd' with ⟨entry', hfe', htw', -⟩ | ⟨-, -, rfl⟩
-      · exact absurd htw' (by simp [hnt entry' hfe'])
+      · rw [hnt'] at hfe; exact nomatch hfe
+    · -- table-free
+      rcases hrd' with ⟨entry', hfe', -⟩ | ⟨-, -, rfl⟩
+      · rw [hnt] at hfe'; exact nomatch hfe'
       · refine ⟨fun σ hσ => ?_, fun σ hσ => ?_⟩
         · refine ⟨?_, ?_⟩
           · have h1 := (hokA σ hσ).1
@@ -350,11 +348,10 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
           · rw [AnnotValidV_proj]; exact (hok₃ σ hσ).2
         · rw [interp2_proj, interp2_proj, heq₃ σ hσ]
   · -- the table fires
-    have htw : entry.tower = true := hnat
-    -- TOWER-BACKED (task #175 wiring W5): the tower law's iota clause
-    obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe htw hea
+    -- the tower law's iota clause (task #175 wiring W5)
+    obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe hea
     obtain rfl : vp = vp' := Option.some.inj (hvp.symm.trans hvp')
-    obtain ⟨-, -, -, -, hO5, cvC, hfC, hlpsC, hlaw, -⟩ := htower sn i entry hfe htw
+    obtain ⟨-, -, -, -, hO5, cvC, hfC, hlpsC, hlaw, -⟩ := htower sn i entry hfe
     obtain ⟨-, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hlenU
     -- the constructor spine, read at the constructor's leaf
     have he₃ : e₃ = Expr.mkAppN (.const entry.ctor us) e₃.getAppArgs := by
@@ -434,7 +431,7 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
       exact hmemC0 σ
     -- the ∀-chain, off the head data's arity pin
     obtain ⟨cvC'', hfC'', -, hstrip⟩ :=
-      (m.proj_ok.towerHead hfe htw).2.2.2.2.2
+      (m.proj_ok.towerHead hfe).2.2.2.2.2
     obtain ⟨rfl, -, -⟩ :=
       ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfC''))
     have hpc : PiChainP e₃.getAppArgs.length TCa := by
@@ -453,7 +450,7 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
     have hfit : TeleFitP V σ TCa (vs.map (interp2 V σ)) (interp2 V σ resta) :=
       teleFitP_of_teleFitPA (by rw [← hspa.length]; exact hpc) (hfitA σ hσ)
     rw [interp2_projAV_congr (heq₃ σ hσ), hveq,
-      hB (towerGuardAt_of_fireOk htw hO5 hfire) σ vs _ hlenVs (hok₃' σ hσ) hfit]
+      hB (towerGuardAt_of_fireOk hO5 hfire) σ vs _ hlenVs (hok₃' σ hσ) hfit]
     exact heqE σ hσ
 
 end Setlec.SetP

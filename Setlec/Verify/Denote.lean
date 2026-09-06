@@ -239,9 +239,7 @@ def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
     | none => none
     | some ve =>
       match env.findProj? sn i with
-      | some entry =>
-        if entry.tower then some (projNV i ve)
-        else if i < 2 then some (.proj i ve) else none
+      | some _ => some (projNV i ve)
       | none => if i < 2 then some (.proj i ve) else none
   | _, .lit (.natVal n) =>
     -- guarded exactly like the checker's literal paths
@@ -340,34 +338,9 @@ theorem denote_proj (cval : TConstVal) (env : Env) (φ : Name → Nat)
       | none => none
       | some ve =>
         match env.findProj? T i with
-        | some entry =>
-          if entry.tower then some (projNV i ve)
-          else if i < 2 then some (.proj i ve) else none
+        | some _ => some (projNV i ve)
         | none => if i < 2 then some (.proj i ve) else none := by
   rw [denote]
-
-/-- The clause at a non-tower (or absent) entry — the pre-W3 shape,
-for consumers holding an absence fact.  (Task #175 W6: no native
-non-tower entry exists any more — the pinned pair entries are retired
-— so at a *native* entry this clause is unreachable, `ProjOkT.tower_of_native`.) -/
-theorem denote_proj_pair (cval : TConstVal) (env : Env) (φ : Name → Nat)
-    (d : Nat) (T : Name) (i : Nat) (e : Expr)
-    (hnt : ∀ entry, env.findProj? T i = some entry →
-      entry.tower = false) :
-    denote cval env φ d (.proj T i e) =
-      match denote cval env φ d e with
-      | none => none
-      | some ve => if i < 2 then some (.proj i ve) else none := by
-  rw [denote_proj]
-  cases denote cval env φ d e with
-  | none => rfl
-  | some ve =>
-    dsimp only
-    cases hfp : env.findProj? T i with
-    | none => rfl
-    | some entry =>
-      dsimp only
-      rw [if_neg (by simp [hnt entry hfp])]
 
 @[simp] theorem denote_bvar (cval : TConstVal) (env : Env) (φ : Name → Nat)
     (d i : Nat) : denote cval env φ d (.bvar i) = none := by

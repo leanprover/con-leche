@@ -12,8 +12,10 @@
 #     the only metric reported (contention-independent).
 #   * every run under `ulimit -v 16G`, `nice -n 5`, `timeout`,
 #     `SETLEC_SUPERVISED=1` (no supervisor re-exec).
-#   * PREPROCESSED INPUT ON BOTH SIDES: the `lean-inductive-models`
-#     preprocessor is run once per stream, off the clock, and BOTH the
+#   * PREPROCESSED INPUT ON BOTH SIDES: the preprocessor
+#     (`setlec-preprocess`, task #178 — `lean-inductive-models` told
+#     which blocks setlec installs natively) is run once per stream,
+#     off the clock, and BOTH the
 #     official kernel and setlec (`--pre`) ingest that same file.  This
 #     removes the preprocessor floor and the spawn from every setlec
 #     cell and puts the two checkers on the same bytes.
@@ -30,7 +32,7 @@ set -uo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 BIN=$ROOT/.lake/build/bin/setlec
 OFFICIAL=${SETLEC_OFFICIAL_KERNEL:-$ROOT/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel}
-PREPROC=${SETLEC_INDUCTIVE_MODELS:-$ROOT/_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models}
+PREPROC=${SETLEC_INDUCTIVE_MODELS:-$ROOT/.lake/build/bin/setlec-preprocess}
 ARENA=$ROOT/_tmp/arena-tests/good
 CACHE=${PERF_CACHE:-$ROOT/_tmp/perf-tables}
 TSV=$CACHE/table.tsv

@@ -249,7 +249,7 @@ theorem checkDirectProjTable_inv {env envOut : Env} {T C : Name}
         b.looseBVarsBounded (nP + 1)) = true) ∧
       (List.range nF).all (fun j => (env.find? (projFnName T j)).isNone) = true ∧
       env.find? (projTableName T) = none ∧
-      envOut = ⟨.projInfo ⟨T, lps, nP, C, nF, rs, bodies, guards, true⟩
+      envOut = ⟨.projInfo ⟨T, lps, nP, C, nF, rs, bodies, guards⟩
         :: env.consts⟩ := by
   unfold checkDirectProjTable at h
   obtain ⟨bodies, hb, h⟩ := exceptBind_ok h
