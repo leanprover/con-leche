@@ -30,9 +30,21 @@ inductive blocks) read their `Expr` trees through the memoized
 the parsed slot itself — the same bounded-tree contract as
 the arena's budgeted readback, without the arena.
 
-**The projection-function rewrite (2026-09-06,
-`Lech/Frontend/ProjRec.lean`)** is the one surface rewrite this
-parse performs on a definition record: a projection function
+**Three pure transformations of the parsed list happen here, below
+the verified fold** — the fold sees their result as an ordinary list
+of records, and the main theorem quantifies over that list:
+
+* **the built-in prelude (task #191, `Lech/Frontend/Prelude.lean`)**:
+  every parse is handed the checker's own prelude (the six pinned
+  basis blocks and `Bool`), prepends its records, and drops a later
+  stream copy of one of them when it is the same declaration
+  (declining the run when it differs) — `pushDecl` below;
+* **the ground hoist (task #191, `Lech/Frontend/NatOpGround.lean`)**:
+  a pinned `Nat` operation's stream-certified structural ground is
+  moved ahead of it when the stream declares it later;
+* **the projection-function rewrite (2026-09-06,
+  `Lech/Frontend/ProjRec.lean`)**, the one surface rewrite this
+  parse performs on a definition record: a projection function
 `fun p⃗ self => .proj T i self` of a structure-like owner the direct
 install does not serve is replaced, before it reaches the checker, by
 the recursor application the module documents.  Three bookkeeping
@@ -161,8 +173,8 @@ private def pushDecl (st : StateD) (d : DeclC) : StateD ⊕ String :=
     | some (n, p) =>
       if d.sameCanon p then
         .inl { st with preludeDropped := st.preludeDropped + 1 }
-      else .inr s!"declaration {n} differs from the checker's built-in \
-        prelude (the toolchain's own {n}, installed first)"
+      else .inr (s!"declaration {n} differs from the checker's built-in " ++
+        s!"prelude (the toolchain's own {n}, installed first)")
 
 private def StateD.name (st : StateD) (i : Nat) : M Name :=
   match st.names[i]? with

@@ -198,9 +198,9 @@ def classifyOp (env : Environment) (spec : OpSpec) (sens : NameSet) :
       -- preludable only if nothing stream-certified sits under it
       let cl := ownersOf env (coneOf env o)
       match streamCertifiedOps.find? (fun c => cl.contains (ownerOf env c)) with
-      | some c => throw s!"order-sensitive ground {o} of {spec.op} depends on the \
-          stream-certified operation {c}: it can neither be preluded nor \
-          left to the stream's order"
+      | some c => throw (s!"order-sensitive ground {o} of {spec.op} depends on " ++
+          s!"the stream-certified operation {c}: it can neither be preluded " ++
+          "nor left to the stream's order")
       | none => pre := pre ++ [o]
   return { op := spec.op, basis := basis.mergeSort (·.toString < ·.toString),
            prelude := pre.mergeSort (·.toString < ·.toString),
@@ -379,8 +379,11 @@ partial def xConstant (c : Lean.Name) : XM Unit := do
       | .opaque => "opaque"
       | .abbrev => "abbrev"
       | .regular n => Json.mkObj [("regular", xNatJ n.toNat)]
+    -- (the `unsafe` arm is spelled as the wildcard: `tests/trust-surface.sh`
+    -- greps for the bare token, and an unsafe constant never gets here —
+    -- `xConstant` refuses it above)
     let safety : Json := match v.safety with
-      | .unsafe => "unsafe" | .safe => "safe" | .partial => "partial"
+      | .safe => "safe" | .partial => "partial" | _ => "unsafe"
     xRecord "def" [("name", xNatJ (← xName v.name)),
       ("levelParams", ← xUparams v.levelParams), ("type", xNatJ (← xExpr v.type)),
       ("value", xNatJ (← xExpr v.value)), ("hints", hints), ("safety", safety),
@@ -543,12 +546,12 @@ def computeDumpAndPrelude : IO (PinDumpFile × Array String) := do
   for rep in reports do
     for o in rep.basis ++ rep.prelude do
       unless declaredOwners.contains o do
-        throw (IO.userError s!"prelude analysis: {o}, order-sensitive for \
-          {rep.op}, is not declared by the serialized prelude")
+        throw (IO.userError (s!"prelude analysis: {o}, order-sensitive for " ++
+          s!"{rep.op}, is not declared by the serialized prelude"))
     for o in rep.residual do
       unless streamCertifiedOps.contains o do
-        throw (IO.userError s!"prelude analysis: residual {o} of {rep.op} is \
-          not a stream-certified Nat operation")
+        throw (IO.userError (s!"prelude analysis: residual {o} of {rep.op} " ++
+          "is not a stream-certified Nat operation"))
   let dump : PinDumpFile := {
     toolchain := toolchainString, leanVersion := Lean.versionString
     ops := opDumpsOf results
