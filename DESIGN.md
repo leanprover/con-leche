@@ -49254,5 +49254,22 @@ every inductive member alike): `empty_redefined` (a one-constructor
 `Empty`), `false_redefined` (`def False : Prop := …`) and
 `false_rec_bad` (the toolchain's block with `False.rec : Type`) all exit
 1 with `reserved basis name`.  The preprocessor's reserved list stays
-as it is.  LANDING-RECEIPTS
+as it is.
+
+**Landing receipts** (master `4565a27a` merged — the hygiene and
+heartbeat lanes; `no_proof_of_False` first in `MainTheorem.lean`, no
+`False` IO twin by user ruling — the world-passing shape is for a
+follow-up lane): `lake build` warning-free (651 jobs), `lake test`
+green with `tests/SetlecTests/Axioms.lean` at 15 guards (the ten plus
+`no_proof_of_False`, `no_proof_of_False_SPCD_P`, `no_proof_of_False_P`,
+`no_constant_of_False_P`, `no_constant_of_emptyPin_P`), `tests/arena.sh`
+exit 0: layering `base 253 / P 167 / caps 3 / umbrella 1`, proofdeps
+regenerated once — the single justified door `Setlec.SetP.BasisFalseP`
+on every pre-existing root (the pinned block's install is on every
+fold, as `BasisEmptyP` is) and the three `False` roots added (3 264
+rows / 9 roots / 0 doors), pindump fresh, trust surface 0 outside the
+allowlist, tutorial 90/92, e2e 91/91 (the six new fixtures at
+`0 / 1 / 1 / 1 / 1 / 1`), annot 14/14, flags 8/8 + 16/16, heartbeat
+1/1, the trusted sweep with the 3 recorded divergences; init-full
+`--verified` 56 291 and `--trusted` 56 291 (exit 0), unchanged.
 
