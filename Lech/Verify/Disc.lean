@@ -1638,7 +1638,7 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
       split
       · refine DiscV.bind (ih.site_defeq
-          (WScoped.instantiate1 h1.1 0 h1.2)
+          (WScoped.instantiate1 h2.1 0 h1.2)
           (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
         split
         · split
@@ -1656,7 +1656,7 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
       split
       · refine DiscV.bind (ih.site_defeq
-          (WScoped.instantiate1 h1.1 0 h1.2)
+          (WScoped.instantiate1 h2.1 0 h1.2)
           (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
         split
         · split

@@ -43665,7 +43665,7 @@ Official clause (file:line at v4.33.0) → ours (spec `Core.lean` / P
 | N3 | `unfold_definition` (`:517-564`): `is_delta` = head constant with a value (definitions AND theorems, `declaration.h:230`) at matching level arity; level-polymorphic instantiations cached (`m_unfold`) | `unfoldDefinition :212-234` (defn + thm), `unfoldableHead :236`; `constValAt` memo (`unfoldDefinitionI CoreC:52-72`) | same | |
 | N4 | `reduce_nat` (`:639-668`): `Nat.succ` (1 arg) and 14 binary ops `add sub mul pow gcd mod div beq ble land lor xor shiftLeft shiftRight`, head an EXACT level-free constant, arity exact; `reduce_bin_nat_op` whnf's ARG 1, returns `none` if not a literal WITHOUT touching arg 2 (`:606-614`); `is_nat_lit_ext` = literal or `Nat.zero` (`:599`); `reduce_pow` refuses exponents `> 2^24` (`:616-627`) | `reduceNat :752-798`; `reduceNatI CoreC:83-160` — `match rawNatLit? (← r.whnf a), rawNatLit? (← r.whnf b)` whnf's BOTH arguments before matching (`:787-788`, `CoreC:140-141`); `rawNatLit? :345` accepts `Nat.zero`; additionally reduces **`Nat.pred`** and **`Nat.log2`** (`:764-771`) which official's list lacks; **no pow cap** (`natOpResult :610`, `a ^ b` unbounded) | **D15 cost (ours more) — witnessed**: the second argument is whnf'd even when the first is stuck; **S1 superset**: `pred`/`log2` fast paths; **S2 superset**: no `2^24` pow cap (official grinds `Nat.pow` unfolded instead; ours computes, or allocates without bound) | witness `_tmp/divergence-audit/src/natop_arg_order.lean` (`Nat.add o (slow 40000) = Nat.add (id o) (slow 40000)` with `o` opaque): official 0.221 G (control without the computation 0.204 G — official never evaluates `slow`), parity 16.13 G, P 14.04 G; at `slow 80000` official 0.221 G accepts, **parity exit 3** (fuel, 33.1 G) — the K-bug class, verdict-visible |
 | **is_def_eq_core** `:1086-1162` | | | | |
-| E1 | `quick_is_def_eq` (`:770-793`): equivalence manager (union-find + structural walk modulo it, `use_hash`), then by kind: λ/Π → `is_def_eq_binding` (all nested binders in ONE loop, domain compared only when syntactically different, `:720-747`); Sort → level equivalence; Lit → value equality | `defeqStep :2075` `a == b` (structural); binder/sort/lit dispatch LATER, in the `false,false` arm (`:2169-2240`) one binder per `defeq` call | **cost (ours more)**: (a) no equivalence classes — `f a b =?= f a' b'` with `a ~ a'` known needs the full step; (b) the binder/sort/lit dispatch runs AFTER `whnfCore` (no-op on them) and AFTER `propIrrel` (D4) | |
+| E1 | `quick_is_def_eq` (`:770-793`): equivalence manager (union-find + structural walk modulo it, `use_hash`), then by kind: λ/Π → `is_def_eq_binding` (all nested binders in ONE loop, domain compared only when syntactically different, `:720-747`); Sort → level equivalence; Lit → value equality | `defeqStep :2075` `a == b` (structural); binder/sort/lit dispatch LATER, in the `false,false` arm (`:2169-2240`) one binder per `defeq` call | **cost (ours more)**: (a) no equivalence classes — `f a b =?= f a' b'` with `a ~ a'` known needs the full step; (b) the binder/sort/lit dispatch runs AFTER `whnfCore` (no-op on them) and AFTER `propIrrel` (D4); **(c) two locals for one bound variable — FIXED, task #201** (`is_def_eq_binding` opens ONE local for both bodies, `:738`; our binder arms opened each body with its own `.fvar depth nᵢ tyᵢ`, so bodies equal up to the variable's display data were never `==` — the self-check's `whnfCore` runaway; section "THE BINDER ARMS OPEN ONE LOCAL" at the end); **(d) `==` is `decide (a = b)`, which compares binder names, fvar display names and fvar type annotations** — official's `is_equal`/`equiv_manager` skip binder names and compare fvars by id (`expr_eq_fn.cpp:52, :100-103`, `equiv_manager.cpp:80-92`); recorded and priced in the same section as the residual of this class | (c) was the audit's blind spot: the row read the fast path as "structural" and never asked what the ARMS open |
 | E2 | Bool.true heuristic (`:1093-1101`, §1) | absent | cost (ours more; rides on D3) | |
 | E3 | `whnf_core(t, cheap_proj=true)`, same for `s`; `quick_is_def_eq` again if either changed (`:1110-1116`) | `:2076-2078` — `whnfCore` (never cheap: projections' structs fully whnf'd, W6), `a' == b'` | **D5 cost, both directions**: official's first pass leaves `a.i =?= b.i` with `a`, `b` merely head-normalised and tries `a =?= b` (E7) before ever whnf'ing a struct; ours whnf's both structs (delta included) at the first touch | `tryUnfoldProjApp`/`cheapProj` are on record as deferred (DESIGN "Defeq-side Nat folding", 2026-08-24) |
 | E4 | `is_def_eq_proof_irrel` (`:866-873`): `infer(t)`, `is_prop` (whnf'd sort normalises to zero), `infer(s)`, **`is_def_eq(t_type, s_type)` — commits `false`**; runs ONCE, before lazy delta | `propIrrel :920-943` (P: head-symbol arms `notProofFast`/`isProofFast`, `PropRead.lean:140-147`; parity: the two io inferences + whnf + level test per side) at `:2089`; no type comparison; `false` falls through | proofIrrel class — **STAYS** (2026-09-03 conformance ruling, both halves) | |
@@ -53976,3 +53976,219 @@ axiom), `cslib` accept.  The suite's final scorecard, all 206 runs
 **0 incorrect and no `good` stream rejected**, at every size the arena
 has.
 
+
+## THE BINDER ARMS OPEN ONE LOCAL — the self-check's `whnfCore` runaway was two locals for one bound variable (2026-09-06, `agent/whnfdiv`, task #201)
+
+**The finding** (`agent/selfcheck`, task #199).  On the export of Lech's
+own development (lean4export @ 15f6055 = v4.33.0) lech died on
+`Lech.Cached.ExprC.abstract1Go_spec` (`Lech/Verify/Cached/OpsC.lean`):
+`fuel exhausted: whnfCore`, identical under `--trusted`, and
+`checkFuel` × 20 turned the fuel wall into a 9.5 GB OOM.  The official
+kernel accepted the theorem.  Reproducer:
+`_tmp/selfcheck/slice-abstract1Go_spec.ndjson` (32 MB, 5 547
+declarations after the built-in prelude).
+
+### 1. Reproduction
+
+| checker (master `40fbeb08`) | verdict | wall | instructions |
+|---|---|---|---|
+| official v4.33.0 `kernel` | **accept**, 5 404 declarations | — | 34.54 G |
+| lech `--verified` | exit 3, `fuel exhausted: whnfCore [at theorem Lech.Cached.ExprC.abstract1Go_spec, fold position 5547]` | 21.6 s | 109.44 G |
+| lech `--trusted` | exit 3, same message | 21.6 s | 105.34 G |
+
+### 2. Where the fuel went: the depth probe, plus a first-difference probe
+
+The rat-frontier probe (`_tmp/rat-frontier/debug-probe.patch`, never
+committed) was re-applied by hand to today's single knot
+(`coreKnotI`): every slot of the knot `dbgTrace`s its head at chosen
+fuel marks (99 900–99 999, every 10 000th level, and 0–3), so the
+100 000-deep recursion reads as a stack sample.  One addition this time:
+the `defeq` slot also prints `dbgDiff a b` — the **first structural
+difference** between the two sides (binder name, fvar name/type,
+constant levels, …), because the sides in the trace *printed*
+identically.  Both probes' outputs: `_tmp/whnfdiv/probe{1,2}.out`
+(2.3 M lines each).
+
+Innermost first:
+
+* From fuel ≈ 99 960 down to 0 the chain is one linear descent:
+  `whnf (Nat.rec (λt. PProd …) (PProd.mk … (Nat.mul._f Nat.zero …) …)
+  (λn n_ih. …) N)` → `whnfCore` → `whnf (Nat.succ (N−1))` → … — the
+  `Nat.brecOn` tower of **`Nat.mul`** unrolled unarily.  The literal
+  reads `4 294 877 338` at fuel 10 000 and `4 294 867 341` at fuel 3:
+  one knot level per unit, starting from **`4 294 967 296 = 2^32`** —
+  4.3 G levels against a 100 000 budget (hence the OOM at ×20).
+* The tower is entered from `Nat.mul x 4294967296` with `x` **open**:
+  `whnf (fvarB (fvar #2 #3 #4))` → `Expr.data (fvar …)` (the
+  `@[computed_field]` recurrence, `Lech/Kernel/Expr.lean`: the hash
+  mixes the fvar's index, name and type hash) → `UInt64.toNat` →
+  `BitVec.toNat` / `Fin.val` → `HMod.hMod (HDiv.hDiv w 2) 32768` on
+  `UInt64` → `Nat` arithmetic on a stuck first argument, whose literal
+  fold fails and whose `Nat.mul` is a structural recursion on the
+  *literal* second argument.
+* That whnf is demanded by `Nat.ble (fvarB (fvar …)) #0` — the
+  whnf-loop `reduceNat` whnf'ing the first argument — inside
+  `Nat.decLe (fvarB e ≤ d)`, the `ite` guard of `abstract1Go`'s body,
+  reached by **delta-unfolding `abstract1Go` on an open argument**:
+  `whnf (abstract1Go #0 #6 (fvar #2 #3 #4) #7)` → `Expr.brecOn` →
+  `abstract1Go._f` → the guard.
+* That unfolding is the projection clause of `whnfCore` (W6/D5: the
+  struct of a `.proj` is fully `whnf`'d) on
+  `Prod.snd ExprC MemoN (abstract1Go #0 #6 (fvar #2 #3 #4) #7)`, at
+  `defeq d=9` of that term against **the same term** — printed
+  identically at depth 7, `dbgDiff`: **`fvar-name #3: n vs name`**.  The
+  free variable at level 3 carried the display name `n` on one side
+  and `name` on the other.  So `a == b` (`decide (a = b)`, which
+  compares an `fvar`'s name and type) missed, `whnfCore` ran on both
+  sides, and the projection clause did the rest.
+
+Where the two spellings of one variable came from: `defeqStep`'s ∀/λ
+arms.  On `(∀ name : Name. B) =?= (∀ n : Name. B')` (the theorem's
+statement against the induction motive's instance — hygienic names
+from two contexts, and `ExprC` vs `Expr` in the domains, which is why
+lean4export did not intern the two Π-types as one node) the arms
+opened `B` with `.fvar 3 name Name` and `B'` with `.fvar 3 n Name`.
+Every occurrence of the variable below then differed by display data
+only.
+
+### 3. The divergence, against the official kernel
+
+`type_checker::is_def_eq_binding` (`_tmp/lean4-src/src/kernel/type_checker.cpp:720-747`):
+
+    subst.push_back(m_lctx.mk_local_decl(m_st->m_ngen, binding_name(s), *var_s_type, binding_info(s)));   // :738
+    ...
+    return is_def_eq(instantiate_rev(t, subst.size(), subst.data()),
+                     instantiate_rev(s, subst.size(), subst.data()));                                       // :745-746
+
+**One** local per binder pair — named after `s`'s binder, typed at
+`s`'s domain — and BOTH bodies are instantiated with it.  Official
+fvars are compared by their unique id alone (`expr_eq_fn.cpp:52`,
+`equiv_manager.cpp:80-81`), so the opened bodies of the pair above are
+structurally equal for `quick_is_def_eq` (`:770-793`), which answers
+`true` at the entry of `is_def_eq_core` (`:1090`); `whnf_core` is never
+reached, `abstract1Go` is never unfolded.  lean4lean the same
+(`isDefEqBinding`: one `mkLocalDecl`, both bodies instantiated with it).
+
+Ours (`Lech/Kernel/Core.lean`, `defeqStep`'s `.forallE`/`.lam` arms;
+`Lech/Cached/CoreC.lean`, `defeqStepI`, the same two arms) opened
+`body₁` with `.fvar depth n₁ ty₁` and `body₂` with `.fvar depth n₂ ty₂`
+— two `Expr` values for one variable, unequal under `decide (a = b)`
+whenever the display name or the domain's spelling differs.  A **cost**
+divergence of the K-order class (same verdict, exponential work),
+verdict-visible at the fuel wall; not a superset, not a subset.  The
+divergence audit's E1 row read our fast path as "structural" and never
+asked what the arms *open* — amended above, (c) and (d).
+
+### 4. The fix: one local, the right binder's
+
+`Core.lean`, both arms:
+
+    unless ← r.defeq (depth + 1)
+        (body₁.instantiate1 (.fvar depth n₂ ty₂))
+        (body₂.instantiate1 (.fvar depth n₂ ty₂)) do return false
+
+`CoreC.lean`, both arms: one `internI (.fvar depth n₂ ty₂)`, two
+`inst1M`.  `n₂ ty₂` because official takes `binding_name(s)` and `s`'s
+domain (`:738`); the domains were just compared, so the choice is
+verdict-neutral and the mirror is exact.  Nothing else in either core
+moved; the fvar/fvar arm already compared indices only.
+
+### 5. Proofs moved (no new axiom, no `sorry`)
+
+* `Lech/Verify/Deep.lean` — the `shiftFrom` congruence's ∀/λ cases:
+  the two `WScoped.instantiate1` witnesses are now both at `ty₂`
+  (`hwwb.1`), the bodies' at their own scoping.
+* `Lech/Verify/Disc.lean` — the call-discipline (`site_defeq`) cases,
+  the same one-line change.
+* `Lech/Verify/Cached/DiscC5.lean` — `defeqStepC_sim`'s two binder
+  arms: one `internI_eff` + two `inst1M_eff` on the same local.
+* `Lech/SetP/Step2/DefEqP.lean` — `binder_congrP` (the P-tier binder
+  congruence): its `hdd` premise is restated at the shared local; the
+  left body's denotation is transported from its own opening
+  (`denoteP_forallE_inv`/`denoteP_lam_inv` still invert at `.fvar d n₁
+  ty₁`) by `denoteP_erasedEq (ErasedEq.instantiate1 (ErasedEq.rfl bd₁)
+  rfl)` — `denoteP` reads an fvar's **index only**
+  (`SetP/Annot/Bit.lean:149`), and `ErasedEq` relates fvars by index
+  (`Verify/Subst.lean:143`); the left context is opened with
+  `CtxOkP.openCongC` at the right domain across the domains' semantic
+  agreement, exactly as the right already was; `LeavesBounded` at the
+  right domain's leaf facts.  The two arms of `defeqStuck_claimP`
+  restate the run's certificate at the shared local and consume
+  `binder_congrP` unchanged.  One new import (`SetP/Annot/BitRename`,
+  already in the capstone's closure via `IndMemberP`).
+
+### 6. Fixture
+
+`tests/e2e/src/binder_shared_local.lean` → `tests/e2e/binder_shared_local.ndjson`
+(`export-fixture.sh`, unfiltered), expectation `0`:
+
+    abbrev N := Nat
+    def g (x : Nat) : Nat × Nat := if x * 4294967296 ≤ 5 then (x, 0) else (0, x)
+    theorem aux : ∀ (y : N), (g y).2 = (g y).2 := fun _ => rfl
+    theorem w1 : ∀ (x : Nat), (g x).2 = (g x).2 := aux
+
+The pre-fix binary dies at `aux` already (`fun _ => rfl`'s hygienic
+binder against the declared `y`): exit 3 both modes, 23.2 G / 22.5 G
+instructions; official accepts at 0.27 G; the fixed binary accepts.
+
+### 7. Receipts
+
+Worktree binary (`agent/whnfdiv`) against the master `40fbeb08` binary
+and official v4.33.0; `perf stat -e instructions:u`, `ulimit -v 16G`,
+`timeout`, one run each (a shared machine: wall time is not a
+measurement).  `init-full` is the raw `_tmp/init-exports/init-full.ndjson`
+(`scripts/perf-tables.sh`'s stream).
+
+| stream | official | master `--verified` | master `--trusted` | fixed `--verified` | fixed `--trusted` |
+|---|---|---|---|---|---|
+| `slice-abstract1Go_spec` (5 547 decls) | accept, 34.54 G | **exit 3**, 109.44 G | **exit 3**, 105.34 G | **accept**, 85.98 G | **accept**, 82.94 G |
+| `binder_shared_local` (102 decls) | accept, 0.27 G | **exit 3**, 23.23 G | **exit 3**, 22.54 G | **accept**, 1.02 G | **accept**, 1.01 G |
+| `init-full` (53 890 decls) | — | accept, 819.00 G | accept, 795.36 G | accept, 807.73 G (**−1.4 %**) | accept, 785.65 G (**−1.2 %**) |
+
+The init-full delta is the fast path now hitting where it used to miss
+at every binder pair whose bodies mention the bound variable — a
+genuine, if small, win on an ordinary stream; verdicts and counts
+unchanged.  The slice still costs 2.5× official's instructions: that is
+the standing tax (certificates, D3/D5/E1(d)), not this finding.
+
+Gates at the tip: `lake build` warning-free (640 jobs), `lake test`,
+`tests/arena.sh`: layering 0 base→lane / 0 impl→theory edges (base 244 /
+P 165), proofdeps 2 515 rows as pinned across 7 roots, doors 0, pindump
+fresh, trust surface 0 outside the allowlist, native audit 0
+unrecognised, axioms pinned (11 theorems at the three standard),
+tutorial 90/92, **e2e 103/103** (the new fixture in), annot 14/14,
+retired flags 8/8, mode flags 16/16, prelude counts 3/3, progress lane
+6/6, trusted sweep as expected (the 3 recorded divergences).
+Artefacts: `_tmp/whnfdiv/` (probe outputs, perf files, logs).
+
+### 8. The residual — (d), priced, not done
+
+Official's `quick_is_def_eq` also **ignores binder names** and compares
+fvars **by id only**; ours is `decide (a = b)` — binder names, fvar
+display names and fvar type annotations all compare (DESIGN "Official's
+kernel equality compares *less* than ours", which called this
+"deliberate … not proposed for change").  With (c) fixed no single
+variable has two spellings inside one comparison any more, but a pair
+that differs ONLY in a binder name *nested inside* a `.proj`-headed
+struct argument — e.g. two spellings of a motive `λ x. …` / `λ e. …`
+inside a memoised recursion's argument (the probe shows exactly such
+pairs at `d=6..8`, cheap there because no projection sat above them) —
+still misses the fast path and pays D5's full `whnf` of the struct,
+where official's `is_equal` answers in the walk.  The mirror would be a
+name-blind, id-only quick equality.  Its price: `Expr.data`'s hash
+**mixes the binder name and the fvar name/type** (`Lech/Kernel/Expr.lean`,
+the `.fvar`/`.lam`/`.forallE`/`.letE` recurrences), so a name-blind
+comparison cannot use the packed hash as its reject and must either
+(i) change the computed-field recurrence (drop the names — a
+`@[computed_field]` change every `hash`-reading proof in
+`Verify/Cached/Erase.lean` and the hash-consing memo keys see), or
+(ii) walk: a memoised `beqUpToNames` twin of `beqGo` (address-pair
+memo, `O(DAG)`), run *after* the exact `==` misses, at the two fast-path
+sites of `defeqStep` only — the memo keys (`whnfC`, `inferC`, `defeqC`,
+…) keep the exact `BEq`, which no soundness argument ever needed to be
+name-blind.  (ii) is the smaller change (one executable function, its
+`eqUpToNames`-style spec, and `ErasedEq.of_eqUpToNames`-shaped
+soundness for the P tier's fast-path clause); it is a strategy change
+under the match-reference ruling and waits for the user's go, together
+with D5 (`cheap_proj`) which is the other half of why a fast-path miss
+is expensive at all.
