@@ -1,6 +1,7 @@
 import Lech
 import Lech.Frontend.ExportC
 import LechTests.ZeroSetTests
+import LechTests.PreludeTests
 import LechTests.Axioms
 
 /-!
@@ -295,12 +296,12 @@ private def emptyModelAuxName : Name :=
 -- The frontend keeps both declarations (`def Eq._model : Type := Prop`,
 -- `def Empty._model.proj_0 : Type := Prop`) …
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _, _⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
+  | .ok ⟨ds, _, _, _, _, _⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
   | .error _ => false
 
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _, _⟩ =>
+  | .ok ⟨ds, _, _, _, _, _⟩ =>
     (Lech.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
   | .error _ => false
 
@@ -343,7 +344,7 @@ private def taintSkipExport : String := String.intercalate "\n" [
 -- The tolerated axiom record and both uses are gone from the parsed
 -- declarations; the later checkable declaration survives …
 #guard match Frontend.parseExportD taintSkipExport with
-  | .ok ⟨ds, sk, _⟩ =>
+  | .ok ⟨ds, sk, _, _, _, _⟩ =>
     ds.map declCName == #[afterName] &&
     sk == #[(usesAxName, sorryAxName), (usesUseName, sorryAxName)]
   | .error _ => false
@@ -351,13 +352,13 @@ private def taintSkipExport : String := String.intercalate "\n" [
 -- … and the shipped driver accepts what remains (nothing tainted can
 -- reach install: it is absent from the declarations).
 #guard match Frontend.parseExportD taintSkipExport with
-  | .ok ⟨ds, _, _⟩ =>
+  | .ok ⟨ds, _, _, _, _, _⟩ =>
     (Lech.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
   | .error _ => false
 
 -- A stream without tolerated-axiom uses records no skips.
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨_, sk, _⟩ => sk.isEmpty
+  | .ok ⟨_, sk, _, _, _, _⟩ => sk.isEmpty
   | .error _ => false
 
 /-! ## Level algebra -/

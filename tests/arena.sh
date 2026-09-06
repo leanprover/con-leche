@@ -388,6 +388,34 @@ else
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"
 
+# THE BUILT-IN PRELUDE'S COUNT INVARIANT (task #191).  Every run now
+# installs the six basis blocks and `Bool` first; a stream's own copies
+# are dropped as duplicates.  The verdict line must still count the
+# STREAM's declaration records — dropped copies included, since they
+# are installed (from the prelude) and the official checker counts them
+# — so the number is unchanged by the prelude's existence and equal
+# across reorderings of the same records: natop_order.ndjson has 35
+# declaration records (4 of them prelude duplicates: Nat, PUnit, Bool,
+# Eq), and natop_before_eq.ndjson / natop_before_ble.ndjson are the same
+# 35 records in other orders.
+prelude_ok=0
+prelude_total=0
+prelude_count() { # <fixture> <expected count>
+  prelude_total=$((prelude_total+1))
+  local got
+  got=$(timeout 120 "$BIN" "tests/e2e/$1" 2>/dev/null | sed -n 's/^lech: accepted \([0-9]*\) declarations.*/\1/p')
+  if [ "$got" = "$2" ]; then
+    prelude_ok=$((prelude_ok+1))
+  else
+    echo "PRELUDE COUNT FAIL $1: expected 'accepted $2 declarations', got '${got:-no accept line}'"
+    fail=1
+  fi
+}
+prelude_count natop_order.ndjson 35
+prelude_count natop_before_eq.ndjson 35
+prelude_count natop_before_ble.ndjson 35
+echo "prelude counts: $prelude_ok/$prelude_total as expected"
+
 # The progress lane (`LECH_PROGRESS=<stride>`, 2026-09-07).  Two
 # folds, one verdict: without the variable the driver runs the verified
 # `checkDeclsSPCachedD`, with it the unverified `checkDeclsProgressIO`
