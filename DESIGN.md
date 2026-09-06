@@ -43359,3 +43359,55 @@ parity at 1030.66 G — below W6's X row (1048.16 G, the old two-run
 certificate), since S1's saving compounds.  Artefacts:
 `_tmp/s1/measure-k{2,3}.txt`, `_tmp/s1/arena-k3.log`,
 `_tmp/s1/Axioms.lean`.
+
+## THE PACKED `pw` DATUM — PARKED (2026-09-06, `agent/pw-bitmask-land` @ the WIP tip; record on `agent/pw-bitmask-park`)
+
+**The user's verdict, verbatim:** "2% is certainly not worth the
+architecture impact of packed pw."  The measurement was the deliverable
+and it was decisive.
+
+**What was measured** (init-full-pre2, `--pre`, `perf stat -e
+instructions:u`, VmHWM sampled, one session, master `24e3ed5d…` vs the
+landed executable cone `f9b6b0e5`): P (`--set-model`) 987.05 G →
+969.59 G instructions (**−1.8 %**), VmHWM 882 MB → 866 MB (−1.8 %);
+parity (`--no-model`) 1085.67 G → 1060.25 G (**−2.3 %**), 902 MB →
+862 MB (−4.5 %); 61048 accepted in both modes, every arena expectation
+unchanged.  The pilot branch (`agent/pw-bitmask` @ 17e6be5d, the map
+this landing followed) had promised −5.6 %; the clean re-implementation
+recovers a third of that.
+
+**What the branch contains.**  `agent/pw-bitmask-land`: the executable
+cone (`PropWhen := UInt64`, a positional bitmask over the declaration's
+level parameters, `never` = all ones, 63 parameters max with a positive
+decline above; `Level.maskOf`/`maskOf?`/`masksOf`, three-argument
+`instantiateLevelParams`, `Expr.remapPW`; `Env.lps : UnivCtx` with
+`enterCtx`/`enterCtxF` at every driver and no restore; the named-input
+`pw` annotation form dropped at the parser) and, on top of it, the
+proof-tier re-indexing at 271 of 388 modules — with the design
+decisions it forced: `checkDecl` split into `enterCtx ; checkDeclAt`
+(kernel and cached mirrors, for the cached bridge's simulation), one
+`flushC` per recursor in the rule folds (the memos are context-keyed),
+`UnivCtx`-carrying run records, `ConstWF`'s nodup/length conjunct, and
+the three judgment lemmas (`Env.withLps_eq_withLpsL`/`withLpsL_self`,
+the representative valuation `Level.repr` with `denoteP_repr`, the
+remap reading law `denoteP_remapPW`) plus the context-free P step
+`declStepPM_of_cons` with its `_at` wrapper and the `Nat`-law
+valuation-independence kit (`NatExtP`, uncompiled).
+
+**The architecture cost that decided it.**  A positional datum is only
+meaningful relative to a universe context, so the context has to be
+threaded through everything the datum touches: `denoteP` and every
+statement of the P tier read at `env.lpsL`; the stored laws become
+context-free and cross to the ambient reading only at valuations
+nonzero outside the context (`Level.NonzeroOutside`, threaded through
+every step predicate and the tier inputs), which in turn makes every
+harvest and install a lifting through a representative valuation; the
+cached memos are context-keyed, so every context change is a flush;
+and every driver, run record, inversion and bridge learns a context
+entry.  Two percent does not buy that.
+
+**Resume pointers.**  Branch `agent/pw-bitmask-land` (left in place;
+the worktree removed), resume record `_tmp/pw-bitmask-land/HANDOFF.md`
+(state, module counts, the twelve-class repair recipe, the discharged
+judgment items and where they live, the open ones).  The measurement
+script is `_tmp/pw-bitmask-land/measure.sh`.
