@@ -6,7 +6,7 @@ import Setlec.Verify.InstLevels
 import Setlec.Verify.BinderLoop
 import Setlec.Verify.Mono
 import Setlec.Verify.Subst
-import Setlec.Kernel.Direct
+import Setlec.Kernel.Direct.Parts
 
 /-!
 # The direct structure's annotated Π-bits are exact (task #175 W4c, P3 module 1)

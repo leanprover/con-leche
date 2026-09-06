@@ -3,7 +3,7 @@ import Setlec.Kernel.StdAxioms
 import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.TypeCheckerC
 import Setlec.Kernel.NatOpPins
-import Setlec.Kernel.Direct
+import Setlec.Kernel.Direct.Parts
 
 /-!
 # The declaration checker's common ground

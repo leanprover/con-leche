@@ -1,6 +1,6 @@
 import Setlec.Verify.PropWhen
 import Setlec.Verify.Level
-import Setlec.Kernel.Direct
+import Setlec.Kernel.Direct.Parts
 
 /-!
 # The guard's zeroing instantiation, semantically (task #175 W4c, P3 module 7)

@@ -1,4 +1,4 @@
-import Setlec.Kernel.Direct
+import Setlec.Kernel.Direct.Parts
 import Setlec.Verify.FastOps
 
 /-!

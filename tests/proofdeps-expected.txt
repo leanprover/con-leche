@@ -17,7 +17,9 @@ SPCD_P :: Setlec.Kernel.Core
 SPCD_P :: Setlec.Kernel.CoreCfg
 SPCD_P :: Setlec.Kernel.CoreIO
 SPCD_P :: Setlec.Kernel.DeclCheck
-SPCD_P :: Setlec.Kernel.Direct
+SPCD_P :: Setlec.Kernel.Direct.Install
+SPCD_P :: Setlec.Kernel.Direct.InstallF
+SPCD_P :: Setlec.Kernel.Direct.Parts
 SPCD_P :: Setlec.Kernel.Env
 SPCD_P :: Setlec.Kernel.Expr
 SPCD_P :: Setlec.Kernel.ExprOps
@@ -366,7 +368,9 @@ sound_P :: Setlec.Kernel.Core
 sound_P :: Setlec.Kernel.CoreCfg
 sound_P :: Setlec.Kernel.CoreIO
 sound_P :: Setlec.Kernel.DeclCheck
-sound_P :: Setlec.Kernel.Direct
+sound_P :: Setlec.Kernel.Direct.Install
+sound_P :: Setlec.Kernel.Direct.InstallF
+sound_P :: Setlec.Kernel.Direct.Parts
 sound_P :: Setlec.Kernel.Env
 sound_P :: Setlec.Kernel.Expr
 sound_P :: Setlec.Kernel.ExprOps
@@ -715,7 +719,9 @@ foldSPC_PM :: Setlec.Kernel.Core
 foldSPC_PM :: Setlec.Kernel.CoreCfg
 foldSPC_PM :: Setlec.Kernel.CoreIO
 foldSPC_PM :: Setlec.Kernel.DeclCheck
-foldSPC_PM :: Setlec.Kernel.Direct
+foldSPC_PM :: Setlec.Kernel.Direct.Install
+foldSPC_PM :: Setlec.Kernel.Direct.InstallF
+foldSPC_PM :: Setlec.Kernel.Direct.Parts
 foldSPC_PM :: Setlec.Kernel.Env
 foldSPC_PM :: Setlec.Kernel.Expr
 foldSPC_PM :: Setlec.Kernel.ExprOps
@@ -1056,7 +1062,8 @@ P :: Setlec.Kernel.Checker
 P :: Setlec.Kernel.CheckerBase
 P :: Setlec.Kernel.Core
 P :: Setlec.Kernel.CoreIO
-P :: Setlec.Kernel.Direct
+P :: Setlec.Kernel.Direct.Install
+P :: Setlec.Kernel.Direct.Parts
 P :: Setlec.Kernel.Env
 P :: Setlec.Kernel.Expr
 P :: Setlec.Kernel.ExprOps
