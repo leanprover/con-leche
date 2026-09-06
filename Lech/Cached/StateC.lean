@@ -231,51 +231,8 @@ structure CState where
   lnzC : Std.HashMap Level Bool := {}
   eqvC : Std.HashMap (Level × Level) Bool := {}
   instC : Std.HashMap (ExprC × List ExprC × Nat) ExprC := {}
-  /-- **TASK #196 MEASUREMENT ONLY — NEVER LANDS.**  Memo-traffic
-  counters; see `Lech.Cached.ctrNames` for the index layout.  Survives
-  `flushed` (the `{ s with … }` form), so it accumulates over the whole
-  stream. -/
-  ctr : Array Nat := Array.replicate 32 0
 
 instance : Inhabited CState := ⟨{}⟩
-
-/-! ### Task #196 counter layout (MEASUREMENT ONLY) -/
-
-/-- Index names for `CState.ctr`. -/
-def ctrNames : Array String :=
-  #["whnfCore.probe", "whnfCore.hit", "whnf.probe", "whnf.hit",
-    "infer.probe", "infer.hit", "inferIO.probe", "inferIO.hit",
-    "defeq.probe", "defeq.hit", "annot.probe", "annot.hit",
-    "inferIO.miss.wouldHitInferC", "infer.miss.wouldHitInferIOC",
-    "max.whnfCoreC", "max.whnfC", "max.inferC", "max.inferIOC",
-    "max.defeqC", "max.annotC", "flushes",
-    "sum.inferC.atFlush", "sum.inferIOC.atFlush", "u23",
-    "u24", "u25", "u26", "u27", "u28", "u29", "u30", "u31"]
-
-/-- Bump one counter. -/
-@[inline] def bumpC (i : Nat) : StateT CState CheckM Unit :=
-  modify fun st =>
-    let a := st.ctr
-    let st := { st with ctr := #[] }
-    { st with ctr := a.set! i (a[i]! + 1) }
-
-/-- Fold the current table sizes into the maxima (called at each flush
-and once at the end of the run). -/
-def CState.recordSizes (s : CState) : CState :=
-  let a := s.ctr
-  let s := { s with ctr := #[] }
-  let mx (a : Array Nat) (i n : Nat) : Array Nat :=
-    if a[i]! < n then a.set! i n else a
-  let a := mx a 14 s.whnfCoreC.size
-  let a := mx a 15 s.whnfC.size
-  let a := mx a 16 s.inferC.size
-  let a := mx a 17 s.inferIOC.size
-  let a := mx a 18 s.defeqC.size
-  let a := mx a 19 s.annotC.size
-  let a := a.set! 20 (a[20]! + 1)
-  let a := a.set! 21 (a[21]! + s.inferC.size)
-  let a := a.set! 22 (a[22]! + s.inferIOC.size)
-  { s with ctr := a }
 
 /-- Entry bound for the persistent bulk-instantiation memo (the
 interned checker's `instCCap`, reused unchanged). -/
@@ -583,8 +540,6 @@ The environment-independent components — the converted-constant cache
 `ienv` (self-certified by its `Expr` tags) and the level-operation
 memos — survive, exactly as in `IState.flushed`. -/
 def CState.flushed (s : CState) : CState :=
-  -- TASK #196 (measurement only): harvest the table sizes before they go.
-  let s := s.recordSizes
   { s with
       constTyAt := {}, constValAt := {}, ruleRhsAt := {},
       whnfCoreC := {}, whnfC := {}, inferC := {}, inferIOC := {},

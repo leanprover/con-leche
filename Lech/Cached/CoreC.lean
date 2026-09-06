@@ -1844,77 +1844,6 @@ only — the term the proofs unfold is unchanged. -/
         set' st (mp.insert e r)
       pure r
 
-/-! ### TASK #196 MEASUREMENT INSTRUMENTATION — NEVER LANDS -/
-
-/-- `memoEI` with probe/hit counters at indices `pi`/`hi`. -/
-@[inline] def memoEIx (pi hi : Nat) (get' : CState → Std.HashMap ExprC ExprC)
-    (set' : CState → Std.HashMap ExprC ExprC → CState)
-    (f : Nat → ExprC → CheckCM ExprC) : Nat → ExprC → CheckCM ExprC :=
-  fun d e => do
-    bumpC pi
-    match (get' (← get))[e]? with
-    | some r => do bumpC hi; pure r
-    | none =>
-      let r ← f d e
-      modify fun st =>
-          let mp := get' st
-        let st := set' st ∅
-        set' st (mp.insert e r)
-      pure r
-
-/-- The full-`infer` slot's memo, counting on a miss whether the io memo
-already held the key (E2's extra, unsound direction). -/
-@[inline] def memoEIxInfer (f : Nat → ExprC → CheckCM ExprC) :
-    Nat → ExprC → CheckCM ExprC :=
-  fun d e => do
-    bumpC 4
-    match (← get).inferC[e]? with
-    | some r => do bumpC 5; pure r
-    | none =>
-      if ((← get).inferIOC[e]?).isSome then bumpC 13
-      let r ← f d e
-      modify fun st =>
-        let mp := st.inferC
-        let st := { st with inferC := ∅ }
-        let st := { st with inferC := mp.insert e r }
-        -- TASK #196 E1i: the write-side seed, instrumented.
-        let mq := st.inferIOC
-        let st := { st with inferIOC := ∅ }
-        { st with inferIOC := mq.insert e r }
-      pure r
-
-/-- The io slot's memo, counting on a miss whether the full-infer memo
-already held the key (E1/E1b's sound direction). -/
-@[inline] def memoEIxInferIO (f : Nat → ExprC → CheckCM ExprC) :
-    Nat → ExprC → CheckCM ExprC :=
-  fun d e => do
-    bumpC 6
-    match (← get).inferIOC[e]? with
-    | some r => do bumpC 7; pure r
-    | none =>
-      if ((← get).inferC[e]?).isSome then bumpC 12
-      let r ← f d e
-      modify fun st =>
-        let mp := st.inferIOC
-        let st := { st with inferIOC := ∅ }
-        { st with inferIOC := mp.insert e r }
-      pure r
-
-/-- `memoBI` with probe/hit counters. -/
-@[inline] def memoBIx (f : Nat → ExprC → ExprC → CheckCM Bool) :
-    Nat → ExprC → ExprC → CheckCM Bool :=
-  fun d a b => do
-    bumpC 8
-    match (← get).defeqC[(a, b)]? with
-    | some r => do bumpC 9; pure r
-    | none =>
-      let r ← f d a b
-      modify fun st =>
-        let mp := st.defeqC
-        let st := { st with defeqC := ∅ }
-        { st with defeqC := mp.insert (a, b) r }
-      pure r
-
 /-- Memoize the interned definitional-equality entry point under the
 index pair (`@[inline]` as `memoEI`). -/
 @[inline] def memoBI (f : Nat → ExprC → ExprC → CheckCM Bool) :
@@ -1975,17 +1904,16 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
     -- enum passed down once per *driver* — nothing is built per knot
     -- level or per call (at B2 a record allocation at every
     -- head-normalization entry cost +0.155 % on `init-prelude`).
-    -- TASK #196 (measurement only): the counting memo wrappers.
-    { whnfCore := memoEIx 0 1 (·.whnfCoreC)
+    { whnfCore := memoEI (·.whnfCoreC)
         (fun st mp => { st with whnfCoreC := mp })
         (fun d e => whnfCoreBodyI mode (prev ()) fe d e)
-      whnf := memoEIx 2 3 (·.whnfC) (fun st mp => { st with whnfC := mp })
+      whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI (prev ()) fe d e)
-      infer := memoEIxInfer
+      infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
         (fun d e => inferBodyI mode (prev ()) fe d e)
-      defeq := memoBIx
+      defeq := memoBI
         (fun d a b => defeqBodyI mode (prev ()) fe d a b)
-      annotate := memoEIx 10 11 (·.annotC) (fun st mp => { st with annotC := mp })
+      annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
         (fun d e => annotateBodyI (prev ()) fe d e)
       -- **The io slot** (task #170 / #172 B4), selected once per knot
       -- level: at `ioGate` the io body under its OWN memo
@@ -1997,7 +1925,7 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       -- the same function there (task #170: "in R mode infer_only is
       -- just equivalent to infer").
       inferIO := if mode.ioGate then
-          memoEIxInferIO
+          memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
             (fun d e => inferBodyIOI mode (prev ()).ioView fe d e)
         else
           memoEI (·.inferC) (fun st mp => { st with inferC := mp })

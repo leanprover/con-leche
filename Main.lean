@@ -485,17 +485,6 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         if stride > 0 then
           checkDeclsProgressIO mode (← IO.getStderr) stride decls.size t0
             decls.toList 0 (Lech.mkFEnv Lech.Env.empty) {}
-        else if (← IO.getEnv "LECH_MEMOSTATS").isSome then
-          -- TASK #196 MEASUREMENT ONLY — NEVER LANDS.
-          match Lech.Cached.checkDeclsSPCachedDCounted mode decls.toList with
-          | .ok (env, ctr) => do
-            for i in [0:ctr.size] do
-              let nm := Lech.Cached.ctrNames[i]!
-              if !nm.startsWith "u" && ctr[i]! != 0 then
-                IO.eprintln s!"MEMOSTAT\t{nm}\t{ctr[i]!}"
-            (← IO.getStderr).flush
-            pure (.ok env)
-          | .error e => pure (.error e)
         else
           pure (Lech.Cached.checkDeclsSPCachedD mode decls.toList)
       match verdict with
