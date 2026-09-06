@@ -163,7 +163,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     obtain ⟨hg''w, rfl⟩ := hg''d
     obtain ⟨ha''w, rfl⟩ := ha''d
     exact SimC.of_eff
-      (internI_eff hs₂ (n := ExprView.app g'' a'')) _
+      (pureC_eff hs₂ (x := Expr.app g'' a'')) _
       (fun r hQ => ⟨hQ, by
         simp only [Expr.WScoped]
         exact ⟨Expr.WScoped.mono (Nat.le_refl _) hwg'', hwa''⟩⟩)
@@ -180,7 +180,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     obtain ⟨hty'd, hwty'⟩ := hP
     obtain rfl := hty'd
     refine SimC.bind_left
-      (internI_eff hs₁ (n := ExprView.fvar d nmN ty'))
+      (pureC_eff hs₁ (x := Expr.fvar d nmN ty'))
       (fun s₂ fv hs₂ hQfv => ?_)
     have hQfv' : RelC fv (Expr.fvar d nmN ty') := hQfv
     refine SimC.bind_left (peelFuelM_eff hs₂)
@@ -205,7 +205,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       obtain ⟨hty'd, hwty'⟩ := hP
       obtain rfl := hty'd
       refine SimC.bind_left
-        (internI_eff hs₁ (n := ExprView.fvar d nmN ty'))
+        (pureC_eff hs₁ (x := Expr.fvar d nmN ty'))
         (fun s₂ fv hs₂ hQfv => ?_)
       have hQfv' : RelC fv (Expr.fvar d nmN ty') := hQfv
       refine SimC.bind_left (peelFuelM_eff hs₂)
@@ -218,7 +218,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       obtain ⟨hty'd, hwty'⟩ := hP
       obtain rfl := hty'd
       refine SimC.bind_left
-        (internI_eff hs₁ (n := ExprView.fvar d nmN ty'))
+        (pureC_eff hs₁ (x := Expr.fvar d nmN ty'))
         (fun s₂ fv hs₂ hQfv => ?_)
       have hQfv' : RelC fv (Expr.fvar d nmN ty') := hQfv
       refine SimC.bind_left (inst1M_eff hs₂ rfl hQfv')
@@ -234,12 +234,12 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       -- The rebuilt node is the same on both sides whatever the datum.
       have hstep : ∀ (s' : CState) (pw : PropWhen), CSOK mode env s' →
           SimC mode env s' (RelEC d)
-            (internI (.lam nmN ty' bAbs ⟨m.bi, pw⟩))
+            (pure (Expr.lam nmN ty' bAbs ⟨m.bi, pw⟩))
             (pure (Expr.lam nmN ty' (body'x.abstract1 d)
               ⟨m.bi, pw⟩)) := by
         intro s' pw hsS
-        refine SimC.of_eff (internI_eff hsS
-          (n := ExprView.lam nmN ty' bAbs ⟨m.bi, pw⟩)) _ (fun r hQ => ⟨by
+        refine SimC.of_eff (pureC_eff hsS
+          (x := Expr.lam nmN ty' bAbs ⟨m.bi, pw⟩)) _ (fun r hQ => ⟨by
             show _ = _
             have h2 : r
               = Expr.lam nmN ty' bAbs ⟨m.bi, pw⟩ := hQ
@@ -299,7 +299,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
         by_cases hlen : (Expr.getAppArgs te).length = entry.numParams
         · rw [if_pos hlen, if_pos hlen]
           exact SimC.of_eff
-            (internI_eff hs₃T (n := ExprView.proj Tw ipN e')) _
+            (pureC_eff hs₃T (x := Expr.proj Tw ipN e')) _
             (fun r hQ => ⟨by
                 show _ = _
                 have h2 : r = Expr.proj Tw ipN e' := hQ

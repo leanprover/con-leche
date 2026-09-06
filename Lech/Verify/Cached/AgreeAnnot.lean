@@ -34,10 +34,10 @@ say what the pass may and may not change:
   `annotateLamsLeafI_erasePwC`) — the leaf's output is determined
   modulo `erasePwC`, which is exactly the `pw` field.
 
-The cached representation is **pure** — `viewI = pure ∘ view`,
-`internI = pure ∘ ofView`, `abstractRangeM`/`instListRevM` pure — so no
-state relation is needed anywhere below.  That is why the "one expr
-type everywhere" ruling makes this batch cheap.
+The cached representation is **pure** — `viewI = pure ∘ view`, node
+construction is a plain allocation, `abstractRangeM`/`instListRevM`
+pure — so no state relation is needed anywhere below.  That is why the
+"one expr type everywhere" ruling makes this batch cheap.
 -/
 
 namespace Lech.Cached
@@ -86,13 +86,13 @@ depend on the datum written: two runs whose inputs agree modulo
 
 The hypothesis on `mk` is discharged for the two instantiations the
 annotation pass uses (`.forallE` and `.lam`) by
-`ofView_forallE_erasePwC` / `ofView_lam_erasePwC` below. -/
+`forallE_erasePwC` / `lam_erasePwC` below. -/
 theorem annotateBindersOutI_erasePwC
-    (mk : Name → ExprC → ExprC → BinderMeta → ExprView ExprC)
+    (mk : Name → ExprC → ExprC → BinderMeta → ExprC)
     (hmk : ∀ n ty b₁ b₂ m₁ m₂, ExprC.erasePwC b₁ = ExprC.erasePwC b₂ →
       m₁.bi = m₂.bi →
-      ExprC.erasePwC (ExprC.ofView (mk n ty b₁ m₁))
-        = ExprC.erasePwC (ExprC.ofView (mk n ty b₂ m₂)))
+      ExprC.erasePwC (mk n ty b₁ m₁)
+        = ExprC.erasePwC (mk n ty b₂ m₂))
     (d : Nat) :
     ∀ (stk : List AnnotBinderEntry) (pw? pw?' : Option PropWhen) (j : Nat)
       (cur cur' : ExprC) (s s' : CState),
@@ -110,20 +110,20 @@ theorem annotateBindersOutI_erasePwC
         (hmk n _ cur cur' _ _ hcur
           ((annotBinderMetaI_bi pw? mb).trans (annotBinderMetaI_bi pw?' mb).symm))
 
-theorem ofView_forallE_erasePwC (n : Name) (ty b₁ b₂ : ExprC)
+theorem forallE_erasePwC (n : Name) (ty b₁ b₂ : ExprC)
     (m₁ m₂ : BinderMeta) (hb : ExprC.erasePwC b₁ = ExprC.erasePwC b₂)
     (hm : m₁.bi = m₂.bi) :
-    ExprC.erasePwC (ExprC.ofView (.forallE n ty b₁ m₁))
-      = ExprC.erasePwC (ExprC.ofView (.forallE n ty b₂ m₂)) := by
+    ExprC.erasePwC (.forallE n ty b₁ m₁)
+      = ExprC.erasePwC (.forallE n ty b₂ m₂) := by
   show ExprC.mkForallE n _ (ExprC.erasePwC b₁) ⟨m₁.bi, .never⟩
     = ExprC.mkForallE n _ (ExprC.erasePwC b₂) ⟨m₂.bi, .never⟩
   rw [hb, hm]
 
-theorem ofView_lam_erasePwC (n : Name) (ty b₁ b₂ : ExprC)
+theorem lam_erasePwC (n : Name) (ty b₁ b₂ : ExprC)
     (m₁ m₂ : BinderMeta) (hb : ExprC.erasePwC b₁ = ExprC.erasePwC b₂)
     (hm : m₁.bi = m₂.bi) :
-    ExprC.erasePwC (ExprC.ofView (.lam n ty b₁ m₁))
-      = ExprC.erasePwC (ExprC.ofView (.lam n ty b₂ m₂)) := by
+    ExprC.erasePwC (.lam n ty b₁ m₁)
+      = ExprC.erasePwC (.lam n ty b₂ m₂) := by
   show ExprC.mkLam n _ (ExprC.erasePwC b₁) ⟨m₁.bi, .never⟩
     = ExprC.mkLam n _ (ExprC.erasePwC b₂) ⟨m₂.bi, .never⟩
   rw [hb, hm]

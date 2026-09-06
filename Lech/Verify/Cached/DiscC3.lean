@@ -143,7 +143,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                     if cnP ≤ margs.length ∧
                         (cvj.type.stripPis cnP).isSome = true then
                       internNameM rl.ctor >>= fun ctorI =>
-                      internI (.const ctorI ust) >>= fun h =>
+                      pure (Expr.const ctorI ust) >>= fun h =>
                       mkAppNM h (margs.take cnP) >>= fun fab =>
                       pure (ExprC.wscopedB d fab &&
                         ExprC.looseBVarsBounded 0 fab &&
@@ -192,7 +192,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       projAppsI (mkFEnv env) T TI ust margs i
                           caps.etaFields >>= fun projs =>
                       internNameM caps.etaCtor >>= fun ctorI =>
-                      internI (.const ctorI ust) >>= fun h =>
+                      pure (Expr.const ctorI ust) >>= fun h =>
                       mkAppNM h (margs ++ projs) >>= fun fab =>
                       pure (ExprC.wscopedB d fab &&
                         ExprC.looseBVarsBounded 0 fab &&
@@ -290,8 +290,8 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       refine SimC.bind_left (internNameM_eff hs₂ rl.ctor)
                         (fun s₂n ctorI hs₂ hQctorI => ?_)
                       subst hQctorI
-                      refine SimC.bind_left (internI_eff hs₂
-                        (n := ExprView.const rl.ctor ust))
+                      refine SimC.bind_left (pureC_eff hs₂
+                        (x := Expr.const rl.ctor ust))
                         (fun s₃ hd hs₃ hQh => ?_)
                       refine SimC.bind_left (mkAppNM_eff hs₃ hQh
                         (hmargs.take cnP))
@@ -440,8 +440,8 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                           caps.etaCtor)
                           (fun s₃n ctorI hs₃ hQctorI => ?_)
                         subst hQctorI
-                        refine SimC.bind_left (internI_eff hs₃
-                          (n := ExprView.const caps.etaCtor ust))
+                        refine SimC.bind_left (pureC_eff hs₃
+                          (x := Expr.const caps.etaCtor ust))
                           (fun s₄ hd hs₄ hQh => ?_)
                         refine SimC.bind_left (mkAppNM_eff hs₄ hQh
                           (hmargs.append hQp))
@@ -935,7 +935,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
             us.length = cv.levelParams.length
         · rw [if_pos hlen, if_pos hlen]
           refine SimC.bind_left
-            (internI_eff hs (n := ExprView.bvar 0))
+            (pureBvar_eff hs 0)
             (fun s₁ bvar0 hs₁ hQ0 => ?_)
           have hQ0' : RelC bvar0 (Expr.bvar 0) := hQ0
           refine SimC.bind (prepareMajorC_sim hμ ih henv hs₁

@@ -77,7 +77,7 @@ private theorem whnfCoreC_iota_tail (hμ : mode.verifiedChecks = true) (ih : SSi
     (had : RelC a xa)
     (hwf' : Expr.WScoped d f'x) (hwa : Expr.WScoped d xa) :
     SimC mode env s₀ (RelEC d)
-      (internI (.app f' a) >>= fun fa =>
+      (pure (Expr.app f' a) >>= fun fa =>
         iotaRecI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
         match o with
         | some e'' => (coreKnotI mode (mkFEnv env) f).whnfCore d e''
@@ -90,13 +90,12 @@ private theorem whnfCoreC_iota_tail (hμ : mode.verifiedChecks = true) (ih : SSi
     simp only [Expr.WScoped]
     exact ⟨hwf', hwa⟩
   refine SimC.bind_left
-    (internI_eff hs (n := ExprView.app f' a))
+    (pureC_eff hs (x := Expr.app f' a))
     (fun s₁ fa hs₁ hQfa => ?_)
   have hQfa' : RelC fa (Expr.app f'x xa) := by
     show _ = _
     have h := hQfa
-    rw [show ofViewE (ExprView.app f' a)
-      = Expr.app f' a from rfl, hf'd, had] at h
+    rw [hf'd, had] at h
     exact h
   refine SimC.bind (iotaRecC_sim hμ ih henv hμ hs₁ hQfa' hwapp)
     (fun s₂ o ox hs₂ hPo => ?_)
@@ -181,16 +180,13 @@ theorem whnfAppC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
           (RelCL.cons hax RelCL.nil) hwsub hrest hwrest
       | false =>
         simp only [Bool.false_eq_true, ↓reduceIte]
-        refine SimC.bind_left (internI_eff hs₂
-          (n := ExprView.app (Expr.lam nm ty body mb) a)) (fun s₃ fa hs₃ hQfa => ?_)
+        refine SimC.bind_left (pureC_eff hs₂
+          (x := Expr.app (Expr.lam nm ty body mb) a)) (fun s₃ fa hs₃ hQfa => ?_)
         have hQfa' : RelC fa
             (Expr.app (.lam nm ty body mb) xa) := by
           show _ = _
           have hh := hQfa
-          rw [show ofViewE (ExprView.app
-              (Expr.lam nm ty body mb) a)
-            = Expr.app (.lam nm ty body mb) a
-            from rfl, hax] at hh
+          rw [hax] at hh
           exact hh
         refine SimC.of_eff (mkAppNM_eff hs₃ hQfa' hrest) _
           (fun r hQ => ⟨hQ, ?_⟩)
@@ -268,7 +264,7 @@ theorem whnfAppIotaC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
     (hax : RelC a xa) (hwxa : Expr.WScoped d xa)
     (hrest : RelCL rest xs) (hwrest : ∀ x ∈ xs, Expr.WScoped d x) :
     SimC mode env s₀ (RelEC d)
-      (internI (.app v a) >>= fun fa =>
+      (pure (Expr.app v a) >>= fun fa =>
         iotaRecI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
         match o with
         | some e'' =>
@@ -282,13 +278,12 @@ theorem whnfAppIotaC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
       simp only [Expr.WScoped]
       exact ⟨hwv, hwxa⟩
     refine SimC.bind_left
-      (internI_eff hs (n := ExprView.app v a))
+      (pureC_eff hs (x := Expr.app v a))
       (fun s₁ fa hs₁ hQfa => ?_)
     have hQfa' : RelC fa (Expr.app vx xa) := by
       show _ = _
       have h := hQfa
-      rw [show ofViewE (ExprView.app v a)
-        = Expr.app v a from rfl, hv, hax] at h
+      rw [hv, hax] at h
       exact h
     refine SimC.bind (iotaRecC_sim hμ ih henv hμ hs₁ hQfa' hwapp)
       (fun s₂ o ox hs₂ hPo => ?_)
@@ -383,14 +378,13 @@ theorem betaPeelC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
         simp only [Bool.false_eq_true, ↓reduceIte]
         refine SimC.bind_left (instListM_eff (d := 0) hs₃ htr hacc)
           (fun s₄ f' hs₄ hQf' => ?_)
-        refine SimC.bind_left (internI_eff hs₄ (n := ExprView.app f' a)) (fun s₅ fa hs₅ hQfa => ?_)
+        refine SimC.bind_left (pureC_eff hs₄ (x := Expr.app f' a)) (fun s₅ fa hs₅ hQfa => ?_)
         have hQfa' : RelC fa
             (Expr.app ((Expr.lam nm ty body
               mb).instantiateList ws) xa) := by
           show _ = _
           have hh := hQfa
-          rw [show ofViewE (ExprView.app f' a)
-            = Expr.app f' a from rfl, hQf', hax] at hh
+          rw [hQf', hax] at hh
           exact hh
         refine SimC.of_eff (mkAppNM_eff hs₅ hQfa' hrest) _
           (fun r hQ => ⟨hQ, ?_⟩)
@@ -571,7 +565,7 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
     | none =>
       dsimp only
       exact SimC.of_eff
-        (internI_eff hs₁ (n := ExprView.proj sn ip e')) _
+        (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
         (fun pr hQ => ⟨hQ, hwproj⟩)
     | some entry =>
       dsimp only
@@ -597,7 +591,7 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
         · rename_i hcond
           obtain ⟨rfl, -, -, -⟩ := hcond
           refine SimC.bind_left
-            (internI_eff hs₁ (n := ExprView.bvar 0))
+            (pureBvar_eff hs₁ 0)
             (fun s₂ bvar0 hs₂ hQ0 => ?_)
           refine SimC.bind (projCertAtC_sim ih henv hs₂ hargs
               (fun x hx => hwe'.getAppArgs x hx))
@@ -611,61 +605,61 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
           | false =>
             simp only [Bool.false_eq_true, ↓reduceIte]
             exact SimC.of_eff
-              (internI_eff hs₃ (n := ExprView.proj sn ip e')) _
+              (pureC_eff hs₃ (x := Expr.proj sn ip e')) _
               (fun pr hQ => ⟨hQ, hwproj⟩)
         · exact SimC.of_eff
-            (internI_eff hs₁ (n := ExprView.proj sn ip e')) _
+            (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
             (fun pr hQ => ⟨hQ, hwproj⟩)
       | bvar k =>
         rw [show (Expr.getAppFn e') = Expr.bvar k from hfn.symm]
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | sort u =>
         rw [show (Expr.getAppFn e') = Expr.sort u from hfn.symm]
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | lit l =>
         rw [show (Expr.getAppFn e') = Expr.lit l from hfn.symm]
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | fvar idx nm t =>
         rw [show (Expr.getAppFn e') = Expr.fvar idx nm t
           from hfn.symm]
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | app f₂ a₂ =>
         rw [show (Expr.getAppFn e') = Expr.app (f₂) (a₂)
           from hfn.symm]
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | lam nm t b m =>
         rw [show (Expr.getAppFn e')
           = Expr.lam nm t b m from hfn.symm]
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | forallE nm t b m =>
         rw [show (Expr.getAppFn e')
           = Expr.forallE nm t b m from hfn.symm]
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | letE nm t v b =>
         rw [show (Expr.getAppFn e')
           = Expr.letE nm t v b from hfn.symm]
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | proj s' j' e'' =>
         rw [show (Expr.getAppFn e') = Expr.proj s' j' e''
           from hfn.symm]
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
 
 /-- The head-normalization *loop* simulates its mirror, by induction on
@@ -1889,7 +1883,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       (fun s₁ su hs₁ hsu => ?_)
     subst su
     exact SimC.of_eff
-      (internI_eff hs₁ (n := ExprView.sort (Level.succ u))) _
+      (pureC_eff hs₁ (x := Expr.sort (Level.succ u))) _
       (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
   | bvar k =>
     dsimp only [ExprC.view]
@@ -1959,7 +1953,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           (fun s₁ ni hs₁ hQni => ?_)
         subst ni
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.const natName [])) _
+          (pureC_eff hs₁ (x := Expr.const natName [])) _
           (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
       · rw [if_neg hg, if_neg hg]
         exact SimC.throw
@@ -1971,7 +1965,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           (fun s₁ ni hs₁ hQni => ?_)
         subst ni
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.const stringName [])) _
+          (pureC_eff hs₁ (x := Expr.const stringName [])) _
           (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
       · rw [if_neg hg, if_neg hg]
         exact SimC.throw
@@ -2022,7 +2016,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     | sort u =>
       dsimp only [ExprC.view]
       refine SimC.bind_left
-        (internI_eff hs₂ (n := ExprView.fvar d nm t))
+        (pureC_eff hs₂ (x := Expr.fvar d nm t))
         (fun s₃ fv hs₃ hQfv => ?_)
       refine SimC.bind_left (peelFuelM_eff hs₃)
         (fun s₃f fuel hs₃f _hQfuel => ?_)
@@ -2058,7 +2052,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     | sort u =>
       dsimp only [ExprC.view]
       refine SimC.bind_left
-        (internI_eff hs₂ (n := ExprView.fvar d nm t))
+        (pureC_eff hs₂ (x := Expr.fvar d nm t))
         (fun s₃ fv hs₃ hQfv => ?_)
       refine SimC.bind_left (peelFuelM_eff hs₃)
         (fun s₃f fuel hs₃f _hQfuel => ?_)
@@ -2190,7 +2184,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       (fun s₁ su hs₁ hsu => ?_)
     subst su
     exact SimC.of_eff
-      (internI_eff hs₁ (n := ExprView.sort (Level.succ u))) _
+      (pureC_eff hs₁ (x := Expr.sort (Level.succ u))) _
       (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
   | bvar k =>
     dsimp only [ExprC.view]
@@ -2264,7 +2258,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
           (fun s₁ ni hs₁ hQni => ?_)
         subst ni
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.const natName [])) _
+          (pureC_eff hs₁ (x := Expr.const natName [])) _
           (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
       · rw [if_neg hg, if_neg hg]
         exact SimC.throw
@@ -2276,7 +2270,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
           (fun s₁ ni hs₁ hQni => ?_)
         subst ni
         exact SimC.of_eff
-          (internI_eff hs₁ (n := ExprView.const stringName [])) _
+          (pureC_eff hs₁ (x := Expr.const stringName [])) _
           (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
       · rw [if_neg hg, if_neg hg]
         exact SimC.throw
@@ -2328,7 +2322,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     | sort u =>
       dsimp only [ExprC.view]
       refine SimC.bind_left
-        (internI_eff hs₂ (n := ExprView.fvar d nm t))
+        (pureC_eff hs₂ (x := Expr.fvar d nm t))
         (fun s₃ fv hs₃ hQfv => ?_)
       subst hQfv
       refine SimC.bind_left (inst1M_eff hs₃ rfl rfl)
@@ -2350,7 +2344,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
             (fun s₇ iu hs₇ hQiu => ?_)
           subst hQiu
           exact SimC.of_eff
-            (internI_eff hs₇ (n := ExprView.sort (Level.imax u v))) _
+            (pureC_eff hs₇ (x := Expr.sort (Level.imax u v))) _
             (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
         · simp only [hc, Bool.false_eq_true, ↓reduceIte]
           exact SimC.throw_bind
@@ -2359,7 +2353,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
           (fun s₇ iu hs₇ hQiu => ?_)
         subst hQiu
         exact SimC.of_eff
-          (internI_eff hs₇ (n := ExprView.sort (Level.imax u v))) _
+          (pureC_eff hs₇ (x := Expr.sort (Level.imax u v))) _
           (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
     | bvar k' => exact SimC.throw
     | const nm' us' => exact SimC.throw
@@ -2382,7 +2376,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     try dsimp only
     -- task #168 stage 2: no domain-sort run at the io λ clause
     refine SimC.bind_left
-      (internI_eff hs (n := ExprView.fvar d nm t))
+      (pureC_eff hs (x := Expr.fvar d nm t))
       (fun s₃ fv hs₃ hQfv => ?_)
     subst hQfv
     refine SimC.bind_left (inst1M_eff hs₃ rfl rfl)
@@ -2398,7 +2392,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
         SimC mode env s₆ (RelEC d)
           ((do
             let bAbs ← abstract1M bt d
-            internI (.forallE nm t bAbs m)) : CheckCM ExprC)
+            pure (Expr.forallE nm t bAbs m)) : CheckCM ExprC)
           ((pure (Expr.forallE nm t (Expr.abstract1 bt d) m) :
             FueledM Expr)) := by
       intro s₆ hs₆
@@ -2406,8 +2400,8 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
         (fun s₇ bAbs hs₇ hQ => ?_)
       subst hQ
       exact SimC.of_eff
-        (internI_eff hs₇
-          (n := ExprView.forallE nm t (Expr.abstract1 bt d) m)) _
+        (pureC_eff hs₇
+          (x := Expr.forallE nm t (Expr.abstract1 bt d) m)) _
         (fun r hQ => ⟨hQ, by
           simp only [Expr.WScoped]
           exact ⟨hwtb.1, Lech.WScoped.abstract1 0 hwbt⟩⟩)

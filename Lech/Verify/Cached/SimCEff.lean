@@ -148,14 +148,18 @@ section Effects
 
 variable {s₀ : CState}
 
-private theorem internI_run (n : ExprView ExprC) (s : CState) :
-    internI n s = .ok (ExprC.ofView n, s) := rfl
+/-- Building one node: the cached core allocates it outright, so the
+effect is the value's own reflexivity (task #198 -- this was
+`internI_eff`, whose `internI` was `pure ∘ ofView`). -/
+theorem pureC_eff (hs : CSOK mode env s₀) {x : ExprC} :
+    CEff mode env s₀ (fun i => RelC i x) (pure x) :=
+  CEff.pure hs (RelC.refl x)
 
-/-- Building one node: the port of `internI_eff` (the arena's
-`intern_spec` becomes `ofView_spec`). -/
-theorem internI_eff (hs : CSOK mode env s₀) {n : ExprView ExprC} :
-    CEff mode env s₀ (fun i => RelC i (ofViewE (n))) (internI n) :=
-  CEff.pure hs (ofView_spec n)
+/-- The `bvar` allocation goes through `Expr.mkBvar` (the shared small
+nodes), which is the constructor (`Expr.mkBvar_eq`). -/
+theorem pureBvar_eff (hs : CSOK mode env s₀) (i : Nat) :
+    CEff mode env s₀ (fun e => RelC e (Expr.bvar i)) (pure (Expr.mkBvar i)) :=
+  CEff.pure hs (Expr.mkBvar_eq i)
 
 /-- Converting a whole `Expr`. -/
 theorem internExprM_eff (hs : CSOK mode env s₀) (x : Expr) :

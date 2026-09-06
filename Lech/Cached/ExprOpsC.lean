@@ -72,19 +72,6 @@ representation-generic destructuring seam of the core bodies). -/
   | .lit l .. => .lit l
   | .proj s i e .. => .proj s i e
 
-/-- Build a node from a one-level view (the smart constructors). -/
-@[inline] def ofView : ExprView ExprC → ExprC
-  | .bvar i => mkBVar i
-  | .fvar idx n ty => mkFVar idx n ty
-  | .sort u => mkSort u
-  | .const n us => mkConst n us
-  | .app f a => mkApp f a
-  | .lam n ty b m => mkLam n ty b m
-  | .forallE n ty b m => mkForallE n ty b m
-  | .letE n ty v b => mkLetE n ty v b
-  | .lit l => mkLit l
-  | .proj s i e => mkProj s i e
-
 /-! ## Spines -/
 
 /-- The head of an application spine. -/

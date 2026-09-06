@@ -428,8 +428,8 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                             simp only [beq_iff_eq]
                             by_cases hsc : cf = natSuccName
                             · rw [if_pos hsc, if_pos hsc]
-                              refine SimC.bind_left (internI_eff hs₆b
-                                (n := ExprView.lit (.natVal k)))
+                              refine SimC.bind_left (pureC_eff hs₆b
+                                (x := Expr.lit (.natVal k)))
                                 (fun s₇ kl hs₇ hQk => ?_)
                               have hQk' : RelC kl
                                 (Expr.lit (.natVal k)) := hQk
@@ -570,7 +570,7 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                     | true =>
                       simp only [↓reduceIte]
                       refine SimC.bind_left
-                        (internI_eff hs₇ (n := ExprView.fvar d nm₁ t₁))
+                        (pureC_eff hs₇ (x := Expr.fvar d nm₁ t₁))
                         (fun s₈ fv₁ hs₈ hQf₁ => ?_)
                       have hQf₁' : RelC fv₁
                         (Expr.fvar d nm₁ (t₁)) := hQf₁
@@ -578,7 +578,7 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                         (inst1M_eff hs₈ rfl hQf₁')
                         (fun s₉ ob₁ hs₉ hQo₁ => ?_)
                       refine SimC.bind_left
-                        (internI_eff hs₉ (n := ExprView.fvar d nm₂ t₂))
+                        (pureC_eff hs₉ (x := Expr.fvar d nm₂ t₂))
                         (fun s₁₀ fv₂ hs₁₀ hQf₂ => ?_)
                       have hQf₂' : RelC fv₂
                         (Expr.fvar d nm₂ (t₂)) := hQf₂
@@ -642,7 +642,7 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                     | true =>
                       simp only [↓reduceIte]
                       refine SimC.bind_left
-                        (internI_eff hs₇ (n := ExprView.fvar d nm₁ t₁))
+                        (pureC_eff hs₇ (x := Expr.fvar d nm₁ t₁))
                         (fun s₈ fv₁ hs₈ hQf₁ => ?_)
                       have hQf₁' : RelC fv₁
                         (Expr.fvar d nm₁ (t₁)) := hQf₁
@@ -650,7 +650,7 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                         (inst1M_eff hs₈ rfl hQf₁')
                         (fun s₉ ob₁ hs₉ hQo₁ => ?_)
                       refine SimC.bind_left
-                        (internI_eff hs₉ (n := ExprView.fvar d nm₂ t₂))
+                        (pureC_eff hs₉ (x := Expr.fvar d nm₂ t₂))
                         (fun s₁₀ fv₂ hs₁₀ hQf₂ => ?_)
                       have hQf₂' : RelC fv₂
                         (Expr.fvar d nm₂ (t₂)) := hQf₂
@@ -773,8 +773,8 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                             simp only [beq_iff_eq]
                             by_cases hsc : cf = natSuccName
                             · rw [if_pos hsc, if_pos hsc]
-                              refine SimC.bind_left (internI_eff hs₆b
-                                (n := ExprView.lit (.natVal k)))
+                              refine SimC.bind_left (pureC_eff hs₆b
+                                (x := Expr.lit (.natVal k)))
                                 (fun s₇ kl hs₇ hQk => ?_)
                               have hQk' : RelC kl
                                 (Expr.lit (.natVal k)) := hQk

@@ -92,32 +92,9 @@ def OptEr : Option ExprC → Option Expr → Prop
 
 
 
-/-- The `Expr`-side view builder — the counterpart of `ExprC.ofView`
-(the core's `internI` at this representation).  `Expr.view` is its
-inverse (`ofViewE_view`). -/
-def ofViewE : ExprView Expr → Expr
-  | .bvar i => .bvar i
-  | .fvar idx n ty => .fvar idx n ty
-  | .sort u => .sort u
-  | .const n us => .const n us
-  | .app f a => .app f a
-  | .lam n ty b m => .lam n ty b m
-  | .forallE n ty b m => .forallE n ty b m
-  | .letE n ty v b => .letE n ty v b
-  | .lit l => .lit l
-  | .proj s i e => .proj s i e
-
-@[simp] theorem ofViewE_view (a : Expr) : ofViewE a.view = a := by
-  cases a <;> rfl
-
 /-- Reading a node one level down is the pure view. -/
 theorem view_spec (e : ExprC) : (view e) = (Expr.view e) := by
   cases e <;> rfl
-
-/-- Building a node from a one-level view is the pure builder — the
-transposition of the arena's `intern_spec`. -/
-theorem ofView_spec (v : ExprView ExprC) : (ofView v) = ofViewE v := by
-  cases v <;> simp [ofView, ofViewE]
 
 /-! ## Spines -/
 

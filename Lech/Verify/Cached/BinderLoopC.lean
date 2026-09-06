@@ -44,7 +44,7 @@ collapses show up only here:
 
 The `mk`/`mkX` premise of `annotateBindersOutC_sim` is the transposition
 of the interned `denoteNode`-agreement premise: the built view
-plus `ofViewE` agreement (what `internI_eff` consumes and
+plus `ofViewE` agreement (what `pureC_eff` consumes and
 produces here).
 
 With this the port of `BinderLoopI.lean` is COMPLETE — every theorem of
@@ -139,7 +139,7 @@ theorem inferLamsOutC_sim {d : Nat} :
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-chain)")
           let tyAbs ← abstractRangeM tyo d j
-          let node ← internI (.forallE n tyAbs cur mb)
+          let node ← pure (Expr.forallE n tyAbs cur mb)
           inferLamsOutI mode d rest (j - 1) node mb.pw)
         (do
           if mode.verifiedChecks && !(mb.pw.equiv prevPw) then
@@ -152,7 +152,7 @@ theorem inferLamsOutC_sim {d : Nat} :
       refine SimC.bind_left (abstractRangeM_eff hs htyo)
         (fun s₃ tyAbs hs₃ hQab => ?_)
       refine SimC.bind_left
-        (internI_eff hs₃ (n := ExprView.forallE n tyAbs cur mb))
+        (pureC_eff hs₃ (x := Expr.forallE n tyAbs cur mb))
         (fun s₄ node hs₄ hQnode => ?_)
       have hQnode' : RelC node
           (Expr.forallE n (tyox.abstractRange d j) curx mb) := by
@@ -297,7 +297,7 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
           let wtty ← (coreKnotI mode (mkFEnv env) f).whnf (d + k) tty
           match ← viewI wtty with
           | some (.sort _) => do
-            let fv ← internI (.fvar (d + k) n tyo)
+            let fv ← pure (Expr.fvar (d + k) n tyo)
             inferLamsI mode (coreKnotI mode (mkFEnv env) f) d fuel body (k + 1)
               (fvs.push fv) ((n, tyo, mb) :: stk)
           | _ => throw (.invalid "expected a sort")
@@ -333,7 +333,7 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
       case sort u =>
         dsimp only [ExprC.view]
         refine SimC.bind_left
-          (internI_eff hs₃ (n := ExprView.fvar (d + k) nm tyo))
+          (pureC_eff hs₃ (x := Expr.fvar (d + k) nm tyo))
           (fun s₄ fv hs₄ hQfv => ?_)
         have hQfv' : RelC fv
             (Expr.fvar (d + k) nm ((Expr.instantiateList ty ws))) := by
@@ -444,7 +444,7 @@ theorem inferPisLeafC_sim (ih : SSimC mode env f) {d : Nat}
     dsimp only [ExprC.view]
     refine SimC.bind (inferPisOutC_sim hs₃ hstk rfl PWMemoInvC.empty)
       (fun s₄ iv ivx hs₄ hiv => ?_)
-    exact SimC.of_eff (internI_eff hs₄ (n := ExprView.sort iv))
+    exact SimC.of_eff (pureC_eff hs₄ (x := Expr.sort iv))
       _ (fun s hQ => by
         show _ = _
         rw [show s = Expr.sort iv from hQ, hiv])
@@ -476,7 +476,7 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
           let wtty ← (coreKnotI mode (mkFEnv env) f).whnf (d + k) tty
           match ← viewI wtty with
           | some (.sort u) => do
-            let fv ← internI (.fvar (d + k) n tyo)
+            let fv ← pure (Expr.fvar (d + k) n tyo)
             inferPisI mode (coreKnotI mode (mkFEnv env) f) d fuel body
               (k + 1) (fvs.push fv) ((u, mb.pw) :: stk)
           | _ => throw (.invalid "expected a sort")
@@ -514,7 +514,7 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
       case sort u =>
         dsimp only [ExprC.view]
         refine SimC.bind_left
-          (internI_eff hs₃ (n := ExprView.fvar (d + k) nm tyo))
+          (pureC_eff hs₃ (x := Expr.fvar (d + k) nm tyo))
           (fun s₄ fv hs₄ hQfv => ?_)
         have hQfv' : RelC fv
             (Expr.fvar (d + k) nm ((Expr.instantiateList ty ws))) := by
@@ -904,11 +904,11 @@ theorem annotBinderMetaI_eq (pw? : Option PropWhen) (mb : BinderMeta) :
   cases pw? <;> rfl
 
 theorem annotateBindersOutC_sim
-    {mk : Name → ExprC → ExprC → BinderMeta → ExprView ExprC}
+    {mk : Name → ExprC → ExprC → BinderMeta → ExprC}
     {mkX : Name → Expr → Expr → BinderMeta → Expr}
     (hmk : ∀ (n : Name) (ty : ExprC) (tyx : Expr) (b : ExprC) (bx : Expr)
       (mi : BinderMeta), RelC ty tyx → RelC b bx →
-        ofViewE (mk n ty b mi) = mkX n tyx bx mi) {d : Nat} :
+        mk n ty b mi = mkX n tyx bx mi) {d : Nat} :
     ∀ {stk : List AnnotBinderEntry} {stkx : List AnnotBinderEntryX}
       {j : Nat} {pw? : Option PropWhen} {cur : ExprC} {curx : Expr}
       {s₀ : CState},
@@ -935,7 +935,7 @@ theorem annotateBindersOutC_sim
       show SimC mode env s₀ RelDC
         (do
           let tyAbs ← abstractRangeM ty' d j
-          let node ← internI (mk n tyAbs cur (annotBinderMetaI pw? bi))
+          let node ← pure (mk n tyAbs cur (annotBinderMetaI pw? bi))
           annotateBindersOutI mk d
             (pw?.map fun _ => (annotBinderMetaI pw? bi).pw)
             rest (j - 1) node)
@@ -948,8 +948,8 @@ theorem annotateBindersOutC_sim
       refine SimC.bind_left (abstractRangeM_eff hs hty')
         (fun s₁ tyAbs hs₁ hQab => ?_)
       refine SimC.bind_left
-        (internI_eff hs₁
-          (n := _))
+        (pureC_eff hs₁
+          (x := _))
         (fun s₂ node hs₂ hQnode => ?_)
       refine ihOut hs₂ hrest ?_
       show _ = _
@@ -1084,7 +1084,6 @@ theorem annotatePisLeafC_sim (ih : SSimC mode env f) {d : Nat}
     (fun s₅ cur hs₅ hQcur => ?_)
   refine annotateBindersOutC_sim ?_ hs₅ hstk hQcur
   exact fun _n ty tyx b bx _mi hty hb => by
-    dsimp only [ofViewE]
     rw [hty, hb]
 
 theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
@@ -1110,7 +1109,7 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
         | some (.forallE n ty body mb) => do
           let tyo ← instListRevM ty fvs
           let ty' ← (coreKnotI mode (mkFEnv env) f).annotate (d + k) tyo
-          let fv ← internI (.fvar (d + k) n ty')
+          let fv ← pure (Expr.fvar (d + k) n ty')
           annotatePisI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fuel body
             (k + 1) (fvs.push fv) ((n, ty', mb) :: stk)
         | _ =>
@@ -1139,7 +1138,7 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
         (fun s₂ ty' tyx' hs₂ hPty' => ?_)
       obtain ⟨hty'd, hwty'⟩ := hPty'
       refine SimC.bind_left
-        (internI_eff hs₂ (n := ExprView.fvar (d + k) nm ty'))
+        (pureC_eff hs₂ (x := Expr.fvar (d + k) nm ty'))
         (fun s₃ fv hs₃ hQfv => ?_)
       have hQfv' : RelC fv (Expr.fvar (d + k) nm tyx') := by
         show _ = _
@@ -1187,7 +1186,6 @@ theorem annotateLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
     (fun s₆ cur hs₆ hQcur => ?_)
   refine annotateBindersOutC_sim ?_ hs₆ hstk hQcur
   exact fun _n ty tyx b bx _mi hty hb => by
-    dsimp only [ofViewE]
     rw [hty, hb]
 
 theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
@@ -1213,7 +1211,7 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
         | some (.lam n ty body mb) => do
           let tyo ← instListRevM ty fvs
           let ty' ← (coreKnotI mode (mkFEnv env) f).annotate (d + k) tyo
-          let fv ← internI (.fvar (d + k) n ty')
+          let fv ← pure (Expr.fvar (d + k) n ty')
           annotateLamsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fuel body
             (k + 1) (fvs.push fv) ((n, ty', mb) :: stk)
         | _ =>
@@ -1242,7 +1240,7 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
         (fun s₂ ty' tyx' hs₂ hPty' => ?_)
       obtain ⟨hty'd, hwty'⟩ := hPty'
       refine SimC.bind_left
-        (internI_eff hs₂ (n := ExprView.fvar (d + k) nm ty'))
+        (pureC_eff hs₂ (x := Expr.fvar (d + k) nm ty'))
         (fun s₃ fv hs₃ hQfv => ?_)
       have hQfv' : RelC fv (Expr.fvar (d + k) nm tyx') := by
         show _ = _

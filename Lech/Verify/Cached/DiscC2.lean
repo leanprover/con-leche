@@ -334,9 +334,9 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
       | some (.forallE _ ty₂ _ m₂) =>
         (coreKnotI mode (mkFEnv env) f).defeq d ty₂ ty₁ >>= fun r =>
         if r then
-          internI (.fvar d n₁ ty₁) >>= fun fv =>
+          pure (Expr.fvar d n₁ ty₁) >>= fun fv =>
           inst1M body₁ fv >>= fun b₁ =>
-          internI (.app b fv) >>= fun ba =>
+          pure (Expr.app b fv) >>= fun ba =>
           (coreKnotI mode (mkFEnv env) f).defeq (d + 1) b₁ ba
             >>= fun r₂ =>
           if r₂ = true then
@@ -393,13 +393,13 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
     | true =>
       simp only [↓reduceIte]
       refine SimC.bind_left
-        (internI_eff hs₄ (n := ExprView.fvar d n₁ ty₁))
+        (pureC_eff hs₄ (x := Expr.fvar d n₁ ty₁))
         (fun s₅ fv hs₅ hQfv => ?_)
       have hQfv' : RelC fv (.fvar d n₁ (ty₁)) := hQfv
       refine SimC.bind_left (inst1M_eff hs₅ hbody hQfv')
         (fun s₆ b₁ hs₆ hQb₁ => ?_)
       refine SimC.bind_left
-        (internI_eff hs₆ (n := ExprView.app b fv))
+        (pureC_eff hs₆ (x := Expr.app b fv))
         (fun s₇ ba hs₇ hQba => ?_)
       have hQba' : RelC ba (.app b (.fvar d n₁ (ty₁))) := by
         show _ = _
@@ -677,14 +677,14 @@ theorem projAppsFnC_eff (T : Name) (us' : List Level) :
   | i :: rest, s₀, hs, targs, xs, b, xb, htargs, hb => by
     show CEff mode env s₀ _
       (projFnIdxM T i >>= fun pf =>
-        internI (.const pf us') >>= fun hd =>
+        pure (Expr.const pf us') >>= fun hd =>
         mkAppNM hd (targs ++ [b]) >>= fun r =>
         projAppsFnI T us' targs b rest >>= fun rs =>
         pure (r :: rs))
     refine CEff.bind (projFnIdxM_eff hs T i) (fun s₀' pf hs₀' hQpf => ?_)
     subst hQpf
     refine CEff.bind
-      (internI_eff hs₀' (n := ExprView.const (projFnName T i) us'))
+      (pureC_eff hs₀' (x := Expr.const (projFnName T i) us'))
       (fun s₁ hd hs₁ hQh => ?_)
     refine CEff.bind
       (mkAppNM_eff hs₁ hQh (htargs.append (RelCL.cons hb RelCL.nil)))
@@ -704,10 +704,10 @@ theorem projNodesC_eff (T : Name) :
   | i :: rest, s₀, hs, b, xb, hb => by
     obtain rfl := hb
     show CEff mode env s₀ _
-      (internI (.proj T i b) >>= fun r =>
+      (pure (Expr.proj T i b) >>= fun r =>
         projNodesI T b rest >>= fun rs =>
         pure (r :: rs))
-    refine CEff.bind (internI_eff hs (n := ExprView.proj T i b))
+    refine CEff.bind (pureC_eff hs (x := Expr.proj T i b))
       (fun s₁ r hs₁ hQr => ?_)
     refine CEff.bind (projNodesC_eff T rest hs₁ rfl)
       (fun s₂ rs hs₂ hQrs => ?_)

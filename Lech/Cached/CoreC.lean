@@ -365,7 +365,7 @@ def projAppsFnI (T : Name) (us' : List Level) (targs : List ExprC)
   | [] => pure []
   | i :: rest => do
     let pf ← projFnIdxM T i
-    let h ← internI (.const pf us')
+    let h ← pure (Expr.const pf us')
     let r ← mkAppNM h (targs ++ [b])
     let rs ← projAppsFnI T us' targs b rest
     pure (r :: rs)
@@ -375,7 +375,7 @@ W4c). -/
 def projNodesI (T : Name) (b : ExprC) : List Nat → CheckCM (List ExprC)
   | [] => pure []
   | i :: rest => do
-    let r ← internI (.proj T i b)
+    let r ← pure (Expr.proj T i b)
     let rs ← projNodesI T b rest
     pure (r :: rs)
 
@@ -525,9 +525,9 @@ def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
   | some (.forallE _ ty₂ _ m₂) => do
     -- prop-ness agreement checked LAST (task #161); see `etaCert`
     if ← r.defeq depth ty₂ ty₁ then do
-      let fv ← internI (.fvar depth n₁ ty₁)
+      let fv ← pure (Expr.fvar depth n₁ ty₁)
       let b₁ ← inst1M body₁ fv
-      let ba ← internI (.app b fv)
+      let ba ← pure (Expr.app b fv)
       unless ← r.defeq (depth + 1) b₁ ba do return false
       if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (eta)")
@@ -566,7 +566,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 if cnP ≤ margs.length ∧
                     (cvj.type.stripPis cnP).isSome = true then do
                   let ctorI ← internNameM rl.ctor
-                  let h ← internI (.const ctorI ust)
+                  let h ← pure (Expr.const ctorI ust)
                   let fab ← mkAppNM h (margs.take cnP)
                   if ← pure (ExprC.wscopedB depth fab &&
                       ExprC.looseBVarsBounded 0 fab &&
@@ -618,7 +618,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   let TI ← internNameM T
                   let projs ← projAppsI fe T TI ust margs major caps.etaFields
                   let ctorI ← internNameM caps.etaCtor
-                  let h ← internI (.const ctorI ust)
+                  let h ← pure (Expr.const ctorI ust)
                   let fab ← mkAppNM h (margs ++ projs)
                   if ← pure (ExprC.wscopedB depth fab &&
                       ExprC.looseBVarsBounded 0 fab &&
@@ -711,7 +711,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
       -- checker change #9 (twin of `Core.lean`'s `iotaRec`): guard the
       -- recursor's level arity before the rule's RHS is instantiated.
       if args.length = mI + 1 ∧ us.length = cv.levelParams.length then do
-        let bvar0 ← internI (.bvar 0)
+        let bvar0 ← pure (Expr.mkBvar 0)
         let major ← prepareMajorI mode r fe depth cn rules (args.getD mI bvar0)
         match ← viewI (ExprC.getAppFn major) with
         | some (.const cj usj) => do
@@ -835,10 +835,10 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           if ← r.defeq depth ta ty then
             betaPeelI r fe depth k body [a] rest
           else do
-            let fa ← internI (.app v a)
+            let fa ← pure (Expr.app v a)
             mkAppNM fa rest
     | _ => do
-      let fa ← internI (.app v a)
+      let fa ← pure (Expr.app v a)
       match ← iotaRecI mode r fe depth fa with
       | some e'' => do
         let v' ← k e''
@@ -876,7 +876,7 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             betaPeelI r fe depth k body (a :: acc) rest
           else do
             let f' ← instListM t acc
-            let fa ← internI (.app f' a)
+            let fa ← pure (Expr.app f' a)
             mkAppNM fa rest
     | _ => do
       let e' ← instListM t acc
@@ -924,7 +924,7 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then do
-            let bvar0 ← internI (.bvar 0)
+            let bvar0 ← pure (Expr.mkBvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
             -- task #100 de-gating: the certificate runs
             -- unconditionally at the verified mode (the former
@@ -934,10 +934,10 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             -- trusted mode runs none (`projCertAt`).
             if ← projCertAtI r fe depth mode.verifiedChecks mode.betaGate c us args then
               k arg
-            else internI (.proj sn i e')
-          else internI (.proj sn i e')
-        | _ => internI (.proj sn i e')
-      | none => internI (.proj sn i e')
+            else pure (Expr.proj sn i e')
+          else pure (Expr.proj sn i e')
+        | _ => pure (Expr.proj sn i e')
+      | none => pure (Expr.proj sn i e')
     | some (.letE _ _ v b) => do
       -- zeta on demand (official `whnf_core` Let case); `inst1M` is the
       -- sharing-preserving arena substitution
@@ -1109,7 +1109,7 @@ def inferLamsOutI (d : Nat) :
     if mode.verifiedChecks && !(mb.pw.equiv prevPw) then
       throw (.notImplemented "sort-annotation mismatch (lam-cod-chain)")
     let tyAbs ← abstractRangeM tyo d j
-    let node ← internI (.forallE n tyAbs cur mb)
+    let node ← pure (Expr.forallE n tyAbs cur mb)
     inferLamsOutI d rest (j - 1) node mb.pw
 
 /-- Leaf phase of `inferLamsI`: bulk-open the residual body, infer it,
@@ -1173,7 +1173,7 @@ def inferLamsI (r : CoreFnsI) (d : Nat) :
       let wtty ← r.whnf (d + k) tty
       match ← viewI wtty with
       | some (.sort _) => do
-        let fv ← internI (.fvar (d + k) n tyo)
+        let fv ← pure (Expr.fvar (d + k) n tyo)
         inferLamsI r d fuel body (k + 1) (fvs.push fv)
           ((n, tyo, mb) :: stk)
       | _ => throw (.invalid "expected a sort")
@@ -1205,7 +1205,7 @@ def inferPisLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
   match ← viewI wbt with
   | some (.sort v) => do
     let iv ← inferPisOutI mode stk v ({} : PWMemo)
-    internI (.sort iv)
+    pure (Expr.sort iv)
   | _ => throw (.invalid "expected a sort")
 
 /-- ∀-telescope inference loop (task #100 stage 6: the `∀`-rule infers
@@ -1224,7 +1224,7 @@ def inferPisI (r : CoreFnsI) (d : Nat) :
       let wtty ← r.whnf (d + k) tty
       match ← viewI wtty with
       | some (.sort u) => do
-        let fv ← internI (.fvar (d + k) n tyo)
+        let fv ← pure (Expr.fvar (d + k) n tyo)
         inferPisI r d fuel body (k + 1) (fvs.push fv)
           ((u, mb.pw) :: stk)
       | _ => throw (.invalid "expected a sort")
@@ -1237,7 +1237,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
     match ← viewI e with
     | some (.sort u) => do
       let su ← internLM (.succ u)
-      internI (.sort su)
+      pure (Expr.sort su)
     | some (.fvar idx _ ty) =>
       if idx < depth then pure ty
       else throw (.invalid "free variable out of scope")
@@ -1255,12 +1255,12 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
     | some (.lit (.natVal _)) => do
       if natLitSupportedF fe then do
         let ni ← internNameM natName
-        internI (.const ni [])
+        pure (Expr.const ni [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
     | some (.lit (.strVal _)) => do
       if strLitSupportedF fe then do
         let si ← internNameM stringName
-        internI (.const si [])
+        pure (Expr.const si [])
       else throw (.notImplemented
         "string literals before the String support declarations")
     | some (.forallE n ty body mb) => do
@@ -1271,7 +1271,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       let wtty ← r.whnf depth tty
       match ← viewI wtty with
       | some (.sort u) => do
-        let fv ← internI (.fvar depth n ty)
+        let fv ← pure (Expr.fvar depth n ty)
         let fuel ← peelFuelM
         inferPisI mode r depth fuel body 1 #[fv] [(u, mb.pw)]
       | _ => throw (.invalid "expected a sort")
@@ -1282,7 +1282,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       | some (.sort _) => do
         -- Binder-telescope loop (task #72): peel the whole λ-chain,
         -- open in bulk, rebuild with `abstractRange`.
-        let fv ← internI (.fvar depth n ty)
+        let fv ← pure (Expr.fvar depth n ty)
         let fuel ← peelFuelM
         inferLamsI mode r depth fuel body 1 #[fv] [(n, ty, mb)]
       | _ => throw (.invalid "expected a sort")
@@ -1365,7 +1365,7 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       let wtty ← r.whnf depth tty
       match ← viewI wtty with
       | some (.sort u) => do
-        let fv ← internI (.fvar depth n ty)
+        let fv ← pure (Expr.fvar depth n ty)
         let ob ← inst1M body fv
         let bt ← r.infer (depth + 1) ob
         let v ← ensureSortI r (depth + 1) bt
@@ -1373,12 +1373,12 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
           unless (Level.zeronessOf v).equiv mb.pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         let iu ← internLM (.imax u v)
-        internI (.sort iu)
+        pure (Expr.sort iu)
       | _ => throw (.invalid "expected a sort")
     | some (.lam n ty body mb) => do
       -- the pure io λ clause, chained; no domain-sort run (task #168
       -- stage 2, as in the spec)
-      let fv ← internI (.fvar depth n ty)
+      let fv ← pure (Expr.fvar depth n ty)
       let ob ← inst1M body fv
       let bt ← r.infer (depth + 1) ob
       if mode.verifiedChecks then
@@ -1394,7 +1394,7 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-leaf)")
       let bAbs ← abstract1M bt depth
-      internI (.forallE n ty bAbs mb)
+      pure (Expr.forallE n ty bAbs mb)
     | _ => inferBodyI mode r fe depth e
 
 /-- Twin of `boolTrueShortcut`. -/
@@ -1481,7 +1481,7 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       match nn, ← viewI f with
       | k + 1, some (.const c []) =>
         if ← beqNameM c natSuccName then do
-          let kl ← internI (.lit (.natVal k))
+          let kl ← pure (Expr.lit (.natVal k))
           r.defeq depth kl x
         else stuckIrrelI mode r fe depth a' b'
       | _, _ => stuckIrrelI mode r fe depth a' b'
@@ -1489,7 +1489,7 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       match nn, ← viewI f with
       | k + 1, some (.const c []) =>
         if ← beqNameM c natSuccName then do
-          let kl ← internI (.lit (.natVal k))
+          let kl ← pure (Expr.lit (.natVal k))
           r.defeq depth x kl
         else stuckIrrelI mode r fe depth a' b'
       | _, _ => stuckIrrelI mode r fe depth a' b'
@@ -1521,9 +1521,9 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.forallE n₁ ty₁ body₁ m₁), some (.forallE n₂ ty₂ body₂ m₂) => do
       -- prop-ness agreement checked LAST (task #161); see `defeqBody`
       unless ← r.defeq depth ty₁ ty₂ do return false
-      let fv₁ ← internI (.fvar depth n₁ ty₁)
+      let fv₁ ← pure (Expr.fvar depth n₁ ty₁)
       let b₁ ← inst1M body₁ fv₁
-      let fv₂ ← internI (.fvar depth n₂ ty₂)
+      let fv₂ ← pure (Expr.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
       if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
@@ -1531,9 +1531,9 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       pure true
     | some (.lam n₁ ty₁ body₁ m₁), some (.lam n₂ ty₂ body₂ m₂) => do
       unless ← r.defeq depth ty₁ ty₂ do return false
-      let fv₁ ← internI (.fvar depth n₁ ty₁)
+      let fv₁ ← pure (Expr.fvar depth n₁ ty₁)
       let b₁ ← inst1M body₁ fv₁
-      let fv₂ ← internI (.fvar depth n₂ ty₂)
+      let fv₂ ← pure (Expr.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
       if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
@@ -1611,13 +1611,13 @@ computation, in the leaf phase, and every node above reads).  `none` =
 no write (unverified mode).  A node whose input datum is a real
 annotation (`pwWritten`) is left alone — validation judges it, and it
 is that datum that travels on. -/
-def annotateBindersOutI (mk : Name → ExprC → ExprC → BinderMeta → ExprView ExprC)
+def annotateBindersOutI (mk : Name → ExprC → ExprC → BinderMeta → ExprC)
     (d : Nat) (pw? : Option PropWhen) :
     List AnnotBinderEntry → Nat → ExprC → CheckCM ExprC
   | [], _j, cur => pure cur
   | (n, ty', mb) :: rest, j, cur => do
     let tyAbs ← abstractRangeM ty' d j
-    let node ← internI (mk n tyAbs cur (annotBinderMetaI pw? mb))
+    let node ← pure (mk n tyAbs cur (annotBinderMetaI pw? mb))
     -- Task #161 P5 (proof-lane repair): thread the datum *just
     -- written* outward rather than re-stamping the leaf's.  The two
     -- differ only above an explicitly-annotated binder, and there the
@@ -1677,7 +1677,7 @@ def annotatePisI (r : CoreFnsI) (fe : FEnv) (d : Nat) :
     | some (.forallE n ty body mb) => do
       let tyo ← instListRevM ty fvs
       let ty' ← r.annotate (d + k) tyo
-      let fv ← internI (.fvar (d + k) n ty')
+      let fv ← pure (Expr.fvar (d + k) n ty')
       annotatePisI r fe d fuel body (k + 1) (fvs.push fv)
         ((n, ty', mb) :: stk)
     | _ => annotatePisLeafI r fe d t k fvs stk
@@ -1724,7 +1724,7 @@ def annotateLamsI (r : CoreFnsI) (fe : FEnv) (d : Nat) :
     | some (.lam n ty body mb) => do
       let tyo ← instListRevM ty fvs
       let ty' ← r.annotate (d + k) tyo
-      let fv ← internI (.fvar (d + k) n ty')
+      let fv ← pure (Expr.fvar (d + k) n ty')
       annotateLamsI r fe d fuel body (k + 1) (fvs.push fv)
         ((n, ty', mb) :: stk)
     | _ => annotateLamsLeafI r fe d t k fvs stk
@@ -1752,12 +1752,12 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
       -- the driver's inference sweep)
       let f' ← r.annotate depth f
       let a' ← r.annotate depth a
-      internI (.app f' a')
+      pure (Expr.app f' a')
     | some (.forallE n ty body mb) => do
       -- Binder-telescope loop (task #72): peel the whole ∀-chain,
       -- open in bulk, rebuild with `abstractRange`.
       let ty' ← r.annotate depth ty
-      let fv ← internI (.fvar depth n ty')
+      let fv ← pure (Expr.fvar depth n ty')
       let fuel ← peelFuelM
       annotatePisI r fe depth fuel body 1 #[fv] [(n, ty', mb)]
     | some (.lam n ty body mb) => do
@@ -1766,12 +1766,12 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
       -- inputs always are, and the cached bound decides in O(1).
       if (← bvarBoundM e) = 0 then do
         let ty' ← r.annotate depth ty
-        let fv ← internI (.fvar depth n ty')
+        let fv ← pure (Expr.fvar depth n ty')
         let fuel ← peelFuelM
         annotateLamsI r fe depth fuel body 1 #[fv] [(n, ty', mb)]
       else do
         let ty' ← r.annotate depth ty
-        let fv ← internI (.fvar depth n ty')
+        let fv ← pure (Expr.fvar depth n ty')
         let ob ← inst1M body fv
         let body' ← r.annotate (depth + 1) ob
         let bAbs ← abstract1M body' depth
@@ -1780,7 +1780,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
         let pw ← if !pwWritten mb.pw then
             annotPwLamI r fe (depth + 1) body'
           else pure mb.pw
-        internI (.lam n ty' bAbs ⟨mb.bi, pw⟩)
+        pure (Expr.lam n ty' bAbs ⟨mb.bi, pw⟩)
     | some (.letE _ ty v b) => do
       -- the body with the value transparent (zeta at annotate;
       -- `inst1M` keeps the substitution sharing-preserving).  Task #161
@@ -1803,7 +1803,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
           let targs ← pure (ExprC.getAppArgs te)
           unless targs.length = entry.numParams do
             throw (.invalid "projection parameter mismatch")
-          internI (.proj T i e')
+          pure (Expr.proj T i e')
         | none =>
           throw (if (fe.findProj? Tn 0).isSome then
               CheckError.invalid "projection index out of range"

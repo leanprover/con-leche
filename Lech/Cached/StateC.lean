@@ -182,10 +182,6 @@ abbrev CheckCM := StateT CState CheckM
 @[inline] def viewI (e : ExprC) : CheckCM (Option (ExprView ExprC)) :=
   pure (some e.view)
 
-/-- Build one node. -/
-@[inline] def internI (n : ExprView ExprC) : CheckCM ExprC :=
-  pure (ExprC.ofView n)
-
 /-- Convert a whole `Expr` (fabricated terms, stored instantiations).
 The identity since task #172 B3a — one type — kept under the interned
 twin's name so the two read the same. -/
