@@ -274,12 +274,6 @@ theorem propIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
   unfold propIrrel
   atF_tac
 
-theorem pairEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (pairEtaCert mi (fueledFns mode env) env d a b).val F =
-      pairEtaCert mi (pureFns mode env F) env d a b := by
-  unfold pairEtaCert
-  atF_tac
-
 theorem structEtaCertWith_atF (d : Nat) (a b wtb : Expr) (F : Nat) :
     (structEtaCertWith mi (fueledFns mode env) env d a b wtb).val F =
       structEtaCertWith mi (pureFns mode env F) env d a b wtb := by
@@ -298,11 +292,14 @@ theorem etaCert_atF (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta) (b :
   unfold etaCert
   atF_tac
 
-theorem projCert_atF (d : Nat) (e₂ : Expr) (i : Nat) (nP : Nat) (F : Nat) :
-    (projCert (fueledFns mode env) env d e₂ i nP).val F =
-      projCert (pureFns mode env F) env d e₂ i nP := by
+theorem projCert_atF (d : Nat) (lic : Bool) (c : Name) (us : List Level)
+    (args : List Expr) (F : Nat) :
+    (projCert (fueledFns mode env) env d lic c us args).val F =
+      projCert (pureFns mode env F) env d lic c us args := by
   unfold projCert
-  atF_tac
+  split
+  · exact iotaCerts_atF d lic F _ _
+  · rfl
 
 macro "atF_step2" : tactic =>
   `(tactic| repeat (first
@@ -316,7 +313,6 @@ macro "atF_step2" : tactic =>
     | (rw [ensureSort_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
-    | (rw [pairEtaCert_atF])
     | (rw [structEtaCertWith_atF])
     | (rw [structUnitCert_atF])
     | (rw [etaCert_atF])
@@ -406,7 +402,6 @@ macro "atF_step3" : tactic =>
     | (rw [ensureSort_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
-    | (rw [pairEtaCert_atF])
     | (rw [structEtaCertWith_atF])
     | (rw [structUnitCert_atF])
     | (rw [etaCert_atF])
@@ -452,7 +447,6 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [ensureSort_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
-    | (rw [pairEtaCert_atF])
     | (rw [structEtaCertWith_atF])
     | (rw [structUnitCert_atF])
     | (rw [etaCert_atF])

@@ -189,7 +189,7 @@ end ReducibilityHint
 /-- The trusted basis inductives (hand-written set models; everything
 else is reduced to these by the lean-inductive-models preprocessor). -/
 inductive BasisKind where
-  | eqK | natK | psigmaK | punitK | emptyK | quotK
+  | eqK | natK | punitK | emptyK | quotK
   deriving DecidableEq, Repr, Inhabited
 
 
@@ -224,7 +224,9 @@ structName idx`; see `Env.findProj?`).
   as `.proj` nodes of the subject) and reduced by the generic
   structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i`, guarded at possibly-Prop
   instances by the stored `fieldSort`/`structSort` levels.  Installed
-  by the pinned `PSigma'` basis block.
+  by the direct simple-structure path only (task #175 W6: the pinned
+  `PSigma'` pair entries are retired), so every native entry is
+  tower-backed (`tower = true`).
 * `native = false`: an inert entry — the modeled path's
   elimination-template entry (`ty` the closed junk `Prop`) or the
   direct path's `directInertEntry` at an unadmitted slot (`ty` is
@@ -250,8 +252,7 @@ structure ProjEntry where
   official `infer_proj` requires to be `Prop` when projecting from a
   propositional structure (task #175 W4c/O4, `directProjGuards`); the
   tower infer branch checks it at every use of a `Prop`-declared
-  structure.  For the pinned pair entries it is the field's own
-  sort. -/
+  structure. -/
   fieldSort : Level
   /-- the parent's result sort (native entries only) -/
   structSort : Level
@@ -263,10 +264,10 @@ structure ProjEntry where
   a tower-backed entry installed by the direct-structure path (the
   carrier is the unit-terminated pair tower, `.proj i` reads field
   `i` via `projS i = sfst ∘ ssnd^i`, and inference walks the stored
-  `ty` generically); `false` for the pinned pair entries (bare
-  `sfst`/`ssnd`, the two-entry residual fast path) and for
-  elimination-template entries.  Defaults `false`, so the pinned
-  literals and `NativeProjPinned` are untouched pre-flip. -/
+  `ty` generically); `false` for elimination-template entries and the
+  direct path's inert entries (task #175 W6: the pinned pair entries,
+  the last `native ∧ ¬tower` kind, are retired — `native → tower` is
+  the table invariant, `ProjOkT`'s first conjunct). -/
   tower : Bool := false
   deriving DecidableEq, Repr, Inhabited
 

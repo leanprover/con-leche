@@ -41,7 +41,6 @@ import Setlec.SetP.LevelsP
 import Setlec.SetP.BasisBlocksP
 import Setlec.SetP.BasisQuotP
 import Setlec.SetP.BasisEqP
-import Setlec.SetP.BasisPSigmaP
 import Setlec.SetP.IndConsP
 import Setlec.SetP.IndMemberP
 import Setlec.SetP.IndCapsP
@@ -117,7 +116,6 @@ import Setlec.SetP.ReduceOpsP
 import Setlec.SetP.Step2.IotaKitP
 import Setlec.SetP.Step2.IotaRowsP
 import Setlec.SetP.Step2.MajorP
-import Setlec.SetP.Step2.ProjPinsP
 import Setlec.SetP.Step2.ProjRowsP
 import Setlec.SetP.Step2.StrLitP
 

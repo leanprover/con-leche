@@ -7,7 +7,7 @@ open Setlec
 /-- Annotate each basis constant's type (and nothing else) in install
 order, printing the annotated `ConstantInfo`s as `Repr`. -/
 def main : IO Unit := do
-  let blocks := [BasisKind.eqK, .natK, .psigmaK, .punitK, .emptyK, .quotK]
+  let blocks := [BasisKind.eqK, .natK, .punitK, .emptyK, .quotK]
   let mut env : Env := Env.empty
   for k in blocks do
     for ci in k.decls do

@@ -148,40 +148,6 @@ def eqRecRule : RecRule :=
       { bi := .implicit, pw := .ifAllZero [u1N] } }
 
 
-/-- `PSigma'.rec`'s single stored rule. -/
-def psigmaRecRule : RecRule :=
-  { ctor := psigmaMkName, nfields := 2, ctorParams := 2, fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uN))
-      (Expr.lam (Name.anonymous.str "β")
-        (Expr.forallE (Name.anonymous.str "x") (.bvar 0)
-          (.sort (.param vN)) { bi := .default, pw := .never })
-        (Expr.lam (Name.anonymous.str "motive")
-          (Expr.forallE (Name.anonymous.str "t")
-            (.app (.app (.const psigmaName [.param uN, .param vN])
-              (.bvar 1)) (.bvar 0))
-            (.sort .zero) { bi := .default, pw := .never })
-          (Expr.lam (Name.anonymous.str "mk")
-            (Expr.forallE (Name.anonymous.str "fst") (.bvar 2)
-              (Expr.forallE (Name.anonymous.str "snd")
-                (.app (.bvar 2) (.bvar 0))
-                (.app (.bvar 2)
-                  (.app (.app (.app (.app (.const psigmaMkName
-                    [.param uN, .param vN]) (.bvar 4)) (.bvar 3))
-                    (.bvar 1)) (.bvar 0)))
-                { bi := .default, pw := .ifAllZero [] })
-              { bi := .default, pw := .ifAllZero [] })
-            (Expr.lam (Name.anonymous.str "fst") (.bvar 3)
-              (Expr.lam (Name.anonymous.str "snd")
-                (.app (.bvar 3) (.bvar 0))
-                (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0))
-                { bi := .default, pw := .ifAllZero [] })
-              { bi := .default, pw := .ifAllZero [] })
-            { bi := .default, pw := .ifAllZero [] })
-          { bi := .default, pw := .ifAllZero [] })
-        { bi := .default, pw := .ifAllZero [] })
-      { bi := .implicit, pw := .ifAllZero [] } }
-
-
 /-- The stored declaration, with its rule named. -/
 theorem quotIndA_eq :
     quotIndA = .recInfo quotIndA.toConstantVal 4 4 [quotIndRule] := rfl
@@ -195,12 +161,6 @@ theorem quotLiftA_eq :
 /-- The stored declaration, with its rule named. -/
 theorem eqRecA_eq :
     eqRecA = .recInfo eqRecA.toConstantVal 5 4 [eqRecRule] := rfl
-
-
-/-- The stored declaration, with its rule named. -/
-theorem psigmaRecA_eq :
-    psigmaRecA = .recInfo psigmaRecA.toConstantVal 4 4 [psigmaRecRule]
-      := rfl
 
 
 end Setlec.SetR

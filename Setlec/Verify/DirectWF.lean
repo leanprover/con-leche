@@ -1,5 +1,5 @@
 import Setlec.Verify.BridgeWfImp
-import Setlec.Verify.ProjPinInv
+import Setlec.Verify.ExceptBind
 
 /-!
 # The direct simple-structure install: environment well-formedness

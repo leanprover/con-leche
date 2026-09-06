@@ -268,7 +268,7 @@ def whnfCoreStepM (cfg : CoreCfg) (r : CoreFns m) (env : Env) (depth : Nat)
             us.length = entry.levelParams.length ∧
             entry.fireOk us = true then
           let arg := args.getD (entry.numParams + i) (.bvar 0)
-          if ← projCert r env depth e' i entry.numParams then
+          if ← projCert r env depth cfg.betaGate c us args then
             k arg
           else pure (.proj sn i e')
         else pure (.proj sn i e')
@@ -457,12 +457,12 @@ theorem projLitToCtor_mono {d : Nat} {e : Expr} {F F' : Nat}
   rw [← projLitToCtor_atF] at h ⊢
   exact (projLitToCtor (fueledFns mode env) env d e).property hle h
 
-theorem projCert_mono {d : Nat} {e : Expr} {i : Nat}
-    {nP : Nat} {F F' : Nat} (hle : F ≤ F') {b : Bool}
-    (h : projCert (pureFns mode env F) env d e i nP = .ok b) :
-    projCert (pureFns mode env F') env d e i nP = .ok b := by
+theorem projCert_mono {d : Nat} {lic : Bool} {c : Name} {us : List Level}
+    {args : List Expr} {F F' : Nat} (hle : F ≤ F') {b : Bool}
+    (h : projCert (pureFns mode env F) env d lic c us args = .ok b) :
+    projCert (pureFns mode env F') env d lic c us args = .ok b := by
   rw [← projCert_atF] at h ⊢
-  exact (projCert (fueledFns mode env) env d e i nP).property hle h
+  exact (projCert (fueledFns mode env) env d lic c us args).property hle h
 
 theorem iotaRec_mono {d : Nat} {e : Expr} {F F' : Nat}
     (hle : F ≤ F') {o : Option Expr}
@@ -1158,6 +1158,8 @@ theorem whnfCoreStepM_sound {d : Nat} (k : Expr → FueledM Expr)
       · rename_i hcond
         intro H
         obtain ⟨b, hb, H⟩ := bind_ok H
+        -- the twin's licence read is the mode's (`cfgOf`)
+        dsimp only [cfgOf] at hb
         cases b with
         | false =>
           refine ⟨F, ?_⟩

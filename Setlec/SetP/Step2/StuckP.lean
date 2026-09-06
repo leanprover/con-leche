@@ -13,7 +13,7 @@ do not belong to the basis tier:
 | `DefEqSpineP` (5) | `defEqSpineP_of_claims` — outright |
 | `AppCongrStuckP` (10) | `appCongrStuckP_of_claims` — outright |
 | `EtaCertStepP` (11) | `etaCertStepP_of_claims` — outright, `lamR_eta` |
-| `StuckIrrelPQ` (6) | `stuckIrrelP_of_claims` — the proof-irrelevance arm outright, the four certificate arms routed |
+| `StuckIrrelPQ` (6) | `stuckIrrelP_of_claims` — the proof-irrelevance arm outright, the three certificate arms routed |
 | `DenotePStrLit` (7) | `denotePStrLit_of_guard` — outright, by computation |
 
 `ReduceNatStepPQ` (residue 4) is **not** here: the `Nat` literal rows
@@ -50,13 +50,13 @@ same reason `IrrelP.lean`'s proof irrelevance was:
 
 ## The routed sub-residues
 
-`stuckIrrel`'s cascade tries `pairEtaCert` both ways, `structEtaCert`
-both ways, `structUnitCert`, then `proofIrrel`.  The last arm is
-`proofIrrelPQ_of_claims` (`Step2/IrrelP.lean`); the first five are
-**structure-capability tier** content — the pinned pair's η law, a
-stored structure's η law, and a stored unit-like family's collapse —
-and are routed as `PairEtaIrrelP` / `StructEtaIrrelP` /
-`StructUnitIrrelP`.  Their v1 counterparts (`PairEtaCertStepR`,
+`stuckIrrel`'s cascade tries `structEtaCert` both ways,
+`structUnitCert`, then `proofIrrel` (the pinned pair's `pairEtaCert`
+that used to lead retired with the `PSigma'` pin, task #175 W6).  The
+last arm is `proofIrrelPQ_of_claims` (`Step2/IrrelP.lean`); the first
+three are **structure-capability tier** content — a stored structure's
+η law and a stored unit-like family's collapse — and are routed as
+`StructEtaIrrelP` / `StructUnitIrrelP`.  Their v1 counterparts (`PairEtaCertStepR`,
 `StructEtaCertStepR` in `Bridge/StuckIrrel.lean`) are routed at exactly
 the same three places, so the ledger is unchanged by the currency swap.
 
@@ -94,6 +94,21 @@ inductive DenoteSpineP (acval : Name → (Name → Nat) → AVExpr)
       denoteP acval env φ d a = some v →
       DenoteSpineP acval env φ d as vs →
       DenoteSpineP acval env φ d (a :: as) (v :: vs)
+
+/-- A member of a read spine reads (`DenoteSpineP`'s membership form —
+the shape the projection clause's `getD` selection needs).  Relocated
+from the retired `Step2/ProjPinsP.lean` (task #175 W6). -/
+theorem DenoteSpineP.mem {acval : Name → (Name → Nat) → AVExpr} {d : Nat}
+    {as : List Expr} {vs : List AVExpr}
+    (h : DenoteSpineP acval env φ d as vs) :
+    ∀ x ∈ as, ∃ v, denoteP acval env φ d x = some v := by
+  induction h with
+  | nil => intro x hx; exact nomatch hx
+  | cons ha _ ih =>
+    intro x hx
+    rcases List.mem_cons.mp hx with rfl | hx'
+    · exact ⟨_, ha⟩
+    · exact ih x hx'
 
 /-- A read spine has the length of its source. -/
 theorem DenoteSpineP.length {acval : Name → (Name → Nat) → AVExpr}
@@ -319,33 +334,11 @@ theorem appCongrStuckP_of_claims {m : EnvS2Core V env}
 
 /-! ## T4 — `stuckIrrel`'s cascade
 
-`stuckIrrel` (`Kernel/Core.lean:1052`) is six attempts in order:
-`pairEtaCert` both ways, `structEtaCert` both ways, `structUnitCert`,
-then `proofIrrel`.  The dispatch is not a rule — it is the *bridge's*
-order — and it is discharged here arm for arm.  The two "wrong way
-round" arms are `.symm`, and the last arm is
-`proofIrrelPQ_of_claims`. -/
-
-/-- **The pinned pair's η certificate**, routed: `a` is the explicit
-pair of `b`'s two projections.  Discharged at the
-**structure-capability tier** (the pinned `PSigma'` block's η law,
-`Interp2/BasisOk.lean`'s neighbourhood), not in the defeq quarter —
-`PairEtaCertStepR` is routed at the same place in the v1 lane. -/
-def PairEtaIrrelP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
-    (φ : Name → Nat) (fuel : Nat) : Prop :=
-  ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
-    Setlec.pairEtaCertP μ env fuel d a b = .ok true →
-    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded a →
-    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
-    Expr.LeavesBounded b →
-    ∀ {aa ba : AVExpr},
-      CtxOkP m φ d Δa a → CtxOkP m φ d Δa b →
-      denoteP m.acval env φ d a = some aa →
-      denoteP m.acval env φ d b = some ba →
-      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ aa) →
-      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ba) →
-      ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ aa = interp2 V ρ ba
+`stuckIrrel` (`Kernel/Core.lean`) is four attempts in order:
+`structEtaCert` both ways, `structUnitCert`, then `proofIrrel`.  The
+dispatch is not a rule — it is the *bridge's* order — and it is
+discharged here arm for arm.  The "wrong way round" arm is `.symm`,
+and the last arm is `proofIrrelPQ_of_claims`. -/
 
 /-- **A stored structure's η certificate**, routed: `a` is the
 constructor applied to `b`'s installed projections.  Discharged at the
@@ -391,7 +384,7 @@ def StructUnitIrrelP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ba) →
       ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ aa = interp2 V ρ ba
 
-/-- **Residue 6 discharged**, modulo the three structure-tier
+/-- **Residue 6 discharged**, modulo the two structure-tier
 certificates: the cascade's dispatch order, arm for arm, with the
 proof-irrelevance arm closed outright by `proofIrrelPQ_of_claims`. -/
 theorem stuckIrrelP_of_claims {m : EnvS2Core V env}
@@ -399,7 +392,7 @@ theorem stuckIrrelP_of_claims {m : EnvS2Core V env}
     (hsss : SortSemAtIOSP m μ φ fuel)
     (hreads : InferReadsIOSP m μ φ fuel)
     (hunit : UnitIrrelPQ μ m φ fuel)
-    (hpair : PairEtaIrrelP μ m φ fuel) (hseta : StructEtaIrrelP μ m φ fuel)
+    (hseta : StructEtaIrrelP μ m φ fuel)
     (hsunit : StructUnitIrrelP μ m φ fuel) :
     StuckIrrelPQ μ m φ fuel := by
   have hpi : ProofIrrelPQ μ m φ fuel :=
@@ -407,27 +400,8 @@ theorem stuckIrrelP_of_claims {m : EnvS2Core V env}
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
   simp only [Setlec.stuckIrrelP, Setlec.stuckIrrel, Bind.bind,
-    Except.bind, Setlec.pairEtaCert_fold, Setlec.structEtaCert_fold,
+    Except.bind, Setlec.structEtaCert_fold,
     Setlec.structUnitCert_fold, Setlec.proofIrrel_fold] at h
-  cases h1 : Setlec.pairEtaCertP μ env fuel d a b with
-  | error err => rw [h1] at h; exact nomatch h
-  | ok r1 =>
-  rw [h1] at h
-  dsimp only at h
-  cases r1 with
-  | true =>
-    exact hpair h1 hwa hba hLa hwb hbb hLb hCa hCb hda hdb hokA hokB ρ hρ
-  | false =>
-  cases h2 : Setlec.pairEtaCertP μ env fuel d b a with
-  | error err => rw [h2] at h; exact nomatch h
-  | ok r2 =>
-  rw [h2] at h
-  dsimp only at h
-  cases r2 with
-  | true =>
-    exact (hpair h2 hwb hbb hLb hwa hba hLa hCb hCa hdb hda hokB hokA
-      ρ hρ).symm
-  | false =>
   cases h3 : Setlec.structEtaCertP μ env fuel d a b with
   | error err => rw [h3] at h; exact nomatch h
   | ok r3 =>
