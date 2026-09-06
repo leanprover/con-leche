@@ -47797,3 +47797,15 @@ chunk's reference sets merge independently, and the declaration records
 merge in chunk order), so a `multiprocessing` pool would take the 110 s
 scan to well under a minute.  It was not worth writing for a tool whose
 own measurement says it buys 0.25 % at the rung it was built for.
+
+### 6. Artefacts (`_tmp/resume-slice/`)
+
+* `run.sh` — Mathlib-scale harness for a slice (22 GB cap, 4 h timeout,
+  RSS + `rchar` sampled every 30 s), the `frontier4` script retargeted.
+* `mathlib-rung5.ndjson` — the rung-5 resume slice (5 693 668 882 B) and
+  `mathlib-rung5.report`.
+* `mathlib-cut335491.dryrun`, `mathlib-cut603884.dryrun` — the 50 % and
+  90 % points of §3's curve.
+* `initfull-50pct.{ndjson,report,out,time}` and `initfull-full.{out,time}`
+  — the §4 sanity pair.
+* `rung5slice-{p,rss}.log`, `-time.txt`, `.exitcode`, `-binary.md5`.
