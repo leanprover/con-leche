@@ -1,7 +1,7 @@
 import Setlec.SetP.CtxOkPKit
 import Setlec.SetP.Annot.BitLemmas
-import Setlec.SetBase.DefEqStep2
-import Setlec.SetBase.Hoist
+import Setlec.Semantics.DefEqStep2
+import Setlec.Semantics.Hoist
 import Setlec.SetP.Step2.ProjAVKitP
 
 /-!

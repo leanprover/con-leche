@@ -13,12 +13,17 @@ iteration protocol. Keep it up to date when decisions change.
   the `SetTheory` interface.
 * Layering: implementation (`Setlec/Kernel/*`, `Setlec/Cached/*`,
   `Main.lean`) must never import theory/verification modules
-  (`Setlec/SetTheory/*`, `Setlec/SetBase/*`, `Setlec/SetP/*`,
-  `Setlec/Verify/*`). Proofs about kernel functions go in `Setlec/Verify/*`;
-  the shared semantic tier (set constructions, denotation) in
-  `Setlec/SetBase/*`; the graded set model and the consistency proofs in
+  (`Setlec/SetTheory/*`, `Setlec/SetModel/*`, `Setlec/Semantics/*`,
+  `Setlec/SetP/*`, `Setlec/Verify/*`). Proofs about kernel functions go in
+  `Setlec/Verify/*`; the pure set constructions (no `Expr` in sight) in
+  `Setlec/SetModel/*`; the Expr-facing denotation and claims in
+  `Setlec/Semantics/*`; the graded set model and the consistency proofs in
   `Setlec/SetP/*` (the direct `Setlec/Model/*` tier was retired at task
-  #148 T7; the collapsed-model `Setlec/SetR/*` tier was deleted 2026-09-05).
+  #148 T7; the collapsed-model `Setlec/SetR/*` tier was deleted 2026-09-05;
+  `Setlec/SetBase/*` was split into SetModel/Semantics on 2026-09-06).
+  Direct-structure installation has its own directory per layer
+  (`Kernel/Direct/*`, `Verify/Direct/*`, `Semantics/Direct/*`,
+  `SetP/Direct/*`).
   Exception (2026-08-24): a *self-contained* verification of a data
   structure (e.g. the arena's WF — invariants + preservation proofs
   importing no other Model/Verify modules) may live with, and be

@@ -1,5 +1,4 @@
-import Setlec.SetBase.IndBlockRun
-
+import Setlec.Semantics.IndBlockRun
 import Setlec.SetP.IotaRulePlainP
 
 import Setlec.SetP.IndPinRowP

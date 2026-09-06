@@ -1,5 +1,5 @@
 import Setlec.SetP.Annot.BitLemmas
-import Setlec.SetBase.TowerLeaf
+import Setlec.Semantics.Tower.TowerLeaf
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.Extend.Inversions
 import Setlec.Verify.InstLevels

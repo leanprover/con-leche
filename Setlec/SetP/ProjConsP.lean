@@ -1,6 +1,6 @@
 import Setlec.SetP.ProjRenameP
 import Setlec.SetP.IndProjEtaP
-import Setlec.SetBase.ProjFnRR
+import Setlec.Semantics.ProjFnRR
 
 /-!
 # The projection-function cons, P tier (task #161, IND TIER part 10)

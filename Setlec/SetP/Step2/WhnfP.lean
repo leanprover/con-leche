@@ -3,8 +3,8 @@ import Setlec.SetP.CtxOkPKit
 import Setlec.SetP.Annot.BitInst
 import Setlec.SetP.Annot.BitInstall
 import Setlec.SetP.Step2.BitLevels
-import Setlec.SetBase.Sat2
-import Setlec.SetBase.WhnfCoreLeaf
+import Setlec.Semantics.Sat2
+import Setlec.Semantics.WhnfCoreLeaf
 import Setlec.SetP.Claims2PIO
 
 /-!

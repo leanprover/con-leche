@@ -1,5 +1,5 @@
 import Setlec.SetP.IndRecsP
-import Setlec.SetBase.ProjPhase
+import Setlec.Semantics.ProjPhase
 
 /-!
 # The projection phase's renaming and valuation invariant, P tier

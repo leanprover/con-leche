@@ -1,5 +1,5 @@
-import Setlec.SetBase.IndBlockRun
-import Setlec.SetBase.IndRecsCoreR
+import Setlec.Semantics.IndBlockRun
+import Setlec.Semantics.IndRecsCoreR
 import Setlec.SetP.SwapP
 import Setlec.SetP.IndMembersP
 import Setlec.SetP.CapstoneP

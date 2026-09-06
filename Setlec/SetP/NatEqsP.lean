@@ -1,7 +1,7 @@
 import Setlec.SetP.InstallP
 import Setlec.SetP.Step2.NatP
-import Setlec.SetBase.NatFrag
-import Setlec.SetBase.DeclRun
+import Setlec.Semantics.NatFrag
+import Setlec.Semantics.DeclRun
 
 /-!
 # The structural-`Nat` recurrences, established at `interp2` from run

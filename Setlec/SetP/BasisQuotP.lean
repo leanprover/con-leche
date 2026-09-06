@@ -1,5 +1,5 @@
 import Setlec.SetP.BasisBlocksP
-import Setlec.SetBase.BasisRules
+import Setlec.Semantics.BasisRules
 
 /-!
 # The `Quot` block, P tier (task #161, ENDGAME H)

@@ -1,6 +1,6 @@
-import Setlec.SetBase.IndBlockRun
+import Setlec.Semantics.IndBlockRun
 import Setlec.SetP.IndCapsP
-import Setlec.SetBase.EnvRCons
+import Setlec.Semantics.EnvRCons
 
 /-!
 # The member phase, P tier (task #161, IND TIER)

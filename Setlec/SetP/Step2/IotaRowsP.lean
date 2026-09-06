@@ -1,7 +1,7 @@
 import Setlec.SetP.Step2.MajorP
 import Setlec.SetP.Step2.IotaGateP
 import Setlec.SetP.Step2.ReadsP
-import Setlec.SetBase.DefEqList
+import Setlec.Semantics.DefEqList
 
 /-!
 # The two ι rows, discharged (task #161, iota tier)

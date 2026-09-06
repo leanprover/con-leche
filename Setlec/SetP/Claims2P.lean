@@ -1,5 +1,5 @@
 import Setlec.Verify.InferLeaves
-import Setlec.SetBase.Skeleton
+import Setlec.Semantics.Skeleton
 import Setlec.SetP.Annot.ValidV
 import Setlec.SetP.Annot.EnvS2Core
 

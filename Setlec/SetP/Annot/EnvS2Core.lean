@@ -1,4 +1,4 @@
-import Setlec.SetBase.Ok2
+import Setlec.Semantics.Ok2
 import Setlec.Verify.EnvWF
 import Setlec.Verify.Denote.Pinned
 

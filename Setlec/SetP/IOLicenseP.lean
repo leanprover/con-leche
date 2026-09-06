@@ -1,4 +1,4 @@
-import Setlec.SetBase.Ops
+import Setlec.SetModel.Ops
 
 /-!
 # The io license kit (task #161 stage 2, the io-license batch)

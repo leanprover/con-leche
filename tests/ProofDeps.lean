@@ -1,4 +1,5 @@
-import Setlec.SetBase
+import Setlec.SetModel
+import Setlec.Semantics
 import Setlec.SetP
 import Setlec.Verify.Cached
 

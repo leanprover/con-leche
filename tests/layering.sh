@@ -19,11 +19,11 @@
 # loosening).  What survives is the part of the fence that was never
 # about the R/P split:
 #   * any base→lane edge         (BASE PURITY — `Setlec/{Kernel,Verify,
-#     SetTheory,TT,SetBase}/*` stand BELOW the model lane and may not
+#     SetTheory,TT,SetModel,Semantics}/*` stand BELOW the model lane and may not
 #     import `Setlec/SetP/*`), AND
 #   * any implementation→theory edge   (the CLAUDE.md rule:
 #     `Setlec/{Kernel,Cached,Frontend}/*` and `Main.lean` may never
-#     import `Setlec/{SetTheory,SetP,SetBase,Verify}/*`).
+#     import `Setlec/{SetTheory,SetModel,Semantics,SetP,Verify}/*`).
 # Both were always the load-bearing half — S9's finding was precisely
 # that the R/P clause measured where code SITS, and only
 # `tests/proofdeps.sh` (the proof-term criterion) certifies a proof-path
@@ -76,7 +76,8 @@ for name, rel in mods.items():
 IMPL_DIRS   = ('Setlec/Kernel/', 'Setlec/Cached/', 'Setlec/Frontend/')
 IMPL_ROOTS  = ('Main', 'AnnotateBasis')
 THEORY_PFX  = ('Setlec.Verify.', 'Setlec.SetTheory.',
-               'Setlec.SetP.', 'Setlec.SetBase.', 'Setlec.TT.')
+               'Setlec.SetP.', 'Setlec.SetModel.', 'Setlec.Semantics.',
+               'Setlec.TT.')
 CAPS        = {'Setlec.Verify.Cached.MainC', 'Setlec.Verify.Cached'}
 UMBRELLAS   = {'Setlec'}                  # `Setlec.SetP` is gated as P
 
@@ -111,11 +112,11 @@ def report(title, items, hint):
         print(f'    {hint}')
 
 report('base module importing the model lane', basev,
-       'Setlec/{Kernel,Verify,SetTheory,TT,SetBase}/* stand BELOW the '
+       'Setlec/{Kernel,Verify,SetTheory,TT,SetModel,Semantics}/* stand BELOW the '
        'lane; nothing there may import Setlec/SetP/*.')
 report('implementation importing theory', implv,
        'CLAUDE.md: Setlec/Kernel/*, Main.lean must never import '
-       'Setlec/{SetTheory,SetP,SetBase,Verify}/*.')
+       'Setlec/{SetTheory,SetModel,Semantics,SetP,Verify}/*.')
 
 n = {l: sum(1 for m in LANE if LANE[m] == l)
      for l in ("base", "P", "caps", "umbrella")}

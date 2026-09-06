@@ -1,7 +1,7 @@
 import Setlec.SetP.Step2.AssemblyP
-import Setlec.SetBase.EnvR
-import Setlec.SetBase.DivModEval
-import Setlec.SetBase.SpineV
+import Setlec.Semantics.EnvR
+import Setlec.Semantics.DivModEval
+import Setlec.Semantics.SpineV
 
 /-!
 # `EnvS2PM` — the P-tier environment invariant (task #161, P4)

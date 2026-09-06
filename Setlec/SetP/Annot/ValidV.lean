@@ -1,5 +1,5 @@
 import Setlec.SetP.Annot.Bit
-import Setlec.SetBase.Ok2
+import Setlec.Semantics.Ok2
 
 /-!
 # `AnnotValidV` — bit validity, on the bit (task #161, P3.2)

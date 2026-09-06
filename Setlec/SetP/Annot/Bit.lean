@@ -1,5 +1,5 @@
-import Setlec.SetBase.Canon
-import Setlec.SetBase.TowerLeaf
+import Setlec.Semantics.Canon
+import Setlec.Semantics.Tower.TowerLeaf
 import Setlec.Verify.PropWhen
 
 /-!

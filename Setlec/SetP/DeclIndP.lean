@@ -1,4 +1,4 @@
-import Setlec.SetBase.DeclIndRun
+import Setlec.Semantics.DeclIndRun
 import Setlec.SetP.ProjInstallP
 
 /-!

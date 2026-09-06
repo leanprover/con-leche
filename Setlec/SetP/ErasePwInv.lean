@@ -1,4 +1,4 @@
-import Setlec.SetBase.EraseInv
+import Setlec.Semantics.EraseInv
 import Setlec.Verify.Denote
 
 /-!

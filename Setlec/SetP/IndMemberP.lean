@@ -1,4 +1,4 @@
-import Setlec.SetBase.IndBlockRun
+import Setlec.Semantics.IndBlockRun
 import Setlec.SetP.IndConsP
 import Setlec.SetP.Annot.BitRename
 import Setlec.Verify.Extend.Block

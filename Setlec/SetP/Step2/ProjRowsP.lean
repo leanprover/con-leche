@@ -1,10 +1,10 @@
 import Setlec.SetP.Step2.CapsRowsP
 import Setlec.SetP.Step2.StuckP
 import Setlec.SetP.Step2.InferIOP
-import Setlec.SetBase.Spine2
+import Setlec.Semantics.Spine2
 import Setlec.SetP.Step2.TowerKitP
 import Setlec.SetP.Step2.IotaGateP
-import Setlec.SetBase.SpineV
+import Setlec.Semantics.SpineV
 
 /-!
 # The semantic projection rows (task #161, PROJ/STR install tier;

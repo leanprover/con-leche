@@ -4,7 +4,7 @@ import Setlec.SetP.DivModCertP
 import Setlec.SetP.CapsP
 import Setlec.SetP.RecRulesPCons
 import Setlec.SetP.ReduceOpsP
-import Setlec.SetBase.DeclRun
+import Setlec.Semantics.DeclRun
 
 /-!
 # The harvest, value kinds (task #161, P4 — the fold's species)

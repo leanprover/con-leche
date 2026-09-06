@@ -1,7 +1,7 @@
 import Setlec.SetP.Step2.TiersP
 import Setlec.SetP.Annot.BitExtend
 import Setlec.SetP.Annot.BitConsCross
-import Setlec.SetBase.ConstsBound
+import Setlec.Semantics.ConstsBound
 import Setlec.Verify.Extend.Sibs
 
 /-!

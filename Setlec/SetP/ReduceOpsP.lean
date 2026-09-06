@@ -1,5 +1,5 @@
 import Setlec.Verify.OfReducePin
-import Setlec.SetBase.DeclRun
+import Setlec.Semantics.DeclRun
 import Setlec.SetP.NatEqsP
 import Setlec.SetP.CapstoneP
 import Setlec.SetP.ErasePwInv

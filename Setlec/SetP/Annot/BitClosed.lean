@@ -1,5 +1,5 @@
 import Setlec.SetP.Annot.BitShift
-import Setlec.SetBase.Denote2Closed
+import Setlec.Semantics.Denote2Closed
 
 /-!
 # `denoteP`, closed and depth-independent (task #161, P3.2)

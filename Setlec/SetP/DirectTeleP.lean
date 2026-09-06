@@ -1,5 +1,5 @@
 import Setlec.SetP.DirectRowsP
-import Setlec.SetBase.TowerRec
+import Setlec.Semantics.Tower.TowerRec
 
 /-!
 # The direct structure's telescope walks (task #175 W4c, P3 module 3, part 3)

@@ -1,5 +1,5 @@
 import Setlec.SetP.Annot.BitInstall
-import Setlec.SetBase.ConstsBound
+import Setlec.Semantics.ConstsBound
 
 /-!
 # `denoteP` across an environment extension (task #161, P3.2)

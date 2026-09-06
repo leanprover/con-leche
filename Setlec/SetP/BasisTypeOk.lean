@@ -1,4 +1,4 @@
-import Setlec.SetBase.BasisType
+import Setlec.Semantics.BasisType
 import Setlec.SetP.BitAgree
 import Setlec.SetP.Claims2P
 

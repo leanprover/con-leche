@@ -1,9 +1,9 @@
 import Setlec.SetP.AxiomReduceP
 import Setlec.SetP.DeclIndP
 import Setlec.SetP.DeclDirectP
-import Setlec.SetBase.IndBlockR
-import Setlec.SetBase.Bridge.Sound
-import Setlec.SetBase.DeclDirectEta
+import Setlec.Semantics.IndBlockR
+import Setlec.Semantics.Bridge.Sound
+import Setlec.Semantics.Direct.DeclDirectEta
 
 /-!
 # The P declaration fold, and the conditional capstone (task #161, P4)

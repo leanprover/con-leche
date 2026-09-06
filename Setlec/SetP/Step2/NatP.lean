@@ -1,6 +1,6 @@
 import Setlec.SetP.Step2.ReadsP
 import Setlec.SetP.Annot.ValidVSpine
-import Setlec.SetBase.LitStep2
+import Setlec.Semantics.LitStep2
 import Setlec.Verify.EnvGuards
 
 /-!

@@ -3,10 +3,10 @@ import Setlec.SetP.Step2.InferIOP
 import Setlec.SetP.Step2.WhnfP
 import Setlec.SetP.Step2.DefEqP
 import Setlec.SetP.Step2.StuckP
-import Setlec.SetBase.SpineV
+import Setlec.Semantics.SpineV
 import Setlec.SetP.Step2.TowerKitP
 import Setlec.SetP.Annot.EnvS2P
-import Setlec.SetBase.LitParams
+import Setlec.Semantics.LitParams
 
 /-!
 # The totality consolidation (task #161, P4 batch 6)

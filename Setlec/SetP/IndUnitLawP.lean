@@ -1,4 +1,4 @@
-import Setlec.SetBase.IndBlockRun
+import Setlec.Semantics.IndBlockRun
 import Setlec.SetP.IndTeleP
 import Setlec.SetP.BasisEqP
 

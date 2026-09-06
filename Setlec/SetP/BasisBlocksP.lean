@@ -1,5 +1,5 @@
 import Setlec.SetP.LevelsP
-import Setlec.SetBase.BasisRules
+import Setlec.Semantics.BasisRules
 
 /-!
 # The remaining basis blocks, P tier (task #161, ENDGAME G)

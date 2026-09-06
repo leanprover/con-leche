@@ -1,4 +1,4 @@
-import Setlec.SetBase.DeclRun
+import Setlec.Semantics.DeclRun
 import Setlec.SetP.AxiomMemP
 
 /-!

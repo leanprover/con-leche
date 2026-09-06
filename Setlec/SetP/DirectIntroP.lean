@@ -1,5 +1,5 @@
 import Setlec.SetP.Claims2P
-import Setlec.SetBase.TowerRec
+import Setlec.Semantics.Tower.TowerRec
 
 /-!
 # The direct-structure leaves' bit validity and P packages (task #175, stage 4a)

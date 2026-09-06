@@ -1,4 +1,4 @@
-import Setlec.SetBase.IndBlockRun
+import Setlec.Semantics.IndBlockRun
 import Setlec.SetP.IndBottomProjP
 import Setlec.SetP.Annot.BitReads
 -- task #161 S10: `acceptedReadsP_of` — the rule rhs's reading comes

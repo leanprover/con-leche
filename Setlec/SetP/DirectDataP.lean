@@ -1,7 +1,7 @@
 import Setlec.SetP.DirectLawsP
 import Setlec.SetP.DirectRowsP
 import Setlec.Verify.InstLevels
-import Setlec.SetBase.TowerWire
+import Setlec.Semantics.Tower.TowerWire
 
 /-!
 # The direct block's stage data (task #175 W4c, P3 module 6, part 1)

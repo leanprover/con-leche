@@ -1,6 +1,6 @@
 import Setlec.SetP.DirectStageEntryP
 import Setlec.SetP.DirectEntryFreeP
-import Setlec.SetBase.Bridge.ProjRed
+import Setlec.Semantics.Bridge.ProjRed
 import Setlec.Verify.DirectPartsInv
 
 /-!

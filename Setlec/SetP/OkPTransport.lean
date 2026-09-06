@@ -1,5 +1,5 @@
 import Setlec.SetP.Claims2P
-import Setlec.SetBase.Denote2Closed
+import Setlec.Semantics.Denote2Closed
 
 /-!
 # `AnnotOkP`'s substitution metatheory (task #161, P3 batch 2)
