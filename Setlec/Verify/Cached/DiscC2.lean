@@ -144,6 +144,53 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     | letE nm t v b' => exact SimC.pure hs₄ rfl
     | proj s i e => exact SimC.pure hs₄ rfl
 
+/-- The `isBoolTrueI` store read agrees with the spec's `Expr.isBoolTrue`
+on the erasure (`ExprC = Expr`). -/
+theorem isBoolTrueI_spec {st : CStore} {e : ExprC} {ex : Expr}
+    (h : e = ex) : isBoolTrueI st e = ex.isBoolTrue := by
+  rw [isBoolTrueI, h]
+
+/-- The eq-true shortcut (the audit's E2) simulates its specification:
+one `whnf`, then the store read of the head test. -/
+theorem boolTrueShortcutC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
+    {a : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hden : RelC i a) (hw : Expr.WScoped d a) :
+    SimC mode env s₀ RelVC
+      (boolTrueShortcutI (coreKnotI mode (mkFEnv env) f) d i)
+      (boolTrueShortcut (fueledFns mode env) d a) := by
+  unfold boolTrueShortcutI boolTrueShortcut
+  refine SimC.bind (ih.whnf hs hden hw) (fun s₁ w wx hs₁ hP => ?_)
+  obtain ⟨hwden, _⟩ := hP
+  rw [RelC.erase hwden]
+  exact SimC.pure hs₁ rfl
+
+/-- `boolTrueShortcutC_sim` under its guard. -/
+theorem boolTrueShortcutIfC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
+    {a : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hden : RelC i a) (hw : Expr.WScoped d a) (g : Bool) :
+    SimC mode env s₀ RelVC
+      (if g then boolTrueShortcutI (coreKnotI mode (mkFEnv env) f) d i
+        else pure false)
+      (if g then boolTrueShortcut (fueledFns mode env) d a else pure false) := by
+  cases g
+  · exact SimC.pure hs rfl
+  · exact boolTrueShortcutC_sim ih hs hden hw
+
+/-- `propIrrelC_sim` under the once-per-entry gate (the audit's D3):
+the pruned branch is `pure false` twinned. -/
+theorem propIrrelIfC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
+    {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hdena : RelC i a) (hdenb : RelC j b)
+    (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) (g : Bool) :
+    SimC mode env s₀ RelVC
+      (if g then propIrrelI (cfgOf mode) (coreKnotI mode (mkFEnv env) f)
+        (mkFEnv env) d i j else pure false)
+      (if g then propIrrel mode (fueledFns mode env) env d a b
+        else pure false) := by
+  cases g
+  · exact SimC.pure hs rfl
+  · exact propIrrelC_sim ih hs hdena hdenb hwa hwb
+
 /-- Port of `proofIrrelI_sim`. -/
 theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
@@ -1157,13 +1204,27 @@ theorem structEtaCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       (structEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       (structEtaCert mode (fueledFns mode env) env d a b) := by
   show SimC mode env s₀ RelVC
-    ((coreKnotI mode (mkFEnv env) f).inferIO d j >>= fun tb =>
-      (coreKnotI mode (mkFEnv env) f).whnf d tb >>= fun wtb =>
-      structEtaCertWithI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
-        i j wtb)
-    ((fueledFns mode env).inferIO d b >>= fun tb =>
+    (Setlec.Cached.withStore (fun st => etaCtorShapeI (mkFEnv env) st i) >>=
+      fun sh =>
+      if sh = true then
+        (coreKnotI mode (mkFEnv env) f).inferIO d j >>= fun tb =>
+        (coreKnotI mode (mkFEnv env) f).whnf d tb >>= fun wtb =>
+        structEtaCertWithI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
+          i j wtb
+      else pure false)
+    (if etaCtorShape env a = true then
+      (fueledFns mode env).inferIO d b >>= fun tb =>
       (fueledFns mode env).whnf d tb >>= fun wtb =>
-      structEtaCertWith mode (fueledFns mode env) env d a b wtb)
+      structEtaCertWith mode (fueledFns mode env) env d a b wtb
+    else pure false)
+  -- the constructor-shape gate (D13): one store read, the same `Bool`
+  refine SimC.withStore ?_
+  rw [etaCtorShapeI_spec hdena]
+  by_cases hsh : etaCtorShape env a = true
+  case neg =>
+    rw [if_neg hsh, if_neg hsh]
+    exact SimC.pure hs rfl
+  rw [if_pos hsh, if_pos hsh]
   refine SimC.bind (ih.inferIO hs hdenb hwb) (fun s₁ tb tbx hs₁ hP => ?_)
   obtain ⟨htbd, hwtb⟩ := hP
   refine SimC.bind (ih.whnf hs₁ htbd hwtb) (fun s₂ wtb wtbx hs₂ hP₂ => ?_)

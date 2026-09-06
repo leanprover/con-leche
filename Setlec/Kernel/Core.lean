@@ -524,6 +524,13 @@ def boolName : Name := .str .anonymous "Bool"
 def boolTrueName : Name := boolName.str "true"
 def boolFalseName : Name := boolName.str "false"
 
+/-- Is `e` the constant `Bool.true` — the official kernel's
+`is_constant(e, Bool.true)` (`type_checker.cpp:1097`): the name, no
+universe levels. -/
+def Expr.isBoolTrue : Expr → Bool
+  | .const c [] => c == boolTrueName
+  | _ => false
+
 /-- The structural-Nat operations with a certified literal fast path. -/
 def natOpNames : List Name :=
   [natPredName, natAddName, natSubName, natMulName, natPowName,
@@ -1074,6 +1081,19 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
     | _ => pure false
   | _ => pure false
 
+/-- The constructor shape official's `try_eta_struct_core` tests before
+inferring anything (`type_checker.cpp:824-829`): the candidate's head is
+a stored constructor applied to exactly its parameters and fields.
+(`structEtaCertWith` re-reads the same head; this is the gate that
+keeps the inferences behind it.) -/
+def etaCtorShape (env : Env) (a : Expr) : Bool :=
+  match a.getAppFn with
+  | .const c _ =>
+    match env.find? c with
+    | some (.ctorInfo _ cnP cnF) => a.getAppArgs.length == cnP + cnF
+    | _ => false
+  | _ => false
+
 /-- Structural eta certification for a stored eta-capable structure:
 `a` is a fully applied constructor of a structure whose recorded
 capabilities include eta, `b` inhabits that structure type, the
@@ -1083,10 +1103,17 @@ type application is additionally certified against the type former's
 telescope (the memberships the stored eta law consumes). -/
 def structEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
-  -- task #172 B4: io grade
-  let tb ← r.inferIO depth b
-  let wtb ← r.whnf depth tb
-  structEtaCertWith mode r env depth a b wtb
+  -- The constructor-shape test FIRST (the divergence audit's D13):
+  -- official `try_eta_struct_core` (`type_checker.cpp:824-829`) reads
+  -- `s`'s head and arity syntactically and infers nothing unless they
+  -- fit; ours inferred and whnf'd `b`'s type on every stuck pair, both
+  -- directions, before `structEtaCertWith` looked at `a`'s head.
+  if etaCtorShape env a then
+    -- task #172 B4: io grade
+    let tb ← r.inferIO depth b
+    let wtb ← r.whnf depth tb
+    structEtaCertWith mode r env depth a b wtb
+  else pure false
 
 /-- Unit-likeness certification: `a` and `b` inhabit the same stored
 unit-like family (the types are definitionally equal and the type
@@ -1342,6 +1369,70 @@ def projLitToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
     else pure (.lit (.strVal s))
   | e => pure e
 
+/-- Is a recursor K-flagged — its single rule's constructor has no
+fields and belongs to an inductive stored with the K capability (an
+inductive proposition)?  Exactly the guard of `majorToCtor`'s K
+rescue, read off the constant lookup: the official kernel's
+`recursor_val::is_k()`, computed at the block's install.  Abstracted
+over the lookup so the interned twin (`FEnv.find?`) shares the body. -/
+def recRuleKOf (find? : Name → Option ConstantInfo) (rules : List RecRule) :
+    Bool :=
+  match rules with
+  | [rl] =>
+    match find? rl.ctor with
+    | some (.ctorInfo cvj _ cnF) =>
+      match (cvj.type.piResult).getAppFn with
+      | .const T _ =>
+        match find? T with
+        | some (.indInfo _ caps) => caps.ruleK && cnF == 0
+        | _ => false
+      | _ => false
+    | _ => false
+  | _ => false
+
+/-- `recRuleKOf` at the environment's lookup. -/
+def recRuleK (env : Env) (rules : List RecRule) : Bool :=
+  recRuleKOf env.find? rules
+
+/-- The major premise's preparation before a rule fires, in the
+official kernel's order (`inductive_reduce_rec`,
+`src/kernel/inductive.cpp`; lean4lean `Inductive/Reduce.lean:66-72`):
+
+* at a K-flagged recursor the K rescue (`to_ctor_when_K`) runs on the
+  **raw** major — it reads only the major's *type* and fabricates the
+  constructor from it — and only then is the major head-normalized
+  (and its literal converted; a no-op on a proof, kept for the
+  site-by-site mirror);
+* elsewhere the major is head-normalized first, its literal
+  converted, and the structure-eta rescue (`to_ctor_when_structure`)
+  tried on the reduct.
+
+The two rescues live in one function (`majorToCtor`); the K branch is
+reachable exactly at `recRuleK`, the eta branch never is there (an
+inductive proposition fails its provably-nonzero guard), so the split
+below dispatches each to its official site and neither is attempted
+twice.
+
+Why the order matters (2026-09-06, the Mathlib `decide`-over-`Rat`
+frontier): with the whnf *first*, an `Eq.rec` whose major is a
+theorem application — `Eq.ndrec … (Int.decEq._proof_1 a b h)` with
+`h := Nat.eq_of_beq_eq_true …`, the shape `instDecidableEqRat`'s
+`h ▸` produces — delta-unfolds the proofs and iota-grinds
+`Nat.eq_of_beq_eq_true`'s `Nat.brecOn` tower unarily down the
+`604800` literal: one knot level per `succ`, fuel exhaustion.  The
+official order fabricates `Eq.refl` from the type (`a ≡ b` by the
+`Nat` literal fast paths) and never opens either proof. -/
+def prepareMajor (r : CoreFns m) (env : Env) (depth : Nat)
+    (recName : Name) (rules : List RecRule) (major : Expr) : m Expr := do
+  if recRuleK env rules then
+    let majorK ← majorToCtor mode r env depth recName rules major
+    let major₀ ← r.whnf depth majorK
+    litMajorToCtor r env depth major₀
+  else
+    let major₀ ← r.whnf depth major
+    let major₁ ← litMajorToCtor r env depth major₀
+    majorToCtor mode r env depth recName rules major₁
+
 /-- The level and constructor-parameter comparands a firing rule's
 checks compare the major's constructor levels and parameters against:
 for a canonical (`.plain`) rule the constructor's levels link to the
@@ -1395,9 +1486,10 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       -- at `Interp2/IotaArity.lean`.  Ungated: the reference has it
       -- unconditionally, so a mode gate would break parity.
       if args.length = mI + 1 ∧ us.length = cv.levelParams.length then
-        let major₀ ← r.whnf depth (args.getD mI (.bvar 0))
-        let major₁ ← litMajorToCtor r env depth major₀
-        let major ← majorToCtor mode r env depth c rules major₁
+        -- the major's preparation (K rescue / whnf / literal / eta) in
+        -- the official order — `prepareMajor`'s docstring
+        let major ← prepareMajor mode r env depth c rules
+          (args.getD mI (.bvar 0))
         match major.getAppFn with
         | .const cj usj =>
           match env.find? cj with
@@ -2039,6 +2131,20 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .bvar _ =>
       throw (.notImplemented "inferType beyond the supported fragment")
 
+/-- **The eq-true shortcut** (the divergence audit's E2): official
+`is_def_eq_core`'s second clause (`type_checker.cpp:1093-1101`) — when
+the right side is the constant `Bool.true` and the left side has no
+free variables, the left side is fully head-normalised (`whnf`, the
+cached loop) and the verdict is `true` iff the reduct is `Bool.true`; on
+failure the step continues.  Only the reduction is here; the guard is
+`defeqStep`'s, and it fires only at an `is_def_eq_core` entry (`pi`).
+Verdict-neutral against lazy delta (a `whnf` reduct is what the
+unfolding loop reaches, one step at a time), one memoised `whnf`
+instead of one loop iteration per unfolding. -/
+def boolTrueShortcut (r : CoreFns m) (depth : Nat) (a : Expr) : m Bool := do
+  let w ← r.whnf depth a
+  pure w.isBoolTrue
+
 /-- Levels-and-spine congruence for two applications of the same
 stored constant — the lazy delta *same-head short-circuit* (the
 official kernel's `try_eq_const_app`): before unfolding both sides of
@@ -2081,9 +2187,15 @@ steer *order only*: every branch below is an independently sound
 reduction or comparison, so the verdict never depends on the hint
 values. -/
 def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
-    (k : Expr → Expr → m Bool) (a b : Expr) : m Bool := do
+    (k : Bool → Expr → Expr → m Bool) (pi : Bool) (a b : Expr) : m Bool := do
     -- syntactic fast path (the references' most-hit branch)
     if a == b then pure true else
+    -- the eq-true shortcut (E2, `boolTrueShortcut`): right side
+    -- `Bool.true`, left side fvar-free, at an entry only — official's
+    -- `(!has_fvar(t) || m_eager_reduce) && is_constant(s, Bool.true)`
+    -- (`:1097`; the eager flag is not mirrored yet, see the audit)
+    if ← (if pi && b.isBoolTrue && !a.hasFvar then boolTrueShortcut r depth a
+        else pure false) then pure true else
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
     if a' == b' then pure true else
@@ -2097,7 +2209,20 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     -- Task #168 (Option U): the hoist is the `Prop` branch only, with
     -- the head-symbol fast arms; the unit-like test is `stuckIrrel`'s
     -- (every structural-failure exit below reaches it).
-    if ← propIrrel mode r env depth a' b' then pure true else
+    --
+    -- **Once per `is_def_eq_core` entry** (the divergence audit's D3,
+    -- DESIGN.md "THE DIVERGENCE AUDIT"): official runs
+    -- `is_def_eq_proof_irrel` before `lazy_delta_reduction` and never
+    -- inside the loop — after an unfolding only `quick_is_def_eq` runs
+    -- (`type_checker.cpp:965-969`, `:1118-1122`).  `pi` is the entry
+    -- flag: `true` at the body's entry and at the literal-acceleration
+    -- re-entries (official restarts `is_def_eq_core` there,
+    -- `:1010-1012`), `false` on the delta continuations.  A re-run
+    -- could not answer differently — a proof stays a proof under
+    -- unfolding — so the gate is cost only (5× per delta step on the
+    -- audit's lockstep-chain witness).
+    if ← (if pi then propIrrel mode r env depth a' b' else pure false) then
+      pure true else
     -- Literal acceleration is guarded on *both* sides being free of
     -- free variables, mirroring the official kernel
     -- (`type_checker.cpp`, `lazy_delta_reduction`:
@@ -2116,11 +2241,11 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     -- eager per-node fvar range instead).
     match ← (if !a'.hasFvar && !b'.hasFvar then
         reduceNat r env depth a' else pure none) with
-    | some a₂ => k a₂ b'
+    | some a₂ => k true a₂ b'
     | none =>
     match ← (if !a'.hasFvar && !b'.hasFvar then
         reduceNat r env depth b' else pure none) with
-    | some b₂ => k a' b₂
+    | some b₂ => k true a' b₂
     | none =>
     -- Lazy delta, **decision before materialization** (the official
     -- kernel's `lazy_delta_reduction_step` reads a `delta_step` off
@@ -2137,22 +2262,22 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     match unfoldableHead env a', unfoldableHead env b' with
     | true, false =>
       match unfoldDefinition env a' with
-      | some a₂ => k a₂ b'
+      | some a₂ => k false a₂ b'
       | none => pure false
     | false, true =>
       match unfoldDefinition env b' with
-      | some b₂ => k a' b₂
+      | some b₂ => k false a' b₂
       | none => pure false
     | true, true =>
       let ha := headHint env a'
       let hb := headHint env b'
       if ReducibilityHint.lt hb ha then
         match unfoldDefinition env a' with
-        | some a₂ => k a₂ b'
+        | some a₂ => k false a₂ b'
         | none => pure false
       else if ReducibilityHint.lt ha hb then
         match unfoldDefinition env b' with
-        | some b₂ => k a' b₂
+        | some b₂ => k false a' b₂
         | none => pure false
       else if ReducibilityHint.sameRegular ha hb && sameConstHeads a' b' then
         -- Same constant at equal *regular* hints: cheap congruence
@@ -2170,11 +2295,11 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
         if ← defeqSpine r env depth a' b' then pure true
         else
           match unfoldDefinition env a', unfoldDefinition env b' with
-          | some a₂, some b₂ => k a₂ b₂
+          | some a₂, some b₂ => k false a₂ b₂
           | _, _ => pure false
       else
         match unfoldDefinition env a', unfoldDefinition env b' with
-        | some a₂, some b₂ => k a₂ b₂
+        | some a₂, some b₂ => k false a₂ b₂
         | _, _ => pure false
     | false, false =>
     match a', b' with
@@ -2301,9 +2426,10 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
 
 /-- The lazy-delta loop: iterate `defeqStep` on its own step budget. -/
 def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
-    Nat → Expr → Expr → m Bool
-  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
-  | fl + 1, a, b => defeqStep mode r env depth (defeqLoop r env depth fl) a b
+    Nat → Bool → Expr → Expr → m Bool
+  | 0, _, _, _ => throw (.internal "fuel exhausted: defeq loop")
+  | fl + 1, pi, a, b =>
+    defeqStep mode r env depth (defeqLoop r env depth fl) pi a b
 
 /-- Step budget of the lazy-delta loop (lean4lean's
 `FuelConfig.lazyDelta`, generously sized here because this loop also
@@ -2314,7 +2440,7 @@ absorbs the literal-acceleration re-entries lean4lean routes through
 /-- The definitional-equality body: the lazy-delta loop at its own
 step budget. -/
 def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
-  fun depth a b => defeqLoop mode r env depth defeqLoopFuel a b
+  fun depth a b => defeqLoop mode r env depth defeqLoopFuel true a b
 
 /-- Check that a (raw) type is a `Prop` by annotating it and inferring
 its sort. -/

@@ -482,9 +482,11 @@ theorem structEtaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     DiscV mode env (fun _ => True) (structEtaCert mode C env d a b)
       (structEtaCert mode G env d a b) := by
   unfold structEtaCert
-  refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
-  refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
-  exact structEtaCertWith_disc ih henv hwa hwb hwtb
+  split
+  · refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
+    refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
+    exact structEtaCertWith_disc ih henv hwa hwb hwtb
+  · exact DiscV.pure trivial
 
 theorem structUnitCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
@@ -729,6 +731,23 @@ theorem iotaIndexOk_disc (ih : ScopedSim mode env f) {d : Nat}
         (fun x hx => (piResidual_WScoped hres hwty hwm).getAppArgs x
           (List.mem_of_mem_drop hx)) hwi
 
+/-- The major chain's discipline, in either order. -/
+theorem prepareMajor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {recName : Name} {rules : List RecRule} {major : Expr}
+    (hmaj : WScoped d major) :
+    DiscV mode env (WScoped d) (prepareMajor mode C env d recName rules major)
+      (prepareMajor mode G env d recName rules major) := by
+  unfold prepareMajor
+  by_cases hk : recRuleK env rules = true
+  · rw [if_pos hk, if_pos hk]
+    refine DiscV.bind (majorToCtor_disc ih henv hmaj) (fun m₁ hm₁ => ?_)
+    refine DiscV.bind (ih.site_whnf henv hm₁) (fun m₂ hm₂ => ?_)
+    exact litMajorToCtor_disc ih henv hm₂
+  · rw [if_neg hk, if_neg hk]
+    refine DiscV.bind (ih.site_whnf henv hmaj) (fun m₀ hm₀ => ?_)
+    refine DiscV.bind (litMajorToCtor_disc ih henv hm₀) (fun m₁ hm₁ => ?_)
+    exact majorToCtor_disc ih henv hm₁
+
 theorem iotaRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
     DiscV mode env (WScopedO d) (iotaRec mode C env d e)
@@ -741,12 +760,7 @@ theorem iotaRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   dsimp only []
   split <;> try exact DiscV.pure WScopedO.none
   refine DiscV.bind
-    (ih.site_whnf henv (wscoped_getD hw.getAppArgs _))
-    (fun major₀ hmaj₀ => ?_)
-  refine DiscV.bind (litMajorToCtor_disc ih henv hmaj₀)
-    (fun major₁ hmaj₁ => ?_)
-  refine DiscV.bind
-    (majorToCtor_disc ih henv hmaj₁)
+    (prepareMajor_disc ih henv (wscoped_getD hw.getAppArgs _))
     (fun major hmaj => ?_)
   split <;> try exact DiscV.pure WScopedO.none
   rename_i cj usj heqmfn
@@ -1497,65 +1511,97 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     · exact hres
 
 set_option maxHeartbeats 1600000 in
-theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
-    {d : Nat} {a b : Expr} {kC kG : Expr → Expr → _}
-    (hk : ∀ {x y : Expr}, WScoped d x → WScoped d y →
-      DiscV mode env (fun _ => True) (kC x y) (kG x y))
-    (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV mode env (fun _ => True) (defeqStep mode C env d kC a b)
-      (defeqStep mode G env d kG a b) := by
-  unfold defeqStep
-  split
+/-- The eq-true shortcut (the audit's E2) runs one `whnf` on both records. -/
+theorem boolTrueShortcut_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {a : Expr} (hwa : WScoped d a) :
+    DiscV mode env (fun _ => True) (boolTrueShortcut C d a)
+      (boolTrueShortcut G d a) := by
+  unfold boolTrueShortcut
+  exact DiscV.bind (ih.site_whnf henv hwa) (fun w _ => DiscV.pure trivial)
+
+/-- `boolTrueShortcut_disc` under its guard. -/
+theorem boolTrueShortcutIf_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {a : Expr} (hwa : WScoped d a) (g : Bool) :
+    DiscV mode env (fun _ => True)
+      (if g then boolTrueShortcut C d a else pure false)
+      (if g then boolTrueShortcut G d a else pure false) := by
+  cases g
   · exact DiscV.pure trivial
+  · exact boolTrueShortcut_disc ih henv hwa
+
+/-- `propIrrel_disc` under the once-per-entry gate (the audit's D3): the
+pruned branch is `pure false` on both records. -/
+theorem propIrrelIf_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) (g : Bool) :
+    DiscV mode env (fun _ => True)
+      (if g then propIrrel mode C env d a b else pure false)
+      (if g then propIrrel mode G env d a b else pure false) := by
+  cases g
+  · exact DiscV.pure trivial
+  · exact propIrrel_disc ih henv hwa hwb
+
+theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {a b : Expr} {kC kG : Bool → Expr → Expr → _}
+    (hk : ∀ (pi : Bool) {x y : Expr}, WScoped d x → WScoped d y →
+      DiscV mode env (fun _ => True) (kC pi x y) (kG pi x y))
+    (pi : Bool) (hwa : WScoped d a) (hwb : WScoped d b) :
+    DiscV mode env (fun _ => True) (defeqStep mode C env d kC pi a b)
+      (defeqStep mode G env d kG pi a b) := by
+  unfold defeqStep
+  -- (the two leading conditionals by `DiscV.ite`: `split` on the grown
+  -- body exceeds the simp step budget)
+  refine DiscV.ite (fun _ => DiscV.pure trivial) (fun _ => ?_)
+  refine DiscV.bind (boolTrueShortcutIf_disc ih henv hwa _) (fun rbt _ => ?_)
+  refine DiscV.ite (fun _ => DiscV.pure trivial) (fun _ => ?_)
   refine DiscV.bind (ih.site_whnfCore henv hwa) (fun a' ha' => ?_)
   refine DiscV.bind (ih.site_whnfCore henv hwb) (fun b' hb' => ?_)
   split
   · exact DiscV.pure trivial
-  refine DiscV.bind (propIrrel_disc ih henv ha' hb') (fun rpi _ => ?_)
+  refine DiscV.bind (propIrrelIf_disc ih henv ha' hb' _) (fun rpi _ => ?_)
   split
   · exact DiscV.pure trivial
   refine DiscV.bind (reduceNatIf_disc ih henv ha' _) (fun o₁ ho₁ => ?_)
   split
-  · exact hk (ho₁ _ rfl) hb'
+  · exact hk _ (ho₁ _ rfl) hb'
   refine DiscV.bind (reduceNatIf_disc ih henv hb' _) (fun o₂ ho₂ => ?_)
   split
-  · exact hk ha' (ho₂ _ rfl)
+  · exact hk _ ha' (ho₂ _ rfl)
   -- lazy delta: the decision first, each unfolding materialized only
   -- inside the branch that consumes it (task #106)
   split
   case h_1 =>
     split
     · rename_i a₂ hua
-      exact hk (unfoldDefinition_WScoped henv hua ha') hb'
+      exact hk _ (unfoldDefinition_WScoped henv hua ha') hb'
     · exact DiscV.pure trivial
   case h_2 =>
     split
     · rename_i b₂ hub
-      exact hk ha' (unfoldDefinition_WScoped henv hub hb')
+      exact hk _ ha' (unfoldDefinition_WScoped henv hub hb')
     · exact DiscV.pure trivial
   case h_3 =>
     have hboth : DiscV mode env (fun _ => True)
         (match unfoldDefinition env a', unfoldDefinition env b' with
-          | some a₂, some b₂ => kC a₂ b₂
+          | some a₂, some b₂ => kC false a₂ b₂
           | _, _ => pure false)
         (match unfoldDefinition env a', unfoldDefinition env b' with
-          | some a₂, some b₂ => kG a₂ b₂
+          | some a₂, some b₂ => kG false a₂ b₂
           | _, _ => pure false) := by
       split
       · rename_i a₂ b₂ hua hub
-        exact hk (unfoldDefinition_WScoped henv hua ha')
+        exact hk _ (unfoldDefinition_WScoped henv hua ha')
           (unfoldDefinition_WScoped henv hub hb')
       · exact DiscV.pure trivial
     dsimp only []
     split
     · split
       · rename_i a₂ hua
-        exact hk (unfoldDefinition_WScoped henv hua ha') hb'
+        exact hk _ (unfoldDefinition_WScoped henv hua ha') hb'
       · exact DiscV.pure trivial
     split
     · split
       · rename_i b₂ hub
-        exact hk ha' (unfoldDefinition_WScoped henv hub hb')
+        exact hk _ ha' (unfoldDefinition_WScoped henv hub hb')
       · exact DiscV.pure trivial
     split
     · refine DiscV.bind (defeqSpine_disc ih ha' hb') (fun sp _ => ?_)
@@ -1703,19 +1749,19 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     case h_17 => exact stuckIrrel_disc ih henv ha' hb'
 
 theorem defeqLoop_disc (ih : ScopedSim mode env f) (henv : EnvWF env) :
-    ∀ (n : Nat) {d : Nat} {a b : Expr}, WScoped d a → WScoped d b →
-      DiscV mode env (fun _ => True) (defeqLoop mode C env d n a b)
-        (defeqLoop mode G env d n a b)
-  | 0, _, _, _, _, _ => DiscV.throw _
-  | n + 1, _, _, _, hwa, hwb =>
+    ∀ (n : Nat) {d : Nat} (pi : Bool) {a b : Expr}, WScoped d a → WScoped d b →
+      DiscV mode env (fun _ => True) (defeqLoop mode C env d n pi a b)
+        (defeqLoop mode G env d n pi a b)
+  | 0, _, _, _, _, _, _ => DiscV.throw _
+  | n + 1, _, pi, _, _, hwa, hwb =>
     defeqStep_disc ih henv
-      (fun hx hy => defeqLoop_disc ih henv n hx hy) hwa hwb
+      (fun pi' {_ _} hx hy => defeqLoop_disc ih henv n pi' hx hy) pi hwa hwb
 
 theorem defeqBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
     DiscV mode env (fun _ => True) (defeqBody mode C env d a b)
       (defeqBody mode G env d a b) :=
-  defeqLoop_disc ih henv defeqLoopFuel hwa hwb
+  defeqLoop_disc ih henv defeqLoopFuel true hwa hwb
 
 end Walks
 

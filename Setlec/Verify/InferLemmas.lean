@@ -798,18 +798,62 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {lic : Bool} {c : Name}
     exact ⟨cvC, nP, nF, hf, h⟩
   · exact absurd h (by simp [pure, Except.pure])
 
+/-- **The major chain's induction principle.**  `prepareMajor` runs
+its three steps — `whnf`, the literal conversion, the rescue — in one
+of two orders (the K-flagged one puts the rescue first); a property
+each step preserves is carried from the raw major to the prepared one
+whichever order ran.  Every consumer of the chain (scoping, bound
+variables, leaves, the P tier's readings and gradings) is an instance,
+so none of them names the order. -/
+theorem prepareMajorP_ind {env : Env} {fuel d : Nat} {recName : Name}
+    {rules : List RecRule} {a m : Expr}
+    (h : prepareMajorP mode env fuel d recName rules a = .ok m)
+    (P : Expr → Prop)
+    (hwhnf : ∀ {e e' : Expr}, whnf mode env fuel d e = .ok e' → P e → P e')
+    (hlit : ∀ {e e' : Expr},
+      litMajorToCtorP mode env fuel d e = .ok e' → P e → P e')
+    (hmaj : ∀ {e e' : Expr},
+      majorToCtorP mode env fuel d recName rules e = .ok e' → P e → P e')
+    (ha : P a) : P m := by
+  dsimp only [prepareMajorP] at h
+  simp only [prepareMajor, Bind.bind, Except.bind, whnf_def, majorToCtor_fold,
+    litMajorToCtor_fold] at h
+  by_cases hk : recRuleK env rules = true
+  · rw [if_pos hk] at h
+    cases h₁ : majorToCtorP mode env fuel d recName rules a with
+    | error err => rw [h₁] at h; exact nomatch h
+    | ok m₁ =>
+      rw [h₁] at h
+      dsimp only at h
+      cases h₂ : whnf mode env fuel d m₁ with
+      | error err => rw [h₂] at h; exact nomatch h
+      | ok m₂ =>
+        rw [h₂] at h
+        dsimp only at h
+        exact hlit h (hwhnf h₂ (hmaj h₁ ha))
+  · rw [if_neg hk] at h
+    cases h₁ : whnf mode env fuel d a with
+    | error err => rw [h₁] at h; exact nomatch h
+    | ok m₁ =>
+      rw [h₁] at h
+      dsimp only at h
+      cases h₂ : litMajorToCtorP mode env fuel d m₁ with
+      | error err => rw [h₂] at h; exact nomatch h
+      | ok m₂ =>
+        rw [h₂] at h
+        dsimp only at h
+        exact hmaj h (hlit h₂ (hwhnf h₁ ha))
+
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     (h : iotaRecP mode env fuel d e = .ok (some eout)) :
-    ∃ c us cv mI rP rules major₀ major₁ major cj usj cvj cnP cnF r,
+    ∃ c us cv mI rP rules major cj usj cvj cnP cnF r,
       e.getAppFn = .const c us ∧
       env.find? c = some (.recInfo cv mI rP rules) ∧
       e.getAppArgs.length = mI + 1 ∧
       us.length = cv.levelParams.length ∧
-      whnf mode env fuel d (e.getAppArgs.getD mI (.bvar 0)) =
-        .ok major₀ ∧
-      litMajorToCtorP mode env fuel d major₀ = .ok major₁ ∧
-      majorToCtorP mode env fuel d c rules major₁ = .ok major ∧
+      prepareMajorP mode env fuel d c rules (e.getAppArgs.getD mI (.bvar 0)) =
+        .ok major ∧
       major.getAppFn = .const cj usj ∧
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
       rules.find? (fun r' => r'.ctor == cj) = some r ∧
@@ -835,7 +879,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
           major.getAppArgs.drop r.ctorParams) := by
   dsimp only [iotaRecP] at h
   simp only [iotaRec, Bind.bind, Except.bind] at h
-  simp only [whnf_def, majorToCtor_fold, litMajorToCtor_fold, defEqList_fold,
+  simp only [prepareMajor_fold, defEqList_fold,
     iotaCerts_fold, iotaIndexOk_fold] at h
   revert h
   cases hfn : e.getAppFn with
@@ -868,21 +912,11 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   case neg => rw [if_neg hlen] at h; exact nomatch h
   rw [if_pos hlen] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hmaj : whnf mode env fuel d
+  cases hprep : prepareMajorP mode env fuel d c rules
       (e.getAppArgs.getD mI (.bvar 0)) with
-  | error err => rw [hmaj] at h; exact nomatch h
-  | ok major₀ =>
-  rw [hmaj] at h
-  dsimp only at h
-  cases hlit : litMajorToCtorP mode env fuel d major₀ with
-  | error err => rw [hlit] at h; exact nomatch h
-  | ok major₁ =>
-  rw [hlit] at h
-  dsimp only at h
-  cases hsub : majorToCtorP mode env fuel d c rules major₁ with
-  | error err => rw [hsub] at h; exact nomatch h
+  | error err => rw [hprep] at h; exact nomatch h
   | ok major =>
-  rw [hsub] at h
+  rw [hprep] at h
   dsimp only at h
   revert h
   cases hmfn : major.getAppFn with
@@ -985,8 +1019,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | true =>
   simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq,
     Option.some.injEq] at h
-  exact ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
-    cnF, r, rfl, hfc, hlen.1, hlen.2, hmaj, hlit, hsub, hmfn, hfj, hrule,
+  exact ⟨c, us, cv, mI, rP, rules, major, cj, usj, cvj, cnP,
+    cnF, r, rfl, hfc, hlen.1, hlen.2, hprep, hmfn, hfj, hrule,
     hml, hplain0, hlev, hpeq, hcerts, hmcerts, hidx, h.symm⟩
 
 /-- Inversion of the canonical-index comparison where the recursor has
@@ -2085,6 +2119,8 @@ theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
       structEtaCertWithP mode env fuel d a b wtb = .ok true := by
   dsimp only [structEtaCertP] at h
   rw [structEtaCert] at h
+  split at h
+  case isFalse => exact nomatch h
   simp only [Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def, structEtaCertWith_fold] at h
   cases htb : inferTypeIO mode env fuel d b with
@@ -3035,9 +3071,9 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
         · simp only [WScoped] at hwf'
           exact ihCore hbeta (WScoped.instantiate1_gen hw.2 0 hwf'.2)
         · -- iota step
-          obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
-            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hmaj, hlit,
-            hsub, hmfn, hfj,
+          obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj,
+            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
+            hmfn, hfj,
             hrule,
             hml, -, hlev, hpeq, hcerts, hmcerts, -, rfl⟩ :=
             iotaRec_inv hio
@@ -3053,16 +3089,19 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
               (List.mem_of_find?_eq_some hrule)
             exact WScoped.of_not_hasFvar
               (by rw [hasFvar_instantiateLevelParams]; exact hrf)
-          have hmaj0w : WScoped d major₀ := ihLoop hmaj
-            (hargs _ (getD_mem (by omega)))
-          have hmaj1w : WScoped d major₁ := by
-            rcases litMajorToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
-            · exact litToCtorIfNat_WScoped hmaj0w
-            · exact ihLoop hred (strLitToConstructor_WScoped s d)
-          have hmajw : WScoped d major := by
-            rcases majorToCtor_inv hsub with rfl | ⟨hwsc, -, -, -⟩
-            · exact hmaj1w
-            · exact WScoped.of_wscopedB hwsc
+          -- the major's scoping, through the chain in either order
+          have hmajw : WScoped d major :=
+            prepareMajorP_ind hprep (WScoped d)
+              (fun hw' hwe => ihLoop hw' hwe)
+              (fun hl hwe => by
+                rcases litMajorToCtorP_inv hl with rfl | ⟨s, -, -, hred⟩
+                · exact litToCtorIfNat_WScoped hwe
+                · exact ihLoop hred (strLitToConstructor_WScoped s d))
+              (fun hs hwe => by
+                rcases majorToCtor_inv hs with rfl | ⟨hwsc, -, -, -⟩
+                · exact hwe
+                · exact WScoped.of_wscopedB hwsc)
+              (hargs _ (getD_mem (by omega)))
           refine ihCore hwe'' ?_
           refine Expr.WScoped.mkAppN hrhs ?_
           intro x hx
@@ -3116,5 +3155,23 @@ theorem whnf_WScoped {env : Env} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr}
     (h : whnf mode env fuel d e = .ok e' ) (hw : WScoped d e) : WScoped d e' :=
   (whnfPres_WScoped henv fuel).2 h hw
+
+/-- The major chain preserves well-scopedness (an instance of
+`prepareMajorP_ind`). -/
+theorem prepareMajorP_WScoped {env : Env} (henv : EnvWF env)
+    {fuel d : Nat} {recName : Name} {rules : List RecRule} {a m : Expr}
+    (h : prepareMajorP mode env fuel d recName rules a = .ok m)
+    (hw : WScoped d a) : WScoped d m :=
+  prepareMajorP_ind h (WScoped d)
+    (fun hw' hwe => whnf_WScoped henv fuel hw' hwe)
+    (fun hl hwe => by
+      rcases litMajorToCtorP_inv hl with rfl | ⟨s, -, -, hred⟩
+      · exact litToCtorIfNat_WScoped hwe
+      · exact whnf_WScoped henv fuel hred (strLitToConstructor_WScoped s d))
+    (fun hs hwe => by
+      rcases majorToCtor_inv hs with rfl | ⟨hwsc, -, -, -⟩
+      · exact hwe
+      · exact WScoped.of_wscopedB hwsc)
+    hw
 
 end Setlec

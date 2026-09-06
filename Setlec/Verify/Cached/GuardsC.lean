@@ -1238,6 +1238,20 @@ theorem isCtorAppI_spec {env : Env} {st : CStore} {e : ExprC} {ex : Expr}
     isCtorAppI (mkFEnv env) st e = isCtorApp env ex := by
   rw [isCtorAppI, isCtorAppC_spec, h]
 
+/-- The eta constructor-shape gate agrees with the spec's `etaCtorShape`
+on the erasure (`ExprC = Expr`; only the environment lookup differs). -/
+theorem etaCtorShapeI_spec {env : Env} {st : CStore} {e : ExprC} {ex : Expr}
+    (h : e = ex) :
+    etaCtorShapeI (mkFEnv env) st e = etaCtorShape env ex := by
+  subst h
+  unfold etaCtorShapeI etaCtorShapeC etaCtorShape
+  generalize Expr.getAppFn e = f
+  cases f <;> simp only [mkFEnv_find?] <;> first
+    | rfl
+    | (generalize env.find? _ = ci
+       rcases ci with _ | ci <;> try rfl
+       cases ci <;> rfl)
+
 open ExprC in
 /-- The reducibility-hint readout agrees with the spec's `headHint` on
 the erasure — like `isCtorAppC_spec` it reads the *spine head*, so the
