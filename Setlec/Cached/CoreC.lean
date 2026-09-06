@@ -1350,7 +1350,8 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     -- proof irrelevance hoisted before lazy delta, as in the spec
     -- (and the official kernel); the `Prop` branch with the fast arms
     -- (task #168, Option U) — once per entry (`pi`; the spec's D3 note)
-    if ← (if pi then propIrrelI cfg r fe depth a' b' else pure false) then
+    let qp ← withStore (fun st => quickPairI st a' b')
+    if ← (if pi && !qp then propIrrelI cfg r fe depth a' b' else pure false) then
       pure true else
     -- Literal folding only when both sides are fvar-free, mirroring
     -- the official kernel (`type_checker.cpp`, `lazy_delta_reduction`)

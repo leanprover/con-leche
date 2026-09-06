@@ -1238,6 +1238,12 @@ theorem isCtorAppI_spec {env : Env} {st : CStore} {e : ExprC} {ex : Expr}
     isCtorAppI (mkFEnv env) st e = isCtorApp env ex := by
   rw [isCtorAppI, isCtorAppC_spec, h]
 
+/-- The `quickPairI` store read agrees with the spec's `Expr.quickPair` on
+the erasures. -/
+theorem quickPairI_spec {st : CStore} {a b : ExprC} {ax bx : Expr}
+    (ha : a = ax) (hb : b = bx) : quickPairI st a b = Expr.quickPair ax bx := by
+  rw [quickPairI, ha, hb]
+
 /-- The eta constructor-shape gate agrees with the spec's `etaCtorShape`
 on the erasure (`ExprC = Expr`; only the environment lookup differs). -/
 theorem etaCtorShapeI_spec {env : Env} {st : CStore} {e : ExprC} {ex : Expr}

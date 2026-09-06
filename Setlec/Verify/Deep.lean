@@ -2341,6 +2341,12 @@ private theorem boolTrueShortcutIf_shift (henv : EnvWF env)
   · rfl
   · exact boolTrueShortcut_shift henv ih hpd hwa
 
+private theorem quickPair_shiftFrom {p : Nat} {a b : Expr} :
+    (shiftFrom p a).quickPair (shiftFrom p b) = a.quickPair b := by
+  cases a <;> cases b <;> first
+    | rfl
+    | (simp only [shiftFrom]; (repeat split) <;> rfl)
+
 /-- `propIrrel_shift` under the once-per-entry gate (the audit's D3). -/
 private theorem propIrrelIf_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
@@ -2386,6 +2392,7 @@ private theorem defeqLoop_shift (henv : EnvWF env)
   rw [shiftFrom_beq]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   -- hoisted proof irrelevance (the `Prop` branch, task #168)
+  rw [quickPair_shiftFrom]
   refine bind_congr_eq (propIrrelIf_shift henv ih hpd hwwa hwwb _) ?_
   rintro rpi -
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)

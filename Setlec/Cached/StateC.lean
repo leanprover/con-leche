@@ -172,6 +172,9 @@ def etaCtorShapeC (fe : FEnv) (e : ExprC) : Bool :=
 @[inline] def etaCtorShapeI (fe : FEnv) (_ : CStore) (e : ExprC) : Bool :=
   etaCtorShapeC fe e
 
+/-- The store read of `Expr.quickPair` (the audit's D4 gate; `ExprC = Expr`). -/
+@[inline] def quickPairI (_ : CStore) (a b : ExprC) : Bool := Expr.quickPair a b
+
 @[inline] def headHintI (fe : FEnv) (_ : CStore) (e : ExprC) :
     ReducibilityHint := headHintC fe e
 

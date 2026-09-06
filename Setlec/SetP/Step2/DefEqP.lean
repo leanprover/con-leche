@@ -304,8 +304,8 @@ def DefEqStuckP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     whnfCore μ env fuel d a = .ok a' →
     whnfCore μ env fuel d b = .ok b' →
     (a' == b') = false →
-    (if pi then Setlec.propIrrelP μ env fuel d a' b' else pure false)
-      = .ok false →
+    (if pi && !a'.quickPair b' then Setlec.propIrrelP μ env fuel d a' b'
+      else pure false) = .ok false →
     (if !a'.hasFvar && !b'.hasFvar then
       Setlec.reduceNatP μ env fuel d a' else pure none) = .ok none →
     (if !a'.hasFvar && !b'.hasFvar then
@@ -590,8 +590,8 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
       rfl
     · -- proof irrelevance, once per entry (the audit's D3): the gate is
       -- `pi`, and only a `true` verdict is consumed
-      cases hir : (if pi then Setlec.propIrrelP μ env fuel d a' b'
-          else pure false) with
+      cases hir : (if pi && !a'.quickPair b' then
+          Setlec.propIrrelP μ env fuel d a' b' else pure false) with
       | error err => rw [hir] at h; exact nomatch h
       | ok r =>
       rw [hir] at h

@@ -44273,3 +44273,42 @@ the tip: `lake build` warning-free (438 jobs), `lake test`,
 `tests/arena.sh` 0 FAIL (tutorial 90/92, e2e 76/76, annot 14/14, flags
 8/8 + 14/14, no-model sweep as recorded), proofdeps 1 363 rows / doors
 0, layering 0 edges.
+
+### 10. Phase 2, fix 5 — D4 landed: no proof irrelevance on a quick pair (`agent/divergence-d4`)
+
+**The clause.**  Official `quick_is_def_eq` (`type_checker.cpp:770-793`)
+decides λ/λ, Π/Π (`is_def_eq_binding`), sort/sort and lit/lit by
+itself, at the top of `is_def_eq_core` and again after `whnf_core` if a
+side changed; such a pair never reaches `is_def_eq_proof_irrel`.  Ours
+ran the hoisted `propIrrel` (two io inferences + whnf + level test per
+side; on a Π that is the whole body's inference) before the binder /
+sort / literal arms, and could accept two λ-proofs with non-defeq
+domains there where official's binding check commits `false`.
+
+**The change.**  `Expr.quickPair a b` (the four shapes) and the gate
+`if pi && !a'.quickPair b' then propIrrel … else pure false` on the
+`whnfCore`'d pair — the arms themselves stay where they are (values
+are `whnfCore`-inert, `reduceNat` and the delta decision are instant
+no-ops on them), so the order of what actually runs on a quick pair is
+now official's: the arm, and nothing before it.  Twins read
+`quickPairI` through the store.  The removed accept-superset instance
+(λ-proofs with non-defeq domains) is the one ruled conformance-
+improving and outside the two ruled proofIrrel divergences.
+
+**Proofs.**  `quickPairI_spec` (`GuardsC`), `quickPair_shiftFrom`
+(`Deep`, before the gated `propIrrelIf_shift`), the store peel in
+`defeqStepC_sim` (`DiscC5`); the `DefEqStuckP` hypothesis and the
+`hir` scrutinee in `defeqStep_claimP` take the new guard (the
+`split at hir` reading is unchanged).  No new axiom, no `sorry`;
+capstones at `[propext, Classical.choice, Quot.sound]`.
+
+**Hard-stop rule, checked.**  init-full-pre2: ACCEPT, 60 549 constants
+in both modes (parity 164 s, P 167 s wall); `tests/arena.sh` 0 FAIL
+with every verdict as pinned (tutorial 90/92, e2e 76/76, annot 14/14,
+flags 8/8 + 14/14, no-model sweep as recorded).  No verdict moved.
+
+**Receipts** (worktree binary): `delta_chain` parity 1.3731 G (was
+1.3785 G: the sort/lit/binder pairs of the chain's `Eq` spine no longer
+pay a `propIrrel`), P 1.3981 G; `natop_arg_order` parity 0.264 G (was
+0.280 G), P 0.269 G; `lake build` warning-free (438 jobs), `lake test`,
+proofdeps 1 363 rows / doors 0, layering 0 edges.
