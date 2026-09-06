@@ -1,6 +1,6 @@
 name = "setlec"
 defaultTargets = ["SetlecBase", "SetlecP", "SetlecCaps", "setlec", "setlec-preprocess",
-                  "Challenge", "Solution"]
+                  "Solution"]
 testDriver = "SetlecTests"
 
 # THE PREPROCESSOR, AS A LIBRARY (task #178).  `lean-inductive-models` reduces
@@ -132,7 +132,9 @@ name = "SetlecTests"
 srcDir = "tests"
 
 # The comparator challenge: `Challenge.lean` (statement, `sorry`) and
-# `Solution.lean` (proof); config in `comparator.json`.
+# `Solution.lean` (proof); config in `comparator.json`.  Only `Solution` is
+# a default target: the challenge's `sorry` warning stays visible, and the
+# comparator builds `Challenge` itself.
 [[lean_lib]]
 name = "Challenge"
 

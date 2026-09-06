@@ -46767,7 +46767,8 @@ the comparator builds the two modules separately and compares the two
 exports) and proves it by
 `Cached.no_proof_of_Empty_SPCD_P V (μ := .verified) rfl h` —
 `cfgOf .verified = cfgP` is `rfl` (`cfgOf_verified_eq_cfgP`).  Both are
-`lean_lib`s and default targets, so `lake build` keeps them compiling.
+`lean_lib`s; `Solution` is a default target (see "THE ONE `sorry`"
+below for why `Challenge` is not).
 
 **Stated at `cfgP`, not at the capstone's `cfgOf μ` with
 `μ.verifiedChecks = true`.**  `Main.lean` runs
@@ -46796,9 +46797,15 @@ exactly the fence that keeps it so.
 The project rule is "no `sorry`s on master".  The challenge's `sorry`
 is the comparator protocol's: a challenge carrying its proof would have
 to import the verification, making the trusted closure the whole tree.
-It is the deliberate exception; the `declaration uses 'sorry'` warning
-is silenced at that theorem alone (`set_option warn.sorry false in`), so
-`lake build` stays warning-free without touching the rule anywhere else.
+It is the deliberate exception, and it is written the way every
+comparator challenge is written — a bare `sorry`, warning visible (the
+comparator's own tests, PFR's `PFRPalomar/Challenge.lean`, OpenAI's
+PrimeGaps186 challenge, leanprover/lean-eval's generated ones all do
+that; a first cut silenced it with `set_option warn.sorry false in`
+and the user ruled to drop that).  So that `lake build` stays
+warning-free, `Challenge` is **not** a default target: the comparator
+builds it itself, and `Solution` — the same statement, with the proof —
+is, so the statement is compiled on every build regardless.
 
 ### RUNNING IT
 

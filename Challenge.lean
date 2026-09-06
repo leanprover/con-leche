@@ -14,7 +14,6 @@ universe w
 
 namespace Setlec
 
-set_option warn.sorry false in
 /-- The checker at `cfgP` (what `setlec --verified`, the default, runs)
 never accepts a stream storing a constant of type `Empty`, in every model
 `V` of `SetTheory`. -/
