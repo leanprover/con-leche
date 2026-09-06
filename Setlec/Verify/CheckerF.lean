@@ -1,5 +1,6 @@
 import Setlec.Verify.FastOps
 import Setlec.Verify.EnvBound
+import Setlec.Kernel.Direct.SumInstallF
 
 /-!
 # The indexed checker mirrors agree with the generic checker (task #63)
@@ -167,6 +168,16 @@ theorem directPartsF?_eq (env : Env) (block : List ConstantInfo) :
     directPartsF? (mkFEnv env) block = directParts? env block := by
   simp only [directPartsF?, directParts?, directNonRecF_eq] <;> rfl
 
+theorem directSumNonRecF_eq (env : Env) (p : DirectSumParts) :
+    directSumNonRecF (mkFEnv env) p = directSumNonRec env p := by
+  simp only [directSumNonRecF, directSumNonRec, constsResolveF_eq] <;> rfl
+
+/-- The direct-sum recognition through the index is the pure one
+(task #175 sum-types; the second gate of the three-way dispatch). -/
+theorem directSumPartsF?_eq (env : Env) (block : List ConstantInfo) :
+    directSumPartsF? (mkFEnv env) block = directSumParts? env block := by
+  simp only [directSumPartsF?, directSumParts?, directSumNonRecF_eq] <;> rfl
+
 /-! ## Monadic mirrors (non-extending: plain program equalities) -/
 
 section Monadic
@@ -286,6 +297,51 @@ theorem checkDirectRecF_eq (ops : CheckerOps m) (env : Env)
   simp only [checkDirectRecF, checkDirectRec, mkFEnv_env, constsResolveF_eq,
     checkConstantValF_eq]
 
+/-! ### The direct sum path (task #175 sum-types) -/
+
+theorem checkDirectSumCtorF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+    (lps : List Name) (nP : Nat) (resSort : Level) (isProp large : Bool)
+    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
+    checkDirectSumCtorF ops (mkFEnv env₀) (mkFEnv env) T lps nP resSort isProp
+        large cvC nF cvTa
+      = checkDirectSumCtor ops env₀ env T lps nP resSort isProp large cvC nF
+        cvTa := by
+  simp only [checkDirectSumCtorF, checkDirectSumCtor, checkConstantValF_eq,
+    checkDirectDomsAtFA_eq, checkDirectDomsAtF_eq, openPisAtFvarsF_eq,
+    checkDirectFieldSortsFA_eq, checkDirectFieldSortsF_eq, constsResolveF_eq]
+
+theorem checkDirectSumCtorsF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+    (lps : List Name) (nP : Nat) (resSort : Level) (isProp large : Bool)
+    (cvTa : ConstantVal) :
+    ∀ (cs : List (ConstantVal × Nat)),
+      checkDirectSumCtorsF ops (mkFEnv env₀) (mkFEnv env) T lps nP resSort isProp
+          large cvTa cs
+        = checkDirectSumCtors ops env₀ env T lps nP resSort isProp large cvTa cs
+  | [] => rfl
+  | c :: cs => by
+    simp only [checkDirectSumCtorsF, checkDirectSumCtors, checkDirectSumCtorF_eq,
+      checkDirectSumCtorsF_eq ops env₀ env T lps nP resSort isProp large cvTa cs]
+
+theorem checkDirectSumRulesF_eq (ops : CheckerOps m) (env : Env)
+    (rlps : List Name) (T : Name) (lps : List Name) (elim : Name) (large : Bool)
+    (nP : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) :
+    ∀ (k j : Nat),
+      checkDirectSumRulesF ops (mkFEnv env) rlps T lps elim large nP tty ctors k j
+        = checkDirectSumRules ops env rlps T lps elim large nP tty ctors k j
+  | 0, _ => rfl
+  | k + 1, j => by
+    simp only [checkDirectSumRulesF, checkDirectSumRules, mkFEnv_env,
+      constsResolveF_eq,
+      checkDirectSumRulesF_eq ops env rlps T lps elim large nP tty ctors k (j + 1)]
+
+theorem checkDirectSumRecF_eq (ops : CheckerOps m) (env : Env)
+    (p : DirectSumParts) (cvTa : ConstantVal)
+    (ctorsA : List (ConstantVal × Nat)) :
+    checkDirectSumRecF ops (mkFEnv env) p cvTa ctorsA
+      = checkDirectSumRec ops env p cvTa ctorsA := by
+  simp only [checkDirectSumRecF, checkDirectSumRec, mkFEnv_env, constsResolveF_eq,
+    checkConstantValF_eq, checkDirectSumRulesF_eq]
+
 omit [MonadExceptOf CheckError m] in
 theorem checkDivModCertsF_eq (ops : CheckerOps m) (env : Env) (c : Name)
     (annVal : Expr) :
@@ -326,6 +382,17 @@ executing monad, in `Setlec/Verify/Cached/BridgeCSDecl.lean`; the
 
 theorem push_mkFEnv (env : Env) (ci : ConstantInfo) :
     (mkFEnv env).push ci = mkFEnv ⟨ci :: env.consts⟩ := rfl
+
+/-- The direct sum's constructor conses through the index (task #175
+sum-types): the pushed index of the consed environment *is* `mkFEnv`
+of it. -/
+theorem consSumCtorsF_mkFEnv (nP : Nat) :
+    ∀ (cs : List (ConstantVal × Nat)) (env : Env),
+      consSumCtorsF nP cs (mkFEnv env) = mkFEnv (consSumCtors nP cs env)
+  | [], _ => rfl
+  | c :: cs, env => by
+    simp only [consSumCtorsF, consSumCtors, push_mkFEnv,
+      consSumCtorsF_mkFEnv nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts⟩]
 
 
 end Setlec

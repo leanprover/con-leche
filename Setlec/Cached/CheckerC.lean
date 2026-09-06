@@ -1,4 +1,4 @@
-import Setlec.Kernel.Direct.InstallF
+import Setlec.Kernel.Direct.SumInstallF
 import Setlec.Cached.CoreC
 
 /-!
@@ -157,6 +157,26 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
   checkDirectProjTableF (m := CheckCM) p.cvT.name p.cvC.name p.cvT.levelParams
     p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) cvCa fe₃
 
+/-- `checkDirectSum` through the index (task #175 sum-types).  One
+flush per environment transition: the former's, the constructors'
+(all at the former's environment), the recursor's. -/
+def checkDirectSumS (fe : FEnv) (p : DirectSumParts) : CheckCM FEnv := do
+  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
+    throw (.invalid "direct sum: large eliminator on a multi-constructor inductive \
+      whose sort may be Prop")
+  unless (p.ctors.map (·.1.name)).Nodup do
+    throw (.invalid "direct sum: duplicate constructor")
+  flushC
+  let (fe₁, cvTa) ← checkDirectSumIndF (sharedOpsC cfg fe) fe p
+  flushC
+  let ctorsA ← checkDirectSumCtorsF (sharedOpsC cfg fe₁) fe fe₁ p.cvT.name p.cvT.levelParams
+    p.nP p.resSort p.isProp p.large cvTa p.ctors
+  let fe₂ := consSumCtorsF p.nP ctorsA fe₁
+  flushC
+  let (cvRa, rhss) ← checkDirectSumRecF (sharedOpsC cfg fe₂) fe₂ p cvTa ctorsA
+  let mI := p.nP + 1 + p.ctors.length
+  pure (fe₂.push (.recInfo cvRa mI mI (directSumRules p.nP mI cvRa.type ctorsA rhss)))
+
 /-- The modeled inductive block (mirrors `checkIndDecl`), returning
 the extended index. -/
 def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
@@ -259,7 +279,10 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
   | .indDecl block =>
     match directPartsF? fe block with
     | some p => checkDirectStructS cfg fe p
-    | none => checkIndDeclSF cfg fe block
+    | none =>
+      match directSumPartsF? fe block with
+      | some p => checkDirectSumS cfg fe p
+      | none => checkIndDeclSF cfg fe block
 
 /-- The shared-state checker step the binary runs: the index is
 threaded *across* declarations (built once for the whole stream; each

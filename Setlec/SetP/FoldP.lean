@@ -3,7 +3,8 @@ import Setlec.SetP.DeclIndP
 import Setlec.SetP.Direct.DeclDirectP
 import Setlec.Semantics.IndBlockFacts
 import Setlec.Semantics.Bridge.Sound
-import Setlec.Semantics.Direct.DeclDirectEta
+import Setlec.Semantics.Direct.DeclDirectSumEta
+import Setlec.SetP.DirectSum.DeclDirectSumP
 
 /-!
 # The P declaration fold, and the conditional capstone (task #161, P4)
@@ -197,7 +198,13 @@ theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       exact declDirectP hμ mp hE hdp hrun'
     | none =>
       rw [hdp] at hrun'
-      exact indStepPB_of hμ mp hE hrun'
+      cases hds : Setlec.directSumParts? env block with
+      | some p =>
+        rw [hds] at hrun'
+        exact declDirectSumP hμ mp hE hds hrun'
+      | none =>
+        rw [hds] at hrun'
+        exact indStepPB_of hμ mp hE hrun'
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :

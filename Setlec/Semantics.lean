@@ -27,6 +27,8 @@ import Setlec.Semantics.Decl
 import Setlec.Semantics.DeclEta
 import Setlec.Semantics.DeclRun
 import Setlec.Semantics.Direct.DeclDirect
+import Setlec.Semantics.Direct.DeclDirectSum
+import Setlec.Semantics.Direct.DeclDirectSumEta
 import Setlec.Semantics.DeclIndRun
 import Setlec.Semantics.IndBlockFacts
 import Setlec.Semantics.IndBlockRun

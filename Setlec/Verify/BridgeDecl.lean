@@ -957,6 +957,126 @@ theorem checkDirectStruct_snd_dproj (env : Env) (p : DirectParts) :
     checkDirectInd_snd_dproj, checkDirectCtor_snd_dproj,
     checkDirectRec_snd_dproj, checkDirectProjTable_snd_dproj]
 
+/-! ### The direct sum route (task #175 sum-types) -/
+
+theorem checkDirectSumInd_fst_dproj (env : Env) (p : DirectSumParts) :
+    (checkDirectSumInd (pairOps o₁ o₂ h) env p).val.1 =
+      checkDirectSumInd o₁ env p := by
+  unfold checkDirectSumInd
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, unwrapOr_fst_dproj, checkConstantVal_fst_dproj]
+
+theorem checkDirectSumInd_snd_dproj (env : Env) (p : DirectSumParts) :
+    (checkDirectSumInd (pairOps o₁ o₂ h) env p).val.2 =
+      checkDirectSumInd o₂ env p := by
+  unfold checkDirectSumInd
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, unwrapOr_snd_dproj, checkConstantVal_snd_dproj]
+
+theorem checkDirectSumCtor_fst_dproj (env₀ env : Env) (T : Name) (lps : List Name)
+    (nP : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
+    (cvTa : ConstantVal) :
+    (checkDirectSumCtor (pairOps o₁ o₂ h) env₀ env T lps nP rs isProp large cvC nF cvTa).val.1 =
+      checkDirectSumCtor o₁ env₀ env T lps nP rs isProp large cvC nF cvTa := by
+  unfold checkDirectSumCtor
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, unwrapOr_fst_dproj, checkConstantVal_fst_dproj,
+    checkDirectFieldSorts_fst_dproj, checkDirectDomsAt_fst_dproj]
+
+theorem checkDirectSumCtor_snd_dproj (env₀ env : Env) (T : Name) (lps : List Name)
+    (nP : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
+    (cvTa : ConstantVal) :
+    (checkDirectSumCtor (pairOps o₁ o₂ h) env₀ env T lps nP rs isProp large cvC nF cvTa).val.2 =
+      checkDirectSumCtor o₂ env₀ env T lps nP rs isProp large cvC nF cvTa := by
+  unfold checkDirectSumCtor
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, unwrapOr_snd_dproj, checkConstantVal_snd_dproj,
+    checkDirectFieldSorts_snd_dproj, checkDirectDomsAt_snd_dproj]
+
+theorem checkDirectSumCtors_fst_dproj (env₀ env : Env) (T : Name) (lps : List Name)
+    (nP : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) :
+    ∀ cs : List (ConstantVal × Nat),
+      (checkDirectSumCtors (pairOps o₁ o₂ h) env₀ env T lps nP rs isProp large cvTa cs).val.1 =
+        checkDirectSumCtors o₁ env₀ env T lps nP rs isProp large cvTa cs
+  | [] => rfl
+  | c :: cs => by
+    unfold checkDirectSumCtors
+    simp only [PairM.fst_bind, PairM.fst_pure, checkDirectSumCtor_fst_dproj,
+      checkDirectSumCtors_fst_dproj env₀ env T lps nP rs isProp large cvTa cs]
+
+theorem checkDirectSumCtors_snd_dproj (env₀ env : Env) (T : Name) (lps : List Name)
+    (nP : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) :
+    ∀ cs : List (ConstantVal × Nat),
+      (checkDirectSumCtors (pairOps o₁ o₂ h) env₀ env T lps nP rs isProp large cvTa cs).val.2 =
+        checkDirectSumCtors o₂ env₀ env T lps nP rs isProp large cvTa cs
+  | [] => rfl
+  | c :: cs => by
+    unfold checkDirectSumCtors
+    simp only [PairM.snd_bind, PairM.snd_pure, checkDirectSumCtor_snd_dproj,
+      checkDirectSumCtors_snd_dproj env₀ env T lps nP rs isProp large cvTa cs]
+
+theorem checkDirectSumRules_fst_dproj (env : Env) (rlps : List Name) (T : Name)
+    (lps : List Name) (elim : Name) (large : Bool) (nP : Nat) (tty : Expr)
+    (ctors : List (Name × Nat × Expr)) :
+    ∀ k j : Nat,
+      (checkDirectSumRules (pairOps o₁ o₂ h) env rlps T lps elim large nP tty ctors k j).val.1 =
+        checkDirectSumRules o₁ env rlps T lps elim large nP tty ctors k j
+  | 0, _ => rfl
+  | k + 1, j => by
+    unfold checkDirectSumRules
+    simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw, PairM.fst_ite,
+      pairOps_inferType_fst, unwrapOr_fst_dproj,
+      checkDirectSumRules_fst_dproj env rlps T lps elim large nP tty ctors k (j + 1)]
+
+theorem checkDirectSumRules_snd_dproj (env : Env) (rlps : List Name) (T : Name)
+    (lps : List Name) (elim : Name) (large : Bool) (nP : Nat) (tty : Expr)
+    (ctors : List (Name × Nat × Expr)) :
+    ∀ k j : Nat,
+      (checkDirectSumRules (pairOps o₁ o₂ h) env rlps T lps elim large nP tty ctors k j).val.2 =
+        checkDirectSumRules o₂ env rlps T lps elim large nP tty ctors k j
+  | 0, _ => rfl
+  | k + 1, j => by
+    unfold checkDirectSumRules
+    simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw, PairM.snd_ite,
+      pairOps_inferType_snd, unwrapOr_snd_dproj,
+      checkDirectSumRules_snd_dproj env rlps T lps elim large nP tty ctors k (j + 1)]
+
+theorem checkDirectSumRec_fst_dproj (env : Env) (p : DirectSumParts)
+    (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
+    (checkDirectSumRec (pairOps o₁ o₂ h) env p cvTa ctorsA).val.1 =
+      checkDirectSumRec o₁ env p cvTa ctorsA := by
+  unfold checkDirectSumRec
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, pairOps_isDefEq_fst, pairOps_inferType_fst,
+    pairOps_ensureSort_fst, unwrapOr_fst_dproj, checkConstantVal_fst_dproj,
+    checkDirectSumRules_fst_dproj]
+
+theorem checkDirectSumRec_snd_dproj (env : Env) (p : DirectSumParts)
+    (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
+    (checkDirectSumRec (pairOps o₁ o₂ h) env p cvTa ctorsA).val.2 =
+      checkDirectSumRec o₂ env p cvTa ctorsA := by
+  unfold checkDirectSumRec
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, pairOps_isDefEq_snd, pairOps_inferType_snd,
+    pairOps_ensureSort_snd, unwrapOr_snd_dproj, checkConstantVal_snd_dproj,
+    checkDirectSumRules_snd_dproj]
+
+theorem checkDirectSum_fst_dproj (env : Env) (p : DirectSumParts) :
+    (checkDirectSum (pairOps o₁ o₂ h) env p).val.1 =
+      checkDirectSum o₁ env p := by
+  unfold checkDirectSum
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, checkDirectSumInd_fst_dproj, checkDirectSumCtors_fst_dproj,
+    checkDirectSumRec_fst_dproj]
+
+theorem checkDirectSum_snd_dproj (env : Env) (p : DirectSumParts) :
+    (checkDirectSum (pairOps o₁ o₂ h) env p).val.2 =
+      checkDirectSum o₂ env p := by
+  unfold checkDirectSum
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, checkDirectSumInd_snd_dproj, checkDirectSumCtors_snd_dproj,
+    checkDirectSumRec_snd_dproj]
+
 macro "dfst_step4_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_fst_proj])
@@ -1332,7 +1452,9 @@ theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     dsimp only
     split
     · exact checkDirectStruct_fst_dproj env _
-    · exact checkIndDecl_fst_dproj env block
+    · split
+      · exact checkDirectSum_fst_dproj env _
+      · exact checkIndDecl_fst_dproj env block
 
 theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     (checkDecl mode (pairOps o₁ o₂ h) env d).val.2 =
@@ -1401,7 +1523,9 @@ theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     dsimp only
     split
     · exact checkDirectStruct_snd_dproj env _
-    · exact checkIndDecl_snd_dproj env block
+    · split
+      · exact checkDirectSum_snd_dproj env _
+      · exact checkIndDecl_snd_dproj env block
 
 theorem checkDecls_fst_dproj (ds : List Declaration) :
     (checkDecls mode (pairOps o₁ o₂ h) ds).val.1 =
@@ -1817,6 +1941,67 @@ theorem checkDirectStruct_datF (env : Env) (p : DirectParts) (F : Nat) :
     checkDirectInd_datF, checkDirectCtor_datF, checkDirectRec_datF,
     checkDirectProjTable_datF]
 
+/-! ### The direct sum route (task #175 sum-types) -/
+
+theorem checkDirectSumInd_datF (env : Env) (p : DirectSumParts) (F : Nat) :
+    (checkDirectSumInd (fueledOpsM mode) env p).val F =
+      checkDirectSumInd (fueledOps mode F) env p := by
+  unfold checkDirectSumInd
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF]
+
+theorem checkDirectSumCtor_datF (env₀ env : Env) (T : Name) (lps : List Name)
+    (nP : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
+    (cvTa : ConstantVal) (F : Nat) :
+    (checkDirectSumCtor (fueledOpsM mode) env₀ env T lps nP rs isProp large cvC nF cvTa).val F =
+      checkDirectSumCtor (fueledOps mode F) env₀ env T lps nP rs isProp large cvC nF cvTa := by
+  unfold checkDirectSumCtor
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
+    checkDirectFieldSorts_datF, checkDirectDomsAt_datF]
+
+theorem checkDirectSumCtors_datF (env₀ env : Env) (T : Name) (lps : List Name)
+    (nP : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) (F : Nat) :
+    ∀ cs : List (ConstantVal × Nat),
+      (checkDirectSumCtors (fueledOpsM mode) env₀ env T lps nP rs isProp large cvTa cs).val F =
+        checkDirectSumCtors (fueledOps mode F) env₀ env T lps nP rs isProp large cvTa cs
+  | [] => rfl
+  | c :: cs => by
+    unfold checkDirectSumCtors
+    simp only [FueledM.atF_bind, FueledM.atF_pure, checkDirectSumCtor_datF,
+      checkDirectSumCtors_datF env₀ env T lps nP rs isProp large cvTa F cs]
+
+theorem checkDirectSumRules_datF (env : Env) (rlps : List Name) (T : Name)
+    (lps : List Name) (elim : Name) (large : Bool) (nP : Nat) (tty : Expr)
+    (ctors : List (Name × Nat × Expr)) (F : Nat) :
+    ∀ k j : Nat,
+      (checkDirectSumRules (fueledOpsM mode) env rlps T lps elim large nP tty ctors k j).val F =
+        checkDirectSumRules (fueledOps mode F) env rlps T lps elim large nP tty ctors k j
+  | 0, _ => rfl
+  | k + 1, j => by
+    unfold checkDirectSumRules
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      fueledOpsM_inferType_atF, unwrapOr_atF,
+      checkDirectSumRules_datF env rlps T lps elim large nP tty ctors F k (j + 1)]
+
+theorem checkDirectSumRec_datF (env : Env) (p : DirectSumParts)
+    (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) (F : Nat) :
+    (checkDirectSumRec (fueledOpsM mode) env p cvTa ctorsA).val F =
+      checkDirectSumRec (fueledOps mode F) env p cvTa ctorsA := by
+  unfold checkDirectSumRec
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
+    fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF,
+    checkDirectSumRules_datF]
+
+theorem checkDirectSum_datF (env : Env) (p : DirectSumParts) (F : Nat) :
+    (checkDirectSum (fueledOpsM mode) env p).val F =
+      checkDirectSum (fueledOps mode F) env p := by
+  unfold checkDirectSum
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, checkDirectSumInd_datF, checkDirectSumCtors_datF,
+    checkDirectSumRec_datF]
+
 macro "datF_step4_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_atF])
@@ -2040,7 +2225,9 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     dsimp only
     split
     · exact checkDirectStruct_datF env _ F
-    · exact checkIndDecl_datF env block F
+    · split
+      · exact checkDirectSum_datF env _ F
+      · exact checkIndDecl_datF env block F
 
 theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
     (checkDecls mode (fueledOpsM mode) ds).val F =
