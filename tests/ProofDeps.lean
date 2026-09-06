@@ -104,29 +104,29 @@ partial def setlecDeps (env : Environment) (todo : List Name)
         setlecDeps env ((ci.type.getUsedConstants ++ vcs).toList ++ rest)
           seen
 
-/-- The six pinned roots: the two MAIN THEOREMS first, then the letters
-they are corollaries of and the assembly under those.
+/-- The seven pinned roots: the MAIN THEOREM first, then the letters it
+is a corollary of and the assembly under those.
 
-* `main` / `main_IO` — **the statements the project exists to make**
+* `main_False` — **the statement the project exists to make**
   (`Setlec/MainTheorem.lean`): an accepted stream, at the shipped
   `--verified` configuration named outright, yields no constant of type
-  `Empty` — for the pure driver and for the callback-carrying `IO` loop
-  the binary actually runs.  They are pinned as roots because they are
-  what a reader checks first; each should reach exactly what the letter
-  it wraps reaches, plus `Setlec.MainTheorem` itself.
-* `SPCD_P` — **the shipped driver's letter**: the checker, running the
-  verified mode over the direct-parse cached core it ships with, never
-  accepts a stream in which some stored constant has type `Empty`.
+  `False`.  It is pinned as a root because it is what a reader checks
+  first; it should reach exactly what the letter it wraps reaches, plus
+  `Setlec.MainTheorem` itself.  (The `Empty` main theorem and the
+  `IO`-loop one were dropped from that file on 2026-09-07 — one main
+  theorem, and one loop that the theorem is about: the printing lane
+  runs an openly unverified twin fold in `Main.lean`.)
+* `False_SPCD_P` / `SPCD_P` — **the shipped driver's letters**: the
+  checker, running the verified mode over the direct-parse cached core
+  it ships with, never accepts a stream in which some stored constant
+  has type `False` (resp. `Empty`).
 * `sound_P` / `foldSPC_PM` — the acceptance corollary and the fold
   under it, pinned separately so a change in the assembly is visible
   even when the letter's own closure is unmoved.
-* `P` — the pure fueled checker the graded tower is stated about.
-* `main_False`, `False_SPCD_P` / `False_P` — the main theorem and the
-  two letters about the pinned `False` (task #181). -/
+* `False_P` / `P` — the pure fueled checker the graded tower is stated
+  about. -/
 private def roots : List (String × Name) :=
   [("main_False", `Setlec.no_proof_of_False),
-   ("main", `Setlec.no_proof_of_Empty),
-   ("main_IO", `Setlec.no_proof_of_Empty_IO),
    ("False_SPCD_P", `Setlec.Cached.no_proof_of_False_SPCD_P),
    ("False_P", `Setlec.SetP.no_proof_of_False_P),
    ("SPCD_P", `Setlec.Cached.no_proof_of_Empty_SPCD_P),
