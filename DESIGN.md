@@ -51244,3 +51244,104 @@ timestamped progress lines), `accept-rss.log`, `accept-time.txt`,
 `syn/perfstat.log` (the linearity check on the acceptance binary);
 `run-progress.sh`, `pace_progress.sh`, `trace_stats.sh` (the harness
 and its readers); and the two killed runs' logs, labelled per §6.
+
+## TASK #188 — RECURSIVE INDUCTIVES: the direct fixpoint route (2026-09-06, `agent/recursive`, IN PROGRESS)
+
+**Charter.** Native (non-modeled) installation of recursive inductive
+types through a direct route: the carrier is the least fixed point of
+the constructor-tower functor, the recursor a fixed point of its one-step
+unfolding.  Part A (sealing the installer boundary first) was SKIPPED:
+the new route reuses the sum route's former and constructor stages
+verbatim, so its verification twins are one recogniser twin, one
+stage's twins and one composition per bridge file; a route-list
+abstraction would need a dependently-typed heterogeneous record spanning
+kernel/verify/SetP and a refactor of five large bridge files for a
+payoff only from the NEXT route on — rule of three.
+
+### The model shape (decided 2026-09-06; the user left it to whatever is cheapest)
+
+The carrier is the **Knaster–Tarski least pre-fixed point** taken inside
+a universe — one new basis constant `lfp.{u} : (Sort u → Sort u) → Sort u`
+(`Lech/SetTheory/Derive/Lfp.lean`: `lfpSet w F = {x ∈ L₀ | ∀ closed X, x ∈ X}`
+over a classically chosen closed member `L₀`, the empty set when there is
+none — TOTAL, so the constant needs no certificate; every law assumes a
+closed member exists).  The **recursor is a fixed point of its unfolding
+selected by the existing `Classical.choice`** on the spelled sigma type
+`Σ' r : Π t, M t, Step r = r` (`.proj 0` of it); the certificate `prf` is
+typed by `¬¬Σ`, i.e. by the existence of a fixed point.  The **ω-iterate**
+(`Lech/SetModel/Iter.lean`) is consulted ONLY as the semantic witness: it
+is the closed member (finitary constructors: every member of the tower
+over the union has its recursive components at a finite stage), and the
+fixed point's existence is a **rank recursion** over it (`fixSem n` unfolds
+the step `n` times from junk; stable above a member's stage; the function
+sending each member to its own stage's value is a fixed point).  What
+each piece cost: `Lfp.lean` + `Iter.lean` + `TowerMono.lean` ≈ 350 lines,
+straightforward; the former leaf and the functor's laws (`FixLeaf.lean`,
+~560 lines) — monotonicity/closedness/identification are inductions on the
+X-chain; the case split with inductive hypotheses (`FixCase.lean`, ~450
+lines) is the sum route's `caseRec_facts` re-run with the ih branch
+(the sum's `RecHypS` was split into `RecHypCore` + minors so the motive
+facts are shared); the fixed point (`FixRec.lean`, ~1150 lines) is the
+bulk: the spelled `Step/Σ/Sel` gradings (~400) and the rank recursion
+(~300).  ∈-well-founded recursion from regularity was NOT used: it would
+need transitive closures and a recursion principle over the bare
+interface; the ω-iterate gives structural induction and the fixed point
+with nothing beyond `sUnion`/`image` over `omega`.  No uniqueness of the
+fixed point is used anywhere.
+
+### Relation to the sum route (the user's question, answered 2026-09-06)
+
+The recursive route is a separate installer that shares the sum route's
+pieces rather than the sum route being a special case: the former and
+constructor STAGES are `checkDirectSumInd`/`checkDirectSumCtors` verbatim
+(the resolution guard pointed at the former's environment plus a
+positivity re-check), and the semantic constructor leaf, the tagged sum,
+the tower chains and the case split's motives/`Nat.rec` tower are reused;
+what differs is the former leaf (`lfp` of the X-chain functor instead of
+the tagged-union body) and the recursor leaf (a choice-selected fixed
+point of the ih case split instead of the bare case split).  The
+non-recursive non-indexed class COULD go through the fixpoint route at
+zero extra proof cost once its P tier lands: with no recursive slots the
+functor is constant, `lfp F = F ∅ = Σ_j tower_j` (`fixCarrier_eq_sum` with
+an empty `ChainReal`), the ih-free branch is `caseBaseAV`, and every
+"fixed point" of an r-independent step is the case function itself, so
+iota is unchanged — only the recogniser's `some .recursive` requirement
+has to be dropped.  The indexed sum route is the real obstacle: its
+carrier is a FAMILY (the restricted sum at each index tuple, the equation
+discharged at the case split), so subsuming it needs the functor on
+families (`⟦I⟧ → V`, `lfpFam` instead of `lfp`), the X-slots reading
+`X ⟨e⃗_i(f_prev)⟩` instead of `bvar i`, and the ih binders `ih_i : M e⃗_i f_i`
+in the kernel's generated recursor.  Recommendation: make the fixpoint
+route the general one and retire both sum routes into it afterwards;
+three sibling installers have no proof payoff.
+
+### DECISION (user direction 2026-09-06): the route is INDEXED from the start
+
+The non-indexed model layer (`FixLeaf`/`FixCase`/`FixRec`, commits
+`6cd239a0`, `c567bdc7` and the RecHypCore split) is kept as the
+checkpoint/template and is being restated at indices.  Cost delta as
+estimated: unchanged — `Lfp.lean` (a sibling `LfpFam.lean` for families as
+graphs over the index-tuple set, pointwise order), `Iter.lean`,
+`TowerMono.lean`, `NoBVar.lean`, the `RecHypCore` split, the positivity
+classification (domain check widened to `T p⃗ e⃗`), the bad-twin generator,
+the preprocess predicate minus its `numIndices = 0` clause; restated —
+`FixLeaf` (~60 %: X-chains become `rChain`-shaped with `app X ⟨e⃗_i⟩` slots
+and the `idxEqAV` terminator against the tuple's projections; the functor
+acts on families), `FixCase` (~30 %: the ih argument is `r M m⃗ e⃗_i f_i`,
+the branch binds the fields by a λ-tower applied to the projections so
+the index expressions are read at real binders — NO substitution), `FixRec`
+(~40 %: the fixed point is over the recursor-minus-parameters
+`Π M m⃗ ı⃗ t, M ı⃗ t`, so that inside `Step` the function `r` sits ABOVE the
+motive as an extra parameter slot and the sum route's K-frame arithmetic
+applies unchanged; the rank recursion `fixSem` never looks at indices);
+new — the `lfpFam` basis constant, the index tupler applied to
+expressions (a λ over the index telescope applied to them), indexed
+fixtures.  Not prohibitive: the ih field's fibre membership needs no
+equation reasoning (the rec slot reads the family at the field's own
+index expressions), and the universe bound is per fibre.  ONE
+restriction (a finding, to be reported): a recursive field may not be
+mentioned by any later binder domain NOR by any index expression (of a
+later recursive field's domain or of the constructor's result) — the
+grading of the functor at an arbitrary family `X` needs the index
+expressions typed at frames whose recursive slots hold junk; violators
+fall through to the modeled path (`.unsupported`), they are not declined.
