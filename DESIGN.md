@@ -46964,3 +46964,261 @@ trusted sweep with the 3 recorded divergences), init-full-pre2
 `--pre --verified` 60 549 (169 s) and `--pre --trusted` 60 549 (154 s),
 the Mathlib slice 1 790 accepted, the four capstones' axioms exactly
 `[propext, Classical.choice, Quot.sound]`.
+
+## TASK #175 SUM TYPES — THE DIRECT ROUTE AT ANY NUMBER OF CONSTRUCTORS OTHER THAN ONE (2026-09-06, `agent/sum-types`)
+
+### 0. What landed
+
+Fifteen commits off master `bb7047dd` (the S2 merge), gated at the
+branch's own tip: 50 files, **+11 106 / −52**; the new modules
+(kernel `Direct/Sum{Parts,Install,InstallF}`, model
+`SetModel/TaggedSum`, `Semantics/Tower/Sum{Case,Leaf,Mk,RecCase,Rec,
+Wire}`, `Semantics/Direct/DeclDirectSum{,Eta}`, `Verify/Direct/Sum{Inv,
+WF,Rec}`, `SetP/DirectSum/*` — twelve modules) total 7 920 lines.
+The single-constructor route (`directParts?` → `checkDirectStruct`:
+table, η, projections) is untouched: the dispatch is a three-way
+`match` (`directParts?`, then `directSumParts?`, then the modeled
+path) in `Setlec/Kernel/Checker.lean`, `Setlec/Cached/CheckerC.lean`,
+`Setlec/Cached/ParsedC.lean`, and every verification twin of it.
+
+**The class.**  A non-recursive, non-indexed, non-nested inductive
+block with `n ≠ 1` constructors: enumerations (`Bool`, `Ordering`,
+`Lean.SourceInfo`), `Option`, `Sum`/`PSum`, `Decidable`, `Except`,
+`Or`-shaped `Prop`s, and the zero-constructor blocks (`False`,
+`PEmpty`; the pinned `Empty` stays a basis type, its name reserved).
+No projections, no η, no unit-likeness, no K: the block is stored with
+the empty capability record and the recursor carries `n` plain rules.
+
+### 1. The model
+
+**The carrier** (`Setlec/SetModel/TaggedSum.lean`).  Constructor `i`'s
+fibre is its tuple tower; the carrier is the tagged disjoint union
+
+    sumSet w f  := sigmaSet w ω (natFibre f)        natFibre f (vnat i) = f i,
+    inj i a     := spair (vnat i) a                  natFibre f k       = ∅ off the numerals
+    sumRec      := the case split on the tag
+
+— a `sigmaSet` over the numerals, so both regimes come for free from
+`sigmaSet`'s own zero test: at `w = 0` the carrier is `pt`'s squash and
+every injection is the point (`injW 0 i a = pt`).  The laws are proved
+once for all constructors: membership (`inj_mem`, `sumSet_elim`), tag
+disjointness (`inj_inj`, `sfst_inj`, `ssnd_inj`), the eliminator's
+iota (`sumRec_inj`), and the universe bound (`sumSet_mem_univ`, off
+`omega_mem_univ_succ`).
+
+**The spelling** (`Semantics/Tower/SumCase.lean`).  The case split is
+SYNTACTIC: `caseAVAt w Ts d k` is a nested `Nat.rec.{w+1}` on the tag
+`k` with the constant motive `λ _ : Nat, Sort w` and the branches
+`Ts` lifted by the explicit depth `d` (no substitution — the depth is
+threaded through every spelling).  The carrier body is a `psigma
+[w,w] Nat (λ k. case k)` in the graph regime and `¬ ∀ k : Nat, ¬ case
+k` at squash (`sumBodyAV`); the injection at constructor `j` is
+`psigmaMk [w,w] Nat (λ k. case k) (numeral j) payload`
+(`sumInjAtAV`); the recursor body is a nested `Nat.rec.{imax w ℓ}`
+case split on `proj 0 (bvar 0)` applied to `proj 1 (bvar 0)`
+(`caseRecAV`/`sumRecBodyAV`), the motive and the `n` minors read off
+the frame at explicit depth `D = n + 2` (`RecFrameS`).  The three
+leaves are the λ-towers over the parameter data (former,
+`directSumTyAV`), the parameter + field data (constructor `j`,
+`directSumMkAV`), and the recursor's data (`directSumRecAV`) —
+`mkLamsC`, as the structure route's.
+
+### 2. The kernel
+
+**The recogniser** (`Setlec/Kernel/Direct/SumParts.lean`,
+`directSumPartsCore?`): one type, `n ≠ 1` constructors, one recursor
+named `T.rec` with `mI = rP = nP + n + 1`, every constructor at the
+block's level parameters with `nP` parameters and the result `T p⃗`
+(`directFam`), the recursor's rules positionally `⟨C_j, nF_j, nP,
+plain, λ p⃗ motive m⃗ f⃗. m_j f⃗⟩` (`directSumRulesOk` /
+`directRuleBodyAt`), the former stripping to a sort; large/small
+elimination from the recursor's level parameters (`elim :: lps` /
+`lps`).  `directSumNonRec` (the `directNonRec` twin) is the
+non-recursiveness gate: every constructor's field domain resolves in
+the pre-block environment.
+
+**The install** (`Setlec/Kernel/Direct/SumInstall.lean`,
+`checkDirectSum`).  Two front guards, then three stages:
+
+  * *the elimination restriction* — official `elim_only_at_universe_
+    zero`: `large ∧ ¬ resSort.isNeverZero ∧ 2 ≤ n` is REJECTED (a
+    large eliminator on a multi-constructor inductive whose sort may
+    be `Prop` is inconsistent with proof irrelevance: at squash every
+    constructor value is the point); a zero-constructor `Prop` keeps
+    its large eliminator (`False.rec`);
+  * *distinct names* — `(ctors.map name).Nodup`, because the
+    constructors are all checked at the FORMER'S environment
+    (`checkDirectSumCtors`: `checkConstantVal`, the telescope shape,
+    the parameter domains against the former's, the field sorts with
+    the official per-field bound, the residual `T p⃗`) and consed
+    afterwards (`consSumCtors`, the first constructor deepest) — the
+    one-pass discipline the P proof wants (§4); a duplicate name would
+    make the second cons shadow the first.  Arena
+    `138_DupConCon` (two constructors of one name) therefore REJECTS
+    (`1`, the reference-correct verdict) where the modeled route
+    declined (`2`); `tests/arena-expected.txt` records it;
+  * *the recursor* — S2's discipline at a constructor list:
+    `directRecTy` over `ctorsA.map (name, nF, type)` generates the
+    type (`∀ p⃗ motive m_0 … m_{n-1} (t : T p⃗), motive t`, the minors by
+    `directMinorsPis` with the offset threaded), `checkConstantVal` on
+    the stream's recursor, scoping guards, infer + `ensureSort`, ONE
+    closed `isDefEq` against the stream's type, and the `n` rules by
+    `checkDirectSumRules` (each generated by `directRecRhs … j`,
+    scoped-checked and inferred); the stored recursor is the
+    generated one with `directSumRules` (`plain` iff `recRulePlain`).
+
+`Setlec/Kernel/Direct/SumInstallF.lean` is the index twin.  Both cached
+drivers dispatch (`checkDirectSumS` with the flushes).
+
+**The preprocessor** (`SetlecPreprocess.lean`, `setlecNative`) gained
+the mirror arm in the same batch: a `.induct [type] ctors [rec]` block
+with `ctors.length ≠ 1` and the recogniser's conjuncts is left
+`native`.  Over the raw init-full export the widened `setlec-
+preprocess` leaves **534** blocks native (477 single-constructor, 42
+sums — 3 zero-constructor, 22 two-, 9 three-, 4 four-, 3 five-, 1
+nineteen-constructor — and 15 of the preprocessor's own `_wcore`/tag
+blocks), the stream shrinking from 335.7 MB to 327.9 MB.
+
+### 3. The verification tier
+
+`Verify/Direct/SumInv.lean` inverts every stage (the constructor
+shape with its openings and sorts, `checkDirectSumCtors_inv`
+positionally, the rules positionally, the recursor's shape, the
+recogniser — now also carrying `∀ q ∈ cvT.levelParams, q ∈
+cvR.levelParams`, which the leaf's level-dependence needs);
+`SumWF.lean` the well-formedness (the conses by
+`envWF_consSumCtors`); `SumRec.lean` the generated forms' syntactic
+kit at a list — `directRecTy_unfold`/`directRecRhs_unfold`,
+`instSeq_minorBody_at` (the minor's conclusion under `o` extras: the
+motive is extra 0), `instSeq_ruleBody_at` (minor `j` is extra `j+1`),
+the `NoProjAt` walks, `Level.isNeverZero_sound`, and
+`directSumRules_getElem?`.  `Semantics/Direct/DeclDirectSum.lean`
+is the run relation (the two guards as facts, the three runs, the
+install spine) with the three-arm `DeclIndRunDispatch`;
+`DeclDirectSumEta.lean` its η-closure; `BridgeDecl`'s dproj/datF
+stanzas, `CheckerF`'s `_eq` lemmas, `BridgeCS3`'s sims,
+`BridgeCSDecl`'s run bridge and `AgreeFloor`'s skeletons cover the
+cached tier (the plumbing sub-batch, one Opus agent, reviewed).
+
+### 4. The P proof (`Setlec/SetP/DirectSum/*`)
+
+The shape follows the structure route stage for stage, the list
+threaded as a POSITION-INDEXED DATA FUNCTION `dsF : Nat → (Name → Nat)
+→ List (Nat × Nat × AVExpr)` (`ctorDataList dsF ψ ctorsA 0` is the
+constructor data list at `ψ`, `fssOf nP` its field chains):
+
+  * **readings** (`SumRecReadP`): `denoteP_minorsPis` /
+    `denoteP_minorsLams` read the minors' telescope by ONE induction
+    over the constructor list, the accumulated variables (the motive,
+    then the earlier minors) threaded as `extras` indexed from `nP`;
+    `denoteP_directRecTy_sum` reads the generated type to the Π-tower
+    over `sumRecDataAV = rebit b pps ++ [motive] ++ sumMinorsData ++
+    [major]`, `denoteP_directRecRhs_sum` rule `j` to the λ-tower over
+    `sumRuleDataAV` with the core `minor_j f⃗`
+    (`sumRuleCoreAV nF n j = mkAppN (bvar (nF + n - 1 - j)) f⃗`);
+  * **data** (`SumDataP`, `SumRecDataP`): each constructor's
+    `CtorData` and frames (`sumCtorData_of`, `sumCtorFrames`), the
+    recursor's `SumRecData` (`n` minor entries, the core `motive t`
+    under the motive and `n` minors) and rule `j`'s reading and
+    grading by its own inference run (`sumRuleData_of`);
+  * **frames** (`SumRecFramesP`): `sumRecFrames` computes `RecBaseS`
+    at a parameter frame — the motive entry to `Π (t : carrier), Sort
+    ℓ`, minor `j` (at the frame under the motive and the earlier
+    minors, `sumMinorsTail` walking the chain with the reversed
+    context's `Sat2` threaded) to `minorSpC ℓ M (ctorVal w j) Fs_j`
+    by `interp_minorSpC_of_tele`, the major to the carrier by
+    `sumFamSpine_val`; the elimination restriction's readout `hwl :
+    w = 0 → n = 0 ∨ ℓ = 0` is exactly `Level.isNeverZero_sound` plus
+    `n ≠ 1`;
+  * **walks and the law** (`SumRecLawP`): a spine fitting the
+    recursor's data splits as parameters/motive/minors/major and
+    yields `RecFrameS`, `RecHypS` and the major's membership
+    (`sumRecSpine_facts`, off `recTailS_spine`); the leaf's `RecPreS`
+    and validity walks (`sumRecWalks`; the body's validity at a full
+    frame needs the semantic premises, read off the frame's spine);
+    `sumRecLawCore`: both sides fold to minor `j` at the fields — at
+    `ℓ = 0` both are the point (no field bookkeeping at all), in the
+    graph regime by the body's iota `sumRecBody_iota`;
+  * **stages**: `stageSumFormer` (the empty capability record: the
+    η/unit laws are vacuous), `stageSumCtor` (constructor `j` at any
+    environment holding the former), `stageSumRec` (`sumRecRuleLaw`
+    per stored rule via `directSumRules_getElem?`; the leaf's level
+    dependence needs the recogniser's `lps ⊆ cvR.levelParams`);
+  * **the assembly** (`DeclDirectSumP`): the former is staged TWICE —
+    first with the empty chain list, to read every constructor's
+    field data at a carrier storing the former (`Classical.choose`
+    over the positions makes `dsF₀`), then with the chains read; the
+    readings are identified past the parameters by
+    `denoteP_openPis_agree` (no field domain mentions the former —
+    `checkDirectSumCtor`'s resolution guard at the PRE-BLOCK
+    environment); then `sumCtorsLoop` conses the constructors in
+    order with two invariants — `ConsedAt` (every earlier
+    constructor's facts and leaf cross each later cons; the leaves by
+    `acvalWith_ne` off the distinct names) and `PendingAt` (every
+    later constructor stays fresh, resolves, and its data crosses) —
+    and `stageSumRec` closes.  `FoldP`'s three-arm dispatch calls it;
+    the sorry stub is gone.
+
+### 5. Fixtures and gates
+
+`tests/e2e/direct_sum_{enum,option,or}.ndjson` (exported through
+`setlec-preprocess`, so every sum block is native: a three-
+constructor enumeration with iota on every constructor through `rec`
+and `casesOn`; `Opt`, the universe-polymorphic `Sum'`, `Dec p` and the
+zero-constructor `False`; the two-constructor `Prop` `Or'` with the
+small eliminator through `Or'.elim`, the zero-constructor `Prop`
+`Absurd` with its LARGE eliminator, `Nil : Type`) accept;
+`direct_sum_or_large_bad.ndjson` (`Or'.rec`'s motive patched to
+`Sort u`) rejects.  Arena/e2e blocks now going direct-sum
+(`setlec-preprocess`'s `native` lines joined with the streams'
+constructor counts): `Bool` in 40 tutorial/e2e fixtures (`035_boolType`
+… `097_ruleK`, the `nat_*`, `str_*`, `trust_*` suites), `Color` (2,
+the rb-tree fixtures), `BoolProp`, `MyBool`, `False`, `Or`,
+`Decidable`, `Option`, `Except`, `Int`, `Ordering`, `PEmpty`,
+`Lean.SourceInfo`, `Lean.Syntax.Preresolved`, `EStateM.Result`,
+`Lean.Macro.Exception` (init-prelude and the grind fixture), `Dep`
+(`direct_nested_dep`), `Bad` (`proj-non-structure`).
+
+Receipts at `ac61e9f9`: `lake build` warning-free (641 jobs), `lake
+test` green, `tests/layering.sh` (`base 250 / P 166 / caps 2 /
+umbrella 1; 0 base->lane, 0 impl->theory`), `tests/arena.sh`
+0 FAIL (tutorial 90/92 good accepted — the two custom-axiom declines
+by design —, e2e 82/82, annot 14/14, retired flags 8/8, mode flags
+16/16, the trusted sweep 138 + 82 + 14 with the 3 recorded
+divergences; the only verdict change in the whole suite is
+`138_DupConCon` 2 → 1), `tests/proofdeps.sh` regenerated — the 99 doors are
+exactly the sum modules entering the four capstones' closures
+(`foldSPC_PM`, `sound_P`, `SPCD_P`, `P`; 1 461 rows now, 0 doors
+after the pin), the four capstones' axioms exactly `[propext,
+Classical.choice, Quot.sound]`, init-full-pre2 `--pre --verified`
+60 549 accepted (exit 0) and `--pre --trusted` 60 549 (exit 0), the
+REGENERATED init-full stream (widened `setlec-preprocess`, 534 native
+blocks) `--verified` 55 931 (exit 0) and `--trusted` 55 931 (exit 0; the
+stream carries 4 618 fewer declarations — the `_model` artifacts of
+the 534 native blocks are no longer emitted — and every remaining one
+accepts), the
+Mathlib slice `diseq-slice-pre.ndjson` 1 790 accepted (exit 0).
+`tests/native-agree.sh` is SKIPPED here as on master (the stock
+`lean-inductive-models` is not built in the workspace).
+
+### 6. What indexed families need next — the fibre construction
+
+The sum route stops exactly at indices: with `numIndices = 0` the
+carrier is one set and the tag is the only case split.  An indexed
+family `T p⃗ : I → Sort w` needs a carrier PER INDEX VALUE — a function
+`fibre : ⟦I⟧ → V` with `T p⃗ i ↦ fibre i` — whose fibre at `i` is the
+tagged union of those constructor towers whose RESULT index (a term
+over the fields) evaluates to `i`: `fibre i = sumSet w (λ k. {tower
+of ctor k restricted to ⟦idx_k f⃗⟧ = i})`.  The pieces this batch
+leaves ready: the tag split over `ω` (`natFibre`) and the per-
+constructor towers are unchanged; what is new is (a) the restriction
+of a tower to an index-equation (a separation over the tower by the
+interpreted index term — `sepSet`, over the SetTheory interface), (b)
+the former's leaf becoming a λ over the index binders whose body is
+the restricted union, (c) the recursor's motive `∀ i (t : T p⃗ i), Sort
+ℓ` and the major's index arguments, and (d) the rule law's iota with
+the index equation discharged by the constructor's result index.  The
+one-constructor indexed family (SigmaHom, DESIGN §"TASK #175
+SigmaHom") is the `n = 1` instance of the same construction; the K
+rule at a zero-field indexed `Prop` is the squash instance.  Not done
+here.
