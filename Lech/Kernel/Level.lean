@@ -193,11 +193,11 @@ def zeronessOf : Level → PropWhen
 /-- Push a level-parameter substitution through a zero-ness datum
 (task #161): each parameter becomes its replacement's datum,
 intersected — `Z(subst ks vs l)` is exactly
-`substPW ks vs (zeronessOf l)` (`Verify.PropWhen.zeronessOf_subst`,
-a syntactic equation).  Shape-preserving (`PropWhen.bindZ`): an
-unlisted parameter reproduces `ifAllZero [n]`, so instantiating a
-declaration at its own parameters is the identity here too
-(`substPW_self`), with no canonical-form side condition. -/
+`substPW ks vs (zeronessOf l)` (`Verify.PropWhen.zeronessOf_subst`).
+Canonical on output (`PropWhen.bindZ`, task #194): an unlisted
+parameter reproduces `ifAllZero [n]`, so instantiating a declaration
+at its own parameters is the identity here too (`substPW_self`) —
+unconditionally, because every datum is canonical by construction. -/
 def substPW (ks : List Name) (vs : List Level) (pw : PropWhen) :
     PropWhen :=
   pw.bindZ fun n => zeronessOf (subst.go ks vs n)

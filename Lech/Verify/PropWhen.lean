@@ -16,10 +16,12 @@ proves what the datum alone cannot say, namely how it relates to
   checker validated against a computed codomain sort reads out that
   sort's zero bit.
 * **The substitution pushforward** — `zeronessOf_subst`:
-  `zeronessOf (subst ks vs l) = substPW ks vs (zeronessOf l)`, a
-  *syntactic* equation (the shape-preserving `bindZ` design).
+  `zeronessOf (subst ks vs l) = substPW ks vs (zeronessOf l)`, an
+  *equality* of data (`bindZ` distributes over `inter`).
 * **The instantiation laws** — `substPW_self` (identity at a
-  declaration's own parameters, unconditional) and `substPW_comp`
+  declaration's own parameters, unconditional: the datum is canonical
+  by construction since task #194, so `bindZ` at the unit is the
+  identity as an equality, `PropWhen.bindZ_unit`) and `substPW_comp`
   (composition, under the same parameter-definedness hypothesis the
   level side has — `PropWhen.paramsDefined`, folded into
   `Expr.allLevelParamsDefined`), `substPW_paramsDefined`,
@@ -105,8 +107,11 @@ theorem subst_go_self (ks : List Name) (n : Name) :
     · simp [h, ih]
 
 /-- Instantiating a datum at the declaration's own parameters is the
-identity — unconditionally (no canonical-form side condition; the
-`bindZ` design is shape-preserving). -/
+identity — unconditionally.  Amendment 2 (task #161 P1) found this
+law false for a *normalizing* `substPW` on a *non-canonical* datum;
+since task #194 every datum is canonical by construction, so there is
+no such datum and the law is an equality again (`PropWhen.bindZ_unit`
+is its datum half). -/
 theorem substPW_self (ks : List Name) (pw : PropWhen) :
     substPW ks (ks.map Level.param) pw = pw := by
   show pw.bindZ _ = pw

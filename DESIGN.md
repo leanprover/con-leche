@@ -52265,6 +52265,516 @@ is its value's) instead of the syntactic-telescope reading.  Same
 question for constructor residuals/fields declared at definitions
 (census owed).  The audit test then proves predicate ⊆ recogniser for
 the re-widened predicate mechanically.
+
+## TASK #196 — WOULD ONE CACHE FOR `infer` AND `infer_only` BUY ANYTHING?  Measured: the sound direction buys ZERO, and the whole ceiling is *check elision*, not caching (2026-09-06, `agent/infershare`)
+
+### 0. THE QUESTION, AND THE ANSWER IN THREE LINES
+
+User, verbatim: *"Have we ever established how much perf we'd gain if
+infer and infer_only shared one cache (would require changes to the
+proof architecture, but we can probably measure easily)?"*
+
+Measured, not argued.  **The answer is: essentially nothing, and the
+part of it that is not nothing is not a caching effect.**
+
+1. **The sound direction — a full-infer entry serving an infer-only
+   query — is worth 0.0 %.**  Read-side (E1b): −0.08 % on init-full
+   `--verified`, ±0.15 % across all twelve full-stream cells.
+   Write-side (E1, seed the io memo on every full-infer miss): a
+   **LOSS** of +2.39 % on init-full and up to **+35.2 %** on one
+   Mathlib slice.
+2. **Full sharing (E2, both directions, one table — unsound as it
+   stands) buys −0.74 % / −1.71 %** on init-full
+   (`--verified` / `--trusted`), and −0.6 % … −15.4 % on the five
+   #189 slices.
+3. **That win is not caching, it is checking less.**  E4 — the same
+   checker with the io *body* at every position, i.e. the elision
+   ceiling with no memo change at all — is **−3.15 % / −59.6 %** on
+   init-full and −16 % … −49 % on the slices.  E2 is a fraction of E4
+   that you reach by *reusing an under-checked entry*.  Since the
+   sound sharing direction measures zero, **every instruction E2 saves
+   is an omitted check**, and there is a cheaper, honest way to omit
+   the same checks (call the io body at more positions) that does not
+   touch the cache at all.
+
+So: **keeping the two memos apart costs nothing**, and merging
+them is not worth proof architecture.  **Do not spend proof architecture on
+merging the two memos.**  If the io body's skips are wanted more
+widely, that is the task-#170 call-site question (where does official
+pass `infer_only = true`), and it is worth 5–60× more.
+
+### 1. WHAT IS ACTUALLY SPLIT (the census the question needs)
+
+Only **one** pair of memos is split by the io grade.
+`CoreFnsI.ioView` (`Lech/Cached/CoreC.lean:64`) is
+`{ r with infer := r.inferIO }` — it replaces the `infer` slot and
+nothing else — and `CheckMode.ioGate` is the literal `true`
+(`Lech/Kernel/Env.lean:137`), so at both modes the knot ties
+
+* `infer`   → `inferBodyI`   under `CState.inferC`,
+* `inferIO` → `inferBodyIOI` under `CState.inferIOC`,
+
+and `whnfCore` / `whnf` / `defeq` / `annotate` have **one table each,
+shared by both grades already** (`coreKnotI`, `CoreC.lean:1872`).
+**This closes E3 of the commission structurally, with no run needed:
+there is no second grade-split pair to measure.**
+
+The two bodies differ in **exactly one clause** — the application
+clause, where `inferSpineIOI` (`CoreC.lean:1025`) guards the
+per-argument re-check on `mode.ioSkip mt.pw`
+(`Lech/Kernel/Env.lean:189`, `!mode.certs || pw.isNever`):
+
+* at `.verified` the argument's inference and the domain comparison
+  are skipped **at a binder whose validated annotation datum is
+  `.never`** (the graph-regime licence, `Lech/SetP/IOLicenseP.lean`);
+* at `.trusted` they are skipped **at every binder** (the certificate
+  family is off wholesale).
+
+The returned type is the same telescope walk either way, and the
+measurement confirms it: under E1 every non-io counter moves by
+≤ 0.1 % (§5).
+
+### 2. THE FIVE VARIANTS (each a commit on `agent/infershare`, none for landing)
+
+| | commit | what it does | sound? |
+|---|---|---|---|
+| **E0** | master `9eb3bda0` | two bodies, two tables | yes (this is master) |
+| **E1** | `ee1f2547` | `memoEISeed`: a computed full-infer result is inserted into `inferIOC` too | **yes** — the task-#170 ruling's *named future option* |
+| **E1b** | `ce1bc119` | `memoEIUnionIO`: the io slot probes `inferIOC`, then `inferC`; writes only `inferIOC` | **yes** — same direction, read-side, no extra insert |
+| **E2** | `054f0015` | the io slot memoizes into `inferC`: one table, both directions | **no** — an io entry can serve a full-infer query |
+| **E4** | `8567b133` | both slots run the io *body* under one table | no (accept-superset) — the **elision ceiling** |
+
+Plus `3fdaf23f` (memo-traffic counters, `LECH_MEMOSTATS`) and
+`b98b719c` (E1 instrumented).  `50c63a5f` reverts all of it: **what
+lands is this section and nothing else.**
+
+Workloads: init-full (`--pre`, both modes) and the five #189 slices in
+their `full` and `notarget` variants, both modes — 22 cells per
+variant, 110 cells in all, `perf stat -e instructions:u` plus peak RSS.
+**Every one of the 110 cells exits 0 with a verdict line identical to
+E0's**, on all five variants (so E2 and E4, accept-supersets both,
+happen not to change any verdict on these streams — which is what an
+accept-superset is allowed to do, not evidence that it is safe).
+
+### 3. THE TABLE (Ginstr; E0 absolute, the rest as a delta)
+
+```
+workload   mode         E0 Ginstr       E1      E1b       E2       E4
+---------------------------------------------------------------------
+init-full  verified         666.4   +2.39%   -0.08%   -0.74%   -3.15%
+init-full  trusted          641.9   +0.50%   -0.05%   -1.71%  -59.58%
+t1         verified         352.1   +2.95%   +0.15%   -0.85%  -26.52%
+t1         trusted          334.3   +0.91%   +0.00%   -0.67%  -44.70%
+t2         verified         788.4  +13.68%   +0.07%  -12.14%  -30.91%
+t2         trusted          695.4   +1.84%   -0.00%   -6.55%  -48.80%
+t3         verified          87.4   +0.26%   -0.01%   -0.09%  -24.40%
+t3         trusted           86.5   +0.14%   +0.00%   -0.07%  -30.37%
+t4         verified         158.3  +35.21%   -0.05%  -15.37%  -17.21%
+t4         trusted          131.2   +1.13%   -0.03%   -1.03%  -16.33%
+t5         verified          75.5   +1.76%   -0.10%   -0.56%  -20.65%
+t5         trusted           72.9   +0.57%   -0.03%   -0.53%  -41.13%
+
+target-only cells (full - notarget), the #189 harness's own reading
+t1         verified          37.6   +0.06%   +0.01%   +0.01%  -80.99%
+t1         trusted           37.4   +0.02%   +0.01%   +0.03%  -86.26%
+t2         verified          43.2  +60.26%   +0.03%  -90.04%  -90.34%
+t2         trusted           22.2   +6.20%   +0.09%  -85.63%  -89.85%
+t3         verified          28.9   +0.08%   -0.00%   +0.03%  -54.37%
+t3         trusted           28.8   +0.10%   +0.02%   +0.05%  -59.91%
+t4         verified          26.0 +205.54%   -0.03%  -91.53%  -91.17%
+t4         trusted            2.5  +32.51%   +0.01%  -34.16%  -51.62%
+t5         verified          24.5   +0.25%   +0.03%   -0.35%  -56.19%
+t5         trusted           24.3   +0.23%   -0.00%   -0.38%  -83.55%
+
+peak RSS, full cells (MiB, E0 absolute)
+init-full  verified         826.3   -1.10%   -2.37%   -0.87%   -2.85%
+init-full  trusted          829.0   -0.43%   -2.30%   -1.48%   -3.15%
+t2         verified        1031.1   -1.20%   -0.66%   -1.18%   -0.88%
+t4         verified         571.4   -1.96%   -4.49%   -7.69%   +0.32%
+t5         verified         219.6   -8.06%   -4.25%   -5.11%   +0.33%
+```
+
+Memory is a non-issue at every variant: the largest swing is −11 % and
+the checker peaks at ≈ 0.8–1.0 GiB throughout.
+
+### 4. WHERE THE MISSES ARE (`LECH_MEMOSTATS`, measured on E0's trajectory)
+
+```
+workload             infer.probe hit%   io.probe  io.hit%  ioMiss->full  %ioMiss  fullMiss->io %fullMiss
+init-full-verified    13,830,378 64.5%  1,063,394   49.9%       212,028    39.8%        66,012     1.34%
+init-full-trusted     13,830,378 64.5%    167,321   43.8%        19,819    21.1%        16,267     0.33%
+t1-verified            4,014,733 62.3%    655,199   49.6%        91,421    27.7%        25,200     1.67%
+t2-verified            7,554,698 63.6%  1,590,439   54.5%       153,424    21.2%        65,671     2.39%
+t3-verified              888,596 78.1%     56,982   49.0%         7,339    25.3%         2,141     1.10%
+t4-verified            1,680,518 63.2%    240,012   49.9%        38,340    31.9%        19,548     3.16%
+t5-verified              772,327 60.6%    161,307   49.9%        24,572    30.4%         7,220     2.37%
+```
+
+(`ioMiss->full` = io probes that missed but whose key was already in
+`inferC` — what E1/E1b would have turned into hits.  `fullMiss->io` =
+full-infer misses whose key was already in `inferIOC` — E2's extra,
+unsound direction.  These are *counterfactual* counts on the unshared
+trajectory: sharing changes the trajectory, so they bound the direct
+effect and miss the compounding.)
+
+Three readings, and they are the whole finding:
+
+* **The io lane is small.**  1.06 M io probes against 13.8 M full-infer
+  probes and 37.6 M `whnfCore` probes on init-full `--verified` — under
+  2 % of all memo traffic.  Nothing that touches only this lane can
+  move the total much, whichever way it goes.
+* **The sound direction has the *most* counterfactual hits and buys
+  nothing.**  212 028 io misses on init-full (39.8 % of them!) already
+  had their key in `inferC` — and converting all of them to hits (E1b)
+  is worth −0.08 %.  An io miss is cheap: the io body differs from the
+  full one in one guarded clause, and its sub-results are memoized
+  already.
+* **The unsound direction has ~3× *fewer* hits and is where the
+  instructions are.**  66 012 full-infer misses (1.34 %) had their key
+  in `inferIOC`, and E2 turns that into −0.74 %.  Each such hit elides
+  a whole subtree of application checks, so it compounds far past the
+  direct count — which is exactly the reason it is unsound.
+
+Table sizes at their per-declaration maxima (init-full `--verified`):
+`whnfCoreC` 62 412, `annotC` 22 542, `defeqC` 13 275, `whnfC` 10 364,
+`inferC` 10 000, **`inferIOC` 1 998**.  The io memo is the smallest
+table in the checker by 5×.  Over the run, `inferC` takes 4 914 224
+live entries summed at flush against `inferIOC`'s 532 642 (9.2×).
+
+### 5. WHY E1 (THE WRITE-SIDE SEED) IS A LOSS — AND THE #189 CONNECTION
+
+E1 is the *sound* thing to do and it costs up to a third of the run.
+The instrumented E1 (`b98b719c`) settles the mechanism, because it
+shows the seed **does work as a cache and still loses**.  E0 → E1,
+init-full `--verified`:
+
+| counter | E0 | E1 | |
+|---|---|---|---|
+| `inferIO.probe` | 1 063 394 | 901 105 | **−15.3 %** |
+| `inferIO.hit` | 530 752 | 593 771 | **+11.9 %** |
+| `max.inferIOC` | 1 998 | 10 004 | **+401 %** |
+| `sum.inferIOC.atFlush` | 532 642 | 5 155 584 | **+868 %** |
+| `infer.probe` / `.hit` | 13 830 378 / 8 916 154 | identical | ±0 |
+| `defeq.probe` | 15 775 949 | 15 766 577 | −0.06 % |
+| `whnfCore.probe` | 37 608 649 | 37 604 692 | −0.01 % |
+| `annot.probe` | 15 339 354 | identical | ±0 |
+
+**Every counter that is not the io memo's own moves by ≤ 0.1 %.**  The
+seed changes nothing the checker computes — confirming §1's claim that
+the two grades return the same value — it removes 162 000 io probes,
+and it still costs +2.39 %.  On t4 `--verified` the same shape costs
++35.2 % (`sum.inferIOC.atFlush` 120 155 → 678 664, `max` 7 047 →
+17 644).
+
+So the cost is pure memo maintenance: one extra `Std.HashMap.insert`
+per full-infer miss (4.9 M of them on init-full, 618 k on t4) into a
+table that then carries 5–10× more live entries — **and the keys the
+seed adds are the big ones**, since full inference is called on
+declaration types and values while the io lane sees argument
+positions.  That is #189's tail exactly ("the tail is `Expr.beq`, under
+a memo probe"): `BEq ExprC` is pointer identity, then the cached hash,
+then **structural descent**, so enlarging a memo's key set with large
+terms taxes every later probe of that memo.  The per-insert cost
+implied by t4 (≈ 10⁵ instructions) is far beyond a hash insert and is
+only explicable that way.
+
+**Recorded as a reusable rule: never seed a memo "for free".**  In this
+checker an insert is not cheap and a bigger table is not neutral; a
+sharing scheme must be read-side (E1b) or it is a regression.
+
+### 6. WHAT E2's WIN ACTUALLY IS, AND WHY E4 SETTLES IT
+
+E2 = E1b's direction *plus* the io→full direction, in one table.  E1b
+measures 0.  Therefore **E2's entire −0.74 % / −15.4 % is the io→full
+direction, i.e. full-infer queries answered by an entry that never ran
+the per-argument application check.**  It is not a caching win in any
+part.
+
+E4 puts a number on the same currency without touching the cache: run
+the io body at *every* inference position.  On init-full that is
+**−3.15 % at `--verified` and −59.6 % at `--trusted`** — the asymmetry
+is the licence's own shape (`ioSkip` at `.verified` fires only at a
+`.never` binder; at `.trusted` it fires everywhere).  On the Mathlib
+slices E4 is −16 % … −49 %, and on the two slices where E2 does best
+(t2, t4) E2's target-only cell reaches essentially all of E4's
+(−90.0 % vs −90.3 %; −91.5 % vs −91.2 %) — those two declarations
+happen to re-infer at full grade exactly the terms the io lane already
+holds.
+
+The conclusion the two together force: **the checker has a 3–60 %
+"check less" lever and a 0 % "cache better" lever, and merging the
+memos is a way of pulling a sliver of the first one by accident.**  The
+lever worth designing is the task-#170 call-site question (*where*
+should `inferOnly = true` be passed), not the memo layout.
+
+### 7. THE PROOF CHANGE E2 WOULD NEED — priced, since it will be asked
+
+`CSOK` (`Lech/Verify/Cached/SimC.lean:278,287`) carries two clauses:
+
+```
+inferC   : … s.inferC[k]?   = some v → … inferTypeCore mode env F d k = .ok v
+inferIOC : … s.inferIOC[k]? = some v → … inferTypeIO   mode env F d k = .ok v
+```
+
+* **E1/E1b (full → io) needs a spec-level monotonicity lemma**
+  `inferTypeCore … = .ok v → ∃ F', inferTypeIO … = .ok v` — the
+  "named future option" of the task-#170 memo ruling.  It is a mutual
+  induction over the whole core, and it is *the sound one*.  **The
+  measurement retires it: it would buy 0.0 %.  Do not build it.**
+* **E2 (io → full) is not a lemma, it is a re-architecture.**  The
+  needed statement `inferTypeIO … = .ok v → inferTypeCore … = .ok v`
+  is **false as a spec statement**: the io walk skips a real `defeq`
+  at a `.never` binder, and a skipped check that would have failed is
+  precisely the difference between the two.  What one would have to do
+  instead is give the shared table the *weaker* (io) clause and re-prove
+  **every consumer of a full-infer memo hit** against it — i.e. move
+  the claims tower's full-infer consumers onto `io_app_mem`
+  (`Lech/SetP/IOLicenseP.lean:85`), discharging the graph-regime
+  licence from the stored annotation datum at each one.  The fence is
+  mechanized and stays: `io_membership_fails_at_squash` (`:118`)
+  refutes the membership conclusion at the squash regime, so the
+  re-proof must carry the `.never` datum to every consumption site,
+  not merely assume it.  That is the whole `infer` half of the
+  SimC/claims split.  **For −0.74 % on init-full.  No.**
+
+### 8. WHAT THIS DOES *NOT* SAY
+
+* It does not say the io lane is useless.  E4's `--trusted` number
+  (−59.6 %) is the size of what the io grade already saves where it is
+  called; the finding is only that *sharing its memo* adds nothing.
+* It does not license E2 or E4 as designs.  Both are accept-supersets;
+  they were built to bound a number and are reverted.
+* The counterfactual counts in §4 are measured on the unshared
+  trajectory and understate compounding; the instruction deltas, not
+  the counts, are the measurement.
+
+### 9. KIT AND GATES
+
+Kit and raw data: `_tmp/infershare/{run.sh,counts.sh,report.py,report2.py,cells.tsv,table.txt,counts.tsv,counts/,counts-E1/,bin/}`.
+`run.sh <tag> <binary> [par]` runs the 22-cell battery
+(`perf stat -e instructions:u` + peak RSS, `ulimit -v 16000000`,
+`--pre` on a locally preprocessed `init-full-pre.ndjson` so no other
+lane's stream can move under it); `counts.sh` runs the instrumented
+binary under `LECH_MEMOSTATS=1`.  Baseline binary md5
+`9a2feb17cdc9df8d87a65bffed166373`, built at master `9eb3bda0`; its
+cells reproduce #189's own (`_tmp/slowest/cells.tsv`) to within 0.01 %.
+
+The experimental binaries were built with `lake build lech` only — the
+proof tier was never built against them, deliberately (E2 and E4 break
+the simulation tower by construction, which is the point).  What lands
+is this section; `50c63a5f` restores master's checker byte for byte,
+and the branch keeps the five variants in its history for anyone who
+wants to re-measure.
+
+## TASK #194 — THE `PropWhen` REPRESENTATION IS CANONICAL BY CONSTRUCTION (2026-09-06, `agent/pwnorm`)
+
+**User directive, verbatim:** *"We have the sealed API, so this should
+be painless.  So do normalize and add invariants to the constructors
+(ordered for .two, sorted for .many).  (It may be easier if the
+more-than-two constructor takes just a list, not three elements and a
+list, with a length > 2 invariant in the type)."*
+
+It was painless: one module changed (`Lech/Kernel/PropWhen.lean`),
+two docstrings followed (`Kernel/Level.lean`, `Verify/PropWhen.lean`),
+and **no proof outside the module changed** — `Verify/PropWhen.lean`'s
+`substPW_self`/`substPW_comp`/`zeronessOf_subst`/`holds_substPW`
+compile as they were, because the law battery kept every statement.
+
+### 1. The representation
+
+    private inductive PropWhenRepr where
+      | never
+      | always
+      | one  (p : Name)
+      | two  (p q : Name) (h : p < q)
+      | many (ps : List Name) (h : PropWhen.Sorted ps ∧ 2 < ps.length)
+
+`Sorted ps := List.Pairwise (· < ·) ps` — strictly ascending, which is
+"sorted and duplicate-free" in one clause.  The invariants are `Prop`
+fields, carried by the constructors: there is no value of the type
+that is not the canonical representative of its parameter set, so
+canonicity is never re-established and never checked at runtime.  The
+`many` constructor takes the bare list plus the invariant, as the
+directive suggested — the old `many p q r rest` trick existed only to
+avoid an invariant, and once one is carried anyway the list is
+simpler.  `deriving Hashable, Inhabited` handles the `Prop` fields
+(they are skipped); `DecidableEq` is *not* derived (see §2).
+
+**The order on `Name`.**  The tree had none (the `NNode` arena keys
+by interned index, the level arena stores raw names), so the module
+defines `Name.cmp`: structural lexicographic, constructor order
+`anonymous < str < num`, prefix first, then the payload by the core
+`compare` on `String`/`Nat` — the shape of `Lean.Name.quickLt` minus
+the hash short-cut, which would make the order depend on hashing.
+`a < b` is `cmp a b = .lt`, with `LT`/`Decidable` instances and the
+strict-total-order laws `lt_irrefl`, `lt_trans`, `lt_asymm`,
+`ne_of_lt`, `lt_trichotomy` (from `cmp_self`, `eq_of_cmp`, `cmp_swap`,
+`cmp_trans`; the payload halves come from `Std.TransCmp` /
+`Std.LawfulEqCmp` / `Std.OrientedCmp` of the core instances).  Mined
+from the deleted `Kernel/ZeroSet.lean` (`git show f7cfe8e0^:…`), as
+the task suggested; the module still imports only `Lech.Kernel.Name`.
+
+**The sorted-list layer** (`namespace PropWhen`, public): `merge`
+(the ordered union, `mem_merge`, `sorted_merge`, `all_merge`), `canon`
+(fold singletons in: `mem_canon`, `sorted_canon`, `all_canon`,
+`canon_eq_self` on sorted input, `canon_canon`), and the theorem the
+module rests on, `sorted_ext : Sorted as → Sorted bs → (∀ n, n ∈ as ↔
+n ∈ bs) → as = bs`.
+
+**The producers normalize.**  `ifAllZero [] / [p]` build `always` /
+`one p` with no comparison and no list cell (`@[inline]`, so
+`.ifAllZero [n]` at `Level.zeronessOf` still compiles to a single
+`lean_alloc_ctor(2,1,0)` — checked in `Kernel/Level.c`, byte-identical
+to the small-list constructors' shape); `ifAllZero [p, q]` is **one**
+`cmp` (`two'`: `.lt ↦ two p q`, `.eq ↦ one p`, `.gt ↦ two q p`); only
+length ≥ 3 runs `canon`.  `inter` answers `never`/`always`/`one×one`
+without touching a list (the `one×one` arm is `two'`); the general
+arm is `ofSorted (merge a.toList b.toList)`.  `bindZ` is unchanged in
+shape and canonical because `inter` is.  `Level.substPW` is `bindZ`.
+
+### 2. The comparison is equality
+
+`equiv` is still the API name at all 57 call sites; it is now
+structural equality spelled constructor-wise (`equivR`) so that the
+name comparisons go through `Name.beq` (the pointer-and-hash-guarded
+equality) rather than the derived structural walk.  The exported
+theorem is
+
+    equiv_iff_eq : equiv a b = true ↔ a = b
+
+and **`DecidableEq PropWhen` is defined from it** (`decEq :=
+decidable_of_iff _ (equiv_iff_eq a b)`), so `=`, `==`, `decide`,
+`equiv` and the derived `DecidableEq`/`BEq` of `BinderMeta` and `Expr`
+all run the *same* code — the C for `equiv`, `decEq` and
+`instDecidableEq` is three one-line calls to `equivR`.  Consequently:
+
+* `eq_iff_holds : p = q ↔ ∀ φ, p.holds φ = q.holds φ` (new; the
+  ZeroSet module's `eq_iff_holds`, now on the real datum) and
+  `equiv_iff_holds` is its composite with `equiv_iff_eq`.
+* `ifAllZero_eq_iff : ifAllZero ps = ifAllZero qs ↔ (∀ n, n ∈ ps ↔ n ∈
+  qs)` — the unique-representative theorem; `ifAllZero_canon`,
+  `eq_of_toList`, `eq_of_mem_iff`, `mem_toList_ifAllZero`,
+  `sorted_toList` are its companions.
+* **The packed hash word is canonical.**  `Hashable PropWhen` is the
+  derived hash of the representation, and equal sets are equal
+  representations, so two `equiv` data hash equal — the `Expr`
+  computed-field hash (`Kernel/Expr.lean`, through `BinderMeta`'s
+  derived `Hashable`) and `Expr.beq` now agree with `equiv` on the
+  `pw` contribution.  **For the perf lane (`agent/beqmemo`):** the
+  question whether non-canonical `pw` data ever caused memo misses (a
+  hash/`==` mismatch between `equiv`-equal metas) is moot from this
+  landing on — there are no two distinct `equiv`-equal data.
+
+### 3. The laws: what changed shape
+
+Statements unchanged, proofs redone (all inside the module):
+
+| law | before | now |
+|---|---|---|
+| `holds_ifAllZero`, `paramsDefined_ifAllZero`, `hasParams_ifAllZero` | 4-arm `simp` on the constructor | one `toList` characterization each (`holds_eq_toList`, `paramsDefined_eq_toList`, `hasParams_eq_toList`) + `toList_ifAllZero` + `all_canon` / `isEmpty_canon` |
+| `holds_inter` | 25-arm `simp` | `toList_inter` (`merge`) + `all_merge`, `never` cases separately |
+| `inter_ifAllZero`, `bindZ_ifAllZero` | `simp [inter, ifAllZero, toList]` per shape pair | **extensionality**: `eq_of_holds` + the `holds` equations (`List.all_append`; `bindZ_go_canon` via `holds_bindZ_go`) |
+| `equiv_never_*`, `equiv_ifAllZero` | 16-arm `simp` | `equiv_iff_eq` + `ifAllZero_ne_never` / `ifAllZero_eq_iff` |
+| `equiv_iff_holds`, `equiv_refl`, `holds_eq_of_equiv` | the containment argument (`mem_of_holds_eq`) | `equiv_iff_eq ∘ eq_iff_holds`; the separating-valuation argument moved into `eq_iff_holds` (`mem_of_all_eq`) |
+| `inter_never_right`, `paramsDefined_inter_of`, `inter_assoc`, `bindZ_go_append`, `bindZ_inter`, `bindZ_congr_names`, `bindZ_unit`, `holds_ext`, `holds_bindZ_go` | — | **unchanged**, they go through the exported equations only |
+
+Statements that *had* to change (the shape equations, not laws):
+`toList_ifAllZero : (ifAllZero ps).toList = canon ps` and
+`toList?_ifAllZero : … = some (canon ps)` (were `= ps`); neither is
+used outside the module.  `casesZ` keeps its type exactly — the
+`ifAllZero` case is offered for *every* list, canonical or not, which
+is sound because the smart constructor normalizes — and its `two`/
+`many` arms transport along `ifAllZero [p, q] = ⟨two p q h⟩` /
+`ifAllZero ps = ⟨many ps h⟩` (`Eq.mpr`, the private lemmas
+`ifAllZero_two`/`ifAllZero_many`).  New laws: `inter_comm`,
+`inter_self` (equalities, by canonicity).
+
+**Amendment 2 resolved.**  `Level.substPW_self` is unconditional
+again for the reason the ZeroSet lane predicted (`substPWZ_self`):
+the counterexample was a *normalizing* `substPW` applied to a
+*non-canonical* datum, and no such datum exists now.  Its datum half
+is `bindZ_unit` — an equality, proved exactly as before through
+`inter_ifAllZero`.  `substPW_comp` keeps its `paramsDefined`
+hypothesis, which is representation-independent (a parameter outside
+the inner substitution's domain is substituted on the left and
+cannot be on the right); no other law needs any hypothesis.
+`instantiateLevelParams_self` (`Verify/InstLevels.lean`) stands as it
+did, now over a datum that cannot be non-canonical.
+
+### 4. Findings
+
+* **Deriving handles `Prop` fields** — `deriving Hashable, Inhabited`
+  on the invariant-carrying inductive works (proof fields are
+  skipped), and the generated `.injEq` lemmas omit them
+  (`two p q h = two p' q' h'` simps to `p = p' ∧ q = q'`), so
+  `equivR_iff_eq` is one `cases x <;> cases y <;> simp [equivR]`.
+* **`rfl` is refused on an exported theorem about a sealed body** even
+  when the body is a `foldr` — `canon_nil`/`canon_cons` need `by simp
+  [canon]` (the error says so explicitly).  `merge` is well-founded
+  recursion, hence irreducible; everything about it goes through its
+  equation lemmas (`simp [merge]`, `fun_induction`).
+* `simp_all` does not substitute an equation it holds
+  (`h : ps = []`) into a `Prop` field hypothesis that mentions the same
+  variable; `eq_of_toList`'s cross-shape arms need `subst h` first.
+
+### 5. The receipts: perf
+
+`perf stat -e instructions:u`, `ulimit -v 16000000`, `timeout 1800`,
+`nice -n 5`, `LECH_SUPERVISED=1`, `init-full-pre-native.ndjson --pre`,
+one cell at a time; master = the branch point `9eb3bda0` built in its
+own worktree, the branch = `7f857dad`.  All four cells: exit 0,
+**54 346 accepted**.  To reproduce (the baseline worktree was removed
+at the stand-down):
+
+    git worktree add --detach _tmp/pwnorm-base 9eb3bda0
+    cp -a .lake _tmp/pwnorm-base/.lake && (cd _tmp/pwnorm-base && lake build)
+    ulimit -v 16000000
+    for bin in _tmp/pwnorm-base/.lake/build/bin/lech .lake/build/bin/lech; do
+      for mode in --verified --trusted; do
+        LECH_SUPERVISED=1 nice -n 5 perf stat -e instructions:u -- \
+          timeout 1800 $bin $mode --pre _tmp/init-exports/init-full-pre-native.ndjson
+      done
+    done
+
+| mode | master `9eb3bda0` | `agent/pwnorm` | Δ |
+|---|---|---|---|
+| init-full `--verified` | 669.910 G | 658.697 G | **−1.67 %** |
+| init-full `--trusted` | 643.761 G | 633.354 G | **−1.62 %** |
+
+The expectation was neutral; the change is a gain well above the
+0.01 % run-to-run spread, and it has one cause, read off the generated
+C.  Master's `DecidableEq PropWhen` was the *derived* instance, and
+`BinderMeta`'s derived `decEq` — which is what `Expr.beq`/`DecidableEq
+Expr` reach at every binder — called
+`instDecidableEqPropWhenRepr_decEq`, which compares names with the
+structural `instDecidableEqName` (11 call sites in the old
+`PropWhen.c`) and `inc`/`dec`s each `pw` around the call.  Now
+`DecidableEq PropWhen` is `equiv`, i.e. `equivR`, whose three name
+comparisons are `Name.beq` = `Name.beqPtr` after `@[csimp]`: pointer,
+then cached `hashData`, then the structural walk (6 `lean_ptr_addr`,
+6 `hashData` reads, 3 structural fallbacks in `equivR`'s body), on
+borrowed arguments.  Task #189 measured `Expr.beq` as the tail of the
+acceptance run; this is that comparison getting the same guard the
+`Name` inside it already had everywhere else.  The datum-shaped work
+of the change (the sort) never runs on init-full: no datum there has
+three parameters, and the 16 two-name data cost one `cmp` each.
+
+### 6. Gates
+
+`lake build` 640 jobs, 0 errors, 0 warnings; `lake test` green (the
+new canonicity guards: order, duplicates, `hash`, `inter`
+commutative/idempotent, `substPW` at the own parameters,
+`zeronessOf` of a `max` with a repeated parameter).  `tests/arena.sh`
+0 FAIL: layering 0 impl→theory (the module still imports only
+`Lech.Kernel.Name`); proofdeps 2515 rows as pinned, 0 doors; pindump
+fresh (no committed pin carries a two-name datum, so the sorted
+`Repr`/dump output is byte-identical); trust surface 0 outside the
+allowlist; axioms pinned (11 theorems at `[propext, Classical.choice,
+Quot.sound]`); arena 90/92 good, e2e 100/100, annot 14/14, retired
+flags 8/8, mode flags 16/16, prelude counts 3/3, progress lane 6/6,
+trusted sweep 138 + 100 + 14 with the 3 recorded divergences.
+init-full accepted in both modes with the same counts (§5).  Master
+merged (it had moved by a README edit only).
 ## TASK #192 — THE MEMO PROBE'S `Expr.beq`: official's memo shape, and what else was tried (2026-09-06, `agent/beqmemo`)
 
 **The brief.**  Task #189 found that on four of the five slowest
