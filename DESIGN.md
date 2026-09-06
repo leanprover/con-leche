@@ -52265,3 +52265,152 @@ is its value's) instead of the syntactic-telescope reading.  Same
 question for constructor residuals/fields declared at definitions
 (census owed).  The audit test then proves predicate ⊆ recogniser for
 the re-widened predicate mechanically.
+
+## TASK #195 — THE FORMER'S TELESCOPE THROUGH WHNF: a family declared at a definition installs directly (2026-09-06, `agent/former-unfold`)
+
+### 0. The decision, for the record
+
+Task #193 found the direct sum route's former-telescope pin
+(`cvT.type.stripPis (nP + nIdx)` ending in `.sort`) rejecting
+Mathlib's `inductive Presieve.ofArrows … : Presieve X` (`Presieve X :=
+∀ ⦃Y⦄, Set (Y ⟶ X)`): the stored former type ends in a CONSTANT
+APPLICATION and the kernel's `numIndices = 2` comes from `whnf`.  #193
+fell back (the predicate kept such blocks modelled); the user's
+direction was that falling back is the quick fix, not the end state.
+Two designs were costed: **(A)** compute the telescope by official's
+own `whnf` loop and store the former AT THE WHNF'D TELESCOPE, P tier
+untouched (about a day); **(B)** keep the declared type stored and
+read the former through a delta law in the P tier (two to three days:
+`FormerData.read` is the syntactic reading of the stored type and its
+`pps` — every parameter and index domain — is consumed by every later
+stage, so the reading would have to be transported through all of
+them).  **Decision (A)**, coordinator's reasoning: the stored type is
+definitionally equal to the declared one, invisible to every verdict
+(every later defeq check delta-unfolds either spelling) and to the
+main theorem (a constant of type `False` is not a Π-telescope); it is
+the same kind of pre-install normalisation the frontend already does
+for projection functions (`ProjRec`) and the prelude; (B)'s extra days
+buy only that the stored SPELLING matches official's, which nothing
+observes.
+
+**The blocks whose stored former type now differs from official's**
+(the task's census over the raw Mathlib export, 5 671 structures /
+521 sums / 109 indexed families; 23 formers are not syntactic
+telescopes, all of them indexed `Prop` families, and NO constructor
+residual or field is declared at a definition): `CategoryTheory.Presieve.ofArrows`, `CategoryTheory.Presieve.map`, `CategoryTheory.HomRel.CompClosure`, `SSet.OneTruncation₂.HoRel₂`, `CategoryTheory.MorphismProperty.ofHoms`, `CategoryTheory.MorphismProperty.strictMap`, `CategoryTheory.ObjectProperty.ofObj`, `CategoryTheory.ObjectProperty.strictMap`, `CategoryTheory.Localization.Construction.relations`, `CategoryTheory.Presieve.singleton`, `FreeSimplexQuiver.homRel`, `CategoryTheory.ObjectProperty.strictColimitsOfShape`, `Quiver.FreeGroupoid.redStep`, `CategoryTheory.FreeGroupoid.homRel`, `CategoryTheory.Presieve.pullbackArrows`, `CategoryTheory.ObjectProperty.strictLimitsOfShape`, `CategoryTheory.MorphismProperty.limitsOfShape`, `SimplexCategoryGenRel.degeneracies`, `SimplexCategoryGenRel.faces`, `CategoryTheory.MorphismProperty.colimitsOfShape`, `CategoryTheory.MorphismProperty.kernels`, `CategoryTheory.MorphismProperty.cokernels`, `CategoryTheory.Presieve.bindOfArrows`.  Every one of the 23 installs
+directly at this landing (route `sum`, below).  init-full has none.
+
+### 1. The kernel
+
+* `directSumPartsCore?` (`Kernel/Direct/SumParts.lean`) no longer pins
+  the former's declared type: when `stripPis (nP + nIdx)` does not
+  end in a sort, `resSort` is a PLACEHOLDER (`.zero`, `isProp` computed
+  from it so the recogniser's invariant `isProp = (isEquiv resSort
+  zero == some true)` holds by definition) and the install completes
+  the record — `DirectSumParts.withSort p s` (`@[simp]` projections).
+* `whnfTelescope ops env i n e` (`Kernel/Direct/SumInstall.lean`) —
+  official's `check_inductive_types` loop: `whnf` the residual before
+  each binder and at the end, open each binder at the free variable
+  `i` (its domain instantiated at the earlier ones), the final residual
+  must be a `Sort`; a residual that does not reduce to a Π, or finally
+  to a sort, is INVALID input (official fails there too — never a
+  decline).  `closeTelescope` rebuilds the syntactic telescope
+  (innermost binder first, `abstract1` per binder).
+* `checkDirectSumTele`: the checked declared type when it already is
+  a telescope ending in a sort, else the whnf'd telescope closed and
+  **checked from scratch by `checkConstantVal`** at the block's own
+  header — so NOTHING about the reduction is trusted: the stored type
+  is the one this run annotated, inferred and sorted, exactly as a
+  declared telescope would be.  `checkDirectSumInd` returns
+  `(env₁, cvTa, p.withSort s)`; `checkDirectSum` runs the elimination
+  restriction on the completed record (after the former, since the
+  sort is known only then) and every later stage on it.  The `F`
+  twins (`checkDirectSumTeleF`, `checkDirectSumIndF`) and the cached
+  driver (`checkDirectSumS`) mirror the order.
+
+### 2. The verification twins (the seam the #175 boundary audit named)
+
+`whnfTelescope_datF`/`checkDirectSumTele_datF`/`checkDirectSumInd_datF`
+(+ `fueledOpsM_whnf_atF`; `Verify/BridgeDecl.lean`),
+`whnfTelescopeS_sim` (an induction over the loop on `opE_whnf_sim`,
+the shared `whnf` on a well-scoped input at its depth — the opened body
+is well-scoped one deeper by `WScoped.instantiate1`) /
+`checkDirectSumTeleS_sim` / `checkDirectSumIndS_sim`
+(`Verify/Cached/BridgeCS3.lean`), `checkDirectSumTeleF_pushC` /
+`checkDirectSumIndF_pushC` / `checkDirectSumS_run`
+(`Verify/Cached/BridgeCSDecl.lean`), `checkDirectSumTeleF_name` /
+`checkDirectSumIndF_skels` (now also yields `∃ s, p' = p.withSort s`,
+so the skeleton is the ORIGINAL record's) / `checkDirectSumS_skels`
+(`Verify/Cached/AgreeFloor.lean`), `checkDirectSumTele_shape` /
+`checkDirectSumInd_shape` (the former's `checkConstantVal` run at SOME
+constant with the block's name and level parameters — the declared one
+or the closed telescope; the proof never asks which; `Verify/Direct/
+SumInv.lean`), `direct_sum_ind_wf`.  The `_sim`/`_eq` gates are honest:
+the loop's `whnf` is the same certified operation as everywhere else in
+the install path, related step by step.
+
+### 3. The semantics and the P tier
+
+`DeclDirectSumRun` (`Semantics/Direct/DeclDirectSum.lean`) now
+quantifies the completed record: the former's run yields `p'`, the
+elimination guard and the constructor/recursor runs are stated over
+`p'`; `declDirectSumRun_of`/`_wf`/`_etaClosed` follow.  In the P tier
+(`SetP/DirectSum/DeclDirectSumP.lean`) the assembly is split into
+`declDirectSumP_core` — stated over an arbitrary record with the
+recogniser's invariants, the two guards, the former's `checkConstantVal`
+run at the block's header, and its telescope as hypotheses — and the
+wrapper `declDirectSumP`, which obtains `p' = p.withSort s` from the
+shape inversion and transports the invariants by the `withSort`
+projections.  `stageSumFormer` (`SumStageFormerP.lean`) takes the
+`checkConstantVal` run and the header's name instead of the stage's
+run.  **No P proof about the former's reading changed**: `formerData_of`
+already consumed the annotated telescope.  No new axiom, no door
+(proofdeps unchanged).
+
+### 4. The predicate and the audit
+
+`lechNativeSum` drops `lechFormerTelescope` (task #193's pin) — the
+whnf'd-telescope conjunct holds by construction for every Lean-produced
+record (that is how Lean computed `numIndices`), an ARGUED conjunct
+like the shape pins, gated by `tests/native-audit.sh`; the pin stays on
+the STRUCTURE arm, whose recogniser is still syntactic.  The audit was
+run, as required, on the full census before the drop: the cone of all
+23 blocks (cut from the raw export with the String-support constants,
+`_tmp/former-unfold/defhead23-raw.ndjson`, 2 511 declarations) — 194
+native blocks, 146 struct / 47 sum / 1 basis, **0 unrecognised, 0
+unreached**, and each of the 23 reads `lech: route <name> sum`.
+
+### 5. Fixtures
+
+`direct_idx_defhead` flips to direct (`OfFn` route `sum`, re-exported
+through the #195 binary: both blocks native, 10 stream records);
+`presieve_ofarrows_cone.ndjson.gz` (new, 257 KB): the dependency cone
+of Mathlib's `Presieve.ofArrows` with the String-support constants,
+preprocessed by the #195 binary — the #193 finding's block installs
+directly, 638 declarations, both modes.
+
+### 6. Receipts
+
+Tip `809f9855` + this record, off master `d6aeff20`.  Build
+warning-free (640 jobs), `lake test` green (axiom pin), `tests/arena.sh`
+exit 0 — layering 244/165/3/1 (0 edges), proofdeps 2 515 rows / 0
+doors (NO module entered or left a capstone's closure: no new module,
+no P proof about the former's reading changed), pindump fresh, trust
+surface 18/4/0, native audit 169/0, 90/92 · e2e 102/102 (the two
+#195 fixtures included) · annot 14/14 · retired 8/8 · mode 16/16 ·
+prelude 3/3 · progress 6/6, trusted sweep as recorded.  init-full
+stock `--verified` 58 604 / `--trusted` 58 604; regenerated with the
+#195 predicate (`init-full-pre-unfold.ndjson`, 548 native blocks —
+unchanged: no init-full former is declared at a definition)
+`--verified` 53 890 / `--trusted` 53 890 — all exit 0, identical to
+#193's.  The cone of ALL 23 definition-headed Mathlib formers
+(`defhead23`, 2 511 declarations): `--verified` and `--trusted` accept
+2 949 declarations, every one of the 23 on route `sum`.  The full
+audit (init-full + the 23-cone + the `ofArrows` cone + the 92 arena
+fixtures): 95 streams, 970 native blocks — 784 struct, 183 sum, 3
+basis, **0 unrecognised, 0 unreached**.  No Mathlib-scale checker run
+was made; the PERF lane's regenerated Mathlib stream
+(`mathlib-full-pre-idx.ndjson`, made with the #175 predicate) has
+these 23 blocks NATIVE and is now expected to pass them — the
+"missing model" decline at 7.5 % was exactly `ofArrows`, the first of
+them in stream order.
