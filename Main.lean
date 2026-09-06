@@ -142,7 +142,17 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       | .error (.parseError line msg) =>
         IO.eprintln s!"setlec: {file}:{line}: {msg}"
         return 3
-      | .ok ⟨decls, taintSkipped⟩ =>
+      | .ok ⟨decls, taintSkipped, projRewrites⟩ =>
+        -- the projection-function rewrite's receipt (2026-09-06,
+        -- `Setlec/Frontend/ProjRec.lean`): how many non-direct
+        -- structure-like projection functions the parse replaced by
+        -- recursor applications
+        if projRewrites.size > 0 then
+          IO.eprintln s!"setlec: {projRewrites.size} projection functions of \
+            non-direct structure-likes rewritten to recursor form"
+          if (← IO.getEnv "SETLEC_PROJREC_TRACE").isSome then
+            for n in projRewrites do
+              IO.eprintln s!"setlec:   rewritten {n}"
         -- Taint-skip verdict (user directive 2026-08-24): declarations
         -- using tolerated axioms were *skipped* during parsing (they
         -- are absent from `decls`, so nothing tainted can be checked
