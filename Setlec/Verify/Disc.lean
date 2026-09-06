@@ -1497,13 +1497,24 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     · exact hres
 
 set_option maxHeartbeats 1600000 in
+/-- `propIrrel_disc` under the once-per-entry gate (the audit's D3): the
+pruned branch is `pure false` on both records. -/
+theorem propIrrelIf_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) (g : Bool) :
+    DiscV mode env (fun _ => True)
+      (if g then propIrrel mode C env d a b else pure false)
+      (if g then propIrrel mode G env d a b else pure false) := by
+  cases g
+  · exact DiscV.pure trivial
+  · exact propIrrel_disc ih henv hwa hwb
+
 theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
-    {d : Nat} {a b : Expr} {kC kG : Expr → Expr → _}
-    (hk : ∀ {x y : Expr}, WScoped d x → WScoped d y →
-      DiscV mode env (fun _ => True) (kC x y) (kG x y))
-    (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV mode env (fun _ => True) (defeqStep mode C env d kC a b)
-      (defeqStep mode G env d kG a b) := by
+    {d : Nat} {a b : Expr} {kC kG : Bool → Expr → Expr → _}
+    (hk : ∀ (pi : Bool) {x y : Expr}, WScoped d x → WScoped d y →
+      DiscV mode env (fun _ => True) (kC pi x y) (kG pi x y))
+    (pi : Bool) (hwa : WScoped d a) (hwb : WScoped d b) :
+    DiscV mode env (fun _ => True) (defeqStep mode C env d kC pi a b)
+      (defeqStep mode G env d kG pi a b) := by
   unfold defeqStep
   split
   · exact DiscV.pure trivial
@@ -1511,51 +1522,51 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   refine DiscV.bind (ih.site_whnfCore henv hwb) (fun b' hb' => ?_)
   split
   · exact DiscV.pure trivial
-  refine DiscV.bind (propIrrel_disc ih henv ha' hb') (fun rpi _ => ?_)
+  refine DiscV.bind (propIrrelIf_disc ih henv ha' hb' _) (fun rpi _ => ?_)
   split
   · exact DiscV.pure trivial
   refine DiscV.bind (reduceNatIf_disc ih henv ha' _) (fun o₁ ho₁ => ?_)
   split
-  · exact hk (ho₁ _ rfl) hb'
+  · exact hk _ (ho₁ _ rfl) hb'
   refine DiscV.bind (reduceNatIf_disc ih henv hb' _) (fun o₂ ho₂ => ?_)
   split
-  · exact hk ha' (ho₂ _ rfl)
+  · exact hk _ ha' (ho₂ _ rfl)
   -- lazy delta: the decision first, each unfolding materialized only
   -- inside the branch that consumes it (task #106)
   split
   case h_1 =>
     split
     · rename_i a₂ hua
-      exact hk (unfoldDefinition_WScoped henv hua ha') hb'
+      exact hk _ (unfoldDefinition_WScoped henv hua ha') hb'
     · exact DiscV.pure trivial
   case h_2 =>
     split
     · rename_i b₂ hub
-      exact hk ha' (unfoldDefinition_WScoped henv hub hb')
+      exact hk _ ha' (unfoldDefinition_WScoped henv hub hb')
     · exact DiscV.pure trivial
   case h_3 =>
     have hboth : DiscV mode env (fun _ => True)
         (match unfoldDefinition env a', unfoldDefinition env b' with
-          | some a₂, some b₂ => kC a₂ b₂
+          | some a₂, some b₂ => kC false a₂ b₂
           | _, _ => pure false)
         (match unfoldDefinition env a', unfoldDefinition env b' with
-          | some a₂, some b₂ => kG a₂ b₂
+          | some a₂, some b₂ => kG false a₂ b₂
           | _, _ => pure false) := by
       split
       · rename_i a₂ b₂ hua hub
-        exact hk (unfoldDefinition_WScoped henv hua ha')
+        exact hk _ (unfoldDefinition_WScoped henv hua ha')
           (unfoldDefinition_WScoped henv hub hb')
       · exact DiscV.pure trivial
     dsimp only []
     split
     · split
       · rename_i a₂ hua
-        exact hk (unfoldDefinition_WScoped henv hua ha') hb'
+        exact hk _ (unfoldDefinition_WScoped henv hua ha') hb'
       · exact DiscV.pure trivial
     split
     · split
       · rename_i b₂ hub
-        exact hk ha' (unfoldDefinition_WScoped henv hub hb')
+        exact hk _ ha' (unfoldDefinition_WScoped henv hub hb')
       · exact DiscV.pure trivial
     split
     · refine DiscV.bind (defeqSpine_disc ih ha' hb') (fun sp _ => ?_)
@@ -1703,19 +1714,19 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     case h_17 => exact stuckIrrel_disc ih henv ha' hb'
 
 theorem defeqLoop_disc (ih : ScopedSim mode env f) (henv : EnvWF env) :
-    ∀ (n : Nat) {d : Nat} {a b : Expr}, WScoped d a → WScoped d b →
-      DiscV mode env (fun _ => True) (defeqLoop mode C env d n a b)
-        (defeqLoop mode G env d n a b)
-  | 0, _, _, _, _, _ => DiscV.throw _
-  | n + 1, _, _, _, hwa, hwb =>
+    ∀ (n : Nat) {d : Nat} (pi : Bool) {a b : Expr}, WScoped d a → WScoped d b →
+      DiscV mode env (fun _ => True) (defeqLoop mode C env d n pi a b)
+        (defeqLoop mode G env d n pi a b)
+  | 0, _, _, _, _, _, _ => DiscV.throw _
+  | n + 1, _, pi, _, _, hwa, hwb =>
     defeqStep_disc ih henv
-      (fun hx hy => defeqLoop_disc ih henv n hx hy) hwa hwb
+      (fun pi' {_ _} hx hy => defeqLoop_disc ih henv n pi' hx hy) pi hwa hwb
 
 theorem defeqBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
     DiscV mode env (fun _ => True) (defeqBody mode C env d a b)
       (defeqBody mode G env d a b) :=
-  defeqLoop_disc ih henv defeqLoopFuel hwa hwb
+  defeqLoop_disc ih henv defeqLoopFuel true hwa hwb
 
 end Walks
 

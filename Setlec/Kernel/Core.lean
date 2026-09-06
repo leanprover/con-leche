@@ -2081,7 +2081,7 @@ steer *order only*: every branch below is an independently sound
 reduction or comparison, so the verdict never depends on the hint
 values. -/
 def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
-    (k : Expr → Expr → m Bool) (a b : Expr) : m Bool := do
+    (k : Bool → Expr → Expr → m Bool) (pi : Bool) (a b : Expr) : m Bool := do
     -- syntactic fast path (the references' most-hit branch)
     if a == b then pure true else
     let a' ← r.whnfCore depth a
@@ -2097,7 +2097,20 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     -- Task #168 (Option U): the hoist is the `Prop` branch only, with
     -- the head-symbol fast arms; the unit-like test is `stuckIrrel`'s
     -- (every structural-failure exit below reaches it).
-    if ← propIrrel mode r env depth a' b' then pure true else
+    --
+    -- **Once per `is_def_eq_core` entry** (the divergence audit's D3,
+    -- DESIGN.md "THE DIVERGENCE AUDIT"): official runs
+    -- `is_def_eq_proof_irrel` before `lazy_delta_reduction` and never
+    -- inside the loop — after an unfolding only `quick_is_def_eq` runs
+    -- (`type_checker.cpp:965-969`, `:1118-1122`).  `pi` is the entry
+    -- flag: `true` at the body's entry and at the literal-acceleration
+    -- re-entries (official restarts `is_def_eq_core` there,
+    -- `:1010-1012`), `false` on the delta continuations.  A re-run
+    -- could not answer differently — a proof stays a proof under
+    -- unfolding — so the gate is cost only (5× per delta step on the
+    -- audit's lockstep-chain witness).
+    if ← (if pi then propIrrel mode r env depth a' b' else pure false) then
+      pure true else
     -- Literal acceleration is guarded on *both* sides being free of
     -- free variables, mirroring the official kernel
     -- (`type_checker.cpp`, `lazy_delta_reduction`:
@@ -2116,11 +2129,11 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     -- eager per-node fvar range instead).
     match ← (if !a'.hasFvar && !b'.hasFvar then
         reduceNat r env depth a' else pure none) with
-    | some a₂ => k a₂ b'
+    | some a₂ => k true a₂ b'
     | none =>
     match ← (if !a'.hasFvar && !b'.hasFvar then
         reduceNat r env depth b' else pure none) with
-    | some b₂ => k a' b₂
+    | some b₂ => k true a' b₂
     | none =>
     -- Lazy delta, **decision before materialization** (the official
     -- kernel's `lazy_delta_reduction_step` reads a `delta_step` off
@@ -2137,22 +2150,22 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     match unfoldableHead env a', unfoldableHead env b' with
     | true, false =>
       match unfoldDefinition env a' with
-      | some a₂ => k a₂ b'
+      | some a₂ => k false a₂ b'
       | none => pure false
     | false, true =>
       match unfoldDefinition env b' with
-      | some b₂ => k a' b₂
+      | some b₂ => k false a' b₂
       | none => pure false
     | true, true =>
       let ha := headHint env a'
       let hb := headHint env b'
       if ReducibilityHint.lt hb ha then
         match unfoldDefinition env a' with
-        | some a₂ => k a₂ b'
+        | some a₂ => k false a₂ b'
         | none => pure false
       else if ReducibilityHint.lt ha hb then
         match unfoldDefinition env b' with
-        | some b₂ => k a' b₂
+        | some b₂ => k false a' b₂
         | none => pure false
       else if ReducibilityHint.sameRegular ha hb && sameConstHeads a' b' then
         -- Same constant at equal *regular* hints: cheap congruence
@@ -2170,11 +2183,11 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
         if ← defeqSpine r env depth a' b' then pure true
         else
           match unfoldDefinition env a', unfoldDefinition env b' with
-          | some a₂, some b₂ => k a₂ b₂
+          | some a₂, some b₂ => k false a₂ b₂
           | _, _ => pure false
       else
         match unfoldDefinition env a', unfoldDefinition env b' with
-        | some a₂, some b₂ => k a₂ b₂
+        | some a₂, some b₂ => k false a₂ b₂
         | _, _ => pure false
     | false, false =>
     match a', b' with
@@ -2301,9 +2314,10 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
 
 /-- The lazy-delta loop: iterate `defeqStep` on its own step budget. -/
 def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
-    Nat → Expr → Expr → m Bool
-  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
-  | fl + 1, a, b => defeqStep mode r env depth (defeqLoop r env depth fl) a b
+    Nat → Bool → Expr → Expr → m Bool
+  | 0, _, _, _ => throw (.internal "fuel exhausted: defeq loop")
+  | fl + 1, pi, a, b =>
+    defeqStep mode r env depth (defeqLoop r env depth fl) pi a b
 
 /-- Step budget of the lazy-delta loop (lean4lean's
 `FuelConfig.lazyDelta`, generously sized here because this loop also
@@ -2314,7 +2328,7 @@ absorbs the literal-acceleration re-entries lean4lean routes through
 /-- The definitional-equality body: the lazy-delta loop at its own
 step budget. -/
 def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
-  fun depth a b => defeqLoop mode r env depth defeqLoopFuel a b
+  fun depth a b => defeqLoop mode r env depth defeqLoopFuel true a b
 
 /-- Check that a (raw) type is a `Prop` by annotating it and inferring
 its sort. -/

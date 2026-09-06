@@ -524,26 +524,26 @@ theorem inferBodyIO_atF (d : Nat) (e : Expr) (F : Nat) :
   -- field `ensureSort` reads) untouched, so the plain lemma closes them
   all_goals exact ensureSort_atF _ _ _
 
-theorem defeqStep_atF (d : Nat) (k : Expr → Expr → FueledM Bool)
-    (kF : Expr → Expr → CheckM Bool)
-    (hk : ∀ a b, (k a b).val F = kF a b) (a b : Expr) :
-    (defeqStep mode (fueledFns mode env) env d k a b).val F =
-      defeqStep mode (pureFns mode env F) env d kF a b := by
+theorem defeqStep_atF (d : Nat) (k : Bool → Expr → Expr → FueledM Bool)
+    (kF : Bool → Expr → Expr → CheckM Bool)
+    (hk : ∀ pi a b, (k pi a b).val F = kF pi a b) (pi : Bool) (a b : Expr) :
+    (defeqStep mode (fueledFns mode env) env d k pi a b).val F =
+      defeqStep mode (pureFns mode env F) env d kF pi a b := by
   unfold defeqStep
   atF_tac4k hk
 
 theorem defeqLoop_atF (d : Nat) (F : Nat) :
-    ∀ (n : Nat) (a b : Expr),
-      (defeqLoop mode (fueledFns mode env) env d n a b).val F =
-        defeqLoop mode (pureFns mode env F) env d n a b
-  | 0, _, _ => rfl
-  | n + 1, a, b =>
-    defeqStep_atF d _ _ (fun x y => defeqLoop_atF d F n x y) a b
+    ∀ (n : Nat) (pi : Bool) (a b : Expr),
+      (defeqLoop mode (fueledFns mode env) env d n pi a b).val F =
+        defeqLoop mode (pureFns mode env F) env d n pi a b
+  | 0, _, _, _ => rfl
+  | n + 1, pi, a, b =>
+    defeqStep_atF d _ _ (fun pi' x y => defeqLoop_atF d F n pi' x y) pi a b
 
 theorem defeqBody_atF (d : Nat) (a b : Expr) (F : Nat) :
     (defeqBody mode (fueledFns mode env) env d a b).val F =
       defeqBody mode (pureFns mode env F) env d a b :=
-  defeqLoop_atF d F defeqLoopFuel a b
+  defeqLoop_atF d F defeqLoopFuel true a b
 
 theorem annotateBody_atF (d : Nat) (e : Expr) (F : Nat) :
     (annotateBody mode (fueledFns mode env) env d e).val F =

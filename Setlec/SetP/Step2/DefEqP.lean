@@ -198,10 +198,10 @@ def DefEqContP {env : Env} (m : EnvS2Core V env)
 /-- **One iteration of the lazy-delta loop**, P currency. -/
 def DefEqStepAtP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
-  ∀ {d : Nat} {k : Expr → Expr → CheckM Bool},
-    DefEqContP m φ d k →
-    ∀ {a b : Expr} {Δa : List AVExpr},
-      defeqStep μ (pureFns μ env fuel) env d k a b = .ok true →
+  ∀ {d : Nat} {k : Bool → Expr → Expr → CheckM Bool},
+    (∀ pi : Bool, DefEqContP m φ d (k pi)) →
+    ∀ (pi : Bool) {a b : Expr} {Δa : List AVExpr},
+      defeqStep μ (pureFns μ env fuel) env d k pi a b = .ok true →
       Expr.WScoped d a → a.looseBVarsBounded 0 = true →
       Expr.LeavesBounded a →
       Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -295,14 +295,15 @@ is *not* here: it is a hypothesis of the theorem that discharges this
 Prop, so the routed shape stays mode-generic. -/
 def DefEqStuckP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
-  ∀ {d : Nat} {Δa : List AVExpr} {k : Expr → Expr → CheckM Bool}
-    {a b a' b' : Expr},
-    defeqStep μ (pureFns μ env fuel) env d k a b = .ok true →
+  ∀ {d : Nat} {Δa : List AVExpr} {k : Bool → Expr → Expr → CheckM Bool}
+    {pi : Bool} {a b a' b' : Expr},
+    defeqStep μ (pureFns μ env fuel) env d k pi a b = .ok true →
     (a == b) = false →
     whnfCore μ env fuel d a = .ok a' →
     whnfCore μ env fuel d b = .ok b' →
     (a' == b') = false →
-    Setlec.propIrrelP μ env fuel d a' b' = .ok false →
+    (if pi then Setlec.propIrrelP μ env fuel d a' b' else pure false)
+      = .ok false →
     (if !a'.hasFvar && !b'.hasFvar then
       Setlec.reduceNatP μ env fuel d a' else pure none) = .ok none →
     (if !a'.hasFvar && !b'.hasFvar then
@@ -424,19 +425,19 @@ def WhnfCoreReductExistsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 /-- The loop satisfies the contract at every budget. -/
 theorem defeqLoop_contP {m : EnvS2Core V env} {fuel : Nat}
     (hstep : DefEqStepAtP μ m φ fuel) :
-    ∀ (budget d : Nat),
+    ∀ (budget d : Nat) (pi : Bool),
       DefEqContP m φ d
-        (defeqLoop μ (pureFns μ env fuel) env d budget) := by
+        (defeqLoop μ (pureFns μ env fuel) env d budget pi) := by
   intro budget
   induction budget with
   | zero =>
-    intro d a b Δa h
+    intro d pi a b Δa h
     rw [defeqLoop] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
   | succ budget ih =>
-    intro d a b Δa h
+    intro d pi a b Δa h
     rw [defeqLoop] at h
-    exact hstep (ih d) h
+    exact hstep (fun pi' => ih d pi') pi h
 
 /-- **`DefEqClaims2P` at `fuel + 1`**, modulo the step. -/
 theorem defeq_claimsP {m : EnvS2Core V env} {fuel : Nat}
@@ -444,7 +445,7 @@ theorem defeq_claimsP {m : EnvS2Core V env} {fuel : Nat}
     DefEqClaims2P μ m φ (fuel + 1) := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
   rw [Setlec.isDefEqCore_succ, defeqBody] at h
-  exact defeqLoop_contP hstep defeqLoopFuel d h hwa hba hLa hwb
+  exact defeqLoop_contP hstep defeqLoopFuel d true h hwa hba hLa hwb
     hbb hLb hCa hCb hda hdb
 
 /-- The `whnfCore` reduct's package, P currency.  `whnfCore_package2D`
@@ -507,7 +508,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
     (hstk : DefEqStuckP μ m φ fuel)
     (hspine : DefEqSpineP μ m φ fuel) :
     DefEqStepAtP μ m φ fuel := by
-  intro d k hk a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb
+  intro d k hk pi a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb
     hda hdb hokA hokB ρ hρ
   have h0 := h
   simp only [defeqStep, Bind.bind, Except.bind, Setlec.whnfCore_def,
@@ -547,14 +548,21 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
       obtain rfl : aa' = ba' := by
         rw [hda'] at hdb'; exact Option.some.inj hdb'
       rfl
-    · cases hir : Setlec.propIrrelP μ env fuel d a' b' with
+    · -- proof irrelevance, once per entry (the audit's D3): the gate is
+      -- `pi`, and only a `true` verdict is consumed
+      cases hir : (if pi then Setlec.propIrrelP μ env fuel d a' b'
+          else pure false) with
       | error err => rw [hir] at h; exact nomatch h
       | ok r =>
       rw [hir] at h
       dsimp only at h
       cases r with
       | true =>
-        exact hpi hir hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hda'
+        have hir' : Setlec.propIrrelP μ env fuel d a' b' = .ok true := by
+          split at hir
+          · exact hir
+          · exact nomatch hir
+        exact hpi hir' hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hda'
           hdb' hokA' hokB' ρ hρ
       | false =>
         cases hna : (if !a'.hasFvar && !b'.hasFvar then
@@ -573,7 +581,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
           obtain ⟨w, hw, hokw, hEw, hw2, hb2, hL2, hC2⟩ :=
             hnat hred hwa' hba' hLa' hCa' hda' hokA'
           exact (hEw ρ hρ).trans
-            (hk h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hw hdb' hokw
+            (hk true h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hw hdb' hokw
               hokB' ρ hρ)
         | none, hna, h =>
         dsimp only at h
@@ -592,7 +600,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
             · exact nomatch hnb
           obtain ⟨w, hw, hokw, hEw, hw2, hb2, hL2, hC2⟩ :=
             hnat hred hwb' hbb' hLb' hCb' hdb' hokB'
-          exact (hk h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2 hda' hw
+          exact (hk true h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2 hda' hw
             hokA' hokw ρ hρ).trans (hEw ρ hρ).symm
         | none, hnb, h =>
         cases hha : Setlec.unfoldableHead env a' <;>
@@ -609,7 +617,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
             rw [hub] at h
             obtain ⟨hd2, hw2, hb2, hL2, hC2⟩ :=
               dq_delta_packageP hdel hub hwb' hbb' hLb' hCb' hdb'
-            exact hk h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2 hda' hd2
+            exact hk false h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2 hda' hd2
               hokA' hokB' ρ hρ
         · cases hua : Setlec.unfoldDefinition env a' with
           | none => rw [hua] at h; exact nomatch h
@@ -617,12 +625,12 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
             rw [hua] at h
             obtain ⟨hd2, hw2, hb2, hL2, hC2⟩ :=
               dq_delta_packageP hdel hua hwa' hba' hLa' hCa' hda'
-            exact hk h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hd2 hdb'
+            exact hk false h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hd2 hdb'
               hokA' hokB' ρ hρ
         · have hboth : ∀ {x : CheckM Bool},
               (match Setlec.unfoldDefinition env a',
                   Setlec.unfoldDefinition env b' with
-                | some a₂, some b₂ => k a₂ b₂
+                | some a₂, some b₂ => k false a₂ b₂
                 | _, _ => pure false) = .ok true →
               interp2 V ρ aa' = interp2 V ρ ba' := by
             intro x hbb2
@@ -637,7 +645,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
                 dq_delta_packageP hdel hua hwa' hba' hLa' hCa' hda'
               obtain ⟨hdB, hwB, hbB, hLB, hCB⟩ :=
                 dq_delta_packageP hdel hub hwb' hbb' hLb' hCb' hdb'
-              exact hk hbb2 hwA hbA hLA hwB hbB hLB hCA hCB hdA hdB
+              exact hk false hbb2 hwA hbA hLA hwB hbB hLB hCA hCB hdA hdB
                 hokA' hokB' ρ hρ
           cases hlt1 : Setlec.ReducibilityHint.lt
               (Setlec.headHint env b') (Setlec.headHint env a') <;>
@@ -665,7 +673,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
                 rw [hub] at h
                 obtain ⟨hd2, hw2, hb2, hL2, hC2⟩ :=
                   dq_delta_packageP hdel hub hwb' hbb' hLb' hCb' hdb'
-                exact hk h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2 hda'
+                exact hk false h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2 hda'
                   hd2 hokA' hokB' ρ hρ
           · cases hua : Setlec.unfoldDefinition env a' with
             | none => rw [hua] at h; exact nomatch h
@@ -673,7 +681,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
               rw [hua] at h
               obtain ⟨hd2, hw2, hb2, hL2, hC2⟩ :=
                 dq_delta_packageP hdel hua hwa' hba' hLa' hCa' hda'
-              exact hk h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hd2
+              exact hk false h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hd2
                 hdb' hokA' hokB' ρ hρ
 
 /-! ## T4 — the binder congruence's two premises -/
@@ -815,7 +823,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
     (hstr : DenotePStrLit m φ) (hap : AcvalParamsP m)
     (happ : AppCongrStuckP μ m φ fuel) (heta : EtaCertStepP μ m φ fuel) :
     DefEqStuckP μ m φ fuel := by
-  intro d Δa _k a b a' b' h hab hwca hwcb hab' hir hna hnb hha hhb
+  intro d Δa _k _pi a b a' b' h hab hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb aa' ba' hCa hCb hda hdb hokA hokB ρ hρ
   simp only [defeqStep, Bind.bind, Except.bind, Setlec.whnfCore_def,
     Setlec.propIrrel_fold, Setlec.reduceNat_fold,

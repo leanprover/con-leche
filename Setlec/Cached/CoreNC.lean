@@ -504,54 +504,57 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
 `Setlec/Kernel/CoreNC.lean`'s `defeqStepNC`; only the stuck-term
 fallback differs, through `stuckIrrelNC`). -/
 def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (k : ExprC → ExprC → CheckCM Bool) (a b : ExprC) : CheckCM Bool := do
+    (k : Bool → ExprC → ExprC → CheckCM Bool) (pi : Bool) (a b : ExprC) :
+    CheckCM Bool := do
     if a == b then pure true else
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
     if a' == b' then pure true else
-    if ← propIrrelI cfgNC r fe depth a' b' then pure true else
+    -- proof irrelevance once per entry (`pi`; the spec's D3 note)
+    if ← (if pi then propIrrelI cfgNC r fe depth a' b' else pure false) then
+      pure true else
     -- fvar-free guard on defeq-side literal folding, as in
     -- `defeqBodyI` (official kernel `lazy_delta_reduction`; lean4lean
     -- `TypeChecker.lean:782`)
     let fold ← withStore fun st => !st.hasFvarI a' && !st.hasFvarI b'
     match ← (if fold then reduceNatI r fe depth a' else pure none) with
-    | some a₂ => k a₂ b'
+    | some a₂ => k true a₂ b'
     | none =>
     match ← (if fold then reduceNatI r fe depth b' else pure none) with
-    | some b₂ => k a' b₂
+    | some b₂ => k true a' b₂
     | none =>
     -- lazy delta, decision before materialization; see `defeqBody`
     match ← withStore (fun st => unfoldableHeadI fe st a'),
         ← withStore (fun st => unfoldableHeadI fe st b') with
     | true, false =>
       match ← unfoldDefinitionI fe a' with
-      | some a₂ => k a₂ b'
+      | some a₂ => k false a₂ b'
       | none => pure false
     | false, true =>
       match ← unfoldDefinitionI fe b' with
-      | some b₂ => k a' b₂
+      | some b₂ => k false a' b₂
       | none => pure false
     | true, true => do
       let ha ← withStore (fun st => headHintI fe st a')
       let hb ← withStore (fun st => headHintI fe st b')
       if ReducibilityHint.lt hb ha then
         match ← unfoldDefinitionI fe a' with
-        | some a₂ => k a₂ b'
+        | some a₂ => k false a₂ b'
         | none => pure false
       else if ReducibilityHint.lt ha hb then
         match ← unfoldDefinitionI fe b' with
-        | some b₂ => k a' b₂
+        | some b₂ => k false a' b₂
         | none => pure false
       else if ReducibilityHint.sameRegular ha hb &&
           (← withStore (sameConstHeadsI · a' b')) then do
         if ← defeqSpineI r fe depth a' b' then pure true
         else
           match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
-          | some a₂, some b₂ => k a₂ b₂
+          | some a₂, some b₂ => k false a₂ b₂
           | _, _ => pure false
       else
         match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
-        | some a₂, some b₂ => k a₂ b₂
+        | some a₂, some b₂ => k false a₂ b₂
         | _, _ => pure false
     | false, false =>
     match ← viewI a', ← viewI b' with
@@ -649,14 +652,15 @@ def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 /-- Cert-skipping twin of `defeqLoopI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `defeqLoopNC`). -/
 def defeqLoopNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    Nat → ExprC → ExprC → CheckCM Bool
-  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
-  | fl + 1, a, b => defeqStepNC r fe depth (defeqLoopNC r fe depth fl) a b
+    Nat → Bool → ExprC → ExprC → CheckCM Bool
+  | 0, _, _, _ => throw (.internal "fuel exhausted: defeq loop")
+  | fl + 1, pi, a, b =>
+    defeqStepNC r fe depth (defeqLoopNC r fe depth fl) pi a b
 
 /-- Cert-skipping twin of `defeqBodyI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `defeqBodyNC`). -/
 def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → ExprC → CheckCM Bool :=
-  fun depth a b => defeqLoopNC r fe depth defeqLoopFuel a b
+  fun depth a b => defeqLoopNC r fe depth defeqLoopFuel true a b
 
 /-- perf-eng E2 (port of `Setlec/Kernel/CoreNC.lean`'s `memoEINC`):
 `@[inline]` twin of `memoEI`, scoped to the measurement-only NC knot —

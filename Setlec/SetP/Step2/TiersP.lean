@@ -170,7 +170,7 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
       intro d a b Δa hrun hwa hba' hLa hwb hbb hLb aa ba hCa hCb
         hda hdb
       rw [Setlec.isDefEqCore_succ, defeqBody] at hrun
-      exact defeqLoop_contP hstep defeqLoopFuel d hrun hwa hba' hLa
+      exact defeqLoop_contP hstep defeqLoopFuel d true hrun hwa hba' hLa
         hwb hbb hLb hCa hCb hda hdb
     · -- the infer quarter (the eleven-arm dispatcher, env-fixed)
       intro d e t Δa hrun hws hb hLb ea ta hC hea hta

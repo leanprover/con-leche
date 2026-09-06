@@ -1306,15 +1306,17 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
 
 /-- Twin of `defeqStep`. -/
 def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (k : ExprC → ExprC → CheckCM Bool) (a b : ExprC) : CheckCM Bool := do
+    (k : Bool → ExprC → ExprC → CheckCM Bool) (pi : Bool) (a b : ExprC) :
+    CheckCM Bool := do
     if a == b then pure true else
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
     if a' == b' then pure true else
     -- proof irrelevance hoisted before lazy delta, as in the spec
     -- (and the official kernel); the `Prop` branch with the fast arms
-    -- (task #168, Option U)
-    if ← propIrrelI cfg r fe depth a' b' then pure true else
+    -- (task #168, Option U) — once per entry (`pi`; the spec's D3 note)
+    if ← (if pi then propIrrelI cfg r fe depth a' b' else pure false) then
+      pure true else
     -- Literal folding only when both sides are fvar-free, mirroring
     -- the official kernel (`type_checker.cpp`, `lazy_delta_reduction`)
     -- and lean4lean (`TypeChecker.lean:782`); see `defeqBody` for the
@@ -1322,43 +1324,43 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     -- per-node fvar-range array.
     let fold ← withStore fun st => !st.hasFvarI a' && !st.hasFvarI b'
     match ← (if fold then reduceNatI r fe depth a' else pure none) with
-    | some a₂ => k a₂ b'
+    | some a₂ => k true a₂ b'
     | none =>
     match ← (if fold then reduceNatI r fe depth b' else pure none) with
-    | some b₂ => k a' b₂
+    | some b₂ => k true a' b₂
     | none =>
     -- lazy delta, decision before materialization; see `defeqBody`
     match ← withStore (fun st => unfoldableHeadI fe st a'),
         ← withStore (fun st => unfoldableHeadI fe st b') with
     | true, false =>
       match ← unfoldDefinitionI fe a' with
-      | some a₂ => k a₂ b'
+      | some a₂ => k false a₂ b'
       | none => pure false
     | false, true =>
       match ← unfoldDefinitionI fe b' with
-      | some b₂ => k a' b₂
+      | some b₂ => k false a' b₂
       | none => pure false
     | true, true => do
       let ha ← withStore (fun st => headHintI fe st a')
       let hb ← withStore (fun st => headHintI fe st b')
       if ReducibilityHint.lt hb ha then
         match ← unfoldDefinitionI fe a' with
-        | some a₂ => k a₂ b'
+        | some a₂ => k false a₂ b'
         | none => pure false
       else if ReducibilityHint.lt ha hb then
         match ← unfoldDefinitionI fe b' with
-        | some b₂ => k a' b₂
+        | some b₂ => k false a' b₂
         | none => pure false
       else if ReducibilityHint.sameRegular ha hb &&
           (← withStore (sameConstHeadsI · a' b')) then do
         if ← defeqSpineI r fe depth a' b' then pure true
         else
           match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
-          | some a₂, some b₂ => k a₂ b₂
+          | some a₂, some b₂ => k false a₂ b₂
           | _, _ => pure false
       else
         match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
-        | some a₂, some b₂ => k a₂ b₂
+        | some a₂, some b₂ => k false a₂ b₂
         | _, _ => pure false
     | false, false =>
     match ← viewI a', ← viewI b' with
@@ -1462,14 +1464,14 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 
 /-- Twin of `defeqLoop`. -/
 def defeqLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    Nat → ExprC → ExprC → CheckCM Bool
-  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
-  | fl + 1, a, b =>
-    defeqStepI cfg r fe depth (defeqLoopI r fe depth fl) a b
+    Nat → Bool → ExprC → ExprC → CheckCM Bool
+  | 0, _, _, _ => throw (.internal "fuel exhausted: defeq loop")
+  | fl + 1, pi, a, b =>
+    defeqStepI cfg r fe depth (defeqLoopI r fe depth fl) pi a b
 
 /-- Twin of `defeqBody`. -/
 def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → ExprC → CheckCM Bool :=
-  fun depth a b => defeqLoopI cfg r fe depth defeqLoopFuel a b
+  fun depth a b => defeqLoopI cfg r fe depth defeqLoopFuel true a b
 
 /-- Twin of `isPropType`. -/
 def isPropTypeI (r : CoreFnsI) (_fe : FEnv) (depth : Nat) (ty : ExprC) :

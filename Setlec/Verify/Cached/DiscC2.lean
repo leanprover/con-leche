@@ -144,6 +144,21 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     | letE nm t v b' => exact SimC.pure hs₄ rfl
     | proj s i e => exact SimC.pure hs₄ rfl
 
+/-- `propIrrelC_sim` under the once-per-entry gate (the audit's D3):
+the pruned branch is `pure false` twinned. -/
+theorem propIrrelIfC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
+    {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hdena : RelC i a) (hdenb : RelC j b)
+    (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) (g : Bool) :
+    SimC mode env s₀ RelVC
+      (if g then propIrrelI (cfgOf mode) (coreKnotI mode (mkFEnv env) f)
+        (mkFEnv env) d i j else pure false)
+      (if g then propIrrel mode (fueledFns mode env) env d a b
+        else pure false) := by
+  cases g
+  · exact SimC.pure hs rfl
+  · exact propIrrelC_sim ih hs hdena hdenb hwa hwb
+
 /-- Port of `proofIrrelI_sim`. -/
 theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
