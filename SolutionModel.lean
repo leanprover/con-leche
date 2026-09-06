@@ -3,8 +3,9 @@ import Setlec.Verify.Cached.MainC
 /-!
 # Comparator solution: the model
 
-`ChallengeModel.lean`'s theorem, proved from `model_exists_SPCD_P`
-(`cfgOf .verified = cfgP` by `rfl`).  Must not import `ChallengeModel`.
+`ChallengeModel.lean`'s theorems, proved from `model_exists_SPCD_P`
+(`cfgOf .verified = cfgP` by `rfl`) and `SetP.Sem_functional`.  Must not
+import `ChallengeModel`.
 -/
 
 namespace Setlec
@@ -18,7 +19,14 @@ theorem model_exists (V : Type w) [SetTheory V]
         ((∃ hint, ConstantInfo.defnInfo cv value hint ∈ env'.consts) ∨
           ConstantInfo.thmInfo cv value ∈ env'.consts) →
         ∀ (φ : Name → Nat) (ρ : Nat → V),
-          Semantics.sem cval env' φ 0 ρ value = cval cv.name φ) ∧
+          Semantics.Sem cval env' φ 0 ρ value (cval cv.name φ)) ∧
       (∀ c ∈ env'.consts, ∀ (φ : Name → Nat) (ρ : Nat → V),
-        cval c.name φ ∈ˢ Semantics.sem cval env' φ 0 ρ c.toConstantVal.type) :=
+        ∃ T, Semantics.Sem cval env' φ 0 ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T) :=
   Cached.model_exists_SPCD_P V (μ := .verified) rfl h
+
+theorem Sem_functional (V : Type w) [SetTheory V]
+    (cval : Name → (Name → Nat) → V) (env : Env) (φ : Name → Nat)
+    (d : Nat) (ρ : Nat → V) (e : Expr) {v w : V}
+    (hv : Semantics.Sem cval env φ d ρ e v) (hw : Semantics.Sem cval env φ d ρ e w) :
+    v = w :=
+  SetP.Sem_functional hv hw

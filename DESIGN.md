@@ -47014,3 +47014,40 @@ reader skips them.  The semantics proper is now `sem`, `push`, `regime`,
 the 27 set-theory constants.  Comparator: accepts; `lake build`
 warning-free; proofdeps: one row entered (`model_SPCD_P ::
 Setlec.Kernel.LitSize`), regenerated.
+
+### `Sem` AS AN INDUCTIVE RELATION (2026-09-06)
+
+The user asked whether the interpretation would be nicer as a relation;
+it is, and it landed:
+
+* **`Sem cval env φ d ρ e v`** (`Setlec/Semantics/Sem.lean`), thirteen
+  syntax-directed rules — `sort`, `fvar`, `const` (with the arity check
+  as a premise), `pi`/`lam` (the fibre `B : V → V` witnessed by `∀ x,
+  Sem … (push x ρ) body' (B x)`), `app`, `letE`, `projTower`/`projFst`/
+  `projSnd`, `natLit`/`strLit` (a literal denotes what its constructor
+  form denotes).  No termination measure: `Setlec/Kernel/LitSize.lean`
+  is deleted.  No junk: a term that does not resolve has no rule, so the
+  membership clause is now `∃ T, Sem … c.type T ∧ cval c.name φ ∈ˢ T`,
+  which fails outright where the function's `∅` convention needed an
+  argument.
+* **Functionality is a stated theorem.**  With `∃ T` in the statement a
+  reader has to believe the relation is single-valued; `Sem_functional`
+  (`Setlec/SetP/SemP.lean`, a derivation induction with `funext` at the
+  binder rules) is stated in `ChallengeModel.lean` and listed in
+  `comparator-model.json`, so the comparator checks it too.
+* **The bridge** builds derivations instead of rewriting equations:
+  `Sem_of_denoteP` has the same fifteen cases as before, each an
+  `exact Sem.<rule> …`; the literal lemmas build `app (const …) (natLit
+  ih)` spines from two helpers `Sem_const_nil`/`Sem_const_one` that read
+  the constants' shapes off the guards' inversion lemmas.  Everything
+  built on the first pass.
+
+**The mental closure, measured**: 39 hand-written declarations beyond
+the checker, plus the 13 rules of `Sem` — the measure's three
+definitions left; the semantics proper is `Sem`, `push`, `regime`,
+`projV`, `piR`, `lamR`, `Level.eval`, `substFn`, `PropWhen.holds`, and
+the 27 set-theory constants.  `lake build` warning-free (622 jobs);
+`ChallengeModel` alone builds with its two `sorry` warnings; proofdeps
+lost exactly the row `model_SPCD_P :: Setlec.Kernel.LitSize`,
+regenerated (1724 rows); battery unchanged.
+Comparator on `comparator-model.json`, both theorems: `Your solution is okay!`, 1 min 49 s.

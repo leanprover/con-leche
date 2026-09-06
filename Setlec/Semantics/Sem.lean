@@ -1,18 +1,19 @@
-import Setlec.Kernel.LitSize
+import Setlec.Kernel.Core
 import Setlec.Verify.Level
 import Setlec.SetModel.Ops
 
 /-!
-# `sem` — the set interpretation of a checker term, in one function
+# `Sem` — the set interpretation of a checker term, as a relation
 
-`sem cval env φ d ρ e` is the set a checker term `e` denotes, given a set
-`cval n ψ` for every constant `n` at every level assignment `ψ`.  It is
-the composite of the two-stage reading the proofs use (`denoteP`, which
-resolves constants and reads binder annotations into an `AVExpr`, then
-`interp2`, which interprets that), written directly on `Expr` so that a
-statement about the model needs nothing but this definition and the set
-operations it names.  `Setlec/SetP/SemP.lean` proves the two agree
-wherever `denoteP` reads.
+`Sem cval env φ d ρ e v` says: the checker term `e` denotes the set `v`,
+given a set `cval n ψ` for every constant `n` at every level assignment
+`ψ`.  It is the composite of the two-stage reading the proofs use
+(`denoteP`, which resolves constants and reads binder annotations into
+an `AVExpr`, then `interp2`, which interprets that), written as one
+syntax-directed relation on `Expr` so that a statement about the model
+needs nothing but these rules and the set operations they name.
+`Setlec/SetP/SemP.lean` proves the rules agree with `interp2` of
+`denoteP`'s reading wherever that reads, and that they are functional.
 
 * `φ` assigns a natural to every universe parameter; `Sort u` denotes the
   universe `univ (u.eval φ)`.
@@ -26,14 +27,13 @@ wherever `denoteP` reads.
   body is a proposition there.  No type inference.
 * A literal denotes what its constructor form denotes, the checker's own
   `natLitToConstructor` (one `Nat.succ` layer) and `strLitToConstructor`.
-* Anything that does not resolve — an unknown constant, a wrong universe
-  arity, a projection out of range — denotes the empty set, which no
-  value is a member of.
+* A term that does not resolve — an unknown constant, a wrong universe
+  arity, a projection out of range — has no rule, hence no denotation.
 -/
 
 namespace Setlec.Semantics
 
-open Setlec (Env Expr Name Level PropWhen Literal)
+open Setlec (Env Expr Name Level PropWhen Literal BinderMeta)
 open Setlec.SetModel
 open Setlec.SetTheory
 
@@ -57,44 +57,49 @@ noncomputable def projV : Nat → V → V
   | i + 1, p => projV i (ssnd p)
 
 /-- The interpretation.  See the module docstring. -/
-noncomputable def sem (cval : Name → (Name → Nat) → V) (env : Env) (φ : Name → Nat) :
-    Nat → (Nat → V) → Expr → V
-  | _, _, .sort u => univ (Level.eval φ u)
-  | d, ρ, .fvar idx _ _ => ρ (d - 1 - idx)
-  | _, _, .const n us =>
-    match env.find? n with
-    | some ci =>
-      if us.length = ci.toConstantVal.levelParams.length then
-        cval n (Level.substFn φ ci.toConstantVal.levelParams us)
-      else SetTheory.empty
-    | none => SetTheory.empty
-  | d, ρ, .forallE n ty body m =>
-    piR (regime φ m.pw) (sem cval env φ d ρ ty)
-      (fun x => sem cval env φ (d + 1) (push x ρ) (body.instantiate1 (.fvar d n ty)))
-  | d, ρ, .lam n ty body m =>
-    lamR (regime φ m.pw) (sem cval env φ d ρ ty)
-      (fun x => sem cval env φ (d + 1) (push x ρ) (body.instantiate1 (.fvar d n ty)))
-  | d, ρ, .app f a => SetTheory.app (sem cval env φ d ρ f) (sem cval env φ d ρ a)
-  | d, ρ, .letE n ty val body =>
-    sem cval env φ (d + 1) (push (sem cval env φ d ρ val) ρ)
-      (body.instantiate1 (.fvar d n ty))
-  | d, ρ, .proj sn i e =>
-    match env.findProj? sn i with
-    | some _ => projV i (sem cval env φ d ρ e)
-    | none =>
-      if i < 2 then
-        (if i = 0 then sfst (sem cval env φ d ρ e) else ssnd (sem cval env φ d ρ e))
-      else SetTheory.empty
-  | d, ρ, .lit (.natVal k) => sem cval env φ d ρ (natLitToConstructor k)
-  | d, ρ, .lit (.strVal s) => sem cval env φ d ρ (strLitToConstructor s)
-  | _, _, .bvar _ => SetTheory.empty
-termination_by _ _ e => e.sizeL
-decreasing_by
-  all_goals first
-  | exact Expr.sizeL_natLitToConstructor_lt _
-  | exact Expr.sizeL_strLitToConstructor_lt _
-  | (simp [Expr.sizeL]; omega)
-  | (rw [Expr.sizeL_instantiate1 _ rfl]; simp [Expr.sizeL]; omega)
-  | (simp [Expr.sizeL])
+inductive Sem (cval : Name → (Name → Nat) → V) (env : Env) (φ : Name → Nat) :
+    Nat → (Nat → V) → Expr → V → Prop
+  | sort {d : Nat} {ρ : Nat → V} {u : Level} :
+      Sem cval env φ d ρ (.sort u) (univ (Level.eval φ u))
+  | fvar {d : Nat} {ρ : Nat → V} {idx : Nat} {n : Name} {ty : Expr} :
+      Sem cval env φ d ρ (.fvar idx n ty) (ρ (d - 1 - idx))
+  | const {d : Nat} {ρ : Nat → V} {n : Name} {us : List Level} {ci : ConstantInfo}
+      (hf : env.find? n = some ci)
+      (hlen : us.length = ci.toConstantVal.levelParams.length) :
+      Sem cval env φ d ρ (.const n us)
+        (cval n (Level.substFn φ ci.toConstantVal.levelParams us))
+  | pi {d : Nat} {ρ : Nat → V} {n : Name} {ty body : Expr} {m : BinderMeta}
+      {A : V} {B : V → V}
+      (hA : Sem cval env φ d ρ ty A)
+      (hB : ∀ x, Sem cval env φ (d + 1) (push x ρ) (body.instantiate1 (.fvar d n ty)) (B x)) :
+      Sem cval env φ d ρ (.forallE n ty body m) (piR (regime φ m.pw) A B)
+  | lam {d : Nat} {ρ : Nat → V} {n : Name} {ty body : Expr} {m : BinderMeta}
+      {A : V} {F : V → V}
+      (hA : Sem cval env φ d ρ ty A)
+      (hF : ∀ x, Sem cval env φ (d + 1) (push x ρ) (body.instantiate1 (.fvar d n ty)) (F x)) :
+      Sem cval env φ d ρ (.lam n ty body m) (lamR (regime φ m.pw) A F)
+  | app {d : Nat} {ρ : Nat → V} {f a : Expr} {F X : V}
+      (hf : Sem cval env φ d ρ f F) (ha : Sem cval env φ d ρ a X) :
+      Sem cval env φ d ρ (.app f a) (SetTheory.app F X)
+  | letE {d : Nat} {ρ : Nat → V} {n : Name} {ty val body : Expr} {X Y : V}
+      (hv : Sem cval env φ d ρ val X)
+      (hb : Sem cval env φ (d + 1) (push X ρ) (body.instantiate1 (.fvar d n ty)) Y) :
+      Sem cval env φ d ρ (.letE n ty val body) Y
+  | projTower {d : Nat} {ρ : Nat → V} {sn : Name} {i : Nat} {e : Expr} {entry : ProjEntry}
+      {P : V}
+      (ht : env.findProj? sn i = some entry) (he : Sem cval env φ d ρ e P) :
+      Sem cval env φ d ρ (.proj sn i e) (projV i P)
+  | projFst {d : Nat} {ρ : Nat → V} {sn : Name} {e : Expr} {P : V}
+      (ht : env.findProj? sn 0 = none) (he : Sem cval env φ d ρ e P) :
+      Sem cval env φ d ρ (.proj sn 0 e) (sfst P)
+  | projSnd {d : Nat} {ρ : Nat → V} {sn : Name} {e : Expr} {P : V}
+      (ht : env.findProj? sn 1 = none) (he : Sem cval env φ d ρ e P) :
+      Sem cval env φ d ρ (.proj sn 1 e) (ssnd P)
+  | natLit {d : Nat} {ρ : Nat → V} {k : Nat} {X : V}
+      (h : Sem cval env φ d ρ (natLitToConstructor k) X) :
+      Sem cval env φ d ρ (.lit (.natVal k)) X
+  | strLit {d : Nat} {ρ : Nat → V} {s : String} {X : V}
+      (h : Sem cval env φ d ρ (strLitToConstructor s) X) :
+      Sem cval env φ d ρ (.lit (.strVal s)) X
 
 end Setlec.Semantics

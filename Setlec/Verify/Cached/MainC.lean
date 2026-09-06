@@ -175,7 +175,7 @@ theorem no_proof_of_Empty_SPCD_P (V : Type w) [SetTheory V]
 
 /-- **THE MODEL, for the shipped driver** (2026-09-06): whatever the
 checker accepts in a validating mode has a set-theoretic model — a set
-for every constant at every level assignment such that, under `sem`
+for every constant at every level assignment such that, under `Sem`
 (`Setlec/Semantics/Sem.lean`), every stored definition and theorem
 denotes its body and every stored constant is a member of its type.
 The `Empty` letter above is a corollary of this one in the model, since
@@ -190,9 +190,9 @@ theorem model_exists_SPCD_P (V : Type w) [SetTheory V]
         ((∃ hint, ConstantInfo.defnInfo cv value hint ∈ env'.consts) ∨
           ConstantInfo.thmInfo cv value ∈ env'.consts) →
         ∀ (φ : Name → Nat) (ρ : Nat → V),
-          sem cval env' φ 0 ρ value = cval cv.name φ) ∧
+          Sem cval env' φ 0 ρ value (cval cv.name φ)) ∧
       (∀ c ∈ env'.consts, ∀ (φ : Name → Nat) (ρ : Nat → V),
-        cval c.name φ ∈ˢ sem cval env' φ 0 ρ c.toConstantVal.type) := by
+        ∃ T, Sem cval env' φ 0 ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T) := by
   obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
   exact mp.model_exists
 

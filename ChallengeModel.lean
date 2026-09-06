@@ -5,9 +5,9 @@ import Setlec.Semantics.Sem
 # Comparator challenge: the model
 
 The checker's acceptance claim in model form (config in
-`comparator-model.json`, proof in `SolutionModel.lean`).  Trusted here:
+`comparator-model.json`, proofs in `SolutionModel.lean`).  Trusted here:
 the shipped checker up to its driver `checkDeclsSPCachedD`, the
-`SetTheory` interface with its derived set constructions, and `sem`, the
+`SetTheory` interface with its derived set constructions, and `Sem`, the
 interpretation of a checker term (`Setlec/Semantics/Sem.lean`).
 
 ## What to read
@@ -36,11 +36,13 @@ meaning rests on these declarations and nothing else:
   truth value of "every `x ∈ A` has some `y ∈ B x`" at `v = 0` and
   `piSet A B` otherwise; `lamR v A F` is `pt` at `v = 0` and
   `graph F A` otherwise.
-* **The interpretation** `sem` with `push` (extend the variable
-  environment), `regime` (the binder's annotation evaluated at `φ`: `0`
-  when it says "proposition") and `projV` (`sfst ∘ ssnd^i`).  A literal
-  denotes its constructor form, the checker's `natLitToConstructor` and
-  `strLitToConstructor`.
+* **The interpretation** `Sem`, one rule per syntax form, with `push`
+  (extend the variable environment), `regime` (the binder's annotation
+  evaluated at `φ`: `0` when it says "proposition") and `projV`
+  (`sfst ∘ ssnd^i`).  A literal denotes what its constructor form
+  denotes, the checker's `natLitToConstructor` and `strLitToConstructor`;
+  a term that does not resolve has no denotation.  `Sem_functional`
+  below says a term has at most one.
 * **Levels and annotations**: `Level.eval` and `Level.substFn`
   (`Setlec/Verify/Level.lean`, an assignment of naturals to universe
   parameters and its transport along an instantiation), and
@@ -56,7 +58,7 @@ open SetTheory
 If the checker at `cfgP` (what `setlec --verified`, the default, runs)
 accepts `ds` with environment `env'`, then in every model `V` of
 `SetTheory` there is a set `cval n φ` for every constant `n` and level
-assignment `φ` such that, under `sem`, every stored definition and
+assignment `φ` such that, under `Sem`, every stored definition and
 theorem denotes its body and every stored constant is a member of its
 type.  In particular every theorem's statement is true.
 -/
@@ -67,7 +69,15 @@ theorem model_exists (V : Type w) [SetTheory V]
         ((∃ hint, ConstantInfo.defnInfo cv value hint ∈ env'.consts) ∨
           ConstantInfo.thmInfo cv value ∈ env'.consts) →
         ∀ (φ : Name → Nat) (ρ : Nat → V),
-          Semantics.sem cval env' φ 0 ρ value = cval cv.name φ) ∧
+          Semantics.Sem cval env' φ 0 ρ value (cval cv.name φ)) ∧
       (∀ c ∈ env'.consts, ∀ (φ : Name → Nat) (ρ : Nat → V),
-        cval c.name φ ∈ˢ Semantics.sem cval env' φ 0 ρ c.toConstantVal.type) :=
+        ∃ T, Semantics.Sem cval env' φ 0 ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T) :=
+  sorry
+
+/-- `Sem` is functional: a term has at most one denotation. -/
+theorem Sem_functional (V : Type w) [SetTheory V]
+    (cval : Name → (Name → Nat) → V) (env : Env) (φ : Name → Nat)
+    (d : Nat) (ρ : Nat → V) (e : Expr) {v w : V}
+    (hv : Semantics.Sem cval env φ d ρ e v) (hw : Semantics.Sem cval env φ d ρ e w) :
+    v = w :=
   sorry

@@ -1,7 +1,7 @@
 {
     "challenge_module": "ChallengeModel",
     "solution_module": "SolutionModel",
-    "theorem_names": ["Setlec.model_exists"],
+    "theorem_names": ["Setlec.model_exists", "Setlec.Sem_functional"],
     "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"],
     "enable_nanoda": false
 }
