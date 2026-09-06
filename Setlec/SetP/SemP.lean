@@ -1,4 +1,5 @@
 import Setlec.Semantics.Sem
+import Setlec.Verify.EnvGuards
 import Setlec.SetP.Annot.EnvS2P
 
 /-!
@@ -49,19 +50,131 @@ theorem push_eq_cons (x : V) (ρ : Nat → V) : push x ρ = cons x ρ := by
 theorem regime_eq_pwBit (φ : Name → Nat) (pw : PropWhen) :
     regime φ pw = pwBit φ pw := rfl
 
-theorem interp2_natLitT2 (ρ : Nat → V) (za sa : AVExpr) :
-    ∀ k, interp2 V ρ (natLitT2 za sa k) = natLitV (interp2 V ρ za) (interp2 V ρ sa) k
-  | 0 => rfl
-  | k + 1 => by rw [natLitT2, natLitV, interp2_app, interp2_natLitT2 ρ za sa k]
+/-! ### `sem`'s equations at the shapes the literal expansions use -/
 
-theorem interp2_charListT2 (ρ : Nat → V) (nilA consA ofNatA za sa : AVExpr) :
-    ∀ cs, interp2 V ρ (charListT2 nilA consA ofNatA za sa cs) =
-      charListV (interp2 V ρ nilA) (interp2 V ρ consA) (interp2 V ρ ofNatA)
-        (interp2 V ρ za) (interp2 V ρ sa) cs
-  | [] => rfl
-  | c :: cs => by
-    rw [charListT2, charListV, interp2_app, interp2_app, interp2_app,
-      interp2_natLitT2, interp2_charListT2 ρ nilA consA ofNatA za sa cs]
+theorem sem_app {cval : Name → (Name → Nat) → V} {env : Env} {φ : Name → Nat}
+    {d : Nat} {ρ : Nat → V} {f a : Expr} :
+    sem cval env φ d ρ (.app f a) =
+      SetTheory.app (sem cval env φ d ρ f) (sem cval env φ d ρ a) := by
+  rw [sem]
+
+theorem sem_const_of_find {cval : Name → (Name → Nat) → V} {env : Env}
+    {φ : Name → Nat} {d : Nat} {ρ : Nat → V} {n : Name} {ci : ConstantInfo}
+    (hf : env.find? n = some ci) {us : List Level}
+    (hlen : us.length = ci.toConstantVal.levelParams.length) :
+    sem cval env φ d ρ (.const n us) =
+      cval n (Level.substFn φ ci.toConstantVal.levelParams us) := by
+  rw [sem, hf]
+  dsimp only
+  rw [if_pos hlen]
+
+theorem sem_natLit {cval : Name → (Name → Nat) → V} {env : Env} {φ : Name → Nat}
+    {d : Nat} {ρ : Nat → V} {k : Nat} :
+    sem cval env φ d ρ (.lit (.natVal k)) =
+      sem cval env φ d ρ (Setlec.natLitToConstructor k) := by
+  rw [sem]
+
+theorem sem_strLit {cval : Name → (Name → Nat) → V} {env : Env} {φ : Name → Nat}
+    {d : Nat} {ρ : Nat → V} {s : String} :
+    sem cval env φ d ρ (.lit (.strVal s)) =
+      sem cval env φ d ρ (Setlec.strLitToConstructor s) := by
+  rw [sem]
+
+/-- Under the `Nat`-literal guard, the constructor form of a literal
+interprets to the annotated numeral `denoteP` reads. -/
+theorem sem_natLitToConstructor {acval : Name → (Name → Nat) → AVExpr}
+    (hcl : ∀ n ψ, VExpr.Closed (acval n ψ).erase) {env : Env} {φ : Name → Nat}
+    (hsup : Setlec.natLitSupported env = true) (d : Nat) (ρ : Nat → V) :
+    ∀ k, sem (cvalOf (V := V) acval) env φ d ρ (Setlec.natLitToConstructor k)
+      = interp2 V ρ (natLitT2 (acval natZeroName (Level.substFn φ [] []))
+          (acval natSuccName (Level.substFn φ [] [])) k) := by
+  obtain ⟨_, _, cv0, i0, j0, cv1, i1, j1, -, hz, hs, -, hz0, hs0, -, -, -⟩ :=
+    natLitSupported_inv hsup
+  have hz' : ([] : List Level).length
+      = (ConstantInfo.ctorInfo cv0 i0 j0).toConstantVal.levelParams.length := by
+    simp [ConstantInfo.toConstantVal, hz0]
+  have hs' : ([] : List Level).length
+      = (ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal.levelParams.length := by
+    simp [ConstantInfo.toConstantVal, hs0]
+  intro k
+  induction k with
+  | zero =>
+    rw [Setlec.natLitToConstructor, natLitT2, sem_const_of_find hz hz', interp2_cvalOf hcl]
+    simp only [ConstantInfo.toConstantVal, hz0]
+  | succ k ih =>
+    rw [Setlec.natLitToConstructor, natLitT2, sem_app, sem_const_of_find hs hs',
+      sem_natLit, ih, interp2_app, interp2_cvalOf hcl]
+    simp only [ConstantInfo.toConstantVal, hs0]
+
+/-- Under the `String`-literal guard, the character-list spine of a
+literal's constructor form interprets to the annotated spine `denoteP`
+reads. -/
+theorem sem_charList {acval : Name → (Name → Nat) → AVExpr}
+    (hcl : ∀ n ψ, VExpr.Closed (acval n ψ).erase) {env : Env} {φ : Name → Nat}
+    (hsup : Setlec.strLitSupported env = true) (d : Nat) (ρ : Nat → V) :
+    ∀ l : List Char,
+      sem (cvalOf (V := V) acval) env φ d ρ
+        (l.foldr
+          (init := .app (.const listNilName [.zero]) (.const charName []))
+          fun c e =>
+            .app (.app (.app (.const listConsName [.zero]) (.const charName []))
+              (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e)
+      = interp2 V ρ (charListT2
+          (.app (acval listNilName
+              (Level.substFn φ (levelParamsAt env listNilName) [.zero]))
+            (acval charName (Level.substFn φ [] [])))
+          (.app (acval listConsName
+              (Level.substFn φ (levelParamsAt env listConsName) [.zero]))
+            (acval charName (Level.substFn φ [] [])))
+          (acval charOfNatName (Level.substFn φ [] []))
+          (acval natZeroName (Level.substFn φ [] []))
+          (acval natSuccName (Level.substFn φ [] []))
+          l) := by
+  obtain ⟨hnat, _, _, _, ciN, ciC, ciH, ciF, _, pN, pC, -, -, -, hN, hC, hH, hF,
+    -, -, -, hN1, hC1, hH0, hF0, -⟩ := strLitSupported_inv hsup
+  have hNlp : levelParamsAt env listNilName = ciN.toConstantVal.levelParams := by
+    simp only [levelParamsAt, hN]
+  have hClp : levelParamsAt env listConsName = ciC.toConstantVal.levelParams := by
+    simp only [levelParamsAt, hC]
+  intro l
+  induction l with
+  | nil =>
+    rw [List.foldr_nil, charListT2, sem_app,
+      sem_const_of_find hN (by rw [hN1]; rfl),
+      sem_const_of_find hH (by rw [hH0]; rfl),
+      interp2_app, interp2_cvalOf hcl, interp2_cvalOf hcl, hNlp, hH0]
+  | cons c cs ih =>
+    rw [List.foldr_cons, charListT2, sem_app, sem_app, sem_app, sem_app,
+      sem_const_of_find hC (by rw [hC1]; rfl),
+      sem_const_of_find hH (by rw [hH0]; rfl),
+      sem_const_of_find hF (by rw [hF0]; rfl),
+      sem_natLit, sem_natLitToConstructor hcl hnat d ρ, ih,
+      interp2_app, interp2_app, interp2_app, interp2_app,
+      interp2_cvalOf hcl, interp2_cvalOf hcl, interp2_cvalOf hcl, hClp, hH0, hF0]
+
+/-- Under the `String`-literal guard, the constructor form of a literal
+interprets to what `denoteP` reads for the literal. -/
+theorem sem_strLitToConstructor {acval : Name → (Name → Nat) → AVExpr}
+    (hcl : ∀ n ψ, VExpr.Closed (acval n ψ).erase) {env : Env} {φ : Name → Nat}
+    (hsup : Setlec.strLitSupported env = true) (d : Nat) (ρ : Nat → V) (s : String) :
+    sem (cvalOf (V := V) acval) env φ d ρ (Setlec.strLitToConstructor s)
+      = interp2 V ρ (.app (acval stringOfListName (Level.substFn φ [] []))
+          (charListT2
+            (.app (acval listNilName
+                (Level.substFn φ (levelParamsAt env listNilName) [.zero]))
+              (acval charName (Level.substFn φ [] [])))
+            (.app (acval listConsName
+                (Level.substFn φ (levelParamsAt env listConsName) [.zero]))
+              (acval charName (Level.substFn φ [] [])))
+            (acval charOfNatName (Level.substFn φ [] []))
+            (acval natZeroName (Level.substFn φ [] []))
+            (acval natSuccName (Level.substFn φ [] []))
+            s.toList)) := by
+  obtain ⟨-, _, ciO, _, _, _, _, _, _, _, _, -, hO, -, -, -, -, -, -, hO0, -⟩ :=
+    strLitSupported_inv hsup
+  unfold Setlec.strLitToConstructor
+  rw [sem_app, sem_const_of_find hO (by rw [hO0]; rfl), sem_charList hcl hsup d ρ,
+    interp2_app, interp2_cvalOf hcl, hO0]
 
 theorem interp2_projAV (ρ : Nat → V) :
     ∀ (i : Nat) (e : AVExpr), interp2 V ρ (projAV i e) = projV i (interp2 V ρ e)
@@ -217,7 +330,7 @@ theorem sem_of_denoteP {acval : Name → (Name → Nat) → AVExpr}
     intro ta h ρ
     rw [denoteP, if_pos hsup] at h
     cases h
-    rw [sem, interp2_natLitT2, interp2_cvalOf hcl, interp2_cvalOf hcl]
+    rw [sem_natLit, sem_natLitToConstructor hcl hsup d ρ k]
   | case12 d k hsup =>
     intro ta h
     rw [denoteP, if_neg hsup] at h
@@ -226,9 +339,7 @@ theorem sem_of_denoteP {acval : Name → (Name → Nat) → AVExpr}
     intro ta h ρ
     rw [denoteP, if_pos hsup] at h
     cases h
-    rw [sem, interp2_app, interp2_charListT2, interp2_app, interp2_app]
-    simp only [interp2_cvalOf hcl]
-    rfl
+    rw [sem_strLit, sem_strLitToConstructor hcl hsup d ρ s]
   | case14 d s hsup =>
     intro ta h
     rw [denoteP, if_neg hsup] at h

@@ -377,6 +377,7 @@ model_SPCD_P :: Setlec.Kernel.Expr
 model_SPCD_P :: Setlec.Kernel.ExprOps
 model_SPCD_P :: Setlec.Kernel.FEnv
 model_SPCD_P :: Setlec.Kernel.Level
+model_SPCD_P :: Setlec.Kernel.LitSize
 model_SPCD_P :: Setlec.Kernel.Modeled
 model_SPCD_P :: Setlec.Kernel.Name
 model_SPCD_P :: Setlec.Kernel.NatOpPins

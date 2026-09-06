@@ -46976,3 +46976,41 @@ Consequences:
 `sem`'s string-literal clause delegating to `strLitToConstructor` (a
 different termination measure and one more bridge lemma) is the only
 simplification of the semantics side itself, and it is cosmetic too.
+
+### LITERALS DELEGATED, AND THE READER'S GUIDE (the mental closure, 2026-09-06)
+
+The user's criterion, sharpened once more: what matters is the **mental
+closure** — the declarations a reader must understand beyond "the
+checker is what runs" — so the checker's own declarations are excluded
+and every semantics-side declaration counts.  Two changes:
+
+* **A literal denotes its constructor form.**  `sem`'s two literal
+  clauses are now `sem … (natLitToConstructor k)` and
+  `sem … (strLitToConstructor s)` — the checker's own expansions (one
+  `Nat.succ` layer; the `String.ofList`/`List.cons`/`Char.ofNat` spine),
+  which were in the `Empty` challenge's closure already.  `natLitV`,
+  `charListV`, `levelParamsOf` and the six-leaf string clause are gone
+  from `Sem.lean`.  The recursion now descends into a literal's
+  expansion, so the measure is `Expr.sizeL` (`Setlec/Kernel/LitSize.lean`):
+  `sizeB` with literal leaves weighted one more than their expansion
+  (`Literal.weight`, `strLitWeight`), with `sizeL_instantiate1` and the
+  two `_lt` lemmas.  The bridge gained `sem_natLitToConstructor` and
+  `sem_charList`/`sem_strLitToConstructor` (inductions on `k` and on the
+  character list, reading the constants' shapes off `natLitSupported_inv`
+  and `strLitSupported_inv`, `Verify/EnvGuards.lean`) and lost the two
+  `interp2_*T2` encoding lemmas.
+* **The reader's guide** is the "What to read" section of
+  `ChallengeModel.lean`: the interface, the encodings, the two regimes,
+  the interpretation, levels and annotations — one line each.
+
+**The mental closure, measured** (hand-written declarations reachable
+from `model_exists` but not from `no_proof_of_Empty`): **43**, down from
+44 — the three literal helpers left, and the measure's three definitions
+(`Expr.sizeL`, `Literal.weight`, `strLitWeight`) entered, because a
+well-founded definition's compiled form references its measure.  They
+are termination bookkeeping in the checker's directory, not meaning; a
+reader skips them.  The semantics proper is now `sem`, `push`, `regime`,
+`projV`, `piR`, `lamR`, `Level.eval`, `substFn`, `PropWhen.holds`, and
+the 27 set-theory constants.  Comparator: accepts; `lake build`
+warning-free; proofdeps: one row entered (`model_SPCD_P ::
+Setlec.Kernel.LitSize`), regenerated.

@@ -1,5 +1,4 @@
-import Setlec.Kernel.ExprOps
-import Setlec.Kernel.Basis.Names
+import Setlec.Kernel.LitSize
 import Setlec.Verify.Level
 import Setlec.SetModel.Ops
 
@@ -25,6 +24,8 @@ wherever `denoteP` reads.
   `1` the function-graph regime — is read off the binder's validated
   annotation `m.pw` at `φ`: `0` exactly when the annotation says the
   body is a proposition there.  No type inference.
+* A literal denotes what its constructor form denotes, the checker's own
+  `natLitToConstructor` (one `Nat.succ` layer) and `strLitToConstructor`.
 * Anything that does not resolve — an unknown constant, a wrong universe
   arity, a projection out of range — denotes the empty set, which no
   value is a member of.
@@ -49,24 +50,6 @@ def push (x : V) (ρ : Nat → V) : Nat → V
 validated annotation says the body is a proposition at `φ`. -/
 def regime (φ : Name → Nat) (pw : PropWhen) : Nat :=
   if pw.holds φ then 0 else 1
-
-/-- The universe parameters of a stored constant (`[]` if absent). -/
-def levelParamsOf (env : Env) (n : Name) : List Name :=
-  match env.find? n with
-  | some ci => ci.toConstantVal.levelParams
-  | none => []
-
-/-- The `Nat` literal `k` as `succ^k zero` over the given sets. -/
-noncomputable def natLitV (z s : V) : Nat → V
-  | 0 => z
-  | k + 1 => SetTheory.app s (natLitV z s k)
-
-/-- A character list as `cons (ofNat ⌜c⌝) …` over the given sets. -/
-noncomputable def charListV (nil cons ofNat z s : V) : List Char → V
-  | [] => nil
-  | c :: cs =>
-    SetTheory.app (SetTheory.app cons (SetTheory.app ofNat (natLitV z s c.toNat)))
-      (charListV nil cons ofNat z s cs)
 
 /-- Field `i` of a nested pair: `sfst ∘ ssnd^i`. -/
 noncomputable def projV : Nat → V → V
@@ -102,28 +85,16 @@ noncomputable def sem (cval : Name → (Name → Nat) → V) (env : Env) (φ : N
       if i < 2 then
         (if i = 0 then sfst (sem cval env φ d ρ e) else ssnd (sem cval env φ d ρ e))
       else SetTheory.empty
-  | _, _, .lit (.natVal k) =>
-    natLitV (cval natZeroName (Level.substFn φ [] []))
-      (cval natSuccName (Level.substFn φ [] [])) k
-  | _, _, .lit (.strVal s) =>
-    SetTheory.app (cval stringOfListName (Level.substFn φ [] []))
-      (charListV
-        (SetTheory.app (cval listNilName
-            (Level.substFn φ (levelParamsOf env listNilName) [.zero]))
-          (cval charName (Level.substFn φ [] [])))
-        (SetTheory.app (cval listConsName
-            (Level.substFn φ (levelParamsOf env listConsName) [.zero]))
-          (cval charName (Level.substFn φ [] [])))
-        (cval charOfNatName (Level.substFn φ [] []))
-        (cval natZeroName (Level.substFn φ [] []))
-        (cval natSuccName (Level.substFn φ [] []))
-        s.toList)
+  | d, ρ, .lit (.natVal k) => sem cval env φ d ρ (natLitToConstructor k)
+  | d, ρ, .lit (.strVal s) => sem cval env φ d ρ (strLitToConstructor s)
   | _, _, .bvar _ => SetTheory.empty
-termination_by _ _ e => e.sizeB
+termination_by _ _ e => e.sizeL
 decreasing_by
   all_goals first
-  | (simp [Expr.sizeB]; omega)
-  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
-  | (simp [Expr.sizeB])
+  | exact Expr.sizeL_natLitToConstructor_lt _
+  | exact Expr.sizeL_strLitToConstructor_lt _
+  | (simp [Expr.sizeL]; omega)
+  | (rw [Expr.sizeL_instantiate1 _ rfl]; simp [Expr.sizeL]; omega)
+  | (simp [Expr.sizeL])
 
 end Setlec.Semantics
