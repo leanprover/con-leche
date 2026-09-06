@@ -47767,7 +47767,7 @@ That is the decision-grade datum of this section.
   still owed** (the run was killed for the session's memory budget, not
   by the checker).
 
-### 5. The Mathlib rung-5 slice under the checker: 46 min of evidence, verdict PENDING
+### 5. The Mathlib rung-5 slice under the checker: 46 min of evidence, verdict PENDING (do not restart — see §7)
 
 `_tmp/resume-slice/run.sh rung5slice mathlib-rung5.ndjson`, master
 `2664b1dd` (binary md5 `c247c72eb96c5930c245e56414ddc08b`),
@@ -47847,9 +47847,17 @@ own measurement says it buys 0.25 % at the rung it was built for.
 * `rung5slice-{p,rss}.log`, `-time.txt`, `.exitcode`, `-binary.md5` —
   the killed run of §5 (exit 143 = SIGTERM at 46:30).
 
-To finish §5, wait until `pgrep -f "frontier4/.lake/build/bin/setlec"`
-is empty (one Mathlib-scale checker at a time — the session's cgroup
-budget does not hold two), then
+**§5 is PENDING and must not be restarted on sight.**  The
+coordinator's standing ruling (2026-09-06): the `frontier4` full-stream
+pass has not ended, **a second Mathlib-scale run is not allowed while
+it runs**, and the first attempt was already killed for the session's
+cgroup budget.  Do not re-launch it opportunistically; it is
+*scheduled*, not merely waiting.  The precondition is
+
+    pgrep -f "frontier4/.lake/build/bin/setlec"    # must be empty
+
+and the *coordinator's* go-ahead — one Mathlib-scale checker at a time.
+Then
 
     _tmp/resume-slice/run.sh rung5slice2 _tmp/resume-slice/mathlib-rung5.ndjson
 
@@ -47858,3 +47866,13 @@ against the full-stream pass in `_tmp/frontier4/beb8c2bb-*`.  The
 prediction the slice has to meet: **the same outcome at the same
 declaration**, since the slice keeps 99.746 % of the stream and every
 record from rung 5 on.
+
+Note what this run is now *for*, and what it is not.  §3's payoff curve
+has already decided the campaign question — **the cone slicers
+(`slice_fast.py`, `cut_decl_cone.py`) stay the workhorse**, and no
+frontier work waits on §5.  The pending run buys one thing only: the
+end-to-end confirmation that a resume slice preserves the verdict at
+Mathlib scale, which §5's parse, the matching 65 projection rewrites
+and the 46 minutes of clean checking already make very likely.  It is
+worth taking when a Mathlib-scale slot is free anyway; it is not worth
+displacing anything for.
