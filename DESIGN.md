@@ -10,26 +10,51 @@ even the official kernel, together with a machine-checked consistency proof:
 This document records the design decisions. It was distilled from the initial
 project prompt and is updated as decisions evolve.
 
-**Where the consistency proof lives** (since task #148 T7, 2026-08-29):
-`Setlec/SetR/*`, whose fourteen `*_R` theorems — `checkDecls_sound_R`,
-`no_proof_of_Empty{,_input}{,_C,_S,_SP}_R`, `checkDecl_sound_R`,
-`no_constant_of_Empty_R` — stand hypothesis-free at exactly
-`[propext, Classical.choice, Quot.sound]`. Its design record is
-`docs/SetR-DESIGN.md`.
+**Where the consistency proof lives** (current, since the SetR removal of
+2026-09-05): the **graded ("P") tier**, `Setlec/SetP/*`, with the
+capstone assembly in `Setlec/Verify/Cached/*`. Six theorems are pinned,
+all at exactly `[propext, Classical.choice, Quot.sound]`. **Two of them
+are the letters** — `no_proof_of_Empty_SPCD_P` (the shipped driver) and
+`no_proof_of_Empty_P` (the pure fueled checker) — and those two are
+hypothesis-free beyond `[SetTheory V]`, the mode witness `hμ` and the
+acceptance itself. The other four are the assembly under them and do
+carry working hypotheses (the invariant, the fold's state conditions);
+they are pinned because a change in the assembly should be visible even
+when a letter's own footprint is unmoved.
 
-**Two tiers were retired at T7/T7b, by user ruling.** The direct `Expr`
-set model and its consistency proof (`Setlec/Model/*`, 83 files / 62,992
+| theorem | file | what it says |
+|---|---|---|
+| `Setlec.Cached.no_proof_of_Empty_SPCD_P` | `Setlec/Verify/Cached/MainC.lean` | **the shipped driver's letter** — the binary's verified mode, over the direct-parse cached core it actually runs, never accepts a stream storing a constant of type `Empty` |
+| `Setlec.Cached.checkDeclsSPCachedD_sound_P` | `Setlec/Verify/Cached/MainC.lean` | the acceptance corollary under it: an accepted cached run yields the model invariant `EnvS2PM` at the final environment |
+| `Setlec.Cached.foldSPC_PM` | `Setlec/Verify/Cached/MainC.lean` | the fold that threads that invariant step by step (an assembly lemma: fold-state hypotheses) |
+| `Setlec.SetP.no_proof_of_Empty_P` | `Setlec/SetP/FoldP.lean` | **the pure letter** — the same conclusion for the pure fueled checker `checkDecls μ (fueledOps μ F)`, at every fuel |
+| `Setlec.SetP.no_proof_of_Empty_P_of` | `Setlec/SetP/FoldP.lean` | its install-tier-conditional form, the shape the harvest closes |
+| `Setlec.SetP.no_constant_of_Empty_P` | `Setlec/SetP/CapstoneP.lean` | the business end: an environment carrying the P invariant stores no constant of type `Empty` (the invariant is its hypothesis; the harvest is what discharges it) |
+
+The axiom footprint is **pinned in the tree, not only claimed**:
+`tests/SetlecTests/Axioms.lean` (built by `lake test`, reported by `tests/arena.sh`
+as the `axioms:` line) carries a `#guard_msgs in #print axioms` for each
+of the six, so a drifting axiom footprint is a test failure. The
+module-level dependency closure of the first four is pinned in parallel
+by `tests/proofdeps.sh`.
+
+**Three tiers were retired, by user ruling.** The direct `Expr` set
+model and its consistency proof (`Setlec/Model/*`, 83 files / 62,992
 lines, invariant `EnvModel`) and the declarative verification lane
-(`Setlec/TTVerify/*`, 50 files / 33,808 lines, invariant `EnvTT`) are
-deleted, together with the `--tt-model` mode the second was stated at.
-The `Setlec/SetR/*` theorems replace both, claim for claim. Prose
-references to those paths elsewhere in this document are historical
-citations. `Setlec/TTVerify/DESIGN.md` is deliberately kept (its §0/§25
-are the house practices); so is the declarative layer
+(`Setlec/TTVerify/*`, 50 files / 33,808 lines, invariant `EnvTT`) went
+at task #148 T7/T7b, together with the `--tt-model` mode the second was
+stated at; the collapsed-model tier (`Setlec/SetR/*` and its fourteen
+`*_R` theorems — `docs/SetR-DESIGN.md` is kept as its record) went on
+2026-09-05 ("do remove the SetR tier, for more focus") after the B4
+measurement showed a
+zero acceptance delta between the two verified configurations. The P
+theorems above replace all three, claim for claim. Prose references to
+those paths elsewhere in this document are **historical citations**;
+the opening of this section is the one place kept current.
+`Setlec/TTVerify/DESIGN.md` is deliberately kept (its §0/§25 are the
+house practices); so is the declarative layer
 `Setlec/TT/{Syntax,Subst,Const,Judgment}` + `Setlec/TT/Semantics/*`,
-because `Setlec/SetR/*` consumes `VExpr`, `interp`, `bval` and
-`HasType.const`/`HasType.sound` — see `docs/SetR-DESIGN.md` "T7b" for
-the consumer measurement that fixed that boundary. Its design record is
+whose `VExpr`/`interp`/`bval` the P tier consumes. Its design record is
 `Setlec/TT/DESIGN.md`.
 
 **Project goal** (set 2026-08-19): the lean kernel arena *tutorial* tests
@@ -132,7 +157,9 @@ resolves, and for every level assignment the closed left-hand λ-tower
 (`closeLamsAt fvms bL`) is `AnnotOk` and interprets to the same value
 as the stored rule right-hand side; analogous records for projections
 and unit-like/eta/K as those land.  Basis blocks discharge these facts from
-the hand-written set values (`Setlec/Model/BasisIota.lean`); modeled
+the hand-written set values (`Setlec/SetP/Basis{Eq,Cons,Empty,Quot}P.lean`
+today; the citation used to read `Setlec/Model/BasisIota.lean`, a tier
+deleted at #148 T7); modeled
 blocks discharge them at install from the checked `_model` theorems.
 `whnf`/`isDefEq`/`inferType` soundness consumes only the abstract facts
 and never identifies constants by name.
@@ -230,10 +257,15 @@ three stay declined by design under the axiom ceiling.
 
 ## Checker structure and verification style
 
-* **Strict layering**: implementation code (`Setlec/Kernel/*`, `Main.lean`)
-  must not depend on any module from the theory/verification part
-  (`Setlec/SetTheory/*`, `Setlec/SetR/*`, `Setlec/Verify/*`). The
-  verification imports the implementation, never the other way around.
+* **Strict layering**: implementation code (`Setlec/Kernel/*`,
+  `Setlec/Cached/*`, `Setlec/Frontend/*`, `Main.lean`) must not depend on
+  any module from the theory/verification part (`Setlec/SetTheory/*`,
+  `Setlec/SetModel/*`, `Setlec/Semantics/*`, `Setlec/SetP/*`,
+  `Setlec/Verify/*`). The verification imports the implementation, never
+  the other way around. `tests/layering.sh` is the fence (Lake's lib
+  split is only the layout); `tests/trust-surface.sh` is its companion
+  for the *other* direction of trust — no `unsafe`/`implemented_by`/
+  `native_decide` outside the allowlisted trust-surface files.
 * Verification is **extrinsic**: alongside each checker function there is a
   certifying variant producing the model-level fact
   (we don't put LCF-style certificates in the runtime environment):
@@ -43570,7 +43602,7 @@ Official clause (file:line at v4.33.0) → ours (spec `Core.lean` / P
 | I6 | `nat_lit_to_constructor` (`inductive.cpp:1267`), `string_lit_to_constructor` + `whnf` (`:1276`, `inductive.h:90-92`) | `litMajorToCtor :1311-1316`, `projLitToCtor :1327` | same | |
 | **whnf** `:671-711` | | | | |
 | N1 | easy cases uncached; `m_whnf` cache; loop `whnf_core → reduce_native → reduce_nat → unfold_definition` | `whnfStep :1701-1709` (`whnfCore → reduceNat → unfoldDefinition`); `whnfC` memo | same, minus `reduce_native` | |
-| N2 | `reduce_native` (`:576-597`): `Lean.reduceBool c` / `Lean.reduceNat c` run compiled code | none; `Lean.ofReduceBool/Nat` are pinned trust axioms whose USES are skipped at parse and decline the stream at the end (`TrustAxioms.lean`, "taint skip-and-continue") | **subset by design** (decline, exit 2) | the standing no-custom-axiom ruling; not a strategy item |
+| N2 | `reduce_native` (`:576-597`): `Lean.reduceBool c` / `Lean.reduceNat c` run compiled code | none, and none is needed: `Lean.reduceBool`/`reduceNat` are installed as ordinary **opaques** pinned by defeq to the toolchain's identity functions, and `Lean.ofReduceBool/Nat` as pinned axioms over them (`TrustAxioms.lean`, task #95). A proof that *uses* native evaluation therefore does not typecheck — the `reduceBool c = true` hypothesis is unobtainable — and the stream is **REJECTED** | **subset by design** (reject, exit 1) | corrected 2026-09-06 (external review §2): this row used to say uses are "skipped at parse and decline the stream at the end". That is the `sorryAx` taint rule, not this one — there is no native taint channel. `tests/e2e-expected.txt` pins `trust_native_use.ndjson → 1` |
 | N3 | `unfold_definition` (`:517-564`): `is_delta` = head constant with a value (definitions AND theorems, `declaration.h:230`) at matching level arity; level-polymorphic instantiations cached (`m_unfold`) | `unfoldDefinition :212-234` (defn + thm), `unfoldableHead :236`; `constValAt` memo (`unfoldDefinitionI CoreC:52-72`) | same | |
 | N4 | `reduce_nat` (`:639-668`): `Nat.succ` (1 arg) and 14 binary ops `add sub mul pow gcd mod div beq ble land lor xor shiftLeft shiftRight`, head an EXACT level-free constant, arity exact; `reduce_bin_nat_op` whnf's ARG 1, returns `none` if not a literal WITHOUT touching arg 2 (`:606-614`); `is_nat_lit_ext` = literal or `Nat.zero` (`:599`); `reduce_pow` refuses exponents `> 2^24` (`:616-627`) | `reduceNat :752-798`; `reduceNatI CoreC:83-160` — `match rawNatLit? (← r.whnf a), rawNatLit? (← r.whnf b)` whnf's BOTH arguments before matching (`:787-788`, `CoreC:140-141`); `rawNatLit? :345` accepts `Nat.zero`; additionally reduces **`Nat.pred`** and **`Nat.log2`** (`:764-771`) which official's list lacks; **no pow cap** (`natOpResult :610`, `a ^ b` unbounded) | **D15 cost (ours more) — witnessed**: the second argument is whnf'd even when the first is stuck; **S1 superset**: `pred`/`log2` fast paths; **S2 superset**: no `2^24` pow cap (official grinds `Nat.pow` unfolded instead; ours computes, or allocates without bound) | witness `_tmp/divergence-audit/src/natop_arg_order.lean` (`Nat.add o (slow 40000) = Nat.add (id o) (slow 40000)` with `o` opaque): official 0.221 G (control without the computation 0.204 G — official never evaluates `slow`), parity 16.13 G, P 14.04 G; at `slow 80000` official 0.221 G accepts, **parity exit 3** (fuel, 33.1 G) — the K-bug class, verdict-visible |
 | **is_def_eq_core** `:1086-1162` | | | | |
@@ -48403,3 +48435,144 @@ Mathlib scale, which §5's parse, the matching 65 projection rewrites
 and the 46 minutes of clean checking already make very likely.  It is
 worth taking when a Mathlib-scale slot is free anyway; it is not worth
 displacing anything for.
+
+## Credibility hygiene: the axiom pin, the trust-surface gate, the stale opening, and CI (2026-09-06, `agent/hygiene`)
+
+**Trigger.**  The external review of master `f1932977`
+(`_tmp/review/EXTERNAL-REVIEW.md`).  Four of its findings were not
+about the mathematics at all but about whether a reader can *check* the
+mathematics: §2 ("**I could not confirm this on the current tree**" —
+the axiom footprint of the headline theorem), §5.6 (the `unsafeCast`
+stubs), §1 (`DESIGN.md:13-18` stale on the single most important fact),
+§5.1 (no CI, so nothing above is ever re-checked).  This section is the
+batch that closes all four.  Nothing here changes a theorem; everything
+here changes what a stranger can verify without trusting the journal.
+
+### 1. The axiom pin (`tests/SetlecTests/Axioms.lean`)
+
+The tree carried **one** `#guard_msgs in #print axioms`, on
+`SetTheory.ofAczelChain` (`Setlec/SetTheory/Aczel.lean:455`), and none
+on any capstone.  `tests/proofdeps.sh` pins *module* closures, which is
+a different quantity — the S9 lesson applied one level up: a
+module-level pin measures where the proof term GOES, not what it
+ASSUMES.  So "exactly `[propext, Classical.choice, Quot.sound]`" was a
+sentence in a 48 000-line journal.
+
+Six guards now stand in the test library, one per pinned theorem —
+the two letters and the four assembly steps under them:
+`no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_sound_P`,
+`foldSPC_PM` (the three of `Setlec/Verify/Cached/MainC.lean`),
+`no_proof_of_Empty_P`, `no_proof_of_Empty_P_of`
+(`Setlec/SetP/FoldP.lean`) and `no_constant_of_Empty_P`
+(`Setlec/SetP/CapstoneP.lean`).
+
+**All six passed first try, at exactly the three standard axioms.**
+The claim was true; it simply was not checkable.  It is now a build
+error to break it — `lake test` elaborates the module, and
+`tests/arena.sh` reports the `axioms:` line beside layering /
+proofdeps / pindump.
+
+The module imports the capstones and nothing imports it, so it cannot
+enter any capstone's closure; the proofdeps rows are unmoved.
+
+### 2. The trust-surface gate (`tests/trust-surface.sh`)
+
+**The blindness that motivates it.**  `#print axioms` sees the LOGICAL
+TCB.  It is completely blind to `@[implemented_by]`,
+`@[computed_field]`, `unsafeCast` and `ptrAddrUnsafe`: a theorem can
+stand at the three standard axioms and still be about a function whose
+compiled behaviour was swapped out underneath it.  Three gates, three
+quantities, and the project now has all three:
+
+| gate | measures |
+|---|---|
+| `tests/proofdeps.sh` | which MODULES a capstone's proof term reaches |
+| `tests/SetlecTests/Axioms.lean` | what the PROOF TERM assumes (logical TCB) |
+| `tests/trust-surface.sh` | what the COMPILED CODE assumes (runtime TCB) |
+
+The gate scans every `*.lean` under `Setlec/`, `tests/`, `scripts/` and
+the four roots — **after stripping block comments, line comments and
+string literals** — for `unsafe`, `unsafeCast`, `ptrAddrUnsafe`,
+`implemented_by`, `computed_field`, `native_decide`, bare
+`ofReduceBool`/`ofReduceNat`, `sorry`, `lcProof`, `@[extern]` and
+`axiom` declarations, and fails on anything outside a per-file
+allowlist whose justification is the script header.  The stripping is
+load-bearing: without it the checker's own *data* (the `Name` literals
+`"sorryAx"` and `"ofReduceBool"`, `Frontend/ExportC.lean`'s `"unsafe
+axiom"` rejection messages) reads as an escape.  `tests/e2e/src/*.lean`
+is deliberately out of scope: those are fixture INPUTS that contain
+what the checker must reject.
+
+**The allowlist is three files, 17 occurrences**: `Kernel/Expr.lean`
+(`beqFast`'s `ptrAddrUnsafe` + address-keyed memo, and the packed
+`@[computed_field]` — both standing user rulings), `Kernel/Name.lean`
+(a cached hash), `Kernel/BasisGen.lean` (elaborator-only `unsafe
+evalTerm` behind `#annotate_basis` / `#annotate_pins`).
+`Kernel/Level.lean` and `Cached/ExprC.lean` need no entry at all: their
+occurrences were prose, and `Level.hashData` lives in `Expr.lean`.
+
+### 3. The twenty-one stubs, and what actually needed them
+
+Every `Setlec/SetTheory/Derive/*` operator carried
+
+    private unsafe def <op>Impl … : V := unsafeCast ()
+    attribute [implemented_by <op>Impl] <op>
+
+justified by "consumers may mention them in computable definitions (as
+the legacy class projections allowed)".  The operators were already
+`noncomputable def`s; the stubs only let *other* definitions mention
+them without saying so.  All twenty-one deleted (the review said
+"~20"; the exact count, `git diff | grep -c`, is 21 stub definitions and
+21 `attribute [implemented_by]` lines across ten files).
+
+**The measurement the review asked for — what needed them computable:
+exactly two aliases**, both in the proof tier, both plain `def`s that
+should have been noncomputable from the start:
+
+    Setlec/SetTheory/Basic.lean  def natzero : V := empty
+    Setlec/SetTheory/Basic.lean  def natsucc : V → V := vsucc
+
+Marked `noncomputable`; the full 647-job build is warning-free and
+nothing else in the tree noticed.  So the escape existed for two lines
+of aliasing.  `Cached/ExprC.lean`'s standing claim that `Expr.beq` is
+the tree's only `implemented_by`-class escape is, after this, true of
+everything outside the elaborator — and mechanically enforced.
+
+### 4. The stale opening, and the stale N2 row
+
+`DESIGN.md:13-18` still said the consistency proof lives in
+`Setlec/SetR/*` with fourteen `*_R` theorems, a tier deleted
+2026-09-05.  The opening is now a table of the six live P-tier letters
+with their files and what each says, plus a pointer to the axiom pin
+that makes the footprint checkable.  The rule the rewrite installs:
+**prose references to deleted tiers elsewhere in this document are
+historical citations; the opening is the one place kept current.**
+Two overview citations inside the first 200 lines were repointed all
+the same (the layering bullet, and the basis-iota source, which is
+`Setlec/SetP/Basis*P.lean` now).
+
+The divergence audit's row **N2** was wrong, not merely stale: it said
+uses of `Lean.ofReduceBool`/`ofReduceNat` are "skipped at parse and
+decline the stream at the end".  That is the `sorryAx` taint rule.
+There is no native taint channel — `reduceBool`/`reduceNat` install as
+opaques pinned by defeq to the toolchain's identity functions, so a
+proof that uses native evaluation simply does not typecheck and the
+stream is **REJECTED** (exit 1, pinned: `tests/e2e-expected.txt`,
+`trust_native_use.ndjson → 1`).  Row corrected, with the correction
+noted in the row itself.
+
+### 5. CI (`.github/workflows/ci.yml`)
+
+There was no `.github/` at all, so every gate above was a thing that
+ran when someone remembered.  CI runs `lake build` (warning-free —
+warnings fail the job), `lake test` (which is where the axiom pin
+lives) and `tests/arena.sh` (layering, proofdeps, pindump,
+trust-surface, axioms, the vendored arena snapshot, the e2e and annot
+suites, the retired-flag and mode cases, and the trusted sweep).
+
+**What CI deliberately does NOT cover**, and why the local battery is
+still the real one: the init-full and Mathlib-scale runs.  They need
+tens of gigabytes and tens of minutes, they are the *frontier*
+measurement rather than a regression gate, and they are coordinated one
+at a time on this machine (see the frontier sections).  CI is the
+"nothing rotted" gate; the frontier runs stay local and scheduled.
