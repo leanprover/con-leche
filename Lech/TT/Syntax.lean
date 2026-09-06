@@ -146,6 +146,15 @@ inductive BConst where
   elimination into `Sort u` (no `Nonempty`, which is a modeled
   inductive and unfolds). -/
   | choice
+  /-- `lfp.{u} : (Sort u → Sort u) → Sort u` — the least pre-fixed point
+  of a set-level functor inside `Sort u` (task #188: the carrier of a
+  directly installed recursive inductive type).  A model-side constant
+  with no kernel counterpart: no stream declares it, only the direct
+  route's leaves spell it.  Its value is total (`lfpSet`, the empty set
+  when the functor has no closed member), so it inhabits this type with
+  no certificate; the fixed-point laws hold under the semantic
+  hypothesis that a closed member exists. -/
+  | lfp
   deriving Repr, DecidableEq, Inhabited
 
 /-- Terms.  See the module docstring for what is *not* here. -/
@@ -209,7 +218,7 @@ of a rule. -/
 def BConst.numLevels : BConst → Nat
   | .nat | .natZero | .natSucc | .propext => 0
   | .natRec | .punit | .punitUnit | .empty
-  | .quot | .quotMk | .quotInd | .quotSound | .choice => 1
+  | .quot | .quotMk | .quotInd | .quotSound | .choice | .lfp => 1
   | .punitRec | .psigma | .psigmaMk
   | .emptyRec | .quotLift => 2
 

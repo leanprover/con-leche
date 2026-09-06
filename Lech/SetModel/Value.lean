@@ -504,6 +504,29 @@ theorem emptyRecV2_ne_pt {v : Nat} (hv : v ≠ 0) : emptyRecV2 V v ≠ pt :=
 /-- …and it is still the canonical proof in the squash regime. -/
 theorem emptyRecV2_zero : emptyRecV2 V 0 = pt := lamR_zero
 
+/-! ## `lfp` (task #188)
+
+The least pre-fixed point of a set-level functor inside `Sort u`
+(`lfpSet`, `Lech/SetTheory/Derive/Lfp.lean`); a type former, so always
+in the graph regime.  Total: the value is a member of `univ u` for
+EVERY functor (the empty set when no closed member exists), which is
+what lets the constant inhabit `(Sort u → Sort u) → Sort u` with no
+certificate argument. -/
+
+/-- `Sort u → Sort u`, the functor space. -/
+noncomputable def lfpFunSpace (u : Nat) : V := piR (u + 1) (univ u) fun _ => univ u
+
+/-- `lfp.{u}`; result sort `u + 1`. -/
+noncomputable def lfpV2 (u : Nat) : V :=
+  lamR (u + 1) (lfpFunSpace V u) fun F => lfpSet u F
+
+theorem lfpV2_app {u : Nat} {F : V} (hF : F ∈ˢ lfpFunSpace V u) :
+    app (lfpV2 V u) F = lfpSet u F := by
+  rw [lfpV2]; exact app_lamR_pos (Nat.succ_ne_zero u) hF
+
+theorem lfpV2_mem (u : Nat) : lfpV2 V u ∈ˢ piR (u + 1) (lfpFunSpace V u) fun _ => (univ u : V) :=
+  lamR_mem fun F _ => lfpSet_mem_univ u F
+
 /-! ## The value assignment -/
 
 /-- The two-regime value of each built-in constant at a concrete level
@@ -531,5 +554,6 @@ noncomputable def bval2 : BConst → List Nat → V
   | .quotSound, _ => pt
   | .propext, _ => pt
   | .choice, us => choiceV2 V (lv us 0)
+  | .lfp, us => lfpV2 V (lv us 0)
 
 end Lech.SetModel

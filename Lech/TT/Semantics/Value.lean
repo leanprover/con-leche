@@ -99,6 +99,11 @@ noncomputable def choiceV (u : Nat) : V :=
   lamC (univ u) fun A =>
     lamC (piC (piC A fun _ => empty) fun _ => empty) fun _ => schoice A
 
+/-- `lfp.{u}` (task #188): the least pre-fixed point of a set-level
+functor inside `Sort u` (`lfpSet`, `Lech/SetTheory/Derive/Lfp.lean`). -/
+noncomputable def lfpV (u : Nat) : V :=
+  lamC (piC (univ u) fun _ => univ u) fun F => lfpSet u F
+
 /-! ## Application laws
 
 The collapsed `app_lamC` fires on domain membership alone, so each
@@ -301,5 +306,6 @@ noncomputable def bval : BConst → List Nat → V
   | .quotSound, _ => pt
   | .propext, _ => pt
   | .choice, us => choiceV V (lv us 0)
+  | .lfp, us => lfpV V (lv us 0)
 
 end Lech.TT

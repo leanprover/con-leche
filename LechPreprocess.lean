@@ -138,6 +138,61 @@ def lechNativeSum (type : EIndType) (ctors : List ECtor) (rec : ERec) : Bool :=
   !lechReservedBasisNames.contains type.name &&
     !lechReservedBasisNames.contains rec.name
 
+/-- The field kinds of a recursive block's constructor, mirroring
+`Lech.recFieldKind` (`Lech/Kernel/Direct/RecParts.lean`) on the
+export's `Lean.Expr`: peel the parameters, then every field's domain is
+ordinary (it does not mention the block) or exactly the family at the
+parameter variables.  Anything else — a non-positive occurrence, a
+reflexive field, a nested occurrence — is NOT native (the recogniser
+admits it only to reject or decline it, and leaving such a block
+modeled changes no verdict the route could accept). -/
+def lechFixFieldsOk (T : Lean.Name) (lps : List Lean.Name) (nP : Nat) : Lean.Expr → Nat → Nat → Bool
+  | .forallE _ dom body _, k, i =>
+    if k < nP then lechFixFieldsOk T lps nP body (k + 1) i
+    else
+      (((dom.find? fun e => e.isConstOf T).isNone) ||
+        dom == Lean.mkAppN (Lean.mkConst T (lps.map .param))
+          ((List.range nP).map fun j => Lean.mkBVar (i + nP - 1 - j)).toArray) &&
+      lechFixFieldsOk T lps nP body (k + 1) (i + 1)
+  | _, _, _ => true
+
+/-- THE DIRECT FIXED-POINT CLASS (task #188): a RECURSIVE, non-indexed,
+non-nested, non-reflexive block with any number of constructors whose
+recursive fields are all finitary — `Lech.directFixParts?`
+(`Lech/Kernel/Direct/RecParts.lean`), mirrored conjunct for conjunct;
+the rule bodies (with the inductive hypotheses) are the conjunct
+argued rather than mirrored, as at the other two classes. -/
+def lechNativeFix (type : EIndType) (ctors : List ECtor) (rec : ERec) : Bool :=
+  -- the member: recursive, non-indexed, non-nested, non-reflexive, safe
+  type.isRec && !type.isReflexive && type.numIndices == 0 && type.numNested == 0 &&
+    !type.isUnsafe && type.all == [type.name] &&
+    type.ctors == ctors.map (·.name) &&
+  -- every constructor: this member's, at its level parameters, its
+  -- fields ordinary or finitary recursive
+  ctors.all (fun ctor => ctor.induct == type.name &&
+    ctor.levelParams == type.levelParams &&
+    ctor.numParams == type.numParams && !ctor.isUnsafe &&
+    !lechReservedBasisNames.contains ctor.name &&
+    lechFixFieldsOk type.name type.levelParams type.numParams ctor.type 0 0) &&
+  -- the recursor: `T.rec`, no indices, one motive, one minor and one
+  -- rule per constructor in constructor order
+  rec.name == type.name.str "rec" && rec.numIndices == 0 &&
+    rec.numMotives == 1 && rec.numMinors == ctors.length &&
+    rec.numParams == type.numParams && !rec.isUnsafe &&
+    rec.rules.length == ctors.length &&
+    (List.range ctors.length).all (fun j =>
+      match rec.rules[j]?, ctors[j]? with
+      | some rule, some ctor => rule.ctor == ctor.name && rule.nfields == ctor.numFields
+      | _, _ => false) &&
+  -- the eliminator shape: LARGE or SMALL, as at the sum class
+  ((match rec.levelParams with
+    | elim :: rest => rest == type.levelParams && !type.levelParams.contains elim
+    | [] => false) ||
+   rec.levelParams == type.levelParams) &&
+  -- not one of lech's pinned basis blocks
+  !lechReservedBasisNames.contains type.name &&
+    !lechReservedBasisNames.contains rec.name
+
 /-- The blocks lech installs natively: the **direct simple-structure class**
 of `Lech.directPartsCore?` (`Lech/Kernel/Direct/Parts.lean`) and the
 **direct sum class** of `Lech.directSumPartsCore?` (`lechNativeSum`).
@@ -154,8 +209,9 @@ def lechNative : NativeSupport := fun block =>
   | .induct [type] [ctor] [rec] =>
     -- an indexed one-constructor family is the sum route's (task #175
     -- indexed: not a structure — official's `is_structure_like` needs
-    -- no index)
+    -- no index); a recursive one is the fixed-point route's (task #188)
     (type.numIndices != 0 && lechNativeSum type [ctor] rec) ||
+    lechNativeFix type [ctor] rec ||
     -- the member: index-free, non-recursive, non-nested, safe, one constructor
     (type.numIndices == 0 && !type.isRec && type.numNested == 0 &&
       !type.isUnsafe && type.all == [type.name] && type.ctors == [ctor.name] &&
@@ -180,7 +236,7 @@ def lechNative : NativeSupport := fun block =>
     !lechReservedBasisNames.contains type.name &&
       !lechReservedBasisNames.contains ctor.name &&
       !lechReservedBasisNames.contains rec.name)
-  | .induct [type] ctors [rec] => lechNativeSum type ctors rec
+  | .induct [type] ctors [rec] => lechNativeSum type ctors rec || lechNativeFix type ctors rec
   | _ => false
 
 /-- `lech-preprocess [OPTIONS] IN.ndjson` — `lean-inductive-models` with

@@ -215,6 +215,11 @@ def BConst.type2 : BConst → List Nat → AVExpr
     .pi (u + 1) u (.sort u) <|
     .pi 0 u (negT2 0 (negT2 u (.bvar 0))) <|
     .bvar 1
+  | .lfp, us =>
+    let u := lv us 0
+    -- `(Sort u → Sort u) → Sort u` (task #188): a type former, both
+    -- slots the sort of `Sort u` as a type
+    .pi (u + 1) (u + 1) (arrowA (u + 1) (u + 1) (.sort u) (.sort u)) (.sort u)
 
 /-! ## Faithfulness
 

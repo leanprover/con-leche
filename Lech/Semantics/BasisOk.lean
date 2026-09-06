@@ -312,6 +312,14 @@ theorem bval2_mem_choice (us : List Nat) (ρ : Nat → V) :
   obtain ⟨x, hx⟩ := exists_mem_of_dneg2 V hh
   exact schoice_mem hx
 
+/-! ## `lfp` (task #188) -/
+
+theorem bval2_mem_lfp (us : List Nat) (ρ : Nat → V) :
+    bval2 V .lfp us ∈ˢ interp2 V ρ (BConst.type2 .lfp us) := by
+  show lfpV2 V (lv us 0) ∈ˢ _
+  simp only [BConst.type2, arrowA, interp2_pi, interp2_sort, AVExpr.liftN]
+  exact lfpV2_mem V (lv us 0)
+
 /-! ## The capstone
 
 `ConstOk.lean`'s `bval_mem_type`, over `interp2` and `BConst.type2`.
@@ -340,5 +348,6 @@ theorem bval2_mem_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
   | quotSound => exact bval2_mem_quotSound V us ρ
   | propext => exact bval2_mem_propext V us ρ
   | choice => exact bval2_mem_choice V us ρ
+  | lfp => exact bval2_mem_lfp V us ρ
 
 end Lech.Semantics

@@ -1,6 +1,7 @@
 import Lech.Kernel.Modeled
 import Lech.Kernel.TrustAxioms
 import Lech.Kernel.Direct.SumInstall
+import Lech.Kernel.Direct.RecInstall
 
 /-!
 # The checker
@@ -483,12 +484,18 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- The direct sum route (task #175 sum-types) takes the blocks with
     -- any number of constructors other than one; the two recognisers
     -- are disjoint by the constructor count.
+    -- The direct recursive route (task #188) takes the blocks in which
+    -- the type former occurs in a constructor field: recognised
+    -- syntactically after the two non-recursive routes.
     match directParts? env block with
     | some p => checkDirectStruct ops env p
     | none =>
       match directSumParts? env block with
       | some p => checkDirectSum ops env p
-      | none => checkIndDecl mode ops env block
+      | none =>
+        match directFixParts? block with
+        | some p => checkDirectFix ops env p
+        | none => checkIndDecl mode ops env block
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/

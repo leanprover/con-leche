@@ -239,6 +239,14 @@ theorem bval_mem_choice (us : List Nat) (ρ : Nat → V) :
   obtain ⟨x, hx⟩ := exists_mem_of_dneg V hh
   exact schoice_mem hx
 
+/-! ## `lfp` (task #188) -/
+
+theorem bval_mem_lfp (us : List Nat) (ρ : Nat → V) :
+    bval V .lfp us ∈ˢ interp V ρ (BConst.type .lfp us) := by
+  show lfpV V (lv us 0) ∈ˢ piC (piC (univ (lv us 0) : V) fun _ => univ (lv us 0)) fun _ => univ (lv us 0)
+  rw [lfpV]
+  exact lamC_mem fun F _ => lfpSet_mem_univ _ F
+
 /-! ## The `const` rule's semantic content -/
 
 /-- **Every built-in constant inhabits its type.** -/
@@ -263,5 +271,6 @@ theorem bval_mem_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
   | quotSound => exact bval_mem_quotSound V us ρ
   | propext => exact bval_mem_propext V us ρ
   | choice => exact bval_mem_choice V us ρ
+  | lfp => exact bval_mem_lfp V us ρ
 
 end Lech.TT
