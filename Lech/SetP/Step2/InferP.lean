@@ -212,8 +212,7 @@ theorem infer_bvar_claimP (m : EnvS2Core V env) {d i : Nat} {t : Expr}
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, 
-    ] at h
+  simp only [Lech.inferBody] at h
   simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- `.fvar`, P currency: the leaf package of `CtxOkP` carries the

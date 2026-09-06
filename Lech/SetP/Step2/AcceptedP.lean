@@ -100,8 +100,7 @@ theorem inferTypeCore_natLit_inv {fuel d k : Nat} {t : Expr}
   | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
     rw [Lech.inferTypeCore_succ] at h
-    simp only [Lech.inferBody, pure, Except.pure,
-      ] at h
+    simp only [Lech.inferBody, pure, Except.pure] at h
     by_cases hg : Lech.natLitSupported env = true
     · exact hg
     · rw [if_neg hg] at h
@@ -115,8 +114,7 @@ theorem inferTypeCore_strLit_inv {fuel d : Nat} {s : String} {t : Expr}
   | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
     rw [Lech.inferTypeCore_succ] at h
-    simp only [Lech.inferBody, pure, Except.pure,
-      ] at h
+    simp only [Lech.inferBody, pure, Except.pure] at h
     by_cases hg : Lech.strLitSupported env = true
     · exact hg
     · rw [if_neg hg] at h

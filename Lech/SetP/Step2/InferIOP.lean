@@ -264,8 +264,7 @@ theorem infer_bvar_claimIOP (m : EnvS2Core V env) {d i : Nat} {t : Expr}
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   rw [Lech.inferTypeCoreIO_succ] at h
-  simp only [Lech.inferBodyIO, 
-    ] at h
+  simp only [Lech.inferBodyIO] at h
   simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- `.fvar`, io lane: the leaf package of `CtxOkP` carries the type's

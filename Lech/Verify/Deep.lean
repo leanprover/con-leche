@@ -2072,21 +2072,18 @@ private theorem inferIOCore_step (henv : EnvWF env)
     show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1) (.lit (.natVal n)) =
       (inferBodyIO mode (pureFnsIO mode env fuel) env d (.lit (.natVal n))).map
         (shiftFrom p)
-    simp only [inferBodyIO, 
-      ]
+    simp only [inferBodyIO]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .lit (.strVal str) =>
     show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1) (.lit (.strVal str)) =
       (inferBodyIO mode (pureFnsIO mode env fuel) env d (.lit (.strVal str))).map
         (shiftFrom p)
-    simp only [inferBodyIO, 
-      ]
+    simp only [inferBodyIO]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .fvar idx n ty =>
     simp only [WScoped] at hw
     rw [shiftFrom_fvar]
-    simp only [inferBodyIO, 
-      ]
+    simp only [inferBodyIO]
     rw [if_pos (show shiftIdx p idx < d + 1 by
           simp only [shiftIdx]; split <;> omega),
         if_pos hw.1]
@@ -2097,8 +2094,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
   | .const n us =>
     show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1) (.const n us) =
       (inferBodyIO mode (pureFnsIO mode env fuel) env d (.const n us)).map (shiftFrom p)
-    simp only [inferBodyIO, 
-      ]
+    simp only [inferBodyIO]
     cases hf : env.find? n with
     | none => rfl
     | some ci =>
