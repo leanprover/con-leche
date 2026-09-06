@@ -1552,6 +1552,15 @@ theorem instLevelParams_spec {ks : List Name} {us : List Level} {e : ExprC} :
     exact (hasLP_false (by simpa using hcut)).symm
   · exact (instLevelParamsGo_spec (ks := ks) (us := us) MemoLPInv.empty).2
 
+/-- The executable projection-type instantiation is the spec's
+(`ProjEntry.typeAt`), value for value — the two memoized walks each
+equal their tree-walk spec. -/
+theorem _root_.Setlec.ProjEntry.typeAtI_eq (entry : ProjEntry) (us : List Level)
+    (targs : List ExprC) (pe : ExprC) :
+    entry.typeAtI us targs pe = entry.typeAt us targs pe := by
+  unfold ProjEntry.typeAtI ProjEntry.typeAt
+  rw [instantiateList_spec, instLevelParams_spec]
+
 /-! ## The scope walk
 
 `Expr.wscopedB` is well founded (on `sizeF`, since it descends into

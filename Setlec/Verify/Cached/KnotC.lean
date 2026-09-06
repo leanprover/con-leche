@@ -356,8 +356,11 @@ theorem memoEI_inferIO_sim (hgb : mode.betaGate = true) (henv : EnvWF env)
           d e) := by
     show (if (cfgOf mode).ioGate then _ else _) = _
     rw [show (cfgOf mode).ioGate = mode.betaGate from rfl, hgb]
+    -- task #179: the knot's previous level is a `Unit` closure, not a
+    -- `Thunk`, so `simp` beta-reduces the slot to `coreKnotI … f` and
+    -- closes this goal outright (it used to need a `rfl` to see through
+    -- `Thunk.get ⟨·⟩`).
     simp only [↓reduceIte]
-    rfl
   rw [hslot] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,

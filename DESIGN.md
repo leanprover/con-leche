@@ -9513,6 +9513,13 @@ their pin literals differ in how tightly they are pinned by proofs:
   `ErasedEq.of_eraseNames` + `interp_erasedEq` bridge a `matchesPin`
   hit exactly as before.  A regeneration through `AnnotateBasis.lean`
   must preserve this normalization (noted in the module header).
+  *(SUPERSEDED 2026-09-06, `agent/basis-literals`: there is no
+  regeneration step any more — the annotated forms are computed from
+  the raw pins by `#annotate_basis` while the pin module elaborates,
+  and the annotation pass writes `pw` and nothing else, so the
+  normalization holds by construction.  EVERY paragraph in this file
+  that names `AnnotateBasis.lean` as the way to regenerate the basis
+  literals is superseded the same way; see the record at the end.)*
 
 **Rejected alternative.**  Making `Expr.eraseNames` erase the
 annotation and dropping the `m = m'` conjunct from `Expr.ErasedEq` was
@@ -46965,6 +46972,911 @@ trusted sweep with the 3 recorded divergences), init-full-pre2
 the Mathlib slice 1 790 accepted, the four capstones' axioms exactly
 `[propext, Classical.choice, Quot.sound]`.
 
+## THE BASIS LITERALS, DERIVED — hand-written raw pins + `#annotate_basis` (2026-09-06, `agent/basis-literals`)
+
+**The defect.**  The pinned basis blocks, the standard-axiom
+prerequisite families and the compiler-trust pins are *stored
+annotated*: `installBasisDecl` puts the `*A` constants into the
+environment verbatim and the model proofs read their `pw` data off
+them.  Those constants were a **paste**: `AnnotateBasis.lean` (the
+`annotate-basis` `[[lean_exe]]`) ran the checker's annotation over the
+raw pins and printed `Repr`, and the output was copied into
+`Setlec/Kernel/Basis/*.lean`, `StdAxioms.lean` and `TrustAxioms.lean`
+as ~1 900 lines of fully-qualified constructor spellings.  Nothing in
+the build re-ran the generator, so the literals were a committed cache
+with **no checked relation to their source** — a stale paste would
+have been invisible, and the raw pins beside them (the things a human
+can check against `Init.Prelude`) were themselves one-line
+machine-shaped dumps.
+
+**The shape the user ruled for** (2026-09-06 night): *hand-written raw
+types plus elaboration-time annotation, no pins file, generator
+deleted.*
+
+### 1. The raw pins, hand-written (`Setlec/Kernel/Basis/Builder.lean`, 110 lines)
+
+One definition per constant (`eqRaw`, `eqReflRaw`, `eqRecRaw`,
+`natRaw`, …, `quotSoundRaw`; `iffRaw`/`iffIntroRaw`/`iffRecRaw`,
+`nonemptyRaw`/…, `propextRaw`, `choiceRaw`, and the two parameterized
+trust builders), written through a builder whose every helper is ONE
+`Expr` constructor application at the raw binder annotation:
+
+| helper | is |
+|---|---|
+| `pi x ty b` / `piI` / `piA` | `.forallE (bn x) ty b ⟨.default⧸.implicit, .never⟩`, `piA` at the anonymous binder |
+| `lm x ty b` / `lmI` | the `.lam` twins |
+| `bv i`, `srt u`, `prop`, `type1`, `cnst n us` | `.bvar` / `.sort` / `Sort 0` / `Sort 1` / `.const` |
+| `ap2`…`ap4` | left-nested `.app` chains |
+| `rule c n rhs` | `⟨c, n, 0, .inert, rhs⟩` — the parse placeholders |
+| `uN`/`u`, `vN`/`v`, `u1N`/`u1` | the three universe parameters the exporter names |
+
+Nothing is abbreviated away: a pin lines up against `Init.Prelude`
+binder by binder and index by index, and shared sub-terms (a
+recursor's motive, `Quot`'s relation argument) are `private def`s with
+a docstring saying which binder context their indices are relative to.
+The pin modules shrank from 1 871 to 893 lines (Eq 201→62, Nat
+218→66, PUnit 116→50, Empty 64→34, Quot 444→116, StdAxioms 491→303,
+TrustAxioms 293→219, Basis 44→43).
+
+### 2. The annotation, at elaboration time (`Setlec/Kernel/BasisGen.lean`, 330 lines)
+
+Two commands, following the `#load_natop_pins` precedent
+(`Setlec/PinGen/Dump.lean`): compute the value in meta code, quote it
+back to a `Lean.Expr`, `addDecl` + `compileDecl`.
+
+```
+#annotate_basis over <env : List ConstantInfo>   -- ConstantInfo pins,
+  | eqA := eqRaw                                 -- env threaded
+  | ...
+#annotate_pins  over <env : List ConstantInfo>   -- ConstantVal pins,
+  | propextA := propextRaw                       -- same env for each
+```
+
+The leading `|` is what keeps the entries from parsing as one applied
+term.  `over` is elaborated and evaluated at `List ConstantInfo`, so
+it may name constants an earlier command in the same file defined
+(`StdAxioms` passes `[eqA]`, then the whole `Iff`/`Nonempty` prefix;
+`TrustAxioms` passes its pinned prerequisite list, then that list plus
+the two annotated reduce operations).
+
+`annotateInfo` is the install path's recipe verbatim: the **type**
+through `annotateCore .verified env checkFuel 0`; for a recursor, the
+install-computed rule fields first (`ctorParams` off the stored
+constructor, `fire` off `Expr.recRulePlain`) and then each rule's
+**rhs** over the environment extended with the recursor itself (which
+`Nat.rec`'s successor rule needs).  An `annotateCore` error is an
+elaboration error, `throwErrorAt` the raw term — checked with a
+deliberate failure (a `.projInfo` raw errors at the splice).
+
+The splice gives each constant the reducibility hint an ordinary `def`
+of the same body would get (`.regular (getMaxHeight env value + 1)` via
+`mkDefinitionValInferringUnsafe`), so the `decide`/`rfl`/`simp [eqA]`
+consumers in `Setlec/SetP/*` see exactly what they saw before.
+`Lean.Elab.Term.evalTerm` is `unsafe`; the three wrappers are the
+standard `@[implemented_by]` pairing.  **That is not a trust point and
+the "no `implemented_by` in checker code" ruling does not reach it:**
+these three live in elaborator-only meta code that runs while the pin
+module elaborates, and everything they produce is a `Declaration` the
+Lean kernel then checks — a wrong evaluation cannot yield a
+well-typed wrong constant silently, and none of it is in the shipped
+checker's execution path.
+
+### 3. The module structure — and why it moved
+
+Running the annotation needs `Setlec.Kernel.TypeChecker` →
+`Setlec.Kernel.Core` → `Setlec.Kernel.Basis`.  So the annotated forms
+**cannot** live in a module the core imports.  The split:
+
+* `Setlec.Kernel.Basis{,.Names,.Builder,.Eq,.Nat,.PUnit,.Empty,.Quot}` —
+  RAW only, below the core, unchanged as an import of `Core.lean`
+  (the frontend matches incoming records against `BasisKind.decls`);
+* `Setlec.Kernel.BasisA` (new, 52 lines) — the 17 basis `*A` constants
+  and `BasisKind.declsA`, above `TypeChecker`;
+* `StdAxioms` / `TrustAxioms` keep their `*A` constants in place and
+  gain the commands (both now import `BasisA` + `BasisGen`);
+* `Verify/EnvPreds` and `Semantics/BasisRules` follow the move
+  (`Setlec.Kernel.Basis` → `Setlec.Kernel.BasisA`).
+
+**The `import Lean` blast radius, measured before choosing.**
+`BasisGen` imports `Lean`.  `Lean` is *already* in 273 of the tree's
+429 modules' import closures (via `Setlec/Kernel/NatOpPins.lean`'s
+`meta import Setlec.PinGen.Dump` — a `meta import` does propagate to a
+classic importer, confirmed by probe).  Putting the annotated forms
+above `TypeChecker` rather than below it keeps the core and the
+untainted proof modules clean: the delta is **5 modules**
+(`Kernel.StdAxioms`, `Semantics.BasisRules`, `Semantics.EqTower`,
+`Semantics.EraseInv`, `Verify.EnvPreds`).  Had the literals stayed in
+`Basis/Eq.lean`, `Lean` would have entered `Setlec.Kernel.Core` and
+with it ~130 proof modules that today do not see Lean's instances and
+simp set.  The module-system alternative (`module` + `meta import`,
+the NatOpPins pattern) does NOT avoid this: a classic importer imports
+a `module` at `.private` level and gets its meta closure, so it would
+have needed every importer up the chain converted too.
+
+### 4. The receipt — byte-identity, twice
+
+Before the generator was deleted, `BasisReceipt.lean` (1 344 lines,
+commit `d8c62f0c`, deleted in this one) held **master's literals
+verbatim** under a `Receipt` namespace and checked
+
+    example : <new> = Receipt.<old>Old := by rfl
+
+for all 38 of them — the 9 raw blocks (`eqBasis`, `natBasis`,
+`punitBasis`, `emptyBasis`, `quotBasis`, `iffFamily`, `propextRaw`,
+`nonemptyFamily`, `choiceRaw`) and the 29 annotated constants (17
+basis + `iffA`/`iffIntroA`/`iffRecA`/`nonemptyA`/`nonemptyIntroA`/
+`nonemptyRecA`/`propextA`/`choiceA` + `reduceNatCvA`/`reduceBoolCvA`/
+`ofReduceNatA`/`ofReduceBoolA`).  All pass, kernel-checked.
+
+Independently: the OLD generator, re-run against the NEW hand-written
+raw pins, produced output **byte-identical** to its pre-change output
+(1 207 lines, `diff` clean).  That is the second, source-side receipt:
+the hand-written raws are the same values as the machine-shaped ones.
+
+### 5. What was deleted
+
+* `AnnotateBasis.lean` — 117 lines;
+* its `[[lean_exe]] name = "annotate-basis"` in `lakefile.toml`;
+* `AnnotateBasis` from `tests/layering.sh`'s `IMPL_ROOTS` and extra
+  roots (the gate still reports 0 base→lane and 0 impl→theory edges);
+* `BasisReceipt.lean` — 1 344 lines, once its receipt was taken;
+* ~978 lines of pasted literals from the eight pin modules.
+
+`tests/pindump.sh`'s header comment, which named the discipline after
+`annotate-basis`, now names it after what it is (a
+committed-generator-output freshness ratchet) and records that the
+basis half of it no longer needs a gate: a literal that is recomputed
+on every build cannot go stale.
+
+### 6. Why this is stronger than a freshness gate
+
+The obvious alternative was to keep the paste and add a
+`tests/basis-literals.sh` that regenerates and `diff`s (the
+`pindump.sh` shape).  Deriving beats gating here because the derivation
+is *cheap and total*: annotating 27 small closed types costs
+milliseconds inside an elaboration that already runs, so there is no
+committed artifact to be stale, no toolchain-named file, no
+regeneration instruction in any document, and one fewer executable in
+the build.  The pin dump keeps its gate because its computation is not
+cheap (it reads kernel-checked certificate proof terms out of a second
+library) and its build ordering was the defect task #176 fixed.
+
+## The affine frontier: a MEMORY blow-up from the `.proj` inference clause — the executable path ran the spec's tree-walking `instantiateList`, copying every DAG subject (2026-09-06, `agent/affine-fix`)
+
+The full Mathlib stream at master `c5485803` ended at 1 651 s with
+`INTERNAL PANIC: out of memory` under `ulimit -v 22000000`, in the
+check phase, RSS 12.5 GB → 18.7 GB inside one 30 s sample
+(`_tmp/frontier3/c5485803-p.log`, `-rss.log`).  The frontier-finding
+agent's trace run named the record: **181 570**,
+`AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen` (24.97 % of the
+stream), and cut its dependency cone
+(`_tmp/frontier3/affine-slice-pre.ndjson`, 212 MB, 26 466 records):
+official accepts in 45 s; ours, pre-fix, dies in both modes at ~216 s
+under the 16 GB cap (`affine-verdicts.txt`, exit 3 supervised / exit 1
+in-process).  Not a fuel exhaustion — no fuel message, and the
+`gdb` samples (`bt-{1..4}.txt`) all sit in `Expr.beqGo`, the memoized
+structural-equality descent, reached from `memoEI`'s `whnfCore` memo
+probe inside `defeqStepI`, ten `defEqListI` levels deep under the
+theorem value's `inferSpineI`.
+
+### 1. The declaration
+
+`_tmp/frontier3/affine_shape.py` on the slice's last record: the
+theorem's **type** is a 341-node DAG (tree 14 211); its **value** a
+**3 106-node DAG with a 392 695 789-node tree** (depth 104) —
+`λ X s hs hs₂. let this := …; let this := …; …` over scheme-theoretic
+carriers (`Scheme.toLocallyRingedSpace (pullback … (Spec (Functor.obj …)) …)`),
+where the same instance/carrier objects are passed hundreds of times.
+Any operation that materializes such a term as a *tree* is 10⁸ nodes
+≈ 16 GB.  That is the whole mechanism; the rest is finding which
+operation did.
+
+### 2. The instrument, and what it found
+
+A throwaway debug build (`_tmp/affine-debug`, never committed) added
+two probes to `Expr.beqFast` and to every syntactic wrapper and memo
+entry point: (a) when the budgeted descent falls to `beqGo`, print the
+memo size and each side's `(pointer-DAG, tree)` sizes; (b) at every
+`inst1M`/`instListM`/`instListRevM`/`abstractRangeM`/`mkAppNM`/
+`instSpineM`/`piResidualM`/`instLevelParamsM` result and every
+`whnfCore`/`whnf`/`infer`/`inferIO`/`annotate` memo miss, print the
+call whose OUTPUT is *copy-degraded* — `(pointer-DAG, structural-DAG,
+tree)` with pointer-DAG ≫ structural-DAG, i.e. structurally equal
+subterms at many distinct addresses — while no INPUT is.  Findings
+(`_tmp/affine-fix-runs/dbg{1,3}-verified.out`):
+
+* The `beqGo` comparisons that grow are between a DAG and a **copy of
+  it with the sharing gone**: `a: dag=959 tree=297 989` against
+  `b: dag=99 849 tree=297 989`; `dag=1 157` against `dag=821 294` (tree
+  2.3 M); at the end `dag=799` against `dag=7 647 139` (tree 16.5 M),
+  the same pair compared over and over — each comparison allocating a
+  7.6 M-entry address-pair memo.  Once such a copy is a memo KEY, every
+  probe with a structurally equal term pays the tree.
+* **Every origin is the same call** — 1 368 of 1 376 flagged events are
+  tagged `inferIO`, the other 8 are downstream `inst1M`s whose inputs
+  were already copies (below the flag threshold).  The flagged
+  `inferIO` inputs are well-shared `.proj` nodes and their outputs are
+  field types whose *parameter* is a tree copy of the subject's
+  carrier:
+
+      [unshare:inferIO] in=[(269, (223, 61345))] out=(27629, (225, 61347))
+        args=[(27627,223,61345)]
+        (CommRing (Classical.choice … …).ColimitCocone.0.Cocone.0.CommRingCat.0)
+
+  — input pointer-DAG 269 / structural 223 / tree 61 345; output
+  parameter pointer-DAG 27 627 for the same 223 structural nodes: a
+  full copy, leaves excepted.  Projection chains over a carrier
+  (`(Classical.choice …).ColimitCocone.0.Cocone.0.CommRingCat.0`, the
+  instance tower `CommRing → Ring → Semiring → NonUnitalSemiring …`)
+  copy the subject at every level and the copies nest.
+
+### 3. The clause
+
+`Setlec/Cached/CoreC.lean`, `inferBodyI`'s `.proj` clause, computed the
+field type as `internExprM (entry.typeAt us targs pe)` — **the spec's
+`ProjEntry.typeAt`** (`Kernel/Core.lean`), legitimate as a *value*
+(`ExprC = Expr` since task #172 B3a, the comment said as much) but not
+as a *computation*: `typeAt` is `(body.instantiateLevelParams …).instantiateList (pe :: targs.reverse)`
+over `Kernel/ExprOps.lean`'s **unmemoized** `Expr.instantiateList`,
+whose `.bvar` arm is
+
+    instantiateList vs[j - d] (vs.take (j - d)) d
+
+— it *re-traverses the replacement* (the spec's fold semantics, "a
+replacement inserted early is traversed again by the later
+`instantiate1` passes"), and every arm rebuilds its node.  So each
+occurrence of the subject `pe` and of each parameter in the field type
+came back as a fresh tree copy.  Exactly the class the memory note
+"No unmemoized traversals" forbids in executable paths; this one hid
+behind the identity `ExprC = Expr`.
+
+**Official** (`type_checker.cpp:239-284`, `infer_proj`, v4.33.0):
+`r = instantiate(binding_body(r), args[i])` for the parameters and
+`instantiate(binding_body(r), mk_proj(I_name, i, proj_expr(e)))` for
+the prior fields — `instantiate` inserts the replacement **by
+pointer** (`lift_loose_bvars` returns its argument unchanged on a
+closed term), so the field type shares the subject and the parameters
+with the node being typed.  Structurally the same instantiation as
+ours; the divergence was purely representational — a tree where
+official keeps a DAG — and it is a *memory* divergence, not a
+strategy one: no reduction or comparison differs, the verdict is the
+same, only the allocation is exponential.
+
+### 4. The fix (both modes; one definition, one equation)
+
+`Setlec/Cached/ExprOpsC.lean`:
+
+    def ProjEntry.typeAtI (entry : ProjEntry) (us : List Level)
+        (targs : List ExprC) (pe : ExprC) : ExprC :=
+      instantiateList (instLevelParams entry.levelParams us entry.body)
+        (pe :: targs.reverse)
+
+— the same two instantiations through the memoized, sharing-preserving
+`ExprC.instLevelParams` and `ExprC.instantiateList` (whose `.bvar` arm
+returns a closed replacement **by reference**; the re-entry runs only
+on an open one, under its own table).  `inferBodyI`'s clause calls
+it; `inferBodyIOI` dispatches to the same clause, so the trusted core
+and the verified core share the fix by construction.  Nothing else
+moved.
+
+### 5. The proof
+
+`Setlec/Verify/Cached/OpsC.lean`:
+
+    theorem ProjEntry.typeAtI_eq … : entry.typeAtI us targs pe = entry.typeAt us targs pe
+
+by `instantiateList_spec` and `instLevelParams_spec` (the two
+memoized walks each equal their tree-walk spec — proved long ago for
+every other call site).  The only proof references to the clause are
+the two `SimC.pure hs₂ ⟨rfl, projEntry_typeAt_WScoped …⟩` steps of
+`inferBodyC_sim` / `inferBodyIOC_sim` (`Verify/Cached/DiscC4.lean`);
+`rfl` became `ProjEntry.typeAtI_eq entry us _ pe` (`RelC` is `v' = v`).
+The spec, the `Expr`-level lemma families (`projEntry_typeAt_WScoped`,
+`typeAt_eq_instSpine`, `typeAt_shiftFrom`, …) and the P tier are
+untouched — they speak about `typeAt`, and the executable now equals
+it by a theorem instead of by definition.  No sorry, no new axiom;
+capstones at `[propext, Classical.choice, Quot.sound]`; layering 0
+impl→theory; proofdeps **1 370 rows, 0 doors** (as pinned; no module
+entered or left a closure).
+
+### 6. The coordinator's pointer (lean4lean d41b6377, `reduceNat`'s fvar filter)
+
+Checked while in the path.  (1) Our whnf-side `reduceNat` /
+`reduceNatI` and their call site `whnfStep` carry **no** free-variable
+guard (`grep hasFvar Kernel/Core.lean` hits only `defeqStep`'s
+`Bool.true` shortcut and the lazy-delta fold guard, the two sites
+official has at `:1097` and `:1008`); official v4.33's `reduce_nat`
+(`:639-668`) has none either.  No divergence.  (2) The affine blow-up
+involves no `Nat`/literal reduction at all — the slice's flagged
+events are all `.proj` inferences on carrier types.
+
+### 7. The fixture
+
+`tests/e2e/src/proj_share.lean` → `tests/e2e/proj_share.ndjson` (raw,
+201 lines; exported through `lean-inductive-models/scripts/export-fixture.sh`
+with `--#export unbox unbox2` — without the filter the `import Lean`
+closure is 12 M lines).  `big% n` is a term elaborator returning
+`Prod (T n) (T n)` with BOTH children the same `Expr` object (a DAG of
+`n + 1` nodes, tree `2^(n+1) − 1`; lean4export hash-conses, so the
+stream carries 27 records for `big% 26`); `boxval% b` returns a
+literal `Expr.proj Box 0 b` (the elaborator would emit the projection
+*function* for `b.val`); `noncomputable def unbox (b : Box (big% 26)) : big% 26 := boxval% b`
+and a two-deep `unbox2`.  (`noncomputable` because the code generator
+walks the type as a tree — the elaboration alone did not finish
+otherwise.)  Typing the `.proj` node instantiates the field type
+`α := big% 26`: the tree walk materializes 2^27 nodes per projection.
+
+| `n` (tree `2^(n+1)`) | pre-fix (`c5485803`), verified | fixed, verified |
+|---|---|---|
+| 20 (2.1 M) | accept, 8.84 s, 567 MB | accept, 0.05 s, 71 MB |
+| 22 (8.4 M) | accept, 49.6 s, 2.77 GB | accept, 0.06 s, 71 MB |
+| 24 (33.6 M) | accept, 235 s, 8.98 GB | accept, 0.05 s, 73 MB |
+| **26 (134 M), the committed fixture** | **out of memory** at 34 s (exit 3, 12.1 GB RSS at the 16 GB virtual cap) | accept, both modes, 0.353 G instr (official 0.167 G) |
+
+Wall/RSS from `/usr/bin/env time` under the 16 GB cap — a scaling
+picture, not a perf figure (×4–5.6 per +2 in both time and memory, as
+a tree copy should).
+
+### 8. Receipts
+
+* Slice `affine-slice-pre.ndjson` (`ulimit -v 16000000; timeout 3000`):
+  pre-fix **out of memory at 216 s** (verified; RSS 11.8 GB at the
+  last sample before the cap), fixed **accept, 28 665 declarations,
+  70 s verified / 65 s trusted**, peak RSS ≈ 0.5 GB.  Official 45 s.
+* `lake build` warning-free (616 jobs); `lake test` green;
+  `tests/proofdeps.sh` 1 370 rows / 0 doors; layering base 234 / P 160
+  / caps 2 / umbrella 1, 0 base→lane, 0 impl→theory.
+* `tests/arena.sh` **0 FAIL, every verdict unchanged**: arena tutorial
+  90/92 good accepted (032/033 the by-design declines), e2e **79/79**
+  (master's 78 + `proj_share`), annot 14/14, retired flags 8/8, mode
+  flags 16/16, trusted sweep 138 arena + 79 e2e + 14 annot with the
+  same 3 recorded divergences; pindump fresh.
+* init-full (`init-full-pre2.ndjson --pre`, 16 GB cap): **accept,
+  60 549 declarations, both modes** — `--verified` 155 s / 866 MB,
+  `--trusted` 148 s / 866 MB (`/usr/bin/env time`, verdict only).
+* The full Mathlib stream was **not** rerun (the cadence: gates + the
+  slice; the campaign measurement is the frontier agent's).
+
+### 9. Notes for the next frontier agent
+
+* The two instruments are worth keeping in mind: `dagStats` (pointer-DAG
+  vs tree, keyed by address) and the *copy-degradation* test
+  (pointer-DAG ≫ structural-DAG) at every syntactic wrapper and memo
+  miss, printing only ORIGINS (inputs not degraded).  The patch is
+  `_tmp/affine-fix-runs/debug-probe-affine.patch`.
+* A grep for the class: any `Expr.`-namespace traversal from
+  `Kernel/ExprOps.lean` reached from `Setlec/Cached/*` at check time.
+  After this fix the only such calls are the wrappers' `ExprC.` twins;
+  `Kernel/{DeclCheck,Modeled,Direct/*}.lean` still use the spec walks
+  at *install* time on block-sized terms, where no DAG blow-up has
+  been seen.
+
+## The Mathlib frontier at 24.97 %: a defeq BLOW-UP, not a decline — `AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen` OOMs where official takes 45 s (2026-09-06, `agent/frontier3`)
+
+The full Mathlib stream was run at the merged master `c5485803`
+("Merge agent/sigmahom"), verified mode, on the **original** stream
+(`_tmp/mathlib-scoping/mathlib-full-pre.ndjson`, 5 821 584 448 B,
+**727 270** declaration records — not the cut probe stream of the
+previous section).  Binary md5 `ca47e903fecf75806ff5a7540d3cca12`.
+
+**It clears every previously recorded rung** — 17.4 % (the Rat K-order
+divergence), 21.2 % (`.proj` on a mutual-block member) and 24.10 %
+(`SigmaHom`, the indexed one-constructor install) all pass — and then
+dies 0.87 % further on, in a way none of the earlier rungs did: **not
+a decline, an out-of-memory**.
+
+### 1. The run
+
+    _tmp/frontier3/run.sh c5485803          (tag `c5485803`)
+    --verified --pre, ulimit -v 22000000 KB (20.98 GiB), timeout 14400
+
+    parse   5.82 GB read by t≈300 s (58.2 % at t=120), parse peak
+            VmHWM 13.29 GiB
+    check   FLAT at 12.21-12.49 GiB RSS for ~1 300 s
+    death   t≈1 621-1 651 s: one sample at rss 18.67 GiB /
+            VmSize 21.04 GiB, then
+
+        INTERNAL PANIC: out of memory
+
+    exit 1, wall 1 651 s; `time -v`: max RSS 19 572 528 KB = 18.67 GiB,
+    elapsed 27:02.72, user 1 520.67 s.
+
+The RSS profile is the whole story: 12.2-12.5 GiB flat for the entire
+check (that is the parsed stream), then **+6.2 GiB inside a single
+30 s sample**, then the cap.  Nothing accumulates; one declaration
+blows up.
+
+Exit-code note: `run.sh` sets `SETLEC_SUPERVISED=1`, so the raw child
+exit 1 is what the harness records.  A bare invocation goes through
+`Main.lean`'s supervisor, which prints `setlec: internal panic in the
+checker process` and exits **3** — the arena's "crash for unclear
+reasons".  There is no decline site and no message: the text is Lean's
+allocator panic, so `grep`ping the message finds nothing in `Setlec/`.
+
+### 2. Locating it: the `SETLEC_TRACE_DECLS` probe (the user's call)
+
+The checker has no per-declaration progress output and the fold is a
+pure `foldlM`, so an OOM names nothing.  A prefix bisect is not sound
+here — a prefix has a smaller resident base, so a bounded blow-up
+would stop reproducing.  On the user's suggestion the localisation was
+done by **printing and flushing each declaration name before checking
+it**: an opt-in `traceLoopC` in `Main.lean` running the *same*
+`checkDeclSPStepC` the fold runs, guarded by `SETLEC_TRACE_DECLS`.
+
+The probe is **uncommitted** (`_tmp/frontier3/trace-probe.patch`, 48
+lines; `Main.lean` restored and rebuilt before the gates).  Traced run
+(tag `trace`): same panic, wall 2 100 s, `time -v` max RSS
+19 584 404 KB = 18.68 GiB, last line
+
+    TRACE 181570 theorem AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen
+
+The trace index is the **fold's** position; the stream's declaration
+record index is a *constant* **+4** above it (the parse folds the
+pinned basis blocks into one `basisDecl`; checked at trace indices
+1 000 / 50 000 / 100 000 / 150 000, offset +4 at every one — so no
+declaration is dropped mid-stream).  Hence:
+
+| | |
+|---|---|
+| declaration | `theorem AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen` |
+| stream record | **181 575 of 727 270** |
+| **% of stream** | **24.967 %** |
+| verdict | OOM (exit 1 supervised / 3 bare), no message |
+| phase | `checkThmValC` — inferring the theorem's proof value |
+
+Source: `Mathlib/AlgebraicGeometry/Morphisms/Affine.lean:111`, `@[stacks
+01QF]`, and it carries **`set_option backward.isDefEq.respectTransparency
+false in`** — Mathlib's own marker for "the elaborator needed the
+permissive defeq here".  Its private predecessor
+`isAffine_of_isAffineOpen_basicOpen_aux` (same `set_option`) passes.
+
+### 3. It reproduces on a 212 MB slice, and official accepts that slice
+
+`_tmp/sigmahom/slice_multi_fast.py`, targets = the theorem **plus the
+String-support constants** (`String, String.ofList, List, List.nil,
+List.cons, Char, Char.ofNat, Nat, Nat.zero, Nat.succ` — the
+`_autoParam` string-literal gap the sigmahom record documents), 57 s:
+`_tmp/frontier3/affine-slice-pre.ndjson`, **212 420 846 B, 26 465
+declaration records**.
+
+Three checkers, one at a time, `ulimit -v 16000000` (15.26 GiB),
+`timeout 3000` (`_tmp/frontier3/run-slice.sh`, verdicts in
+`affine-verdicts.txt`; official = arena v4.33.0 `kernel`):
+
+| checker | verdict | wall |
+|---|---|---|
+| **official v4.33.0** | **accept, 28 034 declarations** | **29.2 s** |
+| ours `--verified` | OOM (exit 3) | 228.3 s |
+| ours `--trusted` | OOM (exit 3) | 196.9 s |
+
+Two things follow.  First, **it is a divergence, not a resource
+frontier**: the reference kernel does the same work in half a minute.
+Second, **the blow-up is unbounded relative to the base** — with a
+212 MB stream the resident base is well under 1 GiB, and it still
+consumes 15 GiB.  A "merely expensive" declaration would have
+completed here.  And it is **not** a certification cost: `--trusted`,
+which drops every certificate family, dies the same way, slightly
+faster.
+
+### 4. The phase, from the machine
+
+Four full `gdb` backtraces taken during the spike
+(`_tmp/frontier3/bt-{1,2,3,4}.txt`, harness `gdbcatch2.sh`; the work
+runs on Lean's worker thread — `thread apply all`, not `bt`).  Frame
+composition of the checker thread, stable across ~20 s of samples
+while RSS climbs 5.1 → 6.1 GiB:
+
+| frames | function |
+|---|---|
+| 46-75 | `Setlec.Expr.beqGo` |
+| 51-54 | `Setlec.Cached.defeqLoopI` |
+| 25-26 | `Setlec.Cached.coreKnotI` |
+| 17-18 | `Setlec.Cached.defeqStepI` |
+| 17-18 | `Setlec.Cached.memoBI` |
+| 11-12 | `Setlec.Cached.defEqListI` |
+| 9 | `Setlec.Cached.memoEI` |
+| 6 | `Setlec.Cached.inferSpineI` |
+| 2 each | `inferLamsLeafI`, `inferLamsI`, `inferBodyI` |
+
+read outward: `checkDeclsSPCachedD` → `checkThmValC` → `inferBodyI` /
+`inferLamsI` / `inferLamsLeafI` → six nested `inferSpineI` (the
+application spine of the proof) → and then **eighteen nested
+`defeqStepI` / `defEqListI` levels**, i.e. defeq recursing through
+argument lists eighteen deep, with `Expr.beqGo` descending another
+46-75 frames inside the innermost one.
+
+Two readings the samples settle:
+
+* **Breadth, not depth.**  The stack *shape* barely moves over 20 s
+  (51 → 54 `defeqLoopI`) while memory climbs by a gigabyte.  The
+  checker is not descending without bound; it is enumerating an
+  exploding set of sub-comparisons at a fixed nesting, and the
+  per-level memo tables (`memoBI`, and `beqGo`'s pointer-keyed
+  `Std.HashMap (USize × USize) Bool`, allocated fresh per descent)
+  are what fills the heap.
+* **An unmemoized substitution is in the loop.**  Other samples sit
+  in `Setlec.Expr.instantiateList` — 40 consecutive frames, allocating
+  `Expr.app` nodes.  That is the **kernel** `instantiateList`
+  (`Setlec/Kernel/ExprOps.lean:58`): plain structural recursion, *no*
+  `bvarB ≤ d` loose-bvar early exit and *no* memo, so it walks a
+  shared DAG as a tree.  It is **not** the memoized
+  `Setlec.Cached.ExprC.instantiateList`
+  (`Setlec/Cached/ExprOpsC.lean:266`, which has both).  The two are
+  distinct symbols in the binary (`lp_setlec_Setlec_Expr_instantiateList`
+  @ `0xc8fce0`, `lp_setlec_Setlec_Cached_ExprC_instantiateList` @
+  `0x10b0a80`); the backtrace PCs match the former by offset.
+  `ExprC := Setlec.Expr` is an `abbrev`, so the cached core reaches the
+  unmemoized one through the shared `Setlec/Kernel/*` helpers — the
+  in-tree call sites are `CheckerBase.lean:116,118`
+  (`openPisAtFvars`), `ExprOps.lean:451,465` (`instPisAt`) and
+  `Core.lean:1625` (`ProjEntry.typeAt`, the `.proj` node's type).
+  This is a "no unmemoized traversals" violation on an executable path
+  (the memory note of that name), and it is the first time the corpus
+  has punished it.
+
+### 5. The ladder: cutting this cone buys 7.25 %, and the next rung is the SAME class
+
+`_tmp/frontier3/cut_decl_cone.py` (new; `cut_cone.py`'s machinery
+seeded by **name** instead of by the `.proj` recognizer predicate —
+drop the seed declaration and, transitively, everything whose
+type/value/rhs mentions a removed constant) removes **466 of 727 270
+records (0.064 %)**: first the theorem itself (181 575), last
+`AlgebraicGeometry.instIsClosedImmersionSndScheme` (722 103).  Result
+`_tmp/mathlib-scoping/mathlib-full-pre-affinecut.ndjson`, 726 804
+records, still a dependency-ordered export.
+
+Traced re-run (tag `affinecut`, same limits):
+
+    INTERNAL PANIC: out of memory
+    after TRACE 234269 theorem Algebra.tensorH1CotangentOfIsLocalization_toLinearMap
+
+    exit 1, wall 2 971 s, `time -v` max RSS 19 586 768 KB = 18.68 GiB,
+    elapsed 49:27.28
+
+→ original-stream record **234 297 of 727 270 = 32.216 %**
+(`Mathlib/RingTheory/Etale/Kaehler.lean:342`), and **it too carries
+`set_option backward.isDefEq.respectTransparency false in`**.
+
+So the ladder rung is worth **24.97 % → 32.22 %**, but — unlike every
+previous rung, each of which changed character when it moved — **the
+next wall is the same failure in the same tower**.  That is the
+decision-grade datum for the campaign: this is a **class**, not a
+declaration.  A per-declaration workaround buys 7 % and stops; only a
+defeq/whnf strategy change (unfold order, laziness, sharing, the
+unmemoized `instantiateList` above) retires the class.
+
+Weak corroboration, offered as a correlate and **not** as a census:
+`backward.isDefEq.respectTransparency` appears at **6 872 sites in
+1 817 files** of this Mathlib.  Both of our rungs are inside that set;
+the stream also passes very many declarations that are in it, so the
+marker is an upper bound on where the class can bite, nothing more.
+A real census would have to model our defeq's search, which is exactly
+what is misbehaving.
+
+### 6. Caveats
+
+* **Contention.**  Other agents' Lean builds and checker runs shared
+  the machine throughout (load average 22-25; at times two other
+  `setlec` processes).  **Wall times carry that caveat.**  Verdicts,
+  record indices, the RSS profile and the backtraces do not.
+* The ladder cut removes 466 declarations a real fix would keep.  Their
+  absence can only *hide* a failure, never create one, so 32.216 % is
+  a lower bound on what fixing the 24.967 % rung buys.
+* The traced runs used the uncommitted probe binary.  Every verdict in
+  §3 was re-measured afterwards with the **restored, pristine** binary
+  (md5 `ca47e903fecf75806ff5a7540d3cca12`, the same one that produced
+  the §1 run).
+
+### 7. Tools left behind (`_tmp/frontier3/`)
+
+* `run.sh` — the frontier harness, retargeted at this worktree and the
+  `--verified --pre` flag names.
+* `run-slice.sh` — three-checker slice harness (official / verified /
+  trusted), post-rename flags.
+* `cut_decl_cone.py` — cut a **named** declaration's forward cone out
+  of a stream (stream, `seed[,seed…]`, out, report).  The general
+  ladder tool; `next-frontier/cut_cone.py` stays the `.proj`-specific
+  one.
+* `decl_index.py` — declaration-record index and % of any name(s) in a
+  stream, 18 s over the 5.8 GB stream.  This is how a traced index
+  becomes a stream position.
+* `offset_grid.py` — byte offset of every Kth declaration record (16 s
+  for the full stream), so any prefix is a `head -c`.  Built for a
+  bisect that the trace probe made unnecessary; kept, it is the cheap
+  way to cut prefixes.
+* `gdbcatch.sh` / `gdbcatch2.sh` — run a slice, watch RSS, and take
+  `gdb` backtraces once it crosses a threshold.  **Use `thread apply
+  all bt`**: Lean runs `main` on a worker thread, so a plain `bt` shows
+  only `pthread_clockjoin`.
+* `trace-probe.patch` — the `SETLEC_TRACE_DECLS` loop.  Re-apply it
+  (uncommitted) for any future OOM/timeout localisation; it is the
+  only thing that turns a nameless panic into a declaration.
+* Artefacts: `c5485803-{p,rss}.log`, `-time.txt`, `.exitcode`;
+  `trace-*`, `affinecut-*` (traced runs); `affine-slice-pre.ndjson`,
+  `affine-verdicts.txt`, `affine-{official,verified,trusted}.out`;
+  `bt-{1..4}.txt`; `affine-cut-report.txt`.
+
+### 8. Notes for the agent that fixes this
+
+* The reproducer is `_tmp/frontier3/affine-slice-pre.ndjson` (212 MB,
+  official accepts in 29 s).  Do not work against the full stream.
+* Both modes fail, so nothing certification-side is implicated; the
+  target is the shared defeq/whnf strategy.
+* The divergence audit (`agent/divergence-audit`) is the natural home
+  for the comparison against `is_def_eq` / `whnf_core` / lazy delta.
+  Start from §4's tower: eighteen `defeqStepI`/`defEqListI` levels
+  with a stable shape is the signature of comparing two spines by
+  recursing into arguments where official would have unfolded, or of
+  unfolding where official would have compared.
+* The unmemoized kernel `instantiateList` is a separate, independently
+  fixable defect on the same path (§4); it is not obviously *the*
+  cause, and the memoized `ExprC` twin already exists next to it.
+* Do not cut cones as a fix.  §5 says the class recurs at 32.2 %.
+
+### 9. Update at the merge (master `e0389e5e`)
+
+The rung this section reports is **already fixed**: the preceding
+section (`agent/affine-fix`) found the mechanism the backtraces of §4
+could only bracket — the `.proj` inference clause instantiating
+through the *spec's* `ProjEntry.typeAt`, i.e. the unmemoized
+`Kernel/ExprOps.lean` `instantiateList` making tree copies of DAG
+subjects — and routed it through the memoized `ExprC` twin.  §3's
+slice now accepts in ~70 s (official 29 s).
+
+So of §4's three candidate call sites the live one was
+`Core.lean:1625` (`ProjEntry.typeAt`); §4 named all three because the
+sampled frames were `instantiateList` all the way down and could not
+be attributed further.  What survives this section unchanged is **§5**:
+the *ladder* datum is a measurement of the stream, not of the bug.
+Rung 5 stands at **32.216 %**
+(`Algebra.tensorH1CotangentOfIsLocalization_toLinearMap`), and whether
+it is the same class in the *mechanism* sense — rather than merely the
+same symptom, an OOM in the same tower — is now an open question for
+the next finder, since the mechanism §5 was written against has been
+removed.  The §7 tools and §8's "work against the slice, not the
+stream" stand.
+
+
+## Task #179 — no threads, and the linearity audit that followed (2026-09-06, `agent/linear-audit`)
+
+**The user's brief:** *"oh, no threads please! and 6% array copying is
+worth checking. if it's just normal growing fine, but let us erase all
+non-linear use of hashmaps and arrays"* — the two symbols task #177
+left unattributed on `init-full`, `lean_mark_mt` 7.6 % and
+`lean_copy_expand_array` 6.2 %.
+
+They are one bug, and it is the same bug: **one `Thunk`**.
+
+### 1. There are no threads
+
+Census of the executable path (`Main.lean`, `Setlec/Frontend/*`,
+`Setlec/Cached/*`, `Setlec/Kernel/*`, `SetlecPreprocess.lean`): zero
+occurrences of `Task`, `IO.asTask`, `BaseIO.asTask`, `Task.spawn`,
+`IO.bindTask`/`mapTask`, or any thread primitive.  The only
+`IO.Process.spawn` is the OOM supervisor's re-exec (`Main.lean:379`),
+a *process*, not a thread, and the checker itself runs on the main
+thread of the supervised child.  No stack-depth thread trick exists or
+is needed.
+
+So why did the runtime mark objects multi-threaded?  Because
+`lean_thunk_get_core` does:
+
+```c
+object * r = lean_apply_1(c, lean_box(0));
+mark_mt(r);                 // ← object.cpp:895
+lean_to_thunk(t)->m_value = r;
+```
+
+The runtime's invariant is that *a single-threaded object may not be
+reachable from a multi-threaded one*, and a `Thunk` is a shareable cell
+that another thread could force — so forcing one marks the whole
+reachable graph of its **value** MT, threads or no threads.  `mark_mt`
+traverses constructors, closures, arrays, thunks and refs
+(`object.cpp:630-690`).
+
+### 2. The one `Thunk`, and why it cost 13.8 %
+
+`Setlec/Cached/CoreC.lean`, `coreKnotI` (perf-eng E1):
+
+```lean
+let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotI fe fuel⟩
+```
+
+The forced value is a `CoreFnsI` record whose six closures capture
+`fe : FEnv`.  So the first force at every knot level **marked the whole
+environment index multi-threaded**.  Two consequences, each
+`O(|env|)` per *declaration*, and they sustain each other:
+
+* **the mark** walks the index's entire bucket array (`LeanArray` is
+  traversed slot by slot; the already-marked constant infos below stop
+  the descent, the fresh array does not);
+* **the copy.**  `lean_is_exclusive` is false for every MT object, so
+  `FEnv.push`'s `idx.insert` — whose generated C is *optimal*, a
+  reset/reuse that takes `idx` without an `inc` on the exclusive path —
+  fell into `lean_array_uset`'s
+  `lean_copy_expand_array_nonlinear` and copied the whole bucket array,
+  with an atomic `lean_inc` per slot, at **every accepted constant**.
+
+And the copy hands back a *fresh, single-threaded* array, which the
+next force marks again.  60 549 accepted constants × an index of up to
+2^17 buckets is where 13.8 % of `init-full` went.
+
+`Thunk.get ⟨f⟩` is `f ()` by structure eta, so the fix is the same
+term:
+
+```lean
+let prev : Unit → CoreFnsI := fun _ => coreKnotI fe fuel
+```
+
+### 3. The census: every update site, and its linearity
+
+Four shapes, all of them linear; the fifth entry is the one that was
+not, for the reason above.
+
+| # | shape | sites | verdict |
+|---|---|---|---|
+| 1 | pair-threaded memo walks — the memo is returned in the result pair and never aliased | `Cached/ExprOpsC.lean` ×26 (`instantiate1Go`, `instantiateListGo`, `instantiateRevGo`, `abstract1Go`, `abstractRangeGo`, the `wscopedB`/leaf memos, `fvarLeavesGo`'s `seen`); `Kernel/ExprOps.lean:687,717`; `Kernel/Expr.lean:741` (`beqGo`); `Cached/StateC.lean:90,594` | linear |
+| 2 | monadic state memos under the swap-out idiom (`let mp := get' st; set' st ∅; set' st (mp.insert …)`) | `Cached/CoreC.lean:1837` (`memoEI`: whnfCoreC/whnfC/inferC/inferIOC/annotC), `:1852` (`memoBI`: defeqC); `Kernel/TypeCheckerC.lean:81,96`; `Cached/StateC.lean:320,382,393,417-431,486,504,512,533,614` | linear |
+| 3 | accumulator arrays threaded through a recursion (ordinary amortised doubling) | `Cached/CoreC.lean:981,1029` (`inferSpine` `acc`), `:1174,1225` (`inferLams`/`inferPis` `fvs`), `:1685,1732` (the annotate twins); `Main.lean:334` (argv) | normal growth |
+| 4 | the parser's state record, `{ st with f := st.f.insert … }` | `Frontend/ExportC.lean:144` (names), `:163` (levels), `:214,532` (exprs), `:313,427,471`; `st.decls.push` ×10, `projRewrites`/`taintSkipped` pushes | linear — **verified in the generated C** |
+| 5 | the environment index, `FEnv.push` | `Kernel/FEnv.lean:83`; callers in `DeclCheck`, `Direct/InstallF`, `CheckerC`, `ParsedC` | **was** non-linear — see §2 |
+
+**Row 4 is a finding worth recording.**  `{ st with f := st.f.insert
+… }` *looks* like the classic RC bug (read the field out of a record
+that is still alive, then update it), and the codebase spells the
+swap-out idiom by hand in some places and not others.  The generated C
+for `parseNameEntryD`
+(`.lake/build/ir/Setlec/Frontend/ExportC.c`) settles it: Lean's
+reset/reuse emits `lean_is_exclusive(st)`, and on the exclusive path
+the fields are taken **without an `inc`** and the constructor cell is
+reused, so `insert` sees RC 1 and updates in place.  The hand-written
+swap-out is belt-and-braces, not a requirement, wherever the update is
+a direct structure-update of an exclusive record.  `FEnv.push`
+compiles to exactly the same optimal shape — which is why it was worth
+knowing that the copy there could only come from `fe` never being
+exclusive, i.e. from the MT mark.
+
+Nothing was pre-sized: after the fix the profile shows no growth cost
+worth attacking (task #177 already measured pre-sizing the walk memo at
++1.5 % on grind — the same warning applies).
+
+### 4. Result
+
+`perf stat -e instructions:u`, one run per cell, `ulimit -v 16G`,
+`timeout 3000`, `nice -n 5`, `SETLEC_SUPERVISED=1`, `--pre` streams.
+Baseline = master `2664b1dd`.
+
+| stream | verified before → after | trusted before → after |
+|---|---|---|
+| `init-full` | 822.11 → **686.97 G** (−16.4 %) | 795.65 → **660.31 G** (−17.0 %) |
+| `app-lam` | 162.41 → **161.69 G** (−0.44 %) | 162.41 → **161.68 G** (−0.45 %) |
+| `grind-ring-5` | 30.87 → **30.99 G** (+0.37 %) | 28.72 → **28.75 G** (+0.11 %) |
+
+`perf record -e instructions:u -F 499`, `init-full`, verified mode
+(`_tmp/linear-audit/initfull-{base,fix}.data`):
+
+| symbol | before | after |
+|---|---|---|
+| `lean_mark_mt` | **10.91 %** | **absent** (0.00 %) |
+| `lean_copy_expand_array` | **4.34 %** | **0.26 %** |
+| `lean_dec_ref_cold` | 17.64 % | 10.26 % |
+| `lean::lean_del_core_other` | 6.86 % | 3.84 % |
+| `lean_thunk_get_core` | 0.05 % | absent |
+| `mi_malloc_small` | 8.18 % | 16.22 % |
+
+(`lean_mark_mt` was 7.6 % when task #177 measured it; the environment
+has grown since.  `mi_malloc_small`'s *share* rises because the
+denominator fell and because E1's rebuild really does allocate — see
+§4's last paragraph.)
+
+The same two symbols across the battery, before → after — **the cost
+scales with |env| × declarations, exactly as the mechanism predicts**:
+
+| stream / mode | `lean_mark_mt` | `lean_copy_expand_array` |
+|---|---|---|
+| `init-full` verified (60 549 decls) | 10.91 → **0.00 %** | 4.34 → **0.26 %** |
+| `grind-ring-5` verified (3 866) | 1.69 → **0.03 %** | 0.71 → **0.25 %** |
+| `grind-ring-5` trusted | 1.99 → **0.06 %** | 0.51 → **0.43 %** |
+| `app-lam` verified (94) | 0.03 → **0.01 %** | 0.00 → **0.00 %** |
+| `app-lam` trusted | 0.03 → **0.01 %** | 0.02 → **0.00 %** |
+
+`app-lam` is the control: 94 declarations, so the environment never
+grows enough for the mark or the copy to cost anything — and yet
+`app-lam` still gets *faster* by 0.44 %, which is the `Thunk`'s own
+per-call overhead (a cell allocation and an atomic exchange) net of the
+rebuild.  `init-full` trusted was not profiled; its −17.0 % on
+instructions says the same thing.
+
+**A measurement hazard, recorded because it nearly produced a wrong
+table.**  `perf report` resolves symbols against the binary *at the
+recorded path*.  The first `grind-ring-5` profiles were taken against
+`.lake/build/bin/setlec`, which was then rebuilt twice; re-reading
+those files later silently redistributed the samples (`lean_mark_mt`
+read 0.82 % instead of 1.69 %).  Every number above was re-taken
+against immutable copies (`_tmp/linear-audit/setlec-{base,fix}`).
+Snapshot the binary before recording, always.
+
+**How the copies were classified, since `lean_copy_expand_array_nonlinear`
+is a bare `jmp` into `lean_copy_expand_array` and carries no samples of
+its own:** `perf annotate lean_copy_expand_array`.  The function
+branches on `lean_is_exclusive(a)` into a `memcpy` + `dealloc` arm
+(ordinary growth of a uniquely-owned array) and a per-slot
+`*dest = *it; lean_inc(*it)` loop (the non-linear copy).  Before, the
+samples sat almost entirely in the **inc loop** — ~95 % of the 4.34 %
+was non-linear copying, ~5 % real growth.  After, 0.26 % total remains,
+of which ~0.15 pp is still in the inc loop.
+
+**Where that 0.15 pp is, as far as it could be pinned.**  A
+`--call-graph dwarf` run over `init-full` did not resolve the runtime
+frames (the samples land in `lean_copy_expand_array`, whose only
+non-linear caller is a bare `jmp` and whose Lean-side callers inline
+`lean_array_uset` and carry no CFI at that point).  What *did* pin part
+of it is annotating the Lean side instead: the walks' own memo inserts
+— the `Std.DHashMap … insert` specialisations at
+`Setlec_Cached_ExprC_instantiate1Go_spec__1` and
+`Setlec_Expr_bvarBoundGo_spec__0` — carry non-zero samples on the
+instruction *after* their `call lean_copy_expand_array_nonlinear`
+(≈0.006 pp and ≈0.003 pp of the total each).  So the residue is memo
+tables that are occasionally not exclusive at the insert, not the
+environment index.  `lean_array_push`'s non-exclusive arm accounts for
+almost none of it (the whole function is 0.13 %).  Two orders of
+magnitude below where this session started, and left as a lead rather
+than a hunt.
+
+Peak RSS on `init-full` (`VmHWM` from `/proc`, verified mode): 811 →
+**839 MB (+3.5 %)** — the honest cost of E1's rebuild, seven
+short-lived allocations at every memo-missing body call.  Retention is
+unchanged; this is allocator high-water, not live data.
+
+**E1's premise does not survive its own measurement.**  The `Thunk` was
+introduced so the previous fuel level would be built once per record
+instead of once per cache-missing call; rebuilding it turns out to be
+*cheaper* than the thunk on `app-lam`, and to cost 0.37 % on
+`grind-ring-5` — against 16 % on the flagship stream.  The rebuild is
+seven allocations (one record, six closures) at a memo miss; the thunk
+was one allocation, one atomic exchange, and a graph mark.
+
+### 5. Proof bill: one line
+
+The walks' and the knot's **statements** did not move, and neither did
+their definitions in any sense a proof can see — `Thunk.get ⟨f⟩` is
+`f ()` by structure eta.  The single edit is in
+`Setlec/Verify/Cached/KnotC.lean`: `memoEI_inferIO_sim`'s slot identity
+now closes at `simp only [↓reduceIte]`, because the level
+beta-reduces where it used to need a trailing `rfl` to see through
+`Thunk.get ⟨·⟩`.  No `SimC`, `BridgeC*`, `DiscC*` or capstone edit.
+Capstone axioms exactly `[propext, Classical.choice, Quot.sound]`.
+
+### 6. What this leaves for the next round
+
+* **`Thunk` is now a banned shape in the executable path**, and the
+  reason generalises: any lazily-forced value that reaches a large,
+  linearly-updated structure turns that structure's in-place updates
+  into whole-array copies for the rest of the run.  Grep for `Thunk`
+  before adding one.
+* **The next lever is priced, and it is big.**  E1's rebuild is not
+  free: on `init-full` `mi_malloc_small` went 67.2 → 111.4 G and
+  `mi_free` 29.7 → 47.8 G in absolute instructions — about **+60 G,
+  ~9 % of the post-fix total**, i.e. roughly 630 M record builds
+  (seven allocations each) at memo-missing body calls.  Recovering that
+  *and* keeping the mark away means the tower must stop capturing `fe`:
+  give `CoreFnsI`'s fields an `FEnv` parameter, and the levels become
+  `fe`-independent — cacheable in a `Thunk` again (its value would then
+  reach only `cfg`), or built once per run.  That is a signature change
+  across `Setlec/Verify/Cached/*`; priced here, not taken.
+* Task #177's other open items stand: `Expr.bvarBoundGo`'s own memo and
+  the walks' `ExprC × Memo` result pair.
+
+### 7. Gates
+
+`lake build` 619 jobs, warning-free; `lake test` green; `tests/arena.sh`
+0 FAIL (arena tutorial 90/92, e2e 79/79, annot 14/14, retired flags 8/8,
+mode flags 16/16, trusted sweep 138+79+14 with its three recorded
+divergences); `tests/layering.sh` base 237 / P 156 / caps 2 / umbrella 1,
+0 base→lane, 0 impl→theory; `tests/proofdeps.sh` 1342 rows as pinned
+across 4 capstones, **0 doors** — no regeneration needed; `init-full`
+accepted, 60 549 declarations, in both modes.  PERF.md's table is now
+stale by 16 % on `init-full` and should be regenerated at the landing.
 ## TASK #175 SUM TYPES — THE DIRECT ROUTE AT ANY NUMBER OF CONSTRUCTORS OTHER THAN ONE (2026-09-06, `agent/sum-types`)
 
 ### 0. What landed
@@ -46980,6 +47892,27 @@ table, η, projections) is untouched: the dispatch is a three-way
 `match` (`directParts?`, then `directSumParts?`, then the modeled
 path) in `Setlec/Kernel/Checker.lean`, `Setlec/Cached/CheckerC.lean`,
 `Setlec/Cached/ParsedC.lean`, and every verification twin of it.
+
+**Size, and what the indexed-families task inherits.**  Of the 7 900
+lines, about **2 000 are the per-constructor LIST MACHINERY**, reusable
+as is by any multi-constructor route: the position-indexed data
+function `dsF` with `ctorDataList`/`CtorFactsAt`/`ctorReads_of`
+(`SumRecDataP`), the minors' telescope read by one list induction
+(`CtorReads`, `denoteP_minorsPis`/`denoteP_minorsLams`, `minorAVAt`,
+`sumMinorsData`; `SumRecReadP`), the minor chain's walk and frame
+(`sumMinorsTail`, `RecTailS`/`TailFrame`, `recTailS_spine`,
+`sumRecSpine_facts`; `SumRecFramesP`/`SumRecLawP`), and the
+constructors' cons loop with its two invariants (`ConsedAt`/
+`PendingAt`, `sumCtorsLoop`; `DeclDirectSumP`) plus the kernel's
+list-shaped stages (`checkDirectSumCtors`/`consSumCtors`/
+`checkDirectSumRules` and their inversions).  The remaining ~5 900
+are SUM-SPECIFIC: the tagged union and its laws (`TaggedSum`), the
+syntactic `Nat.rec` case split at explicit depth and the three leaves
+(`SumCase`/`SumLeaf`/`SumMk`/`SumRecCase`/`SumRec`/`SumWire`, ~2 060
+lines — the biggest block), the elimination restriction, and the
+per-stage proofs that read those leaves.  An indexed route keeps the
+first part verbatim (the loop is agnostic to the carrier) and
+replaces the leaves and their laws by the fibre construction (§6).
 
 **The class.**  A non-recursive, non-indexed, non-nested inductive
 block with `n ≠ 1` constructors: enumerations (`Bool`, `Ordering`,

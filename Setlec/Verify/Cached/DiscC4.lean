@@ -2141,9 +2141,10 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           rename_i hcond
           rw [htargs]
           have hres : SimC mode env s₂' (RelEC d)
-              (internExprM (entry.typeAt us (Expr.getAppArgs te) pe))
+              (internExprM (entry.typeAtI us (Expr.getAppArgs te) pe))
               (pure (entry.typeAt us (Expr.getAppArgs te) pe) : FueledM Expr) :=
-            SimC.pure hs₂ ⟨rfl, projEntry_typeAt_WScoped henv hfp us
+            SimC.pure hs₂ ⟨ProjEntry.typeAtI_eq entry us _ pe,
+              projEntry_typeAt_WScoped henv hfp us
               hcond.2.1
               (fun a ha => hwte.getAppArgs a ha) hwpe⟩
           -- the Prop guard (task #175 W4c) runs no walk of its own
@@ -2508,9 +2509,10 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
           rename_i hcond
           rw [htargs]
           have hres : SimC mode env s₂' (RelEC d)
-              (internExprM (entry.typeAt us (Expr.getAppArgs te) pe))
+              (internExprM (entry.typeAtI us (Expr.getAppArgs te) pe))
               (pure (entry.typeAt us (Expr.getAppArgs te) pe) : FueledM Expr) :=
-            SimC.pure hs₂ ⟨rfl, projEntry_typeAt_WScoped henv hfp us
+            SimC.pure hs₂ ⟨ProjEntry.typeAtI_eq entry us _ pe,
+              projEntry_typeAt_WScoped henv hfp us
               hcond.2.1
               (fun a ha => hwte.getAppArgs a ha) hwpe⟩
           -- the Prop guard (task #175 W4c) runs no walk of its own

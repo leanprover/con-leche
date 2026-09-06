@@ -1,4 +1,4 @@
-import Setlec.Kernel.Basis
+import Setlec.Kernel.BasisA
 import Setlec.Verify.EnvWF
 
 /-!
