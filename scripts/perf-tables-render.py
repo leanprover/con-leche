@@ -83,6 +83,8 @@ A("| | |")
 A("|---|---|")
 A(f"| commit measured | `{meta.get('sha', '?')}`"
   + (" **(dirty working tree)**" if meta.get("dirty", "0") not in ("0", "") else "") + " |")
+if meta.get("note"):
+    A(f"| tree | {meta['note']} |")
 A(f"| date | {meta.get('date', '?')} |")
 A(f"| machine | {meta.get('host', '?')} — {meta.get('cpu', '?')}, "
   f"{meta.get('cores', '?')} cores, {meta.get('mem', '?')} RAM, Linux {meta.get('kernelver', '?')} |")

@@ -196,6 +196,9 @@ else
     echo "kernelver	$(uname -r)"
     echo "official	$(readlink -f "$OFFICIAL")"
     echo "preproc	$(readlink -f "$PREPROC")"
+    # optional one-line provenance note for the header (e.g. which
+    # master commit the measured tree is a merge of)
+    [ -n "${PERF_NOTE:-}" ] && echo "note	$PERF_NOTE"
     # the live matrix: exactly the columns the renderer may print
     echo "configs	$CONFIGS"
     echo "reps	$REPS"
