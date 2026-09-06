@@ -78,7 +78,8 @@ IMPL_ROOTS  = ('Main',)
 THEORY_PFX  = ('Setlec.Verify.', 'Setlec.SetTheory.',
                'Setlec.SetP.', 'Setlec.SetModel.', 'Setlec.Semantics.',
                'Setlec.TT.')
-CAPS        = {'Setlec.Verify.Cached.MainC', 'Setlec.Verify.Cached'}
+CAPS        = {'Setlec.Verify.Cached.MainC', 'Setlec.Verify.Cached',
+               'Setlec.MainTheorem'}
 UMBRELLAS   = {'Setlec'}                  # `Setlec.SetP` is gated as P
 
 def lane(m):

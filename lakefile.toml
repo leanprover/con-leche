@@ -124,7 +124,7 @@ roots = ["Setlec.SetP"]
 # was the two-lane assembly until the SetR removal left one lane.
 [[lean_lib]]
 name = "SetlecCaps"
-roots = ["Setlec.Verify.Cached"]
+roots = ["Setlec.Verify.Cached", "Setlec.MainTheorem"]
 
 [[lean_lib]]
 name = "SetlecTests"
