@@ -94,6 +94,16 @@ without disturbing a landed statement. -/
 /-- The transitional ι-cone field at `cfgOf mode` **is** the mode. -/
 @[simp] theorem cfgOf_iotaMode : (cfgOf mode).iotaMode = mode := rfl
 
+/-- The certificate families are ON at every `cfgOf mode` (the twin's
+retirement, 2026-09-06): the spec has no switch for them, so the
+template's field is a literal `true` on every proved instance and
+its reads (`certAtI`, `certUnlessI`, `ioSkip`, the `betaSkip`
+disjunct) are definitionally invisible to the simulation tower. -/
+@[simp] theorem cfgOf_certs : (cfgOf mode).certs = true := rfl
+
+/-- The io licence at `cfgOf mode` reads the datum alone. -/
+@[simp] theorem cfgOf_ioSkip : (cfgOf mode).ioSkip pw = pw.isNever := rfl
+
 /-- **The P core's β branch reads the datum, not a flag**: at `cfgP`
 the skip predicate is the redex's own validated annotation. -/
 theorem cfgP_betaSkip_eq_verified (pw : PropWhen) :

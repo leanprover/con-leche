@@ -1,4 +1,4 @@
-import Setlec.Cached.ParsedT
+import Setlec.Cached.ParsedC
 import Setlec.Frontend.ExportC
 
 /-!
@@ -105,15 +105,18 @@ the three-mode setting (task #147), validated once by the caller and
 consumed here as configuration; `pre` asserts the input is already
 preprocessed (`--pre`), skipping preprocessor detection and spawn.
 
-**Two cores, one parse.**  The interned representation and every
-driver over it retired with the arena (task #172), and the R core
-retired with the collapsed model (2026-09-05), so the stream is parsed
-directly to `ExprC` (`Frontend.parseExportStreamD`, task #171) and
-checked by the cached driver — the certified graded fold at
-`--verified` (the default), its trusted twin at `--trusted`.
-The certified one is covered by `no_proof_of_Empty_SPCD_P` over
-`checkDeclsSPCachedD` (`Setlec/Verify/Cached/MainC.lean`); the trusted
-one is unverified by design. -/
+**One core at two configs, one parse.**  The interned representation
+and every driver over it retired with the arena (task #172), the R
+core retired with the collapsed model (2026-09-05), and the
+hand-written trusted twin retired into an instantiation
+(2026-09-06), so the stream is parsed directly to `ExprC`
+(`Frontend.parseExportStreamD`, task #171) and checked by the one
+cached driver — at `cfgP` under `--verified` (the default), at `cfgT`
+under `--trusted`.  The verified instance is covered by
+`no_proof_of_Empty_SPCD_P` over `checkDeclsSPCachedD`
+(`Setlec/Verify/Cached/MainC.lean`); the trusted one is unverified by
+design and agrees with it on the install skeletons whenever both
+accept (`trusted_agrees_P_skels_shipped`). -/
 def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be
@@ -163,11 +166,12 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
           if taintSkipped.isEmpty then return code
           IO.eprintln s!"setlec: declined: {Frontend.taintSummary taintSkipped}"
           return (if code = 0 then 2 else code)
-        let foldD : List Setlec.Cached.DeclC → Setlec.CheckM Setlec.Env :=
-          if mode == Setlec.CheckMode.trusted then
-            Setlec.Cached.checkDeclsSPCachedDT
-          else Setlec.Cached.checkDeclsSPCachedD mode
-        match foldD decls.toList with
+        -- ONE driver, two configs (2026-09-06): the trusted mode is
+        -- the shared bodies at `cfgT`, the verified mode the same
+        -- bodies at `cfgP` (`cfgOf .verified`, `rfl`).
+        let cfg : Setlec.CoreCfg :=
+          if mode == Setlec.CheckMode.trusted then Setlec.cfgT else Setlec.cfgP
+        match Setlec.Cached.checkDeclsSPCachedD cfg decls.toList with
         | .ok env =>
           IO.println s!"setlec: accepted {env.consts.length} declarations"
           return ← finish 0
@@ -177,9 +181,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
           -- message.  No re-parse is needed — the records carry no
           -- arena, so the fold never shared a store with them.
           let stepD := fun fe d s =>
-            if mode == Setlec.CheckMode.trusted then
-              (Setlec.Cached.checkDeclSPStepCT fe d).run s
-            else (Setlec.Cached.checkDeclSPStepC mode fe d).run s
+            (Setlec.Cached.checkDeclSPStepC cfg fe d).run s
           let ctx := diagLoopC stepD decls 0
             (Setlec.mkFEnv Setlec.Env.empty) {}
           IO.eprintln s!"setlec: {e}{ctx}"
@@ -203,12 +205,18 @@ def usage : String := String.intercalate "\n" [
   "                    certificate family runs.  Covered by",
   "                    no_proof_of_Empty_SPCD_P over the driver this",
   "                    binary runs (Setlec/Verify/Cached/MainC.lean)",
-  "  --trusted         the unverified mode: the same checker with the",
-  "                    work that exists for CERTIFICATION ONLY dropped",
-  "                    — full checking-mode front door per declaration,",
-  "                    infer-only internal re-derivations, and no",
-  "                    certificate families at all.  Everything",
-  "                    believed necessary for SOUNDNESS stays (which is",
+  "  --trusted         the unverified mode: the SAME checker bodies as",
+  "                    --verified, instantiated at the config with the",
+  "                    certification-only work switched off (cfgT =",
+  "                    cfgP with verified := false, certs := false):",
+  "                    the annotation validations and the lambda-",
+  "                    codomain sort check, and the certificate",
+  "                    families the reference kernel does not run (the",
+  "                    beta/io argument certificates, the iota/eta/unit/K",
+  "                    telescope certificates, the projection",
+  "                    certificate) are omitted; every check official",
+  "                    performs stays.  Everything believed necessary",
+  "                    for SOUNDNESS stays (which is",
   "                    not the same as necessary for the soundness",
   "                    proof to go through), and the mode is never",
   "                    optimized on its own: it is the real mode with",
@@ -219,10 +227,11 @@ def usage : String := String.intercalate "\n" [
   "                    lean-inductive-models: skip the preprocessor",
   "                    detection scan and spawn entirely",
   "",
-  "There are TWO cores and one parse: the verified core (--verified,",
-  "the default) and the unverified trusted core (--trusted).  The",
-  "stream is read directly to the cached representation and checked by",
-  "the driver the capstone letter is about (no_proof_of_Empty_SPCD_P in",
+  "There is ONE core at two configs and one parse: the verified config",
+  "(--verified, the default) and the unverified trusted config",
+  "(--trusted).  The stream is read directly to the cached",
+  "representation and checked by the one driver, which the capstone",
+  "letter is about at the verified config (no_proof_of_Empty_SPCD_P in",
   "Setlec/Verify/Cached/MainC.lean).  Retired: --set-model/",
   "--set-model=p (now --verified) and --no-model (now --trusted),",
   "2026-09-06; the --core selector, the interned arena and the",

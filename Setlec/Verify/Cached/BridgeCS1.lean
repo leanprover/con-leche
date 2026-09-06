@@ -7,7 +7,7 @@ functions
 
 Port of `Setlec/Verify/BridgeS1.lean` for the cached tier.  Each lemma
 relates a generic declaration-checker function instantiated at the
-cached shared operations (`sharedOpsC mode (mkFEnv env)`, state shared
+cached shared operations (`sharedOpsC (cfgOf mode) (mkFEnv env)`, state shared
 across all operation calls) to the same function at the fueled families
 (`(fueledOpsM mode)`), as a `SimC` — the invariant `CSOK mode env` is
 threaded through every call, so cache entries created by one call are
@@ -38,7 +38,7 @@ fueled instantiation; the returned constant's type is well-scoped. -/
 theorem checkConstantValS_sim (henv : EnvWF env) {cv : ConstantVal}
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v = w ∧ Expr.WScoped 0 v.type)
-      (checkConstantVal (sharedOpsC mode (mkFEnv env)) env cv)
+      (checkConstantVal (sharedOpsC (cfgOf mode) (mkFEnv env)) env cv)
       (checkConstantVal (fueledOpsM mode) env cv) := by
   unfold checkConstantVal
   dsimp only [sharedOpsC]
@@ -96,7 +96,7 @@ theorem checkDefnValS_sim (henv : EnvWF env) {cv : ConstantVal}
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v = w ∧ ∀ cv' v' h',
         v.find? cv.name = some (.defnInfo cv' v' h') → v'.hasFvar = false)
-      (checkDefnVal (sharedOpsC mode (mkFEnv env)) env cv value hint)
+      (checkDefnVal (sharedOpsC (cfgOf mode) (mkFEnv env)) env cv value hint)
       (checkDefnVal (fueledOpsM mode) env cv value hint) := by
   unfold checkDefnVal
   dsimp only [sharedOpsC]
@@ -140,7 +140,7 @@ theorem checkDefnValS_sim (henv : EnvWF env) {cv : ConstantVal}
 theorem checkThmValS_sim (henv : EnvWF env) {cv : ConstantVal}
     {value : Expr} (htf : Expr.WScoped 0 cv.type) (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkThmVal (sharedOpsC mode (mkFEnv env)) env cv value)
+      (checkThmVal (sharedOpsC (cfgOf mode) (mkFEnv env)) env cv value)
       (checkThmVal (fueledOpsM mode) env cv value) := by
   unfold checkThmVal
   dsimp only [sharedOpsC]
@@ -195,7 +195,7 @@ gate's re-annotation). -/
 theorem checkOpaqueValS_sim (henv : EnvWF env) {cv : ConstantVal}
     {value : Expr} (htf : Expr.WScoped 0 cv.type) (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v = w ∧ value.hasFvar = false)
-      (checkOpaqueVal (sharedOpsC mode (mkFEnv env)) env cv value)
+      (checkOpaqueVal (sharedOpsC (cfgOf mode) (mkFEnv env)) env cv value)
       (checkOpaqueVal (fueledOpsM mode) env cv value) := by
   unfold checkOpaqueVal
   dsimp only [sharedOpsC]
@@ -234,7 +234,7 @@ theorem checkReducePinS_sim (henv : EnvWF env) {env2 : Env} {c : Name}
     {value : Expr} (hvf : value.hasFvar = false)
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkReducePin (sharedOpsC mode (mkFEnv env)) env env2 c value)
+      (checkReducePin (sharedOpsC (cfgOf mode) (mkFEnv env)) env env2 c value)
       (checkReducePin (fueledOpsM mode) env env2 c value) := by
   unfold checkReducePin
   dsimp only [sharedOpsC]
@@ -292,7 +292,7 @@ theorem certifyNatEqsS_sim (henv : EnvWF env) :
       (∀ eq ∈ eqs, (eq.1.wscopedB 2 = true) ∧ (eq.2.wscopedB 2 = true)) →
       ∀ {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
-        (certifyNatEqs (sharedOpsC mode (mkFEnv env)) env eqs)
+        (certifyNatEqs (sharedOpsC (cfgOf mode) (mkFEnv env)) env eqs)
         (certifyNatEqs (fueledOpsM mode) env eqs)
   | [], _, s₀, hs => SimC.pure hs rfl
   | eq :: rest, hsc, s₀, hs => by
@@ -320,7 +320,7 @@ theorem checkDivModCertsS_sim (henv : EnvWF env) {c : Name}
         st.2.wscopedB 4 = true) →
       ∀ {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
-        (checkDivModCerts (sharedOpsC mode (mkFEnv env)) env c annVal
+        (checkDivModCerts (sharedOpsC (cfgOf mode) (mkFEnv env)) env c annVal
           stmts proofs)
         (checkDivModCerts (fueledOpsM mode) env c annVal stmts proofs)
   | [], [], _, s₀, hs => SimC.pure hs rfl
@@ -376,7 +376,7 @@ theorem checkDivModPinS_sim (henv : EnvWF env) {env2 : Env} {c : Name}
       v'.hasFvar = false)
     (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkDivModPin (sharedOpsC mode (mkFEnv env)) env env2 c)
+      (checkDivModPin (sharedOpsC (cfgOf mode) (mkFEnv env)) env env2 c)
       (checkDivModPin (fueledOpsM mode) env env2 c) := by
   unfold checkDivModPin
   dsimp only [sharedOpsC]
@@ -466,7 +466,7 @@ operation calls sharing one state. -/
 theorem checkDeclS_nonind_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
     {d : Declaration} (hnotind : ∀ block, d ≠ .indDecl block) :
     SimC mode env s₀ RelVC
-      (checkDecl mode (sharedOpsC mode (mkFEnv env)) env d)
+      (checkDecl mode (sharedOpsC (cfgOf mode) (mkFEnv env)) env d)
       (checkDecl mode (fueledOpsM mode) env d) := by
   cases d with
   | indDecl block => exact absurd rfl (hnotind block)

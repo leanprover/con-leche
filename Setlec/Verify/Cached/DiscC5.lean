@@ -51,10 +51,10 @@ private theorem defeqC_etaR_arm (ih : SSimC mode env f) (henv : EnvWF env)
     (hwa' : Expr.WScoped d a'x)
     (hwb' : Expr.WScoped d (Expr.lam nm₂x ty₂x body₂x bm₂)) :
     SimC mode env s₀ RelVC
-      (etaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
+      (etaCertI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d
           nm₂x t₂ b₂ bm₂ a' >>= fun r =>
         if r then pure true
-        else stuckIrrelI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a' b')
+        else stuckIrrelI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d a' b')
       (etaCert mode (fueledFns mode env) env d nm₂x ty₂x body₂x bm₂
           a'x >>= fun r =>
         if r then pure true
@@ -84,10 +84,10 @@ private theorem defeqC_etaL_arm (ih : SSimC mode env f) (henv : EnvWF env)
     (hwa' : Expr.WScoped d (Expr.lam nm₁x ty₁x body₁x bm₁))
     (hwb' : Expr.WScoped d b'x) :
     SimC mode env s₀ RelVC
-      (etaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
+      (etaCertI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d
           nm₁x t₁ b₁ bm₁ b' >>= fun r =>
         if r then pure true
-        else stuckIrrelI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a' b')
+        else stuckIrrelI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d a' b')
       (etaCert mode (fueledFns mode env) env d nm₁x ty₁x body₁x bm₁
           b'x >>= fun r =>
         if r then pure true
@@ -170,7 +170,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (defeqStepI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI pi i j)
+      (defeqStepI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d kI pi i j)
       (defeqStep mode (fueledFns mode env) env d kM pi a b) := by
   unfold defeqStepI
   unfold defeqStep
@@ -880,7 +880,7 @@ theorem defeqLoopC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
       RelC i a → RelC j b →
       Expr.WScoped d a → Expr.WScoped d b →
       SimC mode env s₀ RelVC
-        (defeqLoopI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n pi i j)
+        (defeqLoopI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d n pi i j)
         (defeqLoop mode (fueledFns mode env) env d n pi a b)
   | 0, _, _, _, _, _, _, _, _, _, _, _ => SimC.throw
   | n + 1, pi, _, _, _, _, _, hs, hda, hdb, hwa, hwb => by
@@ -895,7 +895,7 @@ theorem defeqBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (defeqBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+      (defeqBodyI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i j)
       (defeqBody mode (fueledFns mode env) env d a b) :=
   defeqLoopC_sim ih henv defeqLoopFuel true hs hdena hdenb hwa hwb
 
