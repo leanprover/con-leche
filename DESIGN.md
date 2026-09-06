@@ -49956,6 +49956,32 @@ touched) accepts under `--pre --verified` (1 258 declarations, exit
 0), which only the direct route can do.  `tests/arena.sh` re-run at
 the tip after the pin: exit 0.
 
+**Re-gated at the master merge** (master `124c083f`: #180 tmpdir, #181
+`False` pin + zero-constructor fixtures, hygiene, heartbeat/ioshape,
+comparator; five textual conflicts, all kept both sides — the sum
+route's recursor-type mismatch stays master's `.invalid` with `nIdx`
+threaded): build warning-free (652 jobs), `lake test` green (the
+11-theorem axiom pin included), layering `base 255 / P 167 / caps 3`,
+trust surface 18 escapes in 4 allowlisted files / 0 outside,
+`tests/proofdeps.sh` regenerated ONCE at the merge — the door list is
+exactly `Setlec.Semantics.Tower.IdxEq` in all seven roots (`main_False`,
+`False_SPCD_P`, `False_P`, `SPCD_P`, `sound_P`, `foldSPC_PM`, `P`;
+2 527 rows, 0 doors after), arena 90/92 · e2e 96/96 · annot 14/14 ·
+retired 8/8 · mode 16/16 · progress lane 6/6, trusted sweep as
+recorded.  ONE e2e verdict moved, decline → accept:
+`pre_decline_imax_field` (#180's vendored `prim_shape_declines`
+fixture): `PadImaxIdx`, an indexed one-constructor family the
+preprocessor could not model, is in this route's class, goes native
+and installs — the widening's intended direction; the expectation is
+updated with the reason.  init-full at the merge, **the new PERF
+baseline**: stock stream `--verified` 60 549 / `--trusted` 60 549;
+regenerated stream (548 native blocks, 13 indexed) `--verified` 55 835
+/ `--trusted` 55 835 — all exit 0.  NB the Mathlib acceptance run in
+flight uses a stream that PREDATES this predicate: there `HEq` and
+every other indexed family are still modeled, and `Eq` is non-native
+in EVERY stream by name reservation alone (`reservedBasisNames`), not
+because the class excludes it.
+
 ### 7. Which files changed — the installer boundary
 
 Of the 40 files, 30 are inside the direct-install directories

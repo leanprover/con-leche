@@ -573,4 +573,10 @@
 # the non-indexed half, is `native` — the direct simple-structure route
 # takes it — so this fixture also pins that the native predicate does
 # not swallow the indexed one.)
-2 pre_decline_imax_field.ndjson
+#   Task #175 indexed (2026-09-06): `PadImaxIdx` IS in the direct
+#   indexed class now (a non-recursive one-constructor family with one
+#   index), `setlecNativeSum` leaves it native, the tool exits 0 and the
+#   checker installs it directly — a decline-for-missing-model turned
+#   accept, the widening's intended direction; the fixture now pins
+#   that the indexed owner goes native and installs.
+0 pre_decline_imax_field.ndjson
