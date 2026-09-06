@@ -780,13 +780,6 @@ theorem installProjFnStep_fst_dproj (T ctorName : Name)
   · exact checkProjFn_fst_dproj e T ctorName lps nP nF i
   · rfl
 
-theorem installProjTemplate_fst_dproj (e : Env) (T ctorName : Name)
-    (lps : List Name) (nP nF : Nat) :
-    (installProjTemplate e T ctorName lps nP nF : PairM rel _).val.1 =
-      (installProjTemplate e T ctorName lps nP nF : M₁ _) := by
-  unfold installProjTemplate
-  dfst_tac
-
 theorem installBasisDecl_fst_dproj (env : Env) (ci : ConstantInfo) :
     (installBasisDecl env ci : PairM rel _).val.1 =
       (installBasisDecl env ci : M₁ _) := by
@@ -801,13 +794,6 @@ theorem installProjFnStep_snd_dproj (T ctorName : Name)
   split
   · exact checkProjFn_snd_dproj e T ctorName lps nP nF i
   · rfl
-
-theorem installProjTemplate_snd_dproj (e : Env) (T ctorName : Name)
-    (lps : List Name) (nP nF : Nat) :
-    (installProjTemplate e T ctorName lps nP nF : PairM rel _).val.2 =
-      (installProjTemplate e T ctorName lps nP nF : M₂ _) := by
-  unfold installProjTemplate
-  dsnd_tac
 
 theorem installBasisDecl_snd_dproj (env : Env) (ci : ConstantInfo) :
     (installBasisDecl env ci : PairM rel _).val.2 =
@@ -1010,7 +996,6 @@ macro "dfst_step4_alt" : tactic =>
     | (rw [checkProjFn_fst_dproj])
     | (rw [checkDirectStruct_fst_dproj])
     | (rw [checkIndDecl_fst_dproj])
-    | (rw [installProjTemplate_fst_dproj])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
@@ -1040,7 +1025,6 @@ macro "dsnd_step4_alt" : tactic =>
     | (rw [checkProjFn_snd_dproj])
     | (rw [checkDirectStruct_snd_dproj])
     | (rw [checkIndDecl_snd_dproj])
-    | (rw [installProjTemplate_snd_dproj])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
@@ -1766,13 +1750,6 @@ theorem installProjFnStep_datF (T ctorName : Name)
   · exact checkProjFn_datF e T ctorName lps nP nF i F
   · rfl
 
-theorem installProjTemplate_datF (e : Env) (T ctorName : Name)
-    (lps : List Name) (nP nF : Nat) (F : Nat) :
-    (installProjTemplate e T ctorName lps nP nF : FueledM _).val F =
-      (installProjTemplate e T ctorName lps nP nF : CheckM _) := by
-  unfold installProjTemplate
-  datF_tac
-
 theorem installBasisDecl_datF (env : Env) (ci : ConstantInfo) (F : Nat) :
     (installBasisDecl env ci : FueledM _).val F =
       (installBasisDecl env ci : CheckM _) := by
@@ -1889,7 +1866,6 @@ macro "datF_step4_alt" : tactic =>
     | (rw [checkProjFn_datF])
     | (rw [checkDirectStruct_datF])
     | (rw [checkIndDecl_datF])
-    | (rw [installProjTemplate_datF])
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl

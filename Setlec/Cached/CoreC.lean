@@ -408,7 +408,7 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 let tyT ← constTyAtM fe T Tn us'
                 if ← iotaCertsI r fe depth false tyT targs then do
                   -- the per-slot certificates are the projection-function
-                  -- kind's; a tower-backed family has none (task #175 S1)
+                  -- kind's; a tabled family has none (task #175 S1)
                   if ← (if fe.towerSlotsAllF Tn cnF then pure true
                       else structEtaProjCertsI r fe depth T Tn us'
                         targs b cvT.levelParams (List.range cnF)) then do
@@ -861,7 +861,7 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         match ← withStore (fun st => st.getNode (st.getAppFnI e')) with
         | some (.const c us) => do
           let args ← withStore (·.getAppArgsI e')
-          if entry.tower ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
+          if (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then do
@@ -1228,7 +1228,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         match fe.findProj? Tn i with
         | some entry => do
           let targs ← withStore (·.getAppArgsI te)
-          if entry.tower ∧ T = sn ∧ targs.length = entry.numParams ∧
+          if T = sn ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             -- the official `infer_proj` restriction (task #175
             -- W4c/O4), as in the spec body
@@ -1730,15 +1730,11 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
       | some (.const T _) => do
         let Tn ← readbackNM T
         match fe.findProj? Tn i with
-        | some entry =>
-          if entry.tower then do
-            let targs ← withStore (·.getAppArgsI te)
-            unless targs.length = entry.numParams do
-              throw (.invalid "projection parameter mismatch")
-            internI (.proj T i e')
-          else
-            throw (.invalid
-              "projection from a propositional structure must be a proposition")
+        | some entry => do
+          let targs ← withStore (·.getAppArgsI te)
+          unless targs.length = entry.numParams do
+            throw (.invalid "projection parameter mismatch")
+          internI (.proj T i e')
         | none =>
           throw (if (fe.findProj? Tn 0).isSome then
               CheckError.invalid "projection index out of range"

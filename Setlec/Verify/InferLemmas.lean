@@ -709,7 +709,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       projLitToCtorP mode env fuel d e₂ = .ok e₃ ∧
       (e' = .proj sn i e₃ ∨
         ∃ us entry, e₃.getAppFn = .const entry.ctor us ∧
-          env.findProj? sn i = some entry ∧ entry.tower = true ∧
+          env.findProj? sn i = some entry ∧
           i < entry.numFields ∧
           e₃.getAppArgs.length = entry.numParams + entry.numFields ∧
           us.length = entry.levelParams.length ∧
@@ -744,7 +744,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
     dsimp only at h
     split at h
     next hcond =>
-      obtain ⟨hnat, rfl, hi, hlen, hus, hfire⟩ := hcond
+      obtain ⟨rfl, hi, hlen, hus, hfire⟩ := hcond
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
       cases hcert : projCertAtP mode env fuel d mode.verifiedChecks mode.betaGate entry.ctor us
@@ -756,7 +756,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       | true =>
         simp only [if_true] at h
         try dsimp only at h
-        exact Or.inr ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, hfire, h, hcert⟩
+        exact Or.inr ⟨us, entry, rfl, rfl, hi, hlen, hus, hfire, h, hcert⟩
       | false =>
         simp only [Bool.false_eq_true, if_false] at h
         exact Or.inl (Except.ok.inj h).symm
@@ -1837,13 +1837,13 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
 /-- `towerSlotsAll`, slot by slot. -/
 theorem towerSlotsAll_slot {env : Env} {T : Name} {nF : Nat}
     (h : towerSlotsAll env T nF = true) :
-    ∀ j, j < nF → ∃ e : ProjEntry, env.findProj? T j = some e ∧ e.tower = true := by
+    ∀ j, j < nF → ∃ e : ProjEntry, env.findProj? T j = some e := by
   intro j hj
   have := List.all_eq_true.mp h j (List.mem_range.mpr hj)
   revert this
   cases env.findProj? T j with
   | none => intro h; exact nomatch h
-  | some e => intro h; exact ⟨e, rfl, h⟩
+  | some e => intro _; exact ⟨e, rfl⟩
 
 /-- `recSlotsAll`, slot by slot. -/
 theorem recSlotsAll_slot {env : Env} {T : Name} {nF : Nat}
@@ -2301,7 +2301,7 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       inferTypeCore mode env fuel d e = .ok tpe ∧
       whnf mode env fuel d tpe = .ok te ∧
       te.getAppFn = .const T us ∧
-      env.findProj? T i = some entry ∧ entry.tower = true ∧
+      env.findProj? T i = some entry ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
       -- the official `infer_proj` restriction (task #175 W4c/O4): at a
@@ -2351,7 +2351,7 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
   split at h
   case isFalse => exact nomatch h
   case isTrue hcond =>
-    obtain ⟨hnat, hsn, hlen, hus⟩ := hcond
+    obtain ⟨hsn, hlen, hus⟩ := hcond
     -- the Prop guard (task #175 W4c/O4), then the residual walk's
     -- result
     have hg : (Level.isEquiv entry.structSort .zero == some true) = true →
@@ -2373,7 +2373,7 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       · rw [if_neg hp] at h
         exact h
     simp only [pure, Except.pure, Except.ok.injEq] at h'
-    exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+    exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hlen, hus,
       hg, h'.symm, hsn⟩
 
 /-! ## The tower-entry helpers (task #175 wiring W2c)
@@ -3124,7 +3124,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           · exact hwe₂
           · exact ihLoop hred (strLitToConstructor_WScoped s d)
         rcases hcase with rfl |
-          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, -, hred, -⟩
+          ⟨us, entry, hfn, hf, hi, hlen, hus, -, hred, -⟩
         · simpa [WScoped] using hwe₃
         · exact ihCore hred (hwe₃.getAppArgs _ (getD_mem (by omega)))
     · -- whnf loop: the reduction chain is iteration on the loop's own

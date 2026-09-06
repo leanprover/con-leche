@@ -670,31 +670,6 @@ def checkUnitThm (env' : Env) (T : Name) (lps : List Name)
      | _, _ => false)
   | _, _, _ => false
 
-/-- Install the Prop-fallback elimination-template table of a
-single-constructor block some of whose `_model.proj_i` artifacts are
-absent (Prop structures whose projections only exist at certain level
-instantiations): the parent's elimination *shape* — a structure
-recursor with one rule for the block's constructor, no indices, and a
-prefix of params + one motive + one minor — is checked here, once, and
-recorded as an inert (`tower = false`) projection table, one per
-structure (task #175 S1; until then one entry per artifact-less
-field).  Task #175 wiring W5: the recursor-inlining fallback that
-consumed it (`annotateProjRec`) is gone — every supported `.proj`
-node is typed by a tower table of the direct install — so the table
-is inert (it holds the family; a `.proj` use on it is invalid at its
-own site).  When the shape does not support the elimination, or every
-field has a projection function, no table is installed. -/
-def installProjTemplate (env : Env) (T ctorName : Name) (lps : List Name)
-    (nP nF : Nat) : m Env := do
-  match env.find? (T.str "rec") with
-  | some (.recInfo _cvR mI rP [rule]) =>
-    if (env.find? (projTableName T)).isNone ∧
-        mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧
-        !(List.range nF).all (fun i => (env.find? (projFnName T i)).isSome) then
-      pure ⟨.projInfo ⟨T, lps, nP, ctorName, nF, .zero, Array.replicate nF (.sort .zero), [], false⟩ :: env.consts⟩
-    else pure env
-  | _ => pure env
-
 /-- **Official's structure-likeness, read off the block's own
 constructor** (`is_non_rec_structure`, `src/kernel/inductive.cpp`: one
 constructor and *no indices*; the recursion half is decided by the
@@ -726,10 +701,11 @@ def ctorTargetsFam (ctorTy : Expr) (T : Name) (lps : List Name)
   | none => false
 
 /-- One projection-function install step (skipped where the model's
-projection artifact is absent; a family with such fields gets the
-elimination-template table afterwards, `installProjTemplate`, so the
-artifact phase never sees a template table).  The whole fold is
-skipped for a block that is not structure-like (`ctorTargetsFam`). -/
+projection artifact is absent — a family with such fields simply gets
+no table, and a `.proj` on it declines at its own site; task #175
+tower-flag retired the inert elimination-template table that used to
+record the family).  The whole fold is skipped for a block that is not
+structure-like (`ctorTargetsFam`). -/
 def installProjFnStep (ops : CheckerOps m) (T ctorName : Name)
     (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) : m Env :=
   if (e.find? (projModelName T i)).isSome then
@@ -828,13 +804,11 @@ def checkIndDecl (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : 
       throw (.invalid "projection name family taken")
     -- the projection functions: structure-like blocks only (task #175
     -- SigmaHom; an indexed family's model projections are ignored)
-    let env₄ ←
-      if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF then
-        (List.range nF).foldlM
-          (installProjFnStep mode ops cvT.name cvC.name cvT.levelParams nP nF)
-          env₃
-      else pure env₃
-    installProjTemplate env₄ cvT.name cvC.name cvT.levelParams nP nF
+    if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF then
+      (List.range nF).foldlM
+        (installProjFnStep mode ops cvT.name cvC.name cvT.levelParams nP nF)
+        env₃
+    else pure env₃
   | _, _ => do
     let env₂ ← nonrecs.foldlM (checkIndMember ops blockNames {}) env
     checkIndRecs mode ops blockNames env₂ recs

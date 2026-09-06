@@ -122,7 +122,7 @@ theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
       simp only [WScoped] at hwPi
       exact WScoped.instantiate1_gen hw.2 0 hwPi.2
     | proj sn i pe =>
-      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
+      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hlen,
         hus, -, rfl, -⟩ := inferTypeCoreIO_proj_inv h
       simp only [WScoped] at hw
       have hwte := inferTypeCoreIO_WScoped henv fuel hte hw
@@ -254,7 +254,7 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
         simp [fvarLeaves, hb]
       · exact Or.inr hb
     | proj sn i pe =>
-      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
+      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hlen,
         hus, -, rfl, -⟩ := inferTypeCoreIO_proj_inv h
       simp only [WScoped] at hw
       intro l hl
@@ -400,7 +400,7 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
       simp only [looseBVarsBounded, Bool.and_eq_true] at hbPi
       exact looseBVarsBounded_instantiate1_gen hb.2 hbPi.2
     | proj sn i pe =>
-      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
+      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hlen,
         hus, -, rfl, -⟩ := inferTypeCoreIO_proj_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded] at hb

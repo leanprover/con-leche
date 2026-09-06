@@ -189,15 +189,10 @@ theorem denoteP_shiftFrom
         · rfl
         · rfl
       | some entry =>
-        dsimp only
-        split
-        · show some (projAV i (AVExpr.liftN 1 ea (d - p)))
-            = Option.map (fun x => AVExpr.liftN 1 x (d - p))
-              (some (projAV i ea))
-          simp only [Option.map_some, projAV_liftN]
-        · split
-          · rfl
-          · rfl
+        show some (projAV i (AVExpr.liftN 1 ea (d - p)))
+          = Option.map (fun x => AVExpr.liftN 1 x (d - p))
+            (some (projAV i ea))
+        simp only [Option.map_some, projAV_liftN]
   | .lit (.natVal k), d, _, _ => by
     simp only [Setlec.Expr.shiftFrom, denoteP]
     split

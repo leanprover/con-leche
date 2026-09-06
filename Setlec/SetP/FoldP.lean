@@ -127,8 +127,8 @@ def IndStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
 
 /-- **`IndStepPB`, discharged — THE INDUCTIVE TIER IS CLOSED**
 (`declIndP`, `Interp2/DeclIndP.lean`): the member fold, the recursor
-group (provision/fire/swap), the projection functions and the
-elimination templates, all four at the reading. -/
+group (provision/fire/swap) and the projection functions, all three at
+the reading. -/
 theorem indStepPB_of (hμ : μ.verifiedChecks = true) : IndStepPB V μ := by
   intro _F _env mp _block _env₂ hE h
   exact declIndP hμ mp hE h

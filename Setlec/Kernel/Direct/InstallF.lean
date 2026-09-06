@@ -225,6 +225,6 @@ def checkDirectProjTableF (T C : Name) (lps : List Name) (nP nF : Nat)
     throw (.invalid "projection name family taken")
   unless (fe.find? (projTableName T)).isNone do
     throw (.invalid "projection table taken")
-  pure (fe.push (.projInfo ⟨T, lps, nP, C, nF, resSort, bodies, guards, true⟩))
+  pure (fe.push (.projInfo ⟨T, lps, nP, C, nF, resSort, bodies, guards⟩))
 
 end Mirrors

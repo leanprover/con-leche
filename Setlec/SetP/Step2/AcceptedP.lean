@@ -196,15 +196,14 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       obtain ⟨ba, hba⟩ := ih hbt hwo hbo hLo
       exact ⟨_, by rw [denoteP_lam, hta, hba]; rfl⟩
     | .proj sn i pe =>
-      obtain ⟨tpe, te, T, us, entry, htpe, -, -, hfe, hnat, -, -, -, -,
+      obtain ⟨tpe, te, T, us, entry, htpe, -, -, hfe, -, -, -, -,
         hsn⟩ := Setlec.inferTypeCore_proj_inv h
       subst hsn
       simp only [Expr.WScoped] at hws
       simp only [Expr.looseBVarsBounded] at hb
       obtain ⟨pa, hpa⟩ := ih htpe hws hb (fun l hl =>
         hL l (by simpa [Expr.fvarLeaves] using hl))
-      have htw : entry.tower = true := hnat
-      exact ⟨_, denoteP_proj_tower hfe htw hpa⟩
+      exact ⟨_, denoteP_proj_tower hfe hpa⟩
     | .letE n ty val body =>
       obtain ⟨tty, s, tv, htty, -, htv, -, hbody⟩ :=
         Setlec.inferTypeCore_letE_inv h

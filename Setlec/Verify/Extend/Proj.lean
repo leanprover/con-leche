@@ -4,13 +4,12 @@ import Setlec.Verify.Extend.Modeled
 # Proj — the `V`-free half of `Setlec.Model.Extend.Proj`
 
 The `checkProjFn` stage inversions (lookups, type, rule, iota theorem,
-shape, and the whole-function inversion) and the `checkProjFold` /
-`installProjTemplates` bookkeeping families.
+shape, and the whole-function inversion) and the `checkProjFold`
+bookkeeping family.
 
 Relocated from `Setlec/Model/Extend/Proj.lean` (task #123);
-`extend_proj_template`, `checkProjFn_sound`, `checkProjFold_sound` and
-`installProjTemplates_sound` stay there, being statements about a
-valuation, as does `ProjPhaseInv`, which is stated over a
+`checkProjFn_sound` and `checkProjFold_sound` stay there, being
+statements about a valuation, as does `ProjPhaseInv`, which is stated over a
 `ConstVal V`.  The `omit [SetTheory V] in` lines are dropped: there is
 no such section variable here.
 -/
@@ -672,50 +671,6 @@ theorem checkProjFold_mono {T ctorName : Name} {lps : List Name}
       simp only [pure, Except.pure, Except.bind] at h
       exact checkProjFold_mono rest env' env₁ h n hn
 
-/-- **The elimination-template install, inverted** (task #175 S1: one
-inert table per family): the environment is unchanged, or the inert
-table is consed at a fresh table name. -/
-theorem installProjTemplate_inv {T ctorName : Name} {lps : List Name}
-    {nP nF : Nat} {env' env₂ : Env}
-    (h : installProjTemplate (m := CheckM) env' T ctorName lps nP nF = .ok env₂) :
-    env₂ = env' ∨
-    (env'.find? (projTableName T) = none ∧
-      env₂ = ⟨.projInfo ⟨T, lps, nP, ctorName, nF, .zero, Array.replicate nF (.sort .zero), [], false⟩
-        :: env'.consts⟩) := by
-  unfold installProjTemplate at h
-  split at h
-  · split at h
-    · next hc =>
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact Or.inr ⟨Option.isNone_iff_eq_none.mp hc.1, h.symm⟩
-    · simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact Or.inl h.symm
-  · simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact Or.inl h.symm
-
-/-- The elimination-template phase adds only a projection table (and
-only extends the environment). -/
-theorem installProjTemplates_find_new {T ctorName : Name}
-    {lps : List Name} {nP nF : Nat} (env' env₁ : Env)
-    (h : installProjTemplate (m := CheckM) env' T ctorName lps nP nF = .ok env₁) :
-    (∀ (n : Name) (ci : ConstantInfo), env₁.find? n = some ci →
-      env'.find? n = some ci ∨ ∃ tbl, ci = .projInfo tbl) ∧
-    (∀ n, (env'.find? n).isSome = true → (env₁.find? n).isSome = true) := by
-  rcases installProjTemplate_inv h with h1 | ⟨-, h1⟩ <;> subst h1
-  · exact ⟨fun n ci hf => Or.inl hf, fun n hn => hn⟩
-  · refine ⟨?_, ?_⟩
-    · intro n ci hf
-      rw [Env.find?_cons] at hf
-      split at hf
-      · obtain rfl := Option.some.inj hf
-        exact Or.inr ⟨_, rfl⟩
-      · exact Or.inl hf
-    · intro n hn
-      rw [Env.find?_cons]
-      split
-      · rfl
-      · exact hn
-
 /-- The projection-artifact phase preserves stored lookups exactly
 (every install is fresh). -/
 theorem checkProjFold_find_preserved {T ctorName : Name}
@@ -755,18 +710,5 @@ theorem checkProjFold_find_preserved {T ctorName : Name}
     · rw [if_neg hm] at h
       simp only [pure, Except.pure, Except.bind] at h
       exact checkProjFold_find_preserved rest env' env₁ h n ci hf
-
-/-- The elimination-template phase preserves stored lookups exactly
-(the installed table is fresh). -/
-theorem installProjTemplates_find_preserved {T ctorName : Name}
-    {lps : List Name} {nP nF : Nat} (env' env₁ : Env)
-    (h : installProjTemplate (m := CheckM) env' T ctorName lps nP nF = .ok env₁) :
-    ∀ (n : Name) (ci : ConstantInfo), env'.find? n = some ci →
-    env₁.find? n = some ci := by
-  intro n ci hf
-  rcases installProjTemplate_inv h with h1 | ⟨hfree, h1⟩ <;> subst h1
-  · exact hf
-  · rw [Env.find?_cons_of_isSome hfree (by rw [hf]; rfl)]
-    exact hf
 
 end Setlec

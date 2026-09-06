@@ -401,7 +401,7 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
       inferTypeCoreIO mode env fuel d e = .ok tpe ∧
       whnf mode env fuel d tpe = .ok te ∧
       te.getAppFn = .const T us ∧
-      env.findProj? T i = some entry ∧ entry.tower = true ∧
+      env.findProj? T i = some entry ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
       -- the official `infer_proj` restriction (task #175 W4c/O4), as in
@@ -449,7 +449,7 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
   split at h
   case isFalse => exact nomatch h
   case isTrue hcond =>
-    obtain ⟨hnat, hsn, hlen, hus⟩ := hcond
+    obtain ⟨hsn, hlen, hus⟩ := hcond
     -- the Prop guard (task #175 W4c/O4), then the residual walk's
     -- result
     have hg : (Level.isEquiv entry.structSort .zero == some true) = true →
@@ -471,7 +471,7 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
       · rw [if_neg hp] at h
         exact h
     simp only [pure, Except.pure, Except.ok.injEq] at h'
-    exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+    exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hlen, hus,
       hg, h'.symm, hsn⟩
 
 /-- **The literal clauses are lane-independent**: neither recurses, so
@@ -650,7 +650,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       simp only [if_true, ↓reduceIte]
       exact inferTypeCoreIO_of_full htail
     | .proj sn i pe =>
-      obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat,
+      obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe,
         hlenArgs, hlenUs, hguard, rfl, hsn⟩ :=
         Setlec.inferTypeCore_proj_inv h
       rw [inferTypeCoreIO_succ]
@@ -665,7 +665,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       dsimp only
       rw [hfe]
       dsimp only
-      rw [if_pos ⟨hnat, hsn, hlenArgs, hlenUs⟩]
+      rw [if_pos ⟨hsn, hlenArgs, hlenUs⟩]
       by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
       · rw [if_pos hp, if_pos (hguard hp)]
       · rw [if_neg hp]
