@@ -45882,3 +45882,204 @@ init-full-pre2.ndjson`): **accept, 60 549 declarations, both modes**
   the extracted slice accepting).  Any other Type-valued indexed
   one-constructor family with artifacts downstream now installs the
   same way; a `.proj` on one would be the first such node in the corpus.
+
+## TASK #175 S2 — THE RECURSOR IS GENERATED AND COMPARED (2026-09-06, `agent/s2-rec`)
+
+### 0. What landed
+
+Two commits off master `0bf7fd57` (the nat-ops-official merge), gated at the
+branch's own tip (the coordinator's protocol: no master merge before the
+report):
+
+| commit | content |
+|---|---|
+| `13910564` | kernel: `directRecTy`/`directRecRhs` generate the recursor type and rule; `checkDirectRec` keeps `checkConstantVal` on the stream's recursor, infers the generated type and rule, compares the two types by **one closed `isDefEq`**, and stores the *generated* recursor; the index twin, both cached drivers, the run records, the pair/fueled/wf mirrors, the cached sims, the agreement-floor skeletons |
+| `8e7f403c` | proofs: the generated forms read syntactically (`Verify/Direct/DirectRec.lean`, `SetP/Direct/DirectRecReadP.lean`); `recFrames` is a computation; `recRuleLaw`'s λ-domain fit is `spineFit_of_sat2`; five recursor-frame modules deleted |
+
+Net against master: 31 files, **+2 672 / −3 841** (the SetP tier alone
+−2 685 / +1 517; the review's projection was −2 300 / +600 — the reading
+module is larger than the estimate because it spells both the type's and
+the rule's readings out, see §2).
+
+### 1. The design, and the one departure from the brief
+
+**The generated forms** (`Setlec/Kernel/Direct/Parts.lean`).  Over the
+annotated type former `tty = ∀ p⃗, Sort w` and the annotated constructor
+`cty = ∀ p⃗ f⃗, T p⃗`, with `ℓ := directElimLevel elim large` and the
+elimination datum `pw := Level.zeronessOf ℓ`:
+
+    recTy_fab := replacePisPw pw nP tty
+                   (∀ {motive : ∀ (t : T p⃗), Sort ℓ}
+                      (mk : minorTy) (t : T p⃗ [under 2]), motive t)
+    minorTy   := replacePisPw pw nF ((cty.stripPis nP).2.liftLooseBVars 1 0)
+                   (motive (C p⃗ f⃗) [motive at bvar nF, params under 1+nF])
+    rhs_fab   := pisToLamsPw pw nP tty
+                   (λ {motive} (mk : minorTy),
+                      pisToLamsPw pw nF ((cty.stripPis nP).2.liftLooseBVars 2 0)
+                        (minor f⃗ [minor at bvar nF]))
+
+`Expr.replacePisPw`/`Expr.pisToLamsPw` re-emit the first `k` binders of a
+telescope with their domains verbatim and their codomain datum reset to
+`pw`, over a new body; the field telescope is the constructor's strip past
+the parameters, *lifted* under the motive (and the minor, for the rule) —
+`liftLooseBVars`, no capture-avoiding substitution, since the substitutes
+are variables.  Every generated binder carries `pw`: each codomain is
+`motive t : Sort ℓ` through `imax`'s right-argument rule, so the datum is
+exactly what the verified-mode inference validates at `(forall-cod)` and
+`(lam-cod-*)`, and what the stream's annotated recursor carries at the same
+binders (the defeq sites compare data by `PropWhen.equiv`, and `equiv` is
+semantic — `equiv_iff_holds`).  The motive's own binder `(t : T p⃗)` has
+codomain `Sort ℓ : Sort (ℓ+1)`, hence `.never`.  The generators take a
+**list** of constructors (one minor premise and one rule per constructor,
+`directMinorsPis`/`directMinorsLams`, minor `j` sitting `j + 1` binders
+below the parameters) though the recogniser admits one; the proofs are at
+the singleton (`directRecTy_single`/`directRecRhs_single`).
+
+**The stage** (`checkDirectRec`, `Kernel/Direct/Install.lean`): the
+ordinary constant check on the stream's recursor (freshness, reservation,
+level parameters, annotate + infer — the input has to be annotated for the
+datum comparison), the generated type and rule with the four `EnvWF`
+scoping guards (internal on failure — they cannot fail on an accepted
+block), `inferType` + `ensureSort` on the generated type, **`isDefEq env
+0 cvRi.type recTy_fab`** (a mismatch declines: our generator differs from
+Lean's), `inferType` on the generated rule, and the cons of
+`⟨p.cvR.name, p.cvR.levelParams, recTy_fab⟩` with the single rule
+`rhs_fab`.  Gone: `directShape`'s re-check on the annotated constants, the
+`nP + nF` `checkDirectDomsAt` pins at the opened frames, the motive's and
+major's `isDefEq` at depth `nP`/`nP + 2`, the rule's annotate run and its
+`checkDefEqList` over `nP + 2 + nF` λ-domains.  `checkDirectDomsAt` itself
+stays (the constructor stage's parameter pins against the type former's).
+
+**The departure: what is stored is the generated recursor, not the
+stream's.**  The brief kept the stream's type stored and transferred its
+membership through `DefEqClaims2P` at `Δa = []`.  The membership half of
+that works (the closed `isDefEq` gives the two readings' interpretations
+equal, and the generated form's leaf inhabits its own reading).  The rule
+law does not: `RecRuleLawP` hands the fired rule a spine that fits the
+*stored* type's reading, and the fold of the leaf λ-tower along that spine
+(`mkLamsAV_fold_graded`) needs the spine to fit the leaf's **own** domains
+— entrywise identification of the stored reading's binder data with the
+generated one's, which the whole-type defeq does not give (at a
+propositional motive both readings are truth values and carry no domain at
+all; at a data motive it would need a graph-domain extraction argument).
+Entrywise identification is exactly what the deleted frame modules got
+from the per-binder pins.  Storing the generated form dissolves the
+question: the stored reading *is* the generated one, the comparison
+carries no proof obligation, and this is what the reference kernels do
+(official generates its recursor and stores it; the stream's is not
+consulted at all).  Verdicts: the stored type is definitionally the
+stream's, so downstream inference agrees up to `isDefEq`; the gates
+below found no change.
+
+### 2. The proof shape
+
+* **Syntactic** (`Verify/Direct/DirectRec.lean`, 614 lines): the two
+  walks under `instantiate1`/`instSeq` and under `stripPis`
+  (`replacePisPw_instSeq`, `pisToLamsPw_instSeq`,
+  `replacePisPw_stripPis`); the lifted field telescope instantiated at
+  the parameter variables and the extra binders' variables is the
+  constructor's residual at the parameters alone
+  (`instSeq_minorTele` = `instSeq_liftLooseBVars_prefix`, which existed);
+  the closed spellings instantiate to the variables
+  (`map_instSeq_directPsAt`, `instSeq_minorBody`, `instSeq_ruleBody`);
+  `instPisAt_of_stripPis` (the peel is the strip's body instantiated);
+  no generated node is a `.proj` node (`Expr.NoProjAt.directRecTy`/
+  `.directRecRhs`, for the tower law's `NoProjEnv`).  The review's "one
+  new shift lemma" is not needed: reading the residual one/two deeper is
+  `denoteP_lift` on the closed residual, and the per-entry lift is
+  `liftN_mkPisAV`.
+* **Readings** (`SetP/Direct/DirectRecReadP.lean`, 859 lines):
+  `denoteP_replacePisPw`/`denoteP_pisToLamsPw` — a walk over an opened
+  telescope reads to the tower over the telescope's own domain readings,
+  bits reset, over the body at the opening's variables; then
+  `denoteP_directRecTy` (the type reads to `mkPisAV (recDataAV …) (motive
+  t)` with the three special entries spelled — `motiveAV`, `minorAV` over
+  `liftDoms 1 0 (ds.drop nP)`, `majorAV`) and `denoteP_directRecRhs` (the
+  rule reads to `mkLamsAV (ruleDataAV …) (minor f⃗)`, the field data
+  lifted two under).  `recData_of`: the reading is syntactic, the bits are
+  the datum's (`zeronessOf_sound`), the grading is the generated type's
+  own inference run (`inferRow`), the level dependence is
+  `denoteP_params_ext`.  `ruleData_of` likewise from the rule's inference
+  run.  The old `RecData` record and its `.cross` are unchanged, so the
+  stage's consumers see the same interface with an explicit `rds`.
+* **Frames** (`DirectRecFramesP`): `RecBase` is a computation — the
+  parameter frames coincide outright (the recursor's parameter entries are
+  the type former's, bits aside), the motive entry is `famSpine_val` plus
+  `piR_congr_bit`, the minor entry is `interp_minorSp_of_tele` over
+  `liftDoms 1 0` (the field domains agree along a fitting chain through
+  `shiftE_consList_len`; the core is the constructor leaf's fold, the same
+  computation `recMinor` ended in), the major entry is `famSpine_val` two
+  under; the entries' gradings come from the opened type's record
+  (`OpenedP.okΓ`).  `recOpenedAll` opens the generated type by
+  `replacePisPw_stripPis` + `stripPis_append` — no run inversion.
+* **The rule law** (`DirectRecLawP`): the rule's λ-domains are the
+  frame's own entries (`ruleDataAV_map_dom`), so the fit `recLawCore`
+  takes is `spineFit_of_sat2` at the reversed data — `recLawFits` (332
+  lines) is gone.  `recLawCore` is untouched.
+* **Deleted** (1 884 lines): `DirectRecKitP` (177, not even on the proof
+  path), `DirectRecCompP` (374), `DirectRecPinsP` (377), `DirectRecMinorP`
+  (622), `DirectRecLawFitsP` (334); plus the frame halves of
+  `DirectRecFramesP` (325 → 312, now a computation) and `DirectRecLawP`
+  (385 → 279), `RecData`'s run-inversion derivation (`DirectRecDataP` 187
+  → 96), and the Verify inversions `checkDirectRecTy_shape`/
+  `checkDirectRule_shape`, `checkDirectRecTy_wfimp`/`checkDirectRule_wfimp`
+  (≈ 370 lines), `checkDirectRecTyS_sim`/`checkDirectRuleS_sim` (≈ 250).
+  The generic kit the deleted modules held (`spineFit_liftDoms`,
+  `spineFit_append_inv`, `map_fieldBvars_interp`, `frameVals` and its
+  lemmas) moved to `DirectRecKit2P`/`DirectRecLawKitP`.
+* **Bits.**  The minor's field binders carry ℓ-bits (the ctor's w-bits are
+  in `ds`, untouched); every consumer is bit-agnostic
+  (`interp_minorSp_of_tele` takes any bits zero-agreeing with ℓ,
+  `RecBase`'s `FieldsOkB` is over the domains only, `Sat2` reads domains
+  only), so `rebit` only ever has to keep the domains
+  (`rebit_map_dom`).
+
+### 3. Notes for the sum-types extension
+
+The generators already fold over a constructor list; the recogniser
+(`directPartsCore?`), `DirectParts` (one `cvC`, one `nF`, one `rhs`), the
+install's `ctors := [(p.cvC.name, p.nF, cvCa.type)]` and the stored rule
+list are what change, and on the proof side `directRecTy_single`/
+`directRecRhs_single` become per-constructor unfoldings, `recDataAV` gets
+one minor entry per constructor (each `minorAV` at its own offset
+`o = j + 1`), and `recRuleLaw` is stated per rule.  The reading lemmas
+`denoteP_replacePisPw`/`denoteP_pisToLamsPw` and the syntactic kit are
+already offset-generic (`directPsAt o`, `directCtorSpineAt … o`,
+`instSeq_minorTele tfvs extras`).
+
+### 4. Receipts
+
+All at the branch tip `c2daaf38` (three commits over master `0bf7fd57`;
+master not merged — gated at the tip per the coordinator's protocol):
+`lake build` warning-free (441 jobs); `lake test` green;
+`tests/arena.sh` exit 0 — layering base 236 / P 156, 0 base→lane and 0
+impl→theory edges; proofdeps **1 363** rows as pinned across the four
+capstones, doors 0 (regenerated: `DirectRecCompP`, `DirectRecLawFitsP`,
+`DirectRecMinorP`, `DirectRecPinsP` leave all four cones — `DirectRecKitP`
+was never on the proof path — and `SetP.Direct.DirectRecReadP`,
+`Verify.Direct.DirectRec` enter all four; 1 371 → 1 363); arena tutorial
+90/92 good (the two custom-axiom declines by design), e2e 78/78, annot
+14/14, retired flags 8/8, mode flags 16/16, trusted sweep as expected
+with the 3 recorded divergences; the four capstones' axioms exactly
+`[propext, Classical.choice, Quot.sound]` (`_tmp/s2/axioms-tip.out`); no
+`sorry`, no new axiom.
+
+init-full-pre2 (`ulimit -v 16000000; timeout 3000`, single runs):
+`--pre --verified` **accepted 60 549** (exit 0, 159 s wall);
+`--pre --trusted` **accepted 60 549** (exit 0, 146 s).  The Mathlib prefix
+slice `_tmp/next-frontier/diseq-slice-pre.ndjson` accepts (1 790
+declarations, exit 0; it was exit 2 for the P and parity binaries in
+the frontier record).  The direct-structure fixtures
+`tests/e2e/direct_struct_raw.ndjson` (52) and `direct_nested_dep.ndjson`
+(49) accept.  Outputs under `_tmp/s2/`.
+
+One detour on the way: the first tip emitted the motive binder as
+`.implicit` and declined every stream past `propext` — the
+standard-axiom pins (`stdAxiomOk`, `ConstantVal.matchesPin`) compare the
+stored `Iff.rec`/`Nonempty.rec` against the exported shapes up to names
+and data but not binder infos, and the export carries `.default` at the
+recursor's own binders.  The generator now emits the export's infos
+(`c2daaf38`); a syntactic pin on a *generated* constant is exactly the
+kind of coupling the multi-constructor extension should keep in view.
+No performance measurement (a granted design — no perf before the
+grant).
