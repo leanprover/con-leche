@@ -141,7 +141,7 @@ if tests/proofdeps.sh; then :; else fail=1; fi
 
 # THE PIN-DUMP FRESHNESS GATE (task #176).  The pinned Nat-operation
 # declarations and their certificate proof blobs are a COMMITTED
-# generator output (Setlec/Kernel/NatOpPins/<toolchain>.json) since the
+# generator output (pins/<toolchain>.json, see pins/README.md) since the
 # olean-by-name load was removed from the checker's build.  As with
 # every committed generator output here, staleness is a test failure:
 # regenerate and diff.
