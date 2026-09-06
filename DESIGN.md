@@ -43665,7 +43665,7 @@ Official clause (file:line at v4.33.0) → ours (spec `Core.lean` / P
 | N3 | `unfold_definition` (`:517-564`): `is_delta` = head constant with a value (definitions AND theorems, `declaration.h:230`) at matching level arity; level-polymorphic instantiations cached (`m_unfold`) | `unfoldDefinition :212-234` (defn + thm), `unfoldableHead :236`; `constValAt` memo (`unfoldDefinitionI CoreC:52-72`) | same | |
 | N4 | `reduce_nat` (`:639-668`): `Nat.succ` (1 arg) and 14 binary ops `add sub mul pow gcd mod div beq ble land lor xor shiftLeft shiftRight`, head an EXACT level-free constant, arity exact; `reduce_bin_nat_op` whnf's ARG 1, returns `none` if not a literal WITHOUT touching arg 2 (`:606-614`); `is_nat_lit_ext` = literal or `Nat.zero` (`:599`); `reduce_pow` refuses exponents `> 2^24` (`:616-627`) | `reduceNat :752-798`; `reduceNatI CoreC:83-160` — `match rawNatLit? (← r.whnf a), rawNatLit? (← r.whnf b)` whnf's BOTH arguments before matching (`:787-788`, `CoreC:140-141`); `rawNatLit? :345` accepts `Nat.zero`; additionally reduces **`Nat.pred`** and **`Nat.log2`** (`:764-771`) which official's list lacks; **no pow cap** (`natOpResult :610`, `a ^ b` unbounded) | **D15 cost (ours more) — witnessed**: the second argument is whnf'd even when the first is stuck; **S1 superset**: `pred`/`log2` fast paths; **S2 superset**: no `2^24` pow cap (official grinds `Nat.pow` unfolded instead; ours computes, or allocates without bound) | witness `_tmp/divergence-audit/src/natop_arg_order.lean` (`Nat.add o (slow 40000) = Nat.add (id o) (slow 40000)` with `o` opaque): official 0.221 G (control without the computation 0.204 G — official never evaluates `slow`), parity 16.13 G, P 14.04 G; at `slow 80000` official 0.221 G accepts, **parity exit 3** (fuel, 33.1 G) — the K-bug class, verdict-visible |
 | **is_def_eq_core** `:1086-1162` | | | | |
-| E1 | `quick_is_def_eq` (`:770-793`): equivalence manager (union-find + structural walk modulo it, `use_hash`), then by kind: λ/Π → `is_def_eq_binding` (all nested binders in ONE loop, domain compared only when syntactically different, `:720-747`); Sort → level equivalence; Lit → value equality | `defeqStep :2075` `a == b` (structural); binder/sort/lit dispatch LATER, in the `false,false` arm (`:2169-2240`) one binder per `defeq` call | **cost (ours more)**: (a) no equivalence classes — `f a b =?= f a' b'` with `a ~ a'` known needs the full step; (b) the binder/sort/lit dispatch runs AFTER `whnfCore` (no-op on them) and AFTER `propIrrel` (D4) | |
+| E1 | `quick_is_def_eq` (`:770-793`): equivalence manager (union-find + structural walk modulo it, `use_hash`), then by kind: λ/Π → `is_def_eq_binding` (all nested binders in ONE loop, domain compared only when syntactically different, `:720-747`); Sort → level equivalence; Lit → value equality | `defeqStep :2075` `a == b` (structural); binder/sort/lit dispatch LATER, in the `false,false` arm (`:2169-2240`) one binder per `defeq` call | **cost (ours more)**: (a) no equivalence classes — `f a b =?= f a' b'` with `a ~ a'` known needs the full step; (b) the binder/sort/lit dispatch runs AFTER `whnfCore` (no-op on them) and AFTER `propIrrel` (D4); **(c) two locals for one bound variable — FIXED, task #201** (`is_def_eq_binding` opens ONE local for both bodies, `:738`; our binder arms opened each body with its own `.fvar depth nᵢ tyᵢ`, so bodies equal up to the variable's display data were never `==` — the self-check's `whnfCore` runaway; section "THE BINDER ARMS OPEN ONE LOCAL" at the end); **(d) `==` is `decide (a = b)`, which compares binder names, fvar display names and fvar type annotations** — official's `is_equal`/`equiv_manager` skip binder names and compare fvars by id (`expr_eq_fn.cpp:52, :100-103`, `equiv_manager.cpp:80-92`); recorded and priced in the same section as the residual of this class | (c) was the audit's blind spot: the row read the fast path as "structural" and never asked what the ARMS open |
 | E2 | Bool.true heuristic (`:1093-1101`, §1) | absent | cost (ours more; rides on D3) | |
 | E3 | `whnf_core(t, cheap_proj=true)`, same for `s`; `quick_is_def_eq` again if either changed (`:1110-1116`) | `:2076-2078` — `whnfCore` (never cheap: projections' structs fully whnf'd, W6), `a' == b'` | **D5 cost, both directions**: official's first pass leaves `a.i =?= b.i` with `a`, `b` merely head-normalised and tries `a =?= b` (E7) before ever whnf'ing a struct; ours whnf's both structs (delta included) at the first touch | `tryUnfoldProjApp`/`cheapProj` are on record as deferred (DESIGN "Defeq-side Nat folding", 2026-08-24) |
 | E4 | `is_def_eq_proof_irrel` (`:866-873`): `infer(t)`, `is_prop` (whnf'd sort normalises to zero), `infer(s)`, **`is_def_eq(t_type, s_type)` — commits `false`**; runs ONCE, before lazy delta | `propIrrel :920-943` (P: head-symbol arms `notProofFast`/`isProofFast`, `PropRead.lean:140-147`; parity: the two io inferences + whnf + level test per side) at `:2089`; no type comparison; `false` falls through | proofIrrel class — **STAYS** (2026-09-03 conformance ruling, both halves) | |
@@ -53233,3 +53233,962 @@ Neutral to four digits, which is the expected receipt: `==` and the
 deleted `equiv` compiled to the same `equivR` call (#194 §2), so the
 executable did not change — this task deleted *proof* and *API*, not
 work.
+
+## TASK #195 — THE FORMER'S TELESCOPE THROUGH WHNF: a family declared at a definition installs directly (2026-09-06, `agent/former-unfold`)
+
+### 0. The decision, for the record
+
+Task #193 found the direct sum route's former-telescope pin
+(`cvT.type.stripPis (nP + nIdx)` ending in `.sort`) rejecting
+Mathlib's `inductive Presieve.ofArrows … : Presieve X` (`Presieve X :=
+∀ ⦃Y⦄, Set (Y ⟶ X)`): the stored former type ends in a CONSTANT
+APPLICATION and the kernel's `numIndices = 2` comes from `whnf`.  #193
+fell back (the predicate kept such blocks modelled); the user's
+direction was that falling back is the quick fix, not the end state.
+Two designs were costed: **(A)** compute the telescope by official's
+own `whnf` loop and store the former AT THE WHNF'D TELESCOPE, P tier
+untouched (about a day); **(B)** keep the declared type stored and
+read the former through a delta law in the P tier (two to three days:
+`FormerData.read` is the syntactic reading of the stored type and its
+`pps` — every parameter and index domain — is consumed by every later
+stage, so the reading would have to be transported through all of
+them).  **Decision (A)**, coordinator's reasoning: the stored type is
+definitionally equal to the declared one, invisible to every verdict
+(every later defeq check delta-unfolds either spelling) and to the
+main theorem (a constant of type `False` is not a Π-telescope); it is
+the same kind of pre-install normalisation the frontend already does
+for projection functions (`ProjRec`) and the prelude; (B)'s extra days
+buy only that the stored SPELLING matches official's, which nothing
+observes.
+
+**The blocks whose stored former type now differs from official's**
+(the task's census over the raw Mathlib export, 5 671 structures /
+521 sums / 109 indexed families; 23 formers are not syntactic
+telescopes, all of them indexed `Prop` families, and NO constructor
+residual or field is declared at a definition): `CategoryTheory.Presieve.ofArrows`, `CategoryTheory.Presieve.map`, `CategoryTheory.HomRel.CompClosure`, `SSet.OneTruncation₂.HoRel₂`, `CategoryTheory.MorphismProperty.ofHoms`, `CategoryTheory.MorphismProperty.strictMap`, `CategoryTheory.ObjectProperty.ofObj`, `CategoryTheory.ObjectProperty.strictMap`, `CategoryTheory.Localization.Construction.relations`, `CategoryTheory.Presieve.singleton`, `FreeSimplexQuiver.homRel`, `CategoryTheory.ObjectProperty.strictColimitsOfShape`, `Quiver.FreeGroupoid.redStep`, `CategoryTheory.FreeGroupoid.homRel`, `CategoryTheory.Presieve.pullbackArrows`, `CategoryTheory.ObjectProperty.strictLimitsOfShape`, `CategoryTheory.MorphismProperty.limitsOfShape`, `SimplexCategoryGenRel.degeneracies`, `SimplexCategoryGenRel.faces`, `CategoryTheory.MorphismProperty.colimitsOfShape`, `CategoryTheory.MorphismProperty.kernels`, `CategoryTheory.MorphismProperty.cokernels`, `CategoryTheory.Presieve.bindOfArrows`.  Every one of the 23 installs
+directly at this landing (route `sum`, below).  init-full has none.
+
+### 1. The kernel
+
+* `directSumPartsCore?` (`Kernel/Direct/SumParts.lean`) no longer pins
+  the former's declared type: when `stripPis (nP + nIdx)` does not
+  end in a sort, `resSort` is a PLACEHOLDER (`.zero`, `isProp` computed
+  from it so the recogniser's invariant `isProp = (isEquiv resSort
+  zero == some true)` holds by definition) and the install completes
+  the record — `DirectSumParts.withSort p s` (`@[simp]` projections).
+* `whnfTelescope ops env i n e` (`Kernel/Direct/SumInstall.lean`) —
+  official's `check_inductive_types` loop: `whnf` the residual before
+  each binder and at the end, open each binder at the free variable
+  `i` (its domain instantiated at the earlier ones), the final residual
+  must be a `Sort`; a residual that does not reduce to a Π, or finally
+  to a sort, is INVALID input (official fails there too — never a
+  decline).  `closeTelescope` rebuilds the syntactic telescope
+  (innermost binder first, `abstract1` per binder).
+* `checkDirectSumTele`: the checked declared type when it already is
+  a telescope ending in a sort, else the whnf'd telescope closed and
+  **checked from scratch by `checkConstantVal`** at the block's own
+  header — so NOTHING about the reduction is trusted: the stored type
+  is the one this run annotated, inferred and sorted, exactly as a
+  declared telescope would be.  `checkDirectSumInd` returns
+  `(env₁, cvTa, p.withSort s)`; `checkDirectSum` runs the elimination
+  restriction on the completed record (after the former, since the
+  sort is known only then) and every later stage on it.  The `F`
+  twins (`checkDirectSumTeleF`, `checkDirectSumIndF`) and the cached
+  driver (`checkDirectSumS`) mirror the order.
+
+### 2. The verification twins (the seam the #175 boundary audit named)
+
+`whnfTelescope_datF`/`checkDirectSumTele_datF`/`checkDirectSumInd_datF`
+(+ `fueledOpsM_whnf_atF`; `Verify/BridgeDecl.lean`),
+`whnfTelescopeS_sim` (an induction over the loop on `opE_whnf_sim`,
+the shared `whnf` on a well-scoped input at its depth — the opened body
+is well-scoped one deeper by `WScoped.instantiate1`) /
+`checkDirectSumTeleS_sim` / `checkDirectSumIndS_sim`
+(`Verify/Cached/BridgeCS3.lean`), `checkDirectSumTeleF_pushC` /
+`checkDirectSumIndF_pushC` / `checkDirectSumS_run`
+(`Verify/Cached/BridgeCSDecl.lean`), `checkDirectSumTeleF_name` /
+`checkDirectSumIndF_skels` (now also yields `∃ s, p' = p.withSort s`,
+so the skeleton is the ORIGINAL record's) / `checkDirectSumS_skels`
+(`Verify/Cached/AgreeFloor.lean`), `checkDirectSumTele_shape` /
+`checkDirectSumInd_shape` (the former's `checkConstantVal` run at SOME
+constant with the block's name and level parameters — the declared one
+or the closed telescope; the proof never asks which; `Verify/Direct/
+SumInv.lean`), `direct_sum_ind_wf`.  The `_sim`/`_eq` gates are honest:
+the loop's `whnf` is the same certified operation as everywhere else in
+the install path, related step by step.
+
+### 3. The semantics and the P tier
+
+`DeclDirectSumRun` (`Semantics/Direct/DeclDirectSum.lean`) now
+quantifies the completed record: the former's run yields `p'`, the
+elimination guard and the constructor/recursor runs are stated over
+`p'`; `declDirectSumRun_of`/`_wf`/`_etaClosed` follow.  In the P tier
+(`SetP/DirectSum/DeclDirectSumP.lean`) the assembly is split into
+`declDirectSumP_core` — stated over an arbitrary record with the
+recogniser's invariants, the two guards, the former's `checkConstantVal`
+run at the block's header, and its telescope as hypotheses — and the
+wrapper `declDirectSumP`, which obtains `p' = p.withSort s` from the
+shape inversion and transports the invariants by the `withSort`
+projections.  `stageSumFormer` (`SumStageFormerP.lean`) takes the
+`checkConstantVal` run and the header's name instead of the stage's
+run.  **No P proof about the former's reading changed**: `formerData_of`
+already consumed the annotated telescope.  No new axiom, no door
+(proofdeps unchanged).
+
+### 4. The predicate and the audit
+
+`lechNativeSum` drops `lechFormerTelescope` (task #193's pin) — the
+whnf'd-telescope conjunct holds by construction for every Lean-produced
+record (that is how Lean computed `numIndices`), an ARGUED conjunct
+like the shape pins, gated by `tests/native-audit.sh`; the pin stays on
+the STRUCTURE arm, whose recogniser is still syntactic.  The audit was
+run, as required, on the full census before the drop: the cone of all
+23 blocks (cut from the raw export with the String-support constants,
+`_tmp/former-unfold/defhead23-raw.ndjson`, 2 511 declarations) — 194
+native blocks, 146 struct / 47 sum / 1 basis, **0 unrecognised, 0
+unreached**, and each of the 23 reads `lech: route <name> sum`.
+
+### 5. Fixtures
+
+`direct_idx_defhead` flips to direct (`OfFn` route `sum`, re-exported
+through the #195 binary: both blocks native, 10 stream records);
+`presieve_ofarrows_cone.ndjson.gz` (new, 257 KB): the dependency cone
+of Mathlib's `Presieve.ofArrows` with the String-support constants,
+preprocessed by the #195 binary — the #193 finding's block installs
+directly, 638 declarations, both modes.
+
+### 6. Receipts
+
+Tip `809f9855` + this record, off master `d6aeff20`.  Build
+warning-free (640 jobs), `lake test` green (axiom pin), `tests/arena.sh`
+exit 0 — layering 244/165/3/1 (0 edges), proofdeps 2 515 rows / 0
+doors (NO module entered or left a capstone's closure: no new module,
+no P proof about the former's reading changed), pindump fresh, trust
+surface 18/4/0, native audit 169/0, 90/92 · e2e 102/102 (the two
+#195 fixtures included) · annot 14/14 · retired 8/8 · mode 16/16 ·
+prelude 3/3 · progress 6/6, trusted sweep as recorded.  init-full
+stock `--verified` 58 604 / `--trusted` 58 604; regenerated with the
+#195 predicate (`init-full-pre-unfold.ndjson`, 548 native blocks —
+unchanged: no init-full former is declared at a definition)
+`--verified` 53 890 / `--trusted` 53 890 — all exit 0, identical to
+#193's.  The cone of ALL 23 definition-headed Mathlib formers
+(`defhead23`, 2 511 declarations): `--verified` and `--trusted` accept
+2 949 declarations, every one of the 23 on route `sum`.  The full
+audit (init-full + the 23-cone + the `ofArrows` cone + the 92 arena
+fixtures): 95 streams, 970 native blocks — 784 struct, 183 sum, 3
+basis, **0 unrecognised, 0 unreached**.  No Mathlib-scale checker run
+was made; the PERF lane's regenerated Mathlib stream
+(`mathlib-full-pre-idx.ndjson`, made with the #175 predicate) has
+these 23 blocks NATIVE and is now expected to pass them — the
+"missing model" decline at 7.5 % was exactly `ofArrows`, the first of
+them in stream order.  **Re-gated at the master merge** (`80d271a3`:
+#194 pwnorm, #197 pwclean, #192 beqmemo; one DESIGN conflict, both
+kept; no twin met the `.equiv → ==` change): build 640 jobs
+warning-free, `lake test`, arena exit 0 (native audit 169/0, e2e
+102/102), init-full stock 58 604 / 58 604 and regenerated (548 native)
+53 890 / 53 890, the 23-cone 2 949 both modes, full audit 970/0 — all
+identical to the tip's.
+
+## THE ARENA SUITE (all but Mathlib) — every upstream test has a verdict, 0 incorrect; `init`, `Std` and `cslib` ACCEPTED (2026-09-06, `agent/arena-suite`; §9 the post-rename re-run, §10 `cslib`, §7 what was cancelled and why; record committed under `scripts/arena/results/`)
+
+The local battery only ever saw the arena's *tutorial* group (a vendored
+2026-08-19 tarball, `tests/arena-expected.txt`), plus five streams the
+perf table borrows.  This is the first run of the **whole upstream
+suite** — every test definition in `leanprover/lean-kernel-arena`
+except `mathlib` — through the arena's *own* orchestration, so the
+exports are the ones the arena produces, not ours.
+
+### 1. The kit
+
+* Arena clone: `leanprover/lean-kernel-arena` @ `91f376e` (2026-09-06),
+  in `_tmp/arena-suite/lean-kernel-arena` — a **fresh** clone; the
+  `_tmp/perfcmp/arena-upstream` checkout used by `scripts/perf-tables.sh`
+  was 26 commits behind and is missing nine of the tests below.
+* Exports: `lean4export` 3.1.0 at `leanprover/lean4:v4.29.1`
+  (`tests/lean-toolchain`), built and driven by `lka.py` itself.
+* Reference column: the arena's own `official` checker, **v4.34.0-rc2**,
+  built by `lka.py build-checker official`.
+* Checker definition: `scripts/arena/lech.yaml`, copied into the
+  clone's `checkers/` by the driver.  It is a *simple* checker (no
+  `url`/`dir`), so `lka.py` makes an empty build directory and runs it
+  there; every path comes from the environment, and the raw export goes
+  in as `$IN` — setlec spawns `setlec-preprocess` itself.
+* Driver: `scripts/arena/run-suite.sh` (`clone` / `build-tests` /
+  `run-small` / `run-big` / `table`), table renderer
+  `scripts/arena/table.py`.
+
+**Dependency footprint, resolved.**  `uv run lka.py` supplies the four
+Python packages from the PEP-723 header — no venv.  `elan` and `perf`
+were already on `PATH`.  `rustc`/`cargo` are only needed to build the
+*Rust* checkers, and we build none.  The one thing missing was **GNU
+`time`**, which `lka.py` shells out to for max-RSS; without it every RSS
+cell reads 0.  The driver symlinks the nixpkgs `time` into `$WORK/bin`
+and puts that first on `PATH` (`time` is a bash *keyword*, so the probe
+has to be `env time --version`, not `time --version`).  `nix develop`
+was not used: the flake's devShell drags in ghc, ocaml, zig, nodejs,
+pypy and more for the other checkers.
+
+**`TMPDIR` was load-bearing.**  At the time of this run a raw export was
+preprocessed into `IO.FS.createTempFile`, i.e. `$TMPDIR`, and that file
+was the size of the preprocessed stream — gigabytes for
+Cedar/cslib/`Init`.  `/tmp` here is a tmpfs, so the default put that in
+RAM next to the checker; the checker yaml therefore required a scratch
+directory on disk.  **Task #180 removed the scratch file entirely** (the
+preprocessor's stdout is a pipe now), so `LECH_TMPDIR` is since then only
+the project's standing scratch rule, not a setting a run depends on.
+
+### 2. The scorecard
+
+65 test definitions (all but `mathlib`); `tutorial` expands to 142
+subtests, so 206 runs.  Verdicts at `--verified`:
+
+| | count |
+|---|---|
+| correct (verdict = expected outcome) | 148 |
+| declined (neutral in the arena's scoring) | 44 |
+| `either` (outcome unsettled upstream) | 13 |
+| **incorrect** | **0** |
+| **error (exit 3)** | **0** |
+
+(205 of the 206; `cslib` is recorded in §7.)
+
+No `bad` stream was accepted and no `good` stream was rejected, on any
+of the 206.  Every decline is a `not implemented yet` with a named site;
+nothing crashed.
+
+**`--trusted` was run over the same 202 small tests: exit codes are
+identical to `--verified` on every one, 0 divergences.**
+
+### 3. The table (non-tutorial; `off` = official v4.34.0-rc2)
+
+Wall times are indicative only — a foreign Mathlib lane held a core
+throughout — and RSS is `VmHWM` via GNU `time`.
+
+```
+test                                       expect  setlec  off     exit     wall  peak RSS  note
+bogus1                                     reject  reject  reject     1    0.39s       98M
+cedar                                      accept  decline -          2  284.13s     2503M  setlec: 22 projection functions of non-direct structure-likes rewritten to recursor form setlec: not implement
+constlevels                                reject  reject  reject     1    0.16s      102M
+corner-cases/alg-conv-trans-acc            either  reject  reject     1    0.19s      102M  setlec: invalid: type mismatch in theorem trans [at theorem trans]
+corner-cases/alg-conv-trans-acc-left       either  accept  accept     0    0.16s      102M  setlec: accepted 118 declarations
+corner-cases/alg-conv-trans-acc-right      either  accept  accept     0    0.16s      102M  setlec: accepted 118 declarations
+corner-cases/alg-conv-trans-quot           either  reject  reject     1    0.16s       98M  setlec: invalid: type mismatch in theorem trans [at theorem trans]
+corner-cases/alg-conv-trans-quot-left      either  reject  reject     1    0.18s       98M  setlec: invalid: type mismatch in theorem left [at theorem left]
+corner-cases/alg-conv-trans-quot-left-def  either  accept  accept     0    0.17s       99M  setlec: accepted 11 declarations
+corner-cases/alg-conv-trans-quot-right     either  accept  accept     0    0.20s       98M  setlec: accepted 10 declarations
+corner-cases/imax-right-successor          either  accept  reject     0    0.08s       67M  setlec: accepted 2 declarations
+corner-cases/positivity-whnf               either  decline reject     2    0.14s       99M  setlec: preprocessor exited 1; using raw input setlec: not implemented yet: missing model for LALReduciblePosi
+corner-cases/proj-maybe-prop               either  accept  accept     0    0.17s       99M  setlec: accepted 15 declarations
+corner-cases/proj-maybe-prop-past          either  accept  accept     0    0.14s       98M  setlec: accepted 15 declarations
+corner-cases/proof-param-ok                accept  accept  accept     0    0.12s       99M
+corner-cases/proof-param-swap              either  decline reject     2    0.13s       97M  setlec: preprocessor exited 1; using raw input setlec: not implemented yet: missing model for LALProofParamete
+corner-cases/subject-reduction-redex       either  accept  accept     0    0.18s      102M  setlec: accepted 120 declarations
+corner-cases/subject-reduction-reduct      either  reject  reject     1    0.16s      102M  setlec: invalid: application type mismatch [at def reduct]
+ctor-num-fields                            reject  decline reject     2    0.14s      103M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+extra-rec                                  reject  decline reject     2    0.15s       99M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+init                                       accept  accept  -          0  155.05s      838M
+init-prelude                               accept  accept  accept     0    1.20s      122M
+k-rec-conv                                 reject  reject  reject     1    0.14s      100M
+large-elim-param                           reject  decline reject     2    0.13s      100M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+large-elim-prop-bool                       reject  decline reject     2    0.17s      101M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+level-imax-leq                             reject  decline reject     2    0.12s       96M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+level-imax-normalization                   reject  reject  reject     1    0.15s       99M
+level-index-out-of-order                   accept  decline accept     2    0.08s       68M  setlec: not implemented yet: non-standard axiom (foo) [at axiom foo]
+nat-rec-k-lie                              reject  decline reject     2    0.13s      100M  setlec: preprocessor exited 1; using raw input setlec: not implemented yet: missing model for False [at induct
+nat-rec-rules                              reject  decline reject     2    0.12s       99M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+nested-nonuniform-param                    either  accept  reject     0    0.17s      102M  setlec: accepted 103 declarations
+nested-unused-param                        reject  decline reject     2    0.14s      103M  setlec: preprocessor exited 1; using raw input setlec: not implemented yet: missing model for False [at induct
+orphan-ctor                                reject  decline reject     2    0.13s      100M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+orphan-rec                                 reject  decline reject     2    0.15s       99M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+perf/app-lam                               accept  accept  accept     0   36.27s     4075M
+perf/args-before-unfold                    accept  accept  accept     0    0.18s      102M
+perf/beta-ladder                           accept  accept  accept     0    6.57s      931M
+perf/church-numerals                       accept  accept  accept     0    0.16s       99M
+perf/discarded-argument                    accept  accept  accept     0    0.14s      101M
+perf/discarded-argument-match              accept  accept  accept     0    0.15s      101M
+perf/folded-constant-first                 accept  accept  accept     0    0.15s      101M
+perf/folded-constant-last                  accept  accept  accept     0    0.17s      101M
+perf/grind-ring-5                          accept  accept  accept     0    4.30s      256M
+perf/identical-nesting                     accept  accept  accept     0    0.13s      100M
+perf/irrelevance-before-evaluation         accept  accept  accept     0    0.14s      101M
+perf/let-ladder                            accept  accept  accept     0    1.10s      289M
+perf/refute-cheap-first                    reject  reject  reject     1    0.14s      102M
+perf/refute-cheap-last                     reject  reject  reject     1    0.16s      101M
+perf/repeated-subproblem                   accept  accept  accept     0    0.29s      104M
+perf/shared-subterm                        accept  accept  accept     0    0.33s      106M
+perf/shift-cascade                         accept  accept  accept     0    0.15s      100M
+perf/unroll-versus-evaluate                accept  accept  accept     0    0.14s      101M
+proj-non-structure                         reject  decline reject     2    0.17s       99M  setlec: not implemented yet: projection on a non-structure-like type [at theorem bad]
+proj-of-imax-prop                          reject  decline reject     2    0.23s      104M  setlec: preprocessor exited 1; using raw input setlec: not implemented yet: missing model for False [at induct
+proj-of-prop                               reject  reject  reject     1    0.33s       88M
+proj-of-stuck-prop                         reject  decline reject     2    0.39s       91M  setlec: not implemented yet: missing model for Native64ResultSortOwner [at inductive Native64ResultSortOwner]
+proj-of-subst-prop                         reject  decline reject     2    0.28s      100M  setlec: not implemented yet: missing model for PR14806Subst.Owner [at inductive PR14806Subst.Owner]
+proof-irrel                                accept  decline accept     2    0.12s       63M  setlec: not implemented yet: non-standard axiom (A) [at axiom A]
+rec-k-lie                                  reject  decline reject     2    0.33s       87M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for MyBool [at induc
+rec-missing-ih                             reject  decline reject     2    0.32s       94M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+rec-of-subst-prop                          reject  decline reject     2    0.21s       99M  setlec: not implemented yet: missing model for Issue.Owner [at inductive Issue.Owner]
+sparse-name-index                          accept  decline accept     2    0.06s       68M  setlec: not implemented yet: non-standard axiom (foo) [at axiom foo]
+std                                        accept  accept  -          0  326.50s     1516M
+```
+
+Tutorial group: **121 / 142 correct, 21 declined, 0 incorrect**.  The
+declines break down as 16 preprocessor-refusal declines (F1 below), 2
+non-standard-axiom declines (`034_letTypeDep`, `035_letRed`, F2), 1
+`projNotStruct` (F6) and 2 `unsafe`/`partial`.
+
+### 4. What is NEW information
+
+`tests/arena.sh` reads `tests/arena-expected.txt`, and **every line of
+that file is a `tutorial/` fixture** — the vendored tarball also carries
+`bad/*`, `good/perf/*` and `good/undecidability/*`, but nothing runs
+them.  `scripts/perf-tables.sh` runs five streams (`let-ladder`,
+`beta-ladder`, `app-lam`, `grind-ring-5`, `init-prelude`) for
+*instructions*, not for verdicts.  So everything below is new:
+
+* all 27 non-tutorial top-level tests, including the nine the pinned
+  `_tmp/perfcmp` checkout does not have at all (`orphan-ctor`,
+  `orphan-rec`, `large-elim-prop-bool`, and the whole `corner-cases/`
+  regrouping with `imax-right-successor`, `positivity-whnf`,
+  `proj-maybe-prop`, `proj-maybe-prop-past`, `proof-param-ok`,
+  `proof-param-swap`);
+* all 15 `corner-cases/` (the former `undecidability/`) tests as
+  *verdicts*, only `subject_reduction_redex` had an own e2e fixture;
+* all 18 `perf/` tests as *verdicts*;
+* the four big streams `init`, `std`, `cedar`, `cslib`;
+* four tutorial fixtures absent from the vendored snapshot —
+  `013_thmProof` (accept ✓), `014_selfProof` (reject ✓),
+  `141_falseFromUnsafe`, `142_falseFromPartial` (both declined at
+  `definition with safety 'unsafe'/'partial'`).  The other 138 are the
+  vendored ones renumbered by +2.
+
+### 5. `init` and `Std` are ACCEPTED
+
+| stream | raw export | verdict | decls | wall | peak RSS | instructions |
+|---|---|---|---|---|---|---|
+| `init` | 310 MB | **accept** | 56 291 | 2.6 min | 838 MB | 0.97 T |
+| `std` | 527 MB | **accept** | 96 159 | 5.4 min | 1.5 GB | 1.90 T |
+| `cedar` | 791 MB | decline | — | 4.7 min | 2.4 GB | 2.10 T |
+
+`init` is the arena's `Init` module export at v4.29.1 — the stream the
+"init-full frontier" notes are about.  It now goes through end to end at
+`--verified`, in under three minutes and under a gigabyte.  `Std`
+follows it.  Both are full arena accepts, produced by the arena's
+exporter, checked from the raw stream (preprocessor spawned by the
+binary, on the clock).
+
+`cedar` declines at a **`native_decide` axiom**,
+`…msPerDay_toInt._native.native_decide.ax_1_1` — exactly the case the
+arena README names as a legitimate decline.  Everything before it
+checked, including the 22 projection functions of non-direct
+structure-likes the frontend rewrote to recursor form.
+
+### 6. The findings
+
+**F1 — the preprocessor's refusal is thrown away, and a reject becomes a
+decline (31 tests: 15 top-level + `corner-cases`, 16 tutorial).**  This is the single biggest lever in the table.
+For a *malformed* inductive block `setlec-preprocess` fails, the driver
+falls back to the raw stream, and the raw stream then declines with
+`missing model for <T>`:
+
+* exit 3 — the generator's own consistency check fires: `model of rogue
+  is missing rogue._model` (`extra-rec`, `orphan-rec`, `orphan-ctor`),
+  `unit-like constructor …S.mk._model has fields` (`ctor-num-fields`),
+  `<R>'s exact recursor layout differs from its installed metadata`
+  (`large-elim-param`, `nat-rec-rules`, `rec-k-lie`, `rec-missing-ih`,
+  `073_BogusRecursor`, `137_misnamed_rec_user`, …);
+* exit 1 — the generator's kernel *rejects* the input block:
+  `non positive occurrence` (`054_indNeg`, `positivity-whnf`),
+  `incorrect number of parameters` (`049_inductTooFewParams`),
+  `invalid return type` (`proof-param-swap`), `invalid projection`
+  (`nested-unused-param`), `canonical basis declaration at this name`
+  (`nat-rec-k-lie`), …
+
+Official rejects every one of these; the expectation is `reject` for 29
+of them and `either` for 2.  We are never *wrong* — a decline costs
+nothing in the arena's scoring — but 29 soundness credits are left on
+the table, and the checker is silent about a defect it has in fact
+detected.  Turning any of this into a reject is a design question, not a
+patch: the preprocessor's verdict is the *official kernel's*, and
+setlec's own reject must come from setlec's own check of the raw block.
+The honest intermediate is a decline that says *what* was detected.
+Separate fix task.
+
+**F2 — the non-standard-axiom policy costs five accepts (and is what
+stops `cedar`).**
+`level-index-out-of-order`, `sparse-name-index`, `proof-irrel`,
+`tutorial/034_letTypeDep`, `tutorial/035_letRed` all expect `accept`,
+official accepts, and we decline at `non-standard axiom (foo)` /
+`(A)` / `(aProp)` — the tests use `axiom` to stand a value up cheaply.
+This is the standing user ruling (only pinned standard axioms are
+accepted), so it is a *known, chosen* incompleteness, not a defect; it
+is written down here because it is exactly five arena completeness
+points and shows up in the table as a decline.  `cedar` is the sixth
+site of the same check, and there the axiom really is one no checker is
+expected to take (`native_decide`).
+
+**F3 — `nested-nonuniform-param`: we accept, official rejects.**
+Outcome is `either`, so nothing is failed, but the difference is real:
+official v4.34.0-rc2 has the check from leanprover/lean4#14577 (the
+parameter supplied to a nested occurrence must be *the* parameter) and
+we do not.  The upstream description says this particular declaration is
+not known to yield `False`.  Worth a check of its own; separate task.
+
+**F4 — `imax-right-successor`: we accept, official rejects.**  The other
+direction, and in our favour: the test's own description says a checker
+may "accept … by recognizing that the right operand is nonzero", which
+our level normalization does and official's does not.
+
+**F5 — three `proj-of-*` / `rec-of-subst-prop` rejections are declines
+for a different reason** (`missing model for Native64ResultSortOwner`,
+`PR14806Subst.Owner`, `Issue.Owner`): here the preprocessor *succeeds*
+and the block is simply one the direct route does not install and the
+model generator did not model.  Same shape of gap as F1 but a different
+site.
+
+**F6 — `proj-non-structure` / `088_projNotStruct` decline at
+`projection on a non-structure-like type`.**  Official rejects with
+`(kernel) invalid projection`; we positively detect the unsupported
+shape.  This is a decline that *could* be a reject: a `.proj` whose
+structure type has two constructors is not a checker gap, it is an
+invalid term.  Separate task.
+
+**F7 — corner cases: no surprises.**  On all 15, setlec's verdict equals
+official's except `imax-right-successor` (F4), `positivity-whnf` and
+`proof-param-swap` (F1).  We reject `alg-conv-trans-acc`,
+`alg-conv-trans-quot`, `alg-conv-trans-quot-left` and
+`subject-reduction-reduct` and accept the two `subject-reduction-redex`
+halves and the two `alg-conv-trans-acc-{left,right}` halves — the
+algorithmic-conversion non-transitivity the thesis predicts, reproduced
+exactly, with official agreeing on every one.  `proj-maybe-prop` and
+`proj-maybe-prop-past` we accept, as official does.
+
+### 7. CLOSED — the three held cells, cancelled, and why
+
+**User decision, 2026-09-06: the suite has what we need.**  The three
+cells that were holding for the machine's Mathlib-scale slot are
+cancelled, not deferred.  This section is a closed record; nothing here
+is queued.
+
+1. **`cslib` at `--verified` without `LECH_PROGRESS`** — cancelled.
+   §10's run had the heartbeat on, which puts the driver on the
+   *progress* fold rather than the one `Lech.no_proof_of_False` is
+   about.  The user ruled the progress fold fine as the producer of this
+   verdict: it is the same steps in the same order over the same records
+   from the same empty environment, and the difference is *stated*
+   rather than hidden.  `cslib` is accepted, full stop; the re-run would
+   have bought a coverage sentence, not a verdict.
+2. **the big four at `--trusted`** — cancelled.  The `--trusted` column
+   over the 202 small tests agrees with `--verified` on **every single
+   test, twice** (once before the rename, once after).  A third
+   confirmation at 0.3–2.0 GB would cost the Mathlib slot for hours to
+   test a hypothesis nothing has dented.
+3. **`init` / `std` / `cedar` re-measured at `--verified`** —
+   cancelled.  Their *verdicts* (accept, accept, decline-on-a
+   `native_decide`-axiom) are what the suite is for, and verdicts do not
+   go stale: nothing in the rename or in #180 changes what those streams
+   are.  What is stale is only their **memory and time figures**, since
+   #180 removed the preprocessor's multi-gigabyte scratch file — so §3
+   and §5 mark those three rows as the pre-rename run (`setlec*` in
+   `scripts/arena/results/table.txt`) and they must not be quoted as
+   current *measurements*.  The perf lane measures perf; this suite
+   measures verdicts.
+
+**F8 IS NOT A BUG TO FIX** (user ruling, 2026-09-06, verbatim: *"exit 3
+or 1 is fine. we'll eventually retire or absorb the preprocessor."*).
+The seven exit-3 verdicts of §9 and the two `Nat`-not-canonical declines
+are **recorded, not fixed**: while the preprocessor is a separate tool
+its exit codes are its own, and the distinction between "it rejected the
+block" and "it refused the block" is not worth engineering around a
+component that is on its way out.  Nothing is to be changed on either
+side of that boundary on account of the arena's scoring, and the arena
+expectation files stay exactly as they are — no `tests/` expectation was
+touched by this suite and none should be.  Revisit only if and when the
+preprocessor is retired or absorbed.
+
+**The record is committed**, so none of it depends on the scratch tree:
+`scripts/arena/results/` holds `summary.tsv` (all 206 runs, one row per
+test, the expected outcome and every column's exit code),
+`table.txt` (the rendered verdict table with messages, wall and peak
+RSS) and seven `*.jsonl` files — `lka.py`'s own result records for the
+`lech` verified/trusted columns, the pre-rename `setlec` columns kept as
+the baseline §9 diffs against, the big-stream cells, and the `official`
+v4.34.0-rc2 reference column.  `scripts/arena/README.md` is the index.
+
+**The corpus is not committed and need not be.**  `_tmp/arena-suite/`
+still holds the arena clone (`lean-kernel-arena` @ `91f376e`), the ~4 GB
+of built exports, the built `official` checker and the `cslib` receipts;
+if it is cleaned, `run-suite.sh clone && run-suite.sh build-tests`
+rebuilds it from scratch in about an hour of network and CPU.
+
+### 8. Reproducing
+
+    scripts/arena/run-suite.sh clone
+    scripts/arena/run-suite.sh build-tests        # every test but mathlib
+    scripts/arena/run-suite.sh run-small          # 202 runs, ~10 min
+    scripts/arena/run-suite.sh run-big            # init std cedar cslib
+    scripts/arena/run-suite.sh table
+
+`LECH_MODE=--trusted` re-runs the same matrix in the unverified lane.
+Building the test corpus is the expensive half: `lka.py` clones and
+builds Cedar (from source) and cslib (`lake exe cache get`), and the
+exports come to ~4 GB.  Nothing here is wired into `lake test` — the
+suite needs the network and an hour of build — but a landing gate can
+run `run-small` against an already-built corpus in ten minutes.
+`scripts/arena/README.md` carries this same recipe next to the kit, with
+the index of the committed `results/`.
+
+### 9. RESUMED after the Lech rename and task #180 — the small tests re-run, F1 is 22/29 fixed and 7 became ERRORS (2026-09-06, `agent/arena-suite` @ master `b7fa7331`)
+
+Master moved under the parked branch: the **Setlec → Lech rename**
+(binaries `lech` / `lech-preprocess`, `LECH_*` environment, verdict line
+`lech: accepted N declarations (--verified)`), **task #180** (the checker
+*pipes* the preprocessor's stdout — no scratch file — and **the
+preprocessor's verdict is lech's**: exit 1 reject, 2 decline, else 3; the
+raw-stream fallback is gone), **#181** (`False` pinned; a bogus recursor
+on a recognised block rejects), **#175** (indexed families native),
+**#185** (`CoreCfg` gone).  The suite's kit was renamed with it —
+`scripts/arena/lech.yaml`, checker name `lech`, `LECH_BIN` /
+`LECH_PREPROC` / `LECH_MODE` / `LECH_VLIMIT` / `LECH_TIMEOUT` /
+`LECH_TMPDIR` — and the 202 small tests were re-run in both modes
+against the same built corpus (arena `91f376e`, same exports, same
+`official` v4.34.0-rc2 column).
+
+**Scorecard, 202 small tests at `--verified`** (was → now):
+
+| | parked | now |
+|---|---|---|
+| correct | 146 | **166** |
+| declined | 43 | **14** |
+| `either` (a verdict either way) | 13 | **15** |
+| **error (exit 3)** | 0 | **7** |
+| **incorrect** | 0 | **0** |
+
+`--trusted` over the same 202: **exit codes identical to `--verified` on
+every one, 0 divergences** — as at the park.
+
+**29 verdicts moved, every one of them out of a decline.**  22 became
+rejects, 7 became errors; nothing moved the other way and nothing became
+incorrect.
+
+*The 22 that became rejects* (20 expected `reject`, so 20 new correct
+verdicts; 2 are `either` — `corner-cases/positivity-whnf` and
+`corner-cases/proof-param-swap` — where official also rejects).  Six of
+the 22 are **lech's own** reject, not the preprocessor's passed through,
+which is worth separating out:
+
+* `large-elim-param`, `large-elim-prop-bool` — `invalid: direct sum:
+  large eliminator on a multi-constructor inductive whose sort may be
+  Prop` (the #175/#181 native route);
+* `level-imax-leq` — `invalid: type mismatch in definition down`;
+* `proj-of-imax-prop` — `invalid: application type mismatch [at def
+  ImaxProp._model.proj_0]`;
+* `rec-k-lie` — `invalid: type mismatch in theorem bad`;
+* `tutorial/140_DupConCon` — `invalid export`.
+
+The other 16 are `lean-inductive-models`' kernel rejecting the block and
+#180 passing that through (`non positive occurrence`, `incorrect number
+of parameters`, `invalid projection`, `invalid return type`, …):
+`nested-unused-param`, `positivity-whnf`, `proof-param-swap`, and the
+tutorial's 047, 049, 050, 051, 052, 053, 054, 056, 057, 061, 118, 119,
+138.
+
+**F8 (new) — seven expected rejects are now `exit 3`, which is WORSE
+than the decline they replaced.**  The arena reads anything but 0/1/2 as
+"a bug in the checker".  All seven are `lean-inductive-models` detecting
+*malformed input* but reporting it through its **internal-error**
+channel (exit 3), which #180 faithfully maps to 3.  Official rejects all
+seven.  Three classes:
+
+1. *a rogue constructor/recursor that no inductive declaration
+   produces* — `N generated statements differ from their exact exported
+   owner interface` + `model of <c> is missing <c>._model`:
+   `extra-rec`, `orphan-rec`, `orphan-ctor`,
+   `tutorial/137_misnamed_rec_user`;
+2. *exported metadata contradicting what the tool derives* —
+   `BogusRecursor.rec's exact recursor layout differs from its installed
+   metadata` (`tutorial/073_BogusRecursor`), `unit-like constructor
+   _private.Test.0.S.mk._model has fields` (`ctor-num-fields`);
+3. *a field whose recursive occurrence survives reduction* —
+   `…mentions it other than as ∀ z⃗, T p⃗ e⃗ … the input's numNested = 0
+   does not describe the declaration it is attached to`
+   (`rec-missing-ih`); the message itself says the kernel's positivity
+   check refuses it.
+
+Every one of these is "the exported inductive block is invalid", i.e.
+exit-1 territory; in arena terms the run would score seven **errors**
+where it previously scored seven neutral declines.
+
+**RULED: not a bug, and not to be fixed** (user, 2026-09-06, verbatim:
+*"exit 3 or 1 is fine. we'll eventually retire or absorb the
+preprocessor."*).  The exit codes belong to a separate tool that is on
+its way out; the reject-vs-refuse distinction inside it is not worth
+engineering around, on either side of the boundary, and no arena
+expectation file is to be adjusted for it.  Recorded, not a task.  See
+§7.
+
+**F1 is otherwise closed**, and F5/F6/F2 are unchanged.  The 14
+remaining declines are: the six non-standard-axiom sites (F2, five of
+them expected `accept`), `proj-non-structure` and
+`tutorial/088_projNotStruct` (F6), `proj-of-stuck-prop`,
+`proj-of-subst-prop`, `rec-of-subst-prop` (F5), the two
+`unsafe`/`partial` tutorial fixtures, and a **new pair**:
+`nat-rec-rules` and `nat-rec-k-lie` now decline at `the preprocessor
+declined to model a block` — the tool's own, honest decline, `Nat:
+declined — prim model: the input's Nat is not Lean's (its complete
+inductive, constructor, and recursor metadata is not canonical)`.  Both
+expect `reject`; given the arena's rule that `Init.Prelude` declarations
+come from an official release, a non-canonical `Nat` could reasonably be
+a reject rather than a decline — a smaller sibling of F8, and covered by
+the same ruling: recorded, not fixed.
+
+```
+test                                       expect  lech    off     exit  was     wall  peak RSS  note
+bogus1                                     reject  reject  reject     1    1      0.13s       98M
+constlevels                                reject  reject  reject     1    1      0.14s      100M
+corner-cases/alg-conv-trans-acc            either  reject  reject     1    1      0.18s      102M  lech: invalid: type mismatch in theorem trans [at theorem trans, fold position 67] (--verified) t=0.1s
+corner-cases/alg-conv-trans-acc-left       either  accept  accept     0    0      0.17s      102M  lech: accepted 112 declarations (--verified)
+corner-cases/alg-conv-trans-acc-right      either  accept  accept     0    0      0.38s       89M  lech: accepted 112 declarations (--verified)
+corner-cases/alg-conv-trans-quot           either  reject  reject     1    1      0.17s       98M  lech: invalid: type mismatch in theorem trans [at theorem trans, fold position 2] (--verified) t=0.0s
+corner-cases/alg-conv-trans-quot-left      either  reject  reject     1    1      0.13s       98M  lech: invalid: type mismatch in theorem left [at theorem left, fold position 2] (--verified) t=0.0s
+corner-cases/alg-conv-trans-quot-left-def  either  accept  accept     0    0      0.14s       99M  lech: accepted 11 declarations (--verified)
+corner-cases/alg-conv-trans-quot-right     either  accept  accept     0    0      0.17s       86M  lech: accepted 10 declarations (--verified)
+corner-cases/imax-right-successor          either  accept  reject     0    0      0.10s       66M  lech: accepted 2 declarations (--verified)
+corner-cases/positivity-whnf               either  reject  reject     1    2 *    0.19s       92M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/positivity-whnf.ndjson:
+corner-cases/proj-maybe-prop               either  accept  accept     0    0      0.13s       98M  lech: accepted 15 declarations (--verified)
+corner-cases/proj-maybe-prop-past          either  accept  accept     0    0      0.14s       99M  lech: accepted 15 declarations (--verified)
+corner-cases/proof-param-ok                accept  accept  accept     0    0      0.21s       96M
+corner-cases/proof-param-swap              either  reject  reject     1    2 *    0.28s       87M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/proof-param-swap.ndjson
+corner-cases/subject-reduction-redex       either  accept  accept     0    0      0.36s       95M  lech: accepted 114 declarations (--verified)
+corner-cases/subject-reduction-reduct      either  reject  reject     1    1      0.28s       89M  lech: invalid: application type mismatch [at def reduct, fold position 69] (--verified) t=0.1s
+ctor-num-fields                            reject  ERROR   reject     3    2 *    0.13s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/ctor-num-fields.ndjson: internal err
+extra-rec                                  reject  ERROR   reject     3    2 *    0.13s       99M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/extra-rec.ndjson: internal error: 1
+init-prelude                               accept  accept  accept     0    0      1.01s      121M
+k-rec-conv                                 reject  reject  reject     1    1      0.14s      100M
+large-elim-param                           reject  reject  reject     1    2 *    0.13s       99M
+large-elim-prop-bool                       reject  reject  reject     1    2 *    0.13s      100M
+level-imax-leq                             reject  reject  reject     1    2 *    0.13s       96M
+level-imax-normalization                   reject  reject  reject     1    1      0.13s       96M
+level-index-out-of-order                   accept  decline accept     2    2      0.07s       67M  lech: not implemented yet: non-standard axiom (foo) [at axiom foo, fold position 0] (--verified) t=0.0s
+nat-rec-k-lie                              reject  decline reject     2    2      0.14s       96M  lech: declined: the preprocessor declined to model a block (re-run lech-preprocess without --quiet for th
+nat-rec-rules                              reject  decline reject     2    2      0.14s       98M  lech: declined: the preprocessor declined to model a block (re-run lech-preprocess without --quiet for th
+nested-nonuniform-param                    either  accept  reject     0    0      0.17s      102M  lech: accepted 91 declarations (--verified)
+nested-unused-param                        reject  reject  reject     1    2 *    0.14s      102M
+orphan-ctor                                reject  ERROR   reject     3    2 *    0.15s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-ctor.ndjson: internal error:
+orphan-rec                                 reject  ERROR   reject     3    2 *    0.14s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-rec.ndjson: internal error: 1
+perf/app-lam                               accept  accept  accept     0    0     57.82s     4061M
+perf/args-before-unfold                    accept  accept  accept     0    0      0.58s       97M
+perf/beta-ladder                           accept  accept  accept     0    0     12.81s      890M
+perf/church-numerals                       accept  accept  accept     0    0      0.67s       86M
+perf/discarded-argument                    accept  accept  accept     0    0      0.42s       89M
+perf/discarded-argument-match              accept  accept  accept     0    0      0.23s      102M
+perf/folded-constant-first                 accept  accept  accept     0    0      0.18s      102M
+perf/folded-constant-last                  accept  accept  accept     0    0      0.39s       88M
+perf/grind-ring-5                          accept  accept  accept     0    0      5.98s      217M
+perf/identical-nesting                     accept  accept  accept     0    0      0.21s      100M
+perf/irrelevance-before-evaluation         accept  accept  accept     0    0      0.17s      102M
+perf/let-ladder                            accept  accept  accept     0    0      1.82s      287M
+perf/refute-cheap-first                    reject  reject  reject     1    1      0.15s      100M
+perf/refute-cheap-last                     reject  reject  reject     1    1      0.29s       95M
+perf/repeated-subproblem                   accept  accept  accept     0    0      0.41s       98M
+perf/shared-subterm                        accept  accept  accept     0    0      0.36s      105M
+perf/shift-cascade                         accept  accept  accept     0    0      0.35s       91M
+perf/unroll-versus-evaluate                accept  accept  accept     0    0      0.26s       92M
+proj-non-structure                         reject  decline reject     2    2      0.13s       96M  lech: not implemented yet: projection on a non-structure-like type [at theorem bad, fold position 3] (--v
+proj-of-imax-prop                          reject  reject  reject     1    2 *    0.27s      102M
+proj-of-prop                               reject  reject  reject     1    1      0.15s       95M
+proj-of-stuck-prop                         reject  decline reject     2    2      0.20s       98M  lech: not implemented yet: missing model for Native64ResultSortOwner [at inductive Native64ResultSortOwne
+proj-of-subst-prop                         reject  decline reject     2    2      0.37s       93M  lech: not implemented yet: missing model for PR14806Subst.Owner [at inductive PR14806Subst.Owner, fold po
+proof-irrel                                accept  decline accept     2    2      0.06s       68M  lech: not implemented yet: non-standard axiom (A) [at axiom A, fold position 0] (--verified) t=0.0s
+rec-k-lie                                  reject  reject  reject     1    2 *    0.22s       85M
+rec-missing-ih                             reject  ERROR   reject     3    2 *    0.32s       95M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/rec-missing-ih.ndjson: internal erro
+rec-of-subst-prop                          reject  decline reject     2    2      0.43s       98M  lech: not implemented yet: missing model for Issue.Owner [at inductive Issue.Owner, fold position 132] (-
+sparse-name-index                          accept  decline accept     2    2      0.06s       68M  lech: not implemented yet: non-standard axiom (foo) [at axiom foo, fold position 0] (--verified) t=0.0s
+```
+
+(`was` is the parked exit code; `*` marks a move.  The `init` / `std` /
+`cedar` rows of §3 are the parked `--verified` measurements and were NOT
+re-run — the big four are still held, see §7.)
+
+### 10. `cslib` IS ACCEPTED — 397 295 declarations, exit 0 (2026-09-06, the held slot, `agent/arena-suite` @ `955496b2`)
+
+The last stream of the suite, and the largest: the arena's `cslib` test
+is a 2 145 661 820-byte raw export.  It is Mathlib-scale in substance as
+well as size — `MeasureTheory`, `Polynomial`, `Subsemiring`,
+`Std.Time`, `Lean.Elab` all go past in the progress log — so it ran in
+the machine's single Mathlib-scale slot, alone, on the coordinator's
+word.
+
+| | |
+|---|---|
+| verdict | **accept**, exit 0 |
+| stdout | `lech: accepted 397295 declarations (--verified)` |
+| records folded | 380 211 |
+| wall | 16 min 17 s (preprocess + parse 253.9 s, fold 713.3 s) |
+| CPU | 916.1 s user + 55.6 s sys |
+| peak RSS | 5 976 348 kB = **5.70 GiB** (cap was 22 GB) |
+| instructions:u | 5.734 T |
+| binary | `lech` md5 `996a73b7f50db33b65e1eeef882a2ba3`, `lech-preprocess` md5 `079a6a9531b9765f0b1e0e08e3d11874`, built at `8a6e676f` (master `b7fa7331`) |
+
+The only non-progress line on stderr was `lech: 65 projection functions
+of non-direct structure-likes rewritten to recursor form`.  Receipts —
+`receipt.txt` (md5s, input size, start/end, exit code), `stdout.log`,
+the timestamped `stderr.log`, GNU `time -v`'s `time.txt` and
+`perfstat.txt` — are kept in `_tmp/arena-suite/cslib/`.
+
+**Two caveats on this cell, both deliberate and both worth repeating
+before it is quoted.**
+
+1.  **`LECH_PROGRESS=5000` was set**, on the coordinator's instruction,
+    so a sixteen-minute run in a contended slot would be observable.
+    That puts the driver on the *progress* fold, which `Main.lean` is
+    explicit about: the same steps in the same order over the same
+    records from the same empty environment, one line printed before
+    each declaration — and **plainly unverified**, i.e. this particular
+    run is not covered by `Lech.no_proof_of_False`.  The verdict is the
+    verdict; the *coverage* claim would need a re-run with the variable
+    unset, and the user ruled that re-run unnecessary — the progress
+    fold is fine as this verdict's producer (§7.1).  So: `cslib` is
+    accepted, and the sentence "covered by the capstone" is not claimed
+    for this particular run.
+2.  **It was run directly rather than through `lka.py`** — same command
+    line as `scripts/arena/lech.yaml` builds (same `ulimit -v
+    22000000`, same `LECH_INDUCTIVE_MODELS`, same `timeout`, same
+    binary, same arena-built export), wrapped in `perf stat` and GNU
+    `time -v`, because the harness captures stderr and would have
+    hidden the progress stream.  The result is written into the run's
+    snapshot in `lka.py`'s own schema, with a `_provenance` field saying
+    exactly this, and is committed as
+    `scripts/arena/results/lech-verified-big.jsonl`.
+
+**With this, every arena test but Mathlib has a verdict.**  The four big
+streams: `init` accept, `std` accept, `cedar` decline (a `native_decide`
+axiom), `cslib` accept.  The suite's final scorecard, all 206 runs
+(`scripts/arena/results/table.txt`):
+
+| | count |
+|---|---|
+| correct | 169 |
+| declined (neutral in the arena's scoring) | 15 |
+| `either` (outcome unsettled upstream) | 15 |
+| error (exit 3 — the seven of F8, ruled not a bug) | 7 |
+| **incorrect** | **0** |
+
+**0 incorrect and no `good` stream rejected**, at every size the arena
+has.
+
+
+## THE BINDER ARMS OPEN ONE LOCAL — the self-check's `whnfCore` runaway was two locals for one bound variable (2026-09-06, `agent/whnfdiv`, task #201)
+
+**The finding** (`agent/selfcheck`, task #199).  On the export of Lech's
+own development (lean4export @ 15f6055 = v4.33.0) lech died on
+`Lech.Cached.ExprC.abstract1Go_spec` (`Lech/Verify/Cached/OpsC.lean`):
+`fuel exhausted: whnfCore`, identical under `--trusted`, and
+`checkFuel` × 20 turned the fuel wall into a 9.5 GB OOM.  The official
+kernel accepted the theorem.  Reproducer:
+`_tmp/selfcheck/slice-abstract1Go_spec.ndjson` (32 MB, 5 547
+declarations after the built-in prelude).
+
+### 1. Reproduction
+
+| checker (master `40fbeb08`) | verdict | wall | instructions |
+|---|---|---|---|
+| official v4.33.0 `kernel` | **accept**, 5 404 declarations | — | 34.54 G |
+| lech `--verified` | exit 3, `fuel exhausted: whnfCore [at theorem Lech.Cached.ExprC.abstract1Go_spec, fold position 5547]` | 21.6 s | 109.44 G |
+| lech `--trusted` | exit 3, same message | 21.6 s | 105.34 G |
+
+### 2. Where the fuel went: the depth probe, plus a first-difference probe
+
+The rat-frontier probe (`_tmp/rat-frontier/debug-probe.patch`, never
+committed) was re-applied by hand to today's single knot
+(`coreKnotI`): every slot of the knot `dbgTrace`s its head at chosen
+fuel marks (99 900–99 999, every 10 000th level, and 0–3), so the
+100 000-deep recursion reads as a stack sample.  One addition this time:
+the `defeq` slot also prints `dbgDiff a b` — the **first structural
+difference** between the two sides (binder name, fvar name/type,
+constant levels, …), because the sides in the trace *printed*
+identically.  Both probes' outputs: `_tmp/whnfdiv/probe{1,2}.out`
+(2.3 M lines each).
+
+Innermost first:
+
+* From fuel ≈ 99 960 down to 0 the chain is one linear descent:
+  `whnf (Nat.rec (λt. PProd …) (PProd.mk … (Nat.mul._f Nat.zero …) …)
+  (λn n_ih. …) N)` → `whnfCore` → `whnf (Nat.succ (N−1))` → … — the
+  `Nat.brecOn` tower of **`Nat.mul`** unrolled unarily.  The literal
+  reads `4 294 877 338` at fuel 10 000 and `4 294 867 341` at fuel 3:
+  one knot level per unit, starting from **`4 294 967 296 = 2^32`** —
+  4.3 G levels against a 100 000 budget (hence the OOM at ×20).
+* The tower is entered from `Nat.mul x 4294967296` with `x` **open**:
+  `whnf (fvarB (fvar #2 #3 #4))` → `Expr.data (fvar …)` (the
+  `@[computed_field]` recurrence, `Lech/Kernel/Expr.lean`: the hash
+  mixes the fvar's index, name and type hash) → `UInt64.toNat` →
+  `BitVec.toNat` / `Fin.val` → `HMod.hMod (HDiv.hDiv w 2) 32768` on
+  `UInt64` → `Nat` arithmetic on a stuck first argument, whose literal
+  fold fails and whose `Nat.mul` is a structural recursion on the
+  *literal* second argument.
+* That whnf is demanded by `Nat.ble (fvarB (fvar …)) #0` — the
+  whnf-loop `reduceNat` whnf'ing the first argument — inside
+  `Nat.decLe (fvarB e ≤ d)`, the `ite` guard of `abstract1Go`'s body,
+  reached by **delta-unfolding `abstract1Go` on an open argument**:
+  `whnf (abstract1Go #0 #6 (fvar #2 #3 #4) #7)` → `Expr.brecOn` →
+  `abstract1Go._f` → the guard.
+* That unfolding is the projection clause of `whnfCore` (W6/D5: the
+  struct of a `.proj` is fully `whnf`'d) on
+  `Prod.snd ExprC MemoN (abstract1Go #0 #6 (fvar #2 #3 #4) #7)`, at
+  `defeq d=9` of that term against **the same term** — printed
+  identically at depth 7, `dbgDiff`: **`fvar-name #3: n vs name`**.  The
+  free variable at level 3 carried the display name `n` on one side
+  and `name` on the other.  So `a == b` (`decide (a = b)`, which
+  compares an `fvar`'s name and type) missed, `whnfCore` ran on both
+  sides, and the projection clause did the rest.
+
+Where the two spellings of one variable came from: `defeqStep`'s ∀/λ
+arms.  On `(∀ name : Name. B) =?= (∀ n : Name. B')` (the theorem's
+statement against the induction motive's instance — hygienic names
+from two contexts, and `ExprC` vs `Expr` in the domains, which is why
+lean4export did not intern the two Π-types as one node) the arms
+opened `B` with `.fvar 3 name Name` and `B'` with `.fvar 3 n Name`.
+Every occurrence of the variable below then differed by display data
+only.
+
+### 3. The divergence, against the official kernel
+
+`type_checker::is_def_eq_binding` (`_tmp/lean4-src/src/kernel/type_checker.cpp:720-747`):
+
+    subst.push_back(m_lctx.mk_local_decl(m_st->m_ngen, binding_name(s), *var_s_type, binding_info(s)));   // :738
+    ...
+    return is_def_eq(instantiate_rev(t, subst.size(), subst.data()),
+                     instantiate_rev(s, subst.size(), subst.data()));                                       // :745-746
+
+**One** local per binder pair — named after `s`'s binder, typed at
+`s`'s domain — and BOTH bodies are instantiated with it.  Official
+fvars are compared by their unique id alone (`expr_eq_fn.cpp:52`,
+`equiv_manager.cpp:80-81`), so the opened bodies of the pair above are
+structurally equal for `quick_is_def_eq` (`:770-793`), which answers
+`true` at the entry of `is_def_eq_core` (`:1090`); `whnf_core` is never
+reached, `abstract1Go` is never unfolded.  lean4lean the same
+(`isDefEqBinding`: one `mkLocalDecl`, both bodies instantiated with it).
+
+Ours (`Lech/Kernel/Core.lean`, `defeqStep`'s `.forallE`/`.lam` arms;
+`Lech/Cached/CoreC.lean`, `defeqStepI`, the same two arms) opened
+`body₁` with `.fvar depth n₁ ty₁` and `body₂` with `.fvar depth n₂ ty₂`
+— two `Expr` values for one variable, unequal under `decide (a = b)`
+whenever the display name or the domain's spelling differs.  A **cost**
+divergence of the K-order class (same verdict, exponential work),
+verdict-visible at the fuel wall; not a superset, not a subset.  The
+divergence audit's E1 row read our fast path as "structural" and never
+asked what the arms *open* — amended above, (c) and (d).
+
+### 4. The fix: one local, the right binder's
+
+`Core.lean`, both arms:
+
+    unless ← r.defeq (depth + 1)
+        (body₁.instantiate1 (.fvar depth n₂ ty₂))
+        (body₂.instantiate1 (.fvar depth n₂ ty₂)) do return false
+
+`CoreC.lean`, both arms: one `internI (.fvar depth n₂ ty₂)`, two
+`inst1M`.  `n₂ ty₂` because official takes `binding_name(s)` and `s`'s
+domain (`:738`); the domains were just compared, so the choice is
+verdict-neutral and the mirror is exact.  Nothing else in either core
+moved; the fvar/fvar arm already compared indices only.
+
+### 5. Proofs moved (no new axiom, no `sorry`)
+
+* `Lech/Verify/Deep.lean` — the `shiftFrom` congruence's ∀/λ cases:
+  the two `WScoped.instantiate1` witnesses are now both at `ty₂`
+  (`hwwb.1`), the bodies' at their own scoping.
+* `Lech/Verify/Disc.lean` — the call-discipline (`site_defeq`) cases,
+  the same one-line change.
+* `Lech/Verify/Cached/DiscC5.lean` — `defeqStepC_sim`'s two binder
+  arms: one `internI_eff` + two `inst1M_eff` on the same local.
+* `Lech/SetP/Step2/DefEqP.lean` — `binder_congrP` (the P-tier binder
+  congruence): its `hdd` premise is restated at the shared local; the
+  left body's denotation is transported from its own opening
+  (`denoteP_forallE_inv`/`denoteP_lam_inv` still invert at `.fvar d n₁
+  ty₁`) by `denoteP_erasedEq (ErasedEq.instantiate1 (ErasedEq.rfl bd₁)
+  rfl)` — `denoteP` reads an fvar's **index only**
+  (`SetP/Annot/Bit.lean:149`), and `ErasedEq` relates fvars by index
+  (`Verify/Subst.lean:143`); the left context is opened with
+  `CtxOkP.openCongC` at the right domain across the domains' semantic
+  agreement, exactly as the right already was; `LeavesBounded` at the
+  right domain's leaf facts.  The two arms of `defeqStuck_claimP`
+  restate the run's certificate at the shared local and consume
+  `binder_congrP` unchanged.  One new import (`SetP/Annot/BitRename`,
+  already in the capstone's closure via `IndMemberP`).
+
+### 6. Fixture
+
+`tests/e2e/src/binder_shared_local.lean` → `tests/e2e/binder_shared_local.ndjson`
+(`export-fixture.sh`, unfiltered), expectation `0`:
+
+    abbrev N := Nat
+    def g (x : Nat) : Nat × Nat := if x * 4294967296 ≤ 5 then (x, 0) else (0, x)
+    theorem aux : ∀ (y : N), (g y).2 = (g y).2 := fun _ => rfl
+    theorem w1 : ∀ (x : Nat), (g x).2 = (g x).2 := aux
+
+The pre-fix binary dies at `aux` already (`fun _ => rfl`'s hygienic
+binder against the declared `y`): exit 3 both modes, 23.2 G / 22.5 G
+instructions; official accepts at 0.27 G; the fixed binary accepts.
+
+### 7. Receipts
+
+Worktree binary (`agent/whnfdiv`) against the master `40fbeb08` binary
+and official v4.33.0; `perf stat -e instructions:u`, `ulimit -v 16G`,
+`timeout`, one run each (a shared machine: wall time is not a
+measurement).  `init-full` is the raw `_tmp/init-exports/init-full.ndjson`
+(`scripts/perf-tables.sh`'s stream).
+
+| stream | official | master `--verified` | master `--trusted` | fixed `--verified` | fixed `--trusted` |
+|---|---|---|---|---|---|
+| `slice-abstract1Go_spec` (5 547 decls) | accept, 34.54 G | **exit 3**, 109.44 G | **exit 3**, 105.34 G | **accept**, 85.98 G | **accept**, 82.94 G |
+| `binder_shared_local` (102 decls) | accept, 0.27 G | **exit 3**, 23.23 G | **exit 3**, 22.54 G | **accept**, 1.02 G | **accept**, 1.01 G |
+| `init-full` (53 890 decls) | — | accept, 819.00 G | accept, 795.36 G | accept, 807.73 G (**−1.4 %**) | accept, 785.65 G (**−1.2 %**) |
+
+The init-full delta is the fast path now hitting where it used to miss
+at every binder pair whose bodies mention the bound variable — a
+genuine, if small, win on an ordinary stream; verdicts and counts
+unchanged.  The slice still costs 2.5× official's instructions: that is
+the standing tax (certificates, D3/D5/E1(d)), not this finding.
+
+Gates at the tip: `lake build` warning-free (640 jobs), `lake test`,
+`tests/arena.sh`: layering 0 base→lane / 0 impl→theory edges (base 244 /
+P 165), proofdeps 2 515 rows as pinned across 7 roots, doors 0, pindump
+fresh, trust surface 0 outside the allowlist, native audit 0
+unrecognised, axioms pinned (11 theorems at the three standard),
+tutorial 90/92, **e2e 103/103** (the new fixture in), annot 14/14,
+retired flags 8/8, mode flags 16/16, prelude counts 3/3, progress lane
+6/6, trusted sweep as expected (the 3 recorded divergences).
+Artefacts: `_tmp/whnfdiv/` (probe outputs, perf files, logs).
+
+### 8. The residual — (d), priced, not done
+
+Official's `quick_is_def_eq` also **ignores binder names** and compares
+fvars **by id only**; ours is `decide (a = b)` — binder names, fvar
+display names and fvar type annotations all compare (DESIGN "Official's
+kernel equality compares *less* than ours", which called this
+"deliberate … not proposed for change").  With (c) fixed no single
+variable has two spellings inside one comparison any more, but a pair
+that differs ONLY in a binder name *nested inside* a `.proj`-headed
+struct argument — e.g. two spellings of a motive `λ x. …` / `λ e. …`
+inside a memoised recursion's argument (the probe shows exactly such
+pairs at `d=6..8`, cheap there because no projection sat above them) —
+still misses the fast path and pays D5's full `whnf` of the struct,
+where official's `is_equal` answers in the walk.  The mirror would be a
+name-blind, id-only quick equality.  Its price: `Expr.data`'s hash
+**mixes the binder name and the fvar name/type** (`Lech/Kernel/Expr.lean`,
+the `.fvar`/`.lam`/`.forallE`/`.letE` recurrences), so a name-blind
+comparison cannot use the packed hash as its reject and must either
+(i) change the computed-field recurrence (drop the names — a
+`@[computed_field]` change every `hash`-reading proof in
+`Verify/Cached/Erase.lean` and the hash-consing memo keys see), or
+(ii) walk: a memoised `beqUpToNames` twin of `beqGo` (address-pair
+memo, `O(DAG)`), run *after* the exact `==` misses, at the two fast-path
+sites of `defeqStep` only — the memo keys (`whnfC`, `inferC`, `defeqC`,
+…) keep the exact `BEq`, which no soundness argument ever needed to be
+name-blind.  (ii) is the smaller change (one executable function, its
+`eqUpToNames`-style spec, and `ErasedEq.of_eqUpToNames`-shaped
+soundness for the P tier's fast-path clause); it is a strategy change
+under the match-reference ruling and waits for the user's go, together
+with D5 (`cheap_proj`) which is the other half of why a fast-path miss
+is expensive at all.

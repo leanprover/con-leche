@@ -2373,7 +2373,7 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
           pure true
         else stuckIrrel mode r env depth (.const n us) (.const n' us')
       else stuckIrrel mode r env depth (.const n us) (.const n' us')
-    | .forallE n₁ ty₁ body₁ m₁, .forallE n₂ ty₂ body₂ m₂ => do
+    | .forallE _n₁ ty₁ body₁ m₁, .forallE n₂ ty₂ body₂ m₂ => do
       -- Binder congruence.  Task #161: at the verified modes the two
       -- prop-ness annotations must agree (`==`; the datum is canonical) for the
       -- two-regime interpretations to coincide (`piR_zero_agree`'s
@@ -2385,15 +2385,15 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
       -- pre-#100 zero-ness comparison is back in validated clothing.)
       unless ← r.defeq depth ty₁ ty₂ do return false
       unless ← r.defeq (depth + 1)
-          (body₁.instantiate1 (.fvar depth n₁ ty₁))
+          (body₁.instantiate1 (.fvar depth n₂ ty₂))
           (body₂.instantiate1 (.fvar depth n₂ ty₂)) do return false
       if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
       pure true
-    | .lam n₁ ty₁ body₁ m₁, .lam n₂ ty₂ body₂ m₂ => do
+    | .lam _n₁ ty₁ body₁ m₁, .lam n₂ ty₂ body₂ m₂ => do
       unless ← r.defeq depth ty₁ ty₂ do return false
       unless ← r.defeq (depth + 1)
-          (body₁.instantiate1 (.fvar depth n₁ ty₁))
+          (body₁.instantiate1 (.fvar depth n₂ ty₂))
           (body₂.instantiate1 (.fvar depth n₂ ty₂)) do return false
       if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-lam)")

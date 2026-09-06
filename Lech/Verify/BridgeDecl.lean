@@ -589,12 +589,51 @@ theorem checkDirectStruct_datF (env : Env) (p : DirectParts) (F : Nat) :
 
 /-! ### The direct sum route (task #175 sum-types) -/
 
+theorem fueledOpsM_whnf_atF (env : Env) (d : Nat) (a : Expr) (F : Nat) :
+    ((fueledOpsM mode).whnf env d a).val F = (fueledOps mode F).whnf env d a := rfl
+
+/-- Official's telescope loop (task #195) at fuel `F`. -/
+theorem whnfTelescope_datF (env : Env) (F : Nat) :
+    ∀ (i n : Nat) (e : Expr),
+      (whnfTelescope (fueledOpsM mode) env i n e).val F =
+        whnfTelescope (fueledOps mode F) env i n e
+  | i, 0, e => by
+    unfold whnfTelescope
+    simp only [FueledM.atF_bind, fueledOpsM_whnf_atF]
+    congr 1
+    funext e'
+    split <;> simp only [FueledM.atF_pure, FueledM.atF_throw]
+  | i, n + 1, e => by
+    unfold whnfTelescope
+    simp only [FueledM.atF_bind, fueledOpsM_whnf_atF]
+    congr 1
+    funext e'
+    split
+    · next nm dom body bm =>
+      simp only [FueledM.atF_bind, FueledM.atF_pure,
+        whnfTelescope_datF env F (i + 1) n (body.instantiate1 (.fvar i nm dom))]
+    · simp only [FueledM.atF_throw]
+
+/-- The former's telescope stage (task #195) at fuel `F`. -/
+theorem checkDirectSumTele_datF (env : Env) (cv : ConstantVal) (n : Nat)
+    (cvTa₀ : ConstantVal) (F : Nat) :
+    (checkDirectSumTele (fueledOpsM mode) env cv n cvTa₀).val F =
+      checkDirectSumTele (fueledOps mode F) env cv n cvTa₀ := by
+  unfold checkDirectSumTele
+  cases hst : cvTa₀.type.stripPis n with
+  | none =>
+    simp only [FueledM.atF_bind, FueledM.atF_pure, whnfTelescope_datF, checkConstantVal_datF]
+  | some q =>
+    obtain ⟨bs, body⟩ := q
+    cases body <;> simp only [FueledM.atF_bind, FueledM.atF_pure, whnfTelescope_datF,
+      checkConstantVal_datF]
+
 theorem checkDirectSumInd_datF (env : Env) (p : DirectSumParts) (F : Nat) :
     (checkDirectSumInd (fueledOpsM mode) env p).val F =
       checkDirectSumInd (fueledOps mode F) env p := by
   unfold checkDirectSumInd
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF]
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF, checkDirectSumTele_datF]
 
 /-- `checkDirectFieldSortsI` (task #175 indexed) at fuel `F`. -/
 theorem checkDirectFieldSortsI_datF (env : Env) (isProp large : Bool)

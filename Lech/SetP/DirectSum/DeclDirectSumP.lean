@@ -289,22 +289,47 @@ theorem sumCtorsLoop (hμ : μ.verifiedChecks = true)
 /-! ## The assembly -/
 
 set_option maxHeartbeats 12800000 in
-/-- **The P carrier survives a direct sum install.** -/
-theorem declDirectSumP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {p : DirectSumParts} (mp : EnvS2PM V μ env)
-    (hE : Lech.EtaFamiliesClosed env) (hdp : Lech.directSumParts? env block = some p)
-    (h : Lech.Semantics.DeclDirectSumRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨helim, hnd, cvTa, envI, ctorsA, cvRa, rhss, hInd, hCtors, hRec, rfl⟩ := h
-  obtain ⟨hProp, -, -, hClps, -, -, helimR, hRlps, -, -⟩ := Lech.directSumParts?_inv hdp
+/-- **The P carrier survives a direct sum install** — the core, at the
+COMPLETED record
+(task #195): the stages after the former run on the record the
+former's run completed with the result sort (`DirectSumParts.withSort`);
+the facts this proof needs about that record are exactly the
+recogniser's invariants transported to it, the two guards, the former's
+`checkConstantVal` run at the block's header (the declared type or its
+whnf'd telescope — the proof never asks which), and its telescope. -/
+theorem declDirectSumP_core (hμ : μ.verifiedChecks = true) {F : Nat} {env : Env}
+    {p : DirectSumParts} {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
+    {cvRa : ConstantVal} {rhss : List Expr} {cvT : ConstantVal}
+    (mp : EnvS2PM V μ env) (hE : Lech.EtaFamiliesClosed env)
+    (hProp : p.isProp = (Level.isEquiv p.resSort .zero == some true))
+    (hClps : ∀ c ∈ p.ctors, c.1.levelParams = p.cvT.levelParams ∧
+      Lech.reservedBasisNames.contains c.1.name = false)
+    (helimR : p.large = true → p.elim ∈ p.cvR.levelParams)
+    (hRlps : ∀ q ∈ p.cvT.levelParams, q ∈ p.cvR.levelParams)
+    (helim : p.large = true → p.resSort.isNeverZero = true ∨ p.ctors.length < 2)
+    (hnd : (p.ctors.map (·.1.name)).Nodup)
+    (hTname₀ : cvT.name = p.cvT.name) (hTlps₀ : cvT.levelParams = p.cvT.levelParams)
+    (hccvT : Lech.checkConstantVal (Lech.fueledOps μ F) env cvT = .ok cvTa)
+    (hstripT : ∃ bsT, cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
+    (hCtors : Lech.checkDirectSumCtors (Lech.fueledOps μ F) env
+      ⟨.indInfo cvTa (Lech.directSumCaps p) :: env.consts⟩ p.cvT.name
+      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors = .ok ctorsA)
+    (hRec : Lech.checkDirectSumRec (Lech.fueledOps μ F)
+      (Lech.consSumCtors p.nP ctorsA ⟨.indInfo cvTa (Lech.directSumCaps p) :: env.consts⟩)
+      p cvTa ctorsA = .ok (cvRa, rhss)) :
+    Nonempty (EnvS2PM V μ ⟨.recInfo cvRa p.majorIdx p.rulePrefix
+      (Lech.directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
+      :: (Lech.consSumCtors p.nP ctorsA
+        ⟨.indInfo cvTa (Lech.directSumCaps p) :: env.consts⟩).consts⟩) := by
   -- the former
-  obtain ⟨hccvT, rfl, bsT, hstripT⟩ := Lech.checkDirectSumInd_shape hInd
+  obtain ⟨bsT, hstripT⟩ := hstripT
   obtain ⟨hfindT, -, -, -, -, -, typeT, -, -, -, -, htrT, -, -, htyT⟩ :=
     Lech.checkConstantVal_inv hccvT
-  have hTname : cvTa.name = p.cvT.name := by rw [htyT]
-  have hlpsT : cvTa.levelParams = p.cvT.levelParams := by rw [htyT]
+  have hTname : cvTa.name = p.cvT.name := by rw [htyT]; exact hTname₀
+  have hlpsT : cvTa.levelParams = p.cvT.levelParams := by rw [htyT]; exact hTlps₀
   have hTtype : cvTa.type = typeT := by rw [htyT]
   obtain ⟨ppsAll, hFD⟩ := formerData_of hμ mp hccvT hstripT
-  have hTfresh : env.find? cvTa.name = none := by rw [hTname]; exact hfindT
+  have hTfresh : env.find? cvTa.name = none := by rw [hTname, ← hTname₀]; exact hfindT
   have hcbT : ConstsBound env cvTa.type :=
     constsBound_of_constsResolve _ (by rw [hTtype]; exact htrT)
   have hfT_I : (⟨.indInfo cvTa (Lech.directSumCaps p) :: env.consts⟩ : Env).find? p.cvT.name
@@ -364,7 +389,7 @@ theorem declDirectSumP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     rw [heq]; exact hnd
   -- the dummy former: the constructors' readings need a carrier
   -- storing the former
-  obtain ⟨mpI₀, hacI₀⟩ := stageSumFormer mp hE hInd hFD (fun _ => []) (fun _ _ _ => rfl)
+  obtain ⟨mpI₀, hacI₀⟩ := stageSumFormer mp hE hccvT hTname₀ hFD (fun _ => []) (fun _ _ _ => rfl)
     (fun _ _ h => nomatch h) (fun _ _ _ => ⟨(fun _ h => nomatch h), (fun _ h => nomatch h)⟩)
   have hex₀ : ∀ j : Nat, ∃ q : List Expr × ((Name → Nat) → List (Nat × Nat × AVExpr)) ×
       ((Name → Nat) → List AVExpr) × List (Option Nat),
@@ -563,7 +588,7 @@ theorem declDirectSumP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   obtain ⟨hFssParams₀, -, hRBelow₀, -, hFssOk₀⟩ :=
     hFssFacts idxF₀ dsF₀ esF₀ srcsF₀ mpI₀.base2 hdsF₀ hframes₀
   -- the real former
-  obtain ⟨mpI, hacI⟩ := stageSumFormer mp hE hInd hFD
+  obtain ⟨mpI, hacI⟩ := stageSumFormer mp hE hccvT hTname₀ hFD
     (fun ψ => rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF₀ esF₀ ψ ctorsA 0))
       (essOf (ctorDataList dsF₀ esF₀ ψ ctorsA 0)))
     (fun ψ₁ ψ₂ hφ => by
@@ -724,5 +749,25 @@ theorem declDirectSumP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     hFD_C hcf_C hidxRes_C hleafT_C hleafC_C (fun j cA hj => (hframes j cA hj).1)
     (fun j cA hj => (hframes j cA hj).2) hFssOk hwl
   exact ⟨mp₃⟩
+
+
+/-- The direct sum declaration's P step: the run's former stage
+completes the record (`checkDirectSumInd_shape`: `p' = p.withSort s`),
+the recogniser's invariants transport to it by the `withSort`
+projections, and the core does the rest. -/
+theorem declDirectSumP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {p : DirectSumParts} (mp : EnvS2PM V μ env)
+    (hE : Lech.EtaFamiliesClosed env) (hdp : Lech.directSumParts? env block = some p)
+    (h : Lech.Semantics.DeclDirectSumRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
+  obtain ⟨hnd, cvTa, envI, p', ctorsA, cvRa, rhss, hInd, helim, hCtors, hRec, rfl⟩ := h
+  obtain ⟨-, -, -, hClps, -, -, helimR, hRlps, -, -⟩ := Lech.directSumParts?_inv hdp
+  obtain ⟨cvT, s, hTname, hTlps, hccvT, hps, rfl, bsT, hstripT⟩ :=
+    Lech.checkDirectSumInd_shape hInd
+  subst hps
+  refine declDirectSumP_core hμ mp hE (p := p.withSort s) rfl ?_ ?_ ?_ helim
+    (by simpa using hnd) hTname hTlps hccvT ⟨bsT, hstripT⟩ hCtors hRec
+  · simpa using hClps
+  · simpa using helimR
+  · simpa using hRlps
 
 end Lech.SetP

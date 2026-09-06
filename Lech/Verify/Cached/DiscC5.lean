@@ -569,24 +569,21 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                       exact SimC.pure hs₇ rfl
                     | true =>
                       simp only [↓reduceIte]
+                      -- one shared local for both bodies (official
+                      -- `is_def_eq_binding`; task #201)
                       refine SimC.bind_left
-                        (internI_eff hs₇ (n := ExprView.fvar d nm₁ t₁))
-                        (fun s₈ fv₁ hs₈ hQf₁ => ?_)
-                      have hQf₁' : RelC fv₁
-                        (Expr.fvar d nm₁ (t₁)) := hQf₁
+                        (internI_eff hs₇ (n := ExprView.fvar d nm₂ t₂))
+                        (fun s₈ fv hs₈ hQf => ?_)
+                      have hQf' : RelC fv
+                        (Expr.fvar d nm₂ (t₂)) := hQf
                       refine SimC.bind_left
-                        (inst1M_eff hs₈ rfl hQf₁')
+                        (inst1M_eff hs₈ rfl hQf')
                         (fun s₉ ob₁ hs₉ hQo₁ => ?_)
                       refine SimC.bind_left
-                        (internI_eff hs₉ (n := ExprView.fvar d nm₂ t₂))
-                        (fun s₁₀ fv₂ hs₁₀ hQf₂ => ?_)
-                      have hQf₂' : RelC fv₂
-                        (Expr.fvar d nm₂ (t₂)) := hQf₂
-                      refine SimC.bind_left
-                        (inst1M_eff hs₁₀ rfl hQf₂')
+                        (inst1M_eff hs₉ rfl hQf')
                         (fun s₁₁ ob₂ hs₁₁ hQo₂ => ?_)
                       refine SimC.bind (ih.defeq hs₁₁ hQo₁ hQo₂
-                        (Expr.WScoped.instantiate1 h1.1 0 h1.2)
+                        (Expr.WScoped.instantiate1 h2.1 0 h1.2)
                         (Expr.WScoped.instantiate1 h2.1 0 h2.2))
                         (fun s₁₂ r₂ r₂x hs₁₂ hPr₂ => ?_)
                       obtain rfl : r₂ = r₂x := hPr₂
@@ -641,24 +638,21 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                       exact SimC.pure hs₇ rfl
                     | true =>
                       simp only [↓reduceIte]
+                      -- one shared local for both bodies (official
+                      -- `is_def_eq_binding`; task #201)
                       refine SimC.bind_left
-                        (internI_eff hs₇ (n := ExprView.fvar d nm₁ t₁))
-                        (fun s₈ fv₁ hs₈ hQf₁ => ?_)
-                      have hQf₁' : RelC fv₁
-                        (Expr.fvar d nm₁ (t₁)) := hQf₁
+                        (internI_eff hs₇ (n := ExprView.fvar d nm₂ t₂))
+                        (fun s₈ fv hs₈ hQf => ?_)
+                      have hQf' : RelC fv
+                        (Expr.fvar d nm₂ (t₂)) := hQf
                       refine SimC.bind_left
-                        (inst1M_eff hs₈ rfl hQf₁')
+                        (inst1M_eff hs₈ rfl hQf')
                         (fun s₉ ob₁ hs₉ hQo₁ => ?_)
                       refine SimC.bind_left
-                        (internI_eff hs₉ (n := ExprView.fvar d nm₂ t₂))
-                        (fun s₁₀ fv₂ hs₁₀ hQf₂ => ?_)
-                      have hQf₂' : RelC fv₂
-                        (Expr.fvar d nm₂ (t₂)) := hQf₂
-                      refine SimC.bind_left
-                        (inst1M_eff hs₁₀ rfl hQf₂')
+                        (inst1M_eff hs₉ rfl hQf')
                         (fun s₁₁ ob₂ hs₁₁ hQo₂ => ?_)
                       refine SimC.bind (ih.defeq hs₁₁ hQo₁ hQo₂
-                        (Expr.WScoped.instantiate1 h1.1 0 h1.2)
+                        (Expr.WScoped.instantiate1 h2.1 0 h1.2)
                         (Expr.WScoped.instantiate1 h2.1 0 h2.2))
                         (fun s₁₂ r₂ r₂x hs₁₂ hPr₂ => ?_)
                       obtain rfl : r₂ = r₂x := hPr₂

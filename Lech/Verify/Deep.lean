@@ -2563,7 +2563,7 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     intro b₁ _
     refine ite_congr' (fun _ => ?_) (fun _ => rfl)
     have hb := ih.defeq (p := p) (d := d + 1) (by omega)
-      (WScoped.instantiate1 (n := n₁) hwwa.1 0 hwwa.2)
+      (WScoped.instantiate1 (n := n₂) hwwb.1 0 hwwa.2)
       (WScoped.instantiate1 (n := n₂) hwwb.1 0 hwwb.2)
     rw [shiftFrom_instantiate1 hpd, shiftFrom_instantiate1 hpd] at hb
     refine bind_congr_eq hb ?_
@@ -2575,7 +2575,7 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     intro b₁ _
     refine ite_congr' (fun _ => ?_) (fun _ => rfl)
     have hb := ih.defeq (p := p) (d := d + 1) (by omega)
-      (WScoped.instantiate1 (n := n₁) hwwa.1 0 hwwa.2)
+      (WScoped.instantiate1 (n := n₂) hwwb.1 0 hwwa.2)
       (WScoped.instantiate1 (n := n₂) hwwb.1 0 hwwb.2)
     rw [shiftFrom_instantiate1 hpd, shiftFrom_instantiate1 hpd] at hb
     refine bind_congr_eq hb ?_

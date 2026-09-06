@@ -1,5 +1,6 @@
 import Lech.SetP.CtxOkPKit
 import Lech.SetP.Annot.BitLemmas
+import Lech.SetP.Annot.BitRename
 import Lech.Semantics.DefEqStep2
 import Lech.Semantics.Hoist
 import Lech.SetP.Step2.ProjAVKitP
@@ -755,7 +756,7 @@ theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
     {ty₁ bd₁ ty₂ bd₂ : Expr} {ta₁ ba₁ ta₂ ba₂ : AVExpr}
     (hdt : isDefEqCore μ env fuel d ty₁ ty₂ = .ok true)
     (hdd : isDefEqCore μ env fuel (d + 1)
-      (bd₁.instantiate1 (.fvar d n₁ ty₁))
+      (bd₁.instantiate1 (.fvar d n₂ ty₂))
       (bd₂.instantiate1 (.fvar d n₂ ty₂)) = .ok true)
     (hwt₁ : Expr.WScoped d ty₁) (hbt₁ : ty₁.looseBVarsBounded 0 = true)
     (hLt₁ : Expr.LeavesBounded ty₁)
@@ -787,15 +788,24 @@ theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
       interp2 V σ ta₁ = interp2 V σ ta₂ :=
     ihd hdt hwt₁ hbt₁ hLt₁ hwt₂ hbt₂ hLt₂ hCt₁ hCt₂ hta₁ hta₂
       hoT₁ hoT₂
+  -- The run opens BOTH bodies with the right binder's local (official
+  -- `is_def_eq_binding`, task #201); the left body's denotation is
+  -- read off its own opening — `denoteP` reads an fvar's index only.
+  have hva₁' : denoteP m.acval env φ (d + 1)
+      (bd₁.instantiate1 (.fvar d n₂ ty₂)) = some ba₁ := by
+    rw [denoteP_erasedEq (Expr.ErasedEq.instantiate1
+      (Expr.ErasedEq.rfl bd₁)
+      (show Expr.ErasedEq (.fvar d n₂ ty₂) (.fvar d n₁ ty₁) from rfl))]
+    exact hva₁
   have hLo₁ : Expr.LeavesBounded
-      (bd₁.instantiate1 (.fvar d n₁ ty₁)) := by
+      (bd₁.instantiate1 (.fvar d n₂ ty₂)) := by
     intro l hl
     rcases Expr.fvarLeaves_instantiate1 bd₁ 0 hl with h2 | h2
     · exact hLb₁ l h2
     · rw [Expr.fvarLeaves] at h2
       rcases List.mem_cons.mp h2 with rfl | h3
-      · exact hbt₁
-      · exact hLt₁ l h3
+      · exact hbt₂
+      · exact hLt₂ l h3
   have hLo₂ : Expr.LeavesBounded
       (bd₂.instantiate1 (.fvar d n₂ ty₂)) := by
     intro l hl
@@ -808,13 +818,13 @@ theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
   refine ⟨hdom ρ hρ, ?_⟩
   intro x hx
   exact ihd (Δa := ta₁ :: Δa) hdd
-    (Expr.WScoped.instantiate1 hwt₁ 0 hwb₁)
+    (Expr.WScoped.instantiate1 hwt₂ 0 hwb₁)
     (Lech.looseBVarsBounded_instantiate1 bd₁ 0 hbb₁) hLo₁
     (Expr.WScoped.instantiate1 hwt₂ 0 hwb₂)
     (Lech.looseBVarsBounded_instantiate1 bd₂ 0 hbb₂) hLo₂
-    (CtxOkP.openS hCt₁ hCb₁ hta₁ hoT₁)
+    (CtxOkP.openCongC hCb₁ hCt₂ hta₂ hoT₂ hdom)
     (CtxOkP.openCongC hCb₂ hCt₂ hta₂ hoT₂ hdom)
-    hva₁ hva₂ hoB₁
+    hva₁' hva₂ hoB₁
     (fun σ hσ => hoB₂ σ (Sat2.head_congr hdom hσ)) (cons x ρ)
     (Sat2_cons V hρ hx)
 
@@ -1061,11 +1071,11 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       obtain ⟨ta₁, ba₁, hta₁, hva₁, rfl⟩ := denoteP_forallE_inv hda
       obtain ⟨ta₂, ba₂, hta₂, hva₂, rfl⟩ := denoteP_forallE_inv hdb
       have hbd : isDefEqCore μ env fuel (d + 1)
-          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₁.instantiate1 (Expr.fvar d n₂ ty₂))
           (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
         revert h
         cases hbd0 : isDefEqCore μ env fuel (d + 1)
-            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₁.instantiate1 (Expr.fvar d n₂ ty₂))
             (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
         | error err => intro h; exact nomatch h
         | ok rb =>
@@ -1116,11 +1126,11 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       obtain ⟨ta₁, ba₁, hta₁, hva₁, rfl⟩ := denoteP_lam_inv hda
       obtain ⟨ta₂, ba₂, hta₂, hva₂, rfl⟩ := denoteP_lam_inv hdb
       have hbd : isDefEqCore μ env fuel (d + 1)
-          (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+          (bd₁.instantiate1 (Expr.fvar d n₂ ty₂))
           (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
         revert h
         cases hbd0 : isDefEqCore μ env fuel (d + 1)
-            (bd₁.instantiate1 (Expr.fvar d n₁ ty₁))
+            (bd₁.instantiate1 (Expr.fvar d n₂ ty₂))
             (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
         | error err => intro h; exact nomatch h
         | ok rb =>
