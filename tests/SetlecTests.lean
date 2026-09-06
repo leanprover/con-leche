@@ -300,7 +300,7 @@ private def emptyModelAuxName : Name :=
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
   | .ok ⟨ds, _, _⟩ =>
-    (Setlec.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
+    (Setlec.Cached.checkDeclsSPCachedD Setlec.cfgP ds.toList).toBool
   | .error _ => false
 
 /-! ## Frontend: taint skip-and-continue
@@ -351,7 +351,7 @@ private def taintSkipExport : String := String.intercalate "\n" [
 -- reach install: it is absent from the declarations).
 #guard match Frontend.parseExportD taintSkipExport with
   | .ok ⟨ds, _, _⟩ =>
-    (Setlec.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
+    (Setlec.Cached.checkDeclsSPCachedD Setlec.cfgP ds.toList).toBool
   | .error _ => false
 
 -- A stream without tolerated-axiom uses records no skips.

@@ -9,8 +9,10 @@ meta import Setlec.PinGen.Dump
 (`Nat.div`, `Nat.mod`, …), the pinned defining expression
 (`nat…DeclPin : Expr`) and the certificate proof blobs
 (`nat…CertProofs : List Expr`) out of the **committed dump**
-`NatOpPins/leanprover-lean4-v4.33.0.json`, embedded below with
-`include_str`.  The hand-pinned certificate *statements* the proofs are
+`pins/leanprover-lean4-v4.33.0.json` (the repository's top-level
+`pins/` directory — see `pins/README.md`), embedded below with
+`include_str`, whose paths resolve relative to THIS source file's
+directory.  The hand-pinned certificate *statements* the proofs are
 checked against stay in `Setlec/Kernel/Checker.lean`.
 
 ## Why a committed file (task #176, 2026-09-06)
@@ -64,4 +66,4 @@ running one, so a forgotten bump is an error, never a silent wrong pin.
 set_option maxRecDepth 1000000
 set_option maxHeartbeats 1000000
 
-#load_natop_pins include_str "NatOpPins/leanprover-lean4-v4.33.0.json"
+#load_natop_pins include_str "../../pins/leanprover-lean4-v4.33.0.json"

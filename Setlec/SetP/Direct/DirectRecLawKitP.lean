@@ -24,108 +24,77 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → Nat}
 
-/-! ## The pins, indexed -/
+/-! ## The frame values (from the retired `DirectRecLawFitsP`, task #175 S2) -/
 
-theorem defEqListOk_index {F d : Nat} :
-    ∀ {as bs : List Expr}, Setlec.DefEqListOk μ F env d as bs →
-      ∀ (i : Nat) (a b : Expr), as[i]? = some a → bs[i]? = some b →
-        Setlec.isDefEqCore μ env F d a b = .ok true
-  | [], [], _, _, _, _, ha, _ => nomatch ha
-  | [], _ :: _, h, _, _, _, _, _ => h.elim
-  | _ :: _, [], h, _, _, _, _, _ => h.elim
-  | a₀ :: as, b₀ :: bs, h, i, a, b, ha, hb => by
-    cases i with
-    | zero =>
-      simp only [List.getElem?_cons_zero, Option.some.injEq] at ha hb
-      subst ha hb
-      exact h.1
-    | succ i =>
-      simp only [List.getElem?_cons_succ] at ha hb
-      exact defEqListOk_index h.2 i a b ha hb
+/-- The layers of a P-graded λ-tower are P-graded along any fitting
+prefix of a spine. -/
+theorem mkLamsAV_layers_okP :
+    ∀ {lds : List (Nat × AVExpr)} {b : AVExpr} {ρ : Nat → V} {as : List V} {i : Nat},
+      AnnotOkP V ρ (mkLamsAV lds b) → SpineFit ρ ((lds.take i).map (·.2)) as →
+      i < lds.length → AnnotOkP V (consList as ρ) ((lds.getD i default).2)
+  | [], _, _, _, _, _, _, hi => absurd hi (Nat.not_lt_zero _)
+  | d :: lds, b, ρ, as, 0, hok, hsp, _ => by
+    obtain rfl : as = [] := by
+      match as, hsp with
+      | [], _ => rfl
+    have hok2 := hok.1
+    have hokV := hok.2
+    simp only [mkLamsAV, AnnotOk2_lam] at hok2
+    simp only [mkLamsAV, AnnotValidV_lam] at hokV
+    exact ⟨hok2.1, hokV.1⟩
+  | d :: lds, b, ρ, [], i + 1, _, hsp, _ => hsp.elim
+  | d :: lds, b, ρ, a :: as, i + 1, hok, hsp, hi => by
+    simp only [List.take_succ_cons, List.map_cons, SpineFit] at hsp
+    have hok2 := hok.1
+    have hokV := hok.2
+    simp only [mkLamsAV, AnnotOk2_lam] at hok2
+    simp only [mkLamsAV, AnnotValidV_lam] at hokV
+    obtain ⟨-, hrest, -⟩ := hok2
+    obtain ⟨-, hrestv⟩ := hokV
+    simp only [consList_cons, List.getD_cons_succ]
+    exact mkLamsAV_layers_okP ⟨hrest a hsp.1, hrestv a hsp.1⟩ hsp.2 (by simpa using hi)
 
-/-! ## The rule's residual -/
+/-- The first `i` values of a frame, outermost first. -/
+def frameVals (ρ : Nat → V) (D i : Nat) : List V :=
+  (List.range i).map fun k => ρ (D - 1 - k)
 
-/-- The λ-peel's residual at a spine is the stripped body's
-instantiation sequence. -/
-theorem instLamsAt_rest_of_stripLams :
-    ∀ (sp : List Expr) {e : Expr} {bs : List (Name × Expr × BinderMeta)} {body : Expr}
-      {ds : List Expr} {rest : Expr},
-      e.stripLams sp.length = some (bs, body) →
-      Expr.instLamsAt sp e = some (ds, rest) →
-      rest = Expr.instSeq sp (sp.length - 1) body
-  | [], e, bs, body, ds, rest, hst, h => by
-    simp only [List.length_nil, Expr.stripLams, Option.some.injEq, Prod.mk.injEq] at hst
-    simp only [Expr.instLamsAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨-, rfl⟩ := hst
-    obtain ⟨-, rfl⟩ := h
+omit [SetTheory V] in
+theorem frameVals_length (ρ : Nat → V) (D i : Nat) : (frameVals ρ D i).length = i := by
+  simp [frameVals]
+
+omit [SetTheory V] in
+theorem frameVals_succ (ρ : Nat → V) (D i : Nat) :
+    frameVals ρ D (i + 1) = frameVals ρ D i ++ [ρ (D - 1 - i)] := by
+  simp [frameVals, List.range_succ]
+
+omit [SetTheory V] in
+/-- The frame's first `i` values, consed on the frame's tail, are the
+frame shifted by `D - i`. -/
+theorem consList_frameVals (ρ : Nat → V) {D i : Nat} (hi : i ≤ D) :
+    consList (frameVals ρ D i) (fun k => ρ (k + D)) = fun k => ρ (k + (D - i)) := by
+  funext k
+  rcases Nat.lt_or_ge k i with hk | hk
+  · rw [consList_apply_lt _ _ _ (by rw [frameVals_length]; exact hk), frameVals_length]
+    simp only [frameVals, List.getElem?_map, List.getElem?_range (show i - 1 - k < i by omega),
+      Option.map_some, Option.getD_some]
+    congr 1; omega
+  · have := consList_apply_add (frameVals ρ D i) (fun k => ρ (k + D)) (k - i)
+    rw [frameVals_length, show k - i + i = k from by omega] at this
+    rw [this]
+    show ρ (k - i + D) = ρ (k + (D - i))
+    congr 1; omega
+
+/-- The domains of a λ-peel, by position. -/
+theorem lds_entry {lds : List (Nat × AVExpr)} {Γ : List AVExpr} {D : Nat}
+    (hΓ : (lds.map (·.2)).reverse = Γ) (hlen : lds.length = D) {i : Nat} (hi : i < D) :
+    Γ.getD (D - 1 - i) default = (lds.getD i default).2 := by
+  subst hΓ
+  have hq : lds[i]? = some (lds.getD i default) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
     rfl
-  | a :: sp, e, bs, body, ds, rest, hst, h => by
-    match e, hst, h with
-    | .lam nm dom b mb, hst, h =>
-      simp only [List.length_cons, Expr.stripLams] at hst
-      cases hst' : Expr.stripLams sp.length b with
-      | none => rw [hst'] at hst; exact nomatch hst
-      | some q =>
-        obtain ⟨bs', body'⟩ := q
-        rw [hst'] at hst
-        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hst
-        obtain ⟨-, rfl⟩ := hst
-        simp only [Expr.instLamsAt] at h
-        cases h1 : Expr.instLamsAt sp (b.instantiate1 a) with
-        | none => rw [h1] at h; exact nomatch h
-        | some q' =>
-          obtain ⟨ds', rest'⟩ := q'
-          rw [h1] at h
-          simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-          obtain ⟨-, rfl⟩ := h
-          -- the instantiated body's peel
-          have hsome := Expr.stripLams_instantiate1_isSome (v := a) sp.length (e := b) 0
-            (by rw [hst']; rfl)
-          obtain ⟨⟨bs'', body''⟩, hst''⟩ := Option.isSome_iff_exists.mp hsome
-          obtain ⟨hb, -⟩ := Expr.stripLams_instantiate1_eq (v := a) sp.length 0 hst' hst''
-          rw [Nat.zero_add] at hb
-          have := instLamsAt_rest_of_stripLams sp hst'' h1
-          rw [this, hb]
-          simp only [List.length_cons, Nat.add_sub_cancel, Expr.instSeq]
-    | .bvar _, hst, _ | .fvar _ _ _, hst, _ | .sort _, hst, _ | .const _ _, hst, _
-    | .app _ _, hst, _ | .forallE _ _ _ _, hst, _ | .letE _ _ _ _, hst, _
-    | .lit _, hst, _ | .proj _ _ _, hst, _ =>
-      simp [Expr.stripLams] at hst
-
-/-- The rule body's instantiation sequence: the minor variable applied
-to the field variables. -/
-theorem instSeq_directRuleBody {nP nF : Nat} {fvsP xFvs : List Expr}
-    (hlenP : fvsP.length = nP + 2) (hlenX : xFvs.length = nF)
-    (hbP : ∀ a ∈ fvsP, a.looseBVarsBounded 0 = true)
-    (hbX : ∀ a ∈ xFvs, a.looseBVarsBounded 0 = true) :
-    Expr.instSeq (fvsP ++ xFvs) (nP + 1 + nF) (Setlec.directRuleBody nF)
-      = Expr.mkAppN (fvsP.getD (nP + 1) default) xFvs := by
-  have hb : ∀ a ∈ fvsP ++ xFvs, a.looseBVarsBounded 0 = true := by
-    intro a ha
-    rcases List.mem_append.mp ha with h | h
-    · exact hbP a h
-    · exact hbX a h
-  have hlen : (fvsP ++ xFvs).length = nP + 2 + nF := by
-    rw [List.length_append, hlenP, hlenX]
-  unfold Setlec.directRuleBody
-  rw [Expr.instSeq_mkAppN]
-  congr 1
-  · have := Expr.instSeq_bvar (fvsP ++ xFvs) (nP + 1 + nF) nF hb (by omega) (by omega)
-    rw [show nP + 1 + nF - nF = nP + 1 from by omega,
-      List.getElem?_append_left (by omega)] at this
-    rw [List.getD_eq_getElem?_getD, this]
-    rfl
-  · apply List.ext_getElem
-    · simp [hlenX]
-    · intro i h1 h2
-      simp only [List.getElem_map, List.getElem_range]
-      have hi : i < nF := by simpa using h1
-      have := Expr.instSeq_bvar (fvsP ++ xFvs) (nP + 1 + nF) (nF - 1 - i) hb (by omega)
-        (by omega)
-      rw [show nP + 1 + nF - (nF - 1 - i) = nP + 2 + i from by omega,
-        List.getElem?_append_right (by omega), hlenP,
-        show nP + 2 + i - (nP + 2) = i from by omega, List.getElem?_eq_getElem h2] at this
-      exact (Option.some.inj this).symm
+  rw [List.getD_eq_getElem?_getD, List.getElem?_reverse (by simp; omega), List.length_map, hlen,
+    show D - 1 - (D - 1 - i) = i from by omega, List.getElem?_map, hq]
+  rfl
 
 /-! ## Fits as spines -/
 

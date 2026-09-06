@@ -6,9 +6,10 @@ import Setlec.PinGen.Certs
 
 Writes the pinned `Nat`-operation declarations and their certificate
 proof blobs to `<outdir>/<toolchain>.json` and prints the path.  The
-default `<outdir>` is `Setlec/Kernel/NatOpPins`, where the dump is
-COMMITTED; `tests/pindump.sh` regenerates into a scratch directory and
-`diff -q`s, so a stale dump fails the battery.
+default `<outdir>` is the repository's top-level `pins/`, where the
+dump is COMMITTED (see `pins/README.md`); `tests/pindump.sh`
+regenerates into a scratch directory and `diff -q`s, so a stale dump
+fails the battery.
 
     lake exe natop-pins-export                 # regenerate in place
     lake exe natop-pins-export _tmp/scratch    # for the freshness gate
@@ -27,9 +28,9 @@ def main (args : List String) : IO UInt32 := do
   Lean.initSearchPath (← Lean.findSysroot)
   let outDir : System.FilePath :=
     match args with
-    | [] => "Setlec" / "Kernel" / "NatOpPins"
+    | [] => "pins"
     | [d] => d
-    | _ => "Setlec" / "Kernel" / "NatOpPins"
+    | _ => "pins"
   if args.length > 1 then
     IO.eprintln "usage: natop-pins-export [output-directory]"
     return 1

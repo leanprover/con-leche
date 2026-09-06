@@ -164,7 +164,7 @@ generic step. -/
 theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
     {env : Env} (henv : EnvWF env) {ci : ConstantInfo} {fe' : FEnv}
     {s₀ s' : CState} (hwf : CSOKF s₀)
-    (h : checkIndMemberS mode blockNames caps (mkFEnv env) ci s₀ =
+    (h : checkIndMemberS (cfgOf mode) blockNames caps (mkFEnv env) ci s₀ =
       .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
     EnvWF fe'.env ∧
@@ -221,7 +221,7 @@ theorem foldIndMemberS_run {blockNames : List Name} {caps : IndCaps} :
     ∀ (cis : List ConstantInfo) (env : Env) {s₀ : CState}
       {fe' : FEnv} {s' : CState},
       EnvWF env → CSOKF s₀ →
-      (cis.foldlM (checkIndMemberS mode blockNames caps) (mkFEnv env)) s₀ =
+      (cis.foldlM (checkIndMemberS (cfgOf mode) blockNames caps) (mkFEnv env)) s₀ =
         .ok (fe', s') →
       CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
       EnvWF fe'.env ∧
@@ -251,7 +251,7 @@ theorem provisionRecsS_run {blockNames : List Name} :
       {p : FEnv × List (ConstantVal × Nat × Nat × List RecRule)}
       {s' : CState},
       EnvWF env → CSOKF s₀ →
-      provisionRecsS mode blockNames (mkFEnv env) recs s₀ = .ok (p, s') →
+      provisionRecsS (cfgOf mode) blockNames (mkFEnv env) recs s₀ = .ok (p, s') →
       CSOKF s' ∧ p.1 = mkFEnv p.1.env ∧
       EnvWF p.1.env ∧
       ∃ F, (provisionRecs (fueledOpsM mode) blockNames env recs).val F =
@@ -349,7 +349,7 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
       (∀ c ∈ checked, c.1.type.hasFvar = false) →
       CSOK mode envSelf s₀ →
       (checked.foldlM (fun (acc : FEnv) (c : ConstantVal × Nat × Nat × List RecRule) => do
-          let rules' ← checkIotaRules mode (sharedOpsC mode (mkFEnv envSelf)) env₂
+          let rules' ← checkIotaRules mode (sharedOpsC (cfgOf mode) (mkFEnv envSelf)) env₂
             envSelf f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
             0 c.2.2.2
           pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules'))) acc) s₀ =
@@ -431,7 +431,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
     {recs : List ConstantInfo} (henv₂ : EnvWF env₂)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true)
     {s₀ : CState} (hwf : CSOKF s₀) {fe₃ : FEnv} {s' : CState}
-    (h : checkIndRecsS mode blockNames (mkFEnv env₂) recs s₀ =
+    (h : checkIndRecsS (cfgOf mode) blockNames (mkFEnv env₂) recs s₀ =
       .ok (fe₃, s')) :
     CSOKF s' ∧ fe₃ = mkFEnv fe₃.env ∧
     EnvWF fe₃.env ∧
@@ -566,7 +566,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
 theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
     {s₀ : CState} (hs : CSOK mode env s₀) {fe' : FEnv} {s' : CState}
-    (h : checkProjFnS mode (mkFEnv env) T ctorName lps nP nF i s₀ =
+    (h : checkProjFnS (cfgOf mode) (mkFEnv env) T ctorName lps nP nF i s₀ =
       .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
     EnvWF fe'.env ∧
@@ -709,7 +709,7 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
 theorem installProjFnStepS_run {env : Env} (henv : EnvWF env)
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
     {s₀ : CState} (hwf : CSOKF s₀) {fe' : FEnv} {s' : CState}
-    (h : installProjFnStepS mode T ctorName lps nP nF (mkFEnv env) i s₀ =
+    (h : installProjFnStepS (cfgOf mode) T ctorName lps nP nF (mkFEnv env) i s₀ =
       .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
     EnvWF fe'.env ∧
@@ -744,7 +744,7 @@ theorem foldProjFnS_run {T ctorName : Name} {lps : List Name}
     ∀ (idxs : List Nat) (env : Env) {s₀ : CState} {fe' : FEnv}
       {s' : CState},
       EnvWF env → CSOKF s₀ →
-      (idxs.foldlM (installProjFnStepS mode T ctorName lps nP nF)
+      (idxs.foldlM (installProjFnStepS (cfgOf mode) T ctorName lps nP nF)
         (mkFEnv env)) s₀ = .ok (fe', s') →
       CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
       EnvWF fe'.env ∧

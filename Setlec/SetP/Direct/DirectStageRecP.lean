@@ -1,14 +1,16 @@
 import Setlec.SetP.Direct.DirectRecLawP
 
 /-!
-# The recursor's cons (task #175 W4c, P3 module 6, part 20)
+# The recursor's cons (task #175 W4c, P3 module 6, part 20; S2)
 
-`stageRec`: the P step at the recursor's cons.  The leaf is
-`directRecAV ℓ (rds ψ) nF` over the recursor type's peel; its
-hereditary premises are the frames' walks (`recLeafFacts`), the
-capability laws are the fieldless family's (the projection slots are
-still empty), and the rule's law is `recRuleLaw` when the rule is
-plain (an inert rule owes nothing).
+`stageRec`: the P step at the recursor's cons.  The stored recursor is
+the *generated* one (task #175 S2): its data is read off syntactically
+(`recData_of`), its leaf is `directRecAV ℓ (rds ψ) nF` over that
+data, the frames' walks (`recLeafFacts` over `recFrames`, a
+computation) give the leaf's grading and membership, the capability
+laws are the fieldless family's (the projection slots are still
+empty), and the rule's law is `recRuleLaw` over the generated rule
+when the rule is plain (an inert rule owes nothing).
 -/
 
 namespace Setlec.SetP
@@ -24,47 +26,34 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → Nat}
 
-/-- The recursor type's opening, at every assignment, from the stage's
-runs. -/
+/-- The generated recursor type's opening, at every assignment: the
+type strips its `nP + 3` binders by construction. -/
 theorem recOpenedAll (mp : EnvS2PM V μ env)
-    {F : Nat} {p : DirectParts} {cvTa cvCa cvRa : ConstantVal}
-    (hccv : Setlec.checkConstantVal (Setlec.fueledOps μ F) env p.cvR = .ok cvRa)
-    (hRec : Setlec.checkDirectRecTy (Setlec.fueledOps μ F) env p cvTa cvCa cvRa
-      = .ok ())
+    {F : Nat} {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {rhsA : Expr}
+    (hRec : Setlec.checkDirectRec (Setlec.fueledOps μ F) env p cvTa cvCa = .ok (cvRa, rhsA))
+    {bsT : List (Name × Expr × BinderMeta)}
+    (hstripT : cvTa.type.stripPis p.nP = some (bsT, .sort p.resSort))
     {rds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hRD : RecData mp.base2 cvRa p.nP (elimLevel p) rds) :
     ∃ (fvsR : List Expr) (oR : Expr), ∀ ψ : Name → Nat,
       OpenedP mp.base2 ψ (p.nP + 3) cvRa.type fvsR oR (((rds ψ).map (·.2.2)).reverse)
         (.app (.bvar 2) (.bvar 0)) := by
-  obtain ⟨-, fvsP, rest, -, -, mfv, -, -, -, -, -, -, -, jbs, jbody, -,
-    hopR, -, -, hmfv, -, -, -, -, -, -, -, -, -, hjs, -, -, hjbody⟩ :=
-    Setlec.checkDirectRecTy_shape hRec
-  obtain ⟨-, -, -, -, hlbt, hitf, type', -, -, hann', -, -, -, -, rfl⟩ :=
-    Setlec.checkConstantVal_inv hccv
-  obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
-  simp only at htf' hbt' hopR hRD ⊢
-  obtain ⟨nmM, tyM, rfl⟩ := openPisAtFvars_index _ _ _ hopR p.nP mfv hmfv
-  obtain ⟨nmJ, jdom, mbJ, rfl, -⟩ := stripPis_one_inv hjs
-  subst hjbody
-  rw [Nat.zero_add] at hopR
-  have hopAll : openPisAtFvars (p.nP + 3) type' 0
-      = some (fvsP ++ [.fvar (p.nP + 2) nmJ jdom],
-          .app (.fvar p.nP nmM tyM) (.fvar (p.nP + 2) nmJ jdom)) := by
-    have := openPisAtFvars_add (p.nP + 2) hopR
-      (openPisAtFvars_one nmJ jdom (.app (.fvar p.nP nmM tyM) (.bvar 0)) mbJ (0 + (p.nP + 2)))
-    rw [Nat.zero_add] at this
-    simpa using this
-  exact ⟨_, _, fun ψ =>
-    openedP_of_peel hopAll htf' hbt' (hRD.read ψ) (hRD.len ψ) (hRD.okTy ψ)⟩
+  obtain ⟨cvRi, recTy, sty, rhsTy, u, -, hgen, -, -, -, hbt, hRf, -, -, -, -, -, -, -, -, rfl⟩ :=
+    Setlec.checkDirectRec_shape hRec
+  obtain ⟨cbs, crest0, minorTy, -, -, hrec⟩ := Setlec.directRecTy_single hgen
+  have hs1 := Setlec.replacePisPw_stripPis p.nP hrec hstripT
+  have hs := Setlec.stripPis_append p.nP (m := 3) hs1 rfl
+  obtain ⟨fvsR, oR, hop⟩ := openPisAtFvars_of_stripPis_isSome (p.nP + 3) 0 (by rw [hs]; rfl)
+  exact ⟨fvsR, oR, fun ψ =>
+    openedP_of_peel hop hRf hbt (hRD.read ψ) (hRD.len ψ) (hRD.okTy ψ)⟩
 
 /-- **The P step at the recursor's cons.** -/
-theorem stageRec (hμ : μ.verifiedChecks = true) (hE : Setlec.EtaFamiliesClosed env)
+theorem stageRec (hE : Setlec.EtaFamiliesClosed env)
     (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {rhsA : Expr}
-    (hccv : Setlec.checkConstantVal (Setlec.fueledOps μ F) env p.cvR = .ok cvRa)
-    (hRec : Setlec.checkDirectRecTy (Setlec.fueledOps μ F) env p cvTa cvCa cvRa
-      = .ok ())
-    (hRule : Setlec.checkDirectRule (Setlec.fueledOps μ F) env p cvCa cvRa = .ok rhsA)
+    (hRec : Setlec.checkDirectRec (Setlec.fueledOps μ F) env p cvTa cvCa = .ok (cvRa, rhsA))
+    {bsT : List (Name × Expr × BinderMeta)}
+    (hstripT : cvTa.type.stripPis p.nP = some (bsT, .sort p.resSort))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa (Setlec.directCaps p)))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hfC : env.find? p.cvC.name = some (.ctorInfo cvCa p.nP p.nF))
@@ -80,6 +69,14 @@ theorem stageRec (hμ : μ.verifiedChecks = true) (hE : Setlec.EtaFamiliesClosed
     (hFD : FormerData mp.base2 cvTa p.nP p.resSort pps)
     (hCD : CtorData mp.base2 p.cvT.name cvCa p.nP p.nF p.resSort ds)
     (hRD : RecData mp.base2 cvRa p.nP (elimLevel p) rds)
+    (hrds : ∀ ψ, rds ψ
+      = recDataAV mp.base2 p.cvT.name p.cvC.name ψ p.nP p.nF (elimLevel p) (pps ψ) (ds ψ))
+    (hRuleRead : ∀ ψ : Name → Nat, denoteP mp.base2.acval env ψ 0 rhsA
+      = some (mkLamsAV (ruleDataAV mp.base2 p.cvT.name p.cvC.name ψ p.nP p.nF (elimLevel p)
+          (pps ψ) (ds ψ)) (AVExpr.mkAppN (.bvar p.nF) (fieldBvars p.nF))))
+    (hRuleOk : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      AnnotOkP V ρ (mkLamsAV (ruleDataAV mp.base2 p.cvT.name p.cvC.name ψ p.nP p.nF (elimLevel p)
+          (pps ψ) (ds ψ)) (AVExpr.mkAppN (.bvar p.nF) (fieldBvars p.nF))))
     (hleafT : ∀ ψ, mp.base2.acval p.cvT.name ψ
       = directTyAV (p.resSort.eval ψ) (pps ψ) (((ds ψ).drop p.nP).map (·.2.2)))
     (hleafC : ∀ ψ, mp.base2.acval p.cvC.name ψ
@@ -100,19 +97,22 @@ theorem stageRec (hμ : μ.verifiedChecks = true) (hE : Setlec.EtaFamiliesClosed
           rhsA⟩] :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval cvRa.name
         (fun ψ => directRecAV ((elimLevel p).eval ψ) (rds ψ) p.nF) := by
-  -- the frames and the openings
-  obtain ⟨hiffR, hbase⟩ := recFrames hμ mp hccv hRec hfT hlpsT hfC hlpsC hFD hCD hRD hleafT
-    hleafC hiff hfields
-  obtain ⟨fvsR, oR, hR⟩ := recOpenedAll mp hccv hRec hRD
+  -- the openings and the frames
+  obtain ⟨fvsR, oR, hR⟩ := recOpenedAll mp hRec hstripT hRD
+  have hbase := fun ψ => (recFrames (m := mp.base2) hFD hCD hleafT hleafC hiff hfields ψ
+    (hrds ψ) (hR ψ)).2
   -- the constant's facts
-  obtain ⟨hfind, hnres, hpshape, -, -, -, type', -, -, -, -, htr', -, -, hty⟩ :=
+  obtain ⟨cvRi, recTy, sty, rhsTy, u, hccv, -, -, htp, htrR, -, -, -, hrhsRes, -, -, -, -, -, -,
+    hcvRa⟩ := Setlec.checkDirectRec_shape hRec
+  obtain ⟨hfind, hnres, hpshape, -, -, -, -, -, -, -, -, -, -, -, -⟩ :=
     Setlec.checkConstantVal_inv hccv
-  have hRname : cvRa.name = p.cvR.name := by rw [hty]
-  have hRlps : cvRa.levelParams = p.cvR.levelParams := by rw [hty]
+  have hRname : cvRa.name = p.cvR.name := by rw [hcvRa]
+  have hRlps : cvRa.levelParams = p.cvR.levelParams := by rw [hcvRa]
+  have hRtype : cvRa.type = recTy := by rw [hcvRa]
   have hfresh : env.find? cvRa.name = none := by rw [hRname]; exact hfind
-  have htrR : cvRa.type.constsResolve env = true := by rw [hty]; exact htr'
-  have hcbR : ConstsBound env cvRa.type := constsBound_of_constsResolve _ htrR
-  have hwf := Setlec.direct_rec_wf mp.base2.wf hccv hRule
+  have htrR' : cvRa.type.constsResolve env = true := by rw [hRtype]; exact htrR
+  have hcbR : ConstsBound env cvRa.type := constsBound_of_constsResolve _ htrR'
+  have hwf := Setlec.direct_rec_wf mp.base2.wf hRec
   have hTR : p.cvT.name ≠ cvRa.name := by
     intro h; rw [h, hfresh] at hfT; exact nomatch hfT
   have hCR : p.cvC.name ≠ cvRa.name := by
@@ -159,13 +159,13 @@ theorem stageRec (hμ : μ.verifiedChecks = true) (hE : Setlec.EtaFamiliesClosed
   · -- level dependence
     intro ψ₁ ψ₂ hφ
     have hφR : ∀ q ∈ cvRa.levelParams, ψ₁ q = ψ₂ q := hφ
-    rw [hRlps] at hφR
     show directRecAV _ (rds ψ₁) p.nF = directRecAV _ (rds ψ₂) p.nF
-    rw [hRD.params ψ₁ ψ₂ (by rw [hRlps]; exact hφR)]
+    rw [hRD.params ψ₁ ψ₂ hφR]
     congr 1
+    rw [hRlps] at hφR
     cases hpl : p.large
-    · simp [elimLevel, hpl, Level.eval]
-    · simp only [elimLevel, hpl, if_true, Level.eval]
+    · simp [elimLevel, Setlec.directElimLevel, hpl, Level.eval]
+    · simp only [elimLevel, Setlec.directElimLevel, hpl, if_true, Level.eval]
       exact hφR p.elim (helim hpl)
   · exact fun ψ ρ => (hleaf ψ ρ).1.1
   · exact fun ψ ρ => (hleaf ψ ρ).1.2
@@ -258,8 +258,8 @@ theorem stageRec (hμ : μ.verifiedChecks = true) (hE : Setlec.EtaFamiliesClosed
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
           rhsA⟩ : RecRule) = ⟨p.cvC.name, p.nF, p.nP, .plain, rhsA⟩ := by
         simp [hplain]
-      exact recRuleLaw hμ mp hccv hRec hRule hfT hlpsT hfC hlpsC hFD hCD hRD hleafT hleafC
-        hiff hfields hfresh hrule m₂ hac (fun ψ ρ => (hleaf ψ ρ).1) φ'
+      exact recRuleLaw mp hfT hlpsT hfC hlpsC hFD hCD hRD hrds hR hleafT hleafC hiff hfields
+        hRuleRead hRuleOk hrhsRes htrR' hfresh hrule m₂ hac (fun ψ ρ => (hleaf ψ ρ).1) φ'
     · exfalso
       apply hfire
       simp [hplain]

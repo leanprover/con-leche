@@ -165,102 +165,50 @@ def checkDirectCtor (ops : CheckerOps m) (env₀ env : Env) (p : DirectParts)
     xq.1 p.nF
   pure (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa, sorts)
 
-/-- Stage 3: the recursor's type is the generated shape.  The skeleton
-(motive dependent over the family, one minor over the constructor's
-field telescope ending in `motive (C p⃗ f⃗)`, no indices, major, body
-`motive t`) is pinned syntactically by `directShape`; the binder
-*domains* are pinned definitionally against the type former's and the
-constructor's over one shared opening — exactly the equalities the
-model's telescope walks consume. -/
-def checkDirectRecTy (ops : CheckerOps m) (env : Env) (p : DirectParts)
-    (cvTa cvCa cvRa : ConstantVal) : m Unit := do
+/-- Stage 3: **the recursor, generated and compared** (task #175 S2).
+The recursor type and its rule are *fabricated* from the annotated
+type former and constructor types (`directRecTy`/`directRecRhs`,
+`Setlec/Kernel/Direct/Parts.lean`), exactly as the reference kernels
+generate theirs; the stream's recursor is admitted by the ordinary
+constant check (`checkConstantVal` — freshness, reservation, level
+parameters, annotate + infer) and then compared against the generated
+type by **one closed `isDefEq`** — the gap official's `whnf`-peeled
+domains leave is definitional, and this is the one place it is
+crossed.  What is *stored* is the generated recursor (its type and its
+rule), as official stores its own: the model reads the stored forms
+syntactically, and the comparison carries no proof obligation.
+
+The generated forms are validated once: the recursor type is inferred
+(a sort; in verified mode this also validates every binder datum the
+generator wrote) and the rule's right-hand side is inferred (the
+reading's grading), and both pass the scoping guards `EnvWF` records
+(fvar-free, level parameters within the recursor's, resolving, closed)
+— those cannot fail on a block the earlier stages accepted, so their
+failure is internal.  Returns the stored recursor's `ConstantVal` and
+the rule's right-hand side. -/
+def checkDirectRec (ops : CheckerOps m) (env : Env) (p : DirectParts)
+    (cvTa cvCa : ConstantVal) : m (ConstantVal × Expr) := do
+  let cvRi ← checkConstantVal ops env p.cvR
   let T := p.cvT.name
   let lps := p.cvT.levelParams
-  unless directShape T p.cvC.name lps p.elim p.large p.nP p.nF
-      cvTa.type cvCa.type cvRa.type do
-    throw (.notImplemented "direct structure: annotated recursor shape")
-  let (fvsP, rest) ← unwrapOr (openPisAtFvars (p.nP + 2) cvRa.type 0)
-    (.notImplemented "direct structure: recursor telescope")
-  let ps := fvsP.take p.nP
-  let famApp := Expr.mkAppN (.const T (lps.map .param)) ps
-  -- the parameters: definitionally the constructor's parameter domains,
-  -- domain `j` at frame `j`
-  let (cdomsP, crest) ← unwrapOr (Expr.instPisAt ps cvCa.type)
-    (.notImplemented "direct structure: constructor telescope")
-  checkDirectDomsAt ops env 0 ps cdomsP p.nP
-  -- the motive: `∀ (t : T p⃗), Sort elim`
-  let mfv ← unwrapOr fvsP[p.nP]?
-    (.internal "direct structure: motive index")
-  let (mbs, mbody) ← unwrapOr (mfv.fvarTypeD.stripPis 1)
-    (.notImplemented "direct structure: motive telescope")
-  let mdom ← unwrapOr ((mbs[0]?).map (·.2.1))
-    (.notImplemented "direct structure: motive telescope")
-  unless ← ops.isDefEq env p.nP mdom famApp do
-    throw (.notImplemented "direct structure: motive domain")
-  unless mbody == Expr.sort (if p.large then .param p.elim else .zero) do
-    throw (.notImplemented "direct structure: motive codomain")
-  -- the minor premise: the constructor's field telescope, ending in
-  -- the motive applied to the canonical constructor spine
-  let minfv ← unwrapOr fvsP[p.nP + 1]?
-    (.internal "direct structure: minor index")
-  let (xFvs, minBody) ← unwrapOr
-    (openPisAtFvars p.nF minfv.fvarTypeD (p.nP + 2))
-    (.notImplemented "direct structure: minor telescope")
-  let (cdomsF, crest2) ← unwrapOr (Expr.instPisAt xFvs crest)
-    (.notImplemented "direct structure: constructor field telescope")
-  checkDirectDomsAt ops env (p.nP + 2) xFvs cdomsF p.nF
-  unless crest2 == famApp do
-    throw (.notImplemented "direct structure: constructor residual")
-  unless minBody == Expr.app mfv
-      (Expr.mkAppN (.const p.cvC.name (lps.map .param)) (ps ++ xFvs)) do
-    throw (.notImplemented "direct structure: minor conclusion")
-  -- the major premise and the conclusion `motive t`
-  let (jbs, jbody) ← unwrapOr (rest.stripPis 1)
-    (.notImplemented "direct structure: major telescope")
-  let jdom ← unwrapOr ((jbs[0]?).map (·.2.1))
-    (.notImplemented "direct structure: major telescope")
-  unless ← ops.isDefEq env (p.nP + 2) jdom famApp do
-    throw (.notImplemented "direct structure: major domain")
-  unless jbody == Expr.app mfv (.bvar 0) do
-    throw (.notImplemented "direct structure: recursor conclusion")
-
-/-- Stage 4: the single rule's right-hand side — `λ p⃗ motive minor f⃗,
-minor f⃗` (lean4lean `Inductive/Add.lean:441-447`), annotated and
-checked exactly like a projection rule: the body is the canonical
-application and the λ-domains are definitionally the recursor's own and
-the constructor's field domains. -/
-def checkDirectRule (ops : CheckerOps m) (env : Env) (p : DirectParts)
-    (cvCa cvRa : ConstantVal) : m Expr := do
-  unless !p.rhs.hasFvar && p.rhs.looseBVarsBounded 0 do
-    throw (.notImplemented "direct structure: rule scoping")
-  let rhsA ← ops.annotate env 0 p.rhs
-  unless rhsA.allLevelParamsDefined cvRa.levelParams && rhsA.constsResolve env &&
-      rhsA.looseBVarsBounded 0 && !rhsA.hasFvar do
-    throw (.notImplemented "direct structure: rule wellformedness")
-  let (_, rbody) ← unwrapOr (rhsA.stripLams (p.nP + 2 + p.nF))
-    (.notImplemented "direct structure: rule telescope")
-  unless rbody == directRuleBody p.nF do
-    throw (.notImplemented "direct structure: rule body")
-  let depth := p.nP + 2 + p.nF
-  let (fvsP, _) ← unwrapOr (openPisAtFvars (p.nP + 2) cvRa.type 0)
-    (.notImplemented "direct structure: recursor telescope")
-  let (_, crest) ← unwrapOr (Expr.instPisAt (fvsP.take p.nP) cvCa.type)
-    (.notImplemented "direct structure: constructor telescope")
-  -- The frame is the **rule tower's own** (`ruleLhsParts`): the
-  -- constructor's field telescope opened at the rule prefix, not the
-  -- minor premise's opening of the same binders.  The two are pinned
-  -- definitionally equal by `checkDirectRecTy`, but only this one is
-  -- the frame the stored rule's total λ-equality is stated over, and
-  -- the model has no way to cross a definitional step it was not
-  -- handed — the same "route (X), at the stage's own frames"
-  -- discipline the projection stage follows.
-  let (xFvs, _) ← unwrapOr (openPisAtFvars p.nF crest (p.nP + 2))
-    (.notImplemented "direct structure: constructor field telescope")
-  let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvs) rhsA)
-    (.notImplemented "direct structure: rule telescope")
-  checkDefEqList ops env depth ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms
-  let _rhsTy ← ops.inferType env 0 rhsA
-  pure rhsA
+  let ctors := [(p.cvC.name, p.nF, cvCa.type)]
+  let recTy ← unwrapOr (directRecTy T lps p.elim p.large p.nP cvTa.type ctors)
+    (.internal "direct structure: recursor type")
+  let rhs ← unwrapOr (directRecRhs T lps p.elim p.large p.nP cvTa.type ctors 0)
+    (.internal "direct structure: recursor rule")
+  unless recTy.allLevelParamsDefined p.cvR.levelParams && recTy.constsResolve env &&
+      recTy.looseBVarsBounded 0 && !recTy.hasFvar do
+    throw (.internal "direct structure: recursor type scoping")
+  unless rhs.allLevelParamsDefined p.cvR.levelParams && rhs.constsResolve env &&
+      rhs.looseBVarsBounded 0 && !rhs.hasFvar do
+    throw (.internal "direct structure: recursor rule scoping")
+  let sty ← ops.inferType env 0 recTy
+  let _u ← ops.ensureSort env 0 sty
+  -- the stream's recursor is the generated one
+  unless ← ops.isDefEq env 0 cvRi.type recTy do
+    throw (.notImplemented "direct structure: recursor type")
+  let _rhsTy ← ops.inferType env 0 rhs
+  pure (⟨p.cvR.name, p.cvR.levelParams, recTy⟩, rhs)
 
 /-- Stage 5: **the projection table** (task #175 S1).  One constant
 per structure: the fields' result-type bodies read off the
@@ -310,9 +258,7 @@ def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     m Env := do
   let (env₁, cvTa) ← checkDirectInd ops env p
   let (env₂, cvCa, sorts) ← checkDirectCtor ops env env₁ p cvTa
-  let cvRa ← checkConstantVal ops env₂ p.cvR
-  checkDirectRecTy ops env₂ p cvTa cvCa cvRa
-  let rhsA ← checkDirectRule ops env₂ p cvCa cvRa
+  let (cvRa, rhsA) ← checkDirectRec ops env₂ p cvTa cvCa
   let env₃ : Env :=
     ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,

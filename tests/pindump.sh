@@ -8,7 +8,7 @@
 # never ordered the two, and on a cold tree `lake build setlec` failed
 # outright.  Per the user's ruling the pins are now a COMMITTED file,
 #
-#     Setlec/Kernel/NatOpPins/<toolchain>.json
+#     pins/<toolchain>.json
 #
 # written by the `natop-pins-export` executable, which lives in the
 # certificate library's world (its root imports `Setlec.PinGen.Certs`,
@@ -44,7 +44,7 @@ TC=$(tr -d ' \t\n\r' < lean-toolchain)
 # the generator's own sanitisation (Setlec.PinGen.toolchainFileName):
 # everything outside [A-Za-z0-9._-] becomes '-'
 BASE=$(printf '%s' "$TC" | sed 's/[^A-Za-z0-9._-]/-/g').json
-COMMITTED=Setlec/Kernel/NatOpPins/$BASE
+COMMITTED=pins/$BASE
 SCRATCH=_tmp/pindump-gate
 
 if [ ! -f "$COMMITTED" ]; then
@@ -54,7 +54,7 @@ if [ ! -f "$COMMITTED" ]; then
   exit 1
 fi
 
-if ! grep -q "include_str \"NatOpPins/$BASE\"" Setlec/Kernel/NatOpPins.lean; then
+if ! grep -q "include_str \"../../pins/$BASE\"" Setlec/Kernel/NatOpPins.lean; then
   echo "PINDUMP FAIL — Setlec/Kernel/NatOpPins.lean does not embed $BASE;"
   echo '    a toolchain bump must re-point the include_str at the new dump.'
   exit 1
