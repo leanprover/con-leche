@@ -1,0 +1,8 @@
+{
+  "challenge_module": "Setlec.Challenge",
+  "solution_module": "Setlec.MainTheorem",
+  "theorem_names": ["Setlec.no_proof_of_False"],
+  "definition_names": [],
+  "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
+  "enable_nanoda": true
+}

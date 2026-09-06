@@ -49273,3 +49273,197 @@ allowlist, tutorial 90/92, e2e 91/91 (the six new fixtures at
 1/1, the trusted sweep with the 3 recorded divergences; init-full
 `--verified` 56 291 and `--trusted` 56 291 (exit 0), unchanged.
 
+
+## TASK #183 — REGISTER-READY: the Comparator pair and the Palomar metadata (2026-09-06, `agent/comparator`)
+
+The tree gains the four files the [Palomar registry](https://palomar-registry.org/)
+asks a Lean formalization to carry, so that `Setlec.no_proof_of_False` can be
+submitted as a *registrable challenge* rather than as a claim in a README:
+
+| file | what it is |
+|---|---|
+| `Setlec/Challenge.lean` | the **challenge**: the statement alone, proof `sorry`, with a plain-words docstring of what every name in it means |
+| `Setlec/MainTheorem.lean` | the **solution** (unchanged; it already existed) |
+| `comparator.json` | the [Comparator](https://github.com/leanprover/comparator) config naming the one theorem to compare |
+| `formalization.yaml` | the registry's structured metadata, v0.4 |
+
+### What Comparator actually does, and why the pair is shaped this way
+
+Comparator (`leanprover/comparator`) builds the challenge module and the
+solution module *separately*, each inside a `landrun` sandbox, exports each
+with `lean4export`, and then checks three things: that the named theorems have
+**the same statement** in both environments (comparing the full closure of
+declarations the statement mentions), that the solution's proof term uses no
+axiom outside `permitted_axioms`, and that the solution environment replays
+through the Lean kernel.  The challenge is the *trusted* half — the reader
+audits it — and the solution is the half a stranger could have written.
+
+That contract is why the challenge file exists at all even though
+`Setlec/MainTheorem.lean` already states the theorem: the point of the split is
+that the statement can be read **without** the proof tower under it.  Hence the
+rule for this file: it may import implementation modules (it needs
+`checkDeclsSPCachedD` and `cfgOf` to *be the shipped ones*, not restatements),
+but it imports nothing from `Setlec/Verify/*` or `Setlec/SetP/*`.  Its import
+closure is 48 modules — the checker and the `SetTheory` interface — against the
+solution's 397.
+
+The statements were verified token-identical, not merely "the same by eye":
+`#check @Setlec.no_proof_of_False` under `pp.universes`+`pp.explicit` from each
+module, diffed, is byte-identical (universe `u_1`, `Setlec.CheckError × Nat` on
+the error side, syntactic `Setlec.Expr.const Setlec.falseName []` in the
+conclusion).  Comparator then confirmed it for real (below).
+
+**Only `no_proof_of_False` is in the pair.**  Not `no_proof_of_Empty`, not
+`no_proof_of_Empty_IO`, not any of the letters — user ruling: one headline
+statement, so a reader has one thing to audit.  Adding a second is a one-line
+edit to `theorem_names` plus a second `theorem` in the challenge file, whenever
+that is wanted.
+
+### The build-hygiene problem, and how it is resolved
+
+The challenge file contains a `sorry`.  That collides with two standing rules:
+CLAUDE.md's "no `sorry`s on master", and `tests/trust-surface.sh`, which fails
+the standard battery on a bare `sorry` anywhere in `Setlec/`, `tests/` or
+`scripts/`.  Both are resolved by making the module a **TCB dead end** rather
+than by weakening a gate:
+
+* it roots its own `lean_lib` (`SetlecChallenge`, root `Setlec.Challenge`) —
+  needed anyway, because Comparator builds the module by name
+  (`lake build Setlec.Challenge`) and Lake will only build a module reachable
+  from some library root;
+* that library is **not** in `defaultTargets`, so `lake build` — the
+  warning-free gate — never builds it;
+* nothing in the tree imports it, so no shipped or proved declaration can reach
+  the `sorryAx` it introduces (the axiom pin in `tests/SetlecTests/Axioms.lean`
+  is unmoved: 15 theorems, still exactly `[propext, Classical.choice,
+  Quot.sound]`);
+* and `tests/trust-surface.sh` gets a **one-token** allowlist entry
+  (`Setlec/Challenge.lean` → `sorry`, and nothing else) with the justification
+  in its header, the same shape as the three escapes already there.
+
+So `lake build Setlec.Challenge` succeeds with exactly one diagnostic —
+`declaration uses 'sorry'` — and `lake build` still emits none.
+
+The layering gate classifies `Setlec/Challenge.lean` as **base** (it is not
+under `Setlec/{Kernel,Cached,Frontend}/`, so the implementation→theory clause
+does not bind it; it imports no `Setlec/SetP/*`, so base purity does).  That is
+deliberately the *stricter* of the available classifications: adding it to the
+gate's `CAPS` set would have exempted it from base purity for no gain.  Counts
+move from base 253 → 254; `tests/proofdeps.sh` is untouched (0 doors).
+
+### Schema decisions in `comparator.json`
+
+Comparator's config keys, read off its `Config` structure rather than guessed:
+`challenge_module`, `solution_module`, `theorem_names`, `definition_names`
+(optional), `permitted_axioms`, `enable_nanoda` (optional),
+`external_kernels` (optional).
+
+* The two module fields take **Lean module names**, not paths, and are passed
+  straight to `lake build`.  So the pair is `Setlec.Challenge` /
+  `Setlec.MainTheorem`; no root-level `Challenge.lean`/`Solution.lean` shim is
+  needed, and none was added.  (Palomar's spec confirms this reading: "Challenge
+  and Solution must be distinct module names.  Palomar asks Lake for its
+  ordered source paths and selects the first matching regular, non-symlink file
+  inside the selected project.")
+* `theorem_names` takes the **fully qualified** name, `Setlec.no_proof_of_False`.
+* `definition_names: []` — no definition holes.  (Comparator supports
+  challenge-side sorried *definitions*; the registry warns that such challenges
+  always need a human verifier.  Not our shape.)
+* `enable_nanoda: true`, matching the Palomar starter template, which enables it
+  in its own `scripts/verify-comparator.sh`.  A second kernel checking the
+  export of a project that *is* a kernel is worth the line.  Note this is the
+  arena's `nanoda_lib`, reached as `nanoda_bin`; it is unrelated to the retired
+  `nanodatg` comparison.
+
+### `formalization.yaml`: v0.4, and Palomar's narrowings of it
+
+The file follows `mathlib-initiative/formalization.yaml` v0.4 (the schema the
+`# yaml-language-server:` header points at), plus three narrowings that only
+appear in `PalomarRegistry/PalomarPolicy`'s `docs/specification.md`:
+
+* **source `type` is a closed vocabulary** there — `paper`, `book`,
+  `web discussion`, `folklore`, `original-proof`, `other` — although upstream
+  v0.4 leaves it free text.  Hence Carneiro's thesis is typed `paper`, not
+  "MSc thesis", and lean4lean-model is `other`, not "formalization".
+* **exactly one origin must be declared.**  This is an *original result*, so:
+  one source with `type: original-proof` and `relationship: other`, and every
+  other source at `background`.  (The alternative — a `formalizes`/`adapts`/
+  `independently-proves` edge — would have made it source-based, which would be
+  a false claim: no prior text states the soundness of *this* checker.)
+* **`project.authors` and `project.responsible_maintainers` are reserved for
+  humans**; naming an automated system in either "requires correction before
+  registration".  So both are `Joachim Breitner` alone, and the AI contribution
+  is reported where the schema wants it: `automation.methods` carries an
+  `agent` entry (Claude / Claude Code, worktree-per-task under a human
+  orchestrator) and a `manual` entry, with `automation.notes` saying plainly
+  that agents wrote the implementation and the proofs, the maintainer set the
+  goals, reviewed the claimed statements and performed every merge, and that
+  the repository's own gates (axiom pin, trust surface, layering, proofdeps)
+  are the mechanical substitute for trusting the agents.
+
+`status.scope` is where the honest limitations go, and they are listed rather
+than softened: the parser/front end is outside the statement; `--trusted` is
+outside it; the `SetTheory` interface is *assumed*, not constructed (ZF⁻ with an
+ω-chain of Grothendieck universes, realizable by Aczel's construction under the
+universe-chain hypothesis, which this development does not do); the conclusion
+is **syntactic** (`= .const falseName []`), so a constant whose type is merely
+*definitionally* `False` is not excluded by this sentence; and the `Empty` and
+`IO` companions exist but are not part of the submission.
+`fidelity.divergences` records the checker-vs-official-kernel deviations as the
+restrictions-are-findings rule already requires.
+
+### Verified locally — Comparator was actually run
+
+Not merely "the config looks right".  Comparator was built from source in
+`_tmp/comparator-tool` (at its own pinned toolchain,
+`leanprover/lean4:v4.34.0-rc2`) and `lean4export` was built **separately at tag
+`v4.33.0`** — it has to match the *project's* toolchain to read our oleans, and
+comparator's vendored copy does not.  `landrun` was already on `PATH`; the run
+used a copy of the config with `enable_nanoda` dropped, because `nanoda_bin`
+needs `cargo`, which this machine does not have.
+
+```
+COMPARATOR_LEAN4EXPORT=…/lean4export lake env …/comparator _tmp/comparator-local.json
+  Building Setlec.Challenge         → 48 jobs, one `uses 'sorry'` warning
+  Exporting …Setlec.no_proof_of_False… from Setlec.Challenge
+  Building Setlec.MainTheorem       → 397 jobs
+  Exporting …Setlec.no_proof_of_False… from Setlec.MainTheorem
+  Running Lean default kernel on solution.
+  Lean default kernel accepts the solution
+  Your solution is okay!            (exit 0)
+```
+
+So the statements match, the axioms are within
+`[propext, Classical.choice, Quot.sound]`, and the solution replays through the
+kernel — end to end, against the real tool.
+
+### WHAT IS STILL MISSING FOR AN ACTUAL SUBMISSION
+
+Two findings, neither of which this task can close:
+
+1. **There is no `LICENSE` file** — not in the tree, not anywhere in the
+   repository's history.  Palomar requires "one conventional licence file at
+   repository root" and requires `project.license` to match it.  The field is
+   therefore filled with a visible `TODO:` string rather than a guessed SPDX
+   identifier; the starter template uses Apache-2.0.  **The licence choice is
+   the maintainer's**, so it is left open.
+2. **The Challenge's import closure is the project's own code.**  Palomar's
+   `docs/specification.md` says the Challenge "is compiled separately against a
+   frozen trusted environment, and every source in its transitive closure must
+   resolve to Lean core or the accepted Mathlib, Tau Ceti, and CSLib statement
+   surface."  Ours resolves to 48 `Setlec.*` modules.  For a theorem *about this
+   repository's own checker* that requirement cannot be met in the obvious way —
+   there is no way to say "`checkDeclsSPCachedD` accepts" without naming
+   `checkDeclsSPCachedD` — so a submission would need either an editorial
+   exception or a different framing.  Recorded as a finding; not worked around
+   by weakening the statement to something the registry would accept but a
+   reader would not want.
+
+### Gates
+
+`lake build` 651 jobs, zero warnings (replayed clean); `lake test` green;
+`tests/arena.sh` green — layering base 254 / P 167 / caps 3 / umbrella 1 with 0
+base→lane and 0 impl→theory, proofdeps 3264 rows / 0 doors, pindump fresh,
+trust surface 18 escapes in 4 allowlisted files (432 scanned) / 0 outside,
+axioms pinned at 15 theorems, tutorial 90/92, e2e 91/91, annot 14/14, flags
+8/8 + 16/16, heartbeat 1/1, trusted sweep with the 3 recorded divergences.
