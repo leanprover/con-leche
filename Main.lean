@@ -251,6 +251,61 @@ because the progress heartbeat's compiled hook prints it too, and the
 two must never drift apart. -/
 def declCName : Setlec.Cached.DeclC → String := Setlec.Cached.declCLabel
 
+/-- **The progress lane's fold — UNVERIFIED, and the only unverified
+loop in the driver** (`SETLEC_PROGRESS`, user ruling 2026-09-07).
+
+The default run calls `Setlec.Cached.checkDeclsSPCachedD` — the pure
+function `Setlec.no_proof_of_False` is about — and prints nothing per
+declaration.  A pure fold cannot print, and the ways to make it print
+without leaving the verified statement behind all cost more than the
+printing is worth: a compiled-only hook (`@[implemented_by]`, refused
+by the project's standing ruling), a `dbgTrace` branch on the checked
+path, or a monad-generic loop with callbacks plus a `LawfulMonad IO`
+instance core does not ship.  The user's ruling ends that: run a
+*different, plainly unverified* fold when the heartbeat is on.
+
+It is the same steps in the same order — `checkDeclStepIdxC cfg`, the
+position-carrying step of the verified fold, over the same records from
+the same empty environment and state — with one line printed before
+each declaration.  Nobody should be bothered by the difference between
+these two trivial folds; what matters is that the difference is
+*stated*: a run with `SETLEC_PROGRESS` set is not covered by the main
+theorem, and a run without it is.
+
+**Written tail-recursively, threading `fe` and `s` LINEARLY** (task
+#182's finding, `agent/fenv-linear`): a `for … in ds` loop with
+`let mut` accumulators desugars to code that `lean_inc`s both the
+`FEnv` and the `CState` before each step, so `lean_is_exclusive` is
+false at the index inserts and every hashmap copies its bucket array
+per declaration — quadratic at Mathlib scale, which is what made the
+`traceLoopC` probe unusable.  Here the previous `fe`/`s` are dead at
+the recursive call, so the C carries no `lean_inc` of either before the
+step (checked in `.lake/build/ir/Main.c`), and the cost per declaration
+is flat.
+
+**Stride 1 is the localisation lane.**  With `SETLEC_PROGRESS=1` every
+declaration is announced before it is checked, so a run that dies — an
+OOM, a timeout, a `SIGKILL` — names on its last line the declaration it
+died in.  The index is the FOLD position, not the stream's record
+index: the parse folds the basis and `quot` blocks and drops
+taint-skipped records, so the two drift apart by a stream-dependent
+amount.  Calibrate by NAME. -/
+def checkDeclsProgressIO (cfg : Setlec.CoreCfg) (err : IO.FS.Stream)
+    (stride total t0 : Nat) :
+    List Setlec.Cached.DeclC → Nat → Setlec.FEnv → Setlec.Cached.CState →
+      IO (Except (Setlec.CheckError × Nat) Setlec.Env)
+  | [], _, fe, _ => return .ok fe.env
+  | pd :: ds, i, fe, s => do
+    if stride > 0 && i % stride == 0 then
+      let now ← IO.monoMsNow
+      err.putStr s!"setlec: progress {i}/{total} \
+        {Setlec.Cached.declCLabel pd} \
+        t={Setlec.Cached.msSecs (now - t0)}s\n"
+      err.flush
+    match Setlec.Cached.checkDeclStepIdxC cfg (i, fe) pd s with
+    | .ok ((i', fe'), s') => checkDeclsProgressIO cfg err stride total t0 ds i' fe' s'
+    | .error e => return .error e
+
 /-- The progress heartbeat's stride (`SETLEC_PROGRESS=<stride>`;
 2026-09-07).  `none` — the variable unset — is off; a value that is not
 a decimal numeral is a hard error, per the provenance discipline the
@@ -356,22 +411,16 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       -- bodies at `cfgP` (`cfgOf .verified`, `rfl`).
       let cfg : Setlec.CoreCfg :=
         if mode == Setlec.CheckMode.trusted then Setlec.cfgT else Setlec.cfgP
-      -- The progress heartbeat (`SETLEC_PROGRESS=<stride>`,
-      -- 2026-09-07).  The loop below is the verified one, and the
-      -- heartbeat is a CALLBACK it takes: `checkDeclsSPCachedM` runs
-      -- `checkDeclsSPCachedD`'s steps in `IO` with `before`/`after`
-      -- around each declaration, and
-      -- `Setlec.Cached.checkDeclsSPCachedM_run` says its result *is*
-      -- the pure driver's — for any callbacks.  A callback sees the
-      -- fold position and the record, never the checker's state, and
-      -- returns `Unit`: it cannot influence the verdict, only fail.
-      -- The letter for this loop is `Setlec.no_proof_of_Empty_IO`
-      -- (`Setlec/MainTheorem.lean`).
-      --
-      -- The line goes out BEFORE the declaration is checked, so a run
-      -- that dies — an OOM, a timeout, a `SIGKILL` — names on its last
-      -- line the declaration it died in, and the clock is read right
-      -- here in `IO`.
+      -- **Two loops** (user ruling, 2026-09-07).  Without
+      -- `SETLEC_PROGRESS` the driver calls the verified fold
+      -- `Setlec.Cached.checkDeclsSPCachedD` directly — the exact
+      -- function `Setlec.no_proof_of_False` (`Setlec/MainTheorem.lean`)
+      -- is about.  With it, the driver calls `checkDeclsProgressIO`
+      -- above: the same steps in the same order, in `IO`, printing one
+      -- line before each declaration — plainly unverified, and said so
+      -- in its docstring, in `--help` and in DESIGN.  The two folds
+      -- differ in the print and nothing else, and nothing about the
+      -- verified statement is bent to accommodate the printing.
       --
       -- **Reading the index**: `i` is the *fold* position.  The
       -- stream's declaration-record index is close to it but not a
@@ -387,16 +436,9 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       if stride > 0 then
         IO.eprintln s!"setlec: progress parse done: {decls.size} \
           declarations t={Setlec.Cached.msSecs (tParse - t0)}s \
-          (preprocess and parse)"
+          (preprocess and parse; the progress lane's fold is \
+          UNVERIFIED — see --help)"
         (← IO.getStderr).flush
-      let cb : Setlec.Cached.Callbacks IO := {
-        before := fun i pd => do
-          if stride > 0 && i % stride == 0 then
-            let now ← IO.monoMsNow
-            IO.eprintln s!"setlec: progress {i}/{decls.size} \
-              {declCName pd} t={Setlec.Cached.msSecs (now - t0)}s"
-            (← IO.getStderr).flush
-        after := fun _ _ => pure () }
       -- The closing line: how far the loop got (`= N` on an accept,
       -- the failing position otherwise) and how long it took.
       let progressDone : Nat → IO Unit := fun reached => do
@@ -406,7 +448,13 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
             {decls.size} t={Setlec.Cached.msSecs (now - t0)}s \
             (fold {Setlec.Cached.msSecs (now - tParse)}s)"
           (← IO.getStderr).flush
-      match ← Setlec.Cached.checkDeclsSPCachedM cb cfg decls.toList with
+      let verdict ←
+        if stride > 0 then
+          checkDeclsProgressIO cfg (← IO.getStderr) stride decls.size t0
+            decls.toList 0 (Setlec.mkFEnv Setlec.Env.empty) {}
+        else
+          pure (Setlec.Cached.checkDeclsSPCachedD cfg decls.toList)
+      match verdict with
       | .ok env =>
         progressDone decls.size
         -- A DECLINED stream never says "accepted" (2026-09-07).  The
@@ -492,16 +540,25 @@ def usage : String := String.intercalate "\n" [
   "  SETLEC_PROGRESS=<stride>",
   "                    opt-in progress heartbeat on STDERR: one",
   "                    'setlec: progress <i>/<N> <decl> t=<s>s' line",
-  "                    every <stride> declarations during the",
-  "                    (unchanged, verified) fold, plus one line when",
-  "                    the parse finishes (N and the elapsed parse) and",
-  "                    one when the fold does.  t= is the elapsed time",
-  "                    since the run started, so a declaration that",
-  "                    sits for minutes is visible as a gap between two",
-  "                    lines.  <i> is the FOLD position; the",
-  "                    stream's declaration-record index is a constant",
-  "                    +4 above it (the parse folds the pinned basis",
-  "                    blocks into one record).  Unset or 0 is off",
+  "                    every <stride> declarations, plus one line when",
+  "                    the parse finishes and one when the fold does.",
+  "                    t= is the elapsed time since the run started, so",
+  "                    a declaration that sits for minutes is visible",
+  "                    as a gap between two lines; the line is printed",
+  "                    BEFORE the declaration is checked, so a run that",
+  "                    dies names the declaration it died in.",
+  "                    <i> is the FOLD position, which the stream's",
+  "                    declaration-record index sits near but not at a",
+  "                    fixed offset above.  Unset or 0 is off.",
+  "",
+  "                    NOTE: this lane runs a SEPARATE, UNVERIFIED fold",
+  "                    (Main.checkDeclsProgressIO) — the same steps in",
+  "                    the same order as the verified one with a line",
+  "                    printed before each declaration, because a pure",
+  "                    fold cannot print.  A run WITHOUT this variable",
+  "                    calls checkDeclsSPCachedD, the function the main",
+  "                    theorem (Setlec.no_proof_of_False) is about; a",
+  "                    run with it is not covered by that theorem.",
   "",
   "  --pre             assert FILE is already preprocessed output of",
   "                    setlec-preprocess (or the stock",
