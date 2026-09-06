@@ -16,14 +16,16 @@ json produced from the generated pins), plus
 Usage:
   mk_natop_fixture.py <stream> <roots.json> <op> <out.ndjson> a [b] r
   mk_natop_fixture.py <stream> <roots.json> <op> <out.ndjson> --perturb
+      (--perturb rewrites the op to `fun x y => x`; every pin-certified
+       operation is binary)
 
 Since task #113 the certificate proofs are self-contained (closed over
 the op's own dependency cone), so the roots json only needs the
 guard-required ground operations per op (`natOpDeps` + `Bool`):
 `scripts/natop_cone_roots.json` builds the pure-cone acceptance
-fixtures `tests/e2e/nat_land_cone.ndjson` / `nat_log2_cone.ndjson`,
-which deliberately exclude the historical cert-proof extras
-(funext, Eq.subst, of_decide_eq_true, Nat.log2_terminates, ...).
+fixture `tests/e2e/nat_land_cone.ndjson`, which deliberately excludes
+the historical cert-proof extras (funext, Eq.subst,
+of_decide_eq_true, ...).
 """
 import json
 import sys
@@ -323,8 +325,6 @@ def main() -> None:
     for li in sorted(keep_lines):
         out_lines.append(lines[li])
 
-    unary = opname == "Nat.log2"
-
     def fresh_ie():
         nonlocal max_ie
         max_ie += 1
@@ -339,23 +339,15 @@ def main() -> None:
         e_nat = fresh_ie()
         pre = [json.dumps({"const": {"name": name_idx["Nat"], "us": []},
                            "ie": e_nat}, separators=(",", ":"))]
-        if unary:
-            e_b0 = fresh_ie()
-            pre.append(json.dumps({"ie": e_b0, "bvar": 0}, separators=(",", ":")))
-            e_lam = fresh_ie()
-            pre.append(json.dumps({"ie": e_lam, "lam": {"binderInfo": "default",
-                "body": e_b0, "name": 0, "type": e_nat}}, separators=(",", ":")))
-            r["def"]["value"] = e_lam
-        else:
-            e_b1 = fresh_ie()
-            pre.append(json.dumps({"ie": e_b1, "bvar": 1}, separators=(",", ":")))
-            e_lam1 = fresh_ie()
-            pre.append(json.dumps({"ie": e_lam1, "lam": {"binderInfo": "default",
-                "body": e_b1, "name": 0, "type": e_nat}}, separators=(",", ":")))
-            e_lam2 = fresh_ie()
-            pre.append(json.dumps({"ie": e_lam2, "lam": {"binderInfo": "default",
-                "body": e_lam1, "name": 0, "type": e_nat}}, separators=(",", ":")))
-            r["def"]["value"] = e_lam2
+        e_b1 = fresh_ie()
+        pre.append(json.dumps({"ie": e_b1, "bvar": 1}, separators=(",", ":")))
+        e_lam1 = fresh_ie()
+        pre.append(json.dumps({"ie": e_lam1, "lam": {"binderInfo": "default",
+            "body": e_b1, "name": 0, "type": e_nat}}, separators=(",", ":")))
+        e_lam2 = fresh_ie()
+        pre.append(json.dumps({"ie": e_lam2, "lam": {"binderInfo": "default",
+            "body": e_lam1, "name": 0, "type": e_nat}}, separators=(",", ":")))
+        r["def"]["value"] = e_lam2
         # replace the op decl line in out_lines
         opl = lines[opline]
         idx = out_lines.index(opl)

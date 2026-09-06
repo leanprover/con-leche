@@ -97,32 +97,6 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
             let r ← internExprM (.lit (.natVal (n + 1)))
             pure (some r)
           | none => pure none
-        else if cn = natPredName ∧ natOpStoredF fe cn = true then do
-          let w ← r.whnf depth b
-          match ← withStore (rawNatLitI? · w) with
-          | some n =>
-            match natOpResult cn n 0 with
-            | some x => do
-              let r ← internExprM x
-              pure (some r)
-            | none => pure none
-          | none => pure none
-        else if cn = natLog2Name ∧ natOpStoredF fe cn = true then do
-          let w ← r.whnf depth b
-          match ← withStore (rawNatLitI? · w) with
-          | some n =>
-            match natOpResult cn n 0 with
-            | some x => do
-              let r ← internExprM x
-              pure (some r)
-            | none => pure none
-          | none => pure none
-        else if cn = natLog2Name ∧ natLitSupportedF fe then do
-          let w ← r.whnf depth b
-          match ← withStore (rawNatLitI? · w) with
-          | some _ => throw (.notImplemented
-              s!"native Nat computation on literals ({cn})")
-          | none => pure none
         else pure none
     | some (.app f₂ a) =>
       match ← viewI f₂ with

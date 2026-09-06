@@ -39,7 +39,6 @@ def dumpOp (label : String) (pin : Expr) (proofs : List Expr) : IO Unit := do
   for n in prfC.reverse do IO.println (nameStr n)
 
 #eval do
-  dumpOp "Nat.log2" natLog2DeclPin natLog2CertProofs
   dumpOp "Nat.land" natLandDeclPin natLandCertProofs
   dumpOp "Nat.lor" natLorDeclPin natLorCertProofs
   dumpOp "Nat.xor" natXorDeclPin natXorCertProofs

@@ -245,8 +245,8 @@ the install anyway when these are absent), or a member of the
 transitive type/value dependency closure of the operation — which
 *every* stream declaring the operation necessarily declares first.
 Everything else (auxiliary theorems like `funext`, `Eq.subst`,
-`of_decide_eq_true`, `Nat.log2_terminates`, and the instance
-definitions of arithmetic sugar) is inlined; instance-structure
+`of_decide_eq_true`, and the instance definitions of arithmetic
+sugar) is inlined; instance-structure
 packaging (`HMul.mk` …) additionally reduces away via beta/projection
 simplification. -/
 
@@ -531,11 +531,6 @@ def opSpecs : List OpSpec :=
      helperPrefixes := [`Nat.shiftRight],
      certs := [`Setlec.PinGen.shiftRightRecCert, `Setlec.PinGen.shiftRightBaseCert],
      groundOps := [`Nat.sub, `Nat.ble, `Nat.div, `Nat.shiftRight] },
-   { op := `Nat.log2, pinName := `Setlec.natLog2DeclPin,
-     proofsName := `Setlec.natLog2CertProofs,
-     helperPrefixes := [`Nat.log2],
-     certs := [`Setlec.PinGen.log2RecCert, `Setlec.PinGen.log2BaseCert],
-     groundOps := [`Nat.ble, `Nat.div, `Nat.log2] },
    { op := `Nat.land, pinName := `Setlec.natLandDeclPin,
      proofsName := `Setlec.natLandCertProofs,
      helperPrefixes := [`Nat.land],
