@@ -48163,3 +48163,307 @@ one-constructor indexed family (SigmaHom, DESIGN §"TASK #175
 SigmaHom") is the `n = 1` instance of the same construction; the K
 rule at a zero-field indexed `Prop` is the squash instance.  Not done
 here.
+
+## TASK #175 INDEXED FAMILIES — THE DIRECT SUM ROUTE AT `nIdx > 0`: THE FIBRE OF THE TAGGED UNION (2026-09-06, `agent/indexed`)
+
+### 0. What landed
+
+Fourteen commits off master `8b4845c1` (the sum-types merge), gated at
+the branch's own tip (no master merge before the landing slot): 40
+files, **+9 626 / −2 487**, of which the five fixtures and their
+sources are 2 541 lines.  No new module in the kernel or the P tier:
+the sum route was generalised IN PLACE with one extra number, `nIdx`,
+and plain sums are its `nIdx = 0` instance — every dispatch site is
+still the three-way `match` (`directParts?`, then `directSumParts?`,
+then the modeled path); the single-constructor index-free route is
+untouched.  One new semantic module, `Semantics/Tower/IdxEq.lean`
+(529 lines: the index equation as a proof field); the three sum leaves
+(`SumMk`, `SumRecCase`, `SumRec`, `SumWire`) were rewritten at
+restricted chains.
+
+**The class.**  A non-recursive, non-nested single-member inductive
+family `T : ∀ p⃗ ı⃗, Sort w` with `nIdx > 0` and ANY number of
+constructors: `Eq`-shaped `Prop` families (`HEq`, `Int.NonNeg`, the
+arena's `SortElimProp`), relations with several constructors
+(`Prod.Lex`, `Sum.LiftRel`, `Option.Rel`, `PSigma.Lex`, the iterator
+`PlausibleStep`s), `Vector`-like non-recursive `Type` families, and
+the one-constructor indexed families of the SigmaHom frontier.  The
+one-constructor index-free block stays the structure route (official's
+`is_structure_like` needs no index); the pinned basis `Eq` keeps its
+reserved name and its block — NOT retired (§8).  On init-full the
+widened `setlec-preprocess` leaves 13 indexed blocks native (3 at one
+constructor, 6 at two, 1 at three, 2 at four, 1 at six; `HEq` is
+K-flagged) beside 470 structures and 42 sums; the only single-member
+non-recursive indexed block NOT native is `Eq` itself.
+
+### 1. The kernel
+
+**The recogniser** (`Kernel/Direct/SumParts.lean`).  `nIdx` is read off
+the recursor's own arity: `majorIdx = rulePrefix + nIdx` with
+`rulePrefix = nP + 1 + n` — the rule prefix is UNCHANGED (a rule binds
+parameters, motive and minors; never an index), so the rules stay
+`.plain` and `directRuleBodyAt` is verbatim the sum's.  The
+constructor residual is `T p⃗ e⃗` (`directCtorResidOk`: the family at
+exactly the parameter variables followed by `nIdx` index expressions,
+arbitrary terms over parameters and fields).  Admission: `n ≠ 1 ∨
+nIdx ≠ 0`.
+
+**The generators** (`Kernel/Direct/Parts.lean`, `directRecTyI` /
+`directRecRhsI` / `directMotiveTyI` / `directMinorTyI` / `directFamI`):
+the motive is `∀ ı⃗ (t : T p⃗ ı⃗), Sort ℓ` over the former's own index
+telescope (`itele`, the former's type past the parameters — official
+`mk_rec_infos`, lean4lean `Inductive/Add.lean:326-483`); each minor
+concludes `motive e⃗_k (C_k p⃗ f⃗)` with the residual's index
+expressions lifted under the extras (cutoff `nF`: the fields stay,
+the parameters move); the index telescope is re-emitted after the
+minors, lifted under the motive and the `n` minors, then the major
+`t : T p⃗ ı⃗`.  At `nIdx = 0` every generator is the index-free one
+(`directFamI_zero` and friends).  S2's "generated and compared"
+discipline is what makes the install a CHECK: the stream's recursor
+must equal the generated one.
+
+**The install** (`Kernel/Direct/SumInstall.lean` + the `F` twin).
+Three changes at the constructor stage: (i) the residual is read as a
+spine and the `nIdx` index expressions are checked against the
+former's index domains by ordinary inference (`checkDirectFieldSortsI`
+runs the field-sort loop first); (ii) **official's
+`elim_only_at_universe_zero` at ONE constructor** — a large
+eliminator on a `Prop` family with one constructor is allowed iff
+every field is a proposition OR occurs literally among the residual's
+index arguments (the subsingleton criterion: `Level.isEquiv u .zero ∨
+idxArgs.contains fv`); at `≥ 2` constructors the sum route's reject
+stands; (iii) **the index-occurrence guard** (official
+`is_valid_ind_app`): an index expression mentioning the block is
+REJECTED — `(cresid.getAppArgs.drop nP).all (·.constsResolve env₀)`.
+This guard is a FINDING (§5): the first widening accepted such
+expressions and the P proof refuted the omission.  The former is
+stored with `directSumCaps p` — `ruleK` exactly at official's
+`is_K_target` (`Prop`, one constructor, zero fields), `eta`/`unitlike`
+off — and the recursor at `.recInfo cvRa p.majorIdx p.rulePrefix
+(directSumRules p.nP p.majorIdx p.rulePrefix …)`.
+
+**Rule K.**  The kernel's K rescue (`majorToCtor`, gated by
+`caps.ruleK`) fires on directly installed indexed families exactly as
+on the pinned `Eq`.  It needs NO P law: `capsOkP_cons_direct`'s laws
+are eta and unit-likeness only, because the K rescue is CERTIFIED AT
+THE FIRE by proof irrelevance — the neutral major and the synthesised
+constructor both interpret to `pt` in the squash regime, so the fire
+is an instance of the generic `RecRuleLawP`.  Hence K-firing on an
+`Eq`-clone (`MyEq.k_use` in the fixture) IS covered by the four
+capstones; nothing stays kernel-only.
+
+### 2. The fibre model (`Semantics/Tower/IdxEq.lean` and the sum leaves)
+
+Constructor `k`'s tower gets ONE EXTRA PROOF FIELD, the truth value of
+its index equation:
+
+    idxEqAV eqs        := ¬ (e₀ = ı₀ → e₁ = ı₁ → … → False)      (bit-0 Π nodes over eqE)
+    rChain d nIdx Fs Es := liftFields d 0 Fs ++ [idxEqAV (idxEqsAt d nIdx Fs.length Es)]
+    rChains             := zipWith over the constructors
+
+`idxEqAV_interp` reads it to `truthVal (EqAll ρ eqs)`, `idxEqAV_ok2`
+grades it from the sides' gradings, `idxEqAV_mem_univ` bounds it in
+every universe.  The carrier at parameters `p⃗` and indices `ı⃗` is the
+TAGGED UNION OF THE RESTRICTED TOWERS — the sum route's `sumSet` over
+the same `natFibre`, nothing new in `SetModel`:
+
+    sumFamAt w nIdx ρp Fss Ess ı⃗ := sumSet w (sumFibre w (consList ı⃗ ρp) (rChains nIdx nIdx Fss Ess))
+
+so the former's leaf is the sum former's leaf over the
+parameters-AND-indices frame at the restricted chains
+(`directSumTyAV w ppsAll (rChains nIdx nIdx Fss Ess)`); the
+constructor's leaf is the sum injection at the UNIT-restricted chains
+(`uChains`: each `Fs ++ [idxEqAV []]` — the tuple ends in the point,
+`mkTowerGoU`), and its body folds the former's leaf along the
+parameters and the constructor's OWN index values into the fibre at
+that tuple (`restricted_member_intro`: the equations hold trivially
+at `e⃗ = e⃗`).  The recursor's leaf is the sum recursor at the K-frame
+`(p⃗, motive, minors, ı⃗)` with the motive applied to the index
+variables (`frP/frM/frMs/frMi/frameIdx`); the case split discharges
+the index equation at each branch (`restricted_member_elim`: a member
+of the fibre at `ı⃗` in constructor `k`'s tag is a tuple whose index
+values ARE `ı⃗`).  The elimination is therefore literally "the sum
+eliminator restricted to the fibre".  `Prop` families are the squash
+regime unchanged: at `w = 0` the carrier at every tuple is `pt`'s
+squash, and the recursor body at a nonzero elimination level is the
+first minor at the fields' SOURCES — every field of a large-eliminating
+one-constructor `Prop` family is either a proposition (the point) or
+an index (read back off the index variables: `srcsOf`, `firstIdx`),
+which is exactly why official's subsingleton criterion is the
+elimination guard.
+
+### 3. The proof shape, and what it inherited from sums
+
+The per-constructor LIST MACHINERY of the sum record (§"SUM TYPES",
+0) came over as advertised: `ctorDataList`/`CtorFactsAt`/
+`ctorReads_of`, the minors' telescope by one list induction,
+`sumMinorsTail`/`RecTailS`, the `ConsedAt`/`PendingAt` cons loop —
+their STATEMENTS grew the index data (`idxF esF srcsF`), their proofs
+are the same inductions.  What is new, in P-tier order:
+
+* **`CtorDataI`** (`SumDataP`): the constructor's type read to the
+  family at the parameters and the index readings `Es ψ` (a
+  `DenoteSpineP` at `nP + nF`), plus the field SOURCES `srcs` with
+  their index positions (`srcIdx`) and the propositional clause
+  `srcProp` — generalised to ANY `Prop` instantiation of the result
+  sort, because a `Sort u` family at `u = 0` with `isProp = false`
+  still needs the sources.
+* **Index typing from the residual's own grading**, not from
+  inference plumbing: `spineFit_of_ok2_lams` — a spine graded against
+  a constant-bit λ-tower fits the tower's domains, because a graph
+  determines its domain (`lamR_mem_piR_dom`, `graph_eq_dom`).  This
+  is the whole of "the index expressions are well-typed" on the P
+  side; no new inference lemma.
+* **The two-former identification** (`DeclDirectSumP`): the real
+  former's chains mention the constructors' readings, which are read
+  at a former — so a DUMMY former with empty chains reads each
+  constructor's data first, the real former is stored over the
+  restricted chains read off that data, and the readings are
+  identified across the two formers (`denoteP_openPis_agree` for the
+  fields, `CtorDataI.Es_eq` for the index readings).  Neither
+  identification mentions the former — WHICH IS the semantic content
+  of the index-occurrence guard (§1 iii).
+* **`RecPreS` carries the family-at-tuple as a function of the
+  parameter frame** (`famAt : (Nat → V) → List V → V`), a refutation
+  of the first attempt: a `famAt` fixed across the parameters' walk
+  is unprovable, since the fibre depends on `p⃗`.
+* **The index pin at the fire** (`SumStageRecP`/`SumRecLawP`): the
+  kernel's `IotaIndexPinP` (the constructor's residual instantiated at
+  the fitted fields is a spine whose index entries are the
+  application's own index arguments) is consumed via
+  `teleFitPA_rest_eq`, `instSeqP_mkAppN`, `AVExpr.mkAppN_inj`; the law
+  folds both sides to minor `j` at the fields — graph regime through
+  the restricted fibre (`sumRecBody_iota`), squash at `ℓ ≠ 0` with
+  `j = 0` forced by the one-constructor guard (`sumRecBody_iota_sq`).
+* **The recursor's readings** (`SumRecReadP`): `motiveAVI`,
+  `minorAVAt` (index readings lifted above the fields), `majorAVAt`,
+  the data `sumRecDataAV` with the index telescope re-emitted after
+  the minors; the minor's conclusion `motive e⃗ (C p⃗ f⃗)` is read by
+  reading the WHOLE opened residual `T p⃗ e⃗` at the recursor frame and
+  inverting its spine (`denoteSpineP_idxArgs_lift`).
+
+### 4. Fixtures (`tests/e2e/direct_idx_*`, exported through the widened `setlec-preprocess`, all `--pre`)
+
+`direct_idx_eq` (an `Eq`-clone: large elimination into `Sort v`, iota
+on `refl`, the K rescue on a neutral major — accept), `direct_idx_vec`
+(`Vec' α : Nat → Type u` at three constructors and `Par : Nat → Type`
+at two, iota on every constructor with constant, index-reading and
+small motives — accept), `direct_idx_prop` (`IsSucc`/`Both`: a data
+field read back off the index, LARGE elimination; `Rel` and `Hidden`:
+small only — accept), `direct_idx_prop_large_bad` (`Hidden.rec`'s
+motive patched to `Sort u` — REJECT at `checkDirectFieldSortsI`),
+`direct_idx_prop_idx_bad` (`Rel.symm`'s minor at the wrong index —
+REJECT).  On the arena corpus four fixtures' indexed blocks moved
+modeled → direct with verdicts UNCHANGED: `074_sortElimPropRec` and
+`075_sortElimProp2Rec` (accept), `108_indexedUnitEta` and
+`110_indexedStructEta` (reject).
+
+### 5. Findings
+
+* **The index-occurrence guard was missing from the widening.**  The
+  kernel's first version accepted index expressions mentioning the
+  block; the P proof could not identify the constructors' readings
+  across the dummy and the real former, and official's
+  `is_valid_ind_app` names the rule.  A provability-driven restriction,
+  reported per the "restrictions are findings" doctrine: it does not
+  deviate from official.
+* `famAt` through `RecPreS` and `srcProp`'s generalisation (above) —
+  two statements the sum route's shapes got wrong at indices.
+* The arena "ETA" bad tests (108/110) are indexed one-constructor
+  families: they now reach the direct route and REJECT there (no η on
+  a family — the route stores `eta = false`), the same verdict the
+  modeled path gave.
+
+### 6. Receipts (at the tip `bbb15470`, the record commit on top)
+
+`lake build` warning-free (648 jobs), `lake test` green,
+`tests/layering.sh` `base 253 / P 166 / caps 2 / umbrella 1`, 0 edges
+either way; `tests/arena.sh` exit 0 — arena tutorial 90/92 good
+accepted, e2e 88/88 (the five new fixtures included), annot 14/14,
+retired flags 8/8, mode flags 16/16, the trusted sweep 138 + 88 + 14
+with the 3 recorded divergences, EVERY verdict identical to master's
+(the four modeled → direct moves of §4 keep their codes);
+`tests/proofdeps.sh` regenerated — the ONE door is
+`Setlec.Semantics.Tower.IdxEq` entering all four capstones'
+closures (the fibre model; 1 445 rows, 0 doors after the pin); the
+four capstones' axioms exactly `[propext, Classical.choice,
+Quot.sound]`.  init-full, stock stream (`init-full-pre.ndjson`):
+`--verified` 60 549 accepted (exit 0), `--trusted` 60 549 (exit 0).
+init-full REGENERATED with the widened `setlec-preprocess`
+(`init-full-pre-idx.ndjson`, 548 native blocks: 470 structures, 42
+sums, 13 indexed families, 23 further natives under private/`_wcore`
+names — the sum-types stream had 534): `--verified` 55 835 accepted
+(exit 0), `--trusted` 55 835 (exit 0); the 96 declarations fewer than
+the sum-types stream are the `_model` artifacts of the 13 indexed
+blocks (and `_wcore.HEq`), no longer emitted.  Mathlib slices:
+`diseq-slice-pre.ndjson` `--verified` 1 790 accepted (exit 0);
+`sigmahom-comp-slice-pre.ndjson` `--verified` 1 296 and `--trusted`
+1 296 (exit 0) — `CategoryTheory.Sigma.SigmaHom` (`nP = 3`, `nIdx =
+2`, one constructor) is in the route's class and installs directly,
+its `_model` artifacts in the stock-preprocessed slice ignored — and
+POSITIVELY: the same slice with SigmaHom's 35 `_model` declaration
+records deleted (`_tmp/scratch/sigmahom-nomodel.ndjson`, nothing else
+touched) accepts under `--pre --verified` (1 258 declarations, exit
+0), which only the direct route can do.  `tests/arena.sh` re-run at
+the tip after the pin: exit 0.
+
+### 7. Which files changed — the installer boundary
+
+Of the 40 files, 30 are inside the direct-install directories
+(`Kernel/Direct` 4, `Verify/Direct` 3, `Semantics/Direct` 2,
+`Semantics/Tower/{IdxEq,Sum*}` 5, `SetP/DirectSum` 10) or fixtures
+and expectations (9 + the preprocessor).  The six files OUTSIDE —
+`Cached/CheckerC.lean` (the cached driver's own copy of the three
+stages: `nIdx` threaded, the recursor consed at `p.majorIdx`/
+`p.rulePrefix` instead of a locally recomputed `mI`),
+`Verify/BridgeDecl.lean`, `Verify/CheckerF.lean`,
+`Verify/Cached/{AgreeFloor,BridgeCS3,BridgeCSDecl}.lean` (the bridge
+twins of each stage: `_dproj`/`_datF`/`_eq`/`_sim`/`_skels`, one per
+stage per lane) — are all MIRRORS of the stages, not core changes:
+no line of the core checker, the cached core, `Semantics` core,
+`SetP` core or the frontend moved.  The boundary held for the CORE;
+it leaked at the TWINS: every direct-install stage has five
+verification twins living outside `*/Direct/`, keyed by the stage's
+signature, so a signature change (here `+ nIdx`) touches six files
+it should not have to.  What would seal it: (a) a `DirectSumStage`
+record bundling the stage's inputs so the twins are stated over one
+argument, and (b) the twins moved into `Verify/Direct/` (they import
+nothing the direct directories cannot) with `BridgeDecl`/`CheckerF`/
+`AgreeFloor`/`BridgeCS3` reduced to instantiations of a per-route
+interface; `CheckerC`'s copy of the stage sequence would go the same
+way if the cached driver dispatched on a route record.
+
+### 8. `Eq`: the direct install of a clone agrees with the pinned basis block
+
+`MyEq` (the fixture) and `HEq` (init-full, native now) go through the
+route with `directSumCaps` = `{ruleK := true}`; the generated recursor
+is compared against the stream's (S2), so the accept IS the agreement
+receipt: Lean's own `Eq`-shaped recursor at a fresh name is exactly
+`directRecTyI`, its rule exactly `directRecRhsI`, and K fires under the
+same criterion as the pin's.  The pinned `Eq` block stays: its name is
+reserved (`reservedBasisNames`), the frontend matches it before any
+recogniser runs, and the basis' own laws (`Eq`-driven certificates,
+the no-proof-of-Empty corollary's input-independence) are stated
+against the pin.  Retiring it is a separate decision with its own
+audit; nothing here depends on it.
+
+### 9. What RECURSIVE types need next — the fixpoint
+
+The route stops at `directSumNonRec`: every field domain resolves in
+the pre-block environment.  A recursive family's constructor tower has
+fields IN the family, so its carrier is not one tagged union but the
+LEAST FIXED POINT of the tower functor `X ↦ Σ_k tower_k(X)` (at indices:
+per fibre, a functor on `⟦I⟧ → V`).  What that needs, none of it done
+here: (a) in `SetModel`, a rank-indexed union — the functor iterated
+to `ω` for finitary constructors and to a regular cardinal past the
+field domains' sizes for infinitary/reflexive ones (the universe
+bound then goes through the cardinal, not `omega_mem_univ_succ`);
+(b) the recursor is no longer the sum's case split: its body is a
+RECURSION ON RANK with the minors taking the inductive hypotheses
+(`ih` fields), so `sumRec_inj` becomes a fixed-point equation and
+the rule law's iota an induction on the rank of the major;
+(c) `directNonRec` lifts to a positivity check (official
+`check_positivity`), which is the recogniser's new guard; (d) nested
+occurrences reduce to (a)-(c) at the auxiliary types.  The fibre
+construction above is the base case of that iteration — the functor at
+`X = ∅`.
