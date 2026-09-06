@@ -137,14 +137,14 @@ theorem inferLamsOutC_sim {d : Nat} :
       subst hmb
       show SimC mode env s₀ RelDC
         (do
-          if mode.verifiedChecks && !(mb.pw.equiv prevPw) then
+          if mode.verifiedChecks && !(mb.pw == prevPw) then
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-chain)")
           let tyAbs ← abstractRangeM tyo d j
           let node ← internI (.forallE n tyAbs cur mb)
           inferLamsOutI mode d rest (j - 1) node mb.pw)
         (do
-          if mode.verifiedChecks && !(mb.pw.equiv prevPw) then
+          if mode.verifiedChecks && !(mb.pw == prevPw) then
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-chain)")
           inferLamsOut (m := FueledM) mode d rx (j - 1)
@@ -397,13 +397,13 @@ theorem inferPisOutC_sim :
         (do
           let (pv, memo) ← Lech.Cached.withStore fun st =>
             st.zeronessOfLIGo memo v
-          if mode.verifiedChecks && !(pv.equiv pw) then
+          if mode.verifiedChecks && !(pv == pw) then
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
           internLM (.imax u v) >>= fun v' =>
             inferPisOutI mode rest v' memo)
         (do
-          if mode.verifiedChecks && !((Level.zeronessOf v).equiv pw) then
+          if mode.verifiedChecks && !(Level.zeronessOf v == pw) then
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
           inferPisOut (m := FueledM) mode rx (.imax u v))
@@ -556,13 +556,13 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
       if mode.verifiedChecks then
         match bodyx.lamPw with
         | some pwI =>
-          unless mbx.pw.equiv pwI do
+          unless mbx.pw == pwI do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-chain)")
         | none => do
           let btt ← (fueledFns mode env).inferIO (d + 1) bt
           let vb ← ensureSort (fueledFns mode env) env (d + 1) btt
-          unless (Level.zeronessOf vb).equiv mbx.pw do
+          unless Level.zeronessOf vb == mbx.pw do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-leaf)")
       pure (Expr.forallE nm tyx (bt.abstract1 d) mbx)) : FueledM Expr).val F
@@ -571,13 +571,13 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
           if mode.verifiedChecks then
             match bodyx.lamPw with
             | some pwI =>
-              unless mbx.pw.equiv pwI do
+              unless mbx.pw == pwI do
                 throw (.notImplemented
                   "sort-annotation mismatch (lam-cod-chain)")
             | none => do
               let btt ← inferTypeIO mode env F (d + 1) bt
               let vb ← ensureSortCore mode env F (d + 1) btt
-              unless (Level.zeronessOf vb).equiv mbx.pw do
+              unless Level.zeronessOf vb == mbx.pw do
                 throw (.notImplemented
                   "sort-annotation mismatch (lam-cod-leaf)")
           pure (Expr.forallE nm tyx (bt.abstract1 d) mbx))) := by
@@ -590,7 +590,7 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
   cases hbp : bodyx.lamPw with
   | some pwI =>
     dsimp only
-    by_cases hc : mbx.pw.equiv pwI = true
+    by_cases hc : (mbx.pw == pwI) = true
     · rw [if_pos hc, if_pos hc]; rfl
     · rw [if_neg hc, if_neg hc]; rfl
   | none =>
@@ -601,7 +601,7 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
     rw [FueledM.atF_bind, ensureSort_atF]
     congr 1
     funext vb
-    by_cases hc : (Level.zeronessOf vb).equiv mbx.pw = true
+    by_cases hc : (Level.zeronessOf vb == mbx.pw) = true
     · rw [if_pos hc, if_pos hc]; rfl
     · rw [if_neg hc, if_neg hc]; rfl
 
@@ -625,14 +625,13 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
         if mode.verifiedChecks then
           match bodyx.lamPw with
           | some pwI =>
-            unless (⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI do
+            unless (⟨mbbi, mbpw⟩ : BinderMeta).pw == pwI do
               throw (.notImplemented
                 "sort-annotation mismatch (lam-cod-chain)")
           | none => do
             let btt ← (fueledFns mode env).inferIO (d + 1) bt
             let vb ← ensureSort (fueledFns mode env) env (d + 1) btt
-            unless (Level.zeronessOf vb).equiv
-                (⟨mbbi, mbpw⟩ : BinderMeta).pw do
+            unless Level.zeronessOf vb == (⟨mbbi, mbpw⟩ : BinderMeta).pw do
               throw (.notImplemented
                 "sort-annotation mismatch (lam-cod-leaf)")
         pure (Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, mbpw⟩)) := by
@@ -679,14 +678,14 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
       unfold inferLamsWrap at htail
       dsimp only
       by_cases hg : (mode.verifiedChecks
-          && !((⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI)) = true
+          && !((⟨mbbi, mbpw⟩ : BinderMeta).pw == pwI)) = true
       · rw [if_pos hg] at htail
         exact nomatch htail
       rw [if_neg hg] at htail
       by_cases hv : mode.verifiedChecks = true
       · rw [if_pos hv]
-        have hpw : (⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI = true := by
-          by_cases hc : (⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI = true
+        have hpw : ((⟨mbbi, mbpw⟩ : BinderMeta).pw == pwI) = true := by
+          by_cases hc : ((⟨mbbi, mbpw⟩ : BinderMeta).pw == pwI) = true
           · exact hc
           · exact absurd (by simp [hv, hc]) hg
         rw [if_pos hpw]
@@ -713,15 +712,14 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
       obtain ⟨v, hvv, htail⟩ := bind_okB htail
       rw [hvv, okB_bind]
       try dsimp only at htail ⊢
-      by_cases hz : (Level.zeronessOf v).equiv
-          (⟨mbbi, mbpw⟩ : BinderMeta).pw = true
+      by_cases hz : (Level.zeronessOf v == (⟨mbbi, mbpw⟩ : BinderMeta).pw) = true
       case neg =>
         rw [if_neg hz] at htail
         exact nomatch htail
       rw [if_pos hz] at htail
       rw [if_pos hz]
       unfold inferLamsWrap at htail
-      rw [if_neg (by simp [PropWhen.equiv_refl])] at htail
+      rw [if_neg (by simp)] at htail
       exact htail
   case hsc =>
     intro v' vv hden hrun
@@ -744,7 +742,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
       cases bodyx.lamPw with
       | some pwI =>
         dsimp only
-        by_cases hc : (⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI = true
+        by_cases hc : ((⟨mbbi, mbpw⟩ : BinderMeta).pw == pwI) = true
         · rw [if_pos hc]
           intro hF
           injection hF with hres
@@ -758,8 +756,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
         obtain ⟨btt, -, hF⟩ := bind_okB hF
         obtain ⟨v, -, hF⟩ := bind_okB hF
         revert hF
-        by_cases hc : (Level.zeronessOf v).equiv
-            (⟨mbbi, mbpw⟩ : BinderMeta).pw = true
+        by_cases hc : (Level.zeronessOf v == (⟨mbbi, mbpw⟩ : BinderMeta).pw) = true
         · rw [if_pos hc]
           intro hF
           injection hF with hres
@@ -780,14 +777,14 @@ private theorem inferPiTail_atF {env : Env} (d : Nat) (nm : Name)
         (← (fueledFns mode env).infer (d + 1)
           (bodyx.instantiate1 (.fvar d nm tyx)))
       if mode.verifiedChecks then
-        unless (Level.zeronessOf v).equiv pw do
+        unless Level.zeronessOf v == pw do
           throw (.notImplemented "sort-annotation mismatch (forall-cod)")
       pure (Expr.sort (.imax lu v))) : FueledM Expr).val F
     = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx))
         >>= fun bt => ensureSortCore mode env F (d + 1) bt >>= fun v =>
         (do
           if mode.verifiedChecks then
-            unless (Level.zeronessOf v).equiv pw do
+            unless Level.zeronessOf v == pw do
               throw (.notImplemented
                 "sort-annotation mismatch (forall-cod)")
           pure (Expr.sort (.imax lu v)))) := by
@@ -800,7 +797,7 @@ private theorem inferPiTail_atF {env : Env} (d : Nat) (nm : Name)
   by_cases hv : mode.verifiedChecks = true
   case neg => rw [if_neg hv, if_neg hv]; rfl
   rw [if_pos hv, if_pos hv]
-  by_cases hz : (Level.zeronessOf v).equiv pw = true
+  by_cases hz : (Level.zeronessOf v == pw) = true
   · rw [if_pos hz, if_pos hz]; rfl
   · rw [if_neg hz, if_neg hz]; rfl
 
@@ -822,7 +819,7 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
           (← (fueledFns mode env).infer (d + 1)
             (bodyx.instantiate1 (.fvar d nmx tyx)))
         if mode.verifiedChecks then
-          unless (Level.zeronessOf v).equiv pw do
+          unless Level.zeronessOf v == pw do
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
         pure (Expr.sort (.imax lu v))) := by
@@ -864,7 +861,7 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
       unfold inferPisWrap at hwrap
       exact hwrap
     rw [if_pos hver] at hwrap ⊢
-    by_cases hz : (Level.zeronessOf v).equiv pw = true
+    by_cases hz : (Level.zeronessOf v == pw) = true
     case neg =>
       rw [if_neg hz] at hwrap
       exact nomatch hwrap
@@ -887,7 +884,7 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
       subst hres
       simp [Expr.WScoped]
     rw [if_pos hver]
-    by_cases hz : (Level.zeronessOf v).equiv pw = true
+    by_cases hz : (Level.zeronessOf v == pw) = true
     · rw [if_pos hz]
       intro hF
       injection hF with hres

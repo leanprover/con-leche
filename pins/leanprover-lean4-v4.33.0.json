@@ -1,9 +1,22 @@
 {
-"format":"lech-natop-pins/1",
-"_README":"GENERATED FILE — do not edit.  The pinned Nat-operation defining expressions and their certificate proof blobs, as share tables (see Lech/PinGen/Dump.lean for the encoding).  Spliced into Lech/Kernel/NatOpPins.lean by #load_natop_pins.",
+"format":"lech-natop-pins/2",
+"_README":"GENERATED FILE — do not edit.  The pinned Nat-operation defining expressions and their certificate proof blobs, as share tables (see Lech/PinGen/Dump.lean for the encoding).  Spliced into Lech/Kernel/NatOpPins.lean by #load_natop_pins.  The built-in prelude the pins' order-sensitive ground needs (task #191) is the sidecar file named by preludeFile, embedded by Lech/Frontend/Prelude.lean; orderResidual lists, per operation, the order-sensitive ground that stays the stream's (see Lech/PinGen/Prelude.lean).",
 "_regenerate":"lake exe natop-pins-export   — then commit the result; tests/pindump.sh (run from tests/arena.sh) diffs this file against a fresh regeneration and fails if it is stale.",
 "toolchain":"leanprover/lean4:v4.33.0",
 "leanVersion":"4.33.0",
+"preludeFile":"leanprover-lean4-v4.33.0.prelude.ndjson",
+"preludeMembers":["Bool"],
+"preludeNames":["Eq","Eq.refl","Eq.rec","Nat","Nat.zero","Nat.succ","Nat.rec","PUnit","PUnit.unit","PUnit.rec","Empty","Empty.rec","False","False.rec","Quot","Quot.mk","Quot.lift","Quot.ind","Quot.sound","Bool","Bool.false","Bool.true","Bool.rec"],
+"orderResidual":[
+{"op":"Nat.mod","residual":[]},
+{"op":"Nat.div","residual":[]},
+{"op":"Nat.gcd","residual":[]},
+{"op":"Nat.shiftLeft","residual":["Nat.ble","Nat.sub"]},
+{"op":"Nat.shiftRight","residual":[]},
+{"op":"Nat.land","residual":["Nat.mul"]},
+{"op":"Nat.lor","residual":["Nat.mul"]},
+{"op":"Nat.xor","residual":["Nat.mul"]}
+],
 "ops":[
 {
 "op":"Nat.mod",

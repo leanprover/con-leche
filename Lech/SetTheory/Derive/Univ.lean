@@ -126,9 +126,6 @@ theorem pi_mem_univ {u v : Nat} {A : V} {B : V → V}
     pi v A B ∈ˢ (univ (if v = 0 then 0 else Nat.max u v) : V) :=
   piC_mem_univ hA hB
 
-/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
-stubs for these operators were removed 2026-09-06. -/
-
 /- Opaque interface operator (see `Derive/Empty.lean`). -/
 attribute [irreducible] univ
 

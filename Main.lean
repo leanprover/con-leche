@@ -1,5 +1,6 @@
 import Lech.Cached.ParsedC
 import Lech.Frontend.ExportC
+import Lech.Frontend.Prelude
 
 /-!
 Command-line driver: `lech FILE.ndjson` reads a lean4export NDJSON file
@@ -204,14 +205,15 @@ stopped draining its pipe and a blocked writer would never exit.  A *parse
 error* drains instead of killing, so that a tool which failed
 mid-stream — leaving us a truncated record — still gets to state its
 verdict, which then wins over our reading of its debris. -/
-def preprocessParse (tool file modeTag : String) : IO (Option InputResult) := do
+def preprocessParse (tool file modeTag : String) (prelude : Frontend.PreludeIx) :
+    IO (Option InputResult) := do
   let child ← try
       IO.Process.spawn
         { cmd := tool
           args := #["--quiet", "--no-type-check-generated", file]
           stdin := .null, stdout := .piped, stderr := .inherit }
     catch _ => return none
-  match ← Frontend.parseExportHandleD child.stdout (modeled := true) with
+  match ← Frontend.parseExportHandleD child.stdout (modeled := true) prelude with
   | .error (.unsupported what) =>
     try child.kill catch _ => pure ()
     let _ ← child.wait
@@ -234,14 +236,14 @@ def preprocessParse (tool file modeTag : String) : IO (Option InputResult) := do
 either straight from the file (`--pre`, or an input with nothing for
 the preprocessor to do, or a preprocessor that could not be run) or
 through the preprocessor's pipe — or the preprocessor's own verdict. -/
-def parseInput (file : String) (pre : Bool) (modeTag : String) :
-    IO InputResult := do
+def parseInput (file : String) (pre : Bool) (modeTag : String)
+    (prelude : Frontend.PreludeIx) : IO InputResult := do
   let raw : IO InputResult :=
-    InputResult.parsed <$> Frontend.parseExportStreamD file (modeled := true)
+    InputResult.parsed <$> Frontend.parseExportStreamD file (modeled := true) prelude
   if pre then return ← raw
   unless ← needsPreprocess file do return ← raw
   let some tool ← findPreprocessor | raw
-  match ← preprocessParse tool file modeTag with
+  match ← preprocessParse tool file modeTag prelude with
   | some res => return res
   | none => raw
 
@@ -256,13 +258,8 @@ loop in the driver** (`LECH_PROGRESS`, user ruling 2026-09-07).
 
 The default run calls `Lech.Cached.checkDeclsSPCachedD` — the pure
 function `Lech.no_proof_of_False` is about — and prints nothing per
-declaration.  A pure fold cannot print, and the ways to make it print
-without leaving the verified statement behind all cost more than the
-printing is worth: a compiled-only hook (`@[implemented_by]`, refused
-by the project's standing ruling), a `dbgTrace` branch on the checked
-path, or a monad-generic loop with callbacks plus a `LawfulMonad IO`
-instance core does not ship.  The user's ruling ends that: run a
-*different, plainly unverified* fold when the heartbeat is on.
+declaration.  A pure fold cannot print, so when the heartbeat is on the
+driver runs a *different, plainly unverified* fold instead.
 
 It is the same steps in the same order — `checkDeclStepIdxC mode`, the
 position-carrying step of the verified fold, over the same records from
@@ -291,7 +288,7 @@ index: the parse folds the basis and `quot` blocks and drops
 taint-skipped records, so the two drift apart by a stream-dependent
 amount.  Calibrate by NAME. -/
 def checkDeclsProgressIO (mode : Lech.CheckMode) (err : IO.FS.Stream)
-    (stride total t0 : Nat) :
+    (stride total t0 : Nat) (trace : Bool) :
     List Lech.Cached.DeclC → Nat → Lech.FEnv → Lech.Cached.CState →
       IO (Except (Lech.CheckError × Nat) Lech.Env)
   | [], _, fe, _ => return .ok fe.env
@@ -302,8 +299,34 @@ def checkDeclsProgressIO (mode : Lech.CheckMode) (err : IO.FS.Stream)
         {Lech.Cached.declCLabel pd} \
         t={Lech.Cached.msSecs (now - t0)}s\n"
       err.flush
+    -- THE ROUTE TRACE (`LECH_ROUTE_TRACE`, task #193): one line per
+    -- inductive block naming the install route the checker is about
+    -- to take — the recognisers run here on the same environment the
+    -- step sees, so the line is exactly the dispatch of
+    -- `checkIndDeclSF` (`Lech/Cached/CheckerC.lean`).  This is the
+    -- instrument `tests/native-audit.sh` compares against the
+    -- preprocessor's `native` lines: a block left native there must
+    -- read `struct` or `sum` here.
+    if trace then
+      match pd with
+      | .indDecl block =>
+        let route :=
+          if (Lech.directPartsF? fe block).isSome then "struct"
+          else if (Lech.directSumPartsF? fe block).isSome then "sum"
+          else "modeled"
+        err.putStr s!"lech: route \
+          {(block.head?.map (·.name)).getD .anonymous} {route}\n"
+        err.flush
+      | .basisDecl k =>
+        -- a pinned basis block: matched by the parse before any
+        -- recogniser runs, installed from the pin
+        err.putStr s!"lech: route \
+          {(k.decls.head?.map (·.name)).getD .anonymous} basis\n"
+        err.flush
+      | _ => pure ()
     match Lech.Cached.checkDeclStepIdxC mode (i, fe) pd s with
-    | .ok ((i', fe'), s') => checkDeclsProgressIO mode err stride total t0 ds i' fe' s'
+    | .ok ((i', fe'), s') =>
+      checkDeclsProgressIO mode err stride total t0 trace ds i' fe' s'
     | .error e => return .error e
 
 /-- The progress heartbeat's stride (`LECH_PROGRESS=<stride>`;
@@ -357,6 +380,11 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     let stride ← match ← progressStride with
       | .error msg => IO.eprintln s!"lech: {msg}"; return 3
       | .ok n => pure n
+    -- The route trace (`LECH_ROUTE_TRACE`, task #193): one `lech:
+    -- route <block> <struct|sum|modeled>` line per inductive block,
+    -- on the progress lane (so a traced run is as unverified as a
+    -- heartbeat run, and says so).
+    let trace := (← IO.getEnv "LECH_ROUTE_TRACE").isSome
     let t0 ← IO.monoMsNow
     -- Every VERDICT line names the mode (2026-09-07): a `--trusted`
     -- run — the unverified lane — must never be mistaken for a
@@ -364,13 +392,31 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     let modeTag : String := match mode with
       | .verified => "--verified"
       | .trusted => "--trusted"
+    -- THE BUILT-IN PRELUDE (task #191, `Lech/Frontend/Prelude.lean`):
+    -- the pinned basis blocks and `Bool`, parsed from the committed
+    -- `pins/<toolchain>.prelude.ndjson` and PREPENDED to every parsed
+    -- stream, so the fold installs them first and unconditionally; a
+    -- stream's own copy of one is dropped when identical and declines
+    -- the run when different.  A prelude that does not parse is a
+    -- corrupted build, reported before any input is read.
+    let prelude ← match Frontend.builtinPreludeE with
+      | .ok p => pure p
+      | .error (.parseError line msg) =>
+        IO.eprintln s!"lech: the built-in prelude does not parse (line \
+          {line}: {msg}); regenerate it with `lake exe natop-pins-export` \
+          ({modeTag})"
+        return 3
+      | .error (.unsupported what) =>
+        IO.eprintln s!"lech: the built-in prelude is unsupported ({what}); \
+          regenerate it with `lake exe natop-pins-export` ({modeTag})"
+        return 3
     -- Streaming frontend (task #57, task #180): the preprocessor's
     -- stdout *is* the parser's input — the parse reads it line by line
     -- off the pipe, so neither a wholesale text buffer nor a scratch
     -- file exists in this process.  `--pre` (an explicit user
     -- assertion, never content sniffing) skips detection and the
     -- preprocessor spawn.
-    match ← parseInput file pre modeTag with
+    match ← parseInput file pre modeTag prelude with
     | .preVerdict code =>
       -- the preprocessor's verdict is ours (user ruling 2026-09-07);
       -- `preVerdict` has already printed the line, which names the mode
@@ -382,7 +428,13 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     | .parsed (.error (.parseError line msg)) =>
       IO.eprintln s!"lech: {file}:{line}: {msg}"
       return 3
-    | .parsed (.ok ⟨decls, taintSkipped, projRewrites⟩) =>
+    | .parsed (.ok ⟨decls, taintSkipped, projRewrites, preludeCount,
+                    preludeDropped, hoisted⟩) =>
+      -- `decls` = the prelude's `preludeCount` records, then the
+      -- stream's (minus `preludeDropped` identical copies of prelude
+      -- records); fold positions count from the prelude's first record,
+      -- and the stream's accepted-record count is
+      -- `decls.size - preludeCount + preludeDropped`
       -- the projection-function rewrite's receipt (2026-09-06,
       -- `Lech/Frontend/ProjRec.lean`): how many non-direct
       -- structure-like projection functions the parse replaced by
@@ -393,6 +445,13 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         if (← IO.getEnv "LECH_PROJREC_TRACE").isSome then
           for n in projRewrites do
             IO.eprintln s!"lech:   rewritten {n}"
+      -- the ground hoist's receipt (task #191,
+      -- `Lech/Frontend/NatOpGround.lean`): records moved ahead of a
+      -- pinned Nat operation whose certificate statements they ground
+      if hoisted.size > 0 then
+        IO.eprintln s!"lech: {hoisted.size} declarations hoisted ahead of \
+          the pinned Nat operations they ground: \
+          {String.intercalate ", " (hoisted.toList.map toString)}"
       -- Taint-skip verdict (user directive 2026-08-24): declarations
       -- using tolerated axioms were *skipped* during parsing (they
       -- are absent from `decls`, so nothing tainted can be checked
@@ -432,8 +491,10 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       -- portable handle.
       let tParse ← IO.monoMsNow
       if stride > 0 then
-        IO.eprintln s!"lech: progress parse done: {decls.size} \
-          declarations t={Lech.Cached.msSecs (tParse - t0)}s \
+        IO.eprintln s!"lech: progress parse done: {decls.size - preludeCount} \
+          declarations after the {preludeCount} built-in prelude records \
+          ({preludeDropped} stream copies of prelude records dropped) \
+          t={Lech.Cached.msSecs (tParse - t0)}s \
           (preprocess and parse; the progress lane's fold is \
           UNVERIFIED — see --help)"
         (← IO.getStderr).flush
@@ -447,8 +508,8 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
             (fold {Lech.Cached.msSecs (now - tParse)}s)"
           (← IO.getStderr).flush
       let verdict ←
-        if stride > 0 then
-          checkDeclsProgressIO mode (← IO.getStderr) stride decls.size t0
+        if stride > 0 || trace then
+          checkDeclsProgressIO mode (← IO.getStderr) stride decls.size t0 trace
             decls.toList 0 (Lech.mkFEnv Lech.Env.empty) {}
         else
           pure (Lech.Cached.checkDeclsSPCachedD mode decls.toList)
@@ -463,15 +524,36 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         -- the stream.  It used to print the accept line and *then*
         -- the decline, which reads as an accept in a log and in
         -- anything that greps for one.
+        -- **The headline number is the STREAM's declaration-record
+        -- count** (task #191): the records the fold consumed minus
+        -- the built-in prelude's, plus the stream records dropped as
+        -- identical copies of prelude records (they are installed —
+        -- from the prelude — and the official checker counts them).
+        -- So a stream re-declaring `Bool` identically reports the
+        -- same count as before the prelude existed, and the number is
+        -- comparable with the official checker's, which reports
+        -- accepted declaration RECORDS; the environment's CONSTANT
+        -- count (an inductive record installs several) is a property
+        -- of our representation and stays on stderr under
+        -- `LECH_VERBOSE=1`.
+        let streamRecords := decls.size - preludeCount + preludeDropped
+        let verboseCounts : IO Unit := do
+          if (← IO.getEnv "LECH_VERBOSE").isSome then
+            IO.eprintln s!"lech: environment: {env.consts.length} constants \
+              from {decls.size} fold records ({preludeCount} built-in \
+              prelude records, {preludeDropped} stream copies of them \
+              dropped)"
         if taintSkipped.isEmpty then
-          IO.println s!"lech: accepted {env.consts.length} \
+          IO.println s!"lech: accepted {streamRecords} \
             declarations ({modeTag})"
+          verboseCounts
           return 0
         else
-          IO.eprintln s!"lech: declined ({env.consts.length} \
+          IO.eprintln s!"lech: declined ({streamRecords} \
             declarations checked, {taintSkipped.size} skipped for \
             tolerated axioms) ({modeTag}): \
             {Frontend.taintDetail taintSkipped}"
+          verboseCounts
           return 2
       | .error (e, i) =>
         progressDone i
@@ -557,11 +639,54 @@ def usage : String := String.intercalate "\n" [
   "                    calls checkDeclsSPCachedD, the function the main",
   "                    theorem (Lech.no_proof_of_False) is about; a",
   "                    run with it is not covered by that theorem.",
+  "  LECH_ROUTE_TRACE=1",
+  "                    the install-route audit (task #193): one",
+  "                    'lech: route <block> <struct|sum|modeled>' line",
+  "                    on STDERR per inductive block, naming the route",
+  "                    the checker takes for it (the direct structure",
+  "                    route, the direct sum/indexed route, or the",
+  "                    preprocessor's model).  tests/native-audit.sh",
+  "                    compares these against lech-preprocess's",
+  "                    'native' lines: a block the predicate leaves",
+  "                    native must read struct or sum here.  Runs on",
+  "                    the progress lane's UNVERIFIED fold (above).",
+  "",
+  "  LECH_VERBOSE=1    add one stderr line beside the verdict giving the",
+  "                    ENVIRONMENT-CONSTANT count and the fold's record",
+  "                    count.  The verdict line counts the STREAM's",
+  "                    accepted declaration RECORDS — what the official",
+  "                    checker reports, so the two are comparable; the",
+  "                    built-in prelude's records are not counted, and a",
+  "                    stream record dropped as an identical copy of a",
+  "                    prelude record is (it is installed, from the",
+  "                    prelude).  An inductive record installs several",
+  "                    constants (type former, constructors, recursor,",
+  "                    projection table), so the constant count is larger",
+  "                    and is a property of our representation rather",
+  "                    than of the input.",
   "",
   "  --pre             assert FILE is already preprocessed output of",
   "                    lech-preprocess (or the stock",
   "                    lean-inductive-models): skip the preprocessor",
   "                    detection scan and spawn entirely",
+  "",
+  "THE BUILT-IN PRELUDE (task #191).  Every run installs, first and",
+  "unconditionally, the checker's own little prelude — the six pinned",
+  "basis blocks (Eq, Nat, PUnit, Empty, False, Quot) and the toolchain's",
+  "Bool block (pins/<toolchain>.prelude.ndjson, embedded at build time;",
+  "Lech/Frontend/Prelude.lean) — so the pin-certified Nat operations",
+  "find their ground whatever order the export chose.  A stream's own",
+  "copy of a prelude declaration is dropped when it is the same",
+  "declaration and DECLINES the run (exit 2, naming it) when it differs;",
+  "a mismatching basis block still REJECTS (reserved name), as before.",
+  "A pinned operation's stream-certified structural ground (Nat.ble,",
+  "Nat.sub, Nat.mul — spelled into the certificate statements, not",
+  "reachable from the operation's own value) is HOISTED ahead of the",
+  "operation when the stream declares it later (Lech/Frontend/",
+  "NatOpGround.lean): a dependency-closed reorder of the parsed list,",
+  "reported on stderr.  Both are pure transformations of the parsed",
+  "list below the verified fold; the main theorem is about the fold",
+  "over prelude ++ stream.",
   "",
   "THE PREPROCESSOR.  Unless --pre says otherwise, an input containing",
   "inductive/quot records is run through lech-preprocess, which",

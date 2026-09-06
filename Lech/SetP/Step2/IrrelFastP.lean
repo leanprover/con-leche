@@ -75,7 +75,7 @@ version of the claims' zero side: the bit is `0` at every valuation
 (the dual of `pwBit_ne_zero_of_isNever`). -/
 theorem pwBit_eq_zero_of_isProp {pw : PropWhen}
     (h : pw.isProp = true) (φ : Name → Nat) : pwBit φ pw = 0 := by
-  rw [pwBit_eq_of_equiv h φ]
+  rw [eq_of_beq h]
   simp [pwBit]
 
 /-- **Exactness**: `pw.isProp` is *the* datum that is zero at every

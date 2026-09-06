@@ -39,7 +39,6 @@ main_False :: Lech.Semantics.BasisType
 main_False :: Lech.Semantics.Bridge.Decl
 main_False :: Lech.Semantics.Bridge.DeclIndRun
 main_False :: Lech.Semantics.Bridge.DeclRun
-main_False :: Lech.Semantics.Bridge.ProjRed
 main_False :: Lech.Semantics.Bridge.Sound
 main_False :: Lech.Semantics.Canon
 main_False :: Lech.Semantics.ConstsBound
@@ -410,7 +409,6 @@ False_SPCD_P :: Lech.Semantics.BasisType
 False_SPCD_P :: Lech.Semantics.Bridge.Decl
 False_SPCD_P :: Lech.Semantics.Bridge.DeclIndRun
 False_SPCD_P :: Lech.Semantics.Bridge.DeclRun
-False_SPCD_P :: Lech.Semantics.Bridge.ProjRed
 False_SPCD_P :: Lech.Semantics.Bridge.Sound
 False_SPCD_P :: Lech.Semantics.Canon
 False_SPCD_P :: Lech.Semantics.ConstsBound
@@ -771,7 +769,6 @@ False_P :: Lech.Semantics.BasisType
 False_P :: Lech.Semantics.Bridge.Decl
 False_P :: Lech.Semantics.Bridge.DeclIndRun
 False_P :: Lech.Semantics.Bridge.DeclRun
-False_P :: Lech.Semantics.Bridge.ProjRed
 False_P :: Lech.Semantics.Bridge.Sound
 False_P :: Lech.Semantics.Canon
 False_P :: Lech.Semantics.ConstsBound
@@ -1114,7 +1111,6 @@ SPCD_P :: Lech.Semantics.BasisType
 SPCD_P :: Lech.Semantics.Bridge.Decl
 SPCD_P :: Lech.Semantics.Bridge.DeclIndRun
 SPCD_P :: Lech.Semantics.Bridge.DeclRun
-SPCD_P :: Lech.Semantics.Bridge.ProjRed
 SPCD_P :: Lech.Semantics.Bridge.Sound
 SPCD_P :: Lech.Semantics.Canon
 SPCD_P :: Lech.Semantics.ConstsBound
@@ -1485,7 +1481,6 @@ sound_P :: Lech.Semantics.BasisType
 sound_P :: Lech.Semantics.Bridge.Decl
 sound_P :: Lech.Semantics.Bridge.DeclIndRun
 sound_P :: Lech.Semantics.Bridge.DeclRun
-sound_P :: Lech.Semantics.Bridge.ProjRed
 sound_P :: Lech.Semantics.Bridge.Sound
 sound_P :: Lech.Semantics.Canon
 sound_P :: Lech.Semantics.ConstsBound
@@ -1856,7 +1851,6 @@ foldSPC_PM :: Lech.Semantics.BasisType
 foldSPC_PM :: Lech.Semantics.Bridge.Decl
 foldSPC_PM :: Lech.Semantics.Bridge.DeclIndRun
 foldSPC_PM :: Lech.Semantics.Bridge.DeclRun
-foldSPC_PM :: Lech.Semantics.Bridge.ProjRed
 foldSPC_PM :: Lech.Semantics.Bridge.Sound
 foldSPC_PM :: Lech.Semantics.Canon
 foldSPC_PM :: Lech.Semantics.ConstsBound
@@ -2217,7 +2211,6 @@ P :: Lech.Semantics.BasisType
 P :: Lech.Semantics.Bridge.Decl
 P :: Lech.Semantics.Bridge.DeclIndRun
 P :: Lech.Semantics.Bridge.DeclRun
-P :: Lech.Semantics.Bridge.ProjRed
 P :: Lech.Semantics.Bridge.Sound
 P :: Lech.Semantics.Canon
 P :: Lech.Semantics.ConstsBound

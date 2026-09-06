@@ -123,7 +123,7 @@ the recursor's own telescope carries the elimination datum
 (through `imax`'s right-argument rule), so this is exactly what the
 verified-mode inference validates (`(forall-cod)`, `(lam-cod-*)`) and
 what the stream's annotated recursor carries at the same binders (the
-defeq sites compare data by `PropWhen.equiv`).  The motive's own
+defeq sites compare data by `==`; the datum is canonical).  The motive's own
 binder `(t : T p⃗)` has codomain `Sort ℓ : Sort (ℓ+1)`, hence `.never`.
 The domains are re-emitted verbatim, their inner data untouched. -/
 

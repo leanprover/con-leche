@@ -137,10 +137,21 @@ structure PinDumpFile where
   toolchain : String
   leanVersion : String
   ops : Array PinOpDump
+  /-- The built-in prelude (task #191): the basename of the sidecar
+  lean4export-format file beside this dump, the record owners it
+  carries beyond the pinned basis blocks, the names it declares in
+  order, and per operation the order-sensitive ground that could NOT
+  be preluded (stream-certified `Nat` operations the statements are
+  spelled over) — see `Lech/PinGen/Prelude.lean`. -/
+  preludeFile : String := ""
+  preludeMembers : Array String := #[]
+  preludeNames : Array String := #[]
+  orderResidual : Array (String × Array String) := #[]
   deriving Inhabited
 
-/-- The format tag written into, and required of, a dump file. -/
-def dumpFormatTag : String := "lech-natop-pins/1"
+/-- The format tag written into, and required of, a dump file.
+`/2` since task #191: the prelude fields. -/
+def dumpFormatTag : String := "lech-natop-pins/2"
 
 /-- The dump file's basename for a toolchain: the `lean-toolchain`
 string with everything outside `[A-Za-z0-9._-]` turned into `-`
@@ -525,10 +536,20 @@ def dumpFileOfJson (j : Json) : Except String PinDumpFile := do
   let fmt ← (← j.getObjVal? "format").getStr?
   unless fmt == dumpFormatTag do
     throw s!"pin dump format {fmt}, expected {dumpFormatTag}"
+  let strs (key : String) : Except String (Array String) := do
+    (← (← j.getObjVal? key).getArr?).mapM (·.getStr?)
+  let residual ← (← (← j.getObjVal? "orderResidual").getArr?).mapM fun r => do
+    let op ← (← r.getObjVal? "op").getStr?
+    let names ← (← (← r.getObjVal? "residual").getArr?).mapM (·.getStr?)
+    pure (op, names)
   return {
     toolchain := ← (← j.getObjVal? "toolchain").getStr?
     leanVersion := ← (← j.getObjVal? "leanVersion").getStr?
-    ops := ← (← (← j.getObjVal? "ops").getArr?).mapM opDumpOfJson }
+    ops := ← (← (← j.getObjVal? "ops").getArr?).mapM opDumpOfJson
+    preludeFile := ← (← j.getObjVal? "preludeFile").getStr?
+    preludeMembers := ← strs "preludeMembers"
+    preludeNames := ← strs "preludeNames"
+    orderResidual := residual }
 
 def parseDumpFile (s : String) : Except String PinDumpFile := do
   dumpFileOfJson (← Json.parse s)
@@ -629,7 +650,12 @@ def dumpLines (d : PinDumpFile) : Array String := Id.run do
     ("GENERATED FILE — do not edit.  The pinned Nat-operation defining \
      expressions and their certificate proof blobs, as share tables \
      (see Lech/PinGen/Dump.lean for the encoding).  Spliced into \
-     Lech/Kernel/NatOpPins.lean by #load_natop_pins.")).compress ++ ",")
+     Lech/Kernel/NatOpPins.lean by #load_natop_pins.  The built-in \
+     prelude the pins' order-sensitive ground needs (task #191) is the \
+     sidecar file named by preludeFile, embedded by \
+     Lech/Frontend/Prelude.lean; orderResidual lists, per operation, \
+     the order-sensitive ground that stays the stream's (see \
+     Lech/PinGen/Prelude.lean).")).compress ++ ",")
   out := out.push ("\"_regenerate\":" ++ (Json.str
     ("lake exe natop-pins-export   — then commit the result; \
      tests/pindump.sh (run from tests/arena.sh) diffs this file \
@@ -638,6 +664,19 @@ def dumpLines (d : PinDumpFile) : Array String := Id.run do
   out := out.push ("\"toolchain\":" ++ (Json.str d.toolchain).compress ++ ",")
   out := out.push
     ("\"leanVersion\":" ++ (Json.str d.leanVersion).compress ++ ",")
+  -- the built-in prelude's index (task #191; the records themselves are
+  -- the sidecar file)
+  out := out.push ("\"preludeFile\":" ++ (Json.str d.preludeFile).compress ++ ",")
+  let strArr (a : Array String) : String := (Json.arr (a.map Json.str)).compress
+  out := out.push ("\"preludeMembers\":" ++ strArr d.preludeMembers ++ ",")
+  out := out.push ("\"preludeNames\":" ++ strArr d.preludeNames ++ ",")
+  out := out.push "\"orderResidual\":["
+  for i in [0:d.orderResidual.size] do
+    let (op, names) := d.orderResidual[i]!
+    let sep := if i + 1 == d.orderResidual.size then "" else ","
+    out := out.push ("{\"op\":" ++ (Json.str op).compress ++ ",\"residual\":" ++
+      strArr names ++ "}" ++ sep)
+  out := out.push "],"
   out := out.push "\"ops\":["
   for oi in [0:d.ops.size] do
     let o := d.ops[oi]!

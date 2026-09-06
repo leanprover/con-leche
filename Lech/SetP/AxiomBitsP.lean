@@ -29,8 +29,8 @@ says to take them: from `ConstantValR`'s own recorded
    refinement): three `app` inversions peel the pinned
    `∀ (α : Sort 1) (a b : α), Prop` to `Prop` outright;
 3. **the collapse** — `inferTypeCore_forall_inv`'s validation
-   conjunct `(Level.zeronessOf v).equiv mb.pw = true` converts to the
-   bit by `pwBit_of_equiv_zeronessOf`, and the *telescope collapse*
+   conjunct `Level.zeronessOf v = mb.pw` converts to the
+   bit by `pwBit_zeronessOf`, and the *telescope collapse*
    `Level.eval φ (imax u v) = 0 ↔ Level.eval φ v = 0` makes it **one
    fact per pin rather than one per binder**: the ∀ clause's own
    result `.sort (.imax u v)` carries the innermost bit outward
@@ -201,15 +201,15 @@ theorem propext_bitsP (hμ : μ.verifiedChecks = true)
     Lech.inferTypeCore_forall_inv hbt2
   obtain rfl : bt3 = .sort .zero := inferTypeCore_eqSpineS hEq hbt3
   obtain rfl : v3 = .zero := ensureSortCore_sort_eq hens3
-  have hb3 : pwBit φ m₃.pw = 0 :=
-    (pwBit_of_equiv_zeronessOf (hpw3 hμ) φ).mpr rfl
+  have hb3 : pwBit φ m₃.pw = 0 := by
+    rw [← hpw3 hμ]; exact (pwBit_zeronessOf φ _).mpr rfl
   obtain rfl : v2 = .imax u3 .zero := ensureSortCore_sort_eq hens2
-  have hb2 : pwBit φ m₂.pw = 0 :=
-    (pwBit_of_equiv_zeronessOf (hpw2 hμ) φ).mpr (by simp [Level.eval])
+  have hb2 : pwBit φ m₂.pw = 0 := by
+    rw [← hpw2 hμ]; exact (pwBit_zeronessOf φ _).mpr (by simp [Level.eval])
   obtain rfl : v1 = .imax u2 (.imax u3 .zero) :=
     ensureSortCore_sort_eq hens1
-  have hb1 : pwBit φ m₁.pw = 0 :=
-    (pwBit_of_equiv_zeronessOf (hpw1 hμ) φ).mpr (by simp [Level.eval])
+  have hb1 : pwBit φ m₁.pw = 0 := by
+    rw [← hpw1 hμ]; exact (pwBit_zeronessOf φ _).mpr (by simp [Level.eval])
   exact ⟨hb1, hb2, hb3⟩
 
 
@@ -289,10 +289,10 @@ theorem choice_bitsP (hμ : μ.verifiedChecks = true)
   obtain rfl : bt2 = .sort (.param uN) := inferTypeCore_fvar_outS hbt2
   obtain rfl : v2 = .param uN := ensureSortCore_sort_eq hens2
   have hb2 : pwBit φ m₂.pw = 0 ↔ φ uN = 0 := by
-    rw [pwBit_of_equiv_zeronessOf (hpw2 hμ) φ]; simp [Level.eval]
+    rw [← hpw2 hμ, pwBit_zeronessOf]; simp [Level.eval]
   obtain rfl : v1 = .imax u2 (.param uN) := ensureSortCore_sort_eq hens1
   have hb1 : pwBit φ m₁.pw = 0 ↔ φ uN = 0 := by
-    rw [pwBit_of_equiv_zeronessOf (hpw1 hμ) φ]
+    rw [← hpw1 hμ, pwBit_zeronessOf]
     simp only [Level.eval]
     exact imax_eq_zero_iff _ _
   exact ⟨hb1, hb2⟩
