@@ -140,16 +140,18 @@ The tool's own diagnostics are on our stderr already (it is spawned
 with `stderr := .inherit`, and `--quiet` silences its success reports
 but never its failures) — except for the per-owner decline lines, which
 are success-path reports; hence the pointer in the decline message. -/
-def preprocessorVerdict (code : UInt32) : IO UInt32 := do
+def preprocessorVerdict (code : UInt32) (modeTag : String) : IO UInt32 := do
   if code = 1 then
-    IO.eprintln "setlec: the preprocessor rejected the input (message above)"
+    IO.eprintln s!"setlec: the preprocessor rejected the input (message \
+      above) ({modeTag})"
     return 1
   else if code = 2 then
-    IO.eprintln "setlec: declined: the preprocessor declined to model a block \
-      (re-run setlec-preprocess without --quiet for the owner names)"
+    IO.eprintln s!"setlec: declined: the preprocessor declined to model a \
+      block (re-run setlec-preprocess without --quiet for the owner names) \
+      ({modeTag})"
     return 2
   else
-    IO.eprintln s!"setlec: the preprocessor failed (exit {code})"
+    IO.eprintln s!"setlec: the preprocessor failed (exit {code}) ({modeTag})"
     return 3
 
 /-- Read a handle to EOF and discard it.  Used only when the parse
@@ -202,7 +204,7 @@ stopped draining its pipe and a blocked writer would never exit.  A *parse
 error* drains instead of killing, so that a tool which failed
 mid-stream — leaving us a truncated record — still gets to state its
 verdict, which then wins over our reading of its debris. -/
-def preprocessParse (tool file : String) : IO (Option InputResult) := do
+def preprocessParse (tool file modeTag : String) : IO (Option InputResult) := do
   let child ← try
       IO.Process.spawn
         { cmd := tool
@@ -220,51 +222,48 @@ def preprocessParse (tool file : String) : IO (Option InputResult) := do
     if code = 0 then
       return some (.parsed (.error e))
     else
-      return some (.preVerdict (← preprocessorVerdict code))
+      return some (.preVerdict (← preprocessorVerdict code modeTag))
   | .ok r =>
     let code ← child.wait
     if code = 0 then
       return some (.parsed (.ok r))
     else
-      return some (.preVerdict (← preprocessorVerdict code))
+      return some (.preVerdict (← preprocessorVerdict code modeTag))
 
 /-- The whole input side of a run: the parsed declarations, obtained
 either straight from the file (`--pre`, or an input with nothing for
 the preprocessor to do, or a preprocessor that could not be run) or
 through the preprocessor's pipe — or the preprocessor's own verdict. -/
-def parseInput (file : String) (pre : Bool) : IO InputResult := do
+def parseInput (file : String) (pre : Bool) (modeTag : String) :
+    IO InputResult := do
   let raw : IO InputResult :=
     InputResult.parsed <$> Frontend.parseExportStreamD file (modeled := true)
   if pre then return ← raw
   unless ← needsPreprocess file do return ← raw
   let some tool ← findPreprocessor | raw
-  match ← preprocessParse tool file with
+  match ← preprocessParse tool file modeTag with
   | some res => return res
   | none => raw
 
-/-- `declPName` for the direct-parse `DeclC` records (task #171). -/
-def declCName : Setlec.Cached.DeclC → String
-  | .defnDecl cv _ _ => s!"def {cv.name}"
-  | .thmDecl cv _ => s!"theorem {cv.name}"
-  | .opaqueDecl cv _ => s!"opaque {cv.name}"
-  | .axiomDecl cv => s!"axiom {cv.name}"
-  | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
-  | .basisDecl k => s!"basis block {repr k}"
+/-- `declPName` for the direct-parse `DeclC` records (task #171).  The
+formatting itself lives beside the checker (`Setlec.Cached.declCLabel`)
+because the progress heartbeat's compiled hook prints it too, and the
+two must never drift apart. -/
+def declCName : Setlec.Cached.DeclC → String := Setlec.Cached.declCLabel
 
-/-- Diagnostic second-pass loop over `DeclC` (task #171; the direct
-pipeline needs no re-parse — the records carry no arena, so the fold
-never shared a store with them). -/
-partial def diagLoopC
-    (stepF : Setlec.FEnv → Setlec.Cached.DeclC → Setlec.Cached.CState →
-      Except Setlec.CheckError (Setlec.FEnv × Setlec.Cached.CState))
-    (decls : Array Setlec.Cached.DeclC) (i : Nat)
-    (fe : Setlec.FEnv) (s : Setlec.Cached.CState) : String :=
-  if h : i < decls.size then
-    let d := decls[i]
-    match stepF fe d s with
-    | .ok (fe, s) => diagLoopC stepF decls (i + 1) fe s
-    | .error _ => s!" [at {declCName d}]"
-  else ""
+/-- The progress heartbeat's stride (`SETLEC_PROGRESS=<stride>`;
+2026-09-07).  `none` — the variable unset — is off; a value that is not
+a decimal numeral is a hard error, per the provenance discipline the
+retired-variable arms follow (a run's output must be readable off its
+invocation, never silently degraded).  `0` is the explicit "off". -/
+def progressStride : IO (Except String Nat) := do
+  match ← IO.getEnv "SETLEC_PROGRESS" with
+  | none => return .ok 0
+  | some s =>
+    match s.toNat? with
+    | some n => return .ok n
+    | none => return .error s!"SETLEC_PROGRESS must be a declaration stride \
+        (a decimal numeral; 0 or unset is off), got {repr s}"
 
 /-- The real driver (run in the supervised child process).  `mode` is
 the three-mode setting (task #147), validated once by the caller and
@@ -298,19 +297,32 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         certified mode is --verified, the default \
         (see DESIGN.md, task #147)"
       return 3
+    -- The opt-in progress heartbeat (2026-09-07): validated here, once,
+    -- before any work is done.
+    let stride ← match ← progressStride with
+      | .error msg => IO.eprintln s!"setlec: {msg}"; return 3
+      | .ok n => pure n
+    let t0 ← IO.monoMsNow
+    -- Every VERDICT line names the mode (2026-09-07): a `--trusted`
+    -- run — the unverified lane — must never be mistaken for a
+    -- `--verified` one in a log, whatever it says.
+    let modeTag : String := match mode with
+      | .verified => "--verified"
+      | .trusted => "--trusted"
     -- Streaming frontend (task #57, task #180): the preprocessor's
     -- stdout *is* the parser's input — the parse reads it line by line
     -- off the pipe, so neither a wholesale text buffer nor a scratch
     -- file exists in this process.  `--pre` (an explicit user
     -- assertion, never content sniffing) skips detection and the
     -- preprocessor spawn.
-    match ← parseInput file pre with
+    match ← parseInput file pre modeTag with
     | .preVerdict code =>
       -- the preprocessor's verdict is ours (user ruling 2026-09-07);
-      -- `preVerdict` has already printed the line
+      -- `preVerdict` has already printed the line, which names the mode
+      -- and is never an accept (it is reached only on a nonzero exit)
       return code
     | .parsed (.error (.unsupported what)) =>
-      IO.eprintln s!"setlec: declined: {what}"
+      IO.eprintln s!"setlec: declined: {what} ({modeTag})"
       return 2
     | .parsed (.error (.parseError line msg)) =>
       IO.eprintln s!"setlec: {file}:{line}: {msg}"
@@ -332,30 +344,117 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       -- or installed) and the rest of the stream was checked; a
       -- clean run over a stream with skips is still a decline —
       -- uses of tolerated axioms are never accepted.
-      let finish : UInt32 → IO UInt32 := fun code => do
-        if taintSkipped.isEmpty then return code
-        IO.eprintln s!"setlec: declined: {Frontend.taintSummary taintSkipped}"
-        return (if code = 0 then 2 else code)
+      -- On a stream that also FAILED, the skips are reported beside
+      -- the failure and the failure's own exit code stands.  (The
+      -- accepting case is the arm below: it never prints "accepted".)
+      let taintNote : IO Unit := do
+        unless taintSkipped.isEmpty do
+          IO.eprintln s!"setlec: declined: \
+            {Frontend.taintSummary taintSkipped} ({modeTag})"
       -- ONE driver, two configs (2026-09-06): the trusted mode is
       -- the shared bodies at `cfgT`, the verified mode the same
       -- bodies at `cfgP` (`cfgOf .verified`, `rfl`).
       let cfg : Setlec.CoreCfg :=
         if mode == Setlec.CheckMode.trusted then Setlec.cfgT else Setlec.cfgP
-      match Setlec.Cached.checkDeclsSPCachedD cfg decls.toList with
+      -- The progress heartbeat (`SETLEC_PROGRESS=<stride>`,
+      -- 2026-09-07).  The loop below is the verified one, and the
+      -- heartbeat is a CALLBACK it takes: `checkDeclsSPCachedM` runs
+      -- `checkDeclsSPCachedD`'s steps in `IO` with `before`/`after`
+      -- around each declaration, and
+      -- `Setlec.Cached.checkDeclsSPCachedM_run` says its result *is*
+      -- the pure driver's — for any callbacks.  A callback sees the
+      -- fold position and the record, never the checker's state, and
+      -- returns `Unit`: it cannot influence the verdict, only fail.
+      -- The letter for this loop is `Setlec.no_proof_of_Empty_IO`
+      -- (`Setlec/MainTheorem.lean`).
+      --
+      -- The line goes out BEFORE the declaration is checked, so a run
+      -- that dies — an OOM, a timeout, a `SIGKILL` — names on its last
+      -- line the declaration it died in, and the clock is read right
+      -- here in `IO`.
+      --
+      -- **Reading the index**: `i` is the *fold* position.  The
+      -- stream's declaration-record index is close to it but not a
+      -- fixed offset above it — the parse folds the four `quot`
+      -- records into one `basisDecl` and drops a few others, and a
+      -- taint-skipping stream loses more (measured on
+      -- `init-full-pre-native`: 54 351 records against 54 346 fold
+      -- positions, offset 0 through position 5 000 and 5 by the end;
+      -- the `SETLEC_TRACE_DECLS` lane's `+4` is the Mathlib stream's
+      -- own total).  The declaration NAME on the line is the
+      -- portable handle.
+      let tParse ← IO.monoMsNow
+      if stride > 0 then
+        IO.eprintln s!"setlec: progress parse done: {decls.size} \
+          declarations t={Setlec.Cached.msSecs (tParse - t0)}s \
+          (preprocess and parse)"
+        (← IO.getStderr).flush
+      let cb : Setlec.Cached.Callbacks IO := {
+        before := fun i pd => do
+          if stride > 0 && i % stride == 0 then
+            let now ← IO.monoMsNow
+            IO.eprintln s!"setlec: progress {i}/{decls.size} \
+              {declCName pd} t={Setlec.Cached.msSecs (now - t0)}s"
+            (← IO.getStderr).flush
+        after := fun _ _ => pure () }
+      -- The closing line: how far the loop got (`= N` on an accept,
+      -- the failing position otherwise) and how long it took.
+      let progressDone : Nat → IO Unit := fun reached => do
+        if stride > 0 then
+          let now ← IO.monoMsNow
+          IO.eprintln s!"setlec: progress fold done: {reached}/\
+            {decls.size} t={Setlec.Cached.msSecs (now - t0)}s \
+            (fold {Setlec.Cached.msSecs (now - tParse)}s)"
+          (← IO.getStderr).flush
+      match ← Setlec.Cached.checkDeclsSPCachedM cb cfg decls.toList with
       | .ok env =>
-        IO.println s!"setlec: accepted {env.consts.length} declarations"
-        return ← finish 0
-      | .error e =>
-        -- Diagnostic second pass: the verdict above is the verified
-        -- run; this only locates the failing declaration for the
-        -- message.  No re-parse is needed — the records carry no
-        -- arena, so the fold never shared a store with them.
-        let stepD := fun fe d s =>
-          (Setlec.Cached.checkDeclSPStepC cfg fe d).run s
-        let ctx := diagLoopC stepD decls 0
-          (Setlec.mkFEnv Setlec.Env.empty) {}
-        IO.eprintln s!"setlec: {e}{ctx}"
-        return ← finish e.exitCode
+        progressDone decls.size
+        -- A DECLINED stream never says "accepted" (2026-09-07).  The
+        -- taint-skip verdict (user directive 2026-08-24) is a
+        -- decline: declarations using tolerated axioms were skipped
+        -- at parse, so nothing tainted was checked or installed, and
+        -- a clean run over the rest is still not an acceptance of
+        -- the stream.  It used to print the accept line and *then*
+        -- the decline, which reads as an accept in a log and in
+        -- anything that greps for one.
+        if taintSkipped.isEmpty then
+          IO.println s!"setlec: accepted {env.consts.length} \
+            declarations ({modeTag})"
+          return 0
+        else
+          IO.eprintln s!"setlec: declined ({env.consts.length} \
+            declarations checked, {taintSkipped.size} skipped for \
+            tolerated axioms) ({modeTag}): \
+            {Frontend.taintDetail taintSkipped}"
+          return 2
+      | .error (e, i) =>
+        progressDone i
+        -- **No second pass** (2026-09-07): the fold's error carries
+        -- the failing declaration's FOLD POSITION, so the message is
+        -- read off the record array the driver already holds.  What
+        -- this replaced was a diagnostic re-run (`diagLoopC`) of the
+        -- same step over the same records — a full re-check of the
+        -- accepted prefix, and a lie waiting to happen if the two
+        -- runs ever disagreed.
+        --
+        -- `i` is the FOLD position.  The stream's
+        -- declaration-record index is NOT a fixed offset from it —
+        -- measured, 2026-09-07: the parse folds the four `quot`
+        -- records into one `basisDecl` and drops a few others, so
+        -- `init-full` runs at offset 0 for most of the stream and
+        -- ends 5 short (54 351 declaration records, 54 346 fold
+        -- positions), while the `SETLEC_TRACE_DECLS` lane measured
+        -- +4 on the Mathlib stream.  The declaration NAME is the
+        -- portable handle (`_tmp/frontier3/decl_index.py <stream>
+        -- <name>` turns it into a record index and a percentage).
+        let loc := if h : i < decls.size then
+            s!" [at {declCName decls[i]}, fold position {i}]"
+          else s!" [at fold position {i}]"
+        let now ← IO.monoMsNow
+        IO.eprintln s!"setlec: {e}{loc} ({modeTag}) \
+          t={Setlec.Cached.msSecs (now - t0)}s"
+        taintNote
+        return e.exitCode
 
 
 def usage : String := String.intercalate "\n" [
@@ -390,6 +489,20 @@ def usage : String := String.intercalate "\n" [
   "                    certain steps omitted.  Replaces the retired",
   "                    --yolo/SETLEC_NO_PROOF_CERTS and",
   "                    --infer-only/SETLEC_INFER_ONLY",
+  "  SETLEC_PROGRESS=<stride>",
+  "                    opt-in progress heartbeat on STDERR: one",
+  "                    'setlec: progress <i>/<N> <decl> t=<s>s' line",
+  "                    every <stride> declarations during the",
+  "                    (unchanged, verified) fold, plus one line when",
+  "                    the parse finishes (N and the elapsed parse) and",
+  "                    one when the fold does.  t= is the elapsed time",
+  "                    since the run started, so a declaration that",
+  "                    sits for minutes is visible as a gap between two",
+  "                    lines.  <i> is the FOLD position; the",
+  "                    stream's declaration-record index is a constant",
+  "                    +4 above it (the parse folds the pinned basis",
+  "                    blocks into one record).  Unset or 0 is off",
+  "",
   "  --pre             assert FILE is already preprocessed output of",
   "                    setlec-preprocess (or the stock",
   "                    lean-inductive-models): skip the preprocessor",
@@ -551,10 +664,23 @@ def main (args : List String) : IO UInt32 := do
         env := #[("SETLEC_SUPERVISED", some "1")]
         stdout := .inherit
         stderr := .piped }
-      let err ← child.stderr.readToEnd
+      -- The child's stderr is STREAMED, line by line, rather than read
+      -- to EOF and re-printed at the end (2026-09-07): a progress
+      -- heartbeat that only appears once the run is over is not a
+      -- heartbeat, and the same goes for the localisation lane's TRACE
+      -- lines when the run dies without returning.  The panic marker is
+      -- looked for on the way past, so the supervision below is
+      -- unchanged.
+      let errOut ← IO.getStderr
+      let mut panicked := false
+      repeat
+        let line ← child.stderr.getLine
+        if line.isEmpty then break
+        errOut.putStr line
+        errOut.flush
+        if (line.splitOn "INTERNAL PANIC").length > 1 then panicked := true
       let code ← child.wait
-      IO.eprint err
-      if code = 1 ∧ (err.splitOn "INTERNAL PANIC").length > 1 then
+      if code = 1 ∧ panicked then
         IO.eprintln "setlec: internal panic in the checker process"
         return 3
       return code
