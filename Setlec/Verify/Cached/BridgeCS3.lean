@@ -6,7 +6,7 @@ import Setlec.Verify.Cached.BridgeCS2
 Port of `Setlec/Verify/BridgeS3.lean` for the cached tier.  The
 single-environment functions of the direct-install path
 (`checkDirectFieldSorts`, `checkDirectDomsAt`, `checkDirectInd`,
-`checkDirectCtor`, `checkDirectRecTy`, `checkDirectRule`,
+`checkDirectCtor`, `checkDirectRec`,
 `checkDirectProj`), as `SimC`s between the `sharedOpsC` and
 `(fueledOpsM mode)` instantiations.  The per-site scoping facts mirror
 `Setlec/Verify/BridgeWfImp.lean`'s `_wfimp` walks one for one; the
@@ -211,261 +211,54 @@ theorem checkDirectCtorS_sim (henv : EnvWF env) {env₀ : Env}
   obtain rfl : sorts = sorts' := hS
   exact SimC.pure hs₇ ⟨rfl, hCw⟩
 
-/-- Stage 3 (the recursor's type) at the shared operations. -/
-theorem checkDirectRecTyS_sim (henv : EnvWF env) {p : DirectParts}
-    {cvTa cvCa cvRa : ConstantVal}
-    (hCf : cvCa.type.hasFvar = false) (hRf : cvRa.type.hasFvar = false)
-    (hs : CSOK mode env s₀) :
+/-- Stage 3 (the recursor, generated and compared; task #175 S2) at
+the shared operations: every operation runs at depth `0` on a closed
+term. -/
+theorem checkDirectRecS_sim (henv : EnvWF env) {p : DirectParts}
+    {cvTa cvCa : ConstantVal} (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkDirectRecTy (sharedOpsC (cfgOf mode) (mkFEnv env)) env p cvTa cvCa cvRa)
-      (checkDirectRecTy (fueledOpsM mode) env p cvTa cvCa cvRa) := by
-  unfold checkDirectRecTy
+      (checkDirectRec (sharedOpsC (cfgOf mode) (mkFEnv env)) env p cvTa cvCa)
+      (checkDirectRec (fueledOpsM mode) env p cvTa cvCa) := by
+  unfold checkDirectRec
   dsimp only [sharedOpsC]
-  by_cases h0 : directShape p.cvT.name p.cvC.name p.cvT.levelParams p.elim
-      p.large p.nP p.nF cvTa.type cvCa.type cvRa.type = true
-  case neg => simp only [if_neg h0]; exact SimC.throw_bind
-  simp only [if_pos h0]
-  refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ q q' hs₁ hP => ?_)
-  obtain ⟨rfl, hop⟩ := hP
-  obtain ⟨fvsP, rest⟩ := q
-  dsimp only
-  have hopW := openPisAtFvars_WScoped (p.nP + 2) cvRa.type 0 hop
-    (WScoped.of_not_hasFvar hRf)
-  rw [Nat.zero_add] at hopW
-  obtain ⟨hfvsW0, hrestW0⟩ := hopW
-  have hfvsW : ∀ x ∈ fvsP, WScoped (p.nP + 2 + p.nF) x :=
-    fun x hx => (hfvsW0 x hx).mono (by omega)
-  have hpsW : ∀ x ∈ fvsP.take p.nP, WScoped (p.nP + 2 + p.nF) x :=
-    fun x hx => hfvsW x (List.mem_of_mem_take hx)
-  have hpsWn : ∀ x ∈ fvsP.take p.nP, WScoped p.nP x := by
-    intro x hx
-    obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hx
-    rw [List.getElem?_take] at hi
-    split at hi
-    · next hlt =>
-      obtain ⟨nm, ty, rfl⟩ :=
-        openPisAtFvars_index (p.nP + 2) cvRa.type 0 hop i x hi
-      have hw := hfvsW0 _ (List.mem_of_getElem? hi)
-      simp only [WScoped] at hw ⊢
-      exact ⟨by omega, hw.2⟩
-    · exact nomatch hi
-  have hfamWn : WScoped p.nP
-      (Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
-        (fvsP.take p.nP)) :=
-    Expr.WScoped.mkAppN (by simp [WScoped]) hpsWn
-  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ q2 q2' hs₂ hQ => ?_)
-  obtain ⟨rfl, hci⟩ := hQ
-  obtain ⟨cdomsP, crest⟩ := q2
-  dsimp only
-  obtain ⟨hcdW, hcrW⟩ := instPisAt_WScoped (d := p.nP + 2 + p.nF) _ _ hci
-    (WScoped.of_not_hasFvar hCf) hpsW
-  obtain ⟨-, hcrWn⟩ := instPisAt_WScoped (d := p.nP) _ _ hci
-    (WScoped.of_not_hasFvar hCf) hpsWn
-  have hpsIdx : ∀ (i : Nat) (x : Expr), (fvsP.take p.nP)[i]? = some x →
-      WScoped (0 + i) (Expr.fvarTypeD x) := by
-    intro i x hx
-    rw [List.getElem?_take] at hx
-    split at hx
-    · obtain ⟨nm, ty, rfl⟩ :=
-        openPisAtFvars_index (p.nP + 2) cvRa.type 0 hop i x hx
-      have hw := hfvsW0 _ (List.mem_of_getElem? hx)
-      simp only [WScoped] at hw
-      exact hw.2
-    · exact nomatch hx
-  have hcdIdx : ∀ (i : Nat) (x : Expr), cdomsP[i]? = some x →
-      WScoped (0 + i) x := by
-    intro i x hx
-    refine instPisAt_index_WScoped (fvsP.take p.nP) (d := 0) hci
-      (WScoped.of_not_hasFvar hCf) ?_ i x hx
-    intro k a hk
-    rw [List.getElem?_take] at hk
-    split at hk
-    · obtain ⟨nm, ty, rfl⟩ :=
-        openPisAtFvars_index (p.nP + 2) cvRa.type 0 hop k a hk
-      have hw := hfvsW0 _ (List.mem_of_getElem? hk)
-      simp only [WScoped] at hw
-      simp only [WScoped]
-      exact ⟨by omega, hw.2⟩
-    · exact nomatch hk
-  refine SimC.bind (checkDirectDomsAtS_sim (off := 0) henv hpsIdx hcdIdx hs₂)
-    (fun s₃ u1 u1' hs₃ hU1 => ?_)
-  refine SimC.bind (SimC.unwrapOr' hs₃) (fun s₄ mfv mfv' hs₄ hM => ?_)
-  obtain ⟨rfl, hmf⟩ := hM
-  have hmftWn : WScoped p.nP mfv.fvarTypeD := by
-    obtain ⟨nm, ty, hmfv⟩ :=
-      openPisAtFvars_index (p.nP + 2) cvRa.type 0 hop p.nP mfv hmf
-    have hw := hfvsW0 _ (List.mem_of_getElem? hmf)
-    rw [hmfv] at hw ⊢
-    simp only [WScoped] at hw
-    show WScoped p.nP ty
-    simpa using hw.2
-  refine SimC.bind (SimC.unwrapOr' hs₄) (fun s₅ q3 q3' hs₅ hN => ?_)
-  obtain ⟨rfl, hms⟩ := hN
-  obtain ⟨mbs, mbody⟩ := q3
-  dsimp only
-  refine SimC.bind (SimC.unwrapOr' hs₅) (fun s₆ mdom mdom' hs₆ hD => ?_)
-  obtain ⟨rfl, hmd⟩ := hD
-  have hmdWn : WScoped p.nP mdom :=
-    stripPis_head_WScoped hms hmftWn hmd
-  refine SimC.bind (opB_sim henv hs₆ hmdWn hfamWn)
-    (fun s₇ b1 b1' hs₇ hB1 => ?_)
-  obtain rfl : b1 = b1' := hB1
-  cases b1 with
-  | false =>
-    simp only [Bool.false_eq_true, ↓reduceIte]
-    exact SimC.throw_bind
-  | true =>
-  simp only [↓reduceIte]
-  by_cases h2 : (mbody == Expr.sort (if p.large then .param p.elim else .zero)) = true
-  case neg => simp only [if_neg h2]; exact SimC.throw_bind
-  simp only [if_pos h2]
-  refine SimC.bind (SimC.unwrapOr' hs₇) (fun s₈ minfv mi' hs₈ hI => ?_)
-  obtain ⟨rfl, hmi⟩ := hI
-  have hmitW : WScoped (p.nP + 2) minfv.fvarTypeD :=
-    fvarTypeD_WScoped (hfvsW0 minfv (List.mem_of_getElem? hmi))
-  refine SimC.bind (SimC.unwrapOr' hs₈) (fun s₉ q4 q4' hs₉ hX => ?_)
-  obtain ⟨rfl, hox⟩ := hX
-  obtain ⟨xFvs, minBody⟩ := q4
-  dsimp only
-  obtain ⟨hxW, -⟩ := openPisAtFvars_WScoped p.nF minfv.fvarTypeD (p.nP + 2)
-    hox hmitW
-  refine SimC.bind (SimC.unwrapOr' hs₉) (fun s₁₀ q5 q5' hs₁₀ hF => ?_)
-  obtain ⟨rfl, hcf⟩ := hF
-  obtain ⟨cdomsF, crest2⟩ := q5
-  dsimp only
-  have hxIdx : ∀ (i : Nat) (x : Expr), xFvs[i]? = some x →
-      WScoped (p.nP + 2 + i) (Expr.fvarTypeD x) := by
-    intro i x hx
-    obtain ⟨nm, ty, rfl⟩ :=
-      openPisAtFvars_index p.nF minfv.fvarTypeD (p.nP + 2) hox i x hx
-    have hw := hxW _ (List.mem_of_getElem? hx)
-    simp only [WScoped] at hw
-    exact hw.2
-  have hcdFIdx : ∀ (i : Nat) (x : Expr), cdomsF[i]? = some x →
-      WScoped (p.nP + 2 + i) x := by
-    intro i x hx
-    refine instPisAt_index_WScoped xFvs (d := p.nP + 2) hcf
-      (hcrWn.mono (by omega)) ?_ i x hx
-    intro k a hk
-    obtain ⟨nm, ty, rfl⟩ :=
-      openPisAtFvars_index p.nF minfv.fvarTypeD (p.nP + 2) hox k a hk
-    have hw := hxW _ (List.mem_of_getElem? hk)
-    simp only [WScoped] at hw ⊢
-    exact ⟨by omega, hw.2⟩
-  refine SimC.bind
-    (checkDirectDomsAtS_sim (off := p.nP + 2) henv hxIdx hcdFIdx hs₁₀)
-    (fun s₁₁ u2 u2' hs₁₁ hU2 => ?_)
-  by_cases h3 : (crest2 ==
-      Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
-        (fvsP.take p.nP)) = true
-  case neg => simp only [if_neg h3]; exact SimC.throw_bind
-  simp only [if_pos h3]
-  by_cases h4 : (minBody == Expr.app mfv
-      (Expr.mkAppN (.const p.cvC.name (p.cvT.levelParams.map .param))
-        (fvsP.take p.nP ++ xFvs))) = true
-  case neg => simp only [if_neg h4]; exact SimC.throw_bind
-  simp only [if_pos h4]
-  refine SimC.bind (SimC.unwrapOr' hs₁₁)
-    (fun s₁₂ q6 q6' hs₁₂ hJ => ?_)
-  obtain ⟨rfl, hjs⟩ := hJ
-  obtain ⟨jbs, jbody⟩ := q6
-  dsimp only
-  refine SimC.bind (SimC.unwrapOr' hs₁₂)
-    (fun s₁₃ jdom jdom' hs₁₃ hJD => ?_)
-  obtain ⟨rfl, hjd⟩ := hJD
-  have hjdW : WScoped (p.nP + 2) jdom :=
-    stripPis_head_WScoped hjs hrestW0 hjd
-  refine SimC.bind (opB_sim henv hs₁₃ hjdW (hfamWn.mono (by omega)))
-    (fun s₁₄ b2 b2' hs₁₄ hB2 => ?_)
-  obtain rfl : b2 = b2' := hB2
-  cases b2 with
-  | false =>
-    simp only [Bool.false_eq_true, ↓reduceIte]
-    exact SimC.throw_bind
-  | true =>
-  simp only [↓reduceIte]
-  by_cases h5 : (jbody == Expr.app mfv (.bvar 0)) = true
-  case neg => simp only [if_neg h5]; exact SimC.throw
-  simp only [if_pos h5]
-  exact SimC.pure hs₁₄ rfl
-
-/-- Stage 4 (the recursor's single rule) at the shared operations. -/
-theorem checkDirectRuleS_sim (henv : EnvWF env) {p : DirectParts}
-    {cvCa cvRa : ConstantVal}
-    (hCf : cvCa.type.hasFvar = false) (hRf : cvRa.type.hasFvar = false)
-    (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC
-      (checkDirectRule (sharedOpsC (cfgOf mode) (mkFEnv env)) env p cvCa cvRa)
-      (checkDirectRule (fueledOpsM mode) env p cvCa cvRa) := by
-  unfold checkDirectRule
-  dsimp only [sharedOpsC]
-  by_cases h0 : (!p.rhs.hasFvar && Expr.looseBVarsBounded 0 p.rhs) = true
-  case neg => simp only [if_neg h0]; exact SimC.throw_bind
-  simp only [if_pos h0]
-  have hrawf : p.rhs.hasFvar = false := by
-    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h0
-    exact h0.1
-  refine SimC.bind (opE_annotate_sim henv hs (WScoped.of_not_hasFvar hrawf))
-    (fun s₁ rhsA rhsA' hs₁ hP => ?_)
-  obtain ⟨rfl, -⟩ := hP
-  by_cases h1 : (Expr.allLevelParamsDefined cvRa.levelParams rhsA &&
-      Expr.constsResolve env rhsA && Expr.looseBVarsBounded 0 rhsA &&
-      !rhsA.hasFvar) = true
+  refine SimC.bind (checkConstantValS_sim henv hs) (fun s₁ cvRi cvRi' hs₁ hP => ?_)
+  obtain ⟨rfl, hwI⟩ := hP
+  try dsimp only
+  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ recTy recTy' hs₂ hR => ?_)
+  obtain ⟨rfl, -⟩ := hR
+  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ rhs rhs' hs₃ hH => ?_)
+  obtain ⟨rfl, -⟩ := hH
+  by_cases h1 : (Expr.allLevelParamsDefined p.cvR.levelParams recTy &&
+      Expr.constsResolve env recTy && Expr.looseBVarsBounded 0 recTy &&
+      !recTy.hasFvar) = true
   case neg => simp only [if_neg h1]; exact SimC.throw_bind
   simp only [if_pos h1]
-  have hfv : rhsA.hasFvar = false := by
-    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h1
-    exact h1.2
-  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ q q' hs₂ hQ => ?_)
-  obtain ⟨rfl, -⟩ := hQ
-  obtain ⟨rbs, rbody⟩ := q
-  dsimp only
-  by_cases h2 : (rbody == directRuleBody p.nF) = true
+  by_cases h2 : (Expr.allLevelParamsDefined p.cvR.levelParams rhs &&
+      Expr.constsResolve env rhs && Expr.looseBVarsBounded 0 rhs &&
+      !rhs.hasFvar) = true
   case neg => simp only [if_neg h2]; exact SimC.throw_bind
   simp only [if_pos h2]
-  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ q2 q2' hs₃ hR => ?_)
-  obtain ⟨rfl, hop⟩ := hR
-  obtain ⟨fvsP, rrest⟩ := q2
-  dsimp only
-  have hopW := openPisAtFvars_WScoped (p.nP + 2) cvRa.type 0 hop
-    (WScoped.of_not_hasFvar hRf)
-  rw [Nat.zero_add] at hopW
-  obtain ⟨hfvsW0, -⟩ := hopW
-  have hfvsW : ∀ x ∈ fvsP, WScoped (p.nP + 2 + p.nF) x :=
-    fun x hx => (hfvsW0 x hx).mono (by omega)
-  refine SimC.bind (SimC.unwrapOr' hs₃) (fun s₄ q3 q3' hs₄ hS => ?_)
-  obtain ⟨rfl, hci⟩ := hS
-  obtain ⟨cdomsP, crest⟩ := q3
-  dsimp only
-  have hpsW2 : ∀ x ∈ fvsP.take p.nP, WScoped (p.nP + 2) x :=
-    fun x hx => hfvsW0 x (List.mem_of_mem_take hx)
-  obtain ⟨-, hcrW2⟩ := instPisAt_WScoped (d := p.nP + 2) _ _ hci
-    (WScoped.of_not_hasFvar hCf) hpsW2
-  refine SimC.bind (SimC.unwrapOr' hs₄) (fun s₅ q4 q4' hs₅ hT => ?_)
-  obtain ⟨rfl, hox⟩ := hT
-  obtain ⟨xFvs, xrest⟩ := q4
-  dsimp only
-  obtain ⟨hxW, -⟩ := openPisAtFvars_WScoped p.nF crest (p.nP + 2) hox hcrW2
-  refine SimC.bind (SimC.unwrapOr' hs₅) (fun s₆ q6 q6' hs₆ hL => ?_)
-  obtain ⟨rfl, hli⟩ := hL
-  obtain ⟨ldoms, lrest⟩ := q6
-  dsimp only
-  have hspineW : ∀ a ∈ fvsP ++ xFvs, WScoped (p.nP + 2 + p.nF) a := by
-    intro a ha
-    rcases List.mem_append.mp ha with ha | ha
-    · exact hfvsW a ha
-    · exact hxW a ha
-  obtain ⟨hldW, -⟩ := instLamsAt_WScoped (fvsP ++ xFvs) rhsA hli
-    (WScoped.of_not_hasFvar hfv) hspineW
-  refine SimC.bind (checkDefEqListS_sim henv
-      (fun a ha => by
-        obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
-        exact fvarTypeD_WScoped (hspineW x hx))
-      hldW hs₆)
-    (fun s₇ u1 u1' hs₇ hU1 => ?_)
-  refine SimC.bind (opE_infer_sim henv hs₇ (WScoped.of_not_hasFvar hfv))
-    (fun s₈ rhsTy rhsTy' hs₈ hI => ?_)
-  exact SimC.pure hs₈ rfl
+  have hRf : recTy.hasFvar = false := by
+    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h1
+    exact h1.2
+  have hrf : rhs.hasFvar = false := by
+    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h2
+    exact h2.2
+  have hwR : WScoped 0 recTy := WScoped.of_not_hasFvar hRf
+  have hwr : WScoped 0 rhs := WScoped.of_not_hasFvar hrf
+  refine SimC.bind (opE_infer_sim henv hs₃ hwR) (fun s₄ sty sty' hs₄ hS => ?_)
+  obtain ⟨rfl, hwsty⟩ := hS
+  refine SimC.bind (opS_sim henv hs₄ hwsty) (fun s₅ u u' hs₅ hU => ?_)
+  refine SimC.bind (opB_sim henv hs₅ hwI hwR) (fun s₆ b b' hs₆ hB => ?_)
+  obtain rfl : b = b' := hB
+  cases b with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    exact SimC.throw_bind
+  | true =>
+  simp only [↓reduceIte]
+  refine SimC.bind (opE_infer_sim henv hs₆ hwr) (fun s₇ rty rty' hs₇ hT => ?_)
+  exact SimC.pure hs₇ rfl
 
 end Walks3
 

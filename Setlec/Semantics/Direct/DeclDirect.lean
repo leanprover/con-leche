@@ -29,7 +29,7 @@ namespace Setlec.Semantics
 
 open Setlec (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   DirectParts RecRule fueledOps checkDirectInd checkDirectCtor
-  checkConstantVal checkDirectRecTy checkDirectRule checkDirectProjTable
+  checkConstantVal checkDirectRec checkDirectProjTable
   checkDirectStruct projTableName directCaps)
 
 /-! ## The bridge inversion
@@ -58,27 +58,14 @@ theorem declDirectRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   obtain ⟨envC, cvCa, sorts⟩ := r₂
   rw [hCtor] at h
   dsimp only at h
-  cases hCV : checkConstantVal (m := Setlec.CheckM) (fueledOps μ F)
-      envC p.cvR with
-  | error e => rw [hCV] at h; exact nomatch h
-  | ok cvRa =>
-  rw [hCV] at h
+  cases hRec : checkDirectRec (m := Setlec.CheckM) (fueledOps μ F)
+      envC p cvTa cvCa with
+  | error e => rw [hRec] at h; exact nomatch h
+  | ok r₃ =>
+  obtain ⟨cvRa, rhsA⟩ := r₃
+  rw [hRec] at h
   dsimp only at h
-  cases hRecTy : checkDirectRecTy (m := Setlec.CheckM) (fueledOps μ F)
-      envC p cvTa cvCa cvRa with
-  | error e => rw [hRecTy] at h; exact nomatch h
-  | ok u =>
-  obtain rfl : u = () := rfl
-  rw [hRecTy] at h
-  dsimp only at h
-  cases hRule : checkDirectRule (m := Setlec.CheckM) (fueledOps μ F)
-      envC p cvCa cvRa with
-  | error e => rw [hRule] at h; exact nomatch h
-  | ok rhsA =>
-  rw [hRule] at h
-  dsimp only at h
-  refine ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hCV,
-    hRecTy, hRule, ?_⟩
+  refine ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hRec, ?_⟩
   dsimp only at h ⊢
   revert h
   -- name the fire ite once, so the guard's `if` is the only one left

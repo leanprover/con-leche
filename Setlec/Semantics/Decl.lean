@@ -116,12 +116,9 @@ def DeclDirectRun (μ : CheckMode) (F : Nat) (env : Env)
       = .ok (envI, cvTa) ∧
     checkDirectCtor (m := Setlec.CheckM) (fueledOps μ F) env envI p cvTa
       = .ok (envC, cvCa, sorts) ∧
-    checkConstantVal (m := Setlec.CheckM) (fueledOps μ F) envC p.cvR
-      = .ok cvRa ∧
-    checkDirectRecTy (m := Setlec.CheckM) (fueledOps μ F) envC p
-      cvTa cvCa cvRa = .ok () ∧
-    checkDirectRule (m := Setlec.CheckM) (fueledOps μ F) envC p
-      cvCa cvRa = .ok rhsA ∧
+    -- the recursor, generated and compared (task #175 S2)
+    checkDirectRec (m := Setlec.CheckM) (fueledOps μ F) envC p cvTa cvCa
+      = .ok (cvRa, rhsA) ∧
     (let env₃ : Env :=
       ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
