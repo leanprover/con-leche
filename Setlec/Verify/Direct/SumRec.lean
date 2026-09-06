@@ -1,4 +1,5 @@
 import Setlec.Verify.Direct.DirectRec
+import Setlec.Kernel.Direct.SumInstall
 
 /-!
 # The generated recursor at a constructor list (task #175 sum-types)
@@ -275,5 +276,49 @@ theorem NoProjAt.directRecRhs_list {T' : Name} {lps : List Name} {elim : Name}
   exact ⟨hmot, NoProjAt.directMinorsLams hmin hC hinner⟩
 
 end Expr
+
+end Setlec
+
+namespace Setlec
+
+/-! ## The elimination restriction's readout -/
+
+/-- `Level.isNeverZero` is sound: such a level evaluates to a nonzero
+number at every assignment. -/
+theorem Level.isNeverZero_sound (φ : Name → Nat) :
+    ∀ l : Level, l.isNeverZero = true → Level.eval φ l ≠ 0
+  | .zero, h => by simp [Level.isNeverZero] at h
+  | .param _, h => by simp [Level.isNeverZero] at h
+  | .succ _, _ => by simp [Level.eval]
+  | .max l r, h => by
+    simp only [Level.isNeverZero, Bool.or_eq_true] at h
+    simp only [Level.eval]
+    rcases h with h | h
+    · have := Level.isNeverZero_sound φ l h; omega
+    · have := Level.isNeverZero_sound φ r h; omega
+  | .imax l r, h => by
+    simp only [Level.isNeverZero] at h
+    have := Level.isNeverZero_sound φ r h
+    simp only [Level.eval, if_neg this]
+    omega
+
+/-! ## The stored rules, positionally -/
+
+/-- A stored rule is constructor `j`'s rule at right-hand side `j`. -/
+theorem directSumRules_getElem? {nP mI : Nat} {recTy : Expr} :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
+      r ∈ directSumRules nP mI recTy ctorsA rhss →
+      ∃ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+        ctorsA[j]? = some cA ∧ rhss[j]? = some rhs ∧
+        r = ⟨cA.1.name, cA.2, nP,
+          if Expr.recRulePlain recTy mI mI nP then .plain else .inert, rhs⟩
+  | [], _, r, h => by simp [directSumRules] at h
+  | _ :: _, [], r, h => by simp [directSumRules] at h
+  | c :: cs, rhs :: rhss, r, h => by
+    simp only [directSumRules, List.mem_cons] at h
+    rcases h with rfl | h
+    · exact ⟨0, c, rhs, rfl, rfl, rfl⟩
+    · obtain ⟨j, cA, rhs', hc, hr, rfl⟩ := directSumRules_getElem? h
+      exact ⟨j + 1, cA, rhs', by simpa using hc, by simpa using hr, rfl⟩
 
 end Setlec
