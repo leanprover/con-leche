@@ -76,7 +76,7 @@ version of the claims' zero side: the bit is `0` at every valuation
 theorem pwBit_eq_zero_of_isProp {pw : PropWhen}
     (h : pw.isProp = true) (φ : Name → Nat) : pwBit φ pw = 0 := by
   rw [pwBit_eq_of_equiv h φ]
-  simp [pwBit, Setlec.PropWhen.holds]
+  simp [pwBit]
 
 /-- **Exactness**: `pw.isProp` is *the* datum that is zero at every
 valuation — `isNever_iff_forall_pwBit_ne_zero`'s mirror. -/
@@ -86,13 +86,13 @@ theorem alwaysZero_iff_forall_pwBit_eq_zero {pw : PropWhen} :
   · exact pwBit_eq_zero_of_isProp
   · intro h
     cases pw with
-    | never => exact absurd (h (fun _ => 0)) (by simp [pwBit, Setlec.PropWhen.holds])
+    | never => exact absurd (h (fun _ => 0)) (by simp [pwBit])
     | ifAllZero ps =>
       cases ps with
       | nil => rfl
       | cons n ps =>
         have := h (fun _ => 1)
-        simp [pwBit, Setlec.PropWhen.holds] at this
+        simp [pwBit] at this
 
 /-- A level whose zero-ness datum is always-zero evaluates to `0`. -/
 theorem eval_eq_zero_of_isProp {u : Level}

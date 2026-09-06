@@ -468,9 +468,16 @@ def toFree : ZPropWhen → PropWhen
   | .ifAllZero s => .ifAllZero s.names
 
 /-- Canonicalize a free datum. -/
-def ofFree : PropWhen → ZPropWhen
-  | .never => .never
-  | .ifAllZero ps => .ifAllZero (ZeroSet.ofList ps)
+def ofFree (pw : PropWhen) : ZPropWhen :=
+  match pw.toList? with
+  | none => .never
+  | some ps => .ifAllZero (ZeroSet.ofList ps)
+
+@[simp] theorem ofFree_never : ofFree .never = .never := rfl
+
+@[simp] theorem ofFree_ifAllZero (ps : List Name) :
+    ofFree (PropWhen.ifAllZero ps) = .ifAllZero (ZeroSet.ofList ps) := by
+  simp [ofFree]
 
 end ZPropWhen
 

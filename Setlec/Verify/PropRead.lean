@@ -160,7 +160,7 @@ theorem Expr.peelNeverPis_instantiateLevelParams : ∀ (k : Nat) {T : Expr}
     have hnev' : (Level.substPW ks vs m.pw).isNever = true := by
       cases hpw : m.pw with
       | never => rfl
-      | ifAllZero ps => rw [hpw] at hnev; exact nomatch hnev
+      | ifAllZero ps => rw [hpw] at hnev; simp at hnev
     show (if (Level.substPW ks vs m.pw).isNever then
         (b.instantiateLevelParams ks vs).peelNeverPis k else none) = _
     rw [hnev']
