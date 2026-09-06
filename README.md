@@ -30,7 +30,9 @@ The idea of the consistency proof is that we define a model in set theory, class
 
 ### Set theory assumption
 
-The set model is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form; infinity and choice are derivable from that. See [`Setlec/SetTheory/Core.lean`](./Setlec/SetTheory/Core.lean) for the precise formulation of our set theory. We also show that this interface can be realized within Lean by Aczel's sets-as-trees construction, with the universe chain as the one remaining assumption ([`Setlec/SetTheory/Aczel.lean`](./Setlec/SetTheory/Aczel.lean)); that is the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis, the same assumption as in the [lean4lean-model](https://github.com/digama0/lean4lean-model).
+The set model is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form; infinity and choice are derivable from that. See [`Setlec/SetTheory/Core.lean`](./Setlec/SetTheory/Core.lean) for the precise formulation of our set theory.
+
+We also show that this interface can be realized within Lean by Aczel's sets-as-trees construction, with the universe chain as the one remaining assumption ([`Setlec/SetTheory/Aczel.lean`](./Setlec/SetTheory/Aczel.lean)); that is the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis, the same assumption as in the [lean4lean-model](https://github.com/digama0/lean4lean-model).
 
 ### Level annotation
 
