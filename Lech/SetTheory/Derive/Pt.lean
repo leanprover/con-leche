@@ -221,9 +221,6 @@ theorem _root_.Lech.IsTGUniverse.truthVal_mem {U y : V}
     (truthVal p : V) ∈ˢ U :=
   hU.transitive (hU.univZero_mem hy) (truthVal_mem_univZero p)
 
-/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
-stubs for these operators were removed 2026-09-06. -/
-
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] ptTag pt unitSet eqv
 

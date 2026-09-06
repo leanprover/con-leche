@@ -57,9 +57,6 @@ theorem set_choice (X : V) :
     obtain ⟨rfl, rfl⟩ := kpair_inj hp'
     exact schoice_mem hx
 
-/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
-stubs for these operators were removed 2026-09-06. -/
-
 /- Opaque interface operator (see `Derive/Empty.lean`). -/
 attribute [irreducible] schoice
 

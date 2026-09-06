@@ -29,7 +29,7 @@ The consequences are the P3 pivot in miniature:
   canonical lane needed sort-agreement residues (`BinderSortAgree2`,
   residue 9): the checker's own P2 validation sites
   (`(defeq-forall)`/`(defeq-lam)`/`(eta)`) compare the data with
-  `equiv` exactly where the run lemmas open two annotations at one
+  `==` (equality of canonical data) exactly where the run lemmas open two annotations at one
   index.
 
 **The `pi` `u`-slot.**  `AVExpr.pi` carries a domain-sort numeral `u`
@@ -43,7 +43,9 @@ amendment, not a plumbing gap.
 API discipline (task #161 ruling): `PropWhen` is consumed only through
 `holds` and the named battery laws — `pwBit` is `holds` composed with
 a two-point test, and every lemma below factors through
-`holds_eq_of_equiv` / `holds_of_equiv_zeronessOf` / `holds_substPW`.
+`zeronessOf_sound` / `holds_substPW`; a validated or compared datum
+is *equal* to its counterpart (task #197), so no transport lemma is
+needed.
 -/
 
 namespace Lech.SetP
@@ -115,22 +117,14 @@ theorem isNever_iff_forall_pwBit_ne_zero {pw : PropWhen} :
       exact absurd (pwBit_eq_zero_iff.mpr
         (by simp)) (h (fun _ => 0))
 
-/-- Checker-compared data (`PropWhen.equiv`, the P2 validation and
-defeq sites) contribute **equal** numerals — not merely zero-agreeing
-ones. -/
-theorem pwBit_eq_of_equiv {p q : PropWhen}
-    (h : PropWhen.equiv p q = true) (φ : Name → Nat) :
-    pwBit φ p = pwBit φ q := by
-  unfold pwBit
-  rw [Lech.PropWhen.holds_eq_of_equiv h φ]
-
-/-- **The establishment reading**: a datum the checker validated
-against a computed codomain sort (`(zeronessOf v).equiv m.pw`, the run
-inversions' conjunct) contributes the sort's true zero bit. -/
-theorem pwBit_of_equiv_zeronessOf {v : Level} {pw : PropWhen}
-    (h : PropWhen.equiv (Level.zeronessOf v) pw = true) (φ : Name → Nat) :
-    (pwBit φ pw = 0 ↔ Level.eval φ v = 0) := by
-  rw [pwBit_eq_zero_iff, Lech.PropWhen.holds_of_equiv_zeronessOf h φ]
+/-- **The establishment reading**: the datum the checker validated
+against a computed codomain sort is `zeronessOf v` itself (the run
+inversions' conjunct `Level.zeronessOf v = m.pw` — an equality, since
+the datum is canonical, task #194/#197), and its bit is the sort's
+true zero bit. -/
+theorem pwBit_zeronessOf (φ : Name → Nat) (v : Level) :
+    (pwBit φ (Level.zeronessOf v) = 0 ↔ Level.eval φ v = 0) := by
+  rw [pwBit_eq_zero_iff, Lech.PropWhen.zeronessOf_sound]
   simp
 
 /-- **The crossing reading**: the instantiated datum's bit at `φ` is

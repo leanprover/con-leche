@@ -233,6 +233,31 @@ private def pwLam (pw : PropWhen) : Expr :=
     (pwForall (.ifAllZero [.str .anonymous "u"]))
   matches .ok true
 
+-- (pw-canonical, task #194): the datum is canonical by construction —
+-- equal parameter SETS are equal VALUES, so `==`, `DecidableEq` and
+-- `Hashable` decide zero-ness agreement; order and duplicates vanish at
+-- the smart constructor; `inter` is commutative and idempotent as an
+-- equality; instantiating at the declaration's own parameters is the
+-- identity (the law amendment 2 had lost).
+private def nU : Name := .str .anonymous "u"
+private def nV : Name := .str .anonymous "v"
+private def nW : Name := .str .anonymous "w"
+#guard PropWhen.ifAllZero [nU, nV] == PropWhen.ifAllZero [nV, nU]
+#guard PropWhen.ifAllZero [nU, nU] == PropWhen.ifAllZero [nU]
+#guard PropWhen.ifAllZero [nW, nU, nV, nU, nW] == PropWhen.ifAllZero [nU, nV, nW]
+#guard PropWhen.ifAllZero [nU, nV] != PropWhen.ifAllZero [nU]
+#guard hash (PropWhen.ifAllZero [nV, nU]) == hash (PropWhen.ifAllZero [nU, nV, nU])
+#guard (PropWhen.ifAllZero [nW, nV, nU, nV]).toList == [nU, nV, nW]
+#guard PropWhen.ifAllZero [nU, nV] != PropWhen.never
+#guard (PropWhen.ifAllZero [nU, nV]).inter (PropWhen.ifAllZero [nW])
+  == (PropWhen.ifAllZero [nW]).inter (PropWhen.ifAllZero [nV, nU])
+#guard (PropWhen.ifAllZero [nU]).inter (PropWhen.ifAllZero [nU]) == PropWhen.ifAllZero [nU]
+#guard (PropWhen.ifAllZero [nU]).inter (PropWhen.ifAllZero [nV]) == PropWhen.ifAllZero [nV, nU]
+#guard Level.substPW [nU, nV] [.param nU, .param nV] (PropWhen.ifAllZero [nV, nU])
+  == PropWhen.ifAllZero [nU, nV]
+#guard Level.zeronessOf (.max (.param nW) (.max (.param nU) (.param nW)))
+  == PropWhen.ifAllZero [nU, nW]
+
 -- (defeq-lam): the λ congruence arm, same discipline.
 #guard defeqStep .verified stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwLam (.ifAllZero [])) (pwLam .never)

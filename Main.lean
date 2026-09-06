@@ -258,13 +258,8 @@ loop in the driver** (`LECH_PROGRESS`, user ruling 2026-09-07).
 
 The default run calls `Lech.Cached.checkDeclsSPCachedD` — the pure
 function `Lech.no_proof_of_False` is about — and prints nothing per
-declaration.  A pure fold cannot print, and the ways to make it print
-without leaving the verified statement behind all cost more than the
-printing is worth: a compiled-only hook (`@[implemented_by]`, refused
-by the project's standing ruling), a `dbgTrace` branch on the checked
-path, or a monad-generic loop with callbacks plus a `LawfulMonad IO`
-instance core does not ship.  The user's ruling ends that: run a
-*different, plainly unverified* fold when the heartbeat is on.
+declaration.  A pure fold cannot print, so when the heartbeat is on the
+driver runs a *different, plainly unverified* fold instead.
 
 It is the same steps in the same order — `checkDeclStepIdxC mode`, the
 position-carrying step of the verified fold, over the same records from

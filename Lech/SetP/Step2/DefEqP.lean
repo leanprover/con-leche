@@ -36,14 +36,14 @@ binder arms of `defeqStep` (`Kernel/Core.lean`) end with the task-#161
 check
 
 ```
-    if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
+    if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
       throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
     pure true
 ```
 
 so a run that reached `.ok true` at `μ.verifiedChecks = true` **certifies**
-`m₁.pw.equiv m₂.pw`, and `pwBit_eq_of_equiv` turns that into equal
-numerals.  The obligation an outside supplier used to owe is now a
+`m₁.pw == m₂.pw`, i.e. `m₁.pw = m₂.pw`, hence equal
+numerals by rewriting.  The obligation an outside supplier used to owe is now a
 fact the run itself hands over: the quarter takes `hμ : μ.verifiedChecks =
 true` (a hypothesis of the *stuck claim* and of the *step*, never of
 the claims, which stay mode-generic) and no `hbs` at all.
@@ -856,7 +856,7 @@ theorem acval_const_congrP {m : EnvS2Core V env} (hap : AcvalParamsP m)
 `obtain rfl : v₁ = v₂` lines in cases 11 and 12; each is replaced by
 the run's own certificate, extracted from the ok-true tail of the
 binder arm at `hμ : μ.verifiedChecks = true` and turned into an equation by
-`pwBit_eq_of_equiv`.  Nothing else in the block changes shape. -/
+`eq_of_beq`.  Nothing else in the block changes shape. -/
 theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
     (hμ : μ.verifiedChecks = true)
     (ihd : DefEqClaims2P μ m φ fuel) (hsi : StuckIrrelPQ μ m φ fuel)
@@ -1075,18 +1075,18 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
           | false => simp [pure, Except.pure] at h
           | true => rfl
       -- THE KEY DELTA: the run's own certificate, in place of `hbs.1`
-      have hq : PropWhen.equiv mb₁.pw mb₂.pw = true := by
-        by_cases hq0 : PropWhen.equiv mb₁.pw mb₂.pw = true
+      have hq : (mb₁.pw == mb₂.pw) = true := by
+        by_cases hq0 : (mb₁.pw == mb₂.pw) = true
         · exact hq0
         · exfalso
-          have hq1 : PropWhen.equiv mb₁.pw mb₂.pw = false := by
+          have hq1 : (mb₁.pw == mb₂.pw) = false := by
             simpa using hq0
           rw [hbd] at h
           dsimp only at h
           rw [hμ, hq1] at h
           simp [throw, throwThe, MonadExceptOf.throw] at h
-      have hpw : pwBit φ mb₁.pw = pwBit φ mb₂.pw :=
-        pwBit_eq_of_equiv hq φ
+      have hpw : pwBit φ mb₁.pw = pwBit φ mb₂.pw := by
+        rw [eq_of_beq hq]
       obtain ⟨hoT₁, hoB₁⟩ := hoistP_pi hokA
       obtain ⟨hoT₂, hoB₂⟩ := hoistP_pi hokB
       obtain ⟨hDA, hDB⟩ := binder_congrP ihd hdt hbd
@@ -1130,18 +1130,18 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
           | false => simp [pure, Except.pure] at h
           | true => rfl
       -- THE KEY DELTA: the run's own certificate, in place of `hbs.2`
-      have hq : PropWhen.equiv mb₁.pw mb₂.pw = true := by
-        by_cases hq0 : PropWhen.equiv mb₁.pw mb₂.pw = true
+      have hq : (mb₁.pw == mb₂.pw) = true := by
+        by_cases hq0 : (mb₁.pw == mb₂.pw) = true
         · exact hq0
         · exfalso
-          have hq1 : PropWhen.equiv mb₁.pw mb₂.pw = false := by
+          have hq1 : (mb₁.pw == mb₂.pw) = false := by
             simpa using hq0
           rw [hbd] at h
           dsimp only at h
           rw [hμ, hq1] at h
           simp [throw, throwThe, MonadExceptOf.throw] at h
-      have hpw : pwBit φ mb₁.pw = pwBit φ mb₂.pw :=
-        pwBit_eq_of_equiv hq φ
+      have hpw : pwBit φ mb₁.pw = pwBit φ mb₂.pw := by
+        rw [eq_of_beq hq]
       obtain ⟨hoT₁, hoB₁⟩ := hoistP_lam hokA
       obtain ⟨hoT₂, hoB₂⟩ := hoistP_lam hokB
       obtain ⟨hDA, hDB⟩ := binder_congrP ihd hdt hbd
@@ -1313,7 +1313,7 @@ structure DefEqInputsP (μ : CheckMode) (V : Type w) [SetTheory V] :
 
 /-- **The defeq quarter, P currency.**  Ten routed residues and one
 mode pin; **no `BinderSortAgree`** — residue 9's successor is the run's
-own `equiv` certificate, read at `hμ` inside `defeqStuck_claimP`. -/
+own `==` certificate, read at `hμ` inside `defeqStuck_claimP`. -/
 theorem defEqStepP_of (hμ : μ.verifiedChecks = true)
     (hin : DefEqInputsP μ V) : DefEqStepP μ V := by
   intro env m φ fuel ihwc ihw ihd _ihi
