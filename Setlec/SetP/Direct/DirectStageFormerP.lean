@@ -13,7 +13,8 @@ constructor-stage claims that grade the real chain, and the *real*
 install builds the model the rest of the block extends.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -196,4 +197,4 @@ theorem stageFormer (mp : EnvS2PM V μ env)
         show p.nP = (pps ψ).length
         rw [hFD.len ψ]
 
-end Setlec.Semantics
+end Setlec.SetP

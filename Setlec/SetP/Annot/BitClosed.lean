@@ -21,7 +21,8 @@ on (see `BitShift.lean`): its sole use in the original is inside
 `denote2_shiftFrom`, whose mirror does not take it.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
@@ -66,4 +67,4 @@ theorem denoteP_depth_of_closed {env : Env} {φ : Name → Nat}
     rw [hs]
     simp [hcl]
 
-end Setlec.Semantics
+end Setlec.SetP

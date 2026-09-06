@@ -69,7 +69,8 @@ plus the `denoteP_openRev` bridge), the index pin
 law.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -879,4 +880,4 @@ theorem iotaStepP_of {m : EnvS2Core V env}
       · exact ((hfrE y (List.mem_of_mem_take hy')).2.2.2).2 l hly
       · exact ((hfrC y (List.mem_of_mem_drop hy')).2.2.2).2 l hly
 
-end Setlec.Semantics
+end Setlec.SetP

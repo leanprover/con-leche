@@ -36,7 +36,8 @@ just as a well-typed one's is.  The memberships have to come from the
 run, and `projCert` is that run.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -460,4 +461,4 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
       hB (towerGuardAt_of_fireOk htw hO5 hfire) σ vs _ hlenVs (hok₃' σ hσ) hfit]
     exact heqE σ hσ
 
-end Setlec.Semantics
+end Setlec.SetP

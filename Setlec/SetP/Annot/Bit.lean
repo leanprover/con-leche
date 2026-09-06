@@ -46,7 +46,8 @@ a two-point test, and every lemma below factors through
 `holds_eq_of_equiv` / `holds_of_equiv_zeronessOf` / `holds_substPW`.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
@@ -406,4 +407,4 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
       | natVal k => exact absurd rfl (hnat k)
       | strVal s => exact absurd rfl (hstr s)
 
-end Setlec.Semantics
+end Setlec.SetP

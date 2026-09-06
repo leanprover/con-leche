@@ -25,7 +25,8 @@ Three pieces of kit that `BasisEmptyP.lean` did not need, because
   collapsed rows at a recursor cons, whose seventh is bespoke.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -2010,4 +2011,4 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
 
 end Nat
 
-end Setlec.Semantics
+end Setlec.SetP

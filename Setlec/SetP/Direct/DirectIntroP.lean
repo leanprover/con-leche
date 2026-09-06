@@ -22,7 +22,8 @@ walks — the `hAok`/`hAvalid` rows of `declStepPM_of_basis_cons`, per
 leaf.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open SetTheory
@@ -215,4 +216,4 @@ theorem directRecAV_okP {ℓ w : Nat} {Fs : List AVExpr} {ρ : Nat → V}
     AnnotOkP V ρ (directRecAV ℓ (pds ++ [dM, dm, dt]) Fs.length) :=
   ⟨directRecAV_ok2 hz hpre, mkLamsC_validV hval⟩
 
-end Setlec.Semantics
+end Setlec.SetP

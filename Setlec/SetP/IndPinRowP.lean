@@ -24,7 +24,8 @@ Three suppliers meet here, and none of them is routed:
   `nestedPinGradeP`'s certificate premise is guarded by.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -168,4 +169,4 @@ theorem nestedPinRowP {m : EnvS2Core V env} {F : Nat}
   obtain rfl : w1 = w2 := Option.some.inj (hw1.symm.trans hw2)
   exact hokw2
 
-end Setlec.Semantics
+end Setlec.SetP

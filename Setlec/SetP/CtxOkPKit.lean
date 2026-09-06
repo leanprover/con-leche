@@ -19,7 +19,8 @@ The fuel-monotonicity pair (`fuelMono`/`mono`) has **no mirror**:
 consumes nothing here — the calls vanish at the swap.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -404,4 +405,4 @@ theorem CtxOkP.open {d : Nat} {Δa : List AVExpr} {body ty : Expr}
       (body.instantiate1 (.fvar d n ty)) :=
   CtxOkP.openS ht hb hty hok
 
-end Setlec.Semantics
+end Setlec.SetP

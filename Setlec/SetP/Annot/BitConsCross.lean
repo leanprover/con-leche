@@ -26,7 +26,8 @@ consume:
   their level instantiations and openings.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
@@ -151,4 +152,4 @@ theorem ConsCrossEnv.rulePinD {env : Env} {c₀ : ConstantInfo}
     show Expr.NoProjAt _ _ (Expr.bvar 0)
     simp
 
-end Setlec.Semantics
+end Setlec.SetP

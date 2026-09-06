@@ -11,7 +11,8 @@ body is the minor applied to the fields (the residual's instantiation
 sequence), and the frames' `RecBase` feeds `recLawCore`.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -381,4 +382,4 @@ theorem recRuleLaw (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   rw [hleafR₂, hleafC₂]
   exact hcore
 
-end Setlec.Semantics
+end Setlec.SetP

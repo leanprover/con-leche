@@ -26,7 +26,8 @@ The three constants' bits are forced, not chosen (ENDGAME E §1):
 `.ifAllZero []`, and `Eq.rec`'s six are `.ifAllZero [u_1]`.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -1329,4 +1330,4 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
 
 end Eq
 
-end Setlec.Semantics
+end Setlec.SetP

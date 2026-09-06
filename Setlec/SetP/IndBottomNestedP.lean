@@ -31,7 +31,8 @@ generalized here to an unpadded fired spine) supplies the crossing
 datum `RecRuleLawP`'s parameter premise is quantified over.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -1367,4 +1368,4 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
     (fun τ => (hRaFacts τ).1) hinstLam hdeLam hzslen hsat
     (teleFitPA_to_chain (rP + cnF) htowerS hzslen hfitS) hzsAnnot
 
-end Setlec.Semantics
+end Setlec.SetP

@@ -15,7 +15,8 @@ whose two dischargers cover every stored expression).  Every other
 clause is `denoteP_envExtend_mono`'s verbatim.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
@@ -212,4 +213,4 @@ theorem findProj?_cons_tower {env : Env} {entry₀ : Setlec.ProjEntry} :
   · rw [if_neg hn, h0] at h1
     exact nomatch h1
 
-end Setlec.Semantics
+end Setlec.SetP

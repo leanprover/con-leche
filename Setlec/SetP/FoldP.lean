@@ -38,7 +38,8 @@ The routed bundles, by tier:
   is `hμ` alone.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -273,4 +274,4 @@ theorem no_proof_of_Empty_P (V : Type w) [SetTheory V]
       c.toConstantVal.type = .const emptyName [] → False :=
   fun c hc hty => no_proof_of_Empty_P_of V hμ h c hc hty
 
-end Setlec.Semantics
+end Setlec.SetP

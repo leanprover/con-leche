@@ -136,7 +136,8 @@ Three of `DeclAxiomR`'s four branches, then.  The fourth is the second
 WALL above.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -318,4 +319,4 @@ theorem axiomStdP (hμ : μ.verified = true)
       rw [if_neg hn, if_neg hn2] at hok
       exact nomatch hok
 
-end Setlec.Semantics
+end Setlec.SetP

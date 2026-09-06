@@ -29,7 +29,8 @@ the binders with the same `fvar`s, so one predicate over the opening
 (`PiBitsOpen`) serves all three.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
@@ -374,4 +375,4 @@ theorem openPisAtFvars_dom_pred (P : Expr → Prop)
     | .letE _ _ _ _, hop, _ | .lit _, hop, _ | .proj _ _ _, hop, _ =>
       simp [openPisAtFvars] at hop
 
-end Setlec.Semantics
+end Setlec.SetP

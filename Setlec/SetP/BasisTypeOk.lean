@@ -58,7 +58,8 @@ a graph, numeral `1`, because `Prop` as a type is `Sort 1`) and
 `quotMk_mem_quot`.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT SetTheory
@@ -365,4 +366,4 @@ theorem AnnotOkP_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
     AnnotOkP V ρ (BConst.type2 c us) :=
   ⟨AnnotOk2_bconst_type V c us ρ, AnnotValidV_bconst_type V c us ρ⟩
 
-end Setlec.Semantics
+end Setlec.SetP

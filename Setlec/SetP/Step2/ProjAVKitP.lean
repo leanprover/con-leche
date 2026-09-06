@@ -11,7 +11,8 @@ subject by its head normal form.  Below the claims tier so that
 `DefEqP` (under the step assembly) can read it.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -82,4 +83,4 @@ theorem interp2_projAV_congr {i : Nat} {e e' : AVExpr} {σ : Nat → V}
     interp2 V σ (projAV i e) = interp2 V σ (projAV i e') := by
   rw [projAV_interp, projAV_interp, heq]
 
-end Setlec.Semantics
+end Setlec.SetP

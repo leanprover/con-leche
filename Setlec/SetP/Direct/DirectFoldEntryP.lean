@@ -18,7 +18,8 @@ the earlier entries and the field-sort run supplying the guard's
 levelwise content.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -405,4 +406,4 @@ theorem foldEntriesP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
       (foldStepP hμ hsorts hlpsT hlpsC hstripC hProp hTshape hCshape hresT hresR hresC
         hiff hfields hk hstep hinv)
 
-end Setlec.Semantics
+end Setlec.SetP

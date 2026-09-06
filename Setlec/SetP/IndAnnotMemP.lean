@@ -30,7 +30,8 @@ exposure's row — see the DESIGN.md entry — and it is the *only*
 outstanding input of the whole transport.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -462,4 +463,4 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
   rw [interp2_liftN, hshiftEnv ρ'] at hfire
   rw [(hBkP ρ' hρ').2, hfire]
 
-end Setlec.Semantics
+end Setlec.SetP

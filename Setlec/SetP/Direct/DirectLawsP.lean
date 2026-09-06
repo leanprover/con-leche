@@ -15,7 +15,8 @@ The block's own capability laws, from the leaves' semantic summary:
   point and so is the constructor's application.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -137,4 +138,4 @@ theorem directEtaLawP0 {m : EnvS2Core V env} {φ' : Name → Nat} {T : Name}
       rw [hfd]
       rfl
 
-end Setlec.Semantics
+end Setlec.SetP

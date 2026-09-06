@@ -15,7 +15,8 @@ the readings survive because the block's constants are stored and
 the head's slot mentions none of them.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -179,4 +180,4 @@ theorem FormerData.cross {m : EnvS2Core V env} {cvT : ConstantVal}
   below := h.below
   params := h.params
 
-end Setlec.Semantics
+end Setlec.SetP

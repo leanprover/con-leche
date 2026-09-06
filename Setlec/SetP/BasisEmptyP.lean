@@ -46,7 +46,8 @@ disagree where anything looks.
 Nothing in this file chooses a numeral.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -353,4 +354,4 @@ theorem basis_rec_rules_nonempty (kind : Setlec.BasisKind)
   case emptyK => exact absurd rfl hk
   all_goals decide
 
-end Setlec.Semantics
+end Setlec.SetP

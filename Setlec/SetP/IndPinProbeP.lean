@@ -90,7 +90,8 @@ already names, where it names it", and it is the statement layer's —
 see the DESIGN entry for this seal.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open SetTheory
@@ -199,4 +200,4 @@ theorem denoteP_pin_shape {env : Env} (m : EnvS2Core V env)
     denoteP_fvar]
   simp [hlp]
 
-end Setlec.Semantics
+end Setlec.SetP

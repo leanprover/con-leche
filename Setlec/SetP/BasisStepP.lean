@@ -38,7 +38,8 @@ structurally unavailable — are excluded by this lemma's side conditions
 and go through `declStepPM_of_cons` directly.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -345,4 +346,4 @@ theorem declStepPM_of_basis_cons_gen (mp : EnvS2PM V μ env)
   · -- `tower_ok` (task #175 wiring W5): no tower entry is a basis cons
     exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower hntc _ rfl φ
 
-end Setlec.Semantics
+end Setlec.SetP

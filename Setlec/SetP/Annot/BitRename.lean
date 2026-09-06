@@ -29,7 +29,8 @@ into a literal, and the string clause's seven leaves are read by name
 off the environment rather than off the subject.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
@@ -184,4 +185,4 @@ theorem denoteP_renameConsts_resolve {f : Name → Name}
     | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
     | (simp [Expr.sizeB])
 
-end Setlec.Semantics
+end Setlec.SetP

@@ -34,7 +34,8 @@ external input**: `Sat2 V Δb` alone grades every `ΓP` slot
 equality and `Sat2`.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -325,4 +326,4 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
   rw [hfire] at hsatq
   exact hsatq
 
-end Setlec.Semantics
+end Setlec.SetP

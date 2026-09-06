@@ -11,7 +11,8 @@ constructor's level assignment agreeing with the recursor's on the
 block's parameters, and the minor value at a zero elimination level.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -201,4 +202,4 @@ theorem minor_pt_of_zero {ℓ w : Nat} {M m : V} {Fs : List AVExpr} {ρp : Nat �
       exact empty_mem_univ 0
   exact eq_pt_of_mem_univZero (minorSp_zero_univZero h0 hM0 Fs ρp []) hm
 
-end Setlec.Semantics
+end Setlec.SetP

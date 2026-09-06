@@ -22,7 +22,8 @@ lift-invariant), which the constant and literal clauses need and which
 has nothing to do with sorts.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
@@ -236,4 +237,4 @@ theorem denoteP_weaken_top
   rw [Setlec.Expr.shiftFrom_eq_self hw.fvarsBelow, Nat.sub_self] at h
   exact h
 
-end Setlec.Semantics
+end Setlec.SetP

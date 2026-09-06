@@ -31,7 +31,8 @@ deltas:
 is not a literal pin; the pin installs supply it bespoke).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -521,4 +522,4 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     (fun _ => hmemNew) hvalReads hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops
     htower_ok
 
-end Setlec.Semantics
+end Setlec.SetP

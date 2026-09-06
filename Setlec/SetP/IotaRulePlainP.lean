@@ -39,7 +39,8 @@ conjunct owes the pins' `openRev` readings, whose supply is the
 successor's first item (see the seal).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -283,4 +284,4 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   · intro i hi him
     exact hplain hfireP i (by rw [hr'cp]; exact hi) him
 
-end Setlec.Semantics
+end Setlec.SetP

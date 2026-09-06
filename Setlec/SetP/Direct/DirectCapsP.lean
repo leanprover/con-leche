@@ -15,7 +15,8 @@ prefix families' laws cross as at any fresh cons, and the block's
 own family's laws are the install's premise.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -140,4 +141,4 @@ theorem capsOkP_cons_direct (mp : EnvS2PM V μ env)
       rw [hac, acvalWith_ne hnT'] at hmx hmy
       exact hlaw ρ ts rest x y hlents hfit hmx hmy
 
-end Setlec.Semantics
+end Setlec.SetP

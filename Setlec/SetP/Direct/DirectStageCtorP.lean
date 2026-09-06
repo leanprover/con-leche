@@ -12,7 +12,8 @@ former's real leaf along the parameters (`formerFold`), the frames
 identified.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -407,4 +408,4 @@ theorem stageCtor
         · intro ψ ρ; have := hpok ψ ρ; rwa [hFs0 ψ] at this
         · intro ψ; show p.nP = (pps ψ).length; rw [hFD.len ψ]
 
-end Setlec.Semantics
+end Setlec.SetP

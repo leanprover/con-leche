@@ -42,7 +42,8 @@ suppliers (`natOpsP_install` bespoke at the operation's own install,
 `natOpsP_cons_fresh` at every other fresh cons).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -1504,4 +1505,4 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       · simpa +decide [Expr.substConst0] using hla
       · simpa +decide [Expr.substConst0] using hra
 
-end Setlec.Semantics
+end Setlec.SetP

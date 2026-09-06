@@ -17,7 +17,8 @@ identified (from the binder pins) — the semantic content the former's
 real leaf and the constructor's leaf consume.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -242,4 +243,4 @@ theorem CtorData.cross {m : EnvS2Core V env} {T : Name} {cvC : ConstantVal}
     exact denoteP_cons_mono hfresh hat ψ 0 hcb (h.read ψ)
   · rw [hbody]; exact h.okTy ψ ρ
 
-end Setlec.Semantics
+end Setlec.SetP

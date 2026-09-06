@@ -28,7 +28,8 @@ are valuation- and spine-independent and simply vanish:
   by name at exactly this instance.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
@@ -172,4 +173,4 @@ theorem denoteP_mkAppN_swap {acval : Name → (Name → Nat) → AVExpr}
     rw [denoteP, hswap fx hf, ha]
     rfl
 
-end Setlec.Semantics
+end Setlec.SetP

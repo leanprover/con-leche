@@ -68,7 +68,8 @@ beside its `eq_lawP` sibling — the law mentions two stored leaves, so
 it crosses every cons that is neither of them).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -387,4 +388,4 @@ theorem reduceOpsP_install (hμ : μ.verified = true)
   rw [hclA ρ (cons x ρ) ψ]
   exact heq
 
-end Setlec.Semantics
+end Setlec.SetP

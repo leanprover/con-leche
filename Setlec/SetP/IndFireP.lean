@@ -36,7 +36,8 @@ Three deltas against v1, all of them the P tier's own currency:
   already produced the context the stages share.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -243,7 +244,7 @@ theorem fireP {m : EnvS2Core V env} {ψ' : Name → Nat}
     (hzslen : zs.length = K)
     (hsat : Sat2 V Γs (chainP V ρ zs))
     (hfit : TeleFitPA V ρ Tstmt zs
-      (Setlec.Semantics.AVExpr.instSeq zs (K - 1) Rbody)) :
+      (Setlec.SetP.AVExpr.instSeq zs (K - 1) Rbody)) :
     ∃ vα vL vR : AVExpr,
       denoteP m.acval env ψ' K αS = some vα ∧
       denoteP m.acval env ψ' K lhsS = some vL ∧
@@ -357,21 +358,21 @@ theorem fireP {m : EnvS2Core V env} {ψ' : Name → Nat}
   have hlaw := (heqlaw heqfE
     (Level.substFn ψ' eqA.toConstantVal.levelParams [ℓA])).1
   have hresid : interp2 V ρ
-      (Setlec.Semantics.AVExpr.instSeq zs (K - 1)
+      (Setlec.SetP.AVExpr.instSeq zs (K - 1)
         (AVExpr.mkAppN vEq [vα, vL, vR]))
       = eqv (interp2 V (chainP V ρ zs) vL)
         (interp2 V (chainP V ρ zs) vR) := by
     rw [show K - 1 = zs.length - 1 from by rw [hzslen],
       instSeqP_mkAppN, instSeqP_eq_self_of_closed hEqcl]
     show interp2 V ρ (AVExpr.mkAppN vEq
-        [Setlec.Semantics.AVExpr.instSeq zs (zs.length - 1) vα,
-         Setlec.Semantics.AVExpr.instSeq zs (zs.length - 1) vL,
-         Setlec.Semantics.AVExpr.instSeq zs (zs.length - 1) vR]) = _
+        [Setlec.SetP.AVExpr.instSeq zs (zs.length - 1) vα,
+         Setlec.SetP.AVExpr.instSeq zs (zs.length - 1) vL,
+         Setlec.SetP.AVExpr.instSeq zs (zs.length - 1) vR]) = _
     show SetTheory.app (SetTheory.app (SetTheory.app
         (interp2 V ρ vEq)
-        (interp2 V ρ (Setlec.Semantics.AVExpr.instSeq zs (zs.length - 1) vα)))
-        (interp2 V ρ (Setlec.Semantics.AVExpr.instSeq zs (zs.length - 1) vL)))
-        (interp2 V ρ (Setlec.Semantics.AVExpr.instSeq zs (zs.length - 1) vR))
+        (interp2 V ρ (Setlec.SetP.AVExpr.instSeq zs (zs.length - 1) vα)))
+        (interp2 V ρ (Setlec.SetP.AVExpr.instSeq zs (zs.length - 1) vL)))
+        (interp2 V ρ (Setlec.SetP.AVExpr.instSeq zs (zs.length - 1) vR))
       = _
     rw [interp2_instSeq, interp2_instSeq, interp2_instSeq, hvEq']
     exact hlaw ρ _ _ _ hαuniv hLmem hRmem
@@ -438,4 +439,4 @@ theorem sidesMemP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
       htra hvα hokTr hokα ρ hρ
     exact heq ▸ hmemR ρ hρ
 
-end Setlec.Semantics
+end Setlec.SetP

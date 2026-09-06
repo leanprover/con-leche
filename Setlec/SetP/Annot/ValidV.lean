@@ -37,7 +37,8 @@ pair (`AnnotValidV_liftN`/`AnnotValidV_inst`) + the level-crossing
 laws (`denotePInstLevels` upstream of any `interp2` fact).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open SetTheory
@@ -280,4 +281,4 @@ theorem AnnotValidV_inst0 {e a : AVExpr} {ρ : Nat → V}
   have h := AnnotValidV_inst V e a 0 ρ (by rwa [shiftE_zero_zero])
   rwa [shiftE_zero_zero, instE_zero] at h
 
-end Setlec.Semantics
+end Setlec.SetP

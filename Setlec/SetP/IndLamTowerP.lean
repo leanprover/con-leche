@@ -34,7 +34,8 @@ is produced existentially instead of by `List.take` on a constructor
 argument.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -191,4 +192,4 @@ theorem lamTowerStepP :
       · rw [AnnotValidV_app]
         exact ⟨(hokApp' hokws).2, (hokws _ (List.mem_of_getElem? hwn)).2⟩
 
-end Setlec.Semantics
+end Setlec.SetP

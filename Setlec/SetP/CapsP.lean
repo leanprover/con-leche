@@ -30,7 +30,8 @@ function (a `recInfo` lookup), so all three disequalities are
 `natOpsP_cons_fresh`, whose head case needs a disjunctive premise.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -259,4 +260,4 @@ theorem capsOkP_cons_fresh (mp : EnvS2PM V μ env)
       rw [hac, acvalWith_ne hnT] at hmx hmy
       exact hlaw ρ ts rest x y hlents hfit hmx hmy
 
-end Setlec.Semantics
+end Setlec.SetP

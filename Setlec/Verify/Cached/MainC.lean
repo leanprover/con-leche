@@ -116,7 +116,7 @@ pure fueled checker the tower is stated about) its only sibling. -/
 
 section PLetters
 
-open Setlec.Semantics (EnvSPOk EnvS2PM declStepPM
+open Setlec.SetP (EnvSPOk EnvS2PM declStepPM
   no_constant_of_Empty_P)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
@@ -155,7 +155,7 @@ theorem checkDeclsSPCachedD_sound_P (hμ : μ.verified = true)
     Nonempty (EnvS2PM V μ env') := by
   obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
   exact (foldSPC_PM hμ ds (mkFEnv Env.empty) rfl
-    ⟨⟨Setlec.Semantics.EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩
+    ⟨⟨Setlec.SetP.EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩
     CSOKF.empty wdecl_rel hrun).1
 
 /-- **THE CAPSTONE FOR THE SHIPPED DRIVER, P mode** (task #172 B4):

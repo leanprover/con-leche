@@ -34,7 +34,8 @@ whole induction — the only per-step data are the block membership and
 the provisioned entry's lookup.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -270,4 +271,4 @@ theorem indRecsP (hμ : μ.verified = true)
         (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon),
       hlps, hren, hv⟩
 
-end Setlec.Semantics
+end Setlec.SetP

@@ -49,7 +49,8 @@ be recorded as such rather than deleted: a future hand-built value at a
 constant whose type is *not* stored would still have a genuine choice.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -294,4 +295,4 @@ theorem eqLawP_of_tower {env : Setlec.Env} (m : EnvS2Core V env)
   · rw [hleaf]
     exact eqValT2_app₃_okP ψ ρ hAa hla hra hA ha hb
 
-end Setlec.Semantics
+end Setlec.SetP

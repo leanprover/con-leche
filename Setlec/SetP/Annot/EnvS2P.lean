@@ -37,7 +37,8 @@ that a `Nonempty (EnvS2PM …)` carried through the declaration fold
 makes the induction's hypotheses *facts*.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -408,11 +409,11 @@ theorem TeleFitPA.take {V : Type w} [SetTheory V] {ρ : Nat → V} :
 (`VExpr.instRevChain`'s `AVExpr` twin, `Verify/Denote/OpenVars.lean:80`
 — outermost argument consumed first, each at cut `0`, lifted past the
 arguments still to come). -/
-def _root_.Setlec.Semantics.AVExpr.instRevChain :
+def _root_.Setlec.SetP.AVExpr.instRevChain :
     List AVExpr → AVExpr → AVExpr
   | [], X => X
   | v :: vs, X =>
-    Setlec.Semantics.AVExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
+    Setlec.SetP.AVExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
 
 /-- **The constructor residual's index pin** (`IotaIndexPinV`'s
 mirror, v1-verbatim at `AVExpr`): the residual decomposes as a spine
@@ -468,7 +469,7 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
               = some TVa →
             TeleFitPA V ρ TVa zs restR →
             AnnotOkP V ρ
-              (Setlec.Semantics.AVExpr.instRevChain zs vpa)) ∧
+              (Setlec.SetP.AVExpr.instRevChain zs vpa)) ∧
       ∀ (cvj : ConstantVal) (cnP cnF : Nat),
         env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
       ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AVExpr)
@@ -493,7 +494,7 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
                   cv.levelParams us)) = some vpa →
             interp2 V ρ (ys.getD i default)
               = interp2 V ρ
-                  (Setlec.Semantics.AVExpr.instRevChain (xs.take rP)
+                  (Setlec.SetP.AVExpr.instRevChain (xs.take rP)
                     vpa)) →
         IotaIndexPinP (V := V) ρ restC (RecRule.ctorParams rl)
           mI rP xs →
@@ -569,15 +570,15 @@ its clause). -/
 
 /-- The syntactic Π-peel along a list of readings: the fit's residual
 without the memberships (`TeleFitPA`'s spine, data only). -/
-def _root_.Setlec.Semantics.AVExpr.peelPis : AVExpr → List AVExpr → Option AVExpr
+def _root_.Setlec.SetP.AVExpr.peelPis : AVExpr → List AVExpr → Option AVExpr
   | T, [] => some T
-  | .pi _ _ _ B, a :: as => Setlec.Semantics.AVExpr.peelPis (B.inst a) as
+  | .pi _ _ _ B, a :: as => Setlec.SetP.AVExpr.peelPis (B.inst a) as
   | _, _ :: _ => none
 
 /-- A fit's residual is the peel's. -/
 theorem TeleFitPA.peelPis {V : Type w} [SetTheory V] {ρ : Nat → V} :
     ∀ {T rest : AVExpr} {as : List AVExpr}, TeleFitPA V ρ T as rest →
-      Setlec.Semantics.AVExpr.peelPis T as = some rest := by
+      Setlec.SetP.AVExpr.peelPis T as = some rest := by
   intro T rest as h
   induction h with
   | nil => rfl
@@ -701,7 +702,7 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
           AnnotOkP V ρ x →
           interp2 V ρ x ∈ˢ interp2 V ρ (AVExpr.mkAppN
             (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
-          Setlec.Semantics.AVExpr.peelPis Ta (vs ++ [x]) = some rest →
+          Setlec.SetP.AVExpr.peelPis Ta (vs ++ [x]) = some rest →
           AnnotOkP V ρ (projAV i x) ∧ AnnotOkP V ρ rest ∧
             interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest)) ∧
       -- (B) the iota law: the projection of a *graded* constructor
@@ -981,4 +982,4 @@ noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
     rw [this] at hf
     exact nomatch hf
 
-end Setlec.Semantics
+end Setlec.SetP

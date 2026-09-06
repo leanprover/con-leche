@@ -29,7 +29,8 @@ That is the whole Θ-residue for this key, gone by construction rather
 than by discharge.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
@@ -340,4 +341,4 @@ theorem denoteP_envExtend_mono {env₀ env : Env}
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
-end Setlec.Semantics
+end Setlec.SetP

@@ -30,7 +30,8 @@ reads the rule's λ-tower, which is the truthfulness transport's whole
 subject.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -243,4 +244,4 @@ theorem instLamsAt_denotePTele :
             omega, List.getD, List.getD,
             List.getElem?_append_left (by rw [hΓlen]; omega)]
 
-end Setlec.Semantics
+end Setlec.SetP

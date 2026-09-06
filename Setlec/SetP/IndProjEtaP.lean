@@ -60,7 +60,8 @@ one `acvalWith_ne` each with no case split, where the member key had
 to branch on "is the cons the former?" four times over.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -580,4 +581,4 @@ theorem capsOkP_cons_proj_of (mp : EnvS2PM V μ env)
         projEtaLawP mp hc₀name hc₀rec hfresh hIB hIA cvT caps hf hcape
           hres hp hbT hbC hfamS m₂ hac hvP φ')
 
-end Setlec.Semantics
+end Setlec.SetP

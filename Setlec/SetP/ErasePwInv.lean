@@ -16,7 +16,8 @@ lemma (`Interp2/ReduceOpsP.lean`) needed them from *below* `HarvestP`
 — which `AxiomBitsP` imports.  Nothing else changed.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 open Setlec (Expr Name Level BinderMeta)
@@ -67,4 +68,4 @@ theorem erasePwNames_bvar_invS {e : Expr} {i : Nat}
   | _ => simp only [Expr.erasePw, Expr.eraseNames] at h; exact nomatch h
 
 
-end Setlec.Semantics
+end Setlec.SetP

@@ -18,7 +18,8 @@ constructor stage's `constsResolve env₀` re-check is exactly this
 fact.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -344,4 +345,4 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
   exact foldEntriesP hμ hsorts hlpsT hlpsC (by rw [hstripC]; rfl) hProp hpshapeT hpshapeC hresT
     (by rw [← hRname]; exact hresR) hresC hiff hfields (List.range p.nF) 0 (by simp) hfold hinv
 
-end Setlec.Semantics
+end Setlec.SetP

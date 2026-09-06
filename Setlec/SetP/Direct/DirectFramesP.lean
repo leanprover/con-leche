@@ -18,7 +18,8 @@ wire-side currency of `TowerWire`) and the Π-bit congruence
 (`piR_congr_bit`).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec Setlec.Semantics Setlec.TT Setlec.TTVerify SetTheory Setlec.SetModel
@@ -198,4 +199,4 @@ theorem paramFrames {m : EnvS2Core V env} {F : Nat}
       (fun ρ hρ => hC.okΓ (i + 1) (by omega) ρ hρ)
       (fun ρ hρ => hT.okΓ (i + 1) (by omega) ρ ((hsat ρ).mp hρ)) ρ hρ
 
-end Setlec.Semantics
+end Setlec.SetP

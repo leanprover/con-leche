@@ -22,7 +22,8 @@ assignment, over the block's data alone):
 extension.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -72,7 +73,7 @@ theorem entryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AVEx
       AnnotOkP V ρ x →
       interp2 V ρ x ∈ˢ interp2 V ρ
         (AVExpr.mkAppN (directTyAV w pps ((ds.drop nP).map (·.2.2))) vs) →
-      Setlec.Semantics.AVExpr.peelPis (mkPisAV eds R) (vs ++ [x]) = some rest →
+      Setlec.SetP.AVExpr.peelPis (mkPisAV eds R) (vs ++ [x]) = some rest →
       AnnotOkP V ρ (projAV i x) ∧ AnnotOkP V ρ rest ∧
         interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest := by
   intro ρ vs x rest hlenVs hokApp hokx hmem hpeel
@@ -110,7 +111,7 @@ theorem entryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AVEx
     rw [hΓsplit]
     exact Sat2_cons V hsatΓ1 (by rw [hsubj _ hsatΓ1]; exact hx)
   -- the residual
-  have hrest : rest = Setlec.Semantics.AVExpr.instSeq (vs ++ [x]) nP R := by
+  have hrest : rest = Setlec.SetP.AVExpr.instSeq (vs ++ [x]) nP R := by
     have h := peelPis_of_piTeleP (nP + 1) (by rw [← hlenEds]; exact piTeleP_mkPisAV eds R)
       (ws := vs ++ [x]) (by simp [hlenVs])
     rw [hpeel] at h
@@ -120,8 +121,8 @@ theorem entryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AVEx
     unfold chainP
     rw [consN_eq_consList, List.map_append, consList_append]
     rfl
-  have hlen' : Setlec.Semantics.AVExpr.instSeq (vs ++ [x]) nP R
-      = Setlec.Semantics.AVExpr.instSeq (vs ++ [x]) ((vs ++ [x]).length - 1) R := by
+  have hlen' : Setlec.SetP.AVExpr.instSeq (vs ++ [x]) nP R
+      = Setlec.SetP.AVExpr.instSeq (vs ++ [x]) ((vs ++ [x]).length - 1) R := by
     simp [hlenVs]
   have hinterpRest : interp2 V ρ rest
       = interp2 V (consList (projList i (interp2 V ρ x)) (consList (vs.map (interp2 V ρ)) ρ))
@@ -283,4 +284,4 @@ theorem entryEtaCore {w nP nF : Nat} {pps ds : List (Nat × Nat × AVExpr)} {ρ 
     rw [← projList_eq_map_range, hfold]
     exact heta
 
-end Setlec.Semantics
+end Setlec.SetP

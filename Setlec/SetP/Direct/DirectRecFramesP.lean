@@ -12,7 +12,8 @@ the elimination sort (`recMotive`), the minor binder the minor space
 (`recMinor`), the major binder the carrier (`recMajor`).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -321,4 +322,4 @@ theorem recFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
           exact hmajor _ hρm
   exact ⟨fun ψ => (hframes ψ).1, fun ψ => (hframes ψ).2⟩
 
-end Setlec.Semantics
+end Setlec.SetP

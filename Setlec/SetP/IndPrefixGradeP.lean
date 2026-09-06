@@ -36,7 +36,8 @@ own slot for opener `m`.  That coincidence is what lets `Sat2` at the
 statement frame feed the recursor tower's descent at all.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -364,4 +365,4 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
   rw [interp2_liftN, interp2_liftN, hshiftEnv ρ'] at hfire
   exact hfire
 
-end Setlec.Semantics
+end Setlec.SetP

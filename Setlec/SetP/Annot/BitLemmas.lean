@@ -23,7 +23,8 @@ validated-annotation reading:
   the constant and literal clauses read the environment).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
@@ -252,4 +253,4 @@ theorem denoteP_natLit_inv {d n : Nat} {ea : AVExpr}
   · next hg => exact ⟨hg, (Option.some.inj h).symm⟩
   · exact nomatch h
 
-end Setlec.Semantics
+end Setlec.SetP

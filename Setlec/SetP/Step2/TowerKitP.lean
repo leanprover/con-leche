@@ -23,7 +23,8 @@ law itself (`TowerOkP`, `Annot/EnvS2P.lean`):
   down (`ProjAVKitP`, which `DefEqP` — below the law — also reads).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -189,4 +190,4 @@ theorem towerEntry_ty_at_depth {m : EnvS2Core V env} {T : Name} {i : Nat}
     denoteP_closed m.acval_erase m.cval_closed hnf hb hTa 1 k
   exact ⟨denoteP_depth_of_closed m.acval_closed hnf hcl hTa, hcl⟩
 
-end Setlec.Semantics
+end Setlec.SetP

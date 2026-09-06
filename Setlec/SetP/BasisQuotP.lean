@@ -27,7 +27,8 @@ twice more — the reading's `lamR 0` and the value law's squash regime
 are the same point.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -2506,4 +2507,4 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
 
 end Quot
 
-end Setlec.Semantics
+end Setlec.SetP

@@ -17,7 +17,8 @@ arithmetic side conditions in the tier.  Extracting it is the fix that
 scales — a stage lemma's context is exactly its premise set.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -216,4 +217,4 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
       exact ⟨by simp, by simp⟩)
 
 
-end Setlec.Semantics
+end Setlec.SetP

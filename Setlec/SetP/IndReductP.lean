@@ -22,7 +22,8 @@ complete: once the row lands, `hokApp` is the truthfulness transport's
 own output at the frame's openers.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -248,4 +249,4 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
       List.getElem?_eq_none (by rw [hzslen]; omega)]
     rfl
 
-end Setlec.Semantics
+end Setlec.SetP

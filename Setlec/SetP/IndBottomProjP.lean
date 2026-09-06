@@ -34,7 +34,8 @@ constructor run's `q`-th domain reads at depth `q` to the tower slot
 slot, lifted (`projSpineMemP`, `Interp2/IndProjKitP.lean`).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -736,4 +737,4 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     · exact hxsA w (List.mem_of_mem_take hw')
     · exact hysA w (List.mem_of_mem_drop hw')
 
-end Setlec.Semantics
+end Setlec.SetP

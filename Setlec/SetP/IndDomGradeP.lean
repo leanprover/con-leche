@@ -38,7 +38,8 @@ readings **graded** (the ratified iota-seal repair, `Annot/EnvS2P.lean`)
 exactly what this lemma asks for.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -298,4 +299,4 @@ theorem AnnotOkP_mkAppN_args {ρ : Nat → V} :
     · exact AnnotOkP_app_arg (AnnotOkP_mkAppN_head xs h)
     · exact ih (g := .app g x) h a ha'
 
-end Setlec.Semantics
+end Setlec.SetP

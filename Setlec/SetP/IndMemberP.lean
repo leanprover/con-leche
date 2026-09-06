@@ -32,7 +32,8 @@ leaf it stores *is* `acval (n ++ "_model")`), and it is the only new
 predicate the member fold needs.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -253,4 +254,4 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
   rw [hname] at hgoal
   exact hgoal
 
-end Setlec.Semantics
+end Setlec.SetP

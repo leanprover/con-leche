@@ -47,7 +47,8 @@ slots, so the fit supplies their memberships directly.  Rigidity
 appears here only for the type slot, which every `Eq` statement needs.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -478,4 +479,4 @@ theorem memberUnitLawP : MemberUnitLawP V := by
     hSuniv hmx hmy] at hlanded
   exact eq_of_mem_eqv hlanded
 
-end Setlec.Semantics
+end Setlec.SetP

@@ -16,7 +16,8 @@ claims, and the minor space follows by `interp_minorSp_of_tele`, its
 core being the constructor leaf's fold (`directMkAV_fold`).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -618,4 +619,4 @@ theorem recMinor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
         (by rw [consList_range_reverse]; exact (hfieldsB ρp hsatC).toBound hw), if_neg hw,
         List.nil_append]
 
-end Setlec.Semantics
+end Setlec.SetP

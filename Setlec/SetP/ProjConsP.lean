@@ -26,7 +26,8 @@ is exactly three things:
   `acvalWith_self` makes its head the installed constant's leaf.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -262,4 +263,4 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
   · rw [hmp']
     exact blockAcvalInstalled_fresh_cons hIA hnotb₀ hstrNe₀
 
-end Setlec.Semantics
+end Setlec.SetP

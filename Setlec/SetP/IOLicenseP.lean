@@ -50,7 +50,7 @@ other skip site exists — the io grade narrows the application clause
 and nothing else.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
 open Setlec.SetModel
 
 open SetTheory
@@ -131,4 +131,4 @@ theorem io_membership_fails_at_squash :
   · rw [app_pt]
     exact not_mem_empty pt
 
-end Setlec.Semantics
+end Setlec.SetP
