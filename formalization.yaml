@@ -26,11 +26,9 @@ project:
     one.
   authors:
     - "Joachim Breitner"
-  # TODO(#183): the repository has NO licence file. Palomar requires one
-  # conventional licence file at the repository root and requires this
-  # field to match it. Add `LICENSE` and replace the value below with
-  # its SPDX identifier (the Palomar starter template uses Apache-2.0).
-  license: "TODO: add a root LICENSE file and name its SPDX identifier here"
+  # The root `LICENSE` is the Apache License 2.0 text, the same licence
+  # as Lean 4 itself (user decision, 2026-09-06).
+  license: "Apache-2.0"
   responsible_maintainers:
     - "Joachim Breitner"
 
