@@ -295,8 +295,8 @@ theorem famSpine_read {m : EnvS2Core V env} {T : Name} {lps : List Name}
   rw [denoteP_const hfT (by rw [hlps]; simp), hlps, Level.substFn_param_self]
 
 /-- `famSpine_read` at any level instantiation fixed by the valuation
-(task #175 W4c P3 module 7: the entry install's family spine is at
-the guard's zeroing instantiation, `directGuardSigma`). -/
+(task #175 W4c P3 module 7; the guard's zeroing instantiation it
+served retired with the per-slot entry stage at task #175 S1). -/
 theorem famSpine_read_at {m : EnvS2Core V env} {T : Name} {lps : List Name}
     {ci : ConstantInfo} (hfT : env.find? T = some ci)
     (hlps : ci.toConstantVal.levelParams = lps)

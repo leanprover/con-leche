@@ -4,6 +4,7 @@ import Setlec.Semantics.DeclEta
 import Setlec.Verify.Extend.Inversions
 
 import Setlec.Verify.ExceptBind
+import Setlec.Verify.Direct.DirectInv
 
 /-!
 # The direct-structure declaration keeps the η-families closed (task #175 wiring, W5)
@@ -27,7 +28,7 @@ namespace Setlec.Semantics
 
 open Setlec (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   DirectParts fueledOps checkDirectInd checkDirectCtor checkConstantVal
-  checkDirectProj projFnName directCaps EtaFamiliesClosed ProjEntry)
+  checkDirectProjTable projTableName directCaps EtaFamiliesClosed ProjEntry)
 
 /-! ## The stage shapes, with their freshness guards -/
 
@@ -87,88 +88,38 @@ theorem checkDirectCtor_inv {μ : CheckMode} {F : Nat} {env₀ env envC : Env}
        exact ⟨_, by assumption, rfl, rfl⟩)
     | close_throw
 
-/-- A projection slot's run: either no entry (the slot decision's
-else-branch) or a tower entry consed at a fresh slot, carrying the
-slot's guard level and the block's result sort.  The freshness is the
-slot guard's own surviving branch. -/
-theorem checkDirectProj_inv {μ : CheckMode} {F : Nat} {T C : Name}
-    {lps : List Name} {nP nF : Nat} {resSort : Level} {slots : List Bool}
-    {guards : List Level} {cvTa cvCa : ConstantVal} {env env' : Env} {i : Nat}
-    (h : checkDirectProj (m := Setlec.CheckM) (fueledOps μ F) T C lps nP nF
-      resSort slots guards cvTa cvCa env i = .ok env') :
-    env' = env ∨
-      (∃ entry : ProjEntry, env.find? (projFnName T i) = none ∧
-        entry.tower = true ∧ entry.native = true ∧
-        entry.structName = T ∧ entry.idx = i ∧ entry.ctor = C ∧
-        entry.numParams = nP ∧ entry.numFields = nF ∧
-        entry.levelParams = lps ∧
-        entry.fieldSort = guards.getD i .zero ∧ entry.structSort = resSort ∧
-        env' = ⟨.projInfo entry :: env.consts⟩) ∨
-      -- the inert entry at an unadmitted slot (task #175 W4c P3 module 7)
-      (∃ entry : ProjEntry, env.find? (projFnName T i) = none ∧
-        entry.tower = false ∧ entry.native = false ∧
-        entry.structName = T ∧ entry.idx = i ∧
-        env' = ⟨.projInfo entry :: env.consts⟩) := by
-  unfold checkDirectProj at h
-  split at h
-  · obtain ⟨pty, -, h⟩ := Setlec.exceptBind_ok h
-    split at h
-    · unfold checkDirectProjEntry at h
-      repeat' first
-        | (obtain ⟨_, _, h⟩ := Setlec.exceptBind_ok h)
-        | split at h
-      all_goals first
-        | (try dsimp only at h
-           simp only [pure, Except.pure, Except.ok.injEq] at h
-           refine Or.inr (Or.inl ⟨_, ?_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl,
-             h.symm⟩)
-           first
-             | assumption
-             | exact Option.isNone_iff_eq_none.mp (by assumption))
-        | close_throw
-    · split at h
-      · simp only [pure, Except.pure, Except.ok.injEq] at h
-        exact Or.inr (Or.inr ⟨_, Option.isNone_iff_eq_none.mp (by assumption),
-          rfl, rfl, rfl, rfl, h.symm⟩)
-      · close_throw
-  · simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact Or.inl h.symm
+/-- The table stage's run: the tower table consed at a fresh table
+name (task #175 S1). -/
+theorem checkDirectProjTable_shape {T C : Name}
+    {lps : List Name} {nP nF : Nat} {resSort : Level}
+    {guards : List Level} {cvCa : ConstantVal} {env env' : Env}
+    (h : checkDirectProjTable (m := Setlec.CheckM) T C lps nP nF
+      resSort guards cvCa env = .ok env') :
+    ∃ tbl : Setlec.ProjTable, env.find? (projTableName T) = none ∧
+      tbl.structName = T ∧ env' = ⟨.projInfo tbl :: env.consts⟩ := by
+  obtain ⟨bodies, -, -, -, hfresh, rfl⟩ := Setlec.checkDirectProjTable_inv h
+  exact ⟨_, hfresh, rfl, rfl⟩
 
 /-! ## The η half of the direct arm -/
 
-/-- The projection-slot fold keeps the η-families closed: every step
-is a fresh cons of a table entry, or nothing. -/
-theorem directProjFoldRun_etaClosed {μ : CheckMode} {F : Nat} {T C : Name}
-    {lps : List Name} {nP nF : Nat} {resSort : Level} {slots : List Bool}
-    {guards : List Level} {cvTa cvCa : ConstantVal} :
-    ∀ (idxs : List Nat) {env env₂ : Env},
-      DirectProjFoldRun μ F T C lps nP nF resSort slots guards cvTa cvCa env
-        idxs env₂ →
-      EtaFamiliesClosed env → EtaFamiliesClosed env₂
-  | [], _, _, h, hE => by rw [h]; exact hE
-  | i :: rest, env, env₂, h, hE => by
-    obtain ⟨env'', hstep, hrest⟩ := h
-    refine directProjFoldRun_etaClosed rest hrest ?_
-    rcases checkDirectProj_inv hstep with rfl |
-      ⟨entry, hfresh, -, -, hsn, hidx, -, -, -, -, -, -, rfl⟩ |
-      ⟨entry, hfresh, -, -, hsn, hidx, rfl⟩
-    · exact hE
-    · refine EtaFamiliesClosed.cons_nonind hE ?_ (fun _ _ heq => nomatch heq)
-      have hname : (ConstantInfo.projInfo entry).name = projFnName T i := by
-        show projFnName entry.structName entry.idx = projFnName T i
-        rw [hsn, hidx]
-      rw [hname]; exact hfresh
-    · refine EtaFamiliesClosed.cons_nonind hE ?_ (fun _ _ heq => nomatch heq)
-      have hname : (ConstantInfo.projInfo entry).name = projFnName T i := by
-        show projFnName entry.structName entry.idx = projFnName T i
-        rw [hsn, hidx]
-      rw [hname]; exact hfresh
+/-- The table stage keeps the η-families closed: a fresh cons of a
+table. -/
+theorem checkDirectProjTable_etaClosed {T C : Name}
+    {lps : List Name} {nP nF : Nat} {resSort : Level}
+    {guards : List Level} {cvCa : ConstantVal} {env env₂ : Env}
+    (h : checkDirectProjTable (m := Setlec.CheckM) T C lps nP nF
+      resSort guards cvCa env = .ok env₂)
+    (hE : EtaFamiliesClosed env) : EtaFamiliesClosed env₂ := by
+  obtain ⟨tbl, hfresh, hsn, rfl⟩ := checkDirectProjTable_shape h
+  refine EtaFamiliesClosed.cons_nonind hE ?_ (fun _ _ heq => nomatch heq)
+  show env.find? (projTableName tbl.structName) = none
+  rw [hsn]; exact hfresh
 
 /-- **The direct arm keeps the η-families closed.** -/
 theorem declDirectRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : DirectParts} (hE : EtaFamiliesClosed env)
     (h : DeclDirectRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hCV, -, -, -,
+  obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hCV, -, -,
     hfold⟩ := h
   obtain ⟨cvT', hcvT, -, hI⟩ := checkDirectInd_inv hInd
   obtain ⟨hfT, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
@@ -206,7 +157,7 @@ theorem declDirectRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
               cvC'.name = none by rw [← hI, hnC]; exact hfC)
           (Setlec.Env.find?_cons_of_fresh
             (show env.find? cvT'.name = none by rw [hnT]; exact hfT) hfC')
-  refine directProjFoldRun_etaClosed _ hfold ?_
+  refine checkDirectProjTable_etaClosed hfold ?_
   exact EtaFamiliesClosed.cons_nonind hE₂
     (show envC.find? cvRa.name = none by rw [hnR]; exact hfR)
     (fun _ _ heq => nomatch heq)

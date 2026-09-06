@@ -29,8 +29,8 @@ namespace Setlec.Semantics
 
 open Setlec (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   DirectParts RecRule fueledOps checkDirectInd checkDirectCtor
-  checkConstantVal checkDirectRecTy checkDirectRule checkDirectProj
-  checkDirectStruct projFnName directCaps)
+  checkConstantVal checkDirectRecTy checkDirectRule checkDirectProjTable
+  checkDirectStruct projTableName directCaps)
 
 /-! ## The bridge inversion
 
@@ -89,32 +89,8 @@ theorem declDirectRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   generalize (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
     [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩] :: envC.consts⟩ : Env)
     = env₃
-  split
-  · next hall =>
-    intro h
-    refine ⟨hall, ?_⟩
-    clear hall
-    revert h
-    generalize List.range p.nF = idxs
-    induction idxs generalizing env₃ with
-    | nil =>
-      intro h
-      simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
-      exact h.symm
-    | cons i rest ih =>
-      intro h
-      simp only [List.foldlM, bind, Except.bind] at h
-      revert h
-      cases hstep : checkDirectProj (m := Setlec.CheckM)
-          (fueledOps μ F) p.cvT.name p.cvC.name p.cvT.levelParams
-          p.nP p.nF p.resSort (directProjSlots p)
-          (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa env₃ i with
-      | error e => intro h; exact nomatch h
-      | ok env₄ =>
-        intro h
-        exact ⟨env₄, hstep, ih env₄ h⟩
-  · intro h
-    simp [throw, throwThe, MonadExceptOf.throw] at h
+  intro h
+  exact h
 
 /-! ## The run-level dispatch
 

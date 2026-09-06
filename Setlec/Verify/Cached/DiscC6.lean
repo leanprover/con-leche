@@ -11,8 +11,8 @@ their `Setlec/Kernel/CoreI.lean` originals up to `EIdx → ExprC` /
 in `annotateBodyI`'s binder clauses).  Task #175 wiring W5: the
 projection elimination fallbacks (`projFieldDomI`,
 `annotateProjRecI`, `annotateProjElimI`) and their walks are gone —
-every supported projection is a native table entry, and the
-`.proj` clause's non-native arms are verdicts.
+every supported projection is a tower table entry, and the
+`.proj` clause's non-tower arms are verdicts.
 
 One representation shrinkage simplifies the statements against the
 interned originals: the structure/constructor names are plain `Name`s
@@ -295,7 +295,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
         exact SimC.throw
       | some entry =>
         dsimp only
-        cases hnat : entry.native with
+        cases hnat : entry.tower with
         | false =>
           simp only [Bool.false_eq_true, ↓reduceIte]
           exact SimC.throw

@@ -156,7 +156,8 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
     refine EnvWF.cons m.wf ⟨hptyf, hptylp,
       Expr.constsResolve_mono hptyres, hptyb,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq), ?_,
-      (fun cv2 v2 heq => ConstantInfo.noConfusion heq)⟩
+      (fun cv2 v2 heq => ConstantInfo.noConfusion heq),
+      (fun tbl heq => ConstantInfo.noConfusion heq)⟩
     intro cv2 mI2 rP2 rules2 heq r hr
     injection heq with h1 _ _ h4
     rw [← h4] at hr
@@ -213,7 +214,6 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
     · exact m.rec_params_le n cv mI rP rules₂ hf' r hr hfire
   · -- the projection table: the head is a recursor, not an entry
     exact ProjOkT.cons m.proj_ok hfresh0
-      (fun entry heq => ConstantInfo.noConfusion heq)
       (fun entry heq => ConstantInfo.noConfusion heq)
   · -- theorem unfoldings: vacuous at the head
     intro cv value hmem ψ
@@ -272,7 +272,8 @@ theorem projFn_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
   · refine EnvWF.cons hwfE ⟨hptyf, hptylp,
       Expr.constsResolve_mono hptyres, hptyb,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq), ?_,
-      (fun cv2 v2 heq => ConstantInfo.noConfusion heq)⟩
+      (fun cv2 v2 heq => ConstantInfo.noConfusion heq),
+      (fun tbl heq => ConstantInfo.noConfusion heq)⟩
     intro cv2 mI2 rP2 rules2 heq r hr
     injection heq with h1 _ _ h4
     rw [← h4] at hr

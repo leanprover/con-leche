@@ -780,12 +780,11 @@ theorem installProjFnStep_fst_dproj (T ctorName : Name)
   · exact checkProjFn_fst_dproj e T ctorName lps nP nF i
   · rfl
 
-theorem installProjTemplateStep_fst_dproj (T ctorName : Name)
-    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) :
-    (installProjTemplateStep T ctorName lps nP nF e i :
-        PairM rel _).val.1 =
-      (installProjTemplateStep T ctorName lps nP nF e i : M₁ _) := by
-  unfold installProjTemplateStep installProjTemplate
+theorem installProjTemplate_fst_dproj (e : Env) (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) :
+    (installProjTemplate e T ctorName lps nP nF : PairM rel _).val.1 =
+      (installProjTemplate e T ctorName lps nP nF : M₁ _) := by
+  unfold installProjTemplate
   dfst_tac
 
 theorem installBasisDecl_fst_dproj (env : Env) (ci : ConstantInfo) :
@@ -803,33 +802,12 @@ theorem installProjFnStep_snd_dproj (T ctorName : Name)
   · exact checkProjFn_snd_dproj e T ctorName lps nP nF i
   · rfl
 
-theorem installProjTemplateStep_snd_dproj (T ctorName : Name)
-    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) :
-    (installProjTemplateStep T ctorName lps nP nF e i :
-        PairM rel _).val.2 =
-      (installProjTemplateStep T ctorName lps nP nF e i : M₂ _) := by
-  unfold installProjTemplateStep installProjTemplate
+theorem installProjTemplate_snd_dproj (e : Env) (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) :
+    (installProjTemplate e T ctorName lps nP nF : PairM rel _).val.2 =
+      (installProjTemplate e T ctorName lps nP nF : M₂ _) := by
+  unfold installProjTemplate
   dsnd_tac
-
-theorem installProjTemplateStep_fst_fun (T ctorName : Name)
-    (lps : List Name) (nP nF : Nat) :
-    (fun (e : Env) (i : Nat) =>
-      (installProjTemplateStep T ctorName lps nP nF e i :
-        PairM rel _).val.1) =
-    (installProjTemplateStep T ctorName lps nP nF :
-      Env → Nat → M₁ Env) :=
-  funext fun e => funext fun i =>
-    installProjTemplateStep_fst_dproj T ctorName lps nP nF e i
-
-theorem installProjTemplateStep_snd_fun (T ctorName : Name)
-    (lps : List Name) (nP nF : Nat) :
-    (fun (e : Env) (i : Nat) =>
-      (installProjTemplateStep T ctorName lps nP nF e i :
-        PairM rel _).val.2) =
-    (installProjTemplateStep T ctorName lps nP nF :
-      Env → Nat → M₂ Env) :=
-  funext fun e => funext fun i =>
-    installProjTemplateStep_snd_dproj T ctorName lps nP nF e i
 
 theorem installBasisDecl_snd_dproj (env : Env) (ci : ConstantInfo) :
     (installBasisDecl env ci : PairM rel _).val.2 =
@@ -975,91 +953,43 @@ theorem checkDirectRule_snd_dproj (env : Env) (p : DirectParts)
     PairM.snd_ite, pairOps_annotate_snd, pairOps_inferType_snd,
     unwrapOr_snd_dproj, checkDefEqList_snd_dproj]
 
-theorem checkDirectProjEntry_fst_dproj (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs guard : Level) (cvCa : ConstantVal) (pty : Expr)
-    (env : Env) (i : Nat) :
-    (checkDirectProjEntry (pairOps o₁ o₂ h) T C lps nP nF rs guard cvCa
-        pty env i).val.1 =
-      checkDirectProjEntry o₁ T C lps nP nF rs guard cvCa pty env i := by
-  unfold checkDirectProjEntry
+theorem checkDirectProjTable_fst_dproj (T C : Name) (lps : List Name)
+    (nP nF : Nat) (rs : Level) (guards : List Level) (cvCa : ConstantVal)
+    (env : Env) :
+    (checkDirectProjTable T C lps nP nF rs guards cvCa env : PairM rel _).val.1 =
+      (checkDirectProjTable T C lps nP nF rs guards cvCa env : M₁ _) := by
+  unfold checkDirectProjTable
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
-    PairM.fst_ite, pairOps_annotate_fst, pairOps_inferType_fst,
-    pairOps_ensureSort_fst, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
-    liftFueled_fst_proj, checkProjShape_fst_dproj, checkDirectDomsAt_fst_dproj]
+    PairM.fst_ite, unwrapOr_fst_dproj]
 
-theorem checkDirectProjEntry_snd_dproj (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs guard : Level) (cvCa : ConstantVal) (pty : Expr)
-    (env : Env) (i : Nat) :
-    (checkDirectProjEntry (pairOps o₁ o₂ h) T C lps nP nF rs guard cvCa
-        pty env i).val.2 =
-      checkDirectProjEntry o₂ T C lps nP nF rs guard cvCa pty env i := by
-  unfold checkDirectProjEntry
+theorem checkDirectProjTable_snd_dproj (T C : Name) (lps : List Name)
+    (nP nF : Nat) (rs : Level) (guards : List Level) (cvCa : ConstantVal)
+    (env : Env) :
+    (checkDirectProjTable T C lps nP nF rs guards cvCa env : PairM rel _).val.2 =
+      (checkDirectProjTable T C lps nP nF rs guards cvCa env : M₂ _) := by
+  unfold checkDirectProjTable
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
-    PairM.snd_ite, pairOps_annotate_snd, pairOps_inferType_snd,
-    pairOps_ensureSort_snd, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
-    liftFueled_snd_proj, checkProjShape_snd_dproj, checkDirectDomsAt_snd_dproj]
-
-theorem checkDirectProj_fst_dproj (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs : Level) (slots : List Bool) (guards : List Level)
-    (cvTa cvCa : ConstantVal) (env : Env) (i : Nat) :
-    (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF rs slots guards cvTa
-        cvCa env i).val.1 =
-      checkDirectProj o₁ T C lps nP nF rs slots guards cvTa cvCa env i := by
-  unfold checkDirectProj
-  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
-    PairM.fst_ite, unwrapOr_fst_dproj, checkDirectProjEntry_fst_dproj]
-
-theorem checkDirectProj_snd_dproj (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs : Level) (slots : List Bool) (guards : List Level)
-    (cvTa cvCa : ConstantVal) (env : Env) (i : Nat) :
-    (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF rs slots guards cvTa
-        cvCa env i).val.2 =
-      checkDirectProj o₂ T C lps nP nF rs slots guards cvTa cvCa env i := by
-  unfold checkDirectProj
-  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
-    PairM.snd_ite, unwrapOr_snd_dproj, checkDirectProjEntry_snd_dproj]
-
-theorem checkDirectProj_fst_fun (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs : Level) (slots : List Bool) (guards : List Level)
-    (cvTa cvCa : ConstantVal) :
-    (fun (e : Env) (i : Nat) =>
-      (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF rs slots guards cvTa
-        cvCa e i).val.1) =
-    (checkDirectProj o₁ T C lps nP nF rs slots guards cvTa cvCa :
-      Env → Nat → M₁ Env) :=
-  funext fun e => funext fun i =>
-    checkDirectProj_fst_dproj T C lps nP nF rs slots guards cvTa cvCa e i
-
-theorem checkDirectProj_snd_fun (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs : Level) (slots : List Bool) (guards : List Level)
-    (cvTa cvCa : ConstantVal) :
-    (fun (e : Env) (i : Nat) =>
-      (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF rs slots guards cvTa
-        cvCa e i).val.2) =
-    (checkDirectProj o₂ T C lps nP nF rs slots guards cvTa cvCa :
-      Env → Nat → M₂ Env) :=
-  funext fun e => funext fun i =>
-    checkDirectProj_snd_dproj T C lps nP nF rs slots guards cvTa cvCa e i
+    PairM.snd_ite, unwrapOr_snd_dproj]
 
 theorem checkDirectStruct_fst_dproj (env : Env) (p : DirectParts) :
     (checkDirectStruct (pairOps o₁ o₂ h) env p).val.1 =
       checkDirectStruct o₁ env p := by
   unfold checkDirectStruct
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
-    PairM.fst_ite, foldlM_fst, checkConstantVal_fst_dproj,
+    PairM.fst_ite, checkConstantVal_fst_dproj,
     checkDirectInd_fst_dproj, checkDirectCtor_fst_dproj,
     checkDirectRecTy_fst_dproj, checkDirectRule_fst_dproj,
-    checkDirectProj_fst_fun]
+    checkDirectProjTable_fst_dproj]
 
 theorem checkDirectStruct_snd_dproj (env : Env) (p : DirectParts) :
     (checkDirectStruct (pairOps o₁ o₂ h) env p).val.2 =
       checkDirectStruct o₂ env p := by
   unfold checkDirectStruct
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
-    PairM.snd_ite, foldlM_snd, checkConstantVal_snd_dproj,
+    PairM.snd_ite, checkConstantVal_snd_dproj,
     checkDirectInd_snd_dproj, checkDirectCtor_snd_dproj,
     checkDirectRecTy_snd_dproj, checkDirectRule_snd_dproj,
-    checkDirectProj_snd_fun]
+    checkDirectProjTable_snd_dproj]
 
 macro "dfst_step4_alt" : tactic =>
   `(tactic| first
@@ -1080,7 +1010,7 @@ macro "dfst_step4_alt" : tactic =>
     | (rw [checkProjFn_fst_dproj])
     | (rw [checkDirectStruct_fst_dproj])
     | (rw [checkIndDecl_fst_dproj])
-    | (rw [installProjTemplateStep_fst_fun])
+    | (rw [installProjTemplate_fst_dproj])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
@@ -1110,7 +1040,7 @@ macro "dsnd_step4_alt" : tactic =>
     | (rw [checkProjFn_snd_dproj])
     | (rw [checkDirectStruct_snd_dproj])
     | (rw [checkIndDecl_snd_dproj])
-    | (rw [installProjTemplateStep_snd_fun])
+    | (rw [installProjTemplate_snd_dproj])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
@@ -1836,23 +1766,12 @@ theorem installProjFnStep_datF (T ctorName : Name)
   · exact checkProjFn_datF e T ctorName lps nP nF i F
   · rfl
 
-theorem installProjTemplateStep_datF (T ctorName : Name)
-    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) (F : Nat) :
-    (installProjTemplateStep T ctorName lps nP nF e i :
-        FueledM _).val F =
-      (installProjTemplateStep T ctorName lps nP nF e i : CheckM _) := by
-  unfold installProjTemplateStep installProjTemplate
-  datF_tac
-
-theorem installProjTemplateStep_datF_fun (T ctorName : Name)
+theorem installProjTemplate_datF (e : Env) (T ctorName : Name)
     (lps : List Name) (nP nF : Nat) (F : Nat) :
-    (fun (e : Env) (i : Nat) =>
-      (installProjTemplateStep T ctorName lps nP nF e i :
-        FueledM _).val F) =
-    (installProjTemplateStep T ctorName lps nP nF :
-      Env → Nat → CheckM Env) :=
-  funext fun e => funext fun i =>
-    installProjTemplateStep_datF T ctorName lps nP nF e i F
+    (installProjTemplate e T ctorName lps nP nF : FueledM _).val F =
+      (installProjTemplate e T ctorName lps nP nF : CheckM _) := by
+  unfold installProjTemplate
+  datF_tac
 
 theorem installBasisDecl_datF (env : Env) (ci : ConstantInfo) (F : Nat) :
     (installBasisDecl env ci : FueledM _).val F =
@@ -1932,49 +1851,23 @@ theorem checkDirectRule_datF (env : Env) (p : DirectParts)
     FueledM.atF_ite, fueledOpsM_annotate_atF, fueledOpsM_inferType_atF,
     unwrapOr_atF, checkDefEqList_datF]
 
-theorem checkDirectProjEntry_datF (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs guard : Level) (cvCa : ConstantVal) (pty : Expr)
-    (env : Env) (i F : Nat) :
-    (checkDirectProjEntry (fueledOpsM mode) T C lps nP nF rs guard cvCa
-        pty env i).val F =
-      checkDirectProjEntry (fueledOps mode F) T C lps nP nF rs guard cvCa
-        pty env i := by
-  unfold checkDirectProjEntry
+theorem checkDirectProjTable_datF (T C : Name) (lps : List Name)
+    (nP nF : Nat) (rs : Level) (guards : List Level) (cvCa : ConstantVal)
+    (env : Env) (F : Nat) :
+    (checkDirectProjTable T C lps nP nF rs guards cvCa env : FueledM _).val F =
+      (checkDirectProjTable T C lps nP nF rs guards cvCa env : CheckM _) := by
+  unfold checkDirectProjTable
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, fueledOpsM_annotate_atF, fueledOpsM_inferType_atF,
-    fueledOpsM_ensureSort_atF, fueledOpsM_isDefEq_atF, unwrapOr_atF,
-    liftFueled_atF, checkProjShape_datF, checkDirectDomsAt_datF]
-
-theorem checkDirectProj_datF (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs : Level) (slots : List Bool) (guards : List Level)
-    (cvTa cvCa : ConstantVal) (env : Env) (i F : Nat) :
-    (checkDirectProj (fueledOpsM mode) T C lps nP nF rs slots guards cvTa
-        cvCa env i).val F =
-      checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa
-        cvCa env i := by
-  unfold checkDirectProj
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, unwrapOr_atF, checkDirectProjEntry_datF]
-
-theorem checkDirectProj_datF_fun (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs : Level) (slots : List Bool) (guards : List Level)
-    (cvTa cvCa : ConstantVal) (F : Nat) :
-    (fun (e : Env) (i : Nat) =>
-      (checkDirectProj (fueledOpsM mode) T C lps nP nF rs slots guards cvTa
-        cvCa e i).val F) =
-    (checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa
-        cvCa : Env → Nat → CheckM Env) :=
-  funext fun e => funext fun i =>
-    checkDirectProj_datF T C lps nP nF rs slots guards cvTa cvCa e i F
+    FueledM.atF_ite, unwrapOr_atF]
 
 theorem checkDirectStruct_datF (env : Env) (p : DirectParts) (F : Nat) :
     (checkDirectStruct (fueledOpsM mode) env p).val F =
       checkDirectStruct (fueledOps mode F) env p := by
   unfold checkDirectStruct
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, foldlM_atF, checkConstantVal_datF,
+    FueledM.atF_ite, checkConstantVal_datF,
     checkDirectInd_datF, checkDirectCtor_datF, checkDirectRecTy_datF,
-    checkDirectRule_datF, checkDirectProj_datF_fun]
+    checkDirectRule_datF, checkDirectProjTable_datF]
 
 macro "datF_step4_alt" : tactic =>
   `(tactic| first
@@ -1996,7 +1889,7 @@ macro "datF_step4_alt" : tactic =>
     | (rw [checkProjFn_datF])
     | (rw [checkDirectStruct_datF])
     | (rw [checkIndDecl_datF])
-    | (rw [installProjTemplateStep_datF_fun])
+    | (rw [installProjTemplate_datF])
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl

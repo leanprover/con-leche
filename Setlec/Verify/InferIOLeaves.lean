@@ -123,17 +123,12 @@ theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
       exact WScoped.instantiate1_gen hw.2 0 hwPi.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, -, ⟨ds, hpi⟩, -⟩ := inferTypeCoreIO_proj_inv h
+        hus, -, rfl, -⟩ := inferTypeCoreIO_proj_inv h
       simp only [WScoped] at hw
       have hwte := inferTypeCoreIO_WScoped henv fuel hte hw
       have hwPi := whnf_WScoped henv fuel hwt hwte
-      refine (instPisAt_WScoped _ _ hpi
-        (projEntry_ty_WScoped henv hfp us) ?_).2
-      intro a ha
-      rcases List.mem_append.mp ha with ha | ha
-      · exact hwPi.getAppArgs a ha
-      · rcases List.mem_singleton.mp ha with rfl
-        exact hw
+      exact projEntry_typeAt_WScoped henv hfp us hlen
+        (fun a ha => hwPi.getAppArgs a ha) hw
     | bvar i =>
       rw [inferTypeCoreIO_succ] at h
       simp [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind, pure,
@@ -260,7 +255,7 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
       · exact Or.inr hb
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, -, ⟨ds, hpi⟩, -⟩ := inferTypeCoreIO_proj_inv h
+        hus, -, rfl, -⟩ := inferTypeCoreIO_proj_inv h
       simp only [WScoped] at hw
       intro l hl
       simp only [fvarLeaves]
@@ -268,9 +263,10 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
         fun l' hl' =>
         inferTypeCoreIO_fvarLeaves henv fuel hte hw l'
           (whnf_fvarLeaves henv fuel hwt l' hl')
-      rcases instPisAt_fvarLeaves _ _ hpi l hl with hty | ⟨a, ha, hla⟩
+      rw [ProjEntry.typeAt_eq_instSpine entry us hlen pe] at hl
+      rcases fvarLeaves_instSpine _ hl with hty | ⟨a, ha, hla⟩
       · rw [fvarLeaves_eq_nil_of_not_hasFvar
-          (projEntry_ty_hasFvar henv hfp us)] at hty
+          (projEntry_body_hasFvar henv hfp us)] at hty
         exact nomatch hty
       · rcases List.mem_append.mp ha with ha | ha
         · exact hsub l (fvarLeaves_getAppArgs ha l hla)
@@ -405,20 +401,15 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
       exact looseBVarsBounded_instantiate1_gen hb.2 hbPi.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, -, ⟨ds, hpi⟩, -⟩ := inferTypeCoreIO_proj_inv h
+        hus, -, rfl, -⟩ := inferTypeCoreIO_proj_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded] at hb
       have hLbe : Expr.LeavesBounded pe := fun l hl => hLb l (by
         simp only [fvarLeaves]; exact hl)
       have hbte := inferTypeCoreIO_looseBVars henv fuel hte hw hb hLbe
       have hbPi := whnf_looseBVars henv fuel hwt hbte
-      refine instPisAt_looseBVars _ _ hpi
-        (projEntry_ty_looseBVars henv hfp us) ?_
-      intro a ha
-      rcases List.mem_append.mp ha with ha | ha
-      · exact looseBVarsBounded_getAppArgs hbPi _ ha
-      · rcases List.mem_singleton.mp ha with rfl
-        exact hb
+      exact projEntry_typeAt_looseBVars henv hfp us hlen
+        (fun a ha => looseBVarsBounded_getAppArgs hbPi _ ha) hb
     | bvar i =>
       rw [inferTypeCoreIO_succ] at h
       simp [inferBodyIO, viewM, Expr.view, Bind.bind, Except.bind, pure,

@@ -265,22 +265,15 @@ theorem majorToCtorP_reads {m : EnvS2Core V env}
             rw [hcvTeq] at hprojs hlenus2
             rw [hcapseq] at hefld2
             rw [hTeq, ← hefld2] at hslots2
-            obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpp⟩ : ∃ cvp mIp rPp rulesp,
-                env.find? (projFnName T j)
-                  = some (.recInfo cvp mIp rPp rulesp) ∧
-                cvp.levelParams = cvT.levelParams := by
-              rcases Setlec.structEtaProjCerts_inv _ hprojs j (by
-                  rw [List.mem_range] at hj ⊢; rw [← hefld2]; exact hj) with
-                ⟨cvp, mIp, rPp, rulesp, hfp, hlpp, -, -⟩ |
-                ⟨entry, hfp, -, -, -, -⟩
-              · exact ⟨cvp, mIp, rPp, rulesp, hfp, hlpp⟩
-              · exfalso
-                have hrec : Setlec.recSlotsAll env T caps.etaFields = true := by
-                  simpa [htow] using hslots2
-                obtain ⟨cvp, mIp, rPp, rulesp, hfr⟩ :=
-                  Setlec.recSlotsAll_slot hrec j (List.mem_range.mp hj)
-                rw [hfp] at hfr
-                exact nomatch hfr
+            -- the per-slot certificates ran: not a tower family (task
+            -- #175 S1)
+            have htowF : Setlec.towerSlotsAll env T cnF2 = false := by
+              cases h : Setlec.towerSlotsAll env T cnF2
+              · rfl
+              · exact absurd (by rw [hefld2]; exact h) htow
+            obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpp, -, -⟩ :=
+              Setlec.structEtaProjCerts_inv _ (hprojs htowF) j (by
+                rw [List.mem_range] at hj ⊢; rw [← hefld2]; exact hj)
             have hspM : DenoteSpineP m.acval env φ d
                 (tmaj.getAppArgs ++ [e]) (tsa ++ [ea]) :=
               hspt.append (DenoteSpineP.cons hea DenoteSpineP.nil)
@@ -502,33 +495,30 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               = (ConstantInfo.indInfo cvT caps).toConstantVal.levelParams.length
               from hlenus2)] at hvT
             exact (Option.some.inj hvT).symm
+          -- (task #175 S1: the slots are the table's, whose head data
+          -- carries the former's level parameters)
           have hslotE : ∀ j, j < caps.etaFields → ∃ entry : ProjEntry,
               env.findProj? T j = some entry ∧ entry.tower = true ∧
-              entry.levelParams = cvT.levelParams ∧
-              (entry.ty.stripPis (tmaj.getAppArgs.length + 1)).isSome = true := by
+              entry.levelParams = cvT.levelParams := by
             intro j hj
-            rcases Setlec.structEtaProjCerts_inv _ hprojs j (by
-                rw [List.mem_range, ← hefld2]; exact hj) with
-              ⟨cvp, mIp, rPp, rulesp, hfp, -, -, -⟩ |
-              ⟨entry, hfp, htw, hlpe, hstrpe, -⟩
-            · exfalso
-              obtain ⟨e, hfe, -⟩ := Setlec.towerSlotsAll_slot htow j hj
-              have := Setlec.Env.findProj?_some hfe
-              rw [hfp] at this
-              exact nomatch this
-            · exact ⟨entry, by unfold Setlec.Env.findProj?; rw [hfp], htw, hlpe,
-                hstrpe⟩
+            obtain ⟨entry, hfe, htw⟩ := Setlec.towerSlotsAll_slot htow j hj
+            obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', -, -, -, -⟩, -⟩ :=
+              htower T j entry hfe htw
+            have hcvT' : cvT' = cvT := by
+              rw [hfT] at hfT'
+              exact (ConstantInfo.indInfo.inj (Option.some.inj hfT')).1.symm
+            exact ⟨entry, hfe, htw, by rw [← hlpsT', hcvT']⟩
           have hpfacts : ∀ j ∈ List.range caps.etaFields,
               denoteP m.acval env φ d (.proj T j major) = some (projAV j vm) := by
             intro j hj
-            obtain ⟨entry, hfe, htw, -, -⟩ := hslotE j (List.mem_range.mp hj)
+            obtain ⟨entry, hfe, htw, -⟩ := hslotE j (List.mem_range.mp hj)
             exact denoteP_proj_tower hfe htw hvm
           have hokProj : ∀ j ∈ List.range caps.etaFields, ∀ ρ : Nat → V,
               Sat2 V Δa ρ → AnnotOkP V ρ (projAV j vm) := by
             intro j hj ρ hρ
-            obtain ⟨entry, hfe, htw, hlpe, hstrpe⟩ :=
+            obtain ⟨entry, hfe, htw, hlpe⟩ :=
               hslotE j (List.mem_range.mp hj)
-            obtain ⟨-, -, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j,
+            obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j,
               _, -, -, hlawj, -⟩ := htower T j entry hfe htw
             have hcapsTj : capsTj = caps := by
               rw [hfT] at hfTj
@@ -538,17 +528,16 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               towerGuardAt_of hO5j
                 (fun hp => by rw [heta, hp] at hetaj; exact nomatch hetaj)
             obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj ust (by rw [hlpe]; exact hlenus2)
-            obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
-            -- the entry type's reading is a ∀-chain of the subject
-            -- list's length, so it peels along it
-            have hpc : PiChainP (tsa ++ [vm]).length Ta := by
-              rw [List.length_append, List.length_singleton, ← hspt.length]
-              exact piChainP_of_stripPis _
-                (Setlec.Expr.stripPis_instantiateLevelParams_isSome
-                  entry.levelParams ust _ hstrpe) (hTad d)
-            obtain ⟨restj, hpeel⟩ := peelPis_of_piChainP _ hpc
+            obtain ⟨hTad, -⟩ := towerEntry_tele_at_depth hfe hTa
             have hlenVs : tsa.length = entry.numParams := by
               rw [← hspt.length, hlenP, hparj]
+            -- the body telescope's reading is a ∀-chain of the subject
+            -- list's length, so it peels along it
+            have hpc : PiChainP (tsa ++ [vm]).length Ta := by
+              rw [List.length_append, List.length_singleton, hlenVs]
+              exact piChainP_of_stripPis _
+                (by rw [Setlec.projTele_stripPis]; rfl) (hTad d)
+            obtain ⟨restj, hpeel⟩ := peelPis_of_piChainP _ hpc
             rw [hlpe, ← hvT'] at hA
             exact (hA hgj ρ tsa vm restj hlenVs (hokTm ρ hρ) (hokm ρ hρ)
               (hmemMW ρ hρ) hpeel).1
@@ -597,16 +586,12 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
                 (cvp.type.instantiateLevelParams cvp.levelParams ust)
                 (tmaj.getAppArgs ++ [major]) = .ok true := by
             intro j hj
-            rcases Setlec.structEtaProjCerts_inv _ hprojs j (by
-                rw [List.mem_range] at hj ⊢; rw [← hefld2]; exact hj) with
-              ⟨cvp, mIp, rPp, rulesp, hfp, hlpj, hstrpj, hicj⟩ |
-              ⟨entry, hfp, -, -, -, -⟩
-            · exact ⟨cvp, mIp, rPp, rulesp, hfp, hlpj, hstrpj, hicj⟩
-            · exfalso
-              obtain ⟨cvp, mIp, rPp, rulesp, hfr⟩ :=
-                Setlec.recSlotsAll_slot hrec j (List.mem_range.mp hj)
-              rw [hfp] at hfr
-              exact nomatch hfr
+            have htowF : Setlec.towerSlotsAll env T cnF2 = false := by
+              cases h : Setlec.towerSlotsAll env T cnF2
+              · rfl
+              · exact absurd (by rw [hefld2]; exact h) htow
+            exact Setlec.structEtaProjCerts_inv _ (hprojs htowF) j (by
+              rw [List.mem_range] at hj ⊢; rw [← hefld2]; exact hj)
           have hpfacts : ∀ j ∈ List.range caps.etaFields,
               denoteP m.acval env φ d
                   (Expr.mkAppN (.const (projFnName T j) ust)

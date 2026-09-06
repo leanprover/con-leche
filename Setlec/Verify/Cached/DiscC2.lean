@@ -658,13 +658,8 @@ theorem projNodesC_eff (T : Name) :
 /-- The index's slot tests are the spec's (`mkFEnv`). -/
 theorem towerSlotsAllF_mkFEnv (env : Env) (T : Name) (n : Nat) :
     (mkFEnv env).towerSlotsAllF T n = towerSlotsAll env T n := by
-  simp only [FEnv.towerSlotsAllF, towerSlotsAll, Env.findProj?, mkFEnv_find?]
-  all_goals
-    congr 1
-    funext j
-    cases env.find? (projFnName T j) with
-    | none => rfl
-    | some ci => cases ci <;> rfl
+  simp only [FEnv.towerSlotsAllF, towerSlotsAll, mkFEnv_findProj?]
+  all_goals rfl
 
 theorem recSlotsAllF_mkFEnv (env : Env) (T : Name) (n : Nat) :
     (mkFEnv env).recSlotsAllF T n = recSlotsAll env T n := by
@@ -741,37 +736,7 @@ theorem structEtaProjCertsC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             simp only [Bool.false_eq_true, ↓reduceIte]
             exact SimC.pure hs₂ rfl
         · exact SimC.pure hs rfl
-      | projInfo entry =>
-        -- the tower-backed slot (task #175 W4c), as the recursor's
-        dsimp only
-        split
-        · refine SimC.bind_left (projFnIdxM_eff hs TI i)
-            (fun s₀p pf hs hQpf => ?_)
-          refine SimC.bind_left (constTyAtM_eff hs hf)
-            (fun s₁ pty hs₁ hQty => ?_)
-          have htyw : Expr.WScoped d
-              (entry.ty.instantiateLevelParams entry.levelParams us') := by
-            obtain ⟨htf, -⟩ := henv _ (find?_mem hf)
-            exact wscoped_instLevels_of_not_hasFvar htf _ _
-          have hargs : ∀ x ∈ xs ++ [xb], Expr.WScoped d x := by
-            intro x hx
-            rcases List.mem_append.mp hx with hx | hx
-            · exact hwxs x hx
-            · rcases List.mem_singleton.mp hx with rfl
-              exact hwxb
-          refine SimC.bind (iotaCertsC_sim ih hs₁ hQty htyw
-            (htargs.append (RelCL.cons hb RelCL.nil)) hargs)
-            (fun s₂ r r' hs₂ hPr => ?_)
-          obtain rfl : r = r' := hPr
-          cases r with
-          | true =>
-            simp only [↓reduceIte]
-            exact structEtaProjCertsC_sim ih henv TI T us' lpsT rest hs₂
-              htargs hb hwxs hwxb
-          | false =>
-            simp only [Bool.false_eq_true, ↓reduceIte]
-            exact SimC.pure hs₂ rfl
-        · exact SimC.pure hs rfl
+      | projInfo entry => exact SimC.pure hs rfl
       | axiomInfo cv => exact SimC.pure hs rfl
       | defnInfo cv v h => exact SimC.pure hs rfl
       | thmInfo cv v => exact SimC.pure hs rfl
@@ -818,9 +783,10 @@ private theorem structEtaCertWithC_unfold (env : Env) (d : Nat)
                       (cvT.type.instantiateLevelParams cvT.levelParams us')
                       wtb.getAppArgs >>= fun r₁ =>
                   if r₁ then
-                    structEtaProjCerts (fueledFns mode env) env d T us'
+                    (if towerSlotsAll env T cnF then pure true
+                      else structEtaProjCerts (fueledFns mode env) env d T us'
                         wtb.getAppArgs b cvT.levelParams
-                        (List.range cnF) >>= fun r₂ =>
+                        (List.range cnF)) >>= fun r₂ =>
                     if r₂ then
                       defEqList (fueledFns mode env) env d
                           (a.getAppArgs.take cnP) wtb.getAppArgs >>=
@@ -895,9 +861,10 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                     iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
                         false tyT targs >>= fun r₁ =>
                     if r₁ then
-                      structEtaProjCertsI (coreKnotI mode (mkFEnv env) f)
+                      (if (mkFEnv env).towerSlotsAllF Tn cnF then pure true
+                        else structEtaProjCertsI (coreKnotI mode (mkFEnv env) f)
                           (mkFEnv env) d T Tn us' targs j cvT.levelParams
-                          (List.range cnF) >>= fun r₂ =>
+                          (List.range cnF)) >>= fun r₂ =>
                       if r₂ then
                         defEqListI (coreKnotI mode (mkFEnv env) f) (mkFEnv env)
                             d (aargs.take cnP) targs >>= fun r₃ =>
@@ -1007,10 +974,15 @@ theorem structEtaCertWithC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       exact SimC.pure hs₃ rfl
                     | true =>
                       simp only [↓reduceIte]
-                      refine SimC.bind (structEtaProjCertsC_sim ih henv
-                        T T us' cvT.levelParams (List.range cnF) hs₃
-                        htargs hdenb hwwtb.getAppArgs hwb)
+                      -- the per-slot certificates run at a
+                      -- projection-function family only (task #175 S1)
+                      refine SimC.bind (P := RelVC) ?_
                         (fun s₄ r₂ r₂' hs₄ hPr₂ => ?_)
+                      · split
+                        · exact SimC.pure hs₃ rfl
+                        · exact structEtaProjCertsC_sim ih henv
+                            T T us' cvT.levelParams (List.range cnF) hs₃
+                            htargs hdenb hwwtb.getAppArgs hwb
                       obtain rfl : r₂ = r₂' := hPr₂
                       cases r₂ with
                       | false =>

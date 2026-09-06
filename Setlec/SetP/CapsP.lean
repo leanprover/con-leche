@@ -185,7 +185,7 @@ theorem etaFamilyStored_not_derivable :
   · intro c hc
     rcases List.mem_singleton.mp hc with rfl
     exact ⟨rfl, rfl, rfl, rfl, by rintro _ _ _ ⟨⟩,
-      by rintro _ _ _ _ ⟨⟩, by rintro _ _ ⟨⟩⟩
+      by rintro _ _ _ _ ⟨⟩, by rintro _ _ ⟨⟩, by rintro _ ⟨⟩⟩
   · rintro ⟨-, ⟨cvC, hfC⟩, -⟩
     exact nomatch hfC
 

@@ -1,4 +1,4 @@
-import Setlec.SetP.Direct.DirectEntryFramesP
+import Setlec.SetP.Direct.DirectBodyFramesP
 
 /-!
 # The projection entry's law (task #175 W4c, P3 module 7, part 5)
@@ -7,10 +7,13 @@ The three clauses of `TowerEntryLawP`, semantically (at one
 assignment, over the block's data alone):
 
 * **(A) the typing law** (`entryTypingCore`): a member of the family
-  instance projects into the entry type's residual at the parameters
-  and the member — the graph regime by the tower's projection
-  membership, the squash regime by the point's membership in the
-  proof field at the point prefix (the coarse guard's content);
+  instance projects into the body's residual at the parameters and
+  the member — the graph regime by the tower's projection membership,
+  the squash regime by the point's membership in the proof field at
+  the point prefix (the coarse guard's content).  The residual's
+  facts are premised on the **frame** (the subject a member of the
+  family at the parameters; task #175 S1: the body is read under
+  dummy binders, so no binder context is available to satisfy);
 * **(B) the iota law** (`entryIotaCore`): the projection of a graded
   constructor application is the selected field — the application's
   grading fits the constructor leaf, whose fold is the tupler;
@@ -18,8 +21,8 @@ assignment, over the block's data alone):
   the parameters and its own projections (`towerSet_elim`), the point
   at squash.
 
-`entryLawP` assembles them into `TowerEntryLawP` at the entry's own
-extension.
+`stageTable` (`DirectStageTableP.lean`) assembles them into
+`TowerEntryLawP` at the table's extension.
 -/
 
 namespace Setlec.SetP
@@ -56,17 +59,16 @@ theorem entryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AVEx
     (hfree : ∀ j, j < i → used j = false →
       ∃ X : AVExpr, ((ds.drop nP).map (·.2.2)).getD i default = X.liftN 1 (i - 1 - j))
     (hi : i < nF)
-    (hiffP : ∀ i', i' ≤ nP → ∀ ρ : Nat → V,
-      Sat2 V (((eds.map (·.2.2)).reverse).drop (nP + 1 - i')) ρ ↔
-      Sat2 V ((((ds.take nP).map (·.2.2)).reverse).drop (nP - i')) ρ)
-    (hsubj : ∀ ρ : Nat → V, Sat2 V (((eds.map (·.2.2)).reverse).drop 1) ρ →
-      interp2 V ρ (((eds.map (·.2.2)).reverse).getD 0 default)
-        = towerSet w (teleOfFields ρ ((ds.drop nP).map (·.2.2))))
-    (hres : ∀ ρ : Nat → V, Sat2 V ((eds.map (·.2.2)).reverse) ρ →
+    (hres : ∀ ρ : Nat → V,
+      ρ 0 ∈ˢ towerSet w (teleOfFields (fun j => ρ (j + 1)) ((ds.drop nP).map (·.2.2))) →
+      Sat2 V ((ds.take nP).map (·.2.2)).reverse (fun j => ρ (j + 1)) →
       interp2 V ρ R
         = interp2 V (consList (projList i (ρ 0)) (fun j => ρ (j + 1)))
             (((ds.drop nP).map (·.2.2)).getD i default))
-    (hokR : ∀ ρ : Nat → V, Sat2 V ((eds.map (·.2.2)).reverse) ρ → AnnotOkP V ρ R) :
+    (hokR : ∀ ρ : Nat → V,
+      ρ 0 ∈ˢ towerSet w (teleOfFields (fun j => ρ (j + 1)) ((ds.drop nP).map (·.2.2))) →
+      Sat2 V ((ds.take nP).map (·.2.2)).reverse (fun j => ρ (j + 1)) →
+      AnnotOkP V ρ R) :
     ∀ (ρ : Nat → V) (vs : List AVExpr) (x rest : AVExpr),
       vs.length = nP →
       AnnotOkP V ρ (AVExpr.mkAppN (directTyAV w pps ((ds.drop nP).map (·.2.2))) vs) →
@@ -78,7 +80,6 @@ theorem entryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AVEx
         interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest := by
   intro ρ vs x rest hlenVs hokApp hokx hmem hpeel
   have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
-  have hlenΓ : ((eds.map (·.2.2)).reverse).length = nP + 1 := by simp [hlenEds]
   -- the parameter fit
   have hsp : SpineFit ρ (pps.map (·.2.2)) (vs.map (interp2 V ρ)) := by
     have h := spineFit_of_okP_mkAppN_lam (lds := pps.map fun d => (w + 1, d.2.2))
@@ -98,18 +99,16 @@ theorem entryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AVEx
   have hsatC : Sat2 V ((ds.take nP).map (·.2.2)).reverse (consList (vs.map (interp2 V ρ)) ρ) := by
     have := sat2_of_spineFit (Δ₀ := []) (Sat2_nil V ρ) hspC
     rwa [List.append_nil] at this
-  have hsatΓ1 : Sat2 V (((eds.map (·.2.2)).reverse).drop 1) (consList (vs.map (interp2 V ρ)) ρ) := by
-    have h := (hiffP nP (Nat.le_refl _) _).mpr (by rw [Nat.sub_self, List.drop_zero]; exact hsatC)
-    rwa [show nP + 1 - nP = 1 from by omega] at h
-  have hΓsplit : (eds.map (·.2.2)).reverse
-      = ((eds.map (·.2.2)).reverse).getD 0 default :: ((eds.map (·.2.2)).reverse).drop 1 := by
-    have := drop_succ_eq_getD_cons (Γ := (eds.map (·.2.2)).reverse) (n := nP + 1) (i := nP)
-      hlenΓ (by omega)
-    rwa [Nat.sub_self, List.drop_zero, show nP + 1 - 1 - nP = 0 from by omega,
-      show nP + 1 - nP = 1 from by omega] at this
-  have hsatΓ : Sat2 V ((eds.map (·.2.2)).reverse) (cons (interp2 V ρ x) (consList (vs.map (interp2 V ρ)) ρ)) := by
-    rw [hΓsplit]
-    exact Sat2_cons V hsatΓ1 (by rw [hsubj _ hsatΓ1]; exact hx)
+  -- the frame at the subject's chain
+  have hchain : chainP V ρ (vs ++ [x]) = cons (interp2 V ρ x) (consList (vs.map (interp2 V ρ)) ρ) := by
+    unfold chainP
+    rw [consN_eq_consList, List.map_append, consList_append]
+    rfl
+  have hframeX : (cons (interp2 V ρ x) (consList (vs.map (interp2 V ρ)) ρ)) 0 ∈ˢ towerSet w
+      (teleOfFields (fun j => (cons (interp2 V ρ x) (consList (vs.map (interp2 V ρ)) ρ)) (j + 1))
+        ((ds.drop nP).map (·.2.2))) := hx
+  have hframeS : Sat2 V ((ds.take nP).map (·.2.2)).reverse
+      (fun j => (cons (interp2 V ρ x) (consList (vs.map (interp2 V ρ)) ρ)) (j + 1)) := hsatC
   -- the residual
   have hrest : rest = Setlec.SetP.AVExpr.instSeq (vs ++ [x]) nP R := by
     have h := peelPis_of_piTeleP (nP + 1) (by rw [← hlenEds]; exact piTeleP_mkPisAV eds R)
@@ -117,18 +116,14 @@ theorem entryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AVEx
     rw [hpeel] at h
     have := Option.some.inj h
     rwa [Nat.add_sub_cancel] at this
-  have hchain : chainP V ρ (vs ++ [x]) = cons (interp2 V ρ x) (consList (vs.map (interp2 V ρ)) ρ) := by
-    unfold chainP
-    rw [consN_eq_consList, List.map_append, consList_append]
-    rfl
   have hlen' : Setlec.SetP.AVExpr.instSeq (vs ++ [x]) nP R
       = Setlec.SetP.AVExpr.instSeq (vs ++ [x]) ((vs ++ [x]).length - 1) R := by
     simp [hlenVs]
   have hinterpRest : interp2 V ρ rest
       = interp2 V (consList (projList i (interp2 V ρ x)) (consList (vs.map (interp2 V ρ)) ρ))
           (((ds.drop nP).map (·.2.2)).getD i default) := by
-    rw [hrest, hlen', interp2_instSeq, hchain, hres _ hsatΓ]
-    congr 1
+    rw [hrest, hlen', interp2_instSeq, hchain, hres _ hframeX hframeS]
+    rfl
   refine ⟨?_, ?_, ?_⟩
   · -- the projection's grading
     refine ⟨?_, projAV_validV hokx.2⟩
@@ -144,7 +139,7 @@ theorem entryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AVEx
       rcases List.mem_append.mp hw' with h | h
       · exact AnnotOkP_mkAppN_args vs hokApp w' h
       · rw [List.mem_singleton] at h; subst h; exact hokx
-    · rw [hchain]; exact hokR _ hsatΓ
+    · rw [hchain]; exact hokR _ hframeX hframeS
   · -- the membership
     rw [hinterpRest, projAV_interp]
     by_cases hw : w = 0

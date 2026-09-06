@@ -114,8 +114,17 @@ private theorem constWF_intro' {env : Env} {c : ConstantInfo}
       value.constsResolve env = true ∧
       value.looseBVarsBounded 0 = true := by
         intro cv value h
+        exact ConstantInfo.noConfusion h)
+    (h8 : ∀ tbl, c = .projInfo tbl →
+      tbl.bodies.size = tbl.numFields ∧
+      ∀ (i : Nat) (b : Expr), tbl.bodies[i]? = some b →
+        b.hasFvar = false ∧
+        b.allLevelParamsDefined tbl.levelParams = true ∧
+        b.constsResolve env = true ∧
+        b.looseBVarsBounded (tbl.numParams + 1) = true := by
+        intro tbl h
         exact ConstantInfo.noConfusion h) :
-    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h7⟩
+    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
 
 /-- The four `ConstWF` type-slot facts of a checked constant. -/
 private theorem cvA_type_facts' {env : Env} {cv cvA : ConstantVal}
@@ -302,11 +311,16 @@ private theorem constWF_le' {envA envB : Env}
     (hle : ∀ n, (envA.find? n).isSome = true →
       (envB.find? n).isSome = true)
     {c : ConstantInfo} (h : ConstWF envA c) : ConstWF envB c := by
-  obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := h
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
   refine ⟨h1, h2, Expr.constsResolve_le hle h3, h4, ?_, ?_,
     fun cv value heq =>
       let ⟨g1, g2, g3, g4⟩ := h7 cv value heq
-      ⟨g1, g2, Expr.constsResolve_le hle g3, g4⟩⟩
+      ⟨g1, g2, Expr.constsResolve_le hle g3, g4⟩,
+    fun tbl heq =>
+      let ⟨hs, hb⟩ := h8 tbl heq
+      ⟨hs, fun i b hbi =>
+        let ⟨g1, g2, g3, g4⟩ := hb i b hbi
+        ⟨g1, g2, Expr.constsResolve_le hle g3, g4⟩⟩⟩
   · intro cv v hint heq
     obtain ⟨g1, g2, g3, g4⟩ := h5 cv v hint heq
     exact ⟨g1, g2, Expr.constsResolve_le hle g3, g4⟩
@@ -752,26 +766,19 @@ theorem foldProjFnS_run {T ctorName : Name} {lps : List Name}
     rw [List.foldlM_cons]
     exact atF_bind_intro hF₁ hF₂
 
-/-- One template install step (operation-free; state unchanged; the
-comparand computed at the `CheckM` instantiation). -/
-theorem installProjTemplateStepS_run {env : Env}
-    {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
+/-- The template install (operation-free; state unchanged; the
+comparand computed at the `CheckM` instantiation; task #175 S1: one
+inert table per family). -/
+theorem installProjTemplateS_run {env : Env}
+    {T ctorName : Name} {lps : List Name} {nP nF : Nat}
     {s₀ : CState} {fe' : FEnv} {s' : CState}
-    (h : installProjTemplateStepS T ctorName lps nP nF (mkFEnv env) i
+    (h : installProjTemplateS (mkFEnv env) T ctorName lps nP nF
       s₀ = .ok (fe', s')) :
     s₀ = s' ∧ fe' = mkFEnv fe'.env ∧
-    (installProjTemplateStep T ctorName lps nP nF env i :
-      CheckM Env) = .ok fe'.env := by
-  unfold installProjTemplateStepS installProjTemplateS at h
-  unfold installProjTemplateStep installProjTemplate
+    (installProjTemplate env T ctorName lps nP nF : CheckM Env) = .ok fe'.env := by
+  unfold installProjTemplateS at h
+  unfold installProjTemplate
   simp only [mkFEnv_find?] at h
-  by_cases hfn : (env.find? (projFnName T i)).isNone = true
-  case neg =>
-    rw [if_neg hfn] at h ⊢
-    obtain ⟨hfe, rfl⟩ := pureC_ok h
-    subst hfe
-    exact ⟨rfl, rfl, rfl⟩
-  rw [if_pos hfn] at h ⊢
   cases hrec : env.find? (T.str "rec") with
   | none =>
     rw [hrec] at h
@@ -781,36 +788,32 @@ theorem installProjTemplateStepS_run {env : Env}
   | some ci =>
     rw [hrec] at h
     cases ci with
-    | recInfo cvR mI rP rules =>
+    | recInfo cv mI rP rules =>
       cases rules with
       | nil =>
         obtain ⟨hfe, rfl⟩ := pureC_ok h
         subst hfe
         exact ⟨rfl, rfl, rfl⟩
-      | cons rule rules' =>
-        cases rules' with
+      | cons r rest =>
+        cases rest with
         | cons _ _ =>
           obtain ⟨hfe, rfl⟩ := pureC_ok h
           subst hfe
           exact ⟨rfl, rfl, rfl⟩
         | nil =>
           dsimp only at h ⊢
-          by_cases hcond : (env.find? (projFnName T i)).isNone =
-              true ∧ mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧
-              i < nF
-          · rw [if_pos hcond] at h ⊢
+          split at h
+          · next hc =>
+            rw [if_pos hc]
             obtain ⟨hfe, rfl⟩ := pureC_ok h
             subst hfe
-            exact ⟨rfl, rfl, rfl⟩
-          · rw [if_neg hcond] at h ⊢
+            exact ⟨rfl, by rw [push_mkFEnv]; rfl, by rw [push_mkFEnv]; rfl⟩
+          · next hc =>
+            rw [if_neg hc]
             obtain ⟨hfe, rfl⟩ := pureC_ok h
             subst hfe
             exact ⟨rfl, rfl, rfl⟩
     | axiomInfo cv =>
-      obtain ⟨hfe, rfl⟩ := pureC_ok h
-      subst hfe
-      exact ⟨rfl, rfl, rfl⟩
-    | projInfo e =>
       obtain ⟨hfe, rfl⟩ := pureC_ok h
       subst hfe
       exact ⟨rfl, rfl, rfl⟩
@@ -830,41 +833,9 @@ theorem installProjTemplateStepS_run {env : Env}
       obtain ⟨hfe, rfl⟩ := pureC_ok h
       subst hfe
       exact ⟨rfl, rfl, rfl⟩
-
-/-- The template-phase fold. -/
-theorem foldProjTemplatesS_run {T ctorName : Name} {lps : List Name}
-    {nP nF : Nat} :
-    ∀ (idxs : List Nat) (env : Env) {s₀ : CState} {fe' : FEnv}
-      {s' : CState},
-      (idxs.foldlM (installProjTemplateStepS T ctorName lps nP nF)
-        (mkFEnv env)) s₀ = .ok (fe', s') →
-      s₀ = s' ∧ fe' = mkFEnv fe'.env ∧
-      ∃ F, (idxs.foldlM (fun (e : Env) (i : Nat) =>
-        (installProjTemplateStep T ctorName lps nP nF e i :
-          FueledM Env)) env).val F = .ok fe'.env
-  | [], env, s₀, fe', s', h => by
-    obtain ⟨hfe, rfl⟩ := pureC_ok h
-    subst hfe
-    exact ⟨rfl, rfl, 0, rfl⟩
-  | i :: idxs, env, s₀, fe', s', h => by
-    rw [List.foldlM_cons] at h
-    obtain ⟨fe₁, s₁, hstep, h⟩ := bindC_ok h
-    obtain ⟨hs01, hfe₁, hpure⟩ := installProjTemplateStepS_run hstep
-    rw [hfe₁] at h
-    obtain ⟨hs1', hfe', F₂, hF₂⟩ := foldProjTemplatesS_run idxs fe₁.env h
-    have hstepF : (installProjTemplateStep T ctorName lps nP nF env i :
-        FueledM Env).val F₂ = .ok fe₁.env := by
-      rw [installProjTemplateStep_datF]
-      exact hpure
-    refine ⟨hs01.trans hs1', hfe', F₂, ?_⟩
-    rw [List.foldlM_cons]
-    have := atF_bind_intro
-      (x := (installProjTemplateStep T ctorName lps nP nF env i :
-        FueledM Env))
-      (g := fun e => idxs.foldlM (fun (e : Env) (i : Nat) =>
-        (installProjTemplateStep T ctorName lps nP nF e i :
-          FueledM Env)) e)
-      hstepF hF₂
-    simpa [Nat.max_self] using this
+    | projInfo tbl =>
+      obtain ⟨hfe, rfl⟩ := pureC_ok h
+      subst hfe
+      exact ⟨rfl, rfl, rfl⟩
 
 end Setlec.Cached

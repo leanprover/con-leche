@@ -295,7 +295,7 @@ theorem ofReduce_memP (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   have hEmem : interp2 V ρ (mp.base2.acval
       (Setlec.reduceElemName (Setlec.ofReduceOp cvA.name)) ψ)
       ∈ˢ (univ 1 : V) := by
-    have h := mp.mem_typeP ciE (Setlec.Semantics.Env.find?_mem hfE) (mp.notTower_of_atom (Setlec.Semantics.Env.find?_mem hfE) (by rw [htyE]; rfl)) ψ
+    have h := mp.mem_typeP ciE (Setlec.Semantics.Env.find?_mem hfE) ψ
       (.sort 1) (by rw [htyE, denoteP_sort]; rfl) ρ
     rwa [Setlec.Semantics.Env.find?_name hfE, interp2_sort] at h
   -- three `Prop`-level products, all `pt`-inhabited
@@ -342,10 +342,11 @@ theorem axiomOfReduceP (hμ : μ.verified = true)
   have hwfc : Setlec.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts⟩ := by
     refine Setlec.EnvWF.cons mp.base2.wf
-      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_⟩
+      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_, ?_⟩
     · intro cv2 value2 hint2 heq; exact nomatch heq
     · intro cv2 mI rP rules heq; exact nomatch heq
     · intro cv2 value2 heq; exact nomatch heq
+    · intro tbl heq; exact nomatch heq
   refine harvestAxiomP (V := V) hμ mp hcv
     (A := fun _ => AVExpr.prf) (fun _ => trivial)
     (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ => by simp)

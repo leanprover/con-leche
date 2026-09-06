@@ -123,32 +123,16 @@ theorem checkDirectCtorF_pushC (ops : CheckerOps CheckCM) (env₀ env : Env)
     checkDirectFieldSortsF_eq, constsResolveF_eq, mkFEnv_env, push_mkFEnv,
     bind_assoc, pure_bind, ite_bindC, throwC_bind_eq] <;> rfl
 
-theorem checkDirectProjEntryF_pushC (ops : CheckerOps CheckCM) (T C : Name)
-    (lps : List Name) (nP nF : Nat) (rs guard : Level) (cvCa : ConstantVal)
-    (pty : Expr) (env : Env) (i : Nat) :
-    checkDirectProjEntryF ops T C lps nP nF rs guard cvCa pty (mkFEnv env) i
-      = checkDirectProjEntry ops T C lps nP nF rs guard cvCa pty env i
+/-- The projection table through the index (task #175 S1). -/
+theorem checkDirectProjTableF_pushC (T C : Name) (lps : List Name)
+    (nP nF : Nat) (rs : Level) (guards : List Level) (cvCa : ConstantVal)
+    (env : Env) :
+    checkDirectProjTableF (m := CheckCM) T C lps nP nF rs guards cvCa (mkFEnv env)
+      = checkDirectProjTable (m := CheckCM) T C lps nP nF rs guards cvCa env
           >>= fun e => pure (mkFEnv e) := by
-  unfold checkDirectProjEntryF checkDirectProjEntry
-  simp only [constsResolveF_eq, mkFEnv_find?, mkFEnv_env, openPisAtFvarsF_eq,
-    instPisAtF_eq, checkDirectDomsAtF_eq, push_mkFEnv, bind_assoc, pure_bind, ite_bindC,
-    throwC_bind_eq] <;> rfl
-
-/-- The projection slot through the index, at the incremental residual
-(`directProjTyR_residP` identifies the slot type with the generator's). -/
-theorem checkDirectProjF_pushC (ops : CheckerOps CheckCM) (T C : Name)
-    (lps : List Name) (nP nF : Nat) (rs : Level) (slots : List Bool)
-    (guards : List Level) (cvTa cvCa : ConstantVal) (env : Env) (i : Nat) :
-    checkDirectProjF ops T C lps nP nF rs slots guards cvTa cvCa
-        (directProjResidP T nP cvCa.type i) (mkFEnv env) i
-      = checkDirectProj ops T C lps nP nF rs slots guards cvTa cvCa env i
-          >>= fun e => pure (mkFEnv e) := by
-  unfold checkDirectProjF checkDirectProj
-  rw [directProjTyR_residP]
-  split
-  · simp only [checkDirectProjEntryF_pushC, bind_assoc, ite_bindC, mkFEnv_find?,
-      push_mkFEnv, pure_bind, throwC_bind_eq]
-  · simp only [pure_bind]
+  unfold checkDirectProjTableF checkDirectProjTable
+  simp only [constsResolveF_eq, mkFEnv_find?, push_mkFEnv, bind_assoc, pure_bind,
+    ite_bindC, throwC_bind_eq] <;> rfl
 
 /-- The non-inductive branches of the cached `checkDeclSF` are the
 generic `checkDecl` (at the cached shared operations) followed by
@@ -292,48 +276,53 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
 bridge restored at task #175 W4c, the direct install being the only
 projection route) -/
 
-/-- The projection-install fold of the cached driver, run-level (one
-flush per field; the residual accumulator is the incremental
-constructor-telescope peel, which reads each slot's type as the
-generator does — `directProjTyR_residP`). -/
-theorem checkDirectProjsS_run {T C : Name} {lps : List Name} {nP nF : Nat}
-    {rs : Level} {slots : List Bool} {guards : List Level}
-    {cvTa cvCa : ConstantVal} (hCf : cvCa.type.hasFvar = false) :
-    ∀ (todo i : Nat) (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState},
-      EnvWF env → CSOKF s₀ →
-      checkDirectProjsS mode T C lps nP nF rs slots guards cvTa cvCa todo i
-        (directProjResidP T nP cvCa.type i) (mkFEnv env) s₀ = .ok (fe', s') →
-      CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
-      ∃ F, ((List.range' i todo).foldlM
-        (checkDirectProj (fueledOpsM mode) T C lps nP nF rs slots guards
-          cvTa cvCa) env).val F = .ok fe'.env
-  | 0, i, env, s₀, fe', s', henv, hwf, h => by
-    obtain ⟨hfe, rfl⟩ := pureC_ok h
-    subst hfe
-    exact ⟨hwf, rfl, henv, 0, rfl⟩
-  | todo + 1, i, env, s₀, fe', s', henv, hwf, h => by
-    unfold checkDirectProjsS at h
-    obtain ⟨u, sf, hflush, h⟩ := bindC_ok h
-    rw [flushC_run] at hflush
-    injection hflush with hflush
-    obtain rfl : s₀.flushed = sf := congrArg Prod.snd hflush
-    rw [checkDirectProjF_pushC] at h
-    obtain ⟨fe₁, s₁, hstep, h⟩ := bindC_ok h
-    obtain ⟨e₁, s₂, hpj, hstep⟩ := bindC_ok hstep
-    obtain ⟨hs₂, e₁', hP, F₁, hF₁⟩ :=
-      (checkDirectProjS_sim henv hCf (flushC_csok hwf)) e₁ s₂ hpj
-    obtain rfl : e₁ = e₁' := hP
-    obtain ⟨hfe₁, rfl⟩ := pureC_ok hstep
-    subst hfe₁
-    have hF₁p : checkDirectProj (fueledOps mode F₁) T C lps nP nF rs slots
-        guards cvTa cvCa env i = .ok e₁ := by
-      rw [← checkDirectProj_datF]; exact hF₁
-    obtain ⟨hwf', hfe', henv', F₂, hF₂⟩ :=
-      checkDirectProjsS_run hCf todo (i + 1) e₁ (direct_proj_wf henv hF₁p)
-        hs₂.residue h
-    refine ⟨hwf', hfe', henv', max F₁ F₂, ?_⟩
-    rw [List.range'_succ, List.foldlM_cons]
-    exact atF_bind_intro hF₁ hF₂
+/-- The projection-table stage of the cached driver, run-level (task
+#175 S1): operation-free, the state is unchanged, the environment is
+the pure stage's. -/
+theorem checkDirectProjTableS_run {T C : Name} {lps : List Name} {nP nF : Nat}
+    {rs : Level} {guards : List Level} {cvCa : ConstantVal}
+    (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState}
+    (henv : EnvWF env) (hwf : CSOKF s₀)
+    (h : checkDirectProjTableF (m := CheckCM) T C lps nP nF rs guards cvCa
+      (mkFEnv env) s₀ = .ok (fe', s')) :
+    CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+    ∃ F, (checkDirectProjTable T C lps nP nF rs guards cvCa env : FueledM Env).val F
+      = .ok fe'.env := by
+  rw [checkDirectProjTableF_pushC] at h
+  obtain ⟨e₁, s₁, hstep, h⟩ := bindC_ok h
+  obtain ⟨hfe, rfl⟩ := pureC_ok h
+  subst hfe
+  -- the pure stage in the cached monad: state unchanged, the value the
+  -- `CheckM` instantiation's
+  have hrun : s₀ = s₁ ∧ checkDirectProjTable (m := CheckM) T C lps nP nF rs guards cvCa env
+      = .ok e₁ := by
+    unfold checkDirectProjTable at hstep ⊢
+    cases hb : directProjBodies T nP nF cvCa.type with
+    | none =>
+      try rw [hb] at hstep
+      exact absurd hstep throwC_bind_ok
+    | some bodies =>
+      try rw [hb] at hstep
+      simp only [unwrapOr, pure_bind] at hstep ⊢
+      split at hstep
+      · next hg =>
+        rw [if_pos hg]
+        split at hstep
+        · next hfam =>
+          rw [if_pos hfam]
+          split at hstep
+          · next hn =>
+            rw [if_pos hn]
+            obtain ⟨hfe, rfl⟩ := pureC_ok hstep
+            subst hfe
+            exact ⟨rfl, rfl⟩
+          · exact absurd hstep throwC_bind_ok
+        · exact absurd hstep throwC_bind_ok
+      · exact absurd hstep throwC_bind_ok
+  obtain ⟨rfl, hpure⟩ := hrun
+  refine ⟨hwf, rfl, direct_table_wf henv hpure, 0, ?_⟩
+  rw [checkDirectProjTable_datF]
+  exact hpure
 
 set_option maxHeartbeats 1600000 in
 /-- The direct simple-structure install at the cached driver is
@@ -406,25 +395,13 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
       = .ok rhsA := by
     rw [← checkDirectRule_datF]; exact hF₅
   have henv₃ := direct_rec_wf henv₂ hF₃p hF₅p
-  -- the projection phase
+  -- the projection table (task #175 S1)
   rw [push_mkFEnv] at h
-  simp only [mkFEnv_find?] at h
-  by_cases hguard : (List.range p.nF).all (fun j =>
-      (Env.find? ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
-        [⟨p.cvC.name, p.nF, p.nP,
-          if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-            .plain else .inert, rhsA⟩] :: env₂.consts⟩
-        (projFnName p.cvT.name j)).isNone) = true
-  case neg =>
-    rw [if_neg hguard] at h
-    exact absurd h throwC_bind_ok
-  rw [if_pos hguard] at h
   obtain ⟨hwfO, hfeO, henvO, F₆, hF₆⟩ :=
-    checkDirectProjsS_run (T := p.cvT.name) (C := p.cvC.name)
+    checkDirectProjTableS_run (T := p.cvT.name) (C := p.cvC.name)
       (lps := p.cvT.levelParams) (nP := p.nP) (nF := p.nF) (rs := p.resSort)
-      (slots := directProjSlots p)
       (guards := directProjGuards cvCa.type p.nP p.nF sorts)
-      (cvTa := cvTa) (cvCa := cvCa) hCf p.nF 0 _ henv₃ hs₅.residue h
+      (cvCa := cvCa) _ henv₃ hs₅.residue h
   obtain ⟨G, hle₁, hle₂, hle₃, hle₄, hle₅, hle₆⟩ :
       ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G ∧ F₅ ≤ G ∧ F₆ ≤ G :=
     ⟨max F₁ (max F₂ (max F₃ (max F₄ (max F₅ F₆)))),
@@ -442,17 +419,14 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
     rw [← checkDirectRecTy_datF]; exact FueledM.up hle₄ hF₄
   have g₅ : checkDirectRule (fueledOps mode G) env₂ p cvCa cvRa = .ok rhsA := by
     rw [← checkDirectRule_datF]; exact FueledM.up hle₅ hF₅
-  have g₆ : (List.range p.nF).foldlM
-      (checkDirectProj (fueledOps mode G) p.cvT.name p.cvC.name
-        p.cvT.levelParams p.nP p.nF p.resSort (directProjSlots p)
-        (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa)
+  have g₆ : checkDirectProjTable (m := CheckM) p.cvT.name p.cvC.name
+      p.cvT.levelParams p.nP p.nF p.resSort
+      (directProjGuards cvCa.type p.nP p.nF sorts) cvCa
       ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
             .plain else .inert, rhsA⟩] :: env₂.consts⟩ = .ok feOut.env := by
-    have := FueledM.up hle₆ hF₆
-    rw [foldlM_atF, ← List.range_eq_range'] at this
-    simpa only [checkDirectProj_datF] using this
+    rw [← checkDirectProjTable_datF]; exact FueledM.up hle₆ hF₆
   simp only [checkDirectStruct, Bind.bind, Except.bind, pure, Except.pure]
   rw [g₁]
   simp only [Except.bind]
@@ -464,7 +438,6 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
   simp only [Except.bind]
   rw [g₅]
   simp only [Except.bind]
-  rw [if_pos hguard]
   exact g₆
 
 /-- The inductive block at the cached driver is reproduced by the
@@ -519,35 +492,26 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
     obtain ⟨hwf₄, hfe₄, henv₄, F₃, hF₃⟩ :=
       foldProjFnS_run _ fe₃.env henv₃ hwf₃ hart
     rw [hfe₄] at h
-    obtain ⟨hs4', hfeOut, F₄, hF₄⟩ := foldProjTemplatesS_run _ fe₄.env h
+    obtain ⟨hs4', hfeOut, hF₄p'⟩ := installProjTemplateS_run h
     refine ⟨hs4' ▸ hwf₄, hfeOut,
-      max F₁ (max F₂ (max F₃ F₄)), ?_⟩
-    have hF₁p := FueledM.up (Nat.le_max_left F₁ (max F₂ (max F₃ F₄))) hF₁
+      max F₁ (max F₂ F₃), ?_⟩
+    have hF₁p := FueledM.up (Nat.le_max_left F₁ (max F₂ F₃)) hF₁
     rw [foldlM_atF] at hF₁p
     simp only [checkIndMember_datF] at hF₁p
-    have hF₂p := FueledM.up (Nat.le_trans (Nat.le_max_left F₂ (max F₃ F₄))
-      (Nat.le_max_right F₁ (max F₂ (max F₃ F₄)))) hF₂
+    have hF₂p := FueledM.up (Nat.le_trans (Nat.le_max_left F₂ F₃)
+      (Nat.le_max_right F₁ (max F₂ F₃))) hF₂
     rw [checkIndRecs_datF] at hF₂p
-    have hF₃p := FueledM.up (Nat.le_trans (Nat.le_max_left F₃ F₄)
-      (Nat.le_trans (Nat.le_max_right F₂ (max F₃ F₄))
-        (Nat.le_max_right F₁ (max F₂ (max F₃ F₄))))) hF₃
+    have hF₃p := FueledM.up (Nat.le_trans (Nat.le_max_right F₂ F₃)
+      (Nat.le_max_right F₁ (max F₂ F₃))) hF₃
     rw [foldlM_atF] at hF₃p
     simp only [installProjFnStep_datF] at hF₃p
-    have hF₄p := FueledM.up (Nat.le_trans (Nat.le_max_right F₃ F₄)
-      (Nat.le_trans (Nat.le_max_right F₂ (max F₃ F₄))
-        (Nat.le_max_right F₁ (max F₂ (max F₃ F₄))))) hF₄
-    rw [foldlM_atF] at hF₄p
-    simp only [installProjTemplateStep_datF] at hF₄p
     have hF₁p' : List.foldlM (checkIndMember
-        (fueledOps mode (max F₁ (max F₂ (max F₃ F₄))))
+        (fueledOps mode (max F₁ (max F₂ F₃)))
         (block.map (·.name)) caps) env _ = .ok fe₂.env := hF₁p
     have hF₃p' : List.foldlM (installProjFnStep mode
-        (fueledOps mode (max F₁ (max F₂ (max F₃ F₄))))
+        (fueledOps mode (max F₁ (max F₂ F₃)))
         cvT.name cvC.name cvT.levelParams nP nF) fe₃.env _ =
         .ok fe₄.env := hF₃p
-    have hF₄p' : List.foldlM (installProjTemplateStep cvT.name cvC.name
-        cvT.levelParams nP nF : Env → Nat → CheckM Env) fe₄.env _ =
-        .ok feOut.env := hF₄p
     simp only [checkIndDecl]
     split
     case isFalse hgs => exact absurd hsplit hgs

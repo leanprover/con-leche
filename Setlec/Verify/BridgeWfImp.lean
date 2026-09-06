@@ -1985,15 +1985,13 @@ theorem installProjFnStep_wfimp {e : Env} (he : EnvWF e)
     simp only [FueledM.atF_pure] at h
     exact h ▸ rfl
 
-/-- The template-install step, `wfOpsM mode` run to pure run (the step is
+/-- The template install, `wfOpsM mode` run to pure run (the stage is
 ops-free, so the runs coincide). -/
-theorem installProjTemplateStep_wfimp {T ctorName : Name}
-    {lps : List Name} {nP nF : Nat} {e e' : Env} {i F : Nat}
-    (h : (installProjTemplateStep T ctorName lps nP nF e i :
-      FueledM _).val F = .ok e') :
-    (installProjTemplateStep T ctorName lps nP nF e i : CheckM _)
-      = .ok e' := by
-  rw [installProjTemplateStep_datF] at h
+theorem installProjTemplate_wfimp {T ctorName : Name}
+    {lps : List Name} {nP nF : Nat} {e e' : Env} {F : Nat}
+    (h : (installProjTemplate e T ctorName lps nP nF : FueledM _).val F = .ok e') :
+    (installProjTemplate e T ctorName lps nP nF : CheckM _) = .ok e' := by
+  rw [installProjTemplate_datF] at h
   exact h
 
 /-! ## Scoping of the structural-Nat certification equations -/
@@ -3023,291 +3021,17 @@ theorem checkDirectRule_wfimp {env : Env} (henv : EnvWF env)
   exact ⟨h, hfv, hlp, hres, hlb⟩
 
 set_option maxHeartbeats 6400000 in
-/-- The projection-entry install of the direct path, `wfOpsM mode` run to
-pure run.  The generated projection type is checked closed by the
-checker's own guard before it is annotated, and the annotated type's
-own guard supplies what `checkProjShape` needs. -/
-theorem checkDirectProjEntry_wfimp {env : Env} (henv : EnvWF env)
-    {T C : Name} {lps : List Name} {nP nF i F : Nat} {rs guard : Level}
-    {cvCa : ConstantVal} {pty : Expr} {v : Env}
-    (hCf : cvCa.type.hasFvar = false)
-    (_hCb : cvCa.type.looseBVarsBounded 0 = true)
-    (h : (checkDirectProjEntry (wfOpsM mode) T C lps nP nF rs guard cvCa
-        pty env i).val F = .ok v) :
-    checkDirectProjEntry (fueledOps mode F) T C lps nP nF rs guard cvCa pty
-      env i = .ok v := by
-  unfold checkDirectProjEntry at h ⊢
-  by_cases h0 : (!pty.hasFvar && Expr.looseBVarsBounded 0 pty) = true
-  case neg => rw [if_neg h0] at h; exact absurd h atF_throw_bind
-  rw [if_pos h0] at h ⊢
-  dsimp only at h ⊢
-  have hptyf : pty.hasFvar = false := by
-    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h0
-    exact h0.1
-  have hptyσf : (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)).hasFvar
-      = false := by
-    rw [hasFvar_instantiateLevelParams]; exact hptyf
-  have hCfσ : ((cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard))).hasFvar
-      = false := by
-    rw [hasFvar_instantiateLevelParams]; exact hCf
-  rw [wfOpsM_annotate henv (wscopedB_of_not_hasFvar hptyσf)] at h
-  obtain ⟨ptyA, hann, h⟩ := atF_bind_ok h
-  have hann' : (fueledOps mode F).annotate env 0
-      (pty.instantiateLevelParams lps (directGuardSigma rs lps guard)) = .ok ptyA := hann
-  rw [hann']
-  simp only [Bind.bind, Except.bind]
-  by_cases h1 : (Expr.allLevelParamsDefined lps ptyA &&
-      Expr.constsResolve env ptyA && Expr.looseBVarsBounded 0 ptyA &&
-      !ptyA.hasFvar) = true
-  case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
-  rw [if_pos h1] at h ⊢
-  obtain ⟨hAf, hAb⟩ : ptyA.hasFvar = false ∧
-      Expr.looseBVarsBounded 0 ptyA = true := by
-    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h1
-    exact ⟨h1.2, h1.1.2⟩
-  by_cases h2 : (ptyA.stripPis (nP + 1)).isSome = true
-  case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
-  rw [if_pos h2] at h ⊢
-  rw [wfOpsM_inferType henv (wscopedB_of_not_hasFvar hAf)] at h
-  obtain ⟨sty, hity, h⟩ := atF_bind_ok h
-  have hity' : (fueledOps mode F).inferType env 0 ptyA = .ok sty := hity
-  rw [hity']
-  simp only [Bind.bind, Except.bind]
-  have hstyW : WScoped 0 sty :=
-    inferTypeCore_WScoped henv F hity (WScoped.of_not_hasFvar hAf)
-  rw [wfOpsM_ensureSort henv hstyW.to_wscopedB] at h
-  obtain ⟨u, hu, h⟩ := atF_bind_ok h
-  have hu' : (fueledOps mode F).ensureSort env 0 sty = .ok u := hu
-  rw [hu']
-  simp only [Bind.bind, Except.bind]
-  by_cases h3 : (env.find? (projFnName T i)).isNone = true
-  case neg => rw [if_neg h3] at h; exact absurd h atF_throw_bind
-  rw [if_pos h3] at h ⊢
-  obtain ⟨u0, hsh, h⟩ := atF_bind_ok h
-  rw [checkProjShape_datF] at hsh
-  rw [hsh]
-  simp only [Bind.bind, Except.bind]
-  -- the annotated projection type's own frame walk (task #82): the
-  -- subject's domain against the family, the residual against the
-  -- constructor's `i`-th field domain
-  obtain ⟨q1, hop, h⟩ := atF_bind_ok h
-  obtain ⟨fvsP, prest⟩ := q1
-  dsimp only [] at h
-  have hop' := unwrapOr_atF_ok hop
-  show ((unwrapOr (openPisAtFvars nP ptyA 0) _ : CheckM _) >>= _) = _
-  rw [hop']
-  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-  try dsimp only []
-  obtain ⟨hfvsW, hprestW⟩ :=
-    openPisAtFvars_WScoped nP ptyA 0 hop' (WScoped.of_not_hasFvar hAf)
-  rw [Nat.zero_add] at hfvsW hprestW
-  have hfamW : WScoped nP (Expr.mkAppN (.const T (directGuardSigma rs lps guard)) fvsP) :=
-    Expr.WScoped.mkAppN (by simp [WScoped]) hfvsW
-  obtain ⟨q2, hsb, h⟩ := atF_bind_ok h
-  obtain ⟨sbs, sbody⟩ := q2
-  dsimp only [] at h
-  have hsb' := unwrapOr_atF_ok hsb
-  show ((unwrapOr (prest.stripPis 1) _ : CheckM _) >>= _) = _
-  rw [hsb']
-  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-  try dsimp only []
-  obtain ⟨sdom, hsd, h⟩ := atF_bind_ok h
-  have hsd' := unwrapOr_atF_ok hsd
-  show ((unwrapOr ((sbs[0]?).map (·.2.1)) _ : CheckM _) >>= _) = _
-  rw [hsd']
-  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-  have hsdW : WScoped nP sdom := stripPis_head_WScoped hsb' hprestW hsd'
-  rw [wfOpsM_isDefEq henv hsdW.to_wscopedB hfamW.to_wscopedB] at h
-  obtain ⟨b1, hb1, h⟩ := atF_bind_ok h
-  have hb1' : isDefEqCore mode env F nP sdom
-      (Expr.mkAppN (.const T (directGuardSigma rs lps guard)) fvsP) = .ok b1 := hb1
-  show (isDefEqCore mode env F nP sdom _ >>= _) = _
-  rw [hb1']
-  simp only [Bind.bind, Except.bind]
-  have hb1t : b1 = true := by
-    cases b1
-    · rw [if_neg (by simp)] at h; exact absurd h atF_throw_bind
-    · rfl
-  subst hb1t
-  rw [if_pos rfl] at h ⊢
-  obtain ⟨q3, hot, h⟩ := atF_bind_ok h
-  obtain ⟨tFvs, resid⟩ := q3
-  dsimp only [] at h
-  have hot' := unwrapOr_atF_ok hot
-  show ((unwrapOr (openPisAtFvars 1 prest nP) _ : CheckM _) >>= _) = _
-  rw [hot']
-  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-  try dsimp only []
-  obtain ⟨htfW, hresidW⟩ := openPisAtFvars_WScoped 1 prest nP hot' hprestW
-  obtain ⟨tfv, htf, h⟩ := atF_bind_ok h
-  have htf' := unwrapOr_atF_ok htf
-  show ((unwrapOr tFvs[0]? _ : CheckM _) >>= _) = _
-  rw [htf']
-  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-  have htfvW : WScoped (nP + 1) tfv := htfW tfv (List.mem_of_getElem? htf')
-  -- the parameter pin (task #175 W4c, P3 module 7)
-  have hpsIdx : ∀ (k : Nat) (x : Expr), fvsP[k]? = some x →
-      WScoped (0 + k) (Expr.fvarTypeD x) := by
-    intro k x hx
-    obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index nP ptyA 0 hop' k x hx
-    have hw := hfvsW _ (List.mem_of_getElem? hx)
-    simp only [WScoped] at hw
-    exact hw.2
-  obtain ⟨q5, hcp, h⟩ := atF_bind_ok h
-  obtain ⟨cdomsP, crestP⟩ := q5
-  dsimp only [] at h
-  have hcp' := unwrapOr_atF_ok hcp
-  show ((unwrapOr (Expr.instPisAt fvsP (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard))) _ : CheckM _) >>= _) = _
-  rw [hcp']
-  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-  try dsimp only []
-  have hcdIdx : ∀ (k : Nat) (x : Expr), cdomsP[k]? = some x →
-      WScoped (0 + k) x := by
-    intro k x hx
-    refine instPisAt_index_WScoped fvsP (d := 0) hcp'
-      (WScoped.of_not_hasFvar hCfσ) ?_ k x hx
-    intro k' a hk
-    obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index nP ptyA 0 hop' k' a hk
-    have hw := hfvsW _ (List.mem_of_getElem? hk)
-    simp only [WScoped] at hw
-    simp only [WScoped]
-    exact ⟨by omega, hw.2⟩
-  obtain ⟨u1, hd1, h⟩ := atF_bind_ok h
-  have hd1' := checkDirectDomsAt_wfimp (off := 0) henv hpsIdx hcdIdx hd1
-  show (checkDirectDomsAt (fueledOps mode F) env 0 fvsP cdomsP nP >>= _) = _
-  rw [hd1']
-  simp only [Bind.bind, Except.bind]
-  have hargsW : ∀ x ∈ fvsP ++ (List.range i).map
-      (fun j => Expr.proj T j tfv), WScoped (nP + 1) x := by
-    intro x hx
-    rcases List.mem_append.mp hx with hx | hx
-    · exact (hfvsW x hx).mono (by omega)
-    · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
-      simpa only [WScoped] using htfvW
-  obtain ⟨q4, hci, h⟩ := atF_bind_ok h
-  obtain ⟨cdoms, cresid⟩ := q4
-  dsimp only [] at h
-  have hci' := unwrapOr_atF_ok hci
-  show ((unwrapOr (Expr.instPisAt (fvsP ++ _) (cvCa.type.instantiateLevelParams lps (directGuardSigma rs lps guard))) _ : CheckM _)
-    >>= _) = _
-  rw [hci']
-  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-  try dsimp only []
-  obtain ⟨-, hcresW⟩ := instPisAt_WScoped (d := nP + 1) _ _ hci'
-    (WScoped.of_not_hasFvar hCfσ) hargsW
-  obtain ⟨fdom, hfd, h⟩ := atF_bind_ok h
-  have hfd' := unwrapOr_atF_ok hfd
-  obtain ⟨nmC, bodyC, mbC, hcres⟩ :
-      ∃ nmC bodyC mbC, cresid = .forallE nmC fdom bodyC mbC := by
-    match cresid, hfd' with
-    | .forallE nmC d bodyC mbC, hfd' =>
-      obtain rfl : d = fdom := by simpa using hfd'
-      exact ⟨nmC, bodyC, mbC, rfl⟩
-    | .bvar _, hfd' | .fvar _ _ _, hfd' | .sort _, hfd' | .const _ _, hfd'
-    | .app _ _, hfd' | .lam _ _ _ _, hfd' | .letE _ _ _ _, hfd'
-    | .lit _, hfd' | .proj _ _ _, hfd' => exact nomatch hfd'
-  have hfdW : WScoped (nP + 1) fdom := by
-    rw [hcres] at hcresW
-    simp only [WScoped] at hcresW
-    exact hcresW.1
-  show ((unwrapOr (match cresid with
-      | .forallE _ d _ _ => some d | _ => none) _ : CheckM _) >>= _) = _
-  rw [hcres]
-  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-  try dsimp only []
-  rw [wfOpsM_isDefEq henv hresidW.to_wscopedB hfdW.to_wscopedB] at h
-  obtain ⟨b2, hb2, h⟩ := atF_bind_ok h
-  have hb2' : isDefEqCore mode env F (nP + 1) resid fdom = .ok b2 := hb2
-  show (isDefEqCore mode env F (nP + 1) resid fdom >>= _) = _
-  rw [hb2']
-  simp only [Bind.bind, Except.bind]
-  have hb2t : b2 = true := by
-    cases b2
-    · rw [if_neg (by simp)] at h; exact absurd h atF_throw_bind
-    · rfl
-  subst hb2t
-  rw [if_pos rfl] at h ⊢
+/-- The projection table, `wfOpsM mode` run to pure run (the stage is
+ops-free, task #175 S1). -/
+theorem checkDirectProjTable_wfimp {T C : Name} {lps : List Name}
+    {nP nF : Nat} {rs : Level} {guards : List Level} {cvCa : ConstantVal}
+    {env v : Env} {F : Nat}
+    (h : (checkDirectProjTable T C lps nP nF rs guards cvCa env : FueledM Env).val F
+      = Except.ok v) :
+    (checkDirectProjTable T C lps nP nF rs guards cvCa env : CheckM Env)
+      = Except.ok v := by
+  rw [checkDirectProjTable_datF] at h
   exact h
-
-/-- The projection slot of the direct path, `wfOpsM mode` run to pure
-run: a skipped slot is the identity, an installed one is
-`checkDirectProjEntry_wfimp` at the generated type. -/
-theorem checkDirectProj_wfimp {env : Env} (henv : EnvWF env)
-    {T C : Name} {lps : List Name} {nP nF i F : Nat} {rs : Level}
-    {slots : List Bool} {guards : List Level}
-    {cvTa cvCa : ConstantVal} {v : Env}
-    (hCf : cvCa.type.hasFvar = false)
-    (hCb : cvCa.type.looseBVarsBounded 0 = true)
-    (h : (checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa
-        cvCa env i).val F = .ok v) :
-    checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa
-      cvCa env i = .ok v := by
-  unfold checkDirectProj at h ⊢
-  by_cases hs : slots.getD i false = true
-  · rw [if_pos hs] at h ⊢
-    obtain ⟨pty, hpt, h⟩ := atF_bind_ok h
-    have hpt' := unwrapOr_atF_ok hpt
-    rw [hpt']
-    simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-    try dsimp only [] at h ⊢
-    by_cases hadm : directSlotAdmit rs lps cvCa.type nP guards i = true
-    · rw [if_pos hadm] at h ⊢
-      exact checkDirectProjEntry_wfimp henv hCf hCb h
-    · rw [if_neg hadm] at h ⊢
-      by_cases hn : (env.find? (projFnName T i)).isNone = true
-      · rw [if_pos hn] at h ⊢
-        simp only [FueledM.atF_pure, pure, Except.pure, Except.ok.injEq] at h
-        rw [h]
-      · rw [if_neg hn] at h
-        exact absurd h atF_throw_bind
-  · rw [if_neg hs] at h ⊢
-    exact h
-
-/-- The projection-install fold of the direct path, `wfOpsM mode` run to
-pure run.  The accumulators' well-formedness is a *run-tied*
-hypothesis: `checkDirectProj` stores a constant whose `ConstWF` needs
-the declaration inversions, which live with the model
-(`Setlec/Model/`), exactly as `installProjFnStep`'s does. -/
-theorem foldDirectProj_wfimp {T C : Name} {lps : List Name}
-    {nP nF F : Nat} {rs : Level} {slots : List Bool} {guards : List Level}
-    {cvTa cvCa : ConstantVal}
-    (hCf : cvCa.type.hasFvar = false)
-    (hCb : cvCa.type.looseBVarsBounded 0 = true)
-    (hstep : ∀ (e e' : Env) (i : Nat), EnvWF e →
-      checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa cvCa e i = .ok e' →
-      EnvWF e') :
-    ∀ (idxs : List Nat) (e : Env) {e₂ : Env}, EnvWF e →
-      (idxs.foldlM (checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa)
-        e).val F = .ok e₂ →
-      idxs.foldlM (checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa cvCa)
-        e = .ok e₂
-  | [], e, e₂, _, h => by
-    have h' : (Except.ok e : CheckM Env) = Except.ok e₂ := h
-    cases h'
-    rfl
-  | i :: idxs, e, e₂, he, h => by
-    have h' : ((checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa e i >>=
-        fun e₁ => idxs.foldlM
-          (checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa) e₁ :
-        FueledM Env)).val F = .ok e₂ := h
-    rw [FueledM.atF_bind] at h'
-    cases hm : (checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa e i).val F
-      with
-    | error err => rw [hm] at h'; exact nomatch h'
-    | ok e₁ =>
-      rw [hm] at h'
-      have h'' : (idxs.foldlM
-        (checkDirectProj (wfOpsM mode) T C lps nP nF rs slots guards cvTa cvCa) e₁).val F =
-          .ok e₂ := h'
-      have hp := checkDirectProj_wfimp he hCf hCb hm
-      have hrest := foldDirectProj_wfimp hCf hCb hstep idxs e₁
-        (hstep e e₁ i he hp) h''
-      show (checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa cvCa e i >>=
-        fun e₁ => idxs.foldlM
-          (checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards cvTa cvCa) e₁) =
-        .ok e₂
-      rw [hp]
-      exact hrest
 
 set_option maxHeartbeats 6400000 in
 /-- The whole direct install, `wfOpsM mode` run to pure run.
@@ -3339,12 +3063,6 @@ theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
             .plain else .inert, rhsA⟩] :: e₂.consts⟩)
-    (hstep : ∀ (cvTa cvCa : ConstantVal) (sorts : List Level) (e e' : Env)
-      (i : Nat), EnvWF e →
-      checkDirectProj (fueledOps mode F) p.cvT.name p.cvC.name p.cvT.levelParams
-        p.nP p.nF p.resSort (directProjSlots p)
-        (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa e i = .ok e' →
-      EnvWF e')
     (h : (checkDirectStruct (wfOpsM mode) env p).val F = .ok v) :
     checkDirectStruct (fueledOps mode F) env p = .ok v := by
   unfold checkDirectStruct at h ⊢
@@ -3375,16 +3093,7 @@ theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
   obtain ⟨hru', -⟩ := checkDirectRule_wfimp henv₂ hCf hRf hru
   rw [hru']
   simp only [Bind.bind, Except.bind]
-  have henv₃ := hwf₃ env₂ cvCa cvRa rhsA henv₂ hcv' hru'
-  by_cases h1 : (List.range p.nF).all (fun j =>
-      (Env.find? ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
-        [⟨p.cvC.name, p.nF, p.nP,
-          if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-            .plain else .inert, rhsA⟩] :: env₂.consts⟩
-        (projFnName p.cvT.name j)).isNone) = true
-  case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
-  rw [if_pos h1] at h ⊢
-  exact foldDirectProj_wfimp hCf hCb (hstep cvTa cvCa sorts) (List.range p.nF)
-    _ henv₃ h
+  have _henv₃ := hwf₃ env₂ cvCa cvRa rhsA henv₂ hcv' hru'
+  exact checkDirectProjTable_wfimp h
 
 end Setlec

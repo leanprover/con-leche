@@ -29,25 +29,20 @@ reading of a subject with no `.proj T i` node is reproduced at an
 extension whose only new tower slot is `(T, i)`. -/
 theorem denoteP_envExtend_mono_at {env₀ env : Env}
     {acval : Name → (Name → Nat) → AVExpr} {φ : Name → Nat}
-    {T : Name} {i : Nat}
+    {T : Name}
     (hF : FindPreserved env₀ env) (hG : LitGuardsMono env₀ env)
     (hproj : ∀ (sn : Name) (j : Nat) (entry : Setlec.ProjEntry),
       env₀.findProj? sn j = none → env.findProj? sn j = some entry →
-      entry.tower = true → sn = T ∧ j = i) :
-    ∀ (d : Nat) (e : Expr), ConstsBound env₀ e → Expr.NoProjAt T i e →
+      entry.tower = true → sn = T) :
+    ∀ (d : Nat) (e : Expr), ConstsBound env₀ e → (∀ j, Expr.NoProjAt T j e) →
       ∀ {ea : AVExpr}, denoteP acval env₀ φ d e = some ea →
         denoteP acval env φ d e = some ea := by
   have hmono : ∀ (sn : Name) (j : Nat) (entry : Setlec.ProjEntry),
       env₀.findProj? sn j = some entry →
       env.findProj? sn j = some entry := by
     intro sn j entry h
-    unfold Setlec.Env.findProj? at h ⊢
-    cases hf0 : env₀.find? (Setlec.projFnName sn j) with
-    | none => rw [hf0] at h; exact nomatch h
-    | some ci =>
-      rw [hf0] at h
-      rw [hF hf0]
-      exact h
+    obtain ⟨tbl, hf0, hi, rfl⟩ := Setlec.Env.findProj?_some h
+    exact Setlec.Env.findProj?_of_table (hF hf0) hi
   intro d e
   induction d, e using denoteP.induct (env := env₀) with
   | case1 d u => intro _ _ ea h; rw [denoteP] at h ⊢; exact h
@@ -70,43 +65,43 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
   | case6 d n ty body m ihty ihbody =>
     intro hc hnp ea h
     rw [constsBound_forallE] at hc
-    rw [Expr.noProjAt_forallE] at hnp
+    have hnp' := fun j => Expr.noProjAt_forallE.mp (hnp j)
     have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d n ty)) :=
       ConstsBound.instantiate1
         (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2
-    have hnpb : Expr.NoProjAt T i (body.instantiate1 (.fvar d n ty)) :=
-      Expr.NoProjAt.instantiate1 (Expr.noProjAt_fvar.mpr hnp.1) _ _ hnp.2
+    have hnpb : ∀ j, Expr.NoProjAt T j (body.instantiate1 (.fvar d n ty)) :=
+      fun j => Expr.NoProjAt.instantiate1 (Expr.noProjAt_fvar.mpr (hnp' j).1) _ _ (hnp' j).2
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_forallE_inv h
-    rw [denoteP, ihty hc.1 hnp.1 hta, ihbody hcb hnpb hba]
+    rw [denoteP, ihty hc.1 (fun j => (hnp' j).1) hta, ihbody hcb hnpb hba]
     rfl
   | case7 d n ty body m ihty ihbody =>
     intro hc hnp ea h
     rw [constsBound_lam] at hc
-    rw [Expr.noProjAt_lam] at hnp
+    have hnp' := fun j => Expr.noProjAt_lam.mp (hnp j)
     have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d n ty)) :=
       ConstsBound.instantiate1
         (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2
-    have hnpb : Expr.NoProjAt T i (body.instantiate1 (.fvar d n ty)) :=
-      Expr.NoProjAt.instantiate1 (Expr.noProjAt_fvar.mpr hnp.1) _ _ hnp.2
+    have hnpb : ∀ j, Expr.NoProjAt T j (body.instantiate1 (.fvar d n ty)) :=
+      fun j => Expr.NoProjAt.instantiate1 (Expr.noProjAt_fvar.mpr (hnp' j).1) _ _ (hnp' j).2
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_lam_inv h
-    rw [denoteP, ihty hc.1 hnp.1 hta, ihbody hcb hnpb hba]
+    rw [denoteP, ihty hc.1 (fun j => (hnp' j).1) hta, ihbody hcb hnpb hba]
     rfl
   | case8 d f a ihf iha =>
     intro hc hnp ea h
     rw [constsBound_app] at hc
-    rw [Expr.noProjAt_app] at hnp
+    have hnp' := fun j => Expr.noProjAt_app.mp (hnp j)
     obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteP_app_inv h
-    rw [denoteP, ihf hc.1 hnp.1 hfa, iha hc.2 hnp.2 haa]
+    rw [denoteP, ihf hc.1 (fun j => (hnp' j).1) hfa, iha hc.2 (fun j => (hnp' j).2) haa]
     rfl
   | case9 d n ty val body ihty ihval ihbody =>
     intro hc hnp ea h
     rw [constsBound_letE] at hc
-    rw [Expr.noProjAt_letE] at hnp
+    have hnp' := fun j => Expr.noProjAt_letE.mp (hnp j)
     have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d n ty)) :=
       ConstsBound.instantiate1
         (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2.2
-    have hnpb : Expr.NoProjAt T i (body.instantiate1 (.fvar d n ty)) :=
-      Expr.NoProjAt.instantiate1 (Expr.noProjAt_fvar.mpr hnp.1) _ _ hnp.2.2
+    have hnpb : ∀ j, Expr.NoProjAt T j (body.instantiate1 (.fvar d n ty)) :=
+      fun j => Expr.NoProjAt.instantiate1 (Expr.noProjAt_fvar.mpr (hnp' j).1) _ _ (hnp' j).2.2
     rw [denoteP] at h
     rcases hta : denoteP acval env₀ φ d ty with _ | ta
     · rw [hta] at h; exact nomatch h
@@ -118,25 +113,27 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
         (body.instantiate1 (.fvar d n ty)) with _ | ba
     · rw [hba] at h; exact nomatch h
     rw [hba] at h
-    rw [denoteP, ihty hc.1 hnp.1 hta, ihval hc.2.1 hnp.2.1 hva,
+    rw [denoteP, ihty hc.1 (fun j => (hnp' j).1) hta, ihval hc.2.1 (fun j => (hnp' j).2.1) hva,
       ihbody hcb hnpb hba]
     exact h
   | case10 d sn j e ihe =>
     intro hc hnp ea h
     rw [constsBound_proj] at hc
-    rw [Expr.noProjAt_proj] at hnp
+    have hnp' := fun j' => Expr.noProjAt_proj.mp (hnp j')
+    have hnpe : ∀ j', Expr.NoProjAt T j' e := fun j' => (hnp' j').2
+    have hsnT : sn ≠ T := fun hsn => (hnp' j).1 ⟨hsn, rfl⟩
     obtain ⟨ea', hea', hcase⟩ := denoteP_proj_inv h
     rcases hcase with ⟨entry, hfp0, htw, rfl⟩ | ⟨hnt0, hj, rfl⟩
     · -- a tower entry at the prefix persists unchanged
-      rw [denoteP, ihe hc hnp.2 hea', hmono sn j entry hfp0]
+      rw [denoteP, ihe hc hnpe hea', hmono sn j entry hfp0]
       show (if entry.tower = true then some (projAV j ea')
           else if j < 2 then some (AVExpr.proj j ea') else none)
         = some (projAV j ea')
       rw [if_pos htw]
     · -- the pair path: any extension-side entry is still tower-free —
-      -- the one slot that may have turned tower is `(T, i)`, and the
+      -- the slots that may have turned tower are `T`'s, and the
       -- subject has no node there
-      rw [denoteP, ihe hc hnp.2 hea']
+      rw [denoteP, ihe hc hnpe hea']
       cases hfp : env.findProj? sn j with
       | none =>
         show (if j < 2 then some (AVExpr.proj j ea') else none)
@@ -153,7 +150,7 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
           | none =>
             cases htw : entry.tower with
             | false => rfl
-            | true => exact absurd (hproj sn j entry hfp0 hfp htw) hnp.1
+            | true => exact absurd (hproj sn j entry hfp0 hfp htw) hsnT
         show (if entry.tower = true then some (projAV j ea')
             else if j < 2 then some (AVExpr.proj j ea') else none)
           = some (AVExpr.proj j ea')
@@ -195,22 +192,17 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
-/-- A tower-entry cons adds exactly its own slot: any lookup new at
-the extension is the head's. -/
-theorem findProj?_cons_tower {env : Env} {entry₀ : Setlec.ProjEntry} :
+/-- A tower-table cons adds exactly its own structure's slots: any
+lookup new at the extension is the head's (task #175 S1). -/
+theorem findProj?_cons_tower {env : Env} {tbl₀ : Setlec.ProjTable} :
     ∀ (sn : Name) (j : Nat) (entry : Setlec.ProjEntry),
       env.findProj? sn j = none →
-      Env.findProj? ⟨.projInfo entry₀ :: env.consts⟩ sn j = some entry →
-      entry.tower = true → sn = entry₀.structName ∧ j = entry₀.idx := by
+      Env.findProj? ⟨.projInfo tbl₀ :: env.consts⟩ sn j = some entry →
+      entry.tower = true → sn = tbl₀.structName := by
   intro sn j entry h0 h1 _
-  unfold Setlec.Env.findProj? at h0 h1
-  rw [Setlec.Env.find?_cons] at h1
-  by_cases hn : (Setlec.ConstantInfo.projInfo entry₀).name = Setlec.projFnName sn j
-  · have hn' : Setlec.projFnName entry₀.structName entry₀.idx
-        = Setlec.projFnName sn j := hn
-    obtain ⟨h1, h2⟩ := Setlec.projFnName_inj hn'
-    exact ⟨h1.symm, h2.symm⟩
-  · rw [if_neg hn, h0] at h1
+  by_cases hn : (Setlec.ConstantInfo.projInfo tbl₀).name = Setlec.projTableName sn
+  · exact (Setlec.projTableName_inj hn).symm
+  · rw [Setlec.Env.findProj?_cons_ne hn, h0] at h1
     exact nomatch h1
 
 end Setlec.SetP

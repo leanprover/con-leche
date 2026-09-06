@@ -299,13 +299,11 @@ theorem towerEntryLawP_cons_prefix (mp : EnvS2PM V μ env)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) {T : Name} {i : Nat} {entry : ProjEntry}
-    (hfP0 : env.find? (Setlec.projFnName T i) = some (.projInfo entry))
+    (hfP : env.findProj? T i = some entry)
     (htw : entry.tower = true) :
     TowerEntryLawP m₂ φ T i entry := by
-  have hfP : env.findProj? T i = some entry := by
-    unfold Setlec.Env.findProj?
-    rw [hfP0]
-  obtain ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, hO5, cvC, hfC, hlpsC,
+  obtain ⟨tbl, hfP0, hi, hentry⟩ := Setlec.Env.findProj?_some hfP
+  obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, hO5, cvC, hfC, hlpsC,
     hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP htw
   -- the two stored names are not the fresh one
   have hne : ∀ {n : Name} {ci : ConstantInfo}, env.find? n = some ci →
@@ -315,17 +313,25 @@ theorem towerEntryLawP_cons_prefix (mp : EnvS2PM V μ env)
     exact nomatch hn
   have hnT : T ≠ c₀.name := hne hfT
   have hnC : entry.ctor ≠ c₀.name := hne hfC
-  refine ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, ?_, hlpsT⟩, hO5, cvC, ?_, hlpsC,
+  refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, ?_, hlpsT⟩, hO5, cvC, ?_, hlpsC,
     fun us hus => ?_, ?_⟩
   · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfT]; rfl)]; exact hfT
   · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]; exact hfC
   · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
     refine ⟨⟨Ta, ?_, ?_⟩, ⟨TCa, ?_, ?_⟩⟩
-    · rw [hac]
-      exact denoteP_cons_mono hfresh
-        ((hcross.typeOf hfP0).instantiateLevelParams _ _) _ 0
-        (constsBound_instType mp.base2.wf
-          (Setlec.Semantics.Env.find?_mem hfP0) us) hTa
+    · -- the body telescope's reading crosses (task #175 S1): the
+      -- table is a prefix lookup, its bodies resolve (`EnvWF`) and
+      -- mention none of the head's slots
+      rw [hac]
+      refine denoteP_cons_mono hfresh ?_ _ 0 ?_ hTa
+      · intro tbl' heq htw' j
+        subst hentry
+        exact Expr.NoProjAt.projTele _ _ _ _
+          (Expr.NoProjAt.instantiateLevelParams _ _ _
+            ((hcross.body hfP0 hi) tbl' heq htw' j))
+      · refine constsBound_of_constsResolve _ ?_
+        rw [Setlec.projTele_constsResolve, Setlec.Expr.constsResolve_instantiateLevelParams]
+        exact (Setlec.projEntry_body_wf mp.base2.wf hfP).2.2.1
     · intro hg ρ vs x rest hlen hokT hokx hmem hpeel
       rw [hac, acvalWith_ne hnT] at hokT hmem
       exact hA hg ρ vs x rest hlen hokT hokx hmem hpeel
@@ -364,46 +370,45 @@ theorem towerOkP_cons_fresh (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
     (hcross : ConsCrossEnv env c₀)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (hntc : ∀ tbl, c₀ = .projInfo tbl → tbl.tower = false)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) : TowerOkP m₂ φ := by
   intro T i entry hf htw
-  -- the entry is a prefix entry: the head is not a tower entry
-  have hf3 := Setlec.Env.findProj?_some hf
-  have hfP0 : env.find? (Setlec.projFnName T i) = some (.projInfo entry) := by
+  -- the entry is a prefix entry: the head is not a tower table
+  have hfP : env.findProj? T i = some entry := by
+    obtain ⟨tbl, hf3, hi, rfl⟩ := Setlec.Env.findProj?_some hf
     rw [Setlec.Env.find?_cons] at hf3
     split at hf3
     · exact absurd htw (by
-        rw [hntc entry (Option.some.inj hf3)]; exact Bool.false_ne_true)
-    · exact hf3
-  exact towerEntryLawP_cons_prefix mp hfresh hcross m₂ hac φ hfP0 htw
+        rw [ProjTable.entry_tower, hntc tbl (Option.some.inj hf3)]; exact Bool.false_ne_true)
+    · exact Setlec.Env.findProj?_of_table hf3 hi
+  exact towerEntryLawP_cons_prefix mp hfresh hcross m₂ hac φ hfP htw
 
-/-- **`TowerOkP` at a tower-entry cons** (task #175 W4c, module 4):
-the prefix entries' laws cross, and the head's law is the install's
-own. -/
+/-- **`TowerOkP` at a tower-table cons** (task #175 W4c, module 4;
+S1: one table per structure): the prefix entries' laws cross, and the
+head's laws — one per field — are the install's own. -/
 theorem towerOkP_cons_tower (mp : EnvS2PM V μ env)
-    {entry₀ : ProjEntry} {A : (Name → Nat) → AVExpr}
-    (hfresh : env.find? (ConstantInfo.projInfo entry₀).name = none)
-    (hcross : ConsCrossEnv env (.projInfo entry₀))
-    (m₂ : EnvS2Core V ⟨.projInfo entry₀ :: env.consts⟩)
+    {tbl₀ : ProjTable} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? (ConstantInfo.projInfo tbl₀).name = none)
+    (hcross : ConsCrossEnv env (.projInfo tbl₀))
+    (m₂ : EnvS2Core V ⟨.projInfo tbl₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval
-      (ConstantInfo.projInfo entry₀).name A)
-    (hlaw : ∀ φ : Name → Nat,
-      TowerEntryLawP m₂ φ entry₀.structName entry₀.idx entry₀)
+      (ConstantInfo.projInfo tbl₀).name A)
+    (hlaw : ∀ (φ : Name → Nat) (i : Nat), i < tbl₀.numFields →
+      TowerEntryLawP m₂ φ tbl₀.structName i (tbl₀.entry i))
     (φ : Name → Nat) : TowerOkP m₂ φ := by
   intro T i entry hf htw
-  have hf3 := Setlec.Env.findProj?_some hf
+  obtain ⟨tbl, hf3, hi, rfl⟩ := Setlec.Env.findProj?_some hf
   rw [Setlec.Env.find?_cons] at hf3
   split at hf3
   · next hn =>
-    obtain rfl : entry₀ = entry :=
+    obtain rfl : tbl₀ = tbl :=
       ConstantInfo.projInfo.inj (Option.some.inj hf3)
-    have hn' : Setlec.projFnName entry₀.structName entry₀.idx
-        = Setlec.projFnName T i := hn
-    obtain ⟨h1, h2⟩ := Setlec.projFnName_inj hn'
-    subst h1 h2
-    exact hlaw φ
-  · exact towerEntryLawP_cons_prefix mp hfresh hcross m₂ hac φ hf3 htw
+    have hn' : Setlec.projTableName tbl₀.structName = Setlec.projTableName T := hn
+    obtain rfl := Setlec.projTableName_inj hn'
+    exact hlaw φ i hi
+  · exact towerEntryLawP_cons_prefix mp hfresh hcross m₂ hac φ
+      (Setlec.Env.findProj?_of_table hf3 hi) htw
 
 end Setlec.SetP

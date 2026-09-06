@@ -672,74 +672,49 @@ theorem checkProjFold_mono {T ctorName : Name} {lps : List Name}
       simp only [pure, Except.pure, Except.bind] at h
       exact checkProjFold_mono rest env' env₁ h n hn
 
-/-- The elimination-template phase adds only projection-table entries
-(and only extends the environment). -/
-theorem installProjTemplates_find_new {T ctorName : Name}
-    {lps : List Name} {nP nF : Nat} :
-    ∀ (idxs : List Nat) (env' env₁ : Env),
-    idxs.foldlM
-      (installProjTemplateStep (m := CheckM) T ctorName lps nP nF)
-      env' = .ok env₁ →
-    (∀ (n : Name) (ci : ConstantInfo), env₁.find? n = some ci →
-      env'.find? n = some ci ∨ ∃ entry, ci = .projInfo entry) ∧
-    (∀ n, (env'.find? n).isSome = true → (env₁.find? n).isSome = true)
-  | [], env', env₁, h => by
-    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    exact ⟨fun n ci hf => Or.inl hf, fun n hn => hn⟩
-  | i₀ :: rest, env', env₁, h => by
-    rw [List.foldlM_cons] at h
-    simp only [Bind.bind, Except.bind] at h
-    cases hstep : installProjTemplateStep (m := CheckM) T ctorName lps
-        nP nF env' i₀ with
-    | error e => rw [hstep] at h; exact nomatch h
-    | ok env₂ =>
-      rw [hstep] at h
-      have hshape₂ : env₂ = env' ∨
-          ∃ entry, env₂ = ⟨.projInfo entry :: env'.consts⟩ := by
-        revert hstep
-        unfold installProjTemplateStep installProjTemplate
-        split
-        case isFalse =>
-          intro hstep
-          simp only [pure, Except.pure, Except.ok.injEq] at hstep
-          exact Or.inl hstep.symm
-        case isTrue hfree =>
-          split
-          case h_2 =>
-            intro hstep
-            simp only [pure, Except.pure, Except.ok.injEq] at hstep
-            exact Or.inl hstep.symm
-          case h_1 cvR mI2 rP2 rule heqR =>
-            split
-            case isFalse =>
-              intro hstep
-              simp only [pure, Except.pure, Except.ok.injEq] at hstep
-              exact Or.inl hstep.symm
-            case isTrue hcond =>
-              intro hstep
-              simp only [pure, Except.pure, Except.ok.injEq] at hstep
-              exact Or.inr ⟨_, hstep.symm⟩
-      obtain ⟨hnew, hmono⟩ := installProjTemplates_find_new rest env₂
-        env₁ h
-      rcases hshape₂ with rfl | ⟨entry, rfl⟩
-      · exact ⟨hnew, hmono⟩
-      · refine ⟨?_, ?_⟩
-        · intro n ci hf
-          rcases hnew n ci hf with hf' | hk
-          · rw [Env.find?_cons] at hf'
-            split at hf'
-            · obtain rfl := Option.some.inj hf'
-              exact Or.inr ⟨entry, rfl⟩
-            · exact Or.inl hf'
-          · exact Or.inr hk
-        · intro n hn
-          refine hmono n ?_
-          rw [Env.find?_cons]
-          split
-          · rfl
-          · exact hn
+/-- **The elimination-template install, inverted** (task #175 S1: one
+inert table per family): the environment is unchanged, or the inert
+table is consed at a fresh table name. -/
+theorem installProjTemplate_inv {T ctorName : Name} {lps : List Name}
+    {nP nF : Nat} {env' env₂ : Env}
+    (h : installProjTemplate (m := CheckM) env' T ctorName lps nP nF = .ok env₂) :
+    env₂ = env' ∨
+    (env'.find? (projTableName T) = none ∧
+      env₂ = ⟨.projInfo ⟨T, lps, nP, ctorName, nF, .zero, Array.replicate nF (.sort .zero), [], false⟩
+        :: env'.consts⟩) := by
+  unfold installProjTemplate at h
+  split at h
+  · split at h
+    · next hc =>
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inr ⟨Option.isNone_iff_eq_none.mp hc.1, h.symm⟩
+    · simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+  · simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
 
+/-- The elimination-template phase adds only a projection table (and
+only extends the environment). -/
+theorem installProjTemplates_find_new {T ctorName : Name}
+    {lps : List Name} {nP nF : Nat} (env' env₁ : Env)
+    (h : installProjTemplate (m := CheckM) env' T ctorName lps nP nF = .ok env₁) :
+    (∀ (n : Name) (ci : ConstantInfo), env₁.find? n = some ci →
+      env'.find? n = some ci ∨ ∃ tbl, ci = .projInfo tbl) ∧
+    (∀ n, (env'.find? n).isSome = true → (env₁.find? n).isSome = true) := by
+  rcases installProjTemplate_inv h with h1 | ⟨-, h1⟩ <;> subst h1
+  · exact ⟨fun n ci hf => Or.inl hf, fun n hn => hn⟩
+  · refine ⟨?_, ?_⟩
+    · intro n ci hf
+      rw [Env.find?_cons] at hf
+      split at hf
+      · obtain rfl := Option.some.inj hf
+        exact Or.inr ⟨_, rfl⟩
+      · exact Or.inl hf
+    · intro n hn
+      rw [Env.find?_cons]
+      split
+      · rfl
+      · exact hn
 
 /-- The projection-artifact phase preserves stored lookups exactly
 (every install is fresh). -/
@@ -782,58 +757,16 @@ theorem checkProjFold_find_preserved {T ctorName : Name}
       exact checkProjFold_find_preserved rest env' env₁ h n ci hf
 
 /-- The elimination-template phase preserves stored lookups exactly
-(every installed entry is fresh). -/
+(the installed table is fresh). -/
 theorem installProjTemplates_find_preserved {T ctorName : Name}
-    {lps : List Name} {nP nF : Nat} :
-    ∀ (idxs : List Nat) (env' env₁ : Env),
-    idxs.foldlM
-      (installProjTemplateStep (m := CheckM) T ctorName lps nP nF)
-      env' = .ok env₁ →
+    {lps : List Name} {nP nF : Nat} (env' env₁ : Env)
+    (h : installProjTemplate (m := CheckM) env' T ctorName lps nP nF = .ok env₁) :
     ∀ (n : Name) (ci : ConstantInfo), env'.find? n = some ci →
-    env₁.find? n = some ci
-  | [], env', env₁, h, n, ci, hf => by
-    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
-    subst h
+    env₁.find? n = some ci := by
+  intro n ci hf
+  rcases installProjTemplate_inv h with h1 | ⟨hfree, h1⟩ <;> subst h1
+  · exact hf
+  · rw [Env.find?_cons_of_isSome hfree (by rw [hf]; rfl)]
     exact hf
-  | i₀ :: rest, env', env₁, h, n, ci, hf => by
-    rw [List.foldlM_cons] at h
-    simp only [Bind.bind, Except.bind] at h
-    cases hstep : installProjTemplateStep (m := CheckM) T ctorName lps
-        nP nF env' i₀ with
-    | error e => rw [hstep] at h; exact nomatch h
-    | ok env₂ =>
-      rw [hstep] at h
-      have hshape₂ : env₂ = env' ∨
-          ∃ entry, env₂ = ⟨.projInfo entry :: env'.consts⟩ ∧
-            env'.find? (ConstantInfo.projInfo entry).name = none := by
-        revert hstep
-        unfold installProjTemplateStep installProjTemplate
-        split
-        case isFalse =>
-          intro hstep
-          simp only [pure, Except.pure, Except.ok.injEq] at hstep
-          exact Or.inl hstep.symm
-        case isTrue hfree =>
-          split
-          case h_2 =>
-            intro hstep
-            simp only [pure, Except.pure, Except.ok.injEq] at hstep
-            exact Or.inl hstep.symm
-          case h_1 cvR mI2 rP2 rule heqR =>
-            split
-            case isFalse =>
-              intro hstep
-              simp only [pure, Except.pure, Except.ok.injEq] at hstep
-              exact Or.inl hstep.symm
-            case isTrue hcond =>
-              intro hstep
-              simp only [pure, Except.pure, Except.ok.injEq] at hstep
-              refine Or.inr ⟨_, hstep.symm, ?_⟩
-              exact Option.isNone_iff_eq_none.mp hcond.1
-      refine installProjTemplates_find_preserved rest env₂ env₁ h n ci ?_
-      rcases hshape₂ with rfl | ⟨entry, rfl, hfree⟩
-      · exact hf
-      · rw [Env.find?_cons_of_isSome hfree (by rw [hf]; rfl)]
-        exact hf
 
 end Setlec

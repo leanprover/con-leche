@@ -1,11 +1,12 @@
-import Setlec.SetP.Direct.DirectFoldEntryP
+import Setlec.SetP.Direct.DirectStageTableP
 
 /-!
-# The direct structure's install, assembled (task #175 W4c, P3 module 7, part 9)
+# The direct structure's install, assembled (task #175 W4c, P3 module 7, part 9; S1)
 
 `declDirectP`: the P carrier survives the direct install's run
 (`DeclDirectRun`).  The stages compose as the checker runs them —
-former, constructor, recursor, projection slots — with one twist: the
+former, constructor, recursor, the projection table (task #175 S1:
+one cons, `stageTable`) — with one twist: the
 former's leaf mentions the field chain, which is read off the
 constructor's stored type, checked *after* the former is stored.  So
 the former is installed twice: once with an empty field chain, only
@@ -108,8 +109,11 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p : DirectParts} (mp : EnvS2PM V μ env)
     (hE : Setlec.EtaFamiliesClosed env) (hdp : Setlec.directParts? env block = some p)
     (h : Setlec.Semantics.DeclDirectRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hccvR, hRec, hRule, hslots,
-    hfold⟩ := h
+  obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hccvR, hRec, hRule, hTbl⟩ := h
+  dsimp only at hTbl
+  -- the table stage's own guards: the projection-function name family
+  -- is free (the modeled route's η-family key) and the table is fresh
+  obtain ⟨-, -, -, hfam, hfreshTbl, -⟩ := Setlec.checkDirectProjTable_inv hTbl
   obtain ⟨hProp, hRname, hClps, hresT, hresC, hresR, helim⟩ := Setlec.directParts?_inv hdp
   -- the former
   obtain ⟨hccvT, rfl, bsT, hstripT⟩ := Setlec.checkDirectInd_shape hInd
@@ -182,7 +186,7 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     hFD.cross (c₀ := .indInfo cvTa (Setlec.directCaps p)) hTfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT mpI.base2 hacI
   obtain ⟨hiff, hfields⟩ := ctorFrames hμ mpI hCtor hfT_I hProp' hFD_I hCD
-  -- the projection slots are fresh at the recursor's extension
+  -- the projection-function names are fresh at the recursor's extension
   have hslotsF : ∀ j, j < p.nF →
       (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
@@ -191,7 +195,7 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
             env.consts⟩ : Env).consts⟩ : Env).consts⟩ : Env).find? (projFnName p.cvT.name j)
         = none := by
     intro j hj
-    have := List.all_eq_true.mp hslots j (List.mem_range.mpr hj)
+    have := List.all_eq_true.mp hfam j (List.mem_range.mpr hj)
     exact Option.isNone_iff_eq_none.mp this
   -- the constructor's cons
   obtain ⟨mpC, hacC⟩ := stageCtor hE rfl hfindT hTname hlpsCT mpI hCtor
@@ -273,76 +277,92 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
   have hcbC_C := constsBound_of_constsResolve _
     (mpC.base2.wf _ (Setlec.Semantics.Env.find?_mem hfC_C)).2.2.1
   obtain ⟨hnfRhs, -, hannRhs, -⟩ := Setlec.checkDirectRule_shape hRule
-  -- the not-yet-installed slots are mentioned by no stored piece
-  have hfreshI : ∀ j, j < p.nF →
-      (⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩ : Env).find? (projFnName p.cvT.name j)
+  -- the structure's slots are mentioned by no stored piece: no table
+  -- is stored below the table stage (task #175 S1)
+  have hslotI : ∀ j,
+      (⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩ : Env).findProj? p.cvT.name j
         = none :=
-    fun j hj => find?_none_of_cons (find?_none_of_cons (hslotsF j hj))
-  have hfreshC : ∀ j, j < p.nF →
+    fun j => Setlec.Env.findProj?_none_of_fresh
+      (find?_none_of_cons (find?_none_of_cons hfreshTbl)) j
+  have hslotC : ∀ j,
       (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
-        env.consts⟩ : Env).consts⟩ : Env).find? (projFnName p.cvT.name j) = none :=
-    fun j hj => find?_none_of_cons (hslotsF j hj)
-  have hnp₃ : ∀ j, j < p.nF → NoProjEnv ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+        env.consts⟩ : Env).consts⟩ : Env).findProj? p.cvT.name j = none :=
+    fun j => Setlec.Env.findProj?_none_of_fresh (find?_none_of_cons hfreshTbl) j
+  have hnp₃ : ∀ j, NoProjEnv ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
         rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
           env.consts⟩ : Env).consts⟩ : Env).consts⟩ p.cvT.name j := by
-    intro j hj
+    intro j
     have h0 : NoProjEnv env p.cvT.name j := noProjEnv_of_fresh mp.base2.wf hfindT j
     have h1 := h0.cons (c₀ := .indInfo cvTa (Setlec.directCaps p)) (NoProjHead.ofType
       (by
         show Expr.NoProjAt p.cvT.name j cvTa.type
         exact Setlec.Expr.noProjAt_of_constsResolve hfindT _ (by rw [hTtype]; exact htrT))
-      (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
+      (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h) (fun _ _ _ _ h => nomatch h)
+      (fun _ h => nomatch h))
     have h2 := h1.cons (c₀ := .ctorInfo cvCa p.nP p.nF) (NoProjHead.ofType
       (by
         show Expr.NoProjAt p.cvT.name j cvCa.type
         rw [hCtype]
-        exact Setlec.annotateCore_noProjAt μ hannC hnfC (hfreshI j hj))
-      (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
-    refine h2.cons ⟨?_, (fun _ _ _ h => nomatch h), (fun _ _ h => nomatch h), ?_⟩
+        exact Setlec.annotateCore_noProjAt μ hannC hnfC (hslotI j))
+      (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h) (fun _ _ _ _ h => nomatch h)
+      (fun _ h => nomatch h))
+    refine h2.cons ⟨?_, (fun _ _ _ h => nomatch h), (fun _ _ h => nomatch h), ?_,
+      (fun _ h => nomatch h)⟩
     · show Expr.NoProjAt p.cvT.name j cvRa.type
       rw [hRtype]
-      exact Setlec.annotateCore_noProjAt μ hannR hnfR (hfreshC j hj)
+      exact Setlec.annotateCore_noProjAt μ hannR hnfR (hslotC j)
     · intro cv mI rP rules heq r hr
       injection heq with _ _ _ hrules
       subst hrules
       rcases List.mem_singleton.mp hr with rfl
-      refine ⟨Setlec.annotateCore_noProjAt μ hannRhs hnfRhs (hfreshC j hj), ?_⟩
+      refine ⟨Setlec.annotateCore_noProjAt μ hannRhs hnfRhs (hslotC j), ?_⟩
       intro lvls pins hfire
       split at hfire <;> exact nomatch hfire
-  have hinv : FoldInvP V μ p cvTa cvCa sorts pps ds 0 ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+  -- the table's cons
+  have hfT₃ : (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
         rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
-          env.consts⟩ : Env).consts⟩ : Env).consts⟩ := by
-    refine ⟨⟨mp₃, ?_, ?_, ?_, ?_⟩, ?_, ?_, fun j hj _ _ => absurd hj (Nat.not_lt_zero _),
-      fun j _ hj => hslotsF j hj, fun j _ hj => hnp₃ j hj,
-      Setlec.direct_rec_wf mpC.base2.wf hccvR hRule⟩
-    · exact hFD_C.cross (c₀ := .recInfo cvRa (p.nP + 2) (p.nP + 2)
-        [⟨p.cvC.name, p.nF, p.nP,
-          if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
-          rhsA⟩]) hRfresh (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT_C mp₃.base2 hac₃
-    · exact hCD_C.cross (c₀ := .recInfo cvRa (p.nP + 2) (p.nP + 2)
-        [⟨p.cvC.name, p.nF, p.nP,
-          if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
-          rhsA⟩]) hRfresh hTR (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbC_C mp₃.base2 hac₃
-    · intro ψ
-      rw [hac₃]
-      show acvalWith mpC.base2.acval cvRa.name _ p.cvT.name ψ = _
-      rw [acvalWith_ne hTR]
-      exact hleafT_C ψ
-    · intro ψ
-      rw [hac₃]
-      show acvalWith mpC.base2.acval cvRa.name _ p.cvC.name ψ = _
-      rw [acvalWith_ne hCR]
-      exact hleafC_C ψ
-    · rw [Setlec.Env.find?_cons, if_neg (fun h => hTR h.symm)]
-      exact hfT_C
-    · rw [Setlec.Env.find?_cons, if_neg (fun h => hCR h.symm)]
-      exact hfC_C
-  -- the fold
-  exact foldEntriesP hμ hsorts hlpsT hlpsC (by rw [hstripC]; rfl) hProp hpshapeT hpshapeC hresT
-    (by rw [← hRname]; exact hresR) hresC hiff hfields (List.range p.nF) 0 (by simp) hfold hinv
+          env.consts⟩ : Env).consts⟩ : Env).consts⟩ : Env).find? p.cvT.name
+      = some (.indInfo cvTa (Setlec.directCaps p)) := by
+    rw [Setlec.Env.find?_cons, if_neg (fun h => hTR h.symm)]
+    exact hfT_C
+  have hfC₃ : (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP,
+        if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
+        rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Setlec.directCaps p) ::
+          env.consts⟩ : Env).consts⟩ : Env).consts⟩ : Env).find? p.cvC.name
+      = some (.ctorInfo cvCa p.nP p.nF) := by
+    rw [Setlec.Env.find?_cons, if_neg (fun h => hCR h.symm)]
+    exact hfC_C
+  have hFD₃ : FormerData mp₃.base2 cvTa p.nP p.resSort pps :=
+    hFD_C.cross (c₀ := .recInfo cvRa (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP,
+        if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
+        rhsA⟩]) hRfresh (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT_C mp₃.base2 hac₃
+  have hCD₃ : CtorData mp₃.base2 p.cvT.name cvCa p.nP p.nF p.resSort ds :=
+    hCD_C.cross (c₀ := .recInfo cvRa (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP,
+        if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
+        rhsA⟩]) hRfresh hTR (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbC_C mp₃.base2 hac₃
+  have hleafT₃ : ∀ ψ, mp₃.base2.acval p.cvT.name ψ
+      = directTyAV (p.resSort.eval ψ) (pps ψ) (((ds ψ).drop p.nP).map (·.2.2)) := by
+    intro ψ
+    rw [hac₃]
+    show acvalWith mpC.base2.acval cvRa.name _ p.cvT.name ψ = _
+    rw [acvalWith_ne hTR]
+    exact hleafT_C ψ
+  have hleafC₃ : ∀ ψ, mp₃.base2.acval p.cvC.name ψ
+      = directMkAV (p.resSort.eval ψ) (ds ψ) (((ds ψ).drop p.nP).map (·.2.2)) := by
+    intro ψ
+    rw [hac₃]
+    show acvalWith mpC.base2.acval cvRa.name _ p.cvC.name ψ = _
+    rw [acvalWith_ne hCR]
+    exact hleafC_C ψ
+  exact stageTable mp₃ hsorts hTbl hfT₃ hlpsT hfC₃ hlpsC (by rw [hstripC]; rfl) hProp
+    hpshapeT hpshapeC hresT (by rw [← hRname]; exact hresR) hresC hnp₃ hFD₃ hCD₃ hleafT₃
+    hleafC₃ hiff hfields
 
 end Setlec.SetP

@@ -70,7 +70,7 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     InferProjStepP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, hguard, ⟨ds, hpi⟩, hsn⟩ := Setlec.inferTypeCore_proj_inv h
+    hlenUs, hguard, rfl, hsn⟩ := Setlec.inferTypeCore_proj_inv h
   subst hsn
   -- the subject's frames
   simp only [Expr.WScoped] at hws
@@ -101,12 +101,11 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
   have hwte' : Expr.WScoped d te := Setlec.whnf_WScoped m.wf fuel hwte hwtpe
   have hbte : te.looseBVarsBounded 0 = true :=
     Setlec.whnf_looseBVars m.wf fuel hwte hbtpe
-  have htw : entry.tower = true := m.proj_ok.tower_of_native hfe hnat
+  have htw : entry.tower = true := hnat
   -- TOWER-BACKED (task #175 wiring W5): the tower law's typing clause
-  obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
+  obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
     htower T i entry hfe htw
   obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hlenUs
-  obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
   obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe htw hea
   obtain rfl : vp = vp' := Option.some.inj (hvp.symm.trans hvp')
   -- the reduced type's spine, at the former's leaf
@@ -131,10 +130,8 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
         Setlec.looseBVarsBounded_getAppArgs hbte x hx'⟩
     · rcases List.mem_singleton.mp hx' with rfl
       exact ⟨hws, hb⟩
-  obtain ⟨restA, hrest, hpeel⟩ := denoteP_instPisAt_peel m.acval_closed
-    (acval_inst_self m) (te.getAppArgs ++ [pe]) hpi
-    (Expr.WScoped.of_not_hasFvar (towerEntry_tyI_closed m.wf hfe us).1)
-    hframes (hTad d) (hspt.snoc hvp)
+  obtain ⟨restA, hrest, hpeel⟩ :=
+    denoteP_typeAt_peel hfe hTa hlenArgs hframes (hspt.snoc hvp)
   obtain rfl : ta = restA := Option.some.inj (hta.symm.trans hrest)
   have hlenVs : vs.length = entry.numParams := by
     rw [← hspt.length]; exact hlenArgs
@@ -163,7 +160,7 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
     InferProjStepIOP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta hok
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, hguard, ⟨ds, hpi⟩, hsn⟩ := Setlec.inferTypeCoreIO_proj_inv h
+    hlenUs, hguard, rfl, hsn⟩ := Setlec.inferTypeCoreIO_proj_inv h
   subst hsn
   -- the subject's frames
   simp only [Expr.WScoped] at hws
@@ -202,12 +199,11 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
   have hwte' : Expr.WScoped d te := Setlec.whnf_WScoped m.wf fuel hwte hwtpe
   have hbte : te.looseBVarsBounded 0 = true :=
     Setlec.whnf_looseBVars m.wf fuel hwte hbtpe
-  have htw : entry.tower = true := m.proj_ok.tower_of_native hfe hnat
+  have htw : entry.tower = true := hnat
   -- TOWER-BACKED (task #175 wiring W5): the tower law's typing clause
-  obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
+  obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
     htower T i entry hfe htw
   obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hlenUs
-  obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
   obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe htw hea
   obtain rfl : vp = vp' := Option.some.inj (hvp.symm.trans hvp')
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
@@ -230,10 +226,8 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
         Setlec.looseBVarsBounded_getAppArgs hbte x hx'⟩
     · rcases List.mem_singleton.mp hx' with rfl
       exact ⟨hws, hb⟩
-  obtain ⟨restA, hrest, hpeel⟩ := denoteP_instPisAt_peel m.acval_closed
-    (acval_inst_self m) (te.getAppArgs ++ [pe]) hpi
-    (Expr.WScoped.of_not_hasFvar (towerEntry_tyI_closed m.wf hfe us).1)
-    hframes (hTad d) (hspt.snoc hvp)
+  obtain ⟨restA, hrest, hpeel⟩ :=
+    denoteP_typeAt_peel hfe hTa hlenArgs hframes (hspt.snoc hvp)
   obtain rfl : ta = restA := Option.some.inj (hta.symm.trans hrest)
   have hlenVs : vs.length = entry.numParams := by
     rw [← hspt.length]; exact hlenArgs
@@ -356,11 +350,11 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
           · rw [AnnotValidV_proj]; exact (hok₃ σ hσ).2
         · rw [interp2_proj, interp2_proj, heq₃ σ hσ]
   · -- the table fires
-    have htw : entry.tower = true := m.proj_ok.tower_of_native hfe hnat
+    have htw : entry.tower = true := hnat
     -- TOWER-BACKED (task #175 wiring W5): the tower law's iota clause
     obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe htw hea
     obtain rfl : vp = vp' := Option.some.inj (hvp.symm.trans hvp')
-    obtain ⟨-, -, -, -, -, hO5, cvC, hfC, hlpsC, hlaw, -⟩ := htower sn i entry hfe htw
+    obtain ⟨-, -, -, -, hO5, cvC, hfC, hlpsC, hlaw, -⟩ := htower sn i entry hfe htw
     obtain ⟨-, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hlenU
     -- the constructor spine, read at the constructor's leaf
     have he₃ : e₃ = Expr.mkAppN (.const entry.ctor us) e₃.getAppArgs := by
@@ -439,7 +433,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
       exact hmemC0 σ
     -- the ∀-chain, off the head data's arity pin
     obtain ⟨cvC'', hfC'', -, hstrip⟩ :=
-      (m.proj_ok.towerHead hfe htw).2.2.2.2.2.2.1
+      (m.proj_ok.towerHead hfe htw).2.2.2.2.2
     obtain ⟨rfl, -, -⟩ :=
       ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfC''))
     have hpc : PiChainP e₃.getAppArgs.length TCa := by
