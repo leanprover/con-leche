@@ -137,25 +137,31 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
               cn = natLandName ∨ cn = natLorName ∨ cn = natXorName ∨
               cn = natShiftLeftName ∨ cn = natShiftRightName) ∧
               natOpStoredF fe cn = true then do
+            -- first argument first; the second only behind a literal
+            -- (official `reduce_bin_nat_op`; the spec's D15 note)
             let w₁ ← r.whnf depth a
-            let w₂ ← r.whnf depth b
-            match ← withStore (rawNatLitI? · w₁),
-                ← withStore (rawNatLitI? · w₂) with
-            | some n₁, some n₂ =>
-              match natOpResult cn n₁ n₂ with
-              | some x => do
-              let r ← internExprM x
-              pure (some r)
+            match ← withStore (rawNatLitI? · w₁) with
+            | some n₁ => do
+              let w₂ ← r.whnf depth b
+              match ← withStore (rawNatLitI? · w₂) with
+              | some n₂ =>
+                match natOpResult cn n₁ n₂ with
+                | some x => do
+                  let r ← internExprM x
+                  pure (some r)
+                | none => pure none
               | none => pure none
-            | _, _ => pure none
+            | none => pure none
           else if natOpWfNames.contains cn ∧ natLitSupportedF fe then do
             let w₁ ← r.whnf depth a
-            let w₂ ← r.whnf depth b
-            match ← withStore (rawNatLitI? · w₁),
-                ← withStore (rawNatLitI? · w₂) with
-            | some _, some _ => throw (.notImplemented
-                s!"native Nat computation on literals ({cn})")
-            | _, _ => pure none
+            match ← withStore (rawNatLitI? · w₁) with
+            | some _ => do
+              let w₂ ← r.whnf depth b
+              match ← withStore (rawNatLitI? · w₂) with
+              | some _ => throw (.notImplemented
+                  s!"native Nat computation on literals ({cn})")
+              | none => pure none
+            | none => pure none
           else pure none
       | _ => pure none
     | _ => pure none
@@ -621,6 +627,22 @@ def projLitToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
     else pure e
   | _ => pure e
 
+/-- Twin of `prepareMajor`: the major's preparation in the official
+order (K rescue on the raw major, then whnf and the literal
+conversion; elsewhere whnf, literal, eta).  The K flag is the spec's
+`recRuleKOf` at the indexed lookup. -/
+def prepareMajorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (recName : Name) (rules : List RecRule) (major : ExprC) :
+    CheckCM ExprC := do
+  if recRuleKOf fe.find? rules then do
+    let majorK ← majorToCtorI mode r fe depth recName rules major
+    let major₀ ← r.whnf depth majorK
+    litMajorToCtorI r fe depth major₀
+  else do
+    let major₀ ← r.whnf depth major
+    let major₁ ← litMajorToCtorI r fe depth major₀
+    majorToCtorI mode r fe depth recName rules major₁
+
 /-- The interned nested-rule pin instantiations (structural recursion;
 the spec side is `(recFireComparands …).2`'s `List.map`). -/
 def pinArgsI (lps : List Name) (us : List Level) (args : List ExprC)
@@ -646,9 +668,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
       -- recursor's level arity before the rule's RHS is instantiated.
       if args.length = mI + 1 ∧ us.length = cv.levelParams.length then do
         let bvar0 ← internI (.bvar 0)
-        let major₀ ← r.whnf depth (args.getD mI bvar0)
-        let major₁ ← litMajorToCtorI r fe depth major₀
-        let major ← majorToCtorI mode r fe depth cn rules major₁
+        let major ← prepareMajorI mode r fe depth cn rules (args.getD mI bvar0)
         match ← withStore (fun st => st.getNode (st.getAppFnI major)) with
         | some (.const cj usj) => do
           let cjn ← readbackNM cj

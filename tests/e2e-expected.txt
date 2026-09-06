@@ -277,6 +277,18 @@
 # the full Init export (kept as _tmp/init-exports/
 # repro-int32-upward-enum-pre.ndjson, see DESIGN).
 0 reducenat_guard.ndjson
+# k_major_raw.ndjson (the Mathlib decide-over-Rat frontier, 2026-09-06):
+# the K rescue converts the major of a K-flagged recursor BEFORE its
+# whnf, as the official kernel's inductive_reduce_rec (to_ctor_when_K on
+# the raw major, reading only its type) and lean4lean do.  With the
+# whnf first, the major -- a theorem applied to the literal 604800 --
+# delta-unfolds and its Nat.rec proof grinds the literal unarily to
+# fuel exhaustion (exit 3, both modes); in the official order Eq.refl is
+# fabricated from the type (one Nat.beq literal fold) and the proof is
+# never opened.  Minimal spelling of instDecidableEqRat's
+# `Eq.ndrec … (Int.decEq._proof_1 … (Nat.eq_of_beq_eq_true …))` at
+# Std.Time.Week.Offset.ofMilliseconds._proof_1 (record 126,329).
+0 k_major_raw.ndjson
 
 # --pre flag (explicit "already preprocessed" assertion): the
 # detection scan and the preprocessor spawn are skipped entirely,
@@ -380,3 +392,13 @@
 # Expectation 0 records the CURRENT (divergent) verdict; it flips to 1
 # if the three-valued commit is ever threaded through `defeqStep`.
 0 irrel_commit.ndjson
+# natop_arg_order.ndjson: the divergence audit's D15 regression (DESIGN.md
+# "THE DIVERGENCE AUDIT") — `Nat.add o (slow 80000) = Nat.add (id o)
+# (slow 80000)` with `o` opaque: official's reduce_bin_nat_op never
+# evaluates the second argument (the first is stuck); before D15 setlec
+# whnf'd both and died of fuel (exit 3)
+0 natop_arg_order.ndjson
+# delta_chain.ndjson: the audit's D3 witness shape (two 300-step lockstep
+# delta chains compared by rfl); a plain accept, kept as the fixture the
+# lazy-delta restructuring is measured on
+0 delta_chain.ndjson

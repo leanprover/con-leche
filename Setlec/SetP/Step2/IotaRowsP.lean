@@ -241,57 +241,49 @@ theorem denoteP_const_arity {acval : Name → (Name → Nat) → AVExpr}
 
 /-! ## The major chain's frames -/
 
-/-- The frame conditions of the whole major chain — `whnf`, then the
-literal conversion, then the rescue.  Readings play no part: every
-step either preserves the leaf set or produces a closed term. -/
-theorem frame_majorChainP {d : Nat} {recName : Name}
-    {rules : List RecRule} {a m₀ m₁ mj : Expr}
-    (hw : whnf μ env fuel d a = .ok m₀)
-    (hlit : Setlec.litMajorToCtorP μ env fuel d m₀ = .ok m₁)
-    (hmaj : Setlec.majorToCtorP μ env fuel d recName rules m₁ = .ok mj)
+/-- The frame conditions of the whole major chain (`prepareMajor`:
+`whnf`, the literal conversion and the rescue, in either order — an
+instance of `prepareMajorP_ind`).  Readings play no part: every step
+either preserves the leaf set or produces a closed term. -/
+theorem frame_prepareMajorP {d : Nat} {recName : Name}
+    {rules : List RecRule} {a mj : Expr}
+    (h : Setlec.prepareMajorP μ env fuel d recName rules a = .ok mj)
     (hwf : Setlec.EnvWF env)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a) :
     Expr.WScoped d mj ∧ mj.looseBVarsBounded 0 = true ∧
-      Expr.LeavesBounded mj := by
-  have hw₀ : Expr.WScoped d m₀ := Setlec.whnf_WScoped hwf fuel hw hwa
-  have hb₀ : m₀.looseBVarsBounded 0 = true :=
-    Setlec.whnf_looseBVars hwf fuel hw hba
-  have hL₀ : Expr.LeavesBounded m₀ := fun l hl =>
-    hLa l (Setlec.whnf_fvarLeaves hwf fuel hw l hl)
-  obtain ⟨hw₁, hb₁, hL₁⟩ :
-      Expr.WScoped d m₁ ∧ m₁.looseBVarsBounded 0 = true ∧
-        Expr.LeavesBounded m₁ := by
-    rcases Setlec.litMajorToCtorP_inv hlit with rfl | ⟨s, rfl, hg, hred⟩
-    · match m₀ with
-      | .lit (.natVal n) =>
-        rw [Setlec.litToCtorIfNat]
-        by_cases hg : Setlec.natLitSupported env = true
-        · rw [if_pos hg]
-          refine ⟨Setlec.natLitToConstructor_WScoped n,
-            Setlec.natLitToConstructor_looseBVars n, fun l hl => ?_⟩
-          rw [Setlec.natLitToConstructor_fvarLeaves] at hl
-          exact nomatch hl
-        · rw [if_neg hg]; exact ⟨hw₀, hb₀, hL₀⟩
-      | .lit (.strVal _) | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _
-      | .app _ _ | .lam _ _ _ _ | .forallE _ _ _ _ | .letE _ _ _ _
-      | .proj _ _ _ => exact ⟨hw₀, hb₀, hL₀⟩
-    · have hwc : Expr.WScoped d (Setlec.strLitToConstructor s) :=
-        Setlec.strLitToConstructor_WScoped s d
-      have hbc : (Setlec.strLitToConstructor s).looseBVarsBounded 0 = true :=
-        Setlec.strLitToConstructor_looseBVars s 0
-      have hLc : Expr.LeavesBounded (Setlec.strLitToConstructor s) :=
-        fun l hl => by
-          rw [Setlec.strLitToConstructor_fvarLeaves] at hl; exact nomatch hl
-      exact ⟨Setlec.whnf_WScoped hwf fuel hred hwc,
-        Setlec.whnf_looseBVars hwf fuel hred hbc,
-        fun l hl => hLc l (Setlec.whnf_fvarLeaves hwf fuel hred l hl)⟩
-  rcases Setlec.majorToCtor_inv hmaj with rfl | ⟨hwsB, hbB, hleafB, -⟩
-  · exact ⟨hw₁, hb₁, hL₁⟩
-  · exact ⟨Expr.WScoped.of_wscopedB hwsB, hbB, fun l hl =>
-      hL₁ l (by
-        have := List.all_eq_true.mp hleafB l hl
-        simpa using this)⟩
+      Expr.LeavesBounded mj :=
+  Setlec.prepareMajorP_ind h
+    (fun x => Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded x)
+    (fun hw hP => ⟨Setlec.whnf_WScoped hwf fuel hw hP.1,
+      Setlec.whnf_looseBVars hwf fuel hw hP.2.1,
+      fun l hl => hP.2.2 l (Setlec.whnf_fvarLeaves hwf fuel hw l hl)⟩)
+    (fun hlit hP => by
+      obtain ⟨hw₀, hb₀, hL₀⟩ := hP
+      rcases Setlec.litMajorToCtorP_inv hlit with rfl | ⟨s, rfl, hg, hred⟩
+      · exact ⟨Setlec.litToCtorIfNat_WScoped hw₀,
+          Setlec.litToCtorIfNat_looseBVars hb₀,
+          fun l hl => hL₀ l (Setlec.litToCtorIfNat_fvarLeaves l hl)⟩
+      · have hwc : Expr.WScoped d (Setlec.strLitToConstructor s) :=
+          Setlec.strLitToConstructor_WScoped s d
+        have hbc : (Setlec.strLitToConstructor s).looseBVarsBounded 0 = true :=
+          Setlec.strLitToConstructor_looseBVars s 0
+        have hLc : Expr.LeavesBounded (Setlec.strLitToConstructor s) :=
+          fun l hl => by
+            rw [Setlec.strLitToConstructor_fvarLeaves] at hl; exact nomatch hl
+        exact ⟨Setlec.whnf_WScoped hwf fuel hred hwc,
+          Setlec.whnf_looseBVars hwf fuel hred hbc,
+          fun l hl => hLc l (Setlec.whnf_fvarLeaves hwf fuel hred l hl)⟩)
+    (fun hmaj hP => by
+      obtain ⟨hw₁, hb₁, hL₁⟩ := hP
+      rcases Setlec.majorToCtor_inv hmaj with rfl | ⟨hwsB, hbB, hleafB, -⟩
+      · exact ⟨hw₁, hb₁, hL₁⟩
+      · exact ⟨Expr.WScoped.of_wscopedB hwsB, hbB, fun l hl =>
+          hL₁ l (by
+            have := List.all_eq_true.mp hleafB l hl
+            simpa using this)⟩)
+    ⟨hwa, hba, hLa⟩
 
 /-! ## The recursor's right-hand side, read at the ambient depth -/
 
@@ -338,9 +330,9 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
     (ihw : WhnfReadsP m μ φ fuel) (ihio : InferReadsIOP m μ φ fuel) :
     IotaReadsP μ m φ fuel := by
   intro d e e'' ea h hws hb hLb hlr hea
-  obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
+  obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj, cvj, cnP,
     cnF, r, hfn, hfrec, hlenA, hlenU,
-    hwmaj, hlitmaj, hmajc, hfnmaj, hfcj, hrfind, hlenM,
+    hprep, hfnmaj, hfcj, hrfind, hlenM,
     hfire, hlev, hdefP, hcertR, hcertC, hidx,
     rfl⟩ := Setlec.iotaRec_inv h
   -- the subject's own spine
@@ -352,58 +344,67 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
   rw [show e = Expr.mkAppN e.getAppFn e.getAppArgs from
     (Setlec.Expr.mkAppN_getApp e).symm, hfn] at hea
   obtain ⟨vc, xs, hvc, hspx, rfl⟩ := denoteP_mkAppN_inv hea
-  -- the major's frames, through the whole chain
+  -- the major's frames and reading, through the whole chain (either
+  -- order: an instance of `prepareMajorP_ind`).  Task #172 B4: the
+  -- io-graded certificate no longer traverses every argument, so
+  -- per-argument readability comes from the subject's own reading,
+  -- transported by the reads walk and the fabrication lemma.
   have hmIlt : mI < e.getAppArgs.length := by rw [hlenA]; omega
   obtain ⟨hwMa, hbMa, hLMa⟩ := hfrE _ (Setlec.getD_mem hmIlt)
-  obtain ⟨hwm, hbm, hLm⟩ :=
-    frame_majorChainP hwmaj hlitmaj hmajc m.wf hwMa hbMa hLMa
-  have hfrM : ∀ x ∈ major.getAppArgs, Expr.WScoped d x ∧
-      x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x := fun x hx =>
-    ⟨hwm.getAppArgs x hx, Setlec.looseBVarsBounded_getAppArgs hbm x hx,
-      fun l hl => hLm l (Setlec.fvarLeaves_getAppArgs hx l hl)⟩
-  -- **the major reads through the chain** (task #172 B4: the io-graded
-  -- certificate no longer traverses every argument, so per-argument
-  -- readability comes from the subject's own reading, transported by
-  -- the reads walk and the fabrication lemma)
   have hlrM0 : LeafReadsP m φ d (e.getAppArgs.getD mI (.bvar 0)) :=
     hlr.of_subset
       (fun l hl => Setlec.fvarLeaves_getAppArgs (Setlec.getD_mem hmIlt) l hl)
   have hdM : denoteP m.acval env φ d (e.getAppArgs.getD mI (.bvar 0))
       = some (xs.getD mI default) := hspx.getD _ mI hmIlt
-  obtain ⟨m0a, hm0a⟩ := ihw hwmaj hwMa hbMa hLMa hlrM0 hdM
-  -- major₀'s frames
-  have hwM0 : Expr.WScoped d major₀ :=
-    Setlec.whnf_WScoped m.wf fuel hwmaj hwMa
-  have hbM0 : major₀.looseBVarsBounded 0 = true :=
-    Setlec.whnf_looseBVars m.wf fuel hwmaj hbMa
-  have hLM0 : Expr.LeavesBounded major₀ := fun l hl =>
-    hLMa l (Setlec.whnf_fvarLeaves m.wf fuel hwmaj l hl)
-  have hlrM0' : LeafReadsP m φ d major₀ :=
-    hlrM0.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwmaj)
-  -- the literal conversion step
-  obtain ⟨m1a, hm1a, hwM1, hbM1, hLM1, hlrM1⟩ :
-      ∃ m1a, denoteP m.acval env φ d major₁ = some m1a ∧
-        Expr.WScoped d major₁ ∧ major₁.looseBVarsBounded 0 = true ∧
-        Expr.LeavesBounded major₁ ∧ LeafReadsP m φ d major₁ := by
-    rcases Setlec.litMajorToCtorP_inv hlitmaj with rfl | ⟨st, rfl, hg, hred⟩
-    · refine ⟨m0a, ?_, Setlec.litToCtorIfNat_WScoped hwM0,
-        Setlec.litToCtorIfNat_looseBVars hbM0,
-        fun l hl => hLM0 l (Setlec.litToCtorIfNat_fvarLeaves l hl),
-        hlrM0'.of_subset Setlec.litToCtorIfNat_fvarLeaves⟩
-      rw [denoteP_litToCtorIfNat]
-      exact hm0a
-    · obtain ⟨hSC, hwc, hbc, hLc, hfv⟩ :=
-        denotePStrLit_of_guard (m := m) d st hg hm0a
-      have hlrc : LeafReadsP m φ d (Setlec.strLitToConstructor st) := by
-        intro l hl; rw [hfv] at hl; exact nomatch hl
-      obtain ⟨m1a, hm1a⟩ := ihw hred hwc hbc hLc hlrc hSC
-      exact ⟨m1a, hm1a, Setlec.whnf_WScoped m.wf fuel hred hwc,
-        Setlec.whnf_looseBVars m.wf fuel hred hbc,
-        fun l hl => hLc l (Setlec.whnf_fvarLeaves m.wf fuel hred l hl),
-        hlrc.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hred)⟩
-  -- the rescue's fabrication reads
-  obtain ⟨⟨ma, hma⟩, hlrMj⟩ :=
-    majorToCtorP_reads ihw ihio hmajc hwM1 hbM1 hLM1 hlrM1 hm1a
+  obtain ⟨⟨ma, hma⟩, hlrMj, hwm, hbm, hLm⟩ :
+      (∃ w, denoteP m.acval env φ d major = some w) ∧
+        LeafReadsP m φ d major ∧ Expr.WScoped d major ∧
+        major.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded major :=
+    Setlec.prepareMajorP_ind hprep
+      (fun x => (∃ w, denoteP m.acval env φ d x = some w) ∧
+        LeafReadsP m φ d x ∧ Expr.WScoped d x ∧
+        x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x)
+      (fun hw hP => by
+        obtain ⟨⟨xa, hxa⟩, hlrx, hwx, hbx, hLx⟩ := hP
+        obtain ⟨ya, hya⟩ := ihw hw hwx hbx hLx hlrx hxa
+        exact ⟨⟨ya, hya⟩, hlrx.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hw),
+          Setlec.whnf_WScoped m.wf fuel hw hwx,
+          Setlec.whnf_looseBVars m.wf fuel hw hbx,
+          fun l hl => hLx l (Setlec.whnf_fvarLeaves m.wf fuel hw l hl)⟩)
+      (fun hlit hP => by
+        obtain ⟨⟨xa, hxa⟩, hlrx, hwx, hbx, hLx⟩ := hP
+        rcases Setlec.litMajorToCtorP_inv hlit with rfl | ⟨st, rfl, hg, hred⟩
+        · refine ⟨⟨xa, ?_⟩, hlrx.of_subset Setlec.litToCtorIfNat_fvarLeaves,
+            Setlec.litToCtorIfNat_WScoped hwx,
+            Setlec.litToCtorIfNat_looseBVars hbx,
+            fun l hl => hLx l (Setlec.litToCtorIfNat_fvarLeaves l hl)⟩
+          rw [denoteP_litToCtorIfNat]
+          exact hxa
+        · obtain ⟨hSC, hwc, hbc, hLc, hfv⟩ :=
+            denotePStrLit_of_guard (m := m) d st hg hxa
+          have hlrc : LeafReadsP m φ d (Setlec.strLitToConstructor st) := by
+            intro l hl; rw [hfv] at hl; exact nomatch hl
+          obtain ⟨ya, hya⟩ := ihw hred hwc hbc hLc hlrc hSC
+          exact ⟨⟨ya, hya⟩,
+            hlrc.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hred),
+            Setlec.whnf_WScoped m.wf fuel hred hwc,
+            Setlec.whnf_looseBVars m.wf fuel hred hbc,
+            fun l hl => hLc l (Setlec.whnf_fvarLeaves m.wf fuel hred l hl)⟩)
+      (fun hmaj hP => by
+        obtain ⟨⟨xa, hxa⟩, hlrx, hwx, hbx, hLx⟩ := hP
+        obtain ⟨hrd, hlry⟩ := majorToCtorP_reads ihw ihio hmaj hwx hbx hLx hlrx hxa
+        refine ⟨hrd, hlry, ?_⟩
+        rcases Setlec.majorToCtor_inv hmaj with rfl | ⟨hwsB, hbB, hleafB, -⟩
+        · exact ⟨hwx, hbx, hLx⟩
+        · exact ⟨Expr.WScoped.of_wscopedB hwsB, hbB, fun l hl =>
+            hLx l (by
+              have := List.all_eq_true.mp hleafB l hl
+              simpa using this)⟩)
+      ⟨⟨_, hdM⟩, hlrM0, hwMa, hbMa, hLMa⟩
+  have hfrM : ∀ x ∈ major.getAppArgs, Expr.WScoped d x ∧
+      x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x := fun x hx =>
+    ⟨hwm.getAppArgs x hx, Setlec.looseBVarsBounded_getAppArgs hbm x hx,
+      fun l hl => hLm l (Setlec.fvarLeaves_getAppArgs hx l hl)⟩
   -- its spine decomposes into per-argument readings
   have hspy : ∃ ys, DenoteSpineP m.acval env φ d major.getAppArgs ys := by
     have hma' := hma
@@ -495,9 +496,9 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     (hwreads : WhnfReadsP m μ φ fuel) :
     IotaStepP μ m φ fuel := by
   intro d e e'' Δa h hws hb hLb ea hC hea hok
-  obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
+  obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj, cvj, cnP,
     cnF, r, hfn, hfrec, hlenA, hlenU,
-    hwmaj, hlitmaj, hmajc, hfnmaj, hfcj, hrfind, hlenM,
+    hprep, hfnmaj, hfcj, hrfind, hlenM,
     hfire, hlev, hdefP, hcertR, hcertC, hidx,
     rfl⟩ := Setlec.iotaRec_inv h
   have hrmem : r ∈ rules := List.mem_of_find?_eq_some hrfind
@@ -515,7 +516,9 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   have hfrE := frame_spineP hws hb hLb hC
   obtain ⟨-, hoX⟩ := hoistP_spine xs hok
   have hxsLen : xs.length = mI + 1 := by rw [← hspx.length]; exact hlenA
-  -- the major: whnf, the literal conversion, the rescue
+  -- the major, through the whole chain (either order: an instance of
+  -- `prepareMajorP_ind`): read, graded, and equal to the argument's
+  -- reading
   have hmIlt : mI < e.getAppArgs.length := by rw [hlenA]; omega
   obtain ⟨hwM, hbM, hLM, hCM⟩ := hfrE _ (Setlec.getD_mem hmIlt)
   have hdMaj : denoteP m.acval env φ d (e.getAppArgs.getD mI (.bvar 0))
@@ -523,23 +526,44 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   have hokMajArg : ∀ ρ : Nat → V, Sat2 V Δa ρ →
       AnnotOkP V ρ (xs.getD mI default) :=
     hoX _ (Setlec.getD_mem (by rw [← hspx.length]; exact hmIlt))
-  obtain ⟨mj0a, hmj0a⟩ := hwreads hwmaj hwM hbM hLM
-    (LeafReadsP.of_ctxOkP hCM) hdMaj
-  obtain ⟨hokMj0, heqMj0⟩ := ihw hwmaj hwM hbM hLM hCM hdMaj hmj0a hokMajArg
-  obtain ⟨mj1a, hmj1a, hokMj1, heqMj1, hw1, hb1, hL1, hC1⟩ :=
-    litMajorToCtorP_stepP ihw hwreads hlitmaj
-      (Setlec.whnf_WScoped m.wf fuel hwmaj hwM)
-      (Setlec.whnf_looseBVars m.wf fuel hwmaj hbM)
-      (fun l hl => hLM l (Setlec.whnf_fvarLeaves m.wf fuel hwmaj l hl))
-      (hCM.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwmaj))
-      hmj0a hokMj0
-  obtain ⟨vmaj, hvmajSave, hokMj, heqMj, hwmj, hbmj, hLmj, hCmj⟩ :=
-    majorToCtorP_stepP hcaps htower hct hav ihw ihd ihis hsss hexi hreads_ios
-      hwreads hmajc
-      hw1 hb1 hL1 hC1 hmj1a hokMj1
-  have heqAll : ∀ ρ : Nat → V, Sat2 V Δa ρ →
-      interp2 V ρ (xs.getD mI default) = interp2 V ρ vmaj := fun ρ hρ =>
-    (heqMj0 ρ hρ).trans ((heqMj1 ρ hρ).trans (heqMj ρ hρ))
+  obtain ⟨vmaj, hvmajSave, hokMj, heqAll, hwmj, hbmj, hLmj, hCmj⟩ :
+      ∃ v, denoteP m.acval env φ d major = some v ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ v) ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ →
+          interp2 V ρ (xs.getD mI default) = interp2 V ρ v) ∧
+        Expr.WScoped d major ∧ major.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded major ∧ CtxOkP m φ d Δa major :=
+    Setlec.prepareMajorP_ind hprep
+      (fun x => ∃ v, denoteP m.acval env φ d x = some v ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ v) ∧
+        (∀ ρ : Nat → V, Sat2 V Δa ρ →
+          interp2 V ρ (xs.getD mI default) = interp2 V ρ v) ∧
+        Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x)
+      (fun hw hP => by
+        obtain ⟨v, hv, hok, heq, hwx, hbx, hLx, hCx⟩ := hP
+        obtain ⟨v', hv'⟩ :=
+          hwreads hw hwx hbx hLx (LeafReadsP.of_ctxOkP hCx) hv
+        obtain ⟨hok', heq'⟩ := ihw hw hwx hbx hLx hCx hv hv' hok
+        exact ⟨v', hv', hok', fun ρ hρ => (heq ρ hρ).trans (heq' ρ hρ),
+          Setlec.whnf_WScoped m.wf fuel hw hwx,
+          Setlec.whnf_looseBVars m.wf fuel hw hbx,
+          fun l hl => hLx l (Setlec.whnf_fvarLeaves m.wf fuel hw l hl),
+          hCx.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hw)⟩)
+      (fun hlit hP => by
+        obtain ⟨v, hv, hok, heq, hwx, hbx, hLx, hCx⟩ := hP
+        obtain ⟨v', hv', hok', heq', hw', hb', hL', hC'⟩ :=
+          litMajorToCtorP_stepP ihw hwreads hlit hwx hbx hLx hCx hv hok
+        exact ⟨v', hv', hok', fun ρ hρ => (heq ρ hρ).trans (heq' ρ hρ),
+          hw', hb', hL', hC'⟩)
+      (fun hmaj hP => by
+        obtain ⟨v, hv, hok, heq, hwx, hbx, hLx, hCx⟩ := hP
+        obtain ⟨v', hv', hok', heq', hw', hb', hL', hC'⟩ :=
+          majorToCtorP_stepP hcaps htower hct hav ihw ihd ihis hsss hexi
+            hreads_ios hwreads hmaj hwx hbx hLx hCx hv hok
+        exact ⟨v', hv', hok', fun ρ hρ => (heq ρ hρ).trans (heq' ρ hρ),
+          hw', hb', hL', hC'⟩)
+      ⟨_, hdMaj, hokMajArg, fun _ _ => rfl, hwM, hbM, hLM, hCM⟩
   -- the constructor spine
   have hrctor : r.ctor = cj := by
     have := List.find?_some hrfind
