@@ -44437,9 +44437,67 @@ on the gate being false there.
 
 **Verdict risk, and the hard stop.**  Ungating is verdict-changing for
 the trusted mode exactly where a reader and the slow path disagree,
-which the #168 landing census never observed (init-full 7 553 298
-calls, arena 80 111 calls, **0 disagreements either way**).  The gate
-run confirms it: `tests/arena.sh` 0 FAIL with arena 90/92, e2e 78/78,
-annot 14/14, mode flags 16/16 and the trusted sweep's same three
-recorded divergences; init-full accepted in both modes.  No number was
-measured — the perf cadence puts that after the grant.
+which the #168 landing census never observed — but that census ran in
+the VERIFIED mode.  `tests/arena.sh` stays 0 FAIL (arena 90/92, e2e
+78/78, annot 14/14, mode flags 16/16, the trusted sweep's same three
+recorded divergences) and `--verified` init-full still accepts (60 549
+constants, the task #175 S1 collapse, exit 0) — **but `--trusted`
+init-full BREAKS**, and that is this batch's stop.
+
+### STOP-FINDING (2026-09-06): the trusted mode writes no `pw`, so the NO arm misfires there
+
+    ulimit -v 16000000; ./.lake/build/bin/setlec \
+      _tmp/init-exports/init-full-pre2.ndjson --trusted --pre
+    setlec: internal error: fuel exhausted: whnfCore
+            [at theorem Char.utf8Size_eq_one_iff]          exit 3
+
+Bisected inside the batch, one run per cell on `init-full-pre2`:
+
+| cached `propIrrelI` at `cfgT` | `--trusted` init-full |
+|---|---|
+| both arms gated (the rename commit, pre-ungating) | **0** / 60 549 |
+| NO arm ungated only | **3** — fuel exhausted, `whnfCore` |
+| YES arm ungated only | **0** / 60 549 |
+| both arms ungated (as ruled) | **3** — fuel exhausted, `whnfCore` |
+
+So the **no arm alone** is the breakage; the yes arm — the licensed
+one — is free in the trusted mode.
+
+**Root cause, read off the tree.**  `PropWhen` derives `Inhabited`, so
+its default is the FIRST constructor, `.never` — "the codomain sort is
+nonzero at every valuation", i.e. *never a proposition*.  The `pw`
+writers are themselves gated: `annotatePisPwI` / `annotateLamsPwI`
+(`Cached/CoreC.lean`) are `if cfg.verified then … else pure none`, so
+**the trusted mode writes no annotation at all** and every binder keeps
+the parser's `.never` default.  `typeSortPW` reads a ∀'s binder datum
+directly (`| .forallE _ _ _ m => some m.pw`), so in the trusted mode it
+answers `.never` for genuine propositions; `notProofFast` is
+`!pw.isProp`, which is then `true`, and the hoisted proof-irrelevance
+shortcut is refused on real proofs.  Defeq must then compare proof
+terms structurally, and `whnfCore` runs out of fuel.
+
+This is exactly the fact the retired gate encoded ("the trusted core
+validates no annotation, so it reads none") — but the honest statement
+is sharper than "validates": it **writes** none.  A reader is only as
+good as the datum, and the trusted mode has no datum.
+
+**Options for the ruling** (none taken here; the batch stops):
+
+1. **Ungate the yes arm only.**  Measured green in both modes, and it
+   is the arm with a licence.  The no arm stays behind
+   `verifiedChecks` with the reason restated as *the writers are gated,
+   so the readers must be too*.
+2. **Ungate the writers too**, so the trusted mode annotates and both
+   readers have real data.  That contradicts the purpose statement in
+   the other direction: annotation *validation* is certification-only
+   work, but annotation *writing* would then be work the trusted mode
+   does only to feed a reader — and it costs the pass.
+3. **Make the readers total-safe**: have `typeSortPW`/`proofPW` answer
+   `none` (unknown → slow path) rather than trust a datum, which needs
+   a "this datum was written" bit the `PropWhen` default does not
+   carry.
+
+**THE BRANCH IS NOT MERGE-READY** as it stands: `agent/mode-rename`'s
+tip implements the ruling literally and therefore fails the
+`--trusted` init-full gate.  The rename commit alone (`86a6c0db`) is
+green on every gate.
