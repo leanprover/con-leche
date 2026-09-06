@@ -3,11 +3,10 @@ import Lech.Cached.CheckerC
 /-!
 # The parsed-declaration driver on the cached representation
 
-The counterpart of the retired interned `checkDeclsSP`: one `CState`
-for the whole stream, the environment-dependent caches flushed per
-declaration, declarations consumed as `DeclC` records straight from
-the direct parse (`Lech/Frontend/ExportC.lean`, task #171 — no
-arena, no conversion detour).
+One `CState` for the whole stream, the environment-dependent caches
+flushed per declaration, declarations consumed as `DeclC` records
+straight from the direct parse (`Lech/Frontend/ExportC.lean`, task
+#171 — no conversion detour).
 
 `checkDeclsSPCachedD mode` is what the binary runs in BOTH modes — at
 `.verified` under `--verified`, at `.trusted` under `--trusted` (the twin driver

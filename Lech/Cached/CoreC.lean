@@ -35,9 +35,9 @@ open Lech
 
 variable {m : Type → Type}
 
-/-! ## The interned core record and helper twins -/
+/-! ## The core record and its helper twins -/
 
-/-- The record of mutually recursive interned entry points. -/
+/-- The record of mutually recursive cached entry points. -/
 structure CoreFnsI where
   whnfCore : Nat → ExprC → CheckCM ExprC
   whnf : Nat → ExprC → CheckCM ExprC
@@ -60,7 +60,7 @@ full-grade `infer` slot is the io slot, so a body written against
 def CoreFnsI.ioView (r : CoreFnsI) : CoreFnsI :=
   { r with infer := r.inferIO }
 
-/-- Twin of `unfoldDefinition` (monadic: the unfolded value is interned
+/-- Twin of `unfoldDefinition` (monadic: the unfolded value is read
 through the `(name, levels)` cache).  Like the spec, theorem values
 unfold too. -/
 def unfoldDefinitionI (fe : FEnv) (e : ExprC) : CheckCM (Option ExprC) := do
@@ -357,7 +357,7 @@ def propIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     | _ => pure false
   | _ => pure false
 
-/-- The interned projection-application spine
+/-- The projection-application spine
 `[proj_0 targs b, …]` (structural recursion; the spec side is a pure
 `List.map`). -/
 def projAppsFnI (T : Name) (us' : List Level) (targs : List ExprC)
@@ -370,7 +370,7 @@ def projAppsFnI (T : Name) (us' : List Level) (targs : List ExprC)
     let rs ← projAppsFnI T us' targs b rest
     pure (r :: rs)
 
-/-- The interned `.proj T i b` spine (the tower spelling, task #175
+/-- The `.proj T i b` spine (the tower spelling, task #175
 W4c). -/
 def projNodesI (T : Name) (b : ExprC) : List Nat → CheckCM (List ExprC)
   | [] => pure []
@@ -381,7 +381,7 @@ def projNodesI (T : Name) (b : ExprC) : List Nat → CheckCM (List ExprC)
 
 /-- Twin of `etaProjs`: the tower spelling at an all-tower slot family
 (`towerSlotsAll` through the index), the projection-function spelling
-otherwise.  `Tn` is the readback name, `T` the interned one. -/
+otherwise. -/
 def projAppsI (fe : FEnv) (Tn T : Name) (us' : List Level)
     (targs : List ExprC) (b : ExprC) (nF : Nat) :
     CheckCM (List ExprC) :=
@@ -687,7 +687,7 @@ def prepareMajorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     let major₁ ← litMajorToCtorI r fe depth major₀
     majorToCtorI mode r fe depth recName rules major₁
 
-/-- The interned nested-rule pin instantiations (structural recursion;
+/-- The nested-rule pin instantiations (structural recursion;
 the spec side is `(recFireComparands …).2`'s `List.map`). -/
 def pinArgsI (lps : List Name) (us : List Level) (args : List ExprC)
     (t : Nat) : List Expr → CheckCM (List ExprC)
@@ -1079,11 +1079,10 @@ annotate the leaf once on the bulk-opened body, then rebuild with one
 `abstractRange` per domain and one over the leaf.  Each loop replays
 exactly the per-binder checks of the chained recursion, in order; the
 value-level identification with the chained spec bodies is
-`Lech/Verify/BinderLoop.lean` (the `DiscI` walks relate the interned
-loops to their pure mirrors, and `_sound_body` theorems reproduce a
-mirror run in the original one-binder-at-a-time body at some fuel).
-The peel fuel (arena size, an upper bound for any chain in a canonical
-arena) is semantically transparent: on exhaustion the leaf phase hands
+`Lech/Verify/BinderLoop.lean` (the `DiscI` walks relate the loops to
+their pure mirrors, and `_sound_body` theorems reproduce a mirror run
+in the original one-binder-at-a-time body at some fuel).
+The peel fuel is semantically transparent: on exhaustion the leaf phase hands
 the residual binder chain back to the knot, which is exactly the
 chained spec's next step. -/
 
@@ -1590,7 +1589,7 @@ def isPropTypeI (r : CoreFnsI) (_fe : FEnv) (depth : Nat) (ty : ExprC) :
 domain, binder info. -/
 abbrev AnnotBinderEntry := Name × ExprC × BinderMeta
 
-/-- The interned twin of `annotBinderMeta`. -/
+/-- The cached twin of `annotBinderMeta`. -/
 def annotBinderMetaI (pw? : Option PropWhen) (mb : BinderMeta) : BinderMeta :=
   match pw? with
   | some pw => if pwWritten mb.pw then mb else ⟨mb.bi, pw⟩
@@ -1807,9 +1806,9 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
             else .notImplemented "projection on a non-structure-like type")
       | _ => throw (.notImplemented "projection on a non-structure type")
 
-/-! ## The interned memoized knot -/
+/-! ## The memoized knot -/
 
-/-- Memoize a unary interned entry point under its index (`O(1)` key).
+/-- Memoize a unary entry point under its node (`O(1)` key).
 
 `@[inline]` (the retired twin's perf-eng E2, now the one knot's): after
 inlining the getter/setter lambdas beta-reduce away and the memo probe
@@ -1829,7 +1828,7 @@ only — the term the proofs unfold is unchanged. -/
         set' st (mp.insert e r)
       pure r
 
-/-- Memoize the interned definitional-equality entry point under the
+/-- Memoize the definitional-equality entry point under the
 index pair (`@[inline]` as `memoEI`). -/
 @[inline] def memoBI (f : Nat → ExprC → ExprC → CheckCM Bool) :
     Nat → ExprC → ExprC → CheckCM Bool :=
@@ -1844,7 +1843,7 @@ index pair (`@[inline]` as `memoEI`). -/
         { st with defeqC := mp.insert (a, b) r }
       pure r
 
-/-- Tie the interned bodies at the memoizing state monad (fuel only
+/-- Tie the bodies at the memoizing state monad (fuel only
 here, as in `coreKnot`; levels built lazily).
 
 **The knot takes the mode** (task #185; from 2026-09-06 to then it

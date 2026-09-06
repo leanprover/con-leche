@@ -2,23 +2,20 @@ import Lech.Kernel.Direct.SumInstallF
 import Lech.Cached.CoreC
 
 /-!
-# The cached-clone declaration driver
+# The cached declaration driver
 
 The declaration checker *above* `CheckerOps` is shared verbatim with
-the production checker: the pilot replaces the core, nothing else.
-What is cloned here is exactly the thin `CheckIM`-pinned layer of
-`Lech/Kernel/CheckerS.lean` (the per-declaration shared-state phase
-drivers) at the clone's monad, plus the entry-point record over the
-cached core.
+the generic one: only the core is replaced.  What lives here is the
+thin per-declaration phase-driver layer at `CheckCM`, plus the
+entry-point record over the cached core.
 
-Task #172: the interned checker this was cloned from is gone, and with
-it the `Expr`-typed shared fold (`checkDeclsShared`) that existed only
-to make the two comparable.  What is left is the per-declaration phase
-driver the parsed-declaration driver (`Lech/Cached/ParsedC.lean`)
-and its bridges consume — at a `CheckMode` (the trusted twin
-`ParsedT`/`CoreT` retired 2026-09-06, the configuration record that
-briefly stood in for the mode retired at task #185; see
-`ParsedC.lean`'s header).
+What the layer is *for*: the per-declaration phase driver that the
+parsed-declaration driver (`Lech/Cached/ParsedC.lean`) and its bridges
+consume — at a `CheckMode` (the trusted twin `ParsedT`/`CoreT` retired
+2026-09-06, the configuration record that briefly stood in for the mode
+retired at task #185; see `ParsedC.lean`'s header).  The `Expr`-typed
+shared fold `checkDeclsShared` went at task #172 with the interned
+checker it existed to compare against.
 -/
 
 namespace Lech.Cached
@@ -30,11 +27,10 @@ variable (mode : CheckMode)
 /-! ## The entry-point record over the cached core
 
 `opE`/`opB`/`opS` used to convert their `Expr` arguments in and their
-results out, exactly as the interned `opE`/`opB`/`opS` intern and read
-back at the same seam.  Since task #172 B3a there is one expression
-type, so they pass their arguments through — measured at −3.5 % / −3.8 %
-instructions on `init-prelude` / `app-lam`, which is where that batch's
-win came from. -/
+results out.  Since task #172 B3a there is one expression type, so they
+pass their arguments through — measured at −3.5 % / −3.8 % instructions
+on `init-prelude` / `app-lam`, which is where that batch's win came
+from. -/
 
 /-- Shared-state unary entry point: run the cached knot. -/
 def opE (fe : FEnv) (pick : CoreFnsI → Nat → ExprC → CheckCM ExprC)
@@ -50,7 +46,7 @@ def opS (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Level :=
   ensureSortI (coreKnotI mode fe checkFuel) d e
 
 /-- The per-declaration shared operations at a fixed environment
-index (the clone's `sharedOps`). -/
+index. -/
 def sharedOpsC (fe : FEnv) : CheckerOps CheckCM where
   annotate _ d e := opE mode fe (·.annotate) d e
   inferType _ d e := opE mode fe (·.infer) d e
@@ -59,7 +55,7 @@ def sharedOpsC (fe : FEnv) : CheckerOps CheckCM where
   whnf _ d e := opE mode fe (·.whnf) d e
 
 
-/-! ## Thin phase drivers (one interned state per declaration)
+/-! ## Thin phase drivers (one `CState` per declaration)
 
 Each mirrors its `Lech/Kernel/Checker.lean` counterpart clause by
 clause; the differences are exactly: `flushC` at environment
@@ -288,7 +284,7 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
 
 /-- The shared-state checker step the binary runs: the index is
 threaded *across* declarations (built once for the whole stream; each
-accepted constant is one `FEnv.push`), the interned state lives for
+accepted constant is one `FEnv.push`), the memo state lives for
 exactly one declaration. -/
 def checkDeclSharedF (fe : FEnv) (d : Declaration) : CheckM FEnv :=
   (checkDeclSF mode fe d).run' {}

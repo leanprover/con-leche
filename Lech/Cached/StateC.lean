@@ -130,7 +130,7 @@ and (for definitions/theorems/opaques) value converted to `ExprC`,
 each tagged with the very `Expr` object it came from.  A use validates
 the tag by pointer equality (`Expr.exprPtrBEq`, reused), so the
 conversion of a stored constant is paid once per declaration instead
-of once per delta step — the counterpart of `IState.ienv`. -/
+of once per delta step. -/
 structure CConstE where
   tyE : Expr
   ty : ExprC
@@ -170,16 +170,15 @@ structure CState where
 instance : Inhabited CState := ⟨{}⟩
 
 /-- Entry bound for the persistent bulk-instantiation memo (the
-interned checker's `instCCap`, reused unchanged). -/
+`instCCap` of the retired interned checker, reused unchanged). -/
 def instCCapC : Nat := 32000000
 
-/-- The cached-clone checker monad. -/
+/-- The cached checker's monad: the per-declaration memo state over
+`CheckM`. -/
 abbrev CheckCM := StateT CState CheckM
 
-/-- Peel fuel of the binder-telescope loops.  The interned loops use
-the arena's node count (an upper bound on any binder chain in a
-canonical arena); there is no such count here, so a constant beyond
-any real chain serves — the fuel is *semantically transparent*: on
+/-- Peel fuel of the binder-telescope loops.  A constant beyond any
+real binder chain; the fuel is *semantically transparent*: on
 exhaustion the leaf phase hands the residual chain back to the knot,
 which is exactly the chained specification's next step. -/
 def peelFuel : Nat := 16777216
@@ -197,7 +196,7 @@ when the target has no loose bvar at or above the cursor. -/
   pure (ExprC.instantiate1 e v d)
 
 /-- Bulk instantiation with the persistent result memo (task #145),
-keyed by the whole argument tuple exactly as `IState.instC`. -/
+keyed by the whole argument tuple. -/
 def instListM (e : ExprC) (vs : List ExprC) (d : Nat := 0) : CheckCM ExprC :=
   modifyGet fun s =>
     if e.bvarB ≤ d then (e, s)
@@ -212,7 +211,7 @@ def instListM (e : ExprC) (vs : List ExprC) (d : Nat := 0) : CheckCM ExprC :=
         (r, { s with instC := mp.insert (e, vs, d) r })
 
 /-- Bulk instantiation on a reversed accumulator array (deliberately
-not memoized, as in the interned checker). -/
+not memoized). -/
 @[inline] def instListRevM (e : ExprC) (vs : Array ExprC) (d : Nat := 0) :
     CheckCM ExprC :=
   pure (ExprC.instantiateRev e vs d)
@@ -241,10 +240,9 @@ not memoized, as in the interned checker). -/
 /-! ## Level operations
 
 Levels are plain trees here (there is no level arena), so the level
-memos are keyed structurally — the one place the clone pays a
-non-`O(1)` hash.  The *results* are cached exactly as in the interned
-checker (`lsimpC`, `lnzC`, `eqvC`), so a decided comparison is never
-recomputed. -/
+memos are keyed structurally — the one place a non-`O(1)` hash is
+paid.  The *results* are cached (`lsimpC`, `lnzC`, `eqvC`), so a
+decided comparison is never recomputed. -/
 
 @[inline] def substLevelTreesM (ks : List Name) (us : List Level)
     (ls : List Level) : CheckCM (List Level) :=
@@ -272,9 +270,8 @@ def isNonZeroLM (u : Level) : CheckCM Bool :=
       let r := Level.isNonZero u
       (r, { s with lnzC := mp.insert u r })
 
-/-- Level equivalence with a persistent result cache (the interned
-`isEquivLM`, same shape: simplify both sides, compare, then the
-`leqCore` cascade both ways).
+/-- Level equivalence with a persistent result cache: simplify both
+sides, compare, then the `leqCore` cascade both ways.
 
 The `l == r` head test is official's `is_equivalent` disjunct
 (`level.cpp:518`, task #176 P2) and is what makes the *shared* case —
@@ -413,7 +410,7 @@ def ruleRhsAtM (fe : FEnv) (_cI _jI : Name) (c j : Name) (us : List Level) :
 /-- Drop the environment-dependent caches (an environment transition).
 The environment-independent components — the converted-constant cache
 `ienv` (self-certified by its `Expr` tags) and the level-operation
-memos — survive, exactly as in `IState.flushed`. -/
+memos — survive. -/
 def CState.flushed (s : CState) : CState :=
   { s with
       constTyAt := {}, constValAt := {}, ruleRhsAt := {},

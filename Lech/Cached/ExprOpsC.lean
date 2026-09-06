@@ -25,8 +25,8 @@ for the pilot's numbers:
 
 ## The memo discipline of the substitution walks (task #177)
 
-The arena's memo key was an `EIdx` — a scalar.  The clone's is a
-*constructed* key, so the probe costs allocations, and profiling put
+The retired arena's memo key was an `EIdx` — a scalar.  This tier's is
+a *constructed* key, so the probe costs allocations, and profiling put
 `instantiate*Go`/`abstract*Go` plus their `Std.DHashMap` spec sites at
 roughly half of every `--trusted` run.  Three shape rules cut that,
 and each is a property of the walks alone (the values are unchanged —
@@ -326,11 +326,9 @@ in place).
 
 **Documented deviation from the arena twin** (`abstract1IGo`, which has
 no such cutoff): a node whose cached fvar range is at or below `d`
-cannot contain `fvar d`, so it is returned unchanged.  The arena does
-not need the cutoff — its rebuild re-interns to the *same index* — but
-the clone's rebuild allocates, so returning the node itself is how the
-computed-field representation recovers the arena's idempotence.  Same
-value either way. -/
+cannot contain `fvar d`, so it is returned unchanged.  A rebuild here
+allocates, so returning the node itself is what keeps the walk
+idempotent on the shared subterms.  Same value either way. -/
 def abstract1Go (d : Nat) (memo : MemoN) (e : ExprC) (k : Nat) :
     ExprC × MemoN :=
   if e.fvarB ≤ d then (e, memo) else
