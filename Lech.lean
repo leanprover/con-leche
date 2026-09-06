@@ -27,6 +27,3 @@ import Lech.Verify.Mono
 import Lech.Verify.Deep
 import Lech.Verify.BridgeDecl
 import Lech.Verify.OfReducePin
-import Lech.Kernel.ZeroSet
-import Lech.Verify.ZeroSet
-import Lech.Kernel.ZeroSetPin
