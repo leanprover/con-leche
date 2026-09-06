@@ -35,12 +35,13 @@ def main (args : List String) : IO UInt32 := do
     return 1
   initSearchPath (← findSysroot)
   let env ← importModules (args.toArray.map fun m => ({ module := m.toName } : Import)) {}
+  let all := env.constants.toList
   let mut out : Array Name := #[]
-  for (n, _) in env.constants.toList do
+  for (n, _) in all do
     if isOurs env n && !n.isInternal then out := out.push n
   for n in out.qsort (fun a b => a.toString < b.toString) do
     IO.println n
   IO.eprintln s!"SelfcheckDecls: {out.size} own declarations \
-    (environment holds {env.constants.size} constants \
+    (environment holds {all.length} constants \
     from {env.header.moduleNames.size} modules)"
   return 0
