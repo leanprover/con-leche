@@ -136,18 +136,8 @@ theorem sigma_mem_univ {u v : Nat} {A : V} {B : V → V}
       (univ_mono (Nat.le_max_left u v) A hA)
       (fun x hx => univ_mono (Nat.le_max_right u v) _ (hB x hx))
 
-/- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
-content. -/
-private unsafe def sigmaSetImpl {V : Type u} [SetTheory V] (_w : Nat) (_A : V) (_B : V → V) : V :=
-  unsafeCast ()
-private unsafe def spairImpl {V : Type u} [SetTheory V] (_a _b : V) : V := unsafeCast ()
-private unsafe def sfstImpl {V : Type u} [SetTheory V] (_p : V) : V := unsafeCast ()
-private unsafe def ssndImpl {V : Type u} [SetTheory V] (_p : V) : V := unsafeCast ()
-
-attribute [implemented_by sigmaSetImpl] sigmaSet
-attribute [implemented_by spairImpl] spair
-attribute [implemented_by sfstImpl] sfst
-attribute [implemented_by ssndImpl] ssnd
+/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
+stubs for these operators were removed 2026-09-06. -/
 
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] sigmaSet spair sfst ssnd

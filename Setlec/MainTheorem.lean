@@ -18,10 +18,11 @@ Everything named in the statement is the shipped article:
   checker builds; `env.consts` lists the constants it accepted.
 * `False` is a pinned zero-constructor type (`Setlec/Kernel/Basis/
   False.lean`, task #181): the checker installs the toolchain's `False`
-  block from its own pin and a stream cannot redefine the name, so the
-  conclusion needs no hypothesis about the input beyond its acceptance.
-  `Empty` (`Setlec/Kernel/Basis/Empty.lean`) is pinned the same way,
-  and the second theorem is the same statement about it.
+  block from its own pin and a stream cannot redefine the name (a
+  stream declaring `False` or `False.rec` any other way is rejected),
+  so the conclusion needs no hypothesis about the input beyond its
+  acceptance.  `Empty` (`Setlec/Kernel/Basis/Empty.lean`) is pinned
+  the same way, and the second theorem is the same statement about it.
 
 `SetTheory V` is the standing parametricity of the consistency
 argument: the proof builds a set-theoretic model of the accepted
@@ -33,14 +34,15 @@ The theorems are corollaries of `Setlec.Cached.no_proof_of_False_SPCD_P`
 and `no_proof_of_Empty_SPCD_P` (`Setlec/Verify/Cached/MainC.lean`),
 which are stated for every validating mode at once; `no_proof_of_False_P`
 and `no_proof_of_Empty_P` (`Setlec/SetP/FoldP.lean`) are the same
-letters for the pure fuelled checker.  Their axioms are exactly
-`propext`, `Classical.choice` and `Quot.sound` — checked by the pin in
-`tests/SetlecTests/Axioms.lean`.
+letters for the pure fuelled checker, and `no_proof_of_Empty_IO` below
+says the same thing about the callback-carrying `IO` loop the driver
+runs.  Their axioms are exactly `propext`, `Classical.choice` and
+`Quot.sound` — checked by the pin in `tests/SetlecTests/Axioms.lean`.
 -/
 
 namespace Setlec
 
-open Setlec.Cached (DeclC checkDeclsSPCachedD)
+open Setlec.Cached (DeclC checkDeclsSPCachedD Callbacks checkDeclsSPCachedM)
 
 /-- **The main theorem.**  An accepted stream never yields a constant of
 type `False`. -/
@@ -56,5 +58,30 @@ theorem no_proof_of_Empty (V : Type w) [SetTheory V]
     (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const emptyName [] :=
   fun ⟨c, hc, hty⟩ => Cached.no_proof_of_Empty_SPCD_P V rfl accepted c hc hty
+
+/-- **The main theorem, for the loop the binary actually runs.**  The
+driver does not call the pure fold directly: it runs
+`checkDeclsSPCachedM` in `IO`, which performs the same checks with two
+callbacks around each declaration — the progress heartbeat, and
+whatever else a lane wants.  A callback sees the fold position and the
+declaration record, never the checker's state, and returns `Unit`, so
+it cannot influence the verdict; it can only fail, in which case the
+run returns no result.  Hence the same conclusion, for **any**
+callbacks: an `IO` run that comes back with an accepted environment has
+accepted no constant of type `Empty`.
+
+(`Setlec.Cached.checkDeclsSPCachedM_run`: the loop's result *is*
+`checkDeclsSPCachedD`'s.  In a lawful monad that is an instance of the
+generic bridge `checkDeclsSPCachedM_eq`; `IO` is an `EST` and core
+ships no `LawfulMonad` instance for it, so the `IO` case is proved by
+the same induction directly.) -/
+theorem no_proof_of_Empty_IO (V : Type w) [SetTheory V]
+    (cb : Callbacks IO) (ds : List DeclC) (env : Env)
+    (ω ω' : Void IO.RealWorld)
+    (accepted : checkDeclsSPCachedM cb (cfgOf .verified) ds ω
+      = .ok (.ok env) ω') :
+    ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const emptyName [] :=
+  fun ⟨c, hc, hty⟩ =>
+    Cached.no_proof_of_Empty_SPCD_IO V rfl cb accepted c hc hty
 
 end Setlec

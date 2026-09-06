@@ -221,17 +221,8 @@ theorem _root_.Setlec.IsTGUniverse.truthVal_mem {U y : V}
     (truthVal p : V) ∈ˢ U :=
   hU.transitive (hU.univZero_mem hy) (truthVal_mem_univZero p)
 
-/- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
-content. -/
-private unsafe def ptTagImpl {V : Type u} [SetTheory V] : V := unsafeCast ()
-private unsafe def ptImpl {V : Type u} [SetTheory V] : V := unsafeCast ()
-private unsafe def unitSetImpl {V : Type u} [SetTheory V] : V := unsafeCast ()
-private unsafe def eqvImpl {V : Type u} [SetTheory V] (_x _y : V) : V := unsafeCast ()
-
-attribute [implemented_by ptTagImpl] ptTag
-attribute [implemented_by ptImpl] pt
-attribute [implemented_by unitSetImpl] unitSet
-attribute [implemented_by eqvImpl] eqv
+/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
+stubs for these operators were removed 2026-09-06. -/
 
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] ptTag pt unitSet eqv

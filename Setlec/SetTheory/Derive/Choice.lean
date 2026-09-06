@@ -57,11 +57,8 @@ theorem set_choice (X : V) :
     obtain ⟨rfl, rfl⟩ := kpair_inj hp'
     exact schoice_mem hx
 
-/- Compiler stub (see `Derive/Empty.lean`): never executed, no logical
-content. -/
-private unsafe def schoiceImpl {V : Type u} [SetTheory V] (_A : V) : V := unsafeCast ()
-
-attribute [implemented_by schoiceImpl] schoice
+/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
+stubs for these operators were removed 2026-09-06. -/
 
 /- Opaque interface operator (see `Derive/Empty.lean`). -/
 attribute [irreducible] schoice

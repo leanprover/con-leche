@@ -155,6 +155,36 @@ if tests/proofdeps.sh; then :; else fail=1; fi
 # regenerate and diff.
 if tests/pindump.sh; then :; else fail=1; fi
 
+# THE TRUST-SURFACE GATE (2026-09-06, external review §5.6).  The
+# layering gate fences one direction of trust (the implementation may
+# not import the theory); this one fences the other — no compiler
+# escape (`unsafe`, `implemented_by`, `computed_field`, `native_decide`,
+# …) outside the allowlisted trusted-surface files, whose justification
+# is the script's header.  It is the companion of the axiom pin above:
+# `#print axioms` sees the LOGICAL TCB, this one sees the RUNTIME TCB,
+# and neither sees the other's.
+if tests/trust-surface.sh; then :; else fail=1; fi
+
+# THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
+# theorems, the four letters, the assembly under them and the `IO`
+# loop's bridge — ten in all — carry `#guard_msgs in #print axioms`
+# guards in `tests/SetlecTests/Axioms.lean`, pinning them at exactly
+# `[propext, Classical.choice, Quot.sound]`.  The guards ARE the
+# elaboration of that module, so building the test library is the gate:
+# a drifting axiom footprint is a build error, not a claim in the
+# journal.  (`lake test` runs the same library; this line is so the
+# standard battery says so too.)
+AXLOG=$(lake build SetlecTests 2>&1)
+if [ $? = 0 ] && ! printf '%s\n' "$AXLOG" | grep -q 'error:'; then
+  echo "axioms: pinned (10 theorems at [propext, Classical.choice, Quot.sound])"
+else
+  echo 'AXIOM PIN FAIL — tests/SetlecTests/Axioms.lean did not elaborate:'
+  printf '%s\n' "$AXLOG" | grep -A6 'error:' | head -40 | sed 's/^/    /'
+  echo '    a changed `#print axioms` message is a FINDING: report it,'
+  echo '    do not relax the guard.'
+  fail=1
+fi
+
 # --- the arena half ------------------------------------------------
 arena_half() {
   accepted=0
@@ -356,6 +386,19 @@ else
   fail=1
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"
+
+# The progress heartbeat (`SETLEC_PROGRESS=<stride>`, 2026-09-07): the
+# variable emits `setlec: progress` lines on STDERR and changes no
+# verdict — the fold is the verified one, and the per-declaration lines
+# come from an identity hook inside it.
+prog_err=$(SETLEC_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_code=$?
+if [ "$prog_code" = 0 ] && [ -n "$(printf '%s' "$prog_err" | grep '^setlec: progress ')" ]; then
+  echo "progress heartbeat: 1/1 as expected"
+else
+  echo "PROGRESS FAIL: SETLEC_PROGRESS=1 exit $prog_code, stderr: $prog_err"
+  fail=1
+fi
 
 # The mode sweep (task #147): both suites again with `--trusted`
 # (certified expectations plus the recorded overrides in

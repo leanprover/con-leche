@@ -43,8 +43,9 @@ weaker; there is no second lane to be separated from.*
 
 ## WHAT IT MEASURES NOW
 
-A **frozen module-level dependency pin**: for each of the four
-surviving capstones, the exact set of `Setlec.*` modules its type and
+A **frozen module-level dependency pin**: for each of the six
+pinned roots (the two main theorems and the four capstone letters and
+assembly lemmas under them), the exact set of `Setlec.*` modules its type and
 proof term reach, transitively, at the constant level.  The expectation
 is `tests/proofdeps-expected.txt` and the gate is a diff, so any drift
 shows up as a named module appearing or disappearing — which is the
@@ -103,8 +104,16 @@ partial def setlecDeps (env : Environment) (todo : List Name)
         setlecDeps env ((ci.type.getUsedConstants ++ vcs).toList ++ rest)
           seen
 
-/-- The capstones, each at its own root.
+/-- The six pinned roots: the two MAIN THEOREMS first, then the letters
+they are corollaries of and the assembly under those.
 
+* `main` / `main_IO` — **the statements the project exists to make**
+  (`Setlec/MainTheorem.lean`): an accepted stream, at the shipped
+  `--verified` configuration named outright, yields no constant of type
+  `Empty` — for the pure driver and for the callback-carrying `IO` loop
+  the binary actually runs.  They are pinned as roots because they are
+  what a reader checks first; each should reach exactly what the letter
+  it wraps reaches, plus `Setlec.MainTheorem` itself.
 * `SPCD_P` — **the shipped driver's letter**: the checker, running the
   verified mode over the direct-parse cached core it ships with, never
   accepts a stream in which some stored constant has type `Empty`.
@@ -112,18 +121,18 @@ partial def setlecDeps (env : Environment) (todo : List Name)
   under it, pinned separately so a change in the assembly is visible
   even when the letter's own closure is unmoved.
 * `P` — the pure fueled checker the graded tower is stated about.
-* `False_SPCD_P` / `False_P` — the same two letters about the pinned
-  `False` (task #181), and `main_False` / `main_Empty` the
-  `Setlec/MainTheorem.lean` forms of the shipped-driver letters. -/
+* `main_False`, `False_SPCD_P` / `False_P` — the main theorem and the
+  two letters about the pinned `False` (task #181). -/
 private def roots : List (String × Name) :=
-  [("SPCD_P", `Setlec.Cached.no_proof_of_Empty_SPCD_P),
-   ("sound_P", `Setlec.Cached.checkDeclsSPCachedD_sound_P),
-   ("foldSPC_PM", `Setlec.Cached.foldSPC_PM),
-   ("P", `Setlec.SetP.no_proof_of_Empty_P),
+  [("main_False", `Setlec.no_proof_of_False),
+   ("main", `Setlec.no_proof_of_Empty),
+   ("main_IO", `Setlec.no_proof_of_Empty_IO),
    ("False_SPCD_P", `Setlec.Cached.no_proof_of_False_SPCD_P),
    ("False_P", `Setlec.SetP.no_proof_of_False_P),
-   ("main_False", `Setlec.no_proof_of_False),
-   ("main_Empty", `Setlec.no_proof_of_Empty)]
+   ("SPCD_P", `Setlec.Cached.no_proof_of_Empty_SPCD_P),
+   ("sound_P", `Setlec.Cached.checkDeclsSPCachedD_sound_P),
+   ("foldSPC_PM", `Setlec.Cached.foldSPC_PM),
+   ("P", `Setlec.SetP.no_proof_of_Empty_P)]
 
 /-- The measured rows, in a fixed order: one `<label> :: <module>` per
 `Setlec.*` module the root's proof term reaches, sorted.  The pinned

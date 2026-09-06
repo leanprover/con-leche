@@ -18,7 +18,13 @@ This README is actually human written (with AI only doing copy-editing, fact che
 * It uses its own term representation, so it does not rely on Lean’s `Lean.Expr`, and thus does not rely on the unverified C++ routines for that type.
 * Term representation is locally nameless, with open variables represented as deBruijn level + type (inspired by nanoda).
 * Memoization of core checker routines via hash maps and hashes pre-computed using `@[computed_field]`, like in the official checker and lean4lean.
-* Only few inductive types are supported natively: `Empty`, `PUnit`, `Eq`, `Nat`, `Quot` and structures. For all other types, this checker relies on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models that we can validate.
+* Support for inductive types is incremental. The checker natively supports:
+
+  * `False`, `Empty`, `PUnit`, `Eq`, `Nat`, `Quot`
+  * Unindexed, unrecursive inductives
+
+  For everything else is relies on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models that we can validate.
+
 * Accepted incompleteness: Primitive projections are only supported
   - on non-recursive non-indexed structures or
   - inside the projection *functions* that the elaborator produces.
@@ -30,12 +36,12 @@ The idea of the consistency proof is that we define a model in set theory, class
 
 ## The main theorem
 
-In [`Setlec/MainTheorem.lean`](./Setlect/MainTheorem.lean) we prove that if the `checkDeclsSPCachedD` function (which is called from `main`), when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
+In [`Setlec/MainTheorem.lean`](./Setlec/MainTheorem.lean) we prove that if the `checkDeclsSPCachedD` function (which is called from `main`), when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
 
 ```lean
 theorem no_proof_of_False (V : Type w) [SetTheory V]
   (ds : List DeclC) (env : Env)
-  (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env)
+  (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env) :
   ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName []
 ```
 
@@ -47,7 +53,7 @@ The parser is not covered by the verification.
 
 ### Set theory assumption
 
-The set model we assumein `[SetTheory V]` is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form; infinity and choice are derivable from that. See [`Setlec/SetTheory/Core.lean`](./Setlec/SetTheory/Core.lean) for the precise formulation of our set theory.
+The set model we assume in `[SetTheory V]` is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form. Choice is inherited from Lean as the meta-logic. See [`Setlec/SetTheory/Core.lean`](./Setlec/SetTheory/Core.lean) for the precise formulation of our set theory.
 
 We also show that this interface can be realized within Lean by Aczel's sets-as-trees construction, with the universe chain as the one remaining assumption ([`Setlec/SetTheory/Aczel.lean`](./Setlec/SetTheory/Aczel.lean)); that assumption is similar to the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model).
 

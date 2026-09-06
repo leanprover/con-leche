@@ -425,15 +425,21 @@ def fastParse (b : ByteArray) : Option FastLine := do
     atEnd2 i
     pure (.inStr idx pre s)
 
-/-- Diagnostic summary of the taint skips: total, per-root counts, and
-the first few skipped names. -/
-def taintSummary (skips : Array (Name × Name)) : String :=
+/-- The taint skips WITHOUT the total: per-root counts and the first
+few skipped names.  Used where the caller already states the count
+(the declined verdict line). -/
+def taintDetail (skips : Array (Name × Name)) : String :=
   let perRoot := toleratedAxiomNames.filterMap fun r =>
     match skips.foldl (fun c p => if p.2 == r then c + 1 else c) 0 with
     | 0 => none
     | c => some s!"{c} via {r}"
   let names := (skips.toList.take 8).map (fun p => s!"{p.1}")
   let more := if skips.size > 8 then ", …" else ""
-  s!"skipped {skips.size} declarations that use a tolerated axiom ({String.intercalate "; " perRoot}); first skipped: {String.intercalate ", " names}{more}"
+  s!"{String.intercalate "; " perRoot}; first skipped: {String.intercalate ", " names}{more}"
+
+/-- Diagnostic summary of the taint skips: total, per-root counts, and
+the first few skipped names. -/
+def taintSummary (skips : Array (Name × Name)) : String :=
+  s!"skipped {skips.size} declarations that use a tolerated axiom ({taintDetail skips})"
 
 end Setlec.Frontend
