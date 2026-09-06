@@ -51245,7 +51245,7 @@ timestamped progress lines), `accept-rss.log`, `accept-time.txt`,
 `run-progress.sh`, `pace_progress.sh`, `trace_stats.sh` (the harness
 and its readers); and the two killed runs' logs, labelled per §6.
 
-## THE ARENA SUITE (all but Mathlib) — every upstream test through `lka.py`, 0 incorrect verdicts, `init` and `Std` ACCEPTED; the big four HELD (2026-09-06, `agent/arena-suite`; §9 is the post-rename re-run)
+## THE ARENA SUITE (all but Mathlib) — every upstream test has a verdict, 0 incorrect; `init`, `Std` and `cslib` ACCEPTED (2026-09-06, `agent/arena-suite`; §9 is the post-rename re-run, §10 `cslib`)
 
 The local battery only ever saw the arena's *tutorial* group (a vendored
 2026-08-19 tarball, `tests/arena-expected.txt`), plus five streams the
@@ -51520,15 +51520,17 @@ exactly, with official agreeing on every one.  `proj-maybe-prop` and
 
 ### 7. HELD — the big four, and the exact resume
 
-**Held**: the machine has exactly one Mathlib-scale slot and the PERF
-lane owns it.  Nothing of this suite may take it without the
-coordinator's word ("cslib GO").  Do NOT poll other lanes' processes to
-find out — ask.  The branch is `agent/arena-suite`, unmerged.  What is
-still unrun:
+**Held**: the machine has exactly one Mathlib-scale slot, and this suite
+takes it only on the coordinator's word.  Do NOT poll other lanes'
+processes to find out whether it is free — ask.  The branch is
+`agent/arena-suite`, unmerged.  (`cslib` was granted the slot on
+2026-09-06 and is done, §10; the slot went back to the PERF lane
+immediately afterwards.)  What is still unrun:
 
-1. **`cslib` at `--verified`** — the 2.0 GB export.  Its first run
-   (2026-09-06, pre-rename) was stopped mid-flight for exactly this
-   reason.  Never completed, no verdict.
+1. ~~**`cslib` at `--verified`**~~ — **DONE, accepted**; see §10.  One
+   loose end from it: that run had `LECH_PROGRESS=5000` set, so it went
+   through the *unverified* progress fold.  A re-run with the variable
+   unset is wanted for the coverage claim (the verdict itself stands).
 2. **the four big streams at `--trusted`** — `init`, `std`, `cedar`,
    `cslib`.  The `--trusted` sweep covers the 202 small tests only
    (where it agrees with `--verified` on every one, twice now).
@@ -51536,12 +51538,11 @@ still unrun:
    §3 and §5 are the *parked, pre-rename* run (Setlec at master
    `2664b1dd`).  Task #180 changed the input side for all three — the
    preprocessor is a pipe now, so the multi-gigabyte scratch file is
-   gone and the memory profile is not the same measurement.  Re-run them
-   with `cslib` when the slot comes free.
+   gone and the memory profile is not the same measurement.
 
 Everything else is done and current: 202 small tests in both modes at
-master `b7fa7331` (§9), and the `official` v4.34.0-rc2 reference column
-over the same 202.
+master `b7fa7331` (§9), `cslib` at `--verified` (§10), and the
+`official` v4.34.0-rc2 reference column over the same 202.
 
 **F8 IS NOT A BUG TO FIX** (user ruling, 2026-09-06, verbatim: *"exit 3
 or 1 is fine. we'll eventually retire or absorb the preprocessor."*).
@@ -51766,3 +51767,58 @@ sparse-name-index                          accept  decline accept     2    2    
 (`was` is the parked exit code; `*` marks a move.  The `init` / `std` /
 `cedar` rows of §3 are the parked `--verified` measurements and were NOT
 re-run — the big four are still held, see §7.)
+
+### 10. `cslib` IS ACCEPTED — 397 295 declarations, exit 0 (2026-09-06, the held slot, `agent/arena-suite` @ `955496b2`)
+
+The last stream of the suite, and the largest: the arena's `cslib` test
+is a 2 145 661 820-byte raw export.  It is Mathlib-scale in substance as
+well as size — `MeasureTheory`, `Polynomial`, `Subsemiring`,
+`Std.Time`, `Lean.Elab` all go past in the progress log — so it ran in
+the machine's single Mathlib-scale slot, alone, on the coordinator's
+word.
+
+| | |
+|---|---|
+| verdict | **accept**, exit 0 |
+| stdout | `lech: accepted 397295 declarations (--verified)` |
+| records folded | 380 211 |
+| wall | 16 min 17 s (preprocess + parse 253.9 s, fold 713.3 s) |
+| CPU | 916.1 s user + 55.6 s sys |
+| peak RSS | 5 976 348 kB = **5.70 GiB** (cap was 22 GB) |
+| instructions:u | 5.734 T |
+| binary | `lech` md5 `996a73b7f50db33b65e1eeef882a2ba3`, `lech-preprocess` md5 `079a6a9531b9765f0b1e0e08e3d11874`, built at `8a6e676f` (master `b7fa7331`) |
+
+The only non-progress line on stderr was `lech: 65 projection functions
+of non-direct structure-likes rewritten to recursor form`.  Receipts —
+`receipt.txt` (md5s, input size, start/end, exit code), `stdout.log`,
+the timestamped `stderr.log`, GNU `time -v`'s `time.txt` and
+`perfstat.txt` — are kept in `_tmp/arena-suite/cslib/`.
+
+**Two caveats on this cell, both deliberate and both worth repeating
+before it is quoted.**
+
+1.  **`LECH_PROGRESS=5000` was set**, on the coordinator's instruction,
+    so a sixteen-minute run in a contended slot would be observable.
+    That puts the driver on the *progress* fold, which `Main.lean` is
+    explicit about: the same steps in the same order over the same
+    records from the same empty environment, one line printed before
+    each declaration — and **plainly unverified**, i.e. this particular
+    run is not covered by `Lech.no_proof_of_False`.  The verdict is the
+    verdict; the *coverage* claim needs a re-run with the variable
+    unset.  Queued in §7 with the rest.
+2.  **It was run directly rather than through `lka.py`** — same command
+    line as `scripts/arena/lech.yaml` builds (same `ulimit -v
+    22000000`, same `LECH_INDUCTIVE_MODELS`, same `timeout`, same
+    binary, same arena-built export), wrapped in `perf stat` and GNU
+    `time -v`, because the harness captures stderr and would have
+    hidden the progress stream.  The result is written into the run's
+    snapshot in `lka.py`'s own schema
+    (`_tmp/arena-suite/results2-verified-big/lech_cslib.json`, with a
+    `_provenance` field saying exactly this) so the table renderer
+    includes it.
+
+**With this, every arena test but Mathlib has a verdict.**  The four big
+streams: `init` accept, `std` accept, `cedar` decline (a `native_decide`
+axiom), `cslib` accept.  Across all 206 runs: **0 incorrect and no
+`good` stream rejected**, at every size the arena has.
+
