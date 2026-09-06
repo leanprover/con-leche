@@ -341,17 +341,19 @@ theorem basis_rec_rules_plain (kind : Setlec.BasisKind) :
        | _ => true) = true := by
   cases kind <;> decide
 
-/-- **`Empty.rec` is the only basis recursor with no rules** — the sole
-row `declStepPM_of_basis_cons`'s `hnotrec` premise can discharge, and
-the reason this file's block is the one that closes. -/
+/-- **`Empty.rec` and `False.rec` are the only basis recursors with no
+rules** — the sole rows `declStepPM_of_basis_cons`'s `hnotrec` premise
+can discharge, and the reason this file's block (and its `False` twin,
+`BasisFalseP.lean`, task #181) are the ones that close this way. -/
 theorem basis_rec_rules_nonempty (kind : Setlec.BasisKind)
-    (hk : kind ≠ .emptyK) :
+    (hk : kind ≠ .emptyK) (hk' : kind ≠ .falseK) :
     ∀ ci ∈ kind.declsA,
       (match ci with
        | .recInfo _ _ _ rules => !rules.isEmpty
        | _ => true) = true := by
   cases kind
   case emptyK => exact absurd rfl hk
+  case falseK => exact absurd rfl hk'
   all_goals decide
 
 end Setlec.SetP

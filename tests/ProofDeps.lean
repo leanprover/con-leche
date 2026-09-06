@@ -120,10 +120,15 @@ they are corollaries of and the assembly under those.
 * `sound_P` / `foldSPC_PM` — the acceptance corollary and the fold
   under it, pinned separately so a change in the assembly is visible
   even when the letter's own closure is unmoved.
-* `P` — the pure fueled checker the graded tower is stated about. -/
+* `P` — the pure fueled checker the graded tower is stated about.
+* `main_False`, `False_SPCD_P` / `False_P` — the main theorem and the
+  two letters about the pinned `False` (task #181). -/
 private def roots : List (String × Name) :=
-  [("main", `Setlec.no_proof_of_Empty),
+  [("main_False", `Setlec.no_proof_of_False),
+   ("main", `Setlec.no_proof_of_Empty),
    ("main_IO", `Setlec.no_proof_of_Empty_IO),
+   ("False_SPCD_P", `Setlec.Cached.no_proof_of_False_SPCD_P),
+   ("False_P", `Setlec.SetP.no_proof_of_False_P),
    ("SPCD_P", `Setlec.Cached.no_proof_of_Empty_SPCD_P),
    ("sound_P", `Setlec.Cached.checkDeclsSPCachedD_sound_P),
    ("foldSPC_PM", `Setlec.Cached.foldSPC_PM),

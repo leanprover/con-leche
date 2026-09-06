@@ -120,7 +120,7 @@ pure fueled checker the tower is stated about) its only sibling. -/
 section PLetters
 
 open Setlec.SetP (EnvSPOk EnvS2PM declStepPM
-  no_constant_of_Empty_P)
+  no_constant_of_Empty_P no_constant_of_False_P)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
@@ -174,6 +174,18 @@ theorem no_proof_of_Empty_SPCD_P (V : Type w) [SetTheory V]
       c.toConstantVal.type = .const emptyName [] → False := by
   obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
   exact fun c hc hty => no_constant_of_Empty_P mp c hc hty
+
+/-- **THE CAPSTONE FOR THE SHIPPED DRIVER, about `False`** (task #181):
+the same letter as `no_proof_of_Empty_SPCD_P` at the pinned `False`
+block — no hypothesis about how the stream declared `False`. -/
+theorem no_proof_of_False_SPCD_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true)
+    {ds : List DeclC} {env' : Env}
+    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
+    ∀ c ∈ env'.consts,
+      c.toConstantVal.type = .const falseName [] → False := by
+  obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
+  exact fun c hc hty => no_constant_of_False_P mp c hc hty
 
 /-! ### … and for the `IO` loop the binary runs (2026-09-07)
 

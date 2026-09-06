@@ -5,7 +5,8 @@ Lean. The goal is a checker that is performance-competitive with lean4lean or
 even the official kernel, together with a machine-checked consistency proof:
 
 > For everything the checker accepts there is a model in a suitable set
-> theory. In particular, no declaration of type `Empty` is ever accepted.
+> theory. In particular, no declaration of type `False` (or `Empty`) is
+> ever accepted.
 
 This document records the design decisions. It was distilled from the initial
 project prompt and is updated as decisions evolve.
@@ -15,8 +16,9 @@ project prompt and is updated as decisions evolve.
 capstone assembly in `Setlec/Verify/Cached/*`, and the statement a
 reader comes for in `Setlec/MainTheorem.lean`.
 
-**Start at the top two rows.** `Setlec.no_proof_of_Empty` and
-`Setlec.no_proof_of_Empty_IO` are the main theorems: they name the
+**Start at the top rows.** `Setlec.no_proof_of_False`,
+`Setlec.no_proof_of_Empty` and `Setlec.no_proof_of_Empty_IO` are the
+main theorems: they name the
 shipped configuration outright (`cfgOf .verified`), so they carry no
 mode witness and no residue — only `[SetTheory V]` (the standing
 parametricity of the consistency argument, not a hypothesis about the
@@ -28,24 +30,25 @@ even when a letter's own footprint is unmoved.
 
 | theorem | file | what it says |
 |---|---|---|
-| `Setlec.no_proof_of_Empty` | `Setlec/MainTheorem.lean` | **THE MAIN THEOREM** — if the checker in its default `--verified` mode accepts a stream, the resulting environment holds no constant of type `Empty` |
-| `Setlec.no_proof_of_Empty_IO` | `Setlec/MainTheorem.lean` | **the same, for the loop the binary runs** — `checkDeclsSPCachedM` in `IO`, for *any* callbacks (a callback sees the fold position and the record, returns `Unit`, and cannot influence the verdict) |
-| `Setlec.Cached.no_proof_of_Empty_SPCD_P` | `Setlec/Verify/Cached/MainC.lean` | the shipped driver's letter, stated for every validating mode at once |
+| `Setlec.no_proof_of_False` | `Setlec/MainTheorem.lean` | **THE MAIN THEOREM** — if the checker in its default `--verified` mode accepts a stream, the resulting environment holds no constant of type `False` (task #181: `False` is a pinned basis block, `Setlec/Kernel/Basis/False.lean`, so the statement needs no hypothesis about how the stream declares it — a stream declaring the name any other way is rejected) |
+| `Setlec.no_proof_of_Empty` | `Setlec/MainTheorem.lean` | the same statement about the pinned `Empty` |
+| `Setlec.no_proof_of_Empty_IO` | `Setlec/MainTheorem.lean` | **the same, for the loop the binary runs** — `checkDeclsSPCachedM` in `IO`, for *any* callbacks (a callback sees the fold position and the record, returns `Unit`, and cannot influence the verdict).  No `False` twin yet, by user ruling: the world-passing shape is to be replaced by a follow-up lane first |
+| `Setlec.Cached.no_proof_of_{False,Empty}_SPCD_P` | `Setlec/Verify/Cached/MainC.lean` | the shipped driver's letters, stated for every validating mode at once |
 | `Setlec.Cached.no_proof_of_Empty_SPCD_IO` | `Setlec/Verify/Cached/MainC.lean` | its `IO`-loop sibling |
-| `Setlec.SetP.no_proof_of_Empty_P` | `Setlec/SetP/FoldP.lean` | **the pure letter** — the same conclusion for the pure fueled checker `checkDecls μ (fueledOps μ F)`, at every fuel |
+| `Setlec.SetP.no_proof_of_{False,Empty}_P` | `Setlec/SetP/FoldP.lean` | **the pure letters** — the same conclusions for the pure fueled checker `checkDecls μ (fueledOps μ F)`, at every fuel |
 | `Setlec.SetP.no_proof_of_Empty_P_of` | `Setlec/SetP/FoldP.lean` | its install-tier-conditional form, the shape the harvest closes |
 | `Setlec.Cached.checkDeclsSPCachedD_sound_P` | `Setlec/Verify/Cached/MainC.lean` | the acceptance corollary under the driver's letter: an accepted cached run yields the model invariant `EnvS2PM` at the final environment |
 | `Setlec.Cached.foldSPC_PM` | `Setlec/Verify/Cached/MainC.lean` | the fold that threads that invariant step by step (an assembly lemma: fold-state hypotheses) |
 | `Setlec.Cached.checkDeclsSPCachedM_eq` | `Setlec/Cached/ParsedC.lean` | not a consistency statement but the *computational* one the `IO` letters stand on: the callback loop's result **is** the pure driver's |
-| `Setlec.SetP.no_constant_of_Empty_P` | `Setlec/SetP/CapstoneP.lean` | the business end: an environment carrying the P invariant stores no constant of type `Empty` (the invariant is its hypothesis; the harvest is what discharges it) |
+| `Setlec.SetP.no_constant_of_{False,Empty}_P` | `Setlec/SetP/CapstoneP.lean` | the business end: an environment carrying the P invariant stores no constant of type `False` / `Empty` (the invariant is its hypothesis; the harvest is what discharges it); both are instances of `no_constant_of_emptyPin_P`, the argument at any reserved name pinned to `emptyT u` |
 
 The axiom footprint is **pinned in the tree, not only claimed**:
 `tests/SetlecTests/Axioms.lean` (built by `lake test`, reported by `tests/arena.sh`
 as the `axioms:` line) carries a `#guard_msgs in #print axioms` for each
-of the ten, so a drifting axiom footprint is a test failure. Six of
-them — `no_proof_of_Empty`, `no_proof_of_Empty_IO`,
-`no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_sound_P`,
-`foldSPC_PM` and `no_proof_of_Empty_P` — additionally have their
+of the fifteen, so a drifting axiom footprint is a test failure. Nine
+of them — the three main theorems, `no_proof_of_{False,Empty}_SPCD_P`,
+`checkDeclsSPCachedD_sound_P`, `foldSPC_PM` and
+`no_proof_of_{False,Empty}_P` — additionally have their
 module-level dependency closure pinned by `tests/proofdeps.sh`; the
 two gates measure different things (what a proof term ASSUMES vs which
 modules it REACHES) and neither implies the other.
@@ -49053,3 +49056,220 @@ tens of gigabytes and tens of minutes, they are the *frontier*
 measurement rather than a regression gate, and they are coordinated one
 at a time on this machine (see the frontier sections).  CI is the
 "nothing rotted" gate; the frontier runs stay local and scheduled.
+
+## TASK #181 ZERO-CONSTRUCTOR INDUCTIVES, AND THE CAPSTONE ABOUT `False` (2026-09-06, `agent/zeroctor`)
+
+### 0. The brief, and what the tree already had
+
+The brief asked for native installation of every zero-constructor
+inductive at any level, a preprocessor predicate in lockstep, and a
+consistency corollary that reads about `False` rather than `Empty`.
+Two findings against the brief, reported before any design:
+
+1. **The generic route existed.**  Task #175's direct sum route is the
+   class `n ≠ 1`, and `n = 0` was in it from the start: `directSumPartsCore?`
+   takes an empty constructor list, `checkDirectSum`'s elimination
+   restriction is `2 ≤ n` (so a zero-constructor `Prop` keeps its large
+   eliminator, as the official `elim_only_at_universe_zero` says), the
+   recursor is generated with no minors and compared by one `isDefEq`,
+   the carrier is the tagged union of zero towers — `sumSet w (natFibre
+   f)` with every fibre `∅`, the empty set in the graph regime and the
+   false truth value at `w = 0` — and the P proof `declDirectSumP` is
+   stated at any `n`.  `setlecNative` already left every such block
+   unmodelled (init-full: 3 zero-constructor blocks native).  The
+   fixtures `direct_sum_or` (`Absurd : Prop`, `Nil : Type`) and
+   `direct_sum_option` (`False`) had exercised it.  So deliverables 1–2
+   of the brief were already on master; this task adds the fixtures
+   the brief listed (`zero_ctor`: universe-polymorphic `PEmpty'`,
+   parameterised `Vacant α n : Type u`, `Bottom p : Prop`, `Nada :
+   Type`), the two bad twins, and the verdict flip of §4.
+2. **The user's ruling on the corollary's shape**: *"Pin `False` like
+   `Empty`, so that there can be no trickery around that."*  The
+   corollary is therefore unconditional — no hypothesis about how the
+   stream declares `False` — and `False` joins the pinned basis blocks
+   (§1).  A `False` declared by a stream is matched against the pin or
+   refused; the generic route still serves `PEmpty` and every
+   user-declared zero-constructor type.
+
+**Indices.**  Zero-constructor *indexed* families stay on the modeled
+route: the indexed-families lane (`agent/indexed`) had not landed when
+this task closed, and its fibre construction is where an indexed empty
+family belongs (a family with no constructors has every fibre empty).
+Follow-up: once `agent/indexed` lands, its recogniser should accept
+`n = 0` the way the sum route does.
+
+### 1. The pin
+
+`Setlec/Kernel/Basis/False.lean` is `Empty.lean` one universe down:
+`False : Prop` and `False.rec.{u} : (motive : False → Sort u) → (t :
+False) → motive t`, no constructors, no rules, the motive explicit (the
+exporter's form, as for `Empty.rec`).  `BasisKind` gains `falseK`;
+`Basis.lean`/`BasisA.lean` its raw and annotated blocks (`#annotate_
+basis` computes `falseA`/`falseRecA` from the raw pin at elaboration
+time, as for every block); the frontend matches an incoming block
+against it after `emptyK` (`Setlec/Frontend/ExportC.lean`); `falseName`
+and `False.rec` join `reservedBasisNames`, so the direct recognisers
+refuse the name and a stream cannot redeclare it.
+
+**The value is the empty set at `Prop`, and no new built-in is
+needed.**  The declarative layer already had `Empty.{0}` as `False`:
+`BConst.empty` is level-polymorphic with `type (.empty) us = Sort (us
+0)`, so `pinnedDirectT falseName = .const .empty [0]` and
+`False.rec ↦ .const .emptyRec [0, ψ u]`.  `bval2_mem_type`,
+`AnnotOkP_bconst_type` and `type2_erase` are stated at every level
+list, so the P install (`Setlec/SetP/BasisFalseP.lean`) is
+`BasisEmptyP.lean`'s four-move recipe with the numeral `1` replaced by
+`0` — the two type readings recomputed at the `False` pins and
+`BitAgree`d to `type2 .empty [0]` / `.emptyRec [0, ψ u]`.  The
+annotator's binder pins for `False.rec` are exactly `Empty.rec`'s
+(`.ifAllZero [u]`, `.never`, `.ifAllZero [u]`: the motive's domain
+`False → Sort u` has sort `imax 0 (u+1) = u+1`, never `Prop`; the two
+outer binders have sorts `imax (u+1) u` and `imax 0 u`, `Prop` exactly
+at `u = 0`), which the `show … from rfl` moves of the recipe confirm
+by computation.
+
+Tables touched: `pinnedInfo` and its two `_cases` inversions
+(`Verify/EnvPreds.lean`), `pinnedInfoT_recInfo_cases` and the
+unit-like refutation `unitLike_eq_punit` (one more branch: `False.rec`
+has no rules, so it fails the single-rule test as `Empty.rec` does;
+`Verify/PinnedShapes.lean`), `basisStepPB_of`'s dispatch (`FoldP`),
+`basis_rec_rules_nonempty`'s exclusion (`BasisEmptyP`).  Every `cases
+kind <;> decide` over `BasisKind` extended by itself.
+
+**The preprocessor.**  `setlecNative` is unchanged and `False` is
+deliberately *not* added to `setlecReservedBasisNames` (docstring in
+`SetlecPreprocess.lean`): the frontend's pin match runs before any
+recogniser, and the raw `False` block *is* the pin, so a native `False`
+never reaches the sum recogniser (which would now refuse the reserved
+name).  Leaving it native keeps the `False._model` artifacts — dead
+weight the pin would ignore, exactly as `Empty._model`'s are — out of
+the stream; the preprocessed init-full stream is byte-identical to
+master's and needed no regeneration.  (`Empty` stays listed in the
+preprocessor's copy for the historical reason that it was reserved
+before the direct routes existed; its artifacts are inert.  Retiring
+that entry would shrink the stream by `Empty`'s model family and is a
+separate, stream-changing decision.)
+
+### 2. The capstones
+
+`CapstoneP.lean` factors the pin argument once — `no_constant_of_
+emptyPin_P`: a reserved name whose direct pin is `emptyT u` has no
+stored inhabitant (the membership is `mem_typeP` at the `denoteP`
+reading, the reading of `.const n []` is the leaf by the constant
+clause, the leaf's `interp2` value is the empty set by erasure
+injectivity plus `basis_pinnedL`) — and `no_constant_of_Empty_P` /
+`no_constant_of_False_P` are its two instances at `u = 1` / `u = 0`.
+The letters, verbatim:
+
+```
+theorem Setlec.SetP.no_proof_of_False_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const falseName [] → False
+
+theorem Setlec.Cached.no_proof_of_False_SPCD_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true)
+    {ds : List DeclC} {env' : Env}
+    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const falseName [] → False
+
+theorem Setlec.no_proof_of_False (V : Type w) [SetTheory V]
+    (ds : List DeclC) (env : Env)
+    (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env) :
+    ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName []
+```
+
+— the `Empty` letters with `falseName` for `emptyName`; the third is
+the first theorem of `Setlec/MainTheorem.lean`, `no_proof_of_Empty`
+second, per the user's remark that the corollary reads better about
+`False`.  Why this shape: `False` is what a Lean user means by
+inconsistency, and with the pin the statement has the same census as
+the `Empty` one — the validating mode, the accepted run, the stored
+constant, its type; nothing about the stream's `False` block, because
+the stream does not get to supply one.  The `Empty` pin and its
+capstones stay as they were; nothing became redundant (the `Empty`
+letter is the one the campaign was measured against).
+
+### 3. A general theorem — not pursued (user ruling)
+
+A route-independent theorem for every stream-declared zero-constructor
+family (from a stored eliminator of the shape `∀ (motive : T → Sort u)
+(t : T), motive t`, on `mem_typeP` alone) was written for the
+parameterless case and **dropped on the user's ruling** — *"I don't
+need a theorem about the general case"*; the pinned `False`/`Empty`
+letters are the deliverable.  For the record, its parameter-applied
+form was found to need graph-regime parameter bits on the stored
+former, which the one-directional validated-annotation invariant does
+not give at an empty parameter domain; not pursued.
+
+### 4. The bogus recursor is a reject
+
+`checkDirectSumRec`'s recursor-type mismatch (both twins) was
+`.notImplemented` — a decline — since task #175.  For a block the
+recogniser has fully identified (non-recursive, non-indexed, `n ≠ 1`
+constructors of the right shape) the recursor is *derived*: the kernel
+generates exactly one, so a stream recursor that is not definitionally
+that one is invalid input, not an unsupported shape.  It is `.invalid`
+now (`direct sum: recursor type is not the generated one`); the
+one-constructor structure route's twin (`direct structure: recursor
+type`) is left as it was.  `zero_ctor_bad_rec` (`Nada.rec : Type`)
+rejects; no arena or e2e verdict moved.
+
+### 5. Fixtures and receipts
+
+`tests/e2e/src/zero_ctor.lean` → `tests/e2e/zero_ctor.ndjson` (through
+`setlec-preprocess`: every block native, no `_model` line), its two bad
+twins by `scripts/mk_zero_ctor_bad.py` (`zero_ctor_false_proof`: a
+theorem `bogus : False := Prop`; `zero_ctor_bad_rec`: `Nada.rec`'s type
+replaced by `Type`), expectations `0 / 1 / 1` in `tests/e2e-expected.txt`.
+
+**Receipts at `agent/zeroctor`'s tip** (master merged at `5d0b12f0`
+for `Setlec/MainTheorem.lean`, which this task edits): `lake build`
+warning-free (652 jobs), `lake test` green, `tests/layering.sh`
+`base 253 / P 168 / caps 3 / umbrella 1; 0 base->lane, 0 impl->theory`,
+`tests/proofdeps.sh` **one justified door and a regenerated pin**:
+`Setlec.SetP.BasisFalseP` entered all four capstones' proof-term
+closures (the pinned block's P install is on every fold, exactly as
+`BasisEmptyP` is — `basisStepPB_of` dispatches to it), nothing left,
+and the `False` letters join the roots; `tests/pindump.sh` fresh;
+`tests/arena.sh` 0 FAIL (tutorial 90/92 — the two custom-axiom
+declines by design —, e2e 88/88 with the three new fixtures at
+`0 / 1 / 1`, annot 14/14, retired flags 8/8, mode flags 16/16, the
+trusted sweep 138 + 88 + 14 with the 3 recorded divergences; **no
+verdict moved** anywhere in the suites); init-full (`init-full-pre-
+native.ndjson`, unchanged — `False` was already native) `--verified`
+**56 291** accepted (exit 0) and `--trusted` **56 291** (exit 0), equal
+to master's task #180 receipt on the same stream; the eight capstones'
+axioms exactly `[propext, Classical.choice, Quot.sound]`
+(`no_proof_of_{False,Empty}`, `no_proof_of_{False,Empty}_{P,SPCD_P}`).  `tests/native-agree.sh` skipped as on master (the stock
+`lean-inductive-models` is not built in the workspace).  No Mathlib run
+of any kind.
+
+**User rulings applied before landing**: no general theorem (§3);
+`Empty` and `False` stay pinned and a stream declaring either name any
+other way is REJECTED — confirmed on every path (`checkConstantVal`'s
+reserved-name guard is `.invalid` for definitions, theorems, axioms and
+every inductive member alike): `empty_redefined` (a one-constructor
+`Empty`), `false_redefined` (`def False : Prop := …`) and
+`false_rec_bad` (the toolchain's block with `False.rec : Type`) all exit
+1 with `reserved basis name`.  The preprocessor's reserved list stays
+as it is.
+
+**Landing receipts** (master `4565a27a` merged — the hygiene and
+heartbeat lanes; `no_proof_of_False` first in `MainTheorem.lean`, no
+`False` IO twin by user ruling — the world-passing shape is for a
+follow-up lane): `lake build` warning-free (651 jobs), `lake test`
+green with `tests/SetlecTests/Axioms.lean` at 15 guards (the ten plus
+`no_proof_of_False`, `no_proof_of_False_SPCD_P`, `no_proof_of_False_P`,
+`no_constant_of_False_P`, `no_constant_of_emptyPin_P`), `tests/arena.sh`
+exit 0: layering `base 253 / P 167 / caps 3 / umbrella 1`, proofdeps
+regenerated once — the single justified door `Setlec.SetP.BasisFalseP`
+on every pre-existing root (the pinned block's install is on every
+fold, as `BasisEmptyP` is) and the three `False` roots added (3 264
+rows / 9 roots / 0 doors), pindump fresh, trust surface 0 outside the
+allowlist, tutorial 90/92, e2e 91/91 (the six new fixtures at
+`0 / 1 / 1 / 1 / 1 / 1`), annot 14/14, flags 8/8 + 16/16, heartbeat
+1/1, the trusted sweep with the 3 recorded divergences; init-full
+`--verified` 56 291 and `--trusted` 56 291 (exit 0), unchanged.
+

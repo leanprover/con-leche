@@ -69,8 +69,15 @@ namespace SetlecTests.Axioms
 
 /-! ## The main theorems (`Setlec/MainTheorem.lean`)
 
-The two statements the project exists to make.  Everything below them
-is what they are corollaries of. -/
+The statements the project exists to make — `False` first (task #181:
+the pinned `False` block), then `Empty`.  Everything below them is what
+they are corollaries of. -/
+
+/--
+info: 'Setlec.no_proof_of_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms Setlec.no_proof_of_False
 
 /--
 info: 'Setlec.no_proof_of_Empty' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -85,6 +92,12 @@ info: 'Setlec.no_proof_of_Empty_IO' depends on axioms: [propext, Classical.choic
 #print axioms Setlec.no_proof_of_Empty_IO
 
 /-! ## The shipped driver (`Setlec/Verify/Cached/MainC.lean`) -/
+
+/--
+info: 'Setlec.Cached.no_proof_of_False_SPCD_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms Setlec.Cached.no_proof_of_False_SPCD_P
 
 /--
 info: 'Setlec.Cached.no_proof_of_Empty_SPCD_P' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -126,6 +139,12 @@ info: 'Setlec.Cached.checkDeclsSPCachedM_eq' depends on axioms: [propext, Classi
 /-! ## The pure fueled checker (`Setlec/SetP/FoldP.lean`) -/
 
 /--
+info: 'Setlec.SetP.no_proof_of_False_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms Setlec.SetP.no_proof_of_False_P
+
+/--
 info: 'Setlec.SetP.no_proof_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
@@ -140,9 +159,21 @@ info: 'Setlec.SetP.no_proof_of_Empty_P_of' depends on axioms: [propext, Classica
 /-! ## The business end (`Setlec/SetP/CapstoneP.lean`) -/
 
 /--
+info: 'Setlec.SetP.no_constant_of_False_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms Setlec.SetP.no_constant_of_False_P
+
+/--
 info: 'Setlec.SetP.no_constant_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms Setlec.SetP.no_constant_of_Empty_P
+
+/--
+info: 'Setlec.SetP.no_constant_of_emptyPin_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms Setlec.SetP.no_constant_of_emptyPin_P
 
 end SetlecTests.Axioms

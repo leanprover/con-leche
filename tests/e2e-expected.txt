@@ -336,6 +336,43 @@
 0 direct_sum_option.ndjson pre
 0 direct_sum_or.ndjson pre
 1 direct_sum_or_large_bad.ndjson pre
+# Zero-constructor inductives at every level (task #181, 2026-09-06),
+# exported through `setlec-preprocess` (every block native, no `_model`
+# declaration in the stream), so they assert `--pre`:
+#   zero_ctor:             `PEmpty'` (universe-polymorphic, `Sort u`),
+#                          `Vacant α n` (a type and a Nat parameter,
+#                          `Type u`), `Bottom p` (a `Prop` with a `Prop`
+#                          parameter), `Nada : Type` — each with its
+#                          large eliminator used — and `absurd'` through
+#                          the toolchain's `False`, which the checker
+#                          installs from its own pin
+#                          (`Setlec/Kernel/Basis/False.lean`).
+#   zero_ctor_false_proof: the stream plus `bogus : False := Prop` (an
+#                          ill-typed value): REJECT.  The capstone
+#                          `no_proof_of_False` says no accepted stream
+#                          can store such a constant; this is the
+#                          checker refusing one.
+#   zero_ctor_bad_rec:     `Nada.rec`'s type replaced by `Type` — a
+#                          recognised zero-constructor block whose
+#                          recursor is not the generated one: the
+#                          direct sum install REJECTS (`.invalid`; until
+#                          #181 a recursor-type mismatch was a decline).
+#   empty_redefined:       the one-constructor `OfNat` block renamed to
+#                          `Empty`: REJECT (`reserved basis name`).
+#   false_redefined:       `def False : Prop := PEmpty'.{0}` ahead of the
+#                          toolchain's `False` block: REJECT.
+#   false_rec_bad:         the toolchain's `False` block with `False.rec`'s
+#                          type replaced by `Type` — not the pin any more:
+#                          REJECT.  (User ruling, task #181: `Empty` and
+#                          `False` stay pinned; a stream declaring either
+#                          name any other way is invalid input.)
+# All five twins are derived by scripts/mk_zero_ctor_bad.py.
+0 zero_ctor.ndjson pre
+1 zero_ctor_false_proof.ndjson pre
+1 zero_ctor_bad_rec.ndjson pre
+1 empty_redefined.ndjson pre
+1 false_redefined.ndjson pre
+1 false_rec_bad.ndjson pre
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the

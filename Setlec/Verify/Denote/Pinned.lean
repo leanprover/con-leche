@@ -33,6 +33,10 @@ where the layer's `emptyRec` takes two, the first being `Empty`'s own.
 And `PUnit.rec` binds `u_1, u` — motive level *second* in the layer's
 order and named `u_1`, not `v`.
 
+`False` (task #181) is `Empty.{0}` in the layer's currency: the
+built-in `empty` at level `0` is `Sort 0`-valued (`BConst.type`), and
+`False.rec` is `emptyRec` at `[0, u]`.  No new built-in.
+
 Each would have been caught only here, because `val_params` is what
 they violate and nothing before the install asserts it for a basis
 constant.  That is the house rule's point exactly (`Setlec/TT/DESIGN.md`
@@ -49,6 +53,9 @@ def pinnedDirectT (n : Name) (ψ : Name → Nat) : Option VExpr :=
   else if n = emptyName then some (.const .empty [1])
   else if n = emptyName.str "rec" then
     some (.const .emptyRec [1, ψ uN])
+  else if n = falseName then some (.const .empty [0])
+  else if n = falseName.str "rec" then
+    some (.const .emptyRec [0, ψ uN])
   else if n = quotName then some (.const .quot [ψ uN])
   else if n = quotMkName then some (.const .quotMk [ψ uN])
   else if n = quotLiftName then some (.const .quotLift [ψ uN, ψ vN])

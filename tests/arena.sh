@@ -167,7 +167,7 @@ if tests/trust-surface.sh; then :; else fail=1; fi
 
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
 # theorems, the four letters, the assembly under them and the `IO`
-# loop's bridge — ten in all — carry `#guard_msgs in #print axioms`
+# loop's bridge — and, since task #181, the `False` letters — carry `#guard_msgs in #print axioms`
 # guards in `tests/SetlecTests/Axioms.lean`, pinning them at exactly
 # `[propext, Classical.choice, Quot.sound]`.  The guards ARE the
 # elaboration of that module, so building the test library is the gate:
@@ -176,7 +176,8 @@ if tests/trust-surface.sh; then :; else fail=1; fi
 # standard battery says so too.)
 AXLOG=$(lake build SetlecTests 2>&1)
 if [ $? = 0 ] && ! printf '%s\n' "$AXLOG" | grep -q 'error:'; then
-  echo "axioms: pinned (10 theorems at [propext, Classical.choice, Quot.sound])"
+  nax=$(grep -c '^#print axioms' tests/SetlecTests/Axioms.lean)
+  echo "axioms: pinned ($nax theorems at [propext, Classical.choice, Quot.sound])"
 else
   echo 'AXIOM PIN FAIL — tests/SetlecTests/Axioms.lean did not elaborate:'
   printf '%s\n' "$AXLOG" | grep -A6 'error:' | head -40 | sed 's/^/    /'

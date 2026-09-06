@@ -382,6 +382,8 @@ private def processLineCoreD (st : StateD) (j : Json)
                             punitSeen := true }
     else if blockC = BasisKind.emptyK.decls.map ConstantInfo.canon then
       return .inl { st with decls := st.decls.push (.basisDecl .emptyK) }
+    else if blockC = BasisKind.falseK.decls.map ConstantInfo.canon then
+      return .inl { st with decls := st.decls.push (.basisDecl .falseK) }
     else
       if modeled then
         return .inl { st with decls := st.decls.push (.indDecl block) }

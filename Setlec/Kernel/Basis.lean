@@ -4,6 +4,7 @@ import Setlec.Kernel.Basis.Eq
 import Setlec.Kernel.Basis.Nat
 import Setlec.Kernel.Basis.PUnit
 import Setlec.Kernel.Basis.Empty
+import Setlec.Kernel.Basis.False
 import Setlec.Kernel.Basis.Quot
 
 /-!
@@ -12,7 +13,7 @@ import Setlec.Kernel.Basis.Quot
 The lean-inductive-models preprocessor reduces every supported inductive
 to the five-member basis `Eq`, `Nat`, `PSigma'`, `PUnit`, `Quot` (plus
 standard axioms); of these the checker pins `Eq`, `Nat`, `PUnit`, `Quot`
-(and `Empty`) natively (hand-written set models).  `PSigma'` is NOT
+(and `Empty`, `False`) natively (hand-written set models).  `PSigma'` is NOT
 pinned (task #175 W6, 2026-09-05): the preprocessor's tight pair is an
 ordinary two-field simple structure and installs through the direct
 path (`Setlec/Kernel/Direct.lean`, tower projection entries) like any
@@ -38,6 +39,7 @@ def BasisKind.decls : BasisKind → List ConstantInfo
   | .natK => natBasis
   | .punitK => punitBasis
   | .emptyK => emptyBasis
+  | .falseK => falseBasis
   | .quotK => quotBasis
 
 end Setlec
