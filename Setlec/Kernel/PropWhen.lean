@@ -200,12 +200,15 @@ theorem ifAllZero_toList {pw : PropWhen} (h : pw ≠ .never) :
   | never => exact absurd rfl h
   | ifAllZero ps => rw [toList_ifAllZero]
 
-/-- The old datum's `Repr`, kept **byte-identical**: the annotate-basis
-generator (`AnnotateBasis.lean`) prints the committed `Basis/*.lean`,
-`StdAxioms.lean` and `TrustAxioms.lean` literals with `repr`, and those
-literals name the smart constructor.  This reproduces exactly what
-`deriving Repr` emitted for the old `never | ifAllZero (ps : List Name)`
-datum. -/
+/-- The old datum's `Repr`, kept **byte-identical**.  It was written
+for the `annotate-basis` generator, whose `repr` output was pasted into
+`Basis/*.lean`, `StdAxioms.lean` and `TrustAxioms.lean` as the
+annotated literals; that generator is gone (2026-09-06 — the literals
+are computed by `#annotate_basis` at elaboration time now), but the
+spelling stays: it is what a `#eval (repr …)` of a stored pin prints,
+and it names the smart constructor rather than the private
+representation.  This reproduces exactly what `deriving Repr` emitted
+for the old `never | ifAllZero (ps : List Name)` datum. -/
 def reprPrec' (pw : PropWhen) (prec : Nat) : Std.Format :=
   Repr.addAppParen
     (Std.Format.group (Std.Format.nest (if prec ≥ 1024 then 1 else 2)
