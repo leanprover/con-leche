@@ -43539,7 +43539,7 @@ Official clause (file:line at v4.33.0) → ours (spec `Core.lean` / P
 | R2 | `cheap_rec` — only ever `false` (lean4lean: "nothing has set it since lean4#9275") | n/a | same | |
 | **inductive_reduce_rec** `inductive.h:76-111` | | | | |
 | I1 | major = `rec_args[major_idx]`; **if `is_k`: `to_cnstr_when_K` on the RAW major**; then `whnf`; then nat-lit → ctor / string-lit → `whnf(ctor form)` / else `to_cnstr_when_structure` (`:85-94`) | master `iotaRec :1387-1389` (NC `:239-241`): `whnf` → `litMajorToCtor` → `majorToCtor` (K and η both AFTER the whnf) | **cost — FIXED on `agent/rat-frontier` 8480a8c9** (`prepareMajor{,I,NC}`; not on master at audit time) | the K-order bug; the fix mirrors `:85-94` exactly |
-| I2 | K guard: `rec_val.is_k()` = block has ONE inductive type ∧ result level `normalizes_to_zero` ∧ one constructor with 0 fields (`inductive.cpp:551-572`) | `caps.ruleK = (nF == 0 && piResultIsProp cvT.type)` (`DeclCheck.lean:289`, `Modeled.lean:718`; `piResultIsProp :150` is `Level.isEquiv u .zero`) ∧ `rules = [rl]` ∧ `cnF = 0` (`majorToCtor :1181-1189`) | same, except **superset V1**: no "not a mutual block" test — a mutual Prop block whose recursor has a single rule (one nullary ctor, the other types empty) K-rescues in ours, never in official | unreachable in real streams; recorded |
+| I2 | K guard: `rec_val.is_k()` = block has ONE inductive type ∧ result level `normalizes_to_zero` ∧ one constructor with 0 fields (`inductive.cpp:551-572`) | `caps.ruleK = (nF == 0 && piResultIsProp cvT.type)` (`DeclCheck.lean:289`, `Modeled.lean:718`; `piResultIsProp :150` is `Level.isEquiv u .zero`) ∧ `rules = [rl]` ∧ `cnF = 0` (`majorToCtor :1181-1189`) | same — the "not a mutual block" condition is enforced at INSTALL: every path that sets `ruleK` matches a block with exactly one inductive type and one constructor (`checkIndDecl`/`CheckerC:189`/`ParsedNC:157`: `[.indInfo cvT _], [.ctorInfo cvC nP nF]`; `directPartsCore?`: `[.indInfo, .ctorInfo, .recInfo _ _ _ [rule]]`; the pinned basis blocks are single-type) — **V1 withdrawn** (§11; the audit's first reading looked at the fire-time guard only) | |
 | I3 | `to_cnstr_when_K` (`inductive.h:28-48`): `whnf(infer(major))`, head must be the major's inductive, `mk_nullary_cnstr` (first ctor at the params), `is_def_eq(app_type, infer(fab))` | `majorToCtor :1189-1237`; NC `:163-183` — same steps, same defeq ORDER (whnf'd major type first), plus three scoping guards + `stripPis`/level-arity pins (F6) and, at P, `iotaCerts` on the fabrication + `proofIrrel` (the soundness certificate) | same (parity) / cost (P certs) / **subset (F6)**: the extra guards can silently refuse a rescue official performs | F6 is on record (task #172 B1); no stream has hit it |
 | I4 | `to_cnstr_when_structure` (`:59-71`): `is_non_rec_structure` ∧ not already a ctor app; `whnf(infer(e))` head is the inductive; struct sort NOT `normalizes_to_zero`; `expand_eta_struct` = ctor at params applied to `.proj` nodes — NO certification | `majorToCtor :1238-1298`; NC `:184-214`: `caps.eta`, `piResultNeverZero` (the same non-Prop test, instantiated), then `structEtaCertWith fab major tmaj` (fields vs projections — the pairs are syntactically equal, so `a == b` hits) and the `Name.isProjFnShape recName = false` exclusion (F6) | same verdict where the caps agree; cost ≈ 0 (the certificate's pairs are identical terms) | `caps.eta` is install-computed (`checkEtaThmF`), official's `is_non_rec_structure` is structural — any block where the cap is refused is an accept-subset; none known |
 | I5 | `get_rec_rule_for` by ctor name; `nfields ≤ major_args`; level arity of the recursor; rhs at the recursor's levels, applied to `nparams+nmotives+nminors` rec args, then the major's fields (skipping `major_args − nfields`), then the extras (`:95-110`) | `iotaRec :1390-1451`; NC `:242-279` — rule by ctor; `margs.length = ctorParams + nfields` EXACT (F5); level arity (checker change #9); rhs at `us`; `args.take rP ++ margs.drop ctorParams` | same | plus (both cores) the ctor↔recursor level-linkage comparison and the nested-rule comparands (F5, install-certified modes) and (P) the two `iotaCerts` telescopes + `iotaIndexOk` (cert tax) |
@@ -44312,6 +44312,260 @@ flags 8/8 + 14/14, no-model sweep as recorded).  No verdict moved.
 pay a `propIrrel`), P 1.3981 G; `natop_arg_order` parity 0.264 G (was
 0.280 G), P 0.269 G; `lake build` warning-free (438 jobs), `lake test`,
 proofdeps 1 363 rows / doors 0, layering 0 edges.
+## Task #177 — the substitution walks' memo discipline (2026-09-06, agent/instantiate-opt)
+
+**The user's question:** *"instantiate is a very hot function for us —
+can we optimize it?"*  Method as ruled: profile first, one candidate at
+a time, verdicts unchanged, the perf number is the go/no-go, proof work
+only after a confirmed win.  Baseline = master `3993fb54`, whose cells
+reproduce PERF.md's table exactly (app-lam 208.62/208.97 G, init-full
+1085.56/987.05 G).
+
+### 1. The profile
+
+`perf record -F 199/99`, `instructions:u` symbol buckets, `ulimit -v
+16G`, `nice 5`, `SETLEC_SUPERVISED=1`, `--pre` streams; app-lam,
+grind-ring-5 and init-full in both modes (`_tmp/inst-opt/*.data`).
+
+| bucket | app-lam np | grind np | init-full np |
+|---|---|---|---|
+| `lean_dec_ref_cold` + `mi_free` + page collect + `mi_malloc` + `del_core_other` | 40.2 % | 35.1 % | 34.2 % |
+| kernel page-fault/`munmap` symbols | ~19 % | ~1 % | ~2 % |
+| `instantiate*Go` / `abstractRangeGo` (self) | 6.6 % | 4.3 % | 4.5 % |
+| the walks' `Std.DHashMap` spec sites (insert / get / expand) | 11.2 % | 8.1 % | 6.3 % |
+| `Expr.beqB`/`beqFast` (defeq descent, not this task) | 0.7 % | 5.1 % | 6.7 % |
+| `Expr.bvarBoundGo`'s own memo (the saturated-field fallback) | — | 2.4 % | 2.6 % |
+
+The generated C named the cause exactly.  For **every visited node** the
+walk allocated **four `Prod` cells** — two to build `(e, k, d)` for the
+probe and two more to build the same tuple again for the insert — plus
+the `ExprC × Memo` result pair, against **one** allocation for the
+rebuilt node.  The memo key, an `EIdx` scalar in the arena, is a
+*constructed* value here, and that is the whole gap.
+
+### 2. Candidates, each measured separately
+
+Screening set app-lam / grind-ring-5 / beta-ladder, `--no-model`, one
+run per cell (`_tmp/inst-opt/cells.tsv`); percentages are *incremental*
+against the row above.
+
+| # | candidate | app-lam | grind-ring-5 | beta-ladder | kept |
+|---|---|---|---|---|---|
+| A | build the key once (`let key := …`, shared by probe and insert) | −8.8 % | −3.6 % | −9.5 % | **yes** |
+| B | drop the live prefix `k` from the bulk key; the `bvar` re-entry runs under a fresh table, guarded so a cursor-closed replacement allocates none | −7.8 % | −3.8 % | −7.6 % | **yes** |
+| C | atoms answered outside the memo, via an `Option`-returning `@[inline]` helper | **+0.8 %** | −4.8 % | **+0.6 %** | **no** |
+| C′ | as C, but only the non-allocating atom answers bypass the memo | +0.9 % | −4.7 % | +0.7 % | **no** |
+| D | atoms answered outside the memo by moving the probe *into the compound arms* — one flat match, no `Option` | −7.8 % | −7.2 % | −9.4 % | **yes** |
+| E | a shared pool of the first 4096 `bvar` nodes for the walks' shifted atoms | −0.0 % | −0.4 % | −0.0 % | **yes** (RSS) |
+| F | pre-size the bulk memo at `vs.size` | +0.0 % | **+1.5 %** | +0.1 % | **no** |
+
+**C vs D is the session's finding.**  They compute the same thing and
+differ only in *how* the atom test is expressed: C returns
+`Option ExprC` from an `@[inline]` helper, D puts the probe in the arms
+of one flat match.  `some r` is a heap allocation, paid at every
+*compound* node (where the helper returns `none` only after the
+allocation is elaborated away — it is not), so C hands back at the
+compound nodes what it saves at the atoms: an 8.6 pp swing on app-lam
+between two spellings of one idea.  The first shape a restructure
+suggests was measured and rejected; the winning shape duplicates four
+lines of probe per arm and is the one to keep.  D also broke structural
+recursion in its natural spelling (`match e with | .bvar .. => … | _ =>
+match e with …`, whose `_` branch does not refine `e`) — the flat match
+is what makes the same code terminate *and* run fast.
+
+### 3. Candidates closed without a measurement, and why
+
+* **(a) early exit on the packed `bvarB`** — already there, at the head
+  of every `…Go` and at every entry point, and `d` is incremented under
+  binders so the cutoff is applied at the right offset at every node.
+  Nothing to add.
+* **(b) node-identity preservation** (return the original node when no
+  child changed) — **cannot fire in these walks**, because the cached
+  ranges are *exact*.  `bvarB e > d` means `e` really does contain a
+  loose `bvar` at or above `d`, which instantiation always changes; so
+  a node that reaches the rebuild always rebuilds to something new.
+  The same argument closes `abstract1`/`abstractRange` at their call
+  sites (`d` is the level just pushed, `d + k` the current level, so no
+  `fvar` in the term escapes the abstracted range).  This is a *finding
+  about the computed fields*, not a measurement: exactness already buys
+  what identity preservation would.
+* **(c) an allocation-free `ptrAddrUnsafe`-keyed probe table** —
+  **closed by the standing ruling, not by measurement.**
+  `implemented_by` is forbidden, and `ptrAddrUnsafe` cannot appear in a
+  `csimp` twin: an `unsafe def` is not a term of the logic, so
+  `f = fFast` cannot even be *stated*.  The safe primitive
+  `withPtrAddr a k h` demands `h : ∀ u₁ u₂, k u₁ = k u₂` — the result
+  must be provably independent of the address.  An address-keyed memo
+  can be made address-independent (store the `ExprC` and validate the
+  hit structurally), but the proof needs the *table's* invariant, which
+  is established by the very recursion the call sits inside and is not
+  a property of the continuation `k`.  So the safe primitive cannot
+  host this table.  The tree does have one such table —
+  `Expr.beqGo`'s address-pair memo — and it lives under `beqFast`,
+  i.e. census row 1, the one `implemented_by` escape the ruling
+  grandfathers and forbids extending.  A/B/D took the same allocations
+  out by a different route: 4 key cells per node → 1 at compound nodes,
+  0 at atoms.
+* **(d) one pass over the whole argument array** — already the shipped
+  shape: `instantiateListGo`/`instantiateRevGo` are single bulk passes
+  carrying the live prefix `k`, and `instSpine` takes the bulk form
+  whenever the spine spans the telescope.  The `instSpineChain`
+  fallback appears in no profile.
+* **(e) `@[specialize]`/`@[inline]` on higher-order helpers** — the
+  walks have none; the `Std.DHashMap` operations are already
+  monomorphized per call site (visible in the profile's symbol names).
+  The one closure-shaped helper this session *introduced* is candidate
+  C, and it was measured and rejected.
+
+### 4. The RSS follow-up, and the static `bvar` pool
+
+D's atoms are no longer memoized, so they are no longer *shared*: peak
+RSS rose +1.2 % on app-lam and +3–6 % on init-full.  Verified first that
+the unchanged atoms already return the original node **by reference**
+(`fvar`/`sort`/`const`/`lit` and the below-cursor `bvar` return `e`; a
+substituted `bvar` returns the replacement object) — so the only
+unshared atoms were the *shifted* `bvar (i − 1)` / `bvar (i − k)` and
+abstraction's fresh `bvar k`.
+
+A first attempt scoped the pool to the cached tier and routed only the
+walks: it recovered init-full (925 → 854 MB) but left app-lam's +1.2 %.
+The **user's design**, which replaced it, is one static table at the
+`Expr` level, routed at *every* runtime `bvar` construction:
+
+```
+def bvarPoolSize : Nat := 4096
+def bvarPool : Array Expr := (Array.range bvarPoolSize).map Expr.bvar
+@[inline] def mkBvar (i : Nat) : Expr :=
+  if h : i < bvarPool.size then bvarPool[i] else .bvar i
+@[simp] theorem mkBvar_eq (i : Nat) : mkBvar i = .bvar i
+```
+
+* **It is built once.**  Checked in the generated C, not assumed:
+  `bvarPool` is an `_init_…` constant obtained through `lean_obj_once`
+  and then `lean_mark_persistent`ed, so the table is created at module
+  initialization and its nodes' reference counting is a no-op.
+* **The bound is 4096, not the suggested ~2048**, because the corpus's
+  own deepest index is `good/perf/app-lam`'s 4 000-binder tower: a pool
+  that stops short of the fixture that motivated it would miss it.
+* **The routing is one line.**  `Cached.ExprC.mkBVar := Expr.mkBvar`,
+  and `mkBVar` is the cached tier's only `bvar` builder, so the
+  substitution and abstraction walks, `ofView` and the frontend's
+  parser are covered at once.  Census of what is deliberately *not*
+  routed: the pure spec functions of `Kernel/ExprOps.lean` (they must
+  keep the bare constructor — they are what the pool is proved
+  transparent against) and the closed `.bvar 0` literals of the cores
+  and the pinned basis terms, which the compiler already lifts to
+  per-module `_init_…_closed__n` constants and marks persistent itself.
+  Nothing hot builds a `bvar` outside the pool.
+* **Proof bill: one line.**  `mkBVar_eq` stopped being `rfl`, so
+  `ofView_spec` closes by `simp [ofView, ofViewE]`; every other user
+  already went through the `@[simp]` equation.
+
+The global pool is equal or marginally better than the per-tier one on
+instructions (init-full −0.10 %, grind-ring-5 −0.08 %, app-lam ±0.00 %)
+and strictly better on retention, so the per-tier pool was dropped.
+
+### 5. Result
+
+Measured against the **merged** master tip `e736f24d`, not against
+PERF.md: S1's projection table and the rat-frontier K rescue landed
+mid-session and moved the accept counts (app-lam 94, grind-ring-5 3866,
+beta-ladder 53, init-full 60 549), so PERF.md's rows are a different
+pipeline.  Baseline binary = this tree with `Kernel/Expr.lean`,
+`Cached/ExprC.lean` and `Cached/ExprOpsC.lean` at master.
+
+| stream | parity before → after | P before → after |
+|---|---|---|
+| `app-lam` | 208.62 → **161.70 G** (−22.5 %) | 208.78 → **161.90 G** (−22.5 %) |
+| `beta-ladder` | 40.78 → **30.91 G** (−24.2 %) | 52.07 → **40.88 G** (−21.5 %) |
+| `grind-ring-5` | 36.45 → **31.17 G** (−14.5 %) | 37.05 → **31.79 G** (−14.2 %) |
+| `init-full` | 1030.47 → **888.58 G** (−13.8 %) | 980.49 → **846.88 G** (−13.6 %) |
+
+| peak RSS (VmHWM from `/proc`) | parity | P |
+|---|---|---|
+| `app-lam` | 4124 → **4091 MB** (−0.8 %) | 4138 → **4132 MB** (−0.1 %) |
+| `init-full` | 904 → **866 MB** (−4.2 %) | 916 → **858 MB** (−6.3 %) |
+
+Verdicts identical everywhere: init-full 60 549 accepted in both modes,
+`tests/arena.sh` 0 FAIL (arena 90/92, e2e 76/76, annot 14/14, retired
+and mode flags, the `--no-model` sweep with its three recorded
+divergences), `lake test` green, layering and `tests/proofdeps.sh`
+unchanged (1363 rows, 0 doors), build warning-free.
+
+### 6. The proof shape
+
+The walks' **definitions** changed, so `Setlec/Verify/Cached/OpsC.lean`
+re-establishes them; their **statements** did not, so nothing
+downstream of that file moved (no `SimC`, `BridgeC*` or `DiscC*` edit,
+no capstone edit).  Three mechanical changes:
+
+* `MemoLInv` gained the live prefix `k` as a *parameter* and lost it
+  from the key — the invariant now reads "one table, one prefix", which
+  is exactly what candidate B made true;
+* the leaf cases lost their memo clause (`⟨hm, rfl⟩` where they had
+  `⟨hm.insert rfl, rfl⟩`), and the `bvar`/`fvar` atom cases lost theirs;
+* the compound cases gained a `dsimp only` where the arm's `match` now
+  has to reduce before the memo `split`, and their trailing
+  `simp only [hp, hq]` became unused (the `rcases hp : …` already
+  rewrites the goal in the new shape) and was dropped.
+
+The `bvar` arm's fresh-memo re-entry needs one new step: under
+`i − d = 0` the residual prefix is `[]` (`instantiateList_nil`), under
+`w.bvarB ≤ d` the replacement is its own instantiation
+(`instantiateList_eq_self`), and otherwise the strong induction on `k`
+applies at `MemoLInv.empty`.  `Expr.mkBvar_eq` is a one-line theorem, `@[simp]`, so the
+pool is invisible to every proof but `ofView_spec`, which stopped being
+`rfl`.
+
+Capstone axioms exactly `[propext, Classical.choice, Quot.sound]` on
+all three (`no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_sound_P`,
+`foldSPC_PM`).
+
+### 7. What this leaves for the next round
+
+* **`Expr.bvarBoundGo`'s own memo** (2.4 % grind, 2.6 % init-full): the
+  saturated-field fallback keys a `Std.HashMap` the same way the walks
+  used to.  Same three rules apply; it lives in
+  `Setlec/Kernel/Expr.lean`, which task #168's `PropWhen` work is
+  editing, so it was left alone deliberately.
+* **The result pair.**  Every node still allocates its
+  `ExprC × Memo` return.  Removing it means an `ST`-ref memo and a
+  monadic walk — a real proof bill, and the first thing to price if
+  another 5–10 % is wanted from these functions.
+* **`lean_copy_expand_array` (6.2 %) and `lean_mark_mt` (7.6 %) on
+  init-full** are outside the walks and unattributed; whoever profiles
+  next should start there.
+* Architecturally the floor recorded at task #161 still stands: the
+  cached representation hash-conses nothing, so it memo-keys
+  intermediates that official and lean4lean simply do not build.
+
+### 11. V1 — withdrawn by inspection: `ruleK` is already installed under official's non-mutual condition (`agent/divergence-v1`, DESIGN-only)
+
+The audit's I2 row read the K guard at its FIRE site (`majorToCtor`:
+`caps.ruleK ∧ cnF = 0 ∧ rules = [rl]`) and flagged the missing "not a
+mutual declaration" conjunct of official's `init_K_target`
+(`inductive.cpp:551-572`).  The conjunct lives at the INSTALL, where
+`caps.ruleK` is computed, and every path that can set it true already
+requires a single-type, single-constructor block:
+
+* the modeled install `checkIndDecl` (`Modeled.lean:784`) and its
+  cached twins (`CheckerC.lean:189`, `ParsedNC.lean:157`) compute
+  `indBlockCaps(F)` only in the arm
+  `[.indInfo cvT _], [.ctorInfo cvC nP nF]` of a match on the block's
+  inductives and constructors — one of each, else no caps;
+* the direct install's `directPartsCore?` (`Direct/Parts.lean:167-169`)
+  matches `[.indInfo cvT _, .ctorInfo cvC nP nF, .recInfo cvR mI rP
+  [rule]]` — one type, one constructor, one rule — before `directCaps`
+  sets `ruleK := p.nF == 0 && p.isProp`;
+* the pinned basis blocks (`Eq` with `ruleK := true`; `Nat`, `PUnit`,
+  `Empty`, `Quot`, the axioms' blocks with `false`) are single-type by
+  construction.
+
+So a mutual Prop block never gets `ruleK = true`, exactly as official
+never marks a mutual recursor `is_k`.  The other two official
+conjuncts are matched at the same sites (`nF == 0`; `piResultIsProp` =
+`Level.isEquiv u .zero`, i.e. `normalizes_to_zero`).  No code change;
+the table row is corrected above.
 
 
 ## The Mathlib frontier ladder: `.proj` on a mutual-block member — a *recognizer* gap, and the residue outside the projection functions is **zero** (2026-09-06, `agent/next-frontier`)
