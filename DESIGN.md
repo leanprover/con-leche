@@ -46184,4 +46184,67 @@ same `hμ`; `cfgOf .verified = cfgP` (`rfl`) is the shipped instance.
 
 ### 4. Receipts
 
-RECEIPTS_PLACEHOLDER
+All at the batch's own tip (`agent/coret-retire`, off master at the
+TRUSTED LICENCES merge `96827f45`; no master merge before the grant,
+per the protocol change of 2026-09-06), every checker run one at a
+time, no wall-clock figure taken (the post-merge task sizes the lane
+in instructions).
+
+* `lake build` **440 jobs, warning-free**; `lake test` green.
+* `tests/arena.sh` **0 FAIL**: arena 90/92 good tests accepted, e2e
+  78/78, annot 14/14, retired flags 8/8, mode flags 16/16; **trusted
+  sweep 138 arena + 78 e2e + 14 annot as expected, the same 3 recorded
+  divergences** (`tests/trusted-expected.txt` needed no change: the
+  three `annot_decline_*` lines survive for the same reason — the
+  trusted core writes the annotations and never validates them).  So
+  **no verdict changed** between the twin and the instantiated core,
+  in either stage: neither the group-A-only instantiation (stage 1,
+  `0ad734f8`, where the trusted mode still ran every certificate
+  family) nor the certificate-family bit (stage 2) moved a single
+  fixture — the fixtures do not distinguish a certificate that runs
+  from one that is skipped, which is what a certificate is.  Nor did
+  the drift corrections (rows 18–20): no fixture exercises them.
+* `init-full-pre2` **accepts in BOTH modes**: `--trusted` 60 549
+  declarations / exit 0, `--verified` 60 549 / exit 0 (each measured
+  at stage 1 and again at the tip).
+* `tests/layering.sh`: base 233 / P 160 / caps 2 / umbrella 1, **0
+  base→lane edges, 0 impl→theory** (two base modules fewer: the twin).
+* `tests/proofdeps.sh`: **1 371 rows across 4 capstones, 0 doors —
+  unchanged.**  The pin did not move because `CoreT`/`ParsedT` were
+  never on any capstone's proof path: the four roots are the P letters
+  (`SPCD_P`, `sound_P`, `foldSPC_PM`, `P`), all stated over the
+  verified driver, and the twin was imported only by `Main.lean` and
+  the two agreement modules, neither of which a root reaches.  "CoreT
+  leaves" is therefore a statement about the import graph (the
+  layering count), not about the pin.
+* Axioms of `no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_sound_P`,
+  `foldSPC_PM`, `no_proof_of_Empty_P`, `trusted_agrees_P_skels_D`,
+  `trusted_agrees_P_names_D`, `trusted_agrees_P_count_D`,
+  `trusted_agrees_P_skels_shipped` and `checkDeclsSPCachedD_skels`:
+  **exactly `[propext, Classical.choice, Quot.sound]`**;
+  `cfgT_eq_cfgP_verified_off` uses none.
+* Tree: `Setlec/Cached/CoreT.lean` (−824) and `ParsedT.lean` (−362)
+  deleted; `AgreeFloor.lean` −300 (the duplicated T stages); the
+  simulation tower's restatement is a spelling change
+  (`coreKnotI mode` → `coreKnotI (cfgOf mode)`, 198 sites, and the
+  driver names likewise) plus one explicit `(cfgOf mode).iotaMode =
+  mode` rewrite in `BridgeCSDecl.lean` and `cfgOf_ioSkip` in twenty
+  simp sets of `DiscC4.lean`; nothing in `Kernel/Core.lean`, the
+  Fueled/Knot/Disc/Deep layers or `SetP/*` changed.
+
+**What the post-merge sizing will see.**  Relative to the twin the
+instantiated trusted core (a) skips the same certificate families,
+(b) additionally runs the well-formedness guards of rows 18–20 and the
+checking-mode inference at the install-time ops, (c) lost the
+one-directional memo share of row 16, and (d) gained the `@[inline]`
+memo wrappers in both modes.  None of these was measured here, by the
+cadence; if (c) shows, it is a both-modes batch with a proof
+obligation, not a trusted-only one.
+
+**Follow-ups this batch does not take.**  `iotaMode` is now consumed
+by `ttChecks` reads only (core and install stages) and can retire with
+that row as the census planned; the `certs`-versus-`verified` split is
+a proof-economy decision that a future spec-side switch for the
+certificate families could collapse into one bit, at the cost of
+threading `hμ` through the cached simulations — not worth a theorem
+today.
