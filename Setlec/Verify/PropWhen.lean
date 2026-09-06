@@ -1,21 +1,20 @@
 import Setlec.Verify.Level
 
 /-!
-# The zero-ness datum: soundness, completeness, substitution laws (task #161)
+# The zero-ness datum against `Level` (task #161)
 
-`PropWhen` is the binder annotation of the validated-annotation
-design: the reading of a codomain sort's zero-ness predicate
-`Z(l) = {φ | eval φ l = 0}`.  This file proves the design's
-load-bearing facts:
+`Setlec/Kernel/PropWhen.lean` owns the datum: its representation, its
+API, and every law about the datum *alone* (the readout algebra, the
+soundness **and completeness** of the comparison `equiv`, the
+`inter`/`bindZ` algebra).  This file is a *consumer* of that API; it
+proves what the datum alone cannot say, namely how it relates to
+`Level`:
 
 * **Soundness of the readout** — `zeronessOf_sound`:
   `(zeronessOf l).holds φ = (eval φ l == 0)`.
-* **Soundness and completeness of the comparison** —
-  `equiv_iff_holds`: the containment test `PropWhen.equiv` decides
-  zero-ness agreement at *every* valuation.  (The design's "checked,
-  not proved" pivot made exact: the validation and defeq comparisons
-  are complete, so the comparison itself contributes no
-  incompleteness decline class.)
+* **The establishment law** — `holds_of_equiv_zeronessOf`: a datum the
+  checker validated against a computed codomain sort reads out that
+  sort's zero bit.
 * **The substitution pushforward** — `zeronessOf_subst`:
   `zeronessOf (subst ks vs l) = substPW ks vs (zeronessOf l)`, a
   *syntactic* equation (the shape-preserving `bindZ` design).
@@ -23,23 +22,16 @@ load-bearing facts:
   declaration's own parameters, unconditional) and `substPW_comp`
   (composition, under the same parameter-definedness hypothesis the
   level side has — `PropWhen.paramsDefined`, folded into
-  `Expr.allLevelParamsDefined`).
+  `Expr.allLevelParamsDefined`), `substPW_paramsDefined`,
+  `zeronessOf_paramsDefined`, and the semantic reading
+  `holds_substPW`.
+
+Nothing here unfolds the datum's representation: every step goes
+through the exported `casesZ` view and the `_never`/`_ifAllZero`
+equations.
 -/
 
 namespace Setlec.PropWhen
-
-/-! ## `holds` characterizations -/
-
-theorem holds_inter (φ : Name → Nat) (p q : PropWhen) :
-    (p.inter q).holds φ = (p.holds φ && q.holds φ) := by
-  cases p <;> cases q <;> simp [List.all_append]
-
-theorem holds_bindZ_go (φ : Name → Nat) (f : Name → PropWhen) :
-    ∀ ps : List Name,
-      (bindZ.go f ps).holds φ = ps.all fun n => (f n).holds φ
-  | [] => by rw [bindZ_go_nil, holds_ifAllZero]; rfl
-  | n :: rest => by
-    simp [bindZ.go, holds_inter, holds_bindZ_go φ f rest]
 
 /-! ## Soundness of the readout -/
 
@@ -69,132 +61,6 @@ theorem zeronessOf_sound (φ : Name → Nat) :
         by simpa using hm
       rw [h1, if_neg hb, h2]
 
-/-! ## Completeness of the comparison -/
-
-/-- Membership-equal lists agree on every `all`. -/
-private theorem all_eq_of_mem_iff {ps qs : List Name}
-    (h : ∀ n, n ∈ ps ↔ n ∈ qs) (f : Name → Bool) :
-    ps.all f = qs.all f := by
-  cases hq : qs.all f
-  · cases hp : ps.all f
-    · rfl
-    · rw [List.all_eq_true] at hp
-      rw [List.all_eq_false] at hq
-      obtain ⟨n, hn, hf⟩ := hq
-      exact absurd (hp n ((h n).mpr hn)) (by simp [hf])
-  · rw [List.all_eq_true] at hq ⊢
-    exact fun n hn => hq n ((h n).mp hn)
-
-private theorem mem_of_holds_eq {ps qs : List Name}
-    (h : ∀ φ, holds φ (.ifAllZero ps) = holds φ (.ifAllZero qs)) :
-    ∀ n, n ∈ ps → n ∈ qs := by
-  intro n hin
-  by_cases hout : n ∈ qs
-  · exact hout
-  exfalso
-  have hn := h fun m => if m = n then 1 else 0
-  simp only [holds_ifAllZero] at hn
-  have hbs : (qs.all fun m => (if m = n then (1 : Nat) else 0) == 0)
-      = true :=
-    List.all_eq_true.mpr fun m hm => by
-      have hne : m ≠ n := fun he => hout (he ▸ hm)
-      simp [hne]
-  have has : (ps.all fun m => (if m = n then (1 : Nat) else 0) == 0)
-      = false :=
-    List.all_eq_false.mpr ⟨n, hin, by simp⟩
-  rw [has, hbs] at hn
-  exact Bool.false_ne_true hn
-
-/-- The containment test decides zero-ness agreement at every
-valuation: sound **and** complete.  The separating valuations: the
-all-zero valuation separates `never` from every `ifAllZero`, and
-`φ n := 1, else 0` separates parameter sets that disagree on `n`. -/
-theorem equiv_iff_holds (p q : PropWhen) :
-    equiv p q = true ↔ ∀ φ, p.holds φ = q.holds φ := by
-  constructor
-  · intro h φ
-    cases p with
-    | never => cases q with
-      | never => rfl
-      | ifAllZero qs => simp at h
-    | ifAllZero ps => cases q with
-      | never => simp at h
-      | ifAllZero qs =>
-        simp only [equiv_ifAllZero, Bool.and_eq_true, List.all_eq_true] at h
-        obtain ⟨hpq, hqp⟩ := h
-        rw [holds_ifAllZero, holds_ifAllZero]
-        exact all_eq_of_mem_iff
-          (fun n => ⟨fun hn => by
-              simpa [List.contains_iff_mem] using hpq n hn,
-            fun hn => by
-              simpa [List.contains_iff_mem] using hqp n hn⟩) _
-  · intro h
-    cases p with
-    | never => cases q with
-      | never => rfl
-      | ifAllZero qs =>
-        have := h fun _ => 0
-        simp at this
-    | ifAllZero ps => cases q with
-      | never =>
-        have := h fun _ => 0
-        simp at this
-      | ifAllZero qs =>
-        have h1 := mem_of_holds_eq h
-        have h2 := mem_of_holds_eq fun φ => (h φ).symm
-        rw [equiv_ifAllZero]
-        rw [Bool.and_eq_true]
-        exact ⟨List.all_eq_true.mpr fun n hn => by
-            simpa [List.contains_iff_mem] using h1 n hn,
-          List.all_eq_true.mpr fun n hn => by
-            simpa [List.contains_iff_mem] using h2 n hn⟩
-
-theorem paramsDefined_inter_of {params : List Name} {p q : PropWhen}
-    (hp : p.paramsDefined params = true)
-    (hq : q.paramsDefined params = true) :
-    (p.inter q).paramsDefined params = true := by
-  cases p <;> cases q <;>
-    simp_all [List.all_append]
-
-/-- `equiv` is reflexive (the fold's vacuous self-comparison steps). -/
-theorem equiv_refl (p : PropWhen) : equiv p p = true :=
-  (equiv_iff_holds p p).mpr fun _ => rfl
-
-/-! ## The bit readouts (task #161 P3)
-
-The P3 proofs consume validated annotations only through the *bit* a
-datum reads out at a ground valuation.  These are the two named
-readout laws: what a passed comparison says (`holds_eq_of_equiv`), and
-what a passed validation site says (`holds_of_equiv_zeronessOf` — the
-run inversions' `(zeronessOf v).equiv m.pw` conjunct, turned into the
-sort's zero bit). -/
-
-/-- Equivalent data read out equal bits at every valuation (the `mp`
-direction of `equiv_iff_holds`, named for the P3 API). -/
-theorem holds_eq_of_equiv {p q : PropWhen} (h : equiv p q = true)
-    (φ : Name → Nat) : p.holds φ = q.holds φ :=
-  (equiv_iff_holds p q).mp h φ
-
-/-- **Parameter locality**: a datum reads its valuation only at its
-own parameters (the `paramsDefined` footprint) — `denoteP`'s
-φ-congruence walk (`denoteP_params_ext`) rides this at every binder.
-(Mirror on the canonical side: `ZPropWhen.holds_congr`, via
-`parameters`.) -/
-theorem holds_ext {ps : List Name} {pw : PropWhen}
-    (hdef : pw.paramsDefined ps = true) {φ₁ φ₂ : Name → Nat}
-    (hφ : ∀ p ∈ ps, φ₁ p = φ₂ p) : pw.holds φ₁ = pw.holds φ₂ := by
-  cases pw with
-  | never => rfl
-  | ifAllZero qs =>
-    simp only [paramsDefined_ifAllZero, List.all_eq_true] at hdef
-    rw [holds_ifAllZero, holds_ifAllZero]
-    induction qs with
-    | nil => rfl
-    | cons n rest ih =>
-      simp only [List.all_cons]
-      rw [hφ n (by simpa [List.contains_iff_mem] using hdef n (by simp)),
-        ih fun m hm => hdef m (by simp [hm])]
-
 /-- **The establishment law**: a datum the checker validated against a
 computed codomain sort reads out that sort's zero bit, at every ground
 valuation. -/
@@ -202,58 +68,6 @@ theorem holds_of_equiv_zeronessOf {v : Setlec.Level} {pw : PropWhen}
     (h : equiv (Setlec.Level.zeronessOf v) pw = true) (φ : Name → Nat) :
     pw.holds φ = (Setlec.Level.eval φ v == 0) := by
   rw [← holds_eq_of_equiv h φ, zeronessOf_sound]
-
-/-! ## `bindZ` algebra -/
-
-/-- `inter` is associative (the datum is a set union in list
-clothing). -/
-theorem inter_assoc (a b c : PropWhen) :
-    (a.inter b).inter c = a.inter (b.inter c) := by
-  cases a <;> cases b <;> cases c <;> simp [List.append_assoc]
-
-/-- The `bindZ` fold over an append splits — the list-level half of
-`bindZ_inter`. -/
-theorem bindZ_go_append (g : Name → PropWhen) : ∀ ps qs : List Name,
-    bindZ.go g (ps ++ qs) = (bindZ.go g ps).inter (bindZ.go g qs)
-  | [], qs => (nil_inter (bindZ.go g qs)).symm
-  | n :: rest, qs => by
-    show (g n).inter (bindZ.go g (rest ++ qs))
-      = ((g n).inter (bindZ.go g rest)).inter (bindZ.go g qs)
-    rw [bindZ_go_append g rest qs, inter_assoc]
-
-theorem bindZ_inter (g : Name → PropWhen) (p q : PropWhen) :
-    (p.inter q).bindZ g = (p.bindZ g).inter (q.bindZ g) := by
-  cases p with
-  | never => rfl
-  | ifAllZero ps =>
-    cases q with
-    | never => simp
-    | ifAllZero qs => simp [bindZ_go_append]
-
-theorem bindZ_congr_names {f g : Name → PropWhen} :
-    ∀ {ps : List Name}, (∀ n ∈ ps, f n = g n) →
-      bindZ.go f ps = bindZ.go g ps
-  | [], _ => rfl
-  | n :: rest, h => by
-    show (f n).inter _ = (g n).inter _
-    rw [h n (by simp), bindZ_congr_names fun m hm => h m (by simp [hm])]
-
-/-- `bindZ` at the unit (`n ↦ ifAllZero [n]`) reproduces the datum —
-shape and all. -/
-theorem bindZ_unit : ∀ pw : PropWhen,
-    pw.bindZ (fun n => .ifAllZero [n]) = pw := by
-  intro pw
-  cases pw with
-  | never => rfl
-  | ifAllZero ps => rw [bindZ_ifAllZero]; exact bindZ_unit.go ps
-where
-  go : ∀ ps : List Name,
-      bindZ.go (fun n => PropWhen.ifAllZero [n]) ps = .ifAllZero ps
-  | [] => rfl
-  | n :: rest => by
-    show (PropWhen.ifAllZero [n]).inter _ = _
-    rw [go rest, inter_ifAllZero]
-    rfl
 
 end Setlec.PropWhen
 
