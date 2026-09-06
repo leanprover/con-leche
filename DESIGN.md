@@ -47636,6 +47636,533 @@ the next finder, since the mechanism §5 was written against has been
 removed.  The §7 tools and §8's "work against the slice, not the
 stream" stand.
 
+## Task #179 — no threads, and the linearity audit that followed (2026-09-06, `agent/linear-audit`)
+
+**The user's brief:** *"oh, no threads please! and 6% array copying is
+worth checking. if it's just normal growing fine, but let us erase all
+non-linear use of hashmaps and arrays"* — the two symbols task #177
+left unattributed on `init-full`, `lean_mark_mt` 7.6 % and
+`lean_copy_expand_array` 6.2 %.
+
+They are one bug, and it is the same bug: **one `Thunk`**.
+
+### 1. There are no threads
+
+Census of the executable path (`Main.lean`, `Setlec/Frontend/*`,
+`Setlec/Cached/*`, `Setlec/Kernel/*`, `SetlecPreprocess.lean`): zero
+occurrences of `Task`, `IO.asTask`, `BaseIO.asTask`, `Task.spawn`,
+`IO.bindTask`/`mapTask`, or any thread primitive.  The only
+`IO.Process.spawn` is the OOM supervisor's re-exec (`Main.lean:379`),
+a *process*, not a thread, and the checker itself runs on the main
+thread of the supervised child.  No stack-depth thread trick exists or
+is needed.
+
+So why did the runtime mark objects multi-threaded?  Because
+`lean_thunk_get_core` does:
+
+```c
+object * r = lean_apply_1(c, lean_box(0));
+mark_mt(r);                 // ← object.cpp:895
+lean_to_thunk(t)->m_value = r;
+```
+
+The runtime's invariant is that *a single-threaded object may not be
+reachable from a multi-threaded one*, and a `Thunk` is a shareable cell
+that another thread could force — so forcing one marks the whole
+reachable graph of its **value** MT, threads or no threads.  `mark_mt`
+traverses constructors, closures, arrays, thunks and refs
+(`object.cpp:630-690`).
+
+### 2. The one `Thunk`, and why it cost 13.8 %
+
+`Setlec/Cached/CoreC.lean`, `coreKnotI` (perf-eng E1):
+
+```lean
+let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotI fe fuel⟩
+```
+
+The forced value is a `CoreFnsI` record whose six closures capture
+`fe : FEnv`.  So the first force at every knot level **marked the whole
+environment index multi-threaded**.  Two consequences, each
+`O(|env|)` per *declaration*, and they sustain each other:
+
+* **the mark** walks the index's entire bucket array (`LeanArray` is
+  traversed slot by slot; the already-marked constant infos below stop
+  the descent, the fresh array does not);
+* **the copy.**  `lean_is_exclusive` is false for every MT object, so
+  `FEnv.push`'s `idx.insert` — whose generated C is *optimal*, a
+  reset/reuse that takes `idx` without an `inc` on the exclusive path —
+  fell into `lean_array_uset`'s
+  `lean_copy_expand_array_nonlinear` and copied the whole bucket array,
+  with an atomic `lean_inc` per slot, at **every accepted constant**.
+
+And the copy hands back a *fresh, single-threaded* array, which the
+next force marks again.  60 549 accepted constants × an index of up to
+2^17 buckets is where 13.8 % of `init-full` went.
+
+`Thunk.get ⟨f⟩` is `f ()` by structure eta, so the fix is the same
+term:
+
+```lean
+let prev : Unit → CoreFnsI := fun _ => coreKnotI fe fuel
+```
+
+### 3. The census: every update site, and its linearity
+
+Four shapes, all of them linear; the fifth entry is the one that was
+not, for the reason above.
+
+| # | shape | sites | verdict |
+|---|---|---|---|
+| 1 | pair-threaded memo walks — the memo is returned in the result pair and never aliased | `Cached/ExprOpsC.lean` ×26 (`instantiate1Go`, `instantiateListGo`, `instantiateRevGo`, `abstract1Go`, `abstractRangeGo`, the `wscopedB`/leaf memos, `fvarLeavesGo`'s `seen`); `Kernel/ExprOps.lean:687,717`; `Kernel/Expr.lean:741` (`beqGo`); `Cached/StateC.lean:90,594` | linear |
+| 2 | monadic state memos under the swap-out idiom (`let mp := get' st; set' st ∅; set' st (mp.insert …)`) | `Cached/CoreC.lean:1837` (`memoEI`: whnfCoreC/whnfC/inferC/inferIOC/annotC), `:1852` (`memoBI`: defeqC); `Kernel/TypeCheckerC.lean:81,96`; `Cached/StateC.lean:320,382,393,417-431,486,504,512,533,614` | linear |
+| 3 | accumulator arrays threaded through a recursion (ordinary amortised doubling) | `Cached/CoreC.lean:981,1029` (`inferSpine` `acc`), `:1174,1225` (`inferLams`/`inferPis` `fvs`), `:1685,1732` (the annotate twins); `Main.lean:334` (argv) | normal growth |
+| 4 | the parser's state record, `{ st with f := st.f.insert … }` | `Frontend/ExportC.lean:144` (names), `:163` (levels), `:214,532` (exprs), `:313,427,471`; `st.decls.push` ×10, `projRewrites`/`taintSkipped` pushes | linear — **verified in the generated C** |
+| 5 | the environment index, `FEnv.push` | `Kernel/FEnv.lean:83`; callers in `DeclCheck`, `Direct/InstallF`, `CheckerC`, `ParsedC` | **was** non-linear — see §2 |
+
+**Row 4 is a finding worth recording.**  `{ st with f := st.f.insert
+… }` *looks* like the classic RC bug (read the field out of a record
+that is still alive, then update it), and the codebase spells the
+swap-out idiom by hand in some places and not others.  The generated C
+for `parseNameEntryD`
+(`.lake/build/ir/Setlec/Frontend/ExportC.c`) settles it: Lean's
+reset/reuse emits `lean_is_exclusive(st)`, and on the exclusive path
+the fields are taken **without an `inc`** and the constructor cell is
+reused, so `insert` sees RC 1 and updates in place.  The hand-written
+swap-out is belt-and-braces, not a requirement, wherever the update is
+a direct structure-update of an exclusive record.  `FEnv.push`
+compiles to exactly the same optimal shape — which is why it was worth
+knowing that the copy there could only come from `fe` never being
+exclusive, i.e. from the MT mark.
+
+Nothing was pre-sized: after the fix the profile shows no growth cost
+worth attacking (task #177 already measured pre-sizing the walk memo at
++1.5 % on grind — the same warning applies).
+
+### 4. Result
+
+`perf stat -e instructions:u`, one run per cell, `ulimit -v 16G`,
+`timeout 3000`, `nice -n 5`, `SETLEC_SUPERVISED=1`, `--pre` streams.
+Baseline = master `2664b1dd`.
+
+| stream | verified before → after | trusted before → after |
+|---|---|---|
+| `init-full` | 822.11 → **686.97 G** (−16.4 %) | 795.65 → **660.31 G** (−17.0 %) |
+| `app-lam` | 162.41 → **161.69 G** (−0.44 %) | 162.41 → **161.68 G** (−0.45 %) |
+| `grind-ring-5` | 30.87 → **30.99 G** (+0.37 %) | 28.72 → **28.75 G** (+0.11 %) |
+
+`perf record -e instructions:u -F 499`, `init-full`, verified mode
+(`_tmp/linear-audit/initfull-{base,fix}.data`):
+
+| symbol | before | after |
+|---|---|---|
+| `lean_mark_mt` | **10.91 %** | **absent** (0.00 %) |
+| `lean_copy_expand_array` | **4.34 %** | **0.26 %** |
+| `lean_dec_ref_cold` | 17.64 % | 10.26 % |
+| `lean::lean_del_core_other` | 6.86 % | 3.84 % |
+| `lean_thunk_get_core` | 0.05 % | absent |
+| `mi_malloc_small` | 8.18 % | 16.22 % |
+
+(`lean_mark_mt` was 7.6 % when task #177 measured it; the environment
+has grown since.  `mi_malloc_small`'s *share* rises because the
+denominator fell and because E1's rebuild really does allocate — see
+§4's last paragraph.)
+
+The same two symbols across the battery, before → after — **the cost
+scales with |env| × declarations, exactly as the mechanism predicts**:
+
+| stream / mode | `lean_mark_mt` | `lean_copy_expand_array` |
+|---|---|---|
+| `init-full` verified (60 549 decls) | 10.91 → **0.00 %** | 4.34 → **0.26 %** |
+| `grind-ring-5` verified (3 866) | 1.69 → **0.03 %** | 0.71 → **0.25 %** |
+| `grind-ring-5` trusted | 1.99 → **0.06 %** | 0.51 → **0.43 %** |
+| `app-lam` verified (94) | 0.03 → **0.01 %** | 0.00 → **0.00 %** |
+| `app-lam` trusted | 0.03 → **0.01 %** | 0.02 → **0.00 %** |
+
+`app-lam` is the control: 94 declarations, so the environment never
+grows enough for the mark or the copy to cost anything — and yet
+`app-lam` still gets *faster* by 0.44 %, which is the `Thunk`'s own
+per-call overhead (a cell allocation and an atomic exchange) net of the
+rebuild.  `init-full` trusted was not profiled; its −17.0 % on
+instructions says the same thing.
+
+**A measurement hazard, recorded because it nearly produced a wrong
+table.**  `perf report` resolves symbols against the binary *at the
+recorded path*.  The first `grind-ring-5` profiles were taken against
+`.lake/build/bin/setlec`, which was then rebuilt twice; re-reading
+those files later silently redistributed the samples (`lean_mark_mt`
+read 0.82 % instead of 1.69 %).  Every number above was re-taken
+against immutable copies (`_tmp/linear-audit/setlec-{base,fix}`).
+Snapshot the binary before recording, always.
+
+**How the copies were classified, since `lean_copy_expand_array_nonlinear`
+is a bare `jmp` into `lean_copy_expand_array` and carries no samples of
+its own:** `perf annotate lean_copy_expand_array`.  The function
+branches on `lean_is_exclusive(a)` into a `memcpy` + `dealloc` arm
+(ordinary growth of a uniquely-owned array) and a per-slot
+`*dest = *it; lean_inc(*it)` loop (the non-linear copy).  Before, the
+samples sat almost entirely in the **inc loop** — ~95 % of the 4.34 %
+was non-linear copying, ~5 % real growth.  After, 0.26 % total remains,
+of which ~0.15 pp is still in the inc loop.
+
+**Where that 0.15 pp is, as far as it could be pinned.**  A
+`--call-graph dwarf` run over `init-full` did not resolve the runtime
+frames (the samples land in `lean_copy_expand_array`, whose only
+non-linear caller is a bare `jmp` and whose Lean-side callers inline
+`lean_array_uset` and carry no CFI at that point).  What *did* pin part
+of it is annotating the Lean side instead: the walks' own memo inserts
+— the `Std.DHashMap … insert` specialisations at
+`Setlec_Cached_ExprC_instantiate1Go_spec__1` and
+`Setlec_Expr_bvarBoundGo_spec__0` — carry non-zero samples on the
+instruction *after* their `call lean_copy_expand_array_nonlinear`
+(≈0.006 pp and ≈0.003 pp of the total each).  So the residue is memo
+tables that are occasionally not exclusive at the insert, not the
+environment index.  `lean_array_push`'s non-exclusive arm accounts for
+almost none of it (the whole function is 0.13 %).  Two orders of
+magnitude below where this session started, and left as a lead rather
+than a hunt.
+
+Peak RSS on `init-full` (`VmHWM` from `/proc`, verified mode): 811 →
+**839 MB (+3.5 %)** — the honest cost of E1's rebuild, seven
+short-lived allocations at every memo-missing body call.  Retention is
+unchanged; this is allocator high-water, not live data.
+
+**E1's premise does not survive its own measurement.**  The `Thunk` was
+introduced so the previous fuel level would be built once per record
+instead of once per cache-missing call; rebuilding it turns out to be
+*cheaper* than the thunk on `app-lam`, and to cost 0.37 % on
+`grind-ring-5` — against 16 % on the flagship stream.  The rebuild is
+seven allocations (one record, six closures) at a memo miss; the thunk
+was one allocation, one atomic exchange, and a graph mark.
+
+### 5. Proof bill: one line
+
+The walks' and the knot's **statements** did not move, and neither did
+their definitions in any sense a proof can see — `Thunk.get ⟨f⟩` is
+`f ()` by structure eta.  The single edit is in
+`Setlec/Verify/Cached/KnotC.lean`: `memoEI_inferIO_sim`'s slot identity
+now closes at `simp only [↓reduceIte]`, because the level
+beta-reduces where it used to need a trailing `rfl` to see through
+`Thunk.get ⟨·⟩`.  No `SimC`, `BridgeC*`, `DiscC*` or capstone edit.
+Capstone axioms exactly `[propext, Classical.choice, Quot.sound]`.
+
+### 6. What this leaves for the next round
+
+* **`Thunk` is now a banned shape in the executable path**, and the
+  reason generalises: any lazily-forced value that reaches a large,
+  linearly-updated structure turns that structure's in-place updates
+  into whole-array copies for the rest of the run.  Grep for `Thunk`
+  before adding one.
+* **The next lever is priced, and it is big.**  E1's rebuild is not
+  free: on `init-full` `mi_malloc_small` went 67.2 → 111.4 G and
+  `mi_free` 29.7 → 47.8 G in absolute instructions — about **+60 G,
+  ~9 % of the post-fix total**, i.e. roughly 630 M record builds
+  (seven allocations each) at memo-missing body calls.  Recovering that
+  *and* keeping the mark away means the tower must stop capturing `fe`:
+  give `CoreFnsI`'s fields an `FEnv` parameter, and the levels become
+  `fe`-independent — cacheable in a `Thunk` again (its value would then
+  reach only `cfg`), or built once per run.  That is a signature change
+  across `Setlec/Verify/Cached/*`; priced here, not taken.
+* Task #177's other open items stand: `Expr.bvarBoundGo`'s own memo and
+  the walks' `ExprC × Memo` result pair.
+
+### 7. Gates
+
+`lake build` 619 jobs, warning-free; `lake test` green; `tests/arena.sh`
+0 FAIL (arena tutorial 90/92, e2e 79/79, annot 14/14, retired flags 8/8,
+mode flags 16/16, trusted sweep 138+79+14 with its three recorded
+divergences); `tests/layering.sh` base 237 / P 156 / caps 2 / umbrella 1,
+0 base→lane, 0 impl→theory; `tests/proofdeps.sh` 1342 rows as pinned
+across 4 capstones, **0 doors** — no regeneration needed; `init-full`
+accepted, 60 549 declarations, in both modes.  PERF.md's table is now
+stale by 16 % on `init-full` and should be regenerated at the landing.
+## TASK #175 SUM TYPES — THE DIRECT ROUTE AT ANY NUMBER OF CONSTRUCTORS OTHER THAN ONE (2026-09-06, `agent/sum-types`)
+
+### 0. What landed
+
+Fifteen commits off master `bb7047dd` (the S2 merge), gated at the
+branch's own tip: 50 files, **+11 106 / −52**; the new modules
+(kernel `Direct/Sum{Parts,Install,InstallF}`, model
+`SetModel/TaggedSum`, `Semantics/Tower/Sum{Case,Leaf,Mk,RecCase,Rec,
+Wire}`, `Semantics/Direct/DeclDirectSum{,Eta}`, `Verify/Direct/Sum{Inv,
+WF,Rec}`, `SetP/DirectSum/*` — twelve modules) total 7 920 lines.
+The single-constructor route (`directParts?` → `checkDirectStruct`:
+table, η, projections) is untouched: the dispatch is a three-way
+`match` (`directParts?`, then `directSumParts?`, then the modeled
+path) in `Setlec/Kernel/Checker.lean`, `Setlec/Cached/CheckerC.lean`,
+`Setlec/Cached/ParsedC.lean`, and every verification twin of it.
+
+**Size, and what the indexed-families task inherits.**  Of the 7 900
+lines, about **2 000 are the per-constructor LIST MACHINERY**, reusable
+as is by any multi-constructor route: the position-indexed data
+function `dsF` with `ctorDataList`/`CtorFactsAt`/`ctorReads_of`
+(`SumRecDataP`), the minors' telescope read by one list induction
+(`CtorReads`, `denoteP_minorsPis`/`denoteP_minorsLams`, `minorAVAt`,
+`sumMinorsData`; `SumRecReadP`), the minor chain's walk and frame
+(`sumMinorsTail`, `RecTailS`/`TailFrame`, `recTailS_spine`,
+`sumRecSpine_facts`; `SumRecFramesP`/`SumRecLawP`), and the
+constructors' cons loop with its two invariants (`ConsedAt`/
+`PendingAt`, `sumCtorsLoop`; `DeclDirectSumP`) plus the kernel's
+list-shaped stages (`checkDirectSumCtors`/`consSumCtors`/
+`checkDirectSumRules` and their inversions).  The remaining ~5 900
+are SUM-SPECIFIC: the tagged union and its laws (`TaggedSum`), the
+syntactic `Nat.rec` case split at explicit depth and the three leaves
+(`SumCase`/`SumLeaf`/`SumMk`/`SumRecCase`/`SumRec`/`SumWire`, ~2 060
+lines — the biggest block), the elimination restriction, and the
+per-stage proofs that read those leaves.  An indexed route keeps the
+first part verbatim (the loop is agnostic to the carrier) and
+replaces the leaves and their laws by the fibre construction (§6).
+
+**The class.**  A non-recursive, non-indexed, non-nested inductive
+block with `n ≠ 1` constructors: enumerations (`Bool`, `Ordering`,
+`Lean.SourceInfo`), `Option`, `Sum`/`PSum`, `Decidable`, `Except`,
+`Or`-shaped `Prop`s, and the zero-constructor blocks (`False`,
+`PEmpty`; the pinned `Empty` stays a basis type, its name reserved).
+No projections, no η, no unit-likeness, no K: the block is stored with
+the empty capability record and the recursor carries `n` plain rules.
+
+### 1. The model
+
+**The carrier** (`Setlec/SetModel/TaggedSum.lean`).  Constructor `i`'s
+fibre is its tuple tower; the carrier is the tagged disjoint union
+
+    sumSet w f  := sigmaSet w ω (natFibre f)        natFibre f (vnat i) = f i,
+    inj i a     := spair (vnat i) a                  natFibre f k       = ∅ off the numerals
+    sumRec      := the case split on the tag
+
+— a `sigmaSet` over the numerals, so both regimes come for free from
+`sigmaSet`'s own zero test: at `w = 0` the carrier is `pt`'s squash and
+every injection is the point (`injW 0 i a = pt`).  The laws are proved
+once for all constructors: membership (`inj_mem`, `sumSet_elim`), tag
+disjointness (`inj_inj`, `sfst_inj`, `ssnd_inj`), the eliminator's
+iota (`sumRec_inj`), and the universe bound (`sumSet_mem_univ`, off
+`omega_mem_univ_succ`).
+
+**The spelling** (`Semantics/Tower/SumCase.lean`).  The case split is
+SYNTACTIC: `caseAVAt w Ts d k` is a nested `Nat.rec.{w+1}` on the tag
+`k` with the constant motive `λ _ : Nat, Sort w` and the branches
+`Ts` lifted by the explicit depth `d` (no substitution — the depth is
+threaded through every spelling).  The carrier body is a `psigma
+[w,w] Nat (λ k. case k)` in the graph regime and `¬ ∀ k : Nat, ¬ case
+k` at squash (`sumBodyAV`); the injection at constructor `j` is
+`psigmaMk [w,w] Nat (λ k. case k) (numeral j) payload`
+(`sumInjAtAV`); the recursor body is a nested `Nat.rec.{imax w ℓ}`
+case split on `proj 0 (bvar 0)` applied to `proj 1 (bvar 0)`
+(`caseRecAV`/`sumRecBodyAV`), the motive and the `n` minors read off
+the frame at explicit depth `D = n + 2` (`RecFrameS`).  The three
+leaves are the λ-towers over the parameter data (former,
+`directSumTyAV`), the parameter + field data (constructor `j`,
+`directSumMkAV`), and the recursor's data (`directSumRecAV`) —
+`mkLamsC`, as the structure route's.
+
+### 2. The kernel
+
+**The recogniser** (`Setlec/Kernel/Direct/SumParts.lean`,
+`directSumPartsCore?`): one type, `n ≠ 1` constructors, one recursor
+named `T.rec` with `mI = rP = nP + n + 1`, every constructor at the
+block's level parameters with `nP` parameters and the result `T p⃗`
+(`directFam`), the recursor's rules positionally `⟨C_j, nF_j, nP,
+plain, λ p⃗ motive m⃗ f⃗. m_j f⃗⟩` (`directSumRulesOk` /
+`directRuleBodyAt`), the former stripping to a sort; large/small
+elimination from the recursor's level parameters (`elim :: lps` /
+`lps`).  `directSumNonRec` (the `directNonRec` twin) is the
+non-recursiveness gate: every constructor's field domain resolves in
+the pre-block environment.
+
+**The install** (`Setlec/Kernel/Direct/SumInstall.lean`,
+`checkDirectSum`).  Two front guards, then three stages:
+
+  * *the elimination restriction* — official `elim_only_at_universe_
+    zero`: `large ∧ ¬ resSort.isNeverZero ∧ 2 ≤ n` is REJECTED (a
+    large eliminator on a multi-constructor inductive whose sort may
+    be `Prop` is inconsistent with proof irrelevance: at squash every
+    constructor value is the point); a zero-constructor `Prop` keeps
+    its large eliminator (`False.rec`);
+  * *distinct names* — `(ctors.map name).Nodup`, because the
+    constructors are all checked at the FORMER'S environment
+    (`checkDirectSumCtors`: `checkConstantVal`, the telescope shape,
+    the parameter domains against the former's, the field sorts with
+    the official per-field bound, the residual `T p⃗`) and consed
+    afterwards (`consSumCtors`, the first constructor deepest) — the
+    one-pass discipline the P proof wants (§4); a duplicate name would
+    make the second cons shadow the first.  Arena
+    `138_DupConCon` (two constructors of one name) therefore REJECTS
+    (`1`, the reference-correct verdict) where the modeled route
+    declined (`2`); `tests/arena-expected.txt` records it;
+  * *the recursor* — S2's discipline at a constructor list:
+    `directRecTy` over `ctorsA.map (name, nF, type)` generates the
+    type (`∀ p⃗ motive m_0 … m_{n-1} (t : T p⃗), motive t`, the minors by
+    `directMinorsPis` with the offset threaded), `checkConstantVal` on
+    the stream's recursor, scoping guards, infer + `ensureSort`, ONE
+    closed `isDefEq` against the stream's type, and the `n` rules by
+    `checkDirectSumRules` (each generated by `directRecRhs … j`,
+    scoped-checked and inferred); the stored recursor is the
+    generated one with `directSumRules` (`plain` iff `recRulePlain`).
+
+`Setlec/Kernel/Direct/SumInstallF.lean` is the index twin.  Both cached
+drivers dispatch (`checkDirectSumS` with the flushes).
+
+**The preprocessor** (`SetlecPreprocess.lean`, `setlecNative`) gained
+the mirror arm in the same batch: a `.induct [type] ctors [rec]` block
+with `ctors.length ≠ 1` and the recogniser's conjuncts is left
+`native`.  Over the raw init-full export the widened `setlec-
+preprocess` leaves **534** blocks native (477 single-constructor, 42
+sums — 3 zero-constructor, 22 two-, 9 three-, 4 four-, 3 five-, 1
+nineteen-constructor — and 15 of the preprocessor's own `_wcore`/tag
+blocks), the stream shrinking from 335.7 MB to 327.9 MB.
+
+### 3. The verification tier
+
+`Verify/Direct/SumInv.lean` inverts every stage (the constructor
+shape with its openings and sorts, `checkDirectSumCtors_inv`
+positionally, the rules positionally, the recursor's shape, the
+recogniser — now also carrying `∀ q ∈ cvT.levelParams, q ∈
+cvR.levelParams`, which the leaf's level-dependence needs);
+`SumWF.lean` the well-formedness (the conses by
+`envWF_consSumCtors`); `SumRec.lean` the generated forms' syntactic
+kit at a list — `directRecTy_unfold`/`directRecRhs_unfold`,
+`instSeq_minorBody_at` (the minor's conclusion under `o` extras: the
+motive is extra 0), `instSeq_ruleBody_at` (minor `j` is extra `j+1`),
+the `NoProjAt` walks, `Level.isNeverZero_sound`, and
+`directSumRules_getElem?`.  `Semantics/Direct/DeclDirectSum.lean`
+is the run relation (the two guards as facts, the three runs, the
+install spine) with the three-arm `DeclIndRunDispatch`;
+`DeclDirectSumEta.lean` its η-closure; `BridgeDecl`'s dproj/datF
+stanzas, `CheckerF`'s `_eq` lemmas, `BridgeCS3`'s sims,
+`BridgeCSDecl`'s run bridge and `AgreeFloor`'s skeletons cover the
+cached tier (the plumbing sub-batch, one Opus agent, reviewed).
+
+### 4. The P proof (`Setlec/SetP/DirectSum/*`)
+
+The shape follows the structure route stage for stage, the list
+threaded as a POSITION-INDEXED DATA FUNCTION `dsF : Nat → (Name → Nat)
+→ List (Nat × Nat × AVExpr)` (`ctorDataList dsF ψ ctorsA 0` is the
+constructor data list at `ψ`, `fssOf nP` its field chains):
+
+  * **readings** (`SumRecReadP`): `denoteP_minorsPis` /
+    `denoteP_minorsLams` read the minors' telescope by ONE induction
+    over the constructor list, the accumulated variables (the motive,
+    then the earlier minors) threaded as `extras` indexed from `nP`;
+    `denoteP_directRecTy_sum` reads the generated type to the Π-tower
+    over `sumRecDataAV = rebit b pps ++ [motive] ++ sumMinorsData ++
+    [major]`, `denoteP_directRecRhs_sum` rule `j` to the λ-tower over
+    `sumRuleDataAV` with the core `minor_j f⃗`
+    (`sumRuleCoreAV nF n j = mkAppN (bvar (nF + n - 1 - j)) f⃗`);
+  * **data** (`SumDataP`, `SumRecDataP`): each constructor's
+    `CtorData` and frames (`sumCtorData_of`, `sumCtorFrames`), the
+    recursor's `SumRecData` (`n` minor entries, the core `motive t`
+    under the motive and `n` minors) and rule `j`'s reading and
+    grading by its own inference run (`sumRuleData_of`);
+  * **frames** (`SumRecFramesP`): `sumRecFrames` computes `RecBaseS`
+    at a parameter frame — the motive entry to `Π (t : carrier), Sort
+    ℓ`, minor `j` (at the frame under the motive and the earlier
+    minors, `sumMinorsTail` walking the chain with the reversed
+    context's `Sat2` threaded) to `minorSpC ℓ M (ctorVal w j) Fs_j`
+    by `interp_minorSpC_of_tele`, the major to the carrier by
+    `sumFamSpine_val`; the elimination restriction's readout `hwl :
+    w = 0 → n = 0 ∨ ℓ = 0` is exactly `Level.isNeverZero_sound` plus
+    `n ≠ 1`;
+  * **walks and the law** (`SumRecLawP`): a spine fitting the
+    recursor's data splits as parameters/motive/minors/major and
+    yields `RecFrameS`, `RecHypS` and the major's membership
+    (`sumRecSpine_facts`, off `recTailS_spine`); the leaf's `RecPreS`
+    and validity walks (`sumRecWalks`; the body's validity at a full
+    frame needs the semantic premises, read off the frame's spine);
+    `sumRecLawCore`: both sides fold to minor `j` at the fields — at
+    `ℓ = 0` both are the point (no field bookkeeping at all), in the
+    graph regime by the body's iota `sumRecBody_iota`;
+  * **stages**: `stageSumFormer` (the empty capability record: the
+    η/unit laws are vacuous), `stageSumCtor` (constructor `j` at any
+    environment holding the former), `stageSumRec` (`sumRecRuleLaw`
+    per stored rule via `directSumRules_getElem?`; the leaf's level
+    dependence needs the recogniser's `lps ⊆ cvR.levelParams`);
+  * **the assembly** (`DeclDirectSumP`): the former is staged TWICE —
+    first with the empty chain list, to read every constructor's
+    field data at a carrier storing the former (`Classical.choose`
+    over the positions makes `dsF₀`), then with the chains read; the
+    readings are identified past the parameters by
+    `denoteP_openPis_agree` (no field domain mentions the former —
+    `checkDirectSumCtor`'s resolution guard at the PRE-BLOCK
+    environment); then `sumCtorsLoop` conses the constructors in
+    order with two invariants — `ConsedAt` (every earlier
+    constructor's facts and leaf cross each later cons; the leaves by
+    `acvalWith_ne` off the distinct names) and `PendingAt` (every
+    later constructor stays fresh, resolves, and its data crosses) —
+    and `stageSumRec` closes.  `FoldP`'s three-arm dispatch calls it;
+    the sorry stub is gone.
+
+### 5. Fixtures and gates
+
+`tests/e2e/direct_sum_{enum,option,or}.ndjson` (exported through
+`setlec-preprocess`, so every sum block is native: a three-
+constructor enumeration with iota on every constructor through `rec`
+and `casesOn`; `Opt`, the universe-polymorphic `Sum'`, `Dec p` and the
+zero-constructor `False`; the two-constructor `Prop` `Or'` with the
+small eliminator through `Or'.elim`, the zero-constructor `Prop`
+`Absurd` with its LARGE eliminator, `Nil : Type`) accept;
+`direct_sum_or_large_bad.ndjson` (`Or'.rec`'s motive patched to
+`Sort u`) rejects.  Arena/e2e blocks now going direct-sum
+(`setlec-preprocess`'s `native` lines joined with the streams'
+constructor counts): `Bool` in 40 tutorial/e2e fixtures (`035_boolType`
+… `097_ruleK`, the `nat_*`, `str_*`, `trust_*` suites), `Color` (2,
+the rb-tree fixtures), `BoolProp`, `MyBool`, `False`, `Or`,
+`Decidable`, `Option`, `Except`, `Int`, `Ordering`, `PEmpty`,
+`Lean.SourceInfo`, `Lean.Syntax.Preresolved`, `EStateM.Result`,
+`Lean.Macro.Exception` (init-prelude and the grind fixture), `Dep`
+(`direct_nested_dep`), `Bad` (`proj-non-structure`).
+
+Receipts at `ac61e9f9`: `lake build` warning-free (641 jobs), `lake
+test` green, `tests/layering.sh` (`base 250 / P 166 / caps 2 /
+umbrella 1; 0 base->lane, 0 impl->theory`), `tests/arena.sh`
+0 FAIL (tutorial 90/92 good accepted — the two custom-axiom declines
+by design —, e2e 82/82, annot 14/14, retired flags 8/8, mode flags
+16/16, the trusted sweep 138 + 82 + 14 with the 3 recorded
+divergences; the only verdict change in the whole suite is
+`138_DupConCon` 2 → 1), `tests/proofdeps.sh` regenerated — the 99 doors are
+exactly the sum modules entering the four capstones' closures
+(`foldSPC_PM`, `sound_P`, `SPCD_P`, `P`; 1 461 rows now, 0 doors
+after the pin), the four capstones' axioms exactly `[propext,
+Classical.choice, Quot.sound]`, init-full-pre2 `--pre --verified`
+60 549 accepted (exit 0) and `--pre --trusted` 60 549 (exit 0), the
+REGENERATED init-full stream (widened `setlec-preprocess`, 534 native
+blocks) `--verified` 55 931 (exit 0) and `--trusted` 55 931 (exit 0; the
+stream carries 4 618 fewer declarations — the `_model` artifacts of
+the 534 native blocks are no longer emitted — and every remaining one
+accepts), the
+Mathlib slice `diseq-slice-pre.ndjson` 1 790 accepted (exit 0).
+`tests/native-agree.sh` is SKIPPED here as on master (the stock
+`lean-inductive-models` is not built in the workspace).
+Re-gated once at the master merge `5e65b404` (master `61899d09`: the
+basis literals, the affine `typeAtI` fix, the linear audit; CoreC's two
+foreign hunks merged clean): build warning-free (647 jobs), `lake
+test` green, `tests/arena.sh` exit 0 (layering `base 252 / P 166`,
+proofdeps 1 441 rows / 0 doors as auto-merged, pindump fresh, 90/92 ·
+83/83 · 14/14 · 8/8 · 16/16, the trusted sweep), init-full-pre2
+`--verified` 60 549 and `--trusted` 60 549 (exit 0), the four
+capstones' axioms unchanged.
+
+### 6. What indexed families need next — the fibre construction
+
+The sum route stops exactly at indices: with `numIndices = 0` the
+carrier is one set and the tag is the only case split.  An indexed
+family `T p⃗ : I → Sort w` needs a carrier PER INDEX VALUE — a function
+`fibre : ⟦I⟧ → V` with `T p⃗ i ↦ fibre i` — whose fibre at `i` is the
+tagged union of those constructor towers whose RESULT index (a term
+over the fields) evaluates to `i`: `fibre i = sumSet w (λ k. {tower
+of ctor k restricted to ⟦idx_k f⃗⟧ = i})`.  The pieces this batch
+leaves ready: the tag split over `ω` (`natFibre`) and the per-
+constructor towers are unchanged; what is new is (a) the restriction
+of a tower to an index-equation (a separation over the tower by the
+interpreted index term — `sepSet`, over the SetTheory interface), (b)
+the former's leaf becoming a λ over the index binders whose body is
+the restricted union, (c) the recursor's motive `∀ i (t : T p⃗ i), Sort
+ℓ` and the major's index arguments, and (d) the rule law's iota with
+the index equation discharged by the constructor's result index.  The
+one-constructor indexed family (SigmaHom, DESIGN §"TASK #175
+SigmaHom") is the `n = 1` instance of the same construction; the K
+rule at a zero-field indexed `Prop` is the squash instance.  Not done
+here.
+
 ## Mathlib frontier tooling: `scripts/resume_slice.py` — the resume slice, and the measurement that at rung 5 it buys **0.25 %** (2026-09-06, `agent/resume-slice`)
 
 The ladder tools so far all cut *forward*: `slice_fast.py` keeps a

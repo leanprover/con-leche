@@ -623,7 +623,10 @@ theorem checkDeclSPStepC_run {env : Env} (henv : EnvWF env) {pd : DeclC}
   | @indDecl block =>
     have hrun : (match directPartsF? (mkFEnv env) block with
         | some p => checkDirectStructS (cfgOf mode) (mkFEnv env) p
-        | none => checkIndDeclSF (cfgOf mode) (mkFEnv env) block) s₀.flushed =
+        | none =>
+          match directSumPartsF? (mkFEnv env) block with
+          | some p => checkDirectSumS (cfgOf mode) (mkFEnv env) p
+          | none => checkIndDeclSF (cfgOf mode) (mkFEnv env) block) s₀.flushed =
         .ok (fe', s') := h
     obtain ⟨hres', hfe, F, hF⟩ :=
       checkIndOrDirectSF_run henv hres.flushed hrun

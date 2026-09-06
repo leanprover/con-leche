@@ -118,6 +118,39 @@ def setlecNative : NativeSupport := fun block =>
     !setlecReservedBasisNames.contains type.name &&
       !setlecReservedBasisNames.contains ctor.name &&
       !setlecReservedBasisNames.contains rec.name
+  -- THE DIRECT SUM CLASS (task #175 sum-types): any number of
+  -- constructors other than one — `Setlec.directSumPartsCore?`
+  -- (`Setlec/Kernel/Direct/SumParts.lean`), mirrored conjunct for
+  -- conjunct; the one-constructor arm above is the structure route.
+  | .induct [type] ctors [rec] =>
+    ctors.length != 1 &&
+    -- the member: index-free, non-recursive, non-nested, safe
+    type.numIndices == 0 && !type.isRec && type.numNested == 0 &&
+      !type.isUnsafe && type.all == [type.name] &&
+      type.ctors == ctors.map (·.name) &&
+    -- every constructor: this member's, at its level parameters
+    ctors.all (fun ctor => ctor.induct == type.name &&
+      ctor.levelParams == type.levelParams &&
+      ctor.numParams == type.numParams && !ctor.isUnsafe &&
+      !setlecReservedBasisNames.contains ctor.name) &&
+    -- the recursor: `T.rec`, no indices, one motive, one minor and one
+    -- rule per constructor in constructor order
+    rec.name == type.name.str "rec" && rec.numIndices == 0 &&
+      rec.numMotives == 1 && rec.numMinors == ctors.length &&
+      rec.numParams == type.numParams && !rec.isUnsafe &&
+      rec.rules.length == ctors.length &&
+      (List.range ctors.length).all (fun j =>
+        match rec.rules[j]?, ctors[j]? with
+        | some rule, some ctor => rule.ctor == ctor.name && rule.nfields == ctor.numFields
+        | _, _ => false) &&
+    -- the eliminator shape: LARGE or SMALL, as above
+    ((match rec.levelParams with
+      | elim :: rest => rest == type.levelParams && !type.levelParams.contains elim
+      | [] => false) ||
+     rec.levelParams == type.levelParams) &&
+    -- not one of setlec's pinned basis blocks
+    !setlecReservedBasisNames.contains type.name &&
+      !setlecReservedBasisNames.contains rec.name
   | _ => false
 
 /-- `setlec-preprocess [OPTIONS] IN.ndjson` — `lean-inductive-models` with
