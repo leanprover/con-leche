@@ -19,7 +19,6 @@ set_option warn.sorry false in
 never accepts a stream storing a constant of type `Empty`, in every model
 `V` of `SetTheory`. -/
 theorem no_proof_of_Empty (V : Type w) [SetTheory V]
-    {ds : List Cached.DeclC} {env' : Env}
     (h : Cached.checkDeclsSPCachedD cfgP ds = .ok env') :
     ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] → False :=
   sorry
