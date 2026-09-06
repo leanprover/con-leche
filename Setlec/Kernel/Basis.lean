@@ -1,4 +1,5 @@
 import Setlec.Kernel.Basis.Names
+import Setlec.Kernel.Basis.Builder
 import Setlec.Kernel.Basis.Eq
 import Setlec.Kernel.Basis.Nat
 import Setlec.Kernel.Basis.PUnit
@@ -18,8 +19,15 @@ path (`Setlec/Kernel/Direct.lean`, tower projection entries) like any
 other.  The pinned declarations match exactly what the preprocessor
 emits — the frontend compares incoming records against these and
 declines anything else.  One module per basis type under
-`Setlec/Kernel/Basis/`; the expressions are generated from the
-preprocessor's own emission (see DESIGN.md); do not edit them by hand.
+`Setlec/Kernel/Basis/`, hand-written against the toolchain's
+`Init.Prelude` through the small builder in `Basis/Builder.lean`.
+
+**Raw only.**  The *annotated* forms — what the installation actually
+stores — are computed from these by the checker's own annotation pass
+in `Setlec/Kernel/BasisA.lean`, which therefore sits above
+`Setlec.Kernel.TypeChecker`.  This module sits below it: the kernel
+core needs the raw pins (the frontend matches incoming records against
+them) and nothing else.
 -/
 
 namespace Setlec
@@ -32,13 +40,4 @@ def BasisKind.decls : BasisKind → List ConstantInfo
   | .emptyK => emptyBasis
   | .quotK => quotBasis
 
-/-- The annotated constants of one basis block, in dependency order. -/
-def BasisKind.declsA : BasisKind → List ConstantInfo
-  | .eqK => [eqA, eqReflA, eqRecA]
-  | .natK => [natA, natZeroA, natSuccA, natRecA]
-  | .punitK => [punitA, punitUnitA, punitRecA]
-  | .emptyK => [emptyA, emptyRecA]
-  | .quotK => [quotA, quotMkA, quotLiftA, quotIndA, quotSoundA]
-
--- placeholder annotated Empty declarations; regenerated below
 end Setlec
