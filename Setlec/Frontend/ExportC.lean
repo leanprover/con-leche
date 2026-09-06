@@ -1,4 +1,5 @@
 import Setlec.Frontend.Export
+import Setlec.Frontend.ProjRec
 import Setlec.Cached.ParsedC
 
 /-!
@@ -27,6 +28,17 @@ The frontend-budgeted tree consumers (basis/quotient pin matching,
 inductive blocks) read their `Expr` trees through the memoized
 the parsed slot itself — the same bounded-tree contract as
 the arena's budgeted readback, without the arena.
+
+**The projection-function rewrite (2026-09-06,
+`Setlec/Frontend/ProjRec.lean`)** is the one surface rewrite this
+parse performs on a definition record: a projection function
+`fun p⃗ self => .proj T i self` of a structure-like owner the direct
+install does not serve is replaced, before it reaches the checker, by
+the recursor application the module documents.  Three bookkeeping
+tables feed it — the owners of every parsed inductive block
+(`projOwners`), the field sorts read off the preprocessor's
+`T._model.proj_i.iota` artifacts (`projLevels`), and whether the
+`PUnit` basis block has been seen (the constant motives need it).
 -/
 
 namespace Setlec.Frontend
@@ -53,6 +65,16 @@ structure StateD where
   taintedNames : Std.HashMap Name Name := {}
   taintSkipped : Array (Name × Name) := #[]
   sizes : Std.HashMap Nat Nat := {}
+  /-- structure-like owners the projection rewrite serves, by type
+  name (`Setlec/Frontend/ProjRec.lean`) -/
+  projOwners : Std.HashMap Name ProjRecOwner := {}
+  /-- field sorts, by artifact iota name `T._model.proj_i.iota` -/
+  projLevels : Std.HashMap Name Level := {}
+  /-- the `PUnit` basis block has been parsed -/
+  punitSeen : Bool := false
+  /-- projection functions rewritten so far (names, for the driver's
+  trace) -/
+  projRewrites : Array Name := #[]
 
 private def StateD.name (st : StateD) (i : Nat) : M Name :=
   match st.names[i]? with
@@ -221,6 +243,20 @@ private def parseConstantValTD (st : StateD) (v : Json) : M ConstantVal := do
     type := ← getDeclExprD st v "type"
   }
 
+/-- The projection-function rewrite at a definition record
+(`Setlec/Frontend/ProjRec.lean`): the value is `fun p⃗ self => .proj T i
+self` for a recorded owner `T`, the field's sort is on record from the
+artifact, `PUnit` is available, and the definition's level parameters
+are the block's.  `none` = leave the record as parsed. -/
+private def projRewriteD (st : StateD) (cv : ConstantValC) (vl : ExprC) :
+    Option ExprC := do
+  let .proj T i (.bvar 0) := lamBody vl | none
+  let o ← st.projOwners[T]?
+  guard st.punitSeen
+  guard (cv.levelParams == o.lps)
+  let l ← st.projLevels[projIotaName T i]?
+  projRecValue o l cv.type vl i
+
 /-- Twin of `processLineCore` over the direct state, producing `DeclC`
 records.  Every branch, guard and error string mirrors the arena
 parser's. -/
@@ -252,14 +288,42 @@ private def processLineCoreD (st : StateD) (j : Json)
     | "safe" =>
       let vl ← getDeclD st v "value" (budgetedName cvp.name)
       let h ← parseHints v
-      return .inl { st with
-        decls := st.decls.push (.defnDecl cvp vl h) }
+      -- the projection-function rewrite (2026-09-06): a non-direct
+      -- structure-like's `fun p⃗ self => .proj T i self` becomes the
+      -- recursor application, at the field sort the artifact names
+      match projRewriteD st cvp vl with
+      | some vl' =>
+        return .inl { st with
+          decls := st.decls.push (.defnDecl cvp vl' h),
+          projRewrites := st.projRewrites.push cvp.name }
+      | none =>
+        return .inl { st with
+          decls := st.decls.push (.defnDecl cvp vl h) }
     | s => return .inr s!"definition with safety '{s}'"
   else if let .ok v := j.getObjVal? "thm" then
     let cvp ← parseConstantValD st v (budgeted := false)
     let vl ← getDeclD st v "value" (budgetedName cvp.name)
-    return .inl { st with
-      decls := st.decls.push (.thmDecl cvp vl) }
+    -- an artifact `T._model.proj_i.iota` names the field's sort in its
+    -- `Eq` level: recorded for the projection rewrite
+    let st ← if isProjIotaName cvp.name then
+        match projIotaLevel cvp.type with
+        | some l =>
+          let m := st.projLevels
+          let st := { st with projLevels := {} }
+          pure { st with projLevels := m.insert cvp.name l }
+        | none => pure st
+      else pure st
+    -- a proof field's projection function is exported as a theorem
+    -- (the elaborator's choice for a `Prop`-valued field): the same
+    -- rewrite applies (2026-09-06)
+    match projRewriteD st cvp vl with
+    | some vl' =>
+      return .inl { st with
+        decls := st.decls.push (.thmDecl cvp vl'),
+        projRewrites := st.projRewrites.push cvp.name }
+    | none =>
+      return .inl { st with
+        decls := st.decls.push (.thmDecl cvp vl) }
   else if let .ok v := j.getObjVal? "opaque" then
     let cvp ← parseConstantValD st v (budgeted := false)
     if (← (← v.getObjVal? "isUnsafe").getBool?) then
@@ -304,13 +368,18 @@ private def processLineCoreD (st : StateD) (j : Json)
       pure (ConstantInfo.recInfo (← parseConstantValTD st r)
         (nP + nM + nm + ni) (nP + nM + nm) rules.toList)
     let block := types.toList ++ ctors.toList ++ recs.toList
+    -- the projection rewrite's owner table (the export's own shape
+    -- data: index/constructor counts, recursion flag, motive/minor
+    -- counts)
+    let st ← registerProjOwners st v block
     let blockC := block.map ConstantInfo.canon
     if blockC = BasisKind.eqK.decls.map ConstantInfo.canon then
       return .inl { st with decls := st.decls.push (.basisDecl .eqK) }
     else if blockC = BasisKind.natK.decls.map ConstantInfo.canon then
       return .inl { st with decls := st.decls.push (.basisDecl .natK) }
     else if blockC = BasisKind.punitK.decls.map ConstantInfo.canon then
-      return .inl { st with decls := st.decls.push (.basisDecl .punitK) }
+      return .inl { st with decls := st.decls.push (.basisDecl .punitK),
+                            punitSeen := true }
     else if blockC = BasisKind.emptyK.decls.map ConstantInfo.canon then
       return .inl { st with decls := st.decls.push (.basisDecl .emptyK) }
     else
@@ -331,6 +400,31 @@ private def processLineCoreD (st : StateD) (j : Json)
   else
     throw "unrecognized line"
 where
+  /-- Record the structure-like owners of a parsed block that the
+  projection rewrite serves (`projRecOwners`). -/
+  registerProjOwners (st : StateD) (v : Json) (block : List ConstantInfo) :
+      M StateD := do
+    let types ← (← (← v.getObjVal? "types").getArr?).toList.mapM fun t => do
+      let cv ← parseConstantValTD st t
+      pure (cv.name, cv.levelParams, cv.type,
+        ← (← t.getObjVal? "numParams").getNat?,
+        ← (← t.getObjVal? "numIndices").getNat?,
+        (← (← getIdxs t "ctors").mapM st.name).toList,
+        ← (← t.getObjVal? "isRec").getBool?)
+    let ctors ← (← (← v.getObjVal? "ctors").getArr?).toList.mapM fun c => do
+      let cv ← parseConstantValTD st c
+      pure (cv.name, ← (← c.getObjVal? "numFields").getNat?, cv.type)
+    let recs ← (← (← v.getObjVal? "recs").getArr?).toList.mapM fun r => do
+      let cv ← parseConstantValTD st r
+      pure (cv.name, cv.levelParams, cv.type,
+        ← (← r.getObjVal? "numMotives").getNat?,
+        ← (← r.getObjVal? "numMinors").getNat?)
+    match projRecOwners block types ctors recs with
+    | [] => pure st
+    | owners =>
+      let m := st.projOwners
+      let st := { st with projOwners := {} }
+      pure { st with projOwners := owners.foldl (fun m o => m.insert o.T o) m }
   /-- One `T := T._model` alias definition from a block-member record:
   the type is the parsed slot (already `ExprC`), the value a fresh
   `const` at the member's own level parameters. -/
@@ -470,6 +564,8 @@ skips.  No arena. -/
 structure ParseResultD where
   decls : Array DeclC
   taintSkipped : Array (Name × Name)
+  /-- projection functions rewritten to recursor form (2026-09-06) -/
+  projRewrites : Array Name := #[]
 
 /-- Twin of `feedLine`. -/
 private def feedLineD (st : StateD) (line : String) (lineNo : Nat)
@@ -493,7 +589,7 @@ def parseExportD (contents : String) (modeled : Bool := false) :
   for line in contents.splitToList (· == '\n') do
     lineNo := lineNo + 1
     st ← feedLineD st line lineNo modeled
-  return ⟨st.decls, st.taintSkipped⟩
+  return ⟨st.decls, st.taintSkipped, st.projRewrites⟩
 
 /-- Streaming direct parse (twin of `parseExportStream`; explicit
 recursion so the tables stay uniquely referenced across steps). -/
@@ -505,7 +601,7 @@ partial def parseExportStreamD (path : System.FilePath)
       IO (Except FrontendError ParseResultD) := do
     let raw ← h.getLine
     if raw.isEmpty then
-      return .ok ⟨st.decls, st.taintSkipped⟩
+      return .ok ⟨st.decls, st.taintSkipped, st.projRewrites⟩
     let line := if raw.back == '\n' then (raw.dropEnd 1).copy else raw
     match feedLineD st line (lineNo + 1) modeled with
     | .error e => return .error e
