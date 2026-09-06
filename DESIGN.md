@@ -42729,7 +42729,6 @@ every `.never` slot is skipped), and cannot touch parity.
   `ProjEntry.native` field are now redundant with `tower` on every
   stored entry; folding the field is a separate cleanup.
 
-
 ## CLEANUP PASS A — MODULE MOVES AND RENAMES (2026-09-06, `agent/cleanup-a`)
 
 ### 0. What landed, and the rule it ran on
@@ -42973,3 +42972,189 @@ instead of implicit in a shared namespace.
   **987.26 G** / 166.1 s (pass A: 987.27 G, −0.001 %), parity
   **1085.84 G** / 192.3 s (pass A: 1085.83 G, +0.001 %);
 * no `sorry`, no new axiom, no statement changed.
+
+## The Mathlib frontier in P mode: 17.4 % of the stream, and the wall is a `decide`-over-`Rat` divergence, not memory (2026-09-06, queue item 5)
+
+The full preprocessed Mathlib stream
+(`_tmp/mathlib-scoping/mathlib-full-pre.ndjson`, 5 821 584 448 B,
+102 735 012 lines, **727 270 declaration records**: 501 337 `thm`,
+215 953 `def`, 6 887 `inductive`, 3 082 `opaque`, 7 `axiom`, 4 `quot`)
+was run end to end in the verified mode at master `8f9e8250` (the W6
+merge), `--set-model=p --pre`, every invocation wrapped as
+`ulimit -v 22000000` + `timeout 14400`.  Harness:
+`_tmp/mathlib-frontier/run.sh` (rewritten — the old one hardcoded
+`/usr/bin/time`, which does not exist on this NixOS box, so *every*
+invocation of it would have died instantly with exit 127; it had never
+run).  It samples `VmRSS`/`VmHWM`/`VmSize` **and** the checker's
+`rchar`/stream `fd` position every 30 s, so parse progress and the
+parse/check boundary are readable off the log.
+
+**Verdict: exit 3 at 2 461 s (41 min), at declaration record 126 329
+of 727 270.**
+
+    setlec: internal error: fuel exhausted: infer
+      [at theorem _private.Std.Time.Date.Unit.Week.0.
+       Std.Time.Week.Offset.ofMilliseconds._proof_1]
+
+### 1. The memory question is closed: the cap was never approached
+
+| phase | RSS | VmSize |
+|---|---|---|
+| parse, peak | 13.06 GiB | 15.64 GiB |
+| after parse (retained decl list) | 11.9 GiB | 15.64 GiB |
+| checking, steady | 11.9 → 12.7 GiB | 15.64 GiB (flat) |
+| whole run, peak (`time -v`) | **13.39 GiB** | 15.64 GiB |
+
+against a cap of 20.98 GiB (`ulimit -v 22000000`).  The parse read all
+5.82 GB in **≤ 181 s** (23.0 % at 31 s, 42.0 % at 61 s, 58.7 % at 91 s,
+76.1 % at 121 s, 95.4 % at 151 s, 100 % at 181 s — ~34 MB/s) and the
+whole rest of the run is flat: the check phase adds **+0.8 GiB over
+2 260 s**.  So the two old scoping facts are superseded — task #122's
+install stall at 23 GB and task #110's analysis spike at 63 GB were
+pre-packing artefacts; the *verified* mode now holds the entire
+727 k-declaration stream in 13.4 GiB and never allocates against the
+ceiling.  The retained-parse cost is a stable **2.4–2.5× the stream
+size** (283 MB → 0.68 GiB, 655 MB → 1.6 GiB, 5.82 GB → 11.9 GiB), and
+the whole decl list is materialised before the first declaration is
+checked.
+
+Two calibration points on the same tip, same wrap, that also fix the
+scale: `prefix-log2-pre` (283 MB, 50 783 records) **accepts** — the
+`Lean.PrefixTreeNode.rec_3` decline recorded on 2026-08-24 is gone —
+in 130 s at 0.85 GiB; `prefix-12M-pre` (655 MB) accepts all 101 326
+declarations in 526 s at **9.18 GiB**, against the 2026-08-24 bracket
+table's 22.12 GB (off) / 9.39 GB (mode-4 snapshot) and 798 s / 781 s
+for the identical stream.  The default cached P driver now matches the
+best measured bracket mode's memory and beats both wall times.
+
+### 2. The largest passing prefix, and the cost of retention
+
+Cutting the stream at the failing record (`head -n 16339420`,
+907 878 365 B) gives a stream that **accepts**:
+
+| run | mode | exit | wall | peak RSS |
+|---|---|---|---|---|
+| full stream, 727 270 records | P | 3 (fuel) | 2 461 s | 13.39 GiB |
+| prefix, 126 328 records | P | **0 — accepted 139 017 declarations** | **931 s** | 9.79 GiB |
+| prefix + the failing record | P | 3 (same message) | 1 922 s | 9.95 GiB |
+| prefix + the failing record | `--no-model` | 1 = **OOM at the cap** | 2 252 s | 18.27 GiB |
+| prefix + the failing record | P, `checkFuel` ×16 | 1 = **OOM at the cap** | 1 021 s | 19.09 GiB |
+
+(The accepted count 139 017 exceeds the 126 328 records because an
+`inductive` record installs a whole block of constants.)
+
+The same 126 328 records take **931 s** as a prefix and ~1 030 s inside
+the full run — but the full run pays 13.4 GiB where the prefix pays
+9.8 GiB, for the sole reason that the unchecked tail of the decl list
+is resident throughout.  A streaming parse (parse-and-check one
+declaration at a time, never materialising the list) is therefore worth
+**~3.5 GiB and ~10 % of the wall** at Mathlib scale, and would make the
+memory profile independent of stream length.  Docketed, not attempted.
+
+### 3. Where it died, and what the declaration is
+
+Record **126 329 of 727 270 (17.37 %)**, stream line 16 339 421 of
+102 735 012 (15.90 %), byte 907 878 454 of 5 821 584 448 (15.60 %).
+Everything before it passed: 83 449 `thm`, 40 048 `def`, 2 543
+`inductive`, 281 `opaque`, 4 `quot`, 3 `axiom` — **zero declines, zero
+rejects, and no taint decline at all** (the stream contains no use of a
+tolerated axiom; had it, `finish` would have appended a decline line).
+
+"Where Std ends and Mathlib begins" turns out not to be a question the
+stream answers: the export is one global dependency order, and
+`_private.Mathlib.*` declarations start at record **1 804** (0.25 %).
+By the frontier the checker has already accepted **8 995 of the
+63 411** private-Mathlib declarations (14.2 %) — the failing record
+merely happens to be an `Std.Time` one.
+
+The declaration itself is **81 expression nodes**, the whole DAG:
+
+    of_decide_eq_true (id (Eq.refl true))
+      : (604800000 : Rat) / 1 = ((7 * 86400) * 1000) / 1     -- shape
+
+built from `Decidable.decide`, `of_decide_eq_true`,
+`instDecidableEqRat`, `Rat.instMul`, `Rat.instDiv`, `Rat.instIntCast`,
+`Rat.instOfNat`, `Int.cast`, `instOfNat`, and the `natVal` literals
+`1`, `7`, `1000`, `86400`, `604800000` — the milliseconds-per-week
+constant.  So the term is *tiny* and the type is *tiny*; what is
+enormous is the reduction the kernel must perform to whnf
+`Decidable.decide (@Eq Rat _ _)` to `Bool.true`.  This is the classic
+Mathlib `decide`-over-`Rat` kernel-computation pattern, and it is not a
+`Nat` problem: `Nat.pred/add/sub/mul/pow/beq/ble` (`natOpNames`) and
+`Nat.div/mod/gcd/land/lor/xor/shiftLeft/shiftRight/log2`
+(`natDivModNames`) all have certified literal fast paths already.  The
+depth is spent above them, in `Rat`/`Int` structure reduction.
+
+### 4. The parity lane fails there too — and worse
+
+`--no-model` on the same prefix reaches the same declaration and its
+fold errors there as well, so the frontier is **not** an artefact of
+the certificate machinery.  Its memory profile is the interesting part:
+the parity lane runs the preceding 126 328 records at a steady
+**2.5–3.0 GiB** (vs P's 6.3–8.6 GiB — the certificate families cost
+~3.4× the resident set), then **spikes to 14.97 GiB on that one
+declaration**, drops back to 3.0 GiB, and dies at the cap when the
+diagnostic second pass re-enters it (`INTERNAL PANIC: out of memory`,
+peak 18.27 GiB).  Because the harness runs with `SETLEC_SUPERVISED=1`
+(one process, so `timeout` kills exactly the checker), the panic
+surfaces as **exit 1**, indistinguishable at the exit-code level from a
+reject — precisely the conflation the supervisor re-exec exists to
+translate.  The log line, not the exit code, is the discriminator; the
+harness comment says so.
+
+### 5. The fuel probe: raising the fuel does not help — it is a divergence
+
+`checkFuel` (`Setlec/Kernel/Core.lean:2541`) is a **source constant,
+`100000`**, not a CLI or environment knob; it bounds the recursion
+depth of the reduction/inference/defeq knot, and exhaustion is an
+internal error, never a verdict.  A throwaway probe binary with
+`checkFuel := 1600000` (**×16**; built, run, reverted — the branch
+carries no kernel change, and the rebuilt binary hashes back to
+`d841bab2…`) reaches the declaration at the same 931 s and then, ~90 s
+in, **dies at the 22 GB cap** (RSS 19.09 GiB, VmSize 20.11 GiB against
+the 20.98 GiB ceiling) without converging.  Fuel is monotone — more
+fuel can only get strictly further — so ×4 cannot pass either, and was
+not run.
+
+**Conclusion: this is a divergence, not a tuning failure.**  Raising
+the fuel converts a fuel wall into a memory wall; the reduction does
+not terminate within any budget this machine can hold.  What the
+declaration needs is a *reduction* capability (kernel-accelerated
+`Rat`/`Int` literal arithmetic, or a `decide`-shaped fast path), of
+exactly the kind `natOpNames`/`natDivModNames` already provide for
+`Nat`.  Until then the checker's honest verdict on it is exit 3.
+
+Item 4 of the probe order (re-run the full stream with that one
+declaration skipped) was **not** attempted: the only skip facility in
+the frontend is the tolerated-axiom taint pre-scan, keyed on *axiom*
+names, and building a general skip list was explicitly out of scope.
+
+### 6. Caveats and harness notes
+
+* The perf battery was running concurrently on the same machine (one
+  16 GB cell at a time).  **Instruction counts are contention-robust;
+  every wall time in this record is not** — treat them as upper bounds
+  and as internally comparable only.
+* The diagnostic second pass doubles a *failing* stream: 931 s of fold
+  + 931 s of re-check in run A, and in the parity run it is what pushed
+  the process over the cap and destroyed the verdict message.  Locating
+  the failing declaration costs a second full check of everything before
+  it.  Worth revisiting now that streams are big enough for it to matter.
+* Artefacts: `_tmp/mathlib-frontier/{8f9e8250,8f9e8250-prefix126328,
+  A-p-126329,B-nomodel-126329,C-fuel16x-126329}-{p,rss}.log` +
+  `-time.txt`; the failing declaration's DAG and resolved constant names
+  in `decl126329-dag.txt` / `names126329.txt`; the two cut prefixes in
+  `_tmp/mathlib-scoping/mathlib-prefix12632{8,9}-pre.ndjson`.
+
+### 7. What this leaves open
+
+* The frontier is a **capability** gap (`Rat`/`Int` literal reduction),
+  not a scale gap.  The next Mathlib number depends on closing it, and
+  nothing before record 126 329 needs anything else.
+* Extrapolating the measured check rate (126 328 records in ~1 030 s of
+  fold), the whole stream would be ~2 h of checking plus 3 min of parse
+  — the user's "at 5× it could finish in two hours" is the right order
+  of magnitude — and the retained-list growth would put the peak at
+  ~16–17 GiB, still inside the 22 GB cap but with the streaming-parse
+  fix (§2) it would be ~5 GiB.
+
