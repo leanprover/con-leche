@@ -400,4 +400,334 @@ theorem ihIdx_ok2 (hfr : RecFrameS D ρ₀ σ) (y : V) (i : Nat) (E : AVExpr)
 
 end IhFacts
 
+/-! ## The K-frame package and the ih obligation -/
+
+/-- The real-chain relation, walked down to a recursive position along a
+fitting field spine: the index expressions there are graded and fit,
+and the real domain reads to the carrier at their tuple. -/
+theorem chainRealI_at {u : Nat} {ρp : Nat → V} {Ids : List AVExpr} {μ : V} {rs : List Bool}
+    {Eis : List (List AVExpr)} :
+    ∀ (Fs₀ Fs : List AVExpr) (i₀ : Nat) (as fs : List V), as.length = i₀ →
+      ChainRealI μ u ρp Ids rs Eis i₀ as Fs₀ Fs → SpineFit (consList as ρp) Fs fs →
+      ∀ l, l < Fs.length → rs.getD (i₀ + l) false = true →
+        (∀ E ∈ Eis.getD (i₀ + l) [], AnnotOk2 V (consList (as ++ fs.take l) ρp) E) ∧
+        SpineFit ρp Ids ((Eis.getD (i₀ + l) []).map (interp2 V (consList (as ++ fs.take l) ρp))) ∧
+        interp2 V (consList (as ++ fs.take l) ρp) (Fs.getD l default)
+          = SetTheory.app μ (tupW u ((Eis.getD (i₀ + l) []).map (interp2 V (consList (as ++ fs.take l) ρp))))
+  | [], [], _, _, _, _, _, _, _, hl, _ => absurd hl (Nat.not_lt_zero _)
+  | [], _ :: _, _, _, _, _, hc, _, _, _, _ => hc.elim
+  | _ :: _, [], _, _, _, _, hc, _, _, _, _ => hc.elim
+  | _ :: _, _ :: _, _, _, [], _, _, hsp, _, _, _ => hsp.elim
+  | F₀ :: Fs₀, F :: Fs, i₀, as, f :: fs, hi, hc, hsp, l, hl, hr => by
+    subst hi
+    obtain ⟨hhead, htail⟩ := hc
+    cases l with
+    | zero =>
+      rw [Nat.add_zero] at hr ⊢
+      rw [if_pos hr] at hhead
+      simpa using hhead
+    | succ l =>
+      have ih := chainRealI_at Fs₀ Fs (as.length + 1) (as ++ [f]) fs (length_snoc' f as)
+        (htail f hsp.1) (by rw [← consList_snoc']; exact hsp.2) l (by simpa using hl)
+        (by rw [show as.length + 1 + l = as.length + (l + 1) from by omega]; exact hr)
+      rw [show as.length + 1 + l = as.length + (l + 1) from by omega] at ih
+      simpa [List.append_assoc] using ih
+
+/-- The recursor's conclusion `M ı⃗ t`, read at a walk frame. -/
+theorem recConcAV_at {n nIdx : Nat} {ρ₁ : Nat → V} (vals : List V) (hlen : vals.length = nIdx) (f : V) :
+    interp2 V (cons f (consList vals ρ₁)) (recConcAV n nIdx)
+      = SetTheory.app (vals.foldl SetTheory.app (ρ₁ n)) f := by
+  have hfr : RecFrameS 1 (consList vals ρ₁) (cons f (consList vals ρ₁)) := by
+    unfold RecFrameS
+    rw [show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
+  unfold recConcAV motAppAV
+  rw [interp2_app, interp2_mkAppN, ← List.foldl_map (f := interp2 V (cons f (consList vals ρ₁)))
+    (g := SetTheory.app), map_idxVarsAV_interp hfr, interp2_bvar, interp2_bvar, cons_zero]
+  have hM : cons f (consList vals ρ₁) (1 + nIdx + n) = ρ₁ n := by
+    rw [show 1 + nIdx + n = (n + vals.length) + 1 from by omega, cons_succ, consList_apply_add]
+  have hI : frameIdx nIdx (consList vals ρ₁) = vals := by
+    rw [← hlen]; exact frameIdx_consList' vals ρ₁
+  rw [hM, hI]
+
+/-- **The K-frame package of the recursive family's recursor**: the
+case split's hypotheses (with the family as `famAt` and the ih
+domains at the motive), the family's functor facts at the parameter
+frame, the identification of the real chains, and the unfolded
+function's typing at the recursor's type (a closed Π-tower over the
+binder data `rds`, read at the frame below the function) with the
+spine-fit of the ih application. -/
+structure FixKI (ℓ w u nP : Nat) (ρ₀ : Nat → V) (Fss Ess Fss₀ : List (List AVExpr))
+    (Ids : List AVExpr) (rss : List (List Bool)) (Eiss : List (List (List AVExpr)))
+    (rds : List (Nat × Nat × AVExpr)) : Prop where
+  hyp : RecHypI ℓ w ρ₀ Fss Ess Ids
+    (fun is => SetTheory.app
+      (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss Eiss Fss₀ Ess) (tupW u is))
+    (ihDomsI (frP Fss.length Ids.length ρ₀) (frM Fss.length Ids.length ρ₀) rss Eiss
+      (fun j => (Fss.getD j []).length))
+  hX : XChainsOk u w (frP Fss.length Ids.length ρ₀) Ids rss Eiss Fss₀ Ess
+  hreal : ChainsRealI (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss Eiss Fss₀ Ess)
+    u (frP Fss.length Ids.length ρ₀) Ids rss Eiss Fss₀ Fss Ess
+  hz : ∀ d ∈ rds, (ℓ = 0 ↔ d.2.1 = 0)
+  hrV : frR nP Fss.length Ids.length ρ₀
+    ∈ˢ interp2 V (cons (frR nP Fss.length Ids.length ρ₀) (frBelow nP Fss.length Ids.length ρ₀))
+      (mkPisAV rds (recConcAV Fss.length Ids.length))
+  hspine : ∀ (vals : List V) (f : V), SpineFit (frP Fss.length Ids.length ρ₀) Ids vals →
+    f ∈ˢ SetTheory.app
+      (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss Eiss Fss₀ Ess) (tupW u vals) →
+    SpineFit (cons (frR nP Fss.length Ids.length ρ₀) (frBelow nP Fss.length Ids.length ρ₀))
+      (rds.map (·.2.2)) (frKSpine nP Fss.length Ids.length ρ₀ ++ vals ++ [f])
+  hspineLen : rds.length = nP + 1 + Fss.length + Ids.length + 1
+  hconc0 : ℓ = 0 → ∀ as', SpineFit (cons (frR nP Fss.length Ids.length ρ₀) (frBelow nP Fss.length Ids.length ρ₀))
+    (rds.map (·.2.2)) as' →
+    interp2 V (consList as' (cons (frR nP Fss.length Ids.length ρ₀) (frBelow nP Fss.length Ids.length ρ₀)))
+      (recConcAV Fss.length Ids.length) ∈ˢ (univZero : V)
+
+namespace FixKI
+
+variable {ℓ w u nP : Nat} {ρ₀ : Nat → V} {Fss Ess Fss₀ : List (List AVExpr)} {Ids : List AVExpr}
+  {rss : List (List Bool)} {Eiss : List (List (List AVExpr))} {rds : List (Nat × Nat × AVExpr)}
+
+/-- The block frame `(p⃗, M, m⃗)` over the function is the K-frame's
+shift past the indices. -/
+theorem block_frame (_h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss Eiss rds) :
+    consList (frKSpine nP Fss.length Ids.length ρ₀)
+        (cons (frR nP Fss.length Ids.length ρ₀) (frBelow nP Fss.length Ids.length ρ₀))
+      = shiftE Ids.length 0 ρ₀ := by
+  have hk := consList_frKSpine nP Fss.length Ids.length ρ₀
+  rw [consList_append] at hk
+  have h := shiftE_consList (frameIdx Ids.length ρ₀)
+    (consList (frKSpine nP Fss.length Ids.length ρ₀)
+      (cons (frR nP Fss.length Ids.length ρ₀) (frBelow nP Fss.length Ids.length ρ₀)))
+  rw [frameIdx_length, hk] at h
+  exact h.symm
+
+/-- The conclusion at a spine frame is the motive at the index values
+at the major. -/
+theorem conc_at (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss Eiss rds) {vals : List V}
+    (hlen : vals.length = Ids.length) (f : V) :
+    interp2 V (consList (frKSpine nP Fss.length Ids.length ρ₀ ++ vals ++ [f])
+        (cons (frR nP Fss.length Ids.length ρ₀) (frBelow nP Fss.length Ids.length ρ₀)))
+        (recConcAV Fss.length Ids.length)
+      = SetTheory.app (vals.foldl SetTheory.app (frM Fss.length Ids.length ρ₀)) f := by
+  rw [consList_append, consList_append]
+  have := recConcAV_at (n := Fss.length) (nIdx := Ids.length)
+    (ρ₁ := consList (frKSpine nP Fss.length Ids.length ρ₀)
+      (cons (frR nP Fss.length Ids.length ρ₀) (frBelow nP Fss.length Ids.length ρ₀))) vals hlen f
+  show interp2 V (cons f _) _ = _
+  rw [this, h.block_frame, shiftE_zero]
+  unfold frM
+  show SetTheory.app (vals.foldl SetTheory.app (ρ₀ (Fss.length + Ids.length))) f = _
+  rw [Nat.add_comm]
+
+/-- The membership of the function's application at a fitting spine
+in the conclusion. -/
+theorem app_mem (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss Eiss rds) {vals : List V}
+    (hsp : SpineFit (frP Fss.length Ids.length ρ₀) Ids vals) {f : V}
+    (hf : f ∈ˢ SetTheory.app
+      (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss Eiss Fss₀ Ess) (tupW u vals)) :
+    (frKSpine nP Fss.length Ids.length ρ₀ ++ vals ++ [f]).foldl SetTheory.app
+        (frR nP Fss.length Ids.length ρ₀)
+      ∈ˢ SetTheory.app (vals.foldl SetTheory.app (frM Fss.length Ids.length ρ₀)) f := by
+  have := mkPisAV_fold_mem h.hz h.hconc0 h.hrV (h.hspine vals f hsp hf)
+  rwa [h.conc_at hsp.length_eq f] at this
+
+/-- The application chain of the function at a fitting spine is
+graded. -/
+theorem app_chain (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss Eiss rds) {vals : List V}
+    (hsp : SpineFit (frP Fss.length Ids.length ρ₀) Ids vals) {f : V}
+    (hf : f ∈ˢ SetTheory.app
+      (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss Eiss Fss₀ Ess) (tupW u vals)) :
+    AppChainOk (frR nP Fss.length Ids.length ρ₀) (frKSpine nP Fss.length Ids.length ρ₀ ++ vals ++ [f]) :=
+  appChainOk_of_mkPisAV' h.hz h.hconc0 h.hrV (h.hspine vals f hsp hf)
+
+/-- The `l`-th value of a fitting spine is in the `l`-th domain at the
+prefix. -/
+theorem spineFit_getD_mem' {ρ : Nat → V} :
+    ∀ {Fs : List AVExpr} {as : List V} {l : Nat}, SpineFit ρ Fs as → l < Fs.length →
+      as.getD l pt ∈ˢ interp2 V (consList (as.take l) ρ) (Fs.getD l default)
+  | [], _, _, _, hl => absurd hl (Nat.not_lt_zero _)
+  | _ :: _, [], _, h, _ => h.elim
+  | F :: Fs, a :: as, 0, h, _ => by simpa using h.1
+  | F :: Fs, a :: as, l + 1, h, hl => by
+    simp only [List.getD_cons_succ, List.take_succ_cons, consList_cons]
+    exact spineFit_getD_mem' (Fs := Fs) (as := as) (l := l) h.2 (by simpa using hl)
+
+/-- **The ih obligation is discharged** at every frame of the case
+split (graph regime). -/
+theorem ihArgsOk_of (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss Eiss rds) (hw : w ≠ 0)
+    {D : Nat} {σ : Nat → V} (hfr : RecFrameS D ρ₀ σ) {j : Nat} (hj : j < Fss.length) :
+    IhArgsOk w ρ₀ σ Fss Ess Ids
+      (ihDomsI (frP Fss.length Ids.length ρ₀) (frM Fss.length Ids.length ρ₀) rss Eiss
+        (fun j => (Fss.getD j []).length))
+      (ihValsI (frP Fss.length Ids.length ρ₀) (frR nP Fss.length Ids.length ρ₀)
+        (frKSpine nP Fss.length Ids.length ρ₀) rss Eiss (fun j => (Fss.getD j []).length))
+      (ihArgsI nP Fss.length Ids.length rss Eiss (fun j => (Fss.getD j []).length)) D j := by
+  intro y hy
+  have hjF := h.hyp.rChain_getElem? hj
+  rw [sumFibre_of_getElem? hjF] at hy
+  have hokF : FieldsOkB w ρ₀
+      (rChain (Ids.length + Fss.length + 1) Ids.length (Fss.getD j []) (Ess.getD j [])) :=
+    h.hyp.hok _ (List.mem_of_getElem? hjF)
+  have hbnd := hokF.toBound hw
+  have hlenR : (rChain (Ids.length + Fss.length + 1) Ids.length (Fss.getD j []) (Ess.getD j [])).length
+      = (Fss.getD j []).length + 1 := rChain_length _ _ _ _
+  -- the payload's projections fit the real chain at the parameter frame
+  have helim := restricted_member_elim hw
+    (Fs := liftFields (Ids.length + Fss.length + 1) 0 (Fss.getD j []))
+    (eqs := idxEqsAt (Ids.length + Fss.length + 1) Ids.length (Fss.getD j []).length (Ess.getD j []))
+    (ρ := ρ₀) (y := y) hy
+  rw [liftFields_length] at helim
+  obtain ⟨hspL, -, -, -⟩ := helim
+  have hspP : SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j [])
+      (projList (Fss.getD j []).length y) :=
+    (spineFit_liftFields (Ids.length + Fss.length + 1)).mp hspL
+  -- the projections are graded at their frames
+  have hproj : ∀ m, m < (Fss.getD j []).length →
+      ∀ (σ' : Nat → V) (k : Nat), interp2 V σ' (.bvar k) = y → AnnotOk2 V σ' (projAV m (.bvar k)) := by
+    intro m hm σ' k hσ'
+    refine projAV_ok2_tower (w := w) (ρ := ρ₀) (by simp) ?_ hbnd (by omega)
+    rw [hσ']; exact hy
+  have hp : ∀ i, i ≤ (Fss.getD j []).length → ∀ m, m < i →
+      AnnotOk2 V (consList (projList m y) (cons y σ)) (projAV m (.bvar m)) := by
+    intro i hi m hm
+    refine hproj m (by omega) _ m ?_
+    rw [interp2_bvar]
+    have := consList_apply_add (projList m y) (cons y σ) 0
+    rwa [Nat.zero_add, projList_length] at this
+  have hp0 : ∀ i, i < (Fss.getD j []).length → AnnotOk2 V (cons y σ) (projAV i (.bvar 0)) := by
+    intro i hi
+    exact hproj i hi _ 0 (by rw [interp2_bvar]; rfl)
+  -- per recursive position
+  have hpos : ∀ l, ∀ hl : l < (recIdx (rss.getD j []) (Fss.getD j []).length).length,
+      let i := (recIdx (rss.getD j []) (Fss.getD j []).length)[l]'hl
+      let vals := ((Eiss.getD j []).getD i []).map
+        (interp2 V (consList (projList i y) (frP Fss.length Ids.length ρ₀)))
+      i < (Fss.getD j []).length ∧
+      (∀ E ∈ (Eiss.getD j []).getD i [],
+        AnnotOk2 V (consList (projList i y) (frP Fss.length Ids.length ρ₀)) E) ∧
+      SpineFit (frP Fss.length Ids.length ρ₀) Ids vals ∧
+      projS i y ∈ˢ SetTheory.app
+        (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss Eiss Fss₀ Ess) (tupW u vals) := by
+    intro l hl
+    have hmem : (recIdx (rss.getD j []) (Fss.getD j []).length)[l]
+        ∈ recIdx (rss.getD j []) (Fss.getD j []).length := List.getElem_mem hl
+    obtain ⟨hik, hri⟩ := mem_recIdx.mp hmem
+    have hc := chainRealI_at (Fss₀.getD j []) (Fss.getD j []) 0 [] (projList (Fss.getD j []).length y)
+      rfl (h.hreal.2.2.2.2 j hj) (by simpa using hspP) _ hik (by rw [Nat.zero_add]; exact hri)
+    rw [Nat.zero_add, List.nil_append, projList_take _ _ _ (Nat.le_of_lt hik)] at hc
+    obtain ⟨hEok, hvsp, heq⟩ := hc
+    refine ⟨hik, hEok, hvsp, ?_⟩
+    have := spineFit_getD_mem' hspP hik
+    rw [projList_take _ _ _ (Nat.le_of_lt hik), heq] at this
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [projList_length]; exact hik),
+      Option.getD_some, projList_get _ _ _ hik] at this
+    exact this
+  refine ⟨?_, ?_, ?_⟩
+  · -- the readings
+    unfold ihArgsI ihValsI
+    rw [List.map_map]
+    apply List.map_congr_left
+    intro i hi
+    obtain ⟨hik, -⟩ := mem_recIdx.mp hi
+    show interp2 V (cons y σ) (ihArgAV nP Fss.length Ids.length D i _) = _
+    unfold ihArgAV
+    have hmid : ((Eiss.getD j []).getD i []).map
+        (interp2 V (cons y σ) ∘ fun E => substProj i (E.liftN (D + Ids.length + Fss.length + 2) i))
+        = ((Eiss.getD j []).getD i []).map
+          (interp2 V (consList (projList i y) (frP Fss.length Ids.length ρ₀))) :=
+      List.map_congr_left fun E _ => ihIdx_interp hfr y i E
+    rw [interp2_mkAppN, ← List.foldl_map (f := interp2 V (cons y σ)) (g := SetTheory.app),
+      rAt_interp hfr, List.map_append, List.map_append, kSpineAt_interp hfr, List.map_map, hmid]
+    simp only [List.map_cons, List.map_nil, projAV_interp, interp2_bvar, cons_zero]
+  · -- the lengths
+    unfold ihArgsI ihDomsI
+    simp only [List.length_map]
+  · -- the gradings and the memberships
+    intro l hl
+    unfold ihDomsI at hl ⊢
+    rw [List.length_map] at hl
+    obtain ⟨hik, hEok, hvsp, hfmem⟩ := hpos l hl
+    have hgetA : (ihArgsI nP Fss.length Ids.length rss Eiss (fun j => (Fss.getD j []).length) D j).getD l default
+        = ihArgAV nP Fss.length Ids.length D ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])
+            ((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []) := by
+      unfold ihArgsI
+      rw [List.getD_eq_getElem?_getD (i := l), List.getElem?_map, List.getElem?_eq_getElem hl,
+        Option.map_some, Option.getD_some]
+    have hgetD : (((recIdx (rss.getD j []) (Fss.getD j []).length)).map fun i =>
+        SetTheory.app ((((Eiss.getD j []).getD i []).map (interp2 V (consList ((projList (Fss.getD j []).length y).take i)
+          (frP Fss.length Ids.length ρ₀)))).foldl SetTheory.app (frM Fss.length Ids.length ρ₀))
+          ((projList (Fss.getD j []).length y).getD i pt)).getD l pt
+        = SetTheory.app ((((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []).map
+            (interp2 V (consList (projList ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) y)
+              (frP Fss.length Ids.length ρ₀)))).foldl SetTheory.app (frM Fss.length Ids.length ρ₀))
+            (projS ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) y) := by
+      rw [List.getD_eq_getElem?_getD (i := l), List.getElem?_map, List.getElem?_eq_getElem hl,
+        Option.map_some, Option.getD_some, projList_take _ _ _ (Nat.le_of_lt hik),
+        List.getD_eq_getElem?_getD (l := projList (Fss.getD j []).length y),
+        List.getElem?_eq_getElem (by rw [projList_length]; exact hik), Option.getD_some,
+        projList_get _ _ _ hik]
+    rw [hgetA, hgetD]
+    -- the argument's value
+    have hval : interp2 V (cons y σ) (ihArgAV nP Fss.length Ids.length D
+        ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])
+        ((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []))
+        = (frKSpine nP Fss.length Ids.length ρ₀ ++
+            (((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []).map
+              (interp2 V (consList (projList ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) y)
+                (frP Fss.length Ids.length ρ₀)))) ++
+            [projS ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) y]).foldl SetTheory.app
+            (frR nP Fss.length Ids.length ρ₀) := by
+      unfold ihArgAV
+      have hmid : ((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []).map
+          (interp2 V (cons y σ) ∘ fun E => substProj ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])
+            (E.liftN (D + Ids.length + Fss.length + 2) ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])))
+          = ((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []).map
+            (interp2 V (consList (projList ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) y)
+              (frP Fss.length Ids.length ρ₀))) :=
+        List.map_congr_left fun E _ => ihIdx_interp hfr y _ E
+      rw [interp2_mkAppN, ← List.foldl_map (f := interp2 V (cons y σ)) (g := SetTheory.app),
+        rAt_interp hfr, List.map_append, List.map_append, kSpineAt_interp hfr, List.map_map, hmid]
+      simp only [List.map_cons, List.map_nil, projAV_interp, interp2_bvar, cons_zero]
+    refine ⟨?_, ?_⟩
+    · -- graded: the application chain of the function at the spine
+      unfold ihArgAV
+      have hargs : ∀ a ∈ idxVarsAV (nP + 1 + Fss.length) (D + 1 + Ids.length) ++
+          ((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []).map
+            (fun E => substProj ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])
+              (E.liftN (D + Ids.length + Fss.length + 2) ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]))) ++
+          [projAV ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) (.bvar 0)],
+          AnnotOk2 V (cons y σ) a := by
+        intro a ha
+        simp only [List.mem_append, List.mem_map, List.mem_singleton] at ha
+        rcases ha with (ha | ⟨E, hE, rfl⟩) | rfl
+        · obtain ⟨_, -, rfl⟩ := List.mem_map.mp ha
+          simp
+        · exact ihIdx_ok2 hfr y _ E (hp _ (Nat.le_of_lt hik)) (hEok E hE)
+        · exact hp0 _ hik
+      have hchain : AppChainOk (interp2 V (cons y σ) (.bvar (D + 1 + Ids.length + Fss.length + 1 + nP)))
+          ((idxVarsAV (nP + 1 + Fss.length) (D + 1 + Ids.length) ++
+            ((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []).map
+              (fun E => substProj ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])
+                (E.liftN (D + Ids.length + Fss.length + 2) ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]))) ++
+            [projAV ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) (.bvar 0)]).map
+              (interp2 V (cons y σ))) := by
+        rw [rAt_interp hfr, List.map_append, List.map_append, kSpineAt_interp hfr, List.map_map]
+        have hm : (((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []).map
+            (interp2 V (cons y σ) ∘ fun E => substProj ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])
+              (E.liftN (D + Ids.length + Fss.length + 2) ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]))))
+            = ((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []).map
+              (interp2 V (consList (projList ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) y)
+                (frP Fss.length Ids.length ρ₀))) := by
+          apply List.map_congr_left
+          intro E _
+          exact ihIdx_interp hfr y _ E
+        rw [hm]
+        simp only [List.map_cons, List.map_nil, projAV_interp, interp2_bvar, cons_zero]
+        exact h.app_chain hvsp hfmem
+      exact (mkAppN_ok2_of_chain (by simp) hargs hchain).1
+    · rw [hval]
+      exact h.app_mem hvsp hfmem
+
+end FixKI
+
 end Lech.Semantics
