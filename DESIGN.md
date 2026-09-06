@@ -53190,3 +53190,86 @@ Already gone, confirmed by grep (no action): `EStore`, `ENode`, `EIdx`,
 `WExprC`, `WDeclC`, `ofExpr`, `ofExprFast`, `toExpr`, `hashSpec`,
 `beqSpec`, `zeroC`, `MemoErase`.
 
+
+### What was removed
+
+Eight commits, `−1 891 / +1 228` lines over 37 source files (the DESIGN
+census is the ninth).  Nothing in the eleven pinned axiom guards or the
+seven `tests/proofdeps.sh` roots changed in meaning: every removal
+below is the unfolding of an identity wrapper, and no module vanished
+(`proofdeps: 2515 module rows as pinned across 7 roots; doors: 0`).
+
+| batch | what went | where |
+|---|---|---|
+| **B1** dead | `viewLM`, `readbackLevelM`, `substLM`, `substLevelTreeM`, `zeronessOfM`, `pisToLamsM`, `CStore.stripPisBodyI`, `CStore.constsResolveFI`, `CStore.allLevelParamsDefinedI`, `ExprC.pisToLams`, `ExprC.stripPisBody` + `viewLM_eff`, `readbackLevelM_eff`, `substLM_eff`, `substLevelTreeM_eff`, `zeronessOfM_eff`, `pisToLamsM_eff`, `pisToLams_spec`, `stripPisBody_spec`, `stripPisBodyI_spec` | −147 lines, no statement anywhere else touched |
+| **B2** `CStore` | the unit structure, its twenty forwarding methods, `withStore`, `isBoolTrueI`.  62 reads in `CoreC` become the operation itself: 13 `st.getNode (st.getAppFnI e)` are `viewI (ExprC.getAppFn e)` (definitionally the same term), 49 are `pure (f a)`.  `CStore.PWMemo`/`zeronessOfLIGo` — the one method that computed anything — become `PWMemo`/`zeronessOfLGo` | `SimC.withStore`/`CEff.withStore` become `SimC.pureB`/`CEff.pureB` (peel `pure x >>= k`, same continuation goal) at all 62 sites; the twelve store-shaped agreement lemmas lose `{st : CStore}` and take the primed name of the guard they are about |
+| **B3** `internI` | `internI (.const c us)` is `pure (Expr.const c us)` at all 44 sites; `ExprC.ofView`, `ofViewE`, `ofView_spec`, `ofViewE_view` | `internI_eff` → `pureC_eff` (59 sites) + `pureBvar_eff` (the two `bvar 0` allocations go through `Expr.mkBvar`); four `rw [show ofViewE …]` and two `dsimp only [ofViewE]` deleted |
+| **B4** `viewI` | 54 `match ← viewI e with \| some (.const c us) =>` become `match e with \| .const c us =>` — a bind *and* an `Option` gone, the latter being the arena's (an index lookup could miss, a node cannot); three `\| _ => throw (.internal "interned node missing")` arms go with it | `SimC.view`/`CEff.view` and their 68 peel sites deleted; 28 statement echoes follow the bodies, three of which become `unfold` because a `match` on a free variable auto-generalizes hypotheses mentioning it |
+| **B5** `ExprView` | the inductive, `Lech.Expr.view`, `Lech.viewM`, `Cached.ExprC.view`, `view_spec` | `viewM, Expr.view` drops out of 54 `simp` sets across `Verify/Deep`, `Verify/Disc`, `Verify/Infer*Leaves`, `Verify/InferIOLemmas` and `SetP/Step2`; 78 further simp arguments (`Bind.bind`, `Except.bind`, `pure_bind`, …) became unused and were removed |
+| **B6** `ConstantValC` | replaced by `Lech.ConstantVal` in `DeclC` | 6 verify sites |
+| **B7** intern/readback wrappers | `internExprM`, `internNameM`, `readbackNM`, `internLM`, `readbackLevelsM`, `beqNameM`, `projFnIdxM` — all `pure` of their argument | the six value-fact effect lemmas collapse to one `pureEq_eff`; `internExprM_eff` to `pureC_eff`; `ruleRhsAtM`'s `let raw ← internExprM rl.rhs` bind goes entirely |
+| **prose** | "the clone", "the interned twin", "`IState.ienv`", "one interned state per declaration", "the arena's node count" in `Lech/Cached/*` docstrings | prose only; dated, attributed history stays |
+
+**The one trap worth naming.**  Dot notation resolves through the
+*declared field type*, so removing an `ExprC`-typed field silently
+changes which function a `.method` picks: `cv.type.hasFvar` went from
+`ExprC.hasFvar` (an `O(1)` computed-field read) to `Expr.hasFvar` (a
+walk) the moment `ConstantValC` became `ConstantVal`.  The site is now
+spelled `ExprC.hasFvar cv.type` and `DeclC`'s docstring says why.  Any
+future removal of an `ExprC`-typed field must check the same thing —
+the `ExprC` namespace is *live*, and this is how it is entered.
+
+### What stays, and why
+
+Beyond the (b) rows of the census:
+
+* **`peelFuelM`** (`pure peelFuel`, 5 proof sites) and **`bvarBoundM`**
+  (`pure e.bvarB`, 1) — wrappers, but each names a *decision* (the
+  telescope's fuel; the `O(1)` field read that licenses a skip) rather
+  than mirroring a deleted operation.
+* **the `ExprC`-operation wrappers** — `inst1M`, `instListRevM` (30
+  proof sites), `abstract1M`, `abstractRangeM`, `mkAppNM`,
+  `instSpineM`, `piResidualM`, `instLevelParamsM`,
+  `substLevelTreesM`.  Each is `pure (ExprC.op …)` and each `_eff` is
+  the operation's spec agreement — real content, not a transport.
+  Inlining them would rename ~60 proof sites for no change in what is
+  proved; the value is in the reader's ability to see the executed
+  operation named at the monad.  ~1 hour, mechanical, no risk.
+* **`RelC` / `RelCL`** (`v' = v`, `l = xs`; 251 + 161 verify mentions,
+  **0** implementation mentions) — the interning era's index-to-term
+  relation, now the identity.  Removing it is a global substitution
+  into `Eq` that would touch every `Verify/Cached` proof and change the
+  *spelling* of statements that the proofdeps and axiom gates pin.
+  Deferred deliberately: the change is large, purely cosmetic, and
+  would make the diff of any concurrent lane unreadable.  ~3 hours,
+  and it should be its own task.
+* **`ExprC.mkBVar` … `mkProj` and their ten `rfl` `mk*_eq` simp
+  lemmas** — constructor aliases.  Removing them is a rename of ~30
+  sites, not a simplification; and `ExprC.mkBVar` is the one place the
+  shared-small-node `Expr.mkBvar` is reached by the tier.
+* **`Lech/Frontend/ExportC.lean`'s arena prose** — that module's
+  header explains *why the direct parse is shaped the way it is* by
+  contrast with the parser it replaced.  It is history, and it is
+  dated.
+
+### Gates
+
+`lake build` warning-free (the `linter.unusedSimpArgs` cleanup above is
+part of that); `lake test`; `tests/arena.sh` green — layering `0
+impl->theory`, proofdeps `2515` rows as pinned across 7 roots with `0`
+doors, trust surface `18` escapes in `4` allowlisted files (unchanged),
+axioms pinned at the eleven theorems, arena 90/92, e2e 101/101, annot
+14/14, flags 8+16, prelude 3/3, progress 6/6, trusted sweep as
+expected.
+
+`init-full`, both modes, `perf stat -e instructions:u`, same machine,
+same stream (53 890 accepted, exit 0 in both):
+
+| mode | before (master `5f155d4e`) | after | Δ |
+|---|---|---|---|
+| `--verified` | 819.00 G | 818.38 G | **−0.08 %** |
+| `--trusted` | 795.38 G | 794.77 G | **−0.08 %** |
+
+Neutral, as expected: every wrapper removed was `@[inline]`, so the
+code generator had already erased them.  The change is to what a reader
+has to hold in their head, not to what the machine does.
