@@ -127,7 +127,7 @@ def instantiate1Go (v : ExprC) (memo : MemoN) (e : ExprC) (d : Nat) :
   if e.bvarB ≤ d then (e, memo) else
   match e with
   | .bvar i .. =>
-    (if i = d then v else if i > d then mkBVar (i - 1) else e, memo)
+    (if i = d then v else if i > d then mkBVarP (i - 1) else e, memo)
   | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
   | .app f a .. =>
     let key := (e, d)
@@ -209,7 +209,7 @@ def instantiateListGo (vs : Array ExprC) (memo : MemoNL)
           if i - d = 0 || w.bvarB ≤ d then (w, memo)
           else ((instantiateListGo vs {} w (i - d) d).1, memo)
         else (e, memo)
-      else (mkBVar (i - k), memo)
+      else (mkBVarP (i - k), memo)
     | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
     | .app f a .. =>
       let key := (e, d)
@@ -288,7 +288,7 @@ def instantiateRevGo (vs : Array ExprC) (memo : MemoNL)
           if i - d = 0 || w.bvarB ≤ d then (w, memo)
           else ((instantiateRevGo vs {} w (i - d) d).1, memo)
         else (e, memo)
-      else (mkBVar (i - k), memo)
+      else (mkBVarP (i - k), memo)
     | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
     | .app f a .. =>
       let key := (e, d)
@@ -364,7 +364,7 @@ def abstract1Go (d : Nat) (memo : MemoN) (e : ExprC) (k : Nat) :
     ExprC × MemoN :=
   if e.fvarB ≤ d then (e, memo) else
   match e with
-  | .fvar idx .. => (if idx = d then mkBVar k else e, memo)
+  | .fvar idx .. => (if idx = d then mkBVarP k else e, memo)
   | .bvar .. | .sort .. | .const .. | .lit .. => (e, memo)
   | .app f a .. =>
     let key := (e, k)
@@ -423,7 +423,7 @@ def abstractRangeGo (d k : Nat) (memo : MemoN) (e : ExprC) (c : Nat) :
   if e.fvarB ≤ d then (e, memo) else
   match e with
   | .fvar idx .. =>
-    (if d ≤ idx ∧ idx < d + k then mkBVar (c + (d + k - 1 - idx)) else e, memo)
+    (if d ≤ idx ∧ idx < d + k then mkBVarP (c + (d + k - 1 - idx)) else e, memo)
   | .bvar .. | .sort .. | .const .. | .lit .. => (e, memo)
   | .app f a .. =>
     let key := (e, c)

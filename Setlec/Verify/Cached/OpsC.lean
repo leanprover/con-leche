@@ -571,7 +571,7 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
               exact absurd (by omega : i - d < vs.size) hidv
           · rename_i hidk
             refine ⟨hm, ?_⟩
-            rw [mkBVar_eq, Expr.instantiateList,
+            rw [mkBVarP_eq, Expr.instantiateList,
               if_neg hid, dif_neg (by rw [hlen]; exact hidk), hlen]
   | fvar idx n ty iht =>
     intro memo d hk hm
