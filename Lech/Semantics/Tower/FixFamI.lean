@@ -882,6 +882,72 @@ theorem spineFit_real_of_XI (hI : IdxOk u ρp Ids) {μ X t : V} (hXμ : FamLe (i
     exact spineFit_real_of_XI hI hXμ Fs₀ Fs (as.length + 1) (as ++ [b]) bs (length_snoc' b as)
       (htail b hb') (hfit.2 b hb) hrest
 
+/-- **Stage elimination** (graph regime): a member of the functor's
+fibre at `(X, t)` is the injection of a point-terminated tuple fitting
+constructor `j`'s X-chain, with the index equation holding. -/
+theorem fixStepI_elim {w : Nat} (hw : w ≠ 0) {X t x : V}
+    (hx : x ∈ˢ fixStepI u w ρp Ids Ids.length rss Eiss Fss Ess X t) :
+    ∃ j fs, x = inj j (mkTower (fs ++ [pt])) ∧ j < Fss.length ∧
+      fs.length = (Fss.getD j []).length ∧
+      SpineFit (cons t (cons X ρp)) (chainXIGo u Ids (rss.getD j []) (Eiss.getD j []) (Fss.getD j []) 0) fs ∧
+      EqAll (consList fs (cons t (cons X ρp))) (eqsXI Ids.length (Fss.getD j []).length (Ess.getD j [])) := by
+  unfold fixStepI at hx
+  obtain ⟨j, a, ha, rfl⟩ := sumSet_elim hw hx
+  unfold sumFibre at ha
+  by_cases hj : j < Fss.length
+  · rw [chainsXI_getElem?, if_pos hj] at ha
+    obtain ⟨hfit, heta⟩ := towerSet_elim_teleOfFields hw ha
+    unfold chainXI at hfit heta
+    obtain ⟨fs, hfs, hsp, hall⟩ := spineFit_append_idxEq.mp hfit
+    have hlen : fs.length = (Fss.getD j []).length := by
+      have := hsp.length_eq
+      rwa [chainXIGo_length] at this
+    refine ⟨j, fs, ?_, hj, hlen, hsp, hall⟩
+    rw [heta, hfs]
+  · rw [chainsXI_getElem?, if_neg hj] at ha
+    exact absurd ha (not_mem_empty _)
+
+/-- **Stage elimination** (squash regime). -/
+theorem fixStepI_zero_elim {X t x : V}
+    (hx : x ∈ˢ fixStepI u 0 ρp Ids Ids.length rss Eiss Fss Ess X t) :
+    x = pt ∧ ∃ j fs, j < Fss.length ∧ fs.length = (Fss.getD j []).length ∧
+      SpineFit (cons t (cons X ρp)) (chainXIGo u Ids (rss.getD j []) (Eiss.getD j []) (Fss.getD j []) 0) fs ∧
+      EqAll (consList fs (cons t (cons X ρp))) (eqsXI Ids.length (Fss.getD j []).length (Ess.getD j [])) := by
+  unfold fixStepI at hx
+  obtain ⟨rfl, j, a, ha⟩ := sumSet_zero_elim hx
+  refine ⟨rfl, ?_⟩
+  unfold sumFibre at ha
+  by_cases hj : j < Fss.length
+  · rw [chainsXI_getElem?, if_pos hj] at ha
+    obtain ⟨-, as, hfit⟩ := towerSet_zero_elim _ ha
+    have hfit' := fitsS_teleOfFields.mp hfit
+    unfold chainXI at hfit'
+    obtain ⟨fs, -, hsp, hall⟩ := spineFit_append_idxEq.mp hfit'
+    have hlen : fs.length = (Fss.getD j []).length := by
+      have := hsp.length_eq
+      rwa [chainXIGo_length] at this
+    exact ⟨j, fs, hj, hlen, hsp, hall⟩
+  · rw [chainsXI_getElem?, if_neg hj] at ha
+    exact absurd ha (not_mem_empty _)
+
+/-- The index values of a fitting tuple's terminator are the tuple's
+components. -/
+theorem idxValsAt_of_eqsXI (hI : IdxOk u ρp Ids) {X : V} {is : List V} (hsp : SpineFit ρp Ids is)
+    {fs : List V} {Es : List AVExpr} (hEs : Es.length = Ids.length)
+    (hall : EqAll (consList fs (cons (tupW u is) (cons X ρp))) (eqsXI Ids.length fs.length Es)) :
+    idxValsAt ρp Es fs = is := by
+  have h := (EqAll_eqsXI hI hsp rfl).mp hall
+  have hislen : is.length = Ids.length := hsp.length_eq
+  unfold idxValsAt
+  apply List.ext_getElem
+  · rw [List.length_map]; omega
+  · intro l h1 h2
+    rw [List.getElem_map]
+    have := h l (by rw [List.length_map] at h1; omega)
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [List.length_map] at h1; omega),
+      Option.getD_some, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some] at this
+    exact this
+
 end Fam
 
 end Lech.Semantics
