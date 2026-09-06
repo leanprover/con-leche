@@ -1,4 +1,4 @@
-# Setlec -- a lean checker that's never False
+# Setlec – a lean checker that's never False
 
 Setlec is an external checker for the Lean theorem prover that is proven (in Lean) to be consistent in that it does not accept a proof of False.
 
