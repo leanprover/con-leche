@@ -647,7 +647,8 @@ theorem checkDeclSPStepC_run {env : Env} (henv : EnvWF env) {pd : DeclC}
   | axiomDecl hty => exact main _ (fun _ h => DeclC.noConfusion h) rfl (fun _ => rfl)
   | basisDecl =>
     obtain ⟨hs', v, ⟨henvEq, hmk⟩, F, hF⟩ :=
-      (checkDeclSPC_sim henv hcsok hrel (fun _ h => DeclC.noConfusion h)) fe' s' h
+      (checkDeclSPC_sim henv hcsok DeclCRel.basisDecl
+        (fun _ h => DeclC.noConfusion h)) fe' s' h
     refine ⟨hs'.residue, hmk, F, ?_⟩
     show checkDeclAt mode (fueledOps mode F) env _ = _
     rw [← checkDeclAt_datF, henvEq]

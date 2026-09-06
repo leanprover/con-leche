@@ -1055,6 +1055,41 @@ theorem maskOf?_eq {ps : List Name} : ∀ {l : Level} {pw : PropWhen},
     rw [maskOf_max, maskOf?_eq hx, maskOf?_eq hy]
   | .imax a b, pw, h => maskOf?_eq (l := b) h
 
+/-- **The two readers agree where the total one is informative**: a
+`maskOf` answer other than `never` is exactly the validation reader's
+answer.  (`maskOf` differs from `maskOf?` only by mapping the refusals
+— an unrepresentable parameter, a position at or beyond `maxParams` —
+to `never`, and `never` is absorbing in both `inter` and the `imax`
+collapse.) -/
+theorem maskOf?_of_ne_never {ps : List Name} :
+    ∀ {l : Level}, maskOf ps l ≠ .never → maskOf? ps l = some (maskOf ps l)
+  | .zero, _ => rfl
+  | .succ _, h => absurd (maskOf_succ ps _) h
+  | .param n, h => by
+    cases hi : posOf ps n with
+    | none =>
+      exact absurd (show maskOf ps (.param n) = .never by simp [maskOf, hi]) h
+    | some i =>
+      have hm : maskOf ps (.param n) = PropWhen.bit i := by simp [maskOf, hi]
+      have hlt : i < PropWhen.maxParams :=
+        match Nat.lt_or_ge i PropWhen.maxParams with
+        | .inl hlt => hlt
+        | .inr hge => absurd (hm.trans (PropWhen.bit_of_ge
+            (by simpa [PropWhen.maxParams] using hge))) h
+      rw [hm]
+      simp [maskOf?, hi, hlt]
+  | .max a b, h => by
+    rw [maskOf_max] at h ⊢
+    have ha : maskOf ps a ≠ .never := by
+      intro hEq; exact h (by rw [hEq, PropWhen.inter_never_left])
+    have hb : maskOf ps b ≠ .never := by
+      intro hEq; exact h (by rw [hEq, PropWhen.inter_never_right])
+    simp only [maskOf?, maskOf?_of_ne_never ha, maskOf?_of_ne_never hb,
+      Option.bind_eq_bind, Option.bind_some, pure]
+  | .imax a b, h => by
+    rw [maskOf_imax] at h ⊢
+    exact maskOf?_of_ne_never (l := b) h
+
 /-- Where the validation reader answers, the answer is defined below
 the reserved bit (no position at or beyond `maxParams`). -/
 theorem maskOf?_wf63 {ps : List Name} : ∀ {l : Level} {pw : PropWhen},

@@ -75,8 +75,10 @@ version of the claims' zero side: the bit is `0` at every valuation
 (the dual of `pwBit_ne_zero_of_isNever`). -/
 theorem pwBit_eq_zero_of_isProp {pw : PropWhen}
     (h : pw.isProp = true) (φ : Name → Nat) : pwBit env.lpsL φ pw = 0 := by
-  rw [pwBit_eq_of_equiv h env.lpsL φ]
-  simp [pwBit, Setlec.PropWhen.holds]
+  have hp : pw = .always := by simpa [Setlec.PropWhen.isProp] using h
+  subst hp
+  rw [pwBit_eq_zero_iff]
+  exact Setlec.PropWhen.holds_always _
 
 /-- **Exactness**: `pw.isProp` is *the* datum that is zero at every
 valuation — `isNever_iff_forall_pwBit_ne_zero`'s mirror. -/
@@ -85,22 +87,22 @@ theorem alwaysZero_iff_forall_pwBit_eq_zero {pw : PropWhen} :
   constructor
   · exact pwBit_eq_zero_of_isProp
   · intro h
-    cases pw with
-    | never => exact absurd (h (fun _ => 0)) (by simp [pwBit, Setlec.PropWhen.holds])
-    | ifAllZero ps =>
-      cases ps with
-      | nil => rfl
-      | cons n ps =>
-        have := h (fun _ => 1)
-        simp [pwBit, Setlec.PropWhen.holds] at this
+    have h1 := h (fun _ => 1)
+    rw [pwBit_eq_zero_iff] at h1
+    have hval : Setlec.Level.valAt env.lpsL (fun _ => 1) = fun _ => 1 := rfl
+    rw [hval, Setlec.PropWhen.holds_one] at h1
+    simpa [Setlec.PropWhen.isProp] using h1
 
 /-- A level whose zero-ness datum is always-zero evaluates to `0`. -/
 theorem eval_eq_zero_of_isProp {u : Level}
-    (h : (Level.zeronessOf u).isProp = true) (φ : Name → Nat) :
+    (h : (Level.maskOf env.lpsL u).isProp = true) (φ : Name → Nat) :
     Level.eval φ u = 0 := by
-  have := pwBit_eq_zero_of_isProp h φ
-  rw [pwBit_eq_zero_iff, Setlec.PropWhen.zeronessOf_sound] at this
-  exact beq_iff_eq.mp this
+  have hne : Level.maskOf env.lpsL u ≠ .never := by
+    intro hEq; rw [hEq] at h; simp at h
+  have hb := pwBit_eq_zero_of_isProp h φ
+  rw [pwBit_eq_zero_iff,
+    Setlec.Level.holds_maskOf? φ (Setlec.Level.maskOf?_of_ne_never hne)] at hb
+  exact beq_iff_eq.mp hb
 
 /-- **THE FENCE.**  At a nonzero bit the product reading is a graph set
 with two distinct members: a `prf` verdict read off a datum that is

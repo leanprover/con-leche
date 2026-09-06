@@ -276,6 +276,18 @@ theorem getAppFn_instantiateLevelParams (ks : List Name)
       using ihf
   | _ => simp [Expr.instantiateLevelParams, Expr.getAppFn]
 
+/-- A spine's head keeps its level parameters defined. -/
+theorem allLevelParamsDefined_getAppFn {ps : List Name} :
+    ∀ {e : Expr}, e.allLevelParamsDefined ps = true →
+      e.getAppFn.allLevelParamsDefined ps = true
+  | .app f a, h => by
+    rw [Expr.getAppFn]
+    refine allLevelParamsDefined_getAppFn (e := f) ?_
+    exact (by simpa [Expr.allLevelParamsDefined] using h : _ ∧ _).1
+  | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h
+  | .lam _ _ _ _, h | .forallE _ _ _ _, h | .letE _ _ _ _, h
+  | .lit _, h | .proj _ _ _, h => h
+
 /-- A stripped telescope's body keeps its level parameters defined. -/
 theorem allLevelParamsDefined_stripPis_body {ps : List Name} :
     ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
