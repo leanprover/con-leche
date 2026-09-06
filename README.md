@@ -30,7 +30,9 @@ The idea of the consistency proof is that we define a model in set theory, class
 
 ### Set theory assumption
 
-The set model is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form; infinity and choice are derivable from that. See [`Setlec/SetTheory/Core.lean`](./Setlec/SetTheory/Core.lean) for the precise formulation of our set theory. We also show that this interface can be realized within Lean by Aczel's sets-as-trees construction, with the universe chain as the one remaining assumption ([`Setlec/SetTheory/Aczel.lean`](./Setlec/SetTheory/Aczel.lean)); that is the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis, the same assumption as in the [lean4lean-model](https://github.com/digama0/lean4lean-model).
+The set model is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form; infinity and choice are derivable from that. See [`Setlec/SetTheory/Core.lean`](./Setlec/SetTheory/Core.lean) for the precise formulation of our set theory.
+
+We also show that this interface can be realized within Lean by Aczel's sets-as-trees construction, with the universe chain as the one remaining assumption ([`Setlec/SetTheory/Aczel.lean`](./Setlec/SetTheory/Aczel.lean)); that is the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis, the same assumption as in the [lean4lean-model](https://github.com/digama0/lean4lean-model).
 
 ### Level annotation
 
@@ -38,9 +40,9 @@ In our set interpretation, false propositions are $\emptyset$ and true propositi
 
 To resolve this, the checker annotates every `.pi` and `.lambda` with a `PropWhen` datum that says under which level assignments this is a proposition or a type. This is either “always type” or “prop when all of these level parameters are zero”.
 
-With this annotation we can have a syntactic interpretation `[e]`.
+With this annotation we can have a syntactic interpretation `[e]`. On top of this we define a *semantic* typing predicate that we can then show is preserved by reduction.
 
-What's more: For functions producing types (but not those that are propositions) we can read the domain of the function off its semantic value. This means beta reduction can be proven to be semantics preserving without a run-time argument check, the crucial observation that unblocked this project.
+What's more: For functions producing types (but not those that are propositions) we can read the domain of the function off its semantic value. This means beta reduction can be proven to be semantics preserving without a run-time argument check, and it allows a faster `infer_only` operation that infers the type of a previously checked expression without re-checking the whole term. This was the crucial observation that unblocked this project.
 
 ### The certification tax
 
