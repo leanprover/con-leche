@@ -247,11 +247,11 @@ theorem noProjAt_of_constsResolve {env : Env} (hT : env.find? T = none) :
 
 /-! ## `ProjSlotsOk` and `FvarTysOk` -/
 
-/-- Every `.proj s j` node's slot holds a tower-backed entry,
+/-- Every `.proj s j` node's slot holds a projection-table entry,
 hereditarily (through fvar types). -/
 def ProjSlotsOk (env : Env) : Expr → Prop
-  | .proj s j e => (∃ entry : ProjEntry, env.findProj? s j = some entry ∧
-      entry.tower = true) ∧ ProjSlotsOk env e
+  | .proj s j e => (∃ entry : ProjEntry, env.findProj? s j = some entry) ∧
+      ProjSlotsOk env e
   | .app f a => ProjSlotsOk env f ∧ ProjSlotsOk env a
   | .lam _ ty b _ => ProjSlotsOk env ty ∧ ProjSlotsOk env b
   | .forallE _ ty b _ => ProjSlotsOk env ty ∧ ProjSlotsOk env b
@@ -283,8 +283,8 @@ variable {env : Env}
 
 @[simp] theorem projSlotsOk_proj {s : Name} {j : Nat} {e : Expr} :
     ProjSlotsOk env (.proj s j e) ↔
-      (∃ entry : ProjEntry, env.findProj? s j = some entry ∧
-        entry.tower = true) ∧ ProjSlotsOk env e := by
+      (∃ entry : ProjEntry, env.findProj? s j = some entry) ∧
+        ProjSlotsOk env e := by
   rw [ProjSlotsOk]
 @[simp] theorem projSlotsOk_app {f a : Expr} :
     ProjSlotsOk env (.app f a) ↔ ProjSlotsOk env f ∧ ProjSlotsOk env a := by
@@ -618,7 +618,7 @@ theorem ProjSlotsOk.noProjAt (hslot : env.findProj? T i = none) :
   | proj s j e ihe =>
     intro h
     rw [projSlotsOk_proj] at h
-    obtain ⟨⟨entry, hfe, -⟩, he⟩ := h
+    obtain ⟨⟨entry, hfe⟩, he⟩ := h
     refine noProjAt_proj.mpr ⟨?_, ihe he⟩
     rintro ⟨rfl, rfl⟩
     rw [hslot] at hfe
@@ -698,10 +698,10 @@ theorem annotateCore_projSlotsOk {env : Env} :
         annotateCore_projSlotsOk fuel a haa hf.2⟩
   | fuel + 1, .proj sn i e, d, e', h, hf => by
     rw [Expr.fvarTysOk_proj] at hf
-    obtain ⟨e₂, tt, te, he, -, -, T, us, entry, -, hfe, hnat, -, rfl⟩ :=
+    obtain ⟨e₂, tt, te, he, -, -, T, us, entry, -, hfe, -, rfl⟩ :=
       annotateCore_proj_inv h
     have hok₂ := annotateCore_projSlotsOk fuel e he hf
-    exact Expr.projSlotsOk_proj.mpr ⟨⟨entry, hfe, hnat⟩, hok₂⟩
+    exact Expr.projSlotsOk_proj.mpr ⟨⟨entry, hfe⟩, hok₂⟩
   | fuel + 1, .forallE n ty body m, d, e', h, hf => by
     rw [Expr.fvarTysOk_forallE] at hf
     obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_forallE_inv h

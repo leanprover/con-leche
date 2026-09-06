@@ -87,9 +87,6 @@ theorem Env.findProj?_none_of_fresh {env : Env} {T : Name}
     (tbl.entry i).fieldSort = tbl.guards.getD i .zero := rfl
 @[simp] theorem ProjTable.entry_structSort (tbl : ProjTable) (i : Nat) :
     (tbl.entry i).structSort = tbl.structSort := rfl
-@[simp] theorem ProjTable.entry_tower (tbl : ProjTable) (i : Nat) :
-    (tbl.entry i).tower = tbl.tower := rfl
-
 /-- Syntactic well-formedness of one stored constant w.r.t. `env`. -/
 def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
   c.toConstantVal.type.hasFvar = false ∧

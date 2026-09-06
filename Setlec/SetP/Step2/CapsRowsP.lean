@@ -654,19 +654,19 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
     -- data carries the former's level parameters; no per-slot
     -- certificate runs at a tower family)
     have hslotE : ∀ j, j < cnF → ∃ entry : ProjEntry,
-        env.findProj? T j = some entry ∧ entry.tower = true ∧
+        env.findProj? T j = some entry ∧
         entry.levelParams = cvT.levelParams := by
       intro j hj
-      obtain ⟨entry, hfe, htw⟩ := Setlec.towerSlotsAll_slot htow j hj
+      obtain ⟨entry, hfe⟩ := Setlec.towerSlotsAll_slot htow j hj
       obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', -, -, -, -⟩, -⟩ :=
-        htower T j entry hfe htw
+        htower T j entry hfe
       have hcvT' : cvT' = cvT := by
         rw [hfT] at hfT'
         exact (ConstantInfo.indInfo.inj (Option.some.inj hfT')).1.symm
-      exact ⟨entry, hfe, htw, by rw [← hlpsT', hcvT']⟩
-    obtain ⟨e0, hfe0, htw0⟩ := Setlec.towerSlotsAll_slot htow 0 h0
+      exact ⟨entry, hfe, by rw [← hlpsT', hcvT']⟩
+    obtain ⟨e0, hfe0⟩ := Setlec.towerSlotsAll_slot htow 0 h0
     obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', -, hctr', hpar', hfld'⟩,
-      -, -, -, -, -, hetaL⟩ := htower T 0 e0 hfe0 htw0
+      -, -, -, -, -, hetaL⟩ := htower T 0 e0 hfe0
     have hcvT' : cvT' = cvT := by
       rw [hfT] at hfT'
       exact (ConstantInfo.indInfo.inj (Option.some.inj hfT')).1.symm
@@ -683,15 +683,15 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
     have hprojden : ∀ j ∈ List.range cnF,
         denoteP m.acval env φ d (.proj T j b) = some (projAV j ba) := by
       intro j hj
-      obtain ⟨entry, hfe, htw, -⟩ := hslotE j (List.mem_range.mp hj)
-      exact denoteP_proj_tower hfe htw hdb
+      obtain ⟨entry, hfe, -⟩ := hslotE j (List.mem_range.mp hj)
+      exact denoteP_proj_tower hfe hdb
     have hokProj : ∀ x ∈ (List.range cnF).map (fun j => projAV j ba),
         ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ x := by
       intro x hx σ hσ
       obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
-      obtain ⟨entry, hfe, htw, hlpe⟩ := hslotE j (List.mem_range.mp hj)
+      obtain ⟨entry, hfe, hlpe⟩ := hslotE j (List.mem_range.mp hj)
       obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j, _,
-        -, -, hlawj, -⟩ := htower T j entry hfe htw
+        -, -, hlawj, -⟩ := htower T j entry hfe
       have hcapsTj : capsTj = caps := by
         rw [hfT] at hfTj
         exact (ConstantInfo.indInfo.inj (Option.some.inj hfTj)).2.symm

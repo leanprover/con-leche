@@ -124,7 +124,7 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
       = some (cds, .forallE nmC
           (Expr.instSpine (Setlec.fvsD nP ++ [Setlec.tfvD nP]) nP body) bodyC mbC))
     (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
-    (hprev : ∀ j, j < i → ∃ entry, env.findProj? T j = some entry ∧ entry.tower = true)
+    (hprev : ∀ j, j < i → ∃ entry, env.findProj? T j = some entry)
     (hi : i < nF)
     {ds : List (Nat × Nat × AVExpr)} {bodyA : AVExpr} {ψ : Name → Nat} {w : Nat}
     (hlenDs : ds.length = nP + nF) (hbelow : DomsBelow 0 ds)

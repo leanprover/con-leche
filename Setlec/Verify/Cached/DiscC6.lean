@@ -37,12 +37,12 @@ theorem isPropTypeC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     {ty : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ty) (hw : Expr.WScoped d ty) :
     SimC mode env s₀ RelVC
-      (isPropTypeI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (isPropTypeI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
       (isPropType (fueledFns mode env) env d ty) := by
   show SimC mode env s₀ RelVC
-    ((coreKnotI mode (mkFEnv env) f).annotate d i >>= fun ty' =>
-      (coreKnotI mode (mkFEnv env) f).inferIO d ty' >>= fun tty =>
-      ensureSortI (coreKnotI mode (mkFEnv env) f) d tty >>= fun s =>
+    ((coreKnotI (cfgOf mode) (mkFEnv env) f).annotate d i >>= fun ty' =>
+      (coreKnotI (cfgOf mode) (mkFEnv env) f).inferIO d ty' >>= fun tty =>
+      ensureSortI (coreKnotI (cfgOf mode) (mkFEnv env) f) d tty >>= fun s =>
       internLM .zero >>= fun z =>
       isEquivLM s z >>= fun o =>
       liftFueled "level comparison" o)
@@ -78,7 +78,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
+      (annotateBodyI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
       (annotateBody (fueledFns mode env) env d ex) := by
   unfold annotateBodyI
   refine SimC.view ?_
@@ -295,26 +295,20 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
         exact SimC.throw
       | some entry =>
         dsimp only
-        cases hnat : entry.tower with
-        | false =>
-          simp only [Bool.false_eq_true, ↓reduceIte]
+        refine SimC.withStore ?_
+        simp only [CStore.getAppArgsI, RelCL.length htargs]
+        by_cases hlen : (Expr.getAppArgs te).length = entry.numParams
+        · rw [if_pos hlen, if_pos hlen]
+          exact SimC.of_eff
+            (internI_eff hs₃T (n := ExprView.proj Tw ipN e')) _
+            (fun r hQ => ⟨by
+                show _ = _
+                have h2 : r = Expr.proj Tw ipN e' := hQ
+                rw [h2, he'd], by
+              simp only [Expr.WScoped]
+              exact hwe'⟩)
+        · rw [if_neg hlen, if_neg hlen]
           exact SimC.throw
-        | true =>
-          simp only [↓reduceIte]
-          refine SimC.withStore ?_
-          simp only [CStore.getAppArgsI, RelCL.length htargs]
-          by_cases hlen : (Expr.getAppArgs te).length = entry.numParams
-          · rw [if_pos hlen, if_pos hlen]
-            exact SimC.of_eff
-              (internI_eff hs₃T (n := ExprView.proj Tw ipN e')) _
-              (fun r hQ => ⟨by
-                  show _ = _
-                  have h2 : r = Expr.proj Tw ipN e' := hQ
-                  rw [h2, he'd], by
-                simp only [Expr.WScoped]
-                exact hwe'⟩)
-          · rw [if_neg hlen, if_neg hlen]
-            exact SimC.throw
     | bvar k =>
       rw [show (Expr.getAppFn te) = Expr.bvar k from hfn.symm]
       exact SimC.throw

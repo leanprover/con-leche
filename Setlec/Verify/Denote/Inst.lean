@@ -171,12 +171,7 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
         · simp only [Option.map_some, VExpr.inst_proj]
         · rfl
       | some entry =>
-        dsimp only
-        split
-        · simp only [Option.map_some, inst_projNV]
-        · split
-          · simp only [Option.map_some, VExpr.inst_proj]
-          · rfl
+        simp only [Option.map_some, inst_projNV]
   | .lit (.natVal k), D, hpD, hfb => by
     simp only [Expr.substFvarAt, denote_natLit]
     split

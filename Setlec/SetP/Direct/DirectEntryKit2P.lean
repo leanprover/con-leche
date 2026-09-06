@@ -218,7 +218,7 @@ theorem denoteSpineP_entryParams {acval : Name → (Name → Nat) → AVExpr} {e
 depth `nP + 1`, through the stored tower entries. -/
 theorem denoteSpineP_entryProjs {acval : Name → (Name → Nat) → AVExpr} {env : Env}
     {φ : Name → Nat} {nP : Nat} {T : Name} {nmT : Name} {sdom : Expr}
-    (hprev : ∀ j, j < i → ∃ entry, env.findProj? T j = some entry ∧ entry.tower = true) :
+    (hprev : ∀ j, j < i → ∃ entry, env.findProj? T j = some entry) :
     DenoteSpineP acval env φ (nP + 1)
       ((List.range i).map fun j => Expr.proj T j (.fvar nP nmT sdom)) (entryProjAVs i) := by
   unfold entryProjAVs
@@ -232,10 +232,10 @@ theorem denoteSpineP_entryProjs {acval : Name → (Name → Nat) → AVExpr} {en
   | nil => intro _; exact .nil
   | cons j l ih =>
     intro hl
-    obtain ⟨entry, hfe, htw⟩ := hprev j (hl j List.mem_cons_self)
+    obtain ⟨entry, hfe⟩ := hprev j (hl j List.mem_cons_self)
     simp only [List.map_cons]
     refine .cons ?_ (ih fun j' hj' => hl j' (List.mem_cons_of_mem _ hj'))
-    rw [denoteP_proj_tower hfe htw (denoteP_fvar acval (nP + 1) nP nmT sdom),
+    rw [denoteP_proj_tower hfe (denoteP_fvar acval (nP + 1) nP nmT sdom),
       show nP + 1 - 1 - nP = 0 from by omega]
 
 /-- **The chain frame agrees with the projection spine's frame** below

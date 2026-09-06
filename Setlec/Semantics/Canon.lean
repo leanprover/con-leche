@@ -129,9 +129,7 @@ def denote2 (mode : CheckMode) (acval : Name → (Name → Nat) → AVExpr)
     -- the entry-kind branch (task #175 wiring W3), clause-parallel
     -- with `denote` and `denoteP`
     match env.findProj? sn i with
-    | some entry =>
-      if entry.tower then some (projAV i ea)
-      else if i < 2 then some (.proj i ea) else none
+    | some _ => some (projAV i ea)
     | none => if i < 2 then some (.proj i ea) else none
   | _, .lit (.natVal n) =>
     if natLitSupported env then
@@ -304,8 +302,7 @@ theorem denote2_erase {mode : CheckMode}
     · rw [hea] at h; exact nomatch h
     rw [hea] at h
     replace h : (match env.findProj? sn i with
-        | some entry => if entry.tower = true then some (projAV i ea')
-            else if i < 2 then some (AVExpr.proj i ea') else none
+        | some _ => some (projAV i ea')
         | none => if i < 2 then some (AVExpr.proj i ea') else none)
           = some ea := h
     rw [denote_proj, ihe hea]
@@ -314,18 +311,8 @@ theorem denote2_erase {mode : CheckMode}
     | some entry =>
       rw [hfp] at h
       dsimp only at h ⊢
-      by_cases htw : entry.tower = true
-      · rw [if_pos htw] at h
-        obtain rfl := Option.some.inj h
-        rw [if_pos htw, erase_projAV]
-      · rw [if_neg htw] at h ⊢
-        by_cases hi : i < 2
-        · rw [if_pos hi] at h
-          obtain rfl := Option.some.inj h
-          rw [if_pos hi]
-          rfl
-        · rw [if_neg hi] at h
-          exact nomatch h
+      obtain rfl := Option.some.inj h
+      rw [erase_projAV]
     | none =>
       rw [hfp] at h
       dsimp only at h ⊢

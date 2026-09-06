@@ -22,9 +22,6 @@ is what route (a) buys instead of the run→derivation lemmas route (b)
 would have owed (see `Bridge/DeclIndRun.lean`'s header for the
 priced comparison).
 
-`templates_ext` is **not** duplicated: `DeclIndRun.Templates` never
-took a valuation, so the run family names it verbatim and its lemma
-serves both.
 -/
 
 namespace Setlec.Semantics
@@ -902,7 +899,7 @@ theorem declIndEtaClosedRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
   rcases hmain with ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt, harm⟩ |
     ⟨-, envM, hmem, hrecs⟩
   · -- the single-constructor arm
-    obtain ⟨envM, envR, hmem, hrecs, -, -, envP, hproj, htpl⟩ := harm
+    obtain ⟨envM, envR, hmem, hrecs, -, -, hproj⟩ := harm
     have hmemFil : ∀ {p : ConstantInfo → Bool} {x : ConstantInfo},
         block.filter p = [x] → x ∈ block := by
       intro p x hfil
@@ -915,9 +912,7 @@ theorem declIndEtaClosedRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
           | .recInfo _ _ _ _ => false | _ => true) :=
       List.mem_filter.mpr ⟨hCin, rfl⟩
     have hx : ExtEta envM env₂ :=
-      ExtEta.trans (indRecsRun_ext hrecs)
-        (ExtEta.trans (projInstallRun_ext _ hproj)
-          (templates_ext htpl))
+      ExtEta.trans (indRecsRun_ext hrecs) (projInstallRun_ext _ hproj)
     intro T cvT' caps' hf he hr
     rcases indMembersRun_indNew _ hmem T cvT' caps'
       (hx.2 T cvT' caps' hf) with hfE | ⟨rfl, -⟩

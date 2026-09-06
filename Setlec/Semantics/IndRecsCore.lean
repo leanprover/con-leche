@@ -128,10 +128,10 @@ def EnvFacts.swap {env₀ env₃ : Env} (m₀ : EnvFacts env₀)
       exact m₀.defn_eq cv value hint hc₀ ψ
     · exact nomatch heq
   · -- proj_ok: projection tables and their blocks are untouched
-    intro n tbl hf htw i hi
+    intro n tbl hf i hi
     exact TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
       (m₀.proj_ok n tbl ((hsame _ _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) htw i hi)
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) i hi)
   · -- thm_ok: likewise a theorem is never a swap's right side
     intro cv value hmem ψ
     obtain ⟨c₀, hc₀, hpair⟩ := swapSh_mem_corr hsw _ hmem
@@ -279,10 +279,10 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
           exact nomatch hres
     exact hbpS n ci hf₀ hres
   · -- `ProjOkT`: projection tables are untouched
-    intro n tbl hf htw i hi
+    intro n tbl hf i hi
     exact TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
       (hprojS n tbl ((hsame _ _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) htw i hi)
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) i hi)
 
 /-! ## The group phase, at the `EnvFacts` level -/
 

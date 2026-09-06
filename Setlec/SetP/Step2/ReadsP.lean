@@ -296,12 +296,12 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
         Setlec.whnf_looseBVars m.wf fuel hred hbc,
         fun l hl => hLc l (Setlec.whnf_fvarLeaves m.wf fuel hred l hl),
         hlrc.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hred)⟩
-  rcases hcase with rfl | ⟨us, entry, hfn, hfe, hnat, hilt, hlenA, hlenU,
+  rcases hcase with rfl | ⟨us, entry, hfn, hfe, hilt, hlenA, hlenU,
     -, hwcf, -⟩
   · -- stuck: the projection of the reduced scrutinee, at whichever
     -- entry kind the node's name carries (task #175 wiring W5)
-    rcases hrd with ⟨entry, hfe, htw, -⟩ | ⟨hnt, hi2, -⟩
-    · exact ⟨projAV i v₃, denoteP_proj_tower hfe htw hv₃⟩
+    rcases hrd with ⟨entry, hfe, -⟩ | ⟨hnt, hi2, -⟩
+    · exact ⟨projAV i v₃, denoteP_proj_tower hfe hv₃⟩
     · refine ⟨.proj i v₃, ?_⟩
       rw [denoteP_proj_pair m.acval (env := env) (φ := φ) _ _ _ _ hnt, hv₃]
       exact if_pos hi2
@@ -335,7 +335,7 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
     (ihi : InferReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
     InferProjReadsP μ m φ fuel := by
   intro d i sn pe t ea h hws hb hLb hlr hea
-  obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
+  obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hlenArgs,
     hlenUs, hguard, rfl, hsn⟩ := Setlec.inferTypeCore_proj_inv h
   subst hsn
   simp only [Expr.WScoped] at hws
@@ -363,9 +363,8 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
     (Setlec.Expr.mkAppN_getApp te).symm] at htea
   obtain ⟨-, vs, -, hspt, -⟩ := denoteP_mkAppN_inv htea
-  have htw : entry.tower = true := hnat
-  -- tower-backed: the residual is the peel of the entry type, read
-  obtain ⟨-, -, -, -, -, _, -, -, hlaw, -⟩ := htower T i entry hfe htw
+  -- the residual is the peel of the entry type, read
+  obtain ⟨-, -, -, -, -, _, -, -, hlaw, -⟩ := htower T i entry hfe
   obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
   have hframes : ∀ x ∈ te.getAppArgs ++ [pe],
       Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true := by

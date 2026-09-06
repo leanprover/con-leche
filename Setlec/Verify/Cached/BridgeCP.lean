@@ -102,9 +102,9 @@ theorem hasFvar_spec {e : ExprC} {ex : Expr}
 readback: the cached currency's levels are already trees. -/
 theorem opSIxC_sim (henv : EnvWF env) {d : Nat} {i : ExprC} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
-    SimC mode env s₀ RelVC (opSIxC mode (mkFEnv env) d i)
+    SimC mode env s₀ RelVC (opSIxC (cfgOf mode) (mkFEnv env) d i)
       ((fueledOpsM mode).ensureSort env d e) := by
-  have h1 : SimC mode env s₀ RelVC (opSIxC mode (mkFEnv env) d i)
+  have h1 : SimC mode env s₀ RelVC (opSIxC (cfgOf mode) (mkFEnv env) d i)
       (ensureSort (fueledFns mode env) env d e) :=
     ensureSortC_sim (ssimC env henv checkFuel) hs hden hw
   refine SimC.wr h1 (fun u F h => ⟨F, ?_⟩)
@@ -121,7 +121,7 @@ theorem checkConstantValC_sim (henv : EnvWF env) {cvp : ConstantValC}
     {tyE : Expr} (hs : CSOK mode env s₀) (hden : RelC cvp.type tyE) :
     SimC mode env s₀ (fun v w => v.1 = w ∧ v.1.name = cvp.name ∧
         Expr.WScoped 0 v.1.type ∧ RelC v.2 v.1.type)
-      (checkConstantValC mode (mkFEnv env) cvp)
+      (checkConstantValC (cfgOf mode) (mkFEnv env) cvp)
       (checkConstantVal (fueledOpsM mode) env
         ⟨cvp.name, cvp.levelParams, tyE⟩) := by
   obtain rfl := hden
@@ -190,7 +190,7 @@ theorem checkDefnValC_sim (henv : EnvWF env) {cvA : ConstantVal}
     SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env ∧
         ∀ cv' v' h', v.env.find? cvA.name = some (.defnInfo cv' v' h') →
           v'.hasFvar = false)
-      (checkDefnValC mode (mkFEnv env) cvA jty value hint)
+      (checkDefnValC (cfgOf mode) (mkFEnv env) cvA jty value hint)
       (checkDefnVal (fueledOpsM mode) env cvA ve hint) := by
   obtain rfl := hdenv
   unfold checkDefnValC checkDefnVal
@@ -255,7 +255,7 @@ theorem checkThmValC_sim (henv : EnvWF env) {cvA : ConstantVal}
     (htf : Expr.WScoped 0 cvA.type) (hjty : RelC jty cvA.type)
     (hdenv : RelC value ve) (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env)
-      (checkThmValC mode (mkFEnv env) cvA jty value)
+      (checkThmValC (cfgOf mode) (mkFEnv env) cvA jty value)
       (checkThmVal (fueledOpsM mode) env cvA ve) := by
   unfold checkThmValC checkThmVal
   refine SimC.bind ((ssimC env henv checkFuel).infer hs hjty htf)
@@ -328,7 +328,7 @@ theorem checkOpaqueValC_sim (henv : EnvWF env) {cvA : ConstantVal}
     (hdenv : RelC value ve) (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => (v.env = w ∧ v = mkFEnv v.env) ∧
         ve.hasFvar = false)
-      (checkOpaqueValC mode (mkFEnv env) cvA jty value)
+      (checkOpaqueValC (cfgOf mode) (mkFEnv env) cvA jty value)
       (checkOpaqueVal (fueledOpsM mode) env cvA ve) := by
   obtain rfl := hdenv
   unfold checkOpaqueValC checkOpaqueVal
@@ -389,7 +389,7 @@ theorem checkDeclSPC_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
     {pd : DeclC} {d : Declaration} (hrel : DeclCRel pd d)
     (hnotind : ∀ block, pd ≠ .indDecl block) :
     SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env)
-      (checkDeclSPC mode (mkFEnv env) pd)
+      (checkDeclSPC (cfgOf mode) (mkFEnv env) pd)
       (checkDecl mode (fueledOpsM mode) env d) := by
   cases hrel with
   | indDecl => exact absurd rfl (hnotind _)
@@ -520,7 +520,7 @@ theorem checkDeclSPC_sim (henv : EnvWF env) (hs : CSOK mode env s₀)
           ¬(natDivModNames.contains cvR.name = true) := by
         simpa [not_or] using hb
       simp only [if_neg hb, if_neg h1, if_neg h4]
-      rw [← bind_pure (checkDefnValC mode (mkFEnv env) _ jty _ _)]
+      rw [← bind_pure (checkDefnValC (cfgOf mode) (mkFEnv env) _ jty _ _)]
       refine SimC.bind (checkDefnValC_sim henv hwty hjty hv hs₁)
         (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
       obtain ⟨henvEq, hmk, -⟩ := hP₂
@@ -601,7 +601,7 @@ followed by `checkDeclSPC`. -/
 theorem checkDeclSPStepC_run {env : Env} (henv : EnvWF env) {pd : DeclC}
     {d : Declaration} {s₀ : CState} (hres : CSOKF s₀)
     (hrel : DeclCRel pd d) {fe' : FEnv} {s' : CState}
-    (h : checkDeclSPStepC mode (mkFEnv env) pd s₀ = .ok (fe', s')) :
+    (h : checkDeclSPStepC (cfgOf mode) (mkFEnv env) pd s₀ = .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
     ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env := by
   unfold checkDeclSPStepC at h
@@ -622,8 +622,8 @@ theorem checkDeclSPStepC_run {env : Env} (henv : EnvWF env) {pd : DeclC}
   cases hrel with
   | @indDecl block =>
     have hrun : (match directPartsF? (mkFEnv env) block with
-        | some p => checkDirectStructS mode (mkFEnv env) p
-        | none => checkIndDeclSF mode (mkFEnv env) block) s₀.flushed =
+        | some p => checkDirectStructS (cfgOf mode) (mkFEnv env) p
+        | none => checkIndDeclSF (cfgOf mode) (mkFEnv env) block) s₀.flushed =
         .ok (fe', s') := h
     obtain ⟨hres', hfe, F, hF⟩ :=
       checkIndOrDirectSF_run henv hres.flushed hrun

@@ -7,9 +7,9 @@ import Setlec.Verify.IotaWalkInv
 removed 2026-09-05)
 
 The V-free records `checkDecl`'s per-kind checks produce: the `Nat`
-recurrences' runs, the pinned basis install, the iota walks' runs, the
-elimination-template pass and the direct-structure stage runs.  Every
-one is a statement about the CHECKER — `isDefEqCore … = .ok true`,
+recurrences' runs, the pinned basis install, the iota walks' runs and
+the direct-structure stage runs.  Every one is a statement about the
+CHECKER — `isDefEqCore … = .ok true`,
 `checkDirectProj … = .ok env''` — and mentions no relation and no
 valuation.
 
@@ -23,12 +23,6 @@ it was stated over.  A proof-term probe had put every one of those
 records outside both surviving capstones' closures **and** outside the
 run route the graded fold calls; what is left here is exactly the part
 that was inside it.
-
-`DeclIndRun` is gone, but `DeclIndRun.Templates` survives it — the
-elimination-template pass never took a valuation and never built a
-derivation (D6's refinement point, cashed at T5 stage 6), so it was
-always a run record wearing a `where` clause.  It keeps its full name,
-in a namespace block, because five live consumers spell it that way.
 
 **Statement conventions** (unchanged): fuel and mode are carried as
 `(μ, F)`; the annotate pass contributes no relation — its calls
@@ -99,38 +93,6 @@ def IotaRuns (μ : CheckMode) (F : Nat) (envSelf : Env) (depth : Nat)
     isDefEqCore μ envSelf F depth tl alphaS = .ok true) ∧
   (∃ tr, inferTypeCore μ envSelf F depth rhsS = .ok tr ∧
     isDefEqCore μ envSelf F depth tr alphaS = .ok true)
-
-/-! ## The elimination-template pass
-
-`DeclIndRun` is deleted; this pass is not.  It is kept under its old
-qualified name (`DeclIndRun.Templates`) because that is how
-`SetBase/{DeclIndRun,IndBlockR,IndBlockRun}.lean` and
-`SetP/ProjInstallP.lean` spell it, and a rename would have edited four
-modules to say the same thing. -/
-
-namespace DeclIndRun
-
-/-- The elimination-template pass: a pure stored-data install
-(`installProjTemplate`; since task #175 S1 one inert table per family,
-where it was one entry per artifact-less field).
-
-**No valuation** (D6's refinement point, cashed at T5 stage 6).  The
-other block folds thread a `TConstVal` because their members *alias*
-their model artifacts — a checker-side fact (`cvalModeled` mirrors
-`checkIndMember`'s semantics).  A template table exists precisely
-because some field has no artifact, so there is nothing to alias and
-the valuation is the *install's* free choice.  Threading one here
-would have forced the soundness side to model a valuation the
-relation picked arbitrarily; dropping it is both simpler and more
-faithful to `installProjTemplate`, which never touches a value. -/
-def Templates (T ctorName : Name) (lps : List Name) (nP nF : Nat)
-    (env' env₂ : Env) : Prop :=
-  env₂ = env' ∨
-  (env'.find? (projTableName T) = none ∧
-    env₂ = ⟨.projInfo ⟨T, lps, nP, ctorName, nF, .zero, Array.replicate nF (.sort .zero), [], false⟩
-      :: env'.consts⟩)
-
-end DeclIndRun
 
 /-! ## The direct-structure arm (task #175 wiring, W4)
 

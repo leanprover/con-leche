@@ -139,6 +139,14 @@ if tests/layering.sh; then :; else fail=1; fi
 # proof path.  The pin only ever tightens.
 if tests/proofdeps.sh; then :; else fail=1; fi
 
+# THE PIN-DUMP FRESHNESS GATE (task #176).  The pinned Nat-operation
+# declarations and their certificate proof blobs are a COMMITTED
+# generator output (Setlec/Kernel/NatOpPins/<toolchain>.json) since the
+# olean-by-name load was removed from the checker's build.  As with
+# every committed generator output here, staleness is a test failure:
+# regenerate and diff.
+if tests/pindump.sh; then :; else fail=1; fi
+
 # --- the arena half ------------------------------------------------
 arena_half() {
   accepted=0
