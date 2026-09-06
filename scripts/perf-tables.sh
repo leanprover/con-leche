@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Regenerate PERF.md from scratch: the systematic mode x core x stream
-# performance battery, preprocessed input on both sides.
+# Regenerate PERF.md from scratch: the three-column stream battery
+# (official / parity / P), preprocessed input on both sides.
 #
 #   scripts/perf-tables.sh              # full battery, writes PERF.md
 #   scripts/perf-tables.sh --render     # re-render PERF.md from the last TSV
@@ -8,9 +8,9 @@
 #
 # METHOD (the established discipline, unchanged from the task-#161
 # canonical table and the perf-eng "honest gap" round):
-#   * `perf stat -e instructions:u`, MEDIAN OF 3 per cell; instructions
-#     are the primary metric (contention-independent), wall is secondary.
-#   * every run under `ulimit -v 40G`, `nice -n 5`, `timeout`,
+#   * `perf stat -e instructions:u`, ONE run per cell; instructions are
+#     the only metric reported (contention-independent).
+#   * every run under `ulimit -v 16G`, `nice -n 5`, `timeout`,
 #     `SETLEC_SUPERVISED=1` (no supervisor re-exec).
 #   * PREPROCESSED INPUT ON BOTH SIDES: the `lean-inductive-models`
 #     preprocessor is run once per stream, off the clock, and BOTH the
@@ -36,11 +36,9 @@ CACHE=${PERF_CACHE:-$ROOT/_tmp/perf-tables}
 TSV=$CACHE/table.tsv
 LOG=$CACHE/battery.log
 # The TRACKED record.  $CACHE lives under the gitignored _tmp, so the raw
-# cells behind PERF.md would not survive a clean of that directory — and
-# a record that can evaporate cannot be relabelled later.  A full run
-# therefore snapshots its cells here, and carries the cells of any
-# configuration it can no longer measure into `retired.tsv` instead of
-# dropping them (the relabel-don't-erase convention).
+# cells behind PERF.md would not survive a clean of that directory; a full
+# run therefore snapshots its cells here.  A run supersedes the previous
+# snapshot wholesale — PERF.md shows the current matrix and nothing else.
 DATA=${PERF_DATA:-$ROOT/perf-data}
 # ONE run per cell.  The medians-of-3 round measured the spreads at
 # 0.01-0.5 % on instructions:u, so the third significant figure is
@@ -48,8 +46,8 @@ DATA=${PERF_DATA:-$ROOT/perf-data}
 # number ever looks wrong, re-run that cell (PERF_STREAMS/PERF_CONFIGS)
 # rather than re-running all of them.
 REPS=${PERF_REPS:-1}
-TIMEOUT=${PERF_TIMEOUT:-1800}
-VLIMIT=41943040            # 40 GB virtual, the standing ceiling
+TIMEOUT=${PERF_TIMEOUT:-3000}
+VLIMIT=${PERF_VLIMIT:-16000000}   # 16 GB virtual, the standing ceiling
 
 # Streams: label -> raw arena ndjson.  Ordered cheapest first so a
 # broken kit surfaces in seconds, not hours.
@@ -66,45 +64,14 @@ stream_path() {
   esac
 }
 
-# Does the tree still have the INTERNED representation and its
-# `--core=production` dispatch?  Task #172 (the tri-core refactor) drops
-# it on the user's ruling — "one expr type with computed fields
-# everywhere" — after which those flags no longer name a core and the
-# matrix halves to the cached columns plus official.  Probed, not
-# assumed, so this script needs no edit on the day it lands.
-if [ -f "$ROOT/Setlec/Kernel/CoreI.lean" ] \
-   && grep -q '"production"' "$ROOT/Main.lean" 2>/dev/null; then
-  INTERNED=yes
-else
-  INTERNED=no
-fi
-
-# The cells per stream.  Every flag explicit; no defaults relied on.
-# Only LIVE, MUTUALLY COMPARABLE configurations are measured — the table
-# is meant to be read, not decoded.  Nothing retired appears: `--tt-model`
-# (task #148 T7b) and `--core=cached` (an unverified pilot instrument)
-# are simply not in the matrix, and cells of anything dropped later are
-# archived, not printed (see carry_retired).
-if [ "$INTERNED" = yes ]; then
-  # TRANSITIONAL, while two representations exist: mode x core.
-  CONFIG_IDS=(official sm-prod sm-cached nm-prod nm-cached)
-else
-  # POST-TRI-CORE (task #172): one representation, so the core axis is
-  # gone and the columns are official + the checker's lanes.  The R
-  # column went 2026-09-05 with the R core and `--set-model=r` (which
-  # is now a hard error, so leaving the arm in would make the
-  # regeneration invoke a retired flag).
-  CONFIG_IDS=(official parity P)
-fi
+# THE MATRIX: exactly three columns, every flag explicit, no defaults
+# relied on.  One representation, so there is no core axis; the R column
+# went 2026-09-05 with the R core and `--set-model=r` (a hard error now).
+# Nothing retired is measured and nothing retired is printed.
+CONFIG_IDS=(official parity P)
 config_cmd() { # $1 = config id, $2 = stream file -> fills CMD
   case "$1" in
     official)  CMD=("$OFFICIAL" "$2") ;;
-    # transitional (mode x core)
-    sm-prod)   CMD=("$BIN" --set-model --core=production    --pre "$2") ;;
-    sm-cached) CMD=("$BIN" --set-model --core=cached-parsed --pre "$2") ;;
-    nm-prod)   CMD=("$BIN" --no-model  --core=production    --pre "$2") ;;
-    nm-cached) CMD=("$BIN" --no-model  --core=cached-parsed --pre "$2") ;;
-    # post-tri-core (the two lanes on the one representation)
     parity)    CMD=("$BIN" --no-model    --pre "$2") ;;
     P)         CMD=("$BIN" --set-model=p --pre "$2") ;;
     *) echo "unknown config $1" >&2; exit 1 ;;
@@ -119,9 +86,15 @@ say() { echo "$(date +%T) $*" | tee -a "$LOG" >&2; }
 median() { printf '%s\n' "$@" | sort -n | awk '{a[NR]=$0} END{print a[int((NR+1)/2)]}'; }
 
 # Measurement hygiene: never two timed cells at once, anywhere on the
-# machine (a concurrent perf campaign may be running).
+# machine (a concurrent perf campaign may be running).  The battery
+# itself runs cells strictly one at a time regardless; this wait is only
+# about FOREIGN work.  `PERF_NO_WAIT=1` skips it — on a 96-core box a
+# single unrelated single-threaded checker run does not move
+# instructions:u, and blocking on one can cost hours (the Mathlib
+# frontier campaign holds one such process for up to four hours).
 wait_idle() {
   local waited=0
+  [ -n "${PERF_NO_WAIT:-}" ] && return
   # NB `pgrep -x` matches /proc/PID/comm, which the kernel truncates to
   # 15 characters — hence the truncated preprocessor name.
   while pgrep -x setlec >/dev/null 2>&1 \
@@ -130,8 +103,8 @@ wait_idle() {
      || pgrep -x lean-inductive- >/dev/null 2>&1; do
     if [ "$waited" -eq 0 ]; then say "waiting for the machine to go idle"; fi
     sleep 10; waited=$((waited + 10))
-    if [ "$waited" -ge 7200 ]; then
-      say "WARNING: still busy after 2h; proceeding anyway"
+    if [ "$waited" -ge "${PERF_IDLE_MAX:-7200}" ]; then
+      say "WARNING: still busy after ${PERF_IDLE_MAX:-7200}s; proceeding anyway"
       return
     fi
   done
@@ -160,7 +133,7 @@ cell() { # $1 = stream label, $2 = config id, $3 = preprocessed stream
   local r po t0 t1 out i
   for r in $(seq 1 "$REPS"); do
     wait_idle
-    po=$(mktemp)
+    po=$(mktemp "$CACHE/perfstat.XXXXXX")
     load=$(cut -d' ' -f1 /proc/loadavg)
     t0=$(date +%s.%N)
     out=$( (ulimit -v $VLIMIT; SETLEC_SUPERVISED=1 \
@@ -187,34 +160,7 @@ cell() { # $1 = stream label, $2 = config id, $3 = preprocessed stream
 render() {
   local t=$TSV m=$CACHE/meta.txt
   if [ ! -s "$t" ]; then t=$DATA/table.tsv; m=$DATA/meta.txt; fi
-  python3 "$ROOT/scripts/perf-tables-render.py" "$t" "$ROOT/PERF.md" "$m" "$DATA"
-}
-
-# Before a full run truncates the table: the outgoing TRACKED snapshot
-# is superseded wholesale — its cells came from an older binary, and any
-# configuration this run will not measure has left the matrix outright.
-# Archive every one of those rows, stamped with the binary that produced
-# them, so nothing is lost and nothing stale can leak into the live
-# tables.  PERF.md prints one pointer line at them and no more.
-carry_retired() {
-  [ -s "$DATA/table.tsv" ] || return 0
-  local oldsha olddate keep=" $CONFIGS " gone n
-  oldsha=$(awk -F'\t' '$1=="binsha"{print $2}' "$DATA/meta.txt" 2>/dev/null)
-  olddate=$(awk -F'\t' '$1=="date"{print $2}' "$DATA/meta.txt" 2>/dev/null)
-  mkdir -p "$DATA"
-  # 9th column = the binary that measured the row; readers take the
-  # first 8, so the archive stays format-compatible with table.tsv.
-  awk -F'\t' -v OFS='\t' -v sha="${oldsha:-unknown}" \
-    '{print $0, sha}' "$DATA/table.tsv" >> "$DATA/retired.tsv"
-  gone=$(awk -F'\t' -v keep="$keep" \
-           'index(keep, " " $2 " ") == 0 { print $2 }' "$DATA/table.tsv" \
-         | sort -u)
-  for n in ${gone:-}; do
-    printf '%s\t%s\t%s\t%s\n' "$n" "$(date -Iseconds)" \
-      "${oldsha:-unknown}" "${olddate:-unknown}" >> "$DATA/retired.meta"
-    say "RETIRED config $n — left the matrix; cells archived"
-  done
-  say "archived $(wc -l < "$DATA/table.tsv") superseded cells to $DATA/retired.tsv"
+  python3 "$ROOT/scripts/perf-tables-render.py" "$t" "$ROOT/PERF.md" "$m"
 }
 
 # After a full run: refresh the tracked snapshot.
@@ -240,7 +186,6 @@ done
 if [ -n "${PERF_APPEND:-}" ] && [ -s "$TSV" ]; then
   say "APPEND mode: keeping $(wc -l < "$TSV") existing cells"
 else
-  carry_retired
   : > "$TSV"
   {
     echo "sha	$(git -C "$ROOT" rev-parse HEAD)"
@@ -257,24 +202,16 @@ else
     echo "kernelver	$(uname -r)"
     echo "official	$(readlink -f "$OFFICIAL")"
     echo "preproc	$(readlink -f "$PREPROC")"
-    # Does the measured tree have the cached PARITY engine
-    # (Setlec/Cached/CoreNC.lean, dispatched for --no-model
-    # --core=cached-parsed)?  Before it landed, that cell was the
-    # certified cached engine with two checks gated off — a different
-    # measurement wearing the same flags, so the renderer must label
-    # the column differently.  See DESIGN.md, "The cached parity lane
-    # and the confound correction".
-    if [ -f "$ROOT/Setlec/Cached/CoreNC.lean" ] \
-       && grep -q "checkDeclsSPCachedNM" "$ROOT/Main.lean" 2>/dev/null; then
-      echo "cachednc	yes"
-    else
-      echo "cachednc	no"
-    fi
-    echo "interned	$INTERNED"
+    # optional one-line provenance note for the header (e.g. which
+    # master commit the measured tree is a merge of)
+    [ -n "${PERF_NOTE:-}" ] && echo "note	$PERF_NOTE"
+    # what else was live on the machine while the battery ran
+    [ -n "${PERF_LOAD_NOTE:-}" ] && echo "loadnote	$PERF_LOAD_NOTE"
     # the live matrix: exactly the columns the renderer may print
     echo "configs	$CONFIGS"
     echo "reps	$REPS"
     echo "timeout	$TIMEOUT"
+    echo "vlimit	$VLIMIT"
   } > "$CACHE/meta.txt"
 fi
 
