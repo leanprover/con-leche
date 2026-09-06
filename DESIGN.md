@@ -48859,5 +48859,37 @@ twins by `scripts/mk_zero_ctor_bad.py` (`zero_ctor_false_proof`: a
 theorem `bogus : False := Prop`; `zero_ctor_bad_rec`: `Nada.rec`'s type
 replaced by `Type`), expectations `0 / 1 / 1` in `tests/e2e-expected.txt`.
 
-RECEIPTS-STUB
+**Receipts at `agent/zeroctor`'s tip** (master merged at `5d0b12f0`
+for `Setlec/MainTheorem.lean`, which this task edits): `lake build`
+warning-free (652 jobs), `lake test` green, `tests/layering.sh`
+`base 253 / P 168 / caps 3 / umbrella 1; 0 base->lane, 0 impl->theory`,
+`tests/proofdeps.sh` **one justified door and a regenerated pin**:
+`Setlec.SetP.BasisFalseP` entered all four capstones' proof-term
+closures (the pinned block's P install is on every fold, exactly as
+`BasisEmptyP` is — `basisStepPB_of` dispatches to it), nothing left,
+and the six new letters join the roots (`False_P`, `False_SPCD_P`,
+`main_False`, `main_Empty`, `zeroCtor_P`, `zeroCtor_SPCD_P`; 3 597 rows
+across 10 roots, 0 doors) — the general theorem's closure is the P
+closure plus `ZeroCtorP` and nothing else; `tests/pindump.sh` fresh;
+`tests/arena.sh` 0 FAIL (tutorial 90/92 — the two custom-axiom
+declines by design —, e2e 88/88 with the three new fixtures at
+`0 / 1 / 1`, annot 14/14, retired flags 8/8, mode flags 16/16, the
+trusted sweep 138 + 88 + 14 with the 3 recorded divergences; **no
+verdict moved** anywhere in the suites); init-full (`init-full-pre-
+native.ndjson`, unchanged — `False` was already native) `--verified`
+**56 291** accepted (exit 0) and `--trusted` **56 291** (exit 0), equal
+to master's task #180 receipt on the same stream; the eight capstones'
+axioms exactly `[propext, Classical.choice, Quot.sound]`
+(`no_proof_of_{False,Empty}`, `no_proof_of_{False,Empty,zeroCtor}_
+{P,SPCD_P}`).  `tests/native-agree.sh` skipped as on master (the stock
+`lean-inductive-models` is not built in the workspace).  No Mathlib run
+of any kind.
+
+**Open decisions for the user** (reported, not taken): (a) the
+parameter-applied general theorem — route (a) or (b) of §3, or leave
+the parameterless form; (b) retiring `Empty` from the preprocessor's
+`setlecReservedBasisNames` (a stream-changing cleanup: the pin ignores
+the artifacts either way); (c) `tests/SetlecTests/Axioms.lean`
+(`agent/hygiene`) is not on master yet — when it lands, its pin needs
+the six new names listed above.
 

@@ -2,6 +2,7 @@ import Setlec.SetModel
 import Setlec.Semantics
 import Setlec.SetP
 import Setlec.Verify.Cached
+import Setlec.MainTheorem
 
 /-!
 # The proof-term dependency gate's instrument (task #161 S10; redefined
@@ -102,7 +103,7 @@ partial def setlecDeps (env : Environment) (todo : List Name)
         setlecDeps env ((ci.type.getUsedConstants ++ vcs).toList ++ rest)
           seen
 
-/-- The four capstones, each at its own root.
+/-- The capstones, each at its own root.
 
 * `SPCD_P` — **the shipped driver's letter**: the checker, running the
   verified mode over the direct-parse cached core it ships with, never
@@ -110,12 +111,23 @@ partial def setlecDeps (env : Environment) (todo : List Name)
 * `sound_P` / `foldSPC_PM` — the acceptance corollary and the fold
   under it, pinned separately so a change in the assembly is visible
   even when the letter's own closure is unmoved.
-* `P` — the pure fueled checker the graded tower is stated about. -/
+* `P` — the pure fueled checker the graded tower is stated about.
+* `False_SPCD_P` / `False_P` — the same two letters about the pinned
+  `False` (task #181), and `main_False` / `main_Empty` the
+  `Setlec/MainTheorem.lean` forms of the shipped-driver letters.
+* `zeroCtor_SPCD_P` / `zeroCtor_P` — the general zero-constructor
+  theorem (task #181, `Setlec/SetP/ZeroCtorP.lean`) at both drivers. -/
 private def roots : List (String × Name) :=
   [("SPCD_P", `Setlec.Cached.no_proof_of_Empty_SPCD_P),
    ("sound_P", `Setlec.Cached.checkDeclsSPCachedD_sound_P),
    ("foldSPC_PM", `Setlec.Cached.foldSPC_PM),
-   ("P", `Setlec.SetP.no_proof_of_Empty_P)]
+   ("P", `Setlec.SetP.no_proof_of_Empty_P),
+   ("False_SPCD_P", `Setlec.Cached.no_proof_of_False_SPCD_P),
+   ("False_P", `Setlec.SetP.no_proof_of_False_P),
+   ("main_False", `Setlec.no_proof_of_False),
+   ("main_Empty", `Setlec.no_proof_of_Empty),
+   ("zeroCtor_SPCD_P", `Setlec.Cached.no_proof_of_zeroCtor_SPCD_P),
+   ("zeroCtor_P", `Setlec.SetP.no_proof_of_zeroCtor_P)]
 
 /-- The measured rows, in a fixed order: one `<label> :: <module>` per
 `Setlec.*` module the root's proof term reaches, sorted.  The pinned

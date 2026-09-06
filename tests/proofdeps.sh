@@ -98,4 +98,5 @@ fi
 [ "$fail" = 0 ] || exit 1
 
 caps=$(cut -d' ' -f1 "$EXPECTED" | sort -u | tr '\n' ' ')
-echo "proofdeps: $rows module rows as pinned across 4 capstones ($caps); doors: $ndoors"
+ncaps=$(printf '%s' "$caps" | wc -w)
+echo "proofdeps: $rows module rows as pinned across $ncaps capstones ($caps); doors: $ndoors"
