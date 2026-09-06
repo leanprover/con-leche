@@ -790,6 +790,41 @@ private theorem iotaRec_certs_tail (ih : SSimC mode env f) (henv : EnvWF env)
           · exact hw.getAppArgs x (List.mem_of_mem_take hx)
           · exact hmaj.getAppArgs x (List.mem_of_mem_drop hx)
 
+/-- The K flag at the indexed lookup is the spec's (nothing is
+hidden under `mkFEnv`). -/
+theorem recRuleKOf_mkFEnv (env : Env) (rules : List RecRule) :
+    recRuleKOf (mkFEnv env).find? rules = recRuleK env rules := by
+  unfold recRuleK
+  rw [show FEnv.find? (mkFEnv env) = env.find? from funext (mkFEnv_find? env)]
+
+/-- Simulation of the major chain, in either order (the K flag is read
+identically on both sides). -/
+theorem prepareMajorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
+    {d : Nat} {recName : Name} {rules : List RecRule} {i : ExprC}
+    {major : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hden : RelC i major) (hmaj : Expr.WScoped d major) :
+    SimC mode env s₀ (RelEC d)
+      (prepareMajorI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d recName
+        rules i)
+      (prepareMajor mode (fueledFns mode env) env d recName rules major) := by
+  unfold prepareMajorI prepareMajor
+  rw [recRuleKOf_mkFEnv]
+  by_cases hk : recRuleK env rules = true
+  · rw [if_pos hk, if_pos hk]
+    refine SimC.bind (majorToCtorC_sim ih henv hs hden hmaj)
+      (fun s₁ m₁ m₁x hs₁ hP₁ => ?_)
+    obtain ⟨hd₁, hw₁⟩ := hP₁
+    refine SimC.bind (ih.whnf hs₁ hd₁ hw₁) (fun s₂ m₂ m₂x hs₂ hP₂ => ?_)
+    obtain ⟨hd₂, hw₂⟩ := hP₂
+    exact litMajorToCtorC_sim ih hs₂ hd₂ hw₂
+  · rw [if_neg hk, if_neg hk]
+    refine SimC.bind (ih.whnf hs hden hmaj) (fun s₁ m₁ m₁x hs₁ hP₁ => ?_)
+    obtain ⟨hd₁, hw₁⟩ := hP₁
+    refine SimC.bind (litMajorToCtorC_sim ih hs₁ hd₁ hw₁)
+      (fun s₂ m₂ m₂x hs₂ hP₂ => ?_)
+    obtain ⟨hd₂, hw₂⟩ := hP₂
+    exact majorToCtorC_sim ih henv hs₂ hd₂ hw₂
+
 private theorem iotaRec_unfold (mi : CheckMode) (env : Env) (d : Nat)
     (e : Expr) :
     iotaRec mi (fueledFns mode env) env d e =
@@ -799,10 +834,8 @@ private theorem iotaRec_unfold (mi : CheckMode) (env : Env) (d : Nat)
       | some (.recInfo cv mI rP rules) =>
         if e.getAppArgs.length = mI + 1 ∧
             us.length = cv.levelParams.length then
-          (fueledFns mode env).whnf d (e.getAppArgs.getD mI (.bvar 0)) >>=
-            fun major₀ =>
-          litMajorToCtor (fueledFns mode env) env d major₀ >>= fun major₁ =>
-          majorToCtor mi (fueledFns mode env) env d c rules major₁ >>=
+          prepareMajor mi (fueledFns mode env) env d c rules
+              (e.getAppArgs.getD mI (.bvar 0)) >>=
             fun major =>
           match major.getAppFn with
           | .const cj usj =>
@@ -908,14 +941,8 @@ theorem iotaRecC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             (internI_eff hs (n := ExprView.bvar 0))
             (fun s₁ bvar0 hs₁ hQ0 => ?_)
           have hQ0' : RelC bvar0 (Expr.bvar 0) := hQ0
-          refine SimC.bind (ih.whnf hs₁ (RelCL.getD hQ0' mI hargs)
-            (wscoped_getD hw.getAppArgs _))
-            (fun s₂ major₀ major₀x hs₂ hP₀ => ?_)
-          obtain ⟨hm₀d, hwm₀⟩ := hP₀
-          refine SimC.bind (litMajorToCtorC_sim ih hs₂ hm₀d hwm₀)
-            (fun s₃ major₁ major₁x hs₃ hP₁ => ?_)
-          obtain ⟨hm₁d, hwm₁⟩ := hP₁
-          refine SimC.bind (majorToCtorC_sim ih henv hs₃ hm₁d hwm₁)
+          refine SimC.bind (prepareMajorC_sim ih henv hs₁
+            (RelCL.getD hQ0' mI hargs) (wscoped_getD hw.getAppArgs _))
             (fun s₄ major majorx hs₄ hP₂ => ?_)
           obtain ⟨rfl, hmaj⟩ := hP₂
           have hmargs : RelCL (ExprC.getAppArgs major)
