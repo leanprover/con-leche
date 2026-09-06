@@ -54364,19 +54364,20 @@ Beyond the (b) rows of the census:
 
 `lake build` warning-free (the `linter.unusedSimpArgs` cleanup above is
 part of that); `lake test`; `tests/arena.sh` green — layering `0
-impl->theory`, proofdeps `2515` rows as pinned across 7 roots with `0`
-doors, trust surface `18` escapes in `4` allowlisted files (unchanged),
-axioms pinned at the eleven theorems, arena 90/92, e2e 101/101, annot
-14/14, flags 8+16, prelude 3/3, progress 6/6, trusted sweep as
-expected.
+impl->theory`, proofdeps `2515` rows **as pinned** across 7 roots with
+`0` doors (no row moved: nothing removed here was a module boundary),
+trust surface `18` escapes in `4` allowlisted files (unchanged), axioms
+pinned at the eleven theorems, arena 90/92, e2e 103/103, annot 14/14,
+flags 8+16, prelude 3/3, progress 6/6, trusted sweep as expected.
 
 `init-full`, both modes, `perf stat -e instructions:u`, same machine,
-same stream (53 890 accepted, exit 0 in both):
+same stream (53 890 accepted, exit 0 in every cell) — measured twice,
+before and after merging the master the branch lands on:
 
-| mode | before (master `5f155d4e`) | after | Δ |
-|---|---|---|---|
-| `--verified` | 819.00 G | 818.38 G | **−0.08 %** |
-| `--trusted` | 795.38 G | 794.77 G | **−0.08 %** |
+| mode | master `5f155d4e` | branch | Δ | master `eff9aeee` | branch merged | Δ |
+|---|---|---|---|---|---|---|
+| `--verified` | 819.00 G | 818.38 G | −0.08 % | 807.72 G | 807.21 G | **−0.06 %** |
+| `--trusted` | 795.38 G | 794.77 G | −0.08 % | 785.65 G | 785.16 G | **−0.06 %** |
 
 Neutral, as expected: every wrapper removed was `@[inline]`, so the
 code generator had already erased them.  The change is to what a reader
