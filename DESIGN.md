@@ -44049,6 +44049,13 @@ parent so one pass suffices).  Output: `_tmp/next-frontier/census-full.txt`.
     proj nodes                      33 882  on 5 619 distinct types
       on a REJECTED type                65  on 22 types  (0.19 %)
 
+The classes are assigned in the priority order **mutual > nested >
+recursive > other**, so a type that is both (the whole
+`Lean.Meta.Grind.Arith.Cutsat.*` family is a 12-type block with
+`numNested = 9`) is counted once, under `mutual`.  The classes are
+labels for *this* census, not separate features: every one of them is
+the same recognizer refusing the same block.
+
 Dropping the preprocessor's own `._model._impl.N` companions (79, all
 mutual, none ever projected on) leaves **31 real rejected types**: 17
 mutual, 11 nested, 2 recursive, 1 basis.  22 of the 31 are projected
@@ -44161,3 +44168,81 @@ Two caveats that belong with the datum:
   (official / P / parity), each under `ulimit` + `timeout`.
 * `_tmp/next-frontier/cut_cone.py` — emits the stream with the
   `.proj`-blocked cone removed (see §6).
+
+### 6. Past the decline: the next rung is at 24.10 %, and it is a *different* feature
+
+The frontend has no skip list, so "continue past the decline" was done
+by **cutting the blocked cone out of the stream**:
+`_tmp/next-frontier/cut_cone.py` drops every declaration whose cone
+contains a `.proj` on a rejected type and, transitively, every
+declaration that references one.  The cone is tiny — **660 of 727 270
+records (0.091 %)**, first `Lean.Meta.Grind.AC.DiseqCnstr.lhs`
+(21.209 %), last `Lean.Elab.Tactic.evalCutsat` (99.8 %) — and it
+carries exactly two inductive blocks with it
+(`Lean.Meta.Grind.Arith.CommRing.CommRing` at 29.484 % and
+`Lean.Meta.Grind.AC.Struct` at 34.007 %, whose field types reach the
+removed constants), together with their `_model` artifacts, so the
+result is still a dependency-ordered export.  A census of the cut
+stream confirms **zero** remaining `.proj` on a rejected type.
+
+    _tmp/mathlib-scoping/mathlib-full-pre-nocone.ndjson
+    726 610 records, `--set-model=p --pre`, ulimit -v 22000000,
+    timeout 14400  (harness _tmp/next-frontier/run.sh, tag
+    `nocone-e736f24d`)
+
+    parse 5.82 GB in 270 s (peak 13.24 GiB), check at a steady
+    12.1-12.9 GiB, **exit 2 at 3 361 s, peak RSS 14.34 GiB** (VmHWM;
+    `time -v` 14.68 GiB, 55:52; VmSize 18.06 GiB against the 20.98 GiB
+    cap):
+
+        setlec: not implemented yet: projection constructor residual arity
+          [at inductive CategoryTheory.Sigma.SigmaHom]
+
+    at record **175 281 of 727 270 (24.10 %)**.
+
+**This is a different rung, not the same one moved.**  It is an
+*install-side* decline on an **indexed** single-constructor inductive,
+and no `.proj CategoryTheory.Sigma.SigmaHom i` node exists anywhere in
+the stream — the projection functions here are the preprocessor's
+`_model` artifacts.  The block (record 175 281,
+`_tmp/next-frontier/sigmahom-block.txt`):
+
+    type CategoryTheory.Sigma.SigmaHom
+      levelParams=[w₁,v₁,u₁] numParams=3 numIndices=2 isRec=False
+      ctor SigmaHom.mk numFields=4, residual
+        SigmaHom I C inst ⟨i,X⟩ ⟨i,Y⟩          -- nP + 2 arguments
+
+The preprocessor emits `SigmaHom._model.proj_{0..3}` (records
+175 273-175 280) for it; `checkProjFn` (`Setlec/Kernel/Modeled.lean:564`)
+runs `checkProjShape` (`Setlec/Kernel/CheckerBase.lean:218-226`), whose
+stage-2b pin is
+
+    unless cbody.getAppArgs.length == nP do
+      throw (.notImplemented "projection constructor residual arity")
+
+— the constructor's residual must be the family applied to *exactly the
+parameters*.  With two indices it is applied to five, so the pin fires.
+A positive decline, exit 2, as the discipline requires.
+
+**What this means for the campaign.**  Once the projection-function
+rewrite lands, the stream's next stop is **24.10 %** (up from 21.21 %),
+and the wall changes character: from "the recognizer will not classify
+this block" to "the modeled projection install has no shape for an
+indexed constructor".  The `nested`-class projection rung at 32.96 % is
+*behind* it and will not be reached until the indexed case is settled.
+
+Two caveats on the probe:
+
+* The cut removes 660 declarations that the real fix would keep.  Their
+  absence can only *hide* a failure, never create one, so 24.10 % is a
+  lower bound on what the fix buys: the next frontier is at 24.10 %
+  unless one of those 660 fails earlier.
+* The cut's own first artefact — a `.proj` on the dropped
+  `CommRing` — lies at 29.5 % of the original stream, well past
+  24.10 %, so the answer is not an artefact of the cut.  (Artefacts:
+  `_tmp/next-frontier/cut-cone-report.txt`,
+  `census-nocone.txt`, `nocone-e736f24d-{p,rss}.log`, `-time.txt`,
+  `.exitcode`.)
+* Wall times in this section carry the usual contention caveat (other
+  agents' Lean builds ran concurrently); the verdict, the record index
+  and the RSS profile do not.
