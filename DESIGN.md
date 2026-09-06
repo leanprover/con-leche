@@ -53381,4 +53381,10 @@ was made; the PERF lane's regenerated Mathlib stream
 (`mathlib-full-pre-idx.ndjson`, made with the #175 predicate) has
 these 23 blocks NATIVE and is now expected to pass them — the
 "missing model" decline at 7.5 % was exactly `ofArrows`, the first of
-them in stream order.
+them in stream order.  **Re-gated at the master merge** (`80d271a3`:
+#194 pwnorm, #197 pwclean, #192 beqmemo; one DESIGN conflict, both
+kept; no twin met the `.equiv → ==` change): build 640 jobs
+warning-free, `lake test`, arena exit 0 (native audit 169/0, e2e
+102/102), init-full stock 58 604 / 58 604 and regenerated (548 native)
+53 890 / 53 890, the 23-cone 2 949 both modes, full audit 970/0 — all
+identical to the tip's.
