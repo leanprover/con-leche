@@ -390,7 +390,7 @@ theorem directRecTy_single {T C : Name} {lps : List Name} {elim : Name} {large :
               (.app (.bvar 2) (.bvar 0))
               ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩)
             ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩)
-          ⟨.implicit, Level.zeronessOf (directElimLevel elim large)⟩) = some recTy := by
+          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some recTy := by
   unfold directRecTy at h
   simp only [List.length_singleton, Option.bind_eq_some_iff] at h
   obtain ⟨minors, hminors, hr⟩ := h
@@ -423,7 +423,7 @@ theorem directRecRhs_single {T C : Name} {lps : List Name} {elim : Name} {large 
           (directMotiveTy T lps nP (directElimLevel elim large))
           (.lam (Name.lastStr C) minorTy inner
             ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩)
-          ⟨.implicit, Level.zeronessOf (directElimLevel elim large)⟩) = some rhs := by
+          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some rhs := by
   unfold directRecRhs at h
   simp only [List.length_singleton, List.getElem?_cons_zero, Option.bind_eq_some_iff] at h
   obtain ⟨q, hq, inner, hinner, minors, hminors, hr⟩ := h

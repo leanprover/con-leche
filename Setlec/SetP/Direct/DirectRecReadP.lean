@@ -462,14 +462,14 @@ theorem denoteP_directRecTy {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Nam
         (.forallE (Setlec.Name.lastStr C) minorTy
           (.forallE (.str .anonymous "t") (Setlec.directFam T lps nP 2)
             (.app (.bvar 2) (.bvar 0)) ⟨.default, pw⟩)
-          ⟨.default, pw⟩) ⟨.implicit, pw⟩)
+          ⟨.default, pw⟩) ⟨.default, pw⟩)
       = .forallE (.str .anonymous "motive")
           (.forallE (.str .anonymous "t") (Expr.mkAppN (.const T (lps.map .param)) tfvs)
             (.sort ℓ) ⟨.default, .never⟩)
           (.forallE (Setlec.Name.lastStr C) (Expr.instSeq tfvs nP minorTy)
             (.forallE (.str .anonymous "t") (Expr.mkAppN (.const T (lps.map .param)) tfvs)
               (.app (.bvar 2) (.bvar 0)) ⟨.default, pw⟩)
-            ⟨.default, pw⟩) ⟨.implicit, pw⟩ := by
+            ⟨.default, pw⟩) ⟨.default, pw⟩ := by
     rw [Expr.instSeq_forallE tfvs (nP - 1) _ _ _ _ (by omega),
       Expr.instSeq_forallE tfvs (nP - 1 + 1) _ _ _ _ (by omega),
       Expr.instSeq_forallE tfvs (nP - 1 + 1 + 1) _ _ _ _ (by omega), e1,
@@ -544,7 +544,7 @@ theorem denoteP_directRecTy {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Nam
         (.forallE (Setlec.Name.lastStr C) (Expr.instSeq tfvs nP minorTy)
           (.forallE (.str .anonymous "t") (Expr.mkAppN (.const T (lps.map .param)) tfvs)
             (.app (.bvar 2) (.bvar 0)) ⟨.default, pw⟩)
-          ⟨.default, pw⟩) ⟨.implicit, pw⟩)
+          ⟨.default, pw⟩) ⟨.default, pw⟩)
       = some (AVExpr.pi 0 (pwBit ψ pw) (motiveAV m T ψ nP ℓ)
           (AVExpr.pi 0 (pwBit ψ pw) (minorAV m C ψ nP nF (pwBit ψ pw) ds)
             (AVExpr.pi 0 (pwBit ψ pw) (majorAV m T ψ nP) (.app (.bvar 2) (.bvar 0))))) := by
@@ -644,12 +644,12 @@ theorem denoteP_directRecRhs {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Na
       Setlec.map_instSeq_directPsAt tfvs 0 nP hclT (by omega), List.take_of_length_le (by omega)]
   have hbody : Expr.instSeq tfvs (nP - 1)
       (.lam (.str .anonymous "motive") (Setlec.directMotiveTy T lps nP ℓ)
-        (.lam (Setlec.Name.lastStr C) minorTy inner ⟨.default, pw⟩) ⟨.implicit, pw⟩)
+        (.lam (Setlec.Name.lastStr C) minorTy inner ⟨.default, pw⟩) ⟨.default, pw⟩)
       = .lam (.str .anonymous "motive")
           (.forallE (.str .anonymous "t") (Expr.mkAppN (.const T (lps.map .param)) tfvs)
             (.sort ℓ) ⟨.default, .never⟩)
           (.lam (Setlec.Name.lastStr C) (Expr.instSeq tfvs nP minorTy)
-            (Expr.instSeq tfvs (nP + 1) inner) ⟨.default, pw⟩) ⟨.implicit, pw⟩ := by
+            (Expr.instSeq tfvs (nP + 1) inner) ⟨.default, pw⟩) ⟨.default, pw⟩ := by
     rw [Setlec.instSeq_lam tfvs (nP - 1) _ _ _ _ (by omega),
       Setlec.instSeq_lam tfvs (nP - 1 + 1) _ _ _ _ (by omega), e1,
       instSeq_idx_congr (sp := tfvs) (t := nP - 1 + 1) (t' := nP) minorTy hnil,
@@ -735,7 +735,7 @@ theorem denoteP_directRecRhs {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Na
         (.forallE (.str .anonymous "t") (Expr.mkAppN (.const T (lps.map .param)) tfvs)
           (.sort ℓ) ⟨.default, .never⟩)
         (.lam (Setlec.Name.lastStr C) (Expr.instSeq tfvs nP minorTy)
-          (Expr.instSeq tfvs (nP + 1) inner) ⟨.default, pw⟩) ⟨.implicit, pw⟩)
+          (Expr.instSeq tfvs (nP + 1) inner) ⟨.default, pw⟩) ⟨.default, pw⟩)
       = some (AVExpr.lam (pwBit ψ pw) (motiveAV m T ψ nP ℓ)
           (AVExpr.lam (pwBit ψ pw) (minorAV m C ψ nP nF (pwBit ψ pw) ds)
             (mkLamsAV ((liftDoms 2 0 (ds.drop nP)).map fun p => (pwBit ψ pw, p.2.2))

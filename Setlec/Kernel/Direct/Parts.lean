@@ -112,6 +112,11 @@ premise and one rule per constructor) though the recogniser admits
 one: the multi-constructor extension changes the recogniser and the
 proofs, not the generated shapes.
 
+**Binder infos** are the export's: the former's parameter binders keep
+theirs, every generated binder is `.default` (the standard-axiom pins,
+`stdAxiomOk`, compare the stored `Iff.rec`/`Nonempty.rec` against the
+exported shapes up to names and data but not infos).
+
 **Binder data.**  Every binder the generator introduces or re-emits at
 the recursor's own telescope carries the elimination datum
 `Level.zeronessOf ℓ`: the codomain of each is `motive t : Sort ℓ`
@@ -228,7 +233,7 @@ def directRecTy (T : Name) (lps : List Name) (elim : Name) (large : Bool)
         (.app (.bvar (n + 1)) (.bvar 0)) ⟨.default, pw⟩)).bind fun minors =>
     Expr.replacePisPw pw nP tty
       (.forallE (.str .anonymous "motive") (directMotiveTy T lps nP ℓ) minors
-        ⟨.implicit, pw⟩)
+        ⟨.default, pw⟩)
 
 /-- **The generated rule** for constructor `j`:
 `λ p⃗ motive minor⃗ f⃗_j, minor_j f⃗_j`, its `λ`-domains verbatim the
@@ -250,7 +255,7 @@ def directRecRhs (T : Name) (lps : List Name) (elim : Name) (large : Bool)
     (directMinorsLams lps nP pw ctors 1 inner).bind fun minors =>
     Expr.pisToLamsPw pw nP tty
       (.lam (.str .anonymous "motive") (directMotiveTy T lps nP ℓ) minors
-        ⟨.implicit, pw⟩)
+        ⟨.default, pw⟩)
 
 /-- The pieces of a recognised simple-structure block. -/
 structure DirectParts where
