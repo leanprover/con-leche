@@ -16,9 +16,9 @@ project prompt and is updated as decisions evolve.
 capstone assembly in `Setlec/Verify/Cached/*`, and the statement a
 reader comes for in `Setlec/MainTheorem.lean`.
 
-**Start at the top rows.** `Setlec.no_proof_of_False` and
-`Setlec.no_proof_of_False_IO` (and their `Empty` twins) are the main
-theorems: they name the
+**Start at the top rows.** `Setlec.no_proof_of_False`,
+`Setlec.no_proof_of_Empty` and `Setlec.no_proof_of_Empty_IO` are the
+main theorems: they name the
 shipped configuration outright (`cfgOf .verified`), so they carry no
 mode witness and no residue — only `[SetTheory V]` (the standing
 parametricity of the consistency argument, not a hypothesis about the
@@ -31,11 +31,10 @@ even when a letter's own footprint is unmoved.
 | theorem | file | what it says |
 |---|---|---|
 | `Setlec.no_proof_of_False` | `Setlec/MainTheorem.lean` | **THE MAIN THEOREM** — if the checker in its default `--verified` mode accepts a stream, the resulting environment holds no constant of type `False` (task #181: `False` is a pinned basis block, `Setlec/Kernel/Basis/False.lean`, so the statement needs no hypothesis about how the stream declares it — a stream declaring the name any other way is rejected) |
-| `Setlec.no_proof_of_False_IO` | `Setlec/MainTheorem.lean` | **the same, for the loop the binary runs** — `checkDeclsSPCachedM` in `IO`, for *any* callbacks (a callback sees the fold position and the record, returns `Unit`, and cannot influence the verdict) |
 | `Setlec.no_proof_of_Empty` | `Setlec/MainTheorem.lean` | the same statement about the pinned `Empty` |
-| `Setlec.no_proof_of_Empty_IO` | `Setlec/MainTheorem.lean` | … for the `IO` loop |
+| `Setlec.no_proof_of_Empty_IO` | `Setlec/MainTheorem.lean` | **the same, for the loop the binary runs** — `checkDeclsSPCachedM` in `IO`, for *any* callbacks (a callback sees the fold position and the record, returns `Unit`, and cannot influence the verdict).  No `False` twin yet, by user ruling: the world-passing shape is to be replaced by a follow-up lane first |
 | `Setlec.Cached.no_proof_of_{False,Empty}_SPCD_P` | `Setlec/Verify/Cached/MainC.lean` | the shipped driver's letters, stated for every validating mode at once |
-| `Setlec.Cached.no_proof_of_{False,Empty}_SPCD_IO` | `Setlec/Verify/Cached/MainC.lean` | their `IO`-loop siblings |
+| `Setlec.Cached.no_proof_of_Empty_SPCD_IO` | `Setlec/Verify/Cached/MainC.lean` | its `IO`-loop sibling |
 | `Setlec.SetP.no_proof_of_{False,Empty}_P` | `Setlec/SetP/FoldP.lean` | **the pure letters** — the same conclusions for the pure fueled checker `checkDecls μ (fueledOps μ F)`, at every fuel |
 | `Setlec.SetP.no_proof_of_Empty_P_of` | `Setlec/SetP/FoldP.lean` | its install-tier-conditional form, the shape the harvest closes |
 | `Setlec.Cached.checkDeclsSPCachedD_sound_P` | `Setlec/Verify/Cached/MainC.lean` | the acceptance corollary under the driver's letter: an accepted cached run yields the model invariant `EnvS2PM` at the final environment |
@@ -46,8 +45,8 @@ even when a letter's own footprint is unmoved.
 The axiom footprint is **pinned in the tree, not only claimed**:
 `tests/SetlecTests/Axioms.lean` (built by `lake test`, reported by `tests/arena.sh`
 as the `axioms:` line) carries a `#guard_msgs in #print axioms` for each
-of the seventeen, so a drifting axiom footprint is a test failure. Ten
-of them — the four main theorems, `no_proof_of_{False,Empty}_SPCD_P`,
+of the fifteen, so a drifting axiom footprint is a test failure. Nine
+of them — the three main theorems, `no_proof_of_{False,Empty}_SPCD_P`,
 `checkDeclsSPCachedD_sound_P`, `foldSPC_PM` and
 `no_proof_of_{False,Empty}_P` — additionally have their
 module-level dependency closure pinned by `tests/proofdeps.sh`; the
