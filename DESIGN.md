@@ -48591,3 +48591,30 @@ directory: **zero** writable `openat`s across all three processes, zero
 `/tmp` accesses, the watched directory still empty afterwards, and the
 input opened twice read-only (the `needsPreprocess` scan and the tool's
 own read) with the export flowing through a `pipe2`.
+
+### Re-gated at the master merge (`0c9a69c0`; master `f1932977`)
+
+Merged master's sum-types route (`Kernel/Direct/Sum*`, `SetP/DirectSum`,
+the widened `setlecNative`), the resume-slice script and its DESIGN
+records.  Two conflicts, both textual: `DESIGN.md` (two appended
+sections — both kept, master's first) and `tests/arena-expected.txt` at
+`138_DupConCon`, where **both branches had already moved the line to
+`1`** for different reasons.  That is worth stating precisely, since the
+comment master left there is now one step behind the shipped path: with
+the preprocessor present, 138 is rejected by *its* duplicate-declaration
+check ("invalid export: duplicate declaration dup_ind_con_con.mk") and
+that verdict is ours; the sum route's pairwise-distinct guard
+("invalid: direct sum: duplicate constructor") is what rejects the same
+stream when the preprocessor is unavailable.  Both give 1, by two
+independent routes — the comment in the expectations file now says so.
+
+Gates, once, on the merge: `lake build` **647 jobs warning-free**;
+`lake test` green; `tests/arena.sh` **exit 0** — layering base 252 /
+P 166 / caps 2 / umbrella 1 with 0 base→lane and 0 impl→theory,
+`proofdeps` 1 441 rows / **0 doors** as auto-merged (no regeneration),
+pindump fresh, arena tutorial 90/92, e2e **85/85** (master's two new
+fixtures plus this task's two), annot 14/14, retired flags 8/8, mode
+flags 16/16, trusted sweep 138 + 85 + 14 with the three recorded
+divergences; `init-full` **55 931 accepted in both modes** (exit 0) —
+master's post-sum-types figure exactly, i.e. this task changes no
+verdict on it.

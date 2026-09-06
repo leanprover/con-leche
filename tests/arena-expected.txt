@@ -191,5 +191,11 @@
 # all constructors at the former's environment and conses them
 # afterwards, so it guards the names pairwise distinct up front and
 # REJECTS (the reference-correct verdict; the modeled route declined
-# at the preprocessor's model check).
+# at the preprocessor's model check).  Since task #180 the verdict
+# arrives one step earlier still: the preprocessor's own
+# duplicate-declaration check rejects the export ("invalid export:
+# duplicate declaration dup_ind_con_con.mk") and its verdict is ours.
+# The sum route's pairwise guard is what rejects the same stream when
+# the preprocessor is unavailable (SETLEC_INDUCTIVE_MODELS=/nonexistent:
+# "invalid: direct sum: duplicate constructor") — both give 1.
 1 bad/tutorial/138_DupConCon.ndjson
