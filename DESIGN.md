@@ -51245,7 +51245,7 @@ timestamped progress lines), `accept-rss.log`, `accept-time.txt`,
 `run-progress.sh`, `pace_progress.sh`, `trace_stats.sh` (the harness
 and its readers); and the two killed runs' logs, labelled per §6.
 
-## THE ARENA SUITE (all but Mathlib) — every upstream test has a verdict, 0 incorrect; `init`, `Std` and `cslib` ACCEPTED (2026-09-06, `agent/arena-suite`; §9 is the post-rename re-run, §10 `cslib`)
+## THE ARENA SUITE (all but Mathlib) — every upstream test has a verdict, 0 incorrect; `init`, `Std` and `cslib` ACCEPTED (2026-09-06, `agent/arena-suite`; §9 the post-rename re-run, §10 `cslib`, §7 what was cancelled and why; record committed under `scripts/arena/results/`)
 
 The local battery only ever saw the arena's *tutorial* group (a vendored
 2026-08-19 tarball, `tests/arena-expected.txt`), plus five streams the
@@ -51518,31 +51518,36 @@ algorithmic-conversion non-transitivity the thesis predicts, reproduced
 exactly, with official agreeing on every one.  `proj-maybe-prop` and
 `proj-maybe-prop-past` we accept, as official does.
 
-### 7. HELD — the big four, and the exact resume
+### 7. CLOSED — the three held cells, cancelled, and why
 
-**Held**: the machine has exactly one Mathlib-scale slot, and this suite
-takes it only on the coordinator's word.  Do NOT poll other lanes'
-processes to find out whether it is free — ask.  The branch is
-`agent/arena-suite`, unmerged.  (`cslib` was granted the slot on
-2026-09-06 and is done, §10; the slot went back to the PERF lane
-immediately afterwards.)  What is still unrun:
+**User decision, 2026-09-06: the suite has what we need.**  The three
+cells that were holding for the machine's Mathlib-scale slot are
+cancelled, not deferred.  This section is a closed record; nothing here
+is queued.
 
-1. ~~**`cslib` at `--verified`**~~ — **DONE, accepted**; see §10.  One
-   loose end from it: that run had `LECH_PROGRESS=5000` set, so it went
-   through the *unverified* progress fold.  A re-run with the variable
-   unset is wanted for the coverage claim (the verdict itself stands).
-2. **the four big streams at `--trusted`** — `init`, `std`, `cedar`,
-   `cslib`.  The `--trusted` sweep covers the 202 small tests only
-   (where it agrees with `--verified` on every one, twice now).
-3. **`init` / `std` / `cedar` at `--verified` again.**  Their figures in
-   §3 and §5 are the *parked, pre-rename* run (Setlec at master
-   `2664b1dd`).  Task #180 changed the input side for all three — the
-   preprocessor is a pipe now, so the multi-gigabyte scratch file is
-   gone and the memory profile is not the same measurement.
-
-Everything else is done and current: 202 small tests in both modes at
-master `b7fa7331` (§9), `cslib` at `--verified` (§10), and the
-`official` v4.34.0-rc2 reference column over the same 202.
+1. **`cslib` at `--verified` without `LECH_PROGRESS`** — cancelled.
+   §10's run had the heartbeat on, which puts the driver on the
+   *progress* fold rather than the one `Lech.no_proof_of_False` is
+   about.  The user ruled the progress fold fine as the producer of this
+   verdict: it is the same steps in the same order over the same records
+   from the same empty environment, and the difference is *stated*
+   rather than hidden.  `cslib` is accepted, full stop; the re-run would
+   have bought a coverage sentence, not a verdict.
+2. **the big four at `--trusted`** — cancelled.  The `--trusted` column
+   over the 202 small tests agrees with `--verified` on **every single
+   test, twice** (once before the rename, once after).  A third
+   confirmation at 0.3–2.0 GB would cost the Mathlib slot for hours to
+   test a hypothesis nothing has dented.
+3. **`init` / `std` / `cedar` re-measured at `--verified`** —
+   cancelled.  Their *verdicts* (accept, accept, decline-on-a
+   `native_decide`-axiom) are what the suite is for, and verdicts do not
+   go stale: nothing in the rename or in #180 changes what those streams
+   are.  What is stale is only their **memory and time figures**, since
+   #180 removed the preprocessor's multi-gigabyte scratch file — so §3
+   and §5 mark those three rows as the pre-rename run (`setlec*` in
+   `scripts/arena/results/table.txt`) and they must not be quoted as
+   current *measurements*.  The perf lane measures perf; this suite
+   measures verdicts.
 
 **F8 IS NOT A BUG TO FIX** (user ruling, 2026-09-06, verbatim: *"exit 3
 or 1 is fine. we'll eventually retire or absorb the preprocessor."*).
@@ -51556,30 +51561,20 @@ expectation files stay exactly as they are — no `tests/` expectation was
 touched by this suite and none should be.  Revisit only if and when the
 preprocessor is retired or absorbed.
 
-**The corpus survives.**  `_tmp/arena-suite/` keeps the arena clone
-(`lean-kernel-arena` @ `91f376e`), the ~4 GB of built exports in its
-`_build/tests`, the built `official` checker, and the result snapshots
-(`results-verified-small` / `results-trusted-small` — the parked
-Setlec run, `results2-verified-small` / `results2-trusted-small` — the
-Lech re-run, `results-verified-big`, `results-official-small`).  So a
-resume does **not** re-clone or re-export; it is one command per missing
-cell.  Verbatim, from a built worktree of this branch:
+**The record is committed**, so none of it depends on the scratch tree:
+`scripts/arena/results/` holds `summary.tsv` (all 206 runs, one row per
+test, the expected outcome and every column's exit code),
+`table.txt` (the rendered verdict table with messages, wall and peak
+RSS) and seven `*.jsonl` files — `lka.py`'s own result records for the
+`lech` verified/trusted columns, the pre-rename `setlec` columns kept as
+the baseline §9 diffs against, the big-stream cells, and the `official`
+v4.34.0-rc2 reference column.  `scripts/arena/README.md` is the index.
 
-    cd <worktree>            # lake build first; the driver checks the binaries
-    LECH_ARENA_DIR=/home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena \
-      scripts/arena/run-suite.sh run-big          # 22 GB / 4 h, one at a time
-
-    # then the trusted column of the same four:
-    LECH_ARENA_DIR=/home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena \
-    LECH_MODE=--trusted LECH_VLIMIT=22000000 LECH_TIMEOUT=14400 \
-      scripts/arena/run-suite.sh run init std cedar cslib
-
-    LECH_ARENA_DIR=/home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena \
-      scripts/arena/run-suite.sh table
-
-`LECH_TMPDIR` defaults to `_tmp/arena-suite/tmp`.  Since #180 a run
-writes no scratch stream at all, so this is now only the project's
-standing rule rather than the load-bearing setting it was at the park.
+**The corpus is not committed and need not be.**  `_tmp/arena-suite/`
+still holds the arena clone (`lean-kernel-arena` @ `91f376e`), the ~4 GB
+of built exports, the built `official` checker and the `cslib` receipts;
+if it is cleaned, `run-suite.sh clone && run-suite.sh build-tests`
+rebuilds it from scratch in about an hour of network and CPU.
 
 ### 8. Reproducing
 
@@ -51595,6 +51590,8 @@ builds Cedar (from source) and cslib (`lake exe cache get`), and the
 exports come to ~4 GB.  Nothing here is wired into `lake test` — the
 suite needs the network and an hour of build — but a landing gate can
 run `run-small` against an already-built corpus in ten minutes.
+`scripts/arena/README.md` carries this same recipe next to the kit, with
+the index of the committed `results/`.
 
 ### 9. RESUMED after the Lech rename and task #180 — the small tests re-run, F1 is 22/29 fixed and 7 became ERRORS (2026-09-06, `agent/arena-suite` @ master `b7fa7331`)
 
@@ -51804,21 +51801,34 @@ before it is quoted.**
     records from the same empty environment, one line printed before
     each declaration — and **plainly unverified**, i.e. this particular
     run is not covered by `Lech.no_proof_of_False`.  The verdict is the
-    verdict; the *coverage* claim needs a re-run with the variable
-    unset.  Queued in §7 with the rest.
+    verdict; the *coverage* claim would need a re-run with the variable
+    unset, and the user ruled that re-run unnecessary — the progress
+    fold is fine as this verdict's producer (§7.1).  So: `cslib` is
+    accepted, and the sentence "covered by the capstone" is not claimed
+    for this particular run.
 2.  **It was run directly rather than through `lka.py`** — same command
     line as `scripts/arena/lech.yaml` builds (same `ulimit -v
     22000000`, same `LECH_INDUCTIVE_MODELS`, same `timeout`, same
     binary, same arena-built export), wrapped in `perf stat` and GNU
     `time -v`, because the harness captures stderr and would have
     hidden the progress stream.  The result is written into the run's
-    snapshot in `lka.py`'s own schema
-    (`_tmp/arena-suite/results2-verified-big/lech_cslib.json`, with a
-    `_provenance` field saying exactly this) so the table renderer
-    includes it.
+    snapshot in `lka.py`'s own schema, with a `_provenance` field saying
+    exactly this, and is committed as
+    `scripts/arena/results/lech-verified-big.jsonl`.
 
 **With this, every arena test but Mathlib has a verdict.**  The four big
 streams: `init` accept, `std` accept, `cedar` decline (a `native_decide`
-axiom), `cslib` accept.  Across all 206 runs: **0 incorrect and no
-`good` stream rejected**, at every size the arena has.
+axiom), `cslib` accept.  The suite's final scorecard, all 206 runs
+(`scripts/arena/results/table.txt`):
+
+| | count |
+|---|---|
+| correct | 169 |
+| declined (neutral in the arena's scoring) | 15 |
+| `either` (outcome unsettled upstream) | 15 |
+| error (exit 3 — the seven of F8, ruled not a bug) | 7 |
+| **incorrect** | **0** |
+
+**0 incorrect and no `good` stream rejected**, at every size the arena
+has.
 
