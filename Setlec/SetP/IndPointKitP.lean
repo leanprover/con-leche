@@ -18,7 +18,8 @@ the fired index pin are both applications of the *same* arity, and the
 stage reads their arguments off pointwise.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -128,4 +129,4 @@ theorem teleFitPA_rest_eq :
         show k + 1 - 1 - 1 = k - 1 from by omega, Nat.add_sub_cancel,
         Nat.zero_add]
 
-end Setlec.Semantics
+end Setlec.SetP

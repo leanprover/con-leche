@@ -4,7 +4,7 @@ import Setlec.SetP.IndParamGradeP
 # The field domains, graded and fired (task #161, IND TIER part 5)
 
 **The half part 4 could not run.**  `prefixGradeFireP` closed the
-statement frame's prefix positions on the rows `IotaRunsR` already
+statement frame's prefix positions on the rows `IotaRuns` already
 carried; this file closes the *field* positions, and it is the theorem
 the second widening was applied for.
 
@@ -28,7 +28,8 @@ field spine positions below `n` are earned from the induction's own
 earlier steps against `Sat2`.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -305,4 +306,4 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
   rw [interp2_liftN, hshiftEnv n ρ'] at hfire
   exact hfire
 
-end Setlec.Semantics
+end Setlec.SetP

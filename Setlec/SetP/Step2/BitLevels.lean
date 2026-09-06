@@ -27,7 +27,8 @@ This is the P3 pivot's first full payoff, measured: what was two open
 metatheorems plus a conditional induction is one proved walk.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -384,4 +385,4 @@ theorem denoteP_params_ext (m : EnvS2Core V env)
       | natVal k => exact absurd rfl (hnat k)
       | strVal s => exact absurd rfl (hstr s)
 
-end Setlec.Semantics
+end Setlec.SetP

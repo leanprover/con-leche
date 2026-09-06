@@ -1,6 +1,6 @@
 import Setlec.SetP.ProjRenameP
 import Setlec.SetP.IndProjEtaP
-import Setlec.Semantics.ProjFnRR
+import Setlec.Semantics.ProjFnFacts
 
 /-!
 # The projection-function cons, P tier (task #161, IND TIER part 10)
@@ -26,7 +26,8 @@ is exactly three things:
   `acvalWith_self` makes its head the installed constant's leaf.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -91,7 +92,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
       capsT.eta = true → blockNames.contains capsT.etaCtor = true)
     (hFields : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → capsT.etaFields = nF)
-    -- the head's own obligations (task #161 S7: `projFnR_head`
+    -- the head's own obligations (task #161 S7: `projFn_head`
     -- supplies both from `ProjFnR` alone)
     (hwf : EnvWF ⟨c₀ :: env'.consts⟩)
     (hctorsHead : ∀ (cvR : ConstantVal) (mI rP : Nat)
@@ -262,4 +263,4 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
   · rw [hmp']
     exact blockAcvalInstalled_fresh_cons hIA hnotb₀ hstrNe₀
 
-end Setlec.Semantics
+end Setlec.SetP

@@ -42,7 +42,8 @@ calls a proof interprets to `pt`.  `propIrrelPQ_of_claims` wires it
 into the hoist's row beside the slow branch's `prop_side_pt`.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -432,4 +433,4 @@ theorem propIrrelPQ_of_claims {m : EnvS2Core V env}
       prop_side_pt ihis hsss hreads htb hstb hwstb hvT hwb hbb hLb
         hCb hdb hokB ρ hρ]
 
-end Setlec.Semantics
+end Setlec.SetP

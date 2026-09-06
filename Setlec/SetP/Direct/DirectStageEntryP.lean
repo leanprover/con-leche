@@ -17,7 +17,8 @@ names.)  The leaf's walks are the entry frame's; the entry's law is
 `entryLawP`, assembled from the three semantic cores over the frames.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -437,4 +438,4 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
         rw [hacC']
         exact entryEtaCore (hCD.len _) (hFD.len _) (hpok _) (hiff _) (hbound _) ts x hlents hsp hmem'
 
-end Setlec.Semantics
+end Setlec.SetP

@@ -39,7 +39,8 @@ are graded because the certificate inferred them, not because their
 own telescopes were re-walked.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -723,4 +724,4 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
             hokF hokm ρ hρ).symm,
           hwF, hbB, hLF, hCF⟩
 
-end Setlec.Semantics
+end Setlec.SetP

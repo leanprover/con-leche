@@ -4,7 +4,7 @@ import Setlec.SetP.Direct.DirectFoldEntryP
 # The direct structure's install, assembled (task #175 W4c, P3 module 7, part 9)
 
 `declDirectP`: the P carrier survives the direct install's run
-(`DeclDirectR`).  The stages compose as the checker runs them —
+(`DeclDirectRun`).  The stages compose as the checker runs them —
 former, constructor, recursor, projection slots — with one twist: the
 former's leaf mentions the field chain, which is read off the
 constructor's stored type, checked *after* the former is stored.  So
@@ -18,7 +18,8 @@ constructor stage's `constsResolve env₀` re-check is exactly this
 fact.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -106,7 +107,7 @@ theorem find?_none_of_cons {c : ConstantInfo} {env : Env} {n : Name}
 theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p : DirectParts} (mp : EnvS2PM V μ env)
     (hE : Setlec.EtaFamiliesClosed env) (hdp : Setlec.directParts? env block = some p)
-    (h : Setlec.Semantics.DeclDirectR μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
+    (h : Setlec.Semantics.DeclDirectRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hccvR, hRec, hRule, hslots,
     hfold⟩ := h
   obtain ⟨hProp, hRname, hClps, hresT, hresC, hresR, helim⟩ := Setlec.directParts?_inv hdp
@@ -344,4 +345,4 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
   exact foldEntriesP hμ hsorts hlpsT hlpsC (by rw [hstripC]; rfl) hProp hpshapeT hpshapeC hresT
     (by rw [← hRname]; exact hresR) hresC hiff hfields (List.range p.nF) 0 (by simp) hfold hinv
 
-end Setlec.Semantics
+end Setlec.SetP

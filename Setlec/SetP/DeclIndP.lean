@@ -24,7 +24,8 @@ are `BlockAcvalInstalled` at `T` and at the constructor; its third is
 vacuous, the projection slots being fresh there).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -44,7 +45,7 @@ install runs anyway; the P phases carry the annotated invariants. -/
 theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} (mp : EnvS2PM V μ env)
     (hE : Setlec.EtaFamiliesClosed env)
-    (h : DeclIndRunR μ F env block env₂) :
+    (h : DeclIndRun μ F env block env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨hsplit, hmain⟩ := h
   -- list bookkeeping about the block's split (v1's, verbatim)
@@ -64,10 +65,10 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
   have hEC0 : Setlec.EtaFamiliesClosedO (block.map (·.name)) env :=
     fun T cvT caps hf hcape hres _ => hE T cvT caps hf hcape hres
   have hnostore : ∀ {caps : IndCaps} {envM envR : Env},
-      IndMembersRunR μ F (block.map (·.name)) caps env
+      IndMembersRun μ F (block.map (·.name)) caps env
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => false | _ => true)) envM →
-      IndRecsRunR μ F (block.map (·.name)) envM
+      IndRecsRun μ F (block.map (·.name)) envM
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => true | _ => false)) envR →
       ∀ n, (block.map (·.name)).contains n = true →
@@ -77,16 +78,16 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmm
     rw [hsplit] at hci₀
     rcases List.mem_append.mp hci₀ with hci₀ | hci₀
-    · rw [indMembersRunR_fresh _ hmem ci₀ hci₀] at hf
+    · rw [indMembersRun_fresh _ hmem ci₀ hci₀] at hf
       exact nomatch hf
-    · have hup := indMembersRunR_mono _ hmem _ _ hf
-      rw [indRecsRunR_fresh hrecs ci₀ hci₀] at hup
+    · have hup := indMembersRun_mono _ hmem _ _ hf
+      rw [indRecsRun_fresh hrecs ci₀ hci₀] at hup
       exact nomatch hup
   have hI0gen : ∀ {caps : IndCaps} {envM envR : Env},
-      IndMembersRunR μ F (block.map (·.name)) caps env
+      IndMembersRun μ F (block.map (·.name)) caps env
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => false | _ => true)) envM →
-      IndRecsRunR μ F (block.map (·.name)) envM
+      IndRecsRun μ F (block.map (·.name)) envM
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => true | _ => false)) envR →
       BlockInstalledTT (block.map (·.name)) env mp.base2.cvalE :=
@@ -94,17 +95,17 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
       absurd (hnostore hmem hrecs n hn ci hf) (fun h => h)
   -- the annotated half, vacuous at the base for the same reason
   have hIA0gen : ∀ {caps : IndCaps} {envM envR : Env},
-      IndMembersRunR μ F (block.map (·.name)) caps env
+      IndMembersRun μ F (block.map (·.name)) caps env
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => false | _ => true)) envM →
-      IndRecsRunR μ F (block.map (·.name)) envM
+      IndRecsRun μ F (block.map (·.name)) envM
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => true | _ => false)) envR →
       BlockAcvalInstalled (block.map (·.name)) env mp.base2.acval :=
     fun hmem hrecs n hn ci hf =>
       absurd (hnostore hmem hrecs n hn ci hf) (fun h => h)
   have hallGen : ∀ {caps : IndCaps} {envM : Env},
-      IndMembersRunR μ F (block.map (·.name)) caps env
+      IndMembersRun μ F (block.map (·.name)) caps env
         (block.filter (fun ci => match ci with
           | .recInfo _ _ _ _ => false | _ => true)) envM →
       ∀ n, (block.map (·.name)).contains n = true →
@@ -116,7 +117,7 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmm
     rw [hsplit] at hci₀
     rcases List.mem_append.mp hci₀ with hci₀ | hci₀
-    · exact Or.inl (indMembersRunR_stored _ hmem ci₀ hci₀)
+    · exact Or.inl (indMembersRun_stored _ hmem ci₀ hci₀)
     · exact Or.inr ⟨ci₀, hci₀, rfl⟩
   rcases hmain with ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt, harm⟩ |
     ⟨-, envM, hmem, hrecs⟩
@@ -154,19 +155,19 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
       obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmm
       rw [hsplit] at hci₀
       rcases List.mem_append.mp hci₀ with hx | hx
-      · exact (indMembersRunR_nameGuards _ hmem ci₀ hx).1
-      · exact (indRecsRunR_nameGuards hrecs ci₀ hx).1
+      · exact (indMembersRun_nameGuards _ hmem ci₀ hx).1
+      · exact (indRecsRun_nameGuards hrecs ci₀ hx).1
     have hTnres : Setlec.reservedBasisNames.contains cvT.name = false :=
-      (indMembersRunR_nameGuards _ hmem _ hTnon).2
+      (indMembersRun_nameGuards _ hmem _ hTnon).2
     -- **the group's keep-fact, off the run record** (task #161 S11b):
-    -- `indRecsRunR_keep` is strictly stronger than the `hnonrecUp` the
+    -- `indRecsRun_keep` is strictly stronger than the `hnonrecUp` the
     -- carrier-building `indRecsCoreR` used to report — an equation, no
     -- "not a recursor" side condition — so the ind tier's P summit no
     -- longer runs a second, model-free *install* for it.
     have hkeepR : ∀ (n : Name) (ci : ConstantInfo),
         env.find? n = some ci → envR.find? n = some ci :=
-      fun n ci hf => indRecsRunR_keep hrecs n ci
-        (indMembersRunR_mono _ hmem n ci hf)
+      fun n ci hf => indRecsRun_keep hrecs n ci
+        (indMembersRun_mono _ hmem n ci hf)
     have hmonoR : ∀ n, (env.find? n).isSome = true →
         (envR.find? n).isSome = true := by
       intro n hn
@@ -207,8 +208,8 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
         capsT' = indBlockCaps μ env cvT cvC nP nF := by
       intro cvT' capsT' hf
       obtain ⟨cvA, hnameA, hlpsA, hfM⟩ :=
-        indMembersRunR_indEntry _ hmem cvT capsT hTnon
-      have hfR := indRecsRunR_keep hrecs cvT.name
+        indMembersRun_indEntry _ hmem cvT capsT hTnon
+      have hfR := indRecsRun_keep hrecs cvT.name
         (.indInfo cvA (indBlockCaps μ env cvT cvC nP nF)) hfM
       rw [hf] at hfR
       obtain ⟨h1, h2⟩ :=
@@ -290,4 +291,4 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
         hbnRec (hallGen hmem) hEC₁ hBP₁ hrecs
     exact ⟨mp₂⟩
 
-end Setlec.Semantics
+end Setlec.SetP

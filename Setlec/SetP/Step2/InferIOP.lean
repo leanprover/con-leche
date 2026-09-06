@@ -52,7 +52,8 @@ and `inferStepIOP_of` consumes the sealed four claims without ever
 producing one.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -923,4 +924,4 @@ theorem inferStepIOP_of (h : InferInputsIOP V μ)
   | .proj sn i pe, hrun, hws, hb, hLb, hC, hea, hok =>
     exact h.proj_io m φ fuel hrun hws hb hLb hC hea hta hok
 
-end Setlec.Semantics
+end Setlec.SetP

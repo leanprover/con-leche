@@ -16,7 +16,8 @@ Three syntactic facts the recursor's frames need:
   constructor's domains instantiated at the *recursor's* variables).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -173,4 +174,4 @@ theorem instPisAt_erasedEq :
     | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.instPisAt] at h
 
-end Setlec.Semantics
+end Setlec.SetP

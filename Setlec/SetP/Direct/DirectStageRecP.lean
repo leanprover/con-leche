@@ -11,7 +11,8 @@ still empty), and the rule's law is `recRuleLaw` when the rule is
 plain (an inert rule owes nothing).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -263,4 +264,4 @@ theorem stageRec (hμ : μ.verified = true) (hE : Setlec.EtaFamiliesClosed env)
       apply hfire
       simp [hplain]
 
-end Setlec.Semantics
+end Setlec.SetP

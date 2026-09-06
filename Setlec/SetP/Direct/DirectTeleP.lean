@@ -21,7 +21,8 @@ bridges the two:
 * `sat2_of_spineFit`: a fitting spine satisfies the entries it fits.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec Setlec.Semantics Setlec.TTVerify SetTheory Setlec.SetModel
@@ -249,4 +250,4 @@ theorem spineFit_of_sat2 :
       rw [e]
       exact this
 
-end Setlec.Semantics
+end Setlec.SetP

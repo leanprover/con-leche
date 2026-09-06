@@ -44,7 +44,8 @@ whose `v = 0` fibre premises come from the type reading's own
 neither subsumes the other.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -470,4 +471,4 @@ theorem inferStrLitStepP_of_claims {m : EnvS2Core V env}
       fun ρ _ => (strLitFactsP hct hval hnh hg hea ρ).2⟩
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
-end Setlec.Semantics
+end Setlec.SetP

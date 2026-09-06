@@ -73,7 +73,8 @@ worth recording:
   P-tier counterpart and needs none.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -100,7 +101,7 @@ theorem univ_not_mem_univZero (n : Nat) : ¬ (univ n : V) ∈ˢ univZero := by
   intro h
   have hemp : (empty : V) ∈ˢ unitSet := mem_univZero.mp h _ (empty_mem_univ n)
   have he : (empty : V) = pt := mem_unitSet hemp
-  refine pt_not_mem_univZero (V := V) ?_
+  refine Setlec.Semantics.pt_not_mem_univZero (V := V) ?_
   rw [← he]
   exact univ_zero (V := V) ▸ empty_mem_univ 0
 

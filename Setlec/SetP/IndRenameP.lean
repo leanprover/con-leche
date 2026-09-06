@@ -28,7 +28,8 @@ stores — an installed member's leaf *is* its model's — so
 read off the annotated invariant rather than the collapse-lane one.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -164,4 +165,4 @@ theorem blockRenameOkP {blockNames : List Name} {cval : TConstVal}
       · exact hIA n hc ciS hfS ψ
     · rw [if_neg hc]
 
-end Setlec.Semantics
+end Setlec.SetP

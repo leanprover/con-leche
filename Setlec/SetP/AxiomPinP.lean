@@ -136,7 +136,8 @@ Three of `DeclAxiomR`'s four branches, then.  The fourth is the second
 WALL above.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -171,7 +172,7 @@ annotated valuation, and the membership is that constant's own
 axiom's does. -/
 theorem axiomTrustCompilerP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
-    (hcv : ConstantValRunR μ F env cv type')
+    (hcv : ConstantValRun μ F env cv type')
     (hname : cv.name = Setlec.trustCompilerName)
     (hok : Setlec.trustCompilerOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
@@ -262,7 +263,7 @@ own constant in both halves, so every syntactic obligation is `rfl` or
 a `const` clause, and the whole content is the membership. -/
 theorem axiomStdP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
-    (hcv : ConstantValRunR μ F env cv type')
+    (hcv : ConstantValRun μ F env cv type')
     (hok : Setlec.stdAxiomOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
     Nonempty (EnvS2PM V μ
@@ -318,4 +319,4 @@ theorem axiomStdP (hμ : μ.verified = true)
       rw [if_neg hn, if_neg hn2] at hok
       exact nomatch hok
 
-end Setlec.Semantics
+end Setlec.SetP

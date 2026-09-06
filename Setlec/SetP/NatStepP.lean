@@ -23,7 +23,8 @@ The reduct's reading, grading and frame conditions are unchanged from
 lands here is the `interp2` equality, and with it the wall.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -558,4 +559,4 @@ theorem reduceNatStepPQ_of (mp : EnvS2PM V μ env) {fuel : Nat}
   intro d e e₂ Δa ea h hws hb hLb hC hea hok
   exact reduceNatStepP_of mp ihw h hws hb hLb hC hea hok
 
-end Setlec.Semantics
+end Setlec.SetP

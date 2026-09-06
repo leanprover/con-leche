@@ -47,7 +47,8 @@ slots, so the fit supplies their memberships directly.  Rigidity
 appears here only for the type slot, which every `Eq` statement needs.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -152,7 +153,7 @@ theorem blockTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
 /-- The member cons's instance: `MemberValR` supplies both data. -/
 theorem memberTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
     {cv cvA : ConstantVal}
-    (hmv : MemberValRunR μ F env blockNames cv cvA)
+    (hmv : MemberValRun μ F env blockNames cv cvA)
     (hIB : BlockInstalledTT blockNames env mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
     {cvm : ConstantVal} {mval : Expr} {hint : ReducibilityHint}
@@ -478,4 +479,4 @@ theorem memberUnitLawP : MemberUnitLawP V := by
     hSuniv hmx hmy] at hlanded
   exact eq_of_mem_eqv hlanded
 
-end Setlec.Semantics
+end Setlec.SetP

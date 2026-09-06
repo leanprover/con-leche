@@ -10,7 +10,8 @@ agreement (`frameIdent`), the minor space as a Π-tower reading
 (`interp_minorSp_of_tele`), and list arithmetic.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -314,4 +315,4 @@ theorem interp_minorSp_of_tele {ℓ w : Nat} {M : V} :
       rw [consList_cons] at this
       rw [this, List.append_cons]
 
-end Setlec.Semantics
+end Setlec.SetP

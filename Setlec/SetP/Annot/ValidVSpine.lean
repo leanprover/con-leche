@@ -12,7 +12,8 @@ clause recurses, and the leaves are the routed `AcvalValidP` facts at
 the clause's own `acval` reads.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.Semantics (AVExpr)
@@ -46,4 +47,4 @@ theorem AnnotValidV_charListT2 {nilA consA ofNatA za sa : AVExpr}
       exact ⟨h3, AnnotValidV_natLitT2 hz hs c.toNat⟩⟩,
       AnnotValidV_charListT2 h1 h2 h3 hz hs cs⟩
 
-end Setlec.Semantics
+end Setlec.SetP

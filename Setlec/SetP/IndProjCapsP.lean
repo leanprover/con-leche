@@ -40,7 +40,8 @@ third of its three positions, and it is the reason step 5 survives
 the part-3 wall: nothing here reads a comparison the checker ran.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -194,4 +195,4 @@ theorem capsOkP_cons_proj (mp : EnvS2PM V μ env)
       rw [hac, acvalWith_ne hnT] at hmx hmy
       exact hlaw ρ ts rest x y hlents hfit hmx hmy
 
-end Setlec.Semantics
+end Setlec.SetP

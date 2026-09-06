@@ -67,7 +67,8 @@ check the *semantic* invariant bundle and not only the syntactic one.
 to supply facts `EnvWF` does not.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -278,4 +279,4 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
       rw [hac, acvalWith_ne hnT] at hx hy
       exact hlaw ρ ts rest x y hlents hfit hx hy
 
-end Setlec.Semantics
+end Setlec.SetP

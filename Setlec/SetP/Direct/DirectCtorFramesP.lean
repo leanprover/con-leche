@@ -13,7 +13,8 @@ eliminator.  These are the premises the former's real leaf and the
 constructor's leaf consume.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -306,4 +307,4 @@ theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       exact this
   exact ⟨fun ψ => (hframes ψ).1, fun ψ => (hframes ψ).2⟩
 
-end Setlec.Semantics
+end Setlec.SetP

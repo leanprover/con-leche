@@ -13,7 +13,8 @@ import Setlec.SetP.Direct.DirectEntryDataP
   against the subject's projection spine (`chainP_entry_agree`).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -272,4 +273,4 @@ theorem chainP_entry_agree (nP i : Nat) (ρ : Nat → V) :
     congr 1
     omega
 
-end Setlec.Semantics
+end Setlec.SetP

@@ -42,8 +42,10 @@ identify a `.lam` with a `.pi` or move a leaf.  `erase_eq` records that
 it refines erasure-equality, and it is strictly finer.
 -/
 
+-- `AVExpr.BitAgree` extends `Setlec.Semantics.AVExpr` (dot notation on
+-- readings), so this module stays in the semantic tier's namespace.
 namespace Setlec.Semantics
-open Setlec.SetModel
+open Setlec.SetModel Setlec.SetP
 
 open Setlec.Semantics SetTheory Setlec.SetModel
 

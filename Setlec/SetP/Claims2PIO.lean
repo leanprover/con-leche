@@ -70,7 +70,8 @@ enforcement: the full lane's bodies never mention `coreKnotIO`, so no
 full-lane claim can be discharged from an io claim by construction.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -190,4 +191,4 @@ theorem checkSound2P5 {μ : CheckMode} {env : Env}
     obtain ⟨ihwc, ihw, ihd, ihi, ihio⟩ := ih
     exact hstep env m φ fuel ihwc ihw ihd ihi ihio
 
-end Setlec.Semantics
+end Setlec.SetP

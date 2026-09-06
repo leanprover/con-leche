@@ -41,7 +41,8 @@ side of the asymmetry (`io_membership_fails_at_squash`) is untouched
 here and by construction cannot be reached from these three.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -92,4 +93,4 @@ theorem gate_zero_kind_unreachable {mode : CheckMode} {mb : BinderMeta}
     (hz : pwBit φ mb.pw = 0) : False :=
   gate_pwBit_ne_zero hg φ hz
 
-end Setlec.Semantics
+end Setlec.SetP

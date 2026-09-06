@@ -10,7 +10,7 @@ comparisons only through `IotaWalksR`, six rows of quantified-context
 *derivation packs* at the v1 currency, which no P proof can read
 (`interp2_ne_interp_erase` refutes the transport, and derivation → run
 is false for a fuel-bounded incomplete checker).  The lead's widening
-(`IotaRunsR`, `SetR/Decl.lean`) records the runs the producer already
+(`IotaRuns`, `SetR/Decl.lean`) records the runs the producer already
 held; this file is their conversion.
 
 `defEqAtP_of_run` is `openWalk_eqS`'s P transpose and the pivot of
@@ -39,7 +39,8 @@ none of them is *free*, and transposing the conclusion alone would
 have dropped them silently.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -54,7 +55,7 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
 /-! ## One comparison -/
 
 /-- **A recorded comparison fires at a padded frame** —
-`openWalk_eqS`'s P transpose, at the currency `IotaRunsR`'s rows are
+`openWalk_eqS`'s P transpose, at the currency `IotaRuns`'s rows are
 recorded in.
 
 The context is the opened frame's (`ctxOkP_of_openers`), built once
@@ -188,4 +189,4 @@ theorem defEqListP_of_runs {m : EnvS2Core V env} {F : Nat}
     (defEqListOk_getD hruns i hi) hwa hba hLa hwb hbb hLb hleafA hltA hleafB hltB
     haa hbaR hga hgb hsat
 
-end Setlec.Semantics
+end Setlec.SetP

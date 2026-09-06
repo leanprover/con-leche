@@ -36,7 +36,8 @@ same frames in `cons` form; `Sat2_cons`/`Sat2_cons_inv` are the
 bridge, one binder at a time.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec Setlec.Semantics Setlec.TTVerify SetTheory Setlec.SetModel
@@ -247,4 +248,4 @@ theorem ctxOkP_opened {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
     rw [e]
     exact hokΓ j (by omega) _ hd
 
-end Setlec.Semantics
+end Setlec.SetP

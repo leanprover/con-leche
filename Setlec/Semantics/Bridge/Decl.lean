@@ -7,9 +7,9 @@ import Setlec.Verify.IotaWalkInv
 half removed 2026-09-05)
 
 Four inversions from `checkDecl`'s own steps into the V-free run
-records of `SetBase/Decl.lean`: `certifyNatEqs` into `NatEqsRunR`, the
-elimination-template fold into `DeclIndR.TemplatesR`, and the pinned
-basis fold into `BasisInstallR`/`DeclBasisR`.  Each inverts a statement
+records of `SetBase/Decl.lean`: `certifyNatEqs` into `NatEqsRun`, the
+elimination-template fold into `DeclIndRun.Templates`, and the pinned
+basis fold into `BasisInstallRun`/`DeclBasisRun`.  Each inverts a statement
 about the checker into a statement about the checker; no valuation, no
 relation and no model appears in any of them.
 
@@ -41,10 +41,10 @@ and the recorded form is the checker's literal call —
 `NatOpsP` establishment consumes these through `DefEqClaims2P`
 instead of the relational `NatEqsR` below (whose `DefEq` only has
 collapse-currency soundness). -/
-theorem natEqsRunR_of_certs {μ : CheckMode} {F : Nat} {env : Env} :
+theorem natEqsRun_of_certs {μ : CheckMode} {F : Nat} {env : Env} :
     ∀ (eqs : List (Expr × Expr)),
       certifyNatEqs (m := CheckM) (fueledOps μ F) env eqs = .ok true →
-      NatEqsRunR μ F env eqs := by
+      NatEqsRun μ F env eqs := by
   intro eqs
   induction eqs with
   | nil => intro _ eq heq; exact nomatch heq
@@ -75,12 +75,12 @@ sibling, the projection-*function* fold, was parametric in `ProjFnR`'s
 inversion and went with `ProjFnR`.) -/
 
 /-- **The elimination-template fold, inverted.** -/
-theorem templatesR_of {T ctorName : Name} {lps : List Name}
+theorem templates_of {T ctorName : Name} {lps : List Name}
     {nP nF : Nat} :
     ∀ (l : List Nat) {env' env₂ : Env},
       l.foldlM (installProjTemplateStep (m := CheckM) T ctorName lps
         nP nF) env' = .ok env₂ →
-      DeclIndR.TemplatesR T ctorName lps nP nF env' l env₂
+      DeclIndRun.Templates T ctorName lps nP nF env' l env₂
   | [], env', env₂, h => by
     simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
     exact h.symm
@@ -92,7 +92,7 @@ theorem templatesR_of {T ctorName : Name} {lps : List Name}
     | error e => intro h; exact nomatch h
     | ok env'' =>
       intro h
-      refine ⟨env'', ?_, templatesR_of l h⟩
+      refine ⟨env'', ?_, templates_of l h⟩
       simp only [installProjTemplateStep] at hstep
       by_cases hfr : (env'.find? (projFnName T i)).isNone = true
       · rw [if_pos hfr] at hstep
@@ -135,15 +135,15 @@ theorem templatesR_of {T ctorName : Name} {lps : List Name}
 /-! ## `basisDecl`
 
 The simplest branch: a guard on the pinned `Eq` former, then a fold of
-duplicate checks.  `BasisInstallR` records exactly the fold's output —
+duplicate checks.  `BasisInstallRun` records exactly the fold's output —
 each constant fresh, then consed — so the inversion is one induction
 over `installBasisDecl_inv`. -/
 
-/-- **The pinned-block fold, inverted** into `BasisInstallR`. -/
+/-- **The pinned-block fold, inverted** into `BasisInstallRun`. -/
 theorem foldlM_installBasisDecl_invR :
     ∀ (l : List ConstantInfo) {env env₁ : Env},
       l.foldlM (installBasisDecl (m := CheckM)) env = .ok env₁ →
-      BasisInstallR env l env₁
+      BasisInstallRun env l env₁
   | [], env, env₁, h => by
     simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
     exact h.symm
@@ -159,10 +159,10 @@ theorem foldlM_installBasisDecl_invR :
         foldlM_installBasisDecl_invR l h⟩
 
 /-- **`basisDecl`, bridged.** -/
-theorem declBasisR {μ : CheckMode} {F : Nat} {env env₂ : Env}
+theorem declBasisRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {kind : BasisKind}
     (h : checkDecl μ (fueledOps μ F) env (.basisDecl kind) = .ok env₂) :
-    DeclBasisR env kind env₂ := by
+    DeclBasisRun env kind env₂ := by
   simp only [checkDecl, Bind.bind, Except.bind] at h
   by_cases hk : kind = .quotK
   · subst hk

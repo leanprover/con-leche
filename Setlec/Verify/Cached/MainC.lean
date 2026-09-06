@@ -105,7 +105,7 @@ about the function `Main.lean` actually runs — the same species of
 gap the S8 batch closed for `checkDeclsSP` (`SetP/MainP.lean`).  The
 closure is the retired `SPCD_R` recipe at the P invariant: the cached
 per-declaration bridge already lands at the pure `checkDecl` run,
-`checkDeclRun_ofEnvRE` lifts it to the run record, and `declStepPM` —
+`checkDeclRun_ofEnvFactsE` lifts it to the run record, and `declStepPM` —
 the S11a P step, unchanged — walks the `EnvS2PM` carrier.  Nothing
 semantic is added; the io-graded P core's soundness (B4's premise-form
 slot claims) arrives through `declStepPM`'s dependency cone.
@@ -116,7 +116,7 @@ pure fueled checker the tower is stated about) its only sibling. -/
 
 section PLetters
 
-open Setlec.Semantics (EnvSPOk EnvS2PM declStepPM
+open Setlec.SetP (EnvSPOk EnvS2PM declStepPM
   no_constant_of_Empty_P)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
@@ -143,9 +143,9 @@ theorem foldSPC_PM (hμ : μ.verified = true) :
     obtain ⟨d, hd⟩ := hrel pc List.mem_cons_self
     rw [hfe] at hstepC
     obtain ⟨hres₁, hfe₁, F, hF⟩ :=
-      checkDeclSPStepC_run mp.toEnvR.wf hres hd hstepC
+      checkDeclSPStepC_run mp.toEnvFacts.wf hres hd hstepC
     exact foldSPC_PM hμ ds fe₁ hfe₁
-      (declStepPM hμ mp hE (Setlec.Semantics.checkDeclRun_ofEnvRE hF))
+      (declStepPM hμ mp hE (Setlec.Semantics.checkDeclRun_ofEnvFactsE hF))
       hres₁ (fun p hp => hrel p (List.mem_cons_of_mem _ hp)) h
 
 /-- **Acceptance, shipped direct-parse driver, P route.** -/
@@ -155,7 +155,7 @@ theorem checkDeclsSPCachedD_sound_P (hμ : μ.verified = true)
     Nonempty (EnvS2PM V μ env') := by
   obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
   exact (foldSPC_PM hμ ds (mkFEnv Env.empty) rfl
-    ⟨⟨Setlec.Semantics.EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩
+    ⟨⟨Setlec.SetP.EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩
     CSOKF.empty wdecl_rel hrun).1
 
 /-- **THE CAPSTONE FOR THE SHIPPED DRIVER, P mode** (task #172 B4):

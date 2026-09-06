@@ -43,7 +43,8 @@ premise appears — matching what the literal tier's seal established
 for the harvests.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -405,4 +406,4 @@ theorem towerOkP_cons_tower (mp : EnvS2PM V μ env)
     exact hlaw φ
   · exact towerEntryLawP_cons_prefix mp hfresh hcross m₂ hac φ hf3 htw
 
-end Setlec.Semantics
+end Setlec.SetP

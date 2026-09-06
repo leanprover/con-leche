@@ -68,7 +68,8 @@ beside its `eq_lawP` sibling — the law mentions two stored leaves, so
 it crosses every cons that is neither of them).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -189,7 +190,7 @@ theorem reduceOpsP_install (hμ : μ.verified = true)
     (hmemA : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp2 V ρ (A ψ) ∈ˢ interp2 V ρ (Ta ψ))
     (hred : Setlec.reduceOpNames.contains cv.name = true →
-      ReducePinRunR μ F env
+      ReducePinRun μ F env
         ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩
         cv.name value)
     (m₂ : EnvS2Core V
@@ -387,4 +388,4 @@ theorem reduceOpsP_install (hμ : μ.verified = true)
   rw [hclA ρ (cons x ρ) ψ]
   exact heq
 
-end Setlec.Semantics
+end Setlec.SetP

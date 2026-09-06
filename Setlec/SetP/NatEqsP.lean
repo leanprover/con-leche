@@ -11,7 +11,7 @@ The literal tier's wall (`Step2/NatP.lean`) is exactly one law wide:
 the stored operations' recurrences at `interp2`.  This file builds the
 recorded resumption route — **establishment from run certificates**:
 `DeclDefnR` records one `isDefEqCore` run per substituted equation
-(`NatEqsRunR`, the H1 exposure), and `DefEqClaims2P` at the
+(`NatEqsRun`, the H1 exposure), and `DefEqClaims2P` at the
 pre-insertion environment converts each run into an `interp2` equality
 at the two-variable `Nat` context.  The v1 route (`NatEqsR`'s `DefEq`
 + `DefEq.sound`) is *not* transferable — its soundness lives at the
@@ -42,7 +42,8 @@ suppliers (`natOpsP_install` bespoke at the operation's own install,
 `natOpsP_cons_fresh` at every other fresh cons).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -1101,7 +1102,7 @@ theorem natSelfHeadP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
 
 /-- **`NatOpsP` at the operation's own install** — the run-certificate
 conversion, end to end: the recorded `isDefEqCore` runs on the
-substituted recurrences (`NatEqsRunR`) become `interp2` equalities
+substituted recurrences (`NatEqsRun`) become `interp2` equalities
 through `DefEqClaims2P` at the pre-insertion environment, and the
 substitution crossing (`denoteP_substConst0`) restates them as the raw
 equations' readings at the extension. -/
@@ -1121,7 +1122,7 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       (Setlec.natOpStoredOk
         (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩ : Env))
       = true)
-    (hruns : NatEqsRunR μ F env
+    (hruns : NatEqsRun μ F env
       ((Setlec.natOpEquations 0 c).map fun eq =>
         (Expr.substConst0 c value' eq.1,
          Expr.substConst0 c value' eq.2)))
@@ -1504,4 +1505,4 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       · simpa +decide [Expr.substConst0] using hla
       · simpa +decide [Expr.substConst0] using hra
 
-end Setlec.Semantics
+end Setlec.SetP

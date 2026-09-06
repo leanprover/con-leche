@@ -7,7 +7,7 @@ import Setlec.Verify.Direct.DirectPartsInv
 # The projection-slot fold (task #175 W4c, P3 module 7, part 8)
 
 `foldEntriesP`: the P carrier survives the direct install's projection
-fold (`DirectProjFoldR`).  The invariant at slot `k` carries the
+fold (`DirectProjFoldRun`).  The invariant at slot `k` carries the
 block's data at the accumulator (the former's and the constructor's
 readings and leaves), the stored lookups, the earlier installed slots
 (each a tower entry), and the later slots' freshness with their
@@ -18,7 +18,8 @@ the earlier entries and the field-sort run supplying the guard's
 levelwise content.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -379,7 +380,7 @@ theorem foldEntriesP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V))) :
     ∀ (l : List Nat) (k : Nat), l = (List.range p.nF).drop k →
       ∀ {env env₂ : Env},
-      Setlec.Semantics.DirectProjFoldR μ F p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
+      Setlec.Semantics.DirectProjFoldRun μ F p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
         p.resSort (Setlec.directProjSlots p)
         (Setlec.directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa env l env₂ →
       FoldInvP V μ p cvTa cvCa sorts pps ds k env →
@@ -405,4 +406,4 @@ theorem foldEntriesP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
       (foldStepP hμ hsorts hlpsT hlpsC hstripC hProp hTshape hCshape hresT hresR hresC
         hiff hfields hk hstep hinv)
 
-end Setlec.Semantics
+end Setlec.SetP

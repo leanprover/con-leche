@@ -22,7 +22,8 @@ readings), close by the literal meta-induction
 shape).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -1092,4 +1093,4 @@ theorem natOpV2_ble (m : EnvS2Core V env) (hops : NatOpsP m φ)
       · rw [if_pos hab, if_pos (by omega)]
       · rw [if_neg hab, if_neg (by omega)]
 
-end Setlec.Semantics
+end Setlec.SetP

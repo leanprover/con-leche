@@ -19,7 +19,8 @@ The pieces the recursor's frames are assembled from:
   instantiated carrier, by `formerFold`).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower

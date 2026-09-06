@@ -31,7 +31,8 @@ generalized here to an unpadded fired spine) supplies the crossing
 datum `RecRuleLawP`'s parameter premise is quantified over.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -126,7 +127,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
     {ldomsL : List Expr} {lrest2 : Expr}
     (hinstLam : Expr.instLamsAt (fvsP ++ xFvsP) rhsA
       = some (ldomsL, lrest2))
-    -- the recorded runs (`IotaRunsR`, plus the second widening's rows)
+    -- the recorded runs (`IotaRuns`, plus the second widening's rows)
     (hTypedP : TypedListOk μ F env (rP + cnF)
       (pins.map (Expr.instSpine (fvsP.take rP) (rP - 1))) cdomsP)
     (hdeIdx : DefEqListOk μ F env (rP + cnF)
@@ -1367,4 +1368,4 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
     (fun τ => (hRaFacts τ).1) hinstLam hdeLam hzslen hsat
     (teleFitPA_to_chain (rP + cnF) htowerS hzslen hfitS) hzsAnnot
 
-end Setlec.Semantics
+end Setlec.SetP

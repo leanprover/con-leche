@@ -10,7 +10,7 @@ import Setlec.Verify.ExceptBind
 
 The declaration fold's η half at the `.indDecl` dispatch: the modeled
 arm is `declIndEtaClosedRun` (`IndBlockRun`), and the direct arm is
-proved here from `DeclDirectR`'s recorded runs — every store the
+proved here from `DeclDirectRun`'s recorded runs — every store the
 direct install performs is a **fresh cons** (`checkConstantVal`'s
 duplicate guard for the three constants, `checkDirectProj`'s own
 `isNone` guard for the entries), and the one former it stores carries
@@ -138,17 +138,17 @@ theorem checkDirectProj_inv {μ : CheckMode} {F : Nat} {T C : Name}
 
 /-- The projection-slot fold keeps the η-families closed: every step
 is a fresh cons of a table entry, or nothing. -/
-theorem directProjFoldR_etaClosed {μ : CheckMode} {F : Nat} {T C : Name}
+theorem directProjFoldRun_etaClosed {μ : CheckMode} {F : Nat} {T C : Name}
     {lps : List Name} {nP nF : Nat} {resSort : Level} {slots : List Bool}
     {guards : List Level} {cvTa cvCa : ConstantVal} :
     ∀ (idxs : List Nat) {env env₂ : Env},
-      DirectProjFoldR μ F T C lps nP nF resSort slots guards cvTa cvCa env
+      DirectProjFoldRun μ F T C lps nP nF resSort slots guards cvTa cvCa env
         idxs env₂ →
       EtaFamiliesClosed env → EtaFamiliesClosed env₂
   | [], _, _, h, hE => by rw [h]; exact hE
   | i :: rest, env, env₂, h, hE => by
     obtain ⟨env'', hstep, hrest⟩ := h
-    refine directProjFoldR_etaClosed rest hrest ?_
+    refine directProjFoldRun_etaClosed rest hrest ?_
     rcases checkDirectProj_inv hstep with rfl |
       ⟨entry, hfresh, -, -, hsn, hidx, -, -, -, -, -, -, rfl⟩ |
       ⟨entry, hfresh, -, -, hsn, hidx, rfl⟩
@@ -165,9 +165,9 @@ theorem directProjFoldR_etaClosed {μ : CheckMode} {F : Nat} {T C : Name}
       rw [hname]; exact hfresh
 
 /-- **The direct arm keeps the η-families closed.** -/
-theorem declDirectR_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
+theorem declDirectRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : DirectParts} (hE : EtaFamiliesClosed env)
-    (h : DeclDirectR μ F env p env₂) : EtaFamiliesClosed env₂ := by
+    (h : DeclDirectRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hCV, -, -, -,
     hfold⟩ := h
   obtain ⟨cvT', hcvT, -, hI⟩ := checkDirectInd_inv hInd
@@ -206,7 +206,7 @@ theorem declDirectR_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
               cvC'.name = none by rw [← hI, hnC]; exact hfC)
           (Setlec.Env.find?_cons_of_fresh
             (show env.find? cvT'.name = none by rw [hnT]; exact hfT) hfC')
-  refine directProjFoldR_etaClosed _ hfold ?_
+  refine directProjFoldRun_etaClosed _ hfold ?_
   exact EtaFamiliesClosed.cons_nonind hE₂
     (show envC.find? cvRa.name = none by rw [hnR]; exact hfR)
     (fun _ _ heq => nomatch heq)
@@ -218,10 +218,10 @@ kernel's own `directParts?` case split. -/
 theorem declIndRunDispatchEtaClosed {μ : CheckMode} {F : Nat}
     {env envI : Env} {block : List ConstantInfo}
     (hE : EtaFamiliesClosed env)
-    (h : DeclIndRunDispatchR μ F env block envI) : EtaFamiliesClosed envI := by
-  unfold DeclIndRunDispatchR at h
+    (h : DeclIndRunDispatch μ F env block envI) : EtaFamiliesClosed envI := by
+  unfold DeclIndRunDispatch at h
   split at h
-  · exact declDirectR_etaClosed hE h
+  · exact declDirectRun_etaClosed hE h
   · exact declIndEtaClosedRun hE h
 
 end Setlec.Semantics

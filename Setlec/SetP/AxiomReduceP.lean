@@ -34,7 +34,8 @@ With this branch the whole pin bundle closes: `axiomStepPB_of`
 four branches, and `FoldP`'s `hax` premise is gone.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -324,7 +325,7 @@ or a `simp` on a leaf clause and the whole content is the
 membership. -/
 theorem axiomOfReduceP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
-    (hcv : ConstantValRunR μ F env cv type')
+    (hcv : ConstantValRun μ F env cv type')
     (hor : cv.name = Setlec.ofReduceNatName ∨
       cv.name = Setlec.ofReduceBoolName)
     (hok : Setlec.ofReduceAxOk env ⟨cv.name, cv.levelParams, type'⟩
@@ -357,4 +358,4 @@ theorem axiomOfReduceP (hμ : μ.verified = true)
 -- `Interp2/FoldP.lean`: `AxiomStepPB` is stated there, beside the two
 -- bundles still routed.)
 
-end Setlec.Semantics
+end Setlec.SetP

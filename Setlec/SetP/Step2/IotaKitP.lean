@@ -38,7 +38,8 @@ remove: `certs_telePA` carries the running type's `AnnotOkP` because
 across the substitution with `AnnotOkP_inst0` — the same two moves.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -447,14 +448,14 @@ a generalized body. -/
 theorem AnnotOk2_instRevChain (ρ : Nat → V) :
     ∀ (vs : List AVExpr), (∀ v ∈ vs, AnnotOk2 V ρ v) →
       ∀ X : AVExpr,
-        (AnnotOk2 V ρ (Setlec.Semantics.AVExpr.instRevChain vs X) ↔
+        (AnnotOk2 V ρ (Setlec.SetP.AVExpr.instRevChain vs X) ↔
           AnnotOk2 V (envChainP ρ vs) X) := by
   intro vs
   induction vs with
   | nil => intro _ X; exact Iff.rfl
   | cons v vs ih =>
     intro hvs X
-    show AnnotOk2 V ρ (Setlec.Semantics.AVExpr.instRevChain vs
+    show AnnotOk2 V ρ (Setlec.SetP.AVExpr.instRevChain vs
         (X.inst (v.liftN vs.length) 0)) ↔ _
     rw [ih (fun v' hv' => hvs v' (List.mem_cons_of_mem _ hv'))]
     have hva : AnnotOk2 V (shiftE 0 0 (envChainP ρ vs))
@@ -473,14 +474,14 @@ theorem AnnotOk2_instRevChain (ρ : Nat → V) :
 theorem AnnotValidV_instRevChain (ρ : Nat → V) :
     ∀ (vs : List AVExpr), (∀ v ∈ vs, AnnotValidV V ρ v) →
       ∀ X : AVExpr,
-        (AnnotValidV V ρ (Setlec.Semantics.AVExpr.instRevChain vs X) ↔
+        (AnnotValidV V ρ (Setlec.SetP.AVExpr.instRevChain vs X) ↔
           AnnotValidV V (envChainP ρ vs) X) := by
   intro vs
   induction vs with
   | nil => intro _ X; exact Iff.rfl
   | cons v vs ih =>
     intro hvs X
-    show AnnotValidV V ρ (Setlec.Semantics.AVExpr.instRevChain vs
+    show AnnotValidV V ρ (Setlec.SetP.AVExpr.instRevChain vs
         (X.inst (v.liftN vs.length) 0)) ↔ _
     rw [ih (fun v' hv' => hvs v' (List.mem_cons_of_mem _ hv'))]
     have hva : AnnotValidV V (shiftE 0 0 (envChainP ρ vs))
@@ -501,7 +502,7 @@ ambient-graded arguments is graded at the ambient environment. -/
 theorem annotOkP_instRevChain {ρ : Nat → V} {vs : List AVExpr}
     {X : AVExpr} (hX : ∀ σ : Nat → V, AnnotOkP V σ X)
     (hvs : ∀ v ∈ vs, AnnotOkP V ρ v) :
-    AnnotOkP V ρ (Setlec.Semantics.AVExpr.instRevChain vs X) :=
+    AnnotOkP V ρ (Setlec.SetP.AVExpr.instRevChain vs X) :=
   ⟨(AnnotOk2_instRevChain ρ vs (fun v hv => (hvs v hv).1) X).mpr
       (hX _).1,
     (AnnotValidV_instRevChain ρ vs (fun v hv => (hvs v hv).2) X).mpr
@@ -526,9 +527,9 @@ lost by moving to it.) -/
 theorem annotOkP_instRevChain_at {ρ : Nat → V} {vs : List AVExpr}
     {X : AVExpr} (hX : AnnotOkP V (envChainP ρ vs) X)
     (hvs : ∀ v ∈ vs, AnnotOkP V ρ v) :
-    AnnotOkP V ρ (Setlec.Semantics.AVExpr.instRevChain vs X) :=
+    AnnotOkP V ρ (Setlec.SetP.AVExpr.instRevChain vs X) :=
   ⟨(AnnotOk2_instRevChain ρ vs (fun v hv => (hvs v hv).1) X).mpr hX.1,
     (AnnotValidV_instRevChain ρ vs (fun v hv => (hvs v hv).2) X).mpr
       hX.2⟩
 
-end Setlec.Semantics
+end Setlec.SetP

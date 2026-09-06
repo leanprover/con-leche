@@ -36,7 +36,8 @@ of the subject, carries no slot, and its grading is *produced* by that
 run — gating it would be circular (DESIGN.md, "THE ι AUDIT" §9.1.4).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -295,4 +296,4 @@ theorem iota_gate_exact {pw : PropWhen} :
     PropWhen.isNever pw = true ↔ ∀ φ : Name → Nat, pwBit φ pw ≠ 0 :=
   isNever_iff_forall_pwBit_ne_zero
 
-end Setlec.Semantics
+end Setlec.SetP

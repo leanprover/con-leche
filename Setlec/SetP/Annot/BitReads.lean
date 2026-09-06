@@ -24,7 +24,8 @@ denotation, through this bridge.  Nothing is routed and no row is
 owed.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
@@ -219,4 +220,4 @@ theorem denotePClosed_isSome_of_denoteClosed
     ∃ ea, denoteP acval env φ 0 e = some ea :=
   denoteP_isSome_of_denote 0 e h
 
-end Setlec.Semantics
+end Setlec.SetP

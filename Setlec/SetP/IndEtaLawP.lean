@@ -37,7 +37,8 @@ former is the case where the bridge is the install itself
 the invariant (`hIA`).
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -374,4 +375,4 @@ theorem memberEtaLawP : MemberEtaLawP V := by
     hSuniv hxS hRS] at hlanded
   exact eq_of_mem_eqv hlanded
 
-end Setlec.Semantics
+end Setlec.SetP

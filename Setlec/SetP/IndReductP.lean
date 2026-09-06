@@ -13,7 +13,7 @@ chain.
 **One premise is the third exposure's, and it is named as such.**
 `DefEqClaims2P` converts the rhs run only against *both* comparands'
 gradings.  The a-side is the statement's own right-hand side and its
-grading is `IotaRunsR`'s own `inferTypeCore rhsS` run through
+grading is `IotaRuns`'s own `inferTypeCore rhsS` run through
 `InferClaims2P`; the b-side is the *applied form*, whose grading needs
 `Ra`'s — the row `IotaRuleR` does not carry (see the third-exposure
 entry in DESIGN.md).  So it enters here as `hokApp`, in the `∀ ba`
@@ -22,7 +22,8 @@ complete: once the row lands, `hokApp` is the truthfulness transport's
 own output at the frame's openers.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -248,4 +249,4 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
       List.getElem?_eq_none (by rw [hzslen]; omega)]
     rfl
 
-end Setlec.Semantics
+end Setlec.SetP

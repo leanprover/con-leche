@@ -15,7 +15,8 @@ the hereditary gradings and the `CtxOkP` correspondences at every
 depth — everything a stage's frame walk consumes, in one record.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec Setlec.Semantics Setlec.TTVerify SetTheory Setlec.SetModel
@@ -201,4 +202,4 @@ theorem openedP_of {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
     exact ctxOkP_opened hop hcl hlen (fun i x hx => by simpa using hdoms i x hx)
       hgΓ hik hwx hleaf
 
-end Setlec.Semantics
+end Setlec.SetP

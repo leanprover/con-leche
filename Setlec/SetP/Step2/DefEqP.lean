@@ -73,7 +73,8 @@ package helpers carry a `dq_` prefix so that the concurrently-written
 whnf quarter can keep the unprefixed names.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -1272,4 +1273,4 @@ theorem defEqStepP_of (hμ : μ.verified = true)
         (hin.heta env m φ fuel))
       (hin.hspine env m φ fuel))
 
-end Setlec.Semantics
+end Setlec.SetP

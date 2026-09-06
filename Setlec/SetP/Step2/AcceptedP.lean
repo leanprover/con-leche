@@ -43,7 +43,8 @@ not about the model, which is why it can be a theorem at
 `EnvS2Core` rather than a bundle entry.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -248,4 +249,4 @@ theorem acceptedReadsP_of (m : EnvS2Core V env) (φ : Name → Nat)
     ∃ ea, denoteP m.acval env φ d e = some ea :=
   acceptedReadsP_aux m φ F h hws hb hL
 
-end Setlec.Semantics
+end Setlec.SetP

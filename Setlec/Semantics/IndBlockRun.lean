@@ -1,5 +1,5 @@
 import Setlec.Semantics.DeclIndRun
-import Setlec.Semantics.IndBlockR
+import Setlec.Semantics.IndBlockFacts
 
 /-!
 # The inductive block's syntactic residue, on the **run** records
@@ -7,9 +7,9 @@ import Setlec.Semantics.IndBlockR
 
 `SetBase/IndBlockR.lean` collects what the block folds *preserve* —
 monotonicity, freshness, the name guards, the stored entries, the
-η-closure — and states it over the `DeclIndR` family.  The graded lane
+η-closure — and states it over the `DeclIndRun` family.  The graded lane
 consumes those facts, and since S11b it consumes them from
-`DeclIndRunR` (`SetBase/DeclIndRun.lean`), so each one is re-stated
+`DeclIndRun` (`SetBase/DeclIndRun.lean`), so each one is re-stated
 here at the run record.
 
 **Every proof below is its `IndBlockR` twin's, with the valuation
@@ -22,7 +22,7 @@ is what route (a) buys instead of the run→derivation lemmas route (b)
 would have owed (see `Bridge/DeclIndRun.lean`'s header for the
 priced comparison).
 
-`templatesR_ext` is **not** duplicated: `DeclIndR.TemplatesR` never
+`templates_ext` is **not** duplicated: `DeclIndRun.Templates` never
 took a valuation, so the run family names it verbatim and its lemma
 serves both.
 -/
@@ -34,10 +34,10 @@ open Setlec.TT Setlec.TTVerify
 /-! ## The projection fold -/
 
 /-- The projection-function fold is an `ExtEta` extension, run half. -/
-theorem projInstallRunR_ext {μ : CheckMode} {F : Nat}
+theorem projInstallRun_ext {μ : CheckMode} {F : Nat}
     {T ctorName : Name} {lps : List Name} {nP nF : Nat} :
     ∀ (idxs : List Nat) {env' env₄ : Env},
-      ProjInstallRunR μ F T ctorName lps nP nF env' idxs env₄ →
+      ProjInstallRun μ F T ctorName lps nP nF env' idxs env₄ →
       ExtEta env' env₄ := by
   intro idxs
   induction idxs with
@@ -63,7 +63,7 @@ theorem provisionRecsRunS_mono {μ : CheckMode} {F : Nat}
     {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) {envAcc envSelf : Env}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
-      ProvisionRecsRunR μ F blockNames envAcc recs envSelf checked →
+      ProvisionRecsRun μ F blockNames envAcc recs envSelf checked →
       ∀ (n : Name) (ci : ConstantInfo),
         envAcc.find? n = some ci → envSelf.find? n = some ci := by
   intro recs
@@ -85,7 +85,7 @@ theorem provisionRecsRunS_fresh {μ : CheckMode} {F : Nat}
     {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) {envAcc envSelf : Env}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
-      ProvisionRecsRunR μ F blockNames envAcc recs envSelf checked →
+      ProvisionRecsRun μ F blockNames envAcc recs envSelf checked →
       ∀ ci ∈ recs, envAcc.find? ci.name = none := by
   intro recs
   induction recs with
@@ -116,7 +116,7 @@ theorem provisionRecsRunS_nameGuards {μ : CheckMode} {F : Nat}
     {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) {envAcc envSelf : Env}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
-      ProvisionRecsRunR μ F blockNames envAcc recs envSelf checked →
+      ProvisionRecsRun μ F blockNames envAcc recs envSelf checked →
       ∀ ci ∈ recs, ci.name.isProjFnShape = false ∧
         reservedBasisNames.contains ci.name = false := by
   intro recs
@@ -134,10 +134,10 @@ theorem provisionRecsRunS_nameGuards {μ : CheckMode} {F : Nat}
     · exact ih hprov' ci hci'
 
 /-- …and so does every group member's, run half. -/
-theorem indRecsRunR_nameGuards {μ : CheckMode} {F : Nat}
+theorem indRecsRun_nameGuards {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
     {recs : List ConstantInfo}
-    (h : IndRecsRunR μ F blockNames env₂ recs env₃) :
+    (h : IndRecsRun μ F blockNames env₂ recs env₃) :
     ∀ ci ∈ recs, ci.name.isProjFnShape = false ∧
       reservedBasisNames.contains ci.name = false := by
   rcases h with ⟨rfl, -⟩ | ⟨-, -, envSelf, checked, hprov, -⟩
@@ -145,11 +145,11 @@ theorem indRecsRunR_nameGuards {μ : CheckMode} {F : Nat}
   · exact provisionRecsRunS_nameGuards recs hprov
 
 /-- The install fold introduces no former, run half. -/
-theorem indRecsFoldRunR_noInd {μ : CheckMode} {F : Nat}
+theorem indRecsFoldRun_noInd {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {envBase envSelf : Env} :
     ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule))
       {acc out : Env},
-      IndRecsRunR.IndRecsFoldRunR μ F blockNames envBase envSelf
+      IndRecsRun.IndRecsFoldRun μ F blockNames envBase envSelf
         acc checked out →
       ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
         out.find? T = some (.indInfo cvT caps) →
@@ -170,23 +170,23 @@ theorem indRecsFoldRunR_noInd {μ : CheckMode} {F : Nat}
     · exact h1
 
 /-- The recursor phase introduces no former, run half. -/
-theorem indRecsRunR_noInd {μ : CheckMode} {F : Nat}
+theorem indRecsRun_noInd {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
     {recs : List ConstantInfo}
-    (h : IndRecsRunR μ F blockNames env₂ recs env₃) :
+    (h : IndRecsRun μ F blockNames env₂ recs env₃) :
     ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       env₃.find? T = some (.indInfo cvT caps) →
       env₂.find? T = some (.indInfo cvT caps) := by
   rcases h with ⟨-, rfl⟩ | ⟨-, -, envSelf, checked, -, hfold⟩
   · exact fun _ _ _ hf => hf
-  · exact indRecsFoldRunR_noInd checked hfold
+  · exact indRecsFoldRun_noInd checked hfold
 
 /-- The install fold only extends the accumulator, run half. -/
-theorem indRecsFoldRunR_mono {μ : CheckMode} {F : Nat}
+theorem indRecsFoldRun_mono {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {envBase envSelf : Env} :
     ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule))
       {acc out : Env},
-      IndRecsRunR.IndRecsFoldRunR μ F blockNames envBase envSelf
+      IndRecsRun.IndRecsFoldRun μ F blockNames envBase envSelf
         acc checked out →
       ∀ n, (acc.find? n).isSome = true →
         (out.find? n).isSome = true := by
@@ -206,21 +206,21 @@ theorem indRecsFoldRunR_mono {μ : CheckMode} {F : Nat}
     · exact hn
 
 /-- The recursor group only extends the environment, run half. -/
-theorem indRecsRunR_mono {μ : CheckMode} {F : Nat}
+theorem indRecsRun_mono {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
     {recs : List ConstantInfo}
-    (h : IndRecsRunR μ F blockNames env₂ recs env₃) :
+    (h : IndRecsRun μ F blockNames env₂ recs env₃) :
     ∀ n, (env₂.find? n).isSome = true →
       (env₃.find? n).isSome = true := by
   rcases h with ⟨-, rfl⟩ | ⟨-, -, envSelf, checked, -, hfold⟩
   · exact fun n hn => hn
-  · exact indRecsFoldRunR_mono checked hfold
+  · exact indRecsFoldRun_mono checked hfold
 
 /-- No group member is stored before the group phase runs, run half. -/
-theorem indRecsRunR_fresh {μ : CheckMode} {F : Nat}
+theorem indRecsRun_fresh {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
     {recs : List ConstantInfo}
-    (h : IndRecsRunR μ F blockNames env₂ recs env₃) :
+    (h : IndRecsRun μ F blockNames env₂ recs env₃) :
     ∀ ci ∈ recs, env₂.find? ci.name = none := by
   rcases h with ⟨rfl, -⟩ | ⟨-, -, envSelf, checked, hprov, -⟩
   · intro ci hci; exact nomatch hci
@@ -231,7 +231,7 @@ theorem provisionRecsRunS_stored {μ : CheckMode} {F : Nat}
     {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) {envAcc envSelf : Env}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
-      ProvisionRecsRunR μ F blockNames envAcc recs envSelf checked →
+      ProvisionRecsRun μ F blockNames envAcc recs envSelf checked →
       ∀ ci ∈ recs, (envSelf.find? ci.name).isSome = true := by
   intro recs
   induction recs with
@@ -255,7 +255,7 @@ theorem provisionRecsRunS_mem {μ : CheckMode} {F : Nat}
     {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) {envAcc envSelf : Env}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
-      ProvisionRecsRunR μ F blockNames envAcc recs envSelf checked →
+      ProvisionRecsRun μ F blockNames envAcc recs envSelf checked →
       ∀ c ∈ envAcc.consts, c ∈ envSelf.consts := by
   intro recs
   induction recs with
@@ -274,7 +274,7 @@ theorem provisionRecsRunS_entries {μ : CheckMode} {F : Nat}
     {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) {envAcc envSelf : Env}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
-      ProvisionRecsRunR μ F blockNames envAcc recs envSelf checked →
+      ProvisionRecsRun μ F blockNames envAcc recs envSelf checked →
       ∀ c ∈ checked,
         envSelf.find? c.1.name
           = some (.recInfo c.1 c.2.1 c.2.2.1 []) ∧
@@ -297,10 +297,10 @@ theorem provisionRecsRunS_entries {μ : CheckMode} {F : Nat}
 /-! ## The member fold's syntactic residue -/
 
 /-- The member fold only extends, run half. -/
-theorem indMembersRunR_mono {μ : CheckMode} {F : Nat}
+theorem indMembersRun_mono {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {caps : IndCaps} :
     ∀ (members : List ConstantInfo) {env env₂ : Env},
-      IndMembersRunR μ F blockNames caps env members env₂ →
+      IndMembersRun μ F blockNames caps env members env₂ →
       ∀ (n : Name) (ci : ConstantInfo),
         env.find? n = some ci → env₂.find? n = some ci := by
   intro members
@@ -330,10 +330,10 @@ theorem indMembersRunR_mono {μ : CheckMode} {F : Nat}
     | projInfo e => exact nomatch hmatch
 
 /-- Every member the fold walks is stored at its end, run half. -/
-theorem indMembersRunR_stored {μ : CheckMode} {F : Nat}
+theorem indMembersRun_stored {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {caps : IndCaps} :
     ∀ (members : List ConstantInfo) {env env₂ : Env},
-      IndMembersRunR μ F blockNames caps env members env₂ →
+      IndMembersRun μ F blockNames caps env members env₂ →
       ∀ ci ∈ members, (env₂.find? ci.name).isSome = true := by
   intro members
   induction members with
@@ -351,13 +351,13 @@ theorem indMembersRunR_stored {μ : CheckMode} {F : Nat}
       | indInfo cv caps' =>
         rw [show (env₂.find? cvA.name)
             = some (ConstantInfo.indInfo cvA caps) from
-          indMembersRunR_mono rest hmatch _ _
+          indMembersRun_mono rest hmatch _ _
             (Env.find?_cons_self (.indInfo cvA caps) env)]
         rfl
       | ctorInfo cv nP nF =>
         rw [show (env₂.find? cvA.name)
             = some (ConstantInfo.ctorInfo cvA nP nF) from
-          indMembersRunR_mono rest hmatch _ _
+          indMembersRun_mono rest hmatch _ _
             (Env.find?_cons_self (.ctorInfo cvA nP nF) env)]
         rfl
       | axiomInfo cv => exact nomatch hmatch
@@ -375,10 +375,10 @@ theorem indMembersRunR_stored {μ : CheckMode} {F : Nat}
       | projInfo e => exact nomatch hmatch
 
 /-- No member is stored *before* the fold runs, run half. -/
-theorem indMembersRunR_fresh {μ : CheckMode} {F : Nat}
+theorem indMembersRun_fresh {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {caps : IndCaps} :
     ∀ (members : List ConstantInfo) {env env₂ : Env},
-      IndMembersRunR μ F blockNames caps env members env₂ →
+      IndMembersRun μ F blockNames caps env members env₂ →
       ∀ ci ∈ members, env.find? ci.name = none := by
   intro members
   induction members with
@@ -416,10 +416,10 @@ theorem indMembersRunR_fresh {μ : CheckMode} {F : Nat}
         | projInfo e => exact nomatch hmatch
 
 /-- Each member's name passes the two name guards, run half. -/
-theorem indMembersRunR_nameGuards {μ : CheckMode} {F : Nat}
+theorem indMembersRun_nameGuards {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {caps : IndCaps} :
     ∀ (members : List ConstantInfo) {env env₂ : Env},
-      IndMembersRunR μ F blockNames caps env members env₂ →
+      IndMembersRun μ F blockNames caps env members env₂ →
       ∀ ci ∈ members, ci.name.isProjFnShape = false ∧
         reservedBasisNames.contains ci.name = false := by
   intro members
@@ -444,10 +444,10 @@ theorem indMembersRunR_nameGuards {μ : CheckMode} {F : Nat}
       | projInfo e => exact nomatch hmatch
 
 /-- The former's stored entry, run half. -/
-theorem indMembersRunR_indEntry {μ : CheckMode} {F : Nat}
+theorem indMembersRun_indEntry {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {caps : IndCaps} :
     ∀ (members : List ConstantInfo) {env env₂ : Env},
-      IndMembersRunR μ F blockNames caps env members env₂ →
+      IndMembersRun μ F blockNames caps env members env₂ →
       ∀ (cv : ConstantVal) (caps₂ : IndCaps),
         ConstantInfo.indInfo cv caps₂ ∈ members →
         ∃ cvA : ConstantVal, cvA.name = cv.name ∧
@@ -469,7 +469,7 @@ theorem indMembersRunR_indEntry {μ : CheckMode} {F : Nat}
     · subst heq
       refine ⟨cvA, hnameA, hlpsA, ?_⟩
       rw [show cv.name = cvA.name from hnameA.symm]
-      exact indMembersRunR_mono rest hmatch _ _
+      exact indMembersRun_mono rest hmatch _ _
         (Env.find?_cons_self (.indInfo cvA caps) env)
     · cases ci₀ with
       | indInfo cv' caps' => exact ih hmatch cv caps₂ hci'
@@ -481,10 +481,10 @@ theorem indMembersRunR_indEntry {μ : CheckMode} {F : Nat}
       | projInfo e => exact nomatch hmatch
 
 /-- The constructor member's stored entry, run half. -/
-theorem indMembersRunR_ctorEntry {μ : CheckMode} {F : Nat}
+theorem indMembersRun_ctorEntry {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {caps : IndCaps} :
     ∀ (members : List ConstantInfo) {env env₂ : Env},
-      IndMembersRunR μ F blockNames caps env members env₂ →
+      IndMembersRun μ F blockNames caps env members env₂ →
       ∀ (cv : ConstantVal) (nP nF : Nat),
         ConstantInfo.ctorInfo cv nP nF ∈ members →
         ∃ cvA : ConstantVal,
@@ -503,7 +503,7 @@ theorem indMembersRunR_ctorEntry {μ : CheckMode} {F : Nat}
     · subst heq
       refine ⟨cvA, ?_⟩
       rw [show cv.name = cvA.name from hnameA.symm]
-      exact indMembersRunR_mono rest hmatch _ _
+      exact indMembersRun_mono rest hmatch _ _
         (Env.find?_cons_self (.ctorInfo cvA nP nF) env)
     · cases ci₀ with
       | indInfo cv' caps' => exact ih hmatch cv nP nF hci'
@@ -516,10 +516,10 @@ theorem indMembersRunR_ctorEntry {μ : CheckMode} {F : Nat}
 
 /-- A former stored after the member fold is either the base's or the
 block's own, run half. -/
-theorem indMembersRunR_indNew {μ : CheckMode} {F : Nat}
+theorem indMembersRun_indNew {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {caps : IndCaps} :
     ∀ (members : List ConstantInfo) {env env₂ : Env},
-      IndMembersRunR μ F blockNames caps env members env₂ →
+      IndMembersRun μ F blockNames caps env members env₂ →
       ∀ (T : Name) (cvT : ConstantVal) (caps' : IndCaps),
         env₂.find? T = some (.indInfo cvT caps') →
         env.find? T = some (.indInfo cvT caps') ∨
@@ -569,11 +569,11 @@ theorem indMembersRunR_indNew {μ : CheckMode} {F : Nat}
 
 /-- Every provisioned member's checked name is fresh in the group's
 base environment, run half. -/
-theorem provisionRecsRunR_checkedFresh {μ : CheckMode} {F : Nat}
+theorem provisionRecsRun_checkedFresh {μ : CheckMode} {F : Nat}
     {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) {envAcc envSelf : Env}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
-      ProvisionRecsRunR μ F blockNames envAcc recs envSelf checked →
+      ProvisionRecsRun μ F blockNames envAcc recs envSelf checked →
       ∀ c ∈ checked, envAcc.find? c.1.name = none := by
   intro recs
   induction recs with
@@ -595,11 +595,11 @@ theorem provisionRecsRunR_checkedFresh {μ : CheckMode} {F : Nat}
 
 /-- The install fold leaves alone every name it does not cons, run
 half. -/
-theorem indRecsFoldRunR_keep {μ : CheckMode} {F : Nat}
+theorem indRecsFoldRun_keep {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {envBase envSelf : Env} :
     ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule))
       {acc out : Env},
-      IndRecsRunR.IndRecsFoldRunR μ F blockNames envBase envSelf
+      IndRecsRun.IndRecsFoldRun μ F blockNames envBase envSelf
         acc checked out →
       ∀ n : Name, (∀ c ∈ checked, c.1.name ≠ n) →
         out.find? n = acc.find? n := by
@@ -618,35 +618,35 @@ theorem indRecsFoldRunR_keep {μ : CheckMode} {F : Nat}
 
 /-- **The recursor group keeps the base environment's lookups**, run
 half. -/
-theorem indRecsRunR_keep {μ : CheckMode} {F : Nat}
+theorem indRecsRun_keep {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
     {recs : List ConstantInfo}
-    (h : IndRecsRunR μ F blockNames env₂ recs env₃) :
+    (h : IndRecsRun μ F blockNames env₂ recs env₃) :
     ∀ (n : Name) (ci : ConstantInfo),
       env₂.find? n = some ci → env₃.find? n = some ci := by
   rcases h with ⟨-, rfl⟩ | ⟨-, -, envSelf, checked, hprov, hfold⟩
   · exact fun _ _ hf => hf
   · intro n ci hf
-    refine (indRecsFoldRunR_keep checked hfold n ?_).trans hf
+    refine (indRecsFoldRun_keep checked hfold n ?_).trans hf
     intro c hc hcn
-    have hnone := provisionRecsRunR_checkedFresh recs hprov c hc
+    have hnone := provisionRecsRun_checkedFresh recs hprov c hc
     rw [hcn, hf] at hnone
     exact nomatch hnone
 
 /-- The group phase is an `ExtEta` extension, run half. -/
-theorem indRecsRunR_ext {μ : CheckMode} {F : Nat}
+theorem indRecsRun_ext {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
     {recs : List ConstantInfo}
-    (h : IndRecsRunR μ F blockNames env₂ recs env₃) :
+    (h : IndRecsRun μ F blockNames env₂ recs env₃) :
     ExtEta env₂ env₃ :=
-  ⟨fun n ci hf _ => indRecsRunR_keep h n ci hf, indRecsRunR_noInd h⟩
+  ⟨fun n ci hf _ => indRecsRun_keep h n ci hf, indRecsRun_noInd h⟩
 
 /-! ## The group's rule facts, from the runs
 
 **The one place the run projection is not free** (task #161 S11b,
-finding): `RuleFactsR`'s last conjunct is a *denotation* — the fired
-rule's right-hand side reads — because that is what an `EnvR` at the
-swapped environment asks of a stored rule (`EnvR.rec_rhs_denotes`).
+finding): `RuleFacts`'s last conjunct is a *denotation* — the fired
+rule's right-hand side reads — because that is what an `EnvFacts` at the
+swapped environment asks of a stored rule (`EnvFacts.rec_rhs_denotes`).
 `iotaRulesFactsR` gets it from `IotaRuleR`'s front-door row, which the
 run record does not carry.
 
@@ -659,8 +659,8 @@ graded lane discharges it with `acceptedReadsP_of` composed with
 unchanged; neither lane re-proves the syntactic six. -/
 
 /-- **Every rule the per-recursor fold returns carries its model-free
-facts** — off `IotaRulesRunR` plus a reading supplier. -/
-theorem iotaRulesFactsRunR {μ : CheckMode} {F : Nat}
+facts** — off `IotaRulesRun` plus a reading supplier. -/
+theorem iotaRulesFactsRun {μ : CheckMode} {F : Nat}
     {env₂ envSelf : Env} {cvalSelf : TConstVal} {f : Name → Name}
     (hup : FoldUpS env₂ envSelf)
     (hden : ∀ e : Expr, e.hasFvar = false →
@@ -670,9 +670,9 @@ theorem iotaRulesFactsRunR {μ : CheckMode} {F : Nat}
         ∃ Rv, denoteClosed cvalSelf envSelf φ e = some Rv)
     {cvA : ConstantVal} {mI rP : Nat} :
     ∀ (j : Nat) (rules rules' : List RecRule),
-      IotaRulesRunR μ F env₂ envSelf f cvA.name cvA.levelParams
+      IotaRulesRun μ F env₂ envSelf f cvA.name cvA.levelParams
         cvA.type mI rP j rules rules' →
-      ∀ rl ∈ rules', RuleFactsR envSelf cvalSelf cvA mI rP rl := by
+      ∀ rl ∈ rules', RuleFacts envSelf cvalSelf cvA mI rP rl := by
   intro j rules
   induction rules generalizing j with
   | nil =>
@@ -739,7 +739,7 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
       (rules rules' : List RecRule),
       blockNames.contains cvA.name = true →
       envSelf.find? cvA.name = some (.recInfo cvA mI rP []) →
-      IotaRulesRunR μ F envBase envSelf
+      IotaRulesRun μ F envBase envSelf
         (fun n => if blockNames.contains n then n.str "_model" else n)
         cvA.name cvA.levelParams cvA.type mI rP 0 rules rules' →
       ∀ rl ∈ rules', RF cvA mI rP rl) :
@@ -761,8 +761,8 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
         envSelf.find? n = some (.recInfo cv mI rP rules) ∨
         ∀ rl ∈ rules, RF cv mI rP rl) →
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
-      ProvisionRecsRunR μ F blockNames envP recs envSelf checked →
-      IndRecsRunR.IndRecsFoldRunR μ F blockNames envBase envSelf
+      ProvisionRecsRun μ F blockNames envP recs envSelf checked →
+      IndRecsRun.IndRecsFoldRun μ F blockNames envBase envSelf
         envF checked env₃ →
       SwapShList envSelf.consts env₃.consts ∧
       SwapNResS envSelf env₃ ∧
@@ -886,7 +886,7 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
 record -/
 
 /-- **The inductive block preserves the η-family closure**, from
-`DeclIndRunR` alone (task #161 S11b).
+`DeclIndRun` alone (task #161 S11b).
 
 `declIndEtaClosed`'s proof verbatim, at the run family: it reads the
 member fold's `indNew`/`mono`/`ctorEntry`, the group's `noInd`/`keep`,
@@ -896,7 +896,7 @@ the graded fold's ind premise is the run record. -/
 theorem declIndEtaClosedRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo}
     (hE : EtaFamiliesClosed env)
-    (h : DeclIndRunR μ F env block env₂) :
+    (h : DeclIndRun μ F env block env₂) :
     EtaFamiliesClosed env₂ := by
   obtain ⟨hsplit, hmain⟩ := h
   rcases hmain with ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt, harm⟩ |
@@ -915,26 +915,26 @@ theorem declIndEtaClosedRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
           | .recInfo _ _ _ _ => false | _ => true) :=
       List.mem_filter.mpr ⟨hCin, rfl⟩
     have hx : ExtEta envM env₂ :=
-      ExtEta.trans (indRecsRunR_ext hrecs)
-        (ExtEta.trans (projInstallRunR_ext (List.range nF) hproj)
-          (templatesR_ext (List.range nF) htpl))
+      ExtEta.trans (indRecsRun_ext hrecs)
+        (ExtEta.trans (projInstallRun_ext (List.range nF) hproj)
+          (templates_ext (List.range nF) htpl))
     intro T cvT' caps' hf he hr
-    rcases indMembersRunR_indNew _ hmem T cvT' caps'
+    rcases indMembersRun_indNew _ hmem T cvT' caps'
       (hx.2 T cvT' caps' hf) with hfE | ⟨rfl, -⟩
     · obtain ⟨cvC', hfC⟩ := hE T cvT' caps' hfE he hr
-      exact ⟨cvC', hx.1 _ _ (indMembersRunR_mono _ hmem _ _ hfC)
+      exact ⟨cvC', hx.1 _ _ (indMembersRun_mono _ hmem _ _ hfC)
         (fun _ _ _ _ hh => nomatch hh)⟩
     · obtain ⟨cvA', hfA⟩ :=
-        indMembersRunR_ctorEntry _ hmem cvC nP nF hCnon
+        indMembersRun_ctorEntry _ hmem cvC nP nF hCnon
       exact ⟨cvA', hx.1 _ _ hfA (fun _ _ _ _ hh => nomatch hh)⟩
   · -- the generic arm: an empty capability record
     intro T cvT' caps' hf he hr
-    have hfM := indRecsRunR_noInd hrecs T cvT' caps' hf
-    rcases indMembersRunR_indNew _ hmem T cvT' caps' hfM with
+    have hfM := indRecsRun_noInd hrecs T cvT' caps' hf
+    rcases indMembersRun_indNew _ hmem T cvT' caps' hfM with
       hfE | ⟨rfl, -⟩
     · obtain ⟨cvC, hfC⟩ := hE T cvT' caps' hfE he hr
-      exact ⟨cvC, indRecsRunR_keep hrecs _ _
-        (indMembersRunR_mono _ hmem _ _ hfC)⟩
+      exact ⟨cvC, indRecsRun_keep hrecs _ _
+        (indMembersRun_mono _ hmem _ _ hfC)⟩
     · exact absurd he (by decide)
 
 end Setlec.Semantics

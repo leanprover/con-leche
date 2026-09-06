@@ -33,7 +33,8 @@ next to its consumer and leaving the canonical file untouched:
 * `NatHeads2` (`Step2/InferQ.lean`) → `NatHeadsP` in `Step2/InferP.lean`.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -168,4 +169,4 @@ theorem acvalParamsP {env : Env} (m : EnvS2Core V env) :
     AcvalParamsP m :=
   m.acval_params
 
-end Setlec.Semantics
+end Setlec.SetP

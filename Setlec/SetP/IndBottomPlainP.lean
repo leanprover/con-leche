@@ -22,7 +22,8 @@ taking `Δa := Γs` makes that entry condition `rfl`-shaped and the
 zipper's `Sat2 V Γs (chainP V ρ zs)` output *is* the stages' input.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -107,7 +108,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     {ldomsL : List Expr} {lrest2 : Expr}
     (hinstLam : Expr.instLamsAt (fvsP ++ xFvsP) rhsA
       = some (ldomsL, lrest2))
-    -- the recorded runs (`IotaRunsR`, plus the second widening's row)
+    -- the recorded runs (`IotaRuns`, plus the second widening's row)
     (hdeIdx : DefEqListOk μ F env (rP + cnF)
       ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP))
@@ -121,7 +122,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldomsL)
     (hdeRhs : isDefEqCore μ env F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
-    -- the sides pack's two recorded runs (`IotaRunsR`'s last two)
+    -- the sides pack's two recorded runs (`IotaRuns`'s last two)
     (hsideL : ∃ tl, inferTypeCore μ env F (rP + cnF) lhsS = .ok tl ∧
       isDefEqCore μ env F (rP + cnF) tl αS = .ok true)
     (hsideR : ∃ tr, inferTypeCore μ env F (rP + cnF) rhsS = .ok tr ∧
@@ -1152,4 +1153,4 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     (fun τ => (hRaFacts τ).1) hinstLam hdeLam hzslen hsat
     (teleFitPA_to_chain (rP + cnF) htowerS hzslen hfitS) hzsAnnot
 
-end Setlec.Semantics
+end Setlec.SetP

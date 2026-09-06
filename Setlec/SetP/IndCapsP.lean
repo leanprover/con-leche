@@ -35,7 +35,8 @@ unit half needs no family premise at all (the ratified repair), so
 its split is two-way where the eta half's is four-way.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -232,4 +233,4 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
         rw [hac, acvalWith_ne hT0] at hmx hmy
         exact hlaw ρ ts rest x y hlents hfit hmx hmy
 
-end Setlec.Semantics
+end Setlec.SetP

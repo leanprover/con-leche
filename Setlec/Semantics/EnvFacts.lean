@@ -6,14 +6,14 @@ import Setlec.Verify.EnvPreds
 import Setlec.Semantics.SpineV
 
 /-!
-# `EnvR`: the environment facts the bridge consumes (task #148, T3)
+# `EnvFacts`: the environment facts the bridge consumes (task #148, T3)
 
 **Relocated to the base at task #161 S6** (whole-module move of
 `Setlec/SetR/Bridge/Env.lean`, statements byte-unchanged, namespace
 `Setlec.SetR` kept).  The file never had a lane: the docstring below
 already said every field is V-free, and its four imports were base
 already.  What forced the move is that **both** lanes now build an
-`EnvR` — the R lane by `EnvS.toEnvR`, the P lane by `EnvS2PM.toEnvR`
+`EnvFacts` — the R lane by `EnvS.toEnvFacts`, the P lane by `EnvS2PM.toEnvFacts`
 — and the P lane may not import `Setlec/SetR/*`.
 
 The bridge (`Setlec/SetR/Bridge/*`) turns a successful `--set-model`
@@ -28,7 +28,7 @@ seven of them and every clause lemma would otherwise carry all seven.
 either literally a field of `Setlec/TTVerify/EnvTT.lean`'s `EnvTT` or an
 immediate consequence of one, and each is listed in the campaign
 design's §2 among `EnvS`'s *syntactic* fields ("verbatim from `EnvTT`,
-all mode-independent").  When T5 builds `EnvS`, it supplies an `EnvR`
+all mode-independent").  When T5 builds `EnvS`, it supplies an `EnvFacts`
 by projection — one adapter, written once; nothing in the bridge has to
 change, and nothing in the bridge depends on a semantic field.
 
@@ -52,7 +52,7 @@ insensitivity, denotability of stored types, and the two unfolding
 equations (which are what make delta steps invisible — design §7.2).
 
 Every field is V-free and mode-independent. -/
-structure EnvR (env : Env) where
+structure EnvFacts (env : Env) where
   /-- The type-theory term of each constant (the same `TConstVal` the
   denotation and `EnvTT` use). -/
   cval : TConstVal
@@ -130,7 +130,7 @@ structure EnvR (env : Env) where
   `EnvS.nat_ops`/`EnvS.div_mod` state exactly this under their
   `defnInfo` hypothesis (they are what `checkDecl` establishes, by
   declining a stream that stores one of these names unguarded), and
-  `EnvS.toEnvR` supplies the field from them.  V-free, like every other
+  `EnvS.toEnvFacts` supplies the field from them.  V-free, like every other
   field here. -/
   nat_op_guard : ∀ c, (c ∈ natOpNames ∨ c ∈ natDivModNames) →
     natOpStored env c = true → natOpGuard env c = true

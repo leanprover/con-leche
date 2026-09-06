@@ -94,7 +94,8 @@ Two independent confirmations, both checked rather than assumed:
    run-certificate laws rather than transported.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -432,5 +433,5 @@ theorem reduceNatReadsP_of (m : EnvS2Core V env) (hlaw : NatOpGuardLawP env)
   rw [fvarLeaves_of_natLeafP hleaf] at hl
   exact nomatch hl
 
-end Setlec.Semantics
+end Setlec.SetP
 

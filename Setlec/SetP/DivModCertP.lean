@@ -30,7 +30,8 @@ at *unknown* regime bits from `type_okP`'s `AnnotValidV` — so no bit
 positivity is taken anywhere.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -2307,4 +2308,4 @@ theorem divModP_install {F : Nat} (mp : EnvS2PM V μ env)
       simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
         reduceIte, dmLeaf] using h
 
-end Setlec.Semantics
+end Setlec.SetP

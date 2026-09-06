@@ -23,7 +23,8 @@ conjunction — no half is charged for the other's premise.  See
 `Annot/ValidV.lean`'s note on why the `bvar` clause forces this.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -89,4 +90,4 @@ theorem acval_inst_self {env : Setlec.Env}
         exact VExpr.bvarsBelow.mono (Nat.zero_le k)
           (m.cval_closed n ψ)) y
 
-end Setlec.Semantics
+end Setlec.SetP

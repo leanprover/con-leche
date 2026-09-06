@@ -27,7 +27,8 @@ What the stages actually consume, and nothing else:
   low-depth reading against the full spine.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -253,7 +254,7 @@ open Setlec.Semantics.AVExpr in
 (`VExpr.instSeq_bvar_lt`). -/
 theorem instSeqP_bvar_lt : ∀ (as : List AVExpr) (t j : Nat),
     j + as.length ≤ t →
-    Setlec.Semantics.AVExpr.instSeq as t (.bvar j) = .bvar j := by
+    Setlec.SetP.AVExpr.instSeq as t (.bvar j) = .bvar j := by
   intro as
   induction as with
   | nil => intro t j _; rfl
@@ -268,7 +269,7 @@ open Setlec.Semantics.AVExpr in
 argument (`VExpr.instSeq_liftN`). -/
 theorem instSeqP_liftN : ∀ (as : List AVExpr) (t : Nat) (a : AVExpr),
     as.length ≤ t + 1 →
-    Setlec.Semantics.AVExpr.instSeq as t (liftN (t + 1) a 0)
+    Setlec.SetP.AVExpr.instSeq as t (liftN (t + 1) a 0)
       = liftN (t + 1 - as.length) a 0 := by
   intro as
   induction as with
@@ -297,7 +298,7 @@ the variable `c + i` becomes the `i`-th argument counted from the
 innermost, lifted past the `c` binders the residual sits under. -/
 theorem instSeqP_bvar_hit : ∀ (as : List AVExpr) (c i : Nat) (x : AVExpr),
     as[as.length - 1 - i]? = some x → i < as.length →
-    Setlec.Semantics.AVExpr.instSeq as (c + as.length - 1) (.bvar (c + i))
+    Setlec.SetP.AVExpr.instSeq as (c + as.length - 1) (.bvar (c + i))
       = liftN c x 0 := by
   intro as
   induction as with
@@ -341,9 +342,9 @@ open Setlec.Semantics.AVExpr in
 one unit each. -/
 theorem instSeqP_append_absorb :
     ∀ (ws pads : List AVExpr) (A : AVExpr),
-      Setlec.Semantics.AVExpr.instSeq (ws ++ pads)
+      Setlec.SetP.AVExpr.instSeq (ws ++ pads)
           (ws.length + pads.length - 1) (liftN pads.length A 0)
-        = Setlec.Semantics.AVExpr.instSeq ws (ws.length - 1) A := by
+        = Setlec.SetP.AVExpr.instSeq ws (ws.length - 1) A := by
   intro ws
   induction ws with
   | nil =>
@@ -376,7 +377,7 @@ value** — v1's `padHit` at zero padding, which is all the surviving
 stages use. -/
 theorem instSeqP_bvar_full {K : Nat} {p : Nat} {vals : List AVExpr}
     (hp : p < K) (hvl : vals.length = K) :
-    Setlec.Semantics.AVExpr.instSeq vals (K - 1) (.bvar (K - 1 - p))
+    Setlec.SetP.AVExpr.instSeq vals (K - 1) (.bvar (K - 1 - p))
       = vals.getD p default := by
   have hidx : vals[vals.length - 1 - (K - 1 - p)]?
       = some (vals.getD p default) := by
@@ -395,8 +396,8 @@ open Setlec.Semantics.AVExpr in
 the outer `n` values reach it (`instSeq_absorb_left`). -/
 theorem instSeqP_absorb_left {vals : List AVExpr} {K n : Nat}
     {X : AVExpr} (hlen : vals.length = K) (hn : n ≤ K) :
-    Setlec.Semantics.AVExpr.instSeq vals (K - 1) (liftN (K - n) X 0)
-      = Setlec.Semantics.AVExpr.instSeq (vals.take n) (n - 1) X := by
+    Setlec.SetP.AVExpr.instSeq vals (K - 1) (liftN (K - n) X 0)
+      = Setlec.SetP.AVExpr.instSeq (vals.take n) (n - 1) X := by
   have h := instSeqP_append_absorb (vals.take n) (vals.drop n) X
   rw [List.take_append_drop] at h
   rw [show K - 1 = (vals.take n).length + (vals.drop n).length - 1 from by
@@ -414,9 +415,9 @@ open Setlec.Semantics.AVExpr in
 they are not read by either operation. -/
 theorem instSeqP_pi : ∀ (as : List AVExpr) (t : Nat) (u v : Nat)
     (A B : AVExpr), as.length ≤ t + 1 →
-    Setlec.Semantics.AVExpr.instSeq as t (.pi u v A B)
-      = .pi u v (Setlec.Semantics.AVExpr.instSeq as t A)
-          (Setlec.Semantics.AVExpr.instSeq as (t + 1) B) := by
+    Setlec.SetP.AVExpr.instSeq as t (.pi u v A B)
+      = .pi u v (Setlec.SetP.AVExpr.instSeq as t A)
+          (Setlec.SetP.AVExpr.instSeq as (t + 1) B) := by
   intro as
   induction as with
   | nil => intro t u v A B _; rfl
@@ -437,9 +438,9 @@ open Setlec.Semantics.AVExpr in
 /-- `instSeq` past an innermost instantiation (`VExpr.instSeq_inst0`). -/
 theorem instSeqP_inst0 : ∀ (as : List AVExpr) (t : Nat) (X b : AVExpr),
     as.length ≤ t + 1 →
-    Setlec.Semantics.AVExpr.instSeq as t (X.inst b 0)
-      = (Setlec.Semantics.AVExpr.instSeq as (t + 1) X).inst
-          (Setlec.Semantics.AVExpr.instSeq as t b) 0 := by
+    Setlec.SetP.AVExpr.instSeq as t (X.inst b 0)
+      = (Setlec.SetP.AVExpr.instSeq as (t + 1) X).inst
+          (Setlec.SetP.AVExpr.instSeq as t b) 0 := by
   intro as
   induction as with
   | nil => intro t X b _; rfl
@@ -465,14 +466,14 @@ open Setlec.Semantics.AVExpr in
 /-- `instSeq` past a lift at the top (`VExpr.instSeq_liftN0`). -/
 theorem instSeqP_liftN0 : ∀ (vs : List AVExpr) (t m : Nat) (Y : AVExpr),
     vs.length ≤ t + 1 →
-    Setlec.Semantics.AVExpr.instSeq vs (t + m) (liftN m Y 0)
-      = liftN m (Setlec.Semantics.AVExpr.instSeq vs t Y) 0 := by
+    Setlec.SetP.AVExpr.instSeq vs (t + m) (liftN m Y 0)
+      = liftN m (Setlec.SetP.AVExpr.instSeq vs t Y) 0 := by
   intro vs
   induction vs with
   | nil => intro t m Y _; rfl
   | cons a vs ih =>
     intro t m Y h
-    show Setlec.Semantics.AVExpr.instSeq vs (t + m - 1)
+    show Setlec.SetP.AVExpr.instSeq vs (t + m - 1)
         ((liftN m Y 0).inst a (t + m)) = _
     rw [AVExprSubst.inst_liftN_comm Y (by omega) a, Nat.add_sub_cancel]
     cases t with
@@ -493,7 +494,7 @@ carrier actually stores. -/
 theorem instSeqP_eq_self_of_closed {X : AVExpr}
     (h : ∀ k, liftN 1 X k = X) :
     ∀ (vs : List AVExpr) (t : Nat),
-      Setlec.Semantics.AVExpr.instSeq vs t X = X := by
+      Setlec.SetP.AVExpr.instSeq vs t X = X := by
   intro vs
   induction vs with
   | nil => intro t; rfl
@@ -502,4 +503,4 @@ theorem instSeqP_eq_self_of_closed {X : AVExpr}
     rw [AVExpr.instSeq_cons, AVExprSubst.inst_eq_self_of_closed h a t]
     exact ih (t - 1)
 
-end Setlec.Semantics
+end Setlec.SetP

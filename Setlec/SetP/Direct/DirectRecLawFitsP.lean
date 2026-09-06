@@ -12,7 +12,8 @@ positions' fits (the induction) supply the grading of the next
 λ-layer's domain (`mkLamsAV_layers_okP`) the defeq claim needs.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
@@ -330,4 +331,4 @@ theorem recLawFits {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
     rw [e] at hmem
     exact hmem
 
-end Setlec.Semantics
+end Setlec.SetP

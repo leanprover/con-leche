@@ -39,7 +39,8 @@ yet own —
   agree only through the pins' domain equalities.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -590,4 +591,4 @@ theorem interp2_bvarSpine :
       | cons a asr ihas => intro b; simpa using ihas _,
     hmap]
 
-end Setlec.Semantics
+end Setlec.SetP

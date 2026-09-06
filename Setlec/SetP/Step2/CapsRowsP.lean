@@ -51,7 +51,8 @@ metatheorem, which has no v1 counterpart because v1's fit never needed
 one.  Recorded as a finding, not a wall.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -107,7 +108,7 @@ tower typing law's residual, named without a checker run to read it
 off). -/
 theorem peelPis_of_piChainP : ∀ (as : List AVExpr) {T : AVExpr},
     PiChainP as.length T →
-      ∃ rest, Setlec.Semantics.AVExpr.peelPis T as = some rest
+      ∃ rest, Setlec.SetP.AVExpr.peelPis T as = some rest
   | [], T, _ => ⟨T, rfl⟩
   | a :: as, T, h => by
     obtain ⟨u, v, A, B, rfl, hB⟩ := piChainP_succ_inv h
@@ -1075,4 +1076,4 @@ theorem structUnitIrrelP_of_claims {m : EnvS2Core V env}
   exact hlaw ρ (tsa.map (interp2 V ρ)) rest (interp2 V ρ aa)
     (interp2 V ρ ba) hlenTs hfitT hmx hmy
 
-end Setlec.Semantics
+end Setlec.SetP

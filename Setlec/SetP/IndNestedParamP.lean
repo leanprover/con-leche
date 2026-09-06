@@ -47,7 +47,8 @@ Three things are worth naming:
   transport is `nestedParamSupplyP`, the wrapper below.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -611,4 +612,4 @@ theorem nestedParamSupplyP {m : EnvS2Core V env} {F : Nat}
   rw [hbridge q hq] at hdw
   exact hmem dw hdw
 
-end Setlec.Semantics
+end Setlec.SetP

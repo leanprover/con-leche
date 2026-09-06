@@ -66,7 +66,8 @@ proof reads it** — flagged here rather than dropped, because the
 capstone binds the four steps at one mode hypothesis.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -910,4 +911,4 @@ theorem whnfStepP_of (_hμ : μ.verified = true)
     whnf_claimsP m (hin.core_exists m φ fuel) ihwc
       (hin.nat m φ fuel ihw) (deltaP_of m (hin.defn m))
 
-end Setlec.Semantics
+end Setlec.SetP

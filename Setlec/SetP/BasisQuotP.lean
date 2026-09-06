@@ -16,7 +16,7 @@ The basis tier's fourth block, and the only one that
   the `EnvS2PM` field whose *supplier* is this very bundle, and whose
   grading half (v1 has no analogue: `AnnotOkV` has no bit content) is
   exactly what the reading's `htyOk` row needs.  The field is
-  available at the `Quot` cons because `DeclBasisR`'s first conjunct
+  available at the `Quot` cons because `DeclBasisRun`'s first conjunct
   puts `Eq` in the prefix.
 
 Everything else is the `BasisBlocksP.lean` recipe: five pinned
@@ -27,7 +27,8 @@ twice more — the reading's `lamR 0` and the value law's squash regime
 are the same point.
 -/
 
-namespace Setlec.Semantics
+namespace Setlec.SetP
+open Setlec.Semantics
 open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
@@ -2266,12 +2267,12 @@ theorem extendQuotLiftP (mp : EnvS2PM V μ env)
     · exact nomatch hr'
 
 /-- **The `Quot` block, installed at the P tier.**  `BasisStepPB`'s
-`quotK` branch — the one branch whose `DeclBasisR` premise is not
+`quotK` branch — the one branch whose `DeclBasisRun` premise is not
 vacuous: `Eq` must already be stored, and that is exactly what the
 `Eq` bridge consumes. -/
 theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
     (hEq : env.find? eqName = some eqA)
-    (h : Setlec.Semantics.BasisInstallR env
+    (h : Setlec.Semantics.BasisInstallRun env
       Setlec.BasisKind.quotK.declsA env₁) :
     Nonempty (EnvS2PM V μ env₁) := by
   rw [show Setlec.BasisKind.quotK.declsA
@@ -2506,4 +2507,4 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
 
 end Quot
 
-end Setlec.Semantics
+end Setlec.SetP
