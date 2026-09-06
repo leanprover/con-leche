@@ -97,8 +97,8 @@ wait_idle() {
      || pgrep -x lean-inductive- >/dev/null 2>&1; do
     if [ "$waited" -eq 0 ]; then say "waiting for the machine to go idle"; fi
     sleep 10; waited=$((waited + 10))
-    if [ "$waited" -ge 7200 ]; then
-      say "WARNING: still busy after 2h; proceeding anyway"
+    if [ "$waited" -ge "${PERF_IDLE_MAX:-7200}" ]; then
+      say "WARNING: still busy after ${PERF_IDLE_MAX:-7200}s; proceeding anyway"
       return
     fi
   done
