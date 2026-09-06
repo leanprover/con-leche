@@ -66,8 +66,10 @@ preprocessor left for lech to install directly, split by shape.
   CONSTANTS, which counts an inductive block's type former, its
   constructors, its recursor and its projection table separately —
   a property of lech's representation that moved whenever the
-  representation moved.  It now prints the parsed `DeclC` count: one
-  per accepted stream declaration record.  `LECH_VERBOSE=1` still
+  representation moved.  It now prints the STREAM's record count —
+  `decls.size - preludeCount + preludeDropped` since task #191's
+  built-in prelude, so a stream that re-declares a prelude block
+  identically reports what it declared.  `LECH_VERBOSE=1` still
   prints the constant count, on stderr, beside it.
 * **The official number is not a record count either.**  Its
   `Main.lean` prints `constMap.size`: one entry per exported
