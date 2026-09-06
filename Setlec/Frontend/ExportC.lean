@@ -591,12 +591,19 @@ def parseExportD (contents : String) (modeled : Bool := false) :
     st ← feedLineD st line lineNo modeled
   return ⟨st.decls, st.taintSkipped, st.projRewrites⟩
 
-/-- Streaming direct parse (twin of `parseExportStream`; explicit
-recursion so the tables stay uniquely referenced across steps). -/
-partial def parseExportStreamD (path : System.FilePath)
+/-- Streaming direct parse off an open handle (twin of
+`parseExportStream`; explicit recursion so the tables stay uniquely
+referenced across steps).
+
+The handle is read strictly forward, one `getLine` at a time, and is
+never seeked, re-opened or asked for its size — so the source may be a
+*pipe* just as well as a file.  That is what lets the checker read the
+preprocessor's stdout directly (task #180: no scratch file at all;
+`Main.lean`), and it is a property to preserve: a seek or a re-open
+here would silently re-introduce the temp file. -/
+partial def parseExportHandleD (h : IO.FS.Handle)
     (modeled : Bool := false) :
     IO (Except FrontendError ParseResultD) := do
-  let h ← IO.FS.Handle.mk path .read
   let rec loop (lineNo : Nat) (st : StateD) :
       IO (Except FrontendError ParseResultD) := do
     let raw ← h.getLine
@@ -607,5 +614,11 @@ partial def parseExportStreamD (path : System.FilePath)
     | .error e => return .error e
     | .ok st => loop (lineNo + 1) st
   loop 0 {}
+
+/-- Streaming direct parse of a file. -/
+def parseExportStreamD (path : System.FilePath)
+    (modeled : Bool := false) :
+    IO (Except FrontendError ParseResultD) := do
+  parseExportHandleD (← IO.FS.Handle.mk path .read) modeled
 
 end Setlec.Frontend

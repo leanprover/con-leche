@@ -453,3 +453,23 @@
 # (`ProjEntry.typeAtI`); official accepts in milliseconds, so do both
 # modes.  Pre-fix: out-of-memory under the 16 GB cap.
 0 proj_share.ndjson raw
+# pre_reject_nonpositive.ndjson (task #180, 2026-09-07): the arena's
+# bad/tutorial/052_indNeg, vendored here as an e2e case for the verdict
+# mapping.  `indNeg.mk`'s first argument has a non-positive occurrence
+# of the type being declared, so the PREPROCESSOR's kernel rejects the
+# block while generating its model and exits 1 — and a preprocessor
+# reject is our reject (user ruling 2026-09-07): exit 1 with the tool's
+# message on stderr.  Until then the checker fell back to the raw
+# stream and declined for a missing model (exit 2; arena finding F1).
+1 pre_reject_nonpositive.ndjson
+# pre_decline_imax_field.ndjson (task #180, 2026-09-07):
+# lean-inductive-models' own `prim_shape_declines` fixture.  `PadImaxIdx`
+# is an indexed one-constructor owner whose single field is a function
+# type, so its level has an `imax` that the declared `max`-shaped
+# carrier does not absorb in normal form — no generation arm models it,
+# the tool reports the decline and exits 2, and setlec declines (2)
+# rather than checking a stream it knows is missing a model.  (`PadImax`,
+# the non-indexed half, is `native` — the direct simple-structure route
+# takes it — so this fixture also pins that the native predicate does
+# not swallow the indexed one.)
+2 pre_decline_imax_field.ndjson

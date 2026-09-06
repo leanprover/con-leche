@@ -46,6 +46,14 @@
 set -u
 cd "$(dirname "$0")/.."
 
+# Scratch space goes to DISK, never tmpfs (task #180).  Honour TMPDIR if
+# the caller set one; otherwise use the project's on-disk scratch
+# directory rather than the system temp, which is commonly a RAM-backed
+# tmpfs — the gzipped e2e fixtures below expand to gigabytes.  Exported,
+# so the checker and every child honour the same choice.
+export TMPDIR="${TMPDIR:-$PWD/_tmp/tmp}"
+mkdir -p "$TMPDIR"
+
 MODE_SWEEPS=on
 args=()
 for a in "$@"; do
@@ -195,7 +203,7 @@ e2e_half() {
     src="tests/e2e/$rel"
     if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
       # large fixtures are committed gzipped
-      tmpf="${TMPDIR:-/tmp}/setlec-e2e-$(basename "$rel")"
+      tmpf="$TMPDIR/setlec-e2e-$(basename "$rel")"
       gunzip -c "$src.gz" > "$tmpf" || { echo "E2E FAIL $rel: gunzip failed"; fail=1; continue; }
       src="$tmpf"
     fi
