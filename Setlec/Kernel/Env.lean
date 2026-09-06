@@ -458,6 +458,15 @@ theorem lpsL_withLpsL (env : Env) {l : List Name} (h : l.length ≤ PropWhen.max
     (env.withLpsL l).lpsL = l := UnivCtx.ofList_val h
 theorem withLps_withLps (env : Env) (c c' : UnivCtx) :
     (env.withLps c).withLps c' = env.withLps c' := rfl
+/-- An entered context is the list-indexed context of its parameter
+list (the packed `pw` datum: producers run at `env.withLps c`, the laws
+are stated at `env.withLpsL cv.levelParams`). -/
+theorem withLps_eq_withLpsL (env : Env) {l : List Name} {c : UnivCtx}
+    (hc : UnivCtx.of? l = some c) : env.withLps c = env.withLpsL l := by
+  unfold withLpsL
+  congr 1
+  apply Subtype.ext
+  rw [UnivCtx.ofList_val (UnivCtx.len_of_some hc), UnivCtx.of?_eq_some.mp hc]
 @[simp] theorem consts_mk_cons (env : Env) (ci : ConstantInfo) :
     ({ env with consts := ci :: env.consts } : Env).consts = ci :: env.consts := rfl
 @[simp] theorem lps_mk_cons (env : Env) (ci : ConstantInfo) :

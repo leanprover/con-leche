@@ -42973,3 +42973,122 @@ instead of implicit in a shared namespace.
   **987.26 G** / 166.1 s (pass A: 987.27 G, −0.001 %), parity
   **1085.84 G** / 192.3 s (pass A: 1085.83 G, +0.001 %);
 * no `sorry`, no new axiom, no statement changed.
+
+## THE PACKED `pw` DATUM (2026-09-06, `agent/pw-bitmask-land`; the probe branch `agent/pw-bitmask` @ 17e6be5d was the MAP, not the base)
+
+### 0. What landed
+
+`PropWhen` is one `UInt64`: a **positional** bitmask over the current
+declaration's level-parameter list.  `never` is all ones (the datum
+"never a proposition", the truth at any unrepresentable parameter);
+`always` is `0`; `bit i` (i < 63) is "`Prop` iff parameter `i` is
+`0`"; `inter a b := a ||| b`; `bindZ ms pw` re-indexes a datum through
+a substitution's mask list (never-absorbing; positions ≥ `ms.length`
+map to `never`); `equiv := (==)` — canonical words, so datum equality is
+word equality; `holds ψ pw` is the spec-only reading (`Nat.testBit` over
+`List.range 64`); `paramsDefined n pw` is the syntactic "no bit ≥ n"
+guard the WF walks use.  Bit 63 is reserved (`PropWhen.WF`: every
+non-`never` datum has it clear), which is what makes
+`PropWhen.maxParams = 63` the declared limit.
+
+* **The decline rule.**  A declaration with more than 63 universe
+  parameters is positively unsupported: `enterCtx env lps` (`Kernel/
+  CheckerBase.lean`) throws `.notImplemented "more than 63 universe
+  parameters"` (exit 2) at the declaration's front door — never a
+  reject, never an internal error; the WF walks never see an
+  over-long list (`UnivCtx` is the subtype `{ l // l.length ≤ 63 }`).
+* **The named-input annotation form is dropped.**  The parser's
+  `"pw"` name-list arrays (`Frontend/Export.lean`, `ExportC.lean`) now
+  map to `pwNamedSentinel` → `.unsupported` (exit 2); the annot
+  fixtures were stripped of their name lists (`tests/annot/*.ndjson`),
+  the three `annot_decline_*` fixtures decline at parse (still 2), and
+  the `no-model-expected.txt` overrides for them are gone.  The checker
+  computes every datum itself (task #161's certification) — there was
+  never a certified path through a *stated* datum, so nothing verified
+  was lost.
+* **Levels.**  `Level.maskOf ps u` (total: an undefined parameter or a
+  position ≥ 63 gives `never`), `Level.maskOf? ps u` (`Option`, refuses
+  both — the four validation sites read `Level.maskOf? env.lpsL v ==
+  some mb.pw`), `Level.masksOf ps us := us.map (maskOf ps)`,
+  `Level.substPW ms pw := pw.bindZ ms`, `Expr.instantiateLevelParams ks
+  us ms` (three arguments: the masks are computed ONCE per
+  instantiation at `Level.masksOf env.lpsL us` and threaded into the
+  binder walk), and `Expr.remapPW from to e` — the identity level
+  substitution with a context change, at exactly the places where the
+  checker reuses a stored term by parameter-*name* identity instead of
+  instantiating it (`checkIotaThm`'s constructor telescope; the direct
+  install's constructor type read in the recursor's context, whose
+  parameter list is the type's with the motive universe prepended).
+* **`Env` carries the context.**  `Env.lps : UnivCtx` (default `[]`),
+  `env.lpsL := env.lps.1`, `Env.withLps`, `Env.withLpsL`.  Every
+  driver ENTERS the declaration's context and never restores it — the
+  results are `{ env.withLps c with consts := X :: … }` — because the
+  only readers of `lps` are the annotate/validate sites of the
+  constant being checked, and a stored constant's own context is its
+  `levelParams` (the laws below).  Sites: `checkDecl` (now `enterCtx
+  ; checkDeclAt` for the four constant-headed kinds — the split is what
+  the cached bridge's per-declaration simulation needs: the cached
+  driver mirrors it as `checkDeclSF = enterCtxF ; checkDeclSFAt`, and
+  the same for `checkDeclSPC`/`checkDeclSPCNC`), `checkIndMember`,
+  `provisionRecs`, `checkIndRecs` (per recursor, on `envSelf`),
+  `checkProjFn`, `checkDirectStruct` (per phase T/C/R) and the
+  projection folds (per slot).  The cached memos are context-keyed
+  (`CSOK` states `instantiateLevelParams … (Level.masksOf env.lpsL us)`),
+  so every context change is preceded by `flushC` — the drivers already
+  flushed at every environment transition; the one new flush is per
+  recursor inside `checkIndRecsS`'s rule fold (and `checkIndRecsNC`'s),
+  where the recursors' contexts may differ.
+* **The reading tier (`SetP`).**  `denoteP acval env φ d e` reads a
+  binder datum as `pwBit env.lpsL φ m.pw` (`pwBit ps φ pw := if pw.holds
+  (Level.valAt ps φ) then 0 else 1`, `valAt ps φ i := φ (ps.getD i
+  .anonymous)`).  The stored laws are **context-free**: `type_reads`,
+  `AcvalDefnInstP`, `EtaLawP`, `UnitLawP`, `RecRuleLawP`,
+  `TowerEntryLawP` (A/B), `TowerEtaLawP` read at `env.withLpsL
+  c.levelParams` at the valuation `Level.substFn φ c.levelParams us`;
+  `EnvS2PM.withLps` is field-for-field (`NatOpsP` crosses through
+  `denoteP_withLps_binderFree`: the structural-Nat equations are
+  binder-free).  The crossing to the ambient reading is
+  `denotePInstLevels` (`Step2/BitLevels.lean`): for `ks` nodup, `≤ 63`,
+  `us.length = ks.length`, `e.allLevelParamsDefined ks`, and **φ nonzero
+  outside `env.lpsL`** (`Level.NonzeroOutside`, written `hφ` and
+  threaded through every step predicate and `TierInputsAtP`/
+  `ReadsInputsP`), `denoteP … env φ d (e.instantiateLevelParams ks us
+  (masksOf env.lpsL us)) = denoteP … (env.withLpsL ks) (substFn φ ks us) d
+  e`.  The valuation class is exactly where the total reader
+  `Level.maskOf` is sound (`holds_maskOf`): outside the context a
+  parameter's mask is `never`, whose bit reads `1`, which is the truth
+  only when the parameter is nonzero.  A harvest that must speak at
+  every valuation routes through the representative `Level.repr env.lpsL
+  ψ` (`Step2/BitRepr.lean`: ψ on the context, `1` outside) and
+  transports with `denoteP_params_ext`; the remap reads through
+  `denoteP_remapPW` (`Step2/BitRemap.lean`).
+* `ConstWF` gained its 8th conjunct, `Name.nodup lps ∧ lps.length ≤ 63`
+  (the crossing's side conditions, owed by the front door and the
+  entry); `ConstantValRun` ends with the length bound; the run records
+  carry the entered context (`∃ (c : UnivCtx), UnivCtx.of? cv.levelParams
+  = some c ∧ …`).
+
+### 1. Receipts, stage 1 (the executable cone, commit `f9b6b0e5`)
+
+init-full-pre2, `--pre`, `ulimit -v 16G`, `perf stat -e instructions:u`,
+VmHWM sampled from `/proc` (`_tmp/pw-bitmask-land/measure.sh`), one
+run each, the same session, master measured with the same script:
+
+| binary | mode | instructions | VmHWM | accepted |
+|---|---|---|---|---|
+| master (`24e3ed5d…`) | P (`--set-model`) | 987,048,697,936 | 882,080 kB | 61048 |
+| master | parity (`--no-model`) | 1,085,670,859,319 | 902,140 kB | 61048 |
+| land1 (`b9088ff0…`) | P | 969,592,810,467 (−1.8 %) | 866,348 kB (−1.8 %) | 61048 |
+| land1 | parity | 1,060,254,401,362 (−2.3 %) | 861,660 kB (−4.5 %) | 61048 |
+
+Arena at stage 1: tutorial 90/92 (the two custom-axiom declines, as
+before), e2e 73/73, annot 14/14, retired 8/8, mode 14/14, no-model
+sweep 0 recorded divergences; every bad-test expectation unchanged.
+
+### 2. Receipts, the seal — TO BE FILLED (final build, proofdeps pin, re-measurement)
+
+(The proof-tier adaptation is in progress on the branch; this section
+is completed at the seal: the final `lake build`/`lake test`/
+`tests/layering.sh`/`tests/arena.sh`/`tests/proofdeps.sh` receipts, the
+capstones' axioms, the regenerated proofdeps pin with its doors
+explained, and the re-measurement of the sealed binary.)

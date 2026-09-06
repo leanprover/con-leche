@@ -4,6 +4,8 @@ import Setlec.SetP.Claims2PIO
 import Setlec.SetP.IOLicenseP
 import Setlec.SetP.OkPTransport
 import Setlec.SetP.CtxOkPKit
+import Setlec.SetP.Step2.BitRepr
+import Setlec.SetP.Step2.BitRemap
 import Setlec.SetP.Step2.InferP
 import Setlec.SetP.Step2.InferIOP
 import Setlec.SetP.Step2.WhnfP

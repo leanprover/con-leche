@@ -191,15 +191,18 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
     ∃ F, (checkIndMember (fueledOpsM mode) blockNames caps env ci).val F =
       .ok fe'.env := by
   unfold checkIndMemberS at h
-  simp only [checkMemberValF_eq] at h
   obtain ⟨u, s₁, hflush, h⟩ := bindC_ok h
   rw [flushC_run] at hflush
   injection hflush with hflush
   obtain ⟨rfl, rfl⟩ : u = () ∧ s₀.flushed = s₁ :=
     ⟨rfl, congrArg Prod.snd hflush⟩
-  obtain ⟨feU, s₁', henter, h⟩ := bindC_ok h
+  obtain ⟨feU, s₁', henter, hK⟩ := bindC_ok h
+  clear h
   obtain ⟨c, hc, rfl, rfl⟩ := enterCtxF_run henter
-  rw [mkFEnv_withLps] at h
+  rw [mkFEnv_withLps] at hK
+  simp only [checkMemberValF_eq] at hK
+  have h := hK
+  clear hK
   have henvU : EnvWF (env.withLps c) := henv.withLps c
   obtain ⟨cvA, s₂, hcm, h⟩ := bindC_ok h
   obtain ⟨hs₂, cvA', ⟨rfl, hwty⟩, F₁, hFm⟩ :=
@@ -287,7 +290,6 @@ theorem provisionRecsS_run {blockNames : List Name} :
     exact ⟨hwf, rfl, henv, 0, rfl⟩
   | ci :: rest, env, s₀, p, s', henv, hwf, h => by
     unfold provisionRecsS at h
-    simp only [checkMemberValF_eq] at h
     cases ci with
     | axiomInfo cv => exact nomatch h
     | projInfo e => exact nomatch h
@@ -301,9 +303,13 @@ theorem provisionRecsS_run {blockNames : List Name} :
     injection hflush with hflush
     obtain rfl : s₀.flushed = s₁ :=
       congrArg Prod.snd hflush
-    obtain ⟨feU, s₁', henter, h⟩ := bindC_ok h
+    obtain ⟨feU, s₁', henter, hK⟩ := bindC_ok h
+    clear h
     obtain ⟨c, hc, rfl, rfl⟩ := enterCtxF_run henter
-    rw [mkFEnv_withLps] at h
+    rw [mkFEnv_withLps] at hK
+    simp only [checkMemberValF_eq] at hK
+    have h := hK
+    clear hK
     have henvU : EnvWF (env.withLps c) := henv.withLps c
     obtain ⟨cvA, s₂, hcm, h⟩ := bindC_ok h
     obtain ⟨hs₂, cvA', ⟨rfl, hwty⟩, F₁, hFm⟩ :=
@@ -377,8 +383,8 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
       (checked.foldlM (fun (acc : FEnv) (c : ConstantVal × Nat × Nat × List RecRule) => do
           flushC
           let feS ← enterCtxF (mkFEnv envSelf) c.1.levelParams
-          let rules' ← checkIotaRules mode (sharedOpsC mode feS) env₂
-            feS.env f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
+          let rules' ← checkIotaRulesF mode (sharedOpsC mode feS) (mkFEnv env₂)
+            feS f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
             0 c.2.2.2
           pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules'))) acc) s₀ =
         .ok (fe₃, s') →
@@ -401,9 +407,12 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
     rw [flushC_run] at hflush
     injection hflush with hflush
     obtain rfl : s₀.flushed = s₀' := congrArg Prod.snd hflush
-    obtain ⟨feS, s₀'', henter, hstep⟩ := bindC_ok hstep
+    obtain ⟨feS, s₀'', henter, hK⟩ := bindC_ok hstep
+    clear hstep
     obtain ⟨cu, hcu, rfl, rfl⟩ := enterCtxF_run henter
-    rw [mkFEnv_withLps] at hstep
+    rw [mkFEnv_withLps, checkIotaRulesF_eq] at hK
+    have hstep := hK
+    clear hK
     obtain ⟨rules', s₂, hir, hstep⟩ := bindC_ok hstep
     obtain ⟨hs₂, rules'', hPr, F₁, hF₁⟩ :=
       (checkIotaRulesS_sim henv₂ (henvS.withLps cu)
@@ -523,7 +532,6 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
     exact htyf
   -- the iota fold in the shared state at `envSelf`
   rw [hfeS] at h
-  simp only [checkIotaRulesF_eq] at h
   obtain ⟨hwf', hfe₃, F₂, hF₂⟩ := iotaFoldS_run henv₂ henvS checked
     (mkFEnv env₂) htys hwf₁.flushed h
   have hfe₃' : fe₃ = mkFEnv fe₃.env := hfe₃ rfl
@@ -624,13 +632,16 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
     ∃ F, (checkProjFn mode (fueledOpsM mode) env T ctorName lps nP nF i).val F =
       .ok fe'.env := by
   unfold checkProjFnS at h
-  obtain ⟨feU, s₀', henter, h⟩ := bindC_ok h
+  obtain ⟨feU, s₀', henter, hK⟩ := bindC_ok h
+  clear h
   obtain ⟨c, hc, rfl, rfl⟩ := enterCtxF_run henter
-  rw [mkFEnv_withLps] at h
+  rw [mkFEnv_withLps] at hK
   have hE : EnvWF (env.withLps c) := henv.withLps c
   have hs := hs c
   simp only [checkProjLookupsF_eq, checkProjTyF_eq, checkProjRuleF_eq,
-    checkProjIotaF_eq] at h
+    checkProjIotaF_eq] at hK
+  have h := hK
+  clear hK
   obtain ⟨pr, s₁, hlk, h⟩ := bindC_ok h
   obtain ⟨hs₁, pr', hPlk, F₀, hFlk⟩ :=
     (checkProjLookupsS_sim hs) pr s₁ hlk

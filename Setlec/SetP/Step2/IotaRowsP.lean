@@ -617,7 +617,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   -- the level congruence (currency-free: the comparand reads no arguments)
   have hψ : Level.substFn φ cvj.levelParams usj
       = Level.substFn φ cvj.levelParams
-          (Setlec.recFireComparands r cv.levelParams us cvj.levelParams
+          (Setlec.recFireComparands r env.lpsL cv.levelParams us cvj.levelParams
             [] rP).1 := by
     rw [recFireComparands_fst_nil] at hlev
     exact Setlec.Level.substFn_congr (Setlec.Level.isEquivList_sound hlev φ)
@@ -685,7 +685,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
           interp2 V ρ (ys.getD i default)
             = interp2 V ρ ((xs.take mI).getD i default) := by
       intro hp i hi him
-      rw [show (Setlec.recFireComparands r cv.levelParams us cvj.levelParams
+      rw [show (Setlec.recFireComparands r env.lpsL cv.levelParams us cvj.levelParams
           e.getAppArgs rP).2 = e.getAppArgs.take (RecRule.ctorParams r) from by
         unfold Setlec.recFireComparands; rw [hp]] at hdefP
       have hmapP := map_interp2_of_defEqListP ihd hdefP
@@ -715,7 +715,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
         m.wf _ (Setlec.Semantics.Env.find?_mem hfrec)
       obtain ⟨-, -, -, -, hnest⟩ := hrec' cv mI rP rules rfl r hrmem
       obtain ⟨-, -, hpinsWf, -⟩ := hnest lvls pins hn
-      have hcmp : (Setlec.recFireComparands r cv.levelParams us
+      have hcmp : (Setlec.recFireComparands r env.lpsL cv.levelParams us
           cvj.levelParams e.getAppArgs rP).2
           = pins.map (fun p => Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
               (p.instantiateLevelParams cv.levelParams us (Level.masksOf env.lpsL us))) := by
