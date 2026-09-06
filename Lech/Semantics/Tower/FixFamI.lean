@@ -690,6 +690,198 @@ theorem fixFamI_app_eq_famU (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {t : V}
     obtain ⟨n, hxn⟩ := mem_natUnion.mp hx
     exact hn n t ht x hxn
 
+/-! ## The identification with the real chains -/
+
+/-- `ChainRealI μ … i as Fs₀ Fs`: constructor's real chain `Fs` against
+the chain `Fs₀` the functor was spelled from, hereditarily along the
+real chain at the frame `(ρp, as)`: at a recursive position the index
+expressions are graded and fit, and the real domain reads to the
+carrier at their tuple; at an ordinary position the two are the same
+term. -/
+def ChainRealI (μ : V) (u : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rs : List Bool)
+    (Eis : List (List AVExpr)) : Nat → List V → List AVExpr → List AVExpr → Prop
+  | _, _, [], [] => True
+  | i, as, F₀ :: Fs₀, F :: Fs =>
+    (if rs.getD i false then
+      (∀ E ∈ Eis.getD i [], AnnotOk2 V (consList as ρp) E) ∧
+      SpineFit ρp Ids ((Eis.getD i []).map (interp2 V (consList as ρp))) ∧
+      interp2 V (consList as ρp) F
+        = SetTheory.app μ (tupW u ((Eis.getD i []).map (interp2 V (consList as ρp))))
+     else F = F₀) ∧
+    ∀ a, a ∈ˢ interp2 V (consList as ρp) F →
+      ChainRealI μ u ρp Ids rs Eis (i + 1) (as ++ [a]) Fs₀ Fs
+  | _, _, _, _ => False
+
+/-- The lifted real entry reads the domain at the parameter frame. -/
+theorem interp2_liftIdx (F : AVExpr) (as is : List V) (hislen : is.length = Ids.length) :
+    interp2 V (consList as (consList is ρp)) (F.liftN Ids.length as.length)
+      = interp2 V (consList as ρp) F := by
+  rw [interp2_liftN, shiftE_consList_len, ← hislen, shiftE_consList]
+
+/-- The sigma set depends on its fibres only over the base. -/
+theorem sigmaSet_congr' {w : Nat} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x = B' x) :
+    sigmaSet w A B = sigmaSet w A B' := by
+  unfold sigmaSet
+  split
+  · congr 1
+    exact propext ⟨fun ⟨x, hx, y, hy⟩ => ⟨x, hx, y, (h x hx) ▸ hy⟩,
+      fun ⟨x, hx, y, hy⟩ => ⟨x, hx, y, (h x hx).symm ▸ hy⟩⟩
+  · exact sigmaPairs_congr h
+
+/-- The X-chain tower at the carrier and a tuple is the real
+restricted tower at the index spine. -/
+theorem towerSet_chainXI_eq (hI : IdxOk u ρp Ids) {μ : V} {is : List V} (hsp : SpineFit ρp Ids is)
+    {rs : List Bool} {Eis : List (List AVExpr)} {nF : Nat} {Es : List AVExpr}
+    (hEs : Es.length = Ids.length) :
+    ∀ (Fs₀ Fs : List AVExpr) (i : Nat) (as : List V), as.length = i →
+      ChainRealI μ u ρp Ids rs Eis i as Fs₀ Fs → as.length + Fs.length = nF →
+      towerSet w (teleOfFields (consList as (cons (tupW u is) (cons μ ρp)))
+          (chainXIGo u Ids rs Eis Fs₀ i ++ [idxEqAV (eqsXI Ids.length nF Es)]))
+        = towerSet w (teleOfFields (consList as (consList is ρp))
+          (liftFields Ids.length i Fs ++ [idxEqAV (idxEqsAt Ids.length Ids.length nF Es)]))
+  | [], [], i, as, hi, _, hnF => by
+    simp only [chainXIGo, liftFields_nil, List.nil_append, teleOfFields, towerSet]
+    have hislen : is.length = Ids.length := hsp.length_eq
+    have hlen : as.length = nF := by simpa using hnF
+    have h1 : interp2 V (consList as (cons (tupW u is) (cons μ ρp))) (idxEqAV (eqsXI Ids.length nF Es))
+        = interp2 V (consList as (consList is ρp)) (idxEqAV (idxEqsAt Ids.length Ids.length nF Es)) := by
+      rw [idxEqAV_interp, idxEqAV_interp]
+      congr 1
+      exact propext ((EqAll_eqsXI hI hsp hlen).trans (EqAll_idxEqsAt' hislen hlen hEs).symm)
+    rw [h1]
+  | [], _ :: _, _, _, _, hc, _ => hc.elim
+  | _ :: _, [], _, _, _, hc, _ => hc.elim
+  | F₀ :: Fs₀, F :: Fs, i, as, hi, hc, hnF => by
+    subst hi
+    have hislen : is.length = Ids.length := hsp.length_eq
+    rw [chainXIGo_cons, liftFields_cons, List.cons_append, List.cons_append]
+    simp only [teleOfFields, towerSet]
+    obtain ⟨hhead, htail⟩ := hc
+    have hA : interp2 V (consList as (cons (tupW u is) (cons μ ρp))) (xEntry u Ids rs Eis F₀ as.length)
+        = interp2 V (consList as (consList is ρp)) (F.liftN Ids.length as.length) := by
+      rw [interp2_liftIdx F as is hislen]
+      by_cases hri : rs.getD as.length false = true
+      · rw [if_pos hri] at hhead
+        obtain ⟨hEok, hsp', heq⟩ := hhead
+        rw [xEntry_rec hI F₀ as (tupW u is) hri hEok hsp', heq]
+      · have hri' : rs.getD as.length false = false := by simpa using hri
+        rw [if_neg (by rw [hri']; exact Bool.false_ne_true)] at hhead
+        rw [xEntry_ord F₀ as (tupW u is) hri', hhead]
+    rw [hA]
+    refine sigmaSet_congr' fun a ha => ?_
+    rw [consList_snoc', consList_snoc']
+    refine towerSet_chainXI_eq hI hsp hEs Fs₀ Fs (as.length + 1) (as ++ [a]) (length_snoc' a as)
+      (htail a ?_) (by simp at hnF ⊢; omega)
+    rwa [interp2_liftIdx F as is hislen] at ha
+
+/-- `ChainsRealI`: `ChainRealI` for every constructor, at the carrier. -/
+def ChainsRealI (μ : V) (u : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rss : List (List Bool))
+    (Eiss : List (List (List AVExpr))) (Fss₀ Fss Ess : List (List AVExpr)) : Prop :=
+  Fss₀.length = Fss.length ∧ Ess.length = Fss.length ∧
+  (∀ j, j < Fss.length → (Ess.getD j []).length = Ids.length) ∧
+  (∀ j, j < Fss.length → (Fss₀.getD j []).length = (Fss.getD j []).length) ∧
+  ∀ j, j < Fss.length →
+    ChainRealI μ u ρp Ids (rss.getD j []) (Eiss.getD j []) 0 [] (Fss₀.getD j []) (Fss.getD j [])
+
+/-- **The carrier's fibre at an index spine is the indexed sum route's
+restricted tagged union** there. -/
+theorem fixFamI_app_eq_sum (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {Fss' : List (List AVExpr)}
+    (hreal : ChainsRealI (fixFamI u w ρp Ids Ids.length rss Eiss Fss Ess) u ρp Ids rss Eiss Fss Fss' Ess)
+    {is : List V} (hsp : SpineFit ρp Ids is) :
+    SetTheory.app (fixFamI u w ρp Ids Ids.length rss Eiss Fss Ess) (tupW u is)
+      = sumSet w (sumFibre w (consList is ρp) (rChains Ids.length Ids.length Fss' Ess)) := by
+  rw [← fixFamI_app_eq h (tupW_mem hsp)]
+  unfold fixStepI
+  refine sumSet_congr fun j => ?_
+  obtain ⟨hl₀, hlE, hEs, hlen, hc⟩ := hreal
+  unfold sumFibre
+  by_cases hj : j < Fss'.length
+  · have hjF : j < Fss.length := by omega
+    rw [chainsXI_getElem?, if_pos hjF, rChains_getElem?, List.getElem?_eq_getElem hj,
+      List.getElem?_eq_getElem (by omega)]
+    show towerSet w (teleOfFields (cons (tupW u is) (cons _ ρp)) (chainXI u Ids Ids.length _ _ _ _))
+      = towerSet w (teleOfFields (consList is ρp) (rChain Ids.length Ids.length Fss'[j] Ess[j]))
+    unfold chainXI rChain
+    have hg1 : Fss'[j] = Fss'.getD j [] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj, Option.getD_some]
+    have hg2 : Ess[j] = Ess.getD j [] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+    rw [hg1, hg2]
+    have := towerSet_chainXI_eq (w := w) (nF := (Fss.getD j []).length) h.hI hsp (hEs j hj)
+      (Fss.getD j []) (Fss'.getD j []) 0 [] rfl (hc j hj)
+      (by simp only [List.length_nil, Nat.zero_add]; exact (hlen j hj).symm)
+    rw [← hlen j hj]
+    simpa only [consList_nil] using this
+  · have hjF : ¬ j < Fss.length := by omega
+    rw [chainsXI_getElem?, if_neg hjF, rChains_getElem?, List.getElem?_eq_none (by omega)]
+
+/-! ## Elimination at a stage -/
+
+/-- The recursive components of a tuple fitting the X-chain at `X` lie
+in `X` at their own index tuples. -/
+theorem fitsXI_rec_mem (hI : IdxOk u ρp Ids) {X t : V} {rs : List Bool} {Eis : List (List AVExpr)} :
+    ∀ (Fs : List AVExpr) (i : Nat) (as bs : List V), as.length = i →
+      SlotsFitX u ρp Ids rs Eis X t i as Fs →
+      SpineFit (consList as (cons t (cons X ρp))) (chainXIGo u Ids rs Eis Fs i) bs →
+      ∀ l, l < bs.length → rs.getD (i + l) false = true →
+        bs.getD l pt ∈ˢ SetTheory.app X
+          (tupW u ((Eis.getD (i + l) []).map (interp2 V (consList (as ++ bs.take l) ρp))))
+  | [], _, _, [], _, _, _, _, hl, _ => absurd hl (Nat.not_lt_zero _)
+  | [], _, _, _ :: _, _, _, h, _, _, _ => h.elim
+  | _ :: _, _, _, [], _, _, h, _, _, _ => h.elim
+  | F :: Fs, i, as, b :: bs, hi, hfit, h, l, hl, hr => by
+    subst hi
+    rw [chainXIGo_cons] at h
+    obtain ⟨hb, hrest⟩ := h
+    cases l with
+    | zero =>
+      rw [Nat.add_zero] at hr
+      obtain ⟨hEok, hsp⟩ := hfit.1 hr
+      rw [xEntry_rec hI F as t hr hEok hsp] at hb
+      simpa using hb
+    | succ l =>
+      rw [consList_snoc'] at hrest
+      have := fitsXI_rec_mem hI Fs (as.length + 1) (as ++ [b]) bs (length_snoc' b as) (hfit.2 b hb) hrest l
+        (by simpa using hl) (by rw [show as.length + 1 + l = as.length + (l + 1) from by omega]; exact hr)
+      rw [show as.length + 1 + l = as.length + (l + 1) from by omega] at this
+      simpa [List.append_assoc] using this
+
+/-- A tuple fitting the X-chain at a family below the carrier fits the
+real chain. -/
+theorem spineFit_real_of_XI (hI : IdxOk u ρp Ids) {μ X t : V} (hXμ : FamLe (idxSet u ρp Ids) X μ)
+    {rs : List Bool} {Eis : List (List AVExpr)} :
+    ∀ (Fs₀ Fs : List AVExpr) (i : Nat) (as bs : List V), as.length = i →
+      ChainRealI μ u ρp Ids rs Eis i as Fs₀ Fs →
+      SlotsFitX u ρp Ids rs Eis X t i as Fs₀ →
+      SpineFit (consList as (cons t (cons X ρp))) (chainXIGo u Ids rs Eis Fs₀ i) bs →
+      SpineFit (consList as ρp) Fs bs
+  | [], [], _, _, [], _, _, _, _ => trivial
+  | [], [], _, _, _ :: _, _, _, _, h => h.elim
+  | [], _ :: _, _, _, _, _, hc, _, _ => hc.elim
+  | _ :: _, [], _, _, _, _, hc, _, _ => hc.elim
+  | _ :: _, _ :: _, _, _, [], _, _, _, h => h.elim
+  | F₀ :: Fs₀, F :: Fs, i, as, b :: bs, hi, hc, hfit, h => by
+    subst hi
+    rw [chainXIGo_cons] at h
+    obtain ⟨hb, hrest⟩ := h
+    obtain ⟨hhead, htail⟩ := hc
+    have hb' : b ∈ˢ interp2 V (consList as ρp) F := by
+      by_cases hri : rs.getD as.length false = true
+      · rw [if_pos hri] at hhead
+        obtain ⟨hEok, hsp, heq⟩ := hhead
+        rw [xEntry_rec hI F₀ as t hri hEok hsp] at hb
+        rw [heq]
+        exact hXμ _ (tupW_mem hsp) b hb
+      · have hri' : rs.getD as.length false = false := by simpa using hri
+        rw [if_neg (by rw [hri']; exact Bool.false_ne_true)] at hhead
+        rw [xEntry_ord F₀ as t hri'] at hb
+        rw [hhead]
+        exact hb
+    refine ⟨hb', ?_⟩
+    rw [consList_snoc'] at hrest ⊢
+    exact spineFit_real_of_XI hI hXμ Fs₀ Fs (as.length + 1) (as ++ [b]) bs (length_snoc' b as)
+      (htail b hb') (hfit.2 b hb) hrest
+
 end Fam
 
 end Lech.Semantics
