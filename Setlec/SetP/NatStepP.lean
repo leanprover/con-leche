@@ -422,7 +422,11 @@ theorem reduceNatSemP_binary (mp : EnvS2PM V μ env) {fuel : Nat}
         · exact close _ (by simpa +decide [natOpResult] using hres.symm)
             (natOpV2_mul mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
               mp.acvalValidP hfc ρ n₁ n₂)
-        · exact close _ (by simpa +decide [natOpResult] using hres.symm)
+        · -- `pow`: the reduct exists only below the official exponent cap
+          exact close _ (by
+              have hres' := hres
+              simp +decide [natOpResult] at hres'
+              exact hres'.2.symm)
             (natOpV2_pow mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
               mp.acvalValidP hfc ρ n₁ n₂)
         · refine closeB (Or.inl rfl)
