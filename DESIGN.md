@@ -45793,3 +45793,265 @@ init-full-pre2.ndjson`): **accept, 60 549 declarations, both modes**
   the extracted slice accepting).  Any other Type-valued indexed
   one-constructor family with artifacts downstream now installs the
   same way; a `.proj` on one would be the first such node in the corpus.
+
+## The Mathlib frontier at 24.97 %: a defeq BLOW-UP, not a decline — `AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen` OOMs where official takes 45 s (2026-09-06, `agent/frontier3`)
+
+The full Mathlib stream was run at the merged master `c5485803`
+("Merge agent/sigmahom"), verified mode, on the **original** stream
+(`_tmp/mathlib-scoping/mathlib-full-pre.ndjson`, 5 821 584 448 B,
+**727 270** declaration records — not the cut probe stream of the
+previous section).  Binary md5 `ca47e903fecf75806ff5a7540d3cca12`.
+
+**It clears every previously recorded rung** — 17.4 % (the Rat K-order
+divergence), 21.2 % (`.proj` on a mutual-block member) and 24.10 %
+(`SigmaHom`, the indexed one-constructor install) all pass — and then
+dies 0.87 % further on, in a way none of the earlier rungs did: **not
+a decline, an out-of-memory**.
+
+### 1. The run
+
+    _tmp/frontier3/run.sh c5485803          (tag `c5485803`)
+    --verified --pre, ulimit -v 22000000 KB (20.98 GiB), timeout 14400
+
+    parse   5.82 GB read by t≈300 s (58.2 % at t=120), parse peak
+            VmHWM 13.29 GiB
+    check   FLAT at 12.21-12.49 GiB RSS for ~1 300 s
+    death   t≈1 621-1 651 s: one sample at rss 18.67 GiB /
+            VmSize 21.04 GiB, then
+
+        INTERNAL PANIC: out of memory
+
+    exit 1, wall 1 651 s; `time -v`: max RSS 19 572 528 KB = 18.67 GiB,
+    elapsed 27:02.72, user 1 520.67 s.
+
+The RSS profile is the whole story: 12.2-12.5 GiB flat for the entire
+check (that is the parsed stream), then **+6.2 GiB inside a single
+30 s sample**, then the cap.  Nothing accumulates; one declaration
+blows up.
+
+Exit-code note: `run.sh` sets `SETLEC_SUPERVISED=1`, so the raw child
+exit 1 is what the harness records.  A bare invocation goes through
+`Main.lean`'s supervisor, which prints `setlec: internal panic in the
+checker process` and exits **3** — the arena's "crash for unclear
+reasons".  There is no decline site and no message: the text is Lean's
+allocator panic, so `grep`ping the message finds nothing in `Setlec/`.
+
+### 2. Locating it: the `SETLEC_TRACE_DECLS` probe (the user's call)
+
+The checker has no per-declaration progress output and the fold is a
+pure `foldlM`, so an OOM names nothing.  A prefix bisect is not sound
+here — a prefix has a smaller resident base, so a bounded blow-up
+would stop reproducing.  On the user's suggestion the localisation was
+done by **printing and flushing each declaration name before checking
+it**: an opt-in `traceLoopC` in `Main.lean` running the *same*
+`checkDeclSPStepC` the fold runs, guarded by `SETLEC_TRACE_DECLS`.
+
+The probe is **uncommitted** (`_tmp/frontier3/trace-probe.patch`, 48
+lines; `Main.lean` restored and rebuilt before the gates).  Traced run
+(tag `trace`): same panic, wall 2 100 s, `time -v` max RSS
+19 584 404 KB = 18.68 GiB, last line
+
+    TRACE 181570 theorem AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen
+
+The trace index is the **fold's** position; the stream's declaration
+record index is a *constant* **+4** above it (the parse folds the
+pinned basis blocks into one `basisDecl`; checked at trace indices
+1 000 / 50 000 / 100 000 / 150 000, offset +4 at every one — so no
+declaration is dropped mid-stream).  Hence:
+
+| | |
+|---|---|
+| declaration | `theorem AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen` |
+| stream record | **181 575 of 727 270** |
+| **% of stream** | **24.967 %** |
+| verdict | OOM (exit 1 supervised / 3 bare), no message |
+| phase | `checkThmValC` — inferring the theorem's proof value |
+
+Source: `Mathlib/AlgebraicGeometry/Morphisms/Affine.lean:111`, `@[stacks
+01QF]`, and it carries **`set_option backward.isDefEq.respectTransparency
+false in`** — Mathlib's own marker for "the elaborator needed the
+permissive defeq here".  Its private predecessor
+`isAffine_of_isAffineOpen_basicOpen_aux` (same `set_option`) passes.
+
+### 3. It reproduces on a 212 MB slice, and official accepts that slice
+
+`_tmp/sigmahom/slice_multi_fast.py`, targets = the theorem **plus the
+String-support constants** (`String, String.ofList, List, List.nil,
+List.cons, Char, Char.ofNat, Nat, Nat.zero, Nat.succ` — the
+`_autoParam` string-literal gap the sigmahom record documents), 57 s:
+`_tmp/frontier3/affine-slice-pre.ndjson`, **212 420 846 B, 26 465
+declaration records**.
+
+Three checkers, one at a time, `ulimit -v 16000000` (15.26 GiB),
+`timeout 3000` (`_tmp/frontier3/run-slice.sh`, verdicts in
+`affine-verdicts.txt`; official = arena v4.33.0 `kernel`):
+
+| checker | verdict | wall |
+|---|---|---|
+| **official v4.33.0** | **accept, 28 034 declarations** | **29.2 s** |
+| ours `--verified` | OOM (exit 3) | 228.3 s |
+| ours `--trusted` | OOM (exit 3) | 196.9 s |
+
+Two things follow.  First, **it is a divergence, not a resource
+frontier**: the reference kernel does the same work in half a minute.
+Second, **the blow-up is unbounded relative to the base** — with a
+212 MB stream the resident base is well under 1 GiB, and it still
+consumes 15 GiB.  A "merely expensive" declaration would have
+completed here.  And it is **not** a certification cost: `--trusted`,
+which drops every certificate family, dies the same way, slightly
+faster.
+
+### 4. The phase, from the machine
+
+Four full `gdb` backtraces taken during the spike
+(`_tmp/frontier3/bt-{1,2,3,4}.txt`, harness `gdbcatch2.sh`; the work
+runs on Lean's worker thread — `thread apply all`, not `bt`).  Frame
+composition of the checker thread, stable across ~20 s of samples
+while RSS climbs 5.1 → 6.1 GiB:
+
+| frames | function |
+|---|---|
+| 46-75 | `Setlec.Expr.beqGo` |
+| 51-54 | `Setlec.Cached.defeqLoopI` |
+| 25-26 | `Setlec.Cached.coreKnotI` |
+| 17-18 | `Setlec.Cached.defeqStepI` |
+| 17-18 | `Setlec.Cached.memoBI` |
+| 11-12 | `Setlec.Cached.defEqListI` |
+| 9 | `Setlec.Cached.memoEI` |
+| 6 | `Setlec.Cached.inferSpineI` |
+| 2 each | `inferLamsLeafI`, `inferLamsI`, `inferBodyI` |
+
+read outward: `checkDeclsSPCachedD` → `checkThmValC` → `inferBodyI` /
+`inferLamsI` / `inferLamsLeafI` → six nested `inferSpineI` (the
+application spine of the proof) → and then **eighteen nested
+`defeqStepI` / `defEqListI` levels**, i.e. defeq recursing through
+argument lists eighteen deep, with `Expr.beqGo` descending another
+46-75 frames inside the innermost one.
+
+Two readings the samples settle:
+
+* **Breadth, not depth.**  The stack *shape* barely moves over 20 s
+  (51 → 54 `defeqLoopI`) while memory climbs by a gigabyte.  The
+  checker is not descending without bound; it is enumerating an
+  exploding set of sub-comparisons at a fixed nesting, and the
+  per-level memo tables (`memoBI`, and `beqGo`'s pointer-keyed
+  `Std.HashMap (USize × USize) Bool`, allocated fresh per descent)
+  are what fills the heap.
+* **An unmemoized substitution is in the loop.**  Other samples sit
+  in `Setlec.Expr.instantiateList` — 40 consecutive frames, allocating
+  `Expr.app` nodes.  That is the **kernel** `instantiateList`
+  (`Setlec/Kernel/ExprOps.lean:58`): plain structural recursion, *no*
+  `bvarB ≤ d` loose-bvar early exit and *no* memo, so it walks a
+  shared DAG as a tree.  It is **not** the memoized
+  `Setlec.Cached.ExprC.instantiateList`
+  (`Setlec/Cached/ExprOpsC.lean:266`, which has both).  The two are
+  distinct symbols in the binary (`lp_setlec_Setlec_Expr_instantiateList`
+  @ `0xc8fce0`, `lp_setlec_Setlec_Cached_ExprC_instantiateList` @
+  `0x10b0a80`); the backtrace PCs match the former by offset.
+  `ExprC := Setlec.Expr` is an `abbrev`, so the cached core reaches the
+  unmemoized one through the shared `Setlec/Kernel/*` helpers — the
+  in-tree call sites are `CheckerBase.lean:116,118`
+  (`openPisAtFvars`), `ExprOps.lean:451,465` (`instPisAt`) and
+  `Core.lean:1625` (`ProjEntry.typeAt`, the `.proj` node's type).
+  This is a "no unmemoized traversals" violation on an executable path
+  (the memory note of that name), and it is the first time the corpus
+  has punished it.
+
+### 5. The ladder: cutting this cone buys 7.25 %, and the next rung is the SAME class
+
+`_tmp/frontier3/cut_decl_cone.py` (new; `cut_cone.py`'s machinery
+seeded by **name** instead of by the `.proj` recognizer predicate —
+drop the seed declaration and, transitively, everything whose
+type/value/rhs mentions a removed constant) removes **466 of 727 270
+records (0.064 %)**: first the theorem itself (181 575), last
+`AlgebraicGeometry.instIsClosedImmersionSndScheme` (722 103).  Result
+`_tmp/mathlib-scoping/mathlib-full-pre-affinecut.ndjson`, 726 804
+records, still a dependency-ordered export.
+
+Traced re-run (tag `affinecut`, same limits):
+
+    INTERNAL PANIC: out of memory
+    after TRACE 234269 theorem Algebra.tensorH1CotangentOfIsLocalization_toLinearMap
+
+    exit 1, wall 2 971 s, `time -v` max RSS 19 586 768 KB = 18.68 GiB,
+    elapsed 49:27.28
+
+→ original-stream record **234 297 of 727 270 = 32.216 %**
+(`Mathlib/RingTheory/Etale/Kaehler.lean:342`), and **it too carries
+`set_option backward.isDefEq.respectTransparency false in`**.
+
+So the ladder rung is worth **24.97 % → 32.22 %**, but — unlike every
+previous rung, each of which changed character when it moved — **the
+next wall is the same failure in the same tower**.  That is the
+decision-grade datum for the campaign: this is a **class**, not a
+declaration.  A per-declaration workaround buys 7 % and stops; only a
+defeq/whnf strategy change (unfold order, laziness, sharing, the
+unmemoized `instantiateList` above) retires the class.
+
+Weak corroboration, offered as a correlate and **not** as a census:
+`backward.isDefEq.respectTransparency` appears at **6 872 sites in
+1 817 files** of this Mathlib.  Both of our rungs are inside that set;
+the stream also passes very many declarations that are in it, so the
+marker is an upper bound on where the class can bite, nothing more.
+A real census would have to model our defeq's search, which is exactly
+what is misbehaving.
+
+### 6. Caveats
+
+* **Contention.**  Other agents' Lean builds and checker runs shared
+  the machine throughout (load average 22-25; at times two other
+  `setlec` processes).  **Wall times carry that caveat.**  Verdicts,
+  record indices, the RSS profile and the backtraces do not.
+* The ladder cut removes 466 declarations a real fix would keep.  Their
+  absence can only *hide* a failure, never create one, so 32.216 % is
+  a lower bound on what fixing the 24.967 % rung buys.
+* The traced runs used the uncommitted probe binary.  Every verdict in
+  §3 was re-measured afterwards with the **restored, pristine** binary
+  (md5 `ca47e903fecf75806ff5a7540d3cca12`, the same one that produced
+  the §1 run).
+
+### 7. Tools left behind (`_tmp/frontier3/`)
+
+* `run.sh` — the frontier harness, retargeted at this worktree and the
+  `--verified --pre` flag names.
+* `run-slice.sh` — three-checker slice harness (official / verified /
+  trusted), post-rename flags.
+* `cut_decl_cone.py` — cut a **named** declaration's forward cone out
+  of a stream (stream, `seed[,seed…]`, out, report).  The general
+  ladder tool; `next-frontier/cut_cone.py` stays the `.proj`-specific
+  one.
+* `decl_index.py` — declaration-record index and % of any name(s) in a
+  stream, 18 s over the 5.8 GB stream.  This is how a traced index
+  becomes a stream position.
+* `offset_grid.py` — byte offset of every Kth declaration record (16 s
+  for the full stream), so any prefix is a `head -c`.  Built for a
+  bisect that the trace probe made unnecessary; kept, it is the cheap
+  way to cut prefixes.
+* `gdbcatch.sh` / `gdbcatch2.sh` — run a slice, watch RSS, and take
+  `gdb` backtraces once it crosses a threshold.  **Use `thread apply
+  all bt`**: Lean runs `main` on a worker thread, so a plain `bt` shows
+  only `pthread_clockjoin`.
+* `trace-probe.patch` — the `SETLEC_TRACE_DECLS` loop.  Re-apply it
+  (uncommitted) for any future OOM/timeout localisation; it is the
+  only thing that turns a nameless panic into a declaration.
+* Artefacts: `c5485803-{p,rss}.log`, `-time.txt`, `.exitcode`;
+  `trace-*`, `affinecut-*` (traced runs); `affine-slice-pre.ndjson`,
+  `affine-verdicts.txt`, `affine-{official,verified,trusted}.out`;
+  `bt-{1..4}.txt`; `affine-cut-report.txt`.
+
+### 8. Notes for the agent that fixes this
+
+* The reproducer is `_tmp/frontier3/affine-slice-pre.ndjson` (212 MB,
+  official accepts in 29 s).  Do not work against the full stream.
+* Both modes fail, so nothing certification-side is implicated; the
+  target is the shared defeq/whnf strategy.
+* The divergence audit (`agent/divergence-audit`) is the natural home
+  for the comparison against `is_def_eq` / `whnf_core` / lazy delta.
+  Start from §4's tower: eighteen `defeqStepI`/`defEqListI` levels
+  with a stable shape is the signature of comparing two spines by
+  recursing into arguments where official would have unfolded, or of
+  unfolding where official would have compared.
+* The unmemoized kernel `instantiateList` is a separate, independently
+  fixable defect on the same path (§4); it is not obviously *the*
+  cause, and the memoized `ExprC` twin already exists next to it.
+* Do not cut cones as a fix.  §5 says the class recurs at 32.2 %.
