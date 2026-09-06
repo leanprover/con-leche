@@ -185,18 +185,23 @@ theorem inferIO_lam_meta_copy {env : Env} {fuel d : Nat} {n : Name}
   exact ⟨bt.abstract1 d, ht⟩
 
 /-- **Inversion for the application rule of the io lane** — the frozen
-statement (DESIGN.md, "THE IO LICENSE BATCH").  The certificate
-conjunct is a disjunction: either the gate fired
-(`mode.verifiedChecks && m'.pw.isNever`), or the argument's io inference and
-the conversion check ran and passed.  Consumers of the gated arm hold
-the mode conjunct exactly where the licensing theorems
-(`io_domain_transfer`, `SetP/IOLicenseP.lean`) need it. -/
+statement (DESIGN.md, "THE IO LICENSE BATCH"), with the licence ruling
+of 2026-09-06 applied.  The certificate conjunct is a disjunction:
+either the licence fired (`m'.pw.isNever`), or the argument's io
+inference and the conversion check ran and passed.
+
+The gated arm used to carry a `mode.verifiedChecks` conjunct as well.
+It went with the site's: the licensing theorem
+(`io_domain_transfer`, `SetP/IOLicenseP.lean`) spends only
+`pwBit_ne_zero_of_isNever`, i.e. the **datum**, and never the mode —
+so the conjunct was never a premise anything needed, and carrying it
+made the trusted mode run a certificate the verified mode skips. -/
 theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
     (h : inferTypeCoreIO mode env (fuel + 1) d (.app f a) = .ok t) :
     ∃ tf n' ty' body' m', inferTypeCoreIO mode env fuel d f = .ok tf ∧
       whnf mode env fuel d tf = .ok (.forallE n' ty' body' m') ∧
       t = body'.instantiate1 a ∧
-      ((mode.verifiedChecks && m'.pw.isNever) = true ∨
+      (m'.pw.isNever = true ∨
         ∃ ta, inferTypeCoreIO mode env fuel d a = .ok ta ∧
           isDefEqCore mode env fuel d ta ty' = .ok true) := by
   rw [inferTypeCoreIO_succ] at h
@@ -225,7 +230,7 @@ theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e2, h => exact nomatch h
   dsimp only at h
-  by_cases hg : (mode.verifiedChecks && m'.pw.isNever) = true
+  by_cases hg : m'.pw.isNever = true
   · rw [if_pos hg] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact ⟨tf, n', ty', body', m', rfl, hw, h.symm, Or.inl hg⟩
@@ -297,7 +302,7 @@ theorem inferTypeCoreIO_app_inv' {env : Env} {fuel d : Nat}
     ∃ tf n' ty' body' m', inferTypeCoreIO mode env fuel d f = .ok tf ∧
       whnf mode env fuel d tf = .ok (.forallE n' ty' body' m') ∧
       t = body'.instantiate1 a ∧
-      ((mode.verifiedChecks && m'.pw.isNever) = true ∨
+      (m'.pw.isNever = true ∨
         ∃ ta, inferTypeCoreIO mode env fuel d a = .ok ta ∧
           isDefEqCore mode env fuel d ta ty' = .ok true) := by
   match fuel, h with
@@ -625,7 +630,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       dsimp only
       rw [hw]
       dsimp only
-      by_cases hg2 : (mode.verifiedChecks && m'.pw.isNever) = true
+      by_cases hg2 : m'.pw.isNever = true
       · simp [hg2]
       · simp only [hg2, Bool.false_eq_true, if_false]
         rw [inferTypeCoreIO_of_full hta]

@@ -116,35 +116,7 @@ theorem reduceNat_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           cases rawNatLit? w with
           | some n => exact DiscV.pure (WScopedO.some (by simp [WScoped]))
           | none => exact DiscV.pure WScopedO.none
-        · split
-          · refine DiscV.bind (ih.site_whnf henv hwfa.2) (fun w _ => ?_)
-            cases rawNatLit? w with
-            | none => exact DiscV.pure WScopedO.none
-            | some n =>
-              dsimp only
-              cases hres : natOpResult c n 0 with
-              | none => exact DiscV.pure WScopedO.none
-              | some r =>
-                rcases natOpResult_shape hres with ⟨n', rfl⟩ | ⟨bn, rfl⟩ <;>
-                  exact DiscV.pure (WScopedO.some (by simp [WScoped]))
-          · split
-            · -- the certified `log2` branch mirrors `pred`'s
-              refine DiscV.bind (ih.site_whnf henv hwfa.2) (fun w _ => ?_)
-              cases rawNatLit? w with
-              | none => exact DiscV.pure WScopedO.none
-              | some n =>
-                dsimp only
-                cases hres : natOpResult c n 0 with
-                | none => exact DiscV.pure WScopedO.none
-                | some r =>
-                  rcases natOpResult_shape hres with ⟨n', rfl⟩ | ⟨bn, rfl⟩ <;>
-                    exact DiscV.pure (WScopedO.some (by simp [WScoped]))
-            · split
-              · refine DiscV.bind (ih.site_whnf henv hwfa.2) (fun w _ => ?_)
-                cases rawNatLit? w with
-                | none => exact DiscV.pure WScopedO.none
-                | some _ => exact DiscV.throw _
-              · exact DiscV.pure WScopedO.none
+        · exact DiscV.pure WScopedO.none
     | .app g b =>
       have hwgb : WScoped d g ∧ WScoped d b := by
         simpa only [WScoped] using hwfa.1

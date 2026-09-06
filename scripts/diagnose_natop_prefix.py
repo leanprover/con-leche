@@ -15,7 +15,7 @@ import json, sys
 stream = sys.argv[1]
 pinconsts = sys.argv[2]
 targets = ["Nat.div", "Nat.mod", "Nat.gcd", "Nat.land", "Nat.lor", "Nat.xor",
-           "Nat.shiftLeft", "Nat.shiftRight", "Nat.log2"]
+           "Nat.shiftLeft", "Nat.shiftRight"]
 
 # parse pinconsts.txt into {op: {"pin": set, "proofs": set}}
 opsets = {}

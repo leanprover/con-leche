@@ -65,18 +65,17 @@ theorem looseBVarsBounded_substConst0 {n : Name} {r : Expr}
 
 /-- The binary pinned type, inverted. -/
 theorem natOpTyPinned_binaryE {env : Env} {n : Name} {ty : Expr}
-    (hn : (n = natPredName || n = natLog2Name) = false)
+    (hn : ¬(n = natPredName))
     (h : natOpTyPinned env n ty = true) :
     ∃ nm nm2 mb mb2 cod, ty = .forallE nm (.const natName [])
       (.forallE nm2 (.const natName []) cod mb2) mb ∧
       natOpCod env n cod = true := by
   unfold natOpTyPinned at h
-  rw [hn] at h
+  rw [if_neg hn] at h
   revert h
   match ty with
   | .forallE nm dom (.forallE nm2 dom2 cod mb2) mb =>
     intro h
-    rw [if_neg (show ¬(false = true) from by decide)] at h
     simp only [Bool.and_eq_true, beq_iff_eq] at h
     exact ⟨nm, nm2, mb, mb2, cod, by rw [h.1.1, h.1.2], h.2⟩
   | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
@@ -86,25 +85,6 @@ theorem natOpTyPinned_binaryE {env : Env} {n : Name} {ty : Expr}
   | .forallE _ _ (.app _ _) _ | .forallE _ _ (.lam _ _ _ _) _
   | .forallE _ _ (.letE _ _ _ _) _ | .forallE _ _ (.lit _) _
   | .forallE _ _ (.proj _ _ _) _ => intro h; exact nomatch h
-
-/-- The unary pinned type, inverted. -/
-theorem natOpTyPinned_unaryE {env : Env} {n : Name} {ty : Expr}
-    (hn : (n = natPredName || n = natLog2Name) = true)
-    (h : natOpTyPinned env n ty = true) :
-    ∃ nm mb cod, ty = .forallE nm (.const natName []) cod mb ∧
-      natOpCod env n cod = true := by
-  unfold natOpTyPinned at h
-  rw [hn] at h
-  revert h
-  match ty with
-  | .forallE nm dom cod mb =>
-    intro h
-    rw [if_pos rfl] at h
-    simp only [Bool.and_eq_true, beq_iff_eq] at h
-    exact ⟨nm, mb, cod, by rw [h.1], h.2⟩
-  | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
-  | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
-    intro h; exact nomatch h
 
 /-- The codomain is a stored, level-monomorphic constant. -/
 theorem natOpCod_stored {env : Env} {n : Name} {cod : Expr}
@@ -328,12 +308,6 @@ def DivModClausesV (V : Type w) [SetTheory V] (val : Name → V) (c : Name) (x y
   else if c = natShiftRightName then
     (ble2 one y = vT → op2 x y = div2 (op2 x (sub2 y one)) two) ∧
     (ble2 one y = vF → op2 x y = x)
-  else if c = natLog2Name then
-    (ble2 two x = vT →
-      SetTheory.app (val c) x
-        = SetTheory.app (val natSuccName)
-            (SetTheory.app (val c) (div2 x two))) ∧
-    (ble2 two x = vF → SetTheory.app (val c) x = val natZeroName)
   else if c = natLandName then
     (ble2 one x = vT →
       op2 x y = add2 (mul2 two (op2 (div2 x two) (div2 y two)))

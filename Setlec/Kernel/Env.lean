@@ -132,7 +132,28 @@ placeholder `.inert`).
   parameters are checked against these, instantiated at the recursor's
   actual level and leading-argument spine.
 * `.inert` — never fires; a *matched* inert rule is a positive
-  decline in `iotaRec` (an uncertified nested auxiliary rule). -/
+  decline in `iotaRec` (an uncertified nested auxiliary rule).
+
+**Why the fire compares parameters, levels and indices at all** (the
+official kernel's `inductive_reduce_rec` and lean4lean fire by
+constructor name plus `nfields` and compare nothing — typing justifies
+it).  Our soundness argument for a fire is the stored rule law
+(`RecRuleLawP`) at the recursor's own parameters, and the P lane has no
+typing derivation in hand: the redex is only `AnnotOkP`, and since the
+ι-slot licence (2026-09-05) the major slot of a data-motive recursor is
+not even inferred, so nothing but these comparisons relates the
+constructor's `p⃗'`/`idx'` to the recursor's `p⃗`/`idx`.  Moving them
+into a licence was investigated (2026-09-06, `_tmp/iota-uniform/`):
+for *indices* it is refuted at the squash regime (`Acc.rec.{1}` on a
+cross-index `Acc.intro`: the licensed major's membership in `{pt}`
+carries no information, so the uniform fire's law is false); for
+*parameters* on the modeled route it needs parameter-independence of
+the `_model` constructor values — a set-level fact about model bodies
+with no Lean-typed spelling, which the public-interface-only ruling
+forbids.  Only the tuple-tower route could fire uniformly (its values
+ignore parameters by construction); a route-keyed uniform fire is the
+option once that route owns recursive and multi-constructor families.
+Stake: ≤ 0.8 % of init-full instructions. -/
 inductive RecRuleFire where
   | inert
   | plain

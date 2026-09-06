@@ -168,11 +168,9 @@ theorem natOpGuardLawP_of (mp : EnvS2PM V μ env) : NatOpGuardLawP env := by
   · exact (mp.nat_ops (fun _ => 0) c hm cv v hh hf).1
   · exact (mp.div_mod (fun _ => 0) c hm cv v hh hf).1
 
-/-- The unary clause's branch analysis: `Nat.succ` packing, `Nat.pred`,
-the certified `Nat.log2`, and the capless `log2` safety net (which
-throws on a literal and returns `none` without one, so it never hands
-back a reduct). -/
-private theorem natLeafP_unary (hlaw : NatOpGuardLawP env)
+/-- The unary clause's branch analysis: `Nat.succ` packing, the only
+unary fold. -/
+private theorem natLeafP_unary (_hlaw : NatOpGuardLawP env)
     {fuel d : Nat} {c : Name} {a e₂ : Expr}
     (h : reduceNatP μ env fuel d (.app (.const c []) a)
       = .ok (some e₂)) : NatLeafP env e₂ := by
@@ -195,65 +193,7 @@ private theorem natLeafP_unary (hlaw : NatOpGuardLawP env)
         Option.some.injEq] at h
       subst h
       exact Or.inl ⟨n + 1, rfl, hnat⟩
-  · split at h
-    · -- `Nat.pred`
-      next hcond =>
-      obtain ⟨rfl, hstored⟩ := hcond
-      have hguard := hlaw _ (Or.inl (by decide)) hstored
-      cases hwa : Setlec.whnf μ env fuel d a with
-      | error err => rw [hwa] at h; exact nomatch h
-      | ok a0 =>
-      rw [hwa] at h
-      dsimp only at h
-      cases hra : Setlec.rawNatLit? a0 with
-      | none => rw [hra] at h; simp [pure, Except.pure] at h
-      | some n =>
-        rw [hra] at h
-        dsimp only at h
-        cases hres : natOpResult Setlec.natPredName n 0 with
-        | none => rw [hres] at h; simp [pure, Except.pure] at h
-        | some r =>
-          rw [hres] at h
-          simp only [pure, Except.pure, Except.ok.injEq,
-            Option.some.injEq] at h
-          subst h
-          exact natLeafP_of_natOpResult hguard hres
-    · split at h
-      · -- the certified `Nat.log2`
-        next hcond =>
-        obtain ⟨rfl, hstored⟩ := hcond
-        have hguard := hlaw _ (Or.inr (by decide)) hstored
-        cases hwa : Setlec.whnf μ env fuel d a with
-        | error err => rw [hwa] at h; exact nomatch h
-        | ok a0 =>
-        rw [hwa] at h
-        dsimp only at h
-        cases hra : Setlec.rawNatLit? a0 with
-        | none => rw [hra] at h; simp [pure, Except.pure] at h
-        | some n =>
-          rw [hra] at h
-          dsimp only at h
-          cases hres : natOpResult Setlec.natLog2Name n 0 with
-          | none => rw [hres] at h; simp [pure, Except.pure] at h
-          | some r =>
-            rw [hres] at h
-            simp only [pure, Except.pure, Except.ok.injEq,
-              Option.some.injEq] at h
-            subst h
-            exact natLeafP_of_natOpResult hguard hres
-      · split at h
-        · -- the capless `log2` safety net
-          cases hwa : Setlec.whnf μ env fuel d a with
-          | error err => rw [hwa] at h; exact nomatch h
-          | ok a0 =>
-          rw [hwa] at h
-          dsimp only at h
-          cases hra : Setlec.rawNatLit? a0 with
-          | none => rw [hra] at h; simp [pure, Except.pure] at h
-          | some n =>
-            rw [hra] at h
-            simp [throw, throwThe, MonadExceptOf.throw] at h
-        · simp [pure, Except.pure] at h
+  · simp [pure, Except.pure] at h
 
 /-- The binary clause's branch analysis: the fourteen certified
 operations, and the WF-pin safety net (which throws on literal

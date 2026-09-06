@@ -487,43 +487,11 @@ private theorem reduceNat_shift (_henv : EnvWF env)
       | [] =>
         show reduceNat _ env (d + 1) (.app (.const c []) (shiftFrom p a)) = _
         simp only [reduceNat]
-        refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
-        · refine bind_rel _ _ (ih.whnf hpd hwfa.2) ?_
-          intro w _
-          rw [rawNatLit?_shiftFrom]
-          cases rawNatLit? w <;> rfl
-        · refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
-          · refine bind_rel _ _ (ih.whnf hpd hwfa.2) ?_
-            intro w _
-            rw [rawNatLit?_shiftFrom]
-            cases rawNatLit? w with
-            | none => rfl
-            | some n =>
-              dsimp only
-              cases hres : natOpResult c n 0 with
-              | none => rfl
-              | some r =>
-                rcases natOpResult_shape hres with ⟨n', rfl⟩ | ⟨bn, rfl⟩ <;>
-                  rfl
-          · refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
-            · -- the certified `log2` branch mirrors `pred`'s
-              refine bind_rel _ _ (ih.whnf hpd hwfa.2) ?_
-              intro w _
-              rw [rawNatLit?_shiftFrom]
-              cases rawNatLit? w with
-              | none => rfl
-              | some n =>
-                dsimp only
-                cases hres : natOpResult c n 0 with
-                | none => rfl
-                | some r =>
-                  rcases natOpResult_shape hres with ⟨n', rfl⟩ | ⟨bn, rfl⟩ <;>
-                    rfl
-            · refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-              refine bind_rel _ _ (ih.whnf hpd hwfa.2) ?_
-              intro w _
-              rw [rawNatLit?_shiftFrom]
-              cases rawNatLit? w <;> rfl
+        refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+        refine bind_rel _ _ (ih.whnf hpd hwfa.2) ?_
+        intro w _
+        rw [rawNatLit?_shiftFrom]
+        cases rawNatLit? w <;> rfl
     | .app g b =>
       have hwgb : WScoped d g ∧ WScoped d b := by
         simpa only [WScoped] using hwfa.1
@@ -2237,7 +2205,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
     dsimp only [shiftFrom]
     -- **the io gate**: the datum is the whnf'd type's own binder meta,
     -- which the shift copies verbatim, so both sides take one branch
-    by_cases hg2 : (mode.verifiedChecks && m'.pw.isNever) = true
+    by_cases hg2 : m'.pw.isNever = true
     · simp only [hg2, if_true]
       simp only [pure, Except.pure, map_ok]
       rw [← shiftFrom_instantiate1_gen]

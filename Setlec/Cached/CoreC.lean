@@ -35,9 +35,12 @@ structure CoreFnsI where
   /-- Type inference at the **infer-only grade** (task #170 / #172 B4)
   — the twin of `CoreFns.inferIO` (`Setlec/Kernel/Core.lean`): what
   every internal inference call site runs.  The knot selects the
-  grade's meaning per config (`cfg.ioGate`): the full `infer` at the
-  R/trusted configs, the io body (own memo, `CState.inferFC`) at the P
-  config. -/
+  grade's meaning per config (`cfg.ioGate`): the io body (own memo,
+  `CState.inferFC`) at **both shipped configs** since the licence
+  ruling of 2026-09-06 — the io skip is a licence, not
+  certification-only work — and the full `infer` only at a config
+  whose `ioGate` is `false` (the retired R core; `cfgOf .trusted`,
+  which nothing ships). -/
   inferIO : Nat → ExprC → CheckCM ExprC
 
 /-- The io-grade view (twin of `CoreFns.ioView`): the record whose
@@ -96,32 +99,6 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
           | some n => do
             let r ← internExprM (.lit (.natVal (n + 1)))
             pure (some r)
-          | none => pure none
-        else if cn = natPredName ∧ natOpStoredF fe cn = true then do
-          let w ← r.whnf depth b
-          match ← withStore (rawNatLitI? · w) with
-          | some n =>
-            match natOpResult cn n 0 with
-            | some x => do
-              let r ← internExprM x
-              pure (some r)
-            | none => pure none
-          | none => pure none
-        else if cn = natLog2Name ∧ natOpStoredF fe cn = true then do
-          let w ← r.whnf depth b
-          match ← withStore (rawNatLitI? · w) with
-          | some n =>
-            match natOpResult cn n 0 with
-            | some x => do
-              let r ← internExprM x
-              pure (some r)
-            | none => pure none
-          | none => pure none
-        else if cn = natLog2Name ∧ natLitSupportedF fe then do
-          let w ← r.whnf depth b
-          match ← withStore (rawNatLitI? · w) with
-          | some _ => throw (.notImplemented
-              s!"native Nat computation on literals ({cn})")
           | none => pure none
         else pure none
     | some (.app f₂ a) =>
@@ -937,20 +914,31 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
 /-- **The io-grade spine walk** (task #172 B4): `inferSpineI` with the
 per-argument certificate gated — the ONE io-graded check
 (`inferBodyIO`'s app clause, `Setlec/Kernel/Core.lean`), in the bulk
-telescope form.  At a ∀ step whose validated annotation datum is
-`.never` (and only at a verified config — `cfg.verified` is law 1's
-mode gate) the argument's inference and the domain comparison are
-skipped; the returned type is the same telescope walk either way, so
-the lane is annotation-blind in its results.  A syntactic `.forallE`
-is its own whnf, so the syntactic step's datum is the datum the pure
-io body reads off the whnf'd type. -/
+telescope form.  At a ∀ step whose annotation datum is `.never` the
+argument's inference and the domain comparison are skipped; the
+returned type is the same telescope walk either way, so the lane is
+annotation-blind in its results.  A syntactic `.forallE` is its own
+whnf, so the syntactic step's datum is the datum the pure io body
+reads off the whnf'd type.
+
+**The licence reads the datum and nothing else** (the ruling of
+2026-09-06).  It used to carry a `cfg.verified &&` mode conjunct; that
+conjunct made the *trusted* core run the certificate the verified core
+skips — an inversion of what the trusted mode is defined to be (the
+real mode with certification-only steps omitted).  Validating the
+datum is certification-only work and stays in group A; consuming it is
+not.  With the conjunct gone this walk reads no configuration at all,
+so the template parameter drops out of its signature — and the P
+tier's licensing theorem (`io_domain_transfer`,
+`SetP/IOLicenseP.lean`) never used the mode conjunct either: it spends
+only `pwBit_ne_zero_of_isNever`. -/
 def inferSpineIOI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     ExprC → Array ExprC → List ExprC → CheckCM ExprC
   | ty, acc, [] => instListRevM ty acc
   | ty, acc, a :: rest => do
     match ← viewI ty with
     | some (.forallE _ dom body mt) => do
-      unless cfg.verified && mt.pw.isNever do
+      unless mt.pw.isNever do
         let dom' ← instListRevM dom acc
         let ta ← r.infer depth a
         unless ← r.defeq depth ta dom' do
@@ -961,7 +949,7 @@ def inferSpineIOI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       let w ← r.whnf depth ty'
       match ← viewI w with
       | some (.forallE _ dom body mt) => do
-        unless cfg.verified && mt.pw.isNever do
+        unless mt.pw.isNever do
           let ta ← r.infer depth a
           unless ← r.defeq depth ta dom do
             throw (.invalid "application type mismatch")
@@ -1277,7 +1265,7 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let tf ← r.infer depth h
-      inferSpineIOI cfg r fe depth tf #[] args
+      inferSpineIOI r fe depth tf #[] args
     | some (.forallE n ty body mb) => do
       -- the pure io ∀ clause, **chained** (deliberately not the
       -- task-#72 telescope loop: the loops are the front door's

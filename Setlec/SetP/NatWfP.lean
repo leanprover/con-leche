@@ -137,30 +137,6 @@ theorem divModClausesP_shiftRight {x y : V}
   rw [natLitP_one, natLitP_two]
   simpa +decide only [DivModClausesV, if_false, if_true] using h
 
-/-- `Nat.log2`'s two clauses (unary: `y` is ignored). -/
-theorem divModClausesP_log2 {x y : V}
-    (h : DivModClausesV V (fun n => interp2 V ρ (m.acval n φ))
-      Setlec.natLog2Name x y) :
-    (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Setlec.natBleName φ))
-        (interp2 V ρ (natLitP m φ 2))) x
-      = interp2 V ρ (m.acval Setlec.boolTrueName φ) →
-      SetTheory.app (interp2 V ρ (m.acval Setlec.natLog2Name φ)) x
-        = SetTheory.app (interp2 V ρ (m.acval Setlec.natSuccName φ))
-            (SetTheory.app
-              (interp2 V ρ (m.acval Setlec.natLog2Name φ))
-              (SetTheory.app (SetTheory.app
-                (interp2 V ρ (m.acval Setlec.natDivName φ)) x)
-                (interp2 V ρ (natLitP m φ 2))))) ∧
-    (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Setlec.natBleName φ))
-        (interp2 V ρ (natLitP m φ 2))) x
-      = interp2 V ρ (m.acval Setlec.boolFalseName φ) →
-      SetTheory.app (interp2 V ρ (m.acval Setlec.natLog2Name φ)) x
-        = interp2 V ρ (m.acval Setlec.natZeroName φ)) := by
-  rw [natLitP_two]
-  simpa +decide only [DivModClausesV, if_false, if_true] using h
-
 /-- `Nat.land`'s two clauses. -/
 theorem divModClausesP_land {x y : V}
     (h : DivModClausesV V (fun n => interp2 V ρ (m.acval n φ))
@@ -539,40 +515,6 @@ theorem natOpV2_shiftRight (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
       obtain ⟨k, rfl⟩ : ∃ k, b = k + 1 := ⟨b - 1, by omega⟩
       simp only [Nat.add_sub_cancel]
       rfl
-
-/-- `Nat.log2` on literal values. -/
-theorem natOpV2_log2 (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
-    (hval : AcvalValidP m) (hdm : DivModP m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? Setlec.natLog2Name = some (.defnInfo cv v hint))
-    (ρ : Nat → V) :
-    ∀ a : Nat,
-      SetTheory.app (interp2 V ρ (m.acval Setlec.natLog2Name φ))
-        (interp2 V ρ (natLitP m φ a))
-      = interp2 V ρ (natLitP m φ (Nat.log2 a)) := by
-  obtain ⟨hg, hclauses⟩ :=
-    hdm Setlec.natLog2Name (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := Setlec.natOpGuard_inv hg
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps Setlec.natBleName (by decide)
-  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps Setlec.natDivName (by decide)
-  intro a
-  induction a using Nat.strongRecOn with
-  | ind a ih =>
-    obtain ⟨hrec, hbase⟩ := divModClausesP_log2 m ρ
-      (hclauses ρ _ _ (natLitP_mem m hnh hval hs ρ a)
-        (natLitP_mem m hnh hval hs ρ a))
-    by_cases ha2 : 2 ≤ a
-    · have h1 := natOpV2_ble m hops hnh hval hfbl ρ 2 a
-      rw [if_pos ha2] at h1
-      rw [hrec h1, natOpV2_div hops hnh hval hdm hfdi ρ a 2,
-        ih (a / 2) (Nat.div_lt_self (by omega) (by omega)),
-        show Nat.log2 a = Nat.log2 (a / 2) + 1 from by
-          rw [Nat.log2_def]; exact if_pos ha2]
-      exact rfl
-    · have h1 := natOpV2_ble m hops hnh hval hfbl ρ 2 a
-      rw [if_neg ha2] at h1
-      rw [hbase h1, Nat.log2_def, if_neg ha2]
-      exact rfl
 
 /-- `Nat.land` on literal values. -/
 theorem natOpV2_land (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)

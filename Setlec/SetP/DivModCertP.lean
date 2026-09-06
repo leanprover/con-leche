@@ -589,17 +589,15 @@ def dmLeaf {env : Env} (m : EnvS2Core V env) (c : Name)
   acvalWith m.acval c A n ψ
 
 /-- The binary heads the statements apply: the recurrence dependencies
-minus the guard's `Nat.ble` and the unary `Nat.pred`/`Nat.log2`. -/
+minus the guard's `Nat.ble` and the unary `Nat.pred`. -/
 def dmBinNames (c : Name) : List Name :=
   (Setlec.natOpDeps c).filter fun n =>
-    n != Setlec.natBleName && n != Setlec.natPredName &&
-      n != Setlec.natLog2Name
+    n != Setlec.natBleName && n != Setlec.natPredName
 
-/-- The unary heads: `Nat.succ`, plus the operation itself when it is
-`Nat.log2`. -/
-def dmUnNames (c : Name) : List Name :=
-  if c = Setlec.natLog2Name then [Setlec.natSuccName, Setlec.natLog2Name]
-  else [Setlec.natSuccName]
+/-- The unary heads: `Nat.succ`.  Every pin-certified operation is
+binary (`Nat.log2` left the family with its fast path), so the
+operation itself never appears here. -/
+def dmUnNames (_c : Name) : List Name := [Setlec.natSuccName]
 
 /-- Every head a certificate block mentions. -/
 def dmHeadNames (c : Name) : List Name :=
@@ -1764,11 +1762,11 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
   have hbleDep : Setlec.natBleName ∈ Setlec.natOpDeps c := by
     simp only [Setlec.natDivModNames, List.mem_cons,
       List.not_mem_nil, or_false] at hmem
-    rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
+    rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
   have hbleNe : Setlec.natBleName ≠ c := by
     simp only [Setlec.natDivModNames, List.mem_cons,
       List.not_mem_nil, or_false] at hmem
-    rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
+    rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
   have hstoredDep : ∀ n ∈ Setlec.natOpDeps c, n ≠ c →
       ∃ cvn vn hn, env.find? n = some (.defnInfo cvn vn hn) ∧
         cvn.levelParams = [] ∧
@@ -1811,7 +1809,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
   have hselfDep : c ∈ Setlec.natOpDeps c := by
     simp only [Setlec.natDivModNames, List.mem_cons,
       List.not_mem_nil, or_false] at hmem
-    rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
+    rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
   obtain ⟨cvS2, vS2, hS2, hfS2', hpinS2⟩ :=
     Setlec.natOpStoredOk_tyPinned (hdepAll _ hselfDep)
   have htyS2 : cvS2.type = type' := by
@@ -1826,11 +1824,11 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
       || decide (c = Setlec.natBleName)) = false := by
     simp only [Setlec.natDivModNames, List.mem_cons,
       List.not_mem_nil, or_false] at hmem
-    rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
+    rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
   have hnotpred : (decide (c = Setlec.natPredName)) = false := by
     simp only [Setlec.natDivModNames, List.mem_cons,
       List.not_mem_nil, or_false] at hmem
-    rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
+    rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
   -- the leaves' closedness and grading
   have hAerCl : ∀ ψ' : Name → Nat, VExpr.Closed (A ψ').erase :=
     fun ψ' => denote_closed mp.base2.cval_closed hvf' hbv'
@@ -1928,17 +1926,10 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
           hstoredDep n hnd hnc
         exact ⟨_, hfn, hlpn⟩
       · unfold dmUnNames at hn
-        split at hn
-        · next hlog =>
-          simp only [List.mem_cons, List.not_mem_nil,
-            or_false] at hn
-          rcases hn with rfl | rfl
-          · exact ⟨_, hfS, hlpS⟩
-          · exact absurd hlog.symm hnc
-        · simp only [List.mem_cons, List.not_mem_nil,
-            or_false] at hn
-          subst hn
-          exact ⟨_, hfS, hlpS⟩
+        simp only [List.mem_cons, List.not_mem_nil,
+          or_false] at hn
+        subst hn
+        exact ⟨_, hfS, hlpS⟩
   case bleHead =>
     intro ρ
     rw [dmLeaf, show acvalWith mp.base2.acval c A Setlec.natBleName
@@ -1948,16 +1939,13 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     intro n hn ρ
     obtain ⟨hnd, hfilt⟩ := List.mem_filter.mp hn
     simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at hfilt
-    obtain ⟨⟨hnble, hnpred⟩, hnlog⟩ := hfilt
-    have hnu : (decide (n = Setlec.natPredName)
-        || decide (n = Setlec.natLog2Name)) = false := by
-      simp only [Bool.or_eq_false_iff, decide_eq_false_iff_not]
-      exact ⟨hnpred, hnlog⟩
+    obtain ⟨hnble, hnpred⟩ := hfilt
+    have hnu : ¬(n = Setlec.natPredName) := hnpred
     have hnbeqAll : ((Setlec.natOpDeps c).all
         fun m => m != Setlec.natBeqName) = true := by
       simp only [Setlec.natDivModNames, List.mem_cons,
         List.not_mem_nil, or_false] at hmem
-      rcases hmem with h|h|h|h|h|h|h|h|h <;> (rw [h]; decide)
+      rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
     have hnbeq : n ≠ Setlec.natBeqName := by
       have := List.all_eq_true.mp hnbeqAll n hnd
       simpa using this
@@ -2012,34 +2000,8 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         = mp.base2.acval Setlec.natSuccName from acvalWith_ne hnS]
       exact dmUnV_of_stored mp ψ hfS htyS hfN hlpN hfN hlpN ρ
     unfold dmUnNames at hn
-    split at hn
-    · next hlog =>
-      simp only [List.mem_cons, List.not_mem_nil, or_false] at hn
-      rcases hn with rfl | rfl
-      · exact hsuccCase rfl
-      · -- `Nat.log2`, the unary self
-        obtain rfl : c = Setlec.natLog2Name := hlog
-        obtain ⟨nmT, mbT, codT, htyT2, hcodT⟩ :=
-          natOpTyPinned_unaryE (by decide) (htyS2 ▸ hpinS2)
-        have hcodN : codT = Expr.const Setlec.natName [] := by
-          unfold Setlec.natOpCod at hcodT
-          rw [if_neg (show ¬((decide (Setlec.natLog2Name
-              = Setlec.natBeqName)
-            || decide (Setlec.natLog2Name = Setlec.natBleName))
-            = true) from by decide)] at hcodT
-          simpa using hcodT
-        subst hcodN
-        have hTshape := denoteP_pinnedUnTy (n₁ := nmT) (mb₁ := mbT)
-          mp.base2 ψ hfN hlpN
-        rw [← htyT2] at hTshape
-        obtain heq : Ta ψ = _ :=
-          Option.some.inj ((hTa ψ).symm.trans hTshape)
-        rw [dmLeaf, show acvalWith mp.base2.acval Setlec.natLog2Name A
-          Setlec.natLog2Name = A from acvalWith_self]
-        exact dmUnV_of_parts mp.base2 (heq ▸ hmemA ψ ρ)
-          (heq ▸ hTok ψ ρ)
-    · simp only [List.mem_cons, List.not_mem_nil, or_false] at hn
-      exact hsuccCase hn
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hn
+    exact hsuccCase hn
   case zeroMem =>
     intro ρ
     rw [dmLeaf, show acvalWith mp.base2.acval c A Setlec.natZeroName
@@ -2125,14 +2087,14 @@ theorem divModP_install {F : Nat} (mp : EnvS2PM V μ env)
   rw [hac]
   simp only [Setlec.natDivModNames, List.mem_cons, List.not_mem_nil,
     or_false] at hcmem
-  rcases hcmem with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
+  rcases hcmem with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
   all_goals (
     simp only [Setlec.divModCertStmts, Setlec.divModCertProofs,
       Setlec.natDivCertProofs, Setlec.natModCertProofs,
       Setlec.natGcdCertProofs, Setlec.natLandCertProofs,
       Setlec.natLorCertProofs, Setlec.natXorCertProofs,
       Setlec.natShiftLeftCertProofs, Setlec.natShiftRightCertProofs,
-      Setlec.natLog2CertProofs, reduceIte] at hruns
+      reduceIte] at hruns
     simp +decide only [DivModClausesV, if_false, if_true])
   · -- `Nat.div`
     cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
@@ -2274,23 +2236,6 @@ theorem divModP_install {F : Nat} (mp : EnvS2PM V μ env)
       simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
         reduceIte, dmLeaf] using h
   · -- `Nat.shiftRight`
-    cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
-    refine ⟨fun hg => ?_, fun hg => ?_⟩
-    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
-        (Or.inl rfl) f1 (by decide) (by decide) (by decide)
-        (by decide)
-        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
-              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
-      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
-        reduceIte, dmLeaf] using h
-    · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
-        (Or.inr rfl) f2 (by decide) (by decide) (by decide)
-        (by decide)
-        (by simpa +decide only [dmEvalV_app, dmEvalV_const,
-              dmEvalV_fvar, reduceIte, dmLeaf] using hg)
-      simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
-        reduceIte, dmLeaf] using h
-  · -- `Nat.log2`
     cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
     refine ⟨fun hg => ?_, fun hg => ?_⟩
     · have h := dmClause1P fr heqlaw hacc hreads hinfC hdeC ρ hx hy
