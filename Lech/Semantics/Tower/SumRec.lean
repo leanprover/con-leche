@@ -392,7 +392,7 @@ theorem underTowerOk_at_major {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List 
     rw [show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
   have ht' : cons t ρ₀ 0 ∈ˢ sumSet w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)) := ht
   have hfacts := sumRecBody_facts hfr hyp hsq ht'
-  obtain ⟨hMv, -⟩ := motApp_facts hfr hyp
+  obtain ⟨hMv, -⟩ := motApp_facts hfr hyp.toRecHypCore
   refine ⟨hfacts.1, ?_, ?_⟩
   · show interp2 V (cons t ρ₀) (sumRecBodyAV ℓ w Fss Ess srcs Ids.length)
       ∈ˢ interp2 V (cons t ρ₀) (.app (motAppAV Fss.length Ids.length 1) (.bvar 0))

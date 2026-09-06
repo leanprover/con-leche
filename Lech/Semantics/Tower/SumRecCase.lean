@@ -451,7 +451,7 @@ tagged union of the restricted chains), the frame's index tuple
 fitting the telescope, every minor in its space (over the field chain
 at the parameter frame, with the conclusion `concI`), and the
 counts. -/
-structure RecHypS (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List AVExpr))
+structure RecHypCore (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List AVExpr))
     (Ids : List AVExpr) (famAt : List V → V) : Prop where
   hok : SumFieldsOkB w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
   hEs : ∀ j, j < Fss.length → (Ess.getD j []).length = Ids.length
@@ -462,19 +462,26 @@ structure RecHypS (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List AVExpr
   hfit : SpineFit (frP Fss.length Ids.length ρ₀) Ids (frameIdx Ids.length ρ₀)
   hfam : famAt (frameIdx Ids.length ρ₀)
     = sumSet w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
+
+/-- `RecHypCore` plus the minors in their (sum-shaped) spaces.  The
+motive facts below need only the core; the recursive route (task
+#188) reuses them with minors in ih-extended spaces. -/
+structure RecHypS (ℓ w : Nat) (ρ₀ : Nat → V) (Fss Ess : List (List AVExpr))
+    (Ids : List AVExpr) (famAt : List V → V) : Prop
+    extends RecHypCore ℓ w ρ₀ Fss Ess Ids famAt where
   hms : ∀ j, j < Fss.length →
     frMs Fss.length Ids.length ρ₀ j
       ∈ˢ minorSpI ℓ
         (concI w (frP Fss.length Ids.length ρ₀) (frM Fss.length Ids.length ρ₀) (Ess.getD j []) j)
         (Fss.getD j []) (frP Fss.length Ids.length ρ₀) []
 
-namespace RecHypS
+namespace RecHypCore
 
 variable {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
   {famAt : List V → V}
 
 /-- The motive at the frame's index tuple is in its space. -/
-theorem hM (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) :
+theorem hM (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) :
     frMi Fss.length Ids.length ρ₀
       ∈ˢ piR (ℓ + 1) (sumSet w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)))
         fun _ => (univ ℓ : V) := by
@@ -483,31 +490,31 @@ theorem hM (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) :
   exact this
 
 /-- The motive's index applications are graded. -/
-theorem hMchain (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) :
+theorem hMchain (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) :
     AppChainOk (frM Fss.length Ids.length ρ₀) (frameIdx Ids.length ρ₀) :=
   piTele_chainOk (Nat.succ_ne_zero ℓ) h.hMtele (fitsS_teleOfFields.mpr h.hfit)
 
 /-- The motive's applications are truth values at a zero elimination
 level, at any index tuple of the right length. -/
-theorem hMapp0 (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) {is' : List V}
+theorem hMapp0 (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) {is' : List V}
     (hlen : is'.length = Ids.length) (x : V) :
     SetTheory.app (is'.foldl SetTheory.app (frM Fss.length Ids.length ρ₀)) x ∈ˢ (univZero : V) :=
   piTele_app_univZero h0 h.hMtele hlen x
 
 /-- The motive's applications are truth values at a zero elimination
 level (at the frame's tuple). -/
-theorem hM0 (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) :
+theorem hM0 (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) :
     ∀ y : V, SetTheory.app (frMi Fss.length Ids.length ρ₀) y ∈ˢ (univZero : V) :=
   fun y => h.hMapp0 h0 (frameIdx_length _ _) y
 
 /-- The motive at a carrier member lives in `univ ℓ`. -/
-theorem hMapp (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) {y : V}
+theorem hMapp (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) {y : V}
     (hy : y ∈ˢ sumSet w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))) :
     SetTheory.app (frMi Fss.length Ids.length ρ₀) y ∈ˢ (univ ℓ : V) :=
   app_mem_piR_pos (Nat.succ_ne_zero ℓ) h.hM hy
 
 /-- The fibres live in `univ w`. -/
-theorem fibre_univ (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) (i : Nat) :
+theorem fibre_univ (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (i : Nat) :
     sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) i ∈ˢ (univ w : V) := by
   unfold sumFibre
   cases hi : (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)[i]? with
@@ -515,7 +522,7 @@ theorem fibre_univ (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) (i : Nat) :
   | some Fs => exact towerSet_univ_of_okB (fun hw => (h.hok Fs (List.mem_of_getElem? hi)).toBound hw)
 
 /-- The stage motive at a numeral lives in `univ (imax w ℓ)`. -/
-theorem motSem_univ (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) (j i : Nat) :
+theorem motSem_univ (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (j i : Nat) :
     motSem ℓ w (sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
       (frMi Fss.length Ids.length ρ₀) j (vnat i) ∈ˢ (univ (imaxN w ℓ) : V) := by
   rw [motSem_vnat]
@@ -524,7 +531,7 @@ theorem motSem_univ (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) (j i : Nat) :
   exact this
 
 /-- The conclusion at a zero elimination level is a truth value. -/
-theorem conc_univZero (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) {j : Nat}
+theorem conc_univZero (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) {j : Nat}
     (hj : j < Fss.length) :
     ∀ acc, concI w (frP Fss.length Ids.length ρ₀) (frM Fss.length Ids.length ρ₀)
       (Ess.getD j []) j acc ∈ˢ (univZero : V) := by
@@ -532,23 +539,30 @@ theorem conc_univZero (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0)
   show SetTheory.app ((idxValsAt _ _ acc).foldl SetTheory.app _) (ctorValI w j acc) ∈ˢ _
   exact h.hMapp0 h0 (by rw [idxValsAt, List.length_map]; exact h.hEs j hj) _
 
-/-- At a zero elimination level the minors are the point. -/
-theorem minor_pt (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) {j : Nat}
-    (hj : j < Fss.length) : frMs Fss.length Ids.length ρ₀ j = pt :=
-  eq_pt_of_mem_univZero (h0 ▸ minorSpI_zero_univZero h0 (h.conc_univZero h0 hj) _ _ _)
-    (h.hms j hj)
-
 /-- Constructor `j`'s restricted chain. -/
-theorem rChain_getElem? (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) {j : Nat} (hj : j < Fss.length) :
+theorem rChain_getElem? (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) {j : Nat} (hj : j < Fss.length) :
     (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)[j]?
       = some (rChain (Ids.length + Fss.length + 1) Ids.length (Fss.getD j []) (Ess.getD j [])) := by
   rw [rChains_getElem?, List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
     List.getElem?_eq_getElem hj, List.getElem?_eq_getElem (by rw [h.hlenE]; exact hj)]
   rfl
 
-theorem rChains_length' (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) :
+theorem rChains_length' (h : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) :
     (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess).length = Fss.length := by
   rw [rChains_length, h.hlenE]; simp
+
+end RecHypCore
+
+namespace RecHypS
+
+variable {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
+  {famAt : List V → V}
+
+/-- At a zero elimination level the minors are the point. -/
+theorem minor_pt (h : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) (h0 : ℓ = 0) {j : Nat}
+    (hj : j < Fss.length) : frMs Fss.length Ids.length ρ₀ j = pt :=
+  eq_pt_of_mem_univZero (h0 ▸ minorSpI_zero_univZero h0 (h.conc_univZero h0 hj) _ _ _)
+    (h.hms j hj)
 
 end RecHypS
 
@@ -558,7 +572,7 @@ end RecHypS
 grading. -/
 theorem motApp_facts {ℓ w D' : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
     {Ids : List AVExpr} {famAt : List V → V}
-    (hfr : RecFrameS D' ρ₀ σ) (hyp : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) :
+    (hfr : RecFrameS D' ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) :
     interp2 V σ (motAppAV Fss.length Ids.length D') = frMi Fss.length Ids.length ρ₀ ∧
     AnnotOk2 V σ (motAppAV Fss.length Ids.length D') := by
   have hmot : interp2 V σ (.bvar (D' + Ids.length + Fss.length)) = frM Fss.length Ids.length ρ₀ := by
@@ -581,7 +595,7 @@ theorem motApp_facts {ℓ w D' : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (Li
 is graded. -/
 theorem motiveBody_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
     {Ids : List AVExpr} {famAt : List V → V}
-    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) (j : Nat) {k : V}
+    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (j : Nat) {k : V}
     (hk : k ∈ˢ (omega : V)) :
     interp2 V (cons k σ)
         (caseMotiveBodyAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
@@ -661,7 +675,7 @@ theorem motiveBody_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List 
 its applications, its grading. -/
 theorem motive_facts {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
     {Ids : List AVExpr} {famAt : List V → V}
-    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypS ℓ w ρ₀ Fss Ess Ids famAt) (j : Nat) :
+    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt) (j : Nat) :
     interp2 V σ (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           Fss.length Ids.length D j)
         = lamR (imaxN w ℓ + 1) omega
@@ -885,7 +899,7 @@ theorem caseRec_facts {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess 
         fun _ hx => absurd hx (not_mem_empty _), fun _ _ hx => absurd hx (not_mem_empty _)⟩
   | r + 1, D, j, σ, k, hfr, hjr => by
     have hjn : j < Fss.length := by omega
-    obtain ⟨hMv, hMsp, hMapp, hMok⟩ := motive_facts hfr hyp j
+    obtain ⟨hMv, hMsp, hMapp, hMok⟩ := motive_facts hfr hyp.toRecHypCore j
     obtain ⟨hzv, hzok, hzm⟩ := base_facts hw hfr hyp hjn
     generalize hR : rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess = Fss' at *
     generalize hAr : (fun j => (Fss.getD j []).length) = ar at *
@@ -925,7 +939,7 @@ theorem caseRec_facts {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess 
             lamR (imaxN w ℓ) (interp2 V (cons b σ) (caseMotiveBodyAV ℓ w Fss' Fss.length Ids.length D j))
               fun a => interp2 V (cons a (cons b σ))
                 (caseRecAV ℓ w Fss' ar Fss.length Ids.length r (D + 2) (j + 1) (.bvar 1)) := rfl
-    have hmb := fun (b : V) (hb : b ∈ˢ (omega : V)) => motiveBody_facts hfr hyp j hb
+    have hmb := fun (b : V) (hb : b ∈ˢ (omega : V)) => motiveBody_facts hfr hyp.toRecHypCore j hb
     rw [hR] at hmb
     have hs : interp2 V σ (.lam (imaxN w ℓ) natAV (.lam (imaxN w ℓ)
           (caseMotiveBodyAV ℓ w Fss' Fss.length Ids.length D j)

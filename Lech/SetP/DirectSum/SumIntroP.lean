@@ -384,7 +384,7 @@ theorem motiveBody_validV {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List
       (.app (motAppAV Fss.length Ids.length (D + 2))
         (sumInjAtAV w _ (D + 2) (succsAV j (.bvar 1)) (.bvar 0)))
       ∈ˢ (univZero : V)
-    rw [interp2_app, (motApp_facts (hfr.step y k) hyp).1]
+    rw [interp2_app, (motApp_facts (hfr.step y k) hyp.toRecHypCore).1]
     exact hyp.hM0 h0 _
 
 theorem motive_validV {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
