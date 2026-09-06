@@ -1,7 +1,7 @@
 import Setlec.SetP.Direct.DirectStageEntryP
 import Setlec.SetP.Direct.DirectEntryFreeP
 import Setlec.Semantics.Bridge.ProjRed
-import Setlec.Verify.DirectPartsInv
+import Setlec.Verify.Direct.DirectPartsInv
 
 /-!
 # The projection-slot fold (task #175 W4c, P3 module 7, part 8)

@@ -1,4 +1,4 @@
-import Setlec.Verify.DirectInv
+import Setlec.Verify.Direct.DirectInv
 import Setlec.Verify.FastOps
 
 /-!

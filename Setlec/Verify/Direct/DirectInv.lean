@@ -1,4 +1,4 @@
-import Setlec.Verify.DirectWF
+import Setlec.Verify.Direct.DirectWF
 
 /-!
 # The direct install's stage runs, inverted to their records (task #175 W4c, P3)

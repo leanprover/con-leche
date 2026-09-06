@@ -1,7 +1,7 @@
 import Setlec.SetP.Direct.DirectFrameP
 import Setlec.SetP.CapstoneP
 import Setlec.SetP.Step2.ReadsIOP
-import Setlec.Verify.DirectInv
+import Setlec.Verify.Direct.DirectInv
 
 /-!
 # The direct structure's stage runs, as rows (task #175 W4c, P3 module 3, part 2)

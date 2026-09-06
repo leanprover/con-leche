@@ -1,5 +1,5 @@
 import Setlec.SetP.Direct.DirectDataP
-import Setlec.Verify.DirectInv
+import Setlec.Verify.Direct.DirectInv
 
 /-!
 # The former's cons (task #175 W4c, P3 module 6, part 2)
