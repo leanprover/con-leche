@@ -10,16 +10,14 @@ checker up to its driver `checkDeclsSPCachedD`, and the `SetTheory`
 interface.
 -/
 
-universe w
-
 namespace Setlec
 
-/-- The checker at `cfgP` (what `setlec --verified`, the default, runs)
+/--
+The checker at `cfgP` (what `setlec --verified`, the default, runs)
 never accepts a stream storing a constant of type `Empty`, in every model
-`V` of `SetTheory`. -/
+`V` of `SetTheory`.
+-/
 theorem no_proof_of_Empty (V : Type w) [SetTheory V]
     (h : Cached.checkDeclsSPCachedD cfgP ds = .ok env') :
     ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] → False :=
   sorry
-
-end Setlec
