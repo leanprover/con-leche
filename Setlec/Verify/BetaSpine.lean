@@ -457,12 +457,12 @@ theorem projLitToCtor_mono {d : Nat} {e : Expr} {F F' : Nat}
   rw [← projLitToCtor_atF] at h ⊢
   exact (projLitToCtor (fueledFns mode env) env d e).property hle h
 
-theorem projCert_mono {d : Nat} {e : Expr} {i : Nat}
-    {nP : Nat} {F F' : Nat} (hle : F ≤ F') {b : Bool}
-    (h : projCert (pureFns mode env F) env d e i nP = .ok b) :
-    projCert (pureFns mode env F') env d e i nP = .ok b := by
+theorem projCert_mono {d : Nat} {c : Name} {us : List Level}
+    {args : List Expr} {F F' : Nat} (hle : F ≤ F') {b : Bool}
+    (h : projCert (pureFns mode env F) env d c us args = .ok b) :
+    projCert (pureFns mode env F') env d c us args = .ok b := by
   rw [← projCert_atF] at h ⊢
-  exact (projCert (fueledFns mode env) env d e i nP).property hle h
+  exact (projCert (fueledFns mode env) env d c us args).property hle h
 
 theorem iotaRec_mono {d : Nat} {e : Expr} {F F' : Nat}
     (hle : F ≤ F') {o : Option Expr}

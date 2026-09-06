@@ -520,16 +520,17 @@ theorem etaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   · exact DiscV.pure trivial
 
 theorem projCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
-    {d : Nat} {e₂ : Expr} {i : Nat} {nP : Nat}
-    (hwe : WScoped d e₂) :
+    {d : Nat} {c : Name} {us : List Level} {args : List Expr}
+    (hwargs : ∀ x ∈ args, WScoped d x) :
     DiscV mode env (fun _ => True)
-      (projCert C env d e₂ i nP) (projCert G env d e₂ i nP) := by
+      (projCert C env d c us args) (projCert G env d c us args) := by
   unfold projCert
-  have hwarg : WScoped d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) :=
-    wscoped_getD hwe.getAppArgs _
-  refine DiscV.bind (ih.site_inferIO henv hwarg) (fun ta hta => ?_)
-  refine DiscV.bind (ih.site_inferIO henv hwe) (fun te hte => ?_)
-  exact DiscV.pure trivial
+  split
+  · rename_i cvC nP nF hf
+    have hnf : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false :=
+      const_ty_hasFvar henv hf us
+    exact iotaCerts_disc ih henv (WScoped.of_not_hasFvar hnf) hwargs
+  · exact DiscV.pure trivial
 
 theorem stuckIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
@@ -861,7 +862,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
-              projCert C env d e' i entry.numParams >>= fun b =>
+              projCert C env d c us e'.getAppArgs >>= fun b =>
               if b then
                 (C : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -879,7 +880,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
-              projCert G env d e' i entry.numParams >>= fun b =>
+              projCert G env d c us e'.getAppArgs >>= fun b =>
               if b then
                 (G : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -897,7 +898,8 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split <;> try exact DiscV.pure hwproj
     split <;> try exact DiscV.pure hwproj
     split <;> try exact DiscV.pure hwproj
-    refine DiscV.bind (projCert_disc ih henv he') (fun b _ => ?_)
+    refine DiscV.bind (projCert_disc ih henv (fun x hx => he'.getAppArgs x hx))
+      (fun b _ => ?_)
     split
     · exact ih.site_whnfCore henv (hwarg _)
     · exact DiscV.pure hwproj

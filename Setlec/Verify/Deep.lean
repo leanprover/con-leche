@@ -1037,19 +1037,19 @@ private theorem stuckIrrel_shift (henv : EnvWF env)
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   exact proofIrrel_shift henv ih hpd hwa hwb
 
-private theorem projCert_shift (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e₂ : Expr}
-    (hwe₂ : WScoped d e₂) (i : Nat) (nP : Nat) :
-    projCert (pureFns mode env fuel) env (d + 1) (shiftFrom p e₂) i nP =
-      projCert (pureFns mode env fuel) env d e₂ i nP := by
+private theorem projCert_shift (henv : EnvWF env) (ih : ShiftClaims mode env fuel)
+    {p d : Nat} (hpd : p ≤ d) {c : Name} {us : List Level} {args : List Expr}
+    (hwargs : ∀ x ∈ args, WScoped d x) :
+    projCert (pureFns mode env fuel) env (d + 1) c us (args.map (shiftFrom p)) =
+      projCert (pureFns mode env fuel) env d c us args := by
   simp only [projCert]
-  rw [getAppArgs_shiftFrom, getD_map_shiftFrom]
-  have hwarg : WScoped d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) :=
-    WScoped_getD (fun x hx => hwe₂.getAppArgs x hx) _
-  refine bind_congr _ (ih.inferIO hpd hwarg) ?_
-  intro ta _
-  refine bind_congr _ (ih.inferIO hpd hwe₂) ?_
-  intro te _
-  rfl
+  split
+  · rename_i cvC nP nF hf
+    have hnf : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false :=
+      const_ty_hasFvar henv hf us
+    have h := iotaCerts_shift henv ih hpd (WScoped.of_not_hasFvar hnf) hwargs
+    rwa [shiftFrom_eq_self_of_not_hasFvar (p := p) hnf] at h
+  · rfl
 
 private theorem majorToCtor_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
@@ -1705,8 +1705,8 @@ private theorem whnfCore_step (henv : EnvWF env)
       have hwarg : WScoped d
           (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
         WScoped_getD (fun x hx => hwe₃.getAppArgs x hx) _
-      refine bind_rel_eq _ (projCert_shift ih hpd hwe₃ i
-        entry.numParams) ?_
+      refine bind_rel_eq _ (projCert_shift henv ih hpd
+        (fun x hx => hwe₃.getAppArgs x hx)) ?_
       intro bb _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       exact ih.whnfCore hpd hwarg

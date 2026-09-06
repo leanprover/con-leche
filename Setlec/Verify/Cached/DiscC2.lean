@@ -289,38 +289,46 @@ theorem RelCL.getD {dflt : ExprC} {dfltx : Expr} (hd : RelC dflt dfltx) :
     obtain ⟨x, xs', rfl, -, has⟩ := h.cons_inv
     exact RelCL.getD hd n has
 
-/-- Port of `projCertI_sim`. -/
-theorem projCertC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
-    {e₂ : Expr} {idx : Nat} {nP : Nat}
+/-- Port of `projCertI_sim` (task #175 W6: the spine certificate against
+the constructor's stored type — `constTyAtM` reads it, `iotaCertsC_sim`
+walks it). -/
+theorem projCertC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
+    {c : Name} {us : List Level} {args : List ExprC} {xs : List Expr}
     {s₀ : CState} (hs : CSOK mode env s₀)
-    (hden : RelC i e₂) (hw : Expr.WScoped d e₂) :
+    (hargs : RelCL args xs) (hw : ∀ x ∈ xs, Expr.WScoped d x) :
     SimC mode env s₀ RelVC
-      (projCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i idx nP)
-      (projCert (fueledFns mode env) env d e₂ idx nP) := by
+      (projCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d c us args)
+      (projCert (fueledFns mode env) env d c us xs) := by
   show SimC mode env s₀ RelVC
-    (internI (.bvar 0) >>= fun bvar0 =>
-      Setlec.Cached.withStore (·.getAppArgsI i) >>= fun args =>
-      (coreKnotI mode (mkFEnv env) f).inferIO d (args.getD (nP + idx) bvar0) >>=
-        fun _ta =>
-      (coreKnotI mode (mkFEnv env) f).inferIO d i >>= fun _te =>
-      pure true)
-    (projCert (fueledFns mode env) env d e₂ idx nP)
-  refine SimC.bind_left (internI_eff hs (n := ExprView.bvar 0))
-    (fun s₁ bvar0 hs₁ hQ0 => ?_)
-  refine SimC.withStore ?_
-  obtain rfl := hden
-  have hargs := ExprC.getAppArgs_spec i
-  have hargd : RelC ((ExprC.getAppArgs i).getD (nP + idx) bvar0)
-      ((Expr.getAppArgs i).getD (nP + idx) (.bvar 0)) :=
-    RelCL.getD hQ0 (nP + idx) hargs
-  have hwarg : Expr.WScoped d
-      ((Expr.getAppArgs i).getD (nP + idx) (.bvar 0)) :=
-    wscoped_getD hw.getAppArgs _
-  refine SimC.bind (ih.inferIO hs₁ hargd hwarg)
-    (fun s₂ ta tax hs₂ hP₂ => ?_)
-  refine SimC.bind (ih.inferIO hs₂ rfl hw)
-    (fun s₃ te tex hs₃ hP₃ => ?_)
-  exact SimC.pure hs₃ rfl
+    (readbackNM c >>= fun cn =>
+      match (mkFEnv env).find? cn with
+      | some (.ctorInfo _ _ _) =>
+        constTyAtM (mkFEnv env) c cn us >>= fun tyC =>
+        iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d tyC args
+      | _ => pure false)
+    (match env.find? c with
+      | some (.ctorInfo cvC _ _) =>
+        iotaCerts (fueledFns mode env) env d
+          (cvC.type.instantiateLevelParams cvC.levelParams us) xs
+      | _ => pure false)
+  refine SimC.bind_left (readbackNM_eff hs c) (fun s₁ cn hs₁ hcn => ?_)
+  subst hcn
+  rw [mkFEnv_find?]
+  cases hf : env.find? cn with
+  | none => exact SimC.pure hs₁ rfl
+  | some ci =>
+    cases ci with
+    | ctorInfo cvC nP nF =>
+      refine SimC.bind_left (constTyAtM_eff hs₁ hf) (fun s₂ tyC hs₂ hty => ?_)
+      have hnf : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false :=
+        const_ty_hasFvar henv hf us
+      exact iotaCertsC_sim ih hs₂ hty (Expr.WScoped.of_not_hasFvar hnf) hargs hw
+    | axiomInfo _ => exact SimC.pure hs₁ rfl
+    | defnInfo _ _ _ => exact SimC.pure hs₁ rfl
+    | thmInfo _ _ => exact SimC.pure hs₁ rfl
+    | indInfo _ _ => exact SimC.pure hs₁ rfl
+    | recInfo _ _ _ _ => exact SimC.pure hs₁ rfl
+    | projInfo _ => exact SimC.pure hs₁ rfl
 
 /-- Port of `structUnitCertI_sim`. -/
 theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)

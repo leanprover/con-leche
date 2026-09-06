@@ -536,17 +536,23 @@ theorem etaCert_snd_proj (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta)
   unfold etaCert
   snd_tac
 
-theorem projCert_fst_proj (d : Nat) (e₂ : Expr) (i : Nat) (nP : Nat) :
-    (projCert (pairFns r₁ r₂ h) env d e₂ i nP).val.1 =
-      projCert r₁ env d e₂ i nP := by
+theorem projCert_fst_proj (d : Nat) (c : Name) (us : List Level)
+    (args : List Expr) :
+    (projCert (pairFns r₁ r₂ h) env d c us args).val.1 =
+      projCert r₁ env d c us args := by
   unfold projCert
-  fst_tac
+  split
+  · exact iotaCerts_fst d _ _
+  · rfl
 
-theorem projCert_snd_proj (d : Nat) (e₂ : Expr) (i : Nat) (nP : Nat) :
-    (projCert (pairFns r₁ r₂ h) env d e₂ i nP).val.2 =
-      projCert r₂ env d e₂ i nP := by
+theorem projCert_snd_proj (d : Nat) (c : Name) (us : List Level)
+    (args : List Expr) :
+    (projCert (pairFns r₁ r₂ h) env d c us args).val.2 =
+      projCert r₂ env d c us args := by
   unfold projCert
-  snd_tac
+  split
+  · exact iotaCerts_snd d _ _
+  · rfl
 
 macro "fst_step2" : tactic =>
   `(tactic| repeat (first

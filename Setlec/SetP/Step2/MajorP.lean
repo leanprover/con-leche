@@ -527,7 +527,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
             obtain ⟨entry, hfe, htw, hlpe, hstrpe⟩ :=
               hslotE j (List.mem_range.mp hj)
             obtain ⟨-, -, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j,
-              -, -, -, hlawj, -⟩ := htower T j entry hfe htw
+              _, -, -, hlawj, -⟩ := htower T j entry hfe htw
             have hcapsTj : capsTj = caps := by
               rw [hfT] at hfTj
               exact (ConstantInfo.indInfo.inj (Option.some.inj hfTj)).2.symm

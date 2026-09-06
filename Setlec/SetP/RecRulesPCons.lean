@@ -317,8 +317,8 @@ theorem towerEntryLawP_cons_prefix (mp : EnvS2PM V μ env)
     fun us hus => ?_, ?_⟩
   · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfT]; rfl)]; exact hfT
   · rw [Setlec.Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]; exact hfC
-  · obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
-    refine ⟨⟨Ta, ?_, ?_⟩, ?_⟩
+  · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
+    refine ⟨⟨Ta, ?_, ?_⟩, ⟨TCa, ?_, ?_⟩⟩
     · rw [hac]
       exact denoteP_cons_mono hfresh
         ((hcross.typeOf hfP0).instantiateLevelParams _ _) _ 0
@@ -327,9 +327,16 @@ theorem towerEntryLawP_cons_prefix (mp : EnvS2PM V μ env)
     · intro hg ρ vs x rest hlen hokT hokx hmem hpeel
       rw [hac, acvalWith_ne hnT] at hokT hmem
       exact hA hg ρ vs x rest hlen hokT hokx hmem hpeel
-    · intro hg ρ ys hlen hok
+    · -- the constructor type's reading crosses (task #175 W6): a
+      -- prefix lookup's closed type
+      rw [hac]
+      exact denoteP_cons_mono hfresh
+        ((hcross.typeOf hfC).instantiateLevelParams _ _) _ 0
+        (constsBound_instType mp.base2.wf
+          (Setlec.SetR.Env.find?_mem hfC) us) hTCa
+    · intro hg ρ ys rest hlen hok hfit
       rw [hac, acvalWith_ne hnC] at hok ⊢
-      exact hB hg ρ ys hlen hok
+      exact hB hg ρ ys rest hlen hok hfit
   · -- (C) the η law crosses (task #175 W4c): the former's lookup is a
     -- prefix lookup, its type reading is closed, the leaves are prefix
     -- leaves

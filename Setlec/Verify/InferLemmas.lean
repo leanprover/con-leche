@@ -714,7 +714,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
           entry.fireOk us = true ∧
           whnfCore mode env fuel d
             (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
-          projCertP mode env fuel d e₃ i entry.numParams = .ok true) := by
+          projCertP mode env fuel d entry.ctor us e₃.getAppArgs = .ok true) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
   simp only [whnfCore_def, whnf_def, projCert_fold,
@@ -744,7 +744,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       obtain ⟨hnat, rfl, hi, hlen, hus, hfire⟩ := hcond
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
-      cases hcert : projCertP mode env fuel d e₃ i entry.numParams with
+      cases hcert : projCertP mode env fuel d entry.ctor us e₃.getAppArgs with
       | error err => rw [hcert] at h; exact nomatch h
       | ok b =>
       rw [hcert] at h
@@ -768,36 +768,22 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
   | lit l2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | proj s2 i2 e3 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
 
-/-- Inversion for a successful projection certification.
-
-Task #161 de-gating item B1 (harvest site 18 / list entry P9): the
-clause's four sort legs — the two `infer`+`whnf`-to-a-sort runs and the
-two `Level.isEquiv` comparisons — are deleted, so the inversion now
-delivers exactly the two `inferTypeCore` runs the clause still makes.
-Conjunct 5 of the old statement (the subject's own run) is the only one
-`projStepP_of_claims` ever consumed; the field's run is kept because it
-is still performed (the ratified negative verdict of the harvest
-list). -/
-theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
-    {nP : Nat}
-    (h : projCertP mode env fuel d e₂ i nP = .ok true) :
-    ∃ ta te,
-      inferTypeIO mode env fuel d (e₂.getAppArgs.getD (nP + i) (.bvar 0))
-        = .ok ta ∧
-      inferTypeIO mode env fuel d e₂ = .ok te := by
+/-- Inversion for a successful projection certification (task #175 W6):
+the head is a stored constructor and the spine is certified against
+its type at the redex's levels (`iotaCerts`). -/
+theorem projCert_inv {env : Env} {fuel d : Nat} {c : Name}
+    {us : List Level} {args : List Expr}
+    (h : projCertP mode env fuel d c us args = .ok true) :
+    ∃ cvC nP nF, env.find? c = some (.ctorInfo cvC nP nF) ∧
+      iotaCertsP mode env fuel d
+        (cvC.type.instantiateLevelParams cvC.levelParams us) args = .ok true := by
   dsimp only [projCertP] at h
-  simp only [projCert, Bind.bind, Except.bind] at h
-  simp only [inferTypeIO_def] at h
-  cases hta : inferTypeIO mode env fuel d
-      (e₂.getAppArgs.getD (nP + i) (.bvar 0)) with
-  | error err => rw [hta] at h; exact nomatch h
-  | ok ta =>
-  rw [hta] at h
-  dsimp only at h
-  cases hte : inferTypeIO mode env fuel d e₂ with
-  | error err => rw [hte] at h; exact nomatch h
-  | ok te =>
-  exact ⟨ta, te, rfl, rfl⟩
+  simp only [projCert] at h
+  split at h
+  · rename_i cvC nP nF hf
+    rw [iotaCerts_fold] at h
+    exact ⟨cvC, nP, nF, hf, h⟩
+  · exact absurd h (by simp [pure, Except.pure])
 
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
@@ -2283,6 +2269,24 @@ Shared by the inversion's consumers: the stored entry type is a stored
 constant's closed type, and `instPisAt` preserves scoping.
 (`instPisAt_WScoped` moved here from `BridgeWfImp` so the leaf modules
 can reach it.) -/
+
+/-- A stored constant's type has no fvars (`ConstWF`), after any level
+instantiation — the projection certificate's telescope (task #175 W6). -/
+theorem const_ty_hasFvar {env : Env} (henv : EnvWF env) {n : Name}
+    {ci : ConstantInfo} (hf : env.find? n = some ci) (us : List Level) :
+    (ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams
+      us).hasFvar = false := by
+  have hwf := henv _ (List.mem_of_find?_eq_some hf)
+  rw [Expr.hasFvar_instantiateLevelParams]
+  exact hwf.1
+
+/-- ...and is therefore scoped at any depth. -/
+theorem const_ty_WScoped {env : Env} (henv : EnvWF env) {n : Name}
+    {ci : ConstantInfo} (hf : env.find? n = some ci) (us : List Level)
+    {d : Nat} :
+    WScoped d (ci.toConstantVal.type.instantiateLevelParams
+      ci.toConstantVal.levelParams us) :=
+  WScoped.of_not_hasFvar (const_ty_hasFvar henv hf us)
 
 /-- A stored projection entry's type has no fvars (it is a stored
 constant's type; `ConstWF`), after any level instantiation. -/

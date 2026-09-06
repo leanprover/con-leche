@@ -263,8 +263,8 @@ abbrev litMajorToCtorP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Exp
 abbrev projLitToCtorP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr →
     CheckM Expr := projLitToCtor (pureFns mode env fuel) env
 
-abbrev projCertP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Nat →
-    Nat → CheckM Bool := projCert (pureFns mode env fuel) env
+abbrev projCertP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Name →
+    List Level → List Expr → CheckM Bool := projCert (pureFns mode env fuel) env
 
 abbrev isPropTypeP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → CheckM Bool :=
   isPropType (pureFns mode env fuel) env

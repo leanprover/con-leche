@@ -363,7 +363,7 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
   obtain ⟨-, vs, -, hspt, -⟩ := denoteP_mkAppN_inv htea
   have htw : entry.tower = true := m.proj_ok.tower_of_native hfe hnat
   -- tower-backed: the residual is the peel of the entry type, read
-  obtain ⟨-, -, -, -, -, -, -, -, -, hlaw, -⟩ := htower T i entry hfe htw
+  obtain ⟨-, -, -, -, -, -, _, -, -, hlaw, -⟩ := htower T i entry hfe htw
   obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
   obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
   have hframes : ∀ x ∈ te.getAppArgs ++ [pe],

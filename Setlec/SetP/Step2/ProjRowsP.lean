@@ -109,7 +109,7 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     Setlec.whnf_looseBVars m.wf fuel hwte hbtpe
   have htw : entry.tower = true := m.proj_ok.tower_of_native hfe hnat
   -- TOWER-BACKED (task #175 wiring W5): the tower law's typing clause
-  obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, -, -, -, hlaw, -⟩ :=
+  obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
     htower T i entry hfe htw
   obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hlenUs
   obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
@@ -210,7 +210,7 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
     Setlec.whnf_looseBVars m.wf fuel hwte hbtpe
   have htw : entry.tower = true := m.proj_ok.tower_of_native hfe hnat
   -- TOWER-BACKED (task #175 wiring W5): the tower law's typing clause
-  obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, -, -, -, hlaw, -⟩ :=
+  obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
     htower T i entry hfe htw
   obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hlenUs
   obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
@@ -264,8 +264,10 @@ is the tower law's iota clause at the constructor application's graded
 reading — no run is walked, the grading's slot chain is the whole
 premise. -/
 theorem projStepP_of_claims {m : EnvS2Core V env}
-    (htower : TowerOkP m φ)
+    (htower : TowerOkP m φ) (hct : ConstTypeP m φ)
     (ihwc : WhnfCoreClaims2P μ m φ fuel) (ihw : WhnfClaims2P μ m φ fuel)
+    (ihd : DefEqClaims2P μ m φ fuel) (ihis : InferClaimsIOS2P μ m φ fuel)
+    (hexi : InferExistsIOSP μ m φ fuel)
     (hwreads : WhnfReadsP m μ φ fuel) :
     ProjStepP μ m φ fuel := by
   intro d sn i pe e' Δa h hws hb hLb ea ea' hC hea hea' hokA
@@ -347,7 +349,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
     obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe htw hea
     obtain rfl : vp = vp' := Option.some.inj (hvp.symm.trans hvp')
     obtain ⟨-, -, -, -, -, hO5, cvC, hfC, hlpsC, hlaw, -⟩ := htower sn i entry hfe htw
-    obtain ⟨-, hB⟩ := hlaw us hlenU
+    obtain ⟨-, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hlenU
     -- the constructor spine, read at the constructor's leaf
     have he₃ : e₃ = Expr.mkAppN (.const entry.ctor us) e₃.getAppArgs := by
       rw [← hfn]; exact (Setlec.Expr.mkAppN_getApp e₃).symm
@@ -383,9 +385,58 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
         AnnotOkP V σ (vs.getD (entry.numParams + i) default) :=
       hoA _ (Setlec.getD_mem (by rw [hlenVs]; omega))
     obtain ⟨hokE, heqE⟩ := ihwc hwcf hwF hbF hLF hCF hfvd hea' hokArg
+    -- the certificate (task #175 W6): the spine fits the constructor
+    -- type's reading — `projCert`'s `iotaCerts` through `certs_teleP`
+    obtain ⟨cvC', nP', nF', hfC', hcertI⟩ := Setlec.projCert_inv hcert
+    obtain ⟨rfl, -, -⟩ :=
+      ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfC'))
+    have hwfC := m.wf _ (Setlec.SetR.Env.find?_mem hfC)
+    have hnfC : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar
+        = false := by
+      rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfC.1
+    have hbdC : (cvC.type.instantiateLevelParams cvC.levelParams
+        us).looseBVarsBounded 0 = true := by
+      rw [Setlec.Expr.looseBVarsBounded_instantiateLevelParams]
+      exact hwfC.2.2.2.1
+    have hTCd : denoteP m.acval env φ d
+        (cvC.type.instantiateLevelParams cvC.levelParams us) = some TCa :=
+      denoteP_depth_of_closed m.acval_closed hnfC
+        (fun k => denoteP_closed m.acval_erase m.cval_closed hnfC hbdC hTCa 1 k)
+        hTCa d
+    have hTw : Expr.WScoped d
+        (cvC.type.instantiateLevelParams cvC.levelParams us) :=
+      Setlec.Expr.WScoped.of_not_hasFvar hnfC
+    have hTL : Expr.LeavesBounded
+        (cvC.type.instantiateLevelParams cvC.levelParams us) :=
+      Setlec.Expr.LeavesBounded.of_not_hasFvar hnfC
+    have hTC : CtxOkP m φ d Δa
+        (cvC.type.instantiateLevelParams cvC.levelParams us) :=
+      ⟨hC.1, fun l hl => by
+        rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfC] at hl
+        exact nomatch hl⟩
+    -- the reading's grading, off the stored constant's own
+    obtain ⟨TCa', hTCa', hokTCa, -⟩ := hct 0 entry.ctor _ us hfC rfl
+      (by show us.length = cvC.levelParams.length; rw [hlpsC]; exact hlenU)
+    obtain rfl : TCa = TCa' := Option.some.inj (hTCa.symm.trans hTCa')
+    -- the ∀-chain, off the head data's arity pin
+    obtain ⟨cvC'', hfC'', -, hstrip⟩ :=
+      (m.proj_ok.towerHead hfe htw).2.2.2.2.2.2.1
+    obtain ⟨rfl, -, -⟩ :=
+      ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfC''))
+    have hpc : PiChainP e₃.getAppArgs.length TCa := by
+      rw [hlenA]
+      exact piChainP_of_stripPis (entry.numParams + entry.numFields)
+        (Setlec.Expr.stripPis_instantiateLevelParams_isSome cvC.levelParams us _
+          hstrip) hTCd
+    have hfitAll : ∀ σ : Nat → V, Sat2 V Δa σ →
+        ∃ rest, TeleFitP V σ TCa (vs.map (interp2 V σ)) rest :=
+      fun σ hσ => certs_teleP ihd ihis hexi _ e₃.getAppArgs vs TCa hcertI hpc
+        hTw hbdC hTL hTC hTCd (fun σ' _ => hokTCa σ')
+        (frame_spineP hw₃ hb₃ hL₃ hC₃) hspa hoA σ hσ
     refine ⟨hokE, fun σ hσ => ?_⟩
+    obtain ⟨rest, hfit⟩ := hfitAll σ hσ
     rw [interp2_projAV_congr (heq₃ σ hσ), hveq,
-      hB (towerStructPos_of_fireOk htw hfire) σ vs hlenVs (hok₃' σ hσ)]
+      hB (towerGuardAt_of_fireOk htw hO5 hfire) σ vs rest hlenVs (hok₃' σ hσ) hfit]
     exact heqE σ hσ
 
 end Setlec.SetR.Interp2

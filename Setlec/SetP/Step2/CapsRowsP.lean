@@ -687,7 +687,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
       intro x hx σ hσ
       obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
       obtain ⟨entry, hfe, htw, hlpe, hstrpe⟩ := hslotE j (List.mem_range.mp hj)
-      obtain ⟨-, -, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j, -,
+      obtain ⟨-, -, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j, _,
         -, -, hlawj, -⟩ := htower T j entry hfe htw
       have hcapsTj : capsTj = caps := by
         rw [hfT] at hfTj

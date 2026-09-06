@@ -59,8 +59,7 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
               e'.getAppArgs.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then
-            projCert (fueledFns mode env) env d e' i
-              entry.numParams >>= fun b =>
+            projCert (fueledFns mode env) env d c us e'.getAppArgs >>= fun b =>
             if b then
               kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
             else pure (.proj sn i e')
@@ -602,7 +601,8 @@ theorem whnfCoreStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           refine SimC.bind_left
             (internI_eff hs₁ (n := ExprView.bvar 0))
             (fun s₂ bvar0 hs₂ hQ0 => ?_)
-          refine SimC.bind (projCertC_sim ih hs₂ he'd hwe')
+          refine SimC.bind (projCertC_sim ih henv hs₂ hargs
+              (fun x hx => hwe'.getAppArgs x hx))
             (fun s₃ b b' hs₃ hPb => ?_)
           obtain rfl : b = b' := hPb
           cases b with

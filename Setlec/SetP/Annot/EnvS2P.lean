@@ -645,26 +645,23 @@ theorem towerGuardAt_of {entry : ProjEntry} {us : List Level} {φ : Name → Nat
     simpa [Level.eval] using h1
   · exact hO5 (by simpa using hp) _ hs
 
-/-- **The graph-regime premise of the iota law** (task #175 W4c/O4): the
-structure's sort is nonzero at the use's valuation — `whnfCore`'s
-tower fire (`ProjEntry.fireOk`) checks it syntactically
-(`Level.isNonZero` of the instantiated sort).  At a squash instance
-the constructor application reads as the point and a constructor
-argument's value is pinned by nothing, so the law is stated only
-here. -/
-def TowerStructPos (φ : Name → Nat) (entry : ProjEntry) (us : List Level) :
-    Prop :=
-  Level.eval (Level.substFn φ entry.levelParams us) entry.structSort ≠ 0
-
-/-- The graph-regime premise from the fire guard. -/
-theorem towerStructPos_of_fireOk {entry : ProjEntry} {us : List Level}
-    {φ : Name → Nat} (htw : entry.tower = true)
-    (hfire : entry.fireOk us = true) : TowerStructPos φ entry us := by
+/-- **The guard at a valuation, from the fire guard** (task #175 W6):
+`whnfCore`'s tower fire (`ProjEntry.fireOk`) is the tower infer
+branch's own guard — a `Prop`-declared family fires only where the
+field's guard level is a proposition, any other family unconditionally
+— so with O5 it yields `TowerGuardAt` exactly as the infer branch
+does.  (Until W6 the fire was gated on the structure's sort being
+provably nonzero, `TowerStructPos`, and the iota law was stated in the
+graph regime only; the squash regime is now licensed by the certified
+spine's fit, see `TowerEntryLawP`'s clause (B).) -/
+theorem towerGuardAt_of_fireOk {entry : ProjEntry} {us : List Level}
+    {φ : Name → Nat} (htw : entry.tower = true) (hO5 : TowerO5 entry)
+    (hfire : entry.fireOk us = true) : TowerGuardAt φ entry us := by
   unfold ProjEntry.fireOk at hfire
   rw [htw] at hfire
-  have h := Level.isNonZero_sound (by simpa using hfire) φ
-  rw [Level.eval_subst] at h
-  exact h
+  refine towerGuardAt_of hO5 (fun hp => ?_)
+  rw [hp] at hfire
+  simpa using hfire
 
 /-- **One tower-backed entry's projection law** (see the section
 docstring): the entry's stored data agrees with the stored former and
@@ -707,20 +704,29 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
           AnnotOkP V ρ (projAV i x) ∧ AnnotOkP V ρ rest ∧
             interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest)) ∧
       -- (B) the iota law: the projection of a *graded* constructor
-      -- application is the selected field.  The premise is the
-      -- application's grading alone (its slot chain) — which is what
-      -- the `whnfCore` row holds under the io skip — and the graph
-      -- regime (`TowerStructPos`, the fire guard's content): there
-      -- every constructor binder is graph-regime and graph rigidity
-      -- pins the memberships without a certificate.
-      (TowerStructPos φ entry us →
-        ∀ (ρ : Nat → V) (ys : List AVExpr),
+      -- application is the selected field, at every valuation under
+      -- the guard (task #175 W6).  Two premises: the application's
+      -- grading (its slot chain — the graph regime's whole premise,
+      -- where every constructor binder is graph-regime and graph
+      -- rigidity pins the memberships), and the certified spine's fit
+      -- against the constructor's own type reading (`projCert`'s
+      -- `iotaCerts`, through `certs_teleP`) — the squash regime's
+      -- premise, where the application is the point and the fit pins
+      -- the selected field to a proposition's domain (its sort is `0`
+      -- there: the O5 bound at a non-`Prop` family, the guard at a
+      -- `Prop`-declared one).
+      (∃ TCa : AVExpr,
+        denoteP m.acval env φ 0
+          (cvC.type.instantiateLevelParams cvC.levelParams us) = some TCa ∧
+        (TowerGuardAt φ entry us →
+        ∀ (ρ : Nat → V) (ys : List AVExpr) (rest : V),
         ys.length = entry.numParams + entry.numFields →
         AnnotOkP V ρ (AVExpr.mkAppN
           (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys) →
+        TeleFitP V ρ TCa (ys.map (interp2 V ρ)) rest →
         interp2 V ρ (projAV i (AVExpr.mkAppN
             (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys))
-          = interp2 V ρ (ys.getD (entry.numParams + i) default))) ∧
+          = interp2 V ρ (ys.getD (entry.numParams + i) default)))) ∧
     -- (C) the structural-η law (task #175 W4c)
     TowerEtaLawP m φ T entry
 
