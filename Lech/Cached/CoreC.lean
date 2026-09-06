@@ -1876,7 +1876,11 @@ already held the key (E2's extra, unsound direction). -/
       modify fun st =>
         let mp := st.inferC
         let st := { st with inferC := ∅ }
-        { st with inferC := mp.insert e r }
+        let st := { st with inferC := mp.insert e r }
+        -- TASK #196 E1i: the write-side seed, instrumented.
+        let mq := st.inferIOC
+        let st := { st with inferIOC := ∅ }
+        { st with inferIOC := mq.insert e r }
       pure r
 
 /-- The io slot's memo, counting on a miss whether the full-infer memo
