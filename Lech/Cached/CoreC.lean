@@ -1844,27 +1844,26 @@ only — the term the proofs unfold is unchanged. -/
         set' st (mp.insert e r)
       pure r
 
-/-- **TASK #196 MEASUREMENT ONLY — NEVER LANDS.**  `memoEI` for the
-full-`infer` slot with the *sound* one-directional seed: a computed
-full-inference result is inserted into the io memo as well, because a
-full-infer result is a valid infer-only result (the "named future
-option" of the task-#170 memo ruling — the full→only direction is
-sound by a monotonicity argument the proof tier does not have yet).
-Reads only `inferC`; writes both. -/
-@[inline] def memoEISeed (f : Nat → ExprC → CheckCM ExprC) :
+/-- **TASK #196 MEASUREMENT ONLY — NEVER LANDS.**  The *read-side*
+form of the sound one-directional sharing (E1b): the io slot probes its
+own memo, then — only on a miss — the full-infer memo, because a
+full-infer entry is a valid infer-only entry.  Writes go to `inferIOC`
+alone, so unlike `memoEISeed` (E1) this adds no insert anywhere; it
+adds one extra probe per io miss. -/
+@[inline] def memoEIUnionIO (f : Nat → ExprC → CheckCM ExprC) :
     Nat → ExprC → CheckCM ExprC :=
   fun d e => do
+    match (← get).inferIOC[e]? with
+    | some r => pure r
+    | none =>
     match (← get).inferC[e]? with
     | some r => pure r
     | none =>
       let r ← f d e
       modify fun st =>
-        let mp := st.inferC
-        let st := { st with inferC := ∅ }
-        let st := { st with inferC := mp.insert e r }
-        let mq := st.inferIOC
+        let mp := st.inferIOC
         let st := { st with inferIOC := ∅ }
-        { st with inferIOC := mq.insert e r }
+        { st with inferIOC := mp.insert e r }
       pure r
 
 /-- Memoize the interned definitional-equality entry point under the
@@ -1932,9 +1931,6 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
         (fun d e => whnfCoreBodyI mode (prev ()) fe d e)
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI (prev ()) fe d e)
-      -- TASK #196 E2 (measurement only): ONE table for both grades, so
-      -- the full slot is the plain `memoEI` on `inferC` again and the
-      -- io slot below points at the SAME table.
       infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
         (fun d e => inferBodyI mode (prev ()) fe d e)
       defeq := memoBI
@@ -1951,12 +1947,10 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       -- the same function there (task #170: "in R mode infer_only is
       -- just equivalent to infer").
       inferIO := if mode.ioGate then
-          -- TASK #196 E2 (measurement only, UNSOUND AS IS): the io body
-          -- under the FULL memo — both directions shared.  A hit here
-          -- may serve a later full-infer query with an entry that
-          -- witnessed fewer checks; this measures the ceiling, not a
-          -- landable design.
-          memoEI (·.inferC) (fun st mp => { st with inferC := mp })
+          -- TASK #196 E1b (measurement only): the read-side sound
+          -- direction — probe `inferIOC`, then `inferC`, write only
+          -- `inferIOC`.
+          memoEIUnionIO
             (fun d e => inferBodyIOI mode (prev ()).ioView fe d e)
         else
           memoEI (·.inferC) (fun st mp => { st with inferC := mp })
