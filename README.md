@@ -25,7 +25,7 @@ This README is actually human written (with AI only doing copy-editing, fact che
   * `False`, `Empty`, `PUnit`, `Eq`, `Nat`, `Quot`
   * Non-recursive inductives
 
-  For everything else is relies on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models that we can validate.
+  For everything else is uses [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models. Lech checks these models as normal definitions, and then checks that they faithfully model the given inductive. The lean-inductive-models code is thus outside the trusted code base of Lech.
 
 * Accepted incompleteness: Primitive projections are only supported
   - on non-recursive non-indexed structures or
