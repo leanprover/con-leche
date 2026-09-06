@@ -297,42 +297,64 @@ theorem checkDirectRecF_eq (ops : CheckerOps m) (env : Env)
   simp only [checkDirectRecF, checkDirectRec, mkFEnv_env, constsResolveF_eq,
     checkConstantValF_eq]
 
-/-! ### The direct sum path (task #175 sum-types) -/
+/-! ### The direct sum path (task #175 sum-types, indexed) -/
+
+/-- `checkDirectFieldSortsIF` (task #175 indexed) at `mkFEnv`. -/
+theorem checkDirectFieldSortsIF_eq (ops : CheckerOps m) (env : Env)
+    (isProp large : Bool) (s : Level) (nP : Nat) (fvs idxArgs : List Expr) :
+    ∀ (j : Nat),
+      checkDirectFieldSortsIF ops (mkFEnv env) isProp large s nP fvs idxArgs j
+        = checkDirectFieldSortsI ops env isProp large s nP fvs idxArgs j
+  | 0 => rfl
+  | j + 1 => by
+    simp only [checkDirectFieldSortsIF, checkDirectFieldSortsI, mkFEnv_env,
+      checkDirectFieldSortsIF_eq ops env isProp large s nP fvs idxArgs j]
+
+/-- `checkDirectFieldSortsIFA` (task #175 indexed) at `List.toArray`. -/
+theorem checkDirectFieldSortsIFA_eq (ops : CheckerOps m) (fe : FEnv)
+    (isProp large : Bool) (s : Level) (nP : Nat) (fvs idxArgs : List Expr) :
+    ∀ j, checkDirectFieldSortsIFA ops fe isProp large s nP fvs.toArray idxArgs j
+      = checkDirectFieldSortsIF ops fe isProp large s nP fvs idxArgs j
+  | 0 => rfl
+  | j + 1 => by
+    simp only [checkDirectFieldSortsIFA, checkDirectFieldSortsIF,
+      List.getElem?_toArray,
+      checkDirectFieldSortsIFA_eq ops fe isProp large s nP fvs idxArgs j]
 
 theorem checkDirectSumCtorF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
-    (lps : List Name) (nP : Nat) (resSort : Level) (isProp large : Bool)
+    (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    checkDirectSumCtorF ops (mkFEnv env₀) (mkFEnv env) T lps nP resSort isProp
+    checkDirectSumCtorF ops (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp
         large cvC nF cvTa
-      = checkDirectSumCtor ops env₀ env T lps nP resSort isProp large cvC nF
+      = checkDirectSumCtor ops env₀ env T lps nP nIdx resSort isProp large cvC nF
         cvTa := by
   simp only [checkDirectSumCtorF, checkDirectSumCtor, checkConstantValF_eq,
     checkDirectDomsAtFA_eq, checkDirectDomsAtF_eq, openPisAtFvarsF_eq,
-    checkDirectFieldSortsFA_eq, checkDirectFieldSortsF_eq, constsResolveF_eq]
+    checkDirectFieldSortsIFA_eq, checkDirectFieldSortsIF_eq, constsResolveF_eq]
 
 theorem checkDirectSumCtorsF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
-    (lps : List Name) (nP : Nat) (resSort : Level) (isProp large : Bool)
+    (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     ∀ (cs : List (ConstantVal × Nat)),
-      checkDirectSumCtorsF ops (mkFEnv env₀) (mkFEnv env) T lps nP resSort isProp
+      checkDirectSumCtorsF ops (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp
           large cvTa cs
-        = checkDirectSumCtors ops env₀ env T lps nP resSort isProp large cvTa cs
+        = checkDirectSumCtors ops env₀ env T lps nP nIdx resSort isProp large cvTa cs
   | [] => rfl
   | c :: cs => by
     simp only [checkDirectSumCtorsF, checkDirectSumCtors, checkDirectSumCtorF_eq,
-      checkDirectSumCtorsF_eq ops env₀ env T lps nP resSort isProp large cvTa cs]
+      checkDirectSumCtorsF_eq ops env₀ env T lps nP nIdx resSort isProp large cvTa cs]
 
 theorem checkDirectSumRulesF_eq (ops : CheckerOps m) (env : Env)
     (rlps : List Name) (T : Name) (lps : List Name) (elim : Name) (large : Bool)
-    (nP : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) :
+    (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) :
     ∀ (k j : Nat),
-      checkDirectSumRulesF ops (mkFEnv env) rlps T lps elim large nP tty ctors k j
-        = checkDirectSumRules ops env rlps T lps elim large nP tty ctors k j
+      checkDirectSumRulesF ops (mkFEnv env) rlps T lps elim large nP nIdx tty ctors k j
+        = checkDirectSumRules ops env rlps T lps elim large nP nIdx tty ctors k j
   | 0, _ => rfl
   | k + 1, j => by
     simp only [checkDirectSumRulesF, checkDirectSumRules, mkFEnv_env,
       constsResolveF_eq,
-      checkDirectSumRulesF_eq ops env rlps T lps elim large nP tty ctors k (j + 1)]
+      checkDirectSumRulesF_eq ops env rlps T lps elim large nP nIdx tty ctors k (j + 1)]
 
 theorem checkDirectSumRecF_eq (ops : CheckerOps m) (env : Env)
     (p : DirectSumParts) (cvTa : ConstantVal)

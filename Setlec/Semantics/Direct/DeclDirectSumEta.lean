@@ -2,13 +2,15 @@ import Setlec.Semantics.Direct.DeclDirectSum
 import Setlec.Semantics.Direct.DeclDirectEta
 
 /-!
-# The direct sum declaration keeps the η-families closed (task #175 sum-types)
+# The direct sum declaration keeps the η-families closed (task #175
+sum-types, indexed)
 
 Every store the direct sum install performs is a fresh cons
 (`checkConstantVal`'s duplicate guard for the former and the recursor;
 the constructors are checked at the former's environment and consed
 in order under the distinct-names guard), and the one former it
-stores carries the empty capability record (`eta = false`), so
+stores carries the sum's capability record (`directSumCaps`, whose
+`eta` is `false` — a sum is never structure-like), so
 `EtaFamiliesClosed.cons_nonind` applies at every step.
 -/
 
@@ -16,7 +18,7 @@ namespace Setlec.Semantics
 
 open Setlec (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   DirectSumParts fueledOps checkDirectSumInd checkDirectSumCtors
-  checkDirectSumRec consSumCtors directSumRules EtaFamiliesClosed)
+  checkDirectSumRec consSumCtors directSumRules directSumCaps EtaFamiliesClosed)
 
 /-- The constructors' conses keep the η-families closed: each name is
 fresh at the environment it is consed onto — fresh at the former's
@@ -53,7 +55,7 @@ theorem declDirectSumRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
   obtain ⟨hcvT, rfl, -⟩ := Setlec.checkDirectSumInd_shape hInd
   obtain ⟨hfT, -, -, -, -, -, _, _, _, -, -, -, -, -, -⟩ :=
     Setlec.checkConstantVal_inv hcvT
-  have hE₁ : EtaFamiliesClosed ⟨.indInfo cvTa {} :: env.consts⟩ :=
+  have hE₁ : EtaFamiliesClosed ⟨.indInfo cvTa (directSumCaps p) :: env.consts⟩ :=
     EtaFamiliesClosed.cons_nonind hE (by
       have hn : cvTa.name = p.cvT.name := by
         obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
@@ -78,7 +80,8 @@ theorem declDirectSumRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
       obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hCeq⟩ :=
         Setlec.checkConstantVal_inv hccv
       rw [hCeq]
-  have hE₂ : EtaFamiliesClosed (consSumCtors p.nP ctorsA ⟨.indInfo cvTa {} :: env.consts⟩) := by
+  have hE₂ : EtaFamiliesClosed
+      (consSumCtors p.nP ctorsA ⟨.indInfo cvTa (directSumCaps p) :: env.consts⟩) := by
     refine consSumCtors_etaClosed hE₁ ?_ (by rw [hnames]; exact hnd)
     intro c hc
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
@@ -96,7 +99,8 @@ theorem declDirectSumRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
   obtain ⟨hfR, -, -, -, -, -, _, _, _, -, -, -, -, -, -⟩ :=
     Setlec.checkConstantVal_inv hcvR
   refine EtaFamiliesClosed.cons_nonind hE₂ ?_ (fun _ _ heq => nomatch heq)
-  show (consSumCtors p.nP ctorsA ⟨.indInfo cvTa {} :: env.consts⟩).find? cvRa.name = none
+  show (consSumCtors p.nP ctorsA
+    ⟨.indInfo cvTa (directSumCaps p) :: env.consts⟩).find? cvRa.name = none
   rw [hnR]; exact hfR
 
 /-! ## The dispatch -/

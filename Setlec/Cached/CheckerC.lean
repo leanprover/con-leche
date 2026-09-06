@@ -170,12 +170,12 @@ def checkDirectSumS (fe : FEnv) (p : DirectSumParts) : CheckCM FEnv := do
   let (fe₁, cvTa) ← checkDirectSumIndF (sharedOpsC cfg fe) fe p
   flushC
   let ctorsA ← checkDirectSumCtorsF (sharedOpsC cfg fe₁) fe fe₁ p.cvT.name p.cvT.levelParams
-    p.nP p.resSort p.isProp p.large cvTa p.ctors
+    p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
   let fe₂ := consSumCtorsF p.nP ctorsA fe₁
   flushC
   let (cvRa, rhss) ← checkDirectSumRecF (sharedOpsC cfg fe₂) fe₂ p cvTa ctorsA
-  let mI := p.nP + 1 + p.ctors.length
-  pure (fe₂.push (.recInfo cvRa mI mI (directSumRules p.nP mI cvRa.type ctorsA rhss)))
+  pure (fe₂.push (.recInfo cvRa p.majorIdx p.rulePrefix
+    (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)))
 
 /-- The modeled inductive block (mirrors `checkIndDecl`), returning
 the extended index. -/

@@ -96,10 +96,53 @@ inert.)  The mirror doctrine of the module header is unaffected: the
 predicate must be no looser than *the checker*, and the checker's first
 route for this block is the pin. -/
 
+/-- THE DIRECT SUM CLASS (task #175 sum-types, indexed): any number of
+constructors other than one, or an indexed family with any number of
+constructors — `Setlec.directSumPartsCore?`
+(`Setlec/Kernel/Direct/SumParts.lean`), mirrored conjunct for
+conjunct; the one-constructor index-free class is the structure route
+(`setlecNative`'s first arm).  The recogniser's residual shape
+(`directCtorResidOk`: the family at the parameters followed by
+`numIndices` index expressions) and the rules' right-hand sides are the
+two conjuncts argued rather than mirrored, as at the structure class. -/
+def setlecNativeSum (type : EIndType) (ctors : List ECtor) (rec : ERec) : Bool :=
+  -- any number of constructors other than one, or an indexed family
+  (ctors.length != 1 || type.numIndices != 0) &&
+  -- the member: non-recursive, non-nested, safe
+  !type.isRec && type.numNested == 0 &&
+    !type.isUnsafe && type.all == [type.name] &&
+    type.ctors == ctors.map (·.name) &&
+  -- every constructor: this member's, at its level parameters
+  ctors.all (fun ctor => ctor.induct == type.name &&
+    ctor.levelParams == type.levelParams &&
+    ctor.numParams == type.numParams && !ctor.isUnsafe &&
+    !setlecReservedBasisNames.contains ctor.name) &&
+  -- the recursor: `T.rec`, the family's indices, one motive, one
+  -- minor and one rule per constructor in constructor order
+  rec.name == type.name.str "rec" && rec.numIndices == type.numIndices &&
+    rec.numMotives == 1 && rec.numMinors == ctors.length &&
+    rec.numParams == type.numParams && !rec.isUnsafe &&
+    rec.rules.length == ctors.length &&
+    (List.range ctors.length).all (fun j =>
+      match rec.rules[j]?, ctors[j]? with
+      | some rule, some ctor => rule.ctor == ctor.name && rule.nfields == ctor.numFields
+      | _, _ => false) &&
+  -- the eliminator shape: LARGE (a fresh elimination level parameter in
+  -- front of the block's own) or, failing that, SMALL (the block's own
+  -- level parameters) — `directSumPartsCore?`'s `large?`/`else` order
+  ((match rec.levelParams with
+    | elim :: rest => rest == type.levelParams && !type.levelParams.contains elim
+    | [] => false) ||
+   rec.levelParams == type.levelParams) &&
+  -- not one of setlec's pinned basis blocks
+  !setlecReservedBasisNames.contains type.name &&
+    !setlecReservedBasisNames.contains rec.name
+
 /-- The blocks setlec installs natively: the **direct simple-structure class**
-of `Setlec.directPartsCore?` (`Setlec/Kernel/Direct/Parts.lean`).  See this
-module's header for the conjunct-by-conjunct correspondence and for the two
-conjuncts that are argued rather than mirrored.
+of `Setlec.directPartsCore?` (`Setlec/Kernel/Direct/Parts.lean`) and the
+**direct sum class** of `Setlec.directSumPartsCore?` (`setlecNativeSum`).
+See this module's header for the conjunct-by-conjunct correspondence and for
+the two conjuncts that are argued rather than mirrored.
 
 Propositional structures are *in*: `directPartsCore?` recognises both
 eliminator shapes — the large one (a fresh elimination level parameter in
@@ -109,8 +152,12 @@ and the install's squash regime handles the `Prop` case (task #175 W4c/O4). -/
 def setlecNative : NativeSupport := fun block =>
   match block with
   | .induct [type] [ctor] [rec] =>
+    -- an indexed one-constructor family is the sum route's (task #175
+    -- indexed: not a structure — official's `is_structure_like` needs
+    -- no index)
+    (type.numIndices != 0 && setlecNativeSum type [ctor] rec) ||
     -- the member: index-free, non-recursive, non-nested, safe, one constructor
-    type.numIndices == 0 && !type.isRec && type.numNested == 0 &&
+    (type.numIndices == 0 && !type.isRec && type.numNested == 0 &&
       !type.isUnsafe && type.all == [type.name] && type.ctors == [ctor.name] &&
     -- the constructor: this member's, at its level parameters
     ctor.induct == type.name && ctor.levelParams == type.levelParams &&
@@ -132,45 +179,14 @@ def setlecNative : NativeSupport := fun block =>
     -- not one of setlec's pinned basis blocks
     !setlecReservedBasisNames.contains type.name &&
       !setlecReservedBasisNames.contains ctor.name &&
-      !setlecReservedBasisNames.contains rec.name
-  -- THE DIRECT SUM CLASS (task #175 sum-types): any number of
-  -- constructors other than one — `Setlec.directSumPartsCore?`
-  -- (`Setlec/Kernel/Direct/SumParts.lean`), mirrored conjunct for
-  -- conjunct; the one-constructor arm above is the structure route.
-  | .induct [type] ctors [rec] =>
-    ctors.length != 1 &&
-    -- the member: index-free, non-recursive, non-nested, safe
-    type.numIndices == 0 && !type.isRec && type.numNested == 0 &&
-      !type.isUnsafe && type.all == [type.name] &&
-      type.ctors == ctors.map (·.name) &&
-    -- every constructor: this member's, at its level parameters
-    ctors.all (fun ctor => ctor.induct == type.name &&
-      ctor.levelParams == type.levelParams &&
-      ctor.numParams == type.numParams && !ctor.isUnsafe &&
-      !setlecReservedBasisNames.contains ctor.name) &&
-    -- the recursor: `T.rec`, no indices, one motive, one minor and one
-    -- rule per constructor in constructor order
-    rec.name == type.name.str "rec" && rec.numIndices == 0 &&
-      rec.numMotives == 1 && rec.numMinors == ctors.length &&
-      rec.numParams == type.numParams && !rec.isUnsafe &&
-      rec.rules.length == ctors.length &&
-      (List.range ctors.length).all (fun j =>
-        match rec.rules[j]?, ctors[j]? with
-        | some rule, some ctor => rule.ctor == ctor.name && rule.nfields == ctor.numFields
-        | _, _ => false) &&
-    -- the eliminator shape: LARGE or SMALL, as above
-    ((match rec.levelParams with
-      | elim :: rest => rest == type.levelParams && !type.levelParams.contains elim
-      | [] => false) ||
-     rec.levelParams == type.levelParams) &&
-    -- not one of setlec's pinned basis blocks
-    !setlecReservedBasisNames.contains type.name &&
-      !setlecReservedBasisNames.contains rec.name
+      !setlecReservedBasisNames.contains rec.name)
+  | .induct [type] ctors [rec] => setlecNativeSum type ctors rec
   | _ => false
 
 /-- `setlec-preprocess [OPTIONS] IN.ndjson` — `lean-inductive-models` with
 setlec's native-support predicate.  Every option and exit code is the tool's
 own (see its README); the only difference is that the blocks
-`Setlec.directPartsCore?` installs directly come out unmodelled. -/
+`Setlec.directPartsCore?`/`Setlec.directSumPartsCore?` install directly come
+out unmodelled. -/
 def main (args : List String) : IO UInt32 :=
   InductiveModels.main args (native := setlecNative)

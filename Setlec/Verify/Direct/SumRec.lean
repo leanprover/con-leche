@@ -281,6 +281,8 @@ end Setlec
 
 namespace Setlec
 
+open Expr
+
 /-! ## The elimination restriction's readout -/
 
 /-- `Level.isNeverZero` is sound: such a level evaluates to a nonzero
@@ -305,13 +307,13 @@ theorem Level.isNeverZero_sound (φ : Name → Nat) :
 /-! ## The stored rules, positionally -/
 
 /-- A stored rule is constructor `j`'s rule at right-hand side `j`. -/
-theorem directSumRules_getElem? {nP mI : Nat} {recTy : Expr} :
+theorem directSumRules_getElem? {nP mI rP : Nat} {recTy : Expr} :
     ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
-      r ∈ directSumRules nP mI recTy ctorsA rhss →
+      r ∈ directSumRules nP mI rP recTy ctorsA rhss →
       ∃ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
         ctorsA[j]? = some cA ∧ rhss[j]? = some rhs ∧
         r = ⟨cA.1.name, cA.2, nP,
-          if Expr.recRulePlain recTy mI mI nP then .plain else .inert, rhs⟩
+          if Expr.recRulePlain recTy mI rP nP then .plain else .inert, rhs⟩
   | [], _, r, h => by simp [directSumRules] at h
   | _ :: _, [], r, h => by simp [directSumRules] at h
   | c :: cs, rhs :: rhss, r, h => by
@@ -320,5 +322,186 @@ theorem directSumRules_getElem? {nP mI : Nat} {recTy : Expr} :
     · exact ⟨0, c, rhs, rfl, rfl, rfl⟩
     · obtain ⟨j, cA, rhs', hc, hr, rfl⟩ := directSumRules_getElem? h
       exact ⟨j + 1, cA, rhs', by simpa using hc, by simpa using hr, rfl⟩
+
+/-! ## The indexed generators, unfolded (task #175 indexed families) -/
+
+theorem directMinorTyI_unfold {C : Name} {lps : List Name} {nP nF o : Nat} {pw : PropWhen}
+    {cty mty : Expr} (h : directMinorTyI C lps nP nF o pw cty = some mty) :
+    ∃ (cbs fbs : List (Name × Expr × BinderMeta)) (crest0 res : Expr),
+      cty.stripPis nP = some (cbs, crest0) ∧
+      crest0.stripPis nF = some (fbs, res) ∧
+      Expr.replacePisPw pw nF (crest0.liftLooseBVars o 0)
+        (Expr.mkAppN (.bvar (nF + o - 1))
+          ((res.getAppArgs.drop nP).map (Expr.liftLooseBVars o nF) ++
+            [directCtorSpineAt C lps o nP nF])) = some mty := by
+  unfold directMinorTyI at h
+  simp only [Option.bind_eq_some_iff] at h
+  obtain ⟨q, hq, r, hr, hmty⟩ := h
+  exact ⟨q.1, r.1, q.2, r.2, hq, hr, hmty⟩
+
+theorem directMinorsPisI_cons {lps : List Name} {nP : Nat} {pw : PropWhen} {C : Name}
+    {nF : Nat} {cty : Expr} {cs : List (Name × Nat × Expr)} {o : Nat} {body mins : Expr}
+    (h : directMinorsPisI lps nP pw ((C, nF, cty) :: cs) o body = some mins) :
+    ∃ mty rest, directMinorTyI C lps nP nF o pw cty = some mty ∧
+      directMinorsPisI lps nP pw cs (o + 1) body = some rest ∧
+      mins = .forallE (Name.lastStr C) mty rest ⟨.default, pw⟩ := by
+  unfold directMinorsPisI at h
+  simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+  obtain ⟨mty, hmty, rest, hrest, hmin⟩ := h
+  exact ⟨mty, rest, hmty, hrest, hmin.symm⟩
+
+theorem directMinorsLamsI_cons {lps : List Name} {nP : Nat} {pw : PropWhen} {C : Name}
+    {nF : Nat} {cty : Expr} {cs : List (Name × Nat × Expr)} {o : Nat} {body mins : Expr}
+    (h : directMinorsLamsI lps nP pw ((C, nF, cty) :: cs) o body = some mins) :
+    ∃ mty rest, directMinorTyI C lps nP nF o pw cty = some mty ∧
+      directMinorsLamsI lps nP pw cs (o + 1) body = some rest ∧
+      mins = .lam (Name.lastStr C) mty rest ⟨.default, pw⟩ := by
+  unfold directMinorsLamsI at h
+  simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+  obtain ⟨mty, hmty, rest, hrest, hmin⟩ := h
+  exact ⟨mty, rest, hmty, hrest, hmin.symm⟩
+
+theorem directMinorsPisI_nil {lps : List Name} {nP : Nat} {pw : PropWhen} {o : Nat}
+    {body mins : Expr} (h : directMinorsPisI lps nP pw [] o body = some mins) : mins = body := by
+  simp only [directMinorsPisI, Option.some.injEq] at h
+  exact h.symm
+
+theorem directMinorsLamsI_nil {lps : List Name} {nP : Nat} {pw : PropWhen} {o : Nat}
+    {body mins : Expr} (h : directMinorsLamsI lps nP pw [] o body = some mins) : mins = body := by
+  simp only [directMinorsLamsI, Option.some.injEq] at h
+  exact h.symm
+
+/-- `directRecTyI`, unfolded to its five steps. -/
+theorem directRecTyI_unfold {T : Name} {lps : List Name} {elim : Name} {large : Bool}
+    {nP nIdx : Nat} {tty recTy : Expr} {ctors : List (Name × Nat × Expr)}
+    (h : directRecTyI T lps elim large nP nIdx tty ctors = some recTy) :
+    ∃ (tbs : List (Name × Expr × BinderMeta)) (itele motiveTy major minors : Expr),
+      tty.stripPis nP = some (tbs, itele) ∧
+      directMotiveTyI T lps nP nIdx (directElimLevel elim large) itele = some motiveTy ∧
+      Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nIdx
+        (itele.liftLooseBVars (ctors.length + 1) 0)
+        (.forallE (.str .anonymous "t") (directFamI T lps nP nIdx (ctors.length + 1) 0)
+          (Expr.mkAppN (.bvar (nIdx + ctors.length + 1)) (directPsAt 1 nIdx ++ [.bvar 0]))
+          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some major ∧
+      directMinorsPisI lps nP (Level.zeronessOf (directElimLevel elim large)) ctors 1 major
+        = some minors ∧
+      Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nP tty
+        (.forallE (.str .anonymous "motive") motiveTy minors
+          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some recTy := by
+  unfold directRecTyI at h
+  simp only [Option.bind_eq_some_iff] at h
+  obtain ⟨q, hq, motiveTy, hmot, major, hmaj, minors, hmin, hr⟩ := h
+  exact ⟨q.1, q.2, motiveTy, major, minors, hq, hmot, hmaj, hmin, hr⟩
+
+/-- `directRecRhsI` at rule `j`, unfolded. -/
+theorem directRecRhsI_unfold {T : Name} {lps : List Name} {elim : Name} {large : Bool}
+    {nP nIdx : Nat} {tty rhs : Expr} {ctors : List (Name × Nat × Expr)} {j : Nat}
+    (h : directRecRhsI T lps elim large nP nIdx tty ctors j = some rhs) :
+    ∃ (C : Name) (nF : Nat) (cty : Expr) (tbs cbs : List (Name × Expr × BinderMeta))
+      (itele motiveTy crest0 inner minors : Expr),
+      ctors[j]? = some (C, nF, cty) ∧
+      tty.stripPis nP = some (tbs, itele) ∧
+      directMotiveTyI T lps nP nIdx (directElimLevel elim large) itele = some motiveTy ∧
+      cty.stripPis nP = some (cbs, crest0) ∧
+      Expr.pisToLamsPw (Level.zeronessOf (directElimLevel elim large)) nF
+        (crest0.liftLooseBVars (ctors.length + 1) 0)
+        (Expr.mkAppN (.bvar (nF + ctors.length - 1 - j))
+          ((List.range nF).map fun k => Expr.bvar (nF - 1 - k))) = some inner ∧
+      directMinorsLamsI lps nP (Level.zeronessOf (directElimLevel elim large)) ctors 1 inner
+        = some minors ∧
+      Expr.pisToLamsPw (Level.zeronessOf (directElimLevel elim large)) nP tty
+        (.lam (.str .anonymous "motive") motiveTy minors
+          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some rhs := by
+  unfold directRecRhsI at h
+  cases hj : ctors[j]? with
+  | none => rw [hj] at h; exact nomatch h
+  | some c =>
+    obtain ⟨C, nF, cty⟩ := c
+    rw [hj] at h
+    simp only [Option.bind_eq_some_iff] at h
+    obtain ⟨tq, htq, motiveTy, hmot, q, hq, inner, hinner, minors, hminors, hr⟩ := h
+    exact ⟨C, nF, cty, tq.1, q.1, tq.2, motiveTy, q.2, inner, minors, rfl, htq, hmot, hq,
+      hinner, hminors, hr⟩
+
+/-! ## Instantiation under a mid-cutoff lift -/
+
+/-- **Lifting above a cutoff and instantiating through the lifted
+region**: `q` mentions its `c` innermost binders and the `pre.length`
+above them; lifting `rest.length` at cutoff `c` and instantiating the
+prefix and the rest above the innermost `c` is instantiating the
+prefix alone (`instSeq_liftLooseBVars_prefix` at `c = 0`). -/
+theorem instSeq_liftLooseBVars_mid :
+    ∀ (pre rest : List Expr) {q : Expr} {c : Nat},
+      (∀ a ∈ pre, a.looseBVarsBounded 0 = true) →
+      q.looseBVarsBounded (pre.length + c) = true →
+      instSeq (pre ++ rest) (pre.length + rest.length + c - 1)
+        (q.liftLooseBVars rest.length c) =
+      instSeq pre (pre.length + c - 1) q := by
+  intro pre
+  induction pre with
+  | nil =>
+    intro rest q c _ hq
+    have hq0 : q.looseBVarsBounded c = true := by simpa using hq
+    simp only [List.nil_append, List.length_nil, Nat.zero_add]
+    rw [liftLooseBVars_eq_self hq0]
+    show instSeq rest (rest.length + c - 1) q = q
+    rcases Nat.eq_zero_or_pos (rest.length + c) with h0 | hpos
+    · have : rest = [] := List.eq_nil_of_length_eq_zero (by omega)
+      subst this; rfl
+    · exact instSeq_eq_self_of_bounded rest _ hq0 (by omega)
+  | cons a pre' ih =>
+    intro rest q c hpre hq
+    have ha : a.looseBVarsBounded 0 = true := hpre a List.mem_cons_self
+    have hq' : (q.instantiate1 a (pre'.length + c)).looseBVarsBounded
+        (pre'.length + c) = true :=
+      looseBVarsBounded_instantiate1_gen ha (by simpa [Nat.add_right_comm] using hq)
+    show instSeq (pre' ++ rest) ((a :: pre').length + rest.length + c - 1 - 1)
+        ((q.liftLooseBVars rest.length c).instantiate1 a
+          ((a :: pre').length + rest.length + c - 1)) =
+      instSeq pre' ((a :: pre').length + c - 1 - 1)
+        (q.instantiate1 a ((a :: pre').length + c - 1))
+    rw [show (a :: pre').length + rest.length + c - 1 =
+        (pre'.length + c) + rest.length from by simp; omega,
+      show (a :: pre').length + c - 1 = pre'.length + c from by simp,
+      show (pre'.length + c) + rest.length - 1 = pre'.length + rest.length + c - 1 from by omega,
+      liftLooseBVars_instantiate1 ha (by omega)]
+    exact ih rest (fun x hx => hpre x (List.mem_cons_of_mem _ hx)) hq'
+
+/-- The minor premise's conclusion at an indexed family,
+`motive e⃗ (C p⃗ f⃗)` spelled under `extras.length` binders, instantiated
+at the parameters, the extras and the fields: the motive extra at the
+index expressions (instantiated at the parameters and the fields
+alone) and the constructor at the variables. -/
+theorem instSeq_minorBodyI_at (tfvs extras xFvs : List Expr) {C : Name}
+    {lps : List Name} {nP nF : Nat} {mfv : Expr} {es : List Expr}
+    (hlenT : tfvs.length = nP) (hlenX : xFvs.length = nF)
+    (hclT : ∀ a ∈ tfvs, a.looseBVarsBounded 0 = true)
+    (hclE : ∀ a ∈ extras, a.looseBVarsBounded 0 = true)
+    (hclX : ∀ a ∈ xFvs, a.looseBVarsBounded 0 = true)
+    (hhead : extras[0]? = some mfv)
+    (hes : ∀ e ∈ es, e.looseBVarsBounded (nP + nF) = true) :
+    instSeq xFvs (nF - 1) (instSeq (tfvs ++ extras) (nP + extras.length - 1 + nF)
+        (Expr.mkAppN (.bvar (nF + extras.length - 1))
+          (es.map (Expr.liftLooseBVars extras.length nF) ++ [directCtorSpineAt C lps extras.length nP nF])))
+      = Expr.mkAppN mfv
+          (es.map (fun e => instSeq xFvs (nF - 1) (instSeq tfvs (nP + nF - 1) e)) ++
+            [Expr.mkAppN (.const C (lps.map .param)) (tfvs ++ xFvs)]) := by
+  have hpos : 0 < extras.length := by
+    have := (List.getElem?_eq_some_iff.mp hhead).1
+    omega
+  have hsp := instSeq_minorBody_at tfvs extras xFvs hlenT hlenX hclT hclE hclX hhead
+    (C := C) (lps := lps)
+  simp only [instSeq_app] at hsp
+  obtain ⟨hhd, hspine⟩ := Expr.app.inj hsp
+  rw [Expr.mkAppN_append_one, Expr.mkAppN_append_one]
+  simp only [instSeq_app, instSeq_mkAppN, hhd, hspine, List.map_map]
+  congr 2
+  apply List.map_congr_left
+  intro e he
+  simp only [Function.comp]
+  congr 1
+  have := instSeq_liftLooseBVars_mid tfvs extras (c := nF) hclT (by rw [hlenT]; exact hes e he)
+  rw [hlenT, show nP + extras.length + nF - 1 = nP + extras.length - 1 + nF from by omega] at this
+  exact this
 
 end Setlec

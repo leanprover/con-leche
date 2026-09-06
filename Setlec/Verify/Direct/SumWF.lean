@@ -2,13 +2,16 @@ import Setlec.Verify.Direct.DirectWF
 import Setlec.Verify.Direct.SumInv
 
 /-!
-# The direct sum install: environment well-formedness (task #175 sum-types)
+# The direct sum install: environment well-formedness (task #175
+sum-types, indexed)
 
 `EnvWF` for the environments `checkDirectSum` walks through, read off
 the stages' own guards (as `DirectWF.lean` for the structure route):
 the former's cons, the constructors' conses (`consSumCtors`, each a
 checked constant), the recursor's cons with its rules (each rule's
 right-hand side scoped by `checkDirectSumRules`, never `.nested`).
+Task #175 indexed: the recursor's cons is generic over its major index
+and rule prefix (`p.majorIdx`/`p.rulePrefix` at the install).
 -/
 
 namespace Setlec
@@ -26,9 +29,9 @@ theorem direct_sum_ind_wf {env env₁ : Env} (henv : EnvWF env)
 /-- A constructor's run at the former's environment: its type is
 closed and bounded. -/
 theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
-    {nP : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
+    {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
     {nF : Nat} {F : Nat}
-    (h : checkDirectSumCtor (fueledOps mode F) env₀ env T lps nP resSort isProp large
+    (h : checkDirectSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
       cvC nF cvTa = .ok cvCa) :
     cvCa.type.hasFvar = false ∧ cvCa.type.allLevelParamsDefined cvCa.levelParams = true ∧
     cvCa.type.constsResolve env = true ∧ cvCa.type.looseBVarsBounded 0 = true := by
@@ -86,9 +89,9 @@ theorem checkDirectSumRec_facts {env : Env} {p : DirectSumParts}
 
 /-- The stored rules carry the generated right-hand sides and are
 never `.nested`. -/
-theorem directSumRules_mem {nP mI : Nat} {recTy : Expr} :
+theorem directSumRules_mem {nP mI rP : Nat} {recTy : Expr} :
     ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
-      r ∈ directSumRules nP mI recTy ctorsA rhss →
+      r ∈ directSumRules nP mI rP recTy ctorsA rhss →
       r.rhs ∈ rhss ∧ ∀ lvls pins, r.fire ≠ .nested lvls pins
   | [], _, r, h => by simp [directSumRules] at h
   | _ :: _, [], r, h => by simp [directSumRules] at h
@@ -96,7 +99,7 @@ theorem directSumRules_mem {nP mI : Nat} {recTy : Expr} :
     simp only [directSumRules, List.mem_cons] at h
     rcases h with rfl | h
     · refine ⟨List.mem_cons_self, fun lvls pins => ?_⟩
-      show (if Expr.recRulePlain recTy mI mI nP then RecRuleFire.plain else .inert) ≠ _
+      show (if Expr.recRulePlain recTy mI rP nP then RecRuleFire.plain else .inert) ≠ _
       split <;> simp
     · obtain ⟨hm, hf⟩ := directSumRules_mem h
       exact ⟨List.mem_cons_of_mem _ hm, hf⟩
@@ -105,9 +108,10 @@ theorem directSumRules_mem {nP mI : Nat} {recTy : Expr} :
 well-formed. -/
 theorem direct_sum_rec_wf {env : Env} (henv : EnvWF env)
     {p : DirectSumParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
-    {rhss : List Expr} {F : Nat} {mI : Nat}
+    {rhss : List Expr} {F : Nat} {mI rP : Nat}
     (h : checkDirectSumRec (fueledOps mode F) env p cvTa ctorsA = .ok (cvRa, rhss)) :
-    EnvWF ⟨.recInfo cvRa mI mI (directSumRules p.nP mI cvRa.type ctorsA rhss) :: env.consts⟩ := by
+    EnvWF ⟨.recInfo cvRa mI rP (directSumRules p.nP mI rP cvRa.type ctorsA rhss)
+      :: env.consts⟩ := by
   obtain ⟨-, -, ⟨htf, htp, htr, htb⟩, -, hall⟩ := checkDirectSumRec_facts h
   refine EnvWF.cons henv (directConstWF htf htp
     (Expr.constsResolve_mono htr) htb

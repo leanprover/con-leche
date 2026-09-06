@@ -471,7 +471,7 @@ theorem checkDirectSumS_run {env : Env} (henv : EnvWF env)
     (checkDirectSumCtorsS_sim henv₁ hTf (flushC_csok hs₁.residue)) ctorsA s₂ hct
   obtain rfl : ctorsA = ctorsA' := hP2
   have hF₂p : checkDirectSumCtors (fueledOps mode F₂) env env₁ p.cvT.name
-      p.cvT.levelParams p.nP p.resSort p.isProp p.large cvTa p.ctors
+      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
       = .ok ctorsA := by
     rw [← checkDirectSumCtors_datF]; exact hF₂
   -- the constructors' conses
@@ -509,7 +509,7 @@ theorem checkDirectSumS_run {env : Env} (henv : EnvWF env)
   have g₁ : checkDirectSumInd (fueledOps mode G) env p = .ok (env₁, cvTa) := by
     rw [← checkDirectSumInd_datF]; exact FueledM.up hle₁ hF₁
   have g₂ : checkDirectSumCtors (fueledOps mode G) env env₁ p.cvT.name
-      p.cvT.levelParams p.nP p.resSort p.isProp p.large cvTa p.ctors
+      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
       = .ok ctorsA := by
     rw [← checkDirectSumCtors_datF]; exact FueledM.up hle₂ hF₂
   have g₃ : checkDirectSumRec (fueledOps mode G) (consSumCtors p.nP ctorsA env₁)
