@@ -263,8 +263,8 @@ theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
   atF_tac
 
 theorem propIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (propIrrel mi (fueledFns mode env) env d a b).val F =
-      propIrrel mi (pureFns mode env F) env d a b := by
+    (propIrrel (fueledFns mode env) env d a b).val F =
+      propIrrel (pureFns mode env F) env d a b := by
   unfold propIrrel
   atF_tac
 

@@ -300,14 +300,13 @@ eliminated there (`Setlec/Kernel/CoreCfg.lean`). -/
 variable (cfg : CoreCfg)
 
 /-- Twin of `propIrrel` (task #168): the hoisted `Prop`-branch test
-with the head-symbol "not a proof" arm, gated on `cfg.verified`. -/
+with both head-symbol arms.  Ungated since 2026-09-06 — the readers
+run in both modes, so this body takes no `CoreCfg` at all. -/
 def propIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
-  if cfg.verified &&
-      (notProofFast fe.find? a || notProofFast fe.find? b) then
+  if notProofFast fe.find? a || notProofFast fe.find? b then
     pure false
-  else if cfg.verified && cfg.betaGate &&
-      isProofFast fe.find? a && isProofFast fe.find? b then
+  else if isProofFast fe.find? a && isProofFast fe.find? b then
     pure true
   else
   let ta ← r.inferIO depth a
@@ -1351,7 +1350,7 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     -- (and the official kernel); the `Prop` branch with the fast arms
     -- (task #168, Option U) — once per entry (`pi`; the spec's D3 note)
     let qp ← withStore (fun st => quickPairI st a' b')
-    if ← (if pi && !qp then propIrrelI cfg r fe depth a' b' else pure false) then
+    if ← (if pi && !qp then propIrrelI r fe depth a' b' else pure false) then
       pure true else
     -- Literal folding only when both sides are fvar-free, mirroring
     -- the official kernel (`type_checker.cpp`, `lazy_delta_reduction`)

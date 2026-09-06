@@ -39,16 +39,14 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (propIrrelI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env)
-        d i j)
-      (propIrrel mode (fueledFns mode env) env d a b) := by
+      (propIrrelI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+      (propIrrel (fueledFns mode env) env d a b) := by
   obtain rfl : a = i := hdena.symm
   obtain rfl : b = j := hdenb.symm
   show SimC mode env s₀ RelVC
-    (if mode.verifiedChecks &&
-        (notProofFast (mkFEnv env).find? a || notProofFast (mkFEnv env).find? b)
+    (if notProofFast (mkFEnv env).find? a || notProofFast (mkFEnv env).find? b
       then pure false
-      else if mode.verifiedChecks && mode.betaGate &&
+      else if
         isProofFast (mkFEnv env).find? a && isProofFast (mkFEnv env).find? b
       then pure true else
       (coreKnotI mode (mkFEnv env) f).inferIO d a >>= fun ta =>
@@ -72,16 +70,16 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
           pure (okA && okB)
         | _ => pure false
       | _ => pure false)
-    (propIrrel mode (fueledFns mode env) env d a b)
+    (propIrrel (fueledFns mode env) env d a b)
   rw [show (mkFEnv env).find? = env.find? from funext (mkFEnv_find? env)]
   unfold propIrrel
-  by_cases hc : (mode.verifiedChecks &&
-      (notProofFast env.find? a || notProofFast env.find? b)) = true
+  by_cases hc :
+      (notProofFast env.find? a || notProofFast env.find? b) = true
   · rw [if_pos hc, if_pos hc]
     exact SimC.pure hs rfl
   · rw [if_neg hc, if_neg hc]
-    by_cases hy : (mode.verifiedChecks && mode.betaGate &&
-        isProofFast env.find? a && isProofFast env.find? b) = true
+    by_cases hy :
+        (isProofFast env.find? a && isProofFast env.find? b) = true
     · rw [if_pos hy, if_pos hy]
       exact SimC.pure hs rfl
     rw [if_neg hy, if_neg hy]
@@ -183,9 +181,9 @@ theorem propIrrelIfC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) (g : Bool) :
     SimC mode env s₀ RelVC
-      (if g then propIrrelI (cfgOf mode) (coreKnotI mode (mkFEnv env) f)
+      (if g then propIrrelI (coreKnotI mode (mkFEnv env) f)
         (mkFEnv env) d i j else pure false)
-      (if g then propIrrel mode (fueledFns mode env) env d a b
+      (if g then propIrrel (fueledFns mode env) env d a b
         else pure false) := by
   cases g
   · exact SimC.pure hs rfl

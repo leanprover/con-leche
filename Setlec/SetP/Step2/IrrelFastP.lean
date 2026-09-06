@@ -424,7 +424,7 @@ theorem propIrrelPQ_of_claims {m : EnvS2Core V env}
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
   rcases Setlec.propIrrel_inv h with
-    ⟨-, -, hfa, hfb⟩ |
+    ⟨hfa, hfb⟩ |
     ⟨ta, sta, uT, tb, stb, vT, hta, hsta, hwsta, huT, htb, hstb, hwstb, hvT⟩
   · rw [prf_of_isProofFast hct hfa hCa hda ρ hρ,
       prf_of_isProofFast hct hfb hCb hdb ρ hρ]

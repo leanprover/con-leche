@@ -341,8 +341,8 @@ theorem proofIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
 read on both sides. -/
 theorem propIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV mode env (fun _ => True) (propIrrel mode C env d a b)
-      (propIrrel mode G env d a b) := by
+    DiscV mode env (fun _ => True) (propIrrel C env d a b)
+      (propIrrel G env d a b) := by
   unfold propIrrel
   split
   · exact DiscV.pure trivial
@@ -1534,8 +1534,8 @@ pruned branch is `pure false` on both records. -/
 theorem propIrrelIf_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) (g : Bool) :
     DiscV mode env (fun _ => True)
-      (if g then propIrrel mode C env d a b else pure false)
-      (if g then propIrrel mode G env d a b else pure false) := by
+      (if g then propIrrel C env d a b else pure false)
+      (if g then propIrrel G env d a b else pure false) := by
   cases g
   · exact DiscV.pure trivial
   · exact propIrrel_disc ih henv hwa hwb

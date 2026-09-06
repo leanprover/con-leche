@@ -1058,9 +1058,9 @@ the slow branch is `proofIrrel_shift`'s `Prop` branch. -/
 private theorem propIrrel_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    propIrrel mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+    propIrrel (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      propIrrel mode (pureFns mode env fuel) env d a b := by
+      propIrrel (pureFns mode env fuel) env d a b := by
   simp only [propIrrel, notProofFast_shiftFrom, isProofFast_shiftFrom]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
@@ -2351,9 +2351,9 @@ private theorem quickPair_shiftFrom {p : Nat} {a b : Expr} :
 private theorem propIrrelIf_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) (g : Bool) :
-    (if g then propIrrel mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+    (if g then propIrrel (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) else pure false) =
-      (if g then propIrrel mode (pureFns mode env fuel) env d a b
+      (if g then propIrrel (pureFns mode env fuel) env d a b
         else pure false) := by
   cases g
   · rfl

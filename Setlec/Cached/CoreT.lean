@@ -533,7 +533,7 @@ def defeqStepT (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     if a' == b' then pure true else
     -- proof irrelevance once per entry (`pi`; the spec's D3 note)
     let qp ← withStore (fun st => quickPairI st a' b')
-    if ← (if pi && !qp then propIrrelI cfgT r fe depth a' b' else pure false) then
+    if ← (if pi && !qp then propIrrelI r fe depth a' b' else pure false) then
       pure true else
     -- fvar-free guard on defeq-side literal folding, as in
     -- `defeqBodyI` (official kernel `lazy_delta_reduction`; lean4lean

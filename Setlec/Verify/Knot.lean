@@ -237,7 +237,7 @@ abbrev proofIrrelP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr �
     CheckM Bool := proofIrrel (pureFns mode env fuel) env
 
 abbrev propIrrelP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
-    CheckM Bool := propIrrel mode (pureFns mode env fuel) env
+    CheckM Bool := propIrrel (pureFns mode env fuel) env
 
 abbrev stuckIrrelP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
     CheckM Bool := stuckIrrel mode (pureFns mode env fuel) env
@@ -303,7 +303,7 @@ theorem defEqList_fold (env : Env) (fuel : Nat) :
 theorem proofIrrel_fold (env : Env) (fuel : Nat) :
     proofIrrel (pureFns mode env fuel) env = proofIrrelP mode env fuel := rfl
 theorem propIrrel_fold (env : Env) (fuel : Nat) :
-    propIrrel mode (pureFns mode env fuel) env = propIrrelP mode env fuel := rfl
+    propIrrel (pureFns mode env fuel) env = propIrrelP mode env fuel := rfl
 theorem stuckIrrel_fold (env : Env) (fuel : Nat) :
     stuckIrrel mode (pureFns mode env fuel) env = stuckIrrelP mode env fuel := rfl
 theorem structEtaCert_fold (env : Env) (fuel : Nat) :

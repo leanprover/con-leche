@@ -493,14 +493,14 @@ theorem proofIrrel_snd_proj (d : Nat) (a b : Expr) :
   snd_tac
 
 theorem propIrrel_fst_proj (d : Nat) (a b : Expr) :
-    (propIrrel mode (pairFns r₁ r₂ h) env d a b).val.1 =
-      propIrrel mode r₁ env d a b := by
+    (propIrrel (pairFns r₁ r₂ h) env d a b).val.1 =
+      propIrrel r₁ env d a b := by
   unfold propIrrel
   fst_tac
 
 theorem propIrrel_snd_proj (d : Nat) (a b : Expr) :
-    (propIrrel mode (pairFns r₁ r₂ h) env d a b).val.2 =
-      propIrrel mode r₂ env d a b := by
+    (propIrrel (pairFns r₁ r₂ h) env d a b).val.2 =
+      propIrrel r₂ env d a b := by
   unfold propIrrel
   snd_tac
 

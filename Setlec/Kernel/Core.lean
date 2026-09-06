@@ -938,24 +938,26 @@ def proofIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 `stuckIrrel` (official's `is_def_eq_unit_like`, the last test of
 `is_def_eq_core`), which `proofIrrel` still serves.
 
-Before the io inferences, the head-symbol readers decide the **"not a
-proof" arm** at the verified modes: a side whose validated datum says
-"not a proposition" refuses the shortcut outright (`notProofFast`,
-`Setlec/Kernel/PropRead.lean`).  Refusing is always sound — the P row
-is stated at `.ok true` — and the arm's obligation is *agreement* with
-the slow path on validated data, recorded by the landing census
-(DESIGN.md, task #168: 0 disagreements).  The gate is `mode.verifiedChecks`:
-the trusted core validates no annotation, so it reads none.  The
-**"yes" arm** (`isProofFast` on both sides → `true`) is the
-squash-regime licence, stage 3 of the same design; it is gated on the
-P flag (`mode.betaGate`) like every licensed skip. -/
+Before the io inferences, the head-symbol readers decide both fast
+arms, **in both modes** (user ruling, 2026-09-06: the fast readers are
+part of the real checker, and the trusted mode is the real checker
+with certification-only work omitted — a reader that replaces
+inference is not certification-only work).  The **"not a proof" arm**:
+a side whose annotation datum says "not a proposition" refuses the
+shortcut outright (`notProofFast`, `Setlec/Kernel/PropRead.lean`).
+Refusing is always sound — the P row is stated at `.ok true` — and the
+arm's obligation is *agreement* with the slow path, recorded by the
+landing census (DESIGN.md, task #168: 0 disagreements in 7.5 M calls).
+The **"yes" arm** (`isProofFast` on both sides → `true`) is the
+squash-regime licence, stage 3 of the same design
+(`prf_of_isProofFast`, `Setlec/SetP/Step2/IrrelFastP.lean`), which the
+verified mode's P row consumes; the trusted mode is unverified and
+inherits the arm without a row, as it inherits every other body. -/
 def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
-  if mode.verifiedChecks &&
-      (notProofFast env.find? a || notProofFast env.find? b) then
+  if notProofFast env.find? a || notProofFast env.find? b then
     pure false
-  else if mode.verifiedChecks && mode.betaGate &&
-      isProofFast env.find? a && isProofFast env.find? b then
+  else if isProofFast env.find? a && isProofFast env.find? b then
     -- the yes arm (task #168 stage 3): both heads' validated data say
     -- "a proposition at every valuation" — the squash-regime licence
     -- (`prf_of_isProofFast`, `Setlec/SetP/Step2/IrrelFastP.lean`)
@@ -2238,7 +2240,7 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
     -- D4: never on a pair official's `quick_is_def_eq` decides itself
     -- (sort/sort, lit/lit, ∀/∀, λ/λ — `Expr.quickPair`): the binder
     -- arms commit their own verdict there, without proof irrelevance
-    if ← (if pi && !a'.quickPair b' then propIrrel mode r env depth a' b'
+    if ← (if pi && !a'.quickPair b' then propIrrel r env depth a' b'
         else pure false) then
       pure true else
     -- Literal acceleration is guarded on *both* sides being free of
