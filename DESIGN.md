@@ -5,17 +5,30 @@ Lean. The goal is a checker that is performance-competitive with lean4lean or
 even the official kernel, together with a machine-checked consistency proof:
 
 > For everything the checker accepts there is a model in a suitable set
-> theory. In particular, no declaration of type `Empty` is ever accepted.
+> theory. In particular, no declaration of type `False` (or `Empty`) is
+> ever accepted.
 
 This document records the design decisions. It was distilled from the initial
 project prompt and is updated as decisions evolve.
 
-**Where the consistency proof lives** (since task #148 T7, 2026-08-29):
-`Setlec/SetR/*`, whose fourteen `*_R` theorems — `checkDecls_sound_R`,
-`no_proof_of_Empty{,_input}{,_C,_S,_SP}_R`, `checkDecl_sound_R`,
-`no_constant_of_Empty_R` — stand hypothesis-free at exactly
-`[propext, Classical.choice, Quot.sound]`. Its design record is
-`docs/SetR-DESIGN.md`.
+**Where the consistency proof lives** (since 2026-09-06; the collapsed
+`Setlec/SetR/*` tier it used to live in was deleted 2026-09-05).  The
+main theorem is `Setlec/MainTheorem.lean`, in its simplest form:
+
+| theorem | says | about |
+| --- | --- | --- |
+| `Setlec.no_proof_of_False` | an accepted stream stores no constant of type `False` | the shipped driver, `--verified` |
+| `Setlec.no_proof_of_Empty` | … of type `Empty` | the same |
+| `Setlec.Cached.no_proof_of_{False,Empty}_SPCD_P` (`Verify/Cached/MainC.lean`) | the same two letters at every validating mode | the shipped driver `checkDeclsSPCachedD` |
+| `Setlec.SetP.no_proof_of_{False,Empty}_P` (`SetP/FoldP.lean`) | the same two letters | the pure fuelled checker `checkDecls` |
+| `Setlec.SetP.no_proof_of_zeroCtor_{P,SPCD_P}` | a stored family with a stored zero-constructor eliminator has no stored inhabitant | both (task #181) |
+
+All of them stand at exactly `[propext, Classical.choice, Quot.sound]`,
+with input-level hypotheses only; `False` and `Empty` are pinned basis
+blocks (`Setlec/Kernel/Basis/{False,Empty}.lean`), which is what makes
+the first four rows hypothesis-free about how the stream declares
+them.  The invariant behind them is `EnvS2PM` (`Setlec/SetP/Annot/
+EnvS2P.lean`); the campaign that built it is task #161's record below.
 
 **Two tiers were retired at T7/T7b, by user ruling.** The direct `Expr`
 set model and its consistency proof (`Setlec/Model/*`, 83 files / 62,992
@@ -48618,3 +48631,233 @@ flags 16/16, trusted sweep 138 + 85 + 14 with the three recorded
 divergences; `init-full` **55 931 accepted in both modes** (exit 0) —
 master's post-sum-types figure exactly, i.e. this task changes no
 verdict on it.
+
+## TASK #181 ZERO-CONSTRUCTOR INDUCTIVES, AND THE CAPSTONE ABOUT `False` (2026-09-06, `agent/zeroctor`)
+
+### 0. The brief, and what the tree already had
+
+The brief asked for native installation of every zero-constructor
+inductive at any level, a preprocessor predicate in lockstep, and a
+consistency corollary that reads about `False` rather than `Empty`.
+Two findings against the brief, reported before any design:
+
+1. **The generic route existed.**  Task #175's direct sum route is the
+   class `n ≠ 1`, and `n = 0` was in it from the start: `directSumPartsCore?`
+   takes an empty constructor list, `checkDirectSum`'s elimination
+   restriction is `2 ≤ n` (so a zero-constructor `Prop` keeps its large
+   eliminator, as the official `elim_only_at_universe_zero` says), the
+   recursor is generated with no minors and compared by one `isDefEq`,
+   the carrier is the tagged union of zero towers — `sumSet w (natFibre
+   f)` with every fibre `∅`, the empty set in the graph regime and the
+   false truth value at `w = 0` — and the P proof `declDirectSumP` is
+   stated at any `n`.  `setlecNative` already left every such block
+   unmodelled (init-full: 3 zero-constructor blocks native).  The
+   fixtures `direct_sum_or` (`Absurd : Prop`, `Nil : Type`) and
+   `direct_sum_option` (`False`) had exercised it.  So deliverables 1–2
+   of the brief were already on master; this task adds the fixtures
+   the brief listed (`zero_ctor`: universe-polymorphic `PEmpty'`,
+   parameterised `Vacant α n : Type u`, `Bottom p : Prop`, `Nada :
+   Type`), the two bad twins, and the verdict flip of §4.
+2. **The user's ruling on the corollary's shape**: *"Pin `False` like
+   `Empty`, so that there can be no trickery around that."*  The
+   corollary is therefore unconditional — no hypothesis about how the
+   stream declares `False` — and `False` joins the pinned basis blocks
+   (§1).  A `False` declared by a stream is matched against the pin or
+   refused; the generic route still serves `PEmpty` and every
+   user-declared zero-constructor type (§3 is the theorem about those).
+
+**Indices.**  Zero-constructor *indexed* families stay on the modeled
+route: the indexed-families lane (`agent/indexed`) had not landed when
+this task closed, and its fibre construction is where an indexed empty
+family belongs (a family with no constructors has every fibre empty).
+Follow-up: once `agent/indexed` lands, its recogniser should accept
+`n = 0` the way the sum route does, and §3's theorem needs the
+index-applied form beside the parameter-applied one.
+
+### 1. The pin
+
+`Setlec/Kernel/Basis/False.lean` is `Empty.lean` one universe down:
+`False : Prop` and `False.rec.{u} : (motive : False → Sort u) → (t :
+False) → motive t`, no constructors, no rules, the motive explicit (the
+exporter's form, as for `Empty.rec`).  `BasisKind` gains `falseK`;
+`Basis.lean`/`BasisA.lean` its raw and annotated blocks (`#annotate_
+basis` computes `falseA`/`falseRecA` from the raw pin at elaboration
+time, as for every block); the frontend matches an incoming block
+against it after `emptyK` (`Setlec/Frontend/ExportC.lean`); `falseName`
+and `False.rec` join `reservedBasisNames`, so the direct recognisers
+refuse the name and a stream cannot redeclare it.
+
+**The value is the empty set at `Prop`, and no new built-in is
+needed.**  The declarative layer already had `Empty.{0}` as `False`:
+`BConst.empty` is level-polymorphic with `type (.empty) us = Sort (us
+0)`, so `pinnedDirectT falseName = .const .empty [0]` and
+`False.rec ↦ .const .emptyRec [0, ψ u]`.  `bval2_mem_type`,
+`AnnotOkP_bconst_type` and `type2_erase` are stated at every level
+list, so the P install (`Setlec/SetP/BasisFalseP.lean`) is
+`BasisEmptyP.lean`'s four-move recipe with the numeral `1` replaced by
+`0` — the two type readings recomputed at the `False` pins and
+`BitAgree`d to `type2 .empty [0]` / `.emptyRec [0, ψ u]`.  The
+annotator's binder pins for `False.rec` are exactly `Empty.rec`'s
+(`.ifAllZero [u]`, `.never`, `.ifAllZero [u]`: the motive's domain
+`False → Sort u` has sort `imax 0 (u+1) = u+1`, never `Prop`; the two
+outer binders have sorts `imax (u+1) u` and `imax 0 u`, `Prop` exactly
+at `u = 0`), which the `show … from rfl` moves of the recipe confirm
+by computation.
+
+Tables touched: `pinnedInfo` and its two `_cases` inversions
+(`Verify/EnvPreds.lean`), `pinnedInfoT_recInfo_cases` and the
+unit-like refutation `unitLike_eq_punit` (one more branch: `False.rec`
+has no rules, so it fails the single-rule test as `Empty.rec` does;
+`Verify/PinnedShapes.lean`), `basisStepPB_of`'s dispatch (`FoldP`),
+`basis_rec_rules_nonempty`'s exclusion (`BasisEmptyP`).  Every `cases
+kind <;> decide` over `BasisKind` extended by itself.
+
+**The preprocessor.**  `setlecNative` is unchanged and `False` is
+deliberately *not* added to `setlecReservedBasisNames` (docstring in
+`SetlecPreprocess.lean`): the frontend's pin match runs before any
+recogniser, and the raw `False` block *is* the pin, so a native `False`
+never reaches the sum recogniser (which would now refuse the reserved
+name).  Leaving it native keeps the `False._model` artifacts — dead
+weight the pin would ignore, exactly as `Empty._model`'s are — out of
+the stream; the preprocessed init-full stream is byte-identical to
+master's and needed no regeneration.  (`Empty` stays listed in the
+preprocessor's copy for the historical reason that it was reserved
+before the direct routes existed; its artifacts are inert.  Retiring
+that entry would shrink the stream by `Empty`'s model family and is a
+separate, stream-changing decision.)
+
+### 2. The capstones
+
+`CapstoneP.lean` factors the pin argument once — `no_constant_of_
+emptyPin_P`: a reserved name whose direct pin is `emptyT u` has no
+stored inhabitant (the membership is `mem_typeP` at the `denoteP`
+reading, the reading of `.const n []` is the leaf by the constant
+clause, the leaf's `interp2` value is the empty set by erasure
+injectivity plus `basis_pinnedL`) — and `no_constant_of_Empty_P` /
+`no_constant_of_False_P` are its two instances at `u = 1` / `u = 0`.
+The letters, verbatim:
+
+```
+theorem Setlec.SetP.no_proof_of_False_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const falseName [] → False
+
+theorem Setlec.Cached.no_proof_of_False_SPCD_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true)
+    {ds : List DeclC} {env' : Env}
+    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const falseName [] → False
+
+theorem Setlec.no_proof_of_False (V : Type w) [SetTheory V]
+    (ds : List DeclC) (env : Env)
+    (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env) :
+    ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName []
+```
+
+— the `Empty` letters with `falseName` for `emptyName`; the third is
+the first theorem of `Setlec/MainTheorem.lean`, `no_proof_of_Empty`
+second, per the user's remark that the corollary reads better about
+`False`.  Why this shape: `False` is what a Lean user means by
+inconsistency, and with the pin the statement has the same census as
+the `Empty` one — the validating mode, the accepted run, the stored
+constant, its type; nothing about the stream's `False` block, because
+the stream does not get to supply one.  The `Empty` pin and its
+capstones stay as they were; nothing became redundant (the `Empty`
+letter is the one the campaign was measured against).
+
+### 3. The general theorem: a stored zero-constructor eliminator empties its family
+
+`Setlec/SetP/ZeroCtorP.lean`.  For a family the stream declared —
+`PEmpty`, a user's `inductive Void : Type where` — the P invariant
+does not record the install route, so the theorem is stated from what
+the environment shows: the stored recursor's *type*.
+
+```
+def zeroCtorRecTy (T : Name) (lps : List Name) (elim mN tN₁ tN₂ : Name)
+    (mb₁ mb₂ mb₃ : BinderMeta) : Expr :=
+  ∀ (motive : T.{lps} → Sort elim) (t : T.{lps}), motive t      -- names, annotations free
+
+theorem Setlec.SetP.no_proof_of_zeroCtor_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+    ∀ (T : Name) (ci : ConstantInfo), env'.find? T = some ci →
+    ∀ R ∈ env'.consts, ∀ (elim mN tN₁ tN₂ : Name) (mb₁ mb₂ mb₃ : BinderMeta),
+      R.toConstantVal.type =
+        zeroCtorRecTy T ci.toConstantVal.levelParams elim mN tN₁ tN₂ mb₁ mb₂ mb₃ →
+    ∀ c ∈ env'.consts, ∀ ls : List Level, c.toConstantVal.type = .const T ls → False
+```
+
+and `Setlec.Cached.no_proof_of_zeroCtor_SPCD_P` at the shipped driver.
+The recursor's *name* is not mentioned, nor its rules, nor the block's
+constructors: a block with constructors cannot store a recursor of this
+shape (its minors would be binders in between), so "stores a large
+eliminator of this shape" *is* "stores a zero-constructor inductive",
+read off the environment — and it is exactly the shape the sum route
+generates at `n = 0` and the two pins carry (`ZeroCtorP.lean` ends with
+the two `rfl`s: `emptyRecA`/`falseRecA` are `zeroCtorRecTy` at their
+stored annotations).
+
+**The argument** (`no_constant_of_zeroCtorRec_P`, ~90 lines, on
+`mem_typeP`/`type_okP` alone).  `R`'s value `r` inhabits its type's
+reading, `piR b₃ (piR b₁ X (λ_. univ u)) (λ M. piR b₂ X (λ t. app M t))`
+with `X` the family's leaf value and the `b`s the stored annotations'
+bits.  Instantiate the motive at `M := lamR b₁ X (λ_. ∅)` — in the
+motive space since `∅ ∈ univ u` — and the major at the alleged proof
+`c ∈ X`: `app (app r M) c ∈ app M c`.  The squash regimes are read off
+the validated annotations: `app_mem_piR`'s fibre premise at `b₃ = 0` /
+`b₂ = 0` is precisely `AnnotValidV`'s clause at those binders; and
+`b₁ = 0` is refuted, since validity would then make `Sort u` a truth
+value at the witness `c` (`univ_not_mem_univZero`).  So `b₁ ≠ 0`,
+`app M c = ∅` by `app_lamR_pos`, and `not_mem_empty` closes.  The
+level instance `ls` of the alleged proof is arbitrary: the recursor is
+read at the assignment `substFn 0 lps ls`, where `substFn_map_param`
+and `acval_params` identify the family leaf the two types read.
+
+**Parameters — a finding, not done.**  The brief asked for the
+parameter-applied form `c : T q⃗`.  The proof needs `⟦q_i⟧` to fit the
+recursor's parameter binders, whose readings are the former's type's
+domains `D_i`; what `c`'s grading gives (`AnnotOk2`'s `app` clause) is
+membership in the domain of *some* Π-set containing the leaf's value,
+and `piR_dom_unique` identifies it with `D_i` only when both bits are
+nonzero.  The former's parameter bits are nonzero for every stream the
+annotator produced (a `Sort`-valued Π is never a `Prop`), but the
+validated-annotation invariant is one-directional — `bit = 0 →
+truth-value codomain` — so, as far as the environment invariant knows,
+a parameter binder over an *empty* domain may carry bit `0`, at which
+point the leaf is the proof point and the domain identification is
+unavailable.  Two routes, neither taken: (a) a syntactic hypothesis
+that the stored former's parameter binders carry `.never` (true of
+every accepted stream; env'-level, but a hypothesis about stored
+annotation data rather than membership), or (b) tracing the block's
+install through the fold (a per-name leaf record the fold does not
+currently carry — `declStepPM` returns `Nonempty`).  Decision for the
+user; the parameterless form covers `False`, `Empty`, `PEmpty`, and
+every parameterless user block, and the pinned instances need none of
+it.
+
+### 4. The bogus recursor is a reject
+
+`checkDirectSumRec`'s recursor-type mismatch (both twins) was
+`.notImplemented` — a decline — since task #175.  For a block the
+recogniser has fully identified (non-recursive, non-indexed, `n ≠ 1`
+constructors of the right shape) the recursor is *derived*: the kernel
+generates exactly one, so a stream recursor that is not definitionally
+that one is invalid input, not an unsupported shape.  It is `.invalid`
+now (`direct sum: recursor type is not the generated one`); the
+one-constructor structure route's twin (`direct structure: recursor
+type`) is left as it was.  `zero_ctor_bad_rec` (`Nada.rec : Type`)
+rejects; no arena or e2e verdict moved.
+
+### 5. Fixtures and receipts
+
+`tests/e2e/src/zero_ctor.lean` → `tests/e2e/zero_ctor.ndjson` (through
+`setlec-preprocess`: every block native, no `_model` line), its two bad
+twins by `scripts/mk_zero_ctor_bad.py` (`zero_ctor_false_proof`: a
+theorem `bogus : False := Prop`; `zero_ctor_bad_rec`: `Nada.rec`'s type
+replaced by `Type`), expectations `0 / 1 / 1` in `tests/e2e-expected.txt`.
+
+RECEIPTS-STUB
+
