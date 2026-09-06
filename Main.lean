@@ -112,21 +112,6 @@ def progressStride : IO (Except String Nat) := do
     | none => return .error s!"SETLEC_PROGRESS must be a declaration stride \
         (a decimal numeral; 0 or unset is off), got {repr s}"
 
-/-- Diagnostic second-pass loop over `DeclC` (task #171; the direct
-pipeline needs no re-parse — the records carry no arena, so the fold
-never shared a store with them). -/
-partial def diagLoopC
-    (stepF : Setlec.FEnv → Setlec.Cached.DeclC → Setlec.Cached.CState →
-      Except Setlec.CheckError (Setlec.FEnv × Setlec.Cached.CState))
-    (decls : Array Setlec.Cached.DeclC) (i : Nat)
-    (fe : Setlec.FEnv) (s : Setlec.Cached.CState) : String :=
-  if h : i < decls.size then
-    let d := decls[i]
-    match stepF fe d s with
-    | .ok (fe, s) => diagLoopC stepF decls (i + 1) fe s
-    | .error _ => s!" [at {declCName d}]"
-  else ""
-
 /-- The real driver (run in the supervised child process).  `mode` is
 the three-mode setting (task #147), validated once by the caller and
 consumed here as configuration; `pre` asserts the input is already
@@ -246,17 +231,32 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
           progressDone
           IO.println s!"setlec: accepted {env.consts.length} declarations"
           return ← finish 0
-        | .error e =>
+        | .error (e, i) =>
           progressDone
-          -- Diagnostic second pass: the verdict above is the verified
-          -- run; this only locates the failing declaration for the
-          -- message.  No re-parse is needed — the records carry no
-          -- arena, so the fold never shared a store with them.
-          let stepD := fun fe d s =>
-            (Setlec.Cached.checkDeclSPStepC cfg fe d).run s
-          let ctx := diagLoopC stepD decls 0
-            (Setlec.mkFEnv Setlec.Env.empty) {}
-          IO.eprintln s!"setlec: {e}{ctx}"
+          -- **No second pass** (2026-09-07): the fold's error carries
+          -- the failing declaration's FOLD POSITION, so the message is
+          -- read off the record array the driver already holds.  What
+          -- this replaced was a diagnostic re-run (`diagLoopC`) of the
+          -- same step over the same records — a full re-check of the
+          -- accepted prefix, and a lie waiting to happen if the two
+          -- runs ever disagreed.
+          --
+          -- `i` is the FOLD position.  The stream's
+          -- declaration-record index is NOT a fixed offset from it —
+          -- measured, 2026-09-07: the parse folds the four `quot`
+          -- records into one `basisDecl` and drops a few others, so
+          -- `init-full` runs at offset 0 for most of the stream and
+          -- ends 5 short (54 351 declaration records, 54 346 fold
+          -- positions), while the `SETLEC_TRACE_DECLS` lane measured
+          -- +4 on the Mathlib stream.  The declaration NAME is the
+          -- portable handle (`_tmp/frontier3/decl_index.py <stream>
+          -- <name>` turns it into a record index and a percentage).
+          let loc := if h : i < decls.size then
+              s!" [at {declCName decls[i]}, fold position {i}]"
+            else s!" [at fold position {i}]"
+          let now ← IO.monoMsNow
+          IO.eprintln s!"setlec: {e}{loc} \
+            t={Setlec.Cached.msSecs (now - t0)}s"
           return ← finish e.exitCode
     finally
       if isTemp then

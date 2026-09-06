@@ -47926,3 +47926,47 @@ unchanged), and `SETLEC_PROGRESS=1` — one flushed line per
 declaration — measured free: `init-full` 101.4 s at stride 1 against
 102.7 s with the variable unset, verdict line byte-identical in both
 modes at stride 5 000.
+
+## NO SECOND PASS — the fold's error carries the failing declaration (2026-09-07, `agent/heartbeat`)
+
+A rejection used to be located by running the checker *again*:
+`Main.lean`'s `diagLoopC` re-ran the same per-declaration step over the
+same records until it failed a second time, just to put a name in the
+message.  That is a full re-check of the accepted prefix (on a large
+stream, minutes) and, worse, a claim the verdict run never made — if
+the two passes ever disagreed, the message would name a declaration
+that was not the one that failed.  The fold now carries the position:
+`checkDeclStepIdxC` folds `(i, fe)` and tags a failing step's error
+with `i`, so `checkDeclsSPCachedD` has result type
+`Except (CheckError × Nat) Env` and the driver reports the failing
+declaration by indexing the record array it already holds —
+`setlec: <error> [at <decl>, fold position <i>] t=<elapsed>s`.
+`diagLoopC` and its call site are deleted.  **The accept side did not
+move**: `checkDeclsSPCachedD cfg ds = .ok env` is the same sentence, so
+`no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_run`, `foldSPC_PM`,
+`checkDeclSPStepC_skels` and the whole agreement floor keep their
+statements verbatim (axioms still exactly `propext`,
+`Classical.choice`, `Quot.sound`).  Two proofs re-project through one
+new lemma pair, `foldIdxC_ok` / `foldIdxC_run'_ok` — *an accepting run
+of the position-carrying fold is an accepting run of the plain fold* —
+which lives in `Setlec/Cached/ParsedC.lean` beside the two folds rather
+than in `Setlec/Verify/*`: it is self-contained (the `Std.HashMap`
+exception), and its two consumers (`Verify/Cached/MainC.lean`,
+`Verify/Cached/AgreeFloor.lean`) share no `Verify` module, so a new
+module holding it would enter all four capstones' closures — a door in
+`tests/proofdeps.sh`, which still reports 1342 rows and **0 doors**.
+
+**A measured correction to the trace lane's `+4`.**  The message
+prints the FOLD position and the declaration name, and deliberately no
+stream-record index: the offset between the two is not a constant.
+Counted on `init-full-pre-native` (2026-09-07): 54 351 declaration
+records against 54 346 fold positions, and the offset is **0** through
+fold position 5 000 and 5 by the end — the parse folds the four `quot`
+records into a single `basisDecl` (−3) and drops a couple of others,
+and a taint-skipping stream loses more.  The `+4` the
+`SETLEC_TRACE_DECLS` lane documents is that stream's own total, not a
+law; the portable handle is the NAME, which
+`_tmp/frontier3/decl_index.py` turns back into a record index and a
+percentage.  The trace lane keeps its job regardless: an OOM or a
+`SIGKILL` destroys the process before any `Except` can be returned, so
+a *printed* line remains the only witness there.

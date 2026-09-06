@@ -69,28 +69,31 @@ theorem checkDeclsSPCachedD_run {μ : CheckMode}
     ∃ fe s', (ds.foldlM (checkDeclSPStepC (cfgOf μ))
         (mkFEnv Env.empty)) ({} : CState) = .ok (fe, s') ∧
       fe.env = env' := by
+  -- The driver folds the POSITION-CARRYING step (2026-09-07, so that a
+  -- rejection names its declaration); its accepts are the plain fold's
+  -- accepts (`foldIdxC_ok`), which is why this statement — and every
+  -- statement below it — is the one it was.
   unfold checkDeclsSPCachedD at h
   simp only [Bind.bind, Except.bind] at h
-  cases hf : (ds.foldlM (checkDeclSPStepC (cfgOf μ))
-      (mkFEnv Env.empty)).run' ({} : CState) with
+  cases hf : (ds.foldlM (checkDeclStepIdxC (cfgOf μ))
+      (0, mkFEnv Env.empty)).run' ({} : CState) with
   | error e => rw [hf] at h; exact nomatch h
-  | ok fe =>
+  | ok p =>
     rw [hf] at h
-    obtain rfl : fe.env = env' := by
-      have h' : (Except.ok fe.env : CheckM Env) = .ok env' := h
+    obtain rfl : p.2.env = env' := by
+      have h' : (Except.ok p.2.env : Except (CheckError × Nat) Env)
+        = .ok env' := h
       exact Except.ok.inj h'
     simp only [StateT.run'] at hf
-    cases hrun : (ds.foldlM (checkDeclSPStepC (cfgOf μ))
-        (mkFEnv Env.empty)) ({} : CState) with
+    cases hrun : (ds.foldlM (checkDeclStepIdxC (cfgOf μ))
+        (0, mkFEnv Env.empty)) ({} : CState) with
     | error e => rw [hrun] at hf; exact nomatch hf
     | ok pr =>
-      obtain ⟨feO, sO⟩ := pr
+      obtain ⟨pO, sO⟩ := pr
       rw [hrun] at hf
       simp only [Functor.map, Except.map, Except.ok.injEq] at hf
       subst hf
-      first
-      | exact ⟨feO, sO, hrun, rfl⟩
-      | exact ⟨feO, sO, rfl, rfl⟩
+      exact ⟨pO.2, sO, foldIdxC_ok (cfgOf μ) ds 0 (mkFEnv Env.empty) hrun, rfl⟩
 
 /-- The parsed records' carried invariant, in the fold's premise
 shape. -/

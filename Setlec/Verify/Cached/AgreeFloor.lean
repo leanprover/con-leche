@@ -990,12 +990,12 @@ theorem Yields.run' {α : Type} {m : CheckCM α} {P : α → Prop}
   | error e => rw [hm] at hr; cases hr
   | ok b => rw [hm] at hr; cases hr; exact h s b.1 b.2 hm
 
-theorem env_of_run {X : CheckM FEnv} {env : Env}
-    (h : (do let fe ← X; pure fe.env) = .ok env) :
-    ∃ fe, X = .ok fe ∧ fe.env = env := by
+theorem env_of_run {X : Except (CheckError × Nat) (Nat × FEnv)} {env : Env}
+    (h : (do let p ← X; pure p.2.env) = .ok env) :
+    ∃ p, X = .ok p ∧ p.2.env = env := by
   cases hx : X with
   | error e => rw [hx] at h; cases h
-  | ok fe => rw [hx] at h; cases h; exact ⟨fe, rfl, rfl⟩
+  | ok p => rw [hx] at h; cases h; exact ⟨p, rfl, rfl⟩
 
 theorem skelIs_empty : SkelIs (mkFEnv Env.empty) [] := ⟨⟨_, rfl⟩, rfl⟩
 
@@ -1012,11 +1012,14 @@ theorem checkDeclsSPCachedD_skels {cfg : CoreCfg} {ds : List DeclC}
     {env : Env} (h : checkDeclsSPCachedD cfg ds = .ok env) :
     envSkels env = streamSkels ds := by
   unfold checkDeclsSPCachedD at h
-  obtain ⟨fe, hx, rfl⟩ := env_of_run h
+  -- the position-carrying fold's accept is the plain fold's accept
+  -- (`foldIdxC_run'_ok`); the skeleton spec is unchanged by the tag
+  obtain ⟨p, hx, rfl⟩ := env_of_run h
   exact ((Yields.foldlM_rel (R := SkelIs)
     (g := fun sk (pc : DeclC) => declCSkels pc sk)
     (fun b a c hb => checkDeclSPStepC_skels cfg hb a) ds
-    (mkFEnv Env.empty) [] skelIs_empty).run' hx).2
+    (mkFEnv Env.empty) [] skelIs_empty).run'
+      (foldIdxC_run'_ok cfg ds 0 (mkFEnv Env.empty) hx)).2
 
 /-- **The floor, direct-parse route.**  Whenever the cached driver at
 two configs — in particular the trusted (`cfgT`) and the verified
