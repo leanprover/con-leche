@@ -48833,3 +48833,12 @@ Classical.choice, Quot.sound]`; `init-full`
 `SETLEC_PROGRESS=5000`**, verdict line byte-identical within each mode
 (verified 95.3 s off / 95.0 s on; trusted 95.4 s / 93.6 s — the
 callback loop costs nothing measurable).
+
+Landed on master after a final merge of `5d0b12f0`, whose only change
+against the gated tree was one README line — documentation, so the
+re-gate was `lake build` (warning-free, 648 jobs) rather than the full
+set.  Two items are deliberately **not** done here, by the
+coordinator's note: the `SETLEC_TRACE_DECLS`-as-a-`before`-callback
+follow-up belongs to `agent/frontier4` and lands with that lane, and
+the README's mention of the `IO` sibling theorem is the user's to write
+(README is human-written).
