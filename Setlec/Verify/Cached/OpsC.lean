@@ -117,7 +117,7 @@ theorem view_spec (e : ExprC) : (view e) = (Expr.view e) := by
 /-- Building a node from a one-level view is the pure builder — the
 transposition of the arena's `intern_spec`. -/
 theorem ofView_spec (v : ExprView ExprC) : (ofView v) = ofViewE v := by
-  cases v <;> rfl
+  cases v <;> simp [ofView, ofViewE]
 
 /-! ## Spines -/
 
@@ -571,7 +571,7 @@ theorem instantiateListGo_spec {vs : Array ExprC} :
               exact absurd (by omega : i - d < vs.size) hidv
           · rename_i hidk
             refine ⟨hm, ?_⟩
-            rw [mkBVarP_eq, Expr.instantiateList,
+            rw [mkBVar_eq, Expr.instantiateList,
               if_neg hid, dif_neg (by rw [hlen]; exact hidk), hlen]
   | fvar idx n ty iht =>
     intro memo d hk hm

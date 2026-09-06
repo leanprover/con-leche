@@ -131,30 +131,7 @@ constructor.  The names survive because they are the term the whole
 cached tier and its verification are written in; each is `@[inline]`,
 so nothing is added at runtime. -/
 
-@[inline] def mkBVar (i : Nat) : ExprC := .bvar i
-
-/-- Size of the shared `bvar` pool. -/
-def bvarPoolSize : Nat := 4096
-
-/-- A shared pool of the small `bvar` nodes, built once at module
-initialization (hence marked persistent by the runtime, so its
-reference counting is free).
-
-**Why it exists (task #177).**  The substitution walks answer atoms in
-place rather than under a memo key, and that is where their `bvar`
-results stopped being shared: a shifted `bvar` used to come back from
-the memo as one object and is otherwise rebuilt at every occurrence.
-Handing out a pooled node instead restores the sharing without a probe
-and without an allocation.  Above the pool the node is built as
-before. -/
-def bvarPool : Array ExprC :=
-  Array.ofFn (n := bvarPoolSize) fun i => .bvar i.val
-
-/-- `mkBVar` through the shared pool (`mkBVarP_eq`: same value).  Used
-by the walks, whose `bvar` answers are the hot ones; the parser and the
-one-off constructions keep the plain `mkBVar`. -/
-@[inline] def mkBVarP (i : Nat) : ExprC :=
-  if h : i < bvarPool.size then bvarPool[i] else .bvar i
+@[inline] def mkBVar (i : Nat) : ExprC := Expr.mkBvar i
 
 @[inline] def mkFVar (idx : Nat) (n : Name) (ty : ExprC) : ExprC :=
   .fvar idx n ty
@@ -213,13 +190,7 @@ the erasure's "smart constructor erases to the plain constructor"
 lemmas (`mkApp_eq` &c.); with one type they are the constructors'
 own equations, and the tier still rewrites with them. -/
 
-@[simp] theorem mkBVar_eq (i : Nat) : mkBVar i = .bvar i := rfl
-
-@[simp] theorem mkBVarP_eq (i : Nat) : mkBVarP i = .bvar i := by
-  unfold mkBVarP
-  split
-  · simp [bvarPool]
-  · rfl
+@[simp] theorem mkBVar_eq (i : Nat) : mkBVar i = .bvar i := Expr.mkBvar_eq i
 
 @[simp] theorem mkFVar_eq (idx : Nat) (n : Name) (ty : ExprC) :
     mkFVar idx n ty = .fvar idx n ty := rfl
