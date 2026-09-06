@@ -456,9 +456,8 @@ frame, the identification of the real chains, and the unfolded
 function's typing at the recursor's type (a closed Π-tower over the
 binder data `rds`, read at the frame below the function) with the
 spine-fit of the ih application. -/
-structure FixKI (ℓ w u nP : Nat) (ρ₀ : Nat → V) (Fss Ess Fss₀ : List (List AVExpr))
-    (Ids : List AVExpr) (rss : List (List Bool)) (Eiss : List (List (List AVExpr)))
-    (rds : List (Nat × Nat × AVExpr)) : Prop where
+structure FixKI₀ (ℓ w u : Nat) (ρ₀ : Nat → V) (Fss Ess Fss₀ : List (List AVExpr))
+    (Ids : List AVExpr) (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) : Prop where
   hyp : RecHypI ℓ w ρ₀ Fss Ess Ids
     (fun is => SetTheory.app
       (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss Eiss Fss₀ Ess) (tupW u is))
@@ -467,6 +466,15 @@ structure FixKI (ℓ w u nP : Nat) (ρ₀ : Nat → V) (Fss Ess Fss₀ : List (L
   hX : XChainsOk u w (frP Fss.length Ids.length ρ₀) Ids rss Eiss Fss₀ Ess
   hreal : ChainsRealI (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss Eiss Fss₀ Ess)
     u (frP Fss.length Ids.length ρ₀) Ids rss Eiss Fss₀ Fss Ess
+
+/-- `FixKI₀` plus the unfolded function's typing at the recursor's type
+(a closed Π-tower over the binder data `rds`, read at the frame below
+the function) with the spine-fit of the ih application and the
+conclusion's zero-level condition. -/
+structure FixKI (ℓ w u nP : Nat) (ρ₀ : Nat → V) (Fss Ess Fss₀ : List (List AVExpr))
+    (Ids : List AVExpr) (rss : List (List Bool)) (Eiss : List (List (List AVExpr)))
+    (rds : List (Nat × Nat × AVExpr)) : Prop
+    extends FixKI₀ ℓ w u ρ₀ Fss Ess Fss₀ Ids rss Eiss where
   hz : ∀ d ∈ rds, (ℓ = 0 ↔ d.2.1 = 0)
   hrV : frR nP Fss.length Ids.length ρ₀
     ∈ˢ interp2 V (cons (frR nP Fss.length Ids.length ρ₀) (frBelow nP Fss.length Ids.length ρ₀))
