@@ -46021,9 +46021,11 @@ fixture flip above); `tests/arena.sh` **0 FAIL** — arena 90/92, e2e
 layering base 235 / P 160 / caps 2 / umbrella 1, 0 base→lane edges, 0
 impl→theory; proofdeps 1 371 rows across 4 capstones, **0 doors**.
 `init-full-pre2` accepts in BOTH modes: `--trusted` exit 0 / 60 549
-declarations (148 s), `--verified` exit 0 / 60 549 declarations
-(154 s) — wall clock on a shared machine, not a perf figure.
-Axioms of `no_proof_of_Empty_SPCD_P`,
+declarations (169 s), `--verified` exit 0 / 60 549 declarations
+(167 s) — wall clock on a shared machine, not a perf figure.
+Every gate above was re-run **after** the `master` merge (which brought
+in `agent/nat-ops-official` and `agent/sigmahom`); the numbers are the
+merged tree's.  Axioms of `no_proof_of_Empty_SPCD_P`,
 `checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `no_constant_of_Empty_P`,
 `prf_of_isProofFast`, `propIrrelPQ_of_claims`, `propIrrel_inv`,
 `propIrrelC_sim` and `trusted_agrees_P_skels_D`: exactly
