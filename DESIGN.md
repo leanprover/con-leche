@@ -46746,3 +46746,96 @@ tool and still carry `_model` artifacts for direct-installed blocks.  That
 is inert and they are deliberately left as pre-#178 baselines; a fixture
 regenerated from now on should go through `setlec-preprocess`
 (recorded in `tests/arena.sh`'s e2e header).
+
+## THE COMPARATOR CHALLENGE — the headline claim as a `leanprover/comparator` challenge (2026-09-06)
+
+### WHAT
+
+`Challenge.lean` (repository root) states the project's claim in the
+form the [comparator](https://github.com/leanprover/comparator) judges —
+a trusted statement with a `sorry`, an untrusted `Solution.lean` with the
+proof, and `comparator.json` naming the theorem and the permitted axioms
+(`propext`, `Quot.sound`, `Classical.choice`):
+
+    theorem Setlec.no_proof_of_Empty (V : Type w) [SetTheory V]
+        {ds : List Cached.DeclC} {env' : Env}
+        (h : Cached.checkDeclsSPCachedD cfgP ds = .ok env') :
+        ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] → False
+
+`Solution.lean` restates it verbatim (it must *not* import `Challenge`:
+the comparator builds the two modules separately and compares the two
+exports) and proves it by
+`Cached.no_proof_of_Empty_SPCD_P V (μ := .verified) rfl h` —
+`cfgOf .verified = cfgP` is `rfl` (`cfgOf_verified_eq_cfgP`).  Both are
+`lean_lib`s and default targets, so `lake build` keeps them compiling.
+
+**Stated at `cfgP`, not at the capstone's `cfgOf μ` with
+`μ.verifiedChecks = true`.**  `Main.lean` runs
+`checkDeclsSPCachedD cfgP` under `--verified` (the default); the
+challenge is written for an outside reader, so it names the configuration
+the binary runs and no `CheckMode` indirection.  The trusted mode is
+unverified by design, so the specialisation loses nothing.
+
+### THE TRUSTED CLOSURE
+
+The comparator's contract: the transitive imports of the challenge are
+trusted, and step 4 of its check walks every constant the statement
+mentions, transitively, requiring each `ConstantInfo` to be *identical*
+between the challenge's and the solution's export — so the solution can
+redefine nothing the statement reaches.  The challenge imports
+`Setlec.Cached.ParsedC` and `Setlec.SetTheory.Core`; the closure is 39
+`Setlec.*` modules: `Setlec/Kernel/*` and `Setlec/Cached/*` up to the
+shipped driver, `Setlec.PinGen{,.Dump}` (the reader of the committed
+`Nat`-operation pin file), and the `SetTheory` interface.  No
+`Verify`/`SetModel`/`Semantics`/`SetP` module is reachable, and the
+layering gate's implementation→theory clause (`tests/layering.sh`) is
+exactly the fence that keeps it so.
+
+### THE ONE `sorry` ON MASTER
+
+The project rule is "no `sorry`s on master".  The challenge's `sorry`
+is the comparator protocol's: a challenge carrying its proof would have
+to import the verification, making the trusted closure the whole tree.
+It is the deliberate exception; the `declaration uses 'sorry'` warning
+is silenced at that theorem alone (`set_option warn.sorry false in`), so
+`lake build` stays warning-free without touching the rule anywhere else.
+
+### RUNNING IT
+
+From the repository root, `lake env comparator comparator.json`, with
+`landrun` and a `lean4export` **built at this repository's toolchain**
+in `PATH` or named by `COMPARATOR_LANDRUN` / `COMPARATOR_LEAN4EXPORT`.
+For the 2026-09-06 run: lean4export v4.33.0 built in
+`_tmp/lean4export` (its `v4.32.0-rc1..v4.33.0` diff is the toolchain
+line alone, so the comparator binary at v4.32.0-rc1 parses its output
+unchanged).
+
+**NixOS quirk, not committed.**  The elan toolchain's `lake` is a nix
+wrapper script whose interpreter lives in `/nix/store`, which the
+comparator's sandbox (`landrun --ro / … --rox <lean prefix>`) mounts
+without exec — every sandboxed step dies with a bare
+`permission denied`.  A shim passed as `COMPARATOR_LANDRUN`,
+`exec landrun --rox /nix/store --env NIX_LD --env NIX_LD_LIBRARY_PATH "$@"`,
+grants exec on the immutable store and nothing else; and the toolchain's
+`bin` goes first in `PATH` so `lake` is the toolchain's own rather than
+the elan proxy (also in the store).
+
+### VERDICTS (2026-09-06, this machine)
+
+* **The comparator accepts the solution**: `Building Challenge` (42
+  jobs) → export → `Building Solution` (371 jobs) → export →
+  `Lean default kernel accepts the solution` → `Your solution is okay!`,
+  exit 0, 1 min 28 s wall (the export of the proof closure and the
+  kernel replay are the whole of it).  So, by an independent judge: the
+  statement above is proved from `propext`, `Quot.sound` and
+  `Classical.choice` alone, and the Lean kernel re-checks the proof.
+* **The judge is not vacuous**: with the solution's statement changed by
+  one universe (`(V : Type w)` → `(V : Type)`, which still builds and
+  still proves), the comparator stops at its compare step —
+  `Challenge and solution theorem statement do not match:
+  'Setlec.no_proof_of_Empty'`, exit 1.  Restored afterwards.
+* `lake build` warning-free (373 jobs, the two new modules included);
+  `lake test` green; `tests/arena.sh --no-sweeps`: layering
+  234/160/2/1, 0 edges either way; proofdeps 1370 rows, 0 doors;
+  pindump fresh; arena 90/92, e2e 78/78, annot 14/14, retired flags 8/8,
+  mode flags 16/16.  No verdict moved — nothing under `Setlec/` changed.
