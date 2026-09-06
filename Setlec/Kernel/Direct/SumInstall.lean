@@ -175,7 +175,9 @@ def checkDirectSumRec (ops : CheckerOps m) (env : Env) (p : DirectSumParts)
   let _u ← ops.ensureSort env 0 sty
   -- the stream's recursor is the generated one
   unless ← ops.isDefEq env 0 cvRi.type recTy do
-    throw (.notImplemented "direct sum: recursor type")
+    -- a recognised block's recursor is derived, so a different type is
+    -- INVALID input (task #181), not an unsupported shape
+    throw (.invalid "direct sum: recursor type is not the generated one")
   let rhss ← checkDirectSumRules ops env p.cvR.levelParams T lps p.elim p.large p.nP p.nIdx
     cvTa.type ctors ctors.length 0
   pure (⟨p.cvR.name, p.cvR.levelParams, recTy⟩, rhss)

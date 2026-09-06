@@ -38,6 +38,12 @@ def punitUnitName : Name := punitName |>.str "unit"
 
 def emptyName : Name := anonymous |>.str "Empty"
 
+/-- The name of the pinned `False` basis type (task #181): the
+zero-constructor `Prop`, pinned like `Empty` so that the consistency
+corollary about `False` needs no hypothesis about how a stream declares
+it. -/
+def falseName : Name := anonymous |>.str "False"
+
 /-- The name of the basis quotient type. -/
 def quotName : Name := anonymous |>.str "Quot"
 
@@ -90,6 +96,7 @@ def reservedBasisNames : List Name :=
    natName, natZeroName, natSuccName, natName.str "rec",
    punitName, punitUnitName, punitName.str "rec",
    emptyName, emptyName.str "rec",
+   falseName, falseName.str "rec",
    quotName, quotMkName, quotLiftName, quotIndName, quotSoundName]
 
 end Setlec

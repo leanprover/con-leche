@@ -28,7 +28,8 @@ theorem pinnedInfoT_recInfo_cases {n : Name} {cv : ConstantVal}
     (h : pinnedInfo n = .recInfo cv mI rP rules) :
     n = eqName.str "rec" ∨ n = natName.str "rec" ∨
     n = punitName.str "rec" ∨
-    n = emptyName.str "rec" ∨ n = quotLiftName ∨ n = quotIndName := by
+    n = emptyName.str "rec" ∨ n = falseName.str "rec" ∨
+    n = quotLiftName ∨ n = quotIndName := by
   unfold pinnedInfo at h
   by_cases h1 : n = eqName
   · rw [if_pos h1] at h; exact nomatch h
@@ -66,6 +67,12 @@ theorem pinnedInfoT_recInfo_cases {n : Name} {cv : ConstantVal}
   by_cases h15 : n = emptyName.str "rec"
   · exact Or.inr (Or.inr (Or.inr (Or.inl h15)))
   rw [if_neg h15] at h
+  by_cases h15a : n = falseName
+  · rw [if_pos h15a] at h; exact nomatch h
+  rw [if_neg h15a] at h
+  by_cases h15b : n = falseName.str "rec"
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h15b))))
+  rw [if_neg h15b] at h
   by_cases h16 : n = quotName
   · rw [if_pos h16] at h; exact nomatch h
   rw [if_neg h16] at h
@@ -73,10 +80,10 @@ theorem pinnedInfoT_recInfo_cases {n : Name} {cv : ConstantVal}
   · rw [if_pos h17] at h; exact nomatch h
   rw [if_neg h17] at h
   by_cases h18 : n = quotLiftName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h18))))
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h18)))))
   rw [if_neg h18] at h
   by_cases h19 : n = quotIndName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h19))))
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h19)))))
   rw [if_neg h19] at h
   by_cases h20 : n = quotSoundName
   · rw [if_pos h20] at h; exact nomatch h
@@ -99,7 +106,7 @@ theorem unitLike_eq_punit {env : Env} {cval : TConstVal}
   -- three conditions, or by its name
   have hc : c = punitName := by
     rcases pinnedInfoT_recInfo_cases hpin with
-      he | he | he | he | he | he
+      he | he | he | he | he | he | he
     · -- `Eq.rec` has an index: `mI = 5`, `rP = 4`
       rw [he] at hpin
       rw [show pinnedInfo (eqName.str "rec") = eqRecA from rfl] at hpin
@@ -115,6 +122,11 @@ theorem unitLike_eq_punit {env : Env} {cval : TConstVal}
       rw [show pinnedInfo (emptyName.str "rec") = emptyRecA from rfl]
         at hpin
       simp [emptyRecA] at hpin
+    · -- `False.rec` has no rules (task #181)
+      rw [he] at hpin
+      rw [show pinnedInfo (falseName.str "rec") = falseRecA from rfl]
+        at hpin
+      simp [falseRecA] at hpin
     · exact absurd (Name.str.injEq .. ▸ he).2 (by decide)
     · exact absurd (Name.str.injEq .. ▸ he).2 (by decide)
   subst hc

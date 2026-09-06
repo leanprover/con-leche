@@ -2,6 +2,7 @@ import Setlec.SetModel
 import Setlec.Semantics
 import Setlec.SetP
 import Setlec.Verify.Cached
+import Setlec.MainTheorem
 
 /-!
 # The proof-term dependency gate's instrument (task #161 S10; redefined
@@ -42,8 +43,9 @@ weaker; there is no second lane to be separated from.*
 
 ## WHAT IT MEASURES NOW
 
-A **frozen module-level dependency pin**: for each of the four
-surviving capstones, the exact set of `Setlec.*` modules its type and
+A **frozen module-level dependency pin**: for each of the six
+pinned roots (the two main theorems and the four capstone letters and
+assembly lemmas under them), the exact set of `Setlec.*` modules its type and
 proof term reach, transitively, at the constant level.  The expectation
 is `tests/proofdeps-expected.txt` and the gate is a diff, so any drift
 shows up as a named module appearing or disappearing — which is the
@@ -102,17 +104,32 @@ partial def setlecDeps (env : Environment) (todo : List Name)
         setlecDeps env ((ci.type.getUsedConstants ++ vcs).toList ++ rest)
           seen
 
-/-- The four capstones, each at its own root.
+/-- The seven pinned roots: the MAIN THEOREM first, then the letters it
+is a corollary of and the assembly under those.
 
-* `SPCD_P` — **the shipped driver's letter**: the checker, running the
-  verified mode over the direct-parse cached core it ships with, never
-  accepts a stream in which some stored constant has type `Empty`.
+* `main_False` — **the statement the project exists to make**
+  (`Setlec/MainTheorem.lean`): an accepted stream, at the shipped
+  `--verified` configuration named outright, yields no constant of type
+  `False`.  It is pinned as a root because it is what a reader checks
+  first; it should reach exactly what the letter it wraps reaches, plus
+  `Setlec.MainTheorem` itself.  (The `Empty` main theorem and the
+  `IO`-loop one were dropped from that file on 2026-09-07 — one main
+  theorem, and one loop that the theorem is about: the printing lane
+  runs an openly unverified twin fold in `Main.lean`.)
+* `False_SPCD_P` / `SPCD_P` — **the shipped driver's letters**: the
+  checker, running the verified mode over the direct-parse cached core
+  it ships with, never accepts a stream in which some stored constant
+  has type `False` (resp. `Empty`).
 * `sound_P` / `foldSPC_PM` — the acceptance corollary and the fold
   under it, pinned separately so a change in the assembly is visible
   even when the letter's own closure is unmoved.
-* `P` — the pure fueled checker the graded tower is stated about. -/
+* `False_P` / `P` — the pure fueled checker the graded tower is stated
+  about. -/
 private def roots : List (String × Name) :=
-  [("SPCD_P", `Setlec.Cached.no_proof_of_Empty_SPCD_P),
+  [("main_False", `Setlec.no_proof_of_False),
+   ("False_SPCD_P", `Setlec.Cached.no_proof_of_False_SPCD_P),
+   ("False_P", `Setlec.SetP.no_proof_of_False_P),
+   ("SPCD_P", `Setlec.Cached.no_proof_of_Empty_SPCD_P),
    ("sound_P", `Setlec.Cached.checkDeclsSPCachedD_sound_P),
    ("foldSPC_PM", `Setlec.Cached.foldSPC_PM),
    ("P", `Setlec.SetP.no_proof_of_Empty_P)]

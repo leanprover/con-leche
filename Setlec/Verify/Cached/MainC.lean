@@ -69,28 +69,31 @@ theorem checkDeclsSPCachedD_run {μ : CheckMode}
     ∃ fe s', (ds.foldlM (checkDeclSPStepC (cfgOf μ))
         (mkFEnv Env.empty)) ({} : CState) = .ok (fe, s') ∧
       fe.env = env' := by
+  -- The driver folds the POSITION-CARRYING step (2026-09-07, so that a
+  -- rejection names its declaration); its accepts are the plain fold's
+  -- accepts (`foldIdxC_ok`), which is why this statement — and every
+  -- statement below it — is the one it was.
   unfold checkDeclsSPCachedD at h
   simp only [Bind.bind, Except.bind] at h
-  cases hf : (ds.foldlM (checkDeclSPStepC (cfgOf μ))
-      (mkFEnv Env.empty)).run' ({} : CState) with
+  cases hf : (ds.foldlM (checkDeclStepIdxC (cfgOf μ))
+      (0, mkFEnv Env.empty)).run' ({} : CState) with
   | error e => rw [hf] at h; exact nomatch h
-  | ok fe =>
+  | ok p =>
     rw [hf] at h
-    obtain rfl : fe.env = env' := by
-      have h' : (Except.ok fe.env : CheckM Env) = .ok env' := h
+    obtain rfl : p.2.env = env' := by
+      have h' : (Except.ok p.2.env : Except (CheckError × Nat) Env)
+        = .ok env' := h
       exact Except.ok.inj h'
     simp only [StateT.run'] at hf
-    cases hrun : (ds.foldlM (checkDeclSPStepC (cfgOf μ))
-        (mkFEnv Env.empty)) ({} : CState) with
+    cases hrun : (ds.foldlM (checkDeclStepIdxC (cfgOf μ))
+        (0, mkFEnv Env.empty)) ({} : CState) with
     | error e => rw [hrun] at hf; exact nomatch hf
     | ok pr =>
-      obtain ⟨feO, sO⟩ := pr
+      obtain ⟨pO, sO⟩ := pr
       rw [hrun] at hf
       simp only [Functor.map, Except.map, Except.ok.injEq] at hf
       subst hf
-      first
-      | exact ⟨feO, sO, hrun, rfl⟩
-      | exact ⟨feO, sO, rfl, rfl⟩
+      exact ⟨pO.2, sO, foldIdxC_ok (cfgOf μ) ds 0 (mkFEnv Env.empty) hrun, rfl⟩
 
 /-- The parsed records' carried invariant, in the fold's premise
 shape. -/
@@ -117,7 +120,7 @@ pure fueled checker the tower is stated about) its only sibling. -/
 section PLetters
 
 open Setlec.SetP (EnvSPOk EnvS2PM declStepPM
-  no_constant_of_Empty_P)
+  no_constant_of_Empty_P no_constant_of_False_P)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
@@ -171,6 +174,33 @@ theorem no_proof_of_Empty_SPCD_P (V : Type w) [SetTheory V]
       c.toConstantVal.type = .const emptyName [] → False := by
   obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
   exact fun c hc hty => no_constant_of_Empty_P mp c hc hty
+
+/-- **THE CAPSTONE FOR THE SHIPPED DRIVER, about `False`** (task #181):
+the same letter as `no_proof_of_Empty_SPCD_P` at the pinned `False`
+block — no hypothesis about how the stream declared `False`. -/
+theorem no_proof_of_False_SPCD_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true)
+    {ds : List DeclC} {env' : Env}
+    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
+    ∀ c ∈ env'.consts,
+      c.toConstantVal.type = .const falseName [] → False := by
+  obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
+  exact fun c hc hty => no_constant_of_False_P mp c hc hty
+
+/-! ### The loop the binary runs
+
+`Main.lean` calls `checkDeclsSPCachedD` — this letter's subject —
+directly on every run that is not printing progress.  The opt-in
+`SETLEC_PROGRESS` lane runs an unverified `IO` twin of the same fold
+(`Main.checkDeclsProgressIO`): the same `checkDeclStepIdxC` steps in
+the same order, with a line printed before each declaration.  **User
+ruling, 2026-09-07**: the two folds differ only in the print, and the
+verified one is what the default run uses, so no monadic
+generalisation, no `LawfulMonad IO` and no `IO`-shaped restatement of
+the letters is carried for the sake of the printing lane.  (An earlier
+round of this task did carry one — a `Callbacks`-taking loop, a bridge
+at every lawful monad, and a hand-proved `IO` case, since core ships
+no `LawfulMonad IO`; it is deleted.) -/
 
 end PLetters
 

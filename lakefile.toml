@@ -124,7 +124,22 @@ roots = ["Setlec.SetP"]
 # was the two-lane assembly until the SetR removal left one lane.
 [[lean_lib]]
 name = "SetlecCaps"
-roots = ["Setlec.Verify.Cached"]
+roots = ["Setlec.Verify.Cached", "Setlec.MainTheorem"]
+
+# THE PALOMAR CHALLENGE MODULE (task #183).  `Setlec/Challenge.lean` is
+# the small readable statement of `Setlec.no_proof_of_False` with
+# `sorry` for a proof — the *challenge* half of the pair the Comparator
+# tool (leanprover/comparator) compares against `Setlec.MainTheorem`,
+# the *solution* half.  See `comparator.json`.
+#
+# It gets its own `lean_lib` because Comparator builds the module by
+# name (`lake build Setlec.Challenge`), which needs the module to be
+# reachable from *some* library root; and it is deliberately NOT in
+# `defaultTargets`, so `lake build` — the sorry-free, warning-free
+# gate — never builds it.  Nothing in the tree imports it.
+[[lean_lib]]
+name = "SetlecChallenge"
+roots = ["Setlec.Challenge"]
 
 [[lean_lib]]
 name = "SetlecTests"

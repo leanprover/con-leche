@@ -149,7 +149,9 @@ def checkDirectSumRecF (ops : CheckerOps m) (fe : FEnv) (p : DirectSumParts)
   let sty ← ops.inferType fe.env 0 recTy
   let _u ← ops.ensureSort fe.env 0 sty
   unless ← ops.isDefEq fe.env 0 cvRi.type recTy do
-    throw (.notImplemented "direct sum: recursor type")
+    -- a recognised block's recursor is derived, so a different type is
+    -- INVALID input (task #181), not an unsupported shape
+    throw (.invalid "direct sum: recursor type is not the generated one")
   let rhss ← checkDirectSumRulesF ops fe p.cvR.levelParams T lps p.elim p.large p.nP p.nIdx
     cvTa.type ctors ctors.length 0
   pure (⟨p.cvR.name, p.cvR.levelParams, recTy⟩, rhss)

@@ -46,6 +46,14 @@
 set -u
 cd "$(dirname "$0")/.."
 
+# Scratch space goes to DISK, never tmpfs (task #180).  Honour TMPDIR if
+# the caller set one; otherwise use the project's on-disk scratch
+# directory rather than the system temp, which is commonly a RAM-backed
+# tmpfs — the gzipped e2e fixtures below expand to gigabytes.  Exported,
+# so the checker and every child honour the same choice.
+export TMPDIR="${TMPDIR:-$PWD/_tmp/tmp}"
+mkdir -p "$TMPDIR"
+
 MODE_SWEEPS=on
 args=()
 for a in "$@"; do
@@ -147,6 +155,37 @@ if tests/proofdeps.sh; then :; else fail=1; fi
 # regenerate and diff.
 if tests/pindump.sh; then :; else fail=1; fi
 
+# THE TRUST-SURFACE GATE (2026-09-06, external review §5.6).  The
+# layering gate fences one direction of trust (the implementation may
+# not import the theory); this one fences the other — no compiler
+# escape (`unsafe`, `implemented_by`, `computed_field`, `native_decide`,
+# …) outside the allowlisted trusted-surface files, whose justification
+# is the script's header.  It is the companion of the axiom pin above:
+# `#print axioms` sees the LOGICAL TCB, this one sees the RUNTIME TCB,
+# and neither sees the other's.
+if tests/trust-surface.sh; then :; else fail=1; fi
+
+# THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
+# theorems, the four letters, the assembly under them and the `IO`
+# loop's bridge — and, since task #181, the `False` letters — carry `#guard_msgs in #print axioms`
+# guards in `tests/SetlecTests/Axioms.lean`, pinning them at exactly
+# `[propext, Classical.choice, Quot.sound]`.  The guards ARE the
+# elaboration of that module, so building the test library is the gate:
+# a drifting axiom footprint is a build error, not a claim in the
+# journal.  (`lake test` runs the same library; this line is so the
+# standard battery says so too.)
+AXLOG=$(lake build SetlecTests 2>&1)
+if [ $? = 0 ] && ! printf '%s\n' "$AXLOG" | grep -q 'error:'; then
+  nax=$(grep -c '^#print axioms' tests/SetlecTests/Axioms.lean)
+  echo "axioms: pinned ($nax theorems at [propext, Classical.choice, Quot.sound])"
+else
+  echo 'AXIOM PIN FAIL — tests/SetlecTests/Axioms.lean did not elaborate:'
+  printf '%s\n' "$AXLOG" | grep -A6 'error:' | head -40 | sed 's/^/    /'
+  echo '    a changed `#print axioms` message is a FINDING: report it,'
+  echo '    do not relax the guard.'
+  fail=1
+fi
+
 # --- the arena half ------------------------------------------------
 arena_half() {
   accepted=0
@@ -195,7 +234,7 @@ e2e_half() {
     src="tests/e2e/$rel"
     if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
       # large fixtures are committed gzipped
-      tmpf="${TMPDIR:-/tmp}/setlec-e2e-$(basename "$rel")"
+      tmpf="$TMPDIR/setlec-e2e-$(basename "$rel")"
       gunzip -c "$src.gz" > "$tmpf" || { echo "E2E FAIL $rel: gunzip failed"; fail=1; continue; }
       src="$tmpf"
     fi
@@ -348,6 +387,50 @@ else
   fail=1
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"
+
+# The progress lane (`SETLEC_PROGRESS=<stride>`, 2026-09-07).  Two
+# folds, one verdict: without the variable the driver runs the verified
+# `checkDeclsSPCachedD`, with it the unverified `checkDeclsProgressIO`
+# — the same steps with a line printed before each declaration.  The
+# checks below are the contract: the lane prints, it prints EVERY
+# declaration at stride 1 (that is the localisation mode: a dying run
+# names the declaration it died in on its last line), and it changes no
+# verdict, on an accepting and on a rejecting fixture alike.
+prog_ok=0
+prog_total=0
+prog_check() { # <description> <condition-result>
+  prog_total=$((prog_total+1))
+  if [ "$2" = ok ]; then
+    prog_ok=$((prog_ok+1))
+  else
+    echo "PROGRESS FAIL: $1"; fail=1
+  fi
+}
+# the accepting fixture: exit 0 with and without the variable, same
+# stdout verdict line, and one progress line per declaration at stride 1
+prog_out=$(timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null); prog_code=$?
+prog_err1=$(SETLEC_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_out1=$(SETLEC_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null)
+prog_code1=$?
+prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^setlec: progress [0-9]')
+prog_decls=$(printf '%s' "$prog_out1" | sed -n 's/^setlec: accepted \([0-9]*\) .*/\1/p')
+prog_check "stride 1 exits 0 on the accepting fixture" \
+  "$([ "$prog_code1" = 0 ] && echo ok)"
+prog_check "the verdict line is unchanged by the variable" \
+  "$([ "$prog_out" = "$prog_out1" ] && [ "$prog_code" = "$prog_code1" ] && echo ok)"
+prog_check "stride 1 prints one line per declaration" \
+  "$([ -n "$prog_decls" ] && [ "$prog_lines" = "$prog_decls" ] && echo ok)"
+prog_check "the lane brackets the run (parse done / fold done)" \
+  "$(printf '%s' "$prog_err1" | grep -q 'progress parse done' && \
+     printf '%s' "$prog_err1" | grep -q 'progress fold done' && echo ok)"
+# the rejecting fixture: still exit 1, still naming the declaration
+prog_errB=$(SETLEC_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_BAD" 2>&1 >/dev/null)
+prog_codeB=$?
+prog_check "stride 1 still rejects the bad fixture (exit 1)" \
+  "$([ "$prog_codeB" = 1 ] && echo ok)"
+prog_check "the rejection still names the failing declaration" \
+  "$(printf '%s' "$prog_errB" | grep -q '\[at .*, fold position [0-9]' && echo ok)"
+echo "progress lane: $prog_ok/$prog_total as expected"
 
 # The mode sweep (task #147): both suites again with `--trusted`
 # (certified expectations plus the recorded overrides in

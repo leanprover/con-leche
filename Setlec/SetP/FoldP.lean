@@ -5,6 +5,7 @@ import Setlec.Semantics.IndBlockFacts
 import Setlec.Semantics.Bridge.Sound
 import Setlec.Semantics.Direct.DeclDirectSumEta
 import Setlec.SetP.DirectSum.DeclDirectSumP
+import Setlec.SetP.BasisFalseP
 
 /-!
 # The P declaration fold, and the conditional capstone (task #161, P4)
@@ -90,8 +91,8 @@ def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
       DeclBasisRun env kind env₂ →
       Nonempty (EnvS2PM V μ env₂)
 
-/-- **`BasisStepPB`, discharged** (task #161, ENDGAME H): all six
-pinned basis blocks install at the P tier.  Exactly `declBasisS`'s
+/-- **`BasisStepPB`, discharged** (task #161, ENDGAME H; the `False` block
+at task #181): all pinned basis blocks install at the P tier.  Exactly `declBasisS`'s
 dispatch shape, and — as there — `quotK` is the one branch whose
 `DeclBasisRun` guard is not vacuous: it needs `Eq` in the prefix, which
 is what the block's `Eq` bridge consumes. -/
@@ -103,6 +104,7 @@ theorem basisStepPB_of : BasisStepPB V μ := by
   | natK => exact declBasisPB_natK mp hchain
   | punitK => exact declBasisPB_punitK mp hchain
   | emptyK => exact declBasisPB_emptyK mp hchain
+  | falseK => exact declBasisPB_falseK mp hchain
   | quotK => exact declBasisPB_quotK mp (hEq rfl) hchain
 
 /-- The inductive kind's whole step — **no longer routed** (task #161,
@@ -280,5 +282,23 @@ theorem no_proof_of_Empty_P (V : Type w) [SetTheory V]
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const emptyName [] → False :=
   fun c hc hty => no_proof_of_Empty_P_of V hμ h c hc hty
+
+/-- **THE CAPSTONE ABOUT `False`** (task #181): *the checker, running
+in a validating mode, never accepts a declaration stream in which some
+stored constant has type `False`.*  The same letter as
+`no_proof_of_Empty_P`, at the pinned `False` block
+(`Setlec/Kernel/Basis/False.lean`): `False` is a reserved basis name
+whose stored declaration and leaf are fixed by the pin, so — exactly as
+for `Empty` — the statement carries no hypothesis about how the stream
+declared `False`.  Hypotheses are input-level only: the validating
+mode, the accepted run, the stored constant, its type. -/
+theorem no_proof_of_False_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+    ∀ c ∈ env'.consts,
+      c.toConstantVal.type = .const falseName [] → False := by
+  obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ h
+  exact fun c hc hty => no_constant_of_False_P mp c hc hty
 
 end Setlec.SetP

@@ -336,6 +336,44 @@
 0 direct_sum_option.ndjson pre
 0 direct_sum_or.ndjson pre
 1 direct_sum_or_large_bad.ndjson pre
+# Zero-constructor inductives at every level (task #181, 2026-09-06),
+# exported through `setlec-preprocess` (every block native, no `_model`
+# declaration in the stream), so they assert `--pre`:
+#   zero_ctor:             `PEmpty'` (universe-polymorphic, `Sort u`),
+#                          `Vacant α n` (a type and a Nat parameter,
+#                          `Type u`), `Bottom p` (a `Prop` with a `Prop`
+#                          parameter), `Nada : Type` — each with its
+#                          large eliminator used — and `absurd'` through
+#                          the toolchain's `False`, which the checker
+#                          installs from its own pin
+#                          (`Setlec/Kernel/Basis/False.lean`).
+#   zero_ctor_false_proof: the stream plus `bogus : False := Prop` (an
+#                          ill-typed value): REJECT.  The capstone
+#                          `no_proof_of_False` says no accepted stream
+#                          can store such a constant; this is the
+#                          checker refusing one.
+#   zero_ctor_bad_rec:     `Nada.rec`'s type replaced by `Type` — a
+#                          recognised zero-constructor block whose
+#                          recursor is not the generated one: the
+#                          direct sum install REJECTS (`.invalid`; until
+#                          #181 a recursor-type mismatch was a decline).
+#   empty_redefined:       the one-constructor `OfNat` block renamed to
+#                          `Empty`: REJECT (`reserved basis name`).
+#   false_redefined:       `def False : Prop := PEmpty'.{0}` ahead of the
+#                          toolchain's `False` block: REJECT.
+#   false_rec_bad:         the toolchain's `False` block with `False.rec`'s
+#                          type replaced by `Type` — not the pin any more:
+#                          REJECT.  (User ruling, task #181: `Empty` and
+#                          `False` stay pinned; a stream declaring either
+#                          name any other way is invalid input.)
+# All five twins are derived by scripts/mk_zero_ctor_bad.py.
+0 zero_ctor.ndjson pre
+1 zero_ctor_false_proof.ndjson pre
+1 zero_ctor_bad_rec.ndjson pre
+1 empty_redefined.ndjson pre
+1 false_redefined.ndjson pre
+1 false_rec_bad.ndjson pre
+
 # The direct INDEXED install (task #175 indexed, 2026-09-06): the sum
 # route widened to non-recursive, non-nested families with indices —
 # any number of constructors, the carrier at an index tuple the tagged
@@ -516,3 +554,23 @@
 # (`ProjEntry.typeAtI`); official accepts in milliseconds, so do both
 # modes.  Pre-fix: out-of-memory under the 16 GB cap.
 0 proj_share.ndjson raw
+# pre_reject_nonpositive.ndjson (task #180, 2026-09-07): the arena's
+# bad/tutorial/052_indNeg, vendored here as an e2e case for the verdict
+# mapping.  `indNeg.mk`'s first argument has a non-positive occurrence
+# of the type being declared, so the PREPROCESSOR's kernel rejects the
+# block while generating its model and exits 1 — and a preprocessor
+# reject is our reject (user ruling 2026-09-07): exit 1 with the tool's
+# message on stderr.  Until then the checker fell back to the raw
+# stream and declined for a missing model (exit 2; arena finding F1).
+1 pre_reject_nonpositive.ndjson
+# pre_decline_imax_field.ndjson (task #180, 2026-09-07):
+# lean-inductive-models' own `prim_shape_declines` fixture.  `PadImaxIdx`
+# is an indexed one-constructor owner whose single field is a function
+# type, so its level has an `imax` that the declared `max`-shaped
+# carrier does not absorb in normal form — no generation arm models it,
+# the tool reports the decline and exits 2, and setlec declines (2)
+# rather than checking a stream it knows is missing a model.  (`PadImax`,
+# the non-indexed half, is `native` — the direct simple-structure route
+# takes it — so this fixture also pins that the native predicate does
+# not swallow the indexed one.)
+2 pre_decline_imax_field.ndjson

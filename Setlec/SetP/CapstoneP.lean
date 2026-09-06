@@ -69,22 +69,60 @@ The premise is stated in exactly the shape the census's §1.5 P-native
 carrier field takes (`∀ ψ, ∃ u, cvalE emptyName ψ = emptyT u`), so S7
 discharges it by projection when the field lands; until then the fold
 layer supplies it from its v1 residue. -/
-theorem acval_empty_pinnedC (m : EnvS2Core V env)
-    (hpin : ∀ ψ : Name → Nat, ∃ u, m.cvalE emptyName ψ = emptyT u)
+theorem acval_empty_pinnedC (m : EnvS2Core V env) {n : Name}
+    (hpin : ∀ ψ : Name → Nat, ∃ u, m.cvalE n ψ = emptyT u)
     (ψ : Name → Nat) :
-    ∃ u, m.acval emptyName ψ = .const .empty [u] := by
+    ∃ u, m.acval n ψ = .const .empty [u] := by
   obtain ⟨u, hu⟩ := hpin ψ
   exact ⟨u, erase_eq_const (by rw [m.acval_erase, hu]; rfl)⟩
 
 /-- …so its `interp2` reading is the empty set, at every
-assignment. -/
-theorem interp2_acval_emptyC (m : EnvS2Core V env)
-    (hpin : ∀ ψ : Name → Nat, ∃ u, m.cvalE emptyName ψ = emptyT u)
+assignment.  Stated at any name whose leaf is an `emptyT` pin (task
+#181): `Empty`'s is `emptyT 1`, `False`'s is `emptyT 0`. -/
+theorem interp2_acval_emptyC (m : EnvS2Core V env) {n : Name}
+    (hpin : ∀ ψ : Name → Nat, ∃ u, m.cvalE n ψ = emptyT u)
     (ψ : Name → Nat) (ρ : Nat → V) :
-    interp2 V ρ (m.acval emptyName ψ) = SetTheory.empty := by
+    interp2 V ρ (m.acval n ψ) = SetTheory.empty := by
   obtain ⟨u, hu⟩ := acval_empty_pinnedC m hpin ψ
   rw [hu, interp2_const]
   rfl
+
+/-- **The empty-pin argument, at any pinned name** (task #181): an
+environment carrying the P invariant stores no constant whose type is
+a reserved constant whose direct pin is `emptyT u` — the membership is
+`mem_typeP` at the `denoteP` reading, the reading of `.const n []` is
+the leaf by the constant clause, and the leaf's `interp2` value is the
+empty set by erasure injectivity plus `basis_pinnedL`.  The `Empty` and
+`False` capstones are its two instances. -/
+theorem no_constant_of_emptyPin_P (mp : EnvS2PM V μ env) {n : Name} {u : Nat}
+    (hres : Setlec.reservedBasisNames.contains n = true)
+    (hpin : ∀ ψ : Name → Nat,
+      Setlec.TTVerify.pinnedDirectT n ψ = some (emptyT u))
+    (c : ConstantInfo) (hc : c ∈ env.consts)
+    (hty : c.toConstantVal.type = .const n []) : False := by
+  obtain ⟨ta, hta0⟩ := mp.type_reads c hc (fun _ => 0)
+  have hta := hta0
+  rw [hty] at hta
+  cases hf : env.find? n with
+  | none => rw [denoteP, hf] at hta; exact nomatch hta
+  | some ci =>
+    by_cases hlen :
+        ([] : List Level).length = ci.toConstantVal.levelParams.length
+    · rw [denoteP_const hf hlen] at hta
+      obtain rfl : ta = mp.base2.acval n
+          (Level.substFn (fun _ => 0)
+            ci.toConstantVal.levelParams []) :=
+        (Option.some.inj hta).symm
+      have hmem := mp.mem_typeP c hc (fun _ => 0) _ hta0
+        (fun _ => (SetTheory.empty : V))
+      rw [interp2_acval_emptyC mp.base2 (fun ψ =>
+        ⟨u, EnvS2Core.cvalE_pinned mp.base2 hres
+          (by rw [hf]; rfl) ψ (hpin ψ)⟩)] at hmem
+      exact not_mem_empty _ hmem
+    · rw [denoteP, hf] at hta
+      dsimp only at hta
+      rw [if_neg hlen] at hta
+      exact nomatch hta
 
 /-- **The capstone's business end**: an environment carrying the P
 invariant stores no constant of type `Empty` — the membership read
@@ -92,37 +130,26 @@ entirely at the validated-annotation tier (`mem_typeP` over
 `denoteP`/`interp2`). -/
 theorem no_constant_of_Empty_P (mp : EnvS2PM V μ env)
     (c : ConstantInfo) (hc : c ∈ env.consts)
-    (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨ta, hta0⟩ := mp.type_reads c hc (fun _ => 0)
-  have hta := hta0
-  rw [hty] at hta
-  cases hf : env.find? emptyName with
-  | none => rw [denoteP, hf] at hta; exact nomatch hta
-  | some ci =>
-    by_cases hlen :
-        ([] : List Level).length = ci.toConstantVal.levelParams.length
-    · rw [denoteP_const hf hlen] at hta
-      obtain rfl : ta = mp.base2.acval emptyName
-          (Level.substFn (fun _ => 0)
-            ci.toConstantVal.levelParams []) :=
-        (Option.some.inj hta).symm
-      have hmem := mp.mem_typeP c hc (fun _ => 0) _ hta0
-        (fun _ => (SetTheory.empty : V))
-      -- **the pin, discharged by the carrier itself** (task #161 S7):
-      -- `Empty` is stored in this branch, so `basis_pinnedL` — the
-      -- core's own field since S3 — gives the leaf its direct pin.
-      -- This is the S3 seal's prediction cashed: the premise dies with
-      -- `EnvS2PM.base`, it is not replaced.
-      rw [interp2_acval_emptyC mp.base2 (fun ψ =>
-        ⟨1, EnvS2Core.cvalE_pinned mp.base2 (by decide)
-          (by rw [hf]; rfl) ψ
-          (by simp +decide [Setlec.TTVerify.pinnedDirectT,
-            Setlec.TT.emptyT])⟩)] at hmem
-      exact not_mem_empty _ hmem
-    · rw [denoteP, hf] at hta
-      dsimp only at hta
-      rw [if_neg hlen] at hta
-      exact nomatch hta
+    (hty : c.toConstantVal.type = .const emptyName []) : False :=
+  -- **the pin, discharged by the carrier itself** (task #161 S7):
+  -- `Empty` is stored, so `basis_pinnedL` — the core's own field since
+  -- S3 — gives the leaf its direct pin.  This is the S3 seal's
+  -- prediction cashed: the premise dies with `EnvS2PM.base`, it is
+  -- not replaced.
+  no_constant_of_emptyPin_P mp (u := 1) (by decide)
+    (fun ψ => by simp +decide [Setlec.TTVerify.pinnedDirectT, Setlec.TT.emptyT])
+    c hc hty
+
+/-- **The capstone's business end, about `False`** (task #181): an
+environment carrying the P invariant stores no constant of type
+`False` — the pinned `False` block's leaf is `emptyT 0`, the empty set
+at `Prop`. -/
+theorem no_constant_of_False_P (mp : EnvS2PM V μ env)
+    (c : ConstantInfo) (hc : c ∈ env.consts)
+    (hty : c.toConstantVal.type = .const falseName []) : False :=
+  no_constant_of_emptyPin_P mp (u := 0) (by decide)
+    (fun ψ => by simp +decide [Setlec.TTVerify.pinnedDirectT, Setlec.TT.emptyT])
+    c hc hty
 
 /-! ## The remaining bill: none
 

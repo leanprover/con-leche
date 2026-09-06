@@ -1,6 +1,7 @@
 import Setlec
 import Setlec.Frontend.ExportC
 import SetlecTests.ZeroSetTests
+import SetlecTests.Axioms
 
 /-!
 Test suite.  Tests are `#guard`s and `example`s, so `lake test` (which

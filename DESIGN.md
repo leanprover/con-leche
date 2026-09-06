@@ -5,31 +5,86 @@ Lean. The goal is a checker that is performance-competitive with lean4lean or
 even the official kernel, together with a machine-checked consistency proof:
 
 > For everything the checker accepts there is a model in a suitable set
-> theory. In particular, no declaration of type `Empty` is ever accepted.
+> theory. In particular, no declaration of type `False` (or `Empty`) is
+> ever accepted.
 
 This document records the design decisions. It was distilled from the initial
 project prompt and is updated as decisions evolve.
 
-**Where the consistency proof lives** (since task #148 T7, 2026-08-29):
-`Setlec/SetR/*`, whose fourteen `*_R` theorems — `checkDecls_sound_R`,
-`no_proof_of_Empty{,_input}{,_C,_S,_SP}_R`, `checkDecl_sound_R`,
-`no_constant_of_Empty_R` — stand hypothesis-free at exactly
-`[propext, Classical.choice, Quot.sound]`. Its design record is
-`docs/SetR-DESIGN.md`.
+**Where the consistency proof lives** (current, since the SetR removal of
+2026-09-05): the **graded ("P") tier**, `Setlec/SetP/*`, with the
+capstone assembly in `Setlec/Verify/Cached/*`, and the statement a
+reader comes for in `Setlec/MainTheorem.lean`.
 
-**Two tiers were retired at T7/T7b, by user ruling.** The direct `Expr`
-set model and its consistency proof (`Setlec/Model/*`, 83 files / 62,992
+**Start at the top row.** `Setlec.no_proof_of_False` is the main
+theorem: it names the shipped configuration outright
+(`cfgOf .verified`), so it carries no mode witness and no residue —
+only `[SetTheory V]` (the standing parametricity of the consistency
+argument, not a hypothesis about the input) and the acceptance itself.
+Everything below it is what it is a corollary of: the *letters*, then
+the assembly under those, which does carry working hypotheses (the
+invariant, the fold's state conditions) and is pinned so that a change
+in the assembly is visible even when a letter's own footprint is
+unmoved.  **One main theorem, one loop it is about** (user ruling,
+2026-09-07): `Setlec/MainTheorem.lean` holds the `False` statement and
+nothing else — the `Empty` statement lives with the letters, and the
+`IO`-loop statement is gone with the machinery that carried it (see
+"THE PROGRESS LANE" below).
+
+| theorem | file | what it says |
+|---|---|---|
+| `Setlec.no_proof_of_False` | `Setlec/MainTheorem.lean` | **THE MAIN THEOREM** — if the checker in its default `--verified` mode accepts a stream, the resulting environment holds no constant of type `False` (task #181: `False` is a pinned basis block, `Setlec/Kernel/Basis/False.lean`, so the statement needs no hypothesis about how the stream declares it — a stream declaring the name any other way is rejected) |
+| `Setlec.Cached.no_proof_of_{False,Empty}_SPCD_P` | `Setlec/Verify/Cached/MainC.lean` | the shipped driver's letters, stated for every validating mode at once |
+| `Setlec.SetP.no_proof_of_{False,Empty}_P` | `Setlec/SetP/FoldP.lean` | **the pure letters** — the same conclusions for the pure fueled checker `checkDecls μ (fueledOps μ F)`, at every fuel |
+| `Setlec.SetP.no_proof_of_Empty_P_of` | `Setlec/SetP/FoldP.lean` | its install-tier-conditional form, the shape the harvest closes |
+| `Setlec.Cached.checkDeclsSPCachedD_sound_P` | `Setlec/Verify/Cached/MainC.lean` | the acceptance corollary under the driver's letter: an accepted cached run yields the model invariant `EnvS2PM` at the final environment |
+| `Setlec.Cached.foldSPC_PM` | `Setlec/Verify/Cached/MainC.lean` | the fold that threads that invariant step by step (an assembly lemma: fold-state hypotheses) |
+| `Setlec.SetP.no_constant_of_{False,Empty}_P` | `Setlec/SetP/CapstoneP.lean` | the business end: an environment carrying the P invariant stores no constant of type `False` / `Empty` (the invariant is its hypothesis; the harvest is what discharges it); both are instances of `no_constant_of_emptyPin_P`, the argument at any reserved name pinned to `emptyT u` |
+
+The axiom footprint is **pinned in the tree, not only claimed**:
+`tests/SetlecTests/Axioms.lean` (built by `lake test`, reported by `tests/arena.sh`
+as the `axioms:` line) carries a `#guard_msgs in #print axioms` for each
+of the eleven, so a drifting axiom footprint is a test failure. Seven
+of them — the main theorem, `no_proof_of_{False,Empty}_SPCD_P`,
+`checkDeclsSPCachedD_sound_P`, `foldSPC_PM` and
+`no_proof_of_{False,Empty}_P` — additionally have their
+module-level dependency closure pinned by `tests/proofdeps.sh`; the
+two gates measure different things (what a proof term ASSUMES vs which
+modules it REACHES) and neither implies the other.
+
+**THE PROGRESS LANE IS A SECOND, UNVERIFIED FOLD** (user ruling,
+2026-09-07).  A default run calls `checkDeclsSPCachedD` — the function
+the theorem above is about — and prints nothing per declaration.  With
+`SETLEC_PROGRESS=<stride>` the driver instead runs
+`Main.checkDeclsProgressIO`: the same `checkDeclStepIdxC` steps in the
+same order, in `IO`, with one line printed before each declaration.
+The user's words: *"Let's just have multiple modes in main, with their
+own loops. The pure one does not print status and is the one that the
+main theorem supports. In the mode that prints regular status updates
+we call a different function that folds in IO and is not verified.
+Nobody will be bothered by the difference between these trivial
+folds."*  The difference is *stated* — in that function's docstring, in
+`--help`, and here — rather than engineered away.  What it replaced,
+and why the replacement is better, is recorded under the progress-lane
+section below.
+
+**Three tiers were retired, by user ruling.** The direct `Expr` set
+model and its consistency proof (`Setlec/Model/*`, 83 files / 62,992
 lines, invariant `EnvModel`) and the declarative verification lane
-(`Setlec/TTVerify/*`, 50 files / 33,808 lines, invariant `EnvTT`) are
-deleted, together with the `--tt-model` mode the second was stated at.
-The `Setlec/SetR/*` theorems replace both, claim for claim. Prose
-references to those paths elsewhere in this document are historical
-citations. `Setlec/TTVerify/DESIGN.md` is deliberately kept (its §0/§25
-are the house practices); so is the declarative layer
+(`Setlec/TTVerify/*`, 50 files / 33,808 lines, invariant `EnvTT`) went
+at task #148 T7/T7b, together with the `--tt-model` mode the second was
+stated at; the collapsed-model tier (`Setlec/SetR/*` and its fourteen
+`*_R` theorems — `docs/SetR-DESIGN.md` is kept as its record) went on
+2026-09-05 ("do remove the SetR tier, for more focus") after the B4
+measurement showed a
+zero acceptance delta between the two verified configurations. The P
+theorems above replace all three, claim for claim. Prose references to
+those paths elsewhere in this document are **historical citations**;
+the opening of this section is the one place kept current.
+`Setlec/TTVerify/DESIGN.md` is deliberately kept (its §0/§25 are the
+house practices); so is the declarative layer
 `Setlec/TT/{Syntax,Subst,Const,Judgment}` + `Setlec/TT/Semantics/*`,
-because `Setlec/SetR/*` consumes `VExpr`, `interp`, `bval` and
-`HasType.const`/`HasType.sound` — see `docs/SetR-DESIGN.md` "T7b" for
-the consumer measurement that fixed that boundary. Its design record is
+whose `VExpr`/`interp`/`bval` the P tier consumes. Its design record is
 `Setlec/TT/DESIGN.md`.
 
 **Project goal** (set 2026-08-19): the lean kernel arena *tutorial* tests
@@ -132,7 +187,9 @@ resolves, and for every level assignment the closed left-hand λ-tower
 (`closeLamsAt fvms bL`) is `AnnotOk` and interprets to the same value
 as the stored rule right-hand side; analogous records for projections
 and unit-like/eta/K as those land.  Basis blocks discharge these facts from
-the hand-written set values (`Setlec/Model/BasisIota.lean`); modeled
+the hand-written set values (`Setlec/SetP/Basis{Eq,Cons,Empty,Quot}P.lean`
+today; the citation used to read `Setlec/Model/BasisIota.lean`, a tier
+deleted at #148 T7); modeled
 blocks discharge them at install from the checked `_model` theorems.
 `whnf`/`isDefEq`/`inferType` soundness consumes only the abstract facts
 and never identifies constants by name.
@@ -230,10 +287,15 @@ three stay declined by design under the axiom ceiling.
 
 ## Checker structure and verification style
 
-* **Strict layering**: implementation code (`Setlec/Kernel/*`, `Main.lean`)
-  must not depend on any module from the theory/verification part
-  (`Setlec/SetTheory/*`, `Setlec/SetR/*`, `Setlec/Verify/*`). The
-  verification imports the implementation, never the other way around.
+* **Strict layering**: implementation code (`Setlec/Kernel/*`,
+  `Setlec/Cached/*`, `Setlec/Frontend/*`, `Main.lean`) must not depend on
+  any module from the theory/verification part (`Setlec/SetTheory/*`,
+  `Setlec/SetModel/*`, `Setlec/Semantics/*`, `Setlec/SetP/*`,
+  `Setlec/Verify/*`). The verification imports the implementation, never
+  the other way around. `tests/layering.sh` is the fence (Lake's lib
+  split is only the layout); `tests/trust-surface.sh` is its companion
+  for the *other* direction of trust — no `unsafe`/`implemented_by`/
+  `native_decide` outside the allowlisted trust-surface files.
 * Verification is **extrinsic**: alongside each checker function there is a
   certifying variant producing the model-level fact
   (we don't put LCF-style certificates in the runtime environment):
@@ -3655,7 +3717,13 @@ arena, never to the text.  JSON strings are built fresh by
 buffer; the read line is `copy`-detached before parsing as extra
 insurance (core's `Handle.lines` pattern).
 
-The **preprocessor spawn** no longer pipes: `preprocess` stream-scans
+The **preprocessor spawn** no longer pipes [SUPERSEDED 2026-09-07, task
+#180 — it pipes again, and this time *streams* the pipe instead of
+capturing it whole; the temp file is gone entirely.  See "NO TEMP FILE:
+the preprocessor's stdout IS the parser's input" at the end of this
+file.  What the paragraph below is still right about is the reason the
+*old* pipe was dropped: `IO.Process.output` buffers the child's whole
+stdout in a `String`]: `preprocess` stream-scans
 the input for `inductive`/`quot` records (ndjson keys cannot span
 lines), and when the tool is needed it writes to a **temp file**
 (`-o path`, `IO.FS.createTempFile`; honors `TMPDIR` — commonly tmpfs,
@@ -43570,7 +43638,7 @@ Official clause (file:line at v4.33.0) → ours (spec `Core.lean` / P
 | I6 | `nat_lit_to_constructor` (`inductive.cpp:1267`), `string_lit_to_constructor` + `whnf` (`:1276`, `inductive.h:90-92`) | `litMajorToCtor :1311-1316`, `projLitToCtor :1327` | same | |
 | **whnf** `:671-711` | | | | |
 | N1 | easy cases uncached; `m_whnf` cache; loop `whnf_core → reduce_native → reduce_nat → unfold_definition` | `whnfStep :1701-1709` (`whnfCore → reduceNat → unfoldDefinition`); `whnfC` memo | same, minus `reduce_native` | |
-| N2 | `reduce_native` (`:576-597`): `Lean.reduceBool c` / `Lean.reduceNat c` run compiled code | none; `Lean.ofReduceBool/Nat` are pinned trust axioms whose USES are skipped at parse and decline the stream at the end (`TrustAxioms.lean`, "taint skip-and-continue") | **subset by design** (decline, exit 2) | the standing no-custom-axiom ruling; not a strategy item |
+| N2 | `reduce_native` (`:576-597`): `Lean.reduceBool c` / `Lean.reduceNat c` run compiled code | none, and none is needed: `Lean.reduceBool`/`reduceNat` are installed as ordinary **opaques** pinned by defeq to the toolchain's identity functions, and `Lean.ofReduceBool/Nat` as pinned axioms over them (`TrustAxioms.lean`, task #95). A proof that *uses* native evaluation therefore does not typecheck — the `reduceBool c = true` hypothesis is unobtainable — and the stream is **REJECTED** | **subset by design** (reject, exit 1) | corrected 2026-09-06 (external review §2): this row used to say uses are "skipped at parse and decline the stream at the end". That is the `sorryAx` taint rule, not this one — there is no native taint channel. `tests/e2e-expected.txt` pins `trust_native_use.ndjson → 1` |
 | N3 | `unfold_definition` (`:517-564`): `is_delta` = head constant with a value (definitions AND theorems, `declaration.h:230`) at matching level arity; level-polymorphic instantiations cached (`m_unfold`) | `unfoldDefinition :212-234` (defn + thm), `unfoldableHead :236`; `constValAt` memo (`unfoldDefinitionI CoreC:52-72`) | same | |
 | N4 | `reduce_nat` (`:639-668`): `Nat.succ` (1 arg) and 14 binary ops `add sub mul pow gcd mod div beq ble land lor xor shiftLeft shiftRight`, head an EXACT level-free constant, arity exact; `reduce_bin_nat_op` whnf's ARG 1, returns `none` if not a literal WITHOUT touching arg 2 (`:606-614`); `is_nat_lit_ext` = literal or `Nat.zero` (`:599`); `reduce_pow` refuses exponents `> 2^24` (`:616-627`) | `reduceNat :752-798`; `reduceNatI CoreC:83-160` — `match rawNatLit? (← r.whnf a), rawNatLit? (← r.whnf b)` whnf's BOTH arguments before matching (`:787-788`, `CoreC:140-141`); `rawNatLit? :345` accepts `Nat.zero`; additionally reduces **`Nat.pred`** and **`Nat.log2`** (`:764-771`) which official's list lacks; **no pow cap** (`natOpResult :610`, `a ^ b` unbounded) | **D15 cost (ours more) — witnessed**: the second argument is whnf'd even when the first is stuck; **S1 superset**: `pred`/`log2` fast paths; **S2 superset**: no `2^24` pow cap (official grinds `Nat.pow` unfolded instead; ours computes, or allocates without bound) | witness `_tmp/divergence-audit/src/natop_arg_order.lean` (`Nat.add o (slow 40000) = Nat.add (id o) (slow 40000)` with `o` opaque): official 0.221 G (control without the computation 0.204 G — official never evaluates `slow`), parity 16.13 G, P 14.04 G; at `slow 80000` official 0.221 G accepts, **parity exit 3** (fuel, 33.1 G) — the K-bug class, verdict-visible |
 | **is_def_eq_core** `:1086-1162` | | | | |
@@ -46587,7 +46655,12 @@ native regardless and is not the predicate's to decide.
   here is modelled there, and the priority gate ignores the model either
   way.  `scripts/perf-tables.sh`'s `$PREPROC` and `tests/scale.sh`'s
   availability probe follow the same order.  Flags are unchanged
-  everywhere — the new binary is the tool's own CLI.
+  everywhere — the new binary is the tool's own CLI.  [SUPERSEDED
+  2026-09-07, task #180: the checker's spawn now passes
+  `--quiet --no-type-check-generated` and no `-o` at all (it reads the
+  tool's stdout), and a nonzero exit is passed through as setlec's own
+  verdict instead of falling back to the raw stream.  See the task #180
+  section at the end of this file.]
 
 ### THE PREDICATE, AND THE DIRECTION THAT MATTERS
 
@@ -47636,7 +47709,6 @@ the next finder, since the mechanism §5 was written against has been
 removed.  The §7 tools and §8's "work against the slice, not the
 stream" stand.
 
-
 ## Task #179 — no threads, and the linearity audit that followed (2026-09-06, `agent/linear-audit`)
 
 **The user's brief:** *"oh, no threads please! and 6% array copying is
@@ -48163,6 +48235,1483 @@ one-constructor indexed family (SigmaHom, DESIGN §"TASK #175
 SigmaHom") is the `n = 1` instance of the same construction; the K
 rule at a zero-field indexed `Prop` is the squash instance.  Not done
 here.
+
+## Mathlib frontier tooling: `scripts/resume_slice.py` — the resume slice, and the measurement that at rung 5 it buys **0.25 %** (2026-09-06, `agent/resume-slice`)
+
+The ladder tools so far all cut *forward*: `slice_fast.py` keeps a
+target's cone and truncates there, `cut_decl_cone.py` removes a
+declaration's dependents.  The one the campaign was missing cuts
+*backward*: after a rung has been localised, everything before it has
+a known verdict, so re-checking it on the next attempt is pure
+latency.  `scripts/resume_slice.py` is that tool, and this section is
+both its README and the finding that came out of running it.
+
+### 1. What it does
+
+    scripts/resume_slice.py [--dry-run] [--report FILE] STREAM CUT [OUT]
+
+`CUT` is a 1-based declaration-record index (`decl_index.py`'s
+numbering) or a declaration name; the cut record is the first record of
+the kept suffix.  The output is a valid `setlec --pre` stream holding
+
+* every record at or after the cut, verbatim;
+* of the records before the cut, exactly the transitive dependency
+  closure reachable from the kept suffix;
+* every `in`, `il` and `meta` record (a few percent of the stream — no
+  name or level closure is needed), and the kept `ie` records **at
+  their original ids**, gaps and all, exactly as `slice_fast.py`
+  emits them.
+
+Four keep-rules beyond plain reachability, each of them load-bearing
+against a *silent* behaviour change rather than against a dangling
+reference:
+
+| rule | why |
+|---|---|
+| the `_model` companions of every kept declaration | `Kernel/Checker.lean`'s `directParts?` requires a block's companions to be **absent** to take the direct route, so dropping one flips the install route; `projRewriteD` reads the block's `T._model.proj_i.iota` artifacts, which no expression references |
+| the pinned basis blocks `Eq`, `Nat`, `PUnit`, `Empty` | `punitSeen` gates the projection-function rewrite (65 sites on this stream); the quotient basis install demands the pinned `Eq` |
+| every `quot` record | slot 0 is what pushes `.basisDecl .quotK` |
+| every `axiom` record | an axiom record is where a non-standard axiom's *positive decline* happens; keeping them all means a resume slice can never lose that verdict |
+
+Tolerated-axiom taint needs no rule of its own: taint *propagates*
+through the slice, because a kept declaration that used a skipped axiom
+still arrives with its tainted dependency present.  What the slice
+cannot reproduce is the *size* of the final `declined:` summary —
+dropped prefix declarations contribute no skips.
+
+### 2. The soundness caveat (in the script header too)
+
+**A resume slice has a smaller resident base than the full stream.**
+The parsed prefix is most of the checker's flat RSS — 12.2 GiB of the
+18.7 GiB ceiling on full Mathlib — so a *memory* blow-up the full run
+hits can fail to reproduce on the slice.  This is the finder's argument
+against a prefix bisect (§2 of "The Mathlib frontier at 24.97 %"),
+verbatim and in the same direction: **a slice can only hide a failure,
+never invent one.**  It is a localisation and re-check tool.  It is
+never the acceptance run, and its wall times and peak RSS are not the
+stream's.
+
+One further, smaller caveat: reference extraction is regex-based over
+the raw JSON, as in every slicer here, so a `strVal` payload spelling
+`"type":123` would be read as a reference.  That over-keeps; it never
+under-keeps.
+
+### 3. The finding: at rung 5 there is nothing to cut
+
+Run against `_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson`
+(5 708 171 489 B, **670 982** declaration records — the *native*
+preprocessor's stream, whose record numbering differs from the old
+`mathlib-full-pre.ndjson`; rung 5 sits at **198 370 / 670 982 =
+29.564 %** here, not 32.216 %):
+
+| | |
+|---|---|
+| cut | record 198 370, `thm Algebra.tensorH1CotangentOfIsLocalization_toLinearMap` |
+| prefix declaration records | 198 369 — **195 620 kept (98.614 %)**, 2 749 dropped |
+| prefix expression records | 32 163 542 — 31 922 944 kept, 240 598 dropped |
+| bytes | 5 708 171 489 → 5 693 668 882 kept = **99.746 %** |
+| what the resume slice buys | **0.254 % of the stream** |
+
+**At the ladder's live rung a resume slice buys essentially nothing.**
+The prefix of Mathlib at 30 % is the shared algebraic base, and the
+remaining 70 % still reaches almost all of it.  The mechanism is
+transitivity, not breadth: the suffix names only **56 294** prefix
+records *directly*; the other **139 326** come in as the dependency
+closure of those.  So a private `_simp` auxiliary survives the cut
+because the public lemma that uses it survives, and that public lemma
+survives because something in the last 70 % cites it.
+
+The payoff is a function of where the cut is, and the shape is worth
+recording, because it says when the tool is worth reaching for:
+
+| stream | cut | prefix records dropped | bytes dropped |
+|---|---|---|---|
+| Mathlib (native) | 29.564 % (**rung 5**) | 1.386 % | **0.254 %** |
+| Mathlib (native) | 50.000 % | 6.707 % | 2.346 % |
+| Mathlib (native) | 90.000 % | 40.400 % | 29.040 % |
+| `init-full-pre-native` | 50.001 % | 16.431 % | 7.419 % |
+| `std-time-cone/pre` | 70.909 % | 14.254 % | 16.315 % |
+
+The curve is convex and it is *late*: half of Mathlib is worth 2.3 % of
+the bytes, and only at 90 % does the tool return anything like the cut
+fraction.  The reading is the corpus's, not the checker's — Mathlib is
+a tower whose base stays live to the very top, so "declarations nothing
+after this point references" is a nearly empty set anywhere below the
+last tenth.
+
+So the tool earns its keep on a *late* cut, and on the Mathlib ladder —
+whose rungs sit at 17 %, 21 %, 24 %, 25 %, 30 % — it does not.  The
+campaign should keep working against the cone slices (`slice_fast.py`,
+`cut_decl_cone.py`), which produce a 200 MB reproducer, and not against
+a 5.69 GB resume slice that is the full stream minus a rounding error.
+That is the decision-grade datum of this section.
+
+### 4. Validation
+
+* **Identity.** `CUT = 1` reproduces the input byte for byte
+  (`_tmp/std-time-cone/pre.ndjson`).
+* **Structural.** Every kept record's expression, name and constant
+  references resolve inside the output, on all three slices.
+* **`std-time-cone` at record 4 000 / 5 641.**  Slice accepts **5 713**
+  declarations, full stream accepts 6 301; the difference, 588, is
+  exactly the constant count of the 570 dropped records.
+* **init-full at 50 %** (the required sanity test, `--verified --pre`,
+  `ulimit -v 16000000`).  Slice: exit **0**, accepted **51 817**
+  declarations, 2:16.58, max RSS 802 964 KB.  Full stream: exit **0**,
+  accepted **56 291**, 2:21.05, max RSS 857 468 KB.  The gap, 4 474
+  constants, is again exactly the 4 465 dropped records.  The
+  **verdict is preserved and the accepted set is the expected one**;
+  the wall-time saving is inside the noise, because 7.4 % of the bytes
+  are worth about that much of the run.
+* **Mathlib rung 5** — see §5; **the end-to-end verdict comparison is
+  still owed** (the run was killed for the session's memory budget, not
+  by the checker).
+
+### 5. The Mathlib rung-5 slice under the checker: 46 min of evidence, verdict PENDING (do not restart — see §7)
+
+`_tmp/resume-slice/run.sh rung5slice mathlib-rung5.ndjson`, master
+`2664b1dd` (binary md5 `c247c72eb96c5930c245e56414ddc08b`),
+`--verified --pre`, `ulimit -v 22000000`, `timeout 14400`.
+
+The run was **killed at t = 2 791 s (46:30) by SIGTERM (exit 143)** —
+the session's cgroup budget, with the `frontier4` lane's full-stream
+pass running beside it; two Mathlib-scale checkers plus builds do not
+fit.  **Session rule from that: one Mathlib-scale checker at a time.**
+So the comparison the task wants — same verdict at the same
+declaration as the full run — is **not yet made**, and this section
+must be completed by re-running the slice once `frontier4`'s pass has
+ended.  What the 46 minutes did establish:
+
+* **The slice parses.**  `rchar` reached 100 % of 5 693 668 882 B at
+  t ≈ 300 s and the checker went on to check, so every expression id
+  the kept records name resolves inside the slice — a full structural
+  validation of the closure at Mathlib scale, not a sample.
+* **The projection rewrite fires at exactly the same sites.**  The
+  slice prints `setlec: 65 projection functions of non-direct
+  structure-likes rewritten to recursor form`; so does the full-stream
+  run.  That is `punitSeen`, `projOwners` and the
+  `T._model.proj_i.iota` artifacts all surviving §1's keep-rules —
+  the failure mode those rules exist to prevent, tested and absent.
+* **The resident base, measured rather than argued.**  Slice: steady
+  RSS 12.07-12.11 GB, parse peak VmHWM 13.08 GB.  Full stream, same
+  binary generation, same limits: steady 12.09-12.13 GB, peak
+  13.15 GB.  The headroom a resume slice hides at this cut is
+  **~0.07 GB, ~0.5 %** — §2's caveat is real in kind and, here,
+  negligible in size, for the same reason §3 gives: there is almost
+  nothing to cut.
+* No reject, decline or panic in those 46 minutes.
+
+### 6. Speed, and the wall-time caveat
+
+The slicer is two passes.  The prefix is scanned line by line (the
+expression DAG flattened into `array`s, `slice_fast.py`'s layout, with
+a regex-free fast path for `app` nodes — four of five records); the
+suffix, every record of which is kept, is scanned with bulk
+`re.findall` over 256 MB chunks, ~7x faster per byte and all that is
+needed there, since the only thing the suffix contributes is the set of
+*prefix* ids and names it mentions.  The emit pass copies the whole
+suffix byte for byte and filters only the prefix.
+
+"Every `ie` record after the cut is kept" is exact, not merely
+conservative: lean4export emits an expression record the first time a
+declaration's serialisation needs it, so every expression record
+between two declaration records is reachable from the later one.
+
+On the 5.71 GB stream, producing the 5.69 GB rung-5 slice: **scan 110 s,
+mark 13 s, emit 18 s, total 140 s**, peak RSS 3.14 GB.  A second,
+byte-identical run taken later measured 163 s (scan 122, mark 15, emit
+26) — **wall time carries the usual contention caveat**, and here it is
+visible in the numbers themselves: the first run shared the machine
+with one full-Mathlib checker pass, the second with two, and the second
+run had *more* optimisation in it, not less.  Load average 16-25
+throughout.  The record and byte counts above carry no such caveat, and
+the two runs' outputs `cmp` equal.
+
+The remaining lever, if a resume slice ever becomes hot enough to
+want: the suffix scan is chunk-parallel by construction (each 256 MB
+chunk's reference sets merge independently, and the declaration records
+merge in chunk order), so a `multiprocessing` pool would take the 110 s
+scan to well under a minute.  It was not worth writing for a tool whose
+own measurement says it buys 0.25 % at the rung it was built for.
+
+### 7. Artefacts (`_tmp/resume-slice/`), and how to finish §5
+
+* `run.sh` — Mathlib-scale harness for a slice (22 GB cap, 4 h timeout,
+  RSS + `rchar` sampled every 30 s), the `frontier4` script retargeted.
+* `mathlib-rung5.ndjson` — the rung-5 resume slice (5 693 668 882 B) and
+  `mathlib-rung5.report`.
+* `mathlib-cut335491.dryrun`, `mathlib-cut603884.dryrun` — the 50 % and
+  90 % points of §3's curve.
+* `initfull-50pct.{ndjson,report,out,time}` and `initfull-full.{out,time}`
+  — the §4 sanity pair.
+* `rung5slice-{p,rss}.log`, `-time.txt`, `.exitcode`, `-binary.md5` —
+  the killed run of §5 (exit 143 = SIGTERM at 46:30).
+
+**§5 is PENDING and must not be restarted on sight.**  The
+coordinator's standing ruling (2026-09-06): the `frontier4` full-stream
+pass has not ended, **a second Mathlib-scale run is not allowed while
+it runs**, and the first attempt was already killed for the session's
+cgroup budget.  Do not re-launch it opportunistically; it is
+*scheduled*, not merely waiting.  The precondition is
+
+    pgrep -f "frontier4/.lake/build/bin/setlec"    # must be empty
+
+and the *coordinator's* go-ahead — one Mathlib-scale checker at a time.
+Then
+
+    _tmp/resume-slice/run.sh rung5slice2 _tmp/resume-slice/mathlib-rung5.ndjson
+
+and compare the verdict, the dying/last declaration and the RSS profile
+against the full-stream pass in `_tmp/frontier4/beb8c2bb-*`.  The
+prediction the slice has to meet: **the same outcome at the same
+declaration**, since the slice keeps 99.746 % of the stream and every
+record from rung 5 on.
+
+Note what this run is now *for*, and what it is not.  §3's payoff curve
+has already decided the campaign question — **the cone slicers
+(`slice_fast.py`, `cut_decl_cone.py`) stay the workhorse**, and no
+frontier work waits on §5.  The pending run buys one thing only: the
+end-to-end confirmation that a resume slice preserves the verdict at
+Mathlib scale, which §5's parse, the matching 65 projection rewrites
+and the 46 minutes of clean checking already make very likely.  It is
+worth taking when a Mathlib-scale slot is free anyway; it is not worth
+displacing anything for.
+
+## TASK #180 — NO TEMP FILE: the preprocessor's stdout IS the parser's input (2026-09-07, `agent/tmpdir`)
+
+**The finding.**  "Is anyone using tmpfs?" — yes, the checker itself was.
+`preprocess` ran `setlec-preprocess --quiet -o TMPFILE FILE` with the
+scratch path from `IO.FS.createTempFile`, which resolves to the system
+temp directory; on this machine (and most Linux distributions) `/tmp` is
+a RAM-backed tmpfs, so the *whole* preprocessed stream was charged to
+memory beside the checker's own heap — 336 MB for `init-full`, and a
+Mathlib-scale raw export would put ~5.8 GB there.  Relocating the file to
+disk was the obvious fix; the better one is that no file is needed.
+`lean-inductive-models` writes its export to **stdout** by default
+(`Cli.Config.outputTarget := "-"`, and its declaration-stream backend
+emits record by record), and setlec's frontend reads its input strictly
+forward, one `getLine` at a time.  So the tool is now spawned with
+`stdout := .piped` and no output flag, and `Frontend.parseExportHandleD`
+— `parseExportStreamD` split at the handle, the file wrapper kept — is
+fed that pipe: two processes streaming, nothing buffered whole in either,
+nothing on disk anywhere.  The child's stderr is *inherited* rather than
+captured (with `--quiet` the tool prints only fatal errors, which now
+reach the user instead of being swallowed by `IO.Process.output`, and no
+second pipe can fill while the first is being drained), and its exit
+code is still consulted — see "a preprocessor reject is our reject"
+below for what a nonzero one now means.  One further difference: a
+checker decline reached *before* the tool exits is our verdict, and the
+child is killed first, since we have stopped draining its pipe and a
+blocked writer would never exit; a *parse* error drains the pipe
+instead of killing, so that a tool which failed mid-stream — leaving us
+a truncated record — still gets to state its own verdict, which then
+wins over our reading of its debris.  Because the file is *gone* rather than
+moved, there is no cleanup path left to get wrong: not the error paths,
+not the supervised child's OOM kill (`SETLEC_SUPERVISED`), not `--pre`
+(which never spawns the tool at all).  What still needs scratch space is
+the *test scripts*, which gunzip multi-gigabyte fixtures — `tests/arena.sh`,
+`tests/pilot-parity.sh`, `tests/scale.sh`, `tests/pilot-scale.sh` now
+`export TMPDIR="${TMPDIR:-$PWD/_tmp/tmp}"` after their `cd` to the project
+root, so a caller's `TMPDIR` is honoured and the default is the project's
+on-disk `_tmp/` convention rather than the system temp; exporting it means
+every child (the checker, `mktemp -d`, the generator) inherits the same
+choice.  **Rule, recorded:** the checker creates no temporary files;
+anything in the tree that needs scratch space honours `TMPDIR` and
+otherwise uses `./_tmp/tmp`, never `/tmp`.
+
+### The spawn's flags: no second kernel over the generated islands
+
+The tool's defaults are `--check-input on`, `--check-output on` (its
+*structural* model-family checks), `--type-check-generated on` (Lean's
+**kernel** re-checks every generated model island as it is produced) and
+`--type-check-input off`.  The kernel re-check is duplicated work by
+construction: those generated definitions and theorems arrive in the
+stream setlec is handed, and setlec type-checks each of them itself, as
+an ordinary declaration, with the checker whose consistency is the point
+of this repository.  So the spawn now passes
+`--no-type-check-generated`.  The structural checks stay — they are
+cheap and they check *shape*, which nothing downstream re-derives — and
+`--type-check-input` stays **off** on principle: submitting the
+untrusted input to Lean's kernel is the job we exist to do ourselves.
+
+Measured on the raw exports, preprocessor alone, `perf stat -e
+instructions:u` (wall is same-machine and contended, quoted only for
+scale), and the output stream `cmp`-identical with and without the
+re-check in both cases:
+
+| stream | with re-check | without | Δ instr | wall (contended) |
+| --- | --- | --- | --- | --- |
+| `init-full` (325 MB in, 329 MB out) | 168.63 G | 166.16 G | **−1.46 %** | 17.4 s → 16.5 s |
+| `mathlib slice-small` (459 MB in, 483 MB out) | 284.01 G | 265.50 G | **−6.52 %** | 32.7 s → 28.3 s |
+
+So the flag is a real but small saving — a bigger one the more of the
+stream is *Mathlib-shaped*, since the saving is proportional to the
+generated model islands and `init-full` has proportionally fewer of
+them than a Mathlib slice.  It is worth *measuring* rather than
+assuming, because "Lean's kernel runs over every generated model"
+sounds like it should dominate and does not: the tool's own generation
+and parsing are the bulk of its work.
+
+**`mathlib-full` was not affordable, and said something anyway.**  Both
+passes over the 5.6 GB raw export died with `INTERNAL PANIC: out of
+memory` under the 16 GB `ulimit -v` cap (A 2.76 T instructions / 310 s,
+B 2.69 T / 287 s, both to the panic, so neither number is a
+measurement).  What the failed runs *did* leave behind is the point of
+this whole task, in the wild: two orphaned 2.9 GB
+`.lean-inductive-models-output-<hex>.tmp` siblings in the output
+directory — the tool's transactional `-o` scratch file, which an
+OOM-killed process never renames or removes.  Writing to a pipe has no
+such file to leak.
+
+### "A preprocessor reject is our reject" (user ruling, 2026-09-07)
+
+`lean-inductive-models` follows the same arena exit-code contract setlec
+does (its README: 1 rejected by a requested structural or kernel check,
+2 a requested generation route declined an unsupported owner, 3 parser /
+IO / CLI / internal error), and the kernel it rejects with is **Lean's
+own**.  A block it rejects — a non-positive occurrence, a wrong
+parameter count — is therefore invalid input, full stop, and not a
+limitation of ours.  Until now a nonzero exit made the checker discard
+the tool's output and check the *raw* stream instead, where the first
+inductive has no model and the run declined: 29 arena bad tests that
+expect a **reject** were getting a decline out of that path (finding
+F1), and the reject the reference kernel gives was reachable only by
+running the tool by hand.  The fallback is gone.  The mapping is now
+exit 1 → 1, exit 2 → 2, anything else → 3, each with the tool's own
+message already on stderr (it is spawned `stderr := .inherit`, and
+`--quiet` silences only its *success* reports).  The one exception,
+deliberately kept: a preprocessor that cannot be **run** — no binary at
+that path — still falls back to the raw stream, which is what the `raw`
+test fixtures exercise by pointing `SETLEC_INDUCTIVE_MODELS` at a
+nonexistent path.
+
+The decline message is setlec's own rather than the tool's, because the
+per-owner "declined —" lines *are* success-path reports and `--quiet`
+suppresses them; it says so and points at the re-run that prints them.
+
+Two e2e fixtures pin the two halves: `pre_reject_nonpositive.ndjson`
+(the arena's `bad/tutorial/052_indNeg`, vendored) now **rejects** with
+exit 1 and the tool's "(kernel) arg #1 of 'indNeg.mk' has a non
+positive occurrence of the datatypes being declared" on stderr, and
+`pre_decline_imax_field.ndjson` (lean-inductive-models' own
+`prim_shape_declines`, whose `PadImaxIdx` reaches no generation arm)
+**declines** with exit 2.  The second one also pins the native
+predicate's boundary from the other side: `PadImax`, the non-indexed
+half of the same shape, comes back `native` — the direct
+simple-structure route takes it — and only the indexed one declines.
+
+**What the arena said, and one FINDING.**  Sixteen bad tutorial tests
+moved off the fallback's decline.  Fourteen of them now **reject**,
+which is the reference verdict: the tool's kernel is Lean's and it is
+rejecting the block while generating its model — non-positive
+occurrences (052, 055), wrong parameter or constructor-result shapes
+(047–050, 116, 117), an occurrence in an index (051), a non-sort motive
+(045), a field universe that does not fit (059), a constructor type
+that does not reduce to its owner (054), the two duplicate-declaration
+streams (136, 138).  **Two become errors (3), and that is a finding to
+report, not a preference**: `071_BogusRecursor` and
+`135_misnamed_rec_user` are inputs whose *declared* recursor metadata
+contradicts their own block, and `lean-inductive-models` classifies
+that as its own internal error ("BogusRecursor.rec's exact recursor
+layout differs from its installed metadata"; "2 generated statements
+differ from their exact exported owner interface") rather than as a
+rejection of the input.  The reference verdict for both is a reject.
+The fix belongs upstream — an input lying about its own recursor is
+invalid input, not a tool malfunction — and setlec deliberately does
+**not** second-guess an exit code it has decided to trust; that would
+put the classification in two places.  Recorded here and pinned in
+`tests/arena-expected.txt`.
+
+### The one place the resolution had to get stricter
+
+Deciding "the tool is not there" now has to happen **before** the spawn,
+because after it a missing binary is indistinguishable from a failed
+one: Lean's `IO.Process.spawn` does not throw for a nonexistent
+executable — it succeeds, and the child prints "could not execute
+external process" and exits **255**.  Under the old code that landed in
+the `exitCode ≠ 0` arm and fell back to the raw stream, which is exactly
+what the nine `raw` e2e fixtures rely on
+(`SETLEC_INDUCTIVE_MODELS=/nonexistent`); under the new mapping it would
+have become a bogus exit 3, and did, for all nine, until
+`findPreprocessor` was made to resolve **every** branch to a path that
+exists — the `$PATH` step included, by looking `$PATH` up itself
+(`resolveTool`) instead of leaving the bare name to the spawn.
+
+**Gates.** `lake build` 619 jobs warning-free; `lake test` green;
+`tests/arena.sh` **0 FAIL** — arena tutorial 90/92 good accepted, e2e
+81/81 (the two new fixtures included), annot 14/14, retired flags 8/8,
+mode flags 16/16, trusted sweep 138+81+14 with its three recorded
+divergences, and sixteen bad tutorial expectations rewritten as
+described above; `init-full` accepted, **56 291 declarations in both
+modes**, unchanged from before the task (peak RSS 803 MB verified /
+837 MB trusted, ~1:55 each, `/tmp` entry count identical before and
+after); and the evidence for the no-temp-file claim — an arena tutorial
+*raw* export (`good/tutorial/080_RBTree.id_spec.ndjson`, which the
+preprocessor really does reduce) run under `strace -f -e
+trace=openat,unlink,rename,pipe2` with `TMPDIR` pointed at an empty
+directory: **zero** writable `openat`s across all three processes, zero
+`/tmp` accesses, the watched directory still empty afterwards, and the
+input opened twice read-only (the `needsPreprocess` scan and the tool's
+own read) with the export flowing through a `pipe2`.
+
+### Re-gated at the master merge (`0c9a69c0`; master `f1932977`)
+
+Merged master's sum-types route (`Kernel/Direct/Sum*`, `SetP/DirectSum`,
+the widened `setlecNative`), the resume-slice script and its DESIGN
+records.  Two conflicts, both textual: `DESIGN.md` (two appended
+sections — both kept, master's first) and `tests/arena-expected.txt` at
+`138_DupConCon`, where **both branches had already moved the line to
+`1`** for different reasons.  That is worth stating precisely, since the
+comment master left there is now one step behind the shipped path: with
+the preprocessor present, 138 is rejected by *its* duplicate-declaration
+check ("invalid export: duplicate declaration dup_ind_con_con.mk") and
+that verdict is ours; the sum route's pairwise-distinct guard
+("invalid: direct sum: duplicate constructor") is what rejects the same
+stream when the preprocessor is unavailable.  Both give 1, by two
+independent routes — the comment in the expectations file now says so.
+
+Gates, once, on the merge: `lake build` **647 jobs warning-free**;
+`lake test` green; `tests/arena.sh` **exit 0** — layering base 252 /
+P 166 / caps 2 / umbrella 1 with 0 base→lane and 0 impl→theory,
+`proofdeps` 1 441 rows / **0 doors** as auto-merged (no regeneration),
+pindump fresh, arena tutorial 90/92, e2e **85/85** (master's two new
+fixtures plus this task's two), annot 14/14, retired flags 8/8, mode
+flags 16/16, trusted sweep 138 + 85 + 14 with the three recorded
+divergences; `init-full` **55 931 accepted in both modes** (exit 0) —
+master's post-sum-types figure exactly, i.e. this task changes no
+verdict on it.
+
+## `SETLEC_PROGRESS` — TWO LOOPS: the verified fold, and an unverified twin that prints (2026-09-07, `agent/heartbeat` → `agent/ioshape`)
+
+A multi-hour run said nothing until it finished, and the obstacle was
+structural: the driver's fold is a *pure* `foldlM` in
+`StateT CState (Except CheckError)`, so the `IO` driver had nowhere to
+interleave a print, while *forking* the fold is what the
+`SETLEC_TRACE_DECLS` localisation lane does — the reason that lane is
+structurally unable to produce a verdict.
+
+**Three designs were tried and rejected before the user ruled.**
+
+1. A `progressTick` hook whose definition was `x`, with an
+   `@[implemented_by]` companion doing the printing — refused against
+   the standing project ruling (*"do not use `implemented_by`; if you
+   can prove them equal, use `csimp`"*).
+2. A `dbgTrace` on a stride-gated branch inside the step — escape-free,
+   but it put message-building on the checked path and gave the fold a
+   printing argument, which every statement about the fold then had to
+   quantify over.
+3. A monad-generic loop: `checkDeclsSPCachedM` taking
+   `Callbacks m = { before, after : Nat → DeclC → m Unit }`, with a
+   bridge `checkDeclsSPCachedM_eq` proving that *in any lawful monad*
+   the loop is the callback effects followed by the pure driver's
+   verdict, plus an `IO` letter on top.  Mathematically this was the
+   nicest of the three, and it produced one finding worth keeping (see
+   below) — but it carried a `Callbacks`-shaped generalisation, a
+   second capstone family, and a `LawfulMonad IO` instance the standard
+   library does not provide, all so that a *print* could happen.
+
+**The ruling** (user, verbatim): *"Don't define lawful IO! That's not
+really our job if it isn't in the standard library. Let's just have
+multiple modes in main, with their own loops. The pure one does not
+print status and is the one that the main theorem supports. In the mode
+that prints regular status updates we call a different function that
+folds in IO and is not verified. Nobody will be bothered by the
+difference between these trivial folds."*  And, on the same day:
+*"Why two pure theorems? Just the one about False!"*
+
+### What is in the tree now
+
+* **Default run**: `Main.lean` calls
+  `Setlec.Cached.checkDeclsSPCachedD (cfgOf mode) decls.toList` — the
+  exact function `Setlec.no_proof_of_False` is about — and prints
+  nothing per declaration.
+* **`SETLEC_PROGRESS=<stride>`**: `Main.checkDeclsProgressIO`, an
+  openly unverified `IO` fold in `Main.lean` — the same
+  `checkDeclStepIdxC` steps in the same order over the same records
+  from the same empty environment and state, with one line printed
+  before each declaration.  Its docstring says it is unverified,
+  `--help` says it, and its own `parse done` line says it.
+* Nothing else changed: the indexed step (the error carries the failing
+  fold position), the mode-tagged verdict lines and the streamed
+  supervisor stderr all stay.
+
+The two folds differ in the print and in nothing else, and the
+difference is *stated* rather than engineered away.  A run with the
+variable set is not covered by the main theorem; a run without it is —
+which is the honest description, and cheaper in every direction than
+the machinery it replaced.
+
+### The finding the third design left behind
+
+`IO` cannot be quoted as a lawful monad in this toolchain: `IO` is
+`EIO IO.Error = EST IO.Error IO.RealWorld` and core ships **no
+`LawfulMonad` instance** for `EST`, `EIO` or `IO` (`#synth LawfulMonad
+IO` fails).  It is provable — `LawfulMonad.mk'` with `funext` and a
+`cases` on the intermediate result discharges the three primitive laws,
+and `instMonadEIO` is definitionally `instMonadEST`, so the `EST` proof
+*is* the `IO` instance — but providing it is not this project's job,
+and the two-loop design does not need it.  Recorded here in case a
+later task wants it (or in case core grows one).
+
+### Using the lane
+
+`SETLEC_PROGRESS=<stride>` (unset or `0` is off; a non-numeral is a
+hard error, per the provenance discipline) prints
+
+    setlec: progress <i>/<N> <decl> t=<elapsed>s
+
+every `<stride>` declarations, flushed, plus the two bracket lines the
+fold's caller prints — `parse done` (N, the elapsed parse, and the
+unverified-lane warning) and `fold done` (the position reached, `N` on
+an accept, and the fold duration).  The line goes out **before** the
+declaration is checked, so a run that dies — an OOM, a timeout, a
+`SIGKILL` — names on its last line the declaration it died in.  `i` is
+the FOLD position (see the measured note under NO SECOND PASS for why
+no stream-record index is printed beside it).  Cost, measured at stride
+1 on `init-full` under the earlier in-fold design — one flushed line
+per declaration — nothing detectable (101.4 s against 102.7 s with the
+variable unset); the twin fold is the same work plus that print.  The
+supervisor streams the child's stderr line by line rather than
+buffering it to EOF, so the lines arrive while the run is going.
+
+### Linearity of the progress fold, measured
+
+The unverified twin has to be linear too — a printing loop that copies
+the environment's index per declaration would be worse than no progress
+output at all (that is exactly what made the old `traceLoopC` probe
+unusable).  It is written tail-recursively with `fe` and `s` dead at
+the recursive call, and the generated C confirms the shape:
+`.lake/build/ir/Main.c`'s `lp_setlec_checkDeclsProgressIO` builds the
+`(i, fe)` pair and calls `checkDeclStepIdxC` with **no `lean_inc` of
+the `FEnv` or the `CState`** — a `grep` for incs of either inside the
+function's body returns zero — and the recursion rebinds both and
+jumps back to `_start`.
+
+Measured on `scripts/gen_linear_stream.py` (task #182's synthetic
+stream: `N` trivial declarations, constant work each, so instructions
+per declaration must stay flat), `perf stat -e instructions:u`, one run
+per cell, `ulimit -v 16000000`, `SETLEC_SUPERVISED=1`, `--verified
+--pre`, the progress column at `SETLEC_PROGRESS=100000`:
+
+| N | default loop | progress loop | delta |
+|---|---|---|---|
+| 300 000 | 88 590 instr/decl | 88 669 instr/decl | +0.09 % |
+| 1 000 000 | 88 539 instr/decl | 88 628 instr/decl | +0.10 % |
+
+Flat in `N` on both loops (per-declaration cost at 1 000 000 is 0.9994
+resp. 0.9995 of the 300 000 figure) and the two loops agree to a tenth
+of a percent — the printing lane costs the ten lines it prints and
+nothing structural.
+
+**Follow-up left open**: `SETLEC_TRACE_DECLS` (the localisation lane,
+`agent/frontier4`) is the same fold with a line per declaration and can
+share `checkDeclsProgressIO` when it lands.
+
+
+## NO SECOND PASS — the fold's error carries the failing declaration (2026-09-07, `agent/heartbeat`)
+
+A rejection used to be located by running the checker *again*:
+`Main.lean`'s `diagLoopC` re-ran the same per-declaration step over the
+same records until it failed a second time, just to put a name in the
+message.  That is a full re-check of the accepted prefix (on a large
+stream, minutes) and, worse, a claim the verdict run never made — if
+the two passes ever disagreed, the message would name a declaration
+that was not the one that failed.  The fold now carries the position:
+`checkDeclStepIdxC` folds `(i, fe)` and tags a failing step's error
+with `i`, so `checkDeclsSPCachedD` has result type
+`Except (CheckError × Nat) Env` and the driver reports the failing
+declaration by indexing the record array it already holds —
+`setlec: <error> [at <decl>, fold position <i>] t=<elapsed>s`.
+`diagLoopC` and its call site are deleted.  **The accept side did not
+move**: `checkDeclsSPCachedD cfg ds = .ok env` is the same sentence, so
+`no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_run`, `foldSPC_PM`,
+`checkDeclSPStepC_skels` and the whole agreement floor keep their
+statements verbatim (axioms still exactly `propext`,
+`Classical.choice`, `Quot.sound`).  Two proofs re-project through one
+new lemma pair, `foldIdxC_ok` / `foldIdxC_run'_ok` — *an accepting run
+of the position-carrying fold is an accepting run of the plain fold* —
+which lives in `Setlec/Cached/ParsedC.lean` beside the two folds rather
+than in `Setlec/Verify/*`: it is self-contained (the `Std.HashMap`
+exception), and its two consumers (`Verify/Cached/MainC.lean`,
+`Verify/Cached/AgreeFloor.lean`) share no `Verify` module, so a new
+module holding it would enter all four capstones' closures — a door in
+`tests/proofdeps.sh`, which still reports 1342 rows and **0 doors**.
+
+**A measured correction to the trace lane's `+4`.**  The message
+prints the FOLD position and the declaration name, and deliberately no
+stream-record index: the offset between the two is not a constant.
+Counted on `init-full-pre-native` (2026-09-07): 54 351 declaration
+records against 54 346 fold positions, and the offset is **0** through
+fold position 5 000 and 5 by the end — the parse folds the four `quot`
+records into a single `basisDecl` (−3) and drops a couple of others,
+and a taint-skipping stream loses more.  The `+4` the
+`SETLEC_TRACE_DECLS` lane documents is that stream's own total, not a
+law; the portable handle is the NAME, which
+`_tmp/frontier3/decl_index.py` turns back into a record index and a
+percentage.  The trace lane keeps its job regardless: an OOM or a
+`SIGKILL` destroys the process before any `Except` can be returned, so
+a *printed* line remains the only witness there.
+
+## The verdict line names the MODE, and a declined stream never says "accepted" (2026-09-07, `agent/heartbeat`)
+
+Two things a log reader could be misled by, from an external-style
+review of the driver.  First, `setlec: accepted N declarations` did not
+say *which mode* produced it, so a `--trusted` run — the **unverified**
+lane, whose whole point is that it omits certificate families — was
+indistinguishable in a log from the `--verified` one the capstone is
+about.  Every verdict line now carries the flag that produced it:
+`setlec: accepted N declarations (--verified)`, the same tag on the
+decline lines and on the rejection line.  Second, and worse: a stream
+carrying a tolerated-axiom use is a **decline** (user directive
+2026-08-24 — the tainted declarations are skipped at parse and the
+rest is checked, which is not an acceptance of the stream), and the
+driver printed `accepted N declarations` on stdout and *then*
+`declined: …` on stderr before exiting 2.  Anything that greps for the
+accept line — or a human skimming — read that as an accept.  The
+accepting arm now branches: with no skips it prints the accept line and
+exits 0; with skips it prints
+`setlec: declined (N declarations checked, M skipped for tolerated
+axioms) (--mode): <detail>` and exits 2, and the word "accepted" never
+appears.  (`Frontend.taintSummary` keeps its shape for the failure
+path; the count-free `taintDetail` is the new half it is built from.)
+Checked: `scripts/perf-tables.sh` reads the count with
+`grep -oE '[0-9]+ declarations'`, which still matches, and
+`tests/arena.sh`, `tests/scale.sh` read exit codes only.
+### Gates (2026-09-07, at the merge with master `43169c7e`)
+
+`lake build` warning-free (648 jobs); `lake test` green; `tests/arena.sh`
+0 FAIL — arena tutorial 90/92, e2e 85/85, annot 14/14, retired flags
+8/8, mode flags 16/16, progress heartbeat 1/1, trusted sweep
+138 + 85 + 14 with its three recorded divergences — with
+`tests/layering.sh` (base 252 / P 166 / caps 3 / umbrella 1, 0
+base→lane, 0 impl→theory) and `tests/proofdeps.sh` (1 441 rows across
+the four capstones, **0 doors**, no regeneration) inside it; `#print
+axioms` on `Setlec.no_proof_of_Empty`, `Setlec.no_proof_of_Empty_IO`,
+`Setlec.Cached.no_proof_of_Empty_SPCD_IO` and
+`Setlec.Cached.checkDeclsSPCachedM_eq` exactly `[propext,
+Classical.choice, Quot.sound]`; `init-full`
+(`_tmp/init-exports/init-full-pre-native.ndjson`, `--pre`) accepted
+56 291 declarations in **both modes, with and without
+`SETLEC_PROGRESS=5000`**, verdict line byte-identical within each mode
+(verified 95.3 s off / 95.0 s on; trusted 95.4 s / 93.6 s — the
+callback loop costs nothing measurable).
+
+Landed on master after a final merge of `5d0b12f0`, whose only change
+against the gated tree was one README line — documentation, so the
+re-gate was `lake build` (warning-free, 648 jobs) rather than the full
+set.  Two items are deliberately **not** done here, by the
+coordinator's note: the `SETLEC_TRACE_DECLS`-as-a-`before`-callback
+follow-up belongs to `agent/frontier4` and lands with that lane, and
+the README's mention of the `IO` sibling theorem is the user's to write
+(README is human-written).
+
+## Credibility hygiene: the axiom pin, the trust-surface gate, the stale opening, and CI (2026-09-06, `agent/hygiene`)
+
+**Trigger.**  The external review of master `f1932977`
+(`_tmp/review/EXTERNAL-REVIEW.md`).  Four of its findings were not
+about the mathematics at all but about whether a reader can *check* the
+mathematics: §2 ("**I could not confirm this on the current tree**" —
+the axiom footprint of the headline theorem), §5.6 (the `unsafeCast`
+stubs), §1 (`DESIGN.md:13-18` stale on the single most important fact),
+§5.1 (no CI, so nothing above is ever re-checked).  This section is the
+batch that closes all four.  Nothing here changes a theorem; everything
+here changes what a stranger can verify without trusting the journal.
+
+### 1. The axiom pin (`tests/SetlecTests/Axioms.lean`)
+
+The tree carried **one** `#guard_msgs in #print axioms`, on
+`SetTheory.ofAczelChain` (`Setlec/SetTheory/Aczel.lean:455`), and none
+on any capstone.  `tests/proofdeps.sh` pins *module* closures, which is
+a different quantity — the S9 lesson applied one level up: a
+module-level pin measures where the proof term GOES, not what it
+ASSUMES.  So "exactly `[propext, Classical.choice, Quot.sound]`" was a
+sentence in a 48 000-line journal.
+
+Guards now stand in the test library, one per pinned theorem.  Six
+were written against `f1932977` — the two letters
+(`no_proof_of_Empty_SPCD_P`, `no_proof_of_Empty_P`) and the four
+assembly steps under them (`checkDeclsSPCachedD_sound_P`,
+`foldSPC_PM`, `no_proof_of_Empty_P_of`, `no_constant_of_Empty_P`) —
+and **all six passed first try, at exactly the three standard
+axioms.**  The claim was true; it simply was not checkable.
+
+Four more joined at the landing merge, when `Setlec/MainTheorem.lean`
+and the `IO` loop reached master: `Setlec.no_proof_of_Empty` and
+`Setlec.no_proof_of_Empty_IO` (the two MAIN THEOREMS, now the top of
+the module's table and of this document's opening),
+`Setlec.Cached.no_proof_of_Empty_SPCD_IO`, and
+`Setlec.Cached.checkDeclsSPCachedM_eq`.  The last is not a consistency
+statement but the *computational* one the `IO` letters stand on — the
+callback loop's result IS the pure driver's — and it is pinned for
+exactly that reason: it is what makes the `IO` letters statements about
+the loop the binary runs rather than about a twin.  **Ten guards, all
+at the three standard axioms, all passing.**
+
+It is now a build error to break any of them — `lake test` elaborates
+the module, and `tests/arena.sh` reports the `axioms:` line beside
+layering / proofdeps / pindump / trust-surface.
+
+The module imports the capstones and nothing imports it, so it cannot
+enter any capstone's closure.
+
+**The proofdeps roots went from four to six** at the same merge:
+`Setlec.no_proof_of_Empty` and `Setlec.no_proof_of_Empty_IO` are now
+pinned module-wise too, since they are what a reader checks first.  The
+regeneration is +742 rows and **zero drift on the four pre-existing
+labels** — byte-identical to the pin written against `f1932977`, so
+master's main theorem, `IO` loop and task #180 added nothing to the
+letters' closures.  The two new labels measure 371 modules each against
+`SPCD_P`'s 370, and the difference is exactly
+
+    Setlec.MainTheorem
+
+and nothing else, in both directions and for both roots.  That is the
+property worth having and it is now mechanized: **the headline theorems
+reach nothing the letters they wrap do not** — the `IO` sibling
+included, which reaches no module beyond what `MainC` already does.
+
+### 2. The trust-surface gate (`tests/trust-surface.sh`)
+
+**The blindness that motivates it.**  `#print axioms` sees the LOGICAL
+TCB.  It is completely blind to `@[implemented_by]`,
+`@[computed_field]`, `unsafeCast` and `ptrAddrUnsafe`: a theorem can
+stand at the three standard axioms and still be about a function whose
+compiled behaviour was swapped out underneath it.  Three gates, three
+quantities, and the project now has all three:
+
+| gate | measures |
+|---|---|
+| `tests/proofdeps.sh` | which MODULES a pinned root's proof term reaches |
+| `tests/SetlecTests/Axioms.lean` | what the PROOF TERM assumes (logical TCB) |
+| `tests/trust-surface.sh` | what the COMPILED CODE assumes (runtime TCB) |
+
+The gate scans every `*.lean` under `Setlec/`, `tests/`, `scripts/` and
+the four roots — **after stripping block comments, line comments and
+string literals** — for `unsafe`, `unsafeCast`, `ptrAddrUnsafe`,
+`implemented_by`, `computed_field`, `native_decide`, bare
+`ofReduceBool`/`ofReduceNat`, `sorry`, `lcProof`, `@[extern]` and
+`axiom` declarations, and fails on anything outside a per-file
+allowlist whose justification is the script header.  The stripping is
+load-bearing: without it the checker's own *data* (the `Name` literals
+`"sorryAx"` and `"ofReduceBool"`, `Frontend/ExportC.lean`'s `"unsafe
+axiom"` rejection messages) reads as an escape.  `tests/e2e/src/*.lean`
+is deliberately out of scope: those are fixture INPUTS that contain
+what the checker must reject.
+
+**The allowlist is three files, 17 occurrences**: `Kernel/Expr.lean`
+(`beqFast`'s `ptrAddrUnsafe` + address-keyed memo, and the packed
+`@[computed_field]` — both standing user rulings), `Kernel/Name.lean`
+(a cached hash), `Kernel/BasisGen.lean` (elaborator-only `unsafe
+evalTerm` behind `#annotate_basis` / `#annotate_pins`).
+`Kernel/Level.lean` and `Cached/ExprC.lean` need no entry at all: their
+occurrences were prose, and `Level.hashData` lives in `Expr.lean`.
+
+### 3. The twenty-one stubs, and what actually needed them
+
+Every `Setlec/SetTheory/Derive/*` operator carried
+
+    private unsafe def <op>Impl … : V := unsafeCast ()
+    attribute [implemented_by <op>Impl] <op>
+
+justified by "consumers may mention them in computable definitions (as
+the legacy class projections allowed)".  The operators were already
+`noncomputable def`s; the stubs only let *other* definitions mention
+them without saying so.  All twenty-one deleted (the review said
+"~20"; the exact count, `git diff | grep -c`, is 21 stub definitions and
+21 `attribute [implemented_by]` lines across ten files).
+
+**The measurement the review asked for — what needed them computable:
+exactly two aliases**, both in the proof tier, both plain `def`s that
+should have been noncomputable from the start:
+
+    Setlec/SetTheory/Basic.lean  def natzero : V := empty
+    Setlec/SetTheory/Basic.lean  def natsucc : V → V := vsucc
+
+Marked `noncomputable`; the full 647-job build is warning-free and
+nothing else in the tree noticed.  So the escape existed for two lines
+of aliasing.  `Cached/ExprC.lean`'s standing claim that `Expr.beq` is
+the tree's only `implemented_by`-class escape is, after this, true of
+everything outside the elaborator — and mechanically enforced.
+
+### 4. The stale opening, and the stale N2 row
+
+`DESIGN.md:13-18` still said the consistency proof lives in
+`Setlec/SetR/*` with fourteen `*_R` theorems, a tier deleted
+2026-09-05.  The opening is now a table of the six live P-tier letters
+with their files and what each says, plus a pointer to the axiom pin
+that makes the footprint checkable.  The rule the rewrite installs:
+**prose references to deleted tiers elsewhere in this document are
+historical citations; the opening is the one place kept current.**
+Two overview citations inside the first 200 lines were repointed all
+the same (the layering bullet, and the basis-iota source, which is
+`Setlec/SetP/Basis*P.lean` now).
+
+The divergence audit's row **N2** was wrong, not merely stale: it said
+uses of `Lean.ofReduceBool`/`ofReduceNat` are "skipped at parse and
+decline the stream at the end".  That is the `sorryAx` taint rule.
+There is no native taint channel — `reduceBool`/`reduceNat` install as
+opaques pinned by defeq to the toolchain's identity functions, so a
+proof that uses native evaluation simply does not typecheck and the
+stream is **REJECTED** (exit 1, pinned: `tests/e2e-expected.txt`,
+`trust_native_use.ndjson → 1`).  Row corrected, with the correction
+noted in the row itself.
+
+### 5. CI (`.github/workflows/ci.yml`)
+
+There was no `.github/` at all, so every gate above was a thing that
+ran when someone remembered.  CI runs `lake build` (warning-free —
+warnings fail the job), `lake test` (which is where the axiom pin
+lives) and `tests/arena.sh` (layering, proofdeps, pindump,
+trust-surface, axioms, the vendored arena snapshot, the e2e and annot
+suites, the retired-flag and mode cases, and the trusted sweep).
+
+**What CI deliberately does NOT cover**, and why the local battery is
+still the real one: the init-full and Mathlib-scale runs.  They need
+tens of gigabytes and tens of minutes, they are the *frontier*
+measurement rather than a regression gate, and they are coordinated one
+at a time on this machine (see the frontier sections).  CI is the
+"nothing rotted" gate; the frontier runs stay local and scheduled.
+
+## TASK #181 ZERO-CONSTRUCTOR INDUCTIVES, AND THE CAPSTONE ABOUT `False` (2026-09-06, `agent/zeroctor`)
+
+### 0. The brief, and what the tree already had
+
+The brief asked for native installation of every zero-constructor
+inductive at any level, a preprocessor predicate in lockstep, and a
+consistency corollary that reads about `False` rather than `Empty`.
+Two findings against the brief, reported before any design:
+
+1. **The generic route existed.**  Task #175's direct sum route is the
+   class `n ≠ 1`, and `n = 0` was in it from the start: `directSumPartsCore?`
+   takes an empty constructor list, `checkDirectSum`'s elimination
+   restriction is `2 ≤ n` (so a zero-constructor `Prop` keeps its large
+   eliminator, as the official `elim_only_at_universe_zero` says), the
+   recursor is generated with no minors and compared by one `isDefEq`,
+   the carrier is the tagged union of zero towers — `sumSet w (natFibre
+   f)` with every fibre `∅`, the empty set in the graph regime and the
+   false truth value at `w = 0` — and the P proof `declDirectSumP` is
+   stated at any `n`.  `setlecNative` already left every such block
+   unmodelled (init-full: 3 zero-constructor blocks native).  The
+   fixtures `direct_sum_or` (`Absurd : Prop`, `Nil : Type`) and
+   `direct_sum_option` (`False`) had exercised it.  So deliverables 1–2
+   of the brief were already on master; this task adds the fixtures
+   the brief listed (`zero_ctor`: universe-polymorphic `PEmpty'`,
+   parameterised `Vacant α n : Type u`, `Bottom p : Prop`, `Nada :
+   Type`), the two bad twins, and the verdict flip of §4.
+2. **The user's ruling on the corollary's shape**: *"Pin `False` like
+   `Empty`, so that there can be no trickery around that."*  The
+   corollary is therefore unconditional — no hypothesis about how the
+   stream declares `False` — and `False` joins the pinned basis blocks
+   (§1).  A `False` declared by a stream is matched against the pin or
+   refused; the generic route still serves `PEmpty` and every
+   user-declared zero-constructor type.
+
+**Indices.**  Zero-constructor *indexed* families stay on the modeled
+route: the indexed-families lane (`agent/indexed`) had not landed when
+this task closed, and its fibre construction is where an indexed empty
+family belongs (a family with no constructors has every fibre empty).
+Follow-up: once `agent/indexed` lands, its recogniser should accept
+`n = 0` the way the sum route does.
+
+### 1. The pin
+
+`Setlec/Kernel/Basis/False.lean` is `Empty.lean` one universe down:
+`False : Prop` and `False.rec.{u} : (motive : False → Sort u) → (t :
+False) → motive t`, no constructors, no rules, the motive explicit (the
+exporter's form, as for `Empty.rec`).  `BasisKind` gains `falseK`;
+`Basis.lean`/`BasisA.lean` its raw and annotated blocks (`#annotate_
+basis` computes `falseA`/`falseRecA` from the raw pin at elaboration
+time, as for every block); the frontend matches an incoming block
+against it after `emptyK` (`Setlec/Frontend/ExportC.lean`); `falseName`
+and `False.rec` join `reservedBasisNames`, so the direct recognisers
+refuse the name and a stream cannot redeclare it.
+
+**The value is the empty set at `Prop`, and no new built-in is
+needed.**  The declarative layer already had `Empty.{0}` as `False`:
+`BConst.empty` is level-polymorphic with `type (.empty) us = Sort (us
+0)`, so `pinnedDirectT falseName = .const .empty [0]` and
+`False.rec ↦ .const .emptyRec [0, ψ u]`.  `bval2_mem_type`,
+`AnnotOkP_bconst_type` and `type2_erase` are stated at every level
+list, so the P install (`Setlec/SetP/BasisFalseP.lean`) is
+`BasisEmptyP.lean`'s four-move recipe with the numeral `1` replaced by
+`0` — the two type readings recomputed at the `False` pins and
+`BitAgree`d to `type2 .empty [0]` / `.emptyRec [0, ψ u]`.  The
+annotator's binder pins for `False.rec` are exactly `Empty.rec`'s
+(`.ifAllZero [u]`, `.never`, `.ifAllZero [u]`: the motive's domain
+`False → Sort u` has sort `imax 0 (u+1) = u+1`, never `Prop`; the two
+outer binders have sorts `imax (u+1) u` and `imax 0 u`, `Prop` exactly
+at `u = 0`), which the `show … from rfl` moves of the recipe confirm
+by computation.
+
+Tables touched: `pinnedInfo` and its two `_cases` inversions
+(`Verify/EnvPreds.lean`), `pinnedInfoT_recInfo_cases` and the
+unit-like refutation `unitLike_eq_punit` (one more branch: `False.rec`
+has no rules, so it fails the single-rule test as `Empty.rec` does;
+`Verify/PinnedShapes.lean`), `basisStepPB_of`'s dispatch (`FoldP`),
+`basis_rec_rules_nonempty`'s exclusion (`BasisEmptyP`).  Every `cases
+kind <;> decide` over `BasisKind` extended by itself.
+
+**The preprocessor.**  `setlecNative` is unchanged and `False` is
+deliberately *not* added to `setlecReservedBasisNames` (docstring in
+`SetlecPreprocess.lean`): the frontend's pin match runs before any
+recogniser, and the raw `False` block *is* the pin, so a native `False`
+never reaches the sum recogniser (which would now refuse the reserved
+name).  Leaving it native keeps the `False._model` artifacts — dead
+weight the pin would ignore, exactly as `Empty._model`'s are — out of
+the stream; the preprocessed init-full stream is byte-identical to
+master's and needed no regeneration.  (`Empty` stays listed in the
+preprocessor's copy for the historical reason that it was reserved
+before the direct routes existed; its artifacts are inert.  Retiring
+that entry would shrink the stream by `Empty`'s model family and is a
+separate, stream-changing decision.)
+
+### 2. The capstones
+
+`CapstoneP.lean` factors the pin argument once — `no_constant_of_
+emptyPin_P`: a reserved name whose direct pin is `emptyT u` has no
+stored inhabitant (the membership is `mem_typeP` at the `denoteP`
+reading, the reading of `.const n []` is the leaf by the constant
+clause, the leaf's `interp2` value is the empty set by erasure
+injectivity plus `basis_pinnedL`) — and `no_constant_of_Empty_P` /
+`no_constant_of_False_P` are its two instances at `u = 1` / `u = 0`.
+The letters, verbatim:
+
+```
+theorem Setlec.SetP.no_proof_of_False_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {ds : List Declaration} {env' : Env}
+    (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const falseName [] → False
+
+theorem Setlec.Cached.no_proof_of_False_SPCD_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true)
+    {ds : List DeclC} {env' : Env}
+    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const falseName [] → False
+
+theorem Setlec.no_proof_of_False (V : Type w) [SetTheory V]
+    (ds : List DeclC) (env : Env)
+    (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env) :
+    ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName []
+```
+
+— the `Empty` letters with `falseName` for `emptyName`; the third is
+the first theorem of `Setlec/MainTheorem.lean`, `no_proof_of_Empty`
+second, per the user's remark that the corollary reads better about
+`False`.  Why this shape: `False` is what a Lean user means by
+inconsistency, and with the pin the statement has the same census as
+the `Empty` one — the validating mode, the accepted run, the stored
+constant, its type; nothing about the stream's `False` block, because
+the stream does not get to supply one.  The `Empty` pin and its
+capstones stay as they were; nothing became redundant (the `Empty`
+letter is the one the campaign was measured against).
+
+### 3. A general theorem — not pursued (user ruling)
+
+A route-independent theorem for every stream-declared zero-constructor
+family (from a stored eliminator of the shape `∀ (motive : T → Sort u)
+(t : T), motive t`, on `mem_typeP` alone) was written for the
+parameterless case and **dropped on the user's ruling** — *"I don't
+need a theorem about the general case"*; the pinned `False`/`Empty`
+letters are the deliverable.  For the record, its parameter-applied
+form was found to need graph-regime parameter bits on the stored
+former, which the one-directional validated-annotation invariant does
+not give at an empty parameter domain; not pursued.
+
+### 4. The bogus recursor is a reject
+
+`checkDirectSumRec`'s recursor-type mismatch (both twins) was
+`.notImplemented` — a decline — since task #175.  For a block the
+recogniser has fully identified (non-recursive, non-indexed, `n ≠ 1`
+constructors of the right shape) the recursor is *derived*: the kernel
+generates exactly one, so a stream recursor that is not definitionally
+that one is invalid input, not an unsupported shape.  It is `.invalid`
+now (`direct sum: recursor type is not the generated one`); the
+one-constructor structure route's twin (`direct structure: recursor
+type`) is left as it was.  `zero_ctor_bad_rec` (`Nada.rec : Type`)
+rejects; no arena or e2e verdict moved.
+
+### 5. Fixtures and receipts
+
+`tests/e2e/src/zero_ctor.lean` → `tests/e2e/zero_ctor.ndjson` (through
+`setlec-preprocess`: every block native, no `_model` line), its two bad
+twins by `scripts/mk_zero_ctor_bad.py` (`zero_ctor_false_proof`: a
+theorem `bogus : False := Prop`; `zero_ctor_bad_rec`: `Nada.rec`'s type
+replaced by `Type`), expectations `0 / 1 / 1` in `tests/e2e-expected.txt`.
+
+**Receipts at `agent/zeroctor`'s tip** (master merged at `5d0b12f0`
+for `Setlec/MainTheorem.lean`, which this task edits): `lake build`
+warning-free (652 jobs), `lake test` green, `tests/layering.sh`
+`base 253 / P 168 / caps 3 / umbrella 1; 0 base->lane, 0 impl->theory`,
+`tests/proofdeps.sh` **one justified door and a regenerated pin**:
+`Setlec.SetP.BasisFalseP` entered all four capstones' proof-term
+closures (the pinned block's P install is on every fold, exactly as
+`BasisEmptyP` is — `basisStepPB_of` dispatches to it), nothing left,
+and the `False` letters join the roots; `tests/pindump.sh` fresh;
+`tests/arena.sh` 0 FAIL (tutorial 90/92 — the two custom-axiom
+declines by design —, e2e 88/88 with the three new fixtures at
+`0 / 1 / 1`, annot 14/14, retired flags 8/8, mode flags 16/16, the
+trusted sweep 138 + 88 + 14 with the 3 recorded divergences; **no
+verdict moved** anywhere in the suites); init-full (`init-full-pre-
+native.ndjson`, unchanged — `False` was already native) `--verified`
+**56 291** accepted (exit 0) and `--trusted` **56 291** (exit 0), equal
+to master's task #180 receipt on the same stream; the eight capstones'
+axioms exactly `[propext, Classical.choice, Quot.sound]`
+(`no_proof_of_{False,Empty}`, `no_proof_of_{False,Empty}_{P,SPCD_P}`).  `tests/native-agree.sh` skipped as on master (the stock
+`lean-inductive-models` is not built in the workspace).  No Mathlib run
+of any kind.
+
+**User rulings applied before landing**: no general theorem (§3);
+`Empty` and `False` stay pinned and a stream declaring either name any
+other way is REJECTED — confirmed on every path (`checkConstantVal`'s
+reserved-name guard is `.invalid` for definitions, theorems, axioms and
+every inductive member alike): `empty_redefined` (a one-constructor
+`Empty`), `false_redefined` (`def False : Prop := …`) and
+`false_rec_bad` (the toolchain's block with `False.rec : Type`) all exit
+1 with `reserved basis name`.  The preprocessor's reserved list stays
+as it is.
+
+**Landing receipts** (master `4565a27a` merged — the hygiene and
+heartbeat lanes; `no_proof_of_False` first in `MainTheorem.lean`, no
+`False` IO twin by user ruling — the world-passing shape is for a
+follow-up lane): `lake build` warning-free (651 jobs), `lake test`
+green with `tests/SetlecTests/Axioms.lean` at 15 guards (the ten plus
+`no_proof_of_False`, `no_proof_of_False_SPCD_P`, `no_proof_of_False_P`,
+`no_constant_of_False_P`, `no_constant_of_emptyPin_P`), `tests/arena.sh`
+exit 0: layering `base 253 / P 167 / caps 3 / umbrella 1`, proofdeps
+regenerated once — the single justified door `Setlec.SetP.BasisFalseP`
+on every pre-existing root (the pinned block's install is on every
+fold, as `BasisEmptyP` is) and the three `False` roots added (3 264
+rows / 9 roots / 0 doors), pindump fresh, trust surface 0 outside the
+allowlist, tutorial 90/92, e2e 91/91 (the six new fixtures at
+`0 / 1 / 1 / 1 / 1 / 1`), annot 14/14, flags 8/8 + 16/16, heartbeat
+1/1, the trusted sweep with the 3 recorded divergences; init-full
+`--verified` 56 291 and `--trusted` 56 291 (exit 0), unchanged.
+
+
+
+## Task #182 — the environment index is linear; the quadratic loop was the localisation lane (2026-09-06, `agent/fenv-linear`)
+
+**The brief.**  A relaunched Mathlib-scale run on a binary carrying task
+#179's `Thunk` fix showed, after ~180 k declarations, `lean_copy_expand_array`
+at 23.5 % with gdb backtraces putting 7 of 16 samples at
+
+```
+#0 lean_copy_expand_array
+#1 …Std_DHashMap…insert…at…Setlec_mkFEnvGo_spec__0
+#2 Setlec_Cached_recordCConst        (5)  /  Setlec_FEnv_push  (1)
+```
+
+— the name-index bucket array copied at (nearly) every accepted
+constant.  The task: find who else holds `fe`/`fe.idx` at the insert and
+fix it at the root; prime suspect `coreKnotI`'s closures.
+
+**The answer is none of the suspects, and the shipped checker is already
+linear.**  Frames #5-#7 of those same backtraces name the culprit:
+`traceLoopC`, the `SETLEC_TRACE_DECLS` localisation lane — which exists
+only in the `agent/frontier4` worktree and is not on master at all.
+
+### 1. The mechanism, at the C level
+
+`traceLoopC` (frontier4 `Main.lean`) is a `for … in` loop over `mut`
+accumulators:
+
+```lean
+let mut fe := Setlec.mkFEnv Setlec.Env.empty
+let mut s : Setlec.Cached.CState := {}
+for d in decls do
+  …
+  match stepF fe d s with
+  | .ok (fe', s') => fe := fe'; s := s'
+```
+
+`for` with `mut` desugars to `Array.forIn'Unsafe.loop` carrying the
+mutable variables in the loop's own accumulator, and the compiler cannot
+prove that accumulator dead across the step.  Its generated C
+(`frontier4/.lake/build/ir/Main.c`,
+`…forIn_x27Unsafe_loop___at___00traceLoopC_spec__0`):
+
+```c
+lean_inc(v_fst_761_);       /* the CState */
+lean_inc(v_a_766_);         /* the DeclC  */
+lean_inc(v_fst_757_);       /* the FEnv   */
+v___x_779_ = lean_apply_3(v_stepF_744_, v_fst_757_, v_a_766_, v_fst_761_);
+```
+
+Both the `FEnv` **and** the `CState` are `lean_inc`'d before the step.
+So for the whole of every declaration `fe.idx` and `s.ienv` carry a
+second reference; `lean_is_exclusive` is false at
+`FEnv.push`'s and `recordCConst`'s `insert`, `lean_array_uset` takes
+`lean_copy_expand_array_nonlinear`, and each of the two maps rewrites its
+entire bucket array — with a `lean_inc` per slot — once per declaration.
+`O(n)` per declaration, `O(n²)` per run.
+
+The shipped loop does the opposite, and it is worth reading side by side
+(`fenv-linear/.lake/build/ir/Main.c`, `checkDeclsGoM` specialised at
+`checkMain`):
+
+```c
+v_fst_881_ = lean_ctor_get(v_x_870_, 0);   /* p.1, the fold POSITION   */
+lean_inc_n(v_fst_881_, 2);                 /* only the Nat is retained */
+…
+v___x_886_ = lp_setlec_Setlec_Cached_checkDeclStepIdxC(
+               v_cfg_868_, v_x_870_, v_head_877_, v_x_871_);
+```
+
+The `(Nat × FEnv)` pair (`v_x_870_`) and the `CState` (`v_x_871_`) are
+passed **without an `inc`** — moved into the step.  Only `p.1`, a `Nat`,
+is retained, because `cb.after p.1 pd` needs it afterwards.
+`checkDeclStepIdxC` continues the discipline: reset/reuse on `p`, and on
+the exclusive path `fe` is taken out **without an `inc`** and handed to
+`checkDeclSPStepC`.  `FEnv.push` itself was already verified optimal at
+task #179 §3.  Nothing on the shipped path holds `fe` or the state across
+a declaration.
+
+**So the three suspects are all cleared**, and by measurement, not by
+reading: `coreKnotI`'s closures *do* capture `fe` (`lean_inc_ref` before
+`sharedOpsC`), but they are consumed inside `checkMemberValF`/the
+knot's callee and dead before the push; the fold does not retain its
+accumulator; `mkFEnv` is not re-run.
+
+### 2. The instrument: a synthetic linearity stream
+
+`scripts/gen_linear_stream.py N OUT.ndjson` emits N declarations
+`def cI : Sort 1 := Sort 0` (`Type := Prop`) — type-correct against the
+*empty* environment: no basis block, no prior constant, no binder, no
+literal.  Per-declaration checking work is constant by construction, so
+**the only thing that grows is the environment and its index**, and
+instructions must be linear in N.  This is the check `init-full` cannot
+perform: at 60 k constants an `O(n)`-per-declaration copy hides in the
+noise (it is worth 0.25 % there), which is exactly how task #179's census
+passed over the question.
+
+### 3. The shipped path is linear across a 30× range
+
+`perf stat -e instructions:u`, `ulimit -v 16G`, `timeout 3000`,
+`nice -n 5`, `SETLEC_SUPERVISED=1`, master `339e026d`:
+
+| N | instructions | per declaration |
+|---|---|---|
+| 100 000 | 8.99 G | 89 851 |
+| 200 000 | 17.87 G | 89 371 |
+| 300 000 | 26.68 G | 88 941 |
+| 1 000 000 | 88.89 G | 88 894 |
+| 3 000 000 | 268.46 G | **89 488** |
+
+Flat to ±1 % over 30×.  All accepted (exit 0, N declarations).
+
+### 4. The lane, measured against the shipped loop on the same binary
+
+The frontier4 binary, same streams, `SETLEC_TRACE_DECLS` off and on:
+
+| lane | N | instructions | per declaration |
+|---|---|---|---|
+| shipped | 50 000 | 4.57 G | 91 450 |
+| **`traceLoopC`** | 50 000 | **82.70 G** | **1 653 978** |
+| shipped | 100 000 | 8.97 G | 89 711 |
+| **`traceLoopC`** | 100 000 | **320.71 G** | **3 207 119** |
+| shipped | 200 000 | 17.85 G | 89 235 |
+
+The lane's per-declaration cost **doubles when N doubles** — 1.65 M →
+3.21 M — which is the definition of the quadratic term, and it is 18× the
+shipped cost already at 50 000.  (The lane's 200 000 cell was stopped: it
+would have been ~1.3 T instructions.)  Extrapolated to the ~180 k
+declarations at which the Mathlib run was sampled, the lane is spending
+roughly 60× the shipped loop's per-declaration cost on bucket copying
+alone — comfortably the 23.5 % the profile showed, and the pace drop
+(559 → 114 decl/s) with it.
+
+### 5. gdb sampling, the same instrument, on the shipped path
+
+`gdb -p PID -batch -ex "thread apply all bt 16"`, 29 samples 0.5 s apart,
+on the shipped loop at **3 000 000** declarations:
+
+* `lean_copy_expand_array` appears **zero** times in **any** frame of
+  **any** sample;
+* two samples land inside the very symbol the Mathlib backtrace named,
+  `…insert…at…Setlec_mkFEnvGo_spec__0` — one with it at `#0` — and
+  neither is copying.  The insert is caught in the act, in place, with an
+  index of three million entries.
+
+Receipts: `_tmp/fenv-linear/gdb-bt/`, `scale.tsv`, `trace-ab.sh`.
+
+### 6. `init-full`, master
+
+`lean_copy_expand_array` **0.25 %** (criterion: ≤ 0.3 %), `lean_mark_mt`
+absent, 60 549 accepted.  Unchanged from task #179's tip — as it must
+be, since nothing on the shipped path was touched.
+
+### 7. The rule, and where the shape still occurs
+
+**`for … in` with a `let mut` accumulator holding a large, linearly
+updated structure is the trap.**  The loop's own accumulator keeps the
+structure alive across the body, so every in-place update inside the body
+becomes a whole-array copy.  Explicit recursion is the fix, and the
+codebase already knew it: `parseExportHandleD`'s docstring says
+"*explicit recursion so the tables stay uniquely referenced across
+steps*" — that is this bug, avoided by construction, in the parser.
+
+**THE RULE, stated for anyone writing another loop over the fold: any
+loop that drives `checkDeclStepIdxC` — in `IO`, in `Id`, in a
+diagnostic lane, anywhere — must pass `(fe, st)` LINEARLY, i.e. hand
+each of them to the step and never touch it again in that iteration; and
+the way you check that you did is to read the generated C at the call
+site and confirm there is no `lean_inc` of either before the step.
+`for … in` with `let mut` fails this by construction; explicit recursion
+passes it.  The cost of getting it wrong is not a constant factor — it
+is `O(n)` per declaration on both the environment index and `ienv`, and
+it is invisible at `init-full` scale.  Measure with
+`scripts/gen_linear_stream.py`: instructions per declaration must be
+flat in N.**
+
+Census of the remaining instances on master, both off the shipped path
+and both left as they are, deliberately:
+
+* **`Frontend.parseExportD`** (`ExportC.lean:587`) — the wholesale parse,
+  `let mut st : StateD` over `for line in …`.  Used **only** by
+  `tests/SetlecTests.lean`'s `#guard`s on inputs of a few dozen lines; the
+  shipped parse is `parseExportStreamD → parseExportHandleD`, the explicit
+  recursion above.  A latent trap if anyone ever points it at a real
+  stream; noted here rather than rewritten, because rewriting it changes a
+  definition for no measurable gain.
+* **`processLineD`'s three alias loops** (`ExportC.lean:394-399`) —
+  `let mut st := st` over a block's members.  They are the `else` of
+  `if modeled then`, and the binary always parses with `modeled := true`
+  (`Main.lean:240`), so they do not run on the shipped path; and they
+  iterate over one block's members, not the stream.
+
+### 8. What this leaves
+
+* **Nothing to fix on master.**  The task's success criteria are met by
+  the tree as it stands: `init-full` 0.25 %, linear scaling to 3 M, no
+  copy at the insert under gdb.  This branch adds the instrument and this
+  record.
+* **The fix belongs in `agent/frontier4`**: `traceLoopC` should be
+  explicit recursion over `(lineNo, fe, s)`, exactly like
+  `parseExportHandleD`.  Until then every `SETLEC_TRACE_DECLS` run is
+  quadratic and its pace numbers say nothing about the shipped checker —
+  which also means the Mathlib frontier's *own* pace measurements taken in
+  that lane need re-reading.
+* Task #179's docket item (i) — give `CoreFnsI`'s fields an `FEnv`
+  parameter — **is not needed for linearity** and its motivation is
+  unchanged: it is worth ~60 G on `init-full` as the knot-rebuild cost,
+  not as a copy.
+
+## TASK #183 — REGISTER-READY: the Comparator pair and the Palomar metadata (2026-09-06, `agent/comparator`)
+
+The tree gains the four files the [Palomar registry](https://palomar-registry.org/)
+asks a Lean formalization to carry, so that `Setlec.no_proof_of_False` can be
+submitted as a *registrable challenge* rather than as a claim in a README:
+
+| file | what it is |
+|---|---|
+| `Setlec/Challenge.lean` | the **challenge**: the statement alone, proof `sorry`, with a plain-words docstring of what every name in it means |
+| `Setlec/MainTheorem.lean` | the **solution** (unchanged; it already existed) |
+| `comparator.json` | the [Comparator](https://github.com/leanprover/comparator) config naming the one theorem to compare |
+| `formalization.yaml` | the registry's structured metadata, v0.4 |
+
+### What Comparator actually does, and why the pair is shaped this way
+
+Comparator (`leanprover/comparator`) builds the challenge module and the
+solution module *separately*, each inside a `landrun` sandbox, exports each
+with `lean4export`, and then checks three things: that the named theorems have
+**the same statement** in both environments (comparing the full closure of
+declarations the statement mentions), that the solution's proof term uses no
+axiom outside `permitted_axioms`, and that the solution environment replays
+through the Lean kernel.  The challenge is the *trusted* half — the reader
+audits it — and the solution is the half a stranger could have written.
+
+That contract is why the challenge file exists at all even though
+`Setlec/MainTheorem.lean` already states the theorem: the point of the split is
+that the statement can be read **without** the proof tower under it.  Hence the
+rule for this file: it may import implementation modules (it needs
+`checkDeclsSPCachedD` and `cfgOf` to *be the shipped ones*, not restatements),
+but it imports nothing from `Setlec/Verify/*` or `Setlec/SetP/*`.  Its import
+closure is 48 modules — the checker and the `SetTheory` interface — against the
+solution's 397.
+
+The statements were verified token-identical, not merely "the same by eye":
+`#check @Setlec.no_proof_of_False` under `pp.universes`+`pp.explicit` from each
+module, diffed, is byte-identical (universe `u_1`, `Setlec.CheckError × Nat` on
+the error side, syntactic `Setlec.Expr.const Setlec.falseName []` in the
+conclusion).  Comparator then confirmed it for real (below).
+
+**Only `no_proof_of_False` is in the pair.**  Not `no_proof_of_Empty`, not
+`no_proof_of_Empty_IO`, not any of the letters — user ruling: one headline
+statement, so a reader has one thing to audit.  Adding a second is a one-line
+edit to `theorem_names` plus a second `theorem` in the challenge file, whenever
+that is wanted.
+
+### The build-hygiene problem, and how it is resolved
+
+The challenge file contains a `sorry`.  That collides with two standing rules:
+CLAUDE.md's "no `sorry`s on master", and `tests/trust-surface.sh`, which fails
+the standard battery on a bare `sorry` anywhere in `Setlec/`, `tests/` or
+`scripts/`.  Both are resolved by making the module a **TCB dead end** rather
+than by weakening a gate:
+
+* it roots its own `lean_lib` (`SetlecChallenge`, root `Setlec.Challenge`) —
+  needed anyway, because Comparator builds the module by name
+  (`lake build Setlec.Challenge`) and Lake will only build a module reachable
+  from some library root;
+* that library is **not** in `defaultTargets`, so `lake build` — the
+  warning-free gate — never builds it;
+* nothing in the tree imports it, so no shipped or proved declaration can reach
+  the `sorryAx` it introduces (the axiom pin in `tests/SetlecTests/Axioms.lean`
+  is unmoved: 15 theorems, still exactly `[propext, Classical.choice,
+  Quot.sound]`);
+* and `tests/trust-surface.sh` gets a **one-token** allowlist entry
+  (`Setlec/Challenge.lean` → `sorry`, and nothing else) with the justification
+  in its header, the same shape as the three escapes already there.
+
+So `lake build Setlec.Challenge` succeeds with exactly one diagnostic —
+`declaration uses 'sorry'` — and `lake build` still emits none.
+
+The layering gate classifies `Setlec/Challenge.lean` as **base** (it is not
+under `Setlec/{Kernel,Cached,Frontend}/`, so the implementation→theory clause
+does not bind it; it imports no `Setlec/SetP/*`, so base purity does).  That is
+deliberately the *stricter* of the available classifications: adding it to the
+gate's `CAPS` set would have exempted it from base purity for no gain.  Counts
+move from base 253 → 254; `tests/proofdeps.sh` is untouched (0 doors).
+
+### Schema decisions in `comparator.json`
+
+Comparator's config keys, read off its `Config` structure rather than guessed:
+`challenge_module`, `solution_module`, `theorem_names`, `definition_names`
+(optional), `permitted_axioms`, `enable_nanoda` (optional),
+`external_kernels` (optional).
+
+* The two module fields take **Lean module names**, not paths, and are passed
+  straight to `lake build`.  So the pair is `Setlec.Challenge` /
+  `Setlec.MainTheorem`; no root-level `Challenge.lean`/`Solution.lean` shim is
+  needed, and none was added.  (Palomar's spec confirms this reading: "Challenge
+  and Solution must be distinct module names.  Palomar asks Lake for its
+  ordered source paths and selects the first matching regular, non-symlink file
+  inside the selected project.")
+* `theorem_names` takes the **fully qualified** name, `Setlec.no_proof_of_False`.
+* `definition_names: []` — no definition holes.  (Comparator supports
+  challenge-side sorried *definitions*; the registry warns that such challenges
+  always need a human verifier.  Not our shape.)
+* `enable_nanoda: true`, matching the Palomar starter template, which enables it
+  in its own `scripts/verify-comparator.sh`.  A second kernel checking the
+  export of a project that *is* a kernel is worth the line.  Note this is the
+  arena's `nanoda_lib`, reached as `nanoda_bin`; it is unrelated to the retired
+  `nanodatg` comparison.
+
+### `formalization.yaml`: v0.4, and Palomar's narrowings of it
+
+The file follows `mathlib-initiative/formalization.yaml` v0.4 (the schema the
+`# yaml-language-server:` header points at), plus three narrowings that only
+appear in `PalomarRegistry/PalomarPolicy`'s `docs/specification.md`:
+
+* **source `type` is a closed vocabulary** there — `paper`, `book`,
+  `web discussion`, `folklore`, `original-proof`, `other` — although upstream
+  v0.4 leaves it free text.  Hence Carneiro's thesis is typed `paper`, not
+  "MSc thesis", and lean4lean-model is `other`, not "formalization".
+* **exactly one origin must be declared.**  This is an *original result*, so:
+  one source with `type: original-proof` and `relationship: other`, and every
+  other source at `background`.  (The alternative — a `formalizes`/`adapts`/
+  `independently-proves` edge — would have made it source-based, which would be
+  a false claim: no prior text states the soundness of *this* checker.)
+* **`project.authors` and `project.responsible_maintainers` are reserved for
+  humans**; naming an automated system in either "requires correction before
+  registration".  So both are `Joachim Breitner` alone, and the AI contribution
+  is reported where the schema wants it: `automation.methods` carries an
+  `agent` entry (Claude / Claude Code, worktree-per-task under a human
+  orchestrator) and a `manual` entry, with `automation.notes` saying plainly
+  that agents wrote the implementation and the proofs, that the maintainer
+  intensively discussed design and steps with the agents (CORRECTED by the
+  user on 2026-09-06: the maintainer did NOT review the statements and did
+  NOT perform the merges — the agents merged; do not claim otherwise
+  anywhere), and that the repository's own gates (axiom pin, trust surface,
+  layering, proofdeps) are the mechanical substitute for trusting the agents.
+
+`status.scope` is where the honest limitations go, and they are listed rather
+than softened: the parser/front end is outside the statement; `--trusted` is
+outside it; the `SetTheory` interface is *assumed*, not constructed (ZF⁻ with an
+ω-chain of Grothendieck universes, realizable by Aczel's construction under the
+universe-chain hypothesis, which this development does not do); the conclusion
+is **syntactic** (`= .const falseName []`), so a constant whose type is merely
+*definitionally* `False` is not excluded by this sentence; and the `Empty` and
+`IO` companions exist but are not part of the submission.
+`fidelity.divergences` records the checker-vs-official-kernel deviations as the
+restrictions-are-findings rule already requires.
+
+### Verified locally — Comparator was actually run
+
+Not merely "the config looks right".  Comparator was built from source in
+`_tmp/comparator-tool` (at its own pinned toolchain,
+`leanprover/lean4:v4.34.0-rc2`) and `lean4export` was built **separately at tag
+`v4.33.0`** — it has to match the *project's* toolchain to read our oleans, and
+comparator's vendored copy does not.  `landrun` was already on `PATH`; the run
+used a copy of the config with `enable_nanoda` dropped, because `nanoda_bin`
+needs `cargo`, which this machine does not have.
+
+```
+COMPARATOR_LEAN4EXPORT=…/lean4export lake env …/comparator _tmp/comparator-local.json
+  Building Setlec.Challenge         → 48 jobs, one `uses 'sorry'` warning
+  Exporting …Setlec.no_proof_of_False… from Setlec.Challenge
+  Building Setlec.MainTheorem       → 397 jobs
+  Exporting …Setlec.no_proof_of_False… from Setlec.MainTheorem
+  Running Lean default kernel on solution.
+  Lean default kernel accepts the solution
+  Your solution is okay!            (exit 0)
+```
+
+So the statements match, the axioms are within
+`[propext, Classical.choice, Quot.sound]`, and the solution replays through the
+kernel — end to end, against the real tool.
+
+### WHAT IS STILL MISSING FOR AN ACTUAL SUBMISSION
+
+Two findings, neither of which this task can close:
+
+1. **There is no `LICENSE` file** — not in the tree, not anywhere in the
+   repository's history.  Palomar requires "one conventional licence file at
+   repository root" and requires `project.license` to match it.  The field is
+   therefore filled with a visible `TODO:` string rather than a guessed SPDX
+   identifier; the starter template uses Apache-2.0.  **The licence choice is
+   the maintainer's**, so it is left open.
+2. **The Challenge's import closure is the project's own code.**  Palomar's
+   `docs/specification.md` says the Challenge "is compiled separately against a
+   frozen trusted environment, and every source in its transitive closure must
+   resolve to Lean core or the accepted Mathlib, Tau Ceti, and CSLib statement
+   surface."  Ours resolves to 48 `Setlec.*` modules.  For a theorem *about this
+   repository's own checker* that requirement cannot be met in the obvious way —
+   there is no way to say "`checkDeclsSPCachedD` accepts" without naming
+   `checkDeclsSPCachedD` — so a submission would need either an editorial
+   exception or a different framing.  Recorded as a finding; not worked around
+   by weakening the statement to something the registry would accept but a
+   reader would not want.
+
+### Gates
+
+`lake build` 651 jobs, zero warnings (replayed clean); `lake test` green;
+`tests/arena.sh` green — layering base 254 / P 167 / caps 3 / umbrella 1 with 0
+base→lane and 0 impl→theory, proofdeps 3264 rows / 0 doors, pindump fresh,
+trust surface 18 escapes in 4 allowlisted files (432 scanned) / 0 outside,
+axioms pinned at 15 theorems, tutorial 90/92, e2e 91/91, annot 14/14, flags
+8/8 + 16/16, heartbeat 1/1, trusted sweep with the 3 recorded divergences.
+
+### Gates (2026-09-07, `agent/ioshape` at the merge with master `d09f2c56`)
+
+`lake build` warning-free (651 jobs); `lake test` green; `tests/arena.sh`
+0 FAIL — arena tutorial 90/92, e2e 91/91, annot 14/14, retired flags
+8/8, mode flags 16/16, **progress lane 6/6** (the new suite: stride 1
+exits 0, the verdict line is byte-identical to the default run's, one
+progress line per declaration, the parse/fold-done brackets are there,
+the bad fixture still exits 1, and the rejection still names the failing
+declaration), trusted sweep 138 + 91 + 14 with its three recorded
+divergences — with `tests/layering.sh` (base 254 / P 167 / caps 3 /
+umbrella 1; 0 impl→theory), `tests/trust-surface.sh` (18 escapes in 4
+allowlisted files, 0 outside), the axiom pin (**11 theorems** at the
+three standard axioms) and `tests/proofdeps.sh` (**2 520 rows across 7
+roots, 0 doors**, regenerated once: the `main` and `main_IO` roots left
+with the theorems they pinned, and no other root moved) inside it.
+`init-full` (`init-full-pre-native`, `--pre`) accepted 56 291
+declarations in **both modes, with and without `SETLEC_PROGRESS=5000`**,
+the verdict line byte-identical within each mode (verified 97.5 s /
+98.1 s, trusted 94.2 s / 104.4 s on a loaded machine).
 
 ## TASK #175 INDEXED FAMILIES — THE DIRECT SUM ROUTE AT `nIdx > 0`: THE FIBRE OF THE TAGGED UNION (2026-09-06, `agent/indexed`)
 
