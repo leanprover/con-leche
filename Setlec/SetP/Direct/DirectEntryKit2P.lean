@@ -1,4 +1,4 @@
-import Setlec.SetP.Direct.DirectEntryDataP
+import Setlec.SetP.Direct.DirectEntryKitP
 
 /-!
 # The projection entry's kit, continued (task #175 W4c, P3 module 7, part 3)

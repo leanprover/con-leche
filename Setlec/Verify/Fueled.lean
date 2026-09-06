@@ -177,19 +177,7 @@ theorem structEtaProjCerts_atF (d : Nat) (F : Nat) (T : Name)
             exact structEtaProjCerts_atF d F T us' targs b lpsT rest
           | false => rfl
         · rfl
-      | projInfo entry =>
-        -- the tower-backed slot (task #175 W4c)
-        dsimp only
-        split
-        · rw [FueledM.atF_bind, iotaCerts_atF]
-          congr 1
-          funext r
-          cases r with
-          | true =>
-            simp only [↓reduceIte]
-            exact structEtaProjCerts_atF d F T us' targs b lpsT rest
-          | false => rfl
-        · rfl
+      | projInfo entry => rfl
       | axiomInfo cv => rfl
       | defnInfo cv value => rfl
       | thmInfo cv value => rfl
@@ -301,6 +289,15 @@ theorem projCert_atF (d : Nat) (lic : Bool) (c : Name) (us : List Level)
   · exact iotaCerts_atF d lic F _ _
   · rfl
 
+theorem projCertAt_atF (d : Nat) (v lic : Bool) (c : Name) (us : List Level)
+    (args : List Expr) (F : Nat) :
+    (projCertAt (fueledFns mode env) env d v lic c us args).val F =
+      projCertAt (pureFns mode env F) env d v lic c us args := by
+  unfold projCertAt
+  split
+  · exact projCert_atF d lic c us args F
+  · rfl
+
 macro "atF_step2" : tactic =>
   `(tactic| repeat (first
     | rfl
@@ -316,6 +313,7 @@ macro "atF_step2" : tactic =>
     | (rw [structEtaCertWith_atF])
     | (rw [structUnitCert_atF])
     | (rw [etaCert_atF])
+    | (rw [projCertAt_atF])
     | (rw [projCert_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -378,6 +376,18 @@ theorem litMajorToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold litMajorToCtor
   atF_tac2
 
+theorem prepareMajor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr)
+    (F : Nat) :
+    (prepareMajor mi (fueledFns mode env) env d c rules e).val F =
+      prepareMajor mi (pureFns mode env F) env d c rules e := by
+  unfold prepareMajor
+  split <;> (repeat (first
+    | rfl
+    | (rw [majorToCtor_atF])
+    | (rw [litMajorToCtor_atF])
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])))
+
 theorem projLitToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
     (projLitToCtor (fueledFns mode env) env d e).val F =
       projLitToCtor (pureFns mode env F) env d e := by
@@ -405,10 +415,12 @@ macro "atF_step3" : tactic =>
     | (rw [structEtaCertWith_atF])
     | (rw [structUnitCert_atF])
     | (rw [etaCert_atF])
+    | (rw [projCertAt_atF])
     | (rw [projCert_atF])
     | (rw [structEtaCert_atF])
     | (rw [majorToCtor_atF])
     | (rw [litMajorToCtor_atF])
+    | (rw [prepareMajor_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
     | split))
@@ -450,6 +462,7 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [structEtaCertWith_atF])
     | (rw [structUnitCert_atF])
     | (rw [etaCert_atF])
+    | (rw [projCertAt_atF])
     | (rw [projCert_atF])
     | (rw [structEtaCert_atF])
     | (rw [majorToCtor_atF])

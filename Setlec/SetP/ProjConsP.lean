@@ -146,7 +146,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
       (∀ ρ : Nat → V, AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta := by
     intro ψ
-    obtain ⟨ta, hta, hok, hmem⟩ := mp.acval_memTypeP hfm rfl ψ
+    obtain ⟨ta, hta, hok, hmem⟩ := mp.acval_memTypeP hfm ψ
     refine ⟨ta, ?_, hok, ?_⟩
     · rw [← denoteP_renameConsts hroP pty 0, hrenP]
       exact hta
@@ -250,7 +250,6 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
       (ConsHeadP.ofFresh hwf
         (fun ψ => by rw [hAdef]; exact mp.base2.cval_closedL _ ψ)
         hnres (fun _ heq => by rw [hc₀] at heq; exact nomatch heq)
-        (fun _ heq => by rw [hc₀] at heq; exact nomatch heq)
         hctorsHead)
       hAclosedH hAparamsH
       (fun ψ ρ => by rw [hAdef]; exact mp.base2.acval_ok2 _ _ _)

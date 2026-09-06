@@ -244,7 +244,7 @@ theorem axiomTrustCompilerP (hμ : μ.verified = true)
     rw [htyA, denoteP_levelless_const hfT hlpT] at hta
     obtain rfl : ta = mp.base2.acval Setlec.trueName ψ :=
       (Option.some.inj hta).symm
-    have hmem := mp.mem_typeP ciTi (Env.find?_mem hfTi) (Setlec.isTowerEntry_false_of_find? hfTi (fun _ _ h => Name.noConfusion h)) ψ
+    have hmem := mp.mem_typeP ciTi (Env.find?_mem hfTi) ψ
       (mp.base2.acval Setlec.trueName ψ)
       (by rw [htyTi]; exact denoteP_levelless_const hfT hlpT) ρ
     rwa [hnameTi] at hmem
@@ -278,10 +278,11 @@ theorem axiomStdP (hμ : μ.verified = true)
   have hwfc : Setlec.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts⟩ := by
     refine Setlec.EnvWF.cons mp.base2.wf
-      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_⟩
+      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_, ?_⟩
     · intro cv2 value2 hint2 heq; exact nomatch heq
     · intro cv2 mI rP rules heq; exact nomatch heq
     · intro cv2 value2 heq; exact nomatch heq
+    · intro tbl heq; exact nomatch heq
   by_cases hn : cv.name = propextName
   · refine harvestAxiomP (V := V) hμ mp hcv
       (A := fun _ => .const .propext []) (fun _ => trivial)

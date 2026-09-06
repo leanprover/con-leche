@@ -590,7 +590,7 @@ theorem natBinHeadP_of_stored (mp : EnvS2PM V μ env) {ψ : Name → Nat}
       ho).toConstantVal.levelParams = [] from hlp))
     (fun ρ => ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩)
     (fun ρ => ?_) (fun ρ => mp.type_okP _ hmemE ψ _ hta ρ)
-  have h := mp.mem_typeP _ hmemE (by rfl) ψ _ hta ρ
+  have h := mp.mem_typeP _ hmemE ψ _ hta ρ
   rwa [show (ConstantInfo.defnInfo cvo vo ho).name = o from hnm] at h
 
 /-- **A stored pinned unary head.** -/
@@ -621,7 +621,7 @@ theorem natUnHeadP_of_stored (mp : EnvS2PM V μ env) {ψ : Name → Nat}
       ho).toConstantVal.levelParams = [] from hlp))
     (fun ρ => ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩)
     (fun ρ => ?_) (fun ρ => mp.type_okP _ hmemE ψ _ hta ρ)
-  have h := mp.mem_typeP _ hmemE (by rfl) ψ _ hta ρ
+  have h := mp.mem_typeP _ hmemE ψ _ hta ρ
   rwa [show (ConstantInfo.defnInfo cvo vo ho).name = o from hnm] at h
 
 /-! ## The two-variable context discipline, and the conversion -/
@@ -918,17 +918,17 @@ theorem consCrossAt_of_natFragOk {c : Name} {c₀ : ConstantInfo} :
       ConsCrossAt c₀ e := by
   intro e
   induction e with
-  | sort _ => intro _ _ _ _; simp
+  | sort _ => intro _ _ _ _ _; simp
   | fvar i n ty =>
-    intro h entry heq htw
+    intro h entry heq htw j
     simp only [Setlec.TTVerify.natFragOk, Bool.and_eq_true, beq_iff_eq] at h
     simp [h.2]
-  | const _ _ => intro _ _ _ _; simp
+  | const _ _ => intro _ _ _ _ _; simp
   | app f a ihf iha =>
-    intro h entry heq htw
+    intro h entry heq htw j
     simp only [Setlec.TTVerify.natFragOk, Bool.and_eq_true] at h
     simp only [Expr.NoProjAt]
-    exact ⟨ihf h.1 entry heq htw, iha h.2 entry heq htw⟩
+    exact ⟨ihf h.1 entry heq htw j, iha h.2 entry heq htw j⟩
   | bvar _ | lam _ _ _ _ | forallE _ _ _ _ | letE _ _ _ _ | lit _ | proj _ _ _ =>
     intro h; simp [Setlec.TTVerify.natFragOk] at h
 

@@ -917,7 +917,7 @@ theorem declIndEtaClosedRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
     have hx : ExtEta envM env₂ :=
       ExtEta.trans (indRecsRun_ext hrecs)
         (ExtEta.trans (projInstallRun_ext (List.range nF) hproj)
-          (templates_ext (List.range nF) htpl))
+          (templates_ext htpl))
     intro T cvT' caps' hf he hr
     rcases indMembersRun_indNew _ hmem T cvT' caps'
       (hx.2 T cvT' caps' hf) with hfE | ⟨rfl, -⟩

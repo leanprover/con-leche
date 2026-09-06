@@ -110,36 +110,25 @@ modules to say the same thing. -/
 
 namespace DeclIndRun
 
-/-- The elimination-template second pass: pure stored-data installs
-(`installProjTemplateStep`).
+/-- The elimination-template pass: a pure stored-data install
+(`installProjTemplate`; since task #175 S1 one inert table per family,
+where it was one entry per artifact-less field).
 
 **No valuation** (D6's refinement point, cashed at T5 stage 6).  The
 other block folds thread a `TConstVal` because their members *alias*
 their model artifacts — a checker-side fact (`cvalModeled` mirrors
-`checkIndMember`'s semantics).  A template entry exists precisely
-because the field has no artifact, so there is nothing to alias and
+`checkIndMember`'s semantics).  A template table exists precisely
+because some field has no artifact, so there is nothing to alias and
 the valuation is the *install's* free choice.  Threading one here
 would have forced the soundness side to model a valuation the
 relation picked arbitrarily; dropping it is both simpler and more
 faithful to `installProjTemplate`, which never touches a value. -/
-def Templates (T ctorName : Name) (lps : List Name) (nP nF : Nat) :
-    Env → List Nat → Env → Prop
-  | env', [], env₂ => env₂ = env'
-  | env', i :: rest, env₂ =>
-    ∃ env'',
-      (env'' = env' ∨
-       ∃ entry : ProjEntry, entry.structName = T ∧ entry.idx = i ∧
-         entry.native = false ∧
-         -- task #175 wiring W3: template entries are tower-free
-         -- (what `ProjOkT`'s third conjunct consumes at the cons)
-         entry.tower = false ∧
-         -- the stored shape and the freshness `installProjTemplate`
-         -- checks (`Modeled.lean:687-691`), both of which the cons
-         -- needs
-         entry.levelParams = lps ∧ entry.ty = .sort .zero ∧
-         (env'.find? (projFnName T i)).isNone = true ∧
-         env'' = ⟨.projInfo entry :: env'.consts⟩) ∧
-      Templates T ctorName lps nP nF env'' rest env₂
+def Templates (T ctorName : Name) (lps : List Name) (nP nF : Nat)
+    (env' env₂ : Env) : Prop :=
+  env₂ = env' ∨
+  (env'.find? (projTableName T) = none ∧
+    env₂ = ⟨.projInfo ⟨T, lps, nP, ctorName, nF, .zero, Array.replicate nF (.sort .zero), [], false⟩
+      :: env'.consts⟩)
 
 end DeclIndRun
 
@@ -153,21 +142,6 @@ readings, with the semantics coming from the claims interface.  The
 per-stage anatomy is exposed by inversion lemmas on the stage
 functions where the dischargers need it (`SetBase/DeclDirect.lean`
 holds the `checkDirectStruct` inversion). -/
-
-/-- The projection-slot fold (`checkDirectStruct`'s tail): each slot
-is `checkDirectProj`'s own run at the accumulator — the entry decision
-(`slots`, `directProjSlots`) and the guard levels (`guards`,
-`directProjGuards`) are the fold's data. -/
-def DirectProjFoldRun (μ : CheckMode) (F : Nat) (T C : Name)
-    (lps : List Name) (nP nF : Nat) (resSort : Level) (slots : List Bool)
-    (guards : List Level) (cvTa cvCa : ConstantVal) :
-    Env → List Nat → Env → Prop
-  | env', [], env₂ => env₂ = env'
-  | env', i :: rest, env₂ =>
-    ∃ env'', checkDirectProj (m := Setlec.CheckM) (fueledOps μ F)
-        T C lps nP nF resSort slots guards cvTa cvCa env' i = .ok env'' ∧
-      DirectProjFoldRun μ F T C lps nP nF resSort slots guards cvTa cvCa env''
-        rest env₂
 
 /-- **The direct-structure declaration, as checked**: the stage runs
 of `checkDirectStruct`, with the intermediate environments and the
@@ -192,12 +166,10 @@ def DeclDirectRun (μ : CheckMode) (F : Nat) (env : Env)
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
             .plain else .inert,
           rhsA⟩] :: envC.consts⟩
-     (List.range p.nF).all
-        (fun j => (env₃.find? (projFnName p.cvT.name j)).isNone)
-        = true ∧
-      DirectProjFoldRun μ F p.cvT.name p.cvC.name p.cvT.levelParams
-        p.nP p.nF p.resSort (directProjSlots p)
-        (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa env₃
-        (List.range p.nF) env₂)
+     -- the projection table (task #175 S1): one constant, the fields'
+     -- bodies off the annotated constructor type and the guard levels
+     checkDirectProjTable (m := Setlec.CheckM) p.cvT.name p.cvC.name
+        p.cvT.levelParams p.nP p.nF p.resSort
+        (directProjGuards cvCa.type p.nP p.nF sorts) cvCa env₃ = .ok env₂)
 
 end Setlec.Semantics

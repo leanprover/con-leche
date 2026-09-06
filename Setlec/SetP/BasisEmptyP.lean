@@ -275,7 +275,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
   have hwf1 : EnvWF ⟨emptyA :: env.consts⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
   obtain ⟨mp1⟩ := extendEmptyP mp hf1 hwf1
   have hE : (⟨emptyA :: env.consts⟩ : Env).find? emptyName
       = some emptyA := by
@@ -289,7 +289,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
         injection heq with _ _ _ h4
         subst h4
         intro r hr; exact nomatch hr),
-      (fun _ _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     show Expr.constsResolve _ emptyRecA.toConstantVal.type = true
     simp only [show emptyRecA.toConstantVal.type
         = Expr.forallE (Name.anonymous.str "motive")

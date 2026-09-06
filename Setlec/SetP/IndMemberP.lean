@@ -60,7 +60,7 @@ def BlockAcvalInstalled (blockNames : List Name) (env : Env)
 by `find?` rather than by membership (`EnvS.cval_memType`'s
 transpose). -/
 theorem EnvS2PM.acval_memTypeP (mp : EnvS2PM V μ env) {n : Name}
-    {ci : ConstantInfo} (hf : env.find? n = some ci) (hnt : ci.isTowerEntry = false)
+    {ci : ConstantInfo} (hf : env.find? n = some ci)
     (ψ : Name → Nat) :
     ∃ ta, denoteP mp.base2.acval env ψ 0 ci.toConstantVal.type
         = some ta ∧
@@ -70,7 +70,7 @@ theorem EnvS2PM.acval_memTypeP (mp : EnvS2PM V μ env) {n : Name}
   obtain ⟨ta, hta⟩ := mp.type_reads ci (Env.find?_mem hf) ψ
   refine ⟨ta, hta, mp.type_okP ci (Env.find?_mem hf) ψ ta hta, ?_⟩
   intro ρ
-  have := mp.mem_typeP ci (Env.find?_mem hf) hnt ψ ta hta ρ
+  have := mp.mem_typeP ci (Env.find?_mem hf) ψ ta hta ρ
   rwa [Env.find?_name hf] at this
 
 /-- **The block member's key, P tier.**  The model artifact's leaf
@@ -115,7 +115,7 @@ theorem memberKeyP (mp : EnvS2PM V μ env) {blockNames : List Name}
     · rw [if_neg hb]
   -- the model constant's own facts, and the two types read the same
   obtain ⟨ta, hta, hokta, hmem⟩ :=
-    mp.acval_memTypeP (n := cv.name.str "_model") hfm (Setlec.isTowerEntry_false_of_find? hfm (fun _ _ h => Name.noConfusion h)) ψ
+    mp.acval_memTypeP (n := cv.name.str "_model") hfm ψ
   refine ⟨ta, ?_, hokta, hmem⟩
   show denoteP mp.base2.acval env ψ 0 type' = some ta
   rw [← hta]
@@ -215,8 +215,6 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
           intro _ h <;> exact nomatch h)
     (ConsHeadP.ofFresh hwf
       (fun ψ => mp.base2.cval_closedL _ ψ) hnres'
-      (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
-            intro _ h <;> exact nomatch h)
       (by rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
             intro _ h <;> exact nomatch h)
       (fun cv2 mI2 rP2 rules2 heq r hr => by

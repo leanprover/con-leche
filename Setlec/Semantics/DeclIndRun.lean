@@ -425,7 +425,7 @@ def DeclIndRun (μ : CheckMode) (F : Nat) (env : Env)
            ProjInstallRun μ F cvT.name cvC.name cvT.levelParams nP nF
              envR (List.range nF) envP ∧
            DeclIndRun.Templates cvT.name cvC.name cvT.levelParams nP nF
-             envP (List.range nF) env₂)) ∨
+             envP env₂)) ∨
    (¬ (∃ cvT capsT cvC nP nF,
         block.filter (fun ci => match ci with
           | .indInfo _ _ => true | _ => false) = [.indInfo cvT capsT] ∧

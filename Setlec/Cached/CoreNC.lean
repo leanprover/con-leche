@@ -11,7 +11,7 @@ arena replaced by the computed-field representation, exactly the way
 `Setlec/Cached/CoreC.lean` clones `Setlec/Kernel/CoreI.lean` (the
 store wrappers survive as `CStore` no-ops, the interning wrappers as
 smart constructors, the name/level interning as identities).  Where an
-NC body references a certified helper (`projCertI`, `reduceNatI`,
+NC body references a certified helper (`reduceNatI`,
 `unfoldDefinitionI`, `whnfBodyI`, `annotateBodyI`, `ensureSortI`, …)
 it uses the `CoreC` twin under the same name.
 
@@ -217,6 +217,20 @@ def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | _ => pure major
   | _ => pure major
 
+/-- Cert-skipping twin of `prepareMajorI`: the same official order
+(`prepareMajor`'s docstring) over `majorToCtorNC`. -/
+def prepareMajorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (recName : Name) (rules : List RecRule) (major : ExprC) :
+    CheckCM ExprC := do
+  if recRuleKOf fe.find? rules then do
+    let majorK ← majorToCtorNC r fe depth recName rules major
+    let major₀ ← r.whnf depth majorK
+    litMajorToCtorI r fe depth major₀
+  else do
+    let major₀ ← r.whnf depth major
+    let major₁ ← litMajorToCtorI r fe depth major₀
+    majorToCtorNC r fe depth recName rules major₁
+
 /-- Cert-skipping twin of `iotaRecI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `iotaRecNC`): keeps every check
 lean4lean's `inductiveReduceRec` performs plus the verdict-relevant
@@ -236,9 +250,7 @@ def iotaRecNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
       -- recursor's level arity before the rule's RHS is instantiated.
       if args.length = mI + 1 ∧ us.length = cv.levelParams.length then do
         let bvar0 ← internI (.bvar 0)
-        let major₀ ← r.whnf depth (args.getD mI bvar0)
-        let major₁ ← litMajorToCtorI r fe depth major₀
-        let major ← majorToCtorNC r fe depth cn rules major₁
+        let major ← prepareMajorNC r fe depth cn rules (args.getD mI bvar0)
         match ← withStore (fun st => st.getNode (st.getAppFnI major)) with
         | some (.const cj usj) => do
           let cjn ← readbackNM cj
@@ -340,9 +352,9 @@ end
 `Setlec/Kernel/CoreNC.lean`'s `whnfCoreStepNC`): one head-normalization
 step with the loop's continuation `k` abstracted.  The app clause
 differs through `whnfAppNC`, and the proj clause drops the
-constructor-telescope certification `projTeleCertI` (task #126).  The
-possibly-Prop projection certificate `projCertI` is outside the
-task-#76 site list and kept. -/
+constructor-telescope certification `projTeleCertI` (task #126) and,
+since 2026-09-06 (parity mirrors official), the spine certificate
+`projCertI` too: official's `reduce_proj` runs none. -/
 def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : ExprC → CheckCM ExprC) (e : ExprC) : CheckCM ExprC := do
     match ← viewI e with
@@ -362,18 +374,17 @@ def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         match ← withStore (fun st => st.getNode (st.getAppFnI e')) with
         | some (.const c us) => do
           let args ← withStore (·.getAppArgsI e')
-          if entry.native ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
+          if entry.tower ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then do
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
-            -- task #100 de-gating: ungated, as in `whnfCoreStepI`
-            -- (`projCertI` stays — outside the task-#76 skip list;
-            -- task #161 item B1 shrank it to its two `infer` runs)
-            if ← projCertI r fe depth false c us args then
-              k arg
-            else internI (.proj sn i e')
+            -- parity mirrors official (2026-09-06): `reduce_proj`
+            -- reduces every constructor redex with no certificate, so
+            -- the parity core runs none — `projCertAt` at
+            -- `verified = false` in the shared body
+            k arg
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
       | none => internI (.proj sn i e')
@@ -470,7 +481,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         match fe.findProj? Tn i with
         | some entry => do
           let targs ← withStore (·.getAppArgsI te)
-          if entry.native ∧ T = sn ∧ targs.length = entry.numParams ∧
+          if entry.tower ∧ T = sn ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             -- the official `infer_proj` restriction (task #175
             -- W4c/O4), as in the spec body
@@ -480,15 +491,11 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
                   == some true do
                 throw (.invalid
                   "projection from a propositional structure must be a proposition")
-            -- task #175 wiring W2c: the tower-backed residual, as in
-            -- the spec body — since B3a `ExprC = Expr` and the store
-            -- is a unit, so the level-instantiated peel runs
-            -- directly on the entry type and the interned spine.
-            let tyI := entry.ty.instantiateLevelParams
-              entry.levelParams us
-            match Expr.instPisAt (targs ++ [pe]) tyI with
-            | some (_, resid) => internExprM resid
-            | none => throw (.internal "malformed projection entry")
+            -- the body at the arguments and the subject, as in the
+            -- spec body (task #175 S1) — since B3a `ExprC = Expr` and
+            -- the store is a unit, so the instantiation runs directly
+            -- on the stored body and the interned spine.
+            internExprM (entry.typeAt us targs pe)
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")

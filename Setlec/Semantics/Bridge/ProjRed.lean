@@ -3,9 +3,10 @@ import Setlec.Kernel.ExprOps
 /-!
 # `stripPis` monotonicity
 
-The two `∀`-tower monotonicity lemmas the direct-entry fold
-(`SetP/DirectFoldEntryP.lean`) uses to step a constructor type's
-telescope.
+The two `∀`-tower monotonicity lemmas the direct install's
+projection-slot fold (`SetP/DirectFoldEntryP.lean`, retired at task
+#175 S1 — the table is one constant, `SetP/Direct/DirectStageTableP.lean`)
+used to step a constructor type's telescope.
 
 **What this file used to be** (2026-09-05): the discharge of
 `ProjStepR` — R6 `Red.projRed`, the scrutinee's reduction at the

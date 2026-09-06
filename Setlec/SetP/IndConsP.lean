@@ -267,14 +267,14 @@ theorem declStepPM_of_ind_rec_cons (mp : EnvS2PM V μ env)
 the tower and its type's reading — and the stored type is
 `.sort .zero` by `Templates`'s own pin. -/
 theorem declStepPM_of_projTemplate_cons (mp : EnvS2PM V μ env)
-    {entry : Setlec.ProjEntry} {A : (Name → Nat) → AVExpr}
-    (hfresh : env.find? (ConstantInfo.projInfo entry).name = none)
+    {tbl : Setlec.ProjTable} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? (ConstantInfo.projInfo tbl).name = none)
     (hnres : Setlec.reservedBasisNames.contains
-      (ConstantInfo.projInfo entry).name = false)
-    (hh : ConsHeadP env (.projInfo entry) A)
+      (ConstantInfo.projInfo tbl).name = false)
+    (hh : ConsHeadP env (.projInfo tbl) A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
-      (∀ p ∈ (ConstantInfo.projInfo entry).toConstantVal.levelParams,
+      (∀ p ∈ (ConstantInfo.projInfo tbl).toConstantVal.levelParams,
         ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂)
     (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ))
     (hAvalid : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -282,25 +282,25 @@ theorem declStepPM_of_projTemplate_cons (mp : EnvS2PM V μ env)
     (htyReads : ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,
         denoteP (acvalWith mp.base2.acval
-            (ConstantInfo.projInfo entry).name A)
-          ⟨.projInfo entry :: env.consts⟩ ψ 0
-          (ConstantInfo.projInfo entry).toConstantVal.type = some ta)
+            (ConstantInfo.projInfo tbl).name A)
+          ⟨.projInfo tbl :: env.consts⟩ ψ 0
+          (ConstantInfo.projInfo tbl).toConstantVal.type = some ta)
     (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval
-            (ConstantInfo.projInfo entry).name A)
-          ⟨.projInfo entry :: env.consts⟩ ψ 0
-          (ConstantInfo.projInfo entry).toConstantVal.type = some ta →
+            (ConstantInfo.projInfo tbl).name A)
+          ⟨.projInfo tbl :: env.consts⟩ ψ 0
+          (ConstantInfo.projInfo tbl).toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
     (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval
-            (ConstantInfo.projInfo entry).name A)
-          ⟨.projInfo entry :: env.consts⟩ ψ 0
-          (ConstantInfo.projInfo entry).toConstantVal.type = some ta →
+            (ConstantInfo.projInfo tbl).name A)
+          ⟨.projInfo tbl :: env.consts⟩ ψ 0
+          (ConstantInfo.projInfo tbl).toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
-    (hntc : entry.tower = false) :
-    ∃ mp' : EnvS2PM V μ ⟨.projInfo entry :: env.consts⟩,
+    (hntc : tbl.tower = false) :
+    ∃ mp' : EnvS2PM V μ ⟨.projInfo tbl :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval
-        (ConstantInfo.projInfo entry).name A := by
+        (ConstantInfo.projInfo tbl).name A := by
   refine declStepPM_of_ind_cons mp hfresh hnres
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (fun _ h => nomatch h) hh hAclosed hAparams hAok

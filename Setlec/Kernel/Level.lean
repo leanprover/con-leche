@@ -217,10 +217,12 @@ def Name.isModelSuffix : Name → Bool
   | _ => false
 
 /-- Is this shaped like an installed projection function's name
-(`(T.proj).i`)?  The shape is reserved for the checker's own
-installs. -/
+(`(T.proj).i`, the modeled path's projection functions) or a
+projection table's (`(T.projTable).0`, task #175 S1)?  Both shapes
+are reserved for the checker's own installs. -/
 def Name.isProjFnShape : Name → Bool
   | .num (.str _ "proj") _ => true
+  | .num (.str _ "projTable") _ => true
   | _ => false
 
 /-- Substitute level parameters throughout an expression (sorts and

@@ -59,50 +59,31 @@ theorem EnvExtends.cons {env : Env} {c₀ : ConstantInfo}
     exact nomatch h
   · exact h
 
-/-- `findProj?` transports up an extension (a table entry is stored
-under a name; `hext` carries the lookup). -/
+/-- `findProj?` transports up an extension (a table is stored under a
+name; `hext` carries the lookup). -/
 theorem EnvExtends.findProj?_mono {env₁ env₂ : Env}
     (hext : EnvExtends env₁ env₂) {sn : Name} {i : Nat}
     {entry : ProjEntry} (h : env₁.findProj? sn i = some entry) :
     env₂.findProj? sn i = some entry := by
-  unfold Env.findProj? at h ⊢
-  cases h0 : env₁.find? (projFnName sn i) with
-  | none => rw [h0] at h; exact nomatch h
-  | some ci =>
-    rw [h0] at h
-    rw [hext _ _ h0]
-    exact h
+  obtain ⟨tbl, h0, hi, rfl⟩ := Env.findProj?_some h
+  exact Env.findProj?_of_table (hext _ _ h0) hi
 
-/-- A fresh cons that is not a tower entry cannot create a
+/-- A fresh cons that is not a tower table cannot create a
 tower-backed lookup where none existed. -/
 theorem findProj?_cons_of_base_none {env : Env} {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ e', c₀ = .projInfo e' → e'.tower = false) :
+    (hntc : ∀ tbl, c₀ = .projInfo tbl → tbl.tower = false) :
     ∀ (sn : Name) (i : Nat) (entry : ProjEntry),
       env.findProj? sn i = none →
       Env.findProj? ⟨c₀ :: env.consts⟩ sn i = some entry →
       entry.tower = false := by
   intro sn i entry h0 h1
-  unfold Env.findProj? at h0 h1
-  rw [show Env.find? ⟨c₀ :: env.consts⟩ (projFnName sn i)
-      = if c₀.name = projFnName sn i then some c₀
-        else env.find? (projFnName sn i) from Env.find?_cons] at h1
-  by_cases hn : c₀.name = projFnName sn i
-  · rw [if_pos hn] at h1
-    cases hc : c₀ with
-    | projInfo e' =>
-      rw [hc] at h1
-      dsimp only at h1
-      obtain rfl := Option.some.inj h1
-      exact hntc _ hc
-    | axiomInfo cv => rw [hc] at h1; exact nomatch h1
-    | defnInfo cv v hint => rw [hc] at h1; exact nomatch h1
-    | thmInfo cv v => rw [hc] at h1; exact nomatch h1
-    | indInfo cv caps => rw [hc] at h1; exact nomatch h1
-    | ctorInfo cv np nf => rw [hc] at h1; exact nomatch h1
-    | recInfo cv mI rP rules => rw [hc] at h1; exact nomatch h1
-  · rw [if_neg hn] at h1
-    rw [h0] at h1
+  by_cases hn : c₀.name = projTableName sn
+  · obtain ⟨tbl, hf, hi, rfl⟩ := Env.findProj?_some h1
+    rw [Env.find?_cons, if_pos hn] at hf
+    obtain rfl := Option.some.inj hf
+    exact hntc _ rfl
+  · rw [Env.findProj?_cons_ne hn, h0] at h1
     exact nomatch h1
 
 /-- **Denotations survive extension.**
@@ -573,23 +554,17 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
             else if i < 2 then some (.proj i ve) else none
         | none => if i < 2 then some (.proj i ve) else none) := by
     intro sn i ve
-    unfold Env.findProj?
-    rw [show Env.find? ⟨c₀ :: env.consts⟩ (projFnName sn i)
-        = if c₀.name = projFnName sn i then some c₀
-          else env.find? (projFnName sn i) from Env.find?_cons]
-    by_cases hn : c₀.name = projFnName sn i
-    · rw [if_pos hn, ← hn, hfresh]
-      cases c₀ with
-      | projInfo e' =>
+    by_cases hn : c₀.name = projTableName sn
+    · have h0 : env.findProj? sn i = none :=
+        Env.findProj?_none_of_fresh (by rw [← hn]; exact hfresh) i
+      rw [h0]
+      cases h1 : Env.findProj? ⟨c₀ :: env.consts⟩ sn i with
+      | none => rfl
+      | some entry =>
+        have := findProj?_cons_of_base_none hfresh hntc sn i entry h0 h1
         dsimp only
-        rw [if_neg (by simp [hntc e' rfl])]
-      | axiomInfo cv => rfl
-      | defnInfo cv v hint => rfl
-      | thmInfo cv v => rfl
-      | indInfo cv caps => rfl
-      | ctorInfo cv np nf => rfl
-      | recInfo cv mI rP rules => rfl
-    · rw [if_neg hn]
+        rw [if_neg (by simp [this])]
+    · rw [Env.findProj?_cons_ne hn]
   intro d e
   induction d, e using denote.induct (cval := cval) (env := env) (φ := φ) with
   | case1 d u => intro _; rw [denote_sort, denote_sort]
@@ -1017,36 +992,26 @@ theorem BasisPinnedTT.cons {env : Env} {cval cval' : TConstVal}
     rw [← hi.ag n (fun hh => hn hh.symm)]
     exact (h n ci hf hres).2 t ψ hp
 
-/-- The native projection table survives an install.  A head that is a
-tower-backed entry supplies its own head data (task #175 wiring W5);
-the stored entries' head data survives by freshness. -/
+/-- The projection-table discipline survives an install.  A head that
+is a tower-backed table supplies its own head data (task #175 wiring
+W5); the stored tables' head data survives by freshness. -/
 theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
     (hfresh : env.find? c₀.name = none)
-    (hhead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
-      entry.tower = true)
-    (hheadTower : ∀ entry, c₀ = .projInfo entry → entry.tower = true →
-      TowerHead ⟨c₀ :: env.consts⟩ entry) :
+    (hheadTower : ∀ tbl, c₀ = .projInfo tbl → tbl.tower = true →
+      ∀ i, i < tbl.numFields → TowerHead ⟨c₀ :: env.consts⟩ (tbl.entry i)) :
     ProjOkT ⟨c₀ :: env.consts⟩ := by
   have hkeep : ∀ (n : Name) (ci : ConstantInfo),
       (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
       env.find? n = some ci → (⟨c₀ :: env.consts⟩ : Env).find? n = some ci := by
     intro n ci _ hf
     rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]; exact hf
-  refine ⟨?_, ?_⟩
-  · intro n entry hf hnat
-    by_cases hn : c₀.name = n
-    · subst hn
-      rw [Env.find?_cons, if_pos rfl] at hf
-      exact hhead entry (Option.some.inj hf) hnat
-    · rw [Env.find?_cons, if_neg hn] at hf
-      exact h.1 n entry hf hnat
-  · intro n entry hf htw
-    by_cases hn : c₀.name = n
-    · subst hn
-      rw [Env.find?_cons, if_pos rfl] at hf
-      exact hheadTower entry (Option.some.inj hf) htw
-    · rw [Env.find?_cons, if_neg hn] at hf
-      exact TowerHead.mono hkeep (h.2 n entry hf htw)
+  intro n tbl hf htw i hi
+  by_cases hn : c₀.name = n
+  · subst hn
+    rw [Env.find?_cons, if_pos rfl] at hf
+    exact hheadTower tbl (Option.some.inj hf) htw i hi
+  · rw [Env.find?_cons, if_neg hn] at hf
+    exact TowerHead.mono hkeep (h n tbl hf htw i hi)
 
 /-- Every name a clause set reads is valued the same after an install
 at a different name. -/

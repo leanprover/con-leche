@@ -291,7 +291,7 @@ theorem stageCtor
   refine declStepPM_of_ind_member_cons mpI (c₀ := .ctorInfo cvCa p.nP p.nF)
     (A := A) hfresh hnresC (Or.inr ⟨_, _, _, rfl⟩)
     (ConsHeadP.ofFresh hwfC (fun ψ => hAbelow ψ) hnresC
-      (fun _ h => nomatch h) (fun _ h => nomatch h)
+      (fun _ h => nomatch h)
       (fun _ _ _ _ h => nomatch h))
     (fun ψ k => AVExpr.liftN_eq_self _
       (VExpr.bvarsBelow.mono (Nat.zero_le k) (hAbelow ψ)) 1)

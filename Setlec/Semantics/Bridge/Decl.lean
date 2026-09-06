@@ -67,70 +67,29 @@ theorem natEqsRun_of_certs {μ : CheckMode} {F : Nat} {env : Env} :
         · exact hx
         · exact ih h eq heq'
 
-/-! ## `indDecl`, the back half: the elimination-template fold
+/-! ## `indDecl`, the back half: the elimination-template install
 
-`checkIndDecl`'s last-but-one step is a fold over `List.range nF`.  The
-template fold is a pure stored-data install and inverts outright.  (Its
+`checkIndDecl`'s last step installs the inert template table
+(`installProjTemplate`, task #175 S1).  It is a pure stored-data
+install and inverts outright (`installProjTemplate_inv`).  (Its
 sibling, the projection-*function* fold, was parametric in `ProjFnR`'s
 inversion and went with `ProjFnR`.) -/
 
-/-- **The elimination-template fold, inverted.** -/
+/-- **The elimination-template install, inverted.** -/
 theorem templates_of {T ctorName : Name} {lps : List Name}
-    {nP nF : Nat} :
-    ∀ (l : List Nat) {env' env₂ : Env},
-      l.foldlM (installProjTemplateStep (m := CheckM) T ctorName lps
-        nP nF) env' = .ok env₂ →
-      DeclIndRun.Templates T ctorName lps nP nF env' l env₂
-  | [], env', env₂, h => by
-    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
-    exact h.symm
-  | i :: l, env', env₂, h => by
-    simp only [List.foldlM, Bind.bind, Except.bind] at h
-    revert h
-    cases hstep : installProjTemplateStep (m := CheckM) T ctorName lps
-        nP nF env' i with
-    | error e => intro h; exact nomatch h
-    | ok env'' =>
-      intro h
-      refine ⟨env'', ?_, templates_of l h⟩
-      simp only [installProjTemplateStep] at hstep
-      by_cases hfr : (env'.find? (projFnName T i)).isNone = true
-      · rw [if_pos hfr] at hstep
-        simp only [installProjTemplate] at hstep
-        revert hstep
-        cases hrec : env'.find? (T.str "rec") with
-        | none =>
-          intro hstep
-          dsimp only at hstep
-          simp only [pure, Except.pure, Except.ok.injEq] at hstep
-          exact Or.inl hstep.symm
-        | some ci =>
-          match ci with
-          | .recInfo cvR mI rP [rule] =>
-            intro hstep
-            dsimp only at hstep
-            by_cases hcond :
-                (env'.find? (projFnName T i)).isNone = true ∧
-                  mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧
-                  i < nF
-            · rw [if_pos hcond] at hstep
-              simp only [pure, Except.pure, Except.ok.injEq] at hstep
-              exact Or.inr ⟨_, rfl, rfl, rfl, rfl, rfl, rfl, hfr,
-                hstep.symm⟩
-            · rw [if_neg hcond] at hstep
-              simp only [pure, Except.pure, Except.ok.injEq] at hstep
-              exact Or.inl hstep.symm
-          | .recInfo cvR mI rP [] | .recInfo cvR mI rP (_ :: _ :: _)
-          | .axiomInfo _ | .defnInfo _ _ _ | .thmInfo _ _
-          | .indInfo _ _ | .ctorInfo _ _ _ | .projInfo _ =>
-            intro hstep
-            dsimp only at hstep
-            simp only [pure, Except.pure, Except.ok.injEq] at hstep
-            exact Or.inl hstep.symm
-      · rw [if_neg hfr] at hstep
-        simp only [pure, Except.pure, Except.ok.injEq] at hstep
-        exact Or.inl hstep.symm
-
+    {nP nF : Nat} {env' env₂ : Env}
+    (h : installProjTemplate (m := CheckM) env' T ctorName lps nP nF = .ok env₂) :
+    DeclIndRun.Templates T ctorName lps nP nF env' env₂ := by
+  unfold installProjTemplate at h
+  split at h
+  · split at h
+    · next hc =>
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inr ⟨Option.isNone_iff_eq_none.mp hc.1, h.symm⟩
+    · simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+  · simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
 
 /-! ## `basisDecl`
 

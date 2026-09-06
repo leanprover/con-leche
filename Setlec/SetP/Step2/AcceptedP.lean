@@ -203,7 +203,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       simp only [Expr.looseBVarsBounded] at hb
       obtain ⟨pa, hpa⟩ := ih htpe hws hb (fun l hl =>
         hL l (by simpa [Expr.fvarLeaves] using hl))
-      have htw : entry.tower = true := m.proj_ok.tower_of_native hfe hnat
+      have htw : entry.tower = true := hnat
       exact ⟨_, denoteP_proj_tower hfe htw hpa⟩
     | .letE n ty val body =>
       obtain ⟨tty, s, tv, htty, -, htv, -, hbody⟩ :=

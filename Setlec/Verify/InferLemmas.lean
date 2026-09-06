@@ -5,6 +5,8 @@ import Setlec.Verify.InstLevels
 import Setlec.Verify.EnvWF
 import Setlec.Verify.Knot
 import Setlec.Verify.StrLitExpr
+import Setlec.Verify.InstList
+import Setlec.Verify.InstSpine
 
 /-!
 # Preservation and inversion lemmas for the checker core
@@ -707,18 +709,18 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       projLitToCtorP mode env fuel d e₂ = .ok e₃ ∧
       (e' = .proj sn i e₃ ∨
         ∃ us entry, e₃.getAppFn = .const entry.ctor us ∧
-          env.findProj? sn i = some entry ∧ entry.native = true ∧
+          env.findProj? sn i = some entry ∧ entry.tower = true ∧
           i < entry.numFields ∧
           e₃.getAppArgs.length = entry.numParams + entry.numFields ∧
           us.length = entry.levelParams.length ∧
           entry.fireOk us = true ∧
           whnfCore mode env fuel d
             (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
-          projCertP mode env fuel d mode.betaGate entry.ctor us e₃.getAppArgs
-            = .ok true) := by
+          projCertAtP mode env fuel d mode.verified mode.betaGate entry.ctor us
+            e₃.getAppArgs = .ok true) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
-  simp only [whnfCore_def, whnf_def, projCert_fold,
+  simp only [whnfCore_def, whnf_def, projCertAt_fold,
     projLitToCtor_fold] at h
   cases he : whnf mode env fuel d e with
   | error err => rw [he] at h; exact nomatch h
@@ -745,7 +747,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       obtain ⟨hnat, rfl, hi, hlen, hus, hfire⟩ := hcond
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
-      cases hcert : projCertP mode env fuel d mode.betaGate entry.ctor us
+      cases hcert : projCertAtP mode env fuel d mode.verified mode.betaGate entry.ctor us
           e₃.getAppArgs with
       | error err => rw [hcert] at h; exact nomatch h
       | ok b =>
@@ -770,6 +772,15 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
   | lit l2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | proj s2 i2 e3 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
 
+/-- At the verified mode the fire's gate runs the certificate
+(`projCertAt`; parity mirrors official, 2026-09-06). -/
+theorem projCertAtP_verified {env : Env} {fuel d : Nat} {lic : Bool} {c : Name}
+    {us : List Level} {args : List Expr} (hv : mode.verified = true)
+    (h : projCertAtP mode env fuel d mode.verified lic c us args = .ok true) :
+    projCertP mode env fuel d lic c us args = .ok true := by
+  simp only [projCertAtP, projCertAt, hv, ↓reduceIte] at h
+  exact h
+
 /-- Inversion for a successful projection certification (task #175 W6):
 the head is a stored constructor and the spine is certified against
 its type at the redex's levels (`iotaCerts`). -/
@@ -787,18 +798,62 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {lic : Bool} {c : Name}
     exact ⟨cvC, nP, nF, hf, h⟩
   · exact absurd h (by simp [pure, Except.pure])
 
+/-- **The major chain's induction principle.**  `prepareMajor` runs
+its three steps — `whnf`, the literal conversion, the rescue — in one
+of two orders (the K-flagged one puts the rescue first); a property
+each step preserves is carried from the raw major to the prepared one
+whichever order ran.  Every consumer of the chain (scoping, bound
+variables, leaves, the P tier's readings and gradings) is an instance,
+so none of them names the order. -/
+theorem prepareMajorP_ind {env : Env} {fuel d : Nat} {recName : Name}
+    {rules : List RecRule} {a m : Expr}
+    (h : prepareMajorP mode env fuel d recName rules a = .ok m)
+    (P : Expr → Prop)
+    (hwhnf : ∀ {e e' : Expr}, whnf mode env fuel d e = .ok e' → P e → P e')
+    (hlit : ∀ {e e' : Expr},
+      litMajorToCtorP mode env fuel d e = .ok e' → P e → P e')
+    (hmaj : ∀ {e e' : Expr},
+      majorToCtorP mode env fuel d recName rules e = .ok e' → P e → P e')
+    (ha : P a) : P m := by
+  dsimp only [prepareMajorP] at h
+  simp only [prepareMajor, Bind.bind, Except.bind, whnf_def, majorToCtor_fold,
+    litMajorToCtor_fold] at h
+  by_cases hk : recRuleK env rules = true
+  · rw [if_pos hk] at h
+    cases h₁ : majorToCtorP mode env fuel d recName rules a with
+    | error err => rw [h₁] at h; exact nomatch h
+    | ok m₁ =>
+      rw [h₁] at h
+      dsimp only at h
+      cases h₂ : whnf mode env fuel d m₁ with
+      | error err => rw [h₂] at h; exact nomatch h
+      | ok m₂ =>
+        rw [h₂] at h
+        dsimp only at h
+        exact hlit h (hwhnf h₂ (hmaj h₁ ha))
+  · rw [if_neg hk] at h
+    cases h₁ : whnf mode env fuel d a with
+    | error err => rw [h₁] at h; exact nomatch h
+    | ok m₁ =>
+      rw [h₁] at h
+      dsimp only at h
+      cases h₂ : litMajorToCtorP mode env fuel d m₁ with
+      | error err => rw [h₂] at h; exact nomatch h
+      | ok m₂ =>
+        rw [h₂] at h
+        dsimp only at h
+        exact hmaj h (hlit h₂ (hwhnf h₁ ha))
+
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     (h : iotaRecP mode env fuel d e = .ok (some eout)) :
-    ∃ c us cv mI rP rules major₀ major₁ major cj usj cvj cnP cnF r,
+    ∃ c us cv mI rP rules major cj usj cvj cnP cnF r,
       e.getAppFn = .const c us ∧
       env.find? c = some (.recInfo cv mI rP rules) ∧
       e.getAppArgs.length = mI + 1 ∧
       us.length = cv.levelParams.length ∧
-      whnf mode env fuel d (e.getAppArgs.getD mI (.bvar 0)) =
-        .ok major₀ ∧
-      litMajorToCtorP mode env fuel d major₀ = .ok major₁ ∧
-      majorToCtorP mode env fuel d c rules major₁ = .ok major ∧
+      prepareMajorP mode env fuel d c rules (e.getAppArgs.getD mI (.bvar 0)) =
+        .ok major ∧
       major.getAppFn = .const cj usj ∧
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
       rules.find? (fun r' => r'.ctor == cj) = some r ∧
@@ -824,7 +879,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
           major.getAppArgs.drop r.ctorParams) := by
   dsimp only [iotaRecP] at h
   simp only [iotaRec, Bind.bind, Except.bind] at h
-  simp only [whnf_def, majorToCtor_fold, litMajorToCtor_fold, defEqList_fold,
+  simp only [prepareMajor_fold, defEqList_fold,
     iotaCerts_fold, iotaIndexOk_fold] at h
   revert h
   cases hfn : e.getAppFn with
@@ -857,21 +912,11 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   case neg => rw [if_neg hlen] at h; exact nomatch h
   rw [if_pos hlen] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hmaj : whnf mode env fuel d
+  cases hprep : prepareMajorP mode env fuel d c rules
       (e.getAppArgs.getD mI (.bvar 0)) with
-  | error err => rw [hmaj] at h; exact nomatch h
-  | ok major₀ =>
-  rw [hmaj] at h
-  dsimp only at h
-  cases hlit : litMajorToCtorP mode env fuel d major₀ with
-  | error err => rw [hlit] at h; exact nomatch h
-  | ok major₁ =>
-  rw [hlit] at h
-  dsimp only at h
-  cases hsub : majorToCtorP mode env fuel d c rules major₁ with
-  | error err => rw [hsub] at h; exact nomatch h
+  | error err => rw [hprep] at h; exact nomatch h
   | ok major =>
-  rw [hsub] at h
+  rw [hprep] at h
   dsimp only at h
   revert h
   cases hmfn : major.getAppFn with
@@ -974,8 +1019,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | true =>
   simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq,
     Option.some.injEq] at h
-  exact ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
-    cnF, r, rfl, hfc, hlen.1, hlen.2, hmaj, hlit, hsub, hmfn, hfj, hrule,
+  exact ⟨c, us, cv, mI, rP, rules, major, cj, usj, cvj, cnP,
+    cnF, r, rfl, hfc, hlen.1, hlen.2, hprep, hmfn, hfj, hrule,
     hml, hplain0, hlev, hpeq, hcerts, hmcerts, hidx, h.symm⟩
 
 /-- Inversion of the canonical-index comparison where the recursor has
@@ -1828,15 +1873,6 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
           (cvp.type.stripPis (targs.length + 1)).isSome = true ∧
           iotaCertsP mode env fuel d false
             (cvp.type.instantiateLevelParams cvp.levelParams us')
-            (targs ++ [b]) = .ok true) ∨
-        -- a tower-backed entry (task #175 W4c): its stored type certified
-        -- the same way
-        (∃ entry : ProjEntry,
-          env.find? (projFnName T i) = some (.projInfo entry) ∧
-          entry.tower = true ∧ entry.levelParams = lpsT ∧
-          (entry.ty.stripPis (targs.length + 1)).isSome = true ∧
-          iotaCertsP mode env fuel d false
-            (entry.ty.instantiateLevelParams entry.levelParams us')
             (targs ++ [b]) = .ok true)
   | [], _, i, hi => nomatch hi
   | i₀ :: rest, h, i, hi => by
@@ -1851,29 +1887,8 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
     | some (.thmInfo _ _) => intro h; exact nomatch h
     | some (.indInfo _ _) => intro h; exact nomatch h
     | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-    | some (.projInfo entry) => ?_
+    | some (.projInfo _) => intro h; exact nomatch h
     | some (.recInfo cvp mIp rPp rulesp) => ?_
-    · intro h
-      dsimp only at h
-      by_cases hlps : entry.tower = true ∧ entry.levelParams = lpsT ∧
-          (entry.ty.stripPis (targs.length + 1)).isSome = true
-      case neg => rw [if_neg hlps] at h; exact nomatch h
-      rw [if_pos hlps] at h
-      obtain ⟨htw, hlps, hstrp⟩ := hlps
-      simp only [Bind.bind, Except.bind] at h
-      cases hic : iotaCertsP mode env fuel d false
-          (entry.ty.instantiateLevelParams entry.levelParams us')
-          (targs ++ [b]) with
-      | error e => rw [hic] at h; exact nomatch h
-      | ok r => ?_
-      rw [hic] at h
-      cases r with
-      | false => exact nomatch h
-      | true => ?_
-      simp only [↓reduceIte] at h
-      rcases List.mem_cons.mp hi with rfl | hi'
-      · exact Or.inr ⟨entry, hfp, htw, hlps, hstrp, hic⟩
-      · exact structEtaProjCerts_inv rest h i hi'
     · intro h
       dsimp only at h
       by_cases hlps : cvp.levelParams = lpsT ∧
@@ -1893,7 +1908,7 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
       | true => ?_
       simp only [↓reduceIte] at h
       rcases List.mem_cons.mp hi with rfl | hi'
-      · exact Or.inl ⟨cvp, mIp, rPp, rulesp, hfp, hlps, hstrp, hic⟩
+      · exact ⟨cvp, mIp, rPp, rulesp, hfp, hlps, hstrp, hic⟩
       · exact structEtaProjCerts_inv rest h i hi'
 
 set_option maxHeartbeats 3200000 in
@@ -1922,8 +1937,11 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       iotaCertsP mode env fuel d false
         (cvT.type.instantiateLevelParams cvT.levelParams us')
         wtb.getAppArgs = .ok true ∧
-      structEtaProjCertsP mode env fuel d T us' wtb.getAppArgs b
-        cvT.levelParams (List.range cnF) = .ok true ∧
+      -- the per-slot certificates run at a projection-function family
+      -- only (task #175 S1)
+      (towerSlotsAll env T cnF = false →
+        structEtaProjCertsP mode env fuel d T us' wtb.getAppArgs b
+          cvT.levelParams (List.range cnF) = .ok true) ∧
       defEqListP mode env fuel d (a.getAppArgs.take cnP) wtb.getAppArgs
         = .ok true ∧
       -- task #137's constructor-telescope certificate is a TT-lane
@@ -2026,15 +2044,28 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | false => simp [pure, Except.pure] at h
   | true => ?_
   simp only [↓reduceIte] at h
-  cases hpc : structEtaProjCertsP mode env fuel d T us' wtb.getAppArgs b
-      cvT.levelParams (List.range cnF) with
-  | error e => rw [hpc] at h; exact nomatch h
+  -- the per-slot certificates: skipped at a tower family (task #175 S1)
+  have hpcOf : ∀ r₂, (if towerSlotsAll env T cnF = true then (Except.ok true : Except CheckError Bool)
+      else structEtaProjCertsP mode env fuel d T us' wtb.getAppArgs b
+        cvT.levelParams (List.range cnF)) = .ok r₂ →
+      r₂ = true →
+      towerSlotsAll env T cnF = false →
+      structEtaProjCertsP mode env fuel d T us' wtb.getAppArgs b
+        cvT.levelParams (List.range cnF) = .ok true := by
+    intro r₂ hr hr2 htow
+    rw [if_neg (by simp [htow])] at hr
+    rw [← hr2]; exact hr
+  cases hpc0 : (if towerSlotsAll env T cnF = true then (Except.ok true : Except CheckError Bool)
+      else structEtaProjCertsP mode env fuel d T us' wtb.getAppArgs b
+        cvT.levelParams (List.range cnF)) with
+  | error e => rw [hpc0] at h; exact nomatch h
   | ok r₂ => ?_
-  rw [hpc] at h
+  rw [hpc0] at h
   try dsimp only at h
   cases r₂ with
   | false => simp [pure, Except.pure] at h
   | true => ?_
+  have hpc := hpcOf true hpc0 rfl
   simp only [↓reduceIte] at h
   cases hd1 : defEqListP mode env fuel d (a.getAppArgs.take cnP)
       wtb.getAppArgs with
@@ -2268,7 +2299,7 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       inferTypeCore mode env fuel d e = .ok tpe ∧
       whnf mode env fuel d tpe = .ok te ∧
       te.getAppFn = .const T us ∧
-      env.findProj? T i = some entry ∧ entry.native = true ∧
+      env.findProj? T i = some entry ∧ entry.tower = true ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
       -- the official `infer_proj` restriction (task #175 W4c/O4): at a
@@ -2277,15 +2308,9 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       ((Level.isEquiv entry.structSort .zero == some true) = true →
         (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
           == some true) = true) ∧
-      -- task #175 wiring W2c: the returned type is the entry type's
-      -- residual along the spine and the subject (task #175 W6: the
-      -- pair fast path's computed two-way branch is gone with the
-      -- pinned pair entries — every native entry is tower-backed, and
-      -- consumers that need `entry.tower = true` read it off
-      -- `ProjOkT.tower_of_native`)
-      ((∃ ds, Expr.instPisAt (te.getAppArgs ++ [e])
-            (entry.ty.instantiateLevelParams entry.levelParams us)
-          = some (ds, t)) ∧
+      -- task #175 S1: the returned type is the entry's body at the
+      -- spine and the subject (`ProjEntry.typeAt`)
+      (t = entry.typeAt us te.getAppArgs e ∧
        -- task #175 wiring W5: the node's struct name is the head's
        T = sn) := by
   rw [inferTypeCore_succ] at h
@@ -2339,28 +2364,15 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       · rw [if_neg hf] at h
         exact absurd h (by
           simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind])
-    have h' : (match Expr.instPisAt (te.getAppArgs ++ [e])
-          (entry.ty.instantiateLevelParams entry.levelParams us) with
-        | some (_, resid) => (pure resid : Except CheckError Expr)
-        | none => (throw (CheckError.internal "malformed projection entry") :
-            Except CheckError Expr)) = .ok t := by
+    have h' : (pure (entry.typeAt us te.getAppArgs e) : Except CheckError Expr) = .ok t := by
       by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
       · rw [if_pos hp, if_pos (hg hp)] at h
         exact h
       · rw [if_neg hp] at h
         exact h
-    clear h
-    revert h'
-    cases hpi : Expr.instPisAt (te.getAppArgs ++ [e])
-        (entry.ty.instantiateLevelParams entry.levelParams us) with
-    | none => intro h; exact nomatch h
-    | some q =>
-      obtain ⟨ds, resid⟩ := q
-      intro h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-        hg, ⟨ds, hpi⟩, hsn⟩
+    simp only [pure, Except.pure, Except.ok.injEq] at h'
+    exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+      hg, h'.symm, hsn⟩
 
 /-! ## The tower-entry helpers (task #175 wiring W2c)
 
@@ -2387,23 +2399,102 @@ theorem const_ty_WScoped {env : Env} (henv : EnvWF env) {n : Name}
       ci.toConstantVal.levelParams us) :=
   WScoped.of_not_hasFvar (const_ty_hasFvar henv hf us)
 
-/-- A stored projection entry's type has no fvars (it is a stored
-constant's type; `ConstWF`), after any level instantiation. -/
-theorem projEntry_ty_hasFvar {env : Env} (henv : EnvWF env) {T : Name}
+/-- A stored projection entry's body is well-formed (`EnvWF`'s table
+clause at the view, task #175 S1): fvar-free, level-defined,
+resolving, scoped at the parameters and the subject. -/
+theorem projEntry_body_wf {env : Env} (henv : EnvWF env) {T : Name}
+    {i : Nat} {entry : ProjEntry} (hf : env.findProj? T i = some entry) :
+    entry.body.hasFvar = false ∧
+    entry.body.allLevelParamsDefined entry.levelParams = true ∧
+    entry.body.constsResolve env = true ∧
+    entry.body.looseBVarsBounded (entry.numParams + 1) = true := by
+  obtain ⟨tbl, hf', hi, rfl⟩ := Env.findProj?_some hf
+  obtain ⟨-, -, -, -, -, -, -, h8⟩ := henv _ (List.mem_of_find?_eq_some hf')
+  obtain ⟨hsize, hb⟩ := h8 tbl rfl
+  have hlt : i < tbl.bodies.size := by rw [hsize]; exact hi
+  have := hb i (tbl.bodies[i]'hlt) (Array.getElem?_eq_getElem hlt)
+  simp only [ProjTable.entry_body, ProjTable.entry_levelParams, ProjTable.entry_numParams]
+  rw [Array.getD, dif_pos hlt]
+  exact this
+
+/-- The level-instantiated body has no fvars. -/
+theorem projEntry_body_hasFvar {env : Env} (henv : EnvWF env) {T : Name}
     {i : Nat} {entry : ProjEntry} (hf : env.findProj? T i = some entry)
     (us : List Level) :
-    (entry.ty.instantiateLevelParams entry.levelParams us).hasFvar
-      = false := by
-  have hwf := henv _ (List.mem_of_find?_eq_some (Env.findProj?_some hf))
+    (entry.body.instantiateLevelParams entry.levelParams us).hasFvar = false := by
   rw [Expr.hasFvar_instantiateLevelParams]
-  exact hwf.1
+  exact (projEntry_body_wf henv hf).1
 
-/-- ...and is therefore scoped at any depth. -/
-theorem projEntry_ty_WScoped {env : Env} (henv : EnvWF env) {T : Name}
+/-- The level-instantiated body is scoped at the parameters and the
+subject. -/
+theorem projEntry_body_looseBVars {env : Env} (henv : EnvWF env) {T : Name}
     {i : Nat} {entry : ProjEntry} (hf : env.findProj? T i = some entry)
-    (us : List Level) {d : Nat} :
-    WScoped d (entry.ty.instantiateLevelParams entry.levelParams us) :=
-  WScoped.of_not_hasFvar (projEntry_ty_hasFvar henv hf us)
+    (us : List Level) :
+    (entry.body.instantiateLevelParams entry.levelParams us).looseBVarsBounded
+      (entry.numParams + 1) = true := by
+  rw [Expr.looseBVarsBounded_instantiateLevelParams]
+  exact (projEntry_body_wf henv hf).2.2.2
+
+/-- **The projection's type is the instantiation spine of the body**
+(task #175 S1): `ProjEntry.typeAt`'s single `instantiateList` is the
+telescope instantiation `instSpine` along the arguments and the
+subject, outermost first. -/
+theorem ProjEntry.typeAt_eq_instSpine (entry : ProjEntry) (us : List Level)
+    {targs : List Expr} (hlen : targs.length = entry.numParams) (pe : Expr) :
+    entry.typeAt us targs pe
+      = Expr.instSpine (targs ++ [pe]) entry.numParams
+          (entry.body.instantiateLevelParams entry.levelParams us) := by
+  unfold ProjEntry.typeAt
+  rw [Expr.instSpine_eq_instantiateList _ _ _ (by simp [hlen]), List.reverse_append,
+    List.reverse_singleton, List.singleton_append]
+
+/-- The projection's type commutes with the shift: the body is
+fvar-free, so the shift passes to the spine and the subject. -/
+theorem ProjEntry.typeAt_shiftFrom {env : Env} (henv : EnvWF env) {T : Name}
+    {i : Nat} {entry : ProjEntry} (hf : env.findProj? T i = some entry)
+    (us : List Level) {p : Nat} {targs : List Expr}
+    (hlen : targs.length = entry.numParams) (pe : Expr) :
+    Expr.shiftFrom p (entry.typeAt us targs pe)
+      = entry.typeAt us (targs.map (Expr.shiftFrom p)) (Expr.shiftFrom p pe) := by
+  rw [ProjEntry.typeAt_eq_instSpine entry us hlen pe,
+    ProjEntry.typeAt_eq_instSpine entry us (by simp [hlen]) _,
+    shiftFrom_instSpine, List.map_append,
+    shiftFrom_eq_self_of_not_hasFvar (projEntry_body_hasFvar henv hf us)]
+  rfl
+
+/-- The projection's type is scoped wherever its arguments are. -/
+theorem projEntry_typeAt_WScoped {env : Env} (henv : EnvWF env) {T : Name}
+    {i : Nat} {entry : ProjEntry} (hf : env.findProj? T i = some entry)
+    (us : List Level) {d : Nat} {targs : List Expr}
+    (hlen : targs.length = entry.numParams) {pe : Expr}
+    (hargs : ∀ a ∈ targs, WScoped d a) (hpe : WScoped d pe) :
+    WScoped d (entry.typeAt us targs pe) := by
+  rw [ProjEntry.typeAt_eq_instSpine entry us hlen pe]
+  refine instSpine_WScoped _ (WScoped.of_not_hasFvar (projEntry_body_hasFvar henv hf us)) ?_
+  intro a ha
+  rcases List.mem_append.mp ha with ha | ha
+  · exact hargs a ha
+  · rw [List.mem_singleton] at ha; subst ha; exact hpe
+
+/-- The projection's type is bvar-closed at bvar-closed arguments. -/
+theorem projEntry_typeAt_looseBVars {env : Env} (henv : EnvWF env) {T : Name}
+    {i : Nat} {entry : ProjEntry} (hf : env.findProj? T i = some entry)
+    (us : List Level) {targs : List Expr}
+    (hlen : targs.length = entry.numParams) {pe : Expr}
+    (hargs : ∀ a ∈ targs, a.looseBVarsBounded 0 = true)
+    (hpe : pe.looseBVarsBounded 0 = true) :
+    (entry.typeAt us targs pe).looseBVarsBounded 0 = true := by
+  rw [ProjEntry.typeAt_eq_instSpine entry us hlen pe]
+  have hl : (targs ++ [pe]).length = entry.numParams + 1 := by simp [hlen]
+  have := instSpine_closed (args := targs ++ [pe])
+    (e := entry.body.instantiateLevelParams entry.levelParams us)
+    (fun a ha => by
+      rcases List.mem_append.mp ha with ha | ha
+      · exact hargs a ha
+      · rw [List.mem_singleton] at ha; subst ha; exact hpe)
+    (by rw [hl]; exact projEntry_body_looseBVars henv hf us)
+  rw [hl, Nat.add_sub_cancel] at this
+  exact this
 
 /-- Instantiating a `∀`-telescope at scoped arguments produces scoped
 domains and a scoped residual. -/
@@ -2474,17 +2565,6 @@ theorem instPisAt_looseBVars :
           (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
     | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
     | letE _ _ _ _ | lit _ | proj _ _ _ => exact nomatch h
-
-/-- A stored projection entry's type is bvar-closed after level
-instantiation. -/
-theorem projEntry_ty_looseBVars {env : Env} (henv : EnvWF env)
-    {T : Name} {i : Nat} {entry : ProjEntry}
-    (hf : env.findProj? T i = some entry) (us : List Level) :
-    (entry.ty.instantiateLevelParams entry.levelParams
-      us).looseBVarsBounded 0 = true := by
-  have hwf := henv _ (List.mem_of_find?_eq_some (Env.findProj?_some hf))
-  rw [Expr.looseBVarsBounded_instantiateLevelParams]
-  exact hwf.2.2.2.1
 
 /-! ## Well-scopedness preservation through reduction -/
 
@@ -2817,7 +2897,8 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
     simp only [reduceNat, Bind.bind, Except.bind, whnf_def] at h
     revert h
     split
-    · intro h
+    · -- first argument first; the second only behind a literal (D15)
+      intro h
       revert h
       cases hw1 : whnf mode env fuel d a with
       | error err => intro h; exact nomatch h
@@ -2825,26 +2906,29 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
       intro h
       dsimp only at h
       revert h
-      cases hw2 : whnf mode env fuel d b with
-      | error err => intro h; exact nomatch h
-      | ok b' =>
-      intro h
-      dsimp only at h
-      revert h
-      match rawNatLit? a', rawNatLit? b' with
-      | some n₁, some n₂ =>
+      match rawNatLit? a' with
+      | none => intro h; simp [pure, Except.pure] at h
+      | some n₁ =>
+        intro h
+        revert h
+        cases hw2 : whnf mode env fuel d b with
+        | error err => intro h; exact nomatch h
+        | ok b' =>
         intro h
         dsimp only at h
-        cases hres : natOpResult c n₁ n₂ with
-        | none => rw [hres] at h; simp [pure, Except.pure] at h
-        | some r =>
-          rw [hres] at h
-          simp only [pure, Except.pure, Except.ok.injEq,
-            Option.some.injEq] at h
-          exact h ▸ natOpResult_shape hres
-      | some _, none => intro h; simp [pure, Except.pure] at h
-      | none, some _ => intro h; simp [pure, Except.pure] at h
-      | none, none => intro h; simp [pure, Except.pure] at h
+        revert h
+        match rawNatLit? b' with
+        | some n₂ =>
+          intro h
+          dsimp only at h
+          cases hres : natOpResult c n₁ n₂ with
+          | none => rw [hres] at h; simp [pure, Except.pure] at h
+          | some r =>
+            rw [hres] at h
+            simp only [pure, Except.pure, Except.ok.injEq,
+              Option.some.injEq] at h
+            exact h ▸ natOpResult_shape hres
+        | none => intro h; simp [pure, Except.pure] at h
     · -- the WF-op decline branch never returns a reduct
       split
       · intro h
@@ -2855,17 +2939,20 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
         intro h
         dsimp only at h
         revert h
-        cases hw2 : whnf mode env fuel d b with
-        | error err => intro h; exact nomatch h
-        | ok b' =>
-        intro h
-        dsimp only at h
-        revert h
-        match rawNatLit? a', rawNatLit? b' with
-        | some _, some _ => intro h; exact nomatch h
-        | some _, none => intro h; simp [pure, Except.pure] at h
-        | none, some _ => intro h; simp [pure, Except.pure] at h
-        | none, none => intro h; simp [pure, Except.pure] at h
+        match rawNatLit? a' with
+        | none => intro h; simp [pure, Except.pure] at h
+        | some _ =>
+          intro h
+          revert h
+          cases hw2 : whnf mode env fuel d b with
+          | error err => intro h; exact nomatch h
+          | ok b' =>
+          intro h
+          dsimp only at h
+          revert h
+          match rawNatLit? b' with
+          | some _ => intro h; exact nomatch h
+          | none => intro h; simp [pure, Except.pure] at h
       · intro h; simp [pure, Except.pure] at h
 
 /-- Unfolding a definition at the head preserves well-scopedness (the
@@ -2896,7 +2983,7 @@ theorem unfoldDefinition_WScoped {env : Env} (henv : EnvWF env)
     · intro h
       simp only [Option.some.injEq] at h
       subst h
-      obtain ⟨-, -, -, -, -, -, hval⟩ := henv _ (find?_mem hf)
+      obtain ⟨-, -, -, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
       obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
       refine Expr.WScoped.mkAppN
         (WScoped.of_not_hasFvar (by
@@ -2982,9 +3069,9 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
         · simp only [WScoped] at hwf'
           exact ihCore hbeta (WScoped.instantiate1_gen hw.2 0 hwf'.2)
         · -- iota step
-          obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
-            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hmaj, hlit,
-            hsub, hmfn, hfj,
+          obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj,
+            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
+            hmfn, hfj,
             hrule,
             hml, -, hlev, hpeq, hcerts, hmcerts, -, rfl⟩ :=
             iotaRec_inv hio
@@ -3000,16 +3087,19 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
               (List.mem_of_find?_eq_some hrule)
             exact WScoped.of_not_hasFvar
               (by rw [hasFvar_instantiateLevelParams]; exact hrf)
-          have hmaj0w : WScoped d major₀ := ihLoop hmaj
-            (hargs _ (getD_mem (by omega)))
-          have hmaj1w : WScoped d major₁ := by
-            rcases litMajorToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
-            · exact litToCtorIfNat_WScoped hmaj0w
-            · exact ihLoop hred (strLitToConstructor_WScoped s d)
-          have hmajw : WScoped d major := by
-            rcases majorToCtor_inv hsub with rfl | ⟨hwsc, -, -, -⟩
-            · exact hmaj1w
-            · exact WScoped.of_wscopedB hwsc
+          -- the major's scoping, through the chain in either order
+          have hmajw : WScoped d major :=
+            prepareMajorP_ind hprep (WScoped d)
+              (fun hw' hwe => ihLoop hw' hwe)
+              (fun hl hwe => by
+                rcases litMajorToCtorP_inv hl with rfl | ⟨s, -, -, hred⟩
+                · exact litToCtorIfNat_WScoped hwe
+                · exact ihLoop hred (strLitToConstructor_WScoped s d))
+              (fun hs hwe => by
+                rcases majorToCtor_inv hs with rfl | ⟨hwsc, -, -, -⟩
+                · exact hwe
+                · exact WScoped.of_wscopedB hwsc)
+              (hargs _ (getD_mem (by omega)))
           refine ihCore hwe'' ?_
           refine Expr.WScoped.mkAppN hrhs ?_
           intro x hx
@@ -3063,5 +3153,23 @@ theorem whnf_WScoped {env : Env} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr}
     (h : whnf mode env fuel d e = .ok e' ) (hw : WScoped d e) : WScoped d e' :=
   (whnfPres_WScoped henv fuel).2 h hw
+
+/-- The major chain preserves well-scopedness (an instance of
+`prepareMajorP_ind`). -/
+theorem prepareMajorP_WScoped {env : Env} (henv : EnvWF env)
+    {fuel d : Nat} {recName : Name} {rules : List RecRule} {a m : Expr}
+    (h : prepareMajorP mode env fuel d recName rules a = .ok m)
+    (hw : WScoped d a) : WScoped d m :=
+  prepareMajorP_ind h (WScoped d)
+    (fun hw' hwe => whnf_WScoped henv fuel hw' hwe)
+    (fun hl hwe => by
+      rcases litMajorToCtorP_inv hl with rfl | ⟨s, -, -, hred⟩
+      · exact litToCtorIfNat_WScoped hwe
+      · exact whnf_WScoped henv fuel hred (strLitToConstructor_WScoped s d))
+    (fun hs hwe => by
+      rcases majorToCtor_inv hs with rfl | ⟨hwsc, -, -, -⟩
+      · exact hwe
+      · exact WScoped.of_wscopedB hwsc)
+    hw
 
 end Setlec

@@ -136,7 +136,7 @@ theorem stageFormer (mp : EnvS2PM V μ env)
   refine declStepPM_of_ind_member_cons mp (c₀ := .indInfo cvTa (Setlec.directCaps p))
     (A := A) hfresh hnresI (Or.inl ⟨_, _, rfl⟩)
     (ConsHeadP.ofFresh hwfI (fun ψ => hAbelow ψ) hnresI
-      (fun _ h => nomatch h) (fun _ h => nomatch h)
+      (fun _ h => nomatch h)
       (fun _ _ _ _ h => nomatch h))
     (fun ψ k => AVExpr.liftN_eq_self _
       (VExpr.bvarsBelow.mono (Nat.zero_le k) (hAbelow ψ)) 1)

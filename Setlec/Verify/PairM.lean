@@ -310,16 +310,6 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
                 lpsT rest
             else pure false
           else pure false
-        | some (.projInfo entry) =>
-          if entry.tower = true ∧ entry.levelParams = lpsT ∧
-              (entry.ty.stripPis (targs.length + 1)).isSome = true then
-            if ← iotaCerts (pairFns r₁ r₂ h) env d false
-                (entry.ty.instantiateLevelParams entry.levelParams us')
-                (targs ++ [b]) then
-              structEtaProjCerts (pairFns r₁ r₂ h) env d T us' targs b
-                lpsT rest
-            else pure false
-          else pure false
         | _ => pure false : PairM rel Bool)).val.1 = (do
         match env.find? (projFnName T i) with
         | some (.recInfo cvp _ _ _) =>
@@ -327,15 +317,6 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts r₁ env d false
                 (cvp.type.instantiateLevelParams cvp.levelParams us')
-                (targs ++ [b]) then
-              structEtaProjCerts r₁ env d T us' targs b lpsT rest
-            else pure false
-          else pure false
-        | some (.projInfo entry) =>
-          if entry.tower = true ∧ entry.levelParams = lpsT ∧
-              (entry.ty.stripPis (targs.length + 1)).isSome = true then
-            if ← iotaCerts r₁ env d false
-                (entry.ty.instantiateLevelParams entry.levelParams us')
                 (targs ++ [b]) then
               structEtaProjCerts r₁ env d T us' targs b lpsT rest
             else pure false
@@ -358,18 +339,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
           | false => rfl
         · rfl
       | axiomInfo cv => rfl
-      | projInfo entry =>
-        dsimp only
-        split
-        · rw [PairM.fst_bind, iotaCerts_fst]
-          congr 1
-          funext r
-          cases r with
-          | true =>
-            simp only [↓reduceIte]
-            exact structEtaProjCerts_fst d T us' targs b lpsT rest
-          | false => rfl
-        · rfl
+      | projInfo entry => rfl
       | defnInfo cv value => rfl
       | thmInfo cv value => rfl
       | indInfo cv caps => rfl
@@ -395,16 +365,6 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
                 lpsT rest
             else pure false
           else pure false
-        | some (.projInfo entry) =>
-          if entry.tower = true ∧ entry.levelParams = lpsT ∧
-              (entry.ty.stripPis (targs.length + 1)).isSome = true then
-            if ← iotaCerts (pairFns r₁ r₂ h) env d false
-                (entry.ty.instantiateLevelParams entry.levelParams us')
-                (targs ++ [b]) then
-              structEtaProjCerts (pairFns r₁ r₂ h) env d T us' targs b
-                lpsT rest
-            else pure false
-          else pure false
         | _ => pure false : PairM rel Bool)).val.2 = (do
         match env.find? (projFnName T i) with
         | some (.recInfo cvp _ _ _) =>
@@ -412,15 +372,6 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts r₂ env d false
                 (cvp.type.instantiateLevelParams cvp.levelParams us')
-                (targs ++ [b]) then
-              structEtaProjCerts r₂ env d T us' targs b lpsT rest
-            else pure false
-          else pure false
-        | some (.projInfo entry) =>
-          if entry.tower = true ∧ entry.levelParams = lpsT ∧
-              (entry.ty.stripPis (targs.length + 1)).isSome = true then
-            if ← iotaCerts r₂ env d false
-                (entry.ty.instantiateLevelParams entry.levelParams us')
                 (targs ++ [b]) then
               structEtaProjCerts r₂ env d T us' targs b lpsT rest
             else pure false
@@ -443,18 +394,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
           | false => rfl
         · rfl
       | axiomInfo cv => rfl
-      | projInfo entry =>
-        dsimp only
-        split
-        · rw [PairM.snd_bind, iotaCerts_snd]
-          congr 1
-          funext r
-          cases r with
-          | true =>
-            simp only [↓reduceIte]
-            exact structEtaProjCerts_snd d T us' targs b lpsT rest
-          | false => rfl
-        · rfl
+      | projInfo entry => rfl
       | defnInfo cv value => rfl
       | thmInfo cv value => rfl
       | indInfo cv caps => rfl
@@ -606,6 +546,24 @@ theorem projCert_snd_proj (d : Nat) (lic : Bool) (c : Name) (us : List Level)
   · exact iotaCerts_snd d lic _ _
   · rfl
 
+theorem projCertAt_fst_proj (d : Nat) (v lic : Bool) (c : Name) (us : List Level)
+    (args : List Expr) :
+    (projCertAt (pairFns r₁ r₂ h) env d v lic c us args).val.1 =
+      projCertAt r₁ env d v lic c us args := by
+  unfold projCertAt
+  split
+  · exact projCert_fst_proj d lic c us args
+  · rfl
+
+theorem projCertAt_snd_proj (d : Nat) (v lic : Bool) (c : Name) (us : List Level)
+    (args : List Expr) :
+    (projCertAt (pairFns r₁ r₂ h) env d v lic c us args).val.2 =
+      projCertAt r₂ env d v lic c us args := by
+  unfold projCertAt
+  split
+  · exact projCert_snd_proj d lic c us args
+  · rfl
+
 macro "fst_step2" : tactic =>
   `(tactic| repeat (first
     | rfl
@@ -621,6 +579,7 @@ macro "fst_step2" : tactic =>
     | (rw [structEtaCertWith_fst_proj])
     | (rw [structUnitCert_fst_proj])
     | (rw [etaCert_fst_proj])
+    | (rw [projCertAt_fst_proj])
     | (rw [projCert_fst_proj])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -647,6 +606,7 @@ macro "snd_step2" : tactic =>
     | (rw [structEtaCertWith_snd_proj])
     | (rw [structUnitCert_snd_proj])
     | (rw [etaCert_snd_proj])
+    | (rw [projCertAt_snd_proj])
     | (rw [projCert_snd_proj])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -760,6 +720,28 @@ theorem litMajorToCtor_snd_proj (d : Nat) (e : Expr) :
   unfold litMajorToCtor
   snd_tac2
 
+theorem prepareMajor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
+    (prepareMajor mode (pairFns r₁ r₂ h) env d c rules e).val.1 =
+      prepareMajor mode r₁ env d c rules e := by
+  unfold prepareMajor
+  split <;> (repeat (first
+    | rfl
+    | (rw [majorToCtor_fst_proj])
+    | (rw [litMajorToCtor_fst_proj])
+    | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])))
+
+theorem prepareMajor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
+    (prepareMajor mode (pairFns r₁ r₂ h) env d c rules e).val.2 =
+      prepareMajor mode r₂ env d c rules e := by
+  unfold prepareMajor
+  split <;> (repeat (first
+    | rfl
+    | (rw [majorToCtor_snd_proj])
+    | (rw [litMajorToCtor_snd_proj])
+    | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])))
+
 theorem projLitToCtor_fst_proj (d : Nat) (e : Expr) :
     (projLitToCtor (pairFns r₁ r₂ h) env d e).val.1 =
       projLitToCtor r₁ env d e := by
@@ -798,10 +780,12 @@ macro "fst_step3" : tactic =>
     | (rw [structEtaCertWith_fst_proj])
     | (rw [structUnitCert_fst_proj])
     | (rw [etaCert_fst_proj])
+    | (rw [projCertAt_fst_proj])
     | (rw [projCert_fst_proj])
     | (rw [structEtaCert_fst_proj])
     | (rw [majorToCtor_fst_proj])
     | (rw [litMajorToCtor_fst_proj])
+    | (rw [prepareMajor_fst_proj])
     | (rw [projLitToCtor_fst_proj])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -827,10 +811,12 @@ macro "snd_step3" : tactic =>
     | (rw [structEtaCertWith_snd_proj])
     | (rw [structUnitCert_snd_proj])
     | (rw [etaCert_snd_proj])
+    | (rw [projCertAt_snd_proj])
     | (rw [projCert_snd_proj])
     | (rw [structEtaCert_snd_proj])
     | (rw [majorToCtor_snd_proj])
     | (rw [litMajorToCtor_snd_proj])
+    | (rw [prepareMajor_snd_proj])
     | (rw [projLitToCtor_snd_proj])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -885,6 +871,7 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [structEtaCertWith_fst_proj])
     | (rw [structUnitCert_fst_proj])
     | (rw [etaCert_fst_proj])
+    | (rw [projCertAt_fst_proj])
     | (rw [projCert_fst_proj])
     | (rw [structEtaCert_fst_proj])
     | (rw [majorToCtor_fst_proj])
@@ -936,6 +923,7 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [structEtaCertWith_snd_proj])
     | (rw [structUnitCert_snd_proj])
     | (rw [etaCert_snd_proj])
+    | (rw [projCertAt_snd_proj])
     | (rw [projCert_snd_proj])
     | (rw [structEtaCert_snd_proj])
     | (rw [majorToCtor_snd_proj])

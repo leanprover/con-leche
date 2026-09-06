@@ -68,28 +68,14 @@ theorem etaPins_empty {μ : CheckMode} {env : Env} {T : Name}
     {lps : List Name} : EtaPins μ env T lps {} :=
   ⟨fun h => absurd h (by decide), fun h => absurd h (by decide)⟩
 
-/-- The elimination-template fold is an `ExtEta` extension. -/
+/-- The elimination-template install is an `ExtEta` extension. -/
 theorem templates_ext {T ctorName : Name} {lps : List Name}
-    {nP nF : Nat} :
-    ∀ (idxs : List Nat) {env' env₂ : Env},
-      DeclIndRun.Templates T ctorName lps nP nF env' idxs env₂ →
-      ExtEta env' env₂ := by
-  intro idxs
-  induction idxs with
-  | nil =>
-    intro env' env₂ h
-    rw [h]
-    exact ExtEta.refl _
-  | cons i rest ih =>
-    intro env' env₂ h
-    obtain ⟨env'', hstep, htail⟩ := h
-    refine ExtEta.trans ?_ (ih htail)
-    rcases hstep with rfl | ⟨entry, hst, hix, -, -, -, -, hfresh, rfl⟩
-    · exact ExtEta.refl _
-    · refine ExtEta.cons ?_ (fun _ _ hh => ConstantInfo.noConfusion hh)
-      show env'.find? (projFnName entry.structName entry.idx) = none
-      rw [hst, hix]
-      exact Option.isNone_iff_eq_none.mp hfresh
+    {nP nF : Nat} {env' env₂ : Env}
+    (h : DeclIndRun.Templates T ctorName lps nP nF env' env₂) :
+    ExtEta env' env₂ := by
+  rcases h with rfl | ⟨hfresh, rfl⟩
+  · exact ExtEta.refl _
+  · exact ExtEta.cons hfresh (fun _ _ hh => ConstantInfo.noConfusion hh)
 
 /-! ## The provisioning's syntactic residue -/
 

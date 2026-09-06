@@ -127,16 +127,11 @@ def EnvFacts.swap {env₀ env₃ : Env} (m₀ : EnvFacts env₀)
     · rw [← hdeC]
       exact m₀.defn_eq cv value hint hc₀ ψ
     · exact nomatch heq
-  · -- proj_ok: projection entries and their blocks are untouched
-    obtain ⟨hp1, hp3⟩ := m₀.proj_ok
-    refine ⟨?_, ?_⟩
-    · intro n entry hf hnat
-      exact hp1 n entry ((hsame n _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hnat
-    · intro n entry hf htw
-      exact TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
-        (hp3 n entry ((hsame _ _
-          (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) htw)
+  · -- proj_ok: projection tables and their blocks are untouched
+    intro n tbl hf htw i hi
+    exact TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
+      (m₀.proj_ok n tbl ((hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) htw i hi)
   · -- thm_ok: likewise a theorem is never a swap's right side
     intro cv value hmem ψ
     obtain ⟨c₀, hc₀, hpair⟩ := swapSh_mem_corr hsw _ hmem
@@ -218,8 +213,8 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
   · -- `EnvWF`
     intro c hc
     rcases hentR c hc with hcS | ⟨cv, mI, rP, rules, rfl, hfacts⟩
-    · obtain ⟨hSw, hSlp, hSres, hSb, hSdef, hSrec, hSthm⟩ := hwfS c hcS
-      refine ⟨hSw, hSlp, hres₃ _ hSres, hSb, ?_, ?_, ?_⟩
+    · obtain ⟨hSw, hSlp, hSres, hSb, hSdef, hSrec, hSthm, hStbl⟩ := hwfS c hcS
+      refine ⟨hSw, hSlp, hres₃ _ hSres, hSb, ?_, ?_, ?_, ?_⟩
       · intro cv v hint heq
         obtain ⟨d1, d2, d3, d4⟩ := hSdef cv v hint heq
         exact ⟨d1, d2, hres₃ _ d3, d4⟩
@@ -235,8 +230,13 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
       · intro cv v heq
         obtain ⟨t1, t2, t3, t4⟩ := hSthm cv v heq
         exact ⟨t1, t2, hres₃ _ t3, t4⟩
+      · intro tbl heq
+        obtain ⟨g0, g⟩ := hStbl tbl heq
+        refine ⟨g0, fun i b hb => ?_⟩
+        obtain ⟨t1, t2, t3, t4⟩ := g i b hb
+        exact ⟨t1, t2, hres₃ _ t3, t4⟩
     · obtain ⟨c₀, hc₀, hpair⟩ := swapSh_mem_corr hswR _ hc
-      obtain ⟨hSw, hSlp, hSres, hSb, -, -, -⟩ := hwfS c₀ hc₀
+      obtain ⟨hSw, hSlp, hSres, hSb, -, -, -, -⟩ := hwfS c₀ hc₀
       have hcvt : c₀.toConstantVal = cv := by
         rcases hpair with rfl | ⟨cv', mI', rP', rules', rfl, heq⟩
         · rfl
@@ -245,7 +245,8 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
       rw [hcvt] at hSw hSlp hSres hSb
       refine ⟨hSw, hSlp, hres₃ _ hSres, hSb,
         fun _ _ _ hcon => ConstantInfo.noConfusion hcon, ?_,
-        fun _ _ hcon => ConstantInfo.noConfusion hcon⟩
+        fun _ _ hcon => ConstantInfo.noConfusion hcon,
+        fun _ hcon => ConstantInfo.noConfusion hcon⟩
       intro cv' mI' rP' rules' heq r hr
       obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj heq
       obtain ⟨w1, w2, w3, w4, w5, -, -⟩ := hfacts r hr
@@ -277,16 +278,11 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
         · rw [hnr] at hres
           exact nomatch hres
     exact hbpS n ci hf₀ hres
-  · -- `ProjOkT`: projection entries are untouched
-    obtain ⟨hp1, hp3⟩ := hprojS
-    refine ⟨?_, ?_⟩
-    · intro n entry hf hnat
-      exact hp1 n entry ((hsame n _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hnat
-    · intro n entry hf htw
-      exact TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
-        (hp3 n entry ((hsame _ _
-          (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) htw)
+  · -- `ProjOkT`: projection tables are untouched
+    intro n tbl hf htw i hi
+    exact TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')
+      (hprojS n tbl ((hsame _ _
+        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) htw i hi)
 
 /-! ## The group phase, at the `EnvFacts` level -/
 

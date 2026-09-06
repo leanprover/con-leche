@@ -265,7 +265,7 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
     (hea : denoteP m.acval env φ d (.proj sn i pe) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, -, ⟨ds, hpi⟩, hsn⟩ := Setlec.inferTypeCoreIO_proj_inv h
+    hlenUs, -, rfl, hsn⟩ := Setlec.inferTypeCoreIO_proj_inv h
   subst hsn
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
@@ -290,10 +290,9 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
     (Setlec.Expr.mkAppN_getApp te).symm] at htea
   obtain ⟨-, vs, -, hspt, -⟩ := denoteP_mkAppN_inv htea
-  have htw : entry.tower = true := m.proj_ok.tower_of_native hfe hnat
-  obtain ⟨-, -, -, -, -, -, _, -, -, hlaw, -⟩ := htower T i entry hfe htw
+  have htw : entry.tower = true := hnat
+  obtain ⟨-, -, -, -, -, _, -, -, hlaw, -⟩ := htower T i entry hfe htw
   obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
-  obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
   have hframes : ∀ x ∈ te.getAppArgs ++ [pe],
       Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true := by
     intro x hx
@@ -302,10 +301,8 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
         Setlec.looseBVarsBounded_getAppArgs hbte x hx'⟩
     · rcases List.mem_singleton.mp hx' with rfl
       exact ⟨hws, hb⟩
-  obtain ⟨restA, hrest, -⟩ := denoteP_instPisAt_peel m.acval_closed
-    (acval_inst_self m) (te.getAppArgs ++ [pe]) hpi
-    (Expr.WScoped.of_not_hasFvar (towerEntry_tyI_closed m.wf hfe us).1)
-    hframes (hTad d) (hspt.snoc hvp)
+  obtain ⟨restA, hrest, -⟩ :=
+    denoteP_typeAt_peel hfe hTa hlenArgs hframes (hspt.snoc hvp)
   exact ⟨restA, hrest⟩
 
 /-! ## The walk -/

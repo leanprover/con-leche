@@ -784,16 +784,27 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
         c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
         c = natShiftLeftName ∨ c = natShiftRightName) ∧
         natOpStored env c = true then
-      match rawNatLit? (← r.whnf depth a),
-          rawNatLit? (← r.whnf depth b) with
-      | some n₁, some n₂ => pure (natOpResult c n₁ n₂)
-      | _, _ => pure none
+      -- Official `reduce_bin_nat_op` (`type_checker.cpp:606-614`):
+      -- the FIRST argument is head-normalised and, unless it is a
+      -- literal, the step fails WITHOUT touching the second.  The
+      -- former two-scrutinee `match` whnf'd both up front — a cost
+      -- divergence (DESIGN.md "THE DIVERGENCE AUDIT", D15): on
+      -- `Nat.add o (slow n)` with `o` opaque it evaluated `slow n`
+      -- where official never does (fuel death at `n = 80000`; the fixture).
+      match rawNatLit? (← r.whnf depth a) with
+      | some n₁ =>
+        match rawNatLit? (← r.whnf depth b) with
+        | some n₂ => pure (natOpResult c n₁ n₂)
+        | none => pure none
+      | none => pure none
     else if natOpWfNames.contains c ∧ natLitSupported env then
-      match rawNatLit? (← r.whnf depth a),
-          rawNatLit? (← r.whnf depth b) with
-      | some _, some _ => throw (.notImplemented
-          s!"native Nat computation on literals ({c})")
-      | _, _ => pure none
+      match rawNatLit? (← r.whnf depth a) with
+      | some _ =>
+        match rawNatLit? (← r.whnf depth b) with
+        | some _ => throw (.notImplemented
+            s!"native Nat computation on literals ({c})")
+        | none => pure none
+      | none => pure none
     else pure none
   | _ => pure none
 
@@ -943,9 +954,13 @@ def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   | _ => pure false
 
 /-- The per-projection telescope certificates of a structural eta
-certification: for every field index, the installed projection
-function's telescope is certified against the type's arguments and the
-stuck side. -/
+certification at a **projection-function** slot family (the modeled
+path's): for every field index, the installed projection function's
+telescope is certified against the type's arguments and the stuck
+side.  A tower-backed family (the direct install's table, task #175
+S1) has no per-field telescope and needs no certificate: its η law
+(`TowerEtaLawP`) is keyed on the family's typing of the stuck side,
+which the caller already holds. -/
 def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
     (T : Name) (us' : List Level) (targs : List Expr) (b : Expr)
     (lpsT : List Name) : List Nat → m Bool
@@ -957,17 +972,6 @@ def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
           (cvp.type.stripPis (targs.length + 1)).isSome = true then
         if ← iotaCerts r env depth false
             (cvp.type.instantiateLevelParams cvp.levelParams us')
-            (targs ++ [b]) then
-          structEtaProjCerts r env depth T us' targs b lpsT rest
-        else pure false
-      else pure false
-    | some (.projInfo entry) =>
-      -- a tower-backed entry (task #175 W4c): its stored type is the
-      -- same `∀ p⃗ (t : T p⃗), F_i` telescope, certified the same way
-      if entry.tower = true ∧ entry.levelParams = lpsT ∧
-          (entry.ty.stripPis (targs.length + 1)).isSome = true then
-        if ← iotaCerts r env depth false
-            (entry.ty.instantiateLevelParams entry.levelParams us')
             (targs ++ [b]) then
           structEtaProjCerts r env depth T us' targs b lpsT rest
         else pure false
@@ -1033,9 +1037,12 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                 if ← iotaCerts r env depth false
                     (cvT.type.instantiateLevelParams cvT.levelParams
                       us') wtb.getAppArgs then
-                  if ← structEtaProjCerts r env depth T us'
-                      wtb.getAppArgs b cvT.levelParams
-                      (List.range cnF) then
+                  -- the per-slot certificates are the projection-function
+                  -- kind's; a tower-backed family has none (task #175 S1)
+                  if ← (if towerSlotsAll env T cnF then pure true
+                      else structEtaProjCerts r env depth T us'
+                        wtb.getAppArgs b cvT.levelParams
+                        (List.range cnF)) then
                     if ← defEqList r env depth
                         (a.getAppArgs.take cnP) wtb.getAppArgs then
                       -- synthetic-spine certification (task #137): the
@@ -1335,6 +1342,70 @@ def projLitToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
     else pure (.lit (.strVal s))
   | e => pure e
 
+/-- Is a recursor K-flagged — its single rule's constructor has no
+fields and belongs to an inductive stored with the K capability (an
+inductive proposition)?  Exactly the guard of `majorToCtor`'s K
+rescue, read off the constant lookup: the official kernel's
+`recursor_val::is_k()`, computed at the block's install.  Abstracted
+over the lookup so the interned twin (`FEnv.find?`) shares the body. -/
+def recRuleKOf (find? : Name → Option ConstantInfo) (rules : List RecRule) :
+    Bool :=
+  match rules with
+  | [rl] =>
+    match find? rl.ctor with
+    | some (.ctorInfo cvj _ cnF) =>
+      match (cvj.type.piResult).getAppFn with
+      | .const T _ =>
+        match find? T with
+        | some (.indInfo _ caps) => caps.ruleK && cnF == 0
+        | _ => false
+      | _ => false
+    | _ => false
+  | _ => false
+
+/-- `recRuleKOf` at the environment's lookup. -/
+def recRuleK (env : Env) (rules : List RecRule) : Bool :=
+  recRuleKOf env.find? rules
+
+/-- The major premise's preparation before a rule fires, in the
+official kernel's order (`inductive_reduce_rec`,
+`src/kernel/inductive.cpp`; lean4lean `Inductive/Reduce.lean:66-72`):
+
+* at a K-flagged recursor the K rescue (`to_ctor_when_K`) runs on the
+  **raw** major — it reads only the major's *type* and fabricates the
+  constructor from it — and only then is the major head-normalized
+  (and its literal converted; a no-op on a proof, kept for the
+  site-by-site mirror);
+* elsewhere the major is head-normalized first, its literal
+  converted, and the structure-eta rescue (`to_ctor_when_structure`)
+  tried on the reduct.
+
+The two rescues live in one function (`majorToCtor`); the K branch is
+reachable exactly at `recRuleK`, the eta branch never is there (an
+inductive proposition fails its provably-nonzero guard), so the split
+below dispatches each to its official site and neither is attempted
+twice.
+
+Why the order matters (2026-09-06, the Mathlib `decide`-over-`Rat`
+frontier): with the whnf *first*, an `Eq.rec` whose major is a
+theorem application — `Eq.ndrec … (Int.decEq._proof_1 a b h)` with
+`h := Nat.eq_of_beq_eq_true …`, the shape `instDecidableEqRat`'s
+`h ▸` produces — delta-unfolds the proofs and iota-grinds
+`Nat.eq_of_beq_eq_true`'s `Nat.brecOn` tower unarily down the
+`604800` literal: one knot level per `succ`, fuel exhaustion.  The
+official order fabricates `Eq.refl` from the type (`a ≡ b` by the
+`Nat` literal fast paths) and never opens either proof. -/
+def prepareMajor (r : CoreFns m) (env : Env) (depth : Nat)
+    (recName : Name) (rules : List RecRule) (major : Expr) : m Expr := do
+  if recRuleK env rules then
+    let majorK ← majorToCtor mode r env depth recName rules major
+    let major₀ ← r.whnf depth majorK
+    litMajorToCtor r env depth major₀
+  else
+    let major₀ ← r.whnf depth major
+    let major₁ ← litMajorToCtor r env depth major₀
+    majorToCtor mode r env depth recName rules major₁
+
 /-- The level and constructor-parameter comparands a firing rule's
 checks compare the major's constructor levels and parameters against:
 for a canonical (`.plain`) rule the constructor's levels link to the
@@ -1388,9 +1459,10 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       -- at `Interp2/IotaArity.lean`.  Ungated: the reference has it
       -- unconditionally, so a mode gate would break parity.
       if args.length = mI + 1 ∧ us.length = cv.levelParams.length then
-        let major₀ ← r.whnf depth (args.getD mI (.bvar 0))
-        let major₁ ← litMajorToCtor r env depth major₀
-        let major ← majorToCtor mode r env depth c rules major₁
+        -- the major's preparation (K rescue / whnf / literal / eta) in
+        -- the official order — `prepareMajor`'s docstring
+        let major ← prepareMajor mode r env depth c rules
+          (args.getD mI (.bvar 0))
         match major.getAppFn with
         | .const cj usj =>
           match env.find? cj with
@@ -1495,6 +1567,17 @@ def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
     (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
       == some true)
 
+/-- **The type of a `.proj` node at a tower-backed entry** (task #175
+S1): the stored body `F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar 0)]`,
+level-instantiated at the subject type's levels, with the subject
+type's arguments and the subject substituted for its `numParams + 1`
+loose variables in ONE traversal (`instantiateList`: `bvar 0` is the
+subject, `bvar (numParams - k)` parameter `k`). -/
+def ProjEntry.typeAt (entry : ProjEntry) (us : List Level) (targs : List Expr)
+    (pe : Expr) : Expr :=
+  (entry.body.instantiateLevelParams entry.levelParams us).instantiateList
+    (pe :: targs.reverse)
+
 /-- **The structural projection's certificate** (task #175 W6, the
 squash-regime licence): the redex `proj_i (C p⃗ x⃗)` fires only after
 its constructor spine is certified against `C`'s stored type at the
@@ -1531,6 +1614,20 @@ def projCert (r : CoreFns m) (env : Env) (depth : Nat) (lic : Bool)
     iotaCerts r env depth lic
       (cvC.type.instantiateLevelParams cvC.levelParams us) args
   | _ => pure false
+
+/-- **The fire certificate as the mode runs it** (parity mirrors
+official, 2026-09-06).  The P core (`verified = true`) certifies the
+constructor spine (`projCert`, licensed by the mode's β gate) — the
+model's licence for the fire at a squash instantiation.  The parity
+core is the official kernel's: `reduce_proj` reduces every
+constructor redex with no certificate (`type_checker.cpp`), so at
+`verified = false` no certificate runs and the rule fires
+unconditionally.  The parity lane stays an accept-superset of the P
+lane, which is all the agreement floor
+(`Verify/Cached/AgreeFloor.lean`) asks of it. -/
+def projCertAt (r : CoreFns m) (env : Env) (depth : Nat) (verified lic : Bool)
+    (c : Name) (us : List Level) (args : List Expr) : m Bool :=
+  if verified then projCert r env depth lic c us args else pure true
 
 /-- **THE β SITE'S GATE** (task #161): does the mode's β gate fire at
 this binder?
@@ -1615,26 +1712,28 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- expansion site.
       let e' ← projLitToCtor r env depth e'
       -- The structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i`, driven by the
-      -- projection table (never by basis names): a `native` entry for
-      -- (structName, i) supplies the constructor, the counts, and the
-      -- possibly-Prop level guard.
+      -- projection table (never by basis names): a tower-backed entry
+      -- for (structName, i) supplies the constructor, the counts, and
+      -- the possibly-Prop level guard.
       match env.findProj? sn i with
       | some entry =>
         match e'.getAppFn with
         | .const c us =>
           let args := e'.getAppArgs
-          if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
+          if entry.tower ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then
             let arg := args.getD (entry.numParams + i) (.bvar 0)
-            -- Certify the reduction: the constructor spine against
-            -- the constructor's stored type (task #175 W6; see
-            -- `projCert`).  Task #100 de-gating: the former
-            -- nonzero-sort gate is unsound-to-model under the
-            -- domain-relative collapse, so the certificate runs
-            -- unconditionally.
-            if ← projCert r env depth mode.betaGate c us args then
+            -- Certify the reduction at the verified mode: the
+            -- constructor spine against the constructor's stored type
+            -- (task #175 W6; see `projCert`).  Task #100 de-gating:
+            -- the former nonzero-sort gate is unsound-to-model under
+            -- the domain-relative collapse, so the certificate runs
+            -- unconditionally there; the parity mode runs none
+            -- (`projCertAt`: official's `reduce_proj` certifies
+            -- nothing).
+            if ← projCertAt r env depth mode.verified mode.betaGate c us args then
               r.whnfCore depth arg
             else pure (.proj sn i e')
           else pure (.proj sn i e')
@@ -1828,11 +1927,11 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | _ => throw (.invalid "function expected")
     | .proj sn i pe => do
       -- A `.proj` node is typed by its projection-table entry: the
-      -- stored level-parametric type, instantiated at the subject
-      -- type's levels and peeled along its arguments and the subject.
-      -- Only `native` entries type bare nodes — and every native entry
-      -- is tower-backed (task #175 W6: the pinned pair entries and
-      -- their computed two-member fast path are retired).
+      -- stored body, level-instantiated at the subject type's levels
+      -- and instantiated at its arguments and the subject (task #175
+      -- S1).  Only tower-backed entries type bare nodes (task #175
+      -- W6: the pinned pair entries and their computed two-member
+      -- fast path are retired).
       let te ← r.whnf depth (← r.infer depth pe)
       match te.getAppFn with
       | .const T us =>
@@ -1842,7 +1941,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- subject type's head (official `infer_proj`'s
           -- `const_name(I) == proj_sname(e)`); the readings key the
           -- table on the node's name, the checker on the head's
-          if entry.native ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
+          if entry.tower ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             -- the official `infer_proj` restriction (task #175
             -- W4c/O4): at a `Prop`-declared structure the field —
@@ -1855,16 +1954,9 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
                   == some true do
                 throw (.invalid
                   "projection from a propositional structure must be a proposition")
-            -- task #175 wiring W2c: the generic residual for a
-            -- tower-backed entry — the stored `ty`
-            -- (`∀ p⃗ (t : T p⃗), F_i`, `.proj`-node spelling) is
-            -- level-instantiated at the subject type's levels and
-            -- peeled along the parameters and the subject
-            let tyI := entry.ty.instantiateLevelParams
-              entry.levelParams us
-            match Expr.instPisAt (te.getAppArgs ++ [pe]) tyI with
-            | some (_, resid) => pure resid
-            | none => throw (.internal "malformed projection entry")
+            -- the body at the subject type's arguments and the
+            -- subject, one `instantiateList` (task #175 S1)
+            pure (entry.typeAt us te.getAppArgs pe)
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
@@ -1987,7 +2079,7 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- subject type's head (official `infer_proj`'s
           -- `const_name(I) == proj_sname(e)`); the readings key the
           -- table on the node's name, the checker on the head's
-          if entry.native ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
+          if entry.tower ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             -- the official `infer_proj` restriction (task #175
             -- W4c/O4), as in `inferBody`
@@ -1997,13 +2089,9 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
                   == some true do
                 throw (.invalid
                   "projection from a propositional structure must be a proposition")
-            -- task #175 wiring W2c: the generic residual for a
-            -- tower-backed entry, as in `inferBody`
-            let tyI := entry.ty.instantiateLevelParams
-              entry.levelParams us
-            match Expr.instPisAt (te.getAppArgs ++ [pe]) tyI with
-            | some (_, resid) => pure resid
-            | none => throw (.internal "malformed projection entry")
+            -- the body at the arguments and the subject, as in
+            -- `inferBody` (task #175 S1)
+            pure (entry.typeAt us te.getAppArgs pe)
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
@@ -2459,7 +2547,7 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       let e' ← r.annotate depth pe
       -- Run the projection rule (the one place it is checked; this
       -- establishes the semantic proj clause of `AnnotOk`).  A
-      -- `native` table entry types the node directly (the display
+      -- tower-backed table entry types the node directly (the display
       -- name is normalized to the type's head, so reduction's table
       -- lookup is complete on annotated terms); anything else goes
       -- through the rewrite/fallback dispatch.
@@ -2468,17 +2556,15 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | .const T _ =>
         match env.findProj? T i with
         | some entry =>
-          if entry.native then do
+          if entry.tower then do
             unless te.getAppArgs.length = entry.numParams do
               throw (.invalid "projection parameter mismatch")
             pure (.proj T i e')
           else
-            -- the inert entry of an unadmitted slot (task #175 W4c P3
-            -- module 7, `directInertEntry`): a used-later earlier
-            -- field of this propositional structure has a sort that
-            -- is never `Prop`, so the official `infer_proj`
-            -- restriction rejects the projection at every level
-            -- instantiation
+            -- the modeled path's inert template entry: the family
+            -- carries no tower table, so the official `infer_proj`
+            -- has no typing for the node here (task #175 wiring W5:
+            -- the recursor-inlining fallback is gone)
             throw (.invalid
               "projection from a propositional structure must be a proposition")
         | none =>

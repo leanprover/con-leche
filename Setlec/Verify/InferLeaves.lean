@@ -368,7 +368,7 @@ theorem unfoldDefinition_fvarLeaves {env : Env} (henv : EnvWF env)
       simp only [Option.some.injEq] at h
       subst h
       intro l hl
-      obtain ⟨-, -, -, -, -, -, hval⟩ := henv _ (find?_mem hf)
+      obtain ⟨-, -, -, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
       obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
       rcases fvarLeaves_mkAppN hl with hl' | ⟨x, hx, hlx⟩
       · rw [fvarLeaves_eq_nil_of_not_hasFvar
@@ -424,7 +424,7 @@ theorem unfoldDefinition_looseBVars {env : Env} (henv : EnvWF env)
     · intro h
       simp only [Option.some.injEq] at h
       subst h
-      obtain ⟨-, -, -, -, -, -, hval⟩ := henv _ (find?_mem hf)
+      obtain ⟨-, -, -, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
       obtain ⟨-, -, -, hvb⟩ := hval cv value rfl
       refine looseBVarsBounded_mkAppN ?_ ?_
       · rw [looseBVarsBounded_instantiateLevelParams]
@@ -516,25 +516,32 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           · exact Or.inl (ihCore hwf l (by simp [fvarLeaves, hb]))
           · exact Or.inr hb
         · -- iota step
-          obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
-            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hmaj, hlit,
-            hsub, hmfn, hfj,
+          obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj,
+            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
+            hmfn, hfj,
             hrule,
             hml, -, hlev, hpeq, hcerts, hmcerts, -, rfl⟩ :=
             iotaRec_inv hio
-          have hsubM1 : ∀ l ∈ major₁.fvarLeaves, l ∈ major₀.fvarLeaves := by
-            rcases litMajorToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
-            · exact fun l' hl' => litToCtorIfNat_fvarLeaves l' hl'
-            · intro l' hl'
-              have h0 := ihLoop hred l' hl'
-              rw [strLitToConstructor_fvarLeaves] at h0
-              cases h0
-          have hsubM : ∀ l ∈ major.fvarLeaves, l ∈ major₀.fvarLeaves := by
-            rcases majorToCtor_inv hsub with rfl | ⟨-, -, hall, -⟩
-            · exact hsubM1
-            · intro l' hl'
-              have := List.all_eq_true.mp hall l' hl'
-              exact hsubM1 l' (by simpa using this)
+          -- the major's leaves are the argument's, through the chain in
+          -- either order
+          have hsubM : ∀ l ∈ major.fvarLeaves,
+              l ∈ ((Expr.app f' a).getAppArgs.getD mI (.bvar 0)).fvarLeaves :=
+            prepareMajorP_ind hprep
+              (fun x => ∀ l ∈ x.fvarLeaves,
+                l ∈ ((Expr.app f' a).getAppArgs.getD mI (.bvar 0)).fvarLeaves)
+              (fun hw' hP l' hl' => hP l' (ihLoop hw' l' hl'))
+              (fun hl hP l' hl' => by
+                rcases litMajorToCtorP_inv hl with rfl | ⟨s, -, -, hred⟩
+                · exact hP l' (litToCtorIfNat_fvarLeaves l' hl')
+                · have h0 := ihLoop hred l' hl'
+                  rw [strLitToConstructor_fvarLeaves] at h0
+                  cases h0)
+              (fun hs hP l' hl' => by
+                rcases majorToCtor_inv hs with rfl | ⟨-, -, hall, -⟩
+                · exact hP l' hl'
+                · have := List.all_eq_true.mp hall l' hl'
+                  exact hP l' (by simpa using this))
+              (fun l' hl' => hl')
           have hl2 := ihCore hwe'' l hl
           rcases fvarLeaves_mkAppN hl2 with hrl | ⟨x, hx, hlx⟩
           · obtain ⟨-, -, -, -, -, hrules, -⟩ := henv _ (find?_mem hfc)
@@ -552,7 +559,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
               · exact Or.inr hll
             · have hxa := fvarLeaves_getAppArgs (List.mem_of_mem_drop hx)
                 l hlx
-              have hmj := ihLoop hmaj l (hsubM l hxa)
+              have hmj := hsubM l hxa
               have hll := fvarLeaves_getAppArgs
                 (getD_mem (l := (Expr.app f' a).getAppArgs) (by omega)) l hmj
               simp only [fvarLeaves, List.mem_append] at hll
@@ -660,26 +667,28 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
           exact ihCore hbeta
             (looseBVarsBounded_instantiate1_gen hb.2 hbf'.2)
         · -- iota step
-          obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
-            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hmaj, hlit,
-            hsub, hmfn, hfj,
+          obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj,
+            cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
+            hmfn, hfj,
             hrule,
             hml, -, hlev, hpeq, hcerts, hmcerts, -, rfl⟩ :=
             iotaRec_inv hio
           have hbapp : (Expr.app f' a).looseBVarsBounded 0 = true := by
             simp only [looseBVarsBounded, Bool.and_eq_true]
             exact ⟨hbf', hb.2⟩
-          have hbmaj0 : major₀.looseBVarsBounded 0 = true :=
-            ihLoop hmaj
+          -- the major's bound variables, through the chain in either order
+          have hbmaj : major.looseBVarsBounded 0 = true :=
+            prepareMajorP_ind hprep (fun x => x.looseBVarsBounded 0 = true)
+              (fun hw' hb' => ihLoop hw' hb')
+              (fun hl hb' => by
+                rcases litMajorToCtorP_inv hl with rfl | ⟨s, -, -, hred⟩
+                · exact litToCtorIfNat_looseBVars hb'
+                · exact ihLoop hred (strLitToConstructor_looseBVars s 0))
+              (fun hs hb' => by
+                rcases majorToCtor_inv hs with rfl | ⟨-, hbM, -, -⟩
+                · exact hb'
+                · exact hbM)
               (looseBVarsBounded_getAppArgs hbapp _ (getD_mem (by omega)))
-          have hbmaj1 : major₁.looseBVarsBounded 0 = true := by
-            rcases litMajorToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
-            · exact litToCtorIfNat_looseBVars hbmaj0
-            · exact ihLoop hred (strLitToConstructor_looseBVars s 0)
-          have hbmaj : major.looseBVarsBounded 0 = true := by
-            rcases majorToCtor_inv hsub with rfl | ⟨-, hbM, -, -⟩
-            · exact hbmaj1
-            · exact hbM
           refine ihCore hwe'' ?_
           refine looseBVarsBounded_mkAppN ?_ ?_
           · obtain ⟨-, -, -, -, -, hrules, -⟩ := henv _ (find?_mem hfc)
@@ -852,19 +861,14 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       exact WScoped.instantiate1_gen hw.2 0 hwPi.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, -, ⟨ds, hpi⟩, -⟩ := inferTypeCore_proj_inv h
+        hus, -, rfl, -⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       have hwte := inferTypeCore_WScoped henv fuel hte hw
       have hwPi := whnf_WScoped henv fuel hwt hwte
-      -- task #175 wiring W2c: the tower residual — the stored entry
-      -- type is closed and the spine and subject are scoped
-      refine (instPisAt_WScoped _ _ hpi
-        (projEntry_ty_WScoped henv hfp us) ?_).2
-      intro a ha
-      rcases List.mem_append.mp ha with ha | ha
-      · exact hwPi.getAppArgs a ha
-      · rcases List.mem_singleton.mp ha with rfl
-        exact hw
+      -- task #175 S1: the body at the spine and the subject — the
+      -- stored body is fvar-free and the spine and subject are scoped
+      exact projEntry_typeAt_WScoped henv hfp us hlen
+        (fun a ha => hwPi.getAppArgs a ha) hw
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
@@ -986,7 +990,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
       · exact Or.inr hb
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, -, ⟨ds, hpi⟩, -⟩ := inferTypeCore_proj_inv h
+        hus, -, rfl, -⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       intro l hl
       simp only [fvarLeaves]
@@ -994,11 +998,12 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         fun l' hl' =>
         inferTypeCore_fvarLeaves henv fuel hte hw l'
           (whnf_fvarLeaves henv fuel hwt l' hl')
-      -- task #175 wiring W2c: the tower residual's leaves come from
-      -- the spine or the subject (the stored entry type is closed)
-      rcases instPisAt_fvarLeaves _ _ hpi l hl with hty | ⟨a, ha, hla⟩
+      -- task #175 S1: the body's leaves come from the spine or the
+      -- subject (the stored body is fvar-free)
+      rw [ProjEntry.typeAt_eq_instSpine entry us hlen pe] at hl
+      rcases fvarLeaves_instSpine _ hl with hty | ⟨a, ha, hla⟩
       · rw [fvarLeaves_eq_nil_of_not_hasFvar
-          (projEntry_ty_hasFvar henv hfp us)] at hty
+          (projEntry_body_hasFvar henv hfp us)] at hty
         exact nomatch hty
       · rcases List.mem_append.mp ha with ha | ha
         · exact hsub l (fvarLeaves_getAppArgs ha l hla)
@@ -1128,22 +1133,16 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       exact looseBVarsBounded_instantiate1_gen hb.2 hbPi.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, -, ⟨ds, hpi⟩, -⟩ := inferTypeCore_proj_inv h
+        hus, -, rfl, -⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded] at hb
       have hLbe : Expr.LeavesBounded pe := fun l hl => hLb l (by
         simp only [fvarLeaves]; exact hl)
       have hbte := inferTypeCore_looseBVars henv fuel hte hw hb hLbe
       have hbPi := whnf_looseBVars henv fuel hwt hbte
-      -- task #175 wiring W2c: the tower residual is bvar-closed —
-      -- entry type closed, spine and subject bounded
-      refine instPisAt_looseBVars _ _ hpi
-        (projEntry_ty_looseBVars henv hfp us) ?_
-      intro a ha
-      rcases List.mem_append.mp ha with ha | ha
-      · exact looseBVarsBounded_getAppArgs hbPi _ ha
-      · rcases List.mem_singleton.mp ha with rfl
-        exact hb
+      -- task #175 S1: the body at bvar-closed arguments is bvar-closed
+      exact projEntry_typeAt_looseBVars henv hfp us hlen
+        (fun a ha => looseBVarsBounded_getAppArgs hbPi _ ha) hb
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h

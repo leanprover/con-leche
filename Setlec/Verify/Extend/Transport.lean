@@ -78,8 +78,8 @@ theorem ConstWF.recRules_swap (rules₁ rules₂ : List RecRule)
     {c : ConstantInfo}
     (hc : ConstWF (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env) c) :
     ConstWF (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env) c := by
-  obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hc
-  refine ⟨h1, h2, ?_, h4, ?_, ?_, ?_⟩
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := hc
+  refine ⟨h1, h2, ?_, h4, ?_, ?_, ?_, ?_⟩
   · rw [← Expr.constsResolve_congr (Env.recRules_isSome rules₁ rules₂)]
     exact h3
   · intro cv2 v2 h2 heq
@@ -107,6 +107,14 @@ theorem ConstWF.recRules_swap (rules₁ rules₂ : List RecRule)
       by rw [← Expr.constsResolve_congr (Env.recRules_isSome rules₁ rules₂)]
          exact cres,
       dd⟩
+  · intro tbl heq
+    obtain ⟨g0, g⟩ := h8 tbl heq
+    refine ⟨g0, fun i b hb => ?_⟩
+    obtain ⟨a, b', cres, dd⟩ := g i b hb
+    exact ⟨a, b',
+      by rw [← Expr.constsResolve_congr (Env.recRules_isSome rules₁ rules₂)]
+         exact cres,
+      dd⟩
 
 /-- The head recursor's own `ConstWF`, with the rule list dropped (the
 rules-free provisional install). -/
@@ -115,8 +123,8 @@ theorem ConstWF.recRules_head_empty {rules' : List RecRule}
       (.recInfo cvA mI rP rules')) :
     ConstWF (⟨.recInfo cvA mI rP [] :: env.consts⟩ : Env)
       (.recInfo cvA mI rP []) := by
-  obtain ⟨h1, h2, h3, h4, -, -, -⟩ := hwf
-  refine ⟨h1, h2, ?_, h4, ?_, ?_, ?_⟩
+  obtain ⟨h1, h2, h3, h4, -, -, -, -⟩ := hwf
+  refine ⟨h1, h2, ?_, h4, ?_, ?_, ?_, ?_⟩
   · rw [← Expr.constsResolve_congr (Env.recRules_isSome rules' [])]
     exact h3
   · intro cv2 v2 h2 heq
@@ -127,6 +135,8 @@ theorem ConstWF.recRules_head_empty {rules' : List RecRule}
     intro r hr
     cases hr
   · intro cv2 v2 heq
+    exact nomatch heq
+  · intro tbl heq
     exact nomatch heq
 
 end Setlec

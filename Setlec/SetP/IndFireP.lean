@@ -204,7 +204,7 @@ theorem eqFormerKeyP {env : Env} (mp : EnvS2PM V μ env)
     rw [← denotePInstLevels]
     exact hT
   refine ⟨?_, mp.type_okP eqA hmem _ T hT' ρ⟩
-  have h := mp.mem_typeP eqA hmem (Setlec.isTowerEntry_false_of_find? heqfE (fun _ _ h => Name.noConfusion h))
+  have h := mp.mem_typeP eqA hmem
     (Level.substFn φ eqA.toConstantVal.levelParams us) T hT' ρ
   rwa [hname] at h
 
