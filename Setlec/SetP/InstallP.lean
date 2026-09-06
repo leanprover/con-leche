@@ -315,14 +315,17 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
     (htyReads : ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,
         denoteP (acvalWith mp.base2.acval c₀.name A)
-          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta)
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL
+            c₀.toConstantVal.levelParams) ψ 0 c₀.toConstantVal.type = some ta)
     (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL
+            c₀.toConstantVal.levelParams) ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
     (hmemNew : c₀.isTowerEntry = false → ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          { env with consts := c₀ :: env.consts } ψ 0 c₀.toConstantVal.type = some ta →
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL
+            c₀.toConstantVal.levelParams) ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
     (hvalReads : ∀ (ψ : Name → Nat) (cv : ConstantVal)
       (value : Expr),
@@ -330,7 +333,8 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
           ConstantInfo.defnInfo cv value hint = c₀) ∨
         ConstantInfo.thmInfo cv value = c₀) →
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          { env with consts := c₀ :: env.consts } ψ 0 value = some (A ψ))
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL cv.levelParams)
+          ψ 0 value = some (A ψ))
     (hnh : ∀ φ : Name → Nat,
       NatHeadsP (V := V)
         (coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) φ)
@@ -358,26 +362,34 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
     exact h0 c hc (by simp [h])
   -- the P crossing, forward only: successful prefix readings of the
   -- stored pieces survive (the head's slot mentions none of them)
-  have hcompM : ∀ (ψ : Name → Nat) (e : Expr), ConstsBound env e →
+  -- the P crossing, forward only, at every context (the packed `pw`
+  -- datum: the stored laws are context-free, and a cons keeps the
+  -- context asked for — `Env.cons_withLpsL`): successful prefix
+  -- readings of the stored pieces survive (the head's slot mentions
+  -- none of them)
+  have hcompM : ∀ (l : List Name) (ψ : Name → Nat) (e : Expr), ConstsBound env e →
       ConsCrossAt c₀ e →
-      ∀ {ea : AVExpr}, denoteP mp.base2.acval env ψ 0 e = some ea →
+      ∀ {ea : AVExpr}, denoteP mp.base2.acval (env.withLpsL l) ψ 0 e = some ea →
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          { env with consts := c₀ :: env.consts } ψ 0 e = some ea :=
-    fun ψ e hcb hat {ea} h => denoteP_cons_mono hfresh hat ψ 0 hcb h
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL l) ψ 0 e = some ea :=
+    fun l ψ e hcb hat {ea} h =>
+      denoteP_cons_mono (env := env.withLpsL l) hfresh hat ψ 0 hcb h
   -- the P fields, at the `acvalWith` spelling (defeq to the core's)
   have htr : ∀ c ∈ ({ env with consts := c₀ :: env.consts } : Env).consts, ∀ ψ : Name → Nat,
       ∃ ta : AVExpr,
         denoteP (acvalWith mp.base2.acval c₀.name A)
-          { env with consts := c₀ :: env.consts } ψ 0 c.toConstantVal.type = some ta := by
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL
+            c.toConstantVal.levelParams) ψ 0 c.toConstantVal.type = some ta := by
     intro c hc ψ
     rcases List.mem_cons.mp hc with h | h
     · subst h; exact htyReads ψ
     · obtain ⟨ta, hta⟩ := mp.type_reads c h ψ
-      exact ⟨ta, hcompM ψ _ (hbound _ h).1 (hh.projTower.type h) hta⟩
+      exact ⟨ta, hcompM _ ψ _ (hbound _ h).1 (hh.projTower.type h) hta⟩
   have hto : ∀ c ∈ ({ env with consts := c₀ :: env.consts } : Env).consts,
       ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          { env with consts := c₀ :: env.consts } ψ 0 c.toConstantVal.type = some ta →
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL
+            c.toConstantVal.levelParams) ψ 0 c.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta := by
     intro c hc ψ ta hta ρ
     rcases List.mem_cons.mp hc with h | h
@@ -385,13 +397,14 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
     · obtain ⟨ta', hta'⟩ := mp.type_reads c h ψ
       obtain rfl : ta' = ta :=
         Option.some.inj
-          ((hcompM ψ _ (hbound _ h).1 (hh.projTower.type h) hta').symm.trans
+          ((hcompM _ ψ _ (hbound _ h).1 (hh.projTower.type h) hta').symm.trans
             hta)
       exact mp.type_okP c h ψ ta' hta' ρ
   have hmt : ∀ c ∈ ({ env with consts := c₀ :: env.consts } : Env).consts, c.isTowerEntry = false →
       ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          { env with consts := c₀ :: env.consts } ψ 0 c.toConstantVal.type = some ta →
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL
+            c.toConstantVal.levelParams) ψ 0 c.toConstantVal.type = some ta →
       ∀ ρ : Nat → V,
         interp2 V ρ (acvalWith mp.base2.acval c₀.name A c.name ψ)
           ∈ˢ interp2 V ρ ta := by
@@ -403,7 +416,7 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
     · obtain ⟨ta', hta'⟩ := mp.type_reads c h ψ
       obtain rfl : ta' = ta :=
         Option.some.inj
-          ((hcompM ψ _ (hbound _ h).1 (hh.projTower.type h) hta').symm.trans
+          ((hcompM _ ψ _ (hbound _ h).1 (hh.projTower.type h) hta').symm.trans
             hta)
       rw [show acvalWith mp.base2.acval c₀.name A c.name
             = mp.base2.acval c.name from acvalWith_ne (hne _ h)]
@@ -415,7 +428,7 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
         ConstantInfo.thmInfo cv value
           ∈ ({ env with consts := c₀ :: env.consts } : Env).consts) →
       denoteP (acvalWith mp.base2.acval c₀.name A)
-          { env with consts := c₀ :: env.consts } ψ 0 value
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL cv.levelParams) ψ 0 value
         = some (acvalWith mp.base2.acval c₀.name A cv.name ψ) := by
     intro ψ cv value hmem
     rcases hmem with ⟨hint, hdt⟩ | hdt
@@ -428,7 +441,7 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
       · rw [show acvalWith mp.base2.acval c₀.name A cv.name
             = mp.base2.acval cv.name from
             acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
-        exact hcompM ψ value ((hbound _ h).2.1 cv value hint rfl)
+        exact hcompM _ ψ value ((hbound _ h).2.1 cv value hint rfl)
           (hh.projTower.defn h)
           (mp.defn_reads ψ cv value (.inl ⟨hint, h⟩))
     · rcases List.mem_cons.mp hdt with h | h
@@ -440,7 +453,7 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
       · rw [show acvalWith mp.base2.acval c₀.name A cv.name
             = mp.base2.acval cv.name from
             acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
-        exact hcompM ψ value ((hbound _ h).2.2 cv value rfl)
+        exact hcompM _ ψ value ((hbound _ h).2.2 cv value rfl)
           (hh.projTower.thm h)
           (mp.defn_reads ψ cv value (.inr h))
   exact ⟨{
@@ -471,6 +484,71 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
 membership, `EnvS2PM.mem_typeP`'s guard). -/
 theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hfresh : env.find? c₀.name = none)
+    (hh : ConsHeadP env c₀ A)
+    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
+    (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
+      A ψ₁ = A ψ₂)
+    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOk2 V ρ (A ψ))
+    (hAvalid : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      AnnotValidV V ρ (A ψ))
+    (htyReads : ∀ ψ : Name → Nat,
+      ∃ ta : AVExpr,
+        denoteP (acvalWith mp.base2.acval c₀.name A)
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL
+            c₀.toConstantVal.levelParams) ψ 0 c₀.toConstantVal.type = some ta)
+    (htyOk : ∀ (ψ : Name → Nat) (ta : AVExpr),
+      denoteP (acvalWith mp.base2.acval c₀.name A)
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL
+            c₀.toConstantVal.levelParams) ψ 0 c₀.toConstantVal.type = some ta →
+      ∀ ρ : Nat → V, AnnotOkP V ρ ta)
+    (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
+      denoteP (acvalWith mp.base2.acval c₀.name A)
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL
+            c₀.toConstantVal.levelParams) ψ 0 c₀.toConstantVal.type = some ta →
+      ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
+    (hvalReads : ∀ (ψ : Name → Nat) (cv : ConstantVal)
+      (value : Expr),
+      ((∃ hint : ReducibilityHint,
+          ConstantInfo.defnInfo cv value hint = c₀) ∨
+        ConstantInfo.thmInfo cv value = c₀) →
+      denoteP (acvalWith mp.base2.acval c₀.name A)
+          (({ env with consts := c₀ :: env.consts } : Env).withLpsL cv.levelParams)
+          ψ 0 value = some (A ψ))
+    (hnh : ∀ φ : Name → Nat,
+      NatHeadsP (V := V)
+        (coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) φ)
+    (hnat_ops : ∀ φ : Name → Nat,
+      NatOpsP (V := V)
+        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ)
+    (hdiv_mod : ∀ φ : Name → Nat,
+      DivModP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ)
+    (heq_law : EqLawP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _))
+    (hcaps_ok : CapsOkP (V := V)
+        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _))
+    (hrec_rules : ∀ φ : Name → Nat,
+      RecRulesP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ)
+    (hreduce_ops : ReduceOpsP (V := V)
+        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _))
+    (htower_ok : ∀ φ : Name → Nat,
+      TowerOkP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ) :
+    ∃ mp' : EnvS2PM V μ { env with consts := c₀ :: env.consts },
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A :=
+  declStepPM_of_cons_guarded mp hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk
+    (fun _ => hmemNew) hvalReads hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops
+    htower_ok
+
+/-- **The P step at a cons whose environment carries the head's
+context** (the packed `pw` datum, 2026-09-06): every installing driver
+enters the head's universe context before the head's runs, so the
+head's rows are harvested at the ambient environment — which IS the
+head's context-free environment (`Env.withLpsL_self`).  The four head
+hypotheses are the ambient ones; `hctx` says the context is the head's
+(`Env.lpsL_mk_cons`: a cons keeps it). -/
+theorem declStepPM_of_cons_at (mp : EnvS2PM V μ env)
+    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
+    (hctx : env.lpsL = c₀.toConstantVal.levelParams)
     (hfresh : env.find? c₀.name = none)
     (hh : ConsHeadP env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
@@ -517,9 +595,21 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     (htower_ok : ∀ φ : Name → Nat,
       TowerOkP (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvS2Core V _) φ) :
     ∃ mp' : EnvS2PM V μ { env with consts := c₀ :: env.consts },
-      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A :=
-  declStepPM_of_cons_guarded mp hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk
-    (fun _ => hmemNew) hvalReads hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops
-    htower_ok
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
+  have hself : ({ env with consts := c₀ :: env.consts } : Env).withLpsL
+      c₀.toConstantVal.levelParams = { env with consts := c₀ :: env.consts } :=
+    Env.withLpsL_self _ (by rw [Env.lpsL_mk_cons]; exact hctx)
+  refine declStepPM_of_cons mp hfresh hh hAclosed hAparams hAok hAvalid
+    (fun ψ => by rw [hself]; exact htyReads ψ)
+    (fun ψ ta hta => by rw [hself] at hta; exact htyOk ψ ta hta)
+    (fun ψ ta hta => by rw [hself] at hta; exact hmemNew ψ ta hta)
+    (fun ψ cv value hmem => ?_)
+    hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops htower_ok
+  have hlps : cv.levelParams = c₀.toConstantVal.levelParams := by
+    rcases hmem with ⟨hint, h⟩ | h
+    · rw [← h]; rfl
+    · rw [← h]; rfl
+  rw [hlps, hself]
+  exact hvalReads ψ cv value hmem
 
 end Setlec.SetP

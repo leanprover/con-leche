@@ -412,6 +412,9 @@ theorem UnivCtx.ofList_val {l : List Name} (h : l.length ≤ PropWhen.maxParams)
     (UnivCtx.ofList l).1 = l := by
   unfold UnivCtx.ofList; rw [dif_pos h]
 
+theorem UnivCtx.ofList_self (c : UnivCtx) : UnivCtx.ofList c.1 = c :=
+  Subtype.ext (UnivCtx.ofList_val c.2)
+
 /-- The global environment: the list of constants accepted so far, newest
 first.  Names are unique (the checker rejects duplicates), so the order is
 irrelevant for lookup. -/
@@ -458,6 +461,22 @@ theorem lpsL_withLpsL (env : Env) {l : List Name} (h : l.length ≤ PropWhen.max
     (env.withLpsL l).lpsL = l := UnivCtx.ofList_val h
 theorem withLps_withLps (env : Env) (c c' : UnivCtx) :
     (env.withLps c).withLps c' = env.withLps c' := rfl
+/-- Entering the context an environment already carries is the
+identity (the harvests: the installing driver entered the head's
+context, so the head's context-free row IS the ambient row). -/
+theorem withLpsL_self (env : Env) {l : List Name} (h : env.lpsL = l) :
+    env.withLpsL l = env := by
+  subst h
+  show env.withLps (UnivCtx.ofList env.lps.1) = env
+  rw [UnivCtx.ofList_self]
+  rfl
+
+/-- A cons commutes with a context: the store extends, the context is
+whatever was asked. -/
+theorem cons_withLpsL (env : Env) (ci : ConstantInfo) (l : List Name) :
+    ({ env with consts := ci :: env.consts } : Env).withLpsL l
+      = { env.withLpsL l with consts := ci :: (env.withLpsL l).consts } := rfl
+
 /-- An entered context is the list-indexed context of its parameter
 list (the packed `pw` datum: producers run at `env.withLps c`, the laws
 are stated at `env.withLpsL cv.levelParams`). -/

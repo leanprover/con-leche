@@ -25,6 +25,15 @@ theorem recFireComparands_fst_nil (rl : RecRule) (cur lps : List Name)
   unfold recFireComparands
   cases rl.fire <;> rfl
 
+/-- The level comparand does not depend on the ambient level context
+(`cur` only enters the packed-`pw` masks of the parameter comparands). -/
+theorem recFireComparands_fst_cur (rl : RecRule) (cur cur' lps : List Name)
+    (us : List Level) (cvjLps : List Name) (args : List Expr) (rP : Nat) :
+    (recFireComparands rl cur lps us cvjLps args rP).1
+      = (recFireComparands rl cur' lps us cvjLps args rP).1 := by
+  unfold recFireComparands
+  cases rl.fire <;> rfl
+
 /-- A successful `defEqList`'s components — the form the nested pin
 premise needs, since only *one* index's comparand is known to denote
 (the rule hypothesises exactly that one). -/

@@ -747,7 +747,7 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
   -- the installed projection recursor is well-formed
   obtain ⟨c', cvj', mcv', hc', hlk', pty', hty', ⟨_, hshape'⟩, hi', rhsA',
     hrule', ⟨_, hio'⟩, heq⟩ := checkProjFn_inv hFnp
-  obtain rfl : c' = c := Option.some.inj (hc'.symm.trans hc)
+  obtain rfl : c = c' := Option.some.inj (hc.symm.trans hc')
   have hcons := congrArg Env.consts heq
   try dsimp only at hcons
   simp only [List.cons.injEq] at hcons
