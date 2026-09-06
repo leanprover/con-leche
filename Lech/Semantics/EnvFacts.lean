@@ -3,7 +3,9 @@ import Lech.Verify.InferLeaves
 import Lech.Verify.Denote.SubstAlgebra
 import Lech.Verify.Denote.Levels
 import Lech.Verify.EnvPreds
-import Lech.Semantics.SpineV
+import Lech.Verify.Denote
+import Lech.Verify.Denote.OpenVars
+import Lech.Verify.Denote.VClosed
 
 /-!
 # `EnvFacts`: the environment facts the bridge consumes (task #148, T3)

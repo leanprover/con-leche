@@ -22,7 +22,6 @@ import Lech.Semantics.Univ
 import Lech.Semantics.BasisOk
 import Lech.Semantics.Skeleton
 import Lech.Semantics.Hoist
-import Lech.Semantics.SpineV
 import Lech.Semantics.Decl
 import Lech.Semantics.DeclEta
 import Lech.Semantics.DeclRun
@@ -42,8 +41,6 @@ import Lech.Semantics.Tower.TowerMk
 import Lech.Semantics.Tower.TowerRec
 import Lech.Semantics.Tower.TowerWire
 import Lech.Semantics.ProjFnFacts
-import Lech.Semantics.Bridge.ProjRed
-import Lech.Semantics.Spine2
 import Lech.Semantics.Bridge.Decl
 import Lech.Semantics.Bridge.DeclRun
 import Lech.Semantics.Bridge.DeclIndRun

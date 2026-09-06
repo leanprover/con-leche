@@ -1,6 +1,8 @@
 import Lech.SetP.Step2.IotaKitP
 import Lech.SetP.Step2.StuckP
-import Lech.Semantics.SpineV
+import Lech.Verify.Denote
+import Lech.Verify.Denote.OpenVars
+import Lech.Verify.Denote.VClosed
 
 /-!
 # The stuck-major rescues, P currency (task #161, iota tier)

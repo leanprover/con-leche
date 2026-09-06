@@ -3,7 +3,9 @@ import Lech.SetP.Step2.InferIOP
 import Lech.SetP.Step2.WhnfP
 import Lech.SetP.Step2.DefEqP
 import Lech.SetP.Step2.StuckP
-import Lech.Semantics.SpineV
+import Lech.Verify.Denote
+import Lech.Verify.Denote.OpenVars
+import Lech.Verify.Denote.VClosed
 import Lech.SetP.Step2.TowerKitP
 import Lech.SetP.Annot.EnvS2P
 import Lech.Semantics.LitParams

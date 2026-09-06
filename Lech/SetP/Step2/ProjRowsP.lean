@@ -1,10 +1,12 @@
 import Lech.SetP.Step2.CapsRowsP
 import Lech.SetP.Step2.StuckP
 import Lech.SetP.Step2.InferIOP
-import Lech.Semantics.Spine2
+import Lech.Semantics.Ok2
 import Lech.SetP.Step2.TowerKitP
 import Lech.SetP.Step2.IotaGateP
-import Lech.Semantics.SpineV
+import Lech.Verify.Denote
+import Lech.Verify.Denote.OpenVars
+import Lech.Verify.Denote.VClosed
 
 /-!
 # The semantic projection rows (task #161, PROJ/STR install tier;

@@ -1,5 +1,7 @@
 import Lech.SetP.IndUnitLawP
-import Lech.Semantics.SpineV
+import Lech.Verify.Denote
+import Lech.Verify.Denote.OpenVars
+import Lech.Verify.Denote.VClosed
 
 /-!
 # The η key, P tier (task #161, IND TIER part 2, item 1a)
