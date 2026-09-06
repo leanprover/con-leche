@@ -365,60 +365,39 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
       = .ok (env₂, cvCa, sorts) := by
     rw [← checkDirectCtor_datF]; exact hF₂
   obtain ⟨henv₂, hCf, -⟩ := direct_ctor_wf henv₁ hF₂p
-  -- stage 3: the recursor's constant and type
+  -- stage 3: the recursor, generated and compared (task #175 S2)
   obtain ⟨u2, sC, hfl2, h⟩ := bindC_ok h
   rw [flushC_run] at hfl2
   injection hfl2 with hfl2
   obtain rfl : s₂.flushed = sC := congrArg Prod.snd hfl2
-  rw [checkConstantValF_eq] at h
-  obtain ⟨cvRa, s₃, hcv, h⟩ := bindC_ok h
-  obtain ⟨hs₃, cvRa', hP3, F₃, hF₃⟩ :=
-    (checkConstantValS_sim henv₂ (flushC_csok hs₂.residue)) cvRa s₃ hcv
-  obtain ⟨rfl, -⟩ := hP3
-  have hF₃p : checkConstantVal (fueledOps mode F₃) env₂ p.cvR = .ok cvRa := by
-    rw [← checkConstantVal_datF]; exact hF₃
-  obtain ⟨hRf, -, -, -⟩ := checkConstantVal_typeWF hF₃p
-  rw [checkDirectRecTyF_eq] at h
-  obtain ⟨u3, s₄, hrt, h⟩ := bindC_ok h
-  obtain ⟨hs₄, u3', hP4, F₄, hF₄⟩ :=
-    (checkDirectRecTyS_sim henv₂ hCf hRf hs₃) u3 s₄ hrt
-  have hF₄p : checkDirectRecTy (fueledOps mode F₄) env₂ p cvTa cvCa cvRa
-      = .ok u3' := by
-    rw [← checkDirectRecTy_datF]; exact hF₄
-  -- stage 4: the rule
-  rw [checkDirectRuleF_eq] at h
-  obtain ⟨rhsA, s₅, hru, h⟩ := bindC_ok h
-  obtain ⟨hs₅, rhsA', hP5, F₅, hF₅⟩ :=
-    (checkDirectRuleS_sim henv₂ hCf hRf hs₄) rhsA s₅ hru
-  obtain rfl : rhsA = rhsA' := hP5
-  have hF₅p : checkDirectRule (fueledOps mode F₅) env₂ p cvCa cvRa
-      = .ok rhsA := by
-    rw [← checkDirectRule_datF]; exact hF₅
-  have henv₃ := direct_rec_wf henv₂ hF₃p hF₅p
+  rw [checkDirectRecF_eq] at h
+  obtain ⟨q3, s₃, hrc, h⟩ := bindC_ok h
+  obtain ⟨hs₃, q3', hP3, F₃, hF₃⟩ :=
+    (checkDirectRecS_sim henv₂ (flushC_csok hs₂.residue)) q3 s₃ hrc
+  obtain rfl : q3 = q3' := hP3
+  obtain ⟨cvRa, rhsA⟩ := q3
+  have hF₃p : checkDirectRec (fueledOps mode F₃) env₂ p cvTa cvCa
+      = .ok (cvRa, rhsA) := by
+    rw [← checkDirectRec_datF]; exact hF₃
+  have henv₃ := direct_rec_wf henv₂ hF₃p
   -- the projection table (task #175 S1)
   rw [push_mkFEnv] at h
   obtain ⟨hwfO, hfeO, henvO, F₆, hF₆⟩ :=
     checkDirectProjTableS_run (T := p.cvT.name) (C := p.cvC.name)
       (lps := p.cvT.levelParams) (nP := p.nP) (nF := p.nF) (rs := p.resSort)
       (guards := directProjGuards cvCa.type p.nP p.nF sorts)
-      (cvCa := cvCa) _ henv₃ hs₅.residue h
-  obtain ⟨G, hle₁, hle₂, hle₃, hle₄, hle₅, hle₆⟩ :
-      ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G ∧ F₅ ≤ G ∧ F₆ ≤ G :=
-    ⟨max F₁ (max F₂ (max F₃ (max F₄ (max F₅ F₆)))),
-      by omega, by omega, by omega, by omega, by omega, by omega⟩
+      (cvCa := cvCa) _ henv₃ hs₃.residue h
+  obtain ⟨G, hle₁, hle₂, hle₃, hle₆⟩ :
+      ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₆ ≤ G :=
+    ⟨max F₁ (max F₂ (max F₃ F₆)), by omega, by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
   have g₁ : checkDirectInd (fueledOps mode G) env p = .ok (env₁, cvTa) := by
     rw [← checkDirectInd_datF]; exact FueledM.up hle₁ hF₁
   have g₂ : checkDirectCtor (fueledOps mode G) env env₁ p cvTa
       = .ok (env₂, cvCa, sorts) := by
     rw [← checkDirectCtor_datF]; exact FueledM.up hle₂ hF₂
-  have g₃ : checkConstantVal (fueledOps mode G) env₂ p.cvR = .ok cvRa := by
-    rw [← checkConstantVal_datF]; exact FueledM.up hle₃ hF₃
-  have g₄ : checkDirectRecTy (fueledOps mode G) env₂ p cvTa cvCa cvRa
-      = .ok u3' := by
-    rw [← checkDirectRecTy_datF]; exact FueledM.up hle₄ hF₄
-  have g₅ : checkDirectRule (fueledOps mode G) env₂ p cvCa cvRa = .ok rhsA := by
-    rw [← checkDirectRule_datF]; exact FueledM.up hle₅ hF₅
+  have g₃ : checkDirectRec (fueledOps mode G) env₂ p cvTa cvCa = .ok (cvRa, rhsA) := by
+    rw [← checkDirectRec_datF]; exact FueledM.up hle₃ hF₃
   have g₆ : checkDirectProjTable (m := CheckM) p.cvT.name p.cvC.name
       p.cvT.levelParams p.nP p.nF p.resSort
       (directProjGuards cvCa.type p.nP p.nF sorts) cvCa
@@ -433,10 +412,6 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
   rw [g₂]
   simp only [Except.bind]
   rw [g₃]
-  simp only [Except.bind]
-  rw [g₄]
-  simp only [Except.bind]
-  rw [g₅]
   simp only [Except.bind]
   exact g₆
 

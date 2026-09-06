@@ -917,41 +917,23 @@ theorem checkDirectCtor_snd_dproj (env₀ env : Env) (p : DirectParts)
     PairM.snd_ite, unwrapOr_snd_dproj, checkConstantVal_snd_dproj,
     checkDirectFieldSorts_snd_dproj, checkDirectDomsAt_snd_dproj]
 
-theorem checkDirectRecTy_fst_dproj (env : Env) (p : DirectParts)
-    (cvTa cvCa cvRa : ConstantVal) :
-    (checkDirectRecTy (pairOps o₁ o₂ h) env p cvTa cvCa cvRa).val.1 =
-      checkDirectRecTy o₁ env p cvTa cvCa cvRa := by
-  unfold checkDirectRecTy
+theorem checkDirectRec_fst_dproj (env : Env) (p : DirectParts)
+    (cvTa cvCa : ConstantVal) :
+    (checkDirectRec (pairOps o₁ o₂ h) env p cvTa cvCa).val.1 =
+      checkDirectRec o₁ env p cvTa cvCa := by
+  unfold checkDirectRec
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
-    PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
-    checkDirectDomsAt_fst_dproj]
+    PairM.fst_ite, pairOps_isDefEq_fst, pairOps_inferType_fst,
+    pairOps_ensureSort_fst, unwrapOr_fst_dproj, checkConstantVal_fst_dproj]
 
-theorem checkDirectRecTy_snd_dproj (env : Env) (p : DirectParts)
-    (cvTa cvCa cvRa : ConstantVal) :
-    (checkDirectRecTy (pairOps o₁ o₂ h) env p cvTa cvCa cvRa).val.2 =
-      checkDirectRecTy o₂ env p cvTa cvCa cvRa := by
-  unfold checkDirectRecTy
+theorem checkDirectRec_snd_dproj (env : Env) (p : DirectParts)
+    (cvTa cvCa : ConstantVal) :
+    (checkDirectRec (pairOps o₁ o₂ h) env p cvTa cvCa).val.2 =
+      checkDirectRec o₂ env p cvTa cvCa := by
+  unfold checkDirectRec
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
-    PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
-    checkDirectDomsAt_snd_dproj]
-
-theorem checkDirectRule_fst_dproj (env : Env) (p : DirectParts)
-    (cvCa cvRa : ConstantVal) :
-    (checkDirectRule (pairOps o₁ o₂ h) env p cvCa cvRa).val.1 =
-      checkDirectRule o₁ env p cvCa cvRa := by
-  unfold checkDirectRule
-  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
-    PairM.fst_ite, pairOps_annotate_fst, pairOps_inferType_fst,
-    unwrapOr_fst_dproj, checkDefEqList_fst_dproj]
-
-theorem checkDirectRule_snd_dproj (env : Env) (p : DirectParts)
-    (cvCa cvRa : ConstantVal) :
-    (checkDirectRule (pairOps o₁ o₂ h) env p cvCa cvRa).val.2 =
-      checkDirectRule o₂ env p cvCa cvRa := by
-  unfold checkDirectRule
-  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
-    PairM.snd_ite, pairOps_annotate_snd, pairOps_inferType_snd,
-    unwrapOr_snd_dproj, checkDefEqList_snd_dproj]
+    PairM.snd_ite, pairOps_isDefEq_snd, pairOps_inferType_snd,
+    pairOps_ensureSort_snd, unwrapOr_snd_dproj, checkConstantVal_snd_dproj]
 
 theorem checkDirectProjTable_fst_dproj (T C : Name) (lps : List Name)
     (nP nF : Nat) (rs : Level) (guards : List Level) (cvCa : ConstantVal)
@@ -978,8 +960,7 @@ theorem checkDirectStruct_fst_dproj (env : Env) (p : DirectParts) :
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, checkConstantVal_fst_dproj,
     checkDirectInd_fst_dproj, checkDirectCtor_fst_dproj,
-    checkDirectRecTy_fst_dproj, checkDirectRule_fst_dproj,
-    checkDirectProjTable_fst_dproj]
+    checkDirectRec_fst_dproj, checkDirectProjTable_fst_dproj]
 
 theorem checkDirectStruct_snd_dproj (env : Env) (p : DirectParts) :
     (checkDirectStruct (pairOps o₁ o₂ h) env p).val.2 =
@@ -988,8 +969,7 @@ theorem checkDirectStruct_snd_dproj (env : Env) (p : DirectParts) :
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, checkConstantVal_snd_dproj,
     checkDirectInd_snd_dproj, checkDirectCtor_snd_dproj,
-    checkDirectRecTy_snd_dproj, checkDirectRule_snd_dproj,
-    checkDirectProjTable_snd_dproj]
+    checkDirectRec_snd_dproj, checkDirectProjTable_snd_dproj]
 
 macro "dfst_step4_alt" : tactic =>
   `(tactic| first
@@ -1833,23 +1813,14 @@ theorem checkDirectCtor_datF (env₀ env : Env) (p : DirectParts)
     FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
     checkDirectFieldSorts_datF, checkDirectDomsAt_datF]
 
-theorem checkDirectRecTy_datF (env : Env) (p : DirectParts)
-    (cvTa cvCa cvRa : ConstantVal) (F : Nat) :
-    (checkDirectRecTy (fueledOpsM mode) env p cvTa cvCa cvRa).val F =
-      checkDirectRecTy (fueledOps mode F) env p cvTa cvCa cvRa := by
-  unfold checkDirectRecTy
+theorem checkDirectRec_datF (env : Env) (p : DirectParts)
+    (cvTa cvCa : ConstantVal) (F : Nat) :
+    (checkDirectRec (fueledOpsM mode) env p cvTa cvCa).val F =
+      checkDirectRec (fueledOps mode F) env p cvTa cvCa := by
+  unfold checkDirectRec
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, fueledOpsM_isDefEq_atF, unwrapOr_atF,
-    checkDirectDomsAt_datF]
-
-theorem checkDirectRule_datF (env : Env) (p : DirectParts)
-    (cvCa cvRa : ConstantVal) (F : Nat) :
-    (checkDirectRule (fueledOpsM mode) env p cvCa cvRa).val F =
-      checkDirectRule (fueledOps mode F) env p cvCa cvRa := by
-  unfold checkDirectRule
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, fueledOpsM_annotate_atF, fueledOpsM_inferType_atF,
-    unwrapOr_atF, checkDefEqList_datF]
+    FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
+    fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF]
 
 theorem checkDirectProjTable_datF (T C : Name) (lps : List Name)
     (nP nF : Nat) (rs : Level) (guards : List Level) (cvCa : ConstantVal)
@@ -1866,8 +1837,8 @@ theorem checkDirectStruct_datF (env : Env) (p : DirectParts) (F : Nat) :
   unfold checkDirectStruct
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, checkConstantVal_datF,
-    checkDirectInd_datF, checkDirectCtor_datF, checkDirectRecTy_datF,
-    checkDirectRule_datF, checkDirectProjTable_datF]
+    checkDirectInd_datF, checkDirectCtor_datF, checkDirectRec_datF,
+    checkDirectProjTable_datF]
 
 macro "datF_step4_alt" : tactic =>
   `(tactic| first
