@@ -1664,13 +1664,17 @@ definitionally the body's, which is what keeps
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- The io continuation of the application clause: the gate wraps the
-certificate, the computed type is the telescope step's, verbatim. -/
-def inferStepIO (mode : CheckMode) (r : CoreFns m) (depth : Nat)
+/-- The io continuation of the application clause: the licence wraps
+the certificate, the computed type is the telescope step's, verbatim.
+The licence reads the binder's annotation datum and nothing else — the
+`mode.verifiedChecks` conjunct went with the licence ruling of
+2026-09-06, which is also why `mode` has left this family's
+signatures. -/
+def inferStepIO (r : CoreFns m) (depth : Nat)
     (tf a : Expr) : m Expr := do
   match ← r.whnf depth tf with
   | .forallE _ ty body mt =>
-    if mode.verifiedChecks && mt.pw.isNever then
+    if mt.pw.isNever then
       pure (body.instantiate1 a)
     else do
       let ta ← r.inferIO depth a
@@ -1679,77 +1683,77 @@ def inferStepIO (mode : CheckMode) (r : CoreFns m) (depth : Nat)
   | _ => throw (.invalid "function expected")
 
 /-- The io-grade spine mirror (the cached `inferSpineIOI`'s pure
-twin): per-argument certificate gated at a validated `.never`
-binder. -/
-def inferSpineIO (mode : CheckMode) (r : CoreFns m) (depth : Nat) :
+twin): per-argument certificate skipped at a `.never` binder, on the
+datum alone. -/
+def inferSpineIO (r : CoreFns m) (depth : Nat) :
     Expr → List Expr → List Expr → m Expr
   | ty, acc, [] => pure (ty.instantiateList acc)
   | ty, acc, a :: rest =>
     match ty with
     | .forallE _ dom body mt =>
-      if mode.verifiedChecks && mt.pw.isNever then
-        inferSpineIO mode r depth body (a :: acc) rest
+      if mt.pw.isNever then
+        inferSpineIO r depth body (a :: acc) rest
       else do
         let ta ← r.inferIO depth a
         if ← r.defeq depth ta (dom.instantiateList acc) then
-          inferSpineIO mode r depth body (a :: acc) rest
+          inferSpineIO r depth body (a :: acc) rest
         else throw (.invalid "application type mismatch")
     | ty => do
       match ← r.whnf depth (ty.instantiateList acc) with
       | .forallE _ dom body mt =>
-        if mode.verifiedChecks && mt.pw.isNever then
-          inferSpineIO mode r depth body [a] rest
+        if mt.pw.isNever then
+          inferSpineIO r depth body [a] rest
         else do
           let ta ← r.inferIO depth a
           if ← r.defeq depth ta dom then
-            inferSpineIO mode r depth body [a] rest
+            inferSpineIO r depth body [a] rest
           else throw (.invalid "application type mismatch")
       | _ => throw (.invalid "function expected")
 
 /-- The syntactic-`∀` arm of `inferSpineIO`. -/
-def inferSpineIOPi (mode : CheckMode) (r : CoreFns m) (depth : Nat)
+def inferSpineIOPi (r : CoreFns m) (depth : Nat)
     (dom body : Expr) (mt : BinderMeta) (acc : List Expr) (a : Expr)
     (rest : List Expr) : m Expr :=
-  if mode.verifiedChecks && mt.pw.isNever then
-    inferSpineIO mode r depth body (a :: acc) rest
+  if mt.pw.isNever then
+    inferSpineIO r depth body (a :: acc) rest
   else do
     let ta ← r.inferIO depth a
     if ← r.defeq depth ta (dom.instantiateList acc) then
-      inferSpineIO mode r depth body (a :: acc) rest
+      inferSpineIO r depth body (a :: acc) rest
     else throw (.invalid "application type mismatch")
 
 /-- The normalize-and-retry arm of `inferSpineIO`. -/
-def inferSpineIOWhnf (mode : CheckMode) (r : CoreFns m) (depth : Nat)
+def inferSpineIOWhnf (r : CoreFns m) (depth : Nat)
     (ty : Expr) (acc : List Expr) (a : Expr) (rest : List Expr) :
     m Expr := do
   match ← r.whnf depth (ty.instantiateList acc) with
   | .forallE _ dom body mt =>
-    if mode.verifiedChecks && mt.pw.isNever then
-      inferSpineIO mode r depth body [a] rest
+    if mt.pw.isNever then
+      inferSpineIO r depth body [a] rest
     else do
       let ta ← r.inferIO depth a
       if ← r.defeq depth ta dom then
-        inferSpineIO mode r depth body [a] rest
+        inferSpineIO r depth body [a] rest
       else throw (.invalid "application type mismatch")
   | _ => throw (.invalid "function expected")
 
-theorem inferSpineIO_nil (mode : CheckMode) (r : CoreFns m) (depth : Nat)
+theorem inferSpineIO_nil (r : CoreFns m) (depth : Nat)
     (ty : Expr) (acc : List Expr) :
-    inferSpineIO mode r depth ty acc [] = pure (ty.instantiateList acc) := by
+    inferSpineIO r depth ty acc [] = pure (ty.instantiateList acc) := by
   rw [inferSpineIO]
 
-theorem inferSpineIO_pi (mode : CheckMode) (r : CoreFns m) (depth : Nat)
+theorem inferSpineIO_pi (r : CoreFns m) (depth : Nat)
     (n : Name) (dom body : Expr) (bi : BinderMeta) (acc : List Expr)
     (a : Expr) (rest : List Expr) :
-    inferSpineIO mode r depth (.forallE n dom body bi) acc (a :: rest)
-      = inferSpineIOPi mode r depth dom body bi acc a rest := by
+    inferSpineIO r depth (.forallE n dom body bi) acc (a :: rest)
+      = inferSpineIOPi r depth dom body bi acc a rest := by
   rw [inferSpineIO, inferSpineIOPi]
 
-theorem inferSpineIO_ne_pi (mode : CheckMode) (r : CoreFns m) (depth : Nat)
+theorem inferSpineIO_ne_pi (r : CoreFns m) (depth : Nat)
     {ty : Expr} (hty : ∀ n dom body bi, ty ≠ .forallE n dom body bi)
     (acc : List Expr) (a : Expr) (rest : List Expr) :
-    inferSpineIO mode r depth ty acc (a :: rest)
-      = inferSpineIOWhnf mode r depth ty acc a rest := by
+    inferSpineIO r depth ty acc (a :: rest)
+      = inferSpineIOWhnf r depth ty acc a rest := by
   cases ty with
   | forallE n dom body bi => exact absurd rfl (hty n dom body bi)
   | _ => rw [inferSpineIO, inferSpineIOWhnf] <;>
@@ -1762,15 +1766,15 @@ section InferIOAtF
 variable {mode : CheckMode} {env : Env}
 
 theorem inferStepIO_atF (d : Nat) (tf a : Expr) (F : Nat) :
-    (inferStepIO mode (fueledFns mode env) d tf a).val F
-      = inferStepIO mode (pureFns mode env F) d tf a := by
+    (inferStepIO (fueledFns mode env) d tf a).val F
+      = inferStepIO (pureFns mode env F) d tf a := by
   unfold inferStepIO
   atF_tac4
 
 theorem inferSpineIO_atF (d : Nat) :
     ∀ (xs : List Expr) (ty : Expr) (acc : List Expr) (F : Nat),
-      (inferSpineIO mode (fueledFns mode env) d ty acc xs).val F
-        = inferSpineIO mode (pureFns mode env F) d ty acc xs
+      (inferSpineIO (fueledFns mode env) d ty acc xs).val F
+        = inferSpineIO (pureFns mode env F) d ty acc xs
   | [], ty, acc, F => by rw [inferSpineIO_nil, inferSpineIO_nil]; rfl
   | a :: rest, ty, acc, F => by
     by_cases hpi : ∃ n dom body bi, ty = Expr.forallE n dom body bi
@@ -1788,14 +1792,14 @@ theorem inferSpineIO_atF (d : Nat) :
         funext b
         cases b with
         | true =>
-          show (inferSpineIO mode (fueledFns mode env) d body (a :: acc)
+          show (inferSpineIO (fueledFns mode env) d body (a :: acc)
             rest).val F = _
           rw [inferSpineIO_atF d rest body (a :: acc) F]
           rfl
         | false => rfl
     · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
         fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
-      rw [inferSpineIO_ne_pi _ _ _ hty, inferSpineIO_ne_pi _ _ _ hty]
+      rw [inferSpineIO_ne_pi _ _ hty, inferSpineIO_ne_pi _ _ hty]
       unfold inferSpineIOWhnf
       rw [FueledM.atF_bind]
       congr 1
@@ -1814,7 +1818,7 @@ theorem inferSpineIO_atF (d : Nat) :
           funext b
           cases b with
           | true =>
-            show (inferSpineIO mode (fueledFns mode env) d body [a]
+            show (inferSpineIO (fueledFns mode env) d body [a]
               rest).val F = _
             rw [inferSpineIO_atF d rest body [a] F]
             rfl
@@ -1823,17 +1827,17 @@ theorem inferSpineIO_atF (d : Nat) :
 
 theorem inferSpineIO_mono {d : Nat} {xs acc : List Expr} {ty : Expr}
     {F F' : Nat} (hle : F ≤ F') {res : Expr}
-    (h : inferSpineIO mode (pureFns mode env F) d ty acc xs = .ok res) :
-    inferSpineIO mode (pureFns mode env F') d ty acc xs = .ok res := by
+    (h : inferSpineIO (pureFns mode env F) d ty acc xs = .ok res) :
+    inferSpineIO (pureFns mode env F') d ty acc xs = .ok res := by
   rw [← inferSpineIO_atF] at h ⊢
-  exact (inferSpineIO mode (fueledFns mode env) d ty acc xs).property hle h
+  exact (inferSpineIO (fueledFns mode env) d ty acc xs).property hle h
 
 theorem inferStepIO_mono {d : Nat} {tf a : Expr} {F F' : Nat}
     (hle : F ≤ F') {res : Expr}
-    (h : inferStepIO mode (pureFns mode env F) d tf a = .ok res) :
-    inferStepIO mode (pureFns mode env F') d tf a = .ok res := by
+    (h : inferStepIO (pureFns mode env F) d tf a = .ok res) :
+    inferStepIO (pureFns mode env F') d tf a = .ok res := by
   rw [← inferStepIO_atF] at h ⊢
-  exact (inferStepIO mode (fueledFns mode env) d tf a).property hle h
+  exact (inferStepIO (fueledFns mode env) d tf a).property hle h
 
 /-- The io inference body's app case over the io-grade view is one
 io-slot inference followed by `inferStepIO` (stated at `CheckM`). -/
@@ -1841,14 +1845,14 @@ theorem inferBodyIO_app_pure (env : Env) (F depth : Nat) (f a : Expr) :
     inferBodyIO mode (CoreFns.ioView (pureFns mode env F)) env depth
         (.app f a)
       = (pureFns mode env F).inferIO depth f >>= fun tf =>
-          inferStepIO mode (CoreFns.ioView (pureFns mode env F)) depth
+          inferStepIO (CoreFns.ioView (pureFns mode env F)) depth
             tf a := rfl
 
 /-- The io mirrors read only `whnf`, `inferIO` and `defeq`, none of
 which the io-grade view touches, so the view is transparent to them. -/
 theorem inferStepIO_ioView (F d : Nat) (tf a : Expr) :
-    inferStepIO mode (CoreFns.ioView (pureFns mode env F)) d tf a
-      = inferStepIO mode (pureFns mode env F) d tf a := rfl
+    inferStepIO (CoreFns.ioView (pureFns mode env F)) d tf a
+      = inferStepIO (pureFns mode env F) d tf a := rfl
 
 end InferIOAtF
 
@@ -1859,9 +1863,9 @@ variable {mode : CheckMode} {env : Env}
 theorem inferSpineIO_snoc {d : Nat} :
     ∀ (xs : List Expr) (ty : Expr) (acc : List Expr) (a : Expr) (F : Nat)
       (vres : Expr),
-      inferSpineIO mode (pureFns mode env F) d ty acc (xs ++ [a]) = .ok vres →
-      ∃ F' w, inferSpineIO mode (pureFns mode env F') d ty acc xs = .ok w ∧
-        inferStepIO mode (pureFns mode env F') d w a = .ok vres
+      inferSpineIO (pureFns mode env F) d ty acc (xs ++ [a]) = .ok vres →
+      ∃ F' w, inferSpineIO (pureFns mode env F') d ty acc xs = .ok w ∧
+        inferStepIO (pureFns mode env F') d w a = .ok vres
   | [], ty, acc, a, F, vres => by
     intro H
     rw [List.nil_append] at H
@@ -1873,7 +1877,7 @@ theorem inferSpineIO_snoc {d : Nat} :
       unfold inferStepIO
       rw [instList_forallE, whnf_def, whnf_forallE, ok_bind]
       dsimp only
-      by_cases hg2 : (mode.verifiedChecks && bi.pw.isNever) = true
+      by_cases hg2 : bi.pw.isNever = true
       · simp only [hg2, ↓reduceIte] at H ⊢
         rw [inferSpineIO_nil] at H
         injection H with h1
@@ -1905,7 +1909,7 @@ theorem inferSpineIO_snoc {d : Nat} :
           rfl
     · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
         fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
-      rw [inferSpineIO_ne_pi _ _ _ hty] at H
+      rw [inferSpineIO_ne_pi _ _ hty] at H
       unfold inferSpineIOWhnf at H
       obtain ⟨w₀, hw₀, H⟩ := bind_ok H
       refine ⟨F, ty.instantiateList acc, by rw [inferSpineIO_nil]; rfl, ?_⟩
@@ -1917,7 +1921,7 @@ theorem inferSpineIO_snoc {d : Nat} :
       cases w₀ with
       | forallE n dom body bi =>
         dsimp only at H ⊢
-        by_cases hg2 : (mode.verifiedChecks && bi.pw.isNever) = true
+        by_cases hg2 : bi.pw.isNever = true
         · simp only [hg2, ↓reduceIte] at H ⊢
           rw [inferSpineIO_nil, instList_single] at H
           exact H
@@ -1949,7 +1953,7 @@ theorem inferSpineIO_snoc {d : Nat} :
     · obtain ⟨n, dom, body, bi, rfl⟩ := hpi
       rw [inferSpineIO_pi] at H
       unfold inferSpineIOPi at H
-      by_cases hg2 : (mode.verifiedChecks && bi.pw.isNever) = true
+      by_cases hg2 : bi.pw.isNever = true
       · simp only [hg2, ↓reduceIte] at H
         obtain ⟨F₁, w, hw, hstep⟩ :=
           inferSpineIO_snoc xs' body (x :: acc) a F vres H
@@ -1986,19 +1990,19 @@ theorem inferSpineIO_snoc {d : Nat} :
           exact inferSpineIO_mono (Nat.le_max_right F F₁) hw
     · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
         fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
-      rw [inferSpineIO_ne_pi _ _ _ hty] at H
+      rw [inferSpineIO_ne_pi _ _ hty] at H
       unfold inferSpineIOWhnf at H
       obtain ⟨w₀, hw₀, H⟩ := bind_ok H
       cases w₀ with
       | forallE n dom body bi =>
         dsimp only at H
-        by_cases hg2 : (mode.verifiedChecks && bi.pw.isNever) = true
+        by_cases hg2 : bi.pw.isNever = true
         · simp only [hg2, ↓reduceIte] at H
           obtain ⟨F₁, w, hw, hstep⟩ :=
             inferSpineIO_snoc xs' body [x] a F vres H
           refine ⟨max F F₁, w, ?_,
             inferStepIO_mono (Nat.le_max_right F F₁) hstep⟩
-          rw [inferSpineIO_ne_pi _ _ _ hty]
+          rw [inferSpineIO_ne_pi _ _ hty]
           unfold inferSpineIOWhnf
           rw [whnf_def]
           show (whnf mode env (max F F₁) d (ty.instantiateList acc) >>= _) = _
@@ -2019,7 +2023,7 @@ theorem inferSpineIO_snoc {d : Nat} :
               inferSpineIO_snoc xs' body [x] a F vres H
             refine ⟨max F F₁, w, ?_,
               inferStepIO_mono (Nat.le_max_right F F₁) hstep⟩
-            rw [inferSpineIO_ne_pi _ _ _ hty]
+            rw [inferSpineIO_ne_pi _ _ hty]
             unfold inferSpineIOWhnf
             rw [whnf_def]
             show (whnf mode env (max F F₁) d (ty.instantiateList acc) >>= _) = _
@@ -2048,7 +2052,7 @@ private theorem inferSpineIO_sound_rev (hgb : mode.betaGate = true)
     {d : Nat} :
     ∀ (rxs : List Expr) (h th vres : Expr) (F₀ F : Nat),
       inferTypeIO mode env F₀ d h = .ok th →
-      inferSpineIO mode (pureFns mode env F) d th [] rxs.reverse
+      inferSpineIO (pureFns mode env F) d th [] rxs.reverse
         = .ok vres →
       ∃ F', inferTypeIO mode env F' d (Expr.mkAppN h rxs.reverse)
         = .ok vres
@@ -2084,7 +2088,7 @@ there). -/
 theorem inferSpineIO_sound (hgb : mode.betaGate = true) {d : Nat}
     (xs : List Expr) (h th vres : Expr) (F₀ F : Nat)
     (hh : inferTypeIO mode env F₀ d h = .ok th)
-    (H : inferSpineIO mode (pureFns mode env F) d th [] xs = .ok vres) :
+    (H : inferSpineIO (pureFns mode env F) d th [] xs = .ok vres) :
     ∃ F', inferTypeIO mode env F' d (Expr.mkAppN h xs) = .ok vres := by
   have hx : xs.reverse.reverse = xs := List.reverse_reverse xs
   have := inferSpineIO_sound_rev hgb (d := d) xs.reverse h th vres F₀ F hh
@@ -2095,7 +2099,7 @@ theorem inferSpineIO_sound (hgb : mode.betaGate = true) {d : Nat}
 theorem inferSpineIO_sound_body (hgb : mode.betaGate = true) (d : Nat)
     (fx ax : Expr) (vres : Expr) (F : Nat)
     (H : ((fueledFns mode env).inferIO d (Expr.app fx ax).getAppFn >>=
-        fun tf => inferSpineIO mode (fueledFns mode env) d tf []
+        fun tf => inferSpineIO (fueledFns mode env) d tf []
           (Expr.app fx ax).getAppArgs).val F = .ok vres) :
     ∃ F', (inferBodyIO mode (CoreFns.ioView (fueledFns mode env)) env d
       (.app fx ax)).val F' = .ok vres := by

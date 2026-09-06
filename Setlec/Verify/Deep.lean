@@ -2237,7 +2237,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
     dsimp only [shiftFrom]
     -- **the io gate**: the datum is the whnf'd type's own binder meta,
     -- which the shift copies verbatim, so both sides take one branch
-    by_cases hg2 : (mode.verifiedChecks && m'.pw.isNever) = true
+    by_cases hg2 : m'.pw.isNever = true
     · simp only [hg2, if_true]
       simp only [pure, Except.pure, map_ok]
       rw [← shiftFrom_instantiate1_gen]

@@ -97,12 +97,14 @@ structure CoreFns (m : Type → Type u) where
   carries a validated annotation invariant (`AnnotOkP` in the P
   claims) is re-inferred without re-establishing it.  The knot decides
   the grade's meaning per mode: at a gate-off mode (`μ.betaGate =
-  false` — the R core, the trusted core) this is the full `infer`,
-  verbatim (the flag is ignored, task #170's R clause); at the gated
-  mode (`.verified`, the P core) it is the io body, whose application
-  clause skips the per-argument certificate exactly at a validated
-  `.never` binder under the graph-regime license
-  (`Setlec/SetP/IOLicenseP.lean`). -/
+  false`) this is the full `infer`, verbatim (the flag is ignored,
+  task #170's R clause); at the gated mode (`.verified`, the P core)
+  it is the io body, whose application clause skips the per-argument
+  certificate at a `.never` binder under the graph-regime license
+  (`Setlec/SetP/IOLicenseP.lean`).  The **shipped** trusted core
+  selects the io body too (`cfgT.ioGate = true`, the licence ruling of
+  2026-09-06); this mode-parametric spelling is not the thing that
+  ships, so `μ.betaGate` here stays the P tier's own bit. -/
   inferIO : Nat → Expr → m Expr
 
 /-- The **io-grade view** of a core record: the record whose full-grade
@@ -2100,17 +2102,21 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
       | .forallE _ ty body mt => do
-        -- **THE io SITE.**  At a ∀ whose validated datum is `never`
-        -- the certificate is dead weight: the premise-form io claim
+        -- **THE io SITE.**  At a ∀ whose datum is `never` the
+        -- certificate is dead weight: the premise-form io claim
         -- derives `⟦a⟧ ∈ ⟦ty⟧` from the subject's own `AnnotOk2` app
         -- slot (`io_domain_transfer` + `piR_dom_unique`,
         -- side-condition free).  At a possibly-zero datum the
         -- certificate runs unconditionally — the squash regime's
         -- membership is model-class-wide unrecoverable
         -- (`io_membership_fails_at_squash`), and that fence is
-        -- absolute.  `mode.verifiedChecks` is the law's mode gate: the
-        -- annotation is only *validated* at the verified modes.
-        unless mode.verifiedChecks && mt.pw.isNever do
+        -- absolute.  The read is the DATUM ALONE (the licence ruling
+        -- of 2026-09-06): it used to carry a `mode.verifiedChecks`
+        -- conjunct, which inverted the trusted mode into running a
+        -- certificate the verified mode skips.  Validating the datum
+        -- is certification-only work; consuming it is not.  The
+        -- licensing theorem never read the mode either.
+        unless mt.pw.isNever do
           let ta ← r.infer depth a
           unless ← r.defeq depth ta ty do
             throw (.invalid "application type mismatch")
