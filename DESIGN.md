@@ -47636,7 +47636,6 @@ the next finder, since the mechanism §5 was written against has been
 removed.  The §7 tools and §8's "work against the slice, not the
 stream" stand.
 
-
 ## Task #179 — no threads, and the linearity audit that followed (2026-09-06, `agent/linear-audit`)
 
 **The user's brief:** *"oh, no threads please! and 6% array copying is
@@ -48163,3 +48162,244 @@ one-constructor indexed family (SigmaHom, DESIGN §"TASK #175
 SigmaHom") is the `n = 1` instance of the same construction; the K
 rule at a zero-field indexed `Prop` is the squash instance.  Not done
 here.
+
+## Mathlib frontier tooling: `scripts/resume_slice.py` — the resume slice, and the measurement that at rung 5 it buys **0.25 %** (2026-09-06, `agent/resume-slice`)
+
+The ladder tools so far all cut *forward*: `slice_fast.py` keeps a
+target's cone and truncates there, `cut_decl_cone.py` removes a
+declaration's dependents.  The one the campaign was missing cuts
+*backward*: after a rung has been localised, everything before it has
+a known verdict, so re-checking it on the next attempt is pure
+latency.  `scripts/resume_slice.py` is that tool, and this section is
+both its README and the finding that came out of running it.
+
+### 1. What it does
+
+    scripts/resume_slice.py [--dry-run] [--report FILE] STREAM CUT [OUT]
+
+`CUT` is a 1-based declaration-record index (`decl_index.py`'s
+numbering) or a declaration name; the cut record is the first record of
+the kept suffix.  The output is a valid `setlec --pre` stream holding
+
+* every record at or after the cut, verbatim;
+* of the records before the cut, exactly the transitive dependency
+  closure reachable from the kept suffix;
+* every `in`, `il` and `meta` record (a few percent of the stream — no
+  name or level closure is needed), and the kept `ie` records **at
+  their original ids**, gaps and all, exactly as `slice_fast.py`
+  emits them.
+
+Four keep-rules beyond plain reachability, each of them load-bearing
+against a *silent* behaviour change rather than against a dangling
+reference:
+
+| rule | why |
+|---|---|
+| the `_model` companions of every kept declaration | `Kernel/Checker.lean`'s `directParts?` requires a block's companions to be **absent** to take the direct route, so dropping one flips the install route; `projRewriteD` reads the block's `T._model.proj_i.iota` artifacts, which no expression references |
+| the pinned basis blocks `Eq`, `Nat`, `PUnit`, `Empty` | `punitSeen` gates the projection-function rewrite (65 sites on this stream); the quotient basis install demands the pinned `Eq` |
+| every `quot` record | slot 0 is what pushes `.basisDecl .quotK` |
+| every `axiom` record | an axiom record is where a non-standard axiom's *positive decline* happens; keeping them all means a resume slice can never lose that verdict |
+
+Tolerated-axiom taint needs no rule of its own: taint *propagates*
+through the slice, because a kept declaration that used a skipped axiom
+still arrives with its tainted dependency present.  What the slice
+cannot reproduce is the *size* of the final `declined:` summary —
+dropped prefix declarations contribute no skips.
+
+### 2. The soundness caveat (in the script header too)
+
+**A resume slice has a smaller resident base than the full stream.**
+The parsed prefix is most of the checker's flat RSS — 12.2 GiB of the
+18.7 GiB ceiling on full Mathlib — so a *memory* blow-up the full run
+hits can fail to reproduce on the slice.  This is the finder's argument
+against a prefix bisect (§2 of "The Mathlib frontier at 24.97 %"),
+verbatim and in the same direction: **a slice can only hide a failure,
+never invent one.**  It is a localisation and re-check tool.  It is
+never the acceptance run, and its wall times and peak RSS are not the
+stream's.
+
+One further, smaller caveat: reference extraction is regex-based over
+the raw JSON, as in every slicer here, so a `strVal` payload spelling
+`"type":123` would be read as a reference.  That over-keeps; it never
+under-keeps.
+
+### 3. The finding: at rung 5 there is nothing to cut
+
+Run against `_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson`
+(5 708 171 489 B, **670 982** declaration records — the *native*
+preprocessor's stream, whose record numbering differs from the old
+`mathlib-full-pre.ndjson`; rung 5 sits at **198 370 / 670 982 =
+29.564 %** here, not 32.216 %):
+
+| | |
+|---|---|
+| cut | record 198 370, `thm Algebra.tensorH1CotangentOfIsLocalization_toLinearMap` |
+| prefix declaration records | 198 369 — **195 620 kept (98.614 %)**, 2 749 dropped |
+| prefix expression records | 32 163 542 — 31 922 944 kept, 240 598 dropped |
+| bytes | 5 708 171 489 → 5 693 668 882 kept = **99.746 %** |
+| what the resume slice buys | **0.254 % of the stream** |
+
+**At the ladder's live rung a resume slice buys essentially nothing.**
+The prefix of Mathlib at 30 % is the shared algebraic base, and the
+remaining 70 % still reaches almost all of it.  The mechanism is
+transitivity, not breadth: the suffix names only **56 294** prefix
+records *directly*; the other **139 326** come in as the dependency
+closure of those.  So a private `_simp` auxiliary survives the cut
+because the public lemma that uses it survives, and that public lemma
+survives because something in the last 70 % cites it.
+
+The payoff is a function of where the cut is, and the shape is worth
+recording, because it says when the tool is worth reaching for:
+
+| stream | cut | prefix records dropped | bytes dropped |
+|---|---|---|---|
+| Mathlib (native) | 29.564 % (**rung 5**) | 1.386 % | **0.254 %** |
+| Mathlib (native) | 50.000 % | 6.707 % | 2.346 % |
+| Mathlib (native) | 90.000 % | 40.400 % | 29.040 % |
+| `init-full-pre-native` | 50.001 % | 16.431 % | 7.419 % |
+| `std-time-cone/pre` | 70.909 % | 14.254 % | 16.315 % |
+
+The curve is convex and it is *late*: half of Mathlib is worth 2.3 % of
+the bytes, and only at 90 % does the tool return anything like the cut
+fraction.  The reading is the corpus's, not the checker's — Mathlib is
+a tower whose base stays live to the very top, so "declarations nothing
+after this point references" is a nearly empty set anywhere below the
+last tenth.
+
+So the tool earns its keep on a *late* cut, and on the Mathlib ladder —
+whose rungs sit at 17 %, 21 %, 24 %, 25 %, 30 % — it does not.  The
+campaign should keep working against the cone slices (`slice_fast.py`,
+`cut_decl_cone.py`), which produce a 200 MB reproducer, and not against
+a 5.69 GB resume slice that is the full stream minus a rounding error.
+That is the decision-grade datum of this section.
+
+### 4. Validation
+
+* **Identity.** `CUT = 1` reproduces the input byte for byte
+  (`_tmp/std-time-cone/pre.ndjson`).
+* **Structural.** Every kept record's expression, name and constant
+  references resolve inside the output, on all three slices.
+* **`std-time-cone` at record 4 000 / 5 641.**  Slice accepts **5 713**
+  declarations, full stream accepts 6 301; the difference, 588, is
+  exactly the constant count of the 570 dropped records.
+* **init-full at 50 %** (the required sanity test, `--verified --pre`,
+  `ulimit -v 16000000`).  Slice: exit **0**, accepted **51 817**
+  declarations, 2:16.58, max RSS 802 964 KB.  Full stream: exit **0**,
+  accepted **56 291**, 2:21.05, max RSS 857 468 KB.  The gap, 4 474
+  constants, is again exactly the 4 465 dropped records.  The
+  **verdict is preserved and the accepted set is the expected one**;
+  the wall-time saving is inside the noise, because 7.4 % of the bytes
+  are worth about that much of the run.
+* **Mathlib rung 5** — see §5; **the end-to-end verdict comparison is
+  still owed** (the run was killed for the session's memory budget, not
+  by the checker).
+
+### 5. The Mathlib rung-5 slice under the checker: 46 min of evidence, verdict PENDING (do not restart — see §7)
+
+`_tmp/resume-slice/run.sh rung5slice mathlib-rung5.ndjson`, master
+`2664b1dd` (binary md5 `c247c72eb96c5930c245e56414ddc08b`),
+`--verified --pre`, `ulimit -v 22000000`, `timeout 14400`.
+
+The run was **killed at t = 2 791 s (46:30) by SIGTERM (exit 143)** —
+the session's cgroup budget, with the `frontier4` lane's full-stream
+pass running beside it; two Mathlib-scale checkers plus builds do not
+fit.  **Session rule from that: one Mathlib-scale checker at a time.**
+So the comparison the task wants — same verdict at the same
+declaration as the full run — is **not yet made**, and this section
+must be completed by re-running the slice once `frontier4`'s pass has
+ended.  What the 46 minutes did establish:
+
+* **The slice parses.**  `rchar` reached 100 % of 5 693 668 882 B at
+  t ≈ 300 s and the checker went on to check, so every expression id
+  the kept records name resolves inside the slice — a full structural
+  validation of the closure at Mathlib scale, not a sample.
+* **The projection rewrite fires at exactly the same sites.**  The
+  slice prints `setlec: 65 projection functions of non-direct
+  structure-likes rewritten to recursor form`; so does the full-stream
+  run.  That is `punitSeen`, `projOwners` and the
+  `T._model.proj_i.iota` artifacts all surviving §1's keep-rules —
+  the failure mode those rules exist to prevent, tested and absent.
+* **The resident base, measured rather than argued.**  Slice: steady
+  RSS 12.07-12.11 GB, parse peak VmHWM 13.08 GB.  Full stream, same
+  binary generation, same limits: steady 12.09-12.13 GB, peak
+  13.15 GB.  The headroom a resume slice hides at this cut is
+  **~0.07 GB, ~0.5 %** — §2's caveat is real in kind and, here,
+  negligible in size, for the same reason §3 gives: there is almost
+  nothing to cut.
+* No reject, decline or panic in those 46 minutes.
+
+### 6. Speed, and the wall-time caveat
+
+The slicer is two passes.  The prefix is scanned line by line (the
+expression DAG flattened into `array`s, `slice_fast.py`'s layout, with
+a regex-free fast path for `app` nodes — four of five records); the
+suffix, every record of which is kept, is scanned with bulk
+`re.findall` over 256 MB chunks, ~7x faster per byte and all that is
+needed there, since the only thing the suffix contributes is the set of
+*prefix* ids and names it mentions.  The emit pass copies the whole
+suffix byte for byte and filters only the prefix.
+
+"Every `ie` record after the cut is kept" is exact, not merely
+conservative: lean4export emits an expression record the first time a
+declaration's serialisation needs it, so every expression record
+between two declaration records is reachable from the later one.
+
+On the 5.71 GB stream, producing the 5.69 GB rung-5 slice: **scan 110 s,
+mark 13 s, emit 18 s, total 140 s**, peak RSS 3.14 GB.  A second,
+byte-identical run taken later measured 163 s (scan 122, mark 15, emit
+26) — **wall time carries the usual contention caveat**, and here it is
+visible in the numbers themselves: the first run shared the machine
+with one full-Mathlib checker pass, the second with two, and the second
+run had *more* optimisation in it, not less.  Load average 16-25
+throughout.  The record and byte counts above carry no such caveat, and
+the two runs' outputs `cmp` equal.
+
+The remaining lever, if a resume slice ever becomes hot enough to
+want: the suffix scan is chunk-parallel by construction (each 256 MB
+chunk's reference sets merge independently, and the declaration records
+merge in chunk order), so a `multiprocessing` pool would take the 110 s
+scan to well under a minute.  It was not worth writing for a tool whose
+own measurement says it buys 0.25 % at the rung it was built for.
+
+### 7. Artefacts (`_tmp/resume-slice/`), and how to finish §5
+
+* `run.sh` — Mathlib-scale harness for a slice (22 GB cap, 4 h timeout,
+  RSS + `rchar` sampled every 30 s), the `frontier4` script retargeted.
+* `mathlib-rung5.ndjson` — the rung-5 resume slice (5 693 668 882 B) and
+  `mathlib-rung5.report`.
+* `mathlib-cut335491.dryrun`, `mathlib-cut603884.dryrun` — the 50 % and
+  90 % points of §3's curve.
+* `initfull-50pct.{ndjson,report,out,time}` and `initfull-full.{out,time}`
+  — the §4 sanity pair.
+* `rung5slice-{p,rss}.log`, `-time.txt`, `.exitcode`, `-binary.md5` —
+  the killed run of §5 (exit 143 = SIGTERM at 46:30).
+
+**§5 is PENDING and must not be restarted on sight.**  The
+coordinator's standing ruling (2026-09-06): the `frontier4` full-stream
+pass has not ended, **a second Mathlib-scale run is not allowed while
+it runs**, and the first attempt was already killed for the session's
+cgroup budget.  Do not re-launch it opportunistically; it is
+*scheduled*, not merely waiting.  The precondition is
+
+    pgrep -f "frontier4/.lake/build/bin/setlec"    # must be empty
+
+and the *coordinator's* go-ahead — one Mathlib-scale checker at a time.
+Then
+
+    _tmp/resume-slice/run.sh rung5slice2 _tmp/resume-slice/mathlib-rung5.ndjson
+
+and compare the verdict, the dying/last declaration and the RSS profile
+against the full-stream pass in `_tmp/frontier4/beb8c2bb-*`.  The
+prediction the slice has to meet: **the same outcome at the same
+declaration**, since the slice keeps 99.746 % of the stream and every
+record from rung 5 on.
+
+Note what this run is now *for*, and what it is not.  §3's payoff curve
+has already decided the campaign question — **the cone slicers
+(`slice_fast.py`, `cut_decl_cone.py`) stay the workhorse**, and no
+frontier work waits on §5.  The pending run buys one thing only: the
+end-to-end confirmation that a resume slice preserves the verdict at
+Mathlib scale, which §5's parse, the matching 65 projection rewrites
+and the 46 minutes of clean checking already make very likely.  It is
+worth taking when a Mathlib-scale slot is free anyway; it is not worth
+displacing anything for.
