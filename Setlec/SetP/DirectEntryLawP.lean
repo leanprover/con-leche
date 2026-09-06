@@ -204,6 +204,52 @@ theorem entryIotaCore {w nP nF i : Nat} {ds : List (Nat × Nat × AVExpr)} {ρ :
     List.getElem?_eq_getElem (by rw [hlenBs]; exact hi)] at h1
   exact Option.some.inj h1
 
+/-- **The iota law at a squash instantiation** (task #175 W6): the
+constructor application is the point, so its projection is the point
+(`projS_pt`); the selected field inhabits its domain by the certified
+spine's fit, and that domain is a proposition (its sort is `0`, from
+the guard), so the field is the point too. -/
+theorem entryIotaCoreZero {nP nF i : Nat} {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V}
+    {sorts : List Level} {ψ : Name → Nat}
+    (hlenDs : ds.length = nP + nF) (hi : i < nF)
+    (hsorts : ∀ ρ : Nat → V, Sat2 V ((ds.take nP).map (·.2.2)).reverse ρ →
+      ∀ j, j < nF → ∀ as : List V,
+        SpineFit ρ (((ds.drop nP).map (·.2.2)).take j) as →
+        interp2 V (consList as ρ) (((ds.drop nP).map (·.2.2)).getD j default)
+          ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V))
+    (hz : (sorts.getD i .zero).eval ψ = 0)
+    (ys : List AVExpr) (hlen : ys.length = nP + nF)
+    (hsp : SpineFit ρ (ds.map (·.2.2)) (ys.map (interp2 V ρ))) :
+    interp2 V ρ (projAV i (AVExpr.mkAppN (directMkAV 0 ds ((ds.drop nP).map (·.2.2))) ys))
+      = interp2 V ρ (ys.getD (nP + i) default) := by
+  -- the projection of the point
+  rw [projAV_interp, interp2_mkAppN_foldl, directMkAV_zero, foldl_app_pt, projS_pt]
+  -- the selected field: a member of a proposition's domain
+  rw [show ds.map (·.2.2) = (ds.take nP).map (·.2.2) ++ (ds.drop nP).map (·.2.2) from by
+    rw [← List.map_append, List.take_append_drop]] at hsp
+  obtain ⟨as, bs, heq, hsp₁, hsp₂⟩ := spineFit_append_inv hsp
+  have hlenAs : as.length = nP := by rw [hsp₁.length_eq]; simp [hlenDs]
+  have hlenBs : bs.length = nF := by rw [hsp₂.length_eq]; simp [hlenDs]
+  have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
+  have hsat : Sat2 V ((ds.take nP).map (·.2.2)).reverse (consList as ρ) := by
+    have := sat2_of_spineFit (Δ₀ := []) (Sat2_nil V ρ) hsp₁
+    rwa [List.append_nil] at this
+  obtain ⟨hpre, hnext⟩ := spineFit_prefix_next hsp₂ (by rw [hlenFs]; exact hi)
+  have hz' := hsorts _ hsat i hi _ hpre
+  rw [hz] at hz'
+  have hval : bs.getD i pt = pt := mem_univ_zero hz' hnext
+  -- the selected argument is `bs[i]`
+  have hlt : nP + i < ys.length := by omega
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt, Option.getD_some]
+  have h1 : (ys.map (interp2 V ρ))[nP + i]? = some (interp2 V ρ ys[nP + i]) := by
+    rw [List.getElem?_map, List.getElem?_eq_getElem hlt]; rfl
+  rw [heq, List.getElem?_append_right (by omega), hlenAs, Nat.add_sub_cancel_left,
+    List.getElem?_eq_getElem (by rw [hlenBs]; exact hi)] at h1
+  have h2 : bs[i] = bs.getD i pt := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenBs]; exact hi)]
+    rfl
+  rw [← Option.some.inj h1, h2, hval]
+
 /-! ## (C) the η law -/
 
 theorem entryEtaCore {w nP nF : Nat} {pps ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V}

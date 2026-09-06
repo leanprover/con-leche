@@ -9,7 +9,6 @@ SPCD_P :: Setlec.Kernel.Basis.Empty
 SPCD_P :: Setlec.Kernel.Basis.Eq
 SPCD_P :: Setlec.Kernel.Basis.Names
 SPCD_P :: Setlec.Kernel.Basis.Nat
-SPCD_P :: Setlec.Kernel.Basis.PSigma
 SPCD_P :: Setlec.Kernel.Basis.PUnit
 SPCD_P :: Setlec.Kernel.Basis.Quot
 SPCD_P :: Setlec.Kernel.Checker
@@ -69,13 +68,10 @@ SPCD_P :: Setlec.SetBase.LitStep2
 SPCD_P :: Setlec.SetBase.NatFrag
 SPCD_P :: Setlec.SetBase.Ok2
 SPCD_P :: Setlec.SetBase.Ops
-SPCD_P :: Setlec.SetBase.PSigmaTower
 SPCD_P :: Setlec.SetBase.ProjFnRR
 SPCD_P :: Setlec.SetBase.ProjPhase
-SPCD_P :: Setlec.SetBase.ProjPins
 SPCD_P :: Setlec.SetBase.Sat2
 SPCD_P :: Setlec.SetBase.Skeleton
-SPCD_P :: Setlec.SetBase.Spine2
 SPCD_P :: Setlec.SetBase.Syntax
 SPCD_P :: Setlec.SetBase.TowerIntro
 SPCD_P :: Setlec.SetBase.TowerLeaf
@@ -107,7 +103,6 @@ SPCD_P :: Setlec.SetP.BasisBlocksP
 SPCD_P :: Setlec.SetP.BasisConsP
 SPCD_P :: Setlec.SetP.BasisEmptyP
 SPCD_P :: Setlec.SetP.BasisEqP
-SPCD_P :: Setlec.SetP.BasisPSigmaP
 SPCD_P :: Setlec.SetP.BasisQuotP
 SPCD_P :: Setlec.SetP.BasisStepP
 SPCD_P :: Setlec.SetP.BasisTypeOk
@@ -233,7 +228,6 @@ SPCD_P :: Setlec.SetP.Step2.IrrelP
 SPCD_P :: Setlec.SetP.Step2.MajorP
 SPCD_P :: Setlec.SetP.Step2.NatP
 SPCD_P :: Setlec.SetP.Step2.ProjAVKitP
-SPCD_P :: Setlec.SetP.Step2.ProjPinsP
 SPCD_P :: Setlec.SetP.Step2.ProjRowsP
 SPCD_P :: Setlec.SetP.Step2.ReadsIOP
 SPCD_P :: Setlec.SetP.Step2.ReadsP
@@ -318,6 +312,7 @@ SPCD_P :: Setlec.Verify.EnvBound
 SPCD_P :: Setlec.Verify.EnvGuards
 SPCD_P :: Setlec.Verify.EnvPreds
 SPCD_P :: Setlec.Verify.EnvWF
+SPCD_P :: Setlec.Verify.ExceptBind
 SPCD_P :: Setlec.Verify.Extend.Block
 SPCD_P :: Setlec.Verify.Extend.Ind
 SPCD_P :: Setlec.Verify.Extend.Inversions
@@ -344,7 +339,6 @@ SPCD_P :: Setlec.Verify.NatOpFrag
 SPCD_P :: Setlec.Verify.OfReducePin
 SPCD_P :: Setlec.Verify.PairM
 SPCD_P :: Setlec.Verify.PinnedShapes
-SPCD_P :: Setlec.Verify.ProjPinInv
 SPCD_P :: Setlec.Verify.ProjSlots
 SPCD_P :: Setlec.Verify.PropRead
 SPCD_P :: Setlec.Verify.PropWhen
@@ -364,7 +358,6 @@ sound_P :: Setlec.Kernel.Basis.Empty
 sound_P :: Setlec.Kernel.Basis.Eq
 sound_P :: Setlec.Kernel.Basis.Names
 sound_P :: Setlec.Kernel.Basis.Nat
-sound_P :: Setlec.Kernel.Basis.PSigma
 sound_P :: Setlec.Kernel.Basis.PUnit
 sound_P :: Setlec.Kernel.Basis.Quot
 sound_P :: Setlec.Kernel.Checker
@@ -424,13 +417,10 @@ sound_P :: Setlec.SetBase.LitStep2
 sound_P :: Setlec.SetBase.NatFrag
 sound_P :: Setlec.SetBase.Ok2
 sound_P :: Setlec.SetBase.Ops
-sound_P :: Setlec.SetBase.PSigmaTower
 sound_P :: Setlec.SetBase.ProjFnRR
 sound_P :: Setlec.SetBase.ProjPhase
-sound_P :: Setlec.SetBase.ProjPins
 sound_P :: Setlec.SetBase.Sat2
 sound_P :: Setlec.SetBase.Skeleton
-sound_P :: Setlec.SetBase.Spine2
 sound_P :: Setlec.SetBase.Syntax
 sound_P :: Setlec.SetBase.TowerIntro
 sound_P :: Setlec.SetBase.TowerLeaf
@@ -462,7 +452,6 @@ sound_P :: Setlec.SetP.BasisBlocksP
 sound_P :: Setlec.SetP.BasisConsP
 sound_P :: Setlec.SetP.BasisEmptyP
 sound_P :: Setlec.SetP.BasisEqP
-sound_P :: Setlec.SetP.BasisPSigmaP
 sound_P :: Setlec.SetP.BasisQuotP
 sound_P :: Setlec.SetP.BasisStepP
 sound_P :: Setlec.SetP.BasisTypeOk
@@ -588,7 +577,6 @@ sound_P :: Setlec.SetP.Step2.IrrelP
 sound_P :: Setlec.SetP.Step2.MajorP
 sound_P :: Setlec.SetP.Step2.NatP
 sound_P :: Setlec.SetP.Step2.ProjAVKitP
-sound_P :: Setlec.SetP.Step2.ProjPinsP
 sound_P :: Setlec.SetP.Step2.ProjRowsP
 sound_P :: Setlec.SetP.Step2.ReadsIOP
 sound_P :: Setlec.SetP.Step2.ReadsP
@@ -673,6 +661,7 @@ sound_P :: Setlec.Verify.EnvBound
 sound_P :: Setlec.Verify.EnvGuards
 sound_P :: Setlec.Verify.EnvPreds
 sound_P :: Setlec.Verify.EnvWF
+sound_P :: Setlec.Verify.ExceptBind
 sound_P :: Setlec.Verify.Extend.Block
 sound_P :: Setlec.Verify.Extend.Ind
 sound_P :: Setlec.Verify.Extend.Inversions
@@ -699,7 +688,6 @@ sound_P :: Setlec.Verify.NatOpFrag
 sound_P :: Setlec.Verify.OfReducePin
 sound_P :: Setlec.Verify.PairM
 sound_P :: Setlec.Verify.PinnedShapes
-sound_P :: Setlec.Verify.ProjPinInv
 sound_P :: Setlec.Verify.ProjSlots
 sound_P :: Setlec.Verify.PropRead
 sound_P :: Setlec.Verify.PropWhen
@@ -719,7 +707,6 @@ foldSPC_PM :: Setlec.Kernel.Basis.Empty
 foldSPC_PM :: Setlec.Kernel.Basis.Eq
 foldSPC_PM :: Setlec.Kernel.Basis.Names
 foldSPC_PM :: Setlec.Kernel.Basis.Nat
-foldSPC_PM :: Setlec.Kernel.Basis.PSigma
 foldSPC_PM :: Setlec.Kernel.Basis.PUnit
 foldSPC_PM :: Setlec.Kernel.Basis.Quot
 foldSPC_PM :: Setlec.Kernel.Checker
@@ -779,13 +766,10 @@ foldSPC_PM :: Setlec.SetBase.LitStep2
 foldSPC_PM :: Setlec.SetBase.NatFrag
 foldSPC_PM :: Setlec.SetBase.Ok2
 foldSPC_PM :: Setlec.SetBase.Ops
-foldSPC_PM :: Setlec.SetBase.PSigmaTower
 foldSPC_PM :: Setlec.SetBase.ProjFnRR
 foldSPC_PM :: Setlec.SetBase.ProjPhase
-foldSPC_PM :: Setlec.SetBase.ProjPins
 foldSPC_PM :: Setlec.SetBase.Sat2
 foldSPC_PM :: Setlec.SetBase.Skeleton
-foldSPC_PM :: Setlec.SetBase.Spine2
 foldSPC_PM :: Setlec.SetBase.Syntax
 foldSPC_PM :: Setlec.SetBase.TowerIntro
 foldSPC_PM :: Setlec.SetBase.TowerLeaf
@@ -817,7 +801,6 @@ foldSPC_PM :: Setlec.SetP.BasisBlocksP
 foldSPC_PM :: Setlec.SetP.BasisConsP
 foldSPC_PM :: Setlec.SetP.BasisEmptyP
 foldSPC_PM :: Setlec.SetP.BasisEqP
-foldSPC_PM :: Setlec.SetP.BasisPSigmaP
 foldSPC_PM :: Setlec.SetP.BasisQuotP
 foldSPC_PM :: Setlec.SetP.BasisStepP
 foldSPC_PM :: Setlec.SetP.BasisTypeOk
@@ -943,7 +926,6 @@ foldSPC_PM :: Setlec.SetP.Step2.IrrelP
 foldSPC_PM :: Setlec.SetP.Step2.MajorP
 foldSPC_PM :: Setlec.SetP.Step2.NatP
 foldSPC_PM :: Setlec.SetP.Step2.ProjAVKitP
-foldSPC_PM :: Setlec.SetP.Step2.ProjPinsP
 foldSPC_PM :: Setlec.SetP.Step2.ProjRowsP
 foldSPC_PM :: Setlec.SetP.Step2.ReadsIOP
 foldSPC_PM :: Setlec.SetP.Step2.ReadsP
@@ -1028,6 +1010,7 @@ foldSPC_PM :: Setlec.Verify.EnvBound
 foldSPC_PM :: Setlec.Verify.EnvGuards
 foldSPC_PM :: Setlec.Verify.EnvPreds
 foldSPC_PM :: Setlec.Verify.EnvWF
+foldSPC_PM :: Setlec.Verify.ExceptBind
 foldSPC_PM :: Setlec.Verify.Extend.Block
 foldSPC_PM :: Setlec.Verify.Extend.Ind
 foldSPC_PM :: Setlec.Verify.Extend.Inversions
@@ -1054,7 +1037,6 @@ foldSPC_PM :: Setlec.Verify.NatOpFrag
 foldSPC_PM :: Setlec.Verify.OfReducePin
 foldSPC_PM :: Setlec.Verify.PairM
 foldSPC_PM :: Setlec.Verify.PinnedShapes
-foldSPC_PM :: Setlec.Verify.ProjPinInv
 foldSPC_PM :: Setlec.Verify.ProjSlots
 foldSPC_PM :: Setlec.Verify.PropRead
 foldSPC_PM :: Setlec.Verify.PropWhen
@@ -1068,7 +1050,6 @@ P :: Setlec.Kernel.Basis.Empty
 P :: Setlec.Kernel.Basis.Eq
 P :: Setlec.Kernel.Basis.Names
 P :: Setlec.Kernel.Basis.Nat
-P :: Setlec.Kernel.Basis.PSigma
 P :: Setlec.Kernel.Basis.PUnit
 P :: Setlec.Kernel.Basis.Quot
 P :: Setlec.Kernel.Checker
@@ -1125,13 +1106,10 @@ P :: Setlec.SetBase.LitStep2
 P :: Setlec.SetBase.NatFrag
 P :: Setlec.SetBase.Ok2
 P :: Setlec.SetBase.Ops
-P :: Setlec.SetBase.PSigmaTower
 P :: Setlec.SetBase.ProjFnRR
 P :: Setlec.SetBase.ProjPhase
-P :: Setlec.SetBase.ProjPins
 P :: Setlec.SetBase.Sat2
 P :: Setlec.SetBase.Skeleton
-P :: Setlec.SetBase.Spine2
 P :: Setlec.SetBase.Syntax
 P :: Setlec.SetBase.TowerIntro
 P :: Setlec.SetBase.TowerLeaf
@@ -1163,7 +1141,6 @@ P :: Setlec.SetP.BasisBlocksP
 P :: Setlec.SetP.BasisConsP
 P :: Setlec.SetP.BasisEmptyP
 P :: Setlec.SetP.BasisEqP
-P :: Setlec.SetP.BasisPSigmaP
 P :: Setlec.SetP.BasisQuotP
 P :: Setlec.SetP.BasisStepP
 P :: Setlec.SetP.BasisTypeOk
@@ -1289,7 +1266,6 @@ P :: Setlec.SetP.Step2.IrrelP
 P :: Setlec.SetP.Step2.MajorP
 P :: Setlec.SetP.Step2.NatP
 P :: Setlec.SetP.Step2.ProjAVKitP
-P :: Setlec.SetP.Step2.ProjPinsP
 P :: Setlec.SetP.Step2.ProjRowsP
 P :: Setlec.SetP.Step2.ReadsIOP
 P :: Setlec.SetP.Step2.ReadsP
@@ -1347,6 +1323,7 @@ P :: Setlec.Verify.DivModInv
 P :: Setlec.Verify.EnvGuards
 P :: Setlec.Verify.EnvPreds
 P :: Setlec.Verify.EnvWF
+P :: Setlec.Verify.ExceptBind
 P :: Setlec.Verify.Extend.Block
 P :: Setlec.Verify.Extend.Ind
 P :: Setlec.Verify.Extend.Inversions
@@ -1370,7 +1347,6 @@ P :: Setlec.Verify.NatOpFrag
 P :: Setlec.Verify.OfReducePin
 P :: Setlec.Verify.PairM
 P :: Setlec.Verify.PinnedShapes
-P :: Setlec.Verify.ProjPinInv
 P :: Setlec.Verify.ProjSlots
 P :: Setlec.Verify.PropRead
 P :: Setlec.Verify.PropWhen

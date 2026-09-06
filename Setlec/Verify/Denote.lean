@@ -346,9 +346,10 @@ theorem denote_proj (cval : TConstVal) (env : Env) (φ : Name → Nat)
         | none => if i < 2 then some (.proj i ve) else none := by
   rw [denote]
 
-/-- The clause at a pair-backed (or absent) entry — the pre-W3 shape,
-for consumers holding a pin (`projEntry_not_tower`/
-`NativeProjPinned.not_tower`) or an absence fact. -/
+/-- The clause at a non-tower (or absent) entry — the pre-W3 shape,
+for consumers holding an absence fact.  (Task #175 W6: no native
+non-tower entry exists any more — the pinned pair entries are retired
+— so at a *native* entry this clause is unreachable, `ProjOkT.tower_of_native`.) -/
 theorem denote_proj_pair (cval : TConstVal) (env : Env) (φ : Name → Nat)
     (d : Nat) (T : Name) (i : Nat) (e : Expr)
     (hnt : ∀ entry, env.findProj? T i = some entry →

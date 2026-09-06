@@ -402,38 +402,46 @@ theorem RelCL.getD {dflt : ExprC} {dfltx : Expr} (hd : RelC dflt dfltx) :
     obtain ⟨x, xs', rfl, -, has⟩ := h.cons_inv
     exact RelCL.getD hd n has
 
-/-- Port of `projCertI_sim`. -/
-theorem projCertC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
-    {e₂ : Expr} {idx : Nat} {nP : Nat}
+/-- Port of `projCertI_sim` (task #175 W6: the spine certificate against
+the constructor's stored type — `constTyAtM` reads it, `iotaCertsC_sim`
+walks it). -/
+theorem projCertC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
+    {lic : Bool} {c : Name} {us : List Level} {args : List ExprC} {xs : List Expr}
     {s₀ : CState} (hs : CSOK mode env s₀)
-    (hden : RelC i e₂) (hw : Expr.WScoped d e₂) :
+    (hargs : RelCL args xs) (hw : ∀ x ∈ xs, Expr.WScoped d x) :
     SimC mode env s₀ RelVC
-      (projCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i idx nP)
-      (projCert (fueledFns mode env) env d e₂ idx nP) := by
+      (projCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d lic c us args)
+      (projCert (fueledFns mode env) env d lic c us xs) := by
   show SimC mode env s₀ RelVC
-    (internI (.bvar 0) >>= fun bvar0 =>
-      Setlec.Cached.withStore (·.getAppArgsI i) >>= fun args =>
-      (coreKnotI mode (mkFEnv env) f).inferIO d (args.getD (nP + idx) bvar0) >>=
-        fun _ta =>
-      (coreKnotI mode (mkFEnv env) f).inferIO d i >>= fun _te =>
-      pure true)
-    (projCert (fueledFns mode env) env d e₂ idx nP)
-  refine SimC.bind_left (internI_eff hs (n := ExprView.bvar 0))
-    (fun s₁ bvar0 hs₁ hQ0 => ?_)
-  refine SimC.withStore ?_
-  obtain rfl := hden
-  have hargs := ExprC.getAppArgs_spec i
-  have hargd : RelC ((ExprC.getAppArgs i).getD (nP + idx) bvar0)
-      ((Expr.getAppArgs i).getD (nP + idx) (.bvar 0)) :=
-    RelCL.getD hQ0 (nP + idx) hargs
-  have hwarg : Expr.WScoped d
-      ((Expr.getAppArgs i).getD (nP + idx) (.bvar 0)) :=
-    wscoped_getD hw.getAppArgs _
-  refine SimC.bind (ih.inferIO hs₁ hargd hwarg)
-    (fun s₂ ta tax hs₂ hP₂ => ?_)
-  refine SimC.bind (ih.inferIO hs₂ rfl hw)
-    (fun s₃ te tex hs₃ hP₃ => ?_)
-  exact SimC.pure hs₃ rfl
+    (readbackNM c >>= fun cn =>
+      match (mkFEnv env).find? cn with
+      | some (.ctorInfo _ _ _) =>
+        constTyAtM (mkFEnv env) c cn us >>= fun tyC =>
+        iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d lic tyC args
+      | _ => pure false)
+    (match env.find? c with
+      | some (.ctorInfo cvC _ _) =>
+        iotaCerts (fueledFns mode env) env d lic
+          (cvC.type.instantiateLevelParams cvC.levelParams us) xs
+      | _ => pure false)
+  refine SimC.bind_left (readbackNM_eff hs c) (fun s₁ cn hs₁ hcn => ?_)
+  subst hcn
+  rw [mkFEnv_find?]
+  cases hf : env.find? cn with
+  | none => exact SimC.pure hs₁ rfl
+  | some ci =>
+    cases ci with
+    | ctorInfo cvC nP nF =>
+      refine SimC.bind_left (constTyAtM_eff hs₁ hf) (fun s₂ tyC hs₂ hty => ?_)
+      have hnf : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false :=
+        const_ty_hasFvar henv hf us
+      exact iotaCertsC_sim ih hs₂ hty (Expr.WScoped.of_not_hasFvar hnf) hargs hw
+    | axiomInfo _ => exact SimC.pure hs₁ rfl
+    | defnInfo _ _ _ => exact SimC.pure hs₁ rfl
+    | thmInfo _ _ => exact SimC.pure hs₁ rfl
+    | indInfo _ _ => exact SimC.pure hs₁ rfl
+    | recInfo _ _ _ _ => exact SimC.pure hs₁ rfl
+    | projInfo _ => exact SimC.pure hs₁ rfl
 
 /-- Port of `structUnitCertI_sim`. -/
 theorem structUnitCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
@@ -589,388 +597,6 @@ end Walks2
 section Walks3
 
 variable {env : Env} {f : Nat}
-
-private theorem pairEtaCertC_unfold (env : Env) (d : Nat) (a b : Expr) :
-    pairEtaCert mode (fueledFns mode env) env d a b =
-    (match a with
-    | .app (.app (.app (.app (.const c us) _pα) _pβ) xs₁) xs₂ =>
-      match env.find? c with
-      | some (.ctorInfo _cvm 2 2) =>
-        (fueledFns mode env).inferIO d b >>= fun tb =>
-        (fueledFns mode env).whnf d tb >>= fun wtb =>
-        match wtb with
-        | .app (.app (.const c' us') _A) _B =>
-          match env.find? c' with
-          | some (.indInfo _ _) =>
-            match env.find? (c'.str "rec") with
-            | some (.recInfo _ mI rP [rr]) =>
-              if rr.ctor = c ∧ rr.nfields = 2 ∧ mI = rP ∧
-                  reservedBasisNames.contains (c'.str "rec") = true then
-                liftFueled "level comparison"
-                  (Level.isEquivList us us') >>= fun ok =>
-                if ok then
-                  (fueledFns mode env).defeq d _pα _A >>= fun rA =>
-                  if rA then
-                    (fueledFns mode env).defeq d _pβ _B >>= fun rB =>
-                    if rB then
-                      (fueledFns mode env).defeq d xs₁ (.proj c' 0 b) >>= fun r₁ =>
-                      if r₁ then
-                        (fueledFns mode env).defeq d xs₂ (.proj c' 1 b) >>=
-                          fun r₂ =>
-                        if r₂ then pure true
-                        else pure false
-                      else pure false
-                    else pure false
-                  else pure false
-                else pure false
-              else pure false
-            | _ => pure false
-          | _ => pure false
-        | _ => pure false
-      | _ => pure false
-    | _ => pure false) := rfl
-
-/-- Port of `pairEtaCertI_sim`. -/
-theorem pairEtaCertC_sim (ih : SSimC mode env f)
-    {d : Nat} {i j : ExprC} {a b : Expr} {s₀ : CState}
-    (hs : CSOK mode env s₀) (hdena : RelC i a) (hdenb : RelC j b)
-    (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    SimC mode env s₀ RelVC
-      (pairEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
-      (pairEtaCert mode (fueledFns mode env) env d a b) := by
-  show SimC mode env s₀ RelVC
-    (viewI i >>= fun n₀ =>
-      match n₀ with
-      | some (.app f₄ s₂) =>
-        viewI f₄ >>= fun n₁ =>
-        match n₁ with
-        | some (.app f₃ s₁) =>
-          viewI f₃ >>= fun n₂ =>
-          match n₂ with
-          | some (.app f₂ pβ) =>
-            viewI f₂ >>= fun n₃ =>
-            match n₃ with
-            | some (.app f₁ pα) =>
-              viewI f₁ >>= fun n₄ =>
-              match n₄ with
-              | some (.const c us) =>
-                readbackNM c >>= fun cn =>
-                match (mkFEnv env).find? cn with
-                | some (.ctorInfo _cvm 2 2) =>
-                  (coreKnotI mode (mkFEnv env) f).inferIO d j >>= fun tb =>
-                  (coreKnotI mode (mkFEnv env) f).whnf d tb >>= fun wtb =>
-                  viewI wtb >>= fun m₀ =>
-                  match m₀ with
-                  | some (.app g₂ B) =>
-                    viewI g₂ >>= fun m₁ =>
-                    match m₁ with
-                    | some (.app g₁ A) =>
-                      viewI g₁ >>= fun m₂ =>
-                      match m₂ with
-                      | some (.const c' us') =>
-                        readbackNM c' >>= fun c'n =>
-                        match (mkFEnv env).find? c'n with
-                        | some (.indInfo _ _) =>
-                          match (mkFEnv env).find? (c'n.str "rec") with
-                          | some (.recInfo _ mI rP [rr]) =>
-                            if rr.ctor = cn ∧ rr.nfields = 2 ∧ mI = rP ∧
-                                reservedBasisNames.contains (c'n.str "rec")
-                                  = true then
-                              isEquivListLM us us' >>= fun o =>
-                              liftFueled "level comparison" o >>= fun ok =>
-                              if ok then
-                                (coreKnotI mode (mkFEnv env) f).defeq d pα A >>=
-                                  fun rA =>
-                                if rA then
-                                  (coreKnotI mode (mkFEnv env) f).defeq d pβ B >>=
-                                    fun rB =>
-                                  if rB then
-                                    internI (.proj c' 0 j) >>= fun p₀ =>
-                                    (coreKnotI mode (mkFEnv env) f).defeq d s₁
-                                      p₀ >>= fun r₁ =>
-                                    if r₁ then
-                                      internI (.proj c' 1 j) >>= fun p₁ =>
-                                      (coreKnotI mode (mkFEnv env) f).defeq d s₂
-                                        p₁ >>= fun r₂ =>
-                                      if r₂ then pure true
-                                      else pure false
-                                    else pure false
-                                  else pure false
-                                else pure false
-                              else pure false
-                            else pure false
-                          | _ => pure false
-                        | _ => pure false
-                      | _ => pure false
-                    | _ => pure false
-                  | _ => pure false
-                | _ => pure false
-              | _ => pure false
-            | _ => pure false
-          | _ => pure false
-        | _ => pure false
-      | _ => pure false)
-    (pairEtaCert mode (fueledFns mode env) env d a b)
-  obtain rfl := hdena
-  obtain rfl := hdenb
-  have hdenb : RelC j j := rfl
-  rw [pairEtaCertC_unfold]
-  refine SimC.view ?_
-  cases i with
-  | app f₄ s₂ =>
-    obtain ⟨hwf₄, hws₂w⟩ := wscoped_appC_inv hwa
-    refine SimC.view ?_
-    cases f₄ with
-    | app f₃ s₁ =>
-      obtain ⟨hwf₃, hws₁w⟩ := wscoped_appC_inv hwf₄
-      refine SimC.view ?_
-      cases f₃ with
-      | app f₂ pβ =>
-        obtain ⟨hwf₂, hwpβ⟩ := wscoped_appC_inv hwf₃
-        refine SimC.view ?_
-        cases f₂ with
-        | app f₁ pα =>
-          obtain ⟨hwf₁, hwpα⟩ := wscoped_appC_inv hwf₂
-          refine SimC.view ?_
-          cases f₁ with
-          | const c us =>
-            dsimp only
-            refine SimC.bind_left (readbackNM_eff hs c)
-              (fun s₀' cv hs hcv => ?_)
-            subst cv
-            rw [mkFEnv_find?]
-            cases hfc : env.find? c with
-            | none => exact SimC.pure hs rfl
-            | some ci =>
-              cases ci with
-              | ctorInfo cvm nP nF =>
-                match nP, nF with
-                | 2, 2 =>
-                  refine SimC.bind (ih.inferIO hs hdenb hwb)
-                    (fun s₁' tb tbx hs₁' hP => ?_)
-                  obtain ⟨htbd, hwtb⟩ := hP
-                  refine SimC.bind (ih.whnf hs₁' htbd hwtb)
-                    (fun s₂' wtb wtbx hs₂' hP₂ => ?_)
-                  obtain ⟨hwtbd, hwwtb⟩ := hP₂
-                  refine SimC.view ?_
-                  obtain rfl := hwtbd
-                  cases wtb with
-                  | app g₂ B =>
-                    obtain ⟨hwg₂, hwB⟩ := wscoped_appC_inv hwwtb
-                    refine SimC.view ?_
-                    cases g₂ with
-                    | app g₁ A =>
-                      obtain ⟨hwg₁, hwA⟩ := wscoped_appC_inv hwg₂
-                      refine SimC.view ?_
-                      cases g₁ with
-                      | const c' us' =>
-                        dsimp only
-                        refine SimC.bind_left (readbackNM_eff hs₂' c')
-                          (fun s₂'' c'w hs₂' hc'w => ?_)
-                        subst c'w
-                        rw [mkFEnv_find?, mkFEnv_find?]
-                        cases hfc' : env.find? c' with
-                        | none => exact SimC.pure hs₂' rfl
-                        | some ci' =>
-                          cases ci' with
-                          | indInfo cvI capsI =>
-                            dsimp only
-                            cases hfr : env.find? (c'.str "rec") with
-                            | none => exact SimC.pure hs₂' rfl
-                            | some cir =>
-                              cases cir with
-                              | recInfo cvr mI rP rules =>
-                                match rules with
-                                | [] => exact SimC.pure hs₂' rfl
-                                | _ :: _ :: _ => exact SimC.pure hs₂' rfl
-                                | [rr] =>
-                                  dsimp only
-                                  split
-                                  · refine SimC.bind_left
-                                      (isEquivListLM_eff hs₂')
-                                      (fun s₂o o hs₂o ho => ?_)
-                                    subst ho
-                                    refine SimC.bind
-                                      (SimC.liftFueled _ _ hs₂o)
-                                      (fun s₃' ok ok' hs₃' hPok => ?_)
-                                    obtain rfl : ok = ok' := hPok
-                                    cases ok with
-                                    | false =>
-                                      simp only [Bool.false_eq_true,
-                                        ↓reduceIte]
-                                      exact SimC.pure hs₃' rfl
-                                    | true =>
-                                      simp only [↓reduceIte]
-                                      refine SimC.bind (ih.defeq hs₃'
-                                        rfl rfl hwpα hwA)
-                                        (fun sA' rA rA' hsA' hPrA => ?_)
-                                      obtain rfl : rA = rA' := hPrA
-                                      cases rA with
-                                      | false =>
-                                        simp only [Bool.false_eq_true,
-                                          ↓reduceIte]
-                                        exact SimC.pure hsA' rfl
-                                      | true =>
-                                        simp only [↓reduceIte]
-                                        refine SimC.bind (ih.defeq hsA'
-                                          rfl rfl hwpβ hwB)
-                                          (fun sB' rB rB' hsB' hPrB => ?_)
-                                        obtain rfl : rB = rB' := hPrB
-                                        cases rB with
-                                        | false =>
-                                          simp only [Bool.false_eq_true,
-                                            ↓reduceIte]
-                                          exact SimC.pure hsB' rfl
-                                        | true =>
-                                          simp only [↓reduceIte]
-                                          refine SimC.bind_left
-                                            (internI_eff hsB'
-                                              (n := ExprView.proj c' 0 j))
-                                            (fun s₄' p₀ hs₄' hQ₀ => ?_)
-                                          have hQ₀' :
-                                              RelC p₀ (.proj c' 0 j) :=
-                                            hQ₀
-                                          have hwp₀ : Expr.WScoped d
-                                              (.proj c' 0 j) := by
-                                            simp only [Expr.WScoped]
-                                            exact hwb
-                                          refine SimC.bind (ih.defeq hs₄'
-                                            rfl hQ₀' hws₁w hwp₀)
-                                            (fun s₅' r₁ r₁' hs₅' hPr₁ => ?_)
-                                          obtain rfl : r₁ = r₁' := hPr₁
-                                          cases r₁ with
-                                          | false =>
-                                            simp only [Bool.false_eq_true,
-                                              ↓reduceIte]
-                                            exact SimC.pure hs₅' rfl
-                                          | true =>
-                                            simp only [↓reduceIte]
-                                            refine SimC.bind_left
-                                              (internI_eff hs₅'
-                                                (n := ExprView.proj c' 1 j))
-                                              (fun s₆' p₁ hs₆' hQ₁ => ?_)
-                                            have hQ₁' : RelC p₁
-                                                (.proj c' 1 j) := hQ₁
-                                            have hwp₁ : Expr.WScoped d
-                                                (.proj c' 1 j) := by
-                                              simp only [Expr.WScoped]
-                                              exact hwb
-                                            refine SimC.bind (ih.defeq hs₆'
-                                              rfl hQ₁' hws₂w hwp₁)
-                                              (fun s₇' r₂ r₂' hs₇' hPr₂ => ?_)
-                                            obtain rfl : r₂ = r₂' := hPr₂
-                                            cases r₂ with
-                                            | false =>
-                                              simp only [Bool.false_eq_true,
-                                                ↓reduceIte]
-                                              exact SimC.pure hs₇' rfl
-                                            | true =>
-                                              simp only [↓reduceIte]
-                                              exact SimC.pure hs₇' rfl
-                                  · exact SimC.pure hs₂' rfl
-                              | axiomInfo cv => exact SimC.pure hs₂' rfl
-                              | defnInfo cv v h => exact SimC.pure hs₂' rfl
-                              | thmInfo cv v => exact SimC.pure hs₂' rfl
-                              | indInfo cv caps => exact SimC.pure hs₂' rfl
-                              | ctorInfo cv nP' nF' => exact SimC.pure hs₂' rfl
-                              | projInfo entry => exact SimC.pure hs₂' rfl
-                          | axiomInfo cv => exact SimC.pure hs₂' rfl
-                          | defnInfo cv v h => exact SimC.pure hs₂' rfl
-                          | thmInfo cv v => exact SimC.pure hs₂' rfl
-                          | ctorInfo cv nP' nF' => exact SimC.pure hs₂' rfl
-                          | recInfo cv mI rP rules => exact SimC.pure hs₂' rfl
-                          | projInfo entry => exact SimC.pure hs₂' rfl
-                      | bvar k => exact SimC.pure hs₂' rfl
-                      | sort u => exact SimC.pure hs₂' rfl
-                      | lit l => exact SimC.pure hs₂' rfl
-                      | fvar ix nm t => exact SimC.pure hs₂' rfl
-                      | app g₀ a₀ => exact SimC.pure hs₂' rfl
-                      | lam nm t b' m =>
-                        exact SimC.pure hs₂' rfl
-                      | forallE nm t b' m =>
-                        exact SimC.pure hs₂' rfl
-                      | letE nm t v b' =>
-                        exact SimC.pure hs₂' rfl
-                      | proj sn jx e' =>
-                        exact SimC.pure hs₂' rfl
-                    | bvar k => exact SimC.pure hs₂' rfl
-                    | sort u => exact SimC.pure hs₂' rfl
-                    | const nm us'' => exact SimC.pure hs₂' rfl
-                    | lit l => exact SimC.pure hs₂' rfl
-                    | fvar ix nm t => exact SimC.pure hs₂' rfl
-                    | lam nm t b' m => exact SimC.pure hs₂' rfl
-                    | forallE nm t b' m =>
-                      exact SimC.pure hs₂' rfl
-                    | letE nm t v b' =>
-                      exact SimC.pure hs₂' rfl
-                    | proj sn jx e' => exact SimC.pure hs₂' rfl
-                  | bvar k => exact SimC.pure hs₂' rfl
-                  | sort u => exact SimC.pure hs₂' rfl
-                  | const nm us'' => exact SimC.pure hs₂' rfl
-                  | lit l => exact SimC.pure hs₂' rfl
-                  | fvar ix nm t => exact SimC.pure hs₂' rfl
-                  | lam nm t b' m => exact SimC.pure hs₂' rfl
-                  | forallE nm t b' m =>
-                    exact SimC.pure hs₂' rfl
-                  | letE nm t v b' => exact SimC.pure hs₂' rfl
-                  | proj sn jx e' => exact SimC.pure hs₂' rfl
-                | 0, _ => exact SimC.pure hs rfl
-                | 1, _ => exact SimC.pure hs rfl
-                | Nat.succ (Nat.succ (Nat.succ _)), _ => exact SimC.pure hs rfl
-                | 2, 0 => exact SimC.pure hs rfl
-                | 2, 1 => exact SimC.pure hs rfl
-                | 2, Nat.succ (Nat.succ (Nat.succ _)) => exact SimC.pure hs rfl
-              | axiomInfo cv => exact SimC.pure hs rfl
-              | defnInfo cv v h => exact SimC.pure hs rfl
-              | thmInfo cv v => exact SimC.pure hs rfl
-              | indInfo cv caps => exact SimC.pure hs rfl
-              | recInfo cv mI rP rules => exact SimC.pure hs rfl
-              | projInfo entry => exact SimC.pure hs rfl
-          | bvar k => exact SimC.pure hs rfl
-          | sort u => exact SimC.pure hs rfl
-          | lit l => exact SimC.pure hs rfl
-          | fvar ix nm t => exact SimC.pure hs rfl
-          | app f₀ a₀ => exact SimC.pure hs rfl
-          | lam nm t b' m => exact SimC.pure hs rfl
-          | forallE nm t b' m => exact SimC.pure hs rfl
-          | letE nm t v b' => exact SimC.pure hs rfl
-          | proj sn jx e' => exact SimC.pure hs rfl
-        | bvar k => exact SimC.pure hs rfl
-        | sort u => exact SimC.pure hs rfl
-        | const nm us => exact SimC.pure hs rfl
-        | lit l => exact SimC.pure hs rfl
-        | fvar ix nm t => exact SimC.pure hs rfl
-        | lam nm t b' m => exact SimC.pure hs rfl
-        | forallE nm t b' m => exact SimC.pure hs rfl
-        | letE nm t v b' => exact SimC.pure hs rfl
-        | proj sn jx e' => exact SimC.pure hs rfl
-      | bvar k => exact SimC.pure hs rfl
-      | sort u => exact SimC.pure hs rfl
-      | const nm us => exact SimC.pure hs rfl
-      | lit l => exact SimC.pure hs rfl
-      | fvar ix nm t => exact SimC.pure hs rfl
-      | lam nm t b' m => exact SimC.pure hs rfl
-      | forallE nm t b' m => exact SimC.pure hs rfl
-      | letE nm t v b' => exact SimC.pure hs rfl
-      | proj sn jx e' => exact SimC.pure hs rfl
-    | bvar k => exact SimC.pure hs rfl
-    | sort u => exact SimC.pure hs rfl
-    | const nm us => exact SimC.pure hs rfl
-    | lit l => exact SimC.pure hs rfl
-    | fvar ix nm t => exact SimC.pure hs rfl
-    | lam nm t b' m => exact SimC.pure hs rfl
-    | forallE nm t b' m => exact SimC.pure hs rfl
-    | letE nm t v b' => exact SimC.pure hs rfl
-    | proj sn jx e' => exact SimC.pure hs rfl
-  | bvar k => exact SimC.pure hs rfl
-  | sort u => exact SimC.pure hs rfl
-  | const nm us => exact SimC.pure hs rfl
-  | lit l => exact SimC.pure hs rfl
-  | fvar ix nm t => exact SimC.pure hs rfl
-  | lam nm t b' m => exact SimC.pure hs rfl
-  | forallE nm t b' m => exact SimC.pure hs rfl
-  | letE nm t v b' => exact SimC.pure hs rfl
-  | proj sn jx e' => exact SimC.pure hs rfl
 
 end Walks3
 
@@ -1567,13 +1193,7 @@ theorem stuckIrrelC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       (stuckIrrelI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       (stuckIrrel mode (fueledFns mode env) env d a b) := by
   show SimC mode env s₀ RelVC
-    (pairEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j >>=
-      fun r₁ =>
-      if r₁ then pure true else
-      pairEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d j i >>=
-        fun r₂ =>
-      if r₂ then pure true else
-      structEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j >>=
+    (structEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j >>=
         fun r₃ =>
       if r₃ then pure true else
       structEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d j i >>=
@@ -1583,53 +1203,35 @@ theorem stuckIrrelC_sim (ih : SSimC mode env f) (henv : EnvWF env)
         fun r₅ =>
       if r₅ then pure true else
       proofIrrelI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
-    (pairEtaCert mode (fueledFns mode env) env d a b >>= fun r₁ =>
-      if r₁ then pure true else
-      pairEtaCert mode (fueledFns mode env) env d b a >>= fun r₂ =>
-      if r₂ then pure true else
-      structEtaCert mode (fueledFns mode env) env d a b >>= fun r₃ =>
+    (structEtaCert mode (fueledFns mode env) env d a b >>= fun r₃ =>
       if r₃ then pure true else
       structEtaCert mode (fueledFns mode env) env d b a >>= fun r₄ =>
       if r₄ then pure true else
       structUnitCert (fueledFns mode env) env d a b >>= fun r₅ =>
       if r₅ then pure true else
       proofIrrel (fueledFns mode env) env d a b)
-  refine SimC.bind (pairEtaCertC_sim ih hs hdena hdenb hwa hwb)
-    (fun s₁ r₁ r₁' hs₁ hP₁ => ?_)
-  obtain rfl : r₁ = r₁' := hP₁
-  cases r₁ with
-  | true => simp only [↓reduceIte]; exact SimC.pure hs₁ rfl
+  refine SimC.bind (structEtaCertC_sim ih henv hs hdena hdenb hwa hwb)
+    (fun s₃ r₃ r₃' hs₃ hP₃ => ?_)
+  obtain rfl : r₃ = r₃' := hP₃
+  cases r₃ with
+  | true => simp only [↓reduceIte]; exact SimC.pure hs₃ rfl
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte]
-    refine SimC.bind (pairEtaCertC_sim ih hs₁ hdenb hdena hwb hwa)
-      (fun s₂ r₂ r₂' hs₂ hP₂ => ?_)
-    obtain rfl : r₂ = r₂' := hP₂
-    cases r₂ with
-    | true => simp only [↓reduceIte]; exact SimC.pure hs₂ rfl
+    refine SimC.bind (structEtaCertC_sim ih henv hs₃ hdenb hdena hwb hwa)
+      (fun s₄ r₄ r₄' hs₄ hP₄ => ?_)
+    obtain rfl : r₄ = r₄' := hP₄
+    cases r₄ with
+    | true => simp only [↓reduceIte]; exact SimC.pure hs₄ rfl
     | false =>
       simp only [Bool.false_eq_true, ↓reduceIte]
-      refine SimC.bind (structEtaCertC_sim ih henv hs₂ hdena hdenb hwa hwb)
-        (fun s₃ r₃ r₃' hs₃ hP₃ => ?_)
-      obtain rfl : r₃ = r₃' := hP₃
-      cases r₃ with
-      | true => simp only [↓reduceIte]; exact SimC.pure hs₃ rfl
+      refine SimC.bind (structUnitCertC_sim ih henv hs₄ hdena hdenb
+        hwa hwb) (fun s₅ r₅ r₅' hs₅ hP₅ => ?_)
+      obtain rfl : r₅ = r₅' := hP₅
+      cases r₅ with
+      | true => simp only [↓reduceIte]; exact SimC.pure hs₅ rfl
       | false =>
         simp only [Bool.false_eq_true, ↓reduceIte]
-        refine SimC.bind (structEtaCertC_sim ih henv hs₃ hdenb hdena hwb hwa)
-          (fun s₄ r₄ r₄' hs₄ hP₄ => ?_)
-        obtain rfl : r₄ = r₄' := hP₄
-        cases r₄ with
-        | true => simp only [↓reduceIte]; exact SimC.pure hs₄ rfl
-        | false =>
-          simp only [Bool.false_eq_true, ↓reduceIte]
-          refine SimC.bind (structUnitCertC_sim ih henv hs₄ hdena hdenb
-            hwa hwb) (fun s₅ r₅ r₅' hs₅ hP₅ => ?_)
-          obtain rfl : r₅ = r₅' := hP₅
-          cases r₅ with
-          | true => simp only [↓reduceIte]; exact SimC.pure hs₅ rfl
-          | false =>
-            simp only [Bool.false_eq_true, ↓reduceIte]
-            exact proofIrrelC_sim ih hs₅ hdena hdenb hwa hwb
+        exact proofIrrelC_sim ih hs₅ hdena hdenb hwa hwb
 
 end Walks4
 

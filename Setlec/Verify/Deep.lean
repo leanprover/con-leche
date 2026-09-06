@@ -778,93 +778,6 @@ private theorem proofIrrel_shift (henv : EnvWF env)
     cases w' <;> try rfl
     case fvar => rw [shiftFrom_fvar]
 
-private theorem pairEtaCert_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
-    (hwa : WScoped d a) (hwb : WScoped d b) :
-    pairEtaCert mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
-        (shiftFrom p b) =
-      pairEtaCert mode (pureFns mode env fuel) env d a b := by
-  cases a <;> try (first | rfl | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
-  case app f₁ s₂ =>
-  cases f₁ <;> try (first | rfl | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
-  case app f₂ s₁ =>
-  cases f₂ <;> try (first | rfl | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
-  case app f₃ pβ =>
-  cases f₃ <;> try (first | rfl | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
-  case app f₄ pα =>
-  cases f₄ <;> try (first | rfl | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
-  case const c us =>
-  simp only [WScoped] at hwa
-  obtain ⟨⟨⟨⟨-, hwpα⟩, hwpβ⟩, hws₁⟩, hws₂⟩ := hwa
-  simp only [shiftFrom, pairEtaCert]
-  cases hfc : env.find? c with
-  | none => rfl
-  | some ci =>
-    cases ci <;> try rfl
-    case ctorInfo cv nP nF =>
-    match nP, nF with
-    | 0, _ => rfl
-    | 1, _ => rfl
-    | _ + 3, _ => rfl
-    | 2, 0 => rfl
-    | 2, 1 => rfl
-    | 2, _ + 3 => rfl
-    | 2, 2 =>
-    refine bind_congr _ (ih.inferIO hpd hwb) ?_
-    intro tb htb
-    have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
-    refine bind_congr _ (ih.whnf hpd hwtb) ?_
-    intro wtb hwtb'
-    cases wtb <;> try (first | rfl | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
-    case app g₁ B =>
-    cases g₁ <;> try (first | rfl | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
-    case app g₂ A =>
-    cases g₂ <;> try (first | rfl | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
-    case const c' us' =>
-    simp only [shiftFrom]
-    cases hfc' : env.find? c' with
-    | none => rfl
-    | some ci' =>
-      cases ci' <;> try rfl
-      case indInfo cvI capsI =>
-      cases hfr : env.find? (c'.str "rec") with
-      | none => rfl
-      | some cir =>
-        cases cir <;> try rfl
-        case recInfo cvr rmI rrP rrules =>
-        match rrules with
-        | [] => rfl
-        | _ :: _ :: _ => rfl
-        | [rr] =>
-        dsimp only
-        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-        refine bind_congr_eq rfl ?_
-        intro okl _
-        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-        have hwwtb : WScoped d (Expr.app (.app (.const c' us') A) B) :=
-          whnf_WScoped henv fuel hwtb' hwtb
-        have hwAB : WScoped d A ∧ WScoped d B := by
-          simp only [WScoped] at hwwtb
-          exact ⟨hwwtb.1.2, hwwtb.2⟩
-        refine bind_congr_eq (ih.defeq hpd hwpα hwAB.1) ?_
-        intro bA _
-        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-        refine bind_congr_eq (ih.defeq hpd hwpβ hwAB.2) ?_
-        intro bB _
-        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-        refine bind_congr_eq
-          (ih.defeq hpd hws₁
-            (show WScoped d (Expr.proj c' 0 b) by
-              simpa only [WScoped] using hwb)) ?_
-        intro bb _
-        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-        refine bind_congr_eq
-          (ih.defeq hpd hws₂
-            (show WScoped d (Expr.proj c' 1 b) by
-              simpa only [WScoped] using hwb)) ?_
-        intro bb₂ _
-        refine ite_congr' (fun _ => rfl) (fun _ => rfl)
-
 private theorem structEtaProjCerts_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (T : Name)
     (us' : List Level) {targs : List Expr} {b : Expr} (lpsT : List Name) :
@@ -1130,12 +1043,6 @@ private theorem stuckIrrel_shift (henv : EnvWF env)
         (shiftFrom p b) =
       stuckIrrel mode (pureFns mode env fuel) env d a b := by
   simp only [stuckIrrel]
-  refine bind_congr_eq (pairEtaCert_shift henv ih hpd hwa hwb) ?_
-  intro b₁ _
-  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
-  refine bind_congr_eq (pairEtaCert_shift henv ih hpd hwb hwa) ?_
-  intro b₂ _
-  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   refine bind_congr_eq (structEtaCert_shift henv ih hpd hwa hwb) ?_
   intro b₃ _
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
@@ -1183,19 +1090,19 @@ private theorem propIrrel_shift (henv : EnvWF env)
   cases w' <;> try rfl
   case fvar => rw [shiftFrom_fvar]
 
-private theorem projCert_shift (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e₂ : Expr}
-    (hwe₂ : WScoped d e₂) (i : Nat) (nP : Nat) :
-    projCert (pureFns mode env fuel) env (d + 1) (shiftFrom p e₂) i nP =
-      projCert (pureFns mode env fuel) env d e₂ i nP := by
+private theorem projCert_shift (henv : EnvWF env) (ih : ShiftClaims mode env fuel)
+    {p d : Nat} (hpd : p ≤ d) (lic : Bool) {c : Name} {us : List Level}
+    {args : List Expr} (hwargs : ∀ x ∈ args, WScoped d x) :
+    projCert (pureFns mode env fuel) env (d + 1) lic c us (args.map (shiftFrom p)) =
+      projCert (pureFns mode env fuel) env d lic c us args := by
   simp only [projCert]
-  rw [getAppArgs_shiftFrom, getD_map_shiftFrom]
-  have hwarg : WScoped d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) :=
-    WScoped_getD (fun x hx => hwe₂.getAppArgs x hx) _
-  refine bind_congr _ (ih.inferIO hpd hwarg) ?_
-  intro ta _
-  refine bind_congr _ (ih.inferIO hpd hwe₂) ?_
-  intro te _
-  rfl
+  split
+  · rename_i cvC nP nF hf
+    have hnf : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false :=
+      const_ty_hasFvar henv hf us
+    have h := iotaCerts_shift henv ih hpd lic (WScoped.of_not_hasFvar hnf) hwargs
+    rwa [shiftFrom_eq_self_of_not_hasFvar (p := p) hnf] at h
+  · rfl
 
 private theorem majorToCtor_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
@@ -1856,8 +1763,8 @@ private theorem whnfCore_step (henv : EnvWF env)
       have hwarg : WScoped d
           (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
         WScoped_getD (fun x hx => hwe₃.getAppArgs x hx) _
-      refine bind_rel_eq _ (projCert_shift ih hpd hwe₃ i
-        entry.numParams) ?_
+      refine bind_rel_eq _ (projCert_shift henv ih hpd mode.betaGate
+        (fun x hx => hwe₃.getAppArgs x hx)) ?_
       intro bb _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       exact ih.whnfCore hpd hwarg
@@ -2116,55 +2023,31 @@ private theorem infer_step (henv : EnvWF env)
       dsimp only
       simp only [getAppArgs_shiftFrom, List.length_map]
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-      cases htw : entry.tower with
-      | true =>
-        -- task #175 wiring W2c: the tower residual commutes with the
-        -- shift — the entry type is closed, so the shift passes to
-        -- the spine and the subject
-        simp only [↓reduceIte]
-        have htyc := projEntry_ty_hasFvar henv hfp us₂
-        have hmain := instPisAt_shiftFrom p (w.getAppArgs ++ [pe])
-          (entry.ty.instantiateLevelParams entry.levelParams us₂)
-        rw [shiftFrom_eq_self_of_not_hasFvar (p := p) htyc] at hmain
-        rw [show w.getAppArgs.map (Expr.shiftFrom p) ++
-              [Expr.shiftFrom p pe]
-            = (w.getAppArgs ++ [pe]).map (Expr.shiftFrom p) by
-          simp, hmain]
-        -- the Prop guard (task #175 W4c) is shift-independent: split it
-        -- on both sides, then the residual match
-        by_cases hs : (entry.structSort.isEquiv Level.zero == some true) = true
-        · rw [if_pos hs, if_pos hs]
-          by_cases hfs : ((Level.subst entry.levelParams us₂
-              entry.fieldSort).isEquiv Level.zero == some true) = true
-          · rw [if_pos hfs, if_pos hfs]
-            cases Expr.instPisAt (w.getAppArgs ++ [pe])
-              (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
-          · rw [if_neg hfs, if_neg hfs]
-            rfl
-        · rw [if_neg hs, if_neg hs]
+      -- task #175 wiring W2c: the tower residual commutes with the
+      -- shift — the entry type is closed, so the shift passes to
+      -- the spine and the subject
+      have htyc := projEntry_ty_hasFvar henv hfp us₂
+      have hmain := instPisAt_shiftFrom p (w.getAppArgs ++ [pe])
+        (entry.ty.instantiateLevelParams entry.levelParams us₂)
+      rw [shiftFrom_eq_self_of_not_hasFvar (p := p) htyc] at hmain
+      rw [show w.getAppArgs.map (Expr.shiftFrom p) ++
+            [Expr.shiftFrom p pe]
+          = (w.getAppArgs ++ [pe]).map (Expr.shiftFrom p) by
+        simp, hmain]
+      -- the Prop guard (task #175 W4c) is shift-independent: split it
+      -- on both sides, then the residual match
+      by_cases hs : (entry.structSort.isEquiv Level.zero == some true) = true
+      · rw [if_pos hs, if_pos hs]
+        by_cases hfs : ((Level.subst entry.levelParams us₂
+            entry.fieldSort).isEquiv Level.zero == some true) = true
+        · rw [if_pos hfs, if_pos hfs]
           cases Expr.instPisAt (w.getAppArgs ++ [pe])
             (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
-      | false =>
-        simp only [Bool.false_eq_true, ↓reduceIte]
-        -- task #161 item B2: the computed residual commutes with the
-        -- shift by `List.map`'s own shape — the two-element match sees
-        -- the same list on both sides
-        cases hargs : w.getAppArgs with
-        | nil => rfl
-        | cons A rest =>
-          cases rest with
-          | nil => rfl
-          | cons B rest2 =>
-            cases rest2 with
-            | cons _ _ => rfl
-            | nil =>
-              match i with
-              | 0 => rfl
-              | 1 =>
-                simp only [List.map, pure, Except.pure, map_ok]
-                rw [shiftFrom]
-                rfl
-              | _ + 2 => rfl
+        · rw [if_neg hfs, if_neg hfs]
+          rfl
+      · rw [if_neg hs, if_neg hs]
+        cases Expr.instPisAt (w.getAppArgs ++ [pe])
+          (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
 
 
 /-- The io *lane* (the leaf knot, `inferTypeCoreIO`) commutes with the
@@ -2381,54 +2264,30 @@ private theorem inferIOCore_step (henv : EnvWF env)
       dsimp only
       simp only [getAppArgs_shiftFrom, List.length_map]
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-      cases htw : entry.tower with
-      | true =>
-        -- task #175 wiring W2c: the tower residual commutes with the
-        -- shift — the entry type is closed
-        simp only [↓reduceIte]
-        have htyc := projEntry_ty_hasFvar henv hfp us₂
-        have hmain := instPisAt_shiftFrom p (w.getAppArgs ++ [pe])
-          (entry.ty.instantiateLevelParams entry.levelParams us₂)
-        rw [shiftFrom_eq_self_of_not_hasFvar (p := p) htyc] at hmain
-        rw [show w.getAppArgs.map (Expr.shiftFrom p) ++
-              [Expr.shiftFrom p pe]
-            = (w.getAppArgs ++ [pe]).map (Expr.shiftFrom p) by
-          simp, hmain]
-        -- the Prop guard (task #175 W4c) is shift-independent: split it
-        -- on both sides, then the residual match
-        by_cases hs : (entry.structSort.isEquiv Level.zero == some true) = true
-        · rw [if_pos hs, if_pos hs]
-          by_cases hfs : ((Level.subst entry.levelParams us₂
-              entry.fieldSort).isEquiv Level.zero == some true) = true
-          · rw [if_pos hfs, if_pos hfs]
-            cases Expr.instPisAt (w.getAppArgs ++ [pe])
-              (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
-          · rw [if_neg hfs, if_neg hfs]
-            rfl
-        · rw [if_neg hs, if_neg hs]
+      -- task #175 wiring W2c: the tower residual commutes with the
+      -- shift — the entry type is closed
+      have htyc := projEntry_ty_hasFvar henv hfp us₂
+      have hmain := instPisAt_shiftFrom p (w.getAppArgs ++ [pe])
+        (entry.ty.instantiateLevelParams entry.levelParams us₂)
+      rw [shiftFrom_eq_self_of_not_hasFvar (p := p) htyc] at hmain
+      rw [show w.getAppArgs.map (Expr.shiftFrom p) ++
+            [Expr.shiftFrom p pe]
+          = (w.getAppArgs ++ [pe]).map (Expr.shiftFrom p) by
+        simp, hmain]
+      -- the Prop guard (task #175 W4c) is shift-independent: split it
+      -- on both sides, then the residual match
+      by_cases hs : (entry.structSort.isEquiv Level.zero == some true) = true
+      · rw [if_pos hs, if_pos hs]
+        by_cases hfs : ((Level.subst entry.levelParams us₂
+            entry.fieldSort).isEquiv Level.zero == some true) = true
+        · rw [if_pos hfs, if_pos hfs]
           cases Expr.instPisAt (w.getAppArgs ++ [pe])
             (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
-      | false =>
-        simp only [Bool.false_eq_true, ↓reduceIte]
-        -- task #161 item B2: the computed residual commutes with the
-        -- shift by `List.map`'s own shape — the two-element match sees
-        -- the same list on both sides
-        cases hargs : w.getAppArgs with
-        | nil => rfl
-        | cons A rest =>
-          cases rest with
-          | nil => rfl
-          | cons B rest2 =>
-            cases rest2 with
-            | cons _ _ => rfl
-            | nil =>
-              match i with
-              | 0 => rfl
-              | 1 =>
-                simp only [List.map, pure, Except.pure, map_ok]
-                rw [shiftFrom]
-                rfl
-              | _ + 2 => rfl
+        · rw [if_neg hfs, if_neg hfs]
+          rfl
+      · rw [if_neg hs, if_neg hs]
+        cases Expr.instPisAt (w.getAppArgs ++ [pe])
+          (entry.ty.instantiateLevelParams entry.levelParams us₂) <;> rfl
 
 
 /-- The knot's io *slot* commutes with the shift, at `fuel + 1`

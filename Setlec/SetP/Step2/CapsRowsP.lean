@@ -687,7 +687,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
       intro x hx σ hσ
       obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
       obtain ⟨entry, hfe, htw, hlpe, hstrpe⟩ := hslotE j (List.mem_range.mp hj)
-      obtain ⟨-, -, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j, -,
+      obtain ⟨-, -, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j, _,
         -, -, hlawj, -⟩ := htower T j entry hfe htw
       have hcapsTj : capsTj = caps := by
         rw [hfT] at hfTj
@@ -915,8 +915,8 @@ theorem structEtaIrrelP_of_claims {m : EnvS2Core V env}
     hokA hokB hokW (fun σ hσ => (heqW σ hσ) ▸ hmemB σ hσ) ρ hρ
 
 /-- The frame conditions of an application's two immediate parts —
-`frame_appFnP`'s one-step twin, the shape the pinned pair's fixed
-four-argument spine is peeled with. -/
+`frame_appFnP`'s one-step twin (the unit-like row peels its spine with
+it). -/
 theorem frame_appP {m : EnvS2Core V env} {d : Nat} {Δa : List AVExpr}
     {f x : Expr} (hw : Expr.WScoped d (.app f x))
     (hb : (Expr.app f x).looseBVarsBounded 0 = true)
@@ -935,209 +935,6 @@ theorem frame_appP {m : EnvS2Core V env} {d : Nat} {Δa : List AVExpr}
       hC.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl])⟩,
     ⟨hwx, hbx, fun l hl => hL l (by simp [Expr.fvarLeaves, hl]),
       hC.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl])⟩⟩
-
-/-! ## The pinned pair's η row
-
-`sndDeqPairEta`'s argument at `interp2`, with `pairEtaCert_inv`'s four
-`isDefEqCore` runs consumed through `DefEqClaims2P` instead of through
-`DefEq`.  The pinned leaves are identified by erasure injectivity (the
-`unitIrrelPQ` species), the stuck side's membership is inverted by
-`mem_psigmaV2_app` — the one law this batch had to add
-(`Interp2/Value.lean`, on `app_lamR_of_not_mem` in `Interp2/Ops.lean`)
-— and the equation is `psigmaEta_law2`.
-
-There is no regime case split: v1 has to dispatch on
-`Nat.max u v = 0` because `psigmaMkV`'s definition carries an explicit
-collapse tag; `psigmaMkV2` does not (its annotation squashes the tower
-already), and `psigmaEta_law2` is stated once for both regimes. -/
-
-/-- **`PairEtaIrrelP`, discharged outright** — the pinned `PSigma'`
-block's η law at `interp2`.  No environment field is consulted: the
-pair is *pinned*, so its value is fixed by the basis and the only
-inputs are the claims. -/
-theorem pairEtaIrrelP_of_claims {m : EnvS2Core V env}
-    (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
-    (ihis : InferClaimsIOS2P μ m φ fuel)
-    (hexi : InferExistsIOSP μ m φ fuel) (hwreads : WhnfReadsP m μ φ fuel) :
-    PairEtaIrrelP μ m φ fuel := by
-  intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
-    hokA hokB ρ hρ
-  obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
-    mI, rP, rr, rfl, hfc, htb, hwtb, hfc', hfrec, hrctor, hrn, hmIrP,
-    hres, hlev, hdα, hdβ, hd₁, hd₂⟩ := Setlec.pairEtaCert_inv h
-  -- the pinned pair, identified
-  obtain ⟨hcc, hctor⟩ :=
-    Setlec.TTVerify.pairLike_eq_psigma m.basis_pinned hfrec hrn hmIrP hres
-  subst hcc
-  obtain rfl : c = Setlec.psigmaMkName := hrctor.symm.trans hctor
-  -- the pinned declarations fix the level-parameter lists
-  have hcvm : cvm.levelParams = [uN, vN] := by
-    have hp := (m.basis_pinned _ _ hfc (by decide)).1 rfl
-    rw [show Setlec.pinnedInfo Setlec.psigmaMkName = Setlec.psigmaMkA
-      from rfl] at hp
-    unfold Setlec.psigmaMkA at hp
-    injection hp with hp
-    rw [hp]
-    rfl
-  have hcvi : cvi.levelParams = [uN, vN] := by
-    have hp := (m.basis_pinned _ _ hfc' (by decide)).1 rfl
-    rw [show Setlec.pinnedInfo Setlec.psigmaName = Setlec.psigmaA
-      from rfl] at hp
-    unfold Setlec.psigmaA at hp
-    injection hp with hp
-    rw [hp]
-    rfl
-  have hψ : Level.substFn φ cvm.levelParams us
-      = Level.substFn φ cvi.levelParams us' := by
-    rw [hcvm, hcvi]
-    exact Setlec.Level.substFn_congr (Setlec.Level.isEquivList_sound hlev φ)
-  -- the constructor side's four arguments read
-  obtain ⟨f1, s2a, hf1, hs2a, rfl⟩ := denoteP_app_inv hda
-  obtain ⟨f2, s1a, hf2, hs1a, rfl⟩ := denoteP_app_inv hf1
-  obtain ⟨f3, pβa, hf3, hpβa, rfl⟩ := denoteP_app_inv hf2
-  obtain ⟨f4, pαa, hf4, hpαa, rfl⟩ := denoteP_app_inv hf3
-  rw [denoteP, hfc] at hf4
-  dsimp only at hf4
-  split at hf4
-  case isFalse => exact nomatch hf4
-  case isTrue =>
-  obtain rfl : f4 = m.acval Setlec.psigmaMkName
-      (Level.substFn φ cvm.levelParams us) := (Option.some.inj hf4).symm
-  -- the stuck side's type: frames, reading, reduction
-  have hwt : Expr.WScoped d tb :=
-    Setlec.inferTypeIO_WScoped m.wf fuel htb hwb
-  have hbt : tb.looseBVarsBounded 0 = true :=
-    Setlec.inferTypeIO_looseBVars m.wf fuel htb hwb hbb hLb
-  have hLt : Expr.LeavesBounded tb := fun l hl =>
-    hLb l (Setlec.inferTypeIO_fvarLeaves m.wf fuel htb hwb l hl)
-  have hCt : CtxOkP m φ d Δa tb :=
-    hCb.of_subset (Setlec.inferTypeIO_fvarLeaves m.wf fuel htb hwb)
-  obtain ⟨tba, htba⟩ :=
-    hexi htb hwb hbb hLb hCb hdb
-  obtain ⟨hokTb, hmemB⟩ := ihis htb hwb hbb hLb hCb hdb htba hokB
-  obtain ⟨wtba, hwtba⟩ := hwreads hwtb hwt hbt hLt
-    (LeafReadsP.of_ctxOkP hCt) htba
-  obtain ⟨hokW, heqW⟩ := ihw hwtb hwt hbt hLt hCt htba hwtba hokTb
-  have hwr : Expr.WScoped d (.app (.app (.const Setlec.psigmaName us') A) B) :=
-    Setlec.whnf_WScoped m.wf fuel hwtb hwt
-  have hbr : (Expr.app (.app (.const Setlec.psigmaName us') A) B).looseBVarsBounded 0
-      = true := Setlec.whnf_looseBVars m.wf fuel hwtb hbt
-  have hLr : Expr.LeavesBounded
-      (.app (.app (.const Setlec.psigmaName us') A) B) := fun l hl =>
-    hLt l (Setlec.whnf_fvarLeaves m.wf fuel hwtb l hl)
-  have hCr : CtxOkP m φ d Δa (.app (.app (.const Setlec.psigmaName us') A) B) :=
-    hCt.of_subset (Setlec.whnf_fvarLeaves m.wf fuel hwtb)
-  obtain ⟨g1, Ba, hg1, hBa, rfl⟩ := denoteP_app_inv hwtba
-  obtain ⟨g2, Aa, hg2, hAa, rfl⟩ := denoteP_app_inv hg1
-  rw [denoteP, hfc'] at hg2
-  dsimp only at hg2
-  split at hg2
-  case isFalse => exact nomatch hg2
-  case isTrue =>
-  obtain rfl : g2 = m.acval Setlec.psigmaName
-      (Level.substFn φ cvi.levelParams us') := (Option.some.inj hg2).symm
-  -- the two pinned leaves, by erasure injectivity
-  have hleafI : m.acval Setlec.psigmaName (Level.substFn φ cvi.levelParams us')
-      = .const .psigma [Level.substFn φ cvi.levelParams us' uN,
-        Level.substFn φ cvi.levelParams us' vN] :=
-    erase_eq_const (by
-      rw [m.acval_erase,
-        (m.basis_pinned _ _ hfc' (by decide)).2 _ _ rfl])
-  have hleafM : m.acval Setlec.psigmaMkName
-        (Level.substFn φ cvm.levelParams us)
-      = .const .psigmaMk [Level.substFn φ cvm.levelParams us uN,
-        Level.substFn φ cvm.levelParams us vN] :=
-    erase_eq_const (by
-      rw [m.acval_erase,
-        (m.basis_pinned _ _ hfc (by decide)).2 _ _ rfl])
-  -- the stuck side inhabits the pair space, at every satisfying valuation
-  have hpack : ∀ σ : Nat → V, Sat2 V Δa σ →
-      interp2 V σ Aa ∈ˢ
-        (univ (Level.substFn φ cvi.levelParams us' uN) : V) ∧
-      interp2 V σ Ba ∈ˢ psigmaFibreSpace V
-        (Level.substFn φ cvi.levelParams us' vN) (interp2 V σ Aa) ∧
-      interp2 V σ ba ∈ˢ sigmaSet
-        (Nat.max (Level.substFn φ cvi.levelParams us' uN)
-          (Level.substFn φ cvi.levelParams us' vN))
-        (interp2 V σ Aa)
-        (fun y => SetTheory.app (interp2 V σ Ba) y) := by
-    intro σ hσ
-    refine mem_psigmaV2_app V ?_
-    have hm := (heqW σ hσ) ▸ hmemB σ hσ
-    rw [interp2_app, interp2_app, hleafI, interp2_const] at hm
-    exact hm
-  -- the gradings of the pieces
-  obtain ⟨-, hoA⟩ := hoistP_spine [pαa, pβa, s1a, s2a] hokA
-  obtain ⟨-, hoW⟩ := hoistP_spine [Aa, Ba] hokW
-  have hokPα : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ pαa :=
-    hoA pαa (by simp)
-  have hokPβ : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ pβa :=
-    hoA pβa (by simp)
-  have hokS1 : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ s1a :=
-    hoA s1a (by simp)
-  have hokS2 : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ s2a :=
-    hoA s2a (by simp)
-  have hokAa : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ Aa :=
-    hoW Aa (by simp)
-  have hokBa : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ Ba :=
-    hoW Ba (by simp)
-  have hokProj : ∀ i : Nat, i < 2 → ∀ σ : Nat → V, Sat2 V Δa σ →
-      AnnotOkP V σ (.proj i ba) := by
-    intro i hi σ hσ
-    obtain ⟨hA, hB, hsig⟩ := hpack σ hσ
-    refine ⟨?_, ?_⟩
-    · rw [AnnotOk2_proj]
-      exact ⟨(hokB σ hσ).1, hi, _, _, _, _, hsig, hA,
-        fun x hx => psigmaFibre_apply V hB hx⟩
-    · rw [AnnotValidV_proj]; exact (hokB σ hσ).2
-  -- the frames the certificates run at, peeled off the two spines
-  obtain ⟨hFn1, hFs₂⟩ := frame_appP hwa hba hLa hCa
-  obtain ⟨hFn2, hFs₁⟩ := frame_appP hFn1.1 hFn1.2.1 hFn1.2.2.1 hFn1.2.2.2
-  obtain ⟨hFn3, hFpβ⟩ := frame_appP hFn2.1 hFn2.2.1 hFn2.2.2.1 hFn2.2.2.2
-  obtain ⟨-, hFpα⟩ := frame_appP hFn3.1 hFn3.2.1 hFn3.2.2.1 hFn3.2.2.2
-  obtain ⟨hGn1, hFB⟩ := frame_appP hwr hbr hLr hCr
-  obtain ⟨-, hFA⟩ := frame_appP hGn1.1 hGn1.2.1 hGn1.2.2.1 hGn1.2.2.2
-  have hframeProj : ∀ i : Nat,
-      Expr.WScoped d (.proj Setlec.psigmaName i b) ∧
-      (Expr.proj Setlec.psigmaName i b).looseBVarsBounded 0 = true ∧
-      Expr.LeavesBounded (.proj Setlec.psigmaName i b) ∧
-      CtxOkP m φ d Δa (.proj Setlec.psigmaName i b) := fun i =>
-    ⟨by simpa [Expr.WScoped] using hwb,
-      by simpa [Expr.looseBVarsBounded] using hbb,
-      fun l hl => hLb l (by simpa [Expr.fvarLeaves] using hl),
-      hCb.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)⟩
-  have hprojread : ∀ i : Nat, i < 2 →
-      denoteP m.acval env φ d (.proj Setlec.psigmaName i b)
-        = some (.proj i ba) := by
-    intro i hi
-    rw [denoteP_proj_pair m.acval (env := env) (φ := φ) d
-        Setlec.psigmaName i b
-        (fun entry hf => m.proj_ok.psigma_not_tower hf), hdb]
-    exact if_pos hi
-  -- the four certificates, at `interp2`
-  have heqα : interp2 V ρ pαa = interp2 V ρ Aa :=
-    ihd hdα hFpα.1 hFpα.2.1 hFpα.2.2.1 hFA.1 hFA.2.1 hFA.2.2.1
-      hFpα.2.2.2 hFA.2.2.2 hpαa hAa hokPα hokAa ρ hρ
-  have heqβ : interp2 V ρ pβa = interp2 V ρ Ba :=
-    ihd hdβ hFpβ.1 hFpβ.2.1 hFpβ.2.2.1 hFB.1 hFB.2.1 hFB.2.2.1
-      hFpβ.2.2.2 hFB.2.2.2 hpβa hBa hokPβ hokBa ρ hρ
-  have heq1 : interp2 V ρ s1a = sfst (interp2 V ρ ba) := by
-    have := ihd hd₁ hFs₁.1 hFs₁.2.1 hFs₁.2.2.1 (hframeProj 0).1
-      (hframeProj 0).2.1 (hframeProj 0).2.2.1 hFs₁.2.2.2
-      (hframeProj 0).2.2.2 hs1a (hprojread 0 (by omega)) hokS1
-      (hokProj 0 (by omega)) ρ hρ
-    rwa [interp2_proj, if_pos rfl] at this
-  have heq2 : interp2 V ρ s2a = ssnd (interp2 V ρ ba) := by
-    have := ihd hd₂ hFs₂.1 hFs₂.2.1 hFs₂.2.2.1 (hframeProj 1).1
-      (hframeProj 1).2.1 (hframeProj 1).2.2.1 hFs₂.2.2.2
-      (hframeProj 1).2.2.2 hs2a (hprojread 1 (by omega)) hokS2
-      (hokProj 1 (by omega)) ρ hρ
-    rwa [interp2_proj, if_neg (by omega)] at this
-  -- the η law fires
-  obtain ⟨hA, hB, hsig⟩ := hpack ρ hρ
-  rw [interp2_app, interp2_app, interp2_app, interp2_app, hleafM,
-    interp2_const, heqα, heqβ, heq1, heq2, hψ]
-  exact psigmaEta_law2 V hA hB hsig
 
 /-! ## The unit-like row (post-repair)
 

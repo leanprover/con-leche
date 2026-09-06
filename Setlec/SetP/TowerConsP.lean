@@ -138,12 +138,9 @@ theorem declStepPM_of_tower_cons (mp : EnvS2PM V μ env)
   have hh : ConsHeadP env (.projInfo entry) A :=
     ⟨hwf, hvclosed,
       fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),
-      fun e2 heq _ htf => by
+      fun e2 heq _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
-        exact absurd (htf.symm.trans htw) (by decide),
-      fun _ e2 heq _ => by
-        obtain rfl := ConstantInfo.projInfo.inj heq
-        exact hhead.1,
+        exact htw,
       fun e2 heq _ => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact hnp,
@@ -190,7 +187,6 @@ theorem declStepPM_of_inert_cons (mp : EnvS2PM V μ env)
     (hfresh : env.find? (ConstantInfo.projInfo entry).name = none)
     (hnres : Setlec.reservedBasisNames.contains
       (ConstantInfo.projInfo entry).name = false)
-    (hTres : Setlec.reservedBasisNames.contains entry.structName = false)
     (htw : entry.tower = false) (hnat : entry.native = false)
     (hty : entry.ty = .sort (.succ .zero))
     (hwf : Setlec.EnvWF ⟨.projInfo entry :: env.consts⟩) :
@@ -200,16 +196,9 @@ theorem declStepPM_of_inert_cons (mp : EnvS2PM V μ env)
   have hh : ConsHeadP env (.projInfo entry) (fun _ => .sort 0) :=
     ⟨hwf, fun _ => trivial,
       fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),
-      fun e2 heq hn _ => by
+      fun e2 heq hn => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact absurd (hn.symm.trans hnat) (by decide),
-      fun i e2 heq hname => by
-        obtain rfl := ConstantInfo.projInfo.inj heq
-        exfalso
-        have h1 : projFnName entry.structName entry.idx = projFnName Setlec.psigmaName i :=
-          hname
-        have h2 := (Setlec.projFnName_inj h1).1
-        exact ne_of_notReserved hTres reserved_psigmaName h2,
       ConsCrossEnv.ofNtc (fun e2 heq => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact htw),

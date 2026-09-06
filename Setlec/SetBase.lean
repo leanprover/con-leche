@@ -25,7 +25,6 @@ import Setlec.SetBase.BasisOk
 import Setlec.SetBase.Skeleton
 import Setlec.SetBase.Hoist
 import Setlec.SetBase.SpineV
-import Setlec.SetBase.ProjPins
 import Setlec.SetBase.Decl
 import Setlec.SetBase.DeclEta
 import Setlec.SetBase.DeclRun
@@ -37,7 +36,6 @@ import Setlec.SetBase.EnvR
 import Setlec.SetBase.EnvRCons
 import Setlec.SetBase.IndRecsCoreR
 import Setlec.SetBase.BasisRules
-import Setlec.SetBase.PSigmaTower
 import Setlec.SetBase.TupleTower
 import Setlec.SetBase.TowerIntro
 import Setlec.SetBase.TowerLeaf
@@ -131,6 +129,8 @@ S6 (the residue) added:
 S7 (the de-basing's last wall) added `IndRecsCoreR`, `ProjFnRR`,
 `BasisRules` and `PSigmaTower` — the sixteen syntactic declarations
 the P lane had been resolving *through* the four dying imports.
+(`PSigmaTower` and `ProjPins` were deleted with the pinned `PSigma'`
+block at task #175 W6.)
 
 S8 (**THE ZERO-OPENER**) added `Bridge/*` — the whole
 checker-to-derivation bridge, twenty-two modules, from `Claims` to

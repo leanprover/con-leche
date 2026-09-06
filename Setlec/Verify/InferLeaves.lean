@@ -852,33 +852,19 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       exact WScoped.instantiate1_gen hw.2 0 hwPi.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, -, hpair, htow, -⟩ := inferTypeCore_proj_inv h
+        hus, -, ⟨ds, hpi⟩, -⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       have hwte := inferTypeCore_WScoped henv fuel hte hw
       have hwPi := whnf_WScoped henv fuel hwt hwte
-      cases htw : entry.tower with
-      | false =>
-        obtain ⟨A, B, hargs, hres⟩ := hpair htw
-        -- task #161 item B2: the returned type is one of the two
-        -- computed residuals, both built from the reduced type's own
-        -- spine and the subject
-        have hwA : WScoped d A := hwPi.getAppArgs A (by rw [hargs]; simp)
-        have hwB : WScoped d B := hwPi.getAppArgs B (by rw [hargs]; simp)
-        rcases hres with ⟨-, rfl⟩ | ⟨-, rfl⟩
-        · exact hwA
-        · simp only [WScoped]
-          exact ⟨hwB, hw⟩
-      | true =>
-        -- task #175 wiring W2c: the tower residual — the stored entry
-        -- type is closed and the spine and subject are scoped
-        obtain ⟨ds, hpi⟩ := htow htw
-        refine (instPisAt_WScoped _ _ hpi
-          (projEntry_ty_WScoped henv hfp us) ?_).2
-        intro a ha
-        rcases List.mem_append.mp ha with ha | ha
-        · exact hwPi.getAppArgs a ha
-        · rcases List.mem_singleton.mp ha with rfl
-          exact hw
+      -- task #175 wiring W2c: the tower residual — the stored entry
+      -- type is closed and the spine and subject are scoped
+      refine (instPisAt_WScoped _ _ hpi
+        (projEntry_ty_WScoped henv hfp us) ?_).2
+      intro a ha
+      rcases List.mem_append.mp ha with ha | ha
+      · exact hwPi.getAppArgs a ha
+      · rcases List.mem_singleton.mp ha with rfl
+        exact hw
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
@@ -1000,7 +986,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
       · exact Or.inr hb
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, -, hpair, htow, -⟩ := inferTypeCore_proj_inv h
+        hus, -, ⟨ds, hpi⟩, -⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       intro l hl
       simp only [fvarLeaves]
@@ -1008,29 +994,16 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         fun l' hl' =>
         inferTypeCore_fvarLeaves henv fuel hte hw l'
           (whnf_fvarLeaves henv fuel hwt l' hl')
-      cases htw : entry.tower with
-      | false =>
-        obtain ⟨A, B, hargs, hres⟩ := hpair htw
-        -- task #161 item B2: the computed residual's leaves are the
-        -- spine's and the subject's
-        rcases hres with ⟨-, rfl⟩ | ⟨-, rfl⟩
-        · exact hsub l (fvarLeaves_getAppArgs (by rw [hargs]; simp) l hl)
-        · simp only [fvarLeaves, List.mem_append] at hl
-          rcases hl with hl | hl
-          · exact hsub l (fvarLeaves_getAppArgs (by rw [hargs]; simp) l hl)
-          · simpa only [fvarLeaves] using hl
-      | true =>
-        -- task #175 wiring W2c: the tower residual's leaves come from
-        -- the spine or the subject (the stored entry type is closed)
-        obtain ⟨ds, hpi⟩ := htow htw
-        rcases instPisAt_fvarLeaves _ _ hpi l hl with hty | ⟨a, ha, hla⟩
-        · rw [fvarLeaves_eq_nil_of_not_hasFvar
-            (projEntry_ty_hasFvar henv hfp us)] at hty
-          exact nomatch hty
-        · rcases List.mem_append.mp ha with ha | ha
-          · exact hsub l (fvarLeaves_getAppArgs ha l hla)
-          · rcases List.mem_singleton.mp ha with rfl
-            exact hla
+      -- task #175 wiring W2c: the tower residual's leaves come from
+      -- the spine or the subject (the stored entry type is closed)
+      rcases instPisAt_fvarLeaves _ _ hpi l hl with hty | ⟨a, ha, hla⟩
+      · rw [fvarLeaves_eq_nil_of_not_hasFvar
+          (projEntry_ty_hasFvar henv hfp us)] at hty
+        exact nomatch hty
+      · rcases List.mem_append.mp ha with ha | ha
+        · exact hsub l (fvarLeaves_getAppArgs ha l hla)
+        · rcases List.mem_singleton.mp ha with rfl
+          exact hla
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
@@ -1155,37 +1128,22 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       exact looseBVarsBounded_instantiate1_gen hb.2 hbPi.2
     | proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
-        hus, -, hpair, htow, -⟩ := inferTypeCore_proj_inv h
+        hus, -, ⟨ds, hpi⟩, -⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded] at hb
       have hLbe : Expr.LeavesBounded pe := fun l hl => hLb l (by
         simp only [fvarLeaves]; exact hl)
       have hbte := inferTypeCore_looseBVars henv fuel hte hw hb hLbe
       have hbPi := whnf_looseBVars henv fuel hwt hbte
-      cases htw : entry.tower with
-      | false =>
-        obtain ⟨A, B, hargs, hres⟩ := hpair htw
-        -- task #161 item B2: the computed residual's bounds are the
-        -- spine's and the subject's
-        have hbA : A.looseBVarsBounded 0 = true :=
-          looseBVarsBounded_getAppArgs hbPi _ (by rw [hargs]; simp)
-        have hbB : B.looseBVarsBounded 0 = true :=
-          looseBVarsBounded_getAppArgs hbPi _ (by rw [hargs]; simp)
-        rcases hres with ⟨-, rfl⟩ | ⟨-, rfl⟩
-        · exact hbA
-        · simp only [looseBVarsBounded, Bool.and_eq_true]
-          exact ⟨hbB, hb⟩
-      | true =>
-        -- task #175 wiring W2c: the tower residual is bvar-closed —
-        -- entry type closed, spine and subject bounded
-        obtain ⟨ds, hpi⟩ := htow htw
-        refine instPisAt_looseBVars _ _ hpi
-          (projEntry_ty_looseBVars henv hfp us) ?_
-        intro a ha
-        rcases List.mem_append.mp ha with ha | ha
-        · exact looseBVarsBounded_getAppArgs hbPi _ ha
-        · rcases List.mem_singleton.mp ha with rfl
-          exact hb
+      -- task #175 wiring W2c: the tower residual is bvar-closed —
+      -- entry type closed, spine and subject bounded
+      refine instPisAt_looseBVars _ _ hpi
+        (projEntry_ty_looseBVars henv hfp us) ?_
+      intro a ha
+      rcases List.mem_append.mp ha with ha | ha
+      · exact looseBVarsBounded_getAppArgs hbPi _ ha
+      · rcases List.mem_singleton.mp ha with rfl
+        exact hb
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h

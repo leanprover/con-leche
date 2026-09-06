@@ -380,16 +380,33 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
           hiffP hsubj
           (hres (Setlec.directUsedLater cvCa.type p.nP) (fun h0 => (hguard' h0).2) (hfree _))
           (hED.opened _).okR ρ vs x rest hlenVs hokApp hokx hmem hpeel
-      · -- (B)
-        intro hpos ρ ys hlen hok
-        have hw : p.resSort.eval (Level.substFn φ p.cvT.levelParams us) ≠ 0 := hpos
-        have hacC' : m₂.acval p.cvC.name (Level.substFn φ p.cvT.levelParams us)
-            = directMkAV (p.resSort.eval (Level.substFn φ p.cvT.levelParams us))
-              (ds (Level.substFn φ p.cvT.levelParams us))
-              (((ds (Level.substFn φ p.cvT.levelParams us)).drop p.nP).map (·.2.2)) := by
-          rw [hacC, hleafC]
-        rw [hacC'] at hok ⊢
-        exact entryIotaCore hw (hCD.len _) hi (hbound _) ys hlen hok
+      · -- (B): the constructor type's reading at the instantiation,
+        -- then the two regimes (task #175 W6)
+        have hCD₂ : CtorData m₂ p.cvT.name cvCa p.nP p.nF p.resSort ds :=
+          hCD.cross (c₀ := .projInfo entry) (A := A) hfresh hneT hcrossC hcbC m₂ hac
+        refine ⟨mkPisAV (ds (Level.substFn φ p.cvT.levelParams us))
+          (ctorBodyAV m₂ p.cvT.name p.nP p.nF (Level.substFn φ p.cvT.levelParams us)),
+          ?_, ?_⟩
+        · rw [denotePInstLevels m₂ φ cvCa.levelParams us 0 cvCa.type, hlpsC]
+          exact hCD₂.read _
+        · intro hguardAt ρ ys rest hlen hok hfit
+          have hacC' : m₂.acval p.cvC.name (Level.substFn φ p.cvT.levelParams us)
+              = directMkAV (p.resSort.eval (Level.substFn φ p.cvT.levelParams us))
+                (ds (Level.substFn φ p.cvT.levelParams us))
+                (((ds (Level.substFn φ p.cvT.levelParams us)).drop p.nP).map (·.2.2)) := by
+            rw [hacC, hleafC]
+          rw [hacC'] at hok ⊢
+          by_cases hw : p.resSort.eval (Level.substFn φ p.cvT.levelParams us) = 0
+          · -- squash: the certified fit pins the selected field to a
+            -- proposition's domain
+            have hsp : SpineFit ρ ((ds (Level.substFn φ p.cvT.levelParams us)).map (·.2.2))
+                (ys.map (interp2 V ρ)) :=
+              spineFit_of_teleFitP (by simp only [List.length_map, hlen, hCD.len]; rfl) hfit
+            rw [hw]
+            exact entryIotaCoreZero (hCD.len _) hi (hsorts _)
+              (hguardSem _ (hguardAt hw)).1 ys hlen hsp
+          · -- graph: the grading's slot chain
+            exact entryIotaCore hw (hCD.len _) hi (hbound _) ys hlen hok
     · -- (C)
       intro cvT capsT hf us _
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT₂.symm.trans hf))

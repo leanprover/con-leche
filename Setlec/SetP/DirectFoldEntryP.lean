@@ -303,7 +303,7 @@ theorem foldStepP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
     have hcbC : ConstsBound env cvCa.type :=
       constsBound_of_constsResolve _ (hinv.wf _ (Setlec.SetR.Env.find?_mem hinv.findC)).2.2.1
     have hfreshE : env.find? (ConstantInfo.projInfo entry).name = none := hfreshI
-    obtain ⟨mp', hac⟩ := declStepPM_of_inert_cons mp (entry := entry) hfreshE hnres hresT rfl rfl
+    obtain ⟨mp', hac⟩ := declStepPM_of_inert_cons mp (entry := entry) hfreshE hnres rfl rfl
       rfl hwf'
     refine ⟨⟨mp', hFD.cross (c₀ := .projInfo entry) hfreshE hcrossT hcbT mp'.base2 hac,
       hCD.cross (c₀ := .projInfo entry) hfreshE hneT hcrossC hcbC mp'.base2 hac, ?_, ?_⟩,

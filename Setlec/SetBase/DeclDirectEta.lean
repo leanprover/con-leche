@@ -6,7 +6,7 @@ import Setlec.SetBase.DeclEta
 
 import Setlec.Verify.Extend.Inversions
 
-import Setlec.Verify.ProjPinInv
+import Setlec.Verify.ExceptBind
 
 /-!
 # The direct-structure declaration keeps the η-families closed (task #175 wiring, W5)

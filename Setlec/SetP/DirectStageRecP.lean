@@ -145,7 +145,7 @@ theorem stageRec (hμ : μ.verified = true) (hE : Setlec.EtaFamiliesClosed env)
     rw [hRname]; exact hpshape
   refine declStepPM_of_ind_rec_cons mp (c₀ := c₀) (A := A) hfresh hnresC ⟨_, _, _, _, rfl⟩
     (ConsHeadP.ofFresh hwf (fun ψ => hAbelow ψ) hnresC
-      (fun _ h => nomatch h) (fun _ _ h => nomatch h) (fun _ h => nomatch h)
+      (fun _ h => nomatch h) (fun _ h => nomatch h)
       (fun cvR' mI rP rules heq r hr => by
         injection heq with _ _ _ hrules
         subst hrules

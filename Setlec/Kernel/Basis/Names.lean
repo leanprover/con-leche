@@ -10,15 +10,6 @@ namespace Setlec
 
 open Name (anonymous)
 
-
-open Name (anonymous)
-
-/-- The name of the basis dependent-pair type. -/
-def psigmaName : Name := anonymous |>.str "PSigma'"
-
-/-- The name of the basis dependent-pair constructor. -/
-def psigmaMkName : Name := psigmaName |>.str "mk"
-
 /-- The name of the basis equality type. -/
 def eqName : Name := anonymous |>.str "Eq"
 
@@ -91,11 +82,12 @@ def charName : Name := anonymous |>.str "Char"
 def charOfNatName : Name := charName.str "ofNat"
 
 /-- Names reserved for the pinned basis blocks; no other declaration
-may use them. -/
+may use them.  `PSigma'` is not among them (task #175 W6): the
+preprocessor's tight pair installs through the direct simple-structure
+path as an ordinary two-field structure. -/
 def reservedBasisNames : List Name :=
   [eqName, eqReflName, eqName.str "rec",
    natName, natZeroName, natSuccName, natName.str "rec",
-   psigmaName, psigmaMkName, psigmaName.str "rec",
    punitName, punitUnitName, punitName.str "rec",
    emptyName, emptyName.str "rec",
    quotName, quotMkName, quotLiftName, quotIndName, quotSoundName]

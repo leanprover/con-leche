@@ -248,7 +248,6 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
       (ConsHeadP.ofFresh hwf
         (fun ψ => by rw [hAdef]; exact mp.base2.cval_closedL _ ψ)
         hnres (fun _ heq => by rw [hc₀] at heq; exact nomatch heq)
-        (fun _ _ heq => by rw [hc₀] at heq; exact nomatch heq)
         (fun _ heq => by rw [hc₀] at heq; exact nomatch heq)
         hctorsHead)
       hAclosedH hAparamsH

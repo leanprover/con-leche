@@ -942,68 +942,6 @@ def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     | _ => pure false
   | _ => pure false
 
-/-- Pair eta certification: `a` is a fully applied structure
-constructor (a stored constructor that is the single rule of an
-index-free recursor, under the `<ind>.rec` naming convention), `b`
-inhabits the matching structure type at the same levels, and `a`'s
-two fields are defeq to `b`'s projections.  In the model both sides
-are then the pair of `b`'s components (or the proof point at the Prop
-collapse); the environment invariant supplies the facts for the stored
-constants.
-
-Task #130's extra check — the pair type's two arguments certified
-against the projection entry's telescope (`projParamCert`) — was a
-TT-lane check, statically dead since #148 T7b (`CheckMode.ttChecks ≡
-false`) and deleted with the rest of that code at task #161's de-gating
-round A+B+C (item A, harvest site 23).  It was the clause's only reader
-of the mode, so the first parameter is now `_mode`: kept, deliberately,
-because the whole `stuckIrrel` cascade and its verification family
-(`pairEtaCertP`, `_inv`, `_mono`, `_disc`, `_atF`, `_fst/snd_proj`,
-`_sim` in both twins) share one signature shape, and narrowing this
-member alone would churn ~40 proof sites for no statement change. -/
-def pairEtaCert (_mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
-    (a b : Expr) :
-    m Bool := do
-  match a with
-  | .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ =>
-    match env.find? c with
-    | some (.ctorInfo _cvm 2 2) => do
-      -- task #172 B4: io grade (official's try_eta_struct infer_type)
-      let tb ← r.inferIO depth b
-      match ← r.whnf depth tb with
-      | .app (.app (.const c' us') A) B =>
-        match env.find? c' with
-        | some (.indInfo _ _) =>
-          match env.find? (c'.str "rec") with
-          | some (.recInfo _ mI rP [rr]) =>
-            if rr.ctor = c ∧ rr.nfields = 2 ∧ mI = rP ∧
-                reservedBasisNames.contains (c'.str "rec") = true then
-              if ← liftFueled "level comparison"
-                  (Level.isEquivList us us') then
-                -- Certify the constructor's type arguments against the
-                -- stuck side's (task #100: under the domain-relative
-                -- collapse the model cannot recover the constructor
-                -- spine's memberships from its value — an empty-domain
-                -- chain collapses to the proof point — so the fields'
-                -- memberships are transported from the stuck side's
-                -- type, which these two checks identify)
-                if ← r.defeq depth pα A then
-                  if ← r.defeq depth pβ B then
-                    if ← r.defeq depth s₁ (.proj c' 0 b) then
-                      if ← r.defeq depth s₂ (.proj c' 1 b) then
-                        pure true
-                      else pure false
-                    else pure false
-                  else pure false
-                else pure false
-              else pure false
-            else pure false
-          | _ => pure false
-        | _ => pure false
-      | _ => pure false
-    | _ => pure false
-  | _ => pure false
-
 /-- The per-projection telescope certificates of a structural eta
 certification: for every field index, the installed projection
 function's telescope is certified against the type's arguments and the
@@ -1199,14 +1137,14 @@ def etaCert (mode : CheckMode) (r : CoreFns m) (_env : Env) (depth : Nat)
     else pure false
   | _ => pure false
 
-/-- The fallback for structurally distinct stuck terms: pair eta in
-either direction, structural eta in either direction, unit-likeness,
-else proof irrelevance. -/
+/-- The fallback for structurally distinct stuck terms: structural eta
+in either direction, unit-likeness, else proof irrelevance.  (The
+pinned-pair certificate `pairEtaCert` that used to lead is retired
+with the `PSigma'` pin, task #175 W6: the pair is an ordinary direct
+structure and `structEtaCert` covers it.) -/
 def stuckIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
-  if ← pairEtaCert mode r env depth a b then pure true
-  else if ← pairEtaCert mode r env depth b a then pure true
-  else if ← structEtaCert mode r env depth a b then pure true
+  if ← structEtaCert mode r env depth a b then pure true
   else if ← structEtaCert mode r env depth b a then pure true
   else if ← structUnitCert r env depth a b then pure true
   else proofIrrel r env depth a b
@@ -1528,54 +1466,71 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     | _ => pure none
   | _ => pure none
 
-/-- **The tower-fire guard** (task #175 W4c/O4): `whnfCore` fires the
-structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i` at a tower-backed entry only
-when the structure's sort is provably nonzero at the constructor's
-own level instantiation (`Level.isNonZero`).  At a `Prop` instance
-the constructor application is a proof: in a proof-irrelevant model
-its value is the point, and nothing pins the field argument's value
-to the field — a `whnfCore` step certifies no typing — so the rule
-would be unsound-to-model there; and it is never *needed* there
-either, since two proofs of one proposition are already definitionally
-equal (proof irrelevance), and a `Prop`-structure field is a proof.
-Every `structure` command's result sort is `max 1 …` (nonzero at every
-instantiation); the guard bites only at `Prop`-declared blocks and at
-a single-constructor `Sort u` inductive instantiated at a possibly-zero
-level.  The pair entries are ungated. -/
+/-- **The tower-fire guard** (task #175 W4c/O4, restated at W6):
+`whnfCore` fires the structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i` at a
+tower-backed entry under exactly the guard the tower infer branch
+types the node with — at a `Prop`-declared structure the field's guard
+level must be a proposition at this instantiation; at every other
+family the rule fires unconditionally.
+
+Until W6 the guard was "the structure's sort is provably nonzero at
+this instantiation", which is *not* what the official kernel does
+(`reduce_proj` reduces every constructor redex) and rejects the
+preprocessor's own `PSigma'.fst_mk` (`PSigma'.fst (PSigma'.mk a b) ≡ a`
+at symbolic `u v`, where `max u v` is neither provably zero nor
+nonzero) once the pinned pair — whose entries were ungated — is
+retired.  The model licence: at a squash instance (the structure's
+sort is `0` at the valuation) the constructor application reads as
+the point, and so does the selected field — for a non-`Prop`-declared
+family every field's sort is bounded by the structure's (the O5 bound
+`checkDirectFieldSorts` checks), so at a zero instantiation every
+field is a proposition; for a `Prop`-declared family the guard says
+so of the projected field directly (`TowerEntryLawP`'s iota clause,
+`Setlec/SetP/Annot/EnvS2P.lean`).  Ungated rules on a data field of a
+`Prop`-declared structure stay out: such a node is not even typed
+(`inferBody`'s guard). -/
 def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
   !entry.tower ||
-    (Level.subst entry.levelParams us entry.structSort).isNonZero
+    !(Level.isEquiv entry.structSort .zero == some true) ||
+    (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
+      == some true)
 
-/-- Certification for a possibly-Prop structural projection
-`proj_i (ctor p⃗ x⃗)` (the subject `e₂` is the whnf'd constructor
-application): the projected argument and the subject are both typed.
+/-- **The structural projection's certificate** (task #175 W6, the
+squash-regime licence): the redex `proj_i (C p⃗ x⃗)` fires only after
+its constructor spine is certified against `C`'s stored type at the
+redex's own levels — `iotaCerts`, each argument's inferred type defeq
+to its binder domain, the domains instantiated along the spine.  This
+is what makes the rule sound-to-model at a squash instantiation: there
+the constructor application is the point and so is every field
+(every field of a non-`Prop`-declared family is a proposition where
+the family is one, by the O5 bound; at a `Prop`-declared family the
+fire guard says so of the projected field), and the certified fit is
+what pins the selected argument to its domain — a grading alone pins
+nothing at bit `0`.  In the graph regime the fit is redundant with
+the application's grading, which the tower law consumes there.
 
-Task #161 de-gating round A+B+C, item B1 (harvest site 18, list entry
-P9).  The clause used to run six things: infer the field, infer *its*
-type and whnf it to a sort, compare that sort with the entry's
-instantiated `fieldSort`; then the same three for the subject against
-`structSort`.  `projStepP_of_claims` (`SetR/Interp2/Step2/ProjRowsP.lean`)
-destructures `projCert_inv` as `⟨…, -, -, -, -, hite, -, -, -⟩`: it
-consumes **conjunct 5 only**, the subject's own `inferTypeCore` run.
-The four sort legs — the two `infer`+`whnf`-to-a-sort runs and the two
-`Level.isEquiv` comparisons — are inspected by nothing, and they cannot
-become load-bearing later either: `projEntry_pins` (`SetR/ProjPins.lean`)
-pins a `native` entry to one of the two basis pair entries, so
-`fieldSort`/`structSort` are *concrete* and carry no information the
-model does not already have.  They are deleted, and with them the two
-`Level` arguments and the callers' `Level.subst`/`substLevelTreeM` of
-the pinned sorts.
-
-THE FIELD-INFER RUN STAYS (the ratified negative verdict of the harvest
-list): it is not licensed by anything, it is simply not on the removal
-list. -/
-def projCert (r : CoreFns m) (_env : Env) (depth : Nat)
-    (e₂ : Expr) (i : Nat) (nP : Nat) : m Bool := do
-  let arg := e₂.getAppArgs.getD (nP + i) (.bvar 0)
-  -- task #172 B4: io grade
-  let _ta ← r.inferIO depth arg
-  let _te ← r.inferIO depth e₂
-  pure true
+History: until task #161 P9 the certificate ran six things (the two
+sort legs and their comparisons, on top of the two `inferTypeCore`
+runs); P9 cut it to the two runs (the pinned pair's row walked the
+spine's typings out of the subject's own run, concretely at arity
+four); W6 replaces the two runs by the one telescope certificate,
+which is the same per-argument `inferIO` + `defeq` work the subject's
+run performed inside `inferSpine`, and drops the field's separate
+`inferIO`.  The official kernel's `reduce_proj` certifies nothing —
+this is the F4 conformance residue, which the P lane's `ProjStepP`
+row consumes through `certs_teleLicP`.  The spine is a subterm of the
+subject, so the certificate is *licensed* like the ι slot's
+(`iotaCerts`' docstring): at the verified P mode a `.never` binder's
+certificate is skipped — every field binder of an ordinary `structure`
+— which is the io skip the retired two-run certificate had through
+`inferSpine`. -/
+def projCert (r : CoreFns m) (env : Env) (depth : Nat) (lic : Bool)
+    (c : Name) (us : List Level) (args : List Expr) : m Bool := do
+  match env.find? c with
+  | some (.ctorInfo cvC _ _) =>
+    iotaCerts r env depth lic
+      (cvC.type.instantiateLevelParams cvC.levelParams us) args
+  | _ => pure false
 
 /-- **THE β SITE'S GATE** (task #161): does the mode's β gate fire at
 this binder?
@@ -1673,15 +1628,13 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then
             let arg := args.getD (entry.numParams + i) (.bvar 0)
-            -- Certify the reduction: at Prop instances both the
-            -- projected argument and the subject collapse to the
-            -- proof point (see DESIGN.md on beta certification).
-            -- Task #100 de-gating: the former nonzero-sort gate is
-            -- unsound-to-model under the domain-relative collapse,
-            -- so the certificate runs unconditionally.  Task #161
-            -- item B1: the two sort legs and their `Level.subst`s are
-            -- gone (see `projCert`).
-            if ← projCert r env depth e' i entry.numParams then
+            -- Certify the reduction: the constructor spine against
+            -- the constructor's stored type (task #175 W6; see
+            -- `projCert`).  Task #100 de-gating: the former
+            -- nonzero-sort gate is unsound-to-model under the
+            -- domain-relative collapse, so the certificate runs
+            -- unconditionally.
+            if ← projCert r env depth mode.betaGate c us args then
               r.whnfCore depth arg
             else pure (.proj sn i e')
           else pure (.proj sn i e')
@@ -1877,8 +1830,9 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- A `.proj` node is typed by its projection-table entry: the
       -- stored level-parametric type, instantiated at the subject
       -- type's levels and peeled along its arguments and the subject.
-      -- Only `native` entries type bare nodes (fallback-shape
-      -- projections are rewritten into eliminations at annotate time).
+      -- Only `native` entries type bare nodes — and every native entry
+      -- is tower-backed (task #175 W6: the pinned pair entries and
+      -- their computed two-member fast path are retired).
       let te ← r.whnf depth (← r.infer depth pe)
       match te.getAppFn with
       | .const T us =>
@@ -1890,43 +1844,27 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- table on the node's name, the checker on the head's
           if entry.native ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            if entry.tower then
-              -- the official `infer_proj` restriction (task #175
-              -- W4c/O4): at a `Prop`-declared structure the field —
-              -- and every earlier field a later field uses — must be
-              -- a proposition at this instantiation; the entry's
-              -- guard level joins exactly those sorts
-              if Level.isEquiv entry.structSort .zero == some true then
-                unless Level.isEquiv
-                    (Level.subst entry.levelParams us entry.fieldSort) .zero
-                    == some true do
-                  throw (.invalid
-                    "projection from a propositional structure must be a proposition")
-              -- task #175 wiring W2c: the generic residual for a
-              -- tower-backed entry — the stored `ty`
-              -- (`∀ p⃗ (t : T p⃗), F_i`, `.proj`-node spelling) is
-              -- level-instantiated at the subject type's levels and
-              -- peeled along the parameters and the subject (the
-              -- pre-B2 walk shape, tower-only; the pair fast path
-              -- below is untouched).
-              let tyI := entry.ty.instantiateLevelParams
-                entry.levelParams us
-              match Expr.instPisAt (te.getAppArgs ++ [pe]) tyI with
-              | some (_, resid) => pure resid
-              | none => throw (.internal "malformed projection entry")
-            else
-            -- Task #161 de-gating round A+B+C, item B2 (harvest site
-            -- 21, list entry P10): at a pair-backed entry the residual
-            -- is **computed**, not walked.  `projEntry_pins`
-            -- (`SetBase/ProjPins.lean`) pins a `native ¬tower` entry
-            -- to one of the two basis pair entries, so the parameter
-            -- spine has exactly two members and the entry type's
-            -- residual at `[A, B, pe]` is `A` (first projection) or
-            -- `B (pe.1)` (second).
-            match te.getAppArgs, i with
-            | [A, _], 0 => pure A
-            | [_, B], 1 => pure (.app B (.proj T 0 pe))
-            | _, _ => throw (.internal "malformed projection entry")
+            -- the official `infer_proj` restriction (task #175
+            -- W4c/O4): at a `Prop`-declared structure the field —
+            -- and every earlier field a later field uses — must be
+            -- a proposition at this instantiation; the entry's
+            -- guard level joins exactly those sorts
+            if Level.isEquiv entry.structSort .zero == some true then
+              unless Level.isEquiv
+                  (Level.subst entry.levelParams us entry.fieldSort) .zero
+                  == some true do
+                throw (.invalid
+                  "projection from a propositional structure must be a proposition")
+            -- task #175 wiring W2c: the generic residual for a
+            -- tower-backed entry — the stored `ty`
+            -- (`∀ p⃗ (t : T p⃗), F_i`, `.proj`-node spelling) is
+            -- level-instantiated at the subject type's levels and
+            -- peeled along the parameters and the subject
+            let tyI := entry.ty.instantiateLevelParams
+              entry.levelParams us
+            match Expr.instPisAt (te.getAppArgs ++ [pe]) tyI with
+            | some (_, resid) => pure resid
+            | none => throw (.internal "malformed projection entry")
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
@@ -2051,32 +1989,21 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- table on the node's name, the checker on the head's
           if entry.native ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            if entry.tower then
-              -- the official `infer_proj` restriction (task #175
-              -- W4c/O4), as in `inferBody`
-              if Level.isEquiv entry.structSort .zero == some true then
-                unless Level.isEquiv
-                    (Level.subst entry.levelParams us entry.fieldSort) .zero
-                    == some true do
-                  throw (.invalid
-                    "projection from a propositional structure must be a proposition")
-              -- task #175 wiring W2c: the generic residual for a
-              -- tower-backed entry — the stored `ty`
-              -- (`∀ p⃗ (t : T p⃗), F_i`, `.proj`-node spelling) is
-              -- level-instantiated at the subject type's levels and
-              -- peeled along the parameters and the subject (the
-              -- pre-B2 walk shape, tower-only; the pair fast path
-              -- below is untouched).
-              let tyI := entry.ty.instantiateLevelParams
-                entry.levelParams us
-              match Expr.instPisAt (te.getAppArgs ++ [pe]) tyI with
-              | some (_, resid) => pure resid
-              | none => throw (.internal "malformed projection entry")
-            else
-            match te.getAppArgs, i with
-            | [A, _], 0 => pure A
-            | [_, B], 1 => pure (.app B (.proj T 0 pe))
-            | _, _ => throw (.internal "malformed projection entry")
+            -- the official `infer_proj` restriction (task #175
+            -- W4c/O4), as in `inferBody`
+            if Level.isEquiv entry.structSort .zero == some true then
+              unless Level.isEquiv
+                  (Level.subst entry.levelParams us entry.fieldSort) .zero
+                  == some true do
+                throw (.invalid
+                  "projection from a propositional structure must be a proposition")
+            -- task #175 wiring W2c: the generic residual for a
+            -- tower-backed entry, as in `inferBody`
+            let tyI := entry.ty.instantiateLevelParams
+              entry.levelParams us
+            match Expr.instPisAt (te.getAppArgs ++ [pe]) tyI with
+            | some (_, resid) => pure resid
+            | none => throw (.internal "malformed projection entry")
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")

@@ -1,5 +1,4 @@
 import Setlec.SetP.AxiomReduceP
-import Setlec.SetP.BasisPSigmaP
 import Setlec.SetP.DeclIndP
 import Setlec.SetP.DeclDirectP
 import Setlec.SetBase.IndBlockR
@@ -99,7 +98,6 @@ theorem basisStepPB_of : BasisStepPB V μ := by
   cases kind with
   | eqK => exact declBasisPB_eqK mp hchain
   | natK => exact declBasisPB_natK mp hchain
-  | psigmaK => exact declBasisPB_psigmaK mp hchain
   | punitK => exact declBasisPB_punitK mp hchain
   | emptyK => exact declBasisPB_emptyK mp hchain
   | quotK => exact declBasisPB_quotK mp (hEq rfl) hchain

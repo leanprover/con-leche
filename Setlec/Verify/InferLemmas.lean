@@ -714,7 +714,8 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
           entry.fireOk us = true ∧
           whnfCore mode env fuel d
             (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
-          projCertP mode env fuel d e₃ i entry.numParams = .ok true) := by
+          projCertP mode env fuel d mode.betaGate entry.ctor us e₃.getAppArgs
+            = .ok true) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
   simp only [whnfCore_def, whnf_def, projCert_fold,
@@ -744,7 +745,8 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       obtain ⟨hnat, rfl, hi, hlen, hus, hfire⟩ := hcond
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
-      cases hcert : projCertP mode env fuel d e₃ i entry.numParams with
+      cases hcert : projCertP mode env fuel d mode.betaGate entry.ctor us
+          e₃.getAppArgs with
       | error err => rw [hcert] at h; exact nomatch h
       | ok b =>
       rw [hcert] at h
@@ -768,36 +770,22 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
   | lit l2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | proj s2 i2 e3 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
 
-/-- Inversion for a successful projection certification.
-
-Task #161 de-gating item B1 (harvest site 18 / list entry P9): the
-clause's four sort legs — the two `infer`+`whnf`-to-a-sort runs and the
-two `Level.isEquiv` comparisons — are deleted, so the inversion now
-delivers exactly the two `inferTypeCore` runs the clause still makes.
-Conjunct 5 of the old statement (the subject's own run) is the only one
-`projStepP_of_claims` ever consumed; the field's run is kept because it
-is still performed (the ratified negative verdict of the harvest
-list). -/
-theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
-    {nP : Nat}
-    (h : projCertP mode env fuel d e₂ i nP = .ok true) :
-    ∃ ta te,
-      inferTypeIO mode env fuel d (e₂.getAppArgs.getD (nP + i) (.bvar 0))
-        = .ok ta ∧
-      inferTypeIO mode env fuel d e₂ = .ok te := by
+/-- Inversion for a successful projection certification (task #175 W6):
+the head is a stored constructor and the spine is certified against
+its type at the redex's levels (`iotaCerts`). -/
+theorem projCert_inv {env : Env} {fuel d : Nat} {lic : Bool} {c : Name}
+    {us : List Level} {args : List Expr}
+    (h : projCertP mode env fuel d lic c us args = .ok true) :
+    ∃ cvC nP nF, env.find? c = some (.ctorInfo cvC nP nF) ∧
+      iotaCertsP mode env fuel d lic
+        (cvC.type.instantiateLevelParams cvC.levelParams us) args = .ok true := by
   dsimp only [projCertP] at h
-  simp only [projCert, Bind.bind, Except.bind] at h
-  simp only [inferTypeIO_def] at h
-  cases hta : inferTypeIO mode env fuel d
-      (e₂.getAppArgs.getD (nP + i) (.bvar 0)) with
-  | error err => rw [hta] at h; exact nomatch h
-  | ok ta =>
-  rw [hta] at h
-  dsimp only at h
-  cases hte : inferTypeIO mode env fuel d e₂ with
-  | error err => rw [hte] at h; exact nomatch h
-  | ok te =>
-  exact ⟨ta, te, rfl, rfl⟩
+  simp only [projCert] at h
+  split at h
+  · rename_i cvC nP nF hf
+    rw [iotaCerts_fold] at h
+    exact ⟨cvC, nP, nF, hf, h⟩
+  · exact absurd h (by simp [pure, Except.pure])
 
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
@@ -1801,243 +1789,6 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
       cases okA <;> cases okB <;> simp_all
     exact Or.inr ⟨sta, uT, tb, stb, vT, rfl, hwta, heq1, rfl, hstb, hwtb, heq2⟩
 
-/-- Inversion of a successful pair-eta certification.
-
-Task #161 de-gating item A (harvest site 23): the former last conjunct
-— task #130's parameter-telescope certification, delivered only under
-`mode.ttChecks = true` and therefore vacuous since #148 T7b — is gone
-with the code that produced it. -/
-theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : pairEtaCertP mode env fuel d a b = .ok true) :
-    ∃ c us pα pβ s₁ s₂ cvm tb c' us' A B cvi capsi cvr mI rP rr,
-      a = .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ ∧
-      env.find? c = some (.ctorInfo cvm 2 2) ∧
-      inferTypeIO mode env fuel d b = .ok tb ∧
-      whnf mode env fuel d tb = .ok (.app (.app (.const c' us') A) B) ∧
-      env.find? c' = some (.indInfo cvi capsi) ∧
-      env.find? (c'.str "rec") = some (.recInfo cvr mI rP [rr]) ∧
-      rr.ctor = c ∧ rr.nfields = 2 ∧ mI = rP ∧
-      reservedBasisNames.contains (c'.str "rec") = true ∧
-      Level.isEquivList us us' = some true ∧
-      isDefEqCore mode env fuel d pα A = .ok true ∧
-      isDefEqCore mode env fuel d pβ B = .ok true ∧
-      isDefEqCore mode env fuel d s₁ (.proj c' 0 b) = .ok true ∧
-      isDefEqCore mode env fuel d s₂ (.proj c' 1 b) = .ok true := by
-  dsimp only [pairEtaCertP] at h
-  simp only [pairEtaCert, Bind.bind, Except.bind] at h
-  simp only [inferTypeIO_def, whnf_def, defeq_def] at h
-  revert h
-  match a with
-  | .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ => ?_
-  | .bvar _ => intro h; exact nomatch h
-  | .fvar _ _ _ => intro h; exact nomatch h
-  | .sort _ => intro h; exact nomatch h
-  | .const _ _ => intro h; exact nomatch h
-  | .lam _ _ _ _ => intro h; exact nomatch h
-  | .forallE _ _ _ _ => intro h; exact nomatch h
-  | .letE _ _ _ _ => intro h; exact nomatch h
-  | .lit _ => intro h; exact nomatch h
-  | .proj _ _ _ => intro h; exact nomatch h
-  | .app (.bvar _) _ => intro h; exact nomatch h
-  | .app (.fvar _ _ _) _ => intro h; exact nomatch h
-  | .app (.sort _) _ => intro h; exact nomatch h
-  | .app (.const _ _) _ => intro h; exact nomatch h
-  | .app (.lam _ _ _ _) _ => intro h; exact nomatch h
-  | .app (.forallE _ _ _ _) _ => intro h; exact nomatch h
-  | .app (.letE _ _ _ _) _ => intro h; exact nomatch h
-  | .app (.lit _) _ => intro h; exact nomatch h
-  | .app (.proj _ _ _) _ => intro h; exact nomatch h
-  | .app (.app (.bvar _) _) _ => intro h; exact nomatch h
-  | .app (.app (.fvar _ _ _) _) _ => intro h; exact nomatch h
-  | .app (.app (.sort _) _) _ => intro h; exact nomatch h
-  | .app (.app (.const _ _) _) _ => intro h; exact nomatch h
-  | .app (.app (.lam _ _ _ _) _) _ => intro h; exact nomatch h
-  | .app (.app (.forallE _ _ _ _) _) _ => intro h; exact nomatch h
-  | .app (.app (.letE _ _ _ _) _) _ => intro h; exact nomatch h
-  | .app (.app (.lit _) _) _ => intro h; exact nomatch h
-  | .app (.app (.proj _ _ _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app (.bvar _) _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app (.fvar _ _ _) _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app (.sort _) _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app (.lam _ _ _ _) _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app (.forallE _ _ _ _) _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app (.letE _ _ _ _) _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app (.lit _) _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app (.proj _ _ _) _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app (.app (.bvar _) _) _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app (.app (.fvar _ _ _) _) _) _) _ =>
-    intro h; exact nomatch h
-  | .app (.app (.app (.app (.sort _) _) _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app (.app (.lam _ _ _ _) _) _) _) _ =>
-    intro h; exact nomatch h
-  | .app (.app (.app (.app (.forallE _ _ _ _) _) _) _) _ =>
-    intro h; exact nomatch h
-  | .app (.app (.app (.app (.letE _ _ _ _) _) _) _) _ =>
-    intro h; exact nomatch h
-  | .app (.app (.app (.app (.lit _) _) _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app (.app (.proj _ _ _) _) _) _) _ =>
-    intro h; exact nomatch h
-  | .app (.app (.app (.app (.app _ _) _) _) _) _ =>
-    intro h; exact nomatch h
-  | .app (.app (.app (.const _ _) _) _) _ => intro h; exact nomatch h
-  intro h
-  dsimp only at h
-  revert h
-  match hfc : env.find? c with
-  | none => intro h; exact nomatch h
-  | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.projInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _ _) => intro h; exact nomatch h
-  | some (.thmInfo _ _) => intro h; exact nomatch h
-  | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
-  | some (.ctorInfo cvm nPm nFm) => ?_
-  intro h
-  try dsimp only at h
-  revert h
-  match nPm, nFm with
-  | 2, 2 => ?_
-  | 0, _ => intro h; exact nomatch h
-  | 1, _ => intro h; exact nomatch h
-  | _ + 3, _ => intro h; exact nomatch h
-  | 2, 0 => intro h; exact nomatch h
-  | 2, 1 => intro h; exact nomatch h
-  | 2, _ + 3 => intro h; exact nomatch h
-  intro h
-  try dsimp only at h
-  try simp only [Bind.bind, Except.bind] at h
-  cases htb : inferTypeIO mode env fuel d b with
-  | error err => rw [htb] at h; exact nomatch h
-  | ok tb =>
-  rw [htb] at h
-  dsimp only at h
-  cases hwtb : whnf mode env fuel d tb with
-  | error err => rw [hwtb] at h; exact nomatch h
-  | ok wtb =>
-  rw [hwtb] at h
-  dsimp only at h
-  revert h
-  match wtb with
-  | .app (.app (.const c' us') A) B => ?_
-  | .bvar _ => intro h; exact nomatch h
-  | .fvar _ _ _ => intro h; exact nomatch h
-  | .sort _ => intro h; exact nomatch h
-  | .const _ _ => intro h; exact nomatch h
-  | .lam _ _ _ _ => intro h; exact nomatch h
-  | .forallE _ _ _ _ => intro h; exact nomatch h
-  | .letE _ _ _ _ => intro h; exact nomatch h
-  | .lit _ => intro h; exact nomatch h
-  | .proj _ _ _ => intro h; exact nomatch h
-  | .app (.bvar _) _ => intro h; exact nomatch h
-  | .app (.fvar _ _ _) _ => intro h; exact nomatch h
-  | .app (.sort _) _ => intro h; exact nomatch h
-  | .app (.const _ _) _ => intro h; exact nomatch h
-  | .app (.lam _ _ _ _) _ => intro h; exact nomatch h
-  | .app (.forallE _ _ _ _) _ => intro h; exact nomatch h
-  | .app (.letE _ _ _ _) _ => intro h; exact nomatch h
-  | .app (.lit _) _ => intro h; exact nomatch h
-  | .app (.proj _ _ _) _ => intro h; exact nomatch h
-  | .app (.app (.bvar _) _) _ => intro h; exact nomatch h
-  | .app (.app (.fvar _ _ _) _) _ => intro h; exact nomatch h
-  | .app (.app (.sort _) _) _ => intro h; exact nomatch h
-  | .app (.app (.lam _ _ _ _) _) _ => intro h; exact nomatch h
-  | .app (.app (.forallE _ _ _ _) _) _ => intro h; exact nomatch h
-  | .app (.app (.letE _ _ _ _) _) _ => intro h; exact nomatch h
-  | .app (.app (.lit _) _) _ => intro h; exact nomatch h
-  | .app (.app (.proj _ _ _) _) _ => intro h; exact nomatch h
-  | .app (.app (.app _ _) _) _ => intro h; exact nomatch h
-  intro h
-  dsimp only at h
-  revert h
-  match hfi : env.find? c' with
-  | none => intro h; exact nomatch h
-  | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.projInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _ _) => intro h; exact nomatch h
-  | some (.thmInfo _ _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
-  | some (.indInfo cvi capsi) => ?_
-  intro h
-  dsimp only at h
-  revert h
-  match hfr : env.find? (c'.str "rec") with
-  | none => intro h; exact nomatch h
-  | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.projInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _ _) => intro h; exact nomatch h
-  | some (.thmInfo _ _) => intro h; exact nomatch h
-  | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo cvr mI rP rules) => ?_
-  intro h
-  match rules, h with
-  | [], h => exact nomatch h
-  | _ :: _ :: _, h => exact nomatch h
-  | [rr], h => ?_
-  simp only [reduceCtorEq] at h
-  try dsimp only at h
-  try simp only [] at h
-  by_cases hcond : rr.ctor = c ∧ rr.nfields = 2 ∧ mI = rP ∧
-      reservedBasisNames.contains (c'.str "rec") = true
-  case neg => rw [if_neg hcond] at h; exact nomatch h
-  rw [if_pos hcond] at h
-  obtain ⟨hrc, hrf, hmirp, hres⟩ := hcond
-  try simp only [Bind.bind, Except.bind] at h
-  cases hlev : Level.isEquivList us us' with
-  | none => rw [hlev] at h; simp [liftFueled] at h
-  | some okL =>
-  rw [hlev] at h
-  try dsimp only [liftFueled] at h
-  try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
-  try dsimp only at h
-  cases okL with
-  | false => simp [pure, Except.pure] at h
-  | true =>
-  simp only [↓reduceIte] at h
-  try simp only [Bind.bind, Except.bind] at h
-  cases hdA : isDefEqCore mode env fuel d pα A with
-  | error err => rw [hdA] at h; exact nomatch h
-  | ok bA =>
-  rw [hdA] at h
-  dsimp only at h
-  cases bA with
-  | false => simp [pure, Except.pure] at h
-  | true =>
-  simp only [↓reduceIte] at h
-  try simp only [Bind.bind, Except.bind] at h
-  cases hdB : isDefEqCore mode env fuel d pβ B with
-  | error err => rw [hdB] at h; exact nomatch h
-  | ok bB =>
-  rw [hdB] at h
-  dsimp only at h
-  cases bB with
-  | false => simp [pure, Except.pure] at h
-  | true =>
-  simp only [↓reduceIte] at h
-  try simp only [Bind.bind, Except.bind] at h
-  cases hd1 : isDefEqCore mode env fuel d s₁ (.proj c' 0 b) with
-  | error err => rw [hd1] at h; exact nomatch h
-  | ok b1 =>
-  rw [hd1] at h
-  dsimp only at h
-  cases b1 with
-  | false => simp [pure, Except.pure] at h
-  | true =>
-  simp only [↓reduceIte] at h
-  try simp only [Bind.bind, Except.bind] at h
-  cases hd2 : isDefEqCore mode env fuel d s₂ (.proj c' 1 b) with
-  | error err => rw [hd2] at h; exact nomatch h
-  | ok b2 =>
-  rw [hd2] at h
-  dsimp only at h
-  cases b2 with
-  | false => simp [pure, Except.pure] at h
-  | true =>
-  exact ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
-    mI, rP, rr, rfl, hfc, rfl, hwtb, hfi, hfr, hrc, hrf, hmirp, hres,
-    hlev, hdA, hdB, hd1, hd2⟩
-
 /-- `towerSlotsAll`, slot by slot. -/
 theorem towerSlotsAll_slot {env : Env} {T : Name} {nF : Nat}
     (h : towerSlotsAll env T nF = true) :
@@ -2522,24 +2273,17 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       us.length = entry.levelParams.length ∧
       -- the official `infer_proj` restriction (task #175 W4c/O4): at a
       -- `Prop`-declared structure the entry's guard level instantiates
-      -- to `Prop` (tower entries only; the pair entries carry no guard)
-      (entry.tower = true →
-        (Level.isEquiv entry.structSort .zero == some true) = true →
+      -- to `Prop`
+      ((Level.isEquiv entry.structSort .zero == some true) = true →
         (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
           == some true) = true) ∧
-      -- task #161 item B2 (harvest site 21 / P10): at a pair-backed
-      -- entry the returned type is *computed*, not walked, so the
-      -- inversion reads it off the two-way branch — `projResidualP`'s
-      -- conclusion, verbatim.  Task #175 wiring W2c: at a
-      -- tower-backed entry the returned type is the entry type's
-      -- residual along the spine and the subject; consumers with a
-      -- pin in scope (`ProjOkT`/`NativeProjPinned` `not_tower`) kill
-      -- that side, scoping/level consumers handle it directly.
-      ((entry.tower = false →
-        ∃ A B, te.getAppArgs = [A, B] ∧
-          ((i = 0 ∧ t = A) ∨ (i = 1 ∧ t = .app B (.proj T 0 e)))) ∧
-       (entry.tower = true →
-        ∃ ds, Expr.instPisAt (te.getAppArgs ++ [e])
+      -- task #175 wiring W2c: the returned type is the entry type's
+      -- residual along the spine and the subject (task #175 W6: the
+      -- pair fast path's computed two-way branch is gone with the
+      -- pinned pair entries — every native entry is tower-backed, and
+      -- consumers that need `entry.tower = true` read it off
+      -- `ProjOkT.tower_of_native`)
+      ((∃ ds, Expr.instPisAt (te.getAppArgs ++ [e])
             (entry.ty.instantiateLevelParams entry.levelParams us)
           = some (ds, t)) ∧
        -- task #175 wiring W5: the node's struct name is the head's
@@ -2581,73 +2325,42 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
   case isFalse => exact nomatch h
   case isTrue hcond =>
     obtain ⟨hnat, hsn, hlen, hus⟩ := hcond
-    by_cases htw : entry.tower = true
-    · -- the tower branch: the Prop guard (task #175 W4c/O4), then the
-      -- residual walk's result
-      rw [if_pos htw] at h
-      have hg : (Level.isEquiv entry.structSort .zero == some true) = true →
-          (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-            == some true) = true := by
-        intro hp
-        rw [if_pos hp] at h
-        by_cases hf : (Level.isEquiv
-            (Level.subst entry.levelParams us entry.fieldSort) .zero
-            == some true) = true
-        · exact hf
-        · rw [if_neg hf] at h
-          exact absurd h (by
-            simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind])
-      have h' : (match Expr.instPisAt (te.getAppArgs ++ [e])
-            (entry.ty.instantiateLevelParams entry.levelParams us) with
-          | some (_, resid) => (pure resid : Except CheckError Expr)
-          | none => (throw (CheckError.internal "malformed projection entry") :
-              Except CheckError Expr)) = .ok t := by
-        by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
-        · rw [if_pos hp, if_pos (hg hp)] at h
-          exact h
-        · rw [if_neg hp] at h
-          exact h
-      clear h
-      revert h'
-      cases hpi : Expr.instPisAt (te.getAppArgs ++ [e])
+    -- the Prop guard (task #175 W4c/O4), then the residual walk's
+    -- result
+    have hg : (Level.isEquiv entry.structSort .zero == some true) = true →
+        (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
+          == some true) = true := by
+      intro hp
+      rw [if_pos hp] at h
+      by_cases hf : (Level.isEquiv
+          (Level.subst entry.levelParams us entry.fieldSort) .zero
+          == some true) = true
+      · exact hf
+      · rw [if_neg hf] at h
+        exact absurd h (by
+          simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind])
+    have h' : (match Expr.instPisAt (te.getAppArgs ++ [e])
           (entry.ty.instantiateLevelParams entry.levelParams us) with
-      | none => intro h; exact nomatch h
-      | some q =>
-        obtain ⟨ds, resid⟩ := q
-        intro h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        subst h
-        exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-          fun _ => hg, fun hf => absurd htw (by simp [hf]), fun _ => ⟨ds, hpi⟩,
-          hsn⟩
-    · -- the pair branch, as before
-      rw [if_neg htw] at h
-      have htw' : entry.tower = false := by
-        cases hv : entry.tower
-        · rfl
-        · exact absurd hv htw
-      revert h
-      match hargs : te.getAppArgs, i with
-      | [A, B], 0 => ?_
-      | [A, B], 1 => ?_
-      | [], _ => intro h; exact nomatch h
-      | [_], _ => intro h; exact nomatch h
-      | _ :: _ :: _ :: _, _ => intro h; exact nomatch h
-      | [_, _], _ + 2 => intro h; exact nomatch h
-      · intro h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        subst h
-        exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-          fun ht => absurd ht (by simp [htw']),
-          fun _ => ⟨A, B, hargs, Or.inl ⟨rfl, rfl⟩⟩,
-          fun ht => absurd ht (by simp [htw']), hsn⟩
-      · intro h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        subst h
-        exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-          fun ht => absurd ht (by simp [htw']),
-          fun _ => ⟨A, B, hargs, Or.inr ⟨rfl, rfl⟩⟩,
-          fun ht => absurd ht (by simp [htw']), hsn⟩
+        | some (_, resid) => (pure resid : Except CheckError Expr)
+        | none => (throw (CheckError.internal "malformed projection entry") :
+            Except CheckError Expr)) = .ok t := by
+      by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
+      · rw [if_pos hp, if_pos (hg hp)] at h
+        exact h
+      · rw [if_neg hp] at h
+        exact h
+    clear h
+    revert h'
+    cases hpi : Expr.instPisAt (te.getAppArgs ++ [e])
+        (entry.ty.instantiateLevelParams entry.levelParams us) with
+    | none => intro h; exact nomatch h
+    | some q =>
+      obtain ⟨ds, resid⟩ := q
+      intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+        hg, ⟨ds, hpi⟩, hsn⟩
 
 /-! ## The tower-entry helpers (task #175 wiring W2c)
 
@@ -2655,6 +2368,24 @@ Shared by the inversion's consumers: the stored entry type is a stored
 constant's closed type, and `instPisAt` preserves scoping.
 (`instPisAt_WScoped` moved here from `BridgeWfImp` so the leaf modules
 can reach it.) -/
+
+/-- A stored constant's type has no fvars (`ConstWF`), after any level
+instantiation — the projection certificate's telescope (task #175 W6). -/
+theorem const_ty_hasFvar {env : Env} (henv : EnvWF env) {n : Name}
+    {ci : ConstantInfo} (hf : env.find? n = some ci) (us : List Level) :
+    (ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams
+      us).hasFvar = false := by
+  have hwf := henv _ (List.mem_of_find?_eq_some hf)
+  rw [Expr.hasFvar_instantiateLevelParams]
+  exact hwf.1
+
+/-- ...and is therefore scoped at any depth. -/
+theorem const_ty_WScoped {env : Env} (henv : EnvWF env) {n : Name}
+    {ci : ConstantInfo} (hf : env.find? n = some ci) (us : List Level)
+    {d : Nat} :
+    WScoped d (ci.toConstantVal.type.instantiateLevelParams
+      ci.toConstantVal.levelParams us) :=
+  WScoped.of_not_hasFvar (const_ty_hasFvar henv hf us)
 
 /-- A stored projection entry's type has no fvars (it is a stored
 constant's type; `ConstWF`), after any level instantiation. -/

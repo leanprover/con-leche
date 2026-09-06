@@ -194,29 +194,15 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       obtain ⟨ba, hba⟩ := ih hbt hwo hbo hLo
       exact ⟨_, by rw [denoteP_lam, hta, hba]; rfl⟩
     | .proj sn i pe =>
-      obtain ⟨tpe, te, T, us, entry, htpe, -, -, hfe, hnat, -, -, -, -, -,
+      obtain ⟨tpe, te, T, us, entry, htpe, -, -, hfe, hnat, -, -, -, -,
         hsn⟩ := Setlec.inferTypeCore_proj_inv h
       subst hsn
       simp only [Expr.WScoped] at hws
       simp only [Expr.looseBVarsBounded] at hb
       obtain ⟨pa, hpa⟩ := ih htpe hws hb (fun l hl =>
         hL l (by simpa [Expr.fvarLeaves] using hl))
-      by_cases htw : entry.tower = true
-      · exact ⟨_, denoteP_proj_tower hfe htw hpa⟩
-      · have htw' : entry.tower = false := by
-          cases hv : entry.tower
-          · rfl
-          · exact absurd hv htw
-        obtain ⟨-, -, hi2, -⟩ := projPinsP m.proj_ok hfe hnat htw'
-        have hnt : ∀ entry', env.findProj? T i = some entry' →
-            entry'.tower = false := by
-          intro e he
-          obtain rfl : entry = e := Option.some.inj (hfe.symm.trans he)
-          exact htw'
-        exact ⟨_, by
-          rw [denoteP_proj_pair m.acval (env := env) (φ := φ) _ _ _ _ hnt,
-            hpa]
-          exact if_pos hi2⟩
+      have htw : entry.tower = true := m.proj_ok.tower_of_native hfe hnat
+      exact ⟨_, denoteP_proj_tower hfe htw hpa⟩
     | .letE n ty val body =>
       obtain ⟨tty, s, tv, htty, -, htv, -, hbody⟩ :=
         Setlec.inferTypeCore_letE_inv h

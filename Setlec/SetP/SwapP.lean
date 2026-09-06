@@ -369,8 +369,9 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
       hO5, cvC, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
       fun us hus => ?_, ?_⟩
-    · obtain ⟨⟨Ta, hTa, hA⟩, hB⟩ := hlaw us hus
-      exact ⟨⟨Ta, by rw [← hde]; exact hTa, hA⟩, hB⟩
+    · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
+      exact ⟨⟨Ta, by rw [← hde]; exact hTa, hA⟩,
+        ⟨TCa, by rw [← hde]; exact hTCa, hB⟩⟩
     · -- (C) the η law (task #175 W4c): the former's lookup is unchanged
       -- by the swap, and the reading is `hde`
       intro cvT' capsT' hfT' us hus

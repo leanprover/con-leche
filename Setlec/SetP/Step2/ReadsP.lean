@@ -2,7 +2,8 @@ import Setlec.SetP.Step2.InferP
 import Setlec.SetP.Step2.InferIOP
 import Setlec.SetP.Step2.WhnfP
 import Setlec.SetP.Step2.DefEqP
-import Setlec.SetP.Step2.ProjPinsP
+import Setlec.SetP.Step2.StuckP
+import Setlec.SetBase.SpineV
 import Setlec.SetP.Step2.TowerKitP
 import Setlec.SetP.Annot.EnvS2P
 import Setlec.SetBase.LitParams
@@ -333,7 +334,7 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
     InferProjReadsP μ m φ fuel := by
   intro d i sn pe t ea h hws hb hLb hlr hea
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat, hlenArgs,
-    hlenUs, hguard, hpair, htow, hsn⟩ := Setlec.inferTypeCore_proj_inv h
+    hlenUs, hguard, ⟨ds, hpi⟩, hsn⟩ := Setlec.inferTypeCore_proj_inv h
   subst hsn
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
@@ -360,49 +361,24 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
     (Setlec.Expr.mkAppN_getApp te).symm] at htea
   obtain ⟨-, vs, -, hspt, -⟩ := denoteP_mkAppN_inv htea
-  by_cases htw : entry.tower = true
-  · -- tower-backed: the residual is the peel of the entry type, read
-    obtain ⟨ds, hpi⟩ := htow htw
-    obtain ⟨-, -, -, -, -, -, -, -, -, hlaw, -⟩ := htower T i entry hfe htw
-    obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
-    obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
-    have hframes : ∀ x ∈ te.getAppArgs ++ [pe],
-        Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true := by
-      intro x hx
-      rcases List.mem_append.mp hx with hx' | hx'
-      · exact ⟨hwte'.getAppArgs x hx',
-          Setlec.looseBVarsBounded_getAppArgs hbte x hx'⟩
-      · rcases List.mem_singleton.mp hx' with rfl
-        exact ⟨hws, hb⟩
-    obtain ⟨restA, hrest, -⟩ := denoteP_instPisAt_peel m.acval_closed
-      (acval_inst_self m) (te.getAppArgs ++ [pe]) hpi
-      (Expr.WScoped.of_not_hasFvar (towerEntry_tyI_closed m.wf hfe us).1)
-      hframes (hTad d) (hspt.snoc hvp)
-    exact ⟨restA, hrest⟩
-  · -- pair-backed: the clause's own computed two-way residual
-    have htw' : entry.tower = false := by
-      cases hv : entry.tower
-      · rfl
-      · exact absurd hv htw
-    obtain ⟨A, B, hAB, hcase⟩ := hpair htw'
-    obtain ⟨hnt, hi2, rfl⟩ : (∀ entry', env.findProj? T i = some entry' →
-        entry'.tower = false) ∧ i < 2 ∧ ea = .proj i vp := by
-      rcases hrd with ⟨entry', hfe', htw'', -⟩ | h
-      · obtain rfl := Option.some.inj (hfe'.symm.trans hfe)
-        exact absurd htw'' htw
-      · exact h
-    rw [hAB] at hspt
-    rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
-    · exact hspt.mem t (by simp)
-    · obtain ⟨Ba, hBa⟩ := hspt.mem B (by simp)
-      -- the first projection node sits at the pair block's own slot
-      obtain ⟨rfl, -⟩ := projPinsP m.proj_ok hfe hnat htw'
-      have hnt0 : ∀ entry', env.findProj? Setlec.psigmaName 0 = some entry' →
-          entry'.tower = false := fun e he => m.proj_ok.psigma_not_tower he
-      exact ⟨.app Ba (.proj 0 vp), by
-        rw [denoteP_app, hBa, denoteP_proj_pair m.acval (env := env)
-          (φ := φ) _ _ _ _ hnt0, hvp]
-        simp⟩
+  have htw : entry.tower = true := m.proj_ok.tower_of_native hfe hnat
+  -- tower-backed: the residual is the peel of the entry type, read
+  obtain ⟨-, -, -, -, -, -, _, -, -, hlaw, -⟩ := htower T i entry hfe htw
+  obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
+  obtain ⟨hTad, -⟩ := towerEntry_ty_at_depth hfe hTa
+  have hframes : ∀ x ∈ te.getAppArgs ++ [pe],
+      Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · exact ⟨hwte'.getAppArgs x hx',
+        Setlec.looseBVarsBounded_getAppArgs hbte x hx'⟩
+    · rcases List.mem_singleton.mp hx' with rfl
+      exact ⟨hws, hb⟩
+  obtain ⟨restA, hrest, -⟩ := denoteP_instPisAt_peel m.acval_closed
+    (acval_inst_self m) (te.getAppArgs ++ [pe]) hpi
+    (Expr.WScoped.of_not_hasFvar (towerEntry_tyI_closed m.wf hfe us).1)
+    hframes (hTad d) (hspt.snoc hvp)
+  exact ⟨restA, hrest⟩
 
 /-! ## T3a — the `whnfCore` clauses -/
 

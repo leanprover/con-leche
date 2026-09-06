@@ -490,8 +490,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
     (htower : entry.tower = false)
     (hlps : entry.levelParams = lps)
     (hty : entry.ty = .sort .zero)
-    (hpnone : (env'.find? (projFnName T i)).isNone = true)
-    (hTnres : Setlec.reservedBasisNames.contains T = false) :
+    (hpnone : (env'.find? (projFnName T i)).isNone = true) :
     ∃ mp' : EnvS2PM V μ ⟨.projInfo entry :: env'.consts⟩,
       mp'.base2.cvalE
         = cvalWith mp.base2.cvalE (projFnName T i) templateVal := by
@@ -523,20 +522,10 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
   have hheadP : ConsHeadP env' (.projInfo entry) templateValP := by
     refine ⟨?_, (fun _ => ⟨trivial, trivial, trivial⟩),
       (fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h)),
-      (fun e2 heq hnat2 _ => by
+      (fun e2 heq hnat2 => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         rw [hnat] at hnat2
         exact nomatch hnat2),
-      (fun i2 e2 heq hpair => by
-        exfalso
-        obtain rfl := ConstantInfo.projInfo.inj heq
-        rw [hname] at hpair
-        have hTps : T = Setlec.psigmaName := by
-          have hh : Name.num (T.str "proj") i
-            = Name.num (Setlec.psigmaName.str "proj") i2 := hpair
-          exact (Name.str.inj (Name.num.inj hh).1).1
-        rw [hTps] at hTnres
-        exact absurd hTnres (by decide)),
       (ConsCrossEnv.ofNtc fun e2 heq => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact htower),
@@ -599,8 +588,7 @@ theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
 set_option maxHeartbeats 1600000 in
 /-- **The elimination-template fold, at both tiers** (`templatesS`).
 Nothing but the model survives it, so nothing is carried out. -/
-theorem templatesP {T ctorName : Name} {lps : List Name} {nP nF : Nat}
-    (hTnres : Setlec.reservedBasisNames.contains T = false) :
+theorem templatesP {T ctorName : Name} {lps : List Name} {nP nF : Nat} :
     ∀ (fields : List Nat) {env' : Env} (_mp : EnvS2PM V μ env')
       {env₂ : Env},
       DeclIndR.TemplatesR T ctorName lps nP nF env' fields env₂ →
@@ -618,7 +606,7 @@ theorem templatesP {T ctorName : Name} {lps : List Name} {nP nF : Nat}
       hty, hpnone, rfl⟩
     · exact ih mp hrec
     · obtain ⟨mp', hcval'⟩ :=
-        templateConsP mp hstruct hidx hnat htower hlps hty hpnone hTnres
+        templateConsP mp hstruct hidx hnat htower hlps hty hpnone
       exact ih mp' hrec
 
 end Setlec.SetR.Interp2
