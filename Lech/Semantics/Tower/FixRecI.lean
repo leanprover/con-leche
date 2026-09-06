@@ -273,15 +273,8 @@ theorem mem_recIdx {rs : List Bool} {k i : Nat} :
   unfold recIdx
   rw [List.mem_filter, List.mem_range]
 
-/-- The parameters' values at the K-frame, in order. -/
-noncomputable def frPs (nP n nIdx : Nat) (ρ₀ : Nat → V) : List V :=
-  (List.range nP).map fun m => frP n nIdx ρ₀ (nP - 1 - m)
-
 /-- The unfolded function's value: the entry just below the parameters. -/
 noncomputable def frR (nP n nIdx : Nat) (ρ₀ : Nat → V) : V := frP n nIdx ρ₀ nP
-
-/-- The minors' values, in order. -/
-noncomputable def frMsL (n nIdx : Nat) (ρ₀ : Nat → V) : List V := (List.range n).map (frMs n nIdx ρ₀)
 
 /-- The frame below the unfolded function. -/
 noncomputable def frBelow (nP n nIdx : Nat) (ρ₀ : Nat → V) : Nat → V :=
@@ -290,14 +283,6 @@ noncomputable def frBelow (nP n nIdx : Nat) (ρ₀ : Nat → V) : Nat → V :=
 /-- The K-frame's `(p⃗, M, m⃗)` part as a spine. -/
 noncomputable def frKSpine (nP n nIdx : Nat) (ρ₀ : Nat → V) : List V :=
   frameIdx (nP + 1 + n) (shiftE nIdx 0 ρ₀)
-
-omit [SetTheory V] in
-theorem frPs_length (nP n nIdx : Nat) (ρ₀ : Nat → V) : (frPs nP n nIdx ρ₀).length = nP := by
-  simp [frPs]
-
-omit [SetTheory V] in
-theorem frMsL_length (n nIdx : Nat) (ρ₀ : Nat → V) : (frMsL n nIdx ρ₀).length = n := by
-  simp [frMsL]
 
 omit [SetTheory V] in
 /-- The frame below the function, consed with the function and the
@@ -329,21 +314,12 @@ theorem consList_frKSpine (nP n nIdx : Nat) (ρ₀ : Nat → V) :
 
 /-! ## The inductive hypothesis arguments -/
 
-/-- The parameter variables at the payload frame (depth `D + 1`). -/
-def paramsAtAV (nP n nIdx D : Nat) : List AVExpr :=
-  (List.range nP).map fun m => .bvar (D + 1 + nIdx + n + 1 + (nP - 1 - m))
-
-/-- The minor variables at the payload frame. -/
-def minorsAtAV (n nIdx D : Nat) : List AVExpr :=
-  (List.range n).map fun j => .bvar (D + 1 + nIdx + n - 1 - j)
-
-/-- The ih argument for recursive field `i` at the payload frame: the
-unfolded function at the parameters, the motive, the minors, the
-field's index expressions (read at the payload's projections) and the
-field. -/
+/-- The ih argument for recursive field `i` at the payload frame (depth
+`D + 1`): the unfolded function at the `(p⃗, M, m⃗)` block, the field's
+index expressions (read at the payload's projections) and the field. -/
 def ihArgAV (nP n nIdx D i : Nat) (Eis : List AVExpr) : AVExpr :=
   AVExpr.mkAppN (.bvar (D + 1 + nIdx + n + 1 + nP))
-    (paramsAtAV nP n nIdx D ++ [.bvar (D + 1 + nIdx + n)] ++ minorsAtAV n nIdx D ++
+    (idxVarsAV (nP + 1 + n) (D + 1 + nIdx) ++
       Eis.map (fun E => substProj i (E.liftN (D + nIdx + n + 2) i)) ++ [projAV i (.bvar 0)])
 
 /-- The ih arguments of constructor `j`. -/
@@ -360,10 +336,10 @@ noncomputable def ihDomsI (ρp : Nat → V) (M : V) (rss : List (List Bool))
       SetTheory.app M) (fs.getD i pt)
 
 /-- The ih values at a payload: the function at the spine. -/
-noncomputable def ihValsI (ρp : Nat → V) (rV M : V) (ps ms : List V) (rss : List (List Bool))
+noncomputable def ihValsI (ρp : Nat → V) (rV : V) (kspine : List V) (rss : List (List Bool))
     (Eiss : List (List (List AVExpr))) (ar : Nat → Nat) (j : Nat) (y : V) : List V :=
   (recIdx (rss.getD j []) (ar j)).map fun i =>
-    (ps ++ [M] ++ ms ++ (((Eiss.getD j []).getD i []).map (interp2 V (consList (projList i y) ρp)))
+    (kspine ++ (((Eiss.getD j []).getD i []).map (interp2 V (consList (projList i y) ρp)))
       ++ [projS i y]).foldl SetTheory.app rV
 
 section IhFacts
@@ -371,34 +347,14 @@ section IhFacts
 variable {ℓ w u nP : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
   {rss : List (List Bool)} {Eiss : List (List (List AVExpr))} {D : Nat}
 
-/-- The parameter variables read to the parameters. -/
-theorem paramsAtAV_interp (hfr : RecFrameS D ρ₀ σ) (y : V) :
-    (paramsAtAV nP Fss.length Ids.length D).map (interp2 V (cons y σ))
-      = frPs nP Fss.length Ids.length ρ₀ := by
-  unfold paramsAtAV frPs
-  rw [List.map_map]
-  apply List.map_congr_left
-  intro m _
-  show interp2 V (cons y σ) (.bvar (D + 1 + Ids.length + Fss.length + 1 + (nP - 1 - m))) = _
-  rw [interp2_bvar, show D + 1 + Ids.length + Fss.length + 1 + (nP - 1 - m)
-      = (D + 1) + (Ids.length + Fss.length + 1 + (nP - 1 - m)) from by omega,
-    (hfr.push y).apply]
-  unfold frP
-  rw [shiftE_zero]
-  show ρ₀ _ = ρ₀ _
-  congr 1
-  omega
-
-theorem minorsAtAV_interp (hfr : RecFrameS D ρ₀ σ) (y : V) :
-    (minorsAtAV Fss.length Ids.length D).map (interp2 V (cons y σ))
-      = frMsL Fss.length Ids.length ρ₀ := by
-  unfold minorsAtAV frMsL
-  rw [List.map_map]
-  apply List.map_congr_left
-  intro j hj
-  show interp2 V (cons y σ) (.bvar (D + 1 + Ids.length + Fss.length - 1 - j)) = _
-  rw [interp2_bvar]
-  exact (hfr.push y).minor (List.mem_range.mp hj)
+/-- The `(p⃗, M, m⃗)` block's variables read to the K-frame's spine. -/
+theorem kSpineAt_interp (hfr : RecFrameS D ρ₀ σ) (y : V) :
+    (idxVarsAV (nP + 1 + Fss.length) (D + 1 + Ids.length)).map (interp2 V (cons y σ))
+      = frKSpine nP Fss.length Ids.length ρ₀ := by
+  have hfr' : RecFrameS (D + 1 + Ids.length) (shiftE Ids.length 0 ρ₀) (cons y σ) := by
+    unfold RecFrameS
+    rw [shiftE_add', shiftE_succ_cons, hfr]
+  exact map_idxVarsAV_interp hfr'
 
 theorem rAt_interp (hfr : RecFrameS D ρ₀ σ) (y : V) :
     interp2 V (cons y σ) (.bvar (D + 1 + Ids.length + Fss.length + 1 + nP))
