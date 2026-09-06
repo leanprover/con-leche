@@ -207,6 +207,9 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       exact SimC.pure hs₂ rfl
     · simp only [if_neg hab']
       -- hoisted proof irrelevance (the `Prop` branch, task #168)
+      -- the D4 quick-pair read
+      refine SimC.withStore ?_
+      rw [quickPairI_spec ha'd hb'd]
       refine SimC.bind (propIrrelIfC_sim ih hs₂ ha'd hb'd hwa' hwb' _)
         (fun s₂p rpi rpix hs₂p hPpi => ?_)
       cases hPpi
