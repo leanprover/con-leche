@@ -22,6 +22,12 @@
 set -u
 cd "$(dirname "$0")/.."
 
+# Scratch space goes to DISK, never tmpfs (task #180): honour TMPDIR if
+# set, else the project's on-disk ./_tmp/tmp.  Exported, so children see
+# the same choice.
+export TMPDIR="${TMPDIR:-$PWD/_tmp/tmp}"
+mkdir -p "$TMPDIR"
+
 MODEFLAG=--verified
 args=()
 for a in "$@"; do
@@ -83,7 +89,7 @@ while read -r exp rel mode; do
   case "$exp" in ''|'#'*) continue;; esac
   src="tests/e2e/$rel"
   if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
-    tmpf="${TMPDIR:-/tmp}/setlec-pilot-$(basename "$rel")"
+    tmpf="$TMPDIR/setlec-pilot-$(basename "$rel")"
     gunzip -c "$src.gz" > "$tmpf" || { echo "E2E gunzip failed $rel"; fail=1; continue; }
     src="$tmpf"
   fi
