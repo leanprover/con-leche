@@ -257,6 +257,126 @@ def directRecRhs (T : Name) (lps : List Name) (elim : Name) (large : Bool)
       (.lam (.str .anonymous "motive") (directMotiveTy T lps nP ℓ) minors
         ⟨.default, pw⟩)
 
+/-! ## The generated recursor at an indexed family (task #175 indexed)
+
+A non-recursive family `T : ∀ p⃗ ı⃗, Sort w` with constructors
+`C_k : ∀ p⃗ f⃗, T p⃗ e⃗_k` (the index expressions `e⃗_k` arbitrary terms
+over the parameters and the fields) has the recursor
+
+    ∀ p⃗ {motive : ∀ ı⃗ (t : T p⃗ ı⃗), Sort ℓ}
+      (minor_k : ∀ f⃗, motive e⃗_k (C_k p⃗ f⃗))…
+      ı⃗ (t : T p⃗ ı⃗), motive ı⃗ t
+
+(lean4lean `Inductive/Add.lean:326-483`, official `mk_rec_infos`):
+the index binders are the type former's own telescope past the
+parameters, re-emitted twice — at the motive (over the parameters
+alone) and after the minors (lifted under the motive and the `n`
+minors); the minor's conclusion applies the motive to the
+constructor's residual index expressions (lifted under the extras)
+before the constructor spine.  The rules are `directRecRhs`'s: a
+rule binds no index (`rulePrefix = nP + 1 + n`).  At `nIdx = 0` every
+generator below is the index-free one above. -/
+
+/-- The family applied to its parameter variables and its index
+variables: `e` extra binders sit between the parameters and the
+indices (the motive and the minors), `o` binders below the index
+frame. -/
+def directFamI (T : Name) (lps : List Name) (nP nIdx e o : Nat) : Expr :=
+  Expr.mkAppN (.const T (lps.map .param)) (directPsAt (o + e + nIdx) nP ++ directPsAt o nIdx)
+
+theorem directFamI_zero (T : Name) (lps : List Name) (nP e : Nat) :
+    directFamI T lps nP 0 e 0 = directFam T lps nP e := by
+  simp [directFamI, directFam_eq, directPsAt]
+
+/-- A constructor residual's shape at an indexed family: the family
+at exactly the parameter variables (`o` binders below the parameter
+frame) followed by `nIdx` index expressions. -/
+def directCtorResidOk (T : Name) (lps : List Name) (nP o nIdx : Nat) (cbody : Expr) : Bool :=
+  cbody.getAppFn == .const T (lps.map .param) &&
+  cbody.getAppArgs.length == nP + nIdx &&
+  cbody.getAppArgs.take nP == directPsAt o nP
+
+/-- The motive's type `∀ ı⃗ (t : T p⃗ ı⃗), Sort ℓ` at the parameters'
+frame, over the former's index telescope `itele = ∀ ı⃗, Sort w` (scoped
+at the parameters); every binder's codomain is a type former, never a
+proposition. -/
+def directMotiveTyI (T : Name) (lps : List Name) (nP nIdx : Nat) (ℓ : Level) (itele : Expr) :
+    Option Expr :=
+  Expr.replacePisPw .never nIdx itele
+    (.forallE (.str .anonymous "t") (directFamI T lps nP nIdx 0 0) (.sort ℓ) ⟨.default, .never⟩)
+
+/-- Constructor `C`'s minor premise at an indexed family: its field
+telescope lifted under the `o` extras, ending in
+`motive e⃗ (C p⃗ f⃗)` — the residual's index expressions lifted under
+the extras (cutoff `nF`: the fields stay, the parameters move). -/
+def directMinorTyI (C : Name) (lps : List Name) (nP nF o : Nat) (pw : PropWhen)
+    (cty : Expr) : Option Expr :=
+  (cty.stripPis nP).bind fun q =>
+  (q.2.stripPis nF).bind fun r =>
+    Expr.replacePisPw pw nF (q.2.liftLooseBVars o 0)
+      (Expr.mkAppN (.bvar (nF + o - 1))
+        ((r.2.getAppArgs.drop nP).map (Expr.liftLooseBVars o nF) ++
+          [directCtorSpineAt C lps o nP nF]))
+
+/-- The minor premises' `∀`-telescope at an indexed family. -/
+def directMinorsPisI (lps : List Name) (nP : Nat) (pw : PropWhen) :
+    List (Name × Nat × Expr) → Nat → Expr → Option Expr
+  | [], _, body => some body
+  | (C, nF, cty) :: cs, o, body =>
+    (directMinorTyI C lps nP nF o pw cty).bind fun mty =>
+      (directMinorsPisI lps nP pw cs (o + 1) body).map fun rest =>
+        .forallE (Name.lastStr C) mty rest ⟨.default, pw⟩
+
+/-- The `λ` twin of `directMinorsPisI` (the rule's minor binders). -/
+def directMinorsLamsI (lps : List Name) (nP : Nat) (pw : PropWhen) :
+    List (Name × Nat × Expr) → Nat → Expr → Option Expr
+  | [], _, body => some body
+  | (C, nF, cty) :: cs, o, body =>
+    (directMinorTyI C lps nP nF o pw cty).bind fun mty =>
+      (directMinorsLamsI lps nP pw cs (o + 1) body).map fun rest =>
+        .lam (Name.lastStr C) mty rest ⟨.default, pw⟩
+
+/-- **The generated rule** for constructor `j` at an indexed family:
+`λ p⃗ motive minor⃗ f⃗_j, minor_j f⃗_j` — `directRecRhs` with the motive's
+and the minors' λ-domains at the indexed shapes (a rule binds no
+index). -/
+def directRecRhsI (T : Name) (lps : List Name) (elim : Name) (large : Bool)
+    (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) (j : Nat) :
+    Option Expr :=
+  let ℓ := directElimLevel elim large
+  let pw := Level.zeronessOf ℓ
+  let n := ctors.length
+  match ctors[j]? with
+  | none => none
+  | some (_, nF, cty) =>
+    (tty.stripPis nP).bind fun tq =>
+    (directMotiveTyI T lps nP nIdx ℓ tq.2).bind fun motiveTy =>
+    (cty.stripPis nP).bind fun q =>
+    (Expr.pisToLamsPw pw nF (q.2.liftLooseBVars (n + 1) 0)
+        (Expr.mkAppN (.bvar (nF + n - 1 - j))
+          ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))).bind fun inner =>
+    (directMinorsLamsI lps nP pw ctors 1 inner).bind fun minors =>
+    Expr.pisToLamsPw pw nP tty
+      (.lam (.str .anonymous "motive") motiveTy minors ⟨.default, pw⟩)
+
+/-- **The generated recursor type at an indexed family** (see the
+section docstring).  `tty = ∀ p⃗ ı⃗, Sort w` is the annotated type
+former's type. -/
+def directRecTyI (T : Name) (lps : List Name) (elim : Name) (large : Bool)
+    (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) : Option Expr :=
+  let ℓ := directElimLevel elim large
+  let pw := Level.zeronessOf ℓ
+  let n := ctors.length
+  (tty.stripPis nP).bind fun q =>
+  (directMotiveTyI T lps nP nIdx ℓ q.2).bind fun motiveTy =>
+  (Expr.replacePisPw pw nIdx (q.2.liftLooseBVars (n + 1) 0)
+      (.forallE (.str .anonymous "t") (directFamI T lps nP nIdx (n + 1) 0)
+        (Expr.mkAppN (.bvar (nIdx + n + 1)) (directPsAt 1 nIdx ++ [.bvar 0]))
+        ⟨.default, pw⟩)).bind fun major =>
+  (directMinorsPisI lps nP pw ctors 1 major).bind fun minors =>
+    Expr.replacePisPw pw nP tty
+      (.forallE (.str .anonymous "motive") motiveTy minors ⟨.default, pw⟩)
+
 /-- The pieces of a recognised simple-structure block. -/
 structure DirectParts where
   /-- the type former -/

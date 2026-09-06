@@ -1,44 +1,51 @@
 import Setlec.Kernel.Direct.Parts
 
 /-!
-# The direct sum class: recognition (task #175 sum-types)
+# The direct sum class: recognition (task #175 sum-types, indexed)
 
-A **direct sum** is a non-recursive, non-indexed, non-nested inductive
-with **any number of constructors other than one** — enumerations
-(`Bool`, `Ordering`), option- and sum-like types (`Option`, `Sum`,
-`Decidable`), propositional disjunctions (`Or`), and the empty
-inductives (zero constructors).  The single-constructor class is the
-direct *structure* route (`Setlec/Kernel/Direct/Parts.lean`), which
-keeps its projection table, eta and unit-likeness; a sum has none of
-those (the official kernel's `is_structure_like` needs one
-constructor), so the two routes are disjoint by the constructor count
-and this recogniser rejects `n = 1` outright.
+A **direct sum** is a non-recursive, non-nested inductive with **any
+number of constructors other than one**, or — task #175 indexed — an
+**indexed family** (`numIndices > 0`) with any number of constructors:
+enumerations (`Bool`, `Ordering`), option- and sum-like types
+(`Option`, `Sum`, `Decidable`), propositional disjunctions (`Or`), the
+empty inductives (zero constructors), and the index-carrying families
+(`Eq`-shaped propositions, `Vector`-like non-recursive families,
+`SigmaHom`).  The single-constructor index-free class is the direct
+*structure* route (`Setlec/Kernel/Direct/Parts.lean`), which keeps its
+projection table, eta and unit-likeness; nothing here has those (the
+official kernel's `is_structure_like` needs one constructor AND no
+index), so the two routes are disjoint and this recogniser rejects
+`n = 1 ∧ nIdx = 0` outright.
 
 The model is the **tagged disjoint union** of one tuple tower per
-constructor (`Setlec/SetModel/TaggedSum.lean`): a value is the pair of
-a numeral tag (the constructor's index) and the constructor's tower;
+constructor (`Setlec/SetModel/TaggedSum.lean`), the family's carrier
+at an index tuple being the union of the towers RESTRICTED to the
+index equation `e⃗_k f⃗ = ı⃗` (one extra proof-field per constructor,
+`Setlec/Semantics/Tower/SumLeaf.lean`): a value is the pair of a
+numeral tag (the constructor's index) and the constructor's tower;
 the recursor cases on the tag.  Installation is the direct route's
 (`Setlec/Kernel/Direct/SumInstall.lean`): the reference checks alone,
 no `_model` artifact consumed, the recursor generated and compared
-(task #175 S2 — `directRecTy`/`directRecRhs` were written over a
-constructor list from the start).
+(task #175 S2 — `directRecTyI`/`directRecRhs`).
 
 The checks mirror the reference kernels' inductive-declaration checks
 restricted to this class (lean4lean `Lean4Lean/Inductive/Add.lean`,
 the official `inductive.cpp`):
 
-* the type former's type is a `∀`-telescope of exactly `numParams`
-  binders ending in a `Sort`; index-free means the telescope ends there;
+* the type former's type is a `∀`-telescope of exactly
+  `numParams + numIndices` binders ending in a `Sort`;
 * every constructor's type is a `∀`-telescope whose first `numParams`
   binders are the parameters, ending in the type former applied to
-  exactly those parameters (`isValidIndAppIdx`); the parameter domains
-  are pinned definitionally at install (`checkDirectDomsAt`);
+  exactly those parameters followed by `numIndices` index expressions
+  (`isValidIndAppIdx`); the parameter domains are pinned
+  definitionally at install (`checkDirectDomsAt`);
 * no recursive occurrence: every constructor binder domain resolves
   in the pre-block environment (`directSumNonRec`), which subsumes
   positivity for this class and is what the model construction needs;
-* the recursor is `T.rec` with no indices, one motive, one minor per
-  constructor (`majorIdx = rulePrefix = numParams + 1 + n`), one rule
-  per constructor in constructor order whose right-hand side is
+* the recursor is `T.rec` with `numIndices` indices, one motive, one
+  minor per constructor (`rulePrefix = numParams + 1 + n`, `majorIdx =
+  rulePrefix + numIndices`), one rule per constructor in constructor
+  order whose right-hand side is
   `λ p⃗ motive minor⃗ f⃗_j, minor_j f⃗_j` (`mkRecRules`); the large
   eliminator carries a fresh elimination level parameter in front of
   the block's, the small one the block's own.  The recursor's *type*
@@ -47,10 +54,15 @@ the official `inductive.cpp`):
   an inductive whose result sort is not provably nonzero
   (`Level.isNeverZero`) and which has two or more constructors
   eliminates into `Prop` only — a large eliminator on such a block is
-  rejected at install (`checkDirectSum`).  This is the rule that keeps
+  rejected at install (`checkDirectSum`); with ONE constructor every
+  field that is not a proposition must be one of the residual's index
+  expressions (`checkDirectFieldSortsI`, official's subsingleton-
+  elimination criterion — `Eq`'s rule).  This is the rule that keeps
   the model's iota law consistent: at a squash instantiation every
   constructor value is the proof point, and two rules firing to two
-  different minors on the same value would contradict each other.
+  different minors on the same value would contradict each other;
+  with one constructor the recursor reads the data fields off the
+  index arguments instead of the (squashed) value.
 -/
 
 namespace Setlec
@@ -70,6 +82,8 @@ structure DirectSumParts where
   ctors : List (ConstantVal × Nat)
   /-- parameter count -/
   nP : Nat
+  /-- index count (task #175 indexed; `0` at a plain sum) -/
+  nIdx : Nat
   /-- the recursor -/
   cvR : ConstantVal
   /-- the recursor's fresh elimination level parameter (`large` only;
@@ -119,21 +133,24 @@ def directSumPartsCore? (block : List ConstantInfo) : Option DirectSumParts :=
       let T := cvT.name
       let lps := cvT.levelParams
       let n := cs.length
-      -- one constructor is the direct structure route; the parameter
-      -- count is read off the recursor (`rulePrefix = nP + 1 + n`)
-      -- and must agree with every constructor's
-      if n == 1 || rP < n + 1 then none else
+      -- the parameter and index counts are read off the recursor
+      -- (`rulePrefix = nP + 1 + n`, `majorIdx = rulePrefix + nIdx`)
+      -- and must agree with every constructor's; one constructor
+      -- without an index is the direct structure route
+      if rP < n + 1 || mI < rP then none else
       let nP := rP - (n + 1)
-      if cvR.name == T.str "rec" && mI == rP &&
+      let nIdx := mI - rP
+      if n == 1 && nIdx == 0 then none else
+      if cvR.name == T.str "rec" &&
           reservedBasisNames.contains T == false &&
           reservedBasisNames.contains cvR.name == false &&
           cs.all (fun c => c.2.1 == nP && c.1.levelParams == lps &&
             reservedBasisNames.contains c.1.name == false &&
             (match c.1.type.stripPis (nP + c.2.2) with
-             | some (_, cbody) => cbody == directFam T lps nP c.2.2
+             | some (_, cbody) => directCtorResidOk T lps nP c.2.2 nIdx cbody
              | none => false)) &&
           directSumRulesOk nP n cs rules then
-        match cvT.type.stripPis nP with
+        match cvT.type.stripPis (nP + nIdx) with
         | some (_, .sort s) =>
           let isProp := Level.isEquiv s .zero == some true
           let ctors := cs.map fun c => (c.1, c.2.2)
@@ -144,10 +161,10 @@ def directSumPartsCore? (block : List ConstantInfo) : Option DirectSumParts :=
               if relps == lps && !lps.contains elim then some elim else none
             | [] => none
           match large? with
-          | some elim => some ⟨cvT, ctors, nP, cvR, elim, s, rhss, true, isProp⟩
+          | some elim => some ⟨cvT, ctors, nP, nIdx, cvR, elim, s, rhss, true, isProp⟩
           | none =>
             if cvR.levelParams == lps then
-              some ⟨cvT, ctors, nP, cvR, .anonymous, s, rhss, false, isProp⟩
+              some ⟨cvT, ctors, nP, nIdx, cvR, .anonymous, s, rhss, false, isProp⟩
             else none
         | _ => none
       else none

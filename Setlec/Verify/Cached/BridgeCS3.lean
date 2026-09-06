@@ -260,12 +260,70 @@ theorem checkDirectRecS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
   refine SimC.bind (opE_infer_sim hμ henv hs₆ hwr) (fun s₇ rty rty' hs₇ hT => ?_)
   exact SimC.pure hs₇ rfl
 
-/-! ## The direct sum install (task #175 sum-types)
+/-! ## The direct sum install (task #175 sum-types, indexed)
 
 The same three stages over a constructor *list*: the former, one
 constructor stage per constructor — all at the environment holding the
 type former alone — and the recursor, generated and compared, whose
-rules loop runs `inferType` on closed generated right-hand sides. -/
+rules loop runs `inferType` on closed generated right-hand sides.
+Task #175 indexed: the stages carry `nIdx` and the field-sort walk is
+`checkDirectFieldSortsI` (`checkDirectFieldSortsIS_sim`). -/
+
+/-- The per-field sort walk of the sum route at the shared operations
+(task #175 indexed: the large-eliminator escape admits a field that is
+one of the residual's index expressions). -/
+theorem checkDirectFieldSortsIS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {isProp large : Bool}
+    {s : Level} {nP : Nat} {fvs idxArgs : List Expr}
+    (hfvs : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      WScoped (nP + i) (Expr.fvarTypeD x)) :
+    ∀ {j : Nat} {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (checkDirectFieldSortsI (sharedOpsC mode (mkFEnv env)) env isProp large
+          s nP fvs idxArgs j)
+        (checkDirectFieldSortsI (fueledOpsM mode) env isProp large s nP fvs idxArgs j)
+  | 0, s₀, hs => SimC.pure hs rfl
+  | j + 1, s₀, hs => by
+    unfold checkDirectFieldSortsI
+    dsimp only [sharedOpsC]
+    refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ fv fv' hs₁ hP => ?_)
+    obtain ⟨rfl, hfe⟩ := hP
+    refine SimC.bind (opE_infer_sim hμ henv hs₁ (hfvs j fv hfe))
+      (fun s₂ ty ty' hs₂ hP₂ => ?_)
+    obtain ⟨rfl, htyW⟩ := hP₂
+    refine SimC.bind (opS_sim hμ henv hs₂ htyW)
+      (fun s₃ u u' hs₃ hP₃ => ?_)
+    obtain rfl : u = u' := hP₃
+    by_cases hnp : (!isProp) = true
+    · simp only [if_pos hnp]
+      refine SimC.bind (SimC.liftFueled _ _ hs₃)
+        (fun s₃ c c' hs₃ hC => ?_)
+      obtain rfl : c = c' := hC
+      cases c with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        exact SimC.throw_bind
+      | true =>
+        simp only [↓reduceIte]
+        refine SimC.bind (checkDirectFieldSortsIS_sim hμ henv hfvs hs₃)
+          (fun s₄ rest rest' hs₄ hR => ?_)
+        obtain rfl : rest = rest' := hR
+        exact SimC.pure hs₄ rfl
+    · simp only [if_neg hnp]
+      by_cases hl : large = true
+      · simp only [if_pos hl]
+        by_cases hz : (Level.isEquiv u .zero == some true || idxArgs.contains fv) = true
+        · simp only [if_pos hz]
+          refine SimC.bind (checkDirectFieldSortsIS_sim hμ henv hfvs hs₃)
+            (fun s₄ rest rest' hs₄ hR => ?_)
+          obtain rfl : rest = rest' := hR
+          exact SimC.pure hs₄ rfl
+        · simp only [if_neg hz]
+          exact SimC.throw_bind
+      · simp only [if_neg hl]
+        refine SimC.bind (checkDirectFieldSortsIS_sim hμ henv hfvs hs₃)
+          (fun s₄ rest rest' hs₄ hR => ?_)
+        obtain rfl : rest = rest' := hR
+        exact SimC.pure hs₄ rfl
 
 /-- Stage 1 (the type former) of the sum route at the shared
 operations. -/
@@ -291,13 +349,13 @@ theorem checkDirectSumIndS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF 
 /-- Stage 2 (one constructor, the constructor and its field count
 explicit) at the shared operations. -/
 theorem checkDirectSumCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env₀ : Env} {T : Name}
-    {lps : List Name} {nP : Nat} {resSort : Level} {isProp large : Bool}
+    {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
     {cvC : ConstantVal} {nF : Nat} {cvTa : ConstantVal}
     (hTf : cvTa.type.hasFvar = false) (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
       (checkDirectSumCtor (sharedOpsC mode (mkFEnv env)) env₀ env T lps nP
-        resSort isProp large cvC nF cvTa)
-      (checkDirectSumCtor (fueledOpsM mode) env₀ env T lps nP resSort isProp large
+        nIdx resSort isProp large cvC nF cvTa)
+      (checkDirectSumCtor (fueledOpsM mode) env₀ env T lps nP nIdx resSort isProp large
         cvC nF cvTa) := by
   unfold checkDirectSumCtor
   dsimp only [sharedOpsC]
@@ -308,7 +366,7 @@ theorem checkDirectSumCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF
   obtain ⟨rfl, -⟩ := hQ
   obtain ⟨cbs, cbody⟩ := q
   dsimp only
-  by_cases h1 : (cbody == directFam T lps nP nF) = true
+  by_cases h1 : directCtorResidOk T lps nP nF nIdx cbody = true
   case neg => simp only [if_neg h1]; exact SimC.throw_bind
   simp only [if_pos h1]
   refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ cq cq' hs₃ hR => ?_)
@@ -352,13 +410,17 @@ theorem checkDirectSumCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF
     have hw := hxW _ (List.mem_of_getElem? hx)
     simp only [WScoped] at hw
     exact hw.2
-  by_cases h2 : (cresid == Expr.mkAppN (.const T (lps.map .param)) fvsP) = true
+  by_cases h2 : (cresid.getAppFn == Expr.const T (lps.map .param) &&
+      cresid.getAppArgs.take nP == fvsP && cresid.getAppArgs.length == nP + nIdx) = true
   case neg => simp only [if_neg h2]; exact SimC.throw_bind
   simp only [if_pos h2]
   by_cases h3 : (xFvs.all fun x => Expr.constsResolve env₀ x.fvarTypeD) = true
   case neg => simp only [if_neg h3]; exact SimC.throw_bind
   simp only [if_pos h3]
-  refine SimC.bind (checkDirectFieldSortsS_sim hμ henv hxPos hs₆)
+  by_cases h4 : ((cresid.getAppArgs.drop nP).all fun e => Expr.constsResolve env₀ e) = true
+  case neg => simp only [if_neg h4]; exact SimC.throw_bind
+  simp only [if_pos h4]
+  refine SimC.bind (checkDirectFieldSortsIS_sim hμ henv hxPos hs₆)
     (fun s₇ sorts sorts' hs₇ hS => ?_)
   obtain rfl : sorts = sorts' := hS
   exact SimC.pure hs₇ rfl
@@ -367,13 +429,13 @@ theorem checkDirectSumCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF
 at the *same* environment (the one holding the type former alone), so
 the walk is a plain induction on the list. -/
 theorem checkDirectSumCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env₀ : Env} {T : Name}
-    {lps : List Name} {nP : Nat} {resSort : Level} {isProp large : Bool}
+    {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
     {cvTa : ConstantVal} (hTf : cvTa.type.hasFvar = false) :
     ∀ {cs : List (ConstantVal × Nat)} {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
         (checkDirectSumCtors (sharedOpsC mode (mkFEnv env)) env₀ env T lps
-          nP resSort isProp large cvTa cs)
-        (checkDirectSumCtors (fueledOpsM mode) env₀ env T lps nP resSort isProp
+          nP nIdx resSort isProp large cvTa cs)
+        (checkDirectSumCtors (fueledOpsM mode) env₀ env T lps nP nIdx resSort isProp
           large cvTa cs)
   | [], s₀, hs => SimC.pure hs rfl
   | c :: cs, s₀, hs => by
@@ -391,13 +453,13 @@ theorem checkDirectSumCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvW
 side is closed by its own scoping guard, so `inferType` runs at depth
 `0` on a well-scoped term. -/
 theorem checkDirectSumRulesS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rlps : List Name}
-    {T : Name} {lps : List Name} {elim : Name} {large : Bool} {nP : Nat}
+    {T : Name} {lps : List Name} {elim : Name} {large : Bool} {nP nIdx : Nat}
     {tty : Expr} {ctors : List (Name × Nat × Expr)} :
     ∀ {k j : Nat} {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
         (checkDirectSumRules (sharedOpsC mode (mkFEnv env)) env rlps T lps
-          elim large nP tty ctors k j)
-        (checkDirectSumRules (fueledOpsM mode) env rlps T lps elim large nP tty
+          elim large nP nIdx tty ctors k j)
+        (checkDirectSumRules (fueledOpsM mode) env rlps T lps elim large nP nIdx tty
           ctors k j)
   | 0, _, s₀, hs => SimC.pure hs rfl
   | k + 1, j, s₀, hs => by
