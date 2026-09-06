@@ -43539,7 +43539,7 @@ Official clause (file:line at v4.33.0) → ours (spec `Core.lean` / P
 | R2 | `cheap_rec` — only ever `false` (lean4lean: "nothing has set it since lean4#9275") | n/a | same | |
 | **inductive_reduce_rec** `inductive.h:76-111` | | | | |
 | I1 | major = `rec_args[major_idx]`; **if `is_k`: `to_cnstr_when_K` on the RAW major**; then `whnf`; then nat-lit → ctor / string-lit → `whnf(ctor form)` / else `to_cnstr_when_structure` (`:85-94`) | master `iotaRec :1387-1389` (NC `:239-241`): `whnf` → `litMajorToCtor` → `majorToCtor` (K and η both AFTER the whnf) | **cost — FIXED on `agent/rat-frontier` 8480a8c9** (`prepareMajor{,I,NC}`; not on master at audit time) | the K-order bug; the fix mirrors `:85-94` exactly |
-| I2 | K guard: `rec_val.is_k()` = block has ONE inductive type ∧ result level `normalizes_to_zero` ∧ one constructor with 0 fields (`inductive.cpp:551-572`) | `caps.ruleK = (nF == 0 && piResultIsProp cvT.type)` (`DeclCheck.lean:289`, `Modeled.lean:718`; `piResultIsProp :150` is `Level.isEquiv u .zero`) ∧ `rules = [rl]` ∧ `cnF = 0` (`majorToCtor :1181-1189`) | same, except **superset V1**: no "not a mutual block" test — a mutual Prop block whose recursor has a single rule (one nullary ctor, the other types empty) K-rescues in ours, never in official | unreachable in real streams; recorded |
+| I2 | K guard: `rec_val.is_k()` = block has ONE inductive type ∧ result level `normalizes_to_zero` ∧ one constructor with 0 fields (`inductive.cpp:551-572`) | `caps.ruleK = (nF == 0 && piResultIsProp cvT.type)` (`DeclCheck.lean:289`, `Modeled.lean:718`; `piResultIsProp :150` is `Level.isEquiv u .zero`) ∧ `rules = [rl]` ∧ `cnF = 0` (`majorToCtor :1181-1189`) | same — the "not a mutual block" condition is enforced at INSTALL: every path that sets `ruleK` matches a block with exactly one inductive type and one constructor (`checkIndDecl`/`CheckerC:189`/`ParsedNC:157`: `[.indInfo cvT _], [.ctorInfo cvC nP nF]`; `directPartsCore?`: `[.indInfo, .ctorInfo, .recInfo _ _ _ [rule]]`; the pinned basis blocks are single-type) — **V1 withdrawn** (§11; the audit's first reading looked at the fire-time guard only) | |
 | I3 | `to_cnstr_when_K` (`inductive.h:28-48`): `whnf(infer(major))`, head must be the major's inductive, `mk_nullary_cnstr` (first ctor at the params), `is_def_eq(app_type, infer(fab))` | `majorToCtor :1189-1237`; NC `:163-183` — same steps, same defeq ORDER (whnf'd major type first), plus three scoping guards + `stripPis`/level-arity pins (F6) and, at P, `iotaCerts` on the fabrication + `proofIrrel` (the soundness certificate) | same (parity) / cost (P certs) / **subset (F6)**: the extra guards can silently refuse a rescue official performs | F6 is on record (task #172 B1); no stream has hit it |
 | I4 | `to_cnstr_when_structure` (`:59-71`): `is_non_rec_structure` ∧ not already a ctor app; `whnf(infer(e))` head is the inductive; struct sort NOT `normalizes_to_zero`; `expand_eta_struct` = ctor at params applied to `.proj` nodes — NO certification | `majorToCtor :1238-1298`; NC `:184-214`: `caps.eta`, `piResultNeverZero` (the same non-Prop test, instantiated), then `structEtaCertWith fab major tmaj` (fields vs projections — the pairs are syntactically equal, so `a == b` hits) and the `Name.isProjFnShape recName = false` exclusion (F6) | same verdict where the caps agree; cost ≈ 0 (the certificate's pairs are identical terms) | `caps.eta` is install-computed (`checkEtaThmF`), official's `is_non_rec_structure` is structural — any block where the cap is refused is an accept-subset; none known |
 | I5 | `get_rec_rule_for` by ctor name; `nfields ≤ major_args`; level arity of the recursor; rhs at the recursor's levels, applied to `nparams+nmotives+nminors` rec args, then the major's fields (skipping `major_args − nfields`), then the extras (`:95-110`) | `iotaRec :1390-1451`; NC `:242-279` — rule by ctor; `margs.length = ctorParams + nfields` EXACT (F5); level arity (checker change #9); rhs at `us`; `args.take rP ++ margs.drop ctorParams` | same | plus (both cores) the ctor↔recursor level-linkage comparison and the nested-rule comparands (F5, install-certified modes) and (P) the two `iotaCerts` telescopes + `iotaIndexOk` (cert tax) |
@@ -44312,3 +44312,31 @@ flags 8/8 + 14/14, no-model sweep as recorded).  No verdict moved.
 pay a `propIrrel`), P 1.3981 G; `natop_arg_order` parity 0.264 G (was
 0.280 G), P 0.269 G; `lake build` warning-free (438 jobs), `lake test`,
 proofdeps 1 363 rows / doors 0, layering 0 edges.
+
+### 11. V1 — withdrawn by inspection: `ruleK` is already installed under official's non-mutual condition (`agent/divergence-v1`, DESIGN-only)
+
+The audit's I2 row read the K guard at its FIRE site (`majorToCtor`:
+`caps.ruleK ∧ cnF = 0 ∧ rules = [rl]`) and flagged the missing "not a
+mutual declaration" conjunct of official's `init_K_target`
+(`inductive.cpp:551-572`).  The conjunct lives at the INSTALL, where
+`caps.ruleK` is computed, and every path that can set it true already
+requires a single-type, single-constructor block:
+
+* the modeled install `checkIndDecl` (`Modeled.lean:784`) and its
+  cached twins (`CheckerC.lean:189`, `ParsedNC.lean:157`) compute
+  `indBlockCaps(F)` only in the arm
+  `[.indInfo cvT _], [.ctorInfo cvC nP nF]` of a match on the block's
+  inductives and constructors — one of each, else no caps;
+* the direct install's `directPartsCore?` (`Direct/Parts.lean:167-169`)
+  matches `[.indInfo cvT _, .ctorInfo cvC nP nF, .recInfo cvR mI rP
+  [rule]]` — one type, one constructor, one rule — before `directCaps`
+  sets `ruleK := p.nF == 0 && p.isProp`;
+* the pinned basis blocks (`Eq` with `ruleK := true`; `Nat`, `PUnit`,
+  `Empty`, `Quot`, the axioms' blocks with `false`) are single-type by
+  construction.
+
+So a mutual Prop block never gets `ruleK = true`, exactly as official
+never marks a mutual recursor `is_k`.  The other two official
+conjuncts are matched at the same sites (`nF == 0`; `piResultIsProp` =
+`Level.isEquiv u .zero`, i.e. `normalizes_to_zero`).  No code change;
+the table row is corrected above.
