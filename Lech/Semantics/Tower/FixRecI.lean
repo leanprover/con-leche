@@ -966,4 +966,177 @@ theorem fixSemK_inhab (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss Eiss) (hw :
 
 end KRec
 
+/-! ## Closed binder data at any bottom -/
+
+/-- A term closed at depth `k` reads the same at any two frames
+agreeing below `k`. -/
+theorem interp2_closed_bottom {e : AVExpr} {k : Nat} (hcl : VExpr.bvarsBelow k e.erase)
+    {as : List V} (hlen : as.length = k) (ρ₁ ρ₂ : Nat → V) :
+    interp2 V (consList as ρ₁) e = interp2 V (consList as ρ₂) e :=
+  interp2_congr_noBVar e (NoBVar_of_bvarsBelow hcl fun _ hi => hlen ▸ hi)
+    (agreeOff_consList_ge as ρ₁ ρ₂)
+
+theorem AnnotOk2_closed_bottom {e : AVExpr} {k : Nat} (hcl : VExpr.bvarsBelow k e.erase)
+    {as : List V} (hlen : as.length = k) (ρ₁ ρ₂ : Nat → V) :
+    AnnotOk2 V (consList as ρ₁) e ↔ AnnotOk2 V (consList as ρ₂) e :=
+  AnnotOk2_congr_noBVar e (NoBVar_of_bvarsBelow hcl fun _ hi => hlen ▸ hi)
+    (agreeOff_consList_ge as ρ₁ ρ₂)
+
+/-- A spine fits closed binder data at any bottom. -/
+theorem spineFit_closed_bottom :
+    ∀ {ds : List (Nat × Nat × AVExpr)} {as bs : List V} {ρ₁ ρ₂ : Nat → V},
+      (∀ k d, ds[k]? = some d → VExpr.bvarsBelow (as.length + k) d.2.2.erase) →
+      SpineFit (consList as ρ₁) (ds.map (·.2.2)) bs → SpineFit (consList as ρ₂) (ds.map (·.2.2)) bs
+  | [], _, [], _, _, _, h => h
+  | [], _, _ :: _, _, _, _, h => h.elim
+  | _ :: _, _, [], _, _, _, h => h.elim
+  | d :: ds, as, b :: bs, ρ₁, ρ₂, hcl, h => by
+    refine ⟨?_, ?_⟩
+    · have := h.1
+      rwa [interp2_closed_bottom (by simpa using hcl 0 d rfl) (as := as) rfl ρ₁ ρ₂] at this
+    · have h2 := h.2
+      rw [consList_snoc'] at h2 ⊢
+      refine spineFit_closed_bottom (as := as ++ [b]) ?_ h2
+      intro k d' hd'
+      have := hcl (k + 1) d' (by simpa using hd')
+      simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using this
+
+/-- The Π-tower over closed binder data reads the same at any bottom. -/
+theorem mkPisAV_closed_bottom {C : AVExpr} :
+    ∀ {ds : List (Nat × Nat × AVExpr)} {as : List V} {ρ₁ ρ₂ : Nat → V},
+      (∀ k d, ds[k]? = some d → VExpr.bvarsBelow (as.length + k) d.2.2.erase) →
+      VExpr.bvarsBelow (as.length + ds.length) C.erase →
+      interp2 V (consList as ρ₁) (mkPisAV ds C) = interp2 V (consList as ρ₂) (mkPisAV ds C)
+  | [], as, ρ₁, ρ₂, _, hC => by
+    show interp2 V (consList as ρ₁) C = interp2 V (consList as ρ₂) C
+    exact interp2_closed_bottom (by simpa using hC) rfl ρ₁ ρ₂
+  | d :: ds, as, ρ₁, ρ₂, hcl, hC => by
+    show piR d.2.1 (interp2 V (consList as ρ₁) d.2.2) (fun a => interp2 V (cons a (consList as ρ₁)) (mkPisAV ds C))
+      = piR d.2.1 (interp2 V (consList as ρ₂) d.2.2) (fun a => interp2 V (cons a (consList as ρ₂)) (mkPisAV ds C))
+    rw [interp2_closed_bottom (by simpa using hcl 0 d rfl) (as := as) rfl ρ₁ ρ₂]
+    refine piR_congr fun a _ => ?_
+    rw [consList_snoc', consList_snoc']
+    refine mkPisAV_closed_bottom (as := as ++ [a]) ?_ (by simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using hC)
+    intro k d' hd'
+    have := hcl (k + 1) d' (by simpa using hd')
+    simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using this
+
+/-! ## The spelled recursor -/
+
+/-- The sort of a Π-tower's reading from its first binder's bits. -/
+def recSortOf : List (Nat × Nat × AVExpr) → Nat
+  | [] => 0
+  | d :: _ => imaxN d.1 d.2.1
+
+/-- The recursor's type, spelled: the Π-tower over its binder data
+ending in `M ı⃗ t`. -/
+def recTyAV (n nIdx : Nat) (rds : List (Nat × Nat × AVExpr)) : AVExpr :=
+  mkPisAV rds (recConcAV n nIdx)
+
+/-- The recursor body under the major, at depth `1` below the K-frame:
+the case split with the ih arguments (graph regime), the point at a
+squash instantiation. -/
+def fixRecBodyAVI (ℓ w nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) : AVExpr :=
+  if w = 0 then .prf
+  else .app (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+      (fun j => (Fss.getD j []).length)
+      (ihArgsI nP Fss.length Ids.length rss Eiss (fun j => (Fss.getD j []).length))
+      Fss.length Ids.length Fss.length 1 0 (.proj 0 (.bvar 0)))
+    (.proj 1 (.bvar 0))
+
+theorem fixRecBodyAVI_zero (ℓ nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) :
+    fixRecBodyAVI ℓ 0 nP Fss Ess Ids rss Eiss = .prf := if_pos rfl
+
+theorem fixRecBodyAVI_pos {w : Nat} (hw : w ≠ 0) (ℓ nP : Nat) (Fss Ess : List (List AVExpr))
+    (Ids : List AVExpr) (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) :
+    fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss
+      = .app (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+          (fun j => (Fss.getD j []).length)
+          (ihArgsI nP Fss.length Ids.length rss Eiss (fun j => (Fss.getD j []).length))
+          Fss.length Ids.length Fss.length 1 0 (.proj 0 (.bvar 0)))
+        (.proj 1 (.bvar 0)) := if_neg hw
+
+/-- The one-step unfolding `λ r. λ p⃗ M m⃗ ı⃗ t. body`. -/
+def fixStepAVI (ℓ w nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) :
+    AVExpr :=
+  .lam (recSortOf rds) (recTyAV Fss.length Ids.length rds)
+    (mkLamsC ℓ rds (fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss))
+
+/-- `Σ' (r : RecTy), Step r = r`. -/
+def fixSigAVI (ℓ w nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) :
+    AVExpr :=
+  AVExpr.mkAppN (.const .psigma [recSortOf rds, 0]) [recTyAV Fss.length Ids.length rds,
+    .lam 1 (recTyAV Fss.length Ids.length rds)
+      (.eqE ((recTyAV Fss.length Ids.length rds).liftN 1 0)
+        (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds).liftN 1 0) (.bvar 0)) (.bvar 0))]
+
+/-- The selected fixed point `(choice Σ prf).1` — **the recursor leaf**
+(a closed term). -/
+def fixSelAVI (ℓ w nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) :
+    AVExpr :=
+  .proj 0 (AVExpr.mkAppN (.const .choice [recSortOf rds])
+    [fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds, .prf])
+
+/-! ## The premise -/
+
+/-- The domains of binder data graded along every fitting walk. -/
+def DomsWalk : (Nat → V) → List (Nat × Nat × AVExpr) → Prop
+  | _, [] => True
+  | ρ, d :: ds => AnnotOk2 V ρ d.2.2 ∧ ∀ a, a ∈ˢ interp2 V ρ d.2.2 → DomsWalk (cons a ρ) ds
+
+/-- `UnderTowerOk` from the domain walk and the base facts at every
+fitting leaf. -/
+theorem underTowerOk_of_walk {m : Nat} {b C : AVExpr} :
+    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
+      DomsWalk ρ ds →
+      (∀ as, SpineFit ρ (ds.map (·.2.2)) as →
+        AnnotOk2 V (consList as ρ) b ∧ interp2 V (consList as ρ) b ∈ˢ interp2 V (consList as ρ) C ∧
+        (m = 0 → interp2 V (consList as ρ) C ∈ˢ (univZero : V))) →
+      UnderTowerOk m ρ b C ds
+  | [], ρ, _, hb => by
+    have := hb [] trivial
+    simp only [consList_nil] at this
+    exact this
+  | d :: ds, ρ, hw, hb => by
+    refine ⟨hw.1, fun a ha => underTowerOk_of_walk (hw.2 a ha) fun as hsp => ?_⟩
+    have := hb (a :: as) ⟨ha, hsp⟩
+    rwa [consList_cons] at this
+
+/-- **The recursor's premise** — frame-generic (every field holds at
+every bottom frame `ρb`): the binder data's bits zero-agree with the
+elimination level, the data are closed, the domains are graded along
+every walk, at every K-frame reached the case split's package holds
+and the major's domain reads to the carrier at the frame's index tuple,
+the index and major binders admit the ih spine, the conclusion is a
+truth value at level zero, and the recursor's type reads to a graded
+member of its sort's universe. -/
+structure FixPre (ℓ w u nP : Nat) (Fss Ess Fss₀ : List (List AVExpr)) (Ids : List AVExpr)
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) :
+    Prop where
+  hz : ∀ d ∈ rds, (ℓ = 0 ↔ d.2.1 = 0)
+  hlen : rds.length = nP + 1 + Fss.length + Ids.length + 1
+  hclosed : ∀ k d, rds[k]? = some d → VExpr.bvarsBelow k d.2.2.erase
+  hwℓ : w = 0 → ℓ = 0
+  hdoms : ∀ ρb : Nat → V, DomsWalk ρb rds
+  hK : ∀ (ρb : Nat → V) (as : List V) (t : V), SpineFit ρb (rds.map (·.2.2)) (as ++ [t]) →
+    FixKI₀ ℓ w u (consList as ρb) Fss Ess Fss₀ Ids rss Eiss ∧
+    t ∈ˢ SetTheory.app (famK u w (consList as ρb) Fss Ess Fss₀ Ids rss Eiss)
+      (tupW u (frameIdx Ids.length (consList as ρb)))
+  hspine : ∀ (ρb : Nat → V) (as : List V), SpineFit ρb ((rds.take (nP + 1 + Fss.length)).map (·.2.2)) as →
+    ∀ (vals : List V) (f : V), SpineFit (shiftE (Fss.length + 1) 0 (consList as ρb)) Ids vals →
+    f ∈ˢ SetTheory.app
+      (fixFamI u w (shiftE (Fss.length + 1) 0 (consList as ρb)) Ids Ids.length rss Eiss Fss₀ Ess)
+      (tupW u vals) →
+    SpineFit ρb (rds.map (·.2.2)) (as ++ vals ++ [f])
+  hconc0 : ℓ = 0 → ∀ (ρb : Nat → V) (as' : List V), SpineFit ρb (rds.map (·.2.2)) as' →
+    interp2 V (consList as' ρb) (recConcAV Fss.length Ids.length) ∈ˢ (univZero : V)
+  hRecTy : ∀ ρb : Nat → V,
+    interp2 V ρb (recTyAV Fss.length Ids.length rds) ∈ˢ (univ (recSortOf rds) : V) ∧
+    AnnotOk2 V ρb (recTyAV Fss.length Ids.length rds)
+
 end Lech.Semantics
