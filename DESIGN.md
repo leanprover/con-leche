@@ -52236,7 +52236,12 @@ mode 16/16 · progress 6/6, the trusted sweep.  init-full stock
 `--verified` 60 549 / `--trusted` 60 549; regenerated with the fixed
 predicate (`init-full-pre-fix.ndjson`, 548 native) `--verified` 55 835 /
 `--trusted` 55 835 — all exit 0, identical to the indexed landing's
-baseline.  **The Presieve cone**: cut from the raw Mathlib export with
+baseline.  **Re-gated at the master merge** (`ef700318`: #191 prelude,
+#192): build 640 jobs warning-free, `lake test`, arena exit 0 (native
+audit 169/0 unrecognised, prelude counts 3/3, e2e 101/101), full audit
+775/0, init-full stock 58 604 / 58 604 and regenerated 53 890 / 53 890
+(exit 0 — the verdict line now counts STREAM RECORDS per #191, exactly
+1 945 below the environment-constant counts above), the cone accepts.  **The Presieve cone**: cut from the raw Mathlib export with
 the String-support constants (`/home/joachim/setlec/_tmp/indexed-fix/slice_multi_fast.py` in the main checkout's `_tmp/` — not committed, the sigmahom slicer is not under `scripts/` either,
 the sigmahom slicer fixed for lean4export's key-sorted raw records —
 `"ie"` is not the first key of an `app`/`bvar`/`const` line there, and
