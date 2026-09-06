@@ -53388,3 +53388,591 @@ warning-free, `lake test`, arena exit 0 (native audit 169/0, e2e
 102/102), init-full stock 58 604 / 58 604 and regenerated (548 native)
 53 890 / 53 890, the 23-cone 2 949 both modes, full audit 970/0 — all
 identical to the tip's.
+
+## THE ARENA SUITE (all but Mathlib) — every upstream test has a verdict, 0 incorrect; `init`, `Std` and `cslib` ACCEPTED (2026-09-06, `agent/arena-suite`; §9 the post-rename re-run, §10 `cslib`, §7 what was cancelled and why; record committed under `scripts/arena/results/`)
+
+The local battery only ever saw the arena's *tutorial* group (a vendored
+2026-08-19 tarball, `tests/arena-expected.txt`), plus five streams the
+perf table borrows.  This is the first run of the **whole upstream
+suite** — every test definition in `leanprover/lean-kernel-arena`
+except `mathlib` — through the arena's *own* orchestration, so the
+exports are the ones the arena produces, not ours.
+
+### 1. The kit
+
+* Arena clone: `leanprover/lean-kernel-arena` @ `91f376e` (2026-09-06),
+  in `_tmp/arena-suite/lean-kernel-arena` — a **fresh** clone; the
+  `_tmp/perfcmp/arena-upstream` checkout used by `scripts/perf-tables.sh`
+  was 26 commits behind and is missing nine of the tests below.
+* Exports: `lean4export` 3.1.0 at `leanprover/lean4:v4.29.1`
+  (`tests/lean-toolchain`), built and driven by `lka.py` itself.
+* Reference column: the arena's own `official` checker, **v4.34.0-rc2**,
+  built by `lka.py build-checker official`.
+* Checker definition: `scripts/arena/lech.yaml`, copied into the
+  clone's `checkers/` by the driver.  It is a *simple* checker (no
+  `url`/`dir`), so `lka.py` makes an empty build directory and runs it
+  there; every path comes from the environment, and the raw export goes
+  in as `$IN` — setlec spawns `setlec-preprocess` itself.
+* Driver: `scripts/arena/run-suite.sh` (`clone` / `build-tests` /
+  `run-small` / `run-big` / `table`), table renderer
+  `scripts/arena/table.py`.
+
+**Dependency footprint, resolved.**  `uv run lka.py` supplies the four
+Python packages from the PEP-723 header — no venv.  `elan` and `perf`
+were already on `PATH`.  `rustc`/`cargo` are only needed to build the
+*Rust* checkers, and we build none.  The one thing missing was **GNU
+`time`**, which `lka.py` shells out to for max-RSS; without it every RSS
+cell reads 0.  The driver symlinks the nixpkgs `time` into `$WORK/bin`
+and puts that first on `PATH` (`time` is a bash *keyword*, so the probe
+has to be `env time --version`, not `time --version`).  `nix develop`
+was not used: the flake's devShell drags in ghc, ocaml, zig, nodejs,
+pypy and more for the other checkers.
+
+**`TMPDIR` was load-bearing.**  At the time of this run a raw export was
+preprocessed into `IO.FS.createTempFile`, i.e. `$TMPDIR`, and that file
+was the size of the preprocessed stream — gigabytes for
+Cedar/cslib/`Init`.  `/tmp` here is a tmpfs, so the default put that in
+RAM next to the checker; the checker yaml therefore required a scratch
+directory on disk.  **Task #180 removed the scratch file entirely** (the
+preprocessor's stdout is a pipe now), so `LECH_TMPDIR` is since then only
+the project's standing scratch rule, not a setting a run depends on.
+
+### 2. The scorecard
+
+65 test definitions (all but `mathlib`); `tutorial` expands to 142
+subtests, so 206 runs.  Verdicts at `--verified`:
+
+| | count |
+|---|---|
+| correct (verdict = expected outcome) | 148 |
+| declined (neutral in the arena's scoring) | 44 |
+| `either` (outcome unsettled upstream) | 13 |
+| **incorrect** | **0** |
+| **error (exit 3)** | **0** |
+
+(205 of the 206; `cslib` is recorded in §7.)
+
+No `bad` stream was accepted and no `good` stream was rejected, on any
+of the 206.  Every decline is a `not implemented yet` with a named site;
+nothing crashed.
+
+**`--trusted` was run over the same 202 small tests: exit codes are
+identical to `--verified` on every one, 0 divergences.**
+
+### 3. The table (non-tutorial; `off` = official v4.34.0-rc2)
+
+Wall times are indicative only — a foreign Mathlib lane held a core
+throughout — and RSS is `VmHWM` via GNU `time`.
+
+```
+test                                       expect  setlec  off     exit     wall  peak RSS  note
+bogus1                                     reject  reject  reject     1    0.39s       98M
+cedar                                      accept  decline -          2  284.13s     2503M  setlec: 22 projection functions of non-direct structure-likes rewritten to recursor form setlec: not implement
+constlevels                                reject  reject  reject     1    0.16s      102M
+corner-cases/alg-conv-trans-acc            either  reject  reject     1    0.19s      102M  setlec: invalid: type mismatch in theorem trans [at theorem trans]
+corner-cases/alg-conv-trans-acc-left       either  accept  accept     0    0.16s      102M  setlec: accepted 118 declarations
+corner-cases/alg-conv-trans-acc-right      either  accept  accept     0    0.16s      102M  setlec: accepted 118 declarations
+corner-cases/alg-conv-trans-quot           either  reject  reject     1    0.16s       98M  setlec: invalid: type mismatch in theorem trans [at theorem trans]
+corner-cases/alg-conv-trans-quot-left      either  reject  reject     1    0.18s       98M  setlec: invalid: type mismatch in theorem left [at theorem left]
+corner-cases/alg-conv-trans-quot-left-def  either  accept  accept     0    0.17s       99M  setlec: accepted 11 declarations
+corner-cases/alg-conv-trans-quot-right     either  accept  accept     0    0.20s       98M  setlec: accepted 10 declarations
+corner-cases/imax-right-successor          either  accept  reject     0    0.08s       67M  setlec: accepted 2 declarations
+corner-cases/positivity-whnf               either  decline reject     2    0.14s       99M  setlec: preprocessor exited 1; using raw input setlec: not implemented yet: missing model for LALReduciblePosi
+corner-cases/proj-maybe-prop               either  accept  accept     0    0.17s       99M  setlec: accepted 15 declarations
+corner-cases/proj-maybe-prop-past          either  accept  accept     0    0.14s       98M  setlec: accepted 15 declarations
+corner-cases/proof-param-ok                accept  accept  accept     0    0.12s       99M
+corner-cases/proof-param-swap              either  decline reject     2    0.13s       97M  setlec: preprocessor exited 1; using raw input setlec: not implemented yet: missing model for LALProofParamete
+corner-cases/subject-reduction-redex       either  accept  accept     0    0.18s      102M  setlec: accepted 120 declarations
+corner-cases/subject-reduction-reduct      either  reject  reject     1    0.16s      102M  setlec: invalid: application type mismatch [at def reduct]
+ctor-num-fields                            reject  decline reject     2    0.14s      103M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+extra-rec                                  reject  decline reject     2    0.15s       99M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+init                                       accept  accept  -          0  155.05s      838M
+init-prelude                               accept  accept  accept     0    1.20s      122M
+k-rec-conv                                 reject  reject  reject     1    0.14s      100M
+large-elim-param                           reject  decline reject     2    0.13s      100M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+large-elim-prop-bool                       reject  decline reject     2    0.17s      101M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+level-imax-leq                             reject  decline reject     2    0.12s       96M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+level-imax-normalization                   reject  reject  reject     1    0.15s       99M
+level-index-out-of-order                   accept  decline accept     2    0.08s       68M  setlec: not implemented yet: non-standard axiom (foo) [at axiom foo]
+nat-rec-k-lie                              reject  decline reject     2    0.13s      100M  setlec: preprocessor exited 1; using raw input setlec: not implemented yet: missing model for False [at induct
+nat-rec-rules                              reject  decline reject     2    0.12s       99M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+nested-nonuniform-param                    either  accept  reject     0    0.17s      102M  setlec: accepted 103 declarations
+nested-unused-param                        reject  decline reject     2    0.14s      103M  setlec: preprocessor exited 1; using raw input setlec: not implemented yet: missing model for False [at induct
+orphan-ctor                                reject  decline reject     2    0.13s      100M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+orphan-rec                                 reject  decline reject     2    0.15s       99M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+perf/app-lam                               accept  accept  accept     0   36.27s     4075M
+perf/args-before-unfold                    accept  accept  accept     0    0.18s      102M
+perf/beta-ladder                           accept  accept  accept     0    6.57s      931M
+perf/church-numerals                       accept  accept  accept     0    0.16s       99M
+perf/discarded-argument                    accept  accept  accept     0    0.14s      101M
+perf/discarded-argument-match              accept  accept  accept     0    0.15s      101M
+perf/folded-constant-first                 accept  accept  accept     0    0.15s      101M
+perf/folded-constant-last                  accept  accept  accept     0    0.17s      101M
+perf/grind-ring-5                          accept  accept  accept     0    4.30s      256M
+perf/identical-nesting                     accept  accept  accept     0    0.13s      100M
+perf/irrelevance-before-evaluation         accept  accept  accept     0    0.14s      101M
+perf/let-ladder                            accept  accept  accept     0    1.10s      289M
+perf/refute-cheap-first                    reject  reject  reject     1    0.14s      102M
+perf/refute-cheap-last                     reject  reject  reject     1    0.16s      101M
+perf/repeated-subproblem                   accept  accept  accept     0    0.29s      104M
+perf/shared-subterm                        accept  accept  accept     0    0.33s      106M
+perf/shift-cascade                         accept  accept  accept     0    0.15s      100M
+perf/unroll-versus-evaluate                accept  accept  accept     0    0.14s      101M
+proj-non-structure                         reject  decline reject     2    0.17s       99M  setlec: not implemented yet: projection on a non-structure-like type [at theorem bad]
+proj-of-imax-prop                          reject  decline reject     2    0.23s      104M  setlec: preprocessor exited 1; using raw input setlec: not implemented yet: missing model for False [at induct
+proj-of-prop                               reject  reject  reject     1    0.33s       88M
+proj-of-stuck-prop                         reject  decline reject     2    0.39s       91M  setlec: not implemented yet: missing model for Native64ResultSortOwner [at inductive Native64ResultSortOwner]
+proj-of-subst-prop                         reject  decline reject     2    0.28s      100M  setlec: not implemented yet: missing model for PR14806Subst.Owner [at inductive PR14806Subst.Owner]
+proof-irrel                                accept  decline accept     2    0.12s       63M  setlec: not implemented yet: non-standard axiom (A) [at axiom A]
+rec-k-lie                                  reject  decline reject     2    0.33s       87M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for MyBool [at induc
+rec-missing-ih                             reject  decline reject     2    0.32s       94M  setlec: preprocessor exited 3; using raw input setlec: not implemented yet: missing model for False [at induct
+rec-of-subst-prop                          reject  decline reject     2    0.21s       99M  setlec: not implemented yet: missing model for Issue.Owner [at inductive Issue.Owner]
+sparse-name-index                          accept  decline accept     2    0.06s       68M  setlec: not implemented yet: non-standard axiom (foo) [at axiom foo]
+std                                        accept  accept  -          0  326.50s     1516M
+```
+
+Tutorial group: **121 / 142 correct, 21 declined, 0 incorrect**.  The
+declines break down as 16 preprocessor-refusal declines (F1 below), 2
+non-standard-axiom declines (`034_letTypeDep`, `035_letRed`, F2), 1
+`projNotStruct` (F6) and 2 `unsafe`/`partial`.
+
+### 4. What is NEW information
+
+`tests/arena.sh` reads `tests/arena-expected.txt`, and **every line of
+that file is a `tutorial/` fixture** — the vendored tarball also carries
+`bad/*`, `good/perf/*` and `good/undecidability/*`, but nothing runs
+them.  `scripts/perf-tables.sh` runs five streams (`let-ladder`,
+`beta-ladder`, `app-lam`, `grind-ring-5`, `init-prelude`) for
+*instructions*, not for verdicts.  So everything below is new:
+
+* all 27 non-tutorial top-level tests, including the nine the pinned
+  `_tmp/perfcmp` checkout does not have at all (`orphan-ctor`,
+  `orphan-rec`, `large-elim-prop-bool`, and the whole `corner-cases/`
+  regrouping with `imax-right-successor`, `positivity-whnf`,
+  `proj-maybe-prop`, `proj-maybe-prop-past`, `proof-param-ok`,
+  `proof-param-swap`);
+* all 15 `corner-cases/` (the former `undecidability/`) tests as
+  *verdicts*, only `subject_reduction_redex` had an own e2e fixture;
+* all 18 `perf/` tests as *verdicts*;
+* the four big streams `init`, `std`, `cedar`, `cslib`;
+* four tutorial fixtures absent from the vendored snapshot —
+  `013_thmProof` (accept ✓), `014_selfProof` (reject ✓),
+  `141_falseFromUnsafe`, `142_falseFromPartial` (both declined at
+  `definition with safety 'unsafe'/'partial'`).  The other 138 are the
+  vendored ones renumbered by +2.
+
+### 5. `init` and `Std` are ACCEPTED
+
+| stream | raw export | verdict | decls | wall | peak RSS | instructions |
+|---|---|---|---|---|---|---|
+| `init` | 310 MB | **accept** | 56 291 | 2.6 min | 838 MB | 0.97 T |
+| `std` | 527 MB | **accept** | 96 159 | 5.4 min | 1.5 GB | 1.90 T |
+| `cedar` | 791 MB | decline | — | 4.7 min | 2.4 GB | 2.10 T |
+
+`init` is the arena's `Init` module export at v4.29.1 — the stream the
+"init-full frontier" notes are about.  It now goes through end to end at
+`--verified`, in under three minutes and under a gigabyte.  `Std`
+follows it.  Both are full arena accepts, produced by the arena's
+exporter, checked from the raw stream (preprocessor spawned by the
+binary, on the clock).
+
+`cedar` declines at a **`native_decide` axiom**,
+`…msPerDay_toInt._native.native_decide.ax_1_1` — exactly the case the
+arena README names as a legitimate decline.  Everything before it
+checked, including the 22 projection functions of non-direct
+structure-likes the frontend rewrote to recursor form.
+
+### 6. The findings
+
+**F1 — the preprocessor's refusal is thrown away, and a reject becomes a
+decline (31 tests: 15 top-level + `corner-cases`, 16 tutorial).**  This is the single biggest lever in the table.
+For a *malformed* inductive block `setlec-preprocess` fails, the driver
+falls back to the raw stream, and the raw stream then declines with
+`missing model for <T>`:
+
+* exit 3 — the generator's own consistency check fires: `model of rogue
+  is missing rogue._model` (`extra-rec`, `orphan-rec`, `orphan-ctor`),
+  `unit-like constructor …S.mk._model has fields` (`ctor-num-fields`),
+  `<R>'s exact recursor layout differs from its installed metadata`
+  (`large-elim-param`, `nat-rec-rules`, `rec-k-lie`, `rec-missing-ih`,
+  `073_BogusRecursor`, `137_misnamed_rec_user`, …);
+* exit 1 — the generator's kernel *rejects* the input block:
+  `non positive occurrence` (`054_indNeg`, `positivity-whnf`),
+  `incorrect number of parameters` (`049_inductTooFewParams`),
+  `invalid return type` (`proof-param-swap`), `invalid projection`
+  (`nested-unused-param`), `canonical basis declaration at this name`
+  (`nat-rec-k-lie`), …
+
+Official rejects every one of these; the expectation is `reject` for 29
+of them and `either` for 2.  We are never *wrong* — a decline costs
+nothing in the arena's scoring — but 29 soundness credits are left on
+the table, and the checker is silent about a defect it has in fact
+detected.  Turning any of this into a reject is a design question, not a
+patch: the preprocessor's verdict is the *official kernel's*, and
+setlec's own reject must come from setlec's own check of the raw block.
+The honest intermediate is a decline that says *what* was detected.
+Separate fix task.
+
+**F2 — the non-standard-axiom policy costs five accepts (and is what
+stops `cedar`).**
+`level-index-out-of-order`, `sparse-name-index`, `proof-irrel`,
+`tutorial/034_letTypeDep`, `tutorial/035_letRed` all expect `accept`,
+official accepts, and we decline at `non-standard axiom (foo)` /
+`(A)` / `(aProp)` — the tests use `axiom` to stand a value up cheaply.
+This is the standing user ruling (only pinned standard axioms are
+accepted), so it is a *known, chosen* incompleteness, not a defect; it
+is written down here because it is exactly five arena completeness
+points and shows up in the table as a decline.  `cedar` is the sixth
+site of the same check, and there the axiom really is one no checker is
+expected to take (`native_decide`).
+
+**F3 — `nested-nonuniform-param`: we accept, official rejects.**
+Outcome is `either`, so nothing is failed, but the difference is real:
+official v4.34.0-rc2 has the check from leanprover/lean4#14577 (the
+parameter supplied to a nested occurrence must be *the* parameter) and
+we do not.  The upstream description says this particular declaration is
+not known to yield `False`.  Worth a check of its own; separate task.
+
+**F4 — `imax-right-successor`: we accept, official rejects.**  The other
+direction, and in our favour: the test's own description says a checker
+may "accept … by recognizing that the right operand is nonzero", which
+our level normalization does and official's does not.
+
+**F5 — three `proj-of-*` / `rec-of-subst-prop` rejections are declines
+for a different reason** (`missing model for Native64ResultSortOwner`,
+`PR14806Subst.Owner`, `Issue.Owner`): here the preprocessor *succeeds*
+and the block is simply one the direct route does not install and the
+model generator did not model.  Same shape of gap as F1 but a different
+site.
+
+**F6 — `proj-non-structure` / `088_projNotStruct` decline at
+`projection on a non-structure-like type`.**  Official rejects with
+`(kernel) invalid projection`; we positively detect the unsupported
+shape.  This is a decline that *could* be a reject: a `.proj` whose
+structure type has two constructors is not a checker gap, it is an
+invalid term.  Separate task.
+
+**F7 — corner cases: no surprises.**  On all 15, setlec's verdict equals
+official's except `imax-right-successor` (F4), `positivity-whnf` and
+`proof-param-swap` (F1).  We reject `alg-conv-trans-acc`,
+`alg-conv-trans-quot`, `alg-conv-trans-quot-left` and
+`subject-reduction-reduct` and accept the two `subject-reduction-redex`
+halves and the two `alg-conv-trans-acc-{left,right}` halves — the
+algorithmic-conversion non-transitivity the thesis predicts, reproduced
+exactly, with official agreeing on every one.  `proj-maybe-prop` and
+`proj-maybe-prop-past` we accept, as official does.
+
+### 7. CLOSED — the three held cells, cancelled, and why
+
+**User decision, 2026-09-06: the suite has what we need.**  The three
+cells that were holding for the machine's Mathlib-scale slot are
+cancelled, not deferred.  This section is a closed record; nothing here
+is queued.
+
+1. **`cslib` at `--verified` without `LECH_PROGRESS`** — cancelled.
+   §10's run had the heartbeat on, which puts the driver on the
+   *progress* fold rather than the one `Lech.no_proof_of_False` is
+   about.  The user ruled the progress fold fine as the producer of this
+   verdict: it is the same steps in the same order over the same records
+   from the same empty environment, and the difference is *stated*
+   rather than hidden.  `cslib` is accepted, full stop; the re-run would
+   have bought a coverage sentence, not a verdict.
+2. **the big four at `--trusted`** — cancelled.  The `--trusted` column
+   over the 202 small tests agrees with `--verified` on **every single
+   test, twice** (once before the rename, once after).  A third
+   confirmation at 0.3–2.0 GB would cost the Mathlib slot for hours to
+   test a hypothesis nothing has dented.
+3. **`init` / `std` / `cedar` re-measured at `--verified`** —
+   cancelled.  Their *verdicts* (accept, accept, decline-on-a
+   `native_decide`-axiom) are what the suite is for, and verdicts do not
+   go stale: nothing in the rename or in #180 changes what those streams
+   are.  What is stale is only their **memory and time figures**, since
+   #180 removed the preprocessor's multi-gigabyte scratch file — so §3
+   and §5 mark those three rows as the pre-rename run (`setlec*` in
+   `scripts/arena/results/table.txt`) and they must not be quoted as
+   current *measurements*.  The perf lane measures perf; this suite
+   measures verdicts.
+
+**F8 IS NOT A BUG TO FIX** (user ruling, 2026-09-06, verbatim: *"exit 3
+or 1 is fine. we'll eventually retire or absorb the preprocessor."*).
+The seven exit-3 verdicts of §9 and the two `Nat`-not-canonical declines
+are **recorded, not fixed**: while the preprocessor is a separate tool
+its exit codes are its own, and the distinction between "it rejected the
+block" and "it refused the block" is not worth engineering around a
+component that is on its way out.  Nothing is to be changed on either
+side of that boundary on account of the arena's scoring, and the arena
+expectation files stay exactly as they are — no `tests/` expectation was
+touched by this suite and none should be.  Revisit only if and when the
+preprocessor is retired or absorbed.
+
+**The record is committed**, so none of it depends on the scratch tree:
+`scripts/arena/results/` holds `summary.tsv` (all 206 runs, one row per
+test, the expected outcome and every column's exit code),
+`table.txt` (the rendered verdict table with messages, wall and peak
+RSS) and seven `*.jsonl` files — `lka.py`'s own result records for the
+`lech` verified/trusted columns, the pre-rename `setlec` columns kept as
+the baseline §9 diffs against, the big-stream cells, and the `official`
+v4.34.0-rc2 reference column.  `scripts/arena/README.md` is the index.
+
+**The corpus is not committed and need not be.**  `_tmp/arena-suite/`
+still holds the arena clone (`lean-kernel-arena` @ `91f376e`), the ~4 GB
+of built exports, the built `official` checker and the `cslib` receipts;
+if it is cleaned, `run-suite.sh clone && run-suite.sh build-tests`
+rebuilds it from scratch in about an hour of network and CPU.
+
+### 8. Reproducing
+
+    scripts/arena/run-suite.sh clone
+    scripts/arena/run-suite.sh build-tests        # every test but mathlib
+    scripts/arena/run-suite.sh run-small          # 202 runs, ~10 min
+    scripts/arena/run-suite.sh run-big            # init std cedar cslib
+    scripts/arena/run-suite.sh table
+
+`LECH_MODE=--trusted` re-runs the same matrix in the unverified lane.
+Building the test corpus is the expensive half: `lka.py` clones and
+builds Cedar (from source) and cslib (`lake exe cache get`), and the
+exports come to ~4 GB.  Nothing here is wired into `lake test` — the
+suite needs the network and an hour of build — but a landing gate can
+run `run-small` against an already-built corpus in ten minutes.
+`scripts/arena/README.md` carries this same recipe next to the kit, with
+the index of the committed `results/`.
+
+### 9. RESUMED after the Lech rename and task #180 — the small tests re-run, F1 is 22/29 fixed and 7 became ERRORS (2026-09-06, `agent/arena-suite` @ master `b7fa7331`)
+
+Master moved under the parked branch: the **Setlec → Lech rename**
+(binaries `lech` / `lech-preprocess`, `LECH_*` environment, verdict line
+`lech: accepted N declarations (--verified)`), **task #180** (the checker
+*pipes* the preprocessor's stdout — no scratch file — and **the
+preprocessor's verdict is lech's**: exit 1 reject, 2 decline, else 3; the
+raw-stream fallback is gone), **#181** (`False` pinned; a bogus recursor
+on a recognised block rejects), **#175** (indexed families native),
+**#185** (`CoreCfg` gone).  The suite's kit was renamed with it —
+`scripts/arena/lech.yaml`, checker name `lech`, `LECH_BIN` /
+`LECH_PREPROC` / `LECH_MODE` / `LECH_VLIMIT` / `LECH_TIMEOUT` /
+`LECH_TMPDIR` — and the 202 small tests were re-run in both modes
+against the same built corpus (arena `91f376e`, same exports, same
+`official` v4.34.0-rc2 column).
+
+**Scorecard, 202 small tests at `--verified`** (was → now):
+
+| | parked | now |
+|---|---|---|
+| correct | 146 | **166** |
+| declined | 43 | **14** |
+| `either` (a verdict either way) | 13 | **15** |
+| **error (exit 3)** | 0 | **7** |
+| **incorrect** | 0 | **0** |
+
+`--trusted` over the same 202: **exit codes identical to `--verified` on
+every one, 0 divergences** — as at the park.
+
+**29 verdicts moved, every one of them out of a decline.**  22 became
+rejects, 7 became errors; nothing moved the other way and nothing became
+incorrect.
+
+*The 22 that became rejects* (20 expected `reject`, so 20 new correct
+verdicts; 2 are `either` — `corner-cases/positivity-whnf` and
+`corner-cases/proof-param-swap` — where official also rejects).  Six of
+the 22 are **lech's own** reject, not the preprocessor's passed through,
+which is worth separating out:
+
+* `large-elim-param`, `large-elim-prop-bool` — `invalid: direct sum:
+  large eliminator on a multi-constructor inductive whose sort may be
+  Prop` (the #175/#181 native route);
+* `level-imax-leq` — `invalid: type mismatch in definition down`;
+* `proj-of-imax-prop` — `invalid: application type mismatch [at def
+  ImaxProp._model.proj_0]`;
+* `rec-k-lie` — `invalid: type mismatch in theorem bad`;
+* `tutorial/140_DupConCon` — `invalid export`.
+
+The other 16 are `lean-inductive-models`' kernel rejecting the block and
+#180 passing that through (`non positive occurrence`, `incorrect number
+of parameters`, `invalid projection`, `invalid return type`, …):
+`nested-unused-param`, `positivity-whnf`, `proof-param-swap`, and the
+tutorial's 047, 049, 050, 051, 052, 053, 054, 056, 057, 061, 118, 119,
+138.
+
+**F8 (new) — seven expected rejects are now `exit 3`, which is WORSE
+than the decline they replaced.**  The arena reads anything but 0/1/2 as
+"a bug in the checker".  All seven are `lean-inductive-models` detecting
+*malformed input* but reporting it through its **internal-error**
+channel (exit 3), which #180 faithfully maps to 3.  Official rejects all
+seven.  Three classes:
+
+1. *a rogue constructor/recursor that no inductive declaration
+   produces* — `N generated statements differ from their exact exported
+   owner interface` + `model of <c> is missing <c>._model`:
+   `extra-rec`, `orphan-rec`, `orphan-ctor`,
+   `tutorial/137_misnamed_rec_user`;
+2. *exported metadata contradicting what the tool derives* —
+   `BogusRecursor.rec's exact recursor layout differs from its installed
+   metadata` (`tutorial/073_BogusRecursor`), `unit-like constructor
+   _private.Test.0.S.mk._model has fields` (`ctor-num-fields`);
+3. *a field whose recursive occurrence survives reduction* —
+   `…mentions it other than as ∀ z⃗, T p⃗ e⃗ … the input's numNested = 0
+   does not describe the declaration it is attached to`
+   (`rec-missing-ih`); the message itself says the kernel's positivity
+   check refuses it.
+
+Every one of these is "the exported inductive block is invalid", i.e.
+exit-1 territory; in arena terms the run would score seven **errors**
+where it previously scored seven neutral declines.
+
+**RULED: not a bug, and not to be fixed** (user, 2026-09-06, verbatim:
+*"exit 3 or 1 is fine. we'll eventually retire or absorb the
+preprocessor."*).  The exit codes belong to a separate tool that is on
+its way out; the reject-vs-refuse distinction inside it is not worth
+engineering around, on either side of the boundary, and no arena
+expectation file is to be adjusted for it.  Recorded, not a task.  See
+§7.
+
+**F1 is otherwise closed**, and F5/F6/F2 are unchanged.  The 14
+remaining declines are: the six non-standard-axiom sites (F2, five of
+them expected `accept`), `proj-non-structure` and
+`tutorial/088_projNotStruct` (F6), `proj-of-stuck-prop`,
+`proj-of-subst-prop`, `rec-of-subst-prop` (F5), the two
+`unsafe`/`partial` tutorial fixtures, and a **new pair**:
+`nat-rec-rules` and `nat-rec-k-lie` now decline at `the preprocessor
+declined to model a block` — the tool's own, honest decline, `Nat:
+declined — prim model: the input's Nat is not Lean's (its complete
+inductive, constructor, and recursor metadata is not canonical)`.  Both
+expect `reject`; given the arena's rule that `Init.Prelude` declarations
+come from an official release, a non-canonical `Nat` could reasonably be
+a reject rather than a decline — a smaller sibling of F8, and covered by
+the same ruling: recorded, not fixed.
+
+```
+test                                       expect  lech    off     exit  was     wall  peak RSS  note
+bogus1                                     reject  reject  reject     1    1      0.13s       98M
+constlevels                                reject  reject  reject     1    1      0.14s      100M
+corner-cases/alg-conv-trans-acc            either  reject  reject     1    1      0.18s      102M  lech: invalid: type mismatch in theorem trans [at theorem trans, fold position 67] (--verified) t=0.1s
+corner-cases/alg-conv-trans-acc-left       either  accept  accept     0    0      0.17s      102M  lech: accepted 112 declarations (--verified)
+corner-cases/alg-conv-trans-acc-right      either  accept  accept     0    0      0.38s       89M  lech: accepted 112 declarations (--verified)
+corner-cases/alg-conv-trans-quot           either  reject  reject     1    1      0.17s       98M  lech: invalid: type mismatch in theorem trans [at theorem trans, fold position 2] (--verified) t=0.0s
+corner-cases/alg-conv-trans-quot-left      either  reject  reject     1    1      0.13s       98M  lech: invalid: type mismatch in theorem left [at theorem left, fold position 2] (--verified) t=0.0s
+corner-cases/alg-conv-trans-quot-left-def  either  accept  accept     0    0      0.14s       99M  lech: accepted 11 declarations (--verified)
+corner-cases/alg-conv-trans-quot-right     either  accept  accept     0    0      0.17s       86M  lech: accepted 10 declarations (--verified)
+corner-cases/imax-right-successor          either  accept  reject     0    0      0.10s       66M  lech: accepted 2 declarations (--verified)
+corner-cases/positivity-whnf               either  reject  reject     1    2 *    0.19s       92M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/positivity-whnf.ndjson:
+corner-cases/proj-maybe-prop               either  accept  accept     0    0      0.13s       98M  lech: accepted 15 declarations (--verified)
+corner-cases/proj-maybe-prop-past          either  accept  accept     0    0      0.14s       99M  lech: accepted 15 declarations (--verified)
+corner-cases/proof-param-ok                accept  accept  accept     0    0      0.21s       96M
+corner-cases/proof-param-swap              either  reject  reject     1    2 *    0.28s       87M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/proof-param-swap.ndjson
+corner-cases/subject-reduction-redex       either  accept  accept     0    0      0.36s       95M  lech: accepted 114 declarations (--verified)
+corner-cases/subject-reduction-reduct      either  reject  reject     1    1      0.28s       89M  lech: invalid: application type mismatch [at def reduct, fold position 69] (--verified) t=0.1s
+ctor-num-fields                            reject  ERROR   reject     3    2 *    0.13s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/ctor-num-fields.ndjson: internal err
+extra-rec                                  reject  ERROR   reject     3    2 *    0.13s       99M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/extra-rec.ndjson: internal error: 1
+init-prelude                               accept  accept  accept     0    0      1.01s      121M
+k-rec-conv                                 reject  reject  reject     1    1      0.14s      100M
+large-elim-param                           reject  reject  reject     1    2 *    0.13s       99M
+large-elim-prop-bool                       reject  reject  reject     1    2 *    0.13s      100M
+level-imax-leq                             reject  reject  reject     1    2 *    0.13s       96M
+level-imax-normalization                   reject  reject  reject     1    1      0.13s       96M
+level-index-out-of-order                   accept  decline accept     2    2      0.07s       67M  lech: not implemented yet: non-standard axiom (foo) [at axiom foo, fold position 0] (--verified) t=0.0s
+nat-rec-k-lie                              reject  decline reject     2    2      0.14s       96M  lech: declined: the preprocessor declined to model a block (re-run lech-preprocess without --quiet for th
+nat-rec-rules                              reject  decline reject     2    2      0.14s       98M  lech: declined: the preprocessor declined to model a block (re-run lech-preprocess without --quiet for th
+nested-nonuniform-param                    either  accept  reject     0    0      0.17s      102M  lech: accepted 91 declarations (--verified)
+nested-unused-param                        reject  reject  reject     1    2 *    0.14s      102M
+orphan-ctor                                reject  ERROR   reject     3    2 *    0.15s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-ctor.ndjson: internal error:
+orphan-rec                                 reject  ERROR   reject     3    2 *    0.14s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-rec.ndjson: internal error: 1
+perf/app-lam                               accept  accept  accept     0    0     57.82s     4061M
+perf/args-before-unfold                    accept  accept  accept     0    0      0.58s       97M
+perf/beta-ladder                           accept  accept  accept     0    0     12.81s      890M
+perf/church-numerals                       accept  accept  accept     0    0      0.67s       86M
+perf/discarded-argument                    accept  accept  accept     0    0      0.42s       89M
+perf/discarded-argument-match              accept  accept  accept     0    0      0.23s      102M
+perf/folded-constant-first                 accept  accept  accept     0    0      0.18s      102M
+perf/folded-constant-last                  accept  accept  accept     0    0      0.39s       88M
+perf/grind-ring-5                          accept  accept  accept     0    0      5.98s      217M
+perf/identical-nesting                     accept  accept  accept     0    0      0.21s      100M
+perf/irrelevance-before-evaluation         accept  accept  accept     0    0      0.17s      102M
+perf/let-ladder                            accept  accept  accept     0    0      1.82s      287M
+perf/refute-cheap-first                    reject  reject  reject     1    1      0.15s      100M
+perf/refute-cheap-last                     reject  reject  reject     1    1      0.29s       95M
+perf/repeated-subproblem                   accept  accept  accept     0    0      0.41s       98M
+perf/shared-subterm                        accept  accept  accept     0    0      0.36s      105M
+perf/shift-cascade                         accept  accept  accept     0    0      0.35s       91M
+perf/unroll-versus-evaluate                accept  accept  accept     0    0      0.26s       92M
+proj-non-structure                         reject  decline reject     2    2      0.13s       96M  lech: not implemented yet: projection on a non-structure-like type [at theorem bad, fold position 3] (--v
+proj-of-imax-prop                          reject  reject  reject     1    2 *    0.27s      102M
+proj-of-prop                               reject  reject  reject     1    1      0.15s       95M
+proj-of-stuck-prop                         reject  decline reject     2    2      0.20s       98M  lech: not implemented yet: missing model for Native64ResultSortOwner [at inductive Native64ResultSortOwne
+proj-of-subst-prop                         reject  decline reject     2    2      0.37s       93M  lech: not implemented yet: missing model for PR14806Subst.Owner [at inductive PR14806Subst.Owner, fold po
+proof-irrel                                accept  decline accept     2    2      0.06s       68M  lech: not implemented yet: non-standard axiom (A) [at axiom A, fold position 0] (--verified) t=0.0s
+rec-k-lie                                  reject  reject  reject     1    2 *    0.22s       85M
+rec-missing-ih                             reject  ERROR   reject     3    2 *    0.32s       95M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/rec-missing-ih.ndjson: internal erro
+rec-of-subst-prop                          reject  decline reject     2    2      0.43s       98M  lech: not implemented yet: missing model for Issue.Owner [at inductive Issue.Owner, fold position 132] (-
+sparse-name-index                          accept  decline accept     2    2      0.06s       68M  lech: not implemented yet: non-standard axiom (foo) [at axiom foo, fold position 0] (--verified) t=0.0s
+```
+
+(`was` is the parked exit code; `*` marks a move.  The `init` / `std` /
+`cedar` rows of §3 are the parked `--verified` measurements and were NOT
+re-run — the big four are still held, see §7.)
+
+### 10. `cslib` IS ACCEPTED — 397 295 declarations, exit 0 (2026-09-06, the held slot, `agent/arena-suite` @ `955496b2`)
+
+The last stream of the suite, and the largest: the arena's `cslib` test
+is a 2 145 661 820-byte raw export.  It is Mathlib-scale in substance as
+well as size — `MeasureTheory`, `Polynomial`, `Subsemiring`,
+`Std.Time`, `Lean.Elab` all go past in the progress log — so it ran in
+the machine's single Mathlib-scale slot, alone, on the coordinator's
+word.
+
+| | |
+|---|---|
+| verdict | **accept**, exit 0 |
+| stdout | `lech: accepted 397295 declarations (--verified)` |
+| records folded | 380 211 |
+| wall | 16 min 17 s (preprocess + parse 253.9 s, fold 713.3 s) |
+| CPU | 916.1 s user + 55.6 s sys |
+| peak RSS | 5 976 348 kB = **5.70 GiB** (cap was 22 GB) |
+| instructions:u | 5.734 T |
+| binary | `lech` md5 `996a73b7f50db33b65e1eeef882a2ba3`, `lech-preprocess` md5 `079a6a9531b9765f0b1e0e08e3d11874`, built at `8a6e676f` (master `b7fa7331`) |
+
+The only non-progress line on stderr was `lech: 65 projection functions
+of non-direct structure-likes rewritten to recursor form`.  Receipts —
+`receipt.txt` (md5s, input size, start/end, exit code), `stdout.log`,
+the timestamped `stderr.log`, GNU `time -v`'s `time.txt` and
+`perfstat.txt` — are kept in `_tmp/arena-suite/cslib/`.
+
+**Two caveats on this cell, both deliberate and both worth repeating
+before it is quoted.**
+
+1.  **`LECH_PROGRESS=5000` was set**, on the coordinator's instruction,
+    so a sixteen-minute run in a contended slot would be observable.
+    That puts the driver on the *progress* fold, which `Main.lean` is
+    explicit about: the same steps in the same order over the same
+    records from the same empty environment, one line printed before
+    each declaration — and **plainly unverified**, i.e. this particular
+    run is not covered by `Lech.no_proof_of_False`.  The verdict is the
+    verdict; the *coverage* claim would need a re-run with the variable
+    unset, and the user ruled that re-run unnecessary — the progress
+    fold is fine as this verdict's producer (§7.1).  So: `cslib` is
+    accepted, and the sentence "covered by the capstone" is not claimed
+    for this particular run.
+2.  **It was run directly rather than through `lka.py`** — same command
+    line as `scripts/arena/lech.yaml` builds (same `ulimit -v
+    22000000`, same `LECH_INDUCTIVE_MODELS`, same `timeout`, same
+    binary, same arena-built export), wrapped in `perf stat` and GNU
+    `time -v`, because the harness captures stderr and would have
+    hidden the progress stream.  The result is written into the run's
+    snapshot in `lka.py`'s own schema, with a `_provenance` field saying
+    exactly this, and is committed as
+    `scripts/arena/results/lech-verified-big.jsonl`.
+
+**With this, every arena test but Mathlib has a verdict.**  The four big
+streams: `init` accept, `std` accept, `cedar` decline (a `native_decide`
+axiom), `cslib` accept.  The suite's final scorecard, all 206 runs
+(`scripts/arena/results/table.txt`):
+
+| | count |
+|---|---|
+| correct | 169 |
+| declined (neutral in the arena's scoring) | 15 |
+| `either` (outcome unsettled upstream) | 15 |
+| error (exit 3 — the seven of F8, ruled not a bug) | 7 |
+| **incorrect** | **0** |
+
+**0 incorrect and no `good` stream rejected**, at every size the arena
+has.
+
