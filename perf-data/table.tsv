@@ -1,43 +1,18 @@
-let-ladder	official	6150662655	0.56	0	62	4.05	Accepted 62 declarations.
-let-ladder	sm-prod	22531477722	5.06	0	69	4.19	setlec: accepted 69 declarations
-let-ladder	sm-cached	10831922322	1.00	0	69	4.09	setlec: accepted 69 declarations
-let-ladder	tt-prod	164740027	0.04	3		4.00	setlec: --tt-model is retired; the declarative verification lane it selected was deleted w
-let-ladder	tt-cached	164738099	0.04	3		4.00	setlec: --tt-model is retired; the declarative verification lane it selected was deleted w
-let-ladder	nm-prod	22746767659	5.00	0	69	3.92	setlec: accepted 69 declarations
-let-ladder	nm-cached	10829770370	1.00	0	69	3.85	setlec: accepted 69 declarations
-beta-ladder	official	10148233746	1.25	0	50	3.94	Accepted 50 declarations.
-beta-ladder	sm-prod	78477259024	15.49	0	56	3.35	setlec: accepted 56 declarations
-beta-ladder	sm-cached	47161253063	4.37	0	56	2.83	setlec: accepted 56 declarations
-beta-ladder	tt-prod	164741138	0.04	3		2.76	setlec: --tt-model is retired; the declarative verification lane it selected was deleted w
-beta-ladder	tt-cached	164737191	0.04	3		2.76	setlec: --tt-model is retired; the declarative verification lane it selected was deleted w
-beta-ladder	nm-prod	78277357855	16.83	0	56	3.49	setlec: accepted 56 declarations
-beta-ladder	nm-cached	44680896934	4.26	0	56	3.24	setlec: accepted 56 declarations
-init-prelude	official	3913587674	0.35	0	3489	3.30	Accepted 3489 declarations.
-init-prelude	sm-prod	31608786339	3.38	0	3653	3.20	setlec: accepted 3653 declarations
-init-prelude	sm-cached	26170793749	2.71	0	3653	3.01	setlec: accepted 3653 declarations
-init-prelude	tt-prod	164737143	0.04	3		2.93	setlec: --tt-model is retired; the declarative verification lane it selected was deleted w
-init-prelude	tt-cached	164737292	0.04	3		2.93	setlec: --tt-model is retired; the declarative verification lane it selected was deleted w
-init-prelude	nm-prod	14661059682	1.57	0	3653	2.77	setlec: accepted 3653 declarations
-init-prelude	nm-cached	25758063236	2.62	0	3653	2.79	setlec: accepted 3653 declarations
-grind-ring-5	official	15724109118	1.64	0	3775	2.65	Accepted 3775 declarations.
-grind-ring-5	sm-prod	111761104352	13.50	0	3946	2.07	setlec: accepted 3946 declarations
-grind-ring-5	sm-cached	93324838760	10.76	0	3946	1.82	setlec: accepted 3946 declarations
-grind-ring-5	tt-prod	164740080	0.04	3		1.93	setlec: --tt-model is retired; the declarative verification lane it selected was deleted w
-grind-ring-5	tt-cached	164737277	0.04	3		1.93	setlec: --tt-model is retired; the declarative verification lane it selected was deleted w
-grind-ring-5	nm-prod	65386433487	8.28	0	3946	1.67	setlec: accepted 3946 declarations
-grind-ring-5	nm-cached	92377581381	10.81	0	3946	3.42	setlec: accepted 3946 declarations
-app-lam	official	29448520137	3.76	0	88	6.16	Accepted 88 declarations.
-app-lam	sm-prod	381564139045	84.13	0	97	7.87	setlec: accepted 97 declarations
-app-lam	sm-cached	300981277684	29.40	0	97	4.62	setlec: accepted 97 declarations
-app-lam	tt-prod	164737969	0.04	3		3.94	setlec: --tt-model is retired; the declarative verification lane it selected was deleted w
-app-lam	tt-cached	164740783	0.04	3		3.94	setlec: --tt-model is retired; the declarative verification lane it selected was deleted w
-app-lam	nm-prod	385279780630	88.73	0	97	1.93	setlec: accepted 97 declarations
-app-lam	nm-cached	227278371096	25.77	0	97	2.25	setlec: accepted 97 declarations
-init-full	official	412992788366	51.92	0	60060	3.92	Accepted 60060 declarations.
-init-full	official	413011429790	51.75	0	60060	1.65	Accepted 60060 declarations.
-init-full	sm-prod	2968861291095	437.03	0	61048	1.38	setlec: accepted 61048 declarations
-init-full	sm-cached	2820990000657	386.79	0	61048	1.81	setlec: accepted 61048 declarations
-init-full	tt-prod	164746916	0.05	3		2.45	setlec: --tt-model is retired; the declarative verification lane it selected was deleted w
-init-full	tt-cached	164746044	0.04	3		2.45	setlec: --tt-model is retired; the declarative verification lane it selected was deleted w
-init-full	nm-prod	1685440486348	267.58	0	61048	2.44	setlec: accepted 61048 declarations
-init-full	nm-cached	2853581971124	363.47	0	61048	2.00	setlec: accepted 61048 declarations
+let-ladder	official	6161740551	0.57	0	62	4.02	Accepted 62 declarations.
+let-ladder	parity	9831982290	1.22	0	69	4.02	setlec: accepted 69 declarations
+let-ladder	P	9835073187	1.16	0	69	4.02	setlec: accepted 69 declarations
+beta-ladder	official	10145539985	1.12	0	50	4.02	Accepted 50 declarations.
+beta-ladder	parity	40784939915	4.81	0	56	4.02	setlec: accepted 56 declarations
+beta-ladder	P	52080689546	5.88	0	56	4.09	setlec: accepted 56 declarations
+init-prelude	official	3913636552	0.35	0	3489	4.01	Accepted 3489 declarations.
+init-prelude	parity	9107891052	0.96	0	3653	4.01	setlec: accepted 3653 declarations
+init-prelude	P	11304351589	1.21	0	3653	4.01	setlec: accepted 3653 declarations
+grind-ring-5	official	15729368727	1.59	0	3775	4.01	Accepted 3775 declarations.
+grind-ring-5	parity	37498574950	4.43	0	3946	3.93	setlec: accepted 3946 declarations
+grind-ring-5	P	37382414767	4.46	0	3946	4.01	setlec: accepted 3946 declarations
+app-lam	official	29442312715	3.85	0	88	4.01	Accepted 88 declarations.
+app-lam	parity	208621008740	41.29	0	97	4.65	setlec: accepted 97 declarations
+app-lam	P	208968031816	38.75	0	97	5.49	setlec: accepted 97 declarations
+init-full	official	412933144826	52.17	0	60060	4.73	Accepted 60060 declarations.
+init-full	parity	1085558714244	184.94	0	61048	6.02	setlec: accepted 61048 declarations
+init-full	P	987050440950	171.60	0	61048	6.63	setlec: accepted 61048 declarations
