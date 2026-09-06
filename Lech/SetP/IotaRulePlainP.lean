@@ -1,6 +1,6 @@
 import Lech.Semantics.IndBlockRun
 import Lech.SetP.IndBottomProjP
-import Lech.SetP.Annot.BitReads
+import Lech.SetP.Annot.Bit
 -- task #161 S10: `acceptedReadsP_of` — the rule rhs's reading comes
 -- from the recorded RUN, not from `IotaRuleR`'s derivation row.
 import Lech.SetP.Step2.AcceptedP

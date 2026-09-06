@@ -86,10 +86,23 @@ theorems above replace all three, claim for claim. Prose references to
 those paths elsewhere in this document are **historical citations**;
 the opening of this section is the one place kept current.
 `Lech/TTVerify/DESIGN.md` is deliberately kept (its §0/§25 are the
-house practices); so is the declarative layer
-`Lech/TT/{Syntax,Subst,Const,Judgment}` + `Lech/TT/Semantics/*`,
-whose `VExpr`/`interp`/`bval` the P tier consumes. Its design record is
-`Lech/TT/DESIGN.md`.
+house practices); so is `Lech/TT/{Syntax,Subst,Const,Judgment}`, and
+**for a reason this sentence used to state wrongly** (it read "so is
+the declarative layer … + `Lech/TT/Semantics/*`, whose
+`VExpr`/`interp`/`bval` the P tier consumes"; task #190 measured it).
+What the tower actually consumes is the **syntax**, not the
+declarative semantics: `VExpr`/`BConst`/`mkAppN` (`TT/Syntax`) and
+`liftN`/`inst`/`arrow` with their laws (`TT/Subst`) are what every
+`Semantics/*` and `SetP/*` module is written in; `TT/Const`'s basis
+constants are read by `Semantics/BasisType`, `SetModel/Value` and —
+`emptyT`, which the `Empty` letter is stated at — `SetP/CapstoneP`;
+`TT/Judgment` is kept alive by `natStepT`/`quotInvT`, which
+`Verify/Denote/SubstAlgebra` uses.  The P tier's `interp2`/`bval2` are
+its **own**, in `Lech/Semantics/*`, and never were `TT`'s.
+`Lech/TT/Semantics/*` — the declarative lane's model and its soundness
+theorem — was deleted at task #190, unread by anything but its own
+umbrella; `TT/Judgment`'s `HasType` relation lost its last reader with
+it. Its design record is `Lech/TT/DESIGN.md`.
 
 **Project goal** (set 2026-08-19): the lean kernel arena *tutorial* tests
 (except those involving custom axioms) are accepted by the checker, and the
@@ -418,7 +431,11 @@ relate the pair's components to the plain instantiations.
 * **Fuel monotonicity** (`Verify/Mono.lean`): `PairM` at
   success-refinement between two `CheckM` runs + one knot induction
   gives `whnfCore/whnf/infer/defeq/annotate/ensureSort` monotonicity.
-* **Cache simulation** (`Verify/Bridge.lean`): `FueledM` packages
+* **Cache simulation** (`Verify/Bridge.lean` — **deleted at task #190**,
+  2026-09-06: its `cached_*_sim`/`scopedSim` battery lost every consumer
+  with the interned arena; the shipped cached tier's simulation is
+  `Verify/Cached/SimC*`.  The paragraph is kept as the design record of
+  what that battery said): `FueledM` packages
   monotone fuel-indexed families; `CacheOK` backs every cache entry by
   a pure run at one fuel valid at *every* depth at which the key is
   well-scoped (see *Depth-free memo keys*); `simRel` (families vs.
@@ -515,7 +532,9 @@ to hold*):
 
 Concretely: the per-entry-point simulation is the *conditional*
 `ScopedSim` (one knot induction, `scopedSim` in
-`Lech/Verify/Bridge.lean`), and the entry-point bridges
+`Lech/Verify/Bridge.lean` — a **historical citation** since task #190
+deleted that module; `ScopedSim` itself lives on in
+`Lech/Verify/Disc.lean`), and the entry-point bridges
 (`cachedOps_*_bridge`) take `henv : EnvWF env` *and* the argument's
 `wscopedB` at the call depth.  The declaration-checker comparand
 `wfOpsM` (`Lech/Verify/BridgeDecl.lean`) conditions per call on
@@ -51632,3 +51651,219 @@ instruction cells of §3), `proftarget.sh` + `perf-t{1..5}-target.data`
 `gdbsample.sh` + `bt-t1.txt` (the 25 backtraces), `prog-t*.log` (the
 slice-local heartbeats), `slices/` (the ten `.ndjson` files, 2.1 GB —
 gitignored, regenerate per §8).
+
+## TASK #190 — REMOVE UNUSED CODE: sixteen dead modules, 5 235 lines, −11.1 % of the build (2026-09-06, `agent/deadcode`)
+
+The user's brief was three words — *"remove unused code"*.  What landed is
+**sixteen whole modules, one test file and 5 235 lines**, every one of them
+live, sorry-free, kernel-checked Lean that **nothing in the tree read**: the
+clean build drops from **5 438.2 G to 4 836.6 G `instructions:u` (−601.6 G,
+−11.06 %)** and the `Lech/` olean set from **459.14 MB to 435.46 MB over
+422 → 407 files (−23.69 MB, −5.16 %)**, at **zero verdict change — the
+shipped `bin/lech` is byte-identical to master's** (same md5; the diff
+touches no file in `Main.lean`'s import cone).
+
+It landed in two waves.  The first, nine modules, is what the mechanical
+criterion below certified outright; the second, seven more, is two items
+the batch had parked in §5 as *documented* parkings and the coordinator
+ruled on under the same three-word directive — the declarative lane's
+semantics and the parked canonical zero-ness representation.  Both were
+tier-2 clean by the same census, and one of them (§2) had a **false
+sentence in this document's opening** holding it in place.
+
+### 1. The criterion, and why it is a certificate rather than a guess
+
+Lean's own rule does the work: **a declaration can only be used by a module
+that transitively imports the module declaring it.**  So for a module `M`,
+
+* compute the transitive import closure of every `.lean` file in `Lech/`,
+  `tests/`, `scripts/`, `Main.lean`, `PinDump.lean`, `LechPreprocess.lean`
+  (the `public import` / `import all` forms included — miss those and the
+  graph silently says the whole `module`-system half of `Kernel/` has no
+  importers);
+* take `M`'s declared names, and their last components (dot notation and
+  `open` both reduce to that);
+* search only the modules **downstream** of `M`, with **comments stripped**
+  — the single most important step, because this tree documents its
+  retired machinery heavily and a raw `grep` reports a dead theorem as live
+  from the docstring that eulogises it.
+
+A module all of whose names survive that search is unused *whatever* is
+written about it.  The oracle for the answer is still `lake build`: every
+deletion here was made and then compiled.
+
+Two classes came out, and they need different work:
+
+* **umbrella-only modules** — the only importer is a `lean_lib` root
+  (`Lech.lean`, `Lech/SetP.lean`, `Lech/Semantics.lean`, `Lech/TT.lean`,
+  `Lech/Verify/Cached.lean`).  Deleting one is a file plus one import line.
+* **chain modules whose whole declaration set is dead** — imported by real
+  modules, which import them for nothing they use.  Deleting one means
+  re-pointing its importers at *its* imports; the compiler checks that.
+
+### 2. What was deleted
+
+| module | lines | class | why certain |
+|---|---:|---|---|
+| `Lech/Verify/BridgeDeclPair.lean` | 1 441 | umbrella-only | the pair-monad projection battery, 102 `_fst_dproj`/`_snd_dproj` theorems; task #184 §3 found it consumerless and its punchline `checkDecl_wfOpsM_bridge` gone with the interned executable, and recorded the deletion as "a ruling not ours to make".  This is the ruling. |
+| `Lech/Verify/Bridge.lean` | 500 | chain (`Verify/BridgeDecl`) | the memoized-knot cache-refinement bridge: `cached_{whnfCore,whnf,infer,annotate,defeq,inferIO}_sim` + `scopedSim`.  Its consumers were the `cachedOps_*_bridge` entry-point lemmas, which went with the arena at task #172; the shipped cached tier proves its own simulation in `Verify/Cached/SimC*`. |
+| `Lech/SetP/Annot/BitReads.lean` | 202 | chain (`IndPinRowP`, `IotaRulePlainP`) | `denoteP_isSome_of_denote`, `denotePClosed_isSome_of_denoteClosed` — the reading's totality bridge.  Four modules still *cite* them, all four in comments; no proof uses either. |
+| `Lech/Semantics/Spine2.lean` | 158 | chain (`Step2/ProjRowsP`) | `SlotChain`, `slotChain_fits`, `AnnotOk2_spine_slots`, `AnnotOk2_redex_fits`, `TeleFit2.fold_mem` — tier C seal 2's "what replaces the per-fire `iotaCertsI` walk"; the walk it replaced and the fold that consumed it are both gone. |
+| `Lech/Verify/Denote/HasTypeSubst.lean` | 153 | **orphan** | `LiftCtx`/`InstCtx` and their four `getElem?` lemmas.  No module imports it at all — it is not in any `lean_lib` root's cone and **was not even being built** (no `.olean` on a fully built master).  Its docstring says it stayed "because a live consumer uses them"; that consumer was `SetBase/Weaken.lean`. |
+| `Lech/Verify/Extend/Transport.lean` | 142 | chain (`Extend/Modeled`) | `Env.{find?_recRules_swap,recRules_levelext,recRules_isSome}`, `ConstWF.{recRules_swap,recRules_head_empty}` — the rule-list-swap congruences.  (The memory note "new extension lemmas go through `extend_fresh`/`extend_rec_swap` in `Extend/Transport.lean`" is stale twice over: neither name exists, and nothing goes through the file.) |
+| `Lech/SetP/Step2/AssemblyP.lean` | 101 | chain (`Annot/EnvS2P`) | `checkStep2P5_of_quarters`, `checkSoundP5_of_inputs` — the "5" assembly.  The shipped assembly is `checkStep2P_of_quarters`/`checkSoundP_of_inputs`, elsewhere; the P5 pair has no caller. |
+| `Lech/Semantics/SpineV.lean` | 60 | chain (6 importers) | `projSpinesV`, `etaFabArgsV`, `piResidualV` — value-level spine spec functions.  Six modules import it; none of the six mentions a name from it outside a docstring. |
+| `Lech/Semantics/Bridge/ProjRed.lean` | 49 | umbrella-only | `stripPis_mono`, `stripPis_le`.  Its docstring says in as many words "they stayed because a live consumer uses them" — the consumer was `SetP/DirectFoldEntryP.lean`, retired at task #175 S1.  **This is the one that proves the method's worth**: the file was on all seven `proofdeps` roots' closures, so the pin said "reached"; deleting it compiled with no change anywhere, and the gate reported exactly seven rows LEAVING and zero doors.  A module-level pin cannot tell "a constant of mine is used" from "a constant of mine is reachable". |
+| **wave 1 subtotal** | **2 806** | | |
+| `Lech/TT/Semantics/{Value,Interp,ConstOk,Soundness}.lean` | 1 202 | umbrella-only (4 modules) | the declarative lane's own model (`VVal`, `interp`, `bval`, `ConstOk`) and its soundness theorem `HasType.sound`.  The **only** importer of any of the four is the `Lech.TT` `lean_lib` root and each other; and the sentence in this document's opening that kept them — "whose `VExpr`/`interp`/`bval` the P tier consumes" — was **false for these four**: what the tower consumes is `TT/{Syntax,Subst,Const}`'s syntax and basis, and the P tier's `interp2`/`bval2` are its own, in `Lech/Semantics/*`.  The opening now says so.  Fallout to record: `TT/Judgment`'s `HasType` relation lost its last reader with them (the module stays — `natStepT`/`quotInvT` are used by `Verify/Denote/SubstAlgebra`). |
+| `Lech/Kernel/ZeroSet.lean` | 484 | the P5 trio | the canonical zero-ness datum `ZeroSet`/`ZPropWhen`.  **The checker never imported it**: the shipped binder annotation is the free `PropWhen` (`Kernel/PropWhen.lean`), and outside the trio the only two mentions in the tree are docstrings (`Lech/PinGen.lean:68`, `Kernel/PropWhen.lean:607`). |
+| `Lech/Verify/ZeroSet.lean` | 599 | the P5 trio | its law battery, mirroring `Verify/PropWhen.lean` law for law; 25 of its 66 theorems had no reference at all. |
+| `Lech/Kernel/ZeroSetPin.lean` | 47 | the P5 trio | two `ToExpr` instances that **no instance search could ever reach**, since nothing imported the module. |
+| `tests/LechTests/ZeroSetTests.lean` | 97 | the trio's own test | the trio's only consumer anywhere, and a test of nothing else.  Recorded explicitly because it is the one judgement call in this batch: a guard whose entire subject is deleted goes with it.  (`tests/LechTests.lean` loses the one import.) |
+| **total** | **5 235** | 16 modules + 1 test | |
+
+**On the trio.**  This document's bit-mask design (task #161 P5, "(ii)
+Comparison") already names `Kernel/ZeroSet.lean`, `Kernel/ZeroSetPin.lean`
+and `Verify/ZeroSet.lean` as **deleted** — as a *consequence* of a
+representation swap that has not happened.  They are deleted here for the
+simpler reason that nothing reads them; if that swap is ever made, the
+canonical datum is a `UInt64` word and none of these three files was going
+to be the thing that landed anyway.  Everything they proved is recoverable
+from git.
+
+Import rewiring: `Verify/BridgeDecl` ← `Verify/Disc` + `Kernel/Checker`;
+`Extend/Modeled` ← `Verify/EnvWF`; `IndPinRowP`/`IotaRulePlainP` ←
+`SetP/Annot/Bit`; `Annot/EnvS2P` ← the four `Step2/*` modules `AssemblyP`
+imported; six importers of `SpineV` ← `Verify/Denote{,.OpenVars,.VClosed}`;
+`ProjRowsP` ← `Semantics/Ok2`.  The second wave needed **none** — all
+seven modules were umbrella-only, so only `Lech.lean` (3 lines),
+`Lech/TT.lean` (4) and `tests/LechTests.lean` (1) changed.  No
+declaration, statement, signature or `private` marker changed anywhere in
+the tree.
+
+Two prose citations of a deleted file survive **on purpose**:
+`Lech/PinGen.lean:68` and `Kernel/PropWhen.lean:607` mention
+`Kernel/ZeroSetPin.lean` and `ZPropWhen.holds_congr` inside docstrings.
+Both are now historical citations in this document's usual sense, and
+editing either file's docstrings would change its olean hash and so
+invalidate a ~300-module cone for a comment — task #184 §2's finding,
+applied.  The cheap moment to fix them is the next real edit to those
+files.
+
+### 3. Gates
+
+`lake build` **636 jobs (was 651), 0 warnings**; `lake test` green;
+`tests/arena.sh` end to end — layering `base 241 / P 165 / caps 3 /
+umbrella 1, 0 base->lane edges, 0 impl->theory`; **`proofdeps` 2 515 rows
+across 7 roots, doors 0** (2 522 before: the seven `ProjRed` rows vanished
+in wave 1, which is the only permitted direction, the expectations were
+regenerated **once**, and wave 2 moved not a single row — neither
+`TT/Semantics/*` nor the ZeroSet trio was ever on a capstone's proof
+path); pindump fresh; trust surface 18 escapes in 4 allowlisted files
+(416 scanned), 0 outside; **axioms pinned, 11 theorems at `[propext,
+Classical.choice, Quot.sound]`**; arena tutorial 90/92; e2e 96/96; annot
+14/14; retired flags 8/8; mode flags 16/16; progress lane 6/6; trusted
+sweep 138 + 96 + 14 with the 3 recorded divergences.  `init-full`
+(pre-native stream) accepted in **both** modes, 56 291 declarations each,
+exit 0.  The verdict argument does not rest on those runs, though: the
+**binary is byte-identical to master's**, and the diff touches only
+`Lech/Verify/*`, `Lech/Semantics/*`, `Lech/SetP/*`, three umbrella files
+and the proofdeps expectations.
+
+### 4. What was measured
+
+| | before (`b7fa7331`) | after wave 1 | after wave 2 | Δ total |
+|---|---:|---:|---:|---:|
+| clean-build `instructions:u` | 5 438.2 G | 4 854.4 G | **4 836.6 G** | **−601.6 G, −11.06 %** |
+| Lake jobs | 651 | 643 | 636 | −15 |
+| `Lech/` oleans | 422 files, 459.14 MB | 414, 438.00 MB | 407, **435.46 MB** | −15 files, **−23.69 MB, −5.16 %** |
+
+`BridgeDeclPair` alone accounts for 562.7 G of the instruction drop and
+19.56 MB of the olean drop — task #184 measured that module in isolation and
+predicted "−10.5 % of the whole build's instructions" for deleting it; the
+whole first wave landed at −10.73 %, so its other eight modules contributed
+about 21 G between them, and the second wave's seven another 17.9 G.  **The
+lopsidedness is the finding, not a disappointment**: 2 429 lines of the
+second wave cost 3 % of what 1 441 lines of `BridgeDeclPair` cost, because
+what makes a module expensive is the proofs it elaborates, not its length.
+Dead code is worth removing for what it does to a reader; only *some* of it
+is worth removing for what it does to the clock.  Wall time is not quoted:
+the box was shared throughout.
+
+### 5. What was NOT deleted, and why — the borderline list
+
+Five items are unused by the same mechanical criterion and stay, each for
+a reason a future ruling can overturn.  **Together they are ~800 further
+lines plus a scattering of declarations.**
+
+(Two more were on this list when the batch was first proposed — the
+canonical zero-ness trio and `TT/Semantics/*`, 2 332 lines between them.
+The coordinator ruled on both under the same three-word directive and they
+are in §2's table instead.)
+
+* **The gated-knot P lane, 556 lines** — `Kernel/CoreP.lean` (180),
+  `Kernel/CheckerP.lean` (35), `Verify/CoreP.lean` (245),
+  `SetP/Step2/GateP.lean` (96).  Deliberate: task #161 S9 records the lane
+  as **HELD** with a named roadmap ("only then the claims-tower
+  transposition onto `whnfCoreP`"), and its own docstring says nothing here
+  is reachable from `Main.lean`.
+* **`Lech/TT/Judgment.lean`'s `HasType`** — the declarative typing
+  relation, unread since `TT/Semantics/*` went (§2).  The module stays for
+  `natStepT`/`quotInvT`; the relation itself is now the largest single dead
+  *declaration* in the tree and belongs to the docket in §6.
+* **`Verify/AnnotDefense.lean` (53)** — `DefensiveSitesQuiet` is a
+  *statement only*, under an explicit decide-by-proof mandate.
+* **`SetP/IndPinProbeP.lean` (203)** — a mechanized **refutation** of the
+  nested-pin conjunct; a negative result is a deliverable.
+* **`SetTheory/Derive/Collapse.lean` (351, 15 reference-free theorems)** —
+  the canon-collapse countermodels, cited by name in this document.
+* **`Verify/Cached/AgreeAnnot.lean` (156)** — clean tier 2 (umbrella-only,
+  zero references) but inside the `Verify/Cached/*` fence this batch was
+  given for `agent/recursive`.  Delete it in the batch that owns those
+  files.
+* **`Verify/BridgeDecl.lean`'s `pairOps`** — it had exactly one consumer,
+  `BridgeDeclPair`, so it died in this batch; `bridgeRel`, `wfOpsM_whnf`,
+  `fueledOpsM_annotate_atF` and `checkDecls_datF` were already dead.  Same
+  fence.
+* **The `SetTheory/Derive/*` law lists** (`Pi` 13, `PtFresh` 13, `Omega` 5,
+  `Pt` 5, …) — under the minimal-axiomatization ruling those per-construction
+  modules' law lists *are* the derived interface, not incidental lemmas.
+
+### 6. The rest of the census, for whoever wants it
+
+After this batch, **535 declarations in `Lech/` are referenced nowhere —
+not by another module, not by their own file, not by a test — across 177
+modules** (attribute-bearing declarations, instances, `syntax`/`macro`/`elab`
+and type formers excluded, since those resolve without being named).  The
+top of the list is `Verify/Denote/IndFrame` (20), `Verify/Subst` (18),
+`SetTheory/Derive/Collapse` (15), `Semantics/Kit` (14),
+`SetTheory/Derive/Pi` (14), `Verify/CoreP` (14),
+`SetTheory/Derive/PtFresh` (13), `PinGen/Certs` (12), `SetModel/Value`
+(12), `Verify/BridgeWfImp` (11), `Semantics/Hoist` (10),
+`Verify/Cached/SimCEff` (10), `Verify/InstLevels` (10) — plus `HasType`
+itself, which the type-former exclusion keeps out of the count.  These are
+*inside live modules*, so each is a judgement about whether a law belongs
+to its module's stated interface — which is why this batch stopped at whole
+modules.  **This list is the docket for a later interface pass**, by the
+coordinator's ruling, not a to-do this batch left half done.
+
+### 7. `CheckMode.ttChecks` — measured, not done (tier 4)
+
+`ttChecks` is constantly `false` (`Kernel/Env.lean:76`; guarded by
+`tests/LechTests.lean:42-43`, and `Verify/BetaGate.lean:106` proves
+`ttChecks_eq_false := rfl`).  The charter allowed removing it **only if the
+signature changes are mechanical and no capstone statement changes**.  They
+are not: two of the sixteen sites are inside *statements*, not tests —
+
+* `Verify/Extend/Proj.lean:310` and `Verify/InferLemmas.lean:1948-49` each
+  carry a `(mode.ttChecks = true → …)` conjunct in an install-stage /
+  inference record, so dropping the flag rewrites those records' statements;
+
+the rest are gated call sites in shipped bodies (`Kernel/Core.lean:1079`,
+`Kernel/DeclCheck.lean:228,260,271`, `Kernel/Modeled.lean:44,630,668,756`,
+`Cached/CoreC.lean:464`) and proof-side case splits that would collapse
+(`Verify/BridgeWfImp.lean:810`, `Verify/Deep.lean:884`,
+`Verify/Extend/Proj.lean:464`, `Verify/Cached/BridgeCS2.lean:166`,
+`Verify/Cached/DiscC2.lean:855,935,1088`).  Touching the first group changes
+the functions every capstone is stated about.  Left in place, as the
+modeonly lane's ~15-file estimate predicted.
