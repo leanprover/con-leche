@@ -51543,6 +51543,18 @@ Everything else is done and current: 202 small tests in both modes at
 master `b7fa7331` (§9), and the `official` v4.34.0-rc2 reference column
 over the same 202.
 
+**F8 IS NOT A BUG TO FIX** (user ruling, 2026-09-06, verbatim: *"exit 3
+or 1 is fine. we'll eventually retire or absorb the preprocessor."*).
+The seven exit-3 verdicts of §9 and the two `Nat`-not-canonical declines
+are **recorded, not fixed**: while the preprocessor is a separate tool
+its exit codes are its own, and the distinction between "it rejected the
+block" and "it refused the block" is not worth engineering around a
+component that is on its way out.  Nothing is to be changed on either
+side of that boundary on account of the arena's scoring, and the arena
+expectation files stay exactly as they are — no `tests/` expectation was
+touched by this suite and none should be.  Revisit only if and when the
+preprocessor is retired or absorbed.
+
 **The corpus survives.**  `_tmp/arena-suite/` keeps the arena clone
 (`lean-kernel-arena` @ `91f376e`), the ~4 GB of built exports in its
 `_build/tests`, the built `official` checker, and the result snapshots
@@ -51661,12 +51673,16 @@ seven.  Three classes:
    check refuses it.
 
 Every one of these is "the exported inductive block is invalid", i.e.
-exit-1 territory.  The fix is upstream in `lean-inductive-models` (give
-these detections the reject code, as its README's contract already
-provides) or, failing that, a classification on our side.  Until then
-the arena would score seven **errors** against us where it previously
-scored seven neutral declines.  Separate fix task; **this is the one
-regression in the resume.**
+exit-1 territory; in arena terms the run would score seven **errors**
+where it previously scored seven neutral declines.
+
+**RULED: not a bug, and not to be fixed** (user, 2026-09-06, verbatim:
+*"exit 3 or 1 is fine. we'll eventually retire or absorb the
+preprocessor."*).  The exit codes belong to a separate tool that is on
+its way out; the reject-vs-refuse distinction inside it is not worth
+engineering around, on either side of the boundary, and no arena
+expectation file is to be adjusted for it.  Recorded, not a task.  See
+§7.
 
 **F1 is otherwise closed**, and F5/F6/F2 are unchanged.  The 14
 remaining declines are: the six non-standard-axiom sites (F2, five of
@@ -51680,7 +51696,8 @@ declined — prim model: the input's Nat is not Lean's (its complete
 inductive, constructor, and recursor metadata is not canonical)`.  Both
 expect `reject`; given the arena's rule that `Init.Prelude` declarations
 come from an official release, a non-canonical `Nat` could reasonably be
-a reject rather than a decline — a smaller sibling of F8.
+a reject rather than a decline — a smaller sibling of F8, and covered by
+the same ruling: recorded, not fixed.
 
 ```
 test                                       expect  lech    off     exit  was     wall  peak RSS  note
